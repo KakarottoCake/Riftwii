@@ -85,61 +85,64 @@ bool IsWhitespaceOnly(const char* s) {
 }
 bool HasDoctype(const std::string& xml) {
     std::size_t n = xml.size();
-    const char* needle = "<!doctype";
-    std::size_t m = 9;
-    for (std::size_t i = 0; i + m <= n; ++i) {
-        if (xml[i] != '<' && xml[i] != '<') continue;
-        bool hit = true;
-        if (xml[i] != '<' || i + 1 >= n || xml[i + 1] != '!') continue;
-        for (std::size_t k = 0; k < m; ++k) {
-            if (i + k >= n) { hit = false; break; }
-            char a = xml[i + k];
-            char b = needle[k];
-            if (a >= 'A' && a <= 'Z') a = static_cast<char>(a - 'A' + 'a');
-            if (a != b) { hit = false; break; }
+    std::size_t i = 0;
+    while (i < n) {
+        if (xml.compare(i, 4, "<!--") == 0) {
+            std::size_t e = xml.find("-->", i + 4);
+            if (e == std::string::npos) return true;
+            i = e + 3;
+            continue;
         }
-        if (hit) return true;
+        if (xml.compare(i, 9, "<![CDATA[") == 0) {
+            std::size_t e = xml.find("]]>", i + 9);
+            if (e == std::string::npos) return true;
+            i = e + 3;
+            continue;
+        }
+        if (i + 9 <= n) {
+            const char* needle = "<!doctype";
+            bool hit = true;
+            for (std::size_t k = 0; k < 9; ++k) {
+                char a = xml[i + k];
+                char b = needle[k];
+                if (a >= 'A' && a <= 'Z') a = static_cast<char>(a - 'A' + 'a');
+                if (a != b) { hit = false; break; }
+            }
+            if (hit) return true;
+        }
+        ++i;
     }
     return false;
 }
 bool HasForbiddenPi(const std::string& xml, std::string& error) {
     std::size_t n = xml.size();
-    std::size_t pos = 0;
-    bool firstChecked = false;
-    std::size_t declEnd = 0;
-    bool hasDecl = false;
-    while (true) {
-        std::size_t f = xml.find("<?", pos);
-        if (f == std::string::npos) return false;
-        if (!firstChecked) {
-            firstChecked = true;
-            std::size_t s = 0;
-            while (s < n && (xml[s] == ' ' || xml[s] == '\t' || xml[s] == '\n' || xml[s] == '\r')) ++s;
-            if (s + 3 < n && xml[s] == '\xEF' && n >= s + 3 && static_cast<unsigned char>(xml[s]) == 0xEF && static_cast<unsigned char>(xml[s+1]) == 0xBB && static_cast<unsigned char>(xml[s+2]) == 0xBF) {
-                s += 3;
-                while (s < n && (xml[s] == ' ' || xml[s] == '\t' || xml[s] == '\n' || xml[s] == '\r')) ++s;
-            }
-            if (f == s && f + 5 <= n && xml.compare(f, 5, "<?xml") == 0) {
-                std::size_t e = xml.find("?>", f + 2);
-                if (e == std::string::npos) {
-                    error = "invalid processing instruction";
-                    return true;
-                }
-                hasDecl = true;
-                declEnd = e + 2;
-                pos = declEnd;
-                continue;
-            } else {
-                error = "processing instruction not allowed";
+    std::size_t i = 0;
+    while (i < n) {
+        if (xml.compare(i, 4, "<!--") == 0) {
+            std::size_t e = xml.find("-->", i + 4);
+            if (e == std::string::npos) {
+                error = "unterminated comment";
                 return true;
             }
-        } else {
-            (void)hasDecl;
-            (void)declEnd;
+            i = e + 3;
+            continue;
+        }
+        if (xml.compare(i, 9, "<![CDATA[") == 0) {
+            std::size_t e = xml.find("]]>", i + 9);
+            if (e == std::string::npos) {
+                error = "unterminated CDATA";
+                return true;
+            }
+            i = e + 3;
+            continue;
+        }
+        if (i + 2 <= n && xml[i] == '<' && xml[i + 1] == '?') {
             error = "processing instruction not allowed";
             return true;
         }
+        ++i;
     }
+    return false;
 }
 bool CheckDuplicateAttrs(const std::string& xml, std::string& error) {
     std::size_t n = xml.size();
@@ -309,6 +312,10 @@ bool ParseFileNode(pugi::xml_node n, Patch& patch, Counter& cnt, int depth, std:
     if (external.empty()) { error = "file external empty"; return false; }
     if (disc.size() > kMaxString || external.size() > kMaxString) { error = "string too long in file"; return false; }
     if (disc[0] != '/') { error = "file disc must be absolute"; return false; }
+    if (HasBadPathChars(disc)) { error = "invalid file disc path"; return false; }
+    if (disc.find("..") != std::string::npos) { error = "file disc path traversal not allowed"; return false; }
+    if (disc.size() > 1 && disc[disc.size() - 1] == '/') { error = "file disc must not end with '/'"; return false; }
+    if (disc.find("//") != std::string::npos) { error = "file disc path has empty segment"; return false; }
     FilePatch f;
     f.disc = disc;
     f.external = external;
@@ -626,6 +633,7 @@ bool ParseId(pugi::xml_node n, DiscFilter& filter, Counter& cnt, int depth, std:
         std::string t = AttrValue(c, "type");
         if (t.empty()) { error = "region type empty"; return false; }
         if (t.size() != 1) { error = "region type must be 1 character"; return false; }
+        if (t[0] < 'A' || t[0] > 'Z') { error = "invalid region type '" + t + "'"; return false; }
         filter.regions.push_back(t);
     }
     return true;
@@ -908,6 +916,10 @@ bool plan_files(const Package& package, const DiscIdentity& disc, std::vector<Fi
             for (const auto& f : p->files) {
                 if (f.disc.empty() || f.disc[0] != '/') {
                     error = "file disc must be absolute";
+                    return false;
+                }
+                if (HasBadPathChars(f.disc) || f.disc.find("..") != std::string::npos || f.disc.find("//") != std::string::npos) {
+                    error = "invalid file disc path '" + f.disc + "'";
                     return false;
                 }
                 if (f.disc.size() > kMaxString || f.external.size() > kMaxString) {
