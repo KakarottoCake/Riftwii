@@ -1,0 +1,6 @@
+build/
+*.dol
+*.elf
+/.project
+/.settings/
+/.cproject

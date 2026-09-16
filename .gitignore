@@ -1,0 +1,5 @@
+build-host/
+build_wii/
+*.elf
+*.dol
+*.map
