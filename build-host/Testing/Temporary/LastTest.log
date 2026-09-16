@@ -1,0 +1,35 @@
+Start testing: Sep 16 19:17 EDT
+----------------------------------------------------------
+1/2 Testing: patch
+1/2 Test: patch
+Command: "/d/AI Projects/Riftwii/build-host/patch_tests.exe"
+Directory: /d/AI Projects/Riftwii/build-host
+"patch" start time: Sep 16 19:17 EDT
+Output:
+----------------------------------------------------------
+ALL PATCH TESTS PASSED
+<end of output>
+Test time =   0.03 sec
+----------------------------------------------------------
+Test Passed.
+"patch" end time: Sep 16 19:17 EDT
+"patch" time elapsed: 00:00:00
+----------------------------------------------------------
+
+2/2 Testing: overlay
+2/2 Test: overlay
+Command: "/d/AI Projects/Riftwii/build-host/overlay_tests.exe"
+Directory: /d/AI Projects/Riftwii/build-host
+"overlay" start time: Sep 16 19:17 EDT
+Output:
+----------------------------------------------------------
+ALL OVERLAY TESTS PASSED
+<end of output>
+Test time =   0.03 sec
+----------------------------------------------------------
+Test Passed.
+"overlay" end time: Sep 16 19:17 EDT
+"overlay" time elapsed: 00:00:00
+----------------------------------------------------------
+
+End testing: Sep 16 19:17 EDT

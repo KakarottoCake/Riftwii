@@ -1,0 +1,7 @@
+{
+	"InstallScripts" : 
+	[
+		"/d/AI Projects/Riftwii/build-host/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

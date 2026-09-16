@@ -1,0 +1,4 @@
+[ -d build_wii ] || mkdir -p build_wii
+/opt/devkitpro/msys2/usr/bin/make --no-print-directory -C build_wii -f /d/AI Projects/Riftwii/Makefile.wii
+/d/AI:1: *** missing separator.  Stop.
+make: *** [Makefile.wii:105: build_wii] Error 2
