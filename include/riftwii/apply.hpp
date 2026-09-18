@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
 #include <cstdint>
@@ -7,6 +8,7 @@
 
 #include "riftwii/overlay.hpp"
 #include "riftwii/patch.hpp"
+#include "riftwii/source.hpp"
 
 namespace riftwii {
 
@@ -15,15 +17,17 @@ namespace riftwii {
 // filesystem dump, or (later) a Wii disc reader. Paths use the same form as
 // the planner: disc paths are absolute disc paths ("/dir/file.bin") and
 // sd paths are already-resolved absolute SD paths ("/riivolution/...").
+// Implementations must return NotFound only for genuine absence; see
+// OpenStatus.
 class ContentProvider {
 public:
     virtual ~ContentProvider() = default;
-    virtual bool open_disc(const std::string& disc_path,
-                           std::unique_ptr<ByteSource>& out,
-                           std::string& error) = 0;
-    virtual bool open_external(const std::string& sd_path,
-                               std::unique_ptr<ByteSource>& out,
-                               std::string& error) = 0;
+    virtual OpenStatus open_disc(const std::string& disc_path,
+                                 std::unique_ptr<ByteSource>& out,
+                                 std::string& error) = 0;
+    virtual OpenStatus open_external(const std::string& sd_path,
+                                     std::unique_ptr<ByteSource>& out,
+                                     std::string& error) = 0;
 };
 
 // Maps absolute disc/sd paths onto two host (or sd:/) directory prefixes by
@@ -32,10 +36,10 @@ public:
 class DirectoryProvider final : public ContentProvider {
 public:
     DirectoryProvider(std::string disc_root, std::string sd_root);
-    bool open_disc(const std::string& disc_path, std::unique_ptr<ByteSource>& out,
-                   std::string& error) override;
-    bool open_external(const std::string& sd_path, std::unique_ptr<ByteSource>& out,
-                       std::string& error) override;
+    OpenStatus open_disc(const std::string& disc_path, std::unique_ptr<ByteSource>& out,
+                         std::string& error) override;
+    OpenStatus open_external(const std::string& sd_path, std::unique_ptr<ByteSource>& out,
+                             std::string& error) override;
 
 private:
     static std::string join(const std::string& root, const std::string& abs_path);
@@ -46,6 +50,9 @@ private:
 // Owns every source a replacement view points at. ReadOverlay borrows its
 // original/external pointers, so the overlay is only valid while this object
 // is alive; consumers must keep the AppliedFile around while reading.
+// Composed patches form a chain: each layer's overlay reads its "original"
+// bytes from the layer below (base_), and only the first layer opens the
+// disc file.
 class AppliedFile {
 public:
     const ByteSource& view() const;
@@ -54,8 +61,15 @@ public:
               std::size_t length) const;
 
 private:
+    AppliedFile() = default;
+    static bool build(const FilePatch& patch, ContentProvider& provider,
+                      std::unique_ptr<AppliedFile> base, std::unique_ptr<AppliedFile>& out,
+                      std::string& error);
     friend bool build_replacement(const FilePatch& patch, ContentProvider& provider,
                                   std::unique_ptr<AppliedFile>& out, std::string& error);
+    friend bool apply_patches(const std::vector<FilePatch>& patches, ContentProvider& provider,
+                              std::unique_ptr<AppliedFile>& out, std::string& error);
+    std::unique_ptr<AppliedFile> base_;     // declared first: destroyed last
     std::unique_ptr<ByteSource> original_;
     std::unique_ptr<ByteSource> external_;
     std::unique_ptr<ByteSource> zero_;
@@ -64,10 +78,10 @@ private:
 
 // Builds one consumed replacement for a single planned FilePatch.
 //
-// Semantics (derived from public Riivolution patch-format docs and observed
-// Dolphin patcher behaviour, re-implemented here in our own way):
-//   effective_offset = patch.offset with the low 2 bits cleared (hardware
-//       ignores them; keeps host output identical to console output).
+// Semantics (from the public patch-format documentation, cross-checked
+// against Dolphin's independent implementation; DI reads take their offset
+// in 4-byte words, which is why the low two bits of `offset` are ignored):
+//   effective_offset = patch.offset with the low 2 bits cleared.
 //   external_offset  = min(patch.file_offset, external_size).
 //   external_usable  = external_size - external_offset.
 //   patch_size       = patch.length == 0 ? external_usable : patch.length.
@@ -76,10 +90,17 @@ private:
 // The first min(patch_size, external_usable) bytes come from the external
 // file; any remainder of the patch range is zero-filled (never original
 // bytes). Gaps past the original end are zero-filled by the overlay itself.
-// Missing disc file + create="true" behaves as an empty original; missing
-// disc + create="false", or any missing external, is an error. All arithmetic
-// is overflow-checked and outputs are capped at kMaxFileBytes.
+// A disc file reported NotFound with create="true" behaves as an empty
+// original; any other open failure, and any missing external, is an error.
+// All arithmetic is overflow-checked and outputs are capped at kMaxFileBytes.
 bool build_replacement(const FilePatch& patch, ContentProvider& provider,
                        std::unique_ptr<AppliedFile>& out, std::string& error);
+
+// Applies several patches that target the same disc file, in order, each one
+// seeing the result of the previous (so a later patch can overwrite bytes an
+// earlier one produced, and resizes accumulate). All entries must share the
+// same `disc`; the vector must not be empty. Output is untouched on failure.
+bool apply_patches(const std::vector<FilePatch>& patches, ContentProvider& provider,
+                   std::unique_ptr<AppliedFile>& out, std::string& error);
 
 }  // namespace riftwii

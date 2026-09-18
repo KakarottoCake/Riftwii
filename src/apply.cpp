@@ -1,11 +1,10 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/apply.hpp"
 
 #include <algorithm>
 #include <limits>
 #include <new>
 #include <utility>
-
-#include "riftwii/source.hpp"
 
 namespace riftwii {
 
@@ -21,38 +20,40 @@ std::string DirectoryProvider::join(const std::string& root, const std::string& 
     return r + abs_path;  // abs_path always starts with '/'.
 }
 
-bool DirectoryProvider::open_disc(const std::string& disc_path,
-                                  std::unique_ptr<ByteSource>& out, std::string& error) {
+OpenStatus DirectoryProvider::open_disc(const std::string& disc_path,
+                                        std::unique_ptr<ByteSource>& out, std::string& error) {
     if (disc_path.empty() || disc_path[0] != '/') {
         error = "disc path must be absolute '" + disc_path + "'";
-        return false;
+        return OpenStatus::Invalid;
     }
     std::unique_ptr<FileByteSource> f;
-    if (!FileByteSource::open(join(disc_root_, disc_path), f, error)) {
-        error = "disc file not found '" + disc_path + "': " + error;
-        return false;
+    const OpenStatus status = FileByteSource::open(join(disc_root_, disc_path), f, error);
+    if (status != OpenStatus::Ok) {
+        error = "disc file '" + disc_path + "' " + to_string(status) + ": " + error;
+        return status;
     }
     out = std::move(f);
-    return true;
+    return OpenStatus::Ok;
 }
 
-bool DirectoryProvider::open_external(const std::string& sd_path,
-                                      std::unique_ptr<ByteSource>& out, std::string& error) {
+OpenStatus DirectoryProvider::open_external(const std::string& sd_path,
+                                            std::unique_ptr<ByteSource>& out, std::string& error) {
     if (sd_path.empty()) {
         error = "external path empty";
-        return false;
+        return OpenStatus::Invalid;
     }
     // Planned patches are always resolved to absolute SD paths, but accept a
     // bare relative name defensively by treating it as root-relative.
     std::string abs = sd_path;
     if (abs[0] != '/') abs = "/" + abs;
     std::unique_ptr<FileByteSource> f;
-    if (!FileByteSource::open(join(sd_root_, abs), f, error)) {
-        error = "external file not found '" + sd_path + "': " + error;
-        return false;
+    const OpenStatus status = FileByteSource::open(join(sd_root_, abs), f, error);
+    if (status != OpenStatus::Ok) {
+        error = "external file '" + sd_path + "' " + to_string(status) + ": " + error;
+        return status;
     }
     out = std::move(f);
-    return true;
+    return OpenStatus::Ok;
 }
 
 const ByteSource& AppliedFile::view() const {
@@ -68,8 +69,9 @@ bool AppliedFile::read(std::uint64_t offset, std::uint8_t* destination,
     return overlay_->read(offset, destination, length);
 }
 
-bool build_replacement(const FilePatch& patch, ContentProvider& provider,
-                       std::unique_ptr<AppliedFile>& out, std::string& error) {
+bool AppliedFile::build(const FilePatch& patch, ContentProvider& provider,
+                        std::unique_ptr<AppliedFile> base, std::unique_ptr<AppliedFile>& out,
+                        std::string& error) {
     try {
         if (patch.disc.empty() || patch.disc[0] != '/') {
             error = "file disc must be absolute";
@@ -80,39 +82,54 @@ bool build_replacement(const FilePatch& patch, ContentProvider& provider,
             return false;
         }
 
-        // Real Riivolution hardware ignores the low two bits of the file
-        // offset; Dolphin adopted the same masking to match console output.
-        // Apply it here so host results equal on-console results.
+        // DI reads address the disc in 4-byte words, so the low two bits of
+        // a file offset cannot be expressed; clear them here so host output
+        // matches what the console can actually do (Dolphin does the same).
         const std::uint64_t patch_start = patch.offset & ~std::uint64_t(3);
 
+        // The "original" is the layer below when composing, otherwise the
+        // disc file (or an empty file when it is absent and create="true").
         std::unique_ptr<ByteSource> original;
+        const ByteSource* original_ref = nullptr;
         std::uint64_t orig_size = 0;
-        {
+        if (base) {
+            original_ref = &base->view();
+            orig_size = base->size();
+        } else {
             std::unique_ptr<ByteSource> opened;
             std::string open_err;
-            if (provider.open_disc(patch.disc, opened, open_err)) {
+            const OpenStatus status = provider.open_disc(patch.disc, opened, open_err);
+            if (status == OpenStatus::Ok) {
+                if (!opened) {
+                    error = "provider returned no source for '" + patch.disc + "'";
+                    return false;
+                }
                 orig_size = opened->size();
                 if (orig_size > kMaxFileBytes) {
                     error = "disc file too large '" + patch.disc + "'";
                     return false;
                 }
                 original = std::move(opened);
-            } else if (patch.create) {
+            } else if (status == OpenStatus::NotFound && patch.create) {
                 original.reset(new MemorySource(std::vector<std::uint8_t>()));
                 orig_size = 0;
             } else {
-                error = open_err.empty() ? ("disc file not found '" + patch.disc + "'")
-                                         : open_err;
+                error = open_err.empty()
+                            ? ("disc file '" + patch.disc + "' " + to_string(status))
+                            : open_err;
                 return false;
             }
+            original_ref = original.get();
         }
 
         std::unique_ptr<ByteSource> external;
         {
             std::string open_err;
-            if (!provider.open_external(patch.external, external, open_err)) {
-                error = open_err.empty() ? ("external file not found '" + patch.external + "'")
-                                         : open_err;
+            const OpenStatus status = provider.open_external(patch.external, external, open_err);
+            if (status != OpenStatus::Ok || !external) {
+                error = open_err.empty()
+                            ? ("external file '" + patch.external + "' " + to_string(status))
+                            : open_err;
                 return false;
             }
         }
@@ -147,9 +164,10 @@ bool build_replacement(const FilePatch& patch, ContentProvider& provider,
         const std::uint64_t copy_len = std::min(patch_size, ext_usable);
 
         std::unique_ptr<AppliedFile> applied(new AppliedFile());
+        applied->base_ = std::move(base);
         applied->original_ = std::move(original);
         applied->external_ = std::move(external);
-        applied->overlay_.reset(new ReadOverlay(*applied->original_, target));
+        applied->overlay_.reset(new ReadOverlay(*original_ref, target));
 
         if (copy_len > 0) {
             OverlayExtent ext{patch_start, ext_off, copy_len, applied->external_.get()};
@@ -182,6 +200,36 @@ bool build_replacement(const FilePatch& patch, ContentProvider& provider,
         error = "allocation failure";
         return false;
     }
+}
+
+bool build_replacement(const FilePatch& patch, ContentProvider& provider,
+                       std::unique_ptr<AppliedFile>& out, std::string& error) {
+    return AppliedFile::build(patch, provider, nullptr, out, error);
+}
+
+bool apply_patches(const std::vector<FilePatch>& patches, ContentProvider& provider,
+                   std::unique_ptr<AppliedFile>& out, std::string& error) {
+    if (patches.empty()) {
+        error = "no patches to apply";
+        return false;
+    }
+    for (const auto& p : patches) {
+        if (p.disc != patches[0].disc) {
+            error = "apply_patches: mixed disc targets '" + patches[0].disc + "' and '" + p.disc + "'";
+            return false;
+        }
+    }
+    std::unique_ptr<AppliedFile> current;
+    for (const auto& p : patches) {
+        std::unique_ptr<AppliedFile> next;
+        if (!AppliedFile::build(p, provider, std::move(current), next, error)) {
+            return false;
+        }
+        current = std::move(next);
+    }
+    error.clear();
+    out = std::move(current);
+    return true;
 }
 
 }  // namespace riftwii
