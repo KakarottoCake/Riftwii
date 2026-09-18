@@ -1,0 +1,360 @@
+# Riftwii conductor review #2
+
+Reviewed 2026-09-18 at commit `4d8504a` (working tree clean apart from the two
+conductor documents). Conductor reviews and sets direction; Muse (the
+implementation AI) writes code. No project code was changed by this review.
+`CONDUCTOR_REVIEW.md` (the earlier review from today) still stands; this
+document sharpens it into a concrete architecture and an ordered task queue.
+
+## 1. Verdict in one paragraph
+
+The host-side core (XML parser, planner, overlay engine, single-file
+replacement) is well written, defensive and tested (3/3 CTest suites pass,
+re-verified today). But two facts dominate everything else: (a) the parser
+rejects essentially every real-world Riivolution XML because it refuses the
+XML declaration, unknown attributes, and the `<folder>`/`<memory>`/
+`<savegame>`/`<macro>`/`<param>` constructs that real mods use; and (b) there
+is no runtime at all yet - no disc access, no game launch, no read
+redirection after handoff. (a) is a week of host work; (b) is the project.
+Muse has not committed anything since the first review. The next deliverables
+must be small, testable, and ordered so that the highest-risk unknown
+(code that survives handoff and redirects reads on real hardware) is
+attacked as early as possible while hardware-independent work fills the gaps.
+
+## 2. What was verified
+
+- `cmake --build build-host` and `ctest` pass (patch, overlay, apply).
+- Read every file under `src/`, `include/`, `wii/`, `tests/`, both build
+  files, README, vendor licence headers.
+- Compiled a scratch probe against `libriftwii.a` and fed it XML fragments
+  shaped like the documented patch format. Results:
+
+| Construct (all documented at riivolution.github.io/wiki/Patch_Format) | Result |
+| --- | --- |
+| Minimal `<wiidisc>` with one `<file>` (control) | accepted |
+| `<?xml version="1.0" encoding="UTF-8"?>` declaration | **rejected**: "processing instruction not allowed" |
+| `<wiidisc version="1" shiftfiles="true">` | **rejected**: unsupported attribute |
+| `<folder disc="/Stage" external="/Mod/Stage"/>` | **rejected**: unsupported tag |
+| `<memory offset="0x800000F8" value="00000001"/>` | **rejected**: unsupported tag |
+| `<savegame external="/riivolution/save/SMN"/>` | **rejected**: unsupported tag |
+| `<param>` inside `<choice>` | **rejected**: unsupported tag |
+| `<macro>` inside `<section>` | **rejected**: unsupported tag |
+| `disc="a.bin"` (filename search form) | **rejected**: must be absolute |
+| `external="/{$__gameid}/a.bin"` | accepted by parser, rejected later by `resolve_path` (`{`, `$`, `}` are banned path chars) |
+| XML comment before root | accepted |
+
+Practically every published mod starts with the XML declaration, and the
+canonical Riivolution test mod (Newer Super Mario Bros. Wii) uses `<folder>`
+and `<memory>`. Today the Wii frontend would label all of them "Invalid".
+
+## 3. Findings (ranked)
+
+### F1 - Blocking: parser strictness is aimed at the wrong layer
+`src/patch.cpp` rejects the whole document on any unknown attribute/tag
+(`HasForbiddenPi`, the `unsupported attribute ... in wiidisc` branches,
+`ParsePatchDef`, `ParseChoice`, `ParseSection`). Riivolution and Dolphin both
+ignore unknowns. Rule going forward: **the parser accepts and models the
+whole documented format and tolerates unknowns (warn, don't fail); the
+planner is the strict layer** - it refuses to *launch* when a selected choice
+needs a feature the runtime does not implement yet, with an actionable
+message naming the option and the feature. The 1 MiB, node-count, depth and
+string-length limits stay.
+
+Concretely the model needs: `Patch::folders`, `Patch::memory`,
+`Patch::savegames` (data only for now), `Choice::params`, `Option::macros`
+expansion, `wiidisc` `shiftfiles`/`log` recorded, filename-only `disc`
+targets (resolved against the FST at plan time), and `{$name}` substitution
+with the built-ins `__gameid` (3 chars), `__region`, `__maker` plus choice
+`<param>`s. Keep `fileoffset` (undocumented on the wiki but real; Dolphin
+supports it).
+
+### F2 - Deviation: vendored GUI is libwiigui 1.07, not the requested libgui
+The user asked for https://github.com/dborth/libgui (now "libgui 2.0,
+unreleased", GPL, GC/Wii/Wii U, platform-abstracted). The tree vendors the
+older libwiigui 1.07 snapshot. Recommendation: **keep libwiigui for now**
+(released, stable, already builds a DOL) and revisit at the product gate;
+swapping GUI libraries has zero bearing on the runtime risk. This is the
+user's call - see decision D2.
+
+### F3 - Licensing is unresolved but effectively decided
+No `LICENSE` at the root. Vendored notices: pugixml MIT; libwiigui "GPL"
+(unversioned); **FreeTypeGX GPL-3.0-or-later** (`vendor-libgui/source/FreeTypeGX.h:11`);
+oggplayer BSD-3 (Hermes); pngu has no header. GPLv3+ code in the link forces
+the distributed program to be **GPL-3.0-or-later**. Needed: `LICENSE`
+(GPL-3.0-or-later), `NOTICE.md` listing each vendored component, its origin
+URL/version and licence, and an SPDX header in project sources. Decision D1.
+
+### F4 - Provenance hazard from the failed USB Loader GX attempt
+`D:\AI Projects\USB Loader GX Riiloaded\RIIVOLUTION_HANDOFF.md` records that
+the earlier project used `C:\Users\...\Downloads\rawksd-2013` (a Riivolution
+source dump) as reference material. Anything in that tree's `source/riivo*`
+or `hosttests/` may carry Riivolution-derived structure. Policy for Riftwii:
+**no code is copied from the failed project**, and nobody working on Riftwii
+opens the rawksd dump. Its *design lessons* are fine and are folded into
+section 4 (lookup-first/MISS semantics, MEM2 reservation, never launch a
+partially installed mod, synthetic high-offset window).
+
+### F5 - Engine issues (real, not blocking)
+1. `src/apply.cpp:100` - with `create="true"` every `open_disc` failure
+   (I/O error, oversize, permission) is treated as "absent" and silently
+   becomes an empty original. Needs a typed open result (NotFound vs other).
+2. No composition of several patches on the same disc file. Real mods do
+   this (multiple `<file disc="/main.dol" offset=...>` entries). Since
+   `ReadOverlay` already gives later extents precedence, the fix is to build
+   the next patch's overlay over the previous `AppliedFile` view instead of
+   the raw original.
+3. `src/overlay.cpp:70` allocates a scratch buffer of the request size (up
+   to 16 MiB) and rebuilds/sorts boundaries on every read. Fine for host
+   tests; not acceptable for the Wii. But note section 4: the overlay is the
+   *oracle*, not the runtime. The runtime gets a compiled table.
+4. `src/source.cpp:67,111` - `ftell`/`fseek` use `long`, which is 32-bit
+   on both the Wii and this Windows toolchain. The 256 MiB cap does *not*
+   make this safe: `ftell` on a file of 4 GiB + 100 bytes wraps to 100, the
+   cap check passes, and the source reports a 100-byte file (agy
+   independently confirmed this). Use `stat`/`fstat` (64-bit `st_size`) for
+   the size and `fseeko`/`_fseeki64` for positioning.
+   Also: a default-constructed `AppliedFile` dereferences a null `overlay_`
+   in `view()/size()/read()`; make the default constructor private or
+   null-check.
+5. `src/patch.cpp:317` rejects any disc path containing `..` anywhere, which
+   also rejects legitimate names like `foo..bin`. Reject only the `..`
+   *segment*.
+6. Missing external file: Riftwii errors, Dolphin skips. The strict
+   preflight is the better product behaviour (never launch a half-applied
+   mod) - keep it, but make it a reported policy, not an accident.
+7. `README.md` and comments say "hardware ignores the low two bits". The
+   evidence is Dolphin's behaviour plus the fact that DI ioctl 0x71 takes its
+   offset in 4-byte words; phrase it that way.
+
+### F6 - Hygiene
+`plan3.txt` is a committed make-error log (delete). `CONDUCTOR_REVIEW.md`
+is untracked (commit both conductor docs, or move them under `docs/`).
+`build_wii/conductor-tmp/` is junk from a previous session (ignored).
+
+## 4. Runtime architecture (the decision the first review asked for)
+
+The first review asked Muse to *produce* a design. Muse is the weaker model;
+the conductor is making the decision instead and Muse executes experiments
+that confirm or refute each marked hypothesis. Every item marked **[H]** is a
+hypothesis that a hardware experiment must confirm.
+
+### 4.1 Constraints
+- Retail disc in the drive; replacement content on SD (USB later).
+- No cIOS dependency: works from the Homebrew Channel on stock IOS, using
+  the AHBPROT hardware access HBC grants. (This is the class of solution
+  Riivolution itself belongs to - wiibrew states it needs no cIOS - and the
+  class Brainslug, an MIT-licensed disc loader that patches game functions,
+  demonstrates is achievable.)
+- Nothing from Riivolution source, ever. Allowed references: wiibrew
+  (/dev/di, /dev/sdio/slot0, Wii Disc, Apploader, Memory map, AHBPROT),
+  libogc headers/sources (permissive), Brainslug (MIT - may be adapted with
+  attribution), Dolphin (GPLv2+ - behavioural reference; pin a revision),
+  libruntimeiospatch or equivalent GPL homebrew for the runtime IOS patch
+  set, the public patch-format wiki.
+
+### 4.2 Components
+1. **Loader** (`riftwii.dol`, libogc + libwiigui, runs before the game):
+   scan XML, select options, preflight every external file, build the
+   *virtual disc plan*, boot the disc, install the runtime, jump.
+2. **Resident runtime** (freestanding C + a little PPC asm, no libc, no
+   libogc, no exceptions, no allocation): lives in a MEM2 region the loader
+   reserves; hooks the game's disc-read path; serves reads from the
+   redirect table; delegates everything else to the game's original path.
+3. **Redirect table** (a flat, sorted, non-overlapping array the loader
+   writes into the reserved region): maps virtual disc byte ranges to
+   `SD_FRAGMENT(sector, count, skip)`, `ZERO`, or `MEM(addr)` (for small
+   embedded blobs). Gaps mean "pass through to the real disc". This is the
+   lookup-first/MISS rule from the failed attempt: never recurse, never
+   read the base range when the table fully covers it.
+
+### 4.3 Boot sequence (loader side)
+1. Launched from HBC with AHBPROT. Apply the standard runtime IOS patch set
+   (keep-AHBPROT-across-reload, ES_Identify, signature/hash checks) - this
+   is the same set every GPL disc/USB loader applies; adapt from
+   libruntimeiospatch-class code, not from Riivolution. **[H]** that stock
+   IOS + these patches suffice for the game's DI usage (Brainslug and Gecko
+   OS are existence proofs).
+2. `DI` init/reset, read disc ID (`0x80000000` region), partition table at
+   disc offset `0x40000`, open the game partition (ioctl 0x8B), read TMD ->
+   required IOS. Reload to that IOS; re-apply patches; re-open DI/partition.
+3. Read partition header (`0x420` main.dol offset, `0x424/0x428/0x42C` FST
+   offset/size/max, all `>>2` on Wii), FST (12-byte big-endian entries,
+   file offsets stored `>>2`). Build the in-memory FST model.
+4. Apply the plan to the FST model: same-size replacements keep their
+   offsets; resized/created files are placed in a **virtual window above
+   any physical disc** - word offsets in `0x80000000..0xFFFFFFFF`
+   (8-16 GiB) are above even a dual-layer disc; **[H]** the SDK does not
+   treat the offset as signed. (The failed attempt used 6-8 GiB and refused
+   dual-layer titles for that reason; we should test both.) `shiftfiles`
+   semantics are then unnecessary: every relocated file simply gets a
+   virtual address.
+5. Run the apploader (`0x2440` in the partition, loaded at `0x81200000`,
+   `entry -> init/main/close` protocol) with **our** read callback, so the
+   bytes it loads for `main.dol` and the FST are already patched
+   (`<file disc="/main.dol">` and any `<memory>` patches are applied to
+   the loaded image, with `original` checks, before the jump).
+6. Reserve MEM2: lower the "usable MEM2 end" low-memory field
+   (`0x80003128` per wiibrew Memory map; **[H]** verify by dumping what the
+   apploader/SDK actually wrote) so the game's allocator never touches the
+   top N KiB; copy the runtime + table there; flush caches.
+7. Find the game's SDK entry points by pattern search (Brainslug's
+   `search/` shows the technique): at minimum `IOS_Open`, `IOS_Ioctl`,
+   `IOS_IoctlAsync`, `IOS_IoctlvAsync`. Install the hook (branch to
+   trampoline in the reserved region).
+8. Set low-memory fields the SDK expects, video mode for the region, jump
+   to the DOL entry. If *any* preflight/install step fails: do not launch.
+
+### 4.4 Read redirection (runtime side)
+- Primary hook point **[H]**: the IPC layer. Every disc read the SDK makes
+  is `IOS_IoctlAsync(di_fd, 0x71, cmd, 0x20, dst, len, cb, data)` with
+  `cmd[1] = length`, `cmd[2] = offset in 4-byte words` (wiibrew /dev/di).
+  Hooking here is SDK-version independent, the command layout is
+  documented, and the DI fd can be learned by watching `IOS_Open("/dev/di")`.
+  Fallback: hook the DVD driver's low-level read function instead.
+- Per request: split `[offset, offset+len)` into runs against the table.
+  Pass-through runs go to the original ioctl unchanged. SD runs are issued
+  as `/dev/sdio/slot0` block reads (CMD18 via ioctlv 7, DMA, 512-byte
+  blocks; protocol on wiibrew and in libogc `wiisd.c`), bouncing partial
+  blocks through a buffer in the reserved region. ZERO/MEM runs are
+  memset/memcpy. All completion is by callback chaining, never blocking -
+  the SDK may issue reads from interrupt context. Invoke the game's
+  original callback only when every run has completed; propagate the first
+  error.
+- Cache rule: after the runtime writes bytes with the CPU (bounce copies,
+  zero fill) it must `dcbf` those lines; after DMA into the game buffer it
+  must `dcbi` them. The game's buffers are 32-byte aligned by SDK contract.
+- The SD card is initialised by the loader (libogc, after the IOS reload)
+  and the open sdio fd is passed in the table header **[H]**: the fd and
+  the card state survive the jump because IOS does not tie fds to PPC
+  programs. Fallback: the runtime performs the init sequence itself on
+  first use.
+- Fragment lists are computed by the loader with its own FAT32 cluster
+  walker over libogc's raw sector interface, so the runtime never parses a
+  filesystem. Every external file is fully resolved before launch.
+
+### 4.5 Out of scope until the above works
+USB storage (needs a resident USB mass-storage client), `<savegame>` (needs
+IOS FS redirection - mechanism undecided; propose "warn and launch without
+save redirection", decision D5), games that reload IOS mid-play, vWii,
+network loading, GameCube discs.
+
+### 4.6 Smallest experiments, in order
+E1. Boot an unmodified retail disc from `riftwii.dol` (section 4.3 without
+    steps 4, 6, 7). Pass: game plays normally. Also add a debug action
+    "dump `<disc path>` to `sd:/riftwii/dump/`" - proves FST + DI reads and
+    legally produces test assets from the user's own disc.
+E2. Persistence: install a tiny runtime that hooks `IOS_IoctlAsync` and,
+    for every DI read, increments a counter and paints a 16-pixel bar into
+    the XFB (or toggles the disc-slot LED via a documented register).
+    Pass: visible activity while the game runs. Proves reservation,
+    hook, symbol search, survival past handoff.
+E3. Same-size replacement from **MEM**: table with one `MEM` entry covering
+    a small late-loaded file that the user modified from an E1 dump.
+    Pass: the modified bytes are visible in-game. Proves table walk and
+    callback chaining without SD.
+E4. Same-size replacement from **SD** (one `SD_FRAGMENT` entry, then a
+    fragmented file). Pass: same visible result; unchanged files still
+    match the disc (verify with a second dump through the hooked path).
+E5. Resized + created file via the virtual window and a rewritten FST.
+E6. Newer Super Mario Bros. Wii (folder patches + memory patches) boots and
+    plays. This is the acceptance test for "Riivolution replacement".
+
+## 5. Roadmap gates
+
+| Gate | Content | Acceptance |
+| --- | --- | --- |
+| G0 host | F1 parser/model rework; F3 licence/notice; F5.1/F5.2/F5.5; F6 cleanup; fixtures authored by us that exercise every documented construct | CTest green; probe table above all "accepted"; planner refuses unsupported *selected* features with named messages |
+| G1 Wii | E1 unmodified boot + file dump | video of the game running from Riftwii; dumped file byte-identical to a Dolphin extraction |
+| G2 Wii | E2, E3 | visible in-game evidence, binary hash + IOS + title recorded |
+| G3 host+Wii | FAT32 fragment resolver (host-tested on a synthetic image), redirect-table compiler verified against `ReadOverlay` as oracle, freestanding table walker compiled for both host and PPC, E4 | walker == oracle on randomized reads incl. straddles; E4 visible |
+| G4 Wii | FST rewrite, virtual window, `<memory>` patches, `<folder>` expansion, ordered composition; E5, E6 | Newer SMBW plays |
+| G5 product | GUI: detect inserted disc, filter XMLs, options UI, persist choices per game, preflight report, launch; USB; `<savegame>` policy; NOTICE/README/compat matrix | repeatable launches on 3+ titles, documented limitations |
+
+Hardware-independent work (G0, the host halves of G3) fills any wait for
+hardware. Never let UI work displace G1-G4.
+
+## 6. Working rules for Muse
+
+- Small commits, one concern each, each with its test. Report: commit,
+  files, commands run, output, what is host-tested vs built vs
+  hardware-verified, and the next exact step.
+- Clean room: never open Riivolution source or the rawksd dump; never copy
+  from `USB Loader GX Riiloaded/source/riivo*`. Cite the public page or
+  permissively licensed file each hardware fact came from.
+- Freestanding runtime code goes in `runtime/` and must compile on the host
+  with `-ffreestanding -nostdlib`-equivalent flags so its logic is unit
+  tested on the PC.
+- Use `agy -p "..." --mode=accept-edits --dangerously-skip-permissions` for
+  parallel reviews and mechanical edits, then re-read what it changed.
+- Ask the user only for decisions or hardware runs; otherwise continue with
+  the next host task.
+
+## 7. Decisions (answered by the owner, 2026-09-18)
+
+- D1 Licence: **GPL-3.0-or-later** for the whole project (forced by
+  FreeTypeGX). Done: `LICENSE`, `NOTICE.md`, SPDX headers.
+- D2 GUI: **keep libwiigui 1.07** unless something better turns up;
+  re-evaluate libgui 2.0 at G5.
+- D3 Hardware: a real Wii exists, but **develop on the PC (Dolphin) first**
+  and go to hardware only when there is no alternative. Consequence: every
+  gate gets a Dolphin pass before a Wii pass, and the [H] hypotheses that
+  Dolphin's HLE IOS cannot answer (fd survival across the jump, real DI
+  restrictions, whether runtime IOS patches are needed, interrupt-context
+  behaviour) are the *only* things that must go to hardware. See section 8.
+- D4 **Brainslug (MIT) may be adapted with attribution.** Dolphin, wiibrew
+  and libogc are references. rawksd and the failed project's riivo code stay
+  off-limits.
+- D5 `<savegame>`: **implement it** (not a permanent warn-and-skip). Until
+  it exists the planner refuses to launch a selection that needs it, like
+  every other unimplemented feature. Mechanism: see section 8.3.
+- D6 G0 was applied by the conductor (this commit series); Muse continues
+  from G1/G3 host work.
+
+## 8. Dolphin-first plan (added after D3)
+
+### 8.1 What Dolphin can prove
+Dolphin boots homebrew DOLs with a disc image inserted ("Default ISO" in
+Config > Paths, or Insert Disc while running). Its HLE IOS implements
+`/dev/di` (including partition open and 0x71 reads), `/dev/sdio/slot0`
+(backed by the emulated SD card image), `ES`, `IOS_ReloadIOS`, and it does
+not enforce AHBPROT. So the entire PPC-side design - disc boot, apploader
+run, FST rewrite, MEM2 reservation, symbol search, IPC-level hook, SDIO
+block reads, callback chaining, the redirect table - can be developed and
+debugged on the PC with Dolphin's logging (OSReport, IOS log channels,
+memory breakpoints). The user needs a Dolphin install and a dump of a disc
+they own (CleanRip on the Wii, or Dolphin itself from the Wii disc drive if
+the PC has a compatible drive).
+
+### 8.2 What only hardware can prove
+- runtime IOS patching being necessary/sufficient on stock IOS after HBC;
+- the sdio fd and card state surviving the jump into the game;
+- DI behaviour on a real drive (timing, error codes, dual-layer);
+- interrupt-context constraints on the hook;
+- cache/DMA coherence with real hardware DMA.
+Each of these gets a single, minimal hardware run once the Dolphin version
+passes, with the DOL hash and IOS recorded.
+
+### 8.3 `<savegame>` mechanism (to implement, G5)
+Riivolution's documented behaviour: the game's save lives in an SD folder
+instead of NAND; `clone` copies the NAND save there on first use. Design in
+the same style as file redirection: hook the game's IPC opens of
+`/dev/fs` paths under `/title/<type>/<id>/data/` (and the ISFS ioctls on
+those fds) and serve them from a resident FAT32 read/write layer over SDIO.
+This needs a small FAT32 *writer* in the runtime (cluster allocation, FAT
+update, directory entries) - the only place a writer is needed - plus a
+pre-launch clone step done by the loader with libfat. Dolphin can validate
+all of it via its NAND and SD emulation. Until this lands, `PlanOptions::
+allow_savegames` stays false and the planner refuses such selections.
+
+## 9. G0 outcome (applied by the conductor)
+
+- Parser accepts the full documented format; unknowns become warnings;
+  planner is the strict layer (`PlanOptions`). New `compat` suite with
+  self-authored fixtures; probe table in section 2 now all "accepted".
+- Typed `OpenStatus` for providers; `create` no longer masks I/O errors;
+  `apply_patches` composes several patches on one file; 64-bit file sizing
+  via `stat` with a real >4 GiB sparse-file regression test; `AppliedFile`
+  cannot be default-constructed by callers.
+- `LICENSE` (GPL-3.0-or-later), `NOTICE.md`, SPDX headers, `plan3.txt`
+  removed, conductor docs under `docs/`, README updated. Wii DOL rebuilt
+  successfully with the new headers.

@@ -1,13 +1,19 @@
 # Riftwii
 
-Independent Wii disc mod loader with an original libgui frontend and a host-tested
-XML/overlay core. Not affiliated with Riivolution; the runtime backend is not
-implemented yet.
+Independent Wii disc mod loader with an original libwiigui frontend and a
+host-tested XML/overlay core. A clean-room replacement for Riivolution: no
+Riivolution source was consulted or copied (see `NOTICE.md`). The runtime
+backend is not implemented yet.
+
+Licence: GPL-3.0-or-later (`LICENSE`); third-party notices in `NOTICE.md`.
+Direction, review findings and the roadmap live in `docs/`.
 
 ## Status
 
-- `riftwii` static library: XML patch package parsing, disc filtering, patch
-  planning, and read overlay composition (host-buildable).
+- `riftwii` static library: XML patch package parsing (the full documented
+  format: file/folder/memory/savegame patches, options, macros, params,
+  `{$name}` placeholders), disc filtering, patch planning, and read overlay
+  composition (host-buildable).
 - `vendor-pugixml`: MIT-licensed XML parser, pinned at v1.15.
 - `vendor-libgui`: pinned GPL libwiigui 1.07 snapshot, used only by the Wii
   frontend (not built by the host build).
@@ -39,9 +45,9 @@ The current frontend scans `sd:/riivolution` for XML files (up to 150),
 displays validation results, and shows details when a package is selected.
 Rescan uses the on-screen button, Wii Remote Plus, or GameCube X. Home exits.
 Files larger than 1 MiB are rejected rather than silently truncated.
-Validation covers the supported XML subset, not external file availability
-or whether a game can launch. XML declarations and unsupported patch features
-are currently rejected.
+Validation covers XML well-formedness and the documented patch format, not
+external file availability or whether a game can launch. Unknown attributes
+and elements are ignored and counted as warnings in the details line.
 
 ### Manual testing
 
@@ -56,18 +62,38 @@ behavior has not been verified by the automated host tests.
 ## Scope
 
 The loader validates and plans Riivolution-format XML patches and composes
-read overlays. Milestone 1 (complete): one full file-replacement path from
-a real game source through patch planning to a consumed replacement —
-`DirectoryProvider` (game dir + SD dir) feeds `build_replacement()`, which
-turns a planned `FilePatch` into an owned `AppliedFile` view backed by the
-existing `ReadOverlay`. Covered and tested: `offset` (low 2 bits cleared to
-match console behaviour), `fileoffset`, `length` (0 = rest of external),
-`resize` (truncate/extend vs keep tail), `create` (missing disc becomes an
-empty original), short-external zero padding, past-EOF zero gaps, overflow
-checks, and a 256 MiB per-file cap. The end-to-end test runs XML text →
-`parse_package` → `plan_files` → provider → split `read()` consumption and
-compares every byte against an oracle.
+read overlays.
+
+Parsing (`parse_package`) accepts the whole documented format, including the
+XML declaration, `shiftfiles`, `<folder>`, `<memory>` (plain/ocarina/search),
+`<savegame>`, `<macro>`/`<param>`, bare file-name `disc` targets and
+`{$__gameid}`/`{$__region}`/`{$__maker}`/param placeholders. Unknown
+attributes and elements are tolerated and reported in `Package::warnings`;
+malformed values, DOCTYPE/entities and non-declaration processing
+instructions are rejected. The fixtures under `tests/fixtures/` exercise
+every construct and are authored for this project.
+
+Planning (`plan_package`) resolves the selected choices for a disc identity:
+placeholders are substituted, paths resolved, and any selected feature the
+runtime cannot execute yet (controlled by `PlanOptions`) makes planning fail
+with a message naming the option, choice, patch and feature, so a mod is
+never launched partially applied.
+
+Replacement (`build_replacement`, `apply_patches`): `DirectoryProvider`
+(game dir + SD dir) feeds the engine, which turns planned `FilePatch`es into
+an owned `AppliedFile` view backed by `ReadOverlay`; several patches on one
+disc file compose in order. Covered and tested: `offset` (low 2 bits
+cleared, since DI reads address the disc in 4-byte words), `fileoffset`,
+`length` (0 = rest of external), `resize` (truncate/extend vs keep tail),
+`create` (a disc file reported *not found* becomes an empty original; I/O
+errors never do), short-external zero padding, past-EOF zero gaps, overflow
+checks, and a 256 MiB per-file cap that holds for files above 4 GiB. The
+end-to-end test runs XML text -> `parse_package` -> `plan_package` ->
+provider -> split `read()` consumption and compares every byte against an
+oracle.
 
 Still future: Wii DVD/DI disc source (the provider interface is ready for
-one), folder/memory/savegame patch kinds, and booting a game with the
-overlays on hardware. The frontend remains an SD XML validator until then.
+one), runtime execution of folder/memory/savegame patches and file-name
+lookup, and booting a game with the overlays on hardware. The frontend
+remains an SD XML validator until then. See `docs/CONDUCTOR_REVIEW_2.md`
+for the runtime architecture and the gate sequence.
