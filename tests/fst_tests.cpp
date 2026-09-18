@@ -199,6 +199,23 @@ static void test_mutation() {
     EXPECT_TRUE(fst.path_of(10, path));
     EXPECT_EQ(path, std::string("/Extra/x.bin"));
 
+    // Depth limit: with max_depth 2, "sub" (depth 2) may hold files but no
+    // further directory.
+    {
+        riftwii::FstLimits limits;
+        limits.max_depth = 2;
+        riftwii::Fst shallow;
+        EXPECT_TRUE(riftwii::Fst::parse(img.data(), img.size(), true, shallow, err, limits));
+        std::uint32_t d = 0;
+        EXPECT_TRUE(shallow.add_file(4, "ok.bin", 0, 0, d, err));
+        EXPECT_FALSE(shallow.add_directory(4, "toodeep", d, err));
+        EXPECT_TRUE(shallow.add_directory(2, "fine", d, err));
+        Bytes bytes;
+        EXPECT_TRUE(shallow.serialize(bytes, err));
+        riftwii::Fst reparsed;
+        EXPECT_TRUE(riftwii::Fst::parse(bytes.data(), bytes.size(), true, reparsed, err, limits));
+    }
+
     // Invalid inserts.
     EXPECT_FALSE(fst.add_file(1, "a", 0, 0, idx, err));         // into a file
     EXPECT_FALSE(fst.add_file(0, "a/b", 0, 0, idx, err));       // slash in name

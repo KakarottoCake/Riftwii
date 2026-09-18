@@ -319,22 +319,30 @@ bool Fst::insert_entry(std::uint32_t directory, FstEntry entry, std::uint32_t& i
     }
     const std::uint32_t pos = entries_[directory].next;  // end of the subtree
     // Ancestors (including `directory`) grow by one; every other range or
-    // reference at or after `pos` shifts by one.
+    // reference at or after `pos` shifts by one. The walk also measures the
+    // nesting depth so a new directory cannot exceed the parse limit.
     std::vector<bool> ancestor(entries_.size(), false);
+    std::uint32_t depth = 0;  // number of directories enclosing the new entry
     {
         std::uint32_t current = directory;
-        std::uint32_t guard = 0;
         while (true) {
             ancestor[current] = true;
+            ++depth;
             if (current == 0) break;
             current = entries_[current].parent;
-            if (current >= entries_.size() || ++guard > limits_.max_depth + 1) {
+            if (current >= entries_.size() || depth > limits_.max_depth + 1) {
                 error = "fst parent chain is corrupt";
                 return false;
             }
         }
     }
+    if (entry.is_directory && depth > limits_.max_depth) {
+        error = "fst nesting depth exceeds limit";
+        return false;
+    }
     try {
+        // Reserve first so the insert below cannot fail after the fix-ups.
+        entries_.reserve(entries_.size() + 1);
         for (std::size_t j = 0; j < entries_.size(); ++j) {
             FstEntry& e = entries_[j];
             if (e.is_directory) {
