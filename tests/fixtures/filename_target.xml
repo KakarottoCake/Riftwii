@@ -1,0 +1,6 @@
+<wiidisc version="1">
+  <options><section name="S"><option name="O" default="1"><choice name="C"><patch id="p"/></choice></option></section></options>
+  <patch id="p">
+    <file disc="anywhere.arc" external="anywhere.arc"/>
+  </patch>
+</wiidisc>

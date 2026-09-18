@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 /****************************************************************************
  * Riftwii
  *
@@ -77,6 +78,10 @@ static std::vector<PackageEntry> ScanPackages(std::string& status)
 			if (entry.valid) {
 				entry.detail = "Valid XML: " + std::to_string(package.options.size()) +
 					" options, " + std::to_string(package.patches.size()) + " patch definitions";
+				if (!package.warnings.empty()) {
+					entry.detail += ", " + std::to_string(package.warnings.size()) +
+						" ignored: " + package.warnings.front();
+				}
 			}
 		}
 		entries.push_back(std::move(entry));

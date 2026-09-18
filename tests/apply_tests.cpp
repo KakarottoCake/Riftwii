@@ -311,8 +311,9 @@ static void test_e2e_disc_to_consumed_replacement() {
 
     riftwii::Package pkg;
     EXPECT_TRUE(riftwii::parse_package(xml, pkg, err));
-    std::vector<riftwii::FilePatch> planned;
-    EXPECT_TRUE(riftwii::plan_files(pkg, riftwii::DiscIdentity{"ABCDEF", 0, 0}, planned, err));
+    riftwii::Plan plan;
+    EXPECT_TRUE(riftwii::plan_package(pkg, riftwii::DiscIdentity{"ABCDEF", 0, 0}, riftwii::PlanOptions{}, plan, err));
+    const std::vector<riftwii::FilePatch>& planned = plan.files;
     EXPECT_EQ(planned.size(), std::size_t(1));
 
     riftwii::DirectoryProvider provider(disc_root.generic_string(), sd_root.generic_string());

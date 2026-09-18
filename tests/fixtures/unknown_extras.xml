@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<wiidisc version="1" log="true" foo="1">
+  <id game="RFT" hidden="x"/>
+  <network protocol="riiv" address="example.invalid" port="1"/>
+  <options>
+    <section name="S" icon="s.png">
+      <option name="O" default="1" hidden="true">
+        <choice name="C" tip="t"><patch id="p"/><extra/></choice>
+      </option>
+    </section>
+  </options>
+  <patch id="p">
+    <file disc="/a.bin" external="a.bin" target="dol"/>
+    <memory offset="0x80001800" value="00" target="dol"/>
+    <unknownop/>
+  </patch>
+  <trailer/>
+</wiidisc>

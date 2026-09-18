@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/patch.hpp"
 #include <iostream>
 #include <string>
@@ -8,6 +9,14 @@ static int g_failures = 0;
 #define EXPECT_TRUE(cond) do { if (!(cond)) { std::cerr << "FAILED: " #cond " at line " << __LINE__ << std::endl; g_failures++; } } while (0)
 #define EXPECT_FALSE(cond) do { if (cond) { std::cerr << "FAILED: false expected for " #cond " at line " << __LINE__ << std::endl; g_failures++; } } while (0)
 #define EXPECT_EQ(a, b) do { if ((a) != (b)) { std::cerr << "FAILED: " #a " == " #b " (" << (a) << " != " << (b) << ") at line " << __LINE__ << std::endl; g_failures++; } } while (0)
+// File-only planning, as the current runtime supports it.
+static bool PlanFiles(const riftwii::Package& pkg, const riftwii::DiscIdentity& disc,
+                      std::vector<riftwii::FilePatch>& out, std::string& err) {
+    riftwii::Plan plan;
+    if (!riftwii::plan_package(pkg, disc, riftwii::PlanOptions{}, plan, err)) return false;
+    out = plan.files;
+    return true;
+}
 static std::string GoodXml() {
     return std::string("<wiidisc version=\"1\" root=\"/riivolution\">") +
         "<id game=\"RSBE\" developer=\"01\" disc=\"0\" revision=\"0\"><region type=\"E\"/></id>" +
@@ -36,7 +45,7 @@ static void test_successful() {
     EXPECT_EQ(pkg.patches.at("p2").files[0].offset, std::uint64_t(16));
     riftwii::DiscIdentity disc{"RSBE01", 0, 0};
     std::vector<riftwii::FilePatch> out;
-    EXPECT_TRUE(riftwii::plan_files(pkg, disc, out, err));
+    EXPECT_TRUE(PlanFiles(pkg, disc, out, err));
     EXPECT_TRUE(err.empty());
     EXPECT_EQ(out.size(), std::size_t(2));
     if (out.size() == 2) {
@@ -60,19 +69,33 @@ static void test_hex_overflow() {
     EXPECT_FALSE(riftwii::parse_package(bad2, pkg, err));
     std::string bad3 = "<wiidisc version=\"1\"><patch id=\"p\"><file disc=\"/a.bin\" external=\"a.bin\" offset=\"-1\"/></patch></wiidisc>";
     EXPECT_FALSE(riftwii::parse_package(bad3, pkg, err));
-    std::string badBool = "<wiidisc version=\"1\"><patch id=\"p\"><file disc=\"/a.bin\" external=\"a.bin\" resize=\"1\"/></patch></wiidisc>";
+    std::string okBool = "<wiidisc version=\"1\"><patch id=\"p\"><file disc=\"/a.bin\" external=\"a.bin\" resize=\"1\" create=\"0\"/></patch></wiidisc>";
+    EXPECT_TRUE(riftwii::parse_package(okBool, pkg, err));
+    EXPECT_EQ(pkg.patches.at("p").files[0].resize, true);
+    EXPECT_EQ(pkg.patches.at("p").files[0].create, false);
+    std::string badBool = "<wiidisc version=\"1\"><patch id=\"p\"><file disc=\"/a.bin\" external=\"a.bin\" resize=\"maybe\"/></patch></wiidisc>";
     EXPECT_FALSE(riftwii::parse_package(badBool, pkg, err));
 }
 static void test_unsupported() {
     riftwii::Package pkg;
     std::string err;
-    EXPECT_FALSE(riftwii::parse_package("<wiidisc version=\"1\"><params/></wiidisc>", pkg, err));
-    EXPECT_FALSE(err.empty());
+    // Unknown elements and attributes are ignored with a warning, never fatal.
+    EXPECT_TRUE(riftwii::parse_package("<wiidisc version=\"1\"><params/></wiidisc>", pkg, err));
+    EXPECT_EQ(pkg.warnings.size(), std::size_t(1));
+    EXPECT_TRUE(riftwii::parse_package("<wiidisc version=\"1\"><macros/></wiidisc>", pkg, err));
+    EXPECT_EQ(pkg.warnings.size(), std::size_t(1));
+    EXPECT_TRUE(riftwii::parse_package("<wiidisc version=\"1\" foo=\"bar\"><patch id=\"p\"><file disc=\"/a\" external=\"b\"/></patch></wiidisc>", pkg, err));
+    EXPECT_EQ(pkg.warnings.size(), std::size_t(1));
+    if (!pkg.warnings.empty()) EXPECT_EQ(pkg.warnings[0], std::string("wiidisc: ignoring unknown attribute 'foo'"));
+    // Known elements with malformed content still fail.
     EXPECT_FALSE(riftwii::parse_package("<wiidisc version=\"1\"><patch id=\"p\"><memory address=\"0\"/></patch></wiidisc>", pkg, err));
-    EXPECT_FALSE(riftwii::parse_package("<wiidisc version=\"1\"><macros/></wiidisc>", pkg, err));
-    EXPECT_FALSE(riftwii::parse_package("<wiidisc version=\"1\"><patch id=\"p\"><folder external=\"x\" disc=\"/y\"/></patch></wiidisc>", pkg, err));
+    EXPECT_FALSE(err.empty());
     EXPECT_FALSE(riftwii::parse_package("<wiidisc version=\"1\"><patch id=\"p\"><savegame/></patch></wiidisc>", pkg, err));
-    EXPECT_FALSE(riftwii::parse_package("<wiidisc version=\"1\" foo=\"bar\"><patch id=\"p\"><file disc=\"/a\" external=\"b\"/></patch></wiidisc>", pkg, err));
+    EXPECT_FALSE(riftwii::parse_package("<wiidisc version=\"1\"><patch id=\"p\"><folder disc=\"/y\"/></patch></wiidisc>", pkg, err));
+    // Documented patch kinds parse into the model.
+    EXPECT_TRUE(riftwii::parse_package("<wiidisc version=\"1\"><patch id=\"p\"><folder external=\"x\" disc=\"/y\"/></patch></wiidisc>", pkg, err));
+    EXPECT_EQ(pkg.patches.at("p").folders.size(), std::size_t(1));
+    EXPECT_TRUE(pkg.warnings.empty());
 }
 static void test_duplicates() {
     riftwii::Package pkg;
@@ -84,7 +107,11 @@ static void test_duplicates() {
 static void test_dtd_pi() {
     riftwii::Package pkg;
     std::string err;
-    EXPECT_FALSE(riftwii::parse_package("<?xml version=\"1.0\"?><wiidisc version=\"1\"><patch id=\"p\"><file disc=\"/a\" external=\"b\"/></patch></wiidisc>", pkg, err));
+    EXPECT_TRUE(riftwii::parse_package("<?xml version=\"1.0\"?><wiidisc version=\"1\"><patch id=\"p\"><file disc=\"/a\" external=\"b\"/></patch></wiidisc>", pkg, err));
+    EXPECT_TRUE(err.empty());
+    EXPECT_TRUE(riftwii::parse_package("\xEF\xBB\xBF<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n<!-- c --><wiidisc version=\"1\"><patch id=\"p\"><file disc=\"/a\" external=\"b\"/></patch></wiidisc>", pkg, err));
+    EXPECT_TRUE(err.empty());
+    EXPECT_FALSE(riftwii::parse_package("<wiidisc version=\"1\"><patch id=\"p\"><file disc=\"/a\" external=\"b\"/></patch></wiidisc><?xml version=\"1.0\"?>", pkg, err));
     EXPECT_FALSE(riftwii::parse_package("<!DOCTYPE wiidisc><wiidisc version=\"1\"><patch id=\"p\"><file disc=\"/a\" external=\"b\"/></patch></wiidisc>", pkg, err));
     EXPECT_FALSE(riftwii::parse_package("<wiidisc version=\"1\"><?foo bar?><patch id=\"p\"><file disc=\"/a\" external=\"b\"/></patch></wiidisc>", pkg, err));
     EXPECT_FALSE(riftwii::parse_package("<wiidisc version=\"1\"><patch id=\"p\"><file disc=\"/a\" external=\"b\"/></patch></wiidisc><extra/>", pkg, err));
@@ -102,22 +129,24 @@ static void test_refs_choices() {
     riftwii::Package pkg;
     std::string err;
     EXPECT_FALSE(riftwii::parse_package("<wiidisc version=\"1\"><options><section name=\"s\"><option name=\"o\" default=\"1\"><choice name=\"c\"><patch id=\"missing\"/></choice></option></section></options><patch id=\"p\"><file disc=\"/a\" external=\"b\"/></patch></wiidisc>", pkg, err));
-    EXPECT_FALSE(riftwii::parse_package("<wiidisc version=\"1\"><options><section name=\"s\"><option name=\"o\" default=\"5\"><choice name=\"c\"/><choice name=\"d\"/></option></section></options></wiidisc>", pkg, err));
+    EXPECT_TRUE(riftwii::parse_package("<wiidisc version=\"1\"><options><section name=\"s\"><option name=\"o\" default=\"5\"><choice name=\"c\"/><choice name=\"d\"/></option></section></options></wiidisc>", pkg, err));
+    EXPECT_EQ(pkg.options[0].selected, std::size_t(0));
+    EXPECT_EQ(pkg.warnings.size(), std::size_t(1));
     EXPECT_FALSE(riftwii::parse_package("<wiidisc version=\"1\"><options><section name=\"s\"><option name=\"o\" default=\"yes\"><choice name=\"c\"/></option></section></options></wiidisc>", pkg, err));
     riftwii::Package ok;
     EXPECT_TRUE(riftwii::parse_package(GoodXml(), ok, err));
     ok.options[0].selected = 99;
     std::vector<riftwii::FilePatch> out;
-    EXPECT_FALSE(riftwii::plan_files(ok, riftwii::DiscIdentity{"RSBE01", 0, 0}, out, err));
+    EXPECT_FALSE(PlanFiles(ok, riftwii::DiscIdentity{"RSBE01", 0, 0}, out, err));
 }
 static void test_mismatch() {
     riftwii::Package pkg;
     std::string err;
     EXPECT_TRUE(riftwii::parse_package(GoodXml(), pkg, err));
     std::vector<riftwii::FilePatch> out;
-    EXPECT_TRUE(riftwii::plan_files(pkg, riftwii::DiscIdentity{"XXXX00", 0, 0}, out, err));
+    EXPECT_TRUE(PlanFiles(pkg, riftwii::DiscIdentity{"XXXX00", 0, 0}, out, err));
     EXPECT_EQ(out.size(), std::size_t(0));
-    EXPECT_TRUE(riftwii::plan_files(pkg, riftwii::DiscIdentity{"RSBE01", 9, 0}, out, err));
+    EXPECT_TRUE(PlanFiles(pkg, riftwii::DiscIdentity{"RSBE01", 9, 0}, out, err));
     EXPECT_EQ(out.size(), std::size_t(0));
 }
 static void test_paths() {
@@ -154,17 +183,19 @@ static void test_atomic() {
     EXPECT_EQ(pkg.root, snap.root);
     riftwii::DiscIdentity disc{"RSBE01", 0, 0};
     std::vector<riftwii::FilePatch> out;
-    EXPECT_TRUE(riftwii::plan_files(snap, disc, out, err));
+    EXPECT_TRUE(PlanFiles(snap, disc, out, err));
     std::vector<riftwii::FilePatch> snapOut = out;
     riftwii::Package bad = snap;
     bad.options[0].selected = 50;
-    EXPECT_FALSE(riftwii::plan_files(bad, disc, out, err));
+    EXPECT_FALSE(PlanFiles(bad, disc, out, err));
     EXPECT_EQ(out.size(), snapOut.size());
     riftwii::Package rel2 = snap;
     rel2.patches["p1"].files[0].disc = "relative.bin";
-    EXPECT_FALSE(riftwii::plan_files(rel2, disc, out, err));
+    EXPECT_FALSE(PlanFiles(rel2, disc, out, err));
     EXPECT_EQ(out.size(), snapOut.size());
-    EXPECT_FALSE(riftwii::parse_package("<wiidisc version=\"1\"><patch id=\"p\"><file disc=\"relative.bin\" external=\"b\"/></patch></wiidisc>", pkg, err));
+    EXPECT_TRUE(riftwii::parse_package("<wiidisc version=\"1\"><patch id=\"p\"><file disc=\"relative.bin\" external=\"b\"/></patch></wiidisc>", pkg, err));
+    EXPECT_TRUE(pkg.patches.at("p").files[0].is_filename);
+    EXPECT_FALSE(riftwii::parse_package("<wiidisc version=\"1\"><patch id=\"p\"><file disc=\"dir/relative.bin\" external=\"b\"/></patch></wiidisc>", pkg, err));
 }
 static void test_ordered() {
     riftwii::Package pkg;
@@ -178,7 +209,7 @@ static void test_ordered() {
         "</wiidisc>";
     EXPECT_TRUE(riftwii::parse_package(xml, pkg, err));
     std::vector<riftwii::FilePatch> out;
-    EXPECT_TRUE(riftwii::plan_files(pkg, riftwii::DiscIdentity{"ABCDEF", 0, 0}, out, err));
+    EXPECT_TRUE(PlanFiles(pkg, riftwii::DiscIdentity{"ABCDEF", 0, 0}, out, err));
     EXPECT_EQ(out.size(), std::size_t(3));
     if (out.size() == 3) {
         EXPECT_EQ(out[0].disc, std::string("/2a"));
@@ -187,9 +218,9 @@ static void test_ordered() {
         EXPECT_EQ(out[1].external, std::string("/r/e1a"));
         EXPECT_EQ(out[2].disc, std::string("/1b"));
     }
-    EXPECT_FALSE(riftwii::plan_files(pkg, riftwii::DiscIdentity{"abc123", 0, 0}, out, err));
-    EXPECT_FALSE(riftwii::plan_files(pkg, riftwii::DiscIdentity{"SHORT", 0, 0}, out, err));
-    EXPECT_FALSE(riftwii::plan_files(pkg, riftwii::DiscIdentity{"ABCDEF!", 0, 0}, out, err));
+    EXPECT_FALSE(PlanFiles(pkg, riftwii::DiscIdentity{"abc123", 0, 0}, out, err));
+    EXPECT_FALSE(PlanFiles(pkg, riftwii::DiscIdentity{"SHORT", 0, 0}, out, err));
+    EXPECT_FALSE(PlanFiles(pkg, riftwii::DiscIdentity{"ABCDEF!", 0, 0}, out, err));
 }
 static void test_limits() {
     riftwii::Package pkg;
@@ -217,11 +248,13 @@ static void test_disc_path_validation() {
     EXPECT_FALSE(riftwii::parse_package("<wiidisc version=\"1\"><patch id=\"p\"><file disc=\"/bad:name\" external=\"b\"/></patch></wiidisc>", pkg, err));
     EXPECT_FALSE(riftwii::parse_package("<wiidisc version=\"1\"><patch id=\"p\"><file disc=\"/a//b\" external=\"b\"/></patch></wiidisc>", pkg, err));
     EXPECT_FALSE(riftwii::parse_package("<wiidisc version=\"1\"><patch id=\"p\"><file disc=\"/a/\" external=\"b\"/></patch></wiidisc>", pkg, err));
+    EXPECT_FALSE(riftwii::parse_package("<wiidisc version=\"1\"><patch id=\"p\"><file disc=\"/a/./b\" external=\"b\"/></patch></wiidisc>", pkg, err));
+    EXPECT_TRUE(riftwii::parse_package("<wiidisc version=\"1\"><patch id=\"p\"><file disc=\"/a/b..c/d...bin\" external=\"b\"/></patch></wiidisc>", pkg, err));
     riftwii::Package ok;
     EXPECT_TRUE(riftwii::parse_package(GoodXml(), ok, err));
     ok.patches["p1"].files[0].disc = "/../escape.bin";
     std::vector<riftwii::FilePatch> out;
-    EXPECT_FALSE(riftwii::plan_files(ok, riftwii::DiscIdentity{"RSBE01", 0, 0}, out, err));
+    EXPECT_FALSE(PlanFiles(ok, riftwii::DiscIdentity{"RSBE01", 0, 0}, out, err));
 }
 
 static void test_file_field_preservation() {
@@ -235,7 +268,7 @@ static void test_file_field_preservation() {
     EXPECT_EQ(pkg.patches.at("p2").files[0].create, true);
     EXPECT_EQ(pkg.patches.at("p2").files[0].file_offset, std::uint64_t(4));
     std::vector<riftwii::FilePatch> out;
-    EXPECT_TRUE(riftwii::plan_files(pkg, riftwii::DiscIdentity{"RSBE01", 0, 0}, out, err));
+    EXPECT_TRUE(PlanFiles(pkg, riftwii::DiscIdentity{"RSBE01", 0, 0}, out, err));
     EXPECT_EQ(out.size(), std::size_t(2));
     if (out.size() == 2) {
         EXPECT_EQ(out[0].offset, std::uint64_t(16));
@@ -246,6 +279,42 @@ static void test_file_field_preservation() {
         EXPECT_EQ(out[1].create, true);
         EXPECT_EQ(out[1].file_offset, std::uint64_t(4));
     }
+}
+
+// A Patch assembled in code (no `order`) still plans every entry.
+static void test_plan_without_order() {
+    riftwii::Package pkg;
+    pkg.filter = riftwii::DiscFilter();
+    riftwii::Option opt;
+    opt.name = "o";
+    opt.selected = 1;
+    riftwii::Choice ch;
+    ch.name = "c";
+    ch.patches.push_back("p");
+    opt.choices.push_back(ch);
+    pkg.options.push_back(opt);
+    riftwii::Patch patch;
+    riftwii::FilePatch f;
+    f.disc = "/a.bin";
+    f.external = "a.bin";
+    patch.files.push_back(f);
+    riftwii::MemoryPatch m;
+    m.has_offset = true;
+    m.offset = 0x80001800;
+    m.value = {0x00};
+    patch.memory.push_back(m);
+    pkg.patches["p"] = patch;
+    riftwii::Plan plan;
+    std::string err;
+    EXPECT_FALSE(riftwii::plan_package(pkg, riftwii::DiscIdentity{"ABCDEF", 0, 0}, riftwii::PlanOptions{}, plan, err));
+    EXPECT_TRUE(err.find("<memory>") != std::string::npos);
+    riftwii::PlanOptions all;
+    all.allow_memory = true;
+    EXPECT_TRUE(riftwii::plan_package(pkg, riftwii::DiscIdentity{"ABCDEF", 0, 0}, all, plan, err));
+    EXPECT_EQ(plan.files.size(), std::size_t(1));
+    EXPECT_EQ(plan.memory.size(), std::size_t(1));
+    EXPECT_EQ(plan.order.size(), std::size_t(2));
+    if (!plan.files.empty()) EXPECT_EQ(plan.files[0].external, std::string("/riivolution/a.bin"));
 }
 
 static void test_read_package() {
@@ -318,6 +387,7 @@ int main() {
     test_comment_cdata_isolation();
     test_disc_path_validation();
     test_file_field_preservation();
+    test_plan_without_order();
     test_read_package();
     if (g_failures == 0) {
         std::cout << "ALL PATCH TESTS PASSED" << std::endl;

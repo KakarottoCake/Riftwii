@@ -1,0 +1,18 @@
+<wiidisc version="1" root="/base">
+  <options>
+    <section name="S">
+      <option name="Skin" id="skin" default="2">
+        <param name="dir" value="opt"/>
+        <param name="file" value="opt.bin"/>
+        <choice name="One"><patch id="p"/></choice>
+        <choice name="Two"><patch id="p"/><param name="dir" value="choice"/></choice>
+      </option>
+      <macro name="Skin (alt)" id="skin">
+        <param name="file" value="macro.bin"/>
+      </macro>
+    </section>
+  </options>
+  <patch id="p" root="{$dir}">
+    <file disc="/skin.bin" external="{$file}"/>
+  </patch>
+</wiidisc>

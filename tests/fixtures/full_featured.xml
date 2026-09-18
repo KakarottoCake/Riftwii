@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Riftwii fixture: every documented construct in one package.
+     Authored for the test-suite; not derived from any published mod. -->
+<wiidisc version="1" root="/riftwii-fixture" shiftfiles="true">
+  <id game="RFT" developer="01" disc="0" version="0">
+    <region type="E"/>
+    <region type="P"/>
+  </id>
+  <options>
+    <section name="Levels">
+      <option name="Level pack" id="pack" default="1">
+        <choice name="Pack A">
+          <patch id="levels"/>
+          <param name="pack" value="a"/>
+        </choice>
+        <choice name="Pack B">
+          <patch id="levels"/>
+          <param name="pack" value="b"/>
+        </choice>
+      </option>
+      <macro name="Level pack (mirror)" id="pack">
+        <param name="pack" value="mirror"/>
+      </macro>
+    </section>
+    <section name="Extras">
+      <option name="Code patches" default="1">
+        <choice name="On"><patch id="codes"/></choice>
+      </option>
+      <option name="Separate save" default="0">
+        <choice name="On"><patch id="save"/></choice>
+      </option>
+    </section>
+  </options>
+  <patch id="levels" root="/levels">
+    <folder disc="/Stage" external="{$pack}/Stage" recursive="true" create="true"/>
+    <file disc="/Stage/intro.arc" external="{$pack}/intro.arc" offset="0x20" length="0x100" resize="false"/>
+  </patch>
+  <patch id="codes">
+    <file disc="/main.dol" external="/codes/main.dol"/>
+    <memory offset="0x80001800" value="4E800020"/>
+    <memory offset="0x80001804" valuefile="/codes/blob.bin" original="00000000"/>
+    <memory value="7C0802A6" offset="0x80004000" ocarina="true"/>
+    <memory original="38600001" value="38600000" search="true" align="4"/>
+  </patch>
+  <patch id="save">
+    <savegame external="/save/{$__gameid}" clone="yes"/>
+  </patch>
+</wiidisc>

@@ -1,0 +1,3 @@
+<?xml version="1.0"?>
+<!DOCTYPE wiidisc [ <!ENTITY e "x"> ]>
+<wiidisc version="1"><patch id="p"><file disc="/a" external="b"/></patch></wiidisc>
