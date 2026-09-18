@@ -28,6 +28,9 @@ public:
     bool append(OverlayExtent extent, std::string& error);
     std::uint64_t size() const override;
     bool read(std::uint64_t offset, std::uint8_t* destination, std::size_t length) const override;
+    // Extents in append order; later ones take precedence when reading.
+    const std::vector<OverlayExtent>& extents() const { return extents_; }
+    const ByteSource& original() const { return original_; }
 
 private:
     const ByteSource& original_;

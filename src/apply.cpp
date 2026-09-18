@@ -69,6 +69,112 @@ bool AppliedFile::read(std::uint64_t offset, std::uint8_t* destination,
     return overlay_->read(offset, destination, length);
 }
 
+namespace {
+
+// Replaces [e.dest, e.dest + e.length) inside a sorted, gap-free list.
+void OverlayFlat(std::vector<FlatExtent>& list, const FlatExtent& e) {
+    const std::uint64_t start = e.dest;
+    const std::uint64_t end = e.dest + e.length;
+    std::vector<FlatExtent> result;
+    result.reserve(list.size() + 2);
+    bool inserted = false;
+    for (const FlatExtent& x : list) {
+        const std::uint64_t xs = x.dest;
+        const std::uint64_t xe = x.dest + x.length;
+        if (xe <= start || xs >= end) {
+            if (xs >= end && !inserted) {
+                result.push_back(e);
+                inserted = true;
+            }
+            result.push_back(x);
+            continue;
+        }
+        if (xs < start) {
+            FlatExtent head = x;
+            head.length = start - xs;
+            result.push_back(head);
+        }
+        if (!inserted) {
+            result.push_back(e);
+            inserted = true;
+        }
+        if (xe > end) {
+            FlatExtent tail = x;
+            tail.dest = end;
+            tail.length = xe - end;
+            tail.source_offset = x.source_offset + (end - xs);
+            result.push_back(tail);
+        }
+    }
+    if (!inserted) result.push_back(e);
+    list.swap(result);
+}
+
+// Joins neighbours that continue the same source without a break.
+void CoalesceFlat(std::vector<FlatExtent>& list) {
+    std::vector<FlatExtent> result;
+    for (const FlatExtent& x : list) {
+        if (!result.empty()) {
+            FlatExtent& p = result.back();
+            const bool contiguous = p.dest + p.length == x.dest;
+            const bool same = p.kind == x.kind && p.source == x.source &&
+                              (p.kind == FlatExtent::Kind::Zero || p.source_offset + p.length == x.source_offset);
+            if (contiguous && same) {
+                p.length += x.length;
+                continue;
+            }
+        }
+        result.push_back(x);
+    }
+    list.swap(result);
+}
+
+}  // namespace
+
+std::vector<FlatExtent> AppliedFile::flatten() const {
+    const std::uint64_t size = overlay_->size();
+    std::vector<FlatExtent> list;
+    if (base_) {
+        list = base_->flatten();
+    } else if (original_ && original_->size() > 0) {
+        FlatExtent o;
+        o.kind = FlatExtent::Kind::Original;
+        o.dest = 0;
+        o.length = original_->size();
+        o.source = original_.get();
+        o.source_offset = 0;
+        list.push_back(o);
+    }
+    // Clip the layer below to this layer's size and zero-fill past its end.
+    std::vector<FlatExtent> clipped;
+    std::uint64_t covered = 0;
+    for (const FlatExtent& x : list) {
+        if (x.dest >= size) break;
+        FlatExtent c = x;
+        if (c.dest + c.length > size) c.length = size - c.dest;
+        clipped.push_back(c);
+        covered = c.dest + c.length;
+    }
+    if (covered < size) {
+        FlatExtent z;
+        z.kind = FlatExtent::Kind::Zero;
+        z.dest = covered;
+        z.length = size - covered;
+        clipped.push_back(z);
+    }
+    for (const OverlayExtent& ext : overlay_->extents()) {
+        FlatExtent e;
+        e.kind = (ext.source == zero_.get()) ? FlatExtent::Kind::Zero : FlatExtent::Kind::External;
+        e.dest = ext.destination;
+        e.length = ext.length;
+        e.source = e.kind == FlatExtent::Kind::Zero ? nullptr : ext.source;
+        e.source_offset = e.kind == FlatExtent::Kind::Zero ? 0 : ext.source_offset;
+        OverlayFlat(clipped, e);
+    }
+    CoalesceFlat(clipped);
+    return clipped;
+}
+
 bool AppliedFile::build(const FilePatch& patch, ContentProvider& provider,
                         std::unique_ptr<AppliedFile> base, std::unique_ptr<AppliedFile>& out,
                         std::string& error) {

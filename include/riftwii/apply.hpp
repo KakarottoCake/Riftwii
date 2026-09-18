@@ -47,6 +47,19 @@ private:
     std::string sd_root_;
 };
 
+// One contiguous piece of a fully composed replacement, after every layer
+// has been resolved: bytes come from the untouched disc file, from an
+// external file, or are zero. A flattened file is a sorted, gap-free list
+// of these covering [0, size).
+struct FlatExtent {
+    enum class Kind { Original, External, Zero };
+    Kind kind = Kind::Zero;
+    std::uint64_t dest = 0;                 // offset inside the composed file
+    std::uint64_t length = 0;
+    const ByteSource* source = nullptr;     // Original: disc file; External: external file
+    std::uint64_t source_offset = 0;        // offset inside `source`
+};
+
 // Owns every source a replacement view points at. ReadOverlay borrows its
 // original/external pointers, so the overlay is only valid while this object
 // is alive; consumers must keep the AppliedFile around while reading.
@@ -59,6 +72,9 @@ public:
     std::uint64_t size() const;
     bool read(std::uint64_t offset, std::uint8_t* destination,
               std::size_t length) const;
+    // Resolves the whole composition chain into one flat extent list. The
+    // pointers stay valid for the lifetime of this AppliedFile.
+    std::vector<FlatExtent> flatten() const;
 
 private:
     AppliedFile() = default;
