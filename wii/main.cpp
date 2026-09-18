@@ -24,6 +24,7 @@ int main() {
     InitAudio();
     fatInitDefault();
     InitFreeType(const_cast<u8*>(font_ttf), font_ttf_size);
+    InitGUIThreads();
     MainMenu(1);
     return 0;
 }

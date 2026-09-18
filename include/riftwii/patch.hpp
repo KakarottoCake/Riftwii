@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <map>
+#include <iosfwd>
 #include <string>
 #include <vector>
 
@@ -58,6 +59,7 @@ struct Package {
 };
 
 bool parse_package(const std::string& xml, Package& output, std::string& error);
+bool read_package(std::istream& input, Package& output, std::string& error);
 bool resolve_path(const std::string& root, const std::string& path, std::string& output);
 bool plan_files(const Package& package, const DiscIdentity& disc,
                 std::vector<FilePatch>& output, std::string& error);

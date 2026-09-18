@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <sstream>
 static int g_failures = 0;
 #define EXPECT_TRUE(cond) do { if (!(cond)) { std::cerr << "FAILED: " #cond " at line " << __LINE__ << std::endl; g_failures++; } } while (0)
 #define EXPECT_FALSE(cond) do { if (cond) { std::cerr << "FAILED: false expected for " #cond " at line " << __LINE__ << std::endl; g_failures++; } } while (0)
@@ -247,6 +248,60 @@ static void test_file_field_preservation() {
     }
 }
 
+static void test_read_package() {
+    riftwii::Package pkg;
+    std::string err;
+    std::istringstream good(GoodXml());
+    EXPECT_TRUE(riftwii::read_package(good, pkg, err));
+    EXPECT_TRUE(err.empty());
+    EXPECT_EQ(pkg.options.size(), std::size_t(2));
+
+    std::istringstream bad("<wiidisc version=\"2\"></wiidisc>");
+    riftwii::Package pkg2;
+    EXPECT_FALSE(riftwii::read_package(bad, pkg2, err));
+    EXPECT_FALSE(err.empty());
+
+    std::istringstream big(std::string(2 * 1024 * 1024, 'x'));
+    riftwii::Package pkg3;
+    EXPECT_FALSE(riftwii::read_package(big, pkg3, err));
+    EXPECT_EQ(err, std::string("xml too large"));
+
+    const std::string xml = GoodXml();
+    for (std::size_t size : {std::size_t(4096), std::size_t(20000), std::size_t(1048576)}) {
+        std::istringstream padded(xml + std::string(size - xml.size(), ' '));
+        EXPECT_TRUE(riftwii::read_package(padded, pkg, err));
+        EXPECT_TRUE(err.empty());
+    }
+    pkg.root = "/preserved";
+    std::istringstream overLimit(xml + std::string(1048577 - xml.size(), ' '));
+    EXPECT_FALSE(riftwii::read_package(overLimit, pkg, err));
+    EXPECT_EQ(pkg.root, std::string("/preserved"));
+
+    std::istringstream embeddedNull(xml + std::string(1, '\0') + "ignored");
+    EXPECT_FALSE(riftwii::read_package(embeddedNull, pkg, err));
+    EXPECT_EQ(err, std::string("embedded null not allowed"));
+    EXPECT_EQ(pkg.root, std::string("/preserved"));
+
+    std::istringstream invalidTail(xml + std::string(20000, ' ') + "<extra/>");
+    EXPECT_FALSE(riftwii::read_package(invalidTail, pkg, err));
+    EXPECT_EQ(pkg.root, std::string("/preserved"));
+
+    std::istringstream unreadable(xml);
+    unreadable.setstate(std::ios::badbit);
+    EXPECT_FALSE(riftwii::read_package(unreadable, pkg, err));
+    EXPECT_EQ(err, std::string("read error"));
+    EXPECT_EQ(pkg.root, std::string("/preserved"));
+
+    std::istringstream failed(xml);
+    failed.setstate(std::ios::failbit);
+    EXPECT_FALSE(riftwii::read_package(failed, pkg, err));
+    EXPECT_EQ(err, std::string("read error"));
+
+    std::istringstream empty;
+    EXPECT_FALSE(riftwii::read_package(empty, pkg, err));
+    EXPECT_EQ(pkg.root, std::string("/preserved"));
+}
+
 int main() {
     test_successful();
     test_hex_overflow();
@@ -263,6 +318,7 @@ int main() {
     test_comment_cdata_isolation();
     test_disc_path_validation();
     test_file_field_preservation();
+    test_read_package();
     if (g_failures == 0) {
         std::cout << "ALL PATCH TESTS PASSED" << std::endl;
         return 0;

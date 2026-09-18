@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdint>
+#include <istream>
 #include <limits>
 #include <string>
 #include <vector>
@@ -863,6 +864,31 @@ bool parse_package(const std::string& xml, Package& output, std::string& error) 
         return false;
     } catch (...) {
         error = "allocation failure";
+        return false;
+    }
+}
+bool read_package(std::istream& input, Package& output, std::string& error) {
+    try {
+        std::string xml;
+        char chunk[4096];
+        while (input.read(chunk, sizeof(chunk)) || input.gcount() > 0) {
+            const auto count = static_cast<std::size_t>(input.gcount());
+            if (count > kMaxXml - xml.size()) {
+                error = "xml too large";
+                return false;
+            }
+            xml.append(chunk, count);
+        }
+        if (input.bad() || !input.eof()) {
+            error = "read error";
+            return false;
+        }
+        return parse_package(xml, output, error);
+    } catch (const std::bad_alloc&) {
+        error = "allocation failure";
+        return false;
+    } catch (...) {
+        error = "read error";
         return false;
     }
 }

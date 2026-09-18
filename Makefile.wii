@@ -19,7 +19,7 @@ export	FREETYPE_LIBS	:=	-lfreetype
 #---------------------------------------------------------------------------------
 TARGET		:=	riftwii
 BUILD		:=	build_wii
-SOURCES		:=	wii \
+SOURCES		:=	wii src vendor-pugixml/src \
 				vendor-libgui/source/libwiigui \
 				vendor-libgui/source
 EXCLUDES	:=	vendor-libgui/source/demo.cpp vendor-libgui/source/menu.cpp vendor-libgui/source/filebrowser.cpp vendor-libgui/source/wiidrc.c
@@ -47,13 +47,15 @@ LIBDIRS	:= $(PORTLIBS)
 # no real need to edit anything past this point unless you need to add additional
 # rules for different file extensions
 #---------------------------------------------------------------------------------
-ifneq ($(BUILD),$(notdir $(CURDIR)))
+PROJECT_ROOT ?= ..
+
+ifneq ($(IN_BUILD),1)
 #---------------------------------------------------------------------------------
 
-export OUTPUT	:=	$(CURDIR)/$(TARGETDIR)/$(TARGET)
-export VPATH	:=	$(foreach dir,$(SOURCES),$(CURDIR)/$(dir)) \
-					$(foreach dir,$(DATA),$(CURDIR)/$(dir))
-export DEPSDIR	:=	$(CURDIR)/$(BUILD)
+export OUTPUT	:=	$(PROJECT_ROOT)/$(TARGETDIR)/$(TARGET)
+export VPATH	:=	$(foreach dir,$(SOURCES),$(PROJECT_ROOT)/$(dir)) \
+					$(foreach dir,$(DATA),$(PROJECT_ROOT)/$(dir))
+export DEPSDIR	:=	$(PROJECT_ROOT)/$(BUILD)
 
 #---------------------------------------------------------------------------------
 # automatically build a list of object files for our project
@@ -86,9 +88,9 @@ export HFILES := $(addsuffix .h,$(subst .,_,$(BINFILES)))
 #---------------------------------------------------------------------------------
 # build a list of include paths
 #---------------------------------------------------------------------------------
-export INCLUDE	:=	$(foreach dir,$(INCLUDES),-I$(CURDIR)/$(dir)) \
+export INCLUDE	:=	$(foreach dir,$(INCLUDES),-I$(PROJECT_ROOT)/$(dir)) \
 				$(foreach dir,$(LIBDIRS),-I$(dir)/include) \
-				-I$(CURDIR)/$(BUILD) -I$(LIBOGC_INC)
+				-I$(PROJECT_ROOT)/$(BUILD) -I$(LIBOGC_INC)
 
 #---------------------------------------------------------------------------------
 # build a list of library paths
@@ -96,26 +98,26 @@ export INCLUDE	:=	$(foreach dir,$(INCLUDES),-I$(CURDIR)/$(dir)) \
 export LIBPATHS	:=	$(foreach dir,$(LIBDIRS),-L$(dir)/lib) \
 					-L$(LIBOGC_LIB)
 
-export OUTPUT	:=	$(CURDIR)/$(TARGET)
+export OUTPUT	:=	$(PROJECT_ROOT)/$(TARGET)
 .PHONY: $(BUILD) clean
 
 #---------------------------------------------------------------------------------
 $(BUILD):
 	@[ -d $@ ] || mkdir -p $@
-	@$(MAKE) --no-print-directory -C $(BUILD) -f $(CURDIR)/Makefile.wii
+	@IN_BUILD=1 PROJECT_ROOT="$(PROJECT_ROOT)" $(MAKE) --no-print-directory -C "$(BUILD)" -f ../Makefile.wii
 
 #---------------------------------------------------------------------------------
 clean:
 	@echo clean ...
-	@rm -fr $(BUILD) $(OUTPUT).elf $(OUTPUT).dol
+	@rm -fr "$(BUILD)" "$(TARGET).elf" "$(TARGET).dol"
 
 #---------------------------------------------------------------------------------
 run:
-	wiiload $(OUTPUT).dol
+	wiiload "$(TARGET).dol"
 
 #---------------------------------------------------------------------------------
 reload:
-	wiiload -r $(OUTPUT).dol
+	wiiload -r "$(TARGET).dol"
 
 #---------------------------------------------------------------------------------
 else
