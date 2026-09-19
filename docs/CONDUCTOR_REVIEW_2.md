@@ -282,7 +282,7 @@ E6. Newer Super Mario Bros. Wii (folder patches + memory patches) boots and
 | G1 Wii | E1 unmodified boot + file dump | video of the game running from Riftwii; dumped file byte-identical to a Dolphin extraction. **Passed in Dolphin 2026-09-18 (section 11); hardware run open** |
 | G2 Wii | E2, E3 | visible in-game evidence, binary hash + IOS + title recorded. **E2 and E3 passed in Dolphin 2026-09-19 (sections 12, 13); hardware run open** |
 | G3 host+Wii | FAT32 fragment resolver (host-tested on a synthetic image), redirect-table compiler verified against `ReadOverlay` as oracle, freestanding table walker compiled for both host and PPC, E4 | walker == oracle on randomized reads incl. straddles; E4 visible. **E4 passed in Dolphin 2026-09-19 (section 15); hardware run open** |
-| G4 Wii | FST rewrite, virtual window, `<memory>` patches, `<folder>` expansion, ordered composition; E5, E6 | Newer SMBW plays. **E5 (grown file through the virtual window) passed in Dolphin 2026-09-19 (section 14); a `<file>`-only package runs end to end in Dolphin (section 17); created files, `<folder>`, `<memory>` open** |
+| G4 Wii | FST rewrite, virtual window, `<memory>` patches, `<folder>` expansion, ordered composition; E5, E6 | Newer SMBW plays. **E5 (grown file through the virtual window) passed in Dolphin 2026-09-19 (section 14); a `<file>`-only package runs end to end in Dolphin (section 17); created files pass in Dolphin (section 18); `<folder>`, `<memory>` open** |
 | G5 product | GUI: detect inserted disc, filter XMLs, options UI, persist choices per game, preflight report, launch; `<savegame>` policy; NOTICE/README/compat matrix | repeatable launches on 3+ titles, documented limitations |
 | G6 storage | USB for in-game reads: resident USB mass-storage client (decide OHCI-under-game-IOS vs. alternatives first), USB+FAT32, then a read-only NTFS resolver (own code preferred over the GX binary, see 4.5) | mod on a USB stick plays on hardware; NTFS stick likewise |
 
@@ -662,7 +662,7 @@ buffer is supplied from the table, gaps included (zero).
   for Mario Kart Wii; the arena end moved from 0x935d0000 to 0x935c0000).
   Large files belong to E4 (SD-backed), not to memory.
 - Created files (new FST entries) change the FST's size and need the
-  data-header substitution; not done yet.
+  data-header substitution; done in section 18.
 - `grow` reads the whole SD file into the loader's heap first.
 
 ### 14.3 agy review of the E2/E3 code (evaluated 2026-09-19)
@@ -772,7 +772,7 @@ using a half-filled buffer. The C code settles the result the game sees
 
 ### 15.3 What E4 does not cover yet
 - Created files: the FST grows, so the data header the apploader loads
-  must be substituted as the FST is (section 14).
+  must be substituted as the FST is (done, section 18).
 - Cards IOS refuses at boot (the host-controller reset dance in libogc).
 
 ## 16. E7 outcome: the disc's own bytes through the runtime (conductor, 2026-09-19)
@@ -826,13 +826,61 @@ attempt patched `config.txt` with UTF-16 garbage and the Home Menu code
 crashed parsing it, which is what applying that patch should do.)
 
 ### 17.1 Open for G4/G5
-- Created files (`create="true"`, `<folder create>`): the FST grows, so
-  the data header the apploader loads at partition offset 0x420 must be
-  substituted along with the FST, and the entry added (`Fst::add_file`
-  exists on the host).
+- Created files (`create="true"`): done, section 18. `<folder create>`
+  waits for `<folder>` expansion.
 - `<folder>` expansion (host side not written), `<memory>` patches (a
   loader-side write after the apploader, before the jump), `<savegame>`.
 - Option choices: the autorun uses the package defaults; the GUI (G5)
   must present sections/options/choices and pass the selection.
 - Hardware: sections 12-17 all rest on Dolphin; the hardware
   assumptions are listed in 15.2.
+
+## 18. E6 outcome: created files (conductor, 2026-09-19)
+
+A `<file create="true">` whose disc path does not exist now works end to
+end, on top of section 17's pipeline.
+
+### 18.1 Mechanism
+- `Fst::create_file(path, offset, size)` (host-tested) adds the file and
+  every missing directory on its path; existing directories match
+  case-insensitively, as the SDK resolves paths, and a bad path leaves
+  the table untouched. `compile_package` lets a missing disc file
+  through when the first patch of its group has `create`, applies the
+  patches to an empty file (which `apply_patches` already did on the
+  host), gives the result a slot in the virtual window and emits an
+  `FstRelocation` with `create` set.
+- With a creation the boot cannot patch the FST image in place: it
+  rebuilds the table (`Fst::serialize`, padded to 32 bytes) at the same
+  partition offset, so the bytes after the original table must be free.
+  The loader checks the grown range against the DOL image and every
+  file the game still reads from the disc (relocated ones live in the
+  window) and refuses otherwise. Mario Kart Wii has 1.5 GB of free space
+  after its FST; a disc whose first file follows its FST directly would
+  need the table itself moved into the window, which is not written.
+- The apploader learns the FST's size from the partition data header it
+  loads first (`load 0x812019c0 <- 32 bytes from word 0x00000108`, the
+  fields at 0x420). The loader's overlay of apploader loads is now a
+  list: the 16 encoded fields (`encode_partition_data_fields`,
+  host-tested to round-trip through the parser: `fst_size` = the new
+  size, `fst_max_size` raised to it when smaller) and the rebuilt FST.
+  Both are also served as MEM replacements should the game read them
+  again.
+
+### 18.2 Dolphin run
+The section 17 package plus `/hbm/created.txt` (35 bytes, from the
+config.txt dump) and `/riftwii/e6/created.csv` (7770 bytes, two new
+directories):
+- `FST: 2 file(s) created, 63592 -> 63680 bytes (max 63592 -> 63680)`;
+  `data header bytes 0x0-0x10 replaced`; the apploader then loads the
+  table 64 bytes lower (`load 0x817f0740 <- 63680 bytes`) and its own
+  8 KiB buffer moves down by the same 64 bytes, which is the apploader
+  acting on the substituted size.
+- The three checksums of section 17 are unchanged (`English.szs`, read
+  after the shifted entries, `home.csv` from the window, `config.txt`),
+  1762 game reads match Dolphin's DI log, no fault.
+
+### 18.3 Open
+- `<folder create>` (with `<folder>` expansion), and the FST-in-window
+  fallback above if a disc ever needs it.
+- The game never opens the created files here (nothing in Mario Kart
+  Wii asks for them); a mod that does is the real test, on hardware.
