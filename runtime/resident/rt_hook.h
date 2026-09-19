@@ -68,6 +68,7 @@ extern "C" {
 
 /* rt_context.flags */
 #define RT_FLAG_GECKO 0x1u /* report DI reads over the USB Gecko in EXI channel gecko_channel */
+#define RT_FLAG_FS 0x2u    /* route synchronous savegame calls through rtfs (slice 4B2) */
 
 #define RT_MAX_PENDING 4u /* outstanding redirected reads (the DVD driver issues one at a time) */
 #define RT_MAX_RUNS 8u    /* pieces one read may split into; more passes through unmodified */
@@ -150,6 +151,16 @@ struct rt_pending {
     rt_run runs[RT_MAX_RUNS];        /* offset 0xE0 */
 };
 
+/* Savegame FS interception state (slice 4B2). Lives in a loader-owned
+ * block (MEM2 data area on the console) so struct rt_context stays 2048
+ * bytes; the context holds only a pointer. The bounce buffer is 32-byte
+ * aligned for the SD path's DMA. */
+struct rt_fs_state {
+    struct rtfs_context fs;
+    struct rtfs_request req;
+    uint8_t bounce[2048] __attribute__((aligned(32)));
+};
+
 /* 2048 bytes. */
 struct rt_context {
     uint32_t magic;               /* RT_CONTEXT_MAGIC (non-zero so the struct lives in .data) */
@@ -185,7 +196,10 @@ struct rt_context {
     uint32_t di_read_entry;       /* the unhooked IOS_IoctlAsync: the blob's replay slot */
     uint32_t disc_requests;       /* DVDLowReads issued for DISC runs */
     uint32_t disc_failures;       /* of those, refused or failed */
-    uint32_t reserved[3];
+    /* Savegame FS interception (loader-filled). */
+    uint32_t fs_state;            /* struct rt_fs_state*, 0 = none */
+    uint32_t fs_hijacked;         /* synchronous FS calls answered from the card image */
+    uint32_t reserved;
     struct rt_pending pending[RT_MAX_PENDING];
 };
 
@@ -200,9 +214,10 @@ struct rt_context {
  */
 int rt_on_ioctl_async(struct rt_context* ctx, uintptr_t* args, uint32_t* result);
 
-/* Common entry used by all fourteen wrappers.  4A preserves the legacy DI
- * path by dispatching only async IOS_Ioctl (entry RT_IPC_ASYNC_IOCTL); the
- * remaining entries deliberately replay their original SDK code. */
+/* Common entry used by all fourteen wrappers. Async IOS_Ioctl keeps the
+ * legacy DI path (entry RT_IPC_ASYNC_IOCTL); the seven synchronous entries
+ * route savegame calls through rtfs when RT_FLAG_FS is set (slice 4B2);
+ * every other entry replays its original SDK code. */
 int rt_on_ipc(struct rt_context* ctx, uint32_t entry_index, uintptr_t* args, uint32_t* result);
 
 /* Converts a v3 SDK hook's saved r3..r10 images into the target-width IOS
@@ -232,6 +247,11 @@ extern int32_t (*rt_host_ioctlv_async)(uint32_t fd, uint32_t ioctl, uint32_t in_
                                        struct rt_ioctlv* vec, uint32_t callback, struct rt_pending* record);
 extern int32_t (*rt_host_ioctl_async)(uint32_t fd, uint32_t ioctl, uint32_t* in, uint32_t in_len, uint32_t out,
                                       uint32_t out_len, uint32_t callback, struct rt_pending* record);
+/* Host stand-in for the SD transfer behind synchronous FS interception:
+ * moves io_count 512-byte blocks at lba to/from the 32-bit buffer address
+ * (tests point it below 4 GiB), 0 on success. When null (and always on the
+ * console in slice 4B2) a transfer-needing request replays instead. */
+extern int32_t (*rt_host_fs_transfer)(uint32_t lba, uint32_t count, uint32_t buffer, uint32_t is_write);
 #endif
 
 #ifdef __cplusplus

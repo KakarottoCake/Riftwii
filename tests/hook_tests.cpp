@@ -4,6 +4,7 @@
 #include "riftwii/symsearch.hpp"
 #include "rt_hook.h"
 #include "rtable.h"
+#include "fat32_image.hpp"
 
 #include <cstring>
 #include <iostream>
@@ -534,6 +535,187 @@ static void TestFsIpcTranslation() {
     for (const std::uint8_t* p = reinterpret_cast<const std::uint8_t*>(&bad); p != reinterpret_cast<const std::uint8_t*>(&bad) + sizeof(bad); ++p)
         EXPECT_EQ(*p, 0u);
     EXPECT_FALSE(rt_build_fs_ipc(0, args, nullptr));
+}
+
+// ---- synchronous savegame interception (slice 4B2) -------------------------
+
+namespace {
+
+std::uint32_t FsAddr(const void* p) { return static_cast<std::uint32_t>(reinterpret_cast<std::uintptr_t>(p)); }
+
+struct FsCard {
+    fatimg::Image image{512, 2, 0};
+    std::uint32_t transfers = 0;
+    int transfer(std::uint32_t lba, std::uint32_t count, std::uint32_t buffer, std::uint32_t is_write) {
+        ++transfers;
+        const std::uint64_t at = std::uint64_t(lba) * 512;
+        const std::uint64_t bytes = std::uint64_t(count) * 512;
+        if (count == 0 || at + bytes > image.bytes.size()) return -1;
+        auto* p = reinterpret_cast<std::uint8_t*>(static_cast<std::uintptr_t>(buffer));
+        if (is_write) std::memcpy(image.bytes.data() + at, p, static_cast<std::size_t>(bytes));
+        else std::memcpy(p, image.bytes.data() + at, static_cast<std::size_t>(bytes));
+        return 0;
+    }
+};
+FsCard* g_fs_card = nullptr;
+std::int32_t FsTransfer(std::uint32_t lba, std::uint32_t count, std::uint32_t buffer, std::uint32_t is_write) {
+    if (!g_fs_card) return -1;
+    return g_fs_card->transfer(lba, count, buffer, is_write);
+}
+
+void FsCopyPath(std::uint8_t* out, const std::string& path) {
+    std::memset(out, 0, RTFS_PATH_BYTES);
+    std::memcpy(out, path.c_str(), path.size());
+}
+
+}  // namespace
+
+static void TestFsSyncIntercept() {
+    std::uint8_t* low = LowBuffer(0x10000);
+    if (!low) {
+        std::cerr << "note: no 32-bit addressable buffer on this host, skipping the FS intercept drive" << std::endl;
+        return;
+    }
+    // Card image: save directory at cluster 3 holding SAVE BIN (2 clusters
+    // of known bytes), mirroring the rtfs test fixture's shape.
+    FsCard card;
+    const std::uint32_t kClusterBytes = card.image.cluster_bytes();
+    fatimg::Bytes content(kClusterBytes + 37);
+    for (std::size_t i = 0; i < content.size(); ++i) content[i] = static_cast<std::uint8_t>(i * 7 + 3);
+    card.image.write_data({10, 11}, content);
+    fatimg::Bytes dir;
+    fatimg::Bytes save = fatimg::short_entry("SAVE    BIN", 0x20, 10, static_cast<std::uint32_t>(content.size()), 0x18);
+    dir.insert(dir.end(), save.begin(), save.end());
+    EXPECT_TRUE(card.image.write_dir({3}, dir));
+
+    rtfat_volume volume{};
+    volume.sectors_per_cluster = card.image.spc;
+    volume.fat_lba = card.image.reserved;
+    volume.fat_count = card.image.fats;
+    volume.fat_sectors = card.image.fat_sectors;
+    volume.data_lba = static_cast<std::uint32_t>(card.image.data_start_sector());
+    volume.cluster_count = card.image.clusters;
+    volume.dir_cluster = 3;
+    volume.alloc_hint = 13;
+
+    // Game memory below 4 GiB: interception state, path strings, file data.
+    // Every pointer the engine touches must live down here: it addresses
+    // memory through 32-bit fields, so a stack buffer would truncate.
+    auto* st = reinterpret_cast<rt_fs_state*>(low);
+    std::uint8_t* path = low + 0x3000;
+    std::uint8_t* data = low + 0x4000;
+    auto* out = reinterpret_cast<std::uint32_t*>(low + 0x5000);
+    out[0] = 0; out[1] = 0;
+    std::memset(st, 0, sizeof(*st));
+    const std::string prefix = "/title/00010000/524d4345/data";
+    EXPECT_EQ(rtfs_init(&st->fs, &volume, prefix.c_str(), -1), RTFAT_OK);
+
+    rt_context ctx{};
+    ctx.magic = RT_CONTEXT_MAGIC;
+    ctx.flags = RT_FLAG_FS;
+    ctx.fs_state = FsAddr(st);
+    g_fs_card = &card;
+    rt_host_fs_transfer = FsTransfer;
+
+    std::uintptr_t args[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+    std::uint32_t result = 0xDEADu;
+    const std::uint32_t hijacked0 = ctx.fs_hijacked;
+
+    // Open the save file: hijacked with a fake fd, and the lookup needed
+    // card transfers (the NEEDS_IO drive ran, not just an immediate answer).
+    FsCopyPath(path, prefix + "/save.bin");
+    const std::uint32_t transfers0 = card.transfers;
+    args[0] = FsAddr(path); args[1] = 3;
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(1), args, &result), 1);
+    EXPECT_TRUE(static_cast<std::int32_t>(result) >= static_cast<std::int32_t>(RTFS_FD_BASE));
+    EXPECT_TRUE(card.transfers > transfers0);
+    EXPECT_EQ(ctx.fs_hijacked, hijacked0 + 1u);
+    const std::uint32_t fd = result;
+
+    // Read it back through the dispatcher: bytes match the card image.
+    std::memset(data, 0xEE, 512);
+    args[0] = fd; args[1] = FsAddr(data); args[2] = 64;
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(3), args, &result), 1);
+    EXPECT_EQ(result, 64u);
+    EXPECT_TRUE(std::memcmp(data, content.data(), 64) == 0);
+
+    // The read left the position at 64, so seek home, overwrite through the
+    // dispatcher, seek home again, read back: the write stuck.
+    args[0] = fd; args[1] = 0; args[2] = 0;
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(5), args, &result), 1);
+    EXPECT_EQ(result, 0u);
+    for (int i = 0; i < 16; ++i) data[i] = static_cast<std::uint8_t>(0xC0 + i);
+    args[0] = fd; args[1] = FsAddr(data); args[2] = 16;
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(4), args, &result), 1);
+    EXPECT_EQ(result, 16u);
+    args[0] = fd; args[1] = 0; args[2] = 0;
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(5), args, &result), 1);
+    EXPECT_EQ(result, 0u);
+    std::memset(data, 0, 16);
+    args[0] = fd; args[1] = FsAddr(data); args[2] = 16;
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(3), args, &result), 1);
+    EXPECT_EQ(result, 16u);
+    for (int i = 0; i < 16; ++i) EXPECT_EQ(data[i], static_cast<std::uint8_t>(0xC0 + i));
+
+    // File stats through the fake-fd ioctl: size and position.
+    args[0] = fd; args[1] = 0x0B; args[2] = 0; args[3] = 0; args[4] = FsAddr(out); args[5] = 8;
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(6), args, &result), 1);
+    EXPECT_EQ(result, 0u);
+    EXPECT_EQ(out[0], static_cast<std::uint32_t>(content.size()));
+    EXPECT_EQ(out[1], 16u);
+
+    // Close, then read-after-close fails from the dispatcher, not the card.
+    args[0] = fd;
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(2), args, &result), 1);
+    EXPECT_EQ(result, 0u);
+    args[0] = fd; args[1] = FsAddr(data); args[2] = 16;
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(3), args, &result), 1);
+    EXPECT_TRUE(static_cast<std::int32_t>(result) < 0);
+
+    // Missing file: hijacked NOT_FOUND, never replayed.
+    FsCopyPath(path, prefix + "/gone.bin");
+    args[0] = FsAddr(path); args[1] = 3;
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(1), args, &result), 1);
+    EXPECT_EQ(static_cast<std::int32_t>(result), RTFAT_ENOENT);
+
+    // Outside the prefix: replayed untouched.
+    FsCopyPath(path, "/title/00010000/524d4541/data/save.bin");
+    args[0] = FsAddr(path); args[1] = 3;
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(1), args, &result), 0);
+    FsCopyPath(path, "/dev/fs");
+    args[0] = FsAddr(path); args[1] = 3;
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(1), args, &result), 0);
+
+    // An ISFS ioctl on a real fd replays in 4B2 (fd learning is 4B3's work).
+    args[0] = 5; args[1] = 0x09; args[2] = FsAddr(path); args[3] = 64; args[4] = 0; args[5] = 0;
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(6), args, &result), 0);
+
+    // Async forms still replay in 4B2, even for in-prefix paths.
+    FsCopyPath(path, prefix + "/save.bin");
+    args[0] = FsAddr(path); args[1] = 3; args[2] = 0x80001000; args[3] = 0x80002000;
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC(1), args, &result), 0);
+
+    // Flag off: replay. No state block: replay.
+    ctx.flags = 0;
+    args[0] = FsAddr(path); args[1] = 3;
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(1), args, &result), 0);
+    ctx.flags = RT_FLAG_FS;
+    ctx.fs_state = 0;
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(1), args, &result), 0);
+    ctx.fs_state = FsAddr(st);
+
+    // Busy engine (a re-entrant arrival): hijacked access error, then recovery.
+    st->fs.busy = 1;
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(1), args, &result), 1);
+    EXPECT_EQ(static_cast<std::int32_t>(result), RTFAT_EACCESS);
+    st->fs.busy = 0;
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(1), args, &result), 1);
+    EXPECT_TRUE(static_cast<std::int32_t>(result) >= static_cast<std::int32_t>(RTFS_FD_BASE));
+    args[0] = result;
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(2), args, &result), 1);
+
+    rt_host_fs_transfer = nullptr;
+    g_fs_card = nullptr;
 }
 
 static void TestResidentHandler() {
@@ -1229,6 +1411,7 @@ int main() {
     TestSymbolSearch();
     TestIpcApiSearch();
     TestFsIpcTranslation();
+    TestFsSyncIntercept();
     TestResidentHandler();
     TestPayloadAndRedirect();
     TestVirtualWindow();

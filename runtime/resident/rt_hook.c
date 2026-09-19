@@ -83,6 +83,78 @@ int rt_build_fs_ipc(uint32_t entry_index, const uintptr_t* args, struct rtfs_ipc
     return 1;
 }
 
+/* Synchronous savegame interception (slice 4B2). Translates the SDK call,
+ * runs it against the card image when it targets the save folder, and
+ * hijacks the caller with the result. Returns 0 to replay the original.
+ *
+ * Safety notes: every rtfs begin path classifies before mutating, so a
+ * PASS_THROUGH replay changes nothing; the engine's busy rule turns a
+ * re-entrant arrival into an immediate error, which is hijacked, never
+ * replayed; a transfer-needing request replays only when no transfer has
+ * run yet (no backend on the console in 4B2), otherwise an engine anomaly
+ * hijacks an I/O error rather than risking a half-applied NAND replay. */
+static int rt_fs_transfer(struct rt_fs_state* st) {
+    struct rtfat_op* op = &st->req.fat;
+#ifdef RT_TARGET_PPC
+    (void)st;
+    (void)op;
+    return 0;
+#else
+    if (rt_host_fs_transfer == 0) return 0;
+    op->io_status = rt_host_fs_transfer(op->io_lba, op->io_count, op->io_buffer, op->io_write);
+    return 1;
+#endif
+}
+
+static int rt_on_sync_fs(struct rt_context* ctx, uint32_t entry_index, uintptr_t* args, uint32_t* result) {
+    struct rtfs_ipc ipc;
+    struct rt_fs_state* st;
+    struct rtfs_request* req;
+    uint32_t guard;
+    if ((ctx->flags & RT_FLAG_FS) == 0) return 0;
+    if (!rt_build_fs_ipc(entry_index, args, &ipc)) return 0;
+    if (ctx->fs_state == 0) return 0;
+    st = (struct rt_fs_state*)(uintptr_t)ctx->fs_state;
+    req = &st->req;
+    req->fat.bounce = (uint32_t)(uintptr_t)st->bounce;
+    req->fat.bounce_bytes = (uint32_t)sizeof(st->bounce);
+    rtfs_begin(&st->fs, req, &ipc);
+    if (req->classification == RTFS_PASS_THROUGH) return 0;
+    if (req->classification != RTFS_NEEDS_IO) {
+        *result = (uint32_t)req->result;
+        ctx->fs_hijacked++;
+        return 1;
+    }
+    for (guard = 0; guard < ((uint32_t)1 << 20); ++guard) {
+        const int step = rtfs_step(&st->fs, req);
+        if (step == RTFAT_DONE) break;
+        if (step != RTFAT_IO) {
+            /* Engine anomaly after possible partial writes: report I/O
+             * error rather than replaying half-applied state to NAND. The
+             * request stays active, so later calls fail closed with -102. */
+            *result = (uint32_t)RTFAT_EIO;
+            ctx->fs_hijacked++;
+            return 1;
+        }
+        if (!rt_fs_transfer(st)) {
+            /* No backend (console in 4B2): replay. The begin above only
+             * classifies and no transfer has run, but it did take the
+             * engine's busy flag, which must be released first. */
+            st->fs.busy = 0;
+            req->active = 0;
+            return 0;
+        }
+    }
+    if (guard >= ((uint32_t)1 << 20)) {
+        *result = (uint32_t)RTFAT_EIO;
+        ctx->fs_hijacked++;
+        return 1;
+    }
+    *result = (uint32_t)req->result;
+    ctx->fs_hijacked++;
+    return 1;
+}
+
 /* --- console-only pieces: EXI/USB Gecko, caches, interrupts, IPC -------- */
 #ifdef RT_TARGET_PPC
 /* EXI register block (Wii: 0xCD006800), five words per channel:
@@ -185,7 +257,8 @@ static int32_t rt_di_read_async(struct rt_context* ctx, struct rt_pending* recor
 int32_t (*rt_host_ioctlv_async)(uint32_t fd, uint32_t ioctl, uint32_t in_count, uint32_t out_count,
                                 struct rt_ioctlv* vec, uint32_t callback, struct rt_pending* record) = 0;
 int32_t (*rt_host_ioctl_async)(uint32_t fd, uint32_t ioctl, uint32_t* in, uint32_t in_len, uint32_t out,
-                               uint32_t out_len, uint32_t callback, struct rt_pending* record) = 0;
+                                uint32_t out_len, uint32_t callback, struct rt_pending* record) = 0;
+int32_t (*rt_host_fs_transfer)(uint32_t lba, uint32_t count, uint32_t buffer, uint32_t is_write) = 0;
 static int32_t rt_di_read_async(struct rt_context* ctx, struct rt_pending* record, uint32_t length) {
     if (ctx->di_read_entry == 0 || rt_host_ioctl_async == 0) return -1;
     return rt_host_ioctl_async(ctx->di_fd, RT_DI_READ, record->di_command, 0x20, record->bounce, length,
@@ -220,6 +293,17 @@ static void rt_gecko_hex(struct rt_context* ctx, uint32_t value) {
 }
 
 /* Own copies: the blob links against nothing. */
+#ifdef RT_TARGET_PPC
+/* The compiler lowers some struct copies in the FAT engine to memcpy even
+ * with -fno-builtin, so the blob provides it. PPC-only: host builds use
+ * libc, where a second definition would collide at the link. */
+void* memcpy(void* dst, const void* src, __SIZE_TYPE__ n) {
+    uint8_t* d = (uint8_t*)dst;
+    const uint8_t* s = (const uint8_t*)src;
+    while (n--) *d++ = *s++;
+    return dst;
+}
+#endif
 static void rt_copy(uint8_t* dst, const uint8_t* src, uint32_t n) {
     while (n--) *dst++ = *src++;
 }
@@ -337,6 +421,7 @@ int rt_on_ioctl_async(struct rt_context* ctx, uintptr_t* args, uint32_t* result)
 
 int rt_on_ipc(struct rt_context* ctx, uint32_t entry_index, uintptr_t* args, uint32_t* result) {
     if (entry_index == RT_IPC_ASYNC_IOCTL) return rt_on_ioctl_async(ctx, args, result);
+    if (entry_index >= RT_IPC_COMMANDS) return rt_on_sync_fs(ctx, entry_index, args, result);
     return 0;
 }
 

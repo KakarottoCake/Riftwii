@@ -1298,3 +1298,25 @@ enabled in this checkpoint.
 argument forms into the common `rtfs_ipc` record without dereferencing
 game memory or changing dispatch behavior.  This is translation only:
 no filesystem hook is installed and no SD I/O is issued in 4B1.
+
+### 24.10 Slice 4B2 checkpoint (2026-09-19)
+The seven synchronous entries now intercept savegame calls.  With
+`RT_FLAG_FS` set and a loader-owned `rt_fs_state` block installed, the
+dispatcher translates the call, runs `rtfs_begin` speculatively (every
+begin path classifies before mutating, so a pass-through replay changes
+nothing), hijacks immediately-completing requests with their result, and
+drives transfer-needing ones through a backend hook to completion before
+hijacking.  The state block lives outside the 2048-byte context (a
+pointer plus a counter took two of its reserved words), so the blob ABI
+stays v3.  Async entries still replay; ISFS ioctls on real fds replay
+until 4B3 learns the `/dev/fs` fd.  A transfer-needing request replays
+only when no transfer has run (the console has no backend in 4B2, and
+the begin took the engine's busy flag, which is released first);
+anything else anomalous hijacks an I/O error rather than replaying
+half-applied state.  Host `hook_tests` drive open/read/write/seek/
+close/stats through the dispatcher against an in-memory card image,
+plus replay, gate, and busy cases.  Blob build needed two consequence
+fixes: `rtfs.o` joined `Makefile.runtime`, and the blob provides its own
+`memcpy` (PPC-only; the compiler lowers FAT-engine struct copies to it
+even with `-fno-builtin`).  Blob 10304 to 26656 bytes; placement is by
+`blob_size`, nothing hard-codes it.
