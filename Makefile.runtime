@@ -30,7 +30,7 @@ CFLAGS  := -O2 -mcpu=750 -meabi -msoft-float -msdata=none \
 # validator and CRC only run in the loader; the host tests use the rest).
 LDFLAGS := -nostdlib -nostartfiles -static -Wl,--build-id=none -Wl,--gc-sections -T $(SRC)/rt.ld
 
-OBJS    := $(OUT)/rt_entry.o $(OUT)/rt_hook.o $(OUT)/rtable.o
+OBJS    := $(OUT)/rt_entry.o $(OUT)/rt_hook.o $(OUT)/rtable.o $(OUT)/rtfat.o
 
 .PHONY: all clean
 all: $(BLOB)
@@ -45,6 +45,9 @@ $(OUT)/rt_hook.o: $(SRC)/rt_hook.c $(SRC)/rt_hook.h runtime/rtable.h | $(OUT)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 $(OUT)/rtable.o: runtime/rtable.c runtime/rtable.h | $(OUT)
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(OUT)/rtfat.o: runtime/rtfat.c runtime/rtfat.h | $(OUT)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 $(OUT)/riftwii_rt.elf: $(OBJS) $(SRC)/rt.ld
