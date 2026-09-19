@@ -41,7 +41,7 @@ $(OUT):
 $(OUT)/rt_entry.o: $(SRC)/rt_entry.S $(SRC)/rt_hook.h | $(OUT)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-$(OUT)/rt_hook.o: $(SRC)/rt_hook.c $(SRC)/rt_hook.h runtime/rtable.h | $(OUT)
+$(OUT)/rt_hook.o: $(SRC)/rt_hook.c $(SRC)/rt_hook.h runtime/rtable.h runtime/rtfs.h runtime/rtfat.h | $(OUT)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 $(OUT)/rtable.o: runtime/rtable.c runtime/rtable.h | $(OUT)

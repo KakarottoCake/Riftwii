@@ -46,6 +46,7 @@
 #include <stdint.h>
 
 #include "rtable.h"
+#include "rtfs.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -203,6 +204,11 @@ int rt_on_ioctl_async(struct rt_context* ctx, uintptr_t* args, uint32_t* result)
  * path by dispatching only async IOS_Ioctl (entry RT_IPC_ASYNC_IOCTL); the
  * remaining entries deliberately replay their original SDK code. */
 int rt_on_ipc(struct rt_context* ctx, uint32_t entry_index, uintptr_t* args, uint32_t* result);
+
+/* Converts a v3 SDK hook's saved r3..r10 images into the target-width IOS
+ * request layout.  Translation only: it neither reads game memory nor
+ * invokes rtfs. */
+int rt_build_fs_ipc(uint32_t entry_index, const uintptr_t* args, struct rtfs_ipc* out);
 
 /*
  * Called by the completion entry with the IPC result (in/out: what the

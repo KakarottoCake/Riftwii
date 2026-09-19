@@ -32,6 +32,57 @@ uint32_t rt_checksum(const uint8_t* bytes, uint32_t length) {
     return h;
 }
 
+static void rt_zero_bytes(uint8_t* dst, uint32_t bytes) {
+    while (bytes--) *dst++ = 0;
+}
+
+int rt_build_fs_ipc(uint32_t entry_index, const uintptr_t* args, struct rtfs_ipc* out) {
+    const uint32_t command = entry_index % RT_IPC_COMMANDS + 1u;
+    const int async = entry_index < RT_IPC_COMMANDS;
+    if (out == 0) return 0;
+    rt_zero_bytes((uint8_t*)out, (uint32_t)sizeof(*out));
+    if (args == 0 || entry_index >= RT_IPC_ENTRIES) return 0;
+    out->command = command;
+    if (command == RTFS_CMD_OPEN) {
+        out->args.open.path = (uint32_t)args[0];
+        out->args.open.mode = (uint32_t)args[1];
+        if (async) { out->callback = (uint32_t)args[2]; out->user_data = (uint32_t)args[3]; }
+        return 1;
+    }
+    out->fd = (int32_t)(uint32_t)args[0];
+    if (command == RTFS_CMD_CLOSE) {
+        if (async) { out->callback = (uint32_t)args[1]; out->user_data = (uint32_t)args[2]; }
+        return 1;
+    }
+    if (command == RTFS_CMD_READ || command == RTFS_CMD_WRITE) {
+        out->args.readwrite.data = (uint32_t)args[1];
+        out->args.readwrite.length = (uint32_t)args[2];
+        if (async) { out->callback = (uint32_t)args[3]; out->user_data = (uint32_t)args[4]; }
+        return 1;
+    }
+    if (command == RTFS_CMD_SEEK) {
+        out->args.seek.where = (int32_t)(uint32_t)args[1];
+        out->args.seek.whence = (uint32_t)args[2];
+        if (async) { out->callback = (uint32_t)args[3]; out->user_data = (uint32_t)args[4]; }
+        return 1;
+    }
+    if (command == RTFS_CMD_IOCTL) {
+        out->args.ioctl.request = (uint32_t)args[1];
+        out->args.ioctl.in = (uint32_t)args[2];
+        out->args.ioctl.in_len = (uint32_t)args[3];
+        out->args.ioctl.out = (uint32_t)args[4];
+        out->args.ioctl.out_len = (uint32_t)args[5];
+        if (async) { out->callback = (uint32_t)args[6]; out->user_data = (uint32_t)args[7]; }
+        return 1;
+    }
+    out->args.ioctlv.request = (uint32_t)args[1];
+    out->args.ioctlv.in_count = (uint32_t)args[2];
+    out->args.ioctlv.out_count = (uint32_t)args[3];
+    out->args.ioctlv.vectors = (uint32_t)args[4];
+    if (async) { out->callback = (uint32_t)args[5]; out->user_data = (uint32_t)args[6]; }
+    return 1;
+}
+
 /* --- console-only pieces: EXI/USB Gecko, caches, interrupts, IPC -------- */
 #ifdef RT_TARGET_PPC
 /* EXI register block (Wii: 0xCD006800), five words per channel:

@@ -1292,3 +1292,9 @@ Ioctlv at entries 7--13.  The common dispatcher preserves the existing
 async-Ioctl DI path and replays the other entries.  The loader still
 installs only the legacy async-Ioctl hook; filesystem interception is not
 enabled in this checkpoint.
+
+### 24.9 Slice 4B1 checkpoint (2026-09-19)
+`rt_build_fs_ipc` now translates each of the fourteen saved SDK IPC
+argument forms into the common `rtfs_ipc` record without dereferencing
+game memory or changing dispatch behavior.  This is translation only:
+no filesystem hook is installed and no SD I/O is issued in 4B1.

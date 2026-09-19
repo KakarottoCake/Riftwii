@@ -473,6 +473,69 @@ static void TestSymbolSearch() {
 
 // ---- resident C code (compiled for the host) ------------------------------
 
+static void TestFsIpcTranslation() {
+    const std::uintptr_t args[8] = {0x11111111u, 0x22222222u, 0x33333333u, 0x44444444u,
+                                    0x55555555u, 0x66666666u, 0x77777777u, 0x88888888u};
+    for (std::uint32_t entry = 0; entry < RT_IPC_ENTRIES; ++entry) {
+        const std::uint32_t command = entry % RT_IPC_COMMANDS + 1u;
+        const bool async = entry < RT_IPC_COMMANDS;
+        rtfs_ipc ipc{};
+        EXPECT_TRUE(rt_build_fs_ipc(entry, args, &ipc));
+        EXPECT_EQ(ipc.command, command);
+        if (command == RTFS_CMD_OPEN) {
+            EXPECT_EQ(ipc.args.open.path, 0x11111111u);
+            EXPECT_EQ(ipc.args.open.mode, 0x22222222u);
+            EXPECT_EQ(ipc.callback, async ? 0x33333333u : 0u);
+            EXPECT_EQ(ipc.user_data, async ? 0x44444444u : 0u);
+        } else {
+            EXPECT_EQ(static_cast<std::uint32_t>(ipc.fd), 0x11111111u);
+            if (command == RTFS_CMD_CLOSE) {
+                EXPECT_EQ(ipc.callback, async ? 0x22222222u : 0u);
+                EXPECT_EQ(ipc.user_data, async ? 0x33333333u : 0u);
+            } else if (command == RTFS_CMD_READ || command == RTFS_CMD_WRITE) {
+                EXPECT_EQ(ipc.args.readwrite.data, 0x22222222u);
+                EXPECT_EQ(ipc.args.readwrite.length, 0x33333333u);
+                EXPECT_EQ(ipc.callback, async ? 0x44444444u : 0u);
+                EXPECT_EQ(ipc.user_data, async ? 0x55555555u : 0u);
+            } else if (command == RTFS_CMD_SEEK) {
+                EXPECT_EQ(static_cast<std::uint32_t>(ipc.args.seek.where), 0x22222222u);
+                EXPECT_EQ(ipc.args.seek.whence, 0x33333333u);
+                EXPECT_EQ(ipc.callback, async ? 0x44444444u : 0u);
+                EXPECT_EQ(ipc.user_data, async ? 0x55555555u : 0u);
+            } else if (command == RTFS_CMD_IOCTL) {
+                EXPECT_EQ(ipc.args.ioctl.request, 0x22222222u);
+                EXPECT_EQ(ipc.args.ioctl.in, 0x33333333u);
+                EXPECT_EQ(ipc.args.ioctl.in_len, 0x44444444u);
+                EXPECT_EQ(ipc.args.ioctl.out, 0x55555555u);
+                EXPECT_EQ(ipc.args.ioctl.out_len, 0x66666666u);
+                EXPECT_EQ(ipc.callback, async ? 0x77777777u : 0u);
+                EXPECT_EQ(ipc.user_data, async ? 0x88888888u : 0u);
+            } else {
+                EXPECT_EQ(ipc.args.ioctlv.request, 0x22222222u);
+                EXPECT_EQ(ipc.args.ioctlv.in_count, 0x33333333u);
+                EXPECT_EQ(ipc.args.ioctlv.out_count, 0x44444444u);
+                EXPECT_EQ(ipc.args.ioctlv.vectors, 0x55555555u);
+                EXPECT_EQ(ipc.callback, async ? 0x66666666u : 0u);
+                EXPECT_EQ(ipc.user_data, async ? 0x77777777u : 0u);
+            }
+        }
+    }
+    rtfs_ipc bad;
+    std::memset(&bad, 0xA5, sizeof(bad));
+    EXPECT_FALSE(rt_build_fs_ipc(14, args, &bad));
+    for (const std::uint8_t* p = reinterpret_cast<const std::uint8_t*>(&bad); p != reinterpret_cast<const std::uint8_t*>(&bad) + sizeof(bad); ++p)
+        EXPECT_EQ(*p, 0u);
+    std::memset(&bad, 0xA5, sizeof(bad));
+    EXPECT_FALSE(rt_build_fs_ipc(0xFFFFFFFFu, args, &bad));
+    for (const std::uint8_t* p = reinterpret_cast<const std::uint8_t*>(&bad); p != reinterpret_cast<const std::uint8_t*>(&bad) + sizeof(bad); ++p)
+        EXPECT_EQ(*p, 0u);
+    std::memset(&bad, 0xA5, sizeof(bad));
+    EXPECT_FALSE(rt_build_fs_ipc(0, nullptr, &bad));
+    for (const std::uint8_t* p = reinterpret_cast<const std::uint8_t*>(&bad); p != reinterpret_cast<const std::uint8_t*>(&bad) + sizeof(bad); ++p)
+        EXPECT_EQ(*p, 0u);
+    EXPECT_FALSE(rt_build_fs_ipc(0, args, nullptr));
+}
+
 static void TestResidentHandler() {
     rt_context ctx{};
     ctx.magic = RT_CONTEXT_MAGIC;
@@ -1165,6 +1228,7 @@ int main() {
     TestPlacement();
     TestSymbolSearch();
     TestIpcApiSearch();
+    TestFsIpcTranslation();
     TestResidentHandler();
     TestPayloadAndRedirect();
     TestVirtualWindow();
