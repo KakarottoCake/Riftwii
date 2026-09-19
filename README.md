@@ -32,9 +32,10 @@ Direction, review findings and the roadmap live in `docs/`.
   own IPC, no file system in the runtime), and the disc's own bytes for
   relocated or partially patched files. Verified in Dolphin against
   Dolphin's own DI and SD logs and by checksums of the rewritten game
-  buffers. A Riivolution-format package with `<file>` patches, including
-  created files, runs end to end this way (`wii/modplan.cpp`);
-  `<folder>` and `<memory>` patches are next.
+  buffers. A Riivolution-format package runs end to end this way
+  (`wii/modplan.cpp`): `<file>` and `<folder>` patches, including created
+  files, and `<memory>` patches (plain, search and ocarina) applied
+  before the game starts. `<savegame>` and option choices are next.
 - `vendor-pugixml`: MIT-licensed XML parser, pinned at v1.15.
 - `vendor-libgui`: pinned GPL libwiigui 1.07 snapshot, used only by the Wii
   frontend (not built by the host build).

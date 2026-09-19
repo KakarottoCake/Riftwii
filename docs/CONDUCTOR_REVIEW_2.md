@@ -282,7 +282,7 @@ E6. Newer Super Mario Bros. Wii (folder patches + memory patches) boots and
 | G1 Wii | E1 unmodified boot + file dump | video of the game running from Riftwii; dumped file byte-identical to a Dolphin extraction. **Passed in Dolphin 2026-09-18 (section 11); hardware run open** |
 | G2 Wii | E2, E3 | visible in-game evidence, binary hash + IOS + title recorded. **E2 and E3 passed in Dolphin 2026-09-19 (sections 12, 13); hardware run open** |
 | G3 host+Wii | FAT32 fragment resolver (host-tested on a synthetic image), redirect-table compiler verified against `ReadOverlay` as oracle, freestanding table walker compiled for both host and PPC, E4 | walker == oracle on randomized reads incl. straddles; E4 visible. **E4 passed in Dolphin 2026-09-19 (section 15); hardware run open** |
-| G4 Wii | FST rewrite, virtual window, `<memory>` patches, `<folder>` expansion, ordered composition; E5, E6 | Newer SMBW plays. **E5 (grown file through the virtual window) passed in Dolphin 2026-09-19 (section 14); a `<file>`-only package runs end to end in Dolphin (section 17); created files pass in Dolphin (section 18); `<folder>`, `<memory>` open** |
+| G4 Wii | FST rewrite, virtual window, `<memory>` patches, `<folder>` expansion, ordered composition; E5, E6 | Newer SMBW plays. **E5 (grown file through the virtual window) passed in Dolphin 2026-09-19 (section 14); a `<file>`-only package runs end to end in Dolphin (section 17); created files, `<folder>` and `<memory>` patches pass in Dolphin (sections 18, 19); `<savegame>` and option choices open** |
 | G5 product | GUI: detect inserted disc, filter XMLs, options UI, persist choices per game, preflight report, launch; `<savegame>` policy; NOTICE/README/compat matrix | repeatable launches on 3+ titles, documented limitations |
 | G6 storage | USB for in-game reads: resident USB mass-storage client (decide OHCI-under-game-IOS vs. alternatives first), USB+FAT32, then a read-only NTFS resolver (own code preferred over the GX binary, see 4.5) | mod on a USB stick plays on hardware; NTFS stick likewise |
 
@@ -826,10 +826,9 @@ attempt patched `config.txt` with UTF-16 garbage and the Home Menu code
 crashed parsing it, which is what applying that patch should do.)
 
 ### 17.1 Open for G4/G5
-- Created files (`create="true"`): done, section 18. `<folder create>`
-  waits for `<folder>` expansion.
-- `<folder>` expansion (host side not written), `<memory>` patches (a
-  loader-side write after the apploader, before the jump), `<savegame>`.
+- Created files (`create="true"`): done, section 18. `<folder>`
+  expansion (with `create`) and `<memory>` patches: done, section 19.
+- `<savegame>` redirection.
 - Option choices: the autorun uses the package defaults; the GUI (G5)
   must present sections/options/choices and pass the selection.
 - Hardware: sections 12-17 all rest on Dolphin; the hardware
@@ -884,3 +883,71 @@ directories):
   fallback above if a disc ever needs it.
 - The game never opens the created files here (nothing in Mario Kart
   Wii asks for them); a mod that does is the real test, on hardware.
+
+## 19. Folders and memory patches (conductor, 2026-09-19)
+
+The two remaining patch kinds of a package, both host-tested and both
+run in Dolphin with Mario Kart Wii.
+
+### 19.1 `<folder>` (riftwii/expand.hpp)
+`expand_plan` turns a plan's folder patches into file patches before
+`compile_package` groups anything, keeping document order with the
+plan's own `<file>` patches. Semantics follow the patch-format wiki:
+- A rooted `disc` pairs each file of the external folder with the disc
+  file of the same name in that directory (case-insensitive, reported
+  with the disc's spelling), walks subfolders that exist on the disc
+  when `recursive` (the default), skips what has no counterpart, or
+  creates it with `create` (missing directories included, through
+  section 18). A rooted folder that is not on the disc is an error
+  unless `create`.
+- An empty `disc` is a filename search: every external file replaces
+  every disc file of that name, anywhere; subfolders are not entered. A
+  bare name is treated the same way (the wiki gives `recursive` a
+  meaning only for rooted paths, and no meaning for a bare folder name).
+- `resize` and `length` carry over to each file.
+External entries are visited in ASCII-folded name order so the card's
+directory order never matters. `ContentProvider` gained
+`list_external`; the host `DirectoryProvider` and the Wii provider share
+a dirent lister. Every existing disc path in a package is canonicalised
+to the FST's spelling so `/HBM/x` and `/hbm/x` land in one group.
+
+Dolphin: `<folder disc="/HBM" external="/riftwii/mods/hbm"
+create="true"/>` (the E3 home.csv in place from the card and a created
+file in a new subdirectory) plus `<folder external="/riftwii/mods/loose"/>`
+holding English.szs: `M17c3f6fc:00000e20:f6a09c08`,
+`M177ea3b6:00046d80:3b553c78`, the FST grown by one entry, 1769 reads
+matching Dolphin's log.
+
+### 19.2 `<memory>` (riftwii/mempatch.hpp)
+Applied in the loader once the apploader has loaded the game and before
+the runtime is installed (so the runtime's structural search sees the
+patched code), through a `MemoryAccess` interface the host tests drive
+against a buffer. Semantics from the wiki, with Dolphin's independent
+implementation as the behavioural tie-breaker where the wiki is silent:
+- plain: `value` at `offset | 0x80000000`; with `original` given and
+  different, skipped (a note, not an error).
+- search: the first place in the regions the apploader filled (in load
+  order, `align` stride) where `original` matches gets `value`. Dolphin
+  scans all of MEM1 in a second pass after the load-time pass, which can
+  patch a second occurrence; Riftwii patches one.
+- ocarina: the first occurrence of `value` in the loaded regions, then
+  the next `blr` at or after it (4-byte steps) becomes `b offset`
+  (range-checked, no link bit).
+- `valuefile` is read while the card is mounted (1 MiB cap). Writes are
+  confined to MEM1 and to MEM2 below the arena end (the runtime's
+  reservation is carved out above it). A package with only memory
+  patches boots without the runtime.
+
+Dolphin: the OS banner strings the game prints through OSReport were
+patched three ways and Dolphin's log shows all three (`Kernel BUILT`
+by a plain write with a matching `original`; `Riftwii Type` from a
+valuefile with a prefix-less offset; `Firmware RW` by a search patch at
+stride 4); a second plain write whose `original` no longer matched was
+skipped; an ocarina patch on a unique 8-byte code pattern rewrote the
+following `blr` at 0x80012738 into `b 0x80012750` (another `blr`, so
+behaviour is unchanged) and the game ran on.
+
+### 19.3 Open
+- `<savegame>`: the only patch kind not executed.
+- Option choices and the GUI (section 17.1).
+- Hardware: nothing since section 11 has run on a console.
