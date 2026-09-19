@@ -66,7 +66,10 @@ int main() {
     if (action == MENU_BOOT) {
         riftwii::wii::LogOpen("sd:/riftwii/boot.log");
         riftwii::wii::logf("Riftwii: boot disc\n");
-        if (!riftwii::wii::RunBoot(true, error)) riftwii::wii::logf("FAILED: %s\n", error.c_str());
+        if (!riftwii::wii::RunBoot(true, error)) {
+            riftwii::wii::LogOpen("sd:/riftwii/boot.log", true);  // boot_game closed it and remounted the card
+            riftwii::wii::logf("FAILED: %s\n", error.c_str());
+        }
     } else if (action == MENU_DUMP) {
         riftwii::wii::LogOpen("sd:/riftwii/dump.log");
         riftwii::wii::logf("Riftwii: dump test files\n");

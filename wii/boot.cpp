@@ -34,6 +34,7 @@ using ApploaderClose = void (*(*)(void))(void);
 using ApploaderEntry = void (*)(ApploaderInit* init, ApploaderMain* main, ApploaderClose* close);
 
 constexpr std::uint32_t kApploaderLoadAddress = 0x81200000;
+constexpr std::uint32_t kLoaderStart = 0x80A00000;  // Makefile.wii: --section-start,.init
 constexpr std::uint32_t kMem1Start = 0x80000000;
 constexpr std::uint32_t kMem1End = 0x81800000;
 constexpr std::uint32_t kMem2Start = 0x90000000;
@@ -53,6 +54,16 @@ void apploader_report(const char* format, ...) {
 
 bool aligned32(const void* p) { return (reinterpret_cast<std::uintptr_t>(p) & 31) == 0; }
 
+// Low memory is written through the data cache, like the apploader's own
+// stores and libogc's, and flushed once before the jump. libogc's write32
+// bypasses the cache; mixing it with dirty cache lines would let the flush
+// overwrite it with stale data (Dolphin has no cache, so it would not show
+// there).
+void store32(std::uint32_t address, std::uint32_t value) {
+    *reinterpret_cast<volatile std::uint32_t*>(address) = value;
+}
+std::uint32_t load32(std::uint32_t address) { return *reinterpret_cast<volatile std::uint32_t*>(address); }
+
 // The disc id lives at 0x80000000 from the moment the drive reports it:
 // the SDK apploader looks at the Wii magic there to decide that the read
 // offsets it hands back are in 4-byte words, and the game reads its own
@@ -65,6 +76,15 @@ void publish_disc_id(const std::uint8_t id[32]) {
 bool in_ram(std::uint32_t start, std::uint32_t length) {
     const std::uint64_t end = std::uint64_t(start) + length;
     return (start >= kMem1Start && end <= kMem1End) || (start >= kMem2Start && end <= kMem2End);
+}
+
+// This loader's code, data, stack and heap all sit between the link
+// address and the top of arena 1; a game whose DOL reaches up there would
+// overwrite us while the apploader is still running.
+bool overlaps_loader(std::uint32_t start, std::uint32_t length) {
+    const std::uint64_t end = std::uint64_t(start) + length;
+    const std::uint32_t loader_end = reinterpret_cast<std::uint32_t>(SYS_GetArena1Hi());
+    return start < loader_end && end > kLoaderStart;
 }
 
 bool make_directories(const std::string& sd_path) {
@@ -105,6 +125,12 @@ bool open_game_partition(const PartitionEntry& partition, Tmd& tmd, std::int32_t
     }
     std::memset(g_tmd, 0, sizeof(g_tmd));
     if (!di::open_partition(static_cast<std::uint32_t>(partition.offset >> 2), g_tmd, sizeof(g_tmd), es_result, error)) {
+        return false;
+    }
+    if (es_result < 0) {
+        // The drive answered but ES refused the ticket/TMD: the partition
+        // key is not set up and every read would return garbage.
+        error = "ES refused the partition (ES result " + std::to_string(es_result) + ")";
         return false;
     }
     return parse_tmd(g_tmd, di::kTmdBufferBytes, tmd, error);
@@ -150,7 +176,7 @@ void configure_video_for_game(char region) {
         mode = progressive ? &TVNtsc480Prog : &TVNtsc480IntDf;
         break;
     }
-    write32(0x800000CC, reg);
+    store32(0x800000CC, reg);
     DCFlushRange(reinterpret_cast<void*>(0x800000CC), 4);
     VIDEO_Configure(mode);
     VIDEO_SetBlack(true);
@@ -311,22 +337,12 @@ bool dump_metadata(const DiscProbe& probe, const OpenedPartition& partition, con
     return true;
 }
 
-bool boot_game(const DiscProbe& probe, const BootOptions& options, std::string& error) {
-    const std::uint32_t required = probe.tmd.required_ios();
-    if (required == 0) {
-        error = "the TMD does not name an IOS";
-        return false;
-    }
-    logf("Booting %s with IOS%u\n", probe.header.game_id.c_str(), required);
+namespace {
 
-    // Everything IOS holds for us dies with the reload.
-    LogClose();
-    std::string ignored;
-    di::close_partition(ignored);
-    di::close();
-    fatUnmount("sd:");
-    __io_wiisd.shutdown();
-
+// The part of the boot that runs after the SD card and the log are gone.
+// Returns only on failure.
+bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, std::uint32_t required,
+                        std::string& error) {
     bool force_ios_fields = false;
     switch (reload_ios(static_cast<int>(required), error)) {
     case ReloadResult::Ok:
@@ -388,12 +404,19 @@ bool boot_game(const DiscProbe& probe, const BootOptions& options, std::string& 
         const std::uint32_t dest = reinterpret_cast<std::uint32_t>(destination);
         logf("  load 0x%08x <- %d bytes from word 0x%08x\n", dest, length, word_offset);
         if (length == 0) continue;  // some apploaders emit empty steps (Dolphin skips them too)
-        if (length < 0 || !in_ram(dest, static_cast<std::uint32_t>(length))) {
+        if (length < 0 || word_offset < 0 || !in_ram(dest, static_cast<std::uint32_t>(length))) {
             error = "the apploader asked for a load outside RAM";
             return false;
         }
         const std::uint32_t len = static_cast<std::uint32_t>(length);
         const std::uint32_t woff = static_cast<std::uint32_t>(word_offset);
+        if (overlaps_loader(dest, len)) {
+            char where[96];
+            std::snprintf(where, sizeof(where), "0x%08x-0x%08x overlaps the loader at 0x%08x-0x%08x", dest,
+                          dest + len, kLoaderStart, reinterpret_cast<std::uint32_t>(SYS_GetArena1Hi()));
+            error = std::string("the game's DOL section ") + where + "; relocating the loader is not implemented";
+            return false;
+        }
         bool ok;
         if (aligned32(destination) && (len & 31) == 0) {
             ok = di::read(destination, len, woff, error);
@@ -412,34 +435,67 @@ bool boot_game(const DiscProbe& probe, const BootOptions& options, std::string& 
     }
     logf("Game entry 0x%08x; handing over\n", reinterpret_cast<std::uint32_t>(game_entry));
 
-    // Low-memory globals the SDK expects from the System Menu.
+    // Low-memory globals the SDK expects from the System Menu (wiibrew
+    // memory map; Dolphin's Boot_BS2Emu and Brainslug write the same set).
+    // The apploader has just stored the FST fields (0x38/0x3C) and the IOS
+    // it expects (0x3188) through the cache; these go the same way.
     std::memcpy(reinterpret_cast<void*>(kMem1Start), probe.disc_id, 32);
-    write32(0x80000020, 0x0D15EA5E);            // boot magic
-    write32(0x80000024, 1);                     // version
-    write32(0x80000028, 0x01800000);            // MEM1 size
-    if (!running_in_dolphin()) write32(0x8000002C, 1 + (read32(0xCC00302C) >> 28));  // console type
-    write32(0x800000EC, 0x81800000);            // debug monitor location
-    write32(0x800000F0, 0x01800000);            // simulated memory size
-    write32(0x800000F8, 0x0E7BE2C0);            // bus clock
-    write32(0x800000FC, 0x2B73A840);            // CPU clock
-    write32(0x80003110, read32(0x80000038));    // FST address, second copy
+    store32(0x80000020, 0x0D15EA5E);            // boot magic
+    store32(0x80000024, 1);                     // version
+    store32(0x80000028, 0x01800000);            // MEM1 size
+    if (!running_in_dolphin()) store32(0x8000002C, 1 + (read32(0xCC00302C) >> 28));  // console type
+    store32(0x800000EC, 0x81800000);            // debug monitor location
+    store32(0x800000F0, 0x01800000);            // simulated memory size
+    store32(0x800000F8, 0x0E7BE2C0);            // bus clock
+    store32(0x800000FC, 0x2B73A840);            // CPU clock
+    store32(0x80003110, load32(0x80000038));    // FST address, second copy
     std::memcpy(reinterpret_cast<void*>(0x80003180), probe.disc_id, 4);
-    write32(0x80003184, 0x80000000);            // where the game id lives
-    write32(0x80003194, probe.partition.type);
-    write32(0x80003198, static_cast<u32>(probe.partition.offset >> 2));
+    store32(0x80003184, 0x80000000);            // where the game id lives
+    store32(0x80003194, probe.partition.type);
+    store32(0x80003198, static_cast<u32>(probe.partition.offset >> 2));
+    configure_video_for_game(probe.header.game_id.size() > 3 ? probe.header.game_id[3] : 'E');
+    DCFlushRange(reinterpret_cast<void*>(kMem1Start), 0x3400);
     if (force_ios_fields) {
-        const u32 pretended = (required << 16) | (read32(0x80003140) & 0xFFFF);
+        // Claim to be the IOS the apploader asked for (0x3188), as Brainslug
+        // does. Uncached and after the flush: 0x3140 is IOS's own field and
+        // never goes through this CPU's cache.
+        u32 pretended = read32(0x80003188);
+        if ((pretended >> 16) != required) pretended = (required << 16) | (read32(0x80003140) & 0xFFFF);
         write32(0x80003140, pretended);
         write32(0x80003188, pretended);
     }
-    configure_video_for_game(probe.header.game_id.size() > 3 ? probe.header.game_id[3] : 'E');
-    DCFlushRange(reinterpret_cast<void*>(kMem1Start), 0x3400);
     settime(secs_to_ticks(static_cast<u64>(std::time(nullptr)) - kWiiEpochOffset));
 
-    WPAD_Shutdown();
     SYS_ResetSystem(SYS_SHUTDOWN, 0, 0);
     game_entry();
     error = "the game entry point returned";
+    return false;
+}
+
+}  // namespace
+
+bool boot_game(const DiscProbe& probe, const BootOptions& options, std::string& error) {
+    const std::uint32_t required = probe.tmd.required_ios();
+    if (required == 0) {
+        error = "the TMD does not name an IOS";
+        return false;
+    }
+    logf("Booting %s with IOS%u\n", probe.header.game_id.c_str(), required);
+
+    // Everything IOS holds for us dies with the reload: the Wii Remote
+    // stack (which also saves its pairings to NAND on shutdown, so it must
+    // go while IPC is still alive), the log, DI and the SD card.
+    WPAD_Shutdown();
+    LogClose();
+    std::string ignored;
+    di::close_partition(ignored);
+    di::close();
+    fatUnmount("sd:");
+    __io_wiisd.shutdown();
+
+    boot_after_unmount(probe, options, required, error);  // returns only on failure
+    logf("Boot failed: %s\n", error.c_str());
+    fatInitDefault();  // give the caller its card back so it can log this
     return false;
 }
 

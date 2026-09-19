@@ -20,7 +20,8 @@ char g_dolphin_path[] ATTRIBUTE_ALIGN(32) = "/dev/dolphin";
 tikview g_view ATTRIBUTE_ALIGN(32);
 
 constexpr std::uint32_t kIosVersionAddress = 0x80003140;
-constexpr int kIpcStartRetries = 400;  // ~400 ms, what libogc allows
+constexpr int kIpcStartRetries = 400;    // ~400 ms, what libogc allows
+constexpr int kIosStartTimeoutMs = 10000;  // libogc waits forever; a message beats a black screen
 
 void restore_subsystems() {
     __ES_Close();
@@ -87,7 +88,15 @@ ReloadResult reload_ios(int version, std::string& error) {
     // then hand the interrupt back and re-arm libogc's IPC layer.
     __MaskIrq(IM_PI_ACR);
     raw_irq_handler_t handler = IRQ_Free(IRQ_PI_ACR);
-    while ((read32(kIosVersionAddress) >> 16) == 0) udelay(1000);
+    for (int waited = 0; (read32(kIosVersionAddress) >> 16) == 0; ++waited) {
+        if (waited >= kIosStartTimeoutMs) {
+            // Nothing to hand the interrupt back to: IOS never came up and
+            // every IPC call from here on would block forever.
+            error = "IOS" + std::to_string(version) + " did not start within 10 s; hold POWER to shut down";
+            return ReloadResult::Failed;
+        }
+        udelay(1000);
+    }
     for (int i = 0; i <= kIpcStartRetries; ++i) {
         udelay(1000);
         if (HW_IPC_PPCCTRL & HW_IPC_PPC_CTRL_REGS) break;

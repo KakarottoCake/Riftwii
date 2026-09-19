@@ -459,6 +459,48 @@ header, partition table and TMD returned by DI match the raw ISO.
   boots any known IOS without a NAND, SD sync-back happens only on a
   graceful stop, the unencrypted read window is the first 0x50000 bytes.
 
+### 11.4 agy review of the Wii code (applied 2026-09-18)
+
+agy reviewed `wii/di.*`, `wii/ios_reload.*`, `wii/boot.*`, `wii/autorun.cpp`,
+`wii/main.cpp` for hardware hazards Dolphin cannot show. Checked against
+libogc's headers, Brainslug and Dolphin before acting:
+
+Applied:
+- Low memory was written with libogc's `write32`, which in current
+  devkitPro is an **uncached** store (`0xC0000000 | addr`), while the
+  apploader and `memcpy` write the same lines through the cache; the final
+  `DCFlushRange` could then push stale dirty lines over the uncached
+  values. Now every low-memory field is a cached store with one flush at
+  the end (Brainslug's pattern); the forced-IOS fields are written
+  uncached *after* the flush.
+- `WPAD_Shutdown()` moved before the IOS reload: it saves pairings to
+  NAND and needs live IPC (the GUI path initialises WPAD; autorun does
+  not, which is why Dolphin never showed it).
+- Forced-IOS fallback now copies the apploader's expected IOS (0x3188)
+  into 0x3140, as Brainslug does, instead of inventing a version.
+- Apploader loads that overlap the loader (0x80A00000 - arena 1 top) or
+  carry a negative offset fail with a message instead of corrupting the
+  loader mid-loop.
+- `open_partition` fails when ES rejects the partition (`es_result < 0`).
+- `boot_game` remounts the SD card on every failure so callers can log;
+  the wait for the new IOS is bounded (10 s) so a dead reload prints a
+  message instead of a black screen.
+- `bounced_read` checks the end of the range against the drive's 32-bit
+  word offset, not just the start.
+
+Refuted (kept as is, with the evidence):
+- "`/dev/di` must be closed before the jump or the game's `DVDInit` fails":
+  Brainslug opens `/dev/di` after its reload and never closes it before
+  `SYS_ResetSystem` + jump, and it boots retail games on hardware.
+- "0x3188 is never written on a normal reload, so the game hits Error
+  #002": neither Brainslug nor Dolphin writes 0x3188; the apploader
+  stores the expected IOS there and the normal path must leave it alone.
+- "A drive reset is needed before `ReadDiscID` after the reload":
+  Brainslug does `DI_Init` then `DI_ReadDiscID` directly.
+- Unflushed memsets inside `SYS_ResetSystem`, and treating a negative
+  apploader `main` return as an error: both match libogc/Brainslug/Dolphin
+  behaviour; not changed.
+
 ### 11.3 Still open for G1
 - The same DOL on the user's real Wii (E1 hardware run): expect the IOS
   reload to need real ticket views (already handled) and DI timing to

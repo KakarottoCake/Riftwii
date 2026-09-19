@@ -70,7 +70,7 @@ bool bounced_read(bool partition, std::uint64_t offset, std::uint8_t* destinatio
         const std::uint64_t start = offset & ~std::uint64_t(31);
         std::uint64_t end = (offset + length + 31) & ~std::uint64_t(31);
         if (end - start > sizeof(g_bounce)) end = start + sizeof(g_bounce);
-        if ((start >> 2) > 0xFFFFFFFFull) {
+        if (end > (std::uint64_t(1) << 34)) {  // the last word must fit the drive's 32-bit offset
             error = "disc offset beyond the drive's 32-bit word range";
             return false;
         }

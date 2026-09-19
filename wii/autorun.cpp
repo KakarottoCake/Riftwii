@@ -127,8 +127,7 @@ void RunAutorun() {
                 ok = false;
             } else {
                 logf("boot: handing over to the game\n");
-                ok = boot_game(s.probe, options, error);  // returns only on failure
-                fatInitDefault();                         // boot_game unmounted the card
+                ok = boot_game(s.probe, options, error);  // returns only on failure, with the card remounted
                 LogOpen(kAutorunLogPath, true);
             }
         } else {
