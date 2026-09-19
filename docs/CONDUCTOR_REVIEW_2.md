@@ -280,7 +280,7 @@ E6. Newer Super Mario Bros. Wii (folder patches + memory patches) boots and
 | --- | --- | --- |
 | G0 host | F1 parser/model rework; F3 licence/notice; F5.1/F5.2/F5.5; F6 cleanup; fixtures authored by us that exercise every documented construct | CTest green; probe table above all "accepted"; planner refuses unsupported *selected* features with named messages |
 | G1 Wii | E1 unmodified boot + file dump | video of the game running from Riftwii; dumped file byte-identical to a Dolphin extraction. **Passed in Dolphin 2026-09-18 (section 11); hardware run open** |
-| G2 Wii | E2, E3 | visible in-game evidence, binary hash + IOS + title recorded. **E2 passed in Dolphin 2026-09-19 (section 12)** |
+| G2 Wii | E2, E3 | visible in-game evidence, binary hash + IOS + title recorded. **E2 and E3 passed in Dolphin 2026-09-19 (sections 12, 13); hardware run open** |
 | G3 host+Wii | FAT32 fragment resolver (host-tested on a synthetic image), redirect-table compiler verified against `ReadOverlay` as oracle, freestanding table walker compiled for both host and PPC, E4 | walker == oracle on randomized reads incl. straddles; E4 visible |
 | G4 Wii | FST rewrite, virtual window, `<memory>` patches, `<folder>` expansion, ordered composition; E5, E6 | Newer SMBW plays |
 | G5 product | GUI: detect inserted disc, filter XMLs, options UI, persist choices per game, preflight report, launch; `<savegame>` policy; NOTICE/README/compat matrix | repeatable launches on 3+ titles, documented limitations |
@@ -562,3 +562,57 @@ reply instead of synchronously, so the DVD driver's state machine always
 sees asynchronous completion. Function addresses the C code needs (its own
 completion entry) come from the context, filled by the loader; C never
 takes an address itself.
+
+## 13. E3 outcome: a replacement served from memory (conductor, 2026-09-19)
+
+Autorun `probe` / `layout` / `replace /hbm/home.csv sd:/riftwii/mods/home.csv`
+/ `boot` in Dolphin with Mario Kart Wii, the SD file being the E1 dump of
+`home.csv` with one 20-character UTF-16 string swapped (same size). The
+runtime reports each redirected read as `M<word offset>:<length>:<checksum
+of the rewritten bytes in the game's buffer>`:
+
+- `M17c3f6fc:00000e20:f6a09c08`: the game's read of `home.csv`; the
+  checksum equals the host's checksum of the modified file.
+- `M17c3f6f3:00000040:44274552`: the game's 0x40-byte read of
+  `/hbm/config.txt` overlaps the first 28 bytes of `home.csv`; only that
+  run was rewritten, and the checksum equals the host's checksum of the
+  modified file's first 28 bytes.
+
+The other 55 reads pass through and still match Dolphin's DI log; the
+arena reservation and the game's behaviour are unchanged.
+
+### 13.1 Mechanism (section 12.3 as built)
+`rt_on_ioctl_async` splits the read with `rt_lookup`; if any run is
+MEM/ZERO it takes a pending record (four; the DVD driver issues one read
+at a time), stores the game's callback and user data, and rewrites the
+saved r9/r10 to the blob's completion entry and the record. The trampoline
+restores the registers from the stack, so the original `IOS_IoctlAsync`
+runs with the substituted callback and the disc read proceeds. On the IPC
+reply `rt_complete_di` calls `rt_on_di_complete`, which rewrites the runs
+in the game's buffer (with `dcbf`/`sync`), then tail-calls the game's
+callback with `(result, user data)`; a null callback just returns. Table
+lookups failing, more than `RT_MAX_RUNS` runs, or no free record all mean
+"pass through untouched" and are counted in the context.
+
+### 13.2 Loader side
+`build_mem_payload` (host-tested) lays out `[rt_header + entries][data...]`
+32-byte aligned; `install_resident` sizes the reservation with a
+placeholder address, places blob + payload, rebuilds the payload for the
+real address, flushes it and points the context at the table. The E3
+replacement is authored with `replace` from an SD file of the FST entry's
+exact size; anything else is refused ("only same-size replacements yet").
+
+### 13.3 Next
+- **E4 (SD)**: the runtime needs an SDIO client (CMD18 multi-block reads
+  through the game's `IOS_IoctlvAsync` with the sdio fd the loader opens
+  after the IOS reload), chained per fragment from the completion entry,
+  bouncing partial sectors. Dolphin emulates `/dev/sdio/slot0`, so this is
+  verifiable the same way (checksums of the rewritten buffer).
+- **E5 (virtual window)**: the loader already controls what the apploader
+  loads, so the rewritten FST is served during the apploader loop; a read
+  that lies entirely in the virtual window must not reach the drive with
+  its virtual offset, so the handler rewrites the command block's offset
+  to a real, always-readable one (partition start) of the same length and
+  overwrites the whole buffer on completion. This tests the "offsets above
+  the disc are not treated as signed" hypothesis with MEM sources before
+  SD exists.
