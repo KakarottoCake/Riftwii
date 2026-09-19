@@ -2,6 +2,7 @@
 #include "riftwii/hook.hpp"
 #include "riftwii/symsearch.hpp"
 #include "rt_hook.h"
+#include "rtable.h"
 
 #include <cstring>
 #include <iostream>
@@ -14,6 +15,27 @@ static int g_failures = 0;
 #define EXPECT_EQ(a, b) do { if ((a) != (b)) { std::cerr << "FAILED: " #a " == " #b " (" << (a) << " != " << (b) << ") at line " << __LINE__ << std::endl; g_failures++; } } while (0)
 
 using Bytes = std::vector<std::uint8_t>;
+
+// The runtime addresses memory with 32-bit fields (it is a 32-bit target),
+// so driving it on a 64-bit host needs buffers below 4 GiB.
+#if defined(_WIN32) || defined(__CYGWIN__)
+#include <windows.h>
+static std::uint8_t* LowBuffer(std::size_t bytes) {
+    for (std::uintptr_t hint = 0x10000000; hint < 0x70000000; hint += 0x10000000) {
+        void* p = VirtualAlloc(reinterpret_cast<void*>(hint), bytes, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+        if (p) return static_cast<std::uint8_t*>(p);
+    }
+    return nullptr;
+}
+#elif defined(__linux__)
+#include <sys/mman.h>
+static std::uint8_t* LowBuffer(std::size_t bytes) {
+    void* p = mmap(nullptr, bytes, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_32BIT, -1, 0);
+    return p == MAP_FAILED ? nullptr : static_cast<std::uint8_t*>(p);
+}
+#else
+static std::uint8_t* LowBuffer(std::size_t) { return nullptr; }
+#endif
 
 static void Put32(Bytes& b, std::size_t at, std::uint32_t v) {
     b[at] = static_cast<std::uint8_t>(v >> 24);
@@ -33,6 +55,7 @@ static Bytes MakeBlob() {
     Put32(b, 16, 0x20);   // hook
     Put32(b, 20, 0xA0);   // replay
     Put32(b, 24, 0xB0);   // continue
+    Put32(b, 28, 0xC0);   // completion entry
     Put32(b, 0x100, RT_CONTEXT_MAGIC);
     return b;
 }
@@ -47,6 +70,7 @@ static void TestBlob() {
     EXPECT_EQ(rb.hook_ioctl_async_offset, 0x20u);
     EXPECT_EQ(rb.replay_ioctl_async_offset, 0xA0u);
     EXPECT_EQ(rb.continue_ioctl_async_offset, 0xB0u);
+    EXPECT_EQ(rb.complete_di_offset, 0xC0u);
 
     b = MakeBlob();
     Put32(b, 0, 0x12345678);
@@ -62,6 +86,9 @@ static void TestBlob() {
     EXPECT_FALSE(riftwii::parse_resident_blob(b.data(), b.size(), rb, error));
     b = MakeBlob();
     Put32(b, 24, 0xB4);  // continue slot must follow the replay slot
+    EXPECT_FALSE(riftwii::parse_resident_blob(b.data(), b.size(), rb, error));
+    b = MakeBlob();
+    Put32(b, 28, 0x1FE);  // completion entry past the end
     EXPECT_FALSE(riftwii::parse_resident_blob(b.data(), b.size(), rb, error));
     b = MakeBlob();
     Put32(b, 0x100, 0);  // context magic
@@ -254,6 +281,7 @@ static void TestResidentHandler() {
     EXPECT_EQ(ctx.di_fd, 5u);
     EXPECT_EQ(ctx.last_di_word_offset, 0x12345u);
     EXPECT_EQ(ctx.last_di_length, 0x8000u);
+    EXPECT_EQ(args[6], 0x80005000u);  // no table: untouched
 
     args[1] = 0x8A;  // a non-read ioctl counts as a call only
     EXPECT_EQ(rt_on_ioctl_async(&ctx, args, &result), 0);
@@ -272,6 +300,118 @@ static void TestResidentHandler() {
     EXPECT_EQ(rt_on_ioctl_async(&ctx, args, &result), 0);
     EXPECT_EQ(ctx.gecko_failures, 0u);
     EXPECT_EQ(sizeof(rt_context), riftwii::kResidentContextBytes);
+    EXPECT_EQ(rt_checksum(reinterpret_cast<const std::uint8_t*>("ab"), 2), 97u * 31u + 98u);
+}
+
+static void TestPayloadAndRedirect() {
+    // Two replacements, given out of order; the table must come out sorted.
+    riftwii::MemReplacement a, b;
+    a.virtual_offset = 0x5F0FDBF0;  // like /hbm/home.csv
+    a.bytes.assign(3610, 0x41);
+    b.virtual_offset = 0x1000;
+    b.bytes = {1, 2, 3, 4, 5};
+    std::vector<std::uint8_t> payload;
+    std::string error;
+    EXPECT_TRUE(riftwii::build_mem_payload({a, b}, 0x935D2000, 7, payload, error));
+    const auto* header = reinterpret_cast<const rt_header*>(payload.data());
+    EXPECT_EQ(header->entry_count, 2u);
+    EXPECT_EQ(header->tag, 7ull);
+    EXPECT_EQ(rt_validate(header, payload.size()), RT_OK);
+    const rt_entry* entries = rt_entries(header);
+    EXPECT_EQ(entries[0].vstart, 0x1000ull);
+    EXPECT_EQ(entries[0].length, 5ull);
+    EXPECT_EQ(entries[0].kind, static_cast<std::uint32_t>(RT_KIND_MEM));
+    EXPECT_EQ(entries[1].vstart, 0x5F0FDBF0ull);
+    EXPECT_EQ(entries[1].length, 3610ull);
+    // Sources point into the payload at 32-byte aligned data.
+    const std::size_t table_bytes = (rt_table_bytes(2) + 31) & ~std::size_t(31);
+    EXPECT_EQ(entries[0].source, 0x935D2000ull + table_bytes);
+    EXPECT_EQ(entries[1].source, 0x935D2000ull + table_bytes + 32);
+    EXPECT_EQ(payload[table_bytes], 1);
+    EXPECT_EQ(payload[table_bytes + 32], 0x41);
+    EXPECT_EQ(payload.size(), table_bytes + 32 + 3616);
+
+    // Rejections.
+    riftwii::MemReplacement empty;
+    empty.virtual_offset = 0x9000;
+    EXPECT_FALSE(riftwii::build_mem_payload({empty}, 0x935D2000, 0, payload, error));
+    EXPECT_FALSE(riftwii::build_mem_payload({}, 0x935D2000, 0, payload, error));
+    riftwii::MemReplacement c = b;
+    c.virtual_offset = 0x1002;  // overlaps b
+    EXPECT_FALSE(riftwii::build_mem_payload({b, c}, 0x935D2000, 0, payload, error));
+
+    // Now drive the runtime against a copy of the payload placed below
+    // 4 GiB (the runtime dereferences 32-bit MEM sources and table pointer).
+    std::uint8_t* low = LowBuffer(0x10000);
+    if (!low) {
+        std::cerr << "note: no 32-bit addressable buffer on this host, skipping the redirect drive" << std::endl;
+        return;
+    }
+    std::uint8_t* out = low;                 // the game's 0x20-byte destination
+    std::uint8_t* table_copy = low + 0x1000;  // payload with real MEM sources
+    const std::uint32_t table_address = static_cast<std::uint32_t>(reinterpret_cast<std::uintptr_t>(table_copy));
+    EXPECT_TRUE(riftwii::build_mem_payload({b}, table_address, 0, payload, error));
+    std::memcpy(table_copy, payload.data(), payload.size());
+    EXPECT_EQ(rt_validate(reinterpret_cast<const rt_header*>(table_copy), payload.size()), RT_OK);
+
+    rt_context ctx{};
+    ctx.magic = RT_CONTEXT_MAGIC;
+    ctx.table = table_address;
+    ctx.complete_entry = 0x935D0100;
+
+    // A read of 0x20 bytes at 0xFF0 (word 0x3FC) covers [0xFF0, 0x1010): a
+    // passthrough gap, the 5 replaced bytes, then a gap.
+    std::memset(out, 0xEE, 0x20);
+    std::uint32_t di_cmd[8] = {0x71000000, 0x20, 0x3FC, 0, 0, 0, 0, 0};
+    std::uintptr_t args[8] = {3, 0x71, reinterpret_cast<std::uintptr_t>(di_cmd), 0x20,
+                              reinterpret_cast<std::uintptr_t>(out), 0x20, 0x80005000, 0x80006000};
+    std::uint32_t result = 0;
+    EXPECT_EQ(rt_on_ioctl_async(&ctx, args, &result), 0);
+    EXPECT_EQ(ctx.redirected_reads, 1u);
+    EXPECT_EQ(args[6], 0x935D0100u);  // our completion entry replaced the callback
+    auto* rec = reinterpret_cast<rt_pending*>(args[7]);
+    EXPECT_TRUE(rec == &ctx.pending[0]);
+    EXPECT_EQ(rec->in_use, 1u);
+    EXPECT_EQ(rec->callback, 0x80005000u);
+    EXPECT_EQ(rec->user_data, 0x80006000u);
+    EXPECT_EQ(rec->length, 0x20u);
+    EXPECT_EQ(rec->word_offset, 0x3FCu);
+
+    // The "disc" read completed: the runtime rewrites the replaced run only.
+    std::uintptr_t cb = 0, ud = 0;
+    rt_on_di_complete(&ctx, 1, rec, &cb, &ud);
+    EXPECT_EQ(cb, 0x80005000u);
+    EXPECT_EQ(ud, 0x80006000u);
+    EXPECT_EQ(rec->in_use, 0u);
+    EXPECT_EQ(out[0x0F], 0xEE);
+    EXPECT_EQ(out[0x10], 1);
+    EXPECT_EQ(out[0x14], 5);
+    EXPECT_EQ(out[0x15], 0xEE);
+    EXPECT_EQ(ctx.last_checksum, rt_checksum(b.bytes.data(), 5));
+    EXPECT_EQ(ctx.completions, 1u);
+
+    // A failed disc read is passed on untouched.
+    std::memset(out, 0xEE, 0x20);
+    EXPECT_EQ(rt_on_ioctl_async(&ctx, args, &result), 0);
+    rec = reinterpret_cast<rt_pending*>(args[7]);
+    rt_on_di_complete(&ctx, -4, rec, &cb, &ud);
+    EXPECT_EQ(out[0x10], 0xEE);
+    EXPECT_EQ(rec->in_use, 0u);
+
+    // A read that misses the table is not redirected.
+    di_cmd[2] = 0x2000 >> 2;
+    args[6] = 0x80005000;
+    args[7] = 0x80006000;
+    EXPECT_EQ(rt_on_ioctl_async(&ctx, args, &result), 0);
+    EXPECT_EQ(args[6], 0x80005000u);
+    EXPECT_EQ(ctx.redirected_reads, 2u);
+
+    // With every record busy the read passes through and is counted.
+    for (auto& p : ctx.pending) p.in_use = 1;
+    di_cmd[2] = 0x3FC;
+    EXPECT_EQ(rt_on_ioctl_async(&ctx, args, &result), 0);
+    EXPECT_EQ(args[6], 0x80005000u);
+    EXPECT_EQ(ctx.pending_overflow, 1u);
 }
 
 int main() {
@@ -280,6 +420,7 @@ int main() {
     TestPlacement();
     TestSymbolSearch();
     TestResidentHandler();
+    TestPayloadAndRedirect();
     if (g_failures) {
         std::cerr << g_failures << " failure(s)" << std::endl;
         return 1;

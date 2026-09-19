@@ -25,10 +25,10 @@ CFLAGS  := -O2 -mcpu=750 -meabi -mhard-float -msdata=none \
            -ffreestanding -nostdlib -fno-builtin -fno-jump-tables \
            -fno-tree-loop-distribute-patterns -fno-asynchronous-unwind-tables \
            -fno-stack-protector -fno-common -std=c99 -Wall -Wextra -Wpedantic -Werror \
-           -DRT_TARGET_PPC -I$(SRC)
+           -DRT_TARGET_PPC -I$(SRC) -Iruntime
 LDFLAGS := -nostdlib -nostartfiles -static -Wl,--build-id=none -T $(SRC)/rt.ld
 
-OBJS    := $(OUT)/rt_entry.o $(OUT)/rt_hook.o
+OBJS    := $(OUT)/rt_entry.o $(OUT)/rt_hook.o $(OUT)/rtable.o
 
 .PHONY: all clean
 all: $(BLOB)
@@ -39,7 +39,10 @@ $(OUT):
 $(OUT)/rt_entry.o: $(SRC)/rt_entry.S $(SRC)/rt_hook.h | $(OUT)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-$(OUT)/rt_hook.o: $(SRC)/rt_hook.c $(SRC)/rt_hook.h | $(OUT)
+$(OUT)/rt_hook.o: $(SRC)/rt_hook.c $(SRC)/rt_hook.h runtime/rtable.h | $(OUT)
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(OUT)/rtable.o: runtime/rtable.c runtime/rtable.h | $(OUT)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 $(OUT)/riftwii_rt.elf: $(OBJS) $(SRC)/rt.ld

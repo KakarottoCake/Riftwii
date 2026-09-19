@@ -502,6 +502,8 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, std:
         if (!parse_dol_header(dol_bytes, sizeof(dol_bytes), dol, error)) return false;
         ResidentOptions ro;
         ro.gecko = options.resident_gecko;
+        ro.replacements = options.replacements;
+        ro.table_tag = static_cast<std::uint64_t>(probe.partition.offset);
         if (!install_resident(dol, ro, resident, error)) return false;
     }
     logf("Handing over\n");

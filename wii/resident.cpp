@@ -64,17 +64,36 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
         }
     }
 
-    // 3. Reserve the top of the MEM2 arena.
+    // 3. Reserve the top of the MEM2 arena: blob, then the redirect payload.
+    std::vector<std::uint8_t> payload;
+    if (!options.replacements.empty() &&
+        !build_mem_payload(options.replacements, 0, options.table_tag, payload, error)) {
+        return false;
+    }
     const std::uint32_t arena_end = read32(kMem2ArenaEndField);
     ResidentPlacement place;
-    if (!plan_resident_placement(arena_end, blob.size, options.extra_bytes, place, error)) return false;
+    if (!plan_resident_placement(arena_end, blob.size, static_cast<std::uint32_t>(payload.size()), place, error)) {
+        return false;
+    }
+    const std::uint32_t payload_address = place.base + blob.size;  // blob sizes are multiples of 32
+    if (!payload.empty() &&
+        !build_mem_payload(options.replacements, payload_address, options.table_tag, payload, error)) {
+        return false;
+    }
 
-    // 4. Copy the blob, fill in the context and the two loader-patched slots.
+    // 4. Copy the blob and the payload, fill in the context and the two
+    //    loader-patched slots.
     std::memcpy(reinterpret_cast<void*>(place.base), riftwii_rt_bin, blob.size);
+    if (!payload.empty()) {
+        std::memcpy(reinterpret_cast<void*>(payload_address), payload.data(), payload.size());
+        DCFlushRange(reinterpret_cast<void*>(payload_address), static_cast<u32>(payload.size()));
+    }
     rt_context* ctx = reinterpret_cast<rt_context*>(place.base + blob.context_offset);
     ctx->flags = options.gecko ? RT_FLAG_GECKO : 0;
     ctx->gecko_channel = 1;
     ctx->original_ioctl_async = symbols.ioctl_async;
+    ctx->table = payload.empty() ? 0 : payload_address;
+    ctx->complete_entry = place.base + blob.complete_di_offset;
     store_words(place.base + blob.replay_ioctl_async_offset, displaced, 4);
     const auto resume = encode_absolute_jump(kContinueScratchRegister, symbols.ioctl_async + kHookStubBytes);
     store_words(place.base + blob.continue_ioctl_async_offset, resume.data(), 4);
@@ -91,8 +110,14 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
     out.new_arena_end = place.new_arena_end;
     out.ioctl_async = symbols.ioctl_async;
     out.ioctlv_async = symbols.ioctlv_async;
+    out.table = ctx->table;
+    out.payload_bytes = static_cast<std::uint32_t>(payload.size());
     logf("Resident: %u bytes at 0x%08x, MEM2 arena end 0x%08x -> 0x%08x, gecko %s\n", blob.size, place.base,
          arena_end, place.new_arena_end, options.gecko ? "on" : "off");
+    if (!payload.empty()) {
+        logf("Resident: redirect table at 0x%08x, %u replacement(s), payload %u bytes\n", ctx->table,
+             static_cast<unsigned>(options.replacements.size()), static_cast<unsigned>(payload.size()));
+    }
     error.clear();
     return true;
 }

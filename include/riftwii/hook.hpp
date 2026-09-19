@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <string>
+#include <vector>
 
 // Installing the resident runtime: the blob format (runtime/resident/
 // rt_hook.h), the PowerPC instruction patching it needs and the MEM2
@@ -20,9 +21,25 @@ struct ResidentBlob {
     std::uint32_t hook_ioctl_async_offset = 0;
     std::uint32_t replay_ioctl_async_offset = 0;
     std::uint32_t continue_ioctl_async_offset = 0;
+    std::uint32_t complete_di_offset = 0;
 };
-constexpr std::size_t kResidentContextBytes = 64;  // sizeof(struct rt_context)
+constexpr std::size_t kResidentContextBytes = 224;  // sizeof(struct rt_context)
 bool parse_resident_blob(const std::uint8_t* bytes, std::size_t length, ResidentBlob& out, std::string& error);
+
+// A same-size replacement served from memory (E3): the bytes the game must
+// see at [virtual_offset, virtual_offset + bytes.size()) of the partition.
+struct MemReplacement {
+    std::uint64_t virtual_offset = 0;
+    std::vector<std::uint8_t> bytes;
+};
+
+// Lays out the payload the loader puts after the blob: the redirect table
+// (at payload offset 0) followed by the replacement data, each 32-byte
+// aligned, with MEM sources computed for `payload_address`. The size does
+// not depend on the address, so callers may size the reservation with a
+// placeholder address first. Fails on empty or overlapping replacements.
+bool build_mem_payload(const std::vector<MemReplacement>& replacements, std::uint32_t payload_address,
+                       std::uint64_t tag, std::vector<std::uint8_t>& payload, std::string& error);
 
 // lis/ori/mtctr/bctr through `reg` (0-31): an absolute jump in four words.
 std::array<std::uint32_t, 4> encode_absolute_jump(unsigned reg, std::uint32_t target);

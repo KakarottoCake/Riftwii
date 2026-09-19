@@ -9,6 +9,7 @@
 #include "riftwii/disc.hpp"
 #include "riftwii/dol.hpp"
 #include "riftwii/fst.hpp"
+#include "riftwii/hook.hpp"
 
 // E1: boot an unmodified disc the way the System Menu would, from a
 // homebrew loader. The sequence (drive reset, disc id, partition table,
@@ -63,6 +64,10 @@ struct BootOptions {
     // the USB Gecko.
     bool install_resident = false;
     bool resident_gecko = false;
+    // E3: same-size replacements the runtime serves from memory (requires
+    // install_resident). Built by the caller from the FST while the SD card
+    // is still mounted.
+    std::vector<MemReplacement> replacements;
 };
 
 // Reloads IOS, runs the apploader and jumps to the game. Only returns on

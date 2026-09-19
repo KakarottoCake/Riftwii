@@ -3,8 +3,10 @@
 
 #include <cstdint>
 #include <string>
+#include <vector>
 
 #include "riftwii/dol.hpp"
+#include "riftwii/hook.hpp"
 
 // E2: installs the resident runtime (runtime/resident, embedded as
 // riftwii_rt_bin) into the top of the MEM2 arena and hooks the game's
@@ -14,8 +16,11 @@
 namespace riftwii::wii {
 
 struct ResidentOptions {
-    bool gecko = false;          // report each DI read over the USB Gecko in slot B
-    std::uint32_t extra_bytes = 0;  // reserved after the blob (tables, buffers; unused by E2)
+    bool gecko = false;  // report each DI read over the USB Gecko in slot B
+    // E3: same-size replacements served from memory. The redirect table and
+    // the bytes are laid out after the blob inside the reservation.
+    std::vector<MemReplacement> replacements;
+    std::uint64_t table_tag = 0;
 };
 
 struct ResidentInstall {
@@ -25,6 +30,8 @@ struct ResidentInstall {
     std::uint32_t new_arena_end = 0;  // to be written to 0x80003128 after the low-memory flush
     std::uint32_t ioctl_async = 0;    // hooked function
     std::uint32_t ioctlv_async = 0;   // found, not hooked (0 if unknown)
+    std::uint32_t table = 0;          // redirect table address, 0 when there are no replacements
+    std::uint32_t payload_bytes = 0;
 };
 
 // `dol` describes the sections the apploader has already loaded; the text

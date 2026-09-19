@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/hook.hpp"
 
+#include <algorithm>
 #include <cstdio>
+#include <cstring>
 
 #include "rt_hook.h"
+#include "rtable.h"
 
 namespace riftwii {
 namespace {
@@ -42,6 +45,7 @@ bool parse_resident_blob(const std::uint8_t* bytes, std::size_t length, Resident
     b.hook_ioctl_async_offset = be32(bytes + 16);
     b.replay_ioctl_async_offset = be32(bytes + 20);
     b.continue_ioctl_async_offset = be32(bytes + 24);
+    b.complete_di_offset = be32(bytes + 28);
     if (magic != RT_BLOB_MAGIC) {
         error = "resident blob magic mismatch";
         return false;
@@ -56,7 +60,7 @@ bool parse_resident_blob(const std::uint8_t* bytes, std::size_t length, Resident
     }
     if (!slot_fits(b.context_offset, kResidentContextBytes, b.size) || (b.context_offset & 31) != 0 ||
         !slot_fits(b.hook_ioctl_async_offset, 4, b.size) || !slot_fits(b.replay_ioctl_async_offset, 16, b.size) ||
-        !slot_fits(b.continue_ioctl_async_offset, 16, b.size) ||
+        !slot_fits(b.continue_ioctl_async_offset, 16, b.size) || !slot_fits(b.complete_di_offset, 4, b.size) ||
         b.continue_ioctl_async_offset != b.replay_ioctl_async_offset + 16) {
         error = "resident blob offsets are inconsistent";
         return false;
@@ -136,6 +140,70 @@ bool plan_resident_placement(std::uint32_t arena_end, std::uint32_t blob_size, s
     out.base = base;
     out.reserved_bytes = arena_end - base;
     out.new_arena_end = base;
+    error.clear();
+    return true;
+}
+
+bool build_mem_payload(const std::vector<MemReplacement>& replacements, std::uint32_t payload_address,
+                       std::uint64_t tag, std::vector<std::uint8_t>& payload, std::string& error) {
+    if (replacements.empty()) {
+        error = "no replacements to lay out";
+        return false;
+    }
+    std::vector<std::size_t> order(replacements.size());
+    for (std::size_t i = 0; i < order.size(); ++i) order[i] = i;
+    std::sort(order.begin(), order.end(), [&](std::size_t a, std::size_t b) {
+        return replacements[a].virtual_offset < replacements[b].virtual_offset;
+    });
+    const auto align32 = [](std::size_t n) { return (n + 31) & ~static_cast<std::size_t>(31); };
+    const std::size_t table_bytes = align32(rt_table_bytes(static_cast<std::uint32_t>(replacements.size())));
+    std::size_t total = table_bytes;
+    for (const MemReplacement& r : replacements) {
+        if (r.bytes.empty()) {
+            error = "a replacement is empty";
+            return false;
+        }
+        total += align32(r.bytes.size());
+    }
+    if (total > 0x40000000u) {
+        error = "replacement payload is too large";
+        return false;
+    }
+    payload.assign(total, 0);
+    rt_header header{};
+    header.magic = RT_MAGIC;
+    header.version = RT_VERSION;
+    header.entry_count = static_cast<std::uint32_t>(replacements.size());
+    header.sdio_fd = 0xFFFFFFFFu;
+    header.tag = tag;
+    std::vector<rt_entry> entries(replacements.size());
+    std::size_t data_offset = table_bytes;
+    std::uint64_t previous_end = 0;
+    for (std::size_t k = 0; k < order.size(); ++k) {
+        const MemReplacement& r = replacements[order[k]];
+        if (k > 0 && r.virtual_offset < previous_end) {
+            error = "replacements overlap in the virtual partition";
+            return false;
+        }
+        previous_end = r.virtual_offset + r.bytes.size();
+        rt_entry& e = entries[k];
+        e.vstart = r.virtual_offset;
+        e.length = r.bytes.size();
+        e.source = static_cast<std::uint64_t>(payload_address) + data_offset;
+        e.skip = 0;
+        e.kind = RT_KIND_MEM;
+        e.reserved = 0;
+        std::memcpy(payload.data() + data_offset, r.bytes.data(), r.bytes.size());
+        data_offset += align32(r.bytes.size());
+    }
+    header.entries_crc = rt_crc32(entries.data(), entries.size() * sizeof(rt_entry));
+    std::memcpy(payload.data(), &header, sizeof(header));
+    std::memcpy(payload.data() + sizeof(header), entries.data(), entries.size() * sizeof(rt_entry));
+    const int status = rt_validate(reinterpret_cast<const rt_header*>(payload.data()), table_bytes);
+    if (status != RT_OK) {
+        error = "built table failed validation: " + std::to_string(status);
+        return false;
+    }
     error.clear();
     return true;
 }

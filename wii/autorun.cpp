@@ -8,6 +8,7 @@
 
 #include <cstdio>
 #include <fstream>
+#include <iterator>
 #include <sstream>
 
 #include "boot.hpp"
@@ -51,6 +52,38 @@ struct Session {
     }
 };
 
+// Reads an SD file as the replacement for an FST entry of the same size.
+bool LoadReplacement(const OpenedPartition& partition, const std::string& disc_path, const std::string& sd_path,
+                     MemReplacement& out, std::string& error) {
+    std::uint32_t index = partition.fst.find(disc_path, false);
+    if (index == Fst::npos) index = partition.fst.find(disc_path, true);
+    if (index == Fst::npos) {
+        error = "no such disc file '" + disc_path + "'";
+        return false;
+    }
+    const FstEntry& entry = partition.fst.entries()[index];
+    if (entry.is_directory) {
+        error = "'" + disc_path + "' is a directory";
+        return false;
+    }
+    std::ifstream file(sd_path, std::ios::binary);
+    if (!file) {
+        error = "cannot open " + sd_path;
+        return false;
+    }
+    out.bytes.assign(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
+    if (out.bytes.size() != entry.size) {
+        error = sd_path + " is " + std::to_string(out.bytes.size()) + " bytes but '" + disc_path + "' is " +
+                std::to_string(entry.size) + " (only same-size replacements yet)";
+        return false;
+    }
+    out.virtual_offset = entry.offset;
+    logf("Replace %s (%u bytes at 0x%llx) with %s\n", disc_path.c_str(), entry.size,
+         static_cast<unsigned long long>(entry.offset), sd_path.c_str());
+    error.clear();
+    return true;
+}
+
 }  // namespace
 
 bool AutorunPresent() {
@@ -89,6 +122,7 @@ void RunAutorun() {
     Session s;
     bool allow_fallback = true;
     bool install_resident = false;
+    std::vector<MemReplacement> replacements;
     std::string error;
     int line_number = 0;
     while (std::getline(script, line)) {
@@ -128,11 +162,25 @@ void RunAutorun() {
             allow_fallback = false;
         } else if (cmd == "hook") {
             install_resident = true;  // E2: resident runtime, DI reads reported over the Gecko
+        } else if (cmd == "replace") {
+            // E3: `replace <disc path> <sd path>`, same size as the FST entry.
+            std::string disc_path, sd_path;
+            words >> disc_path >> sd_path;
+            MemReplacement r;
+            ok = !disc_path.empty() && !sd_path.empty() && s.ensure_layout(error) &&
+                 LoadReplacement(s.partition, disc_path, sd_path, r, error);
+            if (ok) {
+                replacements.push_back(std::move(r));
+                install_resident = true;
+            } else if (error.empty()) {
+                error = "replace needs a disc path and an SD path";
+            }
         } else if (cmd == "boot") {
             BootOptions options;
             options.allow_ios_fallback = allow_fallback;
             options.install_resident = install_resident;
             options.resident_gecko = install_resident;
+            options.replacements = replacements;
             if (!s.ensure_probe(error)) {
                 ok = false;
             } else {

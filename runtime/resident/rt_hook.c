@@ -1,16 +1,18 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /*
  * Resident runtime, C part. Rules that keep this position-independent and
- * safe to run inside the game's IOS_IoctlAsync (possibly from an interrupt
- * handler): no globals (all state lives in the context the trampoline hands
- * us), no string literals or other address-taken data (they would need
- * absolute relocations), no library calls, no allocation, no blocking
- * waits without a bound. The build links the blob at two different
- * addresses and checks the binaries are identical.
+ * safe to run inside the game's IOS_IoctlAsync and IPC callbacks (possibly
+ * from an interrupt handler): no globals (all state lives in the context
+ * the trampoline hands us), no string literals or other address-taken
+ * data (they would need absolute relocations), no library calls, no
+ * allocation, no blocking waits without a bound. The build links the blob
+ * at two different addresses and checks the binaries are identical.
  */
 #include "rt_hook.h"
+#include "rtable.h"
 
 #define RT_DI_READ 0x71u
+#define RT_DI_SUCCESS 1
 
 int rt_is_di_read(uint32_t ioctl, const uint32_t* in, uint32_t in_len) {
     /* DVDLowRead: ioctl 0x71 with a 0x20-byte command block whose first
@@ -18,6 +20,14 @@ int rt_is_di_read(uint32_t ioctl, const uint32_t* in, uint32_t in_len) {
     return ioctl == RT_DI_READ && in_len == 0x20 && in != 0 && (in[0] >> 24) == RT_DI_READ;
 }
 
+uint32_t rt_checksum(const uint8_t* bytes, uint32_t length) {
+    uint32_t h = 0;
+    uint32_t i;
+    for (i = 0; i < length; ++i) h = h * 31u + bytes[i];
+    return h;
+}
+
+/* --- console-only pieces: EXI/USB Gecko and cache maintenance ----------- */
 #ifdef RT_TARGET_PPC
 /* EXI register block (Wii: 0xCD006800), five words per channel:
  * CSR, MAR, LENGTH, CR, DATA. The sequence is the one libogc's EXI_Select /
@@ -62,11 +72,27 @@ static int rt_gecko_putc(struct rt_context* ctx, uint32_t ch) {
     ctx->gecko_failures++;
     return 0;
 }
+
+/* Writes the CPU's copy of [address, address + length) back to RAM so
+ * DMA readers (GX, IOS) see what the game will see through the cache. */
+static void rt_flush_range(uintptr_t address, uint32_t length) {
+    uintptr_t line = address & ~(uintptr_t)31u;
+    const uintptr_t end = address + length;
+    while (line < end) {
+        __asm__ volatile("dcbf 0, %0" : : "r"(line) : "memory");
+        line += 32u;
+    }
+    __asm__ volatile("sync" : : : "memory");
+}
 #else
 static int rt_gecko_putc(struct rt_context* ctx, uint32_t ch) {
     (void)ctx;
     (void)ch;
     return 1;
+}
+static void rt_flush_range(uintptr_t address, uint32_t length) {
+    (void)address;
+    (void)length;
 }
 #endif
 
@@ -78,7 +104,33 @@ static void rt_gecko_hex(struct rt_context* ctx, uint32_t value) {
     }
 }
 
-int rt_on_ioctl_async(struct rt_context* ctx, const uintptr_t* args, uint32_t* result) {
+/* Own copies: the blob links against nothing. */
+static void rt_copy(uint8_t* dst, const uint8_t* src, uint32_t n) {
+    while (n--) *dst++ = *src++;
+}
+static void rt_zero(uint8_t* dst, uint32_t n) {
+    while (n--) *dst++ = 0;
+}
+
+/* Splits a read against the table. Returns the number of runs, or -1 when
+ * the read must pass through untouched (no table, too many runs, error). */
+static int rt_split(const struct rt_context* ctx, uint32_t word_offset, uint32_t length, rt_run* runs,
+                    int* touched) {
+    uint32_t count = 0;
+    uint32_t i;
+    *touched = 0;
+    if (ctx->table == 0) return -1;
+    if (rt_lookup((const rt_header*)(uintptr_t)ctx->table, (uint64_t)word_offset << 2, length, runs, RT_MAX_RUNS,
+                  &count) != RT_OK) {
+        return -1;
+    }
+    for (i = 0; i < count; ++i) {
+        if (runs[i].kind != RT_KIND_PASSTHROUGH) *touched = 1;
+    }
+    return (int)count;
+}
+
+int rt_on_ioctl_async(struct rt_context* ctx, uintptr_t* args, uint32_t* result) {
     const uint32_t fd = (uint32_t)args[0];
     const uint32_t ioctl = (uint32_t)args[1];
     const uint32_t* in = (const uint32_t*)args[2];
@@ -89,6 +141,8 @@ int rt_on_ioctl_async(struct rt_context* ctx, const uintptr_t* args, uint32_t* r
         const uint32_t length = in[1];
         const uint32_t word_offset = in[2];
         const uint32_t lo = ctx->di_read_bytes_lo + length;
+        rt_run runs[RT_MAX_RUNS];
+        int touched = 0;
         if (lo < ctx->di_read_bytes_lo) ctx->di_read_bytes_hi++;
         ctx->di_read_bytes_lo = lo;
         ctx->di_reads++;
@@ -103,6 +157,77 @@ int rt_on_ioctl_async(struct rt_context* ctx, const uintptr_t* args, uint32_t* r
             rt_gecko_hex(ctx, length);
             rt_gecko_putc(ctx, '\n');
         }
+        if (ctx->table != 0) {
+            const int count = rt_split(ctx, word_offset, length, runs, &touched);
+            if (count < 0) {
+                ctx->run_overflow++;
+            } else if (touched) {
+                struct rt_pending* rec = 0;
+                uint32_t i;
+                for (i = 0; i < RT_MAX_PENDING; ++i) {
+                    if (!ctx->pending[i].in_use) {
+                        rec = &ctx->pending[i];
+                        break;
+                    }
+                }
+                if (rec == 0) {
+                    ctx->pending_overflow++;
+                } else {
+                    rec->in_use = 1;
+                    rec->callback = (uint32_t)args[6];
+                    rec->user_data = (uint32_t)args[7];
+                    rec->out = (uint32_t)args[4];
+                    rec->length = length;
+                    rec->word_offset = word_offset;
+                    args[6] = (uintptr_t)ctx->complete_entry;
+                    args[7] = (uintptr_t)rec;
+                    ctx->redirected_reads++;
+                }
+            }
+        }
     }
     return 0;
+}
+
+void rt_on_di_complete(struct rt_context* ctx, int32_t result, struct rt_pending* record, uintptr_t* callback,
+                       uintptr_t* user_data) {
+    ctx->completions++;
+    *callback = (uintptr_t)record->callback;
+    *user_data = (uintptr_t)record->user_data;
+    if (result == RT_DI_SUCCESS) {
+        rt_run runs[RT_MAX_RUNS];
+        int touched = 0;
+        const int count = rt_split(ctx, record->word_offset, record->length, runs, &touched);
+        uint8_t* out = (uint8_t*)(uintptr_t)record->out;
+        const uint64_t base = (uint64_t)record->word_offset << 2;
+        uint32_t checksum = 0;
+        int i;
+        for (i = 0; i < count; ++i) {
+            const rt_run* run = &runs[i];
+            uint8_t* dst = out + (uint32_t)(run->vstart - base);
+            const uint32_t n = (uint32_t)run->length;
+            uint32_t k;
+            if (run->kind == RT_KIND_MEM) {
+                rt_copy(dst, (const uint8_t*)(uintptr_t)run->source, n);
+            } else if (run->kind == RT_KIND_ZERO) {
+                rt_zero(dst, n);
+            } else {
+                continue; /* PASSTHROUGH: the disc already filled it; SD/DISC: E4/E5 */
+            }
+            rt_flush_range((uintptr_t)dst, n);
+            for (k = 0; k < n; ++k) checksum = checksum * 31u + dst[k];
+        }
+        ctx->last_checksum = checksum;
+        if (ctx->flags & RT_FLAG_GECKO) {
+            /* "M<word offset>:<length>:<checksum of the redirected bytes>\n" */
+            rt_gecko_putc(ctx, 'M');
+            rt_gecko_hex(ctx, record->word_offset);
+            rt_gecko_putc(ctx, ':');
+            rt_gecko_hex(ctx, record->length);
+            rt_gecko_putc(ctx, ':');
+            rt_gecko_hex(ctx, checksum);
+            rt_gecko_putc(ctx, '\n');
+        }
+    }
+    record->in_use = 0;
 }
