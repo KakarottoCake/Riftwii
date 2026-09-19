@@ -282,7 +282,7 @@ E6. Newer Super Mario Bros. Wii (folder patches + memory patches) boots and
 | G1 Wii | E1 unmodified boot + file dump | video of the game running from Riftwii; dumped file byte-identical to a Dolphin extraction. **Passed in Dolphin 2026-09-18 (section 11); hardware run open** |
 | G2 Wii | E2, E3 | visible in-game evidence, binary hash + IOS + title recorded. **E2 and E3 passed in Dolphin 2026-09-19 (sections 12, 13); hardware run open** |
 | G3 host+Wii | FAT32 fragment resolver (host-tested on a synthetic image), redirect-table compiler verified against `ReadOverlay` as oracle, freestanding table walker compiled for both host and PPC, E4 | walker == oracle on randomized reads incl. straddles; E4 visible. **E4 passed in Dolphin 2026-09-19 (section 15); hardware run open** |
-| G4 Wii | FST rewrite, virtual window, `<memory>` patches, `<folder>` expansion, ordered composition; E5, E6 | Newer SMBW plays. **E5 (grown file through the virtual window) passed in Dolphin 2026-09-19 (section 14)** |
+| G4 Wii | FST rewrite, virtual window, `<memory>` patches, `<folder>` expansion, ordered composition; E5, E6 | Newer SMBW plays. **E5 (grown file through the virtual window) passed in Dolphin 2026-09-19 (section 14); a `<file>`-only package runs end to end in Dolphin (section 17); created files, `<folder>`, `<memory>` open** |
 | G5 product | GUI: detect inserted disc, filter XMLs, options UI, persist choices per game, preflight report, launch; `<savegame>` policy; NOTICE/README/compat matrix | repeatable launches on 3+ titles, documented limitations |
 | G6 storage | USB for in-game reads: resident USB mass-storage client (decide OHCI-under-game-IOS vs. alternatives first), USB+FAT32, then a read-only NTFS resolver (own code preferred over the GX binary, see 4.5) | mod on a USB stick plays on hardware; NTFS stick likewise |
 
@@ -795,3 +795,44 @@ The runtime now serves every kind the table compiler produces; the
 XML-driven pipeline (`AppliedFile::flatten` -> `build_redirect_table`)
 can be wired into the loader next, with created files (section 15.3)
 the remaining structural gap.
+
+## 17. A package end to end (conductor, 2026-09-19)
+
+`wii/modplan.cpp` runs the host-tested pipeline on the console:
+`read_package` -> `plan_package` (default choices, bare file names
+resolved through the FST) -> `apply_patches` per disc file ->
+`AppliedFile::flatten` -> `build_redirect_table`. The Wii supplies a
+`ContentProvider` (disc side: the FST extent read through DI; SD side:
+libfat, remembering each external source's path) and an
+`ExternalPlacer` that resolves those paths to card sectors with the
+FAT32 walker. A result of the original size stays in place; any other
+size takes a slot in the virtual window and becomes an FST relocation
+the boot applies to the FST the apploader loads (section 14). The
+table's entries are SD, DISC and ZERO only (external bytes are never
+copied into memory), merged with the loader's own pieces.
+
+Autorun `xml sd:/riivolution/riftwii_test.xml` / `boot` in Dolphin with
+Mario Kart Wii, the package holding three `<file>` patches:
+- `/hbm/home.csv` <- a 7770-byte file: relocated, served from the card,
+  `M80000000:00001e60:bb87a3a8` (section 15).
+- `/Boot/Strap/us/English.szs` <- its own dump: in place from the card,
+  `M177ea3b6:00046d80:3b553c78`.
+- `/hbm/config.txt` <- 8 bytes at offset 0x10 from a dump of itself
+  (`offset`, `fileoffset`, `length`, `resize="false"`): in place, only
+  those bytes in the table, `M17c3f6f3:00000040:6369a501`, the checksum
+  of the patched bytes.
+The game runs on with every other read matching Dolphin's log. (A first
+attempt patched `config.txt` with UTF-16 garbage and the Home Menu code
+crashed parsing it, which is what applying that patch should do.)
+
+### 17.1 Open for G4/G5
+- Created files (`create="true"`, `<folder create>`): the FST grows, so
+  the data header the apploader loads at partition offset 0x420 must be
+  substituted along with the FST, and the entry added (`Fst::add_file`
+  exists on the host).
+- `<folder>` expansion (host side not written), `<memory>` patches (a
+  loader-side write after the apploader, before the jump), `<savegame>`.
+- Option choices: the autorun uses the package defaults; the GUI (G5)
+  must present sections/options/choices and pass the selection.
+- Hardware: sections 12-17 all rest on Dolphin; the hardware
+  assumptions are listed in 15.2.

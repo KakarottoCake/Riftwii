@@ -32,8 +32,9 @@ Direction, review findings and the roadmap live in `docs/`.
   own IPC, no file system in the runtime), and the disc's own bytes for
   relocated or partially patched files. Verified in Dolphin against
   Dolphin's own DI and SD logs and by checksums of the rewritten game
-  buffers. Created files and the XML-driven pipeline in the loader are
-  next.
+  buffers. A Riivolution-format package with `<file>` patches runs end to
+  end this way (`wii/modplan.cpp`); created files, `<folder>` and
+  `<memory>` patches are next.
 - `vendor-pugixml`: MIT-licensed XML parser, pinned at v1.15.
 - `vendor-libgui`: pinned GPL libwiigui 1.07 snapshot, used only by the Wii
   frontend (not built by the host build).
@@ -84,8 +85,8 @@ If `sd:/riftwii/autorun.txt` exists the frontend skips the GUI and runs
 the commands in it (`probe`, `layout`, `meta [dir]`, `dump <disc path>
 [sd path]`, `dol [sd path]`, `nofallback`, `hook`, `replace <disc path>
 <sd path>`, `grow <disc path> <sd path>`, `sdreplace <disc path> <sd
-path>`, `sdgrow <disc path> <sd path>`, `keep <disc path>`, `boot`),
-logging to `sd:/riftwii/autorun.log`;
+path>`, `sdgrow <disc path> <sd path>`, `keep <disc path>`, `xml <sd
+path>`, `boot`), logging to `sd:/riftwii/autorun.log`;
 under Dolphin it powers off afterwards so the SD folder syncs back.
 `tools/dolphin/run.sh` drives this: it expects `build-dolphin/user/` (an
 isolated Dolphin user directory with `WiiSDCard`, folder sync and a
