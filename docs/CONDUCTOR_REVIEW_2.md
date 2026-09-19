@@ -1145,3 +1145,98 @@ the game's start-up, which no SDK promises; the MEM2 data placement
 still relies on the game keeping a data BAT for the whole of MEM2, which
 every SDK does because the game's own MEM2 arena lives there. The
 assumptions of section 15.2 stand.
+
+## 24. `<savegame>`: the plan (conductor, 2026-09-19)
+
+### 24.1 What is documented
+`<savegame external="/path" clone="true|false"/>` (patch-format wiki):
+the title's save lives in that folder of the card instead of NAND;
+`clone` (default true) copies the NAND save into the folder the first
+time. Nothing else is specified, so the behaviour to reproduce is the
+game's: every NAND operation it performs on its own data directory,
+`/title/<type>/<id>/data/` (type `00010000` for disc titles, id the
+four-character game id in hex), must work against the folder.
+
+### 24.2 What the game does
+The SDK's NAND library is a thin layer over ISFS, which is IPC: files
+are `IOS_Open`ed by path and then `IOS_Read`/`IOS_Write`/`IOS_Seek`/
+`IOS_Close`d by fd; everything else is an ioctl on the `/dev/fs` fd
+with the path in the input buffer (0x09 CreateFile and 0x03 CreateDir
+with an attribute block, 0x07 Delete, 0x08 Rename with two paths, 0x06
+GetAttr, 0x05 SetAttr) or an ioctlv (0x04 ReadDir, 0x0C GetUsage), and
+0x0B GetFileStats is an ioctl on the file's fd (wiibrew `/dev/fs`).
+Each has a synchronous and an asynchronous form; games use both, and
+the asynchronous chains run their next step from the IPC callback, so
+the runtime side must be asynchronous as the DI path is.
+
+### 24.3 The hook points
+The SDK's IPC API is a cluster of 14 functions, an (async, sync) pair
+per IPC command 1..7, each building the request block (`li rX,<cmd>`
+stored to the block's first word), converting buffers to physical
+addresses and calling one submit helper; the sync form passes a zero
+callback and sleeps inside the helper on a thread queue in the block.
+Kirby's Epic Yarn: Open 0x806a9210/0x806a9330, Close 0x806a9460/
+0x806a9520, Read 0x806a95d0/0x806a96d0, Write 0x806a97e0/0x806a98e0,
+Seek 0x806a99f0/0x806a9ad0, Ioctl 0x806a9bc0/0x806a9d00, Ioctlv
+0x806a9f70/0x806aa060 (async first in every pair, as the two already
+found by the DI and partition-open searches confirm). Hooking the
+submit helper instead would mean completing requests the SDK's own
+way (waking its thread queue, freeing its block): version-specific
+internals, so the API functions are the hook points, found by
+extending the structural search from `IOS_IoctlAsync`: prologues in
+the neighbourhood, the command each stores, pairs ordered async then
+sync with the sync form storing a zero callback. To be validated on
+the four dumped DOLs before use.
+
+Each function gets the same trampoline as `IOS_IoctlAsync` (a template
+instantiated 14 times, r3-r10 saved, one C dispatcher told which entry
+it is). A sync hook may answer the caller directly (the trampoline's
+"hijack" path); an async hook answers through the completion entry with
+a pending record, exactly as DI reads do; SD I/O issued from a sync hook
+uses the game's sync `IOS_Ioctlv` (the replay slot of its own hook),
+from an async hook the async one.
+
+### 24.4 The FAT32 engine
+`runtime/rtfat.c`, freestanding C shared with the host tests like
+`rtable.c`: a resumable engine. An operation is a record with a state
+machine; `rtfat_step` runs it until it needs a sector transfer (it says
+which device blocks, into or from the record's own sector buffer) or is
+done with a result. A sync driver loops step / transfer; the async
+driver issues the transfer as an SD request whose completion calls step
+again. The same code serves both, and the host tests drive it against
+an in-memory image with a fake device that counts transfers.
+
+Volume parameters come from the loader (its `Fat32Volume` mount):
+512-byte sectors only (what SD cards are formatted with; the loader
+refuses others with a message), sectors per cluster, FAT location and
+count, data start, cluster count, FSInfo sector, the save folder's
+first cluster. Operations: lookup by name (8.3 and long names, case-
+insensitive), read and write at a position with cluster allocation on
+growth (both FATs updated, the directory entry's size after every
+growing write), create (long-name entries with a generated short name
+when the name is not 8.3), delete (entries freed, chain released),
+rename, list, stats. One directory, flat: `CreateDir` is refused with
+`-102`; ISFS error codes throughout (`-105` exists, `-106` not found,
+`-108` no space, `-101` invalid).
+
+### 24.5 The ISFS layer and the loader
+`rtfs`: fake fds for the redirected files (a small table), the path
+prefix to match (loader-filled), ISFS argument marshalling for each
+command, ReadDir's 13-byte name slots, GetUsage from the listing, the
+serialization of operations (one in flight; a sync arrival waits, an
+async one queues) since IOS serializes too. The loader compiles
+`<savegame>` into the context (prefix, volume, folder cluster), creates
+the folder when missing, and allows the selection (`allow_savegames`).
+`clone` is a second step: the loader cannot read another title's data
+directory under IOS58, so the copy either runs lazily in the runtime
+(read through the real `IOS_Open` before the redirect takes effect) or
+waits for a permission story; documented as not done until then.
+
+### 24.6 Slices
+1. `rtfat` with host tests (in-memory image, fake device).
+2. `rtfs` with host tests (fake IPC, ISFS argument blocks).
+3. The 14-function search, validated on the four DOLs.
+4. Trampolines, dispatcher, pending records for FS operations.
+5. Loader compile, Dolphin: Mario Kart Wii writes `rksys.dat` (2.5 MB)
+   on first boot, Kirby's Epic Yarn a small save; the card image is
+   checked on the host after the run.

@@ -4,7 +4,8 @@
 
 /*
  * Layout shared by the resident runtime (freestanding, position-independent
- * PowerPC code copied into reserved MEM2) and the loader that installs it.
+ * PowerPC code copied to the top of the MEM1 arena; its table and buffers
+ * go to the top of the MEM2 arena) and the loader that installs it.
  * Every field is a 32-bit unsigned (or a struct of them) so the layout is
  * identical on the host, where the C part is unit-tested, and on the
  * console.
