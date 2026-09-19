@@ -23,6 +23,7 @@
 #include "di.hpp"
 #include "ios_reload.hpp"
 #include "log.hpp"
+#include "resident.hpp"
 
 namespace riftwii::wii {
 namespace {
@@ -302,6 +303,57 @@ bool dump_file(const OpenedPartition& partition, const std::string& disc_path, c
     return ok;
 }
 
+// Streams `length` bytes of the open partition from `offset` into a file.
+bool copy_partition_range(std::uint64_t offset, std::uint64_t length, const std::string& sd_path,
+                          std::string& error) {
+    if (!make_directories(sd_path)) {
+        error = "cannot create the directories for " + sd_path;
+        return false;
+    }
+    FILE* f = std::fopen(sd_path.c_str(), "wb");
+    if (!f) {
+        error = "cannot create " + sd_path;
+        return false;
+    }
+    di::PartitionSource data;
+    std::vector<std::uint8_t> chunk(64 * 1024);
+    std::uint64_t done = 0;
+    bool ok = true;
+    while (done < length) {
+        const std::size_t n = static_cast<std::size_t>(std::min<std::uint64_t>(chunk.size(), length - done));
+        if (!data.read(offset + done, chunk.data(), n)) {
+            error = "disc read failed at " + std::to_string(done);
+            ok = false;
+            break;
+        }
+        if (std::fwrite(chunk.data(), 1, n, f) != n) {
+            error = "SD write failed at " + std::to_string(done);
+            ok = false;
+            break;
+        }
+        done += n;
+        if ((done & 0xFFFFF) == 0) logf("  %llu MiB\n", static_cast<unsigned long long>(done >> 20));
+    }
+    std::fclose(f);
+    if (ok) error.clear();
+    return ok;
+}
+
+bool dump_dol(const OpenedPartition& partition, const std::string& sd_path, std::string& error) {
+    di::PartitionSource data;
+    std::uint8_t header[kDolHeaderBytes];
+    if (!data.read(partition.data_header.dol_offset, header, sizeof(header))) {
+        error = "cannot read the DOL header";
+        return false;
+    }
+    DolHeader dol;
+    if (!parse_dol_header(header, sizeof(header), dol, error)) return false;
+    logf("Dumping main.dol (%llu bytes at 0x%llx, entry 0x%08x) to %s\n",
+         static_cast<unsigned long long>(dol.image_size()),
+         static_cast<unsigned long long>(partition.data_header.dol_offset), dol.entry, sd_path.c_str());
+    return copy_partition_range(partition.data_header.dol_offset, dol.image_size(), sd_path, error);
+}
+
 bool dump_metadata(const DiscProbe& probe, const OpenedPartition& partition, const std::string& sd_dir,
                    std::string& error) {
     di::SystemAreaSource system_area;
@@ -433,7 +485,26 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, std:
         error = "the apploader returned no entry point";
         return false;
     }
-    logf("Game entry 0x%08x; handing over\n", reinterpret_cast<std::uint32_t>(game_entry));
+    logf("Game entry 0x%08x\n", reinterpret_cast<std::uint32_t>(game_entry));
+
+    // E2: the DOL is in place, so the runtime can find and hook the game's
+    // IPC entry points before anything runs them.
+    ResidentInstall resident;
+    if (options.install_resident) {
+        PartitionDataHeader data_header;
+        if (!read_partition_data_header(data, data_header, error)) return false;
+        std::uint8_t dol_bytes[kDolHeaderBytes];
+        if (!data.read(data_header.dol_offset, dol_bytes, sizeof(dol_bytes))) {
+            error = "cannot read the DOL header";
+            return false;
+        }
+        DolHeader dol;
+        if (!parse_dol_header(dol_bytes, sizeof(dol_bytes), dol, error)) return false;
+        ResidentOptions ro;
+        ro.gecko = options.resident_gecko;
+        if (!install_resident(dol, ro, resident, error)) return false;
+    }
+    logf("Handing over\n");
 
     // Low-memory globals the SDK expects from the System Menu (wiibrew
     // memory map; Dolphin's Boot_BS2Emu and Brainslug write the same set).
@@ -463,6 +534,10 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, std:
         if ((pretended >> 16) != required) pretended = (required << 16) | (read32(0x80003140) & 0xFFFF);
         write32(0x80003140, pretended);
         write32(0x80003188, pretended);
+    }
+    if (options.install_resident) {
+        // IOS's own field, like 0x3140: uncached, after the flush.
+        write32(0x80003128, resident.new_arena_end);
     }
     settime(secs_to_ticks(static_cast<u64>(std::time(nullptr)) - kWiiEpochOffset));
 

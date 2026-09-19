@@ -1,0 +1,59 @@
+# Builds the resident runtime blob (runtime/resident) with devkitPPC:
+# freestanding, no libc, position independent. Produces
+# build-runtime/riftwii_rt.bin, which Makefile.wii embeds in the loader.
+#
+#   export DEVKITPRO=/opt/devkitpro DEVKITPPC=/opt/devkitpro/devkitPPC
+#   make -f Makefile.runtime
+#
+# Position independence is checked by linking at two bases and comparing
+# the binaries; .rodata/.data/.bss must be empty (all state is in the
+# context inside .text, see rt_entry.S).
+ifeq ($(strip $(DEVKITPPC)),)
+$(error "Please set DEVKITPPC in your environment. export DEVKITPPC=<path to>devkitPPC")
+endif
+
+PREFIX  := $(DEVKITPPC)/bin/powerpc-eabi-
+CC      := $(PREFIX)gcc
+OBJCOPY := $(PREFIX)objcopy
+SIZE    := $(PREFIX)size
+
+SRC     := runtime/resident
+OUT     := build-runtime
+BLOB    := $(OUT)/riftwii_rt.bin
+
+CFLAGS  := -O2 -mcpu=750 -meabi -mhard-float -msdata=none \
+           -ffreestanding -nostdlib -fno-builtin -fno-jump-tables \
+           -fno-tree-loop-distribute-patterns -fno-asynchronous-unwind-tables \
+           -fno-stack-protector -fno-common -std=c99 -Wall -Wextra -Wpedantic -Werror \
+           -DRT_TARGET_PPC -I$(SRC)
+LDFLAGS := -nostdlib -nostartfiles -static -Wl,--build-id=none -T $(SRC)/rt.ld
+
+OBJS    := $(OUT)/rt_entry.o $(OUT)/rt_hook.o
+
+.PHONY: all clean
+all: $(BLOB)
+
+$(OUT):
+	@mkdir -p $(OUT)
+
+$(OUT)/rt_entry.o: $(SRC)/rt_entry.S $(SRC)/rt_hook.h | $(OUT)
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(OUT)/rt_hook.o: $(SRC)/rt_hook.c $(SRC)/rt_hook.h | $(OUT)
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(OUT)/riftwii_rt.elf: $(OBJS) $(SRC)/rt.ld
+	$(CC) $(CFLAGS) $(LDFLAGS) -Wl,--defsym,RT_BASE=0x00000000 -o $@ $(OBJS)
+	@$(SIZE) -A $@ | awk '$$1 ~ /^\.(rodata|data|bss)$$/ && $$2 != 0 { print "runtime: section " $$1 " is not empty (" $$2 " bytes); the blob would not be position independent"; bad = 1 } END { exit bad }'
+
+$(OUT)/riftwii_rt_alt.elf: $(OBJS) $(SRC)/rt.ld
+	$(CC) $(CFLAGS) $(LDFLAGS) -Wl,--defsym,RT_BASE=0x12340000 -o $@ $(OBJS)
+
+$(BLOB): $(OUT)/riftwii_rt.elf $(OUT)/riftwii_rt_alt.elf
+	$(OBJCOPY) -O binary $(OUT)/riftwii_rt.elf $@
+	$(OBJCOPY) -O binary $(OUT)/riftwii_rt_alt.elf $(OUT)/riftwii_rt_alt.bin
+	@cmp $@ $(OUT)/riftwii_rt_alt.bin || { echo "runtime: blob differs between link bases; not position independent"; rm -f $@; exit 1; }
+	@echo "runtime blob: $$(stat -c %s $@) bytes"
+
+clean:
+	rm -rf $(OUT)

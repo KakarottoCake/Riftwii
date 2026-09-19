@@ -1,0 +1,143 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+#include "riftwii/hook.hpp"
+
+#include <cstdio>
+
+#include "rt_hook.h"
+
+namespace riftwii {
+namespace {
+
+std::uint32_t be32(const std::uint8_t* p) {
+    return (static_cast<std::uint32_t>(p[0]) << 24) | (static_cast<std::uint32_t>(p[1]) << 16) |
+           (static_cast<std::uint32_t>(p[2]) << 8) | p[3];
+}
+
+bool slot_fits(std::uint32_t offset, std::uint32_t bytes, std::uint32_t size) {
+    return (offset & 3) == 0 && offset < size && bytes <= size - offset;
+}
+
+constexpr std::uint32_t kMem2ArenaFloor = 0x90800000;  // never reserve below 8 MiB into MEM2
+constexpr std::uint32_t kMem2End = 0x94000000;
+constexpr std::uint32_t kReserveGranule = 0x10000;
+
+std::string hex32(std::uint32_t v) {
+    char buf[11];
+    std::snprintf(buf, sizeof(buf), "0x%08x", static_cast<unsigned>(v));
+    return buf;
+}
+
+}  // namespace
+
+bool parse_resident_blob(const std::uint8_t* bytes, std::size_t length, ResidentBlob& out, std::string& error) {
+    if (length < sizeof(rt_blob_header)) {
+        error = "resident blob is shorter than its header";
+        return false;
+    }
+    ResidentBlob b;
+    const std::uint32_t magic = be32(bytes);
+    b.version = be32(bytes + 4);
+    b.size = be32(bytes + 8);
+    b.context_offset = be32(bytes + 12);
+    b.hook_ioctl_async_offset = be32(bytes + 16);
+    b.replay_ioctl_async_offset = be32(bytes + 20);
+    b.continue_ioctl_async_offset = be32(bytes + 24);
+    if (magic != RT_BLOB_MAGIC) {
+        error = "resident blob magic mismatch";
+        return false;
+    }
+    if (b.version != RT_BLOB_VERSION) {
+        error = "resident blob version " + std::to_string(b.version) + " is not supported";
+        return false;
+    }
+    if (b.size != length || (b.size & 31) != 0) {
+        error = "resident blob size field does not match the data";
+        return false;
+    }
+    if (!slot_fits(b.context_offset, kResidentContextBytes, b.size) || (b.context_offset & 31) != 0 ||
+        !slot_fits(b.hook_ioctl_async_offset, 4, b.size) || !slot_fits(b.replay_ioctl_async_offset, 16, b.size) ||
+        !slot_fits(b.continue_ioctl_async_offset, 16, b.size) ||
+        b.continue_ioctl_async_offset != b.replay_ioctl_async_offset + 16) {
+        error = "resident blob offsets are inconsistent";
+        return false;
+    }
+    if (be32(bytes + b.context_offset) != RT_CONTEXT_MAGIC) {
+        error = "resident blob context magic mismatch";
+        return false;
+    }
+    out = b;
+    error.clear();
+    return true;
+}
+
+std::array<std::uint32_t, 4> encode_absolute_jump(unsigned reg, std::uint32_t target) {
+    const std::uint32_t r = reg & 31u;
+    return {
+        0x3C000000u | (r << 21) | (target >> 16),           // lis r, target@h
+        0x60000000u | (r << 21) | (r << 16) | (target & 0xFFFF),  // ori r, r, target@l
+        0x7C0903A6u | (r << 21),                            // mtctr r
+        0x4E800420u,                                        // bctr
+    };
+}
+
+bool displaceable(std::uint32_t instruction, unsigned scratch_reg, std::string& why) {
+    const std::uint32_t opcode = instruction >> 26;
+    if (opcode == 16 || opcode == 18) {
+        why = "it is a branch";
+        return false;
+    }
+    if (opcode == 17) {
+        why = "it is a system call";
+        return false;
+    }
+    if (opcode == 19) {
+        const std::uint32_t xo = (instruction >> 1) & 0x3FF;
+        if (xo == 16 || xo == 528 || xo == 50) {  // bclr, bcctr, rfi
+            why = "it is a branch or return";
+            return false;
+        }
+    }
+    if (opcode == 0) {
+        why = "it is not a valid instruction";
+        return false;
+    }
+    const std::uint32_t rd = (instruction >> 21) & 31;
+    const std::uint32_t ra = (instruction >> 16) & 31;
+    const std::uint32_t rb = (instruction >> 11) & 31;
+    // Register fields are only meaningful for register-form opcodes, but
+    // refusing on any match is a safe over-approximation.
+    if (opcode != 24 && (rd == scratch_reg || ra == scratch_reg || rb == scratch_reg)) {
+        why = "it uses the scratch register";
+        return false;
+    }
+    why.clear();
+    return true;
+}
+
+bool plan_resident_placement(std::uint32_t arena_end, std::uint32_t blob_size, std::uint32_t extra_bytes,
+                             ResidentPlacement& out, std::string& error) {
+    if (arena_end <= kMem2ArenaFloor || arena_end > kMem2End || (arena_end & 31) != 0) {
+        error = "MEM2 arena end " + hex32(arena_end) + " is not plausible";
+        return false;
+    }
+    const std::uint64_t needed = static_cast<std::uint64_t>(blob_size) + extra_bytes;
+    const std::uint64_t reserved = (needed + kReserveGranule - 1) / kReserveGranule * kReserveGranule;
+    if (reserved == 0 || reserved > arena_end - kMem2ArenaFloor) {
+        error = "resident reservation does not fit above the MEM2 floor";
+        return false;
+    }
+    // Keep the boundary on a 64 KiB line when the arena end already is.
+    std::uint32_t base = static_cast<std::uint32_t>(arena_end - reserved);
+    base &= ~static_cast<std::uint32_t>(kReserveGranule - 1);
+    if (base < kMem2ArenaFloor) {
+        error = "resident reservation does not fit above the MEM2 floor";
+        return false;
+    }
+    out.base = base;
+    out.reserved_bytes = arena_end - base;
+    out.new_arena_end = base;
+    error.clear();
+    return true;
+}
+
+}  // namespace riftwii

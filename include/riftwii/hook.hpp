@@ -1,0 +1,47 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+#pragma once
+
+#include <array>
+#include <cstddef>
+#include <cstdint>
+#include <string>
+
+// Installing the resident runtime: the blob format (runtime/resident/
+// rt_hook.h), the PowerPC instruction patching it needs and the MEM2
+// placement. Pure functions so the host tests cover them; wii/resident.cpp
+// performs the actual copies and cache flushes.
+namespace riftwii {
+
+// The blob header, validated (see rt_blob_header).
+struct ResidentBlob {
+    std::uint32_t version = 0;
+    std::uint32_t size = 0;
+    std::uint32_t context_offset = 0;
+    std::uint32_t hook_ioctl_async_offset = 0;
+    std::uint32_t replay_ioctl_async_offset = 0;
+    std::uint32_t continue_ioctl_async_offset = 0;
+};
+constexpr std::size_t kResidentContextBytes = 64;  // sizeof(struct rt_context)
+bool parse_resident_blob(const std::uint8_t* bytes, std::size_t length, ResidentBlob& out, std::string& error);
+
+// lis/ori/mtctr/bctr through `reg` (0-31): an absolute jump in four words.
+std::array<std::uint32_t, 4> encode_absolute_jump(unsigned reg, std::uint32_t target);
+constexpr std::size_t kHookStubBytes = 16;
+
+// Whether an instruction may be moved from the start of a hooked function
+// into the replay slot: no branches, system calls or returns, and nothing
+// that touches the register the continuation jump clobbers.
+bool displaceable(std::uint32_t instruction, unsigned scratch_reg, std::string& why);
+
+// Where the runtime goes: the top of the MEM2 arena, rounded to 64 KiB, so
+// the game's allocator never sees it. `arena_end` is the value IOS put at
+// 0x80003128; `extra_bytes` is space after the blob for tables and buffers.
+struct ResidentPlacement {
+    std::uint32_t base = 0;           // blob copied here
+    std::uint32_t reserved_bytes = 0; // from base to the old arena end
+    std::uint32_t new_arena_end = 0;  // what 0x80003128 becomes (== base)
+};
+bool plan_resident_placement(std::uint32_t arena_end, std::uint32_t blob_size, std::uint32_t extra_bytes,
+                             ResidentPlacement& out, std::string& error);
+
+}  // namespace riftwii

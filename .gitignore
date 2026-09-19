@@ -5,3 +5,4 @@ build_wii/
 *.map
 Testing/
 build-dolphin/
+build-runtime/

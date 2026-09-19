@@ -88,6 +88,7 @@ void RunAutorun() {
     std::string line;
     Session s;
     bool allow_fallback = true;
+    bool install_resident = false;
     std::string error;
     int line_number = 0;
     while (std::getline(script, line)) {
@@ -118,11 +119,20 @@ void RunAutorun() {
                 if (sd_path.empty()) sd_path = "sd:/riftwii/dump/" + basename_of(disc_path);
                 ok = s.ensure_layout(error) && dump_file(s.partition, disc_path, sd_path, error);
             }
+        } else if (cmd == "dol") {
+            std::string sd_path;
+            words >> sd_path;
+            if (sd_path.empty()) sd_path = "sd:/riftwii/dump/main.dol";
+            ok = s.ensure_layout(error) && dump_dol(s.partition, sd_path, error);
         } else if (cmd == "nofallback") {
             allow_fallback = false;
+        } else if (cmd == "hook") {
+            install_resident = true;  // E2: resident runtime, DI reads reported over the Gecko
         } else if (cmd == "boot") {
             BootOptions options;
             options.allow_ios_fallback = allow_fallback;
+            options.install_resident = install_resident;
+            options.resident_gecko = install_resident;
             if (!s.ensure_probe(error)) {
                 ok = false;
             } else {

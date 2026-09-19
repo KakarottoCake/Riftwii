@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "riftwii/disc.hpp"
+#include "riftwii/dol.hpp"
 #include "riftwii/fst.hpp"
 
 // E1: boot an unmodified disc the way the System Menu would, from a
@@ -50,11 +51,18 @@ bool dump_file(const OpenedPartition& partition, const std::string& disc_path,
 // partitions.bin, tmd.bin, datahdr.bin, fst.bin, apploader.bin).
 bool dump_metadata(const DiscProbe& probe, const OpenedPartition& partition, const std::string& sd_dir,
                    std::string& error);
+// Copies the partition's main.dol (header plus every section) to `sd_path`.
+bool dump_dol(const OpenedPartition& partition, const std::string& sd_path, std::string& error);
 
 struct BootOptions {
     // When the title's IOS cannot be loaded, launch under the current one
     // and report the expected version to the game (Brainslug does this).
     bool allow_ios_fallback = true;
+    // E2: install the resident runtime and hook the game's IOS_IoctlAsync
+    // (wii/resident.hpp); `resident_gecko` makes it report DI reads over
+    // the USB Gecko.
+    bool install_resident = false;
+    bool resident_gecko = false;
 };
 
 // Reloads IOS, runs the apploader and jumps to the game. Only returns on
