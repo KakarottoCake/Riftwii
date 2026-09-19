@@ -128,6 +128,6 @@ rt_context_data:
     .long 0                                   /* flags */
     .long 1                                   /* gecko_channel: slot B */
     .long 0                                   /* original_ioctl_async */
-    .fill 476, 4, 0                           /* counters, redirection state, pending records: 1920 bytes total */
+    .fill 508, 4, 0                           /* counters, redirection state, pending records: 2048 bytes total */
 
 /* _rt_blob_end is defined by rt.ld after the C code. */

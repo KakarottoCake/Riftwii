@@ -163,9 +163,9 @@ bool plan_resident_placement(std::uint32_t arena_end, std::uint32_t blob_size, s
 }
 
 bool build_payload(const std::vector<MemReplacement>& mem, const std::vector<SdReplacement>& sd,
-                   std::uint32_t payload_address, std::uint64_t tag, std::uint32_t sdio_fd,
-                   std::vector<std::uint8_t>& payload, std::string& error) {
-    if (mem.empty() && sd.empty()) {
+                   const std::vector<DiscReplacement>& disc, std::uint32_t payload_address, std::uint64_t tag,
+                   std::uint32_t sdio_fd, std::vector<std::uint8_t>& payload, std::string& error) {
+    if (mem.empty() && sd.empty() && disc.empty()) {
         error = "no replacements to lay out";
         return false;
     }
@@ -216,6 +216,20 @@ bool build_payload(const std::vector<MemReplacement>& mem, const std::vector<SdR
             at += run.length;
         }
     }
+    for (const DiscReplacement& r : disc) {
+        if (r.length == 0) {
+            error = "a disc replacement is empty";
+            return false;
+        }
+        Piece p;
+        p.entry.vstart = r.virtual_offset;
+        p.entry.length = r.length;
+        p.entry.source = r.disc_offset;
+        p.entry.skip = 0;
+        p.entry.kind = RT_KIND_DISC;
+        p.entry.reserved = 0;
+        pieces.push_back(p);
+    }
     std::sort(pieces.begin(), pieces.end(),
               [](const Piece& a, const Piece& b) { return a.entry.vstart < b.entry.vstart; });
     const std::size_t table_bytes = align32(rt_table_bytes(static_cast<std::uint32_t>(pieces.size())));
@@ -261,7 +275,7 @@ bool build_payload(const std::vector<MemReplacement>& mem, const std::vector<SdR
 
 bool build_mem_payload(const std::vector<MemReplacement>& replacements, std::uint32_t payload_address,
                        std::uint64_t tag, std::vector<std::uint8_t>& payload, std::string& error) {
-    return build_payload(replacements, {}, payload_address, tag, 0xFFFFFFFFu, payload, error);
+    return build_payload(replacements, {}, {}, payload_address, tag, 0xFFFFFFFFu, payload, error);
 }
 
 std::uint64_t VirtualFile::size() const {
@@ -272,7 +286,8 @@ std::uint64_t VirtualFile::size() const {
 }
 
 bool plan_virtual_window(Fst& fst, const std::vector<VirtualFile>& files, std::vector<MemReplacement>& mem,
-                         std::vector<SdReplacement>& sd, std::uint64_t& window_end, std::string& error) {
+                         std::vector<SdReplacement>& sd, std::vector<DiscReplacement>& disc,
+                         std::uint64_t& window_end, std::string& error) {
     constexpr std::uint64_t kWindowEnd = 0x400000000ull;  // word 0x100000000: past the 32-bit word space
     std::uint64_t next = kVirtualWindowStart;
     for (const VirtualFile& f : files) {
@@ -285,7 +300,8 @@ bool plan_virtual_window(Fst& fst, const std::vector<VirtualFile>& files, std::v
             error = "'" + f.disc_path + "' is a directory";
             return false;
         }
-        const std::uint64_t size = f.size();
+        const FstEntry original_entry = fst.entries()[index];
+        const std::uint64_t size = f.original ? original_entry.size : f.size();
         const std::uint64_t padded = (size + 31) & ~std::uint64_t(31);
         if (padded > 0xFFFFFFFFull) {  // the FST size field is 32 bits
             error = "'" + f.disc_path + "' is too large for an FST entry";
@@ -300,7 +316,13 @@ bool plan_virtual_window(Fst& fst, const std::vector<VirtualFile>& files, std::v
             return false;
         }
         if (!fst.set_file_extent(index, next, static_cast<std::uint32_t>(size), error)) return false;
-        if (!f.bytes.empty()) {
+        if (f.original) {
+            DiscReplacement r;
+            r.virtual_offset = next;
+            r.disc_offset = original_entry.offset;
+            r.length = size;
+            disc.push_back(r);
+        } else if (!f.bytes.empty()) {
             MemReplacement r;
             r.virtual_offset = next;
             r.bytes = f.bytes;

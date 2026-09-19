@@ -30,6 +30,9 @@ struct ResidentOptions {
     std::vector<SdReplacement> sd_replacements;
     std::int32_t sdio_fd = -1;
     bool sdio_sdhc = false;
+    // E7: ranges served from the disc's own bytes elsewhere (relocated or
+    // partially patched files).
+    std::vector<DiscReplacement> disc_replacements;
 };
 
 struct ResidentInstall {

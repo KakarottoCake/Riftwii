@@ -25,7 +25,7 @@ struct ResidentBlob {
     std::uint32_t continue_ioctl_async_offset = 0;
     std::uint32_t complete_di_offset = 0;
 };
-constexpr std::size_t kResidentContextBytes = 1920;  // sizeof(struct rt_context)
+constexpr std::size_t kResidentContextBytes = 2048;  // sizeof(struct rt_context)
 bool parse_resident_blob(const std::uint8_t* bytes, std::size_t length, ResidentBlob& out, std::string& error);
 
 // A same-size replacement served from memory (E3): the bytes the game must
@@ -44,6 +44,16 @@ struct SdReplacement {
     std::vector<PlacedRun> runs;
 };
 
+// Bytes the game must see at [virtual_offset, virtual_offset + length)
+// that are the disc's own bytes at [disc_offset, disc_offset + length)
+// (E7): the untouched part of a relocated or partially patched file. The
+// runtime fetches them with its own DVDLowRead.
+struct DiscReplacement {
+    std::uint64_t virtual_offset = 0;
+    std::uint64_t disc_offset = 0;
+    std::uint64_t length = 0;
+};
+
 // Lays out the payload the loader puts after the blob: the redirect table
 // (at payload offset 0) followed by the MEM replacement data, each 32-byte
 // aligned, with MEM sources computed for `payload_address`; SD
@@ -51,8 +61,8 @@ struct SdReplacement {
 // the address, so callers may size the reservation with a placeholder
 // address first. Fails on empty or overlapping replacements.
 bool build_payload(const std::vector<MemReplacement>& mem, const std::vector<SdReplacement>& sd,
-                   std::uint32_t payload_address, std::uint64_t tag, std::uint32_t sdio_fd,
-                   std::vector<std::uint8_t>& payload, std::string& error);
+                   const std::vector<DiscReplacement>& disc, std::uint32_t payload_address, std::uint64_t tag,
+                   std::uint32_t sdio_fd, std::vector<std::uint8_t>& payload, std::string& error);
 // MEM only, no SD fd.
 bool build_mem_payload(const std::vector<MemReplacement>& replacements, std::uint32_t payload_address,
                        std::uint64_t tag, std::vector<std::uint8_t>& payload, std::string& error);
@@ -64,8 +74,9 @@ bool build_mem_payload(const std::vector<MemReplacement>& replacements, std::uin
 struct VirtualFile {
     std::string disc_path;             // absolute FST path of an existing file
     std::vector<std::uint8_t> bytes;   // new content in memory, any size; or
-    std::vector<PlacedRun> sd_runs;    // new content on the card (its size is the runs' total)
-    std::uint64_t size() const;
+    std::vector<PlacedRun> sd_runs;    // new content on the card (its size is the runs' total); or
+    bool original = false;             // the file's own disc bytes, relocated as they are (E7)
+    std::uint64_t size() const;        // 0 for `original`: the planner takes the FST entry's size
 };
 constexpr std::uint64_t kVirtualWindowStart = 0x200000000ull;  // byte offset; word 0x80000000
 
@@ -78,7 +89,7 @@ constexpr std::uint64_t kVirtualWindowStart = 0x200000000ull;  // byte offset; w
 // 32-bit word space.
 bool plan_virtual_window(class Fst& fst, const std::vector<VirtualFile>& files,
                          std::vector<MemReplacement>& mem, std::vector<SdReplacement>& sd,
-                         std::uint64_t& window_end, std::string& error);
+                         std::vector<DiscReplacement>& disc, std::uint64_t& window_end, std::string& error);
 
 // lis/ori/mtctr/bctr through `reg` (0-31): an absolute jump in four words.
 std::array<std::uint32_t, 4> encode_absolute_jump(unsigned reg, std::uint32_t target);

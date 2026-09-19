@@ -398,6 +398,27 @@ std::int32_t FakeIoctlvAsync(std::uint32_t fd, std::uint32_t ioctl, std::uint32_
     return 0;  // the reply is delivered by the test, like the IPC dispatcher would
 }
 
+// The fake drive: partition byte n reads as (n * 3) & 0xFF.
+std::vector<std::uint32_t> g_disc_requests;  // (word offset, length) pairs
+
+std::int32_t FakeIoctlAsync(std::uint32_t fd, std::uint32_t ioctl, std::uint32_t* in, std::uint32_t in_len,
+                            std::uint32_t out, std::uint32_t out_len, std::uint32_t callback, rt_pending* record) {
+    EXPECT_EQ(fd, 3u);  // the fd the game used
+    EXPECT_EQ(ioctl, 0x71u);
+    EXPECT_EQ(in_len, 0x20u);
+    EXPECT_EQ(callback, 0x935D0100u);
+    EXPECT_EQ(in, record->di_command);
+    EXPECT_EQ(in[0], 0x71000000u);
+    EXPECT_EQ(in[1], out_len);
+    EXPECT_EQ(out, record->bounce);
+    EXPECT_EQ(out_len % 32, 0u);
+    g_disc_requests.push_back(in[2]);
+    g_disc_requests.push_back(in[1]);
+    std::uint8_t* dst = reinterpret_cast<std::uint8_t*>(static_cast<std::uintptr_t>(out));
+    for (std::uint32_t k = 0; k < out_len; ++k) dst[k] = static_cast<std::uint8_t>(((in[2] << 2) + k) * 3);
+    return 0;  // accepted; the reply is delivered by the test
+}
+
 }  // namespace
 
 static void TestSdChain(std::uint8_t* low_table, std::uint8_t* low_out) {
@@ -431,7 +452,7 @@ static void TestSdChain(std::uint8_t* low_table, std::uint8_t* low_out) {
     m.bytes.assign(16, 0x5A);
     std::vector<std::uint8_t> payload;
     const std::uint32_t table_address = static_cast<std::uint32_t>(reinterpret_cast<std::uintptr_t>(low_table));
-    EXPECT_TRUE(riftwii::build_payload({m}, {sdr}, table_address, 0, 9, payload, error));
+    EXPECT_TRUE(riftwii::build_payload({m}, {sdr}, {}, table_address, 0, 9, payload, error));
     const auto* header = reinterpret_cast<const rt_header*>(payload.data());
     EXPECT_EQ(header->entry_count, 3u);
     EXPECT_EQ(header->sdio_fd, 9u);
@@ -510,7 +531,7 @@ static void TestSdChain(std::uint8_t* low_table, std::uint8_t* low_out) {
     riftwii::SdReplacement sdb;
     sdb.virtual_offset = 0x40000;
     EXPECT_TRUE(riftwii::place_on_fragments(big, 0, 40000, sdb.runs, error));
-    EXPECT_TRUE(riftwii::build_payload({}, {sdb}, table_address, 0, 9, payload, error));
+    EXPECT_TRUE(riftwii::build_payload({}, {sdb}, {}, table_address, 0, 9, payload, error));
     std::memcpy(low_table, payload.data(), payload.size());
     std::uint8_t* big_out = low_out + 0x1000 + RT_BOUNCE_BYTES + 0x100;  // 40000 bytes
     di_cmd[1] = 40000;
@@ -547,7 +568,7 @@ static void TestSdChain(std::uint8_t* low_table, std::uint8_t* low_out) {
     args[5] = 0x800;
     args[6] = 0x80005000;
     args[7] = 0x80006000;
-    EXPECT_TRUE(riftwii::build_payload({m}, {sdr}, table_address, 0, 9, payload, error));
+    EXPECT_TRUE(riftwii::build_payload({m}, {sdr}, {}, table_address, 0, 9, payload, error));
     std::memcpy(low_table, payload.data(), payload.size());
     EXPECT_EQ(rt_on_ioctl_async(&ctx, args, &result), 0);
     rec = reinterpret_cast<rt_pending*>(args[7]);
@@ -586,6 +607,69 @@ static void TestSdChain(std::uint8_t* low_table, std::uint8_t* low_out) {
     EXPECT_EQ(di_result, 2);
     EXPECT_EQ(g_sd_sectors_requested.size(), 0u);
     rt_host_ioctlv_async = nullptr;
+
+    // DISC runs: a 100-byte range at partition byte 0x7005 relocated to
+    // 0x60000, in a read of 0x80 bytes at 0x60000 (so 100 disc bytes then
+    // a 28-byte gap). The runtime issues a DVDLowRead of the 32-byte
+    // aligned span [0x7000, 0x7080) into the bounce buffer through the
+    // unhooked entry, on the game's DI fd.
+    riftwii::DiscReplacement dr;
+    dr.virtual_offset = 0x60000;
+    dr.disc_offset = 0x7005;
+    dr.length = 100;
+    EXPECT_TRUE(riftwii::build_payload({}, {}, {dr}, table_address, 0, 9, payload, error));
+    std::memcpy(low_table, payload.data(), payload.size());
+    ctx.di_read_entry = 0x935D00AC;
+    rt_host_ioctl_async = &FakeIoctlAsync;
+    g_disc_requests.clear();
+    std::memset(out, 0xEE, 0x800);
+    di_cmd[1] = 0x80;
+    di_cmd[2] = 0x60000 >> 2;
+    args[4] = reinterpret_cast<std::uintptr_t>(out);
+    args[5] = 0x80;
+    args[6] = 0x80005000;
+    args[7] = 0x80006000;
+    EXPECT_EQ(rt_on_ioctl_async(&ctx, args, &result), 0);
+    EXPECT_EQ(ctx.di_fd, 3u);
+    rec = reinterpret_cast<rt_pending*>(args[7]);
+    di_result = 1;
+    rt_on_di_complete(&ctx, &di_result, rec, &cb, &ud);
+    EXPECT_EQ(cb, 0u);
+    EXPECT_EQ(rec->phase, RT_PHASE_DISC_RUN);
+    EXPECT_EQ(g_disc_requests.size(), 2u);
+    EXPECT_EQ(g_disc_requests[0], 0x7000u >> 2);  // word offset of the aligned start
+    EXPECT_EQ(g_disc_requests[1], 0x80u);         // 5 + 100 = 105 bytes, rounded to 32
+    EXPECT_EQ(rec->chunk_skip, 5u);
+    EXPECT_EQ(rec->chunk_bytes, 100u);
+    di_result = 1;  // the drive's reply
+    rt_on_di_complete(&ctx, &di_result, rec, &cb, &ud);
+    EXPECT_EQ(cb, 0x80005000u);
+    EXPECT_EQ(di_result, 1);
+    for (std::uint32_t k = 0; k < 100; ++k) {
+        if (out[k] != static_cast<std::uint8_t>((0x7005 + k) * 3)) {
+            EXPECT_TRUE(false);
+            break;
+        }
+    }
+    EXPECT_EQ(out[100], 0xEE);  // beyond the DISC run: untouched (not a virtual read)
+    EXPECT_EQ(ctx.disc_requests, 1u);
+    EXPECT_EQ(ctx.disc_failures, 0u);
+
+    // The drive's error is passed to the game as it is.
+    args[6] = 0x80005000;
+    args[7] = 0x80006000;
+    EXPECT_EQ(rt_on_ioctl_async(&ctx, args, &result), 0);
+    rec = reinterpret_cast<rt_pending*>(args[7]);
+    di_result = 1;
+    rt_on_di_complete(&ctx, &di_result, rec, &cb, &ud);
+    EXPECT_EQ(cb, 0u);
+    di_result = 4;  // e.g. a timeout
+    rt_on_di_complete(&ctx, &di_result, rec, &cb, &ud);
+    EXPECT_EQ(cb, 0x80005000u);
+    EXPECT_EQ(di_result, 4);
+    EXPECT_EQ(ctx.disc_failures, 1u);
+    EXPECT_EQ(rec->in_use, 0u);
+    rt_host_ioctl_async = nullptr;
 }
 
 static void TestPayloadAndRedirect() {
@@ -783,8 +867,9 @@ static void TestVirtualWindow() {
     riftwii::VirtualFile on_card;  // config.txt again would collide; use home.csv's neighbour
     std::vector<riftwii::MemReplacement> reps;
     std::vector<riftwii::SdReplacement> sd_reps;
+    std::vector<riftwii::DiscReplacement> disc_reps;
     std::uint64_t end = 0;
-    EXPECT_TRUE(riftwii::plan_virtual_window(fst, {grown, tiny}, reps, sd_reps, end, error));
+    EXPECT_TRUE(riftwii::plan_virtual_window(fst, {grown, tiny}, reps, sd_reps, disc_reps, end, error));
     EXPECT_EQ(reps.size(), 2u);
     EXPECT_EQ(sd_reps.size(), 0u);
     EXPECT_EQ(reps[0].virtual_offset, riftwii::kVirtualWindowStart);
@@ -811,12 +896,12 @@ static void TestVirtualWindow() {
     riftwii::VirtualFile bad;
     bad.disc_path = "/nope";
     bad.bytes = {1};
-    EXPECT_FALSE(riftwii::plan_virtual_window(fst, {bad}, reps, sd_reps, end, error));
+    EXPECT_FALSE(riftwii::plan_virtual_window(fst, {bad}, reps, sd_reps, disc_reps, end, error));
     bad.disc_path = "/hbm";
-    EXPECT_FALSE(riftwii::plan_virtual_window(fst, {bad}, reps, sd_reps, end, error));
+    EXPECT_FALSE(riftwii::plan_virtual_window(fst, {bad}, reps, sd_reps, disc_reps, end, error));
     bad.disc_path = "/hbm/config.txt";
     bad.bytes.clear();
-    EXPECT_FALSE(riftwii::plan_virtual_window(fst, {bad}, reps, sd_reps, end, error));  // no content
+    EXPECT_FALSE(riftwii::plan_virtual_window(fst, {bad}, reps, sd_reps, disc_reps, end, error));  // no content
 
     // An SD-backed file takes a slot the same way; its size is the runs' total.
     riftwii::VirtualFile card;
@@ -827,7 +912,7 @@ static void TestVirtualWindow() {
     riftwii::Fst fst2;
     EXPECT_TRUE(riftwii::Fst::parse(image.data(), image.size(), true, fst2, error));
     reps.clear();
-    EXPECT_TRUE(riftwii::plan_virtual_window(fst2, {grown, card}, reps, sd_reps, end, error));
+    EXPECT_TRUE(riftwii::plan_virtual_window(fst2, {grown, card}, reps, sd_reps, disc_reps, end, error));
     EXPECT_EQ(reps.size(), 1u);
     EXPECT_EQ(sd_reps.size(), 1u);
     EXPECT_EQ(sd_reps[0].virtual_offset, riftwii::kVirtualWindowStart + 5024);
@@ -836,9 +921,10 @@ static void TestVirtualWindow() {
     EXPECT_EQ(fst2.entries()[c].offset, riftwii::kVirtualWindowStart + 5024);
     EXPECT_EQ(end, riftwii::kVirtualWindowStart + 5024 + 1312);
 
+
     // The payload builder accepts window offsets and the walker resolves them.
     std::vector<std::uint8_t> payload;
-    EXPECT_TRUE(riftwii::build_payload(reps, sd_reps, 0x935C0000, 0, 4, payload, error));
+    EXPECT_TRUE(riftwii::build_payload(reps, sd_reps, disc_reps, 0x935C0000, 0, 4, payload, error));
     const auto* header = reinterpret_cast<const rt_header*>(payload.data());
     EXPECT_EQ(rt_validate(header, payload.size()), RT_OK);
     rt_run runs[4];
@@ -856,6 +942,23 @@ static void TestVirtualWindow() {
     EXPECT_EQ(runs[0].length, 20ull);
     EXPECT_EQ(runs[1].kind, static_cast<std::uint32_t>(RT_KIND_PASSTHROUGH));
     EXPECT_EQ(runs[1].length, 44ull);
+
+    // A file relocated as it is becomes a DISC replacement of its old bytes.
+    riftwii::VirtualFile kept;
+    kept.disc_path = "/hbm/home.csv";
+    kept.original = true;
+    riftwii::Fst fst3;
+    EXPECT_TRUE(riftwii::Fst::parse(image.data(), image.size(), true, fst3, error));
+    reps.clear();
+    sd_reps.clear();
+    EXPECT_TRUE(riftwii::plan_virtual_window(fst3, {kept}, reps, sd_reps, disc_reps, end, error));
+    EXPECT_EQ(disc_reps.size(), 1u);
+    EXPECT_EQ(disc_reps[0].virtual_offset, riftwii::kVirtualWindowStart);
+    EXPECT_EQ(disc_reps[0].disc_offset, 0x1000ull);
+    EXPECT_EQ(disc_reps[0].length, 3610ull);
+    EXPECT_EQ(fst3.entries()[h].offset, riftwii::kVirtualWindowStart);
+    EXPECT_EQ(fst3.entries()[h].size, 3610u);
+    disc_reps.clear();
 }
 
 int main() {

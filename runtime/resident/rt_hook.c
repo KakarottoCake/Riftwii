@@ -119,9 +119,27 @@ static int32_t rt_ioctlv_async(struct rt_context* ctx, struct rt_pending* record
     if (fn == 0) return -1;
     return fn(ctx->sdio_fd, RT_SDIO_SENDCMD, 2, 1, record->vec, ctx->complete_entry, record);
 }
+
+/* The unhooked IOS_IoctlAsync (the replay slot runs the displaced
+ * instructions and continues in the original), for DVDLowReads of our
+ * own on the game's /dev/di fd. */
+typedef int32_t (*rt_ioctl_async_fn)(uint32_t fd, uint32_t ioctl, uint32_t* in, uint32_t in_len, uint32_t out,
+                                     uint32_t out_len, uint32_t callback, struct rt_pending* record);
+static int32_t rt_di_read_async(struct rt_context* ctx, struct rt_pending* record, uint32_t length) {
+    rt_ioctl_async_fn fn = (rt_ioctl_async_fn)(uintptr_t)ctx->di_read_entry;
+    if (fn == 0) return -1;
+    return fn(ctx->di_fd, RT_DI_READ, record->di_command, 0x20, record->bounce, length, ctx->complete_entry, record);
+}
 #else
 int32_t (*rt_host_ioctlv_async)(uint32_t fd, uint32_t ioctl, uint32_t in_count, uint32_t out_count,
                                 struct rt_ioctlv* vec, uint32_t callback, struct rt_pending* record) = 0;
+int32_t (*rt_host_ioctl_async)(uint32_t fd, uint32_t ioctl, uint32_t* in, uint32_t in_len, uint32_t out,
+                               uint32_t out_len, uint32_t callback, struct rt_pending* record) = 0;
+static int32_t rt_di_read_async(struct rt_context* ctx, struct rt_pending* record, uint32_t length) {
+    if (ctx->di_read_entry == 0 || rt_host_ioctl_async == 0) return -1;
+    return rt_host_ioctl_async(ctx->di_fd, RT_DI_READ, record->di_command, 0x20, record->bounce, length,
+                               ctx->complete_entry, record);
+}
 static int rt_gecko_putc(struct rt_context* ctx, uint32_t ch) {
     (void)ch;
     return (ctx->flags & RT_FLAG_GECKO) != 0;
@@ -271,6 +289,38 @@ static uint8_t* rt_run_destination(const struct rt_pending* record, const rt_run
     return (uint8_t*)(uintptr_t)record->out + (uint32_t)(run->vstart - ((uint64_t)record->word_offset << 2));
 }
 
+/* Issues the next chunk of the current DISC run: a DVDLowRead of the
+ * 32-byte aligned span around the wanted bytes into the bounce buffer. */
+static int rt_issue_disc_chunk(struct rt_context* ctx, struct rt_pending* record) {
+    const rt_run* run = &record->runs[record->run_index];
+    const uint32_t remaining = (uint32_t)run->length - record->run_done;
+    const uint32_t first = (uint32_t)run->source + record->run_done; /* partition byte wanted first */
+    const uint32_t start = first & ~31u;
+    uint32_t end = first + remaining;
+    uint32_t length;
+    uint32_t i;
+    if (remaining == 0) return 0;
+    end = (end + 31u) & ~31u;
+    if (end - start > RT_BOUNCE_BYTES) end = start + RT_BOUNCE_BYTES;
+    length = end - start;
+    record->chunk_skip = first - start;
+    record->chunk_bytes = length - record->chunk_skip;
+    if (record->chunk_bytes > remaining) record->chunk_bytes = remaining;
+    for (i = 0; i < 8; ++i) record->di_command[i] = 0;
+    record->di_command[0] = RT_DI_READ << 24;
+    record->di_command[1] = length;
+    record->di_command[2] = start >> 2;
+    rt_flush_range((uintptr_t)record->di_command, sizeof(record->di_command));
+    rt_flush_range((uintptr_t)record->bounce, length);
+    record->phase = RT_PHASE_DISC_RUN;
+    ctx->disc_requests++;
+    if (rt_di_read_async(ctx, record, length) < 0) {
+        ctx->disc_failures++;
+        return -1;
+    }
+    return 1;
+}
+
 /* Issues the next SD chunk of the current run. Returns 1 when a request
  * is in flight, 0 when the run is complete or not an SD run, -1 on an IPC
  * refusal. */
@@ -283,6 +333,7 @@ static int rt_issue_sd_chunk(struct rt_context* ctx, struct rt_pending* record) 
     uint32_t want = skip + remaining;
     uint32_t sectors;
     struct rt_sdio_request* rq = &record->request;
+    if (run->kind == RT_KIND_DISC) return rt_issue_disc_chunk(ctx, record);
     if (run->kind != RT_KIND_SD || remaining == 0) return 0;
     if (want > RT_BOUNCE_BYTES) want = RT_BOUNCE_BYTES;
     sectors = (want + RT_SECTOR_BYTES - 1) / RT_SECTOR_BYTES;
@@ -348,7 +399,7 @@ void rt_on_di_complete(struct rt_context* ctx, int32_t* result, struct rt_pendin
                 } else if (run->kind == RT_KIND_ZERO || (run->kind == RT_KIND_PASSTHROUGH && record->is_virtual)) {
                     rt_zero(dst, n); /* nothing on the disc belongs in a virtual gap */
                 } else {
-                    continue; /* PASSTHROUGH: the disc already filled it; SD: below; DISC: not produced yet */
+                    continue; /* PASSTHROUGH: the disc already filled it; SD and DISC: below */
                 }
                 rt_flush_range((uintptr_t)dst, n);
             }
@@ -358,11 +409,18 @@ void rt_on_di_complete(struct rt_context* ctx, int32_t* result, struct rt_pendin
             record->run_index = record->run_count; /* nothing to fetch for a failed read */
         }
     } else {
-        /* An SD chunk landed (or failed). */
+        /* An SD or DISC chunk landed (or failed). IPC results are 0 for a
+         * successful SD request and RT_DI_SUCCESS for a DVDLowRead. */
         const rt_run* run = &record->runs[record->run_index];
-        if (*result < 0) {
-            ctx->sd_failures++;
-            record->di_result = RT_DI_ERROR;
+        const int failed = record->phase == RT_PHASE_SD ? *result < 0 : *result != RT_DI_SUCCESS;
+        if (failed) {
+            if (record->phase == RT_PHASE_SD) {
+                ctx->sd_failures++;
+                record->di_result = RT_DI_ERROR;
+            } else {
+                ctx->disc_failures++;
+                record->di_result = *result > 0 ? (uint32_t)*result : RT_DI_ERROR; /* the drive's own verdict */
+            }
             record->run_index = record->run_count;
         } else {
             uint8_t* dst = rt_run_destination(record, run) + record->run_done;

@@ -5,6 +5,7 @@
 #include <ogc/cache.h>
 #include <ogc/machine/processor.h>
 
+#include <algorithm>
 #include <cstring>
 #include <vector>
 
@@ -66,7 +67,8 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
 
     // 3. Reserve the top of the MEM2 arena: blob, the redirect payload,
     //    then the SD bounce buffers.
-    const bool has_table = !options.replacements.empty() || !options.sd_replacements.empty();
+    const bool has_table = !options.replacements.empty() || !options.sd_replacements.empty() ||
+                           !options.disc_replacements.empty();
     const bool has_sd = !options.sd_replacements.empty();
     if (has_sd && symbols.ioctlv_async == 0) {
         error = "SD-backed replacements need the game's IOS_IoctlvAsync, which was not found";
@@ -78,11 +80,12 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
     }
     const std::uint32_t sdio_fd = options.sdio_fd < 0 ? 0xFFFFFFFFu : static_cast<std::uint32_t>(options.sdio_fd);
     std::vector<std::uint8_t> payload;
-    if (has_table && !build_payload(options.replacements, options.sd_replacements, 0, options.table_tag, sdio_fd,
-                                    payload, error)) {
+    if (has_table && !build_payload(options.replacements, options.sd_replacements, options.disc_replacements, 0,
+                                    options.table_tag, sdio_fd, payload, error)) {
         return false;
     }
-    const std::uint32_t bounce_bytes = has_sd ? RT_MAX_PENDING * RT_BOUNCE_BYTES : 0;
+    const bool has_disc = !options.disc_replacements.empty();
+    const std::uint32_t bounce_bytes = has_sd || has_disc ? RT_MAX_PENDING * RT_BOUNCE_BYTES : 0;
     const std::uint32_t arena_end = read32(kMem2ArenaEndField);
     ResidentPlacement place;
     if (!plan_resident_placement(arena_end, blob.size, static_cast<std::uint32_t>(payload.size()) + bounce_bytes,
@@ -90,8 +93,8 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
         return false;
     }
     const std::uint32_t payload_address = place.base + blob.size;  // blob sizes are multiples of 32
-    if (has_table && !build_payload(options.replacements, options.sd_replacements, payload_address,
-                                    options.table_tag, sdio_fd, payload, error)) {
+    if (has_table && !build_payload(options.replacements, options.sd_replacements, options.disc_replacements,
+                                    payload_address, options.table_tag, sdio_fd, payload, error)) {
         return false;
     }
     const std::uint32_t bounce_address = payload_address + static_cast<std::uint32_t>(payload.size());
@@ -113,8 +116,9 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
     ctx->sdio_fd = sdio_fd;
     ctx->sdio_sdhc = options.sdio_sdhc ? 1 : 0;
     ctx->ioctlv_async = symbols.ioctlv_async;
+    ctx->di_read_entry = place.base + blob.replay_ioctl_async_offset;  // the unhooked IOS_IoctlAsync
     for (std::uint32_t i = 0; i < RT_MAX_PENDING; ++i) {
-        ctx->pending[i].bounce = has_sd ? bounce_address + i * RT_BOUNCE_BYTES : 0;
+        ctx->pending[i].bounce = bounce_bytes != 0 ? bounce_address + i * RT_BOUNCE_BYTES : 0;
     }
     store_words(place.base + blob.replay_ioctl_async_offset, displaced, 4);
     const auto resume = encode_absolute_jump(kContinueScratchRegister, symbols.ioctl_async + kHookStubBytes);

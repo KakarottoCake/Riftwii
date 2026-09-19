@@ -478,6 +478,7 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, std:
     // again; the files themselves become MEM replacements in the window.
     std::vector<MemReplacement> replacements = options.replacements;
     std::vector<SdReplacement> sd_replacements = options.sd_replacements;
+    std::vector<DiscReplacement> disc_replacements;
     std::vector<std::uint8_t> fst_override;
     if (!options.virtual_files.empty()) {
         if (!options.install_resident) {
@@ -486,7 +487,8 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, std:
         }
         Fst fst = layout.fst;
         std::uint64_t window_end = 0;
-        if (!plan_virtual_window(fst, options.virtual_files, replacements, sd_replacements, window_end, error)) {
+        if (!plan_virtual_window(fst, options.virtual_files, replacements, sd_replacements, disc_replacements,
+                                 window_end, error)) {
             return false;
         }
         fst_override = layout.fst_bytes;
@@ -609,6 +611,7 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, std:
         ro.table_tag = static_cast<std::uint64_t>(probe.partition.offset);
         ro.virtual_start_words = options.virtual_files.empty() ? 0 : static_cast<std::uint32_t>(kVirtualWindowStart >> 2);
         ro.sd_replacements = std::move(sd_replacements);
+        ro.disc_replacements = std::move(disc_replacements);
         ro.sdio_fd = card.fd;
         ro.sdio_sdhc = card.sdhc;
         if (!install_resident(dol, ro, resident, error)) return false;

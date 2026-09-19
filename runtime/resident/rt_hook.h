@@ -35,6 +35,11 @@
  * bounce buffer, then copied into the game's buffer), registering itself
  * as the callback of every request; the game's callback runs when the
  * last chunk has landed. The card is left selected by the loader.
+ *
+ * DISC runs (E7+): original bytes of a relocated or partially patched
+ * file are fetched the same way with a DVDLowRead on the game's /dev/di
+ * fd through the unhooked IOS_IoctlAsync entry (the replay slot), 32-byte
+ * aligned into the bounce buffer.
  */
 
 #include <stdint.h>
@@ -58,8 +63,9 @@ extern "C" {
 #define RT_BOUNCE_BYTES 0x8000u   /* bytes one SD request fetches (64 sectors), per pending record */
 
 /* rt_pending.phase */
-#define RT_PHASE_DISC 0u /* waiting for the disc reply */
-#define RT_PHASE_SD 1u   /* an SD request is in flight */
+#define RT_PHASE_DISC 0u     /* waiting for the disc reply */
+#define RT_PHASE_SD 1u       /* an SD request is in flight */
+#define RT_PHASE_DISC_RUN 2u /* a DVDLowRead for a DISC run is in flight */
 
 /* DI results as the DVD driver sees them (wiibrew /dev/di). */
 #define RT_DI_SUCCESS 1
@@ -126,10 +132,11 @@ struct rt_pending {
     uint32_t pad_response[4];
     struct rt_ioctlv vec[3];         /* offset 0xA0 */
     uint32_t pad_vec[2];
-    rt_run runs[RT_MAX_RUNS];        /* offset 0xC0 */
+    uint32_t di_command[8];          /* offset 0xC0: DVDLowRead block for DISC runs */
+    rt_run runs[RT_MAX_RUNS];        /* offset 0xE0 */
 };
 
-/* 1920 bytes. */
+/* 2048 bytes. */
 struct rt_context {
     uint32_t magic;               /* RT_CONTEXT_MAGIC (non-zero so the struct lives in .data) */
     uint32_t flags;               /* RT_FLAG_* */
@@ -160,7 +167,11 @@ struct rt_context {
     uint32_t ioctlv_async;        /* the game's IOS_IoctlvAsync, 0 = unknown (SD runs then fail) */
     uint32_t sd_requests;         /* SD requests issued */
     uint32_t sd_failures;         /* SD requests refused or failed; the read then completes with RT_DI_ERROR */
-    uint32_t reserved[6];
+    /* Disc (loader-filled entry). */
+    uint32_t di_read_entry;       /* the unhooked IOS_IoctlAsync: the blob's replay slot */
+    uint32_t disc_requests;       /* DVDLowReads issued for DISC runs */
+    uint32_t disc_failures;       /* of those, refused or failed */
+    uint32_t reserved[3];
     struct rt_pending pending[RT_MAX_PENDING];
 };
 
@@ -190,10 +201,13 @@ int rt_is_di_read(uint32_t ioctl, const uint32_t* in, uint32_t in_len);
 uint32_t rt_checksum(const uint8_t* bytes, uint32_t length); /* h = h * 31 + byte */
 
 #ifndef RT_TARGET_PPC
-/* Host stand-in for the game's IOS_IoctlvAsync (the console calls through
- * rt_context.ioctlv_async). Tests set it; it returns the IPC result. */
+/* Host stand-ins for the game's IOS_IoctlvAsync and the unhooked
+ * IOS_IoctlAsync (the console calls through rt_context.ioctlv_async and
+ * di_read_entry). Tests set them; they return the IPC result. */
 extern int32_t (*rt_host_ioctlv_async)(uint32_t fd, uint32_t ioctl, uint32_t in_count, uint32_t out_count,
                                        struct rt_ioctlv* vec, uint32_t callback, struct rt_pending* record);
+extern int32_t (*rt_host_ioctl_async)(uint32_t fd, uint32_t ioctl, uint32_t* in, uint32_t in_len, uint32_t out,
+                                      uint32_t out_len, uint32_t callback, struct rt_pending* record);
 #endif
 
 #ifdef __cplusplus

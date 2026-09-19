@@ -300,6 +300,32 @@ void RunAutorun() {
             } else if (error.empty()) {
                 error = "sdreplace needs a disc path and an SD path";
             }
+        } else if (cmd == "keep") {
+            // E7: `keep <disc path>`: the file moves to the virtual window
+            // with its own disc bytes, which the runtime fetches with a
+            // DVDLowRead of its own.
+            std::string disc_path;
+            words >> disc_path;
+            VirtualFile v;
+            v.original = true;
+            ok = !disc_path.empty() && s.ensure_layout(error);
+            if (ok) {
+                std::uint32_t index = s.partition.fst.find(disc_path, false);
+                if (index == Fst::npos) index = s.partition.fst.find(disc_path, true);
+                if (index == Fst::npos || s.partition.fst.entries()[index].is_directory ||
+                    !s.partition.fst.path_of(index, v.disc_path)) {
+                    ok = false;
+                    error = "no such disc file '" + disc_path + "'";
+                } else {
+                    logf("Keep %s (%u bytes at 0x%llx) in the virtual window\n", v.disc_path.c_str(),
+                         s.partition.fst.entries()[index].size,
+                         static_cast<unsigned long long>(s.partition.fst.entries()[index].offset));
+                    virtual_files.push_back(std::move(v));
+                    install_resident = true;
+                }
+            } else if (error.empty()) {
+                error = "keep needs a disc path";
+            }
         } else if (cmd == "sdgrow") {
             // E4+E5: `sdgrow <disc path> <sd path>`, any size, served from
             // the card through the virtual window.
