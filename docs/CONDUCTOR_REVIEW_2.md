@@ -1300,6 +1300,40 @@ game memory or changing dispatch behavior.  This is translation only:
 no filesystem hook is installed and no SD I/O is issued in 4B1.
 
 ### 24.10 Slice 4B2 checkpoint (2026-09-19)
+(unchanged; see 24.11 for the busy-rule correction found while testing 4B3)
+
+### 24.11 Slice 4B3 checkpoint (2026-09-19)
+Async interception rides the same engine.  The blob ABI is v4 for one
+addition: `complete_fs_offset`, a second completion entry shaped exactly
+like the DI one, calling `rt_on_fs_complete`.  The loader parses v4 and
+installs nothing new (no savegame context exists yet); host `TestBlob`
+covers the field and its validation.
+
+The dispatcher takes over async savegame calls the same speculative way
+as sync ones (`rtfs_begin` classifies before mutating, so replays are
+clean).  Transfer-needing requests claim the one FILE pend slot, swap
+the callback pair for the FS completion entry and its tag, and hijack
+with "accepted"; the host rig drives the transfers and invokes the
+completion, which delivers the file result and the game's callback (the
+console transfer-issue path is slice 5, so NEEDS_IO replays there when
+no backend exists, exactly like 4B2).  Immediately-completing requests
+are answered through the game's callback from inside the hook and
+hijacked with the same result; a null callback just hijacks.  Async
+`/dev/fs` opens replay to real IOS under observation (two snoop slots):
+their completion learns the fd through `rtfs_learn_fs_fd`, and closing
+it forgets it again (the engine owns that state; the dispatcher only
+reads it).  Synchronous device opens stay unlearnable (their result is
+invisible) and are documented as such.
+
+Two corrections fell out of testing.  First, refusing a re-entrant
+arrival inside `rtfs_begin` would zero the shared in-flight record, so
+both dispatchers now refuse an already-busy engine before entering it,
+delivering -102 to the new arrival's own callback and leaving the
+in-flight operation intact.  Second, this slice builds on `b096d14`
+(the concurrent slice-2 review: path-identified fd matching, probes,
+malformed-passes-to-IOS), whose `rtfs_probe`/`rtfs_is_fs_device` the
+dispatcher uses for the snoop compare; the 4B2 sync test's ISFS-ioctl
+case was updated to the new engine semantics with it.
 The seven synchronous entries now intercept savegame calls.  With
 `RT_FLAG_FS` set and a loader-owned `rt_fs_state` block installed, the
 dispatcher translates the call, runs `rtfs_begin` speculatively (every

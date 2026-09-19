@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
-/* ABI v3: async commands 1..7 occupy entries 0..6; sync 1..7 are 7..13. */
+/* ABI v4: async commands 1..7 occupy entries 0..6; sync 1..7 are 7..13. */
     .section .text.rt_entry, "ax", @progbits
     .globl _rt_blob_start
 _rt_blob_start:
-    .long 0x5257484B, 3, _rt_blob_end - _rt_blob_start, rt_context_data - _rt_blob_start
+    .long 0x5257484B, 4, _rt_blob_end - _rt_blob_start, rt_context_data - _rt_blob_start
     .long rt_hook_0 - _rt_blob_start, rt_hook_1 - _rt_blob_start, rt_hook_2 - _rt_blob_start, rt_hook_3 - _rt_blob_start
     .long rt_hook_4 - _rt_blob_start, rt_hook_5 - _rt_blob_start, rt_hook_6 - _rt_blob_start, rt_hook_7 - _rt_blob_start
     .long rt_hook_8 - _rt_blob_start, rt_hook_9 - _rt_blob_start, rt_hook_10 - _rt_blob_start, rt_hook_11 - _rt_blob_start
@@ -17,6 +17,7 @@ _rt_blob_start:
     .long rt_continue_8 - _rt_blob_start, rt_continue_9 - _rt_blob_start, rt_continue_10 - _rt_blob_start, rt_continue_11 - _rt_blob_start
     .long rt_continue_12 - _rt_blob_start, rt_continue_13 - _rt_blob_start
     .long rt_complete_di - _rt_blob_start
+    .long rt_complete_fs - _rt_blob_start
 
 /* Frame: 0 back chain, 4 LR, 8..27 r3..r10, 28 result. */
     .macro RT_HOOK n
@@ -119,6 +120,34 @@ rt_complete_di:
     addi 6, 1, 0x0C
     addi 7, 1, 0x10
     bl rt_on_di_complete
+    lwz 3, 0x08(1)
+    lwz 4, 0x10(1)
+    lwz 12, 0x0C(1)
+    lwz 0, 0x24(1)
+    mtlr 0
+    addi 1, 1, 0x20
+    cmpwi 12, 0
+    beqlr
+    mtctr 12
+    bctr
+
+/* Savegame completion entry (slice 4B3): same shape as rt_complete_di,
+ * but the record tag selects an FS pend or snoop slot in rt_on_fs_complete.
+ * Frame: 0 back chain, 4 LR, 8 result image, 12 callback, 16 user data. */
+    .globl rt_complete_fs
+rt_complete_fs:
+    stwu 1, -0x20(1)
+    mflr 0
+    stw 0, 0x24(1)
+    stw 3, 0x08(1)
+    mr 5, 4
+    addi 4, 1, 0x08
+    bl 4f
+4:  mflr 3
+    addi 3, 3, rt_context_data - 4b
+    addi 6, 1, 0x0C
+    addi 7, 1, 0x10
+    bl rt_on_fs_complete
     lwz 3, 0x08(1)
     lwz 4, 0x10(1)
     lwz 12, 0x0C(1)

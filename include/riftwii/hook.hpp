@@ -27,13 +27,14 @@ struct ResidentBlob {
     std::array<std::uint32_t, kResidentIpcEntries> replay_offsets{};
     std::array<std::uint32_t, kResidentIpcEntries> continue_offsets{};
     std::uint32_t complete_di_offset = 0;
+    std::uint32_t complete_fs_offset = 0;
     // 4A compatibility aliases for the legacy DI-only loader.  They are
     // derived from the async-Ioctl table entry, never serialized.
     std::uint32_t hook_ioctl_async_offset = 0;
     std::uint32_t replay_ioctl_async_offset = 0;
     std::uint32_t continue_ioctl_async_offset = 0;
 };
-static_assert(4 * (4 + 3 * kResidentIpcEntries + 1) == 188, "resident blob ABI v3 header size");
+static_assert(4 * (4 + 3 * kResidentIpcEntries + 2) == 192, "resident blob ABI v4 header size");
 constexpr std::size_t kResidentContextBytes = 2048;  // sizeof(struct rt_context)
 bool parse_resident_blob(const std::uint8_t* bytes, std::size_t length, ResidentBlob& out, std::string& error);
 

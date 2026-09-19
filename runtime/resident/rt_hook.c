@@ -13,6 +13,8 @@
 
 #define RT_DI_READ 0x71u
 
+static void rt_invoke_game(uint32_t cb, int32_t result, uint32_t user_data);
+
 /* /dev/sdio/slot0 (wiibrew, libogc wiisd.c) */
 #define RT_SDIO_SENDCMD 7u
 #define RT_SD_CMD_READMULTIBLOCK 0x12u
@@ -115,6 +117,15 @@ static int rt_on_sync_fs(struct rt_context* ctx, uint32_t entry_index, uintptr_t
     if (!rt_build_fs_ipc(entry_index, args, &ipc)) return 0;
     if (ctx->fs_state == 0) return 0;
     st = (struct rt_fs_state*)(uintptr_t)ctx->fs_state;
+    if (st->fs.busy) {
+        /* A request is already in flight (or failed closed): refuse the new
+         * arrival without entering the engine, whose one record it shares.
+         * Entering would zero the in-flight operation's state. */
+        rt_invoke_game(ipc.callback, RTFAT_EACCESS, ipc.user_data);
+        *result = (uint32_t)RTFAT_EACCESS;
+        ctx->fs_hijacked++;
+        return 1;
+    }
     req = &st->req;
     req->fat.bounce = (uint32_t)(uintptr_t)st->bounce;
     req->fat.bounce_bytes = (uint32_t)sizeof(st->bounce);
@@ -153,6 +164,156 @@ static int rt_on_sync_fs(struct rt_context* ctx, uint32_t entry_index, uintptr_t
     *result = (uint32_t)req->result;
     ctx->fs_hijacked++;
     return 1;
+}
+
+/* Copies a game string with a bound; 0 when it does not terminate in
+ * time. The async dispatcher needs the open path without libc. */
+static int rt_copy_game_string(char* dst, const char* src, uint32_t cap) {
+    uint32_t i;
+    if (dst == 0 || src == 0 || cap == 0) return 0;
+    for (i = 0; i + 1u < cap; ++i) {
+        const char c = src[i];
+        dst[i] = c;
+        if (c == 0) return 1;
+    }
+    dst[cap - 1u] = 0;
+    return 0;
+}
+
+/* Delivers an immediately-completing async result through the game's
+ * callback from inside the hook. Real IOS always completes async calls
+ * through the callback, never inline, so the timing differs; the result
+ * codes and out-buffers are identical. */
+static void rt_invoke_game(uint32_t cb, int32_t result, uint32_t user_data) {
+    if (cb == 0) return;
+#ifdef RT_TARGET_PPC
+    ((rt_game_callback_fn)(uintptr_t)cb)(result, user_data);
+#else
+    if (rt_host_game_callback != 0) rt_host_game_callback(cb, result, user_data);
+#endif
+}
+
+/* Installs the savegame completion entry and a record tag as an async
+ * call's callback pair. The callback sits at a command-dependent register
+ * image (see rt_build_fs_ipc); every other register is the game's. */
+static void rt_swap_callback(uintptr_t* args, uint32_t command, uintptr_t cb, uintptr_t tag) {
+    if (command == RTFS_CMD_OPEN) {
+        args[2] = cb;
+        args[3] = tag;
+    } else if (command == RTFS_CMD_CLOSE) {
+        args[1] = cb;
+        args[2] = tag;
+    } else if (command == RTFS_CMD_READ || command == RTFS_CMD_WRITE || command == RTFS_CMD_SEEK) {
+        args[3] = cb;
+        args[4] = tag;
+    } else if (command == RTFS_CMD_IOCTL) {
+        args[6] = cb;
+        args[7] = tag;
+    } else {
+        args[5] = cb;
+        args[6] = tag;
+    }
+}
+
+/* Asynchronous savegame interception (slice 4B3). Transfers are driven by
+ * the test rig on the host and, on the console, by slice 5's issue path;
+ * until then a transfer-needing request replays on the console exactly
+ * like 4B2's sync rule. Immediately-completing requests are answered
+ * through the game's callback now and hijacked with the same result. */
+static int rt_on_async_fs(struct rt_context* ctx, uint32_t entry_index, uintptr_t* args, uint32_t* result) {
+    struct rtfs_ipc ipc;
+    struct rt_fs_state* st;
+    struct rtfs_request* req;
+    uint32_t i;
+    if ((ctx->flags & RT_FLAG_FS) == 0) return 0;
+    if (!rt_build_fs_ipc(entry_index, args, &ipc)) return 0;
+    if (ctx->fs_state == 0) return 0;
+    st = (struct rt_fs_state*)(uintptr_t)ctx->fs_state;
+    /* Async opens of the FS device replay to real IOS; the completion
+     * learns the fd. Synchronous device opens can never be learned (their
+     * result is invisible to the hook). */
+    if (ipc.command == RTFS_CMD_OPEN) {
+        char path[64];
+        if (rt_copy_game_string(path, (const char*)(uintptr_t)ipc.args.open.path,
+                                (uint32_t)sizeof(path)) && rtfs_is_fs_device(path)) {
+            for (i = 0; i < RT_FS_SNOOPS; ++i) {
+                if (!st->snoop[i].in_use) {
+                    uint32_t k;
+                    st->snoop[i].in_use = 1;
+                    st->snoop[i].kind = RT_FS_OP_SNOOP;
+                    st->snoop[i].callback = ipc.callback;
+                    st->snoop[i].user_data = ipc.user_data;
+                    for (k = 0; k < (uint32_t)sizeof(st->snoop[i].path); ++k)
+                        st->snoop[i].path[k] = path[k];
+                    rt_swap_callback(args, ipc.command, (uintptr_t)st->complete_fs,
+                                     (uintptr_t)&st->snoop[i]);
+                    return 0;
+                }
+            }
+            return 0; /* snoop slots busy: replay unobserved, learning skipped */
+        }
+    }
+    /* A close of the learned device drops the association inside
+     * rtfs_begin; the close itself always replays. */
+    if (st->fs.busy) {
+        /* Same one-at-a-time refusal as the sync path, delivered through
+         * the game's callback. The engine is never entered, so the
+         * in-flight operation's shared record stays intact. */
+        rt_invoke_game(ipc.callback, RTFAT_EACCESS, ipc.user_data);
+        *result = (uint32_t)RTFAT_EACCESS;
+        ctx->fs_hijacked++;
+        return 1;
+    }
+    req = &st->req;
+    req->fat.bounce = (uint32_t)(uintptr_t)st->bounce;
+    req->fat.bounce_bytes = (uint32_t)sizeof(st->bounce);
+    rtfs_begin(&st->fs, req, &ipc);
+    if (req->classification == RTFS_PASS_THROUGH) return 0;
+    if (req->classification != RTFS_NEEDS_IO) {
+        rt_invoke_game(req->callback, req->result, req->user_data);
+        *result = (uint32_t)req->result;
+        ctx->fs_hijacked++;
+        return 1;
+    }
+    st->pend.in_use = 1;
+    st->pend.kind = RT_FS_OP_FILE;
+    rt_swap_callback(args, ipc.command, (uintptr_t)st->complete_fs, (uintptr_t)&st->pend);
+    *result = 0; /* accepted; the completion delivers the file result */
+    ctx->fs_hijacked++;
+    return 1;
+}
+
+void rt_on_fs_complete(struct rt_context* ctx, int32_t* result, void* tag,
+                       uintptr_t* callback, uintptr_t* user_data) {
+    struct rt_fs_state* st;
+    struct rt_fs_pend* slot;
+    uint32_t i;
+    if ((ctx->flags & RT_FLAG_FS) == 0 || ctx->fs_state == 0) {
+        *callback = 0;
+        return;
+    }
+    st = (struct rt_fs_state*)(uintptr_t)ctx->fs_state;
+    for (i = 0; i < RT_FS_SNOOPS; ++i) {
+        slot = &st->snoop[i];
+        if (tag == (void*)slot && slot->in_use && slot->kind == RT_FS_OP_SNOOP) {
+            if (rtfs_is_fs_device(slot->path) && *result >= 0) {
+                rtfs_learn_fs_fd(&st->fs, *result);
+            }
+            slot->in_use = 0;
+            *callback = (uintptr_t)slot->callback;
+            *user_data = (uintptr_t)slot->user_data;
+            return;
+        }
+    }
+    if (tag == (void*)&st->pend && st->pend.in_use && st->pend.kind == RT_FS_OP_FILE) {
+        struct rtfs_request* req = &st->req;
+        *result = req->result;
+        *callback = (uintptr_t)req->callback;
+        *user_data = (uintptr_t)req->user_data;
+        st->pend.in_use = 0;
+        return;
+    }
+    *callback = 0; /* unknown tag: swallow, never tail-call garbage */
 }
 
 /* --- console-only pieces: EXI/USB Gecko, caches, interrupts, IPC -------- */
@@ -259,6 +420,7 @@ int32_t (*rt_host_ioctlv_async)(uint32_t fd, uint32_t ioctl, uint32_t in_count, 
 int32_t (*rt_host_ioctl_async)(uint32_t fd, uint32_t ioctl, uint32_t* in, uint32_t in_len, uint32_t out,
                                 uint32_t out_len, uint32_t callback, struct rt_pending* record) = 0;
 int32_t (*rt_host_fs_transfer)(uint32_t lba, uint32_t count, uint32_t buffer, uint32_t is_write) = 0;
+void (*rt_host_game_callback)(uint32_t cb, int32_t result, uint32_t user_data) = 0;
 static int32_t rt_di_read_async(struct rt_context* ctx, struct rt_pending* record, uint32_t length) {
     if (ctx->di_read_entry == 0 || rt_host_ioctl_async == 0) return -1;
     return rt_host_ioctl_async(ctx->di_fd, RT_DI_READ, record->di_command, 0x20, record->bounce, length,
@@ -420,9 +582,18 @@ int rt_on_ioctl_async(struct rt_context* ctx, uintptr_t* args, uint32_t* result)
 }
 
 int rt_on_ipc(struct rt_context* ctx, uint32_t entry_index, uintptr_t* args, uint32_t* result) {
-    if (entry_index == RT_IPC_ASYNC_IOCTL) return rt_on_ioctl_async(ctx, args, result);
+    if (entry_index == RT_IPC_ASYNC_IOCTL) {
+        /* Disc reads keep their hook; every other async ioctl joins the
+         * savegame path. ISFS request numbers never collide with 0x71,
+         * so the check below reads no game memory for them. */
+        const uint32_t ioctl = (uint32_t)args[1];
+        const uint32_t* in = (const uint32_t*)args[2];
+        const uint32_t in_len = (uint32_t)args[3];
+        if (rt_is_di_read(ioctl, in, in_len)) return rt_on_ioctl_async(ctx, args, result);
+        return rt_on_async_fs(ctx, entry_index, args, result);
+    }
     if (entry_index >= RT_IPC_COMMANDS) return rt_on_sync_fs(ctx, entry_index, args, result);
-    return 0;
+    return rt_on_async_fs(ctx, entry_index, args, result);
 }
 
 /* Where a run of `record` lands in the game's buffer. */

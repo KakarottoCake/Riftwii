@@ -51,6 +51,7 @@ bool parse_resident_blob(const std::uint8_t* bytes, std::size_t length, Resident
         b.continue_offsets[i] = be32(bytes + 16 + RT_IPC_ENTRIES * 8 + i * 4);
     }
     b.complete_di_offset = be32(bytes + 16 + RT_IPC_ENTRIES * 12);
+    b.complete_fs_offset = be32(bytes + 16 + RT_IPC_ENTRIES * 12 + 4);
     if (magic != RT_BLOB_MAGIC) {
         error = "resident blob magic mismatch";
         return false;
@@ -64,7 +65,7 @@ bool parse_resident_blob(const std::uint8_t* bytes, std::size_t length, Resident
         return false;
     }
     if (!slot_fits(b.context_offset, kResidentContextBytes, b.size) || (b.context_offset & 31) != 0 ||
-        !slot_fits(b.complete_di_offset, 4, b.size)) {
+        !slot_fits(b.complete_di_offset, 4, b.size) || !slot_fits(b.complete_fs_offset, 4, b.size)) {
         error = "resident blob offsets are inconsistent";
         return false;
     }
