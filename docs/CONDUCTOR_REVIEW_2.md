@@ -1434,7 +1434,8 @@ file exists, -106 when not (always -101 made the game think every
 file existed). A rename onto an existing name replaces it, as IOS does
 (delete, then rename: `RTFS_ACTION_RENAME_REPLACE`). And the SDK's
 safe write: the game writes `/tmp/<file>` on NAND and then renames it
-into the data directory (`banner.bin`, and `rksys.dat` on every save).
+into the data directory (`banner.bin` when the save is created;
+`rksys.dat` itself is created and written in place).
 A rename across the directory's boundary is now an import
 (`rt_hook.c`, `rt_fs_import`): the NAND file is opened and measured
 through the game's own synchronous `IOS_Open` / `IOS_Ioctl
@@ -1469,6 +1470,16 @@ refusal without the sync originals, not-ours renames, async on a
 thread with its 0 deferred, async from a callback refused);
 `rtfs_tests` the existence probe, the replacing rename and the public
 classifier. Blob 36928 bytes.
+
+A second boot with that `rksys.dat` placed in the folder (the harness
+rebuilds the card image from `WiiSDSync` at boot): the game finds it
+(-101 from the existence probe), opens it, asks its stats, reads the
+0x28000-byte header block in one read and closes; the VFFs, absent
+again, are recreated, their attributes read and set (GetAttr/SetAttr
+answered 0); 376 FS lines, 3253 disc reads, no error but the six -106
+probes of files about to be created, nothing under the data directory
+in Dolphin's IOS_FS log, no `/tmp` traffic (the banner is only made
+with the save).
 
 Kirby's Epic Yarn (`kirby_save.xml`, `sd:/riftwii/saves/kirby`, title
 `00010000-524b3545`): a 2009 SDK that uses the asynchronous forms for
