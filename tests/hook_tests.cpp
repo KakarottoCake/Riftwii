@@ -1042,6 +1042,34 @@ static void TestFsAsyncIntercept() {
     EXPECT_EQ(ud, 0x80002008u);
     EXPECT_EQ(st->fs.fs_fd, 7);
     EXPECT_EQ(st->fs_fd_learned, 1u);
+    // Two device opens held uncompleted take both snoop slots; a third
+    // finds them taken and replays unobserved, its callback pair
+    // untouched. Each completion then delivers to its own game callback.
+    // (The earlier open already completed, freeing its slot first.)
+    args[0] = FsAddr(path); args[1] = 1; args[2] = 0x80001020; args[3] = 0x80002020;
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC(1), args, &result), 0);
+    EXPECT_EQ(args[2], 0x935D0200u);
+    const std::uintptr_t tag_a = args[3];
+    args[0] = FsAddr(path); args[1] = 1; args[2] = 0x80001021; args[3] = 0x80002021;
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC(1), args, &result), 0);
+    EXPECT_EQ(args[2], 0x935D0200u);
+    const std::uintptr_t tag_b = args[3];
+    EXPECT_TRUE(tag_b != tag_a);
+    args[0] = FsAddr(path); args[1] = 1; args[2] = 0x80001022; args[3] = 0x80002022;
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC(1), args, &result), 0);
+    EXPECT_EQ(args[2], 0x80001022u);
+    EXPECT_EQ(args[3], 0x80002022u);
+    ipc_result = 9; cb = 0xDEADu; ud = 0xDEADu;
+    rt_on_fs_complete(&ctx, &ipc_result, reinterpret_cast<void*>(tag_b), &cb, &ud);
+    EXPECT_EQ(ipc_result, 9);
+    EXPECT_EQ(cb, 0x80001021u);
+    EXPECT_EQ(ud, 0x80002021u);
+    ipc_result = 7; cb = 0xDEADu; ud = 0xDEADu;
+    rt_on_fs_complete(&ctx, &ipc_result, reinterpret_cast<void*>(tag_a), &cb, &ud);
+    EXPECT_EQ(ipc_result, 7);
+    EXPECT_EQ(cb, 0x80001020u);
+    EXPECT_EQ(ud, 0x80002020u);
+    EXPECT_EQ(st->fs.fs_fd, 7);
     // An ISFS ioctl on the learned fd is ours: full takeover cycle.
     FsCopyPath(path, prefix + "/save.bin");
     args[0] = 7; args[1] = 0x06; args[2] = FsAddr(path); args[3] = 64;

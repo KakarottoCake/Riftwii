@@ -996,18 +996,26 @@ static int rt_on_async_fs(struct rt_context* ctx, uint32_t entry_index, uintptr_
     if (!rt_build_fs_ipc(entry_index, args, &ipc)) return 0;
     if (ipc.command == RTFS_CMD_OPEN && rtfs_is_fs_device((const char*)(uintptr_t)ipc.args.open.path)) {
         /* The game opening /dev/fs: replayed to IOS under observation,
-         * our completion in place of the game's callback learns the fd. */
-        for (i = 0; i < RT_FS_SNOOPS; ++i) {
-            struct rt_fs_pend* slot = &st->snoop[i];
-            if (slot->in_use) continue;
+         * our completion in place of the game's callback learns the fd.
+         * Claimed with interrupts off like every other slot: hooks run
+         * on the game's thread and in its IPC callbacks, and two
+         * overlapping opens must never take the same slot (one game's
+         * callback would be lost). */
+        struct rt_fs_pend* slot = 0;
+        const uint32_t msr = rt_interrupts_off();
+        for (i = 0; i < RT_FS_SNOOPS && slot == 0; ++i) {
+            if (!st->snoop[i].in_use) slot = &st->snoop[i];
+        }
+        if (slot != 0) {
             slot->in_use = 1;
             slot->kind = RT_FS_OP_SNOOP;
             slot->callback = ipc.callback;
             slot->user_data = ipc.user_data;
-            rt_fs_swap_callback(args, ipc.command, (uintptr_t)st->complete_fs, (uintptr_t)slot);
-            return 0;
         }
-        return 0; /* every slot taken: replayed unobserved */
+        rt_interrupts_restore(msr);
+        if (slot == 0) return 0; /* every slot taken: replayed unobserved */
+        rt_fs_swap_callback(args, ipc.command, (uintptr_t)st->complete_fs, (uintptr_t)slot);
+        return 0;
     }
     if (ipc.command == RTFS_CMD_CLOSE && ipc.fd >= 0 && ipc.fd == st->fs.fs_fd) {
         st->fs.fs_fd = -1;

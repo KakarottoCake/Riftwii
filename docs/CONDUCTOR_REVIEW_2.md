@@ -1495,6 +1495,17 @@ created file, plus the redirect) the data area holds table, payload,
 bounce buffers and the FS state together (327680 bytes at
 0x93590000, state at 0x935c42e0) and both mechanisms answer as before
 (section 23's three checksums, the same ISFS answers).
-Open: `clone`; Kirby's save creation with input; the hardware run of
-everything since section 11.
+ Open: `clone`; Kirby's save creation with input; the hardware run of
+ everything since section 11.
+
+### 24.14 Snoop-slot claim locking (2026-09-19)
+Review of the 4C runtime found one unguarded claim: the async
+`/dev/fs`-open snoop slots were taken without interrupts off while
+every sibling path (admit, deliver) locks. Two overlapping device
+opens could take the same slot and lose a game's callback. The claim
+now runs locked, mirroring `rt_fs_deliver`; host tests cover slot
+exhaustion (two held snoops, a third replays unobserved, each
+completion delivers to its own callback). The FILE pend and queue
+claims need no change: no IOS completion can be outstanding across
+their windows, so nothing can interleave them.
 
