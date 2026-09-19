@@ -2,10 +2,12 @@
 /****************************************************************************
  * Riftwii
  *
- * menu.cpp
- * Original Riftwii menu flow: home screen lists detected patch packages
- * and reports which runtime backend features are unavailable. Built on the
- * vendored libwiigui template structure.
+ * rift_menu.cpp
+ * The frontend: the home screen lists the packages on the card and which
+ * are enabled for the inserted disc, an options screen sets each option's
+ * choice, and Launch hands the selection to the boot. The state itself
+ * (riftwii/launch.hpp) is host-tested; this file only lists the directory,
+ * draws and reads the pads. Built on the vendored libwiigui template.
  ***************************************************************************/
 
 #include <gccore.h>
@@ -14,14 +16,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
-#include <dirent.h>
-#include <algorithm>
 #include <atomic>
-#include <cerrno>
-#include <fstream>
-#include <memory>
-#include <strings.h>
-#include <sys/stat.h>
 #include <wiiuse/wpad.h>
 
 #include "libwiigui/gui.h"
@@ -31,67 +26,15 @@
 #include "riftwii/patch.hpp"
 
 #define THREAD_SLEEP 100
-#define PACKAGE_DIR "sd:/riivolution"
 
-struct PackageEntry {
-	std::string name;
-	std::string detail;
-	bool valid = false;
-};
+using riftwii::wii::ScanPackages;
+using riftwii::wii::SaveChoices;
 
-static std::vector<PackageEntry> ScanPackages(std::string& status)
+static const char* PackageValue(const riftwii::LaunchPackage& p)
 {
-	std::vector<PackageEntry> entries;
-	std::unique_ptr<DIR, int(*)(DIR*)> dir(opendir(PACKAGE_DIR), closedir);
-	if (!dir) {
-		status = errno == ENOENT ? "Create sd:/riivolution for XML packages" : "Cannot read SD package directory";
-		return entries;
-	}
-	bool limited = false;
-	while (true) {
-		errno = 0;
-		const auto* ent = readdir(dir.get());
-		if (!ent) {
-			if (errno != 0) {
-				status = "SD directory read failed; rescan to retry";
-				return entries;
-			}
-			break;
-		}
-		const char* dot = strrchr(ent->d_name, '.');
-		if (!dot || strcasecmp(dot, ".xml") != 0) continue;
-		if (entries.size() == MAX_OPTIONS) {
-			limited = true;
-			break;
-		}
-		const std::string path = std::string(PACKAGE_DIR) + "/" + ent->d_name;
-		struct stat info;
-		if (stat(path.c_str(), &info) == 0 && !S_ISREG(info.st_mode)) continue;
-		PackageEntry entry;
-		entry.name = ent->d_name;
-		std::ifstream input(path, std::ios::binary);
-		if (!input) {
-			entry.detail = "Cannot open package";
-		} else {
-			riftwii::Package package;
-			entry.valid = riftwii::read_package(input, package, entry.detail);
-			if (entry.valid) {
-				entry.detail = "Valid XML: " + std::to_string(package.options.size()) +
-					" options, " + std::to_string(package.patches.size()) + " patch definitions";
-				if (!package.warnings.empty()) {
-					entry.detail += ", " + std::to_string(package.warnings.size()) +
-						" ignored: " + package.warnings.front();
-				}
-			}
-		}
-		entries.push_back(std::move(entry));
-	}
-	std::sort(entries.begin(), entries.end(), [](const PackageEntry& a, const PackageEntry& b) {
-		return a.name < b.name;
-	});
-	status = limited ? "First 150 packages shown; directory limit reached" :
-		(entries.empty() ? "No XML packages in sd:/riivolution" : "Select a package to see validation details");
-	return entries;
+	if (!p.valid) return "Invalid";
+	if (!p.for_disc) return "Other disc";
+	return p.enabled ? "On" : "Off";
 }
 
 static GuiImageData * pointer[4];
@@ -99,6 +42,7 @@ static GuiImage * bgImg = nullptr;
 static GuiWindow * mainWindow = nullptr;
 static lwp_t guithread = LWP_THREAD_NULL;
 static std::atomic<bool> guiHalt{true};
+static int selectedPackage = 0;  // the home screen's highlighted row, kept across screens
 
 static void ResumeGui()
 {
@@ -164,36 +108,70 @@ void InitGUIThreads()
 	HaltGui();
 }
 
-static int MenuHome()
+// A plain button with the template's look, triggered by A and by `extra`.
+struct MenuButton {
+	GuiText text;
+	GuiImage image;
+	GuiImage imageOver;
+	GuiTrigger trigA;
+	GuiTrigger trigExtra;
+	GuiButton button;
+	MenuButton(const char* label, GuiImageData& outline, GuiImageData& outlineOver, GuiSound& sound,
+		   u32 wpadExtra, u16 padExtra)
+		: text(label, 22, (GXColor){0, 0, 0, 255}), image(&outline), imageOver(&outlineOver),
+		  button(outline.GetWidth(), outline.GetHeight())
+	{
+		trigA.SetSimpleTrigger(-1, WPAD_BUTTON_A | WPAD_CLASSIC_BUTTON_A, PAD_BUTTON_A);
+		trigExtra.SetButtonOnlyTrigger(-1, wpadExtra, padExtra);
+		button.SetLabel(&text);
+		button.SetImage(&image);
+		button.SetImageOver(&imageOver);
+		button.SetSoundOver(&sound);
+		button.SetTrigger(&trigA);
+		if (wpadExtra || padExtra) button.SetTrigger(&trigExtra);
+		button.SetEffectGrow();
+	}
+	void Place(ALIGN_H h, ALIGN_V v, int x, int y)
+	{
+		button.SetAlignment(h, v);
+		button.SetPosition(x, y);
+	}
+	bool Clicked() { return button.GetState() == STATE::CLICKED; }
+};
+
+static int MenuHome(FrontendState& state)
 {
 	int menu = MENU_NONE;
 
 	static OptionList options;
 	memset(&options, 0, sizeof(options));
 	std::string scanStatus;
-	std::vector<PackageEntry> entries;
 	try {
-		entries = ScanPackages(scanStatus);
+		scanStatus = ScanPackages(state);
 	} catch (...) {
 		scanStatus = "Package scan failed; rescan to retry";
 	}
-	for (const auto& entry : entries) {
-		const int i = options.length++;
-		snprintf(options.name[i], sizeof(options.name[i]), "%.49s", entry.name.c_str());
-		snprintf(options.value[i], sizeof(options.value[i]), "%s", entry.valid ? "Valid XML" : "Invalid / unreadable");
-	}
-	if (options.length == 0) {
-		snprintf(options.name[0], sizeof(options.name[0]), "No packages available");
-		options.length = 1;
-	}
+	const auto fill = [&]() {
+		options.length = 0;
+		for (const auto& p : state.model.packages) {
+			const int i = options.length++;
+			snprintf(options.name[i], sizeof(options.name[i]), "%.49s", p.file.c_str());
+			snprintf(options.value[i], sizeof(options.value[i]), "%s", PackageValue(p));
+		}
+		if (options.length == 0) {
+			snprintf(options.name[0], sizeof(options.name[0]), "No packages available");
+			options.length = 1;
+		}
+	};
+	fill();
 
 	GuiText titleTxt("Riftwii", 28, (GXColor){255, 255, 255, 255});
 	titleTxt.SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
 	titleTxt.SetPosition(40,20);
 
-	GuiText statusTxt("Boot disc = unmodified launch (E1); patches are not applied yet", 18, (GXColor){200, 200, 200, 255});
-	statusTxt.SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
-	statusTxt.SetPosition(40, 58);
+	GuiText discTxt(state.disc_status.c_str(), 18, (GXColor){200, 200, 200, 255});
+	discTxt.SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
+	discTxt.SetPosition(40, 58);
 
 	GuiText detailTxt(scanStatus.c_str(), 16, (GXColor){255, 255, 255, 255});
 	detailTxt.SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
@@ -209,79 +187,30 @@ static int MenuHome()
 	GuiImageData btnOutline(button_png);
 	GuiImageData btnOutlineOver(button_over_png);
 
-	GuiTrigger trigA, trigHome;
-	trigA.SetSimpleTrigger(-1, WPAD_BUTTON_A | WPAD_CLASSIC_BUTTON_A, PAD_BUTTON_A);
-	trigHome.SetButtonOnlyTrigger(-1, WPAD_BUTTON_HOME | WPAD_CLASSIC_BUTTON_HOME, 0);
-
-	GuiText exitBtnTxt("Exit", 22, (GXColor){0, 0, 0, 255});
-	GuiImage exitBtnImg(&btnOutline);
-	GuiImage exitBtnImgOver(&btnOutlineOver);
-	GuiButton exitBtn(btnOutline.GetWidth(), btnOutline.GetHeight());
-	exitBtn.SetAlignment(ALIGN_H::LEFT, ALIGN_V::BOTTOM);
-	exitBtn.SetPosition(40, -35);
-	exitBtn.SetLabel(&exitBtnTxt);
-	exitBtn.SetImage(&exitBtnImg);
-	exitBtn.SetImageOver(&exitBtnImgOver);
-	exitBtn.SetSoundOver(&btnSoundOver);
-	exitBtn.SetTrigger(&trigA);
-	exitBtn.SetTrigger(&trigHome);
-	exitBtn.SetEffectGrow();
-
-	GuiText rescanTxt("Rescan", 22, (GXColor){0, 0, 0, 255});
-	GuiImage rescanImg(&btnOutline);
-	GuiImage rescanOver(&btnOutlineOver);
-	GuiTrigger trigRescan;
-	trigRescan.SetButtonOnlyTrigger(-1, WPAD_BUTTON_PLUS | WPAD_CLASSIC_BUTTON_PLUS, PAD_BUTTON_X);
-	GuiButton rescanBtn(btnOutline.GetWidth(), btnOutline.GetHeight());
-	rescanBtn.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::BOTTOM);
-	rescanBtn.SetPosition(-40, -35);
-	rescanBtn.SetLabel(&rescanTxt);
-	rescanBtn.SetImage(&rescanImg);
-	rescanBtn.SetImageOver(&rescanOver);
-	rescanBtn.SetTrigger(&trigA);
-	rescanBtn.SetTrigger(&trigRescan);
-
-	GuiText bootTxt("Boot disc", 22, (GXColor){0, 0, 0, 255});
-	GuiImage bootImg(&btnOutline);
-	GuiImage bootOver(&btnOutlineOver);
-	GuiTrigger trigBoot;
-	trigBoot.SetButtonOnlyTrigger(-1, WPAD_BUTTON_1 | WPAD_CLASSIC_BUTTON_Y, PAD_BUTTON_Y);
-	GuiButton bootBtn(btnOutline.GetWidth(), btnOutline.GetHeight());
-	bootBtn.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::BOTTOM);
-	bootBtn.SetPosition(90, -35);
-	bootBtn.SetLabel(&bootTxt);
-	bootBtn.SetImage(&bootImg);
-	bootBtn.SetImageOver(&bootOver);
-	bootBtn.SetSoundOver(&btnSoundOver);
-	bootBtn.SetTrigger(&trigA);
-	bootBtn.SetTrigger(&trigBoot);
-	bootBtn.SetEffectGrow();
-
-	GuiText dumpTxt("Dump", 22, (GXColor){0, 0, 0, 255});
-	GuiImage dumpImg(&btnOutline);
-	GuiImage dumpOver(&btnOutlineOver);
+	// Three buttons across a 640-wide screen: the template's 196-wide
+	// button scaled to 167. Dump (a development aid) has no button: the
+	// Wii Remote's 2 or a GameCube pad's B.
+	MenuButton exitBtn("Exit", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_HOME | WPAD_CLASSIC_BUTTON_HOME, 0);
+	exitBtn.Place(ALIGN_H::LEFT, ALIGN_V::BOTTOM, 40, -35);
+	MenuButton optionsBtn("Options", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_PLUS | WPAD_CLASSIC_BUTTON_PLUS, PAD_BUTTON_X);
+	optionsBtn.Place(ALIGN_H::CENTRE, ALIGN_V::BOTTOM, 0, -35);
+	MenuButton launchBtn("Launch", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_1 | WPAD_CLASSIC_BUTTON_Y, PAD_BUTTON_Y);
+	launchBtn.Place(ALIGN_H::RIGHT, ALIGN_V::BOTTOM, -40, -35);
+	for (MenuButton* b : {&exitBtn, &optionsBtn, &launchBtn}) b->button.SetScale(0.85f);
 	GuiTrigger trigDump;
 	trigDump.SetButtonOnlyTrigger(-1, WPAD_BUTTON_2 | WPAD_CLASSIC_BUTTON_X, PAD_BUTTON_B);
-	GuiButton dumpBtn(btnOutline.GetWidth(), btnOutline.GetHeight());
-	dumpBtn.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::BOTTOM);
-	dumpBtn.SetPosition(-90, -35);
-	dumpBtn.SetLabel(&dumpTxt);
-	dumpBtn.SetImage(&dumpImg);
-	dumpBtn.SetImageOver(&dumpOver);
-	dumpBtn.SetSoundOver(&btnSoundOver);
-	dumpBtn.SetTrigger(&trigA);
+	GuiButton dumpBtn(0, 0);  // invisible: a trigger only
 	dumpBtn.SetTrigger(&trigDump);
-	dumpBtn.SetEffectGrow();
 
 	HaltGui();
 	GuiWindow w(screenwidth, screenheight);
 	w.Append(&titleTxt);
-	w.Append(&statusTxt);
+	w.Append(&discTxt);
 	w.Append(&browser);
 	w.Append(&detailTxt);
-	w.Append(&exitBtn);
-	w.Append(&rescanBtn);
-	w.Append(&bootBtn);
+	w.Append(&exitBtn.button);
+	w.Append(&optionsBtn.button);
+	w.Append(&launchBtn.button);
 	w.Append(&dumpBtn);
 	mainWindow->Append(&w);
 	ResumeGui();
@@ -290,18 +219,141 @@ static int MenuHome()
 	{
 		usleep(10000);
 		HaltGui();
-		const int selected = browser.GetClickedOption();
-		if (selected >= 0 && static_cast<std::size_t>(selected) < entries.size()) {
-			detailTxt.SetText(entries[selected].detail.substr(0, 160).c_str());
+		const int clicked = browser.GetClickedOption();
+		if (clicked >= 0 && static_cast<std::size_t>(clicked) < state.model.packages.size()) {
+			// A on a row: enable or disable it.
+			selectedPackage = clicked;
+			const riftwii::LaunchPackage& p = state.model.packages[clicked];
+			if (!state.model.set_enabled(clicked, !p.enabled)) {
+				detailTxt.SetText(p.valid ? "This package is for another disc" : p.detail.substr(0, 160).c_str());
+			} else {
+				detailTxt.SetText(p.detail.substr(0, 160).c_str());
+			}
+			fill();
+			browser.TriggerUpdate();
 		}
-		if(exitBtn.GetState() == STATE::CLICKED)
+		if(exitBtn.Clicked())
 			menu = MENU_EXIT;
-		else if(rescanBtn.GetState() == STATE::CLICKED)
-			menu = MENU_HOME;
-		else if(bootBtn.GetState() == STATE::CLICKED)
-			menu = MENU_BOOT;
+		else if(optionsBtn.Clicked()) {
+			if (selectedPackage >= 0 && static_cast<std::size_t>(selectedPackage) < state.model.packages.size() &&
+			    state.model.packages[selectedPackage].valid) {
+				menu = MENU_OPTIONS;
+			} else {
+				optionsBtn.button.ResetState();
+				detailTxt.SetText("Enable or disable a package with A first; + opens its options");
+			}
+		}
+		else if(launchBtn.Clicked()) {
+			if (state.game_id.empty()) {
+				launchBtn.button.ResetState();
+				detailTxt.SetText("Insert a disc and rescan (Dump) before launching");
+			} else if (state.model.selections().empty()) {
+				menu = MENU_BOOT;  // nothing enabled: the disc as it is
+			} else {
+				menu = MENU_LAUNCH;
+			}
+		}
 		else if(dumpBtn.GetState() == STATE::CLICKED)
 			menu = MENU_DUMP;
+		ResumeGui();
+	}
+
+	HaltGui();
+	mainWindow->Remove(&w);
+	if (menu == MENU_LAUNCH || menu == MENU_BOOT) SaveChoices(state);
+	return menu;
+}
+
+static int MenuOptions(FrontendState& state)
+{
+	int menu = MENU_NONE;
+	riftwii::LaunchPackage& p = state.model.packages[selectedPackage];
+
+	static OptionList options;
+	memset(&options, 0, sizeof(options));
+	const auto fill = [&]() {
+		options.length = 0;
+		for (std::size_t i = 0; i < p.package.options.size() && options.length < MAX_OPTIONS; ++i) {
+			const riftwii::Option& o = p.package.options[i];
+			const int row = options.length++;
+			if (o.section.empty()) {
+				snprintf(options.name[row], sizeof(options.name[row]), "%.49s", o.name.c_str());
+			} else {
+				snprintf(options.name[row], sizeof(options.name[row]), "%.20s: %.27s", o.section.c_str(), o.name.c_str());
+			}
+			snprintf(options.value[row], sizeof(options.value[row]), "%.49s",
+				 state.model.choice_name(selectedPackage, i).c_str());
+		}
+		if (options.length == 0) {
+			snprintf(options.name[0], sizeof(options.name[0]), "This package has no options");
+			options.length = 1;
+		}
+	};
+	fill();
+
+	GuiText titleTxt(p.file.c_str(), 26, (GXColor){255, 255, 255, 255});
+	titleTxt.SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
+	titleTxt.SetPosition(40,20);
+	titleTxt.SetMaxWidth(screenwidth - 80);
+
+	GuiText hintTxt("A: next choice   -: previous choice   B: back", 18, (GXColor){200, 200, 200, 255});
+	hintTxt.SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
+	hintTxt.SetPosition(40, 58);
+
+	GuiText detailTxt(p.detail.substr(0, 160).c_str(), 16, (GXColor){255, 255, 255, 255});
+	detailTxt.SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
+	detailTxt.SetPosition(40, 340);
+	detailTxt.SetWrap(true, screenwidth - 80);
+
+	GuiOptionBrowser browser(552, 248, &options);
+	browser.SetPosition(0, 84);
+	browser.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
+	browser.SetFocus(1);
+
+	GuiSound btnSoundOver(button_over_pcm, button_over_pcm_size, SOUND::PCM);
+	GuiImageData btnOutline(button_png);
+	GuiImageData btnOutlineOver(button_over_png);
+
+	MenuButton backBtn("Back", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B);
+	backBtn.Place(ALIGN_H::LEFT, ALIGN_V::BOTTOM, 40, -35);
+	MenuButton prevBtn("Previous", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_MINUS | WPAD_CLASSIC_BUTTON_MINUS, PAD_TRIGGER_L);
+	prevBtn.Place(ALIGN_H::RIGHT, ALIGN_V::BOTTOM, -40, -35);
+	backBtn.button.SetScale(0.85f);
+	prevBtn.button.SetScale(0.85f);
+
+	HaltGui();
+	GuiWindow w(screenwidth, screenheight);
+	w.Append(&titleTxt);
+	w.Append(&hintTxt);
+	w.Append(&browser);
+	w.Append(&detailTxt);
+	w.Append(&backBtn.button);
+	w.Append(&prevBtn.button);
+	mainWindow->Append(&w);
+	ResumeGui();
+
+	int lastRow = 0;
+	while(menu == MENU_NONE)
+	{
+		usleep(10000);
+		HaltGui();
+		const int clicked = browser.GetClickedOption();
+		if (clicked >= 0 && static_cast<std::size_t>(clicked) < p.package.options.size()) {
+			lastRow = clicked;
+			state.model.cycle(selectedPackage, clicked, +1);
+			fill();
+			browser.TriggerUpdate();
+		}
+		if (prevBtn.Clicked()) {
+			prevBtn.button.ResetState();
+			if (static_cast<std::size_t>(lastRow) < p.package.options.size()) {
+				state.model.cycle(selectedPackage, lastRow, -1);
+				fill();
+				browser.TriggerUpdate();
+			}
+		}
+		if(backBtn.Clicked())
+			menu = MENU_HOME;
 		ResumeGui();
 	}
 
@@ -310,7 +362,7 @@ static int MenuHome()
 	return menu;
 }
 
-int MainMenu(int menu)
+int MainMenu(int menu, FrontendState& state)
 {
 	int currentMenu = menu;
 
@@ -327,21 +379,22 @@ int MainMenu(int menu)
 
 	ResumeGui();
 
-	while(currentMenu != MENU_EXIT && currentMenu != MENU_BOOT && currentMenu != MENU_DUMP)
+	while(currentMenu != MENU_EXIT && currentMenu != MENU_LAUNCH && currentMenu != MENU_BOOT && currentMenu != MENU_DUMP)
 	{
 		switch (currentMenu)
 		{
-			case MENU_HOME:
-				currentMenu = MenuHome();
+			case MENU_OPTIONS:
+				currentMenu = MenuOptions(state);
 				break;
+			case MENU_HOME:
 			default:
-				currentMenu = MenuHome();
+				currentMenu = MenuHome(state);
 				break;
 		}
 	}
 
-	if (currentMenu == MENU_BOOT || currentMenu == MENU_DUMP) {
-		// The GUI thread is halted (MenuHome halts it before returning);
+	if (currentMenu == MENU_LAUNCH || currentMenu == MENU_BOOT || currentMenu == MENU_DUMP) {
+		// The GUI thread is halted (the screens halt it before returning);
 		// hand the screen back to main for the console phase.
 		mainWindow->Remove(bgImg);
 		return currentMenu;

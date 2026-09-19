@@ -12,6 +12,8 @@
 #include <sstream>
 
 #include "boot.hpp"
+#include "di.hpp"
+#include "frontend.hpp"
 #include "ios_reload.hpp"
 #include "log.hpp"
 #include "modplan.hpp"
@@ -192,6 +194,41 @@ bool RunBoot(bool allow_ios_fallback, std::string& error) {
     if (!s.ensure_probe(error)) return false;
     BootOptions options;
     options.allow_ios_fallback = allow_ios_fallback;
+    return boot_game(s.probe, options, error);
+}
+
+bool ProbeInserted(std::string& game_id, std::string& title, std::string& error) {
+    if (!di::open(error)) return false;
+    bool inserted = false;
+    if (!di::cover_status(inserted, error)) return false;
+    if (!inserted) {
+        error = "no disc in the drive";
+        return false;
+    }
+    Session s;
+    if (!s.ensure_probe(error)) return false;
+    game_id = s.probe.header.game_id;
+    title = s.probe.header.title;
+    return true;
+}
+
+bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error) {
+    Session s;
+    if (!s.ensure_layout(error)) return false;
+    CompiledMod mod;
+    if (!compile_packages(packages, s.probe, s.partition, mod, error)) return false;
+    for (const std::string& w : mod.warnings) logf("  warning: %s\n", w.c_str());
+    for (const std::string& n : mod.notes) logf("  %s\n", n.c_str());
+    logf("%u package(s): %u table entries, %u relocation(s), %u memory patch(es)\n",
+         static_cast<unsigned>(packages.size()), static_cast<unsigned>(mod.entries.size()),
+         static_cast<unsigned>(mod.relocations.size()), static_cast<unsigned>(mod.memory.size()));
+    BootOptions options;
+    options.allow_ios_fallback = true;
+    options.install_resident = !mod.entries.empty() || !mod.relocations.empty();
+    options.resident_gecko = false;
+    options.table_entries = mod.entries;
+    options.relocations = mod.relocations;
+    options.memory_patches = mod.memory;
     return boot_game(s.probe, options, error);
 }
 
@@ -389,6 +426,36 @@ void RunAutorun() {
                 packages.back().choices.emplace_back(trim(rest.substr(0, eq)), trim(rest.substr(eq + 1)));
                 ok = recompile(error);
                 if (!ok) packages.back().choices.pop_back();
+            }
+        } else if (cmd == "launch") {
+            // The GUI's path without the GUI: identify, scan, restore the
+            // saved choices, compile and boot.
+            FrontendState state;
+            IdentifyDisc(state);
+            logf("  %s\n", state.disc_status.c_str());
+            logf("  %s\n", ScanPackages(state).c_str());
+            for (std::size_t i = 0; i < state.model.packages.size(); ++i) {
+                const auto& p = state.model.packages[i];
+                const std::string detail = p.valid ? "" : " (" + p.detail + ")";
+                logf("  %s: %s%s\n", p.file.c_str(),
+                     p.valid ? (p.for_disc ? (p.enabled ? "on" : "off") : "other disc") : "invalid", detail.c_str());
+                for (std::size_t o = 0; p.valid && o < p.package.options.size(); ++o) {
+                    logf("    %s/%s = %s\n", p.package.options[o].section.c_str(), p.package.options[o].name.c_str(),
+                         state.model.choice_name(i, o).c_str());
+                }
+            }
+            const std::vector<PackageChoices> selections = state.model.selections();
+            if (state.game_id.empty()) {
+                ok = false;
+                error = "launch needs a disc";
+            } else if (selections.empty()) {
+                logf("  nothing enabled: booting the disc as it is\n");
+                ok = RunBoot(allow_fallback, error);
+                LogOpen(kAutorunLogPath, true);
+            } else {
+                logf("launch: handing over to the game\n");
+                ok = RunLaunch(selections, error);
+                LogOpen(kAutorunLogPath, true);
             }
         } else if (cmd == "boot") {
             BootOptions options;

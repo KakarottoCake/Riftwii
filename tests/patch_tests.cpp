@@ -359,6 +359,21 @@ static void test_select_choice() {
     EXPECT_FALSE(riftwii::select_choice(pkg, "Opt1", "A", err));
     EXPECT_TRUE(riftwii::select_choice(pkg, "Other/Opt1", "A", err));
     EXPECT_EQ(pkg.options[2].selected, std::size_t(1));
+    // A section name holding a slash, and an option name holding one.
+    riftwii::Option slashed = pkg.options[1];
+    slashed.section = "Cars/Bikes";
+    slashed.name = "Speed";
+    pkg.options.push_back(slashed);
+    EXPECT_TRUE(riftwii::select_choice(pkg, "Cars/Bikes/Speed", "On", err));
+    EXPECT_EQ(pkg.options[3].selected, std::size_t(1));
+    slashed.section = "Misc";
+    slashed.name = "A/B";
+    slashed.selected = 0;
+    pkg.options.push_back(slashed);
+    EXPECT_TRUE(riftwii::select_choice(pkg, "Misc/A/B", "On", err));
+    EXPECT_EQ(pkg.options[4].selected, std::size_t(1));
+    EXPECT_TRUE(riftwii::select_choice(pkg, "A/B", "0", err));
+    EXPECT_EQ(pkg.options[4].selected, std::size_t(0));
 }
 static void test_read_package() {
     riftwii::Package pkg;

@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "boot.hpp"
+#include "riftwii/launch.hpp"
 #include "riftwii/patch.hpp"
 #include "rtable.h"
 
@@ -30,11 +31,8 @@ struct CompiledMod {
 };
 
 // A package and the choices to apply over its defaults, in order (see
-// riftwii::select_choice for the name forms).
-struct PackageSelection {
-    std::string xml_sd_path;
-    std::vector<std::pair<std::string, std::string>> choices;  // option, choice
-};
+// riftwii::select_choice for the name forms): the frontend's own type.
+using PackageSelection = PackageChoices;
 
 // Compiles the packages together, in the order given: patches from later
 // packages that touch a file an earlier one patched apply on top of its

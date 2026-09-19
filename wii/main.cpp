@@ -54,16 +54,28 @@ int main() {
         std::exit(0);
     }
 
+    // The disc first, so the menu can tell which packages apply and keep
+    // the choices per game; without one the menu still lists the card.
+    FrontendState state;
+    riftwii::wii::IdentifyDisc(state);
+
     InitVideo();
     SetupPads();
     InitAudio();
     InitFreeType(const_cast<u8*>(font_ttf), font_ttf_size);
     InitGUIThreads();
-    const int action = MainMenu(1);
+    const int action = MainMenu(1, state);
 
     EnterConsolePhase();
     std::string error;
-    if (action == MENU_BOOT) {
+    if (action == MENU_LAUNCH) {
+        riftwii::wii::LogOpen("sd:/riftwii/boot.log");
+        riftwii::wii::logf("Riftwii: launch %s with packages\n", state.game_id.c_str());
+        if (!riftwii::wii::RunLaunch(state.model.selections(), error)) {
+            riftwii::wii::LogOpen("sd:/riftwii/boot.log", true);  // boot_game closed it and remounted the card
+            riftwii::wii::logf("FAILED: %s\n", error.c_str());
+        }
+    } else if (action == MENU_BOOT) {
         riftwii::wii::LogOpen("sd:/riftwii/boot.log");
         riftwii::wii::logf("Riftwii: boot disc\n");
         if (!riftwii::wii::RunBoot(true, error)) {

@@ -1197,22 +1197,25 @@ std::size_t PickOne(std::size_t count, Match match) {
 }  // namespace
 
 bool select_choice(Package& package, const std::string& option, const std::string& choice, std::string& error) {
-    std::string section;
-    std::string name = option;
-    const std::size_t slash = option.find('/');
-    if (slash != std::string::npos) {
-        section = option.substr(0, slash);
-        name = option.substr(slash + 1);
-    }
-    if (name.empty()) {
+    if (option.empty()) {
         error = "option name is empty";
         return false;
     }
-    const std::size_t oi = PickOne(package.options.size(), [&](std::size_t i, bool folded) {
-        const Option& o = package.options[i];
-        if (!section.empty() && !(folded ? SameFolded(o.section, section) : o.section == section)) return false;
-        return folded ? (SameFolded(o.name, name) || SameFolded(o.id, name)) : (o.name == name || o.id == name);
-    });
+    // "Section/Option" may split at any '/' (a section name can hold one);
+    // the whole string is also tried as a bare option name.
+    std::size_t oi = std::string::npos;
+    for (std::size_t split = 0; split <= option.size() && oi == std::string::npos; ++split) {
+        const bool whole = split == option.size();
+        if (!whole && option[split] != '/') continue;
+        const std::string section = whole ? std::string() : option.substr(0, split);
+        const std::string name = whole ? option : option.substr(split + 1);
+        if (name.empty()) continue;
+        oi = PickOne(package.options.size(), [&](std::size_t i, bool folded) {
+            const Option& o = package.options[i];
+            if (!section.empty() && !(folded ? SameFolded(o.section, section) : o.section == section)) return false;
+            return folded ? (SameFolded(o.name, name) || SameFolded(o.id, name)) : (o.name == name || o.id == name);
+        });
+    }
     if (oi == std::string::npos) {
         error = "no single option named '" + option + "'";
         return false;
