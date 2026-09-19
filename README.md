@@ -36,8 +36,9 @@ Direction, review findings and the roadmap live in `docs/`.
   (`wii/modplan.cpp`): `<file>` and `<folder>` patches, including created
   files, and `<memory>` patches (plain, search and ocarina) applied
   before the game starts, with several packages composing in order and
-  option choices applied over the defaults. `<savegame>` and the GUI
-  side of all this are next.
+  option choices applied over the defaults; the GUI enables packages,
+  sets their options and launches, keeping the choices per game.
+  `<savegame>` is next.
 - `vendor-pugixml`: MIT-licensed XML parser, pinned at v1.15.
 - `vendor-libgui`: pinned GPL libwiigui 1.07 snapshot, used only by the Wii
   frontend (not built by the host build).
@@ -65,17 +66,21 @@ This produces `riftwii.dol` and `riftwii.elf`. The build uses relative paths
 and supports a project directory containing spaces. The frontend links the
 XML/overlay core and libwiigui; it is not part of the host test build.
 
-The current frontend scans `sd:/riivolution` for XML files (up to 150),
-displays validation results, and shows details when a package is selected.
-Rescan uses the on-screen button, Wii Remote Plus, or GameCube X. Home exits.
-"Boot disc" (Wii Remote 1 / Classic Y / GameCube Y) launches the inserted
-disc unmodified and logs to `sd:/riftwii/boot.log`; "Dump" (Wii Remote 2 /
-Classic X / GameCube B) writes the disc header, partition table, TMD, FST,
-apploader and `/opening.bnr` to `sd:/riftwii/dump/`.
-Files larger than 1 MiB are rejected rather than silently truncated.
-Validation covers XML well-formedness and the documented patch format, not
-external file availability or whether a game can launch. Unknown attributes
-and elements are ignored and counted as warnings in the details line.
+The frontend identifies the inserted disc, scans `sd:/riivolution` for
+XML files (up to 150) and lists each as On, Off, Other disc (its `<id>`
+does not match) or Invalid (with the parse error in the details line).
+A enables or disables the highlighted package; "Options" (Wii Remote
+Plus / GameCube X) opens its options, where A moves an option to its
+next choice, Minus to the previous one and B returns; "Launch" (Wii
+Remote 1 / Classic Y / GameCube Y) compiles the enabled packages with
+their choices, saves the choices to `sd:/riftwii/choices/<game id>.txt`
+(restored on the next start) and boots, or boots the disc unmodified
+when nothing is enabled, logging to `sd:/riftwii/boot.log`. Home exits.
+Wii Remote 2 / GameCube B ("Dump", a development aid without a button)
+writes the disc header, partition table, TMD, FST, apploader and
+`/opening.bnr` to `sd:/riftwii/dump/`. Files larger than 1 MiB are
+rejected rather than silently truncated. Unknown attributes and elements
+are ignored and counted as warnings in the details line.
 
 ### Manual testing
 
@@ -89,7 +94,7 @@ the commands in it (`probe`, `layout`, `meta [dir]`, `dump <disc path>
 [sd path]`, `dol [sd path]`, `nofallback`, `hook`, `replace <disc path>
 <sd path>`, `grow <disc path> <sd path>`, `sdreplace <disc path> <sd
 path>`, `sdgrow <disc path> <sd path>`, `keep <disc path>`, `xml <sd
-path>`, `set <option>=<choice>`, `boot`), logging to
+path>`, `set <option>=<choice>`, `boot`, `launch`), logging to
 `sd:/riftwii/autorun.log`;
 under Dolphin it powers off afterwards so the SD folder syncs back.
 `tools/dolphin/run.sh` drives this: it expects `build-dolphin/user/` (an

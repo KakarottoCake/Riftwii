@@ -283,7 +283,7 @@ E6. Newer Super Mario Bros. Wii (folder patches + memory patches) boots and
 | G2 Wii | E2, E3 | visible in-game evidence, binary hash + IOS + title recorded. **E2 and E3 passed in Dolphin 2026-09-19 (sections 12, 13); hardware run open** |
 | G3 host+Wii | FAT32 fragment resolver (host-tested on a synthetic image), redirect-table compiler verified against `ReadOverlay` as oracle, freestanding table walker compiled for both host and PPC, E4 | walker == oracle on randomized reads incl. straddles; E4 visible. **E4 passed in Dolphin 2026-09-19 (section 15); hardware run open** |
 | G4 Wii | FST rewrite, virtual window, `<memory>` patches, `<folder>` expansion, ordered composition; E5, E6 | Newer SMBW plays. **E5 (grown file through the virtual window) passed in Dolphin 2026-09-19 (section 14); a `<file>`-only package runs end to end in Dolphin (section 17); created files, `<folder>` and `<memory>` patches, composition across packages and option choices pass in Dolphin (sections 18-20); `<savegame>` open** |
-| G5 product | GUI: detect inserted disc, filter XMLs, options UI, persist choices per game, preflight report, launch; `<savegame>` policy; NOTICE/README/compat matrix | repeatable launches on 3+ titles, documented limitations |
+| G5 product | GUI: detect inserted disc, filter XMLs, options UI, persist choices per game, preflight report, launch; `<savegame>` policy; NOTICE/README/compat matrix | repeatable launches on 3+ titles, documented limitations. **GUI: disc identified, packages filtered, options set, choices kept per game, launch; passes in Dolphin (section 22). Preflight report, `<savegame>`, other titles open** |
 | G6 storage | USB for in-game reads: resident USB mass-storage client (decide OHCI-under-game-IOS vs. alternatives first), USB+FAT32, then a read-only NTFS resolver (own code preferred over the GX binary, see 4.5) | mod on a USB stick plays on hardware; NTFS stick likewise |
 
 Hardware-independent work (G0, the host halves of G3) fills any wait for
@@ -1020,3 +1020,47 @@ Refuted:
   built in code.
 - A null check on `encode_partition_data_fields`'s output pointer: an
   internal API whose callers pass arrays; not added.
+
+## 22. The frontend (conductor, 2026-09-19)
+
+`riftwii/launch.hpp` holds the frontend's state as plain data, so the
+host tests cover it: `LaunchModel::add` parses each package and marks it
+for the disc or not (`DiscFilter::matches`), `set_enabled` refuses what
+is invalid or for another disc, `cycle` steps an option through its
+choices and off, `selections()` yields one `PackageChoices` per enabled
+package with every option stated (a package's defaults never leak past
+the frontend), and `save`/`restore` keep the state in a tab-separated
+file per game, ignoring what no longer exists. `select_choice` now
+tries every `/` split so a section or option name holding one still
+resolves.
+
+`wii/frontend.cpp` is the card side shared by the GUI and the
+autorun's `launch` command: `IdentifyDisc` probes without waiting for a
+disc (an empty drive is a status line, not a wait), `ScanPackages` lists
+`sd:/riivolution` and restores `sd:/riftwii/choices/<game id>.txt`,
+`SaveChoices` writes it back. The GUI (`rift_menu.cpp`): the home
+screen lists packages as On / Off / Other disc / Invalid, A toggles, +
+opens the options screen (A next choice, - previous, B back), Launch
+saves the choices and returns the selection to `main`, which runs
+`RunLaunch` (compile with `compile_packages`, boot with the resident
+when the result needs it, Gecko reporting off); with nothing enabled
+Launch boots the plain disc. Dump keeps its hotkey and lost its button
+(three template buttons fit a 640-wide screen at 0.85 scale, four do
+not).
+
+Dolphin: with the frame dump on (`[Movie] DumpFrames`), the home screen
+renders the identified disc and the four test packages; with a choices
+file enabling two of them and setting `Console banner` to `Loader`, the
+screen shows On/On and the autorun's `launch` compiles exactly those
+two (3 table entries, 1 relocation, 1 memory patch), the game boots
+with the folder patch's files from the card and prints `Loader Type`.
+The pad path itself (A/+/Launch) is untested: Dolphin input movies
+(`-m`, a hand-written DTM with GameCube pad presses) never reached the
+loader in this harness, so the buttons wait for hardware.
+
+### 22.1 Open
+- Preflight report on the launch screen: what a package will do to the
+  disc (the compiler's notes) before booting, and the compile errors
+  shown on screen rather than only in the log.
+- `<savegame>` (section 8.3).
+- Other titles; every section since 11 rests on Dolphin.
