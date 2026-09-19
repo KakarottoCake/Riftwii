@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/symsearch.hpp"
 
+#include <algorithm>
+#include <cstdio>
 #include <map>
 #include <set>
 
@@ -147,6 +149,158 @@ bool find_ipc_symbols(const std::vector<CodeRange>& text, IpcSymbols& out, std::
             }
             out.ioctlv_async = target;
         }
+    }
+    error.clear();
+    return true;
+}
+
+}  // namespace riftwii
+
+// ---- the whole API ----------------------------------------------------------
+
+namespace riftwii {
+namespace {
+
+constexpr std::uint32_t kApiWindowBytes = 0x2000;  // either side of IOS_IoctlAsync
+constexpr std::uint32_t kApiMaxFunctionBytes = 0x400;
+constexpr std::size_t kStoreWindow = 8;            // instructions from the li to the stw
+constexpr std::uint32_t kBlockRelaunch = 0x28;     // request block field the reboot forms set
+
+bool is_stwu_r1(std::uint32_t w) { return (w & 0xFFFF0000u) == 0x94210000u; }
+bool is_li(std::uint32_t w) { return (w & 0xFC1F0000u) == 0x38000000u; }  // addi rX, 0, imm
+unsigned rd_of(std::uint32_t w) { return (w >> 21) & 31u; }
+
+// The immediates a function stores into a request block at `offset`:
+// `li rX, imm` followed within a few instructions by `stw rX, offset(rY)`.
+std::set<std::uint32_t> stored_immediates(const std::vector<CodeRange>& text, std::uint32_t start, std::uint32_t end,
+                                          std::uint32_t offset) {
+    std::set<std::uint32_t> found;
+    for (std::uint32_t a = start; a + 4 <= end; a += 4) {
+        const std::uint32_t w = word_at(text, a);
+        if (!is_li(w)) continue;
+        for (std::size_t k = 1; k <= kStoreWindow && a + k * 4 < end; ++k) {
+            const std::uint32_t s = word_at(text, a + static_cast<std::uint32_t>(k * 4));
+            if ((s & 0xFC000000u) == 0x90000000u && rd_of(s) == rd_of(w) && (s & 0xFFFFu) == offset) {
+                found.insert(w & 0xFFFFu);
+                break;
+            }
+            if ((s & 0xFC000000u) == 0x38000000u && rd_of(s) == rd_of(w)) break;  // the register moved on
+        }
+    }
+    return found;
+}
+
+// Targets of the bl instructions in [start, end).
+std::set<std::uint32_t> call_targets(const std::vector<CodeRange>& text, std::uint32_t start, std::uint32_t end) {
+    std::set<std::uint32_t> targets;
+    for (std::uint32_t a = start; a + 4 <= end; a += 4) {
+        const std::uint32_t w = word_at(text, a);
+        if (is_bl(w)) targets.insert(bl_target(a, w));
+    }
+    return targets;
+}
+
+// How the function hands its block to `submit`: 1 when r4 (the callback)
+// is a register copy (asynchronous), 0 when it is `li r4, 0`
+// (synchronous), -1 when there is no such call.
+int submit_style(const std::vector<CodeRange>& text, std::uint32_t start, std::uint32_t end, std::uint32_t submit) {
+    for (std::uint32_t a = start + 8; a + 4 <= end; a += 4) {
+        const std::uint32_t w = word_at(text, a);
+        if (!is_bl(w) || bl_target(a, w) != submit) continue;
+        for (std::uint32_t back = 4; back <= 8; back += 4) {
+            const std::uint32_t p = word_at(text, a - back);
+            if (rd_of(p) != 4) continue;
+            if (is_li(p)) return (p & 0xFFFFu) == 0 ? 0 : 1;
+            return 1;  // mr r4, rX or another move
+        }
+        return 1;
+    }
+    return -1;
+}
+
+}  // namespace
+
+bool find_ipc_api(const std::vector<CodeRange>& text, const IpcSymbols& known, IpcApi& out, std::string& error) {
+    if (known.ioctl_async == 0 || !inside(text, known.ioctl_async)) {
+        error = "IOS_IoctlAsync must be known to find the rest of the IPC API";
+        return false;
+    }
+    // The stretch of text around it, clipped to the range it lives in.
+    const CodeRange* range = nullptr;
+    for (const CodeRange& r : text) {
+        if (known.ioctl_async >= r.address && known.ioctl_async < r.address + r.size) range = &r;
+    }
+    const std::uint32_t lo = known.ioctl_async - std::min(known.ioctl_async - range->address, kApiWindowBytes);
+    const std::uint32_t hi = std::min(static_cast<std::uint32_t>(range->address + range->size), known.ioctl_async + kApiWindowBytes);
+
+    // Function starts: stack-frame prologues.
+    std::vector<std::uint32_t> starts;
+    for (std::uint32_t a = lo; a + 4 <= hi; a += 4) {
+        if (is_stwu_r1(word_at(text, a))) starts.push_back(a);
+    }
+    std::size_t known_index = starts.size();
+    for (std::size_t i = 0; i < starts.size(); ++i) {
+        if (starts[i] == known.ioctl_async) known_index = i;
+    }
+    if (known_index == starts.size()) {
+        error = "IOS_IoctlAsync does not start with a stack frame push";
+        return false;
+    }
+    // The two helpers every API function calls: the block allocator
+    // (called with 64, 32: size and alignment) and the submit routine
+    // (called with the block and the callback register, or 0).
+    const std::uint32_t known_end = known_index + 1 < starts.size() ? starts[known_index + 1] : hi;
+    std::uint32_t alloc = 0, submit = 0;
+    for (std::uint32_t a = known.ioctl_async + 8; a + 4 <= known_end; a += 4) {
+        const std::uint32_t w = word_at(text, a);
+        if (!is_bl(w)) continue;
+        const std::uint32_t p1 = word_at(text, a - 4), p2 = word_at(text, a - 8);
+        if ((p1 == li(5, 32) && p2 == li(4, 64)) || (p1 == li(4, 64) && p2 == li(5, 32))) {
+            alloc = bl_target(a, w);
+        } else if ((p1 & 0xFC0007FFu) == 0x7C000378u && ((p1 >> 16) & 31u) == 4 && rd_of(p1) == ((p1 >> 11) & 31u)) {
+            submit = bl_target(a, w);  // mr r4, rX (or rX, rX, rX) before the call
+        }
+    }
+    if (alloc == 0 || submit == 0) {
+        error = "IOS_IoctlAsync does not call a block allocator (64, 32) and a submit routine the expected way";
+        return false;
+    }
+    // Every function in the stretch that uses both helpers and stores
+    // one IPC command is an API function; the reboot forms of ioctlv
+    // (relaunch set in the block) are left alone.
+    for (std::size_t i = 0; i < starts.size(); ++i) {
+        const std::uint32_t start = starts[i];
+        const std::uint32_t next = i + 1 < starts.size() ? starts[i + 1] : hi;
+        if (next - start > kApiMaxFunctionBytes) continue;
+        const std::set<std::uint32_t> calls = call_targets(text, start, next);
+        if (!calls.count(alloc) || !calls.count(submit)) continue;
+        const std::set<std::uint32_t> commands = stored_immediates(text, start, next, 0);
+        if (commands.size() != 1) continue;
+        const std::uint32_t cmd = *commands.begin();
+        if (cmd < 1 || cmd > 7) continue;
+        const std::set<std::uint32_t> relaunch = stored_immediates(text, start, next, kBlockRelaunch);
+        bool reboots = false;
+        for (const std::uint32_t v : relaunch) reboots = reboots || v != 0;
+        if (reboots) continue;
+        const int style = submit_style(text, start, next, submit);
+        if (style < 0) continue;
+        std::uint32_t& slot = style == 1 ? out.async[cmd] : out.sync[cmd];
+        if (slot != 0) {
+            char buf[96];
+            std::snprintf(buf, sizeof(buf), "two %s functions store IPC command %u near IOS_IoctlAsync",
+                          style == 1 ? "asynchronous" : "synchronous", static_cast<unsigned>(cmd));
+            error = buf;
+            return false;
+        }
+        slot = start;
+    }
+    if (out.async[kIpcIoctlCmd] != known.ioctl_async) {
+        error = "the IPC API search does not classify IOS_IoctlAsync as the asynchronous ioctl";
+        return false;
+    }
+    if (known.ioctlv_async != 0 && out.async[kIpcIoctlvCmd] != known.ioctlv_async) {
+        error = "the IOS_IoctlvAsync found through the partition open disagrees with the API search";
+        return false;
     }
     error.clear();
     return true;

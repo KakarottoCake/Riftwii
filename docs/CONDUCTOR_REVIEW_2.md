@@ -1182,11 +1182,32 @@ Seek 0x806a99f0/0x806a9ad0, Ioctl 0x806a9bc0/0x806a9d00, Ioctlv
 found by the DI and partition-open searches confirm). Hooking the
 submit helper instead would mean completing requests the SDK's own
 way (waking its thread queue, freeing its block): version-specific
-internals, so the API functions are the hook points, found by
-extending the structural search from `IOS_IoctlAsync`: prologues in
-the neighbourhood, the command each stores, pairs ordered async then
-sync with the sync form storing a zero callback. To be validated on
-the four dumped DOLs before use.
+internals, so the API functions are the hook points.
+
+**The search (`find_ipc_api`, slice 3, done).** From the known
+`IOS_IoctlAsync`: its block allocator is the `bl` preceded by
+`li r4, 64; li r5, 32` (size, alignment) and its submit routine the
+`bl` preceded by `mr r4, rX` (the callback). Every stack-frame
+prologue within 0x2000 bytes either side that starts a function of at
+most 0x400 bytes, calls both helpers and stores exactly one immediate
+1..7 at the block's first word (`li rX, N` ... `stw rX, 0(rY)`) is an
+API function; the argument to the submit call classifies it: a
+register copy in r4 is the asynchronous form, `li r4, 0` the
+synchronous one. Two functions of one class storing the same command
+is an error. Left out: the reboot forms of ioctlv (a nonzero immediate
+stored at block+0x28) and the IPC init function (stores 7 too, but is
+816 bytes and passes no callback register). Functions the game never
+calls are not in its DOL (the linker drops them: Wario Land has no
+synchronous `IOS_Seek`) and stay 0; nothing calls them, so nothing
+needs hooking. The known `IOS_IoctlAsync` must classify as async
+ioctl and the known `IOS_IoctlvAsync` as async ioctlv, or the search
+fails. `tools/ipcscan.cpp` runs it on a dumped `main.dol`; all four
+titles give full pairs but Wario's sync Seek, and the synchronous
+`IOS_Open` found agrees on all four with the function each SDK calls
+for `/dev/stm/immediate` (a device-name cross-check outside the
+search). The first attempt paired functions in address order and
+insisted on two per command; Kirby's IPC init and Wario's missing
+Seek broke that in one run each, hence the argument-based rule.
 
 Each function gets the same trampoline as `IOS_IoctlAsync` (a template
 instantiated 14 times, r3-r10 saved, one C dispatcher told which entry
@@ -1233,9 +1254,9 @@ directory under IOS58, so the copy either runs lazily in the runtime
 waits for a permission story; documented as not done until then.
 
 ### 24.6 Slices
-1. `rtfat` with host tests (in-memory image, fake device).
+1. `rtfat` with host tests (in-memory image, fake device). Done.
 2. `rtfs` with host tests (fake IPC, ISFS argument blocks).
-3. The 14-function search, validated on the four DOLs.
+3. The 14-function search, validated on the four DOLs. Done.
 4. Trampolines, dispatcher, pending records for FS operations.
 5. Loader compile, Dolphin: Mario Kart Wii writes `rksys.dat` (2.5 MB)
    on first boot, Kirby's Epic Yarn a small save; the card image is

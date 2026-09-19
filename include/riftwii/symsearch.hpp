@@ -33,4 +33,25 @@ struct IpcSymbols {
 bool find_ipc_symbols(const std::vector<CodeRange>& text, IpcSymbols& out, std::string& error,
                       unsigned min_commands = 3);
 
+// The SDK's whole IPC API: the asynchronous and synchronous function per
+// IPC command 1..7 (open, close, read, write, seek, ioctl, ioctlv),
+// compiled together in one stretch of text around IOS_IoctlAsync. Each
+// allocates its request block with the same helper (64 bytes, 32-byte
+// aligned), stores its command number into the block (`li rX, N` then
+// `stw rX, 0(rY)`) and hands the block to the same submit routine with
+// the callback in r4: a register copy in the asynchronous form, `li r4,
+// 0` in the synchronous one. Functions the game never calls are not in
+// its DOL (the linker drops them) and stay 0 here: nothing calls them,
+// so nothing needs hooking. The reboot forms of ioctlv (relaunch set in
+// the block) are left out. Section 24.3 of docs/CONDUCTOR_REVIEW_2.md;
+// verified on four titles (2007-2009 SDKs) with tools/ipcscan.cpp.
+enum IpcCommand { kIpcOpen = 1, kIpcClose, kIpcRead, kIpcWrite, kIpcSeek, kIpcIoctlCmd, kIpcIoctlvCmd };
+
+struct IpcApi {
+    std::uint32_t async[8] = {};  // indexed by IpcCommand (0 unused); 0 = not in the game
+    std::uint32_t sync[8] = {};
+};
+
+bool find_ipc_api(const std::vector<CodeRange>& text, const IpcSymbols& known, IpcApi& out, std::string& error);
+
 }  // namespace riftwii

@@ -208,9 +208,115 @@ struct FakeText {
         word(0x4E800020);
     }
     riftwii::CodeRange range() const { return {base, bytes.data(), bytes.size()}; }
+    // An SDK IPC API function as the search sees it: prologue, the block
+    // allocated (64, 32), the command stored at its first word, the
+    // block handed to `submit` with the callback register (async) or 0
+    // (sync); `relaunch` != 0 stores it at 0x28 as the reboot forms do.
+    std::uint32_t api_function(std::uint32_t cmd, bool async, std::uint32_t alloc, std::uint32_t submit,
+                               std::uint32_t relaunch = 0) {
+        const std::uint32_t start = here();
+        word(0x9421FFC0);  // stwu r1,-0x40(r1)
+        word(0x7C0802A6);  // mflr r0
+        word(0x90010044);  // stw r0,0x44(r1)
+        word(0x7CBD2B78);  // mr r29,r5 (the callback)
+        li(4, 64);
+        li(5, 32);
+        bl(alloc);
+        li(0, cmd);
+        word(0x90030000);  // stw r0,0(r3)
+        if (relaunch != 0) {
+            li(5, relaunch);
+            word(0x90A30028);  // stw r5,0x28(r3)
+        }
+        if (async) {
+            word(0x7FA4EB78);  // mr r4,r29
+        } else {
+            li(4, 0);
+        }
+        bl(submit);
+        word(0x80010044);  // lwz r0,0x44(r1)
+        word(0x7C0803A6);  // mtlr r0
+        word(0x38210040);  // addi r1,r1,0x40
+        word(0x4E800020);  // blr
+        return start;
+    }
 };
 
 }  // namespace
+
+static void TestIpcApiSearch() {
+    // The helpers, then the API in the SDK's order with a helper without
+    // a command between the ioctl and ioctlv pairs, a reboot form of
+    // ioctlv, and an unrelated function storing 1 at its argument's first
+    // word (not an API function: it uses neither helper).
+    FakeText t;
+    const std::uint32_t alloc = t.here();
+    t.prologue();
+    const std::uint32_t submit = t.here();
+    t.prologue();
+    std::uint32_t async_at[8] = {}, sync_at[8] = {};
+    for (std::uint32_t cmd = 1; cmd <= 7; ++cmd) {
+        async_at[cmd] = t.api_function(cmd, true, alloc, submit);
+        if (cmd == 5) continue;  // the game never calls IOS_Seek: not linked
+        sync_at[cmd] = t.api_function(cmd, false, alloc, submit);
+        if (cmd == 6) t.prologue();  // the vector helper
+    }
+    const std::uint32_t reboot = t.api_function(7, false, alloc, submit, 1);
+    (void)reboot;
+    const std::uint32_t unrelated = t.here();
+    t.word(0x9421FFC0);
+    t.li(0, 1);
+    t.word(0x90030000);
+    t.word(0x4E800020);
+    (void)unrelated;
+    // DI call sites so find_ipc_symbols has something to vote with.
+    for (std::uint32_t cmd : {0x71u, 0x70u, 0x8Au, 0x8Du}) {
+        t.li(4, cmd);
+        t.bl(async_at[6]);
+    }
+    t.li(4, 0x8B);
+    t.li(5, 3);
+    t.li(6, 2);
+    t.bl(async_at[7]);
+
+    riftwii::IpcSymbols s;
+    riftwii::IpcApi api;
+    std::string error;
+    EXPECT_TRUE(riftwii::find_ipc_symbols({t.range()}, s, error));
+    EXPECT_EQ(s.ioctl_async, async_at[6]);
+    EXPECT_EQ(s.ioctlv_async, async_at[7]);
+    EXPECT_TRUE(riftwii::find_ipc_api({t.range()}, s, api, error));
+    for (std::uint32_t cmd = 1; cmd <= 7; ++cmd) {
+        EXPECT_EQ(api.async[cmd], async_at[cmd]);
+        EXPECT_EQ(api.sync[cmd], sync_at[cmd]);
+    }
+    EXPECT_EQ(api.sync[5], 0u);
+
+    // An unknown IOS_IoctlAsync, or one that is not a prologue.
+    riftwii::IpcSymbols bad;
+    EXPECT_FALSE(riftwii::find_ipc_api({t.range()}, bad, api, error));
+    bad.ioctl_async = async_at[6] + 4;
+    EXPECT_FALSE(riftwii::find_ipc_api({t.range()}, bad, api, error));
+
+    // Two asynchronous functions storing the same command: refused.
+    FakeText u;
+    const std::uint32_t ualloc = u.here();
+    u.prologue();
+    const std::uint32_t usubmit = u.here();
+    u.prologue();
+    const std::uint32_t first = u.api_function(6, true, ualloc, usubmit);
+    u.api_function(6, true, ualloc, usubmit);
+    riftwii::IpcSymbols us;
+    us.ioctl_async = first;
+    riftwii::IpcApi uapi;
+    EXPECT_FALSE(riftwii::find_ipc_api({u.range()}, us, uapi, error));
+    EXPECT_TRUE(error.find("two asynchronous") != std::string::npos);
+
+    // The known IOS_IoctlvAsync must agree with the classification.
+    riftwii::IpcSymbols disagree = s;
+    disagree.ioctlv_async = sync_at[7];
+    EXPECT_FALSE(riftwii::find_ipc_api({t.range()}, disagree, api, error));
+}
 
 static void TestSymbolSearch() {
     FakeText t;
@@ -1027,6 +1133,7 @@ int main() {
     TestJumpAndDisplace();
     TestPlacement();
     TestSymbolSearch();
+    TestIpcApiSearch();
     TestResidentHandler();
     TestPayloadAndRedirect();
     TestVirtualWindow();
