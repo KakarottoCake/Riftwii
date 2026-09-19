@@ -35,7 +35,9 @@ Direction, review findings and the roadmap live in `docs/`.
   buffers. A Riivolution-format package runs end to end this way
   (`wii/modplan.cpp`): `<file>` and `<folder>` patches, including created
   files, and `<memory>` patches (plain, search and ocarina) applied
-  before the game starts. `<savegame>` and option choices are next.
+  before the game starts, with several packages composing in order and
+  option choices applied over the defaults. `<savegame>` and the GUI
+  side of all this are next.
 - `vendor-pugixml`: MIT-licensed XML parser, pinned at v1.15.
 - `vendor-libgui`: pinned GPL libwiigui 1.07 snapshot, used only by the Wii
   frontend (not built by the host build).
@@ -87,7 +89,8 @@ the commands in it (`probe`, `layout`, `meta [dir]`, `dump <disc path>
 [sd path]`, `dol [sd path]`, `nofallback`, `hook`, `replace <disc path>
 <sd path>`, `grow <disc path> <sd path>`, `sdreplace <disc path> <sd
 path>`, `sdgrow <disc path> <sd path>`, `keep <disc path>`, `xml <sd
-path>`, `boot`), logging to `sd:/riftwii/autorun.log`;
+path>`, `set <option>=<choice>`, `boot`), logging to
+`sd:/riftwii/autorun.log`;
 under Dolphin it powers off afterwards so the SD folder syncs back.
 `tools/dolphin/run.sh` drives this: it expects `build-dolphin/user/` (an
 isolated Dolphin user directory with `WiiSDCard`, folder sync and a

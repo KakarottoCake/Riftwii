@@ -282,7 +282,7 @@ E6. Newer Super Mario Bros. Wii (folder patches + memory patches) boots and
 | G1 Wii | E1 unmodified boot + file dump | video of the game running from Riftwii; dumped file byte-identical to a Dolphin extraction. **Passed in Dolphin 2026-09-18 (section 11); hardware run open** |
 | G2 Wii | E2, E3 | visible in-game evidence, binary hash + IOS + title recorded. **E2 and E3 passed in Dolphin 2026-09-19 (sections 12, 13); hardware run open** |
 | G3 host+Wii | FAT32 fragment resolver (host-tested on a synthetic image), redirect-table compiler verified against `ReadOverlay` as oracle, freestanding table walker compiled for both host and PPC, E4 | walker == oracle on randomized reads incl. straddles; E4 visible. **E4 passed in Dolphin 2026-09-19 (section 15); hardware run open** |
-| G4 Wii | FST rewrite, virtual window, `<memory>` patches, `<folder>` expansion, ordered composition; E5, E6 | Newer SMBW plays. **E5 (grown file through the virtual window) passed in Dolphin 2026-09-19 (section 14); a `<file>`-only package runs end to end in Dolphin (section 17); created files, `<folder>` and `<memory>` patches pass in Dolphin (sections 18, 19); `<savegame>` and option choices open** |
+| G4 Wii | FST rewrite, virtual window, `<memory>` patches, `<folder>` expansion, ordered composition; E5, E6 | Newer SMBW plays. **E5 (grown file through the virtual window) passed in Dolphin 2026-09-19 (section 14); a `<file>`-only package runs end to end in Dolphin (section 17); created files, `<folder>` and `<memory>` patches, composition across packages and option choices pass in Dolphin (sections 18-20); `<savegame>` open** |
 | G5 product | GUI: detect inserted disc, filter XMLs, options UI, persist choices per game, preflight report, launch; `<savegame>` policy; NOTICE/README/compat matrix | repeatable launches on 3+ titles, documented limitations |
 | G6 storage | USB for in-game reads: resident USB mass-storage client (decide OHCI-under-game-IOS vs. alternatives first), USB+FAT32, then a read-only NTFS resolver (own code preferred over the GX binary, see 4.5) | mod on a USB stick plays on hardware; NTFS stick likewise |
 
@@ -829,8 +829,8 @@ crashed parsing it, which is what applying that patch should do.)
 - Created files (`create="true"`): done, section 18. `<folder>`
   expansion (with `create`) and `<memory>` patches: done, section 19.
 - `<savegame>` redirection.
-- Option choices: the autorun uses the package defaults; the GUI (G5)
-  must present sections/options/choices and pass the selection.
+- Option choices: done on the host and in the autorun (section 20); the
+  GUI (G5) must present sections/options/choices and pass the selection.
 - Hardware: sections 12-17 all rest on Dolphin; the hardware
   assumptions are listed in 15.2.
 
@@ -949,5 +949,36 @@ behaviour is unchanged) and the game ran on.
 
 ### 19.3 Open
 - `<savegame>`: the only patch kind not executed.
-- Option choices and the GUI (section 17.1).
+- The GUI (section 17.1).
 - Hardware: nothing since section 11 has run on a console.
+
+## 20. Composition across packages and option choices (conductor, 2026-09-19)
+
+Booting the three test packages together exposed the gap: each was
+compiled on its own, so two packages touching `/hbm/home.csv` produced
+two table entries for one file and the boot refused them ("replacements
+overlap in the virtual partition", the right answer to the wrong
+input). `compile_packages` now takes every package at once: each is
+parsed, planned and expanded on its own, then all file patches are
+grouped by disc file in package-then-document order and applied as one
+chain, so a later package's patch sees the earlier one's result exactly
+as a later `<file>` inside one package does. Memory patches are
+concatenated in the same order. The autorun recompiles the accumulated
+list on every `xml` and logs the combined result.
+
+Choices: `riftwii::select_choice(package, "Section/Option" or "Option"
+or the option id, choice name / 1-based number / off)` on the host,
+exact then case-folded, refusing ambiguity; `PackageSelection` carries
+a package's choices into `compile_packages`; the autorun's
+`set <option>=<choice>` applies to the last `xml`. The GUI (G5) will
+build the same `PackageSelection` from its menus.
+
+Dolphin:
+- The three packages together: package 1 grows home.csv to 7770 bytes,
+  package 2's folder patch replaces it with the 3610-byte E3 file, so
+  the final layout is in place from the card
+  (`M17c3f6fc:00000e20:f6a09c08`), three files created, five memory
+  patches applied, 1758 reads matching Dolphin's log.
+- A package with a default-off option set to its second choice and a
+  default-on option disabled: the OSReport banner shows `Loader Type`
+  and an untouched `Kernel built`.
