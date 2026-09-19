@@ -106,12 +106,29 @@ bool displaceable(std::uint32_t instruction, unsigned scratch_reg, std::string& 
         why = "it is not a valid instruction";
         return false;
     }
+    if (opcode == 31) {
+        // Special registers: the trampoline restores LR before the replay,
+        // but CTR is clobbered by the jump that follows it and XER by the
+        // C handler. Only LR moves are safe.
+        const std::uint32_t xo = (instruction >> 1) & 0x3FF;
+        const std::uint32_t spr = ((instruction >> 16) & 31) | (((instruction >> 11) & 31) << 5);
+        if ((xo == 339 || xo == 467) && spr != 8) {
+            why = "it reads or writes a special register other than LR";
+            return false;
+        }
+    }
+    if (instruction == 0x60000000u) {  // nop (ori r0,r0,0) names no register
+        why.clear();
+        return true;
+    }
     const std::uint32_t rd = (instruction >> 21) & 31;
     const std::uint32_t ra = (instruction >> 16) & 31;
     const std::uint32_t rb = (instruction >> 11) & 31;
-    // Register fields are only meaningful for register-form opcodes, but
-    // refusing on any match is a safe over-approximation.
-    if (opcode != 24 && (rd == scratch_reg || ra == scratch_reg || rb == scratch_reg)) {
+    // rD/rS and rA are registers in every integer form; the rB field is one
+    // only in register forms (opcode 31, rlwnm, paired-single 4), an
+    // immediate elsewhere.
+    const bool rb_is_register = opcode == 31 || opcode == 23 || opcode == 4;
+    if (rd == scratch_reg || ra == scratch_reg || (rb_is_register && rb == scratch_reg)) {
         why = "it uses the scratch register";
         return false;
     }

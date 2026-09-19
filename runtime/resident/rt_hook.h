@@ -31,6 +31,8 @@
 
 #include <stdint.h>
 
+#include "rtable.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -44,6 +46,7 @@ extern "C" {
 
 #define RT_MAX_PENDING 4u /* outstanding redirected reads (the DVD driver issues one at a time) */
 #define RT_MAX_RUNS 8u    /* pieces one read may split into; more passes through unmodified */
+#define RT_GECKO_MAX_FAILURES 32u /* refused bytes after which Gecko reporting turns itself off */
 
 struct rt_blob_header {
     uint32_t magic;                        /* RT_BLOB_MAGIC */
@@ -56,7 +59,10 @@ struct rt_blob_header {
     uint32_t complete_di_offset;           /* completion entry the hook installs as the IPC callback */
 };
 
-/* One redirected read in flight. 32 bytes. */
+/* One redirected read in flight: 32 bytes of bookkeeping and the runs
+ * the read splits into, computed once when it is taken (the hook and the
+ * completion entry may run on an interrupted thread's stack, so no scratch
+ * array lives on the stack). 288 bytes. */
 struct rt_pending {
     uint32_t in_use;
     uint32_t callback;     /* the game's IPC callback (may be 0) */
@@ -65,10 +71,11 @@ struct rt_pending {
     uint32_t length;       /* bytes requested */
     uint32_t word_offset;  /* disc offset in 4-byte words, as the game asked */
     uint32_t is_virtual;   /* the offset lies in the virtual window: nothing came from the disc */
-    uint32_t reserved;
+    uint32_t run_count;
+    rt_run runs[RT_MAX_RUNS];
 };
 
-/* 224 bytes. */
+/* 1248 bytes. */
 struct rt_context {
     uint32_t magic;               /* RT_CONTEXT_MAGIC (non-zero so the struct lives in .data) */
     uint32_t flags;               /* RT_FLAG_* */
@@ -82,12 +89,12 @@ struct rt_context {
     uint32_t di_fd;               /* the fd the game uses for /dev/di, learned from the first read */
     uint32_t last_di_word_offset; /* of the most recent read */
     uint32_t last_di_length;
-    uint32_t gecko_failures;      /* Gecko bytes the adapter did not accept */
+    uint32_t gecko_failures;      /* Gecko bytes the adapter did not accept; RT_GECKO_MAX_FAILURES clears the flag */
     /* Redirection. */
     uint32_t table;               /* rt_header* of the redirect table, 0 = none (loader-filled) */
     uint32_t complete_entry;      /* absolute address of the completion entry (loader-filled) */
     uint32_t redirected_reads;    /* reads with at least one MEM/ZERO run */
-    uint32_t pending_overflow;    /* redirected reads passed through because no record was free */
+    uint32_t pending_overflow;    /* reads passed through unexamined because no record was free */
     uint32_t run_overflow;        /* reads passed through because they split into > RT_MAX_RUNS */
     uint32_t last_checksum;       /* of the redirected bytes of the last completed read */
     uint32_t completions;         /* completion entry invocations */

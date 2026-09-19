@@ -24,9 +24,11 @@ BLOB    := $(OUT)/riftwii_rt.bin
 CFLAGS  := -O2 -mcpu=750 -meabi -mhard-float -msdata=none \
            -ffreestanding -nostdlib -fno-builtin -fno-jump-tables \
            -fno-tree-loop-distribute-patterns -fno-asynchronous-unwind-tables \
-           -fno-stack-protector -fno-common -std=c99 -Wall -Wextra -Wpedantic -Werror \
+           -fno-stack-protector -fno-common -ffunction-sections -std=c99 -Wall -Wextra -Wpedantic -Werror \
            -DRT_TARGET_PPC -I$(SRC) -Iruntime
-LDFLAGS := -nostdlib -nostartfiles -static -Wl,--build-id=none -T $(SRC)/rt.ld
+# --gc-sections drops what the trampolines do not reach (the table
+# validator and CRC only run in the loader; the host tests use the rest).
+LDFLAGS := -nostdlib -nostartfiles -static -Wl,--build-id=none -Wl,--gc-sections -T $(SRC)/rt.ld
 
 OBJS    := $(OUT)/rt_entry.o $(OUT)/rt_hook.o $(OUT)/rtable.o
 

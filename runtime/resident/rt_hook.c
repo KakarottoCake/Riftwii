@@ -62,14 +62,17 @@ static int rt_gecko_command(uint32_t channel, uint32_t command, uint32_t* reply)
 static int rt_gecko_putc(struct rt_context* ctx, uint32_t ch) {
     uint32_t reply = 0;
     uint32_t tries;
-    for (tries = 0; tries < 1000u; ++tries) {
+    if (!(ctx->flags & RT_FLAG_GECKO)) return 0;
+    for (tries = 0; tries < 100u; ++tries) {
         if (!rt_gecko_command(ctx->gecko_channel, 0xC000u, &reply)) break;
         if (reply & 0x0400u) {
             if (!rt_gecko_command(ctx->gecko_channel, 0xB000u | ((ch & 0xFFu) << 4), &reply)) break;
             if (reply & 0x0400u) return 1;
         }
     }
-    ctx->gecko_failures++;
+    /* Nobody is taking the bytes (no adapter, or a stalled host): stop
+     * spending interrupt-off time on it. */
+    if (++ctx->gecko_failures >= RT_GECKO_MAX_FAILURES) ctx->flags &= ~RT_FLAG_GECKO;
     return 0;
 }
 
@@ -84,15 +87,35 @@ static void rt_flush_range(uintptr_t address, uint32_t length) {
     }
     __asm__ volatile("sync" : : : "memory");
 }
+
+/* External interrupts off/on around the claim of a pending record: the
+ * hook runs on game threads and from the IPC interrupt handler (the DVD
+ * driver issues its next command from the completion callback), so the
+ * claim must not be interleaved. MSR[EE] is 0x8000; mtmsr is what the
+ * SDK's OSDisableInterrupts uses too. */
+static uint32_t rt_interrupts_off(void) {
+    uint32_t msr;
+    __asm__ volatile("mfmsr %0" : "=r"(msr));
+    __asm__ volatile("mtmsr %0" : : "r"(msr & ~0x8000u) : "memory");
+    return msr;
+}
+static void rt_interrupts_restore(uint32_t msr) {
+    __asm__ volatile("mtmsr %0" : : "r"(msr) : "memory");
+}
 #else
 static int rt_gecko_putc(struct rt_context* ctx, uint32_t ch) {
-    (void)ctx;
     (void)ch;
-    return 1;
+    return (ctx->flags & RT_FLAG_GECKO) != 0;
 }
 static void rt_flush_range(uintptr_t address, uint32_t length) {
     (void)address;
     (void)length;
+}
+static uint32_t rt_interrupts_off(void) {
+    return 0;
+}
+static void rt_interrupts_restore(uint32_t msr) {
+    (void)msr;
 }
 #endif
 
@@ -112,8 +135,9 @@ static void rt_zero(uint8_t* dst, uint32_t n) {
     while (n--) *dst++ = 0;
 }
 
-/* Splits a read against the table. Returns the number of runs, or -1 when
- * the read must pass through untouched (no table, too many runs, error). */
+/* Splits a read against the table into `runs`. Returns the number of runs,
+ * or -1 when the read must pass through untouched (no table, too many
+ * runs, error). */
 static int rt_split(const struct rt_context* ctx, uint32_t word_offset, uint32_t length, rt_run* runs,
                     int* touched) {
     uint32_t count = 0;
@@ -130,6 +154,22 @@ static int rt_split(const struct rt_context* ctx, uint32_t word_offset, uint32_t
     return (int)count;
 }
 
+/* Takes a free pending record, or returns 0. */
+static struct rt_pending* rt_claim_pending(struct rt_context* ctx) {
+    struct rt_pending* rec = 0;
+    const uint32_t msr = rt_interrupts_off();
+    uint32_t i;
+    for (i = 0; i < RT_MAX_PENDING; ++i) {
+        if (!ctx->pending[i].in_use) {
+            rec = &ctx->pending[i];
+            rec->in_use = 1;
+            break;
+        }
+    }
+    rt_interrupts_restore(msr);
+    return rec;
+}
+
 int rt_on_ioctl_async(struct rt_context* ctx, uintptr_t* args, uint32_t* result) {
     const uint32_t fd = (uint32_t)args[0];
     const uint32_t ioctl = (uint32_t)args[1];
@@ -141,8 +181,6 @@ int rt_on_ioctl_async(struct rt_context* ctx, uintptr_t* args, uint32_t* result)
         const uint32_t length = in[1];
         const uint32_t word_offset = in[2];
         const uint32_t lo = ctx->di_read_bytes_lo + length;
-        rt_run runs[RT_MAX_RUNS];
-        int touched = 0;
         if (lo < ctx->di_read_bytes_lo) ctx->di_read_bytes_hi++;
         ctx->di_read_bytes_lo = lo;
         ctx->di_reads++;
@@ -159,22 +197,19 @@ int rt_on_ioctl_async(struct rt_context* ctx, uintptr_t* args, uint32_t* result)
         }
         if (ctx->table != 0) {
             const int in_window = ctx->virtual_start_words != 0 && word_offset >= ctx->virtual_start_words;
-            const int count = rt_split(ctx, word_offset, length, runs, &touched);
-            if (count < 0) {
-                ctx->run_overflow++; /* passes through; a virtual read then fails at the drive, honestly */
-            } else if (touched || in_window) {
-                struct rt_pending* rec = 0;
-                uint32_t i;
-                for (i = 0; i < RT_MAX_PENDING; ++i) {
-                    if (!ctx->pending[i].in_use) {
-                        rec = &ctx->pending[i];
-                        break;
-                    }
-                }
-                if (rec == 0) {
-                    ctx->pending_overflow++;
+            struct rt_pending* rec = rt_claim_pending(ctx);
+            if (rec == 0) {
+                ctx->pending_overflow++;
+            } else {
+                int touched = 0;
+                const int count = rt_split(ctx, word_offset, length, rec->runs, &touched);
+                if (count < 0) {
+                    ctx->run_overflow++; /* passes through; a virtual read then fails at the drive, honestly */
+                    rec->in_use = 0;
+                } else if (!touched && !in_window) {
+                    rec->in_use = 0; /* nothing of ours in this read */
                 } else {
-                    rec->in_use = 1;
+                    rec->run_count = (uint32_t)count;
                     rec->callback = (uint32_t)args[6];
                     rec->user_data = (uint32_t)args[7];
                     rec->out = (uint32_t)args[4];
@@ -208,15 +243,12 @@ void rt_on_di_complete(struct rt_context* ctx, int32_t result, struct rt_pending
     *callback = (uintptr_t)record->callback;
     *user_data = (uintptr_t)record->user_data;
     if (result == RT_DI_SUCCESS) {
-        rt_run runs[RT_MAX_RUNS];
-        int touched = 0;
-        const int count = rt_split(ctx, record->word_offset, record->length, runs, &touched);
         uint8_t* out = (uint8_t*)(uintptr_t)record->out;
         const uint64_t base = (uint64_t)record->word_offset << 2;
         uint32_t checksum = 0;
-        int i;
-        for (i = 0; i < count; ++i) {
-            const rt_run* run = &runs[i];
+        uint32_t i;
+        for (i = 0; i < record->run_count; ++i) {
+            const rt_run* run = &record->runs[i];
             uint8_t* dst = out + (uint32_t)(run->vstart - base);
             const uint32_t n = (uint32_t)run->length;
             uint32_t k;
@@ -227,8 +259,8 @@ void rt_on_di_complete(struct rt_context* ctx, int32_t result, struct rt_pending
             } else {
                 continue; /* PASSTHROUGH: the disc already filled it; SD/DISC: E4 */
             }
+            for (k = 0; k < n; ++k) checksum = checksum * 31u + dst[k]; /* while the lines are still ours */
             rt_flush_range((uintptr_t)dst, n);
-            for (k = 0; k < n; ++k) checksum = checksum * 31u + dst[k];
         }
         ctx->last_checksum = checksum;
         if (ctx->flags & RT_FLAG_GECKO) {

@@ -48,10 +48,10 @@ static void Put32(Bytes& b, std::size_t at, std::uint32_t v) {
 // ---- blob header ----------------------------------------------------------
 
 static Bytes MakeBlob() {
-    Bytes b(0x200, 0);
+    Bytes b(0x600, 0);  // room for the 1248-byte context at 0x100
     Put32(b, 0, RT_BLOB_MAGIC);
     Put32(b, 4, RT_BLOB_VERSION);
-    Put32(b, 8, 0x200);
+    Put32(b, 8, 0x600);
     Put32(b, 12, 0x100);  // context
     Put32(b, 16, 0x20);   // hook
     Put32(b, 20, 0xA0);   // replay
@@ -66,7 +66,7 @@ static void TestBlob() {
     std::string error;
     Bytes b = MakeBlob();
     EXPECT_TRUE(riftwii::parse_resident_blob(b.data(), b.size(), rb, error));
-    EXPECT_EQ(rb.size, 0x200u);
+    EXPECT_EQ(rb.size, 0x600u);
     EXPECT_EQ(rb.context_offset, 0x100u);
     EXPECT_EQ(rb.hook_ioctl_async_offset, 0x20u);
     EXPECT_EQ(rb.replay_ioctl_async_offset, 0xA0u);
@@ -80,16 +80,16 @@ static void TestBlob() {
     Put32(b, 4, 99);
     EXPECT_FALSE(riftwii::parse_resident_blob(b.data(), b.size(), rb, error));
     b = MakeBlob();
-    Put32(b, 8, 0x1E0);  // size field disagrees with the data
+    Put32(b, 8, 0x5E0);  // size field disagrees with the data
     EXPECT_FALSE(riftwii::parse_resident_blob(b.data(), b.size(), rb, error));
     b = MakeBlob();
-    Put32(b, 12, 0x1F0);  // context would run past the end
+    Put32(b, 12, 0x200);  // context would run past the end
     EXPECT_FALSE(riftwii::parse_resident_blob(b.data(), b.size(), rb, error));
     b = MakeBlob();
     Put32(b, 24, 0xB4);  // continue slot must follow the replay slot
     EXPECT_FALSE(riftwii::parse_resident_blob(b.data(), b.size(), rb, error));
     b = MakeBlob();
-    Put32(b, 28, 0x1FE);  // completion entry past the end
+    Put32(b, 28, 0x5FE);  // completion entry past the end
     EXPECT_FALSE(riftwii::parse_resident_blob(b.data(), b.size(), rb, error));
     b = MakeBlob();
     Put32(b, 0x100, 0);  // context magic
@@ -125,6 +125,20 @@ static void TestJumpAndDisplace() {
     EXPECT_FALSE(riftwii::displaceable(0x7D8C6378, 12, why));  // mr r12, r12
     EXPECT_FALSE(riftwii::displaceable(0x3D800000, 12, why));  // lis r12, 0
     EXPECT_TRUE(riftwii::displaceable(0x3D600000, 12, why));   // lis r11, 0 is fine
+    EXPECT_TRUE(riftwii::displaceable(0x60000000, 12, why));   // nop
+    EXPECT_TRUE(riftwii::displaceable(0x60000000, 0, why));    // nop, even with r0 as the scratch
+    EXPECT_FALSE(riftwii::displaceable(0x618C1234, 12, why));  // ori r12,r12,0x1234
+    EXPECT_FALSE(riftwii::displaceable(0x606C0000, 12, why));  // ori r12,r3,0
+    EXPECT_TRUE(riftwii::displaceable(0x60630000, 12, why));   // ori r3,r3,0
+    EXPECT_TRUE(riftwii::displaceable(0x38616040, 12, why));   // addi r3,r1,0x6040: immediate, not rB
+    EXPECT_TRUE(riftwii::displaceable(0x80616040, 12, why));   // lwz r3,0x6040(r1)
+    EXPECT_TRUE(riftwii::displaceable(0x5464603E, 12, why));   // rlwinm r4,r3,12,0,31: SH, not rB
+    EXPECT_FALSE(riftwii::displaceable(0x7C836378, 12, why));  // or r3,r4,r12
+    EXPECT_FALSE(riftwii::displaceable(0x7C0903A6, 12, why));  // mtctr r0
+    EXPECT_FALSE(riftwii::displaceable(0x7C6902A6, 12, why));  // mfctr r3
+    EXPECT_FALSE(riftwii::displaceable(0x7C6102A6, 12, why));  // mfxer r3
+    EXPECT_TRUE(riftwii::displaceable(0x7C0803A6, 12, why));   // mtlr r0
+    EXPECT_TRUE(riftwii::displaceable(0x7C600026, 12, why));   // mfcr r3
 }
 
 // ---- placement ------------------------------------------------------------
@@ -167,6 +181,14 @@ struct FakeText {
         word(0x48000001u | (static_cast<std::uint32_t>(d) & 0x03FFFFFCu));
     }
     void prologue() { word(0x9421FFC0); word(0x7C0802A6); word(0x90010044); word(0x4E800020); }
+    // stwu / mflr / stw / li r0,<ipc command> / blr: the shape of IOS_Ioctl*Async.
+    void ipc_function(std::uint32_t ipc) {
+        word(0x9421FFC0);
+        word(0x7C0802A6);
+        word(0x90010044);
+        li(0, ipc);
+        word(0x4E800020);
+    }
     riftwii::CodeRange range() const { return {base, bytes.data(), bytes.size()}; }
 };
 
@@ -176,9 +198,9 @@ static void TestSymbolSearch() {
     FakeText t;
     // Functions first: IOS_IoctlAsync at +0, IOS_IoctlvAsync at +0x10, a decoy at +0x20.
     const std::uint32_t ioctl_async = t.here();
-    t.prologue();
+    t.ipc_function(6);
     const std::uint32_t ioctlv_async = t.here();
-    t.prologue();
+    t.ipc_function(7);
     const std::uint32_t decoy = t.here();
     t.prologue();
     // Call sites: five DI commands to ioctl_async, one 0x71 decoy elsewhere.
@@ -239,11 +261,48 @@ static void TestSymbolSearch() {
     }
     EXPECT_FALSE(riftwii::find_ipc_symbols({w.range()}, s, error));
 
+    // A helper called right after the command load by more sites than
+    // IOS_IoctlAsync itself (as a flush or lock helper would be) does not
+    // win: it has no IPC command number in its body.
+    FakeText x;
+    const std::uint32_t helper = x.here();
+    x.prologue();
+    const std::uint32_t real = x.here();
+    x.ipc_function(6);
+    for (std::uint32_t cmd : {0x71u, 0x70u, 0x8Au, 0x8Du, 0xE3u, 0xE4u}) {
+        x.li(4, cmd);
+        x.bl(helper);
+    }
+    for (std::uint32_t cmd : {0x71u, 0x70u, 0x8Au}) {
+        x.li(4, cmd);
+        x.bl(real);
+    }
+    EXPECT_TRUE(riftwii::find_ipc_symbols({x.range()}, s, error));
+    EXPECT_EQ(s.ioctl_async, real);
+    EXPECT_EQ(s.ioctl_async_commands, 3u);
+
+    // The ioctlv vector counts may be loaded before the command.
+    FakeText y;
+    const std::uint32_t ya = y.here();
+    y.ipc_function(6);
+    const std::uint32_t yv = y.here();
+    y.ipc_function(7);
+    for (std::uint32_t cmd : {0x71u, 0x70u, 0x8Au}) {
+        y.li(4, cmd);
+        y.bl(ya);
+    }
+    y.li(6, 2);
+    y.li(5, 3);
+    y.li(4, 0x8B);
+    y.bl(yv);
+    EXPECT_TRUE(riftwii::find_ipc_symbols({y.range()}, s, error));
+    EXPECT_EQ(s.ioctlv_async, yv);
+
     // Two text ranges: sites in one, function in the other.
     FakeText fn;
     fn.base = 0x80100000;
     const std::uint32_t h = fn.here();
-    fn.prologue();
+    fn.ipc_function(6);
     FakeText sites;
     for (std::uint32_t cmd : {0x71u, 0x70u, 0xE4u}) {
         sites.li(4, cmd);

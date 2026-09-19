@@ -23,7 +23,7 @@ struct ResidentBlob {
     std::uint32_t continue_ioctl_async_offset = 0;
     std::uint32_t complete_di_offset = 0;
 };
-constexpr std::size_t kResidentContextBytes = 224;  // sizeof(struct rt_context)
+constexpr std::size_t kResidentContextBytes = 1248;  // sizeof(struct rt_context)
 bool parse_resident_blob(const std::uint8_t* bytes, std::size_t length, ResidentBlob& out, std::string& error);
 
 // A same-size replacement served from memory (E3): the bytes the game must
