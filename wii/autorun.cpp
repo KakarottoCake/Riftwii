@@ -212,7 +212,7 @@ bool ProbeInserted(std::string& game_id, std::string& title, std::string& error)
     return true;
 }
 
-bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error) {
+bool CompileSelection(const std::vector<PackageChoices>& packages, CompiledMod& out, std::string& error) {
     Session s;
     if (!s.ensure_layout(error)) return false;
     CompiledMod mod;
@@ -222,6 +222,13 @@ bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error) 
     logf("%u package(s): %u table entries, %u relocation(s), %u memory patch(es)\n",
          static_cast<unsigned>(packages.size()), static_cast<unsigned>(mod.entries.size()),
          static_cast<unsigned>(mod.relocations.size()), static_cast<unsigned>(mod.memory.size()));
+    out = std::move(mod);
+    return true;
+}
+
+bool BootCompiled(const CompiledMod& mod, std::string& error) {
+    Session s;
+    if (!s.ensure_probe(error)) return false;
     BootOptions options;
     options.allow_ios_fallback = true;
     options.install_resident = !mod.entries.empty() || !mod.relocations.empty();
@@ -230,6 +237,12 @@ bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error) 
     options.relocations = mod.relocations;
     options.memory_patches = mod.memory;
     return boot_game(s.probe, options, error);
+}
+
+bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error) {
+    CompiledMod mod;
+    if (!CompileSelection(packages, mod, error)) return false;
+    return BootCompiled(mod, error);
 }
 
 bool RunDump(const std::vector<std::string>& disc_paths, const std::string& sd_dir, std::string& error) {

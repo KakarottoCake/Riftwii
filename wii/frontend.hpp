@@ -3,6 +3,7 @@
 
 #include <string>
 
+#include "modplan.hpp"
 #include "riftwii/launch.hpp"
 
 // The frontend's state and the card side of it, shared by the GUI and the
@@ -20,6 +21,9 @@ struct FrontendState {
     std::string disc_status;      // one line for the screen
     riftwii::LaunchModel model;   // packages, enabled flags and choices
     std::string choices_path;     // where the choices are kept, empty without a disc
+    // The selection compiled on the preflight screen, booted by main.
+    CompiledMod compiled;
+    bool has_compiled = false;
 };
 
 // Identifies the disc (without waiting for one) and fills the disc fields.

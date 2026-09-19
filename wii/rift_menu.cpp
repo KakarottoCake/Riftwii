@@ -21,6 +21,7 @@
 
 #include "libwiigui/gui.h"
 #include "menu.h"
+#include "autorun.hpp"
 #include "demo.h"
 #include "input.h"
 #include "riftwii/patch.hpp"
@@ -29,6 +30,7 @@
 
 using riftwii::wii::ScanPackages;
 using riftwii::wii::SaveChoices;
+using riftwii::wii::CompileSelection;
 
 static const char* PackageValue(const riftwii::LaunchPackage& p)
 {
@@ -250,7 +252,7 @@ static int MenuHome(FrontendState& state)
 			} else if (state.model.selections().empty()) {
 				menu = MENU_BOOT;  // nothing enabled: the disc as it is
 			} else {
-				menu = MENU_LAUNCH;
+				menu = MENU_PREFLIGHT;
 			}
 		}
 		else if(dumpBtn.GetState() == STATE::CLICKED)
@@ -260,7 +262,106 @@ static int MenuHome(FrontendState& state)
 
 	HaltGui();
 	mainWindow->Remove(&w);
-	if (menu == MENU_LAUNCH || menu == MENU_BOOT) SaveChoices(state);
+	if (menu == MENU_PREFLIGHT || menu == MENU_BOOT) SaveChoices(state);
+	return menu;
+}
+
+// Compiles the enabled packages and shows what they will do to the disc
+// (the compiler's notes, one per row) or why they cannot; Boot goes on,
+// Back returns with nothing changed.
+static int MenuPreflight(FrontendState& state)
+{
+	int menu = MENU_NONE;
+
+	GuiText titleTxt("Launch", 28, (GXColor){255, 255, 255, 255});
+	titleTxt.SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
+	titleTxt.SetPosition(40,20);
+	GuiText statusTxt("Compiling the enabled packages...", 18, (GXColor){200, 200, 200, 255});
+	statusTxt.SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
+	statusTxt.SetPosition(40, 58);
+
+	HaltGui();
+	GuiWindow w(screenwidth, screenheight);
+	w.Append(&titleTxt);
+	w.Append(&statusTxt);
+	mainWindow->Append(&w);
+	ResumeGui();
+
+	// The compile reads the card and the disc; the GUI thread keeps drawing.
+	std::string error;
+	state.has_compiled = false;
+	const bool ok = CompileSelection(state.model.selections(), state.compiled, error);
+	state.has_compiled = ok;
+
+	static OptionList options;
+	memset(&options, 0, sizeof(options));
+	std::vector<std::string> rows;
+	if (ok) {
+		for (const std::string& warning : state.compiled.warnings) rows.push_back("warning: " + warning);
+		for (const std::string& note : state.compiled.notes) rows.push_back(note);
+		if (rows.empty()) rows.push_back("Nothing to apply");
+	} else {
+		rows.push_back(error);
+	}
+	for (const std::string& row : rows) {
+		if (options.length == MAX_OPTIONS) break;
+		snprintf(options.name[options.length], sizeof(options.name[0]), "%.49s", row.c_str());
+		options.value[options.length][0] = 0;
+		++options.length;
+	}
+	char summary[128];
+	if (ok) {
+		snprintf(summary, sizeof(summary), "%u file range(s), %u relocated or created file(s), %u memory patch(es)",
+			 static_cast<unsigned>(state.compiled.entries.size()), static_cast<unsigned>(state.compiled.relocations.size()),
+			 static_cast<unsigned>(state.compiled.memory.size()));
+	} else {
+		snprintf(summary, sizeof(summary), "Cannot launch: fix the package or the card and try again");
+	}
+
+	HaltGui();
+	statusTxt.SetText(summary);
+	GuiOptionBrowser browser(552, 248, &options);
+	browser.SetPosition(0, 84);
+	browser.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
+	browser.SetCol2Position(540);
+	browser.SetFocus(1);
+
+	GuiText detailTxt(ok ? "Boot starts the game with these patches; Back changes nothing" : error.c_str(), 16,
+			  (GXColor){255, 255, 255, 255});
+	detailTxt.SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
+	detailTxt.SetPosition(40, 340);
+	detailTxt.SetWrap(true, screenwidth - 80);
+
+	GuiSound btnSoundOver(button_over_pcm, button_over_pcm_size, SOUND::PCM);
+	GuiImageData btnOutline(button_png);
+	GuiImageData btnOutlineOver(button_over_png);
+	MenuButton backBtn("Back", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B);
+	backBtn.Place(ALIGN_H::LEFT, ALIGN_V::BOTTOM, 40, -35);
+	backBtn.button.SetScale(0.85f);
+	MenuButton bootBtn("Boot", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_1 | WPAD_CLASSIC_BUTTON_Y, PAD_BUTTON_Y);
+	bootBtn.Place(ALIGN_H::RIGHT, ALIGN_V::BOTTOM, -40, -35);
+	bootBtn.button.SetScale(0.85f);
+
+	w.Append(&browser);
+	w.Append(&detailTxt);
+	w.Append(&backBtn.button);
+	if (ok) w.Append(&bootBtn.button);
+	ResumeGui();
+
+	while(menu == MENU_NONE)
+	{
+		usleep(10000);
+		HaltGui();
+		browser.GetClickedOption();  // rows are information only
+		if (backBtn.Clicked())
+			menu = MENU_HOME;
+		else if (ok && bootBtn.Clicked())
+			menu = MENU_LAUNCH;
+		ResumeGui();
+	}
+
+	HaltGui();
+	mainWindow->Remove(&w);
 	return menu;
 }
 
@@ -385,6 +486,9 @@ int MainMenu(int menu, FrontendState& state)
 		{
 			case MENU_OPTIONS:
 				currentMenu = MenuOptions(state);
+				break;
+			case MENU_PREFLIGHT:
+				currentMenu = MenuPreflight(state);
 				break;
 			case MENU_HOME:
 			default:

@@ -71,7 +71,9 @@ int main() {
     if (action == MENU_LAUNCH) {
         riftwii::wii::LogOpen("sd:/riftwii/boot.log");
         riftwii::wii::logf("Riftwii: launch %s with packages\n", state.game_id.c_str());
-        if (!riftwii::wii::RunLaunch(state.model.selections(), error)) {
+        const bool booted = state.has_compiled ? riftwii::wii::BootCompiled(state.compiled, error)
+                                               : riftwii::wii::RunLaunch(state.model.selections(), error);
+        if (!booted) {
             riftwii::wii::LogOpen("sd:/riftwii/boot.log", true);  // boot_game closed it and remounted the card
             riftwii::wii::logf("FAILED: %s\n", error.c_str());
         }

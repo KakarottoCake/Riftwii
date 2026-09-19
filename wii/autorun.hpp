@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 
+#include "modplan.hpp"
 #include "riftwii/launch.hpp"
 
 // Unattended test driver: when sd:/riftwii/autorun.txt exists the loader
@@ -34,7 +35,10 @@ bool RunDump(const std::vector<std::string>& disc_paths, const std::string& sd_d
 // `error` when the drive is empty or the probe fails.
 bool ProbeInserted(std::string& game_id, std::string& title, std::string& error);
 // Compiles the packages (with their choices) and boots with them; returns
-// only on failure.
+// only on failure. The two steps are separate so the GUI can show what
+// the compile made of the selection before anything irreversible.
+bool CompileSelection(const std::vector<PackageChoices>& packages, CompiledMod& out, std::string& error);
+bool BootCompiled(const CompiledMod& mod, std::string& error);
 bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error);
 
 }  // namespace riftwii::wii
