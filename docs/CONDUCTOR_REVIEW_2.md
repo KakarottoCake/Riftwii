@@ -408,7 +408,7 @@ pieces unchanged.
 
 ## 11. Task C outcome: E1 passes in Dolphin (conductor, 2026-09-18)
 
-`riftwii.dol` (md5 `66b38a08f5c4c5f6f581d676012e1948`) boots Mario Kart
+`riftwii.dol` (md5 `27adb08c13393a6429806f034368c561` after 11.4; `66b38a08...` was the first pass) boots Mario Kart
 Wii (RMCE01) in Dolphin `master-5.0-18995` from the user's own dump: the
 intro movie plays at 60 FPS and the title's OS logs scene transitions.
 `/opening.bnr` dumped through Riftwii's FST + DI path is byte-identical to
