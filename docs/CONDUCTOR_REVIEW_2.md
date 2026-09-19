@@ -1261,3 +1261,25 @@ waits for a permission story; documented as not done until then.
 5. Loader compile, Dolphin: Mario Kart Wii writes `rksys.dat` (2.5 MB)
    on first boot, Kirby's Epic Yarn a small save; the card image is
    checked on the host after the run.
+
+### 24.7 Slice 2 result (2026-09-19)
+`runtime/rtfs.c` now adapts the documented 0x28-byte IOS request fields
+and libogc ISFS payloads to the resumable FAT engine.  It keeps an
+eight-entry generation-tagged fake-fd table, copies the loader-selected
+data-directory prefix and FAT volume into its context, and marks each
+request as pass-through, immediately complete, or needing device I/O.
+Open, close, read, write, seek, CreateFile, Delete, Rename, GetAttr,
+SetAttr, ReadDir, GetUsage, and GetFileStats are covered; CreateDir on
+the redirected directory returns `-102`.  The adapter retains callback
+and user-data words but neither invokes callbacks nor performs IOS/SD
+I/O.  It allows one redirected request at a time and returns `-102` to
+the second one.  GetAttr returns the fixed synthetic metadata owner 0,
+group 0, attributes 0, and read/write (`3`) owner/group/other permissions;
+SetAttr validates an existing redirected file and leaves its FAT data alone.
+
+`rtfs_tests` drives the same state record one transfer at a time against
+an in-memory FAT32 image.  It covers valid operations, pass-through and
+malformed requests, mode and fd lifetime checks, seek bounds, IPC and
+ISFS payload offsets, directory/usage vectors, transfer failure, and
+the busy refusal.  The 2026-09-19 host configure/build/CTest command
+passes all 15 suites under `-Werror`.
