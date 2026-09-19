@@ -238,6 +238,21 @@ IOS FS redirection - mechanism undecided; propose "warn and launch without
 save redirection", decision D5), games that reload IOS mid-play, vWii,
 network loading, GameCube discs.
 
+**USB / NTFS (owner decision, 2026-09-18):** parked until the program is
+usable (after G4), then a roadmap item of its own. What was checked: USB
+Loader GX carries NTFS only as a prebuilt `libcustomntfs.a` (GPL-2.0-or-
+later libntfs by Koedijk/Chisholm/Dimok, ntfs-3g based, licence-compatible,
+not Riivolution code) with no source in either tree, built against an
+unknown toolchain, and Dolphin cannot emulate USB storage, so it is
+untestable before the hardware phase. More importantly the in-game path
+needs a USB mass-storage client inside the resident runtime (under the
+game's IOS that is usually OHCI USB 1.1 only - the reason USB loaders use a
+cIOS), plus a host-side NTFS resolver (MFT data runs, the NTFS analogue of
+`Fat32Volume`). When the time comes we are not limited to the GX binary:
+writing our own read-only NTFS resolver in the style of `src/fat32.cpp` is
+the better fit for this architecture. Order then: USB+FAT32 first, NTFS
+second.
+
 ### 4.6 Smallest experiments, in order
 E1. Boot an unmodified retail disc from `riftwii.dol` (section 4.3 without
     steps 4, 6, 7). Pass: game plays normally. Also add a debug action
@@ -268,7 +283,8 @@ E6. Newer Super Mario Bros. Wii (folder patches + memory patches) boots and
 | G2 Wii | E2, E3 | visible in-game evidence, binary hash + IOS + title recorded |
 | G3 host+Wii | FAT32 fragment resolver (host-tested on a synthetic image), redirect-table compiler verified against `ReadOverlay` as oracle, freestanding table walker compiled for both host and PPC, E4 | walker == oracle on randomized reads incl. straddles; E4 visible |
 | G4 Wii | FST rewrite, virtual window, `<memory>` patches, `<folder>` expansion, ordered composition; E5, E6 | Newer SMBW plays |
-| G5 product | GUI: detect inserted disc, filter XMLs, options UI, persist choices per game, preflight report, launch; USB; `<savegame>` policy; NOTICE/README/compat matrix | repeatable launches on 3+ titles, documented limitations |
+| G5 product | GUI: detect inserted disc, filter XMLs, options UI, persist choices per game, preflight report, launch; `<savegame>` policy; NOTICE/README/compat matrix | repeatable launches on 3+ titles, documented limitations |
+| G6 storage | USB for in-game reads: resident USB mass-storage client (decide OHCI-under-game-IOS vs. alternatives first), USB+FAT32, then a read-only NTFS resolver (own code preferred over the GX binary, see 4.5) | mod on a USB stick plays on hardware; NTFS stick likewise |
 
 Hardware-independent work (G0, the host halves of G3) fills any wait for
 hardware. Never let UI work displace G1-G4.
