@@ -48,10 +48,10 @@ static void Put32(Bytes& b, std::size_t at, std::uint32_t v) {
 // ---- blob header ----------------------------------------------------------
 
 static Bytes MakeBlob() {
-    Bytes b(0x600, 0);  // room for the 1248-byte context at 0x100
+    Bytes b(0x1000, 0);  // room for the 1920-byte context at 0x100
     Put32(b, 0, RT_BLOB_MAGIC);
     Put32(b, 4, RT_BLOB_VERSION);
-    Put32(b, 8, 0x600);
+    Put32(b, 8, 0x1000);
     Put32(b, 12, 0x100);  // context
     Put32(b, 16, 0x20);   // hook
     Put32(b, 20, 0xA0);   // replay
@@ -66,7 +66,7 @@ static void TestBlob() {
     std::string error;
     Bytes b = MakeBlob();
     EXPECT_TRUE(riftwii::parse_resident_blob(b.data(), b.size(), rb, error));
-    EXPECT_EQ(rb.size, 0x600u);
+    EXPECT_EQ(rb.size, 0x1000u);
     EXPECT_EQ(rb.context_offset, 0x100u);
     EXPECT_EQ(rb.hook_ioctl_async_offset, 0x20u);
     EXPECT_EQ(rb.replay_ioctl_async_offset, 0xA0u);
@@ -80,16 +80,16 @@ static void TestBlob() {
     Put32(b, 4, 99);
     EXPECT_FALSE(riftwii::parse_resident_blob(b.data(), b.size(), rb, error));
     b = MakeBlob();
-    Put32(b, 8, 0x5E0);  // size field disagrees with the data
+    Put32(b, 8, 0xFE0);  // size field disagrees with the data
     EXPECT_FALSE(riftwii::parse_resident_blob(b.data(), b.size(), rb, error));
     b = MakeBlob();
-    Put32(b, 12, 0x200);  // context would run past the end
+    Put32(b, 12, 0x900);  // context would run past the end
     EXPECT_FALSE(riftwii::parse_resident_blob(b.data(), b.size(), rb, error));
     b = MakeBlob();
     Put32(b, 24, 0xB4);  // continue slot must follow the replay slot
     EXPECT_FALSE(riftwii::parse_resident_blob(b.data(), b.size(), rb, error));
     b = MakeBlob();
-    Put32(b, 28, 0x5FE);  // completion entry past the end
+    Put32(b, 28, 0xFFE);  // completion entry past the end
     EXPECT_FALSE(riftwii::parse_resident_blob(b.data(), b.size(), rb, error));
     b = MakeBlob();
     Put32(b, 0x100, 0);  // context magic
@@ -363,6 +363,231 @@ static void TestResidentHandler() {
     EXPECT_EQ(rt_checksum(reinterpret_cast<const std::uint8_t*>("ab"), 2), 97u * 31u + 98u);
 }
 
+// ---- SD-backed runs: the completion entry chains CMD18 requests ---------
+
+namespace {
+
+// The fake card: 128 sectors whose byte k of sector s is (s * 7 + k) & 0xFF.
+std::uint8_t g_card[128 * 512];
+std::vector<std::uint32_t> g_sd_sectors_requested;  // (sector, count) pairs
+
+std::int32_t FakeIoctlvAsync(std::uint32_t fd, std::uint32_t ioctl, std::uint32_t in_count, std::uint32_t out_count,
+                             rt_ioctlv* vec, std::uint32_t callback, rt_pending* record) {
+    EXPECT_EQ(fd, 9u);
+    EXPECT_EQ(ioctl, 7u);
+    EXPECT_EQ(in_count, 2u);
+    EXPECT_EQ(out_count, 1u);
+    EXPECT_EQ(callback, 0x935D0100u);
+    const auto* rq = reinterpret_cast<const rt_sdio_request*>(static_cast<std::uintptr_t>(vec[0].data));
+    EXPECT_EQ(vec[0].len, 36u);
+    EXPECT_EQ(rq->cmd, 0x12u);
+    EXPECT_EQ(rq->cmd_type, 3u);
+    EXPECT_EQ(rq->rsp_type, 1u);
+    EXPECT_EQ(rq->blk_size, 512u);
+    EXPECT_EQ(rq->isdma, 1u);
+    EXPECT_EQ(rq->dma_addr, record->bounce);
+    EXPECT_EQ(vec[1].data, record->bounce);
+    EXPECT_EQ(vec[1].len, rq->blk_cnt * 512u);
+    EXPECT_EQ(vec[2].len, 16u);
+    const std::uint32_t sector = rq->arg;  // sdhc: sector number
+    g_sd_sectors_requested.push_back(sector);
+    g_sd_sectors_requested.push_back(rq->blk_cnt);
+    if (sector + rq->blk_cnt > 128) return -4;  // past the card: refused
+    std::memcpy(reinterpret_cast<void*>(static_cast<std::uintptr_t>(record->bounce)), g_card + sector * 512,
+                rq->blk_cnt * 512);
+    return 0;  // the reply is delivered by the test, like the IPC dispatcher would
+}
+
+}  // namespace
+
+static void TestSdChain(std::uint8_t* low_table, std::uint8_t* low_out) {
+    for (std::size_t s = 0; s < 128; ++s) {
+        for (std::size_t k = 0; k < 512; ++k) g_card[s * 512 + k] = static_cast<std::uint8_t>(s * 7 + k);
+    }
+    // A 2000-byte file starting 100 bytes into sector 10, in two fragments:
+    // sectors 10-11 (1024 - 100 = 924 usable bytes... the placer decides),
+    // then sectors 40-42.
+    std::vector<riftwii::Fragment> frags = {{10, 2}, {40, 3}};
+    std::vector<riftwii::PlacedRun> runs;
+    std::string error;
+    EXPECT_TRUE(riftwii::place_on_fragments(frags, 100, 2000, runs, error));
+    EXPECT_EQ(runs.size(), 2u);
+    EXPECT_EQ(runs[0].source, 10ull);
+    EXPECT_EQ(runs[0].skip, 100u);
+    EXPECT_EQ(runs[0].length, 924ull);
+    EXPECT_EQ(runs[1].source, 40ull);
+    EXPECT_EQ(runs[1].length, 1076ull);
+    // The bytes the game must see, from the fake card.
+    std::vector<std::uint8_t> expected;
+    expected.insert(expected.end(), g_card + 10 * 512 + 100, g_card + 12 * 512);
+    expected.insert(expected.end(), g_card + 40 * 512, g_card + 40 * 512 + 1076);
+    EXPECT_EQ(expected.size(), 2000u);
+
+    riftwii::SdReplacement sdr;
+    sdr.virtual_offset = 0x20000;
+    sdr.runs = runs;
+    riftwii::MemReplacement m;
+    m.virtual_offset = 0x20000 + 2000;  // right after: 16 bytes from memory
+    m.bytes.assign(16, 0x5A);
+    std::vector<std::uint8_t> payload;
+    const std::uint32_t table_address = static_cast<std::uint32_t>(reinterpret_cast<std::uintptr_t>(low_table));
+    EXPECT_TRUE(riftwii::build_payload({m}, {sdr}, table_address, 0, 9, payload, error));
+    const auto* header = reinterpret_cast<const rt_header*>(payload.data());
+    EXPECT_EQ(header->entry_count, 3u);
+    EXPECT_EQ(header->sdio_fd, 9u);
+    EXPECT_EQ(rt_entries(header)[0].kind, static_cast<std::uint32_t>(RT_KIND_SD));
+    EXPECT_EQ(rt_entries(header)[0].skip, 100ull);
+    EXPECT_EQ(rt_entries(header)[1].vstart, 0x20000ull + 924);
+    EXPECT_EQ(rt_entries(header)[2].kind, static_cast<std::uint32_t>(RT_KIND_MEM));
+    std::memcpy(low_table, payload.data(), payload.size());
+
+    // The records hand IOS 32-bit addresses of their own request, vector
+    // and response blocks, so the context itself must sit below 4 GiB.
+    rt_context& ctx = *reinterpret_cast<rt_context*>(low_table + 0x400);
+    std::memset(&ctx, 0, sizeof(rt_context));
+    ctx.magic = RT_CONTEXT_MAGIC;
+    ctx.flags = RT_FLAG_GECKO;
+    ctx.table = table_address;
+    ctx.complete_entry = 0x935D0100;
+    ctx.sdio_fd = 9;
+    ctx.sdio_sdhc = 1;
+    ctx.ioctlv_async = 0x8019445C;
+    // The bounce buffer must be 32-bit addressable too: carve it from the low buffer.
+    std::uint8_t* bounce = low_out + 0x1000;
+    for (auto& p : ctx.pending) p.bounce = static_cast<std::uint32_t>(reinterpret_cast<std::uintptr_t>(bounce));
+    rt_host_ioctlv_async = &FakeIoctlvAsync;
+
+    // A 2048-byte read at 0x20000 - 16: 16 bytes of disc, the SD file, the 16 MEM bytes, 16 bytes of disc.
+    std::uint8_t* out = low_out;
+    std::memset(out, 0xEE, 0x800);
+    std::uint32_t di_cmd[8] = {0x71000000, 0x800, (0x20000 - 16) >> 2, 0, 0, 0, 0, 0};
+    std::uintptr_t args[8] = {3, 0x71, reinterpret_cast<std::uintptr_t>(di_cmd), 0x20,
+                              reinterpret_cast<std::uintptr_t>(out), 0x800, 0x80005000, 0x80006000};
+    std::uint32_t result = 0;
+    g_sd_sectors_requested.clear();
+    EXPECT_EQ(rt_on_ioctl_async(&ctx, args, &result), 0);
+    auto* rec = reinterpret_cast<rt_pending*>(args[7]);
+    EXPECT_EQ(rec->run_count, 5u);
+    // Disc reply: MEM applied, first SD chunk issued, game not yet called.
+    std::uintptr_t cb = 0xFFFF, ud = 0;
+    std::int32_t di_result = 1;
+    rt_on_di_complete(&ctx, &di_result, rec, &cb, &ud);
+    EXPECT_EQ(cb, 0u);
+    EXPECT_EQ(rec->phase, RT_PHASE_SD);
+    EXPECT_EQ(out[16 + 2000], 0x5A);
+    EXPECT_EQ(g_sd_sectors_requested.size(), 2u);
+    EXPECT_EQ(g_sd_sectors_requested[0], 10u);  // sector 10, 2 sectors (924 bytes from byte 100)
+    EXPECT_EQ(g_sd_sectors_requested[1], 2u);
+    EXPECT_EQ(rec->chunk_skip, 100u);
+    EXPECT_EQ(rec->chunk_bytes, 924u);
+    // SD reply 1: copied, second run issued.
+    std::int32_t sd_result = 0;
+    rt_on_di_complete(&ctx, &sd_result, rec, &cb, &ud);
+    EXPECT_EQ(cb, 0u);
+    EXPECT_EQ(g_sd_sectors_requested.size(), 4u);
+    EXPECT_EQ(g_sd_sectors_requested[2], 40u);
+    EXPECT_EQ(g_sd_sectors_requested[3], 3u);
+    EXPECT_EQ(rec->chunk_skip, 0u);
+    EXPECT_EQ(rec->chunk_bytes, 1076u);
+    // SD reply 2: done, the game's callback with the disc result.
+    sd_result = 0;
+    rt_on_di_complete(&ctx, &sd_result, rec, &cb, &ud);
+    EXPECT_EQ(cb, 0x80005000u);
+    EXPECT_EQ(ud, 0x80006000u);
+    EXPECT_EQ(sd_result, 1);
+    EXPECT_EQ(rec->in_use, 0u);
+    EXPECT_EQ(ctx.sd_requests, 2u);
+    EXPECT_EQ(ctx.sd_failures, 0u);
+    EXPECT_EQ(std::memcmp(out + 16, expected.data(), 2000), 0);
+    EXPECT_EQ(out[15], 0xEE);
+    EXPECT_EQ(out[16 + 2000 + 16], 0xEE);
+    std::vector<std::uint8_t> ours(expected);
+    ours.insert(ours.end(), m.bytes.begin(), m.bytes.end());
+    EXPECT_EQ(ctx.last_checksum, rt_checksum(ours.data(), static_cast<std::uint32_t>(ours.size())));
+
+    // A run longer than the bounce buffer is fetched in RT_BOUNCE_BYTES chunks.
+    std::vector<riftwii::Fragment> big = {{0, 100}};  // 51200 bytes
+    riftwii::SdReplacement sdb;
+    sdb.virtual_offset = 0x40000;
+    EXPECT_TRUE(riftwii::place_on_fragments(big, 0, 40000, sdb.runs, error));
+    EXPECT_TRUE(riftwii::build_payload({}, {sdb}, table_address, 0, 9, payload, error));
+    std::memcpy(low_table, payload.data(), payload.size());
+    std::uint8_t* big_out = low_out + 0x1000 + RT_BOUNCE_BYTES + 0x100;  // 40000 bytes
+    di_cmd[1] = 40000;
+    di_cmd[2] = 0x40000 >> 2;
+    args[4] = reinterpret_cast<std::uintptr_t>(big_out);
+    args[5] = 40000;
+    args[6] = 0x80005000;
+    args[7] = 0x80006000;
+    g_sd_sectors_requested.clear();
+    EXPECT_EQ(rt_on_ioctl_async(&ctx, args, &result), 0);
+    rec = reinterpret_cast<rt_pending*>(args[7]);
+    di_result = 1;
+    rt_on_di_complete(&ctx, &di_result, rec, &cb, &ud);
+    int replies = 0;
+    while (cb == 0 && replies < 10) {
+        sd_result = 0;
+        rt_on_di_complete(&ctx, &sd_result, rec, &cb, &ud);
+        ++replies;
+    }
+    EXPECT_EQ(replies, 2);  // 32768 + 7232 bytes
+    EXPECT_EQ(g_sd_sectors_requested.size(), 4u);
+    EXPECT_EQ(g_sd_sectors_requested[1], 64u);
+    EXPECT_EQ(g_sd_sectors_requested[2], 64u);
+    EXPECT_EQ(g_sd_sectors_requested[3], 15u);  // 7232 bytes = 14.125 sectors
+    EXPECT_EQ(std::memcmp(big_out, g_card, 40000), 0);
+    EXPECT_EQ(cb, 0x80005000u);
+
+    // A refused request ends the read with a DI error for the game.
+    ctx.ioctlv_async = 0;  // "unknown": every request is refused
+    std::memset(out, 0xEE, 0x800);
+    di_cmd[1] = 0x800;
+    di_cmd[2] = (0x20000 - 16) >> 2;
+    args[4] = reinterpret_cast<std::uintptr_t>(out);
+    args[5] = 0x800;
+    args[6] = 0x80005000;
+    args[7] = 0x80006000;
+    EXPECT_TRUE(riftwii::build_payload({m}, {sdr}, table_address, 0, 9, payload, error));
+    std::memcpy(low_table, payload.data(), payload.size());
+    EXPECT_EQ(rt_on_ioctl_async(&ctx, args, &result), 0);
+    rec = reinterpret_cast<rt_pending*>(args[7]);
+    di_result = 1;
+    rt_on_di_complete(&ctx, &di_result, rec, &cb, &ud);
+    EXPECT_EQ(cb, 0x80005000u);
+    EXPECT_EQ(di_result, RT_DI_ERROR);
+    EXPECT_EQ(ctx.sd_failures, 1u);
+    EXPECT_EQ(rec->in_use, 0u);
+
+    // A failed reply likewise.
+    ctx.ioctlv_async = 0x8019445C;
+    args[6] = 0x80005000;
+    args[7] = 0x80006000;
+    EXPECT_EQ(rt_on_ioctl_async(&ctx, args, &result), 0);
+    rec = reinterpret_cast<rt_pending*>(args[7]);
+    di_result = 1;
+    rt_on_di_complete(&ctx, &di_result, rec, &cb, &ud);
+    EXPECT_EQ(cb, 0u);
+    sd_result = -5;
+    rt_on_di_complete(&ctx, &sd_result, rec, &cb, &ud);
+    EXPECT_EQ(cb, 0x80005000u);
+    EXPECT_EQ(sd_result, RT_DI_ERROR);
+    EXPECT_EQ(ctx.sd_failures, 2u);
+    EXPECT_EQ(rec->in_use, 0u);
+
+    // A failed disc read issues nothing.
+    args[6] = 0x80005000;
+    args[7] = 0x80006000;
+    EXPECT_EQ(rt_on_ioctl_async(&ctx, args, &result), 0);
+    rec = reinterpret_cast<rt_pending*>(args[7]);
+    di_result = 2;
+    g_sd_sectors_requested.clear();
+    rt_on_di_complete(&ctx, &di_result, rec, &cb, &ud);
+    EXPECT_EQ(cb, 0x80005000u);
+    EXPECT_EQ(di_result, 2);
+    EXPECT_EQ(g_sd_sectors_requested.size(), 0u);
+    rt_host_ioctlv_async = nullptr;
+}
+
 static void TestPayloadAndRedirect() {
     // Two replacements, given out of order; the table must come out sorted.
     riftwii::MemReplacement a, b;
@@ -402,7 +627,7 @@ static void TestPayloadAndRedirect() {
 
     // Now drive the runtime against a copy of the payload placed below
     // 4 GiB (the runtime dereferences 32-bit MEM sources and table pointer).
-    std::uint8_t* low = LowBuffer(0x10000);
+    std::uint8_t* low = LowBuffer(0x30000);
     if (!low) {
         std::cerr << "note: no 32-bit addressable buffer on this host, skipping the redirect drive" << std::endl;
         return;
@@ -439,7 +664,10 @@ static void TestPayloadAndRedirect() {
 
     // The "disc" read completed: the runtime rewrites the replaced run only.
     std::uintptr_t cb = 0, ud = 0;
-    rt_on_di_complete(&ctx, 1, rec, &cb, &ud);
+    std::int32_t di_result = 1;
+    ctx.flags = RT_FLAG_GECKO;  // the checksum diagnostics run only when reporting is on
+    rt_on_di_complete(&ctx, &di_result, rec, &cb, &ud);
+    EXPECT_EQ(di_result, 1);
     EXPECT_EQ(cb, 0x80005000u);
     EXPECT_EQ(ud, 0x80006000u);
     EXPECT_EQ(rec->in_use, 0u);
@@ -454,7 +682,9 @@ static void TestPayloadAndRedirect() {
     std::memset(out, 0xEE, 0x20);
     EXPECT_EQ(rt_on_ioctl_async(&ctx, args, &result), 0);
     rec = reinterpret_cast<rt_pending*>(args[7]);
-    rt_on_di_complete(&ctx, -4, rec, &cb, &ud);
+    di_result = -4;
+    rt_on_di_complete(&ctx, &di_result, rec, &cb, &ud);
+    EXPECT_EQ(di_result, -4);
     EXPECT_EQ(out[0x10], 0xEE);
     EXPECT_EQ(rec->in_use, 0u);
 
@@ -499,7 +729,8 @@ static void TestPayloadAndRedirect() {
     rec = reinterpret_cast<rt_pending*>(vargs[7]);
     EXPECT_EQ(rec->is_virtual, 1u);
     EXPECT_EQ(rec->word_offset, 0x80000000u);  // the record keeps the virtual offset for the lookup
-    rt_on_di_complete(&ctx, 1, rec, &cb, &ud);
+    di_result = 1;
+    rt_on_di_complete(&ctx, &di_result, rec, &cb, &ud);
     EXPECT_EQ(vout[0], 9);
     EXPECT_EQ(vout[4], 5);
     EXPECT_EQ(vout[5], 0);     // virtual gap: zero, not the disc's 0xEE
@@ -514,6 +745,8 @@ static void TestPayloadAndRedirect() {
     EXPECT_EQ(rt_on_ioctl_async(&ctx, vargs, &result), 0);
     EXPECT_EQ(vcmd[2], 0x3FCu);
     EXPECT_EQ(vargs[6], 0x80005000u);  // nothing of the table there: passed through
+
+    TestSdChain(low + 0x8000, low + 0x9000);
 }
 
 static void TestVirtualWindow() {

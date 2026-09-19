@@ -24,6 +24,12 @@ struct ResidentOptions {
     // E5: first word offset of the virtual window, 0 = none. Reads at or
     // above it never reach the drive with their offset.
     std::uint32_t virtual_start_words = 0;
+    // E4: replacements served from SD sectors through `sdio_fd`, a
+    // /dev/sdio/slot0 fd the loader opened after the IOS reload with the
+    // card selected (wii/sdio.hpp). Needs the game's IOS_IoctlvAsync.
+    std::vector<SdReplacement> sd_replacements;
+    std::int32_t sdio_fd = -1;
+    bool sdio_sdhc = false;
 };
 
 struct ResidentInstall {
@@ -35,6 +41,7 @@ struct ResidentInstall {
     std::uint32_t ioctlv_async = 0;   // found, not hooked (0 if unknown)
     std::uint32_t table = 0;          // redirect table address, 0 when there are no replacements
     std::uint32_t payload_bytes = 0;
+    std::uint32_t bounce_bytes = 0;   // SD bounce buffers after the payload, 0 without SD replacements
 };
 
 // `dol` describes the sections the apploader has already loaded; the text

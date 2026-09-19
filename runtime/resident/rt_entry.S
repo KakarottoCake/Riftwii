@@ -87,13 +87,14 @@ rt_continue_ioctl_async:
     bctr
 
 /*
- * IPC completion entry, installed as the callback of redirected reads:
- * r3 = IPC result, r4 = the pending record. Applies the redirect, then
- * tail-calls the game's callback with (result, its user data) or simply
- * returns when the game passed none.
+ * IPC completion entry, installed as the callback of redirected reads and
+ * of the SD requests issued for them: r3 = IPC result, r4 = the pending
+ * record. Applies the redirect, then tail-calls the game's callback with
+ * (the result the C code settled on, its user data), or simply returns
+ * when the game passed none or an SD request is still in flight.
  *
- * Frame (0x20 bytes): 0 back chain, 4 callee LR save, 8 result, 0xC the
- * game's callback, 0x10 the game's user data.
+ * Frame (0x20 bytes): 0 back chain, 4 callee LR save, 8 result (in/out),
+ * 0xC the game's callback, 0x10 the game's user data.
  */
     .globl rt_complete_di
 rt_complete_di:
@@ -102,7 +103,7 @@ rt_complete_di:
     stw     0, 0x24(1)
     stw     3, 0x08(1)
     mr      5, 4                              /* r5 = record */
-    mr      4, 3                              /* r4 = result */
+    addi    4, 1, 0x08                        /* r4 = &result */
     bl      3f
 3:  mflr    3
     addi    3, 3, rt_context_data - 3b        /* r3 = &context */
@@ -127,6 +128,6 @@ rt_context_data:
     .long 0                                   /* flags */
     .long 1                                   /* gecko_channel: slot B */
     .long 0                                   /* original_ioctl_async */
-    .fill 308, 4, 0                           /* counters, redirection state, pending records: 1248 bytes total */
+    .fill 476, 4, 0                           /* counters, redirection state, pending records: 1920 bytes total */
 
 /* _rt_blob_end is defined by rt.ld after the C code. */

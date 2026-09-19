@@ -73,6 +73,13 @@ struct BootOptions {
     // FST the apploader loads, and the runtime serves them from memory
     // (requires install_resident).
     std::vector<VirtualFile> virtual_files;
+    // E4: same-size replacements served from SD sectors (requires
+    // install_resident). Resolved by the caller with wii/sdfile.hpp while
+    // the card is mounted; the loader brings the card up again after the
+    // IOS reload and hands the runtime the fd. With `verify_sd` the loader
+    // first reads every SD run itself and logs a checksum of the bytes.
+    std::vector<SdReplacement> sd_replacements;
+    bool verify_sd = false;
 };
 
 // Reloads IOS, runs the apploader and jumps to the game. Only returns on

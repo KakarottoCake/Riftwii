@@ -14,6 +14,7 @@
 #include "boot.hpp"
 #include "ios_reload.hpp"
 #include "log.hpp"
+#include "sdfile.hpp"
 
 namespace riftwii::wii {
 namespace {
@@ -114,6 +115,38 @@ bool LoadVirtualFile(const OpenedPartition& partition, const std::string& disc_p
     return true;
 }
 
+// Resolves an SD file of the same size as an FST entry to the sectors the
+// runtime will read it from.
+bool LoadSdReplacement(const OpenedPartition& partition, const std::string& disc_path, const std::string& sd_path,
+                       SdReplacement& out, std::string& error) {
+    std::uint32_t index = partition.fst.find(disc_path, false);
+    if (index == Fst::npos) index = partition.fst.find(disc_path, true);
+    if (index == Fst::npos) {
+        error = "no such disc file '" + disc_path + "'";
+        return false;
+    }
+    const FstEntry& entry = partition.fst.entries()[index];
+    if (entry.is_directory) {
+        error = "'" + disc_path + "' is a directory";
+        return false;
+    }
+    Fat32File file;
+    if (!resolve_sd_file(sd_path, file, error)) return false;
+    if (file.entry.size != entry.size) {
+        error = sd_path + " is " + std::to_string(file.entry.size) + " bytes but '" + disc_path + "' is " +
+                std::to_string(entry.size) + " (only same-size replacements yet)";
+        return false;
+    }
+    if (!place_on_fragments(file.fragments, 0, file.entry.size, out.runs, error)) return false;
+    out.virtual_offset = entry.offset;
+    logf("SD replace %s (%u bytes at 0x%llx) with %s: %u fragment(s), first sector %llu\n", disc_path.c_str(),
+         entry.size, static_cast<unsigned long long>(entry.offset), sd_path.c_str(),
+         static_cast<unsigned>(file.fragments.size()),
+         static_cast<unsigned long long>(file.fragments.empty() ? 0 : file.fragments[0].sector));
+    error.clear();
+    return true;
+}
+
 }  // namespace
 
 bool AutorunPresent() {
@@ -154,6 +187,7 @@ void RunAutorun() {
     bool install_resident = false;
     std::vector<MemReplacement> replacements;
     std::vector<VirtualFile> virtual_files;
+    std::vector<SdReplacement> sd_replacements;
     std::string error;
     int line_number = 0;
     while (std::getline(script, line)) {
@@ -220,6 +254,20 @@ void RunAutorun() {
             } else if (error.empty()) {
                 error = "grow needs a disc path and an SD path";
             }
+        } else if (cmd == "sdreplace") {
+            // E4: `sdreplace <disc path> <sd path>`, same size as the FST
+            // entry, served from the card's sectors by the runtime.
+            std::string disc_path, sd_path;
+            words >> disc_path >> sd_path;
+            SdReplacement r;
+            ok = !disc_path.empty() && !sd_path.empty() && s.ensure_layout(error) &&
+                 LoadSdReplacement(s.partition, disc_path, sd_path, r, error);
+            if (ok) {
+                sd_replacements.push_back(std::move(r));
+                install_resident = true;
+            } else if (error.empty()) {
+                error = "sdreplace needs a disc path and an SD path";
+            }
         } else if (cmd == "boot") {
             BootOptions options;
             options.allow_ios_fallback = allow_fallback;
@@ -227,6 +275,8 @@ void RunAutorun() {
             options.resident_gecko = install_resident;
             options.replacements = replacements;
             options.virtual_files = virtual_files;
+            options.sd_replacements = sd_replacements;
+            options.verify_sd = true;
             if (!s.ensure_probe(error)) {
                 ok = false;
             } else {

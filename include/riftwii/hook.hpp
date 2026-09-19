@@ -7,6 +7,8 @@
 #include <string>
 #include <vector>
 
+#include "riftwii/redirect.hpp"  // PlacedRun
+
 // Installing the resident runtime: the blob format (runtime/resident/
 // rt_hook.h), the PowerPC instruction patching it needs and the MEM2
 // placement. Pure functions so the host tests cover them; wii/resident.cpp
@@ -23,7 +25,7 @@ struct ResidentBlob {
     std::uint32_t continue_ioctl_async_offset = 0;
     std::uint32_t complete_di_offset = 0;
 };
-constexpr std::size_t kResidentContextBytes = 1248;  // sizeof(struct rt_context)
+constexpr std::size_t kResidentContextBytes = 1920;  // sizeof(struct rt_context)
 bool parse_resident_blob(const std::uint8_t* bytes, std::size_t length, ResidentBlob& out, std::string& error);
 
 // A same-size replacement served from memory (E3): the bytes the game must
@@ -33,11 +35,25 @@ struct MemReplacement {
     std::vector<std::uint8_t> bytes;
 };
 
+// Bytes the game must see at [virtual_offset, virtual_offset + total run
+// length) that live on the SD card (E4): the runs place_on_fragments
+// produced for that range, in file order. The runtime fetches them
+// through the SD fd the loader hands it.
+struct SdReplacement {
+    std::uint64_t virtual_offset = 0;
+    std::vector<PlacedRun> runs;
+};
+
 // Lays out the payload the loader puts after the blob: the redirect table
-// (at payload offset 0) followed by the replacement data, each 32-byte
-// aligned, with MEM sources computed for `payload_address`. The size does
-// not depend on the address, so callers may size the reservation with a
-// placeholder address first. Fails on empty or overlapping replacements.
+// (at payload offset 0) followed by the MEM replacement data, each 32-byte
+// aligned, with MEM sources computed for `payload_address`; SD
+// replacements become one SD entry per run. The size does not depend on
+// the address, so callers may size the reservation with a placeholder
+// address first. Fails on empty or overlapping replacements.
+bool build_payload(const std::vector<MemReplacement>& mem, const std::vector<SdReplacement>& sd,
+                   std::uint32_t payload_address, std::uint64_t tag, std::uint32_t sdio_fd,
+                   std::vector<std::uint8_t>& payload, std::string& error);
+// MEM only, no SD fd.
 bool build_mem_payload(const std::vector<MemReplacement>& replacements, std::uint32_t payload_address,
                        std::uint64_t tag, std::vector<std::uint8_t>& payload, std::string& error);
 

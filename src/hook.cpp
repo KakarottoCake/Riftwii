@@ -162,57 +162,90 @@ bool plan_resident_placement(std::uint32_t arena_end, std::uint32_t blob_size, s
     return true;
 }
 
-bool build_mem_payload(const std::vector<MemReplacement>& replacements, std::uint32_t payload_address,
-                       std::uint64_t tag, std::vector<std::uint8_t>& payload, std::string& error) {
-    if (replacements.empty()) {
+bool build_payload(const std::vector<MemReplacement>& mem, const std::vector<SdReplacement>& sd,
+                   std::uint32_t payload_address, std::uint64_t tag, std::uint32_t sdio_fd,
+                   std::vector<std::uint8_t>& payload, std::string& error) {
+    if (mem.empty() && sd.empty()) {
         error = "no replacements to lay out";
         return false;
     }
-    std::vector<std::size_t> order(replacements.size());
-    for (std::size_t i = 0; i < order.size(); ++i) order[i] = i;
-    std::sort(order.begin(), order.end(), [&](std::size_t a, std::size_t b) {
-        return replacements[a].virtual_offset < replacements[b].virtual_offset;
-    });
     const auto align32 = [](std::size_t n) { return (n + 31) & ~static_cast<std::size_t>(31); };
-    const std::size_t table_bytes = align32(rt_table_bytes(static_cast<std::uint32_t>(replacements.size())));
-    std::size_t total = table_bytes;
-    for (const MemReplacement& r : replacements) {
+
+    // Every entry first; MEM data is laid out in table order below.
+    struct Piece {
+        rt_entry entry;
+        const std::vector<std::uint8_t>* bytes = nullptr;
+    };
+    std::vector<Piece> pieces;
+    std::size_t data_bytes = 0;
+    for (const MemReplacement& r : mem) {
         if (r.bytes.empty()) {
             error = "a replacement is empty";
             return false;
         }
-        total += align32(r.bytes.size());
+        Piece p;
+        p.entry.vstart = r.virtual_offset;
+        p.entry.length = r.bytes.size();
+        p.entry.source = 0;
+        p.entry.skip = 0;
+        p.entry.kind = RT_KIND_MEM;
+        p.entry.reserved = 0;
+        p.bytes = &r.bytes;
+        pieces.push_back(p);
+        data_bytes += align32(r.bytes.size());
     }
-    if (total > 0x40000000u) {
+    for (const SdReplacement& r : sd) {
+        std::uint64_t at = r.virtual_offset;
+        if (r.runs.empty()) {
+            error = "an SD replacement has no runs";
+            return false;
+        }
+        for (const PlacedRun& run : r.runs) {
+            if (run.kind != RT_KIND_SD || run.length == 0 || run.skip >= RT_SECTOR_BYTES) {
+                error = "an SD replacement run is malformed";
+                return false;
+            }
+            Piece p;
+            p.entry.vstart = at;
+            p.entry.length = run.length;
+            p.entry.source = run.source;
+            p.entry.skip = run.skip;
+            p.entry.kind = RT_KIND_SD;
+            p.entry.reserved = 0;
+            pieces.push_back(p);
+            at += run.length;
+        }
+    }
+    std::sort(pieces.begin(), pieces.end(),
+              [](const Piece& a, const Piece& b) { return a.entry.vstart < b.entry.vstart; });
+    const std::size_t table_bytes = align32(rt_table_bytes(static_cast<std::uint32_t>(pieces.size())));
+    if (table_bytes + data_bytes > 0x40000000u) {
         error = "replacement payload is too large";
         return false;
     }
-    payload.assign(total, 0);
+    payload.assign(table_bytes + data_bytes, 0);
     rt_header header{};
     header.magic = RT_MAGIC;
     header.version = RT_VERSION;
-    header.entry_count = static_cast<std::uint32_t>(replacements.size());
-    header.sdio_fd = 0xFFFFFFFFu;
+    header.entry_count = static_cast<std::uint32_t>(pieces.size());
+    header.sdio_fd = sdio_fd;
     header.tag = tag;
-    std::vector<rt_entry> entries(replacements.size());
-    std::size_t data_offset = table_bytes;
+    std::vector<rt_entry> entries(pieces.size());
     std::uint64_t previous_end = 0;
-    for (std::size_t k = 0; k < order.size(); ++k) {
-        const MemReplacement& r = replacements[order[k]];
-        if (k > 0 && r.virtual_offset < previous_end) {
+    std::size_t data_offset = table_bytes;
+    for (std::size_t k = 0; k < pieces.size(); ++k) {
+        const Piece& p = pieces[k];
+        if (k > 0 && p.entry.vstart < previous_end) {
             error = "replacements overlap in the virtual partition";
             return false;
         }
-        previous_end = r.virtual_offset + r.bytes.size();
-        rt_entry& e = entries[k];
-        e.vstart = r.virtual_offset;
-        e.length = r.bytes.size();
-        e.source = static_cast<std::uint64_t>(payload_address) + data_offset;
-        e.skip = 0;
-        e.kind = RT_KIND_MEM;
-        e.reserved = 0;
-        std::memcpy(payload.data() + data_offset, r.bytes.data(), r.bytes.size());
-        data_offset += align32(r.bytes.size());
+        previous_end = p.entry.vstart + p.entry.length;
+        entries[k] = p.entry;
+        if (p.bytes) {
+            entries[k].source = static_cast<std::uint64_t>(payload_address) + data_offset;
+            std::memcpy(payload.data() + data_offset, p.bytes->data(), p.bytes->size());
+            data_offset += align32(p.bytes->size());
+        }
     }
     header.entries_crc = rt_crc32(entries.data(), entries.size() * sizeof(rt_entry));
     std::memcpy(payload.data(), &header, sizeof(header));
@@ -224,6 +257,11 @@ bool build_mem_payload(const std::vector<MemReplacement>& replacements, std::uin
     }
     error.clear();
     return true;
+}
+
+bool build_mem_payload(const std::vector<MemReplacement>& replacements, std::uint32_t payload_address,
+                       std::uint64_t tag, std::vector<std::uint8_t>& payload, std::string& error) {
+    return build_payload(replacements, {}, payload_address, tag, 0xFFFFFFFFu, payload, error);
 }
 
 bool plan_virtual_window(Fst& fst, const std::vector<VirtualFile>& files, std::vector<MemReplacement>& replacements,

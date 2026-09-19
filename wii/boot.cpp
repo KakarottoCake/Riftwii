@@ -25,6 +25,7 @@
 #include "ios_reload.hpp"
 #include "log.hpp"
 #include "resident.hpp"
+#include "sdio.hpp"
 
 namespace riftwii::wii {
 namespace {
@@ -55,6 +56,43 @@ void apploader_report(const char* format, ...) {
 }
 
 bool aligned32(const void* p) { return (reinterpret_cast<std::uintptr_t>(p) & 31) == 0; }
+
+// E4 self-check: reads every SD run of a replacement through the loader's
+// own client and logs the checksum of the bytes the game will see (the
+// same h = h * 31 + byte the runtime reports).
+bool verify_sd_replacement(const sdio::Card& card, const SdReplacement& r, std::string& error) {
+    std::uint8_t* sectors = static_cast<std::uint8_t*>(memalign(32, 64 * 512));
+    if (!sectors) {
+        error = "out of memory";
+        return false;
+    }
+    std::uint32_t checksum = 0;
+    std::uint64_t total = 0;
+    bool ok = true;
+    for (const PlacedRun& run : r.runs) {
+        std::uint64_t done = 0;
+        while (done < run.length && ok) {
+            const std::uint64_t at = run.skip + done;
+            const std::uint32_t sector = static_cast<std::uint32_t>(run.source + at / 512);
+            const std::uint32_t skip = static_cast<std::uint32_t>(at % 512);
+            std::uint32_t count = static_cast<std::uint32_t>(std::min<std::uint64_t>(64, (skip + run.length - done + 511) / 512));
+            if (!sdio::read_sectors(card, sector, count, sectors, error)) {
+                ok = false;
+                break;
+            }
+            const std::uint32_t take = static_cast<std::uint32_t>(std::min<std::uint64_t>(count * 512 - skip, run.length - done));
+            for (std::uint32_t k = 0; k < take; ++k) checksum = checksum * 31u + sectors[skip + k];
+            done += take;
+        }
+        total += run.length;
+    }
+    free(sectors);
+    if (ok) {
+        logf("SD check: 0x%llx bytes at partition offset 0x%llx read back, checksum %08x\n",
+             static_cast<unsigned long long>(total), static_cast<unsigned long long>(r.virtual_offset), checksum);
+    }
+    return ok;
+}
 
 // Low memory is written through the data cache, like the apploader's own
 // stores and libogc's, and flushed once before the jump. libogc's write32
@@ -534,6 +572,23 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, std:
     }
     logf("Game entry 0x%08x\n", reinterpret_cast<std::uint32_t>(game_entry));
 
+    // E4: the SD card again, with our own fd this time, left open and
+    // selected for the runtime.
+    sdio::Card card;
+    if (!options.sd_replacements.empty()) {
+        if (!options.install_resident) {
+            error = "SD-backed replacements need the resident runtime";
+            return false;
+        }
+        if (!sdio::open_card(card, error)) return false;
+        logf("SD card: fd %d, rca 0x%04x, %s\n", card.fd, card.rca, card.sdhc ? "SDHC" : "SDSC");
+        if (options.verify_sd) {
+            for (const SdReplacement& r : options.sd_replacements) {
+                if (!verify_sd_replacement(card, r, error)) return false;
+            }
+        }
+    }
+
     // E2: the DOL is in place, so the runtime can find and hook the game's
     // IPC entry points before anything runs them.
     ResidentInstall resident;
@@ -550,6 +605,9 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, std:
         ro.replacements = std::move(replacements);
         ro.table_tag = static_cast<std::uint64_t>(probe.partition.offset);
         ro.virtual_start_words = options.virtual_files.empty() ? 0 : static_cast<std::uint32_t>(kVirtualWindowStart >> 2);
+        ro.sd_replacements = options.sd_replacements;
+        ro.sdio_fd = card.fd;
+        ro.sdio_sdhc = card.sdhc;
         if (!install_resident(dol, ro, resident, error)) return false;
     }
     logf("Handing over\n");

@@ -12,7 +12,12 @@
 #include "rtable.h"
 
 #define RT_DI_READ 0x71u
-#define RT_DI_SUCCESS 1
+
+/* /dev/sdio/slot0 (wiibrew, libogc wiisd.c) */
+#define RT_SDIO_SENDCMD 7u
+#define RT_SD_CMD_READMULTIBLOCK 0x12u
+#define RT_SD_CMDTYPE_AC 3u
+#define RT_SD_RESPONSE_R1 1u
 
 int rt_is_di_read(uint32_t ioctl, const uint32_t* in, uint32_t in_len) {
     /* DVDLowRead: ioctl 0x71 with a 0x20-byte command block whose first
@@ -27,7 +32,7 @@ uint32_t rt_checksum(const uint8_t* bytes, uint32_t length) {
     return h;
 }
 
-/* --- console-only pieces: EXI/USB Gecko and cache maintenance ----------- */
+/* --- console-only pieces: EXI/USB Gecko, caches, interrupts, IPC -------- */
 #ifdef RT_TARGET_PPC
 /* EXI register block (Wii: 0xCD006800), five words per channel:
  * CSR, MAR, LENGTH, CR, DATA. The sequence is the one libogc's EXI_Select /
@@ -76,8 +81,9 @@ static int rt_gecko_putc(struct rt_context* ctx, uint32_t ch) {
     return 0;
 }
 
-/* Writes the CPU's copy of [address, address + length) back to RAM so
- * DMA readers (GX, IOS) see what the game will see through the cache. */
+/* Writes the CPU's copy of [address, address + length) back to RAM and
+ * drops it from the cache, so DMA readers (GX, IOS) see what the game
+ * will see, and DMA writers (IOS) are not shadowed by stale lines. */
 static void rt_flush_range(uintptr_t address, uint32_t length) {
     uintptr_t line = address & ~(uintptr_t)31u;
     const uintptr_t end = address + length;
@@ -102,7 +108,20 @@ static uint32_t rt_interrupts_off(void) {
 static void rt_interrupts_restore(uint32_t msr) {
     __asm__ volatile("mtmsr %0" : : "r"(msr) : "memory");
 }
+
+/* The game's IOS_IoctlvAsync (SDK: fd, ioctl, in count, out count,
+ * vectors, callback, user data), reached through the context, so the
+ * call is a register-indirect one and the blob stays relocatable. */
+typedef int32_t (*rt_ioctlv_async_fn)(uint32_t fd, uint32_t ioctl, uint32_t in_count, uint32_t out_count,
+                                       struct rt_ioctlv* vec, uint32_t callback, struct rt_pending* record);
+static int32_t rt_ioctlv_async(struct rt_context* ctx, struct rt_pending* record) {
+    rt_ioctlv_async_fn fn = (rt_ioctlv_async_fn)(uintptr_t)ctx->ioctlv_async;
+    if (fn == 0) return -1;
+    return fn(ctx->sdio_fd, RT_SDIO_SENDCMD, 2, 1, record->vec, ctx->complete_entry, record);
+}
 #else
+int32_t (*rt_host_ioctlv_async)(uint32_t fd, uint32_t ioctl, uint32_t in_count, uint32_t out_count,
+                                struct rt_ioctlv* vec, uint32_t callback, struct rt_pending* record) = 0;
 static int rt_gecko_putc(struct rt_context* ctx, uint32_t ch) {
     (void)ch;
     return (ctx->flags & RT_FLAG_GECKO) != 0;
@@ -116,6 +135,10 @@ static uint32_t rt_interrupts_off(void) {
 }
 static void rt_interrupts_restore(uint32_t msr) {
     (void)msr;
+}
+static int32_t rt_ioctlv_async(struct rt_context* ctx, struct rt_pending* record) {
+    if (ctx->ioctlv_async == 0 || rt_host_ioctlv_async == 0) return -1;
+    return rt_host_ioctlv_async(ctx->sdio_fd, RT_SDIO_SENDCMD, 2, 1, record->vec, ctx->complete_entry, record);
 }
 #endif
 
@@ -216,6 +239,12 @@ int rt_on_ioctl_async(struct rt_context* ctx, uintptr_t* args, uint32_t* result)
                     rec->length = length;
                     rec->word_offset = word_offset;
                     rec->is_virtual = (uint32_t)in_window;
+                    rec->phase = RT_PHASE_DISC;
+                    rec->run_index = 0;
+                    rec->run_done = 0;
+                    rec->chunk_bytes = 0;
+                    rec->chunk_skip = 0;
+                    rec->di_result = 0;
                     if (in_window) {
                         /* The drive must never see the virtual offset: fetch the
                          * same length from the partition start instead (always
@@ -237,42 +266,142 @@ int rt_on_ioctl_async(struct rt_context* ctx, uintptr_t* args, uint32_t* result)
     return 0;
 }
 
-void rt_on_di_complete(struct rt_context* ctx, int32_t result, struct rt_pending* record, uintptr_t* callback,
+/* Where a run of `record` lands in the game's buffer. */
+static uint8_t* rt_run_destination(const struct rt_pending* record, const rt_run* run) {
+    return (uint8_t*)(uintptr_t)record->out + (uint32_t)(run->vstart - ((uint64_t)record->word_offset << 2));
+}
+
+/* Issues the next SD chunk of the current run. Returns 1 when a request
+ * is in flight, 0 when the run is complete or not an SD run, -1 on an IPC
+ * refusal. */
+static int rt_issue_sd_chunk(struct rt_context* ctx, struct rt_pending* record) {
+    const rt_run* run = &record->runs[record->run_index];
+    const uint32_t remaining = (uint32_t)run->length - record->run_done;
+    const uint32_t byte_in_sectors = run->skip + record->run_done; /* from the start of sector `source` */
+    const uint32_t sector = (uint32_t)run->source + byte_in_sectors / RT_SECTOR_BYTES;
+    const uint32_t skip = byte_in_sectors % RT_SECTOR_BYTES;
+    uint32_t want = skip + remaining;
+    uint32_t sectors;
+    struct rt_sdio_request* rq = &record->request;
+    if (run->kind != RT_KIND_SD || remaining == 0) return 0;
+    if (want > RT_BOUNCE_BYTES) want = RT_BOUNCE_BYTES;
+    sectors = (want + RT_SECTOR_BYTES - 1) / RT_SECTOR_BYTES;
+    record->chunk_skip = skip;
+    record->chunk_bytes = sectors * RT_SECTOR_BYTES - skip;
+    if (record->chunk_bytes > remaining) record->chunk_bytes = remaining;
+    rq->cmd = RT_SD_CMD_READMULTIBLOCK;
+    rq->cmd_type = RT_SD_CMDTYPE_AC;
+    rq->rsp_type = RT_SD_RESPONSE_R1;
+    rq->arg = ctx->sdio_sdhc ? sector : sector * RT_SECTOR_BYTES;
+    rq->blk_cnt = sectors;
+    rq->blk_size = RT_SECTOR_BYTES;
+    rq->dma_addr = record->bounce;
+    rq->isdma = 1;
+    rq->pad0 = 0;
+    record->vec[0].data = (uint32_t)(uintptr_t)rq;
+    record->vec[0].len = sizeof(*rq);
+    record->vec[1].data = record->bounce;
+    record->vec[1].len = sectors * RT_SECTOR_BYTES;
+    record->vec[2].data = (uint32_t)(uintptr_t)record->response;
+    record->vec[2].len = sizeof(record->response);
+    rt_flush_range((uintptr_t)rq, sizeof(*rq));
+    rt_flush_range((uintptr_t)record->vec, sizeof(record->vec));
+    rt_flush_range((uintptr_t)record->bounce, sectors * RT_SECTOR_BYTES); /* no stale lines over the DMA target */
+    record->phase = RT_PHASE_SD;
+    ctx->sd_requests++;
+    if (rt_ioctlv_async(ctx, record) < 0) {
+        ctx->sd_failures++;
+        return -1;
+    }
+    return 1;
+}
+
+/* The runtime's bytes of a completed read, in buffer order, for the
+ * diagnostics (MEM, ZERO, SD runs and virtual gaps). */
+static uint32_t rt_checksum_runs(const struct rt_pending* record) {
+    uint32_t checksum = 0;
+    uint32_t i;
+    for (i = 0; i < record->run_count; ++i) {
+        const rt_run* run = &record->runs[i];
+        const uint8_t* bytes = rt_run_destination(record, run);
+        uint32_t k;
+        if (run->kind == RT_KIND_PASSTHROUGH && !record->is_virtual) continue;
+        for (k = 0; k < (uint32_t)run->length; ++k) checksum = checksum * 31u + bytes[k];
+    }
+    return checksum;
+}
+
+void rt_on_di_complete(struct rt_context* ctx, int32_t* result, struct rt_pending* record, uintptr_t* callback,
                        uintptr_t* user_data) {
     ctx->completions++;
+    if (record->phase == RT_PHASE_DISC) {
+        record->di_result = (uint32_t)*result;
+        if (*result == RT_DI_SUCCESS) {
+            /* Everything that comes from memory, now; SD runs follow. */
+            uint32_t i;
+            for (i = 0; i < record->run_count; ++i) {
+                const rt_run* run = &record->runs[i];
+                uint8_t* dst = rt_run_destination(record, run);
+                const uint32_t n = (uint32_t)run->length;
+                if (run->kind == RT_KIND_MEM) {
+                    rt_copy(dst, (const uint8_t*)(uintptr_t)run->source, n);
+                } else if (run->kind == RT_KIND_ZERO || (run->kind == RT_KIND_PASSTHROUGH && record->is_virtual)) {
+                    rt_zero(dst, n); /* nothing on the disc belongs in a virtual gap */
+                } else {
+                    continue; /* PASSTHROUGH: the disc already filled it; SD: below; DISC: not produced yet */
+                }
+                rt_flush_range((uintptr_t)dst, n);
+            }
+            record->run_index = 0;
+            record->run_done = 0;
+        } else {
+            record->run_index = record->run_count; /* nothing to fetch for a failed read */
+        }
+    } else {
+        /* An SD chunk landed (or failed). */
+        const rt_run* run = &record->runs[record->run_index];
+        if (*result < 0) {
+            ctx->sd_failures++;
+            record->di_result = RT_DI_ERROR;
+            record->run_index = record->run_count;
+        } else {
+            uint8_t* dst = rt_run_destination(record, run) + record->run_done;
+            rt_copy(dst, (const uint8_t*)(uintptr_t)record->bounce + record->chunk_skip, record->chunk_bytes);
+            rt_flush_range((uintptr_t)dst, record->chunk_bytes);
+            record->run_done += record->chunk_bytes;
+        }
+    }
+
+    /* Next SD work, if any. */
+    while (record->run_index < record->run_count) {
+        const int issued = rt_issue_sd_chunk(ctx, record);
+        if (issued > 0) {
+            *callback = 0; /* still busy: the IPC dispatcher just returns */
+            return;
+        }
+        if (issued < 0) {
+            record->di_result = RT_DI_ERROR;
+            break;
+        }
+        record->run_index++;
+        record->run_done = 0;
+    }
+
+    /* Done: hand the game its completion. */
+    *result = (int32_t)record->di_result;
     *callback = (uintptr_t)record->callback;
     *user_data = (uintptr_t)record->user_data;
-    if (result == RT_DI_SUCCESS) {
-        uint8_t* out = (uint8_t*)(uintptr_t)record->out;
-        const uint64_t base = (uint64_t)record->word_offset << 2;
-        uint32_t checksum = 0;
-        uint32_t i;
-        for (i = 0; i < record->run_count; ++i) {
-            const rt_run* run = &record->runs[i];
-            uint8_t* dst = out + (uint32_t)(run->vstart - base);
-            const uint32_t n = (uint32_t)run->length;
-            uint32_t k;
-            if (run->kind == RT_KIND_MEM) {
-                rt_copy(dst, (const uint8_t*)(uintptr_t)run->source, n);
-            } else if (run->kind == RT_KIND_ZERO || (run->kind == RT_KIND_PASSTHROUGH && record->is_virtual)) {
-                rt_zero(dst, n); /* nothing on the disc belongs in a virtual gap */
-            } else {
-                continue; /* PASSTHROUGH: the disc already filled it; SD/DISC: E4 */
-            }
-            for (k = 0; k < n; ++k) checksum = checksum * 31u + dst[k]; /* while the lines are still ours */
-            rt_flush_range((uintptr_t)dst, n);
-        }
-        ctx->last_checksum = checksum;
-        if (ctx->flags & RT_FLAG_GECKO) {
-            /* "M<word offset>:<length>:<checksum of the redirected bytes>\n" */
-            rt_gecko_putc(ctx, 'M');
-            rt_gecko_hex(ctx, record->word_offset);
-            rt_gecko_putc(ctx, ':');
-            rt_gecko_hex(ctx, record->length);
-            rt_gecko_putc(ctx, ':');
-            rt_gecko_hex(ctx, checksum);
-            rt_gecko_putc(ctx, '\n');
-        }
+    if (record->di_result == RT_DI_SUCCESS && (ctx->flags & RT_FLAG_GECKO)) {
+        /* Diagnostics only (they read the buffer back): "M<word
+         * offset>:<length>:<checksum of the redirected bytes>\n" */
+        ctx->last_checksum = rt_checksum_runs(record);
+        rt_gecko_putc(ctx, 'M');
+        rt_gecko_hex(ctx, record->word_offset);
+        rt_gecko_putc(ctx, ':');
+        rt_gecko_hex(ctx, record->length);
+        rt_gecko_putc(ctx, ':');
+        rt_gecko_hex(ctx, ctx->last_checksum);
+        rt_gecko_putc(ctx, '\n');
     }
     record->in_use = 0;
 }

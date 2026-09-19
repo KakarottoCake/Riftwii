@@ -64,22 +64,37 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
         }
     }
 
-    // 3. Reserve the top of the MEM2 arena: blob, then the redirect payload.
-    std::vector<std::uint8_t> payload;
-    if (!options.replacements.empty() &&
-        !build_mem_payload(options.replacements, 0, options.table_tag, payload, error)) {
+    // 3. Reserve the top of the MEM2 arena: blob, the redirect payload,
+    //    then the SD bounce buffers.
+    const bool has_table = !options.replacements.empty() || !options.sd_replacements.empty();
+    const bool has_sd = !options.sd_replacements.empty();
+    if (has_sd && symbols.ioctlv_async == 0) {
+        error = "SD-backed replacements need the game's IOS_IoctlvAsync, which was not found";
         return false;
     }
+    if (has_sd && options.sdio_fd < 0) {
+        error = "SD-backed replacements need an open SD card";
+        return false;
+    }
+    const std::uint32_t sdio_fd = options.sdio_fd < 0 ? 0xFFFFFFFFu : static_cast<std::uint32_t>(options.sdio_fd);
+    std::vector<std::uint8_t> payload;
+    if (has_table && !build_payload(options.replacements, options.sd_replacements, 0, options.table_tag, sdio_fd,
+                                    payload, error)) {
+        return false;
+    }
+    const std::uint32_t bounce_bytes = has_sd ? RT_MAX_PENDING * RT_BOUNCE_BYTES : 0;
     const std::uint32_t arena_end = read32(kMem2ArenaEndField);
     ResidentPlacement place;
-    if (!plan_resident_placement(arena_end, blob.size, static_cast<std::uint32_t>(payload.size()), place, error)) {
+    if (!plan_resident_placement(arena_end, blob.size, static_cast<std::uint32_t>(payload.size()) + bounce_bytes,
+                                 place, error)) {
         return false;
     }
     const std::uint32_t payload_address = place.base + blob.size;  // blob sizes are multiples of 32
-    if (!payload.empty() &&
-        !build_mem_payload(options.replacements, payload_address, options.table_tag, payload, error)) {
+    if (has_table && !build_payload(options.replacements, options.sd_replacements, payload_address,
+                                    options.table_tag, sdio_fd, payload, error)) {
         return false;
     }
+    const std::uint32_t bounce_address = payload_address + static_cast<std::uint32_t>(payload.size());
 
     // 4. Copy the blob and the payload, fill in the context and the two
     //    loader-patched slots.
@@ -95,6 +110,12 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
     ctx->table = payload.empty() ? 0 : payload_address;
     ctx->complete_entry = place.base + blob.complete_di_offset;
     ctx->virtual_start_words = payload.empty() ? 0 : options.virtual_start_words;
+    ctx->sdio_fd = sdio_fd;
+    ctx->sdio_sdhc = options.sdio_sdhc ? 1 : 0;
+    ctx->ioctlv_async = symbols.ioctlv_async;
+    for (std::uint32_t i = 0; i < RT_MAX_PENDING; ++i) {
+        ctx->pending[i].bounce = has_sd ? bounce_address + i * RT_BOUNCE_BYTES : 0;
+    }
     store_words(place.base + blob.replay_ioctl_async_offset, displaced, 4);
     const auto resume = encode_absolute_jump(kContinueScratchRegister, symbols.ioctl_async + kHookStubBytes);
     store_words(place.base + blob.continue_ioctl_async_offset, resume.data(), 4);
@@ -113,12 +134,18 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
     out.ioctlv_async = symbols.ioctlv_async;
     out.table = ctx->table;
     out.payload_bytes = static_cast<std::uint32_t>(payload.size());
+    out.bounce_bytes = bounce_bytes;
     logf("Resident: %u bytes at 0x%08x, MEM2 arena end 0x%08x -> 0x%08x, gecko %s\n", blob.size, place.base,
          arena_end, place.new_arena_end, options.gecko ? "on" : "off");
     if (!payload.empty()) {
-        logf("Resident: redirect table at 0x%08x, %u replacement(s), payload %u bytes, virtual window from word 0x%08x\n",
-             ctx->table, static_cast<unsigned>(options.replacements.size()), static_cast<unsigned>(payload.size()),
+        logf("Resident: redirect table at 0x%08x, %u MEM + %u SD replacement(s), payload %u bytes, virtual window from word 0x%08x\n",
+             ctx->table, static_cast<unsigned>(options.replacements.size()),
+             static_cast<unsigned>(options.sd_replacements.size()), static_cast<unsigned>(payload.size()),
              ctx->virtual_start_words);
+    }
+    if (has_sd) {
+        logf("Resident: SD fd %d (%s), bounce buffers at 0x%08x, IOS_IoctlvAsync at 0x%08x\n", options.sdio_fd,
+             options.sdio_sdhc ? "SDHC" : "SDSC", bounce_address, symbols.ioctlv_async);
     }
     error.clear();
     return true;
