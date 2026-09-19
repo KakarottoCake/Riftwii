@@ -1,15 +1,83 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/apply.hpp"
 
+#include <dirent.h>
+#include <sys/stat.h>
+
 #include <algorithm>
+#include <cerrno>
+#include <cstring>
 #include <limits>
 #include <new>
 #include <utility>
 
 namespace riftwii {
 
+bool ContentProvider::list_external(const std::string& sd_dir, std::vector<ExternalEntry>& out, std::string& error) {
+    (void)sd_dir;
+    (void)out;
+    error = "this provider cannot list directories";
+    return false;
+}
+
+bool list_native_directory(const std::string& native_path, std::vector<ExternalEntry>& out, std::string& error) {
+    DIR* dir = opendir(native_path.c_str());
+    if (!dir) {
+        error = std::string("opendir: ") + std::strerror(errno);
+        return false;
+    }
+    std::vector<ExternalEntry> entries;
+    for (;;) {
+        errno = 0;
+        const dirent* e = readdir(dir);
+        if (!e) {
+            if (errno != 0) {
+                error = std::string("readdir: ") + std::strerror(errno);
+                closedir(dir);
+                return false;
+            }
+            break;
+        }
+        const std::string name = e->d_name;
+        if (name == "." || name == "..") continue;
+        ExternalEntry entry;
+        entry.name = name;
+        bool known = false;
+#ifdef DT_DIR
+        if (e->d_type == DT_DIR) {
+            entry.is_directory = true;
+            known = true;
+        } else if (e->d_type == DT_REG) {
+            known = true;
+        }
+#endif
+        if (!known) {
+            struct stat st;
+            const std::string full = native_path + "/" + name;
+            if (stat(full.c_str(), &st) != 0) {
+                error = "stat '" + full + "': " + std::strerror(errno);
+                closedir(dir);
+                return false;
+            }
+            entry.is_directory = S_ISDIR(st.st_mode);
+        }
+        entries.push_back(std::move(entry));
+    }
+    closedir(dir);
+    out = std::move(entries);
+    error.clear();
+    return true;
+}
+
 DirectoryProvider::DirectoryProvider(std::string disc_root, std::string sd_root)
     : disc_root_(std::move(disc_root)), sd_root_(std::move(sd_root)) {}
+
+bool DirectoryProvider::list_external(const std::string& sd_dir, std::vector<ExternalEntry>& out,
+                                      std::string& error) {
+    std::string abs = sd_dir;
+    if (abs.empty() || abs[0] != '/') abs = "/" + abs;
+    return list_native_directory(join(sd_root_, abs), out, error);
+}
 
 std::string DirectoryProvider::join(const std::string& root, const std::string& abs_path) {
     std::string r = root;

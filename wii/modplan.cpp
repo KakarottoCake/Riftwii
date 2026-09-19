@@ -8,6 +8,7 @@
 #include "di.hpp"
 #include "log.hpp"
 #include "riftwii/apply.hpp"
+#include "riftwii/expand.hpp"
 #include "riftwii/fat32.hpp"
 #include "riftwii/hook.hpp"
 #include "riftwii/patch.hpp"
@@ -73,6 +74,12 @@ public:
         return OpenStatus::Ok;
     }
 
+    bool list_external(const std::string& sd_dir, std::vector<ExternalEntry>& out, std::string& error) override {
+        std::string abs = sd_dir;
+        if (abs.empty() || abs[0] != '/') abs = "/" + abs;
+        return list_native_directory("sd:" + abs, out, error);
+    }
+
     // The sectors of an external source, resolved once per path.
     bool fragments_of(const ByteSource* source, const std::vector<Fragment>*& out, std::string& error) {
         const auto path = paths_.find(source);
@@ -115,19 +122,25 @@ bool compile_package(const std::string& xml_sd_path, const DiscProbe& probe, con
     const DiscIdentity disc = probe.header.identity();
     PlanOptions allowed;
     allowed.allow_filename_targets = true;
+    allowed.allow_folders = true;
     Plan plan;
     if (!plan_package(package, disc, allowed, plan, error)) return false;
-    if (plan.files.empty()) {
+
+    // 2. <folder> patches become <file> patches (listing the card), bare
+    //    file names become FST paths and existing paths take the disc's
+    //    spelling; then group by disc file, in the order the files first
+    //    appear.
+    const Fst& fst = partition.fst;
+    WiiProvider provider(fst);
+    std::vector<FilePatch> files;
+    if (!expand_plan(plan, fst, provider, files, mod.notes, error)) return false;
+    if (files.empty()) {
         error = xml_sd_path + " does not apply to " + probe.header.game_id + " (no file patches selected)";
         return false;
     }
-
-    // 2. Bare file names become FST paths; then group by disc file, in the
-    //    order the files first appear.
-    const Fst& fst = partition.fst;
     std::vector<std::string> order;
     std::map<std::string, std::vector<FilePatch>> groups;
-    for (FilePatch patch : plan.files) {
+    for (FilePatch patch : files) {
         if (patch.is_filename) {
             const std::vector<std::uint32_t> matches = fst.find_files_named(patch.disc, true);
             if (matches.size() != 1) {
@@ -139,6 +152,12 @@ bool compile_package(const std::string& xml_sd_path, const DiscProbe& probe, con
                 return false;
             }
             patch.is_filename = false;
+        } else {
+            const std::uint32_t index = fst.find(patch.disc, true);
+            if (index != Fst::npos && !fst.path_of(index, patch.disc)) {
+                error = "cannot name '" + patch.disc + "'";
+                return false;
+            }
         }
         if (groups.find(patch.disc) == groups.end()) order.push_back(patch.disc);
         groups[patch.disc].push_back(patch);
@@ -146,7 +165,6 @@ bool compile_package(const std::string& xml_sd_path, const DiscProbe& probe, con
 
     // 3. Apply each group and lay the result out: same size stays in place,
     //    anything else moves into the virtual window.
-    WiiProvider provider(fst);
     std::vector<std::unique_ptr<AppliedFile>> applied;
     std::vector<VirtualFileLayout> layouts;
     constexpr std::uint64_t kWindowEnd = 0x400000000ull;

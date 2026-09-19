@@ -11,9 +11,10 @@
 // Compiles a Riivolution-format package on the SD card into what the boot
 // needs: the redirect table's entries (external bytes as SD sectors,
 // untouched bytes of relocated files as DISC ranges, padding as ZERO) and
-// the FST relocations of files whose size changed. Everything the host
-// tests cover does the work (riftwii/patch.hpp, apply.hpp, redirect.hpp);
-// this file only supplies the disc and SD sides of ContentProvider and the
+// the FST relocations of files whose size changed or which are created.
+// Everything the host tests cover does the work (riftwii/patch.hpp,
+// expand.hpp, apply.hpp, redirect.hpp); this file only supplies the disc
+// and SD sides of ContentProvider (reads and directory listings) and the
 // SD placer. Runs while the card is mounted and the partition is open.
 namespace riftwii::wii {
 
