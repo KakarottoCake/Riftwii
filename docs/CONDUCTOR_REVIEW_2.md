@@ -926,16 +926,20 @@ against a buffer. Semantics from the wiki, with Dolphin's independent
 implementation as the behavioural tie-breaker where the wiki is silent:
 - plain: `value` at `offset | 0x80000000`; with `original` given and
   different, skipped (a note, not an error).
-- search: the first place in the regions the apploader filled (in load
-  order, `align` stride) where `original` matches gets `value`. Dolphin
-  scans all of MEM1 in a second pass after the load-time pass, which can
-  patch a second occurrence; Riftwii patches one.
-- ocarina: the first occurrence of `value` in the loaded regions, then
-  the next `blr` at or after it (4-byte steps) becomes `b offset`
+- search: the first place in the DOL's sections as the apploader loaded
+  them (in load order, `align` stride) where `original` matches gets
+  `value`, which must be the same length. Dolphin scans all of MEM1 in
+  a second pass after the load-time pass, which can patch a second
+  occurrence; Riftwii patches one.
+- ocarina: the first occurrence of `value` in those sections (4-byte
+  steps, as code), then the next `blr` at or after it (4-byte steps,
+  starting at the match itself, as Dolphin does) becomes `b offset`
   (range-checked, no link bit).
-- `valuefile` is read while the card is mounted (1 MiB cap). Writes are
-  confined to MEM1 and to MEM2 below the arena end (the runtime's
-  reservation is carved out above it). A package with only memory
+- `valuefile` is read while the card is mounted (1 MiB cap). The patches
+  run last, after the low-memory globals, so they win over them as in
+  Dolphin. Writes are confined to MEM1 minus the loader's own image and
+  the runtime's hook stub, and to MEM2 below the arena end (the
+  runtime's reservation is above it). A package with only memory
   patches boots without the runtime.
 
 Dolphin: the OS banner strings the game prints through OSReport were
@@ -982,3 +986,37 @@ Dolphin:
 - A package with a default-off option set to its second choice and a
   default-on option disabled: the OSReport banner shows `Loader Type`
   and an untouched `Kernel built`.
+
+## 21. agy review of sections 18-20 (evaluated 2026-09-19)
+
+Applied, each verified first:
+- Memory patches ran before the low-memory globals were written; Dolphin
+  writes those globals before the apploader and nothing rewrites them
+  after its patches, so the patches now run last. The loader's own image
+  (0x80A00000 up to its arena) and the runtime's 16-byte hook stub are
+  no longer writable; search and ocarina patches see the DOL sections
+  only, not the FST or the apploader's buffers.
+- A search patch read from a `valuefile` bypassed the parser's
+  same-length rule; checked at read time and again when applying. An
+  `align` above 32 bits could wrap on the console; clamped.
+- `Fst::create_file` could leave new directories behind when the file's
+  offset was unencodable; the offset is checked first now.
+- Folder expansion resolved every entry from the FST root; a
+  directory's children are now listed once. Trailing slashes and the
+  root as the external folder are handled.
+- A bare `<file>` name with several disc matches was refused; every
+  match is patched now, as a by-name `<folder>` does.
+- Files of 0 bytes (mods null videos this way) were refused; allowed. A
+  32-bit size could wrap in the window cursor; widened. Relocations
+  look the path up case-insensitively as a fallback.
+
+Refuted:
+- "The ocarina blr scan must start after the pattern": Dolphin's
+  implementation starts at the match address, and the wiki's "next
+  occurring blr" reads naturally from the match; kept, with the
+  pattern now sought at 4-byte steps like Dolphin's.
+- "`disc="/Stage/"` breaks expansion": the parser rejects trailing
+  slashes on disc paths before a plan exists; stripped anyway for plans
+  built in code.
+- A null check on `encode_partition_data_fields`'s output pointer: an
+  internal API whose callers pass arrays; not added.
