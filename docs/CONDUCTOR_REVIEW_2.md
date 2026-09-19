@@ -1468,6 +1468,16 @@ outward refusal, missing source, mid-read failure with cleanup,
 refusal without the sync originals, not-ours renames, async on a
 thread with its 0 deferred, async from a callback refused);
 `rtfs_tests` the existence probe, the replacing rename and the public
-classifier. Blob 36928 bytes. Open: `clone`; Kirby's Epic Yarn; the
-hardware run of everything since section 11.
+classifier. Blob 36928 bytes.
+
+Kirby's Epic Yarn (`kirby_save.xml`, `sd:/riftwii/saves/kirby`, title
+`00010000-524b3545`): a 2009 SDK that uses the asynchronous forms for
+everything. Its boot opens `banner.bin` (-106 through the callback,
+deferred by the null round trip), deletes `banner.bin`, `GF_0_00.jpg`
+.. `GF_1_xx.jpg` and `FLF.bin` (each -106 the same way) and asks the
+directory's usage (0), then waits at its first screen for a button
+(200 disc reads, as its file-patch run in section 23); creating the
+save needs input the harness does not supply, so that step is open.
+Open: `clone`; Kirby's save creation with input; the hardware run of
+everything since section 11.
 
