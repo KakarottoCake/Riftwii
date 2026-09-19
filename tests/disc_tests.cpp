@@ -247,6 +247,28 @@ static void test_partition_data() {
     Put32(bad, 0x18, 0);
     EXPECT_FALSE(riftwii::read_partition_data_header(riftwii::MemorySource(bad), d, err));
 
+    // The encoder round-trips through the parser and refuses what the
+    // >> 2 fields cannot hold.
+    riftwii::PartitionDataHeader grown = d;
+    grown.fst_size = 0x1F0;
+    std::uint8_t fields[riftwii::kPartitionDataFieldsBytes] = {};
+    EXPECT_TRUE(riftwii::encode_partition_data_fields(grown, fields, err));
+    Bytes image = Data();
+    std::copy(fields, fields + sizeof(fields), image.begin() + riftwii::kPartitionDataFieldsOffset);
+    riftwii::PartitionDataHeader again;
+    EXPECT_TRUE(riftwii::read_partition_data_header(riftwii::MemorySource(image), again, err));
+    EXPECT_EQ(again.dol_offset, std::uint64_t(0x3000));
+    EXPECT_EQ(again.fst_offset, std::uint64_t(0x3800));
+    EXPECT_EQ(again.fst_size, std::uint64_t(0x1F0));
+    EXPECT_EQ(again.fst_max_size, std::uint64_t(0x200));
+    grown.fst_size = 0x1F2;  // not word-aligned
+    EXPECT_FALSE(riftwii::encode_partition_data_fields(grown, fields, err));
+    grown.fst_size = 0x300;  // larger than the maximum
+    EXPECT_FALSE(riftwii::encode_partition_data_fields(grown, fields, err));
+    grown.fst_size = 0x100;
+    grown.dol_offset = 0x400000000ull;  // >> 2 overflows
+    EXPECT_FALSE(riftwii::encode_partition_data_fields(grown, fields, err));
+
     bad = Data();
     Put32(bad, 0x2454, 0);
     EXPECT_FALSE(riftwii::read_apploader_header(riftwii::MemorySource(bad), a, err));

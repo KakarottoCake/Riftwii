@@ -262,6 +262,27 @@ bool read_partition_data_header(const ByteSource& data, PartitionDataHeader& out
     return true;
 }
 
+bool encode_partition_data_fields(const PartitionDataHeader& header, std::uint8_t* out, std::string& error) {
+    const std::uint64_t values[4] = {header.dol_offset, header.fst_offset, header.fst_size, header.fst_max_size};
+    if (header.fst_size > header.fst_max_size) {
+        error = "FST size exceeds its maximum";
+        return false;
+    }
+    for (int i = 0; i < 4; ++i) {
+        if ((values[i] & 3u) != 0 || (values[i] >> 2) > 0xFFFFFFFFull) {
+            error = "partition data header field cannot be encoded";
+            return false;
+        }
+        const std::uint32_t words = static_cast<std::uint32_t>(values[i] >> 2);
+        out[i * 4 + 0] = static_cast<std::uint8_t>(words >> 24);
+        out[i * 4 + 1] = static_cast<std::uint8_t>(words >> 16);
+        out[i * 4 + 2] = static_cast<std::uint8_t>(words >> 8);
+        out[i * 4 + 3] = static_cast<std::uint8_t>(words);
+    }
+    error.clear();
+    return true;
+}
+
 bool read_apploader_header(const ByteSource& data, ApploaderHeader& out, std::string& error) {
     std::vector<std::uint8_t> h;
     if (!read_exact(data, kApploaderOffset, h, static_cast<std::size_t>(kApploaderHeaderBytes), "apploader header", error)) return false;

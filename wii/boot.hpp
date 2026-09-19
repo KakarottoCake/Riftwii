@@ -56,11 +56,15 @@ bool dump_metadata(const DiscProbe& probe, const OpenedPartition& partition, con
 bool dump_dol(const OpenedPartition& partition, const std::string& sd_path, std::string& error);
 
 // A file whose FST entry must point elsewhere (the virtual window) with a
-// new size, applied to the FST the apploader loads.
+// new size, applied to the FST the apploader loads. With `create` the
+// entry does not exist yet: it (and any missing directory on its path) is
+// added, the table is rebuilt and the partition data header's FST size
+// follows (E6).
 struct FstRelocation {
     std::string disc_path;
     std::uint64_t offset = 0;
     std::uint32_t size = 0;
+    bool create = false;
 };
 
 struct BootOptions {

@@ -473,14 +473,22 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, std:
     const ApploaderHeader& apploader = layout.apploader;
 
     // E5: files with new sizes move into the virtual window. The FST the
-    // apploader loads is patched from `fst_override` while it goes by, and
+    // apploader loads is patched from an override while it goes by, and
     // the same bytes are served from memory should the game read the FST
     // again; the files themselves become MEM replacements in the window.
+    // E6: created files add entries, so the table is rebuilt and grows in
+    // place; the partition data header the apploader reads first (its FST
+    // size field) is overridden the same way.
     PayloadPieces pieces;
     pieces.mem = options.replacements;
     pieces.sd = options.sd_replacements;
     pieces.entries = options.table_entries;
-    std::vector<std::uint8_t> fst_override;
+    struct LoadOverride {
+        std::uint64_t offset = 0;  // in the partition data
+        std::vector<std::uint8_t> bytes;
+        const char* what = "";
+    };
+    std::vector<LoadOverride> overrides;
     const bool relocates = !options.virtual_files.empty() || !options.relocations.empty();
     if (relocates) {
         if (!options.install_resident) {
@@ -489,13 +497,20 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, std:
         }
         Fst fst = layout.fst;
         std::uint64_t window_cursor = kVirtualWindowStart;
+        unsigned created = 0;
         for (const FstRelocation& r : options.relocations) {
-            const std::uint32_t index = fst.find(r.disc_path, false);
-            if (index == Fst::npos || fst.entries()[index].is_directory) {
-                error = "relocation of '" + r.disc_path + "': not a disc file";
-                return false;
+            if (r.create) {
+                std::uint32_t index = 0;
+                if (!fst.create_file(r.disc_path, r.offset, r.size, index, error)) return false;
+                ++created;
+            } else {
+                const std::uint32_t index = fst.find(r.disc_path, false);
+                if (index == Fst::npos || fst.entries()[index].is_directory) {
+                    error = "relocation of '" + r.disc_path + "': not a disc file";
+                    return false;
+                }
+                if (!fst.set_file_extent(index, r.offset, r.size, error)) return false;
             }
-            if (!fst.set_file_extent(index, r.offset, r.size, error)) return false;
             const std::uint64_t end = r.offset + ((r.size + 31) & ~std::uint64_t(31));
             if (end > window_cursor) window_cursor = end;
         }
@@ -503,12 +518,64 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, std:
                                  error)) {
             return false;
         }
-        fst_override = layout.fst_bytes;
-        if (!fst.patch_image(fst_override, error)) return false;
-        MemReplacement fst_copy;
-        fst_copy.virtual_offset = layout.data_header.fst_offset;
-        fst_copy.bytes = fst_override;
-        pieces.mem.push_back(std::move(fst_copy));
+        LoadOverride fst_override;
+        fst_override.offset = layout.data_header.fst_offset;
+        fst_override.what = "FST";
+        if (created == 0) {
+            fst_override.bytes = layout.fst_bytes;
+            if (!fst.patch_image(fst_override.bytes, error)) return false;
+        } else {
+            // The table is rebuilt, padded to 32 bytes like the disc's, and
+            // stays at its offset: the bytes after the original table must
+            // be free (not the DOL, not a file the game still reads there).
+            if (!fst.serialize(fst_override.bytes, error)) return false;
+            fst_override.bytes.resize((fst_override.bytes.size() + 31) & ~std::size_t(31), 0);
+            const std::uint64_t fst_start = layout.data_header.fst_offset;
+            const std::uint64_t fst_end = fst_start + fst_override.bytes.size();
+            std::uint8_t dol_header[kDolHeaderBytes];
+            DolHeader dol;
+            di::PartitionSource partition_data;
+            if (!partition_data.read(layout.data_header.dol_offset, dol_header, sizeof(dol_header)) ||
+                !parse_dol_header(dol_header, sizeof(dol_header), dol, error)) {
+                error = "cannot read the DOL header: " + error;
+                return false;
+            }
+            if (layout.data_header.dol_offset < fst_end &&
+                layout.data_header.dol_offset + dol.image_size() > fst_start) {
+                error = "the grown FST would overlap the DOL";
+                return false;
+            }
+            for (std::uint32_t i = 0; i < fst.count(); ++i) {
+                const FstEntry& e = fst.entries()[i];
+                if (e.is_directory || e.size == 0 || e.offset >= kVirtualWindowStart) continue;
+                if (e.offset < fst_end && e.offset + e.size > fst_start) {
+                    std::string path;
+                    fst.path_of(i, path);
+                    error = "the grown FST would overlap '" + path + "'";
+                    return false;
+                }
+            }
+            PartitionDataHeader grown = layout.data_header;
+            grown.fst_size = fst_override.bytes.size();
+            if (grown.fst_max_size < grown.fst_size) grown.fst_max_size = grown.fst_size;
+            LoadOverride fields;
+            fields.offset = kPartitionDataFieldsOffset;
+            fields.bytes.resize(kPartitionDataFieldsBytes);
+            fields.what = "data header";
+            if (!encode_partition_data_fields(grown, fields.bytes.data(), error)) return false;
+            overrides.push_back(std::move(fields));
+            logf("FST: %u file(s) created, %u -> %u bytes (max %llu -> %llu)\n", created,
+                 static_cast<unsigned>(layout.fst_bytes.size()), static_cast<unsigned>(fst_override.bytes.size()),
+                 static_cast<unsigned long long>(layout.data_header.fst_max_size),
+                 static_cast<unsigned long long>(grown.fst_max_size));
+        }
+        overrides.push_back(std::move(fst_override));
+        for (const LoadOverride& o : overrides) {
+            MemReplacement copy;
+            copy.virtual_offset = o.offset;
+            copy.bytes = o.bytes;
+            pieces.mem.push_back(std::move(copy));
+        }
         logf("Virtual window: %u file(s) at 0x%llx-0x%llx, FST rewritten\n",
              static_cast<unsigned>(options.virtual_files.size() + options.relocations.size()),
              static_cast<unsigned long long>(kVirtualWindowStart), static_cast<unsigned long long>(window_cursor));
@@ -563,20 +630,19 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, std:
             if (!ok) error = "unaligned apploader read failed";
         }
         if (!ok) return false;
-        if (!fst_override.empty()) {
-            // Whatever part of the FST this load covers comes from the
+        for (const LoadOverride& o : overrides) {
+            // Whatever part of an override this load covers comes from the
             // rewritten copy instead.
             const std::uint64_t load_start = std::uint64_t(woff) << 2;
             const std::uint64_t load_end = load_start + len;
-            const std::uint64_t fst_start = layout.data_header.fst_offset;
-            const std::uint64_t fst_end = fst_start + fst_override.size();
-            const std::uint64_t from = std::max(load_start, fst_start);
-            const std::uint64_t to = std::min(load_end, fst_end);
+            const std::uint64_t o_end = o.offset + o.bytes.size();
+            const std::uint64_t from = std::max(load_start, o.offset);
+            const std::uint64_t to = std::min(load_end, o_end);
             if (from < to) {
                 std::memcpy(static_cast<std::uint8_t*>(destination) + (from - load_start),
-                            fst_override.data() + (from - fst_start), static_cast<std::size_t>(to - from));
-                logf("  FST bytes 0x%llx-0x%llx replaced with the rewritten table\n",
-                     static_cast<unsigned long long>(from - fst_start), static_cast<unsigned long long>(to - fst_start));
+                            o.bytes.data() + (from - o.offset), static_cast<std::size_t>(to - from));
+                logf("  %s bytes 0x%llx-0x%llx replaced with the rewritten copy\n", o.what,
+                     static_cast<unsigned long long>(from - o.offset), static_cast<unsigned long long>(to - o.offset));
             }
         }
         DCFlushRange(destination, len);

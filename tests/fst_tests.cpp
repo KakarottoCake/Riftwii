@@ -199,6 +199,32 @@ static void test_mutation() {
     EXPECT_TRUE(fst.path_of(10, path));
     EXPECT_EQ(path, std::string("/Extra/x.bin"));
 
+    // create_file: missing directories appear on the way, existing ones
+    // match regardless of case, and the new entries serialize back into a
+    // table that parses to the same tree.
+    EXPECT_TRUE(fst.create_file("/stage/SUB/deep/er/new.bin", 0x4000, 16, idx, err));
+    EXPECT_EQ(fst.count(), std::uint32_t(14));
+    EXPECT_EQ(fst.find("/Stage/sub/deep/er/new.bin"), idx);
+    EXPECT_TRUE(fst.path_of(idx, path));
+    EXPECT_EQ(path, std::string("/Stage/sub/deep/er/new.bin"));
+    EXPECT_EQ(fst.entries()[idx].offset, std::uint64_t(0x4000));
+    EXPECT_EQ(fst.entries()[idx].size, std::uint32_t(16));
+    EXPECT_TRUE(fst.entries()[fst.find("/Stage/sub/deep")].is_directory);
+    EXPECT_FALSE(fst.create_file("/Stage/sub/deep/er/NEW.bin", 0, 0, idx, err));  // exists (any case)
+    EXPECT_FALSE(fst.create_file("/sys.bin/inside.bin", 0, 0, idx, err));        // crosses a file
+    EXPECT_FALSE(fst.create_file("/Stage/", 0, 0, idx, err));                    // not a file path
+    EXPECT_FALSE(fst.create_file("relative.bin", 0, 0, idx, err));
+    EXPECT_FALSE(fst.create_file("/Stage/a//b.bin", 0, 0, idx, err));            // empty segment
+    EXPECT_EQ(fst.count(), std::uint32_t(14));
+    Bytes created;
+    EXPECT_TRUE(fst.serialize(created, err));
+    riftwii::Fst with_created;
+    EXPECT_TRUE(riftwii::Fst::parse(created.data(), created.size(), true, with_created, err));
+    EXPECT_EQ(with_created.count(), std::uint32_t(14));
+    EXPECT_EQ(with_created.find("/Stage/sub/deep/er/new.bin"), idx);
+    EXPECT_EQ(with_created.find("/Extra/x.bin"), std::uint32_t(13));  // shifted by the three new entries
+    EXPECT_EQ(with_created.find("/sys.bin"), std::uint32_t(11));
+
     // Depth limit: with max_depth 2, "sub" (depth 2) may hold files but no
     // further directory.
     {
@@ -228,9 +254,9 @@ static void test_mutation() {
     EXPECT_TRUE(fst.serialize(out, err));
     riftwii::Fst again;
     EXPECT_TRUE(riftwii::Fst::parse(out.data(), out.size(), true, again, err));
-    EXPECT_EQ(again.count(), std::uint32_t(11));
+    EXPECT_EQ(again.count(), std::uint32_t(14));
     EXPECT_EQ(again.find("/Stage/sub/more.bin"), std::uint32_t(6));
-    EXPECT_EQ(again.find("/Extra/x.bin"), std::uint32_t(10));
+    EXPECT_EQ(again.find("/Extra/x.bin"), std::uint32_t(13));
     EXPECT_EQ(again.entries()[3].offset, std::uint64_t(0x3FFFFFFFCull));
     EXPECT_TRUE(again.path_of(6, path));
     EXPECT_EQ(path, std::string("/Stage/sub/more.bin"));

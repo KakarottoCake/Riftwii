@@ -153,18 +153,21 @@ bool compile_package(const std::string& xml_sd_path, const DiscProbe& probe, con
     for (const std::string& disc_path : order) {
         std::uint32_t index = fst.find(disc_path, false);
         if (index == Fst::npos) index = fst.find(disc_path, true);
-        if (index == Fst::npos) {
-            error = "'" + disc_path + "' is not on the disc (created files are not supported yet)";
+        const bool create = index == Fst::npos;
+        if (create && !groups[disc_path].front().create) {
+            error = "'" + disc_path + "' is not on the disc";
             return false;
         }
-        const FstEntry entry = fst.entries()[index];
+        // A created file starts empty (apply_patches does that for
+        // create="true") and always takes a slot in the window.
+        const FstEntry entry = create ? FstEntry() : fst.entries()[index];
         std::unique_ptr<AppliedFile> file;
         if (!apply_patches(groups[disc_path], provider, file, error)) return false;
         VirtualFileLayout layout;
         layout.file = file.get();
         layout.original_offset = entry.offset;
         const std::uint64_t size = file->size();
-        if (size == entry.size) {
+        if (!create && size == entry.size) {
             layout.virtual_offset = entry.offset;
             mod.notes.push_back(disc_path + ": " + std::to_string(size) + " bytes, in place");
         } else {
@@ -178,10 +181,12 @@ bool compile_package(const std::string& xml_sd_path, const DiscProbe& probe, con
             relocation.disc_path = disc_path;
             relocation.offset = window_cursor;
             relocation.size = static_cast<std::uint32_t>(size);
+            relocation.create = create;
             mod.relocations.push_back(relocation);
             window_cursor += padded;
-            mod.notes.push_back(disc_path + ": " + std::to_string(entry.size) + " -> " + std::to_string(size) +
-                                " bytes, relocated");
+            mod.notes.push_back(create ? disc_path + ": " + std::to_string(size) + " bytes, created"
+                                       : disc_path + ": " + std::to_string(entry.size) + " -> " +
+                                             std::to_string(size) + " bytes, relocated");
         }
         layouts.push_back(layout);
         applied.push_back(std::move(file));

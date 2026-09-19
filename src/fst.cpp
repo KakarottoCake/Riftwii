@@ -415,4 +415,58 @@ bool Fst::add_directory(std::uint32_t directory, const std::string& name, std::u
     return insert_entry(directory, std::move(entry), index, error);
 }
 
+bool Fst::create_file(const std::string& absolute_path, std::uint64_t offset, std::uint32_t size,
+                      std::uint32_t& index, std::string& error) {
+    if (entries_.empty() || absolute_path.size() < 2 || absolute_path[0] != '/' || absolute_path.back() == '/') {
+        error = "fst path '" + absolute_path + "' is not an absolute file path";
+        return false;
+    }
+    // Every segment is checked before anything is inserted, so a bad path
+    // leaves the table untouched.
+    std::vector<std::string> segments;
+    for (std::size_t pos = 1; pos <= absolute_path.size();) {
+        std::size_t end = absolute_path.find('/', pos);
+        if (end == std::string::npos) end = absolute_path.size();
+        segments.push_back(absolute_path.substr(pos, end - pos));
+        if (!valid_name(segments.back(), limits_.max_name)) {
+            error = "fst path '" + absolute_path + "' has an invalid name";
+            return false;
+        }
+        pos = end + 1;
+    }
+    std::uint32_t current = 0;
+    for (std::size_t i = 0; i < segments.size(); ++i) {
+        const std::string& segment = segments[i];
+        const bool last = i + 1 == segments.size();
+        std::vector<std::uint32_t> kids;
+        if (!children(current, kids)) {
+            error = "fst directory is corrupt";
+            return false;
+        }
+        std::uint32_t match = npos;
+        for (std::uint32_t k : kids) {
+            if (names_equal(entries_[k].name, segment, true)) {
+                match = k;
+                break;
+            }
+        }
+        if (last) {
+            if (match != npos) {
+                error = "fst path '" + absolute_path + "' already exists";
+                return false;
+            }
+            return add_file(current, segment, offset, size, index, error);
+        }
+        if (match == npos) {
+            if (!add_directory(current, segment, match, error)) return false;
+        } else if (!entries_[match].is_directory) {
+            error = "fst path '" + absolute_path + "' crosses a file";
+            return false;
+        }
+        current = match;
+    }
+    error = "fst path is empty";
+    return false;
+}
+
 }  // namespace riftwii

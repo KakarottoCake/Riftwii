@@ -71,6 +71,11 @@ public:
     // Appends an empty directory at the end of `directory`'s subtree.
     bool add_directory(std::uint32_t directory, const std::string& name, std::uint32_t& index,
                        std::string& error);
+    // Creates a file at an absolute path, adding the directories along the
+    // way that do not exist yet (existing ones match case-insensitively, as
+    // the SDK resolves paths). Fails when the path already exists.
+    bool create_file(const std::string& absolute_path, std::uint64_t offset, std::uint32_t size,
+                     std::uint32_t& index, std::string& error);
 
 private:
     bool insert_entry(std::uint32_t directory, FstEntry entry, std::uint32_t& index, std::string& error);

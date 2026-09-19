@@ -93,6 +93,13 @@ bool read_tmd(const ByteSource& disc, const PartitionHeader& partition, Tmd& out
 
 // `data` is the decrypted partition data view.
 bool read_partition_data_header(const ByteSource& data, PartitionDataHeader& out, std::string& error);
+// The four DOL/FST fields as the partition data header stores them at
+// kPartitionDataFieldsOffset (each >> 2, big-endian); `out` receives
+// kPartitionDataFieldsBytes. Fails when a value is not word-aligned or does
+// not fit, or the FST size exceeds its maximum.
+constexpr std::uint64_t kPartitionDataFieldsOffset = 0x420;
+constexpr std::size_t kPartitionDataFieldsBytes = 16;
+bool encode_partition_data_fields(const PartitionDataHeader& header, std::uint8_t* out, std::string& error);
 bool read_apploader_header(const ByteSource& data, ApploaderHeader& out, std::string& error);
 
 }  // namespace riftwii
