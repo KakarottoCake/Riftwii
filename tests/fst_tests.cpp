@@ -236,6 +236,44 @@ static void test_mutation() {
     EXPECT_EQ(path, std::string("/Stage/sub/more.bin"));
 }
 
+static void test_patch_image() {
+    // A disc FST with two bytes of padding after the string table (Mario
+    // Kart Wii's has them): serialize() cannot reproduce it, patch_image()
+    // keeps everything but the extents.
+    Bytes img = Fixture();
+    img.push_back(0);
+    img.push_back(0);
+    riftwii::Fst fst;
+    std::string err;
+    EXPECT_TRUE(riftwii::Fst::parse(img.data(), img.size(), true, fst, err));
+    EXPECT_TRUE(fst.set_file_extent(3, 0x200000000ull, 0x1234, err));  // word 0x80000000
+    Bytes patched = img;
+    EXPECT_TRUE(fst.patch_image(patched, err));
+    EXPECT_EQ(patched.size(), img.size());
+    for (std::size_t i = 0; i < img.size(); ++i) {
+        if (i >= 3 * 12 + 4 && i < 4 * 12) continue;
+        if (patched[i] != img[i]) {
+            EXPECT_TRUE(false);
+            break;
+        }
+    }
+    EXPECT_EQ(patched[3 * 12 + 4], 0x80);
+    EXPECT_EQ(patched[3 * 12 + 11], 0x34);
+    riftwii::Fst again;
+    EXPECT_TRUE(riftwii::Fst::parse(patched.data(), patched.size(), true, again, err));
+    EXPECT_EQ(again.entries()[3].offset, std::uint64_t(0x200000000ull));
+    EXPECT_EQ(again.entries()[3].size, std::uint32_t(0x1234));
+    EXPECT_EQ(again.entries()[1].offset, fst.entries()[1].offset);
+
+    // An image of another table is refused.
+    Bytes other = Fixture();
+    other[11] = 6;  // entry count 6: not this table
+    EXPECT_FALSE(fst.patch_image(other, err));
+    Bytes flipped = img;
+    flipped[3 * 12] = 1;  // entry 3 claims to be a directory
+    EXPECT_FALSE(fst.patch_image(flipped, err));
+}
+
 static void test_malformed() {
     std::string err;
     riftwii::Fst fst;
@@ -308,6 +346,7 @@ int main() {
     test_parse_and_lookup();
     test_round_trip();
     test_mutation();
+    test_patch_image();
     test_malformed();
     if (g_failures == 0) {
         std::cout << "ALL FST TESTS PASSED" << std::endl;

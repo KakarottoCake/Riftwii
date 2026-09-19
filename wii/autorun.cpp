@@ -84,6 +84,36 @@ bool LoadReplacement(const OpenedPartition& partition, const std::string& disc_p
     return true;
 }
 
+// Reads an SD file as the new content of an FST entry, whatever its size.
+bool LoadVirtualFile(const OpenedPartition& partition, const std::string& disc_path, const std::string& sd_path,
+                     VirtualFile& out, std::string& error) {
+    std::uint32_t index = partition.fst.find(disc_path, false);
+    if (index == Fst::npos) index = partition.fst.find(disc_path, true);
+    if (index == Fst::npos) {
+        error = "no such disc file '" + disc_path + "'";
+        return false;
+    }
+    const FstEntry& entry = partition.fst.entries()[index];
+    if (entry.is_directory) {
+        error = "'" + disc_path + "' is a directory";
+        return false;
+    }
+    if (!partition.fst.path_of(index, out.disc_path)) {
+        error = "cannot name '" + disc_path + "'";
+        return false;
+    }
+    std::ifstream file(sd_path, std::ios::binary);
+    if (!file) {
+        error = "cannot open " + sd_path;
+        return false;
+    }
+    out.bytes.assign(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
+    logf("Grow %s (%u bytes at 0x%llx) to %u bytes from %s\n", out.disc_path.c_str(), entry.size,
+         static_cast<unsigned long long>(entry.offset), static_cast<unsigned>(out.bytes.size()), sd_path.c_str());
+    error.clear();
+    return true;
+}
+
 }  // namespace
 
 bool AutorunPresent() {
@@ -123,6 +153,7 @@ void RunAutorun() {
     bool allow_fallback = true;
     bool install_resident = false;
     std::vector<MemReplacement> replacements;
+    std::vector<VirtualFile> virtual_files;
     std::string error;
     int line_number = 0;
     while (std::getline(script, line)) {
@@ -175,12 +206,27 @@ void RunAutorun() {
             } else if (error.empty()) {
                 error = "replace needs a disc path and an SD path";
             }
+        } else if (cmd == "grow") {
+            // E5: `grow <disc path> <sd path>`, any size; the file moves to
+            // the virtual window.
+            std::string disc_path, sd_path;
+            words >> disc_path >> sd_path;
+            VirtualFile v;
+            ok = !disc_path.empty() && !sd_path.empty() && s.ensure_layout(error) &&
+                 LoadVirtualFile(s.partition, disc_path, sd_path, v, error);
+            if (ok) {
+                virtual_files.push_back(std::move(v));
+                install_resident = true;
+            } else if (error.empty()) {
+                error = "grow needs a disc path and an SD path";
+            }
         } else if (cmd == "boot") {
             BootOptions options;
             options.allow_ios_fallback = allow_fallback;
             options.install_resident = install_resident;
             options.resident_gecko = install_resident;
             options.replacements = replacements;
+            options.virtual_files = virtual_files;
             if (!s.ensure_probe(error)) {
                 ok = false;
             } else {

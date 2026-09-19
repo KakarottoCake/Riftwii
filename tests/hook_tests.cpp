@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+#include "riftwii/fst.hpp"
 #include "riftwii/hook.hpp"
 #include "riftwii/symsearch.hpp"
 #include "rt_hook.h"
@@ -412,6 +413,127 @@ static void TestPayloadAndRedirect() {
     EXPECT_EQ(rt_on_ioctl_async(&ctx, args, &result), 0);
     EXPECT_EQ(args[6], 0x80005000u);
     EXPECT_EQ(ctx.pending_overflow, 1u);
+    for (auto& p : ctx.pending) p.in_use = 0;
+
+    // Virtual window: a read at word 0x80000000 of 0x40 bytes over a table
+    // that covers only the first 5 bytes there. The command block's offset
+    // is rewritten to 0 before the disc sees it; on completion the MEM run
+    // is copied and the rest of the buffer zeroed rather than left as the
+    // disc's bytes.
+    riftwii::MemReplacement v;
+    v.virtual_offset = riftwii::kVirtualWindowStart;
+    v.bytes = {9, 8, 7, 6, 5};
+    std::uint8_t* vtable = low + 0x4000;
+    const std::uint32_t vtable_address = static_cast<std::uint32_t>(reinterpret_cast<std::uintptr_t>(vtable));
+    EXPECT_TRUE(riftwii::build_mem_payload({v}, vtable_address, 0, payload, error));
+    std::memcpy(vtable, payload.data(), payload.size());
+    ctx.table = vtable_address;
+    ctx.virtual_start_words = 0x80000000u;
+    std::uint8_t* vout = low + 0x100;
+    std::memset(vout, 0xEE, 0x40);
+    std::uint32_t vcmd[8] = {0x71000000, 0x40, 0x80000000u, 0, 0, 0, 0, 0};
+    std::uintptr_t vargs[8] = {3, 0x71, reinterpret_cast<std::uintptr_t>(vcmd), 0x20,
+                               reinterpret_cast<std::uintptr_t>(vout), 0x40, 0x80005000, 0x80006000};
+    EXPECT_EQ(rt_on_ioctl_async(&ctx, vargs, &result), 0);
+    EXPECT_EQ(vcmd[2], 0u);  // the drive is asked for the partition start
+    EXPECT_EQ(ctx.virtual_reads, 1u);
+    rec = reinterpret_cast<rt_pending*>(vargs[7]);
+    EXPECT_EQ(rec->is_virtual, 1u);
+    EXPECT_EQ(rec->word_offset, 0x80000000u);  // the record keeps the virtual offset for the lookup
+    rt_on_di_complete(&ctx, 1, rec, &cb, &ud);
+    EXPECT_EQ(vout[0], 9);
+    EXPECT_EQ(vout[4], 5);
+    EXPECT_EQ(vout[5], 0);     // virtual gap: zero, not the disc's 0xEE
+    EXPECT_EQ(vout[0x3F], 0);
+    EXPECT_EQ(cb, 0x80005000u);
+
+    // Below the window a gap still means "the disc's bytes".
+    std::memset(vout, 0xEE, 0x40);
+    vcmd[2] = 0x3FC;
+    vargs[6] = 0x80005000;
+    vargs[7] = 0x80006000;
+    EXPECT_EQ(rt_on_ioctl_async(&ctx, vargs, &result), 0);
+    EXPECT_EQ(vcmd[2], 0x3FCu);
+    EXPECT_EQ(vargs[6], 0x80005000u);  // nothing of the table there: passed through
+}
+
+static void TestVirtualWindow() {
+    // A tiny Wii FST: root, dir "hbm", files "home.csv" (3610 bytes at 0x1000)
+    // and "config.txt" (35 bytes at 0x2000).
+    Bytes image;
+    auto put_entry = [&](std::uint8_t flags, std::uint32_t name_off, std::uint32_t a, std::uint32_t b) {
+        const std::size_t at = image.size();
+        image.resize(at + 12);
+        image[at] = flags;
+        image[at + 1] = static_cast<std::uint8_t>(name_off >> 16);
+        image[at + 2] = static_cast<std::uint8_t>(name_off >> 8);
+        image[at + 3] = static_cast<std::uint8_t>(name_off);
+        Put32(image, at + 4, a);
+        Put32(image, at + 8, b);
+    };
+    put_entry(1, 0, 0, 4);         // root: 4 entries
+    put_entry(1, 0, 0, 4);         // hbm/: parent 0, next 4
+    put_entry(0, 4, 0x1000 >> 2, 3610);   // home.csv
+    put_entry(0, 13, 0x2000 >> 2, 35);    // config.txt
+    const char names[] = "hbm\0home.csv\0config.txt\0";
+    image.insert(image.end(), names, names + sizeof(names) - 1);
+
+    riftwii::Fst fst;
+    std::string error;
+    EXPECT_TRUE(riftwii::Fst::parse(image.data(), image.size(), true, fst, error));
+
+    riftwii::VirtualFile grown;
+    grown.disc_path = "/hbm/home.csv";
+    grown.bytes.assign(5000, 0x42);
+    riftwii::VirtualFile tiny;
+    tiny.disc_path = "/hbm/config.txt";
+    tiny.bytes = {1, 2, 3};
+    std::vector<riftwii::MemReplacement> reps;
+    std::uint64_t end = 0;
+    EXPECT_TRUE(riftwii::plan_virtual_window(fst, {grown, tiny}, reps, end, error));
+    EXPECT_EQ(reps.size(), 2u);
+    EXPECT_EQ(reps[0].virtual_offset, riftwii::kVirtualWindowStart);
+    EXPECT_EQ(reps[0].bytes.size(), 5024u);  // padded to 32
+    EXPECT_EQ(reps[0].bytes[4999], 0x42);
+    EXPECT_EQ(reps[0].bytes[5000], 0);
+    EXPECT_EQ(reps[1].virtual_offset, riftwii::kVirtualWindowStart + 5024);
+    EXPECT_EQ(reps[1].bytes.size(), 32u);
+    EXPECT_EQ(end, riftwii::kVirtualWindowStart + 5056);
+    const std::uint32_t h = fst.find("/hbm/home.csv");
+    EXPECT_EQ(fst.entries()[h].offset, riftwii::kVirtualWindowStart);
+    EXPECT_EQ(fst.entries()[h].size, 5000u);
+    const std::uint32_t c = fst.find("/hbm/config.txt");
+    EXPECT_EQ(fst.entries()[c].size, 3u);
+
+    // The rewritten table serialises with the >> 2 encoding of an 8 GiB offset.
+    Bytes out;
+    EXPECT_TRUE(fst.serialize(out, error));
+    EXPECT_EQ(out.size(), image.size());
+    EXPECT_EQ(out[2 * 12 + 4], 0x80);  // word 0x80000000
+    EXPECT_EQ(out[2 * 12 + 5], 0x00);
+
+    // Unknown path / directory are refused; the table is left as it was.
+    riftwii::VirtualFile bad;
+    bad.disc_path = "/nope";
+    bad.bytes = {1};
+    EXPECT_FALSE(riftwii::plan_virtual_window(fst, {bad}, reps, end, error));
+    bad.disc_path = "/hbm";
+    EXPECT_FALSE(riftwii::plan_virtual_window(fst, {bad}, reps, end, error));
+
+    // The payload builder accepts window offsets and the walker resolves them.
+    std::vector<std::uint8_t> payload;
+    EXPECT_TRUE(riftwii::build_mem_payload(reps, 0x935C0000, 0, payload, error));
+    const auto* header = reinterpret_cast<const rt_header*>(payload.data());
+    EXPECT_EQ(rt_validate(header, payload.size()), RT_OK);
+    rt_run runs[4];
+    std::uint32_t n = 0;
+    EXPECT_EQ(rt_lookup(header, riftwii::kVirtualWindowStart + 5000, 64, runs, 4, &n), RT_OK);
+    EXPECT_EQ(n, 3u);  // 24 bytes of padding from the first entry, 32 from the second, then 8 in a gap
+    EXPECT_EQ(runs[0].kind, static_cast<std::uint32_t>(RT_KIND_MEM));
+    EXPECT_EQ(runs[0].length, 24ull);
+    EXPECT_EQ(runs[1].length, 32ull);
+    EXPECT_EQ(runs[2].kind, static_cast<std::uint32_t>(RT_KIND_PASSTHROUGH));
+    EXPECT_EQ(runs[2].length, 8ull);
 }
 
 int main() {
@@ -421,6 +543,7 @@ int main() {
     TestSymbolSearch();
     TestResidentHandler();
     TestPayloadAndRedirect();
+    TestVirtualWindow();
     if (g_failures) {
         std::cerr << g_failures << " failure(s)" << std::endl;
         return 1;

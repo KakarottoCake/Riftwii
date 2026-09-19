@@ -43,6 +43,11 @@ public:
     // (which is how the original tools lay it out, so an unmodified table
     // round-trips byte for byte when it was built that way).
     bool serialize(std::vector<std::uint8_t>& out, std::string& error) const;
+    // Writes this table's file extents (offset and size) over `image`, the
+    // FST image this table was parsed from, leaving its string table and any
+    // trailing padding as they are. Fails if the image's entry count or
+    // file/directory flags disagree with the table.
+    bool patch_image(std::vector<std::uint8_t>& image, std::string& error) const;
 
     bool wii_offsets() const { return wii_offsets_; }
     const std::vector<FstEntry>& entries() const { return entries_; }

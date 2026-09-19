@@ -20,6 +20,13 @@
  * usual; on its reply the completion entry rewrites the MEM/ZERO runs in
  * the game's buffer and then tail-calls the game's callback, so the DVD
  * driver always sees an ordinary asynchronous completion.
+ *
+ * Virtual window (E5+): files the loader resized or created live at
+ * partition offsets above any physical disc (word offsets from
+ * virtual_start_words). A read there is rewritten to fetch the same length
+ * from the partition start, so the drive never sees the virtual offset,
+ * and on completion every byte of the buffer is supplied from the table
+ * (gaps read as zero).
  */
 
 #include <stdint.h>
@@ -56,8 +63,9 @@ struct rt_pending {
     uint32_t user_data;    /* the game's user data */
     uint32_t out;          /* the game's destination buffer */
     uint32_t length;       /* bytes requested */
-    uint32_t word_offset;  /* disc offset in 4-byte words */
-    uint32_t reserved[2];
+    uint32_t word_offset;  /* disc offset in 4-byte words, as the game asked */
+    uint32_t is_virtual;   /* the offset lies in the virtual window: nothing came from the disc */
+    uint32_t reserved;
 };
 
 /* 224 bytes. */
@@ -83,7 +91,9 @@ struct rt_context {
     uint32_t run_overflow;        /* reads passed through because they split into > RT_MAX_RUNS */
     uint32_t last_checksum;       /* of the redirected bytes of the last completed read */
     uint32_t completions;         /* completion entry invocations */
-    uint32_t reserved[5];
+    uint32_t virtual_start_words; /* first word offset of the virtual window, 0 = none (loader-filled) */
+    uint32_t virtual_reads;       /* reads at or above it, answered without their offset reaching the drive */
+    uint32_t reserved[3];
     struct rt_pending pending[RT_MAX_PENDING];
 };
 

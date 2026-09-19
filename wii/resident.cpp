@@ -94,6 +94,7 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
     ctx->original_ioctl_async = symbols.ioctl_async;
     ctx->table = payload.empty() ? 0 : payload_address;
     ctx->complete_entry = place.base + blob.complete_di_offset;
+    ctx->virtual_start_words = payload.empty() ? 0 : options.virtual_start_words;
     store_words(place.base + blob.replay_ioctl_async_offset, displaced, 4);
     const auto resume = encode_absolute_jump(kContinueScratchRegister, symbols.ioctl_async + kHookStubBytes);
     store_words(place.base + blob.continue_ioctl_async_offset, resume.data(), 4);
@@ -115,8 +116,9 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
     logf("Resident: %u bytes at 0x%08x, MEM2 arena end 0x%08x -> 0x%08x, gecko %s\n", blob.size, place.base,
          arena_end, place.new_arena_end, options.gecko ? "on" : "off");
     if (!payload.empty()) {
-        logf("Resident: redirect table at 0x%08x, %u replacement(s), payload %u bytes\n", ctx->table,
-             static_cast<unsigned>(options.replacements.size()), static_cast<unsigned>(payload.size()));
+        logf("Resident: redirect table at 0x%08x, %u replacement(s), payload %u bytes, virtual window from word 0x%08x\n",
+             ctx->table, static_cast<unsigned>(options.replacements.size()), static_cast<unsigned>(payload.size()),
+             ctx->virtual_start_words);
     }
     error.clear();
     return true;

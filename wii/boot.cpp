@@ -14,6 +14,7 @@
 #include <sys/stat.h>
 #include <wiiuse/wpad.h>
 
+#include <algorithm>
 #include <cstdarg>
 #include <cstdio>
 #include <cstring>
@@ -426,9 +427,39 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, std:
     if (!open_game_partition(probe.partition, tmd, es_result, error)) return false;
     logf("Partition open again (ES result %d)\n", es_result);
 
+    // The partition's layout again, from the reloaded IOS's drive: the
+    // apploader header, the data header for the DOL, and the FST in case
+    // it has to be rewritten.
+    OpenedPartition layout;
+    if (!read_partition_layout(layout, error)) return false;
+    const ApploaderHeader& apploader = layout.apploader;
+
+    // E5: files with new sizes move into the virtual window. The FST the
+    // apploader loads is patched from `fst_override` while it goes by, and
+    // the same bytes are served from memory should the game read the FST
+    // again; the files themselves become MEM replacements in the window.
+    std::vector<MemReplacement> replacements = options.replacements;
+    std::vector<std::uint8_t> fst_override;
+    if (!options.virtual_files.empty()) {
+        if (!options.install_resident) {
+            error = "virtual files need the resident runtime";
+            return false;
+        }
+        Fst fst = layout.fst;
+        std::uint64_t window_end = 0;
+        if (!plan_virtual_window(fst, options.virtual_files, replacements, window_end, error)) return false;
+        fst_override = layout.fst_bytes;
+        if (!fst.patch_image(fst_override, error)) return false;
+        MemReplacement fst_copy;
+        fst_copy.virtual_offset = layout.data_header.fst_offset;
+        fst_copy.bytes = fst_override;
+        replacements.push_back(std::move(fst_copy));
+        logf("Virtual window: %u file(s) at 0x%llx-0x%llx, FST rewritten\n",
+             static_cast<unsigned>(options.virtual_files.size()), static_cast<unsigned long long>(kVirtualWindowStart),
+             static_cast<unsigned long long>(window_end));
+    }
+
     di::PartitionSource data;
-    ApploaderHeader apploader;
-    if (!read_apploader_header(data, apploader, error)) return false;
     const std::uint64_t app_bytes = apploader.total_size();
     std::uint8_t* app = reinterpret_cast<std::uint8_t*>(kApploaderLoadAddress);
     if (!data.read(apploader.code_offset, app, static_cast<std::size_t>(app_bytes))) {
@@ -477,6 +508,22 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, std:
             if (!ok) error = "unaligned apploader read failed";
         }
         if (!ok) return false;
+        if (!fst_override.empty()) {
+            // Whatever part of the FST this load covers comes from the
+            // rewritten copy instead.
+            const std::uint64_t load_start = std::uint64_t(woff) << 2;
+            const std::uint64_t load_end = load_start + len;
+            const std::uint64_t fst_start = layout.data_header.fst_offset;
+            const std::uint64_t fst_end = fst_start + fst_override.size();
+            const std::uint64_t from = std::max(load_start, fst_start);
+            const std::uint64_t to = std::min(load_end, fst_end);
+            if (from < to) {
+                std::memcpy(static_cast<std::uint8_t*>(destination) + (from - load_start),
+                            fst_override.data() + (from - fst_start), static_cast<std::size_t>(to - from));
+                logf("  FST bytes 0x%llx-0x%llx replaced with the rewritten table\n",
+                     static_cast<unsigned long long>(from - fst_start), static_cast<unsigned long long>(to - fst_start));
+            }
+        }
         DCFlushRange(destination, len);
         ICInvalidateRange(destination, len);
     }
@@ -491,10 +538,8 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, std:
     // IPC entry points before anything runs them.
     ResidentInstall resident;
     if (options.install_resident) {
-        PartitionDataHeader data_header;
-        if (!read_partition_data_header(data, data_header, error)) return false;
         std::uint8_t dol_bytes[kDolHeaderBytes];
-        if (!data.read(data_header.dol_offset, dol_bytes, sizeof(dol_bytes))) {
+        if (!data.read(layout.data_header.dol_offset, dol_bytes, sizeof(dol_bytes))) {
             error = "cannot read the DOL header";
             return false;
         }
@@ -502,8 +547,9 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, std:
         if (!parse_dol_header(dol_bytes, sizeof(dol_bytes), dol, error)) return false;
         ResidentOptions ro;
         ro.gecko = options.resident_gecko;
-        ro.replacements = options.replacements;
+        ro.replacements = std::move(replacements);
         ro.table_tag = static_cast<std::uint64_t>(probe.partition.offset);
+        ro.virtual_start_words = options.virtual_files.empty() ? 0 : static_cast<std::uint32_t>(kVirtualWindowStart >> 2);
         if (!install_resident(dol, ro, resident, error)) return false;
     }
     logf("Handing over\n");

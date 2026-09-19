@@ -21,6 +21,9 @@ struct ResidentOptions {
     // the bytes are laid out after the blob inside the reservation.
     std::vector<MemReplacement> replacements;
     std::uint64_t table_tag = 0;
+    // E5: first word offset of the virtual window, 0 = none. Reads at or
+    // above it never reach the drive with their offset.
+    std::uint32_t virtual_start_words = 0;
 };
 
 struct ResidentInstall {

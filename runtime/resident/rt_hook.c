@@ -158,10 +158,11 @@ int rt_on_ioctl_async(struct rt_context* ctx, uintptr_t* args, uint32_t* result)
             rt_gecko_putc(ctx, '\n');
         }
         if (ctx->table != 0) {
+            const int in_window = ctx->virtual_start_words != 0 && word_offset >= ctx->virtual_start_words;
             const int count = rt_split(ctx, word_offset, length, runs, &touched);
             if (count < 0) {
-                ctx->run_overflow++;
-            } else if (touched) {
+                ctx->run_overflow++; /* passes through; a virtual read then fails at the drive, honestly */
+            } else if (touched || in_window) {
                 struct rt_pending* rec = 0;
                 uint32_t i;
                 for (i = 0; i < RT_MAX_PENDING; ++i) {
@@ -179,6 +180,18 @@ int rt_on_ioctl_async(struct rt_context* ctx, uintptr_t* args, uint32_t* result)
                     rec->out = (uint32_t)args[4];
                     rec->length = length;
                     rec->word_offset = word_offset;
+                    rec->is_virtual = (uint32_t)in_window;
+                    if (in_window) {
+                        /* The drive must never see the virtual offset: fetch the
+                         * same length from the partition start instead (always
+                         * readable) and replace every byte on completion. The
+                         * command block is the game's; flush our change so the
+                         * DMA to IOS carries it whatever the SDK flushed before. */
+                        uint32_t* command = (uint32_t*)args[2];
+                        command[2] = 0;
+                        rt_flush_range((uintptr_t)command, 0x20);
+                        ctx->virtual_reads++;
+                    }
                     args[6] = (uintptr_t)ctx->complete_entry;
                     args[7] = (uintptr_t)rec;
                     ctx->redirected_reads++;
@@ -209,10 +222,10 @@ void rt_on_di_complete(struct rt_context* ctx, int32_t result, struct rt_pending
             uint32_t k;
             if (run->kind == RT_KIND_MEM) {
                 rt_copy(dst, (const uint8_t*)(uintptr_t)run->source, n);
-            } else if (run->kind == RT_KIND_ZERO) {
-                rt_zero(dst, n);
+            } else if (run->kind == RT_KIND_ZERO || (run->kind == RT_KIND_PASSTHROUGH && record->is_virtual)) {
+                rt_zero(dst, n); /* nothing on the disc belongs in a virtual gap */
             } else {
-                continue; /* PASSTHROUGH: the disc already filled it; SD/DISC: E4/E5 */
+                continue; /* PASSTHROUGH: the disc already filled it; SD/DISC: E4 */
             }
             rt_flush_range((uintptr_t)dst, n);
             for (k = 0; k < n; ++k) checksum = checksum * 31u + dst[k];

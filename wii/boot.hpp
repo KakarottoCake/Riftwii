@@ -68,6 +68,11 @@ struct BootOptions {
     // install_resident). Built by the caller from the FST while the SD card
     // is still mounted.
     std::vector<MemReplacement> replacements;
+    // E5: files the game sees with new content of any size. Their FST
+    // entries are moved into the virtual window (riftwii/hook.hpp) in the
+    // FST the apploader loads, and the runtime serves them from memory
+    // (requires install_resident).
+    std::vector<VirtualFile> virtual_files;
 };
 
 // Reloads IOS, runs the apploader and jumps to the game. Only returns on

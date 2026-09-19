@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <cstring>
 
+#include "riftwii/fst.hpp"
 #include "rt_hook.h"
 #include "rtable.h"
 
@@ -204,6 +205,43 @@ bool build_mem_payload(const std::vector<MemReplacement>& replacements, std::uin
         error = "built table failed validation: " + std::to_string(status);
         return false;
     }
+    error.clear();
+    return true;
+}
+
+bool plan_virtual_window(Fst& fst, const std::vector<VirtualFile>& files, std::vector<MemReplacement>& replacements,
+                         std::uint64_t& window_end, std::string& error) {
+    constexpr std::uint64_t kWindowEnd = 0x400000000ull;  // word 0x100000000: past the 32-bit word space
+    std::uint64_t next = kVirtualWindowStart;
+    for (const VirtualFile& f : files) {
+        const std::uint32_t index = fst.find(f.disc_path, false);
+        if (index == Fst::npos) {
+            error = "no such disc file '" + f.disc_path + "'";
+            return false;
+        }
+        if (fst.entries()[index].is_directory) {
+            error = "'" + f.disc_path + "' is a directory";
+            return false;
+        }
+        const std::uint64_t size = f.bytes.size();
+        const std::uint64_t padded = (size + 31) & ~std::uint64_t(31);
+        if (padded > 0xFFFFFFFFull) {  // the FST size field is 32 bits
+            error = "'" + f.disc_path + "' is too large for an FST entry";
+            return false;
+        }
+        if (padded == 0 || next + padded > kWindowEnd) {
+            error = "virtual window is full";
+            return false;
+        }
+        if (!fst.set_file_extent(index, next, static_cast<std::uint32_t>(size), error)) return false;
+        MemReplacement r;
+        r.virtual_offset = next;
+        r.bytes = f.bytes;
+        r.bytes.resize(static_cast<std::size_t>(padded), 0);
+        replacements.push_back(std::move(r));
+        next += padded;
+    }
+    window_end = next;
     error.clear();
     return true;
 }

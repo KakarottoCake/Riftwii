@@ -289,6 +289,36 @@ bool Fst::path_of(std::uint32_t index, std::string& out) const {
     return true;
 }
 
+bool Fst::patch_image(std::vector<std::uint8_t>& image, std::string& error) const {
+    if (entries_.empty() || image.size() < entries_.size() * kEntryBytes || be32(image.data() + 8) != entries_.size()) {
+        error = "fst image does not match the table";
+        return false;
+    }
+    for (std::size_t i = 0; i < entries_.size(); ++i) {
+        std::uint8_t* e = image.data() + i * kEntryBytes;
+        if ((e[0] == 1) != entries_[i].is_directory) {
+            error = "fst image entry " + std::to_string(i) + " does not match the table";
+            return false;
+        }
+        if (entries_[i].is_directory) continue;
+        std::uint32_t encoded = 0;
+        if (!encode_offset(wii_offsets_, entries_[i].offset, encoded)) {
+            error = "fst entry " + std::to_string(i) + " offset cannot be encoded";
+            return false;
+        }
+        e[4] = static_cast<std::uint8_t>(encoded >> 24);
+        e[5] = static_cast<std::uint8_t>(encoded >> 16);
+        e[6] = static_cast<std::uint8_t>(encoded >> 8);
+        e[7] = static_cast<std::uint8_t>(encoded);
+        e[8] = static_cast<std::uint8_t>(entries_[i].size >> 24);
+        e[9] = static_cast<std::uint8_t>(entries_[i].size >> 16);
+        e[10] = static_cast<std::uint8_t>(entries_[i].size >> 8);
+        e[11] = static_cast<std::uint8_t>(entries_[i].size);
+    }
+    error.clear();
+    return true;
+}
+
 bool Fst::set_file_extent(std::uint32_t index, std::uint64_t offset, std::uint32_t size, std::string& error) {
     if (index >= entries_.size() || entries_[index].is_directory) {
         error = "fst index is not a file";

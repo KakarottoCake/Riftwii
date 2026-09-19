@@ -41,6 +41,25 @@ struct MemReplacement {
 bool build_mem_payload(const std::vector<MemReplacement>& replacements, std::uint32_t payload_address,
                        std::uint64_t tag, std::vector<std::uint8_t>& payload, std::string& error);
 
+// A file whose content the game must see with a new size (grown, shrunk
+// or created). It is relocated to the virtual window: partition offsets
+// above any physical disc (word offsets from 0x80000000, i.e. 8 GiB), which
+// the runtime serves entirely from the redirect table.
+struct VirtualFile {
+    std::string disc_path;             // absolute FST path of an existing file
+    std::vector<std::uint8_t> bytes;   // new content, any size
+};
+constexpr std::uint64_t kVirtualWindowStart = 0x200000000ull;  // byte offset; word 0x80000000
+
+// Assigns each virtual file a 32-byte aligned slot in the window, rewrites
+// the FST entries (offset and size) and appends the corresponding MEM
+// replacements, padded with zeros to a 32-byte multiple so a read rounded
+// up by the DVD driver never leaves the table. Fails on unknown paths,
+// directories, or a window that would leave the 32-bit word space.
+bool plan_virtual_window(class Fst& fst, const std::vector<VirtualFile>& files,
+                         std::vector<MemReplacement>& replacements, std::uint64_t& window_end,
+                         std::string& error);
+
 // lis/ori/mtctr/bctr through `reg` (0-31): an absolute jump in four words.
 std::array<std::uint32_t, 4> encode_absolute_jump(unsigned reg, std::uint32_t target);
 constexpr std::size_t kHookStubBytes = 16;
