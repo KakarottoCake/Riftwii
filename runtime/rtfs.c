@@ -3,7 +3,7 @@
 
 #define RTFS_MODE_READ 0x01u
 #define RTFS_MODE_WRITE 0x02u
-enum { PATH_OUTSIDE, PATH_DIR, PATH_FILE, PATH_BAD };
+enum { PATH_OUTSIDE = RTFS_PATH_OUTSIDE, PATH_DIR = RTFS_PATH_DIR, PATH_FILE = RTFS_PATH_FILE, PATH_BAD = RTFS_PATH_BAD };
 
 static void zero_bytes(uint8_t* p, uint32_t n) { while (n--) *p++ = 0; }
 
@@ -133,6 +133,10 @@ int rtfs_init(struct rtfs_context* ctx, const struct rtfat_volume* volume, const
     for (i = 0; i <= n; ++i) ctx->data_prefix[i] = data_prefix[i];
     for (i = 0; i < RTFS_MAX_FDS; ++i) ctx->files[i].generation = 1;
     return RTFAT_OK;
+}
+
+int rtfs_path_type(const struct rtfs_context* ctx, const char* path, char* name) {
+    return ctx == 0 ? PATH_OUTSIDE : path_type(ctx, path, name);
 }
 
 int rtfs_is_fs_device(const char* path) {
@@ -274,7 +278,6 @@ static void begin_ioctl(struct rtfs_context* ctx, struct rtfs_request* r, const 
 static void begin_ioctlv(struct rtfs_context* ctx, struct rtfs_request* r, const struct rtfs_ipc* ipc) {
     struct rtfs_iovec* v;
     const uint32_t code = ipc->args.ioctlv.request;
-    char name[RTFAT_NAME_MAX + 1];
     int p;
     if (fake_namespace(ipc->fd)) { finish(ctx, r, RTFAT_EINVAL); return; }
     if (!on_fs_device(ctx, ipc->fd)) return;
@@ -285,8 +288,14 @@ static void begin_ioctlv(struct rtfs_context* ctx, struct rtfs_request* r, const
         if ((ipc->args.ioctlv.in_count != 1u || ipc->args.ioctlv.out_count != 1u) &&
             (ipc->args.ioctlv.in_count != 2u || ipc->args.ioctlv.out_count != 2u)) return;
         if (v[0].data == 0 || v[0].len < RTFS_PATH_BYTES) return;
-        p = path_type(ctx, (const char*)(uintptr_t)v[0].data, name);
+        p = path_type(ctx, (const char*)(uintptr_t)v[0].data, r->fat.name);
         if (p == PATH_OUTSIDE) return;
+        if (p == PATH_FILE) {
+            /* The SDK asks "does it exist, and is it a directory?" this
+             * way: IOS answers -101 for a file, -106 for nothing there. */
+            if (busy(ctx, r)) { finish(ctx, r, RTFAT_EACCESS); return; }
+            start_fat(ctx, r, RTFAT_OP_LOOKUP, RTFS_ACTION_ISDIR); return;
+        }
         if (p != PATH_DIR) { finish(ctx, r, RTFAT_EINVAL); return; }
         if (v[1].data == 0 || v[1].len < 4u) { finish(ctx, r, RTFAT_EINVAL); return; }
         if (busy(ctx, r)) { finish(ctx, r, RTFAT_EACCESS); return; }
@@ -301,8 +310,12 @@ static void begin_ioctlv(struct rtfs_context* ctx, struct rtfs_request* r, const
     }
     if (code == RTFS_IOCTL_GETUSAGE) {
         if (ipc->args.ioctlv.in_count != 1u || ipc->args.ioctlv.out_count != 2u || v[0].data == 0 || v[0].len < RTFS_PATH_BYTES) return;
-        p = path_type(ctx, (const char*)(uintptr_t)v[0].data, name);
+        p = path_type(ctx, (const char*)(uintptr_t)v[0].data, r->fat.name);
         if (p == PATH_OUTSIDE) return;
+        if (p == PATH_FILE) {
+            if (busy(ctx, r)) { finish(ctx, r, RTFAT_EACCESS); return; }
+            start_fat(ctx, r, RTFAT_OP_LOOKUP, RTFS_ACTION_ISDIR); return;
+        }
         if (p != PATH_DIR) { finish(ctx, r, RTFAT_EINVAL); return; }
         if (v[1].data == 0 || v[1].len < 4u || v[2].data == 0 || v[2].len < 4u) { finish(ctx, r, RTFAT_EINVAL); return; }
         if (busy(ctx, r)) { finish(ctx, r, RTFAT_EACCESS); return; }
@@ -346,12 +359,28 @@ int rtfs_step(struct rtfs_context* ctx, struct rtfs_request* r) {
             f->fat.cache_index = 0; f->fat.cache_cluster = 0;
             finish(ctx, r, make_fd(f, r->slot)); return RTFAT_DONE;
         }
+        if (r->action == RTFS_ACTION_ISDIR) { finish(ctx, r, RTFAT_EINVAL); return RTFAT_DONE; }  /* a file, not a directory */
+        if (r->action == RTFS_ACTION_RENAME_REPLACE) {
+            /* The destination is gone: the rename itself now. */
+            copy_name(r->fat.name, r->saved_name);
+            r->action = RTFS_ACTION_RENAME;
+            rtfat_begin(&r->fat, RTFAT_OP_RENAME);
+            return rtfs_step(ctx, r);
+        }
         if (r->action == RTFS_ACTION_ATTR) put_attr(r->out0);
         else if (r->action == RTFS_ACTION_LIST) *(uint32_t*)(uintptr_t)r->out0 = (uint32_t)r->fat.result;
         else if (r->action == RTFS_ACTION_USAGE) {
             *(uint32_t*)(uintptr_t)r->out0 = r->fat.usage_blocks;
             *(uint32_t*)(uintptr_t)r->out1 = (uint32_t)r->fat.result;
         }
+    }
+    if (r->action == RTFS_ACTION_RENAME && r->fat.result == RTFAT_EEXIST) {
+        /* IOS replaces an existing destination: delete it, then rename. */
+        copy_name(r->saved_name, r->fat.name);
+        copy_name(r->fat.name, r->fat.name2);
+        r->action = RTFS_ACTION_RENAME_REPLACE;
+        rtfat_begin(&r->fat, RTFAT_OP_DELETE);
+        return rtfs_step(ctx, r);
     }
     if ((r->action == RTFS_ACTION_LIST || r->action == RTFS_ACTION_USAGE) && r->fat.result >= RTFAT_OK) finish(ctx, r, RTFAT_OK);
     else finish(ctx, r, r->fat.result);

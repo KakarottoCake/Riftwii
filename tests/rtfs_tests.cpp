@@ -284,6 +284,41 @@ void TestStatsRenameDeleteAndFailure(Low& low) {
     EXPECT_EQ(Run(fx, low, rename), RTFAT_OK);
     rtfs_ipc del{}; del.command = RTFS_CMD_IOCTL; del.fd = 21; del.args.ioctl.request = RTFS_IOCTL_DELETE; del.args.ioctl.in = Addr(low.data + RTFS_PATH_BYTES); del.args.ioctl.in_len = RTFS_PATH_BYTES;
     EXPECT_EQ(Run(fx, low, del), RTFAT_OK);
+    // Renaming onto an existing file replaces it, as IOS does: banner.bin
+    // (1061 bytes) becomes other.dat; the old other.dat is gone.
+    {
+        std::memset(low.attr, 0, sizeof(*low.attr));
+        CopyPath(reinterpret_cast<std::uint8_t*>(low.attr->filepath), fx.prefix + "/other.dat");
+        rtfs_ipc create{}; create.command = RTFS_CMD_IOCTL; create.fd = 21; create.args.ioctl.request = RTFS_IOCTL_CREATEFILE;
+        create.args.ioctl.in = Addr(low.attr); create.args.ioctl.in_len = sizeof(*low.attr);
+        EXPECT_EQ(Run(fx, low, create), RTFAT_OK);
+        CopyPath(low.data, fx.prefix + "/banner.bin"); CopyPath(low.data + RTFS_PATH_BYTES, fx.prefix + "/other.dat");
+        EXPECT_EQ(Run(fx, low, rename), RTFAT_OK);
+        CopyPath(low.data, fx.prefix + "/other.dat");
+        const int moved = Run(fx, low, Open(Addr(low.data), 1));
+        EXPECT_TRUE(moved >= static_cast<int>(RTFS_FD_BASE));
+        auto* size = reinterpret_cast<std::uint32_t*>(low.data + 128);
+        rtfs_ipc st{}; st.command = RTFS_CMD_IOCTL; st.fd = moved; st.args.ioctl.request = RTFS_IOCTL_GETFILESTATS; st.args.ioctl.out = Addr(size); st.args.ioctl.out_len = 8;
+        EXPECT_EQ(Run(fx, low, st), RTFAT_OK); EXPECT_EQ(size[0], 1061u);
+        rtfs_ipc close{}; close.command = RTFS_CMD_CLOSE; close.fd = moved;
+        EXPECT_EQ(Run(fx, low, close), RTFAT_OK);
+        CopyPath(low.data, fx.prefix + "/banner.bin");
+        EXPECT_EQ(Run(fx, low, Open(Addr(low.data), 1)), RTFAT_ENOENT);
+        EXPECT_EQ(fx.fs.busy, 0u);
+        // Put banner.bin back for the failure case below.
+        CopyPath(low.data, fx.prefix + "/other.dat"); CopyPath(low.data + RTFS_PATH_BYTES, fx.prefix + "/banner.bin");
+        EXPECT_EQ(Run(fx, low, rename), RTFAT_OK);
+    }
+    // The public classifier.
+    {
+        char name[RTFAT_NAME_MAX + 1];
+        EXPECT_EQ(rtfs_path_type(&fx.fs, "/tmp/banner.bin", name), RTFS_PATH_OUTSIDE);
+        EXPECT_EQ(rtfs_path_type(&fx.fs, fx.prefix.c_str(), name), RTFS_PATH_DIR);
+        EXPECT_EQ(rtfs_path_type(&fx.fs, (fx.prefix + "/rksys.dat").c_str(), name), RTFS_PATH_FILE);
+        EXPECT_TRUE(std::string(name) == "rksys.dat");
+        EXPECT_EQ(rtfs_path_type(&fx.fs, (fx.prefix + "/a/b").c_str(), name), RTFS_PATH_BAD);
+        EXPECT_EQ(rtfs_path_type(nullptr, "/x", name), RTFS_PATH_OUTSIDE);
+    }
     CopyPath(low.data, fx.prefix + "/banner.bin");
     fx.dev.fail_at = fx.dev.transfers + 1;
     EXPECT_EQ(Run(fx, low, Open(Addr(low.data), 1)), RTFAT_EIO);
@@ -418,10 +453,28 @@ void TestProbeAndFsFd(Low& low) {
     recv.args.ioctlv.request = RTFS_IOCTL_GETUSAGE; recv.args.ioctlv.in_count = 3; recv.args.ioctlv.vectors = Addr(low.vec);
     rtfs_begin(&fx.fs, low.request, &recv);
     EXPECT_EQ(low.request->classification, RTFS_PASS_THROUGH);
+    // ReadDir and GetUsage on a file name (the SDK's existence probe): -101
+    // for a file that exists, -106 for none, from a lookup.
+    CopyPath(low.data, fx.prefix + "/banner.bin");
+    low.vec[0] = {Addr(low.data), RTFS_PATH_BYTES}; low.vec[1] = {Addr(word), 4}; low.vec[2] = {Addr(word + 1), 4};
+    recv.args.ioctlv.request = RTFS_IOCTL_READDIR; recv.args.ioctlv.in_count = 1; recv.args.ioctlv.out_count = 1;
+    {
+        const std::uint32_t before = fx.dev.transfers;
+        EXPECT_EQ(Run(fx, low, recv), RTFAT_EINVAL);
+        EXPECT_TRUE(fx.dev.transfers > before);
+    }
+    recv.args.ioctlv.request = RTFS_IOCTL_GETUSAGE; recv.args.ioctlv.out_count = 2;
+    EXPECT_EQ(Run(fx, low, recv), RTFAT_EINVAL);
+    CopyPath(low.data, fx.prefix + "/rksys.dat");
+    EXPECT_EQ(Run(fx, low, recv), RTFAT_ENOENT);
+    recv.args.ioctlv.request = RTFS_IOCTL_READDIR; recv.args.ioctlv.out_count = 1;
+    EXPECT_EQ(Run(fx, low, recv), RTFAT_ENOENT);
+    EXPECT_EQ(fx.fs.busy, 0u);
+
     // But once the path is ours, the rest of the arguments are checked.
     CopyPath(low.data, fx.prefix);
     low.vec[0] = {Addr(low.data), RTFS_PATH_BYTES}; low.vec[1] = {0, 0}; low.vec[2] = {0, 0};
-    recv.args.ioctlv.in_count = 1; recv.args.ioctlv.out_count = 2;
+    recv.args.ioctlv.request = RTFS_IOCTL_GETUSAGE; recv.args.ioctlv.in_count = 1; recv.args.ioctlv.out_count = 2;
     EXPECT_EQ(Run(fx, low, recv), RTFAT_EINVAL);
     recv.args.ioctlv.request = RTFS_IOCTL_READDIR; recv.args.ioctlv.out_count = 1;
     EXPECT_EQ(Run(fx, low, recv), RTFAT_EINVAL);

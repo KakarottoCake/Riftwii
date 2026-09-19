@@ -3,15 +3,23 @@
 
 #include <cstdarg>
 #include <cstdio>
+#include <string>
 
 namespace riftwii::wii {
 namespace {
 FILE* g_file = nullptr;
+std::string g_path;
 }
 
 void LogOpen(const char* sd_path, bool append) {
     LogClose();
+    g_path = sd_path;
     g_file = std::fopen(sd_path, append ? "a" : "w");
+}
+
+void LogReopen() {
+    if (g_file || g_path.empty()) return;
+    g_file = std::fopen(g_path.c_str(), "a");
 }
 
 void LogClose() {

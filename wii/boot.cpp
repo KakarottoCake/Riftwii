@@ -26,6 +26,7 @@
 #include "log.hpp"
 #include "riftwii/mempatch.hpp"
 #include "resident.hpp"
+#include "sdfile.hpp"
 #include "sdio.hpp"
 
 namespace riftwii::wii {
@@ -433,8 +434,8 @@ namespace {
 
 // The part of the boot that runs after the SD card and the log are gone.
 // Returns only on failure.
-bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, std::uint32_t required,
-                        std::string& error) {
+bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, const SavegameOptions& savegame,
+                        std::uint32_t required, std::string& error) {
     bool force_ios_fields = false;
     switch (reload_ios(static_cast<int>(required), error)) {
     case ReloadResult::Ok:
@@ -669,9 +670,9 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, std:
     // E4: the SD card again, with our own fd this time, left open and
     // selected for the runtime.
     sdio::Card card;
-    if (pieces.needs_sd()) {
+    if (pieces.needs_sd() || savegame.enabled) {
         if (!options.install_resident) {
-            error = "SD-backed replacements need the resident runtime";
+            error = "SD-backed replacements and savegame redirection need the resident runtime";
             return false;
         }
         if (!sdio::open_card(card, error)) return false;
@@ -701,6 +702,7 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, std:
         ro.virtual_start_words = relocates ? static_cast<std::uint32_t>(kVirtualWindowStart >> 2) : 0;
         ro.sdio_fd = card.fd;
         ro.sdio_sdhc = card.sdhc;
+        ro.savegame = savegame;
         // The code goes above this loader (which ends at arena 1's top) and
         // the apploader image, both still in use until the game starts.
         ro.mem1_floor = std::max(reinterpret_cast<std::uint32_t>(SYS_GetArena1Hi()),
@@ -800,6 +802,44 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, std:
 
 }  // namespace
 
+// The savegame folder: created when missing, then located on the card
+// for the runtime's FAT engine. libfat writes back lazily, so the card is
+// unmounted (which flushes) and mounted again before the raw reads, the
+// log closed and reopened around that.
+bool prepare_savegame(const DiscProbe& probe, const BootOptions& options, SavegameOptions& out, std::string& error) {
+    if (!options.install_resident) {
+        error = "savegame redirection needs the resident runtime";
+        return false;
+    }
+    // The data directory is named after the title id in the TMD, both
+    // halves: disc titles are type 00010000, but one with a channel (Mario
+    // Kart Wii, 00010004-524d4345) keeps its save under that type.
+    if (probe.tmd.title_id == 0) {
+        error = "savegame redirection: the TMD has no title id";
+        return false;
+    }
+    char prefix[64];
+    std::snprintf(prefix, sizeof(prefix), "/title/%08x/%08x/data",
+                  static_cast<unsigned>(probe.tmd.title_id >> 32), static_cast<unsigned>(probe.tmd.title_id & 0xFFFFFFFFu));
+    if (!make_directories(options.savegame_dir + "/.")) {
+        error = "cannot create the save folder " + options.savegame_dir;
+        return false;
+    }
+    LogClose();
+    fatUnmount("sd:");
+    const bool mounted = fatMountSimple("sd", &__io_wiisd);
+    LogReopen();
+    if (!mounted) {
+        error = "cannot mount the SD card again after creating the save folder";
+        return false;
+    }
+    if (!resolve_sd_directory(options.savegame_dir, out.volume, error)) return false;
+    out.prefix = prefix;
+    out.enabled = true;
+    logf("Savegame: %s served from %s\n", prefix, options.savegame_dir.c_str());
+    return true;
+}
+
 bool boot_game(const DiscProbe& probe, const BootOptions& options, std::string& error) {
     const std::uint32_t required = probe.tmd.required_ios();
     if (required == 0) {
@@ -807,6 +847,8 @@ bool boot_game(const DiscProbe& probe, const BootOptions& options, std::string& 
         return false;
     }
     logf("Booting %s with IOS%u\n", probe.header.game_id.c_str(), required);
+    SavegameOptions savegame;
+    if (!options.savegame_dir.empty() && !prepare_savegame(probe, options, savegame, error)) return false;
 
     // Everything IOS holds for us dies with the reload: the Wii Remote
     // stack (which also saves its pairings to NAND on shutdown, so it must
@@ -819,7 +861,7 @@ bool boot_game(const DiscProbe& probe, const BootOptions& options, std::string& 
     fatUnmount("sd:");
     __io_wiisd.shutdown();
 
-    boot_after_unmount(probe, options, required, error);  // returns only on failure
+    boot_after_unmount(probe, options, savegame, required, error);  // returns only on failure
     logf("Boot failed: %s\n", error.c_str());
     fatInitDefault();  // give the caller its card back so it can log this
     return false;

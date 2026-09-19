@@ -231,11 +231,12 @@ bool BootCompiled(const CompiledMod& mod, std::string& error) {
     if (!s.ensure_probe(error)) return false;
     BootOptions options;
     options.allow_ios_fallback = true;
-    options.install_resident = !mod.entries.empty() || !mod.relocations.empty();
+    options.install_resident = !mod.entries.empty() || !mod.relocations.empty() || !mod.savegame_dir.empty();
     options.resident_gecko = false;
     options.table_entries = mod.entries;
     options.relocations = mod.relocations;
     options.memory_patches = mod.memory;
+    options.savegame_dir = mod.savegame_dir;
     return boot_game(s.probe, options, error);
 }
 
@@ -279,10 +280,11 @@ void RunAutorun() {
         if (!s.ensure_layout(err) || !compile_packages(packages, s.probe, s.partition, mod, err)) return false;
         for (const std::string& w : mod.warnings) logf("  warning: %s\n", w.c_str());
         for (const std::string& n : mod.notes) logf("  %s\n", n.c_str());
-        logf("  %u package(s): %u table entries, %u relocation(s), %u memory patch(es)\n",
+        logf("  %u package(s): %u table entries, %u relocation(s), %u memory patch(es)%s%s\n",
              static_cast<unsigned>(packages.size()), static_cast<unsigned>(mod.entries.size()),
-             static_cast<unsigned>(mod.relocations.size()), static_cast<unsigned>(mod.memory.size()));
-        if (!mod.entries.empty() || !mod.relocations.empty()) install_resident = true;
+             static_cast<unsigned>(mod.relocations.size()), static_cast<unsigned>(mod.memory.size()),
+             mod.savegame_dir.empty() ? "" : ", savegame in ", mod.savegame_dir.c_str());
+        if (!mod.entries.empty() || !mod.relocations.empty() || !mod.savegame_dir.empty()) install_resident = true;
         mods = std::move(mod);
         return true;
     };
@@ -482,6 +484,7 @@ void RunAutorun() {
             options.table_entries = mods.entries;
             options.relocations = mods.relocations;
             options.memory_patches = mods.memory;
+            options.savegame_dir = mods.savegame_dir;
             if (!s.ensure_probe(error)) {
                 ok = false;
             } else {

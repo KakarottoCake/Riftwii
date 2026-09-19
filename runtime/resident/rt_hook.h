@@ -180,11 +180,21 @@ typedef void (*rt_game_callback_fn)(int32_t result, uint32_t user_data);
  * the game's thread with interrupts on, bounded by the time base. Claims
  * of the engine run with interrupts off: the game's own IPC callbacks may
  * issue async calls, so hooks run in both contexts.
+ *
+ * A rename from outside the directory into it (the SDK's safe write: a
+ * file written under /tmp, then moved; Mario Kart Wii's banner.bin and
+ * rksys.dat) imports the file: read from NAND through the game's own
+ * synchronous functions in RT_FS_IMPORT_BYTES pieces, written into the
+ * card, deleted from NAND. That runs on the game's thread: from the sync
+ * hook, or from the async hook when it was called with interrupts on
+ * (a thread); from an IPC callback it is refused with -102. A rename out
+ * of the directory is refused with -102.
  */
 #define RT_FS_SNOOPS 2u
 #define RT_FS_DELIVERS 4u
 #define RT_FS_QUEUE 4u
 #define RT_FS_BOUNCE_BYTES 0x8000u    /* one transfer moves up to 64 sectors */
+#define RT_FS_IMPORT_BYTES 0x8000u    /* one NAND read of an imported file */
 #define RT_FS_OP_FILE 1u
 #define RT_FS_OP_SNOOP 2u
 #define RT_FS_OP_DELIVER 3u
@@ -217,10 +227,14 @@ struct rt_fs_state {
     struct rtfs_context fs;
     struct rtfs_request req;       /* the one request in flight */
     struct rtfs_request probe;     /* classification scratch (rtfs_probe) */
-    /* Loader-filled. */
+    /* Loader-filled: the game's synchronous functions (their replay
+     * slots when hooked), 0 = unknown. */
     uint32_t complete_fs;          /* rt_complete_fs entry address */
-    uint32_t open_sync;            /* the game's synchronous IOS_Open (its replay slot when hooked), 0 = unknown */
-    uint32_t ioctlv_sync;          /* the game's synchronous IOS_Ioctlv (its replay slot), 0 = no sync transfers */
+    uint32_t open_sync;            /* IOS_Open: /dev/fs call-through, imports */
+    uint32_t ioctlv_sync;          /* IOS_Ioctlv: the sync path's transfers */
+    uint32_t close_sync;           /* IOS_Close, IOS_Read, IOS_Ioctl: imports */
+    uint32_t read_sync;
+    uint32_t ioctl_sync;
     /* State and counters. */
     uint32_t dead;                 /* an engine anomaly left the card image uncertain: everything answers -114 */
     uint32_t queue_head;
@@ -233,7 +247,10 @@ struct rt_fs_state {
     uint32_t waits;                /* sync arrivals that waited */
     uint32_t wait_timeouts;        /* of those, answered -114 after RT_FS_WAIT_TICKS */
     uint32_t fs_fd_learned;        /* /dev/fs fds learned (snoop or sync call-through) */
-    uint32_t reserved[2];
+    uint32_t imports;              /* renames into the directory served by importing the file */
+    uint32_t import_failures;      /* of those, failed (the destination is then absent) */
+    uint32_t import_refused;       /* renames across the boundary refused with -102 */
+    uint32_t reserved[3];
     struct rt_fs_pend pend;
     struct rt_fs_pend snoop[RT_FS_SNOOPS];
     struct rt_fs_pend deliver[RT_FS_DELIVERS];
@@ -243,7 +260,10 @@ struct rt_fs_state {
     uint32_t response[8] __attribute__((aligned(32)));
     struct rt_ioctlv vec[3] __attribute__((aligned(32)));
     uint32_t pad_vec[2];
+    uint32_t stats[8] __attribute__((aligned(32)));      /* an import's GetFileStats answer */
+    struct rtfs_attr_block attr __attribute__((aligned(32)));  /* an import's CreateFile block */
     uint8_t bounce[RT_FS_BOUNCE_BYTES] __attribute__((aligned(32)));
+    uint8_t import[RT_FS_IMPORT_BYTES] __attribute__((aligned(32)));
 };
 
 /* 2048 bytes. */
@@ -357,6 +377,11 @@ extern int32_t (*rt_host_fs_issue)(uint32_t lba, uint32_t count, uint32_t buffer
 extern int32_t (*rt_host_fs_defer)(void* tag);
 extern void (*rt_host_fs_wait)(struct rt_context* ctx);
 extern int32_t (*rt_host_fs_open_sync)(const char* path, uint32_t mode);
+extern int32_t (*rt_host_fs_close_sync)(int32_t fd);
+extern int32_t (*rt_host_fs_read_sync)(int32_t fd, uint32_t buffer, uint32_t length);
+extern int32_t (*rt_host_fs_ioctl_sync)(int32_t fd, uint32_t request, uint32_t in, uint32_t in_len, uint32_t out,
+                                         uint32_t out_len);
+extern int rt_host_fs_in_thread; /* 1: hooks run as on a thread (interrupts on); 0: as from an IPC callback */
 extern void (*rt_host_game_callback)(uint32_t cb, int32_t result, uint32_t user_data);
 #endif
 

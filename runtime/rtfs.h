@@ -122,6 +122,14 @@ struct rtfs_context {
 #define RTFS_ACTION_SETATTR 8u
 #define RTFS_ACTION_LIST 9u
 #define RTFS_ACTION_USAGE 10u
+#define RTFS_ACTION_ISDIR 11u  /* ReadDir/GetUsage on a file name: -101 when it exists, -106 when not */
+#define RTFS_ACTION_RENAME_REPLACE 12u  /* the rename's destination existed: deleting it, then renaming */
+
+/* What a path is to the redirected directory (rtfs_path_type). */
+#define RTFS_PATH_OUTSIDE 0
+#define RTFS_PATH_DIR 1      /* the directory itself */
+#define RTFS_PATH_FILE 2     /* one valid name inside it (copied to `name`) */
+#define RTFS_PATH_BAD 3      /* inside, but not a valid name (a subdirectory, too long, bad characters) */
 
 struct rtfs_request {
     uint32_t classification;
@@ -134,6 +142,7 @@ struct rtfs_request {
     uint32_t slot;
     uint32_t out0;
     uint32_t out1;
+    char saved_name[RTFAT_NAME_MAX + 1];  /* RENAME_REPLACE: the source name while the destination is deleted */
     struct rtfat_op fat;
 };
 
@@ -141,6 +150,11 @@ struct rtfs_request {
  * success, RTFAT_EINVAL for an unterminated/invalid prefix.  `fs_fd` is
  * the game's /dev/fs fd when known, else negative (rtfs_learn_fs_fd). */
 int rtfs_init(struct rtfs_context* ctx, const struct rtfat_volume* volume, const char* data_prefix, int32_t fs_fd);
+
+/* Classifies a game path (NUL-terminated within RTFS_PATH_BYTES) against
+ * the redirected directory: RTFS_PATH_*; `name` (RTFAT_NAME_MAX + 1 bytes)
+ * receives the file name for RTFS_PATH_FILE. */
+int rtfs_path_type(const struct rtfs_context* ctx, const char* path, char* name);
 
 /* Tells whether `path` (NUL-terminated within RTFS_PATH_BYTES) is the
  * /dev/fs device, and records the fd its open returned; a close of that

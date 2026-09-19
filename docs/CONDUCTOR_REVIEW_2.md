@@ -828,7 +828,7 @@ crashed parsing it, which is what applying that patch should do.)
 ### 17.1 Open for G4/G5
 - Created files (`create="true"`): done, section 18. `<folder>`
   expansion (with `create`) and `<memory>` patches: done, section 19.
-- `<savegame>` redirection.
+- `<savegame>` redirection: done in Dolphin, section 24.13.
 - Option choices: done on the host and in the autorun (section 20); the
   GUI (G5) must present sections/options/choices and pass the selection.
 - Hardware: sections 12-17 all rest on Dolphin; the hardware
@@ -952,7 +952,7 @@ following `blr` at 0x80012738 into `b 0x80012750` (another `blr`, so
 behaviour is unchanged) and the game ran on.
 
 ### 19.3 Open
-- `<savegame>`: the only patch kind not executed.
+- `<savegame>`: the only patch kind not executed (since done: section 24).
 - The GUI (section 17.1).
 - Hardware: nothing since section 11 has run on a console.
 
@@ -1067,7 +1067,7 @@ so nothing is compiled twice and nothing irreversible happens before the
 report.
 
 ### 22.1 Open
-- `<savegame>` (section 8.3).
+- `<savegame>` (section 8.3): done in Dolphin, section 24.
 - Every section since 11 rests on Dolphin; other titles: section 23.
 
 ## 23. Other titles; the runtime's code moves to MEM1 (conductor, 2026-09-19)
@@ -1260,7 +1260,8 @@ waits for a permission story; documented as not done until then.
 4. Trampolines, dispatcher, pending records for FS operations.
 5. Loader compile, Dolphin: Mario Kart Wii writes `rksys.dat` (2.5 MB)
    on first boot, Kirby's Epic Yarn a small save; the card image is
-   checked on the host after the run.
+   checked on the host after the run. Mario Kart Wii done (24.13);
+   Kirby open.
 
 ### 24.7 Slice 2 result (2026-09-19)
 `runtime/rtfs.c` now adapts the documented 0x28-byte IOS request fields
@@ -1404,4 +1405,69 @@ completions, null callback, snoop, learned-fd close, queueing (order,
 immediate ones deferred, full queue refused), a sync arrival waiting
 out an async write, refused issue, failed transfer, inline last
 resort, dead state, flag off. Blob 32832 bytes.
+
+### 24.13 Slice 5: the loader, the title's data directory, imports; Mario Kart Wii saves to the card in Dolphin (conductor, 2026-09-19)
+Loader (`wii/`): `<savegame external>` is planned (one folder per
+launch, `clone` noted as not implemented: the loader cannot read
+another title's NAND data under IOS58, section 24.5), the folder is
+created on the card, the card unmounted and mounted again so libfat's
+lazy writes reach it, and `resolve_sd_directory` (`sdfile.cpp`) turns
+the folder into the engine's `rtfat_volume` (512-byte sectors only,
+FSInfo's next-free cluster as the allocation hint). The data directory
+is `/title/<hi>/<lo>/data` from the TMD's title id, not
+`00010000-<game id>`: Mario Kart Wii is `00010004-524d4345`, a disc
+title with a channel, and its first probe of the directory showed the
+mistake. The installer hooks every SDK IPC function it finds
+(`IOS_IoctlAsync` mandatory, the others skipped with a log line when
+their first instructions cannot be displaced) and, for a savegame,
+requires every present one hooked plus the card, the sync
+`IOS_Ioctlv`, the async `IOS_Ioctlv` and the async `IOS_Ioctl`; the
+state block (`rt_fs_state`, 70496 bytes) follows the bounce buffers in
+the MEM2 data area, and the game's synchronous `IOS_Open`, `IOS_Close`,
+`IOS_Read`, `IOS_Ioctl` and `IOS_Ioctlv` are recorded in it through
+their replay slots.
+
+Runtime findings from the first Mario Kart Wii runs, each fixed in
+`rtfs.c` with a host test: `ReadDir` and `GetUsage` on a *file* name
+are the SDK's existence probe, answered by a lookup: -101 when the
+file exists, -106 when not (always -101 made the game think every
+file existed). A rename onto an existing name replaces it, as IOS does
+(delete, then rename: `RTFS_ACTION_RENAME_REPLACE`). And the SDK's
+safe write: the game writes `/tmp/<file>` on NAND and then renames it
+into the data directory (`banner.bin`, and `rksys.dat` on every save).
+A rename across the directory's boundary is now an import
+(`rt_hook.c`, `rt_fs_import`): the NAND file is opened and measured
+through the game's own synchronous `IOS_Open` / `IOS_Ioctl
+(GetFileStats)`, read in 32 KiB pieces into the state's import buffer
+(flushed before each read, so no stale line shadows the DMA) and
+written into a freshly created card file through the engine
+(`rt_fs_run_internal`: the runtime's own requests take the engine like
+the game's, waiting when it is busy), then closed and deleted from
+NAND through the game's `/dev/fs` fd, which the rename also teaches
+the adapter. A failure removes the half-written destination and leaves
+the source. It runs on the game's thread: from the sync hook, or from
+the async hook when `MSR[EE]` shows a thread rather than an IPC
+callback; from a callback it is refused with -102 (none seen). A
+rename out of the directory is refused with -102. Counters `imports`,
+`import_failures`, `import_refused`.
+
+Dolphin, Mario Kart Wii (`mkw_save.xml`, `sd:/riftwii/saves/mkw`):
+the boot's probes of the directory, the `/tmp/banner.bin` import
+(Dolphin's own IOS_FS log shows exactly `OpenFile`, `GetFileStatus`,
+`Read 29344`, `Close`, `Delete` of the temporary and nothing at all
+under `/title/00010004/524d4345/data`), `rksys.dat` created and
+written in 0x2800-byte pieces through the fake fd, `wc24dl.vff` and
+`wc24scr.vff` likewise; the game reaches its title flow (3122 disc
+reads, 986 FS lines in 100 s). The card image afterwards holds
+`BANNER.BIN` (29344 bytes, `WIBN`), `RKSYS.DAT` (2867200 bytes =
+0x2BC000, `RKSD0006`, the header block's stored CRC32 `bff8f17a` equal
+to the one computed over the bytes read back from the image),
+`WC24DL.VFF` and `WC24SCR.VFF`. Host: `hook_tests` gained a fake NAND
+(`FakeNand`) and the import drive (three-piece import, replacement,
+outward refusal, missing source, mid-read failure with cleanup,
+refusal without the sync originals, not-ours renames, async on a
+thread with its 0 deferred, async from a callback refused);
+`rtfs_tests` the existence probe, the replacing rename and the public
+classifier. Blob 36928 bytes. Open: `clone`; Kirby's Epic Yarn; the
+hardware run of everything since section 11.
 

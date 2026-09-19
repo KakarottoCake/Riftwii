@@ -6,6 +6,7 @@
 #include "rtable.h"
 #include "fat32_image.hpp"
 
+#include <algorithm>
 #include <cstring>
 #include <iostream>
 #include <string>
@@ -1232,6 +1233,295 @@ static void TestFsAsyncIntercept() {
     g_ios = nullptr;
 }
 
+// ---- the rename import (slice 5) ------------------------------------------
+
+namespace {
+
+// The console's NAND as an import sees it: one file, opened for reading
+// through the game's synchronous IOS_Open (fd 20), read in pieces, its
+// stats answered on that fd, deleted through the /dev/fs fd (9).
+struct FakeNand {
+    std::string path;
+    std::vector<std::uint8_t> bytes;
+    bool open = false;
+    std::size_t pos = 0;
+    std::uint32_t opens = 0, closes = 0, reads = 0;
+    std::vector<std::string> deleted;
+    long read_error_after = -1;  // >= 0: a read starting at or past this offset fails with -114
+};
+FakeNand* g_nand = nullptr;
+constexpr std::int32_t kNandFd = 20;
+std::int32_t NandOpenSync(const char* path, std::uint32_t mode) {
+    if (std::string(path) == "/dev/fs" && mode == 0) return 9;
+    if (!g_nand || std::string(path) != g_nand->path || mode != 1 || g_nand->open) return RTFAT_ENOENT;
+    g_nand->open = true;
+    g_nand->pos = 0;
+    g_nand->opens++;
+    return kNandFd;
+}
+std::int32_t NandCloseSync(std::int32_t fd) {
+    if (!g_nand || fd != kNandFd || !g_nand->open) return -4;
+    g_nand->open = false;
+    g_nand->closes++;
+    return 0;
+}
+std::int32_t NandReadSync(std::int32_t fd, std::uint32_t buffer, std::uint32_t length) {
+    if (!g_nand || fd != kNandFd || !g_nand->open) return -4;
+    g_nand->reads++;
+    if (g_nand->read_error_after >= 0 && g_nand->pos >= static_cast<std::size_t>(g_nand->read_error_after)) return RTFAT_EIO;
+    const std::size_t n = std::min<std::size_t>(length, g_nand->bytes.size() - g_nand->pos);
+    std::memcpy(reinterpret_cast<std::uint8_t*>(static_cast<std::uintptr_t>(buffer)), g_nand->bytes.data() + g_nand->pos, n);
+    g_nand->pos += n;
+    return static_cast<std::int32_t>(n);
+}
+std::int32_t NandIoctlSync(std::int32_t fd, std::uint32_t request, std::uint32_t in, std::uint32_t in_len, std::uint32_t out,
+                           std::uint32_t out_len) {
+    if (!g_nand) return -4;
+    if (fd == kNandFd && request == RTFS_IOCTL_GETFILESTATS && out_len >= 8) {
+        auto* o = reinterpret_cast<std::uint32_t*>(static_cast<std::uintptr_t>(out));
+        o[0] = static_cast<std::uint32_t>(g_nand->bytes.size());
+        o[1] = static_cast<std::uint32_t>(g_nand->pos);
+        return 0;
+    }
+    if (fd == 9 && request == RTFS_IOCTL_DELETE && in_len == RTFS_PATH_BYTES) {
+        const std::string p(reinterpret_cast<const char*>(static_cast<std::uintptr_t>(in)));
+        g_nand->deleted.push_back(p);
+        if (p != g_nand->path || g_nand->open) return RTFAT_ENOENT;
+        g_nand->path.clear();
+        g_nand->bytes.clear();
+        return 0;
+    }
+    return -4;
+}
+void NandFill(FakeNand& nand, const std::string& path, std::size_t size, std::uint8_t seed) {
+    nand.path = path;
+    nand.bytes.assign(size, 0);
+    for (std::size_t i = 0; i < size; ++i) nand.bytes[i] = static_cast<std::uint8_t>(i * seed + 11);
+}
+
+}  // namespace
+
+static void TestFsRenameImport() {
+    FsMemory mem;
+    if (!mem.ok) {
+        std::cerr << "note: no 32-bit addressable buffer on this host, skipping the FS import drive" << std::endl;
+        return;
+    }
+    FsCard card;
+    fatimg::Bytes content;
+    rtfat_volume volume;
+    FsFillCard(card, content, volume, 3);
+    rt_fs_state* st = mem.st;
+    std::uint8_t* path = mem.path;
+    std::uint8_t* data = mem.data;
+    std::uint32_t* out = mem.out;
+    const std::string prefix = "/title/00010004/524d4345/data";
+    EXPECT_EQ(rtfs_init(&st->fs, &volume, prefix.c_str(), -1), RTFAT_OK);
+    st->open_sync = st->close_sync = st->read_sync = st->ioctl_sync = 0x80100000u;
+
+    rt_context ctx{};
+    ctx.magic = RT_CONTEXT_MAGIC;
+    ctx.flags = RT_FLAG_FS;
+    ctx.fs_state = FsAddr(st);
+    g_fs_card = &card;
+    rt_host_fs_transfer = FsTransfer;
+    rt_host_fs_open_sync = NandOpenSync;
+    rt_host_fs_close_sync = NandCloseSync;
+    rt_host_fs_read_sync = NandReadSync;
+    rt_host_fs_ioctl_sync = NandIoctlSync;
+    FakeNand nand;
+    g_nand = &nand;
+
+    std::uintptr_t args[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+    std::uint32_t result = 0xDEADu;
+    const auto rename_args = [&](const std::string& from, const std::string& to) {
+        FsCopyPath(path, from);
+        FsCopyPath(path + RTFS_PATH_BYTES, to);
+        args[0] = 9; args[1] = RTFS_IOCTL_RENAME; args[2] = FsAddr(path); args[3] = 2 * RTFS_PATH_BYTES; args[4] = 0; args[5] = 0;
+        args[6] = 0x80001000u; args[7] = 0x80002000u;
+    };
+    // Opens a card file for reading and checks its size and a window of
+    // its bytes against `expect`, through the dispatcher.
+    const auto check_card_file = [&](const std::string& name, const std::vector<std::uint8_t>& expect, std::uint32_t at) {
+        FsCopyPath(path, prefix + "/" + name);
+        args[0] = FsAddr(path); args[1] = 1;
+        EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(1), args, &result), 1);
+        EXPECT_TRUE(static_cast<std::int32_t>(result) >= static_cast<std::int32_t>(RTFS_FD_BASE));
+        const std::uint32_t fd = result;
+        args[0] = fd; args[1] = RTFS_IOCTL_GETFILESTATS; args[2] = 0; args[3] = 0; args[4] = FsAddr(out); args[5] = 8;
+        EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(6), args, &result), 1);
+        EXPECT_EQ(result, 0u);
+        EXPECT_EQ(out[0], static_cast<std::uint32_t>(expect.size()));
+        args[0] = fd; args[1] = at; args[2] = 0;
+        EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(5), args, &result), 1);
+        EXPECT_EQ(result, at);
+        const std::uint32_t n = std::min<std::uint32_t>(64, static_cast<std::uint32_t>(expect.size()) - at);
+        std::memset(data, 0xEE, 64);
+        args[0] = fd; args[1] = FsAddr(data); args[2] = n;
+        EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(3), args, &result), 1);
+        EXPECT_EQ(result, n);
+        EXPECT_TRUE(std::memcmp(data, expect.data() + at, n) == 0);
+        args[0] = fd;
+        EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(2), args, &result), 1);
+        EXPECT_EQ(result, 0u);
+    };
+    const auto card_has = [&](const std::string& name) {
+        FsCopyPath(path, prefix + "/" + name);
+        args[0] = FsAddr(path); args[1] = 1;
+        EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(1), args, &result), 1);
+        if (static_cast<std::int32_t>(result) < 0) return false;
+        args[0] = result;
+        EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(2), args, &result), 1);
+        return true;
+    };
+
+    // The SDK's safe write: a file under /tmp renamed into the folder. Two
+    // full pieces and a tail come off NAND (three reads), land on the card
+    // byte for byte, and the source is deleted; the fd the rename came on
+    // is learned as the /dev/fs fd.
+    NandFill(nand, "/tmp/rksys.dat", 2 * RT_FS_IMPORT_BYTES + 1234, 5);
+    const std::vector<std::uint8_t> rksys = nand.bytes;
+    rename_args("/tmp/rksys.dat", prefix + "/rksys.dat");
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(6), args, &result), 1);
+    EXPECT_EQ(result, 0u);
+    EXPECT_EQ(st->imports, 1u);
+    EXPECT_EQ(st->import_failures, 0u);
+    EXPECT_EQ(nand.opens, 1u);
+    EXPECT_EQ(nand.closes, 1u);
+    EXPECT_EQ(nand.reads, 3u);
+    EXPECT_EQ(nand.deleted.size(), std::size_t(1));
+    EXPECT_TRUE(nand.deleted.back() == "/tmp/rksys.dat");
+    EXPECT_TRUE(nand.path.empty());
+    EXPECT_EQ(st->fs.fs_fd, 9);
+    EXPECT_EQ(st->fs.busy, 0u);
+    EXPECT_EQ(ctx.fs_hijacked, 1u);
+    check_card_file("rksys.dat", rksys, 0);
+    check_card_file("rksys.dat", rksys, RT_FS_IMPORT_BYTES - 16);
+    check_card_file("rksys.dat", rksys, 2 * RT_FS_IMPORT_BYTES + 1234 - 50);
+
+    // Renaming onto the file replaces it, size and all.
+    NandFill(nand, "/tmp/rksys.dat", 700, 7);
+    const std::vector<std::uint8_t> rksys2 = nand.bytes;
+    rename_args("/tmp/rksys.dat", prefix + "/rksys.dat");
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(6), args, &result), 1);
+    EXPECT_EQ(result, 0u);
+    EXPECT_EQ(st->imports, 2u);
+    EXPECT_EQ(nand.reads, 4u);
+    check_card_file("rksys.dat", rksys2, 0);
+    check_card_file("rksys.dat", rksys2, 640);
+
+    // Out of the folder: refused, the file stays.
+    rename_args(prefix + "/rksys.dat", "/tmp/rksys.dat");
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(6), args, &result), 1);
+    EXPECT_EQ(static_cast<std::int32_t>(result), RTFAT_EACCESS);
+    EXPECT_EQ(st->import_refused, 1u);
+    EXPECT_TRUE(card_has("rksys.dat"));
+
+    // A source NAND lacks: its open's answer is the rename's, nothing made.
+    NandFill(nand, "/tmp/other.bin", 10, 1);
+    rename_args("/tmp/none.bin", prefix + "/none.bin");
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(6), args, &result), 1);
+    EXPECT_EQ(static_cast<std::int32_t>(result), RTFAT_ENOENT);
+    EXPECT_EQ(st->imports, 3u);
+    EXPECT_EQ(st->import_failures, 1u);
+    EXPECT_FALSE(card_has("none.bin"));
+
+    // A read that fails midway: the destination is removed again, the
+    // source closed and left on NAND, the engine free.
+    NandFill(nand, "/tmp/big.bin", RT_FS_IMPORT_BYTES + 100, 9);
+    nand.read_error_after = static_cast<long>(RT_FS_IMPORT_BYTES);
+    rename_args("/tmp/big.bin", prefix + "/big.bin");
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(6), args, &result), 1);
+    EXPECT_EQ(static_cast<std::int32_t>(result), RTFAT_EIO);
+    EXPECT_EQ(st->import_failures, 2u);
+    EXPECT_FALSE(nand.open);
+    EXPECT_TRUE(nand.path == "/tmp/big.bin");
+    EXPECT_FALSE(card_has("big.bin"));
+    EXPECT_EQ(st->fs.busy, 0u);
+    nand.read_error_after = -1;
+
+    // Without the game's synchronous functions there is no way to read
+    // NAND: refused, the source untouched.
+    st->read_sync = 0;
+    rename_args("/tmp/big.bin", prefix + "/big.bin");
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(6), args, &result), 1);
+    EXPECT_EQ(static_cast<std::int32_t>(result), RTFAT_EACCESS);
+    EXPECT_EQ(st->import_refused, 2u);
+    EXPECT_EQ(nand.opens, 3u);
+    st->read_sync = 0x80100000u;
+
+    // Neither side in the folder, or a short block: not ours, replayed.
+    rename_args("/tmp/a.bin", "/tmp/b.bin");
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(6), args, &result), 0);
+    rename_args("/tmp/big.bin", prefix + "/big.bin");
+    args[3] = RTFS_PATH_BYTES;
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(6), args, &result), 0);
+    // On another real fd once the fs fd is known: not ours either.
+    rename_args("/tmp/big.bin", prefix + "/big.bin");
+    args[0] = 7;
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(6), args, &result), 0);
+    EXPECT_EQ(st->imports, 4u);
+
+    // The async form on a thread: imported at the call, its 0 deferred
+    // through a null round trip to the game's callback.
+    FakeIos ios;
+    ios.card = &card;
+    ios.ctx = &ctx;
+    g_ios = &ios;
+    rt_host_fs_issue = IosIssue;
+    rt_host_fs_defer = IosDefer;
+    rt_host_fs_wait = IosWait;
+    rt_host_game_callback = GameCb;
+    CbLog log;
+    g_cb_log = &log;
+    NandFill(nand, "/tmp/banner.bin", 1061, 13);
+    const std::vector<std::uint8_t> banner = nand.bytes;
+    rename_args("/tmp/banner.bin", prefix + "/banner.bin");
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC(6), args, &result), 1);
+    EXPECT_EQ(result, 0u);
+    EXPECT_EQ(st->imports, 5u);
+    EXPECT_EQ(st->import_failures, 2u);
+    EXPECT_EQ(ios.queue.size(), std::size_t(1));
+    EXPECT_EQ(log.calls, 0u);
+    ios.drain();
+    EXPECT_EQ(ios.delivered.size(), std::size_t(1));
+    EXPECT_EQ(ios.delivered.back().cb, 0x80001000u);
+    EXPECT_EQ(ios.delivered.back().ud, 0x80002000u);
+    EXPECT_EQ(ios.delivered.back().result, 0);
+    EXPECT_TRUE(nand.path.empty());
+    check_card_file("banner.bin", banner, 1000);
+
+    // From an IPC callback (interrupts off) the synchronous functions
+    // cannot be used: refused with -102 through the callback, NAND untouched.
+    rt_host_fs_in_thread = 0;
+    NandFill(nand, "/tmp/again.bin", 50, 3);
+    rename_args("/tmp/again.bin", prefix + "/again.bin");
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC(6), args, &result), 1);
+    EXPECT_EQ(result, 0u);
+    EXPECT_EQ(st->import_refused, 3u);
+    EXPECT_EQ(st->imports, 5u);
+    EXPECT_EQ(nand.opens, 4u);
+    ios.drain();
+    EXPECT_EQ(ios.delivered.size(), std::size_t(2));
+    EXPECT_EQ(ios.delivered.back().result, RTFAT_EACCESS);
+    EXPECT_FALSE(card_has("again.bin"));
+    rt_host_fs_in_thread = 1;
+
+    rt_host_game_callback = nullptr;
+    rt_host_fs_issue = nullptr;
+    rt_host_fs_defer = nullptr;
+    rt_host_fs_wait = nullptr;
+    rt_host_fs_open_sync = nullptr;
+    rt_host_fs_close_sync = nullptr;
+    rt_host_fs_read_sync = nullptr;
+    rt_host_fs_ioctl_sync = nullptr;
+    rt_host_fs_transfer = nullptr;
+    g_cb_log = nullptr;
+    g_fs_card = nullptr;
+    g_ios = nullptr;
+    g_nand = nullptr;
+}
+
 static void TestResidentHandler() {
     rt_context ctx{};
     ctx.magic = RT_CONTEXT_MAGIC;
@@ -1927,6 +2217,7 @@ int main() {
     TestFsIpcTranslation();
     TestFsSyncIntercept();
     TestFsAsyncIntercept();
+    TestFsRenameImport();
     TestResidentHandler();
     TestPayloadAndRedirect();
     TestVirtualWindow();

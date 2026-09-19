@@ -215,6 +215,28 @@ static int32_t rt_fs_open_sync(struct rt_fs_state* st, uint32_t path, uint32_t m
     rt_open_sync_fn fn = (rt_open_sync_fn)(uintptr_t)st->open_sync;
     return fn((const char*)(uintptr_t)path, mode);
 }
+typedef int32_t (*rt_close_sync_fn)(int32_t fd);
+typedef int32_t (*rt_read_sync_fn)(int32_t fd, void* buffer, uint32_t length);
+typedef int32_t (*rt_ioctl_sync_fn)(int32_t fd, uint32_t request, const void* in, uint32_t in_len, void* out,
+                                    uint32_t out_len);
+static int32_t rt_fs_close_sync(struct rt_fs_state* st, int32_t fd) {
+    return ((rt_close_sync_fn)(uintptr_t)st->close_sync)(fd);
+}
+static int32_t rt_fs_read_sync(struct rt_fs_state* st, int32_t fd, uint32_t buffer, uint32_t length) {
+    return ((rt_read_sync_fn)(uintptr_t)st->read_sync)(fd, (void*)(uintptr_t)buffer, length);
+}
+static int32_t rt_fs_ioctl_sync(struct rt_fs_state* st, int32_t fd, uint32_t request, uint32_t in, uint32_t in_len,
+                                uint32_t out, uint32_t out_len) {
+    return ((rt_ioctl_sync_fn)(uintptr_t)st->ioctl_sync)(fd, request, (const void*)(uintptr_t)in, in_len,
+                                                           (void*)(uintptr_t)out, out_len);
+}
+/* On a thread (external interrupts on) rather than inside an interrupt
+ * handler: synchronous IOS calls may sleep here. MSR[EE] is 0x8000. */
+static int rt_fs_in_thread(void) {
+    uint32_t msr;
+    __asm__ volatile("mfmsr %0" : "=r"(msr));
+    return (msr & 0x8000u) != 0;
+}
 static uint32_t rt_fs_ticks(void) {
     uint32_t tb;
     __asm__ volatile("mftb %0" : "=r"(tb) : : "memory");
@@ -236,7 +258,28 @@ int32_t (*rt_host_fs_issue)(uint32_t lba, uint32_t count, uint32_t buffer, uint3
 int32_t (*rt_host_fs_defer)(void* tag) = 0;
 void (*rt_host_fs_wait)(struct rt_context* ctx) = 0;
 int32_t (*rt_host_fs_open_sync)(const char* path, uint32_t mode) = 0;
+int32_t (*rt_host_fs_close_sync)(int32_t fd) = 0;
+int32_t (*rt_host_fs_read_sync)(int32_t fd, uint32_t buffer, uint32_t length) = 0;
+int32_t (*rt_host_fs_ioctl_sync)(int32_t fd, uint32_t request, uint32_t in, uint32_t in_len, uint32_t out,
+                                  uint32_t out_len) = 0;
+int rt_host_fs_in_thread = 1;
 void (*rt_host_game_callback)(uint32_t cb, int32_t result, uint32_t user_data) = 0;
+static int32_t rt_fs_close_sync(struct rt_fs_state* st, int32_t fd) {
+    (void)st;
+    return rt_host_fs_close_sync == 0 ? -1 : rt_host_fs_close_sync(fd);
+}
+static int32_t rt_fs_read_sync(struct rt_fs_state* st, int32_t fd, uint32_t buffer, uint32_t length) {
+    (void)st;
+    return rt_host_fs_read_sync == 0 ? -1 : rt_host_fs_read_sync(fd, buffer, length);
+}
+static int32_t rt_fs_ioctl_sync(struct rt_fs_state* st, int32_t fd, uint32_t request, uint32_t in, uint32_t in_len,
+                                uint32_t out, uint32_t out_len) {
+    (void)st;
+    return rt_host_fs_ioctl_sync == 0 ? -1 : rt_host_fs_ioctl_sync(fd, request, in, in_len, out, out_len);
+}
+static int rt_fs_in_thread(void) {
+    return rt_host_fs_in_thread;
+}
 static int32_t rt_fs_sendcmd_call(struct rt_context* ctx, struct rt_fs_state* st, int async) {
     const struct rtfat_op* op = &st->req.fat;
     (void)ctx;
@@ -481,9 +524,47 @@ static void rt_fs_report(struct rt_context* ctx, uint32_t entry_index, const str
         for (i = 0; p != 0 && i < RTFS_PATH_BYTES && p[i] != 0; ++i) rt_gecko_putc(ctx, (uint32_t)(uint8_t)p[i]);
     } else {
         rt_gecko_hex(ctx, (uint32_t)ipc->fd);
-        if (ipc->command == RTFS_CMD_IOCTL || ipc->command == RTFS_CMD_IOCTLV) {
+        if (ipc->command == RTFS_CMD_IOCTL) {
+            /* "/<request>,<in len>,<out len>[,<text at the start of the in
+             * buffer>[,<text at its 64th byte>]]": the ISFS paths. */
+            const char* p = (const char*)(uintptr_t)ipc->args.ioctl.in;
+            const uint32_t in_len = ipc->args.ioctl.in_len;
+            uint32_t at;
             rt_gecko_putc(ctx, '/');
-            rt_gecko_hex(ctx, ipc->command == RTFS_CMD_IOCTL ? ipc->args.ioctl.request : ipc->args.ioctlv.request);
+            rt_gecko_hex(ctx, ipc->args.ioctl.request);
+            rt_gecko_putc(ctx, ',');
+            rt_gecko_hex(ctx, in_len);
+            rt_gecko_putc(ctx, ',');
+            rt_gecko_hex(ctx, ipc->args.ioctl.out_len);
+            for (at = 0; p != 0 && at + RTFS_PATH_BYTES <= in_len && at < 2 * RTFS_PATH_BYTES; at += RTFS_PATH_BYTES) {
+                uint32_t i;
+                rt_gecko_putc(ctx, ',');
+                for (i = 0; i < RTFS_PATH_BYTES && p[at + i] >= 0x20 && p[at + i] < 0x7F; ++i) {
+                    rt_gecko_putc(ctx, (uint32_t)(uint8_t)p[at + i]);
+                }
+            }
+        } else if (ipc->command == RTFS_CMD_IOCTLV) {
+            /* "/<request>,<in count>,<out count>,<len of each vector>[,<first vector as text>]" */
+            const struct rtfs_iovec* v = (const struct rtfs_iovec*)(uintptr_t)ipc->args.ioctlv.vectors;
+            const uint32_t n = ipc->args.ioctlv.in_count + ipc->args.ioctlv.out_count;
+            uint32_t i;
+            rt_gecko_putc(ctx, '/');
+            rt_gecko_hex(ctx, ipc->args.ioctlv.request);
+            rt_gecko_putc(ctx, ',');
+            rt_gecko_hex(ctx, ipc->args.ioctlv.in_count);
+            rt_gecko_putc(ctx, ',');
+            rt_gecko_hex(ctx, ipc->args.ioctlv.out_count);
+            for (i = 0; v != 0 && i < n && i < 4; ++i) {
+                rt_gecko_putc(ctx, ',');
+                rt_gecko_hex(ctx, v[i].len);
+            }
+            if (v != 0 && n != 0 && v[0].data != 0) {
+                const char* p = (const char*)(uintptr_t)v[0].data;
+                rt_gecko_putc(ctx, ',');
+                for (i = 0; i < RTFS_PATH_BYTES && i < v[0].len && p[i] >= 0x20 && p[i] < 0x7F; ++i) {
+                    rt_gecko_putc(ctx, (uint32_t)(uint8_t)p[i]);
+                }
+            }
         }
     }
     rt_gecko_putc(ctx, ':');
@@ -708,6 +789,134 @@ static int rt_fs_wait(struct rt_context* ctx, struct rt_fs_state* st) {
     return 1;
 }
 
+/* Runs one of the runtime's own requests on the engine, on the game's
+ * thread: waits for the engine, performs the transfers inline. */
+static int32_t rt_fs_run_internal(struct rt_context* ctx, struct rt_fs_state* st, const struct rtfs_ipc* ipc) {
+    if (st->dead) return RTFAT_EIO;
+    while (rt_fs_admit(st, 0, ipc, 0) != RT_FS_ADMIT_BEGUN) {
+        if (!rt_fs_wait(ctx, st)) return RTFAT_EIO;
+    }
+    if (st->req.classification == RTFS_PASS_THROUGH) return RTFAT_EINVAL;
+    if (st->req.classification == RTFS_NEEDS_IO) rt_fs_advance(ctx, st, 1);
+    return st->req.result;
+}
+
+/* A rename from outside the redirected directory into it (rt_hook.h):
+ * the NAND file `src` becomes the card file `dst` (replacing one of that
+ * name), then leaves NAND. `fs_fd` is the game's /dev/fs fd the rename
+ * came on. Runs on the game's thread; returns the ISFS result. */
+static int32_t rt_fs_import(struct rt_context* ctx, struct rt_fs_state* st, int32_t fs_fd, const char* src,
+                            const char* dst) {
+    struct rtfs_ipc ipc;
+    int32_t src_fd, fake_fd = -1, r;
+    uint32_t size, done, i;
+    if (st->open_sync == 0 || st->close_sync == 0 || st->read_sync == 0 || st->ioctl_sync == 0) {
+        st->import_refused++;
+        return RTFAT_EACCESS;
+    }
+    st->imports++;
+    src_fd = rt_fs_open_sync(st, (uint32_t)(uintptr_t)src, 1);
+    if (src_fd < 0) {
+        st->import_failures++;
+        return src_fd;
+    }
+    rt_flush_range((uintptr_t)st->stats, sizeof(st->stats));
+    r = rt_fs_ioctl_sync(st, src_fd, RTFS_IOCTL_GETFILESTATS, 0, 0, (uint32_t)(uintptr_t)st->stats, 8);
+    if (r >= 0) {
+        size = st->stats[0];
+        /* The destination, replaced when it exists, created empty. */
+        rt_zero_bytes((uint8_t*)&ipc, sizeof(ipc));
+        ipc.command = RTFS_CMD_IOCTL;
+        ipc.fd = fs_fd;
+        ipc.args.ioctl.request = RTFS_IOCTL_DELETE;
+        ipc.args.ioctl.in = (uint32_t)(uintptr_t)dst;
+        ipc.args.ioctl.in_len = RTFS_PATH_BYTES;
+        r = rt_fs_run_internal(ctx, st, &ipc);
+        if (r == RTFAT_ENOENT) r = RTFAT_OK;
+    }
+    if (r >= 0) {
+        rt_zero_bytes((uint8_t*)&st->attr, sizeof(st->attr));
+        for (i = 0; i < RTFS_PATH_BYTES - 1 && dst[i] != 0; ++i) st->attr.filepath[i] = dst[i];
+        st->attr.ownerperm = 3;
+        st->attr.groupperm = 3;
+        st->attr.otherperm = 3;
+        ipc.args.ioctl.request = RTFS_IOCTL_CREATEFILE;
+        ipc.args.ioctl.in = (uint32_t)(uintptr_t)&st->attr;
+        ipc.args.ioctl.in_len = sizeof(st->attr);
+        r = rt_fs_run_internal(ctx, st, &ipc);
+    }
+    if (r >= 0) {
+        rt_zero_bytes((uint8_t*)&ipc, sizeof(ipc));
+        ipc.command = RTFS_CMD_OPEN;
+        ipc.args.open.path = (uint32_t)(uintptr_t)dst;
+        ipc.args.open.mode = 2;
+        r = fake_fd = rt_fs_run_internal(ctx, st, &ipc);
+    }
+    /* The bytes, a piece at a time: NAND into the import buffer (flushed
+     * first, so no stale line of the previous piece shadows the DMA),
+     * the buffer into the card. */
+    for (done = 0; r >= 0 && done < size;) {
+        uint32_t n = size - done;
+        if (n > RT_FS_IMPORT_BYTES) n = RT_FS_IMPORT_BYTES;
+        rt_flush_range((uintptr_t)st->import, n);
+        r = rt_fs_read_sync(st, src_fd, (uint32_t)(uintptr_t)st->import, n);
+        if (r >= 0 && r != (int32_t)n) r = RTFAT_EIO;
+        if (r < 0) break;
+        rt_zero_bytes((uint8_t*)&ipc, sizeof(ipc));
+        ipc.command = RTFS_CMD_WRITE;
+        ipc.fd = fake_fd;
+        ipc.args.readwrite.data = (uint32_t)(uintptr_t)st->import;
+        ipc.args.readwrite.length = n;
+        r = rt_fs_run_internal(ctx, st, &ipc);
+        if (r >= 0 && r != (int32_t)n) r = RTFAT_ENOSPC;
+        done += n;
+    }
+    if (fake_fd >= 0) {
+        rt_zero_bytes((uint8_t*)&ipc, sizeof(ipc));
+        ipc.command = RTFS_CMD_CLOSE;
+        ipc.fd = fake_fd;
+        rt_fs_run_internal(ctx, st, &ipc);
+    }
+    rt_fs_close_sync(st, src_fd);
+    if (r < 0) {
+        /* Nothing half-moved: the destination goes, the source stays. */
+        if (fake_fd >= 0) {
+            rt_zero_bytes((uint8_t*)&ipc, sizeof(ipc));
+            ipc.command = RTFS_CMD_IOCTL;
+            ipc.fd = fs_fd;
+            ipc.args.ioctl.request = RTFS_IOCTL_DELETE;
+            ipc.args.ioctl.in = (uint32_t)(uintptr_t)dst;
+            ipc.args.ioctl.in_len = RTFS_PATH_BYTES;
+            rt_fs_run_internal(ctx, st, &ipc);
+        }
+        st->import_failures++;
+        return r;
+    }
+    /* The move's other half. A failure here leaves a stray NAND file,
+     * nothing worse. */
+    rt_fs_ioctl_sync(st, fs_fd, RTFS_IOCTL_DELETE, (uint32_t)(uintptr_t)src, RTFS_PATH_BYTES, 0, 0);
+    return RTFAT_OK;
+}
+
+/* Whether an ISFS rename crosses the directory's boundary: 1 inward
+ * (`src` outside, `dst` a file name inside: an import), -1 outward,
+ * 0 for anything else (the engine's business, or not ours). */
+static int rt_fs_rename_kind(const struct rt_fs_state* st, const struct rtfs_ipc* ipc, const char** src,
+                             const char** dst) {
+    char name[RTFAT_NAME_MAX + 1];
+    int p, q;
+    if (ipc->command != RTFS_CMD_IOCTL || ipc->args.ioctl.request != RTFS_IOCTL_RENAME) return 0;
+    if (ipc->args.ioctl.in == 0 || ipc->args.ioctl.in_len < 2u * RTFS_PATH_BYTES) return 0;
+    if (ipc->fd < 0 || ipc->fd >= (int32_t)RTFS_FD_BASE || (st->fs.fs_fd >= 0 && ipc->fd != st->fs.fs_fd)) return 0;
+    *src = (const char*)(uintptr_t)ipc->args.ioctl.in;
+    *dst = *src + RTFS_PATH_BYTES;
+    p = rtfs_path_type(&st->fs, *src, name);
+    q = rtfs_path_type(&st->fs, *dst, name);
+    if (p == RTFS_PATH_OUTSIDE && q == RTFS_PATH_FILE) return 1;
+    if (p == RTFS_PATH_FILE && q == RTFS_PATH_OUTSIDE) return -1;
+    return 0;
+}
+
 /* A synchronous SDK call: answered on the caller's thread, transfers
  * performed inline. Returns 0 to replay the original. */
 static int rt_on_sync_fs(struct rt_context* ctx, uint32_t entry_index, uintptr_t* args, uint32_t* result) {
@@ -732,6 +941,21 @@ static int rt_on_sync_fs(struct rt_context* ctx, uint32_t entry_index, uintptr_t
     if (ipc.command == RTFS_CMD_CLOSE && ipc.fd >= 0 && ipc.fd == st->fs.fs_fd) {
         st->fs.fs_fd = -1; /* the close itself replays */
         return 0;
+    }
+    {
+        const char* src;
+        const char* dst;
+        const int kind = rt_fs_rename_kind(st, &ipc, &src, &dst);
+        if (kind != 0) {
+            int32_t r = RTFAT_EACCESS;
+            if (kind > 0) r = rt_fs_import(ctx, st, ipc.fd, src, dst);
+            else st->import_refused++;
+            rtfs_learn_fs_fd(&st->fs, ipc.fd);
+            *result = (uint32_t)r;
+            ctx->fs_hijacked++;
+            rt_fs_report(ctx, entry_index, &ipc, r, 0);
+            return 1;
+        }
     }
     rt_fs_probe(st, &ipc, &classification);
     if (classification == RTFS_PASS_THROUGH) return 0;
@@ -788,6 +1012,24 @@ static int rt_on_async_fs(struct rt_context* ctx, uint32_t entry_index, uintptr_
     if (ipc.command == RTFS_CMD_CLOSE && ipc.fd >= 0 && ipc.fd == st->fs.fs_fd) {
         st->fs.fs_fd = -1;
         return 0;
+    }
+    {
+        const char* src;
+        const char* dst;
+        const int kind = rt_fs_rename_kind(st, &ipc, &src, &dst);
+        if (kind != 0) {
+            /* An import needs the game's synchronous functions, so a
+             * thread; from an IPC callback it is refused. */
+            int32_t r = RTFAT_EACCESS;
+            if (kind > 0 && rt_fs_in_thread()) r = rt_fs_import(ctx, st, ipc.fd, src, dst);
+            else st->import_refused++;
+            rtfs_learn_fs_fd(&st->fs, ipc.fd);
+            ctx->fs_hijacked++;
+            rt_fs_report(ctx, entry_index, &ipc, r, 0);
+            rt_fs_deliver(ctx, st, ipc.callback, ipc.user_data, r);
+            *result = 0;
+            return 1;
+        }
     }
     rt_fs_probe(st, &ipc, &classification);
     if (classification == RTFS_PASS_THROUGH) return 0;

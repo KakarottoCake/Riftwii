@@ -43,7 +43,12 @@ Direction, review findings and the roadmap live in `docs/`.
   before the game starts, with several packages composing in order and
   option choices applied over the defaults; the GUI enables packages,
   sets their options and launches, keeping the choices per game.
-  `<savegame>` is next.
+  `<savegame external>` serves the title's NAND data directory from a
+  folder on the card: the resident runtime hooks the SDK's IOS calls
+  and answers the ISFS requests from its own FAT32 engine over SDIO,
+  importing the temporaries the SDK's safe write renames in (Mario
+  Kart Wii's `rksys.dat` lands on the card in Dolphin; `clone` is not
+  implemented).
 - `vendor-pugixml`: MIT-licensed XML parser, pinned at v1.15.
 - `vendor-libgui`: pinned GPL libwiigui 1.07 snapshot, used only by the Wii
   frontend (not built by the host build).
@@ -149,8 +154,6 @@ end-to-end test runs XML text -> `parse_package` -> `plan_package` ->
 provider -> split `read()` consumption and compares every byte against an
 oracle.
 
-Still future: Wii DVD/DI disc source (the provider interface is ready for
-one), runtime execution of folder/memory/savegame patches and file-name
-lookup, and booting a game with the overlays on hardware. The frontend
-remains an SD XML validator until then. See `docs/CONDUCTOR_REVIEW_2.md`
-for the runtime architecture and the gate sequence.
+Still future: `<savegame clone>`, and hardware runs of everything the
+Dolphin sections of `docs/CONDUCTOR_REVIEW_2.md` cover (the runtime
+architecture and the gate sequence are described there).

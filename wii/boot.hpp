@@ -101,6 +101,10 @@ struct BootOptions {
     // has loaded the game and before the runtime is installed; `value`
     // must already hold the bytes.
     std::vector<MemoryPatch> memory_patches;
+    // <savegame>: the sd:/ folder the title's data directory is served
+    // from by the runtime (requires install_resident and the card; the
+    // folder is created when missing). Empty: the save stays on NAND.
+    std::string savegame_dir;
 };
 
 // Reloads IOS, runs the apploader and jumps to the game. Only returns on

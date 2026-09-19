@@ -131,8 +131,27 @@ static bool gather_package(const PackageSelection& selection, const DiscProbe& p
     allowed.allow_filename_targets = true;
     allowed.allow_folders = true;
     allowed.allow_memory = true;
+    allowed.allow_savegames = true;
     Plan plan;
     if (!plan_package(package, disc, allowed, plan, error)) return false;
+
+    // <savegame>: one folder per launch; a second, different one is an
+    // error rather than a silent choice. `clone` is not implemented (the
+    // loader cannot read another title's NAND data under IOS58, section
+    // 24.5): the folder starts as it is.
+    for (const SavegamePatch& sg : plan.savegames) {
+        std::string abs = sg.external;
+        if (abs.empty() || abs[0] != '/') abs = "/" + abs;
+        while (abs.size() > 1 && abs.back() == '/') abs.pop_back();
+        const std::string sd = "sd:" + abs;
+        if (!mod.savegame_dir.empty() && mod.savegame_dir != sd) {
+            error = xml_sd_path + ": <savegame external=\"" + sg.external + "\"> after another save folder (" +
+                    mod.savegame_dir + "); one per launch";
+            return false;
+        }
+        mod.savegame_dir = sd;
+        mod.notes.push_back("savegame redirected to " + sd + (sg.clone ? " (clone is not implemented; the folder is used as it is)" : ""));
+    }
 
     // <folder> patches become <file> patches (listing the card).
     std::vector<FilePatch> expanded;
@@ -166,7 +185,7 @@ static bool gather_package(const PackageSelection& selection, const DiscProbe& p
         mod.memory.push_back(std::move(m));
     }
     if (!plan.memory.empty()) mod.notes.push_back(std::to_string(plan.memory.size()) + " memory patch(es)");
-    if (expanded.empty() && plan.memory.empty()) {
+    if (expanded.empty() && plan.memory.empty() && plan.savegames.empty()) {
         error = xml_sd_path + " does not apply to " + probe.header.game_id + " (nothing selected)";
         return false;
     }

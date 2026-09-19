@@ -8,6 +8,9 @@ namespace riftwii::wii {
 
 void LogOpen(const char* sd_path, bool append = false);
 void LogClose();
+// Opens the last path again, appending: for code that must close the
+// file around an unmount of the card.
+void LogReopen();
 void logf(const char* format, ...) __attribute__((format(printf, 1, 2)));
 
 }  // namespace riftwii::wii
