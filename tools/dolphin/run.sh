@@ -4,6 +4,13 @@
 # and Dolphin's own log to build-dolphin/user/Logs/dolphin.log, then kills
 # Dolphin after $1 seconds (default 60).
 #   DOLPHIN_DIR=/c/path/to/Dolphin-x64 tools/dolphin/run.sh 45
+# The user directory's Config/Logger.ini selects what dolphin.log holds
+# (Verbosity = 4 is INFO; BOOT, IOS, IOS_DI, IOS_ES, IOS_SD, DVD, OSREPORT
+# and EXI on). For a hang inside the game set Verbosity = 5 and
+# PowerPC = True: exceptions are logged with their address
+# (`W[PowerPC]: ISI exception at 0x935d0020` found section 23 of
+# docs/CONDUCTOR_REVIEW_2.md). A run that must sync files back to
+# build-dolphin/user/Load/WiiSDSync must end without booting a game.
 set -u
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 SECS="${1:-60}"
