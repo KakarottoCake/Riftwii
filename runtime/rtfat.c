@@ -85,6 +85,10 @@ enum {
     S_RENAME_WRITTEN,
     S_RENAME_MARKED,
     S_LIST_DONE,
+    S_DIR_GAP_WRITTEN,
+    S_DIR_NEXT,
+    S_DIR_GROWN,
+    S_DIR_ZERO,
     S_DONE
 };
 
@@ -551,13 +555,34 @@ static void scan_begin(const struct rtfat_volume* vol, struct rtfat_op* op, uint
     op->state = S_SCAN_READ;
 }
 
-/* What a scan does when the directory is exhausted. */
-static int scan_ended(struct rtfat_op* op) {
+/* What a scan does when the directory is exhausted. A creation that
+ * found no run of free entries goes past this sector: the rest of the
+ * cluster when there is one, else the next cluster of the directory
+ * (S_DIR_NEXT: an unused one already chained, or a new one, zeroed).
+ * When the scan stopped at an end-of-directory entry, that entry and
+ * the ones after it are first marked deleted, so that later scans read
+ * on to the entries beyond this sector (FAT: 0x00 ends the directory). */
+static int scan_ended(const struct rtfat_volume* vol, struct rtfat_op* op) {
+    (void)vol;
     switch (op->scan_mode) {
         case SCAN_FIND:
             return finish(op, RTFAT_ENOENT);
         case SCAN_CREATE:
-            if (op->free_lba == 0) return finish(op, RTFAT_ENOINODES);
+            if (op->free_lba == 0) {
+                op->grow_next = op->next_state;
+                if (op->scan_end) {
+                    uint32_t i, past = 0;
+                    for (i = 0; i < ENTRIES_PER_SECTOR; ++i) {
+                        uint8_t* e = op->sector + i * ENTRY_BYTES;
+                        if (e[0] == 0x00) past = 1;
+                        if (past) e[0] = 0xE5;
+                    }
+                    op->state = S_DIR_GAP_WRITTEN;
+                    return issue(op, op->scan_lba, 1, 1, op->sector);
+                }
+                op->state = S_DIR_NEXT;
+                return RT_CONT;
+            }
             op->state = op->next_state;
             return RT_CONT;
         default:
@@ -687,7 +712,7 @@ static int run_state(struct rtfat_volume* vol, struct rtfat_op* op) {
             return issue(op, op->scan_lba, 1, 0, op->sector);
         case S_SCAN_PROCESS:
             if (scan_process(op)) return RT_CONT;
-            if (op->scan_end) return scan_ended(op);
+            if (op->scan_end) return scan_ended(vol, op);
             if (++op->scan_sector < vol->sectors_per_cluster) {
                 op->scan_lba++;
                 op->state = S_SCAN_READ;
@@ -697,7 +722,7 @@ static int run_state(struct rtfat_volume* vol, struct rtfat_op* op) {
             return RT_CONT;
         case S_SCAN_NEXT_CLUSTER:
             if (!fat_get(vol, op, op->scan_cluster, &v)) return RT_IO;
-            if (v >= 0x0FFFFFF8u) return scan_ended(op);
+            if (v >= 0x0FFFFFF8u) return scan_ended(vol, op);
             if (!cluster_valid(vol, v) || ++op->scan_clusters > vol->cluster_count) return finish(op, RTFAT_ECORRUPT);
             op->scan_cluster = v;
             op->scan_sector = 0;
@@ -775,9 +800,58 @@ static int run_state(struct rtfat_volume* vol, struct rtfat_op* op) {
                 op->state = S_ALLOC_LINK_WRITE;
                 return RT_CONT;
             }
-            op->file->cache_index = op->walk_index + 1;
-            op->file->cache_cluster = op->alloc_cluster;
+            if (op->file != 0) {
+                op->file->cache_index = op->walk_index + 1;
+                op->file->cache_cluster = op->alloc_cluster;
+            }
             op->state = op->next_state;
+            return RT_CONT;
+
+        /* ---- the directory's next sector or cluster, for entries that found no room ---- */
+        case S_DIR_GAP_WRITTEN:
+            if (op->scan_sector + 1 < vol->sectors_per_cluster) {
+                op->free_lba = op->scan_lba + 1;
+                op->free_index = 0;
+                op->entry_zero = 1;
+                op->state = op->grow_next;
+                return RT_CONT;
+            }
+            op->state = S_DIR_NEXT;
+            return RT_CONT;
+        case S_DIR_NEXT:
+            if (!fat_get(vol, op, op->scan_cluster, &v)) return RT_IO;
+            if (v < 0x0FFFFFF8u) {
+                /* Chained after the end-of-directory entry: unused. */
+                if (!cluster_valid(vol, v)) return finish(op, RTFAT_ECORRUPT);
+                op->free_lba = rtfat_cluster_lba(vol, v);
+                op->free_index = 0;
+                op->entry_zero = 1;
+                op->state = op->grow_next;
+                return RT_CONT;
+            }
+            op->alloc_link = op->scan_cluster;
+            op->alloc_scan = vol->alloc_hint;
+            op->alloc_tried = 0;
+            op->next_state = S_DIR_GROWN;
+            op->state = S_ALLOC_SCAN;
+            return RT_CONT;
+        case S_DIR_GROWN:
+            op->scan_sector = 0;
+            zero_bytes(op->sector, RTFAT_SECTOR_BYTES);
+            op->state = S_DIR_ZERO;
+            return RT_CONT;
+        case S_DIR_ZERO:
+            /* Every sector of the new cluster zeroed, one at a time (the
+             * scratch sector is the only buffer every operation has). */
+            if (op->scan_sector < vol->sectors_per_cluster) {
+                const uint32_t lba = rtfat_cluster_lba(vol, op->alloc_cluster) + op->scan_sector;
+                op->scan_sector++;
+                return issue(op, lba, 1, 1, op->sector);
+            }
+            op->free_lba = rtfat_cluster_lba(vol, op->alloc_cluster);
+            op->free_index = 0;
+            op->entry_zero = 0; /* just zeroed on the card */
+            op->state = op->grow_next;
             return RT_CONT;
 
         /* ---- writing new entries at (free_lba, free_index) ---- */
@@ -785,6 +859,7 @@ static int run_state(struct rtfat_volume* vol, struct rtfat_op* op) {
             op->state = S_ENTRY_FILL;
             return issue(op, op->free_lba, 1, 0, op->sector);
         case S_ENTRY_FILL:
+            if (op->entry_zero) zero_bytes(op->sector, RTFAT_SECTOR_BYTES);
             fill_entries(op);
             op->state = S_ENTRY_WRITTEN;
             return issue(op, op->free_lba, 1, 1, op->sector);

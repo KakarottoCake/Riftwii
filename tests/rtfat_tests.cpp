@@ -541,20 +541,73 @@ static void TestCreate(Low& low) {
     EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_LOOKUP), RTFAT_OK);
     EXPECT_EQ(op.found.entry_index, 14u);
 
-    // Fill the directory: the free entries of the two clusters run out.
-    int created = 0;
+    // Fill the directory past its two clusters (64 entries, 15 in use):
+    // it grows by a cluster each time the entries run out, the new
+    // cluster zeroed and chained after cluster 4, and every file is
+    // found afterwards, by the engine and by the host.
+    EXPECT_EQ(fx.fat(4), 0x0FFFFFFFu);
     for (int i = 0; i < 100; ++i) {
         char n[16];
         std::snprintf(n, sizeof n, "F%03d.SAV", i);
         SetName(op.name, n);
-        const std::int32_t r = Run(fx.vol, op, fx.dev, RTFAT_OP_CREATE);
-        if (r == RTFAT_ENOINODES) break;
-        EXPECT_EQ(r, RTFAT_OK);
-        ++created;
+        EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_CREATE), RTFAT_OK);
     }
-    // Two clusters of two sectors: 64 entries, 13 in use after data.bin took the deleted slot, 2 more for the long name.
-    EXPECT_EQ(created, 64 - 15);
-    EXPECT_EQ(fx.host_names().size(), std::size_t(6 + 2 + created));  // the host lists the too-long name and the directory too
+    const std::uint32_t third = fx.fat(4);
+    EXPECT_TRUE(third >= 2 && third < 0x0FFFFFF8u);
+    const std::uint32_t fourth = fx.fat(third);
+    EXPECT_TRUE(fourth >= 2 && fourth < 0x0FFFFFF8u);
+    EXPECT_EQ(fx.fat(fourth), 0x0FFFFFFFu);  // 115 entries: four clusters of 32
+    EXPECT_EQ(fx.fat(third, 1), fourth);      // the second FAT copy too
+    EXPECT_EQ(fx.host_names().size(), std::size_t(6 + 2 + 100));  // the host lists the too-long name and the directory too
+    const auto cluster_lba = [&](std::uint32_t c) { return fx.vol.data_lba + (c - 2) * fx.vol.sectors_per_cluster; };
+    SetName(op.name, "F099.SAV");
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_LOOKUP), RTFAT_OK);
+    EXPECT_EQ(op.found.entry_lba, cluster_lba(fourth) + 1);  // entry 114: the fourth cluster's second sector
+    EXPECT_EQ(op.found.entry_index, 2u);
+    SetName(op.name, "F049.SAV");
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_LOOKUP), RTFAT_OK);
+    EXPECT_EQ(op.found.entry_lba, cluster_lba(third));  // entry 64: the first of the grown cluster
+    EXPECT_EQ(op.found.entry_index, 0u);
+    // A long name (two entries) with one entry left in the last sector:
+    // never split across sectors, so the directory grows once more and
+    // the name starts the fifth cluster.
+    for (int i = 100; i < 112; ++i) {
+        char n[16];
+        std::snprintf(n, sizeof n, "F%03d.SAV", i);
+        SetName(op.name, n);
+        EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_CREATE), RTFAT_OK);
+    }
+    EXPECT_EQ(fx.fat(fourth), 0x0FFFFFFFu);  // 127 entries used, one free
+    SetName(op.name, "longname9.sv");
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_CREATE), RTFAT_OK);
+    const std::uint32_t fifth = fx.fat(fourth);
+    EXPECT_TRUE(fifth >= 2 && fifth < 0x0FFFFFF8u);
+    EXPECT_EQ(op.found.lfn_lba, cluster_lba(fifth));
+    EXPECT_EQ(op.found.lfn_index, 0u);
+    EXPECT_EQ(op.found.entry_index, 1u);
+    riftwii::Fat32File grown;
+    EXPECT_TRUE(fx.host_lookup("longname9.sv", grown));
+    EXPECT_EQ(grown.entry.name, "longname9.sv");
+    // The same with room left in the cluster: the name starts the next
+    // sector of the fifth cluster, and the entry it skipped is marked
+    // deleted so scans read on. (F112 takes the entry marked deleted
+    // in the fourth cluster; 13 more fill the fifth's first sector but one.)
+    for (int i = 112; i < 126; ++i) {
+        char n[16];
+        std::snprintf(n, sizeof n, "F%03d.SAV", i);
+        SetName(op.name, n);
+        EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_CREATE), RTFAT_OK);
+    }
+    SetName(op.name, "longname8.sv");
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_CREATE), RTFAT_OK);
+    EXPECT_EQ(fx.fat(fifth), 0x0FFFFFFFu);
+    EXPECT_EQ(op.found.lfn_lba, cluster_lba(fifth) + 1);
+    EXPECT_EQ(op.found.lfn_index, 0u);
+    EXPECT_TRUE(fx.host_lookup("longname8.sv", grown));
+    EXPECT_EQ(fx.img.bytes[(cluster_lba(fifth) * 512) + 15 * 32], 0xE5);  // the skipped entry
+    // The engine lists them all.
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_COUNT), 5 + 2 + 112 + 1 + 14 + 1);
+    EXPECT_EQ(fx.host_names().size(), std::size_t(6 + 2 + 112 + 1 + 14 + 1));
 }
 
 // ---- delete and rename ---------------------------------------------------------

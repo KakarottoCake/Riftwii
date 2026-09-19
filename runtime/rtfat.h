@@ -19,8 +19,9 @@
  * serves the sync and the async IPC entry points.
  *
  * Volume: 512-byte sectors only (what SD cards are formatted with), one
- * flat directory, 8.3 and long names (VFAT) read and written, every FAT
- * copy updated, ISFS error codes. Sizes and positions are 32-bit as
+ * flat directory that grows by a cluster when its entries run out, 8.3
+ * and long names (VFAT) read and written, every FAT copy updated, ISFS
+ * error codes. Sizes and positions are 32-bit as
  * ISFS's are. Names are matched case-insensitively (FAT semantics) and
  * listed in their stored case.
  */
@@ -187,6 +188,8 @@ struct rtfat_op {
     uint32_t chunk_count;
     uint32_t grow_from;          /* WRITE: size before the operation */
     uint32_t entry_dirty;        /* WRITE: the directory entry must be rewritten */
+    uint32_t grow_next;          /* CREATE/RENAME: state after the directory gained room */
+    uint32_t entry_zero;         /* the sector at free_lba is past the last entry: zero it before filling */
     uint8_t fat_sector[RTFAT_SECTOR_BYTES] __attribute__((aligned(32)));
     uint8_t sector[RTFAT_SECTOR_BYTES] __attribute__((aligned(32)));
 };
