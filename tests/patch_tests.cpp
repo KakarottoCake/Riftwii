@@ -317,6 +317,49 @@ static void test_plan_without_order() {
     if (!plan.files.empty()) EXPECT_EQ(plan.files[0].external, std::string("/riivolution/a.bin"));
 }
 
+static void test_select_choice() {
+    riftwii::Package pkg;
+    std::string err;
+    EXPECT_TRUE(riftwii::parse_package(GoodXml(), pkg, err));
+    EXPECT_EQ(pkg.options[0].selected, std::size_t(1));
+    EXPECT_EQ(pkg.options[1].selected, std::size_t(0));
+    // By name, by section/name, by id, by number, case-folded; off again.
+    EXPECT_TRUE(riftwii::select_choice(pkg, "Opt1", "B", err));
+    EXPECT_EQ(pkg.options[0].selected, std::size_t(2));
+    EXPECT_TRUE(riftwii::select_choice(pkg, "Mods/Opt2", "On", err));
+    EXPECT_EQ(pkg.options[1].selected, std::size_t(1));
+    EXPECT_TRUE(riftwii::select_choice(pkg, "o1", "1", err));
+    EXPECT_EQ(pkg.options[0].selected, std::size_t(1));
+    EXPECT_TRUE(riftwii::select_choice(pkg, "mods/OPT1", "b", err));
+    EXPECT_EQ(pkg.options[0].selected, std::size_t(2));
+    EXPECT_TRUE(riftwii::select_choice(pkg, "Opt1", "disabled", err));
+    EXPECT_EQ(pkg.options[0].selected, std::size_t(0));
+    EXPECT_TRUE(riftwii::select_choice(pkg, "Opt1", "A", err));
+    EXPECT_TRUE(riftwii::select_choice(pkg, "Opt1", "", err));
+    EXPECT_EQ(pkg.options[0].selected, std::size_t(0));
+    // Unknown option, section, choice, number out of range: untouched.
+    EXPECT_FALSE(riftwii::select_choice(pkg, "Opt9", "A", err));
+    EXPECT_FALSE(riftwii::select_choice(pkg, "Other/Opt1", "A", err));
+    EXPECT_FALSE(riftwii::select_choice(pkg, "Opt1", "C", err));
+    EXPECT_FALSE(riftwii::select_choice(pkg, "Opt1", "3", err));
+    EXPECT_FALSE(riftwii::select_choice(pkg, "", "A", err));
+    EXPECT_EQ(pkg.options[0].selected, std::size_t(0));
+    // The selection drives the plan: Opt1=B selects only p2.
+    EXPECT_TRUE(riftwii::select_choice(pkg, "Opt1", "B", err));
+    EXPECT_TRUE(riftwii::select_choice(pkg, "Opt2", "0", err));
+    riftwii::DiscIdentity disc{"RSBE01", 0, 0};
+    std::vector<riftwii::FilePatch> out;
+    EXPECT_TRUE(PlanFiles(pkg, disc, out, err));
+    EXPECT_EQ(out.size(), std::size_t(1));
+    if (!out.empty()) EXPECT_EQ(out[0].disc, std::string("/b.bin"));
+    // Two options with the same name in different sections need the section.
+    riftwii::Option twin = pkg.options[0];
+    twin.section = "Other";
+    pkg.options.push_back(twin);
+    EXPECT_FALSE(riftwii::select_choice(pkg, "Opt1", "A", err));
+    EXPECT_TRUE(riftwii::select_choice(pkg, "Other/Opt1", "A", err));
+    EXPECT_EQ(pkg.options[2].selected, std::size_t(1));
+}
 static void test_read_package() {
     riftwii::Package pkg;
     std::string err;
@@ -388,6 +431,7 @@ int main() {
     test_disc_path_validation();
     test_file_field_preservation();
     test_plan_without_order();
+    test_select_choice();
     test_read_package();
     if (g_failures == 0) {
         std::cout << "ALL PATCH TESTS PASSED" << std::endl;

@@ -221,8 +221,21 @@ void RunAutorun() {
     std::vector<MemReplacement> replacements;
     std::vector<VirtualFile> virtual_files;
     std::vector<SdReplacement> sd_replacements;
-    std::vector<std::string> packages;  // xml paths, compiled together at boot
+    std::vector<PackageSelection> packages;  // compiled together, later ones on top
     CompiledMod mods;
+    // Recompiles every package named so far and logs the combined result.
+    const auto recompile = [&](std::string& err) {
+        CompiledMod mod;
+        if (!s.ensure_layout(err) || !compile_packages(packages, s.probe, s.partition, mod, err)) return false;
+        for (const std::string& w : mod.warnings) logf("  warning: %s\n", w.c_str());
+        for (const std::string& n : mod.notes) logf("  %s\n", n.c_str());
+        logf("  %u package(s): %u table entries, %u relocation(s), %u memory patch(es)\n",
+             static_cast<unsigned>(packages.size()), static_cast<unsigned>(mod.entries.size()),
+             static_cast<unsigned>(mod.relocations.size()), static_cast<unsigned>(mod.memory.size()));
+        if (!mod.entries.empty() || !mod.relocations.empty()) install_resident = true;
+        mods = std::move(mod);
+        return true;
+    };
     std::string error;
     int line_number = 0;
     while (std::getline(script, line)) {
@@ -350,22 +363,32 @@ void RunAutorun() {
             // shows the combined result each time.
             std::string sd_path;
             words >> sd_path;
-            CompiledMod mod;
-            if (!sd_path.empty()) packages.push_back(sd_path);
-            ok = !sd_path.empty() && s.ensure_layout(error) &&
-                 compile_packages(packages, s.probe, s.partition, mod, error);
-            if (ok) {
-                for (const std::string& w : mod.warnings) logf("  warning: %s\n", w.c_str());
-                for (const std::string& n : mod.notes) logf("  %s\n", n.c_str());
-                logf("  %u package(s): %u table entries, %u relocation(s), %u memory patch(es)\n",
-                     static_cast<unsigned>(packages.size()), static_cast<unsigned>(mod.entries.size()),
-                     static_cast<unsigned>(mod.relocations.size()), static_cast<unsigned>(mod.memory.size()));
-                if (!mod.entries.empty() || !mod.relocations.empty()) install_resident = true;
-                mods = std::move(mod);
-            } else if (error.empty()) {
+            if (sd_path.empty()) {
+                ok = false;
                 error = "xml needs an SD path";
             } else {
-                packages.pop_back();
+                PackageSelection selection;
+                selection.xml_sd_path = sd_path;
+                packages.push_back(selection);
+                ok = recompile(error);
+                if (!ok) packages.pop_back();
+            }
+        } else if (cmd == "set") {
+            // `set <option>=<choice>`: a choice for the last `xml` package
+            // (option as "Option" or "Section/Option"; an empty choice or
+            // "disabled" turns the option off), then everything is
+            // recompiled.
+            std::string rest;
+            std::getline(words, rest);
+            rest = trim(rest);
+            const std::size_t eq = rest.find('=');
+            if (packages.empty() || eq == std::string::npos) {
+                ok = false;
+                error = packages.empty() ? "set needs a preceding xml" : "set needs <option>=<choice>";
+            } else {
+                packages.back().choices.emplace_back(trim(rest.substr(0, eq)), trim(rest.substr(eq + 1)));
+                ok = recompile(error);
+                if (!ok) packages.back().choices.pop_back();
             }
         } else if (cmd == "boot") {
             BootOptions options;

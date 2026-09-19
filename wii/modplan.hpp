@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "boot.hpp"
@@ -28,10 +29,17 @@ struct CompiledMod {
     std::vector<std::string> warnings;  // from the package parser
 };
 
+// A package and the choices to apply over its defaults, in order (see
+// riftwii::select_choice for the name forms).
+struct PackageSelection {
+    std::string xml_sd_path;
+    std::vector<std::pair<std::string, std::string>> choices;  // option, choice
+};
+
 // Compiles the packages together, in the order given: patches from later
 // packages that touch a file an earlier one patched apply on top of its
 // result, as later patches inside one package do.
-bool compile_packages(const std::vector<std::string>& xml_sd_paths, const DiscProbe& probe,
+bool compile_packages(const std::vector<PackageSelection>& packages, const DiscProbe& probe,
                       const OpenedPartition& partition, CompiledMod& out, std::string& error);
 
 }  // namespace riftwii::wii

@@ -1162,6 +1162,92 @@ bool ResolveExternal(const std::string& raw, const std::string& base, const Sele
     return true;
 }
 }  // namespace
+namespace {
+
+bool SameFolded(const std::string& a, const std::string& b) {
+    if (a.size() != b.size()) return false;
+    for (std::size_t i = 0; i < a.size(); ++i) {
+        char x = a[i], y = b[i];
+        if (x >= 'A' && x <= 'Z') x = static_cast<char>(x - 'A' + 'a');
+        if (y >= 'A' && y <= 'Z') y = static_cast<char>(y - 'A' + 'a');
+        if (x != y) return false;
+    }
+    return true;
+}
+
+// Index of the single candidate whose name matches exactly, else the
+// single one matching case-insensitively; npos for none or several.
+template <typename Match>
+std::size_t PickOne(std::size_t count, Match match) {
+    for (int folded = 0; folded < 2; ++folded) {
+        std::size_t found = std::string::npos;
+        std::size_t hits = 0;
+        for (std::size_t i = 0; i < count; ++i) {
+            if (match(i, folded == 1)) {
+                found = i;
+                ++hits;
+            }
+        }
+        if (hits == 1) return found;
+        if (hits > 1) return std::string::npos;
+    }
+    return std::string::npos;
+}
+
+}  // namespace
+
+bool select_choice(Package& package, const std::string& option, const std::string& choice, std::string& error) {
+    std::string section;
+    std::string name = option;
+    const std::size_t slash = option.find('/');
+    if (slash != std::string::npos) {
+        section = option.substr(0, slash);
+        name = option.substr(slash + 1);
+    }
+    if (name.empty()) {
+        error = "option name is empty";
+        return false;
+    }
+    const std::size_t oi = PickOne(package.options.size(), [&](std::size_t i, bool folded) {
+        const Option& o = package.options[i];
+        if (!section.empty() && !(folded ? SameFolded(o.section, section) : o.section == section)) return false;
+        return folded ? (SameFolded(o.name, name) || SameFolded(o.id, name)) : (o.name == name || o.id == name);
+    });
+    if (oi == std::string::npos) {
+        error = "no single option named '" + option + "'";
+        return false;
+    }
+    Option& o = package.options[oi];
+    if (choice.empty() || choice == "0" || SameFolded(choice, "disabled")) {
+        o.selected = 0;
+        error.clear();
+        return true;
+    }
+    std::size_t ci = PickOne(o.choices.size(), [&](std::size_t i, bool folded) {
+        return folded ? SameFolded(o.choices[i].name, choice) : o.choices[i].name == choice;
+    });
+    if (ci == std::string::npos) {
+        // A 1-based number.
+        std::size_t n = 0;
+        bool numeric = !choice.empty();
+        for (char c : choice) {
+            if (c < '0' || c > '9' || n > o.choices.size()) {
+                numeric = false;
+                break;
+            }
+            n = n * 10 + static_cast<std::size_t>(c - '0');
+        }
+        if (!numeric || n == 0 || n > o.choices.size()) {
+            error = "option '" + o.name + "' has no single choice '" + choice + "'";
+            return false;
+        }
+        ci = n - 1;
+    }
+    o.selected = ci + 1;
+    error.clear();
+    return true;
+}
+
 bool plan_package(const Package& package, const DiscIdentity& disc, const PlanOptions& options,
                   Plan& output, std::string& error) {
     try {

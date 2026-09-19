@@ -155,6 +155,14 @@ bool resolve_path(const std::string& root, const std::string& path, std::string&
 bool substitute_params(const std::string& input, const std::vector<Param>& params,
                        const DiscIdentity& disc, std::string& output, std::string& error);
 
+// Sets an option's selection by name, as a frontend or a config file
+// would: `option` is "Option" or "Section/Option" (exact match first,
+// then ASCII case-insensitive; an option `id` matches too), `choice` is a
+// choice name (same matching), a 1-based number, or empty / "disabled" /
+// "0" to turn the option off. Fails, leaving the package untouched, when
+// the option or choice does not exist or the name is ambiguous.
+bool select_choice(Package& package, const std::string& option, const std::string& choice, std::string& error);
+
 // Resolves the selected choices of `package` for `disc` into a Plan with all
 // paths substituted and resolved. Returns an empty plan when the package's
 // filter does not match the disc. Output is untouched on failure.

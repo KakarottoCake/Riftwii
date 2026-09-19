@@ -108,9 +108,10 @@ private:
 
 // One package: parse, plan with its default choices, expand folders and
 // read valuefiles, appending to the combined lists.
-static bool gather_package(const std::string& xml_sd_path, const DiscProbe& probe, const Fst& fst,
+static bool gather_package(const PackageSelection& selection, const DiscProbe& probe, const Fst& fst,
                            WiiProvider& provider, std::vector<FilePatch>& files, CompiledMod& mod,
                            std::string& error) {
+    const std::string& xml_sd_path = selection.xml_sd_path;
     std::ifstream xml(xml_sd_path, std::ios::binary);
     if (!xml) {
         error = "cannot open " + xml_sd_path;
@@ -119,6 +120,12 @@ static bool gather_package(const std::string& xml_sd_path, const DiscProbe& prob
     Package package;
     if (!read_package(xml, package, error)) return false;
     mod.warnings.insert(mod.warnings.end(), package.warnings.begin(), package.warnings.end());
+    for (const auto& c : selection.choices) {
+        if (!select_choice(package, c.first, c.second, error)) {
+            error = xml_sd_path + ": " + error;
+            return false;
+        }
+    }
     const DiscIdentity disc = probe.header.identity();
     PlanOptions allowed;
     allowed.allow_filename_targets = true;
@@ -162,18 +169,18 @@ static bool gather_package(const std::string& xml_sd_path, const DiscProbe& prob
     return true;
 }
 
-bool compile_packages(const std::vector<std::string>& xml_sd_paths, const DiscProbe& probe,
+bool compile_packages(const std::vector<PackageSelection>& packages, const DiscProbe& probe,
                       const OpenedPartition& partition, CompiledMod& out, std::string& error) {
     CompiledMod mod;
-    mod.xml_paths = xml_sd_paths;
     const Fst& fst = partition.fst;
     WiiProvider provider(fst);
 
     // 1. Every package's file patches, in package then document order,
     //    and its memory patches.
     std::vector<FilePatch> files;
-    for (const std::string& path : xml_sd_paths) {
-        if (!gather_package(path, probe, fst, provider, files, mod, error)) return false;
+    for (const PackageSelection& selection : packages) {
+        mod.xml_paths.push_back(selection.xml_sd_path);
+        if (!gather_package(selection, probe, fst, provider, files, mod, error)) return false;
     }
     if (files.empty()) {
         out = std::move(mod);
