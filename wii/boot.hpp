@@ -10,6 +10,7 @@
 #include "riftwii/dol.hpp"
 #include "riftwii/fst.hpp"
 #include "riftwii/hook.hpp"
+#include "riftwii/patch.hpp"
 
 // E1: boot an unmodified disc the way the System Menu would, from a
 // homebrew loader. The sequence (drive reset, disc id, partition table,
@@ -96,6 +97,10 @@ struct BootOptions {
     // the FST relocations they need (requires install_resident).
     std::vector<rt_entry> table_entries;
     std::vector<FstRelocation> relocations;
+    // <memory> patches (riftwii/mempatch.hpp), applied once the apploader
+    // has loaded the game and before the runtime is installed; `value`
+    // must already hold the bytes.
+    std::vector<MemoryPatch> memory_patches;
 };
 
 // Reloads IOS, runs the apploader and jumps to the game. Only returns on

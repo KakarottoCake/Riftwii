@@ -24,6 +24,7 @@
 #include "di.hpp"
 #include "ios_reload.hpp"
 #include "log.hpp"
+#include "riftwii/mempatch.hpp"
 #include "resident.hpp"
 #include "sdio.hpp"
 
@@ -601,6 +602,7 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, std:
         return false;
     }
     init(apploader_report);
+    std::vector<MemoryRegion> loaded;  // what the apploader filled, in load order
     for (;;) {
         void* destination = nullptr;
         int length = 0;
@@ -647,6 +649,7 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, std:
         }
         DCFlushRange(destination, len);
         ICInvalidateRange(destination, len);
+        loaded.push_back(MemoryRegion{dest, len});
     }
     void (*game_entry)(void) = close();
     if (!game_entry) {
@@ -654,6 +657,34 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, std:
         return false;
     }
     logf("Game entry 0x%08x\n", reinterpret_cast<std::uint32_t>(game_entry));
+
+    // <memory> patches: the game is in place and nothing has run it yet.
+    // Writes may land anywhere in MEM1 or in MEM2 below the arena end
+    // (the runtime's reservation is carved out above it next).
+    if (!options.memory_patches.empty()) {
+        struct WiiMemory final : MemoryAccess {
+            bool read(std::uint32_t address, std::uint8_t* out, std::size_t length) override {
+                std::memcpy(out, reinterpret_cast<const void*>(address), length);
+                return true;
+            }
+            bool write(std::uint32_t address, const std::uint8_t* bytes, std::size_t length) override {
+                std::memcpy(reinterpret_cast<void*>(address), bytes, length);
+                const std::uint32_t start = address & ~31u;
+                const std::uint32_t end = (address + static_cast<std::uint32_t>(length) + 31) & ~31u;
+                DCFlushRange(reinterpret_cast<void*>(start), end - start);
+                ICInvalidateRange(reinterpret_cast<void*>(start), end - start);
+                return true;
+            }
+        } wii_memory;
+        const std::uint32_t arena2_end = reinterpret_cast<std::uint32_t>(SYS_GetArena2Hi());
+        const std::vector<MemoryRegion> writable = {
+            MemoryRegion{kMem1Start, kMem1End - kMem1Start},
+            MemoryRegion{kMem2Start, arena2_end > kMem2Start ? arena2_end - kMem2Start : 0},
+        };
+        std::vector<std::string> notes;
+        if (!apply_memory_patches(options.memory_patches, loaded, writable, wii_memory, notes, error)) return false;
+        for (const std::string& n : notes) logf("  %s\n", n.c_str());
+    }
 
     // E4: the SD card again, with our own fd this time, left open and
     // selected for the runtime.

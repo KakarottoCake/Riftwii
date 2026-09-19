@@ -354,10 +354,11 @@ void RunAutorun() {
             if (ok) {
                 for (const std::string& w : mod.warnings) logf("  warning: %s\n", w.c_str());
                 for (const std::string& n : mod.notes) logf("  %s\n", n.c_str());
-                logf("  %u table entries, %u relocation(s)\n", static_cast<unsigned>(mod.entries.size()),
-                     static_cast<unsigned>(mod.relocations.size()));
+                logf("  %u table entries, %u relocation(s), %u memory patch(es)\n",
+                     static_cast<unsigned>(mod.entries.size()), static_cast<unsigned>(mod.relocations.size()),
+                     static_cast<unsigned>(mod.memory.size()));
+                if (!mod.entries.empty() || !mod.relocations.empty()) install_resident = true;
                 mods.push_back(std::move(mod));
-                install_resident = true;
             } else if (error.empty()) {
                 error = "xml needs an SD path";
             }
@@ -374,6 +375,7 @@ void RunAutorun() {
                 options.table_entries.insert(options.table_entries.end(), mod.entries.begin(), mod.entries.end());
                 options.relocations.insert(options.relocations.end(), mod.relocations.begin(),
                                            mod.relocations.end());
+                options.memory_patches.insert(options.memory_patches.end(), mod.memory.begin(), mod.memory.end());
             }
             if (!s.ensure_probe(error)) {
                 ok = false;

@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "boot.hpp"
+#include "riftwii/patch.hpp"
 #include "rtable.h"
 
 // Compiles a Riivolution-format package on the SD card into what the boot
@@ -22,6 +23,7 @@ struct CompiledMod {
     std::string xml_path;
     std::vector<rt_entry> entries;
     std::vector<FstRelocation> relocations;
+    std::vector<MemoryPatch> memory;  // values read (valuefile resolved), in document order
     std::vector<std::string> notes;  // one line per patched file, for the log
     std::vector<std::string> warnings;  // from the package parser
 };

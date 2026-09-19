@@ -11,6 +11,7 @@
 #include "riftwii/expand.hpp"
 #include "riftwii/fat32.hpp"
 #include "riftwii/hook.hpp"
+#include "riftwii/mempatch.hpp"
 #include "riftwii/patch.hpp"
 #include "riftwii/redirect.hpp"
 #include "riftwii/source.hpp"
@@ -123,6 +124,7 @@ bool compile_package(const std::string& xml_sd_path, const DiscProbe& probe, con
     PlanOptions allowed;
     allowed.allow_filename_targets = true;
     allowed.allow_folders = true;
+    allowed.allow_memory = true;
     Plan plan;
     if (!plan_package(package, disc, allowed, plan, error)) return false;
 
@@ -134,9 +136,39 @@ bool compile_package(const std::string& xml_sd_path, const DiscProbe& probe, con
     WiiProvider provider(fst);
     std::vector<FilePatch> files;
     if (!expand_plan(plan, fst, provider, files, mod.notes, error)) return false;
+
+    // Memory patches: a valuefile is read now, while the card is mounted.
+    for (MemoryPatch m : plan.memory) {
+        if (!m.valuefile.empty()) {
+            std::unique_ptr<ByteSource> source;
+            std::string open_error;
+            if (provider.open_external(m.valuefile, source, open_error) != OpenStatus::Ok || !source) {
+                error = "memory patch valuefile: " + open_error;
+                return false;
+            }
+            if (source->size() == 0 || source->size() > kMaxMemoryValueBytes) {
+                error = "memory patch valuefile '" + m.valuefile + "' is empty or larger than " +
+                        std::to_string(kMaxMemoryValueBytes) + " bytes";
+                return false;
+            }
+            m.value.resize(static_cast<std::size_t>(source->size()));
+            if (!source->read(0, m.value.data(), m.value.size())) {
+                error = "cannot read memory patch valuefile '" + m.valuefile + "'";
+                return false;
+            }
+        }
+        mod.memory.push_back(std::move(m));
+    }
+    if (!mod.memory.empty()) mod.notes.push_back(std::to_string(mod.memory.size()) + " memory patch(es)");
+
     if (files.empty()) {
-        error = xml_sd_path + " does not apply to " + probe.header.game_id + " (no file patches selected)";
-        return false;
+        if (mod.memory.empty()) {
+            error = xml_sd_path + " does not apply to " + probe.header.game_id + " (nothing selected)";
+            return false;
+        }
+        out = std::move(mod);
+        error.clear();
+        return true;
     }
     std::vector<std::string> order;
     std::map<std::string, std::vector<FilePatch>> groups;
