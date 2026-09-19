@@ -780,10 +780,13 @@ static void TestVirtualWindow() {
     riftwii::VirtualFile tiny;
     tiny.disc_path = "/hbm/config.txt";
     tiny.bytes = {1, 2, 3};
+    riftwii::VirtualFile on_card;  // config.txt again would collide; use home.csv's neighbour
     std::vector<riftwii::MemReplacement> reps;
+    std::vector<riftwii::SdReplacement> sd_reps;
     std::uint64_t end = 0;
-    EXPECT_TRUE(riftwii::plan_virtual_window(fst, {grown, tiny}, reps, end, error));
+    EXPECT_TRUE(riftwii::plan_virtual_window(fst, {grown, tiny}, reps, sd_reps, end, error));
     EXPECT_EQ(reps.size(), 2u);
+    EXPECT_EQ(sd_reps.size(), 0u);
     EXPECT_EQ(reps[0].virtual_offset, riftwii::kVirtualWindowStart);
     EXPECT_EQ(reps[0].bytes.size(), 5024u);  // padded to 32
     EXPECT_EQ(reps[0].bytes[4999], 0x42);
@@ -808,24 +811,51 @@ static void TestVirtualWindow() {
     riftwii::VirtualFile bad;
     bad.disc_path = "/nope";
     bad.bytes = {1};
-    EXPECT_FALSE(riftwii::plan_virtual_window(fst, {bad}, reps, end, error));
+    EXPECT_FALSE(riftwii::plan_virtual_window(fst, {bad}, reps, sd_reps, end, error));
     bad.disc_path = "/hbm";
-    EXPECT_FALSE(riftwii::plan_virtual_window(fst, {bad}, reps, end, error));
+    EXPECT_FALSE(riftwii::plan_virtual_window(fst, {bad}, reps, sd_reps, end, error));
+    bad.disc_path = "/hbm/config.txt";
+    bad.bytes.clear();
+    EXPECT_FALSE(riftwii::plan_virtual_window(fst, {bad}, reps, sd_reps, end, error));  // no content
+
+    // An SD-backed file takes a slot the same way; its size is the runs' total.
+    riftwii::VirtualFile card;
+    card.disc_path = "/hbm/config.txt";
+    std::vector<riftwii::Fragment> frags = {{100, 3}};
+    EXPECT_TRUE(riftwii::place_on_fragments(frags, 0, 1300, card.sd_runs, error));
+    EXPECT_EQ(card.size(), 1300ull);
+    riftwii::Fst fst2;
+    EXPECT_TRUE(riftwii::Fst::parse(image.data(), image.size(), true, fst2, error));
+    reps.clear();
+    EXPECT_TRUE(riftwii::plan_virtual_window(fst2, {grown, card}, reps, sd_reps, end, error));
+    EXPECT_EQ(reps.size(), 1u);
+    EXPECT_EQ(sd_reps.size(), 1u);
+    EXPECT_EQ(sd_reps[0].virtual_offset, riftwii::kVirtualWindowStart + 5024);
+    EXPECT_EQ(sd_reps[0].runs[0].source, 100ull);
+    EXPECT_EQ(fst2.entries()[c].size, 1300u);
+    EXPECT_EQ(fst2.entries()[c].offset, riftwii::kVirtualWindowStart + 5024);
+    EXPECT_EQ(end, riftwii::kVirtualWindowStart + 5024 + 1312);
 
     // The payload builder accepts window offsets and the walker resolves them.
     std::vector<std::uint8_t> payload;
-    EXPECT_TRUE(riftwii::build_mem_payload(reps, 0x935C0000, 0, payload, error));
+    EXPECT_TRUE(riftwii::build_payload(reps, sd_reps, 0x935C0000, 0, 4, payload, error));
     const auto* header = reinterpret_cast<const rt_header*>(payload.data());
     EXPECT_EQ(rt_validate(header, payload.size()), RT_OK);
     rt_run runs[4];
     std::uint32_t n = 0;
     EXPECT_EQ(rt_lookup(header, riftwii::kVirtualWindowStart + 5000, 64, runs, 4, &n), RT_OK);
-    EXPECT_EQ(n, 3u);  // 24 bytes of padding from the first entry, 32 from the second, then 8 in a gap
+    EXPECT_EQ(n, 2u);  // 24 bytes of padding from the MEM entry, then 40 of the SD file
     EXPECT_EQ(runs[0].kind, static_cast<std::uint32_t>(RT_KIND_MEM));
     EXPECT_EQ(runs[0].length, 24ull);
-    EXPECT_EQ(runs[1].length, 32ull);
-    EXPECT_EQ(runs[2].kind, static_cast<std::uint32_t>(RT_KIND_PASSTHROUGH));
-    EXPECT_EQ(runs[2].length, 8ull);
+    EXPECT_EQ(runs[1].kind, static_cast<std::uint32_t>(RT_KIND_SD));
+    EXPECT_EQ(runs[1].length, 40ull);
+    EXPECT_EQ(runs[1].source, 100ull);
+    // Past the SD file's end the window is a gap the runtime zero-fills.
+    EXPECT_EQ(rt_lookup(header, riftwii::kVirtualWindowStart + 5024 + 1280, 64, runs, 4, &n), RT_OK);
+    EXPECT_EQ(n, 2u);
+    EXPECT_EQ(runs[0].length, 20ull);
+    EXPECT_EQ(runs[1].kind, static_cast<std::uint32_t>(RT_KIND_PASSTHROUGH));
+    EXPECT_EQ(runs[1].length, 44ull);
 }
 
 int main() {

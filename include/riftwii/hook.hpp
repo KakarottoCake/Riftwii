@@ -63,18 +63,22 @@ bool build_mem_payload(const std::vector<MemReplacement>& replacements, std::uin
 // the runtime serves entirely from the redirect table.
 struct VirtualFile {
     std::string disc_path;             // absolute FST path of an existing file
-    std::vector<std::uint8_t> bytes;   // new content, any size
+    std::vector<std::uint8_t> bytes;   // new content in memory, any size; or
+    std::vector<PlacedRun> sd_runs;    // new content on the card (its size is the runs' total)
+    std::uint64_t size() const;
 };
 constexpr std::uint64_t kVirtualWindowStart = 0x200000000ull;  // byte offset; word 0x80000000
 
 // Assigns each virtual file a 32-byte aligned slot in the window, rewrites
-// the FST entries (offset and size) and appends the corresponding MEM
-// replacements, padded with zeros to a 32-byte multiple so a read rounded
-// up by the DVD driver never leaves the table. Fails on unknown paths,
-// directories, or a window that would leave the 32-bit word space.
+// the FST entries (offset and size) and appends the corresponding MEM or
+// SD replacement. MEM content is padded with zeros to a 32-byte multiple;
+// SD content is not, the runtime zero-fills the window's gaps, so a read
+// rounded up by the DVD driver is served either way. Fails on unknown
+// paths, directories, empty content, or a window that would leave the
+// 32-bit word space.
 bool plan_virtual_window(class Fst& fst, const std::vector<VirtualFile>& files,
-                         std::vector<MemReplacement>& replacements, std::uint64_t& window_end,
-                         std::string& error);
+                         std::vector<MemReplacement>& mem, std::vector<SdReplacement>& sd,
+                         std::uint64_t& window_end, std::string& error);
 
 // lis/ori/mtctr/bctr through `reg` (0-31): an absolute jump in four words.
 std::array<std::uint32_t, 4> encode_absolute_jump(unsigned reg, std::uint32_t target);

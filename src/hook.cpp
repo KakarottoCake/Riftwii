@@ -264,8 +264,15 @@ bool build_mem_payload(const std::vector<MemReplacement>& replacements, std::uin
     return build_payload(replacements, {}, payload_address, tag, 0xFFFFFFFFu, payload, error);
 }
 
-bool plan_virtual_window(Fst& fst, const std::vector<VirtualFile>& files, std::vector<MemReplacement>& replacements,
-                         std::uint64_t& window_end, std::string& error) {
+std::uint64_t VirtualFile::size() const {
+    if (!bytes.empty()) return bytes.size();
+    std::uint64_t total = 0;
+    for (const PlacedRun& run : sd_runs) total += run.length;
+    return total;
+}
+
+bool plan_virtual_window(Fst& fst, const std::vector<VirtualFile>& files, std::vector<MemReplacement>& mem,
+                         std::vector<SdReplacement>& sd, std::uint64_t& window_end, std::string& error) {
     constexpr std::uint64_t kWindowEnd = 0x400000000ull;  // word 0x100000000: past the 32-bit word space
     std::uint64_t next = kVirtualWindowStart;
     for (const VirtualFile& f : files) {
@@ -278,22 +285,33 @@ bool plan_virtual_window(Fst& fst, const std::vector<VirtualFile>& files, std::v
             error = "'" + f.disc_path + "' is a directory";
             return false;
         }
-        const std::uint64_t size = f.bytes.size();
+        const std::uint64_t size = f.size();
         const std::uint64_t padded = (size + 31) & ~std::uint64_t(31);
         if (padded > 0xFFFFFFFFull) {  // the FST size field is 32 bits
             error = "'" + f.disc_path + "' is too large for an FST entry";
             return false;
         }
-        if (padded == 0 || next + padded > kWindowEnd) {
+        if (padded == 0) {
+            error = "'" + f.disc_path + "' has no content";
+            return false;
+        }
+        if (next + padded > kWindowEnd) {
             error = "virtual window is full";
             return false;
         }
         if (!fst.set_file_extent(index, next, static_cast<std::uint32_t>(size), error)) return false;
-        MemReplacement r;
-        r.virtual_offset = next;
-        r.bytes = f.bytes;
-        r.bytes.resize(static_cast<std::size_t>(padded), 0);
-        replacements.push_back(std::move(r));
+        if (!f.bytes.empty()) {
+            MemReplacement r;
+            r.virtual_offset = next;
+            r.bytes = f.bytes;
+            r.bytes.resize(static_cast<std::size_t>(padded), 0);
+            mem.push_back(std::move(r));
+        } else {
+            SdReplacement r;
+            r.virtual_offset = next;
+            r.runs = f.sd_runs;
+            sd.push_back(std::move(r));
+        }
         next += padded;
     }
     window_end = next;

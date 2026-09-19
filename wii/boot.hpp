@@ -70,8 +70,8 @@ struct BootOptions {
     std::vector<MemReplacement> replacements;
     // E5: files the game sees with new content of any size. Their FST
     // entries are moved into the virtual window (riftwii/hook.hpp) in the
-    // FST the apploader loads, and the runtime serves them from memory
-    // (requires install_resident).
+    // FST the apploader loads, and the runtime serves them from memory or
+    // from SD sectors (requires install_resident).
     std::vector<VirtualFile> virtual_files;
     // E4: same-size replacements served from SD sectors (requires
     // install_resident). Resolved by the caller with wii/sdfile.hpp while

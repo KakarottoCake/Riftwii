@@ -477,6 +477,7 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, std:
     // the same bytes are served from memory should the game read the FST
     // again; the files themselves become MEM replacements in the window.
     std::vector<MemReplacement> replacements = options.replacements;
+    std::vector<SdReplacement> sd_replacements = options.sd_replacements;
     std::vector<std::uint8_t> fst_override;
     if (!options.virtual_files.empty()) {
         if (!options.install_resident) {
@@ -485,7 +486,9 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, std:
         }
         Fst fst = layout.fst;
         std::uint64_t window_end = 0;
-        if (!plan_virtual_window(fst, options.virtual_files, replacements, window_end, error)) return false;
+        if (!plan_virtual_window(fst, options.virtual_files, replacements, sd_replacements, window_end, error)) {
+            return false;
+        }
         fst_override = layout.fst_bytes;
         if (!fst.patch_image(fst_override, error)) return false;
         MemReplacement fst_copy;
@@ -575,7 +578,7 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, std:
     // E4: the SD card again, with our own fd this time, left open and
     // selected for the runtime.
     sdio::Card card;
-    if (!options.sd_replacements.empty()) {
+    if (!sd_replacements.empty()) {
         if (!options.install_resident) {
             error = "SD-backed replacements need the resident runtime";
             return false;
@@ -583,7 +586,7 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, std:
         if (!sdio::open_card(card, error)) return false;
         logf("SD card: fd %d, rca 0x%04x, %s\n", card.fd, card.rca, card.sdhc ? "SDHC" : "SDSC");
         if (options.verify_sd) {
-            for (const SdReplacement& r : options.sd_replacements) {
+            for (const SdReplacement& r : sd_replacements) {
                 if (!verify_sd_replacement(card, r, error)) return false;
             }
         }
@@ -605,7 +608,7 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, std:
         ro.replacements = std::move(replacements);
         ro.table_tag = static_cast<std::uint64_t>(probe.partition.offset);
         ro.virtual_start_words = options.virtual_files.empty() ? 0 : static_cast<std::uint32_t>(kVirtualWindowStart >> 2);
-        ro.sd_replacements = options.sd_replacements;
+        ro.sd_replacements = std::move(sd_replacements);
         ro.sdio_fd = card.fd;
         ro.sdio_sdhc = card.sdhc;
         if (!install_resident(dol, ro, resident, error)) return false;

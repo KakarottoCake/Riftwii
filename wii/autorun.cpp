@@ -147,6 +147,38 @@ bool LoadSdReplacement(const OpenedPartition& partition, const std::string& disc
     return true;
 }
 
+// Resolves an SD file of any size as the new content of an FST entry.
+bool LoadSdVirtualFile(const OpenedPartition& partition, const std::string& disc_path, const std::string& sd_path,
+                       VirtualFile& out, std::string& error) {
+    std::uint32_t index = partition.fst.find(disc_path, false);
+    if (index == Fst::npos) index = partition.fst.find(disc_path, true);
+    if (index == Fst::npos) {
+        error = "no such disc file '" + disc_path + "'";
+        return false;
+    }
+    const FstEntry& entry = partition.fst.entries()[index];
+    if (entry.is_directory) {
+        error = "'" + disc_path + "' is a directory";
+        return false;
+    }
+    if (!partition.fst.path_of(index, out.disc_path)) {
+        error = "cannot name '" + disc_path + "'";
+        return false;
+    }
+    Fat32File file;
+    if (!resolve_sd_file(sd_path, file, error)) return false;
+    if (file.entry.size == 0) {
+        error = sd_path + " is empty";
+        return false;
+    }
+    if (!place_on_fragments(file.fragments, 0, file.entry.size, out.sd_runs, error)) return false;
+    logf("SD grow %s (%u bytes at 0x%llx) to %u bytes from %s: %u fragment(s)\n", out.disc_path.c_str(), entry.size,
+         static_cast<unsigned long long>(entry.offset), file.entry.size, sd_path.c_str(),
+         static_cast<unsigned>(file.fragments.size()));
+    error.clear();
+    return true;
+}
+
 }  // namespace
 
 bool AutorunPresent() {
@@ -267,6 +299,20 @@ void RunAutorun() {
                 install_resident = true;
             } else if (error.empty()) {
                 error = "sdreplace needs a disc path and an SD path";
+            }
+        } else if (cmd == "sdgrow") {
+            // E4+E5: `sdgrow <disc path> <sd path>`, any size, served from
+            // the card through the virtual window.
+            std::string disc_path, sd_path;
+            words >> disc_path >> sd_path;
+            VirtualFile v;
+            ok = !disc_path.empty() && !sd_path.empty() && s.ensure_layout(error) &&
+                 LoadSdVirtualFile(s.partition, disc_path, sd_path, v, error);
+            if (ok) {
+                virtual_files.push_back(std::move(v));
+                install_resident = true;
+            } else if (error.empty()) {
+                error = "sdgrow needs a disc path and an SD path";
             }
         } else if (cmd == "boot") {
             BootOptions options;
