@@ -30,13 +30,20 @@ struct ResidentOptions {
     // E5: first word offset of the virtual window, 0 = none. Reads at or
     // above it never reach the drive with their offset.
     std::uint32_t virtual_start_words = 0;
+    // The lowest MEM1 address the code may take: above this loader and the
+    // apploader image, which the game reclaims only after it starts.
+    std::uint32_t mem1_floor = 0;
 };
 
 struct ResidentInstall {
-    std::uint32_t base = 0;
-    std::uint32_t reserved_bytes = 0;
-    std::uint32_t old_arena_end = 0;
-    std::uint32_t new_arena_end = 0;  // to be written to 0x80003128 after the low-memory flush
+    std::uint32_t code_base = 0;        // the blob, at the top of the MEM1 arena
+    std::uint32_t code_bytes = 0;
+    std::uint32_t old_arena1_hi = 0;    // the MEM1 arena end as the apploader left it (below the BI2 and FST)
+    std::uint32_t new_arena1_hi = 0;    // to be stored at 0x80000034 and 0x80003110 (== code_base)
+    std::uint32_t data_base = 0;        // payload and buffers at the top of the MEM2 arena, 0 when none
+    std::uint32_t data_bytes = 0;
+    std::uint32_t old_arena2_end = 0;
+    std::uint32_t new_arena2_end = 0;   // to be written to 0x80003128 after the low-memory flush
     std::uint32_t ioctl_async = 0;    // hooked function
     std::uint32_t ioctlv_async = 0;   // found, not hooked (0 if unknown)
     std::uint32_t table = 0;          // redirect table address, 0 when there are no replacements

@@ -701,6 +701,10 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, std:
         ro.virtual_start_words = relocates ? static_cast<std::uint32_t>(kVirtualWindowStart >> 2) : 0;
         ro.sdio_fd = card.fd;
         ro.sdio_sdhc = card.sdhc;
+        // The code goes above this loader (which ends at arena 1's top) and
+        // the apploader image, both still in use until the game starts.
+        ro.mem1_floor = std::max(reinterpret_cast<std::uint32_t>(SYS_GetArena1Hi()),
+                                 static_cast<std::uint32_t>(kApploaderLoadAddress + ((app_bytes + 31) & ~31ull)));
         if (!install_resident(dol, ro, resident, error)) return false;
     }
     logf("Handing over\n");
@@ -718,7 +722,11 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, std:
     store32(0x800000F0, 0x01800000);            // simulated memory size
     store32(0x800000F8, 0x0E7BE2C0);            // bus clock
     store32(0x800000FC, 0x2B73A840);            // CPU clock
-    store32(0x80003110, load32(0x80000038));    // FST address, second copy
+    // MEM1 arena end (0x34 from the apploader, 0x3110 as the System Menu
+    // sets it): the FST, or the runtime's code just below it.
+    const std::uint32_t arena1_end = options.install_resident ? resident.new_arena1_hi : load32(0x80000038);
+    if (options.install_resident) store32(0x80000034, arena1_end);
+    store32(0x80003110, arena1_end);
     std::memcpy(reinterpret_cast<void*>(0x80003180), probe.disc_id, 4);
     store32(0x80003184, 0x80000000);            // where the game id lives
     store32(0x80003194, probe.partition.type);
@@ -734,15 +742,16 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, std:
         write32(0x80003140, pretended);
         write32(0x80003188, pretended);
     }
-    if (options.install_resident) {
+    if (options.install_resident && resident.new_arena2_end != resident.old_arena2_end) {
         // IOS's own field, like 0x3140: uncached, after the flush.
-        write32(0x80003128, resident.new_arena_end);
+        write32(0x80003128, resident.new_arena2_end);
     }
 
     // <memory> patches, last of all so they win over the globals above (as
     // in Dolphin, which writes low memory before its patches). Writes may
-    // land anywhere in MEM1 except this loader and the runtime's hook stub,
-    // and in MEM2 below the arena end (the runtime's reservation is above).
+    // land anywhere in MEM1 except this loader, the runtime's code and its
+    // hook stub, and in MEM2 below the arena end (the runtime's data is
+    // above).
     if (!options.memory_patches.empty()) {
         struct WiiMemory final : MemoryAccess {
             bool read(std::uint32_t address, std::uint8_t* out, std::size_t length) override {
@@ -760,7 +769,7 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, std:
         } wii_memory;
         const std::uint32_t loader_end = reinterpret_cast<std::uint32_t>(SYS_GetArena1Hi());
         const std::uint32_t arena2_end =
-            options.install_resident ? resident.new_arena_end : reinterpret_cast<std::uint32_t>(SYS_GetArena2Hi());
+            options.install_resident ? resident.new_arena2_end : reinterpret_cast<std::uint32_t>(SYS_GetArena2Hi());
         std::vector<MemoryRegion> writable;
         if (options.install_resident && resident.ioctl_async >= kMem1Start && resident.ioctl_async < kLoaderStart) {
             writable.push_back(MemoryRegion{kMem1Start, resident.ioctl_async - kMem1Start});
@@ -769,7 +778,13 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, std:
         } else {
             writable.push_back(MemoryRegion{kMem1Start, kLoaderStart - kMem1Start});
         }
-        writable.push_back(MemoryRegion{loader_end, kMem1End - loader_end});
+        if (options.install_resident && resident.code_base >= loader_end) {
+            writable.push_back(MemoryRegion{loader_end, resident.code_base - loader_end});
+            const std::uint32_t code_end = resident.code_base + resident.code_bytes;
+            writable.push_back(MemoryRegion{code_end, kMem1End - code_end});
+        } else {
+            writable.push_back(MemoryRegion{loader_end, kMem1End - loader_end});
+        }
         writable.push_back(MemoryRegion{kMem2Start, arena2_end > kMem2Start ? arena2_end - kMem2Start : 0});
         std::vector<std::string> notes;
         if (!apply_memory_patches(options.memory_patches, loaded, writable, wii_memory, notes, error)) return false;

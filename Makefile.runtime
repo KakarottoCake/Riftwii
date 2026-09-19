@@ -21,7 +21,7 @@ SRC     := runtime/resident
 OUT     := build-runtime
 BLOB    := $(OUT)/riftwii_rt.bin
 
-CFLAGS  := -O2 -mcpu=750 -meabi -mhard-float -msdata=none \
+CFLAGS  := -O2 -mcpu=750 -meabi -msoft-float -msdata=none \
            -ffreestanding -nostdlib -fno-builtin -fno-jump-tables \
            -fno-tree-loop-distribute-patterns -fno-asynchronous-unwind-tables \
            -fno-stack-protector -fno-common -ffunction-sections -std=c99 -Wall -Wextra -Wpedantic -Werror \

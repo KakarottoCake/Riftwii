@@ -11,9 +11,9 @@
 #include "rtable.h"               // rt_entry
 
 // Installing the resident runtime: the blob format (runtime/resident/
-// rt_hook.h), the PowerPC instruction patching it needs and the MEM2
-// placement. Pure functions so the host tests cover them; wii/resident.cpp
-// performs the actual copies and cache flushes.
+// rt_hook.h), the PowerPC instruction patching it needs and the placement
+// in MEM1 (code) and MEM2 (data). Pure functions so the host tests cover
+// them; wii/resident.cpp performs the actual copies and cache flushes.
 namespace riftwii {
 
 // The blob header, validated (see rt_blob_header).
@@ -113,15 +113,25 @@ constexpr std::size_t kHookStubBytes = 16;
 // that touches the register the continuation jump clobbers.
 bool displaceable(std::uint32_t instruction, unsigned scratch_reg, std::string& why);
 
-// Where the runtime goes: the top of the MEM2 arena, rounded to 64 KiB, so
-// the game's allocator never sees it. `arena_end` is the value IOS put at
-// 0x80003128; `extra_bytes` is space after the blob for tables and buffers.
+// Where the runtime goes. The code (the blob, with its context) sits at
+// the top of the MEM1 arena, just below what the apploader left there
+// (BI2, FST): MEM1 is the one region every SDK keeps an instruction BAT
+// for, a 2009 SDK drops the MEM2 one before its first IPC call (section
+// 23). The data (redirect table, MEM bytes, bounce buffers) takes the top
+// of the MEM2 arena, rounded to 64 KiB, and only when there is any.
+// `arena1_hi` is the apploader's value at 0x80000034, `arena2_end` the
+// value IOS put at 0x80003128; `mem1_floor` is the lowest address the
+// code may take (above the loader and the apploader image).
 struct ResidentPlacement {
-    std::uint32_t base = 0;           // blob copied here
-    std::uint32_t reserved_bytes = 0; // from base to the old arena end
-    std::uint32_t new_arena_end = 0;  // what 0x80003128 becomes (== base)
+    std::uint32_t code_base = 0;        // blob copied here (MEM1)
+    std::uint32_t code_bytes = 0;       // from code_base to the old arena hi
+    std::uint32_t new_arena1_hi = 0;    // what 0x80000034 becomes (== code_base)
+    std::uint32_t data_base = 0;        // payload and buffers (MEM2), 0 when none
+    std::uint32_t data_bytes = 0;       // from data_base to the old arena end
+    std::uint32_t new_arena2_end = 0;   // what 0x80003128 becomes (unchanged when data_bytes == 0)
 };
-bool plan_resident_placement(std::uint32_t arena_end, std::uint32_t blob_size, std::uint32_t extra_bytes,
-                             ResidentPlacement& out, std::string& error);
+bool plan_resident_placement(std::uint32_t arena1_hi, std::uint32_t mem1_floor, std::uint32_t arena2_end,
+                             std::uint32_t blob_size, std::uint32_t extra_bytes, ResidentPlacement& out,
+                             std::string& error);
 
 }  // namespace riftwii

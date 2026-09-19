@@ -23,7 +23,8 @@ Direction, review findings and the roadmap live in `docs/`.
   headless autorun mode for Dolphin. Mario Kart Wii boots and plays from
   `riftwii.dol` in Dolphin; not yet run on hardware.
 - Resident runtime (`runtime/resident/`): a position-independent blob the
-  loader installs at the top of the MEM2 arena; it hooks the game's
+  loader installs at the top of the MEM1 arena (its tables and buffers at
+  the top of the MEM2 arena); it hooks the game's
   `IOS_IoctlAsync` (found by structure, not by SDK patterns), sees every
   disc read and serves same-size replacements from memory through the
   redirect table, files of a new size through the virtual window (FST
@@ -32,7 +33,11 @@ Direction, review findings and the roadmap live in `docs/`.
   own IPC, no file system in the runtime), and the disc's own bytes for
   relocated or partially patched files. Verified in Dolphin against
   Dolphin's own DI and SD logs and by checksums of the rewritten game
-  buffers. A Riivolution-format package runs end to end this way
+  buffers, on Mario Kart Wii, Super Smash Bros. Brawl, Wario Land: Shake
+  It! and Kirby's Epic Yarn (SDKs from 2007 to 2009; the runtime's code
+  lives in MEM1 because a 2009 SDK keeps no instruction BAT for MEM2,
+  see `docs/CONDUCTOR_REVIEW_2.md` section 23). A Riivolution-format
+  package runs end to end this way
   (`wii/modplan.cpp`): `<file>` and `<folder>` patches, including created
   files, and `<memory>` patches (plain, search and ocarina) applied
   before the game starts, with several packages composing in order and

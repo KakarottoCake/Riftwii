@@ -283,7 +283,7 @@ E6. Newer Super Mario Bros. Wii (folder patches + memory patches) boots and
 | G2 Wii | E2, E3 | visible in-game evidence, binary hash + IOS + title recorded. **E2 and E3 passed in Dolphin 2026-09-19 (sections 12, 13); hardware run open** |
 | G3 host+Wii | FAT32 fragment resolver (host-tested on a synthetic image), redirect-table compiler verified against `ReadOverlay` as oracle, freestanding table walker compiled for both host and PPC, E4 | walker == oracle on randomized reads incl. straddles; E4 visible. **E4 passed in Dolphin 2026-09-19 (section 15); hardware run open** |
 | G4 Wii | FST rewrite, virtual window, `<memory>` patches, `<folder>` expansion, ordered composition; E5, E6 | Newer SMBW plays. **E5 (grown file through the virtual window) passed in Dolphin 2026-09-19 (section 14); a `<file>`-only package runs end to end in Dolphin (section 17); created files, `<folder>` and `<memory>` patches, composition across packages and option choices pass in Dolphin (sections 18-20); `<savegame>` open** |
-| G5 product | GUI: detect inserted disc, filter XMLs, options UI, persist choices per game, preflight report, launch; `<savegame>` policy; NOTICE/README/compat matrix | repeatable launches on 3+ titles, documented limitations. **GUI: disc identified, packages filtered, options set, choices kept per game, launch; passes in Dolphin (section 22). Preflight report, `<savegame>`, other titles open** |
+| G5 product | GUI: detect inserted disc, filter XMLs, options UI, persist choices per game, preflight report, launch; `<savegame>` policy; NOTICE/README/compat matrix | repeatable launches on 3+ titles, documented limitations. **GUI: disc identified, packages filtered, options set, choices kept per game, preflight report, launch; passes in Dolphin (section 22). Four titles from four SDK years run mods in Dolphin (section 23). `<savegame>` open** |
 | G6 storage | USB for in-game reads: resident USB mass-storage client (decide OHCI-under-game-IOS vs. alternatives first), USB+FAT32, then a read-only NTFS resolver (own code preferred over the GX binary, see 4.5) | mod on a USB stick plays on hardware; NTFS stick likewise |
 
 Hardware-independent work (G0, the host halves of G3) fills any wait for
@@ -1058,9 +1058,90 @@ The pad path itself (A/+/Launch) is untested: Dolphin input movies
 (`-m`, a hand-written DTM with GameCube pad presses) never reached the
 loader in this harness, so the buttons wait for hardware.
 
+The preflight screen followed (commit 94b6a85): Launch now compiles the
+selection first (`CompileSelection`) and shows the compiler's warnings
+and notes one per row with a summary line (`N file range(s), N relocated
+or created file(s), N memory patch(es)`), or the compile error with no
+Boot button; Boot hands the compiled result to `main` (`BootCompiled`),
+so nothing is compiled twice and nothing irreversible happens before the
+report.
+
 ### 22.1 Open
-- Preflight report on the launch screen: what a package will do to the
-  disc (the compiler's notes) before booting, and the compile errors
-  shown on screen rather than only in the log.
 - `<savegame>` (section 8.3).
-- Other titles; every section since 11 rests on Dolphin.
+- Every section since 11 rests on Dolphin; other titles: section 23.
+
+## 23. Other titles; the runtime's code moves to MEM1 (conductor, 2026-09-19)
+
+Three more discs, chosen for their SDK years, all with the same
+`riftwii.dol` and the plain `hook`/`boot` autorun first (every DI read
+reported over the Gecko and compared with Dolphin's DI log):
+
+| Title | SDK (kernel / apploader build) | IOS | Plain hook |
+| --- | --- | --- | --- |
+| Wario Land: Shake It! (RWLE01) | Apr 2007 | 21 | 288 reads, 0 mismatches |
+| Super Smash Bros. Brawl (RSBE01) | Dec 2007 apploader | 36 | 153 reads, 0 mismatches |
+| Kirby's Epic Yarn (RK5E01) | Dec 2009 | 56 | **hung** (below) |
+
+### 23.1 Kirby's Epic Yarn: no instruction BAT for MEM2
+
+With the hook installed the game printed `Kernel built`, opened
+`/dev/stm/immediate` and `/dev/stm/eventhook` and stopped; without the
+hook it runs (230 reads). Nothing in the trampoline explained it (the
+2009 prologue is `stwu / mflr / stw / addi r11` followed by `bl
+_savegpr_23`, all replayable; the blob has no floating point, no
+absolute addresses). Dolphin's PowerPC log at debug level did:
+
+    W[PowerPC]: ISI exception at 0x935d0020
+
+0x935d0020 is the blob's trampoline entry in MEM2. The first
+`IOS_IoctlAsync` of the game (the STM event hook registration) reached
+the stub, jumped to MEM2, and the fetch faulted: this SDK's start-up
+leaves no instruction BAT covering MEM2 (data BATs stay, the game's own
+MEM2 arena works). The 2007 and 2008 SDKs keep the BATs the loader set,
+which is why sections 12-22 never saw it. Brainslug keeps its modules
+at the top of MEM1 as well.
+
+Fix: the blob (code and context, 7840 bytes) now goes to the top of the
+MEM1 arena, the redirect table, MEM bytes and bounce buffers stay at the
+top of the MEM2 arena and only when there are any
+(`plan_resident_placement` plans both; `install_resident` performs
+them). Where the MEM1 arena ends is the SDK's decision, read from the
+game's `OSInit` (Kirby, 0x8066216c): `0x80003110` when non-zero, else
+`0x80000034`, else the FST address. The loader used to mirror the FST
+address into `0x80003110` ("MEM1 Arena End" on wiibrew); a first
+attempt lowered only `0x34` and the game's arena still ended at the FST,
+its first allocation from the arena top overwrote the blob and the
+continuation jump went into the FST (`Program exception ... 0x817f3418`).
+Both fields now hold the blob's base, computed from the apploader's
+`0x34` (`0x38` when that is 0; `0x3110` is stale from the previous
+program until the loader writes it). The apploader also parks the BI2
+(`0x2000` bytes, pointer at `0x800000F4`) right below the FST, inside
+the arena as the SDK sees it; the blob goes below the BI2 when it sits
+there, so it stays whole for the debug-flag pointer `OSInit` keeps
+into it. The MEM2 field `0x80003128` is left alone when nothing is
+reserved there.
+
+`Makefile.runtime` now compiles the blob with `-msoft-float`: the blob
+was already free of floating-point instructions (checked by objdump);
+the flag makes it a property of the build, not of the current source.
+The binary is byte-identical.
+
+### 23.2 Results with the MEM1 placement
+
+| Title | Plain hook | Package |
+| --- | --- | --- |
+| Mario Kart Wii (RMCE01, Dec 2007 apploader, IOS36) | as before | the four test packages, all on: `M177ea3b6:00046d80:3b553c78`, `M17c3f6fc:00000e20:f6a09c08`, `M17c3f6f3:00000040:87a74ed3`, 7 memory patches, `Loader Type` printed; byte-identical to the MEM2 build's run |
+| Super Smash Bros. Brawl | 153 reads, 0 mismatches | `brawl_test.xml` (grown `StrapEn.pac`, one created file): `M80000000:0002cf40:d88dcb79`, as in section 21's run |
+| Wario Land: Shake It! | 288 reads, 0 mismatches | none written |
+| Kirby's Epic Yarn | 195 reads, 0 mismatches; `MEM1 Arena : 0x809e4280 - 0x817e7fc0` | `kirby_test.xml`: `/param/fluff_param.txt` replaced in place from the card (185417 bytes, `M08c8d318:0002d460:af71e591`, the host's checksum of the file), `/homemenu/HomeButton2/home.csv` grown by one line into the virtual window (`M80000000:000011e0:19f77047`, host checksum of the file plus the zero gap), one created file (FST 82312 -> 82368 bytes). `M08c8875a:00012f00:58af4cb7` is the read of the file just before `fluff_param.txt`, rounded up by the DVD driver into its first 8 bytes: the checksum of `//RIFTWI`, the replacement's first 8 bytes, as it should be |
+
+The Kirby package exercises, on a 2009-SDK title, the in-place SD path,
+the virtual window, the FST rewrite with a created file and the
+apploader overlay of the grown FST (loaded in one piece here).
+
+### 23.3 What this says about hardware
+The MEM1 placement removes a dependency on the loader's BATs surviving
+the game's start-up, which no SDK promises; the MEM2 data placement
+still relies on the game keeping a data BAT for the whole of MEM2, which
+every SDK does because the game's own MEM2 arena lives there. The
+assumptions of section 15.2 stand.

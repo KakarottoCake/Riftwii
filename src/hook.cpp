@@ -21,6 +21,8 @@ bool slot_fits(std::uint32_t offset, std::uint32_t bytes, std::uint32_t size) {
     return (offset & 3) == 0 && offset < size && bytes <= size - offset;
 }
 
+constexpr std::uint32_t kMem1Low = 0x80004000;         // below: the SDK's globals and vectors
+constexpr std::uint32_t kMem1End = 0x81800000;
 constexpr std::uint32_t kMem2ArenaFloor = 0x90800000;  // never reserve below 8 MiB into MEM2
 constexpr std::uint32_t kMem2End = 0x94000000;
 constexpr std::uint32_t kReserveGranule = 0x10000;
@@ -136,28 +138,54 @@ bool displaceable(std::uint32_t instruction, unsigned scratch_reg, std::string& 
     return true;
 }
 
-bool plan_resident_placement(std::uint32_t arena_end, std::uint32_t blob_size, std::uint32_t extra_bytes,
-                             ResidentPlacement& out, std::string& error) {
-    if (arena_end <= kMem2ArenaFloor || arena_end > kMem2End || (arena_end & 31) != 0) {
-        error = "MEM2 arena end " + hex32(arena_end) + " is not plausible";
+bool plan_resident_placement(std::uint32_t arena1_hi, std::uint32_t mem1_floor, std::uint32_t arena2_end,
+                             std::uint32_t blob_size, std::uint32_t extra_bytes, ResidentPlacement& out,
+                             std::string& error) {
+    ResidentPlacement p;
+    // Code: right below the MEM1 arena top, on a 32-byte line (the blob's
+    // context and DMA buffers are laid out for one).
+    if (arena1_hi <= kMem1Low || arena1_hi > kMem1End || (arena1_hi & 31) != 0) {
+        error = "MEM1 arena top " + hex32(arena1_hi) + " is not plausible";
         return false;
     }
-    const std::uint64_t needed = static_cast<std::uint64_t>(blob_size) + extra_bytes;
-    const std::uint64_t reserved = (needed + kReserveGranule - 1) / kReserveGranule * kReserveGranule;
-    if (reserved == 0 || reserved > arena_end - kMem2ArenaFloor) {
-        error = "resident reservation does not fit above the MEM2 floor";
+    if (blob_size == 0 || (blob_size & 31) != 0 || blob_size > arena1_hi - kMem1Low) {
+        error = "resident blob size is not a positive multiple of 32 that fits";
         return false;
     }
-    // Keep the boundary on a 64 KiB line when the arena end already is.
-    std::uint32_t base = static_cast<std::uint32_t>(arena_end - reserved);
-    base &= ~static_cast<std::uint32_t>(kReserveGranule - 1);
-    if (base < kMem2ArenaFloor) {
-        error = "resident reservation does not fit above the MEM2 floor";
+    p.code_base = arena1_hi - blob_size;
+    if (p.code_base < mem1_floor) {
+        error = "no room for the resident code between " + hex32(mem1_floor) + " and the MEM1 arena top " +
+                hex32(arena1_hi);
         return false;
     }
-    out.base = base;
-    out.reserved_bytes = arena_end - base;
-    out.new_arena_end = base;
+    p.code_bytes = blob_size;
+    p.new_arena1_hi = p.code_base;
+
+    // Data: the top of the MEM2 arena in 64 KiB granules, only when needed.
+    p.new_arena2_end = arena2_end;
+    if (extra_bytes != 0) {
+        if (arena2_end <= kMem2ArenaFloor || arena2_end > kMem2End || (arena2_end & 31) != 0) {
+            error = "MEM2 arena end " + hex32(arena2_end) + " is not plausible";
+            return false;
+        }
+        const std::uint64_t reserved =
+            (static_cast<std::uint64_t>(extra_bytes) + kReserveGranule - 1) / kReserveGranule * kReserveGranule;
+        if (reserved > arena2_end - kMem2ArenaFloor) {
+            error = "resident data does not fit above the MEM2 floor";
+            return false;
+        }
+        // Keep the boundary on a 64 KiB line when the arena end already is.
+        std::uint32_t base = static_cast<std::uint32_t>(arena2_end - reserved);
+        base &= ~static_cast<std::uint32_t>(kReserveGranule - 1);
+        if (base < kMem2ArenaFloor) {
+            error = "resident data does not fit above the MEM2 floor";
+            return false;
+        }
+        p.data_base = base;
+        p.data_bytes = arena2_end - base;
+        p.new_arena2_end = base;
+    }
+    out = p;
     error.clear();
     return true;
 }
