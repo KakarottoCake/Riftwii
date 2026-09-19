@@ -7,15 +7,17 @@ the strict layer, the engine composes patches, the licence is
 GPL-3.0-or-later. Your job now is the disc/runtime side, host-first,
 Dolphin-second, hardware last.
 
-**Status (2026-09-18, updated by the conductor):** the host-only tasks were
-done by the conductor while Task C waited on the user's Dolphin path and
-disc dump. Do not redo them; build on them.
+**Status (2026-09-18, updated by the conductor):** all five tasks are done.
+The host-only ones were done while Task C waited on the user's Dolphin
+path and disc dump; Task C was then done in Dolphin (E1 passes: Mario
+Kart Wii boots and plays from `riftwii.dol`). Hardware validation of E1
+is still open. Do not redo any of them; build on them.
 
 | Task | State | Commit | Where |
 |------|-------|--------|-------|
 | A - FST parser | done, agy-reviewed | `4f440c7`, `c211c28` | `include/riftwii/fst.hpp`, `src/fst.cpp`, `tests/fst_tests.cpp` |
 | B - disc structures | done, agy-reviewed (no findings) | `934a474` | `include/riftwii/disc.hpp`, `src/disc.cpp`, `tests/disc_tests.cpp` |
-| C - boot in Dolphin | **open, yours** | - | needs the user's Dolphin path + a disc dump |
+| C - boot in Dolphin | done in Dolphin (E1 passes), **hardware run open** | see `git log wii/boot.cpp` | `wii/di.*`, `wii/ios_reload.*`, `wii/boot.*`, `wii/autorun.*`, `wii/log.*`, `wii/console.*`, `tools/dolphin/` |
 | D - redirect table | done, agy-reviewed (no findings) | `f6a516a` | `runtime/rtable.{h,c}`, `include/riftwii/redirect.hpp`, `src/redirect.cpp`, `tests/redirect_tests.cpp` |
 | E - FAT32 resolver | done | `4770248` | `include/riftwii/fat32.hpp`, `src/fat32.cpp`, `tests/fat32_tests.cpp` |
 
@@ -27,7 +29,20 @@ its untouched bytes from their original disc offset; the C++ builder is
 `redirect.*` not `rtable.*` because devkitPro's flat build directory would
 collide `rtable.c` and `rtable.cpp`; the FAT32 resolver addresses
 everything in 512-byte device blocks and also mounts through an MBR.
-Confirm the FST size/max-size `>> 2` reading against a real disc at E1.
+The FST size/max-size `>> 2` reading is confirmed against a real disc
+(Mario Kart Wii RMCE01: 0x428 = 0xF862 words = 63592 bytes = 2071
+entries, and the apploader loads exactly that).
+
+Task C deviations, also deliberate: Riftwii has its own `/dev/di` client
+(`wii/di.*`) instead of libogc's `DI_*`/libdi, because libdi expects a
+cIOS on hardware and the resident runtime will need the raw ioctl
+numbers anyway; the IOS reload is Riftwii's own (`wii/ios_reload.*`)
+because libogc's `IOS_ReloadIOS` refuses when ES reports no ticket views,
+which is what Dolphin does for homebrew; the `sd:/riftwii/lowmem.bin`
+dump was not needed because Dolphin's log shows the game's OS reading the
+fields; the loader is linked at 0x80A00000 (`Makefile.wii`) so the game
+DOL and apploader cannot overwrite it. See `docs/CONDUCTOR_REVIEW_2.md`
+section 11 for what E1 showed and what it means for E2.
 
 ## Rules (non-negotiable)
 

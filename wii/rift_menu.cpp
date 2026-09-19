@@ -191,7 +191,7 @@ static int MenuHome()
 	titleTxt.SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
 	titleTxt.SetPosition(40,20);
 
-	GuiText statusTxt("XML validation only - game launching unavailable", 18, (GXColor){200, 200, 200, 255});
+	GuiText statusTxt("Boot disc = unmodified launch (E1); patches are not applied yet", 18, (GXColor){200, 200, 200, 255});
 	statusTxt.SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
 	statusTxt.SetPosition(40, 58);
 
@@ -218,7 +218,7 @@ static int MenuHome()
 	GuiImage exitBtnImgOver(&btnOutlineOver);
 	GuiButton exitBtn(btnOutline.GetWidth(), btnOutline.GetHeight());
 	exitBtn.SetAlignment(ALIGN_H::LEFT, ALIGN_V::BOTTOM);
-	exitBtn.SetPosition(100, -35);
+	exitBtn.SetPosition(40, -35);
 	exitBtn.SetLabel(&exitBtnTxt);
 	exitBtn.SetImage(&exitBtnImg);
 	exitBtn.SetImageOver(&exitBtnImgOver);
@@ -234,12 +234,44 @@ static int MenuHome()
 	trigRescan.SetButtonOnlyTrigger(-1, WPAD_BUTTON_PLUS | WPAD_CLASSIC_BUTTON_PLUS, PAD_BUTTON_X);
 	GuiButton rescanBtn(btnOutline.GetWidth(), btnOutline.GetHeight());
 	rescanBtn.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::BOTTOM);
-	rescanBtn.SetPosition(-100, -35);
+	rescanBtn.SetPosition(-40, -35);
 	rescanBtn.SetLabel(&rescanTxt);
 	rescanBtn.SetImage(&rescanImg);
 	rescanBtn.SetImageOver(&rescanOver);
 	rescanBtn.SetTrigger(&trigA);
 	rescanBtn.SetTrigger(&trigRescan);
+
+	GuiText bootTxt("Boot disc", 22, (GXColor){0, 0, 0, 255});
+	GuiImage bootImg(&btnOutline);
+	GuiImage bootOver(&btnOutlineOver);
+	GuiTrigger trigBoot;
+	trigBoot.SetButtonOnlyTrigger(-1, WPAD_BUTTON_1 | WPAD_CLASSIC_BUTTON_Y, PAD_BUTTON_Y);
+	GuiButton bootBtn(btnOutline.GetWidth(), btnOutline.GetHeight());
+	bootBtn.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::BOTTOM);
+	bootBtn.SetPosition(90, -35);
+	bootBtn.SetLabel(&bootTxt);
+	bootBtn.SetImage(&bootImg);
+	bootBtn.SetImageOver(&bootOver);
+	bootBtn.SetSoundOver(&btnSoundOver);
+	bootBtn.SetTrigger(&trigA);
+	bootBtn.SetTrigger(&trigBoot);
+	bootBtn.SetEffectGrow();
+
+	GuiText dumpTxt("Dump", 22, (GXColor){0, 0, 0, 255});
+	GuiImage dumpImg(&btnOutline);
+	GuiImage dumpOver(&btnOutlineOver);
+	GuiTrigger trigDump;
+	trigDump.SetButtonOnlyTrigger(-1, WPAD_BUTTON_2 | WPAD_CLASSIC_BUTTON_X, PAD_BUTTON_B);
+	GuiButton dumpBtn(btnOutline.GetWidth(), btnOutline.GetHeight());
+	dumpBtn.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::BOTTOM);
+	dumpBtn.SetPosition(-90, -35);
+	dumpBtn.SetLabel(&dumpTxt);
+	dumpBtn.SetImage(&dumpImg);
+	dumpBtn.SetImageOver(&dumpOver);
+	dumpBtn.SetSoundOver(&btnSoundOver);
+	dumpBtn.SetTrigger(&trigA);
+	dumpBtn.SetTrigger(&trigDump);
+	dumpBtn.SetEffectGrow();
 
 	HaltGui();
 	GuiWindow w(screenwidth, screenheight);
@@ -249,6 +281,8 @@ static int MenuHome()
 	w.Append(&detailTxt);
 	w.Append(&exitBtn);
 	w.Append(&rescanBtn);
+	w.Append(&bootBtn);
+	w.Append(&dumpBtn);
 	mainWindow->Append(&w);
 	ResumeGui();
 
@@ -264,6 +298,10 @@ static int MenuHome()
 			menu = MENU_EXIT;
 		else if(rescanBtn.GetState() == STATE::CLICKED)
 			menu = MENU_HOME;
+		else if(bootBtn.GetState() == STATE::CLICKED)
+			menu = MENU_BOOT;
+		else if(dumpBtn.GetState() == STATE::CLICKED)
+			menu = MENU_DUMP;
 		ResumeGui();
 	}
 
@@ -272,7 +310,7 @@ static int MenuHome()
 	return menu;
 }
 
-void MainMenu(int menu)
+int MainMenu(int menu)
 {
 	int currentMenu = menu;
 
@@ -289,7 +327,7 @@ void MainMenu(int menu)
 
 	ResumeGui();
 
-	while(currentMenu != MENU_EXIT)
+	while(currentMenu != MENU_EXIT && currentMenu != MENU_BOOT && currentMenu != MENU_DUMP)
 	{
 		switch (currentMenu)
 		{
@@ -302,7 +340,15 @@ void MainMenu(int menu)
 		}
 	}
 
+	if (currentMenu == MENU_BOOT || currentMenu == MENU_DUMP) {
+		// The GUI thread is halted (MenuHome halts it before returning);
+		// hand the screen back to main for the console phase.
+		mainWindow->Remove(bgImg);
+		return currentMenu;
+	}
+
 	ExitRequested = 1;
 	ResumeGui();
 	while(1) usleep(THREAD_SLEEP);
+	return MENU_EXIT;
 }

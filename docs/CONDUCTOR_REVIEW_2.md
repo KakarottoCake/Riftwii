@@ -279,7 +279,7 @@ E6. Newer Super Mario Bros. Wii (folder patches + memory patches) boots and
 | Gate | Content | Acceptance |
 | --- | --- | --- |
 | G0 host | F1 parser/model rework; F3 licence/notice; F5.1/F5.2/F5.5; F6 cleanup; fixtures authored by us that exercise every documented construct | CTest green; probe table above all "accepted"; planner refuses unsupported *selected* features with named messages |
-| G1 Wii | E1 unmodified boot + file dump | video of the game running from Riftwii; dumped file byte-identical to a Dolphin extraction |
+| G1 Wii | E1 unmodified boot + file dump | video of the game running from Riftwii; dumped file byte-identical to a Dolphin extraction. **Passed in Dolphin 2026-09-18 (section 11); hardware run open** |
 | G2 Wii | E2, E3 | visible in-game evidence, binary hash + IOS + title recorded |
 | G3 host+Wii | FAT32 fragment resolver (host-tested on a synthetic image), redirect-table compiler verified against `ReadOverlay` as oracle, freestanding table walker compiled for both host and PPC, E4 | walker == oracle on randomized reads incl. straddles; E4 visible |
 | G4 Wii | FST rewrite, virtual window, `<memory>` patches, `<folder>` expansion, ordered composition; E5, E6 | Newer SMBW plays |
@@ -406,3 +406,63 @@ the hook itself. Task C (boot an unmodified disc in Dolphin, E1) is the
 gate; after it, the runtime work is `E2`-`E4` in section 4.6 using these
 pieces unchanged.
 
+## 11. Task C outcome: E1 passes in Dolphin (conductor, 2026-09-18)
+
+`riftwii.dol` (md5 `66b38a08f5c4c5f6f581d676012e1948`) boots Mario Kart
+Wii (RMCE01) in Dolphin `master-5.0-18995` from the user's own dump: the
+intro movie plays at 60 FPS and the title's OS logs scene transitions.
+`/opening.bnr` dumped through Riftwii's FST + DI path is byte-identical to
+`DolphinTool extract` (md5 `01c17b69c33c9b219af1f746c2da641c`), and the
+header, partition table and TMD returned by DI match the raw ISO.
+
+### 11.1 How the Wii side is laid out now
+- `wii/di.*`: own `/dev/di` client (0x12, 0x70, 0x71, 0x79, 0x88, 0x8A,
+  0x8B, 0x8C, 0x8D) with 32-byte aligned statics and a 32 KiB bounce
+  buffer; `SystemAreaSource` / `PartitionSource` adapt it to the host
+  parsers in `riftwii/disc.hpp`, so the same code paths are used by the
+  host tests and on the console.
+- `wii/ios_reload.*`: `reload_ios(version)` re-implements the libogc
+  handshake but tolerates zero ticket views under Dolphin
+  (`running_in_dolphin()` probes `/dev/dolphin`). On hardware it behaves
+  like `IOS_ReloadIOS`.
+- `wii/boot.*`: `probe_disc` (cover, reset, inquiry, disc ID, header,
+  partition table, `open_partition`, TMD) and `boot_game` (unmount SD,
+  reload the TMD's IOS, reopen DI and the partition, run the apploader
+  from 0x81200000, write the low-memory fields, set the video mode from the
+  disc region, `SYS_ResetSystem(SYS_SHUTDOWN)`, jump). `dump_file` /
+  `dump_metadata` are the E1 dump actions.
+- `wii/autorun.*`: if `sd:/riftwii/autorun.txt` exists the frontend runs
+  it headless (`probe`, `layout`, `meta [dir]`, `dump <disc path> [sd
+  path]`, `nofallback`, `boot`) and logs to `sd:/riftwii/autorun.log`;
+  under Dolphin it powers off afterwards so the SD folder syncs back.
+  The GUI has "Boot disc" and "Dump" actions for the same code.
+- `tools/dolphin/run.sh` + `gecko_log.py`: headless Dolphin run with an
+  isolated user directory (`build-dolphin/user`, git-ignored), USB Gecko
+  capture on port 55020 and Dolphin's own log.
+
+### 11.2 Facts learned that the runtime design depends on
+- The disc ID must be at 0x80000000 **before** the apploader runs; without
+  it the SDK apploader returns byte offsets instead of word offsets and
+  loads garbage. `boot_game` publishes it after every `read_disc_id`.
+- The apploader may ask for zero-length loads (`0x81800000 <- 0 bytes`);
+  skip them, do not treat them as errors.
+- The SDK apploader places bi2 at 0x817EE780 and the FST at 0x817F0780,
+  i.e. the top of MEM1 below the loader's 0x81200000 apploader area. The
+  game then sets its MEM1 arena to 0x80394E00-0x817F0780. Anything the
+  resident runtime keeps in MEM1 must therefore live above the FST or be
+  moved to MEM2 before the jump; the MEM2 reservation in section 4.2
+  stands.
+- Linking the loader at 0x80A00000 keeps it clear of the game DOL
+  (0x80004000+, 2.3 MB of data for MKW) and the apploader; its stack sits
+  in its own `.bss` (~0x80D4E8xx) and arena1 is 0x80E31000-0x81200000.
+- Dolphin: `ES_GetNumTicketViews` returns 0 for homebrew, `LaunchIOS`
+  boots any known IOS without a NAND, SD sync-back happens only on a
+  graceful stop, the unencrypted read window is the first 0x50000 bytes.
+
+### 11.3 Still open for G1
+- The same DOL on the user's real Wii (E1 hardware run): expect the IOS
+  reload to need real ticket views (already handled) and DI timing to
+  differ; the `allow_ios_fallback` option stays on the current IOS if the
+  TMD's IOS is missing.
+- The GUI boot path shares `RunBoot`/`RunDump` with autorun but has only
+  been exercised through autorun in Dolphin.
