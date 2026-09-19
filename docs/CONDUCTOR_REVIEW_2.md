@@ -1489,6 +1489,12 @@ deferred by the null round trip), deletes `banner.bin`, `GF_0_00.jpg`
 directory's usage (0), then waits at its first screen for a button
 (200 disc reads, as its file-patch run in section 23); creating the
 save needs input the harness does not supply, so that step is open.
+With `kirby_test.xml` composed in front of it (two packages: the
+in-place SD replacement, the grown file in the virtual window, the
+created file, plus the redirect) the data area holds table, payload,
+bounce buffers and the FS state together (327680 bytes at
+0x93590000, state at 0x935c42e0) and both mechanisms answer as before
+(section 23's three checksums, the same ISFS answers).
 Open: `clone`; Kirby's save creation with input; the hardware run of
 everything since section 11.
 
