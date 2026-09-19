@@ -13,11 +13,10 @@
 
 #define RT_DI_READ 0x71u
 
-static void rt_invoke_game(uint32_t cb, int32_t result, uint32_t user_data);
-
 /* /dev/sdio/slot0 (wiibrew, libogc wiisd.c) */
 #define RT_SDIO_SENDCMD 7u
 #define RT_SD_CMD_READMULTIBLOCK 0x12u
+#define RT_SD_CMD_WRITEMULTIBLOCK 0x19u
 #define RT_SD_CMDTYPE_AC 3u
 #define RT_SD_RESPONSE_R1 1u
 
@@ -83,237 +82,6 @@ int rt_build_fs_ipc(uint32_t entry_index, const uintptr_t* args, struct rtfs_ipc
     out->args.ioctlv.vectors = (uint32_t)args[4];
     if (async) { out->callback = (uint32_t)args[5]; out->user_data = (uint32_t)args[6]; }
     return 1;
-}
-
-/* Synchronous savegame interception (slice 4B2). Translates the SDK call,
- * runs it against the card image when it targets the save folder, and
- * hijacks the caller with the result. Returns 0 to replay the original.
- *
- * Safety notes: every rtfs begin path classifies before mutating, so a
- * PASS_THROUGH replay changes nothing; the engine's busy rule turns a
- * re-entrant arrival into an immediate error, which is hijacked, never
- * replayed; a transfer-needing request replays only when no transfer has
- * run yet (no backend on the console in 4B2), otherwise an engine anomaly
- * hijacks an I/O error rather than risking a half-applied NAND replay. */
-static int rt_fs_transfer(struct rt_fs_state* st) {
-    struct rtfat_op* op = &st->req.fat;
-#ifdef RT_TARGET_PPC
-    (void)st;
-    (void)op;
-    return 0;
-#else
-    if (rt_host_fs_transfer == 0) return 0;
-    op->io_status = rt_host_fs_transfer(op->io_lba, op->io_count, op->io_buffer, op->io_write);
-    return 1;
-#endif
-}
-
-static int rt_on_sync_fs(struct rt_context* ctx, uint32_t entry_index, uintptr_t* args, uint32_t* result) {
-    struct rtfs_ipc ipc;
-    struct rt_fs_state* st;
-    struct rtfs_request* req;
-    uint32_t guard;
-    if ((ctx->flags & RT_FLAG_FS) == 0) return 0;
-    if (!rt_build_fs_ipc(entry_index, args, &ipc)) return 0;
-    if (ctx->fs_state == 0) return 0;
-    st = (struct rt_fs_state*)(uintptr_t)ctx->fs_state;
-    if (st->fs.busy) {
-        /* A request is already in flight (or failed closed): refuse the new
-         * arrival without entering the engine, whose one record it shares.
-         * Entering would zero the in-flight operation's state. */
-        rt_invoke_game(ipc.callback, RTFAT_EACCESS, ipc.user_data);
-        *result = (uint32_t)RTFAT_EACCESS;
-        ctx->fs_hijacked++;
-        return 1;
-    }
-    req = &st->req;
-    req->fat.bounce = (uint32_t)(uintptr_t)st->bounce;
-    req->fat.bounce_bytes = (uint32_t)sizeof(st->bounce);
-    rtfs_begin(&st->fs, req, &ipc);
-    if (req->classification == RTFS_PASS_THROUGH) return 0;
-    if (req->classification != RTFS_NEEDS_IO) {
-        *result = (uint32_t)req->result;
-        ctx->fs_hijacked++;
-        return 1;
-    }
-    for (guard = 0; guard < ((uint32_t)1 << 20); ++guard) {
-        const int step = rtfs_step(&st->fs, req);
-        if (step == RTFAT_DONE) break;
-        if (step != RTFAT_IO) {
-            /* Engine anomaly after possible partial writes: report I/O
-             * error rather than replaying half-applied state to NAND. The
-             * request stays active, so later calls fail closed with -102. */
-            *result = (uint32_t)RTFAT_EIO;
-            ctx->fs_hijacked++;
-            return 1;
-        }
-        if (!rt_fs_transfer(st)) {
-            /* No backend (console in 4B2): replay. The begin above only
-             * classifies and no transfer has run, but it did take the
-             * engine's busy flag, which must be released first. */
-            st->fs.busy = 0;
-            req->active = 0;
-            return 0;
-        }
-    }
-    if (guard >= ((uint32_t)1 << 20)) {
-        *result = (uint32_t)RTFAT_EIO;
-        ctx->fs_hijacked++;
-        return 1;
-    }
-    *result = (uint32_t)req->result;
-    ctx->fs_hijacked++;
-    return 1;
-}
-
-/* Copies a game string with a bound; 0 when it does not terminate in
- * time. The async dispatcher needs the open path without libc. */
-static int rt_copy_game_string(char* dst, const char* src, uint32_t cap) {
-    uint32_t i;
-    if (dst == 0 || src == 0 || cap == 0) return 0;
-    for (i = 0; i + 1u < cap; ++i) {
-        const char c = src[i];
-        dst[i] = c;
-        if (c == 0) return 1;
-    }
-    dst[cap - 1u] = 0;
-    return 0;
-}
-
-/* Delivers an immediately-completing async result through the game's
- * callback from inside the hook. Real IOS always completes async calls
- * through the callback, never inline, so the timing differs; the result
- * codes and out-buffers are identical. */
-static void rt_invoke_game(uint32_t cb, int32_t result, uint32_t user_data) {
-    if (cb == 0) return;
-#ifdef RT_TARGET_PPC
-    ((rt_game_callback_fn)(uintptr_t)cb)(result, user_data);
-#else
-    if (rt_host_game_callback != 0) rt_host_game_callback(cb, result, user_data);
-#endif
-}
-
-/* Installs the savegame completion entry and a record tag as an async
- * call's callback pair. The callback sits at a command-dependent register
- * image (see rt_build_fs_ipc); every other register is the game's. */
-static void rt_swap_callback(uintptr_t* args, uint32_t command, uintptr_t cb, uintptr_t tag) {
-    if (command == RTFS_CMD_OPEN) {
-        args[2] = cb;
-        args[3] = tag;
-    } else if (command == RTFS_CMD_CLOSE) {
-        args[1] = cb;
-        args[2] = tag;
-    } else if (command == RTFS_CMD_READ || command == RTFS_CMD_WRITE || command == RTFS_CMD_SEEK) {
-        args[3] = cb;
-        args[4] = tag;
-    } else if (command == RTFS_CMD_IOCTL) {
-        args[6] = cb;
-        args[7] = tag;
-    } else {
-        args[5] = cb;
-        args[6] = tag;
-    }
-}
-
-/* Asynchronous savegame interception (slice 4B3). Transfers are driven by
- * the test rig on the host and, on the console, by slice 5's issue path;
- * until then a transfer-needing request replays on the console exactly
- * like 4B2's sync rule. Immediately-completing requests are answered
- * through the game's callback now and hijacked with the same result. */
-static int rt_on_async_fs(struct rt_context* ctx, uint32_t entry_index, uintptr_t* args, uint32_t* result) {
-    struct rtfs_ipc ipc;
-    struct rt_fs_state* st;
-    struct rtfs_request* req;
-    uint32_t i;
-    if ((ctx->flags & RT_FLAG_FS) == 0) return 0;
-    if (!rt_build_fs_ipc(entry_index, args, &ipc)) return 0;
-    if (ctx->fs_state == 0) return 0;
-    st = (struct rt_fs_state*)(uintptr_t)ctx->fs_state;
-    /* Async opens of the FS device replay to real IOS; the completion
-     * learns the fd. Synchronous device opens can never be learned (their
-     * result is invisible to the hook). */
-    if (ipc.command == RTFS_CMD_OPEN) {
-        char path[64];
-        if (rt_copy_game_string(path, (const char*)(uintptr_t)ipc.args.open.path,
-                                (uint32_t)sizeof(path)) && rtfs_is_fs_device(path)) {
-            for (i = 0; i < RT_FS_SNOOPS; ++i) {
-                if (!st->snoop[i].in_use) {
-                    uint32_t k;
-                    st->snoop[i].in_use = 1;
-                    st->snoop[i].kind = RT_FS_OP_SNOOP;
-                    st->snoop[i].callback = ipc.callback;
-                    st->snoop[i].user_data = ipc.user_data;
-                    for (k = 0; k < (uint32_t)sizeof(st->snoop[i].path); ++k)
-                        st->snoop[i].path[k] = path[k];
-                    rt_swap_callback(args, ipc.command, (uintptr_t)st->complete_fs,
-                                     (uintptr_t)&st->snoop[i]);
-                    return 0;
-                }
-            }
-            return 0; /* snoop slots busy: replay unobserved, learning skipped */
-        }
-    }
-    /* A close of the learned device drops the association inside
-     * rtfs_begin; the close itself always replays. */
-    if (st->fs.busy) {
-        /* Same one-at-a-time refusal as the sync path, delivered through
-         * the game's callback. The engine is never entered, so the
-         * in-flight operation's shared record stays intact. */
-        rt_invoke_game(ipc.callback, RTFAT_EACCESS, ipc.user_data);
-        *result = (uint32_t)RTFAT_EACCESS;
-        ctx->fs_hijacked++;
-        return 1;
-    }
-    req = &st->req;
-    req->fat.bounce = (uint32_t)(uintptr_t)st->bounce;
-    req->fat.bounce_bytes = (uint32_t)sizeof(st->bounce);
-    rtfs_begin(&st->fs, req, &ipc);
-    if (req->classification == RTFS_PASS_THROUGH) return 0;
-    if (req->classification != RTFS_NEEDS_IO) {
-        rt_invoke_game(req->callback, req->result, req->user_data);
-        *result = (uint32_t)req->result;
-        ctx->fs_hijacked++;
-        return 1;
-    }
-    st->pend.in_use = 1;
-    st->pend.kind = RT_FS_OP_FILE;
-    rt_swap_callback(args, ipc.command, (uintptr_t)st->complete_fs, (uintptr_t)&st->pend);
-    *result = 0; /* accepted; the completion delivers the file result */
-    ctx->fs_hijacked++;
-    return 1;
-}
-
-void rt_on_fs_complete(struct rt_context* ctx, int32_t* result, void* tag,
-                       uintptr_t* callback, uintptr_t* user_data) {
-    struct rt_fs_state* st;
-    struct rt_fs_pend* slot;
-    uint32_t i;
-    if ((ctx->flags & RT_FLAG_FS) == 0 || ctx->fs_state == 0) {
-        *callback = 0;
-        return;
-    }
-    st = (struct rt_fs_state*)(uintptr_t)ctx->fs_state;
-    for (i = 0; i < RT_FS_SNOOPS; ++i) {
-        slot = &st->snoop[i];
-        if (tag == (void*)slot && slot->in_use && slot->kind == RT_FS_OP_SNOOP) {
-            if (rtfs_is_fs_device(slot->path) && *result >= 0) {
-                rtfs_learn_fs_fd(&st->fs, *result);
-            }
-            slot->in_use = 0;
-            *callback = (uintptr_t)slot->callback;
-            *user_data = (uintptr_t)slot->user_data;
-            return;
-        }
-    }
-    if (tag == (void*)&st->pend && st->pend.in_use && st->pend.kind == RT_FS_OP_FILE) {
-        struct rtfs_request* req = &st->req;
-        *result = req->result;
-        *callback = (uintptr_t)req->callback;
-        *user_data = (uintptr_t)req->user_data;
-        st->pend.in_use = 0;
-        return;
-    }
-    *callback = 0; /* unknown tag: swallow, never tail-call garbage */
 }
 
 /* --- console-only pieces: EXI/USB Gecko, caches, interrupts, IPC -------- */
@@ -414,13 +182,92 @@ static int32_t rt_di_read_async(struct rt_context* ctx, struct rt_pending* recor
     if (fn == 0) return -1;
     return fn(ctx->di_fd, RT_DI_READ, record->di_command, 0x20, record->bounce, length, ctx->complete_entry, record);
 }
+
+/* The savegame path's IOS calls. The transfer request is built in the
+ * state's own blocks (rt_fs_build_sendcmd); synchronous ones go through
+ * the game's synchronous IOS_Ioctlv, asynchronous ones through its
+ * IOS_IoctlvAsync with the FS completion entry and the given record. */
+typedef int32_t (*rt_ioctlv_sync_fn)(uint32_t fd, uint32_t ioctl, uint32_t in_count, uint32_t out_count,
+                                     struct rt_ioctlv* vec);
+typedef int32_t (*rt_open_sync_fn)(const char* path, uint32_t mode);
+static int32_t rt_fs_sendcmd_call(struct rt_context* ctx, struct rt_fs_state* st, int async) {
+    if (ctx->sdio_fd == 0xFFFFFFFFu) return RTFAT_EIO;
+    if (async) {
+        rt_ioctlv_async_fn fn = (rt_ioctlv_async_fn)(uintptr_t)ctx->ioctlv_async;
+        if (fn == 0) return RTFAT_EIO;
+        return fn(ctx->sdio_fd, RT_SDIO_SENDCMD, 2, 1, st->vec, st->complete_fs, (struct rt_pending*)&st->pend);
+    } else {
+        rt_ioctlv_sync_fn fn = (rt_ioctlv_sync_fn)(uintptr_t)st->ioctlv_sync;
+        if (fn == 0) return RTFAT_EIO;
+        return fn(ctx->sdio_fd, RT_SDIO_SENDCMD, 2, 1, st->vec);
+    }
+}
+/* The null round trip: SD GETSTATUS through the unhooked IOS_IoctlAsync,
+ * its 4-byte answer landing in the slot's own line. */
+static int32_t rt_fs_getstatus_async(struct rt_context* ctx, struct rt_fs_state* st, struct rt_fs_pend* slot) {
+    rt_ioctl_async_fn fn = (rt_ioctl_async_fn)(uintptr_t)ctx->di_read_entry;
+    if (fn == 0 || ctx->sdio_fd == 0xFFFFFFFFu) return -1;
+    rt_flush_range((uintptr_t)slot->status, sizeof(slot->status));
+    return fn(ctx->sdio_fd, RT_SDIO_GETSTATUS, 0, 0, (uint32_t)(uintptr_t)slot->status, 4, st->complete_fs,
+              (struct rt_pending*)slot);
+}
+static int32_t rt_fs_open_sync(struct rt_fs_state* st, uint32_t path, uint32_t mode) {
+    rt_open_sync_fn fn = (rt_open_sync_fn)(uintptr_t)st->open_sync;
+    return fn((const char*)(uintptr_t)path, mode);
+}
+static uint32_t rt_fs_ticks(void) {
+    uint32_t tb;
+    __asm__ volatile("mftb %0" : "=r"(tb) : : "memory");
+    return tb;
+}
+static void rt_fs_wait_tick(struct rt_context* ctx) {
+    (void)ctx;
+}
+static void rt_invoke_game(uint32_t cb, int32_t result, uint32_t user_data) {
+    if (cb != 0) ((rt_game_callback_fn)(uintptr_t)cb)(result, user_data);
+}
 #else
 int32_t (*rt_host_ioctlv_async)(uint32_t fd, uint32_t ioctl, uint32_t in_count, uint32_t out_count,
                                 struct rt_ioctlv* vec, uint32_t callback, struct rt_pending* record) = 0;
 int32_t (*rt_host_ioctl_async)(uint32_t fd, uint32_t ioctl, uint32_t* in, uint32_t in_len, uint32_t out,
                                 uint32_t out_len, uint32_t callback, struct rt_pending* record) = 0;
 int32_t (*rt_host_fs_transfer)(uint32_t lba, uint32_t count, uint32_t buffer, uint32_t is_write) = 0;
+int32_t (*rt_host_fs_issue)(uint32_t lba, uint32_t count, uint32_t buffer, uint32_t is_write, void* tag) = 0;
+int32_t (*rt_host_fs_defer)(void* tag) = 0;
+void (*rt_host_fs_wait)(struct rt_context* ctx) = 0;
+int32_t (*rt_host_fs_open_sync)(const char* path, uint32_t mode) = 0;
 void (*rt_host_game_callback)(uint32_t cb, int32_t result, uint32_t user_data) = 0;
+static int32_t rt_fs_sendcmd_call(struct rt_context* ctx, struct rt_fs_state* st, int async) {
+    const struct rtfat_op* op = &st->req.fat;
+    (void)ctx;
+    if (async) {
+        if (rt_host_fs_issue == 0) return -1;
+        return rt_host_fs_issue(op->io_lba, op->io_count, op->io_buffer, op->io_write, &st->pend);
+    }
+    if (rt_host_fs_transfer == 0) return -1;
+    return rt_host_fs_transfer(op->io_lba, op->io_count, op->io_buffer, op->io_write);
+}
+static int32_t rt_fs_getstatus_async(struct rt_context* ctx, struct rt_fs_state* st, struct rt_fs_pend* slot) {
+    (void)ctx;
+    (void)st;
+    return rt_host_fs_defer == 0 ? -1 : rt_host_fs_defer(slot);
+}
+static int32_t rt_fs_open_sync(struct rt_fs_state* st, uint32_t path, uint32_t mode) {
+    (void)st;
+    return rt_host_fs_open_sync == 0 ? -1 : rt_host_fs_open_sync((const char*)(uintptr_t)path, mode);
+}
+/* Eight waits, then the timeout. */
+static uint32_t rt_fs_ticks(void) {
+    static uint32_t ticks = 0;
+    ticks += RT_FS_WAIT_TICKS / 8u + 1u;
+    return ticks;
+}
+static void rt_fs_wait_tick(struct rt_context* ctx) {
+    if (rt_host_fs_wait != 0) rt_host_fs_wait(ctx);
+}
+static void rt_invoke_game(uint32_t cb, int32_t result, uint32_t user_data) {
+    if (cb != 0 && rt_host_game_callback != 0) rt_host_game_callback(cb, result, user_data);
+}
 static int32_t rt_di_read_async(struct rt_context* ctx, struct rt_pending* record, uint32_t length) {
     if (ctx->di_read_entry == 0 || rt_host_ioctl_async == 0) return -1;
     return rt_host_ioctl_async(ctx->di_fd, RT_DI_READ, record->di_command, 0x20, record->bounce, length,
@@ -579,6 +426,452 @@ int rt_on_ioctl_async(struct rt_context* ctx, uintptr_t* args, uint32_t* result)
         }
     }
     return 0;
+}
+
+/* --- savegame requests --------------------------------------------------- */
+/* The records, their tags and the serialization rules: rt_fs_state in
+ * rt_hook.h. Everything here runs on game threads and inside the IPC
+ * interrupt alike. */
+
+#define RT_FS_ADVANCE_DONE 0
+#define RT_FS_ADVANCE_ISSUED 1
+#define RT_FS_ADMIT_BEGUN 1
+#define RT_FS_ADMIT_QUEUED 2
+#define RT_FS_ADMIT_FULL 3
+
+static struct rt_fs_state* rt_fs_of(const struct rt_context* ctx) {
+    if ((ctx->flags & RT_FLAG_FS) == 0 || ctx->fs_state == 0) return 0;
+    return (struct rt_fs_state*)(uintptr_t)ctx->fs_state;
+}
+
+/* Installs the FS completion entry and a record tag as an async call's
+ * callback pair, in the register images the SDK form keeps them in
+ * (rt_build_fs_ipc); every other register is the game's. */
+static void rt_fs_swap_callback(uintptr_t* args, uint32_t command, uintptr_t cb, uintptr_t tag) {
+    if (command == RTFS_CMD_OPEN) {
+        args[2] = cb;
+        args[3] = tag;
+    } else if (command == RTFS_CMD_CLOSE) {
+        args[1] = cb;
+        args[2] = tag;
+    } else if (command == RTFS_CMD_READ || command == RTFS_CMD_WRITE || command == RTFS_CMD_SEEK) {
+        args[3] = cb;
+        args[4] = tag;
+    } else if (command == RTFS_CMD_IOCTL) {
+        args[6] = cb;
+        args[7] = tag;
+    } else {
+        args[5] = cb;
+        args[6] = tag;
+    }
+}
+
+/* "F<entry>:<fd or path>[/<ioctl>]:<result>\n" over the Gecko for an
+ * answered call ('P' as the result of one whose transfers are in flight)
+ * and "C:<result>\n" when such a one completes. */
+static void rt_fs_report(struct rt_context* ctx, uint32_t entry_index, const struct rtfs_ipc* ipc, int32_t result,
+                         int pending) {
+    if (!(ctx->flags & RT_FLAG_GECKO)) return;
+    rt_gecko_putc(ctx, 'F');
+    rt_gecko_hex(ctx, entry_index);
+    rt_gecko_putc(ctx, ':');
+    if (ipc->command == RTFS_CMD_OPEN) {
+        const char* p = (const char*)(uintptr_t)ipc->args.open.path;
+        uint32_t i;
+        for (i = 0; p != 0 && i < RTFS_PATH_BYTES && p[i] != 0; ++i) rt_gecko_putc(ctx, (uint32_t)(uint8_t)p[i]);
+    } else {
+        rt_gecko_hex(ctx, (uint32_t)ipc->fd);
+        if (ipc->command == RTFS_CMD_IOCTL || ipc->command == RTFS_CMD_IOCTLV) {
+            rt_gecko_putc(ctx, '/');
+            rt_gecko_hex(ctx, ipc->command == RTFS_CMD_IOCTL ? ipc->args.ioctl.request : ipc->args.ioctlv.request);
+        }
+    }
+    rt_gecko_putc(ctx, ':');
+    if (pending) rt_gecko_putc(ctx, 'P');
+    else rt_gecko_hex(ctx, (uint32_t)result);
+    rt_gecko_putc(ctx, '\n');
+}
+
+static void rt_fs_report_done(struct rt_context* ctx, int32_t result) {
+    if (!(ctx->flags & RT_FLAG_GECKO)) return;
+    rt_gecko_putc(ctx, 'C');
+    rt_gecko_putc(ctx, ':');
+    rt_gecko_hex(ctx, (uint32_t)result);
+    rt_gecko_putc(ctx, '\n');
+}
+
+/* The SENDCMD for the engine's pending transfer (CMD18 read, CMD25 write:
+ * wiibrew /dev/sdio, libogc wiisd.c), in the state's own lines, flushed
+ * for IOS along with the buffer the card DMAs from or into. */
+static void rt_fs_build_sendcmd(struct rt_context* ctx, struct rt_fs_state* st) {
+    const struct rtfat_op* op = &st->req.fat;
+    struct rt_sdio_request* rq = &st->request;
+    const uint32_t bytes = op->io_count * RT_SECTOR_BYTES;
+    rq->cmd = op->io_write ? RT_SD_CMD_WRITEMULTIBLOCK : RT_SD_CMD_READMULTIBLOCK;
+    rq->cmd_type = RT_SD_CMDTYPE_AC;
+    rq->rsp_type = RT_SD_RESPONSE_R1;
+    rq->arg = ctx->sdio_sdhc ? op->io_lba : op->io_lba * RT_SECTOR_BYTES;
+    rq->blk_cnt = op->io_count;
+    rq->blk_size = RT_SECTOR_BYTES;
+    rq->dma_addr = op->io_buffer;
+    rq->isdma = 1;
+    rq->pad0 = 0;
+    st->vec[0].data = (uint32_t)(uintptr_t)rq;
+    st->vec[0].len = sizeof(*rq);
+    st->vec[1].data = op->io_buffer;
+    st->vec[1].len = bytes;
+    st->vec[2].data = (uint32_t)(uintptr_t)st->response;
+    st->vec[2].len = 16;
+    rt_flush_range((uintptr_t)rq, sizeof(*rq));
+    rt_flush_range((uintptr_t)st->vec, sizeof(st->vec));
+    rt_flush_range((uintptr_t)op->io_buffer, bytes);
+}
+
+/* Performs the engine's pending transfer on the caller's thread and
+ * records its status. */
+static void rt_fs_transfer_sync(struct rt_context* ctx, struct rt_fs_state* st) {
+    int32_t r;
+    rt_fs_build_sendcmd(ctx, st);
+    r = rt_fs_sendcmd_call(ctx, st, 0);
+    st->transfers++;
+    if (r < 0) st->failures++;
+    st->req.fat.io_status = r < 0 ? r : 0;
+}
+
+/* Issues the engine's pending transfer with the FILE record as its tag:
+ * 1 when in flight (the completion continues), 0 when refused (the
+ * status then fails the request on its next step). */
+static int rt_fs_issue_async(struct rt_context* ctx, struct rt_fs_state* st) {
+    int32_t r;
+    rt_fs_build_sendcmd(ctx, st);
+    r = rt_fs_sendcmd_call(ctx, st, 1);
+    st->transfers++;
+    if (r < 0) {
+        st->failures++;
+        st->req.fat.io_status = r;
+        return 0;
+    }
+    return 1;
+}
+
+/* Runs the request in flight until it is complete (DONE: result in
+ * req.result, engine released) or a transfer is in flight (ISSUED).
+ * An engine step that neither completes nor asks for I/O, or one that
+ * never ends, marks the state dead: the card image may be half-updated,
+ * so every later request answers -114 rather than touching it or NAND. */
+static int rt_fs_advance(struct rt_context* ctx, struct rt_fs_state* st, int sync) {
+    struct rtfs_request* req = &st->req;
+    uint32_t guard;
+    for (guard = 0; guard < ((uint32_t)1 << 20); ++guard) {
+        const int step = rtfs_step(&st->fs, req);
+        if (step == RTFAT_DONE) {
+            /* Bytes read into the game's buffer went through the cache;
+             * write them back in case the game invalidates the buffer as
+             * it would after a DMA. */
+            if (req->action == RTFS_ACTION_READ && req->result > 0) {
+                rt_flush_range((uintptr_t)req->fat.buffer, (uint32_t)req->result);
+            }
+            return RT_FS_ADVANCE_DONE;
+        }
+        if (step != RTFAT_IO) break;
+        if (sync) rt_fs_transfer_sync(ctx, st);
+        else if (rt_fs_issue_async(ctx, st)) return RT_FS_ADVANCE_ISSUED;
+    }
+    st->dead = 1;
+    req->result = RTFAT_EIO;
+    req->classification = RTFS_COMPLETE;
+    req->active = 0;
+    st->fs.busy = 0;
+    return RT_FS_ADVANCE_DONE;
+}
+
+/* Hands `result` to the game's callback of an async call that completed
+ * without I/O: through a null IOS round trip, so it runs from the IPC
+ * interrupt after the call has returned, as every IOS completion does;
+ * directly, as the last resort, when no round trip can be issued. */
+static void rt_fs_deliver(struct rt_context* ctx, struct rt_fs_state* st, uint32_t cb, uint32_t ud, int32_t result) {
+    struct rt_fs_pend* slot = 0;
+    uint32_t msr;
+    uint32_t i;
+    if (cb == 0) return;
+    msr = rt_interrupts_off();
+    for (i = 0; i < RT_FS_DELIVERS && slot == 0; ++i) {
+        if (!st->deliver[i].in_use) slot = &st->deliver[i];
+    }
+    if (slot != 0) {
+        slot->in_use = 1;
+        slot->kind = RT_FS_OP_DELIVER;
+        slot->callback = cb;
+        slot->user_data = ud;
+        slot->result = result;
+    }
+    rt_interrupts_restore(msr);
+    if (slot != 0) {
+        if (rt_fs_getstatus_async(ctx, st, slot) >= 0) {
+            st->deferred++;
+            return;
+        }
+        slot->in_use = 0;
+    }
+    st->inline_deliveries++;
+    rt_invoke_game(cb, result, ud);
+}
+
+/* Takes the engine for `ipc` when it is free with nothing queued ahead
+ * (BEGUN: the request is begun, its classification in st->req), else
+ * queues the arrival when allowed (QUEUED) or reports FULL. Interrupts
+ * off: hooks run in both contexts. */
+static int rt_fs_admit(struct rt_fs_state* st, uint32_t entry_index, const struct rtfs_ipc* ipc, int may_queue) {
+    const uint32_t msr = rt_interrupts_off();
+    int r = RT_FS_ADMIT_FULL;
+    if (!st->fs.busy && st->queue_count == 0) {
+        st->req.fat.bounce = (uint32_t)(uintptr_t)st->bounce;
+        st->req.fat.bounce_bytes = RT_FS_BOUNCE_BYTES;
+        rtfs_begin(&st->fs, &st->req, ipc);
+        r = RT_FS_ADMIT_BEGUN;
+    } else if (may_queue && st->queue_count < RT_FS_QUEUE) {
+        struct rt_fs_queued* q = &st->queue[(st->queue_head + st->queue_count) % RT_FS_QUEUE];
+        q->in_use = 1;
+        q->entry_index = entry_index;
+        q->ipc = *ipc;
+        st->queue_count++;
+        r = RT_FS_ADMIT_QUEUED;
+    }
+    rt_interrupts_restore(msr);
+    return r;
+}
+
+/* rtfs_probe under interrupts off (the scratch record is shared by both
+ * contexts); the classification and result come back in the arguments. */
+static void rt_fs_probe(struct rt_fs_state* st, const struct rtfs_ipc* ipc, uint32_t* classification) {
+    const uint32_t msr = rt_interrupts_off();
+    rtfs_probe(&st->fs, &st->probe, ipc);
+    *classification = st->probe.classification;
+    rt_interrupts_restore(msr);
+}
+
+/* Starts the requests queued behind the engine once it is free: each
+ * runs until its first transfer is in flight (the completion continues
+ * it) or completes at once (its result deferred). */
+static void rt_fs_start_queued(struct rt_context* ctx, struct rt_fs_state* st) {
+    while (st->queue_count != 0 && !st->fs.busy) {
+        struct rt_fs_queued q;
+        const uint32_t msr = rt_interrupts_off();
+        q = st->queue[st->queue_head];
+        st->queue[st->queue_head].in_use = 0;
+        st->queue_head = (st->queue_head + 1u) % RT_FS_QUEUE;
+        st->queue_count--;
+        if (!st->dead) {
+            st->req.fat.bounce = (uint32_t)(uintptr_t)st->bounce;
+            st->req.fat.bounce_bytes = RT_FS_BOUNCE_BYTES;
+            rtfs_begin(&st->fs, &st->req, &q.ipc);
+        }
+        rt_interrupts_restore(msr);
+        if (st->dead) {
+            rt_fs_deliver(ctx, st, q.ipc.callback, q.ipc.user_data, RTFAT_EIO);
+            continue;
+        }
+        if (st->req.classification == RTFS_PASS_THROUGH) {
+            /* Ours when it arrived, not any more (the fd was forgotten
+             * meanwhile): nothing can replay it now. */
+            rt_fs_deliver(ctx, st, q.ipc.callback, q.ipc.user_data, RTFAT_EINVAL);
+            continue;
+        }
+        if (st->req.classification == RTFS_NEEDS_IO) {
+            st->pend.in_use = 1;
+            st->pend.kind = RT_FS_OP_FILE;
+            if (rt_fs_advance(ctx, st, 0) == RT_FS_ADVANCE_ISSUED) {
+                rt_fs_report(ctx, q.entry_index, &q.ipc, 0, 1);
+                return;
+            }
+            st->pend.in_use = 0;
+        }
+        rt_fs_report(ctx, q.entry_index, &q.ipc, st->req.result, 0);
+        rt_fs_deliver(ctx, st, st->req.callback, st->req.user_data, st->req.result);
+    }
+}
+
+/* Waits for the engine on the game's thread (interrupts on: the IPC
+ * interrupt drives the requests ahead), bounded. 1 when it came free. */
+static int rt_fs_wait(struct rt_context* ctx, struct rt_fs_state* st) {
+    const uint32_t start = rt_fs_ticks();
+    const volatile uint32_t* busy = &st->fs.busy;         /* changed by the IPC interrupt: */
+    const volatile uint32_t* queued = &st->queue_count;   /* re-read every turn */
+    st->waits++;
+    while (*busy || *queued != 0) {
+        rt_fs_wait_tick(ctx);
+        if (rt_fs_ticks() - start > RT_FS_WAIT_TICKS) {
+            st->wait_timeouts++;
+            return 0;
+        }
+    }
+    return 1;
+}
+
+/* A synchronous SDK call: answered on the caller's thread, transfers
+ * performed inline. Returns 0 to replay the original. */
+static int rt_on_sync_fs(struct rt_context* ctx, uint32_t entry_index, uintptr_t* args, uint32_t* result) {
+    struct rtfs_ipc ipc;
+    struct rt_fs_state* st = rt_fs_of(ctx);
+    uint32_t classification;
+    if (st == 0) return 0;
+    if (!rt_build_fs_ipc(entry_index, args, &ipc)) return 0;
+    if (ipc.command == RTFS_CMD_OPEN && rtfs_is_fs_device((const char*)(uintptr_t)ipc.args.open.path)) {
+        /* The game opening /dev/fs: done for it through the original, so
+         * the fd is known from then on. */
+        int32_t fd;
+        if (st->open_sync == 0) return 0;
+        fd = rt_fs_open_sync(st, ipc.args.open.path, ipc.args.open.mode);
+        if (fd >= 0) {
+            rtfs_learn_fs_fd(&st->fs, fd);
+            st->fs_fd_learned++;
+        }
+        *result = (uint32_t)fd;
+        return 1;
+    }
+    if (ipc.command == RTFS_CMD_CLOSE && ipc.fd >= 0 && ipc.fd == st->fs.fs_fd) {
+        st->fs.fs_fd = -1; /* the close itself replays */
+        return 0;
+    }
+    rt_fs_probe(st, &ipc, &classification);
+    if (classification == RTFS_PASS_THROUGH) return 0;
+    if (st->dead) {
+        *result = (uint32_t)RTFAT_EIO;
+        ctx->fs_hijacked++;
+        rt_fs_report(ctx, entry_index, &ipc, RTFAT_EIO, 0);
+        return 1;
+    }
+    while (rt_fs_admit(st, entry_index, &ipc, 0) != RT_FS_ADMIT_BEGUN) {
+        if (!rt_fs_wait(ctx, st)) {
+            /* The engine never came free: the request ahead is stuck
+             * (nothing can be answered from the card meanwhile). */
+            *result = (uint32_t)RTFAT_EIO;
+            ctx->fs_hijacked++;
+            rt_fs_report(ctx, entry_index, &ipc, RTFAT_EIO, 0);
+            return 1;
+        }
+    }
+    if (st->req.classification == RTFS_PASS_THROUGH) return 0;
+    if (st->req.classification == RTFS_NEEDS_IO) rt_fs_advance(ctx, st, 1);
+    *result = (uint32_t)st->req.result;
+    ctx->fs_hijacked++;
+    rt_fs_report(ctx, entry_index, &ipc, st->req.result, 0);
+    return 1;
+}
+
+/* An asynchronous SDK call: accepted (0) and answered through the game's
+ * callback later, from the IPC interrupt. Returns 0 to replay the
+ * original. */
+static int rt_on_async_fs(struct rt_context* ctx, uint32_t entry_index, uintptr_t* args, uint32_t* result) {
+    struct rtfs_ipc ipc;
+    struct rt_fs_state* st = rt_fs_of(ctx);
+    uint32_t classification;
+    uint32_t i;
+    int admit;
+    if (st == 0) return 0;
+    if (!rt_build_fs_ipc(entry_index, args, &ipc)) return 0;
+    if (ipc.command == RTFS_CMD_OPEN && rtfs_is_fs_device((const char*)(uintptr_t)ipc.args.open.path)) {
+        /* The game opening /dev/fs: replayed to IOS under observation,
+         * our completion in place of the game's callback learns the fd. */
+        for (i = 0; i < RT_FS_SNOOPS; ++i) {
+            struct rt_fs_pend* slot = &st->snoop[i];
+            if (slot->in_use) continue;
+            slot->in_use = 1;
+            slot->kind = RT_FS_OP_SNOOP;
+            slot->callback = ipc.callback;
+            slot->user_data = ipc.user_data;
+            rt_fs_swap_callback(args, ipc.command, (uintptr_t)st->complete_fs, (uintptr_t)slot);
+            return 0;
+        }
+        return 0; /* every slot taken: replayed unobserved */
+    }
+    if (ipc.command == RTFS_CMD_CLOSE && ipc.fd >= 0 && ipc.fd == st->fs.fs_fd) {
+        st->fs.fs_fd = -1;
+        return 0;
+    }
+    rt_fs_probe(st, &ipc, &classification);
+    if (classification == RTFS_PASS_THROUGH) return 0;
+    ctx->fs_hijacked++;
+    if (st->dead) {
+        rt_fs_deliver(ctx, st, ipc.callback, ipc.user_data, RTFAT_EIO);
+        rt_fs_report(ctx, entry_index, &ipc, RTFAT_EIO, 0);
+        *result = 0;
+        return 1;
+    }
+    admit = rt_fs_admit(st, entry_index, &ipc, 1);
+    if (admit == RT_FS_ADMIT_QUEUED) {
+        st->queued++;
+        *result = 0;
+        return 1;
+    }
+    if (admit == RT_FS_ADMIT_FULL) {
+        /* Refused at the call, as IOS refuses when its queue is full: no
+         * callback follows. */
+        *result = (uint32_t)RTFAT_EACCESS;
+        rt_fs_report(ctx, entry_index, &ipc, RTFAT_EACCESS, 0);
+        return 1;
+    }
+    if (st->req.classification == RTFS_PASS_THROUGH) {
+        ctx->fs_hijacked--;
+        return 0;
+    }
+    if (st->req.classification == RTFS_NEEDS_IO) {
+        st->pend.in_use = 1;
+        st->pend.kind = RT_FS_OP_FILE;
+        if (rt_fs_advance(ctx, st, 0) == RT_FS_ADVANCE_ISSUED) {
+            rt_fs_report(ctx, entry_index, &ipc, 0, 1);
+            *result = 0;
+            return 1;
+        }
+        st->pend.in_use = 0;
+    }
+    rt_fs_report(ctx, entry_index, &ipc, st->req.result, 0);
+    rt_fs_deliver(ctx, st, st->req.callback, st->req.user_data, st->req.result);
+    *result = 0;
+    return 1;
+}
+
+void rt_on_fs_complete(struct rt_context* ctx, int32_t* result, void* tag, uintptr_t* callback,
+                       uintptr_t* user_data) {
+    struct rt_fs_state* st = rt_fs_of(ctx);
+    uint32_t i;
+    *callback = 0;
+    if (st == 0) return;
+    for (i = 0; i < RT_FS_SNOOPS; ++i) {
+        struct rt_fs_pend* slot = &st->snoop[i];
+        if (tag != (void*)slot || !slot->in_use) continue;
+        if (*result >= 0) {
+            rtfs_learn_fs_fd(&st->fs, *result);
+            st->fs_fd_learned++;
+        }
+        slot->in_use = 0;
+        *callback = (uintptr_t)slot->callback;
+        *user_data = (uintptr_t)slot->user_data;
+        return;
+    }
+    for (i = 0; i < RT_FS_DELIVERS; ++i) {
+        struct rt_fs_pend* slot = &st->deliver[i];
+        if (tag != (void*)slot || !slot->in_use) continue;
+        *result = slot->result;
+        *callback = (uintptr_t)slot->callback;
+        *user_data = (uintptr_t)slot->user_data;
+        slot->in_use = 0;
+        return;
+    }
+    if (tag == (void*)&st->pend && st->pend.in_use) {
+        struct rtfs_request* req = &st->req;
+        if (*result < 0) st->failures++;
+        req->fat.io_status = *result < 0 ? *result : 0;
+        if (rt_fs_advance(ctx, st, 0) == RT_FS_ADVANCE_ISSUED) return;
+        st->pend.in_use = 0;
+        *result = req->result;
+        *callback = (uintptr_t)req->callback;
+        *user_data = (uintptr_t)req->user_data;
+        rt_fs_report_done(ctx, req->result);
+        rt_fs_start_queued(ctx, st);
+        return;
+    }
+    /* An unknown tag: nothing to continue, nothing to call. */
 }
 
 int rt_on_ipc(struct rt_context* ctx, uint32_t entry_index, uintptr_t* args, uint32_t* result) {

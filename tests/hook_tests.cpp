@@ -588,27 +588,94 @@ void GameCb(std::uint32_t cb, std::int32_t result, std::uint32_t ud) {
     g_cb_log->calls++;
 }
 
-}  // namespace
-
-static void TestFsSyncIntercept() {
-    std::uint8_t* low = LowBuffer(0x10000);
-    if (!low) {
-        std::cerr << "note: no 32-bit addressable buffer on this host, skipping the FS intercept drive" << std::endl;
-        return;
+// The console's IOS as the savegame path sees it: every request the
+// runtime issues (a card transfer, a null round trip) is queued and
+// completed later, oldest first, through the FS completion entry, whose
+// tail call of the game's callback is recorded as a delivery.
+struct FakeIos {
+    struct Request { int kind; void* tag; std::uint32_t lba, count, buffer, write; };  // 1 transfer, 2 defer
+    struct Delivery { std::uint32_t cb, ud; std::int32_t result; };
+    FsCard* card = nullptr;
+    rt_context* ctx = nullptr;
+    std::vector<Request> queue;
+    std::vector<Delivery> delivered;
+    std::uint32_t refuse_issues = 0;   // refuse the next N transfer issues
+    std::uint32_t refuse_defers = 0;   // refuse the next N null round trips
+    std::uint32_t fail_transfers = 0;  // complete the next N transfers with an IPC error
+    bool complete_one() {
+        if (queue.empty()) return false;
+        const Request r = queue.front();
+        queue.erase(queue.begin());
+        std::int32_t ios = 0;
+        if (r.kind == 1) {
+            if (fail_transfers != 0) { --fail_transfers; ios = -4; }
+            else ios = card->transfer(r.lba, r.count, r.buffer, r.write);
+        }
+        std::uintptr_t cb = 0xDEADu, ud = 0xDEADu;
+        rt_on_fs_complete(ctx, &ios, r.tag, &cb, &ud);
+        if (cb != 0) delivered.push_back({static_cast<std::uint32_t>(cb), static_cast<std::uint32_t>(ud), ios});
+        return true;
     }
-    // Card image: save directory at cluster 3 holding SAVE BIN (2 clusters
-    // of known bytes), mirroring the rtfs test fixture's shape.
-    FsCard card;
+    void drain() { while (complete_one()) {} }
+};
+FakeIos* g_ios = nullptr;
+std::int32_t IosIssue(std::uint32_t lba, std::uint32_t count, std::uint32_t buffer, std::uint32_t write, void* tag) {
+    if (!g_ios) return -1;
+    if (g_ios->refuse_issues != 0) { --g_ios->refuse_issues; return -1; }
+    g_ios->queue.push_back({1, tag, lba, count, buffer, write});
+    return 0;
+}
+std::int32_t IosDefer(void* tag) {
+    if (!g_ios) return -1;
+    if (g_ios->refuse_defers != 0) { --g_ios->refuse_defers; return -1; }
+    g_ios->queue.push_back({2, tag, 0, 0, 0, 0});
+    return 0;
+}
+void IosWait(rt_context*) {
+    if (g_ios) g_ios->complete_one();
+}
+std::int32_t IosOpenSync(const char* path, std::uint32_t mode) {
+    return std::string(path) == "/dev/fs" && mode == 0 ? 9 : -6;
+}
+
+// Game memory below 4 GiB for one FS test: the state block first, then
+// scratch buffers. Every pointer the engine touches must live down here:
+// it addresses memory through 32-bit fields, so a stack buffer would
+// truncate.
+struct FsMemory {
+    rt_fs_state* st = nullptr;
+    std::uint8_t* path = nullptr;
+    std::uint8_t* data = nullptr;
+    std::uint32_t* out = nullptr;
+    rtfs_attr_block* attr = nullptr;
+    bool ok = false;
+    FsMemory() {
+        std::uint8_t* low = LowBuffer(sizeof(rt_fs_state) + 0x8000);
+        if (!low) return;
+        std::uint8_t* p = low + ((sizeof(rt_fs_state) + 31) & ~std::size_t(31));
+        st = reinterpret_cast<rt_fs_state*>(low);
+        std::memset(st, 0, sizeof(*st));
+        path = p;
+        data = p + 0x1000;
+        out = reinterpret_cast<std::uint32_t*>(p + 0x2000);
+        attr = reinterpret_cast<rtfs_attr_block*>(p + 0x3000);
+        std::memset(p, 0, 0x4000);
+        ok = true;
+    }
+};
+
+// The rtfs test fixture's card: the save directory at cluster 3 holding
+// SAVE.BIN, two clusters of known bytes.
+void FsFillCard(FsCard& card, fatimg::Bytes& content, rtfat_volume& volume, std::uint8_t seed) {
     const std::uint32_t kClusterBytes = card.image.cluster_bytes();
-    fatimg::Bytes content(kClusterBytes + 37);
-    for (std::size_t i = 0; i < content.size(); ++i) content[i] = static_cast<std::uint8_t>(i * 7 + 3);
+    content.assign(kClusterBytes + 37, 0);
+    for (std::size_t i = 0; i < content.size(); ++i) content[i] = static_cast<std::uint8_t>(i * seed + 3);
     card.image.write_data({10, 11}, content);
     fatimg::Bytes dir;
     fatimg::Bytes save = fatimg::short_entry("SAVE    BIN", 0x20, 10, static_cast<std::uint32_t>(content.size()), 0x18);
     dir.insert(dir.end(), save.begin(), save.end());
     EXPECT_TRUE(card.image.write_dir({3}, dir));
-
-    rtfat_volume volume{};
+    volume = rtfat_volume{};
     volume.sectors_per_cluster = card.image.spc;
     volume.fat_lba = card.image.reserved;
     volume.fat_count = card.image.fats;
@@ -617,16 +684,24 @@ static void TestFsSyncIntercept() {
     volume.cluster_count = card.image.clusters;
     volume.dir_cluster = 3;
     volume.alloc_hint = 13;
+}
 
-    // Game memory below 4 GiB: interception state, path strings, file data.
-    // Every pointer the engine touches must live down here: it addresses
-    // memory through 32-bit fields, so a stack buffer would truncate.
-    auto* st = reinterpret_cast<rt_fs_state*>(low);
-    std::uint8_t* path = low + 0x3000;
-    std::uint8_t* data = low + 0x4000;
-    auto* out = reinterpret_cast<std::uint32_t*>(low + 0x5000);
-    out[0] = 0; out[1] = 0;
-    std::memset(st, 0, sizeof(*st));
+}  // namespace
+
+static void TestFsSyncIntercept() {
+    FsMemory mem;
+    if (!mem.ok) {
+        std::cerr << "note: no 32-bit addressable buffer on this host, skipping the FS intercept drive" << std::endl;
+        return;
+    }
+    FsCard card;
+    fatimg::Bytes content;
+    rtfat_volume volume;
+    FsFillCard(card, content, volume, 7);
+    rt_fs_state* st = mem.st;
+    std::uint8_t* path = mem.path;
+    std::uint8_t* data = mem.data;
+    std::uint32_t* out = mem.out;
     const std::string prefix = "/title/00010000/524d4345/data";
     EXPECT_EQ(rtfs_init(&st->fs, &volume, prefix.c_str(), -1), RTFAT_OK);
 
@@ -711,7 +786,7 @@ static void TestFsSyncIntercept() {
     // is, and runs against the card.
     args[0] = 5; args[1] = 0x09; args[2] = FsAddr(path); args[3] = 64; args[4] = 0; args[5] = 0;
     EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(6), args, &result), 0);
-    auto* attr = reinterpret_cast<rtfs_attr_block*>(low + 0x6000);
+    rtfs_attr_block* attr = mem.attr;
     std::memset(attr, 0, sizeof(*attr));
     FsCopyPath(reinterpret_cast<std::uint8_t*>(attr->filepath), prefix + "/made.bin");
     attr->ownerperm = 3;
@@ -721,12 +796,15 @@ static void TestFsSyncIntercept() {
     EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(6), args, &result), 1);
     EXPECT_EQ(static_cast<std::int32_t>(result), RTFAT_EEXIST);
 
-    // Async forms take over in 4B3 (see TestFsAsyncIntercept); a bad mode
-    // completes immediately, holding no engine state behind.
+    // Async forms are taken over too (TestFsAsyncIntercept): a bad mode is
+    // accepted at the call and its -101 goes to the callback; with no way
+    // to issue a round trip here, that is the direct call (counted).
     FsCopyPath(path, prefix + "/save.bin");
     args[0] = FsAddr(path); args[1] = 0; args[2] = 0x80001000; args[3] = 0x80002000;
     EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC(1), args, &result), 1);
-    EXPECT_EQ(static_cast<std::int32_t>(result), RTFAT_EINVAL);
+    EXPECT_EQ(result, 0u);
+    EXPECT_EQ(st->inline_deliveries, 1u);
+    EXPECT_EQ(st->fs.busy, 0u);
 
     // Flag off: replay. No state block: replay.
     ctx.flags = 0;
@@ -737,11 +815,63 @@ static void TestFsSyncIntercept() {
     EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(1), args, &result), 0);
     ctx.fs_state = FsAddr(st);
 
-    // Busy engine (a re-entrant arrival): hijacked access error, then recovery.
+    // An engine that never comes free (nothing drives it here): the sync
+    // arrival waits its bound, then answers -114; the engine untouched.
     st->fs.busy = 1;
     EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(1), args, &result), 1);
-    EXPECT_EQ(static_cast<std::int32_t>(result), RTFAT_EACCESS);
+    EXPECT_EQ(static_cast<std::int32_t>(result), RTFAT_EIO);
+    EXPECT_EQ(st->waits, 1u);
+    EXPECT_EQ(st->wait_timeouts, 1u);
+    EXPECT_EQ(st->fs.busy, 1u);
     st->fs.busy = 0;
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(1), args, &result), 1);
+    EXPECT_TRUE(static_cast<std::int32_t>(result) >= static_cast<std::int32_t>(RTFS_FD_BASE));
+    args[0] = result;
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(2), args, &result), 1);
+
+    // The game's synchronous open of /dev/fs: done through the original
+    // (call-through), the fd learned; without the original it replays.
+    FsCopyPath(path, "/dev/fs");
+    args[0] = FsAddr(path); args[1] = 0;
+    st->open_sync = 0;
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(1), args, &result), 0);
+    EXPECT_EQ(st->fs.fs_fd, -1);
+    st->open_sync = 0x80100000u;
+    rt_host_fs_open_sync = IosOpenSync;
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(1), args, &result), 1);
+    EXPECT_EQ(result, 9u);
+    EXPECT_EQ(st->fs.fs_fd, 9);
+    EXPECT_EQ(st->fs_fd_learned, 1u);
+    args[1] = 1;  // a mode the stand-in refuses: the failure is the game's, nothing learned anew
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(1), args, &result), 1);
+    EXPECT_EQ(static_cast<std::int32_t>(result), -6);
+    EXPECT_EQ(st->fs.fs_fd, 9);
+    // A sync close of the learned fd replays and forgets it.
+    args[0] = 9;
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(2), args, &result), 0);
+    EXPECT_EQ(st->fs.fs_fd, -1);
+    rt_host_fs_open_sync = nullptr;
+
+    // A dead engine answers -114 without waiting or touching the card.
+    st->dead = 1;
+    const std::uint32_t transfers_dead = card.transfers;
+    FsCopyPath(path, prefix + "/save.bin");
+    args[0] = FsAddr(path); args[1] = 3;
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(1), args, &result), 1);
+    EXPECT_EQ(static_cast<std::int32_t>(result), RTFAT_EIO);
+    EXPECT_EQ(card.transfers, transfers_dead);
+    EXPECT_EQ(st->waits, 1u);
+    st->dead = 0;
+
+    // A transfer the card refuses: the request fails with -114, the engine
+    // is released, and the next request runs.
+    rt_host_fs_transfer = nullptr;
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(1), args, &result), 1);
+    EXPECT_EQ(static_cast<std::int32_t>(result), RTFAT_EIO);
+    EXPECT_EQ(st->fs.busy, 0u);
+    EXPECT_EQ(st->dead, 0u);
+    EXPECT_EQ(st->failures, 1u);
+    rt_host_fs_transfer = FsTransfer;
     EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(1), args, &result), 1);
     EXPECT_TRUE(static_cast<std::int32_t>(result) >= static_cast<std::int32_t>(RTFS_FD_BASE));
     args[0] = result;
@@ -754,37 +884,18 @@ static void TestFsSyncIntercept() {
 // ---- asynchronous savegame interception (slice 4B3) ------------------------
 
 static void TestFsAsyncIntercept() {
-    std::uint8_t* low = LowBuffer(0x10000);
-    if (!low) {
+    FsMemory mem;
+    if (!mem.ok) {
         std::cerr << "note: no 32-bit addressable buffer on this host, skipping the async FS drive" << std::endl;
         return;
     }
     FsCard card;
-    const std::uint32_t kClusterBytes = card.image.cluster_bytes();
-    fatimg::Bytes content(kClusterBytes + 37);
-    for (std::size_t i = 0; i < content.size(); ++i) content[i] = static_cast<std::uint8_t>(i * 5 + 1);
-    card.image.write_data({10, 11}, content);
-    fatimg::Bytes dir;
-    fatimg::Bytes save = fatimg::short_entry("SAVE    BIN", 0x20, 10, static_cast<std::uint32_t>(content.size()), 0x18);
-    dir.insert(dir.end(), save.begin(), save.end());
-    EXPECT_TRUE(card.image.write_dir({3}, dir));
-
-    rtfat_volume volume{};
-    volume.sectors_per_cluster = card.image.spc;
-    volume.fat_lba = card.image.reserved;
-    volume.fat_count = card.image.fats;
-    volume.fat_sectors = card.image.fat_sectors;
-    volume.data_lba = static_cast<std::uint32_t>(card.image.data_start_sector());
-    volume.cluster_count = card.image.clusters;
-    volume.dir_cluster = 3;
-    volume.alloc_hint = 13;
-
-    auto* st = reinterpret_cast<rt_fs_state*>(low);
-    std::uint8_t* path = low + 0x3000;
-    std::uint8_t* data = low + 0x4000;
-    auto* out = reinterpret_cast<std::uint32_t*>(low + 0x5000);
-    out[0] = 0; out[1] = 0;
-    std::memset(st, 0, sizeof(*st));
+    fatimg::Bytes content;
+    rtfat_volume volume;
+    FsFillCard(card, content, volume, 5);
+    rt_fs_state* st = mem.st;
+    std::uint8_t* path = mem.path;
+    std::uint8_t* data = mem.data;
     st->complete_fs = 0x935D0200;
     const std::string prefix = "/title/00010000/524d4345/data";
     EXPECT_EQ(rtfs_init(&st->fs, &volume, prefix.c_str(), -1), RTFAT_OK);
@@ -793,190 +904,332 @@ static void TestFsAsyncIntercept() {
     ctx.magic = RT_CONTEXT_MAGIC;
     ctx.flags = RT_FLAG_FS;
     ctx.fs_state = FsAddr(st);
+    FakeIos ios;
+    ios.card = &card;
+    ios.ctx = &ctx;
+    g_ios = &ios;
     g_fs_card = &card;
     rt_host_fs_transfer = FsTransfer;
+    rt_host_fs_issue = IosIssue;
+    rt_host_fs_defer = IosDefer;
+    rt_host_fs_wait = IosWait;
     CbLog log;
     g_cb_log = &log;
     rt_host_game_callback = GameCb;
 
-    // Drives a taken-over request the way IOS completions would on the
-    // console: transfers through the fake card until the engine is done.
-    auto drive = [&]() {
-        for (int g = 0; g < 10000; ++g) {
-            const int s = rtfs_step(&st->fs, &st->req);
-            if (s == RTFAT_DONE) break;
-            if (s != RTFAT_IO) break;
-            st->req.fat.io_status = card.transfer(st->req.fat.io_lba, st->req.fat.io_count,
-                                                  st->req.fat.io_buffer, st->req.fat.io_write);
-        }
-    };
-
     std::uintptr_t args[8] = {0, 0, 0, 0, 0, 0, 0, 0};
     std::uint32_t result = 0xDEADu;
-    std::int32_t ios = 0;
+    std::int32_t ipc_result = 0;
     std::uintptr_t cb = 0xDEADu, ud = 0xDEADu;
 
-    // Async open takes over: accepted, callback swapped for the completion
-    // entry, nothing delivered to the game yet.
+    // Async open: accepted (0), a card transfer issued, nothing delivered
+    // until IOS completes it; the game's callback then gets the fd.
     FsCopyPath(path, prefix + "/save.bin");
     args[0] = FsAddr(path); args[1] = 3; args[2] = 0x80001000; args[3] = 0x80002000;
     EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC(1), args, &result), 1);
     EXPECT_EQ(result, 0u);
-    EXPECT_EQ(args[2], 0x935D0200u);
-    EXPECT_EQ(args[3], reinterpret_cast<std::uintptr_t>(&st->pend));
+    EXPECT_EQ(args[2], 0x80001000u);  // the game's registers are not touched: the call is answered, not replayed
+    EXPECT_EQ(ios.queue.size(), std::size_t(1));
+    EXPECT_EQ(ios.queue[0].kind, 1);
+    EXPECT_EQ(ios.queue[0].tag, static_cast<void*>(&st->pend));
+    EXPECT_EQ(st->pend.in_use, 1u);
+    EXPECT_TRUE(ios.delivered.empty());
     EXPECT_EQ(log.calls, 0u);
-    drive();
-    rt_on_fs_complete(&ctx, &ios, &st->pend, &cb, &ud);
-    EXPECT_TRUE(ios >= static_cast<std::int32_t>(RTFS_FD_BASE));
-    EXPECT_EQ(cb, 0x80001000u);
-    EXPECT_EQ(ud, 0x80002000u);
+    ios.drain();
+    EXPECT_EQ(ios.delivered.size(), std::size_t(1));
+    EXPECT_EQ(ios.delivered[0].cb, 0x80001000u);
+    EXPECT_EQ(ios.delivered[0].ud, 0x80002000u);
+    EXPECT_TRUE(ios.delivered[0].result >= static_cast<std::int32_t>(RTFS_FD_BASE));
     EXPECT_EQ(st->pend.in_use, 0u);
-    const std::uint32_t fd = static_cast<std::uint32_t>(ios);
+    EXPECT_EQ(st->fs.busy, 0u);
+    EXPECT_TRUE(st->transfers >= 1u);
+    const std::uint32_t fd = static_cast<std::uint32_t>(ios.delivered[0].result);
+    ios.delivered.clear();
 
-    // Async read: same handshake, bytes land from the card.
+    // Async read: bytes land from the card, the count delivered.
     std::memset(data, 0xEE, 512);
     args[0] = fd; args[1] = FsAddr(data); args[2] = 64; args[3] = 0x80001001; args[4] = 0x80002001;
     EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC(3), args, &result), 1);
     EXPECT_EQ(result, 0u);
-    drive();
-    ios = 0; cb = 0xDEADu; ud = 0xDEADu;
-    rt_on_fs_complete(&ctx, &ios, &st->pend, &cb, &ud);
-    EXPECT_EQ(ios, 64);
-    EXPECT_EQ(cb, 0x80001001u);
-    EXPECT_EQ(ud, 0x80002001u);
+    ios.drain();
+    EXPECT_EQ(ios.delivered.size(), std::size_t(1));
+    EXPECT_EQ(ios.delivered[0].result, 64);
+    EXPECT_EQ(ios.delivered[0].cb, 0x80001001u);
     EXPECT_TRUE(std::memcmp(data, content.data(), 64) == 0);
+    ios.delivered.clear();
 
-    // Async seek completes immediately: answered through the game callback
-    // now, hijacked with the position.
+    // Async seek completes without I/O: the result rides a null round trip
+    // and reaches the callback only when IOS completes that, never inline.
     args[0] = fd; args[1] = 0; args[2] = 0; args[3] = 0x80001002; args[4] = 0x80002002;
     EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC(5), args, &result), 1);
     EXPECT_EQ(result, 0u);
-    EXPECT_EQ(log.calls, 1u);
-    EXPECT_EQ(log.cb, 0x80001002u);
-    EXPECT_EQ(log.result, 0);
-    EXPECT_EQ(log.ud, 0x80002002u);
+    EXPECT_EQ(log.calls, 0u);
+    EXPECT_EQ(ios.queue.size(), std::size_t(1));
+    EXPECT_EQ(ios.queue[0].kind, 2);
+    EXPECT_TRUE(ios.delivered.empty());
+    EXPECT_EQ(st->deferred, 1u);
+    ios.drain();
+    EXPECT_EQ(ios.delivered.size(), std::size_t(1));
+    EXPECT_EQ(ios.delivered[0].cb, 0x80001002u);
+    EXPECT_EQ(ios.delivered[0].ud, 0x80002002u);
+    EXPECT_EQ(ios.delivered[0].result, 0);
+    ios.delivered.clear();
 
-    // Async write, then async read-back through fresh takeovers.
+    // Async write, seek home, async read-back.
     for (int i = 0; i < 16; ++i) data[i] = static_cast<std::uint8_t>(0x70 + i);
     args[0] = fd; args[1] = FsAddr(data); args[2] = 16; args[3] = 0x80001003; args[4] = 0x80002003;
     EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC(4), args, &result), 1);
-    drive();
-    ios = 0; cb = 0xDEADu; ud = 0xDEADu;
-    rt_on_fs_complete(&ctx, &ios, &st->pend, &cb, &ud);
-    EXPECT_EQ(ios, 16);
-    EXPECT_EQ(cb, 0x80001003u);
+    ios.drain();
+    EXPECT_EQ(ios.delivered.size(), std::size_t(1));
+    EXPECT_EQ(ios.delivered[0].result, 16);
+    EXPECT_EQ(ios.delivered[0].cb, 0x80001003u);
+    ios.delivered.clear();
     args[0] = fd; args[1] = 0; args[2] = 0; args[3] = 0x80001004; args[4] = 0x80002004;
     EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC(5), args, &result), 1);
+    ios.drain();
     std::memset(data, 0, 16);
     args[0] = fd; args[1] = FsAddr(data); args[2] = 16; args[3] = 0x80001005; args[4] = 0x80002005;
     EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC(3), args, &result), 1);
-    drive();
-    ios = 0; cb = 0xDEADu; ud = 0xDEADu;
-    rt_on_fs_complete(&ctx, &ios, &st->pend, &cb, &ud);
-    EXPECT_EQ(ios, 16);
+    ios.drain();
+    EXPECT_EQ(ios.delivered.size(), std::size_t(2));
+    EXPECT_EQ(ios.delivered[1].result, 16);
     for (int i = 0; i < 16; ++i) EXPECT_EQ(data[i], static_cast<std::uint8_t>(0x70 + i));
+    ios.delivered.clear();
 
-    // Async close completes immediately.
+    // Async close: deferred as well.
     args[0] = fd; args[1] = 0x80001006; args[2] = 0x80002006;
     EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC(2), args, &result), 1);
     EXPECT_EQ(result, 0u);
-    EXPECT_EQ(log.cb, 0x80001006u);
-    EXPECT_EQ(log.result, 0);
+    EXPECT_TRUE(ios.delivered.empty());
+    ios.drain();
+    EXPECT_EQ(ios.delivered.size(), std::size_t(1));
+    EXPECT_EQ(ios.delivered[0].cb, 0x80001006u);
+    EXPECT_EQ(ios.delivered[0].result, 0);
+    ios.delivered.clear();
 
-    // Async open of a missing file needs the lookup: takeover, then -106
-    // at completion, never a replay to NAND.
+    // Async open of a missing file needs the lookup: -106 at completion,
+    // never a replay to NAND.
     FsCopyPath(path, prefix + "/gone.bin");
     args[0] = FsAddr(path); args[1] = 3; args[2] = 0x80001007; args[3] = 0x80002007;
     EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC(1), args, &result), 1);
     EXPECT_EQ(result, 0u);
-    drive();
-    ios = 0; cb = 0xDEADu; ud = 0xDEADu;
-    rt_on_fs_complete(&ctx, &ios, &st->pend, &cb, &ud);
-    EXPECT_EQ(ios, RTFAT_ENOENT);
-    EXPECT_EQ(cb, 0x80001007u);
+    ios.drain();
+    EXPECT_EQ(ios.delivered.size(), std::size_t(1));
+    EXPECT_EQ(ios.delivered[0].result, RTFAT_ENOENT);
+    EXPECT_EQ(ios.delivered[0].cb, 0x80001007u);
+    ios.delivered.clear();
 
-    // A null game callback still hijacks; there is nothing to invoke.
-    const std::uint32_t calls0 = log.calls;
+    // A null game callback: answered (0), nothing to deliver, no round trip.
+    const std::uint32_t deferred0 = st->deferred;
     args[0] = FsAddr(path); args[1] = 0; args[2] = 0; args[3] = 0;
     EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC(1), args, &result), 1);
-    EXPECT_EQ(static_cast<std::int32_t>(result), RTFAT_EINVAL);
-    EXPECT_EQ(log.calls, calls0);
+    EXPECT_EQ(result, 0u);
+    EXPECT_TRUE(ios.queue.empty());
+    EXPECT_EQ(st->deferred, deferred0);
+    EXPECT_EQ(log.calls, 0u);
 
-    // Device opens replay to real IOS but are observed: the completion
-    // learns the /dev/fs fd, and a later ISFS ioctl on it is ours.
+    // Device opens replay to IOS under observation: the completion learns
+    // the /dev/fs fd and passes the game's callback on with IOS's result.
     FsCopyPath(path, "/dev/fs");
     args[0] = FsAddr(path); args[1] = 1; args[2] = 0x80001008; args[3] = 0x80002008;
     EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC(1), args, &result), 0);
     EXPECT_EQ(args[2], 0x935D0200u);
-    ios = 7; cb = 0xDEADu; ud = 0xDEADu;
-    rt_on_fs_complete(&ctx, &ios, reinterpret_cast<void*>(args[3]), &cb, &ud);
-    EXPECT_EQ(ios, 7);
+    ipc_result = 7; cb = 0xDEADu; ud = 0xDEADu;
+    rt_on_fs_complete(&ctx, &ipc_result, reinterpret_cast<void*>(args[3]), &cb, &ud);
+    EXPECT_EQ(ipc_result, 7);
     EXPECT_EQ(cb, 0x80001008u);
     EXPECT_EQ(ud, 0x80002008u);
     EXPECT_EQ(st->fs.fs_fd, 7);
+    EXPECT_EQ(st->fs_fd_learned, 1u);
     // An ISFS ioctl on the learned fd is ours: full takeover cycle.
     FsCopyPath(path, prefix + "/save.bin");
     args[0] = 7; args[1] = 0x06; args[2] = FsAddr(path); args[3] = 64;
-    args[4] = FsAddr(out); args[5] = static_cast<std::uint32_t>(sizeof(rtfs_attr_block));
+    args[4] = FsAddr(mem.attr); args[5] = static_cast<std::uint32_t>(sizeof(rtfs_attr_block));
     args[6] = 0x8000100D; args[7] = 0x8000200D;
     EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC(6), args, &result), 1);
     EXPECT_EQ(result, 0u);
-    drive();
-    ios = 0; cb = 0xDEADu; ud = 0xDEADu;
-    rt_on_fs_complete(&ctx, &ios, &st->pend, &cb, &ud);
-    EXPECT_EQ(ios, 0);
-    EXPECT_EQ(cb, 0x8000100Du);
-    EXPECT_EQ(ud, 0x8000200Du);
-
-    // With the fd learned, the same ioctl on another real fd replays
-    // (pinned); after the device closes and the fd is forgotten, the same
-    // well-formed call is ours again by path.
-    FsCopyPath(path, prefix + "/save.bin");
+    ios.drain();
+    EXPECT_EQ(ios.delivered.size(), std::size_t(1));
+    EXPECT_EQ(ios.delivered[0].result, 0);
+    EXPECT_EQ(ios.delivered[0].cb, 0x8000100Du);
+    EXPECT_EQ(mem.attr->ownerperm, RTFS_META_OWNER_PERM);
+    ios.delivered.clear();
+    // With the fd learned, the same ioctl on another real fd replays; after
+    // the device closes (replayed, the fd forgotten) it is ours by path.
     args[0] = 5; args[1] = 0x06; args[2] = FsAddr(path); args[3] = 64;
-    args[4] = FsAddr(out); args[5] = static_cast<std::uint32_t>(sizeof(rtfs_attr_block));
+    args[4] = FsAddr(mem.attr); args[5] = static_cast<std::uint32_t>(sizeof(rtfs_attr_block));
     args[6] = 0x8000100E; args[7] = 0x8000200E;
     EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC(6), args, &result), 0);
     args[0] = 7; args[1] = 0x80001009; args[2] = 0x80002009;
     EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC(2), args, &result), 0);
     EXPECT_EQ(st->fs.fs_fd, -1);
     args[0] = 5; args[1] = 0x06; args[2] = FsAddr(path); args[3] = 64;
-    args[4] = FsAddr(out); args[5] = static_cast<std::uint32_t>(sizeof(rtfs_attr_block));
+    args[4] = FsAddr(mem.attr); args[5] = static_cast<std::uint32_t>(sizeof(rtfs_attr_block));
     args[6] = 0x8000100F; args[7] = 0x8000200F;
     EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC(6), args, &result), 1);
-    EXPECT_EQ(result, 0u);
-    drive();
-    ios = 0; cb = 0xDEADu; ud = 0xDEADu;
-    rt_on_fs_complete(&ctx, &ios, &st->pend, &cb, &ud);
-    EXPECT_EQ(ios, 0);
-    EXPECT_EQ(cb, 0x8000100Fu);
+    ios.drain();
+    EXPECT_EQ(ios.delivered.size(), std::size_t(1));
+    EXPECT_EQ(ios.delivered[0].cb, 0x8000100Fu);
+    ios.delivered.clear();
 
-    // Busy engine: a second takeover is refused through the callback.
+    // Arrivals behind a busy engine queue, and start by themselves from the
+    // completion that frees it; deliveries keep the order of arrival.
     FsCopyPath(path, prefix + "/save.bin");
-    args[0] = FsAddr(path); args[1] = 3; args[2] = 0x8000100A; args[3] = 0x8000200A;
+    args[0] = FsAddr(path); args[1] = 3; args[2] = 0x80001010; args[3] = 0x80002010;
     EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC(1), args, &result), 1);
-    args[0] = FsAddr(path); args[1] = 3; args[2] = 0x8000100B; args[3] = 0x8000200B;
+    EXPECT_EQ(st->fs.busy, 1u);
+    args[2] = 0x80001011; args[3] = 0x80002011;
     EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC(1), args, &result), 1);
+    EXPECT_EQ(result, 0u);
+    EXPECT_EQ(st->queued, 1u);
+    EXPECT_EQ(st->queue_count, 1u);
+    EXPECT_EQ(ios.queue.size(), std::size_t(1));  // only the first one's transfer is in flight
+    ios.drain();
+    EXPECT_EQ(st->queue_count, 0u);
+    EXPECT_EQ(ios.delivered.size(), std::size_t(2));
+    EXPECT_EQ(ios.delivered[0].cb, 0x80001010u);
+    EXPECT_EQ(ios.delivered[1].cb, 0x80001011u);
+    EXPECT_TRUE(ios.delivered[0].result >= static_cast<std::int32_t>(RTFS_FD_BASE));
+    EXPECT_TRUE(ios.delivered[1].result >= static_cast<std::int32_t>(RTFS_FD_BASE));
+    EXPECT_TRUE(ios.delivered[0].result != ios.delivered[1].result);
+    const std::uint32_t fd_a = static_cast<std::uint32_t>(ios.delivered[0].result);
+    const std::uint32_t fd_b = static_cast<std::uint32_t>(ios.delivered[1].result);
+    ios.delivered.clear();
+    // A queued request that completes without I/O is deferred like any other.
+    args[0] = fd_a; args[1] = FsAddr(data); args[2] = 8; args[3] = 0x80001012; args[4] = 0x80002012;
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC(3), args, &result), 1);
+    args[0] = fd_b; args[1] = 3; args[2] = 0; args[3] = 0x80001013; args[4] = 0x80002013;  // seek, queued
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC(5), args, &result), 1);
+    EXPECT_EQ(st->queue_count, 1u);
+    ios.drain();
+    EXPECT_EQ(ios.delivered.size(), std::size_t(2));
+    EXPECT_EQ(ios.delivered[0].cb, 0x80001012u);
+    EXPECT_EQ(ios.delivered[0].result, 8);
+    EXPECT_EQ(ios.delivered[1].cb, 0x80001013u);
+    EXPECT_EQ(ios.delivered[1].result, 3);
+    ios.delivered.clear();
+    // The queue is RT_FS_QUEUE deep; one more is refused at the call, with
+    // no callback to follow.
+    args[0] = fd_a; args[1] = FsAddr(data); args[2] = 8; args[3] = 0x80001014; args[4] = 0x80002014;
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC(3), args, &result), 1);
+    for (std::uint32_t i = 0; i < RT_FS_QUEUE; ++i) {
+        args[3] = 0x80001020 + i; args[4] = 0x80002020 + i;
+        EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC(3), args, &result), 1);
+        EXPECT_EQ(result, 0u);
+    }
+    EXPECT_EQ(st->queue_count, RT_FS_QUEUE);
+    args[3] = 0x80001030; args[4] = 0x80002030;
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC(3), args, &result), 1);
     EXPECT_EQ(static_cast<std::int32_t>(result), RTFAT_EACCESS);
-    EXPECT_EQ(log.cb, 0x8000100Bu);
-    EXPECT_EQ(log.result, RTFAT_EACCESS);
-    drive();
-    ios = 0; cb = 0xDEADu; ud = 0xDEADu;
-    rt_on_fs_complete(&ctx, &ios, &st->pend, &cb, &ud);
-    EXPECT_TRUE(ios >= static_cast<std::int32_t>(RTFS_FD_BASE));
-    EXPECT_EQ(cb, 0x8000100Au);
-    args[0] = static_cast<std::uint32_t>(ios); args[1] = 0x8000100C; args[2] = 0x8000200C;
-    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC(2), args, &result), 1);
+    ios.drain();
+    EXPECT_EQ(ios.delivered.size(), std::size_t(1 + RT_FS_QUEUE));
+    EXPECT_EQ(ios.delivered[0].cb, 0x80001014u);
+    EXPECT_EQ(ios.delivered[RT_FS_QUEUE].cb, 0x80001020u + RT_FS_QUEUE - 1);
+    for (const FakeIos::Delivery& d : ios.delivered) EXPECT_EQ(d.result, 8);
+    ios.delivered.clear();
+
+    // A synchronous arrival while an async request is in flight waits for
+    // the engine (the IPC interrupt drives the request ahead) and then
+    // runs; both are answered, the async one first.
+    for (int i = 0; i < 16; ++i) data[i] = static_cast<std::uint8_t>(0xA0 + i);
+    args[0] = fd_a; args[1] = 0; args[2] = 0; args[3] = 0; args[4] = 0;  // sync seek home
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(5), args, &result), 1);
+    args[0] = fd_a; args[1] = FsAddr(data); args[2] = 16; args[3] = 0x80001040; args[4] = 0x80002040;
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC(4), args, &result), 1);  // async write, in flight
+    EXPECT_EQ(st->fs.busy, 1u);
+    args[0] = fd_a; args[1] = 0; args[2] = 0;
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(5), args, &result), 1);  // sync seek home: waits
+    EXPECT_EQ(result, 0u);
+    EXPECT_EQ(st->waits, 1u);
+    EXPECT_EQ(st->wait_timeouts, 0u);
+    EXPECT_EQ(ios.delivered.size(), std::size_t(1));
+    EXPECT_EQ(ios.delivered[0].cb, 0x80001040u);
+    EXPECT_EQ(ios.delivered[0].result, 16);
+    ios.delivered.clear();
+    std::memset(data + 256, 0, 16);
+    args[0] = fd_a; args[1] = FsAddr(data + 256); args[2] = 16;
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(3), args, &result), 1);  // sync read sees the async write
+    EXPECT_EQ(result, 16u);
+    for (int i = 0; i < 16; ++i) EXPECT_EQ(data[256 + i], static_cast<std::uint8_t>(0xA0 + i));
+
+    // A transfer IOS refuses to issue: the request fails with -114 (deferred
+    // delivery), the engine is released, later requests run.
+    ios.refuse_issues = 1;
+    FsCopyPath(path, prefix + "/save.bin");
+    args[0] = FsAddr(path); args[1] = 1; args[2] = 0x80001050; args[3] = 0x80002050;
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC(1), args, &result), 1);
+    EXPECT_EQ(result, 0u);
+    EXPECT_EQ(st->fs.busy, 0u);
+    EXPECT_EQ(st->dead, 0u);
+    EXPECT_EQ(ios.queue.size(), std::size_t(1));
+    EXPECT_EQ(ios.queue[0].kind, 2);
+    ios.drain();
+    EXPECT_EQ(ios.delivered.size(), std::size_t(1));
+    EXPECT_EQ(ios.delivered[0].cb, 0x80001050u);
+    EXPECT_EQ(ios.delivered[0].result, RTFAT_EIO);
+    ios.delivered.clear();
+    // A transfer that fails at completion: -114 by tail call.
+    ios.fail_transfers = 1;
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC(1), args, &result), 1);
+    ios.drain();
+    EXPECT_EQ(ios.delivered.size(), std::size_t(1));
+    EXPECT_EQ(ios.delivered[0].result, RTFAT_EIO);
+    EXPECT_EQ(st->fs.busy, 0u);
+    ios.delivered.clear();
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC(1), args, &result), 1);
+    ios.drain();
+    EXPECT_EQ(ios.delivered.size(), std::size_t(1));
+    EXPECT_TRUE(ios.delivered[0].result >= static_cast<std::int32_t>(RTFS_FD_BASE));
+    const std::uint32_t fd_c = static_cast<std::uint32_t>(ios.delivered[0].result);
+    ios.delivered.clear();
+
+    // No null round trip possible: the callback is called directly, the
+    // last resort, and counted.
+    ios.refuse_defers = 1;
+    args[0] = fd_c; args[1] = 0; args[2] = 0; args[3] = 0x80001060; args[4] = 0x80002060;
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC(5), args, &result), 1);
+    EXPECT_EQ(log.calls, 1u);
+    EXPECT_EQ(log.cb, 0x80001060u);
+    EXPECT_EQ(log.result, 0);
+    EXPECT_EQ(st->inline_deliveries, 1u);
+    EXPECT_TRUE(ios.queue.empty());
+
+    // A dead engine answers -114 (deferred) without touching the card.
+    st->dead = 1;
+    const std::uint32_t transfers_dead = card.transfers;
+    args[0] = fd_c; args[1] = FsAddr(data); args[2] = 8; args[3] = 0x80001061; args[4] = 0x80002061;
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC(3), args, &result), 1);
+    EXPECT_EQ(result, 0u);
+    ios.drain();
+    EXPECT_EQ(ios.delivered.size(), std::size_t(1));
+    EXPECT_EQ(ios.delivered[0].result, RTFAT_EIO);
+    EXPECT_EQ(card.transfers, transfers_dead);
+    st->dead = 0;
+    ios.delivered.clear();
 
     // Unknown completion tags are swallowed, never tail-called.
-    cb = 0xDEADu; ud = 0xDEADu; ios = 42;
+    cb = 0xDEADu; ud = 0xDEADu; ipc_result = 42;
     int bogus = 0;
-    rt_on_fs_complete(&ctx, &ios, &bogus, &cb, &ud);
+    rt_on_fs_complete(&ctx, &ipc_result, &bogus, &cb, &ud);
     EXPECT_EQ(cb, 0u);
+
+    // Flag off: replay, and completions do nothing.
+    ctx.flags = 0;
+    args[0] = fd_c; args[1] = 0; args[2] = 0; args[3] = 0x80001070; args[4] = 0x80002070;
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC(5), args, &result), 0);
+    cb = 0xDEADu;
+    rt_on_fs_complete(&ctx, &ipc_result, &st->pend, &cb, &ud);
+    EXPECT_EQ(cb, 0u);
+    ctx.flags = RT_FLAG_FS;
 
     rt_host_game_callback = nullptr;
     rt_host_fs_transfer = nullptr;
+    rt_host_fs_issue = nullptr;
+    rt_host_fs_defer = nullptr;
+    rt_host_fs_wait = nullptr;
     g_cb_log = nullptr;
     g_fs_card = nullptr;
+    g_ios = nullptr;
 }
 
 static void TestResidentHandler() {

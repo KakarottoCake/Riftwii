@@ -1354,3 +1354,54 @@ fixes: `rtfs.o` joined `Makefile.runtime`, and the blob provides its own
 `memcpy` (PPC-only; the compiler lowers FAT-engine struct copies to it
 even with `-fno-builtin`).  Blob 10304 to 26656 bytes; placement is by
 `blob_size`, nothing hard-codes it.
+
+### 24.12 Slice 4C: the savegame path completes in the runtime (conductor, 2026-09-19)
+Review of 4B3 applied, then the missing pieces. Findings on 4B3 as
+committed: a transfer-needing async call swapped the game's callback
+in the register images and then hijacked, so the original never ran,
+no transfer was issued and nothing could ever complete it on the
+console (the host rig called the completion by hand); immediately
+completing async calls invoked the game's callback from inside the
+hook (IOS never does: code after `IOS_xxxAsync()` returns may set up
+what the callback expects, and callbacks that issue the next request
+would nest on the stack); a busy engine answered -102 instead of
+serializing; and the sync `/dev/fs` open was declared unlearnable
+although its replay slot is a callable function.
+
+Now (`rt_hook.c`, "savegame requests"): one `rt_fs_issue` builds the
+SENDCMD (CMD18 read / CMD25 write, the same vector shape libogc's
+`wiisd.c` uses for both) in the state's own cache lines; the sync path
+calls the game's synchronous `IOS_Ioctlv` through its replay slot
+(`rt_fs_state.ioctlv_sync`), the async path its `IOS_IoctlvAsync` with
+the FS completion entry and the FILE record as tag. The completion
+sets the transfer status, steps the engine, issues the next transfer
+or hands the game's callback to the tail call. Immediate completions
+of async calls ride a null IOS round trip (SD GETSTATUS through the
+unhooked async ioctl, DELIVER records) so the callback runs from the
+IPC interrupt after the call returned; a direct call is the counted
+last resort when no round trip can be issued. Serialization: async
+arrivals behind a busy engine queue (4 deep, started from the
+completion that frees the engine, deliveries in arrival order; a fifth
+is refused at the call with -102 and no callback, as IOS refuses a
+full queue); sync arrivals wait on the game's thread with interrupts
+on, bounded by 10 s of the time base, then -114. Engine claims and
+probes run with interrupts off (`rtfs_probe` from `b096d14`): the
+game's IPC callbacks issue async calls, so hooks run in both
+contexts. The sync `IOS_Open("/dev/fs")` is done for the game through
+`rt_fs_state.open_sync` and the fd learned. An engine anomaly marks
+the state dead (every later request -114, the card image untouched).
+A completed read's bytes are written back to RAM (`dcbf`) in case the
+game invalidates its buffer as after a DMA. Bounce 32 KiB. The context
+layout is unchanged (it was exactly full: `rt_pending` is 480 bytes,
+not the 448 its comment said); the two originals the FS path needs
+live in the loader-owned state block.
+
+Host: a fake IOS in `hook_tests` queues every request the runtime
+issues and completes them oldest first through `rt_on_fs_complete`,
+recording the tail-called deliveries, so the tests model the console
+protocol: open/read/seek/write/close/missing-file through
+completions, null callback, snoop, learned-fd close, queueing (order,
+immediate ones deferred, full queue refused), a sync arrival waiting
+out an async write, refused issue, failed transfer, inline last
+resort, dead state, flag off. Blob 32832 bytes.
+

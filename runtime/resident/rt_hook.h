@@ -68,7 +68,7 @@ extern "C" {
 
 /* rt_context.flags */
 #define RT_FLAG_GECKO 0x1u /* report DI reads over the USB Gecko in EXI channel gecko_channel */
-#define RT_FLAG_FS 0x2u    /* route savegame calls through rtfs (sync in 4B2, async in 4B3) */
+#define RT_FLAG_FS 0x2u    /* route savegame calls through rtfs (docs section 24) */
 
 #define RT_MAX_PENDING 4u /* outstanding redirected reads (the DVD driver issues one at a time) */
 #define RT_MAX_RUNS 8u    /* pieces one read may split into; more passes through unmodified */
@@ -122,7 +122,7 @@ struct rt_ioctlv {
  * vectors) each sit in their own 32-byte lines because IOS flushes and
  * invalidates them by line; the runs are computed once when the read is
  * taken (the hook and the completion entry may run on an interrupted
- * thread's stack, so no scratch array lives on the stack). 448 bytes.
+ * thread's stack, so no scratch array lives on the stack). 480 bytes.
  */
 struct rt_pending {
     uint32_t in_use;
@@ -153,37 +153,97 @@ struct rt_pending {
 };
 
 /* Async game callbacks are plain C functions taking (result, user_data).
- * On the console the dispatcher calls them directly; on the host the
- * address would truncate, so tests observe them through a hook instead. */
+ * The completion entry tail-calls them from the IPC interrupt, as IOS
+ * would; the dispatcher calls one directly only as a last resort (no
+ * IOS round trip could be issued), and on the host, where the address
+ * would truncate, tests observe that through a hook instead. */
 typedef void (*rt_game_callback_fn)(int32_t result, uint32_t user_data);
 
-/* One taken-over async operation. FILE carries a save file request whose
- * transfers the test rig (host) or the SD issue path (console, slice 5)
- * drives; SNOOP replays an async /dev/fs open to real IOS and only learns
- * its fd at completion. Game callbacks ride in the rtfs request for FILE
- * (rtfs_begin copies them) and in the slot for SNOOP. */
+/*
+ * Savegame requests (docs section 24). One request runs at a time on the
+ * one engine record; the FS completion entry is the callback of every
+ * IOS request the runtime issues for it, told by the tag which record
+ * to continue:
+ *   FILE    the transfer of the in-flight request (tag: &pend); the
+ *           completion sets its status, steps the engine, issues the next
+ *           transfer or hands the game's callback to the tail call.
+ *   SNOOP   an async open of /dev/fs replayed to IOS with our callback in
+ *           place of the game's (tag: a snoop slot); the completion learns
+ *           the fd and passes the game's callback on.
+ *   DELIVER a ready result for an async call that completed without I/O
+ *           (tag: a deliver slot), carried by a null IOS round trip (an SD
+ *           GETSTATUS through the unhooked async ioctl) so the game's
+ *           callback runs from the IPC interrupt after the call returned,
+ *           never inside it.
+ * Arrivals while the engine is busy: async ones queue (RT_FS_QUEUE deep,
+ * started from the completion that frees the engine), sync ones wait on
+ * the game's thread with interrupts on, bounded by the time base. Claims
+ * of the engine run with interrupts off: the game's own IPC callbacks may
+ * issue async calls, so hooks run in both contexts.
+ */
 #define RT_FS_SNOOPS 2u
+#define RT_FS_DELIVERS 4u
+#define RT_FS_QUEUE 4u
+#define RT_FS_BOUNCE_BYTES 0x8000u    /* one transfer moves up to 64 sectors */
 #define RT_FS_OP_FILE 1u
 #define RT_FS_OP_SNOOP 2u
+#define RT_FS_OP_DELIVER 3u
+#define RT_FS_WAIT_TICKS 607500000u    /* 10 s of the time base (60.75 MHz) a sync call waits for the engine */
+#define RT_SDIO_GETSTATUS 0x0Bu        /* the null round trip (wiibrew /dev/sdio, libogc wiisd.c) */
+
 struct rt_fs_pend {
     uint32_t in_use;
-    uint32_t kind;
-    uint32_t callback;   /* SNOOP only: the game's IPC callback */
-    uint32_t user_data;  /* SNOOP only: the game's user data */
-    char path[64];       /* SNOOP only: opened path for the /dev/fs compare */
+    uint32_t kind;       /* RT_FS_OP_* */
+    uint32_t callback;   /* SNOOP, DELIVER: the game's IPC callback */
+    uint32_t user_data;  /* SNOOP, DELIVER: the game's user data */
+    int32_t result;      /* DELIVER: the result to hand over */
+    uint32_t reserved[3];
+    char path[64];       /* SNOOP: the opened path, for the /dev/fs compare */
+    uint32_t status[8] __attribute__((aligned(32)));  /* DELIVER: GETSTATUS's out word, its own line */
 };
 
-/* Savegame FS interception state (slice 4B2/4B3). Lives in a loader-owned
- * block (MEM2 data area on the console) so struct rt_context stays 2048
- * bytes; the context holds only a pointer. The bounce buffer is 32-byte
- * aligned for the SD path's DMA. */
+/* An async request that arrived while the engine was busy. */
+struct rt_fs_queued {
+    uint32_t in_use;
+    uint32_t entry_index;
+    struct rtfs_ipc ipc;
+};
+
+/* Savegame FS interception state. Lives in a loader-owned block (MEM2
+ * data area on the console, 32-byte aligned) so struct rt_context stays
+ * 2048 bytes; the context holds only a pointer. The IPC blocks and the
+ * bounce buffer sit in their own cache lines (IOS DMA). */
 struct rt_fs_state {
     struct rtfs_context fs;
-    struct rtfs_request req;
-    uint32_t complete_fs;          /* rt_complete_fs entry address (loader-filled) */
-    struct rt_fs_pend pend;        /* one taken-over FILE op (rtfs allows one in flight) */
+    struct rtfs_request req;       /* the one request in flight */
+    struct rtfs_request probe;     /* classification scratch (rtfs_probe) */
+    /* Loader-filled. */
+    uint32_t complete_fs;          /* rt_complete_fs entry address */
+    uint32_t open_sync;            /* the game's synchronous IOS_Open (its replay slot when hooked), 0 = unknown */
+    uint32_t ioctlv_sync;          /* the game's synchronous IOS_Ioctlv (its replay slot), 0 = no sync transfers */
+    /* State and counters. */
+    uint32_t dead;                 /* an engine anomaly left the card image uncertain: everything answers -114 */
+    uint32_t queue_head;
+    uint32_t queue_count;
+    uint32_t transfers;            /* SD requests issued for FS operations */
+    uint32_t failures;             /* of those, refused or failed */
+    uint32_t deferred;             /* results carried by a null round trip */
+    uint32_t inline_deliveries;    /* callbacks called directly (no round trip possible) */
+    uint32_t queued;               /* async arrivals queued behind a busy engine */
+    uint32_t waits;                /* sync arrivals that waited */
+    uint32_t wait_timeouts;        /* of those, answered -114 after RT_FS_WAIT_TICKS */
+    uint32_t fs_fd_learned;        /* /dev/fs fds learned (snoop or sync call-through) */
+    uint32_t reserved[2];
+    struct rt_fs_pend pend;
     struct rt_fs_pend snoop[RT_FS_SNOOPS];
-    uint8_t bounce[2048] __attribute__((aligned(32)));
+    struct rt_fs_pend deliver[RT_FS_DELIVERS];
+    struct rt_fs_queued queue[RT_FS_QUEUE];
+    struct rt_sdio_request request __attribute__((aligned(32)));
+    uint32_t pad_request[7];
+    uint32_t response[8] __attribute__((aligned(32)));
+    struct rt_ioctlv vec[3] __attribute__((aligned(32)));
+    uint32_t pad_vec[2];
+    uint8_t bounce[RT_FS_BOUNCE_BYTES] __attribute__((aligned(32)));
 };
 
 /* 2048 bytes. */
@@ -246,11 +306,12 @@ int rt_on_ioctl_async(struct rt_context* ctx, uintptr_t* args, uint32_t* result)
  * other entry replays its original SDK code. */
 int rt_on_ipc(struct rt_context* ctx, uint32_t entry_index, uintptr_t* args, uint32_t* result);
 
-/* Savegame completion entry (slice 4B3): IOS invokes it as the callback of
- * a taken-over async call (tag selects the FILE pend or a SNOOP slot) or
- * of a replayed /dev/fs open. Delivers the game's callback and user data
- * for the asm tail call; for FILE it also replaces the IOS result with the
- * request's result, for SNOOP it learns the /dev/fs fd from a good open. */
+/* Savegame completion entry: IOS invokes it as the callback of every
+ * request the runtime issued for the savegame path (see rt_fs_state).
+ * Hands back the game's callback and user data for the asm tail call, or
+ * a zero callback while more of our own requests are in flight; `result`
+ * (in: the IPC result, out: what the game's callback receives) is
+ * replaced by the request's result for FILE and DELIVER. */
 void rt_on_fs_complete(struct rt_context* ctx, int32_t* result, void* tag,
                        uintptr_t* callback, uintptr_t* user_data);
 
@@ -281,15 +342,21 @@ extern int32_t (*rt_host_ioctlv_async)(uint32_t fd, uint32_t ioctl, uint32_t in_
                                        struct rt_ioctlv* vec, uint32_t callback, struct rt_pending* record);
 extern int32_t (*rt_host_ioctl_async)(uint32_t fd, uint32_t ioctl, uint32_t* in, uint32_t in_len, uint32_t out,
                                       uint32_t out_len, uint32_t callback, struct rt_pending* record);
-/* Host stand-in for the SD transfer behind synchronous FS interception:
- * moves io_count 512-byte blocks at lba to/from the 32-bit buffer address
- * (tests point it below 4 GiB), 0 on success. When null (and always on the
- * console in slice 4B2) a transfer-needing request replays instead. */
+/* Host stand-ins for the console's IOS requests behind the savegame path
+ * (the console calls through rt_fs_state.ioctlv_sync / open_sync and the
+ * context's ioctlv_async / di_read_entry). A transfer moves io_count
+ * 512-byte blocks at lba to/from the 32-bit buffer address (tests point
+ * it below 4 GiB). Sync: performed now, 0 on success. Async issue / defer:
+ * the test's fake IOS records the request and later calls
+ * rt_on_fs_complete with the tag; they return 0 when accepted, negative
+ * when refused. Wait: the test's chance to run its fake IOS while a sync
+ * arrival waits for the engine. Game callback: observes an inline
+ * delivery (the last resort). Null stand-ins refuse. */
 extern int32_t (*rt_host_fs_transfer)(uint32_t lba, uint32_t count, uint32_t buffer, uint32_t is_write);
-/* Host observer for synchronously delivered game callbacks (slice 4B3):
- * async requests that complete immediately are answered through the
- * game's callback from inside the hook, which a 64-bit host cannot call
- * through a truncated address. Tests record (cb, result, user_data). */
+extern int32_t (*rt_host_fs_issue)(uint32_t lba, uint32_t count, uint32_t buffer, uint32_t is_write, void* tag);
+extern int32_t (*rt_host_fs_defer)(void* tag);
+extern void (*rt_host_fs_wait)(struct rt_context* ctx);
+extern int32_t (*rt_host_fs_open_sync)(const char* path, uint32_t mode);
 extern void (*rt_host_game_callback)(uint32_t cb, int32_t result, uint32_t user_data);
 #endif
 
