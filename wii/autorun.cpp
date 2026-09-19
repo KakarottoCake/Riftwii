@@ -221,8 +221,8 @@ void RunAutorun() {
     std::vector<MemReplacement> replacements;
     std::vector<VirtualFile> virtual_files;
     std::vector<SdReplacement> sd_replacements;
-    std::vector<CompiledMod> mods;
-    std::uint64_t window_cursor = kVirtualWindowStart;
+    std::vector<std::string> packages;  // xml paths, compiled together at boot
+    CompiledMod mods;
     std::string error;
     int line_number = 0;
     while (std::getline(script, line)) {
@@ -345,22 +345,27 @@ void RunAutorun() {
             }
         } else if (cmd == "xml") {
             // `xml <sd path>`: a Riivolution-format package with its
-            // default choices, compiled to table entries and relocations.
+            // default choices. All packages named so far are compiled
+            // together (later ones on top of earlier ones) so the log
+            // shows the combined result each time.
             std::string sd_path;
             words >> sd_path;
             CompiledMod mod;
+            if (!sd_path.empty()) packages.push_back(sd_path);
             ok = !sd_path.empty() && s.ensure_layout(error) &&
-                 compile_package(sd_path, s.probe, s.partition, window_cursor, mod, error);
+                 compile_packages(packages, s.probe, s.partition, mod, error);
             if (ok) {
                 for (const std::string& w : mod.warnings) logf("  warning: %s\n", w.c_str());
                 for (const std::string& n : mod.notes) logf("  %s\n", n.c_str());
-                logf("  %u table entries, %u relocation(s), %u memory patch(es)\n",
-                     static_cast<unsigned>(mod.entries.size()), static_cast<unsigned>(mod.relocations.size()),
-                     static_cast<unsigned>(mod.memory.size()));
+                logf("  %u package(s): %u table entries, %u relocation(s), %u memory patch(es)\n",
+                     static_cast<unsigned>(packages.size()), static_cast<unsigned>(mod.entries.size()),
+                     static_cast<unsigned>(mod.relocations.size()), static_cast<unsigned>(mod.memory.size()));
                 if (!mod.entries.empty() || !mod.relocations.empty()) install_resident = true;
-                mods.push_back(std::move(mod));
+                mods = std::move(mod);
             } else if (error.empty()) {
                 error = "xml needs an SD path";
+            } else {
+                packages.pop_back();
             }
         } else if (cmd == "boot") {
             BootOptions options;
@@ -371,12 +376,9 @@ void RunAutorun() {
             options.virtual_files = virtual_files;
             options.sd_replacements = sd_replacements;
             options.verify_sd = true;
-            for (const CompiledMod& mod : mods) {
-                options.table_entries.insert(options.table_entries.end(), mod.entries.begin(), mod.entries.end());
-                options.relocations.insert(options.relocations.end(), mod.relocations.begin(),
-                                           mod.relocations.end());
-                options.memory_patches.insert(options.memory_patches.end(), mod.memory.begin(), mod.memory.end());
-            }
+            options.table_entries = mods.entries;
+            options.relocations = mods.relocations;
+            options.memory_patches = mods.memory;
             if (!s.ensure_probe(error)) {
                 ok = false;
             } else {

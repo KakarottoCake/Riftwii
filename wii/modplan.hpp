@@ -20,17 +20,18 @@
 namespace riftwii::wii {
 
 struct CompiledMod {
-    std::string xml_path;
+    std::vector<std::string> xml_paths;
     std::vector<rt_entry> entries;
     std::vector<FstRelocation> relocations;
-    std::vector<MemoryPatch> memory;  // values read (valuefile resolved), in document order
-    std::vector<std::string> notes;  // one line per patched file, for the log
+    std::vector<MemoryPatch> memory;  // values read (valuefile resolved), in package and document order
+    std::vector<std::string> notes;  // one line per folder, patched file and memory patch, for the log
     std::vector<std::string> warnings;  // from the package parser
 };
 
-// `window_cursor` is the next free byte of the virtual window (in/out), so
-// several packages can be compiled one after the other.
-bool compile_package(const std::string& xml_sd_path, const DiscProbe& probe, const OpenedPartition& partition,
-                     std::uint64_t& window_cursor, CompiledMod& out, std::string& error);
+// Compiles the packages together, in the order given: patches from later
+// packages that touch a file an earlier one patched apply on top of its
+// result, as later patches inside one package do.
+bool compile_packages(const std::vector<std::string>& xml_sd_paths, const DiscProbe& probe,
+                      const OpenedPartition& partition, CompiledMod& out, std::string& error);
 
 }  // namespace riftwii::wii

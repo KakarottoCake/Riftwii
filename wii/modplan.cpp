@@ -106,12 +106,11 @@ private:
 
 }  // namespace
 
-bool compile_package(const std::string& xml_sd_path, const DiscProbe& probe, const OpenedPartition& partition,
-                     std::uint64_t& window_cursor, CompiledMod& out, std::string& error) {
-    CompiledMod mod;
-    mod.xml_path = xml_sd_path;
-
-    // 1. Parse and plan.
+// One package: parse, plan with its default choices, expand folders and
+// read valuefiles, appending to the combined lists.
+static bool gather_package(const std::string& xml_sd_path, const DiscProbe& probe, const Fst& fst,
+                           WiiProvider& provider, std::vector<FilePatch>& files, CompiledMod& mod,
+                           std::string& error) {
     std::ifstream xml(xml_sd_path, std::ios::binary);
     if (!xml) {
         error = "cannot open " + xml_sd_path;
@@ -119,7 +118,7 @@ bool compile_package(const std::string& xml_sd_path, const DiscProbe& probe, con
     }
     Package package;
     if (!read_package(xml, package, error)) return false;
-    mod.warnings = package.warnings;
+    mod.warnings.insert(mod.warnings.end(), package.warnings.begin(), package.warnings.end());
     const DiscIdentity disc = probe.header.identity();
     PlanOptions allowed;
     allowed.allow_filename_targets = true;
@@ -128,14 +127,10 @@ bool compile_package(const std::string& xml_sd_path, const DiscProbe& probe, con
     Plan plan;
     if (!plan_package(package, disc, allowed, plan, error)) return false;
 
-    // 2. <folder> patches become <file> patches (listing the card), bare
-    //    file names become FST paths and existing paths take the disc's
-    //    spelling; then group by disc file, in the order the files first
-    //    appear.
-    const Fst& fst = partition.fst;
-    WiiProvider provider(fst);
-    std::vector<FilePatch> files;
-    if (!expand_plan(plan, fst, provider, files, mod.notes, error)) return false;
+    // <folder> patches become <file> patches (listing the card).
+    std::vector<FilePatch> expanded;
+    if (!expand_plan(plan, fst, provider, expanded, mod.notes, error)) return false;
+    files.insert(files.end(), expanded.begin(), expanded.end());
 
     // Memory patches: a valuefile is read now, while the card is mounted.
     for (MemoryPatch m : plan.memory) {
@@ -159,17 +154,38 @@ bool compile_package(const std::string& xml_sd_path, const DiscProbe& probe, con
         }
         mod.memory.push_back(std::move(m));
     }
-    if (!mod.memory.empty()) mod.notes.push_back(std::to_string(mod.memory.size()) + " memory patch(es)");
+    if (!plan.memory.empty()) mod.notes.push_back(std::to_string(plan.memory.size()) + " memory patch(es)");
+    if (expanded.empty() && plan.memory.empty()) {
+        error = xml_sd_path + " does not apply to " + probe.header.game_id + " (nothing selected)";
+        return false;
+    }
+    return true;
+}
 
+bool compile_packages(const std::vector<std::string>& xml_sd_paths, const DiscProbe& probe,
+                      const OpenedPartition& partition, CompiledMod& out, std::string& error) {
+    CompiledMod mod;
+    mod.xml_paths = xml_sd_paths;
+    const Fst& fst = partition.fst;
+    WiiProvider provider(fst);
+
+    // 1. Every package's file patches, in package then document order,
+    //    and its memory patches.
+    std::vector<FilePatch> files;
+    for (const std::string& path : xml_sd_paths) {
+        if (!gather_package(path, probe, fst, provider, files, mod, error)) return false;
+    }
     if (files.empty()) {
-        if (mod.memory.empty()) {
-            error = xml_sd_path + " does not apply to " + probe.header.game_id + " (nothing selected)";
-            return false;
-        }
         out = std::move(mod);
         error.clear();
         return true;
     }
+
+    // 2. Bare file names become FST paths and existing paths take the
+    //    disc's spelling; then group by disc file, in the order the files
+    //    first appear, so patches on one file compose in order wherever
+    //    they came from.
+    std::uint64_t window_cursor = kVirtualWindowStart;
     std::vector<std::string> order;
     std::map<std::string, std::vector<FilePatch>> groups;
     for (FilePatch patch : files) {
