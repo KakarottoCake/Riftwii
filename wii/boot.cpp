@@ -505,14 +505,15 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, std:
                 if (!fst.create_file(r.disc_path, r.offset, r.size, index, error)) return false;
                 ++created;
             } else {
-                const std::uint32_t index = fst.find(r.disc_path, false);
+                std::uint32_t index = fst.find(r.disc_path, false);
+                if (index == Fst::npos) index = fst.find(r.disc_path, true);
                 if (index == Fst::npos || fst.entries()[index].is_directory) {
                     error = "relocation of '" + r.disc_path + "': not a disc file";
                     return false;
                 }
                 if (!fst.set_file_extent(index, r.offset, r.size, error)) return false;
             }
-            const std::uint64_t end = r.offset + ((r.size + 31) & ~std::uint64_t(31));
+            const std::uint64_t end = r.offset + ((static_cast<std::uint64_t>(r.size) + 31) & ~std::uint64_t(31));
             if (end > window_cursor) window_cursor = end;
         }
         if (!plan_virtual_window(fst, options.virtual_files, pieces.mem, pieces.sd, pieces.disc, window_cursor,
@@ -649,7 +650,13 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, std:
         }
         DCFlushRange(destination, len);
         ICInvalidateRange(destination, len);
-        loaded.push_back(MemoryRegion{dest, len});
+        // The game's own image, for search and ocarina patches: the DOL
+        // sections, not the FST nor the apploader's buffers above the
+        // arena.
+        if ((std::uint64_t(woff) << 2) != layout.data_header.fst_offset &&
+            dest < reinterpret_cast<std::uint32_t>(SYS_GetArena1Hi())) {
+            loaded.push_back(MemoryRegion{dest, len});
+        }
     }
     void (*game_entry)(void) = close();
     if (!game_entry) {
@@ -658,33 +665,6 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, std:
     }
     logf("Game entry 0x%08x\n", reinterpret_cast<std::uint32_t>(game_entry));
 
-    // <memory> patches: the game is in place and nothing has run it yet.
-    // Writes may land anywhere in MEM1 or in MEM2 below the arena end
-    // (the runtime's reservation is carved out above it next).
-    if (!options.memory_patches.empty()) {
-        struct WiiMemory final : MemoryAccess {
-            bool read(std::uint32_t address, std::uint8_t* out, std::size_t length) override {
-                std::memcpy(out, reinterpret_cast<const void*>(address), length);
-                return true;
-            }
-            bool write(std::uint32_t address, const std::uint8_t* bytes, std::size_t length) override {
-                std::memcpy(reinterpret_cast<void*>(address), bytes, length);
-                const std::uint32_t start = address & ~31u;
-                const std::uint32_t end = (address + static_cast<std::uint32_t>(length) + 31) & ~31u;
-                DCFlushRange(reinterpret_cast<void*>(start), end - start);
-                ICInvalidateRange(reinterpret_cast<void*>(start), end - start);
-                return true;
-            }
-        } wii_memory;
-        const std::uint32_t arena2_end = reinterpret_cast<std::uint32_t>(SYS_GetArena2Hi());
-        const std::vector<MemoryRegion> writable = {
-            MemoryRegion{kMem1Start, kMem1End - kMem1Start},
-            MemoryRegion{kMem2Start, arena2_end > kMem2Start ? arena2_end - kMem2Start : 0},
-        };
-        std::vector<std::string> notes;
-        if (!apply_memory_patches(options.memory_patches, loaded, writable, wii_memory, notes, error)) return false;
-        for (const std::string& n : notes) logf("  %s\n", n.c_str());
-    }
 
     // E4: the SD card again, with our own fd this time, left open and
     // selected for the runtime.
@@ -757,6 +737,43 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, std:
     if (options.install_resident) {
         // IOS's own field, like 0x3140: uncached, after the flush.
         write32(0x80003128, resident.new_arena_end);
+    }
+
+    // <memory> patches, last of all so they win over the globals above (as
+    // in Dolphin, which writes low memory before its patches). Writes may
+    // land anywhere in MEM1 except this loader and the runtime's hook stub,
+    // and in MEM2 below the arena end (the runtime's reservation is above).
+    if (!options.memory_patches.empty()) {
+        struct WiiMemory final : MemoryAccess {
+            bool read(std::uint32_t address, std::uint8_t* out, std::size_t length) override {
+                std::memcpy(out, reinterpret_cast<const void*>(address), length);
+                return true;
+            }
+            bool write(std::uint32_t address, const std::uint8_t* bytes, std::size_t length) override {
+                std::memcpy(reinterpret_cast<void*>(address), bytes, length);
+                const std::uint32_t start = address & ~31u;
+                const std::uint32_t end = (address + static_cast<std::uint32_t>(length) + 31) & ~31u;
+                DCFlushRange(reinterpret_cast<void*>(start), end - start);
+                ICInvalidateRange(reinterpret_cast<void*>(start), end - start);
+                return true;
+            }
+        } wii_memory;
+        const std::uint32_t loader_end = reinterpret_cast<std::uint32_t>(SYS_GetArena1Hi());
+        const std::uint32_t arena2_end =
+            options.install_resident ? resident.new_arena_end : reinterpret_cast<std::uint32_t>(SYS_GetArena2Hi());
+        std::vector<MemoryRegion> writable;
+        if (options.install_resident && resident.ioctl_async >= kMem1Start && resident.ioctl_async < kLoaderStart) {
+            writable.push_back(MemoryRegion{kMem1Start, resident.ioctl_async - kMem1Start});
+            writable.push_back(MemoryRegion{resident.ioctl_async + kHookStubBytes,
+                                            kLoaderStart - (resident.ioctl_async + kHookStubBytes)});
+        } else {
+            writable.push_back(MemoryRegion{kMem1Start, kLoaderStart - kMem1Start});
+        }
+        writable.push_back(MemoryRegion{loader_end, kMem1End - loader_end});
+        writable.push_back(MemoryRegion{kMem2Start, arena2_end > kMem2Start ? arena2_end - kMem2Start : 0});
+        std::vector<std::string> notes;
+        if (!apply_memory_patches(options.memory_patches, loaded, writable, wii_memory, notes, error)) return false;
+        for (const std::string& n : notes) logf("  %s\n", n.c_str());
     }
     settime(secs_to_ticks(static_cast<u64>(std::time(nullptr)) - kWiiEpochOffset));
 

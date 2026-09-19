@@ -34,9 +34,9 @@ public:
 //   - search: the first place in `loaded` (the regions the apploader
 //     filled, in load order) at an `align` stride where `original` matches
 //     gets `value`.
-//   - ocarina: the first occurrence of `value` in `loaded`, then the next
-//     blr at or after it (4-byte steps) becomes an unconditional branch to
-//     offset | 0x80000000.
+//   - ocarina: the first occurrence of `value` in `loaded` (at 4-byte
+//     steps, as code), then the next blr at or after it (4-byte steps)
+//     becomes an unconditional branch to offset | 0x80000000.
 // Every write must fall inside one of `writable`. A pattern that is not
 // found or an `original` that differs is reported in `notes`, not an
 // error; a malformed patch or a write outside `writable` is an error.

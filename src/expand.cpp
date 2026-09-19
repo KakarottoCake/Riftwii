@@ -14,6 +14,14 @@ char fold(char c) {
     return (c >= 'A' && c <= 'Z') ? static_cast<char>(c - 'A' + 'a') : c;
 }
 
+bool same_folded(const std::string& a, const std::string& b) {
+    if (a.size() != b.size()) return false;
+    for (std::size_t i = 0; i < a.size(); ++i) {
+        if (fold(a[i]) != fold(b[i])) return false;
+    }
+    return true;
+}
+
 bool name_less(const ExternalEntry& a, const ExternalEntry& b) {
     const std::size_t n = std::min(a.name.size(), b.name.size());
     for (std::size_t i = 0; i < n; ++i) {
@@ -31,6 +39,17 @@ bool valid_entry_name(const std::string& name) {
         if (c == '/' || c == '\\' || c < 0x20) return false;
     }
     return true;
+}
+
+// "/dir" + "name" -> "/dir/name"; the root ("" or "/") gives "/name".
+std::string join(const std::string& dir, const std::string& name) {
+    if (dir.empty() || dir == "/") return "/" + name;
+    return dir + "/" + name;
+}
+
+std::string without_trailing_slash(std::string path) {
+    while (path.size() > 1 && path.back() == '/') path.pop_back();
+    return path;
 }
 
 bool list_sorted(ContentProvider& provider, const std::string& sd_dir, std::vector<ExternalEntry>& out,
@@ -67,22 +86,40 @@ struct Expansion {
     unsigned skipped = 0;
 };
 
+// The child of directory `kids` (the FST indices) called `name`, matched
+// case-insensitively; npos when there is none.
+std::uint32_t child_named(const Fst& fst, const std::vector<std::uint32_t>& kids, const std::string& name) {
+    for (std::uint32_t k : kids) {
+        if (same_folded(fst.entries()[k].name, name)) return k;
+    }
+    return Fst::npos;
+}
+
 // Rooted form: `disc_dir` is the disc directory (its own spelling when it
-// exists, the patch's when it is being created) matched against `sd_dir`.
+// exists, the patch's when it is being created; `disc_index` is its FST
+// entry or npos) matched against `sd_dir`. The directory's children are
+// listed once and matched by name.
 bool walk_rooted(const FolderPatch& folder, const Fst& fst, ContentProvider& provider, const std::string& sd_dir,
-                 const std::string& disc_dir, unsigned depth, Expansion& x, std::string& error) {
+                 const std::string& disc_dir, std::uint32_t disc_index, unsigned depth, Expansion& x,
+                 std::string& error) {
     if (depth > kMaxFolderDepth) {
         error = "'" + sd_dir + "' is nested too deeply";
         return false;
     }
     std::vector<ExternalEntry> entries;
     if (!list_sorted(provider, sd_dir, entries, error)) return false;
+    std::vector<std::uint32_t> kids;
+    if (disc_index != Fst::npos && !fst.children(disc_index, kids)) {
+        error = "fst directory '" + disc_dir + "' is corrupt";
+        return false;
+    }
     for (const ExternalEntry& e : entries) {
-        const std::string sd_path = sd_dir + "/" + e.name;
-        const std::string disc_path = disc_dir + "/" + e.name;
-        const std::uint32_t index = fst.find(disc_path, true);
+        const std::string sd_path = join(sd_dir, e.name);
+        const std::uint32_t index = child_named(fst, kids, e.name);
         const bool on_disc = index != Fst::npos;
         const bool disc_is_dir = on_disc && fst.entries()[index].is_directory;
+        // What exists keeps the disc's spelling; what is created takes the card's.
+        const std::string disc_path = join(disc_dir, on_disc ? fst.entries()[index].name : e.name);
         if (e.is_directory) {
             if (!folder.recursive) continue;
             if (on_disc && !disc_is_dir) {
@@ -93,12 +130,7 @@ bool walk_rooted(const FolderPatch& folder, const Fst& fst, ContentProvider& pro
                 ++x.skipped;
                 continue;
             }
-            std::string spelled = disc_path;
-            if (on_disc && !fst.path_of(index, spelled)) {
-                error = "cannot name '" + disc_path + "'";
-                return false;
-            }
-            if (!walk_rooted(folder, fst, provider, sd_path, spelled, depth + 1, x, error)) return false;
+            if (!walk_rooted(folder, fst, provider, sd_path, disc_path, index, depth + 1, x, error)) return false;
             continue;
         }
         if (on_disc) {
@@ -106,12 +138,7 @@ bool walk_rooted(const FolderPatch& folder, const Fst& fst, ContentProvider& pro
                 ++x.skipped;  // a folder on the disc where the card has a file
                 continue;
             }
-            std::string spelled;
-            if (!fst.path_of(index, spelled)) {
-                error = "cannot name '" + disc_path + "'";
-                return false;
-            }
-            x.files.push_back(make_file(folder, spelled, sd_path, false));
+            x.files.push_back(make_file(folder, disc_path, sd_path, false));
             ++x.replaced;
         } else if (folder.create) {
             x.files.push_back(make_file(folder, disc_path, sd_path, true));
@@ -124,10 +151,10 @@ bool walk_rooted(const FolderPatch& folder, const Fst& fst, ContentProvider& pro
 }
 
 // Filename search: each external file replaces every disc file of its name.
-bool search_by_name(const FolderPatch& folder, const Fst& fst, ContentProvider& provider, Expansion& x,
-                    std::string& error) {
+bool search_by_name(const FolderPatch& folder, const Fst& fst, ContentProvider& provider, const std::string& sd_dir,
+                    Expansion& x, std::string& error) {
     std::vector<ExternalEntry> entries;
-    if (!list_sorted(provider, folder.external, entries, error)) return false;
+    if (!list_sorted(provider, sd_dir, entries, error)) return false;
     for (const ExternalEntry& e : entries) {
         if (e.is_directory) continue;
         const std::vector<std::uint32_t> matches = fst.find_files_named(e.name, true);
@@ -141,7 +168,7 @@ bool search_by_name(const FolderPatch& folder, const Fst& fst, ContentProvider& 
                 error = "cannot name a disc file called '" + e.name + "'";
                 return false;
             }
-            x.files.push_back(make_file(folder, spelled, folder.external + "/" + e.name, false));
+            x.files.push_back(make_file(folder, spelled, join(sd_dir, e.name), false));
             ++x.replaced;
         }
     }
@@ -150,10 +177,12 @@ bool search_by_name(const FolderPatch& folder, const Fst& fst, ContentProvider& 
 
 bool expand_folder(const FolderPatch& folder, const Fst& fst, ContentProvider& provider, Expansion& x,
                    std::string& error) {
-    const bool rooted = !folder.disc.empty() && folder.disc[0] == '/';
-    if (!rooted) return search_by_name(folder, fst, provider, x, error);
-    std::string disc_dir = folder.disc;
-    const std::uint32_t index = fst.find(folder.disc, true);
+    const std::string sd_dir = without_trailing_slash(folder.external);
+    const std::string disc = without_trailing_slash(folder.disc);
+    const bool rooted = !disc.empty() && disc[0] == '/';
+    if (!rooted) return search_by_name(folder, fst, provider, sd_dir, x, error);
+    std::string disc_dir = disc;
+    const std::uint32_t index = fst.find(disc, true);
     if (index != Fst::npos) {
         if (!fst.entries()[index].is_directory) {
             error = "folder target '" + folder.disc + "' is a file on the disc";
@@ -167,8 +196,7 @@ bool expand_folder(const FolderPatch& folder, const Fst& fst, ContentProvider& p
         error = "folder target '" + folder.disc + "' is not on the disc";
         return false;
     }
-    if (disc_dir == "/") disc_dir.clear();  // so the root's children are "/name"
-    return walk_rooted(folder, fst, provider, folder.external, disc_dir, 0, x, error);
+    return walk_rooted(folder, fst, provider, sd_dir, disc_dir, index, 0, x, error);
 }
 
 }  // namespace

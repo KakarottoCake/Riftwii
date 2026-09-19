@@ -158,6 +158,10 @@ static bool gather_package(const PackageSelection& selection, const DiscProbe& p
                 error = "cannot read memory patch valuefile '" + m.valuefile + "'";
                 return false;
             }
+            if (m.search && m.value.size() != m.original.size()) {
+                error = "memory patch valuefile '" + m.valuefile + "' differs in length from its original";
+                return false;
+            }
         }
         mod.memory.push_back(std::move(m));
     }
@@ -195,27 +199,36 @@ bool compile_packages(const std::vector<PackageSelection>& packages, const DiscP
     std::uint64_t window_cursor = kVirtualWindowStart;
     std::vector<std::string> order;
     std::map<std::string, std::vector<FilePatch>> groups;
+    const auto add = [&](const FilePatch& patch) {
+        if (groups.find(patch.disc) == groups.end()) order.push_back(patch.disc);
+        groups[patch.disc].push_back(patch);
+    };
     for (FilePatch patch : files) {
         if (patch.is_filename) {
+            // A bare name is a search: every disc file called that is
+            // patched (as a by-name <folder> does).
             const std::vector<std::uint32_t> matches = fst.find_files_named(patch.disc, true);
-            if (matches.size() != 1) {
-                error = "'" + patch.disc + "' matches " + std::to_string(matches.size()) + " disc files";
-                return false;
-            }
-            if (!fst.path_of(matches[0], patch.disc)) {
-                error = "cannot name '" + patch.disc + "'";
+            if (matches.empty()) {
+                error = "no disc file is called '" + patch.disc + "'";
                 return false;
             }
             patch.is_filename = false;
-        } else {
-            const std::uint32_t index = fst.find(patch.disc, true);
-            if (index != Fst::npos && !fst.path_of(index, patch.disc)) {
-                error = "cannot name '" + patch.disc + "'";
-                return false;
+            for (std::uint32_t m : matches) {
+                FilePatch one = patch;
+                if (!fst.path_of(m, one.disc)) {
+                    error = "cannot name '" + patch.disc + "'";
+                    return false;
+                }
+                add(one);
             }
+            continue;
         }
-        if (groups.find(patch.disc) == groups.end()) order.push_back(patch.disc);
-        groups[patch.disc].push_back(patch);
+        const std::uint32_t index = fst.find(patch.disc, true);
+        if (index != Fst::npos && !fst.path_of(index, patch.disc)) {
+            error = "cannot name '" + patch.disc + "'";
+            return false;
+        }
+        add(patch);
     }
 
     // 3. Apply each group and lay the result out: same size stays in place,
@@ -244,8 +257,10 @@ bool compile_packages(const std::vector<PackageSelection>& packages, const DiscP
             layout.virtual_offset = entry.offset;
             mod.notes.push_back(disc_path + ": " + std::to_string(size) + " bytes, in place");
         } else {
+            // A file of no bytes (a mod nulling a video, say) takes an
+            // entry with size 0 and no window space.
             const std::uint64_t padded = (size + 31) & ~std::uint64_t(31);
-            if (size == 0 || size > 0xFFFFFFFFull || window_cursor + padded > kWindowEnd) {
+            if (size > 0xFFFFFFFFull || kWindowEnd - window_cursor < padded) {
                 error = "'" + disc_path + "' (" + std::to_string(size) + " bytes) does not fit the virtual window";
                 return false;
             }

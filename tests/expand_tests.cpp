@@ -165,6 +165,30 @@ static void test_rooted() {
     EXPECT_TRUE(riftwii::expand_plan(plan, fst, card, out, notes, err));
     EXPECT_EQ(out.size(), std::size_t(1));
     if (out.size() == 1) EXPECT_EQ(Describe(out[0]), std::string("/sys.bin<-/mod/loose/SYS.BIN"));
+
+    // Trailing slashes (the parser rejects them on disc paths, but a plan
+    // built in code may carry them) and the card's root as the external
+    // folder never produce "//".
+    plan.folders[0] = Folder("/Stage/", "/mod/Stage/", false, false);
+    EXPECT_TRUE(riftwii::expand_plan(plan, fst, card, out, notes, err));
+    EXPECT_EQ(out.size(), std::size_t(2));
+    if (out.size() == 2) EXPECT_EQ(Describe(out[1]), std::string("/Stage/b.arc<-/mod/Stage/B.ARC"));
+    card.add("/", "sys.bin", false);
+    plan.folders[0] = Folder("/", "/", false, false);
+    EXPECT_TRUE(riftwii::expand_plan(plan, fst, card, out, notes, err));
+    EXPECT_EQ(out.size(), std::size_t(1));
+    if (out.size() == 1) EXPECT_EQ(Describe(out[0]), std::string("/sys.bin<-/sys.bin"));
+
+    // A card tree deeper than the walk allows is refused, not recursed.
+    ListingProvider deep;
+    std::string dir = "/deep";
+    for (int level = 0; level < 40; ++level) {
+        deep.add(dir, "d", true);
+        dir += "/d";
+    }
+    deep.add(dir, "leaf.bin", false);
+    plan.folders[0] = Folder("/Extra", "/deep", true, true);
+    EXPECT_FALSE(riftwii::expand_plan(plan, fst, deep, out, notes, err));
 }
 
 static void test_by_name() {

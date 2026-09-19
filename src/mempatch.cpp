@@ -47,6 +47,9 @@ bool write_checked(const std::vector<MemoryRegion>& writable, MemoryAccess& memo
 bool find_pattern(const std::vector<MemoryRegion>& loaded, MemoryAccess& memory, const std::vector<std::uint8_t>& pattern,
                   std::uint64_t align, std::uint32_t& found, std::size_t& region_index, std::string& error) {
     if (align == 0) align = 1;
+    // Beyond any region's size the stride leaves one candidate per region;
+    // clamping keeps the arithmetic below inside 32 bits on the console.
+    if (align > 0x10000000) align = 0x10000000;
     const std::size_t n = pattern.size();
     std::vector<std::uint8_t> chunk;
     for (std::size_t ri = 0; ri < loaded.size(); ++ri) {
@@ -125,6 +128,10 @@ bool apply_search(const MemoryPatch& p, const std::vector<MemoryRegion>& loaded,
         error = "memory search patch without value";
         return false;
     }
+    if (p.value.size() != p.original.size()) {
+        error = "memory search value and original differ in length";
+        return false;
+    }
     std::uint32_t at = 0;
     std::size_t region = 0;
     if (!find_pattern(loaded, memory, p.original, p.align, at, region, error)) return false;
@@ -147,16 +154,20 @@ bool apply_ocarina(const MemoryPatch& p, const std::vector<MemoryRegion>& loaded
         error = "ocarina patch without value";
         return false;
     }
+    // Code is looked at in instructions: the pattern is sought at 4-byte
+    // steps (`align` does not apply) and the blr scan starts at the match
+    // itself, so a pattern that ends in a blr names that one. Dolphin's
+    // implementation does both the same way.
     std::uint32_t at = 0;
     std::size_t region = 0;
-    if (!find_pattern(loaded, memory, p.value, p.align, at, region, error)) return false;
+    if (!find_pattern(loaded, memory, p.value, 4, at, region, error)) return false;
     if (region == loaded.size()) {
         notes.push_back("ocarina: no match for " + std::to_string(p.value.size()) + " bytes");
         return true;
     }
     const MemoryRegion& r = loaded[region];
     const std::uint64_t region_end = static_cast<std::uint64_t>(r.address) + r.length;
-    std::uint64_t scan = (static_cast<std::uint64_t>(at) + 3) & ~std::uint64_t(3);
+    std::uint64_t scan = at;
     for (; scan + 4 <= region_end; scan += 4) {
         std::uint8_t word[4];
         if (!memory.read(static_cast<std::uint32_t>(scan), word, 4)) {

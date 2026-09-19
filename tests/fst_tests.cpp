@@ -215,7 +215,9 @@ static void test_mutation() {
     EXPECT_FALSE(fst.create_file("/Stage/", 0, 0, idx, err));                    // not a file path
     EXPECT_FALSE(fst.create_file("relative.bin", 0, 0, idx, err));
     EXPECT_FALSE(fst.create_file("/Stage/a//b.bin", 0, 0, idx, err));            // empty segment
+    EXPECT_FALSE(fst.create_file("/Stage/newdir/c.bin", 0x4002, 4, idx, err));   // unaligned: no directory left behind
     EXPECT_EQ(fst.count(), std::uint32_t(14));
+    EXPECT_EQ(fst.find("/Stage/newdir"), riftwii::Fst::npos);
     Bytes created;
     EXPECT_TRUE(fst.serialize(created, err));
     riftwii::Fst with_created;

@@ -421,8 +421,13 @@ bool Fst::create_file(const std::string& absolute_path, std::uint64_t offset, st
         error = "fst path '" + absolute_path + "' is not an absolute file path";
         return false;
     }
-    // Every segment is checked before anything is inserted, so a bad path
-    // leaves the table untouched.
+    // Every segment and the offset are checked before anything is
+    // inserted, so a bad request leaves the table untouched.
+    std::uint32_t encoded = 0;
+    if (!encode_offset(wii_offsets_, offset, encoded)) {
+        error = "fst file offset cannot be encoded";
+        return false;
+    }
     std::vector<std::string> segments;
     for (std::size_t pos = 1; pos <= absolute_path.size();) {
         std::size_t end = absolute_path.find('/', pos);

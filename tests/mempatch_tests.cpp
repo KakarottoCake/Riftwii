@@ -157,8 +157,20 @@ static void test_search() {
     EXPECT_TRUE(riftwii::apply_memory_patches({p}, {{0x80000000u, 0x10000}}, kWritable, big, notes, err));
     EXPECT_EQ(big.str(0x80000000u + 0x10000 - 3, 3), std::string("END"));
 
-    // Malformed: no original, no value, both modes.
+    // Nothing loaded: a note, not an error; a huge stride does not hang.
+    p.original = Bytes("Firmware RW ");
+    p.value = Bytes("Firmware ok ");
+    EXPECT_TRUE(riftwii::apply_memory_patches({p}, {}, kWritable, mem, notes, err));
+    EXPECT_EQ(notes.back(), std::string("memory search: no match for 12 bytes"));
+    p.align = 0xFFFFFFFFFFFFFFFFull;
+    EXPECT_TRUE(riftwii::apply_memory_patches({p}, loaded, kWritable, mem, notes, err));
+    p.align = 4;
+
+    // Malformed: lengths differ, no original, no value, both modes.
     riftwii::MemoryPatch bad = p;
+    bad.value = Bytes("short");
+    EXPECT_FALSE(riftwii::apply_memory_patches({bad}, loaded, kWritable, mem, notes, err));
+    bad = p;
     bad.original.clear();
     EXPECT_FALSE(riftwii::apply_memory_patches({bad}, loaded, kWritable, mem, notes, err));
     bad = p;
@@ -191,6 +203,23 @@ static void test_ocarina() {
     EXPECT_EQ(mem.word(0x8000400C), std::uint32_t(0x48000FF4));
     EXPECT_EQ(mem.word(0x80004010), std::uint32_t(0x4E800020));
     if (!notes.empty()) EXPECT_EQ(notes.back(), std::string("ocarina: match at 0x80004000, blr at 0x8000400c -> b 0x80005000"));
+
+    // A pattern that ends in the blr names that blr (the scan starts at
+    // the match, as Dolphin's does), and the pattern is sought at 4-byte
+    // steps: the same bytes at an odd offset are not a match.
+    mem.put_word(0x8000400C, 0x4E800020);
+    riftwii::MemoryPatch ending = p;
+    ending.value = {0x38, 0x60, 0x00, 0x00, 0x4E, 0x80, 0x00, 0x20};
+    EXPECT_TRUE(riftwii::apply_memory_patches({ending}, loaded, kWritable, mem, notes, err));
+    EXPECT_EQ(mem.word(0x8000400C), std::uint32_t(0x48000FF4));
+    EXPECT_EQ(mem.word(0x80004010), std::uint32_t(0x4E800020));
+    mem.put_word(0x8000400C, 0x4E800020);
+    FakeMemory odd;
+    odd.put(0x80004001, std::string("\x7C\x08\x02\xA6", 4));
+    odd.put_word(0x80004008, 0x4E800020);
+    EXPECT_TRUE(riftwii::apply_memory_patches({p}, loaded, kWritable, odd, notes, err));
+    EXPECT_EQ(notes.back(), std::string("ocarina: no match for 4 bytes"));
+    EXPECT_EQ(odd.word(0x80004008), std::uint32_t(0x4E800020));
 
     // Backward branch, with the prefix-less offset form.
     mem.put_word(0x8000400C, 0x4E800020);
