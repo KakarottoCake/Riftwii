@@ -7,6 +7,28 @@ the strict layer, the engine composes patches, the licence is
 GPL-3.0-or-later. Your job now is the disc/runtime side, host-first,
 Dolphin-second, hardware last.
 
+**Status (2026-09-18, updated by the conductor):** the host-only tasks were
+done by the conductor while Task C waited on the user's Dolphin path and
+disc dump. Do not redo them; build on them.
+
+| Task | State | Commit | Where |
+|------|-------|--------|-------|
+| A - FST parser | done, agy-reviewed | `4f440c7`, `c211c28` | `include/riftwii/fst.hpp`, `src/fst.cpp`, `tests/fst_tests.cpp` |
+| B - disc structures | done, agy-reviewed (no findings) | `934a474` | `include/riftwii/disc.hpp`, `src/disc.cpp`, `tests/disc_tests.cpp` |
+| C - boot in Dolphin | **open, yours** | - | needs the user's Dolphin path + a disc dump |
+| D - redirect table | done, agy-reviewed (no findings) | `f6a516a` | `runtime/rtable.{h,c}`, `include/riftwii/redirect.hpp`, `src/redirect.cpp`, `tests/redirect_tests.cpp` |
+| E - FAT32 resolver | done | `4770248` | `include/riftwii/fat32.hpp`, `src/fat32.cpp`, `tests/fat32_tests.cpp` |
+
+Deviations from the specs below, all deliberate: the redirect entry is
+`{u64 vstart, u64 length, u64 source, u64 skip, u32 kind, u32 reserved}`
+(40 bytes, no padding on either CPU) with kinds ZERO/MEM/SD/DISC - DISC
+was added so a grown file relocated to the virtual window can still serve
+its untouched bytes from their original disc offset; the C++ builder is
+`redirect.*` not `rtable.*` because devkitPro's flat build directory would
+collide `rtable.c` and `rtable.cpp`; the FAT32 resolver addresses
+everything in 512-byte device blocks and also mounts through an MBR.
+Confirm the FST size/max-size `>> 2` reading against a real disc at E1.
+
 ## Rules (non-negotiable)
 
 - Never open Riivolution source, the `rawksd-2013` dump, or
@@ -138,5 +160,5 @@ cluster chain as a fragment list `{start_sector, sector_count}`
 one deliberately fragmented file with an LFN) and checks the fragments.
 Bounds-check every FAT index and directory sector; cap chain length.
 
-Order: A, B, then C (needs the user's Dolphin + disc image), then D, E.
-If C is blocked waiting on the user, do D and E meanwhile.
+Order was A, B, C, D, E. A, B, D and E are done (table above); C is the
+only open task and it needs the user's Dolphin path and disc image.

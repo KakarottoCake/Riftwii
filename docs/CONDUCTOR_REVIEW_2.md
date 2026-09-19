@@ -358,3 +358,35 @@ allow_savegames` stays false and the planner refuses such selections.
 - `LICENSE` (GPL-3.0-or-later), `NOTICE.md`, SPDX headers, `plan3.txt`
   removed, conductor docs under `docs/`, README updated. Wii DOL rebuilt
   successfully with the new headers.
+
+## 10. Host-side runtime pieces (applied by the conductor, 2026-09-18)
+
+Muse's handoff queue was A-E (`docs/MUSE_HANDOFF_1.md`). C needs the
+user's Dolphin and a disc dump, so the conductor took the host-only tasks:
+
+- **A, FST** (`4f440c7`, `c211c28`): parse / lookup / mutate / byte-exact
+  serialise, with entry, depth and name caps. agy flagged two things
+  (basic exception safety, no depth check on inserted directories); both
+  fixed in the second commit.
+- **B, disc structures** (`934a474`): header, partition table, partition
+  header, TMD, partition data header, apploader header, all overflow- and
+  bounds-checked. agy: no findings; it also confirmed the FST size/max-size
+  `>> 2` reading against Dolphin and nod (wiibrew omits the note). To be
+  confirmed on a real disc at E1.
+- **D, redirect table** (`f6a516a`): `runtime/rtable.{h,c}` is the
+  freestanding walker the resident runtime will use (validate + binary
+  search, no libc, `-ffreestanding -Werror` on the host);
+  `AppliedFile::flatten()` + `build_redirect_table` compile composed files
+  into it. The oracle test assembles 3000 random reads from `rt_lookup`
+  runs and compares them with `AppliedFile::read`. agy: no findings on
+  walker, flatten, coalescing or PPC struct layout.
+- **E, FAT32** (`4770248`): path to raw 512-byte SD blocks, LFN and 8.3,
+  MBR or bare volume, every chain and index checked against the geometry.
+  Tested at four sector/cluster geometries.
+
+What this means for the next step: everything the resident runtime needs
+in order to answer a redirected `/dev/di` read is now host-proven except
+the hook itself. Task C (boot an unmodified disc in Dolphin, E1) is the
+gate; after it, the runtime work is `E2`-`E4` in section 4.6 using these
+pieces unchanged.
+

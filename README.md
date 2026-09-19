@@ -12,8 +12,11 @@ Direction, review findings and the roadmap live in `docs/`.
 
 - `riftwii` static library: XML patch package parsing (the full documented
   format: file/folder/memory/savegame patches, options, macros, params,
-  `{$name}` placeholders), disc filtering, patch planning, and read overlay
-  composition (host-buildable).
+  `{$name}` placeholders), disc filtering, patch planning, read overlay
+  composition, Wii FST and disc structure parsers, the redirect table
+  builder and a read-only FAT32 fragment resolver (all host-tested).
+- `riftwii_runtime` static library (`runtime/`): freestanding C99 redirect
+  table walker shared by the host tests and the future resident runtime.
 - `vendor-pugixml`: MIT-licensed XML parser, pinned at v1.15.
 - `vendor-libgui`: pinned GPL libwiigui 1.07 snapshot, used only by the Wii
   frontend (not built by the host build).
