@@ -52,8 +52,18 @@ extern "C" {
 #endif
 
 #define RT_BLOB_MAGIC 0x5257484Bu    /* 'RWHK' */
-#define RT_BLOB_VERSION 2u
+#define RT_BLOB_VERSION 3u
 #define RT_CONTEXT_MAGIC 0x52574358u /* 'RWCX' */
+
+/* The resident table always has these entries, even when a game's DOL did
+ * not link one of the SDK forms.  Async commands 1..7 occupy 0..6; sync
+ * commands 1..7 occupy 7..13.  Loader installation decides which nonzero
+ * SDK entry points are actually patched. */
+#define RT_IPC_COMMANDS 7u
+#define RT_IPC_ENTRIES 14u
+#define RT_IPC_ASYNC(command) ((uint32_t)(command) - 1u)
+#define RT_IPC_SYNC(command) (RT_IPC_COMMANDS + (uint32_t)(command) - 1u)
+#define RT_IPC_ASYNC_IOCTL RT_IPC_ASYNC(6u)
 
 /* rt_context.flags */
 #define RT_FLAG_GECKO 0x1u /* report DI reads over the USB Gecko in EXI channel gecko_channel */
@@ -77,11 +87,13 @@ struct rt_blob_header {
     uint32_t version;                      /* RT_BLOB_VERSION */
     uint32_t blob_size;                    /* bytes, header included */
     uint32_t context_offset;               /* struct rt_context */
-    uint32_t hook_ioctl_async_offset;      /* trampoline: new first instruction of IOS_IoctlAsync */
-    uint32_t replay_ioctl_async_offset;    /* 4 words: the displaced instructions, loader-filled */
-    uint32_t continue_ioctl_async_offset;  /* 4 words: lis/ori/mtctr/bctr to the original + 16, loader-filled */
+    uint32_t hook_offset[RT_IPC_ENTRIES];  /* wrapper entry points */
+    uint32_t replay_offset[RT_IPC_ENTRIES]; /* 4 displaced instructions, loader-filled */
+    uint32_t continue_offset[RT_IPC_ENTRIES]; /* absolute continuation jumps */
     uint32_t complete_di_offset;           /* completion entry the hook installs as the IPC callback */
 };
+
+typedef char rt_blob_header_layout[(sizeof(struct rt_blob_header) == 188u) ? 1 : -1];
 
 /* /dev/sdio/slot0 SENDCMD request (wiibrew, libogc wiisd.c). 36 bytes. */
 struct rt_sdio_request {
@@ -186,6 +198,11 @@ struct rt_context {
  * return `*result` to the caller instead (unused so far).
  */
 int rt_on_ioctl_async(struct rt_context* ctx, uintptr_t* args, uint32_t* result);
+
+/* Common entry used by all fourteen wrappers.  4A preserves the legacy DI
+ * path by dispatching only async IOS_Ioctl (entry RT_IPC_ASYNC_IOCTL); the
+ * remaining entries deliberately replay their original SDK code. */
+int rt_on_ipc(struct rt_context* ctx, uint32_t entry_index, uintptr_t* args, uint32_t* result);
 
 /*
  * Called by the completion entry with the IPC result (in/out: what the

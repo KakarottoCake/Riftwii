@@ -1283,3 +1283,12 @@ malformed requests, mode and fd lifetime checks, seek bounds, IPC and
 ISFS payload offsets, directory/usage vectors, transfer failure, and
 the busy refusal.  The 2026-09-19 host configure/build/CTest command
 passes all 15 suites under `-Werror`.
+
+### 24.8 Slice 4A checkpoint (2026-09-19)
+The resident blob ABI is now v3 and reserves deterministic wrapper,
+replay, and continuation slots for all fourteen SDK IPC API forms:
+async Open through Ioctlv at entries 0--6 and synchronous Open through
+Ioctlv at entries 7--13.  The common dispatcher preserves the existing
+async-Ioctl DI path and replays the other entries.  The loader still
+installs only the legacy async-Ioctl hook; filesystem interception is not
+enabled in this checkpoint.

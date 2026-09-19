@@ -284,6 +284,11 @@ int rt_on_ioctl_async(struct rt_context* ctx, uintptr_t* args, uint32_t* result)
     return 0;
 }
 
+int rt_on_ipc(struct rt_context* ctx, uint32_t entry_index, uintptr_t* args, uint32_t* result) {
+    if (entry_index == RT_IPC_ASYNC_IOCTL) return rt_on_ioctl_async(ctx, args, result);
+    return 0;
+}
+
 /* Where a run of `record` lands in the game's buffer. */
 static uint8_t* rt_run_destination(const struct rt_pending* record, const rt_run* run) {
     return (uint8_t*)(uintptr_t)record->out + (uint32_t)(run->vstart - ((uint64_t)record->word_offset << 2));

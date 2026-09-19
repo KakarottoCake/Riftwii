@@ -48,16 +48,18 @@ static void Put32(Bytes& b, std::size_t at, std::uint32_t v) {
 // ---- blob header ----------------------------------------------------------
 
 static Bytes MakeBlob() {
-    Bytes b(0x1000, 0);  // room for the 1920-byte context at 0x100
+    Bytes b(0x1000, 0);
     Put32(b, 0, RT_BLOB_MAGIC);
     Put32(b, 4, RT_BLOB_VERSION);
     Put32(b, 8, 0x1000);
-    Put32(b, 12, 0x100);  // context
-    Put32(b, 16, 0x20);   // hook
-    Put32(b, 20, 0xA0);   // replay
-    Put32(b, 24, 0xB0);   // continue
-    Put32(b, 28, 0xC0);   // completion entry
-    Put32(b, 0x100, RT_CONTEXT_MAGIC);
+    Put32(b, 12, 0x800);  // context
+    for (std::uint32_t i = 0; i < RT_IPC_ENTRIES; ++i) {
+        Put32(b, 16 + i * 4, 0x200 + i * 4);
+        Put32(b, 16 + RT_IPC_ENTRIES * 4 + i * 4, 0x300 + i * 32);
+        Put32(b, 16 + RT_IPC_ENTRIES * 8 + i * 4, 0x310 + i * 32);
+    }
+    Put32(b, 16 + RT_IPC_ENTRIES * 12, 0x600);  // completion entry
+    Put32(b, 0x800, RT_CONTEXT_MAGIC);
     return b;
 }
 
@@ -67,11 +69,17 @@ static void TestBlob() {
     Bytes b = MakeBlob();
     EXPECT_TRUE(riftwii::parse_resident_blob(b.data(), b.size(), rb, error));
     EXPECT_EQ(rb.size, 0x1000u);
-    EXPECT_EQ(rb.context_offset, 0x100u);
-    EXPECT_EQ(rb.hook_ioctl_async_offset, 0x20u);
-    EXPECT_EQ(rb.replay_ioctl_async_offset, 0xA0u);
-    EXPECT_EQ(rb.continue_ioctl_async_offset, 0xB0u);
-    EXPECT_EQ(rb.complete_di_offset, 0xC0u);
+    EXPECT_EQ(rb.context_offset, 0x800u);
+    EXPECT_EQ(rb.hook_offsets[0], 0x200u);
+    EXPECT_EQ(rb.hook_ioctl_async_offset, 0x214u);
+    EXPECT_EQ(rb.replay_ioctl_async_offset, 0x3A0u);
+    EXPECT_EQ(rb.continue_ioctl_async_offset, 0x3B0u);
+    EXPECT_EQ(rb.complete_di_offset, 0x600u);
+    EXPECT_EQ(RT_IPC_ASYNC(1), 0u);
+    EXPECT_EQ(RT_IPC_ASYNC(7), 6u);
+    EXPECT_EQ(RT_IPC_SYNC(1), 7u);
+    EXPECT_EQ(RT_IPC_SYNC(7), 13u);
+    EXPECT_EQ(RT_IPC_ASYNC_IOCTL, 5u);
 
     b = MakeBlob();
     Put32(b, 0, 0x12345678);
@@ -86,13 +94,34 @@ static void TestBlob() {
     Put32(b, 12, 0x900);  // context would run past the end
     EXPECT_FALSE(riftwii::parse_resident_blob(b.data(), b.size(), rb, error));
     b = MakeBlob();
-    Put32(b, 24, 0xB4);  // continue slot must follow the replay slot
+    Put32(b, 16 + RT_IPC_ENTRIES * 8, 0x314);  // continue slot must follow replay
     EXPECT_FALSE(riftwii::parse_resident_blob(b.data(), b.size(), rb, error));
     b = MakeBlob();
-    Put32(b, 28, 0xFFE);  // completion entry past the end
+    Put32(b, 16 + RT_IPC_ENTRIES * 12, 0xFFE);  // completion entry past the end
     EXPECT_FALSE(riftwii::parse_resident_blob(b.data(), b.size(), rb, error));
     b = MakeBlob();
-    Put32(b, 0x100, 0);  // context magic
+    Put32(b, 0x800, 0);  // context magic
+    EXPECT_FALSE(riftwii::parse_resident_blob(b.data(), b.size(), rb, error));
+    b = MakeBlob();
+    Put32(b, 16, 0xFFE);  // one bad hook
+    EXPECT_FALSE(riftwii::parse_resident_blob(b.data(), b.size(), rb, error));
+    b = MakeBlob();
+    Put32(b, 16 + RT_IPC_ENTRIES * 4 + 4, 0x304);  // one unaligned replay
+    EXPECT_FALSE(riftwii::parse_resident_blob(b.data(), b.size(), rb, error));
+    b = MakeBlob();
+    Put32(b, 16 + RT_IPC_ENTRIES * 4 + 13 * 4, 0xFF0);  // last replay runs past blob
+    EXPECT_FALSE(riftwii::parse_resident_blob(b.data(), b.size(), rb, error));
+    b = MakeBlob();
+    Put32(b, 16 + RT_IPC_ENTRIES * 4 + 2 * 4, 0x300);  // duplicate replay/continue region
+    Put32(b, 16 + RT_IPC_ENTRIES * 8 + 2 * 4, 0x310);
+    EXPECT_FALSE(riftwii::parse_resident_blob(b.data(), b.size(), rb, error));
+    b = MakeBlob();
+    Put32(b, 16 + RT_IPC_ENTRIES * 4 + 2 * 4, 0x310);  // overlaps entry 0's continuation half
+    Put32(b, 16 + RT_IPC_ENTRIES * 8 + 2 * 4, 0x320);
+    EXPECT_FALSE(riftwii::parse_resident_blob(b.data(), b.size(), rb, error));
+    b = MakeBlob();
+    Put32(b, 16 + RT_IPC_ENTRIES * 4 + 2 * 4, 0x800);  // writable pair cannot overlap context
+    Put32(b, 16 + RT_IPC_ENTRIES * 8 + 2 * 4, 0x810);
     EXPECT_FALSE(riftwii::parse_resident_blob(b.data(), b.size(), rb, error));
     EXPECT_FALSE(riftwii::parse_resident_blob(b.data(), 16, rb, error));
 }
@@ -458,7 +487,9 @@ static void TestResidentHandler() {
     EXPECT_FALSE(rt_is_di_read(0x71, di_cmd, 0x20));
     di_cmd[0] = 0x71000000;
 
-    EXPECT_EQ(rt_on_ioctl_async(&ctx, args, &result), 0);
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC(1), args, &result), 0);
+    EXPECT_EQ(ctx.ioctl_async_calls, 0u);
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC_IOCTL, args, &result), 0);
     EXPECT_EQ(ctx.ioctl_async_calls, 1u);
     EXPECT_EQ(ctx.di_reads, 1u);
     EXPECT_EQ(ctx.di_read_bytes_lo, 0x8000u);

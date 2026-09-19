@@ -45,10 +45,12 @@ bool parse_resident_blob(const std::uint8_t* bytes, std::size_t length, Resident
     b.version = be32(bytes + 4);
     b.size = be32(bytes + 8);
     b.context_offset = be32(bytes + 12);
-    b.hook_ioctl_async_offset = be32(bytes + 16);
-    b.replay_ioctl_async_offset = be32(bytes + 20);
-    b.continue_ioctl_async_offset = be32(bytes + 24);
-    b.complete_di_offset = be32(bytes + 28);
+    for (std::uint32_t i = 0; i < RT_IPC_ENTRIES; ++i) {
+        b.hook_offsets[i] = be32(bytes + 16 + i * 4);
+        b.replay_offsets[i] = be32(bytes + 16 + RT_IPC_ENTRIES * 4 + i * 4);
+        b.continue_offsets[i] = be32(bytes + 16 + RT_IPC_ENTRIES * 8 + i * 4);
+    }
+    b.complete_di_offset = be32(bytes + 16 + RT_IPC_ENTRIES * 12);
     if (magic != RT_BLOB_MAGIC) {
         error = "resident blob magic mismatch";
         return false;
@@ -62,16 +64,34 @@ bool parse_resident_blob(const std::uint8_t* bytes, std::size_t length, Resident
         return false;
     }
     if (!slot_fits(b.context_offset, kResidentContextBytes, b.size) || (b.context_offset & 31) != 0 ||
-        !slot_fits(b.hook_ioctl_async_offset, 4, b.size) || !slot_fits(b.replay_ioctl_async_offset, 16, b.size) ||
-        !slot_fits(b.continue_ioctl_async_offset, 16, b.size) || !slot_fits(b.complete_di_offset, 4, b.size) ||
-        b.continue_ioctl_async_offset != b.replay_ioctl_async_offset + 16) {
+        !slot_fits(b.complete_di_offset, 4, b.size)) {
         error = "resident blob offsets are inconsistent";
         return false;
+    }
+    for (std::uint32_t i = 0; i < RT_IPC_ENTRIES; ++i) {
+        if (!slot_fits(b.hook_offsets[i], 4, b.size) || !slot_fits(b.replay_offsets[i], 16, b.size) ||
+            !slot_fits(b.continue_offsets[i], 16, b.size) || (b.replay_offsets[i] & 15) != 0 ||
+            (b.continue_offsets[i] & 15) != 0 || b.continue_offsets[i] != b.replay_offsets[i] + 16 ||
+            b.replay_offsets[i] < sizeof(rt_blob_header) ||
+            (b.replay_offsets[i] < b.context_offset + kResidentContextBytes &&
+             b.context_offset < b.replay_offsets[i] + 32)) {
+            error = "resident blob IPC table offsets are inconsistent";
+            return false;
+        }
+        for (std::uint32_t j = 0; j < i; ++j) {
+            if (b.replay_offsets[i] < b.replay_offsets[j] + 32 && b.replay_offsets[j] < b.replay_offsets[i] + 32) {
+                error = "resident blob IPC replay slots overlap";
+                return false;
+            }
+        }
     }
     if (be32(bytes + b.context_offset) != RT_CONTEXT_MAGIC) {
         error = "resident blob context magic mismatch";
         return false;
     }
+    b.hook_ioctl_async_offset = b.hook_offsets[RT_IPC_ASYNC_IOCTL];
+    b.replay_ioctl_async_offset = b.replay_offsets[RT_IPC_ASYNC_IOCTL];
+    b.continue_ioctl_async_offset = b.continue_offsets[RT_IPC_ASYNC_IOCTL];
     out = b;
     error.clear();
     return true;

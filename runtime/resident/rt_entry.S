@@ -1,133 +1,137 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
-/*
- * Resident runtime: blob header, the IOS_IoctlAsync trampoline, the IPC
- * completion entry and the context. Everything lives in one section so
- * that every address the code needs is a same-section difference, which
- * keeps the blob position independent: the loader may copy it anywhere.
- *
- * The header layout is struct rt_blob_header (rt_hook.h); the context is
- * struct rt_context, defined here so it sits in .text next to the code.
- */
-
+/* ABI v3: async commands 1..7 occupy entries 0..6; sync 1..7 are 7..13. */
     .section .text.rt_entry, "ax", @progbits
     .globl _rt_blob_start
 _rt_blob_start:
-    .long 0x5257484B                          /* magic 'RWHK' */
-    .long 2                                   /* version */
-    .long _rt_blob_end - _rt_blob_start       /* blob_size */
-    .long rt_context_data - _rt_blob_start    /* context_offset */
-    .long rt_hook_ioctl_async - _rt_blob_start
-    .long rt_replay_ioctl_async - _rt_blob_start
-    .long rt_continue_ioctl_async - _rt_blob_start
+    .long 0x5257484B, 3, _rt_blob_end - _rt_blob_start, rt_context_data - _rt_blob_start
+    .long rt_hook_0 - _rt_blob_start, rt_hook_1 - _rt_blob_start, rt_hook_2 - _rt_blob_start, rt_hook_3 - _rt_blob_start
+    .long rt_hook_4 - _rt_blob_start, rt_hook_5 - _rt_blob_start, rt_hook_6 - _rt_blob_start, rt_hook_7 - _rt_blob_start
+    .long rt_hook_8 - _rt_blob_start, rt_hook_9 - _rt_blob_start, rt_hook_10 - _rt_blob_start, rt_hook_11 - _rt_blob_start
+    .long rt_hook_12 - _rt_blob_start, rt_hook_13 - _rt_blob_start
+    .long rt_replay_0 - _rt_blob_start, rt_replay_1 - _rt_blob_start, rt_replay_2 - _rt_blob_start, rt_replay_3 - _rt_blob_start
+    .long rt_replay_4 - _rt_blob_start, rt_replay_5 - _rt_blob_start, rt_replay_6 - _rt_blob_start, rt_replay_7 - _rt_blob_start
+    .long rt_replay_8 - _rt_blob_start, rt_replay_9 - _rt_blob_start, rt_replay_10 - _rt_blob_start, rt_replay_11 - _rt_blob_start
+    .long rt_replay_12 - _rt_blob_start, rt_replay_13 - _rt_blob_start
+    .long rt_continue_0 - _rt_blob_start, rt_continue_1 - _rt_blob_start, rt_continue_2 - _rt_blob_start, rt_continue_3 - _rt_blob_start
+    .long rt_continue_4 - _rt_blob_start, rt_continue_5 - _rt_blob_start, rt_continue_6 - _rt_blob_start, rt_continue_7 - _rt_blob_start
+    .long rt_continue_8 - _rt_blob_start, rt_continue_9 - _rt_blob_start, rt_continue_10 - _rt_blob_start, rt_continue_11 - _rt_blob_start
+    .long rt_continue_12 - _rt_blob_start, rt_continue_13 - _rt_blob_start
     .long rt_complete_di - _rt_blob_start
 
-/*
- * Runs in place of the first four instructions of IOS_IoctlAsync: r3-r10
- * hold its eight arguments and LR the caller's return address. Calls the C
- * handler with the arguments saved on the stack (the handler may rewrite
- * them), then either replays the displaced instructions and continues in
- * the original function, or returns the handler's result to the caller.
- *
- * Frame (0x40 bytes): 0 back chain, 4 callee LR save, 8..0x27 the eight
- * arguments, 0x28 result slot. CR0 and CTR are free to clobber at a
- * function entry (EABI volatile); r14-r31 are preserved by the C code.
- */
-    .globl rt_hook_ioctl_async
-rt_hook_ioctl_async:
-    stwu    1, -0x40(1)
-    mflr    0
-    stw     0, 0x44(1)
-    stw     3, 0x08(1)
-    stw     4, 0x0C(1)
-    stw     5, 0x10(1)
-    stw     6, 0x14(1)
-    stw     7, 0x18(1)
-    stw     8, 0x1C(1)
-    stw     9, 0x20(1)
-    stw     10, 0x24(1)
-    bl      1f
-1:  mflr    3
-    addi    3, 3, rt_context_data - 1b        /* r3 = &context, PC-relative */
-    addi    4, 1, 0x08                        /* r4 = saved arguments */
-    addi    5, 1, 0x28                        /* r5 = result slot */
-    bl      rt_on_ioctl_async
-    mr      12, 3                             /* verdict */
-    lwz     3, 0x08(1)
-    lwz     4, 0x0C(1)
-    lwz     5, 0x10(1)
-    lwz     6, 0x14(1)
-    lwz     7, 0x18(1)
-    lwz     8, 0x1C(1)
-    lwz     9, 0x20(1)
-    lwz     10, 0x24(1)
-    lwz     0, 0x44(1)
-    mtlr    0
-    cmpwi   12, 0
-    bne     2f
-    addi    1, 1, 0x40
-    b       rt_replay_ioctl_async
-2:  lwz     3, 0x28(1)                        /* hijacked: hand the caller the handler's result */
-    addi    1, 1, 0x40
+/* Frame: 0 back chain, 4 LR, 8..27 r3..r10, 28 result. */
+    .macro RT_HOOK n
+    .globl rt_hook_\n
+rt_hook_\n:
+    stwu 1, -0x40(1)
+    mflr 0
+    stw 0, 0x44(1)
+    stw 3, 0x08(1)
+    stw 4, 0x0C(1)
+    stw 5, 0x10(1)
+    stw 6, 0x14(1)
+    stw 7, 0x18(1)
+    stw 8, 0x1C(1)
+    stw 9, 0x20(1)
+    stw 10, 0x24(1)
+    bl 1f
+1:  mflr 3
+    addi 3, 3, rt_context_data - 1b
+    li 4, \n
+    addi 5, 1, 0x08
+    addi 6, 1, 0x28
+    bl rt_on_ipc
+    mr 12, 3
+    lwz 3, 0x08(1)
+    lwz 4, 0x0C(1)
+    lwz 5, 0x10(1)
+    lwz 6, 0x14(1)
+    lwz 7, 0x18(1)
+    lwz 8, 0x1C(1)
+    lwz 9, 0x20(1)
+    lwz 10, 0x24(1)
+    lwz 0, 0x44(1)
+    mtlr 0
+    cmpwi 12, 0
+    bne 2f
+    addi 1, 1, 0x40
+    b rt_replay_\n
+2:  lwz 3, 0x28(1)
+    addi 1, 1, 0x40
     blr
+    .endm
+    RT_HOOK 0
+    RT_HOOK 1
+    RT_HOOK 2
+    RT_HOOK 3
+    RT_HOOK 4
+    RT_HOOK 5
+    RT_HOOK 6
+    RT_HOOK 7
+    RT_HOOK 8
+    RT_HOOK 9
+    RT_HOOK 10
+    RT_HOOK 11
+    RT_HOOK 12
+    RT_HOOK 13
 
-/* The loader stores the four displaced instructions here... */
-    .globl rt_replay_ioctl_async
-rt_replay_ioctl_async:
+/* Each loader-filled replay is 16 bytes and its continuation follows it. */
+    .macro RT_REPLAY n
+    .balign 16
+    .globl rt_replay_\n
+rt_replay_\n:
     nop
     nop
     nop
     nop
-/* ...and patches this absolute jump to the hooked function + 16. r12 is a
- * volatile scratch register no prologue keeps live. */
-    .globl rt_continue_ioctl_async
-rt_continue_ioctl_async:
-    lis     12, 0
-    ori     12, 12, 0
-    mtctr   12
+    .globl rt_continue_\n
+rt_continue_\n:
+    lis 12, 0
+    ori 12, 12, 0
+    mtctr 12
     bctr
+    .endm
+    RT_REPLAY 0
+    RT_REPLAY 1
+    RT_REPLAY 2
+    RT_REPLAY 3
+    RT_REPLAY 4
+    RT_REPLAY 5
+    RT_REPLAY 6
+    RT_REPLAY 7
+    RT_REPLAY 8
+    RT_REPLAY 9
+    RT_REPLAY 10
+    RT_REPLAY 11
+    RT_REPLAY 12
+    RT_REPLAY 13
 
-/*
- * IPC completion entry, installed as the callback of redirected reads and
- * of the SD requests issued for them: r3 = IPC result, r4 = the pending
- * record. Applies the redirect, then tail-calls the game's callback with
- * (the result the C code settled on, its user data), or simply returns
- * when the game passed none or an SD request is still in flight.
- *
- * Frame (0x20 bytes): 0 back chain, 4 callee LR save, 8 result (in/out),
- * 0xC the game's callback, 0x10 the game's user data.
- */
     .globl rt_complete_di
 rt_complete_di:
-    stwu    1, -0x20(1)
-    mflr    0
-    stw     0, 0x24(1)
-    stw     3, 0x08(1)
-    mr      5, 4                              /* r5 = record */
-    addi    4, 1, 0x08                        /* r4 = &result */
-    bl      3f
-3:  mflr    3
-    addi    3, 3, rt_context_data - 3b        /* r3 = &context */
-    addi    6, 1, 0x0C                        /* r6 = &callback */
-    addi    7, 1, 0x10                        /* r7 = &user data */
-    bl      rt_on_di_complete
-    lwz     3, 0x08(1)
-    lwz     4, 0x10(1)
-    lwz     12, 0x0C(1)
-    lwz     0, 0x24(1)
-    mtlr    0
-    addi    1, 1, 0x20
-    cmpwi   12, 0
+    stwu 1, -0x20(1)
+    mflr 0
+    stw 0, 0x24(1)
+    stw 3, 0x08(1)
+    mr 5, 4
+    addi 4, 1, 0x08
+    bl 3f
+3:  mflr 3
+    addi 3, 3, rt_context_data - 3b
+    addi 6, 1, 0x0C
+    addi 7, 1, 0x10
+    bl rt_on_di_complete
+    lwz 3, 0x08(1)
+    lwz 4, 0x10(1)
+    lwz 12, 0x0C(1)
+    lwz 0, 0x24(1)
+    mtlr 0
+    addi 1, 1, 0x20
+    cmpwi 12, 0
     beqlr
-    mtctr   12
+    mtctr 12
     bctr
 
     .balign 32
     .globl rt_context_data
 rt_context_data:
-    .long 0x52574358                          /* magic 'RWCX' */
-    .long 0                                   /* flags */
-    .long 1                                   /* gecko_channel: slot B */
-    .long 0                                   /* original_ioctl_async */
-    .fill 508, 4, 0                           /* counters, redirection state, pending records: 2048 bytes total */
-
-/* _rt_blob_end is defined by rt.ld after the C code. */
+    .long 0x52574358, 0, 1, 0
+    .fill 508, 4, 0
