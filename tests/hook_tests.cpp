@@ -367,6 +367,15 @@ static void TestResidentHandler() {
 
 namespace {
 
+riftwii::PayloadPieces Pieces(std::vector<riftwii::MemReplacement> mem, std::vector<riftwii::SdReplacement> sd,
+                              std::vector<riftwii::DiscReplacement> disc) {
+    riftwii::PayloadPieces p;
+    p.mem = std::move(mem);
+    p.sd = std::move(sd);
+    p.disc = std::move(disc);
+    return p;
+}
+
 // The fake card: 128 sectors whose byte k of sector s is (s * 7 + k) & 0xFF.
 std::uint8_t g_card[128 * 512];
 std::vector<std::uint32_t> g_sd_sectors_requested;  // (sector, count) pairs
@@ -452,7 +461,7 @@ static void TestSdChain(std::uint8_t* low_table, std::uint8_t* low_out) {
     m.bytes.assign(16, 0x5A);
     std::vector<std::uint8_t> payload;
     const std::uint32_t table_address = static_cast<std::uint32_t>(reinterpret_cast<std::uintptr_t>(low_table));
-    EXPECT_TRUE(riftwii::build_payload({m}, {sdr}, {}, table_address, 0, 9, payload, error));
+    EXPECT_TRUE(riftwii::build_payload(Pieces({m}, {sdr}, {}), table_address, 0, 9, payload, error));
     const auto* header = reinterpret_cast<const rt_header*>(payload.data());
     EXPECT_EQ(header->entry_count, 3u);
     EXPECT_EQ(header->sdio_fd, 9u);
@@ -531,7 +540,7 @@ static void TestSdChain(std::uint8_t* low_table, std::uint8_t* low_out) {
     riftwii::SdReplacement sdb;
     sdb.virtual_offset = 0x40000;
     EXPECT_TRUE(riftwii::place_on_fragments(big, 0, 40000, sdb.runs, error));
-    EXPECT_TRUE(riftwii::build_payload({}, {sdb}, {}, table_address, 0, 9, payload, error));
+    EXPECT_TRUE(riftwii::build_payload(Pieces({}, {sdb}, {}), table_address, 0, 9, payload, error));
     std::memcpy(low_table, payload.data(), payload.size());
     std::uint8_t* big_out = low_out + 0x1000 + RT_BOUNCE_BYTES + 0x100;  // 40000 bytes
     di_cmd[1] = 40000;
@@ -568,7 +577,7 @@ static void TestSdChain(std::uint8_t* low_table, std::uint8_t* low_out) {
     args[5] = 0x800;
     args[6] = 0x80005000;
     args[7] = 0x80006000;
-    EXPECT_TRUE(riftwii::build_payload({m}, {sdr}, {}, table_address, 0, 9, payload, error));
+    EXPECT_TRUE(riftwii::build_payload(Pieces({m}, {sdr}, {}), table_address, 0, 9, payload, error));
     std::memcpy(low_table, payload.data(), payload.size());
     EXPECT_EQ(rt_on_ioctl_async(&ctx, args, &result), 0);
     rec = reinterpret_cast<rt_pending*>(args[7]);
@@ -617,7 +626,7 @@ static void TestSdChain(std::uint8_t* low_table, std::uint8_t* low_out) {
     dr.virtual_offset = 0x60000;
     dr.disc_offset = 0x7005;
     dr.length = 100;
-    EXPECT_TRUE(riftwii::build_payload({}, {}, {dr}, table_address, 0, 9, payload, error));
+    EXPECT_TRUE(riftwii::build_payload(Pieces({}, {}, {dr}), table_address, 0, 9, payload, error));
     std::memcpy(low_table, payload.data(), payload.size());
     ctx.di_read_entry = 0x935D00AC;
     rt_host_ioctl_async = &FakeIoctlAsync;
@@ -699,6 +708,35 @@ static void TestPayloadAndRedirect() {
     EXPECT_EQ(payload[table_bytes], 1);
     EXPECT_EQ(payload[table_bytes + 32], 0x41);
     EXPECT_EQ(payload.size(), table_bytes + 32 + 3616);
+
+    // Ready-made entries (the XML compiler's output) merge with the rest;
+    // a MEM entry there has no bytes and is refused.
+    riftwii::PayloadPieces mixed;
+    mixed.mem = {b};
+    rt_entry ready{};
+    ready.vstart = 0x3000;
+    ready.length = 0x100;
+    ready.source = 0x2000;
+    ready.kind = RT_KIND_DISC;
+    mixed.entries.push_back(ready);
+    ready.vstart = 0x2000;
+    ready.length = 0x40;
+    ready.source = 77;
+    ready.skip = 5;
+    ready.kind = RT_KIND_SD;
+    mixed.entries.push_back(ready);
+    EXPECT_TRUE(mixed.needs_sd());
+    EXPECT_TRUE(riftwii::build_payload(mixed, 0x935D2000, 1, 4, payload, error));
+    header = reinterpret_cast<const rt_header*>(payload.data());
+    EXPECT_EQ(header->entry_count, 3u);
+    EXPECT_EQ(header->sdio_fd, 4u);
+    EXPECT_EQ(rt_entries(header)[0].kind, static_cast<std::uint32_t>(RT_KIND_MEM));
+    EXPECT_EQ(rt_entries(header)[1].kind, static_cast<std::uint32_t>(RT_KIND_SD));
+    EXPECT_EQ(rt_entries(header)[1].skip, 5ull);
+    EXPECT_EQ(rt_entries(header)[2].kind, static_cast<std::uint32_t>(RT_KIND_DISC));
+    ready.kind = RT_KIND_MEM;
+    mixed.entries.push_back(ready);
+    EXPECT_FALSE(riftwii::build_payload(mixed, 0x935D2000, 1, 4, payload, error));
 
     // Rejections.
     riftwii::MemReplacement empty;
@@ -868,7 +906,7 @@ static void TestVirtualWindow() {
     std::vector<riftwii::MemReplacement> reps;
     std::vector<riftwii::SdReplacement> sd_reps;
     std::vector<riftwii::DiscReplacement> disc_reps;
-    std::uint64_t end = 0;
+    std::uint64_t end = riftwii::kVirtualWindowStart;
     EXPECT_TRUE(riftwii::plan_virtual_window(fst, {grown, tiny}, reps, sd_reps, disc_reps, end, error));
     EXPECT_EQ(reps.size(), 2u);
     EXPECT_EQ(sd_reps.size(), 0u);
@@ -912,6 +950,7 @@ static void TestVirtualWindow() {
     riftwii::Fst fst2;
     EXPECT_TRUE(riftwii::Fst::parse(image.data(), image.size(), true, fst2, error));
     reps.clear();
+    end = riftwii::kVirtualWindowStart;
     EXPECT_TRUE(riftwii::plan_virtual_window(fst2, {grown, card}, reps, sd_reps, disc_reps, end, error));
     EXPECT_EQ(reps.size(), 1u);
     EXPECT_EQ(sd_reps.size(), 1u);
@@ -924,7 +963,7 @@ static void TestVirtualWindow() {
 
     // The payload builder accepts window offsets and the walker resolves them.
     std::vector<std::uint8_t> payload;
-    EXPECT_TRUE(riftwii::build_payload(reps, sd_reps, disc_reps, 0x935C0000, 0, 4, payload, error));
+    EXPECT_TRUE(riftwii::build_payload(Pieces(reps, sd_reps, disc_reps), 0x935C0000, 0, 4, payload, error));
     const auto* header = reinterpret_cast<const rt_header*>(payload.data());
     EXPECT_EQ(rt_validate(header, payload.size()), RT_OK);
     rt_run runs[4];
@@ -951,12 +990,16 @@ static void TestVirtualWindow() {
     EXPECT_TRUE(riftwii::Fst::parse(image.data(), image.size(), true, fst3, error));
     reps.clear();
     sd_reps.clear();
+    end = 0;  // a cursor outside the window is refused
+    EXPECT_FALSE(riftwii::plan_virtual_window(fst3, {kept}, reps, sd_reps, disc_reps, end, error));
+    end = riftwii::kVirtualWindowStart + 0x100;  // and slots continue from where a caller left off
     EXPECT_TRUE(riftwii::plan_virtual_window(fst3, {kept}, reps, sd_reps, disc_reps, end, error));
     EXPECT_EQ(disc_reps.size(), 1u);
-    EXPECT_EQ(disc_reps[0].virtual_offset, riftwii::kVirtualWindowStart);
+    EXPECT_EQ(disc_reps[0].virtual_offset, riftwii::kVirtualWindowStart + 0x100);
     EXPECT_EQ(disc_reps[0].disc_offset, 0x1000ull);
     EXPECT_EQ(disc_reps[0].length, 3610ull);
-    EXPECT_EQ(fst3.entries()[h].offset, riftwii::kVirtualWindowStart);
+    EXPECT_EQ(fst3.entries()[h].offset, riftwii::kVirtualWindowStart + 0x100);
+    EXPECT_EQ(end, riftwii::kVirtualWindowStart + 0x100 + 3616);
     EXPECT_EQ(fst3.entries()[h].size, 3610u);
     disc_reps.clear();
 }

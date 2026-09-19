@@ -14,6 +14,7 @@
 #include "boot.hpp"
 #include "ios_reload.hpp"
 #include "log.hpp"
+#include "modplan.hpp"
 #include "sdfile.hpp"
 
 namespace riftwii::wii {
@@ -220,6 +221,8 @@ void RunAutorun() {
     std::vector<MemReplacement> replacements;
     std::vector<VirtualFile> virtual_files;
     std::vector<SdReplacement> sd_replacements;
+    std::vector<CompiledMod> mods;
+    std::uint64_t window_cursor = kVirtualWindowStart;
     std::string error;
     int line_number = 0;
     while (std::getline(script, line)) {
@@ -340,6 +343,24 @@ void RunAutorun() {
             } else if (error.empty()) {
                 error = "sdgrow needs a disc path and an SD path";
             }
+        } else if (cmd == "xml") {
+            // `xml <sd path>`: a Riivolution-format package with its
+            // default choices, compiled to table entries and relocations.
+            std::string sd_path;
+            words >> sd_path;
+            CompiledMod mod;
+            ok = !sd_path.empty() && s.ensure_layout(error) &&
+                 compile_package(sd_path, s.probe, s.partition, window_cursor, mod, error);
+            if (ok) {
+                for (const std::string& w : mod.warnings) logf("  warning: %s\n", w.c_str());
+                for (const std::string& n : mod.notes) logf("  %s\n", n.c_str());
+                logf("  %u table entries, %u relocation(s)\n", static_cast<unsigned>(mod.entries.size()),
+                     static_cast<unsigned>(mod.relocations.size()));
+                mods.push_back(std::move(mod));
+                install_resident = true;
+            } else if (error.empty()) {
+                error = "xml needs an SD path";
+            }
         } else if (cmd == "boot") {
             BootOptions options;
             options.allow_ios_fallback = allow_fallback;
@@ -349,6 +370,11 @@ void RunAutorun() {
             options.virtual_files = virtual_files;
             options.sd_replacements = sd_replacements;
             options.verify_sd = true;
+            for (const CompiledMod& mod : mods) {
+                options.table_entries.insert(options.table_entries.end(), mod.entries.begin(), mod.entries.end());
+                options.relocations.insert(options.relocations.end(), mod.relocations.begin(),
+                                           mod.relocations.end());
+            }
             if (!s.ensure_probe(error)) {
                 ok = false;
             } else {

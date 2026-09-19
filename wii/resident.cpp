@@ -67,9 +67,8 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
 
     // 3. Reserve the top of the MEM2 arena: blob, the redirect payload,
     //    then the SD bounce buffers.
-    const bool has_table = !options.replacements.empty() || !options.sd_replacements.empty() ||
-                           !options.disc_replacements.empty();
-    const bool has_sd = !options.sd_replacements.empty();
+    const bool has_table = !options.pieces.empty();
+    const bool has_sd = options.pieces.needs_sd();
     if (has_sd && symbols.ioctlv_async == 0) {
         error = "SD-backed replacements need the game's IOS_IoctlvAsync, which was not found";
         return false;
@@ -80,11 +79,10 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
     }
     const std::uint32_t sdio_fd = options.sdio_fd < 0 ? 0xFFFFFFFFu : static_cast<std::uint32_t>(options.sdio_fd);
     std::vector<std::uint8_t> payload;
-    if (has_table && !build_payload(options.replacements, options.sd_replacements, options.disc_replacements, 0,
-                                    options.table_tag, sdio_fd, payload, error)) {
-        return false;
-    }
-    const bool has_disc = !options.disc_replacements.empty();
+    if (has_table && !build_payload(options.pieces, 0, options.table_tag, sdio_fd, payload, error)) return false;
+    // Bounce buffers whenever a run may be fetched (SD or DISC): anything
+    // beyond plain MEM replacements.
+    const bool has_disc = !options.pieces.disc.empty() || !options.pieces.entries.empty();
     const std::uint32_t bounce_bytes = has_sd || has_disc ? RT_MAX_PENDING * RT_BOUNCE_BYTES : 0;
     const std::uint32_t arena_end = read32(kMem2ArenaEndField);
     ResidentPlacement place;
@@ -93,8 +91,7 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
         return false;
     }
     const std::uint32_t payload_address = place.base + blob.size;  // blob sizes are multiples of 32
-    if (has_table && !build_payload(options.replacements, options.sd_replacements, options.disc_replacements,
-                                    payload_address, options.table_tag, sdio_fd, payload, error)) {
+    if (has_table && !build_payload(options.pieces, payload_address, options.table_tag, sdio_fd, payload, error)) {
         return false;
     }
     const std::uint32_t bounce_address = payload_address + static_cast<std::uint32_t>(payload.size());
@@ -142,9 +139,10 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
     logf("Resident: %u bytes at 0x%08x, MEM2 arena end 0x%08x -> 0x%08x, gecko %s\n", blob.size, place.base,
          arena_end, place.new_arena_end, options.gecko ? "on" : "off");
     if (!payload.empty()) {
-        logf("Resident: redirect table at 0x%08x, %u MEM + %u SD replacement(s), payload %u bytes, virtual window from word 0x%08x\n",
-             ctx->table, static_cast<unsigned>(options.replacements.size()),
-             static_cast<unsigned>(options.sd_replacements.size()), static_cast<unsigned>(payload.size()),
+        logf("Resident: redirect table at 0x%08x, %u MEM + %u SD + %u DISC replacement(s) + %u entries, payload %u bytes, virtual window from word 0x%08x\n",
+             ctx->table, static_cast<unsigned>(options.pieces.mem.size()),
+             static_cast<unsigned>(options.pieces.sd.size()), static_cast<unsigned>(options.pieces.disc.size()),
+             static_cast<unsigned>(options.pieces.entries.size()), static_cast<unsigned>(payload.size()),
              ctx->virtual_start_words);
     }
     if (has_sd) {

@@ -17,22 +17,19 @@ namespace riftwii::wii {
 
 struct ResidentOptions {
     bool gecko = false;  // report each DI read over the USB Gecko in slot B
-    // E3: same-size replacements served from memory. The redirect table and
-    // the bytes are laid out after the blob inside the reservation.
-    std::vector<MemReplacement> replacements;
+    // The redirect table's content (riftwii/hook.hpp). The table and the
+    // MEM bytes are laid out after the blob inside the reservation; SD
+    // runs need `sdio_fd`, a /dev/sdio/slot0 fd the loader opened after
+    // the IOS reload with the card selected (wii/sdio.hpp), and the game's
+    // IOS_IoctlvAsync; DISC runs need the game's IOS_IoctlAsync (always
+    // found, it is the hooked one).
+    PayloadPieces pieces;
     std::uint64_t table_tag = 0;
+    std::int32_t sdio_fd = -1;
+    bool sdio_sdhc = false;
     // E5: first word offset of the virtual window, 0 = none. Reads at or
     // above it never reach the drive with their offset.
     std::uint32_t virtual_start_words = 0;
-    // E4: replacements served from SD sectors through `sdio_fd`, a
-    // /dev/sdio/slot0 fd the loader opened after the IOS reload with the
-    // card selected (wii/sdio.hpp). Needs the game's IOS_IoctlvAsync.
-    std::vector<SdReplacement> sd_replacements;
-    std::int32_t sdio_fd = -1;
-    bool sdio_sdhc = false;
-    // E7: ranges served from the disc's own bytes elsewhere (relocated or
-    // partially patched files).
-    std::vector<DiscReplacement> disc_replacements;
 };
 
 struct ResidentInstall {

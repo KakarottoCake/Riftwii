@@ -476,19 +476,31 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, std:
     // apploader loads is patched from `fst_override` while it goes by, and
     // the same bytes are served from memory should the game read the FST
     // again; the files themselves become MEM replacements in the window.
-    std::vector<MemReplacement> replacements = options.replacements;
-    std::vector<SdReplacement> sd_replacements = options.sd_replacements;
-    std::vector<DiscReplacement> disc_replacements;
+    PayloadPieces pieces;
+    pieces.mem = options.replacements;
+    pieces.sd = options.sd_replacements;
+    pieces.entries = options.table_entries;
     std::vector<std::uint8_t> fst_override;
-    if (!options.virtual_files.empty()) {
+    const bool relocates = !options.virtual_files.empty() || !options.relocations.empty();
+    if (relocates) {
         if (!options.install_resident) {
-            error = "virtual files need the resident runtime";
+            error = "relocated files need the resident runtime";
             return false;
         }
         Fst fst = layout.fst;
-        std::uint64_t window_end = 0;
-        if (!plan_virtual_window(fst, options.virtual_files, replacements, sd_replacements, disc_replacements,
-                                 window_end, error)) {
+        std::uint64_t window_cursor = kVirtualWindowStart;
+        for (const FstRelocation& r : options.relocations) {
+            const std::uint32_t index = fst.find(r.disc_path, false);
+            if (index == Fst::npos || fst.entries()[index].is_directory) {
+                error = "relocation of '" + r.disc_path + "': not a disc file";
+                return false;
+            }
+            if (!fst.set_file_extent(index, r.offset, r.size, error)) return false;
+            const std::uint64_t end = r.offset + ((r.size + 31) & ~std::uint64_t(31));
+            if (end > window_cursor) window_cursor = end;
+        }
+        if (!plan_virtual_window(fst, options.virtual_files, pieces.mem, pieces.sd, pieces.disc, window_cursor,
+                                 error)) {
             return false;
         }
         fst_override = layout.fst_bytes;
@@ -496,10 +508,10 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, std:
         MemReplacement fst_copy;
         fst_copy.virtual_offset = layout.data_header.fst_offset;
         fst_copy.bytes = fst_override;
-        replacements.push_back(std::move(fst_copy));
+        pieces.mem.push_back(std::move(fst_copy));
         logf("Virtual window: %u file(s) at 0x%llx-0x%llx, FST rewritten\n",
-             static_cast<unsigned>(options.virtual_files.size()), static_cast<unsigned long long>(kVirtualWindowStart),
-             static_cast<unsigned long long>(window_end));
+             static_cast<unsigned>(options.virtual_files.size() + options.relocations.size()),
+             static_cast<unsigned long long>(kVirtualWindowStart), static_cast<unsigned long long>(window_cursor));
     }
 
     di::PartitionSource data;
@@ -580,7 +592,7 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, std:
     // E4: the SD card again, with our own fd this time, left open and
     // selected for the runtime.
     sdio::Card card;
-    if (!sd_replacements.empty()) {
+    if (pieces.needs_sd()) {
         if (!options.install_resident) {
             error = "SD-backed replacements need the resident runtime";
             return false;
@@ -588,7 +600,7 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, std:
         if (!sdio::open_card(card, error)) return false;
         logf("SD card: fd %d, rca 0x%04x, %s\n", card.fd, card.rca, card.sdhc ? "SDHC" : "SDSC");
         if (options.verify_sd) {
-            for (const SdReplacement& r : sd_replacements) {
+            for (const SdReplacement& r : pieces.sd) {
                 if (!verify_sd_replacement(card, r, error)) return false;
             }
         }
@@ -607,11 +619,9 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, std:
         if (!parse_dol_header(dol_bytes, sizeof(dol_bytes), dol, error)) return false;
         ResidentOptions ro;
         ro.gecko = options.resident_gecko;
-        ro.replacements = std::move(replacements);
+        ro.pieces = std::move(pieces);
         ro.table_tag = static_cast<std::uint64_t>(probe.partition.offset);
-        ro.virtual_start_words = options.virtual_files.empty() ? 0 : static_cast<std::uint32_t>(kVirtualWindowStart >> 2);
-        ro.sd_replacements = std::move(sd_replacements);
-        ro.disc_replacements = std::move(disc_replacements);
+        ro.virtual_start_words = relocates ? static_cast<std::uint32_t>(kVirtualWindowStart >> 2) : 0;
         ro.sdio_fd = card.fd;
         ro.sdio_sdhc = card.sdhc;
         if (!install_resident(dol, ro, resident, error)) return false;

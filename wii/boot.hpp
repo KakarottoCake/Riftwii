@@ -55,6 +55,14 @@ bool dump_metadata(const DiscProbe& probe, const OpenedPartition& partition, con
 // Copies the partition's main.dol (header plus every section) to `sd_path`.
 bool dump_dol(const OpenedPartition& partition, const std::string& sd_path, std::string& error);
 
+// A file whose FST entry must point elsewhere (the virtual window) with a
+// new size, applied to the FST the apploader loads.
+struct FstRelocation {
+    std::string disc_path;
+    std::uint64_t offset = 0;
+    std::uint32_t size = 0;
+};
+
 struct BootOptions {
     // When the title's IOS cannot be loaded, launch under the current one
     // and report the expected version to the game (Brainslug does this).
@@ -80,6 +88,10 @@ struct BootOptions {
     // first reads every SD run itself and logs a checksum of the bytes.
     std::vector<SdReplacement> sd_replacements;
     bool verify_sd = false;
+    // Compiled packages (wii/modplan.hpp): ready-made table entries and
+    // the FST relocations they need (requires install_resident).
+    std::vector<rt_entry> table_entries;
+    std::vector<FstRelocation> relocations;
 };
 
 // Reloads IOS, runs the apploader and jumps to the game. Only returns on

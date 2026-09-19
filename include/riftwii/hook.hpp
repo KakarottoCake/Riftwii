@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "riftwii/redirect.hpp"  // PlacedRun
+#include "rtable.h"               // rt_entry
 
 // Installing the resident runtime: the blob format (runtime/resident/
 // rt_hook.h), the PowerPC instruction patching it needs and the MEM2
@@ -54,14 +55,25 @@ struct DiscReplacement {
     std::uint64_t length = 0;
 };
 
+// Everything one redirect table is made of: replacements the loader
+// authored directly, plus ready-made entries (from build_redirect_table,
+// the XML pipeline's compiler) whose sources need no memory.
+struct PayloadPieces {
+    std::vector<MemReplacement> mem;
+    std::vector<SdReplacement> sd;
+    std::vector<DiscReplacement> disc;
+    std::vector<rt_entry> entries;  // SD, DISC or ZERO kinds only (MEM needs bytes)
+    bool empty() const { return mem.empty() && sd.empty() && disc.empty() && entries.empty(); }
+    bool needs_sd() const;
+};
+
 // Lays out the payload the loader puts after the blob: the redirect table
 // (at payload offset 0) followed by the MEM replacement data, each 32-byte
 // aligned, with MEM sources computed for `payload_address`; SD
 // replacements become one SD entry per run. The size does not depend on
 // the address, so callers may size the reservation with a placeholder
-// address first. Fails on empty or overlapping replacements.
-bool build_payload(const std::vector<MemReplacement>& mem, const std::vector<SdReplacement>& sd,
-                   const std::vector<DiscReplacement>& disc, std::uint32_t payload_address, std::uint64_t tag,
+// address first. Fails on empty or overlapping pieces.
+bool build_payload(const PayloadPieces& pieces, std::uint32_t payload_address, std::uint64_t tag,
                    std::uint32_t sdio_fd, std::vector<std::uint8_t>& payload, std::string& error);
 // MEM only, no SD fd.
 bool build_mem_payload(const std::vector<MemReplacement>& replacements, std::uint32_t payload_address,
@@ -80,16 +92,17 @@ struct VirtualFile {
 };
 constexpr std::uint64_t kVirtualWindowStart = 0x200000000ull;  // byte offset; word 0x80000000
 
-// Assigns each virtual file a 32-byte aligned slot in the window, rewrites
-// the FST entries (offset and size) and appends the corresponding MEM or
-// SD replacement. MEM content is padded with zeros to a 32-byte multiple;
-// SD content is not, the runtime zero-fills the window's gaps, so a read
-// rounded up by the DVD driver is served either way. Fails on unknown
-// paths, directories, empty content, or a window that would leave the
-// 32-bit word space.
+// Assigns each virtual file a 32-byte aligned slot in the window from
+// `window_cursor` (in/out: the next free byte), rewrites the FST entries
+// (offset and size) and appends the corresponding MEM, SD or DISC
+// replacement. MEM content is padded with zeros to a 32-byte multiple;
+// SD and DISC content is not, the runtime zero-fills the window's gaps,
+// so a read rounded up by the DVD driver is served either way. Fails on
+// unknown paths, directories, empty content, or a window that would
+// leave the 32-bit word space.
 bool plan_virtual_window(class Fst& fst, const std::vector<VirtualFile>& files,
                          std::vector<MemReplacement>& mem, std::vector<SdReplacement>& sd,
-                         std::vector<DiscReplacement>& disc, std::uint64_t& window_end, std::string& error);
+                         std::vector<DiscReplacement>& disc, std::uint64_t& window_cursor, std::string& error);
 
 // lis/ori/mtctr/bctr through `reg` (0-31): an absolute jump in four words.
 std::array<std::uint32_t, 4> encode_absolute_jump(unsigned reg, std::uint32_t target);
