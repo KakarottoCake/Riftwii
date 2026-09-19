@@ -282,7 +282,7 @@ E6. Newer Super Mario Bros. Wii (folder patches + memory patches) boots and
 | G1 Wii | E1 unmodified boot + file dump | video of the game running from Riftwii; dumped file byte-identical to a Dolphin extraction. **Passed in Dolphin 2026-09-18 (section 11); hardware run open** |
 | G2 Wii | E2, E3 | visible in-game evidence, binary hash + IOS + title recorded. **E2 and E3 passed in Dolphin 2026-09-19 (sections 12, 13); hardware run open** |
 | G3 host+Wii | FAT32 fragment resolver (host-tested on a synthetic image), redirect-table compiler verified against `ReadOverlay` as oracle, freestanding table walker compiled for both host and PPC, E4 | walker == oracle on randomized reads incl. straddles; E4 visible |
-| G4 Wii | FST rewrite, virtual window, `<memory>` patches, `<folder>` expansion, ordered composition; E5, E6 | Newer SMBW plays |
+| G4 Wii | FST rewrite, virtual window, `<memory>` patches, `<folder>` expansion, ordered composition; E5, E6 | Newer SMBW plays. **E5 (grown file through the virtual window) passed in Dolphin 2026-09-19 (section 14)** |
 | G5 product | GUI: detect inserted disc, filter XMLs, options UI, persist choices per game, preflight report, launch; `<savegame>` policy; NOTICE/README/compat matrix | repeatable launches on 3+ titles, documented limitations |
 | G6 storage | USB for in-game reads: resident USB mass-storage client (decide OHCI-under-game-IOS vs. alternatives first), USB+FAT32, then a read-only NTFS resolver (own code preferred over the GX binary, see 4.5) | mod on a USB stick plays on hardware; NTFS stick likewise |
 
@@ -616,3 +616,101 @@ exact size; anything else is refused ("only same-size replacements yet").
   overwrites the whole buffer on completion. This tests the "offsets above
   the disc are not treated as signed" hypothesis with MEM sources before
   SD exists.
+
+## 14. E5 outcome: a grown file through the virtual window (conductor, 2026-09-19)
+
+Autorun `probe` / `layout` / `grow /hbm/home.csv sd:/riftwii/mods/home_grown.csv`
+/ `boot` in Dolphin with Mario Kart Wii, the SD file being the E1 dump of
+`home.csv` (3610 bytes) with forty UTF-16 lines appended (7770 bytes).
+
+- The game asks for `R80000000:00001e60`: it took the rewritten FST
+  entry (word offset 0x80000000, size 7770) and rounded the read up to
+  32 bytes, exactly the padded MEM replacement. The hypothesis of
+  section 4 that offsets above the disc are not treated as signed holds
+  for this SDK's DVD driver.
+- Dolphin's DI log shows `DVDLowRead: offset 0x00000000, length 0x1e60`
+  for that read: the runtime rewrote the command block before IOS saw it.
+  All 1776 other reads match Dolphin's log in order and offset (one
+  mismatch in the comparison, the substituted one).
+- `M80000000:00001e60:bb87a3a8` equals the host's checksum of the padded
+  grown file: the game's buffer holds the whole 7770 bytes plus zero
+  padding.
+- The old 0x40-byte `/hbm/config.txt` read that overlapped `home.csv` in
+  E3 now passes through untouched (nothing of the table lies at the old
+  offset), and the game runs on unchanged.
+
+### 14.1 Mechanism
+`plan_virtual_window` (host-tested) gives each virtual file a 32-byte
+aligned slot from byte 0x200000000 (word 0x80000000), rewrites the FST
+entry's offset and size, and appends a MEM replacement padded with zeros
+to a 32-byte multiple. The loader reads the partition layout again after
+the IOS reload, applies the plan to a copy of the FST and patches the
+extents into the original image (`Fst::patch_image`: the serializer
+cannot reproduce Mario Kart Wii's two bytes of string-table padding, so
+the image is edited in place, string table untouched). During the
+apploader loop every load that overlaps the FST is overlaid from the
+patched image after the disc read; the patched image is also added as a
+same-size MEM replacement at the FST's own offset, so a game that reads
+the FST again sees the same table. `rt_context.virtual_start_words`
+marks the window: a read at or above it always takes a pending record,
+its command block's offset is rewritten to 0 (partition start, always
+readable, same length) and flushed, and on completion every byte of the
+buffer is supplied from the table, gaps included (zero).
+
+### 14.2 Costs and limits
+- MEM2 reservation: blob + table + the files' bytes + the FST copy (63 KiB
+  for Mario Kart Wii; the arena end moved from 0x935d0000 to 0x935c0000).
+  Large files belong to E4 (SD-backed), not to memory.
+- Created files (new FST entries) change the FST's size and need the
+  data-header substitution; not done yet.
+- `grow` reads the whole SD file into the loader's heap first.
+
+### 14.3 agy review of the E2/E3 code (evaluated 2026-09-19)
+Checked against libogc, the SDK conventions visible in Mario Kart Wii's
+`main.dol` and Dolphin, then applied or refuted:
+
+Applied:
+- **Pending-record claim under interrupts off**: the hook runs on game
+  threads and from the IPC interrupt handler (the DVD driver issues its
+  next command from the completion callback), so the claim is now done
+  with MSR[EE] cleared (`mfmsr`/`mtmsr`, as the SDK's
+  `OSDisableInterrupts`). The SDK driver serialises DI commands, so the
+  race was theoretical; the fix is ten lines.
+- **Scratch arrays on the stack**: the runs of a read are computed once
+  into its pending record (`rt_pending.runs`, context now 1248 bytes);
+  neither the hook nor the completion entry keeps a 256-byte array on an
+  interrupted thread's stack.
+- **Checksum before the flush** (the re-read after `dcbf` pulled clean
+  lines back; harmless for DMA readers, but pointless).
+- **Gecko spinning with interrupts off**: 100 tries per byte, and after
+  32 refused bytes the runtime clears `RT_FLAG_GECKO` itself. Reporting
+  is a diagnostic flag the autorun turns on; a shipped launch leaves it
+  off.
+- **`displaceable()`**: every `ori` was exempt from the scratch-register
+  check (meant for the nop only); the rB field was checked on D-form
+  instructions where it is part of the immediate (false rejections for
+  displacements 0x6000-0x67FF); `mtctr`/`mfctr`/`mfxer` were not refused
+  although the continuation clobbers CTR. All three fixed and tested.
+- **Symbol search**: candidates are filtered where they are counted (a
+  non-function with the most votes no longer hides a valid runner-up),
+  must start with `stwu r1` and load the IPC request command (`li rX, 6`
+  for ioctl, 7 for ioctlv) before their first `blr`; the ioctlv vector
+  counts may be loaded before the command. Checked on Mario Kart Wii:
+  taking every `bl` in the window instead of the first would tie
+  IOS_IoctlAsync with the helper called right after it (8 commands each),
+  and that helper has no `li rX, 6/7`, so the body check is what keeps
+  the first-`bl` rule honest.
+- **Dead code in the blob**: `--gc-sections` (5824 -> 5024 bytes).
+
+Refuted:
+- "`0xB000 | (ch << 4)` sends the wrong byte": that is the USB Gecko
+  protocol as libogc's `usbgecko.c` implements it (`0xB000 | (ch << 4)`),
+  and the E2-E5 logs were read through Dolphin's emulation of the same
+  protocol.
+- "EXI writes corrupt Slot B memory cards": Wii titles have no GameCube
+  memory card access (no CARD library in Wii mode); EXI channel 1 is only
+  probed for insertion. Kept as the reason the flag is off by default.
+- "The stub's `r0` is never validated": r0 is volatile and never carries
+  an argument in the EABI, so no function may depend on its entry value;
+  the trampoline sets it to the caller's LR before the replay, which is
+  what `mflr r0` prologues expect anyway.
