@@ -280,7 +280,7 @@ E6. Newer Super Mario Bros. Wii (folder patches + memory patches) boots and
 | --- | --- | --- |
 | G0 host | F1 parser/model rework; F3 licence/notice; F5.1/F5.2/F5.5; F6 cleanup; fixtures authored by us that exercise every documented construct | CTest green; probe table above all "accepted"; planner refuses unsupported *selected* features with named messages |
 | G1 Wii | E1 unmodified boot + file dump | video of the game running from Riftwii; dumped file byte-identical to a Dolphin extraction. **Passed in Dolphin 2026-09-18 (section 11); hardware run open** |
-| G2 Wii | E2, E3 | visible in-game evidence, binary hash + IOS + title recorded |
+| G2 Wii | E2, E3 | visible in-game evidence, binary hash + IOS + title recorded. **E2 passed in Dolphin 2026-09-19 (section 12)** |
 | G3 host+Wii | FAT32 fragment resolver (host-tested on a synthetic image), redirect-table compiler verified against `ReadOverlay` as oracle, freestanding table walker compiled for both host and PPC, E4 | walker == oracle on randomized reads incl. straddles; E4 visible |
 | G4 Wii | FST rewrite, virtual window, `<memory>` patches, `<folder>` expansion, ordered composition; E5, E6 | Newer SMBW plays |
 | G5 product | GUI: detect inserted disc, filter XMLs, options UI, persist choices per game, preflight report, launch; `<savegame>` policy; NOTICE/README/compat matrix | repeatable launches on 3+ titles, documented limitations |
@@ -508,3 +508,57 @@ Refuted (kept as is, with the evidence):
   TMD's IOS is missing.
 - The GUI boot path shares `RunBoot`/`RunDump` with autorun but has only
   been exercised through autorun in Dolphin.
+
+## 12. E2 outcome: the resident runtime survives the handoff (conductor, 2026-09-19)
+
+Autorun `probe` / `hook` / `boot` in Dolphin with Mario Kart Wii: the
+runtime is installed, the game boots and plays, and every disc read the
+game makes passes through the hook. Verification is machine-checked: the
+runtime reports each `DVDLowRead` over the USB Gecko as `R<word
+offset>:<length>` and the sequence equals Dolphin's own `IOS_DI` log after
+the game's OS started, 55 for 55 in order (18 MB in the first 45 s).
+
+### 12.1 What was built
+- `runtime/resident/` (`rt_entry.S`, `rt_hook.c`, `rt.ld`,
+  `Makefile.runtime`): a 1120-byte freestanding blob. Position independence
+  is by construction (one section, no globals, no literals, PC-relative
+  context lookup) and checked at build time by linking at two bases and
+  comparing. `Makefile.wii` embeds it as `riftwii_rt_bin`.
+- `riftwii/symsearch.hpp`: finds `IOS_IoctlAsync` as the branch target
+  shared by the DVD driver's `li r4, <DI command>` call sites and
+  `IOS_IoctlvAsync` from the open-partition site; no SDK byte patterns.
+  On MKW: `0x801940b8` (8 commands agree) and `0x8019445c`.
+- `riftwii/hook.hpp`: blob header validation, `lis/ori/mtctr/bctr`
+  encoding, a displacement check for the four instructions the stub
+  replaces, and the MEM2 placement (64 KiB granules at the arena top).
+- `riftwii/dol.hpp`: DOL header parser, used to pick the text sections to
+  search and to dump `main.dol` (`dol` in autorun).
+- `wii/resident.cpp`: copies, patches, flushes and invalidates; the loader
+  then lowers `0x80003128` (uncached, after the low-memory flush).
+
+### 12.2 Hypotheses from section 4 now confirmed (in Dolphin)
+- Reservation via `0x80003128`: the game's OS reports `MEM2 Arena :
+  0x90000800 - 0x935d0000` instead of `- 0x935e0000`.
+- Symbol search without SDK-specific patterns works on a retail title.
+- A hook installed before `SYS_ResetSystem` + jump survives into the game
+  and runs inside its `IOS_IoctlAsync`; the trampoline's replay/continue
+  scheme is correct (the game is unaffected).
+- The IPC-level hook sees all DVD driver reads (`ioctl 0x71`, 0x20-byte
+  command block with `0x71` in the top byte), so it is the right place for
+  redirection.
+
+### 12.3 What E3 needs (design note)
+Redirecting a read means the runtime must complete it itself. The
+trampoline restores the eight arguments from the stack, so the handler can
+substitute its own callback and user data (a per-request record in the
+reserved region) and let the disc read run; when the game's IOS reply
+arrives, the runtime's completion entry runs in the same interrupt context
+the game's callback would, applies the redirect (MEM/ZERO copies, later SD
+reads chained through the original `IOS_IoctlvAsync` with the sdio fd) and
+then tail-calls the game's callback with the game's user data. Reads that
+lie entirely in the virtual window (no disc data behind them) must not go
+to the drive at all; they are completed from a harmless real request's
+reply instead of synchronously, so the DVD driver's state machine always
+sees asynchronous completion. Function addresses the C code needs (its own
+completion entry) come from the context, filled by the loader; C never
+takes an address itself.
