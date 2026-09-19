@@ -26,10 +26,12 @@ Direction, review findings and the roadmap live in `docs/`.
   loader installs at the top of the MEM2 arena; it hooks the game's
   `IOS_IoctlAsync` (found by structure, not by SDK patterns), sees every
   disc read and serves same-size replacements from memory through the
-  redirect table, and files of a new size through the virtual window
-  (FST rewritten in the loader, reads above the disc answered from memory).
-  Verified in Dolphin against Dolphin's own DI log and by checksums of the
-  rewritten game buffers. SD-backed files are next.
+  redirect table, files of a new size through the virtual window (FST
+  rewritten in the loader, reads above the disc answered from memory), and
+  files stored on the SD card (fetched sector by sector through the game's
+  own IPC, no file system in the runtime). Verified in Dolphin against
+  Dolphin's own DI and SD logs and by checksums of the rewritten game
+  buffers. Created files and partial patches are next.
 - `vendor-pugixml`: MIT-licensed XML parser, pinned at v1.15.
 - `vendor-libgui`: pinned GPL libwiigui 1.07 snapshot, used only by the Wii
   frontend (not built by the host build).
@@ -79,7 +81,8 @@ Homebrew Channel, or load the DOL in Dolphin with an SD image configured.
 If `sd:/riftwii/autorun.txt` exists the frontend skips the GUI and runs
 the commands in it (`probe`, `layout`, `meta [dir]`, `dump <disc path>
 [sd path]`, `dol [sd path]`, `nofallback`, `hook`, `replace <disc path>
-<sd path>`, `grow <disc path> <sd path>`, `boot`), logging to
+<sd path>`, `grow <disc path> <sd path>`, `sdreplace <disc path> <sd
+path>`, `sdgrow <disc path> <sd path>`, `boot`), logging to
 `sd:/riftwii/autorun.log`;
 under Dolphin it powers off afterwards so the SD folder syncs back.
 `tools/dolphin/run.sh` drives this: it expects `build-dolphin/user/` (an

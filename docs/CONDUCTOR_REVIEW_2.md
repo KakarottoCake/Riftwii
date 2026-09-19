@@ -281,7 +281,7 @@ E6. Newer Super Mario Bros. Wii (folder patches + memory patches) boots and
 | G0 host | F1 parser/model rework; F3 licence/notice; F5.1/F5.2/F5.5; F6 cleanup; fixtures authored by us that exercise every documented construct | CTest green; probe table above all "accepted"; planner refuses unsupported *selected* features with named messages |
 | G1 Wii | E1 unmodified boot + file dump | video of the game running from Riftwii; dumped file byte-identical to a Dolphin extraction. **Passed in Dolphin 2026-09-18 (section 11); hardware run open** |
 | G2 Wii | E2, E3 | visible in-game evidence, binary hash + IOS + title recorded. **E2 and E3 passed in Dolphin 2026-09-19 (sections 12, 13); hardware run open** |
-| G3 host+Wii | FAT32 fragment resolver (host-tested on a synthetic image), redirect-table compiler verified against `ReadOverlay` as oracle, freestanding table walker compiled for both host and PPC, E4 | walker == oracle on randomized reads incl. straddles; E4 visible |
+| G3 host+Wii | FAT32 fragment resolver (host-tested on a synthetic image), redirect-table compiler verified against `ReadOverlay` as oracle, freestanding table walker compiled for both host and PPC, E4 | walker == oracle on randomized reads incl. straddles; E4 visible. **E4 passed in Dolphin 2026-09-19 (section 15); hardware run open** |
 | G4 Wii | FST rewrite, virtual window, `<memory>` patches, `<folder>` expansion, ordered composition; E5, E6 | Newer SMBW plays. **E5 (grown file through the virtual window) passed in Dolphin 2026-09-19 (section 14)** |
 | G5 product | GUI: detect inserted disc, filter XMLs, options UI, persist choices per game, preflight report, launch; `<savegame>` policy; NOTICE/README/compat matrix | repeatable launches on 3+ titles, documented limitations |
 | G6 storage | USB for in-game reads: resident USB mass-storage client (decide OHCI-under-game-IOS vs. alternatives first), USB+FAT32, then a read-only NTFS resolver (own code preferred over the GX binary, see 4.5) | mod on a USB stick plays on hardware; NTFS stick likewise |
@@ -714,3 +714,66 @@ Refuted:
   an argument in the EABI, so no function may depend on its entry value;
   the trampoline sets it to the caller's LR before the replay, which is
   what `mflr r0` prologues expect anyway.
+
+## 15. E4 outcome: files served from the SD card (conductor, 2026-09-19)
+
+Autorun `sdreplace /Boot/Strap/us/English.szs sd:/riftwii/dump/English.szs`
+(the E1 dump of the file, 290147 bytes) and `sdreplace /hbm/home.csv
+sd:/riftwii/mods/home.csv` (the E3 modified file), then `boot`, in
+Dolphin with Mario Kart Wii:
+
+- `M177ea3b6:00046d80:3b553c78`: the strap file, fetched in nine CMD18
+  requests (eight of 64 sectors, one of 55, visible in Dolphin's IOS_SD
+  log as DMA reads into the bounce buffer at 0x935b1c60); the checksum
+  equals the host's checksum of the file.
+- `M17c3f6fc:00000e20:f6a09c08` and `M17c3f6f3:00000040:44274552`: the
+  E3 values again, now from the card (the second is the 28-byte overlap,
+  a partial sector).
+- The loader's own read-back before the handoff ("SD check") reports the
+  same checksums; all 1490 disc reads still match Dolphin's DI log and
+  the game runs on.
+
+`sdgrow /hbm/home.csv sd:/riftwii/mods/home_grown.csv` (7770 bytes)
+combines E4 and E5: `M80000000:00001e60:bb87a3a8`, the E5 checksum, from
+a 16-sector CMD18 plus six zero bytes of virtual gap.
+
+### 15.1 Mechanism
+Loader, while the card is mounted: `resolve_sd_file` walks the FAT32
+volume with the host-tested resolver over libogc's block reads and
+`place_on_fragments` turns the file into sector runs; `build_payload`
+emits one SD entry per run (sector, skip, length). After the IOS reload
+the loader opens `/dev/sdio/slot0` itself (`wii/sdio.cpp`: reset,
+status, select, 512-byte blocks, 4-bit bus, clock; only cards IOS already
+initialised are accepted), optionally reads every run back for the
+check, and leaves the card selected with the fd in the context together
+with the game's `IOS_IoctlvAsync` (found in E2) and four 32 KiB bounce
+buffers after the payload.
+
+Runtime: the completion entry is now a state machine per pending record.
+On the disc reply it applies MEM/ZERO runs, then for each SD run issues
+SENDCMD CMD18 (request block, bounce buffer and response each in their
+own cache lines inside the record, flushed before the call) through the
+game's `IOS_IoctlvAsync` with itself as the callback; on each reply it
+copies the chunk into the game's buffer, flushes, and issues the next;
+when the last chunk has landed it tail-calls the game's callback with
+the disc result. A refused or failed request completes the read with the
+DI error code (2) so the DVD driver takes its error path rather than
+using a half-filled buffer. The C code settles the result the game sees
+(the entry passes it by address).
+
+### 15.2 Assumptions to confirm on hardware
+- The card stays selected across the handoff and the game's IPC accepts
+  requests on a fd it did not open (true in Dolphin; IOS fds are per
+  IOS instance, not per PPC "process").
+- The SENDCMD vector form works on non-SDHC cards too when a buffer is
+  given (libogc uses it in that case as well).
+- CMD18 with 64 blocks per request through IOS's sdio module (libogc's
+  unaligned path uses 8; its aligned path passes the caller's count).
+
+### 15.3 What E4 does not cover yet
+- Original disc bytes for relocated or partially patched files
+  (`RT_KIND_DISC`): the same chaining with a DVDLowRead through the
+  unhooked entry (`rt_replay_ioctl_async`), not written yet.
+- Created files: the FST grows, so the data header the apploader loads
+  must be substituted as the FST is (section 14).
+- Cards IOS refuses at boot (the host-controller reset dance in libogc).
