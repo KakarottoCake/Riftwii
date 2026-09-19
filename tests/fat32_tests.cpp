@@ -455,6 +455,17 @@ static void test_mount_failures() {
         EXPECT_FALSE(ReadAll(v, f, data));
     }
     EXPECT_FALSE(riftwii::Fat32Volume::mount(nullptr, v, err));
+    {
+        riftwii::Fat32Volume unmounted;
+        riftwii::Fat32File f;
+        std::vector<riftwii::Fat32Entry> entries;
+        std::vector<Fragment> frags;
+        EXPECT_FALSE(unmounted.lookup("/x", f, err));
+        EXPECT_CONTAINS(err, "not mounted");
+        EXPECT_FALSE(unmounted.list("/", entries, err));
+        EXPECT_FALSE(unmounted.chain(2, frags, err));
+        EXPECT_FALSE(unmounted.read(f, 0, nullptr, 0));
+    }
 }
 
 int main() {

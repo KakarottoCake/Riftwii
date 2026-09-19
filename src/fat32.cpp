@@ -299,6 +299,10 @@ bool Fat32Volume::next_cluster(std::uint32_t cluster, std::uint32_t& next, std::
 }
 
 bool Fat32Volume::chain(std::uint32_t first_cluster, std::vector<Fragment>& out, std::string& error) const {
+    if (!reader_) {
+        error = "volume not mounted";
+        return false;
+    }
     std::vector<Fragment> frags;
     if (first_cluster == 0) {
         out.clear();
@@ -468,6 +472,10 @@ bool Fat32Volume::find_in_directory(std::uint32_t directory_cluster, const std::
 }
 
 bool Fat32Volume::resolve_directory(const std::string& path, std::uint32_t& cluster, std::string& error) const {
+    if (!reader_) {
+        error = "volume not mounted";
+        return false;
+    }
     std::vector<std::string> parts;
     if (!split_path(path, parts, error)) return false;
     if (parts.size() > limits_.max_depth) {
@@ -554,6 +562,7 @@ bool Fat32Volume::list(const std::string& path, std::vector<Fat32Entry>& out, st
 }
 
 bool Fat32Volume::read(const Fat32File& file, std::uint64_t offset, std::uint8_t* out, std::size_t length) const {
+    if (!reader_) return false;
     if (offset > file.entry.size || length > file.entry.size - offset) return false;
     if (length == 0) return true;
     std::vector<PlacedRun> runs;
