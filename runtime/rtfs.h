@@ -100,7 +100,9 @@ struct rtfs_file {
 
 struct rtfs_context {
     struct rtfat_volume volume;
-    int32_t fs_fd;              /* the game's /dev/fs fd */
+    int32_t fs_fd;              /* the game's /dev/fs fd; negative = not known yet, and any
+                                 * real fd may then carry an ISFS request (the path in its
+                                 * buffers is what identifies it) */
     uint32_t prefix_len;
     uint32_t busy;
     char data_prefix[RTFS_PATH_BYTES];
@@ -127,6 +129,7 @@ struct rtfs_request {
     uint32_t callback;
     uint32_t user_data;
     uint32_t active;
+    uint32_t probe;             /* rtfs_probe: classify only, touch nothing */
     uint32_t action;
     uint32_t slot;
     uint32_t out0;
@@ -135,8 +138,15 @@ struct rtfs_request {
 };
 
 /* Copies the loader supplied directory prefix and volume.  Returns zero on
- * success, RTFAT_EINVAL for an unterminated/invalid prefix. */
+ * success, RTFAT_EINVAL for an unterminated/invalid prefix.  `fs_fd` is
+ * the game's /dev/fs fd when known, else negative (rtfs_learn_fs_fd). */
 int rtfs_init(struct rtfs_context* ctx, const struct rtfat_volume* volume, const char* data_prefix, int32_t fs_fd);
+
+/* Tells whether `path` (NUL-terminated within RTFS_PATH_BYTES) is the
+ * /dev/fs device, and records the fd its open returned; a close of that
+ * fd forgets it again (rtfs_begin does that itself, passing it through). */
+int rtfs_is_fs_device(const char* path);
+void rtfs_learn_fs_fd(struct rtfs_context* ctx, int32_t fd);
 
 /* Starts one IOS request.  The caller sets request.fat.bounce and
  * request.fat.bounce_bytes before this call for Read/Write.  A complete
@@ -145,6 +155,14 @@ int rtfs_init(struct rtfs_context* ctx, const struct rtfat_volume* volume, const
  * putting its status in request.fat.io_status before resuming. */
 void rtfs_begin(struct rtfs_context* ctx, struct rtfs_request* request, const struct rtfs_ipc* ipc);
 int rtfs_step(struct rtfs_context* ctx, struct rtfs_request* request);
+
+/* rtfs_begin's classification alone: the same PASS_THROUGH / COMPLETE /
+ * NEEDS_IO answer and, for COMPLETE, the same result, but nothing in the
+ * context, the file table or the game's buffers changes and the engine's
+ * busy rule is not applied (a would-be busy refusal classifies as the
+ * request would without it).  For deciding at hook time whether a
+ * request is ours before it can run. */
+void rtfs_probe(struct rtfs_context* ctx, struct rtfs_request* request, const struct rtfs_ipc* ipc);
 
 #ifdef __cplusplus
 }

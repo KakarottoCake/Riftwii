@@ -152,6 +152,12 @@ void TestOpenReadSeekAndPass(Low& low) {
     EXPECT_EQ(Run(fx, low, seek), 1054);
     seek.args.seek.where = -2000; seek.args.seek.whence = RTFS_SEEK_SET;
     EXPECT_EQ(Run(fx, low, seek), RTFAT_EINVAL);
+    seek.args.seek.where = 1062; seek.args.seek.whence = RTFS_SEEK_SET;  // one past the end
+    EXPECT_EQ(Run(fx, low, seek), RTFAT_EINVAL);
+    seek.args.seek.where = 1061;
+    EXPECT_EQ(Run(fx, low, seek), 1061);
+    seek.args.seek.where = 1; seek.args.seek.whence = RTFS_SEEK_END;
+    EXPECT_EQ(Run(fx, low, seek), RTFAT_EINVAL);
     const std::uint32_t slot = (static_cast<std::uint32_t>(fd) - RTFS_FD_BASE) & (RTFS_MAX_FDS - 1u);
     const std::uint32_t saved_position = fx.fs.files[slot].fat.position;
     seek.args.seek.where = (-2147483647 - 1); seek.args.seek.whence = RTFS_SEEK_SET;
@@ -244,7 +250,7 @@ void TestIoctlsAndDirectory(Low& low) {
     rtfs_ipc dir{}; dir.command = RTFS_CMD_IOCTL; dir.fd = 21; dir.args.ioctl.request = RTFS_IOCTL_CREATEDIR;
     std::memset(low.attr, 0, sizeof(*low.attr)); CopyPath(reinterpret_cast<std::uint8_t*>(low.attr->filepath), fx.prefix);
     dir.args.ioctl.in = Addr(low.attr); dir.args.ioctl.in_len = sizeof(*low.attr);
-    EXPECT_EQ(Run(fx, low, dir), RTFAT_EACCESS);
+    EXPECT_EQ(Run(fx, low, dir), RTFAT_EEXIST);
     CopyPath(reinterpret_cast<std::uint8_t*>(low.attr->filepath), fx.prefix + "/subdir");
     EXPECT_EQ(Run(fx, low, dir), RTFAT_EACCESS);
     CopyPath(low.data, fx.prefix);
@@ -282,6 +288,144 @@ void TestStatsRenameDeleteAndFailure(Low& low) {
     fx.dev.fail_at = fx.dev.transfers + 1;
     EXPECT_EQ(Run(fx, low, Open(Addr(low.data), 1)), RTFAT_EIO);
 }
+
+// rtfs_probe classifies like rtfs_begin and changes nothing; the /dev/fs
+// fd is learned from its open, forgotten at its close, and unknown means
+// any real fd carries ISFS requests.
+void TestProbeAndFsFd(Low& low) {
+    Fixture fx;
+    EXPECT_TRUE(rtfs_is_fs_device("/dev/fs"));
+    EXPECT_TRUE(!rtfs_is_fs_device("/dev/fs/"));
+    EXPECT_TRUE(!rtfs_is_fs_device("/dev/f"));
+    EXPECT_TRUE(!rtfs_is_fs_device(nullptr));
+    EXPECT_EQ(fx.fs.fs_fd, 21);
+
+    // A probe of an open: NEEDS_IO, but the engine stays idle.
+    CopyPath(low.data, fx.prefix + "/banner.bin");
+    rtfs_ipc open = Open(Addr(low.data), 3);
+    std::memset(low.request, 0, sizeof(*low.request));
+    rtfs_probe(&fx.fs, low.request, &open);
+    EXPECT_EQ(low.request->classification, RTFS_NEEDS_IO);
+    EXPECT_EQ(fx.fs.busy, 0u);
+    EXPECT_EQ(low.request->active, 0u);
+    EXPECT_EQ(rtfs_step(&fx.fs, low.request), RTFAT_DONE);  // nothing to drive
+    // A probe while busy still says NEEDS_IO (the busy rule is the caller's).
+    fx.fs.busy = 1;
+    rtfs_probe(&fx.fs, low.request, &open);
+    EXPECT_EQ(low.request->classification, RTFS_NEEDS_IO);
+    fx.fs.busy = 0;
+    const int fd = Run(fx, low, open);
+    EXPECT_TRUE(fd >= static_cast<int>(RTFS_FD_BASE));
+    const std::uint32_t slot = (static_cast<std::uint32_t>(fd) - RTFS_FD_BASE) & (RTFS_MAX_FDS - 1u);
+
+    // Probed seek and close: the answers, without the effects.
+    rtfs_ipc seek{}; seek.command = RTFS_CMD_SEEK; seek.fd = fd; seek.args.seek.where = 5; seek.args.seek.whence = RTFS_SEEK_SET;
+    rtfs_probe(&fx.fs, low.request, &seek);
+    EXPECT_EQ(low.request->classification, RTFS_COMPLETE);
+    EXPECT_EQ(low.request->result, 5);
+    EXPECT_EQ(fx.fs.files[slot].fat.position, 0u);
+    auto* stats = reinterpret_cast<std::uint32_t*>(low.data + 128);
+    stats[0] = 0xAAAAAAAAu; stats[1] = 0xBBBBBBBBu;
+    rtfs_ipc stat{}; stat.command = RTFS_CMD_IOCTL; stat.fd = fd; stat.args.ioctl.request = RTFS_IOCTL_GETFILESTATS;
+    stat.args.ioctl.out = Addr(stats); stat.args.ioctl.out_len = 8;
+    rtfs_probe(&fx.fs, low.request, &stat);
+    EXPECT_EQ(low.request->classification, RTFS_COMPLETE);
+    EXPECT_EQ(low.request->result, RTFAT_OK);
+    EXPECT_EQ(stats[0], 0xAAAAAAAAu);
+    rtfs_ipc close{}; close.command = RTFS_CMD_CLOSE; close.fd = fd;
+    rtfs_probe(&fx.fs, low.request, &close);
+    EXPECT_EQ(low.request->classification, RTFS_COMPLETE);
+    EXPECT_EQ(low.request->result, RTFAT_OK);
+    EXPECT_EQ(fx.fs.files[slot].in_use, 1u);
+    // A probe of a directory GetAttr leaves the block alone.
+    std::memset(low.attr, 0x5A, sizeof(*low.attr));
+    CopyPath(low.data, fx.prefix);
+    rtfs_ipc attr{}; attr.command = RTFS_CMD_IOCTL; attr.fd = 21; attr.args.ioctl.request = RTFS_IOCTL_GETATTR;
+    attr.args.ioctl.in = Addr(low.data); attr.args.ioctl.in_len = RTFS_PATH_BYTES;
+    attr.args.ioctl.out = Addr(low.attr); attr.args.ioctl.out_len = sizeof(*low.attr);
+    rtfs_probe(&fx.fs, low.request, &attr);
+    EXPECT_EQ(low.request->classification, RTFS_COMPLETE);
+    EXPECT_EQ(low.request->result, RTFAT_OK);
+    EXPECT_EQ(low.attr->ownerperm, 0x5Au);
+    // Pass-through classifies as such in a probe too.
+    CopyPath(low.data, "/dev/fs");
+    rtfs_ipc dev = Open(Addr(low.data), 0);
+    rtfs_probe(&fx.fs, low.request, &dev);
+    EXPECT_EQ(low.request->classification, RTFS_PASS_THROUGH);
+    EXPECT_EQ(Run(fx, low, close), RTFAT_OK);
+
+    // The fs fd: a request on another real fd passes while it is known...
+    CopyPath(low.data, fx.prefix);
+    attr.fd = 22;
+    rtfs_begin(&fx.fs, low.request, &attr);
+    EXPECT_EQ(low.request->classification, RTFS_PASS_THROUGH);
+    // ...its close forgets it (and passes through)...
+    rtfs_ipc close_fs{}; close_fs.command = RTFS_CMD_CLOSE; close_fs.fd = 21;
+    rtfs_begin(&fx.fs, low.request, &close_fs);
+    EXPECT_EQ(low.request->classification, RTFS_PASS_THROUGH);
+    EXPECT_EQ(fx.fs.fs_fd, -1);
+    // ...after which any real fd carries ISFS requests, but never a fake one.
+    EXPECT_EQ(Run(fx, low, attr), RTFAT_OK);
+    EXPECT_EQ(low.attr->ownerperm, RTFS_META_OWNER_PERM);
+    // Learning takes a real fd only.
+    rtfs_learn_fs_fd(&fx.fs, static_cast<std::int32_t>(RTFS_FD_BASE + 8u));
+    EXPECT_EQ(fx.fs.fs_fd, -1);
+    rtfs_learn_fs_fd(&fx.fs, -6);
+    EXPECT_EQ(fx.fs.fs_fd, -1);
+    rtfs_learn_fs_fd(&fx.fs, 9);
+    EXPECT_EQ(fx.fs.fs_fd, 9);
+    rtfs_begin(&fx.fs, low.request, &attr);  // fd 22 again: not the fs device now
+    EXPECT_EQ(low.request->classification, RTFS_PASS_THROUGH);
+    EXPECT_EQ(rtfs_init(&fx.fs, &fx.volume, fx.prefix.c_str(), -1), RTFAT_OK);
+    EXPECT_EQ(fx.fs.fs_fd, -1);
+
+    // With the fd unknown, the ISFS ioctl numbers also reach us from the
+    // network devices (/dev/net/ip/top: 3 close, 5 fcntl, 7 getsockname,
+    // 9 setsockopt, 4 connect, 6 getpeername, 8 getsockopt, 12 recvfrom
+    // as an ioctlv) with small buffers. Nothing is ours until a path
+    // under the prefix says so: every such request passes through
+    // untouched, never answered -101 on IOS's behalf.
+    std::uint32_t* word = reinterpret_cast<std::uint32_t*>(low.data + 1024);
+    word[0] = 3; word[1] = 0; word[2] = 0; word[3] = 0;
+    for (std::uint32_t code = 3; code <= 9; ++code) {
+        rtfs_ipc sock{}; sock.command = RTFS_CMD_IOCTL; sock.fd = 4; sock.args.ioctl.request = code;
+        sock.args.ioctl.in = Addr(word); sock.args.ioctl.in_len = 4; sock.args.ioctl.out = Addr(word + 1); sock.args.ioctl.out_len = 12;
+        rtfs_begin(&fx.fs, low.request, &sock);
+        EXPECT_EQ(low.request->classification, RTFS_PASS_THROUGH);
+        sock.args.ioctl.in = 0; sock.args.ioctl.in_len = 0;
+        rtfs_begin(&fx.fs, low.request, &sock);
+        EXPECT_EQ(low.request->classification, RTFS_PASS_THROUGH);
+    }
+    // A 64-byte buffer that is not a path under the prefix: not ours either,
+    // and neither is one that is unterminated within 64 bytes.
+    std::memset(low.data, 'x', 64);
+    rtfs_ipc del{}; del.command = RTFS_CMD_IOCTL; del.fd = 4; del.args.ioctl.request = RTFS_IOCTL_DELETE;
+    del.args.ioctl.in = Addr(low.data); del.args.ioctl.in_len = RTFS_PATH_BYTES;
+    rtfs_begin(&fx.fs, low.request, &del);
+    EXPECT_EQ(low.request->classification, RTFS_PASS_THROUGH);
+    std::memcpy(low.data, fx.prefix.c_str(), fx.prefix.size());  // the prefix, then 'x' to the end: unterminated
+    rtfs_begin(&fx.fs, low.request, &del);
+    EXPECT_EQ(low.request->classification, RTFS_PASS_THROUGH);
+    // Vector-form: too few vectors, a null vector table, a wrong count shape.
+    low.vec[0] = {Addr(word), 4}; low.vec[1] = {Addr(word + 1), 4};
+    rtfs_ipc recv{}; recv.command = RTFS_CMD_IOCTLV; recv.fd = 4; recv.args.ioctlv.request = RTFS_IOCTL_READDIR;
+    recv.args.ioctlv.in_count = 1; recv.args.ioctlv.out_count = 1; recv.args.ioctlv.vectors = Addr(low.vec);
+    rtfs_begin(&fx.fs, low.request, &recv);
+    EXPECT_EQ(low.request->classification, RTFS_PASS_THROUGH);
+    recv.args.ioctlv.vectors = 0;
+    rtfs_begin(&fx.fs, low.request, &recv);
+    EXPECT_EQ(low.request->classification, RTFS_PASS_THROUGH);
+    recv.args.ioctlv.request = RTFS_IOCTL_GETUSAGE; recv.args.ioctlv.in_count = 3; recv.args.ioctlv.vectors = Addr(low.vec);
+    rtfs_begin(&fx.fs, low.request, &recv);
+    EXPECT_EQ(low.request->classification, RTFS_PASS_THROUGH);
+    // But once the path is ours, the rest of the arguments are checked.
+    CopyPath(low.data, fx.prefix);
+    low.vec[0] = {Addr(low.data), RTFS_PATH_BYTES}; low.vec[1] = {0, 0}; low.vec[2] = {0, 0};
+    recv.args.ioctlv.in_count = 1; recv.args.ioctlv.out_count = 2;
+    EXPECT_EQ(Run(fx, low, recv), RTFAT_EINVAL);
+    recv.args.ioctlv.request = RTFS_IOCTL_READDIR; recv.args.ioctlv.out_count = 1;
+    EXPECT_EQ(Run(fx, low, recv), RTFAT_EINVAL);
+}
 }  // namespace
 
 int main() {
@@ -292,6 +436,7 @@ int main() {
     TestWritePersists(low);
     TestIoctlsAndDirectory(low);
     TestStatsRenameDeleteAndFailure(low);
+    TestProbeAndFsFd(low);
     if (g_failures == 0) std::cout << "rtfs tests passed" << std::endl;
     return g_failures == 0 ? 0 : 1;
 }
