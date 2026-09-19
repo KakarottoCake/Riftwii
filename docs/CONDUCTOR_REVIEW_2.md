@@ -771,9 +771,27 @@ using a half-filled buffer. The C code settles the result the game sees
   unaligned path uses 8; its aligned path passes the caller's count).
 
 ### 15.3 What E4 does not cover yet
-- Original disc bytes for relocated or partially patched files
-  (`RT_KIND_DISC`): the same chaining with a DVDLowRead through the
-  unhooked entry (`rt_replay_ioctl_async`), not written yet.
 - Created files: the FST grows, so the data header the apploader loads
   must be substituted as the FST is (section 14).
 - Cards IOS refuses at boot (the host-controller reset dance in libogc).
+
+## 16. E7 outcome: the disc's own bytes through the runtime (conductor, 2026-09-19)
+
+The last table kind, `RT_KIND_DISC` (what `build_redirect_table` emits
+for the untouched part of a relocated or partially patched file), is
+served the way SD runs are: a DVDLowRead of the 32-byte aligned span
+into the bounce buffer, issued on the game's `/dev/di` fd (learned from
+its first read) through the unhooked `IOS_IoctlAsync`, which is the
+blob's replay slot: the four displaced instructions followed by the jump
+to the original + 16. The drive's own error code, if any, is what the
+game's callback receives.
+
+Autorun `keep /hbm/home.csv` (the file moves to the virtual window with
+its own bytes) in Dolphin with Mario Kart Wii: `R80000000:00000e20`, then
+`M80000000:00000e20:38afe198`, the checksum of the original file plus
+six zero bytes of window gap; Dolphin's DI log shows the substituted
+read at 0 followed by the runtime's read at 0x17c3f6f8 of 0xe40 bytes.
+The runtime now serves every kind the table compiler produces; the
+XML-driven pipeline (`AppliedFile::flatten` -> `build_redirect_table`)
+can be wired into the loader next, with created files (section 15.3)
+the remaining structural gap.
