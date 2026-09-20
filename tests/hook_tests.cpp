@@ -1766,14 +1766,29 @@ static void TestFsClone() {
     EXPECT_EQ(st->clone_failures, 1u);
     EXPECT_EQ(st->clone_files, 2u);
 
+    // More names than the listing holds (RT_FS_CLONE_MAX): the first
+    // RT_FS_CLONE_MAX are attempted (two files copied, the subdirectories
+    // fail), every name past the cap is a failure too.
+    st->clone_pending = 1;
+    nand.dir_prefix = prefix;
+    nand.dir.clear();
+    nand.dir.push_back({"A.bin", {1, 2, 3}});
+    nand.dir.push_back({"B.bin", {4, 5, 6, 7}});
+    for (std::uint32_t i = 0; i < RT_FS_CLONE_MAX; ++i) nand.dir.push_back({"sub", {}});
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(1), args, &result), 0);
+    EXPECT_EQ(st->clones, 3u);
+    EXPECT_EQ(st->clone_files, 4u);
+    EXPECT_EQ(st->clone_failures, 1u + RT_FS_CLONE_MAX);
+    check_card_file("B.bin", {4, 5, 6, 7}, 0);
+
     // Without the game's synchronous ioctlv the listing is impossible:
     // the clone is given up, counted, and never retried.
     st->clone_pending = 1;
     st->ioctlv_sync = 0;
     EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(1), args, &result), 0);
     EXPECT_EQ(st->clone_pending, 0u);
-    EXPECT_EQ(st->clones, 2u);
-    EXPECT_EQ(st->clone_failures, 2u);
+    EXPECT_EQ(st->clones, 3u);
+    EXPECT_EQ(st->clone_failures, 2u + RT_FS_CLONE_MAX);
 
     rt_host_fs_open_sync = nullptr;
     rt_host_fs_close_sync = nullptr;

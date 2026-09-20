@@ -1002,9 +1002,14 @@ static void rt_fs_clone(struct rt_context* ctx, struct rt_fs_state* st) {
     rt_flush_range((uintptr_t)st->dvec, sizeof(st->dvec));
     r = rt_fs_ioctlv_sync(st, fd, RTFS_IOCTL_READDIR, 1, 1, st->dvec);
     count = r < 0 ? 0 : st->count_out[0];
-    if (count > RT_FS_CLONE_MAX) count = RT_FS_CLONE_MAX;
     if (r < 0 && r != RTFAT_ENOENT) st->clone_failures++;
     rt_fs_report_clone(ctx, p, r < 0 ? r : (int32_t)count);
+    if (count > RT_FS_CLONE_MAX) {
+        /* More names than the listing holds: the ones past the cap are
+         * not copied, and each is a failure the counters show. */
+        st->clone_failures += count - RT_FS_CLONE_MAX;
+        count = RT_FS_CLONE_MAX;
+    }
     if (count != 0) {
         st->count_in[0] = count;
         rt_flush_range((uintptr_t)st->count_in, sizeof(st->count_in));
