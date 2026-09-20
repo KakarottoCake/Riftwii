@@ -36,7 +36,8 @@ extern "C" {
 
 #define RTFAT_SECTOR_BYTES 512u
 #define RTFAT_NAME_MAX 12u   /* ISFS file name length; longer card names never match */
-#define RTFAT_SLOT_BYTES 13u /* ReadDir name slot: 12 characters and a NUL */
+#define RTFAT_SLOT_BYTES 13u /* ReadDir buffer bytes per name (12 characters and a NUL); IOS packs the
+                              * names consecutively, each NUL-terminated, so the buffer is never overrun */
 
 /* rtfat_step results. */
 #define RTFAT_DONE 0
@@ -151,6 +152,7 @@ struct rtfat_op {
     uint32_t lfn_index;
     char lfn[RTFAT_NAME_MAX + 1];
     uint32_t count;              /* LIST/COUNT/USAGE: files seen */
+    uint32_t list_bytes;         /* LIST: bytes of names written so far */
     /* Scratch: creating an entry. */
     uint8_t short11[11];
     uint8_t nt_flags;

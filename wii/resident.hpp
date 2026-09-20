@@ -28,6 +28,7 @@ namespace riftwii::wii {
 // hooked, or the game could reach NAND behind the redirect.
 struct SavegameOptions {
     bool enabled = false;
+    bool clone = false;      // the runtime copies the NAND save into the folder before the game's first request
     std::string prefix;      // "/title/<type>/<game id in hex>/data" from the TMD's title id, no trailing slash
     rtfat_volume volume{};   // the card's geometry and the folder's first cluster (wii/sdfile.hpp)
 };

@@ -1276,18 +1276,70 @@ struct FakeNand {
     std::uint32_t opens = 0, closes = 0, reads = 0;
     std::vector<std::string> deleted;
     long read_error_after = -1;  // >= 0: a read starting at or past this offset fails with -114
+    // A directory for the clone: its path and its entries (an entry with
+    // no bytes stands for a subdirectory, which no open accepts).
+    std::string dir_prefix;
+    std::vector<std::pair<std::string, std::vector<std::uint8_t>>> dir;
+    std::uint32_t readdirs = 0, fs_opens = 0, fs_closes = 0;
 };
 FakeNand* g_nand = nullptr;
 constexpr std::int32_t kNandFd = 20;
 std::int32_t NandOpenSync(const char* path, std::uint32_t mode) {
-    if (std::string(path) == "/dev/fs" && mode == 0) return 9;
-    if (!g_nand || std::string(path) != g_nand->path || mode != 1 || g_nand->open) return RTFAT_ENOENT;
+    if (std::string(path) == "/dev/fs" && mode == 0) {
+        if (g_nand) g_nand->fs_opens++;
+        return 9;
+    }
+    if (!g_nand) return RTFAT_ENOENT;
+    if (!g_nand->dir_prefix.empty() && std::string(path) != g_nand->path) {
+        // A file of the directory becomes the one file the fake serves.
+        const std::string p(path);
+        for (const auto& e : g_nand->dir) {
+            if (p == g_nand->dir_prefix + "/" + e.first && !e.second.empty()) {
+                g_nand->path = p;
+                g_nand->bytes = e.second;
+            }
+        }
+    }
+    if (std::string(path) != g_nand->path || mode != 1 || g_nand->open) return RTFAT_ENOENT;
     g_nand->open = true;
     g_nand->pos = 0;
     g_nand->opens++;
     return kNandFd;
 }
+// ISFS ReadDir on the /dev/fs fd, both forms: (path) -> count; (path,
+// count) -> the names packed one after another, count.
+std::int32_t NandIoctlvSync(std::int32_t fd, std::uint32_t request, std::uint32_t in_count, std::uint32_t out_count,
+                            rt_ioctlv* vec) {
+    if (!g_nand || fd != 9 || request != RTFS_IOCTL_READDIR) return -4;
+    g_nand->readdirs++;
+    const std::string p(reinterpret_cast<const char*>(static_cast<std::uintptr_t>(vec[0].data)));
+    if (p != g_nand->dir_prefix) return RTFAT_ENOENT;
+    if (in_count == 1 && out_count == 1) {
+        *reinterpret_cast<std::uint32_t*>(static_cast<std::uintptr_t>(vec[1].data)) = static_cast<std::uint32_t>(g_nand->dir.size());
+        return 0;
+    }
+    if (in_count != 2 || out_count != 2) return RTFAT_EINVAL;
+    const std::uint32_t want = *reinterpret_cast<const std::uint32_t*>(static_cast<std::uintptr_t>(vec[1].data));
+    auto* names = reinterpret_cast<char*>(static_cast<std::uintptr_t>(vec[2].data));
+    // Packed as Dolphin's IOS packs them: 13 bytes cleared, the name, a
+    // NUL at the 13th byte, then the next name right after this one's NUL.
+    std::uint32_t n = 0, at = 0;
+    for (const auto& e : g_nand->dir) {
+        if (n >= want || vec[2].len < at + 13) break;
+        std::memset(names + at, 0, 13);
+        std::memcpy(names + at, e.first.c_str(), e.first.size());
+        names[at + 12] = 0;
+        at += static_cast<std::uint32_t>(e.first.size()) + 1;
+        ++n;
+    }
+    *reinterpret_cast<std::uint32_t*>(static_cast<std::uintptr_t>(vec[3].data)) = n;
+    return 0;
+}
 std::int32_t NandCloseSync(std::int32_t fd) {
+    if (g_nand && fd == 9) {
+        g_nand->fs_closes++;
+        return 0;
+    }
     if (!g_nand || fd != kNandFd || !g_nand->open) return -4;
     g_nand->open = false;
     g_nand->closes++;
@@ -1547,6 +1599,137 @@ static void TestFsRenameImport() {
     g_cb_log = nullptr;
     g_fs_card = nullptr;
     g_ios = nullptr;
+    g_nand = nullptr;
+}
+
+
+// ---- <savegame clone> (slice 6) ------------------------------------------------
+
+static void TestFsClone() {
+    FsMemory mem;
+    if (!mem.ok) {
+        std::cerr << "note: no 32-bit addressable buffer on this host, skipping the FS clone drive" << std::endl;
+        return;
+    }
+    FsCard card;
+    fatimg::Bytes content;
+    rtfat_volume volume;
+    FsFillCard(card, content, volume, 11);
+    rt_fs_state* st = mem.st;
+    std::uint8_t* path = mem.path;
+    std::uint8_t* data = mem.data;
+    std::uint32_t* out = mem.out;
+    const std::string prefix = "/title/00010000/524b3545/data";
+    EXPECT_EQ(rtfs_init(&st->fs, &volume, prefix.c_str(), -1), RTFAT_OK);
+    st->open_sync = st->close_sync = st->read_sync = st->ioctl_sync = st->ioctlv_sync = 0x80100000u;
+
+    rt_context ctx{};
+    ctx.magic = RT_CONTEXT_MAGIC;
+    ctx.flags = RT_FLAG_FS;
+    ctx.fs_state = FsAddr(st);
+    g_fs_card = &card;
+    rt_host_fs_transfer = FsTransfer;
+    rt_host_fs_open_sync = NandOpenSync;
+    rt_host_fs_close_sync = NandCloseSync;
+    rt_host_fs_read_sync = NandReadSync;
+    rt_host_fs_ioctl_sync = NandIoctlSync;
+    rt_host_fs_ioctlv_sync = NandIoctlvSync;
+    FakeNand nand;
+    g_nand = &nand;
+    nand.dir_prefix = prefix;
+    std::vector<std::uint8_t> flf(2 * RT_FS_IMPORT_BYTES + 77), gf(1061);
+    for (std::size_t i = 0; i < flf.size(); ++i) flf[i] = static_cast<std::uint8_t>(i * 7 + 1);
+    for (std::size_t i = 0; i < gf.size(); ++i) gf[i] = static_cast<std::uint8_t>(i * 3 + 9);
+    nand.dir.push_back({"FLF.bin", flf});
+    nand.dir.push_back({"sub", {}});  // a subdirectory: its open fails, it is skipped
+    nand.dir.push_back({"GF_0_00.jpg", gf});
+
+    std::uintptr_t args[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+    std::uint32_t result = 0xDEADu;
+    const auto check_card_file = [&](const std::string& name, const std::vector<std::uint8_t>& expect, std::uint32_t at) {
+        FsCopyPath(path, prefix + "/" + name);
+        args[0] = FsAddr(path); args[1] = 1;
+        EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(1), args, &result), 1);
+        EXPECT_TRUE(static_cast<std::int32_t>(result) >= static_cast<std::int32_t>(RTFS_FD_BASE));
+        const std::uint32_t fd = result;
+        args[0] = fd; args[1] = RTFS_IOCTL_GETFILESTATS; args[2] = 0; args[3] = 0; args[4] = FsAddr(out); args[5] = 8;
+        EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(6), args, &result), 1);
+        EXPECT_EQ(result, 0u);
+        EXPECT_EQ(out[0], static_cast<std::uint32_t>(expect.size()));
+        args[0] = fd; args[1] = at; args[2] = 0;
+        EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(5), args, &result), 1);
+        const std::uint32_t n = std::min<std::uint32_t>(64, static_cast<std::uint32_t>(expect.size()) - at);
+        std::memset(data, 0xEE, 64);
+        args[0] = fd; args[1] = FsAddr(data); args[2] = n;
+        EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(3), args, &result), 1);
+        EXPECT_EQ(result, n);
+        EXPECT_TRUE(std::memcmp(data, expect.data() + at, n) == 0);
+        args[0] = fd;
+        EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(2), args, &result), 1);
+    };
+
+    // From an IPC callback the clone waits (the synchronous functions
+    // cannot run there); the request itself is answered as usual.
+    st->clone_pending = 1;
+    rt_host_fs_in_thread = 0;
+    FsCopyPath(path, "/dev/stm/immediate");
+    args[0] = FsAddr(path); args[1] = 0; args[2] = 0x80001000u; args[3] = 0x80002000u;
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC(1), args, &result), 0);
+    EXPECT_EQ(st->clone_pending, 1u);
+    EXPECT_EQ(st->clones, 0u);
+    rt_host_fs_in_thread = 1;
+
+    // The game's first call on a thread (a sync open of another device,
+    // replayed): the NAND directory is listed and copied in first. The
+    // subdirectory entry is skipped and counted; nothing on NAND is
+    // deleted; the clone's own /dev/fs fd is closed and not learned.
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(1), args, &result), 0);
+    EXPECT_EQ(st->clone_pending, 0u);
+    EXPECT_EQ(st->clones, 1u);
+    EXPECT_EQ(st->clone_files, 2u);
+    EXPECT_EQ(st->clone_failures, 1u);
+    EXPECT_EQ(nand.readdirs, 2u);
+    EXPECT_EQ(nand.opens, 2u);
+    EXPECT_EQ(nand.closes, 2u);
+    EXPECT_EQ(nand.fs_opens, 1u);
+    EXPECT_EQ(nand.fs_closes, 1u);
+    EXPECT_TRUE(nand.deleted.empty());
+    EXPECT_EQ(st->fs.fs_fd, -1);
+    EXPECT_EQ(st->fs.busy, 0u);
+    check_card_file("FLF.bin", flf, 0);
+    check_card_file("FLF.bin", flf, 2 * RT_FS_IMPORT_BYTES + 77 - 40);
+    check_card_file("GF_0_00.jpg", gf, 1000);
+    EXPECT_EQ(st->imports, 0u);
+
+    // Once only.
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(1), args, &result), 0);
+    EXPECT_EQ(st->clones, 1u);
+    EXPECT_EQ(nand.readdirs, 2u);
+
+    // A NAND directory that does not exist: nothing to copy, not a failure.
+    st->clone_pending = 1;
+    nand.dir_prefix = "/title/00010000/00000000/data";
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(1), args, &result), 0);
+    EXPECT_EQ(st->clones, 2u);
+    EXPECT_EQ(st->clone_failures, 1u);
+    EXPECT_EQ(st->clone_files, 2u);
+
+    // Without the game's synchronous ioctlv the listing is impossible:
+    // the clone is given up, counted, and never retried.
+    st->clone_pending = 1;
+    st->ioctlv_sync = 0;
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(1), args, &result), 0);
+    EXPECT_EQ(st->clone_pending, 0u);
+    EXPECT_EQ(st->clones, 2u);
+    EXPECT_EQ(st->clone_failures, 2u);
+
+    rt_host_fs_open_sync = nullptr;
+    rt_host_fs_close_sync = nullptr;
+    rt_host_fs_read_sync = nullptr;
+    rt_host_fs_ioctl_sync = nullptr;
+    rt_host_fs_ioctlv_sync = nullptr;
+    rt_host_fs_transfer = nullptr;
+    g_fs_card = nullptr;
     g_nand = nullptr;
 }
 
@@ -2246,6 +2429,7 @@ int main() {
     TestFsSyncIntercept();
     TestFsAsyncIntercept();
     TestFsRenameImport();
+    TestFsClone();
     TestResidentHandler();
     TestPayloadAndRedirect();
     TestVirtualWindow();

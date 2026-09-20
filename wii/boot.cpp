@@ -821,10 +821,13 @@ bool prepare_savegame(const DiscProbe& probe, const BootOptions& options, Savega
     char prefix[64];
     std::snprintf(prefix, sizeof(prefix), "/title/%08x/%08x/data",
                   static_cast<unsigned>(probe.tmd.title_id >> 32), static_cast<unsigned>(probe.tmd.title_id & 0xFFFFFFFFu));
-    if (!make_directories(options.savegame_dir + "/.")) {
+    struct stat existing;
+    const bool existed = stat(options.savegame_dir.c_str(), &existing) == 0 && S_ISDIR(existing.st_mode);
+    if (!existed && !make_directories(options.savegame_dir + "/.")) {
         error = "cannot create the save folder " + options.savegame_dir;
         return false;
     }
+    out.clone = options.savegame_clone && !existed;
     LogClose();
     fatUnmount("sd:");
     const bool mounted = fatMountSimple("sd", &__io_wiisd);
@@ -836,7 +839,8 @@ bool prepare_savegame(const DiscProbe& probe, const BootOptions& options, Savega
     if (!resolve_sd_directory(options.savegame_dir, out.volume, error)) return false;
     out.prefix = prefix;
     out.enabled = true;
-    logf("Savegame: %s served from %s\n", prefix, options.savegame_dir.c_str());
+    logf("Savegame: %s served from %s%s\n", prefix, options.savegame_dir.c_str(),
+         out.clone ? " (new folder: the NAND save is cloned in)" : existed ? " (existing folder)" : " (new folder)");
     return true;
 }
 

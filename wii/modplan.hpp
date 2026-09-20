@@ -27,6 +27,7 @@ struct CompiledMod {
     std::vector<FstRelocation> relocations;
     std::vector<MemoryPatch> memory;  // values read (valuefile resolved), in package and document order
     std::string savegame_dir;         // sd:/ folder of the one <savegame external> selected, empty = none
+    bool savegame_clone = false;      // any selected <savegame> asked for clone (the default)
     std::vector<std::string> notes;  // one line per folder, patched file and memory patch, for the log
     std::vector<std::string> warnings;  // from the package parser
 };

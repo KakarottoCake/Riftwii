@@ -237,6 +237,7 @@ bool BootCompiled(const CompiledMod& mod, std::string& error) {
     options.relocations = mod.relocations;
     options.memory_patches = mod.memory;
     options.savegame_dir = mod.savegame_dir;
+    options.savegame_clone = mod.savegame_clone;
     return boot_game(s.probe, options, error);
 }
 
@@ -485,6 +486,7 @@ void RunAutorun() {
             options.relocations = mods.relocations;
             options.memory_patches = mods.memory;
             options.savegame_dir = mods.savegame_dir;
+            options.savegame_clone = mods.savegame_clone;
             if (!s.ensure_probe(error)) {
                 ok = false;
             } else {

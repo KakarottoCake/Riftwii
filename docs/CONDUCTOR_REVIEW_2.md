@@ -1249,9 +1249,8 @@ async one queues) since IOS serializes too. The loader compiles
 `<savegame>` into the context (prefix, volume, folder cluster), creates
 the folder when missing, and allows the selection (`allow_savegames`).
 `clone` is a second step: the loader cannot read another title's data
-directory under IOS58, so the copy either runs lazily in the runtime
-(read through the real `IOS_Open` before the redirect takes effect) or
-waits for a permission story; documented as not done until then.
+directory under IOS58, so the copy runs lazily in the runtime, as the
+game, through the real `IOS_Open` (done: section 24.16).
 
 ### 24.6 Slices
 1. `rtfat` with host tests (in-memory image, fake device). Done.
@@ -1555,3 +1554,48 @@ FAT sectors after a failed transfer, against the engine's rule that a
 failed transfer ends the operation and the dispatcher marks the state
 dead. The ordering idea from that pass (zero before link) is what
 section 24.15 keeps.
+
+### 24.16 `<savegame clone>`; ReadDir packs names as IOS does (conductor, 2026-09-20)
+`clone` (the attribute's default) is done in the runtime, as the game:
+when the loader created the folder at this launch (an existing folder
+is used as it is) and the selection asked for a clone, `rt_fs_state.
+clone_pending` is set and the game's first hooked IOS call on a thread
+(the sync hook, or the async hook with `MSR[EE]` on) runs `rt_fs_clone`
+before it is answered: its own `/dev/fs` fd through the game's sync
+`IOS_Open`, the data directory listed through the game's sync
+`IOS_Ioctlv` (ReadDir, both forms), each name copied by `rt_fs_copy_in`
+(the import's body, now shared: NAND read through the original
+`IOS_Open`/`IOS_Read` in 32 KiB pieces, the card written through the
+engine's internal requests, the source left in place), the fd closed
+and not learned. A file that fails is skipped and counted; a missing
+NAND directory is an empty save; without the sync originals the clone
+is given up once. Gecko: `K:<path>:<result>` per file, the first line
+the count. Loader: `SavegameOptions.clone`, `BootOptions.savegame_
+clone`, `CompiledMod.savegame_clone` from the XML; the planner's note
+says which. Blob 40864 bytes.
+
+The first Dolphin run listed four names and copied one: the names
+came back shifted (`c24dl.vff`, `ys.dat`, `.bin`). Dolphin's IOS
+(`FileSystemProxy.cpp`, `ReadDirectory`) packs the names one after
+another, each NUL-terminated (`address += size + 1`), in a buffer of
+13 bytes per name, and libogc's callers walk them with `strlen + 1`;
+the 13-byte slots `rtfat` wrote for the game's ReadDir were wrong the
+same way in the other direction. Both sides now pack consecutively
+(`rtfat` LIST: `list_bytes`; the clone's parser; the host fake NAND
+packs as Dolphin does); the buffer of 13 bytes per name can never be
+overrun since a name is at most 12 characters and a NUL.
+
+Dolphin, Mario Kart Wii with `mkw_clone.xml` (`clone="true"`, a new
+folder) and the NAND holding a save from an earlier unredirected run:
+`K:` lines for the listing (4) and the four files (0 each); Dolphin's
+IOS_FS log shows the two ReadDirectory calls and, per file, OpenFile,
+GetFileStatus, the 32 KiB Reads and Close, no Delete; the game then
+opens `rksys.dat` from the card directly (no creation), 3061 disc
+reads. `RKSYS.DAT`, `BANNER.BIN` and `WC24DL.VFF` in the card image
+are byte-identical to the NAND files (md5); `WC24SCR.VFF` differs
+because the game rewrites two of its sectors on every boot, as in
+every earlier run. Host: `hook_tests` `TestFsClone` (waits from an IPC
+callback, runs on the first thread call, subdirectory skipped, NAND
+untouched, own fd closed and not learned, once only, missing
+directory, no sync ioctlv); the `rtfat`/`rtfs` listing tests check the
+packing. Open: the hardware run of everything since section 11.

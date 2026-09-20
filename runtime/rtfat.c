@@ -487,9 +487,12 @@ static int on_short_entry(struct rtfat_op* op, const uint8_t* e, uint32_t lba, u
         default: /* SCAN_LIST */
             if (!(attr & ATTR_DIRECTORY)) {
                 if (op->kind == RTFAT_OP_LIST && op->count < op->length) {
-                    uint8_t* slot = (uint8_t*)(uintptr_t)op->buffer + op->count * RTFAT_SLOT_BYTES;
-                    zero_bytes(slot, RTFAT_SLOT_BYTES);
+                    /* As IOS answers ReadDir: the names one after another,
+                     * each NUL-terminated (Dolphin's IOS, libogc's callers). */
+                    uint8_t* slot = (uint8_t*)(uintptr_t)op->buffer + op->list_bytes;
                     for (i = 0; i < RTFAT_NAME_MAX && d.name[i]; ++i) slot[i] = (uint8_t)d.name[i];
+                    slot[i] = 0;
+                    op->list_bytes += i + 1;
                 }
                 op->count++;
                 op->usage_blocks += (d.size + USAGE_BLOCK - 1) / USAGE_BLOCK;
@@ -550,6 +553,7 @@ static void scan_begin(const struct rtfat_volume* vol, struct rtfat_op* op, uint
     op->free_run = 0;
     op->short_mask = 0;
     op->count = 0;
+    op->list_bytes = 0;
     op->usage_blocks = 0;
     reset_lfn(op);
     op->state = S_SCAN_READ;

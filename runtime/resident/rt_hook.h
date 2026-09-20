@@ -189,12 +189,22 @@ typedef void (*rt_game_callback_fn)(int32_t result, uint32_t user_data);
  * hook, or from the async hook when it was called with interrupts on
  * (a thread); from an IPC callback it is refused with -102. A rename out
  * of the directory is refused with -102.
+ *
+ * <savegame clone>: when the loader created the folder at this launch
+ * and the package asked for a clone, the NAND save is copied into it
+ * (rt_fs_clone) on the game's thread before its first hooked IOS call
+ * is answered: the directory is listed and every file read through the
+ * game's own synchronous functions (its uid may read its data; the
+ * loader's may not) and written into the card the way an import is,
+ * NAND untouched. A file's failure skips it; the game's requests then
+ * proceed against whatever was copied.
  */
 #define RT_FS_SNOOPS 2u
 #define RT_FS_DELIVERS 4u
 #define RT_FS_QUEUE 4u
 #define RT_FS_BOUNCE_BYTES 0x8000u    /* one transfer moves up to 64 sectors */
 #define RT_FS_IMPORT_BYTES 0x8000u    /* one NAND read of an imported file */
+#define RT_FS_CLONE_MAX 128u          /* files a clone copies at most (ReadDir slots held) */
 #define RT_FS_OP_FILE 1u
 #define RT_FS_OP_SNOOP 2u
 #define RT_FS_OP_DELIVER 3u
@@ -250,7 +260,11 @@ struct rt_fs_state {
     uint32_t imports;              /* renames into the directory served by importing the file */
     uint32_t import_failures;      /* of those, failed (the destination is then absent) */
     uint32_t import_refused;       /* renames across the boundary refused with -102 */
-    uint32_t reserved[3];
+    uint32_t clone_pending;        /* loader-filled: copy the NAND save in before the first request */
+    uint32_t clones;               /* clone runs (0 or 1) */
+    uint32_t clone_files;          /* files copied by the clone */
+    uint32_t clone_failures;       /* files the clone could not copy, or a clone that could not start */
+    uint32_t reserved[7];
     struct rt_fs_pend pend;
     struct rt_fs_pend snoop[RT_FS_SNOOPS];
     struct rt_fs_pend deliver[RT_FS_DELIVERS];
@@ -262,6 +276,11 @@ struct rt_fs_state {
     uint32_t pad_vec[2];
     uint32_t stats[8] __attribute__((aligned(32)));      /* an import's GetFileStats answer */
     struct rtfs_attr_block attr __attribute__((aligned(32)));  /* an import's CreateFile block */
+    char path[RTFS_PATH_BYTES] __attribute__((aligned(32)));   /* the clone's path in flight */
+    uint32_t count_in[8] __attribute__((aligned(32)));          /* the clone's ReadDir count, in */
+    uint32_t count_out[8] __attribute__((aligned(32)));         /* and out, their own lines (IOS DMA) */
+    struct rt_ioctlv dvec[4] __attribute__((aligned(32)));      /* the clone's ReadDir vectors */
+    uint8_t names[RT_FS_CLONE_MAX * RTFAT_SLOT_BYTES] __attribute__((aligned(32)));  /* the clone's listing */
     uint8_t bounce[RT_FS_BOUNCE_BYTES] __attribute__((aligned(32)));
     uint8_t import[RT_FS_IMPORT_BYTES] __attribute__((aligned(32)));
 };
@@ -381,6 +400,8 @@ extern int32_t (*rt_host_fs_close_sync)(int32_t fd);
 extern int32_t (*rt_host_fs_read_sync)(int32_t fd, uint32_t buffer, uint32_t length);
 extern int32_t (*rt_host_fs_ioctl_sync)(int32_t fd, uint32_t request, uint32_t in, uint32_t in_len, uint32_t out,
                                          uint32_t out_len);
+extern int32_t (*rt_host_fs_ioctlv_sync)(int32_t fd, uint32_t request, uint32_t in_count, uint32_t out_count,
+                                          struct rt_ioctlv* vec);
 extern int rt_host_fs_in_thread; /* 1: hooks run as on a thread (interrupts on); 0: as from an IPC callback */
 extern void (*rt_host_game_callback)(uint32_t cb, int32_t result, uint32_t user_data);
 #endif

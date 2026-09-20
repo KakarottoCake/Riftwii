@@ -773,19 +773,25 @@ static void TestList(Low& low) {
                                  (77 + 16383) / 16384 + ((fx.img.clusters + 10) * cb + 16383) / 16384;
     EXPECT_EQ(op.usage_blocks, blocks);
 
+    // The names are packed as IOS packs them: one after another, each
+    // NUL-terminated, in a buffer of 13 bytes per name asked for.
     std::memset(low.data, 0xAA, 13 * 8);
     op.buffer = Addr(low.data);
     op.length = 8;
     EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_LIST), 5);
-    EXPECT_EQ(std::string(reinterpret_cast<char*>(low.data) + 0 * 13), "banner.bin");
-    EXPECT_EQ(std::string(reinterpret_cast<char*>(low.data) + 1 * 13), "RKSYS.DAT");
-    EXPECT_EQ(std::string(reinterpret_cast<char*>(low.data) + 2 * 13), "wiimote.data");
-    EXPECT_EQ(std::string(reinterpret_cast<char*>(low.data) + 3 * 13), "LOOP.BIN");
-    EXPECT_EQ(std::string(reinterpret_cast<char*>(low.data) + 4 * 13), "TOOLON~1.TXT");
-    EXPECT_EQ(low.data[13 * 5], 0xAA);  // untouched beyond the five
+    {
+        const char* p = reinterpret_cast<const char*>(low.data);
+        const char* expect[5] = {"banner.bin", "RKSYS.DAT", "wiimote.data", "LOOP.BIN", "TOOLON~1.TXT"};
+        std::size_t at = 0;
+        for (const char* e : expect) {
+            EXPECT_EQ(std::string(p + at), e);
+            at += std::string(e).size() + 1;
+        }
+        EXPECT_EQ(at, std::size_t(11 + 10 + 13 + 9 + 13));
+        EXPECT_EQ(low.data[at], 0xAA);  // untouched beyond the names
+    }
     SetName(op.name, "toolon~1.txt");
     EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_LOOKUP), RTFAT_OK);
-    EXPECT_EQ(low.data[12], 0);         // each slot NUL-terminated
 
     op.length = 2;
     EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_LIST), 2);

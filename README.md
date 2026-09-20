@@ -47,8 +47,8 @@ Direction, review findings and the roadmap live in `docs/`.
   folder on the card: the resident runtime hooks the SDK's IOS calls
   and answers the ISFS requests from its own FAT32 engine over SDIO,
   importing the temporaries the SDK's safe write renames in (Mario
-  Kart Wii's `rksys.dat` lands on the card in Dolphin; `clone` is not
-  implemented).
+  Kart Wii's `rksys.dat` lands on the card in Dolphin); `clone` copies
+  the NAND save into a folder created at launch, as the game.
 - `vendor-pugixml`: MIT-licensed XML parser, pinned at v1.15.
 - `vendor-libgui`: pinned GPL libwiigui 1.07 snapshot, used only by the Wii
   frontend (not built by the host build).
@@ -154,6 +154,6 @@ end-to-end test runs XML text -> `parse_package` -> `plan_package` ->
 provider -> split `read()` consumption and compares every byte against an
 oracle.
 
-Still future: `<savegame clone>`, and hardware runs of everything the
-Dolphin sections of `docs/CONDUCTOR_REVIEW_2.md` cover (the runtime
-architecture and the gate sequence are described there).
+Still future: hardware runs of everything the Dolphin sections of
+`docs/CONDUCTOR_REVIEW_2.md` cover (the runtime architecture and the
+gate sequence are described there).

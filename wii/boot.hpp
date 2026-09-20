@@ -105,6 +105,10 @@ struct BootOptions {
     // from by the runtime (requires install_resident and the card; the
     // folder is created when missing). Empty: the save stays on NAND.
     std::string savegame_dir;
+    // <savegame clone>: when the folder is created at this launch, the
+    // runtime copies the title's NAND save into it before the game's
+    // first request. An existing folder is used as it is.
+    bool savegame_clone = false;
 };
 
 // Reloads IOS, runs the apploader and jumps to the game. Only returns on

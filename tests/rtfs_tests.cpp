@@ -260,6 +260,7 @@ void TestIoctlsAndDirectory(Low& low) {
     list.args.ioctlv.in_count = 2; list.args.ioctlv.out_count = 2; list.args.ioctlv.vectors = Addr(low.vec);
     EXPECT_EQ(Run(fx, low, list), RTFAT_OK); EXPECT_EQ(*count, 3u);
     EXPECT_TRUE(std::string(reinterpret_cast<char*>(low.data + 256)) == "banner.bin");
+    EXPECT_TRUE(std::string(reinterpret_cast<char*>(low.data + 256 + 11)).size() > 0);  // the next name follows the NUL, as IOS packs them
     fx.dev.fail_at = fx.dev.transfers + 1;
     EXPECT_EQ(Run(fx, low, list), RTFAT_EIO);
     std::uint32_t* blocks = reinterpret_cast<std::uint32_t*>(low.data + 512); std::uint32_t* files = blocks + 1;

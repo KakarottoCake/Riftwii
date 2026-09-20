@@ -230,6 +230,10 @@ static int32_t rt_fs_ioctl_sync(struct rt_fs_state* st, int32_t fd, uint32_t req
     return ((rt_ioctl_sync_fn)(uintptr_t)st->ioctl_sync)(fd, request, (const void*)(uintptr_t)in, in_len,
                                                            (void*)(uintptr_t)out, out_len);
 }
+static int32_t rt_fs_ioctlv_sync(struct rt_fs_state* st, int32_t fd, uint32_t request, uint32_t in_count,
+                                 uint32_t out_count, struct rt_ioctlv* vec) {
+    return ((rt_ioctlv_sync_fn)(uintptr_t)st->ioctlv_sync)((uint32_t)fd, request, in_count, out_count, vec);
+}
 /* On a thread (external interrupts on) rather than inside an interrupt
  * handler: synchronous IOS calls may sleep here. MSR[EE] is 0x8000. */
 static int rt_fs_in_thread(void) {
@@ -262,8 +266,15 @@ int32_t (*rt_host_fs_close_sync)(int32_t fd) = 0;
 int32_t (*rt_host_fs_read_sync)(int32_t fd, uint32_t buffer, uint32_t length) = 0;
 int32_t (*rt_host_fs_ioctl_sync)(int32_t fd, uint32_t request, uint32_t in, uint32_t in_len, uint32_t out,
                                   uint32_t out_len) = 0;
+int32_t (*rt_host_fs_ioctlv_sync)(int32_t fd, uint32_t request, uint32_t in_count, uint32_t out_count,
+                                   struct rt_ioctlv* vec) = 0;
 int rt_host_fs_in_thread = 1;
 void (*rt_host_game_callback)(uint32_t cb, int32_t result, uint32_t user_data) = 0;
+static int32_t rt_fs_ioctlv_sync(struct rt_fs_state* st, int32_t fd, uint32_t request, uint32_t in_count,
+                                 uint32_t out_count, struct rt_ioctlv* vec) {
+    (void)st;
+    return rt_host_fs_ioctlv_sync == 0 ? -1 : rt_host_fs_ioctlv_sync(fd, request, in_count, out_count, vec);
+}
 static int32_t rt_fs_close_sync(struct rt_fs_state* st, int32_t fd) {
     (void)st;
     return rt_host_fs_close_sync == 0 ? -1 : rt_host_fs_close_sync(fd);
@@ -801,25 +812,23 @@ static int32_t rt_fs_run_internal(struct rt_context* ctx, struct rt_fs_state* st
     return st->req.result;
 }
 
-/* A rename from outside the redirected directory into it (rt_hook.h):
- * the NAND file `src` becomes the card file `dst` (replacing one of that
- * name), then leaves NAND. `fs_fd` is the game's /dev/fs fd the rename
- * came on. Runs on the game's thread; returns the ISFS result. */
-static int32_t rt_fs_import(struct rt_context* ctx, struct rt_fs_state* st, int32_t fs_fd, const char* src,
-                            const char* dst) {
+/* Whether the game's synchronous functions an import or a clone needs
+ * are known. */
+static int rt_fs_has_sync_originals(const struct rt_fs_state* st) {
+    return st->open_sync != 0 && st->close_sync != 0 && st->read_sync != 0 && st->ioctl_sync != 0;
+}
+
+/* Copies the NAND file `src` into the card file `dst` (replacing one of
+ * that name), then deletes the source when `move` (an import) or leaves
+ * it (a clone). `fs_fd` is a /dev/fs fd for the delete. Runs on the
+ * game's thread; returns the ISFS result. */
+static int32_t rt_fs_copy_in(struct rt_context* ctx, struct rt_fs_state* st, int32_t fs_fd, const char* src,
+                             const char* dst, int move) {
     struct rtfs_ipc ipc;
     int32_t src_fd, fake_fd = -1, r;
     uint32_t size, done, i;
-    if (st->open_sync == 0 || st->close_sync == 0 || st->read_sync == 0 || st->ioctl_sync == 0) {
-        st->import_refused++;
-        return RTFAT_EACCESS;
-    }
-    st->imports++;
     src_fd = rt_fs_open_sync(st, (uint32_t)(uintptr_t)src, 1);
-    if (src_fd < 0) {
-        st->import_failures++;
-        return src_fd;
-    }
+    if (src_fd < 0) return src_fd;
     rt_flush_range((uintptr_t)st->stats, sizeof(st->stats));
     r = rt_fs_ioctl_sync(st, src_fd, RTFS_IOCTL_GETFILESTATS, 0, 0, (uint32_t)(uintptr_t)st->stats, 8);
     if (r >= 0) {
@@ -889,13 +898,125 @@ static int32_t rt_fs_import(struct rt_context* ctx, struct rt_fs_state* st, int3
             ipc.args.ioctl.in_len = RTFS_PATH_BYTES;
             rt_fs_run_internal(ctx, st, &ipc);
         }
-        st->import_failures++;
         return r;
     }
     /* The move's other half. A failure here leaves a stray NAND file,
      * nothing worse. */
-    rt_fs_ioctl_sync(st, fs_fd, RTFS_IOCTL_DELETE, (uint32_t)(uintptr_t)src, RTFS_PATH_BYTES, 0, 0);
+    if (move) rt_fs_ioctl_sync(st, fs_fd, RTFS_IOCTL_DELETE, (uint32_t)(uintptr_t)src, RTFS_PATH_BYTES, 0, 0);
     return RTFAT_OK;
+}
+
+/* A rename from outside the redirected directory into it (rt_hook.h):
+ * the NAND file `src` becomes the card file `dst`, then leaves NAND.
+ * `fs_fd` is the game's /dev/fs fd the rename came on. */
+static int32_t rt_fs_import(struct rt_context* ctx, struct rt_fs_state* st, int32_t fs_fd, const char* src,
+                            const char* dst) {
+    int32_t r;
+    if (!rt_fs_has_sync_originals(st)) {
+        st->import_refused++;
+        return RTFAT_EACCESS;
+    }
+    st->imports++;
+    r = rt_fs_copy_in(ctx, st, fs_fd, src, dst, 1);
+    if (r < 0) st->import_failures++;
+    return r;
+}
+
+/* "K:<path>:<result>\n" over the Gecko for each file a clone copies. */
+static void rt_fs_report_clone(struct rt_context* ctx, const char* path, int32_t result) {
+    uint32_t i;
+    if (!(ctx->flags & RT_FLAG_GECKO)) return;
+    rt_gecko_putc(ctx, 'K');
+    rt_gecko_putc(ctx, ':');
+    for (i = 0; i < RTFS_PATH_BYTES && path[i] != 0; ++i) rt_gecko_putc(ctx, (uint32_t)(uint8_t)path[i]);
+    rt_gecko_putc(ctx, ':');
+    rt_gecko_hex(ctx, (uint32_t)result);
+    rt_gecko_putc(ctx, '\n');
+}
+
+/* <savegame clone> (rt_hook.h): the NAND data directory copied into the
+ * folder, once, on the game's thread. Its own /dev/fs fd, opened and
+ * closed here; the listing through the game's synchronous IOS_Ioctlv
+ * (ReadDir: the path and a count in, the names one after another, each
+ * NUL-terminated, in a buffer of 13 bytes per name, and the count out);
+ * each name copied by rt_fs_copy_in with the same path on both sides
+ * (NAND through the original IOS_Open, the card through the engine). */
+static void rt_fs_clone(struct rt_context* ctx, struct rt_fs_state* st) {
+    int32_t fd, r;
+    uint32_t count, i, n;
+    char* p = st->path;
+    st->clone_pending = 0;
+    if (!rt_fs_has_sync_originals(st) || st->ioctlv_sync == 0) {
+        st->clone_failures++;
+        return;
+    }
+    st->clones++;
+    rt_zero_bytes((uint8_t*)p, RTFS_PATH_BYTES);
+    p[0] = '/'; p[1] = 'd'; p[2] = 'e'; p[3] = 'v'; p[4] = '/'; p[5] = 'f'; p[6] = 's';
+    fd = rt_fs_open_sync(st, (uint32_t)(uintptr_t)p, 0);
+    if (fd < 0) {
+        st->clone_failures++;
+        rt_fs_report_clone(ctx, p, fd);
+        return;
+    }
+    /* The listing. A missing directory is an empty save: nothing to copy. */
+    rt_zero_bytes((uint8_t*)p, RTFS_PATH_BYTES);
+    for (i = 0; i < st->fs.prefix_len && i < RTFS_PATH_BYTES - 1; ++i) p[i] = st->fs.data_prefix[i];
+    st->count_in[0] = 0;
+    st->count_out[0] = 0;
+    rt_flush_range((uintptr_t)st->count_in, sizeof(st->count_in));
+    rt_flush_range((uintptr_t)st->count_out, sizeof(st->count_out));
+    st->dvec[0].data = (uint32_t)(uintptr_t)p;
+    st->dvec[0].len = RTFS_PATH_BYTES;
+    st->dvec[1].data = (uint32_t)(uintptr_t)st->count_out;
+    st->dvec[1].len = 4;
+    rt_flush_range((uintptr_t)st->dvec, sizeof(st->dvec));
+    r = rt_fs_ioctlv_sync(st, fd, RTFS_IOCTL_READDIR, 1, 1, st->dvec);
+    count = r < 0 ? 0 : st->count_out[0];
+    if (count > RT_FS_CLONE_MAX) count = RT_FS_CLONE_MAX;
+    if (r < 0 && r != RTFAT_ENOENT) st->clone_failures++;
+    rt_fs_report_clone(ctx, p, r < 0 ? r : (int32_t)count);
+    if (count != 0) {
+        st->count_in[0] = count;
+        rt_flush_range((uintptr_t)st->count_in, sizeof(st->count_in));
+        rt_flush_range((uintptr_t)st->count_out, sizeof(st->count_out));
+        rt_zero_bytes(st->names, sizeof(st->names));
+        rt_flush_range((uintptr_t)st->names, sizeof(st->names));
+        st->dvec[1].data = (uint32_t)(uintptr_t)st->count_in;
+        st->dvec[1].len = 4;
+        st->dvec[2].data = (uint32_t)(uintptr_t)st->names;
+        st->dvec[2].len = count * RTFAT_SLOT_BYTES;
+        st->dvec[3].data = (uint32_t)(uintptr_t)st->count_out;
+        st->dvec[3].len = 4;
+        rt_flush_range((uintptr_t)st->dvec, sizeof(st->dvec));
+        r = rt_fs_ioctlv_sync(st, fd, RTFS_IOCTL_READDIR, 2, 2, st->dvec);
+        if (r < 0) {
+            st->clone_failures++;
+            count = 0;
+        } else if (st->count_out[0] < count) {
+            count = st->count_out[0];
+        }
+    }
+    for (n = 0, i = 0; n < count && i < count * RTFAT_SLOT_BYTES; ++n) {
+        const char* name = (const char*)st->names + i;
+        uint32_t at = st->fs.prefix_len;
+        uint32_t len = 0;
+        while (i + len < count * RTFAT_SLOT_BYTES && name[len] != 0) len++;
+        i += len + 1;
+        if (len == 0 || len > RTFAT_NAME_MAX || at + 1 + len >= RTFS_PATH_BYTES) continue;
+        rt_zero_bytes((uint8_t*)p, RTFS_PATH_BYTES);
+        {
+            uint32_t k;
+            for (k = 0; k < at; ++k) p[k] = st->fs.data_prefix[k];
+            p[at++] = '/';
+            for (k = 0; k < len; ++k) p[at + k] = name[k];
+        }
+        r = rt_fs_copy_in(ctx, st, fd, p, p, 0);
+        if (r < 0) st->clone_failures++;
+        else st->clone_files++;
+        rt_fs_report_clone(ctx, p, r);
+    }
+    rt_fs_close_sync(st, fd);
 }
 
 /* Whether an ISFS rename crosses the directory's boundary: 1 inward
@@ -924,6 +1045,7 @@ static int rt_on_sync_fs(struct rt_context* ctx, uint32_t entry_index, uintptr_t
     struct rt_fs_state* st = rt_fs_of(ctx);
     uint32_t classification;
     if (st == 0) return 0;
+    if (st->clone_pending) rt_fs_clone(ctx, st); /* the game's first call: on its thread */
     if (!rt_build_fs_ipc(entry_index, args, &ipc)) return 0;
     if (ipc.command == RTFS_CMD_OPEN && rtfs_is_fs_device((const char*)(uintptr_t)ipc.args.open.path)) {
         /* The game opening /dev/fs: done for it through the original, so
@@ -993,6 +1115,7 @@ static int rt_on_async_fs(struct rt_context* ctx, uint32_t entry_index, uintptr_
     uint32_t i;
     int admit;
     if (st == 0) return 0;
+    if (st->clone_pending && rt_fs_in_thread()) rt_fs_clone(ctx, st);
     if (!rt_build_fs_ipc(entry_index, args, &ipc)) return 0;
     if (ipc.command == RTFS_CMD_OPEN && rtfs_is_fs_device((const char*)(uintptr_t)ipc.args.open.path)) {
         /* The game opening /dev/fs: replayed to IOS under observation,

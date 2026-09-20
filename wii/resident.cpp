@@ -226,6 +226,7 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
             return false;
         }
         st->complete_fs = place.code_base + blob.complete_fs_offset;
+        st->clone_pending = options.savegame.clone ? 1u : 0u;
         st->open_sync = original(RT_IPC_SYNC(1));
         st->close_sync = original(RT_IPC_SYNC(2));
         st->read_sync = original(RT_IPC_SYNC(3));
@@ -278,10 +279,10 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
              options.sdio_sdhc ? "SDHC" : "SDSC", bounce_address, symbols.ioctlv_async);
     }
     if (has_fs) {
-        logf("Resident: savegame %s served from folder cluster %u, state %u bytes at 0x%08x, SD fd %d (%s)\n",
+        logf("Resident: savegame %s served from folder cluster %u, state %u bytes at 0x%08x, SD fd %d (%s)%s\n",
              options.savegame.prefix.c_str(), options.savegame.volume.dir_cluster,
              static_cast<unsigned>(sizeof(rt_fs_state)), fs_state_address, options.sdio_fd,
-             options.sdio_sdhc ? "SDHC" : "SDSC");
+             options.sdio_sdhc ? "SDHC" : "SDSC", options.savegame.clone ? ", NAND save cloned in first" : "");
     }
     error.clear();
     return true;

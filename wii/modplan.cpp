@@ -136,9 +136,9 @@ static bool gather_package(const PackageSelection& selection, const DiscProbe& p
     if (!plan_package(package, disc, allowed, plan, error)) return false;
 
     // <savegame>: one folder per launch; a second, different one is an
-    // error rather than a silent choice. `clone` is not implemented (the
-    // loader cannot read another title's NAND data under IOS58, section
-    // 24.5): the folder starts as it is.
+    // error rather than a silent choice. `clone` (the default) copies the
+    // NAND save into a folder created at this launch; the runtime does
+    // that as the game, which may read its own data directory.
     for (const SavegamePatch& sg : plan.savegames) {
         std::string abs = sg.external;
         if (abs.empty() || abs[0] != '/') abs = "/" + abs;
@@ -150,7 +150,8 @@ static bool gather_package(const PackageSelection& selection, const DiscProbe& p
             return false;
         }
         mod.savegame_dir = sd;
-        mod.notes.push_back("savegame redirected to " + sd + (sg.clone ? " (clone is not implemented; the folder is used as it is)" : ""));
+        if (sg.clone) mod.savegame_clone = true;
+        mod.notes.push_back("savegame redirected to " + sd + (sg.clone ? " (NAND save cloned into a new folder)" : " (no clone)"));
     }
 
     // <folder> patches become <file> patches (listing the card).
