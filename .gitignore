@@ -6,3 +6,4 @@ build_wii/
 Testing/
 build-dolphin/
 build-runtime/
+*.dtm
