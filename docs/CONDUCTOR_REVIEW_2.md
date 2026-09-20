@@ -1534,6 +1534,16 @@ copies, entry locations, the deleted marker, the engine's and the
 host reader's listings) and inject a failure at every transfer of the
 first growth, checking that a linked cluster is always zeroed.
 
+Kirby again with the grown directory: the 32 imports (`FLF.bin`,
+thirty `GF_<n>_<nn>.jpg`, `banner.bin`) all answer 0, the game reaches
+its title, the file select reads each `GF_0_<nn>.jpg` back (async
+open, one 0x20000-byte read, close) for its thumbnails, and a file can
+be started into the intro; no FS request in the run answered an error
+other than the -106 probes of files about to be made. The card image
+afterwards: the folder's directory is a chain of three one-sector
+clusters, `FLF.BIN` 43456 bytes (`FLUS`), thirty `GF_*.JPG` of 131072
+bytes (`FLUS`), `BANNER.BIN` 61600 bytes (`WIBN`).
+
 Reviewed and declined from another agent's pass over the same code
 (kept aside, not committed): a rewrite of the async FS path that
 scheduled every async request behind a null round trip and started it
