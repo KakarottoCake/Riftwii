@@ -1681,3 +1681,70 @@ along with the hardware run of everything since section 11. Note for
 the harness: a killed run's `run.sh` keeps sleeping and its final
 `taskkill` ends whatever Dolphin runs next; wait for it or kill the
 script too.
+
+### 24.18 Handoff safeguards (conductor, 2026-09-20)
+Before the game entry is called, the loader owns an open, selected raw SD
+card only while it is preparing the resident. A scope guard now deselects
+and closes it on every failed preparation path; ownership transfers only
+immediately before the irreversible handoff, and an unexpected return from
+the game entry closes it too. Memory patch planning now removes the full
+16-byte range of every IPC entry actually overwritten by a resident
+trampoline, rather than protecting only `IOS_IoctlAsync`. The range helper
+is host tested with unsorted, duplicate, touching, overlapping and
+out-of-range exclusions, and with ordinary writable gaps on either side of
+a protected stub. A clone marker that already exists is also hidden and
+verified again before launch, so a previous failed attribute write cannot
+leave it visible to the game.
+
+### 24.19 Directory-extension recovery (conductor, 2026-09-20)
+
+`rtfat` now treats a directory extension as a recoverable card mutation.
+It marks the candidate, zeroes every candidate sector, and only then links
+the old directory tail. If any forward request fails before the first new
+dirent is durable, it restores that tail to EOC in every FAT copy and then
+clears the candidate in every copy. The sweep keeps attempting later copies
+after a recovery I/O failure. If that sweep cannot prove the mirrored FATs
+consistent, the volume is marked mutation-uncertain: later writes, creates,
+deletes and renames answer `-114` until a remount; read-only lookups and
+reads remain available. FSInfo is deliberately not updated: its next-free
+field is advisory, while `alloc_hint` is reset so it cannot skip the
+restored free candidate. Host fault injection fails each transfer through a
+growth, including candidate mark/zero/link and the first dirent; every
+one-shot failure restores byte-identical directory/FAT state and preserved
+files. A second failure during rollback poisons the volume and rejects a
+later mutation. This protects request failures, not sudden power loss while
+the card writes sectors: FAT32 has no journal, so hardware power-loss tests
+remain required.
+
+The same conservative stop applies to ordinary file-chain allocation and
+freeing. Those mutations have no rollback log, so a failed FAT-copy write
+immediately marks the volume uncertain rather than allowing a later save
+write to compound a possible mirror mismatch. Focused host injection covers
+every FAT write in a growing file and in deletion, then verifies that a
+later create is refused while a lookup still works.
+
+### 24.20 Takeover of the in-flight tree (2026-09-20)
+Opus's 24.19 tree was taken over mid-flight (hook tests red, blob
+`.rodata` failing the position-independence check). Three fixes, each
+verified by the host suite (15/15), the runtime blob build and the Wii
+DOL build:
+1. The synchronous import's stage/backup/rename path buffers lived on
+the C stack, whose 64-bit host addresses truncate through the engine's
+32-bit fields; the first internal DELETE crashed in `path_type` on a
+truncated pointer. They now live in `rt_fs_state` (`copy_stage`,
+`copy_backup`, `copy_paths`: one sync import runs at a time behind the
+engine's one-at-a-time rule) like the job's record-held paths.
+2. The same rework's `".rwstage.tmp"` / `".rwback.tmp"` literals put 28
+bytes in `.rodata`, failing the blob's no-rodata rule. They are now
+spelled out char by char (`rt_stage_name`, `rt_backup_name`), PPC and
+host alike.
+3. The async rename's refused/import-failed path answered through the
+call (`*result = r`) while every sibling async answer is accept-at-call
+plus callback delivery, and a failed `rt_fs_deliver` (no null round
+trip possible) fell back to inline invocation, which 24.12 had removed
+for ordering reasons. Refusals now go through `rt_fs_deliver` and the
+call reports 0, or `-114` when no delivery can be scheduled; the host
+tests were updated to the fail-closed semantics (no inline callbacks).
+The snoop/open/close async tests were also updated to the explicit-
+original-call dispatcher (they still asserted the old register-swap
+shape), with the async original fakes wired in.
