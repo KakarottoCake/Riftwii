@@ -115,7 +115,9 @@ static int rt_gecko_command(uint32_t channel, uint32_t command, uint32_t* reply)
 
 /* USB Gecko protocol (wiibrew USB Gecko, libogc usbgecko.c): 0xC000 asks
  * whether a byte can be sent, 0xB0xx sends one; bit 0x0400 of the reply
- * means yes / accepted. */
+ * means yes / accepted. Lines are written from game threads and from the
+ * IPC interrupt handler on the one EXI channel: every reporter prints its
+ * whole line with interrupts off, so lines never interleave. */
 static int rt_gecko_putc(struct rt_context* ctx, uint32_t ch) {
     uint32_t reply = 0;
     uint32_t tries;
@@ -438,11 +440,13 @@ int rt_on_ioctl_async(struct rt_context* ctx, uintptr_t* args, uint32_t* result)
         ctx->last_di_length = length;
         if (ctx->flags & RT_FLAG_GECKO) {
             /* "R<word offset>:<length>\n", hex, no literals. */
+            const uint32_t msr = rt_interrupts_off();
             rt_gecko_putc(ctx, 'R');
             rt_gecko_hex(ctx, word_offset);
             rt_gecko_putc(ctx, ':');
             rt_gecko_hex(ctx, length);
             rt_gecko_putc(ctx, '\n');
+            rt_interrupts_restore(msr);
         }
         if (ctx->table != 0) {
             const int in_window = ctx->virtual_start_words != 0 && word_offset >= ctx->virtual_start_words;
@@ -535,7 +539,9 @@ static void rt_fs_swap_callback(uintptr_t* args, uint32_t command, uintptr_t cb,
  * and "C:<result>\n" when such a one completes. */
 static void rt_fs_report(struct rt_context* ctx, uint32_t entry_index, const struct rtfs_ipc* ipc, int32_t result,
                          int pending) {
+    uint32_t msr;
     if (!(ctx->flags & RT_FLAG_GECKO)) return;
+    msr = rt_interrupts_off();
     rt_gecko_putc(ctx, 'F');
     rt_gecko_hex(ctx, entry_index);
     rt_gecko_putc(ctx, ':');
@@ -592,14 +598,18 @@ static void rt_fs_report(struct rt_context* ctx, uint32_t entry_index, const str
     if (pending) rt_gecko_putc(ctx, 'P');
     else rt_gecko_hex(ctx, (uint32_t)result);
     rt_gecko_putc(ctx, '\n');
+    rt_interrupts_restore(msr);
 }
 
 static void rt_fs_report_done(struct rt_context* ctx, int32_t result) {
+    uint32_t msr;
     if (!(ctx->flags & RT_FLAG_GECKO)) return;
+    msr = rt_interrupts_off();
     rt_gecko_putc(ctx, 'C');
     rt_gecko_putc(ctx, ':');
     rt_gecko_hex(ctx, (uint32_t)result);
     rt_gecko_putc(ctx, '\n');
+    rt_interrupts_restore(msr);
 }
 
 /* The SENDCMD for the engine's pending transfer (CMD18 read, CMD25 write:
@@ -941,14 +951,16 @@ static int32_t rt_fs_import(struct rt_context* ctx, struct rt_fs_state* st, int3
 
 /* "K:<path>:<result>\n" over the Gecko for each file a clone copies. */
 static void rt_fs_report_clone(struct rt_context* ctx, const char* path, int32_t result) {
-    uint32_t i;
+    uint32_t i, msr;
     if (!(ctx->flags & RT_FLAG_GECKO)) return;
+    msr = rt_interrupts_off();
     rt_gecko_putc(ctx, 'K');
     rt_gecko_putc(ctx, ':');
     for (i = 0; i < RTFS_PATH_BYTES && path[i] != 0; ++i) rt_gecko_putc(ctx, (uint32_t)(uint8_t)path[i]);
     rt_gecko_putc(ctx, ':');
     rt_gecko_hex(ctx, (uint32_t)result);
     rt_gecko_putc(ctx, '\n');
+    rt_interrupts_restore(msr);
 }
 
 /* <savegame clone> (rt_hook.h): the NAND data directory copied into the
@@ -1448,6 +1460,7 @@ void rt_on_di_complete(struct rt_context* ctx, int32_t* result, struct rt_pendin
     if (record->di_result == RT_DI_SUCCESS && (ctx->flags & RT_FLAG_GECKO)) {
         /* Diagnostics only (they read the buffer back): "M<word
          * offset>:<length>:<checksum of the redirected bytes>\n" */
+        const uint32_t msr = rt_interrupts_off();
         ctx->last_checksum = rt_checksum_runs(record);
         rt_gecko_putc(ctx, 'M');
         rt_gecko_hex(ctx, record->word_offset);
@@ -1456,6 +1469,7 @@ void rt_on_di_complete(struct rt_context* ctx, int32_t* result, struct rt_pendin
         rt_gecko_putc(ctx, ':');
         rt_gecko_hex(ctx, ctx->last_checksum);
         rt_gecko_putc(ctx, '\n');
+        rt_interrupts_restore(msr);
     }
     record->in_use = 0;
 }
