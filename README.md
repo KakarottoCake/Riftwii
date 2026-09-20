@@ -1,12 +1,50 @@
 # Riftwii
 
-Independent Wii disc mod loader with an original libwiigui frontend and a
-host-tested XML/overlay core. A clean-room replacement for Riivolution: no
-Riivolution source was consulted or copied (see `NOTICE.md`). The frontend
-boots an unmodified disc (verified in Dolphin); the patching runtime is
-not implemented yet.
+Riftwii loads Wii game mods from your SD card while the original disc
+stays untouched in the drive. You pick one or more mod packs from a menu,
+and the game starts with the mods applied. It reads the same XML mod
+packs that Riivolution uses, and it was written from scratch without
+copying Riivolution code (see `NOTICE.md`). Licence: GPL-3.0-or-later
+(`LICENSE`); third-party notices in `NOTICE.md`.
 
-Licence: GPL-3.0-or-later (`LICENSE`); third-party notices in `NOTICE.md`.
+> Prerelease warning: this is an early test build. It has been checked
+> with automated tests and in the Dolphin emulator, but it has barely
+> run on real Wii hardware yet. Please report anything odd as a GitHub
+> issue, with your Wii model, system menu version, and what was on the
+> screen.
+
+## For Wii owners: install and use
+
+You need: a Wii with the Homebrew Channel installed, an SD card, and an
+original game disc.
+
+1. Copy `riftwii.dol` from the release into `sd:/apps/riftwii/boot.dol`.
+   If you also want the icon and description, copy `meta.xml` and
+   `icon.png` next to it (any Homebrew Channel `meta.xml`/`icon.png`
+   will do; they are not in this repo).
+2. Put mod packs (folders with an XML file plus their files) into
+   `sd:/riivolution/`, the same layout Riivolution uses. The release
+   notes say which packs were tested with this build.
+3. Start Riftwii from the Homebrew Channel with the game disc inserted.
+4. The list shows every pack found: On (will be used), Off, Other disc
+   (made for a different game), or Invalid (with the reason shown).
+   Press A to switch a pack on or off. Press Plus for a pack's options,
+   A and Minus to change them, B to go back.
+5. Press Launch (or just start with nothing enabled to boot the plain
+   disc). Your choices are saved per game, so next time they are back.
+6. Home exits to the Homebrew Channel.
+
+Save games: if a pack redirects saves, they are stored in a folder on
+the SD card instead of the Wii memory, so your NAND save stays as it
+is. A first boot may take a while (shaders and caches); give it time.
+
+If the screen reports an error, it names the pack, option and file it
+comes from. Nothing is launched half patched: if a pack cannot be
+applied completely, the game does not start and the message tells you
+why.
+
+## For developers
+
 Direction, review findings and the roadmap live in `docs/`.
 
 ## Status
