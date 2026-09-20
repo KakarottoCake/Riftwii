@@ -246,8 +246,17 @@ static uint32_t rt_fs_ticks(void) {
     __asm__ volatile("mftb %0" : "=r"(tb) : : "memory");
     return tb;
 }
-static void rt_fs_wait_tick(struct rt_context* ctx) {
-    (void)ctx;
+/* One turn of a sync arrival's wait: a synchronous SD GETSTATUS through
+ * the game's IOS_Ioctl. The SDK sleeps this thread until IOS answers,
+ * and the SD device answers in order, so the reply comes after the
+ * transfer of the request ahead: the thread holding the engine (another
+ * game thread inside its own sync call, or the IPC interrupt) gets the
+ * CPU meanwhile. Without the original the wait spins (interrupts on:
+ * the IPC interrupt still drives async requests ahead). */
+static void rt_fs_wait_tick(struct rt_context* ctx, struct rt_fs_state* st) {
+    if (st->ioctl_sync == 0 || ctx->sdio_fd == 0xFFFFFFFFu) return;
+    rt_flush_range((uintptr_t)st->wait_status, sizeof(st->wait_status));
+    rt_fs_ioctl_sync(st, (int32_t)ctx->sdio_fd, RT_SDIO_GETSTATUS, 0, 0, (uint32_t)(uintptr_t)st->wait_status, 4);
 }
 static void rt_invoke_game(uint32_t cb, int32_t result, uint32_t user_data) {
     if (cb != 0) ((rt_game_callback_fn)(uintptr_t)cb)(result, user_data);
@@ -316,7 +325,8 @@ static uint32_t rt_fs_ticks(void) {
     ticks += RT_FS_WAIT_TICKS / 8u + 1u;
     return ticks;
 }
-static void rt_fs_wait_tick(struct rt_context* ctx) {
+static void rt_fs_wait_tick(struct rt_context* ctx, struct rt_fs_state* st) {
+    (void)st;
     if (rt_host_fs_wait != 0) rt_host_fs_wait(ctx);
 }
 static void rt_invoke_game(uint32_t cb, int32_t result, uint32_t user_data) {
@@ -783,15 +793,16 @@ static void rt_fs_start_queued(struct rt_context* ctx, struct rt_fs_state* st) {
     }
 }
 
-/* Waits for the engine on the game's thread (interrupts on: the IPC
- * interrupt drives the requests ahead), bounded. 1 when it came free. */
+/* Waits for the engine on the game's thread, each turn sleeping in a
+ * null SD round trip (rt_fs_wait_tick) so the holder can run, bounded.
+ * 1 when it came free. */
 static int rt_fs_wait(struct rt_context* ctx, struct rt_fs_state* st) {
     const uint32_t start = rt_fs_ticks();
     const volatile uint32_t* busy = &st->fs.busy;         /* changed by the IPC interrupt: */
     const volatile uint32_t* queued = &st->queue_count;   /* re-read every turn */
     st->waits++;
     while (*busy || *queued != 0) {
-        rt_fs_wait_tick(ctx);
+        rt_fs_wait_tick(ctx, st);
         if (rt_fs_ticks() - start > RT_FS_WAIT_TICKS) {
             st->wait_timeouts++;
             return 0;

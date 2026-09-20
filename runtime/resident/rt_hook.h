@@ -176,8 +176,11 @@ typedef void (*rt_game_callback_fn)(int32_t result, uint32_t user_data);
  *           callback runs from the IPC interrupt after the call returned,
  *           never inside it.
  * Arrivals while the engine is busy: async ones queue (RT_FS_QUEUE deep,
- * started from the completion that frees the engine), sync ones wait on
- * the game's thread with interrupts on, bounded by the time base. Claims
+ * started from the completion that frees the engine, or from the
+ * thread-side completion of a sync or internal request), sync ones wait
+ * on the game's thread, each turn a synchronous SD GETSTATUS through the
+ * game's IOS_Ioctl so the thread sleeps and the holder runs (a spin with
+ * interrupts on without that original), bounded by the time base. Claims
  * of the engine run with interrupts off: the game's own IPC callbacks may
  * issue async calls, so hooks run in both contexts.
  *
@@ -279,6 +282,7 @@ struct rt_fs_state {
     char path[RTFS_PATH_BYTES] __attribute__((aligned(32)));   /* the clone's path in flight */
     uint32_t count_in[8] __attribute__((aligned(32)));          /* the clone's ReadDir count, in */
     uint32_t count_out[8] __attribute__((aligned(32)));         /* and out, their own lines (IOS DMA) */
+    uint32_t wait_status[8] __attribute__((aligned(32)));       /* a sync wait's GETSTATUS out word */
     struct rt_ioctlv dvec[4] __attribute__((aligned(32)));      /* the clone's ReadDir vectors */
     uint8_t names[RT_FS_CLONE_MAX * RTFAT_SLOT_BYTES] __attribute__((aligned(32)));  /* the clone's listing */
     uint8_t bounce[RT_FS_BOUNCE_BYTES] __attribute__((aligned(32)));
