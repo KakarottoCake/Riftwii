@@ -809,7 +809,13 @@ static int32_t rt_fs_run_internal(struct rt_context* ctx, struct rt_fs_state* st
     }
     if (st->req.classification == RTFS_PASS_THROUGH) return RTFAT_EINVAL;
     if (st->req.classification == RTFS_NEEDS_IO) rt_fs_advance(ctx, st, 1);
-    return st->req.result;
+    {
+        /* Async arrivals queued meanwhile (from the game's IPC callbacks)
+         * start now: only a completion drains the queue otherwise. */
+        const int32_t r = st->req.result;
+        rt_fs_start_queued(ctx, st);
+        return r;
+    }
 }
 
 /* Whether the game's synchronous functions an import or a clone needs
@@ -1102,6 +1108,7 @@ static int rt_on_sync_fs(struct rt_context* ctx, uint32_t entry_index, uintptr_t
     *result = (uint32_t)st->req.result;
     ctx->fs_hijacked++;
     rt_fs_report(ctx, entry_index, &ipc, st->req.result, 0);
+    rt_fs_start_queued(ctx, st); /* async arrivals queued behind this one */
     return 1;
 }
 

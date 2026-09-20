@@ -564,8 +564,17 @@ struct FsCard {
     }
 };
 FsCard* g_fs_card = nullptr;
+// Something to do once, in the middle of a synchronous card transfer:
+// what an IPC callback of the game does while a thread-side request
+// holds the engine.
+void (*g_on_transfer)() = nullptr;
 std::int32_t FsTransfer(std::uint32_t lba, std::uint32_t count, std::uint32_t buffer, std::uint32_t is_write) {
     if (!g_fs_card) return -1;
+    if (g_on_transfer) {
+        void (*once)() = g_on_transfer;
+        g_on_transfer = nullptr;
+        once();
+    }
     return g_fs_card->transfer(lba, count, buffer, is_write);
 }
 
@@ -1571,6 +1580,49 @@ static void TestFsRenameImport() {
     EXPECT_TRUE(nand.path.empty());
     check_card_file("banner.bin", banner, 1000);
 
+    // An async request arriving from an IPC callback while the import
+    // holds the engine (injected during one of its card transfers): it
+    // queues, and the import's thread-side completions start it, so it
+    // runs and its callback is delivered; nothing waits out a timeout.
+    {
+        static rt_context* s_ctx;
+        static std::uint8_t* s_path;
+        s_ctx = &ctx;
+        s_path = path + 2 * RTFS_PATH_BYTES;
+        FsCopyPath(s_path, prefix + "/rksys.dat");
+        g_on_transfer = [] {
+            std::uintptr_t a[8] = {FsAddr(s_path), 1, 0x80001077u, 0x80002077u, 0, 0, 0, 0};
+            std::uint32_t r = 0xDEADu;
+            EXPECT_EQ(rt_on_ipc(s_ctx, RT_IPC_ASYNC(1), a, &r), 1);
+            EXPECT_EQ(r, 0u);
+        };
+        NandFill(nand, "/tmp/two.bin", 3000, 17);
+        const std::vector<std::uint8_t> two = nand.bytes;
+        rename_args("/tmp/two.bin", prefix + "/two.bin");
+        const std::uint32_t waits0 = st->waits, timeouts0 = st->wait_timeouts;
+        EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC(6), args, &result), 1);
+        EXPECT_EQ(result, 0u);
+        EXPECT_EQ(g_on_transfer, nullptr);
+        EXPECT_EQ(st->queued, 1u);
+        EXPECT_EQ(st->wait_timeouts, timeouts0);
+        EXPECT_TRUE(st->waits >= waits0);
+        ios.drain();
+        bool opened = false;
+        for (const FakeIos::Delivery& d : ios.delivered) {
+            if (d.cb == 0x80001077u) {
+                opened = true;
+                EXPECT_TRUE(d.result >= static_cast<std::int32_t>(RTFS_FD_BASE));
+                args[0] = static_cast<std::uintptr_t>(d.result);
+                EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(2), args, &result), 1);
+            }
+        }
+        EXPECT_TRUE(opened);
+        EXPECT_EQ(ios.delivered.back().result, 0);  // the rename's own 0, after the open's
+        check_card_file("two.bin", two, 2900);
+        EXPECT_EQ(st->fs.busy, 0u);
+        EXPECT_EQ(st->queue_count, 0u);
+    }
+
     // From an IPC callback (interrupts off) the synchronous functions
     // cannot be used: refused with -102 through the callback, NAND untouched.
     rt_host_fs_in_thread = 0;
@@ -1579,10 +1631,10 @@ static void TestFsRenameImport() {
     EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC(6), args, &result), 1);
     EXPECT_EQ(result, 0u);
     EXPECT_EQ(st->import_refused, 3u);
-    EXPECT_EQ(st->imports, 5u);
-    EXPECT_EQ(nand.opens, 4u);
+    EXPECT_EQ(st->imports, 6u);
+    EXPECT_EQ(nand.opens, 5u);
     ios.drain();
-    EXPECT_EQ(ios.delivered.size(), std::size_t(2));
+    EXPECT_EQ(ios.delivered.size(), std::size_t(4));  // banner, the queued open, two.bin, this refusal
     EXPECT_EQ(ios.delivered.back().result, RTFAT_EACCESS);
     EXPECT_FALSE(card_has("again.bin"));
     rt_host_fs_in_thread = 1;
