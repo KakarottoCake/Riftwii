@@ -15,6 +15,13 @@ struct MemoryRegion {
     std::uint32_t length = 0;
 };
 
+// Returns `regions` with every byte in `exclusions` removed. Both inputs may
+// be unsorted and may contain empty, duplicate, touching or overlapping
+// ranges. Arithmetic is widened before ranges are clipped, so a region at
+// the top of the 32-bit address space cannot wrap into low memory.
+std::vector<MemoryRegion> subtract_memory_regions(const std::vector<MemoryRegion>& regions,
+                                                   const std::vector<MemoryRegion>& exclusions);
+
 // The memory the patches read and write, so the same code runs against a
 // host buffer in the tests and against the console's RAM (where a write
 // also flushes the caches).

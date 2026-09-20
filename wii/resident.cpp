@@ -263,6 +263,11 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
     out.payload_bytes = static_cast<std::uint32_t>(payload.size());
     out.bounce_bytes = bounce_bytes;
     out.hooked = hooked_count;
+    out.hook_site_count = 0;
+    for (std::uint32_t e = 0; e < RT_IPC_ENTRIES; ++e) {
+        if (!hooked[e]) continue;
+        out.hook_sites[out.hook_site_count++] = entry_address[e];
+    }
     out.fs_state = has_fs ? fs_state_address : 0;
     logf("Resident: %u bytes at 0x%08x, MEM1 arena top 0x%08x -> 0x%08x, gecko %s, %u IPC function(s) hooked\n",
          blob.size, place.code_base, arena1_hi, place.new_arena1_hi, options.gecko ? "on" : "off", hooked_count);
