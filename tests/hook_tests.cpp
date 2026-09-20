@@ -602,8 +602,19 @@ void GameCb(std::uint32_t cb, std::int32_t result, std::uint32_t ud) {
 // runtime issues (a card transfer, a null round trip) is queued and
 // completed later, oldest first, through the FS completion entry, whose
 // tail call of the game's callback is recorded as a delivery.
+// The fake NAND (below) answers the job's asynchronous requests when the
+// fake IOS completes them.
+std::int32_t NandOpenSync(const char* path, std::uint32_t mode);
+std::int32_t NandCloseSync(std::int32_t fd);
+std::int32_t NandReadSync(std::int32_t fd, std::uint32_t buffer, std::uint32_t length);
+std::int32_t NandIoctlSync(std::int32_t fd, std::uint32_t request, std::uint32_t in, std::uint32_t in_len, std::uint32_t out,
+                           std::uint32_t out_len);
 struct FakeIos {
-    struct Request { int kind; void* tag; std::uint32_t lba, count, buffer, write; };  // 1 transfer, 2 defer
+    // 1 transfer, 2 defer, 3 NAND open, 4 NAND close, 5 NAND read, 6 NAND ioctl
+    struct Request {
+        int kind = 0; void* tag = nullptr; std::uint32_t lba = 0, count = 0, buffer = 0, write = 0;
+        std::string path; std::int32_t fd = -1; std::uint32_t a = 0, b = 0, c = 0, d = 0;
+    };
     struct Delivery { std::uint32_t cb, ud; std::int32_t result; };
     FsCard* card = nullptr;
     rt_context* ctx = nullptr;
@@ -612,6 +623,7 @@ struct FakeIos {
     std::uint32_t refuse_issues = 0;   // refuse the next N transfer issues
     std::uint32_t refuse_defers = 0;   // refuse the next N null round trips
     std::uint32_t fail_transfers = 0;  // complete the next N transfers with an IPC error
+    std::uint32_t nand_requests = 0;   // NAND requests completed
     bool complete_one() {
         if (queue.empty()) return false;
         const Request r = queue.front();
@@ -620,7 +632,10 @@ struct FakeIos {
         if (r.kind == 1) {
             if (fail_transfers != 0) { --fail_transfers; ios = -4; }
             else ios = card->transfer(r.lba, r.count, r.buffer, r.write);
-        }
+        } else if (r.kind == 3) { ios = NandOpenSync(r.path.c_str(), r.a); ++nand_requests; }
+        else if (r.kind == 4) { ios = NandCloseSync(r.fd); ++nand_requests; }
+        else if (r.kind == 5) { ios = NandReadSync(r.fd, r.buffer, r.a); ++nand_requests; }
+        else if (r.kind == 6) { ios = NandIoctlSync(r.fd, r.a, r.buffer, r.b, r.c, r.d); ++nand_requests; }
         std::uintptr_t cb = 0xDEADu, ud = 0xDEADu;
         rt_on_fs_complete(ctx, &ios, r.tag, &cb, &ud);
         if (cb != 0) delivered.push_back({static_cast<std::uint32_t>(cb), static_cast<std::uint32_t>(ud), ios});
@@ -632,13 +647,40 @@ FakeIos* g_ios = nullptr;
 std::int32_t IosIssue(std::uint32_t lba, std::uint32_t count, std::uint32_t buffer, std::uint32_t write, void* tag) {
     if (!g_ios) return -1;
     if (g_ios->refuse_issues != 0) { --g_ios->refuse_issues; return -1; }
-    g_ios->queue.push_back({1, tag, lba, count, buffer, write});
+    FakeIos::Request r; r.kind = 1; r.tag = tag; r.lba = lba; r.count = count; r.buffer = buffer; r.write = write;
+    g_ios->queue.push_back(r);
     return 0;
 }
 std::int32_t IosDefer(void* tag) {
     if (!g_ios) return -1;
     if (g_ios->refuse_defers != 0) { --g_ios->refuse_defers; return -1; }
-    g_ios->queue.push_back({2, tag, 0, 0, 0, 0});
+    FakeIos::Request r; r.kind = 2; r.tag = tag;
+    g_ios->queue.push_back(r);
+    return 0;
+}
+std::int32_t IosOpenAsync(const char* path, std::uint32_t mode, std::uint32_t, void* tag) {
+    if (!g_ios) return -1;
+    FakeIos::Request r; r.kind = 3; r.tag = tag; r.path = path; r.a = mode;
+    g_ios->queue.push_back(r);
+    return 0;
+}
+std::int32_t IosCloseAsync(std::int32_t fd, std::uint32_t, void* tag) {
+    if (!g_ios) return -1;
+    FakeIos::Request r; r.kind = 4; r.tag = tag; r.fd = fd;
+    g_ios->queue.push_back(r);
+    return 0;
+}
+std::int32_t IosReadAsync(std::int32_t fd, std::uint32_t buffer, std::uint32_t length, std::uint32_t, void* tag) {
+    if (!g_ios) return -1;
+    FakeIos::Request r; r.kind = 5; r.tag = tag; r.buffer = buffer; r.fd = fd; r.a = length;
+    g_ios->queue.push_back(r);
+    return 0;
+}
+std::int32_t IosIoctlAsync(std::int32_t fd, std::uint32_t request, std::uint32_t in, std::uint32_t in_len, std::uint32_t out,
+                           std::uint32_t out_len, std::uint32_t, void* tag) {
+    if (!g_ios) return -1;
+    FakeIos::Request r; r.kind = 6; r.tag = tag; r.buffer = in; r.fd = fd; r.a = request; r.b = in_len; r.c = out; r.d = out_len;
+    g_ios->queue.push_back(r);
     return 0;
 }
 void IosWait(rt_context*) {
@@ -1556,8 +1598,11 @@ static void TestFsRenameImport() {
     EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(6), args, &result), 0);
     EXPECT_EQ(st->imports, 4u);
 
-    // The async form on a thread: imported at the call, its 0 deferred
-    // through a null round trip to the game's callback.
+    // The async form: an asynchronous import job, from an IPC callback
+    // as well as from a thread. The rename returns at once with nothing
+    // done; the job runs from the completions of its own requests (NAND
+    // through the game's async originals, the card through the engine),
+    // and the game's callback is the tail call of the last one.
     FakeIos ios;
     ios.card = &card;
     ios.ctx = &ctx;
@@ -1565,30 +1610,131 @@ static void TestFsRenameImport() {
     rt_host_fs_issue = IosIssue;
     rt_host_fs_defer = IosDefer;
     rt_host_fs_wait = IosWait;
+    rt_host_fs_open_async = IosOpenAsync;
+    rt_host_fs_close_async = IosCloseAsync;
+    rt_host_fs_read_async = IosReadAsync;
+    rt_host_fs_ioctl_async = IosIoctlAsync;
     rt_host_game_callback = GameCb;
+    st->open_async = st->close_async = st->read_async = 0x80100000u;
+    ctx.di_read_entry = 0x80100000u;
     CbLog log;
     g_cb_log = &log;
-    NandFill(nand, "/tmp/banner.bin", 1061, 13);
+    rt_host_fs_in_thread = 0;
+    NandFill(nand, "/tmp/banner.bin", 2 * RT_FS_IMPORT_BYTES + 1061, 13);
     const std::vector<std::uint8_t> banner = nand.bytes;
     rename_args("/tmp/banner.bin", prefix + "/banner.bin");
     EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC(6), args, &result), 1);
     EXPECT_EQ(result, 0u);
     EXPECT_EQ(st->imports, 5u);
+    EXPECT_EQ(st->import_jobs, 1u);
     EXPECT_EQ(st->import_failures, 2u);
-    EXPECT_EQ(ios.queue.size(), std::size_t(1));
+    EXPECT_EQ(st->job.active, 1u);
+    EXPECT_EQ(ios.queue.size(), std::size_t(1));  // the NAND open, nothing else yet
+    EXPECT_EQ(nand.opens, 3u);
+    EXPECT_EQ(st->fs.busy, 0u);
     EXPECT_EQ(log.calls, 0u);
     ios.drain();
+    EXPECT_EQ(st->job.active, 0u);
     EXPECT_EQ(ios.delivered.size(), std::size_t(1));
     EXPECT_EQ(ios.delivered.back().cb, 0x80001000u);
     EXPECT_EQ(ios.delivered.back().ud, 0x80002000u);
     EXPECT_EQ(ios.delivered.back().result, 0);
+    EXPECT_EQ(nand.opens, 4u);
+    EXPECT_EQ(nand.closes, 4u);
+    EXPECT_EQ(nand.reads, 9u);  // three pieces
+    EXPECT_EQ(ios.nand_requests, 7u);  // open, stats, 3 reads, close, delete
     EXPECT_TRUE(nand.path.empty());
+    EXPECT_EQ(st->import_failures, 2u);
+    EXPECT_EQ(st->fs.busy, 0u);
+    EXPECT_EQ(st->queue_count, 0u);
     check_card_file("banner.bin", banner, 1000);
+    check_card_file("banner.bin", banner, 2 * RT_FS_IMPORT_BYTES + 1061 - 40);
 
-    // An async request arriving from an IPC callback while the import
-    // holds the engine (injected during one of its card transfers): it
-    // queues, and the import's thread-side completions start it, so it
-    // runs and its callback is delivered; nothing waits out a timeout.
+    // A job whose card request finds the engine held by the game's own
+    // async read (issued between the job's NAND open and its stats):
+    // the job's request queues and starts from the read's completion.
+    // And a NAND read that fails midway: the destination is closed and
+    // removed again, the source closed and left on NAND, the rename's
+    // -114 delivered, the engine free.
+    {
+        NandFill(nand, "/tmp/big2.bin", RT_FS_IMPORT_BYTES + 100, 9);
+        nand.read_error_after = static_cast<long>(RT_FS_IMPORT_BYTES);
+        rename_args("/tmp/big2.bin", prefix + "/big2.bin");
+        EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC(6), args, &result), 1);
+        EXPECT_EQ(result, 0u);
+        EXPECT_TRUE(ios.complete_one());  // the open: the stats request follows
+        EXPECT_EQ(ios.queue.size(), std::size_t(1));
+        FsCopyPath(path + 2 * RTFS_PATH_BYTES, prefix + "/banner.bin");
+        std::uintptr_t a[8] = {FsAddr(path + 2 * RTFS_PATH_BYTES), 1, 0x80001088u, 0x80002088u, 0, 0, 0, 0};
+        std::uint32_t r2 = 0xDEADu;
+        EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC(1), a, &r2), 1);  // the game's open: its transfer in flight
+        EXPECT_EQ(r2, 0u);
+        EXPECT_EQ(st->fs.busy, 1u);
+        const std::uint32_t queued0 = st->queued;
+        EXPECT_TRUE(ios.complete_one());  // the stats: the job's delete queues behind the open
+        EXPECT_EQ(st->queued, queued0 + 1);
+        EXPECT_EQ(st->queue_count, 1u);
+        ios.drain();
+        bool opened = false;
+        for (const FakeIos::Delivery& d : ios.delivered) {
+            if (d.cb == 0x80001088u) {
+                opened = true;
+                EXPECT_TRUE(d.result >= static_cast<std::int32_t>(RTFS_FD_BASE));
+                args[0] = static_cast<std::uintptr_t>(d.result);
+                EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(2), args, &result), 1);
+            }
+        }
+        EXPECT_TRUE(opened);
+        EXPECT_EQ(ios.delivered.back().cb, 0x80001000u);
+        EXPECT_EQ(ios.delivered.back().result, RTFAT_EIO);
+        EXPECT_EQ(st->job.active, 0u);
+        EXPECT_EQ(st->imports, 6u);
+        EXPECT_EQ(st->import_jobs, 2u);
+        EXPECT_EQ(st->import_failures, 3u);
+        EXPECT_FALSE(nand.open);
+        EXPECT_TRUE(nand.path == "/tmp/big2.bin");
+        EXPECT_FALSE(card_has("big2.bin"));
+        EXPECT_EQ(st->fs.busy, 0u);
+        EXPECT_EQ(st->queue_count, 0u);
+        nand.read_error_after = -1;
+    }
+
+    // Without the game's async originals: on a thread the synchronous
+    // import at the call, its 0 deferred through a null round trip to
+    // the game's callback; from an IPC callback a refusal with -102.
+    st->read_async = 0;
+    rt_host_fs_in_thread = 1;
+    NandFill(nand, "/tmp/sync.bin", 500, 21);
+    const std::vector<std::uint8_t> syncbin = nand.bytes;
+    rename_args("/tmp/sync.bin", prefix + "/sync.bin");
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC(6), args, &result), 1);
+    EXPECT_EQ(result, 0u);
+    EXPECT_EQ(st->imports, 7u);
+    EXPECT_EQ(st->import_jobs, 2u);
+    EXPECT_TRUE(nand.path.empty());  // done at the call
+    EXPECT_EQ(ios.queue.size(), std::size_t(1));  // the deferred delivery
+    ios.drain();
+    EXPECT_EQ(ios.delivered.back().result, 0);
+    check_card_file("sync.bin", syncbin, 400);
+    rt_host_fs_in_thread = 0;
+    NandFill(nand, "/tmp/again.bin", 50, 3);
+    rename_args("/tmp/again.bin", prefix + "/again.bin");
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC(6), args, &result), 1);
+    EXPECT_EQ(result, 0u);
+    EXPECT_EQ(st->import_refused, 3u);
+    EXPECT_EQ(st->imports, 7u);
+    ios.drain();
+    EXPECT_EQ(ios.delivered.back().result, RTFAT_EACCESS);
+    EXPECT_FALSE(card_has("again.bin"));
+    EXPECT_TRUE(nand.path == "/tmp/again.bin");
+    st->read_async = 0x80100000u;
+    rt_host_fs_in_thread = 1;
+
+    // An async request arriving from an IPC callback while a synchronous
+    // import holds the engine (injected during one of its card
+    // transfers): it queues, and the import's thread-side completions
+    // start it, so it runs and its callback is delivered; nothing waits
+    // out a timeout.
     {
         static rt_context* s_ctx;
         static std::uint8_t* s_path;
@@ -1604,11 +1750,11 @@ static void TestFsRenameImport() {
         NandFill(nand, "/tmp/two.bin", 3000, 17);
         const std::vector<std::uint8_t> two = nand.bytes;
         rename_args("/tmp/two.bin", prefix + "/two.bin");
-        const std::uint32_t waits0 = st->waits, timeouts0 = st->wait_timeouts;
-        EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC(6), args, &result), 1);
+        const std::uint32_t waits0 = st->waits, timeouts0 = st->wait_timeouts, queued0 = st->queued;
+        EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(6), args, &result), 1);
         EXPECT_EQ(result, 0u);
         EXPECT_EQ(g_on_transfer, nullptr);
-        EXPECT_EQ(st->queued, 1u);
+        EXPECT_EQ(st->queued, queued0 + 1);
         EXPECT_EQ(st->wait_timeouts, timeouts0);
         EXPECT_TRUE(st->waits >= waits0);
         ios.drain();
@@ -1622,28 +1768,17 @@ static void TestFsRenameImport() {
             }
         }
         EXPECT_TRUE(opened);
-        EXPECT_EQ(ios.delivered.back().result, 0);  // the rename's own 0, after the open's
+        EXPECT_EQ(ios.delivered.back().cb, 0x80001077u);  // the open's; the sync rename answered at the call
+        EXPECT_EQ(st->imports, 8u);
         check_card_file("two.bin", two, 2900);
         EXPECT_EQ(st->fs.busy, 0u);
         EXPECT_EQ(st->queue_count, 0u);
     }
 
-    // From an IPC callback (interrupts off) the synchronous functions
-    // cannot be used: refused with -102 through the callback, NAND untouched.
-    rt_host_fs_in_thread = 0;
-    NandFill(nand, "/tmp/again.bin", 50, 3);
-    rename_args("/tmp/again.bin", prefix + "/again.bin");
-    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC(6), args, &result), 1);
-    EXPECT_EQ(result, 0u);
-    EXPECT_EQ(st->import_refused, 3u);
-    EXPECT_EQ(st->imports, 6u);
-    EXPECT_EQ(nand.opens, 5u);
-    ios.drain();
-    EXPECT_EQ(ios.delivered.size(), std::size_t(4));  // banner, the queued open, two.bin, this refusal
-    EXPECT_EQ(ios.delivered.back().result, RTFAT_EACCESS);
-    EXPECT_FALSE(card_has("again.bin"));
-    rt_host_fs_in_thread = 1;
-
+    rt_host_fs_open_async = nullptr;
+    rt_host_fs_close_async = nullptr;
+    rt_host_fs_read_async = nullptr;
+    rt_host_fs_ioctl_async = nullptr;
     rt_host_game_callback = nullptr;
     rt_host_fs_issue = nullptr;
     rt_host_fs_defer = nullptr;
