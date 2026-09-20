@@ -89,6 +89,17 @@ enum {
     S_DIR_NEXT,
     S_DIR_GROWN,
     S_DIR_ZERO,
+    /* A failed directory extension is unwound explicitly.  Each copy is
+     * read and rewritten independently: the parent tail is restored to
+     * EOC first, then the candidate is freed.  A failed recovery transfer
+     * never stops the sweep of the remaining copies. */
+    S_DIR_RECOVER_PARENT_READ,
+    S_DIR_RECOVER_PARENT_READ_DONE,
+    S_DIR_RECOVER_PARENT_WRITE_DONE,
+    S_DIR_RECOVER_CANDIDATE_READ,
+    S_DIR_RECOVER_CANDIDATE_READ_DONE,
+    S_DIR_RECOVER_CANDIDATE_WRITE_DONE,
+    S_DIR_RECOVER_DONE,
     S_DONE
 };
 
@@ -337,6 +348,37 @@ static void fat_set_cached(struct rtfat_op* op, uint32_t cluster, uint32_t value
 /* Writes the cached FAT sector to copy `copy`. */
 static int fat_issue_write(const struct rtfat_volume* vol, struct rtfat_op* op, uint32_t copy) {
     return issue(op, op->fat_cached_lba + copy * vol->fat_sectors, 1, 1, op->fat_sector);
+}
+
+static int fat_issue_copy_read(const struct rtfat_volume* vol, struct rtfat_op* op, uint32_t copy, uint32_t cluster) {
+    return issue(op, fat_sector_of(vol, cluster) + copy * vol->fat_sectors, 1, 0, op->fat_sector);
+}
+
+static int fat_issue_copy_write(const struct rtfat_volume* vol, struct rtfat_op* op, uint32_t copy, uint32_t cluster) {
+    return issue(op, fat_sector_of(vol, cluster) + copy * vol->fat_sectors, 1, 1, op->fat_sector);
+}
+
+static int recovery_state(uint32_t state) {
+    return state >= S_DIR_RECOVER_PARENT_READ && state <= S_DIR_RECOVER_DONE;
+}
+
+/* Ordinary file-chain allocation/free has no rollback record.  A failed
+ * mirrored FAT write may have reached one copy, so do not permit another
+ * mutation against an image whose agreement cannot be proved. */
+static int ordinary_fat_mutation_write_state(uint32_t state) {
+    return state == S_ALLOC_MARK_WRITTEN || state == S_ALLOC_LINK_WRITTEN || state == S_FREE_WRITTEN;
+}
+
+/* The candidate is not reachable until its zeroing completed and the
+ * parent link was written, but a failed card request is ambiguous.  Write
+ * both invariants back in every copy before returning the original EIO. */
+static void begin_dir_recovery(struct rtfat_volume* vol, struct rtfat_op* op) {
+    if (op->alloc_cluster < vol->alloc_hint) vol->alloc_hint = op->alloc_cluster;
+    op->dir_grow = 0;
+    op->recovery_copy = 0;
+    op->recovery_failed = 0;
+    op->fat_cached_lba = 0;
+    op->state = S_DIR_RECOVER_PARENT_READ;
 }
 
 /* --- directory entries ------------------------------------------------------- */
@@ -611,6 +653,12 @@ static int prepare_new_entry(struct rtfat_op* op, const char* name, uint32_t clu
     return 1;
 }
 
+static uint32_t hidden_attribute(const struct rtfat_op* op, uint32_t attr) {
+    if (op->want_hidden == 1u) return attr | ATTR_HIDDEN;
+    if (op->want_hidden == 2u) return attr & ~ATTR_HIDDEN;
+    return attr;
+}
+
 static void fill_lfn_entry(uint8_t* e, const char* name, uint32_t part, uint32_t parts, uint32_t sum) {
     const uint32_t n = str_len(name);
     uint32_t i;
@@ -763,6 +811,7 @@ static int run_state(struct rtfat_volume* vol, struct rtfat_op* op) {
             if (!fat_get(vol, op, op->alloc_scan, &v)) return RT_IO;
             if (v == 0) {
                 op->alloc_cluster = op->alloc_scan;
+                if (op->dir_grow) op->dir_txn = 1;
                 fat_set_cached(op, op->alloc_cluster, FAT_EOC);
                 op->alloc_copy = 0;
                 op->state = S_ALLOC_MARK_WRITE;
@@ -879,8 +928,68 @@ static int run_state(struct rtfat_volume* vol, struct rtfat_op* op) {
             op->state = S_ENTRY_WRITTEN;
             return issue(op, op->free_lba, 1, 1, op->sector);
         case S_ENTRY_WRITTEN:
+            /* The first entry makes this extension durable.  A later
+             * rename-source delete may fail, but must not detach the new
+             * directory cluster that now contains a valid entry. */
+            op->dir_txn = 0;
             op->state = op->next_state;
             return RT_CONT;
+
+        /* ---- failed directory extension recovery ---- */
+        case S_DIR_RECOVER_PARENT_READ:
+            op->state = S_DIR_RECOVER_PARENT_READ_DONE;
+            return fat_issue_copy_read(vol, op, op->recovery_copy, op->alloc_link);
+        case S_DIR_RECOVER_PARENT_READ_DONE:
+            if (op->io_status != 0) {
+                op->recovery_failed = 1;
+                if (++op->recovery_copy < vol->fat_count) {
+                    op->state = S_DIR_RECOVER_PARENT_READ;
+                    return RT_CONT;
+                }
+                op->recovery_copy = 0;
+                op->state = S_DIR_RECOVER_CANDIDATE_READ;
+                return RT_CONT;
+            }
+            fat_set_cached(op, op->alloc_link, FAT_EOC);
+            op->state = S_DIR_RECOVER_PARENT_WRITE_DONE;
+            return fat_issue_copy_write(vol, op, op->recovery_copy, op->alloc_link);
+        case S_DIR_RECOVER_PARENT_WRITE_DONE:
+            if (op->io_status != 0) op->recovery_failed = 1;
+            if (++op->recovery_copy < vol->fat_count) {
+                op->state = S_DIR_RECOVER_PARENT_READ;
+                return RT_CONT;
+            }
+            op->recovery_copy = 0;
+            op->state = S_DIR_RECOVER_CANDIDATE_READ;
+            return RT_CONT;
+        case S_DIR_RECOVER_CANDIDATE_READ:
+            op->state = S_DIR_RECOVER_CANDIDATE_READ_DONE;
+            return fat_issue_copy_read(vol, op, op->recovery_copy, op->alloc_cluster);
+        case S_DIR_RECOVER_CANDIDATE_READ_DONE:
+            if (op->io_status != 0) {
+                op->recovery_failed = 1;
+                if (++op->recovery_copy < vol->fat_count) {
+                    op->state = S_DIR_RECOVER_CANDIDATE_READ;
+                    return RT_CONT;
+                }
+                op->state = S_DIR_RECOVER_DONE;
+                return RT_CONT;
+            }
+            fat_set_cached(op, op->alloc_cluster, 0);
+            op->state = S_DIR_RECOVER_CANDIDATE_WRITE_DONE;
+            return fat_issue_copy_write(vol, op, op->recovery_copy, op->alloc_cluster);
+        case S_DIR_RECOVER_CANDIDATE_WRITE_DONE:
+            if (op->io_status != 0) op->recovery_failed = 1;
+            if (++op->recovery_copy < vol->fat_count) {
+                op->state = S_DIR_RECOVER_CANDIDATE_READ;
+                return RT_CONT;
+            }
+            op->state = S_DIR_RECOVER_DONE;
+            return RT_CONT;
+        case S_DIR_RECOVER_DONE:
+            op->dir_txn = 0;
+            if (op->recovery_failed) vol->mutation_uncertain = 1;
+            return finish(op, RTFAT_EIO);
 
         /* ---- marking op->source's entries deleted ---- */
         case S_MARK_READ1:
@@ -1045,7 +1154,8 @@ static int run_state(struct rtfat_volume* vol, struct rtfat_op* op) {
         /* ---- RENAME ---- */
         case S_RENAME_FOUND:
             op->source = op->found;
-            if (!prepare_new_entry(op, op->name2, op->source.first_cluster, op->source.size, op->source.attributes)) {
+            if (!prepare_new_entry(op, op->name2, op->source.first_cluster, op->source.size,
+                                   hidden_attribute(op, op->source.attributes))) {
                 return finish(op, RTFAT_EINVAL);
             }
             scan_begin(vol, op, SCAN_CREATE, S_RENAME_SCANNED);
@@ -1096,11 +1206,27 @@ int rtfat_step(struct rtfat_volume* vol, struct rtfat_op* op) {
         op->io_transfers++;
         if (op->io_status != 0) {
             op->fat_cached_lba = 0;
-            finish(op, RTFAT_EIO);
-            return RTFAT_DONE;
+            if (recovery_state(op->state)) {
+                /* The recovery states consume the failure and continue
+                 * restoring the other FAT copies. */
+            } else if (op->dir_txn) {
+                begin_dir_recovery(vol, op);
+            } else if (ordinary_fat_mutation_write_state(op->state)) {
+                vol->mutation_uncertain = 1;
+                finish(op, RTFAT_EIO);
+                return RTFAT_DONE;
+            } else {
+                finish(op, RTFAT_EIO);
+                return RTFAT_DONE;
+            }
         }
     }
     if (op->state == S_IDLE) {
+        if (vol->mutation_uncertain &&
+            (op->kind == RTFAT_OP_WRITE || op->kind == RTFAT_OP_CREATE ||
+             op->kind == RTFAT_OP_DELETE || op->kind == RTFAT_OP_RENAME)) {
+            return done_now(op, RTFAT_EIO);
+        }
         /* First step: validate the parameters and enter the operation. */
         switch (op->kind) {
             case RTFAT_OP_LOOKUP:
@@ -1131,7 +1257,10 @@ int rtfat_step(struct rtfat_volume* vol, struct rtfat_op* op) {
                 op->state = S_WRITE_NEXT;
                 break;
             case RTFAT_OP_CREATE:
-                if (!prepare_new_entry(op, op->name, 0, 0, ATTR_ARCHIVE)) return done_now(op, RTFAT_EINVAL);
+                if (!prepare_new_entry(op, op->name, 0, 0,
+                                       ATTR_ARCHIVE | (op->want_hidden == 1u ? ATTR_HIDDEN : 0u))) {
+                    return done_now(op, RTFAT_EINVAL);
+                }
                 scan_begin(vol, op, SCAN_CREATE, S_CREATE_SCANNED);
                 break;
             case RTFAT_OP_DELETE:

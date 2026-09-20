@@ -70,8 +70,9 @@ struct Image {
     std::uint64_t volume_lba;
     Bytes bytes;
 
-    Image(std::uint32_t bytes_per_sector, std::uint32_t sectors_per_cluster, std::uint64_t at_lba)
-        : bps(bytes_per_sector), spc(sectors_per_cluster), volume_lba(at_lba) {
+    Image(std::uint32_t bytes_per_sector, std::uint32_t sectors_per_cluster, std::uint64_t at_lba,
+          std::uint32_t cluster_count = 256)
+        : bps(bytes_per_sector), spc(sectors_per_cluster), clusters(cluster_count), volume_lba(at_lba) {
         fat_sectors = ((clusters + 2) * 4 + bps - 1) / bps;
         total_sectors = reserved + fats * fat_sectors + clusters * spc;
         bytes.assign(static_cast<std::size_t>(volume_lba * 512 + std::uint64_t(total_sectors) * bps), 0);

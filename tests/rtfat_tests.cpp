@@ -84,15 +84,20 @@ struct Low {
 // A device over the image: performs the engine's transfers, counts them,
 // and fails the n-th one when asked.
 struct Device {
+    struct Attempt { std::uint32_t lba, write; };
     Image& img;
-    std::uint32_t reads = 0, writes = 0;
+    std::uint32_t reads = 0, writes = 0, attempts = 0;
     std::uint32_t fail_at = 0;  // 1-based transfer index to fail, 0 = never
+    std::uint32_t fail_at2 = 0; // optional second one-shot failure (recovery tests)
+    std::vector<Attempt> history;
     explicit Device(Image& i) : img(i) {}
-    void reset() { reads = writes = 0; fail_at = 0; }
+    void reset() { reads = writes = attempts = 0; fail_at = fail_at2 = 0; history.clear(); }
     int transfer(const rtfat_op& op) {
         const std::uint64_t start = std::uint64_t(op.io_lba) * 512;
         const std::uint64_t bytes = std::uint64_t(op.io_count) * 512;
-        if (fail_at != 0 && reads + writes + 1 == fail_at) return -1;
+        ++attempts;
+        history.push_back({op.io_lba, op.io_write});
+        if (attempts == fail_at || attempts == fail_at2) return -1;
         if (start + bytes > img.bytes.size() || op.io_count == 0) return -2;
         std::uint8_t* mem = reinterpret_cast<std::uint8_t*>(static_cast<std::uintptr_t>(op.io_buffer));
         if (op.io_write) {
@@ -205,6 +210,29 @@ struct Fixture {
         return names;
     }
 };
+
+bool FatCopiesAgree(const Fixture& fx) {
+    for (std::uint32_t c = 0; c < fx.img.clusters + 2; ++c) {
+        for (std::uint32_t copy = 1; copy < fx.vol.fat_count; ++copy) {
+            if (fx.fat(c, copy) != fx.fat(c)) return false;
+        }
+    }
+    return true;
+}
+
+void FillDirectoryForGrowth(Fixture& fx, rtfat_op& op) {
+    std::memset(&op, 0, sizeof(op));
+    SetName(op.name, "data.bin");
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_CREATE), RTFAT_OK);  // the deleted slot
+    for (int i = 0; i < 51; ++i) {  // 13 used entries plus these fill the two clusters
+        char n[16];
+        std::snprintf(n, sizeof n, "F%03d.SAV", i);
+        SetName(op.name, n);
+        EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_CREATE), RTFAT_OK);
+    }
+    EXPECT_EQ(fx.fat(4), 0x0FFFFFFFu);
+    EXPECT_TRUE(FatCopiesAgree(fx));
+}
 
 }  // namespace
 
@@ -497,6 +525,87 @@ static void TestWrite(Low& low) {
     EXPECT_TRUE(fx.host_read("fresh.sav") == content);
 }
 
+static bool IsFatWrite(const Fixture& fx, const Device::Attempt& a) {
+    return a.write != 0 && a.lba >= fx.vol.fat_lba &&
+           a.lba < fx.vol.fat_lba + fx.vol.fat_count * fx.vol.fat_sectors;
+}
+
+static void BeginBannerAppend(Fixture& fx, rtfat_op& op, Low& low, rtfat_file& file) {
+    std::memset(&op, 0, sizeof(op));
+    SetName(op.name, "banner.bin");
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_LOOKUP), RTFAT_OK);
+    file = rtfat_file{};
+    file.first_cluster = op.found.first_cluster;
+    file.size = op.found.size;
+    file.position = file.size;
+    file.entry_lba = op.found.entry_lba;
+    file.entry_index = op.found.entry_index;
+    const Bytes append = pattern(fx.img.cluster_bytes() + 800, 0x8A);
+    std::memcpy(low.data, append.data(), append.size());
+    op.file = &file;
+    op.buffer = Addr(low.data);
+    op.length = std::uint32_t(append.size());
+    op.bounce = Addr(low.bounce);
+    op.bounce_bytes = Low::kBounce;
+}
+
+// A directory extension has an explicit rollback.  Ordinary file chain
+// mutations do not, so any failed mirrored FAT write poisons the volume and
+// the caller must remount before trying another mutation.
+static void TestOrdinaryFatMutationPoison(Low& low) {
+    Fixture grow_ok;
+    rtfat_op& probe = *low.op;
+    rtfat_file probe_file{};
+    BeginBannerAppend(grow_ok, probe, low, probe_file);
+    grow_ok.dev.reset();
+    EXPECT_TRUE(Run(grow_ok.vol, probe, grow_ok.dev, RTFAT_OP_WRITE) > 0);
+
+    int grew_cases = 0;
+    for (std::size_t i = 0; i < grow_ok.dev.history.size(); ++i) {
+        if (!IsFatWrite(grow_ok, grow_ok.dev.history[i])) continue;
+        Fixture fx;
+        rtfat_op& op = *low.op;
+        rtfat_file file{};
+        BeginBannerAppend(fx, op, low, file);
+        fx.dev.reset();
+        fx.dev.fail_at = std::uint32_t(i + 1);
+        EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_WRITE), RTFAT_EIO);
+        EXPECT_EQ(fx.vol.mutation_uncertain, 1u);
+        SetName(op.name, "later.sav");
+        EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_CREATE), RTFAT_EIO);
+        SetName(op.name, "rksys.dat");
+        EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_LOOKUP), RTFAT_OK);
+        ++grew_cases;
+    }
+    EXPECT_TRUE(grew_cases >= 4);  // candidate marks and parent links, both copies
+
+    Fixture delete_ok;
+    rtfat_op& delete_probe = *low.op;
+    std::memset(&delete_probe, 0, sizeof(delete_probe));
+    SetName(delete_probe.name, "wiimote.data");
+    delete_ok.dev.reset();
+    EXPECT_EQ(Run(delete_ok.vol, delete_probe, delete_ok.dev, RTFAT_OP_DELETE), RTFAT_OK);
+
+    int delete_cases = 0;
+    for (std::size_t i = 0; i < delete_ok.dev.history.size(); ++i) {
+        if (!IsFatWrite(delete_ok, delete_ok.dev.history[i])) continue;
+        Fixture fx;
+        rtfat_op& op = *low.op;
+        std::memset(&op, 0, sizeof(op));
+        SetName(op.name, "wiimote.data");
+        fx.dev.reset();
+        fx.dev.fail_at = std::uint32_t(i + 1);
+        EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_DELETE), RTFAT_EIO);
+        EXPECT_EQ(fx.vol.mutation_uncertain, 1u);
+        SetName(op.name, "later.sav");
+        EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_CREATE), RTFAT_EIO);
+        SetName(op.name, "rksys.dat");
+        EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_LOOKUP), RTFAT_OK);
+        ++delete_cases;
+    }
+    EXPECT_EQ(delete_cases, int(delete_ok.vol.fat_count));
+}
+
 // ---- create ------------------------------------------------------------------
 
 static void TestCreate(Low& low) {
@@ -609,44 +718,65 @@ static void TestCreate(Low& low) {
     EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_COUNT), 5 + 2 + 112 + 1 + 14 + 1);
     EXPECT_EQ(fx.host_names().size(), std::size_t(6 + 2 + 112 + 1 + 14 + 1));
 
-    // Fault injection over the first growth: whichever transfer fails,
-    // a cluster linked into the directory is already zeroed (the new
-    // cluster is zeroed before it is linked), so a failure costs at
-    // most a lost cluster, never a directory tail of garbage entries.
-    int grown_ok = 0;
-    for (std::uint32_t fail_at = 1; fail_at < 200 && !grown_ok; ++fail_at) {
+    // Each possible one-shot failure while extending a full directory is
+    // unwound: every FAT copy agrees, the old tail is EOC, the candidate
+    // is free, and the directory bytes match the pre-operation image.
+    // That includes candidate mark/zero/link and the first dirent write.
+    Fixture success;
+    rtfat_op& os = *low.op;
+    FillDirectoryForGrowth(success, os);
+    success.dev.reset();
+    SetName(os.name, "GROWN.SAV");
+    EXPECT_EQ(Run(success.vol, os, success.dev, RTFAT_OP_CREATE), RTFAT_OK);
+    const std::uint32_t growth_transfers = success.dev.attempts;
+    EXPECT_TRUE(growth_transfers > 8);
+    EXPECT_TRUE(FatCopiesAgree(success));
+
+    for (std::uint32_t fail_at = 1; fail_at <= growth_transfers; ++fail_at) {
         Fixture fy;
         rtfat_op& oy = *low.op;
-        std::memset(&oy, 0, sizeof(oy));
-        SetName(oy.name, "data.bin");
-        EXPECT_EQ(Run(fy.vol, oy, fy.dev, RTFAT_OP_CREATE), RTFAT_OK);  // the deleted slot
-        for (int i = 0; i < 51; ++i) {  // 13 (data.bin in the deleted slot) + 51 = 64: the two clusters full
-            char n[16];
-            std::snprintf(n, sizeof n, "F%03d.SAV", i);
-            SetName(oy.name, n);
-            EXPECT_EQ(Run(fy.vol, oy, fy.dev, RTFAT_OP_CREATE), RTFAT_OK);
-        }
-        EXPECT_EQ(fy.fat(4), 0x0FFFFFFFu);
+        FillDirectoryForGrowth(fy, oy);
+        const Bytes before = fy.img.bytes;
         fy.dev.reset();
         fy.dev.fail_at = fail_at;
         SetName(oy.name, "GROWN.SAV");
-        const std::int32_t r = Run(fy.vol, oy, fy.dev, RTFAT_OP_CREATE);
-        if (r == RTFAT_OK) {
-            grown_ok = 1;
-            EXPECT_TRUE(fail_at > 12);  // the growth took a dozen transfers at least
-            EXPECT_TRUE(fy.fat(4) >= 2 && fy.fat(4) < 0x0FFFFFF8u);
-            break;
+        EXPECT_EQ(Run(fy.vol, oy, fy.dev, RTFAT_OP_CREATE), RTFAT_EIO);
+        EXPECT_EQ(fy.vol.mutation_uncertain, 0u);
+        EXPECT_TRUE(FatCopiesAgree(fy));
+        EXPECT_EQ(fy.fat(4), 0x0FFFFFFFu);
+        if (oy.alloc_cluster != 0) {
+            // A retry may start at the old hint or at the restored candidate,
+            // but it must never skip that known-free candidate.
+            EXPECT_TRUE(fy.vol.alloc_hint <= oy.alloc_cluster);
         }
-        EXPECT_EQ(r, RTFAT_EIO);
-        const std::uint32_t tail = fy.fat(4);
-        if (tail != 0x0FFFFFFFu) {
-            const std::uint64_t at = std::uint64_t(fy.vol.data_lba + (tail - 2) * fy.vol.sectors_per_cluster) * 512;
-            bool zero = true;
-            for (std::uint32_t i = 0; i < fy.img.cluster_bytes(); ++i) zero = zero && fy.img.bytes[at + i] == 0;
-            EXPECT_TRUE(zero);
-        }
+        EXPECT_TRUE(fy.img.bytes == before);
+        riftwii::Fat32File missing;
+        EXPECT_FALSE(fy.host_lookup("GROWN.SAV", missing));
+        EXPECT_TRUE(fy.host_read("rksys.dat") == fy.rksys);
     }
-    EXPECT_TRUE(grown_ok);
+
+    // A second failure during the recovery sweep leaves consistency
+    // unproven.  The volume is poisoned, later mutations fail EIO, and
+    // lookups can still safely read the surviving directory.
+    int saw_poison = 0;
+    for (std::uint32_t fail_at = 1; fail_at <= growth_transfers && !saw_poison; ++fail_at) {
+        Fixture fy;
+        rtfat_op& oy = *low.op;
+        FillDirectoryForGrowth(fy, oy);
+        fy.dev.reset();
+        fy.dev.fail_at = fail_at;
+        fy.dev.fail_at2 = fail_at + 1;
+        SetName(oy.name, "GROWN.SAV");
+        EXPECT_EQ(Run(fy.vol, oy, fy.dev, RTFAT_OP_CREATE), RTFAT_EIO);
+        if (fy.vol.mutation_uncertain == 0) continue;  // first failure preceded the extension
+        saw_poison = 1;
+        EXPECT_TRUE(fy.dev.attempts > fail_at + 1);  // the remaining recovery copies were still attempted
+        SetName(oy.name, "LATER.SAV");
+        EXPECT_EQ(Run(fy.vol, oy, fy.dev, RTFAT_OP_CREATE), RTFAT_EIO);
+        SetName(oy.name, "rksys.dat");
+        EXPECT_EQ(Run(fy.vol, oy, fy.dev, RTFAT_OP_LOOKUP), RTFAT_OK);
+    }
+    EXPECT_TRUE(saw_poison);
 }
 
 // ---- delete and rename ---------------------------------------------------------
@@ -805,10 +935,12 @@ static void TestList(Low& low) {
     // listings and usage unless the operation asks for hidden entries;
     // a creation of its name still collides. The host sees it as any file.
     SetName(op.name, "riftwii.cln");
+    op.want_hidden = 1;
     EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_CREATE), RTFAT_OK);
-    fx.img.bytes[std::size_t(op.found.entry_lba) * 512 + op.found.entry_index * 32 + 11] |= 0x02;
+    EXPECT_EQ(op.found.attributes, 0x22u);
     riftwii::Fat32File marker;
     EXPECT_TRUE(fx.host_lookup("riftwii.cln", marker));
+    op.want_hidden = 0;
     EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_LOOKUP), RTFAT_ENOENT);
     EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_COUNT), 5);
     EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_USAGE), 5);
@@ -825,6 +957,20 @@ static void TestList(Low& low) {
     EXPECT_FALSE(fx.host_lookup("riftwii.cln", marker));
     op.want_hidden = 0;
     EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_CREATE), RTFAT_OK);  // the name is free again
+
+    // Internal staging names can be promoted without exposing the stage:
+    // force-hidden CREATE, then force-visible RENAME.
+    SetName(op.name, "stage.sav");
+    op.want_hidden = 1;
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_CREATE), RTFAT_OK);
+    SetName(op.name, "stage.sav");
+    SetName(op.name2, "dest.sav");
+    op.want_hidden = 2;
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_RENAME), RTFAT_OK);
+    op.want_hidden = 0;
+    SetName(op.name, "dest.sav");
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_LOOKUP), RTFAT_OK);
+    EXPECT_EQ(op.found.attributes, 0x20u);
 }
 
 // ---- a bigger geometry: 8 sectors per cluster, the FAT crossing sectors -----------------
@@ -876,6 +1022,7 @@ int main() {
     TestLookup(low);
     TestRead(low);
     TestWrite(low);
+    TestOrdinaryFatMutationPoison(low);
     TestCreate(low);
     TestDeleteRename(low);
     TestStraddle(low);

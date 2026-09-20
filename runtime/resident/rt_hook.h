@@ -174,7 +174,10 @@ typedef void (*rt_game_callback_fn)(int32_t result, uint32_t user_data);
  *           (tag: a deliver slot), carried by a null IOS round trip (an SD
  *           GETSTATUS through the unhooked async ioctl) so the game's
  *           callback runs from the IPC interrupt after the call returned,
- *           never inside it.
+ *           never inside it. A refusal before the intercepted request is
+ *           accepted is returned synchronously with no callback. A rare
+ *           permanent refusal while carrying an accepted result fails the
+ *           save engine closed; it never becomes an inline callback.
  * Arrivals while the engine is busy: async ones queue (RT_FS_QUEUE deep,
  * started from the completion that frees the engine, or from the
  * thread-side completion of a sync or internal request), sync ones wait
@@ -229,22 +232,31 @@ typedef void (*rt_game_callback_fn)(int32_t result, uint32_t user_data);
 #define RT_FS_OP_SNOOP 2u
 #define RT_FS_OP_DELIVER 3u
 #define RT_FS_OP_JOB 4u
+#define RT_FS_OP_CLOSE_SNOOP 5u
 /* The asynchronous import's stages: each names the completion the job
  * waits for; its handler consumes `last` and issues the next request. */
 #define RT_FS_JOB_IDLE 0u
 #define RT_FS_JOB_OPENED 1u        /* IOS_OpenAsync(src) answered: the fd */
 #define RT_FS_JOB_STATTED 2u       /* GetFileStats answered: the size */
-#define RT_FS_JOB_DST_DELETED 3u   /* the card's old destination removed */
-#define RT_FS_JOB_DST_CREATED 4u   /* the destination created empty */
-#define RT_FS_JOB_DST_OPENED 5u    /* the destination opened: the fake fd */
-#define RT_FS_JOB_CHUNK 6u         /* the next piece, or the end of the bytes */
-#define RT_FS_JOB_READ_DONE 7u     /* IOS_ReadAsync of a piece answered */
-#define RT_FS_JOB_WRITTEN 8u       /* the piece written to the card */
-#define RT_FS_JOB_DST_CLOSED 9u    /* the destination closed */
-#define RT_FS_JOB_SRC_CLOSED 10u   /* IOS_CloseAsync(src) answered */
-#define RT_FS_JOB_SRC_DELETED 11u  /* Delete(src) answered: done */
-#define RT_FS_JOB_CLEANUP 12u      /* after a failure: destination closed and removed, source closed */
-#define RT_FS_JOB_DONE 13u
+#define RT_FS_JOB_STAGE_CLEANED 3u
+#define RT_FS_JOB_RECOVER_DST_OPENED 4u
+#define RT_FS_JOB_RECOVER_DST_CLOSED 5u
+#define RT_FS_JOB_RECOVER_BACKUP_DONE 6u
+#define RT_FS_JOB_STAGE_CREATED 7u
+#define RT_FS_JOB_STAGE_OPENED 8u
+#define RT_FS_JOB_CHUNK 9u          /* the next piece, or the end of the bytes */
+#define RT_FS_JOB_READ_DONE 10u     /* IOS_ReadAsync of a piece answered */
+#define RT_FS_JOB_WRITTEN 11u       /* the piece written to the card */
+#define RT_FS_JOB_STAGE_CLOSED 12u  /* hidden staged file closed */
+#define RT_FS_JOB_SRC_CLOSED 13u    /* NAND source closed */
+#define RT_FS_JOB_COMMIT_DST_OPENED 14u
+#define RT_FS_JOB_COMMIT_DST_CLOSED 15u
+#define RT_FS_JOB_BACKUP_MOVED 16u
+#define RT_FS_JOB_STAGE_MOVED 17u
+#define RT_FS_JOB_BACKUP_REMOVED 18u
+#define RT_FS_JOB_SRC_DELETED 19u   /* Delete(src) answered: done */
+#define RT_FS_JOB_CLEANUP 20u       /* after a failure: stage removed, source closed, backup restored */
+#define RT_FS_JOB_DONE 21u
 #define RT_FS_WAIT_TICKS 607500000u    /* 10 s of the time base (60.75 MHz) a sync call waits for the engine */
 #define RT_SDIO_GETSTATUS 0x0Bu        /* the null round trip (wiibrew /dev/sdio, libogc wiisd.c) */
 
@@ -255,7 +267,8 @@ struct rt_fs_pend {
     uint32_t user_data;  /* SNOOP, DELIVER: the game's user data */
     int32_t result;      /* DELIVER: the result to hand over */
     uint32_t job;        /* FILE: the request is the import job's; its completion resumes the job */
-    uint32_t reserved[2];
+    int32_t fd;          /* CLOSE_SNOOP: forget only this fd after a successful completion */
+    uint32_t reserved;
     char path[64];       /* SNOOP: the opened path, for the /dev/fs compare */
     uint32_t status[8] __attribute__((aligned(32)));  /* DELIVER: GETSTATUS's out word, its own line */
 };
@@ -272,12 +285,13 @@ struct rt_fs_queued {
 struct rt_fs_job {
     struct rt_fs_pend tag;       /* the NAND requests' tag (kind RT_FS_OP_JOB); in_use while one is in flight */
     uint32_t active;
-    uint32_t stage;              /* RT_FS_JOB_* */
+    uint32_t phase;              /* RT_FS_JOB_* */
     int32_t last;                /* the result the job was resumed with */
     int32_t fs_fd;               /* the game's /dev/fs fd the rename came on */
     int32_t src_fd;              /* the NAND file, -1 = not open */
     int32_t fake_fd;             /* the card file, -1 = not open */
-    uint32_t created;            /* the destination exists on the card (removed again on failure) */
+    uint32_t stage_created;      /* hidden stage exists and is removed on failure */
+    uint32_t backup_moved;       /* visible destination is held at backup until commit succeeds */
     uint32_t size;
     uint32_t done;
     uint32_t chunk;              /* bytes of the piece in flight */
@@ -288,6 +302,9 @@ struct rt_fs_job {
     struct rtfs_ipc ipc;         /* the rename, for the report */
     char src[RTFS_PATH_BYTES] __attribute__((aligned(32)));  /* IOS reads it: its own lines */
     char dst[RTFS_PATH_BYTES] __attribute__((aligned(32)));
+    char stage[RTFS_PATH_BYTES] __attribute__((aligned(32)));
+    char backup[RTFS_PATH_BYTES] __attribute__((aligned(32)));
+    char paths[2u * RTFS_PATH_BYTES] __attribute__((aligned(32)));
 };
 
 /* Savegame FS interception state. Lives in a loader-owned block (MEM2
@@ -316,7 +333,8 @@ struct rt_fs_state {
     uint32_t transfers;            /* SD requests issued for FS operations */
     uint32_t failures;             /* of those, refused or failed */
     uint32_t deferred;             /* results carried by a null round trip */
-    uint32_t inline_deliveries;    /* callbacks called directly (no round trip possible) */
+    uint32_t inline_deliveries;    /* retained ABI counter: always zero; callbacks are never inline */
+    uint32_t delivery_failures;    /* null delivery refused after retries; engine failed closed */
     uint32_t queued;               /* async arrivals queued behind a busy engine */
     uint32_t waits;                /* sync arrivals that waited */
     uint32_t wait_timeouts;        /* of those, answered -114 after RT_FS_WAIT_TICKS */
@@ -330,7 +348,7 @@ struct rt_fs_state {
     uint32_t clone_failures;       /* files the clone could not copy, or a clone that could not start */
     uint32_t clone_marker;         /* clone markers deleted (the clone ran to its end) */
     uint32_t import_jobs;          /* of the imports, asynchronous ones (jobs) */
-    uint32_t reserved[5];
+    uint32_t reserved[4];
     struct rt_fs_pend pend;
     struct rt_fs_pend snoop[RT_FS_SNOOPS];
     struct rt_fs_pend deliver[RT_FS_DELIVERS];
@@ -351,6 +369,14 @@ struct rt_fs_state {
     uint8_t names[RT_FS_CLONE_MAX * RTFAT_SLOT_BYTES] __attribute__((aligned(32)));  /* the clone's listing */
     uint8_t bounce[RT_FS_BOUNCE_BYTES] __attribute__((aligned(32)));
     uint8_t import[RT_FS_IMPORT_BYTES] __attribute__((aligned(32)));
+    /* The synchronous import's stage/backup/rename paths. They cannot live
+     * on the stack like the job's can in its record: the engine only ever
+     * sees 32-bit addresses, and the host stack is not 32-bit addressable.
+     * Shared like the other scratch: one sync import runs at a time behind
+     * the engine's one-at-a-time rule. */
+    char copy_stage[RTFS_PATH_BYTES] __attribute__((aligned(32)));
+    char copy_backup[RTFS_PATH_BYTES] __attribute__((aligned(32)));
+    char copy_paths[2u * RTFS_PATH_BYTES] __attribute__((aligned(32)));
 };
 
 /* 2048 bytes. */

@@ -66,6 +66,10 @@ struct rtfat_volume {
     uint32_t cluster_count;       /* data clusters, numbered 2 .. cluster_count + 1 */
     uint32_t dir_cluster;         /* first cluster of the directory served */
     uint32_t alloc_hint;          /* next cluster to try when allocating (engine-updated) */
+    /* Set when recovery from a failed directory extension cannot prove the
+     * mirrored FATs consistent.  Reads may continue; mutations fail EIO
+     * until the loader remounts the card. */
+    uint32_t mutation_uncertain;
 };
 
 /* An open file as the engine tracks it. The directory entry's location is
@@ -134,9 +138,10 @@ struct rtfat_op {
     char name2[RTFAT_NAME_MAX + 1];
     uint32_t bounce;
     uint32_t bounce_bytes;
-    uint32_t want_hidden;    /* scans see ATTR_HIDDEN entries (the runtime's own clone marker);
-                              * else lookups, listings and usage skip them. A creation always
-                              * sees them: a name can exist on the card only once. */
+    uint32_t want_hidden;    /* 0: normal scan / preserve rename attributes; 1: include hidden
+                              * scans and force the new entry hidden; 2: include hidden scans and
+                              * force a renamed entry visible.  A creation always sees hidden
+                              * names: a name can exist on the card only once. */
     /* Results beyond `result`. */
     struct rtfat_dirent found;   /* LOOKUP, CREATE, RENAME (the new entry): the entry */
     struct rtfat_dirent source;  /* RENAME, DELETE: the entry removed */
@@ -195,6 +200,9 @@ struct rtfat_op {
     uint32_t entry_dirty;        /* WRITE: the directory entry must be rewritten */
     uint32_t grow_next;          /* CREATE/RENAME: state after the directory gained room */
     uint32_t dir_grow;           /* the allocation in progress is a directory cluster: zeroed before linked */
+    uint32_t dir_txn;            /* directory extension owns alloc_cluster until its first entry is durable */
+    uint32_t recovery_copy;      /* FAT copy currently being restored after a failed directory extension */
+    uint32_t recovery_failed;    /* a recovery transfer failed: poison the volume after all copies were attempted */
     uint32_t entry_zero;         /* the sector at free_lba is past the last entry: zero it before filling */
     uint8_t fat_sector[RTFAT_SECTOR_BYTES] __attribute__((aligned(32)));
     uint8_t sector[RTFAT_SECTOR_BYTES] __attribute__((aligned(32)));
