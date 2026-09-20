@@ -134,6 +134,9 @@ struct rtfat_op {
     char name2[RTFAT_NAME_MAX + 1];
     uint32_t bounce;
     uint32_t bounce_bytes;
+    uint32_t want_hidden;    /* scans see ATTR_HIDDEN entries (the runtime's own clone marker);
+                              * else lookups, listings and usage skip them. A creation always
+                              * sees them: a name can exist on the card only once. */
     /* Results beyond `result`. */
     struct rtfat_dirent found;   /* LOOKUP, CREATE, RENAME (the new entry): the entry */
     struct rtfat_dirent source;  /* RENAME, DELETE: the entry removed */
@@ -198,8 +201,8 @@ struct rtfat_op {
 };
 
 /* Starts an operation: the caller has set the parameters (name/name2
- * NUL-terminated, file/buffer/length/bounce as the kind needs). Clears
- * the scratch and the result. */
+ * NUL-terminated, file/buffer/length/bounce/want_hidden as the kind
+ * needs). Clears the scratch and the result. */
 void rtfat_begin(struct rtfat_op* op, uint32_t kind);
 
 /* Advances the operation. Returns RTFAT_IO with the transfer request

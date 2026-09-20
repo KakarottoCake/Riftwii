@@ -800,6 +800,31 @@ static void TestList(Low& low) {
     EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_LIST), 0);
     op.length = 1;
     EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_LIST), RTFAT_EINVAL);
+
+    // A hidden entry (the runtime's clone marker): skipped by lookups,
+    // listings and usage unless the operation asks for hidden entries;
+    // a creation of its name still collides. The host sees it as any file.
+    SetName(op.name, "riftwii.cln");
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_CREATE), RTFAT_OK);
+    fx.img.bytes[std::size_t(op.found.entry_lba) * 512 + op.found.entry_index * 32 + 11] |= 0x02;
+    riftwii::Fat32File marker;
+    EXPECT_TRUE(fx.host_lookup("riftwii.cln", marker));
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_LOOKUP), RTFAT_ENOENT);
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_COUNT), 5);
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_USAGE), 5);
+    op.buffer = Addr(low.data);
+    op.length = 8;
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_LIST), 5);
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_CREATE), RTFAT_EEXIST);
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_DELETE), RTFAT_ENOENT);
+    op.want_hidden = 1;
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_LOOKUP), RTFAT_OK);
+    EXPECT_EQ(op.found.attributes, 0x22u);
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_COUNT), 6);
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_DELETE), RTFAT_OK);
+    EXPECT_FALSE(fx.host_lookup("riftwii.cln", marker));
+    op.want_hidden = 0;
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_CREATE), RTFAT_OK);  // the name is free again
 }
 
 // ---- a bigger geometry: 8 sectors per cluster, the FAT crossing sectors -----------------

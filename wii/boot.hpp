@@ -105,9 +105,10 @@ struct BootOptions {
     // from by the runtime (requires install_resident and the card; the
     // folder is created when missing). Empty: the save stays on NAND.
     std::string savegame_dir;
-    // <savegame clone>: when the folder is created at this launch, the
-    // runtime copies the title's NAND save into it before the game's
-    // first request. An existing folder is used as it is.
+    // <savegame clone>: when the folder is created at this launch (or a
+    // hidden marker in it says an earlier clone did not run to its end),
+    // the runtime copies the title's NAND save into it before the game's
+    // first request. Any other existing folder is used as it is.
     bool savegame_clone = false;
 };
 

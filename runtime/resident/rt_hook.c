@@ -963,16 +963,43 @@ static void rt_fs_report_clone(struct rt_context* ctx, const char* path, int32_t
     rt_interrupts_restore(msr);
 }
 
+/* The clone ran to its end: the loader's marker (rt_hook.h) goes so the
+ * next launch does not repeat it. An internal delete of a hidden entry;
+ * `fs_fd` is the fd the engine classifies as /dev/fs. */
+static void rt_fs_clone_unmark(struct rt_context* ctx, struct rt_fs_state* st, int32_t fs_fd) {
+    struct rtfs_ipc ipc;
+    char* p = st->path;
+    uint32_t at = st->fs.prefix_len, k;
+    int32_t r;
+    if (at + 13 > RTFS_PATH_BYTES) return;
+    rt_zero_bytes((uint8_t*)p, RTFS_PATH_BYTES);
+    for (k = 0; k < at; ++k) p[k] = st->fs.data_prefix[k];
+    p[at + 0] = '/'; p[at + 1] = 'r'; p[at + 2] = 'i'; p[at + 3] = 'f'; p[at + 4] = 't'; p[at + 5] = 'w';
+    p[at + 6] = 'i'; p[at + 7] = 'i'; p[at + 8] = '.'; p[at + 9] = 'c'; p[at + 10] = 'l'; p[at + 11] = 'n';
+    rt_zero_bytes((uint8_t*)&ipc, sizeof(ipc));
+    ipc.command = RTFS_CMD_IOCTL;
+    ipc.fd = fs_fd;
+    ipc.hidden = 1;
+    ipc.args.ioctl.request = RTFS_IOCTL_DELETE;
+    ipc.args.ioctl.in = (uint32_t)(uintptr_t)p;
+    ipc.args.ioctl.in_len = RTFS_PATH_BYTES;
+    r = rt_fs_run_internal(ctx, st, &ipc);
+    if (r >= 0) st->clone_marker++;
+    rt_fs_report_clone(ctx, p, r);
+}
+
 /* <savegame clone> (rt_hook.h): the NAND data directory copied into the
  * folder, once, on the game's thread. Its own /dev/fs fd, opened and
  * closed here; the listing through the game's synchronous IOS_Ioctlv
  * (ReadDir: the path and a count in, the names one after another, each
  * NUL-terminated, in a buffer of 13 bytes per name, and the count out);
  * each name copied by rt_fs_copy_in with the same path on both sides
- * (NAND through the original IOS_Open, the card through the engine). */
+ * (NAND through the original IOS_Open, the card through the engine,
+ * which classifies by the game's /dev/fs fd once that is known). */
 static void rt_fs_clone(struct rt_context* ctx, struct rt_fs_state* st) {
-    int32_t fd, r;
+    int32_t fd, engine_fd, r;
     uint32_t count, i, n;
+    int listed = 0;
     char* p = st->path;
     st->clone_pending = 0;
     if (!rt_fs_has_sync_originals(st) || st->ioctlv_sync == 0) {
@@ -988,6 +1015,7 @@ static void rt_fs_clone(struct rt_context* ctx, struct rt_fs_state* st) {
         rt_fs_report_clone(ctx, p, fd);
         return;
     }
+    engine_fd = st->fs.fs_fd >= 0 ? st->fs.fs_fd : fd;
     /* The listing. A missing directory is an empty save: nothing to copy. */
     rt_zero_bytes((uint8_t*)p, RTFS_PATH_BYTES);
     for (i = 0; i < st->fs.prefix_len && i < RTFS_PATH_BYTES - 1; ++i) p[i] = st->fs.data_prefix[i];
@@ -1003,6 +1031,7 @@ static void rt_fs_clone(struct rt_context* ctx, struct rt_fs_state* st) {
     r = rt_fs_ioctlv_sync(st, fd, RTFS_IOCTL_READDIR, 1, 1, st->dvec);
     count = r < 0 ? 0 : st->count_out[0];
     if (r < 0 && r != RTFAT_ENOENT) st->clone_failures++;
+    else listed = 1;
     rt_fs_report_clone(ctx, p, r < 0 ? r : (int32_t)count);
     if (count > RT_FS_CLONE_MAX) {
         /* More names than the listing holds: the ones past the cap are
@@ -1026,6 +1055,7 @@ static void rt_fs_clone(struct rt_context* ctx, struct rt_fs_state* st) {
         r = rt_fs_ioctlv_sync(st, fd, RTFS_IOCTL_READDIR, 2, 2, st->dvec);
         if (r < 0) {
             st->clone_failures++;
+            listed = 0;
             count = 0;
         } else if (st->count_out[0] < count) {
             count = st->count_out[0];
@@ -1045,11 +1075,12 @@ static void rt_fs_clone(struct rt_context* ctx, struct rt_fs_state* st) {
             p[at++] = '/';
             for (k = 0; k < len; ++k) p[at + k] = name[k];
         }
-        r = rt_fs_copy_in(ctx, st, fd, p, p, 0);
+        r = rt_fs_copy_in(ctx, st, engine_fd, p, p, 0);
         if (r < 0) st->clone_failures++;
         else st->clone_files++;
         rt_fs_report_clone(ctx, p, r);
     }
+    if (listed) rt_fs_clone_unmark(ctx, st, engine_fd);
     rt_fs_close_sync(st, fd);
 }
 

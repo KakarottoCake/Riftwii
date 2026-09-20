@@ -440,7 +440,7 @@ static int on_short_entry(struct rtfat_op* op, const uint8_t* e, uint32_t lba, u
     const int long_valid = op->lfn_count > 0 && op->lfn_expect == 0 && op->lfn_ok &&
                            rtfat_short_checksum(e) == op->lfn_sum && op->lfn[0] != 0;
     uint32_t i;
-    if (attr & ATTR_LABEL) {
+    if ((attr & ATTR_LABEL) || ((attr & ATTR_HIDDEN) && !op->want_hidden && op->scan_mode != SCAN_CREATE)) {
         reset_lfn(op);
         return 0;
     }

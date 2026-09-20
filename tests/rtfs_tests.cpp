@@ -17,7 +17,7 @@ static_assert(sizeof(rtfs_iovec) == 8, "IOS vector layout");
 static_assert(offsetof(rtfs_ipc, args) == 12, "IOS args start at 0x0c");
 static_assert(offsetof(rtfs_ipc, callback) == 32, "IOS callback follows five args");
 static_assert(offsetof(rtfs_ipc, user_data) == 36, "IOS user data layout");
-static_assert(sizeof(rtfs_ipc) == 40, "active IOS request layout");
+static_assert(sizeof(rtfs_ipc) == 44, "active IOS request layout");
 static_assert(offsetof(rtfs_attr_block, filepath) == 6, "ISFS attr filepath layout");
 static_assert(offsetof(rtfs_attr_block, ownerperm) == 70, "ISFS attr permissions layout");
 static_assert(sizeof(rtfs_attr_block) == 76, "ISFS attr payload layout");
@@ -103,6 +103,8 @@ struct Fixture {
         save.insert(save.end(), banner.begin(), banner.end());
         fatimg::Bytes other = fatimg::short_entry("OTHER   DAT", 0x20, 12, 0);
         save.insert(save.end(), other.begin(), other.end());
+        fatimg::Bytes marker = fatimg::short_entry("RIFTWII CLN", 0x22, 0, 0);  // hidden: invisible to the game
+        save.insert(save.end(), marker.begin(), marker.end());
         EXPECT_TRUE(image.write_dir({3}, save));
         volume.sectors_per_cluster = image.spc;
         volume.fat_lba = image.reserved;
@@ -482,6 +484,35 @@ void TestProbeAndFsFd(Low& low) {
 }
 }  // namespace
 
+// The hidden marker: no request of the game finds, lists or counts it;
+// only a creation of its name collides; an internal request asking for
+// hidden entries deletes it.
+void TestHiddenMarker(Low& low) {
+    Fixture fx;
+    CopyPath(low.data, fx.prefix + "/riftwii.cln");
+    EXPECT_EQ(Run(fx, low, Open(Addr(low.data), 1)), RTFAT_ENOENT);
+    auto* count = reinterpret_cast<std::uint32_t*>(low.data + 256);
+    low.vec[0].data = Addr(low.data); low.vec[0].len = RTFS_PATH_BYTES; low.vec[1].data = Addr(count); low.vec[1].len = 4;
+    CopyPath(low.data, fx.prefix);
+    rtfs_ipc readdir{}; readdir.command = RTFS_CMD_IOCTLV; readdir.fd = 21; readdir.args.ioctlv.request = RTFS_IOCTL_READDIR;
+    readdir.args.ioctlv.in_count = 1; readdir.args.ioctlv.out_count = 1; readdir.args.ioctlv.vectors = Addr(low.vec);
+    EXPECT_EQ(Run(fx, low, readdir), RTFAT_OK); EXPECT_EQ(*count, 2u);  // the count form: every file, none of the marker
+    std::memset(low.attr, 0, sizeof(*low.attr));
+    CopyPath(reinterpret_cast<std::uint8_t*>(low.attr->filepath), fx.prefix + "/riftwii.cln");
+    rtfs_ipc create{}; create.command = RTFS_CMD_IOCTL; create.fd = 21; create.args.ioctl.request = RTFS_IOCTL_CREATEFILE;
+    create.args.ioctl.in = Addr(low.attr); create.args.ioctl.in_len = sizeof(*low.attr);
+    EXPECT_EQ(Run(fx, low, create), RTFAT_EEXIST);
+    CopyPath(low.data, fx.prefix + "/riftwii.cln");
+    rtfs_ipc del{}; del.command = RTFS_CMD_IOCTL; del.fd = 21; del.args.ioctl.request = RTFS_IOCTL_DELETE; del.args.ioctl.in = Addr(low.data); del.args.ioctl.in_len = RTFS_PATH_BYTES;
+    EXPECT_EQ(Run(fx, low, del), RTFAT_ENOENT);
+    del.hidden = 1;
+    EXPECT_EQ(Run(fx, low, del), RTFAT_OK);
+    EXPECT_EQ(Run(fx, low, del), RTFAT_ENOENT);
+    EXPECT_EQ(Run(fx, low, create), RTFAT_OK);  // the name is free now
+    CopyPath(low.data, fx.prefix + "/riftwii.cln");
+    EXPECT_TRUE(Run(fx, low, Open(Addr(low.data), 1)) >= static_cast<int>(RTFS_FD_BASE));
+}
+
 int main() {
     Low low;
     if (!low.base) { std::cerr << "no memory below 4 GiB; skipping rtfs tests" << std::endl; return 0; }
@@ -491,6 +522,7 @@ int main() {
     TestIoctlsAndDirectory(low);
     TestStatsRenameDeleteAndFailure(low);
     TestProbeAndFsFd(low);
+    TestHiddenMarker(low);
     if (g_failures == 0) std::cout << "rtfs tests passed" << std::endl;
     return g_failures == 0 ? 0 : 1;
 }

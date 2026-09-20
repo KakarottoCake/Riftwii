@@ -676,7 +676,8 @@ struct FsMemory {
 
 // The rtfs test fixture's card: the save directory at cluster 3 holding
 // SAVE.BIN, two clusters of known bytes.
-void FsFillCard(FsCard& card, fatimg::Bytes& content, rtfat_volume& volume, std::uint8_t seed) {
+// `marker`: the loader's hidden clone marker "riftwii.cln" is in the folder.
+void FsFillCard(FsCard& card, fatimg::Bytes& content, rtfat_volume& volume, std::uint8_t seed, bool marker = false) {
     const std::uint32_t kClusterBytes = card.image.cluster_bytes();
     content.assign(kClusterBytes + 37, 0);
     for (std::size_t i = 0; i < content.size(); ++i) content[i] = static_cast<std::uint8_t>(i * seed + 3);
@@ -684,6 +685,10 @@ void FsFillCard(FsCard& card, fatimg::Bytes& content, rtfat_volume& volume, std:
     fatimg::Bytes dir;
     fatimg::Bytes save = fatimg::short_entry("SAVE    BIN", 0x20, 10, static_cast<std::uint32_t>(content.size()), 0x18);
     dir.insert(dir.end(), save.begin(), save.end());
+    if (marker) {
+        fatimg::Bytes m = fatimg::short_entry("RIFTWII CLN", 0x22, 0, 0);
+        dir.insert(dir.end(), m.begin(), m.end());
+    }
     EXPECT_TRUE(card.image.write_dir({3}, dir));
     volume = rtfat_volume{};
     volume.sectors_per_cluster = card.image.spc;
@@ -1666,7 +1671,7 @@ static void TestFsClone() {
     FsCard card;
     fatimg::Bytes content;
     rtfat_volume volume;
-    FsFillCard(card, content, volume, 11);
+    FsFillCard(card, content, volume, 11, true);
     rt_fs_state* st = mem.st;
     std::uint8_t* path = mem.path;
     std::uint8_t* data = mem.data;
@@ -1730,6 +1735,10 @@ static void TestFsClone() {
     EXPECT_EQ(st->clone_pending, 1u);
     EXPECT_EQ(st->clones, 0u);
     rt_host_fs_in_thread = 1;
+    // The marker: the second entry of the folder, hidden.
+    const std::size_t marker_at = std::size_t(volume.data_lba + volume.sectors_per_cluster) * 512 + 32;
+    EXPECT_EQ(card.image.bytes[marker_at], std::uint8_t('R'));
+    EXPECT_EQ(card.image.bytes[marker_at + 11], std::uint8_t(0x22));
 
     // The game's first call on a thread (a sync open of another device,
     // replayed): the NAND directory is listed and copied in first. The
@@ -1748,6 +1757,9 @@ static void TestFsClone() {
     EXPECT_TRUE(nand.deleted.empty());
     EXPECT_EQ(st->fs.fs_fd, -1);
     EXPECT_EQ(st->fs.busy, 0u);
+    // The clone ran to its end: the marker is deleted (0xE5).
+    EXPECT_EQ(st->clone_marker, 1u);
+    EXPECT_EQ(card.image.bytes[marker_at], std::uint8_t(0xE5));
     check_card_file("FLF.bin", flf, 0);
     check_card_file("FLF.bin", flf, 2 * RT_FS_IMPORT_BYTES + 77 - 40);
     check_card_file("GF_0_00.jpg", gf, 1000);
@@ -1765,6 +1777,7 @@ static void TestFsClone() {
     EXPECT_EQ(st->clones, 2u);
     EXPECT_EQ(st->clone_failures, 1u);
     EXPECT_EQ(st->clone_files, 2u);
+    EXPECT_EQ(st->clone_marker, 1u);
 
     // More names than the listing holds (RT_FS_CLONE_MAX): the first
     // RT_FS_CLONE_MAX are attempted (two files copied, the subdirectories
