@@ -1599,3 +1599,85 @@ callback, runs on the first thread call, subdirectory skipped, NAND
 untouched, own fd closed and not learned, once only, missing
 directory, no sync ioctlv); the `rtfat`/`rtfs` listing tests check the
 packing. Open: the hardware run of everything since section 11.
+
+### 24.17 Review fixes before the hardware run (conductor, 2026-09-20)
+A review of the savegame runtime and loader (`afa63ac..9b6f205`,
+`docs/HANDOFF_2026-09-20.md`) found six issues; each is its own
+commit, in this order.
+1. `077a006`: a request completing on the game's thread (a sync call,
+   an internal one of an import or clone) left the async queue
+   standing until some later FILE completion; `rt_fs_start_queued` now
+   runs after every thread-side completion. Test: an async open
+   injected from a card transfer of a sync import is issued and
+   delivered after the import.
+2. `8e23a3a`: a sync arrival's wait spun with interrupts on and never
+   yielded, so a holder of equal or higher priority could not run (the
+   SDK schedules without time slices) and the waiter timed out after
+   10 s. Each turn of the wait is now a synchronous SD GETSTATUS through
+   the game's `IOS_Ioctl` (its own line, `wait_status`): the thread
+   sleeps until IOS answers, which is after the holder's transfer since
+   the SD device serves in order. Without that original the wait spins
+   as before.
+3. `7b71c53`: the async rename's import ran synchronously inside the
+   game's `IOS_IoctlAsync` on the caller's thread (seconds for a
+   multi-MB temporary) and could not run from an IPC callback. It is a
+   job now (`rt_fs_job`, one at a time): the NAND side through the
+   game's async originals (`IOS_OpenAsync`, `IOS_IoctlAsync`
+   GetFileStats, `IOS_ReadAsync` per 32 KiB piece, `IOS_CloseAsync`,
+   `IOS_IoctlAsync` Delete; the FS completion entry their callback,
+   tag `&job.tag`), the card side through the engine's async FILE path
+   (the pend's `job` flag returns the completion to the job; behind a
+   busy engine the job's request queues like the game's, so the game's
+   requests interleave and a sync arrival never waits out the whole
+   file), the game's callback the tail call of the completion that
+   ends the job. A failure closes and removes the destination and
+   closes the source, which stays. The loader records the three async
+   originals in the FS state (`IOS_IoctlAsync` is `di_read_entry`);
+   without them the old behaviour stays (sync import on a thread, -102
+   from a callback); the sync hook keeps the synchronous import. The F
+   line says P at the call, the C line comes at the end. Host: the fake
+   IOS completes NAND open/close/read/ioctl through the fake NAND; the
+   import test drives a three-piece job from an IPC callback, one whose
+   card request queues behind the game's own async open and whose NAND
+   read fails midway (cleanup, -114 delivered), and both fallbacks.
+4. `5bcbf7e`: every gecko line (F, C, K, DI R and M) is printed with
+   interrupts off; thread and interrupt contexts shared the EXI channel
+   and could cut each other's lines.
+5. `447b08a`: a clone lists up to 512 names (was 128, the rest silently
+   left out); every name past the cap counts in `clone_failures`, the
+   K count line shows the directory's real count.
+6. `5a3429c`: a clone ran only when the loader had just created the
+   folder, so one that stopped short was never repeated. The loader
+   now marks a folder whose clone is due with a hidden `riftwii.cln`
+   inside it (libfat `FAT_setAttr`, `ATTR_HIDDEN`): created when a
+   clone is decided (a new folder, or a marker still there), removed
+   by the loader when the package says `clone="false"`, deleted by the
+   runtime once the listing was copied to its end (an internal DELETE
+   asking for hidden entries, `clone_marker`, a K line). `rtfat` skips
+   hidden entries in lookups, listings and usage unless the operation's
+   `want_hidden` asks (a creation always sees them: a name exists on
+   the card once); `rtfs_ipc.hidden` carries the flag for internal
+   requests. Found on the way: the count form of ReadDir (1 in, 1 out)
+   always answered 0 through the engine (a LIST of length 0; a COUNT
+   now), and the clone's engine-side requests now classify by the
+   game's `/dev/fs` fd when it is already known (the clone's own fd
+   would have passed through). Blob 45312 bytes.
+
+Dolphin afterwards, Mario Kart Wii: `mkw_save.xml` on the existing
+folder (rksys.dat read back, the VFFs created and written, GetUsage's
+count form answered, only -106/-101 probes as errors) and
+`mkw_clone.xml` on a new folder: the loader's marker is in the
+directory (`RIFTWII CLN`, attribute 0x22), the clone lists 4 and
+copies 4 (`K:` lines), the fifth K line is the marker's delete (0),
+the card image afterwards holds the marker's entry as deleted (0xE5)
+and `RKSYS.DAT`, `BANNER.BIN`, `WC24DL.VFF` byte-identical to NAND
+(md5). Kirby's Epic Yarn boots as in 24.15 (33 async deletes, -106
+each, through the job-free path; usage 0) and waits at its first
+screen; its save creation, which would drive the import job with
+thirty-two real async renames, needs the held `2` key, and the harness
+could not take the keyboard this time (another window held the
+foreground, and screenshots came back stale), so that run is open
+along with the hardware run of everything since section 11. Note for
+the harness: a killed run's `run.sh` keeps sleeping and its final
+`taskkill` ends whatever Dolphin runs next; wait for it or kill the
+script too.
