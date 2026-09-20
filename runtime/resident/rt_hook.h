@@ -207,7 +207,7 @@ typedef void (*rt_game_callback_fn)(int32_t result, uint32_t user_data);
 #define RT_FS_QUEUE 4u
 #define RT_FS_BOUNCE_BYTES 0x8000u    /* one transfer moves up to 64 sectors */
 #define RT_FS_IMPORT_BYTES 0x8000u    /* one NAND read of an imported file */
-#define RT_FS_CLONE_MAX 128u          /* files a clone copies at most (ReadDir slots held) */
+#define RT_FS_CLONE_MAX 512u          /* files a clone copies at most (ReadDir slots held); the rest count as failures */
 #define RT_FS_OP_FILE 1u
 #define RT_FS_OP_SNOOP 2u
 #define RT_FS_OP_DELIVER 3u
