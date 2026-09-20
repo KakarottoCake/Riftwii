@@ -1509,3 +1509,39 @@ completion delivers to its own callback). The FILE pend and queue
 claims need no change: no IOS completion can be outstanding across
 their windows, so nothing can interleave them.
 
+
+### 24.15 Kirby's save creation: the directory grows (conductor, 2026-09-19)
+Driving Kirby's Epic Yarn past its first screen (a held `2` key in
+Dolphin's window; a tapped key is too short for the emulated remote's
+poll) reached "Creating save file": for `FLF.bin` and each
+`GF_<n>_<nn>.jpg` the game opens (-106), asks the attributes (-106),
+renames `/tmp/<file>` into the directory (the async form: the import
+runs on the game's thread from the async hook, 0), opens the result,
+asks its stats and closes it. The fifteenth import answered -107: the
+save folder was one cluster of one sector (16 entries, `.` and `..`
+included) and `rtfat` had no way to extend a directory. Now
+(`9bef251`, then this commit): a creation that finds no run of free
+entries goes past the end-of-directory sector, to the rest of its
+cluster, to the next cluster already chained, or to a new one; the
+entries from the stopped-at 0x00 onward are marked deleted first so
+later scans read on (FAT: 0x00 ends the directory); a new cluster is
+marked in every FAT copy, zeroed sector by sector, and only then
+linked after the last one, so a failure between those steps costs a
+lost cluster and never a directory tail of garbage entries; long
+names never split across sectors. Rename shares the path. Host tests
+fill the fixture's directory past its two clusters (chain, both FAT
+copies, entry locations, the deleted marker, the engine's and the
+host reader's listings) and inject a failure at every transfer of the
+first growth, checking that a linked cluster is always zeroed.
+
+Reviewed and declined from another agent's pass over the same code
+(kept aside, not committed): a rewrite of the async FS path that
+scheduled every async request behind a null round trip and started it
+from the IPC completion, dropped the queue (a second async arrival
+answered -102), refused every async rename import (which is how Kirby
+creates its save) and refused `/dev/fs` closes when the snoop slots
+were busy; and a rollback "transaction" in `rtfat` that kept writing
+FAT sectors after a failed transfer, against the engine's rule that a
+failed transfer ends the operation and the dispatcher marks the state
+dead. The ordering idea from that pass (zero before link) is what
+section 24.15 keeps.

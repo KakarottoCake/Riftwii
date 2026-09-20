@@ -189,6 +189,7 @@ struct rtfat_op {
     uint32_t grow_from;          /* WRITE: size before the operation */
     uint32_t entry_dirty;        /* WRITE: the directory entry must be rewritten */
     uint32_t grow_next;          /* CREATE/RENAME: state after the directory gained room */
+    uint32_t dir_grow;           /* the allocation in progress is a directory cluster: zeroed before linked */
     uint32_t entry_zero;         /* the sector at free_lba is past the last entry: zero it before filling */
     uint8_t fat_sector[RTFAT_SECTOR_BYTES] __attribute__((aligned(32)));
     uint8_t sector[RTFAT_SECTOR_BYTES] __attribute__((aligned(32)));

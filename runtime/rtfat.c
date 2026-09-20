@@ -776,6 +776,15 @@ static int run_state(struct rtfat_volume* vol, struct rtfat_op* op) {
                 return RT_CONT;
             }
             vol->alloc_hint = op->alloc_cluster + 1;
+            if (op->dir_grow) {
+                /* A directory cluster is zeroed before it is linked, so
+                 * a failure between the two leaves a lost cluster rather
+                 * than a directory tail full of garbage entries. */
+                op->scan_sector = 0;
+                zero_bytes(op->sector, RTFAT_SECTOR_BYTES);
+                op->state = S_DIR_ZERO;
+                return RT_CONT;
+            }
             if (op->alloc_link != 0) {
                 op->state = S_ALLOC_LINK;
                 return RT_CONT;
@@ -829,16 +838,14 @@ static int run_state(struct rtfat_volume* vol, struct rtfat_op* op) {
                 op->state = op->grow_next;
                 return RT_CONT;
             }
+            /* A new cluster: marked in the FAT, zeroed (S_DIR_ZERO),
+             * then linked after the last one. */
             op->alloc_link = op->scan_cluster;
             op->alloc_scan = vol->alloc_hint;
             op->alloc_tried = 0;
+            op->dir_grow = 1;
             op->next_state = S_DIR_GROWN;
             op->state = S_ALLOC_SCAN;
-            return RT_CONT;
-        case S_DIR_GROWN:
-            op->scan_sector = 0;
-            zero_bytes(op->sector, RTFAT_SECTOR_BYTES);
-            op->state = S_DIR_ZERO;
             return RT_CONT;
         case S_DIR_ZERO:
             /* Every sector of the new cluster zeroed, one at a time (the
@@ -848,9 +855,13 @@ static int run_state(struct rtfat_volume* vol, struct rtfat_op* op) {
                 op->scan_sector++;
                 return issue(op, lba, 1, 1, op->sector);
             }
+            op->state = S_ALLOC_LINK;
+            return RT_CONT;
+        case S_DIR_GROWN:
+            op->dir_grow = 0;
             op->free_lba = rtfat_cluster_lba(vol, op->alloc_cluster);
             op->free_index = 0;
-            op->entry_zero = 0; /* just zeroed on the card */
+            op->entry_zero = 0; /* zeroed on the card before it was linked */
             op->state = op->grow_next;
             return RT_CONT;
 

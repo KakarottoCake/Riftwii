@@ -608,6 +608,45 @@ static void TestCreate(Low& low) {
     // The engine lists them all.
     EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_COUNT), 5 + 2 + 112 + 1 + 14 + 1);
     EXPECT_EQ(fx.host_names().size(), std::size_t(6 + 2 + 112 + 1 + 14 + 1));
+
+    // Fault injection over the first growth: whichever transfer fails,
+    // a cluster linked into the directory is already zeroed (the new
+    // cluster is zeroed before it is linked), so a failure costs at
+    // most a lost cluster, never a directory tail of garbage entries.
+    int grown_ok = 0;
+    for (std::uint32_t fail_at = 1; fail_at < 200 && !grown_ok; ++fail_at) {
+        Fixture fy;
+        rtfat_op& oy = *low.op;
+        std::memset(&oy, 0, sizeof(oy));
+        SetName(oy.name, "data.bin");
+        EXPECT_EQ(Run(fy.vol, oy, fy.dev, RTFAT_OP_CREATE), RTFAT_OK);  // the deleted slot
+        for (int i = 0; i < 51; ++i) {  // 13 (data.bin in the deleted slot) + 51 = 64: the two clusters full
+            char n[16];
+            std::snprintf(n, sizeof n, "F%03d.SAV", i);
+            SetName(oy.name, n);
+            EXPECT_EQ(Run(fy.vol, oy, fy.dev, RTFAT_OP_CREATE), RTFAT_OK);
+        }
+        EXPECT_EQ(fy.fat(4), 0x0FFFFFFFu);
+        fy.dev.reset();
+        fy.dev.fail_at = fail_at;
+        SetName(oy.name, "GROWN.SAV");
+        const std::int32_t r = Run(fy.vol, oy, fy.dev, RTFAT_OP_CREATE);
+        if (r == RTFAT_OK) {
+            grown_ok = 1;
+            EXPECT_TRUE(fail_at > 12);  // the growth took a dozen transfers at least
+            EXPECT_TRUE(fy.fat(4) >= 2 && fy.fat(4) < 0x0FFFFFF8u);
+            break;
+        }
+        EXPECT_EQ(r, RTFAT_EIO);
+        const std::uint32_t tail = fy.fat(4);
+        if (tail != 0x0FFFFFFFu) {
+            const std::uint64_t at = std::uint64_t(fy.vol.data_lba + (tail - 2) * fy.vol.sectors_per_cluster) * 512;
+            bool zero = true;
+            for (std::uint32_t i = 0; i < fy.img.cluster_bytes(); ++i) zero = zero && fy.img.bytes[at + i] == 0;
+            EXPECT_TRUE(zero);
+        }
+    }
+    EXPECT_TRUE(grown_ok);
 }
 
 // ---- delete and rename ---------------------------------------------------------
