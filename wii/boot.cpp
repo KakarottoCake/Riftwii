@@ -671,6 +671,16 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
     // E4: the SD card again, with our own fd this time, left open and
     // selected for the runtime.
     sdio::Card card;
+    // Until the resident runtime owns this open, selected card, all error
+    // exits must deselect and close it before libfat is mounted again.
+    bool card_handed_to_runtime = false;
+    struct CardCleanup {
+        sdio::Card& card;
+        bool& handed_to_runtime;
+        ~CardCleanup() {
+            if (!handed_to_runtime) sdio::close_card(card);
+        }
+    } card_cleanup{card, card_handed_to_runtime};
     if (pieces.needs_sd() || savegame.enabled) {
         if (!options.install_resident) {
             error = "SD-backed replacements and savegame redirection need the resident runtime";
@@ -774,13 +784,7 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         const std::uint32_t arena2_end =
             options.install_resident ? resident.new_arena2_end : reinterpret_cast<std::uint32_t>(SYS_GetArena2Hi());
         std::vector<MemoryRegion> writable;
-        if (options.install_resident && resident.ioctl_async >= kMem1Start && resident.ioctl_async < kLoaderStart) {
-            writable.push_back(MemoryRegion{kMem1Start, resident.ioctl_async - kMem1Start});
-            writable.push_back(MemoryRegion{resident.ioctl_async + kHookStubBytes,
-                                            kLoaderStart - (resident.ioctl_async + kHookStubBytes)});
-        } else {
-            writable.push_back(MemoryRegion{kMem1Start, kLoaderStart - kMem1Start});
-        }
+        writable.push_back(MemoryRegion{kMem1Start, kLoaderStart - kMem1Start});
         if (options.install_resident && resident.code_base >= loader_end) {
             writable.push_back(MemoryRegion{loader_end, resident.code_base - loader_end});
             const std::uint32_t code_end = resident.code_base + resident.code_bytes;
@@ -789,14 +793,28 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
             writable.push_back(MemoryRegion{loader_end, kMem1End - loader_end});
         }
         writable.push_back(MemoryRegion{kMem2Start, arena2_end > kMem2Start ? arena2_end - kMem2Start : 0});
+        std::vector<MemoryRegion> hook_exclusions;
+        if (options.install_resident) {
+            hook_exclusions.reserve(resident.hook_site_count);
+            for (unsigned i = 0; i < resident.hook_site_count; ++i) {
+                hook_exclusions.push_back(MemoryRegion{resident.hook_sites[i], kHookStubBytes});
+            }
+        }
+        writable = subtract_memory_regions(writable, hook_exclusions);
         std::vector<std::string> notes;
         if (!apply_memory_patches(options.memory_patches, loaded, writable, wii_memory, notes, error)) return false;
         for (const std::string& n : notes) logf("  %s\n", n.c_str());
     }
     settime(secs_to_ticks(static_cast<u64>(std::time(nullptr)) - kWiiEpochOffset));
 
+    // The resident starts with the game; from here it needs the selected
+    // raw-card fd for SD-backed reads and savegame writes.
+    card_handed_to_runtime = true;
     SYS_ResetSystem(SYS_SHUTDOWN, 0, 0);
     game_entry();
+    // A game entry must never return, but release the card if it does.
+    card_handed_to_runtime = false;
+    sdio::close_card(card);
     error = "the game entry point returned";
     return false;
 }
@@ -836,15 +854,26 @@ bool prepare_savegame(const DiscProbe& probe, const BootOptions& options, Savega
     const std::string marker = options.savegame_dir + "/riftwii.cln";
     const bool marked = stat(marker.c_str(), &existing) == 0 && !S_ISDIR(existing.st_mode);
     out.clone = options.savegame_clone && (!existed || marked);
-    if (out.clone && !marked) {
-        FILE* f = std::fopen(marker.c_str(), "wb");
-        if (f == nullptr) {
-            error = "cannot create the clone marker " + marker;
-            return false;
+    if (out.clone) {
+        if (!marked) {
+            FILE* f = std::fopen(marker.c_str(), "wb");
+            if (f == nullptr) {
+                error = "cannot create the clone marker " + marker;
+                return false;
+            }
+            std::fclose(f);
         }
-        std::fclose(f);
+        // A previously-created marker may survive a failed FAT_setAttr.
+        // Reassert and read it back every time a clone is pending: a visible
+        // marker would otherwise leak into the game's save directory.
         if (FAT_setAttr(marker.c_str(), ATTR_HIDDEN | ATTR_ARCHIVE) != 0) {
             error = "cannot hide the clone marker " + marker;
+            return false;
+        }
+        const int attributes = FAT_getAttr(marker.c_str());
+        if (attributes < 0 ||
+            (static_cast<unsigned>(attributes) & (ATTR_HIDDEN | ATTR_ARCHIVE)) != (ATTR_HIDDEN | ATTR_ARCHIVE)) {
+            error = "cannot verify the hidden clone marker " + marker;
             return false;
         }
     } else if (!out.clone && marked && unlink(marker.c_str()) != 0) {

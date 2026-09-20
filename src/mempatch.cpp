@@ -197,6 +197,58 @@ bool apply_ocarina(const MemoryPatch& p, const std::vector<MemoryRegion>& loaded
 
 }  // namespace
 
+std::vector<MemoryRegion> subtract_memory_regions(const std::vector<MemoryRegion>& regions,
+                                                   const std::vector<MemoryRegion>& exclusions) {
+    struct Interval {
+        std::uint64_t begin;
+        std::uint64_t end;
+    };
+    constexpr std::uint64_t kAddressEnd = std::uint64_t{1} << 32;
+
+    std::vector<Interval> blocked;
+    blocked.reserve(exclusions.size());
+    for (const MemoryRegion& r : exclusions) {
+        if (r.length == 0) continue;
+        const std::uint64_t begin = r.address;
+        const std::uint64_t end = std::min(kAddressEnd, begin + r.length);
+        if (begin < end) blocked.push_back({begin, end});
+    }
+    std::sort(blocked.begin(), blocked.end(), [](const Interval& a, const Interval& b) {
+        return a.begin != b.begin ? a.begin < b.begin : a.end < b.end;
+    });
+    std::vector<Interval> merged;
+    merged.reserve(blocked.size());
+    for (const Interval& next : blocked) {
+        if (merged.empty() || next.begin > merged.back().end) {
+            merged.push_back(next);
+        } else if (next.end > merged.back().end) {
+            merged.back().end = next.end;
+        }
+    }
+
+    std::vector<MemoryRegion> result;
+    for (const MemoryRegion& r : regions) {
+        if (r.length == 0) continue;
+        const std::uint64_t begin = r.address;
+        const std::uint64_t end = std::min(kAddressEnd, begin + r.length);
+        std::uint64_t cursor = begin;
+        for (const Interval& cut : merged) {
+            if (cut.end <= cursor) continue;
+            if (cut.begin >= end) break;
+            if (cut.begin > cursor) {
+                result.push_back({static_cast<std::uint32_t>(cursor),
+                                  static_cast<std::uint32_t>(cut.begin - cursor)});
+            }
+            if (cut.end > cursor) cursor = std::min(cut.end, end);
+            if (cursor == end) break;
+        }
+        if (cursor < end) {
+            result.push_back({static_cast<std::uint32_t>(cursor), static_cast<std::uint32_t>(end - cursor)});
+        }
+    }
+    return result;
+}
+
 bool apply_memory_patches(const std::vector<MemoryPatch>& patches, const std::vector<MemoryRegion>& loaded,
                           const std::vector<MemoryRegion>& writable, MemoryAccess& memory,
                           std::vector<std::string>& notes, std::string& error) {

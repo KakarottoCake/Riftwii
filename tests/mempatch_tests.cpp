@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/mempatch.hpp"
 
+#include <algorithm>
 #include <cstring>
 #include <iostream>
 #include <string>
@@ -66,6 +67,62 @@ static riftwii::MemoryPatch Plain(std::uint32_t offset, const std::string& value
 }
 
 static const std::vector<riftwii::MemoryRegion> kWritable = {{0x80000000u, 0x10000}, {0x90000000u, 0x1000}};
+
+static void expect_regions(const std::vector<riftwii::MemoryRegion>& actual,
+                           const std::vector<riftwii::MemoryRegion>& expected) {
+    EXPECT_EQ(actual.size(), expected.size());
+    const std::size_t n = std::min(actual.size(), expected.size());
+    for (std::size_t i = 0; i < n; ++i) {
+        EXPECT_EQ(actual[i].address, expected[i].address);
+        EXPECT_EQ(actual[i].length, expected[i].length);
+    }
+}
+
+static void test_subtract_regions() {
+    using riftwii::MemoryRegion;
+    // Unsorted, duplicate and touching hook stubs are canonicalised before
+    // subtraction. Ordinary gaps remain writable.
+    const std::vector<MemoryRegion> writable = {{0x80000000u, 0x100}, {0x90000000u, 0x40}};
+    const std::vector<MemoryRegion> hooks = {
+        {0x80000040u, 0x10}, {0x80000020u, 0x20}, {0x80000020u, 0x20},
+        {0x80000050u, 0x10}, {0x7ffffff0u, 0x20}, {0x90000020u, 0x30},
+        {0x80000080u, 0},
+    };
+    expect_regions(riftwii::subtract_memory_regions(writable, hooks),
+                   {{0x80000010u, 0x10}, {0x80000060u, 0xa0}, {0x90000000u, 0x20}});
+
+    // An exclusion can cover a whole region, overlap its edge, or sit
+    // outside it. 64-bit endpoint arithmetic prevents an upper-boundary
+    // range from wrapping to low RAM.
+    expect_regions(riftwii::subtract_memory_regions({{0xfffffff0u, 0x10}, {0x80000100u, 0x20}},
+                                                     {{0xfffffff8u, 0x20}, {0x7ffffff0u, 0x20}}),
+                   {{0xfffffff0u, 0x8}, {0x80000100u, 0x20}});
+
+    // This mirrors ResidentInstall's complete hook-site list: every
+    // installed 16-byte stub is unavailable, while each gap between stubs
+    // remains patchable.
+    std::vector<MemoryRegion> all_hook_sites;
+    std::vector<MemoryRegion> expected_gaps;
+    constexpr std::uint32_t kStubBase = 0x80001000u;
+    constexpr std::uint32_t kStubStride = 0x20u;
+    for (std::uint32_t i = 0; i < 14; ++i) {
+        all_hook_sites.push_back({kStubBase + i * kStubStride, 16});
+        expected_gaps.push_back({kStubBase + i * kStubStride + 16, 16});
+    }
+    expect_regions(riftwii::subtract_memory_regions({{kStubBase, 14 * kStubStride}}, all_hook_sites), expected_gaps);
+
+    // A patch in a hook stub is refused, while either side remains eligible.
+    FakeMemory mem;
+    const std::vector<MemoryRegion> protected_ranges =
+        riftwii::subtract_memory_regions(kWritable, {{0x80002000u, 16}, {0x80002100u, 16}});
+    std::vector<std::string> notes;
+    std::string err;
+    EXPECT_FALSE(riftwii::apply_memory_patches({Plain(0x2000, "nope")}, {}, protected_ranges, mem, notes, err));
+    EXPECT_TRUE(riftwii::apply_memory_patches({Plain(0x1ffc, "okay"), Plain(0x2010, "safe")}, {},
+                                               protected_ranges, mem, notes, err));
+    EXPECT_EQ(mem.str(0x80001ffcu, 4), std::string("okay"));
+    EXPECT_EQ(mem.str(0x80002010u, 4), std::string("safe"));
+}
 
 static void test_plain() {
     FakeMemory mem;
@@ -253,6 +310,7 @@ static void test_ocarina() {
 }
 
 int main() {
+    test_subtract_regions();
     test_plain();
     test_search();
     test_ocarina();

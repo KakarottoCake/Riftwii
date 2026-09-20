@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <string>
 #include <vector>
 
 #include "riftwii/dol.hpp"
 #include "riftwii/hook.hpp"
+#include "rt_hook.h"
 #include "rtfat.h"
 
 // E2: installs the resident runtime (runtime/resident, embedded as
@@ -69,6 +71,10 @@ struct ResidentInstall {
     std::uint32_t payload_bytes = 0;
     std::uint32_t bounce_bytes = 0;   // SD bounce buffers after the payload, 0 without SD replacements
     unsigned hooked = 0;              // SDK IPC API functions diverted (1 = only IOS_IoctlAsync)
+    // Exactly the SDK entry addresses overwritten with 16-byte trampolines.
+    // Entries after `hook_site_count` are zero.
+    std::array<std::uint32_t, RT_IPC_ENTRIES> hook_sites{};
+    unsigned hook_site_count = 0;
     std::uint32_t fs_state = 0;       // the savegame state block, 0 when not redirected
 };
 
