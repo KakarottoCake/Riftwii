@@ -299,8 +299,12 @@ static void begin_ioctlv(struct rtfs_context* ctx, struct rtfs_request* r, const
         if (p != PATH_DIR) { finish(ctx, r, RTFAT_EINVAL); return; }
         if (v[1].data == 0 || v[1].len < 4u) { finish(ctx, r, RTFAT_EINVAL); return; }
         if (busy(ctx, r)) { finish(ctx, r, RTFAT_EACCESS); return; }
-        if (ipc->args.ioctlv.in_count == 1u) { r->out0 = v[1].data; r->fat.buffer = 0; r->fat.length = 0; }
-        else {
+        if (ipc->args.ioctlv.in_count == 1u) {
+            /* The count form: how many files there are, no names. */
+            r->out0 = v[1].data;
+            start_fat(ctx, r, RTFAT_OP_COUNT, RTFS_ACTION_LIST); return;
+        }
+        {
             const uint32_t count = *(uint32_t*)(uintptr_t)v[1].data;
             if ((count != 0 && count > 0xffffffffu / RTFAT_SLOT_BYTES) || v[2].data == 0 || v[2].len < count * RTFAT_SLOT_BYTES ||
                 v[3].data == 0 || v[3].len < 4u) { finish(ctx, r, RTFAT_EINVAL); return; }
@@ -329,6 +333,7 @@ static void begin(struct rtfs_context* ctx, struct rtfs_request* r, const struct
     zero_bytes((uint8_t*)r, (uint32_t)sizeof(*r));
     r->fat.bounce = bounce;
     r->fat.bounce_bytes = bounce_bytes;
+    r->fat.want_hidden = ipc != 0 ? ipc->hidden : 0;
     r->probe = probe;
     r->classification = RTFS_PASS_THROUGH;
     if (ctx == 0 || ipc == 0) { r->classification = RTFS_COMPLETE; r->result = RTFAT_EINVAL; return; }

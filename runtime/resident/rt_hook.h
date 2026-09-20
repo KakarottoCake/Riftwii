@@ -201,6 +201,13 @@ typedef void (*rt_game_callback_fn)(int32_t result, uint32_t user_data);
  * loader's may not) and written into the card the way an import is,
  * NAND untouched. A file's failure skips it; the game's requests then
  * proceed against whatever was copied.
+ * The loader marks a folder whose clone is due with a hidden file
+ * "riftwii.cln" inside it (clone_pending is set whenever the marker is
+ * there); the runtime deletes the marker once the listing was copied to
+ * its end, so a clone that did not get that far (power off, a failed
+ * listing) is repeated at the next launch. Hidden card entries are
+ * invisible to the game's requests (rtfat skips them); the marker's
+ * delete is an internal request that asks for them.
  */
 #define RT_FS_SNOOPS 2u
 #define RT_FS_DELIVERS 4u
@@ -267,7 +274,8 @@ struct rt_fs_state {
     uint32_t clones;               /* clone runs (0 or 1) */
     uint32_t clone_files;          /* files copied by the clone */
     uint32_t clone_failures;       /* files the clone could not copy, or a clone that could not start */
-    uint32_t reserved[7];
+    uint32_t clone_marker;         /* clone markers deleted (the clone ran to its end) */
+    uint32_t reserved[6];
     struct rt_fs_pend pend;
     struct rt_fs_pend snoop[RT_FS_SNOOPS];
     struct rt_fs_pend deliver[RT_FS_DELIVERS];

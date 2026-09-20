@@ -88,6 +88,7 @@ struct rtfs_ipc {
     } args;
     uint32_t callback;
     uint32_t user_data;
+    uint32_t hidden;        /* internal requests only: the operation sees hidden card entries */
 };
 
 struct rtfs_file {

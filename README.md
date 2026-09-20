@@ -48,7 +48,9 @@ Direction, review findings and the roadmap live in `docs/`.
   and answers the ISFS requests from its own FAT32 engine over SDIO,
   importing the temporaries the SDK's safe write renames in (Mario
   Kart Wii's `rksys.dat` lands on the card in Dolphin); `clone` copies
-  the NAND save into a folder created at launch, as the game.
+  the NAND save into a folder created at launch, as the game (a hidden
+  `riftwii.cln` in the folder marks a clone still due; the game never
+  sees hidden entries).
 - `vendor-pugixml`: MIT-licensed XML parser, pinned at v1.15.
 - `vendor-libgui`: pinned GPL libwiigui 1.07 snapshot, used only by the Wii
   frontend (not built by the host build).

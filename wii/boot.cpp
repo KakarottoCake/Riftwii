@@ -12,6 +12,7 @@
 #include <ogc/video.h>
 #include <sdcard/wiisd_io.h>
 #include <sys/stat.h>
+#include <unistd.h>
 #include <wiiuse/wpad.h>
 
 #include <algorithm>
@@ -827,7 +828,29 @@ bool prepare_savegame(const DiscProbe& probe, const BootOptions& options, Savega
         error = "cannot create the save folder " + options.savegame_dir;
         return false;
     }
-    out.clone = options.savegame_clone && !existed;
+    // The clone marker: a hidden file inside the folder, created when a
+    // clone is decided (a new folder, or a marker left by a clone that
+    // did not run to its end) and deleted by the runtime when the clone
+    // is complete. The game never sees hidden entries (rtfat skips
+    // them). Without clone, a stale marker goes.
+    const std::string marker = options.savegame_dir + "/riftwii.cln";
+    const bool marked = stat(marker.c_str(), &existing) == 0 && !S_ISDIR(existing.st_mode);
+    out.clone = options.savegame_clone && (!existed || marked);
+    if (out.clone && !marked) {
+        FILE* f = std::fopen(marker.c_str(), "wb");
+        if (f == nullptr) {
+            error = "cannot create the clone marker " + marker;
+            return false;
+        }
+        std::fclose(f);
+        if (FAT_setAttr(marker.c_str(), ATTR_HIDDEN | ATTR_ARCHIVE) != 0) {
+            error = "cannot hide the clone marker " + marker;
+            return false;
+        }
+    } else if (!out.clone && marked && unlink(marker.c_str()) != 0) {
+        error = "cannot remove the stale clone marker " + marker;
+        return false;
+    }
     LogClose();
     fatUnmount("sd:");
     const bool mounted = fatMountSimple("sd", &__io_wiisd);
@@ -840,7 +863,8 @@ bool prepare_savegame(const DiscProbe& probe, const BootOptions& options, Savega
     out.prefix = prefix;
     out.enabled = true;
     logf("Savegame: %s served from %s%s\n", prefix, options.savegame_dir.c_str(),
-         out.clone ? " (new folder: the NAND save is cloned in)" : existed ? " (existing folder)" : " (new folder)");
+         out.clone ? (existed ? " (marked folder: the NAND save is cloned in again)" : " (new folder: the NAND save is cloned in)")
+                   : existed ? " (existing folder)" : " (new folder)");
     return true;
 }
 
