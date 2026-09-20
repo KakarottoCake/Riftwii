@@ -236,6 +236,27 @@ static int32_t rt_fs_ioctlv_sync(struct rt_fs_state* st, int32_t fd, uint32_t re
                                  uint32_t out_count, struct rt_ioctlv* vec) {
     return ((rt_ioctlv_sync_fn)(uintptr_t)st->ioctlv_sync)((uint32_t)fd, request, in_count, out_count, vec);
 }
+/* The import job's NAND requests through the game's asynchronous
+ * originals (SDK forms), the FS completion entry their callback. */
+typedef int32_t (*rt_open_async_fn)(const char* path, uint32_t mode, uint32_t callback, void* tag);
+typedef int32_t (*rt_close_async_fn)(int32_t fd, uint32_t callback, void* tag);
+typedef int32_t (*rt_read_async_fn)(int32_t fd, void* buffer, uint32_t length, uint32_t callback, void* tag);
+static int32_t rt_fs_open_async(struct rt_fs_state* st, const char* path, uint32_t mode, void* tag) {
+    return ((rt_open_async_fn)(uintptr_t)st->open_async)(path, mode, st->complete_fs, tag);
+}
+static int32_t rt_fs_close_async(struct rt_fs_state* st, int32_t fd, void* tag) {
+    return ((rt_close_async_fn)(uintptr_t)st->close_async)(fd, st->complete_fs, tag);
+}
+static int32_t rt_fs_read_async(struct rt_fs_state* st, int32_t fd, uint32_t buffer, uint32_t length, void* tag) {
+    return ((rt_read_async_fn)(uintptr_t)st->read_async)(fd, (void*)(uintptr_t)buffer, length, st->complete_fs, tag);
+}
+static int32_t rt_fs_ioctl_async(struct rt_context* ctx, struct rt_fs_state* st, int32_t fd, uint32_t request,
+                                 uint32_t in, uint32_t in_len, uint32_t out, uint32_t out_len, void* tag) {
+    rt_ioctl_async_fn fn = (rt_ioctl_async_fn)(uintptr_t)ctx->di_read_entry;
+    if (fn == 0) return -1;
+    return fn((uint32_t)fd, request, (uint32_t*)(uintptr_t)in, in_len, out, out_len, st->complete_fs,
+              (struct rt_pending*)tag);
+}
 /* On a thread (external interrupts on) rather than inside an interrupt
  * handler: synchronous IOS calls may sleep here. MSR[EE] is 0x8000. */
 static int rt_fs_in_thread(void) {
@@ -279,8 +300,28 @@ int32_t (*rt_host_fs_ioctl_sync)(int32_t fd, uint32_t request, uint32_t in, uint
                                   uint32_t out_len) = 0;
 int32_t (*rt_host_fs_ioctlv_sync)(int32_t fd, uint32_t request, uint32_t in_count, uint32_t out_count,
                                    struct rt_ioctlv* vec) = 0;
+int32_t (*rt_host_fs_open_async)(const char* path, uint32_t mode, uint32_t callback, void* tag) = 0;
+int32_t (*rt_host_fs_close_async)(int32_t fd, uint32_t callback, void* tag) = 0;
+int32_t (*rt_host_fs_read_async)(int32_t fd, uint32_t buffer, uint32_t length, uint32_t callback, void* tag) = 0;
+int32_t (*rt_host_fs_ioctl_async)(int32_t fd, uint32_t request, uint32_t in, uint32_t in_len, uint32_t out,
+                                   uint32_t out_len, uint32_t callback, void* tag) = 0;
 int rt_host_fs_in_thread = 1;
 void (*rt_host_game_callback)(uint32_t cb, int32_t result, uint32_t user_data) = 0;
+static int32_t rt_fs_open_async(struct rt_fs_state* st, const char* path, uint32_t mode, void* tag) {
+    return rt_host_fs_open_async == 0 ? -1 : rt_host_fs_open_async(path, mode, st->complete_fs, tag);
+}
+static int32_t rt_fs_close_async(struct rt_fs_state* st, int32_t fd, void* tag) {
+    return rt_host_fs_close_async == 0 ? -1 : rt_host_fs_close_async(fd, st->complete_fs, tag);
+}
+static int32_t rt_fs_read_async(struct rt_fs_state* st, int32_t fd, uint32_t buffer, uint32_t length, void* tag) {
+    return rt_host_fs_read_async == 0 ? -1 : rt_host_fs_read_async(fd, buffer, length, st->complete_fs, tag);
+}
+static int32_t rt_fs_ioctl_async(struct rt_context* ctx, struct rt_fs_state* st, int32_t fd, uint32_t request,
+                                 uint32_t in, uint32_t in_len, uint32_t out, uint32_t out_len, void* tag) {
+    (void)ctx;
+    return rt_host_fs_ioctl_async == 0 ? -1
+                                       : rt_host_fs_ioctl_async(fd, request, in, in_len, out, out_len, st->complete_fs, tag);
+}
 static int32_t rt_fs_ioctlv_sync(struct rt_fs_state* st, int32_t fd, uint32_t request, uint32_t in_count,
                                  uint32_t out_count, struct rt_ioctlv* vec) {
     (void)st;
@@ -733,7 +774,8 @@ static void rt_fs_deliver(struct rt_context* ctx, struct rt_fs_state* st, uint32
  * (BEGUN: the request is begun, its classification in st->req), else
  * queues the arrival when allowed (QUEUED) or reports FULL. Interrupts
  * off: hooks run in both contexts. */
-static int rt_fs_admit(struct rt_fs_state* st, uint32_t entry_index, const struct rtfs_ipc* ipc, int may_queue) {
+static int rt_fs_admit(struct rt_fs_state* st, uint32_t entry_index, const struct rtfs_ipc* ipc, int may_queue,
+                       int job) {
     const uint32_t msr = rt_interrupts_off();
     int r = RT_FS_ADMIT_FULL;
     if (!st->fs.busy && st->queue_count == 0) {
@@ -745,6 +787,7 @@ static int rt_fs_admit(struct rt_fs_state* st, uint32_t entry_index, const struc
         struct rt_fs_queued* q = &st->queue[(st->queue_head + st->queue_count) % RT_FS_QUEUE];
         q->in_use = 1;
         q->entry_index = entry_index;
+        q->job = (uint32_t)job;
         q->ipc = *ipc;
         st->queue_count++;
         r = RT_FS_ADMIT_QUEUED;
@@ -762,12 +805,19 @@ static void rt_fs_probe(struct rt_fs_state* st, const struct rtfs_ipc* ipc, uint
     rt_interrupts_restore(msr);
 }
 
+#define RT_FS_JOB_WAIT 0
+#define RT_FS_JOB_ENDED 1
+static int rt_fs_job_run(struct rt_context* ctx, struct rt_fs_state* st);
+static void rt_fs_job_end(struct rt_context* ctx, struct rt_fs_state* st);
+
 /* Starts the requests queued behind the engine once it is free: each
  * runs until its first transfer is in flight (the completion continues
- * it) or completes at once (its result deferred). */
+ * it) or completes at once (its result deferred to the game's callback,
+ * or, for the import job's request, resuming the job). */
 static void rt_fs_start_queued(struct rt_context* ctx, struct rt_fs_state* st) {
     while (st->queue_count != 0 && !st->fs.busy) {
         struct rt_fs_queued q;
+        int32_t r;
         const uint32_t msr = rt_interrupts_off();
         q = st->queue[st->queue_head];
         st->queue[st->queue_head].in_use = 0;
@@ -780,26 +830,35 @@ static void rt_fs_start_queued(struct rt_context* ctx, struct rt_fs_state* st) {
         }
         rt_interrupts_restore(msr);
         if (st->dead) {
-            rt_fs_deliver(ctx, st, q.ipc.callback, q.ipc.user_data, RTFAT_EIO);
-            continue;
-        }
-        if (st->req.classification == RTFS_PASS_THROUGH) {
+            r = RTFAT_EIO;
+        } else if (st->req.classification == RTFS_PASS_THROUGH) {
             /* Ours when it arrived, not any more (the fd was forgotten
              * meanwhile): nothing can replay it now. */
-            rt_fs_deliver(ctx, st, q.ipc.callback, q.ipc.user_data, RTFAT_EINVAL);
+            r = RTFAT_EINVAL;
+        } else {
+            if (st->req.classification == RTFS_NEEDS_IO) {
+                st->pend.in_use = 1;
+                st->pend.kind = RT_FS_OP_FILE;
+                st->pend.job = q.job;
+                if (rt_fs_advance(ctx, st, 0) == RT_FS_ADVANCE_ISSUED) {
+                    if (!q.job) rt_fs_report(ctx, q.entry_index, &q.ipc, 0, 1);
+                    return;
+                }
+                st->pend.in_use = 0;
+                st->pend.job = 0;
+            }
+            r = st->req.result;
+        }
+        if (q.job) {
+            st->job.last = r;
+            if (rt_fs_job_run(ctx, st) == RT_FS_JOB_ENDED) {
+                rt_fs_job_end(ctx, st);
+                rt_fs_deliver(ctx, st, st->job.callback, st->job.user_data, st->job.result);
+            }
             continue;
         }
-        if (st->req.classification == RTFS_NEEDS_IO) {
-            st->pend.in_use = 1;
-            st->pend.kind = RT_FS_OP_FILE;
-            if (rt_fs_advance(ctx, st, 0) == RT_FS_ADVANCE_ISSUED) {
-                rt_fs_report(ctx, q.entry_index, &q.ipc, 0, 1);
-                return;
-            }
-            st->pend.in_use = 0;
-        }
-        rt_fs_report(ctx, q.entry_index, &q.ipc, st->req.result, 0);
-        rt_fs_deliver(ctx, st, st->req.callback, st->req.user_data, st->req.result);
+        rt_fs_report(ctx, q.entry_index, &q.ipc, r, 0);
+        rt_fs_deliver(ctx, st, q.ipc.callback, q.ipc.user_data, r);
     }
 }
 
@@ -825,7 +884,7 @@ static int rt_fs_wait(struct rt_context* ctx, struct rt_fs_state* st) {
  * thread: waits for the engine, performs the transfers inline. */
 static int32_t rt_fs_run_internal(struct rt_context* ctx, struct rt_fs_state* st, const struct rtfs_ipc* ipc) {
     if (st->dead) return RTFAT_EIO;
-    while (rt_fs_admit(st, 0, ipc, 0) != RT_FS_ADMIT_BEGUN) {
+    while (rt_fs_admit(st, 0, ipc, 0, 0) != RT_FS_ADMIT_BEGUN) {
         if (!rt_fs_wait(ctx, st)) return RTFAT_EIO;
     }
     if (st->req.classification == RTFS_PASS_THROUGH) return RTFAT_EINVAL;
@@ -947,6 +1006,281 @@ static int32_t rt_fs_import(struct rt_context* ctx, struct rt_fs_state* st, int3
     r = rt_fs_copy_in(ctx, st, fs_fd, src, dst, 1);
     if (r < 0) st->import_failures++;
     return r;
+}
+
+/* ---- the asynchronous import job (rt_hook.h) ---- */
+
+static int rt_fs_has_async_originals(const struct rt_context* ctx, const struct rt_fs_state* st) {
+    return st->open_async != 0 && st->close_async != 0 && st->read_async != 0 && ctx->di_read_entry != 0;
+}
+
+/* Submits one of the job's engine requests: ENDED with job.last set when
+ * it completed at once, WAIT when its first transfer is in flight or it
+ * queued behind the game's requests (a completion resumes the job). */
+static int rt_fs_job_engine(struct rt_context* ctx, struct rt_fs_state* st, const struct rtfs_ipc* ipc) {
+    struct rt_fs_job* j = &st->job;
+    int admit;
+    if (st->dead) {
+        j->last = RTFAT_EIO;
+        return RT_FS_JOB_ENDED;
+    }
+    admit = rt_fs_admit(st, 0, ipc, 1, 1);
+    if (admit == RT_FS_ADMIT_QUEUED) {
+        st->queued++;
+        return RT_FS_JOB_WAIT;
+    }
+    if (admit == RT_FS_ADMIT_FULL) {
+        j->last = RTFAT_EIO;
+        return RT_FS_JOB_ENDED;
+    }
+    if (st->req.classification == RTFS_PASS_THROUGH) {
+        j->last = RTFAT_EINVAL;
+        return RT_FS_JOB_ENDED;
+    }
+    if (st->req.classification == RTFS_NEEDS_IO) {
+        st->pend.in_use = 1;
+        st->pend.kind = RT_FS_OP_FILE;
+        st->pend.job = 1;
+        if (rt_fs_advance(ctx, st, 0) == RT_FS_ADVANCE_ISSUED) return RT_FS_JOB_WAIT;
+        st->pend.in_use = 0;
+        st->pend.job = 0;
+    }
+    j->last = st->req.result;
+    return RT_FS_JOB_ENDED;
+}
+
+/* The job's NAND request just issued: WAIT when in flight, else its
+ * refusal is the answer the job goes on with. */
+static int rt_fs_job_issued(struct rt_fs_job* j, int32_t r) {
+    if (r >= 0) return RT_FS_JOB_WAIT;
+    j->tag.in_use = 0;
+    j->last = r;
+    return RT_FS_JOB_ENDED;
+}
+
+static void rt_fs_job_fail(struct rt_fs_job* j, int32_t r) {
+    j->result = r;
+    j->stage = RT_FS_JOB_CLEANUP;
+}
+
+/* Runs the job from its stage with job.last, until a request is in
+ * flight (WAIT) or the job is over (ENDED: job.result). Each stage sets
+ * the next before issuing, so a completion resumes at the right place;
+ * a request that completes at once loops on here. */
+static int rt_fs_job_run(struct rt_context* ctx, struct rt_fs_state* st) {
+    struct rt_fs_job* j = &st->job;
+    struct rtfs_ipc ipc;
+    for (;;) {
+        int32_t r, fd;
+        uint32_t i;
+        rt_zero_bytes((uint8_t*)&ipc, sizeof(ipc));
+        switch (j->stage) {
+            case RT_FS_JOB_OPENED:
+                if (j->last < 0) { rt_fs_job_fail(j, j->last); break; }
+                j->src_fd = j->last;
+                rt_flush_range((uintptr_t)st->stats, sizeof(st->stats));
+                j->stage = RT_FS_JOB_STATTED;
+                j->tag.in_use = 1;
+                r = rt_fs_ioctl_async(ctx, st, j->src_fd, RTFS_IOCTL_GETFILESTATS, 0, 0, (uint32_t)(uintptr_t)st->stats, 8,
+                                      &j->tag);
+                if (rt_fs_job_issued(j, r) == RT_FS_JOB_WAIT) return RT_FS_JOB_WAIT;
+                break;
+            case RT_FS_JOB_STATTED:
+                if (j->last < 0) { rt_fs_job_fail(j, j->last); break; }
+                j->size = st->stats[0];
+                j->done = 0;
+                /* The destination, replaced when it exists, created empty. */
+                ipc.command = RTFS_CMD_IOCTL;
+                ipc.fd = j->fs_fd;
+                ipc.args.ioctl.request = RTFS_IOCTL_DELETE;
+                ipc.args.ioctl.in = (uint32_t)(uintptr_t)j->dst;
+                ipc.args.ioctl.in_len = RTFS_PATH_BYTES;
+                j->stage = RT_FS_JOB_DST_DELETED;
+                if (rt_fs_job_engine(ctx, st, &ipc) == RT_FS_JOB_WAIT) return RT_FS_JOB_WAIT;
+                break;
+            case RT_FS_JOB_DST_DELETED:
+                if (j->last < 0 && j->last != RTFAT_ENOENT) { rt_fs_job_fail(j, j->last); break; }
+                rt_zero_bytes((uint8_t*)&st->attr, sizeof(st->attr));
+                for (i = 0; i < RTFS_PATH_BYTES - 1 && j->dst[i] != 0; ++i) st->attr.filepath[i] = j->dst[i];
+                st->attr.ownerperm = 3;
+                st->attr.groupperm = 3;
+                st->attr.otherperm = 3;
+                ipc.command = RTFS_CMD_IOCTL;
+                ipc.fd = j->fs_fd;
+                ipc.args.ioctl.request = RTFS_IOCTL_CREATEFILE;
+                ipc.args.ioctl.in = (uint32_t)(uintptr_t)&st->attr;
+                ipc.args.ioctl.in_len = sizeof(st->attr);
+                j->stage = RT_FS_JOB_DST_CREATED;
+                if (rt_fs_job_engine(ctx, st, &ipc) == RT_FS_JOB_WAIT) return RT_FS_JOB_WAIT;
+                break;
+            case RT_FS_JOB_DST_CREATED:
+                if (j->last < 0) { rt_fs_job_fail(j, j->last); break; }
+                j->created = 1;
+                ipc.command = RTFS_CMD_OPEN;
+                ipc.args.open.path = (uint32_t)(uintptr_t)j->dst;
+                ipc.args.open.mode = 2;
+                j->stage = RT_FS_JOB_DST_OPENED;
+                if (rt_fs_job_engine(ctx, st, &ipc) == RT_FS_JOB_WAIT) return RT_FS_JOB_WAIT;
+                break;
+            case RT_FS_JOB_DST_OPENED:
+                if (j->last < 0) { rt_fs_job_fail(j, j->last); break; }
+                j->fake_fd = j->last;
+                j->stage = RT_FS_JOB_CHUNK;
+                break;
+            case RT_FS_JOB_CHUNK:
+                if (j->done < j->size) {
+                    /* A piece off NAND into the import buffer (flushed first,
+                     * so no stale line shadows the DMA). */
+                    uint32_t n = j->size - j->done;
+                    if (n > RT_FS_IMPORT_BYTES) n = RT_FS_IMPORT_BYTES;
+                    j->chunk = n;
+                    rt_flush_range((uintptr_t)st->import, n);
+                    j->stage = RT_FS_JOB_READ_DONE;
+                    j->tag.in_use = 1;
+                    r = rt_fs_read_async(st, j->src_fd, (uint32_t)(uintptr_t)st->import, n, &j->tag);
+                    if (rt_fs_job_issued(j, r) == RT_FS_JOB_WAIT) return RT_FS_JOB_WAIT;
+                    break;
+                }
+                fd = j->fake_fd;
+                j->fake_fd = -1;
+                ipc.command = RTFS_CMD_CLOSE;
+                ipc.fd = fd;
+                j->stage = RT_FS_JOB_DST_CLOSED;
+                if (rt_fs_job_engine(ctx, st, &ipc) == RT_FS_JOB_WAIT) return RT_FS_JOB_WAIT;
+                break;
+            case RT_FS_JOB_READ_DONE:
+                if (j->last < 0) { rt_fs_job_fail(j, j->last); break; }
+                if (j->last != (int32_t)j->chunk) { rt_fs_job_fail(j, RTFAT_EIO); break; }
+                ipc.command = RTFS_CMD_WRITE;
+                ipc.fd = j->fake_fd;
+                ipc.args.readwrite.data = (uint32_t)(uintptr_t)st->import;
+                ipc.args.readwrite.length = j->chunk;
+                j->stage = RT_FS_JOB_WRITTEN;
+                if (rt_fs_job_engine(ctx, st, &ipc) == RT_FS_JOB_WAIT) return RT_FS_JOB_WAIT;
+                break;
+            case RT_FS_JOB_WRITTEN:
+                if (j->last < 0) { rt_fs_job_fail(j, j->last); break; }
+                if (j->last != (int32_t)j->chunk) { rt_fs_job_fail(j, RTFAT_ENOSPC); break; }
+                j->done += j->chunk;
+                j->stage = RT_FS_JOB_CHUNK;
+                break;
+            case RT_FS_JOB_DST_CLOSED:
+                fd = j->src_fd;
+                j->src_fd = -1;
+                j->stage = RT_FS_JOB_SRC_CLOSED;
+                j->tag.in_use = 1;
+                r = rt_fs_close_async(st, fd, &j->tag);
+                if (rt_fs_job_issued(j, r) == RT_FS_JOB_WAIT) return RT_FS_JOB_WAIT;
+                break;
+            case RT_FS_JOB_SRC_CLOSED:
+                /* The move's other half. A failure here leaves a stray NAND
+                 * file, nothing worse. */
+                rt_flush_range((uintptr_t)j->src, sizeof(j->src));
+                j->stage = RT_FS_JOB_SRC_DELETED;
+                j->tag.in_use = 1;
+                r = rt_fs_ioctl_async(ctx, st, j->fs_fd, RTFS_IOCTL_DELETE, (uint32_t)(uintptr_t)j->src, RTFS_PATH_BYTES,
+                                      0, 0, &j->tag);
+                if (rt_fs_job_issued(j, r) == RT_FS_JOB_WAIT) return RT_FS_JOB_WAIT;
+                break;
+            case RT_FS_JOB_SRC_DELETED:
+                j->result = RTFAT_OK;
+                j->stage = RT_FS_JOB_DONE;
+                break;
+            case RT_FS_JOB_CLEANUP:
+                /* Nothing half-moved: the destination goes, the source
+                 * stays; each answer is ignored. */
+                if (j->fake_fd >= 0) {
+                    fd = j->fake_fd;
+                    j->fake_fd = -1;
+                    ipc.command = RTFS_CMD_CLOSE;
+                    ipc.fd = fd;
+                    if (rt_fs_job_engine(ctx, st, &ipc) == RT_FS_JOB_WAIT) return RT_FS_JOB_WAIT;
+                    break;
+                }
+                if (j->created) {
+                    j->created = 0;
+                    ipc.command = RTFS_CMD_IOCTL;
+                    ipc.fd = j->fs_fd;
+                    ipc.args.ioctl.request = RTFS_IOCTL_DELETE;
+                    ipc.args.ioctl.in = (uint32_t)(uintptr_t)j->dst;
+                    ipc.args.ioctl.in_len = RTFS_PATH_BYTES;
+                    if (rt_fs_job_engine(ctx, st, &ipc) == RT_FS_JOB_WAIT) return RT_FS_JOB_WAIT;
+                    break;
+                }
+                if (j->src_fd >= 0) {
+                    fd = j->src_fd;
+                    j->src_fd = -1;
+                    j->tag.in_use = 1;
+                    r = rt_fs_close_async(st, fd, &j->tag);
+                    if (rt_fs_job_issued(j, r) == RT_FS_JOB_WAIT) return RT_FS_JOB_WAIT;
+                    break;
+                }
+                j->stage = RT_FS_JOB_DONE;
+                break;
+            default:
+                return RT_FS_JOB_ENDED;
+        }
+    }
+}
+
+/* The job is over: counted, its C line printed. The caller hands the
+ * result to the game's callback (a tail call from a completion, or a
+ * null round trip). */
+static void rt_fs_job_end(struct rt_context* ctx, struct rt_fs_state* st) {
+    struct rt_fs_job* j = &st->job;
+    j->active = 0;
+    j->stage = RT_FS_JOB_IDLE;
+    if (j->result < 0) st->import_failures++;
+    rt_fs_report_done(ctx, j->result);
+}
+
+/* Resumes the job with a completion's result. When it ends, the game's
+ * callback pair and the rename's result go out through the completion's
+ * tail call. */
+static void rt_fs_job_resume(struct rt_context* ctx, struct rt_fs_state* st, int32_t last, int32_t* result,
+                             uintptr_t* callback, uintptr_t* user_data) {
+    struct rt_fs_job* j = &st->job;
+    j->last = last;
+    if (rt_fs_job_run(ctx, st) != RT_FS_JOB_ENDED) return;
+    rt_fs_job_end(ctx, st);
+    *result = j->result;
+    *callback = (uintptr_t)j->callback;
+    *user_data = (uintptr_t)j->user_data;
+}
+
+/* Starts the asynchronous import of the rename `ipc` (src -> dst) on the
+ * game's /dev/fs fd it came on. 0 when it cannot (a job is running, or
+ * the async originals are unknown: the caller falls back), 1 when it is
+ * in flight (the game's callback follows from a completion), 2 when it
+ * ended at once (job.result, ended: the caller delivers). */
+static int rt_fs_job_start(struct rt_context* ctx, struct rt_fs_state* st, uint32_t entry_index,
+                           const struct rtfs_ipc* ipc, const char* src, const char* dst) {
+    struct rt_fs_job* j = &st->job;
+    uint32_t i;
+    int32_t r;
+    if (j->active || !rt_fs_has_async_originals(ctx, st)) return 0;
+    rt_zero_bytes((uint8_t*)j, sizeof(*j));
+    j->active = 1;
+    j->tag.kind = RT_FS_OP_JOB;
+    j->fs_fd = ipc->fd;
+    j->src_fd = -1;
+    j->fake_fd = -1;
+    j->callback = ipc->callback;
+    j->user_data = ipc->user_data;
+    j->entry_index = entry_index;
+    j->ipc = *ipc;
+    for (i = 0; i < RTFS_PATH_BYTES - 1 && src[i] != 0; ++i) j->src[i] = src[i];
+    for (i = 0; i < RTFS_PATH_BYTES - 1 && dst[i] != 0; ++i) j->dst[i] = dst[i];
+    st->imports++;
+    st->import_jobs++;
+    rt_flush_range((uintptr_t)j->src, sizeof(j->src));
+    j->stage = RT_FS_JOB_OPENED;
+    j->tag.in_use = 1;
+    r = rt_fs_open_async(st, j->src, 1, &j->tag);
+    if (rt_fs_job_issued(j, r) == RT_FS_JOB_WAIT) return 1;
+    if (rt_fs_job_run(ctx, st) == RT_FS_JOB_WAIT) return 1;
+    rt_fs_job_end(ctx, st);
+    return 2;
 }
 
 /* "K:<path>:<result>\n" over the Gecko for each file a clone copies. */
@@ -1152,7 +1486,7 @@ static int rt_on_sync_fs(struct rt_context* ctx, uint32_t entry_index, uintptr_t
         rt_fs_report(ctx, entry_index, &ipc, RTFAT_EIO, 0);
         return 1;
     }
-    while (rt_fs_admit(st, entry_index, &ipc, 0) != RT_FS_ADMIT_BEGUN) {
+    while (rt_fs_admit(st, entry_index, &ipc, 0, 0) != RT_FS_ADMIT_BEGUN) {
         if (!rt_fs_wait(ctx, st)) {
             /* The engine never came free: the request ahead is stuck
              * (nothing can be answered from the card meanwhile). */
@@ -1215,13 +1549,26 @@ static int rt_on_async_fs(struct rt_context* ctx, uint32_t entry_index, uintptr_
         const char* dst;
         const int kind = rt_fs_rename_kind(st, &ipc, &src, &dst);
         if (kind != 0) {
-            /* An import needs the game's synchronous functions, so a
-             * thread; from an IPC callback it is refused. */
+            /* An import: the asynchronous job when the game's async
+             * originals are known; else the synchronous import on a
+             * thread, and a refusal from an IPC callback. */
             int32_t r = RTFAT_EACCESS;
-            if (kind > 0 && rt_fs_in_thread()) r = rt_fs_import(ctx, st, ipc.fd, src, dst);
-            else st->import_refused++;
+            int started = 0;
             rtfs_learn_fs_fd(&st->fs, ipc.fd);
             ctx->fs_hijacked++;
+            if (kind > 0) {
+                started = rt_fs_job_start(ctx, st, entry_index, &ipc, src, dst);
+                if (started == 2) r = st->job.result;
+                else if (started == 0 && rt_fs_in_thread()) r = rt_fs_import(ctx, st, ipc.fd, src, dst);
+                else if (started == 0) st->import_refused++;
+            } else {
+                st->import_refused++;
+            }
+            if (started == 1) {
+                rt_fs_report(ctx, entry_index, &ipc, 0, 1);
+                *result = 0;
+                return 1;
+            }
             rt_fs_report(ctx, entry_index, &ipc, r, 0);
             rt_fs_deliver(ctx, st, ipc.callback, ipc.user_data, r);
             *result = 0;
@@ -1237,7 +1584,7 @@ static int rt_on_async_fs(struct rt_context* ctx, uint32_t entry_index, uintptr_
         *result = 0;
         return 1;
     }
-    admit = rt_fs_admit(st, entry_index, &ipc, 1);
+    admit = rt_fs_admit(st, entry_index, &ipc, 1, 0);
     if (admit == RT_FS_ADMIT_QUEUED) {
         st->queued++;
         *result = 0;
@@ -1303,10 +1650,23 @@ void rt_on_fs_complete(struct rt_context* ctx, int32_t* result, void* tag, uintp
         req->fat.io_status = *result < 0 ? *result : 0;
         if (rt_fs_advance(ctx, st, 0) == RT_FS_ADVANCE_ISSUED) return;
         st->pend.in_use = 0;
-        *result = req->result;
-        *callback = (uintptr_t)req->callback;
-        *user_data = (uintptr_t)req->user_data;
-        rt_fs_report_done(ctx, req->result);
+        if (st->pend.job) {
+            /* The import job's card request: the job goes on. */
+            st->pend.job = 0;
+            rt_fs_job_resume(ctx, st, req->result, result, callback, user_data);
+        } else {
+            *result = req->result;
+            *callback = (uintptr_t)req->callback;
+            *user_data = (uintptr_t)req->user_data;
+            rt_fs_report_done(ctx, req->result);
+        }
+        rt_fs_start_queued(ctx, st);
+        return;
+    }
+    if (tag == (void*)&st->job.tag && st->job.tag.in_use) {
+        /* One of the job's NAND requests. */
+        st->job.tag.in_use = 0;
+        rt_fs_job_resume(ctx, st, *result, result, callback, user_data);
         rt_fs_start_queued(ctx, st);
         return;
     }

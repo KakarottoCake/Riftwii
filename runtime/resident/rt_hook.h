@@ -186,12 +186,22 @@ typedef void (*rt_game_callback_fn)(int32_t result, uint32_t user_data);
  *
  * A rename from outside the directory into it (the SDK's safe write: a
  * file written under /tmp, then moved; Mario Kart Wii's banner.bin and
- * rksys.dat) imports the file: read from NAND through the game's own
- * synchronous functions in RT_FS_IMPORT_BYTES pieces, written into the
- * card, deleted from NAND. That runs on the game's thread: from the sync
- * hook, or from the async hook when it was called with interrupts on
- * (a thread); from an IPC callback it is refused with -102. A rename out
- * of the directory is refused with -102.
+ * rksys.dat) imports the file: read from NAND in RT_FS_IMPORT_BYTES
+ * pieces, written into the card, deleted from NAND. A synchronous
+ * rename does that on the game's thread through its synchronous
+ * functions (rt_fs_import). An asynchronous rename runs it as a job
+ * (rt_fs_job): the NAND side through the game's asynchronous originals
+ * (IOS_OpenAsync, IOS_IoctlAsync GetFileStats, IOS_ReadAsync,
+ * IOS_CloseAsync, IOS_IoctlAsync Delete; tag: &job.tag, kind JOB), the
+ * card side through the engine's async FILE path (the pend's `job` flag
+ * returns the completion to the job instead of to a game callback;
+ * behind a busy engine the job's request queues like the game's do, so
+ * the game's requests interleave with the import and a sync arrival
+ * never waits for the whole file), and the game's callback is the tail
+ * call of the completion that ends the job. Without the async originals
+ * the async hook falls back to the synchronous import when called on a
+ * thread, and refuses with -102 from an IPC callback. A rename out of
+ * the directory is refused with -102.
  *
  * <savegame clone>: when the loader created the folder at this launch
  * and the package asked for a clone, the NAND save is copied into it
@@ -218,6 +228,23 @@ typedef void (*rt_game_callback_fn)(int32_t result, uint32_t user_data);
 #define RT_FS_OP_FILE 1u
 #define RT_FS_OP_SNOOP 2u
 #define RT_FS_OP_DELIVER 3u
+#define RT_FS_OP_JOB 4u
+/* The asynchronous import's stages: each names the completion the job
+ * waits for; its handler consumes `last` and issues the next request. */
+#define RT_FS_JOB_IDLE 0u
+#define RT_FS_JOB_OPENED 1u        /* IOS_OpenAsync(src) answered: the fd */
+#define RT_FS_JOB_STATTED 2u       /* GetFileStats answered: the size */
+#define RT_FS_JOB_DST_DELETED 3u   /* the card's old destination removed */
+#define RT_FS_JOB_DST_CREATED 4u   /* the destination created empty */
+#define RT_FS_JOB_DST_OPENED 5u    /* the destination opened: the fake fd */
+#define RT_FS_JOB_CHUNK 6u         /* the next piece, or the end of the bytes */
+#define RT_FS_JOB_READ_DONE 7u     /* IOS_ReadAsync of a piece answered */
+#define RT_FS_JOB_WRITTEN 8u       /* the piece written to the card */
+#define RT_FS_JOB_DST_CLOSED 9u    /* the destination closed */
+#define RT_FS_JOB_SRC_CLOSED 10u   /* IOS_CloseAsync(src) answered */
+#define RT_FS_JOB_SRC_DELETED 11u  /* Delete(src) answered: done */
+#define RT_FS_JOB_CLEANUP 12u      /* after a failure: destination closed and removed, source closed */
+#define RT_FS_JOB_DONE 13u
 #define RT_FS_WAIT_TICKS 607500000u    /* 10 s of the time base (60.75 MHz) a sync call waits for the engine */
 #define RT_SDIO_GETSTATUS 0x0Bu        /* the null round trip (wiibrew /dev/sdio, libogc wiisd.c) */
 
@@ -227,7 +254,8 @@ struct rt_fs_pend {
     uint32_t callback;   /* SNOOP, DELIVER: the game's IPC callback */
     uint32_t user_data;  /* SNOOP, DELIVER: the game's user data */
     int32_t result;      /* DELIVER: the result to hand over */
-    uint32_t reserved[3];
+    uint32_t job;        /* FILE: the request is the import job's; its completion resumes the job */
+    uint32_t reserved[2];
     char path[64];       /* SNOOP: the opened path, for the /dev/fs compare */
     uint32_t status[8] __attribute__((aligned(32)));  /* DELIVER: GETSTATUS's out word, its own line */
 };
@@ -236,7 +264,30 @@ struct rt_fs_pend {
 struct rt_fs_queued {
     uint32_t in_use;
     uint32_t entry_index;
+    uint32_t job;        /* the import job's request (no report, no game callback) */
     struct rtfs_ipc ipc;
+};
+
+/* The asynchronous import (one at a time). */
+struct rt_fs_job {
+    struct rt_fs_pend tag;       /* the NAND requests' tag (kind RT_FS_OP_JOB); in_use while one is in flight */
+    uint32_t active;
+    uint32_t stage;              /* RT_FS_JOB_* */
+    int32_t last;                /* the result the job was resumed with */
+    int32_t fs_fd;               /* the game's /dev/fs fd the rename came on */
+    int32_t src_fd;              /* the NAND file, -1 = not open */
+    int32_t fake_fd;             /* the card file, -1 = not open */
+    uint32_t created;            /* the destination exists on the card (removed again on failure) */
+    uint32_t size;
+    uint32_t done;
+    uint32_t chunk;              /* bytes of the piece in flight */
+    int32_t result;              /* the rename's */
+    uint32_t callback;           /* the game's */
+    uint32_t user_data;
+    uint32_t entry_index;
+    struct rtfs_ipc ipc;         /* the rename, for the report */
+    char src[RTFS_PATH_BYTES] __attribute__((aligned(32)));  /* IOS reads it: its own lines */
+    char dst[RTFS_PATH_BYTES] __attribute__((aligned(32)));
 };
 
 /* Savegame FS interception state. Lives in a loader-owned block (MEM2
@@ -255,6 +306,9 @@ struct rt_fs_state {
     uint32_t close_sync;           /* IOS_Close, IOS_Read, IOS_Ioctl: imports */
     uint32_t read_sync;
     uint32_t ioctl_sync;
+    uint32_t open_async;           /* IOS_OpenAsync, IOS_CloseAsync, IOS_ReadAsync: the import job */
+    uint32_t close_async;          /* (its IOS_IoctlAsync is the context's di_read_entry) */
+    uint32_t read_async;
     /* State and counters. */
     uint32_t dead;                 /* an engine anomaly left the card image uncertain: everything answers -114 */
     uint32_t queue_head;
@@ -275,11 +329,13 @@ struct rt_fs_state {
     uint32_t clone_files;          /* files copied by the clone */
     uint32_t clone_failures;       /* files the clone could not copy, or a clone that could not start */
     uint32_t clone_marker;         /* clone markers deleted (the clone ran to its end) */
-    uint32_t reserved[6];
+    uint32_t import_jobs;          /* of the imports, asynchronous ones (jobs) */
+    uint32_t reserved[5];
     struct rt_fs_pend pend;
     struct rt_fs_pend snoop[RT_FS_SNOOPS];
     struct rt_fs_pend deliver[RT_FS_DELIVERS];
     struct rt_fs_queued queue[RT_FS_QUEUE];
+    struct rt_fs_job job;
     struct rt_sdio_request request __attribute__((aligned(32)));
     uint32_t pad_request[7];
     uint32_t response[8] __attribute__((aligned(32)));
@@ -414,6 +470,15 @@ extern int32_t (*rt_host_fs_ioctl_sync)(int32_t fd, uint32_t request, uint32_t i
                                          uint32_t out_len);
 extern int32_t (*rt_host_fs_ioctlv_sync)(int32_t fd, uint32_t request, uint32_t in_count, uint32_t out_count,
                                           struct rt_ioctlv* vec);
+/* The import job's NAND requests (the console calls through
+ * rt_fs_state.open_async / close_async / read_async and the context's
+ * di_read_entry): the fake IOS records each and later calls
+ * rt_on_fs_complete with the tag and the request's result. */
+extern int32_t (*rt_host_fs_open_async)(const char* path, uint32_t mode, uint32_t callback, void* tag);
+extern int32_t (*rt_host_fs_close_async)(int32_t fd, uint32_t callback, void* tag);
+extern int32_t (*rt_host_fs_read_async)(int32_t fd, uint32_t buffer, uint32_t length, uint32_t callback, void* tag);
+extern int32_t (*rt_host_fs_ioctl_async)(int32_t fd, uint32_t request, uint32_t in, uint32_t in_len, uint32_t out,
+                                          uint32_t out_len, uint32_t callback, void* tag);
 extern int rt_host_fs_in_thread; /* 1: hooks run as on a thread (interrupts on); 0: as from an IPC callback */
 extern void (*rt_host_game_callback)(uint32_t cb, int32_t result, uint32_t user_data);
 #endif

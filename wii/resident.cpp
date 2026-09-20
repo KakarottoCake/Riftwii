@@ -232,6 +232,9 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
         st->read_sync = original(RT_IPC_SYNC(3));
         st->ioctl_sync = original(RT_IPC_SYNC(6));
         st->ioctlv_sync = original(RT_IPC_SYNC(7));
+        st->open_async = original(RT_IPC_ASYNC(1));
+        st->close_async = original(RT_IPC_ASYNC(2));
+        st->read_async = original(RT_IPC_ASYNC(3));
         DCFlushRange(st, sizeof(*st));
         ctx->fs_state = fs_state_address;
         ctx->flags |= RT_FLAG_FS;
