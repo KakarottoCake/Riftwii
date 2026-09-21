@@ -187,6 +187,15 @@ static std::string SavesLine(const FrontendState& state)
 
 static const char* kHomeHotkeys = "A: toggle   B: back   +: Mod Options   -: Save Mode   1: launch (X on GamePad)";
 
+// Short image-catalog status for the source screen (counts only): the
+// full sentences never fit between the title and the buttons.
+static std::string CountLine(const char* tag, const riftwii::wii::ImageCatalog& catalog)
+{
+	if (!catalog.games.empty())
+		return std::string(tag) + ": " + std::to_string(catalog.games.size()) + " game(s)";
+	return std::string(tag) + ": no games";
+}
+
 // Two lines, so the buttons below stay clear: the saves mode plus either
 // the hotkeys (clean scan) or the scan problem (which matters more).
 static std::string HomeDetail(const FrontendState& state, const std::string& scanStatus)
@@ -204,27 +213,22 @@ static int MenuSource(FrontendState& state)
 
 	GuiText titleTxt("Riftwii", 34, (GXColor){255, 255, 255, 255});
 	titleTxt.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
-	titleTxt.SetPosition(0, 56);
+	titleTxt.SetPosition(0, 30);
 
 	GuiText subTxt("Choose game source", 18, (GXColor){200, 200, 200, 255});
 	subTxt.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
-	subTxt.SetPosition(0, 100);
+	subTxt.SetPosition(0, 76);
 
 	GuiText discTxt(state.disc_status.c_str(), 18, (GXColor){200, 200, 200, 255});
 	discTxt.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
-	discTxt.SetPosition(0, 126);
+	discTxt.SetPosition(0, 102);
 
-	std::string sdLine = state.sd_catalog.status;
-	if (!state.sd_catalog.cios_note.empty()) sdLine += "  [no cIOS]";
-	GuiText sdTxt(sdLine.c_str(), 18, (GXColor){200, 200, 200, 255});
-	sdTxt.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
-	sdTxt.SetPosition(0, 150);
-
-	std::string usbLine = state.usb_catalog.status;
-	if (!state.usb_catalog.cios_note.empty()) usbLine += "  [no cIOS]";
-	GuiText usbTxt(usbLine.c_str(), 18, (GXColor){200, 200, 200, 255});
-	usbTxt.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
-	usbTxt.SetPosition(0, 174);
+	// One short combined line: the full catalog sentences used to run
+	// under the centered buttons (which draw on top and cull them).
+	GuiText sdusbTxt((CountLine("SD", state.sd_catalog) + "      " + CountLine("USB", state.usb_catalog)).c_str(),
+			 18, (GXColor){200, 200, 200, 255});
+	sdusbTxt.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
+	sdusbTxt.SetPosition(0, 126);
 
 	std::string hint = "1/Y: SD (X on GamePad)    +/X: USB    -/Z: DISC    (or point and press A)";
 	if (!state.sd_catalog.cios_note.empty()) hint += std::string("\n") + state.sd_catalog.cios_note;
@@ -239,11 +243,11 @@ static int MenuSource(FrontendState& state)
 	GuiImageData btnOutlineOver(button_over_png);
 
 	MenuButton sdBtn("SD", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_1 | WPAD_CLASSIC_BUTTON_Y, PAD_BUTTON_Y, WIIDRC_BUTTON_X);
-	sdBtn.Place(ALIGN_H::CENTRE, ALIGN_V::MIDDLE, 0, -78);
+	sdBtn.Place(ALIGN_H::CENTRE, ALIGN_V::MIDDLE, 0, -44);
 	MenuButton usbBtn("USB", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_PLUS | WPAD_CLASSIC_BUTTON_PLUS, PAD_BUTTON_X, WIIDRC_BUTTON_PLUS);
-	usbBtn.Place(ALIGN_H::CENTRE, ALIGN_V::MIDDLE, 0, 0);
+	usbBtn.Place(ALIGN_H::CENTRE, ALIGN_V::MIDDLE, 0, 24);
 	MenuButton discBtn("DISC", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_MINUS | WPAD_CLASSIC_BUTTON_MINUS, PAD_TRIGGER_Z, WIIDRC_BUTTON_MINUS);
-	discBtn.Place(ALIGN_H::CENTRE, ALIGN_V::MIDDLE, 0, 78);
+	discBtn.Place(ALIGN_H::CENTRE, ALIGN_V::MIDDLE, 0, 92);
 	MenuButton exitBtn("Exit", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_HOME | WPAD_CLASSIC_BUTTON_HOME, 0, WIIDRC_BUTTON_HOME);
 	exitBtn.Place(ALIGN_H::LEFT, ALIGN_V::BOTTOM, 40, -35);
 	for (MenuButton* b : {&sdBtn, &usbBtn, &discBtn, &exitBtn}) b->button.SetScale(1.0f);
@@ -253,8 +257,7 @@ static int MenuSource(FrontendState& state)
 	w.Append(&titleTxt);
 	w.Append(&subTxt);
 	w.Append(&discTxt);
-	w.Append(&sdTxt);
-	w.Append(&usbTxt);
+	w.Append(&sdusbTxt);
 	w.Append(&detailTxt);
 	w.Append(&sdBtn.button);
 	w.Append(&usbBtn.button);
