@@ -33,4 +33,13 @@ namespace riftwii {
 bool expand_plan(const Plan& plan, const Fst& fst, ContentProvider& provider, std::vector<FilePatch>& out,
                  std::vector<std::string>& notes, std::string& error);
 
+// User-visible diagnosis for a package whose plan produced nothing at all.
+// `folder_notes` are the per-folder summary lines expand_plan appended for
+// this package ("<folder ..>: R replaced, C created, S skipped"). A plan
+// with no steps means no choice was on; folders that matched nothing name
+// themselves so a misplaced external folder or a missing create="true" is
+// fixable instead of looking like a wrong-game refusal.
+std::string describe_empty_plan(const std::string& xml_sd_path, const std::string& game_id, const Plan& plan,
+                                const std::vector<std::string>& folder_notes);
+
 }  // namespace riftwii

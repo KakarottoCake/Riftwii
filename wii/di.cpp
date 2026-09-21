@@ -160,14 +160,15 @@ bool disable_reset(std::string& error) {
     error.clear(); return true;
 }
 
-bool configure_frag_usb(const void* list32, std::uint32_t bytes, std::string& error) {
+bool configure_frag(std::uint32_t device, const void* list32, std::uint32_t bytes, std::string& error) {
     if (g_fd < 0) { error = "d2x fragment setup: /dev/di is not open"; return false; }
     if (!list32 || !aligned32(list32) || bytes < 12 || (bytes & 3) != 0) {
         error = "d2x fragment setup needs a 32-byte-aligned nonempty fragment list"; return false;
     }
     DCFlushRange(const_cast<void*>(list32), bytes);
     std::memset(g_in, 0, sizeof(g_in)); std::memset(g_out, 0, sizeof(g_out));
-    g_in[0] = kFragSet << 24; g_in[1] = 1; // d2x DEV_USB
+    if (device != 1 && device != 2) { error = "d2x fragment device must be USB (1) or SDHC (2)"; return false; }
+    g_in[0] = kFragSet << 24; g_in[1] = device; // DEV_USB=1, DEV_SDHC=2
     // d2x converts inbuf[2] with VirtToPhys (clear bit 31). Passing the
     // physical form required by F9 is therefore idempotent on the IOS side.
     g_in[2] = MEM_VIRTUAL_TO_PHYSICAL(list32); g_in[3] = bytes;

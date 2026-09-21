@@ -35,7 +35,10 @@ bool inquiry(std::uint8_t out32[32], std::string& error);     // 0x12
 // fragment list from MEM1/MEM2 after the caller flushes its full buffer.
 bool probe_d2x(std::uint32_t& mode, std::string& error);       // 0xFA
 bool disable_reset(std::string& error);                         // 0xF6
-bool configure_frag_usb(const void* list32, std::uint32_t bytes, std::string& error); // 0xF9
+bool configure_frag(std::uint32_t device, const void* list32, std::uint32_t bytes, std::string& error); // 0xF9
+inline bool configure_frag_usb(const void* list32, std::uint32_t bytes, std::string& error) {
+    return configure_frag(1, list32, bytes, error);
+}
 
 // Disc ID (the first 0x20 bytes of the disc, copied to `out32`).
 bool read_disc_id(std::uint8_t out32[32], std::string& error);  // 0x70

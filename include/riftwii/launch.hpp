@@ -29,12 +29,42 @@ struct LaunchPackage {
     Package package;       // its options carry the current choices
 };
 
+// Visibility on the mods screen: packs made for the selected game plus
+// packs that failed to parse (their error is the point for the user);
+// packs made for a different game are hidden, never merely greyed.
+inline bool show_package(const LaunchPackage& p) { return !p.valid || p.for_disc; }
+
+// Full physical/image identity used for package filters and for binding a
+// preflight plan to the disc that was actually compiled.
+bool same_disc_identity(const DiscIdentity& left, const DiscIdentity& right);
+
+// True when a selected save mode or package needs compilation/resident setup.
+// Both GUI and autorun use this so a plain Separate/Fresh boot cannot bypass
+// the save redirect through the direct boot path.
+bool needs_launch_pipeline(bool has_selected_packages, const std::string& save_mode);
+
 // The frontend's state: the packages found, which are enabled and what
 // each option is set to. Pure data so the host tests cover it; the Wii
 // side lists the directory, draws and boots.
+// The UI's save handling for one game, persisted with its choices:
+// "nand" (the Wii saves as usual), "separate" (an SD folder the NAND save
+// is cloned into once), "fresh" (a distinct persistent folder, started empty).
+struct SaveOverride {
+    std::string dir;   // sd:/ folder, empty when nothing is overridden
+    bool clone = false;
+    std::string note;  // one log line when dir is set
+};
+
+// Folder the title's saves are served from when the UI asks for separation
+// and no <savegame external> patch claimed one (XML wins): an empty dir
+// means no override. An empty game_id means no override.
+SaveOverride resolve_save_override(const std::string& save_mode, const std::string& xml_dir,
+                                   const std::string& game_id);
+
 class LaunchModel {
 public:
     std::vector<LaunchPackage> packages;
+    std::string save_mode = "nand";
 
     // Parses `xml` into a package entry. A package whose filter does not
     // match `disc` (when given) is kept, marked not for this disc, and
@@ -55,9 +85,11 @@ public:
     std::vector<PackageChoices> selections() const;
 
     // Persistence, one line per fact, tab-separated:
+    //   *riftwii*\tsaves\t<nand|separate|fresh>
     //   <file>\t<on|off>
     //   <file>\t<Section/Option>\t<choice name or empty>
-    // Restoring ignores files, options and choices it no longer finds.
+    // Restoring ignores files, options and choices it no longer finds, and
+    // any save mode it does not know.
     std::string save() const;
     void restore(const std::string& text);
 };

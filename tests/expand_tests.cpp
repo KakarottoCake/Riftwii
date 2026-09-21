@@ -303,11 +303,41 @@ static void test_native_listing() {
     fs::remove_all(root);
 }
 
+static void test_empty_plan_message() {
+    riftwii::Fst fst = Disc();
+    ListingProvider card = Card();
+    // A folder whose files are all skipped (unknown names, create off, and
+    // subfolders with recursive off) expands cleanly to nothing.
+    riftwii::Plan plan;
+    plan.folders.push_back(Folder("/Stage", "/mod/Stage", false, false));
+    card.dirs["/mod/Stage"].clear();
+    card.add("/mod/Stage", "unknown.bin", false);
+    card.add("/mod/Stage", "sub", true);
+    std::vector<riftwii::FilePatch> out;
+    std::vector<std::string> notes;
+    std::string err;
+    EXPECT_TRUE(riftwii::expand_plan(plan, fst, card, out, notes, err));
+    EXPECT_TRUE(out.empty());
+    EXPECT_EQ(notes.size(), std::size_t(1));
+    const std::string msg = riftwii::describe_empty_plan("sd:/riivolution/mod.xml", "RZDE01", plan, notes);
+    EXPECT_TRUE(msg.find("sd:/riivolution/mod.xml") != std::string::npos);
+    EXPECT_TRUE(msg.find("RZDE01") != std::string::npos);
+    EXPECT_TRUE(msg.find("0 replaced") != std::string::npos);
+    EXPECT_TRUE(msg.find("create=") != std::string::npos);
+    // A plan with no steps at all is a different, precise message.
+    riftwii::Plan bare;
+    const std::string bare_msg =
+        riftwii::describe_empty_plan("sd:/riivolution/mod.xml", "RZDE01", bare, std::vector<std::string>());
+    EXPECT_TRUE(bare_msg.find("no patches selected") != std::string::npos);
+    EXPECT_TRUE(bare_msg.find("RZDE01") != std::string::npos);
+}
+
 int main() {
     test_rooted();
     test_by_name();
     test_order_and_files();
     test_native_listing();
+    test_empty_plan_message();
     if (g_failures == 0) {
         std::cout << "ALL EXPAND TESTS PASSED" << std::endl;
         return 0;

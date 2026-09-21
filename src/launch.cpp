@@ -21,6 +21,14 @@ std::string clean(std::string s) {
 
 }  // namespace
 
+bool same_disc_identity(const DiscIdentity& left, const DiscIdentity& right) {
+    return left.id == right.id && left.revision == right.revision && left.number == right.number;
+}
+
+bool needs_launch_pipeline(bool has_selected_packages, const std::string& save_mode) {
+    return has_selected_packages || save_mode == "separate" || save_mode == "fresh";
+}
+
 void LaunchModel::add(const std::string& file, const std::string& path, const std::string& xml,
                       const DiscIdentity* disc) {
     LaunchPackage p;
@@ -91,8 +99,31 @@ std::vector<PackageChoices> LaunchModel::selections() const {
     return out;
 }
 
+SaveOverride resolve_save_override(const std::string& save_mode, const std::string& xml_dir,
+                                   const std::string& game_id) {
+    SaveOverride none;
+    if (!xml_dir.empty() || game_id.empty()) return none;
+    if (save_mode == "separate") {
+        const std::string dir = "sd:/riftwii/saves/" + game_id + "/clone";
+        SaveOverride o;
+        o.dir = dir;
+        o.clone = true;
+        o.note = "saves separate at " + dir + " (NAND progress cloned in once)";
+        return o;
+    }
+    if (save_mode == "fresh") {
+        const std::string dir = "sd:/riftwii/saves/" + game_id + "/fresh";
+        SaveOverride o;
+        o.dir = dir;
+        o.clone = false;
+        o.note = "saves separate at " + dir + " (fresh start)";
+        return o;
+    }
+    return none;
+}
+
 std::string LaunchModel::save() const {
-    std::string text;
+    std::string text = "*riftwii*\tsaves\t" + save_mode + "\n";
     for (const LaunchPackage& p : packages) {
         if (!p.valid) continue;
         text += clean(p.file) + "\t" + (p.enabled ? "on" : "off") + "\n";
@@ -113,6 +144,17 @@ void LaunchModel::restore(const std::string& text) {
         const std::size_t t1 = line.find('\t');
         if (t1 == std::string::npos) continue;
         const std::string file = line.substr(0, t1);
+        if (file == "*riftwii*") {
+            // Reserved for loader settings (a package file with this exact
+            // name would collide, which FAT allows but nobody does).
+            // Unknown settings stay untouched.
+            const std::size_t t2 = line.find('\t', t1 + 1);
+            if (t2 != std::string::npos && line.substr(t1 + 1, t2 - t1 - 1) == "saves") {
+                const std::string mode = line.substr(t2 + 1);
+                if (mode == "nand" || mode == "separate" || mode == "fresh") save_mode = mode;
+            }
+            continue;
+        }
         std::size_t index = packages.size();
         for (std::size_t i = 0; i < packages.size(); ++i) {
             if (packages[i].file == file) {

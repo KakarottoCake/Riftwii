@@ -19,6 +19,7 @@
 #include "video.h"
 #include "input.h"
 #include "libwiigui/gui.h"
+#include "wiidrc.h"
 
 int rumbleRequest[4] = {0,0,0,0};
 GuiTrigger userInput[4];
@@ -33,6 +34,29 @@ void UpdatePads()
 {
 	WPAD_ScanPads();
 	PAD_ScanPads();
+
+	// The Wii U GamePad is a single controller behind FIX94's direct-I2C
+	// driver; it reports on channel 0 when one is connected. Everywhere
+	// else the fields stay zero, so plain Wii and Dolphin (whose reads
+	// never match the driver's magic) behave exactly as before.
+	if (WiiDRC_Inited() && WiiDRC_Connected()) {
+		WiiDRC_ScanPads();
+		userInput[0].wiidrcdata.btns_d = (u16)WiiDRC_ButtonsDown();
+		userInput[0].wiidrcdata.btns_u = (u16)WiiDRC_ButtonsUp();
+		userInput[0].wiidrcdata.btns_h = (u16)WiiDRC_ButtonsHeld();
+		userInput[0].wiidrcdata.stickX = WiiDRC_lStickX();
+		userInput[0].wiidrcdata.stickY = WiiDRC_lStickY();
+		userInput[0].wiidrcdata.substickX = WiiDRC_rStickX();
+		userInput[0].wiidrcdata.substickY = WiiDRC_rStickY();
+	} else {
+		userInput[0].wiidrcdata.btns_d = 0;
+		userInput[0].wiidrcdata.btns_u = 0;
+		userInput[0].wiidrcdata.btns_h = 0;
+		userInput[0].wiidrcdata.stickX = 0;
+		userInput[0].wiidrcdata.stickY = 0;
+		userInput[0].wiidrcdata.substickX = 0;
+		userInput[0].wiidrcdata.substickY = 0;
+	}
 
 	for(int i=3; i >= 0; i--)
 	{
@@ -57,6 +81,9 @@ void SetupPads()
 {
 	PAD_Init();
 	WPAD_Init();
+	// Best effort: false on plain Wii and under Dolphin, where every
+	// GamePad read below stays zeroed by the Connected() gate.
+	WiiDRC_Init();
 
 	// read wiimote accelerometer and IR data
 	WPAD_SetDataFormat(WPAD_CHAN_ALL,WPAD_FMT_BTNS_ACC_IR);

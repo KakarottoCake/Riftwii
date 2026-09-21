@@ -3,9 +3,11 @@
  * Riftwii
  *
  * rift_menu.cpp
- * The frontend: the home screen lists the packages on the card and which
- * are enabled for the inserted disc, an options screen sets each option's
- * choice, and Launch hands the selection to the boot. The state itself
+ * The frontend: a source screen (SD, USB or DISC), an image games picker, a mods
+ * screen listing the packages made for the picked game (broken XML stays
+ * visible with its error), an options screen setting each option's
+ * choice, and Launch handing the selection to the boot. A per-game Saves
+ * toggle keeps modded saves in an SD folder. The state itself
  * (riftwii/launch.hpp) is host-tested; this file only lists the directory,
  * draws and reads the pads. Built on the vendored libwiigui template.
  ***************************************************************************/
@@ -17,9 +19,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <atomic>
+#include <initializer_list>
 #include <wiiuse/wpad.h>
 
 #include "libwiigui/gui.h"
+#include "wiidrc.h"
 #include "menu.h"
 #include "autorun.hpp"
 #include "demo.h"
@@ -31,6 +35,11 @@
 using riftwii::wii::ScanPackages;
 using riftwii::wii::SaveChoices;
 using riftwii::wii::CompileSelection;
+using riftwii::wii::SelectDisc;
+using riftwii::wii::SelectSdGame;
+using riftwii::wii::SelectUsbGame;
+using riftwii::wii::scan_sd_games;
+using riftwii::wii::scan_usb_games;
 
 static const char* PackageValue(const riftwii::LaunchPackage& p)
 {
@@ -45,6 +54,9 @@ static GuiWindow * mainWindow = nullptr;
 static lwp_t guithread = LWP_THREAD_NULL;
 static std::atomic<bool> guiHalt{true};
 static int selectedPackage = 0;  // the home screen's highlighted row, kept across screens
+static riftwii::wii::ImageDevice pickerDevice = riftwii::wii::ImageDevice::Usb;
+static int selectedGame = 0;  // the image picker row, reset whenever its source changes
+constexpr int kOptionCapacity = 150;
 
 static void ResumeGui()
 {
@@ -111,6 +123,9 @@ void InitGUIThreads()
 }
 
 // A plain button with the template's look, triggered by A and by `extra`.
+// The Wii U GamePad mirrors the Wii names (A/B/Plus/Minus/Home/D-pad) and
+// stands in for 1 with X; every bottom button carries a GamePad hotkey so
+// the menus are fully drivable without a pointer.
 struct MenuButton {
 	GuiText text;
 	GuiImage image;
@@ -119,18 +134,18 @@ struct MenuButton {
 	GuiTrigger trigExtra;
 	GuiButton button;
 	MenuButton(const char* label, GuiImageData& outline, GuiImageData& outlineOver, GuiSound& sound,
-		   u32 wpadExtra, u16 padExtra)
+		   u32 wpadExtra, u16 padExtra, u16 wiidrcExtra = 0)
 		: text(label, 22, (GXColor){0, 0, 0, 255}), image(&outline), imageOver(&outlineOver),
 		  button(outline.GetWidth(), outline.GetHeight())
 	{
-		trigA.SetSimpleTrigger(-1, WPAD_BUTTON_A | WPAD_CLASSIC_BUTTON_A, PAD_BUTTON_A);
-		trigExtra.SetButtonOnlyTrigger(-1, wpadExtra, padExtra);
+		trigA.SetSimpleTrigger(-1, WPAD_BUTTON_A | WPAD_CLASSIC_BUTTON_A, PAD_BUTTON_A, WIIDRC_BUTTON_A);
+		trigExtra.SetButtonOnlyTrigger(-1, wpadExtra, padExtra, wiidrcExtra);
 		button.SetLabel(&text);
 		button.SetImage(&image);
 		button.SetImageOver(&imageOver);
 		button.SetSoundOver(&sound);
 		button.SetTrigger(&trigA);
-		if (wpadExtra || padExtra) button.SetTrigger(&trigExtra);
+		if (wpadExtra || padExtra || wiidrcExtra) button.SetTrigger(&trigExtra);
 		button.SetEffectGrow();
 	}
 	void Place(ALIGN_H h, ALIGN_V v, int x, int y)
@@ -141,41 +156,192 @@ struct MenuButton {
 	bool Clicked() { return button.GetState() == STATE::CLICKED; }
 };
 
-static int MenuHome(FrontendState& state)
+// libwiigui only clears a hover-selected button while the pointer is live:
+// with an invalid pointer a stale SELECTED survives, and the next A press
+// fires both it and the browser row. Drop stale bottom-button selection
+// when no pointer is live; hotkeys (BUTTON_ONLY) and fresh hovers are
+// unaffected, and browser rows manage their own focus.
+static bool AnyPointerLive() {
+	for (int i = 0; i < 4; ++i)
+		if (userInput[i].wpad->ir.valid) return true;
+	return false;
+}
+static void ClearStaleButtons(std::initializer_list<GuiButton*> buttons) {
+	if (AnyPointerLive()) return;
+	for (GuiButton* b : buttons)
+		if (b->GetState() == STATE::SELECTED) b->ResetState();
+}
+
+// One line for the mods screen: where this game's saves go. The toggle
+// cycles NAND -> Separate -> Fresh; Separate clones the NAND progress in
+// once, Fresh starts empty. A mod's own <savegame> redirect wins at boot.
+static std::string SavesLine(const FrontendState& state)
+{
+	const std::string& mode = state.model.save_mode;
+	if (mode == "separate")
+		return "Save Mode: Separate (sd:/riftwii/saves/" + state.game_id + "/clone, NAND progress cloned in once)";
+	if (mode == "fresh")
+		return "Save Mode: Fresh (sd:/riftwii/saves/" + state.game_id + "/fresh, started empty)";
+	return "Save Mode: NAND (the Wii saves as usual)";
+}
+
+static const char* kHomeHotkeys = "A: toggle   B: back   +: Mod Options   -: Save Mode   1: launch (X on GamePad)";
+
+// Two lines, so the buttons below stay clear: the saves mode plus either
+// the hotkeys (clean scan) or the scan problem (which matters more).
+static std::string HomeDetail(const FrontendState& state, const std::string& scanStatus)
+{
+	if (scanStatus == riftwii::wii::kScanReady)
+		return SavesLine(state) + "\n" + kHomeHotkeys;
+	return scanStatus + "\n" + SavesLine(state);
+}
+
+// Start screen. Image selection happens while IOS58 owns the storage; the
+// selected source is activated only after the GUI has been torn down.
+static int MenuSource(FrontendState& state)
+{
+	int menu = MENU_NONE;
+
+	GuiText titleTxt("Riftwii", 34, (GXColor){255, 255, 255, 255});
+	titleTxt.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
+	titleTxt.SetPosition(0, 56);
+
+	GuiText subTxt("Choose game source", 18, (GXColor){200, 200, 200, 255});
+	subTxt.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
+	subTxt.SetPosition(0, 100);
+
+	GuiText discTxt(state.disc_status.c_str(), 18, (GXColor){200, 200, 200, 255});
+	discTxt.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
+	discTxt.SetPosition(0, 126);
+
+	std::string sdLine = state.sd_catalog.status;
+	if (!state.sd_catalog.cios_note.empty()) sdLine += "  [no cIOS]";
+	GuiText sdTxt(sdLine.c_str(), 18, (GXColor){200, 200, 200, 255});
+	sdTxt.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
+	sdTxt.SetPosition(0, 150);
+
+	std::string usbLine = state.usb_catalog.status;
+	if (!state.usb_catalog.cios_note.empty()) usbLine += "  [no cIOS]";
+	GuiText usbTxt(usbLine.c_str(), 18, (GXColor){200, 200, 200, 255});
+	usbTxt.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
+	usbTxt.SetPosition(0, 174);
+
+	std::string hint = "1/Y: SD (X on GamePad)    +/X: USB    -/Z: DISC    (or point and press A)";
+	if (!state.sd_catalog.cios_note.empty()) hint += std::string("\n") + state.sd_catalog.cios_note;
+	if (!state.usb_catalog.cios_note.empty()) hint += std::string("\n") + state.usb_catalog.cios_note;
+	GuiText detailTxt(hint.c_str(), 16, (GXColor){255, 255, 255, 255});
+	detailTxt.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::BOTTOM);
+	detailTxt.SetPosition(0, -100);
+	detailTxt.SetWrap(true, screenwidth - 80);
+
+	GuiSound btnSoundOver(button_over_pcm, button_over_pcm_size, SOUND::PCM);
+	GuiImageData btnOutline(button_png);
+	GuiImageData btnOutlineOver(button_over_png);
+
+	MenuButton sdBtn("SD", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_1 | WPAD_CLASSIC_BUTTON_Y, PAD_BUTTON_Y, WIIDRC_BUTTON_X);
+	sdBtn.Place(ALIGN_H::CENTRE, ALIGN_V::MIDDLE, 0, -78);
+	MenuButton usbBtn("USB", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_PLUS | WPAD_CLASSIC_BUTTON_PLUS, PAD_BUTTON_X, WIIDRC_BUTTON_PLUS);
+	usbBtn.Place(ALIGN_H::CENTRE, ALIGN_V::MIDDLE, 0, 0);
+	MenuButton discBtn("DISC", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_MINUS | WPAD_CLASSIC_BUTTON_MINUS, PAD_TRIGGER_Z, WIIDRC_BUTTON_MINUS);
+	discBtn.Place(ALIGN_H::CENTRE, ALIGN_V::MIDDLE, 0, 78);
+	MenuButton exitBtn("Exit", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_HOME | WPAD_CLASSIC_BUTTON_HOME, 0, WIIDRC_BUTTON_HOME);
+	exitBtn.Place(ALIGN_H::LEFT, ALIGN_V::BOTTOM, 40, -35);
+	for (MenuButton* b : {&sdBtn, &usbBtn, &discBtn, &exitBtn}) b->button.SetScale(1.0f);
+
+	HaltGui();
+	GuiWindow w(screenwidth, screenheight);
+	w.Append(&titleTxt);
+	w.Append(&subTxt);
+	w.Append(&discTxt);
+	w.Append(&sdTxt);
+	w.Append(&usbTxt);
+	w.Append(&detailTxt);
+	w.Append(&sdBtn.button);
+	w.Append(&usbBtn.button);
+	w.Append(&discBtn.button);
+	w.Append(&exitBtn.button);
+	mainWindow->Append(&w);
+	ResumeGui();
+
+	while(menu == MENU_NONE)
+	{
+		usleep(10000);
+		HaltGui();
+		ClearStaleButtons({&exitBtn.button, &sdBtn.button, &usbBtn.button, &discBtn.button});
+		if(exitBtn.Clicked())
+			menu = MENU_EXIT;
+		else if(sdBtn.Clicked()) {
+			sdBtn.button.ResetState();
+			if (state.sd_catalog.games.empty()) {
+				detailTxt.SetText("No SD games found (sd:/wbfs, sd:/games)");
+			} else {
+				pickerDevice = riftwii::wii::ImageDevice::Sd;
+				selectedGame = 0;
+				menu = MENU_GAMES;
+			}
+		}
+		else if(usbBtn.Clicked()) {
+			usbBtn.button.ResetState();
+			if (state.usb_catalog.games.empty()) {
+				detailTxt.SetText("No USB games found (usb:/wbfs, usb:/games)");
+			} else {
+				pickerDevice = riftwii::wii::ImageDevice::Usb;
+				selectedGame = 0;
+				menu = MENU_GAMES;
+			}
+		}
+		else if(discBtn.Clicked()) {
+			discBtn.button.ResetState();
+			std::string error;
+			if (!SelectDisc(state, error)) {
+				detailTxt.SetText("No disc in drive");
+			} else {
+				discTxt.SetText(state.disc_status.c_str());
+				menu = MENU_HOME;
+			}
+		}
+		ResumeGui();
+	}
+
+	HaltGui();
+	mainWindow->Remove(&w);
+	return menu;
+}
+
+static int MenuGames(FrontendState& state)
 {
 	int menu = MENU_NONE;
 
 	static OptionList options;
 	memset(&options, 0, sizeof(options));
-	std::string scanStatus;
-	try {
-		scanStatus = ScanPackages(state);
-	} catch (...) {
-		scanStatus = "Package scan failed; rescan to retry";
-	}
+	const bool sd = pickerDevice == riftwii::wii::ImageDevice::Sd;
+	const auto& catalog = sd ? state.sd_catalog : state.usb_catalog;
 	const auto fill = [&]() {
 		options.length = 0;
-		for (const auto& p : state.model.packages) {
+		for (const auto& g : catalog.games) {
+			if (options.length >= kOptionCapacity) break;
 			const int i = options.length++;
-			snprintf(options.name[i], sizeof(options.name[i]), "%.49s", p.file.c_str());
-			snprintf(options.value[i], sizeof(options.value[i]), "%s", PackageValue(p));
+			snprintf(options.name[i], sizeof(options.name[i]), "%.6s  %.40s", g.id.c_str(), g.title.c_str());
+			snprintf(options.value[i], sizeof(options.value[i]), "%s",
+				 g.format == riftwii::UsbImageFormat::Wbfs ? "WBFS" : "ISO");
 		}
 		if (options.length == 0) {
-			snprintf(options.name[0], sizeof(options.name[0]), "No packages available");
+			snprintf(options.name[0], sizeof(options.name[0]), "No %s games found", sd ? "SD" : "USB");
 			options.length = 1;
 		}
+		if (selectedGame >= options.length) selectedGame = 0;
 	};
 	fill();
 
-	GuiText titleTxt("Riftwii", 28, (GXColor){255, 255, 255, 255});
+	GuiText titleTxt(sd ? "SD games" : "USB games", 28, (GXColor){255, 255, 255, 255});
 	titleTxt.SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
 	titleTxt.SetPosition(40,20);
 
-	GuiText discTxt(state.disc_status.c_str(), 18, (GXColor){200, 200, 200, 255});
-	discTxt.SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
-	discTxt.SetPosition(40, 58);
+	GuiText statusTxt(catalog.status.c_str(), 18, (GXColor){200, 200, 200, 255});
+	statusTxt.SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
+	statusTxt.SetPosition(40, 58);
 
-	GuiText detailTxt(scanStatus.c_str(), 16, (GXColor){255, 255, 255, 255});
+	GuiText detailTxt("A: choose   B: back   +/X: rescan", 16, (GXColor){255, 255, 255, 255});
 	detailTxt.SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
 	detailTxt.SetPosition(40, 340);
 	detailTxt.SetWrap(true, screenwidth - 80);
@@ -189,23 +355,163 @@ static int MenuHome(FrontendState& state)
 	GuiImageData btnOutline(button_png);
 	GuiImageData btnOutlineOver(button_over_png);
 
-	// Three buttons across a 640-wide screen: the template's 196-wide
-	// button scaled to 167. Dump (a development aid) has no button: the
-	// Wii Remote's 2 or a GameCube pad's B.
-	MenuButton exitBtn("Exit", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_HOME | WPAD_CLASSIC_BUTTON_HOME, 0);
-	exitBtn.Place(ALIGN_H::LEFT, ALIGN_V::BOTTOM, 40, -35);
-	MenuButton optionsBtn("Options", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_PLUS | WPAD_CLASSIC_BUTTON_PLUS, PAD_BUTTON_X);
+	MenuButton backBtn("Back", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
+	backBtn.Place(ALIGN_H::LEFT, ALIGN_V::BOTTOM, 40, -35);
+	MenuButton rescanBtn("Rescan", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_PLUS | WPAD_CLASSIC_BUTTON_PLUS, PAD_BUTTON_X, WIIDRC_BUTTON_PLUS);
+	rescanBtn.Place(ALIGN_H::CENTRE, ALIGN_V::BOTTOM, 0, -35);
+	for (MenuButton* b : {&backBtn, &rescanBtn}) b->button.SetScale(0.85f);
 
-	MenuButton sourceBtn("Source", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_MINUS | WPAD_CLASSIC_BUTTON_MINUS, PAD_TRIGGER_L);
-	sourceBtn.Place(ALIGN_H::CENTRE, ALIGN_V::BOTTOM, 0, -82);
-	optionsBtn.Place(ALIGN_H::CENTRE, ALIGN_V::BOTTOM, 0, -35);
-	MenuButton launchBtn("Launch", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_1 | WPAD_CLASSIC_BUTTON_Y, PAD_BUTTON_Y);
+	HaltGui();
+	GuiWindow w(screenwidth, screenheight);
+	w.Append(&titleTxt);
+	w.Append(&statusTxt);
+	w.Append(&browser);
+	w.Append(&detailTxt);
+	w.Append(&backBtn.button);
+	w.Append(&rescanBtn.button);
+	mainWindow->Append(&w);
+	ResumeGui();
+
+	while(menu == MENU_NONE)
+	{
+		usleep(10000);
+		HaltGui();
+		ClearStaleButtons({&backBtn.button, &rescanBtn.button});
+		const int clicked = browser.GetClickedOption();
+		if (clicked >= 0 && static_cast<std::size_t>(clicked) < catalog.games.size()) {
+			selectedGame = clicked;
+			std::string error;
+			if ((sd ? SelectSdGame(state, static_cast<std::size_t>(clicked), error)
+			        : SelectUsbGame(state, static_cast<std::size_t>(clicked), error))) {
+				menu = MENU_HOME;
+			} else {
+				detailTxt.SetText(error.c_str());
+			}
+		}
+		if(backBtn.Clicked())
+			menu = MENU_SOURCE;
+		else if(rescanBtn.Clicked()) {
+			rescanBtn.button.ResetState();
+			std::string error;
+			if (!(sd ? scan_sd_games(state.sd_catalog, error) : scan_usb_games(state.usb_catalog, error))) {
+				detailTxt.SetText(error.c_str());
+			} else {
+				statusTxt.SetText(catalog.status.c_str());
+				detailTxt.SetText(catalog.games.empty() ? (sd ? "No SD games found (sd:/wbfs, sd:/games)" : "No USB games found (usb:/wbfs, usb:/games)")
+										  : "A: choose   B: back   +/X: rescan");
+			}
+			fill();
+			browser.TriggerUpdate();
+		}
+		ResumeGui();
+	}
+
+	HaltGui();
+	mainWindow->Remove(&w);
+	return menu;
+}
+
+static int MenuHome(FrontendState& state)
+{
+	int menu = MENU_NONE;
+
+	static OptionList options;
+	memset(&options, 0, sizeof(options));
+	std::string scanStatus;
+	try {
+		scanStatus = ScanPackages(state);
+	} catch (...) {
+		scanStatus = "Package scan failed; rescan to retry";
+	}
+	// Rows show packs made for this game plus broken XML (its error is
+	// the point); other-disc packs are hidden. `visible` maps each row
+	// back to its package: the browser only knows row numbers.
+	std::vector<std::size_t> visible;
+	const auto fill = [&]() {
+		visible.clear();
+		options.length = 0;
+		for (std::size_t i = 0; i < state.model.packages.size(); ++i) {
+			const auto& p = state.model.packages[i];
+			if (!riftwii::show_package(p)) continue;
+			if (options.length >= kOptionCapacity) break;
+			visible.push_back(i);
+			const int r = options.length++;
+			snprintf(options.name[r], sizeof(options.name[r]), "%.49s", p.file.c_str());
+			snprintf(options.value[r], sizeof(options.value[r]), "%s", PackageValue(p));
+		}
+		if (options.length == 0) {
+			if (!state.model.packages.empty())
+				snprintf(options.name[0], sizeof(options.name[0]), "No mods for this game (%u for other games)",
+					 static_cast<unsigned>(state.model.packages.size()));
+			else
+				snprintf(options.name[0], sizeof(options.name[0]), "No packages available");
+			options.length = 1;
+		}
+	};
+	fill();
+	if (state.model.packages.empty()) {
+		selectedPackage = 0;
+	} else if (selectedPackage < 0 || static_cast<std::size_t>(selectedPackage) >= state.model.packages.size() ||
+	           !riftwii::show_package(state.model.packages[static_cast<std::size_t>(selectedPackage)])) {
+		selectedPackage = 0;
+		for (std::size_t i = 0; i < state.model.packages.size(); ++i) {
+			if (riftwii::show_package(state.model.packages[i])) {
+				selectedPackage = static_cast<int>(i);
+				break;
+			}
+		}
+	}
+
+	GuiText titleTxt("Riftwii", 28, (GXColor){255, 255, 255, 255});
+	titleTxt.SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
+	titleTxt.SetPosition(40,20);
+
+	GuiText discTxt(state.disc_status.c_str(), 18, (GXColor){200, 200, 200, 255});
+	discTxt.SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
+	discTxt.SetPosition(40, 58);
+
+	GuiText detailTxt(HomeDetail(state, scanStatus).c_str(), 16, (GXColor){255, 255, 255, 255});
+	detailTxt.SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
+	detailTxt.SetPosition(40, 330);
+	detailTxt.SetWrap(true, screenwidth - 80);
+
+	GuiOptionBrowser browser(552, 238, &options);
+	browser.SetPosition(0, 84);
+	browser.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
+	browser.SetFocus(1);
+
+	GuiSound btnSoundOver(button_over_pcm, button_over_pcm_size, SOUND::PCM);
+	GuiImageData btnOutline(button_png);
+	GuiImageData btnOutlineOver(button_over_png);
+
+	// Five buttons across a 640-wide screen: the template's 196-wide
+	// button scaled to 167, stacked in pairs. Dump (a development aid)
+	// has no button: the Wii Remote's 2 or a GameCube pad's B.
+	MenuButton exitBtn("Exit", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_HOME | WPAD_CLASSIC_BUTTON_HOME, 0, WIIDRC_BUTTON_HOME);
+	exitBtn.Place(ALIGN_H::LEFT, ALIGN_V::BOTTOM, 40, -35);
+	MenuButton backBtn("Back", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
+	backBtn.Place(ALIGN_H::CENTRE, ALIGN_V::BOTTOM, 0, -82);
+	MenuButton savesBtn("Save Mode", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_MINUS | WPAD_CLASSIC_BUTTON_MINUS, PAD_BUTTON_START, WIIDRC_BUTTON_MINUS);
+	savesBtn.Place(ALIGN_H::CENTRE, ALIGN_V::BOTTOM, 0, -35);
+	MenuButton optionsBtn("Mod Options", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_PLUS | WPAD_CLASSIC_BUTTON_PLUS, PAD_BUTTON_X, WIIDRC_BUTTON_PLUS);
+	optionsBtn.Place(ALIGN_H::RIGHT, ALIGN_V::BOTTOM, -40, -82);
+	MenuButton launchBtn("Launch", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_1 | WPAD_CLASSIC_BUTTON_Y, PAD_BUTTON_Y, WIIDRC_BUTTON_X);
 	launchBtn.Place(ALIGN_H::RIGHT, ALIGN_V::BOTTOM, -40, -35);
-	for (MenuButton* b : {&exitBtn, &optionsBtn, &launchBtn, &sourceBtn}) b->button.SetScale(0.85f);
+	for (MenuButton* b : {&exitBtn, &backBtn, &savesBtn, &optionsBtn, &launchBtn}) b->button.SetScale(0.8f);
 	GuiTrigger trigDump;
-	trigDump.SetButtonOnlyTrigger(-1, WPAD_BUTTON_2 | WPAD_CLASSIC_BUTTON_X, PAD_BUTTON_B);
+	trigDump.SetButtonOnlyTrigger(-1, WPAD_BUTTON_2 | WPAD_CLASSIC_BUTTON_X, PAD_TRIGGER_Z);
 	GuiButton dumpBtn(0, 0);  // invisible: a trigger only
 	dumpBtn.SetTrigger(&trigDump);
+	const auto save_before_leave = [&](int next_menu) {
+		std::string error;
+		if (!SaveChoices(state, error)) {
+			launchBtn.button.ResetState();
+			detailTxt.SetText(error.c_str());
+			return false;
+		}
+		menu = next_menu;
+		return true;
+	};
 
 	HaltGui();
 	GuiWindow w(screenwidth, screenheight);
@@ -214,8 +520,9 @@ static int MenuHome(FrontendState& state)
 	w.Append(&browser);
 	w.Append(&detailTxt);
 	w.Append(&exitBtn.button);
+	w.Append(&backBtn.button);
+	w.Append(&savesBtn.button);
 	w.Append(&optionsBtn.button);
-	w.Append(&sourceBtn.button);
 	w.Append(&launchBtn.button);
 	w.Append(&dumpBtn);
 	mainWindow->Append(&w);
@@ -225,13 +532,15 @@ static int MenuHome(FrontendState& state)
 	{
 		usleep(10000);
 		HaltGui();
+		ClearStaleButtons({&exitBtn.button, &backBtn.button, &savesBtn.button, &optionsBtn.button, &launchBtn.button});
 		const int clicked = browser.GetClickedOption();
-		if (clicked >= 0 && static_cast<std::size_t>(clicked) < state.model.packages.size()) {
+		if (clicked >= 0 && static_cast<std::size_t>(clicked) < visible.size()) {
 			// A on a row: enable or disable it.
-			selectedPackage = clicked;
-			const riftwii::LaunchPackage& p = state.model.packages[clicked];
-			if (!state.model.set_enabled(clicked, !p.enabled)) {
-				detailTxt.SetText(p.valid ? "This package is for another disc" : p.detail.substr(0, 160).c_str());
+			const std::size_t pkg = visible[static_cast<std::size_t>(clicked)];
+			selectedPackage = static_cast<int>(pkg);
+			const riftwii::LaunchPackage& p = state.model.packages[pkg];
+			if (!state.model.set_enabled(pkg, !p.enabled)) {
+				detailTxt.SetText(p.detail.substr(0, 160).c_str());
 			} else {
 				detailTxt.SetText(p.detail.substr(0, 160).c_str());
 			}
@@ -242,18 +551,25 @@ static int MenuHome(FrontendState& state)
 			menu = MENU_EXIT;
 		else if(optionsBtn.Clicked()) {
 			if (selectedPackage >= 0 && static_cast<std::size_t>(selectedPackage) < state.model.packages.size() &&
-			    state.model.packages[selectedPackage].valid) {
+			    state.model.packages[selectedPackage].valid &&
+			    riftwii::show_package(state.model.packages[selectedPackage])) {
 				menu = MENU_OPTIONS;
 			} else {
 				optionsBtn.button.ResetState();
-				detailTxt.SetText("Enable or disable a package with A first; + opens its options");
+			detailTxt.SetText("Enable or disable a package with A first; + opens Mod Options");
 			}
 		}
-		else if(sourceBtn.Clicked()) {
-			CycleSource(state);
-			discTxt.SetText(state.disc_status.c_str());
-			try { scanStatus = ScanPackages(state); } catch (...) { scanStatus = "Package scan failed; rescan to retry"; }
-			detailTxt.SetText(scanStatus.c_str()); fill(); browser.TriggerUpdate(); sourceBtn.button.ResetState();
+		else if(backBtn.Clicked()) {
+			menu = (state.use_usb || state.use_sd) ? MENU_GAMES : MENU_SOURCE;
+		}
+		else if(savesBtn.Clicked()) {
+			savesBtn.button.ResetState();
+			if (state.model.save_mode == "separate") state.model.save_mode = "fresh";
+			else if (state.model.save_mode == "fresh") state.model.save_mode = "nand";
+			else state.model.save_mode = "separate";
+			std::string error;
+			if (!SaveChoices(state, error)) detailTxt.SetText(error.c_str());
+			else detailTxt.SetText(HomeDetail(state, scanStatus).c_str());
 		}
 		else if(launchBtn.Clicked()) {
 			if (state.game_id.empty()) {
@@ -265,14 +581,20 @@ static int MenuHome(FrontendState& state)
 				// reload path errors the same way headless (autorun) runs.
 				launchBtn.button.ResetState();
 				detailTxt.SetText(state.usb_catalog.cios_note.c_str());
-			} else if (state.model.selections().empty()) {
-				menu = MENU_BOOT;  // nothing enabled: the disc as it is
-			} else if (state.use_usb) {
+			} else if (state.use_sd && !state.sd_catalog.cios_note.empty()) {
+				launchBtn.button.ResetState();
+				detailTxt.SetText(state.sd_catalog.cios_note.c_str());
+			} else if (!riftwii::needs_launch_pipeline(!state.model.selections().empty(), state.model.save_mode)) {
+				save_before_leave(MENU_BOOT);  // no resident work: boot the selected source as it is
+			} else if (state.use_usb || state.use_sd) {
 				// cIOS reload and F9 must happen after the GUI exits; compilation
-				// follows the virtual DI probe in RunLaunch.
-				menu = MENU_LAUNCH;
+				// follows the virtual DI probe in RunLaunch. This also retains a
+				// selected Separate/Fresh save redirect with no enabled package.
+				save_before_leave(MENU_LAUNCH);
 			} else {
-				menu = MENU_PREFLIGHT;
+				// Preflight builds the resident plan even with no packages when
+				// Separate/Fresh needs the save redirect for a physical disc.
+				save_before_leave(MENU_PREFLIGHT);
 			}
 		}
 		else if(dumpBtn.GetState() == STATE::CLICKED)
@@ -282,7 +604,6 @@ static int MenuHome(FrontendState& state)
 
 	HaltGui();
 	mainWindow->Remove(&w);
-	if (menu == MENU_PREFLIGHT || menu == MENU_BOOT) SaveChoices(state);
 	return menu;
 }
 
@@ -317,9 +638,18 @@ static int MenuPreflight(FrontendState& state)
 	memset(&options, 0, sizeof(options));
 	std::vector<std::string> rows;
 	if (ok) {
+		const riftwii::SaveOverride saves =
+		    riftwii::resolve_save_override(state.model.save_mode, state.compiled.savegame_dir, state.game_id);
+		if (!state.compiled.savegame_dir.empty())
+			rows.push_back("Saves: " + state.compiled.savegame_dir + " (from the mod)");
+		else if (!saves.dir.empty())
+			rows.push_back("Saves: " + saves.dir + (saves.clone ? " (progress cloned in once)" : " (fresh)"));
+		else
+			rows.push_back("Saves: NAND (as usual)");
+		const std::size_t after_saves = rows.size();
 		for (const std::string& warning : state.compiled.warnings) rows.push_back("warning: " + warning);
 		for (const std::string& note : state.compiled.notes) rows.push_back(note);
-		if (rows.empty()) rows.push_back("Nothing to apply");
+		if (rows.size() == after_saves) rows.push_back("Nothing to apply");
 	} else {
 		rows.push_back(error);
 	}
@@ -346,7 +676,7 @@ static int MenuPreflight(FrontendState& state)
 	browser.SetCol2Position(540);
 	browser.SetFocus(1);
 
-	GuiText detailTxt(ok ? "Boot starts the game with these patches; Back changes nothing" : error.c_str(), 16,
+	GuiText detailTxt(ok ? "Boot (1/Y, X on GamePad) starts the game with these patches; Back (B) changes nothing" : error.c_str(), 16,
 			  (GXColor){255, 255, 255, 255});
 	detailTxt.SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
 	detailTxt.SetPosition(40, 340);
@@ -355,10 +685,9 @@ static int MenuPreflight(FrontendState& state)
 	GuiSound btnSoundOver(button_over_pcm, button_over_pcm_size, SOUND::PCM);
 	GuiImageData btnOutline(button_png);
 	GuiImageData btnOutlineOver(button_over_png);
-	MenuButton backBtn("Back", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B);
+	MenuButton backBtn("Back", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
 	backBtn.Place(ALIGN_H::LEFT, ALIGN_V::BOTTOM, 40, -35);
-	backBtn.button.SetScale(0.85f);
-	MenuButton bootBtn("Boot", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_1 | WPAD_CLASSIC_BUTTON_Y, PAD_BUTTON_Y);
+	MenuButton bootBtn("Boot", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_1 | WPAD_CLASSIC_BUTTON_Y, PAD_BUTTON_Y, WIIDRC_BUTTON_X);
 	bootBtn.Place(ALIGN_H::RIGHT, ALIGN_V::BOTTOM, -40, -35);
 	bootBtn.button.SetScale(0.85f);
 
@@ -372,6 +701,7 @@ static int MenuPreflight(FrontendState& state)
 	{
 		usleep(10000);
 		HaltGui();
+		ClearStaleButtons({&backBtn.button, &bootBtn.button});
 		browser.GetClickedOption();  // rows are information only
 		if (backBtn.Clicked())
 			menu = MENU_HOME;
@@ -417,7 +747,7 @@ static int MenuOptions(FrontendState& state)
 	titleTxt.SetPosition(40,20);
 	titleTxt.SetMaxWidth(screenwidth - 80);
 
-	GuiText hintTxt("A: next choice   -: previous choice   B: back", 18, (GXColor){200, 200, 200, 255});
+	GuiText hintTxt("A: next choice   -/Y: previous choice   B: back", 18, (GXColor){200, 200, 200, 255});
 	hintTxt.SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
 	hintTxt.SetPosition(40, 58);
 
@@ -435,9 +765,9 @@ static int MenuOptions(FrontendState& state)
 	GuiImageData btnOutline(button_png);
 	GuiImageData btnOutlineOver(button_over_png);
 
-	MenuButton backBtn("Back", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B);
+	MenuButton backBtn("Back", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
 	backBtn.Place(ALIGN_H::LEFT, ALIGN_V::BOTTOM, 40, -35);
-	MenuButton prevBtn("Previous", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_MINUS | WPAD_CLASSIC_BUTTON_MINUS, PAD_TRIGGER_L);
+	MenuButton prevBtn("Previous", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_MINUS | WPAD_CLASSIC_BUTTON_MINUS, PAD_BUTTON_Y, WIIDRC_BUTTON_MINUS);
 	prevBtn.Place(ALIGN_H::RIGHT, ALIGN_V::BOTTOM, -40, -35);
 	backBtn.button.SetScale(0.85f);
 	prevBtn.button.SetScale(0.85f);
@@ -458,6 +788,7 @@ static int MenuOptions(FrontendState& state)
 	{
 		usleep(10000);
 		HaltGui();
+		ClearStaleButtons({&backBtn.button, &prevBtn.button});
 		const int clicked = browser.GetClickedOption();
 		if (clicked >= 0 && static_cast<std::size_t>(clicked) < p.package.options.size()) {
 			lastRow = clicked;
@@ -504,6 +835,12 @@ int MainMenu(int menu, FrontendState& state)
 	{
 		switch (currentMenu)
 		{
+			case MENU_SOURCE:
+				currentMenu = MenuSource(state);
+				break;
+			case MENU_GAMES:
+				currentMenu = MenuGames(state);
+				break;
 			case MENU_OPTIONS:
 				currentMenu = MenuOptions(state);
 				break;

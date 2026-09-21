@@ -20,5 +20,7 @@ enum
 	MENU_PREFLIGHT,  // compile the enabled packages and show the result
 	MENU_LAUNCH,   // leave the GUI and boot with the compiled selection
 	MENU_BOOT,     // leave the GUI and boot the inserted disc unmodified
-	MENU_DUMP      // leave the GUI and dump test files from the disc
+	MENU_DUMP,     // leave the GUI and dump test files from the disc
+	MENU_SOURCE,   // start screen: SD, USB or DISC
+	MENU_GAMES     // SD or USB image picker
 };

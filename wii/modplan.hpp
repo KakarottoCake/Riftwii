@@ -22,6 +22,10 @@
 namespace riftwii::wii {
 
 struct CompiledMod {
+    // Set by CompileSelection. BootCompiled rejects a later probe that is not
+    // this exact ID6/revision/disc-number identity.
+    DiscIdentity source_identity;
+    bool has_source_identity = false;
     std::vector<std::string> xml_paths;
     std::vector<rt_entry> entries;
     std::vector<FstRelocation> relocations;

@@ -19,54 +19,121 @@ namespace riftwii::wii {
 
 namespace {
 constexpr std::size_t kMaxPackages = 150;  // the option browser's limit
+
+bool ensure_directory(const char* path, std::string& error) {
+    if (mkdir(path, 0777) == 0) return true;
+    if (errno == EEXIST) {
+        struct stat info {};
+        if (stat(path, &info) == 0 && S_ISDIR(info.st_mode)) return true;
+    }
+    error = std::string("cannot create choices directory ") + path + ": " + std::strerror(errno);
+    return false;
+}
 }
 
 void IdentifyDisc(FrontendState& state) {
-    std::string error;
-    scan_usb_games(state.usb_catalog, error);
-    if (ProbeInserted(state.game_id, state.disc_title, error)) {
+    // Hardware facts for the source screen: image catalogs and the physical
+    // disc. Nothing is selected until the source screen chooses it.
+    std::string error, usb_error, sd_error;
+    if (!scan_usb_games(state.usb_catalog, usb_error)) {
+        state.usb_catalog.status = "USB: " + (usb_error.empty() ? "unavailable" : usb_error);
+    }
+    if (!scan_sd_games(state.sd_catalog, sd_error)) {
+        state.sd_catalog.status = "SD: " + (sd_error.empty() ? "unavailable" : sd_error);
+    }
+    state.use_usb = false;
+    state.use_sd = false;
+    state.usb_index = 0;
+    state.sd_index = 0;
+    state.has_compiled = false;
+    state.compiled = CompiledMod{};
+    if (ProbeInserted(state.game_id, state.disc_title, error, &state.game_revision, &state.game_disc_number)) {
         state.disc_status = "Disc: " + state.game_id + "  " + state.disc_title;
         state.choices_path = std::string(kChoicesDir) + "/" + state.game_id + ".txt";
     } else {
         state.game_id.clear();
+        state.disc_title.clear();
+        state.game_revision = 0;
+        state.game_disc_number = 0;
         state.choices_path.clear();
-        state.disc_status = "No disc identified (" + error + "); Launch needs one";
-    }
-    if (!state.usb_catalog.games.empty()) {
-        state.use_usb = true; state.usb_index = 0;
-        const UsbGame& game = state.usb_catalog.games[0]; state.game_id = game.id; state.disc_title = game.title;
-        state.disc_status = "USB: " + game.id + "  " + game.title;
-        // The full warning names the slots and the d2x version; the status
-        // line only carries the short form (the note is also in boot.log).
-        if (!state.usb_catalog.cios_note.empty()) state.disc_status += "  [no cIOS: install d2x for USB boot]";
-        state.choices_path = std::string(kChoicesDir) + "/" + game.id + ".txt";
+        state.disc_status = "No disc in drive";
     }
 }
 
-void CycleSource(FrontendState& state) {
+// The game the DISC button boots: a fresh probe, so a swapped disc is
+// picked up. False when no disc answers.
+bool SelectDisc(FrontendState& state, std::string& error) {
     state.has_compiled = false;
     state.compiled = CompiledMod{};
-    if (state.use_usb && state.usb_index + 1 < state.usb_catalog.games.size()) ++state.usb_index;
-    else if (state.use_usb) { state.use_usb=false; state.usb_index=0; }
-    else if (!state.usb_catalog.games.empty()) { state.use_usb=true; state.usb_index=0; }
-    if (state.use_usb) {
-        const UsbGame& g=state.usb_catalog.games[state.usb_index]; state.game_id=g.id; state.disc_title=g.title;
-        state.disc_status="USB: "+g.id+"  "+g.title; state.choices_path=std::string(kChoicesDir)+"/"+g.id+".txt";
-        if (!state.usb_catalog.cios_note.empty()) state.disc_status += "  [no cIOS: install d2x for USB boot]";
-    } else {
-        std::string error; if (!ProbeInserted(state.game_id,state.disc_title,error)) { state.game_id.clear(); state.disc_title.clear(); state.choices_path.clear(); state.disc_status="No disc identified ("+error+")"; }
-        else { state.disc_status="Disc: "+state.game_id+"  "+state.disc_title; state.choices_path=std::string(kChoicesDir)+"/"+state.game_id+".txt"; }
+    state.use_usb = false;
+    state.use_sd = false;
+    state.usb_index = 0;
+    state.sd_index = 0;
+    if (!ProbeInserted(state.game_id, state.disc_title, error, &state.game_revision, &state.game_disc_number)) {
+        state.game_id.clear();
+        state.disc_title.clear();
+        state.game_revision = 0;
+        state.game_disc_number = 0;
+        state.choices_path.clear();
+        state.disc_status = "No disc in drive";
+        return false;
     }
-    ScanPackages(state);
+    state.disc_status = "Disc: " + state.game_id + "  " + state.disc_title;
+    state.choices_path = std::string(kChoicesDir) + "/" + state.game_id + ".txt";
+    error.clear();
+    return true;
+}
+
+// The USB game the games screen hands over: index into the catalog.
+bool SelectUsbGame(FrontendState& state, std::size_t index, std::string& error) {
+    state.has_compiled = false;
+    state.compiled = CompiledMod{};
+    if (index >= state.usb_catalog.games.size()) {
+        error = "no such USB game";
+        return false;
+    }
+    state.use_usb = true;
+    state.use_sd = false;
+    state.usb_index = index;
+    state.sd_index = 0;
+    const UsbGame& g = state.usb_catalog.games[index];
+    state.game_id = g.id;
+    state.disc_title = g.title;
+    state.game_revision = g.revision;
+    state.game_disc_number = g.disc_number;
+    state.disc_status = "USB: " + g.id + "  " + g.title;
+    // The full warning names the slots and the d2x version; the status
+    // line only carries the short form (the note is also in boot.log).
+    if (!state.usb_catalog.cios_note.empty()) state.disc_status += "  [no cIOS: install d2x for USB boot]";
+    state.choices_path = std::string(kChoicesDir) + "/" + g.id + ".txt";
+    error.clear();
+    return true;
+}
+
+bool SelectSdGame(FrontendState& state, std::size_t index, std::string& error) {
+    state.has_compiled = false; state.compiled = CompiledMod{};
+    if (index >= state.sd_catalog.games.size()) { error = "no such SD game"; return false; }
+    state.use_usb = false; state.use_sd = true; state.usb_index = 0; state.sd_index = index;
+    const ImageGame& g = state.sd_catalog.games[index];
+    state.game_id=g.id; state.disc_title=g.title; state.disc_status="SD: "+g.id+"  "+g.title;
+    state.game_revision=g.revision; state.game_disc_number=g.disc_number;
+    if (!state.sd_catalog.cios_note.empty()) state.disc_status += "  [no cIOS: install d2x for SD boot]";
+    state.choices_path=std::string(kChoicesDir)+"/"+g.id+".txt";
+    error.clear(); return true;
 }
 
 LaunchSource SelectedSource(const FrontendState& state) {
-    LaunchSource source; if (state.use_usb && state.usb_index < state.usb_catalog.games.size()) { source.usb=true; source.game=state.usb_catalog.games[state.usb_index]; }
+    LaunchSource source;
+    if (state.use_usb && state.usb_index < state.usb_catalog.games.size()) { source.kind=LaunchSource::Kind::Usb; source.game=state.usb_catalog.games[state.usb_index]; }
+    if (state.use_sd && state.sd_index < state.sd_catalog.games.size()) { source.kind=LaunchSource::Kind::Sd; source.game=state.sd_catalog.games[state.sd_index]; }
     return source;
 }
 
 std::string ScanPackages(FrontendState& state) {
     state.model.packages.clear();
+    // A reused frontend state must not carry game A's saved mode into game B
+    // when B has no choices file. restore() below may replace this default.
+    state.model.save_mode = "nand";
     std::unique_ptr<DIR, int (*)(DIR*)> dir(opendir(kPackageDir), closedir);
     if (!dir) {
         return errno == ENOENT ? "Create sd:/riivolution for XML packages" : "Cannot read SD package directory";
@@ -93,6 +160,8 @@ std::string ScanPackages(FrontendState& state) {
     const DiscIdentity* disc = nullptr;
     if (!state.game_id.empty()) {
         identity.id = state.game_id;
+        identity.revision = state.game_revision;
+        identity.number = state.game_disc_number;
         disc = &identity;
     }
     for (const std::string& name : names) {
@@ -114,14 +183,28 @@ std::string ScanPackages(FrontendState& state) {
     }
     if (limited) return "First 150 packages shown; directory limit reached";
     if (state.model.packages.empty()) return "No XML packages in sd:/riivolution";
-    return "A: enable or disable   +: options   Launch (1): the enabled packages, or the plain disc";
+    return kScanReady;
 }
 
-void SaveChoices(const FrontendState& state) {
-    if (state.choices_path.empty()) return;
-    mkdir(kChoicesDir, 0777);
+bool SaveChoices(const FrontendState& state, std::string& error) {
+    if (state.choices_path.empty()) {
+        error = "cannot save choices: no game is selected";
+        return false;
+    }
+    if (!ensure_directory("sd:/riftwii", error) || !ensure_directory(kChoicesDir, error)) return false;
     std::ofstream out(state.choices_path, std::ios::binary | std::ios::trunc);
-    if (out) out << state.model.save();
+    if (!out) {
+        error = "cannot open " + state.choices_path + " for writing";
+        return false;
+    }
+    out << state.model.save();
+    out.flush();
+    if (!out) {
+        error = "cannot write " + state.choices_path;
+        return false;
+    }
+    error.clear();
+    return true;
 }
 
 }  // namespace riftwii::wii
