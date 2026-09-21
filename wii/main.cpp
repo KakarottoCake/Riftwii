@@ -3,6 +3,7 @@
 #include <gccore.h>
 #include <ogc/system.h>
 #include <unistd.h>
+#include <cstdio>
 #include <cstdlib>
 #include <string>
 #include <vector>
@@ -29,6 +30,12 @@ void ExitApp() {
 
 namespace {
 
+// One line per startup phase on the text console, so a stuck probe shows
+// where instead of a black screen.
+void BootProgress(const char* step) {
+    std::printf("%s\n", step);
+}
+
 // Leaves the libwiigui renderer and shows the text console for the
 // disc phase (the GUI thread is already halted by MainMenu).
 void EnterConsolePhase() {
@@ -54,9 +61,13 @@ int main() {
         std::exit(0);
     }
 
+    // Video first: the probes below can take seconds, and a stuck one
+    // must show where instead of a black screen.
+    riftwii::wii::ConsoleStart(false);
+    std::printf("Riftwii\n");
     // Probe the available sources before drawing the source selector.
     FrontendState state;
-    riftwii::wii::IdentifyDisc(state);
+    riftwii::wii::IdentifyDisc(state, BootProgress);
 
     InitVideo();
     SetupPads();
