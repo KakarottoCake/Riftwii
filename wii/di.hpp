@@ -30,6 +30,13 @@ bool wait_for_cover_close(std::string& error);                // 0x79
 bool reset(bool spin_up, std::string& error);                 // 0x8A
 bool inquiry(std::uint8_t out32[32], std::string& error);     // 0x12
 
+// d2x custom DIP commands. They are deliberately separate from the normal
+// DI path: a plain IOS does not implement them. F9 reads a native-endian
+// fragment list from MEM1/MEM2 after the caller flushes its full buffer.
+bool probe_d2x(std::uint32_t& mode, std::string& error);       // 0xFA
+bool disable_reset(std::string& error);                         // 0xF6
+bool configure_frag_usb(const void* list32, std::uint32_t bytes, std::string& error); // 0xF9
+
 // Disc ID (the first 0x20 bytes of the disc, copied to `out32`).
 bool read_disc_id(std::uint8_t out32[32], std::string& error);  // 0x70
 

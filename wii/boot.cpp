@@ -229,15 +229,17 @@ void configure_video_for_game(char region) {
 
 }  // namespace
 
-bool probe_disc(DiscProbe& out, std::string& error) {
+bool probe_disc(DiscProbe& out, std::string& error, const ProbeOptions& options) {
     if (!di::open(error)) return false;
-    bool inserted = false;
-    if (!di::cover_status(inserted, error)) return false;
-    if (!inserted) {
-        logf("No disc: waiting for the cover to close...\n");
-        if (!di::wait_for_cover_close(error)) return false;
+    if (!options.virtual_source) {
+        bool inserted = false;
+        if (!di::cover_status(inserted, error)) return false;
+        if (!inserted) {
+            logf("No disc: waiting for the cover to close...\n");
+            if (!di::wait_for_cover_close(error)) return false;
+        }
+        if (!di::reset(true, error)) return false;
     }
-    if (!di::reset(true, error)) return false;
     std::uint8_t drive_info[32];
     if (!di::inquiry(drive_info, error)) return false;
     logf("Drive: rev %02x%02x dev %02x%02x fw %02x%02x%02x%02x\n", drive_info[0], drive_info[1], drive_info[2],
@@ -437,8 +439,10 @@ namespace {
 // Returns only on failure.
 bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, const SavegameOptions& savegame,
                         std::uint32_t required, std::string& error) {
-    bool force_ios_fields = false;
-    switch (reload_ios(static_cast<int>(required), error)) {
+    bool force_ios_fields = options.preserve_current_ios;
+    if (options.preserve_current_ios) {
+        logf("Keeping d2x IOS%d for the USB virtual disc; reporting IOS%u to the game\n", IOS_GetVersion(), required);
+    } else switch (reload_ios(static_cast<int>(required), error)) {
     case ReloadResult::Ok:
         logf("IOS%u loaded\n", required);
         break;
@@ -919,8 +923,18 @@ bool boot_game(const DiscProbe& probe, const BootOptions& options, std::string& 
     __io_wiisd.shutdown();
 
     boot_after_unmount(probe, options, savegame, required, error);  // returns only on failure
+    if (options.preserve_current_ios) {
+        // d2x owns USB in this mode. Reacquiring all default devices would
+        // interfere with the virtual image, so recover only the SD/log path.
+        if (fatMountSimple("sd", &__io_wiisd)) {
+            LogReopen();
+        } else {
+            error += "; additionally could not remount SD after USB boot failure";
+        }
+    } else {
+        fatInitDefault();  // give the caller its card back so it can log this
+    }
     logf("Boot failed: %s\n", error.c_str());
-    fatInitDefault();  // give the caller its card back so it can log this
     return false;
 }
 

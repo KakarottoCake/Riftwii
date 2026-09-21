@@ -65,22 +65,23 @@ int main() {
     InitFreeType(const_cast<u8*>(font_ttf), font_ttf_size);
     InitGUIThreads();
     const int action = MainMenu(1, state);
+    const riftwii::wii::LaunchSource source = riftwii::wii::SelectedSource(state);
 
     EnterConsolePhase();
     std::string error;
     if (action == MENU_LAUNCH) {
         riftwii::wii::LogOpen("sd:/riftwii/boot.log");
         riftwii::wii::logf("Riftwii: launch %s with packages\n", state.game_id.c_str());
-        const bool booted = state.has_compiled ? riftwii::wii::BootCompiled(state.compiled, error)
-                                               : riftwii::wii::RunLaunch(state.model.selections(), error);
+        const bool booted = (!source.usb && state.has_compiled) ? riftwii::wii::BootCompiled(state.compiled, error, source)
+                                                                 : riftwii::wii::RunLaunch(state.model.selections(), error, source);
         if (!booted) {
             riftwii::wii::LogOpen("sd:/riftwii/boot.log", true);  // boot_game closed it and remounted the card
             riftwii::wii::logf("FAILED: %s\n", error.c_str());
         }
     } else if (action == MENU_BOOT) {
         riftwii::wii::LogOpen("sd:/riftwii/boot.log");
-        riftwii::wii::logf("Riftwii: boot disc\n");
-        if (!riftwii::wii::RunBoot(true, error)) {
+        riftwii::wii::logf("Riftwii: boot %s\n", source.usb ? "USB" : "disc");
+        if (!riftwii::wii::RunBoot(true, error, source)) {
             riftwii::wii::LogOpen("sd:/riftwii/boot.log", true);  // boot_game closed it and remounted the card
             riftwii::wii::logf("FAILED: %s\n", error.c_str());
         }

@@ -31,9 +31,15 @@ struct DiscProbe {
     int running_ios = 0;                // IOS at probe time
 };
 
+struct ProbeOptions {
+    // d2x FRAG mode exposes a virtual disc and must not receive the normal
+    // cover wait/reset sequence, which would clear its configured image.
+    bool virtual_source = false;
+};
+
 // Brings the drive up and identifies the disc, its game partition and the
 // IOS the title wants. Leaves /dev/di open with the partition open.
-bool probe_disc(DiscProbe& out, std::string& error);
+bool probe_disc(DiscProbe& out, std::string& error, const ProbeOptions& options = ProbeOptions());
 
 struct OpenedPartition {
     PartitionDataHeader data_header;
@@ -72,6 +78,10 @@ struct BootOptions {
     // When the title's IOS cannot be loaded, launch under the current one
     // and report the expected version to the game (Brainslug does this).
     bool allow_ios_fallback = true;
+    // Retain the currently loaded d2x cIOS for a USB FRAG image. The game
+    // still sees its TMD-requested IOS in low memory, but no IOS reload may
+    // discard the virtual DI backend.
+    bool preserve_current_ios = false;
     // E2: install the resident runtime and hook the game's IOS_IoctlAsync
     // (wii/resident.hpp); `resident_gecko` makes it report DI reads over
     // the USB Gecko.
