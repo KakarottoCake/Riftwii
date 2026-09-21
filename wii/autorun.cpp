@@ -36,14 +36,32 @@ std::string basename_of(const std::string& disc_path) {
 
 // Shared state for one session: the probe and, lazily, the layout.
 struct Session {
+    LaunchSource source;
     DiscProbe probe;
     bool probed = false;
     OpenedPartition partition;
     bool laid_out = false;
+    void* frag_storage = nullptr;
+    std::size_t frag_storage_bytes = 0;
+    const char* log_path = nullptr;
+
+    explicit Session(const LaunchSource& launch_source = LaunchSource(), const char* active_log = nullptr)
+        : source(launch_source), log_path(active_log) {}
 
     bool ensure_probe(std::string& error) {
         if (probed) return true;
-        if (!probe_disc(probe, error)) return false;
+        if (source.usb) {
+            const int slots[] = {source.cios_slot ? source.cios_slot : 249, source.cios_slot ? 0 : 250,
+                                 source.cios_slot ? 0 : 251};
+            bool active = false;
+            for (int slot : slots) {
+                if (!slot) continue;
+                if (activate_usb_game(source.game, slot, frag_storage, frag_storage_bytes, log_path, error)) { active=true; break; }
+            }
+            if (!active) return false;
+            if (!probe_disc(probe, error, ProbeOptions{true})) return false;
+            if (probe.header.game_id != source.game.id) { error="d2x virtual disc ID does not match the selected USB image"; return false; }
+        } else if (!probe_disc(probe, error)) return false;
         probed = true;
         return true;
     }
@@ -189,11 +207,12 @@ bool AutorunPresent() {
     return stat(kAutorunPath, &st) == 0 && S_ISREG(st.st_mode);
 }
 
-bool RunBoot(bool allow_ios_fallback, std::string& error) {
-    Session s;
+bool RunBoot(bool allow_ios_fallback, std::string& error, const LaunchSource& source) {
+    Session s(source, "sd:/riftwii/boot.log");
     if (!s.ensure_probe(error)) return false;
     BootOptions options;
     options.allow_ios_fallback = allow_ios_fallback;
+    options.preserve_current_ios = source.usb;
     return boot_game(s.probe, options, error);
 }
 
@@ -212,8 +231,8 @@ bool ProbeInserted(std::string& game_id, std::string& title, std::string& error)
     return true;
 }
 
-bool CompileSelection(const std::vector<PackageChoices>& packages, CompiledMod& out, std::string& error) {
-    Session s;
+bool CompileSelection(const std::vector<PackageChoices>& packages, CompiledMod& out, std::string& error, const LaunchSource& source) {
+    Session s(source, "sd:/riftwii/boot.log");
     if (!s.ensure_layout(error)) return false;
     CompiledMod mod;
     if (!compile_packages(packages, s.probe, s.partition, mod, error)) return false;
@@ -226,11 +245,12 @@ bool CompileSelection(const std::vector<PackageChoices>& packages, CompiledMod& 
     return true;
 }
 
-bool BootCompiled(const CompiledMod& mod, std::string& error) {
-    Session s;
+bool BootCompiled(const CompiledMod& mod, std::string& error, const LaunchSource& source) {
+    Session s(source, "sd:/riftwii/boot.log");
     if (!s.ensure_probe(error)) return false;
     BootOptions options;
     options.allow_ios_fallback = true;
+    options.preserve_current_ios = source.usb;
     options.install_resident = !mod.entries.empty() || !mod.relocations.empty() || !mod.savegame_dir.empty();
     options.resident_gecko = false;
     options.table_entries = mod.entries;
@@ -241,14 +261,21 @@ bool BootCompiled(const CompiledMod& mod, std::string& error) {
     return boot_game(s.probe, options, error);
 }
 
-bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error) {
-    CompiledMod mod;
-    if (!CompileSelection(packages, mod, error)) return false;
-    return BootCompiled(mod, error);
+bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error, const LaunchSource& source) {
+    // Keep one session across activation, DI probing, package compilation and
+    // boot. In particular, a USB fragment list must survive the cIOS reload.
+    Session s(source, "sd:/riftwii/boot.log"); if (!s.ensure_layout(error)) return false;
+    CompiledMod mod; if (!compile_packages(packages, s.probe, s.partition, mod, error)) return false;
+    BootOptions options; options.allow_ios_fallback=true; options.preserve_current_ios=source.usb;
+    options.install_resident=!mod.entries.empty() || !mod.relocations.empty() || !mod.savegame_dir.empty();
+    options.table_entries=mod.entries; options.relocations=mod.relocations; options.memory_patches=mod.memory;
+    options.savegame_dir=mod.savegame_dir; options.savegame_clone=mod.savegame_clone;
+    return boot_game(s.probe,options,error);
 }
 
 bool RunDump(const std::vector<std::string>& disc_paths, const std::string& sd_dir, std::string& error) {
-    Session s;
+    LaunchSource source;
+    Session s(source, nullptr);
     if (!s.ensure_layout(error)) return false;
     if (!dump_metadata(s.probe, s.partition, sd_dir, error)) return false;
     for (const std::string& p : disc_paths) {
@@ -265,9 +292,14 @@ void RunAutorun() {
         logf("loader: stack near %p, arena1 %p-%p, arena2 %p-%p\n", static_cast<void*>(&probe_local),
              SYS_GetArena1Lo(), SYS_GetArena1Hi(), SYS_GetArena2Lo(), SYS_GetArena2Hi());
     }
-    std::ifstream script(kAutorunPath);
-    std::string line;
-    Session s;
+    std::vector<std::string> script_lines;
+    {
+        std::ifstream script(kAutorunPath);
+        std::string loaded;
+        while (std::getline(script, loaded)) script_lines.push_back(std::move(loaded));
+    }  // Never retain an SD FILE across a USB IOS reload.
+    LaunchSource source;
+    Session s(source, kAutorunLogPath);
     bool allow_fallback = true;
     bool install_resident = false;
     std::vector<MemReplacement> replacements;
@@ -291,7 +323,7 @@ void RunAutorun() {
     };
     std::string error;
     int line_number = 0;
-    while (std::getline(script, line)) {
+    for (std::string line : script_lines) {
         ++line_number;
         line = trim(line);
         if (line.empty() || line[0] == '#') continue;
@@ -300,7 +332,18 @@ void RunAutorun() {
         words >> cmd;
         logf("> %s\n", line.c_str());
         bool ok = true;
-        if (cmd == "probe") {
+        if (cmd == "usb") {
+            std::string wanted; int slot=0; words >> wanted >> slot;
+            UsbCatalog catalog; std::string scan_error;
+            if (wanted.empty() || !scan_usb_games(catalog, scan_error)) { ok=false; error=wanted.empty()?"usb needs a path or ID6":scan_error; }
+            else {
+                const UsbGame* found=nullptr; for (const UsbGame& g:catalog.games) if (g.path==wanted || g.id==wanted) { found=&g; break; }
+                if (!found) { ok=false; error="USB image '"+wanted+"' was not found in the USB catalog"; }
+                else { source=LaunchSource{}; source.usb=true; source.game=*found; source.cios_slot=slot; s=Session(source, kAutorunLogPath); }
+            }
+        } else if (cmd == "disc") {
+            source=LaunchSource{}; s=Session(source, kAutorunLogPath);
+        } else if (cmd == "probe") {
             ok = s.ensure_probe(error);
         } else if (cmd == "layout") {
             ok = s.ensure_layout(error);
@@ -447,7 +490,16 @@ void RunAutorun() {
             // The GUI's path without the GUI: identify, scan, restore the
             // saved choices, compile and boot.
             FrontendState state;
-            IdentifyDisc(state);
+            if (source.usb) {
+                state.use_usb = true;
+                state.usb_catalog.games.clear();
+                state.usb_catalog.games.push_back(source.game);
+                state.usb_index = 0;
+                state.game_id = source.game.id;
+                state.disc_title = source.game.title;
+                state.disc_status = "USB: " + source.game.id + "  " + source.game.title;
+                state.choices_path = std::string(kChoicesDir) + "/" + source.game.id + ".txt";
+            } else IdentifyDisc(state);
             logf("  %s\n", state.disc_status.c_str());
             logf("  %s\n", ScanPackages(state).c_str());
             for (std::size_t i = 0; i < state.model.packages.size(); ++i) {
@@ -466,16 +518,17 @@ void RunAutorun() {
                 error = "launch needs a disc";
             } else if (selections.empty()) {
                 logf("  nothing enabled: booting the disc as it is\n");
-                ok = RunBoot(allow_fallback, error);
+                ok = RunBoot(allow_fallback, error, source);
                 LogOpen(kAutorunLogPath, true);
             } else {
                 logf("launch: handing over to the game\n");
-                ok = RunLaunch(selections, error);
+                ok = RunLaunch(selections, error, source);
                 LogOpen(kAutorunLogPath, true);
             }
         } else if (cmd == "boot") {
             BootOptions options;
             options.allow_ios_fallback = allow_fallback;
+            options.preserve_current_ios = source.usb;
             options.install_resident = install_resident;
             options.resident_gecko = install_resident;
             options.replacements = replacements;

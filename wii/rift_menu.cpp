@@ -195,10 +195,13 @@ static int MenuHome(FrontendState& state)
 	MenuButton exitBtn("Exit", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_HOME | WPAD_CLASSIC_BUTTON_HOME, 0);
 	exitBtn.Place(ALIGN_H::LEFT, ALIGN_V::BOTTOM, 40, -35);
 	MenuButton optionsBtn("Options", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_PLUS | WPAD_CLASSIC_BUTTON_PLUS, PAD_BUTTON_X);
+
+	MenuButton sourceBtn("Source", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_MINUS | WPAD_CLASSIC_BUTTON_MINUS, PAD_TRIGGER_L);
+	sourceBtn.Place(ALIGN_H::CENTRE, ALIGN_V::BOTTOM, 0, -82);
 	optionsBtn.Place(ALIGN_H::CENTRE, ALIGN_V::BOTTOM, 0, -35);
 	MenuButton launchBtn("Launch", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_1 | WPAD_CLASSIC_BUTTON_Y, PAD_BUTTON_Y);
 	launchBtn.Place(ALIGN_H::RIGHT, ALIGN_V::BOTTOM, -40, -35);
-	for (MenuButton* b : {&exitBtn, &optionsBtn, &launchBtn}) b->button.SetScale(0.85f);
+	for (MenuButton* b : {&exitBtn, &optionsBtn, &launchBtn, &sourceBtn}) b->button.SetScale(0.85f);
 	GuiTrigger trigDump;
 	trigDump.SetButtonOnlyTrigger(-1, WPAD_BUTTON_2 | WPAD_CLASSIC_BUTTON_X, PAD_BUTTON_B);
 	GuiButton dumpBtn(0, 0);  // invisible: a trigger only
@@ -212,6 +215,7 @@ static int MenuHome(FrontendState& state)
 	w.Append(&detailTxt);
 	w.Append(&exitBtn.button);
 	w.Append(&optionsBtn.button);
+	w.Append(&sourceBtn.button);
 	w.Append(&launchBtn.button);
 	w.Append(&dumpBtn);
 	mainWindow->Append(&w);
@@ -245,12 +249,22 @@ static int MenuHome(FrontendState& state)
 				detailTxt.SetText("Enable or disable a package with A first; + opens its options");
 			}
 		}
+		else if(sourceBtn.Clicked()) {
+			CycleSource(state);
+			discTxt.SetText(state.disc_status.c_str());
+			try { scanStatus = ScanPackages(state); } catch (...) { scanStatus = "Package scan failed; rescan to retry"; }
+			detailTxt.SetText(scanStatus.c_str()); fill(); browser.TriggerUpdate(); sourceBtn.button.ResetState();
+		}
 		else if(launchBtn.Clicked()) {
 			if (state.game_id.empty()) {
 				launchBtn.button.ResetState();
 				detailTxt.SetText("Insert a disc and rescan (Dump) before launching");
 			} else if (state.model.selections().empty()) {
 				menu = MENU_BOOT;  // nothing enabled: the disc as it is
+			} else if (state.use_usb) {
+				// cIOS reload and F9 must happen after the GUI exits; compilation
+				// follows the virtual DI probe in RunLaunch.
+				menu = MENU_LAUNCH;
 			} else {
 				menu = MENU_PREFLIGHT;
 			}

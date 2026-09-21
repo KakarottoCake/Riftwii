@@ -1792,3 +1792,13 @@ tests were updated to the fail-closed semantics (no inline callbacks).
 The snoop/open/close async tests were also updated to the explicit-
 original-call dispatcher (they still asserted the old register-swap
 shape), with the async original fakes wired in.
+
+## USB d2x milestone
+
+The USB source is a FAT32-only, read-only catalog. Its host-tested mapper turns
+ISO/WBFS file extents into d2x F9 fragments, including sparse WBFS holes. The
+GUI validates only the container identity; after it exits, the launcher reloads
+d2x, configures F9, disables DI reset, remounts SD, then probes and compiles
+through virtual `/dev/di`. `BootOptions::preserve_current_ios` keeps d2x while
+the existing apploader, resident redirect, and save runtime run unchanged.
+See `docs/USB_HARDWARE_TEST.md` for the required hardware evidence.

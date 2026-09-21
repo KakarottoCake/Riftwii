@@ -23,6 +23,7 @@ constexpr std::size_t kMaxPackages = 150;  // the option browser's limit
 
 void IdentifyDisc(FrontendState& state) {
     std::string error;
+    scan_usb_games(state.usb_catalog, error);
     if (ProbeInserted(state.game_id, state.disc_title, error)) {
         state.disc_status = "Disc: " + state.game_id + "  " + state.disc_title;
         state.choices_path = std::string(kChoicesDir) + "/" + state.game_id + ".txt";
@@ -31,6 +32,33 @@ void IdentifyDisc(FrontendState& state) {
         state.choices_path.clear();
         state.disc_status = "No disc identified (" + error + "); Launch needs one";
     }
+    if (!state.usb_catalog.games.empty()) {
+        state.use_usb = true; state.usb_index = 0;
+        const UsbGame& game = state.usb_catalog.games[0]; state.game_id = game.id; state.disc_title = game.title;
+        state.disc_status = "USB: " + game.id + "  " + game.title;
+        state.choices_path = std::string(kChoicesDir) + "/" + game.id + ".txt";
+    }
+}
+
+void CycleSource(FrontendState& state) {
+    state.has_compiled = false;
+    state.compiled = CompiledMod{};
+    if (state.use_usb && state.usb_index + 1 < state.usb_catalog.games.size()) ++state.usb_index;
+    else if (state.use_usb) { state.use_usb=false; state.usb_index=0; }
+    else if (!state.usb_catalog.games.empty()) { state.use_usb=true; state.usb_index=0; }
+    if (state.use_usb) {
+        const UsbGame& g=state.usb_catalog.games[state.usb_index]; state.game_id=g.id; state.disc_title=g.title;
+        state.disc_status="USB: "+g.id+"  "+g.title; state.choices_path=std::string(kChoicesDir)+"/"+g.id+".txt";
+    } else {
+        std::string error; if (!ProbeInserted(state.game_id,state.disc_title,error)) { state.game_id.clear(); state.disc_title.clear(); state.choices_path.clear(); state.disc_status="No disc identified ("+error+")"; }
+        else { state.disc_status="Disc: "+state.game_id+"  "+state.disc_title; state.choices_path=std::string(kChoicesDir)+"/"+state.game_id+".txt"; }
+    }
+    ScanPackages(state);
+}
+
+LaunchSource SelectedSource(const FrontendState& state) {
+    LaunchSource source; if (state.use_usb && state.usb_index < state.usb_catalog.games.size()) { source.usb=true; source.game=state.usb_catalog.games[state.usb_index]; }
+    return source;
 }
 
 std::string ScanPackages(FrontendState& state) {

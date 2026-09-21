@@ -2,6 +2,7 @@
 #include "di.hpp"
 
 #include <gccore.h>
+#include <ogc/cache.h>
 #include <ogc/ipc.h>
 
 #include <algorithm>
@@ -19,6 +20,9 @@ constexpr std::uint32_t kReset = 0x8A;
 constexpr std::uint32_t kOpenPartition = 0x8B;
 constexpr std::uint32_t kClosePartition = 0x8C;
 constexpr std::uint32_t kReadUnencrypted = 0x8D;
+constexpr std::uint32_t kResetDisable = 0xF6;
+constexpr std::uint32_t kFragSet = 0xF9;
+constexpr std::uint32_t kModeGet = 0xFA;
 
 char g_path[] ATTRIBUTE_ALIGN(32) = "/dev/di";
 std::uint32_t g_in[8] ATTRIBUTE_ALIGN(32);
@@ -132,6 +136,49 @@ bool reset(bool spin_up, std::string& error) {
     std::memset(g_in, 0, sizeof(g_in));
     g_in[1] = spin_up ? 1 : 0;
     return command(kReset, "drive reset", nullptr, 0, kReplySuccess, error);
+}
+
+bool probe_d2x(std::uint32_t& mode, std::string& error) {
+    if (g_fd < 0) { error = "d2x mode probe: /dev/di is not open"; return false; }
+    std::memset(g_in, 0, sizeof(g_in)); std::memset(g_out, 0, sizeof(g_out));
+    g_in[0] = kModeGet << 24;
+    g_last_reply = IOS_Ioctl(g_fd, static_cast<s32>(kModeGet), g_in, sizeof(g_in), g_out, sizeof(g_out));
+    if (g_last_reply < 0) { error = describe("d2x mode probe", g_last_reply); return false; }
+    mode = g_out[0]; error.clear(); return true;
+}
+
+bool disable_reset(std::string& error) {
+    if (g_fd < 0) { error = "d2x reset-disable: /dev/di is not open"; return false; }
+    std::memset(g_in, 0, sizeof(g_in)); std::memset(g_out, 0, sizeof(g_out));
+    g_in[0] = kResetDisable << 24;
+    g_in[1] = 1;  // d2x plugin.c assigns config.noreset = inbuf[1].
+    g_last_reply = IOS_Ioctl(g_fd, static_cast<s32>(kResetDisable), g_in, sizeof(g_in), g_out, sizeof(g_out));
+    if (g_last_reply < 0 || g_out[0] != 0) {
+        error = g_last_reply < 0 ? describe("d2x reset-disable", g_last_reply) : "d2x reset-disable rejected the request: " + std::to_string(g_out[0]);
+        return false;
+    }
+    error.clear(); return true;
+}
+
+bool configure_frag_usb(const void* list32, std::uint32_t bytes, std::string& error) {
+    if (g_fd < 0) { error = "d2x fragment setup: /dev/di is not open"; return false; }
+    if (!list32 || !aligned32(list32) || bytes < 12 || (bytes & 3) != 0) {
+        error = "d2x fragment setup needs a 32-byte-aligned nonempty fragment list"; return false;
+    }
+    DCFlushRange(const_cast<void*>(list32), bytes);
+    std::memset(g_in, 0, sizeof(g_in)); std::memset(g_out, 0, sizeof(g_out));
+    g_in[0] = kFragSet << 24; g_in[1] = 1; // d2x DEV_USB
+    // d2x converts inbuf[2] with VirtToPhys (clear bit 31). Passing the
+    // physical form required by F9 is therefore idempotent on the IOS side.
+    g_in[2] = MEM_VIRTUAL_TO_PHYSICAL(list32); g_in[3] = bytes;
+    DCFlushRange(g_in, sizeof(g_in)); DCInvalidateRange(g_out, sizeof(g_out));
+    g_last_reply = IOS_Ioctl(g_fd, static_cast<s32>(kFragSet), g_in, sizeof(g_in), g_out, sizeof(g_out));
+    DCInvalidateRange(g_out, sizeof(g_out));
+    if (g_last_reply < 0 || g_out[0] != 0) {
+        error = g_last_reply < 0 ? describe("d2x fragment setup", g_last_reply) : "d2x rejected the fragment list: " + std::to_string(g_out[0]);
+        return false;
+    }
+    error.clear(); return true;
 }
 
 bool inquiry(std::uint8_t out32[32], std::string& error) {

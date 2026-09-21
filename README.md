@@ -15,8 +15,10 @@ copying Riivolution code (see `NOTICE.md`). Licence: GPL-3.0-or-later
 
 ## For Wii owners: install and use
 
-You need: a Wii with the Homebrew Channel installed, an SD card, and an
-original game disc.
+You need: a Wii with the Homebrew Channel installed and an SD card. An original
+game disc remains supported. USB boot additionally needs a user-installed d2x
+cIOS and a FAT32 USB drive with 512-byte sectors; it supports `.wbfs` (including
+split `.wbf1`, `.wbf2`, …) in `usb:/wbfs` and raw `.iso` in `usb:/games`.
 
 1. Copy `riftwii.dol` from the release into `sd:/apps/riftwii/boot.dol`.
    If you also want the icon and description, copy `meta.xml` and
@@ -25,7 +27,8 @@ original game disc.
 2. Put mod packs (folders with an XML file plus their files) into
    `sd:/riivolution/`, the same layout Riivolution uses. The release
    notes say which packs were tested with this build.
-3. Start Riftwii from the Homebrew Channel with the game disc inserted.
+3. Start Riftwii from the Homebrew Channel. When a valid USB game exists it is
+   selected first; press Source to cycle USB images and the physical disc.
 4. The list shows every pack found: On (will be used), Off, Other disc
    (made for a different game), or Invalid (with the reason shown).
    Press A to switch a pack on or off. Press Plus for a pack's options,
