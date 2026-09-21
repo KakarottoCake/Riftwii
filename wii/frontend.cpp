@@ -31,18 +31,19 @@ bool ensure_directory(const char* path, std::string& error) {
 }
 }
 
+void InitializeFrontend(FrontendState& state) {
+    state = FrontendState{};
+    state.usb_catalog.device = ImageDevice::Usb;
+    state.sd_catalog.device = ImageDevice::Sd;
+    state.usb_catalog.status = "USB: select to scan";
+    state.sd_catalog.status = "SD: select to scan";
+    state.disc_status = "Disc: select to probe";
+}
+
 void IdentifyDisc(FrontendState& state, void (*progress)(const char*)) {
-    // Hardware facts for the source screen: image catalogs and the physical
-    // disc. Nothing is selected until the source screen chooses it.
-    std::string error, usb_error, sd_error;
-    if (progress) progress("Scanning USB...");
-    if (!scan_usb_games(state.usb_catalog, usb_error)) {
-        state.usb_catalog.status = "USB: " + (usb_error.empty() ? "unavailable" : usb_error);
-    }
-    if (progress) progress("Scanning SD...");
-    if (!scan_sd_games(state.sd_catalog, sd_error)) {
-        state.sd_catalog.status = "SD: " + (sd_error.empty() ? "unavailable" : sd_error);
-    }
+    // DISC is explicit. Do not enumerate image media here: autorun calls this
+    // for `disc launch`, while GUI startup uses InitializeFrontend instead.
+    std::string error;
     state.use_usb = false;
     state.use_sd = false;
     state.usb_index = 0;

@@ -2,8 +2,8 @@
 #include <fat.h>
 #include <gccore.h>
 #include <ogc/system.h>
+#include <sdcard/wiisd_io.h>
 #include <unistd.h>
-#include <cstdio>
 #include <cstdlib>
 #include <string>
 #include <vector>
@@ -30,12 +30,6 @@ void ExitApp() {
 
 namespace {
 
-// One line per startup phase on the text console, so a stuck probe shows
-// where instead of a black screen.
-void BootProgress(const char* step) {
-    std::printf("%s\n", step);
-}
-
 // Leaves the libwiigui renderer and shows the text console for the
 // disc phase (the GUI thread is already halted by MainMenu).
 void EnterConsolePhase() {
@@ -45,6 +39,15 @@ void EnterConsolePhase() {
     riftwii::wii::ConsoleStart(true);
 }
 
+// libfat's default initializer probes USB as well as SD. Mount only the SD
+// card here so autorun and the normal SD-backed package paths work, while USB
+// remains untouched until the user explicitly selects it from the source menu.
+void MountStartupSd() {
+    if (__io_wiisd.startup() && __io_wiisd.isInserted()) {
+        fatMountSimple("sd", &__io_wiisd);
+    }
+}
+
 }  // namespace
 
 int main() {
@@ -52,7 +55,7 @@ int main() {
     // from 0x80004000 up; this loader is linked at 0x80A00000 (see
     // Makefile.wii) and keeps its heap below the apploader.
     SYS_SetArena1Hi(reinterpret_cast<void*>(0x81200000));
-    fatInitDefault();
+    MountStartupSd();
 
     if (riftwii::wii::AutorunPresent()) {
         riftwii::wii::ConsoleStart(false);
@@ -61,13 +64,10 @@ int main() {
         std::exit(0);
     }
 
-    // Video first: the probes below can take seconds, and a stuck one
-    // must show where instead of a black screen.
-    riftwii::wii::ConsoleStart(false);
-    std::printf("Riftwii\n");
-    // Probe the available sources before drawing the source selector.
+    // The source screen must be visible before touching a potentially slow
+    // image device or physical drive. Each source probes only on selection.
     FrontendState state;
-    riftwii::wii::IdentifyDisc(state, BootProgress);
+    riftwii::wii::InitializeFrontend(state);
 
     InitVideo();
     SetupPads();

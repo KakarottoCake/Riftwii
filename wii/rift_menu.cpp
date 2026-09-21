@@ -191,9 +191,38 @@ static const char* kHomeHotkeys = "A: toggle   B: back   +: Mod Options   -: Sav
 // full sentences never fit between the title and the buttons.
 static std::string CountLine(const char* tag, const riftwii::wii::ImageCatalog& catalog)
 {
-	if (!catalog.games.empty())
-		return std::string(tag) + ": " + std::to_string(catalog.games.size()) + " game(s)";
-	return std::string(tag) + ": no games";
+	const std::string prefix = std::string(tag) + ": ";
+	if (!catalog.games.empty()) {
+		return prefix + std::to_string(catalog.games.size()) +
+			(catalog.games.size() == 1 ? " game" : " games");
+	}
+	if (catalog.status.empty() || catalog.status == prefix + "select to scan") return prefix + "select";
+	if (catalog.status.compare(0, 8, "No valid") == 0) return prefix + "no games";
+	return prefix + "unavailable";
+}
+
+static void AppendCatalogDetail(std::string& detail, const char* tag,
+							const riftwii::wii::ImageCatalog& catalog)
+{
+	const std::string initial = std::string(tag) + ": select to scan";
+	if (catalog.games.empty() && !catalog.status.empty() && catalog.status != initial) {
+		if (!detail.empty()) detail += "\n";
+		detail += catalog.status;
+	}
+	if (!catalog.cios_note.empty()) {
+		if (!detail.empty()) detail += "\n";
+		detail += catalog.cios_note;
+	}
+}
+
+static std::string SourceDetail(const riftwii::wii::FrontendState& state)
+{
+	std::string detail;
+	AppendCatalogDetail(detail, "SD", state.sd_catalog);
+	AppendCatalogDetail(detail, "USB", state.usb_catalog);
+	if (!detail.empty()) detail += "\n";
+	detail += "1/Y: SD (X on GamePad)    +/X: USB    -/Z: DISC    (or point and press A)";
+	return detail;
 }
 
 // Two lines, so the buttons below stay clear: the saves mode plus either
@@ -223,17 +252,14 @@ static int MenuSource(FrontendState& state)
 	discTxt.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
 	discTxt.SetPosition(0, 102);
 
-	// One short combined line: the full catalog sentences used to run
-	// under the centered buttons (which draw on top and cull them).
-	GuiText sdusbTxt((CountLine("SD", state.sd_catalog) + "      " + CountLine("USB", state.usb_catalog)).c_str(),
+	std::string sourceLine = CountLine("SD", state.sd_catalog) + "      " + CountLine("USB", state.usb_catalog);
+	GuiText sdusbTxt(sourceLine.c_str(),
 			 18, (GXColor){200, 200, 200, 255});
 	sdusbTxt.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
 	sdusbTxt.SetPosition(0, 126);
 
-	std::string hint = "1/Y: SD (X on GamePad)    +/X: USB    -/Z: DISC    (or point and press A)";
-	if (!state.sd_catalog.cios_note.empty()) hint += std::string("\n") + state.sd_catalog.cios_note;
-	if (!state.usb_catalog.cios_note.empty()) hint += std::string("\n") + state.usb_catalog.cios_note;
-	GuiText detailTxt(hint.c_str(), 16, (GXColor){255, 255, 255, 255});
+	std::string sourceDetail = SourceDetail(state);
+	GuiText detailTxt(sourceDetail.c_str(), 16, (GXColor){255, 255, 255, 255});
 	detailTxt.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::BOTTOM);
 	detailTxt.SetPosition(0, -100);
 	detailTxt.SetWrap(true, screenwidth - 80);
@@ -275,8 +301,16 @@ static int MenuSource(FrontendState& state)
 			menu = MENU_EXIT;
 		else if(sdBtn.Clicked()) {
 			sdBtn.button.ResetState();
-			if (state.sd_catalog.games.empty()) {
-				detailTxt.SetText("No SD games found (sd:/wbfs, sd:/games)");
+			detailTxt.SetText("Scanning SD...");
+			ResumeGui();
+			std::string error;
+			const bool scanned = scan_sd_games(state.sd_catalog, error);
+			HaltGui();
+			if (!scanned) {
+				state.sd_catalog.status = "SD: " + (error.empty() ? "scan failed" : error);
+				sourceLine = CountLine("SD", state.sd_catalog) + "      " + CountLine("USB", state.usb_catalog);
+				sdusbTxt.SetText(sourceLine.c_str());
+				detailTxt.SetText(error.empty() ? "SD scan failed" : error.c_str());
 			} else {
 				pickerDevice = riftwii::wii::ImageDevice::Sd;
 				selectedGame = 0;
@@ -285,8 +319,16 @@ static int MenuSource(FrontendState& state)
 		}
 		else if(usbBtn.Clicked()) {
 			usbBtn.button.ResetState();
-			if (state.usb_catalog.games.empty()) {
-				detailTxt.SetText("No USB games found (usb:/wbfs, usb:/games)");
+			detailTxt.SetText("Scanning USB...");
+			ResumeGui();
+			std::string error;
+			const bool scanned = scan_usb_games(state.usb_catalog, error);
+			HaltGui();
+			if (!scanned) {
+				state.usb_catalog.status = "USB: " + (error.empty() ? "scan failed" : error);
+				sourceLine = CountLine("SD", state.sd_catalog) + "      " + CountLine("USB", state.usb_catalog);
+				sdusbTxt.SetText(sourceLine.c_str());
+				detailTxt.SetText(error.empty() ? "USB scan failed" : error.c_str());
 			} else {
 				pickerDevice = riftwii::wii::ImageDevice::Usb;
 				selectedGame = 0;
@@ -295,9 +337,13 @@ static int MenuSource(FrontendState& state)
 		}
 		else if(discBtn.Clicked()) {
 			discBtn.button.ResetState();
+			detailTxt.SetText("Probing disc...");
+			ResumeGui();
 			std::string error;
-			if (!SelectDisc(state, error)) {
-				detailTxt.SetText("No disc in drive");
+			const bool selected = SelectDisc(state, error);
+			HaltGui();
+			if (!selected) {
+				detailTxt.SetText(error.empty() ? "No disc in drive" : error.c_str());
 			} else {
 				discTxt.SetText(state.disc_status.c_str());
 				menu = MENU_HOME;
@@ -395,9 +441,16 @@ static int MenuGames(FrontendState& state)
 			menu = MENU_SOURCE;
 		else if(rescanBtn.Clicked()) {
 			rescanBtn.button.ResetState();
+			detailTxt.SetText(sd ? "Scanning SD..." : "Scanning USB...");
+			ResumeGui();
 			std::string error;
-			if (!(sd ? scan_sd_games(state.sd_catalog, error) : scan_usb_games(state.usb_catalog, error))) {
-				detailTxt.SetText(error.c_str());
+			const bool scanned = sd ? scan_sd_games(state.sd_catalog, error) : scan_usb_games(state.usb_catalog, error);
+			HaltGui();
+			if (!scanned) {
+				riftwii::wii::ImageCatalog& updated = sd ? state.sd_catalog : state.usb_catalog;
+				updated.status = std::string(sd ? "SD: " : "USB: ") + (error.empty() ? "scan failed" : error);
+				statusTxt.SetText(updated.status.c_str());
+				detailTxt.SetText(error.empty() ? "Image scan failed" : error.c_str());
 			} else {
 				statusTxt.SetText(catalog.status.c_str());
 				detailTxt.SetText(catalog.games.empty() ? (sd ? "No SD games found (sd:/wbfs, sd:/games)" : "No USB games found (usb:/wbfs, usb:/games)")
