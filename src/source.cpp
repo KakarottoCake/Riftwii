@@ -113,6 +113,40 @@ OpenStatus FileByteSource::open(const std::string& path, std::unique_ptr<FileByt
     return OpenStatus::Ok;
 }
 
+OpenStatus FileByteSource::open(const std::string& path, std::uint64_t size,
+                                  std::unique_ptr<FileByteSource>& out,
+                                  std::string& error) {
+    if (path.empty()) {
+        error = "empty file path";
+        return OpenStatus::Invalid;
+    }
+    if (path.find('\0') != std::string::npos) {
+        error = "embedded null in file path";
+        return OpenStatus::Invalid;
+    }
+    if (size == 0 || size > 0xFFFFFFFFull) {
+        error = "implausible file size for '" + path + "'";
+        return OpenStatus::Invalid;
+    }
+    // Prove readability now so a permission problem is reported at preflight
+    // rather than as a mysterious read failure later.
+    std::FILE* f = std::fopen(path.c_str(), "rb");
+    if (f == nullptr) {
+        const int err = errno;
+        error = "cannot open file '" + path + "': " + std::strerror(err);
+        return (err == ENOENT || err == ENOTDIR) ? OpenStatus::NotFound : OpenStatus::IoError;
+    }
+    std::fclose(f);
+    try {
+        out.reset(new FileByteSource(path, size));
+    } catch (...) {
+        error = "allocation failure";
+        return OpenStatus::IoError;
+    }
+    error.clear();
+    return OpenStatus::Ok;
+}
+
 std::uint64_t FileByteSource::size() const {
     return size_;
 }

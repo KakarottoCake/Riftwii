@@ -63,6 +63,16 @@ class FileByteSource final : public ByteSource {
 public:
     static OpenStatus open(const std::string& path, std::unique_ptr<FileByteSource>& out,
                            std::string& error);
+    // Opens with a caller-supplied size, for files whose size cannot come
+    // from stat(): on 32-bit targets stat() cannot represent multi-GB disc
+    // images, while the FAT32 directory entry holds their exact size. The
+    // kMaxFileBytes cap does not apply here: on the USB catalog path only
+    // small-offset header reads go through this object (bulk bytes are read
+    // by d2x straight from the device), and read() still refuses anything
+    // outside `long` positioning range. Sizes above 32 bits are rejected
+    // because no FAT32 file can be that large.
+    static OpenStatus open(const std::string& path, std::uint64_t size,
+                           std::unique_ptr<FileByteSource>& out, std::string& error);
     std::uint64_t size() const override;
     bool read(std::uint64_t offset, std::uint8_t* destination,
               std::size_t length) const override;

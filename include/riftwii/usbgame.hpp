@@ -71,6 +71,16 @@ private:
 // is decrypted here.
 bool build_usb_fragments(const UsbImage& image, D2xFragmentList& out, std::string& error);
 
+// Collects a split WBFS set from an in-memory directory listing: the primary
+// .wbfs plus consecutive .wbf1, .wbf2, ... pieces. A split set must be
+// consecutive, so a later piece may not silently hide a missing earlier one.
+// Matching is ASCII case-insensitive (FAT semantics); out_paths holds full
+// dir-joined paths with the primary first. Pure logic over the listing the
+// scan already holds, so a non-split game costs no extra FAT lookups.
+bool collect_split_pieces(const std::string& dir, const std::string& primary_leaf,
+                          const std::vector<std::string>& siblings, UsbImageFormat format,
+                          std::vector<std::string>& out_paths, std::string& error);
+
 // Presents the unencrypted Wii disc bytes through the same WBFS mapping used
 // for fragments. Sparse WBFS blocks fail reads rather than becoming zeroes.
 class UsbDiscSource final : public ByteSource {
