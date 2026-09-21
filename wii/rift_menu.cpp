@@ -259,6 +259,12 @@ static int MenuHome(FrontendState& state)
 			if (state.game_id.empty()) {
 				launchBtn.button.ResetState();
 				detailTxt.SetText("Insert a disc and rescan (Dump) before launching");
+			} else if (state.use_usb && !state.usb_catalog.cios_note.empty()) {
+				// No cIOS in any candidate slot: refuse before the GUI tears
+				// down, while the remedy is still readable on screen. The
+				// reload path errors the same way headless (autorun) runs.
+				launchBtn.button.ResetState();
+				detailTxt.SetText(state.usb_catalog.cios_note.c_str());
 			} else if (state.model.selections().empty()) {
 				menu = MENU_BOOT;  // nothing enabled: the disc as it is
 			} else if (state.use_usb) {
