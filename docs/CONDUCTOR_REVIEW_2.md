@@ -1802,3 +1802,18 @@ d2x, configures F9, disables DI reset, remounts SD, then probes and compiles
 through virtual `/dev/di`. `BootOptions::preserve_current_ios` keeps d2x while
 the existing apploader, resident redirect, and save runtime run unchanged.
 See `docs/USB_HARDWARE_TEST.md` for the required hardware evidence.
+
+### USB follow-up (2026-09-21)
+Two defects that would have stopped real images, both fixed and host-tested:
+- FileByteSource's 256 MiB cap rejected every real game image (and stat()
+  cannot size multi-GB files on 32-bit targets at all). The catalog now
+  opens pieces with the FAT32 entry size via a new uncapped open; only
+  small header reads go through it, bulk bytes stay with d2x. Covered by
+  3/6 GiB ISO and 4 GiB WBFS tests plus a plan-over-USB-source composition
+  test (XML to consumed replacement bytes).
+- Split-piece discovery did up to ~1000 FAT lookups per game (the gap
+  lookahead), which would stall the GUI on hardware. It now collects from
+  the in-memory directory listing (`collect_split_pieces`, host-tested
+  including gap and case handling).
+Still hardware-only: d2x load/F9 DMA/F6 behavior, sector geometry, and a
+full USB game-plus-mods boot.

@@ -1,14 +1,23 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/source.hpp"
 #include "riftwii/usbgame.hpp"
+#include "riftwii/apply.hpp"
+#include "riftwii/patch.hpp"
 
-#include <cassert>
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <iostream>
+#include <map>
+#include <memory>
+#include <string>
 
 using namespace riftwii;
+
+static int g_failures = 0;
+#define EXPECT_TRUE(cond) do { if (!(cond)) { std::cerr << "FAILED: " #cond " at line " << __LINE__ << std::endl; g_failures++; } } while (0)
+#define EXPECT_FALSE(cond) do { if (cond) { std::cerr << "FAILED: false expected for " #cond " at line " << __LINE__ << std::endl; g_failures++; } } while (0)
+#define EXPECT_EQ(a, b) do { const auto va_ = (a); const auto vb_ = (b); if (va_ != vb_) { std::cerr << "FAILED: " #a " == " #b " (" << va_ << " != " << vb_ << ") at line " << __LINE__ << std::endl; g_failures++; } } while (0)
 
 namespace {
 constexpr std::size_t kWbfsBlock = 1u << 15;
@@ -63,38 +72,236 @@ UsbImage wbfs_image(bool active = true, std::uint16_t wlba = 20, bool split = tr
     } else x.pieces.push_back(piece(std::move(all), 1000));
     return x;
 }
-}  // namespace
 
-int main() {
+// A source with a huge reported size but only a small served prefix.
+// Models multi-GB images without allocating them; reads outside the
+// prefix fail, like an unmapped region would.
+class BigSource final : public ByteSource {
+public:
+    BigSource(std::uint64_t size, std::vector<std::uint8_t> prefix)
+        : size_(size), prefix_(std::move(prefix)) {}
+    std::uint64_t size() const override { return size_; }
+    bool read(std::uint64_t offset, std::uint8_t* destination, std::size_t length) const override {
+        if (offset > size_ || static_cast<std::uint64_t>(length) > size_ - offset) return false;
+        if (length == 0) return true;
+        if (destination == nullptr) return false;
+        if (offset + length > prefix_.size()) return false;
+        std::memcpy(destination, prefix_.data() + static_cast<std::size_t>(offset), length);
+        return true;
+    }
+private:
+    std::uint64_t size_;
+    std::vector<std::uint8_t> prefix_;
+};
+
+UsbImagePiece big_piece(std::uint64_t bytes, std::uint64_t sector, std::vector<std::uint8_t> prefix) {
+    UsbImagePiece p;
+    p.source = std::make_shared<BigSource>(bytes, std::move(prefix));
+    p.file.entry.size = static_cast<std::uint32_t>(bytes);
+    p.file.fragments.push_back({sector, bytes / 512});
+    return p;
+}
+
+// ContentProvider serving the disc side from a USB image source and the
+// SD side from memory. The disc path is cosmetic here: file-to-FST mapping
+// is loader-side, while this proves plan output applies over a USB-mapped
+// source through the same overlay machinery as disc images.
+class UsbTestProvider final : public ContentProvider {
+public:
+    UsbTestProvider(std::vector<std::uint8_t> disc, std::map<std::string, std::vector<std::uint8_t>> ext)
+        : disc_(std::move(disc)), ext_(std::move(ext)) {}
+    OpenStatus open_disc(const std::string&, std::unique_ptr<ByteSource>& out, std::string& error) override {
+        if (disc_.empty()) { error = "no disc"; return OpenStatus::NotFound; }
+        out.reset(new MemorySource(disc_));
+        return OpenStatus::Ok;
+    }
+    OpenStatus open_external(const std::string& p, std::unique_ptr<ByteSource>& out, std::string& error) override {
+        auto it = ext_.find(p);
+        if (it == ext_.end()) { error = "no such external"; return OpenStatus::NotFound; }
+        out.reset(new MemorySource(it->second));
+        return OpenStatus::Ok;
+    }
+private:
+    std::vector<std::uint8_t> disc_;
+    std::map<std::string, std::vector<std::uint8_t>> ext_;
+};
+
+void test_basic() {
     std::string error; D2xFragmentList list; std::vector<std::uint8_t> bytes;
     UsbImage iso = iso_image();
-    assert(build_usb_fragments(iso, list, error));
-    assert(list.size == 4 && list.num == 2 && list.entries[0].sector == 100 && list.entries[1].offset == 2 && list.entries[1].sector == 200);
+    EXPECT_TRUE(build_usb_fragments(iso, list, error));
+    EXPECT_EQ(list.size, std::uint32_t(4));
+    EXPECT_EQ(list.num, std::uint32_t(2));
+    EXPECT_EQ(list.entries[0].sector, std::uint32_t(100));
+    EXPECT_EQ(list.entries[1].offset, std::uint32_t(2));
+    EXPECT_EQ(list.entries[1].sector, std::uint32_t(200));
     std::unique_ptr<UsbDiscSource> disc;
-    assert(UsbDiscSource::open(iso, disc, error));
+    EXPECT_TRUE(UsbDiscSource::open(iso, disc, error));
     std::uint8_t out[4] = {};
-    assert(disc->read(1022, out, sizeof(out)) && out[0] == 254 && out[2] == 7);
-    assert(build_usb_fragments(iso_image(true), list, error) && list.num == 1 && list.entries[0].count == 4);
+    EXPECT_TRUE(disc->read(1022, out, sizeof(out)) && out[0] == 254 && out[2] == 7);
+    EXPECT_TRUE(build_usb_fragments(iso_image(true), list, error) && list.num == 1 && list.entries[0].count == 4);
 
     UsbImage wbfs = wbfs_image();
-    assert(build_usb_fragments(wbfs, list, error));
-    assert(list.size == 18359296 && list.num == 2 && list.entries[0].offset == 0 && list.entries[0].sector == 2280 && list.entries[0].count == 16 && list.entries[1].sector == 5000 && list.entries[1].count == 48);
-    assert(UsbDiscSource::open(wbfs, disc, error));
-    assert(disc->read(0, out, 2) && out[0] == 0xAA && out[1] == 0);
-    assert(!disc->read(kWbfsBlock, out, 1));  // sparse virtual Wii block
+    EXPECT_TRUE(build_usb_fragments(wbfs, list, error));
+    EXPECT_EQ(list.size, std::uint32_t(18359296));
+    EXPECT_EQ(list.num, std::uint32_t(2));
+    EXPECT_EQ(list.entries[0].offset, std::uint32_t(0));
+    EXPECT_EQ(list.entries[0].sector, std::uint32_t(2280));
+    EXPECT_EQ(list.entries[0].count, std::uint32_t(16));
+    EXPECT_EQ(list.entries[1].sector, std::uint32_t(5000));
+    EXPECT_EQ(list.entries[1].count, std::uint32_t(48));
+    EXPECT_TRUE(UsbDiscSource::open(wbfs, disc, error));
+    EXPECT_TRUE(disc->read(0, out, 2) && out[0] == 0xAA && out[1] == 0);
+    EXPECT_FALSE(disc->read(kWbfsBlock, out, 1));  // sparse virtual Wii block
 
-    assert(!build_usb_fragments(wbfs_image(false), list, error));
-    assert(!build_usb_fragments(wbfs_image(true, 20, false, true), list, error));
-    assert(!build_usb_fragments(wbfs_image(true, 40), list, error));
-    assert(!build_usb_fragments(wbfs_image(true, 20, false, false, 14), list, error));
+    EXPECT_FALSE(build_usb_fragments(wbfs_image(false), list, error));
+    EXPECT_FALSE(build_usb_fragments(wbfs_image(true, 20, false, true), list, error));
+    EXPECT_FALSE(build_usb_fragments(wbfs_image(true, 40), list, error));
+    EXPECT_FALSE(build_usb_fragments(wbfs_image(true, 20, false, false, 14), list, error));
 
     D2xFragmentList bad; bad.size = 4; bad.num = 2; bad.entries = {{0, 1, 3}, {2, 5, 1}};
-    assert(!bad.encode(bytes, error));
+    EXPECT_FALSE(bad.encode(bytes, error));
     bad.size = 4; bad.num = 1; bad.entries = {{0, 0xFFFFFFFFu, 2}};
-    assert(!bad.encode(bytes, error));
+    EXPECT_FALSE(bad.encode(bytes, error));
 
     UsbImage excessive; excessive.format = UsbImageFormat::Iso;
     for (std::uint32_t i = 0; i <= kD2xFragmentLimit; ++i) excessive.pieces.push_back(piece(std::vector<std::uint8_t>(512), i * 2));
-    assert(!build_usb_fragments(excessive, list, error));
-    std::cout << "usbgame tests passed\n";
+    EXPECT_FALSE(build_usb_fragments(excessive, list, error));
+}
+
+void test_large_iso() {
+    // Two 3 GiB pieces: far past the 256 MiB streaming cap, served by
+    // FAT-sized fake sources. d2x reads bulk bytes itself; only the
+    // mapping math and small header reads run here.
+    constexpr std::uint64_t kThreeGiB = 3ull * 1024 * 1024 * 1024;
+    std::vector<std::uint8_t> prefix(1024);
+    for (std::size_t i = 0; i < prefix.size(); ++i) prefix[i] = static_cast<std::uint8_t>(i);
+    UsbImage x; x.format = UsbImageFormat::Iso;
+    x.pieces.push_back(big_piece(kThreeGiB, 100, prefix));
+    x.pieces.push_back(big_piece(kThreeGiB, 9000000, prefix));
+    std::string error; D2xFragmentList list;
+    EXPECT_TRUE(build_usb_fragments(x, list, error));
+    EXPECT_EQ(list.size, std::uint32_t(12582912));
+    EXPECT_EQ(list.num, std::uint32_t(2));
+    EXPECT_EQ(list.entries[0].offset, std::uint32_t(0));
+    EXPECT_EQ(list.entries[0].sector, std::uint32_t(100));
+    EXPECT_EQ(list.entries[0].count, std::uint32_t(6291456));
+    EXPECT_EQ(list.entries[1].offset, std::uint32_t(6291456));
+    EXPECT_EQ(list.entries[1].sector, std::uint32_t(9000000));
+    EXPECT_EQ(list.entries[1].count, std::uint32_t(6291456));
+    std::vector<std::uint8_t> bytes;
+    EXPECT_TRUE(list.encode(bytes, error));
+    EXPECT_EQ(bytes.size(), std::size_t(12 + 2 * 12));
+    std::unique_ptr<UsbDiscSource> disc;
+    EXPECT_TRUE(UsbDiscSource::open(x, disc, error));
+    EXPECT_EQ(disc->size(), kThreeGiB * 2);
+    std::uint8_t out[4] = {};
+    EXPECT_TRUE(disc->read(0, out, sizeof(out)) && out[0] == 0 && out[3] == 3);
+    EXPECT_FALSE(disc->read(kThreeGiB - 2, out, sizeof(out)));  // beyond the served prefix
+}
+
+void test_large_wbfs() {
+    // A 4 GiB container file with a valid header/table mapping one Wii
+    // block, placed past the table like real images do. hd sectors and
+    // WLBA targets exceed any 32-bit long file offsets on purpose.
+    constexpr std::size_t kPrefixBytes = 2 * 1024 * 1024;
+    constexpr std::uint64_t kBlockSector = 2048;  // container sector of Wii block 0
+    std::vector<std::uint8_t> prefix(kPrefixBytes, 0);
+    std::memcpy(prefix.data(), "WBFS", 4);
+    auto put32 = [&](std::size_t at, std::uint32_t v) {
+        prefix[at] = v >> 24; prefix[at + 1] = v >> 16; prefix[at + 2] = v >> 8; prefix[at + 3] = v;
+    };
+    put32(4, 16777216); prefix[8] = 9; prefix[9] = 15; prefix[12] = 1;
+    prefix[kDiscInfo] = 'R'; prefix[kDiscInfo + 1] = 'M';
+    prefix[kDiscInfo + 2] = 'C'; prefix[kDiscInfo + 3] = 'E';
+    put32(kDiscInfo + 0x18, 0x5D1C9EA3);
+    prefix[kWlba] = 0; prefix[kWlba + 1] = 32;  // block 0 lives at container sector 2048
+    for (int i = 0; i < 64; ++i) prefix[kBlockSector * 512 + i] = static_cast<std::uint8_t>(0xA0 + i);
+    UsbImage x; x.format = UsbImageFormat::Wbfs;
+    UsbImagePiece p;
+    p.source = std::make_shared<BigSource>(0xFFFFFFFFull, std::move(prefix));
+    p.file.entry.size = 0xFFFFFFFFu;
+    p.file.fragments.push_back({1000, 2000000});
+    p.path = "usb:/wbfs/big.wbfs";
+    x.pieces.push_back(std::move(p));
+    std::string error; D2xFragmentList list;
+    EXPECT_TRUE(build_usb_fragments(x, list, error));
+    EXPECT_EQ(list.num, std::uint32_t(1));
+    EXPECT_EQ(list.entries[0].offset, std::uint32_t(0));
+    EXPECT_EQ(list.entries[0].sector, std::uint32_t(3048));
+    EXPECT_EQ(list.entries[0].count, std::uint32_t(64));
+    std::unique_ptr<UsbDiscSource> disc;
+    EXPECT_TRUE(UsbDiscSource::open(x, disc, error));
+    std::uint8_t out[4] = {};
+    EXPECT_TRUE(disc->read(0, out, sizeof(out)));
+    EXPECT_EQ(out[0], std::uint8_t(0xA0));
+    EXPECT_EQ(out[3], std::uint8_t(0xA3));
+}
+
+void test_collect_split_pieces() {
+    std::string error; std::vector<std::string> out;
+    EXPECT_TRUE(collect_split_pieces("usb:/wbfs", "game.iso", {"game.iso"}, UsbImageFormat::Iso, out, error));
+    EXPECT_EQ(out.size(), std::size_t(1));
+    std::vector<std::string> siblings = {"RMCE01.wbfs", "other.wbfs", "RMCE01.wbf1", "RMCE01.wbf2"};
+    EXPECT_TRUE(collect_split_pieces("usb:/wbfs", "RMCE01.wbfs", siblings, UsbImageFormat::Wbfs, out, error));
+    EXPECT_EQ(out.size(), std::size_t(3));
+    EXPECT_EQ(out[1], std::string("usb:/wbfs/RMCE01.wbf1"));
+    EXPECT_EQ(out[2], std::string("usb:/wbfs/RMCE01.wbf2"));
+    std::vector<std::string> gap = {"RMCE01.wbfs", "RMCE01.wbf1", "RMCE01.wbf3"};
+    EXPECT_FALSE(collect_split_pieces("usb:/wbfs", "RMCE01.wbfs", gap, UsbImageFormat::Wbfs, out, error));
+    EXPECT_FALSE(error.empty());
+    std::vector<std::string> mixed = {"RMCE01.WBFS", "rmce01.WBF1"};
+    EXPECT_TRUE(collect_split_pieces("usb:/wbfs", "RMCE01.WBFS", mixed, UsbImageFormat::Wbfs, out, error));
+    EXPECT_EQ(out.size(), std::size_t(2));
+    EXPECT_EQ(out[1], std::string("usb:/wbfs/RMCE01.wbf1"));  // same FAT file as rmce01.WBF1
+    std::vector<std::string> unrelated = {"OTHER.wbf5", "notes.txt"};
+    EXPECT_TRUE(collect_split_pieces("usb:/wbfs", "RMCE01.wbfs", unrelated, UsbImageFormat::Wbfs, out, error));
+    EXPECT_EQ(out.size(), std::size_t(1));
+    EXPECT_FALSE(collect_split_pieces("", "x.wbfs", siblings, UsbImageFormat::Wbfs, out, error));
+}
+
+void test_plan_over_usb() {
+    // XML -> plan -> replacement over a USB-mapped disc source, consumed
+    // through the read overlay. File-to-FST mapping is loader-side; here
+    // the planned file applies over the mapped bytes directly.
+    const std::string xml =
+        std::string("<wiidisc version=\"1\" root=\"/riivolution\">") +
+        "<options><section name=\"Mods\">"
+        "<option name=\"Mod\" default=\"1\">"
+        "<choice name=\"On\"><patch id=\"p\"/></choice>"
+        "</option></section></options>"
+        "<patch id=\"p\"><file disc=\"/DATA/sys.bin\" external=\"mod.bin\""
+        " offset=\"8\" length=\"16\" resize=\"false\" create=\"false\"/></patch>"
+        "</wiidisc>";
+    Package pkg; std::string err;
+    EXPECT_TRUE(parse_package(xml, pkg, err));
+    Plan plan; PlanOptions opts;
+    EXPECT_TRUE(plan_package(pkg, DiscIdentity{"ABCDEF", 0, 0}, opts, plan, err));
+    EXPECT_EQ(plan.files.size(), std::size_t(1));
+    EXPECT_EQ(plan.files[0].external, std::string("/riivolution/mod.bin"));
+    std::vector<std::uint8_t> orig(64);
+    for (std::size_t i = 0; i < orig.size(); ++i) orig[i] = static_cast<std::uint8_t>(i);
+    std::vector<std::uint8_t> mod(16, 0xA0);
+    UsbTestProvider provider(orig, {{"/riivolution/mod.bin", mod}});
+    std::unique_ptr<AppliedFile> applied;
+    EXPECT_TRUE(build_replacement(plan.files[0], provider, applied, err));
+    EXPECT_EQ(applied->size(), std::uint64_t(64));
+    std::vector<std::uint8_t> got(64, 0);
+    EXPECT_TRUE(applied->read(0, got.data(), got.size()));
+    std::vector<std::uint8_t> want = orig;
+    std::copy(mod.begin(), mod.end(), want.begin() + 8);
+    EXPECT_TRUE(got == want);
+}
+
+}  // namespace
+
+int main() {
+    test_basic();
+    test_large_iso();
+    test_large_wbfs();
+    test_collect_split_pieces();
+    test_plan_over_usb();
+    if (g_failures == 0) std::cout << "usbgame tests passed\n";
+    else std::cerr << g_failures << " TEST CHECKS FAILED\n";
+    return g_failures == 0 ? 0 : 1;
 }

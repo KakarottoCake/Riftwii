@@ -65,37 +65,32 @@ bool add_piece(const std::string& path, UsbImage& image, std::string& error) {
     UsbImagePiece p; p.path=path;
     if (!g_volume.lookup(path.substr(3), p.file, error) || p.file.entry.is_directory) return false;
     std::unique_ptr<FileByteSource> src;
-    if (FileByteSource::open(path, src, error) != OpenStatus::Ok) return false;
+    // The FAT32 entry carries the exact size: stat() cannot represent
+    // multi-GB images on 32-bit targets, and the 256 MiB streaming cap
+    // must not apply here (d2x reads bulk bytes itself; only headers go
+    // through this source).
+    if (FileByteSource::open(path, p.file.entry.size, src, error) != OpenStatus::Ok) return false;
     p.source = std::move(src); image.pieces.push_back(std::move(p)); return true;
 }
-bool make_image(const std::string& primary, UsbImageFormat format, UsbImage& image, std::string& error) {
+bool make_image(const std::string& primary, const std::vector<std::string>& siblings, UsbImageFormat format,
+                UsbImage& image, std::string& error) {
     image = UsbImage{}; image.format = format;
-    if (!add_piece(primary, image, error)) return false;
-    if (format != UsbImageFormat::Wbfs) return true;
-    const std::size_t dot = primary.find_last_of('.'); if (dot == std::string::npos) return true;
-    const std::string stem = primary.substr(0,dot);
-    for (unsigned n=1; n<1000; ++n) {
-        const std::string next = stem + ".wbf" + std::to_string(n);
-        Fat32File f; std::string e;
-        if (!g_volume.lookup(next.substr(3), f, e)) {
-            // A split set must be consecutive. Look ahead through the
-            // bounded suffix range so .wbf3 cannot silently hide .wbf2.
-            for (unsigned later_n = n + 1; later_n < 1000; ++later_n) {
-                Fat32File later; std::string ignored;
-                if (g_volume.lookup((stem + ".wbf" + std::to_string(later_n)).substr(3), later, ignored)) {
-                    error = "WBFS split image is missing .wbf" + std::to_string(n);
-                    return false;
-                }
-            }
-            break;
-        }
-        if (!add_piece(next, image, error)) return false;
+    const std::size_t slash = primary.find_last_of('/');
+    if (slash == std::string::npos) { error = "internal USB path is invalid"; return false; }
+    std::vector<std::string> pieces;
+    if (!collect_split_pieces(primary.substr(0, slash), primary.substr(slash + 1), siblings, format, pieces,
+                              error)) {
+        return false;
+    }
+    for (const std::string& p : pieces) {
+        if (!add_piece(p, image, error)) return false;
     }
     return true;
 }
-bool add_game(const std::string& path, UsbImageFormat fmt, UsbCatalog& catalog, std::string& failure) {
+bool add_game(const std::string& path, const std::vector<std::string>& siblings, UsbImageFormat fmt,
+              UsbCatalog& catalog, std::string& failure) {
     UsbImage image; std::string error;
-    if (!make_image(path, fmt, image, error)) { failure = error; return false; }
+    if (!make_image(path, siblings, fmt, image, error)) { failure = error; return false; }
     std::unique_ptr<UsbDiscSource> disc;
     if (!UsbDiscSource::open(image, disc, error)) { failure = error; return false; }
     DiscHeader header;
@@ -115,8 +110,8 @@ void scan_dir(const std::string& dir, bool nested, UsbImageFormat fmt, UsbCatalo
         if (S_ISDIR(st.st_mode) && nested) {
             std::unique_ptr<DIR,int(*)(DIR*)> sub(opendir(path.c_str()), closedir); if (!sub) continue;
             std::vector<std::string> subnames; while (dirent* e=readdir(sub.get())) subnames.emplace_back(e->d_name); std::sort(subnames.begin(),subnames.end());
-            for (const std::string& x:subnames) { if (c.games.size()>=kMaxGames) return; std::string p; if (join(path,x,p) && extension(x,".wbfs")) add_game(p,fmt,c,failure); }
-        } else if (S_ISREG(st.st_mode) && ((fmt==UsbImageFormat::Wbfs && extension(n,".wbfs")) || (fmt==UsbImageFormat::Iso && extension(n,".iso")))) add_game(path,fmt,c,failure);
+            for (const std::string& x:subnames) { if (c.games.size()>=kMaxGames) return; std::string p; if (join(path,x,p) && extension(x,".wbfs")) add_game(p,subnames,fmt,c,failure); }
+        } else if (S_ISREG(st.st_mode) && ((fmt==UsbImageFormat::Wbfs && extension(n,".wbfs")) || (fmt==UsbImageFormat::Iso && extension(n,".iso")))) add_game(path,names,fmt,c,failure);
     }
 }
 

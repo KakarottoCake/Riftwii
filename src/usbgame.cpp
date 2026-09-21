@@ -224,6 +224,57 @@ bool UsbContainerSource::read(std::uint64_t offset, std::uint8_t* destination, s
     return true;
 }
 
+namespace {
+unsigned char lower_ascii(unsigned char c) { return (c >= 'A' && c <= 'Z') ? static_cast<unsigned char>(c + 32) : c; }
+bool same_name(const std::string& a, const std::string& b) {
+    if (a.size() != b.size()) return false;
+    for (std::size_t i = 0; i < a.size(); ++i) {
+        if (lower_ascii(static_cast<unsigned char>(a[i])) != lower_ascii(static_cast<unsigned char>(b[i]))) return false;
+    }
+    return true;
+}
+}  // namespace
+
+bool collect_split_pieces(const std::string& dir, const std::string& primary_leaf,
+                          const std::vector<std::string>& siblings, UsbImageFormat format,
+                          std::vector<std::string>& out_paths, std::string& error) {
+    out_paths.clear();
+    if (dir.empty() || dir.size() > 240 || primary_leaf.empty() || primary_leaf.size() > 240) {
+        error = "USB split piece path is too long";
+        return false;
+    }
+    out_paths.push_back(dir + "/" + primary_leaf);
+    if (format != UsbImageFormat::Wbfs) return true;
+    const std::size_t dot = primary_leaf.find_last_of('.');
+    if (dot == std::string::npos) return true;
+    const std::string stem = primary_leaf.substr(0, dot);
+    for (unsigned n = 1; n < 1000; ++n) {
+        const std::string want = stem + ".wbf" + std::to_string(n);
+        bool present = false;
+        for (const std::string& s : siblings) {
+            if (same_name(s, want)) { present = true; break; }
+        }
+        if (!present) {
+            for (unsigned later = n + 1; later < 1000; ++later) {
+                const std::string later_want = stem + ".wbf" + std::to_string(later);
+                for (const std::string& s : siblings) {
+                    if (same_name(s, later_want)) {
+                        error = "WBFS split image is missing " + want;
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
+        if (dir.size() + 1 + want.size() > 240) {
+            error = "WBFS split piece path is too long";
+            return false;
+        }
+        out_paths.push_back(dir + "/" + want);
+    }
+    return true;
+}
+
 bool build_usb_fragments(const UsbImage& image, D2xFragmentList& out, std::string& error) {
     std::vector<D2xFragment> raw, checked; std::uint64_t sectors = 0;
     if (!build_map(image, raw, sectors, error) || !validate_fragments(raw, sectors, checked, error)) return false;
