@@ -154,7 +154,10 @@ static bool gather_package(const PackageSelection& selection, const DiscProbe& p
         mod.notes.push_back("savegame redirected to " + sd + (sg.clone ? " (NAND save cloned into a new folder)" : " (no clone)"));
     }
 
-    // <folder> patches become <file> patches (listing the card).
+    // <folder> patches become <file> patches (listing the card). The note
+    // count below lets an all-skipped package report what its folders
+    // found instead of looking like a wrong-game refusal.
+    const std::size_t expand_notes_from = mod.notes.size();
     std::vector<FilePatch> expanded;
     if (!expand_plan(plan, fst, provider, expanded, mod.notes, error)) return false;
     files.insert(files.end(), expanded.begin(), expanded.end());
@@ -187,7 +190,8 @@ static bool gather_package(const PackageSelection& selection, const DiscProbe& p
     }
     if (!plan.memory.empty()) mod.notes.push_back(std::to_string(plan.memory.size()) + " memory patch(es)");
     if (expanded.empty() && plan.memory.empty() && plan.savegames.empty()) {
-        error = xml_sd_path + " does not apply to " + probe.header.game_id + " (nothing selected)";
+        std::vector<std::string> folder_notes(mod.notes.begin() + expand_notes_from, mod.notes.end());
+        error = describe_empty_plan(xml_sd_path, probe.header.game_id, plan, folder_notes);
         return false;
     }
     return true;

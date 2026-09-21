@@ -1039,7 +1039,8 @@ autorun's `launch` command: `IdentifyDisc` probes without waiting for a
 disc (an empty drive is a status line, not a wait), `ScanPackages` lists
 `sd:/riivolution` and restores `sd:/riftwii/choices/<game id>.txt`,
 `SaveChoices` writes it back. The GUI (`rift_menu.cpp`): the home
-screen lists packages as On / Off / Other disc / Invalid, A toggles, +
+screen lists matching packages as On / Off and keeps Invalid XML visible;
+other-game packages are hidden. A toggles, +
 opens the options screen (A next choice, - previous, B back), Launch
 saves the choices and returns the selection to `main`, which runs
 `RunLaunch` (compile with `compile_packages`, boot with the resident
@@ -1803,6 +1804,16 @@ through virtual `/dev/di`. `BootOptions::preserve_current_ios` keeps d2x while
 the existing apploader, resident redirect, and save runtime run unchanged.
 See `docs/USB_HARDWARE_TEST.md` for the required hardware evidence.
 
+### SD image source follow-up (2026-09-21)
+
+The same read-only FAT32 catalog and host-tested ISO/WBFS mapper now service
+`sd:/wbfs` and `sd:/games`. The source screen has centered SD, USB, and DISC
+choices. For an image source, libfat is released before cIOS reload and F9;
+the selected d2x device is DEV_SDHC=2 or DEV_USB=1. SD is remounted after F9
+so XML, package choices, logs, and the resident save runtime remain on SD.
+Separate and Fresh saves use distinct persistent folders (`<ID>/clone` and
+`<ID>/fresh`); a package `<savegame>` directory still takes precedence.
+
 ### USB follow-up (2026-09-21)
 Two defects that would have stopped real images, both fixed and host-tested:
 - FileByteSource's 256 MiB cap rejected every real game image (and stat()
@@ -1827,9 +1838,30 @@ heuristics over leftover install artefacts, not from anything the loader
 can query. So the loader checks what is checkable: at scan time it
 queries cIOS tickets for 249/250/251 without reloading IOS and warns in
 the GUI status line when none is installed (skipped under Dolphin, which
-has no slots); pressing Launch with a USB source and no cIOS is a GUI
+has no slots); pressing Launch with an SD or USB source and no cIOS is a GUI
 error naming the remedy, before anything tears down; at launch it logs
 the reloaded IOS version and revision, rejects the well-known stub
 marker 65280, and names d2x v11 beta3 in the probe failure. Any d2x
 passing the F9/FA probe supports everything the loader uses, so no
 older-version warning is emitted.
+
+### Tester feedback fixes (2026-09-21)
+Hardware reports on the new source-first UI found three defects:
+- A folder mod that expanded to zero files failed with "does not apply
+  to \<id\> (nothing selected)", which reads as a wrong-game refusal.
+  `gather_package` now reports precisely: no patches selected when the
+  plan is empty, otherwise the per-folder replaced/created/skipped counts
+  plus the external-folder and create="true" hint. Covered by a host test
+  (`describe_empty_plan`) and verified end to end in Dolphin headless
+  against a fixture that matches nothing.
+- D-pad navigation double-fired: libwiigui only clears a hover-selected
+  button while the pointer is live, so with an invalid pointer a stale
+  SELECTED survived and the next A press hit both it and the browser row.
+  Every menu screen now drops stale bottom-button selection when no
+  pointer is live; hotkeys (BUTTON_ONLY) and fresh hovers are unaffected.
+- Wii U GamePad did nothing: the input layer never scanned it. FIX94's
+  vendored WiiDRC driver (MIT, previously excluded from the build) is now
+  compiled in, scanned on channel 0 behind Inited/Connected gates (safe
+  no-op on plain Wii and Dolphin), and every menu button carries a GamePad
+  hotkey (same names; X stands in for 1). Browser rows already accepted
+  GamePad A in the vendored code. Needs hardware confirmation.

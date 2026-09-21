@@ -247,6 +247,10 @@ void test_collect_split_pieces() {
     EXPECT_EQ(out.size(), std::size_t(3));
     EXPECT_EQ(out[1], std::string("usb:/wbfs/RMCE01.wbf1"));
     EXPECT_EQ(out[2], std::string("usb:/wbfs/RMCE01.wbf2"));
+    // The collector deliberately receives a source-neutral directory.  The
+    // SD catalog uses the identical split-image rule and mapper.
+    EXPECT_TRUE(collect_split_pieces("sd:/wbfs", "RMCE01.wbfs", siblings, UsbImageFormat::Wbfs, out, error));
+    EXPECT_EQ(out[1], std::string("sd:/wbfs/RMCE01.wbf1"));
     std::vector<std::string> gap = {"RMCE01.wbfs", "RMCE01.wbf1", "RMCE01.wbf3"};
     EXPECT_FALSE(collect_split_pieces("usb:/wbfs", "RMCE01.wbfs", gap, UsbImageFormat::Wbfs, out, error));
     EXPECT_FALSE(error.empty());

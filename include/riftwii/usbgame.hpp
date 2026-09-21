@@ -107,7 +107,7 @@ struct CiosSlotState {
     bool installed = false;
 };
 
-// User-visible warning when no candidate slot holds anything: USB games
+// User-visible warning when no candidate slot holds anything: image games
 // cannot boot without a d2x cIOS. Empty when at least one slot is
 // installed. Deliberately presence-only: the guided d2x installer stamps
 // revision 65535 whatever the version, so a revision cannot tell v8 from

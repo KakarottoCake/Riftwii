@@ -26,6 +26,9 @@ static const char* kModOther =
     "<patch id=\"p\"><file disc=\"/x.bin\" external=\"x.bin\"/></patch>"
     "</wiidisc>";
 
+static const char* kModExactDisc =
+    "<wiidisc version=\"1\"><id game=\"RMCE\" disc=\"1\" revision=\"2\"/></wiidisc>";
+
 static void test_model() {
     riftwii::DiscIdentity disc{"RMCE01", 0, 0};
     riftwii::LaunchModel model;
@@ -48,6 +51,25 @@ static void test_model() {
     EXPECT_FALSE(model.set_enabled(2, true));
     EXPECT_FALSE(model.set_enabled(3, true));
     EXPECT_TRUE(model.set_enabled(1, false));
+
+    // Game ID alone is insufficient: XML may require a particular disc
+    // number and revision, which the frontend now preserves for all sources.
+    const riftwii::DiscIdentity exact_identity{"RMCE01", 2, 1};
+    const riftwii::DiscIdentity wrong_revision_identity{"RMCE01", 1, 1};
+    const riftwii::DiscIdentity wrong_number_identity{"RMCE01", 2, 0};
+    riftwii::LaunchModel exact;
+    exact.add("exact.xml", "sd:/riivolution/exact.xml", kModExactDisc, &exact_identity);
+    EXPECT_TRUE(exact.packages[0].valid);
+    EXPECT_TRUE(exact.packages[0].for_disc);
+    riftwii::LaunchModel wrong_revision;
+    wrong_revision.add("exact.xml", "sd:/riivolution/exact.xml", kModExactDisc, &wrong_revision_identity);
+    EXPECT_FALSE(wrong_revision.packages[0].for_disc);
+    riftwii::LaunchModel wrong_number;
+    wrong_number.add("exact.xml", "sd:/riivolution/exact.xml", kModExactDisc, &wrong_number_identity);
+    EXPECT_FALSE(wrong_number.packages[0].for_disc);
+    EXPECT_TRUE(riftwii::same_disc_identity(exact_identity, exact_identity));
+    EXPECT_FALSE(riftwii::same_disc_identity(exact_identity, wrong_revision_identity));
+    EXPECT_FALSE(riftwii::same_disc_identity(exact_identity, wrong_number_identity));
 
     // Choices cycle through off; names follow.
     EXPECT_EQ(model.choice_name(0, 0), std::string("Alpha"));
@@ -92,7 +114,8 @@ static void test_persistence() {
     model.cycle(0, 0, +1);  // Beta
     model.cycle(0, 1, +1);  // On
     const std::string saved = model.save();
-    EXPECT_EQ(saved, std::string("a.xml\ton\na.xml\tTracks/Pack\tBeta\na.xml\tTracks/Music\tOn\n"
+    EXPECT_EQ(saved, std::string("*riftwii*\tsaves\tnand\n"
+                                 "a.xml\ton\na.xml\tTracks/Pack\tBeta\na.xml\tTracks/Music\tOn\n"
                                  "other.xml\toff\nother.xml\tS/O\tC\n"));
 
     // A fresh model with the same packages takes the saved state back;
@@ -119,9 +142,71 @@ static void test_persistence() {
     EXPECT_TRUE(nodisc.set_enabled(0, true));
 }
 
+static void test_saves() {
+    riftwii::DiscIdentity disc{"RMCE01", 0, 0};
+    riftwii::LaunchModel model;
+    model.add("a.xml", "sd:/riivolution/a.xml", kModA, &disc);
+    model.add("other.xml", "sd:/riivolution/other.xml", kModOther, &disc);
+    model.add("broken.xml", "sd:/riivolution/broken.xml", "<wiidisc", &disc);
+
+    // Matching + broken show; other-disc packs hide.
+    EXPECT_TRUE(riftwii::show_package(model.packages[0]));
+    EXPECT_FALSE(riftwii::show_package(model.packages[1]));
+    EXPECT_TRUE(riftwii::show_package(model.packages[2]));
+
+    // Save mode round-trips; garbage never clobbers it.
+    EXPECT_EQ(model.save_mode, std::string("nand"));
+    model.save_mode = "separate";
+    riftwii::LaunchModel again;
+    again.add("a.xml", "sd:/riivolution/a.xml", kModA, &disc);
+    again.restore(model.save());
+    EXPECT_EQ(again.save_mode, std::string("separate"));
+    again.restore("*riftwii*\tsaves\tbogus\n");
+    EXPECT_EQ(again.save_mode, std::string("separate"));
+    again.restore("*riftwii*\tsaves\tfresh\n");
+    EXPECT_EQ(again.save_mode, std::string("fresh"));
+    again.restore("*riftwii*\tsaves\tnand\n");
+    EXPECT_EQ(again.save_mode, std::string("nand"));
+    // Old choice files without the settings line restore as nand.
+    riftwii::LaunchModel legacy;
+    legacy.add("a.xml", "sd:/riivolution/a.xml", kModA, &disc);
+    legacy.restore("a.xml\ton\n");
+    EXPECT_EQ(legacy.save_mode, std::string("nand"));
+
+    // Override resolution: XML wins, then mode, then nothing.
+    riftwii::SaveOverride o = riftwii::resolve_save_override("separate", "sd:/riftwii/sg", "RMCE01");
+    EXPECT_TRUE(o.dir.empty());
+    o = riftwii::resolve_save_override("separate", "", "RMCE01");
+    EXPECT_EQ(o.dir, std::string("sd:/riftwii/saves/RMCE01/clone"));
+    EXPECT_TRUE(o.clone);
+    EXPECT_FALSE(o.note.empty());
+    o = riftwii::resolve_save_override("fresh", "", "RMCE01");
+    EXPECT_EQ(o.dir, std::string("sd:/riftwii/saves/RMCE01/fresh"));
+    EXPECT_FALSE(o.clone);
+
+    // A plain boot still needs the resident path whenever the per-game save
+    // mode supplies a directory; the Wii menu routes this case through
+    // preflight/RunLaunch rather than the no-op plain-boot path.
+    riftwii::LaunchModel plain;
+    EXPECT_TRUE(plain.selections().empty());
+    EXPECT_FALSE(riftwii::resolve_save_override("separate", "", "RMCE01").dir.empty());
+    EXPECT_FALSE(riftwii::resolve_save_override("fresh", "", "RMCE01").dir.empty());
+    EXPECT_FALSE(riftwii::needs_launch_pipeline(false, "nand"));
+    EXPECT_TRUE(riftwii::needs_launch_pipeline(false, "separate"));
+    EXPECT_TRUE(riftwii::needs_launch_pipeline(false, "fresh"));
+    EXPECT_TRUE(riftwii::needs_launch_pipeline(true, "nand"));
+    o = riftwii::resolve_save_override("nand", "", "RMCE01");
+    EXPECT_TRUE(o.dir.empty());
+    o = riftwii::resolve_save_override("bogus", "", "RMCE01");
+    EXPECT_TRUE(o.dir.empty());
+    o = riftwii::resolve_save_override("separate", "", "");
+    EXPECT_TRUE(o.dir.empty());
+}
+
 int main() {
     test_model();
     test_persistence();
+    test_saves();
     if (g_failures == 0) {
         std::cout << "ALL LAUNCH TESTS PASSED" << std::endl;
         return 0;

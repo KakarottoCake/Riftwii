@@ -50,17 +50,21 @@ struct Session {
 
     bool ensure_probe(std::string& error) {
         if (probed) return true;
-        if (source.usb) {
+        if (source.kind != LaunchSource::Kind::Disc) {
             const int slots[] = {source.cios_slot ? source.cios_slot : 249, source.cios_slot ? 0 : 250,
                                  source.cios_slot ? 0 : 251};
             bool active = false;
             for (int slot : slots) {
                 if (!slot) continue;
-                if (activate_usb_game(source.game, slot, frag_storage, frag_storage_bytes, log_path, error)) { active=true; break; }
+                if (activate_image_game(source.game, slot, frag_storage, frag_storage_bytes, log_path, error)) { active=true; break; }
             }
             if (!active) return false;
             if (!probe_disc(probe, error, ProbeOptions{true})) return false;
-            if (probe.header.game_id != source.game.id) { error="d2x virtual disc ID does not match the selected USB image"; return false; }
+            if (probe.header.game_id != source.game.id || probe.header.version != source.game.revision ||
+                probe.header.disc_number != source.game.disc_number) {
+                error="d2x virtual disc identity does not match the selected image";
+                return false;
+            }
         } else if (!probe_disc(probe, error)) return false;
         probed = true;
         return true;
@@ -212,11 +216,12 @@ bool RunBoot(bool allow_ios_fallback, std::string& error, const LaunchSource& so
     if (!s.ensure_probe(error)) return false;
     BootOptions options;
     options.allow_ios_fallback = allow_ios_fallback;
-    options.preserve_current_ios = source.usb;
+    options.preserve_current_ios = source.kind != LaunchSource::Kind::Disc;
     return boot_game(s.probe, options, error);
 }
 
-bool ProbeInserted(std::string& game_id, std::string& title, std::string& error) {
+bool ProbeInserted(std::string& game_id, std::string& title, std::string& error,
+                   std::uint8_t* revision, std::uint8_t* disc_number) {
     if (!di::open(error)) return false;
     bool inserted = false;
     if (!di::cover_status(inserted, error)) return false;
@@ -228,6 +233,8 @@ bool ProbeInserted(std::string& game_id, std::string& title, std::string& error)
     if (!s.ensure_probe(error)) return false;
     game_id = s.probe.header.game_id;
     title = s.probe.header.title;
+    if (revision) *revision = s.probe.header.version;
+    if (disc_number) *disc_number = s.probe.header.disc_number;
     return true;
 }
 
@@ -236,6 +243,8 @@ bool CompileSelection(const std::vector<PackageChoices>& packages, CompiledMod& 
     if (!s.ensure_layout(error)) return false;
     CompiledMod mod;
     if (!compile_packages(packages, s.probe, s.partition, mod, error)) return false;
+    mod.source_identity = s.probe.header.identity();
+    mod.has_source_identity = true;
     for (const std::string& w : mod.warnings) logf("  warning: %s\n", w.c_str());
     for (const std::string& n : mod.notes) logf("  %s\n", n.c_str());
     logf("%u package(s): %u table entries, %u relocation(s), %u memory patch(es)\n",
@@ -245,31 +254,47 @@ bool CompileSelection(const std::vector<PackageChoices>& packages, CompiledMod& 
     return true;
 }
 
-bool BootCompiled(const CompiledMod& mod, std::string& error, const LaunchSource& source) {
+bool BootCompiled(const CompiledMod& mod, std::string& error, const LaunchSource& source,
+                    const std::string& save_mode, const std::string& game_id) {
     Session s(source, "sd:/riftwii/boot.log");
     if (!s.ensure_probe(error)) return false;
+    if (mod.has_source_identity && !same_disc_identity(mod.source_identity, s.probe.header.identity())) {
+        error = "disc changed since preflight; recompile the selected packages";
+        return false;
+    }
+    // The UI's save separation applies only when no <savegame external>
+    // patch claimed a folder (XML wins); headless runs pass "nand".
+    const SaveOverride saves = resolve_save_override(save_mode, mod.savegame_dir, game_id);
+    const bool xml_saves = !mod.savegame_dir.empty();
+    const std::string dir = xml_saves ? mod.savegame_dir : saves.dir;
     BootOptions options;
     options.allow_ios_fallback = true;
-    options.preserve_current_ios = source.usb;
-    options.install_resident = !mod.entries.empty() || !mod.relocations.empty() || !mod.savegame_dir.empty();
+    options.preserve_current_ios = source.kind != LaunchSource::Kind::Disc;
+    options.install_resident = !mod.entries.empty() || !mod.relocations.empty() || !dir.empty();
     options.resident_gecko = false;
     options.table_entries = mod.entries;
     options.relocations = mod.relocations;
     options.memory_patches = mod.memory;
-    options.savegame_dir = mod.savegame_dir;
-    options.savegame_clone = mod.savegame_clone;
+    options.savegame_dir = dir;
+    options.savegame_clone = xml_saves ? mod.savegame_clone : saves.clone;
+    if (!xml_saves && !saves.note.empty()) logf("Saves: %s\n", saves.note.c_str());
     return boot_game(s.probe, options, error);
 }
 
-bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error, const LaunchSource& source) {
+bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error, const LaunchSource& source,
+               const std::string& save_mode, const std::string& game_id) {
     // Keep one session across activation, DI probing, package compilation and
     // boot. In particular, a USB fragment list must survive the cIOS reload.
     Session s(source, "sd:/riftwii/boot.log"); if (!s.ensure_layout(error)) return false;
     CompiledMod mod; if (!compile_packages(packages, s.probe, s.partition, mod, error)) return false;
-    BootOptions options; options.allow_ios_fallback=true; options.preserve_current_ios=source.usb;
-    options.install_resident=!mod.entries.empty() || !mod.relocations.empty() || !mod.savegame_dir.empty();
+    const SaveOverride saves = resolve_save_override(save_mode, mod.savegame_dir, game_id);
+    const bool xml_saves = !mod.savegame_dir.empty();
+    const std::string dir = xml_saves ? mod.savegame_dir : saves.dir;
+    BootOptions options; options.allow_ios_fallback=true; options.preserve_current_ios=source.kind != LaunchSource::Kind::Disc;
+    options.install_resident=!mod.entries.empty() || !mod.relocations.empty() || !dir.empty();
     options.table_entries=mod.entries; options.relocations=mod.relocations; options.memory_patches=mod.memory;
-    options.savegame_dir=mod.savegame_dir; options.savegame_clone=mod.savegame_clone;
+    options.savegame_dir=dir; options.savegame_clone=xml_saves ? mod.savegame_clone : saves.clone;
+    if (!xml_saves && !saves.note.empty()) logf("Saves: %s\n", saves.note.c_str());
     return boot_game(s.probe,options,error);
 }
 
@@ -339,7 +364,16 @@ void RunAutorun() {
             else {
                 const UsbGame* found=nullptr; for (const UsbGame& g:catalog.games) if (g.path==wanted || g.id==wanted) { found=&g; break; }
                 if (!found) { ok=false; error="USB image '"+wanted+"' was not found in the USB catalog"; }
-                else { source=LaunchSource{}; source.usb=true; source.game=*found; source.cios_slot=slot; s=Session(source, kAutorunLogPath); }
+                else { source=LaunchSource{}; source.kind=LaunchSource::Kind::Usb; source.game=*found; source.cios_slot=slot; s=Session(source, kAutorunLogPath); }
+            }
+        } else if (cmd == "sd") {
+            std::string wanted; int slot=0; words >> wanted >> slot;
+            ImageCatalog catalog; std::string scan_error;
+            if (wanted.empty() || !scan_sd_games(catalog, scan_error)) { ok=false; error=wanted.empty()?"sd needs a path or ID6":scan_error; }
+            else {
+                const ImageGame* found=nullptr; for (const ImageGame& g:catalog.games) if (g.path==wanted || g.id==wanted) { found=&g; break; }
+                if (!found) { ok=false; error="SD image '"+wanted+"' was not found in the SD catalog"; }
+                else { source=LaunchSource{}; source.kind=LaunchSource::Kind::Sd; source.game=*found; source.cios_slot=slot; s=Session(source, kAutorunLogPath); }
             }
         } else if (cmd == "disc") {
             source=LaunchSource{}; s=Session(source, kAutorunLogPath);
@@ -490,14 +524,14 @@ void RunAutorun() {
             // The GUI's path without the GUI: identify, scan, restore the
             // saved choices, compile and boot.
             FrontendState state;
-            if (source.usb) {
-                state.use_usb = true;
-                state.usb_catalog.games.clear();
-                state.usb_catalog.games.push_back(source.game);
-                state.usb_index = 0;
+            if (source.kind != LaunchSource::Kind::Disc) {
+                state.use_usb = source.kind == LaunchSource::Kind::Usb;
+                state.use_sd = source.kind == LaunchSource::Kind::Sd;
                 state.game_id = source.game.id;
                 state.disc_title = source.game.title;
-                state.disc_status = "USB: " + source.game.id + "  " + source.game.title;
+                state.game_revision = source.game.revision;
+                state.game_disc_number = source.game.disc_number;
+                state.disc_status = std::string(source.kind == LaunchSource::Kind::Usb ? "USB: " : "SD: ") + source.game.id + "  " + source.game.title;
                 state.choices_path = std::string(kChoicesDir) + "/" + source.game.id + ".txt";
             } else IdentifyDisc(state);
             logf("  %s\n", state.disc_status.c_str());
@@ -516,19 +550,20 @@ void RunAutorun() {
             if (state.game_id.empty()) {
                 ok = false;
                 error = "launch needs a disc";
-            } else if (selections.empty()) {
-                logf("  nothing enabled: booting the disc as it is\n");
+            } else if (!needs_launch_pipeline(!selections.empty(), state.model.save_mode)) {
+                logf("  nothing enabled and NAND saves selected: booting as is\n");
                 ok = RunBoot(allow_fallback, error, source);
                 LogOpen(kAutorunLogPath, true);
             } else {
-                logf("launch: handing over to the game\n");
-                ok = RunLaunch(selections, error, source);
+                logf(selections.empty() ? "  no packages enabled: applying selected Save Mode\n"
+                                        : "launch: handing over to the game\n");
+                ok = RunLaunch(selections, error, source, state.model.save_mode, state.game_id);
                 LogOpen(kAutorunLogPath, true);
             }
         } else if (cmd == "boot") {
             BootOptions options;
             options.allow_ios_fallback = allow_fallback;
-            options.preserve_current_ios = source.usb;
+            options.preserve_current_ios = source.kind != LaunchSource::Kind::Disc;
             options.install_resident = install_resident;
             options.resident_gecko = install_resident;
             options.replacements = replacements;

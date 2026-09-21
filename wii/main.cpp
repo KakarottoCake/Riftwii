@@ -54,8 +54,7 @@ int main() {
         std::exit(0);
     }
 
-    // The disc first, so the menu can tell which packages apply and keep
-    // the choices per game; without one the menu still lists the card.
+    // Probe the available sources before drawing the source selector.
     FrontendState state;
     riftwii::wii::IdentifyDisc(state);
 
@@ -64,7 +63,7 @@ int main() {
     InitAudio();
     InitFreeType(const_cast<u8*>(font_ttf), font_ttf_size);
     InitGUIThreads();
-    const int action = MainMenu(1, state);
+    const int action = MainMenu(MENU_SOURCE, state);
     const riftwii::wii::LaunchSource source = riftwii::wii::SelectedSource(state);
 
     EnterConsolePhase();
@@ -72,15 +71,18 @@ int main() {
     if (action == MENU_LAUNCH) {
         riftwii::wii::LogOpen("sd:/riftwii/boot.log");
         riftwii::wii::logf("Riftwii: launch %s with packages\n", state.game_id.c_str());
-        const bool booted = (!source.usb && state.has_compiled) ? riftwii::wii::BootCompiled(state.compiled, error, source)
-                                                                 : riftwii::wii::RunLaunch(state.model.selections(), error, source);
+        const bool booted = (source.kind == riftwii::wii::LaunchSource::Kind::Disc && state.has_compiled)
+                                ? riftwii::wii::BootCompiled(state.compiled, error, source, state.model.save_mode,
+                                                             state.game_id)
+                                : riftwii::wii::RunLaunch(state.model.selections(), error, source,
+                                                          state.model.save_mode, state.game_id);
         if (!booted) {
             riftwii::wii::LogOpen("sd:/riftwii/boot.log", true);  // boot_game closed it and remounted the card
             riftwii::wii::logf("FAILED: %s\n", error.c_str());
         }
     } else if (action == MENU_BOOT) {
         riftwii::wii::LogOpen("sd:/riftwii/boot.log");
-        riftwii::wii::logf("Riftwii: boot %s\n", source.usb ? "USB" : "disc");
+        riftwii::wii::logf("Riftwii: boot %s\n", source.kind == riftwii::wii::LaunchSource::Kind::Usb ? "USB" : source.kind == riftwii::wii::LaunchSource::Kind::Sd ? "SD" : "disc");
         if (!riftwii::wii::RunBoot(true, error, source)) {
             riftwii::wii::LogOpen("sd:/riftwii/boot.log", true);  // boot_game closed it and remounted the card
             riftwii::wii::logf("FAILED: %s\n", error.c_str());
