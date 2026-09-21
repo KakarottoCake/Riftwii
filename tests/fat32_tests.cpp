@@ -268,6 +268,48 @@ static void test_listing_and_edge_entries() {
     EXPECT_CONTAINS(err, "loops");
 }
 
+static void test_fast_cycle_detection_and_fat_cache() {
+    Fixture fx(512, 1, 0);
+    // Advertise a large valid geometry without allocating a matching data
+    // area. chain() needs only the first FAT block for these short cycles;
+    // the old volume-sized guard would have repeated that read one million
+    // times before failing.
+    put32(fx.img.boot() + 0x24, 10000);
+    put32(fx.img.boot() + 0x20, 1020004);
+    fx.img.set_fat(30, 30);
+    int reads = 0;
+    auto counted = [&fx, &reads](std::uint64_t lba, std::uint32_t count, std::uint8_t* out) {
+        ++reads;
+        return fx.img.reader()(lba, count, out);
+    };
+    riftwii::Fat32Volume v;
+    std::string err;
+    std::vector<Fragment> fragments;
+    EXPECT_TRUE(riftwii::Fat32Volume::mount(counted, v, err));
+    EXPECT_TRUE(v.geometry().cluster_count >= 1000000);
+    reads = 0;
+    EXPECT_FALSE(v.chain(30, fragments, err));
+    EXPECT_CONTAINS(err, "loops");
+    EXPECT_TRUE(reads <= 2);  // one cached FAT block services a self-cycle
+
+    // Remount invalidates the FAT cache; a two-cluster cycle is still bounded.
+    fx.img.set_fat(30, 31);
+    fx.img.set_fat(31, 30);
+    EXPECT_TRUE(riftwii::Fat32Volume::mount(counted, v, err));
+    reads = 0;
+    EXPECT_FALSE(v.chain(30, fragments, err));
+    EXPECT_CONTAINS(err, "loops");
+    EXPECT_TRUE(reads <= 2);
+
+    // A normal contiguous run stays intact and uses that same one FAT block.
+    fx.img.chain({40, 41, 42});
+    EXPECT_TRUE(riftwii::Fat32Volume::mount(counted, v, err));
+    reads = 0;
+    EXPECT_TRUE(v.chain(40, fragments, err));
+    EXPECT_EQ(fragments.size(), std::size_t(1));
+    EXPECT_TRUE(reads <= 2);
+}
+
 static void test_mount_failures() {
     std::string err;
     riftwii::Fat32Volume v;
@@ -352,6 +394,7 @@ int main() {
     test_geometry_and_lookup(1024, 4, 2048);
     test_geometry_and_lookup(4096, 1, 63);
     test_listing_and_edge_entries();
+    test_fast_cycle_detection_and_fat_cache();
     test_mount_failures();
     if (g_failures == 0) {
         std::cout << "ALL FAT32 TESTS PASSED" << std::endl;

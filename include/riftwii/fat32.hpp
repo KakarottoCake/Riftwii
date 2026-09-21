@@ -98,6 +98,11 @@ private:
     BlockReader reader_;
     Fat32Geometry geo_;
     Fat32Limits limits_;
+    // One logical FAT block is enough for sequential chain traversal. It is
+    // mutable because all public volume lookups remain logically const.
+    mutable bool fat_cache_valid_ = false;
+    mutable std::uint64_t fat_cache_lba_ = 0;
+    mutable std::uint8_t fat_cache_[kFatBlockBytes] = {};
 };
 
 }  // namespace riftwii

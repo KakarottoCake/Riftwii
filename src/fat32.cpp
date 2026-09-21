@@ -289,12 +289,15 @@ bool Fat32Volume::next_cluster(std::uint32_t cluster, std::uint32_t& next, std::
     const std::uint64_t byte_in_volume = fat_start_sector * geo_.bytes_per_sector + byte_in_fat;
     const std::uint64_t lba = geo_.volume_lba + byte_in_volume / kFatBlockBytes;
     const std::uint32_t within = static_cast<std::uint32_t>(byte_in_volume % kFatBlockBytes);
-    std::uint8_t block[kFatBlockBytes];
-    if (!reader_(lba, 1, block)) {
-        error = "cannot read FAT block " + std::to_string(lba);
-        return false;
+    if (!fat_cache_valid_ || fat_cache_lba_ != lba) {
+        if (!reader_(lba, 1, fat_cache_)) {
+            error = "cannot read FAT block " + std::to_string(lba);
+            return false;
+        }
+        fat_cache_lba_ = lba;
+        fat_cache_valid_ = true;
     }
-    next = le32(block + within) & kFatMask;
+    next = le32(fat_cache_ + within) & kFatMask;
     return true;
 }
 
@@ -311,14 +314,14 @@ bool Fat32Volume::chain(std::uint32_t first_cluster, std::vector<Fragment>& out,
     }
     const std::uint64_t blocks_per_cluster = std::uint64_t(geo_.sectors_per_cluster) * geo_.blocks_per_sector();
     std::uint32_t cluster = first_cluster;
-    std::uint64_t visited = 0;
+    // Brent's detector avoids allocating one bit per cluster and finds a
+    // self/short cycle after O(prefix + cycle) FAT steps, rather than after
+    // the volume's advertised cluster count.
+    std::uint32_t tortoise = first_cluster;
+    std::uint64_t power = 1, steps_since_reset = 0;
     for (;;) {
         if (cluster < 2 || cluster > geo_.cluster_count + 1) {
             error = "cluster chain leaves the volume at cluster " + std::to_string(cluster);
-            return false;
-        }
-        if (++visited > geo_.cluster_count) {
-            error = "cluster chain loops";
             return false;
         }
         const std::uint64_t lba = geo_.cluster_lba(cluster);
@@ -341,7 +344,17 @@ bool Fat32Volume::chain(std::uint32_t first_cluster, std::vector<Fragment>& out,
             error = "cluster chain hits a free cluster after " + std::to_string(cluster);
             return false;
         }
+        if (power == steps_since_reset) {
+            tortoise = cluster;
+            power <<= 1;
+            steps_since_reset = 0;
+        }
         cluster = next;
+        ++steps_since_reset;
+        if (cluster == tortoise) {
+            error = "cluster chain loops";
+            return false;
+        }
     }
     out = std::move(frags);
     error.clear();
@@ -362,15 +375,12 @@ bool Fat32Volume::walk_directory(std::uint32_t directory_cluster,
         lfn_valid = false;
     };
     std::uint32_t cluster = directory_cluster;
-    std::uint64_t visited = 0;
+    std::uint32_t tortoise = directory_cluster;
+    std::uint64_t power = 1, steps_since_reset = 0;
     std::uint32_t entries_seen = 0;
     for (;;) {
         if (cluster < 2 || cluster > geo_.cluster_count + 1) {
             error = "directory chain leaves the volume at cluster " + std::to_string(cluster);
-            return false;
-        }
-        if (++visited > geo_.cluster_count) {
-            error = "directory chain loops";
             return false;
         }
         for (std::uint32_t s = 0; s < geo_.sectors_per_cluster; ++s) {
@@ -449,7 +459,17 @@ bool Fat32Volume::walk_directory(std::uint32_t directory_cluster,
             error = "directory chain is broken after cluster " + std::to_string(cluster);
             return false;
         }
+        if (power == steps_since_reset) {
+            tortoise = cluster;
+            power <<= 1;
+            steps_since_reset = 0;
+        }
         cluster = next;
+        ++steps_since_reset;
+        if (cluster == tortoise) {
+            error = "directory chain loops";
+            return false;
+        }
     }
     error.clear();
     return true;
