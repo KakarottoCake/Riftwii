@@ -535,20 +535,26 @@ static int MenuHome(FrontendState& state)
 		ClearStaleButtons({&exitBtn.button, &backBtn.button, &savesBtn.button, &optionsBtn.button, &launchBtn.button});
 		const int clicked = browser.GetClickedOption();
 		if (clicked >= 0 && static_cast<std::size_t>(clicked) < visible.size()) {
-			// A on a row: enable or disable it.
+			// A on a row: enable or disable it, saved at once so a later
+			// Back navigation (which rescans and restores) cannot wipe it.
 			const std::size_t pkg = visible[static_cast<std::size_t>(clicked)];
 			selectedPackage = static_cast<int>(pkg);
 			const riftwii::LaunchPackage& p = state.model.packages[pkg];
 			if (!state.model.set_enabled(pkg, !p.enabled)) {
 				detailTxt.SetText(p.detail.substr(0, 160).c_str());
 			} else {
-				detailTxt.SetText(p.detail.substr(0, 160).c_str());
+				std::string save_error;
+				if (!SaveChoices(state, save_error)) detailTxt.SetText(save_error.c_str());
+				else detailTxt.SetText(p.detail.substr(0, 160).c_str());
 			}
 			fill();
 			browser.TriggerUpdate();
 		}
-		if(exitBtn.Clicked())
+		if(exitBtn.Clicked()) {
+			std::string ignored;
+			SaveChoices(state, ignored);  // best effort: quitting keeps the session's choices
 			menu = MENU_EXIT;
+		}
 		else if(optionsBtn.Clicked()) {
 			if (selectedPackage >= 0 && static_cast<std::size_t>(selectedPackage) < state.model.packages.size() &&
 			    state.model.packages[selectedPackage].valid &&
@@ -560,7 +566,18 @@ static int MenuHome(FrontendState& state)
 			}
 		}
 		else if(backBtn.Clicked()) {
-			menu = (state.use_usb || state.use_sd) ? MENU_GAMES : MENU_SOURCE;
+			// Save first: MenuHome rescans and restores on entry, so an
+			// unsaved Back would wipe row and choice changes. Stay put on
+			// failure rather than silently losing them.
+			std::string save_error;
+			if (!SaveChoices(state, save_error)) {
+				backBtn.button.ResetState();
+				detailTxt.SetText(save_error.c_str());
+			} else if (state.use_usb || state.use_sd) {
+				menu = MENU_GAMES;
+			} else {
+				menu = MENU_SOURCE;
+			}
 		}
 		else if(savesBtn.Clicked()) {
 			savesBtn.button.ResetState();
@@ -804,8 +821,17 @@ static int MenuOptions(FrontendState& state)
 				browser.TriggerUpdate();
 			}
 		}
-		if(backBtn.Clicked())
-			menu = MENU_HOME;
+		if(backBtn.Clicked()) {
+			// Cycled choices live in memory until saved; MenuHome would
+			// restore the file over them on entry.
+			std::string save_error;
+			if (!SaveChoices(state, save_error)) {
+				backBtn.button.ResetState();
+				detailTxt.SetText(save_error.c_str());
+			} else {
+				menu = MENU_HOME;
+			}
+		}
 		ResumeGui();
 	}
 
