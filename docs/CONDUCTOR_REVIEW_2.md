@@ -1817,3 +1817,15 @@ Two defects that would have stopped real images, both fixed and host-tested:
   including gap and case handling).
 Still hardware-only: d2x load/F9 DMA/F6 behavior, sector geometry, and a
 full USB game-plus-mods boot.
+
+### cIOS readiness warnings (2026-09-21)
+A version-number check is not possible on device: the guided installer
+stamps revision 65535 for every d2x version, and tool-reported version
+labels come from heuristics over leftover install artefacts. So the
+loader checks what is checkable: at scan time it queries cIOS tickets
+for 249/250/251 without reloading IOS and warns in the GUI status line
+when none is installed (skipped under Dolphin, which has no slots); at
+launch it logs the reloaded IOS version and revision, rejects the
+well-known stub marker 65280, and names d2x v11 beta3 in the probe
+failure. Any d2x passing the F9/FA probe supports everything the loader
+uses, so no older-version warning is emitted.

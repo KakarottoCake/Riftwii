@@ -21,6 +21,10 @@ struct UsbGame {
 struct UsbCatalog {
     std::vector<UsbGame> games;
     std::string status;
+    // Empty when at least one candidate cIOS slot holds a ticket; otherwise
+    // a user-visible warning that USB games cannot boot yet. Presence only:
+    // identity is proven by the launch-time d2x probe, not here.
+    std::string cios_note;
 };
 
 struct LaunchSource {

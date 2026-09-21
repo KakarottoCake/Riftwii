@@ -260,6 +260,26 @@ void test_collect_split_pieces() {
     EXPECT_FALSE(collect_split_pieces("", "x.wbfs", siblings, UsbImageFormat::Wbfs, out, error));
 }
 
+void test_cios_readiness_note() {
+    CiosSlotState none[] = {{249, false}, {250, false}, {251, false}};
+    const std::string note = cios_readiness_note(none, 3);
+    EXPECT_FALSE(note.empty());
+    EXPECT_TRUE(note.find("249") != std::string::npos);
+    EXPECT_TRUE(note.find("d2x") != std::string::npos);
+    EXPECT_TRUE(note.find("v11 beta3") != std::string::npos);
+    CiosSlotState one[] = {{249, false}, {250, true}, {251, false}};
+    EXPECT_TRUE(cios_readiness_note(one, 3).empty());
+    CiosSlotState all[] = {{249, true}, {250, true}, {251, true}};
+    EXPECT_TRUE(cios_readiness_note(all, 3).empty());
+    EXPECT_TRUE(cios_readiness_note(nullptr, 0).empty() == false);
+    EXPECT_TRUE(cios_revision_is_stub(65280));
+    EXPECT_FALSE(cios_revision_is_stub(65535));  // guided d2x installs stamp this whatever the version
+    EXPECT_FALSE(cios_revision_is_stub(21011));  // d2x v11 beta1
+    EXPECT_FALSE(cios_revision_is_stub(21010));  // d2x v10 beta52
+    EXPECT_FALSE(cios_revision_is_stub(21008));  // d2x v8 final
+    EXPECT_FALSE(cios_revision_is_stub(5662));   // stock IOS56 revision
+}
+
 void test_plan_over_usb() {
     // XML -> plan -> replacement over a USB-mapped disc source, consumed
     // through the read overlay. File-to-FST mapping is loader-side; here
@@ -300,6 +320,7 @@ int main() {
     test_large_iso();
     test_large_wbfs();
     test_collect_split_pieces();
+    test_cios_readiness_note();
     test_plan_over_usb();
     if (g_failures == 0) std::cout << "usbgame tests passed\n";
     else std::cerr << g_failures << " TEST CHECKS FAILED\n";

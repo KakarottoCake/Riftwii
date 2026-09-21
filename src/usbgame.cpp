@@ -275,6 +275,19 @@ bool collect_split_pieces(const std::string& dir, const std::string& primary_lea
     return true;
 }
 
+std::string cios_readiness_note(const CiosSlotState* slots, std::size_t count) {
+    if (!slots) return "No cIOS slot state to check; USB boot needs a d2x cIOS.";
+    for (std::size_t i = 0; i < count; ++i) {
+        if (slots[i].installed) return std::string();
+    }
+    std::string note = "No cIOS found in slots";
+    for (std::size_t i = 0; i < count; ++i) {
+        note += (i == 0 ? " " : ", ") + std::to_string(slots[i].slot);
+    }
+    note += ". USB games need d2x (v11 beta3 is the latest) and will not boot until it is installed.";
+    return note;
+}
+
 bool build_usb_fragments(const UsbImage& image, D2xFragmentList& out, std::string& error) {
     std::vector<D2xFragment> raw, checked; std::uint64_t sectors = 0;
     if (!build_map(image, raw, sectors, error) || !validate_fragments(raw, sectors, checked, error)) return false;
