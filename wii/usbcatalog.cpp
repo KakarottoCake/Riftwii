@@ -7,12 +7,10 @@
 #include <ogc/usbstorage.h>
 #include <malloc.h>
 #include <sdcard/wiisd_io.h>
-#include <sys/stat.h>
 
 #include <algorithm>
 #include <cctype>
 #include <cstring>
-#include <dirent.h>
 #include <memory>
 
 #include "di.hpp"
@@ -106,19 +104,46 @@ bool add_game(const Fat32Volume& volume, const std::string& prefix, ImageDevice 
     if (!build_usb_fragments(image, game.fragments, error)) { failure=error; return false; }
     catalog.games.push_back(std::move(game)); return true;
 }
+// Lists a catalog directory with the volume's own cycle-capped walker,
+// never libfat's readdir: a cross-linked directory chain (e.g. from an
+// interrupted multi-GB copy) loops readdir forever on successful reads,
+// which looks exactly like a hang and releases the moment the card is
+// pulled. Missing or unreadable directories are skipped silently, as
+// opendir-NULL was before. Names come back sorted, without "." and ".."
+// (which the old listing descended into, adding top-level images twice).
 void scan_dir(const Fat32Volume& volume, const std::string& prefix, ImageDevice device, const std::string& dir, bool nested, UsbImageFormat fmt, ImageCatalog& c, std::string& failure) {
-    std::unique_ptr<DIR,int(*)(DIR*)> d(opendir(dir.c_str()), closedir); if (!d) return;
-    std::vector<std::string> names; while (dirent* e=readdir(d.get())) names.emplace_back(e->d_name); std::sort(names.begin(),names.end());
-    for (const std::string& n:names) {
+    // dir like "usb:/wbfs": the part after the device prefix addresses the volume.
+    const std::string sub = dir.substr(prefix.size() - 1);
+    std::vector<Fat32Entry> entries;
+    std::string error;
+    if (!volume.list(sub, entries, error)) {
+        // A missing games folder is normal (disc-only users); anything else
+        // is recorded. The marker is this codebase's own tested error text.
+        if (!error.empty() && error.find("no such directory") == std::string::npos) failure = error;
+        return;
+    }
+    std::sort(entries.begin(), entries.end(),
+              [](const Fat32Entry& a, const Fat32Entry& b) { return a.name < b.name; });
+    std::vector<std::string> siblings;
+    siblings.reserve(entries.size());
+    for (const Fat32Entry& e : entries) siblings.push_back(e.name);
+    for (const Fat32Entry& e : entries) {
         if (c.games.size() >= kMaxGames) return;
         std::string path;
-        if (!join(dir,n,path)) continue;
-        struct stat st{}; if (stat(path.c_str(),&st)!=0) continue;
-        if (S_ISDIR(st.st_mode) && nested) {
-            std::unique_ptr<DIR,int(*)(DIR*)> sub(opendir(path.c_str()), closedir); if (!sub) continue;
-            std::vector<std::string> subnames; while (dirent* e=readdir(sub.get())) subnames.emplace_back(e->d_name); std::sort(subnames.begin(),subnames.end());
-            for (const std::string& x:subnames) { if (c.games.size()>=kMaxGames) return; std::string p; if (join(path,x,p) && extension(x,".wbfs")) add_game(volume,prefix,device,p,subnames,fmt,c,failure); }
-        } else if (S_ISREG(st.st_mode) && ((fmt==UsbImageFormat::Wbfs && extension(n,".wbfs")) || (fmt==UsbImageFormat::Iso && extension(n,".iso")))) add_game(volume,prefix,device,path,names,fmt,c,failure);
+        if (!join(dir, e.name, path)) continue;
+        if (e.is_directory && nested) {
+            std::vector<Fat32Entry> subentries;
+            if (!volume.list(sub + "/" + e.name, subentries, error)) {
+                if (!error.empty() && error.find("no such directory") == std::string::npos) failure = error;
+                continue;
+            }
+            std::sort(subentries.begin(), subentries.end(),
+                      [](const Fat32Entry& a, const Fat32Entry& b) { return a.name < b.name; });
+            std::vector<std::string> subnames;
+            subnames.reserve(subentries.size());
+            for (const Fat32Entry& x : subentries) subnames.push_back(x.name);
+            for (const std::string& x : subnames) { if (c.games.size()>=kMaxGames) return; std::string p; if (join(path,x,p) && extension(x,".wbfs")) add_game(volume,prefix,device,p,subnames,fmt,c,failure); }
+        } else if (!e.is_directory && ((fmt==UsbImageFormat::Wbfs && extension(e.name,".wbfs")) || (fmt==UsbImageFormat::Iso && extension(e.name,".iso")))) add_game(volume,prefix,device,path,siblings,fmt,c,failure);
     }
 }
 
@@ -150,10 +175,10 @@ bool slot_has_ticket(int slot) {
     return res >= 0 && views >= 1;
 }
 
-bool scan_usb_games(UsbCatalog& out, std::string& error) {
-    out = UsbCatalog{}; out.device = ImageDevice::Usb; if (!ensure_usb(error)) return false;
+bool scan_usb_games(ImageCatalog& out, std::string& error) {
+    out = ImageCatalog{}; out.device = ImageDevice::Usb; if (!ensure_usb(error)) return false;
     std::string failure; scan_dir(g_usb_volume, "usb:/", ImageDevice::Usb, "usb:/wbfs", true, UsbImageFormat::Wbfs, out, failure); scan_dir(g_usb_volume, "usb:/", ImageDevice::Usb, "usb:/games", false, UsbImageFormat::Iso, out, failure);
-    std::stable_sort(out.games.begin(),out.games.end(),[](const UsbGame&a,const UsbGame&b){ return a.id==b.id ? a.path<b.path : a.id<b.id; });
+    std::stable_sort(out.games.begin(),out.games.end(),[](const ImageGame&a,const ImageGame&b){ return a.id==b.id ? a.path<b.path : a.id<b.id; });
     out.status = out.games.empty() ? (failure.empty() ? "No valid FAT32 Wii images under usb:/wbfs or usb:/games" : "No valid USB images: " + failure) : "USB: " + std::to_string(out.games.size()) + " valid game(s)";
     // Dolphin has no cIOS slots by design; warning there would be noise.
     if (!running_in_dolphin()) {
