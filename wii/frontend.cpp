@@ -31,13 +31,15 @@ bool ensure_directory(const char* path, std::string& error) {
 }
 }
 
-void IdentifyDisc(FrontendState& state) {
+void IdentifyDisc(FrontendState& state, void (*progress)(const char*)) {
     // Hardware facts for the source screen: image catalogs and the physical
     // disc. Nothing is selected until the source screen chooses it.
     std::string error, usb_error, sd_error;
+    if (progress) progress("Scanning USB...");
     if (!scan_usb_games(state.usb_catalog, usb_error)) {
         state.usb_catalog.status = "USB: " + (usb_error.empty() ? "unavailable" : usb_error);
     }
+    if (progress) progress("Scanning SD...");
     if (!scan_sd_games(state.sd_catalog, sd_error)) {
         state.sd_catalog.status = "SD: " + (sd_error.empty() ? "unavailable" : sd_error);
     }
@@ -47,6 +49,7 @@ void IdentifyDisc(FrontendState& state) {
     state.sd_index = 0;
     state.has_compiled = false;
     state.compiled = CompiledMod{};
+    if (progress) progress("Probing disc...");
     if (ProbeInserted(state.game_id, state.disc_title, error, &state.game_revision, &state.game_disc_number)) {
         state.disc_status = "Disc: " + state.game_id + "  " + state.disc_title;
         state.choices_path = std::string(kChoicesDir) + "/" + state.game_id + ".txt";

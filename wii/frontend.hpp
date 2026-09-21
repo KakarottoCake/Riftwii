@@ -33,7 +33,7 @@ struct FrontendState {
     std::size_t sd_index = 0;
 };
 
-void IdentifyDisc(FrontendState& state);
+void IdentifyDisc(FrontendState& state, void (*progress)(const char*) = nullptr);
 bool SelectDisc(FrontendState& state, std::string& error);
 bool SelectUsbGame(FrontendState& state, std::size_t index, std::string& error);
 bool SelectSdGame(FrontendState& state, std::size_t index, std::string& error);

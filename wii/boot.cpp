@@ -232,11 +232,21 @@ void configure_video_for_game(char region) {
 bool probe_disc(DiscProbe& out, std::string& error, const ProbeOptions& options) {
     if (!di::open(error)) return false;
     if (!options.virtual_source) {
+        // Bounded wait, never the drive's blocking cover ioctl: with an
+        // empty closed drive that call may never return, which used to
+        // hang the loader on a black screen before video came up. Poll
+        // for a few seconds (covers inserting a disc right now), then
+        // report no disc; pressing DISC later probes again from scratch.
         bool inserted = false;
         if (!di::cover_status(inserted, error)) return false;
+        for (int waited = 0; !inserted && waited < 20; ++waited) {
+            if (waited == 0) logf("No disc: watching for one briefly...\n");
+            usleep(250000);
+            if (!di::cover_status(inserted, error)) return false;
+        }
         if (!inserted) {
-            logf("No disc: waiting for the cover to close...\n");
-            if (!di::wait_for_cover_close(error)) return false;
+            error = "no disc in the drive";
+            return false;
         }
         if (!di::reset(true, error)) return false;
     }
