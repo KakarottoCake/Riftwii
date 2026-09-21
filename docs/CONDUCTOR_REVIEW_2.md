@@ -1854,6 +1854,12 @@ Hardware reports on the new source-first UI found three defects:
   plus the external-folder and create="true" hint. Covered by a host test
   (`describe_empty_plan`) and verified end to end in Dolphin headless
   against a fixture that matches nothing.
+- The deeper "can't enable" cause: choices saved only at Launch, so any
+  Back navigation (which rescans and restores) wiped row and choice
+  changes made since. Row toggles, the Options Back button, the Home Back
+  button, and Exit now save first (Back stays put on failure rather than
+  losing state). Reproduced against the reporter's real XML: with no
+  default choice its plan is empty, which is exactly the old message.
 - D-pad navigation double-fired: libwiigui only clears a hover-selected
   button while the pointer is live, so with an invalid pointer a stale
   SELECTED survived and the next A press hit both it and the browser row.

@@ -36,7 +36,8 @@ split `.wbf1`, `.wbf2`, …) in `<source>:/wbfs` and raw `.iso` in
    Press A to switch a pack on or off. Press **Mod Options** for a pack's options,
    A and Minus to change them, B to go back.
 5. Press Launch (or just start with nothing enabled to boot the plain
-   disc). Your choices are saved per game, so next time they are back.
+   disc). Your choices are saved per game as you change them, so next
+   time they are back.
 6. Home exits to the Homebrew Channel.
 
 Controls work with a Wii Remote (pointer or D-pad), Classic Controller,
