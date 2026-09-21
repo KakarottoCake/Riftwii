@@ -36,6 +36,9 @@ void IdentifyDisc(FrontendState& state) {
         state.use_usb = true; state.usb_index = 0;
         const UsbGame& game = state.usb_catalog.games[0]; state.game_id = game.id; state.disc_title = game.title;
         state.disc_status = "USB: " + game.id + "  " + game.title;
+        // The full warning names the slots and the d2x version; the status
+        // line only carries the short form (the note is also in boot.log).
+        if (!state.usb_catalog.cios_note.empty()) state.disc_status += "  [no cIOS: install d2x for USB boot]";
         state.choices_path = std::string(kChoicesDir) + "/" + game.id + ".txt";
     }
 }
@@ -49,6 +52,7 @@ void CycleSource(FrontendState& state) {
     if (state.use_usb) {
         const UsbGame& g=state.usb_catalog.games[state.usb_index]; state.game_id=g.id; state.disc_title=g.title;
         state.disc_status="USB: "+g.id+"  "+g.title; state.choices_path=std::string(kChoicesDir)+"/"+g.id+".txt";
+        if (!state.usb_catalog.cios_note.empty()) state.disc_status += "  [no cIOS: install d2x for USB boot]";
     } else {
         std::string error; if (!ProbeInserted(state.game_id,state.disc_title,error)) { state.game_id.clear(); state.disc_title.clear(); state.choices_path.clear(); state.disc_status="No disc identified ("+error+")"; }
         else { state.disc_status="Disc: "+state.game_id+"  "+state.disc_title; state.choices_path=std::string(kChoicesDir)+"/"+state.game_id+".txt"; }

@@ -100,4 +100,22 @@ private:
     std::uint64_t bytes_ = 0;
 };
 
+// One candidate cIOS slot and whether the console holds a ticket for it
+// (queried without reloading IOS, so this is presence only, not identity).
+struct CiosSlotState {
+    int slot = 0;
+    bool installed = false;
+};
+
+// User-visible warning when no candidate slot holds anything: USB games
+// cannot boot without a d2x cIOS. Empty when at least one slot is
+// installed. Deliberately presence-only: the guided d2x installer stamps
+// revision 65535 whatever the version, so a revision cannot tell v8 from
+// v11, and the launch-time F9/FA probe remains the real capability gate.
+std::string cios_readiness_note(const CiosSlotState* slots, std::size_t count);
+
+// Nintendo's stub marker, seen in public SysCheck reports as rev 65280: a
+// slot holding this boots but implements nothing, so it can never be d2x.
+inline bool cios_revision_is_stub(std::uint32_t revision) { return revision == 65280; }
+
 }  // namespace riftwii

@@ -3,6 +3,7 @@
 
 #include <fat.h>
 #include <gccore.h>
+#include <ogc/es.h>
 #include <ogc/usbstorage.h>
 #include <malloc.h>
 #include <sdcard/wiisd_io.h>
@@ -132,11 +133,28 @@ bool post_reload_failure(const char* log_path, std::string& error) {
 }
 }
 
+// Read-only ticket query per candidate slot: installed or not, without
+// touching the running IOS. Identity (d2x vs stub vs other) is decided at
+// launch by the F9/FA probe after the reload; this only decides whether a
+// missing-cIOS warning is shown while games are listed.
+bool slot_has_ticket(int slot) {
+    u32 views = 0;
+    const u64 title = 0x100000000ull | static_cast<u64>(slot);
+    const s32 res = ES_GetNumTicketViews(title, &views);
+    return res >= 0 && views >= 1;
+}
+
 bool scan_usb_games(UsbCatalog& out, std::string& error) {
     out = UsbCatalog{}; if (!ensure_usb(error)) return false;
     std::string failure; scan_dir("usb:/wbfs", true, UsbImageFormat::Wbfs, out, failure); scan_dir("usb:/games", false, UsbImageFormat::Iso, out, failure);
     std::stable_sort(out.games.begin(),out.games.end(),[](const UsbGame&a,const UsbGame&b){ return a.id==b.id ? a.path<b.path : a.id<b.id; });
     out.status = out.games.empty() ? (failure.empty() ? "No valid FAT32 Wii images under usb:/wbfs or usb:/games" : "No valid USB images: " + failure) : "USB: " + std::to_string(out.games.size()) + " valid game(s)";
+    // Dolphin has no cIOS slots by design; warning there would be noise.
+    if (!running_in_dolphin()) {
+        const CiosSlotState slots[] = {{249, slot_has_ticket(249)}, {250, slot_has_ticket(250)}, {251, slot_has_ticket(251)}};
+        out.cios_note = cios_readiness_note(slots, 3);
+        if (!out.cios_note.empty()) logf("USB: %s\n", out.cios_note.c_str());
+    }
     error.clear(); return true;
 }
 void unmount_usb_games() { if (g_libfat_mounted) fatUnmount("usb:"); g_libfat_mounted=false; g_raw_mounted=false; }
@@ -160,9 +178,20 @@ bool activate_usb_game(const UsbGame& game, int cios_slot, void*& storage, std::
     di::close();
     const ReloadResult r=reload_ios(cios_slot,error);
     if (r==ReloadResult::NotInstalled || r==ReloadResult::Failed) return post_reload_failure(log_path, error);
+    const s32 running = IOS_GetVersion();
+    const s32 revision = IOS_GetRevision();
+    logf("USB: reloaded IOS%d rev %d for slot %d\n", running, revision, cios_slot);
+    if (revision >= 0 && cios_revision_is_stub(static_cast<std::uint32_t>(revision))) {
+        error = "IOS slot " + std::to_string(cios_slot) + " holds a stub, not a cIOS: install d2x (v11 beta3 is the latest) in 249, 250 or 251";
+        return post_reload_failure(log_path, error);
+    }
     if (!di::open(error)) { error = "after cIOS reload: " + error; return post_reload_failure(log_path, error); }
     std::uint32_t mode=0;
-    if (!di::probe_d2x(mode,error)) { error="IOS"+std::to_string(cios_slot)+" is not a d2x cIOS: "+error; return post_reload_failure(log_path, error); }
+    if (!di::probe_d2x(mode,error)) {
+        error = "IOS" + std::to_string(cios_slot) + " is not a d2x cIOS: " + error +
+                "; USB boot needs d2x (v11 beta3 is the latest) in 249, 250 or 251";
+        return post_reload_failure(log_path, error);
+    }
     if (!di::configure_frag_usb(storage,static_cast<std::uint32_t>(bytes.size()),error)) { error = "d2x F9 fragment setup failed: " + error; return post_reload_failure(log_path, error); }
     // Existing physical probes reset the drive. Disable reset after F9 so
     // the following virtual probe cannot clear d2x's emulation state.

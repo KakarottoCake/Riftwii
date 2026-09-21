@@ -9,8 +9,14 @@ Use a known-good FAT32 drive with 512-byte logical sectors. Put a Wii `.wbfs`
 file (and every consecutive `.wbf1`, `.wbf2`, … piece when split) in
 `usb:/wbfs`, either directly or one level below it, for example
 `usb:/wbfs/Game [RMCE01]/RMCE01.wbfs`. Raw `.iso` files belong in
-`usb:/games`. Install d2x cIOS in 249, or use 250/251; Riftwii tries those
-slots in that order when no slot is supplied.
+`usb:/games`. Install d2x cIOS (v11 beta3 is the latest) in 249, or use
+250/251; Riftwii tries those slots in that order when no slot is supplied.
+When no slot holds a cIOS ticket the GUI marks the USB status line with
+`[no cIOS: install d2x for USB boot]` and the log names the missing slots;
+a slot holding a stub, or an IOS that fails the d2x probe, fails at launch
+with the same remedy. Revision numbers are not compared: the guided
+installer stamps 65535 whatever the version, so the F9/FA probe after the
+reload stays the real capability check.
 
 Read-only-first sequence:
 
