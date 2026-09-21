@@ -1723,6 +1723,50 @@ write to compound a possible mirror mismatch. Focused host injection covers
 every FAT write in a growing file and in deletion, then verifies that a
 later create is refused while a lookup still works.
 
+### 24.21 Kirby's async import job in Dolphin (2026-09-20)
+The last open Dolphin item from 24.17 (thirty-two real async renames
+through the import job) is done. Fresh boot, `kirby_save.xml`, input
+from a hand-built DTM movie: the Yes/No save prompt confirmed, the
+game reached its title, and the card holds `FLF.BIN` (43456, `FLUS`),
+thirty `GF_*.JPG` (131072 each, `FLUS`) and `BANNER.BIN` (61600,
+`WIBN`), sizes and magics exactly as in 24.15. Dolphin's IOS_FS log
+shows all 32 NAND `/tmp` sources created, read in pieces, closed and
+deleted. Kirby issues its renames through async IOS, and the loader
+had recorded the async originals, so these 32 went through the
+asynchronous job path (`import_jobs`), not the sync fallback. Host
+`TestFsJobKirby` drives the same 32; it now also asserts no stage
+survives, as do the sync import and clone tests (`ExpectNoStage`,
+through the independent host FAT reader, which sees hidden entries).
+
+Input notes for the harness, all learned the hard way: Dolphin in
+`-b` batch mode never shows its window, so nothing can take focus and
+no live input (keys, clicks, hotkeys) can arrive; a DTM movie needs
+the booted DOL's game ID (`ID-riftwii`, first six `ID-rif`), not the
+game's, or playback aborts on the mismatch warning; the working
+formula is 600 empty frames then a rotating 2-tap, A-tap, Down-tap
+cycle so every prompt gets fresh edges. The Gecko TCP server never
+listened in movie runs (reason unknown, secondary: screenshots plus
+the card image carry the evidence).
+
+One anomaly on the card: a live hidden `.rwstage.tmp` shares
+`BANNER.BIN`'s chain (same first cluster, both 61600 bytes). The game
+visible state is perfect (32/32 files, title reached), and the engine
+side is clean: the rename/delete path was re-reviewed, a host repro
+of the exact commit shape (`TestCommitGhost`: 30 hidden-stage
+create-write-rename cycles with directory growth, chains asserted
+exclusive, host reader agreeing) passes, and 31 of the 32 same-path
+operations left nothing. Leading hypothesis is the harness, not the
+engine: Dolphin was killed with taskkill instead of a clean shutdown,
+and a lazily flushed directory sector (the entry write landed, the
+later mark write did not) explains a live stage beside a live banner
+exactly. Harness rule from now on: shut Dolphin down cleanly (or let
+the autorun power off) before reading the card image. Recorded as a
+known issue in the prerelease notes. If the stage ever recurs after a
+clean shutdown, the next step is a verify-after-rename in the commit
+path (re-lookup the stage name; fail loud instead of leaving a
+cross-link), because a later stale-delete would free the shared chain
+under the live file.
+
 ### 24.20 Takeover of the in-flight tree (2026-09-20)
 Opus's 24.19 tree was taken over mid-flight (hook tests red, blob
 `.rodata` failing the position-independence check). Three fixes, each

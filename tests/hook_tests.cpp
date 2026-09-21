@@ -5,6 +5,7 @@
 #include "rt_hook.h"
 #include "rtable.h"
 #include "fat32_image.hpp"
+#include "riftwii/fat32.hpp"
 
 #include <algorithm>
 #include <cstring>
@@ -584,6 +585,22 @@ void FsCopyPath(std::uint8_t* out, const std::string& path) {
     std::memcpy(out, path.c_str(), path.size());
 }
 
+// A completed import must leave no stage behind: the host reader sees
+// hidden entries too, so any live ".rwstage.tmp" (or its RWSTAG alias)
+// fails this. Guards the ghost entry once seen on a Dolphin card image,
+// where a leftover stage shared its committed file's chain.
+void ExpectNoStage(FsCard& card) {
+    riftwii::Fat32Volume v;
+    std::string err;
+    EXPECT_TRUE(riftwii::Fat32Volume::mount(card.image.reader(), v, err));
+    std::vector<riftwii::Fat32Entry> es;
+    EXPECT_TRUE(v.list("/save", es, err));
+    for (const auto& e : es) {
+        EXPECT_TRUE(e.name != ".rwstage.tmp");
+        EXPECT_TRUE(e.short_name.find("RWSTAG") == std::string::npos);
+    }
+}
+
 struct CbLog {
     std::uint32_t cb = 0;
     std::int32_t result = 0;
@@ -736,6 +753,11 @@ void FsFillCard(FsCard& card, fatimg::Bytes& content, rtfat_volume& volume, std:
         dir.insert(dir.end(), m.begin(), m.end());
     }
     EXPECT_TRUE(card.image.write_dir({3}, dir));
+    // Link the save folder into the root as SAVE so the independent
+    // host reader can cross-check the card image (the engine addresses
+    // dir_cluster directly and never looks at the root).
+    fatimg::Bytes root = fatimg::short_entry("SAVE       ", 0x10, 3, 0);
+    EXPECT_TRUE(card.image.write_dir({2}, root));
     volume = rtfat_volume{};
     volume.sectors_per_cluster = card.image.spc;
     volume.fat_lba = card.image.reserved;
@@ -1563,6 +1585,7 @@ static void TestFsRenameImport() {
     check_card_file("rksys.dat", rksys, 0);
     check_card_file("rksys.dat", rksys, RT_FS_IMPORT_BYTES - 16);
     check_card_file("rksys.dat", rksys, 2 * RT_FS_IMPORT_BYTES + 1234 - 50);
+    ExpectNoStage(card);
 
     // Renaming onto the file replaces it, size and all.
     NandFill(nand, "/tmp/rksys.dat", 700, 7);
@@ -1687,6 +1710,7 @@ static void TestFsRenameImport() {
     EXPECT_EQ(ios.delivered.back().result, 0);
     check_card_file("wibn.bin", wibn, 61600 - 40);
     check_card_file("wibn.bin", wibn, RT_FS_IMPORT_BYTES - 16);
+    ExpectNoStage(card);
 
     // A job whose card request finds the engine held by the game's own
     // async read (issued between the job's NAND open and its stats):
@@ -1934,6 +1958,7 @@ static void TestFsJobKirby() {
     EXPECT_EQ(st->imports, 32u);
     EXPECT_EQ(st->import_jobs, 32u);
     EXPECT_EQ(st->import_failures, 0u);
+    ExpectNoStage(card);
     // Every file: its size from a fresh lookup, and its last bytes.
     for (std::size_t i = 0; i < files.size(); ++i) {
         FsCopyPath(path, prefix + "/" + files[i].first);
@@ -2074,6 +2099,7 @@ static void TestFsClone() {
     check_card_file("FLF.bin", flf, 0);
     check_card_file("FLF.bin", flf, 2 * RT_FS_IMPORT_BYTES + 77 - 40);
     check_card_file("GF_0_00.jpg", gf, 1000);
+    ExpectNoStage(card);
     EXPECT_EQ(st->imports, 0u);
 
     // Once only.

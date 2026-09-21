@@ -1011,6 +1011,123 @@ static void TestGeometry(Low& low) {
     EXPECT_EQ(fx.vol.alloc_hint, 136u);
 }
 
+// ---- atomic-commit ghost: hidden stage renamed visible, old must die ----
+static std::uint32_t ReadFat(const fatimg::Image& img, std::uint32_t c) {
+    const std::uint8_t* p = img.bytes.data() + (std::uint64_t(img.reserved) * 512) + std::uint64_t(c) * 4;
+    return (std::uint32_t(p[0]) | (std::uint32_t(p[1]) << 8) | (std::uint32_t(p[2]) << 16) | (std::uint32_t(p[3]) << 24)) & 0x0FFFFFFFu;
+}
+
+static void TestCommitGhost(Low& low) {
+    // Single-sector clusters like the SD card; the save folder grows past
+    // one sector during the run, like the 37-entry folder on the card.
+    // Each round mimics the atomic import commit: hidden stage created,
+    // written, renamed visible. Afterwards the stage name must resolve
+    // to nothing (even hidden-aware), and no two live files may share a
+    // cluster (the card showed a stage sharing banner.bin's chain).
+    fatimg::Image img(512, 1, 0, 1024);
+    Device dev(img);
+    rtfat_volume vol{};
+    vol.sectors_per_cluster = 1;
+    vol.fat_lba = img.reserved;
+    vol.fat_count = img.fats;
+    vol.fat_sectors = img.fat_sectors;
+    vol.data_lba = static_cast<std::uint32_t>(img.data_start_sector());
+    vol.cluster_count = img.clusters;
+    vol.dir_cluster = 3;
+    vol.alloc_hint = 4;
+    Bytes root;
+    cat(root, short_entry("SAVE       ", 0x10, 3, 0));
+    EXPECT_TRUE(img.write_dir({2}, root));
+    Bytes dot;
+    cat(dot, short_entry(".          ", 0x10, 3, 0));
+    cat(dot, short_entry("..         ", 0x10, 2, 0));
+    EXPECT_TRUE(img.write_dir({3}, dot));
+    rtfat_op& op = *low.op;
+    Bytes payload = pattern(3 * 512 + 100, 0x5A);
+    std::vector<std::uint32_t> dst_first;
+    for (int i = 0; i < 30; ++i) {
+        char dst[16];
+        std::snprintf(dst, sizeof dst, "F%03d.BIN", i);
+        std::memset(&op, 0, sizeof(op));
+        SetName(op.name, ".rwstage.tmp");
+        op.want_hidden = 1;
+        EXPECT_EQ(Run(vol, op, dev, RTFAT_OP_CREATE), RTFAT_OK);
+        std::memset(&op, 0, sizeof(op));
+        SetName(op.name, ".rwstage.tmp");
+        op.want_hidden = 1;
+        EXPECT_EQ(Run(vol, op, dev, RTFAT_OP_LOOKUP), RTFAT_OK);
+        rtfat_file file{};
+        file.first_cluster = op.found.first_cluster;
+        file.size = 0;
+        file.position = 0;
+        file.entry_lba = op.found.entry_lba;
+        file.entry_index = op.found.entry_index;
+        std::memcpy(low.data, payload.data(), payload.size());
+        op.file = &file;
+        op.buffer = Addr(low.data);
+        op.length = static_cast<std::uint32_t>(payload.size());
+        op.bounce = Addr(low.bounce);
+        op.bounce_bytes = Low::kBounce;
+        EXPECT_EQ(Run(vol, op, dev, RTFAT_OP_WRITE), std::int32_t(payload.size()));
+        std::memset(&op, 0, sizeof(op));
+        SetName(op.name, ".rwstage.tmp");
+        SetName(op.name2, dst);
+        op.want_hidden = 2;
+        EXPECT_EQ(Run(vol, op, dev, RTFAT_OP_RENAME), RTFAT_OK);
+        std::memset(&op, 0, sizeof(op));
+        SetName(op.name, ".rwstage.tmp");
+        op.want_hidden = 1;
+        EXPECT_EQ(Run(vol, op, dev, RTFAT_OP_LOOKUP), RTFAT_ENOENT);
+        std::memset(&op, 0, sizeof(op));
+        SetName(op.name, dst);
+        EXPECT_EQ(Run(vol, op, dev, RTFAT_OP_LOOKUP), RTFAT_OK);
+        dst_first.push_back(op.found.first_cluster);
+    }
+    EXPECT_EQ(dst_first.size(), std::size_t(30));
+    // Every live chain exclusive: walk each file, no cluster twice.
+    std::vector<char> seen(img.clusters + 2, 0);
+    seen[3] = 1;
+    for (std::uint32_t first : dst_first) {
+        std::uint32_t c = first;
+        std::uint32_t n = 0;
+        while (c >= 2 && c < 0x0FFFFFF8u && n < 100) {
+            EXPECT_FALSE(seen[c]);
+            seen[c] = 1;
+            c = ReadFat(img, c);
+            ++n;
+        }
+        EXPECT_TRUE(c >= 0x0FFFFFF8u);
+    }
+    // The host reader agrees: every file present with its bytes, the
+    // stage name resolving to nothing.
+    riftwii::Fat32Volume v;
+    std::string err;
+    EXPECT_TRUE(riftwii::Fat32Volume::mount(img.reader(), v, err));
+    std::vector<riftwii::Fat32Entry> entries;
+    EXPECT_TRUE(v.list("/save", entries, err));
+    std::size_t files = 0;
+    for (const auto& e : entries) {
+        if (e.name != "." && e.name != "..") ++files;
+    }
+    EXPECT_EQ(files, std::size_t(30));
+    riftwii::Fat32File f;
+    EXPECT_FALSE(v.lookup("/save/.rwstage.tmp", f, err));
+    for (int i = 0; i < 30; ++i) {
+        char dst[16];
+        std::snprintf(dst, sizeof dst, "/save/F%03d.BIN", i);
+        EXPECT_TRUE(v.lookup(dst, f, err));
+        EXPECT_EQ(f.entry.size, std::uint32_t(payload.size()));
+    }
+    for (int i = 0; i < 30; i += 7) {
+        char dst[16];
+        std::snprintf(dst, sizeof dst, "/save/F%03d.BIN", i);
+        EXPECT_TRUE(v.lookup(dst, f, err));
+        Bytes out(f.entry.size);
+        EXPECT_TRUE(v.read(f, 0, out.data(), out.size()));
+        EXPECT_TRUE(out == payload);
+    }
+}
+
 int main() {
     Low low;
     if (!low.op) {
@@ -1025,6 +1142,7 @@ int main() {
     TestOrdinaryFatMutationPoison(low);
     TestCreate(low);
     TestDeleteRename(low);
+    TestCommitGhost(low);
     TestStraddle(low);
     TestList(low);
     TestGeometry(low);
