@@ -192,10 +192,11 @@ bool expand_folder(const FolderPatch& folder, const Fst& fst, ContentProvider& p
             error = "cannot name '" + folder.disc + "'";
             return false;
         }
-    } else if (!folder.create) {
-        error = "folder target '" + folder.disc + "' is not on the disc";
-        return false;
     }
+    // A package can list equivalent directories for several game regions.
+    // If this disc has no such directory and creation is disabled, the walk
+    // records the external entries as skipped.  Other folder patches in the
+    // same package can still apply to the directories for this disc.
     return walk_rooted(folder, fst, provider, sd_dir, disc_dir, index, 0, x, error);
 }
 
