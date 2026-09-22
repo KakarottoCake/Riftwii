@@ -71,7 +71,7 @@ extern "C" {
 #define RT_FLAG_FS 0x2u    /* route savegame calls through rtfs (docs section 24) */
 
 #define RT_MAX_PENDING 4u /* outstanding redirected reads (the DVD driver issues one at a time) */
-#define RT_MAX_RUNS 8u    /* pieces one read may split into; more passes through unmodified */
+#define RT_MAX_RUNS 8u    /* pieces of a read held at a time; longer reads are served in windows */
 #define RT_GECKO_MAX_FAILURES 32u /* refused bytes after which Gecko reporting turns itself off */
 #define RT_BOUNCE_BYTES 0x8000u   /* bytes one SD request fetches (64 sectors), per pending record */
 
@@ -141,7 +141,9 @@ struct rt_pending {
     uint32_t chunk_skip;   /* bytes to skip at the start of the bounce buffer */
     uint32_t bounce;       /* RT_BOUNCE_BYTES, 32-byte aligned (loader-filled) */
     uint32_t di_result;    /* the disc reply, handed to the game at the end */
-    uint32_t reserved;
+    uint32_t covered;      /* bytes of the request the current runs reach: less than `length`
+                            * when the read splits into more than RT_MAX_RUNS pieces, which are
+                            * then served RT_MAX_RUNS at a time (windows) */
     struct rt_sdio_request request;  /* offset 0x40 */
     uint32_t pad_request[7];
     uint32_t response[4];            /* offset 0x80 */
@@ -399,7 +401,7 @@ struct rt_context {
     uint32_t complete_entry;      /* absolute address of the completion entry (loader-filled) */
     uint32_t redirected_reads;    /* reads with at least one MEM/ZERO/SD run */
     uint32_t pending_overflow;    /* reads passed through unexamined because no record was free */
-    uint32_t run_overflow;        /* reads passed through because they split into > RT_MAX_RUNS */
+    uint32_t run_overflow;        /* reads that split into > RT_MAX_RUNS pieces (served in windows) */
     uint32_t last_checksum;       /* of the redirected bytes of the last completed read */
     uint32_t completions;         /* completion entry invocations */
     uint32_t virtual_start_words; /* first word offset of the virtual window, 0 = none (loader-filled) */

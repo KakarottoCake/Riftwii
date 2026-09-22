@@ -25,7 +25,7 @@ using Bytes = std::vector<std::uint8_t>;
 #if defined(_WIN32) || defined(__CYGWIN__)
 #include <windows.h>
 static std::uint8_t* LowBuffer(std::size_t bytes) {
-    for (std::uintptr_t hint = 0x10000000; hint < 0x70000000; hint += 0x10000000) {
+    for (std::uintptr_t hint = 0x10000000; hint < 0x70000000; hint += 0x01000000) {
         void* p = VirtualAlloc(reinterpret_cast<void*>(hint), bytes, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
         if (p) return static_cast<std::uint8_t*>(p);
     }
@@ -2059,6 +2059,10 @@ static void TestFsClone() {
         EXPECT_TRUE(std::memcmp(data, expect.data() + at, n) == 0);
         args[0] = fd;
         EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(2), args, &result), 1);
+        // Leave args as the replayed open of another device the clone
+        // steps below issue, never the closed fd read as a path.
+        FsCopyPath(path, "/dev/stm/immediate");
+        args[0] = FsAddr(path); args[1] = 0; args[2] = 0x80001000u; args[3] = 0x80002000u;
     };
 
     // From an IPC callback the clone waits (the synchronous functions
@@ -2763,6 +2767,11 @@ static void TestPayloadAndRedirect() {
     std::uint32_t seek_cmd[8] = {0xAB000000, 0, 0x80000010u, 0, 0, 0, 0, 0};
     std::uintptr_t seek_args[8] = {3, 0xAB, reinterpret_cast<std::uintptr_t>(seek_cmd), 0x20,
                                    0, 0, 0x80005000, 0x80006000};
+    // Through the dispatcher the trampoline calls: a seek must reach the
+    // DI hook, not the savegame path.
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC_IOCTL, seek_args, &result), 0);
+    EXPECT_EQ(seek_cmd[2], 0u);
+    seek_cmd[2] = 0x80000010u;
     EXPECT_EQ(rt_on_ioctl_async(&ctx, seek_args, &result), 0);
     EXPECT_EQ(seek_cmd[2], 0u);
     EXPECT_EQ(seek_args[6], 0x80005000u);  // the hook did not call or replace it
@@ -2930,6 +2939,62 @@ static void TestVirtualWindow() {
     disc_reps.clear();
 }
 
+// A read over more pieces than one record holds (RT_MAX_RUNS) is served
+// window by window, never passed through with the mod half missing.
+static void TestWindowedRead() {
+    std::uint8_t* low = LowBuffer(0x10000);
+    if (!low) {
+        std::cerr << "note: no 32-bit addressable buffer on this host, skipping the windowed read" << std::endl;
+        return;
+    }
+    // 12 replacements of 4 bytes, 8 bytes apart from 0x1000: 23 runs.
+    std::vector<riftwii::MemReplacement> reps;
+    for (std::uint8_t i = 0; i < 12; ++i) {
+        riftwii::MemReplacement m;
+        m.virtual_offset = 0x1000 + i * 8u;
+        m.bytes.assign(4, static_cast<std::uint8_t>(i + 1));
+        reps.push_back(m);
+    }
+    std::uint8_t* out = low;
+    std::uint8_t* table_copy = low + 0x1000;
+    const std::uint32_t table_address = static_cast<std::uint32_t>(reinterpret_cast<std::uintptr_t>(table_copy));
+    std::vector<std::uint8_t> payload;
+    std::string error;
+    EXPECT_TRUE(riftwii::build_mem_payload(reps, table_address, 0, payload, error));
+    std::memcpy(table_copy, payload.data(), payload.size());
+
+    rt_context ctx{};
+    ctx.magic = RT_CONTEXT_MAGIC;
+    ctx.table = table_address;
+    ctx.complete_entry = 0x935D0100;
+    std::memset(out, 0xEE, 0x80);
+    std::uint32_t di_cmd[8] = {0x71000000, 0x60, 0x1000 >> 2, 0, 0, 0, 0, 0};
+    std::uintptr_t args[8] = {3, 0x71, reinterpret_cast<std::uintptr_t>(di_cmd), 0x20,
+                              reinterpret_cast<std::uintptr_t>(out), 0x60, 0x80005000, 0x80006000};
+    std::uint32_t result = 0;
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC_IOCTL, args, &result), 0);
+    EXPECT_EQ(args[6], 0x935D0100u);  // redirected, not passed through
+    EXPECT_EQ(ctx.run_overflow, 1u);
+    auto* rec = reinterpret_cast<rt_pending*>(args[7]);
+    EXPECT_EQ(rec->run_count, RT_MAX_RUNS);
+    EXPECT_TRUE(rec->covered < rec->length);
+
+    std::uintptr_t cb = 0, ud = 0;
+    std::int32_t di_result = 1;
+    rt_on_di_complete(&ctx, &di_result, rec, &cb, &ud);
+    EXPECT_EQ(di_result, 1);
+    EXPECT_EQ(cb, 0x80005000u);
+    EXPECT_EQ(ud, 0x80006000u);
+    EXPECT_EQ(rec->in_use, 0u);
+    for (std::uint32_t i = 0; i < 12; ++i) {
+        EXPECT_EQ(out[i * 8], i + 1);
+        EXPECT_EQ(out[i * 8 + 3], i + 1);
+        EXPECT_EQ(out[i * 8 + 4], 0xEE);  // the gaps keep the disc's bytes
+    }
+    EXPECT_EQ(out[0x5F], 0xEE);
+    EXPECT_EQ(out[0x60], 0xEE);  // nothing written past the request
+}
+
 int main() {
     TestBlob();
     TestJumpAndDisplace();
@@ -2945,6 +3010,7 @@ int main() {
     TestResidentHandler();
     TestPayloadAndRedirect();
     TestVirtualWindow();
+    TestWindowedRead();
     if (g_failures) {
         std::cerr << g_failures << " failure(s)" << std::endl;
         return 1;
