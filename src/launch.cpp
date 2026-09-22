@@ -19,6 +19,15 @@ std::string clean(std::string s) {
     return s;
 }
 
+// A one-option, one-choice package has no choice for the user to make.  Its
+// sole choice is the enabled state.  Keep this in one helper so live toggles
+// and restored legacy choices files get identical behaviour.
+void select_simple_choice_on_enable(LaunchPackage& package) {
+    if (package.package.options.size() != 1) return;
+    Option& option = package.package.options.front();
+    if (option.choices.size() == 1 && option.selected == 0) option.selected = 1;
+}
+
 }  // namespace
 
 bool same_disc_identity(const DiscIdentity& left, const DiscIdentity& right) {
@@ -58,6 +67,11 @@ bool LaunchModel::set_enabled(std::size_t package, bool enabled) {
     LaunchPackage& p = packages[package];
     if (enabled && (!p.valid || !p.for_disc)) return false;
     p.enabled = enabled;
+    // Most single-choice packages mean "turn this patch on".  Selecting
+    // that one choice here removes an otherwise surprising second step in
+    // the UI.  Leave richer packages alone: their choices can be mutually
+    // exclusive or independently meaningful and must stay explicit.
+    if (enabled) select_simple_choice_on_enable(p);
     return true;
 }
 
@@ -136,6 +150,11 @@ std::string LaunchModel::save() const {
 }
 
 void LaunchModel::restore(const std::string& text) {
+    // Apply choices before package on/off state.  A legacy enabled simple
+    // package may have an explicitly saved empty choice from before the
+    // one-choice convenience existed; normalize that exact shape after all
+    // records are known, regardless of their line ordering.
+    std::vector<int> restored_enabled(packages.size(), -1);
     std::istringstream lines(text);
     std::string line;
     while (std::getline(lines, line)) {
@@ -166,14 +185,25 @@ void LaunchModel::restore(const std::string& text) {
         const std::size_t t2 = line.find('\t', t1 + 1);
         if (t2 == std::string::npos) {
             const std::string state = line.substr(t1 + 1);
-            if (state == "on") set_enabled(index, true);
-            else if (state == "off") set_enabled(index, false);
+            if (state == "on") restored_enabled[index] = 1;
+            else if (state == "off") restored_enabled[index] = 0;
             continue;
         }
         const std::string option = line.substr(t1 + 1, t2 - t1 - 1);
         const std::string choice = line.substr(t2 + 1);
         std::string error;
         select_choice(packages[index].package, option, choice, error);  // unknown: ignored
+    }
+    for (std::size_t i = 0; i < packages.size(); ++i) {
+        if (restored_enabled[i] < 0) continue;
+        if (restored_enabled[i] != 0 && packages[i].for_disc) {
+            packages[i].enabled = true;
+            select_simple_choice_on_enable(packages[i]);
+        } else {
+            // Package Off is non-destructive: leave every saved choice as it
+            // was, including the one choice of a simple package.
+            packages[i].enabled = false;
+        }
     }
 }
 
