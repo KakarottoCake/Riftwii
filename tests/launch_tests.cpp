@@ -29,6 +29,82 @@ static const char* kModOther =
 static const char* kModExactDisc =
     "<wiidisc version=\"1\"><id game=\"RMCE\" disc=\"1\" revision=\"2\"/></wiidisc>";
 
+static const char* kModSimple =
+    "<wiidisc version=\"1\"><id game=\"RMCE\"/>"
+    "<options><section name=\"Solo\"><option name=\"Enable\" default=\"0\">"
+    "<choice name=\"Apply\"><patch id=\"p\"/></choice></option></section></options>"
+    "<patch id=\"p\"><file disc=\"/a.bin\" external=\"a.bin\"/></patch>"
+    "</wiidisc>";
+
+static const char* kModMultiChoice =
+    "<wiidisc version=\"1\"><id game=\"RMCE\"/>"
+    "<options><section name=\"Choices\"><option name=\"Pick\" default=\"0\">"
+    "<choice name=\"One\"><patch id=\"a\"/></choice><choice name=\"Two\"><patch id=\"b\"/></choice>"
+    "</option></section></options><patch id=\"a\"/><patch id=\"b\"/></wiidisc>";
+
+static const char* kModMultiOption =
+    "<wiidisc version=\"1\"><id game=\"RMCE\"/>"
+    "<options><section name=\"Choices\"><option name=\"First\" default=\"0\">"
+    "<choice name=\"One\"><patch id=\"a\"/></choice></option><option name=\"Second\" default=\"0\">"
+    "<choice name=\"Two\"><patch id=\"b\"/></choice></option></section></options>"
+    "<patch id=\"a\"/><patch id=\"b\"/></wiidisc>";
+
+static void test_simple_package_activation() {
+    riftwii::DiscIdentity disc{"RMCE01", 0, 0};
+    riftwii::LaunchModel simple;
+    simple.add("simple.xml", "sd:/riivolution/simple.xml", kModSimple, &disc);
+    EXPECT_EQ(simple.choice_name(0, 0), std::string("Off"));
+    EXPECT_TRUE(simple.set_enabled(0, true));
+    EXPECT_EQ(simple.choice_name(0, 0), std::string("Apply"));
+
+    // Disabling only removes the package from the launch set; it does not
+    // throw away the user's already selected choice.
+    EXPECT_TRUE(simple.set_enabled(0, false));
+    EXPECT_EQ(simple.choice_name(0, 0), std::string("Apply"));
+    EXPECT_TRUE(simple.set_enabled(0, true));
+    EXPECT_EQ(simple.choice_name(0, 0), std::string("Apply"));
+
+    // Turning the only choice off and enabling again supplies the simple
+    // package's sole choice, as the home screen promises.
+    EXPECT_TRUE(simple.cycle(0, 0, +1));
+    EXPECT_EQ(simple.choice_name(0, 0), std::string("Off"));
+    EXPECT_TRUE(simple.set_enabled(0, false));
+    EXPECT_TRUE(simple.set_enabled(0, true));
+    EXPECT_EQ(simple.choice_name(0, 0), std::string("Apply"));
+
+    // A package needs both one option and one choice for this shortcut.
+    riftwii::LaunchModel multi_choice;
+    multi_choice.add("multi-choice.xml", "sd:/riivolution/multi-choice.xml", kModMultiChoice, &disc);
+    EXPECT_TRUE(multi_choice.set_enabled(0, true));
+    EXPECT_EQ(multi_choice.choice_name(0, 0), std::string("Off"));
+    riftwii::LaunchModel multi_option;
+    multi_option.add("multi-option.xml", "sd:/riivolution/multi-option.xml", kModMultiOption, &disc);
+    EXPECT_TRUE(multi_option.set_enabled(0, true));
+    EXPECT_EQ(multi_option.choice_name(0, 0), std::string("Off"));
+    EXPECT_EQ(multi_option.choice_name(0, 1), std::string("Off"));
+
+    // Restore migrates v0.3.4's enabled + empty-choice records to the sole
+    // usable choice, in either line order.
+    riftwii::LaunchModel restored_before;
+    restored_before.add("simple.xml", "sd:/riivolution/simple.xml", kModSimple, &disc);
+    restored_before.restore("simple.xml\tSolo/Enable\t\nsimple.xml\ton\n");
+    EXPECT_TRUE(restored_before.packages[0].enabled);
+    EXPECT_EQ(restored_before.choice_name(0, 0), std::string("Apply"));
+    riftwii::LaunchModel restored_after;
+    restored_after.add("simple.xml", "sd:/riivolution/simple.xml", kModSimple, &disc);
+    restored_after.restore("simple.xml\ton\nsimple.xml\tSolo/Enable\t\n");
+    EXPECT_TRUE(restored_after.packages[0].enabled);
+    EXPECT_EQ(restored_after.choice_name(0, 0), std::string("Apply"));
+
+    // Package Off preserves its saved choice instead of changing it during
+    // restore, including for the simple shape.
+    riftwii::LaunchModel restored_off;
+    restored_off.add("simple.xml", "sd:/riivolution/simple.xml", kModSimple, &disc);
+    restored_off.restore("simple.xml\tSolo/Enable\tApply\nsimple.xml\toff\n");
+    EXPECT_FALSE(restored_off.packages[0].enabled);
+    EXPECT_EQ(restored_off.choice_name(0, 0), std::string("Apply"));
+}
+
 static void test_model() {
     riftwii::DiscIdentity disc{"RMCE01", 0, 0};
     riftwii::LaunchModel model;
@@ -205,6 +281,7 @@ static void test_saves() {
 
 int main() {
     test_model();
+    test_simple_package_activation();
     test_persistence();
     test_saves();
     if (g_failures == 0) {

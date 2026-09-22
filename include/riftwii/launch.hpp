@@ -72,7 +72,9 @@ public:
     // in `detail`.
     void add(const std::string& file, const std::string& path, const std::string& xml, const DiscIdentity* disc);
 
-    // Enabling a package that is invalid or for another disc is refused.
+    // Enabling a package that is invalid or for another disc is refused.  A
+    // package with exactly one off option and one choice selects that choice
+    // on enable; packages with more choices or options remain explicit.
     bool set_enabled(std::size_t package, bool enabled);
     // Moves an option to its next (direction > 0) or previous choice,
     // wrapping through "off". Returns false for a bad index.
@@ -89,7 +91,9 @@ public:
     //   <file>\t<on|off>
     //   <file>\t<Section/Option>\t<choice name or empty>
     // Restoring ignores files, options and choices it no longer finds, and
-    // any save mode it does not know.
+    // any save mode it does not know.  A saved enabled package with exactly
+    // one option and one choice is normalized to that choice, including old
+    // files that stored an empty choice before this convenience existed.
     std::string save() const;
     void restore(const std::string& text);
 };

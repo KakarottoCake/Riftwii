@@ -19,6 +19,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <atomic>
+#include <array>
 #include <initializer_list>
 #include <wiiuse/wpad.h>
 
@@ -46,6 +47,111 @@ static const char* PackageValue(const riftwii::LaunchPackage& p)
 	if (!p.valid) return "Invalid";
 	if (!p.for_disc) return "Other disc";
 	return p.enabled ? "On" : "Off";
+}
+
+// A 32-character hard chunk stays within the 560px text width even for a
+// run of wide glyphs. Home has room for one line only; Mod Options has room
+// for three lines because it has just one row of bottom buttons.
+constexpr std::size_t kDetailCharsPerLine = 32;
+constexpr std::size_t kDetailLinesPerPage = 3;
+
+struct DetailPage {
+	std::array<std::string, kDetailLinesPerPage> rows;
+};
+
+struct DetailPages {
+	std::vector<DetailPage> pages;
+};
+
+// Hard-wrap instead of relying on GuiText word wrapping: an XML attribute
+// name can be thousands of characters with no whitespace. Parser details are
+// otherwise copied byte-for-byte.
+static std::vector<std::string> MakeDetailLines(const std::string& detail)
+{
+	std::vector<std::string> lines;
+	std::string line;
+	const auto finish_line = [&]() {
+		lines.push_back(line);
+		line.clear();
+	};
+	for (char c : detail) {
+		if (c == '\r') continue;
+		if (c == '\n') {
+			finish_line();
+			continue;
+		}
+		line.push_back(c);
+		if (line.size() == kDetailCharsPerLine) finish_line();
+	}
+	if (!line.empty() || lines.empty()) finish_line();
+	return lines;
+}
+
+// Each page is one header and two diagnostic lines, so it cannot grow into
+// the button rows.
+static DetailPages MakeDetailPages(const std::string& detail)
+{
+	const std::vector<std::string> lines = MakeDetailLines(detail);
+	constexpr std::size_t kBodyLines = kDetailLinesPerPage - 1;
+	const std::size_t count = (lines.size() + kBodyLines - 1) / kBodyLines;
+	DetailPages pages;
+	for (std::size_t page = 0; page < count; ++page) {
+		DetailPage detail;
+		detail.rows[0] = "Details " + std::to_string(page + 1) + "/" + std::to_string(count);
+		const std::size_t first = page * kBodyLines;
+		for (std::size_t row = 0; row < kBodyLines; ++row) {
+			if (first + row < lines.size()) detail.rows[row + 1] = lines[first + row];
+		}
+		pages.pages.push_back(std::move(detail));
+	}
+	return pages;
+}
+
+// Home status does not have a page control. Keep it to one text row below
+// the browser; the selected package's complete diagnostics are in Mod
+// Options. The explicit marker explains where a truncated status continues.
+static std::string BoundedHomeDetail(const std::string& detail)
+{
+	const std::vector<std::string> lines = MakeDetailLines(detail);
+	if (lines.size() == 1) return lines.front();
+	static const std::string marker = " +: details";
+	return lines.front().substr(0, kDetailCharsPerLine - marker.size()) + marker;
+}
+
+static void SetDetailRows(const std::array<GuiText*, kDetailLinesPerPage>& rows, const DetailPage& detail)
+{
+	for (std::size_t row = 0; row < kDetailLinesPerPage; ++row)
+		rows[row]->SetText(detail.rows[row].c_str());
+}
+
+static void SetBoundedHomeDetail(GuiText& text, const std::string& detail)
+{
+	text.SetText(BoundedHomeDetail(detail).c_str());
+}
+
+static bool AllOptionsOff(const riftwii::LaunchPackage& p)
+{
+	if (p.package.options.empty()) return false;
+	for (const riftwii::Option& option : p.package.options) {
+		if (option.selected != 0 && option.selected <= option.choices.size()) return false;
+	}
+	return true;
+}
+
+static std::string ToggleDetail(const riftwii::LaunchPackage& p, bool enabled, bool simple_auto_selected)
+{
+	if (!enabled)
+		return "Disabled. A enables; + details";
+	if (simple_auto_selected) {
+		const riftwii::Option& option = p.package.options.front();
+		const std::string choice = option.choices.front().name;
+		return "Enabled: '" + choice.substr(0, 10) + "' selected";
+	}
+	if (AllOptionsOff(p))
+		return "Enabled; no choice. + options";
+	if (p.package.options.empty())
+		return "Enabled; no options. + details";
+	return "Enabled. + options/details";
 }
 
 static GuiImageData * pointer[4];
@@ -172,21 +278,6 @@ static void ClearStaleButtons(std::initializer_list<GuiButton*> buttons) {
 		if (b->GetState() == STATE::SELECTED) b->ResetState();
 }
 
-// One line for the mods screen: where this game's saves go. The toggle
-// cycles NAND -> Separate -> Fresh; Separate clones the NAND progress in
-// once, Fresh starts empty. A mod's own <savegame> redirect wins at boot.
-static std::string SavesLine(const FrontendState& state)
-{
-	const std::string& mode = state.model.save_mode;
-	if (mode == "separate")
-		return "Save Mode: Separate (sd:/riftwii/saves/" + state.game_id + "/clone, NAND progress cloned in once)";
-	if (mode == "fresh")
-		return "Save Mode: Fresh (sd:/riftwii/saves/" + state.game_id + "/fresh, started empty)";
-	return "Save Mode: NAND (the Wii saves as usual)";
-}
-
-static const char* kHomeHotkeys = "A: toggle   B: back   +: Mod Options   -: Save Mode   1: launch (X on GamePad)";
-
 // Short image-catalog status for the source screen (counts only): the
 // full sentences never fit between the title and the buttons.
 static std::string CountLine(const char* tag, const riftwii::wii::ImageCatalog& catalog)
@@ -229,9 +320,11 @@ static std::string SourceDetail(const riftwii::wii::FrontendState& state)
 // the hotkeys (clean scan) or the scan problem (which matters more).
 static std::string HomeDetail(const FrontendState& state, const std::string& scanStatus)
 {
+	const std::string save = state.model.save_mode == "separate" ? "Save:Sep" :
+		state.model.save_mode == "fresh" ? "Save:Fresh" : "Save:NAND";
 	if (scanStatus == riftwii::wii::kScanReady)
-		return SavesLine(state) + "\n" + kHomeHotkeys;
-	return scanStatus + "\n" + SavesLine(state);
+		return save + " A:toggle +:options";
+	return scanStatus;
 }
 
 // Start screen. Image selection happens while IOS58 owns the storage; the
@@ -526,10 +619,10 @@ static int MenuHome(FrontendState& state)
 	discTxt.SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
 	discTxt.SetPosition(40, 58);
 
-	GuiText detailTxt(HomeDetail(state, scanStatus).c_str(), 16, (GXColor){255, 255, 255, 255});
+	GuiText detailTxt(BoundedHomeDetail(HomeDetail(state, scanStatus)).c_str(), 16, (GXColor){255, 255, 255, 255});
 	detailTxt.SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
-	detailTxt.SetPosition(40, 330);
-	detailTxt.SetWrap(true, screenwidth - 80);
+	detailTxt.SetPosition(40, 328);
+	detailTxt.SetWrap(false);
 
 	GuiOptionBrowser browser(552, 238, &options);
 	browser.SetPosition(0, 84);
@@ -562,7 +655,7 @@ static int MenuHome(FrontendState& state)
 		std::string error;
 		if (!SaveChoices(state, error)) {
 			launchBtn.button.ResetState();
-			detailTxt.SetText(error.c_str());
+			SetBoundedHomeDetail(detailTxt, error);
 			return false;
 		}
 		menu = next_menu;
@@ -595,13 +688,21 @@ static int MenuHome(FrontendState& state)
 			// Back navigation (which rescans and restores) cannot wipe it.
 			const std::size_t pkg = visible[static_cast<std::size_t>(clicked)];
 			selectedPackage = static_cast<int>(pkg);
-			const riftwii::LaunchPackage& p = state.model.packages[pkg];
+			riftwii::LaunchPackage& p = state.model.packages[pkg];
+			const bool enabling = !p.enabled;
+			const bool simple_was_off = enabling && p.valid && p.package.options.size() == 1 &&
+				p.package.options.front().choices.size() == 1 && p.package.options.front().selected == 0;
 			if (!state.model.set_enabled(pkg, !p.enabled)) {
-				detailTxt.SetText(p.detail.substr(0, 160).c_str());
+				if (!p.valid) SetBoundedHomeDetail(detailTxt, "Invalid XML; + details");
+				else if (!p.for_disc) SetBoundedHomeDetail(detailTxt, "Other disc; cannot enable");
+				else SetBoundedHomeDetail(detailTxt, "Cannot enable this package");
 			} else {
 				std::string save_error;
-				if (!SaveChoices(state, save_error)) detailTxt.SetText(save_error.c_str());
-				else detailTxt.SetText(p.detail.substr(0, 160).c_str());
+				if (!SaveChoices(state, save_error)) SetBoundedHomeDetail(detailTxt, save_error);
+				else {
+					const bool simple_auto_selected = simple_was_off && p.enabled && p.package.options.front().selected == 1;
+					SetBoundedHomeDetail(detailTxt, ToggleDetail(p, p.enabled, simple_auto_selected));
+				}
 			}
 			fill();
 			browser.TriggerUpdate();
@@ -613,12 +714,11 @@ static int MenuHome(FrontendState& state)
 		}
 		else if(optionsBtn.Clicked()) {
 			if (selectedPackage >= 0 && static_cast<std::size_t>(selectedPackage) < state.model.packages.size() &&
-			    state.model.packages[selectedPackage].valid &&
 			    riftwii::show_package(state.model.packages[selectedPackage])) {
 				menu = MENU_OPTIONS;
 			} else {
 				optionsBtn.button.ResetState();
-			detailTxt.SetText("Enable or disable a package with A first; + opens Mod Options");
+				SetBoundedHomeDetail(detailTxt, "Select a mod; + options");
 			}
 		}
 		else if(backBtn.Clicked()) {
@@ -628,7 +728,7 @@ static int MenuHome(FrontendState& state)
 			std::string save_error;
 			if (!SaveChoices(state, save_error)) {
 				backBtn.button.ResetState();
-				detailTxt.SetText(save_error.c_str());
+				SetBoundedHomeDetail(detailTxt, save_error);
 			} else if (state.use_usb || state.use_sd) {
 				menu = MENU_GAMES;
 			} else {
@@ -641,22 +741,22 @@ static int MenuHome(FrontendState& state)
 			else if (state.model.save_mode == "fresh") state.model.save_mode = "nand";
 			else state.model.save_mode = "separate";
 			std::string error;
-			if (!SaveChoices(state, error)) detailTxt.SetText(error.c_str());
-			else detailTxt.SetText(HomeDetail(state, scanStatus).c_str());
+			if (!SaveChoices(state, error)) SetBoundedHomeDetail(detailTxt, error);
+			else SetBoundedHomeDetail(detailTxt, HomeDetail(state, scanStatus));
 		}
 		else if(launchBtn.Clicked()) {
 			if (state.game_id.empty()) {
 				launchBtn.button.ResetState();
-				detailTxt.SetText("Insert a disc and rescan (Dump) before launching");
+				SetBoundedHomeDetail(detailTxt, "Insert disc; rescan first");
 			} else if (state.use_usb && !state.usb_catalog.cios_note.empty()) {
 				// No cIOS in any candidate slot: refuse before the GUI tears
 				// down, while the remedy is still readable on screen. The
 				// reload path errors the same way headless (autorun) runs.
 				launchBtn.button.ResetState();
-				detailTxt.SetText(state.usb_catalog.cios_note.c_str());
+				SetBoundedHomeDetail(detailTxt, state.usb_catalog.cios_note);
 			} else if (state.use_sd && !state.sd_catalog.cios_note.empty()) {
 				launchBtn.button.ResetState();
-				detailTxt.SetText(state.sd_catalog.cios_note.c_str());
+				SetBoundedHomeDetail(detailTxt, state.sd_catalog.cios_note);
 			} else if (!riftwii::needs_launch_pipeline(!state.model.selections().empty(), state.model.save_mode)) {
 				save_before_leave(MENU_BOOT);  // no resident work: boot the selected source as it is
 			} else if (state.use_usb || state.use_sd) {
@@ -792,6 +892,9 @@ static int MenuOptions(FrontendState& state)
 {
 	int menu = MENU_NONE;
 	riftwii::LaunchPackage& p = state.model.packages[selectedPackage];
+	const bool readOnly = !p.valid;
+	DetailPages detailPages = MakeDetailPages(p.detail);
+	std::size_t detailPage = 0;
 
 	static OptionList options;
 	memset(&options, 0, sizeof(options));
@@ -820,14 +923,24 @@ static int MenuOptions(FrontendState& state)
 	titleTxt.SetPosition(40,20);
 	titleTxt.SetMaxWidth(screenwidth - 80);
 
-	GuiText hintTxt("A: next choice   -/Y: previous choice   B: back", 18, (GXColor){200, 200, 200, 255});
+	GuiText hintTxt(readOnly ? "+: next detail   B: back" : "A: next choice   -: previous   +: next detail   B: back", 18,
+		(GXColor){200, 200, 200, 255});
 	hintTxt.SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
 	hintTxt.SetPosition(40, 58);
 
-	GuiText detailTxt(p.detail.substr(0, 160).c_str(), 16, (GXColor){255, 255, 255, 255});
-	detailTxt.SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
-	detailTxt.SetPosition(40, 340);
-	detailTxt.SetWrap(true, screenwidth - 80);
+	// Paged diagnostics preserve the complete parser detail without allowing
+	// a long no-whitespace attribute name to reach the button row.
+	GuiText detailTxt0(detailPages.pages[detailPage].rows[0].c_str(), 16, (GXColor){255, 255, 255, 255});
+	GuiText detailTxt1(detailPages.pages[detailPage].rows[1].c_str(), 16, (GXColor){255, 255, 255, 255});
+	GuiText detailTxt2(detailPages.pages[detailPage].rows[2].c_str(), 16, (GXColor){255, 255, 255, 255});
+	for (GuiText* text : {&detailTxt0, &detailTxt1, &detailTxt2}) {
+		text->SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
+		text->SetWrap(false);
+	}
+	detailTxt0.SetPosition(40, 340);
+	detailTxt1.SetPosition(40, 362);
+	detailTxt2.SetPosition(40, 384);
+	const std::array<GuiText*, kDetailLinesPerPage> detailRows = {&detailTxt0, &detailTxt1, &detailTxt2};
 
 	GuiOptionBrowser browser(552, 248, &options);
 	browser.SetPosition(0, 84);
@@ -842,17 +955,23 @@ static int MenuOptions(FrontendState& state)
 	backBtn.Place(ALIGN_H::LEFT, ALIGN_V::BOTTOM, 40, -35);
 	MenuButton prevBtn("Previous", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_MINUS | WPAD_CLASSIC_BUTTON_MINUS, PAD_BUTTON_Y, WIIDRC_BUTTON_MINUS);
 	prevBtn.Place(ALIGN_H::RIGHT, ALIGN_V::BOTTOM, -40, -35);
+	MenuButton detailBtn("Next Detail", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_PLUS | WPAD_CLASSIC_BUTTON_PLUS, PAD_BUTTON_X, WIIDRC_BUTTON_PLUS);
+	detailBtn.Place(ALIGN_H::CENTRE, ALIGN_V::BOTTOM, 0, -35);
 	backBtn.button.SetScale(0.85f);
 	prevBtn.button.SetScale(0.85f);
+	detailBtn.button.SetScale(0.85f);
 
 	HaltGui();
 	GuiWindow w(screenwidth, screenheight);
 	w.Append(&titleTxt);
 	w.Append(&hintTxt);
-	w.Append(&browser);
-	w.Append(&detailTxt);
+	if (!readOnly) w.Append(&browser);
+	w.Append(&detailTxt0);
+	w.Append(&detailTxt1);
+	w.Append(&detailTxt2);
 	w.Append(&backBtn.button);
-	w.Append(&prevBtn.button);
+	if (!readOnly) w.Append(&prevBtn.button);
+	w.Append(&detailBtn.button);
 	mainWindow->Append(&w);
 	ResumeGui();
 
@@ -861,15 +980,16 @@ static int MenuOptions(FrontendState& state)
 	{
 		usleep(10000);
 		HaltGui();
-		ClearStaleButtons({&backBtn.button, &prevBtn.button});
-		const int clicked = browser.GetClickedOption();
+		if (readOnly) ClearStaleButtons({&backBtn.button, &detailBtn.button});
+		else ClearStaleButtons({&backBtn.button, &prevBtn.button, &detailBtn.button});
+		const int clicked = readOnly ? -1 : browser.GetClickedOption();
 		if (clicked >= 0 && static_cast<std::size_t>(clicked) < p.package.options.size()) {
 			lastRow = clicked;
 			state.model.cycle(selectedPackage, clicked, +1);
 			fill();
 			browser.TriggerUpdate();
 		}
-		if (prevBtn.Clicked()) {
+		if (!readOnly && prevBtn.Clicked()) {
 			prevBtn.button.ResetState();
 			if (static_cast<std::size_t>(lastRow) < p.package.options.size()) {
 				state.model.cycle(selectedPackage, lastRow, -1);
@@ -877,13 +997,23 @@ static int MenuOptions(FrontendState& state)
 				browser.TriggerUpdate();
 			}
 		}
+		if (detailBtn.Clicked()) {
+			detailBtn.button.ResetState();
+			detailPage = (detailPage + 1) % detailPages.pages.size();
+			SetDetailRows(detailRows, detailPages.pages[detailPage]);
+		}
 		if(backBtn.Clicked()) {
+			if (readOnly) {
+				menu = MENU_HOME;
+				ResumeGui();
+				continue;
+			}
 			// Cycled choices live in memory until saved; MenuHome would
 			// restore the file over them on entry.
 			std::string save_error;
 			if (!SaveChoices(state, save_error)) {
 				backBtn.button.ResetState();
-				detailTxt.SetText(save_error.c_str());
+				SetDetailRows(detailRows, MakeDetailPages(save_error).pages.front());
 			} else {
 				menu = MENU_HOME;
 			}
