@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "riftwii/fat32.hpp"
+#include "riftwii/imagevolume.hpp"
 #include "riftwii/overlay.hpp"
 
 namespace riftwii {
@@ -36,11 +37,11 @@ struct D2xFragmentList {
 
 // A file piece contributes consecutive container bytes.  A split .wbfs is
 // represented by its .wbfs then .wbf1, .wbf2 ... pieces.  The source is used
-// only while libfat is mounted for catalog validation and host tests; d2x
-// consumes the corresponding FAT extents after the IOS reload.
+// only for catalog validation and host tests; d2x
+// consumes the corresponding FAT32/NTFS extents after the IOS reload.
 struct UsbImagePiece {
     std::shared_ptr<const ByteSource> source;
-    Fat32File file;
+    VolumeFile file;
     std::string path;
 };
 

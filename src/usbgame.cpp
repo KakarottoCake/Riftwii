@@ -79,14 +79,14 @@ bool map_container_range(const UsbImage& image, std::uint64_t container_sector, 
             const std::uint64_t n = std::min(need, f.sector_count - file_sector);
             if (f.sector > std::numeric_limits<std::uint32_t>::max() || f.sector + file_sector > std::numeric_limits<std::uint32_t>::max() ||
                 n > std::numeric_limits<std::uint32_t>::max() || logical > std::numeric_limits<std::uint32_t>::max()) {
-                error = "FAT32 physical extent exceeds d2x's 32-bit sector ABI";
+                error = "USB physical extent exceeds d2x's 32-bit sector ABI";
                 return false;
             }
             out.push_back({static_cast<std::uint32_t>(logical), static_cast<std::uint32_t>(f.sector + file_sector), static_cast<std::uint32_t>(n)});
             logical += n; need -= n; file_sector = 0;
             if (!need) break;
         }
-        if (need) { error = "FAT32 fragments do not cover USB file size"; return false; }
+        if (need) { error = "file system fragments do not cover USB file size"; return false; }
         remaining -= take;
         if (!remaining) return true;
         at_bytes = 0;
@@ -160,7 +160,7 @@ bool build_map(const UsbImage& image, std::vector<D2xFragment>& map, std::uint64
     for (const auto& p : image.pieces) {
         if (!p.source) { error = "USB image piece has no byte source"; return false; }
         if (p.file.entry.size == 0) { error = "USB image has an empty file piece"; return false; }
-        if (p.source->size() != p.file.entry.size) { error = "USB image piece size differs from its FAT32 entry"; return false; }
+        if (p.source->size() != p.file.entry.size) { error = "USB image piece size differs from its directory entry"; return false; }
     }
     return image.format == UsbImageFormat::Iso ? build_raw(image, map, sectors, error) : build_wbfs(image, map, sectors, error);
 }
