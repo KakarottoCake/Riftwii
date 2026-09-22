@@ -116,6 +116,21 @@ bool verify_sd_replacement(const sdio::Card& card, const SdReplacement& r, std::
 // bypasses the cache; mixing it with dirty cache lines would let the flush
 // overwrite it with stale data (Dolphin has no cache, so it would not show
 // there).
+// When the running IOS is kept for the launch nothing forces the card off
+// before the game starts, so libfat and boot.log stay live through the
+// apploader and the table build, where a hardware hang is otherwise
+// invisible. They go right before the runtime's raw SD handle opens (two
+// drivers must not drive the slot at once) or, without one, before the jump.
+bool g_card_live_for_log = false;
+void release_card_and_log() {
+    if (!g_card_live_for_log) return;
+    logf("Releasing the SD card (the log ends here; the rest is on screen)\n");
+    LogClose();
+    fatUnmount("sd:");
+    __io_wiisd.shutdown();
+    g_card_live_for_log = false;
+}
+
 void store32(std::uint32_t address, std::uint32_t value) {
     *reinterpret_cast<volatile std::uint32_t*>(address) = value;
 }
@@ -716,6 +731,7 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
             error = "SD-backed replacements and savegame redirection need the resident runtime";
             return false;
         }
+        release_card_and_log();
         if (!sdio::open_card(card, error)) return false;
         logf("SD card: fd %d, rca 0x%04x, %s\n", card.fd, card.rca, card.sdhc ? "SDHC" : "SDSC");
         if (options.verify_sd) {
@@ -837,6 +853,7 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
     }
     settime(secs_to_ticks(static_cast<u64>(std::time(nullptr)) - kWiiEpochOffset));
 
+    release_card_and_log();
     // The resident starts with the game; from here it needs the selected
     // raw-card fd for SD-backed reads and savegame writes.
     card_handed_to_runtime = true;
@@ -948,20 +965,27 @@ bool boot_game(const DiscProbe& probe, const BootOptions& options, std::string& 
     SavegameOptions savegame;
     if (!effective.savegame_dir.empty() && !prepare_savegame(probe, effective, savegame, error)) return false;
 
-    // Everything IOS holds for us dies with the reload: the Wii Remote
-    // stack (which also saves its pairings to NAND on shutdown, so it must
-    // go while IPC is still alive), the log, DI and the SD card.
+    // Everything IOS holds for us dies with a reload: the Wii Remote stack
+    // (which also saves its pairings to NAND on shutdown, so it must go
+    // while IPC is still alive), the log, DI and the SD card. With the
+    // running IOS kept, the card and the log stay (release_card_and_log).
     WPAD_Shutdown();
-    LogClose();
     std::string ignored;
     di::close_partition(ignored);
     di::close();
-    fatUnmount("sd:");
-    __io_wiisd.shutdown();
+    if (effective.preserve_current_ios) {
+        g_card_live_for_log = true;
+    } else {
+        LogClose();
+        fatUnmount("sd:");
+        __io_wiisd.shutdown();
+    }
 
     boot_after_unmount(probe, effective, savegame, required, error);  // returns only on failure
     if (reload_terminal_failure()) return false;
-    if (effective.preserve_current_ios) {
+    if (g_card_live_for_log) {
+        g_card_live_for_log = false;  // failed before the card was released: it and the log are still up
+    } else if (effective.preserve_current_ios) {
         // The preserved IOS may own a USB virtual disc. Reacquiring all
         // default devices could interfere with it, so recover only SD/log.
         if (fatMountSimple("sd", &__io_wiisd)) {
