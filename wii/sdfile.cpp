@@ -34,6 +34,8 @@ bool resolve_sd_directory(const std::string& sd_path, rtfat_volume& out, std::st
         return false;
     }
     if (!ensure_mounted(error)) return false;
+    // The folder may have just been created through libfat.
+    g_volume.forget_cached();
     const Fat32Geometry& g = g_volume.geometry();
     if (g.bytes_per_sector != 512) {
         error = "the SD card has " + std::to_string(g.bytes_per_sector) + "-byte sectors; savegame redirection needs 512";
@@ -79,18 +81,43 @@ bool resolve_sd_directory(const std::string& sd_path, rtfat_volume& out, std::st
 }
 
 bool resolve_sd_file(const std::string& sd_path, Fat32File& out, std::string& error) {
+    bool missing = false;
+    return resolve_sd_file(sd_path, out, missing, error);
+}
+
+bool resolve_sd_file(const std::string& sd_path, Fat32File& out, bool& missing, std::string& error) {
+    missing = false;
     if (sd_path.compare(0, 4, "sd:/") != 0) {
         error = "'" + sd_path + "' is not an sd:/ path";
         return false;
     }
     if (!ensure_mounted(error)) return false;
-    if (!g_volume.lookup(sd_path.substr(3), out, error)) return false;
+    if (!g_volume.lookup(sd_path.substr(3), out, missing, error)) return false;
     if (out.entry.is_directory) {
         error = "'" + sd_path + "' is a directory";
         return false;
     }
     error.clear();
     return true;
+}
+
+bool list_sd_directory(const std::string& sd_path, std::vector<Fat32Entry>& out, bool& missing,
+                       std::string& error) {
+    missing = false;
+    if (sd_path.compare(0, 4, "sd:/") != 0) {
+        error = "'" + sd_path + "' is not an sd:/ folder path";
+        return false;
+    }
+    if (!ensure_mounted(error)) return false;
+    return g_volume.list(sd_path.substr(3), out, missing, error);
+}
+
+bool read_sd_file(const Fat32File& file, std::uint64_t offset, std::uint8_t* out, std::size_t length) {
+    return g_mounted && g_volume.read(file, offset, out, length);
+}
+
+void forget_sd_layout() {
+    if (g_mounted) g_volume.forget_cached();
 }
 
 }  // namespace riftwii::wii

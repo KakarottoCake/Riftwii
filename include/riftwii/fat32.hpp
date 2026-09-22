@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -77,14 +78,21 @@ public:
     // Resolves an absolute path ("/dir/file", case-insensitive ASCII, long
     // and short names both match) to its entry and fragment list.
     bool lookup(const std::string& path, Fat32File& out, std::string& error) const;
+    // The same, telling a missing file or folder (`missing` set, false
+    // returned) from a volume that cannot be read.
+    bool lookup(const std::string& path, Fat32File& out, bool& missing, std::string& error) const;
     // Lists a directory's entries (no "." / "..", no volume label).
     bool list(const std::string& path, std::vector<Fat32Entry>& out, std::string& error) const;
+    bool list(const std::string& path, std::vector<Fat32Entry>& out, bool& missing, std::string& error) const;
     // Follows a cluster chain into coalesced fragments. Rejects free, bad
     // and out-of-range entries and any chain longer than the volume.
     bool chain(std::uint32_t first_cluster, std::vector<Fragment>& out, std::string& error) const;
     // Reads file bytes through the fragment list (a test oracle and the
     // basis of an SD-backed ByteSource). Fails past the end of the file.
     bool read(const Fat32File& file, std::uint64_t offset, std::uint8_t* out, std::size_t length) const;
+    // Drops the FAT window and the directory listings kept from earlier
+    // lookups; needed once something else (libfat) has written the volume.
+    void forget_cached() const;
 
 private:
     bool next_cluster(std::uint32_t cluster, std::uint32_t& next, std::string& error) const;
@@ -93,7 +101,14 @@ private:
     bool walk_directory(std::uint32_t directory_cluster,
                         const std::function<bool(const Fat32Entry&, bool& stop)>& visit,
                         std::string& error) const;
-    bool resolve_directory(const std::string& path, std::uint32_t& cluster, std::string& error) const;
+    bool resolve_directory(const std::string& path, std::uint32_t& cluster, std::string& error,
+                           bool* missing = nullptr) const;
+    // A directory's entries, read whole once and then served from memory:
+    // a mod of two thousand files looks each one up from the root, and
+    // walking the same folders sector by sector every time took minutes on
+    // a Wii's SD card.
+    bool directory_entries(std::uint32_t directory_cluster, const std::vector<Fat32Entry>*& out,
+                           std::string& error) const;
 
     BlockReader reader_;
     Fat32Geometry geo_;
@@ -107,6 +122,10 @@ private:
     mutable std::uint64_t fat_cache_lba_ = 0;     // first block held
     mutable std::uint32_t fat_cache_count_ = 0;   // blocks held; zero when empty
     mutable std::vector<std::uint8_t> fat_cache_;
+    // Listings by first cluster, dropped whole past kDirCacheEntries.
+    static constexpr std::size_t kDirCacheEntries = 32768;
+    mutable std::map<std::uint32_t, std::vector<Fat32Entry>> dir_cache_;
+    mutable std::size_t dir_cache_entries_ = 0;
 };
 
 }  // namespace riftwii

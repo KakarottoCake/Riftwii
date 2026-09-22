@@ -240,6 +240,28 @@ bool ProbeInserted(std::string& game_id, std::string& title, std::string& error,
     return true;
 }
 
+// A compile's warnings and notes for the log. A big mod has a note per
+// file and every log line is a card write, so past kMaxNoteLines only the
+// skipped files are listed and the rest counted.
+void LogCompileNotes(const CompiledMod& mod) {
+    constexpr std::size_t kMaxNoteLines = 60;
+    for (const std::string& w : mod.warnings) logf("  warning: %s\n", w.c_str());
+    if (mod.notes.size() <= kMaxNoteLines) {
+        for (const std::string& n : mod.notes) logf("  %s\n", n.c_str());
+        return;
+    }
+    std::size_t shown = 0, hidden = 0;
+    for (const std::string& n : mod.notes) {
+        if (shown < kMaxNoteLines && n.find("skipped") != std::string::npos) {
+            logf("  %s\n", n.c_str());
+            ++shown;
+        } else {
+            ++hidden;
+        }
+    }
+    logf("  (%u more note(s): files placed, relocated or created)\n", static_cast<unsigned>(hidden));
+}
+
 bool CompileSelection(const std::vector<PackageChoices>& packages, CompiledMod& out, std::string& error, const LaunchSource& source) {
     Session s(source, "sd:/riftwii/boot.log");
     if (!s.ensure_layout(error)) return false;
@@ -247,8 +269,7 @@ bool CompileSelection(const std::vector<PackageChoices>& packages, CompiledMod& 
     if (!compile_packages(packages, s.probe, s.partition, mod, error)) return false;
     mod.source_identity = s.probe.header.identity();
     mod.has_source_identity = true;
-    for (const std::string& w : mod.warnings) logf("  warning: %s\n", w.c_str());
-    for (const std::string& n : mod.notes) logf("  %s\n", n.c_str());
+    LogCompileNotes(mod);
     logf("%u package(s): %u table entries, %u relocation(s), %u memory patch(es)\n",
          static_cast<unsigned>(packages.size()), static_cast<unsigned>(mod.entries.size()),
          static_cast<unsigned>(mod.relocations.size()), static_cast<unsigned>(mod.memory.size()));
@@ -289,6 +310,10 @@ bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error, 
     // boot. In particular, a USB fragment list must survive the cIOS reload.
     Session s(source, "sd:/riftwii/boot.log"); if (!s.ensure_layout(error)) return false;
     CompiledMod mod; if (!compile_packages(packages, s.probe, s.partition, mod, error)) return false;
+    LogCompileNotes(mod);
+    logf("%u package(s): %u table entries, %u relocation(s), %u memory patch(es)\n",
+         static_cast<unsigned>(packages.size()), static_cast<unsigned>(mod.entries.size()),
+         static_cast<unsigned>(mod.relocations.size()), static_cast<unsigned>(mod.memory.size()));
     const SaveOverride saves = resolve_save_override(save_mode, mod.savegame_dir, game_id);
     const bool xml_saves = !mod.savegame_dir.empty();
     const std::string dir = xml_saves ? mod.savegame_dir : saves.dir;
@@ -338,8 +363,7 @@ void RunAutorun() {
     const auto recompile = [&](std::string& err) {
         CompiledMod mod;
         if (!s.ensure_layout(err) || !compile_packages(packages, s.probe, s.partition, mod, err)) return false;
-        for (const std::string& w : mod.warnings) logf("  warning: %s\n", w.c_str());
-        for (const std::string& n : mod.notes) logf("  %s\n", n.c_str());
+        LogCompileNotes(mod);
         logf("  %u package(s): %u table entries, %u relocation(s), %u memory patch(es)%s%s\n",
              static_cast<unsigned>(packages.size()), static_cast<unsigned>(mod.entries.size()),
              static_cast<unsigned>(mod.relocations.size()), static_cast<unsigned>(mod.memory.size()),
