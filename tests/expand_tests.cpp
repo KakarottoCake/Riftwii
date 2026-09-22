@@ -145,10 +145,17 @@ static void test_rooted() {
         EXPECT_EQ(out[5].length, std::uint64_t(0x20));
     }
 
-    // A rooted folder that is not on the disc: error without create, all
-    // created with it.
+    // A rooted folder that is not on this disc is skipped without create.
+    // Multi-region packages rely on this for their other regions' folders.
+    // With create, the complete tree is created.
     plan.folders[0] = Folder("/Missing", "/mod/Stage", true, false);
-    EXPECT_FALSE(riftwii::expand_plan(plan, fst, card, out, notes, err));
+    notes.clear();
+    EXPECT_TRUE(riftwii::expand_plan(plan, fst, card, out, notes, err));
+    EXPECT_TRUE(out.empty());
+    EXPECT_EQ(notes.size(), std::size_t(1));
+    if (!notes.empty()) {
+        EXPECT_EQ(notes[0], std::string("<folder /mod/Stage -> /Missing>: 0 replaced, 0 created, 5 skipped"));
+    }
     plan.folders[0].create = true;
     EXPECT_TRUE(riftwii::expand_plan(plan, fst, card, out, notes, err));
     EXPECT_EQ(out.size(), std::size_t(6));

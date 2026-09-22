@@ -20,8 +20,8 @@ namespace riftwii {
 //     `recursive` (the default) subfolders that exist on the disc are
 //     walked the same way. A file with no disc counterpart is skipped, or
 //     with `create` becomes a created file (and its missing directories
-//     with it). A rooted disc folder that does not exist is an error
-//     unless `create` is set.
+//     with it). A rooted disc folder that does not exist is skipped unless
+//     `create` is set; multi-region packages use this for other regions.
 //   - An empty `disc` is a filename search: every file of the external
 //     folder replaces every disc file of that name, wherever it is;
 //     subfolders are not entered. A bare name (not rooted) is treated the
