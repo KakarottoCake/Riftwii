@@ -45,10 +45,13 @@ bool join(const std::string& a, const std::string& b, std::string& out) {
 }
 bool ensure_usb(std::string& error) {
     if (g_libfat_mounted && g_raw_mounted) return true;
+    logf("USB: starting storage\n");
     if (!__io_usbstorage.startup()) { error = "USB storage did not start (use a powered FAT32 USB drive)"; return false; }
+    logf("USB: checking for a device\n");
     if (!__io_usbstorage.isInserted()) { error = "no USB mass-storage device is inserted"; return false; }
     // libfat's mount path performs the interface setup that populates the
     // storage capacity/sector-size state. Do this before inspecting it.
+    logf("USB: mounting\n");
     if (!fatMountSimple("usb", &__io_usbstorage)) { error = "cannot mount USB storage as usb:"; return false; }
     g_libfat_mounted = true;
     if (__io_usbstorage_sector_size != 512) {
@@ -93,15 +96,23 @@ bool make_image(const Fat32Volume& volume, const std::string& prefix, const std:
 }
 bool add_game(const Fat32Volume& volume, const std::string& prefix, ImageDevice device, const std::string& path,
               const std::vector<std::string>& siblings, UsbImageFormat fmt, ImageCatalog& catalog, std::string& failure) {
+    // Logged before the work, so a scan that never ends names its image.
+    logf("%s scan: %s\n", device_name(device), path.c_str());
+    const auto skip = [&](const std::string& why) {
+        logf("  skipped: %s\n", why.c_str());
+        failure = why;
+        return false;
+    };
     UsbImage image; std::string error;
-    if (!make_image(volume, prefix, path, siblings, fmt, image, error)) { failure = error; return false; }
+    if (!make_image(volume, prefix, path, siblings, fmt, image, error)) return skip(error);
     std::unique_ptr<UsbDiscSource> disc;
-    if (!UsbDiscSource::open(image, disc, error)) { failure = error; return false; }
+    if (!UsbDiscSource::open(image, disc, error)) return skip(error);
     DiscHeader header;
-    if (!read_disc_header(*disc, header, error) || !header.wii_magic) { failure = error.empty() ? "not a Wii image" : error; return false; }
+    if (!read_disc_header(*disc, header, error) || !header.wii_magic) return skip(error.empty() ? "not a Wii image" : error);
     ImageGame game; game.device=device; game.path=path; game.id=header.game_id; game.title=header.title;
     game.revision=header.version; game.disc_number=header.disc_number; game.format=fmt;
-    if (!build_usb_fragments(image, game.fragments, error)) { failure=error; return false; }
+    if (!build_usb_fragments(image, game.fragments, error)) return skip(error);
+    logf("  %s \"%s\", %u piece(s)\n", game.id.c_str(), game.title.c_str(), static_cast<unsigned>(image.pieces.size()));
     catalog.games.push_back(std::move(game)); return true;
 }
 // Lists a catalog directory with the volume's own cycle-capped walker,
@@ -119,7 +130,10 @@ void scan_dir(const Fat32Volume& volume, const std::string& prefix, ImageDevice 
     if (!volume.list(sub, entries, error)) {
         // A missing games folder is normal (disc-only users); anything else
         // is recorded. The marker is this codebase's own tested error text.
-        if (!error.empty() && error.find("no such directory") == std::string::npos) failure = error;
+        if (!error.empty() && error.find("no such directory") == std::string::npos) {
+            logf("%s scan: cannot list %s: %s\n", device_name(device), dir.c_str(), error.c_str());
+            failure = error;
+        }
         return;
     }
     std::sort(entries.begin(), entries.end(),
@@ -134,7 +148,10 @@ void scan_dir(const Fat32Volume& volume, const std::string& prefix, ImageDevice 
         if (e.is_directory && nested) {
             std::vector<Fat32Entry> subentries;
             if (!volume.list(sub + "/" + e.name, subentries, error)) {
-                if (!error.empty() && error.find("no such directory") == std::string::npos) failure = error;
+                if (!error.empty() && error.find("no such directory") == std::string::npos) {
+                    logf("%s scan: cannot list %s: %s\n", device_name(device), path.c_str(), error.c_str());
+                    failure = error;
+                }
                 continue;
             }
             std::sort(subentries.begin(), subentries.end(),
@@ -224,8 +241,10 @@ bool scan_usb_games(ImageCatalog& out, std::string& error) {
     std::string failure; scan_dir(g_usb_volume, "usb:/", ImageDevice::Usb, "usb:/wbfs", true, UsbImageFormat::Wbfs, out, failure); scan_dir(g_usb_volume, "usb:/", ImageDevice::Usb, "usb:/games", false, UsbImageFormat::Iso, out, failure);
     std::stable_sort(out.games.begin(),out.games.end(),[](const ImageGame&a,const ImageGame&b){ return a.id==b.id ? a.path<b.path : a.id<b.id; });
     out.status = out.games.empty() ? (failure.empty() ? "No valid FAT32 Wii images under usb:/wbfs or usb:/games" : "No valid USB images: " + failure) : "USB: " + std::to_string(out.games.size()) + " valid game(s)";
+    logf("%s\n", out.status.c_str());
     // Dolphin has no cIOS slots by design; warning there would be noise.
     if (!running_in_dolphin()) {
+        logf("USB: checking cIOS slots\n");
         const CiosSlotState slots[] = {{249, slot_has_ticket(249)}, {250, slot_has_ticket(250)}, {251, slot_has_ticket(251)}};
         out.cios_note = cios_readiness_note(slots, 3);
         if (!out.cios_note.empty()) logf("USB: %s\n", out.cios_note.c_str());
@@ -235,13 +254,16 @@ bool scan_usb_games(ImageCatalog& out, std::string& error) {
 
 bool scan_sd_games(ImageCatalog& out, std::string& error) {
     out = ImageCatalog{}; out.device = ImageDevice::Sd;
+    logf("SD: scanning for images\n");
     if (!__io_wiisd.isInserted()) { error = "no SD card is inserted"; return false; }
     if (!Fat32Volume::mount(&sd_read, g_sd_volume, error)) { error = "SD is not a readable FAT32 volume: " + error; return false; }
     if (g_sd_volume.geometry().bytes_per_sector != 512) { error = "SD has non-512-byte sectors; d2x fragment mode needs 512"; return false; }
     std::string failure; scan_dir(g_sd_volume, "sd:/", ImageDevice::Sd, "sd:/wbfs", true, UsbImageFormat::Wbfs, out, failure); scan_dir(g_sd_volume, "sd:/", ImageDevice::Sd, "sd:/games", false, UsbImageFormat::Iso, out, failure);
     std::stable_sort(out.games.begin(),out.games.end(),[](const ImageGame&a,const ImageGame&b){ return a.id==b.id ? a.path<b.path : a.id<b.id; });
     out.status = out.games.empty() ? (failure.empty() ? "No valid FAT32 Wii images under sd:/wbfs or sd:/games" : "No valid SD images: " + failure) : "SD: " + std::to_string(out.games.size()) + " valid game(s)";
+    logf("%s\n", out.status.c_str());
     if (!running_in_dolphin()) {
+        logf("SD: checking cIOS slots\n");
         const CiosSlotState slots[] = {{249, slot_has_ticket(249)}, {250, slot_has_ticket(250)}, {251, slot_has_ticket(251)}};
         out.cios_note = cios_readiness_note(slots, 3);
         if (!out.cios_note.empty()) logf("SD: %s\n", out.cios_note.c_str());

@@ -3,6 +3,7 @@
 #include <gccore.h>
 #include <ogc/system.h>
 #include <sdcard/wiisd_io.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <cstdlib>
 #include <string>
@@ -43,10 +44,19 @@ void EnterConsolePhase() {
 // libfat's default initializer probes USB as well as SD. Mount only the SD
 // card here so autorun and the normal SD-backed package paths work, while USB
 // remains untouched until the user explicitly selects it from the source menu.
-void MountStartupSd() {
-    if (__io_wiisd.startup() && __io_wiisd.isInserted()) {
-        fatMountSimple("sd", &__io_wiisd);
-    }
+bool MountStartupSd() {
+    return __io_wiisd.startup() && __io_wiisd.isInserted() && fatMountSimple("sd", &__io_wiisd);
+}
+
+// The menu phase's log: every scan, probe and failure from startup until a
+// launch opens boot.log. Each line is synced to the card, so after a hang
+// its last line names the step that never finished.
+void OpenSessionLog(bool sd_mounted) {
+    if (!sd_mounted) return;
+    mkdir("sd:/riftwii", 0777);
+    riftwii::wii::LogOpen("sd:/riftwii/session.log");
+    riftwii::wii::logf("Riftwii %s on %s, IOS%d rev %d\n", RIFTWII_VERSION,
+                       riftwii::wii::running_in_dolphin() ? "Dolphin" : "Wii", IOS_GetVersion(), IOS_GetRevision());
 }
 
 }  // namespace
@@ -56,7 +66,7 @@ int main() {
     // from 0x80004000 up; this loader is linked at 0x80A00000 (see
     // Makefile.wii) and keeps its heap below the apploader.
     SYS_SetArena1Hi(reinterpret_cast<void*>(0x81200000));
-    MountStartupSd();
+    const bool sd_mounted = MountStartupSd();
 
     if (riftwii::wii::AutorunPresent()) {
         riftwii::wii::ConsoleStart(false);
@@ -68,6 +78,7 @@ int main() {
 
     // The source screen must be visible before touching a potentially slow
     // image device or physical drive. Each source probes only on selection.
+    OpenSessionLog(sd_mounted);
     FrontendState state;
     riftwii::wii::InitializeFrontend(state);
 
@@ -83,7 +94,7 @@ int main() {
     std::string error;
     if (action == MENU_LAUNCH) {
         riftwii::wii::LogOpen("sd:/riftwii/boot.log");
-        riftwii::wii::logf("Riftwii: launch %s with packages\n", state.game_id.c_str());
+        riftwii::wii::logf("Riftwii %s: launch %s with packages\n", RIFTWII_VERSION, state.game_id.c_str());
         const bool booted = (source.kind == riftwii::wii::LaunchSource::Kind::Disc && state.has_compiled)
                                 ? riftwii::wii::BootCompiled(state.compiled, error, source, state.model.save_mode,
                                                              state.game_id)
@@ -96,7 +107,7 @@ int main() {
         }
     } else if (action == MENU_BOOT) {
         riftwii::wii::LogOpen("sd:/riftwii/boot.log");
-        riftwii::wii::logf("Riftwii: boot %s\n", source.kind == riftwii::wii::LaunchSource::Kind::Usb ? "USB" : source.kind == riftwii::wii::LaunchSource::Kind::Sd ? "SD" : "disc");
+        riftwii::wii::logf("Riftwii %s: boot %s\n", RIFTWII_VERSION, source.kind == riftwii::wii::LaunchSource::Kind::Usb ? "USB" : source.kind == riftwii::wii::LaunchSource::Kind::Sd ? "SD" : "disc");
         if (!riftwii::wii::RunBoot(true, error, source)) {
             if (riftwii::wii::reload_terminal_failure()) riftwii::wii::halt_after_terminal_reload();
             riftwii::wii::LogOpen("sd:/riftwii/boot.log", true);  // boot_game closed it and remounted the card
