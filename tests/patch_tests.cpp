@@ -248,6 +248,22 @@ static void test_large_memory_values() {
     EXPECT_FALSE(riftwii::parse_package("<wiidisc version=\"1\"><patch id=\"p\"><memory offset=\"0x80001800\" value=\"" + too_big + "\"/></patch></wiidisc>", pkg, err));
     EXPECT_FALSE(err.empty());
 }
+static void test_wiidisc_region() {
+    riftwii::Package pkg;
+    std::string err;
+    // <region> beside <id> (Spectral) filters like <region> inside it.
+    EXPECT_TRUE(riftwii::parse_package("<wiidisc version=\"1\"><id game=\"SB4\"/><region type=\"E\"/><patch id=\"p\"><file disc=\"/a\" external=\"b\"/></patch></wiidisc>", pkg, err));
+    EXPECT_EQ(pkg.filter.regions.size(), std::size_t(1));
+    if (!pkg.filter.regions.empty()) EXPECT_EQ(pkg.filter.regions[0], std::string("E"));
+    EXPECT_TRUE(pkg.filter.matches(riftwii::DiscIdentity{"SB4E01", 0, 0}));
+    EXPECT_FALSE(pkg.filter.matches(riftwii::DiscIdentity{"SB4P01", 0, 0}));
+    for (const std::string& w : pkg.warnings) EXPECT_TRUE(w.find("region") == std::string::npos);
+    // Both spellings combine; bad values fail either way.
+    EXPECT_TRUE(riftwii::parse_package("<wiidisc version=\"1\"><id game=\"SB4\"><region type=\"P\"/></id><region type=\"E\"/><patch id=\"p\"><file disc=\"/a\" external=\"b\"/></patch></wiidisc>", pkg, err));
+    EXPECT_EQ(pkg.filter.regions.size(), std::size_t(2));
+    EXPECT_FALSE(riftwii::parse_package("<wiidisc version=\"1\"><id game=\"SB4\"/><region/><patch id=\"p\"><file disc=\"/a\" external=\"b\"/></patch></wiidisc>", pkg, err));
+    EXPECT_FALSE(riftwii::parse_package("<wiidisc version=\"1\"><id game=\"SB4\"/><region type=\"e\"/><patch id=\"p\"><file disc=\"/a\" external=\"b\"/></patch></wiidisc>", pkg, err));
+}
 static void test_comment_cdata_isolation() {
     riftwii::Package pkg;
     std::string err;
@@ -459,6 +475,7 @@ int main() {
     test_ordered();
     test_limits();
     test_large_memory_values();
+    test_wiidisc_region();
     test_comment_cdata_isolation();
     test_disc_path_validation();
     test_file_field_preservation();

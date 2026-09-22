@@ -771,6 +771,22 @@ bool ExpandMacros(Ctx& ctx, std::string& error) {
     }
     return true;
 }
+bool ParseRegionNode(pugi::xml_node c, DiscFilter& filter, Ctx& ctx, int depth, std::string& error) {
+    // <region type="E"/> appears nested in <id> (Newer) or beside it under
+    // <wiidisc> (Spectral); both spellings feed the same filter.
+    static const char* const region_allowed[] = {"type", nullptr};
+    if (!EnterElement(c, ctx, depth, region_allowed, "region", error)) return false;
+    for (auto gc : c.children()) {
+        if (gc.type() == pugi::node_element) WarnUnknownChild(ctx, "region", gc);
+    }
+    if (!AttrPresent(c, "type")) { error = "region missing type"; return false; }
+    std::string t = AttrValue(c, "type");
+    if (t.empty()) { error = "region type empty"; return false; }
+    if (t.size() != 1) { error = "region type must be 1 character"; return false; }
+    if (t[0] < 'A' || t[0] > 'Z') { error = "invalid region type '" + t + "'"; return false; }
+    filter.regions.push_back(t);
+    return true;
+}
 bool ParseId(pugi::xml_node n, DiscFilter& filter, Ctx& ctx, int depth, std::string& error) {
     static const char* const allowed[] = {"game", "developer", "disc", "revision", "version", nullptr};
     if (!EnterElement(n, ctx, depth, allowed, "id", error)) return false;
@@ -819,7 +835,6 @@ bool ParseId(pugi::xml_node n, DiscFilter& filter, Ctx& ctx, int depth, std::str
         if (!ParseU64(v, u) || u > 255) { error = "invalid id version '" + v + "'"; return false; }
         filter.revision = static_cast<int>(u);
     }
-    static const char* const region_allowed[] = {"type", nullptr};
     for (auto c : n.children()) {
         if (c.type() != pugi::node_element) continue;
         std::string cn = c.name();
@@ -827,16 +842,7 @@ bool ParseId(pugi::xml_node n, DiscFilter& filter, Ctx& ctx, int depth, std::str
             WarnUnknownChild(ctx, "id", c);
             continue;
         }
-        if (!EnterElement(c, ctx, depth + 1, region_allowed, "region", error)) return false;
-        for (auto gc : c.children()) {
-            if (gc.type() == pugi::node_element) WarnUnknownChild(ctx, "region", gc);
-        }
-        if (!AttrPresent(c, "type")) { error = "region missing type"; return false; }
-        std::string t = AttrValue(c, "type");
-        if (t.empty()) { error = "region type empty"; return false; }
-        if (t.size() != 1) { error = "region type must be 1 character"; return false; }
-        if (t[0] < 'A' || t[0] > 'Z') { error = "invalid region type '" + t + "'"; return false; }
-        filter.regions.push_back(t);
+        if (!ParseRegionNode(c, filter, ctx, depth + 1, error)) return false;
     }
     return true;
 }
@@ -1086,6 +1092,8 @@ bool parse_package(const std::string& xml, Package& output, std::string& error) 
                 if (seenId) { error = "duplicate id"; return false; }
                 seenId = true;
                 if (!ParseId(c, tmp.filter, ctx, 2, error)) return false;
+            } else if (cn == "region") {
+                if (!ParseRegionNode(c, tmp.filter, ctx, 2, error)) return false;
             } else if (cn == "options") {
                 if (seenOptions) { error = "duplicate options"; return false; }
                 seenOptions = true;
