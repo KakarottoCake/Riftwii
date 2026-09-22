@@ -386,7 +386,6 @@ static std::string HomeDetail(const FrontendState& state, const std::string& sca
 static int MenuSource(FrontendState& state)
 {
 	int menu = MENU_NONE;
-
 	GuiText titleTxt("Riftwii", 34, (GXColor){255, 255, 255, 255});
 	titleTxt.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
 	titleTxt.SetPosition(0, 30);
@@ -412,9 +411,9 @@ static int MenuSource(FrontendState& state)
 	detailRow0.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
 	detailRow1.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
 	detailRow2.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
-	detailRow0.SetPosition(0, 358);
-	detailRow1.SetPosition(0, 380);
-	detailRow2.SetPosition(0, 402);
+	detailRow0.SetPosition(0, 322);
+	detailRow1.SetPosition(0, 344);
+	detailRow2.SetPosition(0, 366);
 	detailRow0.SetWrap(true, screenwidth - 80);
 	detailRow1.SetWrap(true, screenwidth - 80);
 	detailRow2.SetWrap(true, screenwidth - 80);
@@ -426,14 +425,16 @@ static int MenuSource(FrontendState& state)
 	GuiImageData btnOutlineOver(button_over_png);
 
 	MenuButton sdBtn("SD", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_1 | WPAD_CLASSIC_BUTTON_Y, PAD_BUTTON_Y, WIIDRC_BUTTON_X);
-	sdBtn.Place(ALIGN_H::CENTRE, ALIGN_V::MIDDLE, 0, -56);
+	sdBtn.Place(ALIGN_H::CENTRE, ALIGN_V::MIDDLE, 0, -62);
 	MenuButton usbBtn("USB", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_PLUS | WPAD_CLASSIC_BUTTON_PLUS, PAD_BUTTON_X, WIIDRC_BUTTON_PLUS);
-	usbBtn.Place(ALIGN_H::CENTRE, ALIGN_V::MIDDLE, 0, 12);
+	usbBtn.Place(ALIGN_H::CENTRE, ALIGN_V::MIDDLE, 0, -6);
 	MenuButton discBtn("DISC", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_MINUS | WPAD_CLASSIC_BUTTON_MINUS, PAD_TRIGGER_Z, WIIDRC_BUTTON_MINUS);
-	discBtn.Place(ALIGN_H::CENTRE, ALIGN_V::MIDDLE, 0, 80);
+	discBtn.Place(ALIGN_H::CENTRE, ALIGN_V::MIDDLE, 0, 50);
 	MenuButton exitBtn("Exit", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_HOME | WPAD_CLASSIC_BUTTON_HOME, 0, WIIDRC_BUTTON_HOME);
 	exitBtn.Place(ALIGN_H::LEFT, ALIGN_V::BOTTOM, 40, -35);
-	for (MenuButton* b : {&sdBtn, &usbBtn, &discBtn, &exitBtn}) b->button.SetScale(1.0f);
+	// Smaller buttons leave room for the three detail rows between DISC
+	// and Exit; the games screen uses the same scale for its bottom row.
+	for (MenuButton* b : {&sdBtn, &usbBtn, &discBtn, &exitBtn}) b->button.SetScale(0.85f);
 
 	HaltGui();
 	GuiWindow w(screenwidth, screenheight);
