@@ -289,15 +289,22 @@ bool Fat32Volume::next_cluster(std::uint32_t cluster, std::uint32_t& next, std::
     const std::uint64_t byte_in_volume = fat_start_sector * geo_.bytes_per_sector + byte_in_fat;
     const std::uint64_t lba = geo_.volume_lba + byte_in_volume / kFatBlockBytes;
     const std::uint32_t within = static_cast<std::uint32_t>(byte_in_volume % kFatBlockBytes);
-    if (!fat_cache_valid_ || fat_cache_lba_ != lba) {
-        if (!reader_(lba, 1, fat_cache_)) {
+    if (fat_cache_count_ == 0 || lba < fat_cache_lba_ || lba - fat_cache_lba_ >= fat_cache_count_) {
+        // Read a window starting here, clipped to the end of the active FAT.
+        const std::uint64_t fat_end = geo_.volume_lba +
+            ((fat_start_sector + geo_.fat_sectors) * geo_.bytes_per_sector) / kFatBlockBytes;
+        const std::uint32_t count =
+            static_cast<std::uint32_t>(std::max<std::uint64_t>(1, std::min<std::uint64_t>(kFatCacheBlocks, fat_end - lba)));
+        fat_cache_.resize(std::size_t(kFatCacheBlocks) * kFatBlockBytes);
+        fat_cache_count_ = 0;
+        if (!reader_(lba, count, fat_cache_.data())) {
             error = "cannot read FAT block " + std::to_string(lba);
             return false;
         }
         fat_cache_lba_ = lba;
-        fat_cache_valid_ = true;
+        fat_cache_count_ = count;
     }
-    next = le32(fat_cache_ + within) & kFatMask;
+    next = le32(fat_cache_.data() + (lba - fat_cache_lba_) * kFatBlockBytes + within) & kFatMask;
     return true;
 }
 

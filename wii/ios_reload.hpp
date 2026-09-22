@@ -27,6 +27,16 @@ ReloadResult reload_ios(int version, std::string& error);
 // initializing input.
 bool reload_terminal_failure();
 
+// How the last successful reload_ios() went (how long the new IOS took to
+// announce itself and to open IPC), for the boot log, which is closed while
+// the reload runs.
+const std::string& last_reload_detail();
+
+// Shuts the Wii Remote stack down once. It keeps Bluetooth IPC in flight
+// and saves pairings to NAND on shutdown, so it must stop while the
+// running IOS is still alive: before any IOS reload and before handoff.
+void release_wii_remotes();
+
 // Never returns and never calls IOS/libogc cleanup. Use only after
 // reload_terminal_failure() is true; physical POWER remains available.
 [[noreturn]] void halt_after_terminal_reload();

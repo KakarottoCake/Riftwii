@@ -106,7 +106,7 @@ bool SelectUsbGame(FrontendState& state, std::size_t index, std::string& error) 
     state.disc_title = g.title;
     state.game_revision = g.revision;
     state.game_disc_number = g.disc_number;
-    state.disc_status = "USB: " + g.id + "  " + g.title;
+    state.disc_status = "USB: " + (g.display.empty() ? g.title : g.display) + "  (" + g.id + ")";
     // The full warning names the slots and the d2x version; the status
     // line only carries the short form (the note is also in boot.log).
     if (!state.usb_catalog.cios_note.empty()) state.disc_status += "  [no cIOS: install d2x for USB boot]";
@@ -120,7 +120,7 @@ bool SelectSdGame(FrontendState& state, std::size_t index, std::string& error) {
     if (index >= state.sd_catalog.games.size()) { error = "no such SD game"; return false; }
     state.use_usb = false; state.use_sd = true; state.usb_index = 0; state.sd_index = index;
     const ImageGame& g = state.sd_catalog.games[index];
-    state.game_id=g.id; state.disc_title=g.title; state.disc_status="SD: "+g.id+"  "+g.title;
+    state.game_id=g.id; state.disc_title=g.title; state.disc_status="SD: "+(g.display.empty() ? g.title : g.display)+"  ("+g.id+")";
     state.game_revision=g.revision; state.game_disc_number=g.disc_number;
     if (!state.sd_catalog.cios_note.empty()) state.disc_status += "  [no cIOS: install d2x for SD boot]";
     state.choices_path=std::string(kChoicesDir)+"/"+g.id+".txt";
@@ -152,6 +152,9 @@ std::string ScanPackages(FrontendState& state) {
             if (errno != 0) return "SD directory read failed; rescan to retry";
             break;
         }
+        // Hidden files are never packs: macOS leaves a binary "._name.xml"
+        // (AppleDouble) beside every file it copies to FAT.
+        if (ent->d_name[0] == '.') continue;
         const char* dot = std::strrchr(ent->d_name, '.');
         if (!dot || strcasecmp(dot, ".xml") != 0) continue;
         if (names.size() == kMaxPackages) {

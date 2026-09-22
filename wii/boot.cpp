@@ -969,7 +969,7 @@ bool boot_game(const DiscProbe& probe, const BootOptions& options, std::string& 
     // (which also saves its pairings to NAND on shutdown, so it must go
     // while IPC is still alive), the log, DI and the SD card. With the
     // running IOS kept, the card and the log stay (release_card_and_log).
-    WPAD_Shutdown();
+    release_wii_remotes();
     std::string ignored;
     di::close_partition(ignored);
     di::close();

@@ -11,12 +11,16 @@
 #include <algorithm>
 #include <cctype>
 #include <cstring>
+#include <fstream>
 #include <memory>
+#include <set>
+#include <sstream>
 
 #include "di.hpp"
 #include "ios_reload.hpp"
 #include "log.hpp"
 #include "riftwii/disc.hpp"
+#include "riftwii/titles.hpp"
 
 namespace riftwii::wii {
 namespace {
@@ -28,6 +32,7 @@ std::unique_ptr<ImageVolume> g_usb_volume;
 std::unique_ptr<ImageVolume> g_sd_volume;
 bool g_raw_mounted = false;
 bool g_libfat_mounted = false;
+bool g_sd_back = false;  // SD remounted (and the log reopened) after an IOS reload
 constexpr std::size_t kMaxGames = 128, kMaxPath = 240;
 
 bool usb_read(std::uint64_t sector, std::uint32_t count, std::uint8_t* out) {
@@ -171,9 +176,58 @@ void scan_dir(const ImageVolume& volume, const std::string& prefix, ImageDevice 
     }
 }
 
+// Where a GameTDB titles.txt ("ID = Title" per line) may already sit on the
+// card: Riftwii's own folder first, then where other loaders keep theirs.
+const char* const kTitleFiles[] = {
+    "sd:/riftwii/titles.txt", "sd:/titles.txt", "sd:/wiitdb.txt",
+    "sd:/config/titles.txt", "sd:/apps/usbloader_gx/titles.txt", "sd:/usb-loader/titles.txt",
+};
+
+bool less_folded(const std::string& a, const std::string& b) {
+    const std::size_t n = std::min(a.size(), b.size());
+    for (std::size_t i = 0; i < n; ++i) {
+        const int x = std::tolower(static_cast<unsigned char>(a[i]));
+        const int y = std::tolower(static_cast<unsigned char>(b[i]));
+        if (x != y) return x < y;
+    }
+    return a.size() < b.size();
+}
+
+// Gives every game its display name and sorts the list by it, so the list
+// reads "Super Mario Galaxy 2", not "SUPER MARIO GALAXY MORE", when a title
+// database is on the card. Only the IDs on the drive are kept from it.
+void apply_titles(ImageCatalog& c) {
+    std::set<std::string> wanted;
+    for (const ImageGame& g : c.games) {
+        wanted.insert(g.id);
+        wanted.insert(g.id.substr(0, 4));
+    }
+    TitleTable table;
+    const char* used = nullptr;
+    for (const char* path : kTitleFiles) {
+        std::ifstream in(path, std::ios::binary);
+        if (!in) continue;
+        std::stringstream text;
+        text << in.rdbuf();
+        table.add_text(text.str(), &wanted);
+        used = path;
+        break;
+    }
+    for (ImageGame& g : c.games) g.display = display_title(used ? &table : nullptr, g.id, g.path, g.title);
+    if (used) logf("Titles: %s, %u of %u game(s) named\n", used, static_cast<unsigned>(table.size()),
+                   static_cast<unsigned>(c.games.size()));
+    else logf("Titles: no titles.txt on SD; using folder and disc names\n");
+    std::stable_sort(c.games.begin(), c.games.end(), [](const ImageGame& a, const ImageGame& b) {
+        if (less_folded(a.display, b.display)) return true;
+        if (less_folded(b.display, a.display)) return false;
+        return a.id == b.id ? a.path < b.path : a.id < b.id;
+    });
+}
+
 // This is intentionally non-recursive: all post-reload paths make one
 // bounded SD remount attempt and restore the caller-selected append log.
 bool restore_sd_and_log(const char* log_path, std::string& error) {
+    if (g_sd_back) return true;  // remounted right after the reload; the log is open
     if (!fatMountSimple("sd", &__io_wiisd)) {
         error += "; additionally could not remount SD after IOS reload";
         return false;
@@ -246,7 +300,7 @@ bool slot_has_ticket(int slot) {
 bool scan_usb_games(ImageCatalog& out, std::string& error) {
     out = ImageCatalog{}; out.device = ImageDevice::Usb; if (!ensure_usb(error)) return false;
     std::string failure; scan_dir(*g_usb_volume, "usb:/", ImageDevice::Usb, "usb:/wbfs", true, UsbImageFormat::Wbfs, out, failure); scan_dir(*g_usb_volume, "usb:/", ImageDevice::Usb, "usb:/games", false, UsbImageFormat::Iso, out, failure);
-    std::stable_sort(out.games.begin(),out.games.end(),[](const ImageGame&a,const ImageGame&b){ return a.id==b.id ? a.path<b.path : a.id<b.id; });
+    apply_titles(out);
     out.status = out.games.empty() ? (failure.empty() ? std::string("No valid Wii images under usb:/wbfs or usb:/games on the ") + g_usb_volume->kind() + " drive" : "No valid USB images: " + failure) : "USB: " + std::to_string(out.games.size()) + " valid game(s)";
     logf("%s\n", out.status.c_str());
     // Dolphin has no cIOS slots by design; warning there would be noise.
@@ -265,7 +319,7 @@ bool scan_sd_games(ImageCatalog& out, std::string& error) {
     if (!__io_wiisd.isInserted()) { error = "no SD card is inserted"; return false; }
     if (!mount_image_volume(&sd_read, g_sd_volume, error)) { error = "SD has no readable FAT32 or NTFS volume: " + error; return false; }
     std::string failure; scan_dir(*g_sd_volume, "sd:/", ImageDevice::Sd, "sd:/wbfs", true, UsbImageFormat::Wbfs, out, failure); scan_dir(*g_sd_volume, "sd:/", ImageDevice::Sd, "sd:/games", false, UsbImageFormat::Iso, out, failure);
-    std::stable_sort(out.games.begin(),out.games.end(),[](const ImageGame&a,const ImageGame&b){ return a.id==b.id ? a.path<b.path : a.id<b.id; });
+    apply_titles(out);
     out.status = out.games.empty() ? (failure.empty() ? "No valid Wii images under sd:/wbfs or sd:/games" : "No valid SD images: " + failure) : "SD: " + std::to_string(out.games.size()) + " valid game(s)";
     logf("%s\n", out.status.c_str());
     if (!running_in_dolphin()) {
@@ -301,20 +355,32 @@ bool activate_image_game(const ImageGame& game, int cios_slot, void*& storage, s
     if (storage) free(storage);
     storage=allocated;
     storage_bytes=padded;
-    // IOS reload makes every libfat descriptor stale. Release both media;
+    // IOS reload makes every libfat descriptor stale. Release everything
+    // that talks to the running IOS first, as other loaders do before
+    // IOS_ReloadIOS: the Wii Remote stack (Bluetooth IPC in flight across a
+    // reload can keep the new IOS from coming up), USB storage, SD and DI.
     // d2x then owns the image device and SD is mounted again for XML/saves.
+    logf("%s: reload IOS%d (fragment list %u bytes); releasing Wii Remotes, USB, SD and DI\n",
+         device_name(game.device), cios_slot, static_cast<unsigned>(bytes.size()));
     LogClose();
-    logf("%s: reload IOS%d\n", device_name(game.device), cios_slot);
+    release_wii_remotes();
     fatUnmount("sd:");
     __io_wiisd.shutdown();
+    g_sd_back = false;
     unmount_usb_games();
+    if (game.device == ImageDevice::Usb) __io_usbstorage.shutdown();
     di::close();
     const ReloadResult r=reload_ios(cios_slot,error);
     if (r == ReloadResult::Terminal) return false;
     if (r==ReloadResult::NotInstalled || r==ReloadResult::Failed) return post_reload_failure(log_path, error);
     const s32 running = IOS_GetVersion();
     const s32 revision = IOS_GetRevision();
-    logf("%s: reloaded IOS%d rev %d for slot %d\n", device_name(game.device), running, revision, cios_slot);
+    // The log is closed across the reload. Bring the card back first so
+    // every later step, and any failure, lands in boot.log.
+    g_sd_back = fatMountSimple("sd", &__io_wiisd);
+    if (g_sd_back && log_path) LogOpen(log_path, true);
+    logf("%s: reloaded IOS%d rev %d for slot %d (%s)\n", device_name(game.device), running, revision, cios_slot,
+         last_reload_detail().c_str());
     if (revision >= 0 && cios_revision_is_stub(static_cast<std::uint32_t>(revision))) {
         error = "IOS slot " + std::to_string(cios_slot) + " holds a stub, not a cIOS: install d2x (v11 beta3 is the latest) in 249, 250 or 251";
         return post_reload_failure(log_path, error);
@@ -334,12 +400,11 @@ bool activate_image_game(const ImageGame& game, int cios_slot, void*& storage, s
     // the following virtual probe cannot clear d2x's emulation state.
     logf("%s: d2x F6 reset-disable\n", device_name(game.device));
     if (!di::disable_reset(error)) { error = "d2x F6 reset-disable failed: " + error; return post_reload_failure(log_path, error); }
-    logf("%s: SD remount\n", device_name(game.device));
-    if (!fatMountSimple("sd", &__io_wiisd)) {
+    if (!g_sd_back) {
         error="d2x is configured but SD could not be remounted after IOS reload";
         return post_reload_failure(log_path, error);
     }
-    if (log_path) LogOpen(log_path, true);
+    logf("%s: d2x ready\n", device_name(game.device));
     return true;
 }
 

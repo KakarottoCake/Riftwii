@@ -224,11 +224,20 @@ static void test_saves() {
     model.add("a.xml", "sd:/riivolution/a.xml", kModA, &disc);
     model.add("other.xml", "sd:/riivolution/other.xml", kModOther, &disc);
     model.add("broken.xml", "sd:/riivolution/broken.xml", "<wiidisc", &disc);
+    model.add("broken-other.xml", "sd:/riivolution/broken-other.xml",
+              "<wiidisc version=\"1\">\n<id game = 'SB4' />\n<options><bad", &disc);
+    model.add("broken-mine.xml", "sd:/riivolution/broken-mine.xml",
+              "<wiidisc version=\"1\"><id\n  game=\"RMC\"><region type=\"E\"/></id><options><bad", &disc);
 
-    // Matching + broken show; other-disc packs hide.
+    // Matching packs show; other-disc packs hide, broken or not. A broken
+    // pack whose game cannot be read shows so its error can be seen.
     EXPECT_TRUE(riftwii::show_package(model.packages[0]));
     EXPECT_FALSE(riftwii::show_package(model.packages[1]));
     EXPECT_TRUE(riftwii::show_package(model.packages[2]));
+    EXPECT_FALSE(model.packages[3].valid);
+    EXPECT_FALSE(riftwii::show_package(model.packages[3]));
+    EXPECT_FALSE(model.packages[4].valid);
+    EXPECT_TRUE(riftwii::show_package(model.packages[4]));
 
     // Save mode round-trips; garbage never clobbers it.
     EXPECT_EQ(model.save_mode, std::string("nand"));

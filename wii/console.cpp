@@ -10,6 +10,8 @@
 
 #include <cstdio>
 
+#include "log.hpp"
+
 namespace riftwii::wii {
 
 void ConsoleStart(bool video_initialised) {
@@ -24,6 +26,7 @@ void ConsoleStart(bool video_initialised) {
     VIDEO_WaitVSync();
     if (rmode->viTVMode & VI_NON_INTERLACE) VIDEO_WaitVSync();
     CON_EnableGecko(1, false);
+    LogEchoToScreen(true);
     std::printf("\x1b[2;0H");
 }
 

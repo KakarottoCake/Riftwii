@@ -14,7 +14,12 @@ FILE* g_file = nullptr;
 std::string g_path;
 bool g_line_start = true;
 u64 g_epoch = 0;  // time base at the first LogOpen: file lines carry ms since then
+// Off while the GUI owns the screen: libwiigui's framebuffer is also the
+// text console's, so every echoed line flashed over the menus.
+bool g_echo = false;
 }
+
+void LogEchoToScreen(bool on) { g_echo = on; }
 
 void LogOpen(const char* sd_path, bool append) {
     LogClose();
@@ -37,9 +42,11 @@ void LogClose() {
 
 void logf(const char* format, ...) {
     va_list args;
-    va_start(args, format);
-    std::vprintf(format, args);
-    va_end(args);
+    if (g_echo) {
+        va_start(args, format);
+        std::vprintf(format, args);
+        va_end(args);
+    }
     if (g_file) {
         char text[1024];
         va_start(args, format);
