@@ -57,8 +57,10 @@ struct Session {
             for (int slot : slots) {
                 if (!slot) continue;
                 if (activate_image_game(source.game, slot, frag_storage, frag_storage_bytes, log_path, error)) { active=true; break; }
+                if (reload_terminal_failure()) return false;
             }
             if (!active) return false;
+            logf("%s: virtual-disc probe\n", source.kind == LaunchSource::Kind::Usb ? "USB" : "SD");
             if (!probe_disc(probe, error, ProbeOptions{true})) return false;
             if (probe.header.game_id != source.game.id || probe.header.version != source.game.revision ||
                 probe.header.disc_number != source.game.disc_number) {
@@ -553,11 +555,13 @@ void RunAutorun() {
             } else if (!needs_launch_pipeline(!selections.empty(), state.model.save_mode)) {
                 logf("  nothing enabled and NAND saves selected: booting as is\n");
                 ok = RunBoot(allow_fallback, error, source);
+                if (reload_terminal_failure()) halt_after_terminal_reload();
                 LogOpen(kAutorunLogPath, true);
             } else {
                 logf(selections.empty() ? "  no packages enabled: applying selected Save Mode\n"
                                         : "launch: handing over to the game\n");
                 ok = RunLaunch(selections, error, source, state.model.save_mode, state.game_id);
+                if (reload_terminal_failure()) halt_after_terminal_reload();
                 LogOpen(kAutorunLogPath, true);
             }
         } else if (cmd == "boot") {
@@ -580,6 +584,7 @@ void RunAutorun() {
             } else {
                 logf("boot: handing over to the game\n");
                 ok = boot_game(s.probe, options, error);  // returns only on failure, with the card remounted
+                if (reload_terminal_failure()) halt_after_terminal_reload();
                 LogOpen(kAutorunLogPath, true);
             }
         } else {
@@ -587,6 +592,7 @@ void RunAutorun() {
             error = "unknown command";
         }
         if (!ok) {
+            if (reload_terminal_failure()) halt_after_terminal_reload();
             logf("FAILED (line %d): %s\n", line_number, error.c_str());
             break;
         }
