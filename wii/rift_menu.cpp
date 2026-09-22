@@ -129,6 +129,16 @@ static void SetBoundedHomeDetail(GuiText& text, const std::string& detail)
 	text.SetText(BoundedHomeDetail(detail).c_str());
 }
 
+// One text object per row: GuiText word wrapping only breaks on spaces
+// and ignores embedded newlines, so a single object lets rows run into
+// each other. Empty rows stay blank.
+static void SetSourceRows(const std::array<GuiText*, kDetailLinesPerPage>& rows, const std::string& detail)
+{
+	const std::vector<std::string> lines = MakeDetailLines(detail);
+	for (std::size_t row = 0; row < kDetailLinesPerPage; ++row)
+		rows[row]->SetText(row < lines.size() ? lines[row].c_str() : "");
+}
+
 static bool AllOptionsOff(const riftwii::LaunchPackage& p)
 {
 	if (p.package.options.empty()) return false;
@@ -292,27 +302,71 @@ static std::string CountLine(const char* tag, const riftwii::wii::ImageCatalog& 
 	return prefix + "unavailable";
 }
 
-static void AppendCatalogDetail(std::string& detail, const char* tag,
-							const riftwii::wii::ImageCatalog& catalog)
+// Flattened to one capped row: raw driver errors are sentences, and the
+// source detail block only fits three 32-char rows.
+static std::string FlatCapped(const std::string& text, std::size_t max)
 {
-	const std::string initial = std::string(tag) + ": select to scan";
-	if (catalog.games.empty() && !catalog.status.empty() && catalog.status != initial) {
-		if (!detail.empty()) detail += "\n";
-		detail += catalog.status;
+	std::string flat;
+	for (char c : text) {
+		if (c == '\n' || c == '\r') {
+			if (!flat.empty() && flat.back() != ' ') flat += ' ';
+		} else {
+			flat += c;
+		}
 	}
-	if (!catalog.cios_note.empty()) {
-		if (!detail.empty()) detail += "\n";
-		detail += catalog.cios_note;
-	}
+	if (flat.size() > max) flat = flat.substr(0, max) + "...";
+	return flat;
 }
 
-static std::string SourceDetail(const riftwii::wii::FrontendState& state)
+// One short problem row per image catalog: the full sentences (folder
+// lists, driver hints) never fit between the DISC button and Exit, so
+// each is reduced to a tag plus a short reason.
+static std::string ShortSourceProblem(const char* tag,
+				      const riftwii::wii::ImageCatalog& catalog)
 {
+	if (!catalog.games.empty() || catalog.status.empty()) return "";
+	if (catalog.status == std::string(tag) + ": select to scan") return "";
+	std::string reason = catalog.status;
+	const std::string prefix = std::string(tag) + ": ";
+	if (reason.compare(0, prefix.size(), prefix) == 0) reason = reason.substr(prefix.size());
+	if (reason.compare(0, 8, "No valid") == 0) {
+		return std::string(tag) + ": no games in wbfs/games";
+	}
+	if (reason == "no USB mass-storage device is inserted") return "USB: no device";
+	if (reason == "no SD card is inserted") return "SD: no card";
+	return std::string(tag) + ": " + FlatCapped(reason, 56);
+}
+
+static std::string SourceDetail(const FrontendState& state)
+{
+	// Three 32-char rows between the DISC button and Exit: at most two
+	// problem rows, then the hotkeys (the shared no-cIOS hint shows only
+	// when zero or one problem rows leave room for it; the games screen
+	// repeats it per game).
+	static const char* const hot[] = {
+		"1/Y: SD   +/X: USB   -/Z: DISC",
+		"(X on GamePad, or point + A)",
+	};
+	std::vector<std::string> rows;
+	const std::string sd = ShortSourceProblem("SD", state.sd_catalog);
+	const std::string usb = ShortSourceProblem("USB", state.usb_catalog);
+	for (const std::string* problem : {&sd, &usb}) {
+		if (problem->empty()) continue;
+		for (const std::string& chunk : MakeDetailLines(*problem)) {
+			if (rows.size() == 2) break;
+			rows.push_back(chunk);
+		}
+	}
+	if (rows.size() < 2 &&
+	    (!state.sd_catalog.cios_note.empty() || !state.usb_catalog.cios_note.empty()))
+		rows.push_back("No cIOS 249-251: needs d2x");
+	rows.push_back(hot[0]);
+	if (rows.size() < kDetailLinesPerPage) rows.push_back(hot[1]);
 	std::string detail;
-	AppendCatalogDetail(detail, "SD", state.sd_catalog);
-	AppendCatalogDetail(detail, "USB", state.usb_catalog);
-	if (!detail.empty()) detail += "\n";
-	detail += "1/Y: SD (X on GamePad)    +/X: USB    -/Z: DISC    (or point and press A)";
+	for (std::size_t i = 0; i < rows.size(); ++i) {
+		if (i != 0) detail += "\n";
+		detail += rows[i];
+	}
 	return detail;
 }
 
@@ -347,26 +401,36 @@ static int MenuSource(FrontendState& state)
 
 	std::string sourceLine = CountLine("SD", state.sd_catalog) + "      " + CountLine("USB", state.usb_catalog);
 	GuiText sdusbTxt(sourceLine.c_str(),
-			 18, (GXColor){200, 200, 200, 255});
+			 18, (GXColor){255, 255, 255, 255});
 	sdusbTxt.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
 	sdusbTxt.SetPosition(0, 126);
 
 	std::string sourceDetail = SourceDetail(state);
-	GuiText detailTxt(sourceDetail.c_str(), 16, (GXColor){255, 255, 255, 255});
-	detailTxt.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::BOTTOM);
-	detailTxt.SetPosition(0, -100);
-	detailTxt.SetWrap(true, screenwidth - 80);
+	GuiText detailRow0("", 16, (GXColor){255, 255, 255, 255});
+	GuiText detailRow1("", 16, (GXColor){255, 255, 255, 255});
+	GuiText detailRow2("", 16, (GXColor){255, 255, 255, 255});
+	detailRow0.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
+	detailRow1.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
+	detailRow2.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
+	detailRow0.SetPosition(0, 358);
+	detailRow1.SetPosition(0, 380);
+	detailRow2.SetPosition(0, 402);
+	detailRow0.SetWrap(true, screenwidth - 80);
+	detailRow1.SetWrap(true, screenwidth - 80);
+	detailRow2.SetWrap(true, screenwidth - 80);
+	const std::array<GuiText*, kDetailLinesPerPage> detailRows = {&detailRow0, &detailRow1, &detailRow2};
+	SetSourceRows(detailRows, sourceDetail);
 
 	GuiSound btnSoundOver(button_over_pcm, button_over_pcm_size, SOUND::PCM);
 	GuiImageData btnOutline(button_png);
 	GuiImageData btnOutlineOver(button_over_png);
 
 	MenuButton sdBtn("SD", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_1 | WPAD_CLASSIC_BUTTON_Y, PAD_BUTTON_Y, WIIDRC_BUTTON_X);
-	sdBtn.Place(ALIGN_H::CENTRE, ALIGN_V::MIDDLE, 0, -44);
+	sdBtn.Place(ALIGN_H::CENTRE, ALIGN_V::MIDDLE, 0, -56);
 	MenuButton usbBtn("USB", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_PLUS | WPAD_CLASSIC_BUTTON_PLUS, PAD_BUTTON_X, WIIDRC_BUTTON_PLUS);
-	usbBtn.Place(ALIGN_H::CENTRE, ALIGN_V::MIDDLE, 0, 24);
+	usbBtn.Place(ALIGN_H::CENTRE, ALIGN_V::MIDDLE, 0, 12);
 	MenuButton discBtn("DISC", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_MINUS | WPAD_CLASSIC_BUTTON_MINUS, PAD_TRIGGER_Z, WIIDRC_BUTTON_MINUS);
-	discBtn.Place(ALIGN_H::CENTRE, ALIGN_V::MIDDLE, 0, 92);
+	discBtn.Place(ALIGN_H::CENTRE, ALIGN_V::MIDDLE, 0, 80);
 	MenuButton exitBtn("Exit", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_HOME | WPAD_CLASSIC_BUTTON_HOME, 0, WIIDRC_BUTTON_HOME);
 	exitBtn.Place(ALIGN_H::LEFT, ALIGN_V::BOTTOM, 40, -35);
 	for (MenuButton* b : {&sdBtn, &usbBtn, &discBtn, &exitBtn}) b->button.SetScale(1.0f);
@@ -377,7 +441,9 @@ static int MenuSource(FrontendState& state)
 	w.Append(&subTxt);
 	w.Append(&discTxt);
 	w.Append(&sdusbTxt);
-	w.Append(&detailTxt);
+	w.Append(&detailRow0);
+	w.Append(&detailRow1);
+	w.Append(&detailRow2);
 	w.Append(&sdBtn.button);
 	w.Append(&usbBtn.button);
 	w.Append(&discBtn.button);
@@ -394,7 +460,7 @@ static int MenuSource(FrontendState& state)
 			menu = MENU_EXIT;
 		else if(sdBtn.Clicked()) {
 			sdBtn.button.ResetState();
-			detailTxt.SetText("Scanning SD...");
+			SetSourceRows(detailRows, "Scanning SD...");
 			ResumeGui();
 			std::string error;
 			const bool scanned = scan_sd_games(state.sd_catalog, error);
@@ -403,7 +469,7 @@ static int MenuSource(FrontendState& state)
 				state.sd_catalog.status = "SD: " + (error.empty() ? "scan failed" : error);
 				sourceLine = CountLine("SD", state.sd_catalog) + "      " + CountLine("USB", state.usb_catalog);
 				sdusbTxt.SetText(sourceLine.c_str());
-				detailTxt.SetText(error.empty() ? "SD scan failed" : error.c_str());
+				SetSourceRows(detailRows, SourceDetail(state));
 			} else {
 				pickerDevice = riftwii::wii::ImageDevice::Sd;
 				selectedGame = 0;
@@ -412,7 +478,7 @@ static int MenuSource(FrontendState& state)
 		}
 		else if(usbBtn.Clicked()) {
 			usbBtn.button.ResetState();
-			detailTxt.SetText("Scanning USB...");
+			SetSourceRows(detailRows, "Scanning USB...");
 			ResumeGui();
 			std::string error;
 			const bool scanned = scan_usb_games(state.usb_catalog, error);
@@ -421,7 +487,7 @@ static int MenuSource(FrontendState& state)
 				state.usb_catalog.status = "USB: " + (error.empty() ? "scan failed" : error);
 				sourceLine = CountLine("SD", state.sd_catalog) + "      " + CountLine("USB", state.usb_catalog);
 				sdusbTxt.SetText(sourceLine.c_str());
-				detailTxt.SetText(error.empty() ? "USB scan failed" : error.c_str());
+				SetSourceRows(detailRows, SourceDetail(state));
 			} else {
 				pickerDevice = riftwii::wii::ImageDevice::Usb;
 				selectedGame = 0;
@@ -430,13 +496,13 @@ static int MenuSource(FrontendState& state)
 		}
 		else if(discBtn.Clicked()) {
 			discBtn.button.ResetState();
-			detailTxt.SetText("Probing disc...");
+			SetSourceRows(detailRows, "Probing disc...");
 			ResumeGui();
 			std::string error;
 			const bool selected = SelectDisc(state, error);
 			HaltGui();
 			if (!selected) {
-				detailTxt.SetText(error.empty() ? "No disc in drive" : error.c_str());
+				SetSourceRows(detailRows, FlatCapped(error.empty() ? "No disc in drive" : error, 64));
 			} else {
 				discTxt.SetText(state.disc_status.c_str());
 				menu = MENU_HOME;
