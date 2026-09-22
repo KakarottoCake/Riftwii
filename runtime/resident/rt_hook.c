@@ -428,18 +428,29 @@ static void rt_zero(uint8_t* dst, uint32_t n) {
     while (n--) *dst++ = 0;
 }
 
-/* Splits a read against the table into `runs`. Returns the number of runs,
- * or -1 when the read must pass through untouched (no table, too many
- * runs, error). */
-static int rt_split(const struct rt_context* ctx, uint32_t word_offset, uint32_t length, rt_run* runs,
-                    int* touched) {
+/* Splits `length` bytes at partition byte `offset` against the table into
+ * `runs`. Returns the number of runs and sets *covered to the bytes they
+ * reach: all of `length`, or less when the read needs more than
+ * RT_MAX_RUNS pieces (the completion serves the rest window by window).
+ * Returns -1 when the read must pass through untouched (no table, error). */
+static int rt_split(const struct rt_context* ctx, uint64_t offset, uint32_t length, rt_run* runs,
+                    uint32_t* covered, int* touched) {
     uint32_t count = 0;
     uint32_t i;
+    int rc;
     *touched = 0;
+    *covered = 0;
     if (ctx->table == 0) return -1;
-    if (rt_lookup((const rt_header*)(uintptr_t)ctx->table, (uint64_t)word_offset << 2, length, runs, RT_MAX_RUNS,
-                  &count) != RT_OK) {
+    rc = rt_lookup((const rt_header*)(uintptr_t)ctx->table, offset, length, runs, RT_MAX_RUNS, &count);
+    if (rc == RT_ERR_RUNS && count == RT_MAX_RUNS) {
+        /* The runs written are valid; a gap and a table piece alternate at
+         * worst, so a full window always holds one of ours. */
+        const rt_run* last = &runs[count - 1];
+        *covered = (uint32_t)(last->vstart + last->length - offset);
+    } else if (rc != RT_OK) {
         return -1;
+    } else {
+        *covered = length;
     }
     for (i = 0; i < count; ++i) {
         if (runs[i].kind != RT_KIND_PASSTHROUGH) *touched = 1;
@@ -505,14 +516,16 @@ int rt_on_ioctl_async(struct rt_context* ctx, uintptr_t* args, uint32_t* result)
                 ctx->pending_overflow++;
             } else {
                 int touched = 0;
-                const int count = rt_split(ctx, word_offset, length, rec->runs, &touched);
+                uint32_t covered = 0;
+                const int count = rt_split(ctx, (uint64_t)word_offset << 2, length, rec->runs, &covered, &touched);
                 if (count < 0) {
-                    ctx->run_overflow++; /* passes through; a virtual read then fails at the drive, honestly */
-                    rec->in_use = 0;
+                    rec->in_use = 0; /* passes through; a virtual read then fails at the drive, honestly */
                 } else if (!touched && !in_window) {
                     rec->in_use = 0; /* nothing of ours in this read */
                 } else {
+                    if (covered < length) ctx->run_overflow++; /* served in windows */
                     rec->run_count = (uint32_t)count;
+                    rec->covered = covered;
                     rec->callback = (uint32_t)args[6];
                     rec->user_data = (uint32_t)args[7];
                     rec->out = (uint32_t)args[4];
@@ -2003,13 +2016,16 @@ void rt_on_fs_complete(struct rt_context* ctx, int32_t* result, void* tag, uintp
 
 int rt_on_ipc(struct rt_context* ctx, uint32_t entry_index, uintptr_t* args, uint32_t* result) {
     if (entry_index == RT_IPC_ASYNC_IOCTL) {
-        /* Disc reads keep their hook; every other async ioctl joins the
-         * savegame path. ISFS request numbers never collide with 0x71,
-         * so the check below reads no game memory for them. */
+        /* Disc reads and seeks keep their hook; every other async ioctl
+         * joins the savegame path. ISFS request numbers never collide
+         * with 0x71 or 0xAB, so the checks below read no game memory for
+         * them. */
         const uint32_t ioctl = (uint32_t)args[1];
         const uint32_t* in = (const uint32_t*)args[2];
         const uint32_t in_len = (uint32_t)args[3];
-        if (rt_is_di_read(ioctl, in, in_len)) return rt_on_ioctl_async(ctx, args, result);
+        if (rt_is_di_read(ioctl, in, in_len) || rt_is_di_seek(ioctl, in, in_len)) {
+            return rt_on_ioctl_async(ctx, args, result);
+        }
         return rt_on_async_fs(ctx, entry_index, args, result);
     }
     if (entry_index >= RT_IPC_COMMANDS) return rt_on_sync_fs(ctx, entry_index, args, result);
@@ -2136,29 +2152,52 @@ static uint32_t rt_checksum_runs(const struct rt_pending* record) {
     return checksum;
 }
 
+/* Everything of the current window that comes from memory; its SD and
+ * DISC runs are fetched afterwards. */
+static void rt_fill_memory_runs(struct rt_pending* record) {
+    uint32_t i;
+    for (i = 0; i < record->run_count; ++i) {
+        const rt_run* run = &record->runs[i];
+        uint8_t* dst = rt_run_destination(record, run);
+        const uint32_t n = (uint32_t)run->length;
+        if (run->kind == RT_KIND_MEM) {
+            rt_copy(dst, (const uint8_t*)(uintptr_t)run->source, n);
+        } else if (run->kind == RT_KIND_ZERO || (run->kind == RT_KIND_PASSTHROUGH && record->is_virtual)) {
+            rt_zero(dst, n); /* nothing on the disc belongs in a virtual gap */
+        } else {
+            continue; /* PASSTHROUGH: the disc already filled it; SD and DISC: fetched later */
+        }
+        rt_flush_range((uintptr_t)dst, n);
+    }
+    record->run_index = 0;
+    record->run_done = 0;
+}
+
+/* Moves a read that needs more than RT_MAX_RUNS pieces on to its next
+ * window. Returns 1 when one is ready (memory runs already filled), 0
+ * when the read is fully covered, -1 when the table lookup fails. */
+static int rt_next_window(struct rt_context* ctx, struct rt_pending* record) {
+    const uint32_t done = record->covered;
+    uint32_t covered = 0;
+    int touched = 0;
+    int count;
+    if (done >= record->length) return 0;
+    count = rt_split(ctx, ((uint64_t)record->word_offset << 2) + done, record->length - done, record->runs,
+                     &covered, &touched);
+    if (count <= 0 || covered == 0) return -1;
+    record->run_count = (uint32_t)count;
+    record->covered = done + covered;
+    rt_fill_memory_runs(record);
+    return 1;
+}
+
 void rt_on_di_complete(struct rt_context* ctx, int32_t* result, struct rt_pending* record, uintptr_t* callback,
                        uintptr_t* user_data) {
     ctx->completions++;
     if (record->phase == RT_PHASE_DISC) {
         record->di_result = (uint32_t)*result;
         if (*result == RT_DI_SUCCESS) {
-            /* Everything that comes from memory, now; SD runs follow. */
-            uint32_t i;
-            for (i = 0; i < record->run_count; ++i) {
-                const rt_run* run = &record->runs[i];
-                uint8_t* dst = rt_run_destination(record, run);
-                const uint32_t n = (uint32_t)run->length;
-                if (run->kind == RT_KIND_MEM) {
-                    rt_copy(dst, (const uint8_t*)(uintptr_t)run->source, n);
-                } else if (run->kind == RT_KIND_ZERO || (run->kind == RT_KIND_PASSTHROUGH && record->is_virtual)) {
-                    rt_zero(dst, n); /* nothing on the disc belongs in a virtual gap */
-                } else {
-                    continue; /* PASSTHROUGH: the disc already filled it; SD and DISC: below */
-                }
-                rt_flush_range((uintptr_t)dst, n);
-            }
-            record->run_index = 0;
-            record->run_done = 0;
+            rt_fill_memory_runs(record);
         } else {
             record->run_index = record->run_count; /* nothing to fetch for a failed read */
         }
@@ -2184,9 +2223,20 @@ void rt_on_di_complete(struct rt_context* ctx, int32_t* result, struct rt_pendin
         }
     }
 
-    /* Next SD work, if any. */
-    while (record->run_index < record->run_count) {
-        const int issued = rt_issue_sd_chunk(ctx, record);
+    /* Next SD or DISC work, if any, window by window. Every failure above
+     * leaves a di_result other than success, which ends the loop. */
+    while (record->di_result == RT_DI_SUCCESS) {
+        int issued;
+        if (record->run_index >= record->run_count) {
+            const int next = rt_next_window(ctx, record);
+            if (next == 0) break;
+            if (next < 0) {
+                record->di_result = RT_DI_ERROR;
+                break;
+            }
+            continue;
+        }
+        issued = rt_issue_sd_chunk(ctx, record);
         if (issued > 0) {
             *callback = 0; /* still busy: the IPC dispatcher just returns */
             return;
