@@ -21,6 +21,8 @@
 #include <cstring>
 #include <ctime>
 #include <malloc.h>
+#include <utility>
+#include <vector>
 
 #include "di.hpp"
 #include "ios_reload.hpp"
@@ -672,19 +674,46 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
             error = std::string("the game's DOL section ") + where + "; relocating the loader is not implemented";
             return false;
         }
-        bool ok;
-        if (aligned32(destination) && (len & 31) == 0) {
-            ok = di::read(destination, len, woff, error);
-        } else {
-            ok = data.read(std::uint64_t(woff) << 2, static_cast<std::uint8_t*>(destination), len);
-            if (!ok) error = "unaligned apploader read failed";
+        // Only the parts of the load no override covers are read from the
+        // disc. A grown FST runs past the original table into space the
+        // game never uses, which a WBFS image leaves out: d2x never
+        // returned from that read on hardware.
+        const std::uint64_t load_start = std::uint64_t(woff) << 2;
+        const std::uint64_t load_end = load_start + len;
+        std::vector<std::pair<std::uint64_t, std::uint64_t>> covered;
+        for (const LoadOverride& o : overrides) {
+            const std::uint64_t from = std::max(load_start, o.offset);
+            const std::uint64_t to = std::min(load_end, o.offset + o.bytes.size());
+            if (from < to) covered.emplace_back(from, to);
         }
-        if (!ok) return false;
+        std::sort(covered.begin(), covered.end());
+        bool read_any = false;
+        const auto read_disc = [&](std::uint64_t from, std::uint64_t to) {
+            if (from >= to) return true;
+            read_any = true;
+            std::uint8_t* at = static_cast<std::uint8_t*>(destination) + (from - load_start);
+            const std::uint32_t n = static_cast<std::uint32_t>(to - from);
+            if (aligned32(at) && (n & 31) == 0 && (from & 3) == 0) {
+                return di::read(at, n, static_cast<std::uint32_t>(from >> 2), error);
+            }
+            if (!data.read(from, at, n)) {
+                error = "unaligned apploader read failed";
+                return false;
+            }
+            return true;
+        };
+        std::uint64_t cursor = load_start;
+        for (const auto& c : covered) {
+            if (!read_disc(cursor, c.first)) return false;
+            cursor = std::max(cursor, c.second);
+        }
+        if (!read_disc(cursor, load_end)) return false;
+        if (!read_any) {
+            logf("  (served from memory, nothing read from the disc)\n");
+        }
         for (const LoadOverride& o : overrides) {
             // Whatever part of an override this load covers comes from the
             // rewritten copy instead.
-            const std::uint64_t load_start = std::uint64_t(woff) << 2;
-            const std::uint64_t load_end = load_start + len;
             const std::uint64_t o_end = o.offset + o.bytes.size();
             const std::uint64_t from = std::max(load_start, o.offset);
             const std::uint64_t to = std::min(load_end, o_end);
