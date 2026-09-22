@@ -310,6 +310,57 @@ static void test_fast_cycle_detection_and_fat_cache() {
     EXPECT_TRUE(reads <= 2);
 }
 
+// Folders are read once and then served from memory (a big mod looks up
+// thousands of files under the same folders); forget_cached() drops them
+// after the card was written behind the volume's back.
+static void test_directory_cache() {
+    Fixture fx(512, 1, 0);
+    int reads = 0;
+    auto counted = [&fx, &reads](std::uint64_t lba, std::uint32_t count, std::uint8_t* out) {
+        ++reads;
+        return fx.img.reader()(lba, count, out);
+    };
+    riftwii::Fat32Volume v;
+    std::string err;
+    EXPECT_TRUE(riftwii::Fat32Volume::mount(counted, v, err));
+    riftwii::Fat32File f;
+    bool missing = true;
+    EXPECT_TRUE(v.lookup("/riivolution/fill0.bin", f, missing, err));
+    EXPECT_FALSE(missing);
+    reads = 0;
+    EXPECT_TRUE(v.lookup("/RIIVOLUTION/FILL3.BIN", f, err));
+    EXPECT_TRUE(v.lookup("/riivolution/nested dir", f, err));
+    std::vector<riftwii::Fat32Entry> entries;
+    EXPECT_TRUE(v.list("/riivolution", entries, err));
+    EXPECT_EQ(entries.size(), std::size_t(8));
+    EXPECT_EQ(reads, 0);
+
+    // Missing, as opposed to unreadable.
+    EXPECT_FALSE(v.lookup("/riivolution/new.bin", f, missing, err));
+    EXPECT_TRUE(missing);
+    EXPECT_FALSE(v.lookup("/missing/x", f, missing, err));
+    EXPECT_TRUE(missing);
+    EXPECT_FALSE(v.lookup("/short.txt/x", f, missing, err));
+    EXPECT_TRUE(missing);
+    EXPECT_FALSE(v.list("/nowhere", entries, missing, err));
+    EXPECT_TRUE(missing);
+    EXPECT_FALSE(v.lookup("/loop.bin", f, missing, err));
+    EXPECT_FALSE(missing);
+
+    // A file added behind the volume's back shows up only once forgotten.
+    Bytes riiv;
+    cat(riiv, short_entry(".          ", 0x10, 3, 0));
+    cat(riiv, short_entry("..         ", 0x10, 0, 0));
+    cat(riiv, short_entry("NEW     BIN", 0x20, 0, 0));
+    EXPECT_TRUE(fx.img.write_dir({3, 70}, riiv));
+    EXPECT_FALSE(v.lookup("/riivolution/new.bin", f, missing, err));
+    EXPECT_TRUE(missing);
+    v.forget_cached();
+    EXPECT_TRUE(v.lookup("/riivolution/new.bin", f, missing, err));
+    EXPECT_FALSE(v.lookup("/riivolution/fill0.bin", f, missing, err));
+    EXPECT_TRUE(missing);
+}
+
 static void test_mount_failures() {
     std::string err;
     riftwii::Fat32Volume v;
@@ -395,6 +446,7 @@ int main() {
     test_geometry_and_lookup(4096, 1, 63);
     test_listing_and_edge_entries();
     test_fast_cycle_detection_and_fat_cache();
+    test_directory_cache();
     test_mount_failures();
     if (g_failures == 0) {
         std::cout << "ALL FAT32 TESTS PASSED" << std::endl;

@@ -371,7 +371,8 @@ bool Fat32Volume::chain(std::uint32_t first_cluster, std::vector<Fragment>& out,
 bool Fat32Volume::walk_directory(std::uint32_t directory_cluster,
                                  const std::function<bool(const Fat32Entry&, bool& stop)>& visit,
                                  std::string& error) const {
-    std::vector<std::uint8_t> sector(geo_.bytes_per_sector);
+    // One read per cluster rather than per sector.
+    std::vector<std::uint8_t> block(static_cast<std::size_t>(geo_.cluster_bytes()));
     std::vector<std::uint16_t> lfn;
     std::uint32_t lfn_expected = 0;  // next sequence number expected, 0 = none pending
     std::uint8_t lfn_checksum = 0;
@@ -390,14 +391,15 @@ bool Fat32Volume::walk_directory(std::uint32_t directory_cluster,
             error = "directory chain leaves the volume at cluster " + std::to_string(cluster);
             return false;
         }
-        for (std::uint32_t s = 0; s < geo_.sectors_per_cluster; ++s) {
-            const std::uint64_t lba = geo_.cluster_lba(cluster) + std::uint64_t(s) * geo_.blocks_per_sector();
-            if (!reader_(lba, geo_.blocks_per_sector(), sector.data())) {
-                error = "cannot read directory block " + std::to_string(lba);
+        {
+            const std::uint64_t lba = geo_.cluster_lba(cluster);
+            const std::uint32_t blocks = geo_.sectors_per_cluster * geo_.blocks_per_sector();
+            if (!reader_(lba, blocks, block.data())) {
+                error = "cannot read directory blocks " + std::to_string(lba) + "+" + std::to_string(blocks);
                 return false;
             }
-            for (std::uint32_t off = 0; off + kEntryBytes <= geo_.bytes_per_sector; off += kEntryBytes) {
-                const std::uint8_t* e = sector.data() + off;
+            for (std::size_t off = 0; off + kEntryBytes <= block.size(); off += kEntryBytes) {
+                const std::uint8_t* e = block.data() + off;
                 if (e[0] == 0x00) {
                     error.clear();
                     return true;  // end of directory
@@ -485,20 +487,54 @@ bool Fat32Volume::walk_directory(std::uint32_t directory_cluster,
 bool Fat32Volume::find_in_directory(std::uint32_t directory_cluster, const std::string& name, Fat32Entry& out,
                                     bool& found, std::string& error) const {
     found = false;
-    return walk_directory(
-        directory_cluster,
-        [&](const Fat32Entry& e, bool& stop) {
-            if (ascii_ieq(e.name, name) || ascii_ieq(e.short_name, name)) {
-                out = e;
-                found = true;
-                stop = true;
-            }
-            return true;
-        },
-        error);
+    const std::vector<Fat32Entry>* entries = nullptr;
+    if (!directory_entries(directory_cluster, entries, error)) return false;
+    for (const Fat32Entry& e : *entries) {
+        if (ascii_ieq(e.name, name) || ascii_ieq(e.short_name, name)) {
+            out = e;
+            found = true;
+            break;
+        }
+    }
+    error.clear();
+    return true;
 }
 
-bool Fat32Volume::resolve_directory(const std::string& path, std::uint32_t& cluster, std::string& error) const {
+bool Fat32Volume::directory_entries(std::uint32_t directory_cluster, const std::vector<Fat32Entry>*& out,
+                                    std::string& error) const {
+    const auto cached = dir_cache_.find(directory_cluster);
+    if (cached != dir_cache_.end()) {
+        out = &cached->second;
+        return true;
+    }
+    std::vector<Fat32Entry> entries;
+    if (!walk_directory(
+            directory_cluster,
+            [&](const Fat32Entry& e, bool&) {
+                entries.push_back(e);
+                return true;
+            },
+            error)) {
+        return false;
+    }
+    if (dir_cache_entries_ + entries.size() > kDirCacheEntries) {
+        dir_cache_.clear();
+        dir_cache_entries_ = 0;
+    }
+    dir_cache_entries_ += entries.size();
+    out = &(dir_cache_[directory_cluster] = std::move(entries));
+    return true;
+}
+
+void Fat32Volume::forget_cached() const {
+    fat_cache_count_ = 0;
+    dir_cache_.clear();
+    dir_cache_entries_ = 0;
+}
+
+bool Fat32Volume::resolve_directory(const std::string& path, std::uint32_t& cluster, std::string& error,
+                                    bool* missing) const {
+    if (missing) *missing = false;
     if (!reader_) {
         error = "volume not mounted";
         return false;
@@ -516,10 +552,12 @@ bool Fat32Volume::resolve_directory(const std::string& path, std::uint32_t& clus
         if (!find_in_directory(cur, part, e, found, error)) return false;
         if (!found) {
             error = "no such directory '" + part + "' in '" + path + "'";
+            if (missing) *missing = true;
             return false;
         }
         if (!e.is_directory) {
             error = "'" + part + "' is not a directory in '" + path + "'";
+            if (missing) *missing = true;
             return false;
         }
         if (e.first_cluster == 0) {
@@ -534,6 +572,12 @@ bool Fat32Volume::resolve_directory(const std::string& path, std::uint32_t& clus
 }
 
 bool Fat32Volume::lookup(const std::string& path, Fat32File& out, std::string& error) const {
+    bool missing = false;
+    return lookup(path, out, missing, error);
+}
+
+bool Fat32Volume::lookup(const std::string& path, Fat32File& out, bool& missing, std::string& error) const {
+    missing = false;
     std::vector<std::string> parts;
     if (!split_path(path, parts, error)) return false;
     if (parts.empty()) {
@@ -547,12 +591,13 @@ bool Fat32Volume::lookup(const std::string& path, Fat32File& out, std::string& e
     std::string parent;
     for (std::size_t i = 0; i + 1 < parts.size(); ++i) parent += "/" + parts[i];
     std::uint32_t dir = 0;
-    if (!resolve_directory(parent, dir, error)) return false;
+    if (!resolve_directory(parent, dir, error, &missing)) return false;
     Fat32File file;
     bool found = false;
     if (!find_in_directory(dir, parts.back(), file.entry, found, error)) return false;
     if (!found) {
         error = "no such file '" + path + "'";
+        missing = true;
         return false;
     }
     if (!chain(file.entry.first_cluster, file.fragments, error)) {
@@ -571,19 +616,17 @@ bool Fat32Volume::lookup(const std::string& path, Fat32File& out, std::string& e
 }
 
 bool Fat32Volume::list(const std::string& path, std::vector<Fat32Entry>& out, std::string& error) const {
+    bool missing = false;
+    return list(path, out, missing, error);
+}
+
+bool Fat32Volume::list(const std::string& path, std::vector<Fat32Entry>& out, bool& missing,
+                       std::string& error) const {
     std::uint32_t dir = 0;
-    if (!resolve_directory(path, dir, error)) return false;
-    std::vector<Fat32Entry> entries;
-    if (!walk_directory(
-            dir,
-            [&](const Fat32Entry& e, bool&) {
-                entries.push_back(e);
-                return true;
-            },
-            error)) {
-        return false;
-    }
-    out = std::move(entries);
+    if (!resolve_directory(path, dir, error, &missing)) return false;
+    const std::vector<Fat32Entry>* entries = nullptr;
+    if (!directory_entries(dir, entries, error)) return false;
+    out = *entries;
     error.clear();
     return true;
 }

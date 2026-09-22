@@ -38,8 +38,24 @@ private:
     std::uint64_t size_;
 };
 
-// The disc side comes from the FST, the SD side from libfat; the SD paths
-// are remembered per source so the placer can resolve their sectors.
+// An SD file as a ByteSource: read raw through the sectors its lookup
+// found, the same ones the redirect table will point at.
+class SdFileSource final : public ByteSource {
+public:
+    explicit SdFileSource(const Fat32File& file) : file_(file) {}
+    std::uint64_t size() const override { return file_.entry.size; }
+    bool read(std::uint64_t offset, std::uint8_t* destination, std::size_t length) const override {
+        return read_sd_file(file_, offset, destination, length);
+    }
+
+private:
+    const Fat32File& file_;  // owned by the provider's map, which outlives the sources
+};
+
+// The disc side comes from the FST, the SD side from the card read raw
+// (riftwii/fat32.hpp, folders cached): libfat opened each of a big mod's
+// two thousand files twice and walked the same folders every time. The
+// lookup is kept per source so the placer has its sectors.
 class WiiProvider final : public ContentProvider {
 public:
     explicit WiiProvider(const Fst& fst) : fst_(fst) {}
@@ -65,44 +81,58 @@ public:
                              std::string& error) override {
         std::string abs = sd_path;
         if (abs.empty() || abs[0] != '/') abs = "/" + abs;
-        std::unique_ptr<FileByteSource> f;
-        const OpenStatus status = FileByteSource::open("sd:" + abs, f, error);
-        if (status != OpenStatus::Ok) {
-            error = "external file '" + sd_path + "' " + to_string(status) + ": " + error;
-            return status;
+        const std::string key = "sd:" + abs;
+        auto found = files_.find(key);
+        if (found == files_.end()) {
+            Fat32File file;
+            bool missing = false;
+            if (!resolve_sd_file(key, file, missing, error)) {
+                const OpenStatus status = missing ? OpenStatus::NotFound : OpenStatus::IoError;
+                error = "external file '" + sd_path + "' " + to_string(status) + ": " + error;
+                return status;
+            }
+            found = files_.emplace(key, std::move(file)).first;
         }
-        paths_[f.get()] = "sd:" + abs;
-        out = std::move(f);
+        auto source = std::make_unique<SdFileSource>(found->second);
+        sources_[source.get()] = &found->second;
+        out = std::move(source);
         return OpenStatus::Ok;
     }
 
     OpenStatus list_external(const std::string& sd_dir, std::vector<ExternalEntry>& out, std::string& error) override {
         std::string abs = sd_dir;
         if (abs.empty() || abs[0] != '/') abs = "/" + abs;
-        return list_native_directory("sd:" + abs, out, error);
+        std::vector<Fat32Entry> entries;
+        bool missing = false;
+        if (!list_sd_directory("sd:" + abs, entries, missing, error)) {
+            return missing ? OpenStatus::NotFound : OpenStatus::IoError;
+        }
+        out.clear();
+        out.reserve(entries.size());
+        for (const Fat32Entry& e : entries) {
+            ExternalEntry x;
+            x.name = e.name;
+            x.is_directory = e.is_directory;
+            out.push_back(std::move(x));
+        }
+        return OpenStatus::Ok;
     }
 
-    // The sectors of an external source, resolved once per path.
+    // The sectors of an external source, from its lookup.
     bool fragments_of(const ByteSource* source, const std::vector<Fragment>*& out, std::string& error) {
-        const auto path = paths_.find(source);
-        if (path == paths_.end()) {
+        const auto found = sources_.find(source);
+        if (found == sources_.end()) {
             error = "placer: unknown external source";
             return false;
         }
-        auto cached = fragments_.find(path->second);
-        if (cached == fragments_.end()) {
-            Fat32File file;
-            if (!resolve_sd_file(path->second, file, error)) return false;
-            cached = fragments_.emplace(path->second, std::move(file.fragments)).first;
-        }
-        out = &cached->second;
+        out = &found->second->fragments;
         return true;
     }
 
 private:
     const Fst& fst_;
-    std::map<const ByteSource*, std::string> paths_;
-    std::map<std::string, std::vector<Fragment>> fragments_;
+    std::map<std::string, Fat32File> files_;  // node-based: the sources keep references
+    std::map<const ByteSource*, const Fat32File*> sources_;
 };
 
 }  // namespace
@@ -162,6 +192,8 @@ static bool gather_package(const PackageSelection& selection, const DiscProbe& p
     std::vector<FilePatch> expanded;
     if (!expand_plan(plan, fst, provider, expanded, mod.notes, error)) return false;
     files.insert(files.end(), expanded.begin(), expanded.end());
+    logf("Mods: %s: %u file patch(es), %u memory patch(es)\n", xml_sd_path.c_str(),
+         static_cast<unsigned>(expanded.size()), static_cast<unsigned>(plan.memory.size()));
 
     // Memory patches: a valuefile is read now, while the card is mounted.
     for (MemoryPatch m : plan.memory) {
@@ -202,6 +234,8 @@ bool compile_packages(const std::vector<PackageSelection>& packages, const DiscP
                       const OpenedPartition& partition, CompiledMod& out, std::string& error) {
     CompiledMod mod;
     const Fst& fst = partition.fst;
+    // Listings from an earlier compile may predate files libfat wrote since.
+    forget_sd_layout();
     WiiProvider provider(fst);
 
     // 1. Every package's file patches, in package then document order,
@@ -276,7 +310,15 @@ bool compile_packages(const std::vector<PackageSelection>& packages, const DiscP
     std::vector<std::unique_ptr<AppliedFile>> applied;
     std::vector<VirtualFileLayout> layouts;
     constexpr std::uint64_t kWindowEnd = 0x400000000ull;
+    // Progress for big mods: every line is a card write, so one per
+    // kProgressStep files.
+    constexpr std::size_t kProgressStep = 250;
+    std::size_t done = 0;
     for (const std::string& disc_path : order) {
+        if (++done % kProgressStep == 0) {
+            logf("Mods: %u of %u disc files patched\n", static_cast<unsigned>(done),
+                 static_cast<unsigned>(order.size()));
+        }
         std::uint32_t index = fst.find(disc_path, false);
         if (index == Fst::npos) index = fst.find(disc_path, true);
         const bool create = index == Fst::npos;
@@ -338,6 +380,7 @@ bool compile_packages(const std::vector<PackageSelection>& packages, const DiscP
     }
 
     // 4. External bytes to SD sectors, and the table.
+    logf("Mods: %u disc file(s) patched; mapping them to the card\n", static_cast<unsigned>(layouts.size()));
     const ExternalPlacer placer = [&](const ByteSource* external, std::uint64_t source_offset, std::uint64_t length,
                                       std::vector<PlacedRun>& runs, std::string& e) {
         const std::vector<Fragment>* fragments = nullptr;
