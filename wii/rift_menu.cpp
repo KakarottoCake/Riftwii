@@ -18,12 +18,14 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <atomic>
 #include <array>
 #include <initializer_list>
 #include <wiiuse/wpad.h>
 
 #include "libwiigui/gui.h"
+#include "gui_richlist.hpp"
 #include "wiidrc.h"
 #include "menu.h"
 #include "autorun.hpp"
@@ -479,6 +481,11 @@ static int MenuSource(FrontendState& state)
 		ClearStaleButtons({&exitBtn.button, &sdBtn.button, &usbBtn.button, &discBtn.button});
 		if(exitBtn.Clicked())
 			menu = MENU_EXIT;
+		else if(sdBtn.Clicked() && !state.sd_catalog.games.empty()) {
+			// Already scanned this session: the games screen's Rescan refreshes it.
+			pickerDevice = riftwii::wii::ImageDevice::Sd;
+			menu = MENU_GAMES;
+		}
 		else if(sdBtn.Clicked()) {
 			sdBtn.button.ResetState();
 			SetSourceRows(detailRows, "Scanning SD...");
@@ -498,9 +505,13 @@ static int MenuSource(FrontendState& state)
 				menu = MENU_GAMES;
 			}
 		}
+		else if(usbBtn.Clicked() && !state.usb_catalog.games.empty()) {
+			pickerDevice = riftwii::wii::ImageDevice::Usb;
+			menu = MENU_GAMES;
+		}
 		else if(usbBtn.Clicked()) {
 			usbBtn.button.ResetState();
-			SetSourceRows(detailRows, "Scanning USB...");
+			SetSourceRows(detailRows, "Scanning USB... (the first scan of a big drive takes a while)");
 			ResumeGui();
 			std::string error;
 			const bool scanned = scan_usb_games(state.usb_catalog, error);
@@ -541,48 +552,65 @@ static int MenuSource(FrontendState& state)
 	return menu;
 }
 
+// One row per game: its real name (wrapped, never cut off), with the game
+// ID and image format in the right-hand column.
+static void GameRows(const riftwii::wii::ImageCatalog& catalog, bool sd, std::vector<RichRow>& rows)
+{
+	rows.clear();
+	for (const auto& g : catalog.games) {
+		RichRow r;
+		r.title = g.display.empty() ? g.title : g.display;
+		r.tag = g.id + (g.format == riftwii::UsbImageFormat::Wbfs ? " WBFS" : " ISO");
+		rows.push_back(std::move(r));
+	}
+	if (rows.empty()) {
+		RichRow r;
+		r.title = sd ? "No SD games found" : "No USB games found";
+		r.subtitle = "Put games in /wbfs or /games, then Rescan";
+		r.dim = true;
+		rows.push_back(std::move(r));
+	}
+}
+
+static std::string GamesTitle(const riftwii::wii::ImageCatalog& catalog, bool sd)
+{
+	std::string t = sd ? "SD games" : "USB games";
+	if (!catalog.games.empty()) t += "  (" + std::to_string(catalog.games.size()) + ")";
+	return t;
+}
+
 static int MenuGames(FrontendState& state)
 {
 	int menu = MENU_NONE;
 
-	static OptionList options;
-	memset(&options, 0, sizeof(options));
 	const bool sd = pickerDevice == riftwii::wii::ImageDevice::Sd;
 	const auto& catalog = sd ? state.sd_catalog : state.usb_catalog;
-	const auto fill = [&]() {
-		options.length = 0;
-		for (const auto& g : catalog.games) {
-			if (options.length >= kOptionCapacity) break;
-			const int i = options.length++;
-			snprintf(options.name[i], sizeof(options.name[i]), "%.6s  %.40s", g.id.c_str(), g.title.c_str());
-			snprintf(options.value[i], sizeof(options.value[i]), "%s",
-				 g.format == riftwii::UsbImageFormat::Wbfs ? "WBFS" : "ISO");
-		}
-		if (options.length == 0) {
-			snprintf(options.name[0], sizeof(options.name[0]), "No %s games found", sd ? "SD" : "USB");
-			options.length = 1;
-		}
-		if (selectedGame >= options.length) selectedGame = 0;
-	};
-	fill();
+	std::vector<RichRow> rows;
+	GameRows(catalog, sd, rows);
+	if (selectedGame >= static_cast<int>(rows.size())) selectedGame = 0;
 
-	GuiText titleTxt(sd ? "SD games" : "USB games", 28, (GXColor){255, 255, 255, 255});
+	std::string heading = GamesTitle(catalog, sd);
+	GuiText titleTxt(heading.c_str(), 28, (GXColor){255, 255, 255, 255});
 	titleTxt.SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
 	titleTxt.SetPosition(40,20);
 
-	GuiText statusTxt(catalog.status.c_str(), 18, (GXColor){200, 200, 200, 255});
+	// The cIOS warning matters more than the scan count.
+	GuiText statusTxt(catalog.cios_note.empty() ? "Point at a game and press A" : "No d2x cIOS in 249-251: games cannot boot yet",
+			  18, (GXColor){200, 200, 200, 255});
 	statusTxt.SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
 	statusTxt.SetPosition(40, 58);
 
 	GuiText detailTxt("A: choose   B: back   +/X: rescan", 16, (GXColor){255, 255, 255, 255});
 	detailTxt.SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
-	detailTxt.SetPosition(40, 340);
+	detailTxt.SetPosition(40, 366);
 	detailTxt.SetWrap(true, screenwidth - 80);
 
-	GuiOptionBrowser browser(552, 248, &options);
-	browser.SetPosition(0, 84);
+	GuiRichList browser(580, 280, 56, 84);
+	browser.SetRows(&rows);
+	browser.SetPosition(0, 82);
 	browser.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
 	browser.SetFocus(1);
+	browser.SelectRow(selectedGame);
 
 	GuiSound btnSoundOver(button_over_pcm, button_over_pcm_size, SOUND::PCM);
 	GuiImageData btnOutline(button_png);
@@ -610,7 +638,7 @@ static int MenuGames(FrontendState& state)
 		usleep(10000);
 		HaltGui();
 		ClearStaleButtons({&backBtn.button, &rescanBtn.button});
-		const int clicked = browser.GetClickedOption();
+		const int clicked = browser.GetClickedRow();
 		if (clicked >= 0 && static_cast<std::size_t>(clicked) < catalog.games.size()) {
 			selectedGame = clicked;
 			std::string error;
@@ -636,12 +664,15 @@ static int MenuGames(FrontendState& state)
 				statusTxt.SetText(updated.status.c_str());
 				detailTxt.SetText(error.empty() ? "Image scan failed" : error.c_str());
 			} else {
-				statusTxt.SetText(catalog.status.c_str());
 				detailTxt.SetText(catalog.games.empty() ? (sd ? "No SD games found (sd:/wbfs, sd:/games)" : "No USB games found (usb:/wbfs, usb:/games)")
 										  : "A: choose   B: back   +/X: rescan");
 			}
-			fill();
-			browser.TriggerUpdate();
+			GameRows(catalog, sd, rows);
+			heading = GamesTitle(catalog, sd);
+			titleTxt.SetText(heading.c_str());
+			selectedGame = 0;
+			browser.SetRows(&rows);
+			browser.SelectRow(0);
 		}
 		ResumeGui();
 	}
@@ -651,12 +682,42 @@ static int MenuGames(FrontendState& state)
 	return menu;
 }
 
+// The pack's name without ".xml", for display.
+static std::string PackName(const std::string& file)
+{
+	if (file.size() > 4) {
+		const std::string ext = file.substr(file.size() - 4);
+		if (strcasecmp(ext.c_str(), ".xml") == 0) return file.substr(0, file.size() - 4);
+	}
+	return file;
+}
+
+// What a mod row says under its name: how many settings it has, which
+// are chosen, or why it is broken.
+static std::string PackSummary(const riftwii::LaunchModel& model, std::size_t index)
+{
+	const riftwii::LaunchPackage& p = model.packages[index];
+	if (!p.valid) return "Broken XML: " + p.detail;
+	const std::size_t n = p.package.options.size();
+	if (n == 0) return "No settings";
+	if (!p.enabled) return std::to_string(n) + (n == 1 ? " setting" : " settings") + "; A turns it on";
+	std::string chosen;
+	std::size_t on = 0;
+	for (std::size_t i = 0; i < n; ++i) {
+		const riftwii::Option& o = p.package.options[i];
+		if (o.selected == 0 || o.selected > o.choices.size()) continue;
+		if (on++ < 2) chosen += (chosen.empty() ? "" : ", ") + o.name + ": " + o.choices[o.selected - 1].name;
+	}
+	if (on == 0) return "Nothing chosen yet; + opens its settings";
+	if (on > 2) chosen += ", +" + std::to_string(on - 2) + " more";
+	return chosen;
+}
+
 static int MenuHome(FrontendState& state)
 {
 	int menu = MENU_NONE;
 
-	static OptionList options;
-	memset(&options, 0, sizeof(options));
+	std::vector<RichRow> rows;
 	std::string scanStatus;
 	try {
 		scanStatus = ScanPackages(state);
@@ -669,23 +730,26 @@ static int MenuHome(FrontendState& state)
 	std::vector<std::size_t> visible;
 	const auto fill = [&]() {
 		visible.clear();
-		options.length = 0;
+		rows.clear();
 		for (std::size_t i = 0; i < state.model.packages.size(); ++i) {
 			const auto& p = state.model.packages[i];
 			if (!riftwii::show_package(p)) continue;
-			if (options.length >= kOptionCapacity) break;
+			if (static_cast<int>(rows.size()) >= kOptionCapacity) break;
 			visible.push_back(i);
-			const int r = options.length++;
-			snprintf(options.name[r], sizeof(options.name[r]), "%.49s", p.file.c_str());
-			snprintf(options.value[r], sizeof(options.value[r]), "%s", PackageValue(p));
+			RichRow r;
+			r.title = PackName(p.file);
+			r.subtitle = PackSummary(state.model, i);
+			r.tag = PackageValue(p);
+			r.dim = !p.valid;
+			rows.push_back(std::move(r));
 		}
-		if (options.length == 0) {
-			if (!state.model.packages.empty())
-				snprintf(options.name[0], sizeof(options.name[0]), "No mods for this game (%u for other games)",
-					 static_cast<unsigned>(state.model.packages.size()));
-			else
-				snprintf(options.name[0], sizeof(options.name[0]), "No packages available");
-			options.length = 1;
+		if (rows.empty()) {
+			RichRow r;
+			r.title = state.model.packages.empty() ? "No mods on the SD card" : "No mods for this game";
+			r.subtitle = state.model.packages.empty() ? "Put Riivolution XML in sd:/riivolution"
+				: std::to_string(state.model.packages.size()) + " XML file(s) are for other games";
+			r.dim = true;
+			rows.push_back(std::move(r));
 		}
 	};
 	fill();
@@ -715,10 +779,13 @@ static int MenuHome(FrontendState& state)
 	detailTxt.SetPosition(40, 328);
 	detailTxt.SetWrap(false);
 
-	GuiOptionBrowser browser(552, 238, &options);
+	GuiRichList browser(580, 236, 59, 70);
+	browser.SetRows(&rows);
 	browser.SetPosition(0, 84);
 	browser.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
 	browser.SetFocus(1);
+	for (std::size_t r = 0; r < visible.size(); ++r)
+		if (static_cast<int>(visible[r]) == selectedPackage) browser.SelectRow(static_cast<int>(r));
 
 	GuiSound btnSoundOver(button_over_pcm, button_over_pcm_size, SOUND::PCM);
 	GuiImageData btnOutline(button_png);
@@ -773,7 +840,11 @@ static int MenuHome(FrontendState& state)
 		usleep(10000);
 		HaltGui();
 		ClearStaleButtons({&exitBtn.button, &backBtn.button, &savesBtn.button, &optionsBtn.button, &launchBtn.button});
-		const int clicked = browser.GetClickedOption();
+		// + and Mod Options act on the highlighted row.
+		const int highlighted = browser.GetSelectedRow();
+		if (highlighted >= 0 && static_cast<std::size_t>(highlighted) < visible.size())
+			selectedPackage = static_cast<int>(visible[static_cast<std::size_t>(highlighted)]);
+		const int clicked = browser.GetClickedRow();
 		if (clicked >= 0 && static_cast<std::size_t>(clicked) < visible.size()) {
 			// A on a row: enable or disable it, saved at once so a later
 			// Back navigation (which rescans and restores) cannot wipe it.
@@ -793,6 +864,10 @@ static int MenuHome(FrontendState& state)
 				else {
 					const bool simple_auto_selected = simple_was_off && p.enabled && p.package.options.front().selected == 1;
 					SetBoundedHomeDetail(detailTxt, ToggleDetail(p, p.enabled, simple_auto_selected));
+					// Turning on a mod with real settings goes straight to them:
+					// most packs do nothing until a choice is made.
+					if (enabling && p.enabled && !simple_auto_selected && !p.package.options.empty())
+						menu = MENU_OPTIONS;
 				}
 			}
 			fill();
@@ -987,34 +1062,36 @@ static int MenuOptions(FrontendState& state)
 	DetailPages detailPages = MakeDetailPages(p.detail);
 	std::size_t detailPage = 0;
 
-	static OptionList options;
-	memset(&options, 0, sizeof(options));
+	// One row per setting: its name (section underneath) and, on the
+	// right, the current choice. A steps to the next choice.
+	std::vector<RichRow> rows;
 	const auto fill = [&]() {
-		options.length = 0;
-		for (std::size_t i = 0; i < p.package.options.size() && options.length < MAX_OPTIONS; ++i) {
+		rows.clear();
+		for (std::size_t i = 0; i < p.package.options.size() && static_cast<int>(rows.size()) < kOptionCapacity; ++i) {
 			const riftwii::Option& o = p.package.options[i];
-			const int row = options.length++;
-			if (o.section.empty()) {
-				snprintf(options.name[row], sizeof(options.name[row]), "%.49s", o.name.c_str());
-			} else {
-				snprintf(options.name[row], sizeof(options.name[row]), "%.20s: %.27s", o.section.c_str(), o.name.c_str());
-			}
-			snprintf(options.value[row], sizeof(options.value[row]), "%.49s",
-				 state.model.choice_name(selectedPackage, i).c_str());
+			RichRow r;
+			r.title = o.name;
+			r.subtitle = o.section;
+			r.tag = state.model.choice_name(selectedPackage, i);
+			rows.push_back(std::move(r));
 		}
-		if (options.length == 0) {
-			snprintf(options.name[0], sizeof(options.name[0]), "This package has no options");
-			options.length = 1;
+		if (rows.empty()) {
+			RichRow r;
+			r.title = "This mod has no settings";
+			r.subtitle = "It applies as a whole when it is On";
+			r.dim = true;
+			rows.push_back(std::move(r));
 		}
 	};
 	fill();
 
-	GuiText titleTxt(p.file.c_str(), 26, (GXColor){255, 255, 255, 255});
+	const std::string heading = PackName(p.file);
+	GuiText titleTxt(heading.c_str(), 26, (GXColor){255, 255, 255, 255});
 	titleTxt.SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
 	titleTxt.SetPosition(40,20);
 	titleTxt.SetMaxWidth(screenwidth - 80);
 
-	GuiText hintTxt(readOnly ? "+: next detail   B: back" : "A: next choice   -: previous   +: next detail   B: back", 18,
+	GuiText hintTxt(readOnly ? "+: next detail   B: back" : "A: next choice   -: previous   +: details   B: done", 18,
 		(GXColor){200, 200, 200, 255});
 	hintTxt.SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
 	hintTxt.SetPosition(40, 58);
@@ -1033,7 +1110,8 @@ static int MenuOptions(FrontendState& state)
 	detailTxt2.SetPosition(40, 384);
 	const std::array<GuiText*, kDetailLinesPerPage> detailRows = {&detailTxt0, &detailTxt1, &detailTxt2};
 
-	GuiOptionBrowser browser(552, 248, &options);
+	GuiRichList browser(580, 248, 62, 190);
+	browser.SetRows(&rows);
 	browser.SetPosition(0, 84);
 	browser.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
 	browser.SetFocus(1);
@@ -1042,7 +1120,7 @@ static int MenuOptions(FrontendState& state)
 	GuiImageData btnOutline(button_png);
 	GuiImageData btnOutlineOver(button_over_png);
 
-	MenuButton backBtn("Back", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
+	MenuButton backBtn(readOnly ? "Back" : "Done", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
 	backBtn.Place(ALIGN_H::LEFT, ALIGN_V::BOTTOM, 40, -35);
 	MenuButton prevBtn("Previous", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_MINUS | WPAD_CLASSIC_BUTTON_MINUS, PAD_BUTTON_Y, WIIDRC_BUTTON_MINUS);
 	prevBtn.Place(ALIGN_H::RIGHT, ALIGN_V::BOTTOM, -40, -35);
@@ -1073,7 +1151,7 @@ static int MenuOptions(FrontendState& state)
 		HaltGui();
 		if (readOnly) ClearStaleButtons({&backBtn.button, &detailBtn.button});
 		else ClearStaleButtons({&backBtn.button, &prevBtn.button, &detailBtn.button});
-		const int clicked = readOnly ? -1 : browser.GetClickedOption();
+		const int clicked = readOnly ? -1 : browser.GetClickedRow();
 		if (clicked >= 0 && static_cast<std::size_t>(clicked) < p.package.options.size()) {
 			lastRow = clicked;
 			state.model.cycle(selectedPackage, clicked, +1);
@@ -1082,6 +1160,8 @@ static int MenuOptions(FrontendState& state)
 		}
 		if (!readOnly && prevBtn.Clicked()) {
 			prevBtn.button.ResetState();
+			const int highlighted = browser.GetSelectedRow();
+			if (highlighted >= 0) lastRow = highlighted;
 			if (static_cast<std::size_t>(lastRow) < p.package.options.size()) {
 				state.model.cycle(selectedPackage, lastRow, -1);
 				fill();

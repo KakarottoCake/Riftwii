@@ -12,5 +12,8 @@ void LogClose();
 // file around an unmount of the card.
 void LogReopen();
 void logf(const char* format, ...) __attribute__((format(printf, 1, 2)));
+// Whether logf also prints to the text console. ConsoleStart turns it on;
+// it is off during the GUI, where lines go to the SD log only.
+void LogEchoToScreen(bool on);
 
 }  // namespace riftwii::wii

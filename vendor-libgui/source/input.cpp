@@ -21,6 +21,8 @@
 #include "libwiigui/gui.h"
 #include "wiidrc.h"
 
+static void UpdatePadPointers();
+
 int rumbleRequest[4] = {0,0,0,0};
 GuiTrigger userInput[4];
 static int rumbleCount[4] = {0,0,0,0};
@@ -69,6 +71,73 @@ void UpdatePads()
 		userInput[i].pad.substickY = PAD_SubStickY(i);
 		userInput[i].pad.triggerL = PAD_TriggerL(i);
 		userInput[i].pad.triggerR = PAD_TriggerR(i);
+	}
+
+	UpdatePadPointers();
+}
+
+/****************************************************************************
+ * UpdatePadPointers (Riftwii)
+ *
+ * A GameCube controller drives an on-screen pointer the way a Wii Remote
+ * does: the control stick moves it and A clicks what is under it. It is
+ * written into the channel's Wii Remote IR data, so every widget treats it
+ * as pointing. A Wii Remote on the same channel takes over the moment it
+ * points or presses a button; the pad takes back over on its next input.
+ * The stick then no longer steps through lists (the D-pad still does).
+ ***************************************************************************/
+static void UpdatePadPointers()
+{
+	static float x[4], y[4];
+	static bool placed[4] = {false, false, false, false};
+	static bool active[4] = {false, false, false, false};
+	const int deadzone = 14;
+
+	for (int i = 0; i < 4; i++)
+	{
+		WPADData * w = userInput[i].wpad;
+		if (!w) continue;
+		// Only a connected remote's data is refreshed by the scan; on an
+		// empty channel ir.valid is still the pointer written last frame.
+		u32 type = 0;
+		const bool remote = WPAD_Probe(i, &type) == WPAD_ERR_NONE;
+		if (remote && (w->ir.valid || w->btns_d)) {
+			active[i] = false;  // the Wii Remote is in use
+			continue;
+		}
+		if (!remote) w->ir.valid = 0;
+		const int sx = userInput[i].pad.stickX;
+		const int sy = userInput[i].pad.stickY;
+		const bool moved = abs(sx) > deadzone || abs(sy) > deadzone;
+		if (moved || userInput[i].pad.btns_d)
+			active[i] = true;
+		if (!active[i]) continue;
+		if (!placed[i]) {
+			x[i] = screenwidth / 2;
+			y[i] = screenheight / 2;
+			placed[i] = true;
+		}
+		// Quadratic response: fine control near the centre, about 14 px per
+		// frame at full tilt.
+		const auto speed = [&](int v) -> float {
+			if (abs(v) <= deadzone) return 0.0f;
+			float t = (abs(v) - deadzone) / (float)(100 - deadzone);
+			if (t > 1.0f) t = 1.0f;
+			const float s = 1.0f + 13.0f * t * t;
+			return v < 0 ? -s : s;
+		};
+		x[i] += speed(sx);
+		y[i] -= speed(sy);  // stick up is positive, screen y grows downward
+		if (x[i] < 0) x[i] = 0;
+		if (y[i] < 0) y[i] = 0;
+		if (x[i] > screenwidth - 1) x[i] = screenwidth - 1;
+		if (y[i] > screenheight - 1) y[i] = screenheight - 1;
+		w->ir.valid = 1;
+		w->ir.x = x[i];
+		w->ir.y = y[i];
+		w->ir.angle = 0;
+		userInput[i].pad.stickX = 0;
+		userInput[i].pad.stickY = 0;
 	}
 }
 

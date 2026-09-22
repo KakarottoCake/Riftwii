@@ -28,6 +28,33 @@ void select_simple_choice_on_enable(LaunchPackage& package) {
     if (option.choices.size() == 1 && option.selected == 0) option.selected = 1;
 }
 
+// For XML that does not parse: the game its <id> element names, read
+// straight from the text, so a broken pack for another game stays hidden
+// just like a working one. Empty when no game attribute can be found.
+std::string sniff_game(const std::string& xml) {
+    for (std::size_t at = xml.find("<id"); at != std::string::npos; at = xml.find("<id", at + 3)) {
+        const char after = at + 3 < xml.size() ? xml[at + 3] : '\0';
+        if (after != ' ' && after != '\t' && after != '\r' && after != '\n') continue;
+        const std::size_t end = xml.find('>', at);
+        const std::string tag = xml.substr(at, end == std::string::npos ? std::string::npos : end - at);
+        for (std::size_t g = tag.find("game"); g != std::string::npos; g = tag.find("game", g + 4)) {
+            const char before = tag[g - 1];
+            if (before != ' ' && before != '\t' && before != '\r' && before != '\n') continue;
+            std::size_t i = g + 4;
+            while (i < tag.size() && (tag[i] == ' ' || tag[i] == '\t')) ++i;
+            if (i >= tag.size() || tag[i] != '=') continue;
+            ++i;
+            while (i < tag.size() && (tag[i] == ' ' || tag[i] == '\t')) ++i;
+            if (i >= tag.size() || (tag[i] != '"' && tag[i] != '\'')) continue;
+            const std::size_t close = tag.find(tag[i], i + 1);
+            if (close == std::string::npos) return "";
+            return tag.substr(i + 1, close - i - 1);
+        }
+        return "";
+    }
+    return "";
+}
+
 }  // namespace
 
 bool same_disc_identity(const DiscIdentity& left, const DiscIdentity& right) {
@@ -47,7 +74,10 @@ void LaunchModel::add(const std::string& file, const std::string& path, const st
     p.valid = parse_package(xml, p.package, error);
     if (!p.valid) {
         p.detail = error;
-        p.for_disc = false;
+        const std::string game = sniff_game(xml);
+        p.for_disc = disc == nullptr || game.empty() ||
+                     (game.size() <= 6 && disc->id.compare(0, game.size(), game) == 0);
+        if (!game.empty()) p.detail += " (for " + game + ")";
     } else {
         p.for_disc = disc == nullptr || p.package.filter.matches(*disc);
         std::size_t choices = 0;

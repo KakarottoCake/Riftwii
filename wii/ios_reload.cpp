@@ -7,6 +7,7 @@
 #include <ogc/ipc.h>
 #include <ogc/irq.h>
 #include <ogc/machine/processor.h>
+#include <wiiuse/wpad.h>
 
 #include <cstdint>
 #include <cstdio>
@@ -21,6 +22,8 @@ char g_dolphin_path[] ATTRIBUTE_ALIGN(32) = "/dev/dolphin";
 tikview g_view ATTRIBUTE_ALIGN(32);
 bool g_terminal_failure = false;
 volatile std::uint32_t g_terminal_spin = 0;
+std::string g_reload_detail;
+bool g_wii_remotes_released = false;
 
 constexpr std::uint32_t kIosVersionAddress = 0x80003140;
 constexpr int kIpcStartRetries = 400;    // ~400 ms, what libogc allows
@@ -56,6 +59,14 @@ bool running_in_dolphin() {
 
 bool reload_terminal_failure() { return g_terminal_failure; }
 
+const std::string& last_reload_detail() { return g_reload_detail; }
+
+void release_wii_remotes() {
+    if (g_wii_remotes_released) return;
+    WPAD_Shutdown();
+    g_wii_remotes_released = true;
+}
+
 [[noreturn]] void halt_after_terminal_reload() {
     // The IOS IPC interrupt is still masked and its handler is gone. Do not
     // return into CRT/libogc cleanup or call any subsystem here.
@@ -64,6 +75,7 @@ bool reload_terminal_failure() { return g_terminal_failure; }
 
 ReloadResult reload_ios(int version, std::string& error) {
     g_terminal_failure = false;
+    g_reload_detail.clear();
     if (version < 3 || version > 0xFF) {
         error = "IOS" + std::to_string(version) + " is not a valid IOS number";
         return ReloadResult::Failed;
@@ -111,21 +123,28 @@ ReloadResult reload_ios(int version, std::string& error) {
     // then hand the interrupt back and re-arm libogc's IPC layer.
     __MaskIrq(IM_PI_ACR);
     raw_irq_handler_t handler = IRQ_Free(IRQ_PI_ACR);
-    for (int waited = 0; (read32(kIosVersionAddress) >> 16) == 0; ++waited) {
-        if (waited >= kIosStartTimeoutMs) {
+    int started_ms = 0;
+    for (; (read32(kIosVersionAddress) >> 16) == 0; ++started_ms) {
+        if (started_ms >= kIosStartTimeoutMs) {
             return terminal_startup_failure(version, "did not start within 10 s", error);
         }
         udelay(1000);
     }
-    bool ipc_ready = false;
+    // libogc polls the IPC ack bit for up to 400 ms and then carries on
+    // regardless; the bit is not always raised by the time the new kernel
+    // has announced itself. Failing here stranded real consoles on the
+    // power-off screen, so do the same and only note it.
+    int ipc_ms = -1;
     for (int i = 0; i <= kIpcStartRetries; ++i) {
-        udelay(1000);
-        if (HW_IPC_PPCCTRL & HW_IPC_PPC_CTRL_REGS) {
-            ipc_ready = true;
+        if (read32(0x0D000004) & HW_IPC_PPC_MSG_ACK) {
+            ipc_ms = i;
             break;
         }
+        udelay(1000);
     }
-    if (!ipc_ready) return terminal_startup_failure(version, "IPC did not start within 400 ms", error);
+    g_reload_detail = "IOS" + std::to_string(version) + " announced itself after " + std::to_string(started_ms) +
+                      " ms; " + (ipc_ms >= 0 ? "IPC ready after " + std::to_string(ipc_ms) + " ms"
+                                             : std::string("IPC ack bit not seen in 400 ms, continued as libogc does"));
     IRQ_Request(IRQ_PI_ACR, handler, nullptr);
     __UnmaskIrq(IM_PI_ACR);
     __IPC_Reinitialize();

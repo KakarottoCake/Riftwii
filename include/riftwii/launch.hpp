@@ -29,10 +29,11 @@ struct LaunchPackage {
     Package package;       // its options carry the current choices
 };
 
-// Visibility on the mods screen: packs made for the selected game plus
-// packs that failed to parse (their error is the point for the user);
-// packs made for a different game are hidden, never merely greyed.
-inline bool show_package(const LaunchPackage& p) { return !p.valid || p.for_disc; }
+// Visibility on the mods screen: only packs made for the selected game.
+// A pack that fails to parse is judged by the game its <id> names in the
+// raw text, and shown (with its error) only when that matches or cannot
+// be read; packs for a different game are hidden, never merely greyed.
+inline bool show_package(const LaunchPackage& p) { return p.for_disc; }
 
 // Full physical/image identity used for package filters and for binding a
 // preflight plan to the disc that was actually compiled.

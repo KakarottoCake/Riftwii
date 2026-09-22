@@ -129,7 +129,8 @@ InitVideo ()
 	xfb[1] = (u32 *) MEM_K0_TO_K1 (xfb[1]);
 
 	// A console is always useful while debugging
-	console_init (xfb[0], 20, 64, vmode->fbWidth, vmode->xfbHeight, vmode->fbWidth * 2);
+	// Riftwii: no text console on the GUI's framebuffer; stray printf
+	// output drew over the menus. The launch phase sets up its own.
 
 	// Clear framebuffers etc.
 	VIDEO_ClearFrameBuffer (vmode, xfb[0], COLOR_BLACK);

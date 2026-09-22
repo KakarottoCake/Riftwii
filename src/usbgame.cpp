@@ -147,7 +147,12 @@ bool build_wbfs(const UsbImage& image, std::vector<D2xFragment>& map, std::uint6
             return false;
         }
         if (container_sector > c.size() / kUsbSectorBytes || block_sectors > c.size() / kUsbSectorBytes - container_sector) {
-            error = "WBFS WLBA points outside the split container";
+            // The numbers tell a missing .wbf1/.wbf2 piece (the block lies
+            // just past the file) from a damaged table (far beyond it).
+            error = "WBFS WLBA points outside the split container (disc block " + std::to_string(i) + " -> WBFS block " +
+                    std::to_string(wlba) + ", needs " + std::to_string((container_sector + block_sectors) * kUsbSectorBytes) +
+                    " bytes; " + std::to_string(image.pieces.size()) + " piece(s) hold " + std::to_string(c.size()) +
+                    "; a split image needs every .wbf1, .wbf2 ... beside the .wbfs)";
             return false;
         }
         if (!map_container_range(image, container_sector, block_sectors, i * block_sectors, map, error)) return false;

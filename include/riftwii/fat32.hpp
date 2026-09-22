@@ -98,11 +98,15 @@ private:
     BlockReader reader_;
     Fat32Geometry geo_;
     Fat32Limits limits_;
-    // One logical FAT block is enough for sequential chain traversal. It is
-    // mutable because all public volume lookups remain logically const.
-    mutable bool fat_cache_valid_ = false;
-    mutable std::uint64_t fat_cache_lba_ = 0;
-    mutable std::uint8_t fat_cache_[kFatBlockBytes] = {};
+    // A window of FAT blocks for chain traversal: a multi-GB image's chain
+    // spans hundreds of KiB of FAT, and one USB read per 512-byte block
+    // made a game list take minutes. Mutable because all public volume
+    // lookups remain logically const; heap-backed so the volume stays small
+    // enough for the stack.
+    static constexpr std::uint32_t kFatCacheBlocks = 64;
+    mutable std::uint64_t fat_cache_lba_ = 0;     // first block held
+    mutable std::uint32_t fat_cache_count_ = 0;   // blocks held; zero when empty
+    mutable std::vector<std::uint8_t> fat_cache_;
 };
 
 }  // namespace riftwii

@@ -16,7 +16,8 @@ struct ImageGame {
     ImageDevice device = ImageDevice::Usb;
     std::string path;               // primary usb:/ or sd:/ path
     std::string id;
-    std::string title;
+    std::string title;              // the disc header's internal name
+    std::string display;            // what the list shows (see riftwii/titles.hpp)
     std::uint8_t revision = 0;
     std::uint8_t disc_number = 0;
     UsbImageFormat format = UsbImageFormat::Iso;
