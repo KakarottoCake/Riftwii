@@ -52,12 +52,15 @@ std::string without_trailing_slash(std::string path) {
     return path;
 }
 
-bool list_sorted(ContentProvider& provider, const std::string& sd_dir, std::vector<ExternalEntry>& out,
-                 std::string& error) {
+// Ok, NotFound (the folder is not on the card) or IoError, with `error`
+// naming the folder for the last two.
+OpenStatus list_sorted(ContentProvider& provider, const std::string& sd_dir, std::vector<ExternalEntry>& out,
+                       std::string& error) {
     out.clear();
-    if (!provider.list_external(sd_dir, out, error)) {
+    const OpenStatus status = provider.list_external(sd_dir, out, error);
+    if (status != OpenStatus::Ok) {
         error = "cannot list '" + sd_dir + "': " + error;
-        return false;
+        return status == OpenStatus::NotFound ? OpenStatus::NotFound : OpenStatus::IoError;
     }
     std::vector<ExternalEntry> kept;
     for (ExternalEntry& e : out) {
@@ -65,7 +68,7 @@ bool list_sorted(ContentProvider& provider, const std::string& sd_dir, std::vect
     }
     std::sort(kept.begin(), kept.end(), name_less);
     out = std::move(kept);
-    return true;
+    return OpenStatus::Ok;
 }
 
 FilePatch make_file(const FolderPatch& folder, const std::string& disc_path, const std::string& external,
@@ -84,6 +87,7 @@ struct Expansion {
     unsigned replaced = 0;
     unsigned created = 0;
     unsigned skipped = 0;
+    bool missing = false;  // the external folder itself is not on the card
 };
 
 // The child of directory `kids` (the FST indices) called `name`, matched
@@ -107,7 +111,16 @@ bool walk_rooted(const FolderPatch& folder, const Fst& fst, ContentProvider& pro
         return false;
     }
     std::vector<ExternalEntry> entries;
-    if (!list_sorted(provider, sd_dir, entries, error)) return false;
+    const OpenStatus listed = list_sorted(provider, sd_dir, entries, error);
+    if (listed == OpenStatus::NotFound && depth == 0) {
+        // Riivolution skips a folder patch whose external folder does not
+        // exist; packs rely on it for optional or per-region content. A
+        // subfolder vanishing mid-walk (depth > 0) is a card problem.
+        x.missing = true;
+        error.clear();
+        return true;
+    }
+    if (listed != OpenStatus::Ok) return false;
     std::vector<std::uint32_t> kids;
     if (disc_index != Fst::npos && !fst.children(disc_index, kids)) {
         error = "fst directory '" + disc_dir + "' is corrupt";
@@ -154,7 +167,13 @@ bool walk_rooted(const FolderPatch& folder, const Fst& fst, ContentProvider& pro
 bool search_by_name(const FolderPatch& folder, const Fst& fst, ContentProvider& provider, const std::string& sd_dir,
                     Expansion& x, std::string& error) {
     std::vector<ExternalEntry> entries;
-    if (!list_sorted(provider, sd_dir, entries, error)) return false;
+    const OpenStatus listed = list_sorted(provider, sd_dir, entries, error);
+    if (listed == OpenStatus::NotFound) {
+        x.missing = true;  // skipped, as for a rooted folder
+        error.clear();
+        return true;
+    }
+    if (listed != OpenStatus::Ok) return false;
     for (const ExternalEntry& e : entries) {
         if (e.is_directory) continue;
         const std::vector<std::uint32_t> matches = fst.find_files_named(e.name, true);
@@ -242,9 +261,12 @@ bool expand_plan(const Plan& plan, const Fst& fst, ContentProvider& provider, st
             Expansion x;
             if (!expand_folder(folder, fst, provider, x, error)) return false;
             files.insert(files.end(), x.files.begin(), x.files.end());
-            lines.push_back("<folder " + folder.external + " -> " + (folder.disc.empty() ? "by name" : folder.disc) +
-                            ">: " + std::to_string(x.replaced) + " replaced, " + std::to_string(x.created) +
-                            " created, " + std::to_string(x.skipped) + " skipped");
+            const std::string head =
+                "<folder " + folder.external + " -> " + (folder.disc.empty() ? "by name" : folder.disc) + ">: ";
+            lines.push_back(x.missing ? head + "not on the card, skipped"
+                                      : head + std::to_string(x.replaced) + " replaced, " +
+                                            std::to_string(x.created) + " created, " + std::to_string(x.skipped) +
+                                            " skipped");
             break;
         }
         case PatchKind::Memory:

@@ -26,14 +26,15 @@ public:
         error = "not expected";
         return riftwii::OpenStatus::IoError;
     }
-    bool list_external(const std::string& sd_dir, std::vector<riftwii::ExternalEntry>& out, std::string& error) override {
+    riftwii::OpenStatus list_external(const std::string& sd_dir, std::vector<riftwii::ExternalEntry>& out,
+                                      std::string& error) override {
         auto it = dirs.find(sd_dir);
         if (it == dirs.end()) {
             error = "no such directory";
-            return false;
+            return riftwii::OpenStatus::NotFound;
         }
         out = it->second;
-        return true;
+        return riftwii::OpenStatus::Ok;
     }
     void add(const std::string& dir, const std::string& name, bool is_directory) {
         riftwii::ExternalEntry e;
@@ -161,11 +162,19 @@ static void test_rooted() {
     EXPECT_EQ(out.size(), std::size_t(6));
     if (out.size() == 6) EXPECT_EQ(Describe(out[0]), std::string("/Missing/a.arc<-/mod/Stage/a.arc create"));
 
-    // A rooted target that is a file, a card folder that cannot be listed.
+    // A rooted target that is a file is an error; a card folder that does
+    // not exist is skipped with a note, as Riivolution skips it.
     plan.folders[0] = Folder("/sys.bin", "/mod/Stage", true, false);
     EXPECT_FALSE(riftwii::expand_plan(plan, fst, card, out, notes, err));
     plan.folders[0] = Folder("/Stage", "/mod/nowhere", true, false);
-    EXPECT_FALSE(riftwii::expand_plan(plan, fst, card, out, notes, err));
+    notes.clear();
+    EXPECT_TRUE(riftwii::expand_plan(plan, fst, card, out, notes, err));
+    EXPECT_TRUE(out.empty());
+    EXPECT_EQ(notes.size(), std::size_t(1));
+    if (!notes.empty()) EXPECT_TRUE(notes[0].find("not on the card, skipped") != std::string::npos);
+    plan.folders[0] = Folder("", "/mod/nowhere", false, false);  // by-name search, same rule
+    EXPECT_TRUE(riftwii::expand_plan(plan, fst, card, out, notes, err));
+    EXPECT_TRUE(out.empty());
 
     // The root itself.
     plan.folders[0] = Folder("/", "/mod/loose", false, false);
@@ -285,7 +294,7 @@ static void test_native_listing() {
     riftwii::DirectoryProvider provider((root / "disc").string(), (root / "sd").string());
     std::vector<riftwii::ExternalEntry> entries;
     std::string err;
-    EXPECT_TRUE(provider.list_external("/mod/Stage", entries, err));
+    EXPECT_TRUE(provider.list_external("/mod/Stage", entries, err) == riftwii::OpenStatus::Ok);
     EXPECT_EQ(entries.size(), std::size_t(2));
     bool saw_file = false, saw_dir = false;
     for (const auto& e : entries) {
@@ -294,7 +303,7 @@ static void test_native_listing() {
     }
     EXPECT_TRUE(saw_file);
     EXPECT_TRUE(saw_dir);
-    EXPECT_FALSE(provider.list_external("/mod/nowhere", entries, err));
+    EXPECT_TRUE(provider.list_external("/mod/nowhere", entries, err) == riftwii::OpenStatus::NotFound);
 
     riftwii::Fst fst = Disc();
     riftwii::Plan plan;

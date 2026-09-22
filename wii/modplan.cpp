@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "modplan.hpp"
 
+#include <algorithm>
 #include <fstream>
 #include <map>
 #include <memory>
@@ -75,7 +76,7 @@ public:
         return OpenStatus::Ok;
     }
 
-    bool list_external(const std::string& sd_dir, std::vector<ExternalEntry>& out, std::string& error) override {
+    OpenStatus list_external(const std::string& sd_dir, std::vector<ExternalEntry>& out, std::string& error) override {
         std::string abs = sd_dir;
         if (abs.empty() || abs[0] != '/') abs = "/" + abs;
         return list_native_directory("sd:" + abs, out, error);
@@ -227,14 +228,29 @@ bool compile_packages(const std::vector<PackageSelection>& packages, const DiscP
         if (groups.find(patch.disc) == groups.end()) order.push_back(patch.disc);
         groups[patch.disc].push_back(patch);
     };
+    // What Riivolution skips rather than refuses is skipped here too, with a
+    // note so the preflight screen and boot.log still say so: a file whose
+    // external is not on the card, a bare name no disc file carries, and
+    // (step 3) a disc path this disc lacks when nothing creates it. Packs
+    // covering several regions or optional content depend on this. Any
+    // other failure (an unreadable card, a malformed path) still stops
+    // the launch.
     for (FilePatch patch : files) {
+        {
+            std::unique_ptr<ByteSource> external;
+            std::string open_error;
+            if (provider.open_external(patch.external, external, open_error) == OpenStatus::NotFound) {
+                mod.notes.push_back(patch.disc + ": external '" + patch.external + "' not on the card, skipped");
+                continue;
+            }
+        }
         if (patch.is_filename) {
             // A bare name is a search: every disc file called that is
             // patched (as a by-name <folder> does).
             const std::vector<std::uint32_t> matches = fst.find_files_named(patch.disc, true);
             if (matches.empty()) {
-                error = "no disc file is called '" + patch.disc + "'";
-                return false;
+                mod.notes.push_back("no disc file is called '" + patch.disc + "', skipped");
+                continue;
             }
             patch.is_filename = false;
             for (std::uint32_t m : matches) {
@@ -264,9 +280,20 @@ bool compile_packages(const std::vector<PackageSelection>& packages, const DiscP
         std::uint32_t index = fst.find(disc_path, false);
         if (index == Fst::npos) index = fst.find(disc_path, true);
         const bool create = index == Fst::npos;
-        if (create && !groups[disc_path].front().create) {
-            error = "'" + disc_path + "' is not on the disc";
-            return false;
+        if (create) {
+            // Only patches that may create the file apply to a missing one.
+            std::vector<FilePatch>& group = groups[disc_path];
+            const std::size_t before = group.size();
+            group.erase(std::remove_if(group.begin(), group.end(), [](const FilePatch& p) { return !p.create; }),
+                        group.end());
+            if (group.empty()) {
+                mod.notes.push_back(disc_path + ": not on the disc, skipped");
+                continue;
+            }
+            if (group.size() != before) {
+                mod.notes.push_back(disc_path + ": not on the disc; " + std::to_string(before - group.size()) +
+                                    " patch(es) without create skipped");
+            }
         }
         // A created file starts empty (apply_patches does that for
         // create="true") and always takes a slot in the window.
@@ -302,6 +329,12 @@ bool compile_packages(const std::vector<PackageSelection>& packages, const DiscP
         }
         layouts.push_back(layout);
         applied.push_back(std::move(file));
+    }
+
+    if (layouts.empty()) {  // every file patch was skipped above
+        out = std::move(mod);
+        error.clear();
+        return true;
     }
 
     // 4. External bytes to SD sectors, and the table.

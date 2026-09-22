@@ -27,6 +27,8 @@ namespace riftwii {
 //     subfolders are not entered. A bare name (not rooted) is treated the
 //     same way, since the documentation gives it no folder meaning.
 //   - `resize` and `length` carry over to each file patch.
+//   - An external folder that is not on the card skips the patch (as
+//     Riivolution does) with a note; any other listing failure is an error.
 // External entries are visited in name order (ASCII case folded) so the
 // result does not depend on the card's directory order. `notes` receives
 // one line per folder saying what it expanded to.
