@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/patch.hpp"
+#include "riftwii/mempatch.hpp"
 #include <pugixml.hpp>
 #include <algorithm>
 #include <cctype>
@@ -13,6 +14,11 @@ namespace riftwii {
 namespace {
 constexpr std::size_t kMaxXml = 1048576;
 constexpr std::size_t kMaxString = 4096;
+// Hex payloads (memory value/original) carry binary data as hex text, two
+// characters per byte. The budget matches the runtime's 1 MiB memory value
+// cap; the 1 MiB XML cap bounds the total anyway. Names and paths stay at
+// kMaxString: only these two attributes are exempted in CheckAttrLengths.
+constexpr std::size_t kMaxHexChars = kMaxMemoryValueBytes * 2;
 constexpr std::size_t kMaxNodes = 8192;
 constexpr std::size_t kMaxWarnings = 64;
 constexpr int kMaxDepth = 16;
@@ -365,14 +371,17 @@ bool AttrPresent(pugi::xml_node node, const char* name) {
 std::string AttrValue(pugi::xml_node node, const char* name) {
     return std::string(node.attribute(name).as_string());
 }
-bool CheckAttrLengths(pugi::xml_node node, std::string& error) {
+bool CheckAttrLengths(pugi::xml_node node, const std::string& label, std::string& error) {
     for (auto a : node.attributes()) {
+        std::string an = a.name();
+        // Memory hex payloads are budgeted by character count in ReadHex and
+        // by byte count in ParseMemoryNode, not by the name/path cap.
+        if (label == "memory" && (an == "value" || an == "original")) continue;
         std::string v = a.as_string();
         if (v.size() > kMaxString) {
             error = std::string("string too long in attribute '") + a.name() + "'";
             return false;
         }
-        std::string an = a.name();
         if (an.size() > kMaxString) {
             error = "attribute name too long";
             return false;
@@ -407,7 +416,7 @@ bool EnterElement(pugi::xml_node n, Ctx& ctx, int depth, const char* const* allo
                   const std::string& label, std::string& error) {
     if (depth > kMaxDepth) { error = "depth exceeded"; return false; }
     if (++ctx.nodes > kMaxNodes) { error = "too many nodes"; return false; }
-    if (!CheckAttrLengths(n, error)) return false;
+    if (!CheckAttrLengths(n, label, error)) return false;
     if (!CheckNoText(n, error)) return false;
     for (auto a : n.attributes()) {
         std::string an = a.name();
@@ -440,6 +449,7 @@ bool ReadHex(pugi::xml_node n, const char* name, const std::string& label, std::
     if (!AttrPresent(n, name)) return true;
     std::string v = AttrValue(n, name);
     if (v.empty()) { error = label + " " + name + " empty"; return false; }
+    if (v.size() > kMaxHexChars) { error = label + " " + name + " too long"; return false; }
     if (!ParseHex(v, out)) { error = "invalid " + label + " " + name + " (hex bytes expected)"; return false; }
     return true;
 }
@@ -536,6 +546,10 @@ bool ParseMemoryNode(pugi::xml_node n, Patch& patch, Ctx& ctx, int depth, std::s
         return false;
     }
     if (m.ocarina && !has_value) { error = "memory ocarina needs value"; return false; }
+    if (m.value.size() > kMaxMemoryValueBytes || m.original.size() > kMaxMemoryValueBytes) {
+        error = "memory value too large";
+        return false;
+    }
     if (m.align == 0) { error = "memory align must be at least 1"; return false; }
     patch.memory.push_back(m);
     patch.order.push_back(PatchStep{PatchKind::Memory, patch.memory.size() - 1});
