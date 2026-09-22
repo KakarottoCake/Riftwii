@@ -316,6 +316,19 @@ bool HasDotSegment(const std::string& path) {
     }
     return false;
 }
+// Riivolution resolves disc paths component by component, so "/a//b" and
+// "/Stage/" name the same thing as "/a/b" and "/Stage". Runs of '/' are
+// collapsed and a trailing one dropped (the root stays "/").
+std::string TidyDiscPath(std::string path) {
+    std::string out;
+    out.reserve(path.size());
+    for (char c : path) {
+        if (c == '/' && !out.empty() && out.back() == '/') continue;
+        out += c;
+    }
+    if (out.size() > 1 && out.back() == '/') out.pop_back();
+    return out;
+}
 // Structural rules for a disc path or bare name. `is_name` reports the bare
 // form. When `full` is false (parse time) a string carrying placeholders is
 // only checked for length and control characters; the rest waits until the
@@ -357,6 +370,13 @@ struct Ctx {
         std::vector<Param> params;
     };
     std::vector<PendingMacro> macros;
+    // Set when a resource limit (depth, node budget, string length) is hit:
+    // those stop the parse. Anything else malformed only drops the element
+    // it is in (see Recover), as Riivolution drops what it cannot read.
+    bool fatal = false;
+    // A second <patch> with an id already defined is kept under a hidden
+    // alias; every reference to the id then selects all of them.
+    std::map<std::string, std::vector<std::string>> aliases;
 };
 void Warn(Ctx& ctx, const std::string& message) {
     if (ctx.pkg.warnings.size() < kMaxWarnings) {
@@ -371,6 +391,15 @@ void Warn(Ctx& ctx, const std::string& message) {
 // default, inherited ones keep the inherited value, and required ones are
 // reported as missing. Matching that here keeps XMLs written against
 // Riivolution loadable instead of failing on a per-attribute check.
+// A malformed element is dropped with a warning naming it and the reason;
+// the rest of the package still loads. Returns false (stop) only after a
+// resource limit.
+bool Recover(Ctx& ctx, const std::string& what, std::string& error) {
+    if (ctx.fatal) return false;
+    Warn(ctx, "ignoring " + what + ": " + error);
+    error.clear();
+    return true;
+}
 bool AttrPresent(pugi::xml_node node, const char* name) {
     pugi::xml_attribute a = node.attribute(name);
     return a && a.as_string()[0] != '\0';
@@ -421,10 +450,16 @@ bool CheckNoText(pugi::xml_node node, std::string& error) {
 // `allowed` (nullptr-terminated). Unknown attributes are ignored, not fatal.
 bool EnterElement(pugi::xml_node n, Ctx& ctx, int depth, const char* const* allowed,
                   const std::string& label, std::string& error) {
-    if (depth > kMaxDepth) { error = "depth exceeded"; return false; }
-    if (++ctx.nodes > kMaxNodes) { error = "too many nodes"; return false; }
-    if (!CheckAttrLengths(n, label, error)) return false;
-    if (!CheckNoText(n, error)) return false;
+    if (depth > kMaxDepth) { error = "depth exceeded"; ctx.fatal = true; return false; }
+    if (++ctx.nodes > kMaxNodes) { error = "too many nodes"; ctx.fatal = true; return false; }
+    if (!CheckAttrLengths(n, label, error)) { ctx.fatal = true; return false; }
+    {
+        std::string text_error;
+        if (!CheckNoText(n, text_error)) {
+            if (text_error == "string too long") { error = text_error; ctx.fatal = true; return false; }
+            Warn(ctx, label + ": " + text_error + " ignored");
+        }
+    }
     for (auto a : n.attributes()) {
         std::string an = a.name();
         bool ok = false;
@@ -484,7 +519,7 @@ bool ParseFileNode(pugi::xml_node n, Patch& patch, Ctx& ctx, int depth, std::str
     }
     if (!AttrPresent(n, "disc")) { error = "file missing disc"; return false; }
     FilePatch f;
-    f.disc = AttrValue(n, "disc");
+    f.disc = TidyDiscPath(AttrValue(n, "disc"));
     {
         std::string perr;
         if (!CheckDiscPath(f.disc, false, false, f.is_filename, perr)) { error = "file " + perr; return false; }
@@ -506,7 +541,7 @@ bool ParseFolderNode(pugi::xml_node n, Patch& patch, Ctx& ctx, int depth, std::s
         if (c.type() == pugi::node_element) WarnUnknownChild(ctx, "folder", c);
     }
     FolderPatch f;
-    f.disc = AttrValue(n, "disc");
+    f.disc = TidyDiscPath(AttrValue(n, "disc"));
     {
         std::string perr;
         if (!CheckDiscPath(f.disc, true, false, f.is_name, perr)) { error = "folder " + perr; return false; }
@@ -581,7 +616,13 @@ bool ParsePatchDef(pugi::xml_node n, Ctx& ctx, int depth, std::string& error) {
     if (!AttrPresent(n, "id")) { error = "patch missing id"; return false; }
     std::string id = AttrValue(n, "id");
     if (id.empty()) { error = "patch id empty"; return false; }
-    if (ctx.pkg.patches.find(id) != ctx.pkg.patches.end()) { error = "duplicate patch id '" + id + "'"; return false; }
+    std::string key = id;
+    if (ctx.pkg.patches.find(id) != ctx.pkg.patches.end()) {
+        std::vector<std::string>& more = ctx.aliases[id];
+        key = id + '\x1f' + std::to_string(more.size() + 1);
+        more.push_back(key);
+        Warn(ctx, "patch id '" + id + "' is defined more than once; references select every definition");
+    }
     Patch p;
     if (AttrPresent(n, "root")) {
         std::string r = AttrValue(n, "root");
@@ -592,19 +633,21 @@ bool ParsePatchDef(pugi::xml_node n, Ctx& ctx, int depth, std::string& error) {
     for (auto c : n.children()) {
         if (c.type() != pugi::node_element) continue;
         std::string cn = c.name();
+        bool ok = true;
         if (cn == "file") {
-            if (!ParseFileNode(c, p, ctx, depth + 1, error)) return false;
+            ok = ParseFileNode(c, p, ctx, depth + 1, error);
         } else if (cn == "folder") {
-            if (!ParseFolderNode(c, p, ctx, depth + 1, error)) return false;
+            ok = ParseFolderNode(c, p, ctx, depth + 1, error);
         } else if (cn == "memory") {
-            if (!ParseMemoryNode(c, p, ctx, depth + 1, error)) return false;
+            ok = ParseMemoryNode(c, p, ctx, depth + 1, error);
         } else if (cn == "savegame") {
-            if (!ParseSavegameNode(c, p, ctx, depth + 1, error)) return false;
+            ok = ParseSavegameNode(c, p, ctx, depth + 1, error);
         } else {
             WarnUnknownChild(ctx, label, c);
         }
+        if (!ok && !Recover(ctx, label + " <" + cn + ">", error)) return false;
     }
-    ctx.pkg.patches[id] = p;
+    ctx.pkg.patches[key] = p;
     return true;
 }
 bool ParseParam(pugi::xml_node n, std::vector<Param>& out, Ctx& ctx, int depth, std::string& error) {
@@ -645,9 +688,15 @@ bool ParseChoice(pugi::xml_node n, Option& opt, Ctx& ctx, int depth, std::string
         if (c.type() != pugi::node_element) continue;
         std::string cn = c.name();
         if (cn == "patch") {
-            if (!ParsePatchRef(c, ch, ctx, depth + 1, error)) return false;
+            if (!ParsePatchRef(c, ch, ctx, depth + 1, error) &&
+                !Recover(ctx, "a patch reference in choice '" + ch.name + "'", error)) {
+                return false;
+            }
         } else if (cn == "param") {
-            if (!ParseParam(c, ch.params, ctx, depth + 1, error)) return false;
+            if (!ParseParam(c, ch.params, ctx, depth + 1, error) &&
+                !Recover(ctx, "a param in choice '" + ch.name + "'", error)) {
+                return false;
+            }
         } else {
             WarnUnknownChild(ctx, "choice '" + ch.name + "'", c);
         }
@@ -671,18 +720,26 @@ bool ParseOption(pugi::xml_node n, const std::string& section, Ctx& ctx, int dep
         if (c.type() != pugi::node_element) continue;
         std::string cn = c.name();
         if (cn == "choice") {
-            if (!ParseChoice(c, opt, ctx, depth + 1, error)) return false;
+            if (!ParseChoice(c, opt, ctx, depth + 1, error) &&
+                !Recover(ctx, "a choice of option '" + opt.name + "'", error)) {
+                return false;
+            }
         } else if (cn == "param") {
-            if (!ParseParam(c, opt.params, ctx, depth + 1, error)) return false;
+            if (!ParseParam(c, opt.params, ctx, depth + 1, error) &&
+                !Recover(ctx, "a param of option '" + opt.name + "'", error)) {
+                return false;
+            }
         } else {
             WarnUnknownChild(ctx, "option '" + opt.name + "'", c);
         }
     }
     if (AttrPresent(n, "default")) {
         std::string defStr = AttrValue(n, "default");
-        if (defStr.empty()) { error = "option default empty"; return false; }
         std::uint64_t u = 0;
-        if (!ParseU64(defStr, u)) { error = "invalid option default '" + defStr + "'"; return false; }
+        if (!ParseU64(defStr, u)) {
+            Warn(ctx, "option '" + opt.name + "': default '" + defStr + "' is not a number, treating as disabled");
+            u = 0;
+        }
         if (u > static_cast<std::uint64_t>(opt.choices.size())) {
             // Documented behaviour is "0 disables"; an index past the last
             // choice cannot select anything, so treat it the same way.
@@ -727,9 +784,13 @@ bool ParseSection(pugi::xml_node n, Ctx& ctx, int depth, std::string& error) {
         if (c.type() != pugi::node_element) continue;
         std::string cn = c.name();
         if (cn == "option") {
-            if (!ParseOption(c, nm, ctx, depth + 1, error)) return false;
+            if (!ParseOption(c, nm, ctx, depth + 1, error) && !Recover(ctx, "an option in section '" + nm + "'", error)) {
+                return false;
+            }
         } else if (cn == "macro") {
-            if (!ParseMacro(c, nm, ctx, depth + 1, error)) return false;
+            if (!ParseMacro(c, nm, ctx, depth + 1, error) && !Recover(ctx, "a macro in section '" + nm + "'", error)) {
+                return false;
+            }
         } else {
             WarnUnknownChild(ctx, "section '" + nm + "'", c);
         }
@@ -743,9 +804,9 @@ bool ParseOptions(pugi::xml_node n, Ctx& ctx, int depth, std::string& error) {
         if (c.type() != pugi::node_element) continue;
         std::string cn = c.name();
         if (cn == "section") {
-            if (!ParseSection(c, ctx, depth + 1, error)) return false;
+            if (!ParseSection(c, ctx, depth + 1, error) && !Recover(ctx, "a section", error)) return false;
         } else if (cn == "macro") {
-            if (!ParseMacro(c, "", ctx, depth + 1, error)) return false;
+            if (!ParseMacro(c, "", ctx, depth + 1, error) && !Recover(ctx, "a macro", error)) return false;
         } else {
             WarnUnknownChild(ctx, "options", c);
         }
@@ -763,8 +824,8 @@ bool ExpandMacros(Ctx& ctx, std::string& error) {
             if (!o.id.empty() && o.id == m.id) { source = &o; break; }
         }
         if (source == nullptr) {
-            error = "macro '" + m.name + "' references unknown option id '" + m.id + "'";
-            return false;
+            Warn(ctx, "ignoring macro '" + m.name + "': it references unknown option id '" + m.id + "'");
+            continue;
         }
         Option clone = *source;
         clone.name = m.name;
@@ -785,60 +846,62 @@ bool ParseRegionNode(pugi::xml_node c, DiscFilter& filter, Ctx& ctx, int depth, 
     for (auto gc : c.children()) {
         if (gc.type() == pugi::node_element) WarnUnknownChild(ctx, "region", gc);
     }
-    if (!AttrPresent(c, "type")) { error = "region missing type"; return false; }
+    // A region Riftwii cannot read is ignored with a warning (it then
+    // does not narrow the filter), like any other malformed element.
+    if (!AttrPresent(c, "type")) {
+        Warn(ctx, "ignoring <region> without a type");
+        return true;
+    }
     std::string t = AttrValue(c, "type");
-    if (t.empty()) { error = "region type empty"; return false; }
-    if (t.size() != 1) { error = "region type must be 1 character"; return false; }
-    if (t[0] < 'A' || t[0] > 'Z') { error = "invalid region type '" + t + "'"; return false; }
+    if (t.size() != 1 || t[0] < 'A' || t[0] > 'Z') {
+        Warn(ctx, "ignoring <region type=\"" + t + "\">: a region is one letter (the game id's fourth character)");
+        return true;
+    }
     filter.regions.push_back(t);
     return true;
 }
 bool ParseId(pugi::xml_node n, DiscFilter& filter, Ctx& ctx, int depth, std::string& error) {
     static const char* const allowed[] = {"game", "developer", "disc", "revision", "version", nullptr};
     if (!EnterElement(n, ctx, depth, allowed, "id", error)) return false;
+    // `game` is a prefix of the six-character game id: "RMC" for every
+    // region, "RMCP" or even "RMCP01" for one. An attribute that cannot be
+    // read is ignored with a warning rather than refusing the package; for
+    // `game` that would widen the filter to every disc, so it stays fatal.
     if (AttrPresent(n, "game")) {
         std::string g = AttrValue(n, "game");
-        if (g.empty()) { error = "id game empty"; return false; }
-        if (g.size() > 4) { error = "id game too long"; return false; }
-        if (!IsAlnumUpper(g)) { error = "invalid id game"; return false; }
+        if (g.size() > 6) { error = "id game '" + g + "' is longer than a game id"; return false; }
+        if (!IsAlnumUpper(g)) { error = "invalid id game '" + g + "'"; return false; }
         filter.game = g;
     }
     if (AttrPresent(n, "developer")) {
         std::string d = AttrValue(n, "developer");
-        if (d.empty()) { error = "id developer empty"; return false; }
-        if (d.size() != 2) { error = "id developer must be 2 characters"; return false; }
-        if (!IsAlnumUpper(d)) { error = "invalid id developer"; return false; }
-        filter.developer = d;
+        if (d.size() != 2 || !IsAlnumUpper(d)) {
+            Warn(ctx, "ignoring id developer '" + d + "': a developer is two characters");
+        } else {
+            filter.developer = d;
+        }
     }
     if (AttrPresent(n, "disc")) {
         std::string v = AttrValue(n, "disc");
-        if (v.empty()) { error = "id disc empty"; return false; }
         std::uint64_t u = 0;
-        if (!ParseU64(v, u) || u > 255) { error = "invalid id disc '" + v + "'"; return false; }
-        filter.number = static_cast<int>(u);
+        if (!ParseU64(v, u) || u > 255) {
+            Warn(ctx, "ignoring id disc '" + v + "'");
+        } else {
+            filter.number = static_cast<int>(u);
+        }
     }
-    bool hasRev = AttrPresent(n, "revision");
-    bool hasVer = AttrPresent(n, "version");
-    if (hasRev && hasVer) {
-        std::string a = AttrValue(n, "revision");
-        std::string b = AttrValue(n, "version");
-        if (a.empty() || b.empty()) { error = "id revision empty"; return false; }
-        std::uint64_t ua = 0, ub = 0;
-        if (!ParseU64(a, ua) || ua > 255) { error = "invalid id revision '" + a + "'"; return false; }
-        if (!ParseU64(b, ub) || ub > 255) { error = "invalid id version '" + b + "'"; return false; }
-        if (ua != ub) { error = "id revision/version mismatch"; return false; }
-        filter.revision = static_cast<int>(ua);
-    } else if (hasRev) {
-        std::string v = AttrValue(n, "revision");
-        if (v.empty()) { error = "id revision empty"; return false; }
+    // `revision` and its older spelling `version`; revision wins.
+    for (const char* name : {"version", "revision"}) {
+        if (!AttrPresent(n, name)) continue;
+        std::string v = AttrValue(n, name);
         std::uint64_t u = 0;
-        if (!ParseU64(v, u) || u > 255) { error = "invalid id revision '" + v + "'"; return false; }
-        filter.revision = static_cast<int>(u);
-    } else if (hasVer) {
-        std::string v = AttrValue(n, "version");
-        if (v.empty()) { error = "id version empty"; return false; }
-        std::uint64_t u = 0;
-        if (!ParseU64(v, u) || u > 255) { error = "invalid id version '" + v + "'"; return false; }
+        if (!ParseU64(v, u) || u > 255) {
+            Warn(ctx, std::string("ignoring id ") + name + " '" + v + "'");
+            continue;
+        }
+        if (filter.revision >= 0 && filter.revision != static_cast<int>(u)) {
+            Warn(ctx, "id revision and version differ; using revision");
+        }
         filter.revision = static_cast<int>(u);
     }
     for (auto c : n.children()) {
@@ -860,7 +923,7 @@ bool DiscFilter::matches(const DiscIdentity& disc) const {
         if (!ok) return false;
     }
     if (!game.empty()) {
-        if (game.size() > 4) return false;
+        if (game.size() > 6) return false;
         if (disc.id.compare(0, game.size(), game) != 0) return false;
     }
     if (!developer.empty()) {
@@ -1011,13 +1074,11 @@ bool parse_package(const std::string& xml, Package& output, std::string& error) 
                 return false;
             }
         }
-        {
-            std::string dupErr;
-            if (!CheckDuplicateAttrs(xml, dupErr)) {
-                error = dupErr;
-                return false;
-            }
-        }
+        // pugixml keeps every copy of a repeated attribute and reads the
+        // first, as Riivolution's reader does; say so rather than refuse.
+        std::string duplicate_attr;
+        if (!CheckDuplicateAttrs(xml, duplicate_attr)) duplicate_attr += " (the first is used)";
+        else duplicate_attr.clear();
         pugi::xml_document doc;
         pugi::xml_parse_result res = doc.load_buffer(xml.data(), xml.size(), pugi::parse_full);
         if (!res) {
@@ -1067,7 +1128,8 @@ bool parse_package(const std::string& xml, Package& output, std::string& error) 
             return false;
         }
         Package tmp;
-        Ctx ctx{tmp, 1, {}};
+        Ctx ctx{tmp, 1, {}, false, {}};
+        if (!duplicate_attr.empty()) Warn(ctx, duplicate_attr);
         static const char* const root_allowed[] = {"version", "root", "shiftfiles", "log", nullptr};
         if (!EnterElement(r, ctx, 1, root_allowed, "wiidisc", error)) return false;
         if (!AttrPresent(r, "version")) {
@@ -1096,31 +1158,46 @@ bool parse_package(const std::string& xml, Package& output, std::string& error) 
             if (c.type() != pugi::node_element) continue;
             std::string cn = c.name();
             if (cn == "id") {
-                if (seenId) { error = "duplicate id"; return false; }
+                // The first <id> is the filter; a later one is ignored.
+                if (seenId) {
+                    Warn(ctx, "ignoring a second <id>");
+                    continue;
+                }
                 seenId = true;
                 if (!ParseId(c, tmp.filter, ctx, 2, error)) return false;
             } else if (cn == "region") {
                 if (!ParseRegionNode(c, tmp.filter, ctx, 2, error)) return false;
             } else if (cn == "options") {
-                if (seenOptions) { error = "duplicate options"; return false; }
+                // A second <options> block adds its sections to the first.
+                if (seenOptions) Warn(ctx, "more than one <options>; their sections are merged");
                 seenOptions = true;
                 if (!ParseOptions(c, ctx, 2, error)) return false;
             } else if (cn == "patch") {
-                if (!ParsePatchDef(c, ctx, 2, error)) return false;
+                if (!ParsePatchDef(c, ctx, 2, error) && !Recover(ctx, "a <patch>", error)) return false;
             } else {
                 WarnUnknownChild(ctx, "wiidisc", c);
             }
         }
         if (!ExpandMacros(ctx, error)) return false;
         if (ctx.nodes > kMaxNodes) { error = "too many nodes"; return false; }
-        for (const auto& o : tmp.options) {
-            for (const auto& ch : o.choices) {
+        // References: every definition of a repeated id, and none for an id
+        // no <patch> defines (a warning, as Riivolution just skips it).
+        for (auto& o : tmp.options) {
+            for (auto& ch : o.choices) {
+                std::vector<std::string> resolved;
                 for (const auto& pid : ch.patches) {
                     if (tmp.patches.find(pid) == tmp.patches.end()) {
-                        error = "unresolved patch reference '" + pid + "'";
-                        return false;
+                        Warn(ctx, "choice '" + ch.name + "' of option '" + o.name + "' references undefined patch '" +
+                                      pid + "'; ignored");
+                        continue;
+                    }
+                    resolved.push_back(pid);
+                    const auto more = ctx.aliases.find(pid);
+                    if (more != ctx.aliases.end()) {
+                        resolved.insert(resolved.end(), more->second.begin(), more->second.end());
                     }
                 }
+                ch.patches = std::move(resolved);
             }
         }
         output = tmp;
@@ -1347,6 +1424,7 @@ bool plan_package(const Package& package, const DiscIdentity& disc, const PlanOp
                         error = Where(sel) + ": " + error;
                         return false;
                     }
+                    f.disc = TidyDiscPath(f.disc);
                     {
                         std::string perr;
                         if (!CheckDiscPath(f.disc, false, true, f.is_filename, perr)) {
@@ -1370,6 +1448,7 @@ bool plan_package(const Package& package, const DiscIdentity& disc, const PlanOp
                             error = Where(sel) + ": " + error;
                             return false;
                         }
+                        f.disc = TidyDiscPath(f.disc);
                     }
                     {
                         std::string perr;

@@ -35,14 +35,16 @@ public:
                                      std::string& error) = 0;
     // The entries of an external directory (names only, without "." and
     // ".."), in any order. Only <folder> patches need it; the default says
-    // the provider cannot.
-    virtual bool list_external(const std::string& sd_dir, std::vector<ExternalEntry>& out, std::string& error);
+    // the provider cannot. NotFound means the directory does not exist (a
+    // <folder> for content the card lacks is skipped, as Riivolution does);
+    // every other failure is IoError.
+    virtual OpenStatus list_external(const std::string& sd_dir, std::vector<ExternalEntry>& out, std::string& error);
 };
 
 // Reads a directory of the native file system (a host path, or "sd:/..."
 // on the console) into entries; DirectoryProvider and the Wii provider
 // share it.
-bool list_native_directory(const std::string& native_path, std::vector<ExternalEntry>& out, std::string& error);
+OpenStatus list_native_directory(const std::string& native_path, std::vector<ExternalEntry>& out, std::string& error);
 
 // Maps absolute disc/sd paths onto two host (or sd:/) directory prefixes by
 // plain string concatenation. Resolved planner paths never contain "..",
@@ -54,7 +56,7 @@ public:
                          std::string& error) override;
     OpenStatus open_external(const std::string& sd_path, std::unique_ptr<ByteSource>& out,
                              std::string& error) override;
-    bool list_external(const std::string& sd_dir, std::vector<ExternalEntry>& out, std::string& error) override;
+    OpenStatus list_external(const std::string& sd_dir, std::vector<ExternalEntry>& out, std::string& error) override;
 
 private:
     static std::string join(const std::string& root, const std::string& abs_path);

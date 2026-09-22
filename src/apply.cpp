@@ -13,18 +13,20 @@
 
 namespace riftwii {
 
-bool ContentProvider::list_external(const std::string& sd_dir, std::vector<ExternalEntry>& out, std::string& error) {
+OpenStatus ContentProvider::list_external(const std::string& sd_dir, std::vector<ExternalEntry>& out,
+                                          std::string& error) {
     (void)sd_dir;
     (void)out;
     error = "this provider cannot list directories";
-    return false;
+    return OpenStatus::IoError;
 }
 
-bool list_native_directory(const std::string& native_path, std::vector<ExternalEntry>& out, std::string& error) {
+OpenStatus list_native_directory(const std::string& native_path, std::vector<ExternalEntry>& out, std::string& error) {
     DIR* dir = opendir(native_path.c_str());
     if (!dir) {
-        error = std::string("opendir: ") + std::strerror(errno);
-        return false;
+        const int err = errno;
+        error = std::string("opendir: ") + std::strerror(err);
+        return (err == ENOENT || err == ENOTDIR) ? OpenStatus::NotFound : OpenStatus::IoError;
     }
     std::vector<ExternalEntry> entries;
     for (;;) {
@@ -34,7 +36,7 @@ bool list_native_directory(const std::string& native_path, std::vector<ExternalE
             if (errno != 0) {
                 error = std::string("readdir: ") + std::strerror(errno);
                 closedir(dir);
-                return false;
+                return OpenStatus::IoError;
             }
             break;
         }
@@ -57,7 +59,7 @@ bool list_native_directory(const std::string& native_path, std::vector<ExternalE
             if (stat(full.c_str(), &st) != 0) {
                 error = "stat '" + full + "': " + std::strerror(errno);
                 closedir(dir);
-                return false;
+                return OpenStatus::IoError;
             }
             entry.is_directory = S_ISDIR(st.st_mode);
         }
@@ -66,14 +68,14 @@ bool list_native_directory(const std::string& native_path, std::vector<ExternalE
     closedir(dir);
     out = std::move(entries);
     error.clear();
-    return true;
+    return OpenStatus::Ok;
 }
 
 DirectoryProvider::DirectoryProvider(std::string disc_root, std::string sd_root)
     : disc_root_(std::move(disc_root)), sd_root_(std::move(sd_root)) {}
 
-bool DirectoryProvider::list_external(const std::string& sd_dir, std::vector<ExternalEntry>& out,
-                                      std::string& error) {
+OpenStatus DirectoryProvider::list_external(const std::string& sd_dir, std::vector<ExternalEntry>& out,
+                                            std::string& error) {
     std::string abs = sd_dir;
     if (abs.empty() || abs[0] != '/') abs = "/" + abs;
     return list_native_directory(join(sd_root_, abs), out, error);

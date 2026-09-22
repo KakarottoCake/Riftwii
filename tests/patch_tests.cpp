@@ -17,6 +17,22 @@ static bool PlanFiles(const riftwii::Package& pkg, const riftwii::DiscIdentity& 
     out = plan.files;
     return true;
 }
+// Riivolution drops what it cannot read and loads the rest; so does the
+// parser now. The package parses, a warning names the dropped element, and
+// no patch keeps a file/folder/memory/savegame from it.
+static std::size_t ElementCount(const riftwii::Package& pkg) {
+    std::size_t n = 0;
+    for (const auto& kv : pkg.patches) {
+        n += kv.second.files.size() + kv.second.folders.size() + kv.second.memory.size() + kv.second.savegames.size();
+    }
+    return n;
+}
+#define EXPECT_DROPPED(xml) do { \
+    riftwii::Package dropped_pkg; std::string dropped_err; \
+    EXPECT_TRUE(riftwii::parse_package(xml, dropped_pkg, dropped_err)); \
+    EXPECT_FALSE(dropped_pkg.warnings.empty()); \
+    EXPECT_EQ(ElementCount(dropped_pkg), std::size_t(0)); \
+} while (0)
 static std::string GoodXml() {
     return std::string("<wiidisc version=\"1\" root=\"/riivolution\">") +
         "<id game=\"RSBE\" developer=\"01\" disc=\"0\" revision=\"0\"><region type=\"E\"/></id>" +
@@ -61,20 +77,17 @@ static void test_hex_overflow() {
     std::string xml = "<wiidisc version=\"1\"><patch id=\"p\"><file disc=\"/a.bin\" external=\"a.bin\" offset=\"0x10\" length=\"20\"/></patch></wiidisc>";
     EXPECT_TRUE(riftwii::parse_package(xml, pkg, err));
     std::string bad = "<wiidisc version=\"1\"><patch id=\"p\"><file disc=\"/a.bin\" external=\"a.bin\" offset=\"18446744073709551616\"/></patch></wiidisc>";
-    riftwii::Package before = pkg;
-    EXPECT_FALSE(riftwii::parse_package(bad, pkg, err));
-    EXPECT_FALSE(err.empty());
-    EXPECT_TRUE(pkg.patches.size() == before.patches.size());
+    EXPECT_DROPPED(bad);
     std::string bad2 = "<wiidisc version=\"1\"><patch id=\"p\"><file disc=\"/a.bin\" external=\"a.bin\" offset=\"0xFFFFFFFFFFFFFFFFFF\"/></patch></wiidisc>";
-    EXPECT_FALSE(riftwii::parse_package(bad2, pkg, err));
+    EXPECT_DROPPED(bad2);
     std::string bad3 = "<wiidisc version=\"1\"><patch id=\"p\"><file disc=\"/a.bin\" external=\"a.bin\" offset=\"-1\"/></patch></wiidisc>";
-    EXPECT_FALSE(riftwii::parse_package(bad3, pkg, err));
+    EXPECT_DROPPED(bad3);
     std::string okBool = "<wiidisc version=\"1\"><patch id=\"p\"><file disc=\"/a.bin\" external=\"a.bin\" resize=\"1\" create=\"0\"/></patch></wiidisc>";
     EXPECT_TRUE(riftwii::parse_package(okBool, pkg, err));
     EXPECT_EQ(pkg.patches.at("p").files[0].resize, true);
     EXPECT_EQ(pkg.patches.at("p").files[0].create, false);
     std::string badBool = "<wiidisc version=\"1\"><patch id=\"p\"><file disc=\"/a.bin\" external=\"a.bin\" resize=\"maybe\"/></patch></wiidisc>";
-    EXPECT_FALSE(riftwii::parse_package(badBool, pkg, err));
+    EXPECT_DROPPED(badBool);
 }
 static void test_unsupported() {
     riftwii::Package pkg;
@@ -87,11 +100,10 @@ static void test_unsupported() {
     EXPECT_TRUE(riftwii::parse_package("<wiidisc version=\"1\" foo=\"bar\"><patch id=\"p\"><file disc=\"/a\" external=\"b\"/></patch></wiidisc>", pkg, err));
     EXPECT_EQ(pkg.warnings.size(), std::size_t(1));
     if (!pkg.warnings.empty()) EXPECT_EQ(pkg.warnings[0], std::string("wiidisc: ignoring unknown attribute 'foo'"));
-    // Known elements with malformed content still fail.
-    EXPECT_FALSE(riftwii::parse_package("<wiidisc version=\"1\"><patch id=\"p\"><memory address=\"0\"/></patch></wiidisc>", pkg, err));
-    EXPECT_FALSE(err.empty());
-    EXPECT_FALSE(riftwii::parse_package("<wiidisc version=\"1\"><patch id=\"p\"><savegame/></patch></wiidisc>", pkg, err));
-    EXPECT_FALSE(riftwii::parse_package("<wiidisc version=\"1\"><patch id=\"p\"><folder disc=\"/y\"/></patch></wiidisc>", pkg, err));
+    // Known elements with malformed content are dropped with a warning.
+    EXPECT_DROPPED("<wiidisc version=\"1\"><patch id=\"p\"><memory address=\"0\"/></patch></wiidisc>");
+    EXPECT_DROPPED("<wiidisc version=\"1\"><patch id=\"p\"><savegame/></patch></wiidisc>");
+    EXPECT_DROPPED("<wiidisc version=\"1\"><patch id=\"p\"><folder disc=\"/y\"/></patch></wiidisc>");
     // Documented patch kinds parse into the model.
     EXPECT_TRUE(riftwii::parse_package("<wiidisc version=\"1\"><patch id=\"p\"><folder external=\"x\" disc=\"/y\"/></patch></wiidisc>", pkg, err));
     EXPECT_EQ(pkg.patches.at("p").folders.size(), std::size_t(1));
@@ -100,9 +112,21 @@ static void test_unsupported() {
 static void test_duplicates() {
     riftwii::Package pkg;
     std::string err;
-    EXPECT_FALSE(riftwii::parse_package("<wiidisc version=\"1\"><patch id=\"a\" id=\"b\"><file disc=\"/x\" external=\"y\"/></patch></wiidisc>", pkg, err));
-    EXPECT_FALSE(err.empty());
-    EXPECT_FALSE(riftwii::parse_package("<wiidisc version=\"1\"><patch id=\"dup\"><file disc=\"/a\" external=\"b\"/></patch><patch id=\"dup\"><file disc=\"/c\" external=\"d\"/></patch></wiidisc>", pkg, err));
+    // A repeated attribute: the first is used, with a warning.
+    EXPECT_TRUE(riftwii::parse_package("<wiidisc version=\"1\"><patch id=\"a\" id=\"b\"><file disc=\"/x\" external=\"y\"/></patch></wiidisc>", pkg, err));
+    EXPECT_TRUE(pkg.patches.count("a") == 1);
+    EXPECT_FALSE(pkg.warnings.empty());
+    // A repeated patch id: a reference selects every definition, in order.
+    EXPECT_TRUE(riftwii::parse_package("<wiidisc version=\"1\"><options><section name=\"s\"><option name=\"o\" default=\"1\"><choice name=\"c\"><patch id=\"dup\"/></choice></option></section></options><patch id=\"dup\"><file disc=\"/a\" external=\"b\"/></patch><patch id=\"dup\"><file disc=\"/c\" external=\"d\"/></patch></wiidisc>", pkg, err));
+    EXPECT_EQ(pkg.patches.size(), std::size_t(2));
+    EXPECT_FALSE(pkg.warnings.empty());
+    std::vector<riftwii::FilePatch> both;
+    EXPECT_TRUE(PlanFiles(pkg, riftwii::DiscIdentity{"RSBE01", 0, 0}, both, err));
+    EXPECT_EQ(both.size(), std::size_t(2));
+    if (both.size() == 2) {
+        EXPECT_EQ(both[0].disc, std::string("/a"));
+        EXPECT_EQ(both[1].disc, std::string("/c"));
+    }
 }
 static void test_dtd_pi() {
     riftwii::Package pkg;
@@ -119,10 +143,12 @@ static void test_dtd_pi() {
 static void test_empty() {
     riftwii::Package pkg;
     std::string err;
-    EXPECT_FALSE(riftwii::parse_package("<wiidisc version=\"1\"><patch id=\"\"><file disc=\"/a\" external=\"b\"/></patch></wiidisc>", pkg, err));
-    EXPECT_FALSE(riftwii::parse_package("<wiidisc version=\"1\"><patch id=\"p\"><file disc=\"\" external=\"b\"/></patch></wiidisc>", pkg, err));
-    EXPECT_FALSE(riftwii::parse_package("<wiidisc version=\"1\"><patch id=\"p\"><file disc=\"/a\" external=\"\"/></patch></wiidisc>", pkg, err));
-    EXPECT_FALSE(riftwii::parse_package("<wiidisc version=\"1\"><options><section name=\"\"><option name=\"o\" default=\"0\"><choice name=\"c\"/></option></section></options></wiidisc>", pkg, err));
+    EXPECT_DROPPED("<wiidisc version=\"1\"><patch id=\"\"><file disc=\"/a\" external=\"b\"/></patch></wiidisc>");
+    EXPECT_DROPPED("<wiidisc version=\"1\"><patch id=\"p\"><file disc=\"\" external=\"b\"/></patch></wiidisc>");
+    EXPECT_DROPPED("<wiidisc version=\"1\"><patch id=\"p\"><file disc=\"/a\" external=\"\"/></patch></wiidisc>");
+    EXPECT_TRUE(riftwii::parse_package("<wiidisc version=\"1\"><options><section name=\"\"><option name=\"o\" default=\"0\"><choice name=\"c\"/></option></section></options></wiidisc>", pkg, err));
+    EXPECT_TRUE(pkg.options.empty());  // the nameless section is dropped
+    EXPECT_FALSE(pkg.warnings.empty());
     // An empty value means "attribute not given" for the whole format, so an
     // empty optional attribute keeps its default instead of being rejected.
     // Required attributes above still fail, now as "missing".
@@ -156,11 +182,16 @@ static void test_empty_optional_attributes_are_absent() {
 static void test_refs_choices() {
     riftwii::Package pkg;
     std::string err;
-    EXPECT_FALSE(riftwii::parse_package("<wiidisc version=\"1\"><options><section name=\"s\"><option name=\"o\" default=\"1\"><choice name=\"c\"><patch id=\"missing\"/></choice></option></section></options><patch id=\"p\"><file disc=\"/a\" external=\"b\"/></patch></wiidisc>", pkg, err));
+    // A reference to an undefined patch is ignored with a warning.
+    EXPECT_TRUE(riftwii::parse_package("<wiidisc version=\"1\"><options><section name=\"s\"><option name=\"o\" default=\"1\"><choice name=\"c\"><patch id=\"missing\"/><patch id=\"p\"/></choice></option></section></options><patch id=\"p\"><file disc=\"/a\" external=\"b\"/></patch></wiidisc>", pkg, err));
+    EXPECT_EQ(pkg.options.at(0).choices.at(0).patches.size(), std::size_t(1));
+    EXPECT_EQ(pkg.warnings.size(), std::size_t(1));
     EXPECT_TRUE(riftwii::parse_package("<wiidisc version=\"1\"><options><section name=\"s\"><option name=\"o\" default=\"5\"><choice name=\"c\"/><choice name=\"d\"/></option></section></options></wiidisc>", pkg, err));
     EXPECT_EQ(pkg.options[0].selected, std::size_t(0));
     EXPECT_EQ(pkg.warnings.size(), std::size_t(1));
-    EXPECT_FALSE(riftwii::parse_package("<wiidisc version=\"1\"><options><section name=\"s\"><option name=\"o\" default=\"yes\"><choice name=\"c\"/></option></section></options></wiidisc>", pkg, err));
+    EXPECT_TRUE(riftwii::parse_package("<wiidisc version=\"1\"><options><section name=\"s\"><option name=\"o\" default=\"yes\"><choice name=\"c\"/></option></section></options></wiidisc>", pkg, err));
+    EXPECT_EQ(pkg.options.at(0).selected, std::size_t(0));
+    EXPECT_EQ(pkg.warnings.size(), std::size_t(1));
     riftwii::Package ok;
     EXPECT_TRUE(riftwii::parse_package(GoodXml(), ok, err));
     ok.options[0].selected = 99;
@@ -223,7 +254,7 @@ static void test_atomic() {
     std::string err;
     EXPECT_TRUE(riftwii::parse_package(GoodXml(), pkg, err));
     riftwii::Package snap = pkg;
-    EXPECT_FALSE(riftwii::parse_package("<wiidisc version=\"1\"><patch id=\"p\"><file disc=\"/a\" external=\"b\" resize=\"maybe\"/></patch></wiidisc>", pkg, err));
+    EXPECT_FALSE(riftwii::parse_package("<wiidisc version=\"2\"><patch id=\"p\"><file disc=\"/a\" external=\"b\"/></patch></wiidisc>", pkg, err));
     EXPECT_EQ(pkg.patches.size(), snap.patches.size());
     EXPECT_EQ(pkg.options.size(), snap.options.size());
     EXPECT_EQ(pkg.root, snap.root);
@@ -241,7 +272,7 @@ static void test_atomic() {
     EXPECT_EQ(out.size(), snapOut.size());
     EXPECT_TRUE(riftwii::parse_package("<wiidisc version=\"1\"><patch id=\"p\"><file disc=\"relative.bin\" external=\"b\"/></patch></wiidisc>", pkg, err));
     EXPECT_TRUE(pkg.patches.at("p").files[0].is_filename);
-    EXPECT_FALSE(riftwii::parse_package("<wiidisc version=\"1\"><patch id=\"p\"><file disc=\"dir/relative.bin\" external=\"b\"/></patch></wiidisc>", pkg, err));
+    EXPECT_DROPPED("<wiidisc version=\"1\"><patch id=\"p\"><file disc=\"dir/relative.bin\" external=\"b\"/></patch></wiidisc>");
 }
 static void test_ordered() {
     riftwii::Package pkg;
@@ -307,11 +338,18 @@ static void test_wiidisc_region() {
     EXPECT_TRUE(pkg.filter.matches(riftwii::DiscIdentity{"SB4E01", 0, 0}));
     EXPECT_FALSE(pkg.filter.matches(riftwii::DiscIdentity{"SB4P01", 0, 0}));
     for (const std::string& w : pkg.warnings) EXPECT_TRUE(w.find("region") == std::string::npos);
-    // Both spellings combine; bad values fail either way.
+    // Both spellings combine; a region that cannot be read is ignored.
     EXPECT_TRUE(riftwii::parse_package("<wiidisc version=\"1\"><id game=\"SB4\"><region type=\"P\"/></id><region type=\"E\"/><patch id=\"p\"><file disc=\"/a\" external=\"b\"/></patch></wiidisc>", pkg, err));
     EXPECT_EQ(pkg.filter.regions.size(), std::size_t(2));
-    EXPECT_FALSE(riftwii::parse_package("<wiidisc version=\"1\"><id game=\"SB4\"/><region/><patch id=\"p\"><file disc=\"/a\" external=\"b\"/></patch></wiidisc>", pkg, err));
-    EXPECT_FALSE(riftwii::parse_package("<wiidisc version=\"1\"><id game=\"SB4\"/><region type=\"e\"/><patch id=\"p\"><file disc=\"/a\" external=\"b\"/></patch></wiidisc>", pkg, err));
+    EXPECT_TRUE(riftwii::parse_package("<wiidisc version=\"1\"><id game=\"SB4\"/><region/><patch id=\"p\"><file disc=\"/a\" external=\"b\"/></patch></wiidisc>", pkg, err));
+    EXPECT_TRUE(pkg.filter.regions.empty());
+    EXPECT_EQ(pkg.warnings.size(), std::size_t(1));
+    EXPECT_TRUE(riftwii::parse_package("<wiidisc version=\"1\"><id game=\"SB4\"/><region type=\"e\"/><patch id=\"p\"><file disc=\"/a\" external=\"b\"/></patch></wiidisc>", pkg, err));
+    EXPECT_TRUE(pkg.filter.regions.empty());
+    // A full game id in `game` filters by prefix like a short one.
+    EXPECT_TRUE(riftwii::parse_package("<wiidisc version=\"1\"><id game=\"RMCP01\"/><patch id=\"p\"><file disc=\"/a\" external=\"b\"/></patch></wiidisc>", pkg, err));
+    EXPECT_TRUE(pkg.filter.matches(riftwii::DiscIdentity{"RMCP01", 0, 0}));
+    EXPECT_FALSE(pkg.filter.matches(riftwii::DiscIdentity{"RMCE01", 0, 0}));
 }
 static void test_comment_cdata_isolation() {
     riftwii::Package pkg;
@@ -325,11 +363,16 @@ static void test_comment_cdata_isolation() {
 static void test_disc_path_validation() {
     riftwii::Package pkg;
     std::string err;
-    EXPECT_FALSE(riftwii::parse_package("<wiidisc version=\"1\"><patch id=\"p\"><file disc=\"/a/../..\" external=\"b\"/></patch></wiidisc>", pkg, err));
-    EXPECT_FALSE(riftwii::parse_package("<wiidisc version=\"1\"><patch id=\"p\"><file disc=\"/bad:name\" external=\"b\"/></patch></wiidisc>", pkg, err));
-    EXPECT_FALSE(riftwii::parse_package("<wiidisc version=\"1\"><patch id=\"p\"><file disc=\"/a//b\" external=\"b\"/></patch></wiidisc>", pkg, err));
-    EXPECT_FALSE(riftwii::parse_package("<wiidisc version=\"1\"><patch id=\"p\"><file disc=\"/a/\" external=\"b\"/></patch></wiidisc>", pkg, err));
-    EXPECT_FALSE(riftwii::parse_package("<wiidisc version=\"1\"><patch id=\"p\"><file disc=\"/a/./b\" external=\"b\"/></patch></wiidisc>", pkg, err));
+    EXPECT_DROPPED("<wiidisc version=\"1\"><patch id=\"p\"><file disc=\"/a/../..\" external=\"b\"/></patch></wiidisc>");
+    EXPECT_DROPPED("<wiidisc version=\"1\"><patch id=\"p\"><file disc=\"/bad:name\" external=\"b\"/></patch></wiidisc>");
+    // Doubled and trailing slashes name the same path, as in Riivolution.
+    EXPECT_TRUE(riftwii::parse_package("<wiidisc version=\"1\"><patch id=\"p\"><file disc=\"/a//b\" external=\"b\"/></patch></wiidisc>", pkg, err));
+    EXPECT_EQ(pkg.patches.at("p").files.at(0).disc, std::string("/a/b"));
+    EXPECT_TRUE(riftwii::parse_package("<wiidisc version=\"1\"><patch id=\"p\"><file disc=\"/a/\" external=\"b\"/></patch></wiidisc>", pkg, err));
+    EXPECT_EQ(pkg.patches.at("p").files.at(0).disc, std::string("/a"));
+    EXPECT_TRUE(riftwii::parse_package("<wiidisc version=\"1\"><patch id=\"p\"><folder disc=\"/StageData/\" external=\"s\"/></patch></wiidisc>", pkg, err));
+    EXPECT_EQ(pkg.patches.at("p").folders.at(0).disc, std::string("/StageData"));
+    EXPECT_DROPPED("<wiidisc version=\"1\"><patch id=\"p\"><file disc=\"/a/./b\" external=\"b\"/></patch></wiidisc>");
     EXPECT_TRUE(riftwii::parse_package("<wiidisc version=\"1\"><patch id=\"p\"><file disc=\"/a/b..c/d...bin\" external=\"b\"/></patch></wiidisc>", pkg, err));
     riftwii::Package ok;
     EXPECT_TRUE(riftwii::parse_package(GoodXml(), ok, err));

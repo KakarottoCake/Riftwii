@@ -283,8 +283,8 @@ static void test_params_override() {
 static void test_rejections() {
     riftwii::Package pkg;
     std::string err;
-    const char* bad[] = {"bad_doctype.xml", "bad_pi.xml", "bad_hex.xml", "bad_memory_both.xml",
-                         "bad_macro_ref.xml", "bad_disc_relative_dir.xml", "bad_traversal.xml"};
+    // Documents the parser refuses outright (XML it will not process).
+    const char* bad[] = {"bad_doctype.xml", "bad_pi.xml"};
     for (const char* name : bad) {
         riftwii::Package out;
         std::string e;
@@ -293,6 +293,21 @@ static void test_rejections() {
             g_failures++;
         } else if (e.empty()) {
             std::cerr << "FAILED: " << name << " rejected without a message" << std::endl;
+            g_failures++;
+        }
+    }
+    // Malformed elements in otherwise valid documents are dropped with a
+    // warning, as Riivolution skips what it cannot read; the rest loads.
+    const char* dropped[] = {"bad_hex.xml", "bad_memory_both.xml", "bad_macro_ref.xml",
+                             "bad_disc_relative_dir.xml", "bad_traversal.xml"};
+    for (const char* name : dropped) {
+        riftwii::Package out;
+        std::string e;
+        if (!riftwii::parse_package(Load(name), out, e)) {
+            std::cerr << "FAILED: " << name << " was refused: " << e << std::endl;
+            g_failures++;
+        } else if (out.warnings.empty()) {
+            std::cerr << "FAILED: " << name << " dropped something without a warning" << std::endl;
             g_failures++;
         }
     }
