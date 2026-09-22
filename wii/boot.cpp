@@ -60,6 +60,20 @@ void apploader_report(const char* format, ...) {
 
 bool aligned32(const void* p) { return (reinterpret_cast<std::uintptr_t>(p) & 31) == 0; }
 
+// A resident SD reader/writer must keep using an IOS under which this card
+// has already mounted successfully. In particular, launch-era IOSes such
+// as IOS9 cannot initialise modern SDHC/SDXC cards after an IOS reload.
+bool needs_resident_sd(const BootOptions& options) {
+    if (!options.savegame_dir.empty() || !options.sd_replacements.empty()) return true;
+    for (const VirtualFile& file : options.virtual_files) {
+        if (!file.sd_runs.empty()) return true;
+    }
+    for (const rt_entry& entry : options.table_entries) {
+        if (entry.kind == RT_KIND_SD) return true;
+    }
+    return false;
+}
+
 // E4 self-check: reads every SD run of a replacement through the loader's
 // own client and logs the checksum of the bytes the game will see (the
 // same h = h * 31 + byte the runtime reports).
@@ -451,7 +465,7 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
                         std::uint32_t required, std::string& error) {
     bool force_ios_fields = options.preserve_current_ios;
     if (options.preserve_current_ios) {
-        logf("Keeping d2x IOS%d for the USB virtual disc; reporting IOS%u to the game\n", IOS_GetVersion(), required);
+        logf("Keeping IOS%d for the launch; reporting IOS%u to the game\n", IOS_GetVersion(), required);
     } else switch (reload_ios(static_cast<int>(required), error)) {
     case ReloadResult::Ok:
         logf("IOS%u loaded\n", required);
@@ -918,8 +932,19 @@ bool boot_game(const DiscProbe& probe, const BootOptions& options, std::string& 
         return false;
     }
     logf("Booting %s with IOS%u\n", probe.header.game_id.c_str(), required);
+    BootOptions effective = options;
+    const int running_ios = IOS_GetVersion();
+    if (!effective.preserve_current_ios && running_ios != static_cast<int>(required) &&
+        needs_resident_sd(effective)) {
+        // The selected packages/save mode were resolved through this very
+        // card under the running IOS, so it is a proven-good SD driver for
+        // the handoff. Keep it and report the title's requested IOS in low
+        // memory, as the existing USB-image path already does.
+        effective.preserve_current_ios = true;
+        logf("Keeping IOS%d for resident SD access; reporting IOS%u to the game\n", running_ios, required);
+    }
     SavegameOptions savegame;
-    if (!options.savegame_dir.empty() && !prepare_savegame(probe, options, savegame, error)) return false;
+    if (!effective.savegame_dir.empty() && !prepare_savegame(probe, effective, savegame, error)) return false;
 
     // Everything IOS holds for us dies with the reload: the Wii Remote
     // stack (which also saves its pairings to NAND on shutdown, so it must
@@ -932,10 +957,10 @@ bool boot_game(const DiscProbe& probe, const BootOptions& options, std::string& 
     fatUnmount("sd:");
     __io_wiisd.shutdown();
 
-    boot_after_unmount(probe, options, savegame, required, error);  // returns only on failure
-    if (options.preserve_current_ios) {
-        // d2x owns USB in this mode. Reacquiring all default devices would
-        // interfere with the virtual image, so recover only the SD/log path.
+    boot_after_unmount(probe, effective, savegame, required, error);  // returns only on failure
+    if (effective.preserve_current_ios) {
+        // The preserved IOS may own a USB virtual disc. Reacquiring all
+        // default devices could interfere with it, so recover only SD/log.
         if (fatMountSimple("sd", &__io_wiisd)) {
             LogReopen();
         } else {

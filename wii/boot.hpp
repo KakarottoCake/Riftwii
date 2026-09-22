@@ -78,9 +78,11 @@ struct BootOptions {
     // When the title's IOS cannot be loaded, launch under the current one
     // and report the expected version to the game (Brainslug does this).
     bool allow_ios_fallback = true;
-    // Retain the currently loaded d2x cIOS for a USB FRAG image. The game
-    // still sees its TMD-requested IOS in low memory, but no IOS reload may
-    // discard the virtual DI backend.
+    // Retain the currently loaded IOS. USB FRAG images require this so a
+    // reload does not discard the virtual DI backend. boot_game also turns
+    // it on automatically when the resident runtime needs the SD card that
+    // was successfully mounted under the current IOS. The game still sees
+    // its TMD-requested IOS in low memory.
     bool preserve_current_ios = false;
     // E2: install the resident runtime and hook the game's IOS_IoctlAsync
     // (wii/resident.hpp); `resident_gecko` makes it report DI reads over
