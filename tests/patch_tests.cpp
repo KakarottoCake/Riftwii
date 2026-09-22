@@ -123,7 +123,35 @@ static void test_empty() {
     EXPECT_FALSE(riftwii::parse_package("<wiidisc version=\"1\"><patch id=\"p\"><file disc=\"\" external=\"b\"/></patch></wiidisc>", pkg, err));
     EXPECT_FALSE(riftwii::parse_package("<wiidisc version=\"1\"><patch id=\"p\"><file disc=\"/a\" external=\"\"/></patch></wiidisc>", pkg, err));
     EXPECT_FALSE(riftwii::parse_package("<wiidisc version=\"1\"><options><section name=\"\"><option name=\"o\" default=\"0\"><choice name=\"c\"/></option></section></options></wiidisc>", pkg, err));
-    EXPECT_FALSE(riftwii::parse_package("<wiidisc version=\"1\"><patch id=\"p\"><file disc=\"/a\" external=\"b\" offset=\"\"/></patch></wiidisc>", pkg, err));
+    // An empty value means "attribute not given" for the whole format, so an
+    // empty optional attribute keeps its default instead of being rejected.
+    // Required attributes above still fail, now as "missing".
+    EXPECT_TRUE(riftwii::parse_package("<wiidisc version=\"1\"><patch id=\"p\"><file disc=\"/a\" external=\"b\" offset=\"\"/></patch></wiidisc>", pkg, err));
+    EXPECT_EQ(pkg.patches.at("p").files.at(0).offset, std::uint64_t(0));
+}
+// Empty optional attributes across the format keep their defaults rather
+// than erroring: XMLs written against Riivolution rely on this.
+static void test_empty_optional_attributes_are_absent() {
+    riftwii::Package pkg;
+    std::string err;
+    EXPECT_TRUE(riftwii::parse_package(
+        "<wiidisc version=\"1\" shiftfiles=\"\"><patch id=\"p\">"
+        "<file disc=\"/a\" external=\"b\" resize=\"\" create=\"\" length=\"\" fileoffset=\"\"/>"
+        "</patch></wiidisc>",
+        pkg, err));
+    EXPECT_TRUE(err.empty());
+    EXPECT_FALSE(pkg.shift_files);
+    const riftwii::FilePatch& f = pkg.patches.at("p").files.at(0);
+    EXPECT_EQ(f.length, std::uint64_t(0));
+    EXPECT_EQ(f.file_offset, std::uint64_t(0));
+    // An empty option default leaves the option at its own default choice.
+    riftwii::Package opt;
+    EXPECT_TRUE(riftwii::parse_package(
+        "<wiidisc version=\"1\"><options><section name=\"s\">"
+        "<option name=\"o\" default=\"\"><choice name=\"c\"/></option>"
+        "</section></options></wiidisc>",
+        opt, err));
+    EXPECT_EQ(opt.options.at(0).selected, std::size_t(0));
 }
 static void test_refs_choices() {
     riftwii::Package pkg;
@@ -171,6 +199,24 @@ static void test_paths() {
     std::string bad = std::string("x") + char(1) + "y";
     EXPECT_FALSE(riftwii::resolve_path("/a", bad, o));
     EXPECT_FALSE(riftwii::resolve_path("/a", "", o));
+}
+static void test_empty_roots_inherit_defaults() {
+    riftwii::Package pkg;
+    riftwii::Plan plan;
+    std::string err;
+    const std::string xml =
+        "<wiidisc version=\"1\" root=\"\">"
+        "<options><section name=\"s\"><option name=\"o\" default=\"1\">"
+        "<choice name=\"on\"><patch id=\"p\"/></choice>"
+        "</option></section></options>"
+        "<patch id=\"p\" root=\"\"><file disc=\"/a.bin\" external=\"files/a.bin\"/></patch>"
+        "</wiidisc>";
+    EXPECT_TRUE(riftwii::parse_package(xml, pkg, err));
+    EXPECT_EQ(pkg.root, std::string("/riivolution"));
+    EXPECT_EQ(pkg.patches.at("p").root, std::string(""));
+    EXPECT_TRUE(riftwii::plan_package(pkg, riftwii::DiscIdentity{"ABCDEF", 0, 0}, riftwii::PlanOptions{}, plan, err));
+    EXPECT_EQ(plan.files.size(), std::size_t(1));
+    if (!plan.files.empty()) EXPECT_EQ(plan.files[0].external, std::string("/riivolution/files/a.bin"));
 }
 static void test_atomic() {
     riftwii::Package pkg;
@@ -243,10 +289,13 @@ static void test_large_memory_values() {
     EXPECT_TRUE(err.empty());
     EXPECT_EQ(pkg.patches.at("p").memory.size(), std::size_t(1));
     if (!pkg.patches.at("p").memory.empty()) EXPECT_EQ(pkg.patches.at("p").memory[0].value.size(), std::size_t(3000));
-    // Past one megabyte of bytes the value is refused.
+    // A value over the 1 MiB byte budget needs more than 2 MiB of hex XML,
+    // so the preserved 1 MiB document budget necessarily rejects it first.
+    // Keep this explicit: a memory-specific over-limit parse cannot be
+    // reached without relaxing the package-size contract.
     std::string too_big(2 * (std::size_t(1) << 20) + 2, 'B');
     EXPECT_FALSE(riftwii::parse_package("<wiidisc version=\"1\"><patch id=\"p\"><memory offset=\"0x80001800\" value=\"" + too_big + "\"/></patch></wiidisc>", pkg, err));
-    EXPECT_FALSE(err.empty());
+    EXPECT_EQ(err, std::string("xml too large"));
 }
 static void test_wiidisc_region() {
     riftwii::Package pkg;
@@ -468,9 +517,11 @@ int main() {
     test_duplicates();
     test_dtd_pi();
     test_empty();
+    test_empty_optional_attributes_are_absent();
     test_refs_choices();
     test_mismatch();
     test_paths();
+    test_empty_roots_inherit_defaults();
     test_atomic();
     test_ordered();
     test_limits();

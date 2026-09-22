@@ -9,6 +9,7 @@
 #include <ogc/machine/processor.h>
 
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
 
 extern "C" void udelay(int us);
@@ -18,6 +19,8 @@ namespace {
 
 char g_dolphin_path[] ATTRIBUTE_ALIGN(32) = "/dev/dolphin";
 tikview g_view ATTRIBUTE_ALIGN(32);
+bool g_terminal_failure = false;
+volatile std::uint32_t g_terminal_spin = 0;
 
 constexpr std::uint32_t kIosVersionAddress = 0x80003140;
 constexpr int kIpcStartRetries = 400;    // ~400 ms, what libogc allows
@@ -26,6 +29,17 @@ constexpr int kIosStartTimeoutMs = 10000;  // libogc waits forever; a message be
 void restore_subsystems() {
     __ES_Close();
     __IOS_InitializeSubsystems();
+}
+
+ReloadResult terminal_startup_failure(int version, const char* detail, std::string& error) {
+    // IRQ_PI_ACR is masked and its libogc handler is removed here.  IOS IPC
+    // calls, filesystem mounts and file logging can now block forever, so
+    // print solely to the already-active console and leave recovery to the
+    // top-level terminal path.
+    error = "IOS" + std::to_string(version) + " " + detail + "; hold POWER to shut down";
+    std::printf("%s\n", error.c_str());
+    g_terminal_failure = true;
+    return ReloadResult::Terminal;
 }
 
 }  // namespace
@@ -40,7 +54,16 @@ bool running_in_dolphin() {
     return cached == 1;
 }
 
+bool reload_terminal_failure() { return g_terminal_failure; }
+
+[[noreturn]] void halt_after_terminal_reload() {
+    // The IOS IPC interrupt is still masked and its handler is gone. Do not
+    // return into CRT/libogc cleanup or call any subsystem here.
+    for (;;) ++g_terminal_spin;
+}
+
 ReloadResult reload_ios(int version, std::string& error) {
+    g_terminal_failure = false;
     if (version < 3 || version > 0xFF) {
         error = "IOS" + std::to_string(version) + " is not a valid IOS number";
         return ReloadResult::Failed;
@@ -90,17 +113,19 @@ ReloadResult reload_ios(int version, std::string& error) {
     raw_irq_handler_t handler = IRQ_Free(IRQ_PI_ACR);
     for (int waited = 0; (read32(kIosVersionAddress) >> 16) == 0; ++waited) {
         if (waited >= kIosStartTimeoutMs) {
-            // Nothing to hand the interrupt back to: IOS never came up and
-            // every IPC call from here on would block forever.
-            error = "IOS" + std::to_string(version) + " did not start within 10 s; hold POWER to shut down";
-            return ReloadResult::Failed;
+            return terminal_startup_failure(version, "did not start within 10 s", error);
         }
         udelay(1000);
     }
+    bool ipc_ready = false;
     for (int i = 0; i <= kIpcStartRetries; ++i) {
         udelay(1000);
-        if (HW_IPC_PPCCTRL & HW_IPC_PPC_CTRL_REGS) break;
+        if (HW_IPC_PPCCTRL & HW_IPC_PPC_CTRL_REGS) {
+            ipc_ready = true;
+            break;
+        }
     }
+    if (!ipc_ready) return terminal_startup_failure(version, "IPC did not start within 400 ms", error);
     IRQ_Request(IRQ_PI_ACR, handler, nullptr);
     __UnmaskIrq(IM_PI_ACR);
     __IPC_Reinitialize();

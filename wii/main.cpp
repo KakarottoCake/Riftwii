@@ -17,6 +17,7 @@
 
 #include "autorun.hpp"
 #include "console.hpp"
+#include "ios_reload.hpp"
 #include "log.hpp"
 
 int ExitRequested = 0;
@@ -60,6 +61,7 @@ int main() {
     if (riftwii::wii::AutorunPresent()) {
         riftwii::wii::ConsoleStart(false);
         riftwii::wii::RunAutorun();
+        if (riftwii::wii::reload_terminal_failure()) riftwii::wii::halt_after_terminal_reload();
         riftwii::wii::WaitForExit();
         std::exit(0);
     }
@@ -88,6 +90,7 @@ int main() {
                                 : riftwii::wii::RunLaunch(state.model.selections(), error, source,
                                                           state.model.save_mode, state.game_id);
         if (!booted) {
+            if (riftwii::wii::reload_terminal_failure()) riftwii::wii::halt_after_terminal_reload();
             riftwii::wii::LogOpen("sd:/riftwii/boot.log", true);  // boot_game closed it and remounted the card
             riftwii::wii::logf("FAILED: %s\n", error.c_str());
         }
@@ -95,6 +98,7 @@ int main() {
         riftwii::wii::LogOpen("sd:/riftwii/boot.log");
         riftwii::wii::logf("Riftwii: boot %s\n", source.kind == riftwii::wii::LaunchSource::Kind::Usb ? "USB" : source.kind == riftwii::wii::LaunchSource::Kind::Sd ? "SD" : "disc");
         if (!riftwii::wii::RunBoot(true, error, source)) {
+            if (riftwii::wii::reload_terminal_failure()) riftwii::wii::halt_after_terminal_reload();
             riftwii::wii::LogOpen("sd:/riftwii/boot.log", true);  // boot_game closed it and remounted the card
             riftwii::wii::logf("FAILED: %s\n", error.c_str());
         }

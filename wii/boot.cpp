@@ -481,6 +481,8 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         break;
     case ReloadResult::Failed:
         return false;
+    case ReloadResult::Terminal:
+        return false;
     }
 
     if (!di::open(error)) return false;
@@ -958,6 +960,7 @@ bool boot_game(const DiscProbe& probe, const BootOptions& options, std::string& 
     __io_wiisd.shutdown();
 
     boot_after_unmount(probe, effective, savegame, required, error);  // returns only on failure
+    if (reload_terminal_failure()) return false;
     if (effective.preserve_current_ios) {
         // The preserved IOS may own a USB virtual disc. Reacquiring all
         // default devices could interfere with it, so recover only SD/log.

@@ -2496,7 +2496,71 @@ static void TestSdChain(std::uint8_t* low_table, std::uint8_t* low_out) {
     EXPECT_EQ(ctx.disc_requests, 1u);
     EXPECT_EQ(ctx.disc_failures, 0u);
 
+    // DISC sources retain their full 64-bit partition byte offset until the
+    // /dev/di command is encoded in words. This address is above 4 GiB but
+    // below the 16 GiB (32-bit word) command limit.
+    constexpr std::uint64_t kHighDiscSource = 0x100007005ull;
+    constexpr std::uint32_t kHighDiscWord = 0x40001C00u;
+    dr.disc_offset = kHighDiscSource;
+    EXPECT_TRUE(riftwii::build_payload(Pieces({}, {}, {dr}), table_address, 0, 9, payload, error));
+    std::memcpy(low_table, payload.data(), payload.size());
+    g_disc_requests.clear();
+    std::memset(out, 0xEE, 0x800);
+    di_cmd[1] = 0x80;
+    di_cmd[2] = 0x60000 >> 2;
+    args[4] = reinterpret_cast<std::uintptr_t>(out);
+    args[5] = 0x80;
+    args[6] = 0x80005000;
+    args[7] = 0x80006000;
+    EXPECT_EQ(rt_on_ioctl_async(&ctx, args, &result), 0);
+    rec = reinterpret_cast<rt_pending*>(args[7]);
+    di_result = 1;
+    rt_on_di_complete(&ctx, &di_result, rec, &cb, &ud);
+    EXPECT_EQ(cb, 0u);
+    EXPECT_EQ(rec->phase, RT_PHASE_DISC_RUN);
+    EXPECT_EQ(g_disc_requests.size(), 2u);
+    EXPECT_EQ(g_disc_requests[0], kHighDiscWord);
+    EXPECT_EQ(g_disc_requests[1], 0x80u);
+    EXPECT_EQ(rec->chunk_skip, 5u);
+    EXPECT_EQ(rec->chunk_bytes, 100u);
+    di_result = 1;
+    rt_on_di_complete(&ctx, &di_result, rec, &cb, &ud);
+    EXPECT_EQ(cb, 0x80005000u);
+    EXPECT_EQ(di_result, 1);
+    for (std::uint32_t k = 0; k < 100; ++k) {
+        if (out[k] != static_cast<std::uint8_t>(((kHighDiscWord << 2) + 5u + k) * 3u)) {
+            EXPECT_TRUE(false);
+            break;
+        }
+    }
+
+    // An entry that would cross the 16 GiB byte boundary cannot be encoded
+    // in the DI word field. It completes with the normal DI error rather
+    // than issuing a wrapped read.
+    dr.disc_offset = (std::uint64_t(1) << 34) - 16;
+    dr.length = 32;
+    EXPECT_TRUE(riftwii::build_payload(Pieces({}, {}, {dr}), table_address, 0, 9, payload, error));
+    std::memcpy(low_table, payload.data(), payload.size());
+    g_disc_requests.clear();
+    args[6] = 0x80005000;
+    args[7] = 0x80006000;
+    const std::uint32_t failures_before_range = ctx.disc_failures;
+    EXPECT_EQ(rt_on_ioctl_async(&ctx, args, &result), 0);
+    rec = reinterpret_cast<rt_pending*>(args[7]);
+    di_result = 1;
+    rt_on_di_complete(&ctx, &di_result, rec, &cb, &ud);
+    EXPECT_EQ(cb, 0x80005000u);
+    EXPECT_EQ(di_result, RT_DI_ERROR);
+    EXPECT_EQ(g_disc_requests.size(), std::size_t(0));
+    EXPECT_EQ(ctx.disc_failures, failures_before_range + 1u);
+    EXPECT_EQ(rec->in_use, 0u);
+
     // The drive's error is passed to the game as it is.
+    dr.disc_offset = 0x7005;
+    dr.length = 100;
+    EXPECT_TRUE(riftwii::build_payload(Pieces({}, {}, {dr}), table_address, 0, 9, payload, error));
+    std::memcpy(low_table, payload.data(), payload.size());
+    const std::uint32_t failures_before_drive = ctx.disc_failures;
     args[6] = 0x80005000;
     args[7] = 0x80006000;
     EXPECT_EQ(rt_on_ioctl_async(&ctx, args, &result), 0);
@@ -2508,7 +2572,7 @@ static void TestSdChain(std::uint8_t* low_table, std::uint8_t* low_out) {
     rt_on_di_complete(&ctx, &di_result, rec, &cb, &ud);
     EXPECT_EQ(cb, 0x80005000u);
     EXPECT_EQ(di_result, 4);
-    EXPECT_EQ(ctx.disc_failures, 1u);
+    EXPECT_EQ(ctx.disc_failures, failures_before_drive + 1u);
     EXPECT_EQ(rec->in_use, 0u);
     rt_host_ioctl_async = nullptr;
 }
@@ -2690,6 +2754,36 @@ static void TestPayloadAndRedirect() {
     EXPECT_EQ(vout[5], 0);     // virtual gap: zero, not the disc's 0xEE
     EXPECT_EQ(vout[0x3F], 0);
     EXPECT_EQ(cb, 0x80005000u);
+
+    // DVDLowSeek has no data callback to redirect, but games can seek to a
+    // resized/created virtual file before they read it.  Keep that async IOS
+    // request intact while directing the impossible virtual address at word
+    // zero.  A physical dual-layer address below the virtual window remains
+    // a real drive seek.
+    std::uint32_t seek_cmd[8] = {0xAB000000, 0, 0x80000010u, 0, 0, 0, 0, 0};
+    std::uintptr_t seek_args[8] = {3, 0xAB, reinterpret_cast<std::uintptr_t>(seek_cmd), 0x20,
+                                   0, 0, 0x80005000, 0x80006000};
+    EXPECT_EQ(rt_on_ioctl_async(&ctx, seek_args, &result), 0);
+    EXPECT_EQ(seek_cmd[2], 0u);
+    EXPECT_EQ(seek_args[6], 0x80005000u);  // the hook did not call or replace it
+    EXPECT_EQ(seek_args[7], 0x80006000u);
+
+    seek_cmd[2] = 0x7ED37FFFu;  // nominal physical dual-layer range, below virtual_start_words
+    EXPECT_EQ(rt_on_ioctl_async(&ctx, seek_args, &result), 0);
+    EXPECT_EQ(seek_cmd[2], 0x7ED37FFFu);
+
+    seek_cmd[0] = 0xAC000000;  // malformed command block: leave it alone
+    seek_cmd[2] = 0x80000010u;
+    EXPECT_EQ(rt_on_ioctl_async(&ctx, seek_args, &result), 0);
+    EXPECT_EQ(seek_cmd[2], 0x80000010u);
+    seek_cmd[0] = 0xAB000000;
+    seek_args[3] = 0x1C;       // malformed command size: leave it alone
+    EXPECT_EQ(rt_on_ioctl_async(&ctx, seek_args, &result), 0);
+    EXPECT_EQ(seek_cmd[2], 0x80000010u);
+    seek_args[1] = 0xAC;       // another DI request carrying seek-shaped input is not a seek
+    seek_args[3] = 0x20;
+    EXPECT_EQ(rt_on_ioctl_async(&ctx, seek_args, &result), 0);
+    EXPECT_EQ(seek_cmd[2], 0x80000010u);
 
     // Below the window a gap still means "the disc's bytes".
     std::memset(vout, 0xEE, 0x40);

@@ -365,8 +365,15 @@ void Warn(Ctx& ctx, const std::string& message) {
         ctx.pkg.warnings.push_back("further warnings suppressed");
     }
 }
+// Riivolution reads every attribute through one accessor that drops the
+// value when it is the empty string, so `foo=""` behaves exactly like an
+// omitted `foo` for the whole format: optional attributes keep their
+// default, inherited ones keep the inherited value, and required ones are
+// reported as missing. Matching that here keeps XMLs written against
+// Riivolution loadable instead of failing on a per-attribute check.
 bool AttrPresent(pugi::xml_node node, const char* name) {
-    return static_cast<bool>(node.attribute(name));
+    pugi::xml_attribute a = node.attribute(name);
+    return a && a.as_string()[0] != '\0';
 }
 std::string AttrValue(pugi::xml_node node, const char* name) {
     return std::string(node.attribute(name).as_string());
@@ -578,7 +585,6 @@ bool ParsePatchDef(pugi::xml_node n, Ctx& ctx, int depth, std::string& error) {
     Patch p;
     if (AttrPresent(n, "root")) {
         std::string r = AttrValue(n, "root");
-        if (r.empty()) { error = "patch root empty"; return false; }
         if (HasControlChars(r)) { error = "invalid patch root"; return false; }
         p.root = r;
     }
@@ -1075,9 +1081,10 @@ bool parse_package(const std::string& xml, Package& output, std::string& error) 
                 return false;
             }
         }
+        // `root=""` is absent (see AttrPresent), so the /riivolution default
+        // survives it.
         if (AttrPresent(r, "root")) {
             std::string rt = AttrValue(r, "root");
-            if (rt.empty()) { error = "wiidisc root empty"; return false; }
             if (rt[0] != '/') { error = "wiidisc root must be absolute"; return false; }
             if (HasBadPathChars(rt)) { error = "invalid wiidisc root"; return false; }
             tmp.root = rt;

@@ -162,17 +162,61 @@ bool post_reload_failure(const char* log_path, std::string& error) {
     restore_sd_and_log(log_path, error);
     return false;
 }
+
+// A slot can hold a ticket while the title behind it is missing, stubbed or
+// half-installed. ES_LaunchTitleBackground still succeeds for those, and IOS
+// then never comes back up -- by which point IPC, SD and USB have already
+// been torn down and nothing can report the failure. Reading the installed
+// TMD view costs one IPC call on the *current* IOS and tells us the title
+// really is there, so a bad slot is skipped instead of stranding the
+// console. Only positive evidence of a bad slot rejects it.
+tmd_view g_tmd_view[(4096 + sizeof(tmd_view)) / sizeof(tmd_view)] ATTRIBUTE_ALIGN(32);
+
+bool slot_title_is_launchable(int slot, std::string& why) {
+    const u64 title = 0x100000000ull | static_cast<u64>(slot);
+    u32 views = 0;
+    if (ES_GetNumTicketViews(title, &views) < 0 || views < 1) {
+        why = "no ticket";
+        return false;
+    }
+    u32 size = 0;
+    const s32 sized = ES_GetTMDViewSize(title, &size);
+    if (sized < 0) {
+        why = "installed ticket but no title (ES " + std::to_string(sized) + ")";
+        return false;
+    }
+    if (size < sizeof(tmd_view) || size > sizeof(g_tmd_view)) {
+        // An implausible size is not evidence the title is broken; let the
+        // existing post-reload checks judge it.
+        return true;
+    }
+    std::memset(g_tmd_view, 0, sizeof(g_tmd_view));
+    const s32 got = ES_GetTMDView(title, g_tmd_view, size);
+    if (got < 0) {
+        why = "title metadata unreadable (ES " + std::to_string(got) + ")";
+        return false;
+    }
+    if (g_tmd_view[0].num_contents == 0) {
+        why = "title has no contents";
+        return false;
+    }
+    if (cios_revision_is_stub(g_tmd_view[0].title_version)) {
+        why = "holds a stub, not a cIOS";
+        return false;
+    }
+    return true;
+}
 }
 
-// Read-only ticket query per candidate slot: installed or not, without
-// touching the running IOS. Identity (d2x vs stub vs other) is decided at
-// launch by the F9/FA probe after the reload; this only decides whether a
-// missing-cIOS warning is shown while games are listed.
+// Read-only per-slot query: is there a title here that could actually be
+// launched, without touching the running IOS. Identity (d2x vs some other
+// cIOS) is still decided at launch by the F9/FA probe after the reload;
+// this decides whether a missing-cIOS warning is shown while games are
+// listed, and it is the same test that gates the reload itself, so the
+// warning and the launch never disagree.
 bool slot_has_ticket(int slot) {
-    u32 views = 0;
-    const u64 title = 0x100000000ull | static_cast<u64>(slot);
-    const s32 res = ES_GetNumTicketViews(title, &views);
-    return res >= 0 && views >= 1;
+    std::string why;
+    return slot_title_is_launchable(slot, why);
 }
 
 bool scan_usb_games(ImageCatalog& out, std::string& error) {
@@ -209,6 +253,19 @@ void unmount_usb_games() { if (g_libfat_mounted) fatUnmount("usb:"); g_libfat_mo
 bool activate_image_game(const ImageGame& game, int cios_slot, void*& storage, std::size_t& storage_bytes,
                          const char* log_path, std::string& error) {
     if (cios_slot < 3 || cios_slot > 255) { error = "cIOS slot must be 3..255"; return false; }
+    // Vet the slot while IPC, SD and USB are still up: past the teardown
+    // below a title that fails to start cannot be reported or recovered.
+    // Dolphin has no cIOS slots and reload_ios() special-cases it there.
+    if (!running_in_dolphin()) {
+        std::string why;
+        if (!slot_title_is_launchable(cios_slot, why)) {
+            error = "IOS slot " + std::to_string(cios_slot) + ": " + why +
+                    "; " + std::string(device_name(game.device)) +
+                    " boot needs d2x (v11 beta3 is the latest) in 249, 250 or 251";
+            logf("%s: skipping IOS%d (%s)\n", device_name(game.device), cios_slot, why.c_str());
+            return false;
+        }
+    }
     std::vector<std::uint8_t> bytes; if (!game.fragments.encode(bytes,error)) return false;
     const std::size_t padded = (bytes.size()+31)&~std::size_t(31); void* allocated=memalign(32,padded);
     if (!allocated) { error="out of memory for d2x fragment list"; return false; }
@@ -219,11 +276,13 @@ bool activate_image_game(const ImageGame& game, int cios_slot, void*& storage, s
     // IOS reload makes every libfat descriptor stale. Release both media;
     // d2x then owns the image device and SD is mounted again for XML/saves.
     LogClose();
+    logf("%s: reload IOS%d\n", device_name(game.device), cios_slot);
     fatUnmount("sd:");
     __io_wiisd.shutdown();
     unmount_usb_games();
     di::close();
     const ReloadResult r=reload_ios(cios_slot,error);
+    if (r == ReloadResult::Terminal) return false;
     if (r==ReloadResult::NotInstalled || r==ReloadResult::Failed) return post_reload_failure(log_path, error);
     const s32 running = IOS_GetVersion();
     const s32 revision = IOS_GetRevision();
@@ -234,16 +293,20 @@ bool activate_image_game(const ImageGame& game, int cios_slot, void*& storage, s
     }
     if (!di::open(error)) { error = "after cIOS reload: " + error; return post_reload_failure(log_path, error); }
     std::uint32_t mode=0;
+    logf("%s: d2x probe\n", device_name(game.device));
     if (!di::probe_d2x(mode,error)) {
         error = "IOS" + std::to_string(cios_slot) + " is not a d2x cIOS: " + error +
                 "; " + std::string(device_name(game.device)) + " boot needs d2x (v11 beta3 is the latest) in 249, 250 or 251";
         return post_reload_failure(log_path, error);
     }
     const std::uint32_t device = game.device == ImageDevice::Usb ? 1 : 2;
+    logf("%s: d2x F9 config\n", device_name(game.device));
     if (!di::configure_frag(device,storage,static_cast<std::uint32_t>(bytes.size()),error)) { error = "d2x F9 fragment setup failed: " + error; return post_reload_failure(log_path, error); }
     // Existing physical probes reset the drive. Disable reset after F9 so
     // the following virtual probe cannot clear d2x's emulation state.
+    logf("%s: d2x F6 reset-disable\n", device_name(game.device));
     if (!di::disable_reset(error)) { error = "d2x F6 reset-disable failed: " + error; return post_reload_failure(log_path, error); }
+    logf("%s: SD remount\n", device_name(game.device));
     if (!fatMountSimple("sd", &__io_wiisd)) {
         error="d2x is configured but SD could not be remounted after IOS reload";
         return post_reload_failure(log_path, error);

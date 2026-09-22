@@ -170,6 +170,10 @@ bool build_reader_map(const UsbImage& image, std::vector<D2xFragment>& map, std:
     if (image.format == UsbImageFormat::Iso) {
         if (c.size() == 0 || c.size() % kUsbSectorBytes) { error = "ISO size is empty or not a multiple of 512 bytes"; return false; }
         sectors = c.size() / kUsbSectorBytes;
+        if (sectors > std::numeric_limits<std::uint32_t>::max()) {
+            error = "logical Wii disc sector range does not fit d2x's 32-bit ABI";
+            return false;
+        }
         map.push_back({0, 0, static_cast<std::uint32_t>(sectors)});
         return true;
     }

@@ -94,6 +94,29 @@ private:
     std::vector<std::uint8_t> prefix_;
 };
 
+// A huge sparse file with byte ranges placed at explicit offsets. This lets
+// the USB mapper prove second-layer reads without allocating an image-sized
+// buffer.
+class SparseSource final : public ByteSource {
+public:
+    struct Span { std::uint64_t offset; std::vector<std::uint8_t> bytes; };
+    SparseSource(std::uint64_t size, std::vector<Span> spans) : size_(size), spans_(std::move(spans)) {}
+    std::uint64_t size() const override { return size_; }
+    bool read(std::uint64_t offset, std::uint8_t* destination, std::size_t length) const override {
+        if (offset > size_ || static_cast<std::uint64_t>(length) > size_ - offset) return false;
+        for (const Span& span : spans_) {
+            if (offset < span.offset || static_cast<std::uint64_t>(length) > span.bytes.size() ||
+                offset - span.offset > span.bytes.size() - length) continue;
+            std::memcpy(destination, span.bytes.data() + static_cast<std::size_t>(offset - span.offset), length);
+            return true;
+        }
+        return length == 0;
+    }
+private:
+    std::uint64_t size_;
+    std::vector<Span> spans_;
+};
+
 UsbImagePiece big_piece(std::uint64_t bytes, std::uint64_t sector, std::vector<std::uint8_t> prefix) {
     UsbImagePiece p;
     p.source = std::make_shared<BigSource>(bytes, std::move(prefix));
@@ -178,7 +201,15 @@ void test_large_iso() {
     for (std::size_t i = 0; i < prefix.size(); ++i) prefix[i] = static_cast<std::uint8_t>(i);
     UsbImage x; x.format = UsbImageFormat::Iso;
     x.pieces.push_back(big_piece(kThreeGiB, 100, prefix));
-    x.pieces.push_back(big_piece(kThreeGiB, 9000000, prefix));
+    const std::uint64_t second_local = 1024ull * 1024 * 1024 + 0x40;
+    std::vector<std::uint8_t> second_bytes = {0xD1, 0xD2, 0xD3, 0xD4};
+    UsbImagePiece second;
+    second.source = std::make_shared<SparseSource>(kThreeGiB,
+        std::vector<SparseSource::Span>{{second_local, second_bytes}});
+    second.file.entry.size = static_cast<std::uint32_t>(kThreeGiB);
+    second.file.fragments.push_back({9000000, kThreeGiB / 512});
+    second.path = "usb:/games/dual.iso";
+    x.pieces.push_back(std::move(second));
     std::string error; D2xFragmentList list;
     EXPECT_TRUE(build_usb_fragments(x, list, error));
     EXPECT_EQ(list.size, std::uint32_t(12582912));
@@ -197,7 +228,18 @@ void test_large_iso() {
     EXPECT_EQ(disc->size(), kThreeGiB * 2);
     std::uint8_t out[4] = {};
     EXPECT_TRUE(disc->read(0, out, sizeof(out)) && out[0] == 0 && out[3] == 3);
+    EXPECT_TRUE(disc->read(kThreeGiB + second_local, out, sizeof(out)));
+    EXPECT_EQ(out[0], std::uint8_t(0xD1));
+    EXPECT_EQ(out[3], std::uint8_t(0xD4));
     EXPECT_FALSE(disc->read(kThreeGiB - 2, out, sizeof(out)));  // beyond the served prefix
+
+    // UsbDiscSource uses the same d2x-sized logical sector field as the
+    // fragment list; do not truncate a synthetic larger raw container.
+    UsbImage oversized;
+    oversized.format = UsbImageFormat::Iso;
+    constexpr std::uint64_t kPieceBytes = 0xFFFFFE00ull;
+    for (unsigned i = 0; i < 513; ++i) oversized.pieces.push_back(big_piece(kPieceBytes, i, {}));
+    EXPECT_FALSE(UsbDiscSource::open(oversized, disc, error));
 }
 
 void test_large_wbfs() {
@@ -236,6 +278,62 @@ void test_large_wbfs() {
     EXPECT_TRUE(disc->read(0, out, sizeof(out)));
     EXPECT_EQ(out[0], std::uint8_t(0xA0));
     EXPECT_EQ(out[3], std::uint8_t(0xA3));
+}
+
+void test_dual_layer_split_wbfs() {
+    // A two-piece .wbfs/.wbf1 container. Its one mapped Wii block is well
+    // into the second layer and physically beyond 4 GiB of the split file.
+    constexpr std::uint64_t kFirstBytes = 0xFFFFFE00ull;
+    constexpr std::uint64_t kSecondBytes = 0x80000000ull;
+    constexpr std::uint32_t kWbfsShift = 20;
+    constexpr std::uint64_t kBlockBytes = std::uint64_t(1) << kWbfsShift;
+    constexpr std::uint64_t kBlockSectors = kBlockBytes / 512;
+    constexpr std::uint64_t kSecondLayerBlock = 6000;
+    constexpr std::uint16_t kWlbaSecondLayer = 6000;
+    constexpr std::uint64_t kContainerBytes = std::uint64_t(kWlbaSecondLayer) * kBlockBytes;
+    constexpr std::uint64_t kSecondLocal = kContainerBytes - kFirstBytes;
+    std::vector<std::uint8_t> prefix(2 * 1024 * 1024, 0);
+    std::memcpy(prefix.data(), "WBFS", 4);
+    be32(prefix, 4, 0xFFFFFFFFu);
+    prefix[8] = 9;
+    prefix[9] = kWbfsShift;
+    prefix[12] = 1;
+    prefix[kDiscInfo] = 'R'; prefix[kDiscInfo + 1] = 'M';
+    prefix[kDiscInfo + 2] = 'C'; prefix[kDiscInfo + 3] = 'E';
+    be32(prefix, kDiscInfo + 0x18, 0x5D1C9EA3);
+    be16(prefix, kWlba + kSecondLayerBlock * 2, kWlbaSecondLayer);
+
+    UsbImage image;
+    image.format = UsbImageFormat::Wbfs;
+    UsbImagePiece first;
+    first.source = std::make_shared<BigSource>(kFirstBytes, std::move(prefix));
+    first.file.entry.size = static_cast<std::uint32_t>(kFirstBytes);
+    first.file.fragments.push_back({1000, kFirstBytes / 512});
+    first.path = "usb:/wbfs/dual.wbfs";
+    image.pieces.push_back(std::move(first));
+    UsbImagePiece second;
+    second.source = std::make_shared<SparseSource>(kSecondBytes,
+        std::vector<SparseSource::Span>{{kSecondLocal + 7, {0xE1, 0xE2, 0xE3, 0xE4}}});
+    second.file.entry.size = static_cast<std::uint32_t>(kSecondBytes);
+    second.file.fragments.push_back({20000000, kSecondBytes / 512});
+    second.path = "usb:/wbfs/dual.wbf1";
+    image.pieces.push_back(std::move(second));
+
+    std::string error;
+    D2xFragmentList list;
+    EXPECT_TRUE(build_usb_fragments(image, list, error));
+    EXPECT_EQ(list.size, std::uint32_t(143432u * 2u * 64u));
+    EXPECT_EQ(list.num, std::uint32_t(1));
+    EXPECT_EQ(list.entries[0].offset, static_cast<std::uint32_t>(kSecondLayerBlock * kBlockSectors));
+    EXPECT_EQ(list.entries[0].sector, static_cast<std::uint32_t>(20000000ull + kSecondLocal / 512));
+    EXPECT_EQ(list.entries[0].count, static_cast<std::uint32_t>(kBlockSectors));
+
+    std::unique_ptr<UsbDiscSource> disc;
+    EXPECT_TRUE(UsbDiscSource::open(image, disc, error));
+    std::uint8_t out[4] = {};
+    EXPECT_TRUE(disc->read(kSecondLayerBlock * kBlockBytes + 7, out, sizeof(out)));
+    EXPECT_EQ(out[0], std::uint8_t(0xE1));
+    EXPECT_EQ(out[3], std::uint8_t(0xE4));
 }
 
 void test_collect_split_pieces() {
@@ -323,6 +421,7 @@ int main() {
     test_basic();
     test_large_iso();
     test_large_wbfs();
+    test_dual_layer_split_wbfs();
     test_collect_split_pieces();
     test_cios_readiness_note();
     test_plan_over_usb();

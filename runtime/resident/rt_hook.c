@@ -12,6 +12,7 @@
 #include "rtable.h"
 
 #define RT_DI_READ 0x71u
+#define RT_DI_SEEK 0xABu
 
 /* /dev/sdio/slot0 (wiibrew, libogc wiisd.c) */
 #define RT_SDIO_SENDCMD 7u
@@ -24,6 +25,12 @@ int rt_is_di_read(uint32_t ioctl, const uint32_t* in, uint32_t in_len) {
     /* DVDLowRead: ioctl 0x71 with a 0x20-byte command block whose first
      * word repeats the command number in its top byte (wiibrew /dev/di). */
     return ioctl == RT_DI_READ && in_len == 0x20 && in != 0 && (in[0] >> 24) == RT_DI_READ;
+}
+
+static int rt_is_di_seek(uint32_t ioctl, const uint32_t* in, uint32_t in_len) {
+    /* DVDLowSeek: the IOS request and the command block both identify the
+     * command, and the requested disc word is in command[2]. */
+    return ioctl == RT_DI_SEEK && in_len == 0x20 && in != 0 && (in[0] >> 24) == RT_DI_SEEK;
 }
 
 uint32_t rt_checksum(const uint8_t* bytes, uint32_t length) {
@@ -463,6 +470,14 @@ int rt_on_ioctl_async(struct rt_context* ctx, uintptr_t* args, uint32_t* result)
     const uint32_t in_len = (uint32_t)args[3];
     (void)result;
     ctx->ioctl_async_calls++;
+    if (rt_is_di_seek(ioctl, in, in_len) && ctx->virtual_start_words != 0 && in[2] >= ctx->virtual_start_words) {
+        /* A seek is normally followed by the read we redirect below.  A
+         * virtual file has no drive address, so keep the original async IOS
+         * call and callback but make its seek land on a known readable word. */
+        uint32_t* command = (uint32_t*)args[2];
+        command[2] = 0;
+        rt_flush_range((uintptr_t)command, 0x20);
+    }
     if (rt_is_di_read(ioctl, in, in_len)) {
         const uint32_t length = in[1];
         const uint32_t word_offset = in[2];
@@ -2010,23 +2025,45 @@ static uint8_t* rt_run_destination(const struct rt_pending* record, const rt_run
  * 32-byte aligned span around the wanted bytes into the bounce buffer. */
 static int rt_issue_disc_chunk(struct rt_context* ctx, struct rt_pending* record) {
     const rt_run* run = &record->runs[record->run_index];
-    const uint32_t remaining = (uint32_t)run->length - record->run_done;
-    const uint32_t first = (uint32_t)run->source + record->run_done; /* partition byte wanted first */
-    const uint32_t start = first & ~31u;
-    uint32_t end = first + remaining;
+    const uint64_t k_di_bytes = UINT64_C(1) << 34;  /* 32-bit DVD word offset */
+    uint32_t remaining;
+    uint64_t first;
+    uint64_t start;
+    uint64_t end;
+    uint64_t aligned_end;
     uint32_t length;
     uint32_t i;
+    if (run->length > UINT32_MAX || record->run_done > run->length ||
+        run->source > UINT64_MAX - record->run_done) {
+        ctx->disc_failures++;
+        return -1;
+    }
+    remaining = (uint32_t)(run->length - record->run_done);
     if (remaining == 0) return 0;
-    end = (end + 31u) & ~31u;
-    if (end - start > RT_BOUNCE_BYTES) end = start + RT_BOUNCE_BYTES;
-    length = end - start;
-    record->chunk_skip = first - start;
-    record->chunk_bytes = length - record->chunk_skip;
-    if (record->chunk_bytes > remaining) record->chunk_bytes = remaining;
+    first = run->source + record->run_done;  /* partition byte wanted first */
+    if (first >= k_di_bytes || (uint64_t)remaining > k_di_bytes - first) {
+        /* /dev/di encodes a full 34-bit byte offset in its 32-bit word
+         * field.  Do not let a malformed or out-of-range DISC entry wrap. */
+        ctx->disc_failures++;
+        return -1;
+    }
+    start = first & ~UINT64_C(31);
+    record->chunk_skip = (uint32_t)(first - start);
+    record->chunk_bytes = remaining;
+    if (record->chunk_bytes > RT_BOUNCE_BYTES - record->chunk_skip) {
+        record->chunk_bytes = RT_BOUNCE_BYTES - record->chunk_skip;
+    }
+    end = first + record->chunk_bytes;
+    aligned_end = (end + 31u) & ~UINT64_C(31);
+    if (aligned_end > k_di_bytes) {
+        ctx->disc_failures++;
+        return -1;
+    }
+    length = (uint32_t)(aligned_end - start);
     for (i = 0; i < 8; ++i) record->di_command[i] = 0;
     record->di_command[0] = RT_DI_READ << 24;
     record->di_command[1] = length;
-    record->di_command[2] = start >> 2;
+    record->di_command[2] = (uint32_t)(start >> 2);
     rt_flush_range((uintptr_t)record->di_command, sizeof(record->di_command));
     rt_flush_range((uintptr_t)record->bounce, length);
     record->phase = RT_PHASE_DISC_RUN;
