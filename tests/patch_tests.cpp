@@ -232,6 +232,22 @@ static void test_limits() {
     std::string withNull = std::string("<wiidisc version=\"1\"><patch id=\"p\">") + char(0) + "</patch></wiidisc>";
     EXPECT_FALSE(riftwii::parse_package(withNull, pkg, err));
 }
+static void test_large_memory_values() {
+    riftwii::Package pkg;
+    std::string err;
+    // Mods ship multi-KB loader blobs as inline hex (Spectral carries a
+    // 30 KB one). Hex payloads have their own budget past the 4096-char
+    // name/path cap.
+    std::string hex(6000, 'A');
+    EXPECT_TRUE(riftwii::parse_package("<wiidisc version=\"1\"><patch id=\"p\"><memory offset=\"0x80001800\" value=\"" + hex + "\"/></patch></wiidisc>", pkg, err));
+    EXPECT_TRUE(err.empty());
+    EXPECT_EQ(pkg.patches.at("p").memory.size(), std::size_t(1));
+    if (!pkg.patches.at("p").memory.empty()) EXPECT_EQ(pkg.patches.at("p").memory[0].value.size(), std::size_t(3000));
+    // Past one megabyte of bytes the value is refused.
+    std::string too_big(2 * (std::size_t(1) << 20) + 2, 'B');
+    EXPECT_FALSE(riftwii::parse_package("<wiidisc version=\"1\"><patch id=\"p\"><memory offset=\"0x80001800\" value=\"" + too_big + "\"/></patch></wiidisc>", pkg, err));
+    EXPECT_FALSE(err.empty());
+}
 static void test_comment_cdata_isolation() {
     riftwii::Package pkg;
     std::string err;
@@ -442,6 +458,7 @@ int main() {
     test_atomic();
     test_ordered();
     test_limits();
+    test_large_memory_values();
     test_comment_cdata_isolation();
     test_disc_path_validation();
     test_file_field_preservation();
