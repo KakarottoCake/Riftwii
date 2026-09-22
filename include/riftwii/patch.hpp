@@ -111,6 +111,10 @@ struct Option {
 struct Package {
     DiscFilter filter;
     std::string root = "/riivolution";
+    // Parsed from wiidisc shiftfiles but intentionally unused: every resized
+    // or created file is relocated into the virtual window and the FST is
+    // rewritten to point there, so on-disc shifting is never needed and a
+    // package that forbids it still applies. Newer SMBW 1.30 sets it.
     bool shift_files = false;
     std::vector<Option> options;
     std::map<std::string, Patch> patches;
