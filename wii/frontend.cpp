@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "autorun.hpp"
+#include "log.hpp"
 
 namespace riftwii::wii {
 
@@ -185,6 +186,13 @@ std::string ScanPackages(FrontendState& state) {
             state.model.restore(text.str());
         }
     }
+    std::size_t shown = 0;
+    for (const LaunchPackage& p : state.model.packages) {
+        if (!p.valid) logf("Package %s invalid: %s\n", p.file.c_str(), p.detail.c_str());
+        if (show_package(p)) ++shown;
+    }
+    logf("Packages: %u XML file(s), %u shown for %s\n", static_cast<unsigned>(state.model.packages.size()),
+         static_cast<unsigned>(shown), state.game_id.empty() ? "no game" : state.game_id.c_str());
     if (limited) return "First 150 packages shown; directory limit reached";
     if (state.model.packages.empty()) return "No XML packages in sd:/riivolution";
     return kScanReady;

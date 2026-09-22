@@ -30,9 +30,11 @@
 #include "demo.h"
 #include "input.h"
 #include "riftwii/patch.hpp"
+#include "log.hpp"
 
 #define THREAD_SLEEP 100
 
+using riftwii::wii::logf;
 using riftwii::wii::ScanPackages;
 using riftwii::wii::SaveChoices;
 using riftwii::wii::CompileSelection;
@@ -41,6 +43,24 @@ using riftwii::wii::SelectSdGame;
 using riftwii::wii::SelectUsbGame;
 using riftwii::wii::scan_sd_games;
 using riftwii::wii::scan_usb_games;
+
+// For the session log: which screen the user reached last.
+static const char* ScreenName(int menu)
+{
+	switch (menu)
+	{
+		case MENU_EXIT: return "exit";
+		case MENU_HOME: return "mods";
+		case MENU_OPTIONS: return "mod options";
+		case MENU_PREFLIGHT: return "preflight";
+		case MENU_LAUNCH: return "launch";
+		case MENU_BOOT: return "boot unmodified";
+		case MENU_DUMP: return "dump";
+		case MENU_SOURCE: return "source";
+		case MENU_GAMES: return "games";
+		default: return "?";
+	}
+}
 
 static const char* PackageValue(const riftwii::LaunchPackage& p)
 {
@@ -467,6 +487,7 @@ static int MenuSource(FrontendState& state)
 			const bool scanned = scan_sd_games(state.sd_catalog, error);
 			HaltGui();
 			if (!scanned) {
+				logf("SD scan failed: %s\n", error.c_str());
 				state.sd_catalog.status = "SD: " + (error.empty() ? "scan failed" : error);
 				sourceLine = CountLine("SD", state.sd_catalog) + "      " + CountLine("USB", state.usb_catalog);
 				sdusbTxt.SetText(sourceLine.c_str());
@@ -485,6 +506,7 @@ static int MenuSource(FrontendState& state)
 			const bool scanned = scan_usb_games(state.usb_catalog, error);
 			HaltGui();
 			if (!scanned) {
+				logf("USB scan failed: %s\n", error.c_str());
 				state.usb_catalog.status = "USB: " + (error.empty() ? "scan failed" : error);
 				sourceLine = CountLine("SD", state.sd_catalog) + "      " + CountLine("USB", state.usb_catalog);
 				sdusbTxt.SetText(sourceLine.c_str());
@@ -500,9 +522,11 @@ static int MenuSource(FrontendState& state)
 			SetSourceRows(detailRows, "Probing disc...");
 			ResumeGui();
 			std::string error;
+			logf("DISC: probing\n");
 			const bool selected = SelectDisc(state, error);
 			HaltGui();
 			if (!selected) {
+				logf("DISC: %s\n", error.empty() ? "no disc in drive" : error.c_str());
 				SetSourceRows(detailRows, FlatCapped(error.empty() ? "No disc in drive" : error, 64));
 			} else {
 				discTxt.SetText(state.disc_status.c_str());
@@ -1112,6 +1136,7 @@ int MainMenu(int menu, FrontendState& state)
 
 	while(currentMenu != MENU_EXIT && currentMenu != MENU_LAUNCH && currentMenu != MENU_BOOT && currentMenu != MENU_DUMP)
 	{
+		logf("Screen: %s\n", ScreenName(currentMenu));
 		switch (currentMenu)
 		{
 			case MENU_SOURCE:
@@ -1133,6 +1158,7 @@ int MainMenu(int menu, FrontendState& state)
 		}
 	}
 
+	logf("Screen: %s\n", ScreenName(currentMenu));
 	if (currentMenu == MENU_LAUNCH || currentMenu == MENU_BOOT || currentMenu == MENU_DUMP) {
 		// The GUI thread is halted (the screens halt it before returning);
 		// hand the screen back to main for the console phase.
