@@ -113,6 +113,9 @@ struct BootOptions {
     // has loaded the game and before the runtime is installed; `value`
     // must already hold the bytes.
     std::vector<MemoryPatch> memory_patches;
+    // A replaced executable (CompiledMod::main_dol): the apploader loads
+    // it from memory; the disc's DOL is not read.
+    std::vector<std::uint8_t> main_dol;
     // <savegame>: the sd:/ folder the title's data directory is served
     // from by the runtime (requires install_resident and the card; the
     // folder is created when missing). Empty: the save stays on NAND.
@@ -122,6 +125,11 @@ struct BootOptions {
     // the runtime copies the title's NAND save into it before the game's
     // first request. Any other existing folder is used as it is.
     bool savegame_clone = false;
+    // Riivolution's "file" device for the game (Pulsar's settings and
+    // ghosts on the card): served by the resident runtime from the card's
+    // root whenever the runtime is installed and the card is up after the
+    // IOS reload; otherwise left off with a log line.
+    bool file_device = true;
 };
 
 // Reloads IOS, runs the apploader and jumps to the game. Only returns on

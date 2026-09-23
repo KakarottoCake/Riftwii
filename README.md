@@ -49,7 +49,22 @@ split `.wbf1`, `.wbf2`, …) in `<source>:/wbfs` and raw `.iso` in
 6. **Start** (Plus) boots, with nothing on for the plain game. While it
    starts, the log prints on screen. Your choices are saved per game.
 7. Settings (the gear, or 2) holds the menu IOS (pick the cIOS slot with
-   fakemote for USB DS3/DS4 pads), Rescan and Exit. HOME exits too.
+   fakemote for USB DS3/DS4 pads), network packs, Rescan and Exit. HOME
+   exits too.
+8. **Network packs (RiiFS).** Packs can come from a PC running a RiiFS
+   server, as with Riivolution: put an XML in `sd:/riivolution` with
+   `<network protocol="riifs" address="192.168.1.20" port="1137"/>`, or
+   turn on *Find network packs* in Settings to look for servers on your
+   network. The server's packs show with `@ address` after their name.
+   RiftWii copies what a launch needs into `sd:/riftwii/riifs/` first
+   (only files whose size changed; *Copy network packs again* forces a
+   full copy), then boots from the card. Saves stay on the card. See
+   `docs/RIIFS.md`.
+
+Pulsar packs (Retro Rewind and others) save their settings, ghosts and
+leaderboards to the SD card, as they do under Riivolution. CT-CODE
+packs that replace the game's `main.dol` (CTGP Revolution 1.02) work
+too.
 
 Controls work with a Wii Remote (pointer or D-pad), Classic Controller,
 GameCube pad, or Wii U GamePad (same button names; X stands in for 1).

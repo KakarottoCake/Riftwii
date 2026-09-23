@@ -540,6 +540,10 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         const char* what = "";
     };
     std::vector<LoadOverride> overrides;
+    // The data header the apploader reads: the FST's size and the DOL's
+    // offset may change below.
+    PartitionDataHeader header = layout.data_header;
+    bool header_changed = false;
     const bool relocates = !options.virtual_files.empty() || !options.relocations.empty();
     if (relocates) {
         if (!options.install_resident) {
@@ -592,7 +596,8 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
                 error = "cannot read the DOL header: " + error;
                 return false;
             }
-            if (layout.data_header.dol_offset < fst_end &&
+            // A replaced DOL is placed after this, clear of the FST.
+            if (options.main_dol.empty() && layout.data_header.dol_offset < fst_end &&
                 layout.data_header.dol_offset + dol.image_size() > fst_start) {
                 error = "the grown FST would overlap the DOL";
                 return false;
@@ -607,30 +612,62 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
                     return false;
                 }
             }
-            PartitionDataHeader grown = layout.data_header;
-            grown.fst_size = fst_override.bytes.size();
-            if (grown.fst_max_size < grown.fst_size) grown.fst_max_size = grown.fst_size;
-            LoadOverride fields;
-            fields.offset = kPartitionDataFieldsOffset;
-            fields.bytes.resize(kPartitionDataFieldsBytes);
-            fields.what = "data header";
-            if (!encode_partition_data_fields(grown, fields.bytes.data(), error)) return false;
-            overrides.push_back(std::move(fields));
+            header.fst_size = fst_override.bytes.size();
+            if (header.fst_max_size < header.fst_size) header.fst_max_size = header.fst_size;
+            header_changed = true;
             logf("FST: %u file(s) created, %u -> %u bytes (max %llu -> %llu)\n", created,
                  static_cast<unsigned>(layout.fst_bytes.size()), static_cast<unsigned>(fst_override.bytes.size()),
                  static_cast<unsigned long long>(layout.data_header.fst_max_size),
-                 static_cast<unsigned long long>(grown.fst_max_size));
+                 static_cast<unsigned long long>(header.fst_max_size));
         }
         overrides.push_back(std::move(fst_override));
-        for (const LoadOverride& o : overrides) {
-            MemReplacement copy;
-            copy.virtual_offset = o.offset;
-            copy.bytes = o.bytes;
-            pieces.mem.push_back(std::move(copy));
-        }
         logf("Virtual window: %u file(s) at 0x%llx-0x%llx, FST rewritten\n",
              static_cast<unsigned>(options.virtual_files.size() + options.relocations.size()),
              static_cast<unsigned long long>(kVirtualWindowStart), static_cast<unsigned long long>(window_cursor));
+    }
+    // A replaced executable is read only by the apploader, from memory: in
+    // the disc DOL's place when it ends before the FST, otherwise right
+    // after the FST with the data header pointing there. The game never
+    // reads its DOL again, so the runtime does not serve it.
+    std::size_t dol_override = SIZE_MAX;
+    if (!options.main_dol.empty()) {
+        const std::uint64_t size = (options.main_dol.size() + 31) & ~std::uint64_t(31);
+        const std::uint64_t fst_start = header.fst_offset;
+        const std::uint64_t fst_end = fst_start + ((header.fst_size + 31) & ~std::uint64_t(31));
+        const bool in_place = header.dol_offset + size <= fst_start || header.dol_offset >= fst_end;
+        if (!in_place) {
+            header.dol_offset = (fst_end + 0x7FFF) & ~std::uint64_t(0x7FFF);
+            header_changed = true;
+        }
+        LoadOverride dol;
+        dol.offset = header.dol_offset;
+        dol.bytes = options.main_dol;
+        dol.bytes.resize(static_cast<std::size_t>(size), 0);
+        dol.what = "main.dol";
+        logf("main.dol: the pack's executable (%u bytes) is loaded %s 0x%llx\n",
+             static_cast<unsigned>(options.main_dol.size()), in_place ? "in place at" : "after the FST, at",
+             static_cast<unsigned long long>(header.dol_offset));
+        dol_override = overrides.size();
+        overrides.push_back(std::move(dol));
+    }
+    if (header_changed) {
+        LoadOverride fields;
+        fields.offset = kPartitionDataFieldsOffset;
+        fields.bytes.resize(kPartitionDataFieldsBytes);
+        fields.what = "data header";
+        if (!encode_partition_data_fields(header, fields.bytes.data(), error)) return false;
+        overrides.push_back(std::move(fields));
+    }
+    if (relocates) {
+        // Should the game read its FST or data header again, the runtime
+        // serves the same bytes.
+        for (std::size_t i = 0; i < overrides.size(); ++i) {
+            if (i == dol_override) continue;
+            MemReplacement copy;
+            copy.virtual_offset = overrides[i].offset;
+            copy.bytes = overrides[i].bytes;
+            pieces.mem.push_back(std::move(copy));
+        }
     }
 
     di::PartitionSource data;
@@ -756,13 +793,25 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
             if (!handed_to_runtime) sdio::close_card(card);
         }
     } card_cleanup{card, card_handed_to_runtime};
-    if (pieces.needs_sd() || savegame.enabled) {
+    const bool card_required = pieces.needs_sd() || savegame.enabled;
+    bool file_device = savegame.file_device && options.install_resident;
+    if (card_required || file_device) {
         if (!options.install_resident) {
             error = "SD-backed replacements and savegame redirection need the resident runtime";
             return false;
         }
         release_card_and_log();
-        if (!sdio::open_card(card, error)) return false;
+        if (!sdio::open_card(card, error)) {
+            if (card_required) return false;
+            // Only the file device wanted it: the game starts without.
+            logf("Riivolution's \"file\" device is off: the SD card: %s\n", error.c_str());
+            error.clear();
+            file_device = false;
+            sdio::close_card(card);  // a half-opened card is not handed on
+            card = sdio::Card{};
+        }
+    }
+    if (card.fd >= 0) {
         logf("SD card: fd %d, rca 0x%04x, %s\n", card.fd, card.rca,
              card.d2x ? "through d2x's /dev/sdio/sdhc (the game is on this card)" : card.sdhc ? "SDHC" : "SDSC");
         if (options.verify_sd) {
@@ -777,7 +826,9 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
     ResidentInstall resident;
     if (options.install_resident) {
         std::uint8_t dol_bytes[kDolHeaderBytes];
-        if (!data.read(layout.data_header.dol_offset, dol_bytes, sizeof(dol_bytes))) {
+        if (!options.main_dol.empty()) {
+            std::memcpy(dol_bytes, options.main_dol.data(), sizeof(dol_bytes));  // the executable that ran
+        } else if (!data.read(layout.data_header.dol_offset, dol_bytes, sizeof(dol_bytes))) {
             error = "cannot read the DOL header";
             return false;
         }
@@ -792,6 +843,7 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         ro.sdio_sdhc = card.sdhc;
         ro.sdio_d2x = card.d2x;
         ro.savegame = savegame;
+        ro.savegame.file_device = file_device && card.fd >= 0;
         // The code goes above this loader (which ends at arena 1's top) and
         // the apploader image, both still in use until the game starts.
         ro.mem1_floor = std::max(reinterpret_cast<std::uint32_t>(SYS_GetArena1Hi()),
@@ -1009,6 +1061,16 @@ bool boot_game(const DiscProbe& probe, const BootOptions& options, std::string& 
     }
     SavegameOptions savegame;
     if (!effective.savegame_dir.empty() && !prepare_savegame(probe, effective, savegame, error)) return false;
+    if (effective.install_resident && effective.file_device) {
+        // The save redirect's volume carries the root too; without one,
+        // the root's own.
+        std::string why;
+        if (savegame.enabled || resolve_sd_directory("sd:/", savegame.volume, why)) {
+            savegame.file_device = true;
+        } else {
+            logf("Riivolution's \"file\" device is off: %s\n", why.c_str());
+        }
+    }
 
     // Everything IOS holds for us dies with a reload: the Wii Remote stack
     // (which also saves its pairings to NAND on shutdown, so it must go

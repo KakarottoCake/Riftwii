@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "modplan.hpp"
 
+#include <strings.h>
+
 #include <algorithm>
+#include <cstdio>
 #include <fstream>
 #include <map>
 #include <memory>
@@ -9,7 +12,9 @@
 
 #include "di.hpp"
 #include "log.hpp"
+#include "netpacks.hpp"
 #include "riftwii/apply.hpp"
+#include "riftwii/dol.hpp"
 #include "riftwii/expand.hpp"
 #include "riftwii/fat32.hpp"
 #include "riftwii/hook.hpp"
@@ -53,6 +58,10 @@ private:
     const Fat32File& file_;  // owned by the provider's map, which outlives the sources
 };
 
+// The disc path the compile gives the game's executable, which the FST
+// does not list (absolute, as patches need; no FST name holds '<').
+constexpr const char* kMainDolPath = "/<main.dol>";
+
 // The disc side comes from the FST, the SD side from the card read raw
 // (riftwii/fat32.hpp, folders cached): libfat opened each of a big mod's
 // two thousand files twice and walked the same folders every time. The
@@ -60,9 +69,17 @@ private:
 class WiiProvider final : public ContentProvider {
 public:
     explicit WiiProvider(const Fst& fst) : fst_(fst) {}
+    void set_main_dol(std::uint64_t offset, std::uint64_t size) {
+        dol_offset_ = offset;
+        dol_size_ = size;
+    }
 
     OpenStatus open_disc(const std::string& disc_path, std::unique_ptr<ByteSource>& out,
                          std::string& error) override {
+        if (disc_path == kMainDolPath && dol_size_ != 0) {
+            out = std::make_unique<DiscFileSource>(dol_offset_, dol_size_);
+            return OpenStatus::Ok;
+        }
         std::uint32_t index = fst_.find(disc_path, false);
         if (index == Fst::npos) index = fst_.find(disc_path, true);
         if (index == Fst::npos) {
@@ -132,6 +149,8 @@ public:
 
 private:
     const Fst& fst_;
+    std::uint64_t dol_offset_ = 0;
+    std::uint64_t dol_size_ = 0;
     std::map<std::string, Fat32File> files_;  // node-based: the sources keep references
     std::map<const ByteSource*, const Fat32File*> sources_;
 };
@@ -193,6 +212,9 @@ static bool gather_package(const PackageSelection& selection, const DiscProbe& p
     allowed.allow_savegames = true;
     Plan plan;
     if (!plan_package(package, disc, allowed, plan, error)) return false;
+    // A network pack's files are in its cache folder, as on the PC.
+    const std::string net_root = NetworkRootOf(xml_sd_path);
+    if (!net_root.empty()) RebasePlan(plan, net_root);
 
     // <savegame>: one folder per launch; a second, different one is an
     // error rather than a silent choice. `clone` (the default) copies the
@@ -293,6 +315,8 @@ bool compile_packages(const std::vector<PackageSelection>& packages, const DiscP
                       const OpenedPartition& partition, CompiledMod& out, std::string& error) {
     CompiledMod mod;
     const Fst& fst = partition.fst;
+    // Network packs: what the chosen options need comes from the PC first.
+    if (!SyncNetworkPackages(packages, probe, mod.warnings, error)) return false;
     // Listings from an earlier compile may predate files libfat wrote since.
     forget_sd_layout();
     WiiProvider provider(fst);
@@ -321,6 +345,7 @@ bool compile_packages(const std::vector<PackageSelection>& packages, const DiscP
         if (groups.find(patch.disc) == groups.end()) order.push_back(patch.disc);
         groups[patch.disc].push_back(patch);
     };
+    std::vector<FilePatch> main_dol;  // patches on the executable, in order
     // What Riivolution skips rather than refuses is skipped here too, with a
     // note so the preflight screen and boot.log still say so: a file whose
     // external is not on the card, a bare name no disc file carries, and
@@ -336,6 +361,14 @@ bool compile_packages(const std::vector<PackageSelection>& packages, const DiscP
                 mod.notes.push_back(patch.disc + ": external '" + patch.external + "' not on the card, skipped");
                 continue;
             }
+        }
+        if (patch.is_filename && patch.disc.size() == 8 && strcasecmp(patch.disc.c_str(), "main.dol") == 0) {
+            // The bare name "main.dol" is the game's executable, not a
+            // file search (Riivolution and Dolphin treat it so).
+            patch.is_filename = false;
+            patch.disc = kMainDolPath;
+            main_dol.push_back(patch);
+            continue;
         }
         if (patch.is_filename) {
             // A bare name is a search: every disc file called that is
@@ -362,6 +395,46 @@ bool compile_packages(const std::vector<PackageSelection>& packages, const DiscP
             return false;
         }
         add(patch);
+    }
+
+    // The executable: patched in full now, read by the apploader from
+    // memory at the launch (wii/boot.cpp), never by the game again.
+    if (!main_dol.empty()) {
+        std::uint8_t head[kDolHeaderBytes];
+        DolHeader original;
+        di::PartitionSource data;
+        if (!data.read(partition.data_header.dol_offset, head, sizeof(head)) ||
+            !parse_dol_header(head, sizeof(head), original, error)) {
+            error = "main.dol: cannot read the disc's DOL header: " + error;
+            return false;
+        }
+        provider.set_main_dol(partition.data_header.dol_offset, original.image_size());
+        std::unique_ptr<AppliedFile> file;
+        if (!apply_patches(main_dol, provider, file, error)) {
+            error = "main.dol: " + error;
+            return false;
+        }
+        if (file->size() < kDolHeaderBytes || file->size() > 0x1000000) {
+            error = "main.dol: the patched executable is " + std::to_string(file->size()) + " bytes";
+            return false;
+        }
+        mod.main_dol.resize(static_cast<std::size_t>(file->size()));
+        DolHeader patched;
+        if (!file->read(0, mod.main_dol.data(), mod.main_dol.size()) ||
+            !parse_dol_header(mod.main_dol.data(), mod.main_dol.size(), patched, error)) {
+            error = "main.dol: the patched executable is not a valid DOL: " + error;
+            return false;
+        }
+        if (patched.image_size() > mod.main_dol.size()) {
+            error = "main.dol: the patched executable's sections run past its end";
+            return false;
+        }
+        char note[96];
+        std::snprintf(note, sizeof(note), "main.dol: %llu -> %u bytes, entry 0x%08x",
+                      static_cast<unsigned long long>(original.image_size()),
+                      static_cast<unsigned>(mod.main_dol.size()), static_cast<unsigned>(patched.entry));
+        mod.notes.push_back(note);
+        logf("Mods: %s\n", note);
     }
 
     // 3. Apply each group and lay the result out: same size stays in place,

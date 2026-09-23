@@ -108,6 +108,14 @@ struct Option {
     std::vector<Param> params;
 };
 
+// <network protocol="riifs" address="…" port="…"/>: a PC that serves
+// packs over RiiFS. An empty address means "find one on the local
+// network". Other protocols are recorded as warnings, not here.
+struct NetworkServer {
+    std::string address;
+    std::uint16_t port = 1137;
+};
+
 struct Package {
     DiscFilter filter;
     std::string root = "/riivolution";
@@ -118,6 +126,7 @@ struct Package {
     bool shift_files = false;
     std::vector<Option> options;
     std::map<std::string, Patch> patches;
+    std::vector<NetworkServer> networks;
     // Non-fatal notes: unknown attributes/elements that were ignored, defaults
     // that were clamped. Parsing succeeds; a frontend should surface these.
     std::vector<std::string> warnings;

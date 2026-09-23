@@ -176,6 +176,18 @@ bool search_by_name(const FolderPatch& folder, const Fst& fst, ContentProvider& 
     if (listed != OpenStatus::Ok) return false;
     for (const ExternalEntry& e : entries) {
         if (e.is_directory) continue;
+        if (e.name.size() == 8 && std::equal(e.name.begin(), e.name.end(), "main.dol", [](char a, char b) {
+                return (a >= 'A' && a <= 'Z' ? a - 'A' + 'a' : a) == b;
+            })) {
+            // Not an FST file: the game's executable (Riivolution and
+            // Dolphin replace it this way; CT-CODE packs rely on it). The
+            // bare name is kept for the compiler to recognise.
+            FilePatch dol = make_file(folder, "main.dol", join(sd_dir, e.name), false);
+            dol.is_filename = true;
+            x.files.push_back(dol);
+            ++x.replaced;
+            continue;
+        }
         const std::vector<std::uint32_t> matches = fst.find_files_named(e.name, true);
         if (matches.empty()) {
             ++x.skipped;
