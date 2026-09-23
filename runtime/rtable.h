@@ -22,7 +22,7 @@ extern "C" {
 #endif
 
 #define RT_MAGIC 0x52575254u /* 'RWRT' */
-#define RT_VERSION 1u
+#define RT_VERSION 2u
 #define RT_SECTOR_BYTES 512u
 
 enum rt_kind {
@@ -33,13 +33,17 @@ enum rt_kind {
     RT_KIND_DISC = 4         /* bytes live on the real disc at byte offset `source` */
 };
 
+/* 24 bytes: the table lives in the game's MEM2 arena, one entry per
+ * replaced or created file piece, so every byte here is taken from the
+ * game's heaps thousands of times over. A disc file is under 4 GiB (the
+ * FST's sizes are 32-bit), so one entry's length fits 32 bits. */
 typedef struct rt_entry {
     uint64_t vstart;   /* first virtual byte covered */
-    uint64_t length;   /* bytes covered; never zero */
     uint64_t source;   /* see rt_kind; zero for RT_KIND_ZERO */
-    uint64_t skip;     /* RT_KIND_SD: byte offset inside sector `source`; else zero */
-    uint32_t kind;     /* one of rt_kind, never PASSTHROUGH */
-    uint32_t reserved; /* zero */
+    uint32_t length;   /* bytes covered; never zero */
+    uint16_t skip;     /* RT_KIND_SD: byte offset inside sector `source`; else zero */
+    uint8_t kind;      /* one of rt_kind, never PASSTHROUGH */
+    uint8_t reserved;  /* zero */
 } rt_entry;
 
 typedef struct rt_header {

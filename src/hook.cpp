@@ -258,8 +258,12 @@ bool build_payload(const PayloadPieces& pieces_in, std::uint32_t payload_address
             return false;
         }
         Piece p;
+        if (r.bytes.size() > 0xFFFFFFFFull) {
+            error = "a replacement is 4 GiB or longer";
+            return false;
+        }
         p.entry.vstart = r.virtual_offset;
-        p.entry.length = r.bytes.size();
+        p.entry.length = static_cast<std::uint32_t>(r.bytes.size());
         p.entry.source = 0;
         p.entry.skip = 0;
         p.entry.kind = RT_KIND_MEM;
@@ -279,15 +283,16 @@ bool build_payload(const PayloadPieces& pieces_in, std::uint32_t payload_address
             return false;
         }
         for (const PlacedRun& run : r.runs) {
-            if (run.kind != RT_KIND_SD || run.length == 0 || run.skip >= RT_SECTOR_BYTES) {
+            if (run.kind != RT_KIND_SD || run.length == 0 || run.length > 0xFFFFFFFFull ||
+                run.skip >= RT_SECTOR_BYTES) {
                 error = "an SD replacement run is malformed";
                 return false;
             }
             Piece p;
             p.entry.vstart = at;
-            p.entry.length = run.length;
+            p.entry.length = static_cast<std::uint32_t>(run.length);
             p.entry.source = run.source;
-            p.entry.skip = run.skip;
+            p.entry.skip = static_cast<std::uint16_t>(run.skip);
             p.entry.kind = RT_KIND_SD;
             p.entry.reserved = 0;
             pieces.push_back(p);
@@ -299,9 +304,13 @@ bool build_payload(const PayloadPieces& pieces_in, std::uint32_t payload_address
             error = "a disc replacement is empty";
             return false;
         }
+        if (r.length > 0xFFFFFFFFull) {
+            error = "a disc replacement is 4 GiB or longer";
+            return false;
+        }
         Piece p;
         p.entry.vstart = r.virtual_offset;
-        p.entry.length = r.length;
+        p.entry.length = static_cast<std::uint32_t>(r.length);
         p.entry.source = r.disc_offset;
         p.entry.skip = 0;
         p.entry.kind = RT_KIND_DISC;

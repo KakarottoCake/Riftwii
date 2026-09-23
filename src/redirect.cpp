@@ -24,13 +24,17 @@ bool push_entry(std::vector<rt_entry>& entries, std::uint64_t vstart, std::uint6
         error = "redirect entry wraps the address space";
         return false;
     }
+    if (length > std::numeric_limits<std::uint32_t>::max()) {
+        error = "redirect entry is 4 GiB or longer";
+        return false;
+    }
     rt_entry e;
     std::memset(&e, 0, sizeof(e));
     e.vstart = vstart;
-    e.length = length;
-    e.kind = kind;
+    e.length = static_cast<std::uint32_t>(length);
+    e.kind = static_cast<std::uint8_t>(kind);
     e.source = source;
-    e.skip = skip;
+    e.skip = static_cast<std::uint16_t>(skip);
     entries.push_back(e);
     return true;
 }
