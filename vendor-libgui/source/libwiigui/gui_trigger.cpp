@@ -11,10 +11,9 @@
 #include "gui.h"
 #include <ogc/lwp_watchdog.h>
 #include <gctypes.h>
+#include <algorithm>
+#include "video.h"
 
-static u64 prev[4];
-static u64 now[4];
-static u32 delay[4];
 
 /**
  * Constructor for the GuiTrigger class.
@@ -178,146 +177,100 @@ void GuiTrigger::TurnWiimote(bool sideways)
 	WiimoteTurned = sideways;
 }
 
-bool GuiTrigger::Left()
+/****************************************************************************
+ * Directions (Riftwii)
+ *
+ * A D-pad press steps once at once. Holding the D-pad, or pushing a stick
+ * past its threshold, steps once, waits kRepeatFirst, then steps every
+ * kRepeatNext at a steady pace (the template's repeat sped up to a step
+ * every 30 ms and, for sticks, never slowed back down, so a nudge raced
+ * through a list). Several widgets may ask in one frame: the answer is
+ * worked out once per frame and channel, so they all agree.
+ ***************************************************************************/
+namespace {
+
+constexpr u64 kRepeatFirst = 400000;  // microseconds
+constexpr u64 kRepeatNext = 140000;
+constexpr int kStickRelease = PADCAL * 7 / 10;  // hysteresis: a resting stick near the line does not flicker
+
+enum { kLeft, kRight, kUp, kDown };
+
+struct DirState {
+	bool held = false;
+	bool stick = false;   // held by a stick (for the hysteresis)
+	u64 next = 0;         // when the next repeat is due
+	u32 frame = ~0u;      // the frame `answer` belongs to
+	bool answer = false;
+};
+DirState dirs[5][4];      // channel -1 (any) is kept in slot 4
+
+}  // namespace
+
+bool GuiTrigger::Direction(int dir, bool pressed, bool buttonHeld, int stick, int drcStick)
 {
-	u32 wiibtn = WiimoteTurned ? WPAD_BUTTON_UP : WPAD_BUTTON_LEFT;
-
-	if((wpad->btns_d | wpad->btns_h) & (wiibtn | WPAD_CLASSIC_BUTTON_LEFT)
-			|| (wiidrcdata.btns_d | wiidrcdata.btns_h) & WIIDRC_BUTTON_LEFT
-			|| (pad.btns_d | pad.btns_h) & PAD_BUTTON_LEFT
-			|| pad.stickX < -PADCAL
-			|| WPAD_StickX(0) < -PADCAL
-			|| wiidrcdata.stickX < -WIIDRCCAL)
-	{
-		if(wpad->btns_d & (wiibtn | WPAD_CLASSIC_BUTTON_LEFT)
-			|| wiidrcdata.btns_d & WIIDRC_BUTTON_LEFT
-			|| pad.btns_d & PAD_BUTTON_LEFT)
-		{
-			prev[chan] = gettime();
-			delay[chan] = SCROLL_DELAY_INITIAL; // reset scroll delay
-			return true;
-		}
-
-		now[chan] = gettime();
-
-		if(diff_usec(prev[chan], now[chan]) > delay[chan])
-		{
-			prev[chan] = now[chan];
-			
-			if(delay[chan] == SCROLL_DELAY_INITIAL)
-				delay[chan] = SCROLL_DELAY_LOOP;
-			else if(delay[chan] > SCROLL_DELAY_DECREASE)
-				delay[chan] -= SCROLL_DELAY_DECREASE;
-			return true;
+	DirState& d = dirs[chan >= 0 && chan < 4 ? chan : 4][dir];
+	if (d.frame == FrameTimer)
+		return d.answer;
+	const int line = d.stick ? kStickRelease : PADCAL;
+	const int drcLine = d.stick ? WIIDRCCAL * 7 / 10 : WIIDRCCAL;
+	const bool byStick = stick > line || drcStick > drcLine;
+	const u64 t = gettime();
+	bool step = false;
+	if (pressed) {
+		step = true;
+		d.next = t + microsecs_to_ticks(kRepeatFirst);
+	} else if (buttonHeld || byStick) {
+		if (!d.held) {
+			step = true;
+			d.next = t + microsecs_to_ticks(kRepeatFirst);
+		} else if (t >= d.next) {
+			step = true;
+			d.next = t + microsecs_to_ticks(kRepeatNext);
 		}
 	}
-	return false;
+	d.held = pressed || buttonHeld || byStick;
+	d.stick = byStick && !buttonHeld && !pressed;
+	d.frame = FrameTimer;
+	d.answer = step;
+	return step;
+}
+
+bool GuiTrigger::Left()
+{
+	const u32 wiibtn = WiimoteTurned ? WPAD_BUTTON_UP : WPAD_BUTTON_LEFT;
+	const u32 wii = wiibtn | WPAD_CLASSIC_BUTTON_LEFT;
+	return Direction(kLeft,
+		(wpad->btns_d & wii) || (wiidrcdata.btns_d & WIIDRC_BUTTON_LEFT) || (pad.btns_d & PAD_BUTTON_LEFT),
+		(wpad->btns_h & wii) || (wiidrcdata.btns_h & WIIDRC_BUTTON_LEFT) || (pad.btns_h & PAD_BUTTON_LEFT),
+		std::max(-pad.stickX, -(int)WPAD_StickX(0)), -wiidrcdata.stickX);
 }
 
 bool GuiTrigger::Right()
 {
-	u32 wiibtn = WiimoteTurned ? WPAD_BUTTON_DOWN : WPAD_BUTTON_RIGHT;
-
-	if((wpad->btns_d | wpad->btns_h) & (wiibtn | WPAD_CLASSIC_BUTTON_RIGHT)
-			|| (wiidrcdata.btns_d | wiidrcdata.btns_h) & WIIDRC_BUTTON_RIGHT
-			|| (pad.btns_d | pad.btns_h) & PAD_BUTTON_RIGHT
-			|| pad.stickX > PADCAL
-			|| WPAD_StickX(0) > PADCAL
-			|| wiidrcdata.stickX > WIIDRCCAL)
-	{
-		if(wpad->btns_d & (wiibtn | WPAD_CLASSIC_BUTTON_RIGHT)
-			|| wiidrcdata.btns_d & WIIDRC_BUTTON_RIGHT
-			|| pad.btns_d & PAD_BUTTON_RIGHT)
-		{
-			prev[chan] = gettime();
-			delay[chan] = SCROLL_DELAY_INITIAL; // reset scroll delay
-			return true;
-		}
-
-		now[chan] = gettime();
-
-		if(diff_usec(prev[chan], now[chan]) > delay[chan])
-		{
-			prev[chan] = now[chan];
-			
-			if(delay[chan] == SCROLL_DELAY_INITIAL)
-				delay[chan] = SCROLL_DELAY_LOOP;
-			else if(delay[chan] > SCROLL_DELAY_DECREASE)
-				delay[chan] -= SCROLL_DELAY_DECREASE;
-			return true;
-		}
-	}
-	return false;
+	const u32 wiibtn = WiimoteTurned ? WPAD_BUTTON_DOWN : WPAD_BUTTON_RIGHT;
+	const u32 wii = wiibtn | WPAD_CLASSIC_BUTTON_RIGHT;
+	return Direction(kRight,
+		(wpad->btns_d & wii) || (wiidrcdata.btns_d & WIIDRC_BUTTON_RIGHT) || (pad.btns_d & PAD_BUTTON_RIGHT),
+		(wpad->btns_h & wii) || (wiidrcdata.btns_h & WIIDRC_BUTTON_RIGHT) || (pad.btns_h & PAD_BUTTON_RIGHT),
+		std::max((int)pad.stickX, (int)WPAD_StickX(0)), wiidrcdata.stickX);
 }
 
 bool GuiTrigger::Up()
 {
-	u32 wiibtn = WiimoteTurned ? WPAD_BUTTON_RIGHT : WPAD_BUTTON_UP;
-
-	if((wpad->btns_d | wpad->btns_h) & (wiibtn | WPAD_CLASSIC_BUTTON_UP)
-			|| (wiidrcdata.btns_d | wiidrcdata.btns_h) & WIIDRC_BUTTON_UP
-			|| (pad.btns_d | pad.btns_h) & PAD_BUTTON_UP
-			|| pad.stickY > PADCAL
-			|| WPAD_StickY(0) > PADCAL
-			|| wiidrcdata.stickY > WIIDRCCAL)
-	{
-		if(wpad->btns_d & (wiibtn | WPAD_CLASSIC_BUTTON_UP)
-			|| wiidrcdata.btns_d & WIIDRC_BUTTON_UP
-			|| pad.btns_d & PAD_BUTTON_UP)
-		{
-			prev[chan] = gettime();
-			delay[chan] = SCROLL_DELAY_INITIAL; // reset scroll delay
-			return true;
-		}
-
-		now[chan] = gettime();
-
-		if(diff_usec(prev[chan], now[chan]) > delay[chan])
-		{
-			prev[chan] = now[chan];
-			
-			if(delay[chan] == SCROLL_DELAY_INITIAL)
-				delay[chan] = SCROLL_DELAY_LOOP;
-			else if(delay[chan] > SCROLL_DELAY_DECREASE)
-				delay[chan] -= SCROLL_DELAY_DECREASE;
-			return true;
-		}
-	}
-	return false;
+	const u32 wiibtn = WiimoteTurned ? WPAD_BUTTON_RIGHT : WPAD_BUTTON_UP;
+	const u32 wii = wiibtn | WPAD_CLASSIC_BUTTON_UP;
+	return Direction(kUp,
+		(wpad->btns_d & wii) || (wiidrcdata.btns_d & WIIDRC_BUTTON_UP) || (pad.btns_d & PAD_BUTTON_UP),
+		(wpad->btns_h & wii) || (wiidrcdata.btns_h & WIIDRC_BUTTON_UP) || (pad.btns_h & PAD_BUTTON_UP),
+		std::max((int)pad.stickY, (int)WPAD_StickY(0)), wiidrcdata.stickY);
 }
 
 bool GuiTrigger::Down()
 {
-	u32 wiibtn = WiimoteTurned ? WPAD_BUTTON_LEFT : WPAD_BUTTON_DOWN;
-
-	if((wpad->btns_d | wpad->btns_h) & (wiibtn | WPAD_CLASSIC_BUTTON_DOWN)
-			|| (wiidrcdata.btns_d | wiidrcdata.btns_h) & WIIDRC_BUTTON_DOWN
-			|| (pad.btns_d | pad.btns_h) & PAD_BUTTON_DOWN
-			|| pad.stickY < -PADCAL
-			|| WPAD_StickY(0) < -PADCAL
-			|| wiidrcdata.stickY < -WIIDRCCAL)
-	{
-		if(wpad->btns_d & (wiibtn | WPAD_CLASSIC_BUTTON_DOWN)
-			|| wiidrcdata.btns_d & WIIDRC_BUTTON_DOWN
-			|| pad.btns_d & PAD_BUTTON_DOWN)
-		{
-			prev[chan] = gettime();
-			delay[chan] = SCROLL_DELAY_INITIAL; // reset scroll delay
-			return true;
-		}
-
-		now[chan] = gettime();
-
-		if(diff_usec(prev[chan], now[chan]) > delay[chan])
-		{
-			prev[chan] = now[chan];
-			
-			if(delay[chan] == SCROLL_DELAY_INITIAL)
-				delay[chan] = SCROLL_DELAY_LOOP;
-			else if(delay[chan] > SCROLL_DELAY_DECREASE)
-				delay[chan] -= SCROLL_DELAY_DECREASE;
-			return true;
-		}
-	}
-	return false;
+	const u32 wiibtn = WiimoteTurned ? WPAD_BUTTON_LEFT : WPAD_BUTTON_DOWN;
+	const u32 wii = wiibtn | WPAD_CLASSIC_BUTTON_DOWN;
+	return Direction(kDown,
+		(wpad->btns_d & wii) || (wiidrcdata.btns_d & WIIDRC_BUTTON_DOWN) || (pad.btns_d & PAD_BUTTON_DOWN),
+		(wpad->btns_h & wii) || (wiidrcdata.btns_h & WIIDRC_BUTTON_DOWN) || (pad.btns_h & PAD_BUTTON_DOWN),
+		std::max(-pad.stickY, -(int)WPAD_StickY(0)), -wiidrcdata.stickY);
 }

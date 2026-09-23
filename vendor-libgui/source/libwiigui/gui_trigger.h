@@ -55,6 +55,8 @@ public:
 	//!Sets Wiimote orientation
 	//!\param sideways Whether to use it turned sideways
 	void TurnWiimote(bool sideways);
+	//!One step, or a repeat, for direction `dir` (see gui_trigger.cpp)
+	bool Direction(int dir, bool pressed, bool buttonHeld, int stick, int drcStick);
 	//!Move menu selection left (via pad/joystick). Allows scroll delay and button overriding
 	//!\return true if selection should be moved left, false otherwise
 	bool Left();
