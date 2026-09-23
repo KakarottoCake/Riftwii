@@ -33,6 +33,12 @@ private:
 // empty when the image is not in a "Title [ID]" folder.
 std::string folder_title(const std::string& path, const std::string& id);
 
+// The 6-character game ID a backup manager put in an image's name, so a
+// big drive can be listed without opening every image: the file's stem
+// (".../RUUE01.wbfs"), else a "[ID]" at the end of the folder's or the
+// file's name. Empty when the name carries none.
+std::string id_from_image_path(const std::string& path);
+
 // The name to show: database, then folder, then the internal name.
 std::string display_title(const TitleTable* table, const std::string& id, const std::string& path,
                           const std::string& internal);

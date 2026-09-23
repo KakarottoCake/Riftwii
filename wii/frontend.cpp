@@ -98,6 +98,8 @@ bool SelectUsbGame(FrontendState& state, std::size_t index, std::string& error) 
         error = "no such USB game";
         return false;
     }
+    // Listed from its name only: open it now (header, d2x fragments).
+    if (!check_image_game(state.usb_catalog.games[index], error)) return false;
     state.use_usb = true;
     state.use_sd = false;
     state.usb_index = index;
@@ -119,6 +121,7 @@ bool SelectUsbGame(FrontendState& state, std::size_t index, std::string& error) 
 bool SelectSdGame(FrontendState& state, std::size_t index, std::string& error) {
     state.has_compiled = false; state.compiled = CompiledMod{};
     if (index >= state.sd_catalog.games.size()) { error = "no such SD game"; return false; }
+    if (!check_image_game(state.sd_catalog.games[index], error)) return false;
     state.use_usb = false; state.use_sd = true; state.usb_index = 0; state.sd_index = index;
     const ImageGame& g = state.sd_catalog.games[index];
     state.game_id=g.id; state.disc_title=g.title; state.disc_status="SD: "+(g.display.empty() ? g.title : g.display)+"  ("+g.id+")";

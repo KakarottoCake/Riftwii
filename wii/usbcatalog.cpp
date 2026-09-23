@@ -35,7 +35,8 @@ std::unique_ptr<ImageVolume> g_sd_volume;
 bool g_raw_mounted = false;
 bool g_libfat_mounted = false;
 bool g_sd_back = false;  // SD remounted (and the log reopened) after an IOS reload
-constexpr std::size_t kMaxGames = 128, kMaxPath = 240;
+constexpr std::size_t kMaxGames = 4000, kMaxPath = 240;
+constexpr u8 kUsbClassMassStorage = 0x08;
 
 bool usb_read(std::uint64_t sector, std::uint32_t count, std::uint8_t* out) {
     return sector <= 0xFFFFFFFFull && __io_usbstorage.readSectors(static_cast<sec_t>(sector), count, out);
@@ -56,6 +57,18 @@ bool join(const std::string& a, const std::string& b, std::string& out) {
 }
 bool ensure_usb(std::string& error) {
     if (g_raw_mounted && g_usb_volume) return true;
+    // libogc's storage driver and d2x each pick one drive, not always the
+    // same one when two are plugged in, and the games then go missing or
+    // read the wrong disk. Say so instead of failing somewhere later.
+    USB_Initialize();
+    static usb_device_entry devices[8] ATTRIBUTE_ALIGN(32);
+    u8 drives = 0;
+    if (USB_GetDeviceList(devices, 8, kUsbClassMassStorage, &drives) >= 0 && drives > 1) {
+        logf("USB: %u drives plugged in\n", static_cast<unsigned>(drives));
+        error = std::to_string(drives) + " USB drives are plugged in. Riftwii and d2x can use only one: "
+                "unplug the others (keep the one with your games) and try again";
+        return false;
+    }
     logf("USB: starting storage\n");
     if (!__io_usbstorage.startup()) { error = "USB storage did not start (use a powered USB drive)"; return false; }
     logf("USB: checking for a device\n");
@@ -108,25 +121,44 @@ bool make_image(const ImageVolume& volume, const std::string& prefix, const std:
     }
     return true;
 }
+// Opens `game.path`: its pieces, the disc header and the d2x fragment list.
+bool open_game(const ImageVolume& volume, const std::string& prefix, const std::vector<std::string>& siblings,
+               ImageGame& game, unsigned& pieces, std::string& error) {
+    UsbImage image;
+    if (!make_image(volume, prefix, game.path, siblings, game.format, image, error)) return false;
+    std::unique_ptr<UsbDiscSource> disc;
+    if (!UsbDiscSource::open(image, disc, error)) return false;
+    DiscHeader header;
+    if (!read_disc_header(*disc, header, error) || !header.wii_magic) {
+        if (error.empty()) error = "not a Wii image";
+        return false;
+    }
+    if (!build_usb_fragments(image, game.fragments, error)) return false;
+    game.id = header.game_id;
+    game.title = header.title;
+    game.revision = header.version;
+    game.disc_number = header.disc_number;
+    game.checked = true;
+    pieces = static_cast<unsigned>(image.pieces.size());
+    return true;
+}
 bool add_game(const ImageVolume& volume, const std::string& prefix, ImageDevice device, const std::string& path,
               const std::vector<std::string>& siblings, UsbImageFormat fmt, ImageCatalog& catalog, std::string& failure) {
+    ImageGame game; game.device=device; game.path=path; game.format=fmt;
+    // Named "Title [ID]/ID.wbfs" by a backup manager: listed as it is and
+    // opened when picked (check_image_game), so hundreds of games list in
+    // seconds.
+    game.id = id_from_image_path(path);
+    if (!game.id.empty()) { catalog.games.push_back(std::move(game)); return true; }
     // Logged before the work, so a scan that never ends names its image.
     logf("%s scan: %s\n", device_name(device), path.c_str());
-    const auto skip = [&](const std::string& why) {
-        logf("  skipped: %s\n", why.c_str());
-        failure = why;
+    std::string error; unsigned pieces = 0;
+    if (!open_game(volume, prefix, siblings, game, pieces, error)) {
+        logf("  skipped: %s\n", error.c_str());
+        failure = error;
         return false;
-    };
-    UsbImage image; std::string error;
-    if (!make_image(volume, prefix, path, siblings, fmt, image, error)) return skip(error);
-    std::unique_ptr<UsbDiscSource> disc;
-    if (!UsbDiscSource::open(image, disc, error)) return skip(error);
-    DiscHeader header;
-    if (!read_disc_header(*disc, header, error) || !header.wii_magic) return skip(error.empty() ? "not a Wii image" : error);
-    ImageGame game; game.device=device; game.path=path; game.id=header.game_id; game.title=header.title;
-    game.revision=header.version; game.disc_number=header.disc_number; game.format=fmt;
-    if (!build_usb_fragments(image, game.fragments, error)) return skip(error);
-    logf("  %s \"%s\", %u piece(s)\n", game.id.c_str(), game.title.c_str(), static_cast<unsigned>(image.pieces.size()));
+    }
+    logf("  %s \"%s\", %u piece(s)\n", game.id.c_str(), game.title.c_str(), pieces);
     catalog.games.push_back(std::move(game)); return true;
 }
 // Lists a catalog directory with the volume's own bounded walker,
@@ -294,6 +326,43 @@ bool slot_title_is_launchable(int slot, std::string& why) {
 // this decides whether a missing-cIOS warning is shown while games are
 // listed, and it is the same test that gates the reload itself, so the
 // warning and the launch never disagree.
+bool check_image_game(ImageGame& game, std::string& error) {
+    if (game.checked) return true;
+    const ImageVolume* volume = game.device == ImageDevice::Usb ? g_usb_volume.get() : g_sd_volume.get();
+    const std::string prefix = game.device == ImageDevice::Usb ? "usb:/" : "sd:/";
+    const std::size_t slash = game.path.find_last_of('/');
+    if (!volume || game.path.compare(0, prefix.size(), prefix) != 0 || slash == std::string::npos ||
+        slash < prefix.size() - 1) {
+        error = std::string(device_name(game.device)) + " drive is not mounted any more";
+        return false;
+    }
+    logf("%s: opening %s\n", device_name(game.device), game.path.c_str());
+    // The folder's names, for the pieces of a split image (.wbf1, ...).
+    std::vector<VolumeEntry> entries;
+    std::vector<std::string> siblings;
+    if (!volume->list(game.path.substr(prefix.size() - 1, slash - (prefix.size() - 1)), entries, error)) {
+        error = "cannot list the game's folder: " + error;
+        logf("  %s\n", error.c_str());
+        return false;
+    }
+    for (const VolumeEntry& e : entries) siblings.push_back(e.name);
+    const std::string named = game.id;
+    ImageGame opened = game;
+    unsigned pieces = 0;
+    if (!open_game(*volume, prefix, siblings, opened, pieces, error)) {
+        logf("  cannot use it: %s\n", error.c_str());
+        return false;
+    }
+    if (opened.id != named) logf("  its name says %s, the disc is %s\n", named.c_str(), opened.id.c_str());
+    if (opened.display.empty() || opened.display == named) {
+        opened.display = display_title(nullptr, opened.id, opened.path, opened.title);
+    }
+    logf("  %s \"%s\", %u piece(s)\n", opened.id.c_str(), opened.title.c_str(), pieces);
+    game = std::move(opened);
+    error.clear();
+    return true;
+}
+
 bool slot_has_ticket(int slot) {
     std::string why;
     return slot_title_is_launchable(slot, why);
@@ -350,6 +419,7 @@ bool activate_image_game(const ImageGame& game, int cios_slot, void*& storage, s
             return false;
         }
     }
+    if (!game.checked) { error = "internal: the game was not opened before launch"; return false; }
     std::vector<std::uint8_t> bytes; if (!game.fragments.encode(bytes,error)) return false;
     const std::size_t padded = (bytes.size()+31)&~std::size_t(31); void* allocated=memalign(32,padded);
     if (!allocated) { error="out of memory for d2x fragment list"; return false; }

@@ -389,8 +389,9 @@ void RunAutorun() {
             UsbCatalog catalog; std::string scan_error;
             if (wanted.empty() || !scan_usb_games(catalog, scan_error)) { ok=false; error=wanted.empty()?"usb needs a path or ID6":scan_error; }
             else {
-                const UsbGame* found=nullptr; for (const UsbGame& g:catalog.games) if (g.path==wanted || g.id==wanted) { found=&g; break; }
+                UsbGame* found=nullptr; for (UsbGame& g:catalog.games) if (g.path==wanted || g.id==wanted) { found=&g; break; }
                 if (!found) { ok=false; error="USB image '"+wanted+"' was not found in the USB catalog"; }
+                else if (!check_image_game(*found, error)) ok=false;
                 else { source=LaunchSource{}; source.kind=LaunchSource::Kind::Usb; source.game=*found; source.cios_slot=slot; s=Session(source, kAutorunLogPath); }
             }
         } else if (cmd == "sd") {
@@ -398,8 +399,9 @@ void RunAutorun() {
             ImageCatalog catalog; std::string scan_error;
             if (wanted.empty() || !scan_sd_games(catalog, scan_error)) { ok=false; error=wanted.empty()?"sd needs a path or ID6":scan_error; }
             else {
-                const ImageGame* found=nullptr; for (const ImageGame& g:catalog.games) if (g.path==wanted || g.id==wanted) { found=&g; break; }
+                ImageGame* found=nullptr; for (ImageGame& g:catalog.games) if (g.path==wanted || g.id==wanted) { found=&g; break; }
                 if (!found) { ok=false; error="SD image '"+wanted+"' was not found in the SD catalog"; }
+                else if (!check_image_game(*found, error)) ok=false;
                 else { source=LaunchSource{}; source.kind=LaunchSource::Kind::Sd; source.game=*found; source.cios_slot=slot; s=Session(source, kAutorunLogPath); }
             }
         } else if (cmd == "disc") {

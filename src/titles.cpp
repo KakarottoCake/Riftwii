@@ -47,6 +47,27 @@ const std::string* TitleTable::find(const std::string& id) const {
     return it == titles_.end() ? nullptr : &it->second;
 }
 
+std::string id_from_image_path(const std::string& path) {
+    const std::size_t file_slash = path.find_last_of('/');
+    const std::string file = file_slash == std::string::npos ? path : path.substr(file_slash + 1);
+    const std::size_t dot = file.find_last_of('.');
+    const std::string stem = dot == std::string::npos ? file : file.substr(0, dot);
+    if (stem.size() == 6 && plausible_id(stem)) return stem;
+    const auto bracketed = [](const std::string& name) -> std::string {
+        const std::string t = trim(name);
+        if (t.size() < 8 || t.back() != ']' || t[t.size() - 8] != '[') return "";
+        const std::string id = t.substr(t.size() - 7, 6);
+        return plausible_id(id) ? id : "";
+    };
+    if (file_slash != std::string::npos && file_slash > 0) {
+        const std::size_t dir_slash = path.find_last_of('/', file_slash - 1);
+        const std::size_t from = dir_slash == std::string::npos ? 0 : dir_slash + 1;
+        const std::string id = bracketed(path.substr(from, file_slash - from));
+        if (!id.empty()) return id;
+    }
+    return bracketed(stem);
+}
+
 std::string folder_title(const std::string& path, const std::string& id) {
     const std::size_t file_slash = path.find_last_of('/');
     if (file_slash == std::string::npos || file_slash == 0) return "";
