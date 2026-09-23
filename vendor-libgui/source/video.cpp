@@ -170,6 +170,33 @@ void StopGX()
 }
 
 /****************************************************************************
+ * StopGXKeepPicture (Riftwii)
+ *
+ * Stops GX like StopGX but leaves the last frame on screen: the launch
+ * screen's log then prints into it (see wii/rift_menu.cpp).
+ ***************************************************************************/
+void StopGXKeepPicture()
+{
+	GX_AbortFrame();
+	GX_Flush();
+}
+
+// The frame on screen, its width and height (Riftwii: screenshots and the
+// launch screen's console).
+void * Menu_CurrentXfb()
+{
+	return xfb[whichfb];
+}
+int Menu_XfbWidth()
+{
+	return vmode ? vmode->fbWidth : 640;
+}
+int Menu_XfbHeight()
+{
+	return vmode ? vmode->xfbHeight : 480;
+}
+
+/****************************************************************************
  * Menu_Render
  *
  * Renders everything current sent to GX, and flushes video
