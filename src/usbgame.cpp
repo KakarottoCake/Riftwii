@@ -109,6 +109,7 @@ bool build_raw(const UsbImage& image, std::vector<D2xFragment>& map, std::uint64
 
 constexpr std::uint64_t kWiiDiscSectors = 143432ull * 2;
 constexpr std::uint64_t kWiiDiscBytes = kWiiDiscSectors * 0x8000ull;
+constexpr std::uint64_t kSingleLayerBytes = 143432ull * 0x8000ull;  // d2x DVD5_LENGTH, in bytes
 
 bool read_wbfs_layout(const UsbContainerSource& c, std::uint32_t& hd_count, std::uint64_t& block_sectors,
                       std::uint64_t& disc_blocks, std::vector<std::uint8_t>& table, std::string& error) {
@@ -137,10 +138,23 @@ bool build_wbfs(const UsbImage& image, std::vector<D2xFragment>& map, std::uint6
     UsbContainerSource c(image.pieces); std::uint32_t hd_count = 0; std::uint64_t block_sectors = 0, disc_blocks = 0;
     std::vector<std::uint8_t> table;
     if (!read_wbfs_layout(c, hd_count, block_sectors, disc_blocks, table, error)) return false;
-    sectors = kWiiDiscBytes / kUsbSectorBytes;
+    // The list's size is the disc's size to d2x: it zero-fills holes below
+    // it and fails reads past it, and it calls a disc dual-layer when a read
+    // at 4.76 GB succeeds. Games check that a read just past the
+    // single-layer end fails, as on a real drive ("Error #001 Unauthorized
+    // device" in Super Mario Galaxy 2 otherwise), so a disc with no block
+    // past that end is single-layer sized and its last block clipped to it.
+    const std::uint64_t block_bytes = block_sectors * kUsbSectorBytes;
+    bool dual_layer = false;
+    for (std::uint64_t i = 0; i < disc_blocks; ++i) {
+        if (be16(table.data() + i * 2) != 0 && i * block_bytes >= kSingleLayerBytes) dual_layer = true;
+    }
+    sectors = (dual_layer ? kWiiDiscBytes : kSingleLayerBytes) / kUsbSectorBytes;
     for (std::uint64_t i = 0; i < disc_blocks; ++i) {
         const std::uint16_t wlba = be16(table.data() + i * 2);
-        if (wlba == 0) continue;  // sparse logical block: d2x must report a read error.
+        if (wlba == 0) continue;  // sparse logical block: d2x reads it as zeros
+        if (i * block_sectors >= sectors) continue;
+        const std::uint64_t logical_count = std::min(block_sectors, sectors - i * block_sectors);
         const std::uint64_t container_sector = std::uint64_t(wlba) * block_sectors;
         if (container_sector >= hd_count || block_sectors > std::uint64_t(hd_count) - container_sector) {
             error = "WBFS WLBA exceeds the header's device-sector count";
@@ -155,7 +169,7 @@ bool build_wbfs(const UsbImage& image, std::vector<D2xFragment>& map, std::uint6
                     "; a split image needs every .wbf1, .wbf2 ... beside the .wbfs)";
             return false;
         }
-        if (!map_container_range(image, container_sector, block_sectors, i * block_sectors, map, error)) return false;
+        if (!map_container_range(image, container_sector, logical_count, i * block_sectors, map, error)) return false;
     }
     return true;
 }

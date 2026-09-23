@@ -166,7 +166,7 @@ void test_basic() {
 
     UsbImage wbfs = wbfs_image();
     EXPECT_TRUE(build_usb_fragments(wbfs, list, error));
-    EXPECT_EQ(list.size, std::uint32_t(18359296));
+    EXPECT_EQ(list.size, std::uint32_t(143432u * 64u));  // single layer: nothing past 4.7 GB
     EXPECT_EQ(list.num, std::uint32_t(2));
     EXPECT_EQ(list.entries[0].offset, std::uint32_t(0));
     EXPECT_EQ(list.entries[0].sector, std::uint32_t(2280));
@@ -336,6 +336,51 @@ void test_dual_layer_split_wbfs() {
     EXPECT_EQ(out[3], std::uint8_t(0xE4));
 }
 
+// A single-layer disc: d2x takes the list's size as the disc's, so it must
+// end at the single-layer length (d2x DVD5_LENGTH) even though the WBFS
+// block holding the disc's last sectors runs past it. Games read just past
+// that end and expect an error, as from a real drive (Error #001 otherwise).
+void test_single_layer_wbfs_size() {
+    constexpr std::uint32_t kWbfsShift = 21;
+    constexpr std::uint64_t kBlockBytes = std::uint64_t(1) << kWbfsShift;
+    constexpr std::uint64_t kBlockSectors = kBlockBytes / 512;
+    constexpr std::uint64_t kSingleLayerSectors = 143432ull * 64;
+    constexpr std::uint64_t kLastBlock = kSingleLayerSectors / kBlockSectors;  // straddles the end
+    std::vector<std::uint8_t> prefix(64 * 1024, 0);
+    std::memcpy(prefix.data(), "WBFS", 4);
+    be32(prefix, 4, 0xFFFFFFFFu);
+    prefix[8] = 9;
+    prefix[9] = kWbfsShift;
+    prefix[12] = 1;
+    prefix[kDiscInfo] = 'S'; prefix[kDiscInfo + 1] = 'B';
+    prefix[kDiscInfo + 2] = '4'; prefix[kDiscInfo + 3] = 'E';
+    be32(prefix, kDiscInfo + 0x18, 0x5D1C9EA3);
+    be16(prefix, kWlba, 2);                  // disc block 0 -> WBFS block 2
+    be16(prefix, kWlba + kLastBlock * 2, 1);  // the straddling block -> WBFS block 1
+
+    UsbImage image;
+    image.format = UsbImageFormat::Wbfs;
+    UsbImagePiece only;
+    only.source = std::make_shared<BigSource>(3 * kBlockBytes, std::move(prefix));
+    only.file.entry.size = static_cast<std::uint32_t>(3 * kBlockBytes);
+    only.file.fragments.push_back({1000, 3 * kBlockBytes / 512});
+    only.path = "usb:/wbfs/SB4E01.wbfs";
+    image.pieces.push_back(std::move(only));
+
+    std::string error;
+    D2xFragmentList list;
+    EXPECT_TRUE(build_usb_fragments(image, list, error));
+    EXPECT_EQ(list.size, static_cast<std::uint32_t>(kSingleLayerSectors));
+    EXPECT_EQ(list.num, std::uint32_t(2));
+    EXPECT_EQ(list.entries[1].offset, static_cast<std::uint32_t>(kLastBlock * kBlockSectors));
+    EXPECT_EQ(list.entries[1].sector, static_cast<std::uint32_t>(1000 + kBlockSectors));
+    EXPECT_EQ(list.entries[1].count, static_cast<std::uint32_t>(kSingleLayerSectors - kLastBlock * kBlockSectors));
+    // The game's check read (word 0x460A0000) and d2x's layer probe (word
+    // 0x47000000) both lie past the list.
+    EXPECT_TRUE(0x460A0000ull * 4 / 512 >= list.size);
+    EXPECT_TRUE(0x47000000ull * 4 / 512 >= list.size);
+}
+
 void test_collect_split_pieces() {
     std::string error; std::vector<std::string> out;
     EXPECT_TRUE(collect_split_pieces("usb:/wbfs", "game.iso", {"game.iso"}, UsbImageFormat::Iso, out, error));
@@ -422,6 +467,7 @@ int main() {
     test_large_iso();
     test_large_wbfs();
     test_dual_layer_split_wbfs();
+    test_single_layer_wbfs_size();
     test_collect_split_pieces();
     test_cios_readiness_note();
     test_plan_over_usb();
