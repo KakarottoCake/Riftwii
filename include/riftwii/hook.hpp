@@ -35,7 +35,7 @@ struct ResidentBlob {
     std::uint32_t continue_ioctl_async_offset = 0;
 };
 static_assert(4 * (4 + 3 * kResidentIpcEntries + 2) == 192, "resident blob ABI v4 header size");
-constexpr std::size_t kResidentContextBytes = 2048;  // sizeof(struct rt_context)
+constexpr std::size_t kResidentContextBytes = 2048;  // the slot for struct rt_context (it may be smaller)
 bool parse_resident_blob(const std::uint8_t* bytes, std::size_t length, ResidentBlob& out, std::string& error);
 
 // A same-size replacement served from memory (E3): the bytes the game must
@@ -43,6 +43,10 @@ bool parse_resident_blob(const std::uint8_t* bytes, std::size_t length, Resident
 struct MemReplacement {
     std::uint64_t virtual_offset = 0;
     std::vector<std::uint8_t> bytes;
+    // Nonzero: these bytes already sit at this address for as long as the
+    // game runs (the FST the apploader loaded), so the entry points there
+    // and nothing is copied into the payload.
+    std::uint32_t in_place = 0;
 };
 
 // Bytes the game must see at [virtual_offset, virtual_offset + total run
@@ -135,7 +139,7 @@ bool displaceable(std::uint32_t instruction, unsigned scratch_reg, std::string& 
 // (BI2, FST): MEM1 is the one region every SDK keeps an instruction BAT
 // for, a 2009 SDK drops the MEM2 one before its first IPC call (section
 // 23). The data (redirect table, MEM bytes, bounce buffers, savegame
-// state) takes the bottom of the MEM2 arena, rounded up to 64 KiB, and
+// state) takes the bottom of the MEM2 arena, rounded up to 32 bytes, and
 // only when there is any. The top of the MEM2 arena stays the game's:
 // code in the wild assumes the arena ends where IOS put it (older Syati
 // loaders read and zero-fill their custom code at a fixed address just

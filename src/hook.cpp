@@ -26,7 +26,7 @@ constexpr std::uint32_t kMem1End = 0x81800000;
 constexpr std::uint32_t kMem2Start = 0x90000000;
 constexpr std::uint32_t kMem2ArenaFloor = 0x90800000;  // never stage below 8 MiB into MEM2 (the loader's own data)
 constexpr std::uint32_t kMem2End = 0x94000000;
-constexpr std::uint32_t kReserveGranule = 0x10000;
+constexpr std::uint32_t kReserveGranule = 32;  // every MEM2 byte counts: the game's heaps live in this arena
 
 std::string hex32(std::uint32_t v) {
     char buf[11];
@@ -191,7 +191,7 @@ bool plan_resident_placement(std::uint32_t arena1_hi, std::uint32_t mem1_floor, 
     p.code_bytes = blob_size;
     p.new_arena1_hi = p.code_base;
 
-    // Data: the bottom of the MEM2 arena up to a 64 KiB line, only when
+    // Data: the bottom of the MEM2 arena up to a 32-byte line, only when
     // needed; staged at the top of the arena, the same size.
     p.new_arena2_lo = arena2_lo;
     if (extra_bytes != 0) {
@@ -264,9 +264,13 @@ bool build_payload(const PayloadPieces& pieces_in, std::uint32_t payload_address
         p.entry.skip = 0;
         p.entry.kind = RT_KIND_MEM;
         p.entry.reserved = 0;
-        p.bytes = &r.bytes;
+        if (r.in_place != 0) {
+            p.entry.source = r.in_place;  // the game's own copy; nothing to lay out
+        } else {
+            p.bytes = &r.bytes;
+            data_bytes += align32(r.bytes.size());
+        }
         pieces.push_back(p);
-        data_bytes += align32(r.bytes.size());
     }
     for (const SdReplacement& r : sd) {
         std::uint64_t at = r.virtual_offset;

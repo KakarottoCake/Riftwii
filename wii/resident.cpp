@@ -28,6 +28,7 @@ namespace {
 // when the apploader put it there, 0x2000 bytes at the pointer in 0xF4.
 constexpr std::uint32_t kMem1ArenaHiField = 0x80000034;
 constexpr std::uint32_t kFstAddressField = 0x80000038;
+constexpr std::uint32_t kFstSizeField = 0x8000003C;
 constexpr std::uint32_t kBi2Field = 0x800000F4;
 constexpr std::uint32_t kBi2Bytes = 0x2000;
 constexpr std::uint32_t kMem2ArenaLoField = 0x80003124;   // written by IOS at reload (Dolphin IOS.cpp, wiibrew)
@@ -162,8 +163,24 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
     }
     const std::uint32_t fs_bytes = has_fs ? static_cast<std::uint32_t>(sizeof(rt_fs_state)) + 32 : 0;
     const std::uint32_t sdio_fd = options.sdio_fd < 0 ? 0xFFFFFFFFu : static_cast<std::uint32_t>(options.sdio_fd);
+    // A replacement the game already holds in memory for its whole run is
+    // served from there: the rewritten FST the apploader loaded, which the
+    // SDK keeps above its arena at the address in 0x38. Every byte kept
+    // out of the MEM2 arena is one the game's heaps keep.
+    PayloadPieces pieces = options.pieces;
+    const std::uint32_t fst_address = read32(kFstAddressField);
+    const std::uint32_t fst_bytes = read32(kFstSizeField);
+    std::uint32_t in_place_bytes = 0;
+    for (MemReplacement& r : pieces.mem) {
+        if (fst_address >= 0x80000000u && fst_address < 0x81800000u && !r.bytes.empty() &&
+            r.bytes.size() <= fst_bytes &&
+            std::memcmp(reinterpret_cast<const void*>(fst_address), r.bytes.data(), r.bytes.size()) == 0) {
+            r.in_place = fst_address;
+            in_place_bytes += static_cast<std::uint32_t>(r.bytes.size());
+        }
+    }
     std::vector<std::uint8_t> payload;
-    if (has_table && !build_payload(options.pieces, 0, options.table_tag, sdio_fd, payload, error)) return false;
+    if (has_table && !build_payload(pieces, 0, options.table_tag, sdio_fd, payload, error)) return false;
     // Bounce buffers whenever a run may be fetched (SD or DISC): anything
     // beyond plain MEM replacements.
     const bool has_disc = !options.pieces.disc.empty() || !options.pieces.entries.empty();
@@ -180,7 +197,7 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
         return false;
     }
     const std::uint32_t payload_address = place.data_base;
-    if (has_table && !build_payload(options.pieces, payload_address, options.table_tag, sdio_fd, payload, error)) {
+    if (has_table && !build_payload(pieces, payload_address, options.table_tag, sdio_fd, payload, error)) {
         return false;
     }
     const std::uint32_t bounce_address = payload_address + static_cast<std::uint32_t>(payload.size());
@@ -287,6 +304,9 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
     if (place.data_bytes != 0) {
         logf("Resident: %u bytes of data at 0x%08x (staged at 0x%08x), MEM2 arena start 0x%08x -> 0x%08x, end 0x%08x kept\n",
              place.data_bytes, place.data_base, place.stage_base, arena2_lo, place.new_arena2_lo, arena2_end);
+    }
+    if (in_place_bytes != 0) {
+        logf("Resident: %u bytes served from the game's own FST at 0x%08x, not copied\n", in_place_bytes, fst_address);
     }
     if (!payload.empty()) {
         logf("Resident: redirect table at 0x%08x, %u MEM + %u SD + %u DISC replacement(s) + %u entries, payload %u bytes, virtual window from word 0x%08x\n",
