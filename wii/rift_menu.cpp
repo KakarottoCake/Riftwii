@@ -268,7 +268,7 @@ static std::string MenuIosNote(int slot)
 		? "The menu runs under the Homebrew Channel's IOS (the default)."
 		: "The menu and every game run under cIOS " + std::to_string(slot) +
 		  ", so a cIOS with fakemote makes USB DS3/DS4 pads work as Wii Remotes. USB drives in the menu need a base-58 cIOS.";
-	if (slot != running) note += " Takes effect the next time Riftwii starts.";
+	if (slot != running) note += " Takes effect the next time RiftWii starts.";
 	return note;
 }
 
@@ -908,7 +908,7 @@ static int MenuSettings(FrontendState& state)
 		actions.push_back(kRescan);
 		FlowRow exitRow;
 		exitRow.kind = FlowRow::Kind::Action;
-		exitRow.label = "Leave Riftwii";
+		exitRow.label = "Leave RiftWii";
 		exitRow.value = "Exit";
 		rows.push_back(exitRow);
 		actions.push_back(kExit);
@@ -917,7 +917,7 @@ static int MenuSettings(FrontendState& state)
 
 	GuiText titleTxt("Settings", 30, skin::kInk);
 	Place(titleTxt, 40, 28);
-	GuiText versionTxt("Riftwii " RIFTWII_VERSION, 15, skin::kInkDim);
+	GuiText versionTxt("RiftWii " RIFTWII_VERSION, 15, skin::kInkDim);
 	versionTxt.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
 	versionTxt.SetPosition(-40, 40);
 	Panel panel(skin::panelSettings, 34, 84);
