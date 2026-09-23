@@ -26,7 +26,7 @@
 
 namespace riftwii::wii {
 namespace {
-// USB drives may be FAT32 or NTFS (read through Riftwii's own walkers, the
+// USB drives may be FAT32 or NTFS (read through RiftWii's own walkers, the
 // same way d2x will read the image: raw 512-byte blocks); SD images stay
 // FAT32 or NTFS too. libfat is only asked to mount usb: to bring the
 // storage interface up; its answer does not matter.
@@ -65,7 +65,7 @@ bool ensure_usb(std::string& error) {
     u8 drives = 0;
     if (USB_GetDeviceList(devices, 8, kUsbClassMassStorage, &drives) >= 0 && drives > 1) {
         logf("USB: %u drives plugged in\n", static_cast<unsigned>(drives));
-        error = std::to_string(drives) + " USB drives are plugged in. Riftwii and d2x can use only one: "
+        error = std::to_string(drives) + " USB drives are plugged in. RiftWii and d2x can use only one: "
                 "unplug the others (keep the one with your games) and try again";
         return false;
     }
@@ -211,7 +211,7 @@ void scan_dir(const ImageVolume& volume, const std::string& prefix, ImageDevice 
 }
 
 // Where a GameTDB titles.txt ("ID = Title" per line) may already sit on the
-// card: Riftwii's own folder first, then where other loaders keep theirs.
+// card: RiftWii's own folder first, then where other loaders keep theirs.
 const char* const kTitleFiles[] = {
     "sd:/riftwii/titles.txt", "sd:/titles.txt", "sd:/wiitdb.txt",
     "sd:/config/titles.txt", "sd:/apps/usbloader_gx/titles.txt", "sd:/usb-loader/titles.txt",

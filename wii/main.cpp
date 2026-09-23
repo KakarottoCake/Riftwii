@@ -58,7 +58,7 @@ void OpenSessionLog(bool sd_mounted) {
     if (!sd_mounted) return;
     mkdir("sd:/riftwii", 0777);
     riftwii::wii::LogOpen("sd:/riftwii/session.log");
-    riftwii::wii::logf("Riftwii %s on %s, IOS%d rev %d\n", RIFTWII_VERSION,
+    riftwii::wii::logf("RiftWii %s on %s, IOS%d rev %d\n", RIFTWII_VERSION,
                        riftwii::wii::running_in_dolphin() ? "Dolphin" : "Wii", IOS_GetVersion(), IOS_GetRevision());
 }
 
@@ -100,7 +100,7 @@ int main() {
     std::string error;
     if (action == MENU_LAUNCH) {
         riftwii::wii::LogOpen("sd:/riftwii/boot.log");
-        riftwii::wii::logf("Riftwii %s: launch %s with packages\n", RIFTWII_VERSION, state.game_id.c_str());
+        riftwii::wii::logf("RiftWii %s: launch %s with packages\n", RIFTWII_VERSION, state.game_id.c_str());
         const bool booted = (source.kind == riftwii::wii::LaunchSource::Kind::Disc && state.has_compiled)
                                 ? riftwii::wii::BootCompiled(state.compiled, error, source, state.model.save_mode,
                                                              state.game_id)
@@ -113,7 +113,7 @@ int main() {
         }
     } else if (action == MENU_BOOT) {
         riftwii::wii::LogOpen("sd:/riftwii/boot.log");
-        riftwii::wii::logf("Riftwii %s: boot %s\n", RIFTWII_VERSION, source.kind == riftwii::wii::LaunchSource::Kind::Usb ? "USB" : source.kind == riftwii::wii::LaunchSource::Kind::Sd ? "SD" : "disc");
+        riftwii::wii::logf("RiftWii %s: boot %s\n", RIFTWII_VERSION, source.kind == riftwii::wii::LaunchSource::Kind::Usb ? "USB" : source.kind == riftwii::wii::LaunchSource::Kind::Sd ? "SD" : "disc");
         if (!riftwii::wii::RunBoot(true, error, source)) {
             if (riftwii::wii::reload_terminal_failure()) riftwii::wii::halt_after_terminal_reload();
             riftwii::wii::LogOpen("sd:/riftwii/boot.log", true);  // boot_game closed it and remounted the card
@@ -121,7 +121,7 @@ int main() {
         }
     } else if (action == MENU_DUMP) {
         riftwii::wii::LogOpen("sd:/riftwii/dump.log");
-        riftwii::wii::logf("Riftwii: dump test files\n");
+        riftwii::wii::logf("RiftWii: dump test files\n");
         riftwii::wii::GuiScriptFinalShot(Menu_CurrentXfb(), Menu_XfbWidth(), Menu_XfbHeight());
         const std::vector<std::string> files = {"/opening.bnr"};
         if (riftwii::wii::RunDump(files, "sd:/riftwii/dump", error)) {

@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-// The IOS Riftwii's own menu runs under. The Homebrew Channel starts it on
+// The IOS RiftWii's own menu runs under. The Homebrew Channel starts it on
 // IOS58; a cIOS with an input module (fakemote turns USB DS3/DS4 pads into
 // Wii Remotes) only helps while that cIOS is running, so the menu can be
 // moved onto a d2x slot at startup. Games then launch under the same slot,

@@ -339,7 +339,7 @@ bool RunDump(const std::vector<std::string>& disc_paths, const std::string& sd_d
 
 void RunAutorun() {
     LogOpen(kAutorunLogPath);
-    logf("Riftwii autorun: %s\n", kAutorunPath);
+    logf("RiftWii autorun: %s\n", kAutorunPath);
     {
         int probe_local = 0;
         logf("loader: stack near %p, arena1 %p-%p, arena2 %p-%p\n", static_cast<void*>(&probe_local),

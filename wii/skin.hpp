@@ -5,7 +5,7 @@
 
 #include "libwiigui/gui.h"
 
-// The menu's look: a light, Wii-Menu-like theme drawn by Riftwii itself.
+// The menu's look: a light, Wii-Menu-like theme drawn by RiftWii itself.
 // Every panel, tile, button, icon and the pointer is painted once at start
 // on the software canvas (riftwii/canvas.hpp) into GX textures in MEM2, so
 // the menu ships no artwork files and the GPU only blits.
