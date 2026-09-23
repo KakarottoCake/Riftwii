@@ -14,10 +14,11 @@
 #include "input.h"
 #include "menu.h"
 #include "video.h"
-#include "font_ttf.h"
+#include "rounded_ttf.h"
 
 #include "autorun.hpp"
 #include "console.hpp"
+#include "guiscript.hpp"
 #include "ios_reload.hpp"
 #include "log.hpp"
 #include "menuios.hpp"
@@ -33,13 +34,14 @@ void ExitApp() {
 
 namespace {
 
-// Leaves the libwiigui renderer and shows the text console for the
-// disc phase (the GUI thread is already halted by MainMenu).
+// Leaves the libwiigui renderer for the disc phase (the GUI thread is
+// already halted by MainMenu): its last frame, the launch screen, stays
+// up and the log prints into the white card on it.
 void EnterConsolePhase() {
     ShutoffRumble();
     ShutdownAudio();
-    StopGX();
-    riftwii::wii::ConsoleStart(true);
+    StopGXKeepPicture();
+    riftwii::wii::ConsoleStartInFrame(Menu_CurrentXfb(), Menu_XfbWidth(), Menu_XfbHeight(), 48, 176, 544, 224);  // whole 8x16 cells
 }
 
 // libfat's default initializer probes USB as well as SD. Mount only the SD
@@ -89,7 +91,7 @@ int main() {
     InitVideo();
     SetupPads();
     InitAudio();
-    InitFreeType(const_cast<u8*>(font_ttf), font_ttf_size);
+    InitFreeType(const_cast<u8*>(rounded_ttf), rounded_ttf_size);
     InitGUIThreads();
     const int action = MainMenu(MENU_SOURCE, state);
     const riftwii::wii::LaunchSource source = riftwii::wii::SelectedSource(state);
@@ -120,6 +122,7 @@ int main() {
     } else if (action == MENU_DUMP) {
         riftwii::wii::LogOpen("sd:/riftwii/dump.log");
         riftwii::wii::logf("Riftwii: dump test files\n");
+        riftwii::wii::GuiScriptFinalShot(Menu_CurrentXfb(), Menu_XfbWidth(), Menu_XfbHeight());
         const std::vector<std::string> files = {"/opening.bnr"};
         if (riftwii::wii::RunDump(files, "sd:/riftwii/dump", error)) {
             riftwii::wii::logf("Done.\n");

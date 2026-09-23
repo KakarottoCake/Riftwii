@@ -13,6 +13,10 @@
 
 void InitVideo ();
 void StopGX();
+void StopGXKeepPicture();
+void * Menu_CurrentXfb();
+int Menu_XfbWidth();
+int Menu_XfbHeight();
 void ResetVideo_Menu();
 void Menu_Render();
 void Menu_DrawImg(f32 xpos, f32 ypos, u16 width, u16 height, u8 data[], f32 degrees, f32 scaleX, f32 scaleY, u8 alphaF );

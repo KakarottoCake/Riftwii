@@ -65,6 +65,30 @@ bool needs_launch_pipeline(bool has_selected_packages, const std::string& save_m
     return has_selected_packages || save_mode == "separate" || save_mode == "fresh";
 }
 
+void PackIndex::add(const std::string& xml) {
+    Package package;
+    std::string error;
+    DiscFilter filter;
+    if (parse_package(xml, package, error)) {
+        filter = package.filter;
+    } else {
+        filter.game = sniff_game(xml);
+        if (filter.game.empty()) return;  // no game named: not listed under any
+    }
+    filter.revision = -1;
+    filter.number = -1;
+    filters_.push_back(std::move(filter));
+}
+
+bool PackIndex::has_packs(const std::string& game_id) const {
+    DiscIdentity disc;
+    disc.id = game_id;
+    for (const DiscFilter& f : filters_) {
+        if (f.matches(disc)) return true;
+    }
+    return false;
+}
+
 void LaunchModel::add(const std::string& file, const std::string& path, const std::string& xml,
                       const DiscIdentity* disc) {
     LaunchPackage p;

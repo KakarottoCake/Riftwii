@@ -181,6 +181,21 @@ static void test_model() {
     EXPECT_TRUE(model.selections().empty());
 }
 
+static void test_pack_index() {
+    riftwii::PackIndex index;
+    index.add(kModA);       // RMCE
+    index.add(kModOther);
+    index.add("<wiidisc version=\"1\"><id game=\"SB4\"/><broken");  // fails to parse, names SB4
+    index.add("<not xml at all");                                  // names nothing: ignored
+    EXPECT_EQ(index.size(), std::size_t(3));
+    EXPECT_TRUE(index.has_packs("RMCE01"));
+    EXPECT_FALSE(index.has_packs("RMCP01"));  // the pack says RMCE
+    EXPECT_TRUE(index.has_packs("RSBE01"));
+    EXPECT_TRUE(index.has_packs("SB4E01"));
+    EXPECT_FALSE(index.has_packs("RUUE01"));
+    EXPECT_FALSE(index.has_packs(""));
+}
+
 static void test_persistence() {
     riftwii::DiscIdentity disc{"RMCE01", 0, 0};
     riftwii::LaunchModel model;
@@ -291,6 +306,7 @@ int main() {
     test_model();
     test_simple_package_activation();
     test_persistence();
+    test_pack_index();
     test_saves();
     if (g_failures == 0) {
         std::cout << "ALL LAUNCH TESTS PASSED" << std::endl;

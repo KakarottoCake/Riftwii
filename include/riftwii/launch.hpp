@@ -62,6 +62,21 @@ struct SaveOverride {
 SaveOverride resolve_save_override(const std::string& save_mode, const std::string& xml_dir,
                                    const std::string& game_id);
 
+// Which games have packs, from one pass over the XML files: the game
+// grid's MODS tag and its "games with mods" filter. A listed image's
+// revision and disc number are unknown until it is opened, so only the
+// ID is matched here; the mods screen still applies the full filter. A
+// pack that fails to parse counts for the game its <id> names, if any.
+class PackIndex {
+public:
+    void add(const std::string& xml);
+    bool has_packs(const std::string& game_id) const;
+    std::size_t size() const { return filters_.size(); }
+
+private:
+    std::vector<DiscFilter> filters_;
+};
+
 class LaunchModel {
 public:
     std::vector<LaunchPackage> packages;

@@ -3,29 +3,41 @@
  * Riftwii
  *
  * rift_menu.cpp
- * The frontend: a source screen (SD, USB or DISC), an image games picker, a mods
- * screen listing the packages made for the picked game (broken XML stays
- * visible with its error), an options screen setting each option's
- * choice, and Launch handing the selection to the boot. A per-game Saves
- * toggle keeps modded saves in an SD folder. The state itself
- * (riftwii/launch.hpp) is host-tested; this file only lists the directory,
- * draws and reads the pads. Built on the vendored libwiigui template.
+ * The frontend, in a light Wii-Menu-like look (skin.hpp):
+ *   Home      every game on the SD card and the USB drive as a page of
+ *             tiles (plus the disc drive), a filter (all, with mods, USB,
+ *             SD), the clock, and Settings.
+ *   Game      the picked game's banner and its mod packs: A turns a pack
+ *             on or off and steps its options, Saves picks where the saves
+ *             go, Start leaves for the boot.
+ *   Settings  the menu IOS, rescan and exit.
+ * On Start the last frame stays on screen and the boot log prints into
+ * its white card (see main.cpp). The launch state itself
+ * (riftwii/launch.hpp) is host-tested; this file only draws and reads the
+ * pads. Built on the vendored libwiigui template.
  ***************************************************************************/
 
 #include <gccore.h>
 #include <ogcsys.h>
+#include <dirent.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include <algorithm>
 #include <atomic>
-#include <array>
+#include <ctime>
+#include <fstream>
 #include <initializer_list>
+#include <sstream>
 #include <wiiuse/wpad.h>
 
 #include "libwiigui/gui.h"
-#include "gui_richlist.hpp"
+#include "gui_flowlist.hpp"
+#include "gui_gamegrid.hpp"
+#include "guiscript.hpp"
+#include "skin.hpp"
 #include "wiidrc.h"
 #include "menu.h"
 #include "autorun.hpp"
@@ -34,6 +46,7 @@
 #include "riftwii/patch.hpp"
 #include "log.hpp"
 #include "menuios.hpp"
+#include "video.h"
 
 #define THREAD_SLEEP 100
 
@@ -46,6 +59,7 @@ using riftwii::wii::SelectSdGame;
 using riftwii::wii::SelectUsbGame;
 using riftwii::wii::scan_sd_games;
 using riftwii::wii::scan_usb_games;
+namespace skin = riftwii::wii::skin;
 
 // For the session log: which screen the user reached last.
 static const char* ScreenName(int menu)
@@ -53,149 +67,22 @@ static const char* ScreenName(int menu)
 	switch (menu)
 	{
 		case MENU_EXIT: return "exit";
-		case MENU_HOME: return "mods";
-		case MENU_OPTIONS: return "mod options";
-		case MENU_PREFLIGHT: return "preflight";
+		case MENU_HOME: return "game";
+		case MENU_OPTIONS: return "settings";
 		case MENU_LAUNCH: return "launch";
 		case MENU_BOOT: return "boot unmodified";
 		case MENU_DUMP: return "dump";
-		case MENU_SOURCE: return "source";
-		case MENU_GAMES: return "games";
+		case MENU_SOURCE: return "home";
 		default: return "?";
 	}
 }
 
-static const char* PackageValue(const riftwii::LaunchPackage& p)
-{
-	if (!p.valid) return "Invalid";
-	if (!p.for_disc) return "Other disc";
-	return p.enabled ? "On" : "Off";
-}
-
-// A 32-character hard chunk stays within the 560px text width even for a
-// run of wide glyphs. Home has room for one line only; Mod Options has room
-// for three lines because it has just one row of bottom buttons.
-constexpr std::size_t kDetailCharsPerLine = 32;
-constexpr std::size_t kDetailLinesPerPage = 3;
-
-struct DetailPage {
-	std::array<std::string, kDetailLinesPerPage> rows;
-};
-
-struct DetailPages {
-	std::vector<DetailPage> pages;
-};
-
-// Hard-wrap instead of relying on GuiText word wrapping: an XML attribute
-// name can be thousands of characters with no whitespace. Parser details are
-// otherwise copied byte-for-byte.
-static std::vector<std::string> MakeDetailLines(const std::string& detail)
-{
-	std::vector<std::string> lines;
-	std::string line;
-	const auto finish_line = [&]() {
-		lines.push_back(line);
-		line.clear();
-	};
-	for (char c : detail) {
-		if (c == '\r') continue;
-		if (c == '\n') {
-			finish_line();
-			continue;
-		}
-		line.push_back(c);
-		if (line.size() == kDetailCharsPerLine) finish_line();
-	}
-	if (!line.empty() || lines.empty()) finish_line();
-	return lines;
-}
-
-// Each page is one header and two diagnostic lines, so it cannot grow into
-// the button rows.
-static DetailPages MakeDetailPages(const std::string& detail)
-{
-	const std::vector<std::string> lines = MakeDetailLines(detail);
-	constexpr std::size_t kBodyLines = kDetailLinesPerPage - 1;
-	const std::size_t count = (lines.size() + kBodyLines - 1) / kBodyLines;
-	DetailPages pages;
-	for (std::size_t page = 0; page < count; ++page) {
-		DetailPage detail;
-		detail.rows[0] = "Details " + std::to_string(page + 1) + "/" + std::to_string(count);
-		const std::size_t first = page * kBodyLines;
-		for (std::size_t row = 0; row < kBodyLines; ++row) {
-			if (first + row < lines.size()) detail.rows[row + 1] = lines[first + row];
-		}
-		pages.pages.push_back(std::move(detail));
-	}
-	return pages;
-}
-
-// Home status does not have a page control. Keep it to one text row below
-// the browser; the selected package's complete diagnostics are in Mod
-// Options. The explicit marker explains where a truncated status continues.
-static std::string BoundedHomeDetail(const std::string& detail)
-{
-	const std::vector<std::string> lines = MakeDetailLines(detail);
-	if (lines.size() == 1) return lines.front();
-	static const std::string marker = " +: details";
-	return lines.front().substr(0, kDetailCharsPerLine - marker.size()) + marker;
-}
-
-static void SetDetailRows(const std::array<GuiText*, kDetailLinesPerPage>& rows, const DetailPage& detail)
-{
-	for (std::size_t row = 0; row < kDetailLinesPerPage; ++row)
-		rows[row]->SetText(detail.rows[row].c_str());
-}
-
-static void SetBoundedHomeDetail(GuiText& text, const std::string& detail)
-{
-	text.SetText(BoundedHomeDetail(detail).c_str());
-}
-
-// One text object per row: GuiText word wrapping only breaks on spaces
-// and ignores embedded newlines, so a single object lets rows run into
-// each other. Empty rows stay blank.
-static void SetSourceRows(const std::array<GuiText*, kDetailLinesPerPage>& rows, const std::string& detail)
-{
-	const std::vector<std::string> lines = MakeDetailLines(detail);
-	for (std::size_t row = 0; row < kDetailLinesPerPage; ++row)
-		rows[row]->SetText(row < lines.size() ? lines[row].c_str() : "");
-}
-
-static bool AllOptionsOff(const riftwii::LaunchPackage& p)
-{
-	if (p.package.options.empty()) return false;
-	for (const riftwii::Option& option : p.package.options) {
-		if (option.selected != 0 && option.selected <= option.choices.size()) return false;
-	}
-	return true;
-}
-
-static std::string ToggleDetail(const riftwii::LaunchPackage& p, bool enabled, bool simple_auto_selected)
-{
-	if (!enabled)
-		return "Disabled. A enables; + details";
-	if (simple_auto_selected) {
-		const riftwii::Option& option = p.package.options.front();
-		const std::string choice = option.choices.front().name;
-		return "Enabled: '" + choice.substr(0, 10) + "' selected";
-	}
-	if (AllOptionsOff(p))
-		return "Enabled; no choice. + options";
-	if (p.package.options.empty())
-		return "Enabled; no options. + details";
-	return "Enabled. + options/details";
-}
-
-static GuiImageData * pointer[4];
-static GuiImage * bgImg = nullptr;
 static GuiWindow * mainWindow = nullptr;
+static skin::GuiBackdrop * backdrop = nullptr;
+static GuiSound * soundOver = nullptr;
 static lwp_t guithread = LWP_THREAD_NULL;
 static std::atomic<bool> guiHalt{true};
-static int selectedPackage = 0;  // the home screen's highlighted row, kept across screens
-static riftwii::wii::ImageDevice pickerDevice = riftwii::wii::ImageDevice::Usb;
-static int selectedGame = 0;  // the image picker row, reset whenever its source changes
-constexpr int kOptionCapacity = 150;
+static std::atomic<bool> hidePointers{false};
 
 static void ResumeGui()
 {
@@ -209,6 +96,7 @@ static void HaltGui()
 	while(!LWP_ThreadIsSuspended(guithread))
 		usleep(THREAD_SLEEP);
 }
+
 static void *
 UpdateGUI(void *arg)
 {
@@ -224,17 +112,19 @@ UpdateGUI(void *arg)
 		else
 		{
 			UpdatePads();
+			riftwii::wii::GuiScriptApply();
 			mainWindow->Draw();
 
 			for(i = 3; i >= 0; i--)
 			{
-				if(userInput[i].wpad->ir.valid)
+				if(!hidePointers && userInput[i].wpad->ir.valid)
 					Menu_DrawImg(userInput[i].wpad->ir.x-48, userInput[i].wpad->ir.y-48,
-						96, 96, pointer[i]->GetImage(), userInput[i].wpad->ir.angle, 1, 1, 255);
+						96, 96, skin::hand[i].data, userInput[i].wpad->ir.angle, 1, 1, 255);
 				DoRumble(i);
 			}
 
 			Menu_Render();
+			riftwii::wii::GuiScriptAfterFrame(Menu_CurrentXfb(), Menu_XfbWidth(), Menu_XfbHeight());
 
 			for(i = 0; i < 4; i++)
 				mainWindow->Update(&userInput[i]);
@@ -261,45 +151,55 @@ void InitGUIThreads()
 	HaltGui();
 }
 
-// A plain button with the template's look, triggered by A and by `extra`.
-// The Wii U GamePad mirrors the Wii names (A/B/Plus/Minus/Home/D-pad) and
-// stands in for 1 with X; every bottom button carries a GamePad hotkey so
-// the menus are fully drivable without a pointer.
-struct MenuButton {
-	GuiText text;
+// A text at a fixed spot, left-aligned or centred on the screen.
+static void Place(GuiText& t, int x, int y, bool centre = false)
+{
+	t.SetAlignment(centre ? ALIGN_H::CENTRE : ALIGN_H::LEFT, ALIGN_V::TOP);
+	t.SetPosition(x, y);
+}
+
+// A painted button (skin textures) triggered by A and by a hotkey. The
+// Wii U GamePad mirrors the Wii names; every button carries a GamePad and
+// a GameCube hotkey so the menus are drivable without a pointer.
+struct SkinButton {
 	GuiImage image;
 	GuiImage imageOver;
+	GuiImage icon;
+	GuiText text;
 	GuiTrigger trigA;
-	GuiTrigger trigExtra;
+	GuiTrigger trigHot;
 	GuiButton button;
-	MenuButton(const char* label, GuiImageData& outline, GuiImageData& outlineOver, GuiSound& sound,
-		   u32 wpadExtra, u16 padExtra, u16 wiidrcExtra = 0)
-		: text(label, 22, (GXColor){0, 0, 0, 255}), image(&outline), imageOver(&outlineOver),
-		  button(outline.GetWidth(), outline.GetHeight())
+	// `x`, `y`: where the visible shape starts; `margin`: the texture's
+	// transparent border around it.
+	SkinButton(const skin::Tex& face, const skin::Tex& faceOver, int margin, int x, int y, const char* label,
+		   u32 wpadHot, u16 padHot, u16 drcHot, const skin::Tex* iconTex = nullptr)
+		: image(face.data, face.w, face.h), imageOver(faceOver.data, faceOver.w, faceOver.h),
+		  icon(iconTex ? iconTex->data : nullptr, iconTex ? iconTex->w : 0, iconTex ? iconTex->h : 0),
+		  text(label, 22, skin::kInk), button(face.w, face.h)
 	{
 		trigA.SetSimpleTrigger(-1, WPAD_BUTTON_A | WPAD_CLASSIC_BUTTON_A, PAD_BUTTON_A, WIIDRC_BUTTON_A);
-		trigExtra.SetButtonOnlyTrigger(-1, wpadExtra, padExtra, wiidrcExtra);
-		button.SetLabel(&text);
+		trigHot.SetButtonOnlyTrigger(-1, wpadHot, padHot, drcHot);
+		button.SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
+		button.SetPosition(x - margin, y - margin);
 		button.SetImage(&image);
 		button.SetImageOver(&imageOver);
-		button.SetSoundOver(&sound);
+		if (label) button.SetLabel(&text);
+		if (iconTex) {
+			icon.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::MIDDLE);
+			button.SetIcon(&icon);
+		}
+		if (soundOver) button.SetSoundOver(soundOver);
 		button.SetTrigger(&trigA);
-		if (wpadExtra || padExtra || wiidrcExtra) button.SetTrigger(&trigExtra);
+		if (wpadHot || padHot || drcHot) button.SetTrigger(&trigHot);
 		button.SetEffectGrow();
-	}
-	void Place(ALIGN_H h, ALIGN_V v, int x, int y)
-	{
-		button.SetAlignment(h, v);
-		button.SetPosition(x, y);
 	}
 	bool Clicked() { return button.GetState() == STATE::CLICKED; }
 };
 
 // libwiigui only clears a hover-selected button while the pointer is live:
 // with an invalid pointer a stale SELECTED survives, and the next A press
-// fires both it and the browser row. Drop stale bottom-button selection
-// when no pointer is live; hotkeys (BUTTON_ONLY) and fresh hovers are
-// unaffected, and browser rows manage their own focus.
+// fires both it and the focused tile or row. Drop stale selection when no
+// pointer is live; hotkeys (BUTTON_ONLY) and fresh hovers are unaffected.
 static bool AnyPointerLive() {
 	for (int i = 0; i < 4; ++i)
 		if (userInput[i].wpad->ir.valid) return true;
@@ -311,22 +211,7 @@ static void ClearStaleButtons(std::initializer_list<GuiButton*> buttons) {
 		if (b->GetState() == STATE::SELECTED) b->ResetState();
 }
 
-// Short image-catalog status for the source screen (counts only): the
-// full sentences never fit between the title and the buttons.
-static std::string CountLine(const char* tag, const riftwii::wii::ImageCatalog& catalog)
-{
-	const std::string prefix = std::string(tag) + ": ";
-	if (!catalog.games.empty()) {
-		return prefix + std::to_string(catalog.games.size()) +
-			(catalog.games.size() == 1 ? " game" : " games");
-	}
-	if (catalog.status.empty() || catalog.status == prefix + "select to scan") return prefix + "select";
-	if (catalog.status.compare(0, 8, "No valid") == 0) return prefix + "no games";
-	return prefix + "unavailable";
-}
-
-// Flattened to one capped row: raw driver errors are sentences, and the
-// source detail block only fits three 32-char rows.
+// Flattened to one capped row: raw driver errors are sentences.
 static std::string FlatCapped(const std::string& text, std::size_t max)
 {
 	std::string flat;
@@ -341,72 +226,37 @@ static std::string FlatCapped(const std::string& text, std::size_t max)
 	return flat;
 }
 
-// One short problem row per image catalog: the full sentences (folder
-// lists, driver hints) never fit between the DISC button and Exit, so
-// each is reduced to a tag plus a short reason.
-static std::string ShortSourceProblem(const char* tag,
-				      const riftwii::wii::ImageCatalog& catalog)
+// Hard-wrapped rows for a flow list: XML errors can hold long runs
+// without spaces, which word wrapping never breaks.
+static std::vector<std::string> Chunks(const std::string& text, std::size_t width, std::size_t maxRows)
+{
+	std::vector<std::string> rows;
+	std::string flat = FlatCapped(text, width * maxRows);
+	while (!flat.empty() && rows.size() < maxRows) {
+		std::size_t cut = flat.size() <= width ? flat.size() : flat.rfind(' ', width);
+		if (cut == std::string::npos || cut < width / 2) cut = std::min(width, flat.size());
+		rows.push_back(flat.substr(0, cut));
+		flat = flat.substr(cut);
+		while (!flat.empty() && flat.front() == ' ') flat.erase(0, 1);
+	}
+	return rows;
+}
+
+// One short problem per image catalog for Home's status line.
+static std::string ShortSourceProblem(const char* tag, const riftwii::wii::ImageCatalog& catalog)
 {
 	if (!catalog.games.empty() || catalog.status.empty()) return "";
 	if (catalog.status == std::string(tag) + ": select to scan") return "";
 	std::string reason = catalog.status;
 	const std::string prefix = std::string(tag) + ": ";
 	if (reason.compare(0, prefix.size(), prefix) == 0) reason = reason.substr(prefix.size());
-	if (reason.compare(0, 8, "No valid") == 0) {
-		return std::string(tag) + ": no games in wbfs/games";
-	}
-	if (reason == "no USB mass-storage device is inserted") return "USB: no device";
+	if (reason.compare(0, 8, "No valid") == 0) return std::string(tag) + ": no games in /wbfs or /games";
+	if (reason == "no USB mass-storage device is inserted") return "";  // no drive is not a problem
 	if (reason == "no SD card is inserted") return "SD: no card";
-	return std::string(tag) + ": " + FlatCapped(reason, 56);
+	return std::string(tag) + ": " + FlatCapped(reason, 110);
 }
 
-static std::string SourceDetail(const FrontendState& state)
-{
-	// Three 32-char rows between the DISC button and Exit: at most two
-	// problem rows, then the hotkeys (the shared no-cIOS hint shows only
-	// when zero or one problem rows leave room for it; the games screen
-	// repeats it per game).
-	static const char* const hot[] = {
-		"1/Y: SD   +/X: USB   -/Z: DISC",
-		"(X on GamePad, or point + A)",
-	};
-	std::vector<std::string> rows;
-	const std::string sd = ShortSourceProblem("SD", state.sd_catalog);
-	const std::string usb = ShortSourceProblem("USB", state.usb_catalog);
-	for (const std::string* problem : {&sd, &usb}) {
-		if (problem->empty()) continue;
-		for (const std::string& chunk : MakeDetailLines(*problem)) {
-			if (rows.size() == 2) break;
-			rows.push_back(chunk);
-		}
-	}
-	if (rows.size() < 2 &&
-	    (!state.sd_catalog.cios_note.empty() || !state.usb_catalog.cios_note.empty()))
-		rows.push_back("No cIOS 249-251: needs d2x");
-	rows.push_back(hot[0]);
-	if (rows.size() < kDetailLinesPerPage) rows.push_back(hot[1]);
-	std::string detail;
-	for (std::size_t i = 0; i < rows.size(); ++i) {
-		if (i != 0) detail += "\n";
-		detail += rows[i];
-	}
-	return detail;
-}
-
-// Two lines, so the buttons below stay clear: the saves mode plus either
-// the hotkeys (clean scan) or the scan problem (which matters more).
-static std::string HomeDetail(const FrontendState& state, const std::string& scanStatus)
-{
-	const std::string save = state.model.save_mode == "separate" ? "Save:Sep" :
-		state.model.save_mode == "fresh" ? "Save:Fresh" : "Save:NAND";
-	if (scanStatus == riftwii::wii::kScanReady)
-		return save + " A:toggle +:options";
-	return scanStatus;
-}
-
-// Start screen. Image selection happens while IOS58 owns the storage; the
-// selected source is activated only after the GUI has been torn down.
-// The Menu IOS button's label and what choosing a slot means.
+// The Menu IOS setting's label and what choosing a slot means.
 static std::string MenuIosLabel(int slot)
 {
 	return slot == 0 ? "IOS 58" : "IOS " + std::to_string(slot);
@@ -415,314 +265,11 @@ static std::string MenuIosNote(int slot)
 {
 	const int running = riftwii::wii::MenuCiosSlot();
 	std::string note = slot == 0
-		? "Menu IOS: the Homebrew Channel's IOS (the default)."
-		: "Menu IOS: cIOS " + std::to_string(slot) +
-		  ". Riftwii's menu and every game run under it, so a cIOS with fakemote makes USB DS3/DS4 pads work as Wii Remotes. USB drives in the menu need a base-58 cIOS.";
+		? "The menu runs under the Homebrew Channel's IOS (the default)."
+		: "The menu and every game run under cIOS " + std::to_string(slot) +
+		  ", so a cIOS with fakemote makes USB DS3/DS4 pads work as Wii Remotes. USB drives in the menu need a base-58 cIOS.";
 	if (slot != running) note += " Takes effect the next time Riftwii starts.";
 	return note;
-}
-
-static int MenuSource(FrontendState& state)
-{
-	int menu = MENU_NONE;
-	GuiText titleTxt("Riftwii", 34, (GXColor){255, 255, 255, 255});
-	titleTxt.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
-	titleTxt.SetPosition(0, 30);
-
-	GuiText subTxt("Choose game source", 18, (GXColor){200, 200, 200, 255});
-	subTxt.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
-	subTxt.SetPosition(0, 76);
-
-	GuiText discTxt(state.disc_status.c_str(), 18, (GXColor){200, 200, 200, 255});
-	discTxt.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
-	discTxt.SetPosition(0, 102);
-
-	std::string sourceLine = CountLine("SD", state.sd_catalog) + "      " + CountLine("USB", state.usb_catalog);
-	GuiText sdusbTxt(sourceLine.c_str(),
-			 18, (GXColor){255, 255, 255, 255});
-	sdusbTxt.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
-	sdusbTxt.SetPosition(0, 126);
-
-	std::string sourceDetail = SourceDetail(state);
-	GuiText detailRow0("", 16, (GXColor){255, 255, 255, 255});
-	GuiText detailRow1("", 16, (GXColor){255, 255, 255, 255});
-	GuiText detailRow2("", 16, (GXColor){255, 255, 255, 255});
-	detailRow0.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
-	detailRow1.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
-	detailRow2.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
-	detailRow0.SetPosition(0, 322);
-	detailRow1.SetPosition(0, 344);
-	detailRow2.SetPosition(0, 366);
-	detailRow0.SetWrap(true, screenwidth - 80);
-	detailRow1.SetWrap(true, screenwidth - 80);
-	detailRow2.SetWrap(true, screenwidth - 80);
-	const std::array<GuiText*, kDetailLinesPerPage> detailRows = {&detailRow0, &detailRow1, &detailRow2};
-	SetSourceRows(detailRows, sourceDetail);
-
-	GuiSound btnSoundOver(button_over_pcm, button_over_pcm_size, SOUND::PCM);
-	GuiImageData btnOutline(button_png);
-	GuiImageData btnOutlineOver(button_over_png);
-
-	MenuButton sdBtn("SD", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_1 | WPAD_CLASSIC_BUTTON_Y, PAD_BUTTON_Y, WIIDRC_BUTTON_X);
-	sdBtn.Place(ALIGN_H::CENTRE, ALIGN_V::MIDDLE, 0, -62);
-	MenuButton usbBtn("USB", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_PLUS | WPAD_CLASSIC_BUTTON_PLUS, PAD_BUTTON_X, WIIDRC_BUTTON_PLUS);
-	usbBtn.Place(ALIGN_H::CENTRE, ALIGN_V::MIDDLE, 0, -6);
-	MenuButton discBtn("DISC", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_MINUS | WPAD_CLASSIC_BUTTON_MINUS, PAD_TRIGGER_Z, WIIDRC_BUTTON_MINUS);
-	discBtn.Place(ALIGN_H::CENTRE, ALIGN_V::MIDDLE, 0, 50);
-	MenuButton exitBtn("Exit", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_HOME | WPAD_CLASSIC_BUTTON_HOME, 0, WIIDRC_BUTTON_HOME);
-	exitBtn.Place(ALIGN_H::LEFT, ALIGN_V::BOTTOM, 40, -35);
-	// Which IOS the menu (and so every game) runs under; see menuios.hpp.
-	const std::vector<int> iosChoices = riftwii::wii::MenuIosChoices();
-	int iosSlot = riftwii::wii::LoadMenuIos();
-	std::string iosLabel = MenuIosLabel(iosSlot);
-	MenuButton iosBtn(iosLabel.c_str(), btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_2 | WPAD_CLASSIC_BUTTON_X, PAD_TRIGGER_R, WIIDRC_BUTTON_Y);
-	iosBtn.Place(ALIGN_H::RIGHT, ALIGN_V::BOTTOM, -40, -35);
-	// Smaller buttons leave room for the three detail rows between DISC
-	// and Exit; the games screen uses the same scale for its bottom row.
-	for (MenuButton* b : {&sdBtn, &usbBtn, &discBtn, &exitBtn, &iosBtn}) b->button.SetScale(0.85f);
-
-	HaltGui();
-	GuiWindow w(screenwidth, screenheight);
-	w.Append(&titleTxt);
-	w.Append(&subTxt);
-	w.Append(&discTxt);
-	w.Append(&sdusbTxt);
-	w.Append(&detailRow0);
-	w.Append(&detailRow1);
-	w.Append(&detailRow2);
-	w.Append(&sdBtn.button);
-	w.Append(&usbBtn.button);
-	w.Append(&discBtn.button);
-	w.Append(&exitBtn.button);
-	if (iosChoices.size() > 1 || iosSlot != 0) w.Append(&iosBtn.button);
-	mainWindow->Append(&w);
-	ResumeGui();
-
-	while(menu == MENU_NONE)
-	{
-		usleep(10000);
-		HaltGui();
-		ClearStaleButtons({&exitBtn.button, &sdBtn.button, &usbBtn.button, &discBtn.button, &iosBtn.button});
-		if(exitBtn.Clicked())
-			menu = MENU_EXIT;
-		else if(iosBtn.Clicked()) {
-			iosBtn.button.ResetState();
-			// Step to the next installed choice (IOS58, then each d2x slot).
-			std::size_t at = 0;
-			while (at < iosChoices.size() && iosChoices[at] != iosSlot) ++at;
-			iosSlot = iosChoices[(at + 1) % iosChoices.size()];
-			if (riftwii::wii::SaveMenuIos(iosSlot)) {
-				logf("Menu IOS set to %s\n", MenuIosLabel(iosSlot).c_str());
-				SetSourceRows(detailRows, MenuIosNote(iosSlot));
-			} else {
-				SetSourceRows(detailRows, "Menu IOS: cannot write sd:/riftwii/menu_ios.txt");
-			}
-			iosLabel = MenuIosLabel(iosSlot);
-			iosBtn.text.SetText(iosLabel.c_str());
-		}
-		else if(sdBtn.Clicked() && !state.sd_catalog.games.empty()) {
-			// Already scanned this session: the games screen's Rescan refreshes it.
-			pickerDevice = riftwii::wii::ImageDevice::Sd;
-			menu = MENU_GAMES;
-		}
-		else if(sdBtn.Clicked()) {
-			sdBtn.button.ResetState();
-			SetSourceRows(detailRows, "Scanning SD...");
-			ResumeGui();
-			std::string error;
-			const bool scanned = scan_sd_games(state.sd_catalog, error);
-			HaltGui();
-			if (!scanned) {
-				logf("SD scan failed: %s\n", error.c_str());
-				state.sd_catalog.status = "SD: " + (error.empty() ? "scan failed" : error);
-				sourceLine = CountLine("SD", state.sd_catalog) + "      " + CountLine("USB", state.usb_catalog);
-				sdusbTxt.SetText(sourceLine.c_str());
-				SetSourceRows(detailRows, SourceDetail(state));
-			} else {
-				pickerDevice = riftwii::wii::ImageDevice::Sd;
-				selectedGame = 0;
-				menu = MENU_GAMES;
-			}
-		}
-		else if(usbBtn.Clicked() && !state.usb_catalog.games.empty()) {
-			pickerDevice = riftwii::wii::ImageDevice::Usb;
-			menu = MENU_GAMES;
-		}
-		else if(usbBtn.Clicked()) {
-			usbBtn.button.ResetState();
-			SetSourceRows(detailRows, "Scanning USB... (the first scan of a big drive takes a while)");
-			ResumeGui();
-			std::string error;
-			const bool scanned = scan_usb_games(state.usb_catalog, error);
-			HaltGui();
-			if (!scanned) {
-				logf("USB scan failed: %s\n", error.c_str());
-				state.usb_catalog.status = "USB: " + (error.empty() ? "scan failed" : error);
-				if (riftwii::wii::MenuCiosSlot() != 0) {
-					state.usb_catalog.status += " (the menu runs under IOS" + std::to_string(riftwii::wii::MenuCiosSlot()) +
-						", and USB drives need a base-58 cIOS for that; set the menu IOS back to 58 if this persists)";
-				}
-				sourceLine = CountLine("SD", state.sd_catalog) + "      " + CountLine("USB", state.usb_catalog);
-				sdusbTxt.SetText(sourceLine.c_str());
-				SetSourceRows(detailRows, SourceDetail(state));
-			} else {
-				pickerDevice = riftwii::wii::ImageDevice::Usb;
-				selectedGame = 0;
-				menu = MENU_GAMES;
-			}
-		}
-		else if(discBtn.Clicked()) {
-			discBtn.button.ResetState();
-			SetSourceRows(detailRows, "Probing disc...");
-			ResumeGui();
-			std::string error;
-			logf("DISC: probing\n");
-			const bool selected = SelectDisc(state, error);
-			HaltGui();
-			if (!selected) {
-				logf("DISC: %s\n", error.empty() ? "no disc in drive" : error.c_str());
-				SetSourceRows(detailRows, FlatCapped(error.empty() ? "No disc in drive" : error, 64));
-			} else {
-				discTxt.SetText(state.disc_status.c_str());
-				menu = MENU_HOME;
-			}
-		}
-		ResumeGui();
-	}
-
-	HaltGui();
-	mainWindow->Remove(&w);
-	return menu;
-}
-
-// One row per game: its real name (wrapped, never cut off), with the game
-// ID and image format in the right-hand column.
-static void GameRows(const riftwii::wii::ImageCatalog& catalog, bool sd, std::vector<RichRow>& rows)
-{
-	rows.clear();
-	for (const auto& g : catalog.games) {
-		RichRow r;
-		r.title = g.display.empty() ? g.title : g.display;
-		r.tag = g.id + (g.format == riftwii::UsbImageFormat::Wbfs ? " WBFS" : " ISO");
-		rows.push_back(std::move(r));
-	}
-	if (rows.empty()) {
-		RichRow r;
-		r.title = sd ? "No SD games found" : "No USB games found";
-		r.subtitle = "Put games in /wbfs or /games, then Rescan";
-		r.dim = true;
-		rows.push_back(std::move(r));
-	}
-}
-
-static std::string GamesTitle(const riftwii::wii::ImageCatalog& catalog, bool sd)
-{
-	std::string t = sd ? "SD games" : "USB games";
-	if (!catalog.games.empty()) t += "  (" + std::to_string(catalog.games.size()) + ")";
-	return t;
-}
-
-static int MenuGames(FrontendState& state)
-{
-	int menu = MENU_NONE;
-
-	const bool sd = pickerDevice == riftwii::wii::ImageDevice::Sd;
-	const auto& catalog = sd ? state.sd_catalog : state.usb_catalog;
-	std::vector<RichRow> rows;
-	GameRows(catalog, sd, rows);
-	if (selectedGame >= static_cast<int>(rows.size())) selectedGame = 0;
-
-	std::string heading = GamesTitle(catalog, sd);
-	GuiText titleTxt(heading.c_str(), 28, (GXColor){255, 255, 255, 255});
-	titleTxt.SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
-	titleTxt.SetPosition(40,20);
-
-	// The cIOS warning matters more than the scan count.
-	GuiText statusTxt(catalog.cios_note.empty() ? "Point at a game and press A" : "No d2x cIOS in 249-251: games cannot boot yet",
-			  18, (GXColor){200, 200, 200, 255});
-	statusTxt.SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
-	statusTxt.SetPosition(40, 58);
-
-	GuiText detailTxt("A: choose   B: back   +/X: rescan", 16, (GXColor){255, 255, 255, 255});
-	detailTxt.SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
-	detailTxt.SetPosition(40, 366);
-	detailTxt.SetWrap(true, screenwidth - 80);
-
-	GuiRichList browser(580, 280, 56, 84);
-	browser.SetRows(&rows);
-	browser.SetPosition(0, 82);
-	browser.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
-	browser.SetFocus(1);
-	browser.SelectRow(selectedGame);
-
-	GuiSound btnSoundOver(button_over_pcm, button_over_pcm_size, SOUND::PCM);
-	GuiImageData btnOutline(button_png);
-	GuiImageData btnOutlineOver(button_over_png);
-
-	MenuButton backBtn("Back", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
-	backBtn.Place(ALIGN_H::LEFT, ALIGN_V::BOTTOM, 40, -35);
-	MenuButton rescanBtn("Rescan", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_PLUS | WPAD_CLASSIC_BUTTON_PLUS, PAD_BUTTON_X, WIIDRC_BUTTON_PLUS);
-	rescanBtn.Place(ALIGN_H::CENTRE, ALIGN_V::BOTTOM, 0, -35);
-	for (MenuButton* b : {&backBtn, &rescanBtn}) b->button.SetScale(0.85f);
-
-	HaltGui();
-	GuiWindow w(screenwidth, screenheight);
-	w.Append(&titleTxt);
-	w.Append(&statusTxt);
-	w.Append(&browser);
-	w.Append(&detailTxt);
-	w.Append(&backBtn.button);
-	w.Append(&rescanBtn.button);
-	mainWindow->Append(&w);
-	ResumeGui();
-
-	while(menu == MENU_NONE)
-	{
-		usleep(10000);
-		HaltGui();
-		ClearStaleButtons({&backBtn.button, &rescanBtn.button});
-		const int clicked = browser.GetClickedRow();
-		if (clicked >= 0 && static_cast<std::size_t>(clicked) < catalog.games.size()) {
-			selectedGame = clicked;
-			std::string error;
-			if ((sd ? SelectSdGame(state, static_cast<std::size_t>(clicked), error)
-			        : SelectUsbGame(state, static_cast<std::size_t>(clicked), error))) {
-				menu = MENU_HOME;
-			} else {
-				detailTxt.SetText(error.c_str());
-			}
-		}
-		if(backBtn.Clicked())
-			menu = MENU_SOURCE;
-		else if(rescanBtn.Clicked()) {
-			rescanBtn.button.ResetState();
-			detailTxt.SetText(sd ? "Scanning SD..." : "Scanning USB...");
-			ResumeGui();
-			std::string error;
-			const bool scanned = sd ? scan_sd_games(state.sd_catalog, error) : scan_usb_games(state.usb_catalog, error);
-			HaltGui();
-			if (!scanned) {
-				riftwii::wii::ImageCatalog& updated = sd ? state.sd_catalog : state.usb_catalog;
-				updated.status = std::string(sd ? "SD: " : "USB: ") + (error.empty() ? "scan failed" : error);
-				statusTxt.SetText(updated.status.c_str());
-				detailTxt.SetText(error.empty() ? "Image scan failed" : error.c_str());
-			} else {
-				detailTxt.SetText(catalog.games.empty() ? (sd ? "No SD games found (sd:/wbfs, sd:/games)" : "No USB games found (usb:/wbfs, usb:/games)")
-										  : "A: choose   B: back   +/X: rescan");
-			}
-			GameRows(catalog, sd, rows);
-			heading = GamesTitle(catalog, sd);
-			titleTxt.SetText(heading.c_str());
-			selectedGame = 0;
-			browser.SetRows(&rows);
-			browser.SelectRow(0);
-		}
-		ResumeGui();
-	}
-
-	HaltGui();
-	mainWindow->Remove(&w);
-	return menu;
 }
 
 // The pack's name without ".xml", for display.
@@ -735,252 +282,588 @@ static std::string PackName(const std::string& file)
 	return file;
 }
 
-// What a mod row says under its name: how many settings it has, which
-// are chosen, or why it is broken.
-static std::string PackSummary(const riftwii::LaunchModel& model, std::size_t index)
+// What the status line says about a focused pack.
+static std::string PackSummary(const riftwii::LaunchPackage& p)
 {
-	const riftwii::LaunchPackage& p = model.packages[index];
-	if (!p.valid) return "Broken XML: " + p.detail;
+	if (!p.valid) return "This XML cannot be read; the error is listed under it.";
 	const std::size_t n = p.package.options.size();
-	if (n == 0) return "No settings";
-	if (!p.enabled) return std::to_string(n) + (n == 1 ? " setting" : " settings") + "; A turns it on";
-	std::string chosen;
+	if (!p.enabled) return n == 0 ? "Off. A turns it on." : "Off. A turns it on and shows its " + std::to_string(n) + (n == 1 ? " setting." : " settings.");
 	std::size_t on = 0;
-	for (std::size_t i = 0; i < n; ++i) {
-		const riftwii::Option& o = p.package.options[i];
-		if (o.selected == 0 || o.selected > o.choices.size()) continue;
-		if (on++ < 2) chosen += (chosen.empty() ? "" : ", ") + o.name + ": " + o.choices[o.selected - 1].name;
+	for (const riftwii::Option& o : p.package.options)
+		if (o.selected != 0 && o.selected <= o.choices.size()) ++on;
+	if (n == 0) return "On. It applies as a whole.";
+	if (on == 0) return "On, but nothing chosen yet: pick its settings below.";
+	return "On, " + std::to_string(on) + " of " + std::to_string(n) + " settings chosen.";
+}
+
+// ---------------------------------------------------------------------------
+// Home
+
+enum class Filter { All, Mods, Usb, Sd };
+static Filter g_filter = Filter::All;
+static bool g_scanned = false;   // the drives were read this session
+static int g_homeFocus = 0;      // the focused tile, kept across screens
+static riftwii::PackIndex g_packs;
+
+static const char* FilterLabel(Filter f)
+{
+	switch (f) {
+		case Filter::Mods: return "Games with mods";
+		case Filter::Usb: return "USB drive";
+		case Filter::Sd: return "SD card";
+		default: return "All games";
 	}
-	if (on == 0) return "Nothing chosen yet; + opens its settings";
-	if (on > 2) chosen += ", +" + std::to_string(on - 2) + " more";
-	return chosen;
+}
+
+// Which games have packs: every XML in sd:/riivolution, by game ID only.
+static void LoadPackIndex()
+{
+	g_packs = riftwii::PackIndex();
+	DIR* dir = opendir(riftwii::wii::kPackageDir);
+	if (!dir) return;
+	std::vector<std::string> names;
+	while (const dirent* ent = readdir(dir)) {
+		if (ent->d_name[0] == '.') continue;
+		const char* dot = strrchr(ent->d_name, '.');
+		if (dot && strcasecmp(dot, ".xml") == 0 && names.size() < 256) names.push_back(ent->d_name);
+	}
+	closedir(dir);
+	for (const std::string& name : names) {
+		std::ifstream in(std::string(riftwii::wii::kPackageDir) + "/" + name, std::ios::binary);
+		if (!in) continue;
+		std::stringstream text;
+		text << in.rdbuf();
+		g_packs.add(text.str());
+	}
+	logf("Home: %u pack(s) indexed\n", static_cast<unsigned>(g_packs.size()));
+}
+
+struct HomeEntry {
+	enum class Kind { Disc, Usb, Sd } kind;
+	std::size_t index;
+};
+
+static std::string GameName(const riftwii::wii::ImageGame& g)
+{
+	if (!g.display.empty()) return g.display;
+	if (!g.title.empty()) return g.title;
+	return g.id;
+}
+
+static void BuildHome(const FrontendState& state, std::vector<GridItem>& items, std::vector<HomeEntry>& entries)
+{
+	items.clear();
+	entries.clear();
+	if (g_filter == Filter::All || g_filter == Filter::Mods) {
+		GridItem disc;
+		disc.title = "Disc drive";
+		disc.badge = "DISC";
+		disc.hue = {88, 92, 104, 255};
+		items.push_back(disc);
+		entries.push_back({HomeEntry::Kind::Disc, 0});
+	}
+	struct Row { std::string name; HomeEntry entry; const riftwii::wii::ImageGame* game; };
+	std::vector<Row> rows;
+	if (g_filter != Filter::Sd)
+		for (std::size_t i = 0; i < state.usb_catalog.games.size(); ++i)
+			rows.push_back({GameName(state.usb_catalog.games[i]), {HomeEntry::Kind::Usb, i}, &state.usb_catalog.games[i]});
+	if (g_filter != Filter::Usb)
+		for (std::size_t i = 0; i < state.sd_catalog.games.size(); ++i)
+			rows.push_back({GameName(state.sd_catalog.games[i]), {HomeEntry::Kind::Sd, i}, &state.sd_catalog.games[i]});
+	std::stable_sort(rows.begin(), rows.end(), [](const Row& a, const Row& b) {
+		return strcasecmp(a.name.c_str(), b.name.c_str()) < 0;
+	});
+	for (const Row& r : rows) {
+		const bool mods = g_packs.has_packs(r.game->id);
+		if (g_filter == Filter::Mods && !mods) continue;
+		GridItem item;
+		item.title = r.name;
+		item.id = r.game->id;
+		item.badge = r.entry.kind == HomeEntry::Kind::Usb ? "USB" : "SD";
+		item.mods = mods;
+		item.hue = skin::HueFor(r.game->id);
+		items.push_back(std::move(item));
+		entries.push_back(r.entry);
+	}
+}
+
+// The bottom bar with the clock's bump.
+class HomeBar : public GuiElement {
+public:
+	void Draw() override { skin::Draw(skin::bar, 0, 356); }
+};
+
+static std::string HomeStatus(const FrontendState& state, std::size_t shown)
+{
+	std::string status;
+	for (const std::string& p : {ShortSourceProblem("SD", state.sd_catalog), ShortSourceProblem("USB", state.usb_catalog)}) {
+		if (p.empty()) continue;
+		status += (status.empty() ? "" : "   ") + p;
+	}
+	if (!state.usb_catalog.cios_note.empty() || !state.sd_catalog.cios_note.empty())
+		status += std::string(status.empty() ? "" : "   ") + "No d2x cIOS in 249-251: games cannot boot yet";
+	if (!status.empty()) return status;
+	if (g_filter == Filter::Mods && shown <= 1) return "No game here has packs in sd:/riivolution yet. Press 1 for all games.";
+	if (shown == 0) return g_filter == Filter::Usb ? "No USB games (usb:/wbfs, usb:/games)" : "No SD games (sd:/wbfs, sd:/games)";
+	return std::string(FilterLabel(g_filter)) + "   1: filter   2: settings   +: rescan";
+}
+
+static void ScanDrives(FrontendState& state, GuiText& status)
+{
+	std::string error;
+	status.SetText("Reading the SD card...");
+	ResumeGui();
+	const bool sd = scan_sd_games(state.sd_catalog, error);
+	LoadPackIndex();
+	HaltGui();
+	if (!sd) {
+		logf("SD scan failed: %s\n", error.c_str());
+		state.sd_catalog.status = "SD: " + (error.empty() ? "scan failed" : error);
+	}
+	error.clear();
+	status.SetText("Reading the USB drive... (a big drive takes a moment)");
+	ResumeGui();
+	const bool usb = scan_usb_games(state.usb_catalog, error);
+	HaltGui();
+	if (!usb) {
+		logf("USB scan failed: %s\n", error.c_str());
+		state.usb_catalog.status = "USB: " + (error.empty() ? "scan failed" : error);
+		if (riftwii::wii::MenuCiosSlot() != 0 && error.find("more than one") == std::string::npos) {
+			state.usb_catalog.status += " (the menu runs under IOS" + std::to_string(riftwii::wii::MenuCiosSlot()) +
+				"; USB drives need a base-58 cIOS for that, or set the menu IOS back to 58)";
+		}
+	}
+	g_scanned = true;
+}
+
+static void ClockText(std::string& clock, std::string& date)
+{
+	const time_t now = time(nullptr);
+	struct tm local;
+	localtime_r(&now, &local);
+	static const char* const days[] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
+	const int h = local.tm_hour % 12 == 0 ? 12 : local.tm_hour % 12;
+	char buf[32];
+	snprintf(buf, sizeof(buf), "%d:%02d %s", h, local.tm_min, local.tm_hour < 12 ? "AM" : "PM");
+	clock = buf;
+	snprintf(buf, sizeof(buf), "%s %d/%d", days[local.tm_wday % 7], local.tm_mon + 1, local.tm_mday);
+	date = buf;
+}
+
+static int MenuSource(FrontendState& state)
+{
+	int menu = MENU_NONE;
+	std::vector<GridItem> items;
+	std::vector<HomeEntry> entries;
+	BuildHome(state, items, entries);
+
+	GuiGameGrid grid;
+	grid.SetItems(&items);
+	grid.Focus(g_homeFocus);
+	HomeBar bar;
+
+	GuiText pageTxt("", 15, skin::kInkDim);
+	Place(pageTxt, 40, 300);
+	std::string clock, date;
+	ClockText(clock, date);
+	GuiText clockTxt(clock.c_str(), 34, skin::kClock);
+	Place(clockTxt, 0, 310, true);
+	GuiText dateTxt(date.c_str(), 16, skin::kInkSoft);
+	Place(dateTxt, 0, 378, true);
+	GuiText statusTxt("", 15, skin::kInkSoft);
+	Place(statusTxt, 0, 408, true);
+	statusTxt.SetWrap(true, 400);
+
+	SkinButton filterBtn(skin::roundBtn, skin::roundBtnOver, 2, 26, 386, nullptr,
+		WPAD_BUTTON_1 | WPAD_CLASSIC_BUTTON_Y, PAD_BUTTON_Y, WIIDRC_BUTTON_X, &skin::iconDrives);
+	SkinButton settingsBtn(skin::roundBtn, skin::roundBtnOver, 2, 538, 386, nullptr,
+		WPAD_BUTTON_2 | WPAD_CLASSIC_BUTTON_X, PAD_TRIGGER_R, WIIDRC_BUTTON_Y, &skin::iconGear);
+	GuiTrigger trigRescan, trigExit;
+	trigRescan.SetButtonOnlyTrigger(-1, WPAD_BUTTON_PLUS | WPAD_CLASSIC_BUTTON_PLUS, PAD_BUTTON_X, WIIDRC_BUTTON_PLUS);
+	trigExit.SetButtonOnlyTrigger(-1, WPAD_BUTTON_HOME | WPAD_CLASSIC_BUTTON_HOME, PAD_BUTTON_START, WIIDRC_BUTTON_HOME);
+	GuiButton rescanBtn(0, 0), exitBtn(0, 0);  // hotkeys only
+	rescanBtn.SetTrigger(&trigRescan);
+	exitBtn.SetTrigger(&trigExit);
+
+	HaltGui();
+	GuiWindow w(screenwidth, screenheight);
+	w.Append(&grid);
+	w.Append(&bar);
+	w.Append(&pageTxt);
+	w.Append(&clockTxt);
+	w.Append(&dateTxt);
+	w.Append(&statusTxt);
+	w.Append(&filterBtn.button);
+	w.Append(&settingsBtn.button);
+	w.Append(&rescanBtn);
+	w.Append(&exitBtn);
+	mainWindow->Append(&w);
+
+	const auto refresh = [&](bool keepFocus) {
+		const int focus = keepFocus ? grid.FocusedIndex() : 0;
+		BuildHome(state, items, entries);
+		grid.SetItems(&items);
+		grid.Focus(std::min(focus, std::max(0, static_cast<int>(items.size()) - 1)));
+		statusTxt.SetText(HomeStatus(state, items.size()).c_str());
+	};
+	if (!g_scanned) {
+		ScanDrives(state, statusTxt);
+		refresh(true);
+	} else {
+		statusTxt.SetText(HomeStatus(state, items.size()).c_str());
+	}
+	ResumeGui();
+
+	int shownPage = -1, shownPages = -1;
+	while(menu == MENU_NONE)
+	{
+		usleep(10000);
+		HaltGui();
+		ClearStaleButtons({&filterBtn.button, &settingsBtn.button});
+		if (grid.Page() != shownPage || grid.Pages() != shownPages) {
+			shownPage = grid.Page();
+			shownPages = grid.Pages();
+			const std::string page = shownPages > 1 ? "Page " + std::to_string(shownPage + 1) + " of " + std::to_string(shownPages) : "";
+			pageTxt.SetText(page.c_str());
+		}
+		std::string nowClock, nowDate;
+		ClockText(nowClock, nowDate);
+		if (nowClock != clock) {
+			clock = nowClock;
+			date = nowDate;
+			clockTxt.SetText(clock.c_str());
+			dateTxt.SetText(date.c_str());
+		}
+
+		const int clicked = grid.GetClicked();
+		if (clicked >= 0 && static_cast<std::size_t>(clicked) < entries.size()) {
+			g_homeFocus = clicked;
+			const HomeEntry entry = entries[static_cast<std::size_t>(clicked)];
+			std::string error;
+			statusTxt.SetText(entry.kind == HomeEntry::Kind::Disc ? "Reading the disc..." : "Opening the game...");
+			ResumeGui();
+			bool ok = false;
+			if (entry.kind == HomeEntry::Kind::Disc) {
+				logf("DISC: probing\n");
+				ok = SelectDisc(state, error);
+				if (!ok && error.empty()) error = "No disc in the drive";
+			} else if (entry.kind == HomeEntry::Kind::Usb) {
+				ok = SelectUsbGame(state, entry.index, error);
+			} else {
+				ok = SelectSdGame(state, entry.index, error);
+			}
+			HaltGui();
+			if (ok) {
+				menu = MENU_HOME;
+			} else {
+				logf("Home: %s\n", error.c_str());
+				statusTxt.SetText(FlatCapped(error, 150).c_str());
+			}
+		}
+		if (menu != MENU_NONE) {
+			// picked
+		} else if (exitBtn.GetState() == STATE::CLICKED) {
+			menu = MENU_EXIT;
+		} else if (settingsBtn.Clicked()) {
+			g_homeFocus = grid.FocusedIndex();
+			menu = MENU_OPTIONS;
+		} else if (filterBtn.Clicked()) {
+			filterBtn.button.ResetState();
+			g_filter = static_cast<Filter>((static_cast<int>(g_filter) + 1) % 4);
+			logf("Home: filter %s\n", FilterLabel(g_filter));
+			refresh(false);
+		} else if (rescanBtn.GetState() == STATE::CLICKED) {
+			rescanBtn.ResetState();
+			ScanDrives(state, statusTxt);
+			refresh(true);
+		}
+		ResumeGui();
+	}
+
+	HaltGui();
+	mainWindow->Remove(&w);
+	return menu;
+}
+
+// ---------------------------------------------------------------------------
+// Game page
+
+// The game's banner: its hue across the top with light stripes.
+class GameBanner : public GuiElement {
+public:
+	explicit GameBanner(GXColor hue) : hue(hue) {}
+	void Draw() override {
+		Menu_DrawRectangle(0, 0, screenwidth, 184, hue, 1);
+		skin::Draw(skin::bannerStripes, 0, -8);
+	}
+private:
+	GXColor hue;
+};
+
+// A white card at (x, y) drawn from a panel texture.
+class Panel : public GuiElement {
+public:
+	Panel(const skin::Tex& tex, int x, int y) : tex(tex), x(x), y(y) {}
+	void Draw() override { skin::Draw(tex, x - 4.0f, y - 4.0f); }
+private:
+	const skin::Tex& tex;
+	int x, y;
+};
+
+static std::string SaveLabel(const std::string& mode)
+{
+	if (mode == "separate") return "SD, from Wii save";
+	if (mode == "fresh") return "SD, fresh start";
+	return "On the Wii";
+}
+static std::string SaveNote(const std::string& mode)
+{
+	if (mode == "separate") return "Saves go to the SD card, starting from the Wii's save.";
+	if (mode == "fresh") return "Saves go to the SD card, starting fresh.";
+	return "Saves stay on the Wii, as usual.";
+}
+
+struct RowRef {
+	enum class What { Saves, Pack, Option, Note } what = What::Note;
+	std::size_t pkg = 0, opt = 0;
+};
+
+static void BuildGameRows(const FrontendState& state, const std::string& scanStatus,
+			  std::vector<FlowRow>& rows, std::vector<RowRef>& refs)
+{
+	rows.clear();
+	refs.clear();
+	const auto add = [&](FlowRow row, RowRef ref) {
+		rows.push_back(std::move(row));
+		refs.push_back(ref);
+	};
+	FlowRow saves;
+	saves.kind = FlowRow::Kind::Option;
+	saves.label = "Saves";
+	saves.value = SaveLabel(state.model.save_mode);
+	saves.on = state.model.save_mode != "nand";
+	add(saves, {RowRef::What::Saves});
+
+	std::size_t shown = 0;
+	for (std::size_t i = 0; i < state.model.packages.size(); ++i) {
+		const riftwii::LaunchPackage& p = state.model.packages[i];
+		if (!riftwii::show_package(p)) continue;
+		++shown;
+		FlowRow head;
+		head.kind = FlowRow::Kind::Header;
+		head.label = PackName(p.file);
+		head.value = !p.valid ? "Broken" : p.enabled ? "On" : "Off";
+		head.on = p.enabled;
+		head.dim = !p.valid;
+		add(head, {RowRef::What::Pack, i});
+		if (!p.valid) {
+			for (const std::string& line : Chunks(p.detail, 44, 3)) {
+				FlowRow note;
+				note.label = line;
+				note.dim = true;
+				add(note, {RowRef::What::Note, i});
+			}
+			continue;
+		}
+		if (!p.enabled) continue;
+		for (std::size_t o = 0; o < p.package.options.size(); ++o) {
+			const riftwii::Option& option = p.package.options[o];
+			FlowRow row;
+			row.kind = FlowRow::Kind::Option;
+			row.label = option.name;
+			row.value = state.model.choice_name(i, o);
+			row.on = option.selected != 0 && option.selected <= option.choices.size();
+			add(row, {RowRef::What::Option, i, o});
+		}
+	}
+	if (shown == 0) {
+		FlowRow none;
+		none.label = state.model.packages.empty() ? "No mods on the SD card" : "No mods for this game";
+		add(none, {RowRef::What::Note});
+		FlowRow hint;
+		hint.dim = true;
+		hint.label = scanStatus != riftwii::wii::kScanReady ? FlatCapped(scanStatus, 44)
+			: state.model.packages.empty() ? "Put Riivolution XML in sd:/riivolution"
+			: std::to_string(state.model.packages.size()) + " XML file(s) are for other games";
+		add(hint, {RowRef::What::Note});
+	}
+}
+
+static std::string SourceWhere(const FrontendState& state)
+{
+	if (state.use_usb) return "USB drive";
+	if (state.use_sd) return "SD card";
+	return "Disc drive";
+}
+
+static std::string GameTitle(const FrontendState& state)
+{
+	if (state.use_usb && state.usb_index < state.usb_catalog.games.size())
+		return GameName(state.usb_catalog.games[state.usb_index]);
+	if (state.use_sd && state.sd_index < state.sd_catalog.games.size())
+		return GameName(state.sd_catalog.games[state.sd_index]);
+	return state.disc_title.empty() ? state.game_id : state.disc_title;
 }
 
 static int MenuHome(FrontendState& state)
 {
 	int menu = MENU_NONE;
 
-	std::vector<RichRow> rows;
 	std::string scanStatus;
 	try {
 		scanStatus = ScanPackages(state);
 	} catch (...) {
-		scanStatus = "Package scan failed; rescan to retry";
+		scanStatus = "Package scan failed; go back and try again";
 	}
-	// Rows show packs made for this game plus broken XML (its error is
-	// the point); other-disc packs are hidden. `visible` maps each row
-	// back to its package: the browser only knows row numbers.
-	std::vector<std::size_t> visible;
-	const auto fill = [&]() {
-		visible.clear();
-		rows.clear();
-		for (std::size_t i = 0; i < state.model.packages.size(); ++i) {
-			const auto& p = state.model.packages[i];
-			if (!riftwii::show_package(p)) continue;
-			if (static_cast<int>(rows.size()) >= kOptionCapacity) break;
-			visible.push_back(i);
-			RichRow r;
-			r.title = PackName(p.file);
-			r.subtitle = PackSummary(state.model, i);
-			r.tag = PackageValue(p);
-			r.dim = !p.valid;
-			rows.push_back(std::move(r));
-		}
-		if (rows.empty()) {
-			RichRow r;
-			r.title = state.model.packages.empty() ? "No mods on the SD card" : "No mods for this game";
-			r.subtitle = state.model.packages.empty() ? "Put Riivolution XML in sd:/riivolution"
-				: std::to_string(state.model.packages.size()) + " XML file(s) are for other games";
-			r.dim = true;
-			rows.push_back(std::move(r));
-		}
-	};
-	fill();
-	if (state.model.packages.empty()) {
-		selectedPackage = 0;
-	} else if (selectedPackage < 0 || static_cast<std::size_t>(selectedPackage) >= state.model.packages.size() ||
-	           !riftwii::show_package(state.model.packages[static_cast<std::size_t>(selectedPackage)])) {
-		selectedPackage = 0;
-		for (std::size_t i = 0; i < state.model.packages.size(); ++i) {
-			if (riftwii::show_package(state.model.packages[i])) {
-				selectedPackage = static_cast<int>(i);
-				break;
-			}
-		}
-	}
+	std::vector<FlowRow> rows;
+	std::vector<RowRef> refs;
+	BuildGameRows(state, scanStatus, rows, refs);
 
-	GuiText titleTxt("Riftwii", 28, (GXColor){255, 255, 255, 255});
-	titleTxt.SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
-	titleTxt.SetPosition(40,20);
+	GameBanner banner(skin::HueFor(state.game_id));
+	const std::string where = SourceWhere(state);
+	GuiText whereTxt(where.c_str(), 16, skin::WithAlpha(skin::kWhite, 200));
+	Place(whereTxt, 40, 30);
+	const std::string title = GameTitle(state);
+	GuiText titleTxt(title.c_str(), 30, skin::kWhite);
+	Place(titleTxt, 40, 52);
+	titleTxt.SetWrap(true, 560);
+	GuiText idTxt(state.game_id.c_str(), 16, skin::WithAlpha(skin::kWhite, 200));
+	Place(idTxt, 40, 150);
 
-	GuiText discTxt(state.disc_status.c_str(), 18, (GXColor){200, 200, 200, 255});
-	discTxt.SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
-	discTxt.SetPosition(40, 58);
+	Panel panel(skin::panelGame, 34, 196);
+	GuiFlowList list(46, 203, 548, 5);
+	list.SetRows(&rows);
+	list.Select(0);
 
-	GuiText detailTxt(BoundedHomeDetail(HomeDetail(state, scanStatus)).c_str(), 16, (GXColor){255, 255, 255, 255});
-	detailTxt.SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
-	detailTxt.SetPosition(40, 328);
-	detailTxt.SetWrap(false);
+	GuiText statusTxt(SaveNote(state.model.save_mode).c_str(), 15, skin::kInkSoft);
+	Place(statusTxt, 0, 380, true);
+	statusTxt.SetMaxWidth(572);
 
-	GuiRichList browser(580, 236, 59, 70);
-	browser.SetRows(&rows);
-	browser.SetPosition(0, 84);
-	browser.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
-	browser.SetFocus(1);
-	for (std::size_t r = 0; r < visible.size(); ++r)
-		if (static_cast<int>(visible[r]) == selectedPackage) browser.SelectRow(static_cast<int>(r));
-
-	GuiSound btnSoundOver(button_over_pcm, button_over_pcm_size, SOUND::PCM);
-	GuiImageData btnOutline(button_png);
-	GuiImageData btnOutlineOver(button_over_png);
-
-	// Five buttons across a 640-wide screen: the template's 196-wide
-	// button scaled to 167, stacked in pairs. Dump (a development aid)
-	// has no button: the Wii Remote's 2 or a GameCube pad's B.
-	MenuButton exitBtn("Exit", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_HOME | WPAD_CLASSIC_BUTTON_HOME, 0, WIIDRC_BUTTON_HOME);
-	exitBtn.Place(ALIGN_H::LEFT, ALIGN_V::BOTTOM, 40, -35);
-	MenuButton backBtn("Back", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
-	backBtn.Place(ALIGN_H::CENTRE, ALIGN_V::BOTTOM, 0, -82);
-	MenuButton savesBtn("Save Mode", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_MINUS | WPAD_CLASSIC_BUTTON_MINUS, PAD_BUTTON_START, WIIDRC_BUTTON_MINUS);
-	savesBtn.Place(ALIGN_H::CENTRE, ALIGN_V::BOTTOM, 0, -35);
-	MenuButton optionsBtn("Mod Options", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_PLUS | WPAD_CLASSIC_BUTTON_PLUS, PAD_BUTTON_X, WIIDRC_BUTTON_PLUS);
-	optionsBtn.Place(ALIGN_H::RIGHT, ALIGN_V::BOTTOM, -40, -82);
-	MenuButton launchBtn("Launch", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_1 | WPAD_CLASSIC_BUTTON_Y, PAD_BUTTON_Y, WIIDRC_BUTTON_X);
-	launchBtn.Place(ALIGN_H::RIGHT, ALIGN_V::BOTTOM, -40, -35);
-	for (MenuButton* b : {&exitBtn, &backBtn, &savesBtn, &optionsBtn, &launchBtn}) b->button.SetScale(0.8f);
+	SkinButton backBtn(skin::pill, skin::pillOver, 4, 50, 406, "Back",
+		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
+	SkinButton startBtn(skin::pillPrimary, skin::pillPrimaryOver, 4, 346, 406, "Start",
+		WPAD_BUTTON_PLUS | WPAD_CLASSIC_BUTTON_PLUS, PAD_BUTTON_START | PAD_BUTTON_X, WIIDRC_BUTTON_PLUS);
+	startBtn.text.SetColor(skin::kAccentInk);
+	// Dump (a development aid) has no button: the Wii Remote's 2 or a
+	// GameCube pad's Z.
 	GuiTrigger trigDump;
 	trigDump.SetButtonOnlyTrigger(-1, WPAD_BUTTON_2 | WPAD_CLASSIC_BUTTON_X, PAD_TRIGGER_Z);
-	GuiButton dumpBtn(0, 0);  // invisible: a trigger only
+	GuiButton dumpBtn(0, 0);
 	dumpBtn.SetTrigger(&trigDump);
-	const auto save_before_leave = [&](int next_menu) {
-		std::string error;
-		if (!SaveChoices(state, error)) {
-			launchBtn.button.ResetState();
-			SetBoundedHomeDetail(detailTxt, error);
-			return false;
-		}
-		menu = next_menu;
-		return true;
-	};
 
 	HaltGui();
 	GuiWindow w(screenwidth, screenheight);
+	w.Append(&banner);
+	w.Append(&whereTxt);
 	w.Append(&titleTxt);
-	w.Append(&discTxt);
-	w.Append(&browser);
-	w.Append(&detailTxt);
-	w.Append(&exitBtn.button);
+	w.Append(&idTxt);
+	w.Append(&panel);
+	w.Append(&list);
+	w.Append(&statusTxt);
 	w.Append(&backBtn.button);
-	w.Append(&savesBtn.button);
-	w.Append(&optionsBtn.button);
-	w.Append(&launchBtn.button);
+	w.Append(&startBtn.button);
 	w.Append(&dumpBtn);
 	mainWindow->Append(&w);
 	ResumeGui();
 
+	const auto say = [&](const std::string& text) { statusTxt.SetText(text.c_str()); };
+	const auto saveOrSay = [&]() {
+		std::string error;
+		if (SaveChoices(state, error)) return true;
+		say(error);
+		return false;
+	};
+	int shownRow = -1;
 	while(menu == MENU_NONE)
 	{
 		usleep(10000);
 		HaltGui();
-		ClearStaleButtons({&exitBtn.button, &backBtn.button, &savesBtn.button, &optionsBtn.button, &launchBtn.button});
-		// + and Mod Options act on the highlighted row.
-		const int highlighted = browser.GetSelectedRow();
-		if (highlighted >= 0 && static_cast<std::size_t>(highlighted) < visible.size())
-			selectedPackage = static_cast<int>(visible[static_cast<std::size_t>(highlighted)]);
-		const int clicked = browser.GetClickedRow();
-		if (clicked >= 0 && static_cast<std::size_t>(clicked) < visible.size()) {
-			// A on a row: enable or disable it, saved at once so a later
-			// Back navigation (which rescans and restores) cannot wipe it.
-			const std::size_t pkg = visible[static_cast<std::size_t>(clicked)];
-			selectedPackage = static_cast<int>(pkg);
-			riftwii::LaunchPackage& p = state.model.packages[pkg];
-			const bool enabling = !p.enabled;
-			const bool simple_was_off = enabling && p.valid && p.package.options.size() == 1 &&
-				p.package.options.front().choices.size() == 1 && p.package.options.front().selected == 0;
-			if (!state.model.set_enabled(pkg, !p.enabled)) {
-				if (!p.valid) SetBoundedHomeDetail(detailTxt, "Invalid XML; + details");
-				else if (!p.for_disc) SetBoundedHomeDetail(detailTxt, "Other disc; cannot enable");
-				else SetBoundedHomeDetail(detailTxt, "Cannot enable this package");
+		ClearStaleButtons({&backBtn.button, &startBtn.button});
+
+		const int row = list.Selected();
+		if (row != shownRow && row >= 0 && static_cast<std::size_t>(row) < refs.size()) {
+			shownRow = row;
+			const RowRef& ref = refs[static_cast<std::size_t>(row)];
+			if (ref.what == RowRef::What::Saves) say(SaveNote(state.model.save_mode));
+			else if (ref.what == RowRef::What::Pack) say(PackSummary(state.model.packages[ref.pkg]));
+			else if (ref.what == RowRef::What::Option) {
+				const riftwii::Option& o = state.model.packages[ref.pkg].package.options[ref.opt];
+				say(o.section.empty() ? PackName(state.model.packages[ref.pkg].file) : o.section);
+			} else say("");
+		}
+
+		int acted = list.GetClicked();
+		int direction = +1;
+		if (acted < 0) {
+			acted = list.GetClickedBack();
+			direction = -1;
+		}
+		if (acted >= 0 && static_cast<std::size_t>(acted) < refs.size()) {
+			const RowRef ref = refs[static_cast<std::size_t>(acted)];
+			bool changed = false;
+			if (ref.what == RowRef::What::Saves) {
+				static const char* const modes[] = {"nand", "separate", "fresh"};
+				int at = 0;
+				while (at < 3 && state.model.save_mode != modes[at]) ++at;
+				state.model.save_mode = modes[((at % 3) + 3 + direction) % 3];
+				changed = true;
+			} else if (ref.what == RowRef::What::Pack) {
+				riftwii::LaunchPackage& p = state.model.packages[ref.pkg];
+				if (!p.valid) say("This XML cannot be read; fix it on the card and come back.");
+				else changed = state.model.set_enabled(ref.pkg, !p.enabled);
+				if (!changed && p.valid) say("This pack cannot be turned on.");
+			} else if (ref.what == RowRef::What::Option) {
+				changed = state.model.cycle(ref.pkg, ref.opt, direction);
+			}
+			if (changed) {
+				saveOrSay();
+				BuildGameRows(state, scanStatus, rows, refs);
+				list.Refresh();
+				list.Select(acted);
+				shownRow = -1;
+			}
+		}
+
+		if (backBtn.Clicked()) {
+			if (saveOrSay()) menu = MENU_SOURCE;
+			else backBtn.button.ResetState();
+		} else if (startBtn.Clicked()) {
+			startBtn.button.ResetState();
+			if (state.game_id.empty()) {
+				say("No game is selected; go back and pick one.");
+			} else if (state.use_usb && !state.usb_catalog.cios_note.empty()) {
+				// No cIOS in any candidate slot: refuse while the remedy is
+				// still readable on screen.
+				say(FlatCapped(state.usb_catalog.cios_note, 150));
+			} else if (state.use_sd && !state.sd_catalog.cios_note.empty()) {
+				say(FlatCapped(state.sd_catalog.cios_note, 150));
+			} else if (!saveOrSay()) {
+				// the status shows why
+			} else if (!riftwii::needs_launch_pipeline(!state.model.selections().empty(), state.model.save_mode)) {
+				menu = MENU_BOOT;  // no resident work: boot the game as it is
+			} else if (state.use_usb || state.use_sd) {
+				// cIOS reload and F9 happen after the GUI exits; compilation
+				// follows the virtual DI probe in RunLaunch.
+				menu = MENU_LAUNCH;
 			} else {
-				std::string save_error;
-				if (!SaveChoices(state, save_error)) SetBoundedHomeDetail(detailTxt, save_error);
+				// A physical disc: compile now, while problems can still be
+				// shown here, then boot the compiled selection.
+				say("Preparing the mods...");
+				ResumeGui();
+				std::string error;
+				state.has_compiled = false;
+				const bool ok = CompileSelection(state.model.selections(), state.compiled, error);
+				HaltGui();
+				state.has_compiled = ok;
+				if (ok) menu = MENU_LAUNCH;
 				else {
-					const bool simple_auto_selected = simple_was_off && p.enabled && p.package.options.front().selected == 1;
-					SetBoundedHomeDetail(detailTxt, ToggleDetail(p, p.enabled, simple_auto_selected));
-					// Turning on a mod with real settings goes straight to them:
-					// most packs do nothing until a choice is made.
-					if (enabling && p.enabled && !simple_auto_selected && !p.package.options.empty())
-						menu = MENU_OPTIONS;
+					logf("Compile failed: %s\n", error.c_str());
+					say(FlatCapped(error, 150));
 				}
 			}
-			fill();
-			browser.TriggerUpdate();
-		}
-		if(exitBtn.Clicked()) {
-			std::string ignored;
-			SaveChoices(state, ignored);  // best effort: quitting keeps the session's choices
-			menu = MENU_EXIT;
-		}
-		else if(optionsBtn.Clicked()) {
-			if (selectedPackage >= 0 && static_cast<std::size_t>(selectedPackage) < state.model.packages.size() &&
-			    riftwii::show_package(state.model.packages[selectedPackage])) {
-				menu = MENU_OPTIONS;
-			} else {
-				optionsBtn.button.ResetState();
-				SetBoundedHomeDetail(detailTxt, "Select a mod; + options");
-			}
-		}
-		else if(backBtn.Clicked()) {
-			// Save first: MenuHome rescans and restores on entry, so an
-			// unsaved Back would wipe row and choice changes. Stay put on
-			// failure rather than silently losing them.
-			std::string save_error;
-			if (!SaveChoices(state, save_error)) {
-				backBtn.button.ResetState();
-				SetBoundedHomeDetail(detailTxt, save_error);
-			} else if (state.use_usb || state.use_sd) {
-				menu = MENU_GAMES;
-			} else {
-				menu = MENU_SOURCE;
-			}
-		}
-		else if(savesBtn.Clicked()) {
-			savesBtn.button.ResetState();
-			if (state.model.save_mode == "separate") state.model.save_mode = "fresh";
-			else if (state.model.save_mode == "fresh") state.model.save_mode = "nand";
-			else state.model.save_mode = "separate";
-			std::string error;
-			if (!SaveChoices(state, error)) SetBoundedHomeDetail(detailTxt, error);
-			else SetBoundedHomeDetail(detailTxt, HomeDetail(state, scanStatus));
-		}
-		else if(launchBtn.Clicked()) {
-			if (state.game_id.empty()) {
-				launchBtn.button.ResetState();
-				SetBoundedHomeDetail(detailTxt, "Insert disc; rescan first");
-			} else if (state.use_usb && !state.usb_catalog.cios_note.empty()) {
-				// No cIOS in any candidate slot: refuse before the GUI tears
-				// down, while the remedy is still readable on screen. The
-				// reload path errors the same way headless (autorun) runs.
-				launchBtn.button.ResetState();
-				SetBoundedHomeDetail(detailTxt, state.usb_catalog.cios_note);
-			} else if (state.use_sd && !state.sd_catalog.cios_note.empty()) {
-				launchBtn.button.ResetState();
-				SetBoundedHomeDetail(detailTxt, state.sd_catalog.cios_note);
-			} else if (!riftwii::needs_launch_pipeline(!state.model.selections().empty(), state.model.save_mode)) {
-				save_before_leave(MENU_BOOT);  // no resident work: boot the selected source as it is
-			} else if (state.use_usb || state.use_sd) {
-				// cIOS reload and F9 must happen after the GUI exits; compilation
-				// follows the virtual DI probe in RunLaunch. This also retains a
-				// selected Separate/Fresh save redirect with no enabled package.
-				save_before_leave(MENU_LAUNCH);
-			} else {
-				// Preflight builds the resident plan even with no packages when
-				// Separate/Fresh needs the save redirect for a physical disc.
-				save_before_leave(MENU_PREFLIGHT);
-			}
-		}
-		else if(dumpBtn.GetState() == STATE::CLICKED)
+		} else if (dumpBtn.GetState() == STATE::CLICKED) {
 			menu = MENU_DUMP;
+		}
 		ResumeGui();
 	}
 
@@ -989,271 +872,167 @@ static int MenuHome(FrontendState& state)
 	return menu;
 }
 
-// Compiles the enabled packages and shows what they will do to the disc
-// (the compiler's notes, one per row) or why they cannot; Boot goes on,
-// Back returns with nothing changed.
-static int MenuPreflight(FrontendState& state)
+// ---------------------------------------------------------------------------
+// Settings
+
+static int MenuSettings(FrontendState& state)
 {
+	(void)state;
 	int menu = MENU_NONE;
 
-	GuiText titleTxt("Launch", 28, (GXColor){255, 255, 255, 255});
-	titleTxt.SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
-	titleTxt.SetPosition(40,20);
-	GuiText statusTxt("Compiling the enabled packages...", 18, (GXColor){200, 200, 200, 255});
-	statusTxt.SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
-	statusTxt.SetPosition(40, 58);
+	const std::vector<int> iosChoices = riftwii::wii::MenuIosChoices();
+	int iosSlot = riftwii::wii::LoadMenuIos();
+	const bool iosChoosable = iosChoices.size() > 1 || iosSlot != 0;
 
-	HaltGui();
-	GuiWindow w(screenwidth, screenheight);
-	w.Append(&titleTxt);
-	w.Append(&statusTxt);
-	mainWindow->Append(&w);
-	ResumeGui();
-
-	// The compile reads the card and the disc; the GUI thread keeps drawing.
-	std::string error;
-	state.has_compiled = false;
-	const bool ok = CompileSelection(state.model.selections(), state.compiled, error);
-	state.has_compiled = ok;
-
-	static OptionList options;
-	memset(&options, 0, sizeof(options));
-	std::vector<std::string> rows;
-	if (ok) {
-		const riftwii::SaveOverride saves =
-		    riftwii::resolve_save_override(state.model.save_mode, state.compiled.savegame_dir, state.game_id);
-		if (!state.compiled.savegame_dir.empty())
-			rows.push_back("Saves: " + state.compiled.savegame_dir + " (from the mod)");
-		else if (!saves.dir.empty())
-			rows.push_back("Saves: " + saves.dir + (saves.clone ? " (progress cloned in once)" : " (fresh)"));
-		else
-			rows.push_back("Saves: NAND (as usual)");
-		const std::size_t after_saves = rows.size();
-		for (const std::string& warning : state.compiled.warnings) rows.push_back("warning: " + warning);
-		for (const std::string& note : state.compiled.notes) rows.push_back(note);
-		if (rows.size() == after_saves) rows.push_back("Nothing to apply");
-	} else {
-		rows.push_back(error);
-	}
-	for (const std::string& row : rows) {
-		if (options.length == MAX_OPTIONS) break;
-		snprintf(options.name[options.length], sizeof(options.name[0]), "%.49s", row.c_str());
-		options.value[options.length][0] = 0;
-		++options.length;
-	}
-	char summary[128];
-	if (ok) {
-		snprintf(summary, sizeof(summary), "%u file range(s), %u relocated or created file(s), %u memory patch(es)",
-			 static_cast<unsigned>(state.compiled.entries.size()), static_cast<unsigned>(state.compiled.relocations.size()),
-			 static_cast<unsigned>(state.compiled.memory.size()));
-	} else {
-		snprintf(summary, sizeof(summary), "Cannot launch: fix the package or the card and try again");
-	}
-
-	HaltGui();
-	statusTxt.SetText(summary);
-	GuiOptionBrowser browser(552, 248, &options);
-	browser.SetPosition(0, 84);
-	browser.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
-	browser.SetCol2Position(540);
-	browser.SetFocus(1);
-
-	GuiText detailTxt(ok ? "Boot (1/Y, X on GamePad) starts the game with these patches; Back (B) changes nothing" : error.c_str(), 16,
-			  (GXColor){255, 255, 255, 255});
-	detailTxt.SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
-	detailTxt.SetPosition(40, 340);
-	detailTxt.SetWrap(true, screenwidth - 80);
-
-	GuiSound btnSoundOver(button_over_pcm, button_over_pcm_size, SOUND::PCM);
-	GuiImageData btnOutline(button_png);
-	GuiImageData btnOutlineOver(button_over_png);
-	MenuButton backBtn("Back", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
-	backBtn.Place(ALIGN_H::LEFT, ALIGN_V::BOTTOM, 40, -35);
-	MenuButton bootBtn("Boot", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_1 | WPAD_CLASSIC_BUTTON_Y, PAD_BUTTON_Y, WIIDRC_BUTTON_X);
-	bootBtn.Place(ALIGN_H::RIGHT, ALIGN_V::BOTTOM, -40, -35);
-	bootBtn.button.SetScale(0.85f);
-
-	w.Append(&browser);
-	w.Append(&detailTxt);
-	w.Append(&backBtn.button);
-	if (ok) w.Append(&bootBtn.button);
-	ResumeGui();
-
-	while(menu == MENU_NONE)
-	{
-		usleep(10000);
-		HaltGui();
-		ClearStaleButtons({&backBtn.button, &bootBtn.button});
-		browser.GetClickedOption();  // rows are information only
-		if (backBtn.Clicked())
-			menu = MENU_HOME;
-		else if (ok && bootBtn.Clicked())
-			menu = MENU_LAUNCH;
-		ResumeGui();
-	}
-
-	HaltGui();
-	mainWindow->Remove(&w);
-	return menu;
-}
-
-static int MenuOptions(FrontendState& state)
-{
-	int menu = MENU_NONE;
-	riftwii::LaunchPackage& p = state.model.packages[selectedPackage];
-	const bool readOnly = !p.valid;
-	DetailPages detailPages = MakeDetailPages(p.detail);
-	std::size_t detailPage = 0;
-
-	// One row per setting: its name (section underneath) and, on the
-	// right, the current choice. A steps to the next choice.
-	std::vector<RichRow> rows;
-	const auto fill = [&]() {
+	enum RowAction { kIos, kRescan, kExit, kNone };
+	std::vector<FlowRow> rows;
+	std::vector<RowAction> actions;
+	const auto build = [&]() {
 		rows.clear();
-		for (std::size_t i = 0; i < p.package.options.size() && static_cast<int>(rows.size()) < kOptionCapacity; ++i) {
-			const riftwii::Option& o = p.package.options[i];
-			RichRow r;
-			r.title = o.name;
-			r.subtitle = o.section;
-			r.tag = state.model.choice_name(selectedPackage, i);
-			rows.push_back(std::move(r));
+		actions.clear();
+		FlowRow ios;
+		ios.kind = iosChoosable ? FlowRow::Kind::Option : FlowRow::Kind::Info;
+		ios.label = iosChoosable ? "Menu IOS" : "Menu IOS: IOS 58 (no d2x cIOS found)";
+		if (iosChoosable) {
+			ios.value = MenuIosLabel(iosSlot);
+			ios.on = iosSlot != 0;
 		}
-		if (rows.empty()) {
-			RichRow r;
-			r.title = "This mod has no settings";
-			r.subtitle = "It applies as a whole when it is On";
-			r.dim = true;
-			rows.push_back(std::move(r));
-		}
+		ios.dim = !iosChoosable;
+		rows.push_back(ios);
+		actions.push_back(iosChoosable ? kIos : kNone);
+		FlowRow rescan;
+		rescan.kind = FlowRow::Kind::Action;
+		rescan.label = "Look for games again";
+		rescan.value = "Rescan";
+		rows.push_back(rescan);
+		actions.push_back(kRescan);
+		FlowRow exitRow;
+		exitRow.kind = FlowRow::Kind::Action;
+		exitRow.label = "Leave Riftwii";
+		exitRow.value = "Exit";
+		rows.push_back(exitRow);
+		actions.push_back(kExit);
 	};
-	fill();
+	build();
 
-	const std::string heading = PackName(p.file);
-	GuiText titleTxt(heading.c_str(), 26, (GXColor){255, 255, 255, 255});
-	titleTxt.SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
-	titleTxt.SetPosition(40,20);
-	titleTxt.SetMaxWidth(screenwidth - 80);
+	GuiText titleTxt("Settings", 30, skin::kInk);
+	Place(titleTxt, 40, 28);
+	GuiText versionTxt("Riftwii " RIFTWII_VERSION, 15, skin::kInkDim);
+	versionTxt.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
+	versionTxt.SetPosition(-40, 40);
+	Panel panel(skin::panelSettings, 34, 84);
+	GuiFlowList list(46, 94, 548, 3);
+	list.SetRows(&rows);
+	list.Select(0);
+	GuiText noteTxt(MenuIosNote(iosSlot).c_str(), 16, skin::kInkSoft);
+	Place(noteTxt, 52, 214);
+	noteTxt.SetWrap(true, 536);
 
-	GuiText hintTxt(readOnly ? "+: next detail   B: back" : "A: next choice   -: previous   +: details   B: done", 18,
-		(GXColor){200, 200, 200, 255});
-	hintTxt.SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
-	hintTxt.SetPosition(40, 58);
-
-	// Paged diagnostics preserve the complete parser detail without allowing
-	// a long no-whitespace attribute name to reach the button row.
-	GuiText detailTxt0(detailPages.pages[detailPage].rows[0].c_str(), 16, (GXColor){255, 255, 255, 255});
-	GuiText detailTxt1(detailPages.pages[detailPage].rows[1].c_str(), 16, (GXColor){255, 255, 255, 255});
-	GuiText detailTxt2(detailPages.pages[detailPage].rows[2].c_str(), 16, (GXColor){255, 255, 255, 255});
-	for (GuiText* text : {&detailTxt0, &detailTxt1, &detailTxt2}) {
-		text->SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
-		text->SetWrap(false);
-	}
-	detailTxt0.SetPosition(40, 340);
-	detailTxt1.SetPosition(40, 362);
-	detailTxt2.SetPosition(40, 384);
-	const std::array<GuiText*, kDetailLinesPerPage> detailRows = {&detailTxt0, &detailTxt1, &detailTxt2};
-
-	GuiRichList browser(580, 248, 62, 190);
-	browser.SetRows(&rows);
-	browser.SetPosition(0, 84);
-	browser.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
-	browser.SetFocus(1);
-
-	GuiSound btnSoundOver(button_over_pcm, button_over_pcm_size, SOUND::PCM);
-	GuiImageData btnOutline(button_png);
-	GuiImageData btnOutlineOver(button_over_png);
-
-	MenuButton backBtn(readOnly ? "Back" : "Done", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
-	backBtn.Place(ALIGN_H::LEFT, ALIGN_V::BOTTOM, 40, -35);
-	MenuButton prevBtn("Previous", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_MINUS | WPAD_CLASSIC_BUTTON_MINUS, PAD_BUTTON_Y, WIIDRC_BUTTON_MINUS);
-	prevBtn.Place(ALIGN_H::RIGHT, ALIGN_V::BOTTOM, -40, -35);
-	MenuButton detailBtn("Next Detail", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_PLUS | WPAD_CLASSIC_BUTTON_PLUS, PAD_BUTTON_X, WIIDRC_BUTTON_PLUS);
-	detailBtn.Place(ALIGN_H::CENTRE, ALIGN_V::BOTTOM, 0, -35);
-	backBtn.button.SetScale(0.85f);
-	prevBtn.button.SetScale(0.85f);
-	detailBtn.button.SetScale(0.85f);
+	SkinButton backBtn(skin::pill, skin::pillOver, 4, 198, 406, "Back",
+		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
 
 	HaltGui();
 	GuiWindow w(screenwidth, screenheight);
 	w.Append(&titleTxt);
-	w.Append(&hintTxt);
-	if (!readOnly) w.Append(&browser);
-	w.Append(&detailTxt0);
-	w.Append(&detailTxt1);
-	w.Append(&detailTxt2);
+	w.Append(&versionTxt);
+	w.Append(&panel);
+	w.Append(&list);
+	w.Append(&noteTxt);
 	w.Append(&backBtn.button);
-	if (!readOnly) w.Append(&prevBtn.button);
-	w.Append(&detailBtn.button);
 	mainWindow->Append(&w);
 	ResumeGui();
 
-	int lastRow = 0;
 	while(menu == MENU_NONE)
 	{
 		usleep(10000);
 		HaltGui();
-		if (readOnly) ClearStaleButtons({&backBtn.button, &detailBtn.button});
-		else ClearStaleButtons({&backBtn.button, &prevBtn.button, &detailBtn.button});
-		const int clicked = readOnly ? -1 : browser.GetClickedRow();
-		if (clicked >= 0 && static_cast<std::size_t>(clicked) < p.package.options.size()) {
-			lastRow = clicked;
-			state.model.cycle(selectedPackage, clicked, +1);
-			fill();
-			browser.TriggerUpdate();
+		ClearStaleButtons({&backBtn.button});
+		int acted = list.GetClicked();
+		int direction = +1;
+		if (acted < 0) {
+			acted = list.GetClickedBack();
+			direction = -1;
 		}
-		if (!readOnly && prevBtn.Clicked()) {
-			prevBtn.button.ResetState();
-			const int highlighted = browser.GetSelectedRow();
-			if (highlighted >= 0) lastRow = highlighted;
-			if (static_cast<std::size_t>(lastRow) < p.package.options.size()) {
-				state.model.cycle(selectedPackage, lastRow, -1);
-				fill();
-				browser.TriggerUpdate();
+		if (acted >= 0 && static_cast<std::size_t>(acted) < actions.size()) {
+			switch (actions[static_cast<std::size_t>(acted)]) {
+				case kIos: {
+					// Step to the next installed choice (IOS58, then each d2x slot).
+					std::size_t at = 0;
+					while (at < iosChoices.size() && iosChoices[at] != iosSlot) ++at;
+					const int n = static_cast<int>(iosChoices.size());
+					iosSlot = iosChoices[static_cast<std::size_t>((static_cast<int>(at % n) + direction + n) % n)];
+					if (riftwii::wii::SaveMenuIos(iosSlot)) {
+						logf("Menu IOS set to %s\n", MenuIosLabel(iosSlot).c_str());
+						noteTxt.SetText(MenuIosNote(iosSlot).c_str());
+					} else {
+						noteTxt.SetText("Cannot write sd:/riftwii/menu_ios.txt");
+					}
+					build();
+					list.Refresh();
+					list.Select(acted);
+					break;
+				}
+				case kRescan:
+					g_scanned = false;
+					menu = MENU_SOURCE;
+					break;
+				case kExit:
+					menu = MENU_EXIT;
+					break;
+				default:
+					break;
 			}
 		}
-		if (detailBtn.Clicked()) {
-			detailBtn.button.ResetState();
-			detailPage = (detailPage + 1) % detailPages.pages.size();
-			SetDetailRows(detailRows, detailPages.pages[detailPage]);
-		}
-		if(backBtn.Clicked()) {
-			if (readOnly) {
-				menu = MENU_HOME;
-				ResumeGui();
-				continue;
-			}
-			// Cycled choices live in memory until saved; MenuHome would
-			// restore the file over them on entry.
-			std::string save_error;
-			if (!SaveChoices(state, save_error)) {
-				backBtn.button.ResetState();
-				SetDetailRows(detailRows, MakeDetailPages(save_error).pages.front());
-			} else {
-				menu = MENU_HOME;
-			}
-		}
+		if (menu == MENU_NONE && backBtn.Clicked())
+			menu = MENU_SOURCE;
 		ResumeGui();
 	}
 
 	HaltGui();
 	mainWindow->Remove(&w);
 	return menu;
+}
+
+// ---------------------------------------------------------------------------
+// Launch frame: stays on screen while the boot log prints into its card.
+
+static void ShowLaunchFrame(const FrontendState& state, int action)
+{
+	const std::string title = GameTitle(state);
+	const char* doing = action == MENU_DUMP ? "Dumping files from" : "Starting";
+	GuiText doingTxt(doing, 16, skin::kInkDim);
+	Place(doingTxt, 40, 40);
+	GuiText titleTxt(title.c_str(), 28, skin::kInk);
+	Place(titleTxt, 40, 62);
+	titleTxt.SetWrap(true, 560);
+	Panel card(skin::panelSettings, 34, 160);
+	GuiText footTxt("The game takes over the screen when it is ready.", 15, skin::kInkDim);
+	Place(footTxt, 0, 428, true);
+
+	HaltGui();
+	hidePointers = true;
+	GuiWindow w(screenwidth, screenheight);
+	w.Append(&doingTxt);
+	w.Append(&titleTxt);
+	w.Append(&card);
+	w.Append(&footTxt);
+	mainWindow->Append(&w);
+	ResumeGui();
+	usleep(100000);  // a few frames, so both framebuffers show it
+	HaltGui();
+	mainWindow->Remove(&w);
 }
 
 int MainMenu(int menu, FrontendState& state)
 {
 	int currentMenu = menu;
 
-	pointer[0] = new GuiImageData(player1_point_png);
-	pointer[1] = new GuiImageData(player2_point_png);
-	pointer[2] = new GuiImageData(player3_point_png);
-	pointer[3] = new GuiImageData(player4_point_png);
-
+	skin::Init();
+	soundOver = new GuiSound(button_over_pcm, button_over_pcm_size, SOUND::PCM);
 	mainWindow = new GuiWindow(screenwidth, screenheight);
-
-	bgImg = new GuiImage(screenwidth, screenheight, (GXColor){40, 40, 48, 255});
-	bgImg->ColorStripe(30);
-	mainWindow->Append(bgImg);
+	backdrop = new skin::GuiBackdrop();
+	mainWindow->Append(backdrop);
+	riftwii::wii::GuiScriptLoad("sd:/riftwii/guiscript.txt");
 
 	ResumeGui();
 
@@ -1262,30 +1041,24 @@ int MainMenu(int menu, FrontendState& state)
 		logf("Screen: %s\n", ScreenName(currentMenu));
 		switch (currentMenu)
 		{
-			case MENU_SOURCE:
-				currentMenu = MenuSource(state);
-				break;
-			case MENU_GAMES:
-				currentMenu = MenuGames(state);
-				break;
 			case MENU_OPTIONS:
-				currentMenu = MenuOptions(state);
-				break;
-			case MENU_PREFLIGHT:
-				currentMenu = MenuPreflight(state);
+				currentMenu = MenuSettings(state);
 				break;
 			case MENU_HOME:
-			default:
 				currentMenu = MenuHome(state);
+				break;
+			case MENU_SOURCE:
+			default:
+				currentMenu = MenuSource(state);
 				break;
 		}
 	}
 
 	logf("Screen: %s\n", ScreenName(currentMenu));
 	if (currentMenu == MENU_LAUNCH || currentMenu == MENU_BOOT || currentMenu == MENU_DUMP) {
-		// The GUI thread is halted (the screens halt it before returning);
-		// hand the screen back to main for the console phase.
-		mainWindow->Remove(bgImg);
+		// The GUI thread is halted after this; main prints the boot log
+		// into the card of the frame left on screen.
+		ShowLaunchFrame(state, currentMenu);
 		return currentMenu;
 	}
 
