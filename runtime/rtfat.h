@@ -35,7 +35,14 @@ extern "C" {
 #endif
 
 #define RTFAT_SECTOR_BYTES 512u
-#define RTFAT_NAME_MAX 12u   /* ISFS file name length; longer card names never match */
+/* A file name the game may open, create, rename or delete: anything that
+ * fits in a 64-byte ISFS path. The Wii's own NAND stops at 12 characters,
+ * but Riivolution maps save paths straight to the card, and packs rely on
+ * longer names there (Galaxy 63's BlueCoinData.bin). Listings still hand
+ * out at most RTFAT_LIST_NAME_MAX characters per name: a longer name is
+ * listed under its short 8.3 alias, which opens the same file. */
+#define RTFAT_NAME_MAX 63u
+#define RTFAT_LIST_NAME_MAX 12u /* ISFS ReadDir name length */
 #define RTFAT_SLOT_BYTES 13u /* ReadDir buffer bytes per name (12 characters and a NUL); IOS packs the
                               * names consecutively, each NUL-terminated, so the buffer is never overrun */
 
@@ -95,6 +102,7 @@ struct rtfat_dirent {
     uint32_t lfn_index;
     uint32_t lfn_count;      /* long-name entries before the short one */
     char name[RTFAT_NAME_MAX + 1];
+    char alias[RTFAT_LIST_NAME_MAX + 1];  /* the 8.3 name as displayed */
 };
 
 /* Operation kinds. */
@@ -152,7 +160,7 @@ struct rtfat_op {
     uint32_t scan_lba;
     uint32_t scan_clusters;      /* clusters visited (loop guard) */
     uint32_t scan_end;           /* an end-of-directory entry was seen */
-    uint32_t lfn_ok;             /* long name collected so far is ASCII and not too long */
+    uint32_t lfn_ok;             /* long name collected so far is ASCII and within RTFAT_NAME_MAX */
     uint32_t lfn_expect;         /* next sequence number expected (counting down), 0 = none */
     uint32_t lfn_sum;            /* checksum the long entries carry */
     uint32_t lfn_count;

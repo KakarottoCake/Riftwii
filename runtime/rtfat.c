@@ -448,7 +448,7 @@ static void take_lfn(struct rtfat_op* op, const uint8_t* e, uint32_t lba, uint32
         const uint32_t pos = (part - 1) * 13 + i;
         if (u == 0 || u == 0xFFFFu) continue; /* terminator and padding */
         if (pos >= RTFAT_NAME_MAX || u < 0x20 || u >= 0x80) {
-            op->lfn_ok = 0; /* too long for ISFS, or not ASCII: never matches, never listed */
+            op->lfn_ok = 0; /* too long for a path, or not ASCII: the entry goes by its alias */
         } else {
             op->lfn[pos] = (char)u;
         }
@@ -491,6 +491,7 @@ static int on_short_entry(struct rtfat_op* op, const uint8_t* e, uint32_t lba, u
     d.attributes = attr;
     d.entry_lba = lba;
     d.entry_index = index;
+    decode_short(e, d.alias);
     if (long_valid) {
         d.lfn_lba = op->lfn_lba;
         d.lfn_index = op->lfn_index;
@@ -500,12 +501,14 @@ static int on_short_entry(struct rtfat_op* op, const uint8_t* e, uint32_t lba, u
         d.lfn_lba = lba;
         d.lfn_index = index;
         d.lfn_count = 0;
-        decode_short(e, d.name);
+        for (i = 0; i <= RTFAT_LIST_NAME_MAX; ++i) d.name[i] = d.alias[i];
     }
     reset_lfn(op);
     switch (op->scan_mode) {
         case SCAN_FIND:
-            if (!(attr & ATTR_DIRECTORY) && names_equal(d.name, op->new_name)) {
+            if (!(attr & ATTR_DIRECTORY) &&
+                (names_equal(d.name, op->new_name) ||
+                 (str_len(d.name) > RTFAT_LIST_NAME_MAX && names_equal(d.alias, op->new_name)))) {
                 op->found = d;
                 op->state = op->next_state;
                 return 1;
@@ -532,7 +535,8 @@ static int on_short_entry(struct rtfat_op* op, const uint8_t* e, uint32_t lba, u
                     /* As IOS answers ReadDir: the names one after another,
                      * each NUL-terminated (Dolphin's IOS, libogc's callers). */
                     uint8_t* slot = (uint8_t*)(uintptr_t)op->buffer + op->list_bytes;
-                    for (i = 0; i < RTFAT_NAME_MAX && d.name[i]; ++i) slot[i] = (uint8_t)d.name[i];
+                    const char* shown = str_len(d.name) > RTFAT_LIST_NAME_MAX ? d.alias : d.name;
+                    for (i = 0; i < RTFAT_LIST_NAME_MAX && shown[i]; ++i) slot[i] = (uint8_t)shown[i];
                     slot[i] = 0;
                     op->list_bytes += i + 1;
                 }
@@ -719,6 +723,7 @@ static void fill_entries(struct rtfat_op* op) {
     op->found.lfn_index = op->free_index;
     op->found.lfn_count = parts;
     for (k = 0; k <= RTFAT_NAME_MAX; ++k) op->found.name[k] = op->new_name[k];
+    decode_short(e, op->found.alias);
 }
 
 /* --- the chain walk --------------------------------------------------------- */

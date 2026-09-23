@@ -319,6 +319,9 @@ void TestStatsRenameDeleteAndFailure(Low& low) {
         EXPECT_EQ(rtfs_path_type(&fx.fs, fx.prefix.c_str(), name), RTFS_PATH_DIR);
         EXPECT_EQ(rtfs_path_type(&fx.fs, (fx.prefix + "/rksys.dat").c_str(), name), RTFS_PATH_FILE);
         EXPECT_TRUE(std::string(name) == "rksys.dat");
+        // Longer than NAND's 12 characters: the card holds it, as under Riivolution.
+        EXPECT_EQ(rtfs_path_type(&fx.fs, (fx.prefix + "/BlueCoinData.bin").c_str(), name), RTFS_PATH_FILE);
+        EXPECT_TRUE(std::string(name) == "BlueCoinData.bin");
         EXPECT_EQ(rtfs_path_type(&fx.fs, (fx.prefix + "/a/b").c_str(), name), RTFS_PATH_BAD);
         EXPECT_EQ(rtfs_path_type(nullptr, "/x", name), RTFS_PATH_OUTSIDE);
     }
