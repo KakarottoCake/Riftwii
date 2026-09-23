@@ -53,7 +53,7 @@ extern "C" {
 #endif
 
 #define RT_BLOB_MAGIC 0x5257484Bu    /* 'RWHK' */
-#define RT_BLOB_VERSION 4u
+#define RT_BLOB_VERSION 5u
 #define RT_CONTEXT_MAGIC 0x52574358u /* 'RWCX' */
 
 /* The resident table always has these entries, even when a game's DOL did
@@ -97,9 +97,17 @@ struct rt_blob_header {
     uint32_t continue_offset[RT_IPC_ENTRIES]; /* absolute continuation jumps */
     uint32_t complete_di_offset;           /* completion entry the hook installs as the IPC callback */
     uint32_t complete_fs_offset;           /* savegame completion entry (slice 4B3) */
+    /* Synchronous IOS_Open's trampoline runs one loader-filled word after
+     * popping its own frame, on the way to the replay [0] and on the way
+     * back to the caller [1]: a nop when the hook sits on the function's
+     * first instruction, `lwz r1,0(r1)` when it sits on the second (after
+     * the function's `stwu`, where code that runs that `stwu` itself and
+     * enters at +4, Pulsar's IOS_Open "OpenFix", arrives too): the
+     * function's frame is then undone, and the replay makes it again. */
+    uint32_t open_undo_offset[2];
 };
 
-typedef char rt_blob_header_layout[(sizeof(struct rt_blob_header) == 192u) ? 1 : -1];
+typedef char rt_blob_header_layout[(sizeof(struct rt_blob_header) == 200u) ? 1 : -1];
 
 /* /dev/sdio/slot0 SENDCMD request (wiibrew, libogc wiisd.c). 36 bytes. */
 struct rt_sdio_request {

@@ -53,6 +53,8 @@ bool parse_resident_blob(const std::uint8_t* bytes, std::size_t length, Resident
     }
     b.complete_di_offset = be32(bytes + 16 + RT_IPC_ENTRIES * 12);
     b.complete_fs_offset = be32(bytes + 16 + RT_IPC_ENTRIES * 12 + 4);
+    b.open_undo_offsets[0] = be32(bytes + 16 + RT_IPC_ENTRIES * 12 + 8);
+    b.open_undo_offsets[1] = be32(bytes + 16 + RT_IPC_ENTRIES * 12 + 12);
     if (magic != RT_BLOB_MAGIC) {
         error = "resident blob magic mismatch";
         return false;
@@ -66,7 +68,10 @@ bool parse_resident_blob(const std::uint8_t* bytes, std::size_t length, Resident
         return false;
     }
     if (!slot_fits(b.context_offset, kResidentContextBytes, b.size) || (b.context_offset & 31) != 0 ||
-        !slot_fits(b.complete_di_offset, 4, b.size) || !slot_fits(b.complete_fs_offset, 4, b.size)) {
+        !slot_fits(b.complete_di_offset, 4, b.size) || !slot_fits(b.complete_fs_offset, 4, b.size) ||
+        !slot_fits(b.open_undo_offsets[0], 4, b.size) || !slot_fits(b.open_undo_offsets[1], 4, b.size) ||
+        (b.open_undo_offsets[0] & 3) != 0 || (b.open_undo_offsets[1] & 3) != 0 ||
+        b.open_undo_offsets[0] < sizeof(rt_blob_header) || b.open_undo_offsets[1] < sizeof(rt_blob_header)) {
         error = "resident blob offsets are inconsistent";
         return false;
     }
@@ -258,7 +263,8 @@ bool build_payload(const PayloadPieces& pieces_in, std::uint32_t payload_address
             return false;
         }
         Piece p;
-        if (r.bytes.size() > 0xFFFFFFFFull) {
+        const std::uint64_t replacement_bytes = r.bytes.size();
+        if (replacement_bytes > 0xFFFFFFFFull) {
             error = "a replacement is 4 GiB or longer";
             return false;
         }

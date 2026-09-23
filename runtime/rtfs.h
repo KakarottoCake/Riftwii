@@ -53,6 +53,50 @@ extern "C" {
 #define RTFS_IOCTL_GETFILESTATS 0x0Bu
 #define RTFS_IOCTL_GETUSAGE 0x0Cu
 
+/*
+ * Riivolution's "file" device (behaviour as Pulsar's MIT IO/RiivoIO.hpp
+ * documents and uses it): IOS_Open("file") is the device, whose ioctls
+ * take paths on the SD card (from its root); IOS_Open("file/<path>",
+ * POSIX flags) opens a file for read, write and seek. Served when the
+ * loader turns it on (rtfs_enable_file_device), from the card's root
+ * cluster, nested folders included.
+ */
+#define RTFS_RIIVO_FD ((int32_t)RTFS_FD_BASE)  /* the device itself: generation 0 names no file */
+#define RTFS_RIIVO_PATH_BYTES 256u
+#define RTFS_MAX_DIRS 4u
+#define RTFS_DIR_BASE 0x30000000u             /* folder handles OPENDIR gives out */
+#define RTFS_RIIVO_STAT 0x40u
+#define RTFS_RIIVO_CREATEFILE 0x41u
+#define RTFS_RIIVO_DELETE 0x42u
+#define RTFS_RIIVO_TELL 0x44u                  /* seek origins beyond SEEK_END */
+#define RTFS_RIIVO_SYNC 0x45u
+#define RTFS_RIIVO_CREATEDIR 0x50u
+#define RTFS_RIIVO_OPENDIR 0x51u
+#define RTFS_RIIVO_NEXTDIR 0x52u
+#define RTFS_RIIVO_CLOSEDIR 0x53u
+#define RTFS_RIIVO_ERROR (-1)                  /* what a failed call answers */
+#define RTFS_RIIVO_NOT_OPENED (-64)            /* a failed open or opendir */
+/* Open flags (newlib's, as the device was built with). */
+#define RTFS_RIIVO_ACCMODE 0x3u
+#define RTFS_RIIVO_APPEND 0x8u
+#define RTFS_RIIVO_CREAT 0x200u
+#define RTFS_RIIVO_TRUNC 0x400u
+#define RTFS_RIIVO_EXCL 0x800u
+/* NEXTDIR/STAT answer: big-endian u64 identifier (first cluster), u64
+ * size, s32 device, s32 mode. */
+#define RTFS_RIIVO_STATS_BYTES 24u
+#define RTFS_RIIVO_MODE_DIR 0x4000u
+#define RTFS_RIIVO_MODE_FILE 0x8000u
+
+struct rtfs_dir {
+    uint32_t in_use;
+    uint32_t generation;
+    uint32_t cluster;
+    uint32_t cursor_cluster;
+    uint32_t cursor_sector;
+    uint32_t cursor_index;
+};
+
 /* Request classifications. */
 #define RTFS_PASS_THROUGH 0u
 #define RTFS_COMPLETE 1u
@@ -95,6 +139,7 @@ struct rtfs_file {
     uint32_t in_use;
     uint32_t generation;
     uint32_t mode;
+    uint32_t append;            /* file device: every write goes to the end */
     char name[RTFAT_NAME_MAX + 1];
     struct rtfat_file fat;
 };
@@ -106,8 +151,10 @@ struct rtfs_context {
                                  * buffers is what identifies it) */
     uint32_t prefix_len;
     uint32_t busy;
-    char data_prefix[RTFS_PATH_BYTES];
+    char data_prefix[RTFS_PATH_BYTES];  /* empty: no save directory is served */
+    uint32_t file_device;               /* the "file" device is served (volume.root_cluster) */
     struct rtfs_file files[RTFS_MAX_FDS];
+    struct rtfs_dir dirs[RTFS_MAX_DIRS];
 };
 
 /* Internal request actions are intentionally visible for host diagnostics;
@@ -125,6 +172,17 @@ struct rtfs_context {
 #define RTFS_ACTION_USAGE 10u
 #define RTFS_ACTION_ISDIR 11u  /* ReadDir/GetUsage on a file name: -101 when it exists, -106 when not */
 #define RTFS_ACTION_RENAME_REPLACE 12u  /* the rename's destination existed: deleting it, then renaming */
+/* The file device: WALK looks up one folder of the path, then the final
+ * action runs in the folder reached. */
+#define RTFS_ACTION_WALK 13u
+#define RTFS_ACTION_R_OPEN 14u
+#define RTFS_ACTION_R_OPEN_CREATE 15u   /* the open's file was missing and O_CREAT asked for it */
+#define RTFS_ACTION_R_CREATEFILE 16u
+#define RTFS_ACTION_R_CREATEDIR 17u
+#define RTFS_ACTION_R_OPENDIR 18u
+#define RTFS_ACTION_R_NEXTDIR 19u
+#define RTFS_ACTION_R_STAT 20u
+#define RTFS_ACTION_R_DELETE 21u
 
 /* What a path is to the redirected directory (rtfs_path_type). */
 #define RTFS_PATH_OUTSIDE 0
@@ -144,13 +202,25 @@ struct rtfs_request {
     uint32_t out0;
     uint32_t out1;
     char saved_name[RTFAT_NAME_MAX + 1];  /* RENAME_REPLACE: the source name while the destination is deleted */
+    /* The file device: the path (copied at the start), how far the walk
+     * got, the folder it is in, and the action at its end. */
+    char path[RTFS_RIIVO_PATH_BYTES];
+    uint32_t path_at;
+    uint32_t walk_dir;
+    uint32_t final_action;
+    uint32_t flags;              /* the open's flags */
     struct rtfat_op fat;
 };
 
 /* Copies the loader supplied directory prefix and volume.  Returns zero on
- * success, RTFAT_EINVAL for an unterminated/invalid prefix.  `fs_fd` is
+ * success, RTFAT_EINVAL for an unterminated/invalid prefix.  An empty
+ * prefix serves no save directory (the file device alone).  `fs_fd` is
  * the game's /dev/fs fd when known, else negative (rtfs_learn_fs_fd). */
 int rtfs_init(struct rtfs_context* ctx, const struct rtfat_volume* volume, const char* data_prefix, int32_t fs_fd);
+
+/* Serves the "file" device from the volume's root_cluster. RTFAT_EINVAL
+ * when the root is not a valid cluster. */
+int rtfs_enable_file_device(struct rtfs_context* ctx);
 
 /* Classifies a game path (NUL-terminated within RTFS_PATH_BYTES) against
  * the redirected directory: RTFS_PATH_*; `name` (RTFAT_NAME_MAX + 1 bytes)

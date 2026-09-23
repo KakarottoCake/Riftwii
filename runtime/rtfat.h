@@ -19,7 +19,8 @@
  * serves the sync and the async IPC entry points.
  *
  * Volume: 512-byte sectors only (what SD cards are formatted with), one
- * flat directory that grows by a cluster when its entries run out, 8.3
+ * directory per operation (the volume's, or the one op->dir_cluster
+ * names) that grows by a cluster when its entries run out, 8.3
  * and long names (VFAT) read and written, every FAT copy updated, ISFS
  * error codes. Sizes and positions are 32-bit as
  * ISFS's are. Names are matched case-insensitively (FAT semantics) and
@@ -77,6 +78,9 @@ struct rtfat_volume {
      * mirrored FATs consistent.  Reads may continue; mutations fail EIO
      * until the loader remounts the card. */
     uint32_t mutation_uncertain;
+    /* The card's root directory (what ".." names as cluster 0), 0 when
+     * unknown; folder creation writes it. */
+    uint32_t root_cluster;
 };
 
 /* An open file as the engine tracks it. The directory entry's location is
@@ -115,6 +119,9 @@ struct rtfat_dirent {
 #define RTFAT_OP_LIST 7     /* file names into `buffer` as 13-byte slots, up to `length` of them; result = count */
 #define RTFAT_OP_COUNT 8    /* result = number of files */
 #define RTFAT_OP_USAGE 9    /* result = number of files; usage_blocks = 16 KiB blocks their sizes take */
+#define RTFAT_OP_MKDIR 10   /* name: a new folder, its "." and ".." written (EEXIST when the name is taken) */
+#define RTFAT_OP_NEXT 11    /* the next entry after the cursor, file or folder ("." and ".." skipped), into
+                             * `found`, the cursor moved past it; ENOENT at the end */
 
 /*
  * One operation. The two sector buffers are the engine's working memory
@@ -150,6 +157,14 @@ struct rtfat_op {
                               * scans and force the new entry hidden; 2: include hidden scans and
                               * force a renamed entry visible.  A creation always sees hidden
                               * names: a name can exist on the card only once. */
+    uint32_t dir_cluster;    /* the directory worked in; 0 = the volume's */
+    uint32_t want_dirs;      /* LOOKUP: folders match too (only files otherwise) */
+    /* NEXT's cursor (in and out): the cluster and sector the scan resumes
+     * in and the entry index within that sector; cursor_cluster 0 = the
+     * directory's start. */
+    uint32_t cursor_cluster;
+    uint32_t cursor_sector;
+    uint32_t cursor_index;
     /* Results beyond `result`. */
     struct rtfat_dirent found;   /* LOOKUP, CREATE, RENAME (the new entry): the entry */
     struct rtfat_dirent source;  /* RENAME, DELETE: the entry removed */
@@ -160,6 +175,7 @@ struct rtfat_op {
     uint32_t scan_lba;
     uint32_t scan_clusters;      /* clusters visited (loop guard) */
     uint32_t scan_end;           /* an end-of-directory entry was seen */
+    uint32_t scan_skip;          /* NEXT: entries of the first sector read that lie before the cursor */
     uint32_t lfn_ok;             /* long name collected so far is ASCII and within RTFAT_NAME_MAX */
     uint32_t lfn_expect;         /* next sequence number expected (counting down), 0 = none */
     uint32_t lfn_sum;            /* checksum the long entries carry */

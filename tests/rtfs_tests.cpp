@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
 #include <iostream>
 #include <string>
@@ -516,6 +517,287 @@ void TestHiddenMarker(Low& low) {
     EXPECT_TRUE(Run(fx, low, Open(Addr(low.data), 1)) >= static_cast<int>(RTFS_FD_BASE));
 }
 
+// Riivolution's "file" device over the card's root: a folder with one
+// long-named file, as Pulsar keeps its settings.
+struct RiivoFixture {
+    fatimg::Image image{512, 2, 0};
+    Device dev{image};
+    rtfat_volume volume{};
+    rtfs_context fs{};
+    fatimg::Bytes content;
+    explicit RiivoFixture(bool enable = true) {
+        content.resize(100);
+        for (std::size_t i = 0; i < content.size(); ++i) content[i] = static_cast<std::uint8_t>(i * 5 + 1);
+        image.write_data({21}, content);
+        fatimg::Bytes root = fatimg::short_entry("PULSAR     ", 0x10, 20, 0);
+        EXPECT_TRUE(image.write_dir({2}, root));
+        fatimg::Bytes dir = fatimg::short_entry(".          ", 0x10, 20, 0);
+        const fatimg::Bytes up = fatimg::short_entry("..         ", 0x10, 0, 0);
+        dir.insert(dir.end(), up.begin(), up.end());
+        const fatimg::Bytes settings =
+            fatimg::lfn_entries(fatimg::ucs(u"Settings.pul"), "SETTIN~1PUL", 0x20, 21, static_cast<std::uint32_t>(content.size()));
+        dir.insert(dir.end(), settings.begin(), settings.end());
+        EXPECT_TRUE(image.write_dir({20}, dir));
+        volume.sectors_per_cluster = image.spc;
+        volume.fat_lba = image.reserved;
+        volume.fat_count = image.fats;
+        volume.fat_sectors = image.fat_sectors;
+        volume.data_lba = static_cast<std::uint32_t>(image.data_start_sector());
+        volume.cluster_count = image.clusters;
+        volume.dir_cluster = 2;
+        volume.root_cluster = 2;
+        volume.alloc_hint = 30;
+        EXPECT_EQ(rtfs_init(&fs, &volume, "", -1), RTFAT_OK);
+        if (enable) EXPECT_EQ(rtfs_enable_file_device(&fs), RTFAT_OK);
+    }
+};
+
+int RunR(RiivoFixture& fx, Low& low, const rtfs_ipc& ipc) {
+    std::memset(low.request, 0, sizeof(*low.request));
+    low.request->fat.bounce = Addr(low.bounce);
+    low.request->fat.bounce_bytes = Low::kBounce;
+    rtfs_begin(&fx.fs, low.request, &ipc);
+    for (int guard = 0; guard < 100000 && low.request->classification == RTFS_NEEDS_IO; ++guard) {
+        const int r = rtfs_step(&fx.fs, low.request);
+        if (r == RTFAT_IO) low.request->fat.io_status = fx.dev.transfer(low.request->fat);
+    }
+    return low.request->result;
+}
+
+// Buffers inside low.data: the path, a stats block, a name, a handle, file bytes.
+struct RiivoBufs {
+    std::uint8_t* path;
+    std::uint8_t* stats;
+    std::uint8_t* name;
+    std::int32_t* handle;
+    std::uint8_t* bytes;
+    explicit RiivoBufs(Low& low)
+        : path(low.data), stats(low.data + 512), name(low.data + 1024), handle(reinterpret_cast<std::int32_t*>(low.data + 2048)),
+          bytes(low.data + 4096) {}
+};
+
+rtfs_ipc DeviceIoctl(RiivoBufs& b, std::uint32_t code, const std::string& path) {
+    std::memset(b.path, 0, 256);
+    std::memcpy(b.path, path.c_str(), path.size());
+    rtfs_ipc ipc{};
+    ipc.command = RTFS_CMD_IOCTL;
+    ipc.fd = RTFS_RIIVO_FD;
+    ipc.args.ioctl.request = code;
+    ipc.args.ioctl.in = Addr(b.path);
+    ipc.args.ioctl.in_len = static_cast<std::uint32_t>(path.size() + 1);
+    ipc.args.ioctl.out = Addr(b.stats);
+    ipc.args.ioctl.out_len = RTFS_RIIVO_STATS_BYTES;
+    return ipc;
+}
+
+std::uint32_t Be32(const std::uint8_t* p) {
+    return (std::uint32_t(p[0]) << 24) | (std::uint32_t(p[1]) << 16) | (std::uint32_t(p[2]) << 8) | p[3];
+}
+
+int OpenR(RiivoFixture& fx, Low& low, RiivoBufs& b, const std::string& path, std::uint32_t flags) {
+    std::memset(b.path, 0, 256);
+    std::memcpy(b.path, path.c_str(), path.size());
+    return RunR(fx, low, Open(Addr(b.path), flags));
+}
+
+int CloseR(RiivoFixture& fx, Low& low, int fd) {
+    rtfs_ipc close{}; close.command = RTFS_CMD_CLOSE; close.fd = fd;
+    return RunR(fx, low, close);
+}
+
+// NEXTDIR on `handle` into b.name / b.stats.
+int NextDir(RiivoFixture& fx, Low& low, RiivoBufs& b) {
+    low.vec[0] = {Addr(b.handle), 4};
+    low.vec[1] = {Addr(b.name), 1024};
+    low.vec[2] = {Addr(b.stats), RTFS_RIIVO_STATS_BYTES};
+    rtfs_ipc next{}; next.command = RTFS_CMD_IOCTLV; next.fd = RTFS_RIIVO_FD; next.args.ioctlv.request = RTFS_RIIVO_NEXTDIR;
+    next.args.ioctlv.in_count = 1; next.args.ioctlv.out_count = 2; next.args.ioctlv.vectors = Addr(low.vec);
+    return RunR(fx, low, next);
+}
+
+void TestFileDeviceRead(Low& low) {
+    RiivoFixture fx;
+    RiivoBufs b(low);
+    // The device itself.
+    EXPECT_EQ(OpenR(fx, low, b, "file", 0), RTFS_RIIVO_FD);
+    rtfs_ipc probe_open = Open(Addr(b.path), 0);
+    rtfs_probe(&fx.fs, low.request, &probe_open);
+    EXPECT_EQ(low.request->classification, RTFS_COMPLETE);
+    EXPECT_EQ(low.request->result, RTFS_RIIVO_FD);
+    EXPECT_EQ(CloseR(fx, low, RTFS_RIIVO_FD), RTFAT_OK);
+    // A folder listed: the long name, its size, "." and ".." left out.
+    *b.handle = RunR(fx, low, DeviceIoctl(b, RTFS_RIIVO_OPENDIR, "/pulsar"));
+    EXPECT_TRUE(static_cast<std::uint32_t>(*b.handle) >= RTFS_DIR_BASE);
+    EXPECT_EQ(NextDir(fx, low, b), RTFAT_OK);
+    EXPECT_EQ(std::string(reinterpret_cast<char*>(b.name)), std::string("Settings.pul"));
+    EXPECT_EQ(Be32(b.stats + 4), 21u);
+    EXPECT_EQ(Be32(b.stats + 12), 100u);
+    EXPECT_EQ(Be32(b.stats + 20), RTFS_RIIVO_MODE_FILE);
+    EXPECT_EQ(NextDir(fx, low, b), RTFS_RIIVO_ERROR);
+    EXPECT_EQ(NextDir(fx, low, b), RTFS_RIIVO_ERROR);  // stays at the end
+    rtfs_ipc closedir = DeviceIoctl(b, RTFS_RIIVO_CLOSEDIR, "");
+    closedir.args.ioctl.in = Addr(b.handle); closedir.args.ioctl.in_len = 4;
+    EXPECT_EQ(RunR(fx, low, closedir), RTFAT_OK);
+    EXPECT_EQ(RunR(fx, low, closedir), RTFS_RIIVO_ERROR);  // stale
+    EXPECT_EQ(NextDir(fx, low, b), RTFS_RIIVO_ERROR);
+    // The same folder by Riivolution's mount name; the root itself.
+    EXPECT_TRUE(static_cast<std::uint32_t>(RunR(fx, low, DeviceIoctl(b, RTFS_RIIVO_OPENDIR, "/mnt/sd/PULSAR/"))) >= RTFS_DIR_BASE);
+    EXPECT_TRUE(static_cast<std::uint32_t>(RunR(fx, low, DeviceIoctl(b, RTFS_RIIVO_OPENDIR, "/"))) >= RTFS_DIR_BASE);
+    EXPECT_EQ(RunR(fx, low, DeviceIoctl(b, RTFS_RIIVO_OPENDIR, "/nothing")), RTFS_RIIVO_NOT_OPENED);
+    EXPECT_EQ(RunR(fx, low, DeviceIoctl(b, RTFS_RIIVO_OPENDIR, "/pulsar/settings.pul")), RTFS_RIIVO_NOT_OPENED);
+    EXPECT_EQ(RunR(fx, low, DeviceIoctl(b, RTFS_RIIVO_OPENDIR, "/pulsar/../pulsar")), RTFS_RIIVO_NOT_OPENED);
+    // Stat.
+    EXPECT_EQ(RunR(fx, low, DeviceIoctl(b, RTFS_RIIVO_STAT, "/pulsar")), RTFAT_OK);
+    EXPECT_EQ(Be32(b.stats + 20), RTFS_RIIVO_MODE_DIR);
+    EXPECT_EQ(RunR(fx, low, DeviceIoctl(b, RTFS_RIIVO_STAT, "/pulsar//./settings.pul")), RTFAT_OK);
+    EXPECT_EQ(Be32(b.stats + 12), 100u);
+    EXPECT_EQ(RunR(fx, low, DeviceIoctl(b, RTFS_RIIVO_STAT, "/pulsar/none")), RTFS_RIIVO_ERROR);
+    // A file read, sought, told.
+    const int fd = OpenR(fx, low, b, "file/pulsar/SETTINGS.PUL", 0);
+    EXPECT_TRUE(fd >= static_cast<int>(RTFS_FD_BASE));
+    rtfs_ipc read{}; read.command = RTFS_CMD_READ; read.fd = fd; read.args.readwrite.data = Addr(b.bytes); read.args.readwrite.length = 4000;
+    EXPECT_EQ(RunR(fx, low, read), 100);
+    EXPECT_EQ(std::memcmp(b.bytes, fx.content.data(), 100), 0);
+    rtfs_ipc seek{}; seek.command = RTFS_CMD_SEEK; seek.fd = fd; seek.args.seek.where = 0; seek.args.seek.whence = RTFS_SEEK_END;
+    EXPECT_EQ(RunR(fx, low, seek), 100);
+    seek.args.seek.where = 7; seek.args.seek.whence = RTFS_SEEK_SET;
+    EXPECT_EQ(RunR(fx, low, seek), 7);
+    seek.args.seek.where = 0; seek.args.seek.whence = RTFS_RIIVO_TELL;
+    EXPECT_EQ(RunR(fx, low, seek), 7);
+    rtfs_ipc write{}; write.command = RTFS_CMD_WRITE; write.fd = fd; write.args.readwrite.data = Addr(b.bytes); write.args.readwrite.length = 1;
+    EXPECT_EQ(RunR(fx, low, write), RTFAT_EACCESS);  // opened for reading
+    EXPECT_EQ(CloseR(fx, low, fd), RTFAT_OK);
+    EXPECT_EQ(OpenR(fx, low, b, "file/pulsar/missing.pul", 2), RTFS_RIIVO_NOT_OPENED);
+    EXPECT_EQ(OpenR(fx, low, b, "file/pulsar", 0), RTFS_RIIVO_NOT_OPENED);  // a folder
+    // Unserved device calls fail rather than pass to IOS.
+    EXPECT_EQ(RunR(fx, low, DeviceIoctl(b, 0x31, "")), RTFS_RIIVO_ERROR);
+    rtfs_ipc device_read = read; device_read.fd = RTFS_RIIVO_FD;
+    EXPECT_EQ(RunR(fx, low, device_read), RTFS_RIIVO_ERROR);
+}
+
+void TestFileDeviceWrite(Low& low) {
+    RiivoFixture fx;
+    RiivoBufs b(low);
+    // A folder made: its "." and ".." on the card, then listed empty.
+    EXPECT_EQ(RunR(fx, low, DeviceIoctl(b, RTFS_RIIVO_CREATEDIR, "/pulsar/Ghosts")), RTFAT_OK);
+    EXPECT_EQ(RunR(fx, low, DeviceIoctl(b, RTFS_RIIVO_CREATEDIR, "/pulsar/ghosts")), RTFS_RIIVO_ERROR);
+    EXPECT_EQ(RunR(fx, low, DeviceIoctl(b, RTFS_RIIVO_STAT, "/pulsar/Ghosts")), RTFAT_OK);
+    const std::uint32_t ghosts = Be32(b.stats + 4);
+    EXPECT_TRUE(ghosts >= 30u);
+    EXPECT_EQ(Be32(b.stats + 20), RTFS_RIIVO_MODE_DIR);
+    const std::uint8_t* g = fx.image.cluster(ghosts);
+    EXPECT_EQ(std::memcmp(g, ".          ", 11), 0);
+    EXPECT_EQ(g[11], 0x10u);
+    EXPECT_EQ(g[26] | (g[27] << 8), static_cast<int>(ghosts));
+    EXPECT_EQ(std::memcmp(g + 32, "..         ", 11), 0);
+    EXPECT_EQ(g[32 + 26] | (g[32 + 27] << 8), 20);
+    EXPECT_EQ(g[64], 0u);
+    EXPECT_EQ(RunR(fx, low, DeviceIoctl(b, RTFS_RIIVO_CREATEDIR, "/top")), RTFAT_OK);
+    EXPECT_EQ(RunR(fx, low, DeviceIoctl(b, RTFS_RIIVO_STAT, "/top")), RTFAT_OK);
+    const std::uint8_t* t = fx.image.cluster(Be32(b.stats + 4));
+    EXPECT_EQ(t[32 + 26] | (t[32 + 27] << 8), 0);  // ".." of a folder in the root
+    *b.handle = RunR(fx, low, DeviceIoctl(b, RTFS_RIIVO_OPENDIR, "/pulsar/Ghosts"));
+    EXPECT_EQ(NextDir(fx, low, b), RTFS_RIIVO_ERROR);
+    EXPECT_EQ(RunR(fx, low, DeviceIoctl(b, RTFS_RIIVO_CREATEDIR, "/nowhere/sub")), RTFS_RIIVO_ERROR);
+    // A file created, then written across clusters and read back.
+    EXPECT_EQ(RunR(fx, low, DeviceIoctl(b, RTFS_RIIVO_CREATEFILE, "/pulsar/Ghosts/1m23s456.rkg")), RTFAT_OK);
+    int fd = OpenR(fx, low, b, "file/pulsar/Ghosts/1m23s456.rkg", 1);
+    EXPECT_TRUE(fd >= static_cast<int>(RTFS_FD_BASE));
+    for (int i = 0; i < 3000; ++i) b.bytes[i] = static_cast<std::uint8_t>(i * 13 + 7);
+    rtfs_ipc write{}; write.command = RTFS_CMD_WRITE; write.fd = fd; write.args.readwrite.data = Addr(b.bytes); write.args.readwrite.length = 3000;
+    EXPECT_EQ(RunR(fx, low, write), 3000);
+    rtfs_ipc read{}; read.command = RTFS_CMD_READ; read.fd = fd; read.args.readwrite.data = Addr(b.bytes + 3072); read.args.readwrite.length = 8;
+    EXPECT_EQ(RunR(fx, low, read), RTFAT_EACCESS);  // opened for writing
+    EXPECT_EQ(CloseR(fx, low, fd), RTFAT_OK);
+    // CREATEFILE leaves an existing file alone.
+    EXPECT_EQ(RunR(fx, low, DeviceIoctl(b, RTFS_RIIVO_CREATEFILE, "/pulsar/Ghosts/1m23s456.rkg")), RTFAT_OK);
+    fd = OpenR(fx, low, b, "file/pulsar/Ghosts/1m23s456.rkg", 2);
+    std::memset(b.bytes + 3072, 0, 1000);
+    read.fd = fd; read.args.readwrite.length = 1000;
+    rtfs_ipc seek{}; seek.command = RTFS_CMD_SEEK; seek.fd = fd; seek.args.seek.where = 2000; seek.args.seek.whence = RTFS_SEEK_SET;
+    EXPECT_EQ(RunR(fx, low, seek), 2000);
+    EXPECT_EQ(RunR(fx, low, read), 1000);
+    EXPECT_EQ(std::memcmp(b.bytes + 3072, b.bytes + 2000, 1000), 0);
+    EXPECT_EQ(CloseR(fx, low, fd), RTFAT_OK);
+    // O_CREAT makes a missing file; O_EXCL refuses an existing one; O_APPEND writes at the end.
+    EXPECT_EQ(OpenR(fx, low, b, "file/pulsar/new.bin", 1), RTFS_RIIVO_NOT_OPENED);
+    fd = OpenR(fx, low, b, "file/pulsar/new.bin", 1 | RTFS_RIIVO_CREAT | RTFS_RIIVO_APPEND);
+    EXPECT_TRUE(fd >= static_cast<int>(RTFS_FD_BASE));
+    write.fd = fd; write.args.readwrite.length = 10;
+    EXPECT_EQ(RunR(fx, low, write), 10);
+    seek.fd = fd; seek.args.seek.where = 0; seek.args.seek.whence = RTFS_SEEK_SET;
+    EXPECT_EQ(RunR(fx, low, seek), 0);
+    EXPECT_EQ(RunR(fx, low, write), 10);
+    seek.args.seek.whence = RTFS_SEEK_END;
+    EXPECT_EQ(RunR(fx, low, seek), 20);
+    EXPECT_EQ(CloseR(fx, low, fd), RTFAT_OK);
+    EXPECT_EQ(OpenR(fx, low, b, "file/pulsar/new.bin", 1 | RTFS_RIIVO_CREAT | RTFS_RIIVO_EXCL), RTFS_RIIVO_NOT_OPENED);
+    // Delete.
+    EXPECT_EQ(RunR(fx, low, DeviceIoctl(b, RTFS_RIIVO_DELETE, "/pulsar/new.bin")), RTFAT_OK);
+    EXPECT_EQ(RunR(fx, low, DeviceIoctl(b, RTFS_RIIVO_DELETE, "/pulsar/new.bin")), RTFS_RIIVO_ERROR);
+    EXPECT_EQ(OpenR(fx, low, b, "file/pulsar/new.bin", 0), RTFS_RIIVO_NOT_OPENED);
+}
+
+// A listing that runs over sectors and clusters (the folder grows as
+// files are made in it), resumed call by call from the cursor.
+void TestFileDeviceLongListing(Low& low) {
+    RiivoFixture fx;
+    RiivoBufs b(low);
+    EXPECT_EQ(RunR(fx, low, DeviceIoctl(b, RTFS_RIIVO_CREATEDIR, "/pulsar/Ghosts")), RTFAT_OK);
+    const int kFiles = 40;
+    for (int i = 0; i < kFiles; ++i) {
+        char name[64];
+        std::snprintf(name, sizeof(name), "/pulsar/Ghosts/ghost_long_name_%02d.rkg", i);
+        EXPECT_EQ(RunR(fx, low, DeviceIoctl(b, RTFS_RIIVO_CREATEFILE, name)), RTFAT_OK);
+    }
+    EXPECT_EQ(RunR(fx, low, DeviceIoctl(b, RTFS_RIIVO_CREATEDIR, "/pulsar/Ghosts/150cc")), RTFAT_OK);
+    *b.handle = RunR(fx, low, DeviceIoctl(b, RTFS_RIIVO_OPENDIR, "/pulsar/Ghosts"));
+    bool seen[kFiles] = {};
+    int files = 0, dirs = 0;
+    for (int guard = 0; guard < 100 && NextDir(fx, low, b) == RTFAT_OK; ++guard) {
+        const std::string name(reinterpret_cast<char*>(b.name));
+        if (Be32(b.stats + 20) == RTFS_RIIVO_MODE_DIR) {
+            EXPECT_EQ(name, std::string("150cc"));
+            ++dirs;
+            continue;
+        }
+        int n = -1;
+        if (std::sscanf(name.c_str(), "ghost_long_name_%d.rkg", &n) == 1 && n >= 0 && n < kFiles && !seen[n]) {
+            seen[n] = true;
+            ++files;
+        } else {
+            std::cerr << "unexpected entry " << name << std::endl;
+            ++g_failures;
+        }
+    }
+    EXPECT_EQ(files, kFiles);
+    EXPECT_EQ(dirs, 1);
+}
+
+// Off unless the loader turns it on: "file" is then someone else's.
+void TestFileDeviceOff(Low& low) {
+    RiivoFixture fx(false);
+    RiivoBufs b(low);
+    std::memcpy(b.path, "file", 5);
+    rtfs_ipc open = Open(Addr(b.path), 0);
+    rtfs_begin(&fx.fs, low.request, &open);
+    EXPECT_EQ(low.request->classification, RTFS_PASS_THROUGH);
+    rtfs_ipc ioctl = DeviceIoctl(b, RTFS_RIIVO_OPENDIR, "/pulsar");
+    rtfs_begin(&fx.fs, low.request, &ioctl);
+    EXPECT_EQ(low.request->classification, RTFS_COMPLETE);  // a fake-range fd that is no file
+    EXPECT_EQ(low.request->result, RTFAT_EINVAL);
+    // And with no save directory, ISFS paths are never ours.
+    std::memcpy(b.path, "/title/00010000/524d4345/data/x", 32);
+    rtfs_ipc isfs = Open(Addr(b.path), 1);
+    rtfs_begin(&fx.fs, low.request, &isfs);
+    EXPECT_EQ(low.request->classification, RTFS_PASS_THROUGH);
+    rtfat_volume bad = fx.volume;
+    bad.root_cluster = 0;
+    rtfs_context other{};
+    EXPECT_EQ(rtfs_init(&other, &bad, "", -1), RTFAT_OK);
+    EXPECT_EQ(rtfs_enable_file_device(&other), RTFAT_EINVAL);
+}
+
 int main() {
     Low low;
     if (!low.base) { std::cerr << "no memory below 4 GiB; skipping rtfs tests" << std::endl; return 0; }
@@ -526,6 +808,10 @@ int main() {
     TestStatsRenameDeleteAndFailure(low);
     TestProbeAndFsFd(low);
     TestHiddenMarker(low);
+    TestFileDeviceRead(low);
+    TestFileDeviceWrite(low);
+    TestFileDeviceLongListing(low);
+    TestFileDeviceOff(low);
     if (g_failures == 0) std::cout << "rtfs tests passed" << std::endl;
     return g_failures == 0 ? 0 : 1;
 }

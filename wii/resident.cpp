@@ -93,11 +93,35 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
     // 2. The instruction each hook displaces must be safe to replay.
     //    IOS_IoctlAsync's must be; another function's that is not leaves it
     //    unhooked (its calls go to IOS untouched).
+    //    Synchronous IOS_Open is hooked on its second instruction when its
+    //    first is the usual `stwu r1,-N(r1)`: code that runs that `stwu`
+    //    itself and enters at +4 (Pulsar's "OpenFix", which is how it
+    //    looks for Riivolution's "file" device) then meets the hook too.
+    //    Its replay slot holds both instructions and resumes at +8.
     std::uint32_t displaced[RT_IPC_ENTRIES][4] = {};
+    std::uint32_t hook_site[RT_IPC_ENTRIES] = {};
     bool hooked[RT_IPC_ENTRIES] = {};
     unsigned hooked_count = 0;
+    bool open_at_second = false;
     for (std::uint32_t e = 0; e < RT_IPC_ENTRIES; ++e) {
         if (entry_address[e] == 0) continue;
+        hook_site[e] = entry_address[e];
+        if (e == RT_IPC_SYNC(1)) {
+            const std::uint32_t first = *reinterpret_cast<const std::uint32_t*>(entry_address[e]);
+            const std::uint32_t second = *reinterpret_cast<const std::uint32_t*>(entry_address[e] + 4);
+            std::string why;
+            if ((first & 0xFFFF8000u) == 0x94218000u && displaceable(second, kContinueScratchRegister, why)) {
+                displaced[e][0] = first;
+                displaced[e][1] = second;
+                displaced[e][2] = kNop;
+                displaced[e][3] = kNop;
+                hook_site[e] = entry_address[e] + 4;
+                open_at_second = true;
+                hooked[e] = true;
+                ++hooked_count;
+                continue;
+            }
+        }
         bool ok = true;
         for (unsigned i = 1; i < 4; ++i) displaced[e][i] = kNop;  // the replay slot's padding
         for (unsigned i = 0; i < kHookStubBytes / 4 && ok; ++i) {
@@ -134,8 +158,31 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
         error = "SD-backed replacements need an open SD card";
         return false;
     }
-    const bool has_fs = options.savegame.enabled;
-    if (has_fs) {
+    bool has_fs = options.savegame.enabled;
+    bool file_device = options.savegame.file_device;
+    if (file_device && !has_fs) {
+        std::string why;
+        if (!have_api) {
+            why = "the game's IPC API was not found (" + api_error + ")";
+        } else if (options.sdio_fd < 0) {
+            why = "no SD card";
+        } else if (api.sync[7] == 0 || api.async[7] == 0 || api.async[6] == 0) {
+            why = "the game lacks IOS_Ioctlv, IOS_IoctlvAsync or IOS_IoctlAsync";
+        } else if (options.savegame.volume.root_cluster < 2) {
+            why = "the card's root is unknown";
+        } else {
+            for (std::uint32_t e = 0; e < RT_IPC_ENTRIES && why.empty(); ++e) {
+                if (entry_address[e] != 0 && !hooked[e]) why = std::string(ipc_entry_name(e)) + " cannot be hooked";
+            }
+        }
+        if (why.empty()) {
+            has_fs = true;
+        } else {
+            logf("Resident: Riivolution's \"file\" device is off: %s\n", why.c_str());
+            file_device = false;
+        }
+    }
+    if (options.savegame.enabled) {
         if (!have_api) {
             error = "savegame redirection needs the game's IPC API: " + api_error;
             return false;
@@ -236,8 +283,13 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
     for (std::uint32_t e = 0; e < RT_IPC_ENTRIES; ++e) {
         if (!hooked[e]) continue;
         store_words(place.code_base + blob.replay_offsets[e], displaced[e], 4);
-        const auto resume = encode_absolute_jump(kContinueScratchRegister, entry_address[e] + kHookStubBytes);
+        const auto resume = encode_absolute_jump(kContinueScratchRegister, hook_site[e] + kHookStubBytes);
         store_words(place.code_base + blob.continue_offsets[e], resume.data(), 4);
+    }
+    if (open_at_second && hooked[RT_IPC_SYNC(1)]) {
+        const std::uint32_t undo = 0x80210000u;  // lwz r1,0(r1): the function's own frame, undone
+        store_words(place.code_base + blob.open_undo_offsets[0], &undo, 1);
+        store_words(place.code_base + blob.open_undo_offsets[1], &undo, 1);
     }
     // The savegame state: the engine's context (volume, prefix), the
     // completion entry and the two originals the sync path calls.
@@ -245,12 +297,18 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
         // Position-independent: rtfs_init stores no pointer into itself.
         rt_fs_state* st = reinterpret_cast<rt_fs_state*>(staged(fs_state_address));
         std::memset(st, 0, sizeof(*st));
-        if (rtfs_init(&st->fs, &options.savegame.volume, options.savegame.prefix.c_str(), -1) != RTFAT_OK) {
+        const char* prefix = options.savegame.enabled ? options.savegame.prefix.c_str() : "";
+        if (rtfs_init(&st->fs, &options.savegame.volume, prefix, -1) != RTFAT_OK) {
             error = "savegame redirection: rtfs_init refused the prefix '" + options.savegame.prefix + "'";
             return false;
         }
+        if (file_device && rtfs_enable_file_device(&st->fs) != RTFAT_OK) {
+            logf("Resident: Riivolution's \"file\" device is off: root cluster %u is not on the card\n",
+                 options.savegame.volume.root_cluster);
+            file_device = false;
+        }
         st->complete_fs = place.code_base + blob.complete_fs_offset;
-        st->clone_pending = options.savegame.clone ? 1u : 0u;
+        st->clone_pending = options.savegame.enabled && options.savegame.clone ? 1u : 0u;
         st->open_sync = original(RT_IPC_SYNC(1));
         st->close_sync = original(RT_IPC_SYNC(2));
         st->read_sync = original(RT_IPC_SYNC(3));
@@ -268,14 +326,14 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
     for (std::uint32_t e = 0; e < RT_IPC_ENTRIES; ++e) {
         if (!hooked[e]) continue;
         std::uint32_t branch = 0;
-        if (!encode_branch(entry_address[e], place.code_base + blob.hook_offsets[e], branch)) {
+        if (!encode_branch(hook_site[e], place.code_base + blob.hook_offsets[e], branch)) {
             // Out of b's reach (not in MEM1): the function stays unhooked.
             hooked[e] = false;
             --hooked_count;
             continue;
         }
-        store_words(entry_address[e], &branch, 1);
-        sync_code(entry_address[e], kHookStubBytes);
+        store_words(hook_site[e], &branch, 1);
+        sync_code(hook_site[e], kHookStubBytes);
     }
 
     out.code_base = place.code_base;
@@ -296,7 +354,7 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
     out.hook_site_count = 0;
     for (std::uint32_t e = 0; e < RT_IPC_ENTRIES; ++e) {
         if (!hooked[e]) continue;
-        out.hook_sites[out.hook_site_count++] = entry_address[e];
+        out.hook_sites[out.hook_site_count++] = hook_site[e];
     }
     out.fs_state = has_fs ? fs_state_address : 0;
     logf("Resident: %u bytes at 0x%08x, MEM1 arena top 0x%08x -> 0x%08x, gecko %s, %u IPC function(s) hooked\n",
@@ -319,7 +377,15 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
         logf("Resident: SD fd %d (%s), bounce buffers at 0x%08x, IOS_IoctlvAsync at 0x%08x\n", options.sdio_fd,
              options.sdio_sdhc ? "SDHC" : "SDSC", bounce_address, symbols.ioctlv_async);
     }
-    if (has_fs) {
+    if (file_device) {
+        logf("Resident: Riivolution's \"file\" device served from the card's root (cluster %u)%s\n",
+             options.savegame.volume.root_cluster, open_at_second ? ", IOS_Open hooked at +4" : "");
+    }
+    if (has_fs && !options.savegame.enabled) {
+        logf("Resident: card state %u bytes at 0x%08x, SD fd %d (%s)\n", static_cast<unsigned>(sizeof(rt_fs_state)),
+             fs_state_address, options.sdio_fd, options.sdio_sdhc ? "SDHC" : "SDSC");
+    }
+    if (options.savegame.enabled) {
         logf("Resident: savegame %s served from folder cluster %u, state %u bytes at 0x%08x, SD fd %d (%s)%s\n",
              options.savegame.prefix.c_str(), options.savegame.volume.dir_cluster,
              static_cast<unsigned>(sizeof(rt_fs_state)), fs_state_address, options.sdio_fd,

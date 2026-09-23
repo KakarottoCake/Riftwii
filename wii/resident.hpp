@@ -34,6 +34,12 @@ struct SavegameOptions {
     bool clone = false;      // the runtime copies the NAND save into the folder before the game's first request
     std::string prefix;      // "/title/<type>/<game id in hex>/data" from the TMD's title id, no trailing slash
     rtfat_volume volume{};   // the card's geometry and the folder's first cluster (wii/sdfile.hpp)
+    // Riivolution's "file" device (runtime/rtfs.h), served from the card's
+    // root (volume.root_cluster) by the same engine, with or without the
+    // save redirect (`volume` is then the root's). Needs what the save
+    // redirect needs; when something is missing it is left off with a log
+    // line, never failing the launch.
+    bool file_device = false;
 };
 
 struct ResidentOptions {
