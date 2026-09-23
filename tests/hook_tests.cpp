@@ -63,6 +63,8 @@ static Bytes MakeBlob() {
     }
     Put32(b, 16 + RT_IPC_ENTRIES * 12, 0x600);  // completion entry
     Put32(b, 16 + RT_IPC_ENTRIES * 12 + 4, 0x604);  // savegame completion entry
+    Put32(b, 16 + RT_IPC_ENTRIES * 12 + 8, 0x608);  // IOS_Open's undo words
+    Put32(b, 16 + RT_IPC_ENTRIES * 12 + 12, 0x610);
     Put32(b, 0x800, RT_CONTEXT_MAGIC);
     return b;
 }
@@ -80,6 +82,8 @@ static void TestBlob() {
     EXPECT_EQ(rb.continue_ioctl_async_offset, 0x3B0u);
     EXPECT_EQ(rb.complete_di_offset, 0x600u);
     EXPECT_EQ(rb.complete_fs_offset, 0x604u);
+    EXPECT_EQ(rb.open_undo_offsets[0], 0x608u);
+    EXPECT_EQ(rb.open_undo_offsets[1], 0x610u);
     EXPECT_EQ(RT_IPC_ASYNC(1), 0u);
     EXPECT_EQ(RT_IPC_ASYNC(7), 6u);
     EXPECT_EQ(RT_IPC_SYNC(1), 7u);
@@ -106,6 +110,12 @@ static void TestBlob() {
     EXPECT_FALSE(riftwii::parse_resident_blob(b.data(), b.size(), rb, error));
     b = MakeBlob();
     Put32(b, 16 + RT_IPC_ENTRIES * 12 + 4, 0xFFE);  // savegame completion entry past the end
+    EXPECT_FALSE(riftwii::parse_resident_blob(b.data(), b.size(), rb, error));
+    b = MakeBlob();
+    Put32(b, 16 + RT_IPC_ENTRIES * 12 + 12, 0x1000);  // an undo word past the end
+    EXPECT_FALSE(riftwii::parse_resident_blob(b.data(), b.size(), rb, error));
+    b = MakeBlob();
+    Put32(b, 16 + RT_IPC_ENTRIES * 12 + 8, 0x10);  // an undo word inside the header
     EXPECT_FALSE(riftwii::parse_resident_blob(b.data(), b.size(), rb, error));
     b = MakeBlob();
     Put32(b, 0x800, 0);  // context magic

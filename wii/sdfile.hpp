@@ -33,7 +33,8 @@ void forget_sd_layout();
 // card must have 512-byte sectors (the engine's only size). The
 // allocation hint is FSInfo's next-free cluster when the sector is valid,
 // else 2. Reads the card raw, so it also works right after fatUnmount
-// (which flushes libfat's cache) while the device is still up.
+// (which flushes libfat's cache) while the device is still up. "sd:/"
+// is the card's root. The root's cluster is filled in either way.
 bool resolve_sd_directory(const std::string& sd_path, rtfat_volume& out, std::string& error);
 
 }  // namespace riftwii::wii

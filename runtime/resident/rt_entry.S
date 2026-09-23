@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
-/* ABI v4: async commands 1..7 occupy entries 0..6; sync 1..7 are 7..13. */
+/* ABI v5: async commands 1..7 occupy entries 0..6; sync 1..7 are 7..13. */
     .section .text.rt_entry, "ax", @progbits
     .globl _rt_blob_start
 _rt_blob_start:
-    .long 0x5257484B, 4, _rt_blob_end - _rt_blob_start, rt_context_data - _rt_blob_start
+    .long 0x5257484B, 5, _rt_blob_end - _rt_blob_start, rt_context_data - _rt_blob_start
     .long rt_hook_0 - _rt_blob_start, rt_hook_1 - _rt_blob_start, rt_hook_2 - _rt_blob_start, rt_hook_3 - _rt_blob_start
     .long rt_hook_4 - _rt_blob_start, rt_hook_5 - _rt_blob_start, rt_hook_6 - _rt_blob_start, rt_hook_7 - _rt_blob_start
     .long rt_hook_8 - _rt_blob_start, rt_hook_9 - _rt_blob_start, rt_hook_10 - _rt_blob_start, rt_hook_11 - _rt_blob_start
@@ -18,6 +18,7 @@ _rt_blob_start:
     .long rt_continue_12 - _rt_blob_start, rt_continue_13 - _rt_blob_start
     .long rt_complete_di - _rt_blob_start
     .long rt_complete_fs - _rt_blob_start
+    .long rt_open_undo_0 - _rt_blob_start, rt_open_undo_1 - _rt_blob_start
 
 /* Frame: 0 back chain, 4 LR, 8..27 r3..r10, 28 result. */
     .macro RT_HOOK n
@@ -60,6 +61,54 @@ rt_hook_\n:
     addi 1, 1, 0x40
     blr
     .endm
+
+/* Synchronous IOS_Open (entry 7): RT_HOOK with a loader-filled word after
+ * each frame pop (rt_blob_header.open_undo_offset). */
+    .globl rt_hook_7
+rt_hook_7:
+    stwu 1, -0x40(1)
+    mflr 0
+    stw 0, 0x44(1)
+    stw 3, 0x08(1)
+    stw 4, 0x0C(1)
+    stw 5, 0x10(1)
+    stw 6, 0x14(1)
+    stw 7, 0x18(1)
+    stw 8, 0x1C(1)
+    stw 9, 0x20(1)
+    stw 10, 0x24(1)
+    bl 1f
+1:  mflr 3
+    addi 3, 3, rt_context_data - 1b
+    li 4, 7
+    addi 5, 1, 0x08
+    addi 6, 1, 0x28
+    bl rt_on_ipc
+    mr 12, 3
+    lwz 3, 0x08(1)
+    lwz 4, 0x0C(1)
+    lwz 5, 0x10(1)
+    lwz 6, 0x14(1)
+    lwz 7, 0x18(1)
+    lwz 8, 0x1C(1)
+    lwz 9, 0x20(1)
+    lwz 10, 0x24(1)
+    lwz 0, 0x44(1)
+    mtlr 0
+    cmpwi 12, 0
+    bne 2f
+    addi 1, 1, 0x40
+    .globl rt_open_undo_0
+rt_open_undo_0:
+    nop
+    b rt_replay_7
+2:  lwz 3, 0x28(1)
+    addi 1, 1, 0x40
+    .globl rt_open_undo_1
+rt_open_undo_1:
+    nop
+    blr
+
     RT_HOOK 0
     RT_HOOK 1
     RT_HOOK 2
@@ -67,7 +116,6 @@ rt_hook_\n:
     RT_HOOK 4
     RT_HOOK 5
     RT_HOOK 6
-    RT_HOOK 7
     RT_HOOK 8
     RT_HOOK 9
     RT_HOOK 10

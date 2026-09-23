@@ -30,7 +30,7 @@ bool ensure_mounted(std::string& error) {
 }  // namespace
 
 bool resolve_sd_directory(const std::string& sd_path, rtfat_volume& out, std::string& error) {
-    if (sd_path.compare(0, 4, "sd:/") != 0 || sd_path.size() < 5) {
+    if (sd_path.compare(0, 4, "sd:/") != 0) {
         error = "'" + sd_path + "' is not an sd:/ folder path";
         return false;
     }
@@ -43,7 +43,12 @@ bool resolve_sd_directory(const std::string& sd_path, rtfat_volume& out, std::st
         return false;
     }
     Fat32File dir;
-    if (!g_volume.lookup(sd_path.substr(3), dir, error)) return false;
+    if (sd_path.size() == 4) {
+        dir.entry.is_directory = true;
+        dir.entry.first_cluster = g.root_cluster;
+    } else if (!g_volume.lookup(sd_path.substr(3), dir, error)) {
+        return false;
+    }
     if (!dir.entry.is_directory || dir.entry.first_cluster < 2) {
         error = "'" + sd_path + "' is not a directory";
         return false;
@@ -56,6 +61,7 @@ bool resolve_sd_directory(const std::string& sd_path, rtfat_volume& out, std::st
     out.data_lba = static_cast<std::uint32_t>(g.volume_lba + g.data_start_sector);
     out.cluster_count = g.cluster_count;
     out.dir_cluster = dir.entry.first_cluster;
+    out.root_cluster = g.root_cluster;
     out.alloc_hint = 2;
     // FSInfo (boot sector word 0x30 names its sector): "RRaA" at 0,
     // "rrAa" at 0x1E4, next free cluster at 0x1EC.

@@ -89,6 +89,8 @@ enum {
     S_DIR_NEXT,
     S_DIR_GROWN,
     S_DIR_ZERO,
+    S_MKDIR_SCANNED,
+    S_MKDIR_ZERO,
     /* A failed directory extension is unwound explicitly.  Each copy is
      * read and rewritten independently: the parent tail is restored to
      * EOC first, then the candidate is freed.  A failed recovery transfer
@@ -107,6 +109,7 @@ enum {
 #define SCAN_FIND 1   /* op->new_name -> op->found; end -> ENOENT */
 #define SCAN_CREATE 2 /* collisions with op->new_name / short11, first free run; end -> continue */
 #define SCAN_LIST 3   /* count files (and list them) */
+#define SCAN_NEXT 4   /* the first entry from the cursor -> op->found; end -> ENOENT */
 
 /* --- small helpers -------------------------------------------------------- */
 
@@ -506,7 +509,7 @@ static int on_short_entry(struct rtfat_op* op, const uint8_t* e, uint32_t lba, u
     reset_lfn(op);
     switch (op->scan_mode) {
         case SCAN_FIND:
-            if (!(attr & ATTR_DIRECTORY) &&
+            if ((!(attr & ATTR_DIRECTORY) || op->want_dirs) &&
                 (names_equal(d.name, op->new_name) ||
                  (str_len(d.name) > RTFAT_LIST_NAME_MAX && names_equal(d.alias, op->new_name)))) {
                 op->found = d;
@@ -529,6 +532,17 @@ static int on_short_entry(struct rtfat_op* op, const uint8_t* e, uint32_t lba, u
             }
             return 0;
         }
+        case SCAN_NEXT:
+            if ((attr & ATTR_DIRECTORY) && d.name[0] == '.' &&
+                (d.name[1] == 0 || (d.name[1] == '.' && d.name[2] == 0))) {
+                return 0;
+            }
+            op->found = d;
+            op->cursor_cluster = op->scan_cluster;
+            op->cursor_sector = op->scan_sector;
+            op->cursor_index = index + 1;
+            finish(op, RTFAT_OK);
+            return 1;
         default: /* SCAN_LIST */
             if (!(attr & ATTR_DIRECTORY)) {
                 if (op->kind == RTFAT_OP_LIST && op->count < op->length) {
@@ -561,8 +575,10 @@ static void note_free(struct rtfat_op* op, uint32_t lba, uint32_t index) {
  * scan stops here (state set), 0 to continue with the next sector. */
 static int scan_process(struct rtfat_op* op) {
     uint32_t i;
+    const uint32_t skip = op->scan_skip;
     op->free_run = 0; /* runs are counted within one sector */
-    for (i = 0; i < ENTRIES_PER_SECTOR; ++i) {
+    op->scan_skip = 0; /* only the cursor's own sector starts late */
+    for (i = skip; i < ENTRIES_PER_SECTOR; ++i) {
         const uint8_t* e = op->sector + i * ENTRY_BYTES;
         if (e[0] == 0x00) {
             uint32_t j;
@@ -586,12 +602,33 @@ static int scan_process(struct rtfat_op* op) {
     return 0;
 }
 
+/* The directory the operation works in. */
+static uint32_t op_dir(const struct rtfat_volume* vol, const struct rtfat_op* op) {
+    return op->dir_cluster != 0 ? op->dir_cluster : vol->dir_cluster;
+}
+
 static void scan_begin(const struct rtfat_volume* vol, struct rtfat_op* op, uint32_t mode, uint32_t next_state) {
+    const uint32_t dir = op_dir(vol, op);
     op->scan_mode = mode;
     op->next_state = next_state;
-    op->scan_cluster = vol->dir_cluster;
+    op->scan_cluster = dir;
     op->scan_sector = 0;
-    op->scan_lba = rtfat_cluster_lba(vol, vol->dir_cluster);
+    op->scan_skip = 0;
+    if (mode == SCAN_NEXT && op->cursor_cluster != 0) {
+        if (!cluster_valid(vol, op->cursor_cluster) || op->cursor_sector >= vol->sectors_per_cluster ||
+            op->cursor_index > ENTRIES_PER_SECTOR) {
+            finish(op, RTFAT_EINVAL);
+            return;
+        }
+        op->scan_cluster = op->cursor_cluster;
+        op->scan_sector = op->cursor_sector;
+        op->scan_skip = op->cursor_index;
+    }
+    if (!cluster_valid(vol, op->scan_cluster)) {
+        finish(op, RTFAT_ECORRUPT);
+        return;
+    }
+    op->scan_lba = rtfat_cluster_lba(vol, op->scan_cluster) + op->scan_sector;
     op->scan_clusters = 1;
     op->scan_end = 0;
     op->free_lba = 0;
@@ -616,6 +653,7 @@ static int scan_ended(const struct rtfat_volume* vol, struct rtfat_op* op) {
     (void)vol;
     switch (op->scan_mode) {
         case SCAN_FIND:
+        case SCAN_NEXT:
             return finish(op, RTFAT_ENOENT);
         case SCAN_CREATE:
             if (op->free_lba == 0) {
@@ -841,6 +879,13 @@ static int run_state(struct rtfat_volume* vol, struct rtfat_op* op) {
                 op->scan_sector = 0;
                 zero_bytes(op->sector, RTFAT_SECTOR_BYTES);
                 op->state = S_DIR_ZERO;
+                return RT_CONT;
+            }
+            if (op->kind == RTFAT_OP_MKDIR && op->alloc_link == 0) {
+                /* The new folder's own cluster, filled before its entry
+                 * is written. */
+                op->scan_sector = 0;
+                op->state = S_MKDIR_ZERO;
                 return RT_CONT;
             }
             if (op->alloc_link != 0) {
@@ -1143,6 +1188,49 @@ static int run_state(struct rtfat_volume* vol, struct rtfat_op* op) {
         case S_CREATE_WRITTEN:
             return finish(op, RTFAT_OK);
 
+        /* ---- MKDIR: the name checked and a place for it found, then its
+         * cluster taken and written ("." and ".." first, zeros after),
+         * then the entry (as CREATE writes one). A failure after the
+         * cluster was taken loses that cluster, nothing else. ---- */
+        case S_MKDIR_SCANNED:
+            /* A directory extension the scan made holds zeros only: fine
+             * to keep linked whatever happens next. */
+            op->dir_txn = 0;
+            op->alloc_link = 0;
+            op->alloc_scan = vol->alloc_hint;
+            op->alloc_tried = 0;
+            op->state = S_ALLOC_SCAN;
+            return RT_CONT;
+        case S_MKDIR_ZERO:
+            if (op->scan_sector < vol->sectors_per_cluster) {
+                const uint32_t lba = rtfat_cluster_lba(vol, op->alloc_cluster) + op->scan_sector;
+                zero_bytes(op->sector, RTFAT_SECTOR_BYTES);
+                if (op->scan_sector == 0) {
+                    const uint32_t parent = op_dir(vol, op);
+                    uint32_t k;
+                    for (k = 0; k < 2; ++k) {
+                        uint8_t* e = op->sector + k * ENTRY_BYTES;
+                        uint32_t j;
+                        for (j = 0; j < 11; ++j) e[j] = ' ';
+                        e[0] = '.';
+                        if (k == 1) e[1] = '.';
+                        e[11] = ATTR_DIRECTORY;
+                        wr16(e + 0x10, 0x0021);
+                        wr16(e + 0x12, 0x0021);
+                        wr16(e + 0x18, 0x0021);
+                        /* ".." of a folder in the root names cluster 0. */
+                        entry_set_cluster(e, k == 0 ? op->alloc_cluster
+                                                    : (parent == vol->root_cluster ? 0u : parent));
+                    }
+                }
+                op->scan_sector++;
+                return issue(op, lba, 1, 1, op->sector);
+            }
+            op->new_cluster = op->alloc_cluster;
+            op->next_state = S_CREATE_WRITTEN;
+            op->state = S_ENTRY_READ;
+            return RT_CONT;
+
         /* ---- DELETE ---- */
         case S_DELETE_FOUND:
             op->source = op->found;
@@ -1228,7 +1316,7 @@ int rtfat_step(struct rtfat_volume* vol, struct rtfat_op* op) {
     }
     if (op->state == S_IDLE) {
         if (vol->mutation_uncertain &&
-            (op->kind == RTFAT_OP_WRITE || op->kind == RTFAT_OP_CREATE ||
+            (op->kind == RTFAT_OP_WRITE || op->kind == RTFAT_OP_CREATE || op->kind == RTFAT_OP_MKDIR ||
              op->kind == RTFAT_OP_DELETE || op->kind == RTFAT_OP_RENAME)) {
             return done_now(op, RTFAT_EIO);
         }
@@ -1267,6 +1355,13 @@ int rtfat_step(struct rtfat_volume* vol, struct rtfat_op* op) {
                     return done_now(op, RTFAT_EINVAL);
                 }
                 scan_begin(vol, op, SCAN_CREATE, S_CREATE_SCANNED);
+                break;
+            case RTFAT_OP_MKDIR:
+                if (!prepare_new_entry(op, op->name, 0, 0, ATTR_DIRECTORY)) return done_now(op, RTFAT_EINVAL);
+                scan_begin(vol, op, SCAN_CREATE, S_MKDIR_SCANNED);
+                break;
+            case RTFAT_OP_NEXT:
+                scan_begin(vol, op, SCAN_NEXT, S_LOOKUP_DONE);
                 break;
             case RTFAT_OP_DELETE:
                 if (!rtfat_valid_name(op->name)) return done_now(op, RTFAT_EINVAL);
