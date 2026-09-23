@@ -30,9 +30,10 @@ split `.wbf1`, `.wbf2`, …) in `<source>:/wbfs` and raw `.iso` in
 2. Put mod packs (folders with an XML file plus their files) into
    `sd:/riivolution/`, the same layout Riivolution uses.
 3. Start RiftWii from the Homebrew Channel. It reads the SD card and the
-   USB drive and shows every game as a tile, with the disc drive first.
-   The round button at the bottom left (or 1) filters: all games, games
-   with mods, USB only, SD only. Games with packs carry a **MODS** tag.
+   USB drive and shows the games that have mod packs as tiles, with the
+   disc drive first. The round button at the bottom left (or 1) switches
+   between games with mods and all games. Games with packs carry a
+   **MODS** tag.
 4. Pick a game. Its page lists only the packs made for it; broken XML
    shows its error under the pack. A on a pack turns it on and shows its
    settings under it; A on a setting steps it, Minus steps it back.
