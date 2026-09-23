@@ -20,6 +20,7 @@
 #include "console.hpp"
 #include "ios_reload.hpp"
 #include "log.hpp"
+#include "menuios.hpp"
 
 int ExitRequested = 0;
 
@@ -79,6 +80,9 @@ int main() {
     // The source screen must be visible before touching a potentially slow
     // image device or physical drive. Each source probes only on selection.
     OpenSessionLog(sd_mounted);
+    // A chosen cIOS (fakemote's USB pads) must be running before the pads
+    // and the drives are brought up.
+    riftwii::wii::StartMenuIos(sd_mounted);
     FrontendState state;
     riftwii::wii::InitializeFrontend(state);
 

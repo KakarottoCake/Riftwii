@@ -33,6 +33,7 @@
 #include "input.h"
 #include "riftwii/patch.hpp"
 #include "log.hpp"
+#include "menuios.hpp"
 
 #define THREAD_SLEEP 100
 
@@ -405,6 +406,22 @@ static std::string HomeDetail(const FrontendState& state, const std::string& sca
 
 // Start screen. Image selection happens while IOS58 owns the storage; the
 // selected source is activated only after the GUI has been torn down.
+// The Menu IOS button's label and what choosing a slot means.
+static std::string MenuIosLabel(int slot)
+{
+	return slot == 0 ? "IOS 58" : "IOS " + std::to_string(slot);
+}
+static std::string MenuIosNote(int slot)
+{
+	const int running = riftwii::wii::MenuCiosSlot();
+	std::string note = slot == 0
+		? "Menu IOS: the Homebrew Channel's IOS (the default)."
+		: "Menu IOS: cIOS " + std::to_string(slot) +
+		  ". Riftwii's menu and every game run under it, so a cIOS with fakemote makes USB DS3/DS4 pads work as Wii Remotes. USB drives in the menu need a base-58 cIOS.";
+	if (slot != running) note += " Takes effect the next time Riftwii starts.";
+	return note;
+}
+
 static int MenuSource(FrontendState& state)
 {
 	int menu = MENU_NONE;
@@ -454,9 +471,15 @@ static int MenuSource(FrontendState& state)
 	discBtn.Place(ALIGN_H::CENTRE, ALIGN_V::MIDDLE, 0, 50);
 	MenuButton exitBtn("Exit", btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_HOME | WPAD_CLASSIC_BUTTON_HOME, 0, WIIDRC_BUTTON_HOME);
 	exitBtn.Place(ALIGN_H::LEFT, ALIGN_V::BOTTOM, 40, -35);
+	// Which IOS the menu (and so every game) runs under; see menuios.hpp.
+	const std::vector<int> iosChoices = riftwii::wii::MenuIosChoices();
+	int iosSlot = riftwii::wii::LoadMenuIos();
+	std::string iosLabel = MenuIosLabel(iosSlot);
+	MenuButton iosBtn(iosLabel.c_str(), btnOutline, btnOutlineOver, btnSoundOver, WPAD_BUTTON_2 | WPAD_CLASSIC_BUTTON_X, PAD_TRIGGER_R, WIIDRC_BUTTON_Y);
+	iosBtn.Place(ALIGN_H::RIGHT, ALIGN_V::BOTTOM, -40, -35);
 	// Smaller buttons leave room for the three detail rows between DISC
 	// and Exit; the games screen uses the same scale for its bottom row.
-	for (MenuButton* b : {&sdBtn, &usbBtn, &discBtn, &exitBtn}) b->button.SetScale(0.85f);
+	for (MenuButton* b : {&sdBtn, &usbBtn, &discBtn, &exitBtn, &iosBtn}) b->button.SetScale(0.85f);
 
 	HaltGui();
 	GuiWindow w(screenwidth, screenheight);
@@ -471,6 +494,7 @@ static int MenuSource(FrontendState& state)
 	w.Append(&usbBtn.button);
 	w.Append(&discBtn.button);
 	w.Append(&exitBtn.button);
+	if (iosChoices.size() > 1 || iosSlot != 0) w.Append(&iosBtn.button);
 	mainWindow->Append(&w);
 	ResumeGui();
 
@@ -478,9 +502,24 @@ static int MenuSource(FrontendState& state)
 	{
 		usleep(10000);
 		HaltGui();
-		ClearStaleButtons({&exitBtn.button, &sdBtn.button, &usbBtn.button, &discBtn.button});
+		ClearStaleButtons({&exitBtn.button, &sdBtn.button, &usbBtn.button, &discBtn.button, &iosBtn.button});
 		if(exitBtn.Clicked())
 			menu = MENU_EXIT;
+		else if(iosBtn.Clicked()) {
+			iosBtn.button.ResetState();
+			// Step to the next installed choice (IOS58, then each d2x slot).
+			std::size_t at = 0;
+			while (at < iosChoices.size() && iosChoices[at] != iosSlot) ++at;
+			iosSlot = iosChoices[(at + 1) % iosChoices.size()];
+			if (riftwii::wii::SaveMenuIos(iosSlot)) {
+				logf("Menu IOS set to %s\n", MenuIosLabel(iosSlot).c_str());
+				SetSourceRows(detailRows, MenuIosNote(iosSlot));
+			} else {
+				SetSourceRows(detailRows, "Menu IOS: cannot write sd:/riftwii/menu_ios.txt");
+			}
+			iosLabel = MenuIosLabel(iosSlot);
+			iosBtn.text.SetText(iosLabel.c_str());
+		}
 		else if(sdBtn.Clicked() && !state.sd_catalog.games.empty()) {
 			// Already scanned this session: the games screen's Rescan refreshes it.
 			pickerDevice = riftwii::wii::ImageDevice::Sd;
@@ -519,6 +558,10 @@ static int MenuSource(FrontendState& state)
 			if (!scanned) {
 				logf("USB scan failed: %s\n", error.c_str());
 				state.usb_catalog.status = "USB: " + (error.empty() ? "scan failed" : error);
+				if (riftwii::wii::MenuCiosSlot() != 0) {
+					state.usb_catalog.status += " (the menu runs under IOS" + std::to_string(riftwii::wii::MenuCiosSlot()) +
+						", and USB drives need a base-58 cIOS for that; set the menu IOS back to 58 if this persists)";
+				}
 				sourceLine = CountLine("SD", state.sd_catalog) + "      " + CountLine("USB", state.usb_catalog);
 				sdusbTxt.SetText(sourceLine.c_str());
 				SetSourceRows(detailRows, SourceDetail(state));

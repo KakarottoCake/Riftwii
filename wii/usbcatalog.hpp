@@ -50,6 +50,8 @@ using UsbCatalog = ImageCatalog;
 bool scan_usb_games(UsbCatalog& out, std::string& error);
 bool scan_sd_games(ImageCatalog& out, std::string& error);
 void unmount_usb_games();
+// Whether a cIOS slot holds a launchable (non-stub) title.
+bool slot_has_ticket(int slot);
 
 // The transition after the GUI has stopped. It leaves d2x owning the selected
 // image device and remounts SD, so XML and redirect files remain available. `storage` is

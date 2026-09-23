@@ -19,6 +19,7 @@
 #include "di.hpp"
 #include "ios_reload.hpp"
 #include "log.hpp"
+#include "menuios.hpp"
 #include "riftwii/disc.hpp"
 #include "riftwii/titles.hpp"
 
@@ -370,7 +371,8 @@ bool activate_image_game(const ImageGame& game, int cios_slot, void*& storage, s
     unmount_usb_games();
     if (game.device == ImageDevice::Usb) __io_usbstorage.shutdown();
     di::close();
-    const ReloadResult r=reload_ios(cios_slot,error);
+    const PadPairings pads_before = ReadPadPairings();
+    const ReloadResult r=reload_ios(cios_slot,error,true);
     if (r == ReloadResult::Terminal) return false;
     if (r==ReloadResult::NotInstalled || r==ReloadResult::Failed) return post_reload_failure(log_path, error);
     const s32 running = IOS_GetVersion();
@@ -381,6 +383,13 @@ bool activate_image_game(const ImageGame& game, int cios_slot, void*& storage, s
     if (g_sd_back && log_path) LogOpen(log_path, true);
     logf("%s: reloaded IOS%d rev %d for slot %d (%s)\n", device_name(game.device), running, revision, cios_slot,
          last_reload_detail().c_str());
+    {
+        // fakemote writes its pairings when its IOS starts; entries that
+        // appear across this reload prove it is in this slot.
+        const PadPairings pads = ReadPadPairings();
+        logf("%s: %s%s\n", device_name(game.device), DescribePadPairings(pads).c_str(),
+             pads.fake > pads_before.fake ? ", added by this IOS just now (fakemote is in it)" : "");
+    }
     if (revision >= 0 && cios_revision_is_stub(static_cast<std::uint32_t>(revision))) {
         error = "IOS slot " + std::to_string(cios_slot) + " holds a stub, not a cIOS: install d2x (v11 beta3 is the latest) in 249, 250 or 251";
         return post_reload_failure(log_path, error);

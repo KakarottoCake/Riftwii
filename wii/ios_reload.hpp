@@ -20,7 +20,9 @@ enum class ReloadResult {
 // ticket view is tolerated under Dolphin, whose HLE boots any IOS it
 // knows without needing one installed in the NAND. Every IOS file
 // descriptor (DI, SD, ...) is invalid afterwards.
-ReloadResult reload_ios(int version, std::string& error);
+// `force` reloads even when `version` is already running (a fresh IOS for
+// a game when the menu runs under the same cIOS).
+ReloadResult reload_ios(int version, std::string& error, bool force = false);
 
 // True only after reload_ios() returned Terminal. Callers must return to a
 // non-IOS-dependent top level without mounting media, reopening logs, or
