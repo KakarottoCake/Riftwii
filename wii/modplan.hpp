@@ -34,6 +34,10 @@ struct CompiledMod {
     bool savegame_clone = false;      // any selected <savegame> asked for clone (the default)
     std::vector<std::string> notes;  // one line per folder, patched file and memory patch, for the log
     std::vector<std::string> warnings;  // from the package parser
+    // The game's executable, when a patch names the bare file "main.dol"
+    // (as Riivolution and Dolphin treat it; CT-CODE packs replace it this
+    // way): the whole patched DOL, for the apploader only.
+    std::vector<std::uint8_t> main_dol;
 };
 
 // A package and the choices to apply over its defaults, in order (see

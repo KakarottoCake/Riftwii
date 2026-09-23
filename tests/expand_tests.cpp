@@ -231,6 +231,19 @@ static void test_by_name() {
     plan.folders[0].is_name = true;
     EXPECT_TRUE(riftwii::expand_plan(plan, fst, card, out, notes, err));
     EXPECT_EQ(out.size(), std::size_t(3));
+
+    // main.dol is the executable, not an FST name: it stays a bare-name
+    // patch for the compiler (CT-CODE packs ship it in such a folder).
+    ListingProvider with_dol = Card();
+    with_dol.add("/mod/loose", "MAIN.DOL", false);
+    plan.folders[0] = Folder("", "/mod/loose", true, true);
+    EXPECT_TRUE(riftwii::expand_plan(plan, fst, with_dol, out, notes, err));
+    EXPECT_EQ(out.size(), std::size_t(4));
+    bool dol = false;
+    for (const riftwii::FilePatch& f : out) {
+        if (f.disc == "main.dol") dol = f.is_filename && f.external == "/mod/loose/MAIN.DOL";
+    }
+    EXPECT_TRUE(dol);
 }
 
 static void test_order_and_files() {

@@ -553,8 +553,26 @@ static void test_read_package() {
     EXPECT_EQ(pkg.root, std::string("/preserved"));
 }
 
+static void test_network() {
+    riftwii::Package pkg;
+    std::string err;
+    EXPECT_TRUE(riftwii::parse_package(
+        "<wiidisc version=\"1\"><network protocol=\"riifs\" address=\"192.168.1.20\" port=\"1200\" log=\"true\"/>"
+        "<network/><network protocol=\"mega\" address=\"1.2.3.4\"/></wiidisc>",
+        pkg, err));
+    EXPECT_EQ(pkg.networks.size(), 2u);
+    EXPECT_EQ(pkg.networks[0].address, std::string("192.168.1.20"));
+    EXPECT_EQ(pkg.networks[0].port, 1200u);
+    EXPECT_EQ(pkg.networks[1].address, std::string(""));  // find one on the network
+    EXPECT_EQ(pkg.networks[1].port, 1137u);
+    EXPECT_EQ(pkg.warnings.size(), 1u);  // the mega protocol
+    EXPECT_FALSE(riftwii::parse_package("<wiidisc version=\"1\"><network port=\"70000\"/></wiidisc>", pkg, err));
+    EXPECT_FALSE(riftwii::parse_package("<wiidisc version=\"1\"><network port=\"x\"/></wiidisc>", pkg, err));
+}
+
 int main() {
     test_successful();
+    test_network();
     test_hex_overflow();
     test_unsupported();
     test_duplicates();

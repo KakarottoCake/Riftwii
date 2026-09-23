@@ -46,6 +46,7 @@
 #include "riftwii/patch.hpp"
 #include "log.hpp"
 #include "menuios.hpp"
+#include "netpacks.hpp"
 #include "video.h"
 
 #define THREAD_SLEEP 100
@@ -313,21 +314,14 @@ static const char* FilterLabel(Filter f)
 	}
 }
 
-// Which games have packs: every XML in sd:/riivolution, by game ID only.
+// Which games have packs: every XML in sd:/riivolution and in the
+// network packs' cache, by game ID only.
 static void LoadPackIndex()
 {
 	g_packs = riftwii::PackIndex();
-	DIR* dir = opendir(riftwii::wii::kPackageDir);
-	if (!dir) return;
-	std::vector<std::string> names;
-	while (const dirent* ent = readdir(dir)) {
-		if (ent->d_name[0] == '.') continue;
-		const char* dot = strrchr(ent->d_name, '.');
-		if (dot && strcasecmp(dot, ".xml") == 0 && names.size() < 256) names.push_back(ent->d_name);
-	}
-	closedir(dir);
-	for (const std::string& name : names) {
-		std::ifstream in(std::string(riftwii::wii::kPackageDir) + "/" + name, std::ios::binary);
+	bool limited = false;
+	for (const riftwii::wii::PackFile& pack : riftwii::wii::ListPackFiles(256, limited)) {
+		std::ifstream in(pack.path, std::ios::binary);
 		if (!in) continue;
 		std::stringstream text;
 		text << in.rdbuf();
@@ -410,6 +404,8 @@ static void ScanDrives(FrontendState& state, GuiText& status)
 	status.SetText("Reading the SD card...");
 	ResumeGui();
 	const bool sd = scan_sd_games(state.sd_catalog, error);
+	const std::string net = riftwii::wii::RefreshNetworkPacks([&](const char* line) { status.SetText(line); });
+	if (!net.empty()) logf("%s\n", net.c_str());
 	LoadPackIndex();
 	HaltGui();
 	if (!sd) {
@@ -896,7 +892,8 @@ static int MenuSettings(FrontendState& state)
 	int iosSlot = riftwii::wii::LoadMenuIos();
 	const bool iosChoosable = iosChoices.size() > 1 || iosSlot != 0;
 
-	enum RowAction { kIos, kRescan, kExit, kNone };
+	bool netOn = riftwii::wii::NetworkPacksEnabled();
+	enum RowAction { kIos, kNet, kResync, kRescan, kExit, kNone };
 	std::vector<FlowRow> rows;
 	std::vector<RowAction> actions;
 	const auto build = [&]() {
@@ -912,6 +909,19 @@ static int MenuSettings(FrontendState& state)
 		ios.dim = !iosChoosable;
 		rows.push_back(ios);
 		actions.push_back(iosChoosable ? kIos : kNone);
+		FlowRow net;
+		net.kind = FlowRow::Kind::Option;
+		net.label = "Find network packs (RiiFS)";
+		net.value = netOn ? "On" : "Off";
+		net.on = netOn;
+		rows.push_back(net);
+		actions.push_back(kNet);
+		FlowRow resync;
+		resync.kind = FlowRow::Kind::Action;
+		resync.label = "Copy network packs again";
+		resync.value = "Resync";
+		rows.push_back(resync);
+		actions.push_back(kResync);
 		FlowRow rescan;
 		rescan.kind = FlowRow::Kind::Action;
 		rescan.label = "Look for games again";
@@ -933,11 +943,11 @@ static int MenuSettings(FrontendState& state)
 	versionTxt.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
 	versionTxt.SetPosition(-40, 40);
 	Panel panel(skin::panelSettings, 34, 84);
-	GuiFlowList list(46, 94, 548, 3);
+	GuiFlowList list(46, 94, 548, 5);
 	list.SetRows(&rows);
 	list.Select(0);
 	GuiText noteTxt(MenuIosNote(iosSlot).c_str(), 16, skin::kInkSoft);
-	Place(noteTxt, 52, 214);
+	Place(noteTxt, 52, 280);
 	noteTxt.SetWrap(true, 536);
 
 	SkinButton backBtn(skin::pill, skin::pillOver, 4, 198, 406, "Back",
@@ -984,6 +994,20 @@ static int MenuSettings(FrontendState& state)
 					list.Select(acted);
 					break;
 				}
+				case kNet:
+					netOn = !netOn;
+					riftwii::wii::SetNetworkPacksEnabled(netOn);
+					noteTxt.SetText(netOn
+						? "Looks for a PC running a RiiFS server when the games are read. Rescan to look now."
+						: "Only servers named by <network> in an XML on the card are used.");
+					build();
+					list.Refresh();
+					list.Select(acted);
+					break;
+				case kResync:
+					riftwii::wii::ForceNextSync();
+					noteTxt.SetText("The next launch copies every file of its network packs again.");
+					break;
 				case kRescan:
 					g_scanned = false;
 					menu = MENU_SOURCE;

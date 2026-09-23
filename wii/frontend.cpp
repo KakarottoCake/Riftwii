@@ -16,6 +16,7 @@
 #include "autorun.hpp"
 #include "log.hpp"
 #include "menuios.hpp"
+#include "netpacks.hpp"
 
 namespace riftwii::wii {
 
@@ -146,31 +147,11 @@ std::string ScanPackages(FrontendState& state) {
     // A reused frontend state must not carry game A's saved mode into game B
     // when B has no choices file. restore() below may replace this default.
     state.model.save_mode = "nand";
-    std::unique_ptr<DIR, int (*)(DIR*)> dir(opendir(kPackageDir), closedir);
-    if (!dir) {
-        return errno == ENOENT ? "Create sd:/riivolution for XML packages" : "Cannot read SD package directory";
-    }
-    std::vector<std::string> names;
+    // sd:/riivolution, then the packs cached from RiiFS servers. Hidden
+    // files are never packs: macOS leaves a binary "._name.xml"
+    // (AppleDouble) beside every file it copies to FAT.
     bool limited = false;
-    while (true) {
-        errno = 0;
-        const dirent* ent = readdir(dir.get());
-        if (!ent) {
-            if (errno != 0) return "SD directory read failed; rescan to retry";
-            break;
-        }
-        // Hidden files are never packs: macOS leaves a binary "._name.xml"
-        // (AppleDouble) beside every file it copies to FAT.
-        if (ent->d_name[0] == '.') continue;
-        const char* dot = std::strrchr(ent->d_name, '.');
-        if (!dot || strcasecmp(dot, ".xml") != 0) continue;
-        if (names.size() == kMaxPackages) {
-            limited = true;
-            break;
-        }
-        names.push_back(ent->d_name);
-    }
-    std::sort(names.begin(), names.end());
+    const std::vector<PackFile> found = ListPackFiles(kMaxPackages, limited);
     DiscIdentity identity;
     const DiscIdentity* disc = nullptr;
     if (!state.game_id.empty()) {
@@ -179,14 +160,11 @@ std::string ScanPackages(FrontendState& state) {
         identity.number = state.game_disc_number;
         disc = &identity;
     }
-    for (const std::string& name : names) {
-        const std::string path = std::string(kPackageDir) + "/" + name;
-        struct stat info;
-        if (stat(path.c_str(), &info) == 0 && S_ISDIR(info.st_mode)) continue;
-        std::ifstream input(path, std::ios::binary);
+    for (const PackFile& pack : found) {
+        std::ifstream input(pack.path, std::ios::binary);
         std::stringstream text;
         if (input) text << input.rdbuf();
-        state.model.add(name, path, input ? text.str() : std::string(), disc);
+        state.model.add(pack.file, pack.path, input ? text.str() : std::string(), disc);
     }
     if (!state.choices_path.empty()) {
         std::ifstream saved(state.choices_path, std::ios::binary);

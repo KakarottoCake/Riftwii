@@ -610,6 +610,29 @@ bool ParseSavegameNode(pugi::xml_node n, Patch& patch, Ctx& ctx, int depth, std:
     patch.order.push_back(PatchStep{PatchKind::Savegame, patch.savegames.size() - 1});
     return true;
 }
+bool ParseNetworkNode(pugi::xml_node n, Ctx& ctx, int depth, std::string& error) {
+    static const char* const allowed[] = {"protocol", "address", "port", "log", nullptr};
+    if (!EnterElement(n, ctx, depth, allowed, "network", error)) return false;
+    for (auto c : n.children()) {
+        if (c.type() == pugi::node_element) WarnUnknownChild(ctx, "network", c);
+    }
+    const std::string protocol = AttrPresent(n, "protocol") ? AttrValue(n, "protocol") : "riifs";
+    if (protocol != "riifs") {
+        Warn(ctx, "network: ignoring protocol '" + protocol + "' (only riifs is supported)");
+        return true;
+    }
+    NetworkServer s;
+    s.address = AttrValue(n, "address");
+    std::uint64_t port = s.port;
+    if (!ReadU64(n, "port", "network", port, error)) return false;
+    if (port == 0 || port > 65535) {
+        error = "invalid network port '" + AttrValue(n, "port") + "'";
+        return false;
+    }
+    s.port = static_cast<std::uint16_t>(port);
+    ctx.pkg.networks.push_back(s);
+    return true;
+}
 bool ParsePatchDef(pugi::xml_node n, Ctx& ctx, int depth, std::string& error) {
     static const char* const allowed[] = {"id", "root", nullptr};
     if (!EnterElement(n, ctx, depth, allowed, "patch", error)) return false;
@@ -1174,6 +1197,8 @@ bool parse_package(const std::string& xml, Package& output, std::string& error) 
                 if (!ParseOptions(c, ctx, 2, error)) return false;
             } else if (cn == "patch") {
                 if (!ParsePatchDef(c, ctx, 2, error) && !Recover(ctx, "a <patch>", error)) return false;
+            } else if (cn == "network") {
+                if (!ParseNetworkNode(c, ctx, 2, error)) return false;
             } else {
                 WarnUnknownChild(ctx, "wiidisc", c);
             }

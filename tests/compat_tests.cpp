@@ -192,7 +192,7 @@ static void test_unknown_extras() {
     const std::vector<std::string> want = {
         "wiidisc: ignoring unknown attribute 'foo'",
         "id: ignoring unknown attribute 'hidden'",
-        "wiidisc: ignoring unsupported element 'network'",
+        "network: ignoring protocol 'riiv' (only riifs is supported)",
         "section: ignoring unknown attribute 'icon'",
         "option: ignoring unknown attribute 'hidden'",
         "choice: ignoring unknown attribute 'tip'",

@@ -18,6 +18,7 @@
 #include "log.hpp"
 #include "menuios.hpp"
 #include "modplan.hpp"
+#include "netpacks.hpp"
 #include "sdfile.hpp"
 
 namespace riftwii::wii {
@@ -299,6 +300,7 @@ bool BootCompiled(const CompiledMod& mod, std::string& error, const LaunchSource
     options.table_entries = mod.entries;
     options.relocations = mod.relocations;
     options.memory_patches = mod.memory;
+    options.main_dol = mod.main_dol;
     options.savegame_dir = dir;
     options.savegame_clone = xml_saves ? mod.savegame_clone : saves.clone;
     if (!xml_saves && !saves.note.empty()) logf("Saves: %s\n", saves.note.c_str());
@@ -321,6 +323,7 @@ bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error, 
     BootOptions options; options.allow_ios_fallback=true; options.preserve_current_ios=source.kind != LaunchSource::Kind::Disc || MenuCiosSlot() != 0;
     options.install_resident=!mod.entries.empty() || !mod.relocations.empty() || !dir.empty();
     options.table_entries=mod.entries; options.relocations=mod.relocations; options.memory_patches=mod.memory;
+    options.main_dol=mod.main_dol;
     options.savegame_dir=dir; options.savegame_clone=xml_saves ? mod.savegame_clone : saves.clone;
     if (!xml_saves && !saves.note.empty()) logf("Saves: %s\n", saves.note.c_str());
     return boot_game(s.probe,options,error);
@@ -406,6 +409,12 @@ void RunAutorun() {
             }
         } else if (cmd == "disc") {
             source=LaunchSource{}; s=Session(source, kAutorunLogPath);
+        } else if (cmd == "netscan") {
+            // The network packs' list, as the menu's scan fetches it.
+            const std::string line = RefreshNetworkPacks(nullptr);
+            logf("  %s\n", line.empty() ? "no RiiFS server configured" : line.c_str());
+        } else if (cmd == "resync") {
+            ForceNextSync();
         } else if (cmd == "probe") {
             ok = s.ensure_probe(error);
         } else if (cmd == "layout") {
@@ -604,6 +613,7 @@ void RunAutorun() {
             options.table_entries = mods.entries;
             options.relocations = mods.relocations;
             options.memory_patches = mods.memory;
+            options.main_dol = mods.main_dol;
             options.savegame_dir = mods.savegame_dir;
             options.savegame_clone = mods.savegame_clone;
             if (!s.ensure_probe(error)) {
