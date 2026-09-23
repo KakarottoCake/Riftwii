@@ -115,7 +115,15 @@ bool plan_virtual_window(class Fst& fst, const std::vector<VirtualFile>& files,
 
 // lis/ori/mtctr/bctr through `reg` (0-31): an absolute jump in four words.
 std::array<std::uint32_t, 4> encode_absolute_jump(unsigned reg, std::uint32_t target);
-constexpr std::size_t kHookStubBytes = 16;
+
+// The hook written over a hooked function's first instruction: one
+// relative `b` to its trampoline (MEM1 is 24 MiB, inside b's +-32 MiB
+// reach). Only that instruction is displaced, so code that enters the
+// function at +4 after running the first instruction itself (Pulsar's
+// IOS_Open "OpenFix") runs the untouched original. False when `to` is out
+// of reach or either address is not word aligned.
+bool encode_branch(std::uint32_t from, std::uint32_t to, std::uint32_t& out);
+constexpr std::size_t kHookStubBytes = 4;
 
 // Whether an instruction may be moved from the start of a hooked function
 // into the replay slot: no branches, system calls or returns, and nothing

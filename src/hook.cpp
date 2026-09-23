@@ -108,6 +108,14 @@ std::array<std::uint32_t, 4> encode_absolute_jump(unsigned reg, std::uint32_t ta
     };
 }
 
+bool encode_branch(std::uint32_t from, std::uint32_t to, std::uint32_t& out) {
+    if ((from & 3) != 0 || (to & 3) != 0) return false;
+    const std::int64_t delta = static_cast<std::int64_t>(to) - static_cast<std::int64_t>(from);
+    if (delta < -0x2000000 || delta > 0x1FFFFFC) return false;
+    out = 0x48000000u | (static_cast<std::uint32_t>(delta) & 0x03FFFFFCu);  // b to
+    return true;
+}
+
 bool displaceable(std::uint32_t instruction, unsigned scratch_reg, std::string& why) {
     const std::uint32_t opcode = instruction >> 26;
     if (opcode == 16 || opcode == 18) {

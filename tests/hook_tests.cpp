@@ -147,6 +147,23 @@ static void TestJumpAndDisplace() {
     EXPECT_EQ(k[1], 0x618C40C8u);  // ori r12, r12, 0x40c8
     EXPECT_EQ(k[2], 0x7D8903A6u);  // mtctr r12
 
+    // The one-word hook: MKWii's IOS_Open (RMCE01) to a runtime at the top
+    // of MEM1, forward and backward, and the edges of b's reach.
+    std::uint32_t b = 0;
+    EXPECT_TRUE(riftwii::encode_branch(0x80193740, 0x817BC640, b));
+    EXPECT_EQ(b, 0x49628F00u);
+    EXPECT_TRUE(riftwii::encode_branch(0x817BC640, 0x80193740, b));
+    EXPECT_EQ(b, 0x4A9D7100u);
+    EXPECT_TRUE(riftwii::encode_branch(0x80003100, 0x817FFFFC, b));  // all of MEM1 is in reach
+    EXPECT_TRUE(riftwii::encode_branch(0x80000000, 0x81FFFFFC, b));
+    EXPECT_EQ(b, 0x49FFFFFCu);
+    EXPECT_FALSE(riftwii::encode_branch(0x80000000, 0x82000000, b));
+    EXPECT_TRUE(riftwii::encode_branch(0x82000000, 0x80000000, b));
+    EXPECT_EQ(b, 0x4A000000u);
+    EXPECT_FALSE(riftwii::encode_branch(0x82000004, 0x80000000, b));
+    EXPECT_FALSE(riftwii::encode_branch(0x80193742, 0x817BC640, b));
+    EXPECT_EQ(riftwii::kHookStubBytes, 4u);  // a caller entering at +4 skips the hook
+
     std::string why;
     EXPECT_TRUE(riftwii::displaceable(0x9421FFC0, 12, why));   // stwu r1,-0x40(r1)
     EXPECT_TRUE(riftwii::displaceable(0x7C0802A6, 12, why));   // mflr r0

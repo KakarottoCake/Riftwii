@@ -32,7 +32,7 @@ constexpr std::uint32_t kBi2Field = 0x800000F4;
 constexpr std::uint32_t kBi2Bytes = 0x2000;
 constexpr std::uint32_t kMem2ArenaEndField = 0x80003128;  // written by IOS at reload (Dolphin IOS.cpp, wiibrew)
 constexpr unsigned kContinueScratchRegister = 12;         // see rt_entry.S
-constexpr unsigned kStubScratchRegister = 0;
+constexpr std::uint32_t kNop = 0x60000000;
 
 void store_words(std::uint32_t address, const std::uint32_t* words, std::size_t count) {
     volatile std::uint32_t* p = reinterpret_cast<volatile std::uint32_t*>(address);
@@ -88,8 +88,8 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
         logf("Resident: IPC API not found (%s); only IOS_IoctlAsync is hooked\n", api_error.c_str());
     }
 
-    // 2. The four instructions each stub displaces must be safe to replay.
-    //    IOS_IoctlAsync's must be; another function's that are not leave it
+    // 2. The instruction each hook displaces must be safe to replay.
+    //    IOS_IoctlAsync's must be; another function's that is not leaves it
     //    unhooked (its calls go to IOS untouched).
     std::uint32_t displaced[RT_IPC_ENTRIES][4] = {};
     bool hooked[RT_IPC_ENTRIES] = {};
@@ -97,7 +97,8 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
     for (std::uint32_t e = 0; e < RT_IPC_ENTRIES; ++e) {
         if (entry_address[e] == 0) continue;
         bool ok = true;
-        for (unsigned i = 0; i < 4 && ok; ++i) {
+        for (unsigned i = 1; i < 4; ++i) displaced[e][i] = kNop;  // the replay slot's padding
+        for (unsigned i = 0; i < kHookStubBytes / 4 && ok; ++i) {
             displaced[e][i] = *reinterpret_cast<const std::uint32_t*>(entry_address[e] + i * 4);
             std::string why;
             if (!displaceable(displaced[e][i], kContinueScratchRegister, why)) {
@@ -244,8 +245,14 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
     // 5. Divert the game's functions to their trampolines.
     for (std::uint32_t e = 0; e < RT_IPC_ENTRIES; ++e) {
         if (!hooked[e]) continue;
-        const auto stub = encode_absolute_jump(kStubScratchRegister, place.code_base + blob.hook_offsets[e]);
-        store_words(entry_address[e], stub.data(), 4);
+        std::uint32_t branch = 0;
+        if (!encode_branch(entry_address[e], place.code_base + blob.hook_offsets[e], branch)) {
+            // Out of b's reach (not in MEM1): the function stays unhooked.
+            hooked[e] = false;
+            --hooked_count;
+            continue;
+        }
+        store_words(entry_address[e], &branch, 1);
         sync_code(entry_address[e], kHookStubBytes);
     }
 
