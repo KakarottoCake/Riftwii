@@ -302,6 +302,38 @@ static void test_saves() {
     EXPECT_TRUE(o.dir.empty());
 }
 
+// A pack with its own <savegame> owns the saves while the choice that
+// turns it on is picked; turning the pack or the choice off hands the
+// setting back.
+static void test_pack_saves() {
+    static const char* kModSaves =
+        "<wiidisc version=\"1\"><id game=\"RMCE\"/>"
+        "<options><section name=\"S\">"
+        "<option name=\"Play\" default=\"0\"><choice name=\"On\"><patch id=\"main\"/></choice></option>"
+        "<option name=\"Extra\" default=\"0\"><choice name=\"On\"><patch id=\"extra\"/></choice></option>"
+        "</section></options>"
+        "<patch id=\"main\"><file disc=\"/a.bin\" external=\"a.bin\"/><savegame external=\"SaveGame\" clone=\"false\"/></patch>"
+        "<patch id=\"extra\"><file disc=\"/b.bin\" external=\"b.bin\"/></patch>"
+        "</wiidisc>";
+    riftwii::DiscIdentity disc{"RMCE01", 0, 0};
+    riftwii::LaunchModel model;
+    model.add("a.xml", "sd:/riivolution/a.xml", kModA, &disc);
+    model.add("saves.xml", "sd:/riivolution/saves.xml", kModSaves, &disc);
+    EXPECT_EQ(model.pack_save_owner(), std::string(""));
+    EXPECT_TRUE(model.set_enabled(0, true));
+    EXPECT_EQ(model.pack_save_owner(), std::string(""));  // a pack without <savegame>
+    EXPECT_TRUE(model.set_enabled(1, true));
+    EXPECT_EQ(model.pack_save_owner(), std::string(""));  // on, but nothing chosen yet
+    EXPECT_TRUE(model.cycle(1, 1, +1));
+    EXPECT_EQ(model.pack_save_owner(), std::string(""));  // only the choice without one
+    EXPECT_TRUE(model.cycle(1, 0, +1));
+    EXPECT_EQ(model.pack_save_owner(), std::string("saves.xml"));
+    model.save_mode = "fresh";  // kept for when the pack lets go
+    EXPECT_TRUE(model.set_enabled(1, false));
+    EXPECT_EQ(model.pack_save_owner(), std::string(""));
+    EXPECT_EQ(model.save_mode, std::string("fresh"));
+}
+
 static void expect(bool ok, const char* what) {
     if (!ok) {
         std::cerr << "FAILED: " << what << std::endl;
@@ -363,6 +395,7 @@ int main() {
     test_pack_index();
     test_merged_options();
     test_saves();
+    test_pack_saves();
     if (g_failures == 0) {
         std::cout << "ALL LAUNCH TESTS PASSED" << std::endl;
         return 0;

@@ -108,9 +108,10 @@ void GuiFlowList::Draw() {
             label[i]->SetColor(r.dim ? skin::kInkDim : header ? skin::kInk : skin::kInkSoft);
             label[i]->SetMaxWidth(rowWidth - (r.value.empty() ? 2 * kPad : kChipW + 3 * kPad));
             std::string chip = r.value;
-            if (r.kind == FlowRow::Kind::Option) chip = "\xE2\x80\xB9  " + chip + "  \xE2\x80\xBA";
+            // A dim option is shown but fixed: no arrows to suggest stepping it.
+            if (r.kind == FlowRow::Kind::Option && !r.dim) chip ="\xE2\x80\xB9  " + chip + "  \xE2\x80\xBA";
             value[i]->SetText(chip.c_str());
-            value[i]->SetColor(r.on ? skin::kAccentInk : skin::kInkSoft);
+            value[i]->SetColor(r.on ? skin::kAccentInk : r.dim ? skin::kInkDim : skin::kInkSoft);
             value[i]->SetMaxWidth(kChipW - 16);
         }
     }

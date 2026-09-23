@@ -113,6 +113,11 @@ public:
     // Whether a list shows this option: false for a merged option's copy
     // when an earlier enabled pack already shows it.
     bool option_shown(std::size_t package, std::size_t option) const;
+    // The file of the first enabled pack whose current choices turn on a
+    // <savegame> patch, empty when none. Such a pack brings its own save
+    // folder and it wins over save_mode (resolve_save_override), so the
+    // frontend shows the save setting as the pack's instead of offering it.
+    std::string pack_save_owner() const;
 
     // What to compile: every enabled package with every option stated
     // explicitly, so a package's defaults never leak past the frontend.

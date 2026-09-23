@@ -42,8 +42,10 @@ split `.wbf1`, `.wbf2`, …) in `<source>:/wbfs` and raw `.iso` in
 5. **Saves**, the first row, keeps the Wii saving as usual, or keeps this
    game's saves on the SD card: cloned once from the Wii's save
    (`sd:/riftwii/saves/<ID>/clone`) or started fresh
-   (`sd:/riftwii/saves/<ID>/fresh`). A pack's `<savegame>` takes
-   precedence.
+   (`sd:/riftwii/saves/<ID>/fresh`). While a pack that brings its own
+   saves (`<savegame>` in its XML) is on, the row reads "Kept by the
+   pack" and cannot be changed; turning the pack off restores your
+   choice.
 6. **Start** (Plus) boots, with nothing on for the plain game. While it
    starts, the log prints on screen. Your choices are saved per game.
 7. Settings (the gear, or 2) holds the menu IOS (pick the cIOS slot with
