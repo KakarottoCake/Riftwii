@@ -134,21 +134,30 @@ bool displaceable(std::uint32_t instruction, unsigned scratch_reg, std::string& 
 // the top of the MEM1 arena, just below what the apploader left there
 // (BI2, FST): MEM1 is the one region every SDK keeps an instruction BAT
 // for, a 2009 SDK drops the MEM2 one before its first IPC call (section
-// 23). The data (redirect table, MEM bytes, bounce buffers) takes the top
-// of the MEM2 arena, rounded to 64 KiB, and only when there is any.
-// `arena1_hi` is the apploader's value at 0x80000034, `arena2_end` the
-// value IOS put at 0x80003128; `mem1_floor` is the lowest address the
-// code may take (above the loader and the apploader image).
+// 23). The data (redirect table, MEM bytes, bounce buffers, savegame
+// state) takes the bottom of the MEM2 arena, rounded up to 64 KiB, and
+// only when there is any. The top of the MEM2 arena stays the game's:
+// code in the wild assumes the arena ends where IOS put it (older Syati
+// loaders read and zero-fill their custom code at a fixed address just
+// below 0x935E0000), and Riivolution, whose redirects run inside IOS,
+// never took any of it. The bottom is still this loader's own memory
+// until the jump, so the data is built at a staging area at the top of
+// the arena, above everything the loader uses, and copied down last.
+// `arena1_hi` is the apploader's value at 0x80000034, `arena2_lo` and
+// `arena2_end` the values IOS put at 0x80003124 and 0x80003128;
+// `mem1_floor` is the lowest address the code may take (above the loader
+// and the apploader image).
 struct ResidentPlacement {
     std::uint32_t code_base = 0;        // blob copied here (MEM1)
     std::uint32_t code_bytes = 0;       // from code_base to the old arena hi
     std::uint32_t new_arena1_hi = 0;    // what 0x80000034 becomes (== code_base)
-    std::uint32_t data_base = 0;        // payload and buffers (MEM2), 0 when none
-    std::uint32_t data_bytes = 0;       // from data_base to the old arena end
-    std::uint32_t new_arena2_end = 0;   // what 0x80003128 becomes (unchanged when data_bytes == 0)
+    std::uint32_t data_base = 0;        // payload and buffers (MEM2), 0 when none; == the old arena lo
+    std::uint32_t data_bytes = 0;       // from data_base to the new arena lo
+    std::uint32_t new_arena2_lo = 0;    // what 0x80003124 becomes (unchanged when data_bytes == 0)
+    std::uint32_t stage_base = 0;       // where the loader builds the data (data_bytes, ending at or below arena2_end)
 };
-bool plan_resident_placement(std::uint32_t arena1_hi, std::uint32_t mem1_floor, std::uint32_t arena2_end,
-                             std::uint32_t blob_size, std::uint32_t extra_bytes, ResidentPlacement& out,
-                             std::string& error);
+bool plan_resident_placement(std::uint32_t arena1_hi, std::uint32_t mem1_floor, std::uint32_t arena2_lo,
+                             std::uint32_t arena2_end, std::uint32_t blob_size, std::uint32_t extra_bytes,
+                             ResidentPlacement& out, std::string& error);
 
 }  // namespace riftwii

@@ -30,7 +30,8 @@ constexpr std::uint32_t kMem1ArenaHiField = 0x80000034;
 constexpr std::uint32_t kFstAddressField = 0x80000038;
 constexpr std::uint32_t kBi2Field = 0x800000F4;
 constexpr std::uint32_t kBi2Bytes = 0x2000;
-constexpr std::uint32_t kMem2ArenaEndField = 0x80003128;  // written by IOS at reload (Dolphin IOS.cpp, wiibrew)
+constexpr std::uint32_t kMem2ArenaLoField = 0x80003124;   // written by IOS at reload (Dolphin IOS.cpp, wiibrew)
+constexpr std::uint32_t kMem2ArenaEndField = 0x80003128;
 constexpr unsigned kContinueScratchRegister = 12;         // see rt_entry.S
 constexpr std::uint32_t kNop = 0x60000000;
 
@@ -117,9 +118,11 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
         if (ok) ++hooked_count;
     }
 
-    // 3. Reserve the top of the MEM1 arena for the blob and the top of
+    // 3. Reserve the top of the MEM1 arena for the blob and the bottom of
     //    the MEM2 arena for the redirect payload, the bounce buffers and
-    //    the savegame state.
+    //    the savegame state (riftwii/hook.hpp: the top stays the game's).
+    //    The data is built at the staging area with its final addresses;
+    //    the loader copies it down just before the jump.
     const bool has_table = !options.pieces.empty();
     const bool has_sd = options.pieces.needs_sd();
     if (has_sd && symbols.ioctlv_async == 0) {
@@ -169,9 +172,10 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
     if (arena1_hi == 0) arena1_hi = read32(kFstAddressField);
     const std::uint32_t bi2 = read32(kBi2Field);
     if (bi2 != 0 && bi2 < arena1_hi && arena1_hi - bi2 <= kBi2Bytes) arena1_hi = bi2;  // keep it whole
+    const std::uint32_t arena2_lo = read32(kMem2ArenaLoField);
     const std::uint32_t arena2_end = read32(kMem2ArenaEndField);
     ResidentPlacement place;
-    if (!plan_resident_placement(arena1_hi, options.mem1_floor, arena2_end, blob.size,
+    if (!plan_resident_placement(arena1_hi, options.mem1_floor, arena2_lo, arena2_end, blob.size,
                                  static_cast<std::uint32_t>(payload.size()) + bounce_bytes + fs_bytes, place, error)) {
         return false;
     }
@@ -181,14 +185,15 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
     }
     const std::uint32_t bounce_address = payload_address + static_cast<std::uint32_t>(payload.size());
     const std::uint32_t fs_state_address = (bounce_address + bounce_bytes + 31) & ~31u;
+    // Where each final address is written now.
+    const auto staged = [&](std::uint32_t address) { return address - place.data_base + place.stage_base; };
 
     // 4. Copy the blob and the payload, fill in the context and the
     //    loader-patched slots: each hooked function's displaced words and
     //    the jump back into it.
     std::memcpy(reinterpret_cast<void*>(place.code_base), riftwii_rt_bin, blob.size);
     if (!payload.empty()) {
-        std::memcpy(reinterpret_cast<void*>(payload_address), payload.data(), payload.size());
-        DCFlushRange(reinterpret_cast<void*>(payload_address), static_cast<u32>(payload.size()));
+        std::memcpy(reinterpret_cast<void*>(staged(payload_address)), payload.data(), payload.size());
     }
     rt_context* ctx = reinterpret_cast<rt_context*>(place.code_base + blob.context_offset);
     ctx->flags = options.gecko ? RT_FLAG_GECKO : 0;
@@ -220,7 +225,8 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
     // The savegame state: the engine's context (volume, prefix), the
     // completion entry and the two originals the sync path calls.
     if (has_fs) {
-        rt_fs_state* st = reinterpret_cast<rt_fs_state*>(fs_state_address);
+        // Position-independent: rtfs_init stores no pointer into itself.
+        rt_fs_state* st = reinterpret_cast<rt_fs_state*>(staged(fs_state_address));
         std::memset(st, 0, sizeof(*st));
         if (rtfs_init(&st->fs, &options.savegame.volume, options.savegame.prefix.c_str(), -1) != RTFAT_OK) {
             error = "savegame redirection: rtfs_init refused the prefix '" + options.savegame.prefix + "'";
@@ -236,7 +242,6 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
         st->open_async = original(RT_IPC_ASYNC(1));
         st->close_async = original(RT_IPC_ASYNC(2));
         st->read_async = original(RT_IPC_ASYNC(3));
-        DCFlushRange(st, sizeof(*st));
         ctx->fs_state = fs_state_address;
         ctx->flags |= RT_FLAG_FS;
     }
@@ -262,8 +267,9 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
     out.new_arena1_hi = place.new_arena1_hi;
     out.data_base = place.data_base;
     out.data_bytes = place.data_bytes;
-    out.old_arena2_end = arena2_end;
-    out.new_arena2_end = place.new_arena2_end;
+    out.stage_base = place.stage_base;
+    out.old_arena2_lo = arena2_lo;
+    out.new_arena2_lo = place.new_arena2_lo;
     out.ioctl_async = symbols.ioctl_async;
     out.ioctlv_async = symbols.ioctlv_async;
     out.table = ctx->table;
@@ -279,8 +285,8 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
     logf("Resident: %u bytes at 0x%08x, MEM1 arena top 0x%08x -> 0x%08x, gecko %s, %u IPC function(s) hooked\n",
          blob.size, place.code_base, arena1_hi, place.new_arena1_hi, options.gecko ? "on" : "off", hooked_count);
     if (place.data_bytes != 0) {
-        logf("Resident: %u bytes of data at 0x%08x, MEM2 arena end 0x%08x -> 0x%08x\n", place.data_bytes,
-             place.data_base, arena2_end, place.new_arena2_end);
+        logf("Resident: %u bytes of data at 0x%08x (staged at 0x%08x), MEM2 arena start 0x%08x -> 0x%08x, end 0x%08x kept\n",
+             place.data_bytes, place.data_base, place.stage_base, arena2_lo, place.new_arena2_lo, arena2_end);
     }
     if (!payload.empty()) {
         logf("Resident: redirect table at 0x%08x, %u MEM + %u SD + %u DISC replacement(s) + %u entries, payload %u bytes, virtual window from word 0x%08x\n",

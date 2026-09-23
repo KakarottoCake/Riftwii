@@ -833,16 +833,17 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         write32(0x80003140, pretended);
         write32(0x80003188, pretended);
     }
-    if (options.install_resident && resident.new_arena2_end != resident.old_arena2_end) {
-        // IOS's own field, like 0x3140: uncached, after the flush.
-        write32(0x80003128, resident.new_arena2_end);
+    if (options.install_resident && resident.new_arena2_lo != resident.old_arena2_lo) {
+        // IOS's own field, like 0x3140: uncached, after the flush. The end
+        // (0x3128) is never moved: the top of MEM2 stays the game's.
+        write32(0x80003124, resident.new_arena2_lo);
     }
 
     // <memory> patches, last of all so they win over the globals above (as
     // in Dolphin, which writes low memory before its patches). Writes may
     // land anywhere in MEM1 except this loader, the runtime's code and its
-    // hook stub, and in MEM2 below the arena end (the runtime's data is
-    // above).
+    // hook stub, and in MEM2 outside the runtime's data and its staging
+    // area (the staged bytes are copied down after these patches).
     if (!options.memory_patches.empty()) {
         struct WiiMemory final : MemoryAccess {
             bool read(std::uint32_t address, std::uint8_t* out, std::size_t length) override {
@@ -859,8 +860,6 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
             }
         } wii_memory;
         const std::uint32_t loader_end = reinterpret_cast<std::uint32_t>(SYS_GetArena1Hi());
-        const std::uint32_t arena2_end =
-            options.install_resident ? resident.new_arena2_end : reinterpret_cast<std::uint32_t>(SYS_GetArena2Hi());
         std::vector<MemoryRegion> writable;
         writable.push_back(MemoryRegion{kMem1Start, kLoaderStart - kMem1Start});
         if (options.install_resident && resident.code_base >= loader_end) {
@@ -870,15 +869,22 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         } else {
             writable.push_back(MemoryRegion{loader_end, kMem1End - loader_end});
         }
-        writable.push_back(MemoryRegion{kMem2Start, arena2_end > kMem2Start ? arena2_end - kMem2Start : 0});
-        std::vector<MemoryRegion> hook_exclusions;
+        std::vector<MemoryRegion> exclusions;
+        if (options.install_resident && resident.data_bytes != 0) {
+            writable.push_back(MemoryRegion{kMem2Start, kMem2End - kMem2Start});
+            exclusions.push_back(MemoryRegion{resident.data_base, resident.data_bytes});
+            exclusions.push_back(MemoryRegion{resident.stage_base, kMem2End - resident.stage_base});
+        } else {
+            const std::uint32_t arena2_end = reinterpret_cast<std::uint32_t>(SYS_GetArena2Hi());
+            writable.push_back(MemoryRegion{kMem2Start, arena2_end > kMem2Start ? arena2_end - kMem2Start : 0});
+        }
         if (options.install_resident) {
-            hook_exclusions.reserve(resident.hook_site_count);
+            exclusions.reserve(exclusions.size() + resident.hook_site_count);
             for (unsigned i = 0; i < resident.hook_site_count; ++i) {
-                hook_exclusions.push_back(MemoryRegion{resident.hook_sites[i], kHookStubBytes});
+                exclusions.push_back(MemoryRegion{resident.hook_sites[i], kHookStubBytes});
             }
         }
-        writable = subtract_memory_regions(writable, hook_exclusions);
+        writable = subtract_memory_regions(writable, exclusions);
         std::vector<std::string> notes;
         if (!apply_memory_patches(options.memory_patches, loaded, writable, wii_memory, notes, error)) return false;
         for (const std::string& n : notes) logf("  %s\n", n.c_str());
@@ -890,6 +896,13 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
     // raw-card fd for SD-backed reads and savegame writes.
     card_handed_to_runtime = true;
     SYS_ResetSystem(SYS_SHUTDOWN, 0, 0);
+    if (options.install_resident && resident.data_bytes != 0) {
+        // The runtime's data to the bottom of the MEM2 arena, over what was
+        // this loader's own memory (nothing below needs it any more).
+        std::memcpy(reinterpret_cast<void*>(resident.data_base), reinterpret_cast<const void*>(resident.stage_base),
+                    resident.data_bytes);
+        DCFlushRange(reinterpret_cast<void*>(resident.data_base), resident.data_bytes);
+    }
     game_entry();
     // A game entry must never return, but release the card if it does.
     card_handed_to_runtime = false;
