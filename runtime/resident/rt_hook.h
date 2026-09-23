@@ -70,7 +70,10 @@ extern "C" {
 #define RT_FLAG_GECKO 0x1u /* report DI reads over the USB Gecko in EXI channel gecko_channel */
 #define RT_FLAG_FS 0x2u    /* route savegame calls through rtfs (docs section 24) */
 
-#define RT_MAX_PENDING 4u /* outstanding redirected reads (the DVD driver issues one at a time) */
+/* Outstanding redirected reads. The DVD driver issues one at a time, but
+ * the next may start from the previous one's callback before its record is
+ * free; each record holds an RT_BOUNCE_BYTES buffer of the game's MEM2. */
+#define RT_MAX_PENDING 2u
 #define RT_MAX_RUNS 8u    /* pieces of a read held at a time; longer reads are served in windows */
 #define RT_GECKO_MAX_FAILURES 32u /* refused bytes after which Gecko reporting turns itself off */
 #define RT_BOUNCE_BYTES 0x8000u   /* bytes one SD request fetches (64 sectors), per pending record */
@@ -390,7 +393,7 @@ struct rt_fs_state {
     char copy_paths[2u * RTFS_PATH_BYTES] __attribute__((aligned(32)));
 };
 
-/* 2048 bytes. */
+/* At most 2048 bytes, the slot rt_entry.S reserves. */
 struct rt_context {
     uint32_t magic;               /* RT_CONTEXT_MAGIC (non-zero so the struct lives in .data) */
     uint32_t flags;               /* RT_FLAG_* */

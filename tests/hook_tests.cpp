@@ -209,21 +209,21 @@ static void TestPlacement() {
     EXPECT_EQ(p.data_base, 0u);
     EXPECT_EQ(p.data_bytes, 0u);
     EXPECT_EQ(p.new_arena2_lo, 0x90000800u);
-    // With data: the bottom of the MEM2 arena up to a 64 KiB line, staged
+    // With data: the bottom of the MEM2 arena up to a 32-byte line, staged
     // at the top; the arena end is never moved.
     EXPECT_TRUE(riftwii::plan_resident_placement(0x817E9E60, 0x81240000, 0x90000800, 0x935E0000, 7840, 1, p, error));
     EXPECT_EQ(p.data_base, 0x90000800u);
-    EXPECT_EQ(p.data_bytes, 0xF800u);
-    EXPECT_EQ(p.new_arena2_lo, 0x90010000u);
-    EXPECT_EQ(p.stage_base, 0x935D0800u);
+    EXPECT_EQ(p.data_bytes, 0x20u);
+    EXPECT_EQ(p.new_arena2_lo, 0x90000820u);
+    EXPECT_EQ(p.stage_base, 0x935DFFE0u);
     EXPECT_TRUE(riftwii::plan_resident_placement(0x817E9E60, 0x81240000, 0x90000800, 0x935E0000, 7840, 0xF801, p, error));
-    EXPECT_EQ(p.new_arena2_lo, 0x90020000u);
-    EXPECT_EQ(p.data_bytes, 0x1F800u);
+    EXPECT_EQ(p.new_arena2_lo, 0x90010020u);
+    EXPECT_EQ(p.data_bytes, 0xF820u);
     EXPECT_TRUE(riftwii::plan_resident_placement(0x817E9E60, 0x81240000, 0x90000800, 0x933E0000, 7840, 0x20000, p, error));  // IOS58-style end
-    EXPECT_EQ(p.new_arena2_lo, 0x90030000u);
-    EXPECT_EQ(p.stage_base, 0x933B0800u);
+    EXPECT_EQ(p.new_arena2_lo, 0x90020800u);
+    EXPECT_EQ(p.stage_base, 0x933C0000u);
     EXPECT_TRUE(riftwii::plan_resident_placement(0x817E9E60, 0x81240000, 0x90000800, 0x935DFFE0, 7840, 32, p, error));  // unaligned end: stage rounds down
-    EXPECT_EQ(p.stage_base, 0x935D07E0u);
+    EXPECT_EQ(p.stage_base, 0x935DFFC0u);
     EXPECT_FALSE(riftwii::plan_resident_placement(0x817E9E60, 0x81240000, 0x90000810, 0x935E0000, 7840, 32, p, error));  // unaligned start
     EXPECT_FALSE(riftwii::plan_resident_placement(0x817E9E60, 0x81240000, 0x80000800, 0x935E0000, 7840, 32, p, error));  // MEM1 as MEM2 start
     // The code must clear the floor (loader, apploader image).
@@ -2219,7 +2219,7 @@ static void TestResidentHandler() {
     ctx.flags = RT_FLAG_GECKO;
     EXPECT_EQ(rt_on_ioctl_async(&ctx, args, &result), 0);
     EXPECT_EQ(ctx.gecko_failures, 0u);
-    EXPECT_EQ(sizeof(rt_context), riftwii::kResidentContextBytes);
+    EXPECT_TRUE(sizeof(rt_context) <= riftwii::kResidentContextBytes);  // the slot rt_entry.S reserves
     EXPECT_EQ(rt_checksum(reinterpret_cast<const std::uint8_t*>("ab"), 2), 97u * 31u + 98u);
 }
 
@@ -2677,6 +2677,18 @@ static void TestPayloadAndRedirect() {
     EXPECT_EQ(payload[table_bytes], 1);
     EXPECT_EQ(payload[table_bytes + 32], 0x41);
     EXPECT_EQ(payload.size(), table_bytes + 32 + 3616);
+
+    // A replacement already in memory (the FST) points there and takes no
+    // room in the payload.
+    riftwii::MemReplacement fst = a;
+    fst.in_place = 0x817CC740;
+    EXPECT_TRUE(riftwii::build_mem_payload({fst, b}, 0x935D2000, 7, payload, error));
+    header = reinterpret_cast<const rt_header*>(payload.data());
+    EXPECT_EQ(rt_validate(header, payload.size()), RT_OK);
+    EXPECT_EQ(rt_entries(header)[0].source, 0x935D2000ull + table_bytes);
+    EXPECT_EQ(rt_entries(header)[1].source, 0x817CC740ull);
+    EXPECT_EQ(rt_entries(header)[1].length, 3610ull);
+    EXPECT_EQ(payload.size(), table_bytes + 32);
 
     // Ready-made entries (the XML compiler's output) merge with the rest;
     // a MEM entry there has no bytes and is refused.
