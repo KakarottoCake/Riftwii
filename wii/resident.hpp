@@ -47,6 +47,7 @@ struct ResidentOptions {
     std::uint64_t table_tag = 0;
     std::int32_t sdio_fd = -1;
     bool sdio_sdhc = false;
+    bool sdio_d2x = false;  // sdio_fd is d2x's /dev/sdio/sdhc (d2xsd.hpp)
     // E5: first word offset of the virtual window, 0 = none. Reads at or
     // above it never reach the drive with their offset.
     std::uint32_t virtual_start_words = 0;

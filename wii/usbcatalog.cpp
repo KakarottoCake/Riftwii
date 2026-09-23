@@ -16,6 +16,7 @@
 #include <set>
 #include <sstream>
 
+#include "d2xsd.hpp"
 #include "di.hpp"
 #include "ios_reload.hpp"
 #include "log.hpp"
@@ -40,7 +41,7 @@ bool usb_read(std::uint64_t sector, std::uint32_t count, std::uint8_t* out) {
     return sector <= 0xFFFFFFFFull && __io_usbstorage.readSectors(static_cast<sec_t>(sector), count, out);
 }
 bool sd_read(std::uint64_t sector, std::uint32_t count, std::uint8_t* out) {
-    return sector <= 0xFFFFFFFFull && __io_wiisd.readSectors(static_cast<sec_t>(sector), count, out);
+    return sector <= 0xFFFFFFFFull && sd_interface()->readSectors(static_cast<sec_t>(sector), count, out);
 }
 const char* device_name(ImageDevice device) { return device == ImageDevice::Usb ? "USB" : "SD"; }
 bool extension(const std::string& name, const char* ext) {
@@ -229,7 +230,7 @@ void apply_titles(ImageCatalog& c) {
 // bounded SD remount attempt and restore the caller-selected append log.
 bool restore_sd_and_log(const char* log_path, std::string& error) {
     if (g_sd_back) return true;  // remounted right after the reload; the log is open
-    if (!fatMountSimple("sd", &__io_wiisd)) {
+    if (!fatMountSimple("sd", sd_interface())) {
         error += "; additionally could not remount SD after IOS reload";
         return false;
     }
@@ -378,8 +379,11 @@ bool activate_image_game(const ImageGame& game, int cios_slot, void*& storage, s
     const s32 running = IOS_GetVersion();
     const s32 revision = IOS_GetRevision();
     // The log is closed across the reload. Bring the card back first so
-    // every later step, and any failure, lands in boot.log.
-    g_sd_back = fatMountSimple("sd", &__io_wiisd);
+    // every later step, and any failure, lands in boot.log. A game on the
+    // SD card is read by d2x through its own SD device, which must then be
+    // the card's only driver: the loader uses it too (d2xsd.hpp).
+    if (game.device == ImageDevice::Sd) use_d2x_sd(true);
+    g_sd_back = fatMountSimple("sd", sd_interface());
     if (g_sd_back && log_path) LogOpen(log_path, true);
     logf("%s: reloaded IOS%d rev %d for slot %d (%s)\n", device_name(game.device), running, revision, cios_slot,
          last_reload_detail().c_str());

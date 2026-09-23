@@ -19,6 +19,7 @@ struct Card {
     std::uint16_t rca = 0;
     bool sdhc = false;      // CMD18 takes a sector number instead of a byte offset
     bool selected = false;  // in the transfer state, ready for CMD18
+    bool d2x = false;       // the shared handle to d2x's /dev/sdio/sdhc (d2xsd.hpp), not slot0
 };
 
 // Opens the device, checks the card, selects it, sets 512-byte blocks,

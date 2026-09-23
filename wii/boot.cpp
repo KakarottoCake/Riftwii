@@ -24,6 +24,7 @@
 #include <utility>
 #include <vector>
 
+#include "d2xsd.hpp"
 #include "di.hpp"
 #include "ios_reload.hpp"
 #include "log.hpp"
@@ -129,7 +130,7 @@ void release_card_and_log() {
     logf("Releasing the SD card (the log ends here; the rest is on screen)\n");
     LogClose();
     fatUnmount("sd:");
-    __io_wiisd.shutdown();
+    sd_interface()->shutdown();
     g_card_live_for_log = false;
 }
 
@@ -762,7 +763,8 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         }
         release_card_and_log();
         if (!sdio::open_card(card, error)) return false;
-        logf("SD card: fd %d, rca 0x%04x, %s\n", card.fd, card.rca, card.sdhc ? "SDHC" : "SDSC");
+        logf("SD card: fd %d, rca 0x%04x, %s\n", card.fd, card.rca,
+             card.d2x ? "through d2x's /dev/sdio/sdhc (the game is on this card)" : card.sdhc ? "SDHC" : "SDSC");
         if (options.verify_sd) {
             for (const SdReplacement& r : pieces.sd) {
                 if (!verify_sd_replacement(card, r, error)) return false;
@@ -788,6 +790,7 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         ro.virtual_start_words = relocates ? static_cast<std::uint32_t>(kVirtualWindowStart >> 2) : 0;
         ro.sdio_fd = card.fd;
         ro.sdio_sdhc = card.sdhc;
+        ro.sdio_d2x = card.d2x;
         ro.savegame = savegame;
         // The code goes above this loader (which ends at arena 1's top) and
         // the apploader image, both still in use until the game starts.
@@ -958,7 +961,7 @@ bool prepare_savegame(const DiscProbe& probe, const BootOptions& options, Savega
     }
     LogClose();
     fatUnmount("sd:");
-    const bool mounted = fatMountSimple("sd", &__io_wiisd);
+    const bool mounted = fatMountSimple("sd", sd_interface());
     LogReopen();
     if (!mounted) {
         error = "cannot mount the SD card again after creating the save folder";
@@ -1007,7 +1010,7 @@ bool boot_game(const DiscProbe& probe, const BootOptions& options, std::string& 
     } else {
         LogClose();
         fatUnmount("sd:");
-        __io_wiisd.shutdown();
+        sd_interface()->shutdown();
     }
 
     boot_after_unmount(probe, effective, savegame, required, error);  // returns only on failure
@@ -1017,7 +1020,7 @@ bool boot_game(const DiscProbe& probe, const BootOptions& options, std::string& 
     } else if (effective.preserve_current_ios) {
         // The preserved IOS may own a USB virtual disc. Reacquiring all
         // default devices could interfere with it, so recover only SD/log.
-        if (fatMountSimple("sd", &__io_wiisd)) {
+        if (fatMountSimple("sd", sd_interface())) {
             LogReopen();
         } else {
             error += "; additionally could not remount SD after USB boot failure";
