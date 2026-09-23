@@ -302,11 +302,66 @@ static void test_saves() {
     EXPECT_TRUE(o.dir.empty());
 }
 
+static void expect(bool ok, const char* what) {
+    if (!ok) {
+        std::cerr << "FAILED: " << what << std::endl;
+        g_failures++;
+    }
+}
+
+// Options with the same id and section in two packs are one option.
+static void test_merged_options() {
+    const char* a = R"(<wiidisc version="1"><id game="RMC"/><options>
+        <section name="Tracks"><option id="cup" name="Cup"><choice name="Mushroom"><patch id="m"/></choice></option>
+        <option name="Other"><choice name="Yes"><patch id="m"/></choice></option></section>
+        </options><patch id="m"/></wiidisc>)";
+    const char* b = R"(<wiidisc version="1"><id game="RMC"/><options>
+        <section name="Tracks"><option id="cup" name="Cup"><choice name="Flower"><patch id="f"/></choice>
+        <choice name="Star"><patch id="f"/></choice></option></section>
+        </options><patch id="f"/></wiidisc>)";
+    const char* c = R"(<wiidisc version="1"><id game="RMC"/><options>
+        <section name="Other section"><option id="cup" name="Cup"><choice name="Leaf"><patch id="l"/></choice></option></section>
+        </options><patch id="l"/></wiidisc>)";
+    riftwii::DiscIdentity disc;
+    disc.id = "RMCE01";
+    riftwii::LaunchModel model;
+    model.add("a.xml", "sd:/riivolution/a.xml", a, &disc);
+    model.add("b.xml", "sd:/riivolution/b.xml", b, &disc);
+    model.add("c.xml", "sd:/riivolution/c.xml", c, &disc);
+    expect(model.packages.size() == 3 && model.packages[0].valid && model.packages[1].valid && model.packages[2].valid,
+           "three packs parse");
+    expect(model.merge_group(0, 0).size() == 2, "same id and section merge across packs");
+    expect(model.merge_group(0, 1).size() == 1, "an option without an id stays alone");
+    expect(model.merge_group(2, 0).size() == 1, "a different section does not merge");
+
+    model.set_enabled(0, true);
+    expect(model.option_shown(0, 0) && !model.option_shown(1, 0), "the first enabled pack shows the merged option");
+    expect(model.cycle(0, 0, +1) && model.choice_name(0, 0) == "Mushroom", "merged: first choice from pack a");
+    expect(model.cycle(0, 0, +1) && model.choice_name(0, 0) == "Flower", "merged: then pack b's choices");
+    expect(model.packages[1].enabled, "choosing pack b's choice turns pack b on");
+    expect(model.packages[0].package.options[0].selected == 0 && model.packages[1].package.options[0].selected == 1,
+           "only one pack holds the merged choice");
+    expect(model.cycle(0, 0, +1) && model.choice_name(0, 0) == "Star", "merged: pack b's second choice");
+    expect(model.cycle(0, 0, +1) && model.choice_name(0, 0) == "Off", "merged: wraps to off");
+    expect(model.cycle(0, 0, -1) && model.choice_name(1, 0) == "Star", "merged: steps back from off to the last choice");
+
+    const std::vector<riftwii::PackageChoices> sel = model.selections();
+    expect(sel.size() == 2, "both packs compile");
+    bool b_star = false, a_cup_off = false;
+    for (const riftwii::PackageChoices& s : sel)
+        for (const auto& kv : s.choices) {
+            if (s.xml_sd_path == "sd:/riivolution/b.xml" && kv.first == "Tracks/Cup" && kv.second == "Star") b_star = true;
+            if (s.xml_sd_path == "sd:/riivolution/a.xml" && kv.first == "Tracks/Cup" && kv.second.empty()) a_cup_off = true;
+        }
+    expect(b_star && a_cup_off, "the choice compiles in its own pack; the other copy is off");
+}
+
 int main() {
     test_model();
     test_simple_package_activation();
     test_persistence();
     test_pack_index();
+    test_merged_options();
     test_saves();
     if (g_failures == 0) {
         std::cout << "ALL LAUNCH TESTS PASSED" << std::endl;

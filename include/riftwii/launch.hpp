@@ -94,9 +94,25 @@ public:
     bool set_enabled(std::size_t package, bool enabled);
     // Moves an option to its next (direction > 0) or previous choice,
     // wrapping through "off". Returns false for a bad index.
+    //
+    // Options that share an id and a section name across packs are one
+    // option (as in Riivolution): stepping any of them walks every pack's
+    // choices in pack order, and choosing one clears the others. Choosing
+    // a choice of a pack that is off turns that pack on.
     bool cycle(std::size_t package, std::size_t option, int direction);
-    // The name of an option's current choice ("Off" when disabled).
+    // The name of an option's current choice ("Off" when disabled); for
+    // a merged option, the choice picked in any enabled pack.
     std::string choice_name(std::size_t package, std::size_t option) const;
+    // Every pack's copy of a merged option, in pack order (just this one
+    // when it is not merged). Only valid packs for this disc take part.
+    struct OptionRef {
+        std::size_t package;
+        std::size_t option;
+    };
+    std::vector<OptionRef> merge_group(std::size_t package, std::size_t option) const;
+    // Whether a list shows this option: false for a merged option's copy
+    // when an earlier enabled pack already shows it.
+    bool option_shown(std::size_t package, std::size_t option) const;
 
     // What to compile: every enabled package with every option stated
     // explicitly, so a package's defaults never leak past the frontend.

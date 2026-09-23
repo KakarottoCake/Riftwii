@@ -129,10 +129,62 @@ bool LaunchModel::set_enabled(std::size_t package, bool enabled) {
     return true;
 }
 
+std::vector<LaunchModel::OptionRef> LaunchModel::merge_group(std::size_t package, std::size_t option) const {
+    std::vector<OptionRef> group;
+    if (package >= packages.size() || option >= packages[package].package.options.size()) return group;
+    const Option& self = packages[package].package.options[option];
+    const LaunchPackage& owner = packages[package];
+    if (self.id.empty() || !owner.valid || !owner.for_disc) return {{package, option}};
+    for (std::size_t i = 0; i < packages.size(); ++i) {
+        const LaunchPackage& p = packages[i];
+        if (!p.valid || !p.for_disc) continue;
+        for (std::size_t k = 0; k < p.package.options.size(); ++k) {
+            const Option& o = p.package.options[k];
+            if (i == package && k == option) {
+                group.push_back({i, k});
+            } else if (i != package && o.id == self.id && o.section == self.section) {
+                group.push_back({i, k});
+                break;  // one copy per pack
+            }
+        }
+    }
+    return group;
+}
+
+bool LaunchModel::option_shown(std::size_t package, std::size_t option) const {
+    for (const OptionRef& r : merge_group(package, option)) {
+        if (r.package == package) return true;
+        if (packages[r.package].enabled) return false;
+    }
+    return true;
+}
+
 bool LaunchModel::cycle(std::size_t package, std::size_t option, int direction) {
     if (package >= packages.size()) return false;
     LaunchPackage& p = packages[package];
     if (!p.valid || option >= p.package.options.size()) return false;
+    const std::vector<OptionRef> group = merge_group(package, option);
+    if (group.size() > 1) {
+        // One list: off, then each pack's choices in pack order.
+        std::vector<std::pair<OptionRef, std::size_t>> states{{group.front(), 0}};
+        std::size_t at = 0;
+        for (const OptionRef& r : group) {
+            const Option& o = packages[r.package].package.options[r.option];
+            for (std::size_t c = 1; c <= o.choices.size(); ++c) {
+                if (at == 0 && o.selected == c && packages[r.package].enabled) at = states.size();
+                states.push_back({r, c});
+            }
+        }
+        const std::size_t n = states.size();
+        at = direction >= 0 ? (at + 1) % n : (at + n - 1) % n;
+        for (const OptionRef& r : group) packages[r.package].package.options[r.option].selected = 0;
+        if (at != 0) {
+            const OptionRef r = states[at].first;
+            packages[r.package].package.options[r.option].selected = states[at].second;
+            packages[r.package].enabled = true;
+        }
+        return true;
+    }
     Option& o = p.package.options[option];
     const std::size_t states = o.choices.size() + 1;  // off plus each choice
     if (direction >= 0) {
@@ -147,6 +199,15 @@ std::string LaunchModel::choice_name(std::size_t package, std::size_t option) co
     if (package >= packages.size()) return "";
     const LaunchPackage& p = packages[package];
     if (!p.valid || option >= p.package.options.size()) return "";
+    const std::vector<OptionRef> group = merge_group(package, option);
+    if (group.size() > 1) {
+        for (const OptionRef& r : group) {
+            const Option& o = packages[r.package].package.options[r.option];
+            if (packages[r.package].enabled && o.selected != 0 && o.selected <= o.choices.size())
+                return o.choices[o.selected - 1].name;
+        }
+        return "Off";
+    }
     const Option& o = p.package.options[option];
     if (o.selected == 0 || o.selected > o.choices.size()) return "Off";
     return o.choices[o.selected - 1].name;
