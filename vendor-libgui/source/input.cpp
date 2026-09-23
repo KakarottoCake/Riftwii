@@ -79,12 +79,14 @@ void UpdatePads()
 /****************************************************************************
  * UpdatePadPointers (Riftwii)
  *
- * A GameCube controller drives an on-screen pointer the way a Wii Remote
- * does: the control stick moves it and A clicks what is under it. It is
- * written into the channel's Wii Remote IR data, so every widget treats it
- * as pointing. A Wii Remote on the same channel takes over the moment it
- * points or presses a button; the pad takes back over on its next input.
- * The stick then no longer steps through lists (the D-pad still does).
+ * A GameCube controller's control stick, or a Classic Controller's left
+ * stick (also what fakemote makes of a USB DS3 or DS4), drives an
+ * on-screen pointer the way a Wii Remote does, and A clicks what is under
+ * it. It is written into the channel's Wii Remote IR data, so every
+ * widget treats it as pointing. A Wii Remote on the same channel takes
+ * over the moment it points or presses one of its own buttons; the pad
+ * takes back over on its next input. That stick then no longer steps
+ * through lists (the D-pad still does).
  ***************************************************************************/
 static void UpdatePadPointers()
 {
@@ -101,15 +103,24 @@ static void UpdatePadPointers()
 		// empty channel ir.valid is still the pointer written last frame.
 		u32 type = 0;
 		const bool remote = WPAD_Probe(i, &type) == WPAD_ERR_NONE;
-		if (remote && (w->ir.valid || w->btns_d)) {
+		// The Wii Remote's own buttons are the low 16 bits; a Classic
+		// Controller's are the high ones.
+		if (remote && (w->ir.valid || (w->btns_d & 0xFFFF))) {
 			active[i] = false;  // the Wii Remote is in use
 			continue;
 		}
 		if (!remote) w->ir.valid = 0;
-		const int sx = userInput[i].pad.stickX;
-		const int sy = userInput[i].pad.stickY;
+		// A Classic Controller's left stick (scaled to the GameCube
+		// stick's range, about +-100) when the GameCube stick is idle.
+		const bool classic = remote && w->exp.type == WPAD_EXP_CLASSIC;
+		int sx = userInput[i].pad.stickX;
+		int sy = userInput[i].pad.stickY;
+		if (classic && abs(sx) <= deadzone && abs(sy) <= deadzone) {
+			sx = userInput[i].WPAD_StickX(0) * 100 / 128;
+			sy = userInput[i].WPAD_StickY(0) * 100 / 128;
+		}
 		const bool moved = abs(sx) > deadzone || abs(sy) > deadzone;
-		if (moved || userInput[i].pad.btns_d)
+		if (moved || userInput[i].pad.btns_d || (classic && (w->btns_d & ~0xFFFFu)))
 			active[i] = true;
 		if (!active[i]) continue;
 		if (!placed[i]) {
@@ -138,6 +149,10 @@ static void UpdatePadPointers()
 		w->ir.angle = 0;
 		userInput[i].pad.stickX = 0;
 		userInput[i].pad.stickY = 0;
+		if (classic) {
+			// Centred, so the stick no longer steps lists as well.
+			w->exp.classic.ljs.pos = w->exp.classic.ljs.center;
+		}
 	}
 }
 
