@@ -47,7 +47,7 @@ struct LaunchSource {
 using UsbGame = ImageGame;
 using UsbCatalog = ImageCatalog;
 
-// Starts libogc USB storage, mounts usb: read-only from Riftwii's point of
+// Starts libogc USB storage, mounts usb: read-only from RiftWii's point of
 // view, and scans usb:/wbfs (flat and one nested game folder) and usb:/games.
 // Entries that cannot be proven to be Wii images are skipped with their first
 // failure retained in status. The USB volume must expose 512-byte sectors.

@@ -1,59 +1,64 @@
-# Riftwii
+# RiftWii
 
-Riftwii loads Wii game mods from your SD card while the original disc
-stays untouched in the drive. You pick one or more mod packs from a menu,
+RiftWii loads Wii game mods from your SD card into games played from
+the disc, a USB drive or the SD card; the game files themselves are never
+changed. You pick one or more mod packs from a menu,
 and the game starts with the mods applied. It reads the same XML mod
 packs that Riivolution uses, and it was written from scratch without
 copying Riivolution code (see `NOTICE.md`). Licence: GPL-3.0-or-later
 (`LICENSE`); third-party notices in `NOTICE.md`.
 
-> Prerelease warning: this is an early test build. It has been checked
-> with automated tests and in the Dolphin emulator, but it has barely
-> run on real Wii hardware yet. Please report anything odd as a GitHub
-> issue, with your Wii model, system menu version, and what was on the
-> screen.
+> 1.0 Beta: the menu and the mod engine are checked by host tests and
+> in the Dolphin emulator, and players are running it on real Wiis. USB and SD game boot
+> depend on d2x and are the least proven. Please report anything odd as
+> a GitHub issue, with your Wii model, system menu version, and
+> `sd:/riftwii/boot.log`.
 
 ## For Wii owners: install and use
 
 You need: a Wii with the Homebrew Channel installed and an SD card. An original
 game disc remains supported. SD and USB image boot need a user-installed d2x
-cIOS and FAT32 media with 512-byte sectors. Both support `.wbfs` (including
+cIOS (slot 249, 250 or 251). The SD card must be FAT32; a USB drive may be
+FAT32 or NTFS; both need 512-byte sectors. Both support `.wbfs` (including
 split `.wbf1`, `.wbf2`, …) in `<source>:/wbfs` and raw `.iso` in
 `<source>:/games`.
 
-1. Copy `riftwii.dol` from the release into `sd:/apps/riftwii/boot.dol`.
-   If you also want the icon and description, copy `meta.xml` and
-   `icon.png` next to it (any Homebrew Channel `meta.xml`/`icon.png`
-   will do; they are not in this repo).
+1. Copy `riftwii.dol` from the release into `sd:/apps/riftwii/boot.dol`,
+   with `hbc/meta.xml` and `hbc/icon.png` next to it for the Homebrew
+   Channel's name, description and banner. (The release zip has all
+   three in place.)
 2. Put mod packs (folders with an XML file plus their files) into
-   `sd:/riivolution/`, the same layout Riivolution uses. The release
-   notes say which packs were tested with this build.
-3. Start Riftwii from the Homebrew Channel. Select **SD**, **USB**, or
-   **DISC** on the source screen. SD and USB open an image picker; DISC opens
-   the matching mods screen directly.
-4. The list shows matching packs as On (will be used) or Off, and keeps
-   Invalid XML visible with its reason. Packs made for other games are hidden.
-   Press A to switch a pack on or off. Press **Mod Options** for a pack's options,
-   A and Minus to change them, B to go back.
-5. Press Launch (or just start with nothing enabled to boot the plain
-   disc). Your choices are saved per game as you change them, so next
-   time they are back.
-6. Home exits to the Homebrew Channel.
+   `sd:/riivolution/`, the same layout Riivolution uses.
+3. Start RiftWii from the Homebrew Channel. It reads the SD card and the
+   USB drive and shows every game as a tile, with the disc drive first.
+   The round button at the bottom left (or 1) filters: all games, games
+   with mods, USB only, SD only. Games with packs carry a **MODS** tag.
+4. Pick a game. Its page lists only the packs made for it; broken XML
+   shows its error under the pack. A on a pack turns it on and shows its
+   settings under it; A on a setting steps it, Minus steps it back.
+   Options that share an id and a section across packs show once, as
+   Riivolution does.
+5. **Saves**, the first row, keeps the Wii saving as usual, or keeps this
+   game's saves on the SD card: cloned once from the Wii's save
+   (`sd:/riftwii/saves/<ID>/clone`) or started fresh
+   (`sd:/riftwii/saves/<ID>/fresh`). A pack's `<savegame>` takes
+   precedence.
+6. **Start** (Plus) boots, with nothing on for the plain game. While it
+   starts, the log prints on screen. Your choices are saved per game.
+7. Settings (the gear, or 2) holds the menu IOS (pick the cIOS slot with
+   fakemote for USB DS3/DS4 pads), Rescan and Exit. HOME exits too.
 
 Controls work with a Wii Remote (pointer or D-pad), Classic Controller,
 GameCube pad, or Wii U GamePad (same button names; X stands in for 1).
-With no pointer on screen, only the highlighted row answers to A.
+The GameCube control stick and the Classic Controller's left stick move
+a pointer like a Wii Remote's; the D-pad moves the highlight. With no
+pointer on screen, only the highlighted tile or row answers to A.
 
-Save games: **Save Mode** cycles NAND, Separate (clones NAND progress once to
-`sd:/riftwii/saves/<ID>/clone`), and Fresh (an independent initially empty
-slot at `sd:/riftwii/saves/<ID>/fresh`). A package's `<savegame>` setting takes
-precedence. A first boot may take a while (shaders and caches); give it time.
-
-If the screen reports an error, it names the pack, option and file it
-comes from. Nothing is launched half patched: if a pack cannot be
-applied completely, the game does not start and the message tells you
-why. If a mod compiles to nothing, the message names the folder and how
-many files were skipped, so a misplaced external folder is fixable.
+If a mod cannot start, the screen names the pack, option and file it
+comes from. Nothing is launched half patched. A memory patch whose file
+is missing from the card is skipped with a warning (as Dolphin does),
+and a missing folder is logged with what the nearest existing folder
+holds.
 
 ## For developers
 
@@ -128,22 +133,20 @@ This produces `riftwii.dol` and `riftwii.elf`. The build uses relative paths
 and supports a project directory containing spaces. The frontend links the
 XML/overlay core and libwiigui; it is not part of the host test build.
 
-The frontend identifies the selected source, scans `sd:/riivolution` for
-XML files (up to 150), and lists matching files as On or Off plus Invalid
-files (with the parse error in the details line). Files whose `<id>` does not
-match the selected game's ID, revision, or disc number are hidden. A enables
-or disables the highlighted package; "Mod Options" (Wii Remote
-Plus / GameCube X) opens its options, where A moves an option to its
-next choice, Minus to the previous one and B returns; "Launch" (Wii
-Remote 1 / Classic Y / GameCube Y) compiles the enabled packages with
-their choices, saves the choices to `sd:/riftwii/choices/<game id>.txt`
-(restored on the next start) and boots, or boots the disc unmodified
-when nothing is enabled, logging to `sd:/riftwii/boot.log`. Home exits.
-Wii Remote 2 / GameCube B ("Dump", a development aid without a button)
-writes the disc header, partition table, TMD, FST, apploader and
-`/opening.bnr` to `sd:/riftwii/dump/`. Files larger than 1 MiB are
-rejected rather than silently truncated. Unknown attributes and elements
-are ignored and counted as warnings in the details line.
+The frontend (`wii/rift_menu.cpp`) reads both drives into a grid of
+games, filters it by the packs in `sd:/riivolution`, and for the picked
+game lists its packs (those whose `<id>` matches the game's ID, revision
+and disc number) with their options. Choices are saved to
+`sd:/riftwii/choices/<game id>.txt` and restored on the next start; a
+launch logs to `sd:/riftwii/boot.log`, the menu to `session.log`. The
+menu's artwork is painted at start on a small software canvas
+(`include/riftwii/canvas.hpp`, host-tested) into GX textures, so it
+ships no image files. On the game page, the Wii Remote's 2 or a
+GameCube pad's Z ("Dump", a development aid) writes the disc header,
+partition table, TMD, FST, apploader and `/opening.bnr` to
+`sd:/riftwii/dump/`. `sd:/riftwii/guiscript.txt` (see
+`wii/guiscript.hpp`) plays scripted input and saves screenshots, for
+checking the menu in Dolphin.
 
 ### Manual testing
 

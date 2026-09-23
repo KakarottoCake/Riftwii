@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 /****************************************************************************
- * Riftwii
+ * RiftWii
  *
  * rift_menu.cpp
  * The frontend, in a light Wii-Menu-like look (skin.hpp):
@@ -667,12 +667,15 @@ static void BuildGameRows(const FrontendState& state, const std::string& scanSta
 		}
 		if (!p.enabled) continue;
 		for (std::size_t o = 0; o < p.package.options.size(); ++o) {
+			// An option merged across packs shows once, under the
+			// first enabled pack that has it.
+			if (!state.model.option_shown(i, o)) continue;
 			const riftwii::Option& option = p.package.options[o];
 			FlowRow row;
 			row.kind = FlowRow::Kind::Option;
 			row.label = option.name;
 			row.value = state.model.choice_name(i, o);
-			row.on = option.selected != 0 && option.selected <= option.choices.size();
+			row.on = row.value != "Off";
 			add(row, {RowRef::What::Option, i, o});
 		}
 	}

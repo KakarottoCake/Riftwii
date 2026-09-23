@@ -56,7 +56,7 @@ PROJECT_ROOT ?= ..
 
 # The release version, read from the one place it is bumped, so logs and
 # bug reports can name the build (wii/main.cpp prints it).
-RIFTWII_VERSION := $(shell grep -o 'Riftwii VERSION [0-9.]*' "$(PROJECT_ROOT)/CMakeLists.txt" 2>/dev/null | cut -d' ' -f3)
+RIFTWII_VERSION := $(shell grep -o 'Riftwii VERSION [0-9.]*' "$(PROJECT_ROOT)/CMakeLists.txt" 2>/dev/null | cut -d' ' -f3)$(shell grep -o 'RIFTWII_VERSION_SUFFIX "[^"]*"' "$(PROJECT_ROOT)/CMakeLists.txt" 2>/dev/null | cut -d'"' -f2)
 CFLAGS		+=	-DRIFTWII_VERSION='"$(RIFTWII_VERSION)"'
 
 ifneq ($(IN_BUILD),1)
