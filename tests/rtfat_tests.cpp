@@ -241,10 +241,12 @@ void FillDirectoryForGrowth(Fixture& fx, rtfat_op& op) {
 static void TestNames() {
     EXPECT_TRUE(rtfat_valid_name("banner.bin"));
     EXPECT_TRUE(rtfat_valid_name("wiimote.data"));
-    EXPECT_FALSE(rtfat_valid_name("wiimote01.dat"));  // 13 characters
+    EXPECT_TRUE(rtfat_valid_name("wiimote01.dat"));     // 13 characters: past NAND's limit, fine on the card
+    EXPECT_TRUE(rtfat_valid_name("BlueCoinData.bin"));  // Galaxy 63's second save file
+    EXPECT_TRUE(rtfat_valid_name(std::string(63, 'x').c_str()));
+    EXPECT_FALSE(rtfat_valid_name(std::string(64, 'x').c_str()));  // no longer fits a path
     EXPECT_TRUE(rtfat_valid_name("a"));
     EXPECT_FALSE(rtfat_valid_name(""));
-    EXPECT_FALSE(rtfat_valid_name("thirteenchars"));
     EXPECT_FALSE(rtfat_valid_name("a/b"));
     EXPECT_FALSE(rtfat_valid_name("a b"));
     EXPECT_FALSE(rtfat_valid_name("."));
@@ -841,6 +843,100 @@ static void TestDeleteRename(Low& low) {
     EXPECT_FALSE(fx.host_lookup("Banner1.bin", hf));
 }
 
+// ---- names longer than NAND allows ----------------------------------------------
+
+// Riivolution keeps saves on the card under any name that fits a path;
+// packs rely on that (Galaxy 63 stores its Blue Coins in BlueCoinData.bin).
+// Such a name is created, found, written, read, renamed and deleted by its
+// full name, and listed under its 8.3 alias, which opens the same file.
+static void TestLongNames(Low& low) {
+    Fixture fx;
+    rtfat_op& op = *low.op;
+    std::memset(&op, 0, sizeof(op));
+    const int before = Run(fx.vol, op, fx.dev, RTFAT_OP_COUNT);
+
+    SetName(op.name, "BlueCoinData.bin");
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_CREATE), RTFAT_OK);
+    EXPECT_EQ(op.found.lfn_count, 2u);  // 16 characters: two long entries
+    EXPECT_EQ(std::string(op.found.name), "BlueCoinData.bin");
+    EXPECT_EQ(std::string(op.found.alias), "BLUECO~1.BIN");
+    riftwii::Fat32File hf;
+    EXPECT_TRUE(fx.host_lookup("BlueCoinData.bin", hf));
+    EXPECT_EQ(hf.entry.short_name, "BLUECO~1.BIN");
+    SetName(op.name, "bluecoindata.BIN");
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_CREATE), RTFAT_EEXIST);  // any case
+
+    // Found by its name, in any case, and by its alias.
+    SetName(op.name, "BLUECOINDATA.bin");
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_LOOKUP), RTFAT_OK);
+    EXPECT_EQ(std::string(op.found.name), "BlueCoinData.bin");
+    SetName(op.name, "bleuco~1.bin");
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_LOOKUP), RTFAT_ENOENT);
+    SetName(op.name, "blueco~1.bin");
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_LOOKUP), RTFAT_OK);
+
+    // Written and read back.
+    rtfat_file file{};
+    file.first_cluster = op.found.first_cluster;
+    file.size = op.found.size;
+    file.entry_lba = op.found.entry_lba;
+    file.entry_index = op.found.entry_index;
+    Bytes data = pattern(117, 0x42);
+    std::memcpy(low.data, data.data(), data.size());
+    op.file = &file;
+    op.buffer = Addr(low.data);
+    op.length = std::uint32_t(data.size());
+    op.bounce = Addr(low.bounce);
+    op.bounce_bytes = Low::kBounce;
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_WRITE), std::int32_t(data.size()));
+    EXPECT_TRUE(fx.host_read("BlueCoinData.bin") == data);
+    file.position = 0;
+    std::memset(low.data, 0, data.size());
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_READ), std::int32_t(data.size()));
+    EXPECT_TRUE(std::memcmp(low.data, data.data(), data.size()) == 0);
+
+    // Listed under the alias, so a ReadDir buffer of 13 bytes per name
+    // always holds it; counted like any file.
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_COUNT), before + 1);
+    std::memset(low.data, 0xAA, 13 * 8);
+    op.buffer = Addr(low.data);
+    op.length = 8;
+    const int listed = Run(fx.vol, op, fx.dev, RTFAT_OP_LIST);
+    EXPECT_EQ(listed, before + 1);
+    {
+        const char* p = reinterpret_cast<const char*>(low.data);
+        std::size_t at = 0;
+        bool seen = false;
+        for (int i = 0; i < listed; ++i) {
+            const std::string n(p + at);
+            EXPECT_TRUE(n.size() <= 12);
+            if (n == "BLUECO~1.BIN") seen = true;
+            at += n.size() + 1;
+        }
+        EXPECT_TRUE(seen);
+        EXPECT_TRUE(at <= std::size_t(13) * 8);
+    }
+
+    // Renamed to another long name and deleted by it.
+    SetName(op.name, "BlueCoinData.bin");
+    SetName(op.name2, "BlueCoinDataOld.bin");
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_RENAME), RTFAT_OK);
+    EXPECT_TRUE(fx.host_read("BlueCoinDataOld.bin") == data);
+    EXPECT_FALSE(fx.host_lookup("BlueCoinData.bin", hf));
+    SetName(op.name, "BlueCoinDataOld.bin");
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_DELETE), RTFAT_OK);
+    EXPECT_FALSE(fx.host_lookup("BlueCoinDataOld.bin", hf));
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_COUNT), before);
+
+    // The longest name a path holds.
+    const std::string longest(63, 'n');
+    SetName(op.name, longest.c_str());
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_CREATE), RTFAT_OK);
+    EXPECT_EQ(op.found.lfn_count, 5u);
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_LOOKUP), RTFAT_OK);
+    EXPECT_TRUE(fx.host_lookup(longest, hf));
+}
+
 // ---- a long name straddling two sectors ------------------------------------------
 
 static void TestStraddle(Low& low) {
@@ -1144,6 +1240,7 @@ int main() {
     TestDeleteRename(low);
     TestCommitGhost(low);
     TestStraddle(low);
+    TestLongNames(low);
     TestList(low);
     TestGeometry(low);
     if (g_failures == 0) std::cout << "rtfat tests passed" << std::endl;
