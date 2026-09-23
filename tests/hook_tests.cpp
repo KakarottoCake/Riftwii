@@ -202,35 +202,42 @@ static void TestPlacement() {
     std::string error;
     // Code below the MEM1 arena top (Kirby's Epic Yarn: BI2 at 0x817E9E60),
     // no data: MEM2 untouched.
-    EXPECT_TRUE(riftwii::plan_resident_placement(0x817E9E60, 0x81240000, 0x935E0000, 7840, 0, p, error));
+    EXPECT_TRUE(riftwii::plan_resident_placement(0x817E9E60, 0x81240000, 0x90000800, 0x935E0000, 7840, 0, p, error));
     EXPECT_EQ(p.code_base, 0x817E7FC0u);
     EXPECT_EQ(p.code_bytes, 7840u);
     EXPECT_EQ(p.new_arena1_hi, 0x817E7FC0u);
     EXPECT_EQ(p.data_base, 0u);
     EXPECT_EQ(p.data_bytes, 0u);
-    EXPECT_EQ(p.new_arena2_end, 0x935E0000u);
-    // With data: the MEM2 top in 64 KiB granules.
-    EXPECT_TRUE(riftwii::plan_resident_placement(0x817E9E60, 0x81240000, 0x935E0000, 7840, 1, p, error));
-    EXPECT_EQ(p.data_base, 0x935D0000u);
-    EXPECT_EQ(p.data_bytes, 0x10000u);
-    EXPECT_EQ(p.new_arena2_end, 0x935D0000u);
-    EXPECT_TRUE(riftwii::plan_resident_placement(0x817E9E60, 0x81240000, 0x935E0000, 7840, 0x10001, p, error));
-    EXPECT_EQ(p.data_base, 0x935C0000u);
-    EXPECT_TRUE(riftwii::plan_resident_placement(0x817E9E60, 0x81240000, 0x933E0000, 7840, 0x20000, p, error));  // IOS58-style end
-    EXPECT_EQ(p.data_base, 0x933C0000u);
-    EXPECT_TRUE(riftwii::plan_resident_placement(0x817E9E60, 0x81240000, 0x935DFFE0, 7840, 32, p, error));  // unaligned end rounds down
-    EXPECT_EQ(p.data_base, 0x935C0000u);
+    EXPECT_EQ(p.new_arena2_lo, 0x90000800u);
+    // With data: the bottom of the MEM2 arena up to a 64 KiB line, staged
+    // at the top; the arena end is never moved.
+    EXPECT_TRUE(riftwii::plan_resident_placement(0x817E9E60, 0x81240000, 0x90000800, 0x935E0000, 7840, 1, p, error));
+    EXPECT_EQ(p.data_base, 0x90000800u);
+    EXPECT_EQ(p.data_bytes, 0xF800u);
+    EXPECT_EQ(p.new_arena2_lo, 0x90010000u);
+    EXPECT_EQ(p.stage_base, 0x935D0800u);
+    EXPECT_TRUE(riftwii::plan_resident_placement(0x817E9E60, 0x81240000, 0x90000800, 0x935E0000, 7840, 0xF801, p, error));
+    EXPECT_EQ(p.new_arena2_lo, 0x90020000u);
+    EXPECT_EQ(p.data_bytes, 0x1F800u);
+    EXPECT_TRUE(riftwii::plan_resident_placement(0x817E9E60, 0x81240000, 0x90000800, 0x933E0000, 7840, 0x20000, p, error));  // IOS58-style end
+    EXPECT_EQ(p.new_arena2_lo, 0x90030000u);
+    EXPECT_EQ(p.stage_base, 0x933B0800u);
+    EXPECT_TRUE(riftwii::plan_resident_placement(0x817E9E60, 0x81240000, 0x90000800, 0x935DFFE0, 7840, 32, p, error));  // unaligned end: stage rounds down
+    EXPECT_EQ(p.stage_base, 0x935D07E0u);
+    EXPECT_FALSE(riftwii::plan_resident_placement(0x817E9E60, 0x81240000, 0x90000810, 0x935E0000, 7840, 32, p, error));  // unaligned start
+    EXPECT_FALSE(riftwii::plan_resident_placement(0x817E9E60, 0x81240000, 0x80000800, 0x935E0000, 7840, 32, p, error));  // MEM1 as MEM2 start
     // The code must clear the floor (loader, apploader image).
-    EXPECT_TRUE(riftwii::plan_resident_placement(0x81241EA0, 0x81240000, 0x935E0000, 7840, 0, p, error));
+    EXPECT_TRUE(riftwii::plan_resident_placement(0x81241EA0, 0x81240000, 0x90000800, 0x935E0000, 7840, 0, p, error));
     EXPECT_EQ(p.code_base, 0x81240000u);
-    EXPECT_FALSE(riftwii::plan_resident_placement(0x81241E80, 0x81240000, 0x935E0000, 7840, 0, p, error));
-    EXPECT_FALSE(riftwii::plan_resident_placement(0x817E9E70, 0x81240000, 0x935E0000, 7840, 0, p, error));  // unaligned top
-    EXPECT_FALSE(riftwii::plan_resident_placement(0x00000000, 0x81240000, 0x935E0000, 7840, 0, p, error));  // no arena top
-    EXPECT_FALSE(riftwii::plan_resident_placement(0x817E9E60, 0x81240000, 0x935E0000, 7841, 0, p, error));  // odd blob
-    EXPECT_FALSE(riftwii::plan_resident_placement(0x817E9E60, 0x81240000, 0x80000000, 7840, 32, p, error));  // MEM1 as MEM2 end
-    EXPECT_FALSE(riftwii::plan_resident_placement(0x817E9E60, 0x81240000, 0x90800000, 7840, 32, p, error));  // at the floor
-    EXPECT_FALSE(riftwii::plan_resident_placement(0x817E9E60, 0x81240000, 0x935E0000, 7840, 0x03000000, p, error));  // too big
-    EXPECT_TRUE(riftwii::plan_resident_placement(0x817E9E60, 0x81240000, 0x80000000, 7840, 0, p, error));  // no data: MEM2 not looked at
+    EXPECT_FALSE(riftwii::plan_resident_placement(0x81241E80, 0x81240000, 0x90000800, 0x935E0000, 7840, 0, p, error));
+    EXPECT_FALSE(riftwii::plan_resident_placement(0x817E9E70, 0x81240000, 0x90000800, 0x935E0000, 7840, 0, p, error));  // unaligned top
+    EXPECT_FALSE(riftwii::plan_resident_placement(0x00000000, 0x81240000, 0x90000800, 0x935E0000, 7840, 0, p, error));  // no arena top
+    EXPECT_FALSE(riftwii::plan_resident_placement(0x817E9E60, 0x81240000, 0x90000800, 0x935E0000, 7841, 0, p, error));  // odd blob
+    EXPECT_FALSE(riftwii::plan_resident_placement(0x817E9E60, 0x81240000, 0x90000800, 0x80000000, 7840, 32, p, error));  // MEM1 as MEM2 end
+    EXPECT_FALSE(riftwii::plan_resident_placement(0x817E9E60, 0x81240000, 0x90000800, 0x90800000, 7840, 32, p, error));  // at the floor
+    EXPECT_FALSE(riftwii::plan_resident_placement(0x817E9E60, 0x81240000, 0x90000800, 0x935E0000, 7840, 0x03000000, p, error));  // too big
+    EXPECT_FALSE(riftwii::plan_resident_placement(0x817E9E60, 0x81240000, 0x90000800, 0x935E0000, 7840, 0x02000000, p, error));  // data and stage overlap
+    EXPECT_TRUE(riftwii::plan_resident_placement(0x817E9E60, 0x81240000, 0, 0x80000000, 7840, 0, p, error));  // no data: MEM2 not looked at
 }
 
 // ---- symbol search --------------------------------------------------------

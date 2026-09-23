@@ -23,7 +23,8 @@ bool slot_fits(std::uint32_t offset, std::uint32_t bytes, std::uint32_t size) {
 
 constexpr std::uint32_t kMem1Low = 0x80004000;         // below: the SDK's globals and vectors
 constexpr std::uint32_t kMem1End = 0x81800000;
-constexpr std::uint32_t kMem2ArenaFloor = 0x90800000;  // never reserve below 8 MiB into MEM2
+constexpr std::uint32_t kMem2Start = 0x90000000;
+constexpr std::uint32_t kMem2ArenaFloor = 0x90800000;  // never stage below 8 MiB into MEM2 (the loader's own data)
 constexpr std::uint32_t kMem2End = 0x94000000;
 constexpr std::uint32_t kReserveGranule = 0x10000;
 
@@ -167,9 +168,9 @@ bool displaceable(std::uint32_t instruction, unsigned scratch_reg, std::string& 
     return true;
 }
 
-bool plan_resident_placement(std::uint32_t arena1_hi, std::uint32_t mem1_floor, std::uint32_t arena2_end,
-                             std::uint32_t blob_size, std::uint32_t extra_bytes, ResidentPlacement& out,
-                             std::string& error) {
+bool plan_resident_placement(std::uint32_t arena1_hi, std::uint32_t mem1_floor, std::uint32_t arena2_lo,
+                             std::uint32_t arena2_end, std::uint32_t blob_size, std::uint32_t extra_bytes,
+                             ResidentPlacement& out, std::string& error) {
     ResidentPlacement p;
     // Code: right below the MEM1 arena top, on a 32-byte line (the blob's
     // context and DMA buffers are laid out for one).
@@ -190,29 +191,35 @@ bool plan_resident_placement(std::uint32_t arena1_hi, std::uint32_t mem1_floor, 
     p.code_bytes = blob_size;
     p.new_arena1_hi = p.code_base;
 
-    // Data: the top of the MEM2 arena in 64 KiB granules, only when needed.
-    p.new_arena2_end = arena2_end;
+    // Data: the bottom of the MEM2 arena up to a 64 KiB line, only when
+    // needed; staged at the top of the arena, the same size.
+    p.new_arena2_lo = arena2_lo;
     if (extra_bytes != 0) {
         if (arena2_end <= kMem2ArenaFloor || arena2_end > kMem2End || (arena2_end & 31) != 0) {
             error = "MEM2 arena end " + hex32(arena2_end) + " is not plausible";
             return false;
         }
-        const std::uint64_t reserved =
-            (static_cast<std::uint64_t>(extra_bytes) + kReserveGranule - 1) / kReserveGranule * kReserveGranule;
-        if (reserved > arena2_end - kMem2ArenaFloor) {
-            error = "resident data does not fit above the MEM2 floor";
+        if (arena2_lo < kMem2Start || arena2_lo >= arena2_end || (arena2_lo & 31) != 0) {
+            error = "MEM2 arena start " + hex32(arena2_lo) + " is not plausible";
             return false;
         }
-        // Keep the boundary on a 64 KiB line when the arena end already is.
-        std::uint32_t base = static_cast<std::uint32_t>(arena2_end - reserved);
-        base &= ~static_cast<std::uint32_t>(kReserveGranule - 1);
-        if (base < kMem2ArenaFloor) {
-            error = "resident data does not fit above the MEM2 floor";
+        const std::uint64_t end =
+            (static_cast<std::uint64_t>(arena2_lo) + extra_bytes + kReserveGranule - 1) / kReserveGranule *
+            kReserveGranule;
+        const std::uint64_t bytes = end - arena2_lo;
+        if (bytes > arena2_end - kMem2ArenaFloor) {
+            error = "resident data does not fit in the MEM2 arena";
             return false;
         }
-        p.data_base = base;
-        p.data_bytes = arena2_end - base;
-        p.new_arena2_end = base;
+        const std::uint32_t stage = static_cast<std::uint32_t>(arena2_end - bytes) & ~31u;
+        if (stage < kMem2ArenaFloor || stage < end) {
+            error = "resident data does not fit in the MEM2 arena";
+            return false;
+        }
+        p.data_base = arena2_lo;
+        p.data_bytes = static_cast<std::uint32_t>(bytes);
+        p.new_arena2_lo = static_cast<std::uint32_t>(end);
+        p.stage_base = stage;
     }
     out = p;
     error.clear();

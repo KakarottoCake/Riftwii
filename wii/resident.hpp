@@ -13,10 +13,11 @@
 
 // E2: installs the resident runtime (runtime/resident, embedded as
 // riftwii_rt_bin): its code at the top of the MEM1 arena, its data at the
-// top of the MEM2 arena, after the apploader has loaded the DOL and before
-// the jump; the game never sees either reservation because the arena
-// fields (0x80000034/0x80003110, 0x80003128) are lowered to the
-// reservations. Every SDK IPC API function the structural search finds
+// bottom of the MEM2 arena (built at a staging area at the top and copied
+// down by the loader at the jump; riftwii/hook.hpp), after the apploader
+// has loaded the DOL and before the jump; the game never sees either
+// reservation because the arena fields (0x80000034/0x80003110 lowered,
+// 0x80003124 raised) exclude them. Every SDK IPC API function the structural search finds
 // (riftwii/symsearch.hpp: the 14 async and sync forms of open, close,
 // read, write, seek, ioctl, ioctlv) is diverted to its trampoline;
 // IOS_IoctlAsync must be, the rest are skipped with a log line when
@@ -62,10 +63,11 @@ struct ResidentInstall {
     std::uint32_t code_bytes = 0;
     std::uint32_t old_arena1_hi = 0;    // the MEM1 arena end as the apploader left it (below the BI2 and FST)
     std::uint32_t new_arena1_hi = 0;    // to be stored at 0x80000034 and 0x80003110 (== code_base)
-    std::uint32_t data_base = 0;        // payload and buffers at the top of the MEM2 arena, 0 when none
+    std::uint32_t data_base = 0;        // payload and buffers at the bottom of the MEM2 arena, 0 when none
     std::uint32_t data_bytes = 0;
-    std::uint32_t old_arena2_end = 0;
-    std::uint32_t new_arena2_end = 0;   // to be written to 0x80003128 after the low-memory flush
+    std::uint32_t stage_base = 0;       // where they are built; copied to data_base last of all
+    std::uint32_t old_arena2_lo = 0;
+    std::uint32_t new_arena2_lo = 0;    // to be written to 0x80003124 after the low-memory flush
     std::uint32_t ioctl_async = 0;    // hooked function
     std::uint32_t ioctlv_async = 0;   // found, not hooked (0 if unknown)
     std::uint32_t table = 0;          // redirect table address, 0 when there are no replacements
