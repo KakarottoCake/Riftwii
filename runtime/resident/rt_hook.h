@@ -76,7 +76,7 @@ extern "C" {
 #define RT_MAX_PENDING 2u
 #define RT_MAX_RUNS 8u    /* pieces of a read held at a time; longer reads are served in windows */
 #define RT_GECKO_MAX_FAILURES 32u /* refused bytes after which Gecko reporting turns itself off */
-#define RT_BOUNCE_BYTES 0x8000u   /* bytes one SD request fetches (64 sectors), per pending record */
+#define RT_BOUNCE_BYTES 0x4000u   /* bytes one SD request fetches (32 sectors), per pending record */
 
 /* rt_pending.phase */
 #define RT_PHASE_DISC 0u     /* waiting for the disc reply */
@@ -230,8 +230,10 @@ typedef void (*rt_game_callback_fn)(int32_t result, uint32_t user_data);
 #define RT_FS_SNOOPS 2u
 #define RT_FS_DELIVERS 4u
 #define RT_FS_QUEUE 4u
-#define RT_FS_BOUNCE_BYTES 0x8000u    /* one transfer moves up to 64 sectors */
-#define RT_FS_IMPORT_BYTES 0x8000u    /* one NAND read of an imported file */
+/* Both come out of the game's MEM2 arena. Saves are small and written
+ * rarely; a smaller transfer only means a few more round trips. */
+#define RT_FS_BOUNCE_BYTES 0x4000u    /* one transfer moves up to 32 sectors */
+#define RT_FS_IMPORT_BYTES 0x2000u    /* one NAND read of an imported file */
 #define RT_FS_CLONE_MAX 512u          /* files a clone copies at most (ReadDir slots held); the rest count as failures */
 #define RT_FS_OP_FILE 1u
 #define RT_FS_OP_SNOOP 2u

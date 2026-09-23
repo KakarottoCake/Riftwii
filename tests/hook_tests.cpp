@@ -2220,6 +2220,7 @@ static void TestResidentHandler() {
     EXPECT_EQ(rt_on_ioctl_async(&ctx, args, &result), 0);
     EXPECT_EQ(ctx.gecko_failures, 0u);
     EXPECT_TRUE(sizeof(rt_context) <= riftwii::kResidentContextBytes);  // the slot rt_entry.S reserves
+    EXPECT_EQ(sizeof(rt_entry), 24u);  // the table format (RT_VERSION 2) on every target
     EXPECT_EQ(rt_checksum(reinterpret_cast<const std::uint8_t*>("ab"), 2), 97u * 31u + 98u);
 }
 
@@ -2435,11 +2436,13 @@ static void TestSdChain(std::uint8_t* low_table, std::uint8_t* low_out) {
         rt_on_di_complete(&ctx, &sd_result, rec, &cb, &ud);
         ++replies;
     }
-    EXPECT_EQ(replies, 2);  // 32768 + 7232 bytes
-    EXPECT_EQ(g_sd_sectors_requested.size(), 4u);
-    EXPECT_EQ(g_sd_sectors_requested[1], 64u);
-    EXPECT_EQ(g_sd_sectors_requested[2], 64u);
-    EXPECT_EQ(g_sd_sectors_requested[3], 15u);  // 7232 bytes = 14.125 sectors
+    EXPECT_EQ(replies, 3);  // 16384 + 16384 + 7232 bytes
+    EXPECT_EQ(g_sd_sectors_requested.size(), 6u);  // (first sector, count) pairs
+    EXPECT_EQ(g_sd_sectors_requested[1], 32u);
+    EXPECT_EQ(g_sd_sectors_requested[2], 32u);
+    EXPECT_EQ(g_sd_sectors_requested[3], 32u);
+    EXPECT_EQ(g_sd_sectors_requested[4], 64u);
+    EXPECT_EQ(g_sd_sectors_requested[5], 15u);  // 7232 bytes = 14.125 sectors
     EXPECT_EQ(std::memcmp(big_out, g_card, 40000), 0);
     EXPECT_EQ(cb, 0x80005000u);
 
