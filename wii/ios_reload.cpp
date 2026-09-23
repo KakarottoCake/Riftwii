@@ -73,14 +73,14 @@ void release_wii_remotes() {
     for (;;) ++g_terminal_spin;
 }
 
-ReloadResult reload_ios(int version, std::string& error) {
+ReloadResult reload_ios(int version, std::string& error, bool force) {
     g_terminal_failure = false;
     g_reload_detail.clear();
     if (version < 3 || version > 0xFF) {
         error = "IOS" + std::to_string(version) + " is not a valid IOS number";
         return ReloadResult::Failed;
     }
-    if (IOS_GetVersion() == version) {
+    if (!force && IOS_GetVersion() == version) {
         error.clear();
         return ReloadResult::AlreadyRunning;
     }

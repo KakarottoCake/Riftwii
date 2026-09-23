@@ -16,6 +16,7 @@
 #include "frontend.hpp"
 #include "ios_reload.hpp"
 #include "log.hpp"
+#include "menuios.hpp"
 #include "modplan.hpp"
 #include "sdfile.hpp"
 
@@ -218,7 +219,7 @@ bool RunBoot(bool allow_ios_fallback, std::string& error, const LaunchSource& so
     if (!s.ensure_probe(error)) return false;
     BootOptions options;
     options.allow_ios_fallback = allow_ios_fallback;
-    options.preserve_current_ios = source.kind != LaunchSource::Kind::Disc;
+    options.preserve_current_ios = source.kind != LaunchSource::Kind::Disc || MenuCiosSlot() != 0;
     return boot_game(s.probe, options, error);
 }
 
@@ -292,7 +293,7 @@ bool BootCompiled(const CompiledMod& mod, std::string& error, const LaunchSource
     const std::string dir = xml_saves ? mod.savegame_dir : saves.dir;
     BootOptions options;
     options.allow_ios_fallback = true;
-    options.preserve_current_ios = source.kind != LaunchSource::Kind::Disc;
+    options.preserve_current_ios = source.kind != LaunchSource::Kind::Disc || MenuCiosSlot() != 0;
     options.install_resident = !mod.entries.empty() || !mod.relocations.empty() || !dir.empty();
     options.resident_gecko = false;
     options.table_entries = mod.entries;
@@ -317,7 +318,7 @@ bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error, 
     const SaveOverride saves = resolve_save_override(save_mode, mod.savegame_dir, game_id);
     const bool xml_saves = !mod.savegame_dir.empty();
     const std::string dir = xml_saves ? mod.savegame_dir : saves.dir;
-    BootOptions options; options.allow_ios_fallback=true; options.preserve_current_ios=source.kind != LaunchSource::Kind::Disc;
+    BootOptions options; options.allow_ios_fallback=true; options.preserve_current_ios=source.kind != LaunchSource::Kind::Disc || MenuCiosSlot() != 0;
     options.install_resident=!mod.entries.empty() || !mod.relocations.empty() || !dir.empty();
     options.table_entries=mod.entries; options.relocations=mod.relocations; options.memory_patches=mod.memory;
     options.savegame_dir=dir; options.savegame_clone=xml_saves ? mod.savegame_clone : saves.clone;
@@ -591,7 +592,7 @@ void RunAutorun() {
         } else if (cmd == "boot") {
             BootOptions options;
             options.allow_ios_fallback = allow_fallback;
-            options.preserve_current_ios = source.kind != LaunchSource::Kind::Disc;
+            options.preserve_current_ios = source.kind != LaunchSource::Kind::Disc || MenuCiosSlot() != 0;
             options.install_resident = install_resident;
             options.resident_gecko = install_resident;
             options.replacements = replacements;
