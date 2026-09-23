@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "sdio.hpp"
 
+#include "d2xsd.hpp"
+
 #include <gccore.h>
 #include <ogc/ipc.h>
 
@@ -120,6 +122,16 @@ bool write_hcr(const Card& card, std::uint32_t reg, std::uint32_t size, std::uin
 
 bool open_card(Card& card, std::string& error) {
     card = Card{};
+    if (using_d2x_sd()) {
+        // The game is on this card and d2x drives it: share its device.
+        if (!d2x_sd_open(error)) return false;
+        card.fd = d2x_sd_fd();
+        card.sdhc = true;
+        card.selected = true;
+        card.d2x = true;
+        error.clear();
+        return true;
+    }
     card.fd = IOS_Open(g_path, 1);
     if (card.fd < 0) {
         error = ipc_error("open", card.fd);
@@ -199,6 +211,14 @@ bool read_sectors(const Card& card, std::uint32_t sector, std::uint32_t count, v
         error = "sdio: read needs a 32-byte aligned buffer and a sector count";
         return false;
     }
+    if (card.d2x) {
+        if (!d2x_sd_read(sector, count, buffer)) {
+            error = "d2x SD read failed at sector " + std::to_string(sector);
+            return false;
+        }
+        error.clear();
+        return true;
+    }
     const std::uint32_t arg = card.sdhc ? sector : sector * kSectorBytes;
     const std::int32_t ret = send_command(card, kCmdReadMultiBlock, kTypeAc, kResponseR1, arg, count, kSectorBytes,
                                           buffer, count * kSectorBytes);
@@ -211,6 +231,10 @@ bool read_sectors(const Card& card, std::uint32_t sector, std::uint32_t count, v
 }
 
 void close_card(Card& card) {
+    if (card.d2x) {  // the shared handle stays open (d2xsd.hpp)
+        card = Card{};
+        return;
+    }
     if (card.fd >= 0) {
         if (card.selected) send_command(card, kCmdSelect, kTypeAc, kResponseR1b, 0, 0, 0, nullptr, 0);
         IOS_Close(card.fd);

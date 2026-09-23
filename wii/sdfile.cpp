@@ -3,6 +3,7 @@
 
 #include <sdcard/wiisd_io.h>
 
+#include "d2xsd.hpp"
 #include "log.hpp"
 
 namespace riftwii::wii {
@@ -13,7 +14,7 @@ bool g_mounted = false;
 
 bool read_blocks(std::uint64_t lba, std::uint32_t count, std::uint8_t* out) {
     if (lba > 0xFFFFFFFFull) return false;
-    return __io_wiisd.readSectors(static_cast<sec_t>(lba), count, out);
+    return sd_interface()->readSectors(static_cast<sec_t>(lba), count, out);
 }
 
 bool ensure_mounted(std::string& error) {

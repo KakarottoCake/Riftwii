@@ -2219,10 +2219,25 @@ std::vector<std::uint32_t> g_sd_sectors_requested;  // (sector, count) pairs
 std::int32_t FakeIoctlvAsync(std::uint32_t fd, std::uint32_t ioctl, std::uint32_t in_count, std::uint32_t out_count,
                              rt_ioctlv* vec, std::uint32_t callback, rt_pending* record) {
     EXPECT_EQ(fd, 9u);
-    EXPECT_EQ(ioctl, 7u);
     EXPECT_EQ(in_count, 2u);
     EXPECT_EQ(out_count, 1u);
     EXPECT_EQ(callback, 0x935D0100u);
+    if (ioctl == RT_SDHC_READ) {
+        // d2x's /dev/sdio/sdhc: sector and count as 4-byte inputs, the data out.
+        EXPECT_EQ(vec[0].len, 4u);
+        EXPECT_EQ(vec[1].len, 4u);
+        const std::uint32_t sector = *reinterpret_cast<const std::uint32_t*>(static_cast<std::uintptr_t>(vec[0].data));
+        const std::uint32_t count = *reinterpret_cast<const std::uint32_t*>(static_cast<std::uintptr_t>(vec[1].data));
+        EXPECT_EQ(vec[2].data, record->bounce);
+        EXPECT_EQ(vec[2].len, count * 512u);
+        g_sd_sectors_requested.push_back(sector);
+        g_sd_sectors_requested.push_back(count);
+        if (sector + count > 128) return -4;
+        std::memcpy(reinterpret_cast<void*>(static_cast<std::uintptr_t>(record->bounce)), g_card + sector * 512,
+                    count * 512);
+        return 0;
+    }
+    EXPECT_EQ(ioctl, 7u);
     const auto* rq = reinterpret_cast<const rt_sdio_request*>(static_cast<std::uintptr_t>(vec[0].data));
     EXPECT_EQ(vec[0].len, 36u);
     EXPECT_EQ(rq->cmd, 0x12u);
@@ -2451,6 +2466,36 @@ static void TestSdChain(std::uint8_t* low_table, std::uint8_t* low_out) {
     EXPECT_EQ(cb, 0x80005000u);
     EXPECT_EQ(di_result, 2);
     EXPECT_EQ(g_sd_sectors_requested.size(), 0u);
+
+    // The game on the SD card: the same read through d2x's /dev/sdio/sdhc
+    // (sector numbers, READ ioctlv) gives the same bytes.
+    ctx.sdio_sdhc = RT_SD_D2X;
+    std::memset(out, 0xEE, 0x800);
+    args[6] = 0x80005000;
+    args[7] = 0x80006000;
+    g_sd_sectors_requested.clear();
+    EXPECT_EQ(rt_on_ioctl_async(&ctx, args, &result), 0);
+    rec = reinterpret_cast<rt_pending*>(args[7]);
+    di_result = 1;
+    rt_on_di_complete(&ctx, &di_result, rec, &cb, &ud);
+    replies = 0;
+    while (cb == 0 && replies < 10) {
+        sd_result = 0;
+        rt_on_di_complete(&ctx, &sd_result, rec, &cb, &ud);
+        ++replies;
+    }
+    EXPECT_EQ(replies, 2);
+    EXPECT_EQ(g_sd_sectors_requested.size(), 4u);
+    if (g_sd_sectors_requested.size() == 4u) {
+        EXPECT_EQ(g_sd_sectors_requested[0], 10u);
+        EXPECT_EQ(g_sd_sectors_requested[1], 2u);
+        EXPECT_EQ(g_sd_sectors_requested[2], 40u);
+        EXPECT_EQ(g_sd_sectors_requested[3], 3u);
+    }
+    EXPECT_EQ(sd_result, 1);
+    EXPECT_EQ(std::memcmp(out + 16, expected.data(), 2000), 0);
+    EXPECT_EQ(out[16 + 2000], 0x5A);
+    ctx.sdio_sdhc = 1;
     rt_host_ioctlv_async = nullptr;
 
     // DISC runs: a 100-byte range at partition byte 0x7005 relocated to

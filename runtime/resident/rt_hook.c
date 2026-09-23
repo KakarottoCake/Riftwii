@@ -178,7 +178,8 @@ typedef int32_t (*rt_ioctlv_async_fn)(uint32_t fd, uint32_t ioctl, uint32_t in_c
 static int32_t rt_ioctlv_async(struct rt_context* ctx, struct rt_pending* record) {
     rt_ioctlv_async_fn fn = (rt_ioctlv_async_fn)(uintptr_t)ctx->ioctlv_async;
     if (fn == 0) return -1;
-    return fn(ctx->sdio_fd, RT_SDIO_SENDCMD, 2, 1, record->vec, ctx->complete_entry, record);
+    return fn(ctx->sdio_fd, ctx->sdio_sdhc == RT_SD_D2X ? RT_SDHC_READ : RT_SDIO_SENDCMD, 2, 1, record->vec,
+              ctx->complete_entry, record);
 }
 
 /* The unhooked IOS_IoctlAsync (the replay slot runs the displaced
@@ -200,22 +201,36 @@ typedef int32_t (*rt_ioctlv_sync_fn)(uint32_t fd, uint32_t ioctl, uint32_t in_co
                                      struct rt_ioctlv* vec);
 typedef int32_t (*rt_open_sync_fn)(const char* path, uint32_t mode);
 static int32_t rt_fs_sendcmd_call(struct rt_context* ctx, struct rt_fs_state* st, int async) {
+    /* slot0: SENDCMD (request in, data and response out); d2x: sector and
+     * count in, then the data out for a read or in for a write. */
+    const int d2x = ctx->sdio_sdhc == RT_SD_D2X;
+    const int write = st->req.fat.io_write != 0;
+    const uint32_t ioctl = d2x ? (write ? RT_SDHC_WRITE : RT_SDHC_READ) : RT_SDIO_SENDCMD;
+    const uint32_t in_count = d2x && write ? 3u : 2u;
+    const uint32_t out_count = d2x && write ? 0u : 1u;
     if (ctx->sdio_fd == 0xFFFFFFFFu) return RTFAT_EIO;
     if (async) {
         rt_ioctlv_async_fn fn = (rt_ioctlv_async_fn)(uintptr_t)ctx->ioctlv_async;
         if (fn == 0) return RTFAT_EIO;
-        return fn(ctx->sdio_fd, RT_SDIO_SENDCMD, 2, 1, st->vec, st->complete_fs, (struct rt_pending*)&st->pend);
+        return fn(ctx->sdio_fd, ioctl, in_count, out_count, st->vec, st->complete_fs, (struct rt_pending*)&st->pend);
     } else {
         rt_ioctlv_sync_fn fn = (rt_ioctlv_sync_fn)(uintptr_t)st->ioctlv_sync;
         if (fn == 0) return RTFAT_EIO;
-        return fn(ctx->sdio_fd, RT_SDIO_SENDCMD, 2, 1, st->vec);
+        return fn(ctx->sdio_fd, ioctl, in_count, out_count, st->vec);
     }
 }
 /* The null round trip: SD GETSTATUS through the unhooked IOS_IoctlAsync,
  * its 4-byte answer landing in the slot's own line. */
 static int32_t rt_fs_getstatus_async(struct rt_context* ctx, struct rt_fs_state* st, struct rt_fs_pend* slot) {
     rt_ioctl_async_fn fn = (rt_ioctl_async_fn)(uintptr_t)ctx->di_read_entry;
-    if (fn == 0 || ctx->sdio_fd == 0xFFFFFFFFu) return -1;
+    if (ctx->sdio_fd == 0xFFFFFFFFu) return -1;
+    if (ctx->sdio_sdhc == RT_SD_D2X) {
+        /* d2x's device answers ioctlvs only. */
+        rt_ioctlv_async_fn vfn = (rt_ioctlv_async_fn)(uintptr_t)ctx->ioctlv_async;
+        if (vfn == 0) return -1;
+        return vfn(ctx->sdio_fd, RT_SDHC_ISINSERTED, 0, 0, st->vec, st->complete_fs, (struct rt_pending*)slot);
+    }
+    if (fn == 0) return -1;
     rt_flush_range((uintptr_t)slot->status, sizeof(slot->status));
     return fn(ctx->sdio_fd, RT_SDIO_GETSTATUS, 0, 0, (uint32_t)(uintptr_t)slot->status, 4, st->complete_fs,
               (struct rt_pending*)slot);
@@ -284,6 +299,12 @@ static uint32_t rt_fs_ticks(void) {
  * CPU meanwhile. Without the original the wait spins (interrupts on:
  * the IPC interrupt still drives async requests ahead). */
 static void rt_fs_wait_tick(struct rt_context* ctx, struct rt_fs_state* st) {
+    if (ctx->sdio_sdhc == RT_SD_D2X) {
+        if (st->ioctlv_sync != 0 && ctx->sdio_fd != 0xFFFFFFFFu) {
+            ((rt_ioctlv_sync_fn)(uintptr_t)st->ioctlv_sync)(ctx->sdio_fd, RT_SDHC_ISINSERTED, 0, 0, st->vec);
+        }
+        return;
+    }
     if (st->ioctl_sync == 0 || ctx->sdio_fd == 0xFFFFFFFFu) return;
     rt_flush_range((uintptr_t)st->wait_status, sizeof(st->wait_status));
     rt_fs_ioctl_sync(st, (int32_t)ctx->sdio_fd, RT_SDIO_GETSTATUS, 0, 0, (uint32_t)(uintptr_t)st->wait_status, 4);
@@ -397,7 +418,8 @@ static void rt_interrupts_restore(uint32_t msr) {
 }
 static int32_t rt_ioctlv_async(struct rt_context* ctx, struct rt_pending* record) {
     if (ctx->ioctlv_async == 0 || rt_host_ioctlv_async == 0) return -1;
-    return rt_host_ioctlv_async(ctx->sdio_fd, RT_SDIO_SENDCMD, 2, 1, record->vec, ctx->complete_entry, record);
+    return rt_host_ioctlv_async(ctx->sdio_fd, ctx->sdio_sdhc == RT_SD_D2X ? RT_SDHC_READ : RT_SDIO_SENDCMD, 2, 1,
+                                record->vec, ctx->complete_entry, record);
 }
 #endif
 
@@ -660,6 +682,21 @@ static void rt_fs_build_sendcmd(struct rt_context* ctx, struct rt_fs_state* st) 
     const struct rtfat_op* op = &st->req.fat;
     struct rt_sdio_request* rq = &st->request;
     const uint32_t bytes = op->io_count * RT_SECTOR_BYTES;
+    if (ctx->sdio_sdhc == RT_SD_D2X) {
+        /* The request's first two words hold the sector and the count. */
+        rq->cmd = op->io_lba;
+        rq->cmd_type = op->io_count;
+        st->vec[0].data = (uint32_t)(uintptr_t)&rq->cmd;
+        st->vec[0].len = 4;
+        st->vec[1].data = (uint32_t)(uintptr_t)&rq->cmd_type;
+        st->vec[1].len = 4;
+        st->vec[2].data = op->io_buffer;
+        st->vec[2].len = bytes;
+        rt_flush_range((uintptr_t)rq, sizeof(*rq));
+        rt_flush_range((uintptr_t)st->vec, sizeof(st->vec));
+        rt_flush_range((uintptr_t)op->io_buffer, bytes);
+        return;
+    }
     rq->cmd = op->io_write ? RT_SD_CMD_WRITEMULTIBLOCK : RT_SD_CMD_READMULTIBLOCK;
     rq->cmd_type = RT_SD_CMDTYPE_AC;
     rq->rsp_type = RT_SD_RESPONSE_R1;
@@ -2110,6 +2147,27 @@ static int rt_issue_sd_chunk(struct rt_context* ctx, struct rt_pending* record) 
     record->chunk_skip = skip;
     record->chunk_bytes = sectors * RT_SECTOR_BYTES - skip;
     if (record->chunk_bytes > remaining) record->chunk_bytes = remaining;
+    if (ctx->sdio_sdhc == RT_SD_D2X) {
+        /* d2x's /dev/sdio/sdhc: sector and count in, the data out. */
+        rq->cmd = sector;
+        rq->cmd_type = sectors;
+        record->vec[0].data = (uint32_t)(uintptr_t)&rq->cmd;
+        record->vec[0].len = 4;
+        record->vec[1].data = (uint32_t)(uintptr_t)&rq->cmd_type;
+        record->vec[1].len = 4;
+        record->vec[2].data = record->bounce;
+        record->vec[2].len = sectors * RT_SECTOR_BYTES;
+        rt_flush_range((uintptr_t)rq, sizeof(*rq));
+        rt_flush_range((uintptr_t)record->vec, sizeof(record->vec));
+        rt_flush_range((uintptr_t)record->bounce, sectors * RT_SECTOR_BYTES);
+        record->phase = RT_PHASE_SD;
+        ctx->sd_requests++;
+        if (rt_ioctlv_async(ctx, record) < 0) {
+            ctx->sd_failures++;
+            return -1;
+        }
+        return 1;
+    }
     rq->cmd = RT_SD_CMD_READMULTIBLOCK;
     rq->cmd_type = RT_SD_CMDTYPE_AC;
     rq->rsp_type = RT_SD_RESPONSE_R1;

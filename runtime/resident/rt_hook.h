@@ -261,6 +261,15 @@ typedef void (*rt_game_callback_fn)(int32_t result, uint32_t user_data);
 #define RT_FS_JOB_DONE 21u
 #define RT_FS_WAIT_TICKS 607500000u    /* 10 s of the time base (60.75 MHz) a sync call waits for the engine */
 #define RT_SDIO_GETSTATUS 0x0Bu        /* the null round trip (wiibrew /dev/sdio, libogc wiisd.c) */
+/* d2x's /dev/sdio/sdhc (d2x cIOS sdhc-module): when the game itself is on
+ * the SD card, d2x reads it through this device, and a second driver on
+ * /dev/sdio/slot0 would fight it for the card. Its ioctlvs take the
+ * sector and the count as two 4-byte inputs and the data as the third
+ * vector; ISINSERTED takes none and serves as the null round trip. */
+#define RT_SD_D2X 2u
+#define RT_SDHC_READ 2u
+#define RT_SDHC_WRITE 3u
+#define RT_SDHC_ISINSERTED 4u
 
 struct rt_fs_pend {
     uint32_t in_use;
@@ -408,7 +417,8 @@ struct rt_context {
     uint32_t virtual_reads;       /* reads at or above it, answered without their offset reaching the drive */
     /* SD card (loader-filled). */
     uint32_t sdio_fd;             /* /dev/sdio/slot0 fd, card initialised and selected; 0xFFFFFFFF = none */
-    uint32_t sdio_sdhc;           /* 1: CMD18 takes a sector number, 0: a byte offset */
+    uint32_t sdio_sdhc;           /* 1: CMD18 takes a sector number, 0: a byte offset;
+                                     RT_SD_D2X: sdio_fd is d2x's /dev/sdio/sdhc (an SD game) */
     uint32_t ioctlv_async;        /* the game's IOS_IoctlvAsync, 0 = unknown (SD runs then fail) */
     uint32_t sd_requests;         /* SD requests issued */
     uint32_t sd_failures;         /* SD requests refused or failed; the read then completes with RT_DI_ERROR */

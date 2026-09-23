@@ -197,7 +197,7 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
     ctx->complete_entry = place.code_base + blob.complete_di_offset;
     ctx->virtual_start_words = payload.empty() ? 0 : options.virtual_start_words;
     ctx->sdio_fd = sdio_fd;
-    ctx->sdio_sdhc = options.sdio_sdhc ? 1 : 0;
+    ctx->sdio_sdhc = options.sdio_d2x ? RT_SD_D2X : options.sdio_sdhc ? 1 : 0;
     // What the runtime calls when it needs an SDK function itself: the
     // replay slot of a hooked one (its displaced words, then the jump
     // back), the function itself when it is not hooked, 0 when absent.
