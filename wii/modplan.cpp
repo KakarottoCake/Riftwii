@@ -5,6 +5,7 @@
 #include <fstream>
 #include <map>
 #include <memory>
+#include <set>
 
 #include "di.hpp"
 #include "log.hpp"
@@ -135,6 +136,33 @@ private:
     std::map<const ByteSource*, const Fat32File*> sources_;
 };
 
+// "sd:/projectm/pf holds: menu2, sound, system": the deepest folder of
+// `sd_path` that exists and its first names. Empty when nothing is found.
+std::string nearest_on_card(const std::string& sd_path) {
+    std::string dir = sd_path;
+    if (dir.empty() || dir[0] != '/') dir = "/" + dir;
+    while (dir.size() > 1 && dir.back() == '/') dir.pop_back();
+    for (int depth = 0; depth < 16; ++depth) {
+        const std::size_t slash = dir.find_last_of('/');
+        dir = slash == 0 ? std::string("/") : dir.substr(0, slash);
+        std::vector<Fat32Entry> entries;
+        bool missing = false;
+        std::string ignored;
+        if (list_sd_directory("sd:" + dir, entries, missing, ignored)) {
+            std::string names;
+            std::size_t shown = 0;
+            for (const Fat32Entry& e : entries) {
+                if (shown == 12) break;
+                names += (shown++ ? ", " : "") + e.name + (e.is_directory ? "/" : "");
+            }
+            if (entries.size() > shown) names += ", +" + std::to_string(entries.size() - shown) + " more";
+            return "sd:" + dir + " holds: " + (names.empty() ? std::string("nothing") : names);
+        }
+        if (!missing || dir == "/") return "";
+    }
+    return "";
+}
+
 }  // namespace
 
 // One package: parse, plan with its default choices, expand folders and
@@ -195,12 +223,43 @@ static bool gather_package(const PackageSelection& selection, const DiscProbe& p
     logf("Mods: %s: %u file patch(es), %u memory patch(es)\n", xml_sd_path.c_str(),
          static_cast<unsigned>(expanded.size()), static_cast<unsigned>(plan.memory.size()));
 
+    // Where a pack expected a folder or file the card does not have, what
+    // the nearest folder that exists holds, so a misplaced or incomplete
+    // copy shows in the log. A few distinct folders at most.
+    std::set<std::string> hinted;
+    for (std::size_t i = expand_notes_from; i < mod.notes.size() && hinted.size() < 4; ++i) {
+        const std::string& note = mod.notes[i];
+        if (note.find("not on the card") == std::string::npos) continue;
+        std::string missing;
+        const std::size_t folder = note.find("<folder ");
+        const std::size_t quote = note.find("external '");
+        if (folder != std::string::npos) {
+            const std::size_t arrow = note.find(" -> ", folder);
+            if (arrow != std::string::npos) missing = note.substr(folder + 8, arrow - folder - 8);
+        } else if (quote != std::string::npos) {
+            const std::size_t end = note.find('\'', quote + 10);
+            if (end != std::string::npos) missing = note.substr(quote + 10, end - quote - 10);
+        }
+        const std::string hint = missing.empty() ? std::string() : nearest_on_card(missing);
+        if (!hint.empty() && hinted.insert(hint).second) mod.notes.push_back(hint);
+    }
+
     // Memory patches: a valuefile is read now, while the card is mounted.
+    // One the card lacks is skipped with a warning, as Dolphin's Riivolution
+    // support does; an unreadable one still stops the launch.
     for (MemoryPatch m : plan.memory) {
         if (!m.valuefile.empty()) {
             std::unique_ptr<ByteSource> source;
             std::string open_error;
-            if (provider.open_external(m.valuefile, source, open_error) != OpenStatus::Ok || !source) {
+            const OpenStatus opened = provider.open_external(m.valuefile, source, open_error);
+            if (opened == OpenStatus::NotFound) {
+                std::string warning = "memory patch skipped: its file '" + m.valuefile + "' is not on the card";
+                const std::string hint = nearest_on_card(m.valuefile);
+                if (!hint.empty()) warning += " (" + hint + ")";
+                mod.warnings.push_back(warning);
+                continue;
+            }
+            if (opened != OpenStatus::Ok || !source) {
                 error = "memory patch valuefile: " + open_error;
                 return false;
             }

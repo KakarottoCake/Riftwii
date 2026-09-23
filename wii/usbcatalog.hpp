@@ -22,6 +22,10 @@ struct ImageGame {
     std::uint8_t disc_number = 0;
     UsbImageFormat format = UsbImageFormat::Iso;
     D2xFragmentList fragments;
+    // Header read and fragment list built. An image whose name carries its
+    // ID is listed without being opened (a drive can hold hundreds);
+    // check_image_game opens it when it is picked.
+    bool checked = false;
 };
 
 struct ImageCatalog {
@@ -50,6 +54,10 @@ using UsbCatalog = ImageCatalog;
 bool scan_usb_games(UsbCatalog& out, std::string& error);
 bool scan_sd_games(ImageCatalog& out, std::string& error);
 void unmount_usb_games();
+// Opens a listed game that is not checked yet: its pieces, disc header and
+// d2x fragment list, filling title, revision and disc number (and the ID
+// from the header). Needs the catalog's drive still mounted.
+bool check_image_game(ImageGame& game, std::string& error);
 // Whether a cIOS slot holds a launchable (non-stub) title.
 bool slot_has_ticket(int slot);
 

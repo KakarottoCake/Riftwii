@@ -58,8 +58,23 @@ static void test_folder_and_choice() {
     EXPECT_EQ(riftwii::display_title(nullptr, "SB4E01", "usb:/games/SB4E01.iso", ""), std::string("SB4E01"));
 }
 
+static void test_id_from_path() {
+    using riftwii::id_from_image_path;
+    EXPECT_EQ(id_from_image_path("usb:/wbfs/ANIMAL CROSSING [RUUE01]/RUUE01.wbfs"), std::string("RUUE01"));
+    EXPECT_EQ(id_from_image_path("usb:/wbfs/RUUE01.wbfs"), std::string("RUUE01"));
+    EXPECT_EQ(id_from_image_path("sd:/wbfs/SMNE01_New Super Mario Bros. Wii/SMNE01.wbfs"), std::string("SMNE01"));
+    EXPECT_EQ(id_from_image_path("usb:/wbfs/Some Game [SB4E01]/game.wbfs"), std::string("SB4E01"));
+    EXPECT_EQ(id_from_image_path("usb:/games/Mario Kart Wii [RMCE01].iso"), std::string("RMCE01"));
+    EXPECT_EQ(id_from_image_path("usb:/games/Mario Kart - Double Dash!! (USA).iso"), std::string(""));
+    EXPECT_EQ(id_from_image_path("usb:/games/game.iso"), std::string(""));
+    EXPECT_EQ(id_from_image_path("usb:/wbfs/x [rmce01]/game.wbfs"), std::string(""));  // IDs are upper case
+    EXPECT_EQ(id_from_image_path("usb:/wbfs/[RMCE0]/game.wbfs"), std::string(""));
+    EXPECT_EQ(id_from_image_path("RMCE01"), std::string("RMCE01"));
+}
+
 int main() {
     test_table();
+    test_id_from_path();
     test_folder_and_choice();
     if (g_failures == 0) {
         std::cout << "ALL TITLES TESTS PASSED" << std::endl;

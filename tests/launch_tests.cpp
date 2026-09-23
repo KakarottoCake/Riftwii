@@ -191,8 +191,7 @@ static void test_persistence() {
     model.cycle(0, 1, +1);  // On
     const std::string saved = model.save();
     EXPECT_EQ(saved, std::string("*riftwii*\tsaves\tnand\n"
-                                 "a.xml\ton\na.xml\tTracks/Pack\tBeta\na.xml\tTracks/Music\tOn\n"
-                                 "other.xml\toff\nother.xml\tS/O\tC\n"));
+                                 "a.xml\ton\na.xml\tTracks/Pack\tBeta\na.xml\tTracks/Music\tOn\n"));
 
     // A fresh model with the same packages takes the saved state back;
     // lines for things that no longer exist are ignored.

@@ -169,7 +169,9 @@ SaveOverride resolve_save_override(const std::string& save_mode, const std::stri
 std::string LaunchModel::save() const {
     std::string text = "*riftwii*\tsaves\t" + save_mode + "\n";
     for (const LaunchPackage& p : packages) {
-        if (!p.valid) continue;
+        // Only this game's packs: the file is per game ID, and another
+        // game's pack could not be turned on here anyway.
+        if (!p.valid || !p.for_disc) continue;
         text += clean(p.file) + "\t" + (p.enabled ? "on" : "off") + "\n";
         for (const Option& o : p.package.options) {
             const std::string choice = (o.selected == 0 || o.selected > o.choices.size()) ? "" : o.choices[o.selected - 1].name;
