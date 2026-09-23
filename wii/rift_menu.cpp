@@ -4,9 +4,9 @@
  *
  * rift_menu.cpp
  * The frontend, in a light Wii-Menu-like look (skin.hpp):
- *   Home      every game on the SD card and the USB drive as a page of
- *             tiles (plus the disc drive), a filter (all, with mods, USB,
- *             SD), the clock, and Settings.
+ *   Home      the games on the SD card and the USB drive as a page of
+ *             tiles (plus the disc drive), a filter (games with mods, the
+ *             default, or all games), the clock, and Settings.
  *   Game      the picked game's banner and its mod packs: A turns a pack
  *             on or off and steps its options, Saves picks where the saves
  *             go, Start leaves for the boot.
@@ -299,8 +299,8 @@ static std::string PackSummary(const riftwii::LaunchPackage& p)
 // ---------------------------------------------------------------------------
 // Home
 
-enum class Filter { All, Mods, Usb, Sd };
-static Filter g_filter = Filter::All;
+enum class Filter { Mods, All };
+static Filter g_filter = Filter::Mods;
 static bool g_scanned = false;   // the drives were read this session
 static int g_homeFocus = 0;      // the focused tile, kept across screens
 static riftwii::PackIndex g_packs;
@@ -309,8 +309,6 @@ static const char* FilterLabel(Filter f)
 {
 	switch (f) {
 		case Filter::Mods: return "Games with mods";
-		case Filter::Usb: return "USB drive";
-		case Filter::Sd: return "SD card";
 		default: return "All games";
 	}
 }
@@ -354,7 +352,7 @@ static void BuildHome(const FrontendState& state, std::vector<GridItem>& items, 
 {
 	items.clear();
 	entries.clear();
-	if (g_filter == Filter::All || g_filter == Filter::Mods) {
+	{
 		GridItem disc;
 		disc.title = "Disc drive";
 		disc.badge = "DISC";
@@ -364,12 +362,10 @@ static void BuildHome(const FrontendState& state, std::vector<GridItem>& items, 
 	}
 	struct Row { std::string name; HomeEntry entry; const riftwii::wii::ImageGame* game; };
 	std::vector<Row> rows;
-	if (g_filter != Filter::Sd)
-		for (std::size_t i = 0; i < state.usb_catalog.games.size(); ++i)
-			rows.push_back({GameName(state.usb_catalog.games[i]), {HomeEntry::Kind::Usb, i}, &state.usb_catalog.games[i]});
-	if (g_filter != Filter::Usb)
-		for (std::size_t i = 0; i < state.sd_catalog.games.size(); ++i)
-			rows.push_back({GameName(state.sd_catalog.games[i]), {HomeEntry::Kind::Sd, i}, &state.sd_catalog.games[i]});
+	for (std::size_t i = 0; i < state.usb_catalog.games.size(); ++i)
+		rows.push_back({GameName(state.usb_catalog.games[i]), {HomeEntry::Kind::Usb, i}, &state.usb_catalog.games[i]});
+	for (std::size_t i = 0; i < state.sd_catalog.games.size(); ++i)
+		rows.push_back({GameName(state.sd_catalog.games[i]), {HomeEntry::Kind::Sd, i}, &state.sd_catalog.games[i]});
 	std::stable_sort(rows.begin(), rows.end(), [](const Row& a, const Row& b) {
 		return strcasecmp(a.name.c_str(), b.name.c_str()) < 0;
 	});
@@ -404,7 +400,7 @@ static std::string HomeStatus(const FrontendState& state, std::size_t shown)
 		status += std::string(status.empty() ? "" : "   ") + "No d2x cIOS in 249-251: games cannot boot yet";
 	if (!status.empty()) return status;
 	if (g_filter == Filter::Mods && shown <= 1) return "No game here has packs in sd:/riivolution yet. Press 1 for all games.";
-	if (shown == 0) return g_filter == Filter::Usb ? "No USB games (usb:/wbfs, usb:/games)" : "No SD games (sd:/wbfs, sd:/games)";
+	if (shown <= 1) return "No games found (usb:/wbfs, usb:/games, sd:/wbfs, sd:/games)";
 	return std::string(FilterLabel(g_filter)) + "   1: filter   2: settings   +: rescan";
 }
 
@@ -569,7 +565,7 @@ static int MenuSource(FrontendState& state)
 			menu = MENU_OPTIONS;
 		} else if (filterBtn.Clicked()) {
 			filterBtn.button.ResetState();
-			g_filter = static_cast<Filter>((static_cast<int>(g_filter) + 1) % 4);
+			g_filter = g_filter == Filter::Mods ? Filter::All : Filter::Mods;
 			logf("Home: filter %s\n", FilterLabel(g_filter));
 			refresh(false);
 		} else if (rescanBtn.GetState() == STATE::CLICKED) {
