@@ -612,8 +612,12 @@ static std::string SaveLabel(const std::string& mode)
 	if (mode == "fresh") return "SD, fresh start";
 	return "On the Wii";
 }
-static std::string SaveNote(const std::string& mode)
+static std::string SaveNote(const riftwii::LaunchModel& model)
 {
+	const std::string owner = model.pack_save_owner();
+	if (!owner.empty())
+		return "This pack keeps its own saves. Turn it off to choose here.";
+	const std::string& mode = model.save_mode;
 	if (mode == "separate") return "Saves go to the SD card, starting from the Wii's save.";
 	if (mode == "fresh") return "Saves go to the SD card, starting fresh.";
 	return "Saves stay on the Wii, as usual.";
@@ -633,11 +637,18 @@ static void BuildGameRows(const FrontendState& state, const std::string& scanSta
 		rows.push_back(std::move(row));
 		refs.push_back(ref);
 	};
+	// A pack with its own <savegame> decides where the saves go; the
+	// setting is shown as the pack's and left alone until it lets go.
 	FlowRow saves;
 	saves.kind = FlowRow::Kind::Option;
 	saves.label = "Saves";
-	saves.value = SaveLabel(state.model.save_mode);
-	saves.on = state.model.save_mode != "nand";
+	if (!state.model.pack_save_owner().empty()) {
+		saves.value = "Kept by the pack";
+		saves.dim = true;
+	} else {
+		saves.value = SaveLabel(state.model.save_mode);
+		saves.on = state.model.save_mode != "nand";
+	}
 	add(saves, {RowRef::What::Saves});
 
 	std::size_t shown = 0;
@@ -734,7 +745,7 @@ static int MenuHome(FrontendState& state)
 	list.SetRows(&rows);
 	list.Select(0);
 
-	GuiText statusTxt(SaveNote(state.model.save_mode).c_str(), 15, skin::kInkSoft);
+	GuiText statusTxt(SaveNote(state.model).c_str(), 15, skin::kInkSoft);
 	Place(statusTxt, 0, 380, true);
 	statusTxt.SetMaxWidth(572);
 
@@ -783,7 +794,7 @@ static int MenuHome(FrontendState& state)
 		if (row != shownRow && row >= 0 && static_cast<std::size_t>(row) < refs.size()) {
 			shownRow = row;
 			const RowRef& ref = refs[static_cast<std::size_t>(row)];
-			if (ref.what == RowRef::What::Saves) say(SaveNote(state.model.save_mode));
+			if (ref.what == RowRef::What::Saves) say(SaveNote(state.model));
 			else if (ref.what == RowRef::What::Pack) say(PackSummary(state.model.packages[ref.pkg]));
 			else if (ref.what == RowRef::What::Option) {
 				const riftwii::Option& o = state.model.packages[ref.pkg].package.options[ref.opt];
@@ -800,7 +811,9 @@ static int MenuHome(FrontendState& state)
 		if (acted >= 0 && static_cast<std::size_t>(acted) < refs.size()) {
 			const RowRef ref = refs[static_cast<std::size_t>(acted)];
 			bool changed = false;
-			if (ref.what == RowRef::What::Saves) {
+			if (ref.what == RowRef::What::Saves && !state.model.pack_save_owner().empty()) {
+				say(SaveNote(state.model));
+			} else if (ref.what == RowRef::What::Saves) {
 				static const char* const modes[] = {"nand", "separate", "fresh"};
 				int at = 0;
 				while (at < 3 && state.model.save_mode != modes[at]) ++at;

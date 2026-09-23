@@ -195,6 +195,20 @@ bool LaunchModel::cycle(std::size_t package, std::size_t option, int direction) 
     return true;
 }
 
+std::string LaunchModel::pack_save_owner() const {
+    for (const LaunchPackage& p : packages) {
+        if (!p.valid || !p.for_disc || !p.enabled) continue;
+        for (const Option& o : p.package.options) {
+            if (o.selected == 0 || o.selected > o.choices.size()) continue;
+            for (const std::string& id : o.choices[o.selected - 1].patches) {
+                const auto it = p.package.patches.find(id);
+                if (it != p.package.patches.end() && !it->second.savegames.empty()) return p.file;
+            }
+        }
+    }
+    return "";
+}
+
 std::string LaunchModel::choice_name(std::size_t package, std::size_t option) const {
     if (package >= packages.size()) return "";
     const LaunchPackage& p = packages[package];

@@ -15,7 +15,7 @@ struct FlowRow {
     std::string label;
     std::string value;  // the chip's text; empty for Info rows
     bool on = false;    // accent chip
-    bool dim = false;   // greyed label (broken pack, notes)
+    bool dim = false;   // greyed label (broken pack, notes); a dim option shows no step arrows
 };
 
 class GuiFlowList : public GuiElement {
