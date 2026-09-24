@@ -145,7 +145,8 @@ enum class GcAdapterMode { Off, On, Demo };
 struct LaunchExtras {
     std::string game_id;
     GcAdapterMode gc_adapter = GcAdapterMode::Off;
-    VideoSettings video;
+    VideoSettings video;  // its target is set at boot, from its mode
+    int language = -1;    // riftwii/gamelang.hpp code; -1: the console's
     std::vector<std::uint8_t> cheat_gct;  // empty: no cheats
     std::size_t cheat_count = 0;
 };

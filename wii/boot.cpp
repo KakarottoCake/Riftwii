@@ -36,6 +36,7 @@
 #include "usbcatalog.hpp"
 #include "codehandleronly_bin.h"
 #include "riftwii/codehook.hpp"
+#include "riftwii/gamelang.hpp"
 #include "riftwii/symsearch.hpp"
 
 namespace riftwii::wii {
@@ -120,12 +121,20 @@ bool install_cheats(const std::vector<MemoryRegion>& loaded, const std::vector<M
 // (sd:/riftwii/choices/<ID>.video).
 void apply_video(const std::vector<MemoryRegion>& loaded, bool may_mount) {
     VideoPatchReport report;
+    unsigned language_sites = 0;
     for (const MemoryRegion& r : loaded) {
-        patch_video_modes(reinterpret_cast<std::uint8_t*>(r.address), r.length, g_extras.video, report);
-        if (g_extras.video.any()) DCFlushRange(reinterpret_cast<void*>(r.address), r.length);
+        std::uint8_t* bytes = reinterpret_cast<std::uint8_t*>(r.address);
+        patch_video_modes(bytes, r.length, g_extras.video, report);
+        language_sites += patch_game_language(bytes, r.length, g_extras.language);
+        if (g_extras.video.any() || g_extras.language >= 0) DCFlushRange(bytes, r.length);
     }
-    logf("Video: %s (width %s, deflicker %s, borders %s)\n", report.describe().c_str(), to_string(g_extras.video.width),
-         to_string(g_extras.video.deflicker), g_extras.video.remove_borders ? "removed" : "kept");
+    logf("Video: %s (mode %s, width %s, deflicker %s, borders %s)\n", report.describe().c_str(),
+         to_string(g_extras.video.mode), to_string(g_extras.video.width), to_string(g_extras.video.deflicker),
+         g_extras.video.remove_borders ? "removed" : "kept");
+    if (g_extras.language >= 0) {
+        logf("Language: %s, %u place(s) patched%s\n", game_language_name(g_extras.language), language_sites,
+             language_sites == 0 ? " (the game reads it some other way: it keeps the console's)" : "");
+    }
     if (g_extras.game_id.empty() || report.modes == 0) return;
     // After an IOS reload the card is down; with nothing else driving the
     // slot it is mounted just for this note.
@@ -303,10 +312,54 @@ int region_video_standard(char region) {
     }
 }
 
+// What a chosen video mode means on this console, for a game of `region`.
+VideoTarget resolve_video_target(VideoMode mode, char region, bool progressive_ok) {
+    VideoTarget t;
+    switch (mode) {
+    case VideoMode::System:
+        switch (CONF_GetVideo()) {
+        case CONF_VIDEO_PAL: t.format = CONF_GetEuRGB60() > 0 ? kViEurgb60 : kViPal; break;
+        case CONF_VIDEO_MPAL: t.format = kViMpal; break;
+        default: t.format = kViNtsc; break;
+        }
+        t.progressive = progressive_ok && t.format != kViPal;
+        break;
+    case VideoMode::Ntsc: t.format = kViNtsc; break;
+    case VideoMode::Pal60: t.format = kViEurgb60; break;
+    case VideoMode::Pal50: t.format = kViPal; break;
+    case VideoMode::Progressive:
+        // 480p: EuRGB60's for PAL games (their 60 Hz mode), NTSC's otherwise.
+        t.format = region_video_standard(region) == VI_PAL ? kViEurgb60 : kViNtsc;
+        t.progressive = true;
+        break;
+    default: break;
+    }
+    return t;
+}
+
 // Picks the VI mode the game will find configured and records it in the
-// low-memory global the SDK reads (0x800000CC).
+// low-memory global the SDK reads (0x800000CC). A chosen video mode
+// decides it, and becomes the target the game's tables are converted to.
 void configure_video_for_game(char region) {
-    const bool progressive = CONF_GetProgressiveScan() > 0 && VIDEO_HaveComponentCable();
+    const bool progressive_ok = CONF_GetProgressiveScan() > 0 && VIDEO_HaveComponentCable();
+    g_extras.video.target = resolve_video_target(g_extras.video.mode, region, progressive_ok);
+    const VideoTarget& target = g_extras.video.target;
+    if (target.format >= 0) {
+        GXRModeObj* forced = &TVNtsc480IntDf;
+        if (target.progressive) forced = target.format == kViEurgb60 ? &TVEurgb60Hz480Prog : &TVNtsc480Prog;
+        else if (target.format == kViEurgb60) forced = &TVEurgb60Hz480IntDf;
+        else if (target.format == kViPal) forced = &TVPal528IntDf;
+        else if (target.format == kViMpal) forced = &TVMpal480IntDf;
+        logf("Video: forced to TV format %d%s\n", target.format, target.progressive ? ", 480p" : "");
+        store32(0x800000CC, static_cast<std::uint32_t>(target.format));
+        DCFlushRange(reinterpret_cast<void*>(0x800000CC), 4);
+        VIDEO_Configure(forced);
+        VIDEO_SetBlack(true);
+        VIDEO_Flush();
+        VIDEO_WaitVSync();
+        return;
+    }
+    const bool progressive = progressive_ok;
     const bool pal60 = CONF_GetEuRGB60() > 0;
     int standard = region_video_standard(region);
     if (standard < 0) {

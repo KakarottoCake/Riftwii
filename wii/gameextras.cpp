@@ -109,6 +109,7 @@ void PrepareLaunchExtras(const FrontendState& state) {
     LaunchExtras extras;
     extras.game_id = state.game_id;
     extras.video = effective_video(state.model.game, Settings());
+    extras.language = effective_game_language(state.model.game, Settings());
     const std::string& adapter = Settings().gc_adapter;
     extras.gc_adapter = adapter == "on" ? GcAdapterMode::On : adapter == "demo" ? GcAdapterMode::Demo : GcAdapterMode::Off;
     if (state.model.game.cheats && !state.model.game.cheat_names.empty()) {

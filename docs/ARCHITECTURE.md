@@ -64,7 +64,9 @@ the pack, option and file named, so a game never starts half patched.
    virtual window above the disc), the data header, a pack's `main.dol`.
 4. Install the resident runtime (`wii/resident.cpp`) and the pad hook
    (`wii/padhook.cpp`); apply memory patches, cheats (the Gecko code
-   handler, `vendor-gecko/`) and video patches (`src/videopatch.cpp`).
+   handler, `vendor-gecko/`), video patches (`src/videopatch.cpp`: width,
+   deflicker, borders, and a forced TV format that converts the game's
+   render mode tables) and the game language (`src/gamelang.cpp`).
 5. Write the low-memory globals and jump to the game.
 
 ## 4. Inside the game

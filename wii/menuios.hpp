@@ -16,7 +16,7 @@ namespace riftwii::wii {
 int LoadMenuIos();
 bool SaveMenuIos(int slot);
 
-// 0 followed by every d2x-looking slot from 248 to 251 with a launchable
+// 0 followed by every d2x-looking slot from 248 to 252 with a launchable
 // title (the same test that gates game reloads).
 std::vector<int> MenuIosChoices();
 

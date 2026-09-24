@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "autorun.hpp"
+#include "loadersettings.hpp"
 #include "log.hpp"
 #include "menuios.hpp"
 #include "netpacks.hpp"
@@ -136,9 +137,10 @@ LaunchSource SelectedSource(const FrontendState& state) {
     LaunchSource source;
     if (state.use_usb && state.usb_index < state.usb_catalog.games.size()) { source.kind=LaunchSource::Kind::Usb; source.game=state.usb_catalog.games[state.usb_index]; }
     if (state.use_sd && state.sd_index < state.sd_catalog.games.size()) { source.kind=LaunchSource::Kind::Sd; source.game=state.sd_catalog.games[state.sd_index]; }
-    // Games launch under the cIOS the menu runs under, so its modules
-    // (fakemote) stay with them.
-    source.cios_slot = MenuCiosSlot();
+    // The game's cIOS when one is picked, else the one the menu runs
+    // under, so its modules (fakemote) stay with the game.
+    const int picked = effective_game_cios(state.model.game, Settings());
+    source.cios_slot = picked != 0 ? picked : MenuCiosSlot();
     return source;
 }
 

@@ -101,6 +101,14 @@ these rows:
   - *Black borders*: *Remove* stretches the picture over the bars at
     the top and bottom. After a game has run once, the page tells you
     which borders it left.
+- **Video mode** makes the game use another TV signal: *NTSC (480i)*,
+  *PAL 60 Hz*, *PAL 50 Hz*, *480p* (needs a component cable) or *The
+  console's* setting. *Game's own* leaves it to the game.
+- **Game language** tells the game the console is set to another
+  language. Pick one the game has: a game missing it may stop (Super
+  Mario Galaxy 2 from the US has no German, and freezes).
+- **cIOS** (SD and USB games) picks the d2x slot the game runs under,
+  248 to 252. *Automatic* uses the Menu IOS slot, else 249, 250, 251.
 
   *Default* follows Settings, where the same rows apply to every game.
 
@@ -119,11 +127,11 @@ the list explains the row you are on.
 - **Language**: English, Español, 日本語, Português, Italiano, or *Wii* to
   follow the console. A translation can be corrected by putting a copy of
   `wii/lang/<lang>.po` at `sd:/riftwii/lang/<lang>.po`.
-- **Picture width**, **Deflicker**, **Black borders**: the defaults for
-  every game.
+- **Picture width**, **Deflicker**, **Black borders**, **Video mode**,
+  **Game language**, **Game cIOS**: the defaults for every game.
 - **Download names and cheats**, and **Get the latest game names**.
 - **GameCube adapter**, and **Check the GameCube adapter** (below).
-- **Menu IOS**: IOS 58, or a d2x cIOS slot. Pick the slot that has
+- **Menu IOS**: IOS 58, or a d2x cIOS slot (248 to 252). Pick the slot that has
   fakemote to use USB DS3/DS4 pads as Wii Remotes.
 - **Find network packs (RiiFS)** and **Copy network packs again** (below).
 - **Look for games again**, and **Leave RiftWii** (HOME does that too).
