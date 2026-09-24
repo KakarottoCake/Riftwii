@@ -387,11 +387,16 @@ T = {
     "Check the GameCube adapter": ("Probar el adaptador de GameCube", "接続タップを確認",
                                    "Testar o adaptador de GameCube", "Prova l'adattatore GameCube"),
     "Test": ("Probar", "テスト", "Testar", "Prova"),
-    "In games that support the GameCube controller, the adapter's controllers fill the ports that have none plugged in. It needs IOS 58 or a d2x cIOS.": (
-        "En los juegos compatibles con el mando de GameCube, los mandos del adaptador ocupan los puertos que no tienen ninguno conectado. Necesita IOS 58 o un cIOS d2x.",
-        "ゲームキューブコントローラに対応したゲームで、何もつながっていないポートに接続タップのコントローラが入ります。IOS 58かd2x cIOSが必要です。",
-        "Nos jogos compatíveis com o controle de GameCube, os controles do adaptador ocupam as portas sem nenhum conectado. Precisa do IOS 58 ou de um cIOS d2x.",
-        "Nei giochi che supportano il controller GameCube, i controller dell'adattatore occupano le porte senza nulla collegato. Serve l'IOS 58 o un cIOS d2x."),
+    "When the adapter is plugged in as a game starts, its controllers fill the ports that have none plugged in, in games that support the GameCube controller. It needs IOS 58 or a d2x cIOS.": (
+        "Si el adaptador está conectado al iniciar un juego, sus mandos ocupan los puertos que no tienen ninguno conectado, en los juegos compatibles con el mando de GameCube. Necesita IOS 58 o un cIOS d2x.",
+        "ゲーム開始時に接続タップがつながっていれば、ゲームキューブコントローラに対応したゲームで、何もつながっていないポートに接続タップのコントローラが入ります。IOS 58かd2x cIOSが必要です。",
+        "Se o adaptador estiver conectado quando um jogo começa, os controles dele ocupam as portas sem nenhum conectado, nos jogos compatíveis com o controle de GameCube. Precisa do IOS 58 ou de um cIOS d2x.",
+        "Se l'adattatore è collegato quando parte un gioco, i suoi controller occupano le porte senza nulla collegato, nei giochi che supportano il controller GameCube. Serve l'IOS 58 o un cIOS d2x."),
+    "Always on, even with no adapter plugged in, so it can be plugged in during a game. It needs IOS 58 or a d2x cIOS.": (
+        "Siempre activo, aunque no haya adaptador, para poder conectarlo durante el juego. Necesita IOS 58 o un cIOS d2x.",
+        "接続タップがなくても常に有効なので、ゲーム中につなぐこともできます。IOS 58かd2x cIOSが必要です。",
+        "Sempre ativo, mesmo sem adaptador, para poder conectá-lo durante o jogo. Precisa do IOS 58 ou de um cIOS d2x.",
+        "Sempre attivo, anche senza adattatore, così lo si può collegare durante il gioco. Serve l'IOS 58 o un cIOS d2x."),
     "The adapter is left alone.": ("El adaptador no se usa.", "接続タップは使いません。", "O adaptador não é usado.",
                                    "L'adattatore non viene usato."),
     "Adapter: working": ("Adaptador: funcionando", "接続タップ：動作中", "Adaptador: funcionando", "Adattatore: funziona"),

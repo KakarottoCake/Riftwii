@@ -134,9 +134,10 @@ struct BootOptions {
     bool file_device = true;
 };
 
-// The GameCube controller adapter for Wii U. Demo: no adapter needed, the
-// first empty port presses A (Dolphin tests).
-enum class GcAdapterMode { Off, On, Demo };
+// The GameCube controller adapter for Wii U. Auto: on when one is plugged
+// in at launch (boot_game settles it to On or Off). Demo: no adapter
+// needed, the first empty port presses A (Dolphin tests).
+enum class GcAdapterMode { Off, On, Auto, Demo };
 
 // What the menu adds to the next launch, whichever way it boots: video
 // mode patches and cheats (a GCT for the Gecko code handler,

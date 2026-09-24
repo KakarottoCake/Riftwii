@@ -459,8 +459,11 @@ msgstr "Testar o adaptador de GameCube"
 msgid "Test"
 msgstr "Testar"
 
-msgid "In games that support the GameCube controller, the adapter's controllers fill the ports that have none plugged in. It needs IOS 58 or a d2x cIOS."
-msgstr "Nos jogos compatíveis com o controle de GameCube, os controles do adaptador ocupam as portas sem nenhum conectado. Precisa do IOS 58 ou de um cIOS d2x."
+msgid "When the adapter is plugged in as a game starts, its controllers fill the ports that have none plugged in, in games that support the GameCube controller. It needs IOS 58 or a d2x cIOS."
+msgstr "Se o adaptador estiver conectado quando um jogo começa, os controles dele ocupam as portas sem nenhum conectado, nos jogos compatíveis com o controle de GameCube. Precisa do IOS 58 ou de um cIOS d2x."
+
+msgid "Always on, even with no adapter plugged in, so it can be plugged in during a game. It needs IOS 58 or a d2x cIOS."
+msgstr "Sempre ativo, mesmo sem adaptador, para poder conectá-lo durante o jogo. Precisa do IOS 58 ou de um cIOS d2x."
 
 msgid "The adapter is left alone."
 msgstr "O adaptador não é usado."

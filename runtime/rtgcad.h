@@ -17,8 +17,7 @@
  *    unplug, the manager locked to a handle until AttachFinish.
  *  - Dolphin's IOS HID v4/v5 emulation: exact sizes it checks (0x600,
  *    0x180, 0x20, 0x60), the v4 device entry layout.
- *  - Dolphin's GCAdapter.cpp (also: HID SET_PROTOCOL before init, for
- *    Nyko adapters) and wup-028-bslug (MIT, Alex Chadwick 2017):
+ *  - Dolphin's GCAdapter.cpp and wup-028-bslug (MIT, Alex Chadwick 2017):
  *    the adapter's init (0x13) and rumble (0x11) commands, the 37-byte
  *    report starting 0x21, 9 bytes per port, wired/wireless bits 4/5,
  *    the button bits; rumble sent between polls.
@@ -42,7 +41,6 @@ extern "C" {
 #define GCAD_RELINK_MS 1000u      /* a failed link is tried again after this */
 #define GCAD_RESCAN_MS 2000u      /* a device another handle owns, or a failed device list */
 #define GCAD_RECAL_MS 3000u       /* X+Y+Start held this long takes a new origin, like the pad */
-#define GCAD_CTRL_MS 300u         /* init goes ahead when SET_PROTOCOL has no answer by then */
 
 /* /dev/usb/hid ioctls. */
 #define GCAD_V4_GET_DEVICE_CHANGE 0u
@@ -68,7 +66,7 @@ extern "C" {
 
 /* Request slots: each has at most one request in flight. */
 #define GCAD_TAG_CHANGE 1u   /* device list, then (v5) AttachFinish */
-#define GCAD_TAG_SETUP 2u    /* v5: Attach, SuspendResume, GetDeviceInfo; then SET_PROTOCOL */
+#define GCAD_TAG_SETUP 2u    /* v5: Attach, SuspendResume, GetDeviceInfo */
 #define GCAD_TAG_IN 3u       /* the report poll */
 #define GCAD_TAG_OUT 4u      /* init, then rumble */
 #define GCAD_TAG_STOP 5u     /* gcad_stop's cancels */
@@ -81,7 +79,6 @@ extern "C" {
 #define GCAD_LINK_POLL 3u    /* reports flowing */
 #define GCAD_LINK_FAILED 4u  /* waiting to try again */
 #define GCAD_LINK_BUSY 5u    /* v5: another handle owns it for now */
-#define GCAD_LINK_CTRL 6u    /* SET_PROTOCOL in flight */
 
 /* Event codes for gcad_env_event (the test page's log). */
 #define GCAD_EV_REPLY 1u     /* a = tag | step << 8, b = result */
@@ -103,7 +100,6 @@ extern "C" {
 #define GCAD_STEP_RUMBLE 6u
 #define GCAD_STEP_POLL 7u
 #define GCAD_STEP_CANCEL 8u
-#define GCAD_STEP_CTRL 9u
 
 /* One port as the SDK's PADStatus would carry it, relative to the
  * origin taken when the controller appeared (as PADRead reports it). */
@@ -171,7 +167,7 @@ typedef struct gcad {
     uint32_t reports, bad_reports, errors, changes, links;
     int32_t last_error;
     uint32_t last_error_step;
-    int32_t attach_result, resume_result, info_result, ctrl_result, init_result;
+    int32_t attach_result, resume_result, info_result, init_result;
     uint32_t listed;           /* devices in the last list */
 } gcad;
 
@@ -194,6 +190,11 @@ void gcad_env_event(gcad* g, uint32_t code, uint32_t a, int32_t b);
 
 /* Zeroes the state. `version` is what GetVersion answered (4 or 5). */
 void gcad_init(gcad* g, void* env_ctx, int32_t fd, uint32_t version, uint32_t ticks_per_ms);
+/* The adapter's device id when the loader already knows it: v5 hands
+ * its device list out once per change, to whoever asks first, and the
+ * menu's USB had it; the list request still goes out, for later changes.
+ * Call it right after gcad_init. */
+void gcad_expect(gcad* g, int32_t dev_id);
 /* Starts the first device list, retries what failed, notices silence.
  * Call it often (every PADRead). `now` is a free-running tick count. */
 void gcad_tick(gcad* g, uint32_t now);

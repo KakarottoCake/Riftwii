@@ -31,6 +31,7 @@ struct PadHook {
     bool active = false;             // planned; install_pad_hook hooks it
     bool demo = false;               // no adapter: the first empty port presses A (Dolphin tests)
     std::uint32_t read = 0;          // PADRead
+    unsigned read_sites = 0;         // its error stores
     std::uint32_t motor = 0;         // PADControlMotor, 0: no rumble
     std::uint32_t code_base = 0;     // the blob (MEM1)
     std::uint32_t code_bytes = 0;
@@ -49,12 +50,24 @@ bool open_usb_hid(std::int32_t& fd, std::uint32_t& version, std::string& why);
 // ask for, has none: with the adapter on, the running IOS is kept).
 bool usb_hid_present();
 
-// Before the <memory> patches. `arena1_hi` and `arena2_lo` are the arena
-// ends left by the resident runtime (or the game's own without it); the
-// IOS entries are the resident's unhooked ones, 0 to search the game.
+// Whether an adapter (VID/PID 057E:0337, which third-party ones show in
+// their Wii U mode) is plugged in, for the Auto setting: `how` says what
+// was listed. Unknown when this IOS cannot tell (v5), taken as plugged in.
+enum class AdapterSeen { Found, Missing, Unknown };
+AdapterSeen look_for_gc_adapter(std::string& how);
+
+// While boot.log is still open: PADRead and PADControlMotor in the
+// loaded game, into a fresh `out`. False (with a reason) turns the
+// adapter off.
+bool find_pad_functions(const DolHeader& dol, bool demo, PadHook& out, std::string& why);
+
+// Before the <memory> patches, on what find_pad_functions filled in.
+// `arena1_hi` and `arena2_lo` are the arena ends left by the resident
+// runtime (or the game's own without it); the IOS entries are the
+// resident's unhooked ones, 0 to search the game.
 bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t mem1_floor, std::uint32_t arena2_lo,
                    std::uint32_t ioctl_async, std::uint32_t ioctlv_async,
-                   const std::vector<MemoryPatch>& patches, bool demo, PadHook& out, std::string& why);
+                   const std::vector<MemoryPatch>& patches, PadHook& out, std::string& why);
 
 // After the patches and the cheats, just before the handover.
 bool install_pad_hook(PadHook& hook, std::string& why);

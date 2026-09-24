@@ -1706,12 +1706,18 @@ static std::string PadButtons(const gcad_pad& pad)
 	return (s.empty() ? std::string("-") : s) + "   " + sticks;
 }
 
+static std::string AdapterNote(const std::string& mode)
+{
+	if (mode == "off") return tr("The adapter is left alone.");
+	if (mode == "on") return tr("Always on, even with no adapter plugged in, so it can be plugged in during a game. It needs IOS 58 or a d2x cIOS.");
+	return tr("When the adapter is plugged in as a game starts, its controllers fill the ports that have none plugged in, in games that support the GameCube controller. It needs IOS 58 or a d2x cIOS.");
+}
+
 static std::string AdapterStatus(const riftwii::wii::GcAdapterView& v)
 {
 	switch (v.link) {
 		case GCAD_LINK_POLL: return tr("Adapter: working");
 		case GCAD_LINK_SETUP:
-		case GCAD_LINK_CTRL:
 		case GCAD_LINK_INIT: return tr("Adapter: starting...");
 		case GCAD_LINK_BUSY: return tr("Adapter: another program is using it, waiting");
 		case GCAD_LINK_FAILED: return tr("Adapter: it did not answer ({1}), trying again", {std::to_string(v.last_error)});
@@ -1834,8 +1840,8 @@ static int MenuSettings(FrontendState& state)
 		rows.push_back(names);
 		actions.push_back(kNames);
 		option(tr("GameCube adapter"), settings.gc_adapter == "demo" ? std::string("Demo")
-			: settings.gc_adapter == "on" ? tr("On") : tr("Off"), settings.gc_adapter != "off", kGcAdapter,
-			FlowRow::Kind::Toggle);
+			: settings.gc_adapter == "on" ? tr("On") : settings.gc_adapter == "off" ? tr("Off") : tr("Automatic"),
+			settings.gc_adapter != "off", kGcAdapter);
 		FlowRow gcTest;
 		gcTest.kind = FlowRow::Kind::Action;
 		gcTest.label = tr("Check the GameCube adapter");
@@ -1942,8 +1948,7 @@ static int MenuSettings(FrontendState& state)
 				return settings.online ? tr("Game names and cheats are downloaded when the Wii is online.")
 					: tr("Nothing is downloaded. Names and cheats already on the card are still used.");
 			case kNames: return tr("Downloads the newest game names from GameTDB.");
-			case kGcAdapter:
-				return tr("In games that support the GameCube controller, the adapter's controllers fill the ports that have none plugged in. It needs IOS 58 or a d2x cIOS.");
+			case kGcAdapter: return AdapterNote(settings.gc_adapter);
 			case kGcTest: return tr("Shows live what the controllers in the adapter are pressing.");
 			case kIos: return MenuIosNote(iosSlot);
 			case kNet:
@@ -2065,10 +2070,9 @@ static int MenuSettings(FrontendState& state)
 					break;
 				}
 				case kGcAdapter:
-					settings.gc_adapter = settings.gc_adapter == "off" ? "on" : "off";
-					saveAndNote(settings.gc_adapter == "on"
-						? tr("In games that support the GameCube controller, the adapter's controllers fill the ports that have none plugged in. It needs IOS 58 or a d2x cIOS.")
-						: tr("The adapter is left alone."));
+					// Automatic, On, Off, and round again.
+					settings.gc_adapter = settings.gc_adapter == "on" ? "off" : settings.gc_adapter == "off" ? "auto" : "on";
+					saveAndNote(AdapterNote(settings.gc_adapter));
 					rebuild();
 					break;
 				case kGcTest:

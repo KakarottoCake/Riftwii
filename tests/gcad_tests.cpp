@@ -76,12 +76,9 @@ struct FakeHid {
     bool ours = false;
     bool resumed = false;
     bool info_read = false;
-    bool stall_control = false;
-    bool answer_control = true;
     std::deque<Request> queue;          // answered at once when possible
     std::vector<Request> waiting_list;  // device list hooks
     std::vector<Request> waiting_in;    // polls waiting for a report
-    std::vector<Request> waiting_control;
     std::vector<std::vector<std::uint8_t>> sent_out;  // OUT transfers' bytes
     std::vector<std::uint32_t> control_setup;          // bmRequestType << 8 | bRequest
     std::vector<std::pair<std::uint32_t, std::int32_t>> replies;  // tag, result
@@ -152,8 +149,7 @@ std::int32_t Handle(Request& r) {
             }
             if (r.cmd == GCAD_V4_CONTROL) {
                 h.control_setup.push_back((r.in[20] << 8) | r.in[21]);
-                if (h.answer_control) h.replies.push_back({r.tag, h.stall_control ? -7003 : 0});
-                else h.waiting_control.push_back(r);
+                h.replies.push_back({r.tag, 0});
                 return 0;
             }
             const std::uint32_t endpoint = be32(r.in.data() + 20);
@@ -269,8 +265,7 @@ std::int32_t Handle(Request& r) {
         if (r.cmd == GCAD_V5_CONTROL) {
             if (!r.data_in) return kEinval;
             h.control_setup.push_back((r.in[8] << 8) | r.in[9]);
-            if (h.answer_control) h.replies.push_back({r.tag, h.stall_control ? -7003 : 0});
-            else h.waiting_control.push_back(r);
+            h.replies.push_back({r.tag, 0});
             return 0;
         }
         const bool out = be32(r.in.data() + 8) != 0;
@@ -477,14 +472,14 @@ static void TestV5() {
     Driver d;
     Start(hid, d, 5);
     gcad* g = d.g;
-    // List, Attach, resume, info, AttachFinish, SET_PROTOCOL, init.
+    // List, Attach, resume, info, AttachFinish, init; no control request
+    // (SET_PROTOCOL, which Mayflash adapters refuse).
     EXPECT_FALSE(hid.locked);
     EXPECT_TRUE(hid.ours);
     EXPECT_TRUE(hid.resumed);
     EXPECT_TRUE(hid.info_read);
     EXPECT_EQ(g->link, GCAD_LINK_POLL);
-    EXPECT_EQ(hid.control_setup.size(), 1u);
-    if (!hid.control_setup.empty()) EXPECT_EQ(hid.control_setup[0], 0x210Bu);
+    EXPECT_EQ(hid.control_setup.size(), 0u);
     EXPECT_TRUE(!hid.sent_out.empty() && hid.sent_out[0].size() == 1 && hid.sent_out[0][0] == 0x13);
     EXPECT_EQ(hid.waiting_in.size(), 1u);
     EXPECT_EQ(hid.waiting_list.size(), 1u);  // listening for the next change
@@ -617,27 +612,27 @@ static void TestV5AlreadyResumed() {
     EXPECT_EQ(d.g->link, GCAD_LINK_POLL);
 }
 
-static void TestControlUnanswered() {
-    // SET_PROTOCOL refused: init goes on at once.
+static void TestV5KnownDevice() {
+    // The menu's USB took v5's list: the driver's own request waits for
+    // the next change, and the device the loader passed links anyway.
     FakeHid hid;
-    hid.stall_control = true;
+    hid.version = 5;
+    hid.first_list_done = true;
+    g_hid = &hid;
     Driver d;
-    Start(hid, d, 5);
-    EXPECT_EQ(d.g->link, GCAD_LINK_POLL);
-    EXPECT_TRUE(d.g->ctrl_result < 0);
-    // Never answered: init after GCAD_CTRL_MS.
-    FakeHid hid2;
-    hid2.answer_control = false;
-    Driver d2;
-    Start(hid2, d2, 5);
-    EXPECT_EQ(d2.g->link, GCAD_LINK_CTRL);
-    d2.now += GCAD_CTRL_MS;
-    gcad_tick(d2.g, d2.now);
+    g_driver = &d;
+    d.g = NewState();
+    gcad_init(d.g, &d, 7, 5, 1);
+    gcad_expect(d.g, static_cast<std::int32_t>(hid.dev_id));
+    gcad_tick(d.g, d.now);
     Pump();
-    EXPECT_EQ(d2.g->link, GCAD_LINK_POLL);
+    EXPECT_EQ(hid.waiting_list.size(), 1u);  // still listening
+    EXPECT_TRUE(hid.ours);
+    EXPECT_EQ(d.g->link, GCAD_LINK_POLL);
+    EXPECT_TRUE(!hid.sent_out.empty() && hid.sent_out[0].size() == 1 && hid.sent_out[0][0] == 0x13);
     EXPECT_TRUE(Deliver(Report(0x14, 0, 0, 128, 128)));
     gcad_pad pad{};
-    EXPECT_TRUE(gcad_port(d2.g, 0, &pad, d2.now));
+    EXPECT_TRUE(gcad_port(d.g, 0, &pad, d.now));
 }
 
 static void TestV4() {
@@ -649,7 +644,7 @@ static void TestV4() {
     EXPECT_EQ(g->dev_id, 2);
     EXPECT_EQ(g->link, GCAD_LINK_POLL);
     EXPECT_EQ(g->listed, 2u);
-    EXPECT_EQ(hid.control_setup.size(), 1u);
+    EXPECT_EQ(hid.control_setup.size(), 0u);
     EXPECT_TRUE(!hid.sent_out.empty() && hid.sent_out[0][0] == 0x13);
     EXPECT_EQ(hid.waiting_list.size(), 1u);
     EXPECT_TRUE(Deliver(Report(0x14, 0x08, 0, 128, 128)));
@@ -862,7 +857,7 @@ int main() {
     TestV5();
     TestV5OwnedElsewhere();
     TestV5AlreadyResumed();
-    TestControlUnanswered();
+    TestV5KnownDevice();
     TestV4();
     TestNoAdapter();
     TestTransferErrorRelinks();

@@ -96,6 +96,7 @@ static gcad* state(struct rt_pad_context* c) {
     gcad* g = (gcad*)(uintptr_t)c->state;
     if (!c->inited) {
         gcad_init(g, c, c->fd, c->version, c->ticks_per_ms);
+        if (c->known_dev >= 0) gcad_expect(g, c->known_dev);
         c->inited = 1;
     }
     return g;

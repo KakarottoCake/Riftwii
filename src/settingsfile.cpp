@@ -72,7 +72,7 @@ void LoaderSettings::parse(const std::string& text) {
                 at = comma + 1;
             }
         } else if (key == "gc_adapter") {
-            if (value == "off" || value == "on" || value == "demo") gc_adapter = value;
+            if (value == "auto" || value == "off" || value == "on" || value == "demo") gc_adapter = value;
         } else {
             other[key] = value;
         }
