@@ -506,3 +506,6 @@ msgstr "SDカードとUSBドライブをもう一度読み込みます。"
 
 msgid "Back to the Homebrew Channel."
 msgstr "Homebrew Channelに戻ります。"
+
+msgid "No d2x cIOS was found in slots 248 to 251, so the menu runs under IOS 58. Install d2x to play games from SD or USB."
+msgstr "スロット248〜251にd2x cIOSがないため、メニューはIOS 58で動いています。SDやUSBのゲームを遊ぶにはd2xを入れてください。"

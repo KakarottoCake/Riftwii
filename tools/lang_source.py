@@ -453,6 +453,11 @@ T = {
         "Homebrew Channelに戻ります。",
         "Volta ao Homebrew Channel.",
         "Torna all'Homebrew Channel."),
+    "No d2x cIOS was found in slots 248 to 251, so the menu runs under IOS 58. Install d2x to play games from SD or USB.": (
+        "No se encontró ningún cIOS d2x en los slots 248 a 251, así que el menú usa el IOS 58. Instala d2x para jugar desde SD o USB.",
+        "スロット248〜251にd2x cIOSがないため、メニューはIOS 58で動いています。SDやUSBのゲームを遊ぶにはd2xを入れてください。",
+        "Nenhum cIOS d2x foi encontrado nos slots 248 a 251, então o menu usa o IOS 58. Instale o d2x para jogar pelo SD ou USB.",
+        "Nessun cIOS d2x trovato negli slot da 248 a 251, quindi il menu usa l'IOS 58. Installa d2x per giocare da SD o USB."),
 }
 
 
