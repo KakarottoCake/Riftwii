@@ -16,6 +16,7 @@ namespace riftwii::wii {
 namespace {
 
 bool g_up = false;
+bool g_failed = false;
 
 sockaddr_in address_of(const NetServer& server) {
     sockaddr_in a;
@@ -62,15 +63,19 @@ bool NetStart(std::string& error) {
         if (rc == -EAGAIN) usleep(100 * 1000);
     }
     if (rc < 0) {
+        g_failed = true;
         error = "the network did not start (" + std::to_string(rc) +
                 "); check the connection in the Wii's Internet settings";
         return false;
     }
     g_up = true;
+    g_failed = false;
     const u32 ip = net_gethostip();
     logf("Network: up, this Wii is %u.%u.%u.%u\n", (ip >> 24) & 0xFF, (ip >> 16) & 0xFF, (ip >> 8) & 0xFF, ip & 0xFF);
     return true;
 }
+
+bool NetFailed() { return g_failed; }
 
 void NetStop() {
     if (!g_up) return;

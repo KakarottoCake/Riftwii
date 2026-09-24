@@ -11,7 +11,7 @@
 
 namespace riftwii::wii::skin {
 
-Tex tile, tileOver, roundBtn, roundBtnOver, pill, pillOver, pillPrimary, pillPrimaryOver, chipOff, chipOn, rowFocus,
+Tex tile, tileOver, coverTile, coverTileOver, roundBtn, roundBtnOver, pill, pillOver, pillPrimary, pillPrimaryOver, chipOff, chipOn, rowFocus,
     stepBack, stepBackOver, stepForward, stepForwardOver, switchOn, switchOff,
     panelGame, panelSettings, bar, bannerStripes, arrowLeft, arrowLeftOver, arrowRight, arrowRightOver, iconDrives,
     iconGear, hand[4];
@@ -190,6 +190,8 @@ void Init() {
     if (g_ready) return;
     tile = Card(134, 84, 7, 14, false);
     tileOver = Card(134, 84, 7, 14, true);
+    coverTile = Card(80, 112, 7, 8, false);
+    coverTileOver = Card(80, 112, 7, 8, true);
     roundBtn = Round(false);
     roundBtnOver = Round(true);
     pill = Card(244, 52, 4, 26, false);
@@ -241,6 +243,47 @@ void Draw(const Tex& t, float x, float y, int alpha, float scale) {
     if (!t.data || alpha <= 0) return;
     Menu_DrawImg(x, y, static_cast<u16>(t.w), static_cast<u16>(t.h), t.data, 0, scale, scale,
                  static_cast<u8>(alpha > 255 ? 255 : alpha));
+}
+
+void DrawRgb5a3(const u8* data, int w, int h, float x, float y, int alpha, float scale) {
+    if (!data || alpha <= 0) return;
+    GXTexObj tex;
+    GX_InitTexObj(&tex, const_cast<u8*>(data), static_cast<u16>(w), static_cast<u16>(h), GX_TF_RGB5A3, GX_CLAMP, GX_CLAMP,
+                  GX_FALSE);
+    GX_LoadTexObj(&tex, GX_TEXMAP0);
+    GX_InvalidateTexAll();
+    GX_SetTevOp(GX_TEVSTAGE0, GX_MODULATE);
+    GX_SetVtxDesc(GX_VA_TEX0, GX_DIRECT);
+    // Scaled about the centre, as Menu_DrawImg does, in libgui's 2D view
+    // (the identity moved to z = -50, video.cpp).
+    Mtx view;
+    guMtxIdentity(view);
+    guMtxTransApply(view, view, 0.0f, 0.0f, -50.0f);
+    const f32 hw = w / 2.0f, hh = h / 2.0f;
+    Mtx m, mv;
+    guMtxIdentity(m);
+    guMtxScaleApply(m, m, scale, scale, 1.0f);
+    guMtxTransApply(m, m, x + hw, y + hh, 0);
+    guMtxConcat(view, m, mv);
+    GX_LoadPosMtxImm(mv, GX_PNMTX0);
+    const u8 a = static_cast<u8>(alpha > 255 ? 255 : alpha);
+    GX_Begin(GX_QUADS, GX_VTXFMT0, 4);
+    GX_Position3f32(-hw, -hh, 0);
+    GX_Color4u8(0xFF, 0xFF, 0xFF, a);
+    GX_TexCoord2f32(0, 0);
+    GX_Position3f32(hw, -hh, 0);
+    GX_Color4u8(0xFF, 0xFF, 0xFF, a);
+    GX_TexCoord2f32(1, 0);
+    GX_Position3f32(hw, hh, 0);
+    GX_Color4u8(0xFF, 0xFF, 0xFF, a);
+    GX_TexCoord2f32(1, 1);
+    GX_Position3f32(-hw, hh, 0);
+    GX_Color4u8(0xFF, 0xFF, 0xFF, a);
+    GX_TexCoord2f32(0, 1);
+    GX_End();
+    GX_LoadPosMtxImm(view, GX_PNMTX0);
+    GX_SetTevOp(GX_TEVSTAGE0, GX_PASSCLR);
+    GX_SetVtxDesc(GX_VA_TEX0, GX_NONE);
 }
 
 GXColor WithAlpha(GXColor c, int alpha) {

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "gui_gamegrid.hpp"
 
+#include "covers.hpp"
+#include "riftwii/coverart.hpp"
 #include "skin.hpp"
 #include "wiidrc.h"
 
@@ -8,11 +10,18 @@ namespace skin = riftwii::wii::skin;
 
 namespace {
 
-constexpr int kTitleSize = 15;
+constexpr int kTitleSize = 15;       // names: the tile's two lines
+constexpr int kCoverTitleSize = 13;  // covers: a tile without a cover
+constexpr int kCaptionSize = 18;     // covers: the lit game's name
+constexpr int kCaptionY = 266;
 constexpr int kTextLeft = 11;
-constexpr int kTitleWidth = GuiGameGrid::kTileW - 2 * kTextLeft;
-constexpr int kArrowY = GuiGameGrid::kTop + (3 * GuiGameGrid::kTileH + 2 * GuiGameGrid::kGap) / 2 - 22;
+constexpr int kCoverTextLeft = 6;
 constexpr int kArrowLeftX = 2, kArrowRightX = 596;
+
+// Names: 4x3 wide tiles. Covers: 6x2 at the stored cover size, the name
+// line under them.
+constexpr int kNameCols = 4;
+constexpr int kCoverCols = 6;
 
 bool AnyPointer() {
     for (int i = 0; i < 4; i++)
@@ -32,8 +41,12 @@ GuiText* MakeText(GuiElement* parent, int size, GXColor color) {
     return t;
 }
 
-int TileX(int slot) { return GuiGameGrid::kLeft + (slot % GuiGameGrid::kCols) * (GuiGameGrid::kTileW + GuiGameGrid::kGap); }
-int TileY(int slot) { return GuiGameGrid::kTop + (slot / GuiGameGrid::kCols) * (GuiGameGrid::kTileH + GuiGameGrid::kGap); }
+// A cut at byte `n` moved back to the start of a UTF-8 character, so a
+// name is never split inside one.
+std::size_t CharBoundary(const std::string& s, std::size_t n) {
+    while (n > 0 && n < s.size() && (static_cast<unsigned char>(s[n]) & 0xC0) == 0x80) --n;
+    return n;
+}
 
 }  // namespace
 
@@ -42,28 +55,45 @@ GuiGameGrid::GuiGameGrid() {
     height = screenheight;
     selectable = true;
     for (Slot& s : slots) {
-        s.line1 = MakeText(this, kTitleSize, skin::kInk);
-        s.line2 = MakeText(this, kTitleSize, skin::kInk);
+        for (GuiText*& line : s.lines) line = MakeText(this, kTitleSize, skin::kInk);
         s.id = MakeText(this, 11, skin::kInkDim);
         s.badge = MakeText(this, 10, skin::kInkSoft);
         s.mods = MakeText(this, 10, skin::kWhite);
     }
     measure = new GuiText(nullptr, kTitleSize, skin::kInk);
+    caption = new GuiText(nullptr, kCaptionSize, skin::kInk);
+    caption->SetParent(this);
+    caption->SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
+    caption->SetPosition(0, kCaptionY);
     soundOver = new GuiSound(button_over_pcm, button_over_pcm_size, SOUND::PCM);
     soundClick = new GuiSound(button_click_pcm, button_click_pcm_size, SOUND::PCM);
 }
 
 GuiGameGrid::~GuiGameGrid() {
     for (Slot& s : slots) {
-        delete s.line1;
-        delete s.line2;
+        for (GuiText* line : s.lines) delete line;
         delete s.id;
         delete s.badge;
         delete s.mods;
     }
     delete measure;
+    delete caption;
     delete soundOver;
     delete soundClick;
+}
+
+const GuiGameGrid::Geometry& GuiGameGrid::Geo() const {
+    static const Geometry names = {kNameCols, 134, 84, 34, 20, 12, 12};
+    static const Geometry coverGrid = {kCoverCols, riftwii::kCoverWidth, riftwii::kCoverHeight, 50, 16, 12, 14};
+    return covers ? coverGrid : names;
+}
+
+int GuiGameGrid::TileX(int slot) const { return Geo().left + (slot % Geo().cols) * (Geo().tileW + Geo().gapX); }
+int GuiGameGrid::TileY(int slot) const { return Geo().top + (slot / Geo().cols) * (Geo().tileH + Geo().gapY); }
+
+int GuiGameGrid::ArrowY() const {
+    const int rows = kPerPage / Geo().cols;
+    return Geo().top + (rows * Geo().tileH + (rows - 1) * Geo().gapY) / 2 - 22;
 }
 
 void GuiGameGrid::SetItems(const std::vector<GridItem>* list) {
@@ -71,7 +101,20 @@ void GuiGameGrid::SetItems(const std::vector<GridItem>* list) {
     if (focus >= Count()) focus = Count() > 0 ? Count() - 1 : 0;
     page = focus / kPerPage;
     laidOut = false;
+    captionFor = -1;
 }
+
+void GuiGameGrid::SetCovers(bool on) {
+    if (covers == on) return;
+    covers = on;
+    for (Slot& s : slots) {
+        for (GuiText* line : s.lines) line->SetFontSize(covers ? kCoverTitleSize : kTitleSize);
+    }
+    laidOut = false;
+    captionFor = -1;
+}
+
+void GuiGameGrid::CoverArrived(const std::string& id) { riftwii::wii::ForgetCover(id); }
 
 void GuiGameGrid::Focus(int index) {
     if (index < 0 || index >= Count()) index = 0;
@@ -90,55 +133,73 @@ int GuiGameGrid::GetClicked() {
     return c;
 }
 
-// A cut at byte `n` moved back to the start of a UTF-8 character, so a
-// name is never split inside one.
-static std::size_t CharBoundary(const std::string& s, std::size_t n) {
-    while (n > 0 && n < s.size() && (static_cast<unsigned char>(s[n]) & 0xC0) == 0x80) --n;
-    return n;
-}
-
-// Greedy word wrap into two lines of the tile's width; the second line is
-// cut with an ellipsis when the name is longer still. A name without
-// spaces (Japanese) is cut by characters.
-void GuiGameGrid::Layout() {
-    laidOut = true;
+std::string GuiGameGrid::Fit(const std::string& text, int widthLimit) {
     const auto width_of = [&](const std::string& s) {
         measure->SetText(s.c_str());
         return measure->GetTextWidth();
     };
+    if (text.empty() || width_of(text) <= widthLimit) return text;
+    std::string cut = text;
+    while (cut.size() > 1 && width_of(cut + "...") > widthLimit) cut.resize(CharBoundary(cut, cut.size() - 1));
+    while (!cut.empty() && cut.back() == ' ') cut.pop_back();
+    return cut + "...";
+}
+
+// Greedy word wrap, at spaces and after hyphens; a name without either
+// (Japanese) is cut by characters.
+std::vector<std::string> GuiGameGrid::Wrap(const std::string& text, int widthLimit, int lines) {
+    const auto width_of = [&](const std::string& s) {
+        measure->SetText(s.c_str());
+        return measure->GetTextWidth();
+    };
+    std::vector<std::string> out;
+    std::string rest = text;
+    for (int l = 0; l < lines; ++l) {
+        while (!rest.empty() && rest.front() == ' ') rest.erase(0, 1);
+        if (rest.empty()) break;
+        if (l == lines - 1) {
+            out.push_back(Fit(rest, widthLimit));
+            break;
+        }
+        // Words onto the line while they fit.
+        std::string line;
+        std::size_t at = 0;
+        while (at < rest.size()) {
+            std::size_t next = rest.find_first_of(" -", at);
+            if (next == std::string::npos) next = rest.size();
+            else if (rest[next] == '-') ++next;  // the hyphen stays on the line
+            const std::string candidate = rest.substr(0, next);
+            if (width_of(candidate) > widthLimit) break;
+            line = candidate;
+            at = next < rest.size() && rest[next] == ' ' ? next + 1 : next;
+        }
+        if (line.empty()) {
+            // One long word: cut it by characters.
+            std::size_t n = rest.size();
+            while (n > 1 && width_of(rest.substr(0, n)) > widthLimit) n = CharBoundary(rest, n - 1);
+            line = rest.substr(0, n);
+            at = n;
+        }
+        out.push_back(line);
+        rest = at < rest.size() ? rest.substr(at) : "";
+    }
+    return out;
+}
+
+void GuiGameGrid::Layout() {
+    laidOut = true;
+    const int size = covers ? kCoverTitleSize : kTitleSize;
+    const int textWidth = covers ? Geo().tileW - 2 * kCoverTextLeft : Geo().tileW - 2 * kTextLeft;
+    const int lineCount = covers ? 3 : 2;
+    measure->SetFontSize(size);
     for (int i = 0; i < kPerPage; ++i) {
         Slot& s = slots[i];
         s.scale = 1.0f;
         const int index = page * kPerPage + i;
         if (index >= Count()) continue;
         const GridItem& item = (*items)[index];
-        std::string line1, rest = item.title;
-        // Words onto the first line while they fit.
-        std::size_t at = 0;
-        while (at < rest.size()) {
-            std::size_t next = rest.find(' ', at);
-            if (next == std::string::npos) next = rest.size();
-            const std::string candidate = rest.substr(0, next);
-            if (width_of(candidate) > kTitleWidth) break;
-            line1 = candidate;
-            at = next + 1;
-        }
-        if (line1.empty()) {
-            // One long word: cut it by characters.
-            std::size_t n = rest.size();
-            while (n > 1 && width_of(rest.substr(0, n)) > kTitleWidth) n = CharBoundary(rest, n - 1);
-            line1 = rest.substr(0, n);
-            at = n;
-        }
-        std::string line2 = at < rest.size() ? rest.substr(at) : "";
-        while (!line2.empty() && line2.front() == ' ') line2.erase(0, 1);
-        if (!line2.empty() && width_of(line2) > kTitleWidth) {
-            while (line2.size() > 1 && width_of(line2 + "...") > kTitleWidth) line2.resize(CharBoundary(line2, line2.size() - 1));
-            while (!line2.empty() && line2.back() == ' ') line2.pop_back();
-            line2 += "...";
-        }
-        s.line1->SetText(line1.c_str());
-        s.line2->SetText(line2.c_str());
+        const std::vector<std::string> lines = Wrap(item.title, textWidth, lineCount);
+        for (int l = 0; l < 3; ++l) s.lines[l]->SetText(l < static_cast<int>(lines.size()) ? lines[l].c_str() : "");
         s.id->SetText(item.id.c_str());
         s.badge->SetText(item.badge.c_str());
         s.mods->SetText(item.mods ? "MODS" : "");
@@ -148,11 +209,11 @@ void GuiGameGrid::Layout() {
 void GuiGameGrid::TurnPage(int delta) {
     const int target = page + delta;
     if (target < 0 || target >= Pages()) return;
-    const int column = (focus % kPerPage) % kCols, row = (focus % kPerPage) / kCols;
+    const int cols = Cols();
+    const int row = (focus % kPerPage) / cols;
     page = target;
     // Enter the new page at the facing column of the same row.
-    int slot = row * kCols + (delta > 0 ? 0 : kCols - 1);
-    (void)column;
+    int slot = row * cols + (delta > 0 ? 0 : cols - 1);
     while (page * kPerPage + slot >= Count() && slot > 0) --slot;
     focus = page * kPerPage + slot;
     laidOut = false;
@@ -162,16 +223,88 @@ void GuiGameGrid::TurnPage(int delta) {
 int GuiGameGrid::SlotAt(int x, int y) const {
     for (int i = 0; i < kPerPage; ++i) {
         if (page * kPerPage + i >= Count()) break;
-        if (x >= TileX(i) && x < TileX(i) + kTileW && y >= TileY(i) && y < TileY(i) + kTileH) return i;
+        if (x >= TileX(i) && x < TileX(i) + Geo().tileW && y >= TileY(i) && y < TileY(i) + Geo().tileH) return i;
     }
     return -1;
 }
 
 int GuiGameGrid::ArrowAt(int x, int y) const {
-    if (y < kArrowY || y >= kArrowY + 44) return 0;
+    if (y < ArrowY() || y >= ArrowY() + 44) return 0;
     if (page > 0 && x >= kArrowLeftX && x < kArrowLeftX + 44) return -1;
     if (page + 1 < Pages() && x >= kArrowRightX && x < kArrowRightX + 44) return 1;
     return 0;
+}
+
+void GuiGameGrid::DrawNameTile(int i, bool on, int alpha) {
+    const int tileW = Geo().tileW, tileH = Geo().tileH;
+    const GridItem& item = (*items)[page * kPerPage + i];
+    Slot& s = slots[i];
+    const float x = TileX(i), y = TileY(i);
+    skin::Draw(on ? skin::tileOver : skin::tile, x - 7, y - 7, alpha, s.scale);
+    // The game's colour along the bottom, inset from the round corners.
+    const float grow = (s.scale - 1.0f);
+    const float bx = x + 12 - grow * tileW / 2, bw = tileW - 24 + grow * tileW;
+    const float by = y + tileH - 7 + grow * tileH / 2;
+    Menu_DrawRectangle(bx, by, bw, 3, skin::WithAlpha(item.hue, alpha), 1);
+    const float dx = -grow * (tileW / 2.0f - kTextLeft), dy = -grow * (tileH / 2.0f - 9);
+    s.lines[0]->SetPosition(static_cast<int>(x + kTextLeft + dx), static_cast<int>(y + 9 + dy));
+    s.lines[1]->SetPosition(static_cast<int>(x + kTextLeft + dx), static_cast<int>(y + 27 + dy));
+    s.lines[0]->Draw();
+    s.lines[1]->Draw();
+    // Source badge and MODS tag along the bottom line.
+    const int baseY = static_cast<int>(y + tileH - 26 + grow * (tileH / 2.0f - 26));
+    s.id->SetPosition(static_cast<int>(x + kTextLeft + dx), baseY);
+    s.id->Draw();
+    const int badgeW = s.badge->GetTextWidth() + 10;
+    const int badgeX = static_cast<int>(x + tileW - kTextLeft - badgeW - dx);
+    Menu_DrawRectangle(badgeX, baseY - 1, badgeW, 15, skin::WithAlpha((GXColor){236, 236, 241, 255}, alpha), 1);
+    s.badge->SetPosition(badgeX + 5, baseY);
+    s.badge->Draw();
+    if (item.mods) {
+        const int modsW = s.mods->GetTextWidth() + 10;
+        const int modsX = badgeX - modsW - 5;
+        Menu_DrawRectangle(modsX, baseY - 1, modsW, 15, skin::WithAlpha(skin::kAccentInk, alpha), 1);
+        s.mods->SetPosition(modsX + 5, baseY);
+        s.mods->Draw();
+    }
+}
+
+void GuiGameGrid::DrawCoverTile(int i, bool on, int alpha) {
+    const int tileW = Geo().tileW, tileH = Geo().tileH;
+    const GridItem& item = (*items)[page * kPerPage + i];
+    Slot& s = slots[i];
+    const float x = TileX(i), y = TileY(i);
+    // A point of the tile, scaled about its centre with the tile.
+    const auto at_x = [&](float off) { return static_cast<int>(x + tileW / 2.0f + (off - tileW / 2.0f) * s.scale); };
+    const auto at_y = [&](float off) { return static_cast<int>(y + tileH / 2.0f + (off - tileH / 2.0f) * s.scale); };
+    skin::Draw(on ? skin::coverTileOver : skin::coverTile, x - 7, y - 7, alpha, s.scale);
+    const u8* cover = riftwii::wii::CoverTexture(item.id);
+    if (cover) {
+        skin::DrawRgb5a3(cover, tileW, tileH, x, y, alpha, s.scale);
+    } else {
+        // No cover: the name, the ID and the game's colour, as a name tile.
+        for (int l = 0; l < 3; ++l) {
+            s.lines[l]->SetPosition(at_x(kCoverTextLeft), at_y(8 + l * 16));
+            s.lines[l]->Draw();
+        }
+        s.id->SetPosition(at_x(kCoverTextLeft), at_y(tileH - 40));
+        s.id->Draw();
+        Menu_DrawRectangle(at_x(8), at_y(tileH - 6), (tileW - 16) * s.scale, 3, skin::WithAlpha(item.hue, alpha), 1);
+    }
+    // Source badge and MODS tag along the bottom, over the cover.
+    const int baseY = at_y(tileH - 22);
+    const int badgeW = s.badge->GetTextWidth() + 10;
+    const int badgeX = at_x(tileW - 5) - badgeW;
+    Menu_DrawRectangle(badgeX, baseY - 1, badgeW, 15, skin::WithAlpha((GXColor){236, 236, 241, 235}, alpha), 1);
+    s.badge->SetPosition(badgeX + 5, baseY);
+    s.badge->Draw();
+    if (item.mods) {
+        const int modsW = s.mods->GetTextWidth() + 10;
+        const int modsX = at_x(5);
+        Menu_DrawRectangle(modsX, baseY - 1, modsW, 15, skin::WithAlpha(skin::kAccentInk, alpha), 1);
+        s.mods->SetPosition(modsX + 5, baseY);
+        s.mods->Draw();
+    }
 }
 
 void GuiGameGrid::Draw() {
@@ -183,51 +316,34 @@ void GuiGameGrid::Draw() {
     // Empty places first, then tiles, the lit one last so it sits on top.
     for (int i = 0; i < kPerPage; ++i) {
         if (page * kPerPage + i < Count()) continue;
-        skin::Draw(skin::tile, TileX(i) - 7, TileY(i) - 7, alpha * 70 / 255);
+        skin::Draw(covers ? skin::coverTile : skin::tile, TileX(i) - 7, TileY(i) - 7, alpha * 70 / 255);
     }
     const auto draw_tile = [&](int i) {
-        const int index = page * kPerPage + i;
-        const GridItem& item = (*items)[index];
         Slot& s = slots[i];
         const bool on = i == lit;
         s.scale += ((on ? 1.06f : 1.0f) - s.scale) * 0.35f;
-        const float x = TileX(i), y = TileY(i);
-        skin::Draw(on ? skin::tileOver : skin::tile, x - 7, y - 7, alpha, s.scale);
-        // The game's colour along the bottom, inset from the round corners.
-        const float grow = (s.scale - 1.0f);
-        const float bx = x + 12 - grow * kTileW / 2, bw = kTileW - 24 + grow * kTileW;
-        const float by = y + kTileH - 7 + grow * kTileH / 2;
-        Menu_DrawRectangle(bx, by, bw, 3, skin::WithAlpha(item.hue, alpha), 1);
-        const float dx = -grow * (kTileW / 2.0f - kTextLeft), dy = -grow * (kTileH / 2.0f - 9);
-        s.line1->SetPosition(static_cast<int>(x + kTextLeft + dx), static_cast<int>(y + 9 + dy));
-        s.line2->SetPosition(static_cast<int>(x + kTextLeft + dx), static_cast<int>(y + 27 + dy));
-        s.line1->Draw();
-        s.line2->Draw();
-        // Source badge and MODS tag along the bottom line.
-        const int baseY = static_cast<int>(y + kTileH - 26 + grow * (kTileH / 2.0f - 26));
-        s.id->SetPosition(static_cast<int>(x + kTextLeft + dx), baseY);
-        s.id->Draw();
-        const int badgeW = s.badge->GetTextWidth() + 10;
-        const int badgeX = static_cast<int>(x + kTileW - kTextLeft - badgeW - dx);
-        Menu_DrawRectangle(badgeX, baseY - 1, badgeW, 15, skin::WithAlpha((GXColor){236, 236, 241, 255}, alpha), 1);
-        s.badge->SetPosition(badgeX + 5, baseY);
-        s.badge->Draw();
-        if (item.mods) {
-            const int modsW = s.mods->GetTextWidth() + 10;
-            const int modsX = badgeX - modsW - 5;
-            Menu_DrawRectangle(modsX, baseY - 1, modsW, 15, skin::WithAlpha(skin::kAccentInk, alpha), 1);
-            s.mods->SetPosition(modsX + 5, baseY);
-            s.mods->Draw();
-        }
+        if (covers) DrawCoverTile(i, on, alpha);
+        else DrawNameTile(i, on, alpha);
     };
     for (int i = 0; i < kPerPage; ++i) {
         if (i == lit || page * kPerPage + i >= Count()) continue;
         draw_tile(i);
     }
     if (lit >= 0 && page * kPerPage + lit < Count()) draw_tile(lit);
-    if (page > 0) skin::Draw(arrowHover < 0 ? skin::arrowLeftOver : skin::arrowLeft, kArrowLeftX - 2, kArrowY - 2, alpha);
+    if (covers) {
+        // The lit game's name (the focused one's while nothing is lit).
+        const int shown = lit >= 0 ? page * kPerPage + lit : focus;
+        if (shown != captionFor) {
+            captionFor = shown;
+            measure->SetFontSize(kCaptionSize);
+            caption->SetText(shown >= 0 && shown < Count() ? Fit((*items)[shown].title, 560).c_str() : "");
+            measure->SetFontSize(kCoverTitleSize);
+        }
+        caption->Draw();
+    }
+    if (page > 0) skin::Draw(arrowHover < 0 ? skin::arrowLeftOver : skin::arrowLeft, kArrowLeftX - 2, ArrowY() - 2, alpha);
     if (page + 1 < Pages())
-        skin::Draw(arrowHover > 0 ? skin::arrowRightOver : skin::arrowRight, kArrowRightX - 2, kArrowY - 2, alpha);
+        skin::Draw(arrowHover > 0 ? skin::arrowRightOver : skin::arrowRight, kArrowRightX - 2, ArrowY() - 2, alpha);
     UpdateEffects();
 }
 
@@ -254,18 +370,19 @@ void GuiGameGrid::Update(GuiTrigger* t) {
     if (AnyPointer()) return;  // another channel points; it decides
     hover = -1;
     arrowHover = 0;
-    const int slot = focus % kPerPage, column = slot % kCols;
+    const int cols = Cols();
+    const int slot = focus % kPerPage, column = slot % cols;
     int target = focus;
     if (t->Right()) {
-        if (column == kCols - 1 || focus + 1 >= Count()) TurnPage(1);
+        if (column == cols - 1 || focus + 1 >= Count()) TurnPage(1);
         else target = focus + 1;
     } else if (t->Left()) {
         if (column == 0) TurnPage(-1);
         else target = focus - 1;
     } else if (t->Down()) {
-        if (slot + kCols < kPerPage && focus + kCols < Count()) target = focus + kCols;
+        if (slot + cols < kPerPage && focus + cols < Count()) target = focus + cols;
     } else if (t->Up()) {
-        if (slot >= kCols) target = focus - kCols;
+        if (slot >= cols) target = focus - cols;
     }
     if (target != focus) {
         focus = target;

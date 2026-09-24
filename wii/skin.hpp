@@ -28,6 +28,7 @@ struct Tex {
 
 // Built by Init(); each has a transparent margin for its shadow or glow.
 extern Tex tile, tileOver;               // 134x84 game tiles, drawn at -7,-7
+extern Tex coverTile, coverTileOver;     // 80x112 cover tiles, drawn at -7,-7
 extern Tex roundBtn, roundBtnOver;       // 76 round buttons, drawn at -2,-2
 extern Tex pill, pillOver;               // 244x52 buttons, drawn at -4,-4
 extern Tex pillPrimary, pillPrimaryOver;
@@ -55,6 +56,8 @@ GXColor HueFor(const std::string& id);
 // `alpha` 0-255; `scale` about the texture's centre.
 void Draw(const Tex& t, float x, float y, int alpha = 255, float scale = 1.0f);
 GXColor WithAlpha(GXColor c, int alpha);
+// A w x h RGB5A3 texture (a cover, wii/covers.hpp), like Draw.
+void DrawRgb5a3(const u8* data, int w, int h, float x, float y, int alpha = 255, float scale = 1.0f);
 
 // The striped light background, drawn under every screen.
 class GuiBackdrop : public GuiElement {

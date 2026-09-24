@@ -2,6 +2,7 @@
 // The launch extras: HTTP for the downloads, cheat files and their GCT,
 // the video mode patcher, and the settings file.
 #include "riftwii/cheats.hpp"
+#include "riftwii/coverart.hpp"
 #include "riftwii/gamelang.hpp"
 #include "riftwii/http.hpp"
 #include "riftwii/langfile.hpp"
@@ -453,6 +454,50 @@ void TestWfc() {
     EXPECT_EQ(back.game.server, "wiilink");
 }
 
+void TestCoverArt() {
+    const std::vector<std::string> us = cover_regions("RMCE01", "en");
+    EXPECT_EQ(us.size(), 3u);
+    EXPECT_EQ(us[0], "US");
+    EXPECT_EQ(us[1], "EN");
+    EXPECT_EQ(cover_regions("RMCP01", "es")[0], "ES");
+    EXPECT_EQ(cover_regions("RMCP01", "ja")[0], "EN");
+    EXPECT_EQ(cover_regions("RMCJ01", "en")[0], "JA");
+    EXPECT_EQ(cover_regions("RMCJ01", "en").size(), 3u);  // JA once
+    EXPECT_EQ(cover_url("US", "RMCE01"), "http://art.gametdb.com/wii/cover/US/RMCE01.png");
+
+    // 2x2 averages to 1x1; 1 pixel spreads to 3x3.
+    const std::uint8_t four[16] = {0, 0, 0, 255, 100, 100, 100, 255, 200, 200, 200, 255, 100, 100, 100, 255};
+    const std::vector<std::uint8_t> one = scale_rgba(four, 2, 2, 1, 1);
+    EXPECT_EQ(one[0], 100);
+    EXPECT_EQ(one[3], 255);
+    const std::uint8_t red[4] = {255, 0, 0, 255};
+    const std::vector<std::uint8_t> nine = scale_rgba(red, 1, 1, 3, 3);
+    EXPECT_EQ(nine[8 * 4], 255);
+    EXPECT_EQ(nine[8 * 4 + 1], 0);
+
+    // A white 160x224 cover: opaque white inside, clear at the corners.
+    std::vector<std::uint8_t> white(160 * 224 * 4, 255);
+    const std::vector<std::uint8_t> file = make_cover_file(white.data(), 160, 224);
+    EXPECT_EQ(file.size(), kCoverFileSize);
+    EXPECT_TRUE(cover_header_valid(file.data()));
+    // Tile 0, pixel (0,0): the corner, fully clear. Pixel (40,56) in
+    // tile (10,14), row 0, column 0: opaque white 0xFFFF.
+    EXPECT_EQ(file[8] & 0x80, 0);
+    const std::size_t tile = (14 * (kCoverWidth / 4) + 10) * 32;
+    EXPECT_EQ(file[8 + tile], 0xFF);
+    EXPECT_EQ(file[8 + tile + 1], 0xFF);
+    EXPECT_TRUE(make_cover_file(white.data(), 4, 4).empty());
+    std::uint8_t bad[8] = {'R', 'W', 'C', '1', 0, 40, 0, 112};
+    EXPECT_FALSE(cover_header_valid(bad));
+
+    LoaderSettings s;
+    EXPECT_EQ(s.home_tiles, "covers");
+    s.parse("home_tiles = names\n");
+    EXPECT_EQ(s.home_tiles, "names");
+    s.parse("home_tiles = huge\n");
+    EXPECT_EQ(s.home_tiles, "names");
+}
+
 void TestGameLanguage() {
     int code = 0;
     EXPECT_TRUE(parse_game_language("zh-hant", code));
@@ -551,6 +596,7 @@ int main() {
     TestSettings();
     TestGameLanguage();
     TestWfc();
+    TestCoverArt();
     TestLang();
     TestHistory();
     if (g_failures != 0) {

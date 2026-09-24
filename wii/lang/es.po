@@ -600,6 +600,18 @@ msgstr "El cIOS d2x con el que corre el juego. Automático usa el del menú o, s
 msgid "Online server"
 msgstr "Servidor en línea"
 
+msgid "Home tiles"
+msgstr "Casillas de inicio"
+
+msgid "Covers"
+msgstr "Portadas"
+
+msgid "Names"
+msgstr "Nombres"
+
+msgid "Covers shows each game's box art from GameTDB, fetched while Home is open when downloads are on. Names shows the names only."
+msgstr "Portadas muestra la carátula de cada juego de GameTDB, que se descarga con el inicio abierto si las descargas están activadas. Nombres muestra solo los nombres."
+
 msgid "Custom (no wfc_domain set)"
 msgstr "Personalizado (sin wfc_domain)"
 

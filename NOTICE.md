@@ -27,8 +27,9 @@ with GPL-3.0-or-later and their notices are reproduced in the vendored files.
 | d2x-cIOS DIP plugin | `wii/di.cpp`, `include/riftwii/usbgame.hpp`, `src/usbgame.cpp` | public d2x-cIOS `source/dip-plugin/{ioctl.h,frag.h,plugin.c}`; command/layout facts only | GPL-3.0-or-later. F6/F9/FA numbers, DEV_USB=1, DEV_SDHC=2, and the native `{size,num,maxnum}` / `{offset,sector,count}` ABI were independently implemented; no plugin implementation text was copied. |
 
 Data fetched at run time, when the Wii is online and "Download names and
-cheats" is on: game names from GameTDB (https://www.gametdb.com, the
-`wiitdb.txt` lists), cheat files from the GeckoCodes archive kept by
+cheats" is on: game names and cover art from GameTDB
+(https://www.gametdb.com, the `wiitdb.txt` lists and
+art.gametdb.com's covers, stored shrunk on the SD card), cheat files from the GeckoCodes archive kept by
 RiiConnect24 (https://codes.rc24.xyz), and the newest release's tag from
 GitHub's API (the update check). Neither is shipped with RiftWii.
 RiftWii contains no Nintendo keys or assets.

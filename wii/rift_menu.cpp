@@ -36,6 +36,8 @@
 
 #include "libwiigui/gui.h"
 #include "gui_flowlist.hpp"
+#include "covers.hpp"
+#include "riftwii/coverart.hpp"
 #include "gui_gamegrid.hpp"
 #include "guiscript.hpp"
 #include "gcadapter.hpp"
@@ -55,6 +57,7 @@
 #include "restart.hpp"
 #include "riftwii/settingsfile.hpp"
 #include "netpacks.hpp"
+#include "netsock.hpp"
 #include "video.h"
 
 #define THREAD_SLEEP 100
@@ -444,6 +447,9 @@ public:
 };
 
 static std::string g_homeNotice;
+// Covers: the games looked at this session; off after a network failure.
+static std::set<std::string> g_coversChecked;
+static bool g_coversOff = false;
 
 void SetHomeNotice(const std::string& text) { g_homeNotice = text; }
 
@@ -555,6 +561,7 @@ static int MenuSource(FrontendState& state)
 	BuildHome(state, items, entries);
 
 	GuiGameGrid grid;
+	grid.SetCovers(riftwii::wii::Settings().home_tiles != "names");
 	grid.SetItems(&items);
 	grid.Focus(g_homeFocus);
 	HomeBar bar;
@@ -624,11 +631,47 @@ static int MenuSource(FrontendState& state)
 	}
 	ResumeGui();
 
+	// Covers still to fetch, one per turn of the loop while the GUI
+	// thread keeps drawing: the page on screen first.
+	std::vector<std::string> coverQueue;
+	const auto queueCovers = [&]() {
+		coverQueue.clear();
+		if (g_coversOff || riftwii::wii::Settings().home_tiles == "names" || !riftwii::wii::Settings().online) return;
+		for (const GridItem& item : items) {
+			if (g_coversChecked.insert(item.id).second && riftwii::wii::CoverWanted(item.id)) coverQueue.push_back(item.id);
+		}
+	};
+	queueCovers();
+
 	int shownPage = -1, shownPages = -1;
 	while(menu == MENU_NONE)
 	{
 		usleep(10000);
+		std::string arrived;
+		if (!coverQueue.empty() && !g_coversOff && !riftwii::wii::NetFailed()) {
+			std::size_t pick = 0;
+			bool onPage = false;
+			const std::size_t first = static_cast<std::size_t>(grid.Page()) * GuiGameGrid::kPerPage;
+			for (std::size_t q = 0; q < coverQueue.size() && !onPage; ++q) {
+				for (std::size_t k = first; k < first + GuiGameGrid::kPerPage && k < items.size() && !onPage; ++k) {
+					onPage = items[k].id == coverQueue[q];
+					if (onPage) pick = q;
+				}
+			}
+			const std::string id = coverQueue[pick];
+			coverQueue.erase(coverQueue.begin() + static_cast<std::ptrdiff_t>(pick));
+			std::string error;
+			const riftwii::wii::CoverFetch got = riftwii::wii::FetchCover(id, error);
+			if (got == riftwii::wii::CoverFetch::Stored) {
+				arrived = id;
+			} else if (got == riftwii::wii::CoverFetch::Failed) {
+				logf("Covers: stopped: %s\n", error.c_str());
+				g_coversOff = true;
+				coverQueue.clear();
+			}
+		}
 		HaltGui();
+		if (!arrived.empty()) grid.CoverArrived(arrived);
 		ClearStaleButtons({&filterBtn.button, &settingsBtn.button});
 		if (grid.Page() != shownPage || grid.Pages() != shownPages) {
 			shownPage = grid.Page();
@@ -695,6 +738,7 @@ static int MenuSource(FrontendState& state)
 			rescanBtn.ResetState();
 			ScanDrives(state, statusTxt);
 			refresh(true);
+			queueCovers();
 		} else if (jumpBtn.GetState() == STATE::CLICKED) {
 			jumpBtn.ResetState();
 			const int to = NextLetter(items, grid.FocusedIndex());
@@ -710,6 +754,21 @@ static int MenuSource(FrontendState& state)
 
 // ---------------------------------------------------------------------------
 // Game page
+
+// The game's cover in the banner's corner, when it was downloaded.
+class CoverArt : public GuiElement {
+public:
+	CoverArt(std::string id, int x, int y) : id(std::move(id)), x(x), y(y) {}
+	void Draw() override {
+		const u8* tex = riftwii::wii::CoverTexture(id);
+		if (!tex) return;
+		skin::Draw(skin::coverTile, x - 7, y - 7);
+		skin::DrawRgb5a3(tex, riftwii::kCoverWidth, riftwii::kCoverHeight, x, y);
+	}
+private:
+	std::string id;
+	int x, y;
+};
 
 // The game's banner: its hue across the top with light stripes.
 class GameBanner : public GuiElement {
@@ -1373,6 +1432,18 @@ static int MenuHome(FrontendState& state)
 	} catch (...) {
 		scanStatus = "Package scan failed; go back and try again";
 	}
+	// A disc's game (or one Home did not reach yet): its cover now.
+	if (riftwii::wii::Settings().online && riftwii::wii::Settings().home_tiles != "names" && !g_coversOff &&
+	    !riftwii::wii::NetFailed() && g_coversChecked.insert(state.game_id).second &&
+	    riftwii::wii::CoverWanted(state.game_id)) {
+		std::string error;
+		if (riftwii::wii::FetchCover(state.game_id, error) == riftwii::wii::CoverFetch::Stored) {
+			riftwii::wii::ForgetCover(state.game_id);
+		} else if (!error.empty()) {
+			logf("Covers: stopped: %s\n", error.c_str());
+			g_coversOff = true;
+		}
+	}
 	std::vector<FlowRow> rows;
 	std::vector<RowRef> refs;
 	BuildGameRows(state, rows, refs);
@@ -1384,7 +1455,9 @@ static int MenuHome(FrontendState& state)
 	const std::string title = GameTitle(state);
 	GuiText titleTxt(title.c_str(), 28, skin::kWhite);
 	Place(titleTxt, 40, 38);
-	titleTxt.SetWrap(true, 560, 2);
+	const bool hasCover = riftwii::wii::CoverStored(state.game_id);
+	titleTxt.SetWrap(true, hasCover ? 460 : 560, 2);
+	CoverArt cover(state.game_id, 528, 12);
 	// The ID, and how often the game was played from RiftWii.
 	const std::string played = riftwii::wii::PlayNote(state.game_id);
 	const std::string idLine = played.empty() ? state.game_id : state.game_id + "   " + played;
@@ -1417,6 +1490,7 @@ static int MenuHome(FrontendState& state)
 	HaltGui();
 	GuiWindow w(screenwidth, screenheight);
 	w.Append(&banner);
+	w.Append(&cover);
 	w.Append(&whereTxt);
 	w.Append(&titleTxt);
 	w.Append(&idTxt);
@@ -1718,7 +1792,7 @@ static int MenuSettings(FrontendState& state)
 	const bool iosChoosable = iosChoices.size() > 1 || iosSlot != 0;
 
 	bool netOn = riftwii::wii::NetworkPacksEnabled();
-	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kGameLanguage, kGameCios, kServer, kOnline, kNames, kGcAdapter, kGcTest, kIos, kNet, kResync,
+	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kGameLanguage, kGameCios, kServer, kHomeTiles, kOnline, kNames, kGcAdapter, kGcTest, kIos, kNet, kResync,
 		kRescan, kUpdate, kExit, kNone };
 	std::vector<FlowRow> rows;
 	std::vector<RowAction> actions;
@@ -1744,6 +1818,8 @@ static int MenuSettings(FrontendState& state)
 			kGameLanguage);
 		option("Game cIOS", CiosName(settings.game_cios), settings.game_cios != "auto", kGameCios);
 		option(tr("Online server"), ServerName(settings.wfc_server), settings.wfc_server != "off", kServer);
+		option(tr("Home tiles"), settings.home_tiles == "names" ? tr("Names") : tr("Covers"),
+			settings.home_tiles != "names", kHomeTiles);
 		option(tr("Download names and cheats"), settings.online ? tr("On") : tr("Off"), settings.online, kOnline,
 			FlowRow::Kind::Toggle);
 		FlowRow names;
@@ -1856,6 +1932,7 @@ static int MenuSettings(FrontendState& state)
 			case kVideoMode: return tr("The TV signal the game sends. PAL 50 Hz needs a TV that takes it, 480p a component cable.");
 			case kGameLanguage: return tr("The language the game is told the console uses. Pick one the game has: some games stop without it.");
 			case kGameCios: return tr("The d2x cIOS the game runs under. Automatic uses the menu's, else the first of 249, 250 and 251 that works.");
+			case kHomeTiles: return tr("Covers shows each game's box art from GameTDB, fetched while Home is open when downloads are on. Names shows the names only.");
 			case kServer: return tr("The online server the game uses in place of Nintendo's, which closed. Custom uses wfc_domain in settings.txt.");
 			case kOnline:
 				return settings.online ? tr("Game names and cheats are downloaded when the Wii is online.")
@@ -1951,6 +2028,11 @@ static int MenuSettings(FrontendState& state)
 				case kServer:
 					settings.wfc_server = StepValue(kServers, settings.wfc_server, direction, false);
 					saveAndNote(tr("The online server the game uses in place of Nintendo's, which closed. Custom uses wfc_domain in settings.txt."));
+					rebuild();
+					break;
+				case kHomeTiles:
+					settings.home_tiles = settings.home_tiles == "names" ? "covers" : "names";
+					saveAndNote(tr("Covers shows each game's box art from GameTDB, fetched while Home is open when downloads are on. Names shows the names only."));
 					rebuild();
 					break;
 				case kOnline:

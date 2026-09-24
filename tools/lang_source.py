@@ -521,6 +521,14 @@ T = {
         "O cIOS d2x em que o jogo roda. Automático usa o do menu ou, senão, o primeiro de 249, 250 e 251 que funcionar.",
         "Il cIOS d2x con cui gira il gioco. Automatico usa quello del menu, altrimenti il primo tra 249, 250 e 251 che funziona."),
     "Online server": ("Servidor en línea", "オンラインサーバー", "Servidor online", "Server online"),
+    "Home tiles": ("Casillas de inicio", "ホームの表示", "Blocos do início", "Riquadri della home"),
+    "Covers": ("Portadas", "パッケージ", "Capas", "Copertine"),
+    "Names": ("Nombres", "名前", "Nomes", "Nomi"),
+    "Covers shows each game's box art from GameTDB, fetched while Home is open when downloads are on. Names shows the names only.": (
+        "Portadas muestra la carátula de cada juego de GameTDB, que se descarga con el inicio abierto si las descargas están activadas. Nombres muestra solo los nombres.",
+        "パッケージではGameTDBの各ゲームのパッケージ画像を表示します。ダウンロードがオンなら、ホームを開いている間に取得します。名前では名前だけを表示します。",
+        "Capas mostra a capa de cada jogo do GameTDB, baixada com o início aberto quando os downloads estão ligados. Nomes mostra só os nomes.",
+        "Copertine mostra la copertina di ogni gioco da GameTDB, scaricata con la home aperta se i download sono attivi. Nomi mostra solo i nomi."),
     "Custom (no wfc_domain set)": (
         "Personalizado (sin wfc_domain)", "カスタム（wfc_domain未設定）", "Personalizado (sem wfc_domain)",
         "Personalizzato (wfc_domain non impostato)"),

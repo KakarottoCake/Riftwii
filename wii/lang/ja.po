@@ -600,6 +600,18 @@ msgstr "ゲームを動かすd2x cIOSです。自動ではメニューのもの�
 msgid "Online server"
 msgstr "オンラインサーバー"
 
+msgid "Home tiles"
+msgstr "ホームの表示"
+
+msgid "Covers"
+msgstr "パッケージ"
+
+msgid "Names"
+msgstr "名前"
+
+msgid "Covers shows each game's box art from GameTDB, fetched while Home is open when downloads are on. Names shows the names only."
+msgstr "パッケージではGameTDBの各ゲームのパッケージ画像を表示します。ダウンロードがオンなら、ホームを開いている間に取得します。名前では名前だけを表示します。"
+
 msgid "Custom (no wfc_domain set)"
 msgstr "カスタム（wfc_domain未設定）"
 
