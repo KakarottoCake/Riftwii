@@ -36,48 +36,6 @@ std::string hex32(std::uint32_t v) {
 
 }  // namespace
 
-bool apply_resident_relocs(std::uint8_t* blob, std::size_t blob_bytes, const std::uint8_t* relocs,
-                           std::size_t reloc_bytes, std::uint32_t base, std::string& error) {
-    constexpr std::uint32_t kAddr32 = 1, kAddr16Lo = 4, kAddr16Hi = 5, kAddr16Ha = 6;  // R_PPC_*
-    if (reloc_bytes % 12 != 0) {
-        error = "resident relocations: the table is cut short";
-        return false;
-    }
-    for (std::size_t i = 0; i < reloc_bytes; i += 12) {
-        const std::uint32_t offset = be32(relocs + i);
-        const std::uint32_t type = be32(relocs + i + 4);
-        const std::uint32_t width = type == kAddr32 ? 4 : 2;
-        if (type != kAddr32 && type != kAddr16Lo && type != kAddr16Hi && type != kAddr16Ha) {
-            error = "resident relocations: unknown type " + std::to_string(type);
-            return false;
-        }
-        if (offset > blob_bytes || blob_bytes - offset < width) {
-            error = "resident relocations: offset " + std::to_string(offset) + " is outside the blob";
-            return false;
-        }
-    }
-    for (std::size_t i = 0; i < reloc_bytes; i += 12) {
-        std::uint8_t* p = blob + be32(relocs + i);
-        const std::uint32_t type = be32(relocs + i + 4);
-        const std::uint32_t address = base + be32(relocs + i + 8);
-        std::uint32_t value = address;
-        if (type == kAddr16Lo) value = address & 0xFFFFu;
-        if (type == kAddr16Hi) value = address >> 16;
-        if (type == kAddr16Ha) value = ((address + 0x8000u) >> 16) & 0xFFFFu;
-        if (type == kAddr32) {
-            p[0] = static_cast<std::uint8_t>(value >> 24);
-            p[1] = static_cast<std::uint8_t>(value >> 16);
-            p[2] = static_cast<std::uint8_t>(value >> 8);
-            p[3] = static_cast<std::uint8_t>(value);
-        } else {
-            p[0] = static_cast<std::uint8_t>(value >> 8);
-            p[1] = static_cast<std::uint8_t>(value);
-        }
-    }
-    error.clear();
-    return true;
-}
-
 bool parse_resident_blob(const std::uint8_t* bytes, std::size_t length, ResidentBlob& out, std::string& error) {
     if (length < sizeof(rt_blob_header)) {
         error = "resident blob is shorter than its header";

@@ -14,7 +14,6 @@
 #include "boot.hpp"
 #include "di.hpp"
 #include "frontend.hpp"
-#include "gameextras.hpp"
 #include "ios_reload.hpp"
 #include "log.hpp"
 #include "menuios.hpp"
@@ -408,12 +407,6 @@ void RunAutorun() {
                 else if (!check_image_game(*found, error)) ok=false;
                 else { source=LaunchSource{}; source.kind=LaunchSource::Kind::Sd; source.game=*found; source.cios_slot=slot; s=Session(source, kAutorunLogPath); }
             }
-        } else if (cmd == "rvz") {
-            // Dolphin only: boot the RVZ's stub as the disc and read the
-            // partitions from the RVZ on the card (d2x does this on a Wii).
-            std::string path; words >> path;
-            if (path.empty()) { ok=false; error="rvz needs an sd:/ path"; }
-            else if (!serve_disc_from_rvz(path, error)) ok=false;
         } else if (cmd == "disc") {
             source=LaunchSource{}; s=Session(source, kAutorunLogPath);
         } else if (cmd == "netscan") {
@@ -592,7 +585,6 @@ void RunAutorun() {
                 }
             }
             const std::vector<PackageChoices> selections = state.model.selections();
-            PrepareLaunchExtras(state);  // the game's cheats and video settings
             if (state.game_id.empty()) {
                 ok = false;
                 error = "launch needs a disc";
