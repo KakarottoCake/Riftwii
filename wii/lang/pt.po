@@ -213,9 +213,6 @@ msgstr "Ativado, {1} de {2} opções escolhidas."
 msgid "No game is selected; go back and pick one."
 msgstr "Nenhum jogo escolhido; volte e escolha um."
 
-msgid "Press Start again to play."
-msgstr "Aperte Jogar de novo para começar."
-
 msgid "Preparing the mods..."
 msgstr "Preparando os mods..."
 
@@ -452,3 +449,45 @@ msgstr "O jogo aparece na tela quando estiver pronto."
 
 msgid "Opening the game..."
 msgstr "Abrindo o jogo..."
+
+msgid "GameCube adapter"
+msgstr "Adaptador de GameCube"
+
+msgid "Check the GameCube adapter"
+msgstr "Testar o adaptador de GameCube"
+
+msgid "Test"
+msgstr "Testar"
+
+msgid "In games that support the GameCube controller, the adapter's controllers fill the ports that have none plugged in. It needs IOS 58 or a d2x cIOS."
+msgstr "Nos jogos compatíveis com o controle de GameCube, os controles do adaptador ocupam as portas sem nenhum conectado. Precisa do IOS 58 ou de um cIOS d2x."
+
+msgid "The adapter is left alone."
+msgstr "O adaptador não é usado."
+
+msgid "Adapter: working"
+msgstr "Adaptador: funcionando"
+
+msgid "Adapter: starting..."
+msgstr "Adaptador: iniciando..."
+
+msgid "Adapter: another program is using it, waiting"
+msgstr "Adaptador: outro programa está usando, aguardando"
+
+msgid "Adapter: it did not answer ({1}), trying again"
+msgstr "Adaptador: não respondeu ({1}), tentando de novo"
+
+msgid "Adapter: not found. Plug in its black USB plug."
+msgstr "Adaptador: não encontrado. Conecte o plugue USB preto."
+
+msgid "Press buttons on a controller in the adapter to see them here. In a game that supports the GameCube controller, the adapter's controllers fill the ports that have none plugged in."
+msgstr "Aperte botões em um controle ligado ao adaptador para vê-los aqui. Em um jogo compatível com o controle de GameCube, os controles do adaptador ocupam as portas sem nenhum conectado."
+
+msgid "This IOS has no USB HID (IOS{1}). Choose IOS 58 or a d2x cIOS as the Menu IOS."
+msgstr "Este IOS não tem USB HID (IOS{1}). Escolha o IOS 58 ou um cIOS d2x como IOS do menu."
+
+msgid "Port {1}"
+msgstr "Porta {1}"
+
+msgid "nothing plugged in"
+msgstr "nada conectado"

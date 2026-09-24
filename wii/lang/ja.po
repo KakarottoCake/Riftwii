@@ -213,9 +213,6 @@ msgstr "オン。{2}個中{1}個の設定を選択中。"
 msgid "No game is selected; go back and pick one."
 msgstr "ゲームが選ばれていません。もどって選んでください。"
 
-msgid "Press Start again to play."
-msgstr "もう一度「はじめる」を押すと遊べます。"
-
 msgid "Preparing the mods..."
 msgstr "MODを準備しています..."
 
@@ -452,3 +449,45 @@ msgstr "準備ができるとゲームの画面に切り替わります。"
 
 msgid "Opening the game..."
 msgstr "ゲームを開いています..."
+
+msgid "GameCube adapter"
+msgstr "GCコントローラ接続タップ"
+
+msgid "Check the GameCube adapter"
+msgstr "接続タップを確認"
+
+msgid "Test"
+msgstr "テスト"
+
+msgid "In games that support the GameCube controller, the adapter's controllers fill the ports that have none plugged in. It needs IOS 58 or a d2x cIOS."
+msgstr "ゲームキューブコントローラに対応したゲームで、何もつながっていないポートに接続タップのコントローラが入ります。IOS 58かd2x cIOSが必要です。"
+
+msgid "The adapter is left alone."
+msgstr "接続タップは使いません。"
+
+msgid "Adapter: working"
+msgstr "接続タップ：動作中"
+
+msgid "Adapter: starting..."
+msgstr "接続タップ：準備中..."
+
+msgid "Adapter: another program is using it, waiting"
+msgstr "接続タップ：ほかのプログラムが使っています。待っています"
+
+msgid "Adapter: it did not answer ({1}), trying again"
+msgstr "接続タップ：応答がありません（{1}）。もう一度ためします"
+
+msgid "Adapter: not found. Plug in its black USB plug."
+msgstr "接続タップ：見つかりません。黒いUSBプラグをつないでください。"
+
+msgid "Press buttons on a controller in the adapter to see them here. In a game that supports the GameCube controller, the adapter's controllers fill the ports that have none plugged in."
+msgstr "接続タップにつないだコントローラのボタンを押すと、ここに表示されます。ゲームキューブコントローラに対応したゲームでは、何もつながっていないポートに接続タップのコントローラが入ります。"
+
+msgid "This IOS has no USB HID (IOS{1}). Choose IOS 58 or a d2x cIOS as the Menu IOS."
+msgstr "このIOSにはUSB HIDがありません（IOS{1}）。メニューのIOSにIOS 58かd2x cIOSを選んでください。"
+
+msgid "Port {1}"
+msgstr "ポート{1}"
+
+msgid "nothing plugged in"
+msgstr "未接続"

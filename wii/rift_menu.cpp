@@ -38,6 +38,7 @@
 #include "gui_flowlist.hpp"
 #include "gui_gamegrid.hpp"
 #include "guiscript.hpp"
+#include "gcadapter.hpp"
 #include "skin.hpp"
 #include "wiidrc.h"
 #include "menu.h"
@@ -1429,6 +1430,107 @@ static std::string LanguageName(const std::string& lang)
 	return tr("Wii: {1}", {LanguageName(riftwii::wii::MenuLanguage())});
 }
 
+// ---------------------------------------------------------------------------
+// The GameCube adapter check (Settings)
+
+static std::string PadButtons(const gcad_pad& pad)
+{
+	static const struct { std::uint16_t bit; const char* name; } kButtons[] = {
+		{GCAD_PAD_A, "A"}, {GCAD_PAD_B, "B"}, {GCAD_PAD_X, "X"}, {GCAD_PAD_Y, "Y"}, {GCAD_PAD_START, "Start"},
+		{GCAD_PAD_Z, "Z"}, {GCAD_PAD_L, "L"}, {GCAD_PAD_R, "R"}, {GCAD_PAD_UP, "Up"}, {GCAD_PAD_DOWN, "Down"},
+		{GCAD_PAD_LEFT, "Left"}, {GCAD_PAD_RIGHT, "Right"}};
+	std::string s;
+	for (const auto& b : kButtons) {
+		if (!(pad.buttons & b.bit)) continue;
+		if (!s.empty()) s += " ";
+		s += b.name;
+	}
+	char sticks[96];
+	std::snprintf(sticks, sizeof(sticks), "stick %d,%d  C %d,%d  L %u  R %u", pad.stick_x, pad.stick_y,
+		pad.substick_x, pad.substick_y, pad.trigger_l, pad.trigger_r);
+	return (s.empty() ? std::string("-") : s) + "   " + sticks;
+}
+
+static std::string AdapterStatus(const riftwii::wii::GcAdapterView& v)
+{
+	switch (v.link) {
+		case GCAD_LINK_POLL: return tr("Adapter: working");
+		case GCAD_LINK_SETUP:
+		case GCAD_LINK_CTRL:
+		case GCAD_LINK_INIT: return tr("Adapter: starting...");
+		case GCAD_LINK_BUSY: return tr("Adapter: another program is using it, waiting");
+		case GCAD_LINK_FAILED: return tr("Adapter: it did not answer ({1}), trying again", {std::to_string(v.last_error)});
+		default: return tr("Adapter: not found. Plug in its black USB plug.");
+	}
+}
+
+static void GcAdapterTestPage()
+{
+	GuiText titleTxt(tr("GameCube adapter"), 30, skin::kInk);
+	Place(titleTxt, 40, 28);
+	Panel panel(skin::panelSettings, 34, 76);
+	GuiText statusTxt("", 18, skin::kInk);
+	Place(statusTxt, 56, 96);
+	GuiText hidTxt("", 15, skin::kInkDim);
+	Place(hidTxt, 56, 122);
+	GuiText portTxt[GCAD_PORTS] = {GuiText("", 17, skin::kInkSoft), GuiText("", 17, skin::kInkSoft),
+		GuiText("", 17, skin::kInkSoft), GuiText("", 17, skin::kInkSoft)};
+	for (unsigned p = 0; p < GCAD_PORTS; ++p) Place(portTxt[p], 56, 154 + static_cast<int>(p) * 32);
+	GuiText noteTxt(tr("Press buttons on a controller in the adapter to see them here. In a game that supports the GameCube controller, the adapter's controllers fill the ports that have none plugged in."),
+		15, skin::kInkDim);
+	Place(noteTxt, 56, 288);
+	noteTxt.SetWrap(true, 528);
+	SkinButton backBtn(skin::pill, skin::pillOver, 4, 198, 406, "Back",
+		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
+
+	HaltGui();
+	GuiWindow w(screenwidth, screenheight);
+	w.Append(&titleTxt);
+	w.Append(&panel);
+	w.Append(&statusTxt);
+	w.Append(&hidTxt);
+	for (auto& t : portTxt) w.Append(&t);
+	w.Append(&noteTxt);
+	w.Append(&backBtn.button);
+	mainWindow->Append(&w);
+	std::string why;
+	const bool started = riftwii::wii::GcAdapterStart(why);
+	if (!started) {
+		statusTxt.SetText(tr("This IOS has no USB HID (IOS{1}). Choose IOS 58 or a d2x cIOS as the Menu IOS.",
+			{std::to_string(IOS_GetVersion())}).c_str());
+	}
+	ResumeGui();
+
+	bool done = false;
+	while (!done)
+	{
+		usleep(20000);
+		HaltGui();
+		ClearStaleButtons({&backBtn.button});
+		if (started) {
+			riftwii::wii::GcAdapterView v;
+			riftwii::wii::GcAdapterPoll(v);
+			statusTxt.SetText(AdapterStatus(v).c_str());
+			char hid[96];
+			std::snprintf(hid, sizeof(hid), "USB HID v%u on IOS%d, %u USB device(s), %u reports", v.version,
+				IOS_GetVersion(), v.listed, v.reports);
+			hidTxt.SetText(hid);
+			for (unsigned p = 0; p < GCAD_PORTS; ++p) {
+				const std::string port = tr("Port {1}", {std::to_string(p + 1)}) + ":  ";
+				const std::string line = v.present[p] ? port + PadButtons(v.pads[p])
+					: port + (v.link == GCAD_LINK_POLL ? tr("nothing plugged in") : std::string("-"));
+				portTxt[p].SetText(line.c_str());
+			}
+		}
+		if (backBtn.Clicked()) done = true;
+		ResumeGui();
+	}
+	HaltGui();
+	if (started) riftwii::wii::GcAdapterStop();
+	mainWindow->Remove(&w);
+	ResumeGui();
+}
+
 static int MenuSettings(FrontendState& state)
 {
 	int menu = MENU_NONE;
@@ -1439,7 +1541,8 @@ static int MenuSettings(FrontendState& state)
 	const bool iosChoosable = iosChoices.size() > 1 || iosSlot != 0;
 
 	bool netOn = riftwii::wii::NetworkPacksEnabled();
-	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kOnline, kNames, kIos, kNet, kResync, kRescan, kExit, kNone };
+	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kOnline, kNames, kGcAdapter, kGcTest, kIos, kNet, kResync,
+		kRescan, kExit, kNone };
 	std::vector<FlowRow> rows;
 	std::vector<RowAction> actions;
 	const auto build = [&]() {
@@ -1468,6 +1571,15 @@ static int MenuSettings(FrontendState& state)
 		names.dim = !settings.online;
 		rows.push_back(names);
 		actions.push_back(kNames);
+		option(tr("GameCube adapter"), settings.gc_adapter == "demo" ? std::string("Demo")
+			: settings.gc_adapter == "on" ? tr("On") : tr("Off"), settings.gc_adapter != "off", kGcAdapter,
+			FlowRow::Kind::Toggle);
+		FlowRow gcTest;
+		gcTest.kind = FlowRow::Kind::Action;
+		gcTest.label = tr("Check the GameCube adapter");
+		gcTest.value = tr("Test");
+		rows.push_back(gcTest);
+		actions.push_back(kGcTest);
 		FlowRow ios;
 		ios.kind = iosChoosable ? FlowRow::Kind::Option : FlowRow::Kind::Info;
 		ios.label = iosChoosable ? "Menu IOS" : "Menu IOS: IOS 58 (no d2x cIOS found)";
@@ -1619,6 +1731,20 @@ static int MenuSettings(FrontendState& state)
 					}
 					break;
 				}
+				case kGcAdapter:
+					settings.gc_adapter = settings.gc_adapter == "off" ? "on" : "off";
+					saveAndNote(settings.gc_adapter == "on"
+						? tr("In games that support the GameCube controller, the adapter's controllers fill the ports that have none plugged in. It needs IOS 58 or a d2x cIOS.")
+						: tr("The adapter is left alone."));
+					rebuild();
+					break;
+				case kGcTest:
+					mainWindow->Remove(&w);
+					ResumeGui();
+					GcAdapterTestPage();
+					HaltGui();
+					mainWindow->Append(&w);
+					break;
 				case kIos: {
 					// Step to the next installed choice (IOS58, then each d2x slot).
 					std::size_t at = 0;
