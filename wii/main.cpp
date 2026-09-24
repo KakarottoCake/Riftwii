@@ -51,8 +51,8 @@ void EnterConsolePhase() {
 }
 
 // libfat's default initializer probes USB as well as SD. Mount only the SD
-// card here so autorun and the normal SD-backed package paths work, while USB
-// remains untouched until the user explicitly selects it from the source menu.
+// card here so autorun and the SD-backed package paths work; USB starts when
+// Home reads the drives (wii/usbcatalog.cpp), after the menu IOS is up.
 bool MountStartupSd() {
     return __io_wiisd.startup() && __io_wiisd.isInserted() && fatMountSimple("sd", &__io_wiisd);
 }
@@ -100,8 +100,8 @@ int main() {
         std::exit(0);
     }
 
-    // The source screen must be visible before touching a potentially slow
-    // image device or physical drive. Each source probes only on selection.
+    // Home is on screen before the drives are read (a big USB drive takes a
+    // while); the disc is only probed when its tile is picked.
     OpenSessionLog(sd_mounted);
     // A chosen cIOS (fakemote's USB pads) must be running before the pads
     // and the drives are brought up.
