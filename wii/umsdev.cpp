@@ -46,8 +46,8 @@ bool Open(std::string& error) {
     g_fd = IOS_Open(path, 0);
     if (g_fd < 0) {
         error = "this IOS (" + std::to_string(IOS_GetVersion()) +
-                ") has no d2x USB device; packs on the USB drive need the game to run under a d2x cIOS "
-                "(for a disc, set Menu IOS to your d2x slot in Settings)";
+                ") has no d2x USB device; packs and RVZ games on the USB drive need the game to run under a d2x "
+                "cIOS (for a disc, set Menu IOS to your d2x slot in Settings)";
         g_failed = true;
         return false;
     }

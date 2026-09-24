@@ -20,7 +20,8 @@ make -f Makefile.wii
 ```
 
 The Wii build needs devkitPPC, libogc, libfat and the portlibs `Makefile.wii`
-lists (FreeType, zlib, brotli, libogg/tremor). It first builds the
+lists (FreeType, zlib, brotli, libogg/tremor), and the `zstd` command-line
+tool (devkitPro's MSYS2 has it), which packs the runtime blobs. It first builds the
 two in-game blobs with `Makefile.runtime` (`build-runtime/riftwii_rt.bin`,
 the resident runtime, and `riftwii_pad.bin`, the pad hook), checking that
 each is position-independent, then embeds them with the font, the

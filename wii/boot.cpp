@@ -616,7 +616,7 @@ namespace {
 // The part of the boot that runs after the SD card and the log are gone.
 // Returns only on failure.
 bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, const SavegameOptions& savegame,
-                        std::uint32_t required, std::string& error) {
+                        const RvzResidentOptions& rvz, std::uint32_t required, std::string& error) {
     bool force_ios_fields = options.preserve_current_ios;
     if (!options.preserve_current_ios) ProgressStage("Starting the game's IOS", 62);
     if (options.preserve_current_ios) {
@@ -928,7 +928,8 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
     logf("Game entry 0x%08x\n", reinterpret_cast<std::uint32_t>(game_entry));
 
 
-    // Read the DOL header before handing the card to the runtime.
+    // The DOL header for the runtime's search, read now: an RVZ game's
+    // partition reads go through the SD card, which is handed on below.
     std::uint8_t dol_bytes[kDolHeaderBytes];
     const bool gc_adapter = g_extras.gc_adapter != GcAdapterMode::Off;
     if (options.install_resident || gc_adapter) {
@@ -953,7 +954,7 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
             if (!handed_to_runtime) sdio::close_card(card);
         }
     } card_cleanup{card, card_handed_to_runtime};
-    const bool card_required = pieces.needs_sd() || savegame.enabled;
+    const bool card_required = pieces.needs_sd() || savegame.enabled || rvz.enabled;
     if (pieces.needs_usb() && !options.install_resident) {
         error = "files on the USB drive need the resident runtime";
         return false;
@@ -961,7 +962,7 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
     bool file_device = savegame.file_device && options.install_resident;
     if (card_required || file_device) {
         if (!options.install_resident) {
-            error = "SD-backed replacements and savegame redirection need the resident runtime";
+            error = "SD-backed replacements, savegame redirection and RVZ games need the resident runtime";
             return false;
         }
         release_card_and_log();
@@ -1015,6 +1016,7 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         }
         ro.savegame = savegame;
         ro.savegame.file_device = file_device && card.fd >= 0;
+        ro.rvz = rvz;
         ro.mem1_floor = mem1_floor;
         if (!install_resident(dol, ro, resident, error)) return false;
     }
@@ -1277,6 +1279,20 @@ bool boot_game(const DiscProbe& probe, const BootOptions& options, std::string& 
         effective.preserve_current_ios = true;
         logf("Keeping IOS%d for the GameCube adapter; reporting IOS%u to the game\n", running_ios, required);
     }
+    RvzResidentOptions rvz;
+    if (di::has_partition_resolver()) {
+        // An RVZ game: the apploader's reads come from the card, which an
+        // IOS reload would take away, and the game's from the runtime.
+        if (!rvz_resident_options(rvz, error)) return false;
+        if (!effective.install_resident) {
+            effective.install_resident = true;
+            logf("RVZ game: the resident runtime serves its reads\n");
+        }
+        if (!effective.preserve_current_ios) {
+            effective.preserve_current_ios = true;
+            logf("Keeping IOS%d for the RVZ on the SD card; reporting IOS%u to the game\n", running_ios, required);
+        }
+    }
     SavegameOptions savegame;
     ProgressStage(effective.savegame_dir.empty() ? "Getting the game ready" : "Preparing the save", 60);
     if (!effective.savegame_dir.empty() && !prepare_savegame(probe, effective, savegame, error)) return false;
@@ -1307,7 +1323,7 @@ bool boot_game(const DiscProbe& probe, const BootOptions& options, std::string& 
         sd_interface()->shutdown();
     }
 
-    boot_after_unmount(probe, effective, savegame, required, error);  // returns only on failure
+    boot_after_unmount(probe, effective, savegame, rvz, required, error);  // returns only on failure
     if (reload_terminal_failure()) return false;
     if (g_card_live_for_log) {
         g_card_live_for_log = false;  // failed before the card was released: it and the log are still up

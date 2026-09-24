@@ -1626,6 +1626,9 @@ static int MenuHome(FrontendState& state)
 				say(FlatCapped(state.usb_catalog.cios_note, 150));
 			} else if (state.use_sd && !state.sd_catalog.cios_note.empty()) {
 				say(FlatCapped(state.sd_catalog.cios_note, 150));
+			} else if (!state.launch_warning.empty() && !state.warning_shown) {
+				state.warning_shown = true;
+				say(FlatCapped(state.launch_warning + " " + tr("Press Start again to play."), 200));
 			} else if (!saveOrSay()) {
 				// the status shows why
 			} else if (!riftwii::needs_launch_pipeline(!state.model.selections().empty(), state.model.save_mode)) {

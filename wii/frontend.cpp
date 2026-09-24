@@ -105,6 +105,8 @@ void IdentifyDisc(FrontendState& state, void (*progress)(const char*)) {
 // The game the DISC button boots: a fresh probe, so a swapped disc is
 // picked up. False when no disc answers.
 bool SelectDisc(FrontendState& state, std::string& error) {
+    state.launch_warning.clear();
+    state.warning_shown = false;
     state.has_compiled = false;
     state.compiled = CompiledMod{};
     state.use_usb = false;
@@ -128,6 +130,8 @@ bool SelectDisc(FrontendState& state, std::string& error) {
 
 // The USB game the games screen hands over: index into the catalog.
 bool SelectUsbGame(FrontendState& state, std::size_t index, std::string& error) {
+    state.launch_warning.clear();
+    state.warning_shown = false;
     state.has_compiled = false;
     state.compiled = CompiledMod{};
     if (index >= state.usb_catalog.games.size()) {
@@ -160,6 +164,8 @@ bool SelectSdGame(FrontendState& state, std::size_t index, std::string& error) {
     if (!check_image_game(state.sd_catalog.games[index], error)) return false;
     state.use_usb = false; state.use_sd = true; state.usb_index = 0; state.sd_index = index;
     const ImageGame& g = state.sd_catalog.games[index];
+    state.launch_warning = rvz_warning(g);
+    state.warning_shown = false;
     state.game_id=g.id; state.disc_title=g.title; state.disc_status="SD: "+(g.display.empty() ? g.title : g.display)+"  ("+g.id+")";
     state.game_revision=g.revision; state.game_disc_number=g.disc_number;
     if (!state.sd_catalog.cios_note.empty()) state.disc_status += "  [no cIOS: install d2x for SD boot]";

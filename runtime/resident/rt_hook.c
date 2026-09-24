@@ -506,6 +506,12 @@ static struct rt_pending* rt_claim_pending(struct rt_context* ctx) {
     return rec;
 }
 
+#ifdef RT_RVZ
+static int rt_rvz_on_read(struct rt_context* ctx, struct rt_rvz_state* st, uintptr_t* args, uint32_t* result,
+                          uint32_t word_offset, uint32_t length);
+static struct rt_rvz_state* rt_rvz_of(const struct rt_context* ctx);
+#endif
+
 int rt_on_ioctl_async(struct rt_context* ctx, uintptr_t* args, uint32_t* result) {
     const uint32_t fd = (uint32_t)args[0];
     const uint32_t ioctl = (uint32_t)args[1];
@@ -541,6 +547,12 @@ int rt_on_ioctl_async(struct rt_context* ctx, uintptr_t* args, uint32_t* result)
             rt_gecko_putc(ctx, '\n');
             rt_interrupts_restore(msr);
         }
+#ifdef RT_RVZ
+        {
+            struct rt_rvz_state* st = rt_rvz_of(ctx);
+            if (st != 0) return rt_rvz_on_read(ctx, st, args, result, word_offset, length);
+        }
+#endif
         if (ctx->table != 0) {
             const int in_window = ctx->virtual_start_words != 0 && word_offset >= ctx->virtual_start_words;
             struct rt_pending* rec = rt_claim_pending(ctx);
@@ -2262,6 +2274,432 @@ static int rt_next_window(struct rt_context* ctx, struct rt_pending* record) {
     return 1;
 }
 
+#ifdef RT_RVZ
+/* --- RVZ games (rt_hook.h: rt_rvz_state) ---------------------------------- */
+#define RT_RVZ_ERR_PAST_END 1u
+#define RT_RVZ_ERR_ENTRY 2u
+#define RT_RVZ_ERR_SD 3u
+#define RT_RVZ_ERR_TOO_BIG 4u
+#define RT_RVZ_ERR_DECODER 5u
+#define RT_RVZ_ERR_DECODE 6u
+#define RT_RVZ_ERR_LISTS 7u
+#define RT_RVZ_ERR_DATA 8u
+#define RT_RVZ_ERR_EXTENT 9u
+#define RT_RVZ_ERR_START 10u
+
+static struct rt_rvz_state* rt_rvz_of(const struct rt_context* ctx) {
+    struct rt_rvz_state* st = (struct rt_rvz_state*)(uintptr_t)ctx->rvz_state;
+    return st != 0 && st->magic == RT_RVZ_MAGIC ? st : 0;
+}
+
+static uint32_t rt_rvz_ticks(void) {
+#ifdef RT_TARGET_PPC
+    uint32_t tb;
+    __asm__ volatile("mftb %0" : "=r"(tb) : : "memory");
+    return tb;
+#else
+    return 0;
+#endif
+}
+
+/* Word `i` of the table sector held (big endian on the card). */
+static uint32_t rt_rvz_entry_word(const struct rt_rvz_state* st, uint32_t i) {
+    const uint8_t* p = (const uint8_t*)st->entries + 4u * i;
+    return ((uint32_t)p[0] << 24) | ((uint32_t)p[1] << 16) | ((uint32_t)p[2] << 8) | p[3];
+}
+
+/* The card sector holding sector `file_sector` of a file, and how many of
+ * the file's sectors follow it there. 0 when the file has no such sector. */
+static int rt_rvz_locate(const struct rt_rvz_extent* extents, uint32_t count, uint32_t file_sector,
+                         uint32_t* device, uint32_t* run) {
+    uint32_t lo = 0;
+    uint32_t hi = count;
+    while (lo < hi) {
+        const uint32_t mid = lo + (hi - lo) / 2u;
+        if (extents[mid].file_sector + extents[mid].count <= file_sector) {
+            lo = mid + 1u;
+        } else {
+            hi = mid;
+        }
+    }
+    if (lo >= count || file_sector < extents[lo].file_sector) return 0;
+    *device = extents[lo].device_sector + (file_sector - extents[lo].file_sector);
+    *run = extents[lo].count - (file_sector - extents[lo].file_sector);
+    return 1;
+}
+
+/* The group holding the partition data's KiB `kib`: its index, first
+ * KiB and size in bytes (the last group of each segment may be short). */
+static void rt_rvz_group_of(const struct rt_rvz_state* st, uint32_t kib, uint32_t* group, uint32_t* start_kib,
+                            uint32_t* payload) {
+    uint32_t end;
+    if (kib < st->split_kib) {
+        *group = kib / st->group_kib;
+        *start_kib = *group * st->group_kib;
+        end = st->split_kib;
+    } else {
+        const uint32_t j = (kib - st->split_kib) / st->group_kib;
+        *group = st->first_groups + j;
+        *start_kib = st->split_kib + j * st->group_kib;
+        end = st->data_kib;
+    }
+    *payload = (end - *start_kib < st->group_kib ? end - *start_kib : st->group_kib) << 10;
+}
+
+static int rt_rvz_fail(struct rt_rvz_state* st, uint32_t code) {
+    st->last_error = code;
+    return -1;
+}
+
+/* The null round trip that starts a read: the completion entry then runs
+ * from the IPC interrupt, where every read ends, as with a disc reply. */
+static int32_t rt_rvz_null_trip(struct rt_context* ctx, struct rt_rvz_state* st, struct rt_pending* record) {
+    if (ctx->sdio_fd == 0xFFFFFFFFu) return -1;
+#ifdef RT_TARGET_PPC
+    if (ctx->sdio_sdhc == RT_SD_D2X) {
+        rt_ioctlv_async_fn vfn = (rt_ioctlv_async_fn)(uintptr_t)ctx->ioctlv_async;
+        if (vfn == 0) return -1;
+        return vfn(ctx->sdio_fd, RT_SDHC_ISINSERTED, 0, 0, record->vec, ctx->complete_entry, record);
+    } else {
+        rt_ioctl_async_fn fn = (rt_ioctl_async_fn)(uintptr_t)ctx->di_read_entry;
+        if (fn == 0) return -1;
+        rt_flush_range((uintptr_t)st->status, sizeof(st->status));
+        return fn(ctx->sdio_fd, RT_SDIO_GETSTATUS, 0, 0, (uint32_t)(uintptr_t)st->status, 4, ctx->complete_entry,
+                  record);
+    }
+#else
+    if (ctx->sdio_sdhc == RT_SD_D2X) {
+        if (rt_host_ioctlv_async == 0) return -1;
+        return rt_host_ioctlv_async(ctx->sdio_fd, RT_SDHC_ISINSERTED, 0, 0, record->vec, ctx->complete_entry, record);
+    }
+    if (rt_host_ioctl_async == 0) return -1;
+    return rt_host_ioctl_async(ctx->sdio_fd, RT_SDIO_GETSTATUS, 0, 0, (uint32_t)(uintptr_t)st->status, 4,
+                               ctx->complete_entry, record);
+#endif
+}
+
+/* A partition read of an RVZ game, taken whole: nothing reaches the
+ * drive. Returns 1 (the hook answers the call). */
+static int rt_rvz_on_read(struct rt_context* ctx, struct rt_rvz_state* st, uintptr_t* args, uint32_t* result,
+                          uint32_t word_offset, uint32_t length) {
+    const int in_window = ctx->virtual_start_words != 0 && word_offset >= ctx->virtual_start_words;
+    struct rt_pending* rec = 0;
+    uint32_t msr;
+    uint32_t busy;
+    int count = -1;
+    uint32_t covered = 0;
+    msr = rt_interrupts_off();
+    busy = st->busy;
+    if (!busy) st->busy = 1;
+    rt_interrupts_restore(msr);
+    if (!busy) rec = rt_claim_pending(ctx);
+    if (rec == 0) {
+        /* The DVD driver issues one read at a time; a second one cannot be
+         * served while the cache is being refilled. IOS's own refusal. */
+        if (!busy) st->busy = 0;
+        st->busy_refusals++;
+        st->failures++;
+        *result = (uint32_t)-1;
+        return 1;
+    }
+    if (ctx->table != 0) {
+        int touched = 0;
+        count = rt_split(ctx, (uint64_t)word_offset << 2, length, rec->runs, &covered, &touched);
+    }
+    if (count < 0) {
+        /* No table (or none that answers): all of it is the RVZ's. */
+        rec->runs[0].vstart = (uint64_t)word_offset << 2;
+        rec->runs[0].length = length;
+        rec->runs[0].source = 0;
+        rec->runs[0].skip = 0;
+        rec->runs[0].kind = RT_KIND_PASSTHROUGH;
+        count = 1;
+        covered = length;
+    }
+    if (covered < length) ctx->run_overflow++;
+    rec->run_count = (uint32_t)count;
+    rec->covered = covered;
+    rec->callback = (uint32_t)args[6];
+    rec->user_data = (uint32_t)args[7];
+    rec->out = (uint32_t)args[4];
+    rec->length = length;
+    rec->word_offset = word_offset;
+    rec->is_virtual = (uint32_t)in_window;
+    rec->phase = RT_PHASE_RVZ_START;
+    rec->run_index = 0;
+    rec->run_done = 0;
+    rec->chunk_bytes = 0;
+    rec->chunk_skip = 0;
+    rec->di_result = RT_DI_SUCCESS;
+    if (in_window) ctx->virtual_reads++;
+    if (rt_rvz_null_trip(ctx, st, rec) < 0) {
+        rec->in_use = 0;
+        st->busy = 0;
+        st->failures++;
+        st->last_error = RT_RVZ_ERR_START;
+        *result = (uint32_t)-1;
+        return 1;
+    }
+    ctx->redirected_reads++;
+    *result = 0; /* queued, as IOS answers an accepted request */
+    return 1;
+}
+
+/* Issues the next piece of the group being fetched. 1: in flight. */
+static int rt_rvz_fetch_piece(struct rt_context* ctx, struct rt_rvz_state* st, struct rt_pending* record) {
+    uint32_t device = 0;
+    uint32_t run = 0;
+    uint32_t n = st->fetch_sectors - st->fetch_done;
+    if (!rt_rvz_locate(st->extents, st->extent_count, st->fetch_file_sector + st->fetch_done, &device, &run)) {
+        return rt_rvz_fail(st, RT_RVZ_ERR_EXTENT);
+    }
+    if (n > run) n = run;
+    if (n > RT_RVZ_REQUEST_SECTORS) n = RT_RVZ_REQUEST_SECTORS;
+    st->fetch_last = n;
+    st->sd_requests++;
+    if (rt_issue_sd_read(ctx, record, st->on_usb != 0, device, n,
+                         st->fetch_target + st->fetch_done * RT_SECTOR_BYTES, RT_PHASE_RVZ_GROUP) < 0) {
+        return rt_rvz_fail(st, RT_RVZ_ERR_SD);
+    }
+    return 1;
+}
+
+/* Makes `group` (entry in the held table sector) the cached one: at once
+ * for a group of zeros, else by fetching its stored bytes (1: in flight). */
+static int rt_rvz_begin_group(struct rt_context* ctx, struct rt_rvz_state* st, struct rt_pending* record,
+                              uint32_t group, uint32_t start_kib, uint32_t payload) {
+    const uint32_t slot = group % RT_RVZ_ENTRIES_PER_SECTOR;
+    const uint32_t word0 = rt_rvz_entry_word(st, 2u * slot);
+    const uint32_t word1 = rt_rvz_entry_word(st, 2u * slot + 1u);
+    const uint32_t size = word1 & RT_RVZ_SIZE_MASK;
+    uint64_t byte;
+    uint32_t skip;
+    st->cached_group = RT_RVZ_NO_GROUP; /* the buffers are about to change */
+    st->cached_start_kib = start_kib;
+    st->cached_payload = payload;
+    if (size == 0) {
+        /* Every byte zero, no exceptions (docs/RVZ.md: rvz_group_t). */
+        st->cached_data = 0;
+        st->cached_bytes = 0;
+        st->cached_skip = 0;
+        st->cached_packed = 0;
+        st->cached_group = group;
+        return 0;
+    }
+    byte = (uint64_t)word0 * 4u;
+    skip = (uint32_t)(byte % RT_SECTOR_BYTES);
+    st->fetch_group = group;
+    st->fetch_word0 = word0;
+    st->fetch_word1 = word1;
+    st->fetch_file_sector = (uint32_t)(byte / RT_SECTOR_BYTES);
+    st->fetch_sectors = (skip + size + RT_SECTOR_BYTES - 1u) / RT_SECTOR_BYTES;
+    st->fetch_done = 0;
+    {
+        const uint32_t room = (word1 & RT_RVZ_COMPRESSED) ? st->stored_bytes : st->group_bytes;
+        if (size > room || st->fetch_sectors * RT_SECTOR_BYTES > room) return rt_rvz_fail(st, RT_RVZ_ERR_TOO_BIG);
+    }
+    st->fetch_target = (word1 & RT_RVZ_COMPRESSED) ? st->stored_buffer : st->group_buffer;
+    return rt_rvz_fetch_piece(ctx, st, record);
+}
+
+/* The fetched group's stored bytes have all landed: decode them. */
+static int rt_rvz_decode(struct rt_rvz_state* st) {
+    const uint32_t size = st->fetch_word1 & RT_RVZ_SIZE_MASK;
+    const uint32_t skip = (st->fetch_word0 * 4u) % RT_SECTOR_BYTES;
+    const int compressed = (st->fetch_word1 & RT_RVZ_COMPRESSED) != 0;
+    const uint8_t* data;
+    uint32_t bytes;
+    uint32_t lists = 0;
+    if (compressed) {
+        uint32_t t0;
+        int32_t got;
+        if (st->dctx == 0) st->dctx = rt_zstd_init(st->dctx_buffer, st->dctx_bytes);
+        if (st->dctx == 0) return rt_rvz_fail(st, RT_RVZ_ERR_DECODER);
+        t0 = rt_rvz_ticks();
+        got = rt_zstd_decode(st->dctx, (uint8_t*)(uintptr_t)st->group_buffer, st->group_bytes,
+                             (const uint8_t*)(uintptr_t)st->stored_buffer + skip, size);
+        st->decode_ticks += rt_rvz_ticks() - t0;
+        if (got < 0) return rt_rvz_fail(st, RT_RVZ_ERR_DECODE);
+        data = (const uint8_t*)(uintptr_t)st->group_buffer;
+        bytes = (uint32_t)got;
+    } else {
+        data = (const uint8_t*)(uintptr_t)st->group_buffer + skip;
+        bytes = size;
+    }
+    /* Groups stored as they are pad their exception lists to 4 bytes. */
+    if (rtrvz_exception_bytes(data, bytes, st->lists, !compressed, &lists) != RTRVZ_OK) {
+        return rt_rvz_fail(st, RT_RVZ_ERR_LISTS);
+    }
+    if (!(st->fetch_word1 & RT_RVZ_PACKED) && bytes - lists < st->cached_payload) {
+        return rt_rvz_fail(st, RT_RVZ_ERR_DATA);
+    }
+    st->cached_data = (uint32_t)(uintptr_t)data;
+    st->cached_bytes = bytes;
+    st->cached_skip = lists;
+    st->cached_packed = (st->fetch_word1 & RT_RVZ_PACKED) != 0;
+    st->cached_group = st->fetch_group;
+    st->groups_loaded++;
+    return 0;
+}
+
+/* Copies bytes [within, within + n) of the cached group's data to dst. */
+static int rt_rvz_copy(struct rt_rvz_state* st, uint32_t within, uint8_t* dst, uint32_t n) {
+    const uint8_t* data = (const uint8_t*)(uintptr_t)st->cached_data + st->cached_skip;
+    const uint32_t available = st->cached_bytes - st->cached_skip;
+    if (st->cached_data == 0) {
+        rt_zero(dst, n);
+        return 0;
+    }
+    if (st->cached_packed) {
+        if (rtrvz_unpack(data, available, (uint64_t)st->cached_start_kib << 10, within, dst, n, &st->junk) !=
+            RTRVZ_OK) {
+            return rt_rvz_fail(st, RT_RVZ_ERR_DATA);
+        }
+        return 0;
+    }
+    if (within > available || n > available - within) return rt_rvz_fail(st, RT_RVZ_ERR_DATA);
+    rt_copy(dst, data + within, n);
+    return 0;
+}
+
+/* Serves the current run from the RVZ as far as the cache reaches.
+ * 1: a request is in flight; 0: the run is done; -1: it failed. */
+static int rt_rvz_serve_run(struct rt_context* ctx, struct rt_rvz_state* st, struct rt_pending* record) {
+    const rt_run* run = &record->runs[record->run_index];
+    const uint64_t base = run->kind == RT_KIND_DISC ? run->source : run->vstart;
+    while (record->run_done < run->length) {
+        const uint64_t at = base + record->run_done;
+        uint8_t* dst = rt_run_destination(record, run) + record->run_done;
+        uint32_t within;
+        uint32_t group = 0;
+        uint32_t start_kib = 0;
+        uint32_t payload = 0;
+        uint32_t n;
+        if ((at >> 10) >= st->data_kib) {
+            /* Past the partition's data: the drive's own refusal. */
+            st->past_end++;
+            return rt_rvz_fail(st, RT_RVZ_ERR_PAST_END);
+        }
+        rt_rvz_group_of(st, (uint32_t)(at >> 10), &group, &start_kib, &payload);
+        within = (uint32_t)(at - ((uint64_t)start_kib << 10));
+        if (group >= st->group_count || payload == 0) return rt_rvz_fail(st, RT_RVZ_ERR_ENTRY);
+        if (st->cached_group != group) {
+            const uint32_t sector = group / RT_RVZ_ENTRIES_PER_SECTOR;
+            int rc;
+            if (st->entry_sector != sector) {
+                uint32_t device = 0;
+                uint32_t contiguous = 0;
+                if (!rt_rvz_locate(st->table_extents, st->table_extent_count, st->table_sector + sector, &device,
+                                   &contiguous)) {
+                    return rt_rvz_fail(st, RT_RVZ_ERR_EXTENT);
+                }
+                st->entry_sector = RT_RVZ_NO_GROUP;
+                st->want_entry_sector = sector;
+                st->entry_loads++;
+                st->sd_requests++;
+                if (rt_issue_sd_read(ctx, record, 0, device, 1, (uint32_t)(uintptr_t)st->entries,
+                                     RT_PHASE_RVZ_ENTRY) < 0) {
+                    return rt_rvz_fail(st, RT_RVZ_ERR_SD);
+                }
+                return 1;
+            }
+            rc = rt_rvz_begin_group(ctx, st, record, group, start_kib, payload);
+            if (rc != 0) return rc;
+        }
+        n = (uint32_t)(run->length - record->run_done);
+        if (n > payload - within) n = payload - within;
+        if (rt_rvz_copy(st, within, dst, n) < 0) return -1;
+        rt_flush_range((uintptr_t)dst, n);
+        record->run_done += n;
+    }
+    return 0;
+}
+
+/* The completion entry for an RVZ game's reads. */
+static void rt_rvz_complete(struct rt_context* ctx, struct rt_rvz_state* st, int32_t* result,
+                            struct rt_pending* record, uintptr_t* callback, uintptr_t* user_data) {
+    if (record->phase == RT_PHASE_RVZ_START) {
+        rt_fill_memory_runs(record); /* MEM and ZERO runs, zeros in virtual gaps */
+    } else if (*result < 0) {
+        ctx->sd_failures++;
+        st->last_error = RT_RVZ_ERR_SD;
+        record->di_result = RT_DI_ERROR;
+    } else if (record->phase == RT_PHASE_RVZ_ENTRY) {
+        st->entry_sector = st->want_entry_sector;
+    } else if (record->phase == RT_PHASE_RVZ_GROUP) {
+        st->fetch_done += st->fetch_last;
+        if (st->fetch_done < st->fetch_sectors) {
+            if (rt_rvz_fetch_piece(ctx, st, record) > 0) {
+                *callback = 0;
+                return;
+            }
+            record->di_result = RT_DI_ERROR;
+        } else if (rt_rvz_decode(st) < 0) {
+            record->di_result = RT_DI_ERROR;
+        }
+    } else if (record->phase == RT_PHASE_SD) {
+        /* A chunk of one of the table's SD or USB runs (a mod's file). */
+        const rt_run* run = &record->runs[record->run_index];
+        uint8_t* dst = rt_run_destination(record, run) + record->run_done;
+        rt_copy(dst, (const uint8_t*)(uintptr_t)record->bounce + record->chunk_skip, record->chunk_bytes);
+        rt_flush_range((uintptr_t)dst, record->chunk_bytes);
+        record->run_done += record->chunk_bytes;
+    }
+
+    while (record->di_result == RT_DI_SUCCESS) {
+        const rt_run* run;
+        int issued = 0;
+        if (record->run_index >= record->run_count) {
+            const int next = rt_next_window(ctx, record);
+            if (next == 0) break;
+            if (next < 0) {
+                record->di_result = RT_DI_ERROR;
+                break;
+            }
+            continue;
+        }
+        run = &record->runs[record->run_index];
+        if (run->kind == RT_KIND_SD || run->kind == RT_KIND_USB) {
+            issued = rt_issue_sd_chunk(ctx, record);
+        } else if (run->kind == RT_KIND_DISC || (run->kind == RT_KIND_PASSTHROUGH && !record->is_virtual)) {
+            issued = rt_rvz_serve_run(ctx, st, record);
+        }
+        if (issued > 0) {
+            *callback = 0;
+            return;
+        }
+        if (issued < 0) {
+            record->di_result = RT_DI_ERROR;
+            break;
+        }
+        record->run_index++;
+        record->run_done = 0;
+    }
+
+    *result = (int32_t)record->di_result;
+    *callback = (uintptr_t)record->callback;
+    *user_data = (uintptr_t)record->user_data;
+    if (record->di_result != RT_DI_SUCCESS) st->failures++;
+    st->reads++;
+    if (ctx->flags & RT_FLAG_GECKO) {
+        /* "Z<word offset>:<length>:<result>:<groups loaded>\n" */
+        const uint32_t msr = rt_interrupts_off();
+        rt_gecko_putc(ctx, 'Z');
+        rt_gecko_hex(ctx, record->word_offset);
+        rt_gecko_putc(ctx, ':');
+        rt_gecko_hex(ctx, record->length);
+        rt_gecko_putc(ctx, ':');
+        rt_gecko_hex(ctx, record->di_result == RT_DI_SUCCESS ? 0u : st->last_error);
+        rt_gecko_putc(ctx, ':');
+        rt_gecko_hex(ctx, st->groups_loaded);
+        rt_gecko_putc(ctx, '\n');
+        rt_interrupts_restore(msr);
+    }
+    record->in_use = 0;
+    st->busy = 0;
+}
+#endif
+
 /* The game's read issued again as it asked, into its own buffer. */
 static int rt_reissue_game_read(struct rt_context* ctx, struct rt_pending* record) {
     uint32_t i;
@@ -2277,6 +2715,15 @@ void rt_on_di_complete(struct rt_context* ctx, int32_t* result, struct rt_pendin
                        uintptr_t* user_data) {
     uint32_t slot;
     ctx->completions++;
+#ifdef RT_RVZ
+    {
+        struct rt_rvz_state* st = rt_rvz_of(ctx);
+        if (st != 0) {
+            rt_rvz_complete(ctx, st, result, record, callback, user_data);
+            return;
+        }
+    }
+#endif
     slot = (uint32_t)(record - ctx->pending);
     if (slot >= RT_MAX_PENDING) slot = 0;
     if (record->phase == RT_PHASE_DISC) {
