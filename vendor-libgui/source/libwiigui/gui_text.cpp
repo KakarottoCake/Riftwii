@@ -35,6 +35,7 @@ GuiText::GuiText(const char * t, int s, GXColor c)
 	style = FTGX_JUSTIFY_CENTER | FTGX_ALIGN_MIDDLE;
 	maxWidth = 0;
 	wrap = false;
+	maxLines = 0;
 	textDynNum = 0;
 	textScroll = SCROLL::NONE;
 	textScrollPos = 0;
@@ -67,6 +68,7 @@ GuiText::GuiText(const char * t)
 	style = presetStyle;
 	maxWidth = presetMaxWidth;
 	wrap = false;
+	maxLines = 0;
 	textDynNum = 0;
 	textScroll = SCROLL::NONE;
 	textScrollPos = 0;
@@ -211,10 +213,11 @@ int GuiText::GetTextWidth()
 	return fontSystem[size]->getWidth(text);
 }
 
-void GuiText::SetWrap(bool w, int width)
+void GuiText::SetWrap(bool w, int width, int lines)
 {
 	wrap = w;
 	maxWidth = width;
+	maxLines = lines;
 
 	for(int i=0; i < textDynNum; i++)
 	{
@@ -406,18 +409,36 @@ void GuiText::Draw()
 				++n;
 			}
 			textDynNum = linenum;
+			// RiftWii: past maxLines the last line shown ends in "...".
+			// Every line stays allocated (and is freed) as before.
+			if(maxLines > 0 && textDynNum > maxLines)
+			{
+				wchar_t *last = textDyn[maxLines-1];
+				size_t len = wcslen(last);
+				wchar_t *cut = new wchar_t[len + 4];
+				wcscpy(cut, last);
+				wcscat(cut, L"...");
+				while(len > 0 && fontSystem[currentSize]->getWidth(cut) > maxWidth)
+				{
+					cut[--len] = 0;
+					wcscat(cut, L"...");
+				}
+				delete[] last;
+				textDyn[maxLines-1] = cut;
+			}
 		}
 
+		const int shown = (maxLines > 0 && textDynNum > maxLines) ? maxLines : textDynNum;
 		int lineheight = newSize + 6;
 		int voffset = 0;
 
 		if(alignmentVert == ALIGN_V::MIDDLE)
-			voffset = (lineheight >> 1) * (1-textDynNum);
+			voffset = (lineheight >> 1) * (1-shown);
 
 		int left = this->GetLeft();
 		int top  = this->GetTop() + voffset;
 
-		for(int i=0; i < textDynNum; ++i)
+		for(int i=0; i < shown; ++i)
 			fontSystem[currentSize]->drawText(left, top+i*lineheight, textDyn[i], c, style);
 	}
 	else
