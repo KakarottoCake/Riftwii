@@ -41,7 +41,6 @@
  * file are fetched the same way with a DVDLowRead on the game's /dev/di
  * fd through the unhooked IOS_IoctlAsync entry (the replay slot), 32-byte
  * aligned into the bounce buffer.
- *
  */
 
 #include <stdint.h>
@@ -78,14 +77,6 @@ extern "C" {
 #define RT_MAX_RUNS 8u    /* pieces of a read held at a time; longer reads are served in windows */
 #define RT_GECKO_MAX_FAILURES 32u /* refused bytes after which Gecko reporting turns itself off */
 #define RT_BOUNCE_BYTES 0x4000u   /* bytes one SD request fetches (32 sectors), per pending record */
-#define RT_READ_RETRIES 3u        /* a failed SD, USB or disc request is issued again this often */
-#define RT_NOTE_BYTES 512u        /* the crash note: one sector of sd:/riftwii/lastgame.txt */
-
-/* rt_context.note_state */
-#define RT_NOTE_NONE 0u     /* nothing written: no read has failed */
-#define RT_NOTE_WRITING 1u  /* the note's write is in flight */
-#define RT_NOTE_WRITTEN 2u
-#define RT_NOTE_FAILED 3u   /* the card refused it */
 
 /* rt_pending.phase */
 #define RT_PHASE_DISC 0u     /* waiting for the disc reply */
@@ -292,9 +283,6 @@ typedef void (*rt_game_callback_fn)(int32_t result, uint32_t user_data);
 #define RT_SDHC_READ 2u
 #define RT_SDHC_WRITE 3u
 #define RT_SDHC_ISINSERTED 4u
-/* d2x's USB device, /dev/usb2 (d2x-cios ehci-module and usb-module): the
- * same request as RT_SDHC_READ (sector and count in, the data out). */
-#define RT_UMS_READ_SECTORS 0x554D5303u
 
 struct rt_fs_pend {
     uint32_t in_use;
@@ -415,7 +403,6 @@ struct rt_fs_state {
     char copy_paths[2u * RTFS_PATH_BYTES] __attribute__((aligned(32)));
 };
 
-
 /* At most 2048 bytes, the slot rt_entry.S reserves. */
 struct rt_context {
     uint32_t magic;               /* RT_CONTEXT_MAGIC (non-zero so the struct lives in .data) */
@@ -455,23 +442,9 @@ struct rt_context {
     /* Savegame FS interception (loader-filled). */
     uint32_t fs_state;            /* struct rt_fs_state*, 0 = none */
     uint32_t fs_hijacked;         /* synchronous FS calls answered from the card image */
+    uint32_t reserved;
     struct rt_pending pending[RT_MAX_PENDING];
-    /* Retries and the crash note. When a read has to fail, the runtime
-     * writes what went wrong over the one sector of a card file the loader
-     * prepared (note_text holds the loader's first line, note_header
-     * bytes long); the menu reports it at its next start. */
-    uint32_t read_retries;        /* failed requests issued again */
-    uint32_t retry[RT_MAX_PENDING]; /* per record: retries of the request in flight */
-    uint32_t note_sector;         /* the note's card sector, 0 = no note (loader-filled) */
-    uint32_t note_header;         /* bytes of note_text the loader filled (loader-filled) */
-    uint32_t note_state;          /* RT_NOTE_*; its address is the note write's IPC tag */
-    struct rt_sdio_request note_request __attribute__((aligned(32)));
-    uint32_t note_response[8] __attribute__((aligned(32)));
-    struct rt_ioctlv note_vec[4] __attribute__((aligned(32)));
-    char note_text[RT_NOTE_BYTES] __attribute__((aligned(32)));
 };
-
-typedef char rt_context_layout[(sizeof(struct rt_context) <= 2048u) ? 1 : -1];
 
 /*
  * Called by the trampoline with the eight IOS_IoctlAsync arguments

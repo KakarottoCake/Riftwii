@@ -129,10 +129,8 @@ and a missing folder is logged with what the nearest existing folder
 holds.
 
 If a game stops with its own disc error ("An error has occurred") while
-it loads, a read RiftWii serves has failed even after being retried.
-RiftWii writes what went wrong to `sd:/riftwii/lastgame.txt` at that
-moment, and the next `session.log` repeats it: please send that file
-with your report.
+it loads, check `sd:/riftwii/boot.log` and `sd:/riftwii/session.log` for
+the last recorded step and include them with your report.
 
 ## For developers
 

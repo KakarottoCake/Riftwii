@@ -58,9 +58,6 @@ struct ResidentOptions {
     // E5: first word offset of the virtual window, 0 = none. Reads at or
     // above it never reach the drive with their offset.
     std::uint32_t virtual_start_words = 0;
-    // One card sector for the post-crash diagnostic note; zero disables it.
-    std::uint32_t note_sector = 0;
-    std::string note_header;
     // The lowest MEM1 address the code may take: above this loader and the
     // apploader image, which the game reclaims only after it starts.
     std::uint32_t mem1_floor = 0;
