@@ -27,7 +27,8 @@ struct PackFile {
     std::string path;  // "sd:/riivolution/mod.xml", "sd:/riftwii/riifs/…/riivolution/mod.xml"
 };
 // Every pack XML: sd:/riivolution and sd:/apps/riivolution first, then
-// each server's cached lists (the same two folders).
+// usb:/riivolution and usb:/apps/riivolution (" @ USB"), then each
+// server's cached lists (the same two folders).
 std::vector<PackFile> ListPackFiles(std::size_t limit, bool& limited);
 
 // The folder a pack XML's paths start from, as the pack sees it:

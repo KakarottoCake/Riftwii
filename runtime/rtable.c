@@ -36,6 +36,7 @@ static int rt_entry_ok(const rt_entry* e) {
     case RT_KIND_DISC:
         return e->skip == 0;
     case RT_KIND_SD:
+    case RT_KIND_USB:
         return e->skip < RT_SECTOR_BYTES;
     default:
         return 0;
@@ -119,7 +120,8 @@ int rt_lookup(const rt_header* table, uint64_t offset, uint64_t length,
             case RT_KIND_DISC:
                 source = e->source + delta;
                 break;
-            case RT_KIND_SD: {
+            case RT_KIND_SD:
+            case RT_KIND_USB: {
                 uint64_t byte_in_sectors = e->skip + delta;
                 source = e->source + byte_in_sectors / RT_SECTOR_BYTES;
                 skip = (uint32_t)(byte_in_sectors % RT_SECTOR_BYTES);

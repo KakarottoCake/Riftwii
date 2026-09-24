@@ -9,6 +9,7 @@
 #include <map>
 #include <memory>
 #include <set>
+#include <sstream>
 
 #include "di.hpp"
 #include "log.hpp"
@@ -24,6 +25,7 @@
 #include "riftwii/redirect.hpp"
 #include "riftwii/source.hpp"
 #include "sdfile.hpp"
+#include "umsdev.hpp"
 
 namespace riftwii::wii {
 namespace {
@@ -45,19 +47,26 @@ private:
     std::uint64_t size_;
 };
 
-// An SD file as a ByteSource: read raw through the sectors its lookup
-// found, the same ones the redirect table will point at.
+// An SD (or USB) file as a ByteSource: read raw through the sectors its
+// lookup found, the same ones the redirect table will point at.
 class SdFileSource final : public ByteSource {
 public:
-    explicit SdFileSource(const Fat32File& file) : file_(file) {}
+    SdFileSource(const Fat32File& file, const Fat32Volume* usb) : file_(file), usb_(usb) {}
     std::uint64_t size() const override { return file_.entry.size; }
     bool read(std::uint64_t offset, std::uint8_t* destination, std::size_t length) const override {
+        if (usb_) return usb_->read(file_, offset, destination, length);
         return read_sd_file(file_, offset, destination, length);
     }
 
 private:
     const Fat32File& file_;  // owned by the provider's map, which outlives the sources
+    const Fat32Volume* usb_;  // the USB drive's volume, or null for the card
 };
+
+// A pack on the USB drive names its files with this in front
+// ("usb:/riivolution/..."); every other external is on the SD card.
+constexpr char kUsbPrefix[] = "usb:";
+bool OnUsb(const std::string& external) { return external.compare(0, 4, kUsbPrefix) == 0; }
 
 // The disc path the compile gives the game's executable, which the FST
 // does not list (absolute, as patches need; no FST name holds '<').
@@ -98,32 +107,48 @@ public:
 
     OpenStatus open_external(const std::string& sd_path, std::unique_ptr<ByteSource>& out,
                              std::string& error) override {
-        std::string abs = sd_path;
+        const bool usb = OnUsb(sd_path);
+        std::string abs = usb ? sd_path.substr(4) : sd_path;
         if (abs.empty() || abs[0] != '/') abs = "/" + abs;
-        const std::string key = "sd:" + abs;
+        const std::string key = (usb ? "usb:" : "sd:") + abs;
+        const Fat32Volume* volume = nullptr;
+        if (usb && !ums::Volume(volume, error)) {
+            error = "external file '" + sd_path + "': " + error;
+            return OpenStatus::IoError;
+        }
         auto found = files_.find(key);
         if (found == files_.end()) {
             Fat32File file;
             bool missing = false;
-            if (!resolve_sd_file(key, file, missing, error)) {
+            const bool ok = usb ? volume->lookup(abs, file, missing, error) : resolve_sd_file(key, file, missing, error);
+            if (ok && file.entry.is_directory) {
+                error = "'" + key + "' is a directory";
+                return OpenStatus::Invalid;
+            }
+            if (!ok) {
                 const OpenStatus status = missing ? OpenStatus::NotFound : OpenStatus::IoError;
                 error = "external file '" + sd_path + "' " + to_string(status) + ": " + error;
                 return status;
             }
             found = files_.emplace(key, std::move(file)).first;
         }
-        auto source = std::make_unique<SdFileSource>(found->second);
-        sources_[source.get()] = &found->second;
+        auto source = std::make_unique<SdFileSource>(found->second, volume);
+        sources_[source.get()] = Placed{&found->second, usb};
         out = std::move(source);
         return OpenStatus::Ok;
     }
 
     OpenStatus list_external(const std::string& sd_dir, std::vector<ExternalEntry>& out, std::string& error) override {
-        std::string abs = sd_dir;
+        const bool usb = OnUsb(sd_dir);
+        std::string abs = usb ? sd_dir.substr(4) : sd_dir;
         if (abs.empty() || abs[0] != '/') abs = "/" + abs;
         std::vector<Fat32Entry> entries;
         bool missing = false;
-        if (!list_sd_directory("sd:" + abs, entries, missing, error)) {
+        if (usb) {
+            const Fat32Volume* volume = nullptr;
+            if (!ums::Volume(volume, error)) return OpenStatus::IoError;
+            if (!volume->list(abs, entries, missing, error)) return missing ? OpenStatus::NotFound : OpenStatus::IoError;
+        } else if (!list_sd_directory("sd:" + abs, entries, missing, error)) {
             return missing ? OpenStatus::NotFound : OpenStatus::IoError;
         }
         out.clear();
@@ -137,14 +162,16 @@ public:
         return OpenStatus::Ok;
     }
 
-    // The sectors of an external source, from its lookup.
-    bool fragments_of(const ByteSource* source, const std::vector<Fragment>*& out, std::string& error) {
+    // The sectors of an external source, from its lookup, and whether
+    // they are the USB drive's.
+    bool fragments_of(const ByteSource* source, const std::vector<Fragment>*& out, bool& usb, std::string& error) {
         const auto found = sources_.find(source);
         if (found == sources_.end()) {
             error = "placer: unknown external source";
             return false;
         }
-        out = &found->second->fragments;
+        out = &found->second.file->fragments;
+        usb = found->second.usb;
         return true;
     }
 
@@ -152,13 +179,18 @@ private:
     const Fst& fst_;
     std::uint64_t dol_offset_ = 0;
     std::uint64_t dol_size_ = 0;
+    struct Placed {
+        const Fat32File* file = nullptr;
+        bool usb = false;
+    };
     std::map<std::string, Fat32File> files_;  // node-based: the sources keep references
-    std::map<const ByteSource*, const Fat32File*> sources_;
+    std::map<const ByteSource*, Placed> sources_;
 };
 
 // "sd:/projectm/pf holds: menu2, sound, system": the deepest folder of
 // `sd_path` that exists and its first names. Empty when nothing is found.
 std::string nearest_on_card(const std::string& sd_path) {
+    if (OnUsb(sd_path)) return "";  // the card's folders only
     std::string dir = sd_path;
     if (dir.empty() || dir[0] != '/') dir = "/" + dir;
     while (dir.size() > 1 && dir.back() == '/') dir.pop_back();
@@ -249,13 +281,27 @@ static bool gather_package(const PackageSelection& selection, const DiscProbe& p
                            WiiProvider& provider, std::vector<FilePatch>& files, std::vector<ShiftPatch>& shifts,
                            CompiledMod& mod, std::string& error) {
     const std::string& xml_sd_path = selection.xml_sd_path;
-    std::ifstream xml(xml_sd_path, std::ios::binary);
-    if (!xml) {
-        error = "cannot open " + xml_sd_path;
-        return false;
+    // A pack on the USB drive is read through d2x (libogc's driver is
+    // gone by now), and so are its files.
+    const bool on_usb = OnUsb(xml_sd_path);
+    std::string text;
+    if (on_usb) {
+        if (!ums::ReadText(xml_sd_path, text, error)) {
+            error = xml_sd_path + ": " + error;
+            return false;
+        }
+    } else {
+        std::ifstream xml(xml_sd_path, std::ios::binary);
+        if (!xml) {
+            error = "cannot open " + xml_sd_path;
+            return false;
+        }
+        std::stringstream all;
+        all << xml.rdbuf();
+        text = all.str();
     }
     Package package;
-    if (!read_package(xml, package, error, PackFolderOf(xml_sd_path))) return false;
+    if (!parse_package(text, package, error, PackFolderOf(xml_sd_path))) return false;
     mod.warnings.insert(mod.warnings.end(), package.warnings.begin(), package.warnings.end());
     for (const auto& c : selection.choices) {
         if (!select_choice(package, c.first, c.second, error)) {
@@ -274,6 +320,15 @@ static bool gather_package(const PackageSelection& selection, const DiscProbe& p
     // A network pack's files are in its cache folder, as on the PC.
     const std::string net_root = NetworkRootOf(xml_sd_path);
     if (!net_root.empty()) RebasePlan(plan, net_root);
+    if (on_usb) {
+        // Its files are on the drive; a save folder stays on the card.
+        const auto to_usb = [](std::string& path) {
+            if (!path.empty()) path = std::string(kUsbPrefix) + (path[0] == '/' ? "" : "/") + path;
+        };
+        for (FilePatch& f : plan.files) to_usb(f.external);
+        for (FolderPatch& f : plan.folders) to_usb(f.external);
+        for (MemoryPatch& m : plan.memory) to_usb(m.valuefile);
+    }
 
     // <savegame>: one folder per launch; a second, different one is an
     // error rather than a silent choice. `clone` (the default) copies the
@@ -584,8 +639,9 @@ bool compile_packages(const std::vector<PackageSelection>& packages, const DiscP
     const ExternalPlacer placer = [&](const ByteSource* external, std::uint64_t source_offset, std::uint64_t length,
                                       std::vector<PlacedRun>& runs, std::string& e) {
         const std::vector<Fragment>* fragments = nullptr;
-        if (!provider.fragments_of(external, fragments, e)) return false;
-        return place_on_fragments(*fragments, source_offset, length, runs, e);
+        bool usb = false;
+        if (!provider.fragments_of(external, fragments, usb, e)) return false;
+        return place_on_fragments(*fragments, source_offset, length, runs, e, usb ? RT_KIND_USB : RT_KIND_SD);
     };
     std::vector<std::uint8_t> table;
     if (!build_redirect_table(layouts, placer, 0xFFFFFFFFu, static_cast<std::uint64_t>(probe.partition.offset), table,

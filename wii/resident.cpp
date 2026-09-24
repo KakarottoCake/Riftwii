@@ -166,6 +166,12 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
         error = "SD-backed replacements need an open SD card";
         return false;
     }
+    const bool has_usb = options.pieces.needs_usb();
+    if (has_usb && (symbols.ioctlv_async == 0 || options.usb_fd < 0)) {
+        error = symbols.ioctlv_async == 0 ? "files on the USB drive need the game's IOS_IoctlvAsync, which was not found"
+                                          : "files on the USB drive need d2x's USB device open";
+        return false;
+    }
     bool has_fs = options.savegame.enabled;
     bool file_device = options.savegame.file_device;
     if (file_device && !has_fs) {
@@ -236,10 +242,10 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
     }
     std::vector<std::uint8_t> payload;
     if (has_table && !build_payload(pieces, 0, options.table_tag, sdio_fd, payload, error)) return false;
-    // Bounce buffers whenever a run may be fetched (SD or DISC): anything
-    // beyond plain MEM replacements.
+    // Bounce buffers whenever a run may be fetched (SD, USB or DISC):
+    // anything beyond plain MEM replacements.
     const bool has_disc = !options.pieces.disc.empty() || !options.pieces.entries.empty();
-    const std::uint32_t bounce_bytes = has_sd || has_disc ? RT_MAX_PENDING * RT_BOUNCE_BYTES : 0;
+    const std::uint32_t bounce_bytes = has_sd || has_usb || has_disc ? RT_MAX_PENDING * RT_BOUNCE_BYTES : 0;
     const std::uint32_t arena1_hi = game_arena1_hi();
     const std::uint32_t arena2_lo = read32(kMem2ArenaLoField);
     const std::uint32_t arena2_end = read32(kMem2ArenaEndField);
@@ -273,6 +279,7 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
     ctx->virtual_start_words = payload.empty() ? 0 : options.virtual_start_words;
     ctx->sdio_fd = sdio_fd;
     ctx->sdio_sdhc = options.sdio_d2x ? RT_SD_D2X : options.sdio_sdhc ? 1 : 0;
+    ctx->usb_fd = options.usb_fd < 0 ? 0xFFFFFFFFu : static_cast<std::uint32_t>(options.usb_fd);
     // What the runtime calls when it needs an SDK function itself: the
     // replay slot of a hooked one (its displaced words, then the jump
     // back), the function itself when it is not hooked, 0 when absent.
@@ -383,6 +390,9 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
     if (has_sd) {
         logf("Resident: SD fd %d (%s), bounce buffers at 0x%08x, IOS_IoctlvAsync at 0x%08x\n", options.sdio_fd,
              options.sdio_sdhc ? "SDHC" : "SDSC", bounce_address, symbols.ioctlv_async);
+    }
+    if (has_usb) {
+        logf("Resident: USB fd %d (d2x's /dev/usb2), bounce buffers at 0x%08x\n", options.usb_fd, bounce_address);
     }
     if (file_device) {
         logf("Resident: Riivolution's \"file\" device served from the card's root (cluster %u)%s\n",

@@ -35,6 +35,7 @@ std::unique_ptr<ImageVolume> g_usb_volume;
 std::unique_ptr<ImageVolume> g_sd_volume;
 bool g_raw_mounted = false;
 bool g_libfat_mounted = false;
+bool g_usb_started = false;  // libogc's USB storage driver runs
 bool g_sd_back = false;  // SD remounted (and the log reopened) after an IOS reload
 constexpr std::size_t kMaxGames = 4000, kMaxPath = 240;
 constexpr u8 kUsbClassMassStorage = 0x08;
@@ -72,6 +73,7 @@ bool ensure_usb(std::string& error) {
     }
     logf("USB: starting storage\n");
     if (!__io_usbstorage.startup()) { error = "USB storage did not start (use a powered USB drive)"; return false; }
+    g_usb_started = true;
     logf("USB: checking for a device\n");
     if (!__io_usbstorage.isInserted()) { error = "no USB mass-storage device is inserted"; return false; }
     // libfat's mount path performs the interface setup that populates the
@@ -412,6 +414,11 @@ bool scan_sd_games(ImageCatalog& out, std::string& error) {
     error.clear(); return true;
 }
 void unmount_usb_games() { if (g_libfat_mounted) fatUnmount("usb:"); g_libfat_mounted=false; g_raw_mounted=false; g_usb_volume.reset(); }
+void release_usb_driver() {
+    unmount_usb_games();
+    if (g_usb_started) __io_usbstorage.shutdown();
+    g_usb_started = false;
+}
 
 std::string GameDisplayName(const std::string& id, const std::string& internal) {
     return display_title(titles(), id, std::string(), internal);
@@ -461,8 +468,7 @@ bool activate_image_game(const ImageGame& game, int cios_slot, void*& storage, s
     fatUnmount("sd:");
     __io_wiisd.shutdown();
     g_sd_back = false;
-    unmount_usb_games();
-    if (game.device == ImageDevice::Usb) __io_usbstorage.shutdown();
+    release_usb_driver();
     di::close();
     const PadPairings pads_before = ReadPadPairings();
     const ReloadResult r=reload_ios(cios_slot,error,true);

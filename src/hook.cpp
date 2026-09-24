@@ -231,13 +231,26 @@ bool plan_resident_placement(std::uint32_t arena1_hi, std::uint32_t mem1_floor, 
     return true;
 }
 
-bool PayloadPieces::needs_sd() const {
-    if (!sd.empty()) return true;
-    for (const rt_entry& e : entries) {
-        if (e.kind == RT_KIND_SD) return true;
+namespace {
+
+// Whether any run or ready-made entry reads sectors of this kind.
+bool NeedsKind(const PayloadPieces& p, std::uint32_t kind) {
+    for (const SdReplacement& r : p.sd) {
+        for (const PlacedRun& run : r.runs) {
+            if (run.kind == kind) return true;
+        }
+    }
+    for (const rt_entry& e : p.entries) {
+        if (e.kind == kind) return true;
     }
     return false;
 }
+
+}  // namespace
+
+bool PayloadPieces::needs_sd() const { return NeedsKind(*this, RT_KIND_SD); }
+
+bool PayloadPieces::needs_usb() const { return NeedsKind(*this, RT_KIND_USB); }
 
 bool build_payload(const PayloadPieces& pieces_in, std::uint32_t payload_address, std::uint64_t tag,
                    std::uint32_t sdio_fd, std::vector<std::uint8_t>& payload, std::string& error) {
@@ -289,7 +302,7 @@ bool build_payload(const PayloadPieces& pieces_in, std::uint32_t payload_address
             return false;
         }
         for (const PlacedRun& run : r.runs) {
-            if (run.kind != RT_KIND_SD || run.length == 0 || run.length > 0xFFFFFFFFull ||
+            if ((run.kind != RT_KIND_SD && run.kind != RT_KIND_USB) || run.length == 0 || run.length > 0xFFFFFFFFull ||
                 run.skip >= RT_SECTOR_BYTES) {
                 error = "an SD replacement run is malformed";
                 return false;
@@ -299,7 +312,7 @@ bool build_payload(const PayloadPieces& pieces_in, std::uint32_t payload_address
             p.entry.length = static_cast<std::uint32_t>(run.length);
             p.entry.source = run.source;
             p.entry.skip = static_cast<std::uint16_t>(run.skip);
-            p.entry.kind = RT_KIND_SD;
+            p.entry.kind = run.kind;
             p.entry.reserved = 0;
             pieces.push_back(p);
             at += run.length;
@@ -324,8 +337,8 @@ bool build_payload(const PayloadPieces& pieces_in, std::uint32_t payload_address
         pieces.push_back(p);
     }
     for (const rt_entry& e : pieces_in.entries) {
-        if (e.kind != RT_KIND_SD && e.kind != RT_KIND_DISC && e.kind != RT_KIND_ZERO) {
-            error = "a ready-made table entry is not SD, DISC or ZERO";
+        if (e.kind != RT_KIND_SD && e.kind != RT_KIND_USB && e.kind != RT_KIND_DISC && e.kind != RT_KIND_ZERO) {
+            error = "a ready-made table entry is not SD, USB, DISC or ZERO";
             return false;
         }
         if (e.length == 0) {

@@ -30,7 +30,8 @@ enum rt_kind {
     RT_KIND_ZERO = 1,        /* bytes read as zero */
     RT_KIND_MEM = 2,         /* bytes live in memory at `source` */
     RT_KIND_SD = 3,          /* bytes live on the SD card: sector `source`, byte `skip` */
-    RT_KIND_DISC = 4         /* bytes live on the real disc at byte offset `source` */
+    RT_KIND_DISC = 4,        /* bytes live on the real disc at byte offset `source` */
+    RT_KIND_USB = 5          /* bytes live on the USB drive (d2x's /dev/usb2): sector `source`, byte `skip` */
 };
 
 /* 24 bytes: the table lives in the game's MEM2 arena, one entry per
@@ -41,7 +42,7 @@ typedef struct rt_entry {
     uint64_t vstart;   /* first virtual byte covered */
     uint64_t source;   /* see rt_kind; zero for RT_KIND_ZERO */
     uint32_t length;   /* bytes covered; never zero */
-    uint16_t skip;     /* RT_KIND_SD: byte offset inside sector `source`; else zero */
+    uint16_t skip;     /* RT_KIND_SD, RT_KIND_USB: byte offset inside sector `source`; else zero */
     uint8_t kind;      /* one of rt_kind, never PASSTHROUGH */
     uint8_t reserved;  /* zero */
 } rt_entry;

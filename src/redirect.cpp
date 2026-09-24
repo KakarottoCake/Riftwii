@@ -10,7 +10,8 @@ namespace {
 
 std::uint64_t linear_source(const rt_entry& e) {
     switch (e.kind) {
-    case RT_KIND_SD: return e.source * RT_SECTOR_BYTES + e.skip;
+    case RT_KIND_SD:
+    case RT_KIND_USB: return e.source * RT_SECTOR_BYTES + e.skip;
     case RT_KIND_MEM:
     case RT_KIND_DISC: return e.source;
     default: return 0;
@@ -42,7 +43,7 @@ bool push_entry(std::vector<rt_entry>& entries, std::uint64_t vstart, std::uint6
 }  // namespace
 
 bool place_on_fragments(const std::vector<Fragment>& fragments, std::uint64_t file_offset,
-                        std::uint64_t length, std::vector<PlacedRun>& out, std::string& error) {
+                        std::uint64_t length, std::vector<PlacedRun>& out, std::string& error, std::uint32_t kind) {
     std::vector<PlacedRun> runs;
     std::uint64_t frag_start = 0;  // file offset where the current fragment begins
     std::uint64_t remaining = length;
@@ -66,7 +67,7 @@ bool place_on_fragments(const std::vector<Fragment>& fragments, std::uint64_t fi
             const std::uint64_t within = cursor - frag_start;
             const std::uint64_t take = std::min(remaining, frag_end - cursor);
             PlacedRun r;
-            r.kind = RT_KIND_SD;
+            r.kind = kind;
             r.length = take;
             r.source = f.sector + within / RT_SECTOR_BYTES;
             r.skip = static_cast<std::uint32_t>(within % RT_SECTOR_BYTES);
@@ -123,11 +124,12 @@ bool build_redirect_table(const std::vector<VirtualFileLayout>& files, const Ext
                     }
                     std::uint64_t placed = 0;
                     for (const PlacedRun& r : runs) {
-                        if (r.kind != RT_KIND_MEM && r.kind != RT_KIND_SD) {
+                        const bool sectors = r.kind == RT_KIND_SD || r.kind == RT_KIND_USB;
+                        if (r.kind != RT_KIND_MEM && !sectors) {
                             error = "placement returned an unsupported kind";
                             return false;
                         }
-                        if (r.kind == RT_KIND_SD && r.skip >= RT_SECTOR_BYTES) {
+                        if (sectors && r.skip >= RT_SECTOR_BYTES) {
                             error = "placement returned an SD skip past the sector";
                             return false;
                         }
@@ -136,7 +138,7 @@ bool build_redirect_table(const std::vector<VirtualFileLayout>& files, const Ext
                             return false;
                         }
                         if (!push_entry(entries, vstart + placed, r.length, r.kind, r.source,
-                                        r.kind == RT_KIND_SD ? r.skip : 0, error)) return false;
+                                        sectors ? r.skip : 0, error)) return false;
                         placed += r.length;
                     }
                     if (placed != x.length) {

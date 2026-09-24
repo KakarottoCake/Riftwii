@@ -367,8 +367,8 @@ static void LoadFilter()
 	else if (it->second == "favorites" && !riftwii::wii::Settings().favorites.empty()) g_filter = Filter::Favorites;
 }
 
-// Which games have packs: every XML in sd:/riivolution and in the
-// network packs' cache, by game ID only.
+// Which games have packs: every XML in sd:/riivolution, usb:/riivolution
+// and the network packs' cache, by game ID only.
 static void LoadPackIndex()
 {
 	g_packs = riftwii::PackIndex();
@@ -480,7 +480,6 @@ static void ScanDrives(FrontendState& state, GuiText& status)
 	const bool sd = scan_sd_games(state.sd_catalog, error);
 	const std::string net = riftwii::wii::RefreshNetworkPacks([&](const char* line) { status.SetText(line); });
 	if (!net.empty()) logf("%s\n", net.c_str());
-	LoadPackIndex();
 	HaltGui();
 	if (!sd) {
 		logf("SD scan failed: %s\n", error.c_str());
@@ -499,6 +498,8 @@ static void ScanDrives(FrontendState& state, GuiText& status)
 				{std::to_string(riftwii::wii::MenuCiosSlot())});
 		}
 	}
+	// After the USB scan: packs on the drive count too.
+	LoadPackIndex();
 	// A newer release, at most once a day and only when downloads are on.
 	static bool updateChecked = false;
 	if (!updateChecked && riftwii::wii::Settings().online) {

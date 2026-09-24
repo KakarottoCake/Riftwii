@@ -207,6 +207,13 @@ std::vector<PackFile> ListPackFiles(std::size_t limit, bool& limited) {
             add(name, path, "");
         }
     }
+    // The USB drive's, when the menu has it mounted (FAT32): its files
+    // are read from the drive through d2x while the game runs.
+    for (const char* folder : {"usb:/riivolution", "usb:/apps/riivolution"}) {
+        for (const std::string& name : xml_names(folder, limit - std::min(limit, out.size()), limited)) {
+            add(name, std::string(folder) + "/" + name, " @ USB");
+        }
+    }
     for (const NetServer& server : cached_servers()) {
         for (const char* sub : {"/riivolution", "/apps/riivolution"}) {
             const std::string dir = std::string(kNetCacheDir) + "/" + server.folder() + sub;
@@ -219,7 +226,9 @@ std::vector<PackFile> ListPackFiles(std::size_t limit, bool& limited) {
 }
 
 std::string PackFolderOf(const std::string& xml_sd_path) {
-    std::string path = xml_sd_path.compare(0, 3, "sd:") == 0 ? xml_sd_path.substr(3) : xml_sd_path;
+    std::string path = xml_sd_path.compare(0, 3, "sd:") == 0    ? xml_sd_path.substr(3)
+                       : xml_sd_path.compare(0, 4, "usb:") == 0 ? xml_sd_path.substr(4)
+                                                                 : xml_sd_path;
     const std::string net_root = NetworkRootOf(xml_sd_path);
     if (!net_root.empty() && path.compare(0, net_root.size(), net_root) == 0) path = path.substr(net_root.size());
     const std::size_t slash = path.rfind('/');
