@@ -13,6 +13,8 @@
 #include <cstdio>
 #include <cstring>
 
+#include "netsock.hpp"
+
 extern "C" void udelay(int us);
 
 namespace riftwii::wii {
@@ -84,6 +86,9 @@ ReloadResult reload_ios(int version, std::string& error, bool force) {
         error.clear();
         return ReloadResult::AlreadyRunning;
     }
+    // The network's IOS state dies with the reload; close it first so
+    // nothing of it is left half open (1.0.5 left it up after downloads).
+    NetStop();
     __IOS_ShutdownSubsystems();
     s32 res = __ES_Init();
     if (res < 0) {
