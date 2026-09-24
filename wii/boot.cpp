@@ -28,6 +28,7 @@
 #include "ios_reload.hpp"
 #include "log.hpp"
 #include "riftwii/mempatch.hpp"
+#include "padhook.hpp"
 #include "resident.hpp"
 #include "sdfile.hpp"
 #include "sdio.hpp"
@@ -861,7 +862,8 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
 
     // Read the DOL header before handing the card to the runtime.
     std::uint8_t dol_bytes[kDolHeaderBytes];
-    if (options.install_resident) {
+    const bool gc_adapter = g_extras.gc_adapter != GcAdapterMode::Off;
+    if (options.install_resident || gc_adapter) {
         if (!options.main_dol.empty()) {
             std::memcpy(dol_bytes, options.main_dol.data(), sizeof(dol_bytes));  // the executable that ran
         } else if (!data.read(layout.data_header.dol_offset, dol_bytes, sizeof(dol_bytes))) {
@@ -914,9 +916,16 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
     // E2: the DOL is in place, so the runtime can find and hook the game's
     // IPC entry points before anything runs them.
     ResidentInstall resident;
+    DolHeader dol;
+    if ((options.install_resident || gc_adapter) && !parse_dol_header(dol_bytes, sizeof(dol_bytes), dol, error)) {
+        return false;
+    }
+    // The runtime's code goes above this loader (which ends at arena 1's
+    // top) and the apploader image, both still in use until the game starts.
+    const std::uint32_t mem1_floor =
+        std::max(reinterpret_cast<std::uint32_t>(SYS_GetArena1Hi()),
+                 static_cast<std::uint32_t>(kApploaderLoadAddress + ((app_bytes + 31) & ~31ull)));
     if (options.install_resident) {
-        DolHeader dol;
-        if (!parse_dol_header(dol_bytes, sizeof(dol_bytes), dol, error)) return false;
         ResidentOptions ro;
         ro.gecko = options.resident_gecko;
         ro.pieces = std::move(pieces);
@@ -927,11 +936,21 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         ro.sdio_d2x = card.d2x;
         ro.savegame = savegame;
         ro.savegame.file_device = file_device && card.fd >= 0;
-        // The code goes above this loader (which ends at arena 1's top) and
-        // the apploader image, both still in use until the game starts.
-        ro.mem1_floor = std::max(reinterpret_cast<std::uint32_t>(SYS_GetArena1Hi()),
-                                 static_cast<std::uint32_t>(kApploaderLoadAddress + ((app_bytes + 31) & ~31ull)));
+        ro.mem1_floor = mem1_floor;
         if (!install_resident(dol, ro, resident, error)) return false;
+    }
+    // The GameCube adapter: below the runtime, or on its own.
+    PadHook pad;
+    if (gc_adapter) {
+        std::string why;
+        const std::uint32_t arena1_hi = options.install_resident ? resident.new_arena1_hi : game_arena1_hi();
+        const std::uint32_t arena2_lo = options.install_resident ? resident.new_arena2_lo : read32(0x80003124);
+        if (!plan_pad_hook(dol, arena1_hi, mem1_floor, arena2_lo,
+                           options.install_resident ? resident.ioctl_async_original : 0,
+                           options.install_resident ? resident.ioctlv_async_original : 0, options.memory_patches,
+                           g_extras.gc_adapter == GcAdapterMode::Demo, pad, why)) {
+            logf("GameCube adapter: off: %s\n", why.c_str());
+        }
     }
     logf("Handing over\n");
 
@@ -950,8 +969,10 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
     store32(0x800000FC, 0x2B73A840);            // CPU clock
     // MEM1 arena end (0x34 from the apploader, 0x3110 as the System Menu
     // sets it): the FST, or the runtime's code just below it.
-    const std::uint32_t arena1_end = options.install_resident ? resident.new_arena1_hi : load32(0x80000038);
-    if (options.install_resident) store32(0x80000034, arena1_end);
+    const std::uint32_t arena1_end = pad.active                 ? pad.new_arena1_hi
+                                     : options.install_resident ? resident.new_arena1_hi
+                                                                : load32(0x80000038);
+    if (options.install_resident || pad.active) store32(0x80000034, arena1_end);
     store32(0x80003110, arena1_end);
     std::memcpy(reinterpret_cast<void*>(0x80003180), probe.disc_id, 4);
     store32(0x80003184, 0x80000000);            // where the game id lives
@@ -968,9 +989,11 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         write32(0x80003140, pretended);
         write32(0x80003188, pretended);
     }
-    if (options.install_resident && resident.new_arena2_lo != resident.old_arena2_lo) {
+    if (pad.active) {
         // IOS's own field, like 0x3140: uncached, after the flush. The end
         // (0x3128) is never moved: the top of MEM2 stays the game's.
+        write32(0x80003124, pad.new_arena2_lo);
+    } else if (options.install_resident && resident.new_arena2_lo != resident.old_arena2_lo) {
         write32(0x80003124, resident.new_arena2_lo);
     }
 
@@ -1013,6 +1036,10 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
             const std::uint32_t arena2_end = reinterpret_cast<std::uint32_t>(SYS_GetArena2Hi());
             writable.push_back(MemoryRegion{kMem2Start, arena2_end > kMem2Start ? arena2_end - kMem2Start : 0});
         }
+        if (pad.active) {
+            exclusions.push_back(MemoryRegion{pad.code_base, pad.code_bytes});
+            exclusions.push_back(MemoryRegion{pad.state_base, pad.state_bytes});
+        }
         if (options.install_resident) {
             exclusions.reserve(exclusions.size() + resident.hook_site_count);
             for (unsigned i = 0; i < resident.hook_site_count; ++i) {
@@ -1029,6 +1056,10 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
     if (!g_extras.cheat_gct.empty()) {
         std::string why;
         if (!install_cheats(loaded, options.memory_patches, why)) logf("Cheats are off: %s\n", why.c_str());
+    }
+    if (pad.active) {
+        std::string why;
+        if (!install_pad_hook(pad, why)) logf("GameCube adapter: off: %s\n", why.c_str());
     }
     settime(secs_to_ticks(static_cast<u64>(std::time(nullptr)) - kWiiEpochOffset));
 
@@ -1149,6 +1180,13 @@ bool boot_game(const DiscProbe& probe, const BootOptions& options, std::string& 
         // memory, as the existing USB-image path already does.
         effective.preserve_current_ios = true;
         logf("Keeping IOS%d for resident SD access; reporting IOS%u to the game\n", running_ios, required);
+    }
+    if (!effective.preserve_current_ios && running_ios != static_cast<int>(required) &&
+        g_extras.gc_adapter != GcAdapterMode::Off && usb_hid_present()) {
+        // The adapter needs /dev/usb/hid, which the IOS a game asks for
+        // often lacks (IOS36 has none); the running one has it.
+        effective.preserve_current_ios = true;
+        logf("Keeping IOS%d for the GameCube adapter; reporting IOS%u to the game\n", running_ios, required);
     }
     SavegameOptions savegame;
     if (!effective.savegame_dir.empty() && !prepare_savegame(probe, effective, savegame, error)) return false;

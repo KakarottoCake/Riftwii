@@ -18,6 +18,7 @@ struct LoaderSettings {
     std::string deflicker = "game";
     std::string borders = "keep";         // keep, remove
     bool online = true;                   // download game names and cheats when the Wii is online
+    std::string gc_adapter = "off";       // GameCube controller adapter for Wii U: off, on (demo: Dolphin tests)
     std::map<std::string, std::string> other;
 
     void parse(const std::string& text);

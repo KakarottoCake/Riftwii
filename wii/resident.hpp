@@ -76,6 +76,10 @@ struct ResidentInstall {
     std::uint32_t new_arena2_lo = 0;    // to be written to 0x80003124 after the low-memory flush
     std::uint32_t ioctl_async = 0;    // hooked function
     std::uint32_t ioctlv_async = 0;   // found, not hooked (0 if unknown)
+    // What calls into the game's IOS without passing the runtime: the
+    // replay slot of a hooked function, else the function (0 if absent).
+    std::uint32_t ioctl_async_original = 0;
+    std::uint32_t ioctlv_async_original = 0;
     std::uint32_t table = 0;          // redirect table address, 0 when there are no replacements
     std::uint32_t payload_bytes = 0;
     std::uint32_t bounce_bytes = 0;   // SD bounce buffers after the payload, 0 without SD replacements
@@ -86,6 +90,10 @@ struct ResidentInstall {
     unsigned hook_site_count = 0;
     std::uint32_t fs_state = 0;       // the savegame state block, 0 when not redirected
 };
+
+// The MEM1 arena end the game's OSInit will take (0x34, else the FST
+// address), below the BI2 when the apploader put it there.
+std::uint32_t game_arena1_hi();
 
 // `dol` describes the sections the apploader has already loaded; the text
 // sections are searched in place.
