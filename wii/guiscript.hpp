@@ -9,9 +9,6 @@
 //   point <x> <y>        aim the pointer there (stays until nopoint)
 //   nopoint              take the pointer away (the D-pad focus shows)
 //   press <button>       one press: A B PLUS MINUS 1 2 HOME UP DOWN LEFT RIGHT
-//   hold <button>        press and keep holding it (until release)
-//   release              let go of held buttons
-//   glide <x> <y> <n>    move the pointer there over n frames (a drag, with hold)
 //   shot <path>          save the screen as a 24-bit BMP (sd:/...)
 //   finalshot <path>     save the launch screen once the menu has left
 //                        (on a dump, which press 2 on the game page starts)

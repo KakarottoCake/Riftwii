@@ -195,10 +195,6 @@ int Menu_XfbHeight()
 {
 	return vmode ? vmode->xfbHeight : 480;
 }
-int Menu_EfbHeight()
-{
-	return vmode ? vmode->efbHeight : 480;
-}
 
 /****************************************************************************
  * Menu_Render

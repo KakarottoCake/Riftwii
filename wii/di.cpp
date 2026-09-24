@@ -202,18 +202,6 @@ bool read_unencrypted(void* buffer32, std::uint32_t length, std::uint32_t word_o
     return read_command(kReadUnencrypted, "unencrypted read", buffer32, length, word_offset, error);
 }
 
-namespace {
-PartitionResolver g_resolver;
-const ByteSource* g_partition_data = nullptr;
-}
-
-void set_partition_resolver(PartitionResolver resolve) {
-    g_resolver = std::move(resolve);
-    g_partition_data = nullptr;
-}
-
-bool has_partition_resolver() { return static_cast<bool>(g_resolver); }
-
 bool open_partition(std::uint32_t word_offset, std::uint8_t* tmd_out32, std::size_t tmd_capacity,
                     std::int32_t& es_result, std::string& error) {
     if (g_fd < 0) {
@@ -245,27 +233,16 @@ bool open_partition(std::uint32_t word_offset, std::uint8_t* tmd_out32, std::siz
         error = describe("open partition", g_last_reply) + " (ES " + std::to_string(es_result) + ")";
         return false;
     }
-    g_partition_data = g_resolver ? g_resolver(std::uint64_t(word_offset) << 2) : nullptr;
     error.clear();
     return true;
 }
 
 bool close_partition(std::string& error) {
-    g_partition_data = nullptr;
     std::memset(g_in, 0, sizeof(g_in));
     return command(kClosePartition, "close partition", nullptr, 0, kReplySuccess, error);
 }
 
 bool read(void* buffer32, std::uint32_t length, std::uint32_t word_offset, std::string& error) {
-    if (g_partition_data != nullptr) {
-        if (!g_partition_data->read(std::uint64_t(word_offset) << 2, static_cast<std::uint8_t*>(buffer32), length)) {
-            error = "partition read of " + std::to_string(length) + " bytes at word " + std::to_string(word_offset) +
-                    " from the RVZ failed";
-            return false;
-        }
-        error.clear();
-        return true;
-    }
     return read_command(kRead, "partition read", buffer32, length, word_offset, error);
 }
 

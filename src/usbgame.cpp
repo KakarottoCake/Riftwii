@@ -318,31 +318,6 @@ bool build_usb_fragments(const UsbImage& image, D2xFragmentList& out, std::strin
     out.maxnum = kD2xFragmentLimit; out.entries = std::move(checked); error.clear(); return true;
 }
 
-bool build_sparse_fragments(const UsbImage& file, const std::vector<DiscRange>& ranges, std::uint64_t disc_bytes,
-                            D2xFragmentList& out, std::string& error) {
-    if (file.pieces.size() != 1) { error = "a sparse disc is made from exactly one file"; return false; }
-    const std::uint64_t sectors = (disc_bytes > kSingleLayerBytes ? kWiiDiscBytes : kSingleLayerBytes) / kUsbSectorBytes;
-    if (disc_bytes > kWiiDiscBytes) { error = "the disc is larger than a dual-layer Wii disc"; return false; }
-    std::vector<D2xFragment> raw, checked;
-    for (const DiscRange& r : ranges) {
-        if ((r.disc_offset | r.file_offset | r.length) % kUsbSectorBytes != 0 || r.length == 0) {
-            error = "sparse disc ranges must be nonempty and 512-byte aligned";
-            return false;
-        }
-        if (r.file_offset > file.pieces[0].file.entry.size || r.length > file.pieces[0].file.entry.size - r.file_offset) {
-            error = "a sparse disc range lies past the end of its file";
-            return false;
-        }
-        if (!map_container_range(file, r.file_offset / kUsbSectorBytes, r.length / kUsbSectorBytes,
-                                 r.disc_offset / kUsbSectorBytes, raw, error)) {
-            return false;
-        }
-    }
-    if (!validate_fragments(raw, sectors, checked, error)) return false;
-    out.size = static_cast<std::uint32_t>(sectors); out.num = static_cast<std::uint32_t>(checked.size());
-    out.maxnum = kD2xFragmentLimit; out.entries = std::move(checked); error.clear(); return true;
-}
-
 bool UsbDiscSource::open(const UsbImage& image, std::unique_ptr<UsbDiscSource>& out, std::string& error) {
     std::vector<D2xFragment> map; std::uint64_t sectors = 0;
     if (!build_reader_map(image, map, sectors, error)) return false;
