@@ -1680,6 +1680,8 @@ static int MenuSettings(FrontendState& state)
 			case kResync: return "The next launch copies every file of its network packs again.";
 			case kRescan: return tr("Reads the SD card and the USB drive again.");
 			case kExit: return tr("Back to the Homebrew Channel.");
+			case kNone:  // the Menu IOS row when there is nothing to choose
+				return tr("No d2x cIOS was found in slots 248 to 251, so the menu runs under IOS 58. Install d2x to play games from SD or USB.");
 			default: return "";
 		}
 	};
