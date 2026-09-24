@@ -77,6 +77,7 @@ extern "C" {
 #define RT_MAX_RUNS 8u    /* pieces of a read held at a time; longer reads are served in windows */
 #define RT_GECKO_MAX_FAILURES 32u /* refused bytes after which Gecko reporting turns itself off */
 #define RT_BOUNCE_BYTES 0x4000u   /* bytes one SD request fetches (32 sectors), per pending record */
+#define RT_READ_RETRIES 3u        /* a failed SD or disc request is issued again this often */
 
 /* rt_pending.phase */
 #define RT_PHASE_DISC 0u     /* waiting for the disc reply */
@@ -442,9 +443,13 @@ struct rt_context {
     /* Savegame FS interception (loader-filled). */
     uint32_t fs_state;            /* struct rt_fs_state*, 0 = none */
     uint32_t fs_hijacked;         /* synchronous FS calls answered from the card image */
-    uint32_t reserved;
     struct rt_pending pending[RT_MAX_PENDING];
+    /* Retries: a failed request is issued again up to RT_READ_RETRIES times. */
+    uint32_t read_retries;        /* failed requests issued again */
+    uint32_t retry[RT_MAX_PENDING]; /* per record: retries of the request in flight */
 };
+
+typedef char rt_context_layout[(sizeof(struct rt_context) <= 2048u) ? 1 : -1];
 
 /*
  * Called by the trampoline with the eight IOS_IoctlAsync arguments

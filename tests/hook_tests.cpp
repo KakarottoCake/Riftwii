@@ -2314,6 +2314,25 @@ std::int32_t FakeIoctlAsync(std::uint32_t fd, std::uint32_t ioctl, std::uint32_t
     return 0;  // accepted; the reply is delivered by the test
 }
 
+// The game's own read issued again (a retry): into its buffer, as it asked.
+std::vector<std::uint32_t> g_game_reads;  // (buffer, word offset, length) triples
+
+std::int32_t FakeGameReadAsync(std::uint32_t fd, std::uint32_t ioctl, std::uint32_t* in, std::uint32_t in_len,
+                               std::uint32_t out, std::uint32_t out_len, std::uint32_t callback, rt_pending* record) {
+    EXPECT_EQ(fd, 3u);
+    EXPECT_EQ(ioctl, 0x71u);
+    EXPECT_EQ(in_len, 0x20u);
+    EXPECT_EQ(callback, 0x935D0100u);
+    EXPECT_EQ(in, record->di_command);
+    EXPECT_EQ(in[0], 0x71000000u);
+    EXPECT_EQ(in[1], out_len);
+    EXPECT_EQ(out, record->out);
+    g_game_reads.push_back(out);
+    g_game_reads.push_back(in[2]);
+    g_game_reads.push_back(out_len);
+    return 0;
+}
+
 }  // namespace
 
 static void TestSdChain(std::uint8_t* low_table, std::uint8_t* low_out) {
@@ -2476,7 +2495,8 @@ static void TestSdChain(std::uint8_t* low_table, std::uint8_t* low_out) {
     EXPECT_EQ(ctx.sd_failures, 1u);
     EXPECT_EQ(rec->in_use, 0u);
 
-    // A failed reply likewise.
+    // A failed reply is asked for again, the same chunk, RT_READ_RETRIES
+    // times; then the read ends with a DI error.
     ctx.ioctlv_async = 0x8019445C;
     args[6] = 0x80005000;
     args[7] = 0x80006000;
@@ -2485,12 +2505,45 @@ static void TestSdChain(std::uint8_t* low_table, std::uint8_t* low_out) {
     di_result = 1;
     rt_on_di_complete(&ctx, &di_result, rec, &cb, &ud);
     EXPECT_EQ(cb, 0u);
+    g_sd_sectors_requested.clear();
+    for (std::uint32_t k = 0; k < RT_READ_RETRIES; ++k) {
+        sd_result = -5;
+        rt_on_di_complete(&ctx, &sd_result, rec, &cb, &ud);
+        EXPECT_EQ(cb, 0u);
+    }
+    EXPECT_EQ(g_sd_sectors_requested.size(), 2u * RT_READ_RETRIES);
+    if (g_sd_sectors_requested.size() == 2u * RT_READ_RETRIES) {
+        EXPECT_EQ(g_sd_sectors_requested[0], 10u);
+        EXPECT_EQ(g_sd_sectors_requested[2 * RT_READ_RETRIES - 2], 10u);
+    }
     sd_result = -5;
     rt_on_di_complete(&ctx, &sd_result, rec, &cb, &ud);
     EXPECT_EQ(cb, 0x80005000u);
     EXPECT_EQ(sd_result, RT_DI_ERROR);
-    EXPECT_EQ(ctx.sd_failures, 2u);
+    EXPECT_EQ(ctx.sd_failures, 2u + RT_READ_RETRIES);
+    EXPECT_EQ(ctx.read_retries, RT_READ_RETRIES);
     EXPECT_EQ(rec->in_use, 0u);
+
+    // A retry that is answered completes the read as if nothing happened.
+    std::memset(out, 0xEE, 0x800);
+    args[6] = 0x80005000;
+    args[7] = 0x80006000;
+    EXPECT_EQ(rt_on_ioctl_async(&ctx, args, &result), 0);
+    rec = reinterpret_cast<rt_pending*>(args[7]);
+    di_result = 1;
+    rt_on_di_complete(&ctx, &di_result, rec, &cb, &ud);
+    sd_result = -5;
+    rt_on_di_complete(&ctx, &sd_result, rec, &cb, &ud);
+    EXPECT_EQ(cb, 0u);
+    replies = 0;
+    while (cb == 0 && replies < 10) {
+        sd_result = 0;
+        rt_on_di_complete(&ctx, &sd_result, rec, &cb, &ud);
+        ++replies;
+    }
+    EXPECT_EQ(sd_result, 1);
+    EXPECT_EQ(std::memcmp(out + 16, expected.data(), 2000), 0);
+    EXPECT_EQ(ctx.read_retries, RT_READ_RETRIES + 1u);
 
     // A failed disc read issues nothing.
     args[6] = 0x80005000;
@@ -2503,6 +2556,63 @@ static void TestSdChain(std::uint8_t* low_table, std::uint8_t* low_out) {
     EXPECT_EQ(cb, 0x80005000u);
     EXPECT_EQ(di_result, 2);
     EXPECT_EQ(g_sd_sectors_requested.size(), 0u);
+
+    // With the unhooked entry known, the game's failed read is issued again
+    // as it asked (its offset and length, into its buffer); once answered,
+    // the card's bytes are laid over it as usual.
+    ctx.di_read_entry = 0x935D00AC;
+    rt_host_ioctl_async = &FakeGameReadAsync;
+    std::memset(out, 0xEE, 0x800);
+    args[6] = 0x80005000;
+    args[7] = 0x80006000;
+    EXPECT_EQ(rt_on_ioctl_async(&ctx, args, &result), 0);
+    rec = reinterpret_cast<rt_pending*>(args[7]);
+    const std::uint32_t retries_before_game = ctx.read_retries;
+    g_game_reads.clear();
+    di_result = 2;
+    rt_on_di_complete(&ctx, &di_result, rec, &cb, &ud);
+    EXPECT_EQ(cb, 0u);
+    EXPECT_EQ(g_game_reads.size(), 3u);
+    if (g_game_reads.size() == 3u) {
+        EXPECT_EQ(g_game_reads[0], static_cast<std::uint32_t>(reinterpret_cast<std::uintptr_t>(out)));
+        EXPECT_EQ(g_game_reads[1], (0x20000u - 16) >> 2);
+        EXPECT_EQ(g_game_reads[2], 0x800u);
+    }
+    di_result = 1;
+    rt_on_di_complete(&ctx, &di_result, rec, &cb, &ud);
+    replies = 0;
+    while (cb == 0 && replies < 10) {
+        sd_result = 0;
+        rt_on_di_complete(&ctx, &sd_result, rec, &cb, &ud);
+        ++replies;
+    }
+    EXPECT_EQ(cb, 0x80005000u);
+    EXPECT_EQ(sd_result, 1);
+    EXPECT_EQ(std::memcmp(out + 16, expected.data(), 2000), 0);
+    EXPECT_EQ(ctx.read_retries, retries_before_game + 1u);
+
+    // A drive that keeps failing: RT_READ_RETRIES more tries, then the
+    // game gets the drive's own error and nothing is fetched from the card.
+    args[6] = 0x80005000;
+    args[7] = 0x80006000;
+    EXPECT_EQ(rt_on_ioctl_async(&ctx, args, &result), 0);
+    rec = reinterpret_cast<rt_pending*>(args[7]);
+    g_game_reads.clear();
+    g_sd_sectors_requested.clear();
+    for (std::uint32_t k = 0; k < RT_READ_RETRIES; ++k) {
+        di_result = 2;
+        rt_on_di_complete(&ctx, &di_result, rec, &cb, &ud);
+        EXPECT_EQ(cb, 0u);
+    }
+    di_result = 2;
+    rt_on_di_complete(&ctx, &di_result, rec, &cb, &ud);
+    EXPECT_EQ(cb, 0x80005000u);
+    EXPECT_EQ(di_result, 2);
+    EXPECT_EQ(g_game_reads.size(), 3u * RT_READ_RETRIES);
+    EXPECT_EQ(g_sd_sectors_requested.size(), 0u);
+    EXPECT_EQ(rec->in_use, 0u);
+    ctx.di_read_entry = 0;
+    rt_host_ioctl_async = nullptr;
 
     // The game on the SD card: the same read through d2x's /dev/sdio/sdhc
     // (sector numbers, READ ioctlv) gives the same bytes.
@@ -2654,11 +2764,16 @@ static void TestSdChain(std::uint8_t* low_table, std::uint8_t* low_out) {
     di_result = 1;
     rt_on_di_complete(&ctx, &di_result, rec, &cb, &ud);
     EXPECT_EQ(cb, 0u);
-    di_result = 4;  // e.g. a timeout
+    for (std::uint32_t k = 0; k < RT_READ_RETRIES; ++k) {
+        di_result = 4;  // e.g. a timeout: asked for again
+        rt_on_di_complete(&ctx, &di_result, rec, &cb, &ud);
+        EXPECT_EQ(cb, 0u);
+    }
+    di_result = 4;
     rt_on_di_complete(&ctx, &di_result, rec, &cb, &ud);
     EXPECT_EQ(cb, 0x80005000u);
     EXPECT_EQ(di_result, 4);
-    EXPECT_EQ(ctx.disc_failures, failures_before_drive + 1u);
+    EXPECT_EQ(ctx.disc_failures, failures_before_drive + 1u + RT_READ_RETRIES);
     EXPECT_EQ(rec->in_use, 0u);
     rt_host_ioctl_async = nullptr;
 }
@@ -2852,6 +2967,22 @@ static void TestPayloadAndRedirect() {
     EXPECT_EQ(vout[5], 0);     // virtual gap: zero, not the disc's 0xEE
     EXPECT_EQ(vout[0x3F], 0);
     EXPECT_EQ(cb, 0x80005000u);
+
+    // The stand-in read at the partition start failing changes nothing:
+    // every byte comes from the table, so the game gets success.
+    std::memset(vout, 0xEE, 0x40);
+    vcmd[2] = 0x80000000u;
+    vargs[6] = 0x80005000;
+    vargs[7] = 0x80006000;
+    EXPECT_EQ(rt_on_ioctl_async(&ctx, vargs, &result), 0);
+    rec = reinterpret_cast<rt_pending*>(vargs[7]);
+    EXPECT_EQ(rec->is_virtual, 1u);
+    di_result = 2;
+    rt_on_di_complete(&ctx, &di_result, rec, &cb, &ud);
+    EXPECT_EQ(cb, 0x80005000u);
+    EXPECT_EQ(di_result, 1);
+    EXPECT_EQ(vout[0], 9);
+    EXPECT_EQ(vout[5], 0);
 
     // DVDLowSeek has no data callback to redirect, but games can seek to a
     // resized/created virtual file before they read it.  Keep that async IOS
