@@ -182,8 +182,6 @@ T = {
                                                    "ゲームが選ばれていません。もどって選んでください。",
                                                    "Nenhum jogo escolhido; volte e escolha um.",
                                                    "Nessun gioco scelto; torna indietro e scegline uno."),
-    "Press Start again to play.": ("Pulsa Jugar otra vez para empezar.", "もう一度「はじめる」を押すと遊べます。",
-                                   "Aperte Jogar de novo para começar.", "Premi di nuovo Gioca per iniziare."),
     "Preparing the mods...": ("Preparando los mods...", "MODを準備しています...", "Preparando os mods...",
                               "Preparazione delle mod..."),
 
@@ -383,6 +381,52 @@ T = {
                                                          "O jogo aparece na tela quando estiver pronto.",
                                                          "Il gioco apparirà sullo schermo quando è pronto."),
     "Opening the game...": ("Abriendo el juego...", "ゲームを開いています...", "Abrindo o jogo...", "Apertura del gioco..."),
+    # The GameCube adapter (Settings). "Tap" is its name in Japan.
+    "GameCube adapter": ("Adaptador de GameCube", "GCコントローラ接続タップ", "Adaptador de GameCube",
+                         "Adattatore GameCube"),
+    "Check the GameCube adapter": ("Probar el adaptador de GameCube", "接続タップを確認",
+                                   "Testar o adaptador de GameCube", "Prova l'adattatore GameCube"),
+    "Test": ("Probar", "テスト", "Testar", "Prova"),
+    "In games that support the GameCube controller, the adapter's controllers fill the ports that have none plugged in. It needs IOS 58 or a d2x cIOS.": (
+        "En los juegos compatibles con el mando de GameCube, los mandos del adaptador ocupan los puertos que no tienen ninguno conectado. Necesita IOS 58 o un cIOS d2x.",
+        "ゲームキューブコントローラに対応したゲームで、何もつながっていないポートに接続タップのコントローラが入ります。IOS 58かd2x cIOSが必要です。",
+        "Nos jogos compatíveis com o controle de GameCube, os controles do adaptador ocupam as portas sem nenhum conectado. Precisa do IOS 58 ou de um cIOS d2x.",
+        "Nei giochi che supportano il controller GameCube, i controller dell'adattatore occupano le porte senza nulla collegato. Serve l'IOS 58 o un cIOS d2x."),
+    "The adapter is left alone.": ("El adaptador no se usa.", "接続タップは使いません。", "O adaptador não é usado.",
+                                   "L'adattatore non viene usato."),
+    "Adapter: working": ("Adaptador: funcionando", "接続タップ：動作中", "Adaptador: funcionando", "Adattatore: funziona"),
+    "Adapter: starting...": ("Adaptador: iniciando...", "接続タップ：準備中...", "Adaptador: iniciando...",
+                             "Adattatore: avvio..."),
+    "Adapter: another program is using it, waiting": (
+        "Adaptador: otro programa lo está usando, esperando",
+        "接続タップ：ほかのプログラムが使っています。待っています",
+        "Adaptador: outro programa está usando, aguardando",
+        "Adattatore: lo usa un altro programma, in attesa"),
+    # {1} IOS's error number.
+    "Adapter: it did not answer ({1}), trying again": (
+        "Adaptador: no respondió ({1}), reintentando",
+        "接続タップ：応答がありません（{1}）。もう一度ためします",
+        "Adaptador: não respondeu ({1}), tentando de novo",
+        "Adattatore: nessuna risposta ({1}), nuovo tentativo"),
+    "Adapter: not found. Plug in its black USB plug.": (
+        "Adaptador: no encontrado. Conecta su enchufe USB negro.",
+        "接続タップ：見つかりません。黒いUSBプラグをつないでください。",
+        "Adaptador: não encontrado. Conecte o plugue USB preto.",
+        "Adattatore: non trovato. Collega la spina USB nera."),
+    "Press buttons on a controller in the adapter to see them here. In a game that supports the GameCube controller, the adapter's controllers fill the ports that have none plugged in.": (
+        "Pulsa botones en un mando conectado al adaptador para verlos aquí. En un juego compatible con el mando de GameCube, los mandos del adaptador ocupan los puertos que no tienen ninguno conectado.",
+        "接続タップにつないだコントローラのボタンを押すと、ここに表示されます。ゲームキューブコントローラに対応したゲームでは、何もつながっていないポートに接続タップのコントローラが入ります。",
+        "Aperte botões em um controle ligado ao adaptador para vê-los aqui. Em um jogo compatível com o controle de GameCube, os controles do adaptador ocupam as portas sem nenhum conectado.",
+        "Premi i pulsanti di un controller collegato all'adattatore per vederli qui. In un gioco che supporta il controller GameCube, i controller dell'adattatore occupano le porte senza nulla collegato."),
+    # {1} the IOS number.
+    "This IOS has no USB HID (IOS{1}). Choose IOS 58 or a d2x cIOS as the Menu IOS.": (
+        "Este IOS no tiene USB HID (IOS{1}). Elige IOS 58 o un cIOS d2x como IOS del menú.",
+        "このIOSにはUSB HIDがありません（IOS{1}）。メニューのIOSにIOS 58かd2x cIOSを選んでください。",
+        "Este IOS não tem USB HID (IOS{1}). Escolha o IOS 58 ou um cIOS d2x como IOS do menu.",
+        "Questo IOS non ha USB HID (IOS{1}). Scegli l'IOS 58 o un cIOS d2x come IOS del menu."),
+    # {1} 1 to 4.
+    "Port {1}": ("Puerto {1}", "ポート{1}", "Porta {1}", "Porta {1}"),
+    "nothing plugged in": ("nada conectado", "未接続", "nada conectado", "niente collegato"),
 }
 
 

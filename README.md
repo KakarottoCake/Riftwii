@@ -116,6 +116,19 @@ leaderboards to the SD card, as they do under Riivolution. CT-CODE
 packs that replace the game's `main.dol` (CTGP Revolution 1.02) work
 too.
 
+**GameCube controller adapter for Wii U** (the Nintendo one, WUP-028,
+or a copy that works like it). Turn on *GameCube adapter* in Settings
+and plug the adapter's black USB plug into the Wii (the grey one only
+adds power for rumble). In games that support the GameCube controller
+(Mario Kart Wii, Super Smash Bros. Brawl and others), its controllers
+fill the ports that have no controller plugged in, rumble included.
+*Check the GameCube adapter* shows what it reports before you start a
+game. It needs a menu IOS with USB HID: IOS 58 (the default) or a d2x
+cIOS; the game then keeps that IOS. Games without GameCube controller
+support ignore it, and so do mods that bring their own controller code
+(mkwcat's NSMBW project) or read the controller hardware directly
+(Gecko codes that add GameCube controls to NSMBW).
+
 Controls work with a Wii Remote (pointer or D-pad), Classic Controller,
 GameCube pad, or Wii U GamePad (same button names; X stands in for 1).
 The GameCube control stick and the Classic Controller's left stick move
