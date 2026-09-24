@@ -23,10 +23,10 @@ struct VirtualFileLayout {
 
 // One placed piece of an external file: in memory or on the SD card.
 struct PlacedRun {
-    std::uint32_t kind = RT_KIND_MEM;  // RT_KIND_MEM or RT_KIND_SD
+    std::uint32_t kind = RT_KIND_MEM;  // RT_KIND_MEM, RT_KIND_SD or RT_KIND_USB
     std::uint64_t length = 0;
-    std::uint64_t source = 0;          // MEM: address; SD: sector
-    std::uint32_t skip = 0;            // SD: bytes into the first sector
+    std::uint64_t source = 0;          // MEM: address; SD, USB: sector
+    std::uint32_t skip = 0;            // SD, USB: bytes into the first sector
 };
 
 // A contiguous run of SD sectors holding consecutive bytes of one file; a
@@ -40,7 +40,8 @@ struct Fragment {
 // Maps [file_offset, file_offset + length) of a file laid out over
 // `fragments` to SD runs. Fails when the range runs past the fragments.
 bool place_on_fragments(const std::vector<Fragment>& fragments, std::uint64_t file_offset,
-                        std::uint64_t length, std::vector<PlacedRun>& out, std::string& error);
+                        std::uint64_t length, std::vector<PlacedRun>& out, std::string& error,
+                        std::uint32_t kind = RT_KIND_SD);
 
 // Maps [source_offset, source_offset + length) of an external ByteSource to
 // where the runtime can fetch it. The loader implements this with the

@@ -2253,12 +2253,13 @@ std::vector<std::uint32_t> g_sd_sectors_requested;  // (sector, count) pairs
 
 std::int32_t FakeIoctlvAsync(std::uint32_t fd, std::uint32_t ioctl, std::uint32_t in_count, std::uint32_t out_count,
                              rt_ioctlv* vec, std::uint32_t callback, rt_pending* record) {
-    EXPECT_EQ(fd, 9u);
+    EXPECT_EQ(fd, ioctl == RT_UMS_READ_SECTORS ? 11u : 9u);  // the USB drive's fd, else the card's
     EXPECT_EQ(in_count, 2u);
     EXPECT_EQ(out_count, 1u);
     EXPECT_EQ(callback, 0x935D0100u);
-    if (ioctl == RT_SDHC_READ) {
-        // d2x's /dev/sdio/sdhc: sector and count as 4-byte inputs, the data out.
+    if (ioctl == RT_SDHC_READ || ioctl == RT_UMS_READ_SECTORS) {
+        // d2x's /dev/sdio/sdhc and /dev/usb2: sector and count as 4-byte
+        // inputs, the data out (the fake drive holds the card's bytes).
         EXPECT_EQ(vec[0].len, 4u);
         EXPECT_EQ(vec[1].len, 4u);
         const std::uint32_t sector = *reinterpret_cast<const std::uint32_t*>(static_cast<std::uintptr_t>(vec[0].data));
@@ -2643,6 +2644,64 @@ static void TestSdChain(std::uint8_t* low_table, std::uint8_t* low_out) {
     EXPECT_EQ(std::memcmp(out + 16, expected.data(), 2000), 0);
     EXPECT_EQ(out[16 + 2000], 0x5A);
     ctx.sdio_sdhc = 1;
+
+    // The same file on the USB drive: USB runs go to d2x's /dev/usb2
+    // (usb_fd, the UMS read ioctl) whatever the card's mode is.
+    std::vector<riftwii::PlacedRun> usb_runs;
+    EXPECT_TRUE(riftwii::place_on_fragments(frags, 100, 2000, usb_runs, error, RT_KIND_USB));
+    EXPECT_EQ(usb_runs.size(), 2u);
+    riftwii::SdReplacement usbr;
+    usbr.virtual_offset = 0x20000;
+    usbr.runs = usb_runs;
+    std::vector<std::uint8_t> usb_payload;
+    riftwii::PayloadPieces usb_pieces = Pieces({m}, {usbr}, {});
+    EXPECT_TRUE(usb_pieces.needs_usb());
+    EXPECT_TRUE(riftwii::build_payload(usb_pieces, table_address, 0, 9, usb_payload, error));
+    EXPECT_EQ(rt_entries(reinterpret_cast<const rt_header*>(usb_payload.data()))[0].kind,
+              static_cast<std::uint32_t>(RT_KIND_USB));
+    EXPECT_EQ(rt_entries(reinterpret_cast<const rt_header*>(usb_payload.data()))[0].skip, 100ull);
+    std::memcpy(low_table, usb_payload.data(), usb_payload.size());
+    ctx.usb_fd = 11;
+    const std::uint32_t requests_before = ctx.sd_requests;
+    std::memset(out, 0xEE, 0x800);
+    args[6] = 0x80005000;
+    args[7] = 0x80006000;
+    g_sd_sectors_requested.clear();
+    EXPECT_EQ(rt_on_ioctl_async(&ctx, args, &result), 0);
+    rec = reinterpret_cast<rt_pending*>(args[7]);
+    di_result = 1;
+    rt_on_di_complete(&ctx, &di_result, rec, &cb, &ud);
+    replies = 0;
+    while (cb == 0 && replies < 10) {
+        sd_result = 0;
+        rt_on_di_complete(&ctx, &sd_result, rec, &cb, &ud);
+        ++replies;
+    }
+    EXPECT_EQ(replies, 2);
+    EXPECT_EQ(g_sd_sectors_requested.size(), 4u);
+    if (g_sd_sectors_requested.size() == 4u) {
+        EXPECT_EQ(g_sd_sectors_requested[0], 10u);
+        EXPECT_EQ(g_sd_sectors_requested[2], 40u);
+    }
+    EXPECT_EQ(sd_result, 1);
+    EXPECT_EQ(ctx.sd_requests, requests_before + 2);
+    EXPECT_EQ(std::memcmp(out + 16, expected.data(), 2000), 0);
+    EXPECT_EQ(out[16 + 2000], 0x5A);
+    // No USB device handed over: the read fails instead of asking the card.
+    ctx.usb_fd = 0xFFFFFFFFu;
+    const std::uint32_t failures_before = ctx.sd_failures;
+    args[6] = 0x80005000;
+    args[7] = 0x80006000;
+    g_sd_sectors_requested.clear();
+    EXPECT_EQ(rt_on_ioctl_async(&ctx, args, &result), 0);
+    rec = reinterpret_cast<rt_pending*>(args[7]);
+    di_result = 1;
+    rt_on_di_complete(&ctx, &di_result, rec, &cb, &ud);
+    EXPECT_EQ(cb, 0x80005000u);
+    EXPECT_TRUE(ctx.sd_failures > failures_before);
+    EXPECT_EQ(g_sd_sectors_requested.size(), 0u);
+    EXPECT_EQ(rec->in_use, 0u);
+    std::memcpy(low_table, payload.data(), payload.size());
     rt_host_ioctlv_async = nullptr;
 
     // DISC runs: a 100-byte range at partition byte 0x7005 relocated to

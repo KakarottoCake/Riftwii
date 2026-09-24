@@ -33,6 +33,7 @@
 #include "resident.hpp"
 #include "sdfile.hpp"
 #include "sdio.hpp"
+#include "umsdev.hpp"
 #include "usbcatalog.hpp"
 #include "wfc.hpp"
 #include "codehandleronly_bin.h"
@@ -163,7 +164,7 @@ bool needs_resident_sd(const BootOptions& options) {
         if (!file.sd_runs.empty()) return true;
     }
     for (const rt_entry& entry : options.table_entries) {
-        if (entry.kind == RT_KIND_SD) return true;
+        if (entry.kind == RT_KIND_SD || entry.kind == RT_KIND_USB) return true;  // USB: d2x's /dev/usb2 is open here
     }
     return false;
 }
@@ -953,6 +954,10 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         }
     } card_cleanup{card, card_handed_to_runtime};
     const bool card_required = pieces.needs_sd() || savegame.enabled;
+    if (pieces.needs_usb() && !options.install_resident) {
+        error = "files on the USB drive need the resident runtime";
+        return false;
+    }
     bool file_device = savegame.file_device && options.install_resident;
     if (card_required || file_device) {
         if (!options.install_resident) {
@@ -975,6 +980,7 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
              card.d2x ? "through d2x's /dev/sdio/sdhc (the game is on this card)" : card.sdhc ? "SDHC" : "SDSC");
         if (options.verify_sd) {
             for (const SdReplacement& r : pieces.sd) {
+                if (!r.runs.empty() && r.runs[0].kind != RT_KIND_SD) continue;  // on the USB drive
                 if (!verify_sd_replacement(card, r, error)) return false;
             }
         }
@@ -1001,6 +1007,12 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         ro.sdio_fd = card.fd;
         ro.sdio_sdhc = card.sdhc;
         ro.sdio_d2x = card.d2x;
+        if (ro.pieces.needs_usb()) {
+            // Opened when the packs were compiled, under this same IOS.
+            if (!ums::Open(error)) return false;
+            ro.usb_fd = ums::Fd();
+            logf("USB drive: d2x's /dev/usb2, fd %d, for the packs on it\n", ro.usb_fd);
+        }
         ro.savegame = savegame;
         ro.savegame.file_device = file_device && card.fd >= 0;
         ro.mem1_floor = mem1_floor;

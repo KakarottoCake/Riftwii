@@ -164,7 +164,7 @@ static void test_validate_rejects() {
         EXPECT_EQ(rt_validate(T(b), b.size()), int(RT_ERR_ENTRY));
     }
     {
-        Bytes b = MakeTable({E(0x100, 0x10, 5, 0, 0)});
+        Bytes b = MakeTable({E(0x100, 0x10, 6, 0, 0)});
         EXPECT_EQ(rt_validate(T(b), b.size()), int(RT_ERR_ENTRY));
     }
     {

@@ -52,9 +52,10 @@ struct MemReplacement {
 };
 
 // Bytes the game must see at [virtual_offset, virtual_offset + total run
-// length) that live on the SD card (E4): the runs place_on_fragments
+// length) that live on the SD card (E4) or the USB drive: the runs place_on_fragments
 // produced for that range, in file order. The runtime fetches them
-// through the SD fd the loader hands it.
+// through the SD (or USB) fd the loader hands it; a replacement's runs are
+// all on one device.
 struct SdReplacement {
     std::uint64_t virtual_offset = 0;
     std::vector<PlacedRun> runs;
@@ -80,6 +81,7 @@ struct PayloadPieces {
     std::vector<rt_entry> entries;  // SD, DISC or ZERO kinds only (MEM needs bytes)
     bool empty() const { return mem.empty() && sd.empty() && disc.empty() && entries.empty(); }
     bool needs_sd() const;
+    bool needs_usb() const;  // entries on the USB drive (d2x's /dev/usb2)
 };
 
 // Lays out the payload the loader puts after the blob: the redirect table

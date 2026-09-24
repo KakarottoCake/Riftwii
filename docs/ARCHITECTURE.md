@@ -142,6 +142,7 @@ addresses into source lines (keep the `riftwii.elf` of each release).
 | --- | --- |
 | `sd:/apps/riftwii/` | The app (`boot.dol`, `meta.xml`, `icon.png`) |
 | `sd:/riivolution/` | Mod packs: XML files and their folders |
+| `usb:/riivolution/` | Mod packs on a FAT32 USB drive, read through d2x's `/dev/usb2` (`wii/umsdev.cpp`); table runs of kind `RT_KIND_USB` |
 | `sd:/riftwii/settings.txt` | Settings |
 | `sd:/riftwii/menu_ios.txt` | The menu IOS slot |
 | `sd:/riftwii/choices/<ID>.txt` | Per-game choices (packs, options, saves, cheats, picture) |

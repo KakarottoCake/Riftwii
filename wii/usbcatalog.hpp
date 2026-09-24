@@ -55,6 +55,9 @@ using UsbCatalog = ImageCatalog;
 bool scan_usb_games(UsbCatalog& out, std::string& error);
 bool scan_sd_games(ImageCatalog& out, std::string& error);
 void unmount_usb_games();
+// Unmounts and stops libogc's USB driver when it was started in this IOS
+// (before an IOS reload, and before d2x's own USB device takes the drive).
+void release_usb_driver();
 // Opens a listed game that is not checked yet: its pieces, disc header and
 // d2x fragment list, filling title, revision and disc number (and the ID
 // from the header). Needs the catalog's drive still mounted.

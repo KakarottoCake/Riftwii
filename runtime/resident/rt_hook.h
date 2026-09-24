@@ -284,6 +284,11 @@ typedef void (*rt_game_callback_fn)(int32_t result, uint32_t user_data);
 #define RT_SDHC_READ 2u
 #define RT_SDHC_WRITE 3u
 #define RT_SDHC_ISINSERTED 4u
+/* d2x's /dev/usb2 (its EHCI module's mass storage, "UMS" ioctls), for
+ * packs on the USB drive: READ_SECTORS takes the sector and the count as
+ * two 4-byte inputs and the data (in MEM2) as the third vector, as the
+ * SDHC device does. */
+#define RT_UMS_READ_SECTORS 0x554D5303u
 
 struct rt_fs_pend {
     uint32_t in_use;
@@ -436,6 +441,8 @@ struct rt_context {
     uint32_t ioctlv_async;        /* the game's IOS_IoctlvAsync, 0 = unknown (SD runs then fail) */
     uint32_t sd_requests;         /* SD requests issued */
     uint32_t sd_failures;         /* SD requests refused or failed; the read then completes with RT_DI_ERROR */
+    uint32_t usb_fd;              /* d2x's /dev/usb2 fd for RT_KIND_USB runs (loader-filled); 0xFFFFFFFF = none.
+                                     USB requests count with the SD ones above. */
     /* Disc (loader-filled entry). */
     uint32_t di_read_entry;       /* the unhooked IOS_IoctlAsync: the blob's replay slot */
     uint32_t disc_requests;       /* DVDLowReads issued for DISC runs */

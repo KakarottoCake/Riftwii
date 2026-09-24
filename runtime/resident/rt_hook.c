@@ -175,11 +175,10 @@ static void rt_interrupts_restore(uint32_t msr) {
  * call is a register-indirect one and the blob stays relocatable. */
 typedef int32_t (*rt_ioctlv_async_fn)(uint32_t fd, uint32_t ioctl, uint32_t in_count, uint32_t out_count,
                                        struct rt_ioctlv* vec, uint32_t callback, struct rt_pending* record);
-static int32_t rt_ioctlv_async(struct rt_context* ctx, struct rt_pending* record) {
+static int32_t rt_ioctlv_async(struct rt_context* ctx, struct rt_pending* record, uint32_t fd, uint32_t ioctl) {
     rt_ioctlv_async_fn fn = (rt_ioctlv_async_fn)(uintptr_t)ctx->ioctlv_async;
     if (fn == 0) return -1;
-    return fn(ctx->sdio_fd, ctx->sdio_sdhc == RT_SD_D2X ? RT_SDHC_READ : RT_SDIO_SENDCMD, 2, 1, record->vec,
-              ctx->complete_entry, record);
+    return fn(fd, ioctl, 2, 1, record->vec, ctx->complete_entry, record);
 }
 
 /* The unhooked IOS_IoctlAsync (the replay slot runs the displaced
@@ -428,10 +427,9 @@ static uint32_t rt_interrupts_off(void) {
 static void rt_interrupts_restore(uint32_t msr) {
     (void)msr;
 }
-static int32_t rt_ioctlv_async(struct rt_context* ctx, struct rt_pending* record) {
+static int32_t rt_ioctlv_async(struct rt_context* ctx, struct rt_pending* record, uint32_t fd, uint32_t ioctl) {
     if (ctx->ioctlv_async == 0 || rt_host_ioctlv_async == 0) return -1;
-    return rt_host_ioctlv_async(ctx->sdio_fd, ctx->sdio_sdhc == RT_SD_D2X ? RT_SDHC_READ : RT_SDIO_SENDCMD, 2, 1,
-                                record->vec, ctx->complete_entry, record);
+    return rt_host_ioctlv_async(fd, ioctl, 2, 1, record->vec, ctx->complete_entry, record);
 }
 #endif
 
@@ -2141,14 +2139,17 @@ static int rt_issue_disc_chunk(struct rt_context* ctx, struct rt_pending* record
     return 1;
 }
 
-/* Reads `sectors` card sectors from `sector` into `target` (32-byte
- * aligned) for `record`, which moves to `phase`. 1 when the request is in
- * flight, -1 on an IPC refusal. */
-static int rt_issue_sd_read(struct rt_context* ctx, struct rt_pending* record, uint32_t sector, uint32_t sectors,
-                            uint32_t target, uint32_t phase) {
+/* Reads `sectors` sectors from `sector` of the card (or, for `usb`, of
+ * the USB drive) into `target` (32-byte aligned) for `record`, which
+ * moves to `phase`. 1 when the request is in flight, -1 on an IPC
+ * refusal. */
+static int rt_issue_sd_read(struct rt_context* ctx, struct rt_pending* record, int usb, uint32_t sector,
+                            uint32_t sectors, uint32_t target, uint32_t phase) {
     struct rt_sdio_request* rq = &record->request;
-    if (ctx->sdio_sdhc == RT_SD_D2X) {
-        /* d2x's /dev/sdio/sdhc: sector and count in, the data out. */
+    const uint32_t fd = usb ? ctx->usb_fd : ctx->sdio_fd;
+    const uint32_t ioctl = usb ? RT_UMS_READ_SECTORS : ctx->sdio_sdhc == RT_SD_D2X ? RT_SDHC_READ : RT_SDIO_SENDCMD;
+    if (usb || ctx->sdio_sdhc == RT_SD_D2X) {
+        /* d2x's /dev/sdio/sdhc and /dev/usb2: sector and count in, the data out. */
         rq->cmd = sector;
         rq->cmd_type = sectors;
         record->vec[0].data = (uint32_t)(uintptr_t)&rq->cmd;
@@ -2179,7 +2180,7 @@ static int rt_issue_sd_read(struct rt_context* ctx, struct rt_pending* record, u
     rt_flush_range((uintptr_t)target, sectors * RT_SECTOR_BYTES); /* no stale lines over the DMA target */
     record->phase = phase;
     ctx->sd_requests++;
-    if (rt_ioctlv_async(ctx, record) < 0) {
+    if (fd == 0xFFFFFFFFu || rt_ioctlv_async(ctx, record, fd, ioctl) < 0) {
         ctx->sd_failures++;
         return -1;
     }
@@ -2198,13 +2199,13 @@ static int rt_issue_sd_chunk(struct rt_context* ctx, struct rt_pending* record) 
     uint32_t want = skip + remaining;
     uint32_t sectors;
     if (run->kind == RT_KIND_DISC) return rt_issue_disc_chunk(ctx, record);
-    if (run->kind != RT_KIND_SD || remaining == 0) return 0;
+    if ((run->kind != RT_KIND_SD && run->kind != RT_KIND_USB) || remaining == 0) return 0;
     if (want > RT_BOUNCE_BYTES) want = RT_BOUNCE_BYTES;
     sectors = (want + RT_SECTOR_BYTES - 1) / RT_SECTOR_BYTES;
     record->chunk_skip = skip;
     record->chunk_bytes = sectors * RT_SECTOR_BYTES - skip;
     if (record->chunk_bytes > remaining) record->chunk_bytes = remaining;
-    return rt_issue_sd_read(ctx, record, sector, sectors, record->bounce, RT_PHASE_SD);
+    return rt_issue_sd_read(ctx, record, run->kind == RT_KIND_USB, sector, sectors, record->bounce, RT_PHASE_SD);
 }
 
 /* The runtime's bytes of a completed read, in buffer order, for the

@@ -49,7 +49,8 @@ against USB loading. RiftWii exists to finally get past that.
    what is there. That puts RiftWii in `sd:/apps/riftwii/`.
 3. Put your mod packs (an XML file plus the folders it names, as their
    authors ship them) into `sd:/riivolution/` (or
-   `sd:/apps/riivolution/`), the same places Riivolution uses.
+   `sd:/apps/riivolution/`), the same places Riivolution uses. Packs
+   can also go in `usb:/riivolution/` on a FAT32 USB drive (see below).
 4. Game images go in `wbfs` (`.wbfs`) or `games` (`.iso`) at the top of
    the SD card or the USB drive. The zip's `usb-drive` folder shows
    where.
@@ -218,9 +219,16 @@ number).
 
 It reads an XML the way Riivolution does, so a pack that works there
 works here:
-- XMLs are read from `sd:/riivolution` and `sd:/apps/riivolution`. A
-  `root` without a leading `/` starts in the XML's folder, and no
-  `root` means that folder.
+- XMLs are read from `sd:/riivolution` and `sd:/apps/riivolution`, and
+  from `usb:/riivolution` and `usb:/apps/riivolution` (listed with
+  "@ USB"). A `root` without a leading `/` starts in the XML's folder,
+  and no `root` means that folder.
+- A pack on the USB drive reads its files from that drive while the
+  game runs. This needs a d2x cIOS: an SD or USB game already runs
+  under one; for a disc, set Menu IOS to your d2x slot in Settings. The
+  drive must be FAT32 with 512-byte sectors (NTFS and 4K-sector drives
+  are not supported for packs). The pack's save folder and Riivolution's
+  `file` device (used by Pulsar packs) stay on the SD card.
 - Only `yes` and `true` (any case) mean yes; any other value means no.
 - A hex value with an odd number of digits loses its last digit.
 - A `{$name}` no param sets becomes empty. An option's params win over
