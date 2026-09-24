@@ -2,7 +2,7 @@
 """Draws hbc/icon.png, the Homebrew Channel banner (128x48).
 
 Original art in the menu's look (wii/skin.cpp): a white rounded card, the
-name in the menu font (wii/assets/rounded.ttf, OFL) and the accent curve
+name in the menu font (wii/font/rounded.ttf, OFL) and the accent curve
 of the home screen's bar. Needs Pillow:  python tools/make_hbc_icon.py
 """
 import math
@@ -33,7 +33,7 @@ def main():
         points.append((x, (41 - 6 * bump) * s))
     d.line(points, fill=ACCENT, width=int(2 * s))
 
-    font = ImageFont.truetype(os.path.join(ROOT, "wii", "assets", "rounded.ttf"), 23 * s)
+    font = ImageFont.truetype(os.path.join(ROOT, "wii", "font", "rounded.ttf"), 23 * s)
     rift, wii = "Rift", "Wii"
     w_rift = d.textlength(rift, font=font)
     w_all = w_rift + d.textlength(wii, font=font)

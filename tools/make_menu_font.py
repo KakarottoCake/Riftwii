@@ -11,16 +11,19 @@ SIL Open Font License 1.1) is 3.5 MB; the menu keeps:
   - every other character in the files given with --text (the Japanese
     translation, GameTDB's Japanese game names), so those always show.
 
-Needs fontTools (pip install fonttools).
+The subset is kept as wii/font/rounded.ttf; the menu embeds it brotli-
+compressed as wii/assets/menufont.bin (a big-endian u32 of the TTF's size,
+then the brotli stream), which main.cpp unpacks into MEM2 at start.
 
-    python tools/make_menu_font.py MPLUSRounded1c-Bold.ttf wii/assets/rounded.ttf \
-        --text wii/lang/ja.po --text wiitdb-ja.txt
+Needs fontTools and brotli (pip install fonttools brotli).
+
+    python tools/make_menu_font.py MPLUSRounded1c-Bold.ttf wii/font/rounded.ttf \
+        --packed wii/assets/menufont.bin --text wii/lang/ja.po --text wiitdb-ja.txt
+    python tools/make_menu_font.py wii/font/rounded.ttf wii/assets/menufont.bin --pack-only
 """
 
 import argparse
-
-from fontTools import subset
-from fontTools.ttLib import TTFont
+import struct
 
 
 def jis_chars(lead_bytes):
@@ -34,12 +37,29 @@ def jis_chars(lead_bytes):
     return out
 
 
+def pack(ttf_path, out_path):
+    import brotli
+
+    data = open(ttf_path, "rb").read()
+    packed = brotli.compress(data, quality=11, lgwin=22)
+    assert brotli.decompress(packed) == data
+    with open(out_path, "wb") as f:
+        f.write(struct.pack(">I", len(data)))
+        f.write(packed)
+    print("%s: %d bytes packed to %d in %s" % (ttf_path, len(data), len(packed) + 4, out_path))
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("font")
     ap.add_argument("out")
     ap.add_argument("--text", action="append", default=[], help="a UTF-8 file whose characters are kept")
+    ap.add_argument("--packed", help="also write the menu's compressed copy here")
+    ap.add_argument("--pack-only", action="store_true", help="font is an existing subset: only write out, packed")
     args = ap.parse_args()
+    if args.pack_only:
+        pack(args.font, args.out)
+        return
 
     ranges = [(0x20, 0x7E), (0xA0, 0x17F), (0x2010, 0x2027), (0x2030, 0x203A), (0x2122, 0x2122),
               (0x2190, 0x2193), (0x3000, 0x30FF), (0xFF01, 0xFF9F)]
@@ -52,6 +72,9 @@ def main():
     for path in args.text:
         with open(path, encoding="utf-8", errors="ignore") as f:
             chars.update(f.read())
+
+    from fontTools import subset
+    from fontTools.ttLib import TTFont
 
     font = TTFont(args.font)
     cmap = font.getBestCmap()
@@ -68,6 +91,8 @@ def main():
     sub.subset(font)
     font.save(args.out)
     print("%d characters kept, written to %s" % (len(unicodes), args.out))
+    if args.packed:
+        pack(args.out, args.packed)
 
 
 if __name__ == "__main__":
