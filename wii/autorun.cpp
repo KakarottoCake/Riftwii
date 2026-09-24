@@ -17,6 +17,7 @@
 #include "gameextras.hpp"
 #include "ios_reload.hpp"
 #include "log.hpp"
+#include "memlimits.hpp"
 #include "menuios.hpp"
 #include "modplan.hpp"
 #include "netpacks.hpp"
@@ -349,6 +350,8 @@ void RunAutorun() {
         logf("loader: stack near %p, arena1 %p-%p, arena2 %p-%p\n", static_cast<void*>(&probe_local),
              SYS_GetArena1Lo(), SYS_GetArena1Hi(), SYS_GetArena2Lo(), SYS_GetArena2Hi());
     }
+    mem::LogLimits();
+    mem::LogUsage("autorun");
     std::vector<std::string> script_lines;
     {
         std::ifstream script(kAutorunPath);

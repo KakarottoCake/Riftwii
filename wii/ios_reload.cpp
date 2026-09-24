@@ -13,6 +13,7 @@
 #include <cstdio>
 #include <cstring>
 
+#include "memlimits.hpp"
 #include "netsock.hpp"
 
 extern "C" void udelay(int us);
@@ -122,6 +123,8 @@ ReloadResult reload_ios(int version, std::string& error, bool force) {
         return ReloadResult::Failed;
     }
     __ES_Reset();
+    // What the new kernel's staging does to low MEM2 on a Wii, in Dolphin.
+    mem::PoisonReloadArea();
 
     // IOS is gone until it comes back up: hold the IPC interrupt, wait for
     // the new kernel to announce its version and open the IPC registers,
