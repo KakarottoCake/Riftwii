@@ -307,3 +307,93 @@ bool find_ipc_api(const std::vector<CodeRange>& text, const IpcSymbols& known, I
 }
 
 }  // namespace riftwii
+
+// --- The PAD functions ------------------------------------------------------
+
+namespace riftwii {
+namespace {
+
+constexpr std::uint32_t kMflrR0 = 0x7C0802A6u;
+constexpr std::uint32_t kBlr = 0x4E800020u;
+constexpr std::uint32_t kFunctionLookback = 0x1000;  // bytes walked back to a function's start
+constexpr unsigned kMinReadSites = 3;
+constexpr std::size_t kMotorWindow = 40;             // instructions from the flag read to the command
+
+// The start of the function containing `address`: the nearest `stwu r1`
+// followed by `mflr r0` before it, 0 when a `blr` comes first (the site
+// is not inside a framed function) or none is near.
+std::uint32_t function_start(const std::vector<CodeRange>& text, std::uint32_t address) {
+    for (std::uint32_t back = 0; back <= kFunctionLookback && address >= back; back += 4) {
+        const std::uint32_t at = address - back;
+        if (!inside(text, at)) return 0;
+        const std::uint32_t w = word_at(text, at);
+        if (back != 0 && w == kBlr) return 0;
+        if ((w & 0xFFFF8000u) == 0x94218000u && word_at(text, at + 4) == kMflrR0) return at;
+    }
+    return 0;
+}
+
+}  // namespace
+
+bool find_pad_symbols(const std::vector<CodeRange>& text, PadSymbols& out, std::string& error) {
+    out = PadSymbols{};
+    std::map<std::uint32_t, std::set<std::uint32_t>> read_memsets;  // function -> memset targets
+    std::map<std::uint32_t, unsigned> read_sites;
+    std::set<std::uint32_t> motors;
+    for (const CodeRange& r : text) {
+        const std::size_t words = r.size / 4;
+        for (std::size_t i = 0; i + 4 < words; ++i) {
+            const std::uint32_t w = be32(r.bytes + i * 4);
+            const std::uint32_t at = r.address + static_cast<std::uint32_t>(i * 4);
+            if ((w & 0xFC00FFFFu) == 0x9800000Au) {  // stb rE, 10(rS)
+                const std::uint32_t s = (w >> 16) & 31u;
+                const std::uint32_t mr = 0x7C000378u | (s << 21) | (3u << 16) | (s << 11);
+                const std::uint32_t call = be32(r.bytes + (i + 4) * 4);
+                if (be32(r.bytes + (i + 1) * 4) == mr && be32(r.bytes + (i + 2) * 4) == li(4, 0) &&
+                    be32(r.bytes + (i + 3) * 4) == li(5, 10) && is_bl(call)) {
+                    const std::uint32_t f = function_start(text, at);
+                    if (f != 0) {
+                        read_memsets[f].insert(bl_target(at + 16, call));
+                        ++read_sites[f];
+                    }
+                }
+            }
+            if ((w & 0xFC1FFFFFu) == 0x3C008000u) {  // lis rX, 0x8000
+                const std::uint32_t x = (w >> 21) & 31u;
+                for (std::size_t k = 1; k <= 3 && i + k < words; ++k) {
+                    if ((be32(r.bytes + (i + k) * 4) & 0xFC1FFFFFu) != (0x88000000u | (x << 16) | 0x30E3u)) continue;
+                    bool command = false;
+                    for (std::size_t j = i + k + 1; j < words && j <= i + k + kMotorWindow && !command; ++j) {
+                        command = (be32(r.bytes + j * 4) & 0xFC00FFFFu) == 0x64000040u;  // oris rA, rB, 0x40
+                    }
+                    const std::uint32_t f = command ? function_start(text, at) : 0;
+                    if (f != 0) motors.insert(f);
+                    break;
+                }
+            }
+        }
+    }
+    for (const auto& [f, sites] : read_sites) {
+        if (sites < kMinReadSites || read_memsets[f].size() != 1) continue;
+        if (out.read != 0) {
+            char buf[96];
+            std::snprintf(buf, sizeof(buf), "two PADRead candidates, 0x%08x and 0x%08x", out.read, f);
+            error = buf;
+            return false;
+        }
+        out.read = f;
+        out.read_sites = sites;
+    }
+    if (motors.size() > 1) {
+        char buf[96];
+        std::snprintf(buf, sizeof(buf), "%u PADControlMotor candidates, the first 0x%08x",
+                      static_cast<unsigned>(motors.size()), *motors.begin());
+        error = buf;
+        return false;
+    }
+    if (!motors.empty()) out.control_motor = *motors.begin();
+    error.clear();
+    return true;
+}
+
+}  // namespace riftwii
