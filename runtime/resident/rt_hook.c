@@ -192,6 +192,13 @@ static int32_t rt_di_read_async(struct rt_context* ctx, struct rt_pending* recor
     if (fn == 0) return -1;
     return fn(ctx->di_fd, RT_DI_READ, record->di_command, 0x20, record->bounce, length, ctx->complete_entry, record);
 }
+/* The game's own read again, into its buffer (a retry). */
+static int32_t rt_game_read_async(struct rt_context* ctx, struct rt_pending* record) {
+    rt_ioctl_async_fn fn = (rt_ioctl_async_fn)(uintptr_t)ctx->di_read_entry;
+    if (fn == 0) return -1;
+    return fn(ctx->di_fd, RT_DI_READ, record->di_command, 0x20, record->out, record->length, ctx->complete_entry,
+              record);
+}
 
 /* The savegame path's IOS calls. The transfer request is built in the
  * state's own blocks (rt_fs_build_sendcmd); synchronous ones go through
@@ -402,6 +409,11 @@ static int32_t rt_di_read_async(struct rt_context* ctx, struct rt_pending* recor
     return rt_host_ioctl_async(ctx->di_fd, RT_DI_READ, record->di_command, 0x20, record->bounce, length,
                                ctx->complete_entry, record);
 }
+static int32_t rt_game_read_async(struct rt_context* ctx, struct rt_pending* record) {
+    if (ctx->di_read_entry == 0 || rt_host_ioctl_async == 0) return -1;
+    return rt_host_ioctl_async(ctx->di_fd, RT_DI_READ, record->di_command, 0x20, record->out, record->length,
+                               ctx->complete_entry, record);
+}
 static int rt_gecko_putc(struct rt_context* ctx, uint32_t ch) {
     (void)ch;
     return (ctx->flags & RT_FLAG_GECKO) != 0;
@@ -560,6 +572,7 @@ int rt_on_ioctl_async(struct rt_context* ctx, uintptr_t* args, uint32_t* result)
                     rec->chunk_bytes = 0;
                     rec->chunk_skip = 0;
                     rec->di_result = 0;
+                    ctx->retry[rec - ctx->pending] = 0;
                     if (in_window) {
                         /* The drive must never see the virtual offset: fetch the
                          * same length from the partition start instead (always
@@ -2128,6 +2141,51 @@ static int rt_issue_disc_chunk(struct rt_context* ctx, struct rt_pending* record
     return 1;
 }
 
+/* Reads `sectors` card sectors from `sector` into `target` (32-byte
+ * aligned) for `record`, which moves to `phase`. 1 when the request is in
+ * flight, -1 on an IPC refusal. */
+static int rt_issue_sd_read(struct rt_context* ctx, struct rt_pending* record, uint32_t sector, uint32_t sectors,
+                            uint32_t target, uint32_t phase) {
+    struct rt_sdio_request* rq = &record->request;
+    if (ctx->sdio_sdhc == RT_SD_D2X) {
+        /* d2x's /dev/sdio/sdhc: sector and count in, the data out. */
+        rq->cmd = sector;
+        rq->cmd_type = sectors;
+        record->vec[0].data = (uint32_t)(uintptr_t)&rq->cmd;
+        record->vec[0].len = 4;
+        record->vec[1].data = (uint32_t)(uintptr_t)&rq->cmd_type;
+        record->vec[1].len = 4;
+        record->vec[2].data = target;
+        record->vec[2].len = sectors * RT_SECTOR_BYTES;
+    } else {
+        rq->cmd = RT_SD_CMD_READMULTIBLOCK;
+        rq->cmd_type = RT_SD_CMDTYPE_AC;
+        rq->rsp_type = RT_SD_RESPONSE_R1;
+        rq->arg = ctx->sdio_sdhc ? sector : sector * RT_SECTOR_BYTES;
+        rq->blk_cnt = sectors;
+        rq->blk_size = RT_SECTOR_BYTES;
+        rq->dma_addr = target;
+        rq->isdma = 1;
+        rq->pad0 = 0;
+        record->vec[0].data = (uint32_t)(uintptr_t)rq;
+        record->vec[0].len = sizeof(*rq);
+        record->vec[1].data = target;
+        record->vec[1].len = sectors * RT_SECTOR_BYTES;
+        record->vec[2].data = (uint32_t)(uintptr_t)record->response;
+        record->vec[2].len = sizeof(record->response);
+    }
+    rt_flush_range((uintptr_t)rq, sizeof(*rq));
+    rt_flush_range((uintptr_t)record->vec, sizeof(record->vec));
+    rt_flush_range((uintptr_t)target, sectors * RT_SECTOR_BYTES); /* no stale lines over the DMA target */
+    record->phase = phase;
+    ctx->sd_requests++;
+    if (rt_ioctlv_async(ctx, record) < 0) {
+        ctx->sd_failures++;
+        return -1;
+    }
+    return 1;
+}
+
 /* Issues the next SD chunk of the current run. Returns 1 when a request
  * is in flight, 0 when the run is complete or not an SD run, -1 on an IPC
  * refusal. */
@@ -2139,7 +2197,6 @@ static int rt_issue_sd_chunk(struct rt_context* ctx, struct rt_pending* record) 
     const uint32_t skip = byte_in_sectors % RT_SECTOR_BYTES;
     uint32_t want = skip + remaining;
     uint32_t sectors;
-    struct rt_sdio_request* rq = &record->request;
     if (run->kind == RT_KIND_DISC) return rt_issue_disc_chunk(ctx, record);
     if (run->kind != RT_KIND_SD || remaining == 0) return 0;
     if (want > RT_BOUNCE_BYTES) want = RT_BOUNCE_BYTES;
@@ -2147,52 +2204,7 @@ static int rt_issue_sd_chunk(struct rt_context* ctx, struct rt_pending* record) 
     record->chunk_skip = skip;
     record->chunk_bytes = sectors * RT_SECTOR_BYTES - skip;
     if (record->chunk_bytes > remaining) record->chunk_bytes = remaining;
-    if (ctx->sdio_sdhc == RT_SD_D2X) {
-        /* d2x's /dev/sdio/sdhc: sector and count in, the data out. */
-        rq->cmd = sector;
-        rq->cmd_type = sectors;
-        record->vec[0].data = (uint32_t)(uintptr_t)&rq->cmd;
-        record->vec[0].len = 4;
-        record->vec[1].data = (uint32_t)(uintptr_t)&rq->cmd_type;
-        record->vec[1].len = 4;
-        record->vec[2].data = record->bounce;
-        record->vec[2].len = sectors * RT_SECTOR_BYTES;
-        rt_flush_range((uintptr_t)rq, sizeof(*rq));
-        rt_flush_range((uintptr_t)record->vec, sizeof(record->vec));
-        rt_flush_range((uintptr_t)record->bounce, sectors * RT_SECTOR_BYTES);
-        record->phase = RT_PHASE_SD;
-        ctx->sd_requests++;
-        if (rt_ioctlv_async(ctx, record) < 0) {
-            ctx->sd_failures++;
-            return -1;
-        }
-        return 1;
-    }
-    rq->cmd = RT_SD_CMD_READMULTIBLOCK;
-    rq->cmd_type = RT_SD_CMDTYPE_AC;
-    rq->rsp_type = RT_SD_RESPONSE_R1;
-    rq->arg = ctx->sdio_sdhc ? sector : sector * RT_SECTOR_BYTES;
-    rq->blk_cnt = sectors;
-    rq->blk_size = RT_SECTOR_BYTES;
-    rq->dma_addr = record->bounce;
-    rq->isdma = 1;
-    rq->pad0 = 0;
-    record->vec[0].data = (uint32_t)(uintptr_t)rq;
-    record->vec[0].len = sizeof(*rq);
-    record->vec[1].data = record->bounce;
-    record->vec[1].len = sectors * RT_SECTOR_BYTES;
-    record->vec[2].data = (uint32_t)(uintptr_t)record->response;
-    record->vec[2].len = sizeof(record->response);
-    rt_flush_range((uintptr_t)rq, sizeof(*rq));
-    rt_flush_range((uintptr_t)record->vec, sizeof(record->vec));
-    rt_flush_range((uintptr_t)record->bounce, sectors * RT_SECTOR_BYTES); /* no stale lines over the DMA target */
-    record->phase = RT_PHASE_SD;
-    ctx->sd_requests++;
-    if (rt_ioctlv_async(ctx, record) < 0) {
-        ctx->sd_failures++;
-        return -1;
-    }
-    return 1;
+    return rt_issue_sd_read(ctx, record, sector, sectors, record->bounce, RT_PHASE_SD);
 }
 
 /* The runtime's bytes of a completed read, in buffer order, for the
@@ -2249,12 +2261,39 @@ static int rt_next_window(struct rt_context* ctx, struct rt_pending* record) {
     return 1;
 }
 
+/* The game's read issued again as it asked, into its own buffer. */
+static int rt_reissue_game_read(struct rt_context* ctx, struct rt_pending* record) {
+    uint32_t i;
+    for (i = 0; i < 8; ++i) record->di_command[i] = 0;
+    record->di_command[0] = RT_DI_READ << 24;
+    record->di_command[1] = record->length;
+    record->di_command[2] = record->word_offset;
+    rt_flush_range((uintptr_t)record->di_command, sizeof(record->di_command));
+    return rt_game_read_async(ctx, record) < 0 ? -1 : 1;
+}
+
 void rt_on_di_complete(struct rt_context* ctx, int32_t* result, struct rt_pending* record, uintptr_t* callback,
                        uintptr_t* user_data) {
+    uint32_t slot;
     ctx->completions++;
+    slot = (uint32_t)(record - ctx->pending);
+    if (slot >= RT_MAX_PENDING) slot = 0;
     if (record->phase == RT_PHASE_DISC) {
+        /* A virtual read's stand-in at the partition start: every byte of
+         * the answer comes from the table, so the drive's verdict on it
+         * does not matter. */
+        if (*result != RT_DI_SUCCESS && record->is_virtual) *result = RT_DI_SUCCESS;
+        if (*result != RT_DI_SUCCESS && ctx->retry[slot] < RT_READ_RETRIES) {
+            ctx->retry[slot]++;
+            ctx->read_retries++;
+            if (rt_reissue_game_read(ctx, record) > 0) {
+                *callback = 0;
+                return;
+            }
+        }
         record->di_result = (uint32_t)*result;
         if (*result == RT_DI_SUCCESS) {
+            ctx->retry[slot] = 0;
             rt_fill_memory_runs(record);
         } else {
             record->run_index = record->run_count; /* nothing to fetch for a failed read */
@@ -2265,15 +2304,26 @@ void rt_on_di_complete(struct rt_context* ctx, int32_t* result, struct rt_pendin
         const rt_run* run = &record->runs[record->run_index];
         const int failed = record->phase == RT_PHASE_SD ? *result < 0 : *result != RT_DI_SUCCESS;
         if (failed) {
+            if (record->phase == RT_PHASE_SD) ctx->sd_failures++;
+            else ctx->disc_failures++;
+            /* The same chunk again (run_done has not moved), a few times:
+             * a card or drive that misses once usually answers next time. */
+            if (ctx->retry[slot] < RT_READ_RETRIES) {
+                ctx->retry[slot]++;
+                ctx->read_retries++;
+                if (rt_issue_sd_chunk(ctx, record) > 0) {
+                    *callback = 0;
+                    return;
+                }
+            }
             if (record->phase == RT_PHASE_SD) {
-                ctx->sd_failures++;
                 record->di_result = RT_DI_ERROR;
             } else {
-                ctx->disc_failures++;
                 record->di_result = *result > 0 ? (uint32_t)*result : RT_DI_ERROR; /* the drive's own verdict */
             }
             record->run_index = record->run_count;
         } else {
+            ctx->retry[slot] = 0;
             uint8_t* dst = rt_run_destination(record, run) + record->run_done;
             rt_copy(dst, (const uint8_t*)(uintptr_t)record->bounce + record->chunk_skip, record->chunk_bytes);
             rt_flush_range((uintptr_t)dst, record->chunk_bytes);
