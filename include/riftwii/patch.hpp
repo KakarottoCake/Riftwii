@@ -13,6 +13,8 @@ struct DiscIdentity {
     std::string id;
     std::uint8_t revision = 0;
     std::uint8_t number = 0;
+    // The console's ID (ES device ID), for {$__ngid}; 0 when unknown.
+    std::uint32_t console_id = 0;
 };
 
 struct DiscFilter {
@@ -118,6 +120,8 @@ struct NetworkServer {
 
 struct Package {
     DiscFilter filter;
+    // Where external paths start: the wiidisc root, taken from the XML's
+    // folder when relative, or the folder itself when there is none.
     std::string root = "/riivolution";
     // Parsed from wiidisc shiftfiles but intentionally unused: every resized
     // or created file is relocated into the virtual window and the FST is
@@ -154,17 +158,24 @@ struct Plan {
 // elements (recorded in Package::warnings); rejects malformed values,
 // DOCTYPE/entities, non-declaration processing instructions, duplicate
 // attributes and the size/depth limits. Output is untouched on failure.
-bool parse_package(const std::string& xml, Package& output, std::string& error);
-bool read_package(std::istream& input, Package& output, std::string& error);
+// `folder` is the absolute folder holding the XML ("/riivolution" or
+// "/apps/riivolution"): a relative wiidisc root starts there, and it is
+// the root when the XML names none.
+bool parse_package(const std::string& xml, Package& output, std::string& error,
+                   const std::string& folder = "/riivolution");
+bool read_package(std::istream& input, Package& output, std::string& error,
+                  const std::string& folder = "/riivolution");
 
 // Joins `path` onto `root` (absolute paths replace the root), normalises "."
 // and "..", and rejects escapes above "/" and characters that cannot be part
 // of an SD/disc path. Placeholders must already be substituted.
 bool resolve_path(const std::string& root, const std::string& path, std::string& output);
 
-// Replaces every {$name} with the matching param value, or with the built-ins
-// __gameid (id[0..3)), __region (id[3]) and __maker (id[4..6)). Later params
-// override earlier ones. Unknown or unterminated placeholders are errors.
+// Replaces every {$name} with the built-ins __gameid (id[0..3)), __region
+// (id[3]), __maker (id[4..6)) and __ngid (the console ID, 8 hex digits),
+// else the matching param value; later params override earlier ones. An
+// unknown name becomes the empty string, as in Riivolution. Unterminated
+// or empty placeholders are errors.
 bool substitute_params(const std::string& input, const std::vector<Param>& params,
                        const DiscIdentity& disc, std::string& output, std::string& error);
 

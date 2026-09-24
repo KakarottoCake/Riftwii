@@ -84,10 +84,19 @@ static void test_hex_overflow() {
     EXPECT_DROPPED(bad3);
     std::string okBool = "<wiidisc version=\"1\"><patch id=\"p\"><file disc=\"/a.bin\" external=\"a.bin\" resize=\"1\" create=\"0\"/></patch></wiidisc>";
     EXPECT_TRUE(riftwii::parse_package(okBool, pkg, err));
-    EXPECT_EQ(pkg.patches.at("p").files[0].resize, true);
+    // Riivolution reads only yes and true (any case) as yes.
+    EXPECT_EQ(pkg.patches.at("p").files[0].resize, false);
     EXPECT_EQ(pkg.patches.at("p").files[0].create, false);
+    EXPECT_EQ(pkg.warnings.size(), std::size_t(2));
+    EXPECT_TRUE(riftwii::parse_package("<wiidisc version=\"1\"><patch id=\"p\"><file disc=\"/a.bin\" external=\"a.bin\" resize=\"NO\" create=\"True\"/></patch></wiidisc>", pkg, err));
+    EXPECT_EQ(pkg.patches.at("p").files[0].resize, false);
+    EXPECT_EQ(pkg.patches.at("p").files[0].create, true);
+    EXPECT_TRUE(pkg.warnings.empty());
     std::string badBool = "<wiidisc version=\"1\"><patch id=\"p\"><file disc=\"/a.bin\" external=\"a.bin\" resize=\"maybe\"/></patch></wiidisc>";
-    EXPECT_DROPPED(badBool);
+    EXPECT_TRUE(riftwii::parse_package(badBool, pkg, err));
+    EXPECT_EQ(pkg.patches.at("p").files.size(), std::size_t(1));
+    EXPECT_EQ(pkg.patches.at("p").files[0].resize, false);
+    EXPECT_EQ(pkg.warnings.size(), std::size_t(1));
 }
 static void test_unsupported() {
     riftwii::Package pkg;
@@ -528,7 +537,14 @@ static void test_read_package() {
     EXPECT_FALSE(riftwii::read_package(overLimit, pkg, err));
     EXPECT_EQ(pkg.root, std::string("/preserved"));
 
-    std::istringstream embeddedNull(xml + std::string(1, '\0') + "ignored");
+    // NUL padding after the last '>' is cut off, as Riivolution does.
+    std::istringstream nulTail(xml + std::string(64, '\0') + "ignored");
+    EXPECT_TRUE(riftwii::read_package(nulTail, pkg, err));
+    EXPECT_FALSE(pkg.warnings.empty());
+    pkg.root = "/preserved";
+    std::string midNull = xml;
+    midNull.insert(midNull.size() - 12, 1, '\0');
+    std::istringstream embeddedNull(midNull);
     EXPECT_FALSE(riftwii::read_package(embeddedNull, pkg, err));
     EXPECT_EQ(err, std::string("embedded null not allowed"));
     EXPECT_EQ(pkg.root, std::string("/preserved"));
@@ -570,6 +586,48 @@ static void test_network() {
     EXPECT_FALSE(riftwii::parse_package("<wiidisc version=\"1\"><network port=\"x\"/></wiidisc>", pkg, err));
 }
 
+// Riivolution's reading rules the parser follows (see docs/COMPAT.md).
+static void test_riivolution_rules() {
+    riftwii::Package pkg;
+    std::string err;
+    std::vector<riftwii::FilePatch> files;
+    const riftwii::DiscIdentity disc{"RSBE01", 0, 0};
+    const std::string body =
+        "<options><section name=\"s\"><option name=\"o\" default=\"1\"><param name=\"v\" value=\"opt\"/>"
+        "<choice name=\"c\"><param name=\"v\" value=\"choice\"/><patch id=\"p\"/></choice></option></section></options>"
+        "<patch id=\"p\"><file disc=\"/a\" external=\"{$v}/a\"/></patch></wiidisc>";
+    // No root: the XML's own folder. A relative root starts there too.
+    EXPECT_TRUE(riftwii::parse_package("<wiidisc version=\"1\">" + body, pkg, err, "/apps/riivolution"));
+    EXPECT_EQ(pkg.root, std::string("/apps/riivolution"));
+    EXPECT_TRUE(riftwii::parse_package("<wiidisc version=\"1\" root=\"mod\">" + body, pkg, err, "/apps/riivolution"));
+    EXPECT_EQ(pkg.root, std::string("/apps/riivolution/mod"));
+    EXPECT_TRUE(riftwii::parse_package("<wiidisc version=\"1\" root=\"../mod\">" + body, pkg, err));
+    EXPECT_EQ(pkg.root, std::string("/mod"));
+    EXPECT_TRUE(riftwii::parse_package("<wiidisc version=\"1\" root=\"/mod\">" + body, pkg, err, "/apps/riivolution"));
+    EXPECT_EQ(pkg.root, std::string("/mod"));
+    EXPECT_FALSE(riftwii::parse_package("<wiidisc version=\"1\" root=\"../../x\">" + body, pkg, err));
+    // An option's param wins over its choice's.
+    EXPECT_TRUE(riftwii::parse_package("<wiidisc version=\"1\" root=\"mod\">" + body, pkg, err));
+    EXPECT_TRUE(PlanFiles(pkg, disc, files, err));
+    EXPECT_EQ(files.size(), std::size_t(1));
+    if (files.size() == 1) EXPECT_EQ(files[0].external, std::string("/riivolution/mod/opt/a"));
+    // Text after the last '>' is cut off with a warning.
+    EXPECT_TRUE(riftwii::parse_package("<wiidisc version=\"1\">" + body + "\r\ngarbage", pkg, err));
+    EXPECT_EQ(pkg.warnings.size(), std::size_t(1));
+    EXPECT_TRUE(riftwii::parse_package("<wiidisc version=\"1\">" + body + "\r\n", pkg, err));
+    EXPECT_TRUE(pkg.warnings.empty());
+    // An odd hex digit is left out, with a warning.
+    EXPECT_TRUE(riftwii::parse_package("<wiidisc version=\"1\"><patch id=\"m\"><memory offset=\"0x80001000\" value=\"0x123\"/></patch></wiidisc>", pkg, err));
+    EXPECT_EQ(pkg.patches.at("m").memory.size(), std::size_t(1));
+    if (pkg.patches.at("m").memory.size() == 1) {
+        EXPECT_EQ(pkg.patches.at("m").memory[0].value.size(), std::size_t(1));
+        EXPECT_EQ(pkg.patches.at("m").memory[0].value[0], 0x12);
+    }
+    EXPECT_EQ(pkg.warnings.size(), std::size_t(1));
+    EXPECT_DROPPED("<wiidisc version=\"1\"><patch id=\"m\"><memory offset=\"0x80001000\" value=\"1\"/></patch></wiidisc>");
+    EXPECT_DROPPED("<wiidisc version=\"1\"><patch id=\"m\"><memory offset=\"0x80001000\" value=\"12g\"/></patch></wiidisc>");
+}
+
 int main() {
     test_successful();
     test_network();
@@ -594,6 +652,7 @@ int main() {
     test_plan_without_order();
     test_select_choice();
     test_read_package();
+    test_riivolution_rules();
     if (g_failures == 0) {
         std::cout << "ALL PATCH TESTS PASSED" << std::endl;
         return 0;
