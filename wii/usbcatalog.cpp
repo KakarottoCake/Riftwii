@@ -14,14 +14,19 @@
 #include <fstream>
 #include <memory>
 #include <set>
+#include <sys/stat.h>
 #include <sstream>
 
 #include "d2xsd.hpp"
+#include "d2xusb.hpp"
+#include "loadersettings.hpp"
+#include "online.hpp"
 #include "di.hpp"
 #include "ios_reload.hpp"
 #include "log.hpp"
 #include "menuios.hpp"
 #include "riftwii/disc.hpp"
+#include "riftwii/rvz.hpp"
 #include "riftwii/titles.hpp"
 
 namespace riftwii::wii {
@@ -35,11 +40,25 @@ std::unique_ptr<ImageVolume> g_sd_volume;
 bool g_raw_mounted = false;
 bool g_libfat_mounted = false;
 bool g_sd_back = false;  // SD remounted (and the log reopened) after an IOS reload
+// The RVZ game being launched: the loader's partition reads come from it.
+std::shared_ptr<const ByteSource> g_rvz_file;
+std::unique_ptr<RvzImage> g_rvz;
+std::unique_ptr<RvzPartitionSource> g_rvz_partition;
+std::size_t g_rvz_partition_index = SIZE_MAX;  // the partition last opened
+VolumeFile g_rvz_volume_file;
+bool g_rvz_on_usb = false;
+// After the reload into the cIOS: the USB drive through d2x's /dev/usb2,
+// for an RVZ game on it (libogc's USB driver is shut down by then).
+std::unique_ptr<ImageVolume> g_rvz_usb_volume;
+constexpr const char* kRvzStubDir = "sd:/riftwii/rvz";
 constexpr std::size_t kMaxGames = 4000, kMaxPath = 240;
 constexpr u8 kUsbClassMassStorage = 0x08;
 
 bool usb_read(std::uint64_t sector, std::uint32_t count, std::uint8_t* out) {
     return sector <= 0xFFFFFFFFull && __io_usbstorage.readSectors(static_cast<sec_t>(sector), count, out);
+}
+bool d2x_usb_block_read(std::uint64_t sector, std::uint32_t count, std::uint8_t* out) {
+    return sector <= 0xFFFFFFFFull && d2x_usb_read(static_cast<std::uint32_t>(sector), count, out);
 }
 bool sd_read(std::uint64_t sector, std::uint32_t count, std::uint8_t* out) {
     return sector <= 0xFFFFFFFFull && sd_interface()->readSectors(static_cast<sec_t>(sector), count, out);
@@ -121,9 +140,156 @@ bool make_image(const ImageVolume& volume, const std::string& prefix, const std:
     }
     return true;
 }
+// An RVZ game: its headers and what check_rvz says. The stub and fragment
+// list d2x needs are made at launch (prepare_rvz_launch).
+bool open_rvz_game(const ImageVolume& volume, const std::string& prefix, ImageGame& game, std::string& error) {
+    UsbImage image;
+    if (!add_piece(volume, prefix, game.path, image, error)) return false;
+    RvzHead head;
+    if (!read_rvz_head(*image.pieces[0].source, head, error)) return false;
+    DiscHeader header;
+    if (!parse_disc_header(head.disc_header.data(), head.disc_header.size(), header, error)) return false;
+    const RvzVerdict verdict = check_rvz(head, image.pieces[0].file.entry.size);
+    game.id = header.game_id;
+    game.title = header.title;
+    game.revision = header.version;
+    game.disc_number = header.disc_number;
+    game.rvz_support = verdict.support;
+    game.rvz_reasons = verdict.reasons;
+    game.rvz_disc_bytes = head.iso_size;
+    game.checked = true;
+    logf("  %s\n", describe_rvz(head).c_str());
+    for (const std::string& r : game.rvz_reasons) logf("  %s\n", r.c_str());
+    return true;
+}
+
+bool rvz_refused(const ImageGame& game, std::string& error) {
+    if (game.format != UsbImageFormat::Rvz || game.rvz_support != RvzSupport::Unsupported) return false;
+    error = "This RVZ cannot be played. " + (game.rvz_reasons.empty() ? std::string() : game.rvz_reasons.front());
+    return true;
+}
+
+// A partition opened on the stub: its data from the RVZ.
+const ByteSource* rvz_partition(std::uint64_t partition_offset) {
+    if (!g_rvz) return nullptr;
+    const RvzRawSource raw(*g_rvz);
+    PartitionHeader header;
+    std::string error;
+    std::size_t index = SIZE_MAX;
+    if (read_partition_header(raw, partition_offset, header, error)) index = g_rvz->partition_at(header.data_offset);
+    if (index == SIZE_MAX) {
+        logf("RVZ: no data for the partition at 0x%llx%s%s\n", static_cast<unsigned long long>(partition_offset),
+             error.empty() ? "" : ": ", error.c_str());
+        return nullptr;
+    }
+    g_rvz_partition.reset(new RvzPartitionSource(*g_rvz, index));
+    g_rvz_partition_index = index;
+    logf("RVZ: partition at 0x%llx read from the image (%llu bytes of data)\n",
+         static_cast<unsigned long long>(partition_offset), static_cast<unsigned long long>(g_rvz_partition->size()));
+    return g_rvz_partition.get();
+}
+
+void close_rvz_reads() {
+    di::set_partition_resolver(nullptr);
+    g_rvz_partition.reset();
+    g_rvz_partition_index = SIZE_MAX;
+    g_rvz.reset();
+    g_rvz_file.reset();
+    g_rvz_volume_file = VolumeFile{};
+    g_rvz_on_usb = false;
+}
+
+// Opens the RVZ at `path` ("sd:/..." or "usb:/...") on `volume` for the
+// loader's partition reads.
+bool open_rvz_reads(const ImageVolume* volume, const std::string& path, std::string& error) {
+    close_rvz_reads();
+    const bool usb = path.compare(0, 5, "usb:/") == 0;
+    VolumeFile file;
+    if (volume == nullptr || !volume->lookup(path.substr(usb ? 4 : 3), file, error)) {
+        error = "cannot find " + path + (error.empty() ? "" : ": " + error);
+        return false;
+    }
+    g_rvz_volume_file = file;
+    g_rvz_on_usb = usb;
+    g_rvz_file = std::make_shared<VolumeFileSource>(*volume, file);
+    if (!RvzImage::open(g_rvz_file, g_rvz, error)) {
+        error = path + ": " + error;
+        close_rvz_reads();
+        return false;
+    }
+    di::set_partition_resolver(&rvz_partition);
+    logf("RVZ: %s, %s\n", path.c_str(), describe_rvz(g_rvz->head()).c_str());
+    return true;
+}
+
+bool write_if_changed(const std::string& path, const std::vector<std::uint8_t>& bytes, std::string& error) {
+    {
+        std::ifstream in(path, std::ios::binary);
+        if (in) {
+            std::vector<std::uint8_t> old((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+            if (old == bytes) return true;
+        }
+    }
+    std::ofstream out(path, std::ios::binary | std::ios::trunc);
+    out.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
+    out.close();
+    if (!out) {
+        error = "cannot write " + path;
+        return false;
+    }
+    return true;
+}
+
+// Before the IOS reload: the stub d2x boots from (the disc's headers,
+// sd:/riftwii/rvz/<ID>.stub) and the fragment list that places it.
+bool prepare_rvz_launch(const ImageGame& game, D2xFragmentList& fragments, std::string& error) {
+    if (rvz_refused(game, error)) return false;
+    // The stub goes on the SD card whichever drive holds the RVZ: d2x
+    // boots the headers from there, and the loader writes nothing to USB.
+    if (!g_sd_volume && !mount_image_volume(&sd_read, g_sd_volume, error)) {
+        error = "RVZ games need the SD card for their headers: " + error;
+        return false;
+    }
+    const bool usb = game.device == ImageDevice::Usb;
+    if (!open_rvz_reads(usb ? g_usb_volume.get() : g_sd_volume.get(), game.path, error)) return false;
+    RvzStub stub;
+    const bool built = build_rvz_stub(*g_rvz, stub, error);
+    close_rvz_reads();
+    if (!built) {
+        error = "cannot make the RVZ's stub: " + error;
+        return false;
+    }
+    mkdir("sd:/riftwii", 0777);
+    mkdir(kRvzStubDir, 0777);
+    const std::string path = std::string(kRvzStubDir) + "/" + game.id + ".stub";
+    if (!write_if_changed(path, stub.bytes, error)) return false;
+    // The raw volume remembers folders and FAT blocks from before libfat
+    // wrote the stub.
+    if (!mount_image_volume(&sd_read, g_sd_volume, error)) {
+        error = "SD volume after writing the RVZ stub: " + error;
+        return false;
+    }
+    UsbImage file;
+    if (!add_piece(*g_sd_volume, "sd:/", path, file, error)) return false;
+    std::vector<DiscRange> ranges;
+    for (const RvzStubRange& r : stub.ranges) ranges.push_back(DiscRange{r.disc_offset, r.stub_offset, r.length});
+    if (!build_sparse_fragments(file, ranges, game.rvz_disc_bytes, fragments, error)) {
+        error = "RVZ stub fragments: " + error;
+        return false;
+    }
+    logf("RVZ: stub %s, %u bytes in %u range(s), %u fragment(s)\n", path.c_str(),
+         static_cast<unsigned>(stub.bytes.size()), static_cast<unsigned>(stub.ranges.size()),
+         static_cast<unsigned>(fragments.entries.size()));
+    return true;
+}
+
 // Opens `game.path`: its pieces, the disc header and the d2x fragment list.
 bool open_game(const ImageVolume& volume, const std::string& prefix, const std::vector<std::string>& siblings,
                ImageGame& game, unsigned& pieces, std::string& error) {
+    if (game.format == UsbImageFormat::Rvz) {
+        pieces = 1;
+        return open_rvz_game(volume, prefix, game, error);
+    }
     UsbImage image;
     if (!make_image(volume, prefix, game.path, siblings, game.format, image, error)) return false;
     std::unique_ptr<UsbDiscSource> disc;
@@ -207,6 +373,7 @@ void scan_dir(const ImageVolume& volume, const std::string& prefix, ImageDevice 
             for (const VolumeEntry& x : subentries) subnames.push_back(x.name);
             for (const std::string& x : subnames) { if (c.games.size()>=kMaxGames) return; std::string p; if (join(path,x,p) && extension(x,".wbfs")) add_game(volume,prefix,device,p,subnames,fmt,c,failure); }
         } else if (!e.is_directory && ((fmt==UsbImageFormat::Wbfs && extension(e.name,".wbfs")) || (fmt==UsbImageFormat::Iso && extension(e.name,".iso")))) add_game(volume,prefix,device,path,siblings,fmt,c,failure);
+        else if (!e.is_directory && fmt==UsbImageFormat::Iso && extension(e.name,".rvz")) add_game(volume,prefix,device,path,siblings,UsbImageFormat::Rvz,c,failure);
     }
 }
 
@@ -227,30 +394,44 @@ bool less_folded(const std::string& a, const std::string& b) {
     return a.size() < b.size();
 }
 
-// Gives every game its display name and sorts the list by it, so the list
-// reads "Super Mario Galaxy 2", not "SUPER MARIO GALAXY MORE", when a title
-// database is on the card. Only the IDs on the drive are kept from it.
-void apply_titles(ImageCatalog& c) {
-    std::set<std::string> wanted;
-    for (const ImageGame& g : c.games) {
-        wanted.insert(g.id);
-        wanted.insert(g.id.substr(0, 4));
+// The game names for this session: GameTDB's list in the menu's
+// language, downloaded to the card when the Wii is online (at most weekly),
+// else a titles.txt another loader left on the card.
+TitleTable g_titles;
+bool g_titles_loaded = false;
+std::string g_titles_from;
+
+const TitleTable* titles() {
+    if (g_titles_loaded) return g_titles_from.empty() ? nullptr : &g_titles;
+    g_titles_loaded = true;
+    const std::string lang = MenuLanguage();
+    if (Settings().online) {
+        std::string error;
+        if (!UpdateTitles(lang, false, error)) logf("Titles: not downloaded: %s\n", error.c_str());
     }
-    TitleTable table;
-    const char* used = nullptr;
-    for (const char* path : kTitleFiles) {
+    std::vector<std::string> paths = {TitlesPath(lang)};
+    if (lang != "en") paths.push_back(TitlesPath("en"));
+    for (const char* p : kTitleFiles) paths.push_back(p);
+    for (const std::string& path : paths) {
         std::ifstream in(path, std::ios::binary);
         if (!in) continue;
         std::stringstream text;
         text << in.rdbuf();
-        table.add_text(text.str(), &wanted);
-        used = path;
-        break;
+        g_titles.add_text(text.str());
+        if (g_titles.size() == 0) continue;
+        g_titles_from = path;
+        logf("Titles: %u game names from %s\n", static_cast<unsigned>(g_titles.size()), path.c_str());
+        return &g_titles;
     }
-    for (ImageGame& g : c.games) g.display = display_title(used ? &table : nullptr, g.id, g.path, g.title);
-    if (used) logf("Titles: %s, %u of %u game(s) named\n", used, static_cast<unsigned>(table.size()),
-                   static_cast<unsigned>(c.games.size()));
-    else logf("Titles: no titles.txt on SD; using folder and disc names\n");
+    logf("Titles: no title list on SD; using folder and disc names\n");
+    return nullptr;
+}
+
+// Gives every game its display name and sorts the list by it, so the list
+// reads "Super Mario Galaxy 2", not "SUPER MARIO GALAXY MORE".
+void apply_titles(ImageCatalog& c) {
+    const TitleTable* table = titles();
+    for (ImageGame& g : c.games) g.display = display_title(table, g.id, g.path, g.title);
     std::stable_sort(c.games.begin(), c.games.end(), [](const ImageGame& a, const ImageGame& b) {
         if (less_folded(a.display, b.display)) return true;
         if (less_folded(b.display, a.display)) return false;
@@ -327,7 +508,7 @@ bool slot_title_is_launchable(int slot, std::string& why) {
 // listed, and it is the same test that gates the reload itself, so the
 // warning and the launch never disagree.
 bool check_image_game(ImageGame& game, std::string& error) {
-    if (game.checked) return true;
+    if (game.checked) return !rvz_refused(game, error);
     const ImageVolume* volume = game.device == ImageDevice::Usb ? g_usb_volume.get() : g_sd_volume.get();
     const std::string prefix = game.device == ImageDevice::Usb ? "usb:/" : "sd:/";
     const std::size_t slash = game.path.find_last_of('/');
@@ -360,8 +541,97 @@ bool check_image_game(ImageGame& game, std::string& error) {
     logf("  %s \"%s\", %u piece(s)\n", opened.id.c_str(), opened.title.c_str(), pieces);
     game = std::move(opened);
     error.clear();
+    return !rvz_refused(game, error);
+}
+
+std::string rvz_warning(const ImageGame& game) {
+    if (game.format != UsbImageFormat::Rvz || game.rvz_support != RvzSupport::AtOwnRisk) return std::string();
+    std::string text = "Play at your own risk:";
+    for (const std::string& r : game.rvz_reasons) text += " " + r;
+    return text;
+}
+
+bool serve_disc_from_rvz(const std::string& sd_path, std::string& error) {
+    if (!g_sd_volume && !mount_image_volume(&sd_read, g_sd_volume, error)) {
+        error = "SD has no readable volume: " + error;
+        return false;
+    }
+    return open_rvz_reads(g_sd_volume.get(), sd_path, error);
+}
+
+namespace {
+
+// A file's pieces on the card for the runtime (absolute sectors).
+bool card_extents(const VolumeFile& file, std::vector<rt_rvz_extent>& out, std::string& error) {
+    out.clear();
+    std::uint64_t file_sector = 0;
+    for (const Fragment& f : file.fragments) {
+        if (f.sector + f.sector_count > UINT32_MAX || file_sector + f.sector_count > UINT32_MAX) {
+            error = "the file lies beyond the card's first 2 TiB";
+            return false;
+        }
+        out.push_back(rt_rvz_extent{static_cast<std::uint32_t>(file_sector), static_cast<std::uint32_t>(f.sector),
+                                    static_cast<std::uint32_t>(f.sector_count)});
+        file_sector += f.sector_count;
+    }
     return true;
 }
+
+}  // namespace
+
+bool rvz_resident_options(RvzResidentOptions& out, std::string& error) {
+    out = RvzResidentOptions{};
+    if (!g_rvz || g_rvz_partition_index == SIZE_MAX) {
+        error = "RVZ: the game's partition was never opened from the image";
+        return false;
+    }
+    if (g_rvz_on_usb) {
+        out.usb_fd = d2x_usb_fd();
+        if (out.usb_fd < 0) {
+            error = "RVZ: d2x's USB device is not open";
+            return false;
+        }
+    }
+    if (!g_rvz->runtime_table(g_rvz_partition_index, out.table, error)) {
+        error = "RVZ: " + error;
+        return false;
+    }
+    const std::string id(reinterpret_cast<const char*>(g_rvz->head().disc_header.data()), 6);
+    mkdir("sd:/riftwii", 0777);
+    mkdir(kRvzStubDir, 0777);
+    const std::string path = std::string(kRvzStubDir) + "/" + id + ".groups";
+    if (!write_if_changed(path, out.table.entries, error)) return false;
+    out.table.entries = std::vector<std::uint8_t>();
+    // A fresh view of the card finds the file libfat just wrote; the
+    // RVZ's own file, open on the current one, has not moved.
+    std::unique_ptr<ImageVolume> volume;
+    VolumeFile groups;
+    if (!mount_image_volume(&sd_read, volume, error) || !volume->lookup(path.substr(3), groups, error)) {
+        error = "RVZ: cannot find " + path + " on the card: " + error;
+        return false;
+    }
+    if (!card_extents(g_rvz_volume_file, out.extents, error) || !card_extents(groups, out.table_extents, error)) {
+        error = "RVZ: " + error;
+        return false;
+    }
+    out.enabled = true;
+    logf("RVZ: %u groups for the game, table %s, the RVZ in %u piece(s) on the %s\n", out.table.group_count,
+         path.c_str(), static_cast<unsigned>(out.extents.size()), g_rvz_on_usb ? "USB drive" : "SD card");
+    error.clear();
+    return true;
+}
+
+std::string GameDisplayName(const std::string& id, const std::string& internal) {
+    return display_title(titles(), id, std::string(), internal);
+}
+
+void ReloadTitles() {
+    g_titles = TitleTable{};
+    g_titles_loaded = false;
+    g_titles_from.clear();
+}
+
+void RenameGames(ImageCatalog& catalog) { apply_titles(catalog); }
 
 bool slot_has_ticket(int slot) {
     std::string why;
@@ -420,7 +690,10 @@ bool activate_image_game(const ImageGame& game, int cios_slot, void*& storage, s
         }
     }
     if (!game.checked) { error = "internal: the game was not opened before launch"; return false; }
-    std::vector<std::uint8_t> bytes; if (!game.fragments.encode(bytes,error)) return false;
+    const bool rvz = game.format == UsbImageFormat::Rvz;
+    D2xFragmentList rvz_fragments;
+    if (rvz && !prepare_rvz_launch(game, rvz_fragments, error)) return false;
+    std::vector<std::uint8_t> bytes; if (!(rvz ? rvz_fragments : game.fragments).encode(bytes,error)) return false;
     const std::size_t padded = (bytes.size()+31)&~std::size_t(31); void* allocated=memalign(32,padded);
     if (!allocated) { error="out of memory for d2x fragment list"; return false; }
     std::memset(allocated,0,padded); std::memcpy(allocated,bytes.data(),bytes.size());
@@ -452,7 +725,9 @@ bool activate_image_game(const ImageGame& game, int cios_slot, void*& storage, s
     // every later step, and any failure, lands in boot.log. A game on the
     // SD card is read by d2x through its own SD device, which must then be
     // the card's only driver: the loader uses it too (d2xsd.hpp).
-    if (game.device == ImageDevice::Sd) use_d2x_sd(true);
+    // An RVZ game's disc is its stub, on the card (prepare_rvz_launch).
+    const ImageDevice disc_device = rvz ? ImageDevice::Sd : game.device;
+    if (disc_device == ImageDevice::Sd) use_d2x_sd(true);
     g_sd_back = fatMountSimple("sd", sd_interface());
     if (g_sd_back && log_path) LogOpen(log_path, true);
     logf("%s: reloaded IOS%d rev %d for slot %d (%s)\n", device_name(game.device), running, revision, cios_slot,
@@ -476,7 +751,7 @@ bool activate_image_game(const ImageGame& game, int cios_slot, void*& storage, s
                 "; " + std::string(device_name(game.device)) + " boot needs d2x (v11 beta3 is the latest) in 249, 250 or 251";
         return post_reload_failure(log_path, error);
     }
-    const std::uint32_t device = game.device == ImageDevice::Usb ? 1 : 2;
+    const std::uint32_t device = disc_device == ImageDevice::Usb ? 1 : 2;
     logf("%s: d2x F9 config\n", device_name(game.device));
     if (!di::configure_frag(device,storage,static_cast<std::uint32_t>(bytes.size()),error)) { error = "d2x F9 fragment setup failed: " + error; return post_reload_failure(log_path, error); }
     // Existing physical probes reset the drive. Disable reset after F9 so
@@ -485,6 +760,18 @@ bool activate_image_game(const ImageGame& game, int cios_slot, void*& storage, s
     if (!di::disable_reset(error)) { error = "d2x F6 reset-disable failed: " + error; return post_reload_failure(log_path, error); }
     if (!g_sd_back) {
         error="d2x is configured but SD could not be remounted after IOS reload";
+        return post_reload_failure(log_path, error);
+    }
+    if (rvz && game.device == ImageDevice::Usb) {
+        // The RVZ itself, through d2x's USB device from now on.
+        logf("USB: d2x's /dev/usb2 for the RVZ\n");
+        if (!d2x_usb_open(error) || !mount_image_volume(&d2x_usb_block_read, g_rvz_usb_volume, error)) {
+            error = "USB drive after the cIOS reload: " + error;
+            return post_reload_failure(log_path, error);
+        }
+    }
+    if (rvz && !open_rvz_reads(game.device == ImageDevice::Usb ? g_rvz_usb_volume.get() : g_sd_volume.get(),
+                               game.path, error)) {
         return post_reload_failure(log_path, error);
     }
     logf("%s: d2x ready\n", device_name(game.device));

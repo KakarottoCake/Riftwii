@@ -1,0 +1,313 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// The launch extras: HTTP for the downloads, cheat files and their GCT,
+// the video mode patcher, and the settings file.
+#include "riftwii/cheats.hpp"
+#include "riftwii/http.hpp"
+#include "riftwii/langfile.hpp"
+#include "riftwii/launch.hpp"
+#include "riftwii/playhistory.hpp"
+#include "riftwii/settingsfile.hpp"
+#include "riftwii/videopatch.hpp"
+
+#include <cstring>
+#include <iostream>
+#include <string>
+#include <vector>
+
+static int g_failures = 0;
+#define EXPECT_TRUE(cond) do { if (!(cond)) { std::cerr << "FAILED: " #cond " at line " << __LINE__ << std::endl; g_failures++; } } while (0)
+#define EXPECT_FALSE(cond) do { if (cond) { std::cerr << "FAILED: false expected for " #cond " at line " << __LINE__ << std::endl; g_failures++; } } while (0)
+#define EXPECT_EQ(a, b) do { if ((a) != (b)) { std::cerr << "FAILED: " #a " == " #b " (" << (a) << " != " << (b) << ") at line " << __LINE__ << std::endl; g_failures++; } } while (0)
+
+using namespace riftwii;
+
+namespace {
+
+std::vector<std::uint8_t> bytes(const std::string& s) { return std::vector<std::uint8_t>(s.begin(), s.end()); }
+
+void TestHttp() {
+    HttpUrl url;
+    std::string error;
+    EXPECT_TRUE(parse_http_url("http://codes.rc24.xyz/txt.php?txt=SB4E01", url, error));
+    EXPECT_EQ(url.host, "codes.rc24.xyz");
+    EXPECT_EQ(url.port, 80);
+    EXPECT_EQ(url.path, "/txt.php?txt=SB4E01");
+    EXPECT_TRUE(parse_http_url("http://192.168.1.2:8080", url, error));
+    EXPECT_EQ(url.port, 8080);
+    EXPECT_EQ(url.path, "/");
+    EXPECT_TRUE(http_get_request(url).find("Host: 192.168.1.2:8080\r\n") != std::string::npos);
+    EXPECT_FALSE(parse_http_url("https://www.gametdb.com/", url, error));
+
+    const std::string plain = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 5\r\n\r\nhello";
+    EXPECT_FALSE(http_response_complete(bytes(plain.substr(0, plain.size() - 1))));
+    EXPECT_TRUE(http_response_complete(bytes(plain)));
+    HttpResponse r;
+    EXPECT_TRUE(parse_http_response(bytes(plain), r, error));
+    EXPECT_EQ(r.status, 200);
+    EXPECT_EQ(std::string(r.body.begin(), r.body.end()), "hello");
+    EXPECT_EQ(r.headers["content-type"], "text/plain");
+
+    const std::string chunked =
+        "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n4\r\nWiki\r\n6\r\npedia \r\nE\r\nin \r\n\r\nchunks.\r\n0\r\n\r\n";
+    EXPECT_FALSE(http_response_complete(bytes(chunked.substr(0, 40))));
+    EXPECT_TRUE(http_response_complete(bytes(chunked)));
+    EXPECT_TRUE(parse_http_response(bytes(chunked), r, error));
+    EXPECT_EQ(std::string(r.body.begin(), r.body.end()), "Wikipedia in \r\n\r\nchunks.");
+    EXPECT_FALSE(parse_http_response(bytes(chunked.substr(0, 60)), r, error));
+
+    const std::string moved = "HTTP/1.1 301 Moved\r\nLocation: http://example.org/x\r\nContent-Length: 0\r\n\r\n";
+    EXPECT_TRUE(parse_http_response(bytes(moved), r, error));
+    EXPECT_EQ(r.status, 301);
+    EXPECT_EQ(r.headers["location"], "http://example.org/x");
+    // No length: the body runs to the connection's close.
+    EXPECT_TRUE(parse_http_response(bytes("HTTP/1.0 200 OK\r\n\r\nall of it"), r, error));
+    EXPECT_EQ(r.body.size(), 9u);
+    EXPECT_EQ(url_encode("Mario Kart/Wii"), "Mario%20Kart%2FWii");
+}
+
+void TestCheats() {
+    const std::string text =
+        "\xEF\xBB\xBFSB4E01\r\n"
+        "Super Mario Galaxy 2\r\n"
+        "\r\n"
+        "infinite health [wiiztec]\r\n"
+        "043CA24C 60000000\r\n"
+        "\r\n"
+        "infinite starbits [wiiztec]\r\n"
+        "04A75CF8 000003E6\r\n"
+        "C24C9050 00000002\r\n"
+        "386003E6 907F004C\r\n"
+        "60000000 00000000\r\n"
+        "Keeps star bits at 998.\r\n"
+        "\r\n"
+        "Moon jump [someone]\r\n"
+        "28XXXXXX YYYY0000\r\n"
+        "\r\n"
+        "infinite health [wiiztec]\r\n"
+        "043CA24C 60000000\r\n";
+    CheatFile file;
+    std::string error;
+    EXPECT_TRUE(parse_cheat_text(text, file, error));
+    EXPECT_EQ(file.game_id, "SB4E01");
+    EXPECT_EQ(file.title, "Super Mario Galaxy 2");
+    EXPECT_EQ(file.cheats.size(), 4u);
+    if (file.cheats.size() != 4) return;
+    EXPECT_EQ(file.cheats[0].name, "infinite health [wiiztec]");
+    EXPECT_EQ(file.cheats[0].words.size(), 2u);
+    EXPECT_EQ(file.cheats[1].words.size(), 8u);
+    EXPECT_EQ(file.cheats[1].notes.size(), 1u);
+    EXPECT_TRUE(file.cheats[2].needs_values);
+    EXPECT_EQ(file.cheats[3].name, "infinite health [wiiztec] (2)");
+
+    std::size_t count = 0;
+    const std::vector<std::uint8_t> gct =
+        build_gct(file, {"infinite starbits [wiiztec]", "Moon jump [someone]", "missing"}, count);
+    EXPECT_EQ(count, 1u);
+    EXPECT_EQ(gct.size(), 8u + 32u + 8u);
+    EXPECT_EQ(gct[0], 0x00);
+    EXPECT_EQ(gct[1], 0xD0);
+    EXPECT_EQ(gct[8], 0x04);
+    EXPECT_EQ(gct[gct.size() - 8], 0xF0);
+
+    EXPECT_FALSE(parse_cheat_text("SB4E01\nSuper Mario Galaxy 2\n\n", file, error));
+    // No header: the file is only cheats.
+    EXPECT_TRUE(parse_cheat_text("Cheat\n04000000 00000001\n", file, error));
+    EXPECT_EQ(file.cheats.size(), 1u);
+}
+
+// A render mode table as the SDK lays it out (GXRModeObj, 60 bytes).
+void put_mode(std::vector<std::uint8_t>& b, std::size_t at, std::uint32_t tv, unsigned fb, unsigned efb, unsigned xfb,
+              unsigned x, unsigned y, unsigned w, unsigned h, const std::uint8_t filter[7]) {
+    auto p16 = [&](std::size_t o, unsigned v) {
+        b[at + o] = static_cast<std::uint8_t>(v >> 8);
+        b[at + o + 1] = static_cast<std::uint8_t>(v);
+    };
+    for (std::size_t i = 0; i < 60; ++i) b[at + i] = 0;
+    b[at + 3] = static_cast<std::uint8_t>(tv);
+    p16(4, fb);
+    p16(6, efb);
+    p16(8, xfb);
+    p16(10, x);
+    p16(12, y);
+    p16(14, w);
+    p16(16, h);
+    b[at + 23] = 1;  // xfbMode double field
+    b[at + 24] = 1;
+    for (int i = 0; i < 24; ++i) b[at + 26 + i] = 6;
+    for (int i = 0; i < 7; ++i) b[at + 50 + i] = filter[i];
+}
+
+unsigned get16(const std::vector<std::uint8_t>& b, std::size_t at) { return (unsigned(b[at]) << 8) | b[at + 1]; }
+
+void TestVideo() {
+    const std::uint8_t deflicker[7] = {7, 7, 12, 12, 12, 7, 7};
+    const std::uint8_t sharp[7] = {0, 0, 21, 22, 21, 0, 0};
+    std::vector<std::uint8_t> data(1024, 0x11);
+    put_mode(data, 100, 0, 640, 456, 456, 40, 12, 640, 456, deflicker);  // NTSC 480i with borders
+    put_mode(data, 200, 2, 640, 480, 480, 8, 0, 704, 480, sharp);        // NTSC 480p, 704 wide
+    put_mode(data, 400, 4, 640, 528, 574, 40, 0, 640, 574, deflicker);   // PAL 576i
+    // Near misses: filter taps that do not sum to 64, a width past the line.
+    const std::uint8_t bad[7] = {1, 1, 1, 1, 1, 1, 1};
+    put_mode(data, 600, 0, 640, 480, 480, 40, 0, 640, 480, bad);
+    put_mode(data, 700, 0, 640, 480, 480, 100, 0, 640, 480, deflicker);
+
+    std::vector<std::uint8_t> copy = data;
+    VideoPatchReport report;
+    patch_video_modes(copy.data(), copy.size(), VideoSettings{}, report);
+    EXPECT_EQ(report.modes, 3u);
+    EXPECT_EQ(report.patched, 0u);
+    EXPECT_TRUE(report.side_borders);
+    EXPECT_TRUE(report.top_borders);
+    EXPECT_TRUE(copy == data);
+
+    VideoSettings s;
+    s.width = VideoWidth::W704;
+    s.deflicker = Deflicker::Off;
+    copy = data;
+    report = VideoPatchReport{};
+    patch_video_modes(copy.data(), copy.size(), s, report);
+    EXPECT_EQ(report.patched, 2u);  // the 480p table is already 704 wide and sharp
+    EXPECT_EQ(get16(copy, 114), 704u);
+    EXPECT_EQ(get16(copy, 110), 8u);
+    EXPECT_EQ(copy[100 + 50 + 3], 22);
+    EXPECT_EQ(copy[100 + 50 + 0], 0);
+    EXPECT_EQ(get16(copy, 614), 640u);  // not a table: untouched
+
+    s = VideoSettings{};
+    s.remove_borders = true;
+    copy = data;
+    report = VideoPatchReport{};
+    patch_video_modes(copy.data(), copy.size(), s, report);
+    EXPECT_EQ(get16(copy, 114), 720u);
+    EXPECT_EQ(get16(copy, 110), 0u);
+    EXPECT_EQ(get16(copy, 116), 480u);  // full height
+    EXPECT_EQ(get16(copy, 108), 480u);  // xfbHeight follows
+    EXPECT_EQ(get16(copy, 112), 0u);
+    EXPECT_EQ(get16(copy, 416), 574u);
+    EXPECT_EQ(get16(copy, 414), 720u);
+
+    s = VideoSettings{};
+    s.width = VideoWidth::Framebuffer;
+    copy = data;
+    report = VideoPatchReport{};
+    patch_video_modes(copy.data(), copy.size(), s, report);
+    EXPECT_EQ(get16(copy, 214), 640u);
+    EXPECT_EQ(get16(copy, 210), 40u);
+    EXPECT_EQ(report.patched, 1u);
+}
+
+void TestSettings() {
+    LoaderSettings s;
+    s.parse("# c\nlanguage = ja\nvideo_width=704\ndeflicker = bogus\nborders = remove\nonline = off\nfuture = 1\n");
+    EXPECT_EQ(s.language, "ja");
+    EXPECT_EQ(s.video_width, "704");
+    EXPECT_EQ(s.deflicker, "game");
+    EXPECT_EQ(s.borders, "remove");
+    EXPECT_FALSE(s.online);
+    LoaderSettings again;
+    again.parse(s.serialize());
+    EXPECT_EQ(again.language, "ja");
+    EXPECT_EQ(again.other["future"], "1");
+
+    GameSettings g;
+    VideoSettings v = effective_video(g, s);
+    EXPECT_TRUE(v.width == VideoWidth::W704);
+    EXPECT_TRUE(v.remove_borders);
+    g.video_width = "game";
+    g.borders = "keep";
+    g.deflicker = "off";
+    v = effective_video(g, s);
+    EXPECT_TRUE(v.width == VideoWidth::Game);
+    EXPECT_FALSE(v.remove_borders);
+    EXPECT_TRUE(v.deflicker == Deflicker::Off);
+
+    LaunchModel m;
+    m.game.cheats = true;
+    m.game.cheat_names = {"infinite health [wiiztec]", "b"};
+    m.game.video_width = "720";
+    m.game.deflicker = "off";
+    m.game.borders = "remove";
+    LaunchModel back;
+    back.restore(m.save());
+    EXPECT_TRUE(back.game.cheats);
+    EXPECT_EQ(back.game.cheat_names.size(), 2u);
+    EXPECT_EQ(back.game.video_width, "720");
+    EXPECT_EQ(back.game.deflicker, "off");
+    EXPECT_EQ(back.game.borders, "remove");
+}
+
+void TestLang() {
+    riftwii::Translations t;
+    const std::string po =
+        "\xEF\xBB\xBF# Spanish\r\n"
+        "msgid \"\"\n"
+        "msgstr \"Content-Type: text/plain; charset=UTF-8\\n\"\n"
+        "\n"
+        "#: rift_menu.cpp\n"
+        "msgid \"Back\"\n"
+        "msgstr \"Atr\xC3\xA1s\"\n"
+        "\n"
+        "msgid \"On, {1} picked\"\n"
+        "msgstr \"S\xC3\xAD, \"\n"
+        "  \"{1} elegidos\"\n"
+        "\n"
+        "msgid \"Say \\\"hi\\\"\"\n"
+        "msgstr \"\"\n"
+        "\n"
+        "msgctxt \"x\"\n"
+        "msgid \"Ignored\"\n"
+        "msgstr \"No\"\n"
+        "msgid \"Two\\nlines\"\n"
+        "msgstr \"Dos\\nl\xC3\xADneas\"\n";
+    EXPECT_EQ(riftwii::parse_po(po, t), 3u);
+    EXPECT_EQ(t["Back"], "Atr\xC3\xA1s");
+    EXPECT_EQ(t["On, {1} picked"], "S\xC3\xAD, {1} elegidos");
+    EXPECT_EQ(t["Two\nlines"], "Dos\nl\xC3\xADneas");
+    EXPECT_TRUE(t.count("") == 0);            // the header entry
+    EXPECT_TRUE(t.count("Say \"hi\"") == 0);  // untranslated
+    EXPECT_TRUE(t.count("Ignored") == 0);     // has a context
+
+    EXPECT_EQ(riftwii::fill_placeholders("{2} of {1}", {"a", "b"}), "b of a");
+    EXPECT_EQ(riftwii::fill_placeholders("{3} {} {x", {"a"}), "{3} {} {x");
+
+    const std::vector<char32_t> cps = riftwii::decode_utf8("A\xC3\xB1\xE6\x97\xA5\xF0\x9F\x98\x80\xE9z\xC0\xAF");
+    const std::vector<char32_t> want = {U'A', 0xF1, 0x65E5, 0x1F600, 0xE9, U'z', 0xC0, 0xAF};
+    EXPECT_TRUE(cps == want);
+}
+
+void TestHistory() {
+    PlayHistory h;
+    h.parse("# comment\r\nSB4E01\t3\t1790000000\nRMCE01\t1\t1790000500\nbad line\nrmce01\t1\t5\nSMNE01\tx\t1\n");
+    EXPECT_EQ(h.size(), 2u);
+    EXPECT_TRUE(h.find("SB4E01") && h.find("SB4E01")->count == 3);
+    EXPECT_TRUE(h.find("rmce01") == nullptr);  // not an ID
+    std::vector<std::string> recent = h.recent();
+    EXPECT_TRUE(recent.size() == 2 && recent[0] == "RMCE01");
+    h.record("SB4E01", 1790001000);
+    h.record("R2SE18", 1790000800);
+    h.record("", 1790002000);  // ignored
+    recent = h.recent(2);
+    EXPECT_TRUE(recent.size() == 2 && recent[0] == "SB4E01" && recent[1] == "R2SE18");
+    EXPECT_EQ(h.find("SB4E01")->count, 4u);
+    PlayHistory back;
+    back.parse(h.serialize());
+    EXPECT_EQ(back.size(), 3u);
+    EXPECT_EQ(back.find("R2SE18")->last, 1790000800);
+}
+
+}  // namespace
+
+int main() {
+    TestHttp();
+    TestCheats();
+    TestVideo();
+    TestSettings();
+    TestLang();
+    TestHistory();
+    if (g_failures != 0) {
+        std::cerr << g_failures << " failure(s)" << std::endl;
+        return 1;
+    }
+    std::cout << "extras: all tests passed" << std::endl;
+    return 0;
+}

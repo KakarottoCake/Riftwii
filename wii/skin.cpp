@@ -12,6 +12,7 @@
 namespace riftwii::wii::skin {
 
 Tex tile, tileOver, roundBtn, roundBtnOver, pill, pillOver, pillPrimary, pillPrimaryOver, chipOff, chipOn, rowFocus,
+    stepBack, stepBackOver, stepForward, stepForwardOver, switchOn, switchOff,
     panelGame, panelSettings, bar, bannerStripes, arrowLeft, arrowLeftOver, arrowRight, arrowRightOver, iconDrives,
     iconGear, hand[4];
 
@@ -77,9 +78,9 @@ Tex Round(bool over) {
 }
 
 Tex Chip(bool on) {
-    Canvas c(180, 36);
-    c.rounded_rect(2, 3, 176, 30, 15, on ? rgba(0xE3F5FC) : rgba(0xF4F4F6));
-    c.rounded_border(2, 3, 176, 30, 15, 2, on ? kAccentC : rgba(0xD0D0D8));
+    Canvas c(212, 36);
+    c.rounded_rect(2, 3, 208, 30, 15, on ? rgba(0xE3F5FC) : rgba(0xF4F4F6));
+    c.rounded_border(2, 3, 208, 30, 15, 2, on ? kAccentC : rgba(0xD0D0D8));
     return Upload(c);
 }
 
@@ -92,6 +93,29 @@ Tex Arrow(bool left, bool over) {
     const float s = left ? -1.0f : 1.0f;
     c.line(24 - 3 * s, 16, 24 + 4 * s, 24, 3.5f, kGlyph);
     c.line(24 + 4 * s, 24, 24 - 3 * s, 32, 3.5f, kGlyph);
+    return Upload(c);
+}
+
+// A list row's arrow button: 34 across, in a 42 canvas.
+Tex Step(bool back, bool over) {
+    Canvas c(44, 44);
+    if (over) c.circle(21, 21, 20.5f, kGlow);
+    c.circle(21, 22.5f, 17.5f, kShadow);
+    c.circle(21, 21, 17, over ? rgba(0xE3F5FC) : kWhiteC);
+    c.ring(21, 21, 17, 2, over ? kAccentC : kEdgeStrong);
+    const float s = back ? -1.0f : 1.0f;
+    c.line(21 - 2.5f * s, 14, 21 + 3.5f * s, 21, 3.2f, over ? kAccentC : kGlyph);
+    c.line(21 + 3.5f * s, 21, 21 - 2.5f * s, 28, 3.2f, over ? kAccentC : kGlyph);
+    return Upload(c);
+}
+
+// An On/Off switch: 60x30 at (3, 4).
+Tex Switch(bool on) {
+    Canvas c(68, 40);
+    c.rounded_rect(3, 4, 60, 30, 15, on ? kAccentC : rgba(0xD4D4DB));
+    const float knob = on ? 48.0f : 18.0f;
+    c.circle(knob, 20.5f, 12.5f, rgba(0x000000, 40));
+    c.circle(knob, 19, 12, kWhiteC);
     return Upload(c);
 }
 
@@ -175,13 +199,19 @@ void Init() {
     chipOff = Chip(false);
     chipOn = Chip(true);
     {
-        Canvas c(548, 36);
-        c.rounded_rect(1, 1, 546, 34, 10, rgba(0x2FB6E9, 34));
-        c.rounded_border(1, 1, 546, 34, 10, 1.5f, rgba(0x2FB6E9, 150));
+        Canvas c(548, 44);
+        c.rounded_rect(1, 1, 546, 42, 12, rgba(0x2FB6E9, 30));
+        c.rounded_border(1, 1, 546, 42, 12, 1.5f, rgba(0x2FB6E9, 150));
         rowFocus = Upload(c);
     }
-    panelGame = Card(572, 176, 4, 16, false);
-    panelSettings = Card(572, 252, 4, 16, false);
+    stepBack = Step(true, false);
+    stepBackOver = Step(true, true);
+    stepForward = Step(false, false);
+    stepForwardOver = Step(false, true);
+    switchOn = Switch(true);
+    switchOff = Switch(false);
+    panelGame = Card(572, 232, 4, 16, false);
+    panelSettings = Card(572, 276, 4, 16, false);
     bar = Bar();
     bannerStripes = Stripes();
     arrowLeft = Arrow(true, false);

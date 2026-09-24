@@ -7,9 +7,9 @@
  *   Home      the games on the SD card and the USB drive as a page of
  *             tiles (plus the disc drive), a filter (games with mods, the
  *             default, or all games), the clock, and Settings.
- *   Game      the picked game's banner and its mod packs: A turns a pack
- *             on or off and steps its options, Saves picks where the saves
- *             go, Start leaves for the boot.
+ *   Game      the picked game's page: Mods (its own page, where A turns a
+ *             pack on or off and steps its options), Saves, Cheats and
+ *             the picture settings; Start leaves for the boot.
  *   Settings  the menu IOS, rescan and exit.
  * On Start the last frame stays on screen and the boot log prints into
  * its white card (see main.cpp). The launch state itself
@@ -30,6 +30,7 @@
 #include <ctime>
 #include <fstream>
 #include <initializer_list>
+#include <set>
 #include <sstream>
 #include <wiiuse/wpad.h>
 
@@ -44,8 +45,13 @@
 #include "demo.h"
 #include "input.h"
 #include "riftwii/patch.hpp"
+#include "gameextras.hpp"
+#include "i18n.hpp"
+#include "loadersettings.hpp"
 #include "log.hpp"
 #include "menuios.hpp"
+#include "online.hpp"
+#include "riftwii/settingsfile.hpp"
 #include "netpacks.hpp"
 #include "video.h"
 
@@ -60,6 +66,8 @@ using riftwii::wii::SelectSdGame;
 using riftwii::wii::SelectUsbGame;
 using riftwii::wii::scan_sd_games;
 using riftwii::wii::scan_usb_games;
+using riftwii::wii::tr;
+
 namespace skin = riftwii::wii::skin;
 
 // For the session log: which screen the user reached last.
@@ -223,7 +231,11 @@ static std::string FlatCapped(const std::string& text, std::size_t max)
 			flat += c;
 		}
 	}
-	if (flat.size() > max) flat = flat.substr(0, max) + "...";
+	if (flat.size() > max) {
+		std::size_t cut = max;  // not inside a UTF-8 character
+		while (cut > 0 && (static_cast<unsigned char>(flat[cut]) & 0xC0) == 0x80) --cut;
+		flat = flat.substr(0, cut) + "...";
+	}
 	return flat;
 }
 
@@ -236,6 +248,7 @@ static std::vector<std::string> Chunks(const std::string& text, std::size_t widt
 	while (!flat.empty() && rows.size() < maxRows) {
 		std::size_t cut = flat.size() <= width ? flat.size() : flat.rfind(' ', width);
 		if (cut == std::string::npos || cut < width / 2) cut = std::min(width, flat.size());
+		while (cut > 1 && cut < flat.size() && (static_cast<unsigned char>(flat[cut]) & 0xC0) == 0x80) --cut;
 		rows.push_back(flat.substr(0, cut));
 		flat = flat.substr(cut);
 		while (!flat.empty() && flat.front() == ' ') flat.erase(0, 1);
@@ -251,25 +264,25 @@ static std::string ShortSourceProblem(const char* tag, const riftwii::wii::Image
 	std::string reason = catalog.status;
 	const std::string prefix = std::string(tag) + ": ";
 	if (reason.compare(0, prefix.size(), prefix) == 0) reason = reason.substr(prefix.size());
-	if (reason.compare(0, 8, "No valid") == 0) return std::string(tag) + ": no games in /wbfs or /games";
+	if (reason.compare(0, 8, "No valid") == 0) return tr("{1}: no games in /wbfs or /games", {tag});
 	if (reason == "no USB mass-storage device is inserted") return "";  // no drive is not a problem
-	if (reason == "no SD card is inserted") return "SD: no card";
+	if (reason == "no SD card is inserted") return tr("SD: no card");
 	return std::string(tag) + ": " + FlatCapped(reason, 110);
 }
 
 // The Menu IOS setting's label and what choosing a slot means.
 static std::string MenuIosLabel(int slot)
 {
-	return slot == 0 ? "IOS 58" : "IOS " + std::to_string(slot);
+	return "IOS " + std::to_string(slot == 0 ? 58 : slot);
 }
 static std::string MenuIosNote(int slot)
 {
 	const int running = riftwii::wii::MenuCiosSlot();
 	std::string note = slot == 0
-		? "The menu runs under the Homebrew Channel's IOS (the default)."
-		: "The menu and every game run under cIOS " + std::to_string(slot) +
-		  ", so a cIOS with fakemote makes USB DS3/DS4 pads work as Wii Remotes. USB drives in the menu need a base-58 cIOS.";
-	if (slot != running) note += " Takes effect the next time RiftWii starts.";
+		? tr("The menu runs under the Homebrew Channel's IOS (the default).")
+		: tr("The menu and every game run under cIOS {1}, so a cIOS with fakemote makes USB DS3/DS4 pads work as Wii Remotes. USB drives in the menu need a base-58 cIOS.",
+		     {std::to_string(slot)});
+	if (slot != running) note += std::string(" ") + tr("Takes effect the next time RiftWii starts.");
 	return note;
 }
 
@@ -288,30 +301,53 @@ static std::string PackSummary(const riftwii::LaunchPackage& p)
 {
 	if (!p.valid) return "This XML cannot be read; the error is listed under it.";
 	const std::size_t n = p.package.options.size();
-	if (!p.enabled) return n == 0 ? "Off. A turns it on." : "Off. A turns it on and shows its " + std::to_string(n) + (n == 1 ? " setting." : " settings.");
+	if (!p.enabled) {
+		if (n == 0) return tr("Off. A turns it on.");
+		return n == 1 ? tr("Off. A turns it on and shows its setting.")
+			      : tr("Off. A turns it on and shows its {1} settings.", {std::to_string(n)});
+	}
 	std::size_t on = 0;
 	for (const riftwii::Option& o : p.package.options)
 		if (o.selected != 0 && o.selected <= o.choices.size()) ++on;
 	if (n == 0) return "On. It applies as a whole.";
 	if (on == 0) return "On, but nothing chosen yet: pick its settings below.";
-	return "On, " + std::to_string(on) + " of " + std::to_string(n) + " settings chosen.";
+	return tr("On, {1} of {2} settings chosen.", {std::to_string(on), std::to_string(n)});
 }
 
 // ---------------------------------------------------------------------------
 // Home
 
-enum class Filter { Mods, All };
+// The Home views, stepped with 1; the one last used is remembered in
+// settings.txt ("view").
+enum class Filter { Mods, All, Recent };
 static Filter g_filter = Filter::Mods;
+static bool g_filterLoaded = false;
 static bool g_scanned = false;   // the drives were read this session
 static int g_homeFocus = 0;      // the focused tile, kept across screens
+static bool g_focusRestored = false;  // opened on the last game played
 static riftwii::PackIndex g_packs;
 
 static const char* FilterLabel(Filter f)
 {
 	switch (f) {
 		case Filter::Mods: return "Games with mods";
+		case Filter::Recent: return "Recently played";
 		default: return "All games";
 	}
+}
+static const char* FilterKey(Filter f)
+{
+	return f == Filter::Mods ? "mods" : f == Filter::Recent ? "recent" : "all";
+}
+static void LoadFilter()
+{
+	if (g_filterLoaded) return;
+	g_filterLoaded = true;
+	const auto& other = riftwii::wii::Settings().other;
+	const auto it = other.find("view");
+	if (it == other.end()) return;
+	if (it->second == "all") g_filter = Filter::All;
+	else if (it->second == "recent" && riftwii::wii::History().size() != 0) g_filter = Filter::Recent;
 }
 
 // Which games have packs: every XML in sd:/riivolution and in the
@@ -348,7 +384,7 @@ static void BuildHome(const FrontendState& state, std::vector<GridItem>& items, 
 	entries.clear();
 	{
 		GridItem disc;
-		disc.title = "Disc drive";
+		disc.title = tr("Disc drive");  // translated whole: the tile splits it into lines
 		disc.badge = "DISC";
 		disc.hue = {88, 92, 104, 255};
 		items.push_back(disc);
@@ -363,6 +399,15 @@ static void BuildHome(const FrontendState& state, std::vector<GridItem>& items, 
 	std::stable_sort(rows.begin(), rows.end(), [](const Row& a, const Row& b) {
 		return strcasecmp(a.name.c_str(), b.name.c_str()) < 0;
 	});
+	if (g_filter == Filter::Recent) {
+		// The games played from RiftWii, the latest first.
+		const riftwii::PlayHistory& history = riftwii::wii::History();
+		rows.erase(std::remove_if(rows.begin(), rows.end(),
+			[&](const Row& r) { return history.find(r.game->id) == nullptr; }), rows.end());
+		std::stable_sort(rows.begin(), rows.end(), [&](const Row& a, const Row& b) {
+			return history.find(a.game->id)->last > history.find(b.game->id)->last;
+		});
+	}
 	for (const Row& r : rows) {
 		const bool mods = g_packs.has_packs(r.game->id);
 		if (g_filter == Filter::Mods && !mods) continue;
@@ -394,8 +439,9 @@ static std::string HomeStatus(const FrontendState& state, std::size_t shown)
 		status += std::string(status.empty() ? "" : "   ") + "No d2x cIOS in 249-251: games cannot boot yet";
 	if (!status.empty()) return status;
 	if (g_filter == Filter::Mods && shown <= 1) return "No game here has packs in sd:/riivolution yet. Press 1 for all games.";
+	if (g_filter == Filter::Recent && shown <= 1) return "No game on these drives was played from RiftWii yet. Press 1 for all games.";
 	if (shown <= 1) return "No games found (usb:/wbfs, usb:/games, sd:/wbfs, sd:/games)";
-	return std::string(FilterLabel(g_filter)) + "   1: filter   2: settings   +: rescan";
+	return std::string(tr(FilterLabel(g_filter))) + "   " + tr("1: filter   2: settings   +: rescan");
 }
 
 static void ScanDrives(FrontendState& state, GuiText& status)
@@ -410,7 +456,7 @@ static void ScanDrives(FrontendState& state, GuiText& status)
 	HaltGui();
 	if (!sd) {
 		logf("SD scan failed: %s\n", error.c_str());
-		state.sd_catalog.status = "SD: " + (error.empty() ? "scan failed" : error);
+		state.sd_catalog.status = "SD: " + (error.empty() ? std::string(tr("scan failed")) : error);
 	}
 	error.clear();
 	status.SetText("Reading the USB drive... (a big drive takes a moment)");
@@ -419,10 +465,10 @@ static void ScanDrives(FrontendState& state, GuiText& status)
 	HaltGui();
 	if (!usb) {
 		logf("USB scan failed: %s\n", error.c_str());
-		state.usb_catalog.status = "USB: " + (error.empty() ? "scan failed" : error);
+		state.usb_catalog.status = "USB: " + (error.empty() ? std::string(tr("scan failed")) : error);
 		if (riftwii::wii::MenuCiosSlot() != 0 && error.find("more than one") == std::string::npos) {
-			state.usb_catalog.status += " (the menu runs under IOS" + std::to_string(riftwii::wii::MenuCiosSlot()) +
-				"; USB drives need a base-58 cIOS for that, or set the menu IOS back to 58)";
+			state.usb_catalog.status += " " + tr("(the menu runs under IOS {1}; USB drives need a base-58 cIOS for that, or set the menu IOS back to 58)",
+				{std::to_string(riftwii::wii::MenuCiosSlot())});
 		}
 	}
 	g_scanned = true;
@@ -436,15 +482,17 @@ static void ClockText(std::string& clock, std::string& date)
 	static const char* const days[] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
 	const int h = local.tm_hour % 12 == 0 ? 12 : local.tm_hour % 12;
 	char buf[32];
-	snprintf(buf, sizeof(buf), "%d:%02d %s", h, local.tm_min, local.tm_hour < 12 ? "AM" : "PM");
-	clock = buf;
-	snprintf(buf, sizeof(buf), "%s %d/%d", days[local.tm_wday % 7], local.tm_mon + 1, local.tm_mday);
-	date = buf;
+	// {1} the 12-hour hour, {2} the minutes, {3} the 24-hour hour.
+	snprintf(buf, sizeof(buf), "%02d", local.tm_min);
+	clock = tr(local.tm_hour < 12 ? "{1}:{2} AM" : "{1}:{2} PM",
+		   {std::to_string(h), buf, std::to_string(local.tm_hour)});
+	date = tr("{1} {2}/{3}", {tr(days[local.tm_wday % 7]), std::to_string(local.tm_mon + 1), std::to_string(local.tm_mday)});
 }
 
 static int MenuSource(FrontendState& state)
 {
 	int menu = MENU_NONE;
+	LoadFilter();
 	std::vector<GridItem> items;
 	std::vector<HomeEntry> entries;
 	BuildHome(state, items, entries);
@@ -501,6 +549,16 @@ static int MenuSource(FrontendState& state)
 	if (!g_scanned) {
 		ScanDrives(state, statusTxt);
 		refresh(true);
+		// The first time Home shows, it opens on the last game played.
+		const std::vector<std::string> recent = riftwii::wii::History().recent(1);
+		if (!g_focusRestored && !recent.empty()) {
+			for (std::size_t i = 0; i < items.size(); ++i) {
+				if (items[i].id != recent[0]) continue;
+				grid.Focus(static_cast<int>(i));
+				break;
+			}
+		}
+		g_focusRestored = true;
 	} else {
 		statusTxt.SetText(HomeStatus(state, items.size()).c_str());
 	}
@@ -515,7 +573,7 @@ static int MenuSource(FrontendState& state)
 		if (grid.Page() != shownPage || grid.Pages() != shownPages) {
 			shownPage = grid.Page();
 			shownPages = grid.Pages();
-			const std::string page = shownPages > 1 ? "Page " + std::to_string(shownPage + 1) + " of " + std::to_string(shownPages) : "";
+			const std::string page = shownPages > 1 ? tr("Page {1} of {2}", {std::to_string(shownPage + 1), std::to_string(shownPages)}) : "";
 			pageTxt.SetText(page.c_str());
 		}
 		std::string nowClock, nowDate;
@@ -561,8 +619,13 @@ static int MenuSource(FrontendState& state)
 			menu = MENU_OPTIONS;
 		} else if (filterBtn.Clicked()) {
 			filterBtn.button.ResetState();
-			g_filter = g_filter == Filter::Mods ? Filter::All : Filter::Mods;
+			// Recently played joins the cycle once a game was played.
+			const bool anyPlayed = riftwii::wii::History().size() != 0;
+			g_filter = g_filter == Filter::Mods ? Filter::All
+				: g_filter == Filter::All && anyPlayed ? Filter::Recent : Filter::Mods;
 			logf("Home: filter %s\n", FilterLabel(g_filter));
+			riftwii::wii::Settings().other["view"] = FilterKey(g_filter);
+			riftwii::wii::SaveSettings();
 			refresh(false);
 		} else if (rescanBtn.GetState() == STATE::CLICKED) {
 			rescanBtn.ResetState();
@@ -583,10 +646,13 @@ static int MenuSource(FrontendState& state)
 // The game's banner: its hue across the top with light stripes.
 class GameBanner : public GuiElement {
 public:
+	static constexpr int kHeight = 136;
 	explicit GameBanner(GXColor hue) : hue(hue) {}
 	void Draw() override {
-		Menu_DrawRectangle(0, 0, screenwidth, 184, hue, 1);
+		Menu_DrawRectangle(0, 0, screenwidth, kHeight, hue, 1);
+		GX_SetScissor(0, 0, Menu_XfbWidth(), kHeight * Menu_EfbHeight() / 480);
 		skin::Draw(skin::bannerStripes, 0, -8);
+		GX_SetScissor(0, 0, Menu_XfbWidth(), Menu_EfbHeight());
 	}
 private:
 	GXColor hue;
@@ -620,12 +686,78 @@ static std::string SaveNote(const riftwii::LaunchModel& model)
 }
 
 struct RowRef {
-	enum class What { Saves, Pack, Option, Note } what = What::Note;
+	enum class What { Mods, Saves, Cheats, Width, Deflicker, Borders, Pack, Option, Note } what = What::Note;
 	std::size_t pkg = 0, opt = 0;
 };
 
-static void BuildGameRows(const FrontendState& state, const std::string& scanStatus,
-			  std::vector<FlowRow>& rows, std::vector<RowRef>& refs)
+// The game's video settings: "global" follows Settings, the rest are
+// riftwii/videopatch.hpp's names.
+static const char* const kWidths[] = {"global", "game", "framebuffer", "704", "720"};
+static const char* const kDeflickers[] = {"global", "game", "off", "low", "medium", "high"};
+static const char* const kBorderModes[] = {"global", "keep", "remove"};
+
+template <std::size_t N>
+static std::string StepValue(const char* const (&list)[N], const std::string& value, int direction, bool withGlobal = true)
+{
+	const int first = withGlobal ? 0 : 1;
+	const int n = static_cast<int>(N) - first;
+	int at = 0;
+	while (at < n && value != list[first + at]) ++at;
+	if (at == n) at = 0;
+	return list[first + ((at + direction) % n + n) % n];
+}
+
+static std::string WidthName(const std::string& v)
+{
+	if (v == "framebuffer") return tr("Framebuffer");
+	if (v == "704") return tr("704 pixels");
+	if (v == "720") return tr("720 pixels (full)");
+	return tr("Game's own");
+}
+static std::string DeflickerName(const std::string& v)
+{
+	if (v == "off") return tr("Off (sharp)");
+	if (v == "low") return tr("Low");
+	if (v == "medium") return tr("Medium");
+	if (v == "high") return tr("High");
+	return tr("Game's own");
+}
+static std::string BordersName(const std::string& v)
+{
+	return v == "remove" ? tr("Remove") : tr("Keep");
+}
+// A game's value, or "Default (...)" naming what the global setting is.
+static std::string GameValue(const std::string& v, const std::string& global, std::string (*name)(const std::string&))
+{
+	if (v == "global") return tr("Default ({1})", {name(global)});
+	return name(v);
+}
+static std::string CheatsValue(const riftwii::GameSettings& g)
+{
+	if (!g.cheats) return tr("Off");
+	if (g.cheat_names.empty()) return tr("On, none picked");
+	return tr("On, {1} picked", {std::to_string(g.cheat_names.size())});
+}
+static std::string CheatFileShown(const std::string& id)
+{
+	// Named as the player sees the card on a PC.
+	return "SD:/riftwii/cheats/" + id + ".txt";
+}
+
+// The packs made for the game, as the Mods row counts them.
+static std::size_t ShownPacks(const FrontendState& state, std::size_t* enabled = nullptr)
+{
+	std::size_t shown = 0, on = 0;
+	for (const riftwii::LaunchPackage& p : state.model.packages) {
+		if (!riftwii::show_package(p)) continue;
+		++shown;
+		if (p.valid && p.enabled) ++on;
+	}
+	if (enabled) *enabled = on;
+	return shown;
+}
+
+static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows, std::vector<RowRef>& refs)
 {
 	rows.clear();
 	refs.clear();
@@ -633,6 +765,16 @@ static void BuildGameRows(const FrontendState& state, const std::string& scanSta
 		rows.push_back(std::move(row));
 		refs.push_back(ref);
 	};
+	// Mods first: the reason most games are opened here.
+	std::size_t enabled = 0;
+	const std::size_t shown = ShownPacks(state, &enabled);
+	FlowRow mods;
+	mods.kind = FlowRow::Kind::Action;
+	mods.label = tr("Mods");
+	mods.value = shown == 0 ? tr("None") : enabled == 0 ? tr("Off") : tr("{1} on", {std::to_string(enabled)});
+	mods.on = enabled != 0;
+	add(mods, {RowRef::What::Mods});
+
 	// A pack with its own <savegame> decides where the saves go; the
 	// setting is shown as the pack's and left alone until it lets go.
 	FlowRow saves;
@@ -647,15 +789,56 @@ static void BuildGameRows(const FrontendState& state, const std::string& scanSta
 	}
 	add(saves, {RowRef::What::Saves});
 
+	// Cheats and the picture: the same for every game, whatever its packs.
+	const riftwii::GameSettings& game = state.model.game;
+	const riftwii::LoaderSettings& global = riftwii::wii::Settings();
+	FlowRow cheats;
+	cheats.kind = FlowRow::Kind::Action;
+	cheats.label = tr("Cheats");
+	cheats.value = CheatsValue(game);
+	cheats.on = game.cheats && !game.cheat_names.empty();
+	add(cheats, {RowRef::What::Cheats});
+	FlowRow width;
+	width.kind = FlowRow::Kind::Option;
+	width.label = tr("Picture width");
+	width.value = GameValue(game.video_width, global.video_width, WidthName);
+	width.on = game.video_width != "global";
+	add(width, {RowRef::What::Width});
+	FlowRow deflicker;
+	deflicker.kind = FlowRow::Kind::Option;
+	deflicker.label = tr("Deflicker");
+	deflicker.value = GameValue(game.deflicker, global.deflicker, DeflickerName);
+	deflicker.on = game.deflicker != "global";
+	add(deflicker, {RowRef::What::Deflicker});
+	FlowRow borders;
+	borders.kind = FlowRow::Kind::Option;
+	borders.label = tr("Black borders");
+	borders.value = GameValue(game.borders, global.borders, BordersName);
+	borders.on = game.borders != "global";
+	add(borders, {RowRef::What::Borders});
+}
+
+// The Mods page: each pack made for the game as a switch, its options
+// under it once it is on.
+static void BuildModRows(const FrontendState& state, const std::string& scanStatus,
+			 std::vector<FlowRow>& rows, std::vector<RowRef>& refs)
+{
+	rows.clear();
+	refs.clear();
+	const auto add = [&](FlowRow row, RowRef ref) {
+		rows.push_back(std::move(row));
+		refs.push_back(ref);
+	};
 	std::size_t shown = 0;
 	for (std::size_t i = 0; i < state.model.packages.size(); ++i) {
 		const riftwii::LaunchPackage& p = state.model.packages[i];
 		if (!riftwii::show_package(p)) continue;
 		++shown;
 		FlowRow head;
-		head.kind = FlowRow::Kind::Header;
+		head.kind = p.valid ? FlowRow::Kind::Toggle : FlowRow::Kind::Header;
+		head.heading = true;
 		head.label = PackName(p.file);
-		head.value = !p.valid ? "Broken" : p.enabled ? "On" : "Off";
+		head.value = !p.valid ? tr("Broken") : p.enabled ? tr("On") : tr("Off");
 		head.on = p.enabled;
 		head.dim = !p.valid;
 		add(head, {RowRef::What::Pack, i});
@@ -676,6 +859,7 @@ static void BuildGameRows(const FrontendState& state, const std::string& scanSta
 			const riftwii::Option& option = p.package.options[o];
 			FlowRow row;
 			row.kind = FlowRow::Kind::Option;
+			row.indent = true;
 			row.label = option.name;
 			row.value = state.model.choice_name(i, o);
 			row.on = row.value != "Off";
@@ -690,7 +874,7 @@ static void BuildGameRows(const FrontendState& state, const std::string& scanSta
 		hint.dim = true;
 		hint.label = scanStatus != riftwii::wii::kScanReady ? FlatCapped(scanStatus, 44)
 			: state.model.packages.empty() ? "Put Riivolution XML in sd:/riivolution"
-			: std::to_string(state.model.packages.size()) + " XML file(s) are for other games";
+			: tr("{1} XML file(s) are for other games", {std::to_string(state.model.packages.size())});
 		add(hint, {RowRef::What::Note});
 	}
 }
@@ -708,7 +892,329 @@ static std::string GameTitle(const FrontendState& state)
 		return GameName(state.usb_catalog.games[state.usb_index]);
 	if (state.use_sd && state.sd_index < state.sd_catalog.games.size())
 		return GameName(state.sd_catalog.games[state.sd_index]);
-	return state.disc_title.empty() ? state.game_id : state.disc_title;
+	return riftwii::wii::GameDisplayName(state.game_id, state.disc_title.empty() ? state.game_id : state.disc_title);
+}
+
+// ---------------------------------------------------------------------------
+// Cheats: the game's cheat file as a list to tick, opened from the game
+// page. The file is plain text (riftwii/cheats.hpp); when the Wii is
+// online a missing one is fetched from the GeckoCodes archive.
+
+static void MenuCheats(FrontendState& state)
+{
+	riftwii::GameSettings& game = state.model.game;
+	riftwii::CheatFile file;
+	std::string status;
+	bool loaded = false;
+	const std::string fileNote = tr("The cheats are in {1}. Edit it on a computer to add your own.",
+		{CheatFileShown(state.game_id)});
+
+	enum class Act { Use, Download, Cheat, None };
+	struct Ref {
+		Act act;
+		std::size_t cheat;
+	};
+	std::vector<FlowRow> rows;
+	std::vector<Ref> refs;
+	const auto build = [&]() {
+		rows.clear();
+		refs.clear();
+		FlowRow use;
+		use.kind = FlowRow::Kind::Toggle;
+		use.label = tr("Use cheats");
+		use.value = game.cheats ? tr("On") : tr("Off");
+		use.on = game.cheats;
+		rows.push_back(use);
+		refs.push_back({Act::Use, 0});
+		FlowRow download;
+		download.kind = FlowRow::Kind::Action;
+		download.label = loaded ? tr("Get the latest cheats") : tr("Download cheats");
+		download.value = tr("Download");
+		download.dim = !riftwii::wii::Settings().online;
+		rows.push_back(download);
+		refs.push_back({Act::Download, 0});
+		if (!loaded) {
+			for (const std::string& line : Chunks(status, 44, 3)) {
+				FlowRow note;
+				note.label = line;
+				note.dim = true;
+				rows.push_back(note);
+				refs.push_back({Act::None, 0});
+			}
+			return;
+		}
+		for (std::size_t i = 0; i < file.cheats.size(); ++i) {
+			const riftwii::Cheat& c = file.cheats[i];
+			FlowRow row;
+			row.kind = FlowRow::Kind::Toggle;
+			row.label = FlatCapped(c.name, 48);
+			if (c.needs_values) {
+				row.value = tr("Edit first");
+				row.dim = true;
+			} else {
+				row.on = game.cheat_names.count(c.name) != 0;
+				row.value = row.on ? tr("On") : tr("Off");
+			}
+			rows.push_back(row);
+			refs.push_back({Act::Cheat, i});
+		}
+	};
+	// Picks of cheats the file no longer has are dropped, so the game page
+	// counts only what will be applied.
+	const auto load = [&](bool download) {
+		loaded = riftwii::wii::LoadGameCheats(state.game_id, download, file, status);
+		if (!loaded) return;
+		std::set<std::string> names;
+		for (const riftwii::Cheat& c : file.cheats) names.insert(c.name);
+		bool pruned = false;
+		for (auto it = game.cheat_names.begin(); it != game.cheat_names.end();) {
+			if (names.count(*it)) ++it;
+			else {
+				it = game.cheat_names.erase(it);
+				pruned = true;
+			}
+		}
+		std::string error;
+		if (pruned) SaveChoices(state, error);
+	};
+	load(false);
+	build();
+
+	GuiText titleTxt(tr("Cheats"), 30, skin::kInk);
+	Place(titleTxt, 40, 28);
+	const std::string gameName = FlatCapped(GameTitle(state), 40);
+	GuiText gameTxt(gameName.c_str(), 16, skin::kInkDim);
+	gameTxt.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
+	gameTxt.SetPosition(-40, 40);
+	Panel panel(skin::panelSettings, 34, 76);
+	GuiFlowList list(46, 82, 548, 6);
+	list.SetRows(&rows);
+	list.Select(0);
+	GuiText noteTxt(fileNote.c_str(), 16, skin::kInkSoft);
+	Place(noteTxt, 52, 360);
+	noteTxt.SetWrap(true, 536);
+	SkinButton backBtn(skin::pill, skin::pillOver, 4, 198, 406, "Back",
+		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
+
+	HaltGui();
+	GuiWindow w(screenwidth, screenheight);
+	w.Append(&titleTxt);
+	w.Append(&gameTxt);
+	w.Append(&panel);
+	w.Append(&list);
+	w.Append(&noteTxt);
+	w.Append(&backBtn.button);
+	mainWindow->Append(&w);
+
+	const auto say = [&](const std::string& text) { noteTxt.SetText(text.c_str()); };
+	// Fetching blocks for a few seconds: the message is drawn first.
+	const auto fetch = [&]() {
+		std::string text = tr("Downloading cheats...");
+		say(text);
+		ResumeGui();
+		std::string error;
+		const bool ok = riftwii::wii::DownloadCheats(state.game_id, error);
+		HaltGui();
+		if (ok) {
+			load(false);
+			say(loaded ? tr("{1} cheats. Turn on the ones you want.", {std::to_string(file.cheats.size())}) : status);
+		} else {
+			logf("Cheats: download failed: %s\n", error.c_str());
+			say(tr("Could not download cheats: {1}", {FlatCapped(error, 90)}));
+		}
+		build();
+		list.Refresh();
+	};
+	// A game opened for the first time gets its cheats straight away.
+	if (!loaded && riftwii::wii::Settings().online && !state.game_id.empty()) {
+		std::string error;
+		if (riftwii::wii::DownloadCheats(state.game_id, error)) {
+			load(false);
+			build();
+			list.Refresh();
+		} else {
+			status = tr("No cheats found online for this game.");
+			build();
+			list.Refresh();
+			logf("Cheats: none downloaded for %s: %s\n", state.game_id.c_str(), error.c_str());
+		}
+	}
+	ResumeGui();
+
+	int shownRow = -1;
+	bool done = false;
+	while (!done)
+	{
+		usleep(10000);
+		HaltGui();
+		ClearStaleButtons({&backBtn.button});
+
+		const int row = list.Selected();
+		if (row != shownRow && row >= 0 && static_cast<std::size_t>(row) < refs.size()) {
+			shownRow = row;
+			const Ref& ref = refs[static_cast<std::size_t>(row)];
+			if (ref.act == Act::Cheat) {
+				const riftwii::Cheat& c = file.cheats[ref.cheat];
+				std::string note;
+				for (const std::string& n : c.notes) note += (note.empty() ? "" : " ") + n;
+				if (c.needs_values) note = tr("This cheat has values to fill in (the X's). Edit the file first.") + (note.empty() ? "" : " " + note);
+				say(note.empty() ? c.name : FlatCapped(note, 200));
+			} else if (ref.act == Act::Use) {
+				say(tr("Cheats are only applied when this is On."));
+			} else if (ref.act == Act::Download) {
+				say(riftwii::wii::Settings().online ? tr("Replaces the file with the latest cheats from the GeckoCodes archive.")
+						      : tr("Downloads are off in Settings."));
+			} else {
+				say(fileNote);
+			}
+		}
+
+		int acted = list.GetClicked();
+		if (acted < 0) acted = list.GetClickedBack();
+		if (acted >= 0 && static_cast<std::size_t>(acted) < refs.size()) {
+			const Ref ref = refs[static_cast<std::size_t>(acted)];
+			bool changed = false;
+			if (ref.act == Act::Use) {
+				game.cheats = !game.cheats;
+				changed = true;
+			} else if (ref.act == Act::Download) {
+				if (!riftwii::wii::Settings().online) say(tr("Downloads are off in Settings."));
+				else fetch();
+			} else if (ref.act == Act::Cheat) {
+				const riftwii::Cheat& c = file.cheats[ref.cheat];
+				if (c.needs_values) {
+					say(tr("This cheat has values to fill in (the X's). Edit the file first."));
+				} else {
+					if (game.cheat_names.count(c.name)) game.cheat_names.erase(c.name);
+					else {
+						game.cheat_names.insert(c.name);
+						game.cheats = true;  // picking one means cheats are wanted
+					}
+					changed = true;
+				}
+			}
+			if (changed) {
+				std::string error;
+				if (!SaveChoices(state, error)) say(error);
+				build();
+				list.Refresh();
+				list.Select(acted);
+				shownRow = -1;
+			}
+		}
+		if (backBtn.Clicked()) done = true;
+		ResumeGui();
+	}
+
+	HaltGui();
+	mainWindow->Remove(&w);
+}
+
+// What the game page says about the Mods row.
+static std::string ModsNote(const FrontendState& state, const std::string& scanStatus)
+{
+	std::size_t enabled = 0;
+	const std::size_t shown = ShownPacks(state, &enabled);
+	if (shown == 0) {
+		if (scanStatus != riftwii::wii::kScanReady) return FlatCapped(scanStatus, 90);
+		return state.model.packages.empty() ? tr("No mods on the SD card. Put Riivolution XML in sd:/riivolution.")
+						    : tr("No mods for this game.");
+	}
+	std::string names;
+	for (const riftwii::LaunchPackage& p : state.model.packages)
+		if (riftwii::show_package(p) && p.valid && p.enabled) names += (names.empty() ? "" : ", ") + PackName(p.file);
+	if (names.empty()) return tr("{1} mod pack(s) for this game. Press A to turn them on.", {std::to_string(shown)});
+	return FlatCapped(tr("On: {1}", {names}), 90);
+}
+
+// ---------------------------------------------------------------------------
+// Mods: the packs made for the game, opened from the game page.
+
+static void MenuMods(FrontendState& state, const std::string& scanStatus)
+{
+	std::vector<FlowRow> rows;
+	std::vector<RowRef> refs;
+	BuildModRows(state, scanStatus, rows, refs);
+
+	GuiText titleTxt(tr("Mods"), 30, skin::kInk);
+	Place(titleTxt, 40, 28);
+	const std::string gameName = FlatCapped(GameTitle(state), 40);
+	GuiText gameTxt(gameName.c_str(), 16, skin::kInkDim);
+	gameTxt.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
+	gameTxt.SetPosition(-40, 40);
+	Panel panel(skin::panelSettings, 34, 76);
+	GuiFlowList list(46, 82, 548, 6);
+	list.SetRows(&rows);
+	list.Select(0);
+	GuiText noteTxt("", 16, skin::kInkSoft);
+	Place(noteTxt, 52, 360);
+	noteTxt.SetWrap(true, 536);
+	SkinButton backBtn(skin::pill, skin::pillOver, 4, 198, 406, "Back",
+		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
+
+	HaltGui();
+	GuiWindow w(screenwidth, screenheight);
+	w.Append(&titleTxt);
+	w.Append(&gameTxt);
+	w.Append(&panel);
+	w.Append(&list);
+	w.Append(&noteTxt);
+	w.Append(&backBtn.button);
+	mainWindow->Append(&w);
+	ResumeGui();
+
+	const auto say = [&](const std::string& text) { noteTxt.SetText(text.c_str()); };
+	int shownRow = -1;
+	bool done = false;
+	while (!done)
+	{
+		usleep(10000);
+		HaltGui();
+		ClearStaleButtons({&backBtn.button});
+
+		const int row = list.Selected();
+		if (row != shownRow && row >= 0 && static_cast<std::size_t>(row) < refs.size()) {
+			shownRow = row;
+			const RowRef& ref = refs[static_cast<std::size_t>(row)];
+			if (ref.what == RowRef::What::Pack) say(PackSummary(state.model.packages[ref.pkg]));
+			else if (ref.what == RowRef::What::Option) {
+				const riftwii::Option& o = state.model.packages[ref.pkg].package.options[ref.opt];
+				say(o.section.empty() ? PackName(state.model.packages[ref.pkg].file) : o.section);
+			} else say("");
+		}
+
+		int acted = list.GetClicked();
+		int direction = +1;
+		if (acted < 0) {
+			acted = list.GetClickedBack();
+			direction = -1;
+		}
+		if (acted >= 0 && static_cast<std::size_t>(acted) < refs.size()) {
+			const RowRef ref = refs[static_cast<std::size_t>(acted)];
+			bool changed = false;
+			if (ref.what == RowRef::What::Pack) {
+				riftwii::LaunchPackage& p = state.model.packages[ref.pkg];
+				if (!p.valid) say("This XML cannot be read; fix it on the card and come back.");
+				else changed = state.model.set_enabled(ref.pkg, !p.enabled);
+				if (!changed && p.valid) say("This pack cannot be turned on.");
+			} else if (ref.what == RowRef::What::Option) {
+				changed = state.model.cycle(ref.pkg, ref.opt, direction);
+			}
+			if (changed) {
+				std::string error;
+				if (!SaveChoices(state, error)) say(error);
+				BuildModRows(state, scanStatus, rows, refs);
+				list.Refresh();
+				list.Select(acted);
+				shownRow = -1;
+			}
+		}
+		if (backBtn.Clicked()) done = true;
+		ResumeGui();
+	}
+
+	HaltGui();
+	mainWindow->Remove(&w);
 }
 
 static int MenuHome(FrontendState& state)
@@ -723,26 +1229,29 @@ static int MenuHome(FrontendState& state)
 	}
 	std::vector<FlowRow> rows;
 	std::vector<RowRef> refs;
-	BuildGameRows(state, scanStatus, rows, refs);
+	BuildGameRows(state, rows, refs);
 
 	GameBanner banner(skin::HueFor(state.game_id));
 	const std::string where = SourceWhere(state);
 	GuiText whereTxt(where.c_str(), 16, skin::WithAlpha(skin::kWhite, 200));
-	Place(whereTxt, 40, 30);
+	Place(whereTxt, 40, 16);
 	const std::string title = GameTitle(state);
-	GuiText titleTxt(title.c_str(), 30, skin::kWhite);
-	Place(titleTxt, 40, 52);
+	GuiText titleTxt(title.c_str(), 28, skin::kWhite);
+	Place(titleTxt, 40, 38);
 	titleTxt.SetWrap(true, 560);
-	GuiText idTxt(state.game_id.c_str(), 16, skin::WithAlpha(skin::kWhite, 200));
-	Place(idTxt, 40, 150);
+	// The ID, and how often the game was played from RiftWii.
+	const std::string played = riftwii::wii::PlayNote(state.game_id);
+	const std::string idLine = played.empty() ? state.game_id : state.game_id + "   " + played;
+	GuiText idTxt(idLine.c_str(), 16, skin::WithAlpha(skin::kWhite, 200));
+	Place(idTxt, 40, 108);
 
-	Panel panel(skin::panelGame, 34, 196);
-	GuiFlowList list(46, 203, 548, 5);
+	Panel panel(skin::panelGame, 34, 144);
+	GuiFlowList list(46, 150, 548, 5);
 	list.SetRows(&rows);
 	list.Select(0);
 
-	GuiText statusTxt(SaveNote(state.model).c_str(), 15, skin::kInkSoft);
-	Place(statusTxt, 0, 380, true);
+	GuiText statusTxt(ModsNote(state, scanStatus).c_str(), 15, skin::kInkSoft);
+	Place(statusTxt, 0, 382, true);
 	statusTxt.SetMaxWidth(572);
 
 	SkinButton backBtn(skin::pill, skin::pillOver, 4, 50, 406, "Back",
@@ -790,12 +1299,20 @@ static int MenuHome(FrontendState& state)
 		if (row != shownRow && row >= 0 && static_cast<std::size_t>(row) < refs.size()) {
 			shownRow = row;
 			const RowRef& ref = refs[static_cast<std::size_t>(row)];
-			if (ref.what == RowRef::What::Saves) say(SaveNote(state.model));
-			else if (ref.what == RowRef::What::Pack) say(PackSummary(state.model.packages[ref.pkg]));
-			else if (ref.what == RowRef::What::Option) {
-				const riftwii::Option& o = state.model.packages[ref.pkg].package.options[ref.opt];
-				say(o.section.empty() ? PackName(state.model.packages[ref.pkg].file) : o.section);
-			} else say("");
+			if (ref.what == RowRef::What::Mods) say(ModsNote(state, scanStatus));
+			else if (ref.what == RowRef::What::Saves) say(SaveNote(state.model));
+			else if (ref.what == RowRef::What::Cheats)
+				say(tr("Cheat codes for this game. Press A to choose them."));
+			else if (ref.what == RowRef::What::Width)
+				say(tr("How wide the picture is drawn. 720 fills the screen from side to side."));
+			else if (ref.what == RowRef::What::Deflicker)
+				say(tr("A filter that softens the picture to hide flicker. Off gives the sharpest picture."));
+			else if (ref.what == RowRef::What::Borders) {
+				const std::string seen = riftwii::wii::BorderNote(state.game_id);
+				const std::string how = tr("Remove stretches the picture to fill the screen.");
+				say(seen.empty() ? how : seen + " " + how);
+			}
+			else say("");
 		}
 
 		int acted = list.GetClicked();
@@ -815,17 +1332,28 @@ static int MenuHome(FrontendState& state)
 				while (at < 3 && state.model.save_mode != modes[at]) ++at;
 				state.model.save_mode = modes[((at % 3) + 3 + direction) % 3];
 				changed = true;
-			} else if (ref.what == RowRef::What::Pack) {
-				riftwii::LaunchPackage& p = state.model.packages[ref.pkg];
-				if (!p.valid) say("This XML cannot be read; fix it on the card and come back.");
-				else changed = state.model.set_enabled(ref.pkg, !p.enabled);
-				if (!changed && p.valid) say("This pack cannot be turned on.");
-			} else if (ref.what == RowRef::What::Option) {
-				changed = state.model.cycle(ref.pkg, ref.opt, direction);
+			} else if (ref.what == RowRef::What::Mods || ref.what == RowRef::What::Cheats) {
+				mainWindow->Remove(&w);
+				if (ref.what == RowRef::What::Mods) MenuMods(state, scanStatus);
+				else MenuCheats(state);
+				mainWindow->Append(&w);
+				BuildGameRows(state, rows, refs);
+				list.Refresh();
+				list.Select(acted);
+				shownRow = -1;
+			} else if (ref.what == RowRef::What::Width) {
+				state.model.game.video_width = StepValue(kWidths, state.model.game.video_width, direction);
+				changed = true;
+			} else if (ref.what == RowRef::What::Deflicker) {
+				state.model.game.deflicker = StepValue(kDeflickers, state.model.game.deflicker, direction);
+				changed = true;
+			} else if (ref.what == RowRef::What::Borders) {
+				state.model.game.borders = StepValue(kBorderModes, state.model.game.borders, direction);
+				changed = true;
 			}
 			if (changed) {
 				saveOrSay();
-				BuildGameRows(state, scanStatus, rows, refs);
+				BuildGameRows(state, rows, refs);
 				list.Refresh();
 				list.Select(acted);
 				shownRow = -1;
@@ -845,6 +1373,9 @@ static int MenuHome(FrontendState& state)
 				say(FlatCapped(state.usb_catalog.cios_note, 150));
 			} else if (state.use_sd && !state.sd_catalog.cios_note.empty()) {
 				say(FlatCapped(state.sd_catalog.cios_note, 150));
+			} else if (!state.launch_warning.empty() && !state.warning_shown) {
+				state.warning_shown = true;
+				say(FlatCapped(state.launch_warning + " " + tr("Press Start again to play."), 200));
 			} else if (!saveOrSay()) {
 				// the status shows why
 			} else if (!riftwii::needs_launch_pipeline(!state.model.selections().empty(), state.model.save_mode)) {
@@ -877,28 +1408,69 @@ static int MenuHome(FrontendState& state)
 
 	HaltGui();
 	mainWindow->Remove(&w);
+	// Cheats and video settings go with every launch, mods or not.
+	if (menu == MENU_LAUNCH || menu == MENU_BOOT) {
+		riftwii::wii::PrepareLaunchExtras(state);
+		riftwii::wii::RecordPlay(state.game_id);
+	}
 	return menu;
 }
 
 // ---------------------------------------------------------------------------
 // Settings
 
+static const char* const kLanguages[] = {"auto", "en", "es", "ja", "pt", "it"};
+
+// Each language by its own name, as players look for it.
+static std::string LanguageName(const std::string& lang)
+{
+	if (lang == "en") return "English";
+	if (lang == "es") return "Español";
+	if (lang == "ja") return "日本語";
+	if (lang == "pt") return "Português";
+	if (lang == "it") return "Italiano";
+	return tr("Wii: {1}", {LanguageName(riftwii::wii::MenuLanguage())});
+}
+
 static int MenuSettings(FrontendState& state)
 {
-	(void)state;
 	int menu = MENU_NONE;
+	riftwii::LoaderSettings& settings = riftwii::wii::Settings();
 
 	const std::vector<int> iosChoices = riftwii::wii::MenuIosChoices();
 	int iosSlot = riftwii::wii::LoadMenuIos();
 	const bool iosChoosable = iosChoices.size() > 1 || iosSlot != 0;
 
 	bool netOn = riftwii::wii::NetworkPacksEnabled();
-	enum RowAction { kIos, kNet, kResync, kRescan, kExit, kNone };
+	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kOnline, kNames, kIos, kNet, kResync, kRescan, kExit, kNone };
 	std::vector<FlowRow> rows;
 	std::vector<RowAction> actions;
 	const auto build = [&]() {
 		rows.clear();
 		actions.clear();
+		const auto option = [&](const std::string& label, const std::string& value, bool on, RowAction action,
+					FlowRow::Kind kind = FlowRow::Kind::Option) {
+			FlowRow row;
+			row.kind = kind;
+			row.label = label;
+			row.value = value;
+			row.on = on;
+			rows.push_back(row);
+			actions.push_back(action);
+		};
+		option(tr("Language"), LanguageName(settings.language), settings.language != "auto", kLanguage);
+		option(tr("Picture width"), WidthName(settings.video_width), settings.video_width != "game", kWidth);
+		option(tr("Deflicker"), DeflickerName(settings.deflicker), settings.deflicker != "game", kDeflicker);
+		option(tr("Black borders"), BordersName(settings.borders), settings.borders == "remove", kBorders);
+		option(tr("Download names and cheats"), settings.online ? tr("On") : tr("Off"), settings.online, kOnline,
+			FlowRow::Kind::Toggle);
+		FlowRow names;
+		names.kind = FlowRow::Kind::Action;
+		names.label = tr("Get the latest game names");
+		names.value = tr("Update");
+		names.dim = !settings.online;
+		rows.push_back(names);
+		actions.push_back(kNames);
 		FlowRow ios;
 		ios.kind = iosChoosable ? FlowRow::Kind::Option : FlowRow::Kind::Info;
 		ios.label = iosChoosable ? "Menu IOS" : "Menu IOS: IOS 58 (no d2x cIOS found)";
@@ -910,9 +1482,9 @@ static int MenuSettings(FrontendState& state)
 		rows.push_back(ios);
 		actions.push_back(iosChoosable ? kIos : kNone);
 		FlowRow net;
-		net.kind = FlowRow::Kind::Option;
+		net.kind = FlowRow::Kind::Toggle;
 		net.label = "Find network packs (RiiFS)";
-		net.value = netOn ? "On" : "Off";
+		net.value = netOn ? tr("On") : tr("Off");
 		net.on = netOn;
 		rows.push_back(net);
 		actions.push_back(kNet);
@@ -940,14 +1512,25 @@ static int MenuSettings(FrontendState& state)
 	GuiText titleTxt("Settings", 30, skin::kInk);
 	Place(titleTxt, 40, 28);
 	GuiText versionTxt("RiftWii " RIFTWII_VERSION, 15, skin::kInkDim);
+	const auto saveSettings = [&]() {
+		if (!riftwii::wii::SaveSettings()) return std::string(tr("Cannot write sd:/riftwii/settings.txt"));
+		return std::string();
+	};
+	// New names: the title list again, and the scanned games renamed.
+	bool namesStale = false;
+	const auto renameGames = [&]() {
+		riftwii::wii::ReloadTitles();
+		riftwii::wii::RenameGames(state.usb_catalog);
+		riftwii::wii::RenameGames(state.sd_catalog);
+	};
 	versionTxt.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
 	versionTxt.SetPosition(-40, 40);
-	Panel panel(skin::panelSettings, 34, 84);
-	GuiFlowList list(46, 94, 548, 5);
+	Panel panel(skin::panelSettings, 34, 76);
+	GuiFlowList list(46, 82, 548, 6);
 	list.SetRows(&rows);
 	list.Select(0);
-	GuiText noteTxt(MenuIosNote(iosSlot).c_str(), 16, skin::kInkSoft);
-	Place(noteTxt, 52, 280);
+	GuiText noteTxt(tr("These apply to every game. A game's own page can change them for that game."), 16, skin::kInkSoft);
+	Place(noteTxt, 52, 360);
 	noteTxt.SetWrap(true, 536);
 
 	SkinButton backBtn(skin::pill, skin::pillOver, 4, 198, 406, "Back",
@@ -976,7 +1559,69 @@ static int MenuSettings(FrontendState& state)
 			direction = -1;
 		}
 		if (acted >= 0 && static_cast<std::size_t>(acted) < actions.size()) {
+			const auto rebuild = [&]() {
+				build();
+				list.Refresh();
+				list.Select(acted);
+			};
+			const auto note = [&](const std::string& text) { noteTxt.SetText(text.c_str()); };
+			// Saves the settings; the note is `text`, or why they were not saved.
+			const auto saveAndNote = [&](const std::string& text) {
+				const std::string error = saveSettings();
+				note(error.empty() ? text : error);
+			};
 			switch (actions[static_cast<std::size_t>(acted)]) {
+				case kLanguage: {
+					settings.language = StepValue(kLanguages, settings.language, direction);
+					const std::string error = saveSettings();
+					riftwii::wii::SetMenuLanguage(riftwii::wii::MenuLanguage());
+					namesStale = true;  // fetched once, on the way out
+					titleTxt.SetText("Settings");
+					backBtn.text.SetText("Back");
+					note(error.empty() ? tr("Game names follow the language when they are downloaded.") : error);
+					rebuild();
+					break;
+				}
+				case kWidth:
+					settings.video_width = StepValue(kWidths, settings.video_width, direction, false);
+					saveAndNote(tr("How wide the picture is drawn. 720 fills the screen from side to side."));
+					rebuild();
+					break;
+				case kDeflicker:
+					settings.deflicker = StepValue(kDeflickers, settings.deflicker, direction, false);
+					saveAndNote(tr("A filter that softens the picture to hide flicker. Off gives the sharpest picture."));
+					rebuild();
+					break;
+				case kBorders:
+					settings.borders = StepValue(kBorderModes, settings.borders, direction, false);
+					saveAndNote(tr("Remove stretches the picture to fill the screen."));
+					rebuild();
+					break;
+				case kOnline:
+					settings.online = !settings.online;
+					saveAndNote(settings.online ? tr("Game names and cheats are downloaded when the Wii is online.")
+						: tr("Nothing is downloaded. Names and cheats already on the card are still used."));
+					rebuild();
+					break;
+				case kNames: {
+					if (!settings.online) {
+						note(tr("Downloads are off. Turn on Download names and cheats first."));
+						break;
+					}
+					note(tr("Downloading game names..."));
+					ResumeGui();
+					std::string error;
+					const bool ok = riftwii::wii::UpdateTitles(riftwii::wii::MenuLanguage(), true, error);
+					HaltGui();
+					if (ok) {
+						renameGames();
+						note(tr("Game names updated."));
+					} else {
+						logf("Titles: update failed: %s\n", error.c_str());
+						note(tr("Could not download game names: {1}", {FlatCapped(error, 90)}));
+					}
+					break;
+				}
 				case kIos: {
 					// Step to the next installed choice (IOS58, then each d2x slot).
 					std::size_t at = 0;
@@ -1021,6 +1666,14 @@ static int MenuSettings(FrontendState& state)
 		}
 		if (menu == MENU_NONE && backBtn.Clicked())
 			menu = MENU_SOURCE;
+		if (menu != MENU_NONE && menu != MENU_EXIT && namesStale) {
+			// The game names in the new language (downloaded if the
+			// Wii is online and the list is not on the card yet).
+			noteTxt.SetText(tr("Downloading game names..."));
+			ResumeGui();
+			renameGames();
+			HaltGui();
+		}
 		ResumeGui();
 	}
 

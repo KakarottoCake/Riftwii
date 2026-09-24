@@ -41,12 +41,26 @@
  * file are fetched the same way with a DVDLowRead on the game's /dev/di
  * fd through the unhooked IOS_IoctlAsync entry (the replay slot), 32-byte
  * aligned into the bounce buffer.
+ *
+ * RVZ games (docs/RVZ.md; the blob built with RT_RVZ): the disc d2x
+ * presents holds only the partitions' headers, so no partition read may
+ * reach the drive. The hook answers every DVDLowRead itself: it issues a
+ * null round trip (rt_rvz_state) with the completion entry as callback,
+ * and the completion serves the read from the RVZ on the card. The
+ * gaps between the table's entries and its DISC runs are the RVZ's
+ * bytes at the same partition offset: a group's entry is read from the
+ * group table the loader wrote to the card (sd:/riftwii/rvz/<ID>.groups),
+ * its stored bytes are fetched (from the card, or from the USB drive
+ * through d2x's /dev/usb2) into a buffer, decoded
+ * (Zstandard, rt_zstd.c) and kept, and each window is copied or unpacked
+ * (runtime/rtrvz.h) straight into the game's buffer.
  */
 
 #include <stdint.h>
 
 #include "rtable.h"
 #include "rtfs.h"
+#include "rtrvz.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -77,11 +91,22 @@ extern "C" {
 #define RT_MAX_RUNS 8u    /* pieces of a read held at a time; longer reads are served in windows */
 #define RT_GECKO_MAX_FAILURES 32u /* refused bytes after which Gecko reporting turns itself off */
 #define RT_BOUNCE_BYTES 0x4000u   /* bytes one SD request fetches (32 sectors), per pending record */
+#define RT_READ_RETRIES 3u        /* a failed SD, USB or disc request is issued again this often */
+#define RT_NOTE_BYTES 512u        /* the crash note: one sector of sd:/riftwii/lastgame.txt */
+
+/* rt_context.note_state */
+#define RT_NOTE_NONE 0u     /* nothing written: no read has failed */
+#define RT_NOTE_WRITING 1u  /* the note's write is in flight */
+#define RT_NOTE_WRITTEN 2u
+#define RT_NOTE_FAILED 3u   /* the card refused it */
 
 /* rt_pending.phase */
 #define RT_PHASE_DISC 0u     /* waiting for the disc reply */
 #define RT_PHASE_SD 1u       /* an SD request is in flight */
 #define RT_PHASE_DISC_RUN 2u /* a DVDLowRead for a DISC run is in flight */
+#define RT_PHASE_RVZ_START 3u /* RVZ: the null round trip that starts the read */
+#define RT_PHASE_RVZ_ENTRY 4u /* RVZ: a sector of the group table is in flight */
+#define RT_PHASE_RVZ_GROUP 5u /* RVZ: a piece of a group's stored bytes is in flight */
 
 /* DI results as the DVD driver sees them (wiibrew /dev/di). */
 #define RT_DI_SUCCESS 1
@@ -283,6 +308,9 @@ typedef void (*rt_game_callback_fn)(int32_t result, uint32_t user_data);
 #define RT_SDHC_READ 2u
 #define RT_SDHC_WRITE 3u
 #define RT_SDHC_ISINSERTED 4u
+/* d2x's USB device, /dev/usb2 (d2x-cios ehci-module and usb-module): the
+ * same request as RT_SDHC_READ (sector and count in, the data out). */
+#define RT_UMS_READ_SECTORS 0x554D5303u
 
 struct rt_fs_pend {
     uint32_t in_use;
@@ -403,6 +431,99 @@ struct rt_fs_state {
     char copy_paths[2u * RTFS_PATH_BYTES] __attribute__((aligned(32)));
 };
 
+/* RVZ games. Group table entries (8 bytes, big endian, the loader's
+ * copy of the RVZ's own table for the game partition's groups in data
+ * order): the file offset / 4, then the stored size with two flags. */
+#define RT_RVZ_MAGIC 0x5257525Au           /* 'RWRZ' */
+#define RT_RVZ_COMPRESSED 0x80000000u      /* stored with Zstandard */
+#define RT_RVZ_PACKED 0x40000000u          /* RVZ packing after the exception lists */
+#define RT_RVZ_SIZE_MASK 0x3FFFFFFFu
+#define RT_RVZ_ENTRIES_PER_SECTOR 64u
+#define RT_RVZ_MAX_EXTENTS 1024u           /* pieces of the RVZ file on the card */
+#define RT_RVZ_TABLE_EXTENTS 32u           /* pieces of the file holding the group table */
+#define RT_RVZ_REQUEST_SECTORS 64u         /* one SD request moves at most 32 KiB */
+#define RT_RVZ_NO_GROUP 0xFFFFFFFFu
+
+/* One piece of a file on the card: `count` sectors of the file from
+ * `file_sector` lie at `device_sector`. */
+struct rt_rvz_extent {
+    uint32_t file_sector;
+    uint32_t device_sector;
+    uint32_t count;
+};
+
+/* Lives in the loader's MEM2 data block; the context holds its address.
+ * The buffers are separate blocks there (32-byte aligned, IOS DMA). */
+struct rt_rvz_state {
+    uint32_t magic;               /* RT_RVZ_MAGIC */
+    /* The game partition (loader-filled). Offsets and sizes in KiB: all
+     * are multiples of 0x7C00 bytes, and a dual-layer partition's data
+     * passes 4 GiB. */
+    uint32_t data_kib;            /* its data without hashes; reads past it fail as on a disc */
+    uint32_t group_kib;           /* data of a whole group */
+    uint32_t split_kib;           /* where the second segment's groups start */
+    uint32_t first_groups;        /* groups before `split_kib` */
+    uint32_t group_count;         /* entries in the group table */
+    uint32_t lists;               /* hash exception lists at the start of each group */
+    uint32_t buffer_bytes;        /* size of each of the two buffers */
+    uint32_t stored_buffer;       /* a compressed group as stored */
+    uint32_t group_buffer;        /* a group decoded (or stored uncompressed) */
+    uint32_t dctx_buffer;         /* the Zstandard decoder's workspace */
+    uint32_t dctx_bytes;
+    uint32_t table_sector;        /* the table's first sector inside its file */
+    uint32_t extent_count;
+    uint32_t table_extent_count;
+    uint32_t usb_fd;              /* the RVZ is on the USB drive: d2x's /dev/usb2, opened by
+                                   * the loader; 0xFFFFFFFF: on the card (sdio_fd). The group
+                                   * table is always on the card. */
+    /* Runtime state. */
+    uint32_t dctx;                /* the decoder, set up at the first compressed group; 0 = not yet */
+    uint32_t busy;                /* a read is being served (the cache and the fetch are one) */
+    uint32_t cached_group;        /* RT_RVZ_NO_GROUP: none */
+    uint32_t cached_data;         /* address of its exception lists */
+    uint32_t cached_bytes;        /* bytes from there */
+    uint32_t cached_skip;         /* bytes of exception lists (and padding) before its data */
+    uint32_t cached_packed;
+    uint32_t cached_start_kib;    /* data offset of its first byte */
+    uint32_t cached_payload;      /* data bytes it holds */
+    uint32_t entry_sector;        /* table sector in `entries`, RT_RVZ_NO_GROUP: none */
+    uint32_t want_entry_sector;   /* the one in flight */
+    uint32_t fetch_group;         /* the group whose stored bytes are in flight */
+    uint32_t fetch_word0;         /* its entry */
+    uint32_t fetch_word1;
+    uint32_t fetch_file_sector;   /* first sector of the file to read */
+    uint32_t fetch_sectors;
+    uint32_t fetch_done;          /* sectors landed */
+    uint32_t fetch_last;          /* sectors of the request in flight */
+    uint32_t fetch_target;        /* where they land */
+    /* Counters. */
+    uint32_t reads;               /* DVDLowReads served */
+    uint32_t groups_loaded;       /* groups fetched and decoded */
+    uint32_t entry_loads;         /* table sectors read */
+    uint32_t sd_requests;
+    uint32_t failures;            /* reads answered with RT_DI_ERROR */
+    uint32_t past_end;            /* of those, reads past the partition's data */
+    uint32_t busy_refusals;       /* of those, reads that arrived while another was served */
+    uint32_t decode_ticks;        /* time base ticks spent decoding, wraps */
+    uint32_t last_error;          /* a code for the last failure (rt_hook.c) */
+    uint32_t reserved[3];
+    uint32_t entries[RT_RVZ_ENTRIES_PER_SECTOR * 2] __attribute__((aligned(32)));  /* one table sector */
+    uint32_t status[8] __attribute__((aligned(32)));  /* the null round trip's out word */
+    rtrvz_junk junk;
+    struct rt_rvz_extent extents[RT_RVZ_MAX_EXTENTS];
+    struct rt_rvz_extent table_extents[RT_RVZ_TABLE_EXTENTS];
+};
+
+/* The decoder's workspace: its tables and a 4 KiB literal buffer
+ * (rt_zstd.c); rt_zstd_init fails when it is too small. */
+#define RT_RVZ_DCTX_BYTES 0xC000u
+
+/* Zstandard for the runtime (rt_zstd.c). The workspace must be 8-byte
+ * aligned; the decoder set up in it is returned, or 0 when it does not
+ * fit. rt_zstd_decode returns the bytes written, or -1. */
+uint32_t rt_zstd_init(uint32_t workspace, uint32_t bytes);
+int32_t rt_zstd_decode(uint32_t dctx, uint8_t* dst, uint32_t capacity, const uint8_t* src, uint32_t length);
+
 /* At most 2048 bytes, the slot rt_entry.S reserves. */
 struct rt_context {
     uint32_t magic;               /* RT_CONTEXT_MAGIC (non-zero so the struct lives in .data) */
@@ -442,9 +563,24 @@ struct rt_context {
     /* Savegame FS interception (loader-filled). */
     uint32_t fs_state;            /* struct rt_fs_state*, 0 = none */
     uint32_t fs_hijacked;         /* synchronous FS calls answered from the card image */
-    uint32_t reserved;
+    uint32_t rvz_state;           /* struct rt_rvz_state*, 0 = not an RVZ game (loader-filled) */
     struct rt_pending pending[RT_MAX_PENDING];
+    /* Retries and the crash note. When a read has to fail, the runtime
+     * writes what went wrong over the one sector of a card file the loader
+     * prepared (note_text holds the loader's first line, note_header
+     * bytes long); the menu reports it at its next start. */
+    uint32_t read_retries;        /* failed requests issued again */
+    uint32_t retry[RT_MAX_PENDING]; /* per record: retries of the request in flight */
+    uint32_t note_sector;         /* the note's card sector, 0 = no note (loader-filled) */
+    uint32_t note_header;         /* bytes of note_text the loader filled (loader-filled) */
+    uint32_t note_state;          /* RT_NOTE_*; its address is the note write's IPC tag */
+    struct rt_sdio_request note_request __attribute__((aligned(32)));
+    uint32_t note_response[8] __attribute__((aligned(32)));
+    struct rt_ioctlv note_vec[4] __attribute__((aligned(32)));
+    char note_text[RT_NOTE_BYTES] __attribute__((aligned(32)));
 };
+
+typedef char rt_context_layout[(sizeof(struct rt_context) <= 2048u) ? 1 : -1];
 
 /*
  * Called by the trampoline with the eight IOS_IoctlAsync arguments

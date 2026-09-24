@@ -2,6 +2,7 @@
 #pragma once
 
 #include <cstddef>
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
@@ -77,10 +78,21 @@ private:
     std::vector<DiscFilter> filters_;
 };
 
+// Loader settings for one game besides its packs. "global" means the
+// Settings screen's default.
+struct GameSettings {
+    bool cheats = false;                // apply the cheats picked below
+    std::set<std::string> cheat_names;  // by name, as in the game's cheat file
+    std::string video_width = "global"; // or a riftwii/videopatch.hpp name
+    std::string deflicker = "global";
+    std::string borders = "global";     // or "keep", "remove"
+};
+
 class LaunchModel {
 public:
     std::vector<LaunchPackage> packages;
     std::string save_mode = "nand";
+    GameSettings game;
 
     // Parses `xml` into a package entry. A package whose filter does not
     // match `disc` (when given) is kept, marked not for this disc, and
@@ -125,6 +137,9 @@ public:
 
     // Persistence, one line per fact, tab-separated:
     //   *riftwii*\tsaves\t<nand|separate|fresh>
+    //   *riftwii*\tcheats\t<on|off>
+    //   *riftwii*\tcheat\t<name>          (one per cheat picked)
+    //   *riftwii*\tvideo\t<width>, deflicker\t<filter>, borders\t<keep|remove>
     //   <file>\t<on|off>
     //   <file>\t<Section/Option>\t<choice name or empty>
     // Restoring ignores files, options and choices it no longer finds, and
