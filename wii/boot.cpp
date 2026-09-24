@@ -12,7 +12,6 @@
 #include <ogc/video.h>
 #include <sdcard/wiisd_io.h>
 #include <sys/stat.h>
-#include <unistd.h>
 #include <wiiuse/wpad.h>
 
 #include <algorithm>
@@ -212,39 +211,6 @@ void release_card_and_log() {
     fatUnmount("sd:");
     sd_interface()->shutdown();
     g_card_live_for_log = false;
-}
-
-// The crash note (rt_context.note_sector): one sector of
-// sd:/riftwii/lastgame.txt saying the game started, which the runtime
-// writes over with what went wrong if a read has to fail. The menu reports
-// it at its next start. Needs the card mounted; returns the note's sector,
-// or 0 when it cannot be made (the game then starts without one).
-constexpr const char* kCrashNotePath = "sd:/riftwii/lastgame.txt";
-std::uint32_t prepare_crash_note(const std::string& game_id, std::string& header) {
-    if (!g_card_live_for_log) return 0;
-    header = "game = " + game_id + "\nriftwii = " RIFTWII_VERSION "\n";
-    std::string text = header + "status = ok\n";
-    text.resize(RT_NOTE_BYTES - 1, ' ');
-    text += '\n';
-    FILE* f = std::fopen(kCrashNotePath, "wb");
-    if (!f) {
-        logf("Crash note: cannot write %s\n", kCrashNotePath);
-        return 0;
-    }
-    bool ok = std::fwrite(text.data(), 1, text.size(), f) == text.size();
-    ok = std::fflush(f) == 0 && ok;
-    fsync(fileno(f));  // the directory entry too, before the raw lookup below
-    std::fclose(f);
-    forget_sd_layout();
-    Fat32File file;
-    std::string error;
-    if (!ok || !resolve_sd_file(kCrashNotePath, file, error) || file.fragments.empty() ||
-        file.entry.size != RT_NOTE_BYTES || file.fragments[0].sector > 0xFFFFFFFFull) {
-        logf("Crash note: not kept: %s\n", ok ? error.c_str() : "short write");
-        return 0;
-    }
-    logf("Crash note: %s at card sector %u\n", kCrashNotePath, static_cast<unsigned>(file.fragments[0].sector));
-    return static_cast<std::uint32_t>(file.fragments[0].sector);
 }
 
 void store32(std::uint32_t address, std::uint32_t value) {
@@ -918,15 +884,12 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         }
     } card_cleanup{card, card_handed_to_runtime};
     const bool card_required = pieces.needs_sd() || savegame.enabled;
-    std::uint32_t note_sector = 0;
-    std::string note_header;
     bool file_device = savegame.file_device && options.install_resident;
     if (card_required || file_device) {
         if (!options.install_resident) {
             error = "SD-backed replacements and savegame redirection need the resident runtime";
             return false;
         }
-        note_sector = prepare_crash_note(probe.header.game_id, note_header);
         release_card_and_log();
         if (!sdio::open_card(card, error)) {
             if (card_required) return false;
@@ -962,10 +925,6 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         ro.sdio_fd = card.fd;
         ro.sdio_sdhc = card.sdhc;
         ro.sdio_d2x = card.d2x;
-        if (card.fd >= 0) {
-            ro.note_sector = note_sector;
-            ro.note_header = note_header;
-        }
         ro.savegame = savegame;
         ro.savegame.file_device = file_device && card.fd >= 0;
         // The code goes above this loader (which ends at arena 1's top) and

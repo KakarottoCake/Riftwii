@@ -2314,29 +2314,6 @@ std::int32_t FakeIoctlAsync(std::uint32_t fd, std::uint32_t ioctl, std::uint32_t
     return 0;  // accepted; the reply is delivered by the test
 }
 
-// The crash note's write (sd:/riftwii/lastgame.txt); SD reads are only
-// accepted, their replies delivered by the test.
-std::vector<std::uint8_t> g_note_written;
-std::uint32_t g_note_sector = 0;
-std::int32_t FakeNoteIoctlv(std::uint32_t fd, std::uint32_t ioctl, std::uint32_t in_count, std::uint32_t out_count,
-                            rt_ioctlv* vec, std::uint32_t callback, rt_pending* record) {
-    (void)record;
-    EXPECT_EQ(fd, 9u);
-    EXPECT_EQ(callback, 0x935D0100u);
-    if (ioctl != 7u) return 0;
-    const auto* rq = reinterpret_cast<const rt_sdio_request*>(static_cast<std::uintptr_t>(vec[0].data));
-    if (rq->cmd != 0x19u) return 0;  // a read
-    EXPECT_EQ(in_count, 2u);
-    EXPECT_EQ(out_count, 1u);
-    EXPECT_EQ(rq->blk_cnt, 1u);
-    EXPECT_EQ(rq->blk_size, 512u);
-    EXPECT_EQ(rq->dma_addr, vec[1].data);
-    g_note_sector = rq->arg;
-    const auto* text = reinterpret_cast<const std::uint8_t*>(static_cast<std::uintptr_t>(vec[1].data));
-    g_note_written.assign(text, text + vec[1].len);
-    return 0;
-}
-
 }  // namespace
 
 static void TestSdChain(std::uint8_t* low_table, std::uint8_t* low_out) {
@@ -2499,8 +2476,7 @@ static void TestSdChain(std::uint8_t* low_table, std::uint8_t* low_out) {
     EXPECT_EQ(ctx.sd_failures, 1u);
     EXPECT_EQ(rec->in_use, 0u);
 
-    // A failed reply is asked for again, the same chunk, RT_READ_RETRIES
-    // times; then the read ends with a DI error.
+    // A failed reply likewise.
     ctx.ioctlv_async = 0x8019445C;
     args[6] = 0x80005000;
     args[7] = 0x80006000;
@@ -2509,45 +2485,12 @@ static void TestSdChain(std::uint8_t* low_table, std::uint8_t* low_out) {
     di_result = 1;
     rt_on_di_complete(&ctx, &di_result, rec, &cb, &ud);
     EXPECT_EQ(cb, 0u);
-    g_sd_sectors_requested.clear();
-    for (std::uint32_t k = 0; k < RT_READ_RETRIES; ++k) {
-        sd_result = -5;
-        rt_on_di_complete(&ctx, &sd_result, rec, &cb, &ud);
-        EXPECT_EQ(cb, 0u);
-    }
-    EXPECT_EQ(g_sd_sectors_requested.size(), 2u * RT_READ_RETRIES);
-    if (g_sd_sectors_requested.size() == 2u * RT_READ_RETRIES) {
-        EXPECT_EQ(g_sd_sectors_requested[0], 10u);
-        EXPECT_EQ(g_sd_sectors_requested[2 * RT_READ_RETRIES - 2], 10u);
-    }
     sd_result = -5;
     rt_on_di_complete(&ctx, &sd_result, rec, &cb, &ud);
     EXPECT_EQ(cb, 0x80005000u);
     EXPECT_EQ(sd_result, RT_DI_ERROR);
-    EXPECT_EQ(ctx.sd_failures, 2u + RT_READ_RETRIES);
-    EXPECT_EQ(ctx.read_retries, RT_READ_RETRIES);
+    EXPECT_EQ(ctx.sd_failures, 2u);
     EXPECT_EQ(rec->in_use, 0u);
-
-    // A retry that is answered completes the read as if nothing happened.
-    std::memset(out, 0xEE, 0x800);
-    args[6] = 0x80005000;
-    args[7] = 0x80006000;
-    EXPECT_EQ(rt_on_ioctl_async(&ctx, args, &result), 0);
-    rec = reinterpret_cast<rt_pending*>(args[7]);
-    di_result = 1;
-    rt_on_di_complete(&ctx, &di_result, rec, &cb, &ud);
-    sd_result = -5;
-    rt_on_di_complete(&ctx, &sd_result, rec, &cb, &ud);
-    EXPECT_EQ(cb, 0u);
-    replies = 0;
-    while (cb == 0 && replies < 10) {
-        sd_result = 0;
-        rt_on_di_complete(&ctx, &sd_result, rec, &cb, &ud);
-        ++replies;
-    }
-    EXPECT_EQ(sd_result, 1);
-    EXPECT_EQ(std::memcmp(out + 16, expected.data(), 2000), 0);
-    EXPECT_EQ(ctx.read_retries, RT_READ_RETRIES + 1u);
 
     // A failed disc read issues nothing.
     args[6] = 0x80005000;
@@ -2589,43 +2532,7 @@ static void TestSdChain(std::uint8_t* low_table, std::uint8_t* low_out) {
     EXPECT_EQ(sd_result, 1);
     EXPECT_EQ(std::memcmp(out + 16, expected.data(), 2000), 0);
     EXPECT_EQ(out[16 + 2000], 0x5A);
-
-    // A read that fails for good writes the crash note over its sector,
-    // once: the loader's first line, then what went wrong.
     ctx.sdio_sdhc = 1;
-    rt_host_ioctlv_async = &FakeNoteIoctlv;
-    g_note_written.clear();
-    ctx.note_sector = 77;
-    const std::string note_header = "game = TEST01\n";
-    std::memcpy(ctx.note_text, note_header.data(), note_header.size());
-    ctx.note_header = static_cast<std::uint32_t>(note_header.size());
-    args[6] = 0x80005000;
-    args[7] = 0x80006000;
-    EXPECT_EQ(rt_on_ioctl_async(&ctx, args, &result), 0);
-    rec = reinterpret_cast<rt_pending*>(args[7]);
-    di_result = 1;
-    rt_on_di_complete(&ctx, &di_result, rec, &cb, &ud);
-    for (std::uint32_t k = 0; k <= RT_READ_RETRIES; ++k) {
-        sd_result = -5;
-        rt_on_di_complete(&ctx, &sd_result, rec, &cb, &ud);
-    }
-    EXPECT_EQ(cb, 0x80005000u);
-    EXPECT_EQ(sd_result, RT_DI_ERROR);
-    EXPECT_EQ(ctx.note_state, RT_NOTE_WRITING);
-    EXPECT_EQ(g_note_sector, 77u);
-    EXPECT_EQ(g_note_written.size(), std::size_t(RT_NOTE_BYTES));
-    const std::string note(g_note_written.begin(), g_note_written.end());
-    EXPECT_EQ(note.rfind("game = TEST01\nstatus = failed\ncause = sd\noffset = 00007ffc\nlength = 00000800\n", 0),
-              std::size_t(0));
-    EXPECT_TRUE(note.find("\nretries = ") != std::string::npos);
-    EXPECT_TRUE(!note.empty() && note.back() == '\n');
-    // Its completion is the runtime's own: nothing reaches the game.
-    std::int32_t note_result = 0;
-    cb = 0xFFFF;
-    rt_on_di_complete(&ctx, &note_result, reinterpret_cast<rt_pending*>(&ctx.note_state), &cb, &ud);
-    EXPECT_EQ(cb, 0u);
-    EXPECT_EQ(ctx.note_state, RT_NOTE_WRITTEN);
-    ctx.note_sector = 0;
     rt_host_ioctlv_async = nullptr;
 
     // DISC runs: a 100-byte range at partition byte 0x7005 relocated to
@@ -2747,16 +2654,11 @@ static void TestSdChain(std::uint8_t* low_table, std::uint8_t* low_out) {
     di_result = 1;
     rt_on_di_complete(&ctx, &di_result, rec, &cb, &ud);
     EXPECT_EQ(cb, 0u);
-    for (std::uint32_t k = 0; k < RT_READ_RETRIES; ++k) {
-        di_result = 4;  // e.g. a timeout: asked for again
-        rt_on_di_complete(&ctx, &di_result, rec, &cb, &ud);
-        EXPECT_EQ(cb, 0u);
-    }
-    di_result = 4;
+    di_result = 4;  // e.g. a timeout
     rt_on_di_complete(&ctx, &di_result, rec, &cb, &ud);
     EXPECT_EQ(cb, 0x80005000u);
     EXPECT_EQ(di_result, 4);
-    EXPECT_EQ(ctx.disc_failures, failures_before_drive + 1u + RT_READ_RETRIES);
+    EXPECT_EQ(ctx.disc_failures, failures_before_drive + 1u);
     EXPECT_EQ(rec->in_use, 0u);
     rt_host_ioctl_async = nullptr;
 }
