@@ -295,6 +295,34 @@ static void test_params_override() {
     }
 }
 
+static void test_shift() {
+    const std::string xml =
+        "<wiidisc version=\"1\"><id game=\"ABC\"/>"
+        "<options><section name=\"S\"><option name=\"O\" default=\"1\"><choice name=\"On\"><patch id=\"p\"/>"
+        "</choice></option></section></options>"
+        "<patch id=\"p\"><shift source=\"/Stage/{$__gameid}.arc\" destination=\"Stage/b.arc\"/></patch>"
+        "</wiidisc>";
+    riftwii::Package pkg;
+    std::string err;
+    EXPECT_TRUE(riftwii::parse_package(xml, pkg, err));
+    EXPECT_TRUE(pkg.warnings.empty());
+    riftwii::Plan plan;
+    EXPECT_TRUE(riftwii::plan_package(pkg, riftwii::DiscIdentity{"ABCDEF", 0, 0}, riftwii::PlanOptions{}, plan, err));
+    EXPECT_EQ(plan.shifts.size(), std::size_t(1));
+    if (plan.shifts.size() == 1) {
+        EXPECT_EQ(plan.shifts[0].source, std::string("/Stage/ABC.arc"));
+        EXPECT_EQ(plan.shifts[0].destination, std::string("/Stage/b.arc"));
+    }
+    EXPECT_EQ(plan.order.size(), std::size_t(1));
+    // A shift missing a path is skipped with a warning, as other
+    // malformed patch elements are.
+    riftwii::Package bad;
+    EXPECT_TRUE(riftwii::parse_package(
+        "<wiidisc version=\"1\"><patch id=\"p\"><shift source=\"/a\"/></patch></wiidisc>", bad, err));
+    EXPECT_EQ(bad.warnings.size(), std::size_t(1));
+    EXPECT_TRUE(bad.patches.at("p").shifts.empty());
+}
+
 static void test_rejections() {
     riftwii::Package pkg;
     std::string err;
@@ -346,6 +374,7 @@ int main(int argc, char** argv) {
     test_builtin_macros();
     test_filename_target();
     test_params_override();
+    test_shift();
     test_rejections();
     test_read_package_from_file();
     if (g_failures == 0) {

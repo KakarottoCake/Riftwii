@@ -77,7 +77,15 @@ struct SavegamePatch {
     bool clone = true;
 };
 
-enum class PatchKind { File, Folder, Memory, Savegame };
+// <shift source= destination=>: the destination disc file reads the
+// source's data (as patched), as Riivolution does it by pointing the
+// destination's FST entry at the source's. Both must be disc files.
+struct ShiftPatch {
+    std::string source;
+    std::string destination;
+};
+
+enum class PatchKind { File, Folder, Memory, Savegame, Shift };
 
 // Document order across the per-kind vectors below, so later runtime work
 // can honour "first entry wins / last entry wins" rules exactly as written.
@@ -92,6 +100,7 @@ struct Patch {
     std::vector<FolderPatch> folders;
     std::vector<MemoryPatch> memory;
     std::vector<SavegamePatch> savegames;
+    std::vector<ShiftPatch> shifts;
     std::vector<PatchStep> order;
 };
 
@@ -154,6 +163,7 @@ struct Plan {
     std::vector<FolderPatch> folders;
     std::vector<MemoryPatch> memory;
     std::vector<SavegamePatch> savegames;
+    std::vector<ShiftPatch> shifts;
     std::vector<PatchStep> order;
 };
 

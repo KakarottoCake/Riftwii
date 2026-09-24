@@ -628,6 +628,32 @@ bool ParseSavegameNode(pugi::xml_node n, Patch& patch, Ctx& ctx, int depth, std:
     patch.order.push_back(PatchStep{PatchKind::Savegame, patch.savegames.size() - 1});
     return true;
 }
+// Riivolution looks both paths up from the disc's root, so a path
+// without the leading '/' is taken as one.
+bool ReadShiftPath(pugi::xml_node n, const char* name, std::string& out, std::string& error) {
+    if (!AttrPresent(n, name)) { error = std::string("shift missing ") + name; return false; }
+    std::string path = AttrValue(n, name);
+    if (!path.empty() && path[0] != '/') path = "/" + path;
+    path = TidyDiscPath(path);
+    bool is_name = false;
+    std::string perr;
+    if (!CheckDiscPath(path, false, false, is_name, perr)) { error = std::string("shift ") + name + " " + perr; return false; }
+    out = path;
+    return true;
+}
+bool ParseShiftNode(pugi::xml_node n, Patch& patch, Ctx& ctx, int depth, std::string& error) {
+    static const char* const allowed[] = {"source", "destination", nullptr};
+    if (!EnterElement(n, ctx, depth, allowed, "shift", error)) return false;
+    for (auto c : n.children()) {
+        if (c.type() == pugi::node_element) WarnUnknownChild(ctx, "shift", c);
+    }
+    ShiftPatch s;
+    if (!ReadShiftPath(n, "source", s.source, error)) return false;
+    if (!ReadShiftPath(n, "destination", s.destination, error)) return false;
+    patch.shifts.push_back(s);
+    patch.order.push_back(PatchStep{PatchKind::Shift, patch.shifts.size() - 1});
+    return true;
+}
 bool ParseNetworkNode(pugi::xml_node n, Ctx& ctx, int depth, std::string& error) {
     static const char* const allowed[] = {"protocol", "address", "port", "log", nullptr};
     if (!EnterElement(n, ctx, depth, allowed, "network", error)) return false;
@@ -683,6 +709,8 @@ bool ParsePatchDef(pugi::xml_node n, Ctx& ctx, int depth, std::string& error) {
             ok = ParseMemoryNode(c, p, ctx, depth + 1, error);
         } else if (cn == "savegame") {
             ok = ParseSavegameNode(c, p, ctx, depth + 1, error);
+        } else if (cn == "shift") {
+            ok = ParseShiftNode(c, p, ctx, depth + 1, error);
         } else {
             WarnUnknownChild(ctx, label, c);
         }
@@ -1488,6 +1516,7 @@ bool plan_package(const Package& package, const DiscIdentity& disc, const PlanOp
                 for (std::size_t i = 0; i < p.folders.size(); ++i) order.push_back(PatchStep{PatchKind::Folder, i});
                 for (std::size_t i = 0; i < p.memory.size(); ++i) order.push_back(PatchStep{PatchKind::Memory, i});
                 for (std::size_t i = 0; i < p.savegames.size(); ++i) order.push_back(PatchStep{PatchKind::Savegame, i});
+                for (std::size_t i = 0; i < p.shifts.size(); ++i) order.push_back(PatchStep{PatchKind::Shift, i});
             }
             for (const auto& step : order) {
                 switch (step.kind) {
@@ -1561,6 +1590,26 @@ bool plan_package(const Package& package, const DiscIdentity& disc, const PlanOp
                     }
                     tmp.savegames.push_back(s);
                     tmp.order.push_back(PatchStep{PatchKind::Savegame, tmp.savegames.size() - 1});
+                    break;
+                }
+                case PatchKind::Shift: {
+                    if (step.index >= p.shifts.size()) { error = "corrupt patch order"; return false; }
+                    ShiftPatch s = p.shifts[step.index];
+                    for (std::string* path : {&s.source, &s.destination}) {
+                        if (!substitute_params(*path, sel.params, disc, *path, error)) {
+                            error = Where(sel) + ": " + error;
+                            return false;
+                        }
+                        *path = TidyDiscPath(*path);
+                        bool is_name = false;
+                        std::string perr;
+                        if (!CheckDiscPath(*path, false, true, is_name, perr) || is_name) {
+                            error = Where(sel) + ": shift " + (perr.empty() ? "path must be absolute" : perr);
+                            return false;
+                        }
+                    }
+                    tmp.shifts.push_back(s);
+                    tmp.order.push_back(PatchStep{PatchKind::Shift, tmp.shifts.size() - 1});
                     break;
                 }
                 }

@@ -210,7 +210,7 @@ RiftWii reads the whole documented Riivolution patch format
 (<https://riivolution.github.io/wiki/Patch_Format/>): `<file>` (with
 `offset`, `fileoffset`, `length`, `resize` and `create`), `<folder>`,
 `<memory>` (plain, `search` and `ocarina`, `value` or `valuefile`),
-`<savegame>`, `<network>`, `<macro>` and `<param>`, `shiftfiles`, and the
+`<savegame>`, `<shift>`, `<network>`, `<macro>` and `<param>`, `shiftfiles`, and the
 `{$__gameid}`, `{$__region}`, `{$__maker}`, `{$__ngid}` and param
 placeholders. Unknown attributes and elements are tolerated and noted in
 the log. Packs match a game by its `<id>` (game ID, revision and disc
@@ -234,8 +234,12 @@ works here:
   change in RiftWii is written back to it, so both loaders turn on the
   same mods.
 
+- `<shift source destination>` makes the destination disc file read the
+  source's data (after the pack's other patches). Both must be disc
+  files; otherwise the shift is skipped with a note.
+
 The log notes each yes/no value, hex value and cut-off text read this way.
-`<shift>` and `<dlc>` are not supported yet.
+`<dlc>` (Rock Band downloadable content) is not supported.
 
 ### Controls
 

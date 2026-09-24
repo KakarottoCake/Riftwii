@@ -235,7 +235,8 @@ bool expand_folder(const FolderPatch& folder, const Fst& fst, ContentProvider& p
 
 std::string describe_empty_plan(const std::string& xml_sd_path, const std::string& game_id, const Plan& plan,
                                 const std::vector<std::string>& folder_notes) {
-    if (plan.files.empty() && plan.folders.empty() && plan.memory.empty() && plan.savegames.empty()) {
+    if (plan.files.empty() && plan.folders.empty() && plan.memory.empty() && plan.savegames.empty() &&
+        plan.shifts.empty()) {
         return xml_sd_path + ": no patches selected for " + game_id + " (all options are off)";
     }
     std::string error = xml_sd_path + ": no files matched on " + game_id;
@@ -283,6 +284,7 @@ bool expand_plan(const Plan& plan, const Fst& fst, ContentProvider& provider, st
         }
         case PatchKind::Memory:
         case PatchKind::Savegame:
+        case PatchKind::Shift:
             break;
         }
     }
