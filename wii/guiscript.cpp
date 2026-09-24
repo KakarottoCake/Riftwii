@@ -27,9 +27,6 @@ bool g_pointing = false;
 float g_x = 0, g_y = 0;
 u32 g_press = 0;
 int g_press_frames = 0;
-u32 g_held = 0, g_held_new = 0;
-float g_from_x = 0, g_from_y = 0, g_to_x = 0, g_to_y = 0;
-int g_glide = 0, g_glide_frames = 0;
 std::string g_final_shot;
 
 u32 ButtonNamed(const std::string& name) {
@@ -119,23 +116,6 @@ void Advance(const void* xfb, int width, int height) {
             g_press = ButtonNamed(name);
             g_press_frames = g_press ? 1 : 0;
             g_wait = 2;
-        } else if (cmd == "hold") {
-            std::string name;
-            words >> name;
-            const u32 b = ButtonNamed(name);
-            g_held_new |= b & ~g_held;
-            g_held |= b;
-            g_wait = 1;
-        } else if (cmd == "release") {
-            g_held = 0;
-            g_wait = 1;
-        } else if (cmd == "glide") {
-            g_from_x = g_x;
-            g_from_y = g_y;
-            words >> g_to_x >> g_to_y >> g_glide_frames;
-            if (g_glide_frames < 1) g_glide_frames = 1;
-            g_glide = 0;
-            g_wait = g_glide_frames;
         } else if (cmd == "finalshot") {
             words >> g_final_shot;
         } else if (cmd == "shot") {
@@ -169,13 +149,6 @@ void GuiScriptApply() {
     if (!g_active) return;
     WPADData* w = userInput[0].wpad;
     if (!w) return;
-    if (g_glide_frames > 0) {
-        ++g_glide;
-        const float t = static_cast<float>(g_glide) / g_glide_frames;
-        g_x = g_from_x + (g_to_x - g_from_x) * t;
-        g_y = g_from_y + (g_to_y - g_from_y) * t;
-        if (g_glide >= g_glide_frames) g_glide_frames = 0;
-    }
     if (g_pointing) {
         w->ir.valid = 1;
         w->ir.x = g_x;
@@ -184,12 +157,11 @@ void GuiScriptApply() {
     } else {
         w->ir.valid = 0;
     }
-    w->btns_d = g_held_new;
-    w->btns_h = g_held;
-    g_held_new = 0;
+    w->btns_d = 0;
+    w->btns_h = 0;
     if (g_press_frames > 0) {
-        w->btns_d |= g_press;
-        w->btns_h |= g_press;
+        w->btns_d = g_press;
+        w->btns_h = g_press;
         --g_press_frames;
     }
 }

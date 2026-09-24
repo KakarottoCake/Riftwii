@@ -30,11 +30,9 @@ extern Tex tile, tileOver;               // 134x84 game tiles, drawn at -7,-7
 extern Tex roundBtn, roundBtnOver;       // 76 round buttons, drawn at -2,-2
 extern Tex pill, pillOver;               // 244x52 buttons, drawn at -4,-4
 extern Tex pillPrimary, pillPrimaryOver;
-extern Tex chipOff, chipOn;              // 208x30 option chips, drawn at -2,-3
-extern Tex rowFocus;                     // 548x44 highlighted list row
-extern Tex stepBack, stepBackOver, stepForward, stepForwardOver;  // 34 round arrow buttons, drawn at -4,-4
-extern Tex switchOn, switchOff;          // 60x30 On/Off switches, drawn at -3,-4
-extern Tex panelGame, panelSettings;     // 572x232 and 572x276 white panels, drawn at -4,-4
+extern Tex chipOff, chipOn;              // 176x30 option chips, drawn at -2,-3
+extern Tex rowFocus;                     // 548x34 highlighted list row
+extern Tex panelGame, panelSettings;     // 572x176 and 572x252 white panels, drawn at -4,-4
 extern Tex bar;                          // 640x124 bottom bar
 extern Tex bannerStripes;                // 640x192 overlay for the game banner
 extern Tex arrowLeft, arrowLeftOver, arrowRight, arrowRightOver;  // 44 page arrows, drawn at -2,-2
