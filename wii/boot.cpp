@@ -931,13 +931,25 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
     // The DOL header for the runtime's search, read now: an RVZ game's
     // partition reads go through the SD card, which is handed on below.
     std::uint8_t dol_bytes[kDolHeaderBytes];
-    const bool gc_adapter = g_extras.gc_adapter != GcAdapterMode::Off;
+    bool gc_adapter = g_extras.gc_adapter != GcAdapterMode::Off;
+    DolHeader dol;
     if (options.install_resident || gc_adapter) {
         if (!options.main_dol.empty()) {
             std::memcpy(dol_bytes, options.main_dol.data(), sizeof(dol_bytes));  // the executable that ran
         } else if (!data.read(layout.data_header.dol_offset, dol_bytes, sizeof(dol_bytes))) {
             error = "cannot read the DOL header";
             return false;
+        }
+        if (!parse_dol_header(dol_bytes, sizeof(dol_bytes), dol, error)) return false;
+    }
+    // The adapter's PAD search while boot.log is open; the rest of its
+    // setup comes after the runtime's, when the log has ended.
+    PadHook pad;
+    if (gc_adapter) {
+        std::string why;
+        if (!find_pad_functions(dol, g_extras.gc_adapter == GcAdapterMode::Demo, pad, why)) {
+            logf("GameCube adapter: off: %s\n", why.c_str());
+            gc_adapter = false;
         }
     }
 
@@ -990,10 +1002,6 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
     // E2: the DOL is in place, so the runtime can find and hook the game's
     // IPC entry points before anything runs them.
     ResidentInstall resident;
-    DolHeader dol;
-    if ((options.install_resident || gc_adapter) && !parse_dol_header(dol_bytes, sizeof(dol_bytes), dol, error)) {
-        return false;
-    }
     // The runtime's code goes above this loader (which ends at arena 1's
     // top) and the apploader image, both still in use until the game starts.
     const std::uint32_t mem1_floor =
@@ -1021,7 +1029,6 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         if (!install_resident(dol, ro, resident, error)) return false;
     }
     // The GameCube adapter: below the runtime, or on its own.
-    PadHook pad;
     if (gc_adapter) {
         std::string why;
         const std::uint32_t arena1_hi = options.install_resident ? resident.new_arena1_hi : game_arena1_hi();
@@ -1029,7 +1036,7 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         if (!plan_pad_hook(dol, arena1_hi, mem1_floor, arena2_lo,
                            options.install_resident ? resident.ioctl_async_original : 0,
                            options.install_resident ? resident.ioctlv_async_original : 0, options.memory_patches,
-                           g_extras.gc_adapter == GcAdapterMode::Demo, pad, why)) {
+                           pad, why)) {
             logf("GameCube adapter: off: %s\n", why.c_str());
         }
     }
@@ -1263,6 +1270,17 @@ bool boot_game(const DiscProbe& probe, const BootOptions& options, std::string& 
     logf("Booting %s with IOS%u\n", probe.header.game_id.c_str(), required);
     BootOptions effective = options;
     const int running_ios = IOS_GetVersion();
+    if (g_extras.gc_adapter == GcAdapterMode::Auto || g_extras.gc_adapter == GcAdapterMode::On) {
+        // Auto: on only when an adapter is there now, so games that use
+        // USB input of their own (and games with their own adapter code)
+        // are left alone otherwise.
+        std::string how;
+        const AdapterSeen seen = look_for_gc_adapter(how);
+        logf("GameCube adapter (%s): %s\n", g_extras.gc_adapter == GcAdapterMode::Auto ? "auto" : "on", how.c_str());
+        if (g_extras.gc_adapter == GcAdapterMode::Auto) {
+            g_extras.gc_adapter = seen == AdapterSeen::Missing ? GcAdapterMode::Off : GcAdapterMode::On;
+        }
+    }
     if (!effective.preserve_current_ios && running_ios != static_cast<int>(required) &&
         needs_resident_sd(effective)) {
         // The selected packages/save mode were resolved through this very

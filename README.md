@@ -210,13 +210,18 @@ too.
 
 ### GameCube controller adapter for Wii U
 
-The Nintendo adapter (WUP-028) or a copy that works like it. Turn on
-**GameCube adapter** in Settings and plug the adapter's black USB plug
-into the Wii (the grey one only adds power for rumble). In games that
-support the GameCube controller (Mario Kart Wii, Super Smash Bros. Brawl
-and others), its controllers fill the ports that have no controller
-plugged in, rumble included. **Check the GameCube adapter** shows what
-each port reports before you start a game.
+The Nintendo adapter (WUP-028) or a copy that works like it (a Mayflash
+with its switch on Wii U). Plug the adapter's black USB plug into the Wii
+before you start the game (the grey one only adds power for rumble). In
+games that support the GameCube controller (Mario Kart Wii, Super Smash
+Bros. Brawl and others), its controllers fill the ports that have no
+controller plugged in, rumble included. **Check the GameCube adapter**
+shows what each port reports before you start a game.
+
+**GameCube adapter** in Settings is **Automatic** at first: the adapter
+is used when it is plugged in as the game starts, and the game is left
+alone when it is not. **On** always sets it up, so it can be plugged in
+during the game; **Off** never does. `boot.log` says what was found.
 
 It needs a menu IOS with USB HID: IOS 58 (the default) or a d2x cIOS;
 the game then keeps that IOS. Games without GameCube controller support
@@ -309,7 +314,8 @@ loads.** Send the logs below with your report.
 **The GameCube adapter does nothing.** Open **Check the GameCube
 adapter**: it says whether the adapter is found and shows what each
 port presses. The menu IOS must be IOS 58 or a d2x cIOS, and the game
-must support the GameCube controller.
+must support the GameCube controller. The `GameCube adapter` lines in
+`boot.log` list the USB devices the Wii saw at launch.
 
 ### Reporting a problem
 

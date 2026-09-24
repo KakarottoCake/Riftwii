@@ -113,7 +113,10 @@ void PrepareLaunchExtras(const FrontendState& state) {
     extras.server = effective_wfc_server(state.model.game, Settings());
     extras.wfc_domain = wfc_domain(extras.server, Settings().wfc_domain);
     const std::string& adapter = Settings().gc_adapter;
-    extras.gc_adapter = adapter == "on" ? GcAdapterMode::On : adapter == "demo" ? GcAdapterMode::Demo : GcAdapterMode::Off;
+    extras.gc_adapter = adapter == "on"     ? GcAdapterMode::On
+                        : adapter == "demo" ? GcAdapterMode::Demo
+                        : adapter == "off"  ? GcAdapterMode::Off
+                                            : GcAdapterMode::Auto;
     if (state.model.game.cheats && !state.model.game.cheat_names.empty()) {
         CheatFile file;
         std::string status;

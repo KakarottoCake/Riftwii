@@ -314,7 +314,7 @@ void TestSettings() {
     again.parse(s.serialize());
     EXPECT_EQ(again.language, "ja");
     EXPECT_EQ(again.other["future"], "1");
-    EXPECT_EQ(again.gc_adapter, "off");  // the default
+    EXPECT_EQ(again.gc_adapter, "auto");  // the default
     LoaderSettings adapter;
     adapter.parse("gc_adapter = on\n");
     EXPECT_EQ(adapter.gc_adapter, "on");

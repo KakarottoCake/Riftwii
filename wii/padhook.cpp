@@ -31,6 +31,56 @@ constexpr int kHidHandle = 1;
 
 char g_hid_path[] ATTRIBUTE_ALIGN(32) = "/dev/usb/hid";
 std::uint32_t g_version_out[8] ATTRIBUTE_ALIGN(32);
+std::uint8_t g_list[0x600] ATTRIBUTE_ALIGN(32);  // a v4 device list
+volatile bool g_list_done = false;
+volatile s32 g_list_result = 0;
+
+s32 on_list_reply(s32 result, void*) {
+    g_list_result = result;
+    g_list_done = true;
+    return 0;
+}
+
+bool wait_list(unsigned ms) {
+    for (unsigned i = 0; i < ms && !g_list_done; ++i) usleep(1000);
+    return g_list_done;
+}
+
+bool ask_list(s32 fd) {
+    g_list_done = false;
+    return IOS_IoctlAsync(fd, GCAD_V4_GET_DEVICE_CHANGE, nullptr, 0, g_list, sizeof(g_list), on_list_reply, nullptr) >= 0;
+}
+
+// v4 answers a device-list request at once only when something is new
+// to it: the first request after IOS starts, a plug or unplug, or a
+// Shutdown that cancelled a waiting request (Dolphin's HIDv4 model). A
+// request that waits is cancelled that way and asked again.
+bool v4_list(s32 fd) {
+    for (int attempt = 0; attempt < 2; ++attempt) {
+        if (!ask_list(fd)) return false;
+        if (wait_list(100)) {
+            if (g_list_result < 0) return false;
+            DCInvalidateRange(g_list, sizeof(g_list));
+            return true;
+        }
+        IOS_Ioctl(fd, GCAD_V4_SHUTDOWN, nullptr, 0, nullptr, 0);
+        if (!wait_list(500)) return false;  // not even cancelled: leave it
+    }
+    return false;
+}
+
+// Leaves v4 ready to answer the next request at once, for the game's
+// driver, whoever asked last (the menu, or look_for_gc_adapter): a
+// waiting request cancelled by Shutdown.
+void v4_leave_fresh(s32 fd) {
+    for (int attempt = 0; attempt < 3; ++attempt) {
+        if (!ask_list(fd)) return;
+        if (wait_list(50)) continue;  // answered: that news is gone, ask again
+        IOS_Ioctl(fd, GCAD_V4_SHUTDOWN, nullptr, 0, nullptr, 0);
+        wait_list(500);
+        return;
+    }
+}
 
 std::uint32_t align_up(std::uint32_t v) { return (v + 31) & ~31u; }
 
@@ -77,6 +127,43 @@ bool open_usb_hid(std::int32_t& fd, std::uint32_t& version, std::string& why) {
     return false;
 }
 
+// The adapter in libogc's HID list, which it keeps from IOS's device
+// changes when /dev/usb/hid is v5 (its device ids are v5's); without
+// that list, oh0's, with no ids. `devices` lists every VID:PID, or the
+// error when there is no list.
+AdapterSeen ogc_adapter(std::int32_t& dev_id, std::string& devices) {
+    static usb_device_entry list[32] ATTRIBUTE_ALIGN(32);
+    u8 count = 0;
+    dev_id = -1;
+    devices.clear();
+    s32 ret = USB_GetDeviceList(list, 32, USB_CLASS_HID, &count);
+    if (ret < 0 && USB_Initialize() >= 0) {
+        // libogc's USB was not started (it is on the menu's paths):
+        // started now, its list comes in its first device-change reply.
+        for (int i = 0; i < 30; ++i) {
+            ret = USB_GetDeviceList(list, 32, USB_CLASS_HID, &count);
+            if (ret < 0 || count > 0) break;
+            usleep(10000);
+        }
+    }
+    if (ret < 0) {
+        devices = "no list: error " + std::to_string(ret);
+        return AdapterSeen::Unknown;
+    }
+    bool found = false;
+    for (unsigned i = 0; i < count && i < 32; ++i) {
+        char one[16];
+        std::snprintf(one, sizeof(one), "%s%04x:%04x", i ? ", " : "", list[i].vid, list[i].pid);
+        devices += one;
+        if ((static_cast<std::uint32_t>(list[i].vid) << 16 | list[i].pid) == GCAD_VID_PID && !found) {
+            found = true;
+            if (list[i].device_id != 0) dev_id = list[i].device_id;
+        }
+    }
+    if (devices.empty()) devices = "no devices";
+    return found ? AdapterSeen::Found : AdapterSeen::Missing;
+}
+
 bool usb_hid_present() {
     const s32 fd = IOS_Open(g_hid_path, kHidHandle);
     if (fd < 0) return false;
@@ -84,9 +171,53 @@ bool usb_hid_present() {
     return true;
 }
 
-bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t mem1_floor, std::uint32_t arena2_lo,
-                   std::uint32_t ioctl_async, std::uint32_t ioctlv_async,
-                   const std::vector<MemoryPatch>& patches, bool demo, PadHook& out, std::string& why) {
+AdapterSeen look_for_gc_adapter(std::string& how) {
+    std::int32_t fd = -1;
+    std::uint32_t version = 0;
+    if (!open_usb_hid(fd, version, how)) return AdapterSeen::Missing;
+    if (version != 4) {
+        // v5 lists devices once per change, to whoever asks first: the
+        // menu's USB (libogc) had the list and keeps it.
+        IOS_Close(fd);
+        std::int32_t dev_id = -1;
+        std::string devices;
+        const AdapterSeen seen = ogc_adapter(dev_id, devices);
+        how = std::string(seen == AdapterSeen::Found     ? "plugged in"
+                          : seen == AdapterSeen::Missing ? "not plugged in"
+                                                         : "unknown, taken as plugged in") +
+              " (/dev/usb/hid v5, USB lists " + devices + ")";
+        return seen;
+    }
+    if (!v4_list(fd)) {
+        v4_leave_fresh(fd);
+        IOS_Close(fd);
+        how = "/dev/usb/hid v4 gave no device list; taken as plugged in";
+        return AdapterSeen::Unknown;
+    }
+    // Every device, for reports from other adapters: entries are [size]
+    // [device id][descriptors], VID and PID in the fifth word.
+    std::string devices;
+    unsigned listed = 0;
+    for (std::uint32_t at = 0; at + 20 <= sizeof(g_list) && listed < 8;) {
+        const std::uint32_t size = gcad_get32(g_list + at);
+        if (size == 0xFFFFFFFFu || size < 20 || (size & 3) != 0 || size > sizeof(g_list) - at) break;
+        char one[16];
+        const std::uint32_t id = gcad_get32(g_list + at + 16);
+        std::snprintf(one, sizeof(one), "%s%04x:%04x", listed ? ", " : "", static_cast<unsigned>(id >> 16),
+                      static_cast<unsigned>(id & 0xFFFF));
+        devices += one;
+        ++listed;
+        at += size;
+    }
+    const bool found = gcad_find_v4(g_list, sizeof(g_list)) >= 0;
+    v4_leave_fresh(fd);
+    IOS_Close(fd);
+    how = std::string(found ? "plugged in" : "not plugged in") + " (/dev/usb/hid v4 lists " +
+          (listed ? devices : std::string("no devices")) + ")";
+    return found ? AdapterSeen::Found : AdapterSeen::Missing;
+}
+
+bool find_pad_functions(const DolHeader& dol, bool demo, PadHook& out, std::string& why) {
     out = PadHook{};
     out.demo = demo;
     const rt_pad_header& h = header();
@@ -95,8 +226,6 @@ bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
         why = "the embedded pad blob is damaged";
         return false;
     }
-
-    // 1. The game's PAD functions and its IOS calls.
     std::vector<CodeRange> text;
     for (std::size_t i = 0; i < kDolTextSections; ++i) {
         const DolSection& s = dol.sections[i];
@@ -112,6 +241,31 @@ bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
         why = "this game has no GameCube controller support (no PADRead)";
         return false;
     }
+    out.read = pad.read;
+    out.read_sites = pad.read_sites;
+    out.motor = pad.control_motor;
+    logf("GameCube adapter: PADRead at 0x%08x (%u error stores), PADControlMotor at 0x%08x\n", out.read,
+         out.read_sites, out.motor);
+    return true;
+}
+
+bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t mem1_floor, std::uint32_t arena2_lo,
+                   std::uint32_t ioctl_async, std::uint32_t ioctlv_async,
+                   const std::vector<MemoryPatch>& patches, PadHook& out, std::string& why) {
+    const rt_pad_header& h = header();
+    const bool demo = out.demo;
+    if (out.read == 0) {
+        why = "PADRead was not found";
+        return false;
+    }
+
+    // 1. The game's IOS calls.
+    std::vector<CodeRange> text;
+    for (std::size_t i = 0; i < kDolTextSections; ++i) {
+        const DolSection& s = dol.sections[i];
+        if (s.used()) text.push_back({s.address, reinterpret_cast<const std::uint8_t*>(s.address), s.size});
+    }
+    std::string error;
     if (ioctl_async == 0) {
         IpcSymbols ipc;
         if (!find_ipc_symbols(text, ipc, error)) {
@@ -131,6 +285,9 @@ bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
     // one at a time (Dolphin refuses a second), and their answers would
     // reach the game. libogc cancels its own; the Shutdown on ours clears
     // one it re-armed while going.
+    std::int32_t known_dev = -1;
+    std::string devices;
+    ogc_adapter(known_dev, devices);  // v5's list goes with libogc's USB
     USB_Deinitialize();
     usleep(50000);
     if (!open_usb_hid(out.fd, out.version, why)) {
@@ -140,6 +297,8 @@ bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
         out.version = 5;
     } else if (out.version == 5) {
         IOS_Ioctl(out.fd, GCAD_V5_SHUTDOWN, nullptr, 0, nullptr, 0);  // an error when nothing was pending
+    } else {
+        v4_leave_fresh(out.fd);  // the driver's first request must be answered
     }
     if (out.version == 5 && ioctlv_async == 0) {
         why = "/dev/usb/hid v5 needs the game's IOS_IoctlvAsync, which was not found";
@@ -174,8 +333,6 @@ bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
     }
     out.new_arena1_hi = out.code_base;
     out.new_arena2_lo = out.state_base + out.state_bytes;
-    out.read = pad.read;
-    out.motor = pad.control_motor;
 
     // 4. The blob and its context; the hooks come after the patches.
     std::memset(reinterpret_cast<void*>(out.code_base), 0, out.code_bytes);
@@ -195,11 +352,12 @@ bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
     ctx->ticks_per_ms = read32(kBusClockField) / 4000u;
     ctx->inited = 0;
     ctx->flags = demo ? RT_PAD_FLAG_DEMO : 0u;
+    ctx->known_dev = out.version == 5 ? known_dev : -1;
     out.active = true;
-    logf("GameCube adapter: PADRead at 0x%08x (%u error stores), PADControlMotor at 0x%08x; /dev/usb/hid v%u fd %d; "
-         "blob %u bytes at 0x%08x, state %u bytes at 0x%08x%s\n",
-         pad.read, pad.read_sites, pad.control_motor, out.version, out.fd, h.size, out.code_base, out.state_bytes,
-         out.state_base, demo ? " (demo)" : "");
+    logf("GameCube adapter: /dev/usb/hid v%u fd %d, adapter device %d; blob %u bytes at 0x%08x, state %u bytes at "
+         "0x%08x%s\n",
+         out.version, out.fd, static_cast<int>(ctx->known_dev), h.size, out.code_base, out.state_bytes, out.state_base,
+         demo ? " (demo)" : "");
     return true;
 }
 

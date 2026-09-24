@@ -211,33 +211,6 @@ static void start_init(gcad* g, uint32_t now) {
     if (!send_out(g, GCAD_STEP_INIT, 1)) link_failed(g, now, GCAD_LINK_FAILED);
 }
 
-/* HID SET_PROTOCOL(report), before the init command, as Dolphin does:
- * it makes Nyko adapters work and Mayflash ones refuse it, which is
- * fine. It goes on the SETUP slot; init follows its reply, or
- * GCAD_CTRL_MS without one. */
-static void start_ctrl(gcad* g, uint32_t now) {
-    int sent;
-    g->link = GCAD_LINK_CTRL;
-    g->link_time = now;
-    g->setup_step = GCAD_STEP_CTRL;
-    if (g->version == 4) {
-        zero(g->setup_in, sizeof(g->setup_in));
-        gcad_put32(g->setup_in + 16, (uint32_t)g->dev_id);
-        g->setup_in[20] = 0x21;  /* class request to the interface */
-        g->setup_in[21] = 0x0B;  /* SET_PROTOCOL */
-        g->setup_in[23] = 0x01;  /* report protocol */
-        sent = ioctl_(g, GCAD_TAG_SETUP, GCAD_STEP_CTRL, GCAD_V4_CONTROL, g->setup_in, 32, 0, 0);
-    } else {
-        zero(g->setup_out, sizeof(g->setup_out));
-        gcad_put32(g->setup_out, (uint32_t)g->dev_id);
-        g->setup_out[8] = 0x21;
-        g->setup_out[9] = 0x0B;
-        g->setup_out[11] = 0x01;
-        sent = ioctlv_(g, GCAD_TAG_SETUP, GCAD_STEP_CTRL, GCAD_V5_CONTROL, g->setup_out, g->out_data, 0, 1);
-    }
-    if (!sent) start_init(g, now);
-}
-
 /* Starts (or restarts) the link to g->dev_id. */
 static void start_link(gcad* g, uint32_t now) {
     if (g->busy & (BIT(GCAD_TAG_SETUP) | BIT(GCAD_TAG_IN) | BIT(GCAD_TAG_OUT))) {
@@ -251,7 +224,7 @@ static void start_link(gcad* g, uint32_t now) {
         submit_setup(g, GCAD_STEP_ATTACH);
         if (!(g->busy & BIT(GCAD_TAG_SETUP))) link_failed(g, now, GCAD_LINK_FAILED);
     } else {
-        start_ctrl(g, now);
+        start_init(g, now);
     }
 }
 
@@ -335,12 +308,18 @@ void gcad_init(gcad* g, void* env_ctx, int32_t fd, uint32_t version, uint32_t ti
     for (i = 0; i < GCAD_PORTS; ++i) g->rumble_sent[i] = 0xFF;  /* unknown: the first poll turns rumble off */
 }
 
+void gcad_expect(gcad* g, int32_t dev_id) { g->dev_id = dev_id; }
+
 void gcad_tick(gcad* g, uint32_t now) {
     if (g->stopping || (g->version != 4 && g->version != 5)) return;
     if (!g->started) {
         g->started = 1;
         g->data_time = now;
         submit_change(g, now);
+        if (g->dev_id >= 0) {
+            gcad_env_event(g, GCAD_EV_FOUND, (uint32_t)g->dev_id, 0);
+            start_link(g, now);
+        }
         return;
     }
     if (g->change_failed && !(g->busy & BIT(GCAD_TAG_CHANGE)) &&
@@ -353,7 +332,6 @@ void gcad_tick(gcad* g, uint32_t now) {
         elapsed(now, g->link_time) >= ms(g, g->link == GCAD_LINK_BUSY ? GCAD_RESCAN_MS : GCAD_RELINK_MS)) {
         start_link(g, now);
     }
-    if (g->link == GCAD_LINK_CTRL && elapsed(now, g->link_time) >= ms(g, GCAD_CTRL_MS)) start_init(g, now);
     if (!g->stale && elapsed(now, g->data_time) >= ms(g, GCAD_TIMEOUT_MS)) set_stale(g);
 }
 
@@ -415,11 +393,6 @@ static void on_change(gcad* g, int32_t result, uint32_t now) {
 }
 
 static void on_setup(gcad* g, int32_t result, int current, uint32_t now) {
-    if (g->setup_step == GCAD_STEP_CTRL) {
-        g->ctrl_result = result;
-        if (current && g->link == GCAD_LINK_CTRL && !g->stopping) start_init(g, now);
-        return;
-    }
     if (current && g->link == GCAD_LINK_SETUP) {
         if (g->setup_step == GCAD_STEP_ATTACH) {
             /* Refused when it is already ours or another handle has it;
@@ -444,7 +417,7 @@ static void on_setup(gcad* g, int32_t result, int current, uint32_t now) {
     }
     if (g->busy & BIT(GCAD_TAG_SETUP)) return;  /* the chain goes on */
     if (g->finish_pending && !g->stopping) submit_finish(g, now);
-    if (current && g->link == GCAD_LINK_INIT && !g->stopping) start_ctrl(g, now);
+    if (current && g->link == GCAD_LINK_INIT && !g->stopping) start_init(g, now);
 }
 
 static void on_out(gcad* g, int32_t result, int current, uint32_t now) {
