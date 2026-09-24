@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <string>
 
 #include "riftwii/overlay.hpp"
@@ -59,6 +60,15 @@ bool close_partition(std::string& error);                     // 0x8C
 // Decrypted read inside the open partition.
 bool read(void* buffer32, std::uint32_t length, std::uint32_t word_offset,
           std::string& error);                                // 0x71
+
+// RVZ games: the disc d2x (or Dolphin) presents holds only the headers,
+// not the partitions' data. `resolve` is asked, for each partition opened,
+// by its disc offset, for a source of its decrypted data; what it returns
+// answers partition reads (0x71) until the partition is closed. Null from
+// it, or no resolver: the drive answers.
+using PartitionResolver = std::function<const ByteSource*(std::uint64_t partition_offset)>;
+void set_partition_resolver(PartitionResolver resolve);
+bool has_partition_resolver();
 
 // The raw reply of the last call, for diagnostics.
 int last_reply();

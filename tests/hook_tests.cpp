@@ -146,6 +146,44 @@ static void TestBlob() {
 
 // ---- instruction helpers --------------------------------------------------
 
+// The RVZ blob's relocations (tools/rtreloc.py records) for its address.
+static void TestResidentRelocs() {
+    Bytes blob(32, 0);
+    Bytes rel;
+    auto record = [&rel](std::uint32_t offset, std::uint32_t type, std::uint32_t target) {
+        for (std::uint32_t w : {offset, type, target}) {
+            for (int shift = 24; shift >= 0; shift -= 8) rel.push_back(static_cast<std::uint8_t>(w >> shift));
+        }
+    };
+    record(0, 1, 0x1F00);   // ADDR32
+    record(6, 6, 0x9F00);   // ADDR16_HA: the carry from the low half
+    record(10, 4, 0x9F00);  // ADDR16_LO
+    record(14, 5, 0x9F00);  // ADDR16_HI
+    std::string error;
+    EXPECT_TRUE(riftwii::apply_resident_relocs(blob.data(), blob.size(), rel.data(), rel.size(), 0x80F00000, error));
+    EXPECT_EQ(blob[0], 0x80);
+    EXPECT_EQ(blob[1], 0xF0);
+    EXPECT_EQ(blob[2], 0x1F);
+    EXPECT_EQ(blob[3], 0x00);
+    EXPECT_EQ(blob[6], 0x80);  // 0x80F09F00: high adjusted 0x80F1
+    EXPECT_EQ(blob[7], 0xF1);
+    EXPECT_EQ(blob[10], 0x9F);
+    EXPECT_EQ(blob[11], 0x00);
+    EXPECT_EQ(blob[14], 0x80);
+    EXPECT_EQ(blob[15], 0xF0);
+    // Refused whole: an unknown type, a record past the blob, a cut table.
+    const Bytes before = blob;
+    Bytes bad = rel;
+    record(20, 10, 0);  // REL24 is not the loader's to apply
+    EXPECT_FALSE(riftwii::apply_resident_relocs(blob.data(), blob.size(), rel.data(), rel.size(), 0x81000000, error));
+    EXPECT_TRUE(blob == before);
+    rel = bad;
+    record(30, 1, 0);
+    EXPECT_FALSE(riftwii::apply_resident_relocs(blob.data(), blob.size(), rel.data(), rel.size(), 0x81000000, error));
+    EXPECT_FALSE(riftwii::apply_resident_relocs(blob.data(), blob.size(), bad.data(), bad.size() - 1, 0x81000000, error));
+    EXPECT_TRUE(blob == before);
+}
+
 static void TestJumpAndDisplace() {
     const auto j = riftwii::encode_absolute_jump(0, 0x935D0020);
     EXPECT_EQ(j[0], 0x3C00935Du);  // lis r0, 0x935d
@@ -3282,6 +3320,7 @@ static void TestWindowedRead() {
 int main() {
     TestBlob();
     TestJumpAndDisplace();
+    TestResidentRelocs();
     TestPlacement();
     TestSymbolSearch();
     TestIpcApiSearch();

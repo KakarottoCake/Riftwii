@@ -413,6 +413,12 @@ void RunAutorun() {
                 else if (!check_image_game(*found, error)) ok=false;
                 else { source=LaunchSource{}; source.kind=LaunchSource::Kind::Sd; source.game=*found; source.cios_slot=slot; s=Session(source, kAutorunLogPath); }
             }
+        } else if (cmd == "rvz") {
+            // Dolphin only: boot the RVZ's stub as the disc and read the
+            // partitions from the RVZ on the card (d2x does this on a Wii).
+            std::string path; words >> path;
+            if (path.empty()) { ok=false; error="rvz needs an sd:/ path"; }
+            else if (!serve_disc_from_rvz(path, error)) ok=false;
         } else if (cmd == "disc") {
             source=LaunchSource{}; s=Session(source, kAutorunLogPath);
         } else if (cmd == "netscan") {

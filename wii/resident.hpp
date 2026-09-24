@@ -8,6 +8,7 @@
 
 #include "riftwii/dol.hpp"
 #include "riftwii/hook.hpp"
+#include "riftwii/rvz.hpp"
 #include "rt_hook.h"
 #include "rtfat.h"
 
@@ -42,6 +43,20 @@ struct SavegameOptions {
     bool file_device = false;
 };
 
+// An RVZ game (docs/RVZ.md): the RVZ blob (riftwii_rt_rvz_bin) is
+// installed instead and serves every read of the game partition from the
+// RVZ on the card. Needs the card open (sdio_fd) and the game's
+// IOS_IoctlvAsync.
+struct RvzResidentOptions {
+    bool enabled = false;
+    RvzRuntimeTable table;                     // its entries are in the groups file, not here
+    std::vector<rt_rvz_extent> extents;        // the RVZ file on the card
+    std::vector<rt_rvz_extent> table_extents;  // the groups file (sd:/riftwii/rvz/<ID>.groups)
+    // The RVZ is on the USB drive: d2x's /dev/usb2 handle (wii/umsdev.hpp)
+    // and `extents` are its sectors. -1: on the card.
+    std::int32_t usb_fd = -1;
+};
+
 struct ResidentOptions {
     bool gecko = false;  // report each DI read over the USB Gecko in slot B
     // The redirect table's content (riftwii/hook.hpp). The table and the
@@ -65,6 +80,7 @@ struct ResidentOptions {
     // apploader image, which the game reclaims only after it starts.
     std::uint32_t mem1_floor = 0;
     SavegameOptions savegame;
+    RvzResidentOptions rvz;
 };
 
 struct ResidentInstall {
@@ -92,6 +108,7 @@ struct ResidentInstall {
     std::array<std::uint32_t, RT_IPC_ENTRIES> hook_sites{};
     unsigned hook_site_count = 0;
     std::uint32_t fs_state = 0;       // the savegame state block, 0 when not redirected
+    std::uint32_t rvz_state = 0;      // struct rt_rvz_state, 0 when not an RVZ game
 };
 
 // The MEM1 arena end the game's OSInit will take (0x34, else the FST

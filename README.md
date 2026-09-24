@@ -39,7 +39,8 @@ against USB loading. RiftWii exists to finally get past that.
   - `.wbfs` images (split `.wbf1`, `.wbf2`, ... too) or `.iso` images on
     the SD card or a USB drive. These need a **d2x cIOS** installed in
     slot 249, 250 or 251. A USB drive may be FAT32 or NTFS. Both need
-    512-byte sectors. Compressed `.rvz` images are not supported.
+    512-byte sectors;
+  - Dolphin's compressed `.rvz` images, from the same places (below).
 
 ## Installing
 
@@ -51,8 +52,8 @@ against USB loading. RiftWii exists to finally get past that.
    authors ship them) into `sd:/riivolution/` (or
    `sd:/apps/riivolution/`), the same places Riivolution uses. Packs
    can also go in `usb:/riivolution/` on a FAT32 USB drive (see below).
-4. Game images go in `wbfs` (`.wbfs`) or `games` (`.iso`) at the top of
-   the SD card or the USB drive. The zip's `usb-drive` folder shows
+4. Game images go in `wbfs` (`.wbfs`) or `games` (`.iso`, `.rvz`) at the
+   top of the SD card or the USB drive. The zip's `usb-drive` folder shows
    where.
 5. Start RiftWii from the Homebrew Channel.
 
@@ -150,6 +151,24 @@ the list explains the row you are on.
 - **Look for games again**, **Check for a new version** (on GitHub; with
   downloads on, RiftWii also looks once a day at start and says so on
   Home), and **Leave RiftWii** (HOME does that too).
+
+### RVZ games
+
+Dolphin's compressed `.rvz` images play straight from `games` on the SD
+card or the USB drive, without turning them back into an ISO, and packs
+work on them as on any game. RiftWii checks each RVZ when you pick it:
+
+- Zstandard (any level) or no compression, with chunks of 32 to 128 KiB,
+  plays. Most RVZs are made this way.
+- Chunks of 256 or 512 KiB play after a warning (press Start twice).
+- Larger chunks, bzip2, LZMA and LZMA2, WIA files and GameCube images are
+  refused, with the reason.
+
+The SD card must be in the Wii even for an RVZ on the USB drive: RiftWii
+keeps a small index of each game in `sd:/riftwii/rvz/`. An RVZ on the
+drive is read through d2x (the drive needs 512-byte sectors). An RVZ
+copied in more than 1024 pieces has to be copied again. More in
+`docs/RVZ.md`.
 
 ### Network packs (RiiFS)
 

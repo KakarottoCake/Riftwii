@@ -19,14 +19,14 @@ export	FREETYPE_LIBS	:=	-lfreetype
 #---------------------------------------------------------------------------------
 TARGET		:=	riftwii
 BUILD		:=	build_wii
-SOURCES		:=	wii src runtime vendor-pugixml/src \
+SOURCES		:=	wii src runtime vendor-pugixml/src vendor-zstd \
 				vendor-libgui/source/libwiigui \
 				vendor-libgui/source vendor-wwfc
 # wiidrc.c (FIX94's Wii U GamePad driver) is compiled in: the menus read
 # the GamePad through it, guarded so plain Wii and Dolphin are unaffected.
 EXCLUDES	:=	vendor-libgui/source/demo.cpp vendor-libgui/source/menu.cpp vendor-libgui/source/filebrowser.cpp \
 				vendor-libgui/source/gettext.cpp vendor-libgui/source/pngu.c
-INCLUDES	:=	wii vendor-libgui/source include runtime runtime/resident runtime/pad vendor-pugixml/src vendor-bearssl/inc vendor-wwfc
+INCLUDES	:=	wii vendor-libgui/source include runtime runtime/resident runtime/pad vendor-pugixml/src vendor-bearssl/inc vendor-wwfc vendor-zstd
 DATA		:=	wii/assets wii/lang vendor-gecko vendor-libgui/source/images vendor-libgui/source/fonts vendor-libgui/source/sounds vendor-libgui/source/lang \
 				build-runtime
 
@@ -86,7 +86,7 @@ BINFILES	:=	$(foreach dir,$(DATA),$(notdir $(wildcard $(dir)/*.ttf) \
 # before runtime-blob creates build-runtime/riftwii_rt.bin. VPATH resolves it
 # for the recursive build after runtime-blob has completed. menufont.bin is listed
 # because the wildcards above only pick up the known asset types.
-BINFILES	+=	riftwii_rt.bin riftwii_pad.bin codehandleronly.bin menufont.bin
+BINFILES	+=	riftwii_rt.zst riftwii_rt_rvz.zst riftwii_rt_rvz.rel riftwii_pad.bin codehandleronly.bin menufont.bin
 
 #---------------------------------------------------------------------------------
 # use CXX for linking C++ projects, CC for standard C
@@ -126,7 +126,8 @@ $(BUILD): runtime-blob bearssl-lib
 
 #---------------------------------------------------------------------------------
 # The resident runtime (runtime/resident) is a separate freestanding build
-# whose blob is embedded in the loader as riftwii_rt_bin.
+# whose blobs are embedded in the loader as riftwii_rt_bin and, for RVZ
+# games, riftwii_rt_rvz_bin with its relocations riftwii_rt_rvz_rel.
 runtime-blob:
 	@$(MAKE) --no-print-directory -f Makefile.runtime
 
@@ -191,6 +192,20 @@ main.o: $(PROJECT_ROOT)/CMakeLists.txt
 %.bin.o %_bin.h : %.bin
 	@echo $(notdir $<)
 	$(bin2o)
+
+# The RVZ runtime blob's relocations (tools/rtreloc.py).
+%.rel.o %_rel.h : %.rel
+	@echo $(notdir $<)
+	$(bin2o)
+
+# The runtime blobs, zstd-compressed by Makefile.runtime.
+%.zst.o %_zst.h : %.zst
+	@echo $(notdir $<)
+	$(bin2o)
+
+# The menu's own Zstandard (RVZ headers and the apploader's reads) is
+# built for size, like the runtime's: it decodes a few MB per launch.
+zstddeclib.o: CFLAGS += -Os
 
 -include $(DEPENDS)
 

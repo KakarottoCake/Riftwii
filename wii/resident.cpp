@@ -12,7 +12,10 @@
 #include "log.hpp"
 #include "riftwii/hook.hpp"
 #include "riftwii/symsearch.hpp"
-#include "riftwii_rt_bin.h"
+#include "riftwii_rt_rvz_rel.h"
+#include "riftwii_rt_rvz_zst.h"
+#include "riftwii_rt_zst.h"
+#include "zstd.h"
 #include "rt_hook.h"
 #include "rtfs.h"
 
@@ -53,6 +56,22 @@ const char* ipc_entry_name(std::uint32_t entry) {
     return entry < RT_IPC_ENTRIES ? names[entry] : "?";
 }
 
+// A runtime blob out of its zstd frame (which records its size).
+bool unpack_blob(const std::uint8_t* packed, std::size_t size, std::vector<std::uint8_t>& out, std::string& error) {
+    const unsigned long long bytes = ZSTD_getFrameContentSize(packed, size);
+    if (bytes == ZSTD_CONTENTSIZE_UNKNOWN || bytes == ZSTD_CONTENTSIZE_ERROR || bytes > (1u << 20)) {
+        error = "the runtime blob in this build is damaged";
+        return false;
+    }
+    out.resize(static_cast<std::size_t>(bytes));
+    const std::size_t got = ZSTD_decompress(out.data(), out.size(), packed, size);
+    if (ZSTD_isError(got) || got != out.size()) {
+        error = "the runtime blob in this build is damaged";
+        return false;
+    }
+    return true;
+}
+
 }  // namespace
 
 std::uint32_t game_arena1_hi() {
@@ -65,8 +84,15 @@ std::uint32_t game_arena1_hi() {
 
 bool install_resident(const DolHeader& dol, const ResidentOptions& options, ResidentInstall& out,
                       std::string& error) {
+    const bool rvz = options.rvz.enabled;
+    // The blob is embedded zstd-compressed (Makefile.runtime).
+    std::vector<std::uint8_t> blob_bytes;
+    if (!unpack_blob(rvz ? riftwii_rt_rvz_zst : riftwii_rt_zst, rvz ? riftwii_rt_rvz_zst_size : riftwii_rt_zst_size,
+                     blob_bytes, error)) {
+        return false;
+    }
     ResidentBlob blob;
-    if (!parse_resident_blob(riftwii_rt_bin, riftwii_rt_bin_size, blob, error)) return false;
+    if (!parse_resident_blob(blob_bytes.data(), blob_bytes.size(), blob, error)) return false;
 
     // 1. Find the SDK's IPC entry points in the text the apploader loaded.
     std::vector<CodeRange> text;
@@ -172,6 +198,35 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
                                           : "files on the USB drive need d2x's USB device open";
         return false;
     }
+    // An RVZ game: its state, a buffer for a group as stored and one for
+    // it decoded, and the Zstandard decoder's workspace.
+    const RvzRuntimeTable& rvz_table = options.rvz.table;
+    RvzBufferSizes rvz_buffers;
+    std::uint32_t rvz_dctx_bytes = 0;
+    std::uint32_t rvz_bytes = 0;
+    if (rvz) {
+        if (symbols.ioctlv_async == 0 || options.sdio_fd < 0) {
+            error = "an RVZ game needs an open SD card and the game's IOS_IoctlvAsync";
+            return false;
+        }
+        if (options.rvz.extents.empty() || options.rvz.extents.size() > RT_RVZ_MAX_EXTENTS ||
+            options.rvz.table_extents.empty() || options.rvz.table_extents.size() > RT_RVZ_TABLE_EXTENTS) {
+            error = "the RVZ is in " + std::to_string(options.rvz.extents.size()) +
+                    " pieces on the card (at most " + std::to_string(RT_RVZ_MAX_EXTENTS) +
+                    "); copy it to the card again";
+            return false;
+        }
+        if (rvz_table.group_kib == 0 || rvz_table.group_count == 0 || rvz_table.data_kib == 0) {
+            error = "the RVZ's group table is empty";
+            return false;
+        }
+        // Each buffer as large as this RVZ's groups need; no decoder for
+        // one that compresses nothing.
+        rvz_buffers = rvz_buffer_sizes(rvz_table);
+        rvz_dctx_bytes = rvz_buffers.decoder ? RT_RVZ_DCTX_BYTES : 0;
+        rvz_bytes = ((static_cast<std::uint32_t>(sizeof(rt_rvz_state)) + 31) & ~31u) + rvz_buffers.stored +
+                    rvz_buffers.group + rvz_dctx_bytes + 32;
+    }
     bool has_fs = options.savegame.enabled;
     bool file_device = options.savegame.file_device;
     if (file_device && !has_fs) {
@@ -251,7 +306,8 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
     const std::uint32_t arena2_end = read32(kMem2ArenaEndField);
     ResidentPlacement place;
     if (!plan_resident_placement(arena1_hi, options.mem1_floor, arena2_lo, arena2_end, blob.size,
-                                 static_cast<std::uint32_t>(payload.size()) + bounce_bytes + fs_bytes, place, error)) {
+                                 static_cast<std::uint32_t>(payload.size()) + bounce_bytes + fs_bytes + rvz_bytes,
+                                 place, error)) {
         return false;
     }
     const std::uint32_t payload_address = place.data_base;
@@ -260,13 +316,22 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
     }
     const std::uint32_t bounce_address = payload_address + static_cast<std::uint32_t>(payload.size());
     const std::uint32_t fs_state_address = (bounce_address + bounce_bytes + 31) & ~31u;
+    const std::uint32_t rvz_state_address = (fs_state_address + fs_bytes + 31) & ~31u;
+    const std::uint32_t rvz_stored_address =
+        rvz_state_address + ((static_cast<std::uint32_t>(sizeof(rt_rvz_state)) + 31) & ~31u);
+    const std::uint32_t rvz_group_address = rvz_stored_address + rvz_buffers.stored;
+    const std::uint32_t rvz_dctx_address = rvz_group_address + rvz_buffers.group;
     // Where each final address is written now.
     const auto staged = [&](std::uint32_t address) { return address - place.data_base + place.stage_base; };
 
     // 4. Copy the blob and the payload, fill in the context and the
     //    loader-patched slots: each hooked function's displaced words and
     //    the jump back into it.
-    std::memcpy(reinterpret_cast<void*>(place.code_base), riftwii_rt_bin, blob.size);
+    std::memcpy(reinterpret_cast<void*>(place.code_base), blob_bytes.data(), blob.size);
+    if (rvz && !apply_resident_relocs(reinterpret_cast<std::uint8_t*>(place.code_base), blob.size,
+                                      riftwii_rt_rvz_rel, riftwii_rt_rvz_rel_size, place.code_base, error)) {
+        return false;
+    }
     if (!payload.empty()) {
         std::memcpy(reinterpret_cast<void*>(staged(payload_address)), payload.data(), payload.size());
     }
@@ -279,7 +344,9 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
     ctx->virtual_start_words = payload.empty() ? 0 : options.virtual_start_words;
     ctx->sdio_fd = sdio_fd;
     ctx->sdio_sdhc = options.sdio_d2x ? RT_SD_D2X : options.sdio_sdhc ? 1 : 0;
-    ctx->usb_fd = options.usb_fd < 0 ? 0xFFFFFFFFu : static_cast<std::uint32_t>(options.usb_fd);
+    // One /dev/usb2 handle serves packs and an RVZ on the drive alike.
+    const std::int32_t usb_fd = options.usb_fd >= 0 ? options.usb_fd : options.rvz.usb_fd;
+    ctx->usb_fd = usb_fd < 0 ? 0xFFFFFFFFu : static_cast<std::uint32_t>(usb_fd);
     // What the runtime calls when it needs an SDK function itself: the
     // replay slot of a hooked one (its displaced words, then the jump
     // back), the function itself when it is not hooked, 0 when absent.
@@ -332,6 +399,32 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
         ctx->fs_state = fs_state_address;
         ctx->flags |= RT_FLAG_FS;
     }
+    if (rvz) {
+        rt_rvz_state* st = reinterpret_cast<rt_rvz_state*>(staged(rvz_state_address));
+        std::memset(st, 0, sizeof(*st));
+        st->magic = RT_RVZ_MAGIC;
+        st->data_kib = rvz_table.data_kib;
+        st->group_kib = rvz_table.group_kib;
+        st->split_kib = rvz_table.split_kib;
+        st->first_groups = rvz_table.first_groups;
+        st->group_count = rvz_table.group_count;
+        st->lists = rvz_table.lists;
+        st->stored_bytes = rvz_buffers.stored;
+        st->group_bytes = rvz_buffers.group;
+        st->stored_buffer = rvz_buffers.stored ? rvz_stored_address : 0;
+        st->group_buffer = rvz_group_address;
+        st->dctx_buffer = rvz_dctx_bytes ? rvz_dctx_address : 0;
+        st->dctx_bytes = rvz_dctx_bytes;
+        st->table_sector = 0;
+        st->extent_count = static_cast<std::uint32_t>(options.rvz.extents.size());
+        st->table_extent_count = static_cast<std::uint32_t>(options.rvz.table_extents.size());
+        st->on_usb = options.rvz.usb_fd >= 0 ? 1 : 0;
+        st->cached_group = RT_RVZ_NO_GROUP;
+        st->entry_sector = RT_RVZ_NO_GROUP;
+        std::copy(options.rvz.extents.begin(), options.rvz.extents.end(), st->extents);
+        std::copy(options.rvz.table_extents.begin(), options.rvz.table_extents.end(), st->table_extents);
+        ctx->rvz_state = rvz_state_address;
+    }
     sync_code(place.code_base, blob.size);
 
     // 5. Divert the game's functions to their trampolines.
@@ -371,6 +464,7 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
         out.hook_sites[out.hook_site_count++] = hook_site[e];
     }
     out.fs_state = has_fs ? fs_state_address : 0;
+    out.rvz_state = rvz ? rvz_state_address : 0;
     logf("Resident: %u bytes at 0x%08x, MEM1 arena top 0x%08x -> 0x%08x, gecko %s, %u IPC function(s) hooked\n",
          blob.size, place.code_base, arena1_hi, place.new_arena1_hi, options.gecko ? "on" : "off", hooked_count);
     if (place.data_bytes != 0) {
@@ -397,6 +491,15 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
     if (file_device) {
         logf("Resident: Riivolution's \"file\" device served from the card's root (cluster %u)%s\n",
              options.savegame.volume.root_cluster, open_at_second ? ", IOS_Open hooked at +4" : "");
+    }
+    if (rvz) {
+        const std::string where = options.rvz.usb_fd >= 0
+                                      ? "USB drive (d2x fd " + std::to_string(options.rvz.usb_fd) + ")"
+                                      : std::string("card");
+        logf("Resident: RVZ game, %u groups of %u KiB in %u piece(s) on the %s; buffers %u (as stored) + %u "
+             "(decoded) bytes, decoder %u bytes, state at 0x%08x\n",
+             rvz_table.group_count, rvz_table.group_kib, static_cast<unsigned>(options.rvz.extents.size()),
+             where.c_str(), rvz_buffers.stored, rvz_buffers.group, rvz_dctx_bytes, rvz_state_address);
     }
     if (has_fs && !options.savegame.enabled) {
         logf("Resident: card state %u bytes at 0x%08x, SD fd %d (%s)\n", static_cast<unsigned>(sizeof(rt_fs_state)),
