@@ -13,10 +13,11 @@
 #include <cstring>
 #include <fstream>
 #include <memory>
-#include <set>
 #include <sstream>
 
 #include "d2xsd.hpp"
+#include "loadersettings.hpp"
+#include "online.hpp"
 #include "di.hpp"
 #include "ios_reload.hpp"
 #include "log.hpp"
@@ -227,30 +228,39 @@ bool less_folded(const std::string& a, const std::string& b) {
     return a.size() < b.size();
 }
 
-// Gives every game its display name and sorts the list by it, so the list
-// reads "Super Mario Galaxy 2", not "SUPER MARIO GALAXY MORE", when a title
-// database is on the card. Only the IDs on the drive are kept from it.
-void apply_titles(ImageCatalog& c) {
-    std::set<std::string> wanted;
-    for (const ImageGame& g : c.games) {
-        wanted.insert(g.id);
-        wanted.insert(g.id.substr(0, 4));
+TitleTable g_titles;
+bool g_titles_loaded = false;
+std::string g_titles_from;
+
+const TitleTable* titles() {
+    if (g_titles_loaded) return g_titles_from.empty() ? nullptr : &g_titles;
+    g_titles_loaded = true;
+    const std::string lang = MenuLanguage();
+    if (Settings().online) {
+        std::string error;
+        if (!UpdateTitles(lang, false, error)) logf("Titles: not downloaded: %s\n", error.c_str());
     }
-    TitleTable table;
-    const char* used = nullptr;
-    for (const char* path : kTitleFiles) {
+    std::vector<std::string> paths = {TitlesPath(lang)};
+    if (lang != "en") paths.push_back(TitlesPath("en"));
+    for (const char* p : kTitleFiles) paths.push_back(p);
+    for (const std::string& path : paths) {
         std::ifstream in(path, std::ios::binary);
         if (!in) continue;
         std::stringstream text;
         text << in.rdbuf();
-        table.add_text(text.str(), &wanted);
-        used = path;
-        break;
+        g_titles.add_text(text.str());
+        if (g_titles.size() == 0) continue;
+        g_titles_from = path;
+        logf("Titles: %u game names from %s\n", static_cast<unsigned>(g_titles.size()), path.c_str());
+        return &g_titles;
     }
-    for (ImageGame& g : c.games) g.display = display_title(used ? &table : nullptr, g.id, g.path, g.title);
-    if (used) logf("Titles: %s, %u of %u game(s) named\n", used, static_cast<unsigned>(table.size()),
-                   static_cast<unsigned>(c.games.size()));
-    else logf("Titles: no titles.txt on SD; using folder and disc names\n");
+    logf("Titles: no title list on SD; using folder and disc names\n");
+    return nullptr;
+}
+
+void apply_titles(ImageCatalog& c) {
+    const TitleTable* table = titles();
+    for (ImageGame& g : c.games) g.display = display_title(table, g.id, g.path, g.title);
     std::stable_sort(c.games.begin(), c.games.end(), [](const ImageGame& a, const ImageGame& b) {
         if (less_folded(a.display, b.display)) return true;
         if (less_folded(b.display, a.display)) return false;
@@ -402,6 +412,18 @@ bool scan_sd_games(ImageCatalog& out, std::string& error) {
     error.clear(); return true;
 }
 void unmount_usb_games() { if (g_libfat_mounted) fatUnmount("usb:"); g_libfat_mounted=false; g_raw_mounted=false; g_usb_volume.reset(); }
+
+std::string GameDisplayName(const std::string& id, const std::string& internal) {
+    return display_title(titles(), id, std::string(), internal);
+}
+
+void ReloadTitles() {
+    g_titles = TitleTable{};
+    g_titles_loaded = false;
+    g_titles_from.clear();
+}
+
+void RenameGames(ImageCatalog& catalog) { apply_titles(catalog); }
 
 bool activate_image_game(const ImageGame& game, int cios_slot, void*& storage, std::size_t& storage_bytes,
                          const char* log_path, std::string& error) {
