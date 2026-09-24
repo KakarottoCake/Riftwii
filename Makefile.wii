@@ -26,7 +26,7 @@ SOURCES		:=	wii src runtime vendor-pugixml/src \
 # the GamePad through it, guarded so plain Wii and Dolphin are unaffected.
 EXCLUDES	:=	vendor-libgui/source/demo.cpp vendor-libgui/source/menu.cpp vendor-libgui/source/filebrowser.cpp \
 				vendor-libgui/source/gettext.cpp
-INCLUDES	:=	wii vendor-libgui/source include runtime runtime/resident vendor-pugixml/src
+INCLUDES	:=	wii vendor-libgui/source include runtime runtime/resident runtime/pad vendor-pugixml/src
 DATA		:=	wii/assets wii/lang vendor-gecko vendor-libgui/source/images vendor-libgui/source/fonts vendor-libgui/source/sounds vendor-libgui/source/lang \
 				build-runtime
 
@@ -85,7 +85,7 @@ BINFILES	:=	$(foreach dir,$(DATA),$(notdir $(wildcard $(dir)/*.ttf) \
 # before runtime-blob creates build-runtime/riftwii_rt.bin. VPATH resolves it
 # for the recursive build after runtime-blob has completed. menufont.bin is listed
 # because the wildcards above only pick up the known asset types.
-BINFILES	+=	riftwii_rt.bin codehandleronly.bin menufont.bin
+BINFILES	+=	riftwii_rt.bin riftwii_pad.bin codehandleronly.bin menufont.bin
 
 #---------------------------------------------------------------------------------
 # use CXX for linking C++ projects, CC for standard C

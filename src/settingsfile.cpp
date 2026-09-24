@@ -40,6 +40,8 @@ void LoaderSettings::parse(const std::string& text) {
             if (value == "keep" || value == "remove") borders = value;
         } else if (key == "online") {
             online = value != "off";
+        } else if (key == "gc_adapter") {
+            if (value == "off" || value == "on" || value == "demo") gc_adapter = value;
         } else {
             other[key] = value;
         }
@@ -53,6 +55,7 @@ std::string LoaderSettings::serialize() const {
     s += "deflicker = " + deflicker + "\n";
     s += "borders = " + borders + "\n";
     s += std::string("online = ") + (online ? "on" : "off") + "\n";
+    s += "gc_adapter = " + gc_adapter + "\n";
     for (const auto& kv : other) s += kv.first + " = " + kv.second + "\n";
     return s;
 }

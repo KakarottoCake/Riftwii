@@ -133,12 +133,18 @@ struct BootOptions {
     bool file_device = true;
 };
 
+// The GameCube controller adapter for Wii U. Demo: no adapter needed, the
+// first empty port presses A (Dolphin tests).
+enum class GcAdapterMode { Off, On, Demo };
+
 // What the menu adds to the next launch, whichever way it boots: video
 // mode patches and cheats (a GCT for the Gecko code handler,
 // riftwii/cheats.hpp). Applied after the apploader has loaded the game
 // and after the packs' memory patches.
+
 struct LaunchExtras {
     std::string game_id;
+    GcAdapterMode gc_adapter = GcAdapterMode::Off;
     VideoSettings video;
     std::vector<std::uint8_t> cheat_gct;  // empty: no cheats
     std::size_t cheat_count = 0;

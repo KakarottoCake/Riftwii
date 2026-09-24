@@ -55,6 +55,14 @@ const char* ipc_entry_name(std::uint32_t entry) {
 
 }  // namespace
 
+std::uint32_t game_arena1_hi() {
+    std::uint32_t arena1_hi = read32(kMem1ArenaHiField);
+    if (arena1_hi == 0) arena1_hi = read32(kFstAddressField);
+    const std::uint32_t bi2 = read32(kBi2Field);
+    if (bi2 != 0 && bi2 < arena1_hi && arena1_hi - bi2 <= kBi2Bytes) arena1_hi = bi2;  // keep it whole
+    return arena1_hi;
+}
+
 bool install_resident(const DolHeader& dol, const ResidentOptions& options, ResidentInstall& out,
                       std::string& error) {
     ResidentBlob blob;
@@ -232,10 +240,7 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
     // beyond plain MEM replacements.
     const bool has_disc = !options.pieces.disc.empty() || !options.pieces.entries.empty();
     const std::uint32_t bounce_bytes = has_sd || has_disc ? RT_MAX_PENDING * RT_BOUNCE_BYTES : 0;
-    std::uint32_t arena1_hi = read32(kMem1ArenaHiField);
-    if (arena1_hi == 0) arena1_hi = read32(kFstAddressField);
-    const std::uint32_t bi2 = read32(kBi2Field);
-    if (bi2 != 0 && bi2 < arena1_hi && arena1_hi - bi2 <= kBi2Bytes) arena1_hi = bi2;  // keep it whole
+    const std::uint32_t arena1_hi = game_arena1_hi();
     const std::uint32_t arena2_lo = read32(kMem2ArenaLoField);
     const std::uint32_t arena2_end = read32(kMem2ArenaEndField);
     ResidentPlacement place;
@@ -347,6 +352,8 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
     out.new_arena2_lo = place.new_arena2_lo;
     out.ioctl_async = symbols.ioctl_async;
     out.ioctlv_async = symbols.ioctlv_async;
+    out.ioctl_async_original = original(RT_IPC_ASYNC_IOCTL);
+    out.ioctlv_async_original = original(RT_IPC_ASYNC(7)) != 0 ? original(RT_IPC_ASYNC(7)) : symbols.ioctlv_async;
     out.table = ctx->table;
     out.payload_bytes = static_cast<std::uint32_t>(payload.size());
     out.bounce_bytes = bounce_bytes;
