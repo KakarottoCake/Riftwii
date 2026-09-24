@@ -24,9 +24,10 @@ SOURCES		:=	wii src runtime vendor-pugixml/src \
 				vendor-libgui/source
 # wiidrc.c (FIX94's Wii U GamePad driver) is compiled in: the menus read
 # the GamePad through it, guarded so plain Wii and Dolphin are unaffected.
-EXCLUDES	:=	vendor-libgui/source/demo.cpp vendor-libgui/source/menu.cpp vendor-libgui/source/filebrowser.cpp
+EXCLUDES	:=	vendor-libgui/source/demo.cpp vendor-libgui/source/menu.cpp vendor-libgui/source/filebrowser.cpp \
+				vendor-libgui/source/gettext.cpp
 INCLUDES	:=	wii vendor-libgui/source include runtime runtime/resident vendor-pugixml/src
-DATA		:=	wii/assets vendor-libgui/source/images vendor-libgui/source/fonts vendor-libgui/source/sounds vendor-libgui/source/lang \
+DATA		:=	wii/assets wii/lang vendor-gecko vendor-libgui/source/images vendor-libgui/source/fonts vendor-libgui/source/sounds vendor-libgui/source/lang \
 				build-runtime
 
 #---------------------------------------------------------------------------------
@@ -78,11 +79,12 @@ CFILES		:=	$(filter-out $(notdir $(EXCLUDES)),$(CFILES))
 CPPFILES	:=	$(filter-out $(notdir $(EXCLUDES)),$(CPPFILES))
 BINFILES	:=	$(foreach dir,$(DATA),$(notdir $(wildcard $(dir)/*.ttf) \
 					$(wildcard $(dir)/*.lang) $(wildcard $(dir)/*.png) \
-					$(wildcard $(dir)/*.ogg) $(wildcard $(dir)/*.pcm)))
+					$(wildcard $(dir)/*.ogg) $(wildcard $(dir)/*.pcm) \
+					$(wildcard $(dir)/*.po)))
 # Do not discover this through wildcard: the outer build evaluates BINFILES
 # before runtime-blob creates build-runtime/riftwii_rt.bin. VPATH resolves it
 # for the recursive build after runtime-blob has completed.
-BINFILES	+=	riftwii_rt.bin
+BINFILES	+=	riftwii_rt.bin codehandleronly.bin
 
 #---------------------------------------------------------------------------------
 # use CXX for linking C++ projects, CC for standard C
@@ -161,6 +163,11 @@ main.o: $(PROJECT_ROOT)/CMakeLists.txt
 	$(bin2o)
 
 %.lang.o %_lang.h : %.lang
+	@echo $(notdir $<)
+	$(bin2o)
+
+# The menu's translations (wii/i18n.cpp).
+%.po.o %_po.h : %.po
 	@echo $(notdir $<)
 	$(bin2o)
 

@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "riftwii/usbgame.hpp"
+#include "resident.hpp"
 
 namespace riftwii::wii {
 
@@ -58,6 +59,13 @@ void unmount_usb_games();
 // d2x fragment list, filling title, revision and disc number (and the ID
 // from the header). Needs the catalog's drive still mounted.
 bool check_image_game(ImageGame& game, std::string& error);
+// A game's name from the title list (GameTDB, in the menu's language),
+// else `internal`, the disc header's.
+std::string GameDisplayName(const std::string& id, const std::string& internal);
+// Reads the title list again (after a language change or a download).
+void ReloadTitles();
+// Names (and sorts) a scanned catalog's games again from the title list.
+void RenameGames(ImageCatalog& catalog);
 // Whether a cIOS slot holds a launchable (non-stub) title.
 bool slot_has_ticket(int slot);
 

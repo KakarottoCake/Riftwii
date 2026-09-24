@@ -6,21 +6,31 @@
 
 #include "libwiigui/gui.h"
 
-// The game page's list of mod packs and their options, and the settings
-// list: rows in a white panel, each with a chip on the right showing its
-// value. A (pointer or D-pad focus) acts on a row; - steps an option back.
+// The lists of the game page, its Mods and Cheats pages and Settings: rows
+// in a white panel, each with its control on the right.
+//   Option  a value between two arrow buttons: the right one (or the row)
+//           steps it on, the left one (or -) steps it back
+//   Toggle  an On/Off switch
+//   Action  a chip that opens a page or does something, with a ">"
+//   Header  a fixed chip (a broken pack's "Broken")
+//   Info    plain text
+// With the pointer, holding A and moving the Wii Remote drags the list; a
+// press that does not move acts on the row when A is let go. The D-pad
+// moves the focus, and Left/Right step an option.
 struct FlowRow {
-    enum class Kind { Header, Option, Action, Info };
+    enum class Kind { Header, Option, Toggle, Action, Info };
     Kind kind = Kind::Info;
     std::string label;
-    std::string value;  // the chip's text; empty for Info rows
-    bool on = false;    // accent chip
-    bool dim = false;   // greyed label (broken pack, notes); a dim option shows no step arrows
+    std::string value;     // the control's text (Toggle: "On"/"Off" beside the switch)
+    bool on = false;       // accent colour; a Toggle's state
+    bool dim = false;      // greyed and fixed (broken pack, notes, unavailable)
+    bool heading = false;  // larger label (a pack)
+    bool indent = false;   // under a heading (a pack's options)
 };
 
 class GuiFlowList : public GuiElement {
 public:
-    static constexpr int kRowHeight = 34;
+    static constexpr int kRowHeight = 44;
     // At (x, y) on screen, `rowWidth` wide, `visibleRows` tall.
     GuiFlowList(int x, int y, int rowWidth, int visibleRows);
     ~GuiFlowList() override;
@@ -28,25 +38,40 @@ public:
     void Refresh();                                  // after the rows changed
     void Select(int index);
     int Selected() const { return focus; }
-    // The row A was pressed on, or - (back) was pressed on, since the last call; -1 when none.
+    // The row acted on (A, or stepped forward), or stepped back (-, the
+    // left arrow), since the last call; -1 when none.
     int GetClicked();
     int GetClickedBack();
     void Draw() override;
     void Update(GuiTrigger* t) override;
 
 private:
+    enum class Part { None, Body, Back, Forward };
     static constexpr int kMaxVisible = 8;
     int Count() const { return rows ? static_cast<int>(rows->size()) : 0; }
-    void ScrollTo(int first);
+    int MaxScroll() const;
+    void ScrollTo(float y);
     int RowAt(int x, int y) const;
+    Part PartAt(int row, int x) const;
+    bool Actionable(int row) const;
+    bool OnTrack(int x, int y) const;
+    void ScrollFromTrack(int y);
 
     const std::vector<FlowRow>* rows = nullptr;
     int x0, y0, rowWidth, visible;
-    int offset = 0, focus = 0, hover = -1;
+    float scroll = 0, aim = 0, fling = 0;  // pixels from the top
+    int focus = 0, hover = -1;
+    Part hoverPart = Part::None;
     int clicked = -1, clickedBack = -1;
+    // A held on the list: which Wii Remote, where it started, what it was on.
+    int grabChan = -1, grabY = 0, grabRow = -1;
+    float grabScroll = 0;
+    Part grabPart = Part::None;
+    bool dragging = false, grabTrack = false;
+    int textFirst = -1;
     bool dirty = true;
-    GuiText* label[kMaxVisible];
-    GuiText* value[kMaxVisible];
+    GuiText* label[kMaxVisible + 1];
+    GuiText* value[kMaxVisible + 1];
     GuiSound* soundOver;
     GuiSound* soundClick;
 };
