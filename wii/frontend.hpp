@@ -31,6 +31,11 @@ struct FrontendState {
     bool use_sd = false;
     std::size_t usb_index = 0;
     std::size_t sd_index = 0;
+    // Shown on the first press of Start for a game that plays at the
+    // player's own risk (an RVZ outside what was tested); the second press
+    // starts it.
+    std::string launch_warning;
+    bool warning_shown = false;
 };
 
 // Initializes source labels only. It performs no storage enumeration or DI I/O

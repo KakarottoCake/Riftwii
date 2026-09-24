@@ -6,7 +6,9 @@
 #include <string>
 #include <vector>
 
+#include "riftwii/rvz.hpp"
 #include "riftwii/usbgame.hpp"
+#include "resident.hpp"
 
 namespace riftwii::wii {
 
@@ -26,6 +28,12 @@ struct ImageGame {
     // ID is listed without being opened (a drive can hold hundreds);
     // check_image_game opens it when it is picked.
     bool checked = false;
+    // An RVZ image: whether RiftWii plays it (riftwii/rvz.hpp's check_rvz),
+    // filled when it is opened. Unsupported ones are listed, and picking
+    // one says why it cannot play.
+    RvzSupport rvz_support = RvzSupport::Supported;
+    std::vector<std::string> rvz_reasons;
+    std::uint64_t rvz_disc_bytes = 0;
 };
 
 struct ImageCatalog {
@@ -58,6 +66,25 @@ void unmount_usb_games();
 // d2x fragment list, filling title, revision and disc number (and the ID
 // from the header). Needs the catalog's drive still mounted.
 bool check_image_game(ImageGame& game, std::string& error);
+// For an RVZ game that plays at the player's own risk: the warning to show
+// before it starts. Empty otherwise.
+std::string rvz_warning(const ImageGame& game);
+// Development aid for Dolphin, which has no d2x: partition reads of the
+// disc Dolphin boots (the RVZ's stub, made by tools/rvz) are answered from
+// the RVZ at `sd_path` instead.
+bool serve_disc_from_rvz(const std::string& sd_path, std::string& error);
+// The RVZ game about to start (its game partition opened through the
+// loader's partition reads): what the in-game runtime needs, with the
+// group table written to sd:/riftwii/rvz/<ID>.groups. Needs the card
+// mounted.
+bool rvz_resident_options(RvzResidentOptions& out, std::string& error);
+// A game's name from the title list (GameTDB, in the menu's language),
+// else `internal`, the disc header's.
+std::string GameDisplayName(const std::string& id, const std::string& internal);
+// Reads the title list again (after a language change or a download).
+void ReloadTitles();
+// Names (and sorts) a scanned catalog's games again from the title list.
+void RenameGames(ImageCatalog& catalog);
 // Whether a cIOS slot holds a launchable (non-stub) title.
 bool slot_has_ticket(int slot);
 

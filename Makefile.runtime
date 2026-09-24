@@ -1,13 +1,16 @@
-# Builds the resident runtime blob (runtime/resident) with devkitPPC:
+# Builds the resident runtime blobs (runtime/resident) with devkitPPC:
 # freestanding, no libc, position independent. Produces
-# build-runtime/riftwii_rt.bin, which Makefile.wii embeds in the loader.
+# build-runtime/riftwii_rt.bin and, for RVZ games, riftwii_rt_rvz.bin with
+# its relocations riftwii_rt_rvz.rel, which Makefile.wii embeds in the
+# loader.
 #
 #   export DEVKITPRO=/opt/devkitpro DEVKITPPC=/opt/devkitpro/devkitPPC
 #   make -f Makefile.runtime
 #
 # Position independence is checked by linking at two bases and comparing
 # the binaries; .rodata/.data/.bss must be empty (all state is in the
-# context inside .text, see rt_entry.S).
+# context inside .text, see rt_entry.S). The RVZ blob is the exception
+# for .rodata, described below.
 ifeq ($(strip $(DEVKITPPC)),)
 $(error "Please set DEVKITPPC in your environment. export DEVKITPPC=<path to>devkitPPC")
 endif
@@ -32,8 +35,29 @@ LDFLAGS := -nostdlib -nostartfiles -static -Wl,--build-id=none -Wl,--gc-sections
 
 OBJS    := $(OUT)/rt_entry.o $(OUT)/rt_hook.o $(OUT)/rtable.o $(OUT)/rtfat.o $(OUT)/rtfs.o
 
+# The RVZ blob (docs/RVZ.md): the same runtime built with RT_RVZ, plus
+# RVZ packing and Zstandard. Zstandard's constant tables make it the one
+# blob that is not position independent by itself; tools/rtreloc.py
+# writes the relocations the loader applies, checked against the second
+# link base.
+RVZOUT  := $(OUT)/rvz
+RVZBLOB := $(OUT)/riftwii_rt_rvz.bin
+RVZREL  := $(OUT)/riftwii_rt_rvz.rel
+RVZOBJS := $(RVZOUT)/rt_entry.o $(RVZOUT)/rt_hook.o $(RVZOUT)/rtable.o $(RVZOUT)/rtfat.o $(RVZOUT)/rtfs.o \
+           $(RVZOUT)/rtrvz.o $(RVZOUT)/rt_zstd.o
+# Zstandard is vendored code: its own warnings are not ours to fix, and
+# -Os keeps it near 46 KB (libgcc supplies its register save and
+# restore routines and 64-bit shifts, all position independent).
+ZSTDFLAGS := -Os -mcpu=750 -meabi -msoft-float -msdata=none \
+             -ffreestanding -nostdlib -fno-builtin -fno-jump-tables \
+             -fno-tree-loop-distribute-patterns -fno-asynchronous-unwind-tables \
+             -fno-stack-protector -fno-common -ffunction-sections -fdata-sections -std=gnu99 -w \
+             -DRT_TARGET_PPC -DRT_RVZ -DZSTD_NO_INTRINSICS -DZSTD_DISABLE_ASM -DZSTD_NO_TRACE \
+             -DXXH_NO_XXHASH_WARNINGS -I$(SRC) -Iruntime -Ivendor-zstd
+PYTHON  ?= python3
+
 .PHONY: all clean
-all: $(BLOB)
+all: $(BLOB) $(RVZBLOB)
 
 $(OUT):
 	@mkdir -p $(OUT)
@@ -65,6 +89,46 @@ $(BLOB): $(OUT)/riftwii_rt.elf $(OUT)/riftwii_rt_alt.elf
 	$(OBJCOPY) -O binary $(OUT)/riftwii_rt_alt.elf $(OUT)/riftwii_rt_alt.bin
 	@cmp $@ $(OUT)/riftwii_rt_alt.bin || { echo "runtime: blob differs between link bases; not position independent"; rm -f $@; exit 1; }
 	@echo "runtime blob: $$(stat -c %s $@) bytes"
+
+$(RVZOUT):
+	@mkdir -p $(RVZOUT)
+
+$(RVZOUT)/rt_entry.o: $(SRC)/rt_entry.S $(SRC)/rt_hook.h | $(RVZOUT)
+	$(CC) $(CFLAGS) -DRT_RVZ -c -o $@ $<
+
+$(RVZOUT)/rt_hook.o: $(SRC)/rt_hook.c $(SRC)/rt_hook.h runtime/rtable.h runtime/rtfs.h runtime/rtfat.h runtime/rtrvz.h | $(RVZOUT)
+	$(CC) $(CFLAGS) -DRT_RVZ -c -o $@ $<
+
+$(RVZOUT)/rtable.o: runtime/rtable.c runtime/rtable.h | $(RVZOUT)
+	$(CC) $(CFLAGS) -DRT_RVZ -c -o $@ $<
+
+$(RVZOUT)/rtfat.o: runtime/rtfat.c runtime/rtfat.h | $(RVZOUT)
+	$(CC) $(CFLAGS) -DRT_RVZ -c -o $@ $<
+
+$(RVZOUT)/rtfs.o: runtime/rtfs.c runtime/rtfs.h runtime/rtfat.h | $(RVZOUT)
+	$(CC) $(CFLAGS) -DRT_RVZ -c -o $@ $<
+
+$(RVZOUT)/rtrvz.o: runtime/rtrvz.c runtime/rtrvz.h | $(RVZOUT)
+	$(CC) $(CFLAGS) -DRT_RVZ -c -o $@ $<
+
+$(RVZOUT)/rt_zstd.o: $(SRC)/rt_zstd.c $(SRC)/rt_hook.h vendor-zstd/zstddeclib.c | $(RVZOUT)
+	$(CC) $(ZSTDFLAGS) -c -o $@ $<
+
+$(RVZOUT)/riftwii_rt_rvz.elf: $(RVZOBJS) $(SRC)/rt_rvz.ld
+	$(CC) $(CFLAGS) -nostdlib -nostartfiles -static -Wl,--build-id=none -Wl,--gc-sections -Wl,--emit-relocs \
+		-T $(SRC)/rt_rvz.ld -Wl,--defsym,RT_BASE=0x00000000 -o $@ $(RVZOBJS) -lgcc
+	@$(SIZE) -A $@ | awk '$$1 ~ /^\.(data|bss)$$/ && $$2 != 0 { print "runtime: section " $$1 " is not empty (" $$2 " bytes) in the RVZ blob"; bad = 1 } END { exit bad }'
+
+$(RVZOUT)/riftwii_rt_rvz_alt.elf: $(RVZOBJS) $(SRC)/rt_rvz.ld
+	$(CC) $(CFLAGS) -nostdlib -nostartfiles -static -Wl,--build-id=none -Wl,--gc-sections \
+		-T $(SRC)/rt_rvz.ld -Wl,--defsym,RT_BASE=0x12340000 -o $@ $(RVZOBJS) -lgcc
+
+$(RVZBLOB) $(RVZREL): $(RVZOUT)/riftwii_rt_rvz.elf $(RVZOUT)/riftwii_rt_rvz_alt.elf tools/rtreloc.py
+	$(OBJCOPY) -O binary -j .text $(RVZOUT)/riftwii_rt_rvz.elf $(RVZBLOB)
+	$(OBJCOPY) -O binary -j .text $(RVZOUT)/riftwii_rt_rvz_alt.elf $(RVZOUT)/riftwii_rt_rvz_alt.bin
+	@$(PYTHON) tools/rtreloc.py $(RVZOUT)/riftwii_rt_rvz.elf $(RVZBLOB) $(RVZOUT)/riftwii_rt_rvz_alt.bin 0x12340000 $(RVZREL) \
+		|| { rm -f $(RVZBLOB) $(RVZREL); exit 1; }
+	@echo "RVZ runtime blob: $$(stat -c %s $(RVZBLOB)) bytes"
 
 clean:
 	rm -rf $(OUT)

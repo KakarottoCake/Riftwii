@@ -460,9 +460,48 @@ void test_plan_over_usb() {
     EXPECT_TRUE(got == want);
 }
 
+// An RVZ game's stub: two ranges of one file placed on an otherwise empty
+// disc, the file itself in two pieces on the device.
+void test_sparse_fragments() {
+    UsbImage stub;
+    UsbImagePiece p;
+    p.source = std::make_shared<MemorySource>(std::vector<std::uint8_t>(0x70000));
+    p.file.entry.size = 0x70000;
+    p.file.fragments.push_back({300, 0x100});   // file bytes 0 .. 0x20000
+    p.file.fragments.push_back({9000, 0x280});  // 0x20000 .. 0x70000
+    stub.pieces.push_back(p);
+    const std::vector<DiscRange> ranges = {{0, 0, 0x50000}, {0xF800000, 0x50000, 0x20000}};
+    D2xFragmentList list;
+    std::string error;
+    EXPECT_TRUE(build_sparse_fragments(stub, ranges, 0x118240000ull, list, error));
+    EXPECT_EQ(list.size, 143432u * 64);
+    EXPECT_EQ(list.entries.size(), std::size_t(3));
+    if (list.entries.size() == 3) {
+        EXPECT_EQ(list.entries[0].offset, 0u);
+        EXPECT_EQ(list.entries[0].sector, 300u);
+        EXPECT_EQ(list.entries[0].count, 0x100u);
+        EXPECT_EQ(list.entries[1].offset, 0x100u);
+        EXPECT_EQ(list.entries[1].sector, 9000u);
+        EXPECT_EQ(list.entries[1].count, 0x180u);
+        EXPECT_EQ(list.entries[2].offset, 0xF800000u / 512);
+        EXPECT_EQ(list.entries[2].sector, 9000u + 0x180);
+        EXPECT_EQ(list.entries[2].count, 0x100u);
+    }
+    std::vector<std::uint8_t> bytes;
+    EXPECT_TRUE(list.encode(bytes, error));
+    // A disc past one layer is sized as two.
+    EXPECT_TRUE(build_sparse_fragments(stub, ranges, 0x118240000ull + 0x8000, list, error));
+    EXPECT_EQ(list.size, 143432u * 128);
+    EXPECT_FALSE(build_sparse_fragments(stub, {{0, 0, 0x100}}, 0x118240000ull, list, error));
+    EXPECT_FALSE(build_sparse_fragments(stub, {{0, 0x60000, 0x20000}}, 0x118240000ull, list, error));
+    EXPECT_FALSE(build_sparse_fragments(stub, {{0, 0, 0x20000}, {0x10000, 0x20000, 0x20000}}, 0x118240000ull, list, error));
+    EXPECT_FALSE(build_sparse_fragments(stub, {{0x118240000ull, 0, 0x200}}, 0x118240000ull, list, error));
+}
+
 }  // namespace
 
 int main() {
+    test_sparse_fragments();
     test_basic();
     test_large_iso();
     test_large_wbfs();
