@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdint>
+#include <cstdio>
 #include <istream>
 #include <limits>
 #include <string>
@@ -85,27 +86,39 @@ bool ParseU64(const std::string& s, std::uint64_t& out) {
     out = v;
     return true;
 }
-// true/false, yes/no and 1/0 - the spellings found in published patch files.
-bool ParseBoolStrict(const std::string& s, bool& out) {
-    if (s == "true" || s == "yes" || s == "1") {
-        out = true;
-        return true;
+bool SameNoCase(const std::string& a, const char* b) {
+    std::size_t i = 0;
+    for (; i < a.size() && b[i] != '\0'; ++i) {
+        char x = a[i];
+        if (x >= 'A' && x <= 'Z') x = static_cast<char>(x - 'A' + 'a');
+        if (x != b[i]) return false;
     }
-    if (s == "false" || s == "no" || s == "0") {
-        out = false;
-        return true;
-    }
-    return false;
+    return i == a.size() && b[i] == '\0';
 }
-// Hex string: optional 0x prefix, even number of hex digits, at least one byte.
-bool ParseHex(const std::string& s, std::vector<std::uint8_t>& out) {
+// Riivolution reads "yes" and "true", in any case, as yes and every other
+// value as no. `known` is false for a value that is neither yes/true nor
+// no/false, so the caller can say how it was read.
+bool ParseBool(const std::string& s, bool& out, bool& known) {
+    out = SameNoCase(s, "yes") || SameNoCase(s, "true");
+    known = out || SameNoCase(s, "no") || SameNoCase(s, "false");
+    return true;
+}
+// Hex string: optional 0x prefix, hex digits, at least one byte. An odd
+// last digit is left out (`odd` is set), as Riivolution counts whole bytes.
+bool IsHexDigit(char c) {
+    return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
+}
+bool ParseHex(const std::string& s, std::vector<std::uint8_t>& out, bool& odd) {
     std::size_t start = 0;
     if (s.size() >= 2 && s[0] == '0' && (s[1] == 'x' || s[1] == 'X')) start = 2;
-    std::size_t digits = s.size() - start;
-    if (digits == 0 || (digits % 2) != 0) return false;
+    const std::size_t digits = s.size() - start;
+    odd = (digits % 2) != 0;
+    if (odd && !IsHexDigit(s.back())) return false;
+    if (digits < 2) return false;
+    const std::size_t end = s.size() - (odd ? 1 : 0);
     std::vector<std::uint8_t> bytes;
     bytes.reserve(digits / 2);
-    for (std::size_t i = start; i < s.size(); i += 2) {
+    for (std::size_t i = start; i < end; i += 2) {
         unsigned v = 0;
         for (std::size_t k = 0; k < 2; ++k) {
             char c = s[i + k];
@@ -473,11 +486,13 @@ bool EnterElement(pugi::xml_node n, Ctx& ctx, int depth, const char* const* allo
 void WarnUnknownChild(Ctx& ctx, const std::string& label, pugi::xml_node child) {
     Warn(ctx, label + ": ignoring unsupported element '" + child.name() + "'");
 }
-bool ReadBool(pugi::xml_node n, const char* name, const std::string& label, bool& out, std::string& error) {
+bool ReadBool(pugi::xml_node n, const char* name, const std::string& label, bool& out, Ctx& ctx, std::string& error) {
     if (!AttrPresent(n, name)) return true;
     std::string v = AttrValue(n, name);
     if (v.empty()) { error = label + " " + name + " empty"; return false; }
-    if (!ParseBoolStrict(v, out)) { error = "invalid " + label + " " + name + " '" + v + "'"; return false; }
+    bool known = true;
+    ParseBool(v, out, known);
+    if (!known) Warn(ctx, label + " " + name + "=\"" + v + "\" read as no (only yes and true mean yes)");
     return true;
 }
 bool ReadU64(pugi::xml_node n, const char* name, const std::string& label, std::uint64_t& out, std::string& error) {
@@ -487,12 +502,15 @@ bool ReadU64(pugi::xml_node n, const char* name, const std::string& label, std::
     if (!ParseU64(v, out)) { error = "invalid " + label + " " + name + " '" + v + "'"; return false; }
     return true;
 }
-bool ReadHex(pugi::xml_node n, const char* name, const std::string& label, std::vector<std::uint8_t>& out, std::string& error) {
+bool ReadHex(pugi::xml_node n, const char* name, const std::string& label, std::vector<std::uint8_t>& out,
+             Ctx& ctx, std::string& error) {
     if (!AttrPresent(n, name)) return true;
     std::string v = AttrValue(n, name);
     if (v.empty()) { error = label + " " + name + " empty"; return false; }
     if (v.size() > kMaxHexChars) { error = label + " " + name + " too long"; return false; }
-    if (!ParseHex(v, out)) { error = "invalid " + label + " " + name + " (hex bytes expected)"; return false; }
+    bool odd = false;
+    if (!ParseHex(v, out, odd)) { error = "invalid " + label + " " + name + " (hex bytes expected)"; return false; }
+    if (odd) Warn(ctx, label + " " + name + " has an odd number of hex digits; the last one is left out");
     return true;
 }
 // External-style path attributes (external, valuefile): checked for length
@@ -525,8 +543,8 @@ bool ParseFileNode(pugi::xml_node n, Patch& patch, Ctx& ctx, int depth, std::str
         if (!CheckDiscPath(f.disc, false, false, f.is_filename, perr)) { error = "file " + perr; return false; }
     }
     if (!ReadExternal(n, "external", "file", true, f.external, error)) return false;
-    if (!ReadBool(n, "resize", "file", f.resize, error)) return false;
-    if (!ReadBool(n, "create", "file", f.create, error)) return false;
+    if (!ReadBool(n, "resize", "file", f.resize, ctx, error)) return false;
+    if (!ReadBool(n, "create", "file", f.create, ctx, error)) return false;
     if (!ReadU64(n, "offset", "file", f.offset, error)) return false;
     if (!ReadU64(n, "length", "file", f.length, error)) return false;
     if (!ReadU64(n, "fileoffset", "file", f.file_offset, error)) return false;
@@ -547,9 +565,9 @@ bool ParseFolderNode(pugi::xml_node n, Patch& patch, Ctx& ctx, int depth, std::s
         if (!CheckDiscPath(f.disc, true, false, f.is_name, perr)) { error = "folder " + perr; return false; }
     }
     if (!ReadExternal(n, "external", "folder", true, f.external, error)) return false;
-    if (!ReadBool(n, "resize", "folder", f.resize, error)) return false;
-    if (!ReadBool(n, "create", "folder", f.create, error)) return false;
-    if (!ReadBool(n, "recursive", "folder", f.recursive, error)) return false;
+    if (!ReadBool(n, "resize", "folder", f.resize, ctx, error)) return false;
+    if (!ReadBool(n, "create", "folder", f.create, ctx, error)) return false;
+    if (!ReadBool(n, "recursive", "folder", f.recursive, ctx, error)) return false;
     if (!ReadU64(n, "length", "folder", f.length, error)) return false;
     patch.folders.push_back(f);
     patch.order.push_back(PatchStep{PatchKind::Folder, patch.folders.size() - 1});
@@ -564,11 +582,11 @@ bool ParseMemoryNode(pugi::xml_node n, Patch& patch, Ctx& ctx, int depth, std::s
     MemoryPatch m;
     m.has_offset = AttrPresent(n, "offset");
     if (!ReadU64(n, "offset", "memory", m.offset, error)) return false;
-    if (!ReadHex(n, "value", "memory", m.value, error)) return false;
+    if (!ReadHex(n, "value", "memory", m.value, ctx, error)) return false;
     if (!ReadExternal(n, "valuefile", "memory", false, m.valuefile, error)) return false;
-    if (!ReadHex(n, "original", "memory", m.original, error)) return false;
-    if (!ReadBool(n, "ocarina", "memory", m.ocarina, error)) return false;
-    if (!ReadBool(n, "search", "memory", m.search, error)) return false;
+    if (!ReadHex(n, "original", "memory", m.original, ctx, error)) return false;
+    if (!ReadBool(n, "ocarina", "memory", m.ocarina, ctx, error)) return false;
+    if (!ReadBool(n, "search", "memory", m.search, ctx, error)) return false;
     if (!ReadU64(n, "align", "memory", m.align, error)) return false;
     const bool has_value = !m.value.empty();
     const bool has_file = !m.valuefile.empty();
@@ -605,7 +623,7 @@ bool ParseSavegameNode(pugi::xml_node n, Patch& patch, Ctx& ctx, int depth, std:
     }
     SavegamePatch s;
     if (!ReadExternal(n, "external", "savegame", true, s.external, error)) return false;
-    if (!ReadBool(n, "clone", "savegame", s.clone, error)) return false;
+    if (!ReadBool(n, "clone", "savegame", s.clone, ctx, error)) return false;
     patch.savegames.push_back(s);
     patch.order.push_back(PatchStep{PatchKind::Savegame, patch.savegames.size() - 1});
     return true;
@@ -836,10 +854,11 @@ bool ParseOptions(pugi::xml_node n, Ctx& ctx, int depth, std::string& error) {
     }
     return true;
 }
-// A macro clones the option carrying its id under a new name; the macro's
-// params are appended to every cloned choice so they override the original
-// choice params during substitution. The clone joins the macro's section
-// (or the original's, for a macro placed directly under <options>).
+// A macro clones the option carrying its id under a new name, and its id
+// with the macro's name added (so a saved choice finds the right one). The
+// macro's params join the clone's option params, where the original
+// option's own params win, as in Riivolution. The clone joins the macro's
+// section (or the original's, for a macro placed directly under <options>).
 bool ExpandMacros(Ctx& ctx, std::string& error) {
     for (const auto& m : ctx.macros) {
         const Option* source = nullptr;
@@ -852,10 +871,10 @@ bool ExpandMacros(Ctx& ctx, std::string& error) {
         }
         Option clone = *source;
         clone.name = m.name;
+        clone.id = source->id + m.name;
         if (!m.section.empty()) clone.section = m.section;
-        for (auto& ch : clone.choices) {
-            ch.params.insert(ch.params.end(), m.params.begin(), m.params.end());
-        }
+        clone.params = m.params;
+        clone.params.insert(clone.params.end(), source->params.begin(), source->params.end());
         ctx.pkg.options.push_back(clone);
         if (ctx.pkg.options.size() > kMaxNodes) { error = "too many options"; return false; }
     }
@@ -1036,7 +1055,12 @@ bool substitute_params(const std::string& input, const std::vector<Param>& param
                 }
                 std::string value;
                 bool found = false;
-                if (name == "__gameid" || name == "__region" || name == "__maker") {
+                if (name == "__ngid") {
+                    char id[9];
+                    std::snprintf(id, sizeof(id), "%08X", static_cast<unsigned>(disc.console_id));
+                    value = id;
+                    found = true;
+                } else if (name == "__gameid" || name == "__region" || name == "__maker") {
                     if (disc.id.size() != 6) {
                         error = "disc id required for {$" + name + "}";
                         return false;
@@ -1054,10 +1078,8 @@ bool substitute_params(const std::string& input, const std::vector<Param>& param
                         }
                     }
                 }
-                if (!found) {
-                    error = "unknown parameter '" + name + "' in '" + input + "'";
-                    return false;
-                }
+                // Riivolution substitutes nothing for a name no param sets.
+                (void)found;
                 out += value;
                 i = close + 1;
             } else {
@@ -1076,8 +1098,18 @@ bool substitute_params(const std::string& input, const std::vector<Param>& param
         return false;
     }
 }
-bool parse_package(const std::string& xml, Package& output, std::string& error) {
+bool parse_package(const std::string& input, Package& output, std::string& error, const std::string& folder) {
     try {
+        // Anything after the last '>' (NUL padding, a stray line) is not
+        // XML; Riivolution cuts it off too.
+        const std::size_t last = input.find_last_of('>');
+        const std::string xml = input.substr(0, last == std::string::npos ? input.size() : last + 1);
+        const bool trimmed = !IsWhitespaceOnly(input.c_str() + xml.size()) ||
+                             input.find('\0', xml.size()) != std::string::npos;
+        if (folder.empty() || folder[0] != '/' || HasBadPathChars(folder)) {
+            error = "invalid XML folder";
+            return false;
+        }
         if (xml.find('\0') != std::string::npos) {
             error = "embedded null not allowed";
             return false;
@@ -1151,7 +1183,9 @@ bool parse_package(const std::string& xml, Package& output, std::string& error) 
             return false;
         }
         Package tmp;
+        tmp.root = folder;
         Ctx ctx{tmp, 1, {}, false, {}};
+        if (trimmed) Warn(ctx, "ignoring what follows the last '>'");
         if (!duplicate_attr.empty()) Warn(ctx, duplicate_attr);
         static const char* const root_allowed[] = {"version", "root", "shiftfiles", "log", nullptr};
         if (!EnterElement(r, ctx, 1, root_allowed, "wiidisc", error)) return false;
@@ -1166,15 +1200,16 @@ bool parse_package(const std::string& xml, Package& output, std::string& error) 
                 return false;
             }
         }
-        // `root=""` is absent (see AttrPresent), so the /riivolution default
-        // survives it.
+        // `root=""` is absent (see AttrPresent), so the folder default
+        // survives it. A relative root starts in the XML's folder.
         if (AttrPresent(r, "root")) {
-            std::string rt = AttrValue(r, "root");
-            if (rt[0] != '/') { error = "wiidisc root must be absolute"; return false; }
-            if (HasBadPathChars(rt)) { error = "invalid wiidisc root"; return false; }
-            tmp.root = rt;
+            const std::string rt = AttrValue(r, "root");
+            if (HasBadPathChars(rt) || !resolve_path(folder, rt, tmp.root)) {
+                error = "invalid wiidisc root '" + rt + "'";
+                return false;
+            }
         }
-        if (!ReadBool(r, "shiftfiles", "wiidisc", tmp.shift_files, error)) return false;
+        if (!ReadBool(r, "shiftfiles", "wiidisc", tmp.shift_files, ctx, error)) return false;
         bool seenId = false;
         bool seenOptions = false;
         for (auto c : r.children()) {
@@ -1239,7 +1274,7 @@ bool parse_package(const std::string& xml, Package& output, std::string& error) 
         return false;
     }
 }
-bool read_package(std::istream& input, Package& output, std::string& error) {
+bool read_package(std::istream& input, Package& output, std::string& error, const std::string& folder) {
     try {
         std::string xml;
         char chunk[4096];
@@ -1255,7 +1290,7 @@ bool read_package(std::istream& input, Package& output, std::string& error) {
             error = "read error";
             return false;
         }
-        return parse_package(xml, output, error);
+        return parse_package(xml, output, error, folder);
     } catch (const std::bad_alloc&) {
         error = "allocation failure";
         return false;
@@ -1417,8 +1452,10 @@ bool plan_package(const Package& package, const DiscIdentity& disc, const PlanOp
                 s.choice = &ch;
                 s.patch = &it->second;
                 s.patch_id = pid;
-                s.params = o.params;
-                s.params.insert(s.params.end(), ch.params.begin(), ch.params.end());
+                // Riivolution lets an option's params win over its
+                // choice's: later entries win here.
+                s.params = ch.params;
+                s.params.insert(s.params.end(), o.params.begin(), o.params.end());
                 selected.push_back(s);
             }
         }

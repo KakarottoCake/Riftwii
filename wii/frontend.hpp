@@ -9,7 +9,9 @@
 
 namespace riftwii::wii {
 
+// Riivolution reads pack XMLs from both folders, on every drive it mounts.
 constexpr const char* kPackageDir = "sd:/riivolution";
+constexpr const char* kPackageDir2 = "sd:/apps/riivolution";
 constexpr const char* kChoicesDir = "sd:/riftwii/choices";
 // ScanPackages says this when the card scanned cleanly; the mods screen
 // shows its hotkey line instead (it says the same, and more).

@@ -26,8 +26,17 @@ struct PackFile {
     std::string file;  // the name the menu keys choices by: "mod.xml", "mod.xml @ 192.168.1.20:1137"
     std::string path;  // "sd:/riivolution/mod.xml", "sd:/riftwii/riifs/…/riivolution/mod.xml"
 };
-// Every pack XML: sd:/riivolution first, then each server's cached list.
+// Every pack XML: sd:/riivolution and sd:/apps/riivolution first, then
+// each server's cached lists (the same two folders).
 std::vector<PackFile> ListPackFiles(std::size_t limit, bool& limited);
+
+// The folder a pack XML's paths start from, as the pack sees it:
+// "/riivolution" or "/apps/riivolution" (for a network pack, the folder on
+// the server). Pass it to parse_package.
+std::string PackFolderOf(const std::string& xml_sd_path);
+// The disc identity packs are planned for, with the console ID that
+// {$__ngid} names.
+DiscIdentity PackIdentity(const DiscProbe& probe);
 
 // The card folder a cached network pack's paths are relative to
 // ("/riftwii/riifs/192.168.1.20_1137"); empty for a pack on the card.

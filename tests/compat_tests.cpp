@@ -72,9 +72,14 @@ static void test_full_featured() {
         EXPECT_EQ(pkg.options[3].name, std::string("Level pack (mirror)"));
         EXPECT_EQ(pkg.options[3].section, std::string("Levels"));
         EXPECT_EQ(pkg.options[3].choices.size(), std::size_t(2));
+        EXPECT_EQ(pkg.options[3].id, std::string("packLevel pack (mirror)"));
         if (pkg.options[3].choices.size() == 2) {
-            EXPECT_EQ(pkg.options[3].choices[0].params.size(), std::size_t(2));
-            EXPECT_EQ(pkg.options[3].choices[0].params[1].value, std::string("mirror"));
+            EXPECT_EQ(pkg.options[3].choices[0].params.size(), std::size_t(1));
+        }
+        // The macro's param is an option param: it wins over the choice's.
+        EXPECT_EQ(pkg.options[3].params.size(), std::size_t(1));
+        if (pkg.options[3].params.size() == 1) {
+            EXPECT_EQ(pkg.options[3].params[0].value, std::string("mirror"));
         }
     }
 
@@ -239,8 +244,13 @@ static void test_builtin_macros() {
     EXPECT_EQ(out, std::string("x2yP"));
     EXPECT_FALSE(riftwii::substitute_params("{$a", params, riftwii::DiscIdentity{"RFTP01", 0, 0}, out, err));
     EXPECT_FALSE(riftwii::substitute_params("{$}", params, riftwii::DiscIdentity{"RFTP01", 0, 0}, out, err));
-    EXPECT_FALSE(riftwii::substitute_params("{$zzz}", params, riftwii::DiscIdentity{"RFTP01", 0, 0}, out, err));
-    EXPECT_TRUE(Contains(err, "unknown parameter 'zzz'"));
+    // An unknown name becomes empty, as in Riivolution.
+    EXPECT_TRUE(riftwii::substitute_params("a{$zzz}b", params, riftwii::DiscIdentity{"RFTP01", 0, 0}, out, err));
+    EXPECT_EQ(out, std::string("ab"));
+    riftwii::DiscIdentity console{"RFTP01", 0, 0};
+    console.console_id = 0x0403AC68;
+    EXPECT_TRUE(riftwii::substitute_params("/saves/{$__ngid}", params, console, out, err));
+    EXPECT_EQ(out, std::string("/saves/0403AC68"));
     EXPECT_TRUE(riftwii::substitute_params("plain/{x}/$y", params, riftwii::DiscIdentity{"RFTP01", 0, 0}, out, err));
     EXPECT_EQ(out, std::string("plain/{x}/$y"));
 }
@@ -273,10 +283,10 @@ static void test_params_override() {
     EXPECT_TRUE(err.empty());
     EXPECT_EQ(plan.files.size(), std::size_t(2));
     if (plan.files.size() == 2) {
-        // choice param overrides option param; patch root is substituted too.
-        EXPECT_EQ(plan.files[0].external, std::string("/base/choice/opt.bin"));
-        // macro param overrides both.
-        EXPECT_EQ(plan.files[1].external, std::string("/base/choice/macro.bin"));
+        // As in Riivolution, an option param wins over the choice's and
+        // over a macro's; the patch root is substituted too.
+        EXPECT_EQ(plan.files[0].external, std::string("/base/opt/opt.bin"));
+        EXPECT_EQ(plan.files[1].external, std::string("/base/opt/opt.bin"));
     }
 }
 
@@ -313,8 +323,7 @@ static void test_rejections() {
     }
     EXPECT_TRUE(riftwii::parse_package(Load("plan_unknown_param.xml"), pkg, err));
     riftwii::Plan plan;
-    EXPECT_FALSE(riftwii::plan_package(pkg, riftwii::DiscIdentity{"ABCDEF", 0, 0}, riftwii::PlanOptions{}, plan, err));
-    EXPECT_TRUE(Contains(err, "option 'O' choice 'C' patch 'p': unknown parameter 'missing'"));
+    EXPECT_TRUE(riftwii::plan_package(pkg, riftwii::DiscIdentity{"ABCDEF", 0, 0}, riftwii::PlanOptions{}, plan, err));
 }
 
 static void test_read_package_from_file() {

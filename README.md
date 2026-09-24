@@ -48,8 +48,8 @@ against USB loading. RiftWii exists to finally get past that.
 2. Copy the zip's `sd-card` folder onto your SD card, merging it with
    what is there. That puts RiftWii in `sd:/apps/riftwii/`.
 3. Put your mod packs (an XML file plus the folders it names, as their
-   authors ship them) into `sd:/riivolution/`, the same place
-   Riivolution uses.
+   authors ship them) into `sd:/riivolution/` (or
+   `sd:/apps/riivolution/`), the same places Riivolution uses.
 4. Game images go in `wbfs` (`.wbfs`) or `games` (`.iso`) at the top of
    the SD card or the USB drive. The zip's `usb-drive` folder shows
    where.
@@ -169,9 +169,24 @@ RiftWii reads the whole documented Riivolution patch format
 `offset`, `fileoffset`, `length`, `resize` and `create`), `<folder>`,
 `<memory>` (plain, `search` and `ocarina`, `value` or `valuefile`),
 `<savegame>`, `<network>`, `<macro>` and `<param>`, `shiftfiles`, and the
-`{$__gameid}`, `{$__region}`, `{$__maker}` and param placeholders.
-Unknown attributes and elements are tolerated and noted in the log.
-Packs match a game by its `<id>` (game ID, revision and disc number).
+`{$__gameid}`, `{$__region}`, `{$__maker}`, `{$__ngid}` and param
+placeholders. Unknown attributes and elements are tolerated and noted in
+the log. Packs match a game by its `<id>` (game ID, revision and disc
+number).
+
+It reads an XML the way Riivolution does, so a pack that works there
+works here:
+- XMLs are read from `sd:/riivolution` and `sd:/apps/riivolution`. A
+  `root` without a leading `/` starts in the XML's folder, and no
+  `root` means that folder.
+- Only `yes` and `true` (any case) mean yes; any other value means no.
+- A hex value with an odd number of digits loses its last digit.
+- A `{$name}` no param sets becomes empty. An option's params win over
+  its choice's, and over a macro's.
+- Anything after the last `>` in the file is ignored.
+
+The log notes each yes/no value, hex value and cut-off text read this way.
+`<shift>` and `<dlc>` are not supported yet.
 
 ### Controls
 

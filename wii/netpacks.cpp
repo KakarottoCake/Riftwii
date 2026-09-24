@@ -3,6 +3,7 @@
 
 #include <dirent.h>
 #include <fat.h>
+#include <ogc/es.h>
 #include <ogc/lwp_watchdog.h>
 #include <strings.h>
 #include <sys/stat.h>
@@ -180,25 +181,57 @@ bool connect_server(SocketTransport& transport, riifs::Client& client, const Net
 std::vector<PackFile> ListPackFiles(std::size_t limit, bool& limited) {
     limited = false;
     std::vector<PackFile> out;
-    for (const std::string& name : xml_names(kPackageDir, limit, limited)) {
-        const std::string path = std::string(kPackageDir) + "/" + name;
-        // An XML that only names a server (Riivolution's way of pointing
-        // at one) is not a pack; with no <id> it would show for every game.
-        const std::string text = read_text(path);
-        if (text.find("<network") != std::string::npos) {
-            Package package;
-            std::string ignored;
-            if (parse_package(text, package, ignored) && !package.networks.empty() && package.options.empty()) continue;
+    // The menu keys saved choices by `file`: a name already taken by the
+    // first folder gets the second folder's name in front.
+    const auto add = [&](const std::string& name, const std::string& path, const std::string& suffix) {
+        std::string file = name + suffix;
+        for (const PackFile& p : out) {
+            if (p.file == file) {
+                file = "apps/" + name + suffix;
+                break;
+            }
         }
-        out.push_back({name, path});
+        out.push_back({file, path});
+    };
+    for (const char* folder : {kPackageDir, kPackageDir2}) {
+        for (const std::string& name : xml_names(folder, limit - std::min(limit, out.size()), limited)) {
+            const std::string path = std::string(folder) + "/" + name;
+            // An XML that only names a server (Riivolution's way of pointing
+            // at one) is not a pack; with no <id> it would show for every game.
+            const std::string text = read_text(path);
+            if (text.find("<network") != std::string::npos) {
+                Package package;
+                std::string ignored;
+                if (parse_package(text, package, ignored) && !package.networks.empty() && package.options.empty()) continue;
+            }
+            add(name, path, "");
+        }
     }
     for (const NetServer& server : cached_servers()) {
-        const std::string dir = std::string(kNetCacheDir) + "/" + server.folder() + "/riivolution";
-        for (const std::string& name : xml_names(dir, limit - std::min(limit, out.size()), limited)) {
-            out.push_back({name + " @ " + server.label(), dir + "/" + name});
+        for (const char* sub : {"/riivolution", "/apps/riivolution"}) {
+            const std::string dir = std::string(kNetCacheDir) + "/" + server.folder() + sub;
+            for (const std::string& name : xml_names(dir, limit - std::min(limit, out.size()), limited)) {
+                add(name, dir + "/" + name, " @ " + server.label());
+            }
         }
     }
     return out;
+}
+
+std::string PackFolderOf(const std::string& xml_sd_path) {
+    std::string path = xml_sd_path.compare(0, 3, "sd:") == 0 ? xml_sd_path.substr(3) : xml_sd_path;
+    const std::string net_root = NetworkRootOf(xml_sd_path);
+    if (!net_root.empty() && path.compare(0, net_root.size(), net_root) == 0) path = path.substr(net_root.size());
+    const std::size_t slash = path.rfind('/');
+    if (slash == std::string::npos || slash == 0) return "/";
+    return path.substr(0, slash);
+}
+
+DiscIdentity PackIdentity(const DiscProbe& probe) {
+    DiscIdentity disc = probe.header.identity();
+    u32 id = 0;
+    if (ES_GetDeviceID(&id) >= 0) disc.console_id = id;
+    return disc;
 }
 
 std::string NetworkRootOf(const std::string& xml_sd_path) {
@@ -245,17 +278,19 @@ std::string RefreshNetworkPacks(const std::function<void(const char*)>& busy) {
     bool discover = NetworkPacksEnabled();
     std::vector<std::pair<std::string, std::uint16_t>> named;
     bool limited = false;
-    for (const std::string& name : xml_names(kPackageDir, 256, limited)) {
-        const std::string text = read_text(std::string(kPackageDir) + "/" + name);
-        if (text.find("<network") == std::string::npos) continue;
-        Package package;
-        std::string error;
-        if (!parse_package(text, package, error)) continue;
-        for (const NetworkServer& s : package.networks) {
-            if (s.address.empty()) {
-                discover = true;
-            } else {
-                named.push_back({s.address, s.port});
+    for (const char* folder : {kPackageDir, kPackageDir2}) {
+        for (const std::string& name : xml_names(folder, 256, limited)) {
+            const std::string text = read_text(std::string(folder) + "/" + name);
+            if (text.find("<network") == std::string::npos) continue;
+            Package package;
+            std::string error;
+            if (!parse_package(text, package, error)) continue;
+            for (const NetworkServer& s : package.networks) {
+                if (s.address.empty()) {
+                    discover = true;
+                } else {
+                    named.push_back({s.address, s.port});
+                }
             }
         }
     }
@@ -296,16 +331,20 @@ std::string RefreshNetworkPacks(const std::function<void(const char*)>& busy) {
             last_error = error;
             continue;
         }
-        riifs::SyncItem list;
-        list.path = "/riivolution";
-        list.folder = true;
-        list.recursive = false;
-        list.suffix = ".xml";
+        // Both folders Riivolution reads; a server without one is fine.
+        std::vector<riifs::SyncItem> lists(2);
+        lists[0].path = "/riivolution";
+        lists[1].path = "/apps/riivolution";
+        for (riifs::SyncItem& list : lists) {
+            list.folder = true;
+            list.recursive = false;
+            list.suffix = ".xml";
+        }
         riifs::SyncOptions options;
         options.force = true;  // small, and a pack list must never be stale
         riifs::SyncStats stats;
         const std::string root = std::string(kNetCacheDir) + "/" + server.folder();
-        if (!riifs::sync(client, card, root, {list}, options, stats, error)) {
+        if (!riifs::sync(client, card, root, lists, options, stats, error)) {
             logf("Network packs: %s: %s\n", server.label().c_str(), error.c_str());
             last_error = error;
             continue;
@@ -327,7 +366,7 @@ bool SyncNetworkPackages(const std::vector<PackageChoices>& packages, const Disc
     // server names them. The save folders are the card's, never replaced.
     std::map<std::string, std::vector<riifs::SyncItem>> items;
     std::map<std::string, std::vector<std::string>> keep;
-    const DiscIdentity disc = probe.header.identity();
+    const DiscIdentity disc = PackIdentity(probe);
     std::string signature = disc.id;
     for (const PackageChoices& selection : packages) {
         const std::string root = NetworkRootOf(selection.xml_sd_path);
@@ -335,7 +374,7 @@ bool SyncNetworkPackages(const std::vector<PackageChoices>& packages, const Disc
         signature += "\n" + selection.xml_sd_path;
         for (const auto& c : selection.choices) signature += "\t" + c.first + "=" + c.second;
         Package package;
-        if (!parse_package(read_text(selection.xml_sd_path), package, error)) {
+        if (!parse_package(read_text(selection.xml_sd_path), package, error, PackFolderOf(selection.xml_sd_path))) {
             error = selection.xml_sd_path + ": " + error;
             return false;
         }

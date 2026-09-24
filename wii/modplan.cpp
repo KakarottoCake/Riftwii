@@ -196,7 +196,7 @@ static bool gather_package(const PackageSelection& selection, const DiscProbe& p
         return false;
     }
     Package package;
-    if (!read_package(xml, package, error)) return false;
+    if (!read_package(xml, package, error, PackFolderOf(xml_sd_path))) return false;
     mod.warnings.insert(mod.warnings.end(), package.warnings.begin(), package.warnings.end());
     for (const auto& c : selection.choices) {
         if (!select_choice(package, c.first, c.second, error)) {
@@ -204,7 +204,7 @@ static bool gather_package(const PackageSelection& selection, const DiscProbe& p
             return false;
         }
     }
-    const DiscIdentity disc = probe.header.identity();
+    const DiscIdentity disc = PackIdentity(probe);
     PlanOptions allowed;
     allowed.allow_filename_targets = true;
     allowed.allow_folders = true;
