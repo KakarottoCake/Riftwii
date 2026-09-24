@@ -18,9 +18,6 @@
           <param name="pack" value="b"/>
         </choice>
       </option>
-      <macro name="Level pack (mirror)" id="pack">
-        <param name="pack" value="mirror"/>
-      </macro>
     </section>
     <section name="Extras">
       <option name="Code patches" default="1">
@@ -30,6 +27,10 @@
         <choice name="On"><patch id="save"/></choice>
       </option>
     </section>
+    <macro name="Level pack (classic)" id="pack"/>
+    <macro name="Level pack (mirror)" id="pack">
+      <param name="pack" value="mirror"/>
+    </macro>
   </options>
   <patch id="levels" root="/levels">
     <folder disc="/Stage" external="{$pack}/Stage" recursive="true" create="true"/>

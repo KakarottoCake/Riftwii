@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/launch.hpp"
+#include "riftwii/riiconfig.hpp"
 
 #include <iostream>
 #include <string>
@@ -388,7 +389,80 @@ static void test_merged_options() {
     expect(b_star && a_cup_off, "the choice compiles in its own pack; the other copy is off");
 }
 
+static void test_riivolution_config() {
+    const riftwii::DiscIdentity disc{"RMCE01", 0, 0};
+    riftwii::RiivolutionConfig config;
+    EXPECT_FALSE(riftwii::parse_riivolution_config("<riivolution version=\"1\"/>", config));
+    EXPECT_FALSE(riftwii::parse_riivolution_config("not xml <", config));
+    EXPECT_TRUE(riftwii::parse_riivolution_config(
+        "<?xml version=\"1.0\"?><riivolution version=\"2\"><option id=\"TracksPack\" default=\"2\"/>"
+        "<option id=\"TracksMusic\" default=\"1\"/><option id=\"Elsewhere\" default=\"3\"/></riivolution>",
+        config));
+    EXPECT_EQ(config.options.size(), 3u);
+    EXPECT_EQ(riftwii::riivolution_config_name("SB4E01"), std::string("SB4E"));
+
+    // Options without an id go by section name + option name.
+    riftwii::LaunchModel model;
+    model.add("a.xml", "sd:/riivolution/a.xml", kModA, &disc);
+    EXPECT_EQ(model.packages[0].package.options[0].config_id, std::string("TracksPack"));
+    EXPECT_FALSE(model.packages[0].enabled);
+    EXPECT_EQ(riftwii::apply_riivolution_config(model, config), 2u);
+    EXPECT_TRUE(model.packages[0].enabled);
+    EXPECT_EQ(model.packages[0].package.options[0].selected, 2u);
+    EXPECT_EQ(model.packages[0].package.options[1].selected, 1u);
+
+    // Past the last choice: left alone, as Riivolution does.
+    riftwii::RiivolutionConfig far;
+    far.options = {{"TracksPack", 3}, {"TracksMusic", 0}};
+    EXPECT_EQ(riftwii::apply_riivolution_config(model, far), 1u);
+    EXPECT_EQ(model.packages[0].package.options[0].selected, 2u);
+    EXPECT_EQ(model.packages[0].package.options[1].selected, 0u);
+    EXPECT_TRUE(model.packages[0].enabled);
+    // Everything off: the pack goes off.
+    riftwii::RiivolutionConfig off;
+    off.options = {{"TracksPack", 0}};
+    riftwii::apply_riivolution_config(model, off);
+    EXPECT_FALSE(model.packages[0].enabled);
+
+    // Writing back: known ids replaced in place, others kept, new ones added.
+    model.set_enabled(0, true);
+    model.packages[0].package.options[0].selected = 1;
+    riftwii::RiivolutionConfig existing;
+    existing.options = {{"Elsewhere", 3}, {"TracksPack", 2}};
+    riftwii::RiivolutionConfig merged = riftwii::merge_riivolution_config(model, existing);
+    EXPECT_EQ(merged.options.size(), 3u);
+    if (merged.options.size() == 3) {
+        EXPECT_EQ(merged.options[0].second, 3u);
+        EXPECT_EQ(merged.options[1].first, std::string("TracksPack"));
+        EXPECT_EQ(merged.options[1].second, 1u);
+        EXPECT_EQ(merged.options[2].first, std::string("TracksMusic"));
+        EXPECT_EQ(merged.options[2].second, 0u);
+    }
+    model.set_enabled(0, false);  // a pack that is off writes its options off
+    merged = riftwii::merge_riivolution_config(model, existing);
+    EXPECT_EQ(merged.options[1].second, 0u);
+    riftwii::RiivolutionConfig again;
+    EXPECT_TRUE(riftwii::parse_riivolution_config(riftwii::write_riivolution_config(merged), again));
+    EXPECT_TRUE(again.options == merged.options);
+
+    // An option two packs share counts its choices across them.
+    riftwii::LaunchModel two;
+    two.add("a.xml", "sd:/riivolution/a.xml", kModA, &disc);
+    two.add("b.xml", "sd:/riivolution/b.xml", kModA, &disc);
+    riftwii::RiivolutionConfig third;
+    third.options = {{"TracksPack", 3}, {"TracksMusic", 0}};
+    riftwii::apply_riivolution_config(two, third);
+    EXPECT_EQ(two.packages[0].package.options[0].selected, 0u);
+    EXPECT_EQ(two.packages[1].package.options[0].selected, 1u);
+    EXPECT_FALSE(two.packages[0].enabled);
+    EXPECT_TRUE(two.packages[1].enabled);
+    merged = riftwii::merge_riivolution_config(two, riftwii::RiivolutionConfig{});
+    EXPECT_EQ(merged.options.size(), 2u);
+    if (!merged.options.empty()) EXPECT_EQ(merged.options[0].second, 3u);
+}
+
 int main() {
+    test_riivolution_config();
     test_model();
     test_simple_package_activation();
     test_persistence();

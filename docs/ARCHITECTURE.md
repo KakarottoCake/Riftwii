@@ -21,6 +21,7 @@ below names the files that own it.
 | Widgets: the tile grid and the row list | `wii/gui_gamegrid.cpp`, `wii/gui_flowlist.cpp` |
 | Artwork, painted at start (no image files) | `wii/skin.cpp`, `src/canvas.cpp` |
 | Menu state: the picked game, its packs, the choices | `wii/frontend.cpp`, `src/launch.cpp` (`LaunchModel`) |
+| Riivolution's choices file (`riivolution/config/<ID4>.xml`), read and written | `src/riiconfig.cpp`, `wii/frontend.cpp` |
 | Game images on SD and USB (WBFS, split WBFS, ISO; FAT32 and NTFS) | `wii/usbcatalog.cpp`, `src/usbgame.cpp`, `src/fat32.cpp`, `src/ntfs.cpp` |
 | Game names (GameTDB), cheats (GeckoCodes archive) | `wii/online.cpp`, `src/titles.cpp`, `src/cheats.cpp`, `src/http.cpp`, `wii/netsock.cpp` |
 | Network packs (RiiFS) | `wii/netpacks.cpp`, `src/riifs.cpp`, `src/riifs_sync.cpp`, `docs/RIIFS.md` |

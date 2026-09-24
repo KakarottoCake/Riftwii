@@ -58,29 +58,33 @@ static void test_full_featured() {
     EXPECT_EQ(pkg.filter.revision, 0);
     EXPECT_EQ(pkg.filter.regions.size(), std::size_t(2));
 
-    // Three authored options plus one macro clone appended at the end.
+    // The two macros' clones take the place of the option they copy (a
+    // template, as in Riivolution), then the two authored options.
     EXPECT_EQ(pkg.options.size(), std::size_t(4));
     if (pkg.options.size() == 4) {
-        EXPECT_EQ(pkg.options[0].name, std::string("Level pack"));
-        EXPECT_EQ(pkg.options[0].id, std::string("pack"));
+        EXPECT_EQ(pkg.options[0].name, std::string("Level pack (classic)"));
+        EXPECT_EQ(pkg.options[0].id, std::string("packLevel pack (classic)"));
+        EXPECT_EQ(pkg.options[0].config_id, std::string("packLevel pack (classic)"));
         EXPECT_EQ(pkg.options[0].selected, std::size_t(1));
         EXPECT_EQ(pkg.options[0].choices.size(), std::size_t(2));
         EXPECT_EQ(pkg.options[0].choices[0].params.size(), std::size_t(1));
-        EXPECT_EQ(pkg.options[1].name, std::string("Code patches"));
-        EXPECT_EQ(pkg.options[2].name, std::string("Separate save"));
-        EXPECT_EQ(pkg.options[2].selected, std::size_t(0));
-        EXPECT_EQ(pkg.options[3].name, std::string("Level pack (mirror)"));
-        EXPECT_EQ(pkg.options[3].section, std::string("Levels"));
-        EXPECT_EQ(pkg.options[3].choices.size(), std::size_t(2));
-        EXPECT_EQ(pkg.options[3].id, std::string("packLevel pack (mirror)"));
-        if (pkg.options[3].choices.size() == 2) {
-            EXPECT_EQ(pkg.options[3].choices[0].params.size(), std::size_t(1));
+        EXPECT_EQ(pkg.options[0].params.size(), std::size_t(0));
+        EXPECT_EQ(pkg.options[1].name, std::string("Level pack (mirror)"));
+        EXPECT_EQ(pkg.options[1].section, std::string("Levels"));
+        EXPECT_EQ(pkg.options[1].choices.size(), std::size_t(2));
+        EXPECT_EQ(pkg.options[1].id, std::string("packLevel pack (mirror)"));
+        if (pkg.options[1].choices.size() == 2) {
+            EXPECT_EQ(pkg.options[1].choices[0].params.size(), std::size_t(1));
         }
         // The macro's param is an option param: it wins over the choice's.
-        EXPECT_EQ(pkg.options[3].params.size(), std::size_t(1));
-        if (pkg.options[3].params.size() == 1) {
-            EXPECT_EQ(pkg.options[3].params[0].value, std::string("mirror"));
+        EXPECT_EQ(pkg.options[1].params.size(), std::size_t(1));
+        if (pkg.options[1].params.size() == 1) {
+            EXPECT_EQ(pkg.options[1].params[0].value, std::string("mirror"));
         }
+        EXPECT_EQ(pkg.options[2].name, std::string("Code patches"));
+        EXPECT_EQ(pkg.options[2].config_id, std::string("ExtrasCode patches"));  // section name + option name
+        EXPECT_EQ(pkg.options[3].name, std::string("Separate save"));
+        EXPECT_EQ(pkg.options[3].selected, std::size_t(0));
     }
 
     EXPECT_EQ(pkg.patches.size(), std::size_t(3));
@@ -138,7 +142,7 @@ static void test_full_featured() {
     riftwii::Plan plan;
     EXPECT_FALSE(riftwii::plan_package(pkg, disc, riftwii::PlanOptions{}, plan, err));
     EXPECT_TRUE(Contains(err, "cannot launch: "));
-    EXPECT_TRUE(Contains(err, "option 'Level pack' choice 'Pack A' patch 'levels': <folder> patches are not supported yet"));
+    EXPECT_TRUE(Contains(err, "option 'Level pack (classic)' choice 'Pack A' patch 'levels': <folder> patches are not supported yet"));
     EXPECT_TRUE(Contains(err, "option 'Level pack (mirror)' choice 'Pack A' patch 'levels': <folder> patches are not supported yet"));
     EXPECT_TRUE(Contains(err, "option 'Code patches' choice 'On' patch 'codes': <memory> patches are not supported yet"));
     EXPECT_FALSE(Contains(err, "<savegame>"));  // not selected
@@ -156,22 +160,24 @@ static void test_full_featured() {
         EXPECT_EQ(plan.folders[0].external, std::string("/levels/a/Stage"));
         EXPECT_EQ(plan.files[0].disc, std::string("/Stage/intro.arc"));
         EXPECT_EQ(plan.files[0].external, std::string("/levels/a/intro.arc"));
-        EXPECT_EQ(plan.files[1].disc, std::string("/main.dol"));
-        EXPECT_EQ(plan.files[1].external, std::string("/codes/main.dol"));
-        EXPECT_EQ(plan.memory[1].valuefile, std::string("/codes/blob.bin"));
         EXPECT_EQ(plan.folders[1].external, std::string("/levels/mirror/Stage"));  // macro param overrides
-        EXPECT_EQ(plan.files[2].external, std::string("/levels/mirror/intro.arc"));
+        EXPECT_EQ(plan.files[1].external, std::string("/levels/mirror/intro.arc"));
+        EXPECT_EQ(plan.files[2].disc, std::string("/main.dol"));
+        EXPECT_EQ(plan.files[2].external, std::string("/codes/main.dol"));
+        EXPECT_EQ(plan.memory[1].valuefile, std::string("/codes/blob.bin"));
     }
     if (plan.order.size() == 9) {
         EXPECT_TRUE(plan.order[0].kind == riftwii::PatchKind::Folder);
         EXPECT_TRUE(plan.order[1].kind == riftwii::PatchKind::File);
-        EXPECT_TRUE(plan.order[2].kind == riftwii::PatchKind::File);
-        EXPECT_TRUE(plan.order[3].kind == riftwii::PatchKind::Memory);
+        EXPECT_TRUE(plan.order[2].kind == riftwii::PatchKind::Folder);
+        EXPECT_TRUE(plan.order[3].kind == riftwii::PatchKind::File);
+        EXPECT_TRUE(plan.order[4].kind == riftwii::PatchKind::File);
+        EXPECT_TRUE(plan.order[5].kind == riftwii::PatchKind::Memory);
     }
 
     // Selecting the save option resolves the built-in placeholder.
     riftwii::Package with_save = pkg;
-    with_save.options[2].selected = 1;
+    with_save.options[3].selected = 1;
     EXPECT_TRUE(riftwii::plan_package(with_save, disc, AllowAll(), plan, err));
     EXPECT_EQ(plan.savegames.size(), std::size_t(1));
     // Absolute externals replace the root, so the fixture's "/save/..." stays absolute.
@@ -277,16 +283,15 @@ static void test_params_override() {
     std::string err;
     EXPECT_TRUE(riftwii::parse_package(Load("params_override.xml"), pkg, err));
     EXPECT_TRUE(pkg.warnings.empty());
-    EXPECT_EQ(pkg.options.size(), std::size_t(2));
+    EXPECT_EQ(pkg.options.size(), std::size_t(1));  // the clone replaces its template
     riftwii::Plan plan;
     EXPECT_TRUE(riftwii::plan_package(pkg, riftwii::DiscIdentity{"ABCDEF", 0, 0}, riftwii::PlanOptions{}, plan, err));
     EXPECT_TRUE(err.empty());
-    EXPECT_EQ(plan.files.size(), std::size_t(2));
-    if (plan.files.size() == 2) {
+    EXPECT_EQ(plan.files.size(), std::size_t(1));
+    if (plan.files.size() == 1) {
         // As in Riivolution, an option param wins over the choice's and
         // over a macro's; the patch root is substituted too.
         EXPECT_EQ(plan.files[0].external, std::string("/base/opt/opt.bin"));
-        EXPECT_EQ(plan.files[1].external, std::string("/base/opt/opt.bin"));
     }
 }
 

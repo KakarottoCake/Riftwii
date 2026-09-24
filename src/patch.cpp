@@ -745,7 +745,8 @@ bool ParseChoice(pugi::xml_node n, Option& opt, Ctx& ctx, int depth, std::string
     opt.choices.push_back(ch);
     return true;
 }
-bool ParseOption(pugi::xml_node n, const std::string& section, Ctx& ctx, int depth, std::string& error) {
+bool ParseOption(pugi::xml_node n, const std::string& section, const std::string& section_id, Ctx& ctx, int depth,
+                 std::string& error) {
     static const char* const allowed[] = {"name", "id", "default", nullptr};
     if (!EnterElement(n, ctx, depth, allowed, "option", error)) return false;
     if (!AttrPresent(n, "name")) { error = "option missing name"; return false; }
@@ -757,6 +758,7 @@ bool ParseOption(pugi::xml_node n, const std::string& section, Ctx& ctx, int dep
         opt.id = AttrValue(n, "id");
         if (opt.id.empty()) { error = "option id empty"; return false; }
     }
+    opt.config_id = opt.id.empty() ? section_id + opt.name : opt.id;
     for (auto c : n.children()) {
         if (c.type() != pugi::node_element) continue;
         std::string cn = c.name();
@@ -816,16 +818,18 @@ bool ParseMacro(pugi::xml_node n, const std::string& section, Ctx& ctx, int dept
     return true;
 }
 bool ParseSection(pugi::xml_node n, Ctx& ctx, int depth, std::string& error) {
-    static const char* const allowed[] = {"name", nullptr};
+    static const char* const allowed[] = {"name", "id", nullptr};
     if (!EnterElement(n, ctx, depth, allowed, "section", error)) return false;
     if (!AttrPresent(n, "name")) { error = "section missing name"; return false; }
     std::string nm = AttrValue(n, "name");
     if (nm.empty()) { error = "section name empty"; return false; }
+    const std::string section_id = AttrPresent(n, "id") && !AttrValue(n, "id").empty() ? AttrValue(n, "id") : nm;
     for (auto c : n.children()) {
         if (c.type() != pugi::node_element) continue;
         std::string cn = c.name();
         if (cn == "option") {
-            if (!ParseOption(c, nm, ctx, depth + 1, error) && !Recover(ctx, "an option in section '" + nm + "'", error)) {
+            if (!ParseOption(c, nm, section_id, ctx, depth + 1, error) &&
+                !Recover(ctx, "an option in section '" + nm + "'", error)) {
                 return false;
             }
         } else if (cn == "macro") {
@@ -857,27 +861,35 @@ bool ParseOptions(pugi::xml_node n, Ctx& ctx, int depth, std::string& error) {
 // A macro clones the option carrying its id under a new name, and its id
 // with the macro's name added (so a saved choice finds the right one). The
 // macro's params join the clone's option params, where the original
-// option's own params win, as in Riivolution. The clone joins the macro's
-// section (or the original's, for a macro placed directly under <options>).
+// option's own params win. As in Riivolution, an option that macros clone
+// is a template: its clones take its place, in macro order, and it is not
+// offered itself. A clone stays in the original's section, or joins the
+// macro's for a macro placed inside a <section> (which only RiftWii reads).
 bool ExpandMacros(Ctx& ctx, std::string& error) {
     for (const auto& m : ctx.macros) {
-        const Option* source = nullptr;
-        for (const auto& o : ctx.pkg.options) {
-            if (!o.id.empty() && o.id == m.id) { source = &o; break; }
-        }
-        if (source == nullptr) {
-            Warn(ctx, "ignoring macro '" + m.name + "': it references unknown option id '" + m.id + "'");
-            continue;
-        }
-        Option clone = *source;
-        clone.name = m.name;
-        clone.id = source->id + m.name;
-        if (!m.section.empty()) clone.section = m.section;
-        clone.params = m.params;
-        clone.params.insert(clone.params.end(), source->params.begin(), source->params.end());
-        ctx.pkg.options.push_back(clone);
-        if (ctx.pkg.options.size() > kMaxNodes) { error = "too many options"; return false; }
+        bool found = false;
+        for (const auto& o : ctx.pkg.options) found = found || (!o.id.empty() && o.id == m.id);
+        if (!found) Warn(ctx, "ignoring macro '" + m.name + "': it references unknown option id '" + m.id + "'");
     }
+    std::vector<Option> expanded;
+    for (const Option& source : ctx.pkg.options) {
+        bool cloned = false;
+        for (const auto& m : ctx.macros) {
+            if (source.id.empty() || source.id != m.id) continue;
+            Option clone = source;
+            clone.name = m.name;
+            clone.id = source.id + m.name;
+            clone.config_id = source.config_id + m.name;
+            if (!m.section.empty()) clone.section = m.section;
+            clone.params = m.params;
+            clone.params.insert(clone.params.end(), source.params.begin(), source.params.end());
+            expanded.push_back(clone);
+            cloned = true;
+            if (expanded.size() > kMaxNodes) { error = "too many options"; return false; }
+        }
+        if (!cloned) expanded.push_back(source);
+    }
+    ctx.pkg.options = std::move(expanded);
     return true;
 }
 bool ParseRegionNode(pugi::xml_node c, DiscFilter& filter, Ctx& ctx, int depth, std::string& error) {
