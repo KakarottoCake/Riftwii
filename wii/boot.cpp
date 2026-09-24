@@ -32,6 +32,10 @@
 #include "resident.hpp"
 #include "sdfile.hpp"
 #include "sdio.hpp"
+#include "usbcatalog.hpp"
+#include "codehandleronly_bin.h"
+#include "riftwii/codehook.hpp"
+#include "riftwii/symsearch.hpp"
 
 namespace riftwii::wii {
 namespace {
@@ -62,6 +66,82 @@ void apploader_report(const char* format, ...) {
 }
 
 bool aligned32(const void* p) { return (reinterpret_cast<std::uintptr_t>(p) & 31) == 0; }
+
+// What the menu adds to the launch (SetLaunchExtras).
+LaunchExtras g_extras;
+// Whether the card and boot.log are still up (see release_card_and_log).
+bool g_card_live_for_log = false;
+
+// The Gecko code handler and the cheats' GCT (vendor-gecko/), called at
+// the end of the game's video retrace handler. Leaves the game untouched
+// and says why when that cannot be done.
+bool install_cheats(const std::vector<MemoryRegion>& loaded, const std::vector<MemoryPatch>& patches,
+                    std::string& why) {
+    const std::vector<std::uint8_t>& gct = g_extras.cheat_gct;
+    if (gct.size() > kCodeListEnd - kCodeListAddress) {
+        why = "the cheats picked need " + std::to_string(gct.size()) + " bytes and the code handler holds " +
+              std::to_string(kCodeListEnd - kCodeListAddress) + "; pick fewer";
+        return false;
+    }
+    for (const MemoryPatch& p : patches) {
+        if (p.has_offset && p.offset < kCodeListEnd && p.offset + p.value.size() > kCodeHandlerAddress) {
+            why = "a pack's memory patch uses the code handler's memory (0x80001800-0x80003000)";
+            return false;
+        }
+    }
+    std::vector<CodeRange> text;
+    for (const MemoryRegion& r : loaded) {
+        text.push_back(CodeRange{r.address, reinterpret_cast<const std::uint8_t*>(r.address), r.length});
+    }
+    const std::uint32_t hook = find_cheat_hook(text);
+    const std::uint32_t branch = hook != 0 ? encode_b(hook, kCodeHandlerEntry) : 0;
+    if (branch == 0) {
+        why = "the game's video retrace handler was not found, so there is nowhere to run them from";
+        return false;
+    }
+    std::memcpy(reinterpret_cast<void*>(kCodeHandlerAddress), codehandleronly_bin, codehandleronly_bin_size);
+    std::memcpy(reinterpret_cast<void*>(kCodeHandlerAddress), g_extras.game_id.c_str(),
+                std::min<std::size_t>(6, g_extras.game_id.size()));  // where cheat tools look for it
+    std::memset(reinterpret_cast<void*>(kCodeListAddress), 0, kCodeListEnd - kCodeListAddress);
+    std::memcpy(reinterpret_cast<void*>(kCodeListAddress), gct.data(), gct.size());
+    DCFlushRange(reinterpret_cast<void*>(kCodeHandlerAddress), kCodeListEnd - kCodeHandlerAddress);
+    ICInvalidateRange(reinterpret_cast<void*>(kCodeHandlerAddress), kCodeListEnd - kCodeHandlerAddress);
+    *reinterpret_cast<volatile std::uint32_t*>(hook) = branch;
+    DCFlushRange(reinterpret_cast<void*>(hook & ~31u), 32);
+    ICInvalidateRange(reinterpret_cast<void*>(hook & ~31u), 32);
+    logf("Cheats: %u code(s), %u bytes, handler at 0x%08x called from 0x%08x\n",
+         static_cast<unsigned>(g_extras.cheat_count), static_cast<unsigned>(gct.size()), kCodeHandlerAddress, hook);
+    return true;
+}
+
+// The render mode tables in what the apploader loaded: patched when the
+// menu asks, and whether the game draws borders remembered for the menu
+// (sd:/riftwii/choices/<ID>.video).
+void apply_video(const std::vector<MemoryRegion>& loaded, bool may_mount) {
+    VideoPatchReport report;
+    for (const MemoryRegion& r : loaded) {
+        patch_video_modes(reinterpret_cast<std::uint8_t*>(r.address), r.length, g_extras.video, report);
+        if (g_extras.video.any()) DCFlushRange(reinterpret_cast<void*>(r.address), r.length);
+    }
+    logf("Video: %s (width %s, deflicker %s, borders %s)\n", report.describe().c_str(), to_string(g_extras.video.width),
+         to_string(g_extras.video.deflicker), g_extras.video.remove_borders ? "removed" : "kept");
+    if (g_extras.game_id.empty() || report.modes == 0) return;
+    // After an IOS reload the card is down; with nothing else driving the
+    // slot it is mounted just for this note.
+    const bool mounted_here = !g_card_live_for_log && may_mount && sd_interface()->startup() &&
+                              fatMountSimple("sd", sd_interface());
+    if (!g_card_live_for_log && !mounted_here) return;
+    const std::string path = "sd:/riftwii/choices/" + g_extras.game_id + ".video";
+    if (FILE* f = std::fopen(path.c_str(), "wb")) {
+        std::fprintf(f, "side_borders = %s\ntop_borders = %s\n", report.side_borders ? "yes" : "no",
+                     report.top_borders ? "yes" : "no");
+        std::fclose(f);
+    }
+    if (mounted_here) {
+        fatUnmount("sd:");
+        sd_interface()->shutdown();
+    }
+}
 
 // A resident SD reader/writer must keep using an IOS under which this card
 // has already mounted successfully. In particular, launch-era IOSes such
@@ -124,7 +204,7 @@ bool verify_sd_replacement(const sdio::Card& card, const SdReplacement& r, std::
 // apploader and the table build, where a hardware hang is otherwise
 // invisible. They go right before the runtime's raw SD handle opens (two
 // drivers must not drive the slot at once) or, without one, before the jump.
-bool g_card_live_for_log = false;
+// (g_card_live_for_log is defined with g_extras, above.)
 void release_card_and_log() {
     if (!g_card_live_for_log) return;
     logf("Releasing the SD card (the log ends here; the rest is on screen)\n");
@@ -132,6 +212,39 @@ void release_card_and_log() {
     fatUnmount("sd:");
     sd_interface()->shutdown();
     g_card_live_for_log = false;
+}
+
+// The crash note (rt_context.note_sector): one sector of
+// sd:/riftwii/lastgame.txt saying the game started, which the runtime
+// writes over with what went wrong if a read has to fail. The menu reports
+// it at its next start. Needs the card mounted; returns the note's sector,
+// or 0 when it cannot be made (the game then starts without one).
+constexpr const char* kCrashNotePath = "sd:/riftwii/lastgame.txt";
+std::uint32_t prepare_crash_note(const std::string& game_id, std::string& header) {
+    if (!g_card_live_for_log) return 0;
+    header = "game = " + game_id + "\nriftwii = " RIFTWII_VERSION "\n";
+    std::string text = header + "status = ok\n";
+    text.resize(RT_NOTE_BYTES - 1, ' ');
+    text += '\n';
+    FILE* f = std::fopen(kCrashNotePath, "wb");
+    if (!f) {
+        logf("Crash note: cannot write %s\n", kCrashNotePath);
+        return 0;
+    }
+    bool ok = std::fwrite(text.data(), 1, text.size(), f) == text.size();
+    ok = std::fflush(f) == 0 && ok;
+    fsync(fileno(f));  // the directory entry too, before the raw lookup below
+    std::fclose(f);
+    forget_sd_layout();
+    Fat32File file;
+    std::string error;
+    if (!ok || !resolve_sd_file(kCrashNotePath, file, error) || file.fragments.empty() ||
+        file.entry.size != RT_NOTE_BYTES || file.fragments[0].sector > 0xFFFFFFFFull) {
+        logf("Crash note: not kept: %s\n", ok ? error.c_str() : "short write");
+        return 0;
+    }
+    logf("Crash note: %s at card sector %u\n", kCrashNotePath, static_cast<unsigned>(file.fragments[0].sector));
+    return static_cast<std::uint32_t>(file.fragments[0].sector);
 }
 
 void store32(std::uint32_t address, std::uint32_t value) {
@@ -780,6 +893,17 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
     logf("Game entry 0x%08x\n", reinterpret_cast<std::uint32_t>(game_entry));
 
 
+    // Read the DOL header before handing the card to the runtime.
+    std::uint8_t dol_bytes[kDolHeaderBytes];
+    if (options.install_resident) {
+        if (!options.main_dol.empty()) {
+            std::memcpy(dol_bytes, options.main_dol.data(), sizeof(dol_bytes));  // the executable that ran
+        } else if (!data.read(layout.data_header.dol_offset, dol_bytes, sizeof(dol_bytes))) {
+            error = "cannot read the DOL header";
+            return false;
+        }
+    }
+
     // E4: the SD card again, with our own fd this time, left open and
     // selected for the runtime.
     sdio::Card card;
@@ -794,12 +918,15 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         }
     } card_cleanup{card, card_handed_to_runtime};
     const bool card_required = pieces.needs_sd() || savegame.enabled;
+    std::uint32_t note_sector = 0;
+    std::string note_header;
     bool file_device = savegame.file_device && options.install_resident;
     if (card_required || file_device) {
         if (!options.install_resident) {
             error = "SD-backed replacements and savegame redirection need the resident runtime";
             return false;
         }
+        note_sector = prepare_crash_note(probe.header.game_id, note_header);
         release_card_and_log();
         if (!sdio::open_card(card, error)) {
             if (card_required) return false;
@@ -825,13 +952,6 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
     // IPC entry points before anything runs them.
     ResidentInstall resident;
     if (options.install_resident) {
-        std::uint8_t dol_bytes[kDolHeaderBytes];
-        if (!options.main_dol.empty()) {
-            std::memcpy(dol_bytes, options.main_dol.data(), sizeof(dol_bytes));  // the executable that ran
-        } else if (!data.read(layout.data_header.dol_offset, dol_bytes, sizeof(dol_bytes))) {
-            error = "cannot read the DOL header";
-            return false;
-        }
         DolHeader dol;
         if (!parse_dol_header(dol_bytes, sizeof(dol_bytes), dol, error)) return false;
         ResidentOptions ro;
@@ -842,6 +962,10 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         ro.sdio_fd = card.fd;
         ro.sdio_sdhc = card.sdhc;
         ro.sdio_d2x = card.d2x;
+        if (card.fd >= 0) {
+            ro.note_sector = note_sector;
+            ro.note_header = note_header;
+        }
         ro.savegame = savegame;
         ro.savegame.file_device = file_device && card.fd >= 0;
         // The code goes above this loader (which ends at arena 1's top) and
@@ -940,6 +1064,12 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         std::vector<std::string> notes;
         if (!apply_memory_patches(options.memory_patches, loaded, writable, wii_memory, notes, error)) return false;
         for (const std::string& n : notes) logf("  %s\n", n.c_str());
+    }
+    // The menu's extras, over the game as loaded and patched.
+    apply_video(loaded, card.fd < 0);  // not while the runtime's card handle is open
+    if (!g_extras.cheat_gct.empty()) {
+        std::string why;
+        if (!install_cheats(loaded, options.memory_patches, why)) logf("Cheats are off: %s\n", why.c_str());
     }
     settime(secs_to_ticks(static_cast<u64>(std::time(nullptr)) - kWiiEpochOffset));
 
@@ -1040,6 +1170,8 @@ bool prepare_savegame(const DiscProbe& probe, const BootOptions& options, Savega
                    : existed ? " (existing folder)" : " (new folder)");
     return true;
 }
+
+void SetLaunchExtras(LaunchExtras extras) { g_extras = std::move(extras); }
 
 bool boot_game(const DiscProbe& probe, const BootOptions& options, std::string& error) {
     const std::uint32_t required = probe.tmd.required_ios();

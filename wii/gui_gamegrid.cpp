@@ -90,8 +90,16 @@ int GuiGameGrid::GetClicked() {
     return c;
 }
 
+// A cut at byte `n` moved back to the start of a UTF-8 character, so a
+// name is never split inside one.
+static std::size_t CharBoundary(const std::string& s, std::size_t n) {
+    while (n > 0 && n < s.size() && (static_cast<unsigned char>(s[n]) & 0xC0) == 0x80) --n;
+    return n;
+}
+
 // Greedy word wrap into two lines of the tile's width; the second line is
-// cut with an ellipsis when the name is longer still.
+// cut with an ellipsis when the name is longer still. A name without
+// spaces (Japanese) is cut by characters.
 void GuiGameGrid::Layout() {
     laidOut = true;
     const auto width_of = [&](const std::string& s) {
@@ -118,14 +126,14 @@ void GuiGameGrid::Layout() {
         if (line1.empty()) {
             // One long word: cut it by characters.
             std::size_t n = rest.size();
-            while (n > 1 && width_of(rest.substr(0, n)) > kTitleWidth) --n;
+            while (n > 1 && width_of(rest.substr(0, n)) > kTitleWidth) n = CharBoundary(rest, n - 1);
             line1 = rest.substr(0, n);
             at = n;
         }
         std::string line2 = at < rest.size() ? rest.substr(at) : "";
         while (!line2.empty() && line2.front() == ' ') line2.erase(0, 1);
         if (!line2.empty() && width_of(line2) > kTitleWidth) {
-            while (line2.size() > 1 && width_of(line2 + "...") > kTitleWidth) line2.pop_back();
+            while (line2.size() > 1 && width_of(line2 + "...") > kTitleWidth) line2.resize(CharBoundary(line2, line2.size() - 1));
             while (!line2.empty() && line2.back() == ' ') line2.pop_back();
             line2 += "...";
         }
