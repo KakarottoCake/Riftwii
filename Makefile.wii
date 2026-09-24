@@ -19,15 +19,14 @@ export	FREETYPE_LIBS	:=	-lfreetype
 #---------------------------------------------------------------------------------
 TARGET		:=	riftwii
 BUILD		:=	build_wii
-SOURCES		:=	wii src runtime vendor-pugixml/src vendor-zstd \
+SOURCES		:=	wii src runtime vendor-pugixml/src \
 				vendor-libgui/source/libwiigui \
 				vendor-libgui/source
 # wiidrc.c (FIX94's Wii U GamePad driver) is compiled in: the menus read
 # the GamePad through it, guarded so plain Wii and Dolphin are unaffected.
-EXCLUDES	:=	vendor-libgui/source/demo.cpp vendor-libgui/source/menu.cpp vendor-libgui/source/filebrowser.cpp \
-				vendor-libgui/source/gettext.cpp
-INCLUDES	:=	wii vendor-libgui/source include runtime runtime/resident vendor-pugixml/src vendor-zstd
-DATA		:=	wii/assets wii/lang vendor-gecko vendor-libgui/source/images vendor-libgui/source/fonts vendor-libgui/source/sounds vendor-libgui/source/lang \
+EXCLUDES	:=	vendor-libgui/source/demo.cpp vendor-libgui/source/menu.cpp vendor-libgui/source/filebrowser.cpp
+INCLUDES	:=	wii vendor-libgui/source include runtime runtime/resident vendor-pugixml/src
+DATA		:=	wii/assets vendor-libgui/source/images vendor-libgui/source/fonts vendor-libgui/source/sounds vendor-libgui/source/lang \
 				build-runtime
 
 #---------------------------------------------------------------------------------
@@ -79,12 +78,11 @@ CFILES		:=	$(filter-out $(notdir $(EXCLUDES)),$(CFILES))
 CPPFILES	:=	$(filter-out $(notdir $(EXCLUDES)),$(CPPFILES))
 BINFILES	:=	$(foreach dir,$(DATA),$(notdir $(wildcard $(dir)/*.ttf) \
 					$(wildcard $(dir)/*.lang) $(wildcard $(dir)/*.png) \
-					$(wildcard $(dir)/*.ogg) $(wildcard $(dir)/*.pcm) \
-					$(wildcard $(dir)/*.po)))
+					$(wildcard $(dir)/*.ogg) $(wildcard $(dir)/*.pcm)))
 # Do not discover this through wildcard: the outer build evaluates BINFILES
 # before runtime-blob creates build-runtime/riftwii_rt.bin. VPATH resolves it
 # for the recursive build after runtime-blob has completed.
-BINFILES	+=	riftwii_rt.bin riftwii_rt_rvz.bin riftwii_rt_rvz.rel codehandleronly.bin
+BINFILES	+=	riftwii_rt.bin
 
 #---------------------------------------------------------------------------------
 # use CXX for linking C++ projects, CC for standard C
@@ -124,8 +122,7 @@ $(BUILD): runtime-blob
 
 #---------------------------------------------------------------------------------
 # The resident runtime (runtime/resident) is a separate freestanding build
-# whose blobs are embedded in the loader as riftwii_rt_bin and, for RVZ
-# games, riftwii_rt_rvz_bin with its relocations riftwii_rt_rvz_rel.
+# whose blob is embedded in the loader as riftwii_rt_bin.
 runtime-blob:
 	@$(MAKE) --no-print-directory -f Makefile.runtime
 
@@ -167,11 +164,6 @@ main.o: $(PROJECT_ROOT)/CMakeLists.txt
 	@echo $(notdir $<)
 	$(bin2o)
 
-# The menu's translations (wii/i18n.cpp).
-%.po.o %_po.h : %.po
-	@echo $(notdir $<)
-	$(bin2o)
-
 %.png.o %_png.h : %.png
 	@echo $(notdir $<)
 	$(bin2o)
@@ -185,11 +177,6 @@ main.o: $(PROJECT_ROOT)/CMakeLists.txt
 	$(bin2o)
 
 %.bin.o %_bin.h : %.bin
-	@echo $(notdir $<)
-	$(bin2o)
-
-# The RVZ runtime blob's relocations (tools/rtreloc.py).
-%.rel.o %_rel.h : %.rel
 	@echo $(notdir $<)
 	$(bin2o)
 

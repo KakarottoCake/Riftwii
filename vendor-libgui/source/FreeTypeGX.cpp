@@ -78,28 +78,16 @@ wchar_t* charToWideChar(const char* strChar)
 	if(!strWChar)
 		return nullptr;
 
-	// RiftWii: decode UTF-8 here (mbstowcs only knows the C locale). A
-	// byte that does not start a valid sequence is taken as Latin-1.
-	const unsigned char *s = (const unsigned char *)strChar;
-	wchar_t *d = strWChar;
-	while (*s)
+	int bt = mbstowcs(strWChar, strChar, strlen(strChar));
+	if (bt > 0)
 	{
-		unsigned c = *s, len = 0, cp = 0;
-		if (c >= 0xC2 && c < 0xE0) { len = 2; cp = c & 0x1F; }
-		else if (c >= 0xE0 && c < 0xF0) { len = 3; cp = c & 0x0F; }
-		else if (c >= 0xF0 && c < 0xF5) { len = 4; cp = c & 0x07; }
-		unsigned k = 1;
-		for (; len && k < len && (s[k] & 0xC0) == 0x80; ++k)
-			cp = (cp << 6) | (s[k] & 0x3F);
-		if (len && k == len && !(len == 3 && cp < 0x800) && !(len == 4 && (cp < 0x10000 || cp > 0x10FFFF)))
-		{
-			*d++ = (wchar_t)cp;
-			s += len;
-		}
-		else
-			*d++ = (wchar_t)*s++;
+		strWChar[bt] = (wchar_t)'\0';
+		return strWChar;
 	}
-	*d = 0;
+
+	wchar_t *tempDest = strWChar;
+	while((*tempDest++ = *strChar++));
+
 	return strWChar;
 }
 

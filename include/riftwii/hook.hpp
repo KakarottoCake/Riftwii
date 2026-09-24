@@ -39,12 +39,6 @@ struct ResidentBlob {
 static_assert(4 * (4 + 3 * kResidentIpcEntries + 4) == 200, "resident blob ABI v5 header size");
 constexpr std::size_t kResidentContextBytes = 2048;  // the slot for struct rt_context (it may be smaller)
 bool parse_resident_blob(const std::uint8_t* bytes, std::size_t length, ResidentBlob& out, std::string& error);
-// The RVZ blob's absolute references (tools/rtreloc.py: 12-byte big-endian
-// records {blob offset, type, target offset}), fixed for the blob copied
-// to `blob` at address `base`. Fails, touching nothing, on a record that
-// is not one of the four types or does not fit the blob.
-bool apply_resident_relocs(std::uint8_t* blob, std::size_t blob_bytes, const std::uint8_t* relocs,
-                           std::size_t reloc_bytes, std::uint32_t base, std::string& error);
 
 // A same-size replacement served from memory (E3): the bytes the game must
 // see at [virtual_offset, virtual_offset + bytes.size()) of the partition.

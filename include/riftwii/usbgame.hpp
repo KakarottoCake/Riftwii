@@ -45,8 +45,7 @@ struct UsbImagePiece {
     std::string path;
 };
 
-// Rvz: Dolphin's compressed format (riftwii/rvz.hpp), in the ISO folders.
-enum class UsbImageFormat { Iso, Wbfs, Rvz };
+enum class UsbImageFormat { Iso, Wbfs };
 
 struct UsbImage {
     UsbImageFormat format = UsbImageFormat::Iso;
@@ -72,19 +71,6 @@ private:
 // image's sources are also used to validate the Wii disc header. No content
 // is decrypted here.
 bool build_usb_fragments(const UsbImage& image, D2xFragmentList& out, std::string& error);
-
-// A disc made of parts of one file (an RVZ game's stub, riftwii/rvz.hpp):
-// each range puts `length` bytes of the file at `disc_offset`, and d2x
-// reads the rest of the disc as zeros. The list is sized as a single-layer
-// disc unless `disc_bytes` needs two layers, as for WBFS images. Offsets
-// and lengths must be multiples of 512.
-struct DiscRange {
-    std::uint64_t disc_offset = 0;
-    std::uint64_t file_offset = 0;
-    std::uint64_t length = 0;
-};
-bool build_sparse_fragments(const UsbImage& file, const std::vector<DiscRange>& ranges, std::uint64_t disc_bytes,
-                            D2xFragmentList& out, std::string& error);
 
 // Collects a split WBFS set from an in-memory directory listing: the primary
 // .wbfs plus consecutive .wbf1, .wbf2, ... pieces. A split set must be
