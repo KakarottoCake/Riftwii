@@ -63,8 +63,11 @@ RiftWii reads the SD card and the USB drive and shows your games as
 tiles, with the disc drive first. At first it shows only games that
 have mod packs (they carry a **MODS** tag). The round button at the
 bottom left (or **1**) switches between games with mods, all games and,
-once you have played something, **Recently played**. RiftWii remembers
-the view and opens on the last game you played. When the Wii is online,
+once you have played something, **Recently played**, then
+**Favourites** once you mark a game as one on its page. **Minus** (L on
+a GameCube controller) jumps to the next game starting with another
+letter, A to Z. RiftWii remembers the view and opens on the last game
+you played. When the Wii is online,
 games show their real names from GameTDB (Super Mario Galaxy 2, not the
 disc's SUPER MARIO GALAXY MORE), in the menu's language.
 

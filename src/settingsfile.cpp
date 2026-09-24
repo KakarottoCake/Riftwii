@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/settingsfile.hpp"
 
+#include <algorithm>
 #include <sstream>
 
 #include "riftwii/gamelang.hpp"
@@ -51,6 +52,18 @@ void LoaderSettings::parse(const std::string& text) {
             if (parse_cios_choice(value, slot)) game_cios = value;
         } else if (key == "online") {
             online = value != "off";
+        } else if (key == "favorites") {
+            favorites.clear();
+            std::size_t at = 0;
+            while (at <= value.size()) {
+                const std::size_t comma = std::min(value.find(',', at), value.size());
+                const std::string id = trim(value.substr(at, comma - at));
+                // Game IDs are letters and digits; anything else is noise.
+                bool plain = !id.empty() && id.size() <= 6;
+                for (char c : id) plain = plain && ((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9'));
+                if (plain) favorites.insert(id);
+                at = comma + 1;
+            }
         } else if (key == "gc_adapter") {
             if (value == "off" || value == "on" || value == "demo") gc_adapter = value;
         } else {
@@ -70,6 +83,11 @@ std::string LoaderSettings::serialize() const {
     s += "game_cios = " + game_cios + "\n";
     s += std::string("online = ") + (online ? "on" : "off") + "\n";
     s += "gc_adapter = " + gc_adapter + "\n";
+    if (!favorites.empty()) {
+        std::string list;
+        for (const std::string& id : favorites) list += (list.empty() ? "" : ",") + id;
+        s += "favorites = " + list + "\n";
+    }
     for (const auto& kv : other) s += kv.first + " = " + kv.second + "\n";
     return s;
 }

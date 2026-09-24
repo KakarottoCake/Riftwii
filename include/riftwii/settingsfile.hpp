@@ -2,6 +2,7 @@
 #pragma once
 
 #include <map>
+#include <set>
 #include <string>
 
 #include "riftwii/launch.hpp"
@@ -22,6 +23,7 @@ struct LoaderSettings {
     std::string game_cios = "auto";       // auto (d2x in 249-251), 248 ... 252
     bool online = true;                   // download game names and cheats when the Wii is online
     std::string gc_adapter = "off";       // GameCube controller adapter for Wii U: off, on (demo: Dolphin tests)
+    std::set<std::string> favorites;      // game IDs, written "favorites = ID,ID"
     std::map<std::string, std::string> other;
 
     void parse(const std::string& text);

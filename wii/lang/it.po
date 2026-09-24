@@ -24,8 +24,8 @@ msgstr "Giocato una volta, il {1}"
 msgid "Played {1} times, last on {2}"
 msgstr "Giocato {1} volte, l'ultima il {2}"
 
-msgid "1: filter   2: settings   +: rescan"
-msgstr "1: filtro   2: impostazioni   +: cerca di nuovo"
+msgid "1: view   2: settings   -: A to Z   +: rescan"
+msgstr "1: vista   2: impostazioni   -: dalla A alla Z   +: cerca di nuovo"
 
 msgid "Page {1} of {2}"
 msgstr "Pagina {1} di {2}"
@@ -509,6 +509,21 @@ msgstr "Torna all'Homebrew Channel."
 
 msgid "No d2x cIOS was found in slots 248 to 252, so the menu runs under IOS 58. Install d2x to play games from SD or USB."
 msgstr "Nessun cIOS d2x trovato negli slot da 248 a 252, quindi il menu usa l'IOS 58. Installa d2x per giocare da SD o USB."
+
+msgid "Favourites"
+msgstr "Preferiti"
+
+msgid "Favourite"
+msgstr "Preferito"
+
+msgid "Favourites have their own view on Home: press 1 there until it shows."
+msgstr "I preferiti hanno una vista tutta loro nella Home: premi 1 finché non compare."
+
+msgid "No favourite is on these drives. Mark games on their page. Press 1 for all games."
+msgstr "Nessun preferito su queste unità. Segna i giochi nella loro pagina. Premi 1 per vederli tutti."
+
+msgid "Could not save the settings to the SD card."
+msgstr "Impossibile salvare le impostazioni sulla scheda SD."
 
 msgid "Video mode"
 msgstr "Modalità video"
