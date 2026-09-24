@@ -20,6 +20,7 @@
 
 #include "autorun.hpp"
 #include "console.hpp"
+#include "crash.hpp"
 #include "guiscript.hpp"
 #include "i18n.hpp"
 #include "ios_reload.hpp"
@@ -27,6 +28,8 @@
 #include "log.hpp"
 #include "memlimits.hpp"
 #include "menuios.hpp"
+#include "progress.hpp"
+#include "restart.hpp"
 #include "skin.hpp"
 
 int ExitRequested = 0;
@@ -47,7 +50,20 @@ void EnterConsolePhase() {
     ShutoffRumble();
     ShutdownAudio();
     StopGXKeepPicture();
-    riftwii::wii::ConsoleStartInFrame(Menu_CurrentXfb(), Menu_XfbWidth(), Menu_XfbHeight(), 48, 176, 544, 224);  // whole 8x16 cells
+    riftwii::wii::ConsoleStartInFrame(Menu_CurrentXfb(), Menu_XfbWidth(), Menu_XfbHeight(), 48, 176, 544, 208);  // whole 8x16 cells
+    riftwii::wii::CrashSetPhase(riftwii::wii::CrashPhase::Console);
+    // Under the log, still on the white card: the stage and the bar.
+    riftwii::wii::ProgressAttach(Menu_CurrentXfb(), Menu_XfbWidth(), Menu_XfbHeight(), 48, 388, 544);
+}
+
+// After a launch that failed: back to Home (a fresh start, see
+// wii/restart.hpp; also after two minutes untouched) or out to the
+// Homebrew Channel.
+void OfferRestart(const std::string& error) {
+    if (!riftwii::wii::CanRestart()) return;
+    riftwii::wii::logf("\nA: back to RiftWii   HOME: leave to the Homebrew Channel\n");
+    if (riftwii::wii::WaitForChoice(120) != riftwii::wii::ExitChoice::Restart) std::exit(0);
+    riftwii::wii::WarmRestart(riftwii::wii::RestartKind::LaunchFailed, "The launch failed: " + error);
 }
 
 // libfat's default initializer probes USB as well as SD. Mount only the SD
@@ -90,10 +106,13 @@ int main() {
     // Keeps the loader out of the memory the game's apploader and IOS
     // reloads overwrite (wii/memlimits.hpp).
     riftwii::wii::mem::Init();
+    const riftwii::wii::RestartNote restart = riftwii::wii::TakeRestartNote();
+    riftwii::wii::CrashInstall();
     const bool sd_mounted = MountStartupSd();
 
     if (riftwii::wii::AutorunPresent()) {
         riftwii::wii::ConsoleStart(false);
+        riftwii::wii::CrashSetPhase(riftwii::wii::CrashPhase::Console);
         riftwii::wii::RunAutorun();
         if (riftwii::wii::reload_terminal_failure()) riftwii::wii::halt_after_terminal_reload();
         riftwii::wii::WaitForExit();
@@ -105,7 +124,11 @@ int main() {
     OpenSessionLog(sd_mounted);
     // A chosen cIOS (fakemote's USB pads) must be running before the pads
     // and the drives are brought up.
-    riftwii::wii::StartMenuIos(sd_mounted);
+    if (restart.kind != riftwii::wii::RestartKind::None) {
+        riftwii::wii::logf("Restarted: %s\n", restart.message.c_str());
+    }
+    riftwii::wii::StartMenuIos(sd_mounted, restart.kind != riftwii::wii::RestartKind::None);
+    SetHomeNotice(restart.message);
     FrontendState state;
     riftwii::wii::InitializeFrontend(state);
     riftwii::wii::SetMenuLanguage(riftwii::wii::MenuLanguage());
@@ -122,6 +145,7 @@ int main() {
     }
     InitFreeType(font, font_size);
     InitGUIThreads();
+    riftwii::wii::CrashSetPhase(riftwii::wii::CrashPhase::Menu);
     const int action = MainMenu(MENU_SOURCE, state);
     riftwii::wii::mem::LogUsage("menu closed");
     const riftwii::wii::LaunchSource source = riftwii::wii::SelectedSource(state);
@@ -131,7 +155,8 @@ int main() {
     if (action == MENU_LAUNCH) {
         riftwii::wii::LogOpen("sd:/riftwii/boot.log");
         riftwii::wii::logf("RiftWii %s: launch %s with packages\n", RIFTWII_VERSION, state.game_id.c_str());
-        const bool booted = (source.kind == riftwii::wii::LaunchSource::Kind::Disc && state.has_compiled)
+        if (riftwii::wii::GuiScriptFailLaunch()) error = "a test failure the guiscript asked for";
+        const bool booted = !error.empty() ? false : (source.kind == riftwii::wii::LaunchSource::Kind::Disc && state.has_compiled)
                                 ? riftwii::wii::BootCompiled(state.compiled, error, source, state.model.save_mode,
                                                              state.game_id)
                                 : riftwii::wii::RunLaunch(state.model.selections(), error, source,
@@ -140,14 +165,17 @@ int main() {
             if (riftwii::wii::reload_terminal_failure()) riftwii::wii::halt_after_terminal_reload();
             riftwii::wii::LogOpen("sd:/riftwii/boot.log", true);  // boot_game closed it and remounted the card
             riftwii::wii::logf("FAILED: %s\n", error.c_str());
+            OfferRestart(error);
         }
     } else if (action == MENU_BOOT) {
         riftwii::wii::LogOpen("sd:/riftwii/boot.log");
         riftwii::wii::logf("RiftWii %s: boot %s\n", RIFTWII_VERSION, source.kind == riftwii::wii::LaunchSource::Kind::Usb ? "USB" : source.kind == riftwii::wii::LaunchSource::Kind::Sd ? "SD" : "disc");
-        if (!riftwii::wii::RunBoot(true, error, source)) {
+        if (riftwii::wii::GuiScriptFailLaunch()) error = "a test failure the guiscript asked for";
+        if (!error.empty() || !riftwii::wii::RunBoot(true, error, source)) {
             if (riftwii::wii::reload_terminal_failure()) riftwii::wii::halt_after_terminal_reload();
             riftwii::wii::LogOpen("sd:/riftwii/boot.log", true);  // boot_game closed it and remounted the card
             riftwii::wii::logf("FAILED: %s\n", error.c_str());
+            OfferRestart(error);
         }
     } else if (action == MENU_DUMP) {
         riftwii::wii::LogOpen("sd:/riftwii/dump.log");

@@ -31,7 +31,8 @@ void Init() {
     g_mem2_libogc_lo = Address(SYS_GetArena2Lo());
     g_mem2_top = Address(SYS_GetArena2Hi());
     if (Address(SYS_GetArena1Hi()) > kMem1Ceiling) SYS_SetArena1Hi(reinterpret_cast<void*>(kMem1Ceiling));
-    if (Address(SYS_GetArena2Lo()) < kMem2Floor) SYS_SetArena2Lo(reinterpret_cast<void*>(kMem2Floor));
+    if (Address(SYS_GetArena2Lo()) < kMem2Floor + kRestartBytes)
+        SYS_SetArena2Lo(reinterpret_cast<void*>(kMem2Floor + kRestartBytes));
     // Asked now, while IOS is up: PoisonReloadArea runs mid-reload.
     g_dolphin = running_in_dolphin();
 }

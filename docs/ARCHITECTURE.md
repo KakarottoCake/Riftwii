@@ -96,6 +96,7 @@ ports with nothing plugged in; rumble goes back to them.
 | `0x81200000` | The game's apploader, while it runs |
 | Top of the game's MEM1 arena | Resident runtime code, then the pad blob below it |
 | `0x90000000`–`0x90800000` | Left alone by the loader: an IOS reload stages its kernel here |
+| `0x90800000`–`0x90809000` | The restart snapshot and handoff (`wii/restart.hpp`) |
 | Bottom of the game's MEM2 arena | Resident runtime data, then the pad state |
 | `0x933E0000` and up | IOS |
 
@@ -103,6 +104,29 @@ ports with nothing plugged in; rumble goes back to them.
 image and `0x81200000`, and in MEM2 above `0x90800000`. In Dolphin it
 fills the reload area with `0xDEADBEEF` at each reload, so a heap that
 strays there fails in the emulator as it would on a Wii.
+
+## Restarts and crashes
+
+RiftWii can start itself again without the Homebrew Channel
+(`wii/restart.cpp`). `Makefile.wii` wraps crt0's `__CheckARGV`, which
+runs before `.bss` is cleared, so every start copies the image's
+writable data (`.ctors` to `.sdata`, about 20 KB) to `0x90800000`. A
+restart shuts libogc down, copies that back and jumps to `__app_start`:
+the program starts exactly as it did from the Homebrew Channel. A
+handoff record next to the copy says why; the new start reloads IOS (so
+no handle of the old run survives) and shows the reason on Home.
+
+Two things restart:
+- a launch that fails (A on the error screen, or two minutes untouched);
+- a crash. `wii/crash.cpp` replaces libogc's panic function: it notes
+  the registers, then resumes the crashed thread in a recovery function
+  on its own stack with interrupts on. That function shows the report,
+  writes it to the log and to `sd:/riftwii/crash.txt`, and restarts. A
+  second crash within 30 seconds of a crash restart leaves to the
+  Homebrew Channel instead of looping.
+
+`addr2line -e riftwii.elf <address>` turns the report's PC, LR and stack
+addresses into source lines (keep the `riftwii.elf` of each release).
 
 ## Files on the SD card
 
@@ -121,6 +145,7 @@ strays there fails in the emulator as it would on a Wii.
 | `sd:/riftwii/lang/<lang>.po` | A translation that overrides the built-in one |
 | `sd:/riftwii/riifs/` | Files copied from network packs |
 | `sd:/riftwii/session.log`, `boot.log` | The menu's log and the last launch's log |
+| `sd:/riftwii/crash.txt` | The last crash report |
 | `sd:/riftwii/autorun.txt`, `guiscript.txt` | Test scripts (see `DEVELOPING.md`) |
 
 ## Rules the code keeps

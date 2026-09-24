@@ -16,4 +16,10 @@ void ConsoleStartInFrame(void* xfb, int fb_width, int fb_height, int x, int y, i
 // Blocks until RESET, or HOME/Start on any pad, then returns.
 void WaitForExit();
 
+// After a failed launch or a crash: A (any pad) or RESET means start
+// RiftWii again, HOME (Start on a GameCube pad) means leave it. Gives up
+// after `timeout_seconds` (0: never) with Restart.
+enum class ExitChoice { Restart, Leave };
+ExitChoice WaitForChoice(int timeout_seconds);
+
 }  // namespace riftwii::wii

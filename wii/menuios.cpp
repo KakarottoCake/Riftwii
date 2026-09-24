@@ -69,12 +69,27 @@ std::vector<int> MenuIosChoices() {
 
 int MenuCiosSlot() { return g_menu_cios; }
 
-bool StartMenuIos(bool sd_mounted) {
-    if (!sd_mounted) return true;
-    const int slot = LoadMenuIos();
-    if (slot == 0) return true;
-    if (!slot_has_ticket(slot)) {
+bool StartMenuIos(bool sd_mounted, bool fresh) {
+    int slot = sd_mounted ? LoadMenuIos() : 0;
+    if (slot != 0 && !slot_has_ticket(slot)) {
         logf("Menu IOS: IOS%d is not installed; staying on IOS%d\n", slot, IOS_GetVersion());
+        slot = 0;
+    }
+    if (slot == 0) {
+        if (!fresh) return true;
+        std::string error;
+        if (sd_mounted) {
+            LogClose();
+            fatUnmount("sd:");
+            __io_wiisd.shutdown();
+        }
+        const ReloadResult r = reload_ios(58, error, true);
+        if (r == ReloadResult::Terminal) halt_after_terminal_reload();
+        if (sd_mounted && __io_wiisd.startup() && __io_wiisd.isInserted() && fatMountSimple("sd", &__io_wiisd)) {
+            LogReopen();
+        }
+        logf("Menu IOS: fresh IOS%d after a restart%s%s\n", IOS_GetVersion(), error.empty() ? "" : ": ",
+             error.c_str());
         return false;
     }
     const PadPairings before = ReadPadPairings();
@@ -83,7 +98,7 @@ bool StartMenuIos(bool sd_mounted) {
     fatUnmount("sd:");
     __io_wiisd.shutdown();
     std::string error;
-    const ReloadResult r = reload_ios(slot, error);
+    const ReloadResult r = reload_ios(slot, error, fresh);
     if (r == ReloadResult::Terminal) halt_after_terminal_reload();
     const bool mounted = __io_wiisd.startup() && __io_wiisd.isInserted() && fatMountSimple("sd", &__io_wiisd);
     if (mounted) LogReopen();

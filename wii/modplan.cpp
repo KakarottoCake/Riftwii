@@ -13,6 +13,7 @@
 #include "di.hpp"
 #include "log.hpp"
 #include "netpacks.hpp"
+#include "progress.hpp"
 #include "riftwii/apply.hpp"
 #include "riftwii/dol.hpp"
 #include "riftwii/expand.hpp"
@@ -316,6 +317,7 @@ bool compile_packages(const std::vector<PackageSelection>& packages, const DiscP
     CompiledMod mod;
     const Fst& fst = partition.fst;
     // Network packs: what the chosen options need comes from the PC first.
+    ProgressStage("Reading the mod packs", 8);
     if (!SyncNetworkPackages(packages, probe, mod.warnings, error)) return false;
     // Listings from an earlier compile may predate files libfat wrote since.
     forget_sd_layout();
@@ -325,6 +327,7 @@ bool compile_packages(const std::vector<PackageSelection>& packages, const DiscP
     //    and its memory patches.
     std::vector<FilePatch> files;
     for (const PackageSelection& selection : packages) {
+        ProgressWithin(mod.xml_paths.size(), packages.size(), 10, 25);
         mod.xml_paths.push_back(selection.xml_sd_path);
         if (!gather_package(selection, probe, fst, provider, files, mod, error)) return false;
     }
@@ -446,7 +449,9 @@ bool compile_packages(const std::vector<PackageSelection>& packages, const DiscP
     // kProgressStep files.
     constexpr std::size_t kProgressStep = 250;
     std::size_t done = 0;
+    ProgressStage("Patching the game's files", 25);
     for (const std::string& disc_path : order) {
+        ProgressWithin(done, order.size(), 25, 55);
         if (++done % kProgressStep == 0) {
             logf("Mods: %u of %u disc files patched\n", static_cast<unsigned>(done),
                  static_cast<unsigned>(order.size()));
@@ -513,6 +518,7 @@ bool compile_packages(const std::vector<PackageSelection>& packages, const DiscP
 
     // 4. External bytes to SD sectors, and the table.
     logf("Mods: %u disc file(s) patched; mapping them to the card\n", static_cast<unsigned>(layouts.size()));
+    ProgressStage("Finding the files on the SD card", 56);
     const ExternalPlacer placer = [&](const ByteSource* external, std::uint64_t source_offset, std::uint64_t length,
                                       std::vector<PlacedRun>& runs, std::string& e) {
         const std::vector<Fragment>* fragments = nullptr;

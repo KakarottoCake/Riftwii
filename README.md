@@ -215,7 +215,13 @@ Fix the file on a computer and come back.
 
 **A mod doesn't start.** RiftWii never starts a game half patched: the
 screen names the pack, option and file that stopped it. A memory patch
-whose file is missing is skipped with a warning (as in Dolphin).
+whose file is missing is skipped with a warning (as in Dolphin). Press A
+to go back to RiftWii (it also goes back by itself after two minutes),
+or HOME to leave to the Homebrew Channel.
+
+**RiftWii crashed.** It shows what happened, saves it to
+`sd:/riftwii/crash.txt` and starts again (A, RESET, or after a minute).
+Please send that file with a report.
 
 **The game shows its own error ("An error has occurred") while it
 loads.** Send the logs below with your report.
@@ -230,7 +236,7 @@ must support the GameCube controller.
 Open a GitHub issue with:
 
 - `sd:/riftwii/session.log` (the menu) and `sd:/riftwii/boot.log` (the
-  last launch);
+  last launch), and `sd:/riftwii/crash.txt` if RiftWii crashed;
 - your Wii model, System Menu version and which cIOS you have;
 - what you did, and what the screen showed (a photo helps).
 

@@ -93,6 +93,9 @@ void Shot(const std::string& path, const void* xfb, int width, int height) {
     logf("guiscript: saved %s\n", path.c_str());
 }
 
+bool g_fail_launch = false;
+bool g_launch_shots = false;
+
 // Runs commands until one needs frames to pass.
 void Advance(const void* xfb, int width, int height) {
     while (g_active && g_wait <= 0 && g_press_frames == 0) {
@@ -136,6 +139,13 @@ void Advance(const void* xfb, int width, int height) {
             if (g_glide_frames < 1) g_glide_frames = 1;
             g_glide = 0;
             g_wait = g_glide_frames;
+        } else if (cmd == "launchshots") {
+            g_launch_shots = true;
+        } else if (cmd == "failnext") {
+            g_fail_launch = true;
+        } else if (cmd == "crash") {
+            logf("guiscript: crashing on purpose\n");
+            asm volatile("trap");  // a program exception, in Dolphin too
         } else if (cmd == "finalshot") {
             words >> g_final_shot;
         } else if (cmd == "shot") {
@@ -149,6 +159,16 @@ void Advance(const void* xfb, int width, int height) {
 }
 
 }  // namespace
+
+bool GuiScriptFailLaunch() { return g_fail_launch; }
+
+void GuiScriptLaunchShot(int percent, const void* xfb, int width, int height) {
+    if (g_launch_shots) Shot("sd:/riftwii/launch_" + std::to_string(percent) + ".bmp", xfb, width, height);
+}
+
+void GuiScriptCrashShot(const void* xfb, int width, int height) {
+    if (!g_lines.empty()) Shot("sd:/riftwii/crashscreen.bmp", xfb, width, height);
+}
 
 bool GuiScriptLoad(const char* path) {
     std::ifstream in(path);

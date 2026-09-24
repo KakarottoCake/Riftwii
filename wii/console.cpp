@@ -3,6 +3,7 @@
 
 #include <gccore.h>
 #include <ogc/console.h>
+#include <ogc/lwp_watchdog.h>
 #include <ogc/pad.h>
 #include <ogc/system.h>
 #include <ogc/video.h>
@@ -79,6 +80,34 @@ void WaitForExit() {
         if (pressed) break;
     }
     WPAD_Shutdown();
+}
+
+ExitChoice WaitForChoice(int timeout_seconds) {
+    PAD_Init();
+    WPAD_Init();
+    const u64 start = gettime();
+    ExitChoice choice = ExitChoice::Restart;
+    for (;;) {
+        VIDEO_WaitVSync();
+        if (SYS_ResetButtonDown()) break;
+        if (timeout_seconds > 0 && ticks_to_secs(gettime() - start) >= static_cast<u64>(timeout_seconds)) break;
+        PAD_ScanPads();
+        WPAD_ScanPads();
+        bool restart = false, leave = false;
+        for (int i = 0; i < 4; ++i) {
+            const u32 gc = PAD_ButtonsDown(i);
+            const u32 wii = WPAD_ButtonsDown(i);
+            if ((gc & PAD_BUTTON_A) || (wii & (WPAD_BUTTON_A | WPAD_CLASSIC_BUTTON_A))) restart = true;
+            if ((gc & PAD_BUTTON_START) || (wii & (WPAD_BUTTON_HOME | WPAD_CLASSIC_BUTTON_HOME))) leave = true;
+        }
+        if (leave) {
+            choice = ExitChoice::Leave;
+            break;
+        }
+        if (restart) break;
+    }
+    WPAD_Shutdown();
+    return choice;
 }
 
 }  // namespace riftwii::wii

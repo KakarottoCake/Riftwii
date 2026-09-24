@@ -76,8 +76,11 @@ Two scripts on the card drive a run without hands on a controller:
   `launch`.
 - `sd:/riftwii/guiscript.txt` plays input into the menu and saves
   screenshots (`wait`, `point`, `nopoint`, `press`, `hold`, `release`,
-  `glide`, `shot`, `finalshot`; see `wii/guiscript.hpp`). Pull the
-  screenshots out of the SD image afterwards.
+  `glide`, `shot`, `finalshot`, and `failnext` and `crash` to test the
+  way back from a failed launch and the crash screen; see
+  `wii/guiscript.hpp`). After a restart the menu reads
+  `guiscript-restart.txt` instead. Pull the screenshots (and
+  `crashscreen.bmp`) out of the SD image afterwards.
 
 Dolphin cannot run a d2x cIOS, so SD and USB image boot can only be
 checked on a Wii (`docs/USB_HARDWARE_TEST.md`). What Dolphin does check
