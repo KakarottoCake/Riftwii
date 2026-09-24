@@ -16,6 +16,17 @@ Tex tile, tileOver, roundBtn, roundBtnOver, pill, pillOver, pillPrimary, pillPri
     panelGame, panelSettings, bar, bannerStripes, arrowLeft, arrowLeftOver, arrowRight, arrowRightOver, iconDrives,
     iconGear, hand[4];
 
+// Textures and the menu font live below the MEM2 arena's low end, taken
+// once and never freed: the menu keeps them until the game replaces all of
+// memory, and the MEM1 heap stays for scans, packs and fragment lists.
+u8* Mem2Alloc(std::size_t bytes) {
+    u32 lo = (reinterpret_cast<u32>(SYS_GetArena2Lo()) + 31) & ~31u;
+    const u32 end = lo + ((bytes + 31) & ~std::size_t(31));
+    if (end > reinterpret_cast<u32>(SYS_GetArena2Hi())) return nullptr;
+    SYS_SetArena2Lo(reinterpret_cast<void*>(end));
+    return reinterpret_cast<u8*>(lo);
+}
+
 namespace {
 
 bool g_ready = false;
@@ -27,17 +38,6 @@ const Rgba kShadow = rgba(0x28283C, 34);
 const Rgba kAccentC = rgba(0x2FB6E9);
 const Rgba kGlow = rgba(0x2FB6E9, 80);
 const Rgba kGlyph = rgba(0x55555F);
-
-// Textures live below the MEM2 arena's low end, taken once and never
-// freed: the menu keeps them until the game replaces all of memory, and
-// the MEM1 heap (about 3 MB) stays for scans, packs and fragment lists.
-u8* Mem2Alloc(std::size_t bytes) {
-    u32 lo = (reinterpret_cast<u32>(SYS_GetArena2Lo()) + 31) & ~31u;
-    const u32 end = lo + ((bytes + 31) & ~std::size_t(31));
-    if (end > reinterpret_cast<u32>(SYS_GetArena2Hi())) return nullptr;
-    SYS_SetArena2Lo(reinterpret_cast<void*>(end));
-    return reinterpret_cast<u8*>(lo);
-}
 
 Tex Upload(const Canvas& c) {
     Tex t;

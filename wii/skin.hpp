@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
+#include <cstddef>
 #include <string>
 
 #include "libwiigui/gui.h"
@@ -40,6 +41,10 @@ extern Tex bannerStripes;                // 640x192 overlay for the game banner
 extern Tex arrowLeft, arrowLeftOver, arrowRight, arrowRightOver;  // 44 page arrows, drawn at -2,-2
 extern Tex iconDrives, iconGear;         // 28x28
 extern Tex hand[4];                      // 96x96 pointers, fingertip at the centre
+
+// Takes `bytes` of MEM2, 32-byte aligned, for the rest of the menu phase;
+// nullptr when MEM2 is full.
+u8* Mem2Alloc(std::size_t bytes);
 
 void Init();
 bool Ready();

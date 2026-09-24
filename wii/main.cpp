@@ -5,6 +5,8 @@
 #include <sdcard/wiisd_io.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <brotli/decode.h>
+#include <cstddef>
 #include <cstdlib>
 #include <string>
 #include <vector>
@@ -14,7 +16,7 @@
 #include "input.h"
 #include "menu.h"
 #include "video.h"
-#include "rounded_ttf.h"
+#include "menufont_bin.h"
 
 #include "autorun.hpp"
 #include "console.hpp"
@@ -24,6 +26,7 @@
 #include "loadersettings.hpp"
 #include "log.hpp"
 #include "menuios.hpp"
+#include "skin.hpp"
 
 int ExitRequested = 0;
 
@@ -65,6 +68,20 @@ void OpenSessionLog(bool sd_mounted) {
     riftwii::wii::logf("Memory: MEM1 heap 0x%08x-0x%08x, MEM2 heap 0x%08x-0x%08x\n",
                        reinterpret_cast<u32>(SYS_GetArena1Lo()), reinterpret_cast<u32>(SYS_GetArena1Hi()),
                        reinterpret_cast<u32>(SYS_GetArena2Lo()), reinterpret_cast<u32>(SYS_GetArena2Hi()));
+}
+
+// The menu font ships brotli-compressed (tools/make_menu_font.py): a
+// big-endian u32 of the TTF's size, then the stream. Unpacked into MEM2,
+// where FreeType reads it for the whole menu phase, so neither the DOL nor
+// the MEM1 heap carries the 1.7 MB TTF.
+bool UnpackMenuFont(u8*& font, std::size_t& size) {
+    if (menufont_bin_size < 4) return false;
+    size = (std::size_t(menufont_bin[0]) << 24) | (menufont_bin[1] << 16) | (menufont_bin[2] << 8) | menufont_bin[3];
+    font = riftwii::wii::skin::Mem2Alloc(size);
+    if (font == nullptr) return false;
+    std::size_t out = size;
+    return BrotliDecoderDecompress(menufont_bin_size - 4, menufont_bin + 4, &out, font) == BROTLI_DECODER_RESULT_SUCCESS &&
+           out == size;
 }
 
 }  // namespace
@@ -109,7 +126,14 @@ int main() {
     InitVideo();
     SetupPads();
     InitAudio();
-    InitFreeType(const_cast<u8*>(rounded_ttf), rounded_ttf_size);
+    u8* font = nullptr;
+    std::size_t font_size = 0;
+    if (!UnpackMenuFont(font, font_size)) {
+        // Only if MEM2 were already full: FreeType can't run without a face.
+        riftwii::wii::logf("Menu font: unpacking failed\n");
+        ExitApp();
+    }
+    InitFreeType(font, font_size);
     InitGUIThreads();
     const int action = MainMenu(MENU_SOURCE, state);
     const riftwii::wii::LaunchSource source = riftwii::wii::SelectedSource(state);
