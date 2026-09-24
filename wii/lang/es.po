@@ -596,3 +596,12 @@ msgstr "El idioma que el juego cree que usa la consola. Elige uno que el juego t
 
 msgid "The d2x cIOS the game runs under. Automatic uses the menu's, else the first of 249, 250 and 251 that works."
 msgstr "El cIOS d2x con el que corre el juego. Automático usa el del menú o, si no, el primero de 249, 250 y 251 que funcione."
+
+msgid "Online server"
+msgstr "Servidor en línea"
+
+msgid "Custom (no wfc_domain set)"
+msgstr "Personalizado (sin wfc_domain)"
+
+msgid "The online server the game uses in place of Nintendo's, which closed. Custom uses wfc_domain in settings.txt."
+msgstr "El servidor en línea que usa el juego en lugar del de Nintendo, que cerró. Personalizado usa wfc_domain de settings.txt."

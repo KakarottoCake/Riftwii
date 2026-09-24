@@ -89,6 +89,7 @@ struct GameSettings {
     std::string video_mode = "global";  // or a VideoMode name
     std::string language = "global";    // or a riftwii/gamelang.hpp name
     std::string cios = "global";        // or "auto", "248" ... "252"
+    std::string server = "global";      // or a riftwii/wfcpatch.hpp name
 };
 
 class LaunchModel {
@@ -144,6 +145,7 @@ public:
     //   *riftwii*\tcheat\t<name>          (one per cheat picked)
     //   *riftwii*\tvideo\t<width>, deflicker\t<filter>, borders\t<keep|remove>
     //   *riftwii*\tvideomode\t<mode>, gamelang\t<language>, cios\t<auto|slot>
+    //   *riftwii*\tserver\t<off|wiimmfi|wiilink|altwfc|custom>
     //   <file>\t<on|off>
     //   <file>\t<Section/Option>\t<choice name or empty>
     // Restoring ignores files, options and choices it no longer finds, and

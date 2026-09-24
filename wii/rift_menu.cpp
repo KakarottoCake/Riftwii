@@ -754,7 +754,7 @@ static std::string SaveNote(const riftwii::LaunchModel& model)
 }
 
 struct RowRef {
-	enum class What { Mods, Saves, Cheats, Width, Deflicker, Borders, VideoMode, Language, Cios, Favorite, Pack, Option, Note } what = What::Note;
+	enum class What { Mods, Saves, Cheats, Width, Deflicker, Borders, VideoMode, Language, Cios, Server, Favorite, Pack, Option, Note } what = What::Note;
 	std::size_t pkg = 0, opt = 0;
 };
 
@@ -767,6 +767,7 @@ static const char* const kVideoModes[] = {"global", "game", "system", "ntsc", "p
 static const char* const kGameLanguages[] = {"global", "console", "ja", "en", "de", "fr", "es", "it", "nl", "zh-hans",
 	"zh-hant", "ko"};
 static const char* const kCiosChoices[] = {"global", "auto", "248", "249", "250", "251", "252"};
+static const char* const kServers[] = {"global", "off", "wiimmfi", "wiilink", "altwfc", "custom"};
 
 template <std::size_t N>
 static std::string StepValue(const char* const (&list)[N], const std::string& value, int direction, bool withGlobal = true)
@@ -825,6 +826,18 @@ static std::string CiosName(const std::string& v)
 {
 	if (v == "auto") return tr("Automatic");
 	return "cIOS " + v;
+}
+static std::string ServerName(const std::string& v)
+{
+	if (v == "wiimmfi") return "Wiimmfi";
+	if (v == "wiilink") return "WiiLink WFC";
+	if (v == "altwfc") return "AltWFC";
+	if (v == "custom") {
+		const std::string& domain = riftwii::wii::Settings().wfc_domain;
+		if (!riftwii::valid_wfc_domain(domain)) return tr("Custom (no wfc_domain set)");
+		return domain;
+	}
+	return tr("Off");
 }
 // A game's value, or "Default (...)" naming what the global setting is.
 static std::string GameValue(const std::string& v, const std::string& global, std::string (*name)(const std::string&))
@@ -937,6 +950,12 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 		cios.on = game.cios != "global";
 		add(cios, {RowRef::What::Cios});
 	}
+	FlowRow server;
+	server.kind = FlowRow::Kind::Option;
+	server.label = tr("Online server");
+	server.value = GameValue(game.server, global.wfc_server, ServerName);
+	server.on = game.server != "global";
+	add(server, {RowRef::What::Server});
 	FlowRow favorite;
 	favorite.kind = FlowRow::Kind::Toggle;
 	favorite.label = tr("Favourite");
@@ -1449,6 +1468,8 @@ static int MenuHome(FrontendState& state)
 				say(tr("Favourites have their own view on Home: press 1 there until it shows."));
 			else if (ref.what == RowRef::What::Cios)
 				say(tr("The d2x cIOS the game runs under. Automatic uses the menu's, else the first of 249, 250 and 251 that works."));
+			else if (ref.what == RowRef::What::Server)
+				say(tr("The online server the game uses in place of Nintendo's, which closed. Custom uses wfc_domain in settings.txt."));
 			else say("");
 		}
 
@@ -1495,6 +1516,9 @@ static int MenuHome(FrontendState& state)
 				changed = true;
 			} else if (ref.what == RowRef::What::Cios) {
 				state.model.game.cios = StepValue(kCiosChoices, state.model.game.cios, direction);
+				changed = true;
+			} else if (ref.what == RowRef::What::Server) {
+				state.model.game.server = StepValue(kServers, state.model.game.server, direction);
 				changed = true;
 			} else if (ref.what == RowRef::What::Favorite && !state.game_id.empty()) {
 				std::set<std::string>& favorites = riftwii::wii::Settings().favorites;
@@ -1694,7 +1718,7 @@ static int MenuSettings(FrontendState& state)
 	const bool iosChoosable = iosChoices.size() > 1 || iosSlot != 0;
 
 	bool netOn = riftwii::wii::NetworkPacksEnabled();
-	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kGameLanguage, kGameCios, kOnline, kNames, kGcAdapter, kGcTest, kIos, kNet, kResync,
+	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kGameLanguage, kGameCios, kServer, kOnline, kNames, kGcAdapter, kGcTest, kIos, kNet, kResync,
 		kRescan, kUpdate, kExit, kNone };
 	std::vector<FlowRow> rows;
 	std::vector<RowAction> actions;
@@ -1719,6 +1743,7 @@ static int MenuSettings(FrontendState& state)
 		option(tr("Game language"), GameLanguageName(settings.game_language), settings.game_language != "console",
 			kGameLanguage);
 		option("Game cIOS", CiosName(settings.game_cios), settings.game_cios != "auto", kGameCios);
+		option(tr("Online server"), ServerName(settings.wfc_server), settings.wfc_server != "off", kServer);
 		option(tr("Download names and cheats"), settings.online ? tr("On") : tr("Off"), settings.online, kOnline,
 			FlowRow::Kind::Toggle);
 		FlowRow names;
@@ -1831,6 +1856,7 @@ static int MenuSettings(FrontendState& state)
 			case kVideoMode: return tr("The TV signal the game sends. PAL 50 Hz needs a TV that takes it, 480p a component cable.");
 			case kGameLanguage: return tr("The language the game is told the console uses. Pick one the game has: some games stop without it.");
 			case kGameCios: return tr("The d2x cIOS the game runs under. Automatic uses the menu's, else the first of 249, 250 and 251 that works.");
+			case kServer: return tr("The online server the game uses in place of Nintendo's, which closed. Custom uses wfc_domain in settings.txt.");
 			case kOnline:
 				return settings.online ? tr("Game names and cheats are downloaded when the Wii is online.")
 					: tr("Nothing is downloaded. Names and cheats already on the card are still used.");
@@ -1920,6 +1946,11 @@ static int MenuSettings(FrontendState& state)
 				case kGameCios:
 					settings.game_cios = StepValue(kCiosChoices, settings.game_cios, direction, false);
 					saveAndNote(tr("The d2x cIOS the game runs under. Automatic uses the menu's, else the first of 249, 250 and 251 that works."));
+					rebuild();
+					break;
+				case kServer:
+					settings.wfc_server = StepValue(kServers, settings.wfc_server, direction, false);
+					saveAndNote(tr("The online server the game uses in place of Nintendo's, which closed. Custom uses wfc_domain in settings.txt."));
 					rebuild();
 					break;
 				case kOnline:
