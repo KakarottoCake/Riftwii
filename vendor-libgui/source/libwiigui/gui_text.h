@@ -46,7 +46,8 @@ public:
 	//!Enables/disables text wrapping
 	//!\param w Wrapping on/off
 	//!\param width Maximum width (0 to disable)
-	void SetWrap(bool w, int width = 0);
+	//!\param lines RiftWii: at most this many lines, the last ending in "..." (0: no limit)
+	void SetWrap(bool w, int width = 0, int lines = 0);
 	//!Sets the font color
 	//!\param c Font color
 	void SetColor(GXColor c);
@@ -75,6 +76,7 @@ protected:
 	int textScrollDelay; //!< Scrolling speed
 	u16 style; //!< FreeTypeGX style attributes
 	bool wrap; //!< Wrapping toggle
+	int maxLines; //!< RiftWii: wrapped lines drawn at most (0: all)
 };
 
 #endif

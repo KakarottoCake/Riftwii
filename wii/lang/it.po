@@ -491,3 +491,18 @@ msgstr "Porta {1}"
 
 msgid "nothing plugged in"
 msgstr "niente collegato"
+
+msgid "The menu's language. Wii follows the console's own setting."
+msgstr "La lingua del menu. Wii segue l'impostazione della console."
+
+msgid "Downloads the newest game names from GameTDB."
+msgstr "Scarica i nomi dei giochi più recenti da GameTDB."
+
+msgid "Shows live what the controllers in the adapter are pressing."
+msgstr "Mostra in tempo reale cosa premono i controller dell'adattatore."
+
+msgid "Reads the SD card and the USB drive again."
+msgstr "Rilegge la scheda SD e l'unità USB."
+
+msgid "Back to the Homebrew Channel."
+msgstr "Torna all'Homebrew Channel."

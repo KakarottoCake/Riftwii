@@ -427,6 +427,32 @@ T = {
     # {1} 1 to 4.
     "Port {1}": ("Puerto {1}", "ポート{1}", "Porta {1}", "Porta {1}"),
     "nothing plugged in": ("nada conectado", "未接続", "nada conectado", "niente collegato"),
+    # Settings: what a row does, shown when it takes the focus.
+    "The menu's language. Wii follows the console's own setting.": (
+        "El idioma del menú. Wii sigue el ajuste de la consola.",
+        "メニューの言語です。「Wii」は本体の設定に合わせます。",
+        "O idioma do menu. Wii segue a configuração do console.",
+        "La lingua del menu. Wii segue l'impostazione della console."),
+    "Downloads the newest game names from GameTDB.": (
+        "Descarga los nombres de juegos más recientes de GameTDB.",
+        "GameTDBから最新のゲーム名をダウンロードします。",
+        "Baixa os nomes de jogos mais recentes do GameTDB.",
+        "Scarica i nomi dei giochi più recenti da GameTDB."),
+    "Shows live what the controllers in the adapter are pressing.": (
+        "Muestra en directo lo que pulsan los mandos del adaptador.",
+        "接続タップのコントローラで押しているボタンをその場で表示します。",
+        "Mostra ao vivo o que os controles do adaptador estão apertando.",
+        "Mostra in tempo reale cosa premono i controller dell'adattatore."),
+    "Reads the SD card and the USB drive again.": (
+        "Vuelve a leer la tarjeta SD y la unidad USB.",
+        "SDカードとUSBドライブをもう一度読み込みます。",
+        "Lê o cartão SD e a unidade USB de novo.",
+        "Rilegge la scheda SD e l'unità USB."),
+    "Back to the Homebrew Channel.": (
+        "Vuelve al Homebrew Channel.",
+        "Homebrew Channelに戻ります。",
+        "Volta ao Homebrew Channel.",
+        "Torna all'Homebrew Channel."),
 }
 
 

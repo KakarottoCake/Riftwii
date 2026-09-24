@@ -513,7 +513,7 @@ static int MenuSource(FrontendState& state)
 	Place(dateTxt, 0, 378, true);
 	GuiText statusTxt("", 15, skin::kInkSoft);
 	Place(statusTxt, 0, 408, true);
-	statusTxt.SetWrap(true, 400);
+	statusTxt.SetWrap(true, 400, 3);
 
 	SkinButton filterBtn(skin::roundBtn, skin::roundBtnOver, 2, 26, 386, nullptr,
 		WPAD_BUTTON_1 | WPAD_CLASSIC_BUTTON_Y, PAD_BUTTON_Y, WIIDRC_BUTTON_X, &skin::iconDrives);
@@ -987,13 +987,13 @@ static void MenuCheats(FrontendState& state)
 	GuiText gameTxt(gameName.c_str(), 16, skin::kInkDim);
 	gameTxt.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
 	gameTxt.SetPosition(-40, 40);
-	Panel panel(skin::panelSettings, 34, 76);
-	GuiFlowList list(46, 82, 548, 6);
+	Panel panel(skin::panelGame, 34, 76);
+	GuiFlowList list(46, 82, 548, 5);
 	list.SetRows(&rows);
 	list.Select(0);
 	GuiText noteTxt(fileNote.c_str(), 16, skin::kInkSoft);
-	Place(noteTxt, 52, 360);
-	noteTxt.SetWrap(true, 536);
+	Place(noteTxt, 52, 312);
+	noteTxt.SetWrap(true, 536, 4);
 	SkinButton backBtn(skin::pill, skin::pillOver, 4, 198, 406, "Back",
 		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
 
@@ -1143,13 +1143,13 @@ static void MenuMods(FrontendState& state, const std::string& scanStatus)
 	GuiText gameTxt(gameName.c_str(), 16, skin::kInkDim);
 	gameTxt.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
 	gameTxt.SetPosition(-40, 40);
-	Panel panel(skin::panelSettings, 34, 76);
-	GuiFlowList list(46, 82, 548, 6);
+	Panel panel(skin::panelGame, 34, 76);
+	GuiFlowList list(46, 82, 548, 5);
 	list.SetRows(&rows);
 	list.Select(0);
 	GuiText noteTxt("", 16, skin::kInkSoft);
-	Place(noteTxt, 52, 360);
-	noteTxt.SetWrap(true, 536);
+	Place(noteTxt, 52, 312);
+	noteTxt.SetWrap(true, 536, 4);
 	SkinButton backBtn(skin::pill, skin::pillOver, 4, 198, 406, "Back",
 		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
 
@@ -1239,7 +1239,7 @@ static int MenuHome(FrontendState& state)
 	const std::string title = GameTitle(state);
 	GuiText titleTxt(title.c_str(), 28, skin::kWhite);
 	Place(titleTxt, 40, 38);
-	titleTxt.SetWrap(true, 560);
+	titleTxt.SetWrap(true, 560, 2);
 	// The ID, and how often the game was played from RiftWii.
 	const std::string played = riftwii::wii::PlayNote(state.game_id);
 	const std::string idLine = played.empty() ? state.game_id : state.game_id + "   " + played;
@@ -1252,8 +1252,10 @@ static int MenuHome(FrontendState& state)
 	list.Select(0);
 
 	GuiText statusTxt(ModsNote(state, scanStatus).c_str(), 15, skin::kInkSoft);
-	Place(statusTxt, 0, 382, true);
-	statusTxt.SetMaxWidth(572);
+	// Two lines between the card and the buttons: a cIOS remedy or a
+	// compile error must stay readable in full.
+	Place(statusTxt, 0, 368, true);
+	statusTxt.SetWrap(true, 572, 2);
 
 	SkinButton backBtn(skin::pill, skin::pillOver, 4, 50, 406, "Back",
 		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
@@ -1479,7 +1481,7 @@ static void GcAdapterTestPage()
 	GuiText noteTxt(tr("Press buttons on a controller in the adapter to see them here. In a game that supports the GameCube controller, the adapter's controllers fill the ports that have none plugged in."),
 		15, skin::kInkDim);
 	Place(noteTxt, 56, 288);
-	noteTxt.SetWrap(true, 528);
+	noteTxt.SetWrap(true, 528, 3);
 	SkinButton backBtn(skin::pill, skin::pillOver, 4, 198, 406, "Back",
 		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
 
@@ -1634,13 +1636,13 @@ static int MenuSettings(FrontendState& state)
 	};
 	versionTxt.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
 	versionTxt.SetPosition(-40, 40);
-	Panel panel(skin::panelSettings, 34, 76);
-	GuiFlowList list(46, 82, 548, 6);
+	Panel panel(skin::panelGame, 34, 76);
+	GuiFlowList list(46, 82, 548, 5);
 	list.SetRows(&rows);
 	list.Select(0);
 	GuiText noteTxt(tr("These apply to every game. A game's own page can change them for that game."), 16, skin::kInkSoft);
-	Place(noteTxt, 52, 360);
-	noteTxt.SetWrap(true, 536);
+	Place(noteTxt, 52, 312);
+	noteTxt.SetWrap(true, 536, 4);
 
 	SkinButton backBtn(skin::pill, skin::pillOver, 4, 198, 406, "Back",
 		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
@@ -1656,11 +1658,42 @@ static int MenuSettings(FrontendState& state)
 	mainWindow->Append(&w);
 	ResumeGui();
 
+	// What each row does, shown when it takes the focus (the first row
+	// keeps the page's own note until the focus moves).
+	const auto help = [&](RowAction action) -> std::string {
+		switch (action) {
+			case kLanguage: return tr("The menu's language. Wii follows the console's own setting.");
+			case kWidth: return tr("How wide the picture is drawn. 720 fills the screen from side to side.");
+			case kDeflicker: return tr("A filter that softens the picture to hide flicker. Off gives the sharpest picture.");
+			case kBorders: return tr("Remove stretches the picture to fill the screen.");
+			case kOnline:
+				return settings.online ? tr("Game names and cheats are downloaded when the Wii is online.")
+					: tr("Nothing is downloaded. Names and cheats already on the card are still used.");
+			case kNames: return tr("Downloads the newest game names from GameTDB.");
+			case kGcAdapter:
+				return tr("In games that support the GameCube controller, the adapter's controllers fill the ports that have none plugged in. It needs IOS 58 or a d2x cIOS.");
+			case kGcTest: return tr("Shows live what the controllers in the adapter are pressing.");
+			case kIos: return MenuIosNote(iosSlot);
+			case kNet:
+				return netOn ? "Looks for a PC running a RiiFS server when the games are read. Rescan to look now."
+					: "Only servers named by <network> in an XML on the card are used.";
+			case kResync: return "The next launch copies every file of its network packs again.";
+			case kRescan: return tr("Reads the SD card and the USB drive again.");
+			case kExit: return tr("Back to the Homebrew Channel.");
+			default: return "";
+		}
+	};
+	int shownRow = list.Selected();
 	while(menu == MENU_NONE)
 	{
 		usleep(10000);
 		HaltGui();
 		ClearStaleButtons({&backBtn.button});
+		const int focused = list.Selected();
+		if (focused != shownRow && focused >= 0 && static_cast<std::size_t>(focused) < actions.size()) {
+			shownRow = focused;
+			noteTxt.SetText(help(actions[static_cast<std::size_t>(focused)]).c_str());
+		}
 		int acted = list.GetClicked();
 		int direction = +1;
 		if (acted < 0) {
@@ -1816,7 +1849,7 @@ static void ShowLaunchFrame(const FrontendState& state, int action)
 	Place(doingTxt, 40, 40);
 	GuiText titleTxt(title.c_str(), 28, skin::kInk);
 	Place(titleTxt, 40, 62);
-	titleTxt.SetWrap(true, 560);
+	titleTxt.SetWrap(true, 560, 2);
 	Panel card(skin::panelSettings, 34, 160);
 	GuiText footTxt("The game takes over the screen when it is ready.", 15, skin::kInkDim);
 	Place(footTxt, 0, 428, true);
