@@ -24,6 +24,7 @@ below names the files that own it.
 | Riivolution's choices file (`riivolution/config/<ID4>.xml`), read and written | `src/riiconfig.cpp`, `wii/frontend.cpp` |
 | Game images on SD and USB (WBFS, split WBFS, ISO; FAT32 and NTFS) | `wii/usbcatalog.cpp`, `src/usbgame.cpp`, `src/fat32.cpp`, `src/ntfs.cpp` |
 | Game names (GameTDB), cheats (GeckoCodes archive) | `wii/online.cpp`, `src/titles.cpp`, `src/cheats.cpp`, `src/http.cpp`, `wii/netsock.cpp` |
+| Online servers (Wiimmfi, WiiLink WFC, AltWFC, custom) | `src/wfcpatch.cpp`, `wii/wfc.cpp`, `vendor-wwfc/` |
 | Update check (GitHub over https: BearSSL, `Makefile.bearssl`) | `wii/online.cpp`, `src/update.cpp`, `wii/tls.cpp`, `wii/tlsroots.c` |
 | Network packs (RiiFS) | `wii/netpacks.cpp`, `src/riifs.cpp`, `src/riifs_sync.cpp`, `docs/RIIFS.md` |
 | Settings, play history, translations | `wii/loadersettings.cpp`, `src/settingsfile.cpp`, `src/playhistory.cpp`, `wii/i18n.cpp`, `tools/lang_source.py` |
@@ -68,7 +69,9 @@ the pack, option and file named, so a game never starts half patched.
    (`wii/padhook.cpp`); apply memory patches, cheats (the Gecko code
    handler, `vendor-gecko/`), video patches (`src/videopatch.cpp`: width,
    deflicker, borders, and a forced TV format that converts the game's
-   render mode tables) and the game language (`src/gamelang.cpp`).
+   render mode tables) and the game language (`src/gamelang.cpp`); last,
+   the online server (`wii/wfc.cpp`), which may take memory below the
+   MEM1 and MEM2 arena ends.
 5. Write the low-memory globals and jump to the game.
 
 ## 4. Inside the game

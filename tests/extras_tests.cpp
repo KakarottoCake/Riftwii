@@ -9,6 +9,7 @@
 #include "riftwii/playhistory.hpp"
 #include "riftwii/settingsfile.hpp"
 #include "riftwii/update.hpp"
+#include "riftwii/wfcpatch.hpp"
 #include "riftwii/videopatch.hpp"
 
 #include <cstring>
@@ -397,6 +398,61 @@ void TestSettings() {
     EXPECT_TRUE(LoaderSettings{}.serialize().find("favorites") == std::string::npos);
 }
 
+void TestWfc() {
+    WfcServer server = WfcServer::Off;
+    EXPECT_TRUE(parse_wfc_server("wiilink", server));
+    EXPECT_TRUE(server == WfcServer::WiiLink);
+    EXPECT_FALSE(parse_wfc_server("nintendo", server));
+    EXPECT_EQ(wfc_domain(WfcServer::Wiimmfi, ""), "wiimmfi.de");
+    EXPECT_EQ(wfc_domain(WfcServer::Custom, "wfc.example"), "wfc.example");
+    EXPECT_TRUE(valid_wfc_domain("zwei.moe"));
+    EXPECT_FALSE(valid_wfc_domain("far-too-long.example.org"));
+    EXPECT_FALSE(valid_wfc_domain("no_dot"));
+    EXPECT_FALSE(valid_wfc_domain("a b.cd"));
+
+    const char text[] = "xx\0https://naswii.nintendowifi.net/ac\0gamespy.nintendowifi.net\0https://\0end";
+    std::vector<std::uint8_t> b(text, text + sizeof(text));
+    EXPECT_EQ(patch_https_to_http(b.data(), b.size()), 1u);
+    EXPECT_EQ(std::string(reinterpret_cast<const char*>(b.data() + 3)), "http://naswii.nintendowifi.net/ac");
+    EXPECT_EQ(b[3 + 34], 0);
+    EXPECT_EQ(patch_wfc_domain(b.data(), b.size(), "wiimmfi.de"), 2u);
+    EXPECT_EQ(std::string(reinterpret_cast<const char*>(b.data() + 3)), "http://naswii.wiimmfi.de/ac");
+    EXPECT_EQ(std::string(reinterpret_cast<const char*>(b.data() + 38)), "gamespy.wiimmfi.de");
+    EXPECT_EQ(b[38 + 24], 0);                     // the old tail is zeroed
+    EXPECT_EQ(std::string(reinterpret_cast<const char*>(b.data() + 63)), "https://");  // empty: left alone
+    EXPECT_EQ(patch_wfc_domain(b.data(), b.size(), "much-too-long.domain.example"), 0u);
+
+    const char ua[] = "..User-Agent\0\0RVL SDK/1.0\0";
+    std::vector<std::uint8_t> u(ua, ua + sizeof(ua));
+    EXPECT_EQ(patch_wiimmfi_generic(u.data(), u.size()), 0);
+    EXPECT_EQ(std::string(reinterpret_cast<const char*>(u.data() + 14)), "G-3-0");
+    // The GT2 bug twice is refused; once without its code, reported.
+    std::string two = std::string("<GT2> RECV-0x%02x <- [--------:-----] [pid=%u]") + '\0';
+    two += two;
+    std::vector<std::uint8_t> t(two.begin(), two.end());
+    EXPECT_EQ(patch_wiimmfi_generic(t.data(), t.size()), 1);
+    t.resize(t.size() / 2);
+    EXPECT_EQ(patch_wiimmfi_generic(t.data(), t.size()), 2);
+
+    LoaderSettings global;
+    global.parse("wfc_server = custom\nwfc_domain = bad domain\n");
+    GameSettings game;
+    EXPECT_TRUE(effective_wfc_server(game, global) == WfcServer::Off);  // no valid domain
+    global.parse("wfc_domain = wfc.example\n");
+    EXPECT_TRUE(effective_wfc_server(game, global) == WfcServer::Custom);
+    game.server = "wiimmfi";
+    EXPECT_TRUE(effective_wfc_server(game, global) == WfcServer::Wiimmfi);
+    LoaderSettings again;
+    again.parse(global.serialize());
+    EXPECT_EQ(again.wfc_domain, "wfc.example");
+    EXPECT_EQ(again.wfc_server, "custom");
+    LaunchModel m;
+    m.game.server = "wiilink";
+    LaunchModel back;
+    back.restore(m.save());
+    EXPECT_EQ(back.game.server, "wiilink");
+}
+
 void TestGameLanguage() {
     int code = 0;
     EXPECT_TRUE(parse_game_language("zh-hant", code));
@@ -494,6 +550,7 @@ int main() {
     TestVideoModes();
     TestSettings();
     TestGameLanguage();
+    TestWfc();
     TestLang();
     TestHistory();
     if (g_failures != 0) {

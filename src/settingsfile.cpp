@@ -47,6 +47,11 @@ void LoaderSettings::parse(const std::string& text) {
         } else if (key == "game_language") {
             int code;
             if (parse_game_language(value, code)) game_language = value;
+        } else if (key == "wfc_server") {
+            WfcServer server;
+            if (parse_wfc_server(value, server)) wfc_server = value;
+        } else if (key == "wfc_domain") {
+            if (value.empty() || valid_wfc_domain(value)) wfc_domain = value;
         } else if (key == "game_cios") {
             int slot;
             if (parse_cios_choice(value, slot)) game_cios = value;
@@ -81,6 +86,8 @@ std::string LoaderSettings::serialize() const {
     s += "video_mode = " + video_mode + "\n";
     s += "game_language = " + game_language + "\n";
     s += "game_cios = " + game_cios + "\n";
+    s += "wfc_server = " + wfc_server + "\n";
+    s += "wfc_domain = " + wfc_domain + "\n";
     s += std::string("online = ") + (online ? "on" : "off") + "\n";
     s += "gc_adapter = " + gc_adapter + "\n";
     if (!favorites.empty()) {
@@ -119,6 +126,15 @@ int effective_game_cios(const GameSettings& game, const LoaderSettings& global) 
         if (!parse_cios_choice(global.game_cios, slot)) slot = 0;
     }
     return slot;
+}
+
+WfcServer effective_wfc_server(const GameSettings& game, const LoaderSettings& global) {
+    WfcServer server = WfcServer::Off;
+    if (game.server == "global" || !parse_wfc_server(game.server, server)) {
+        if (!parse_wfc_server(global.wfc_server, server)) server = WfcServer::Off;
+    }
+    if (server == WfcServer::Custom && !valid_wfc_domain(global.wfc_domain)) server = WfcServer::Off;
+    return server;
 }
 
 bool parse_cios_choice(const std::string& s, int& slot) {

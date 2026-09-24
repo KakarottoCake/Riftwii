@@ -12,6 +12,7 @@
 #include "riftwii/hook.hpp"
 #include "riftwii/patch.hpp"
 #include "riftwii/videopatch.hpp"
+#include "riftwii/wfcpatch.hpp"
 
 // E1: boot an unmodified disc the way the System Menu would, from a
 // homebrew loader. The sequence (drive reset, disc id, partition table,
@@ -147,6 +148,8 @@ struct LaunchExtras {
     GcAdapterMode gc_adapter = GcAdapterMode::Off;
     VideoSettings video;  // its target is set at boot, from its mode
     int language = -1;    // riftwii/gamelang.hpp code; -1: the console's
+    WfcServer server = WfcServer::Off;  // online play (wii/wfc.hpp)
+    std::string wfc_domain;             // the server's domain; empty for WiiLink
     std::vector<std::uint8_t> cheat_gct;  // empty: no cheats
     std::size_t cheat_count = 0;
 };

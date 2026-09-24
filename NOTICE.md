@@ -21,6 +21,8 @@ with GPL-3.0-or-later and their notices are reproduced in the vendored files.
 | GameCube controller adapter (WUP-028) | `runtime/rtgcad.*`, `runtime/pad/`, `wii/padhook.*`, `wii/gcadapter.*` | wup-028-bslug by Alex Chadwick 2017 (https://github.com/Chadderz121/wup-028-bslug), Dolphin's `GCAdapter.cpp` and IOS HID v4/v5 emulation, fakemote (embedded-game-controller), wiibrew's /dev/usb/hid (v4), /dev/usb/hid (v5) and /dev/usb/ven pages | wup-028-bslug is MIT; Dolphin and fakemote are GPL-2.0-or-later, read as documentation. The adapter's init and rumble commands, its 37-byte report layout and the HID request sequences follow these; the driver and the PADRead/PADControlMotor hooks are RiftWii's own code, no text copied. |
 | BearSSL | `vendor-bearssl/` (built by `Makefile.bearssl`), used by `wii/tls.cpp` | 0.6, https://bearssl.org (`bearssl-0.6.tar.gz`, SHA-256 `6705bba1714961b41a728dfc5debbe348d2966c117649392f8c8139efc83ff14`), unmodified | MIT (`vendor-bearssl/LICENSE.txt`) |
 | TLS trust anchors | `wii/tlsroots.c` | Sectigo Public Server Authentication Root E46 and R46, USERTrust ECC and RSA Certification Authority, from the Mozilla CA list as shipped with Git for Windows; converted with BearSSL's `brssl ta` | Public certificate data |
+| WiiLink WFC launcher pieces | `vendor-wwfc/` (used by `wii/wfc.cpp`) | WiiLink's wfc-patcher-wii (https://github.com/WiiLink24/wfc-patcher-wii at commit `0d9d7a697d7fb299ecc629f2c5da071d116369f2`, `launcher/source`): the hook code, the game address table and the downloader payload; renamed, otherwise unmodified (`vendor-wwfc/README.md`). Online communications credit to WiiLink WFC - https://wfc.wiilink.ca | GPL-2.0-or-later, offered beside that project's own licence (`vendor-wwfc/LICENSE`) |
+| USB Loader GX (online servers) | `src/wfcpatch.cpp`, `wii/wfc.cpp` | USB Loader GX (https://github.com/wiidev/usbloadergx) `gamepatches.c`: `PrivateServerPatcher` and `domainpatcher` (after ToadKing's wiilauncher-nossl), Leseratte's Wiimmfi patches (`do_new_wiimmfi`, including the Wiimmfi team's binary patch and the error 51420 fix, copied as data; `do_new_wiimmfi_nonMKWii`) and the Mario Kart Wii RCE fix (`patch_error_codes`) | GPL-2.0-or-later. The Wiimmfi blob is copied unchanged; the rest reimplemented. |
 | USB Loader GX (game patches) | `src/gamelang.cpp`, `src/videopatch.cpp` (TV format conversion) | USB Loader GX (https://github.com/wiidev/usbloadergx): the SCGetLanguage search pattern and its `li r3,<language>` replacement (`patchcode.c`, `langpatcher`), and the Revolution SDK render mode heights its video mode patcher lists (`gamepatches.c`) | GPL-2.0-or-later. Reimplemented, not copied. |
 | d2x-cIOS DIP plugin | `wii/di.cpp`, `include/riftwii/usbgame.hpp`, `src/usbgame.cpp` | public d2x-cIOS `source/dip-plugin/{ioctl.h,frag.h,plugin.c}`; command/layout facts only | GPL-3.0-or-later. F6/F9/FA numbers, DEV_USB=1, DEV_SDHC=2, and the native `{size,num,maxnum}` / `{offset,sector,count}` ABI were independently implemented; no plugin implementation text was copied. |
 
@@ -38,7 +40,8 @@ portlibs), each under its own licence.
 ## Design provenance
 
 RiftWii is a clean-room implementation. No Riivolution source code was
-consulted or copied. Behavioural references used, all publicly available:
+copied. For 2.0, Riivolution's source was read for behaviour
+only (how its choices files and macros work), never copied. Behavioural references used, all publicly available:
 
 - The Riivolution patch-format documentation:
   https://riivolution.github.io/wiki/Patch_Format/

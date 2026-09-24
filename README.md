@@ -112,6 +112,7 @@ these rows:
   Mario Galaxy 2 from the US has no German, and freezes).
 - **cIOS** (SD and USB games) picks the d2x slot the game runs under,
   248 to 252. *Automatic* uses the Menu IOS slot, else 249, 250, 251.
+- **Online server** lets the game play online again (below).
 
   *Default* follows Settings, where the same rows apply to every game.
 
@@ -131,7 +132,8 @@ the list explains the row you are on.
   follow the console. A translation can be corrected by putting a copy of
   `wii/lang/<lang>.po` at `sd:/riftwii/lang/<lang>.po`.
 - **Picture width**, **Deflicker**, **Black borders**, **Video mode**,
-  **Game language**, **Game cIOS**: the defaults for every game.
+  **Game language**, **Game cIOS**, **Online server**: the defaults for
+  every game.
 - **Download names and cheats**, and **Get the latest game names**.
 - **GameCube adapter**, and **Check the GameCube adapter** (below).
 - **Menu IOS**: IOS 58, or a d2x cIOS slot (248 to 252). Pick the slot that has
@@ -151,6 +153,26 @@ network. A server's packs show with `@ address` after their name.
 RiftWii copies what a launch needs into `sd:/riftwii/riifs/` first (only
 files whose size changed), then boots from the card. Saves stay on the
 card. More in `docs/RIIFS.md`.
+
+### Online play
+
+Nintendo's Wi-Fi Connection closed in 2014; **Online server** points a
+game at a replacement:
+
+- *Wiimmfi* (https://wiimmfi.de). Mario Kart Wii gets Wiimmfi's own
+  patch, as USB Loader GX applies it.
+- *WiiLink WFC* (https://wfc.wiilink.ca), for the games in WiiLink's
+  list: the game downloads WiiLink's patch when it connects, as WiiLink's
+  own launcher does it. Online communications credit to WiiLink WFC.
+- *AltWFC* (zwei.moe).
+- *Custom*: the server in `wfc_domain = <domain>` in
+  `sd:/riftwii/settings.txt` (4 to 16 characters, as it replaces
+  "nintendowifi.net").
+
+Nothing changes while packs are on: Mario Kart Wii distributions bring
+their own online setup. On AltWFC or a custom server, Mario Kart Wii
+also gets the fix for its remote code execution hole (Wiimmfi's and
+WiiLink's patches fix it themselves).
 
 ### Mario Kart Wii distributions
 

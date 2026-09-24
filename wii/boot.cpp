@@ -34,6 +34,7 @@
 #include "sdfile.hpp"
 #include "sdio.hpp"
 #include "usbcatalog.hpp"
+#include "wfc.hpp"
 #include "codehandleronly_bin.h"
 #include "riftwii/codehook.hpp"
 #include "riftwii/gamelang.hpp"
@@ -1127,6 +1128,15 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
     if (pad.active) {
         std::string why;
         if (!install_pad_hook(pad, why)) logf("GameCube adapter: off: %s\n", why.c_str());
+    }
+    // Last, as USB Loader GX does: Wiimmfi's Mario Kart Wii patch goes
+    // below everything else in the MEM1 arena. Packs bring their own online
+    // setup (and may have replaced the code these patches expect).
+    if (g_extras.server != WfcServer::Off) {
+        const bool packs = !options.memory_patches.empty() || !options.virtual_files.empty() ||
+                           !options.replacements.empty() || !options.sd_replacements.empty();
+        if (packs) logf("WFC: not patched; packs are on\n");
+        else ApplyWfc(loaded, g_extras.server, g_extras.wfc_domain, g_extras.game_id, probe.header.version);
     }
     settime(secs_to_ticks(static_cast<u64>(std::time(nullptr)) - kWiiEpochOffset));
 

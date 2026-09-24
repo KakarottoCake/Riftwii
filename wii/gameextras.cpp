@@ -110,6 +110,8 @@ void PrepareLaunchExtras(const FrontendState& state) {
     extras.game_id = state.game_id;
     extras.video = effective_video(state.model.game, Settings());
     extras.language = effective_game_language(state.model.game, Settings());
+    extras.server = effective_wfc_server(state.model.game, Settings());
+    extras.wfc_domain = wfc_domain(extras.server, Settings().wfc_domain);
     const std::string& adapter = Settings().gc_adapter;
     extras.gc_adapter = adapter == "on" ? GcAdapterMode::On : adapter == "demo" ? GcAdapterMode::Demo : GcAdapterMode::Off;
     if (state.model.game.cheats && !state.model.game.cheat_names.empty()) {
