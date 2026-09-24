@@ -453,11 +453,41 @@ T = {
         "Homebrew Channelに戻ります。",
         "Volta ao Homebrew Channel.",
         "Torna all'Homebrew Channel."),
-    "No d2x cIOS was found in slots 248 to 251, so the menu runs under IOS 58. Install d2x to play games from SD or USB.": (
-        "No se encontró ningún cIOS d2x en los slots 248 a 251, así que el menú usa el IOS 58. Instala d2x para jugar desde SD o USB.",
-        "スロット248〜251にd2x cIOSがないため、メニューはIOS 58で動いています。SDやUSBのゲームを遊ぶにはd2xを入れてください。",
-        "Nenhum cIOS d2x foi encontrado nos slots 248 a 251, então o menu usa o IOS 58. Instale o d2x para jogar pelo SD ou USB.",
-        "Nessun cIOS d2x trovato negli slot da 248 a 251, quindi il menu usa l'IOS 58. Installa d2x per giocare da SD o USB."),
+    "No d2x cIOS was found in slots 248 to 252, so the menu runs under IOS 58. Install d2x to play games from SD or USB.": (
+        "No se encontró ningún cIOS d2x en los slots 248 a 252, así que el menú usa el IOS 58. Instala d2x para jugar desde SD o USB.",
+        "スロット248〜252にd2x cIOSがないため、メニューはIOS 58で動いています。SDやUSBのゲームを遊ぶにはd2xを入れてください。",
+        "Nenhum cIOS d2x foi encontrado nos slots 248 a 252, então o menu usa o IOS 58. Instale o d2x para jogar pelo SD ou USB.",
+        "Nessun cIOS d2x trovato negli slot da 248 a 252, quindi il menu usa l'IOS 58. Installa d2x per giocare da SD o USB."),
+    # Video mode, game language, game cIOS
+    "Video mode": ("Modo de vídeo", "映像モード", "Modo de vídeo", "Modalità video"),
+    "Game language": ("Idioma del juego", "ゲームの言語", "Idioma do jogo", "Lingua del gioco"),
+    "The console's": ("El de la consola", "本体の設定", "O do console", "Quella della console"),
+    "Automatic": ("Automático", "自動", "Automático", "Automatico"),
+    "Japanese": ("Japonés", "日本語", "Japonês", "Giapponese"),
+    "English": ("Inglés", "英語", "Inglês", "Inglese"),
+    "German": ("Alemán", "ドイツ語", "Alemão", "Tedesco"),
+    "French": ("Francés", "フランス語", "Francês", "Francese"),
+    "Spanish": ("Español", "スペイン語", "Espanhol", "Spagnolo"),
+    "Italian": ("Italiano", "イタリア語", "Italiano", "Italiano"),
+    "Dutch": ("Neerlandés", "オランダ語", "Holandês", "Olandese"),
+    "Chinese (simplified)": ("Chino (simplificado)", "中国語 (簡体字)", "Chinês (simplificado)", "Cinese (semplificato)"),
+    "Chinese (traditional)": ("Chino (tradicional)", "中国語 (繁体字)", "Chinês (tradicional)", "Cinese (tradizionale)"),
+    "Korean": ("Coreano", "韓国語", "Coreano", "Coreano"),
+    "The TV signal the game sends. PAL 50 Hz needs a TV that takes it, 480p a component cable.": (
+        "La señal de TV que envía el juego. PAL 50 Hz necesita una TV que lo admita; 480p, un cable de componentes.",
+        "ゲームが出す映像信号です。PAL 50 Hzには対応したテレビが、480pにはコンポーネントケーブルが必要です。",
+        "O sinal de TV que o jogo envia. PAL 50 Hz precisa de uma TV compatível; 480p, de um cabo componente.",
+        "Il segnale TV che il gioco invia. PAL 50 Hz richiede una TV che lo supporti, 480p un cavo component."),
+    "The language the game is told the console uses. Pick one the game has: some games stop without it.": (
+        "El idioma que el juego cree que usa la consola. Elige uno que el juego tenga: algunos se detienen sin él.",
+        "ゲームに伝える本体の言語です。ゲームにある言語を選んでください。ないと止まるゲームもあります。",
+        "O idioma que o jogo acha que o console usa. Escolha um que o jogo tenha: alguns jogos param sem ele.",
+        "La lingua che il gioco crede usi la console. Scegline una che il gioco ha: alcuni giochi si bloccano senza."),
+    "The d2x cIOS the game runs under. Automatic uses the menu's, else the first of 249, 250 and 251 that works.": (
+        "El cIOS d2x con el que corre el juego. Automático usa el del menú o, si no, el primero de 249, 250 y 251 que funcione.",
+        "ゲームを動かすd2x cIOSです。自動ではメニューのものを使い、なければ249、250、251のうち動くものを使います。",
+        "O cIOS d2x em que o jogo roda. Automático usa o do menu ou, senão, o primeiro de 249, 250 e 251 que funcionar.",
+        "Il cIOS d2x con cui gira il gioco. Automatico usa quello del menu, altrimenti il primo tra 249, 250 e 251 che funziona."),
 }
 
 

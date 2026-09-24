@@ -703,7 +703,7 @@ static std::string SaveNote(const riftwii::LaunchModel& model)
 }
 
 struct RowRef {
-	enum class What { Mods, Saves, Cheats, Width, Deflicker, Borders, Pack, Option, Note } what = What::Note;
+	enum class What { Mods, Saves, Cheats, Width, Deflicker, Borders, VideoMode, Language, Cios, Pack, Option, Note } what = What::Note;
 	std::size_t pkg = 0, opt = 0;
 };
 
@@ -712,6 +712,10 @@ struct RowRef {
 static const char* const kWidths[] = {"global", "game", "framebuffer", "704", "720"};
 static const char* const kDeflickers[] = {"global", "game", "off", "low", "medium", "high"};
 static const char* const kBorderModes[] = {"global", "keep", "remove"};
+static const char* const kVideoModes[] = {"global", "game", "system", "ntsc", "pal60", "pal50", "480p"};
+static const char* const kGameLanguages[] = {"global", "console", "ja", "en", "de", "fr", "es", "it", "nl", "zh-hans",
+	"zh-hant", "ko"};
+static const char* const kCiosChoices[] = {"global", "auto", "248", "249", "250", "251", "252"};
 
 template <std::size_t N>
 static std::string StepValue(const char* const (&list)[N], const std::string& value, int direction, bool withGlobal = true)
@@ -742,6 +746,34 @@ static std::string DeflickerName(const std::string& v)
 static std::string BordersName(const std::string& v)
 {
 	return v == "remove" ? tr("Remove") : tr("Keep");
+}
+static std::string VideoModeName(const std::string& v)
+{
+	if (v == "system") return tr("The console's");
+	if (v == "ntsc") return "NTSC (480i)";
+	if (v == "pal60") return "PAL 60 Hz";
+	if (v == "pal50") return "PAL 50 Hz";
+	if (v == "480p") return "480p";
+	return tr("Game's own");
+}
+static std::string GameLanguageName(const std::string& v)
+{
+	if (v == "ja") return tr("Japanese");
+	if (v == "en") return tr("English");
+	if (v == "de") return tr("German");
+	if (v == "fr") return tr("French");
+	if (v == "es") return tr("Spanish");
+	if (v == "it") return tr("Italian");
+	if (v == "nl") return tr("Dutch");
+	if (v == "zh-hans") return tr("Chinese (simplified)");
+	if (v == "zh-hant") return tr("Chinese (traditional)");
+	if (v == "ko") return tr("Korean");
+	return tr("The console's");
+}
+static std::string CiosName(const std::string& v)
+{
+	if (v == "auto") return tr("Automatic");
+	return "cIOS " + v;
 }
 // A game's value, or "Default (...)" naming what the global setting is.
 static std::string GameValue(const std::string& v, const std::string& global, std::string (*name)(const std::string&))
@@ -833,6 +865,27 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 	borders.value = GameValue(game.borders, global.borders, BordersName);
 	borders.on = game.borders != "global";
 	add(borders, {RowRef::What::Borders});
+	FlowRow videoMode;
+	videoMode.kind = FlowRow::Kind::Option;
+	videoMode.label = tr("Video mode");
+	videoMode.value = GameValue(game.video_mode, global.video_mode, VideoModeName);
+	videoMode.on = game.video_mode != "global";
+	add(videoMode, {RowRef::What::VideoMode});
+	FlowRow language;
+	language.kind = FlowRow::Kind::Option;
+	language.label = tr("Game language");
+	language.value = GameValue(game.language, global.game_language, GameLanguageName);
+	language.on = game.language != "global";
+	add(language, {RowRef::What::Language});
+	// Discs run under the menu's IOS reload; the cIOS is for images.
+	if (state.use_usb || state.use_sd) {
+		FlowRow cios;
+		cios.kind = FlowRow::Kind::Option;
+		cios.label = "cIOS";
+		cios.value = GameValue(game.cios, global.game_cios, CiosName);
+		cios.on = game.cios != "global";
+		add(cios, {RowRef::What::Cios});
+	}
 }
 
 // The Mods page: each pack made for the game as a switch, its options
@@ -1331,6 +1384,12 @@ static int MenuHome(FrontendState& state)
 				const std::string how = tr("Remove stretches the picture to fill the screen.");
 				say(seen.empty() ? how : seen + " " + how);
 			}
+			else if (ref.what == RowRef::What::VideoMode)
+				say(tr("The TV signal the game sends. PAL 50 Hz needs a TV that takes it, 480p a component cable."));
+			else if (ref.what == RowRef::What::Language)
+				say(tr("The language the game is told the console uses. Pick one the game has: some games stop without it."));
+			else if (ref.what == RowRef::What::Cios)
+				say(tr("The d2x cIOS the game runs under. Automatic uses the menu's, else the first of 249, 250 and 251 that works."));
 			else say("");
 		}
 
@@ -1368,6 +1427,15 @@ static int MenuHome(FrontendState& state)
 				changed = true;
 			} else if (ref.what == RowRef::What::Borders) {
 				state.model.game.borders = StepValue(kBorderModes, state.model.game.borders, direction);
+				changed = true;
+			} else if (ref.what == RowRef::What::VideoMode) {
+				state.model.game.video_mode = StepValue(kVideoModes, state.model.game.video_mode, direction);
+				changed = true;
+			} else if (ref.what == RowRef::What::Language) {
+				state.model.game.language = StepValue(kGameLanguages, state.model.game.language, direction);
+				changed = true;
+			} else if (ref.what == RowRef::What::Cios) {
+				state.model.game.cios = StepValue(kCiosChoices, state.model.game.cios, direction);
 				changed = true;
 			}
 			if (changed) {
@@ -1559,7 +1627,7 @@ static int MenuSettings(FrontendState& state)
 	const bool iosChoosable = iosChoices.size() > 1 || iosSlot != 0;
 
 	bool netOn = riftwii::wii::NetworkPacksEnabled();
-	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kOnline, kNames, kGcAdapter, kGcTest, kIos, kNet, kResync,
+	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kGameLanguage, kGameCios, kOnline, kNames, kGcAdapter, kGcTest, kIos, kNet, kResync,
 		kRescan, kExit, kNone };
 	std::vector<FlowRow> rows;
 	std::vector<RowAction> actions;
@@ -1580,6 +1648,10 @@ static int MenuSettings(FrontendState& state)
 		option(tr("Picture width"), WidthName(settings.video_width), settings.video_width != "game", kWidth);
 		option(tr("Deflicker"), DeflickerName(settings.deflicker), settings.deflicker != "game", kDeflicker);
 		option(tr("Black borders"), BordersName(settings.borders), settings.borders == "remove", kBorders);
+		option(tr("Video mode"), VideoModeName(settings.video_mode), settings.video_mode != "game", kVideoMode);
+		option(tr("Game language"), GameLanguageName(settings.game_language), settings.game_language != "console",
+			kGameLanguage);
+		option("Game cIOS", CiosName(settings.game_cios), settings.game_cios != "auto", kGameCios);
 		option(tr("Download names and cheats"), settings.online ? tr("On") : tr("Off"), settings.online, kOnline,
 			FlowRow::Kind::Toggle);
 		FlowRow names;
@@ -1682,6 +1754,9 @@ static int MenuSettings(FrontendState& state)
 			case kWidth: return tr("How wide the picture is drawn. 720 fills the screen from side to side.");
 			case kDeflicker: return tr("A filter that softens the picture to hide flicker. Off gives the sharpest picture.");
 			case kBorders: return tr("Remove stretches the picture to fill the screen.");
+			case kVideoMode: return tr("The TV signal the game sends. PAL 50 Hz needs a TV that takes it, 480p a component cable.");
+			case kGameLanguage: return tr("The language the game is told the console uses. Pick one the game has: some games stop without it.");
+			case kGameCios: return tr("The d2x cIOS the game runs under. Automatic uses the menu's, else the first of 249, 250 and 251 that works.");
 			case kOnline:
 				return settings.online ? tr("Game names and cheats are downloaded when the Wii is online.")
 					: tr("Nothing is downloaded. Names and cheats already on the card are still used.");
@@ -1697,7 +1772,7 @@ static int MenuSettings(FrontendState& state)
 			case kRescan: return tr("Reads the SD card and the USB drive again.");
 			case kExit: return tr("Back to the Homebrew Channel.");
 			case kNone:  // the Menu IOS row when there is nothing to choose
-				return tr("No d2x cIOS was found in slots 248 to 251, so the menu runs under IOS 58. Install d2x to play games from SD or USB.");
+				return tr("No d2x cIOS was found in slots 248 to 252, so the menu runs under IOS 58. Install d2x to play games from SD or USB.");
 			default: return "";
 		}
 	};
@@ -1755,6 +1830,21 @@ static int MenuSettings(FrontendState& state)
 				case kBorders:
 					settings.borders = StepValue(kBorderModes, settings.borders, direction, false);
 					saveAndNote(tr("Remove stretches the picture to fill the screen."));
+					rebuild();
+					break;
+				case kVideoMode:
+					settings.video_mode = StepValue(kVideoModes, settings.video_mode, direction, false);
+					saveAndNote(tr("The TV signal the game sends. PAL 50 Hz needs a TV that takes it, 480p a component cable."));
+					rebuild();
+					break;
+				case kGameLanguage:
+					settings.game_language = StepValue(kGameLanguages, settings.game_language, direction, false);
+					saveAndNote(tr("The language the game is told the console uses. Pick one the game has: some games stop without it."));
+					rebuild();
+					break;
+				case kGameCios:
+					settings.game_cios = StepValue(kCiosChoices, settings.game_cios, direction, false);
+					saveAndNote(tr("The d2x cIOS the game runs under. Automatic uses the menu's, else the first of 249, 250 and 251 that works."));
 					rebuild();
 					break;
 				case kOnline:

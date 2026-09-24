@@ -17,6 +17,9 @@ struct LoaderSettings {
     std::string video_width = "game";     // riftwii/videopatch.hpp names
     std::string deflicker = "game";
     std::string borders = "keep";         // keep, remove
+    std::string video_mode = "game";      // a VideoMode name
+    std::string game_language = "console";  // riftwii/gamelang.hpp names
+    std::string game_cios = "auto";       // auto (d2x in 249-251), 248 ... 252
     bool online = true;                   // download game names and cheats when the Wii is online
     std::string gc_adapter = "off";       // GameCube controller adapter for Wii U: off, on (demo: Dolphin tests)
     std::map<std::string, std::string> other;
@@ -26,7 +29,14 @@ struct LoaderSettings {
 };
 
 // The video settings a launch uses: the game's own choices, where it has
-// them, over the global defaults.
+// them, over the global defaults. The mode is left for the Wii to turn
+// into a target (it depends on the console's settings).
 VideoSettings effective_video(const GameSettings& game, const LoaderSettings& global);
+// The game language code (-1: the console's) and the cIOS slot (0: auto).
+int effective_game_language(const GameSettings& game, const LoaderSettings& global);
+int effective_game_cios(const GameSettings& game, const LoaderSettings& global);
+// "auto" or a slot the loader offers: 248 ... 252.
+bool parse_cios_choice(const std::string& s, int& slot);
+constexpr int kFirstGameCios = 248, kLastGameCios = 252;
 
 }  // namespace riftwii

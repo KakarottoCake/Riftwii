@@ -273,6 +273,9 @@ std::string LaunchModel::save() const {
     if (game.video_width != "global") text += "*riftwii*\tvideo\t" + clean(game.video_width) + "\n";
     if (game.deflicker != "global") text += "*riftwii*\tdeflicker\t" + clean(game.deflicker) + "\n";
     if (game.borders != "global") text += "*riftwii*\tborders\t" + clean(game.borders) + "\n";
+    if (game.video_mode != "global") text += "*riftwii*\tvideomode\t" + clean(game.video_mode) + "\n";
+    if (game.language != "global") text += "*riftwii*\tgamelang\t" + clean(game.language) + "\n";
+    if (game.cios != "global") text += "*riftwii*\tcios\t" + clean(game.cios) + "\n";
     for (const LaunchPackage& p : packages) {
         // Only this game's packs: the file is per game ID, and another
         // game's pack could not be turned on here anyway.
@@ -320,6 +323,12 @@ void LaunchModel::restore(const std::string& text) {
                 game.deflicker = value;
             } else if (key == "borders" && !value.empty()) {
                 game.borders = value;
+            } else if (key == "videomode" && !value.empty()) {
+                game.video_mode = value;
+            } else if (key == "gamelang" && !value.empty()) {
+                game.language = value;
+            } else if (key == "cios" && !value.empty()) {
+                game.cios = value;
             }
             continue;
         }

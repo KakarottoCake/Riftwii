@@ -31,6 +31,91 @@ unsigned full_height(std::uint32_t tv_mode) {
     return double_strike(tv_mode) ? lines / 2 : lines;
 }
 
+void put32(std::uint8_t* p, std::uint32_t v) {
+    p[0] = static_cast<std::uint8_t>(v >> 24);
+    p[1] = static_cast<std::uint8_t>(v >> 16);
+    p[2] = static_cast<std::uint8_t>(v >> 8);
+    p[3] = static_cast<std::uint8_t>(v);
+}
+
+void set_filter(std::uint8_t* p, Deflicker d) {
+    static const std::uint8_t kOff[7] = {0, 0, 21, 22, 21, 0, 0};
+    static const std::uint8_t kLow[7] = {4, 4, 16, 16, 16, 4, 4};
+    static const std::uint8_t kMedium[7] = {7, 7, 12, 12, 12, 7, 7};
+    static const std::uint8_t kHigh[7] = {8, 8, 10, 12, 10, 8, 8};
+    const std::uint8_t* f = d == Deflicker::Off ? kOff : d == Deflicker::Low ? kLow : d == Deflicker::Medium ? kMedium : kHigh;
+    for (std::size_t i = 0; i < 7; ++i) p[kFilter + i] = f[i];
+}
+
+// The heights of the SDK's tables (libogc's video.c, the Wii SDK's PAL
+// ones as USB Loader GX lists them): efb, xfb, VI origin and VI height
+// for each kind of table, in 480- and 576-line formats.
+struct Heights {
+    unsigned efb, xfb, y, h;
+};
+enum Kind { kFull, kFullAa, kHalf, kDoubleStrike, kKinds };
+constexpr Heights kLines480[kKinds] = {{480, 480, 0, 480}, {242, 480, 0, 480}, {240, 240, 0, 480}, {240, 240, 0, 480}};
+constexpr Heights kLines576[kKinds] = {{528, 528, 23, 528}, {264, 524, 23, 524}, {264, 264, 23, 528}, {264, 264, 11, 528}};
+
+// Which SDK table kind `p` is, when its heights are exactly one (the VI
+// origin may differ by a line: libogc and the SDK round differently).
+bool kind_of(const std::uint8_t* p, Kind& out) {
+    const std::uint32_t tv = be32(p + kTvMode);
+    Kind kind = kFull;
+    if (double_strike(tv)) kind = kDoubleStrike;
+    else if (p[kField] == 1) kind = kHalf;
+    else if (p[kAa] == 1) kind = kFullAa;
+    const Heights& want = pal_lines(tv) ? kLines576[kind] : kLines480[kind];
+    const unsigned y = be16(p + kViY);
+    if (be16(p + kEfbHeight) != want.efb || be16(p + kXfbHeight) != want.xfb || be16(p + kViHeight) != want.h) {
+        // The SDK's scaled PAL table (480 lines stretched over 576).
+        if (!(pal_lines(tv) && kind == kFull && be16(p + kEfbHeight) == 480 && be16(p + kXfbHeight) == 576 &&
+              be16(p + kViHeight) == 576 && y == 0)) {
+            return false;
+        }
+    } else if (y != want.y && y != want.y + 1) {
+        return false;
+    }
+    out = kind;
+    return true;
+}
+
+// Moves one table to `target`. Returns whether it changed.
+bool convert(std::uint8_t* p, const VideoTarget& target) {
+    const std::uint32_t tv = be32(p + kTvMode);
+    std::uint32_t mode = tv & 3;
+    const bool from576 = pal_lines(tv);
+    const bool to576 = target.format == kViPal;
+    Kind kind = kFull;
+    const bool standard = kind_of(p, kind);
+    if (from576 != to576 && !standard) return false;  // unknown heights: leave it whole
+    // 480p only exists in 480 lines; field-rendered and double-strike
+    // tables have no progressive form and stay as they are.
+    const bool full = kind == kFull || kind == kFullAa;
+    const bool to_progressive = target.progressive && !to576 && mode == 0 && full && standard;
+    const bool to_interlaced = mode == 2 && (!target.progressive || to576);
+    if (from576 != to576 || to_progressive) {
+        const Heights& h = to576 ? kLines576[kind] : kLines480[kind];
+        put16(p + kEfbHeight, h.efb);
+        put16(p + kXfbHeight, h.xfb);
+        put16(p + kViY, h.y);
+        put16(p + kViHeight, h.h);
+    }
+    if (to_progressive) {
+        mode = 2;
+        put32(p + kXfbMode, 0);  // single field
+        set_filter(p, Deflicker::Off);
+    } else if (to_interlaced) {
+        mode = 0;
+        put32(p + kXfbMode, full ? 1 : 0);  // full frames: double field
+        set_filter(p, Deflicker::Medium);
+    }
+    const std::uint32_t now = (static_cast<std::uint32_t>(target.format) << 2) | mode;
+    const bool changed = now != tv || from576 != to576 || to_progressive || to_interlaced;
+    put32(p + kTvMode, now);
+    return changed;
+}
+
 // Whether `p` holds a render mode table: every field in the range the SDK
 // allows, and the filter's taps summing to 64 as every SDK table does.
 bool is_mode(const std::uint8_t* p) {
@@ -41,7 +126,8 @@ bool is_mode(const std::uint8_t* p) {
     if (fb < 320 || fb > kLine || fb % 16 != 0) return false;
     if (efb < 200 || efb > 528 || xfb < 200 || xfb > 576) return false;
     if (w < 320 || w > kLine || x + w > kLine || w % 2 != 0) return false;
-    const unsigned full = full_height(tv);
+    // Double-strike tables give the VI the full frame height too.
+    const unsigned full = double_strike(tv) ? full_height(tv) * 2 : full_height(tv);
     if (h < full / 2 || y + h > full + 2) return false;  // PAL tables say 574 or 576
     if (p[kXfbMode - 2] != 0 || p[kXfbMode - 1] != 0) return false;  // the padding before xfbMode
     if (be32(p + kXfbMode) > 1 || p[kField] > 1 || p[kAa] > 1) return false;
@@ -53,14 +139,6 @@ bool is_mode(const std::uint8_t* p) {
     return taps == 64;
 }
 
-void set_filter(std::uint8_t* p, Deflicker d) {
-    static const std::uint8_t kOff[7] = {0, 0, 21, 22, 21, 0, 0};
-    static const std::uint8_t kLow[7] = {4, 4, 16, 16, 16, 4, 4};
-    static const std::uint8_t kMedium[7] = {7, 7, 12, 12, 12, 7, 7};
-    static const std::uint8_t kHigh[7] = {8, 8, 10, 12, 10, 8, 8};
-    const std::uint8_t* f = d == Deflicker::Off ? kOff : d == Deflicker::Low ? kLow : d == Deflicker::Medium ? kMedium : kHigh;
-    for (std::size_t i = 0; i < 7; ++i) p[kFilter + i] = f[i];
-}
 
 }  // namespace
 
@@ -81,6 +159,28 @@ const char* to_string(Deflicker d) {
         case Deflicker::High: return "high";
         default: return "game";
     }
+}
+
+const char* to_string(VideoMode m) {
+    switch (m) {
+        case VideoMode::System: return "system";
+        case VideoMode::Ntsc: return "ntsc";
+        case VideoMode::Pal60: return "pal60";
+        case VideoMode::Pal50: return "pal50";
+        case VideoMode::Progressive: return "480p";
+        default: return "game";
+    }
+}
+
+bool parse_video_mode(const std::string& s, VideoMode& out) {
+    for (VideoMode m : {VideoMode::Game, VideoMode::System, VideoMode::Ntsc, VideoMode::Pal60, VideoMode::Pal50,
+                        VideoMode::Progressive}) {
+        if (s == to_string(m)) {
+            out = m;
+            return true;
+        }
+    }
+    return false;
 }
 
 bool parse_video_width(const std::string& s, VideoWidth& out) {
@@ -105,6 +205,7 @@ bool parse_deflicker(const std::string& s, Deflicker& out) {
 
 std::string VideoPatchReport::describe() const {
     std::string s = std::to_string(modes) + " video mode(s), " + std::to_string(patched) + " changed";
+    if (converted != 0) s += " (" + std::to_string(converted) + " to the chosen TV format)";
     if (side_borders || top_borders) {
         s += "; the game draws black borders";
         s += side_borders && top_borders ? " at the sides and top" : side_borders ? " at the sides" : " at the top";
@@ -117,13 +218,17 @@ void patch_video_modes(std::uint8_t* bytes, std::size_t size, const VideoSetting
         std::uint8_t* p = bytes + at;
         if (!is_mode(p)) continue;
         ++report.modes;
+        bool changed = false;
+        if (settings.target.format >= 0 && convert(p, settings.target)) {
+            ++report.converted;
+            changed = true;
+        }
         const std::uint32_t tv = be32(p + kTvMode);
         const unsigned fb = be16(p + kFbWidth);
         const unsigned w = be16(p + kViWidth), h = be16(p + kViHeight);
         const unsigned full = full_height(tv);
         if (w < 704) report.side_borders = true;
         if (h + 8 < full) report.top_borders = true;
-        bool changed = false;
         VideoWidth width = settings.remove_borders ? VideoWidth::W720 : settings.width;
         unsigned new_w = w;
         if (width == VideoWidth::Framebuffer) new_w = fb;

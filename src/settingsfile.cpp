@@ -3,6 +3,8 @@
 
 #include <sstream>
 
+#include "riftwii/gamelang.hpp"
+
 namespace riftwii {
 namespace {
 
@@ -38,6 +40,15 @@ void LoaderSettings::parse(const std::string& text) {
             if (parse_deflicker(value, d)) deflicker = value;
         } else if (key == "borders") {
             if (value == "keep" || value == "remove") borders = value;
+        } else if (key == "video_mode") {
+            VideoMode m;
+            if (parse_video_mode(value, m)) video_mode = value;
+        } else if (key == "game_language") {
+            int code;
+            if (parse_game_language(value, code)) game_language = value;
+        } else if (key == "game_cios") {
+            int slot;
+            if (parse_cios_choice(value, slot)) game_cios = value;
         } else if (key == "online") {
             online = value != "off";
         } else if (key == "gc_adapter") {
@@ -54,6 +65,9 @@ std::string LoaderSettings::serialize() const {
     s += "video_width = " + video_width + "\n";
     s += "deflicker = " + deflicker + "\n";
     s += "borders = " + borders + "\n";
+    s += "video_mode = " + video_mode + "\n";
+    s += "game_language = " + game_language + "\n";
+    s += "game_cios = " + game_cios + "\n";
     s += std::string("online = ") + (online ? "on" : "off") + "\n";
     s += "gc_adapter = " + gc_adapter + "\n";
     for (const auto& kv : other) s += kv.first + " = " + kv.second + "\n";
@@ -68,7 +82,40 @@ VideoSettings effective_video(const GameSettings& game, const LoaderSettings& gl
     if (!parse_video_width(width, v.width)) v.width = VideoWidth::Game;
     if (!parse_deflicker(filter, v.deflicker)) v.deflicker = Deflicker::Game;
     v.remove_borders = borders == "remove";
+    const std::string& mode = game.video_mode == "global" ? global.video_mode : game.video_mode;
+    if (!parse_video_mode(mode, v.mode)) v.mode = VideoMode::Game;
     return v;
+}
+
+int effective_game_language(const GameSettings& game, const LoaderSettings& global) {
+    int code = -1;
+    if (game.language == "global" || !parse_game_language(game.language, code)) {
+        if (!parse_game_language(global.game_language, code)) code = -1;
+    }
+    return code;
+}
+
+int effective_game_cios(const GameSettings& game, const LoaderSettings& global) {
+    int slot = 0;
+    if (game.cios == "global" || !parse_cios_choice(game.cios, slot)) {
+        if (!parse_cios_choice(global.game_cios, slot)) slot = 0;
+    }
+    return slot;
+}
+
+bool parse_cios_choice(const std::string& s, int& slot) {
+    if (s == "auto") {
+        slot = 0;
+        return true;
+    }
+    if (s.size() != 3) return false;
+    for (char c : s) {
+        if (c < '0' || c > '9') return false;
+    }
+    const int n = (s[0] - '0') * 100 + (s[1] - '0') * 10 + (s[2] - '0');
+    if (n < kFirstGameCios || n > kLastGameCios) return false;
+    slot = n;
+    return true;
 }
 
 }  // namespace riftwii

@@ -507,5 +507,56 @@ msgstr "Vuelve a leer la tarjeta SD y la unidad USB."
 msgid "Back to the Homebrew Channel."
 msgstr "Vuelve al Homebrew Channel."
 
-msgid "No d2x cIOS was found in slots 248 to 251, so the menu runs under IOS 58. Install d2x to play games from SD or USB."
-msgstr "No se encontró ningún cIOS d2x en los slots 248 a 251, así que el menú usa el IOS 58. Instala d2x para jugar desde SD o USB."
+msgid "No d2x cIOS was found in slots 248 to 252, so the menu runs under IOS 58. Install d2x to play games from SD or USB."
+msgstr "No se encontró ningún cIOS d2x en los slots 248 a 252, así que el menú usa el IOS 58. Instala d2x para jugar desde SD o USB."
+
+msgid "Video mode"
+msgstr "Modo de vídeo"
+
+msgid "Game language"
+msgstr "Idioma del juego"
+
+msgid "The console's"
+msgstr "El de la consola"
+
+msgid "Automatic"
+msgstr "Automático"
+
+msgid "Japanese"
+msgstr "Japonés"
+
+msgid "English"
+msgstr "Inglés"
+
+msgid "German"
+msgstr "Alemán"
+
+msgid "French"
+msgstr "Francés"
+
+msgid "Spanish"
+msgstr "Español"
+
+msgid "Italian"
+msgstr "Italiano"
+
+msgid "Dutch"
+msgstr "Neerlandés"
+
+msgid "Chinese (simplified)"
+msgstr "Chino (simplificado)"
+
+msgid "Chinese (traditional)"
+msgstr "Chino (tradicional)"
+
+msgid "Korean"
+msgstr "Coreano"
+
+msgid "The TV signal the game sends. PAL 50 Hz needs a TV that takes it, 480p a component cable."
+msgstr "La señal de TV que envía el juego. PAL 50 Hz necesita una TV que lo admita; 480p, un cable de componentes."
+
+msgid "The language the game is told the console uses. Pick one the game has: some games stop without it."
+msgstr "El idioma que el juego cree que usa la consola. Elige uno que el juego tenga: algunos se detienen sin él."
+
+msgid "The d2x cIOS the game runs under. Automatic uses the menu's, else the first of 249, 250 and 251 that works."
+msgstr "El cIOS d2x con el que corre el juego. Automático usa el del menú o, si no, el primero de 249, 250 y 251 que funcione."

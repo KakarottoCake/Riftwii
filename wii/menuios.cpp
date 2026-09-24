@@ -19,7 +19,7 @@ namespace {
 
 constexpr const char* kSettingPath = "sd:/riftwii/menu_ios.txt";
 constexpr int kFirstSlot = 248;
-constexpr int kLastSlot = 251;
+constexpr int kLastSlot = 252;
 int g_menu_cios = 0;
 
 // SYSCONF (wiibrew /shared2/sys/SYSCONF): "SCv0", an item count and a

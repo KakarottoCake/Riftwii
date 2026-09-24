@@ -2,6 +2,7 @@
 // The launch extras: HTTP for the downloads, cheat files and their GCT,
 // the video mode patcher, and the settings file.
 #include "riftwii/cheats.hpp"
+#include "riftwii/gamelang.hpp"
 #include "riftwii/http.hpp"
 #include "riftwii/langfile.hpp"
 #include "riftwii/launch.hpp"
@@ -196,6 +197,89 @@ void TestVideo() {
     EXPECT_EQ(report.patched, 1u);
 }
 
+void TestVideoModes() {
+    const std::uint8_t deflicker[7] = {7, 7, 12, 12, 12, 7, 7};
+    const std::uint8_t sharp[7] = {0, 0, 21, 22, 21, 0, 0};
+    std::vector<std::uint8_t> data(1024, 0x11);
+    put_mode(data, 0, 0, 640, 480, 480, 40, 0, 640, 480, deflicker);    // TVNtsc480IntDf
+    put_mode(data, 100, 0, 640, 242, 480, 40, 0, 640, 480, deflicker);  // TVNtsc480IntAa
+    put_mode(data, 200, 1, 640, 240, 240, 40, 0, 640, 480, deflicker);  // TVNtsc240Ds
+    put_mode(data, 300, 0, 640, 456, 456, 40, 12, 640, 456, deflicker); // custom heights
+    put_mode(data, 400, 2, 640, 480, 480, 40, 0, 640, 480, sharp);      // TVNtsc480Prog
+    put_mode(data, 500, 4, 640, 528, 528, 40, 23, 640, 528, deflicker); // TVPal528IntDf
+    put_mode(data, 600, 4, 640, 480, 576, 40, 0, 640, 576, deflicker);  // TVPal576IntDfScale
+    for (std::size_t at : {0, 100, 200, 300, 500, 600}) data[at + 24] = 0;  // not field rendered
+    data[400 + 23] = 0;  // single field
+    data[400 + 24] = 0;
+    data[200 + 23] = 0;
+    data[100 + 25] = 1;  // aa
+
+    VideoMode m = VideoMode::Game;
+    EXPECT_TRUE(parse_video_mode("pal60", m));
+    EXPECT_TRUE(m == VideoMode::Pal60);
+    EXPECT_TRUE(parse_video_mode("480p", m));
+    EXPECT_TRUE(m == VideoMode::Progressive);
+    EXPECT_FALSE(parse_video_mode("PAL", m));
+    EXPECT_EQ(std::string(to_string(VideoMode::System)), "system");
+
+    // A mode alone is nothing to do until it is resolved to a target.
+    VideoSettings s;
+    s.mode = VideoMode::Pal50;
+    EXPECT_FALSE(s.any());
+
+    // PAL 50 Hz: 480-line tables take the SDK's 576-line heights.
+    s.target.format = kViPal;
+    EXPECT_TRUE(s.any());
+    std::vector<std::uint8_t> copy = data;
+    VideoPatchReport report;
+    patch_video_modes(copy.data(), copy.size(), s, report);
+    EXPECT_EQ(report.modes, 7u);
+    EXPECT_EQ(copy[3], 4);
+    EXPECT_EQ(get16(copy, 6), 528u);
+    EXPECT_EQ(get16(copy, 12), 23u);
+    EXPECT_EQ(get16(copy, 16), 528u);
+    EXPECT_EQ(get16(copy, 106), 264u);
+    EXPECT_EQ(get16(copy, 108), 524u);
+    EXPECT_EQ(copy[203], 5);  // PAL double strike
+    EXPECT_EQ(get16(copy, 212), 11u);
+    EXPECT_EQ(copy[303], 0);  // unknown heights: left as they were
+    EXPECT_EQ(get16(copy, 306), 456u);
+    EXPECT_EQ(copy[403], 4);  // 576p does not exist: interlaced
+    EXPECT_EQ(copy[423], 1);
+    EXPECT_EQ(copy[503], 4);  // already PAL
+    EXPECT_EQ(report.converted, 4u);
+
+    // PAL 60 Hz: 576-line tables go back to 480, EuRGB60.
+    s.target.format = kViEurgb60;
+    copy = data;
+    report = VideoPatchReport{};
+    patch_video_modes(copy.data(), copy.size(), s, report);
+    EXPECT_EQ(copy[3], 20);
+    EXPECT_EQ(copy[503], 20);
+    EXPECT_EQ(get16(copy, 506), 480u);
+    EXPECT_EQ(get16(copy, 512), 0u);
+    EXPECT_EQ(get16(copy, 516), 480u);
+    EXPECT_EQ(copy[603], 20);  // the scaled table too
+    EXPECT_EQ(get16(copy, 608), 480u);
+    EXPECT_EQ(copy[403], 20);  // 480p off
+    EXPECT_EQ(copy[303], 20);  // same lines: just the format
+
+    // 480p: full interlaced tables become progressive ones.
+    s.target.format = kViNtsc;
+    s.target.progressive = true;
+    copy = data;
+    report = VideoPatchReport{};
+    patch_video_modes(copy.data(), copy.size(), s, report);
+    EXPECT_EQ(copy[3], 2);
+    EXPECT_EQ(copy[23], 0);
+    EXPECT_EQ(copy[50], 0);
+    EXPECT_EQ(copy[103], 2);
+    EXPECT_EQ(copy[203], 1);  // double strike stays
+    EXPECT_EQ(copy[503], 2);  // PAL: to 480 lines, then progressive
+    EXPECT_EQ(get16(copy, 506), 480u);
+    EXPECT_EQ(copy[403], 2);
+}
+
 void TestSettings() {
     LoaderSettings s;
     s.parse("# c\nlanguage = ja\nvideo_width=704\ndeflicker = bogus\nborders = remove\nonline = off\nfuture = 1\n");
@@ -244,6 +328,72 @@ void TestSettings() {
     EXPECT_EQ(back.game.video_width, "720");
     EXPECT_EQ(back.game.deflicker, "off");
     EXPECT_EQ(back.game.borders, "remove");
+
+    // Video mode, game language and cIOS: global defaults, game choices.
+    LoaderSettings global;
+    global.parse("video_mode = pal60\ngame_language = de\ngame_cios = 252\n");
+    EXPECT_EQ(global.video_mode, "pal60");
+    global.parse("video_mode = secam\ngame_language = xx\ngame_cios = 247\n");  // ignored
+    EXPECT_EQ(global.video_mode, "pal60");
+    EXPECT_EQ(global.game_language, "de");
+    EXPECT_EQ(global.game_cios, "252");
+    LoaderSettings globalAgain;
+    globalAgain.parse(global.serialize());
+    EXPECT_EQ(globalAgain.game_cios, "252");
+    EXPECT_EQ(globalAgain.other.size(), 0u);
+    GameSettings pick;
+    EXPECT_TRUE(effective_video(pick, global).mode == VideoMode::Pal60);
+    EXPECT_EQ(effective_game_language(pick, global), 2);
+    EXPECT_EQ(effective_game_cios(pick, global), 252);
+    EXPECT_EQ(effective_game_language(pick, LoaderSettings{}), -1);
+    EXPECT_EQ(effective_game_cios(pick, LoaderSettings{}), 0);
+    pick.video_mode = "480p";
+    pick.language = "console";
+    pick.cios = "auto";
+    EXPECT_TRUE(effective_video(pick, global).mode == VideoMode::Progressive);
+    EXPECT_EQ(effective_game_language(pick, global), -1);
+    EXPECT_EQ(effective_game_cios(pick, global), 0);
+    pick.cios = "248";
+    EXPECT_EQ(effective_game_cios(pick, global), 248);
+    int slot = 0;
+    EXPECT_FALSE(parse_cios_choice("25a", slot));
+    EXPECT_FALSE(parse_cios_choice("253", slot));
+    LaunchModel withPick;
+    withPick.game = pick;
+    LaunchModel pickBack;
+    pickBack.restore(withPick.save());
+    EXPECT_EQ(pickBack.game.video_mode, "480p");
+    EXPECT_EQ(pickBack.game.language, "console");
+    EXPECT_EQ(pickBack.game.cios, "248");
+}
+
+void TestGameLanguage() {
+    int code = 0;
+    EXPECT_TRUE(parse_game_language("zh-hant", code));
+    EXPECT_EQ(code, 8);
+    EXPECT_TRUE(parse_game_language("console", code));
+    EXPECT_EQ(code, -1);
+    EXPECT_FALSE(parse_game_language("EN", code));
+    EXPECT_EQ(std::string(game_language_name(9)), "ko");
+
+    // SCGetLanguage's shape: the check, then the load a few words on.
+    const std::uint32_t words[] = {0x60000000, 0x7C600775, 0x40820010, 0x38000000, 0x98010008,
+                                   0x48000008, 0x60000000, 0x88610008, 0x4E800020, 0x88610008};
+    std::vector<std::uint8_t> code_bytes;
+    for (std::uint32_t w : words) {
+        for (int shift = 24; shift >= 0; shift -= 8) code_bytes.push_back(static_cast<std::uint8_t>(w >> shift));
+    }
+    std::vector<std::uint8_t> copy = code_bytes;
+    EXPECT_EQ(patch_game_language(copy.data(), copy.size(), -1), 0u);
+    EXPECT_TRUE(copy == code_bytes);
+    EXPECT_EQ(patch_game_language(copy.data(), copy.size(), 3), 1u);
+    EXPECT_EQ(copy[28], 0x38);  // li r3,3
+    EXPECT_EQ(copy[29], 0x60);
+    EXPECT_EQ(copy[31], 3);
+    EXPECT_EQ(copy[39], 0x08);  // only the first load after the check
+    // No check, no patch.
+    copy.assign(code_bytes.begin() + 28, code_bytes.end());
+    EXPECT_EQ(patch_game_language(copy.data(), copy.size(), 1), 0u);
 }
 
 void TestLang() {
@@ -311,7 +461,9 @@ int main() {
     TestHttp();
     TestCheats();
     TestVideo();
+    TestVideoModes();
     TestSettings();
+    TestGameLanguage();
     TestLang();
     TestHistory();
     if (g_failures != 0) {
