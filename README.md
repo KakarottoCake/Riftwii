@@ -71,6 +71,12 @@ you played. When the Wii is online,
 games show their real names from GameTDB (Super Mario Galaxy 2, not the
 disc's SUPER MARIO GALAXY MORE), in the menu's language.
 
+The tiles show each game's cover, the name of the one you point at
+under them. Covers come from GameTDB while Home is open (about a second
+each, the page on screen first) and are kept in `sd:/riftwii/covers`;
+a game GameTDB has no cover for shows its name. **Home tiles** in
+Settings switches to name tiles.
+
 ### A game's page
 
 Pick a game to open its page. It shows how often you played it, and
@@ -134,6 +140,7 @@ the list explains the row you are on.
 - **Picture width**, **Deflicker**, **Black borders**, **Video mode**,
   **Game language**, **Game cIOS**, **Online server**: the defaults for
   every game.
+- **Home tiles**: covers or names.
 - **Download names and cheats**, and **Get the latest game names**.
 - **GameCube adapter**, and **Check the GameCube adapter** (below).
 - **Menu IOS**: IOS 58, or a d2x cIOS slot (248 to 252). Pick the slot that has

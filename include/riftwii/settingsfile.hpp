@@ -24,6 +24,7 @@ struct LoaderSettings {
     std::string game_cios = "auto";       // auto (d2x in 249-251), 248 ... 252
     std::string wfc_server = "off";       // online play: riftwii/wfcpatch.hpp names
     std::string wfc_domain;               // the "custom" server's domain
+    std::string home_tiles = "covers";    // Home's tiles: covers or names
     bool online = true;                   // download game names and cheats when the Wii is online
     std::string gc_adapter = "off";       // GameCube controller adapter for Wii U: off, on (demo: Dolphin tests)
     std::set<std::string> favorites;      // game IDs, written "favorites = ID,ID"

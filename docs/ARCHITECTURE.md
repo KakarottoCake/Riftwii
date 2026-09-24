@@ -23,6 +23,7 @@ below names the files that own it.
 | Menu state: the picked game, its packs, the choices | `wii/frontend.cpp`, `src/launch.cpp` (`LaunchModel`) |
 | Riivolution's choices file (`riivolution/config/<ID4>.xml`), read and written | `src/riiconfig.cpp`, `wii/frontend.cpp` |
 | Game images on SD and USB (WBFS, split WBFS, ISO; FAT32 and NTFS) | `wii/usbcatalog.cpp`, `src/usbgame.cpp`, `src/fat32.cpp`, `src/ntfs.cpp` |
+| Cover art (GameTDB), stored as ready GX textures | `wii/covers.cpp`, `src/coverart.cpp`, `wii/gui_gamegrid.cpp` |
 | Game names (GameTDB), cheats (GeckoCodes archive) | `wii/online.cpp`, `src/titles.cpp`, `src/cheats.cpp`, `src/http.cpp`, `wii/netsock.cpp` |
 | Online servers (Wiimmfi, WiiLink WFC, AltWFC, custom) | `src/wfcpatch.cpp`, `wii/wfc.cpp`, `vendor-wwfc/` |
 | Update check (GitHub over https: BearSSL, `Makefile.bearssl`) | `wii/online.cpp`, `src/update.cpp`, `wii/tls.cpp`, `wii/tlsroots.c` |

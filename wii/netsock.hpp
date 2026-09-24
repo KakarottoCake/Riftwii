@@ -16,6 +16,8 @@ namespace riftwii::wii {
 // seconds; fails when no connection is set up or it cannot be reached.
 bool NetStart(std::string& error);
 void NetStop();
+// The last NetStart failed (and the next would wait as long again).
+bool NetFailed();
 
 struct NetServer {
     std::uint32_t ip = 0;  // host order
