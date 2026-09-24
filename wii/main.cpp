@@ -5,6 +5,7 @@
 #include <sdcard/wiisd_io.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <cstdio>
 #include <cstdlib>
 #include <string>
 #include <vector>
@@ -19,7 +20,9 @@
 #include "autorun.hpp"
 #include "console.hpp"
 #include "guiscript.hpp"
+#include "i18n.hpp"
 #include "ios_reload.hpp"
+#include "loadersettings.hpp"
 #include "log.hpp"
 #include "menuios.hpp"
 
@@ -60,6 +63,26 @@ void OpenSessionLog(bool sd_mounted) {
     riftwii::wii::LogOpen("sd:/riftwii/session.log");
     riftwii::wii::logf("RiftWii %s on %s, IOS%d rev %d\n", RIFTWII_VERSION,
                        riftwii::wii::running_in_dolphin() ? "Dolphin" : "Wii", IOS_GetVersion(), IOS_GetRevision());
+    // A game that stopped on a failed read left its note (wii/boot.cpp:
+    // prepare_crash_note): copied here so the log shows it.
+    if (FILE* f = std::fopen("sd:/riftwii/lastgame.txt", "rb")) {
+        char note[513] = {};
+        const std::size_t n = std::fread(note, 1, 512, f);
+        std::fclose(f);
+        std::string text(note, n);
+        if (text.find("status = failed") != std::string::npos) {
+            riftwii::wii::logf("The last game stopped on a failed read (sd:/riftwii/lastgame.txt):\n");
+            std::size_t at = 0;
+            while (at < text.size()) {
+                std::size_t end = text.find('\n', at);
+                if (end == std::string::npos) end = text.size();
+                std::string line = text.substr(at, end - at);
+                while (!line.empty() && line.back() == ' ') line.pop_back();
+                if (!line.empty()) riftwii::wii::logf("  %s\n", line.c_str());
+                at = end + 1;
+            }
+        }
+    }
 }
 
 }  // namespace
@@ -87,6 +110,7 @@ int main() {
     riftwii::wii::StartMenuIos(sd_mounted);
     FrontendState state;
     riftwii::wii::InitializeFrontend(state);
+    riftwii::wii::SetMenuLanguage(riftwii::wii::MenuLanguage());
 
     InitVideo();
     SetupPads();
