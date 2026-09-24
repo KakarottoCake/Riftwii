@@ -137,7 +137,9 @@ the list explains the row you are on.
 - **Menu IOS**: IOS 58, or a d2x cIOS slot (248 to 252). Pick the slot that has
   fakemote to use USB DS3/DS4 pads as Wii Remotes.
 - **Find network packs (RiiFS)** and **Copy network packs again** (below).
-- **Look for games again**, and **Leave RiftWii** (HOME does that too).
+- **Look for games again**, **Check for a new version** (on GitHub; with
+  downloads on, RiftWii also looks once a day at start and says so on
+  Home), and **Leave RiftWii** (HOME does that too).
 
 ### Network packs (RiiFS)
 

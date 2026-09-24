@@ -7,3 +7,4 @@ Testing/
 build-dolphin/
 build-runtime/
 *.dtm
+build-bearssl/

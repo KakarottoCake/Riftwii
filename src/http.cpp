@@ -87,9 +87,13 @@ bool dechunk(const std::vector<std::uint8_t>& raw, std::size_t at, std::vector<s
 
 bool parse_http_url(const std::string& url, HttpUrl& out, std::string& error) {
     out = HttpUrl{};
-    const std::string scheme = "http://";
-    if (lower(url.substr(0, scheme.size())) != scheme) {
-        error = "only http:// addresses can be fetched: " + url;
+    std::string scheme = "http://";
+    if (lower(url.substr(0, 8)) == "https://") {
+        scheme = "https://";
+        out.tls = true;
+        out.port = 443;
+    } else if (lower(url.substr(0, scheme.size())) != scheme) {
+        error = "only http:// and https:// addresses can be fetched: " + url;
         return false;
     }
     const std::string rest = url.substr(scheme.size());
@@ -116,7 +120,7 @@ bool parse_http_url(const std::string& url, HttpUrl& out, std::string& error) {
 
 std::string http_get_request(const HttpUrl& url) {
     std::string host = url.host;
-    if (url.port != 80) host += ":" + std::to_string(url.port);
+    if (url.port != (url.tls ? 443 : 80)) host += ":" + std::to_string(url.port);
     return "GET " + url.path + " HTTP/1.1\r\nHost: " + host +
            "\r\nUser-Agent: RiftWii\r\nAccept: */*\r\nConnection: close\r\n\r\n";
 }

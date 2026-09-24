@@ -458,6 +458,20 @@ T = {
         "スロット248〜252にd2x cIOSがないため、メニューはIOS 58で動いています。SDやUSBのゲームを遊ぶにはd2xを入れてください。",
         "Nenhum cIOS d2x foi encontrado nos slots 248 a 252, então o menu usa o IOS 58. Instale o d2x para jogar pelo SD ou USB.",
         "Nessun cIOS d2x trovato negli slot da 248 a 252, quindi il menu usa l'IOS 58. Installa d2x per giocare da SD o USB."),
+    # Update check
+    "Check for a new version": ("Buscar una versión nueva", "新しいバージョンを確認", "Procurar uma versão nova", "Cerca una nuova versione"),
+    "Check": ("Buscar", "確認", "Procurar", "Cerca"),
+    "This is RiftWii {1}. Looks on GitHub for a newer release.": (
+        "Esta es RiftWii {1}. Busca en GitHub una versión más reciente.",
+        "これはRiftWii {1}です。GitHubで新しいリリースを探します。",
+        "Esta é a RiftWii {1}. Procura no GitHub uma versão mais nova.",
+        "Questa è RiftWii {1}. Cerca su GitHub una versione più recente."),
+    "Asking GitHub...": ("Consultando GitHub...", "GitHubに問い合わせています...", "Consultando o GitHub...", "Chiedo a GitHub..."),
+    "RiftWii {1} is out: {2}": ("Ya salió RiftWii {1}: {2}", "RiftWii {1}が出ています: {2}", "Saiu a RiftWii {1}: {2}", "È uscita RiftWii {1}: {2}"),
+    "RiftWii {1} is the newest version.": ("RiftWii {1} es la versión más reciente.", "RiftWii {1}が最新バージョンです。",
+                                           "A RiftWii {1} é a versão mais recente.", "RiftWii {1} è la versione più recente."),
+    "Could not check: {1}": ("No se pudo comprobar: {1}", "確認できませんでした: {1}", "Não foi possível verificar: {1}",
+                             "Impossibile controllare: {1}"),
     # Favourites
     "Favourites": ("Favoritos", "お気に入り", "Favoritos", "Preferiti"),
     "Favourite": ("Favorito", "お気に入り", "Favorito", "Preferito"),

@@ -493,6 +493,19 @@ static void ScanDrives(FrontendState& state, GuiText& status)
 				{std::to_string(riftwii::wii::MenuCiosSlot())});
 		}
 	}
+	// A newer release, at most once a day and only when downloads are on.
+	static bool updateChecked = false;
+	if (!updateChecked && riftwii::wii::Settings().online) {
+		updateChecked = true;
+		std::string latest, why;
+		bool newer = false;
+		ResumeGui();
+		const bool ok = riftwii::wii::CheckForUpdate(false, latest, newer, why);
+		HaltGui();
+		if (!ok) logf("Update check: %s\n", why.c_str());
+		else if (newer && g_homeNotice.empty())
+			g_homeNotice = tr("RiftWii {1} is out: {2}", {latest, riftwii::wii::kReleasesPage});
+	}
 	g_scanned = true;
 }
 
@@ -1682,7 +1695,7 @@ static int MenuSettings(FrontendState& state)
 
 	bool netOn = riftwii::wii::NetworkPacksEnabled();
 	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kGameLanguage, kGameCios, kOnline, kNames, kGcAdapter, kGcTest, kIos, kNet, kResync,
-		kRescan, kExit, kNone };
+		kRescan, kUpdate, kExit, kNone };
 	std::vector<FlowRow> rows;
 	std::vector<RowAction> actions;
 	const auto build = [&]() {
@@ -1753,6 +1766,13 @@ static int MenuSettings(FrontendState& state)
 		rescan.value = "Rescan";
 		rows.push_back(rescan);
 		actions.push_back(kRescan);
+		FlowRow update;
+		update.kind = FlowRow::Kind::Action;
+		update.label = tr("Check for a new version");
+		update.value = tr("Check");
+		update.dim = !settings.online;
+		rows.push_back(update);
+		actions.push_back(kUpdate);
 		FlowRow exitRow;
 		exitRow.kind = FlowRow::Kind::Action;
 		exitRow.label = "Leave RiftWii";
@@ -1824,6 +1844,7 @@ static int MenuSettings(FrontendState& state)
 					: "Only servers named by <network> in an XML on the card are used.";
 			case kResync: return "The next launch copies every file of its network packs again.";
 			case kRescan: return tr("Reads the SD card and the USB drive again.");
+			case kUpdate: return tr("This is RiftWii {1}. Looks on GitHub for a newer release.", {RIFTWII_VERSION});
 			case kExit: return tr("Back to the Homebrew Channel.");
 			case kNone:  // the Menu IOS row when there is nothing to choose
 				return tr("No d2x cIOS was found in slots 248 to 252, so the menu runs under IOS 58. Install d2x to play games from SD or USB.");
@@ -1975,6 +1996,27 @@ static int MenuSettings(FrontendState& state)
 					g_scanned = false;
 					menu = MENU_SOURCE;
 					break;
+				case kUpdate: {
+					if (!settings.online) {
+						note(tr("Downloads are off. Turn on Download names and cheats first."));
+						break;
+					}
+					note(tr("Asking GitHub..."));
+					ResumeGui();
+					std::string latest, error;
+					bool newer = false;
+					const bool ok = riftwii::wii::CheckForUpdate(true, latest, newer, error);
+					HaltGui();
+					if (!ok) {
+						logf("Update check: %s\n", error.c_str());
+						note(tr("Could not check: {1}", {FlatCapped(error, 90)}));
+					} else if (newer) {
+						note(tr("RiftWii {1} is out: {2}", {latest, riftwii::wii::kReleasesPage}));
+					} else {
+						note(tr("RiftWii {1} is the newest version.", {RIFTWII_VERSION}));
+					}
+					break;
+				}
 				case kExit:
 					menu = MENU_EXIT;
 					break;

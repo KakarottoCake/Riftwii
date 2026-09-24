@@ -6,18 +6,19 @@
 #include <string>
 #include <vector>
 
-// Plain HTTP/1.1 GETs, for what RiftWii fetches from the internet (game
-// titles from GameTDB, cheat files): the request, and the response as
-// read from the socket. No TLS: the Wii side has none, so only http://
-// addresses are used. The socket loop is wii/nethttp.cpp.
+// HTTP/1.1 GETs, for what RiftWii fetches from the internet (game titles
+// from GameTDB, cheat files, the update check): the request, and the
+// response as read from the connection. https:// goes through the Wii's
+// TLS client (wii/tls.cpp); the socket loop is in wii/online.cpp.
 namespace riftwii {
 
 struct HttpUrl {
     std::string host;
     std::uint16_t port = 80;
     std::string path = "/";  // with its query
+    bool tls = false;        // https
 };
-// "http://host[:port][/path]". Fails for any other scheme.
+// "http://host[:port][/path]" or "https://...". Fails for any other scheme.
 bool parse_http_url(const std::string& url, HttpUrl& out, std::string& error);
 
 // The request's bytes: GET, Host, a User-Agent, Connection: close.
