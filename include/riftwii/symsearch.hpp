@@ -54,4 +54,27 @@ struct IpcApi {
 
 bool find_ipc_api(const std::vector<CodeRange>& text, const IpcSymbols& known, IpcApi& out, std::string& error);
 
+// The SDK's GameCube controller functions, for the adapter hook
+// (runtime/pad). Only games that support the controller link them.
+//  - PADRead(PADStatus status[4]): for each port that cannot be read it
+//    stores the error into the status's `err` byte (offset 10) and clears
+//    the 10 bytes before it, `stb rE, 10(rS)` then `mr r3, rS`, `li r4, 0`,
+//    `li r5, 10`, `bl memset`: at least 3 such sites, one memset.
+//  - PADControlMotor(chan, command): reads the rumble-off flag at
+//    0x800030E3 (`lis rX, 0x8000` with `lbz rY, 0x30E3(rX)`) and builds
+//    the motor command with `oris rA, rB, 0x40`.
+// Each is the function (from its `stwu r1` and `mflr r0`) around them.
+// Verified on Super Smash Bros. Brawl and Mario Kart Wii; none of Super
+// Mario Galaxy 2, Kirby's Epic Yarn or Wario Land: Shake It! (no
+// GameCube controller support) has either.
+struct PadSymbols {
+    std::uint32_t read = 0;           // 0: the game has no PADRead
+    unsigned read_sites = 0;
+    std::uint32_t control_motor = 0;  // 0: not found (no rumble)
+};
+
+// False with `error` when the matches are ambiguous; true with read == 0
+// when the game has none.
+bool find_pad_symbols(const std::vector<CodeRange>& text, PadSymbols& out, std::string& error);
+
 }  // namespace riftwii

@@ -32,8 +32,15 @@ LDFLAGS := -nostdlib -nostartfiles -static -Wl,--build-id=none -Wl,--gc-sections
 
 OBJS    := $(OUT)/rt_entry.o $(OUT)/rt_hook.o $(OUT)/rtable.o $(OUT)/rtfat.o $(OUT)/rtfs.o
 
+# The GameCube adapter blob (runtime/pad): PADRead and PADControlMotor
+# hooks with the WUP-028 driver, installed only when the option is on.
+PADSRC  := runtime/pad
+PADOUT  := $(OUT)/pad
+PADBLOB := $(OUT)/riftwii_pad.bin
+PADOBJS := $(PADOUT)/pad_entry.o $(PADOUT)/pad_hook.o $(PADOUT)/rtgcad.o
+
 .PHONY: all clean
-all: $(BLOB)
+all: $(BLOB) $(PADBLOB)
 
 $(OUT):
 	@mkdir -p $(OUT)
@@ -65,6 +72,33 @@ $(BLOB): $(OUT)/riftwii_rt.elf $(OUT)/riftwii_rt_alt.elf
 	$(OBJCOPY) -O binary $(OUT)/riftwii_rt_alt.elf $(OUT)/riftwii_rt_alt.bin
 	@cmp $@ $(OUT)/riftwii_rt_alt.bin || { echo "runtime: blob differs between link bases; not position independent"; rm -f $@; exit 1; }
 	@echo "runtime blob: $$(stat -c %s $@) bytes"
+
+$(PADOUT):
+	@mkdir -p $(PADOUT)
+
+$(PADOUT)/pad_entry.o: $(PADSRC)/pad_entry.S $(PADSRC)/pad_hook.h | $(PADOUT)
+	$(CC) $(CFLAGS) -I$(PADSRC) -c -o $@ $<
+
+$(PADOUT)/pad_hook.o: $(PADSRC)/pad_hook.c $(PADSRC)/pad_hook.h runtime/rtgcad.h | $(PADOUT)
+	$(CC) $(CFLAGS) -I$(PADSRC) -c -o $@ $<
+
+$(PADOUT)/rtgcad.o: runtime/rtgcad.c runtime/rtgcad.h | $(PADOUT)
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(PADOUT)/riftwii_pad.elf: $(PADOBJS) $(PADSRC)/pad.ld
+	$(CC) $(CFLAGS) -nostdlib -nostartfiles -static -Wl,--build-id=none -Wl,--gc-sections -T $(PADSRC)/pad.ld \
+		-Wl,--defsym,RT_BASE=0x00000000 -o $@ $(PADOBJS)
+	@$(SIZE) -A $@ | awk '$$1 ~ /^\.(rodata|data|bss)$$/ && $$2 != 0 { print "runtime: section " $$1 " is not empty (" $$2 " bytes) in the pad blob"; bad = 1 } END { exit bad }'
+
+$(PADOUT)/riftwii_pad_alt.elf: $(PADOBJS) $(PADSRC)/pad.ld
+	$(CC) $(CFLAGS) -nostdlib -nostartfiles -static -Wl,--build-id=none -Wl,--gc-sections -T $(PADSRC)/pad.ld \
+		-Wl,--defsym,RT_BASE=0x12340000 -o $@ $(PADOBJS)
+
+$(PADBLOB): $(PADOUT)/riftwii_pad.elf $(PADOUT)/riftwii_pad_alt.elf
+	$(OBJCOPY) -O binary $(PADOUT)/riftwii_pad.elf $@
+	$(OBJCOPY) -O binary $(PADOUT)/riftwii_pad_alt.elf $(PADOUT)/riftwii_pad_alt.bin
+	@cmp $@ $(PADOUT)/riftwii_pad_alt.bin || { echo "runtime: pad blob differs between link bases; not position independent"; rm -f $@; exit 1; }
+	@echo "pad blob: $$(stat -c %s $@) bytes"
 
 clean:
 	rm -rf $(OUT)
