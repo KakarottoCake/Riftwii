@@ -8,11 +8,11 @@ packs that Riivolution uses, and it was written from scratch without
 copying Riivolution code (see `NOTICE.md`). Licence: GPL-3.0-or-later
 (`LICENSE`); third-party notices in `NOTICE.md`.
 
-> 1.0 Beta: the menu and the mod engine are checked by host tests and
-> in the Dolphin emulator, and players are running it on real Wiis. USB and SD game boot
-> depend on d2x and are the least proven. Please report anything odd as
-> a GitHub issue, with your Wii model, system menu version, and
-> `sd:/riftwii/boot.log`.
+> 2.0 Beta. The menu and the mod engine are checked by host tests and in
+> the Dolphin emulator, and players run RiftWii on real Wiis. SD and USB
+> game loading depend on d2x and are the least proven, as is the new
+> GameCube adapter support. Please report anything odd as a GitHub issue
+> (see [Reporting a problem](#reporting-a-problem)).
 
 ## About AI assistance
 
@@ -30,272 +30,199 @@ This is a hobby project. As a kid I wanted to play mods straight from a
 USB drive, and Riivolution never allowed it; its developer was firmly
 against USB loading. RiftWii exists to finally get past that.
 
-## For Wii owners: install and use
+## What you need
 
-You need: a Wii with the Homebrew Channel installed and an SD card. An original
-game disc remains supported. SD and USB image boot need a user-installed d2x
-cIOS (slot 249, 250 or 251). The SD card must be FAT32; a USB drive may be
-FAT32 or NTFS; both need 512-byte sectors. Both support `.wbfs` (including
-split `.wbf1`, `.wbf2`, …) in `<source>:/wbfs` and raw `.iso` in
-`<source>:/games`. Compressed `.rvz` images are not supported.
+- A Wii (or a Wii U in Wii mode) with the Homebrew Channel.
+- An SD card, FAT32, for RiftWii itself and your mod packs.
+- Your games, any of:
+  - the game disc (works on any Wii, nothing else needed);
+  - `.wbfs` images (split `.wbf1`, `.wbf2`, ... too) or `.iso` images on
+    the SD card or a USB drive. These need a **d2x cIOS** installed in
+    slot 249, 250 or 251. A USB drive may be FAT32 or NTFS. Both need
+    512-byte sectors. Compressed `.rvz` images are not supported.
 
-1. Copy `riftwii.dol` from the release into `sd:/apps/riftwii/boot.dol`,
-   with `hbc/meta.xml` and `hbc/icon.png` next to it for the Homebrew
-   Channel's name, description and banner. (The release zip has all
-   three in place.)
-2. Put mod packs (folders with an XML file plus their files) into
-   `sd:/riivolution/`, the same layout Riivolution uses.
-3. Start RiftWii from the Homebrew Channel. It reads the SD card and the
-   USB drive and shows the games that have mod packs as tiles, with the
-   disc drive first. The round button at the bottom left (or 1) steps
-   through games with mods, all games and, once you have played
-   something, **Recently played**; the view you pick is remembered, and
-   Home opens on the last game you played. Games with packs carry a
-   **MODS** tag. Games show their real names (Super Mario Galaxy 2, not
-   the disc's SUPER MARIO GALAXY MORE): when the Wii is online RiftWii
-   fetches GameTDB's name list in the menu's language, at most once a
-   week.
-4. Pick a game. Its page shows how often you played it, and **Mods**,
-   the first row, opens the packs made for it. Each pack has an On/Off
-   switch; once it is on, its settings show under it, each with arrow
-   buttons on either side of its value (Minus steps back too). Broken
-   XML shows its error under the pack. Options that share an id and a
-   section across packs show once, as Riivolution does. In every list,
-   hold A and move the Wii Remote to drag it up or down (a quick flick
-   keeps it going); the D-pad still works.
-5. **Saves**, the next row, keeps the Wii saving as usual, or keeps this
-   game's saves on the SD card: cloned once from the Wii's save
-   (`sd:/riftwii/saves/<ID>/clone`) or started fresh
-   (`sd:/riftwii/saves/<ID>/fresh`). While a pack that brings its own
-   saves (`<savegame>` in its XML) is on, the row reads "Kept by the
-   pack" and cannot be changed; turning the pack off restores your
-   choice.
-6. **Cheats**, the row after it, opens the game's cheat list. When the
-   Wii is online, the first visit downloads the latest cheats for the
-   game from the GeckoCodes archive (**Download** gets them again later).
-   Tick the ones you want; **Use cheats** turns them all on or off. The
-   list is a plain text file, `sd:/riftwii/cheats/<ID>.txt`, in the
-   usual format other loaders read: edit it on a computer to add your
-   own. Codes with values to fill in (`XXXX`) show "Edit first" until you
-   do.
-7. **Picture width**, **Deflicker** and **Black borders** change how the
-   game draws its picture, like USB Loader GX's video settings:
-   - *Picture width*: 720 fills the TV from side to side; many games draw
-     640 pixels and leave black bars that old TVs hid (overscan).
-     *Framebuffer* matches the game's drawing width, 704 is the
-     broadcast-safe width.
-   - *Deflicker*: the filter that blurs the picture to hide interlace
-     flicker. *Off* gives the sharpest picture, especially over
-     component or HDMI adapters.
-   - *Black borders*: *Remove* also stretches the picture over the bars
-     at the top and bottom. After a game has run once, the page tells
-     you which borders it left.
-   *Default* follows Settings, where the same three rows set it for
-   every game.
-8. **Start** (Plus) boots, with nothing on for the plain game. While it
-   starts, the log prints on screen. Your choices are saved per game.
-9. Settings (the gear, or 2) holds the menu language (English, Español,
-   日本語, Português, Italiano; *Wii* follows the console), the default
-   picture settings, whether names and cheats are downloaded, the menu
-   IOS (pick the cIOS slot with fakemote for USB DS3/DS4 pads), network
-   packs, Rescan and Exit. HOME exits too. A translation can be fixed or
-   finished by putting a copy of `wii/lang/<lang>.po` at
-   `sd:/riftwii/lang/<lang>.po`.
-10. **Network packs (RiiFS).** Packs can come from a PC running a RiiFS
-   server, as with Riivolution: put an XML in `sd:/riivolution` with
-   `<network protocol="riifs" address="192.168.1.20" port="1137"/>`, or
-   turn on *Find network packs* in Settings to look for servers on your
-   network. The server's packs show with `@ address` after their name.
-   RiftWii copies what a launch needs into `sd:/riftwii/riifs/` first
-   (only files whose size changed; *Copy network packs again* forces a
-   full copy), then boots from the card. Saves stay on the card. See
-   `docs/RIIFS.md`.
+## Installing
+
+1. Download `riftwii-vX.Y.Z-beta.zip` from the
+   [releases](https://github.com/KakarottoCake/Riftwii/releases).
+2. Copy the zip's `sd-card` folder onto your SD card, merging it with
+   what is there. That puts RiftWii in `sd:/apps/riftwii/`.
+3. Put your mod packs (an XML file plus the folders it names, as their
+   authors ship them) into `sd:/riivolution/`, the same place
+   Riivolution uses.
+4. Game images go in `wbfs` (`.wbfs`) or `games` (`.iso`) at the top of
+   the SD card or the USB drive. The zip's `usb-drive` folder shows
+   where.
+5. Start RiftWii from the Homebrew Channel.
+
+## Using RiftWii
+
+### Home
+
+RiftWii reads the SD card and the USB drive and shows your games as
+tiles, with the disc drive first. At first it shows only games that
+have mod packs (they carry a **MODS** tag). The round button at the
+bottom left (or **1**) switches between games with mods, all games and,
+once you have played something, **Recently played**. RiftWii remembers
+the view and opens on the last game you played. When the Wii is online,
+games show their real names from GameTDB (Super Mario Galaxy 2, not the
+disc's SUPER MARIO GALAXY MORE), in the menu's language.
+
+### A game's page
+
+Pick a game to open its page. It shows how often you played it, and
+these rows:
+
+- **Mods** opens the packs made for this game. Each pack has an On/Off
+  switch; once it is on, its settings show under it, with arrows on
+  either side of the value (Minus steps back). A pack whose XML is broken
+  shows the error under it. Settings that several packs share show once,
+  as in Riivolution.
+- **Saves**: *On the Wii* saves as usual. *SD, from Wii save* keeps this
+  game's saves on the SD card, starting from a copy of the Wii's save
+  (`sd:/riftwii/saves/<ID>/clone`); *SD, fresh start* starts a new one
+  (`sd:/riftwii/saves/<ID>/fresh`). While a pack that brings its own
+  saves is on, the row reads *Kept by the pack*.
+- **Cheats** opens the game's cheat list. When the Wii is online, the
+  first visit downloads the latest cheats from the GeckoCodes archive
+  (**Download** gets them again later). Tick the ones you want; **Use
+  cheats** turns them all on or off. The list is a plain text file,
+  `sd:/riftwii/cheats/<ID>.txt`, in the format other loaders use, so you
+  can add your own on a computer. Codes with values to fill in (`XXXX`)
+  show *Edit first* until you do.
+- **Picture width**, **Deflicker** and **Black borders** change how the
+  game draws its picture, like USB Loader GX's video settings:
+  - *Picture width*: 720 fills the TV from side to side; many games
+    draw 640 pixels and leave black bars that old TVs hid. *Framebuffer*
+    matches the game's drawing width; 704 is the broadcast-safe width.
+  - *Deflicker*: the filter that blurs the picture to hide interlace
+    flicker. *Off* gives the sharpest picture, especially over
+    component or HDMI.
+  - *Black borders*: *Remove* stretches the picture over the bars at
+    the top and bottom. After a game has run once, the page tells you
+    which borders it left.
+
+  *Default* follows Settings, where the same rows apply to every game.
+
+**Start** (or Plus) boots the game with what you chose; with nothing on,
+the game starts as it is. While it starts, its progress prints on
+screen. Your choices are saved for each game.
+
+In every list, hold A and move the Wii Remote to drag it (a quick flick
+keeps it going); the D-pad works too.
+
+### Settings
+
+The gear at the bottom right (or **2**) opens Settings. The note under
+the list explains the row you are on.
+
+- **Language**: English, Español, 日本語, Português, Italiano, or *Wii* to
+  follow the console. A translation can be corrected by putting a copy of
+  `wii/lang/<lang>.po` at `sd:/riftwii/lang/<lang>.po`.
+- **Picture width**, **Deflicker**, **Black borders**: the defaults for
+  every game.
+- **Download names and cheats**, and **Get the latest game names**.
+- **GameCube adapter**, and **Check the GameCube adapter** (below).
+- **Menu IOS**: IOS 58, or a d2x cIOS slot. Pick the slot that has
+  fakemote to use USB DS3/DS4 pads as Wii Remotes.
+- **Find network packs (RiiFS)** and **Copy network packs again** (below).
+- **Look for games again**, and **Leave RiftWii** (HOME does that too).
+
+### Network packs (RiiFS)
+
+Packs can come from a PC running a RiiFS server, as with Riivolution.
+Put an XML in `sd:/riivolution` with
+`<network protocol="riifs" address="192.168.1.20" port="1137"/>`, or
+turn on *Find network packs* in Settings to look for servers on your
+network. A server's packs show with `@ address` after their name.
+RiftWii copies what a launch needs into `sd:/riftwii/riifs/` first (only
+files whose size changed), then boots from the card. Saves stay on the
+card. More in `docs/RIIFS.md`.
+
+### Mario Kart Wii distributions
 
 Pulsar packs (Retro Rewind and others) save their settings, ghosts and
 leaderboards to the SD card, as they do under Riivolution. CT-CODE
 packs that replace the game's `main.dol` (CTGP Revolution 1.02) work
 too.
 
-**GameCube controller adapter for Wii U** (the Nintendo one, WUP-028,
-or a copy that works like it). Turn on *GameCube adapter* in Settings
-and plug the adapter's black USB plug into the Wii (the grey one only
-adds power for rumble). In games that support the GameCube controller
-(Mario Kart Wii, Super Smash Bros. Brawl and others), its controllers
-fill the ports that have no controller plugged in, rumble included.
-*Check the GameCube adapter* shows what it reports before you start a
-game. It needs a menu IOS with USB HID: IOS 58 (the default) or a d2x
-cIOS; the game then keeps that IOS. Games without GameCube controller
-support ignore it, and so do mods that bring their own controller code
-(mkwcat's NSMBW project) or read the controller hardware directly
-(Gecko codes that add GameCube controls to NSMBW).
+### GameCube controller adapter for Wii U
 
-Controls work with a Wii Remote (pointer or D-pad), Classic Controller,
-GameCube pad, or Wii U GamePad (same button names; X stands in for 1).
-The GameCube control stick and the Classic Controller's left stick move
-a pointer like a Wii Remote's; the D-pad moves the highlight. With no
-pointer on screen, only the highlighted tile or row answers to A.
+The Nintendo adapter (WUP-028) or a copy that works like it. Turn on
+**GameCube adapter** in Settings and plug the adapter's black USB plug
+into the Wii (the grey one only adds power for rumble). In games that
+support the GameCube controller (Mario Kart Wii, Super Smash Bros. Brawl
+and others), its controllers fill the ports that have no controller
+plugged in, rumble included. **Check the GameCube adapter** shows what
+each port reports before you start a game.
 
-If a mod cannot start, the screen names the pack, option and file it
-comes from. Nothing is launched half patched. A memory patch whose file
-is missing from the card is skipped with a warning (as Dolphin does),
-and a missing folder is logged with what the nearest existing folder
-holds.
+It needs a menu IOS with USB HID: IOS 58 (the default) or a d2x cIOS;
+the game then keeps that IOS. Games without GameCube controller support
+ignore it, and so do mods that bring their own controller code (mkwcat's
+NSMBW project) or read the controller hardware directly (Gecko codes
+that add GameCube controls to NSMBW).
 
-If a game stops with its own disc error ("An error has occurred") while
-it loads, check `sd:/riftwii/boot.log` and `sd:/riftwii/session.log` for
-the last recorded step and include them with your report.
+### For pack authors
+
+RiftWii reads the whole documented Riivolution patch format
+(<https://riivolution.github.io/wiki/Patch_Format/>): `<file>` (with
+`offset`, `fileoffset`, `length`, `resize` and `create`), `<folder>`,
+`<memory>` (plain, `search` and `ocarina`, `value` or `valuefile`),
+`<savegame>`, `<network>`, `<macro>` and `<param>`, `shiftfiles`, and the
+`{$__gameid}`, `{$__region}`, `{$__maker}` and param placeholders.
+Unknown attributes and elements are tolerated and noted in the log.
+Packs match a game by its `<id>` (game ID, revision and disc number).
+
+### Controls
+
+A Wii Remote (pointer or D-pad), Classic Controller, GameCube controller
+or Wii U GamePad (same button names; X stands in for 1). The GameCube
+control stick and the Classic Controller's left stick move a pointer
+like a Wii Remote's; the D-pad moves the highlight. With no pointer on
+screen, only the highlighted tile or row answers to A.
+
+## Troubleshooting
+
+**My games don't show up.** Home first shows only games that have mod
+packs: press **1** for all games. Images must be in `wbfs` or `games` at
+the top of the SD card or USB drive. The status line at the bottom of
+Home says what went wrong with a drive.
+
+**"No d2x cIOS in 249-251: games cannot boot yet".** SD and USB images
+need a d2x cIOS. The disc drive works without one.
+
+**The USB drive isn't found.** Try a drive with its own power supply.
+If the menu IOS is set to a cIOS, it must be based on IOS 58 for USB
+drives to work in the menu; otherwise set **Menu IOS** back to IOS 58.
+
+**A pack says "Broken".** Its XML has an error, shown under the pack.
+Fix the file on a computer and come back.
+
+**A mod doesn't start.** RiftWii never starts a game half patched: the
+screen names the pack, option and file that stopped it. A memory patch
+whose file is missing is skipped with a warning (as in Dolphin).
+
+**The game shows its own error ("An error has occurred") while it
+loads.** Send the logs below with your report.
+
+**The GameCube adapter does nothing.** Open **Check the GameCube
+adapter**: it says whether the adapter is found and shows what each
+port presses. The menu IOS must be IOS 58 or a d2x cIOS, and the game
+must support the GameCube controller.
+
+### Reporting a problem
+
+Open a GitHub issue with:
+
+- `sd:/riftwii/session.log` (the menu) and `sd:/riftwii/boot.log` (the
+  last launch);
+- your Wii model, System Menu version and which cIOS you have;
+- what you did, and what the screen showed (a photo helps).
 
 ## For developers
 
-Direction, review findings and the roadmap live in `docs/`.
-
-## Status
-
-- `riftwii` static library: XML patch package parsing (the full documented
-  format: file/folder/memory/savegame patches, options, macros, params,
-  `{$name}` placeholders), disc filtering, patch planning, read overlay
-  composition, Wii FST and disc structure parsers, the redirect table
-  builder and a read-only FAT32 fragment resolver (all host-tested).
-- `riftwii_runtime` static library (`runtime/`): freestanding C99 redirect
-  table walker shared by the host tests and the future resident runtime.
-- Wii frontend (`wii/`): own `/dev/di` client, IOS reload, disc probe,
-  apploader run and handoff (`boot.cpp`), file dump through the FST, and a
-  headless autorun mode for Dolphin. Mario Kart Wii boots and plays from
-  `riftwii.dol` in Dolphin; not yet run on hardware.
-- Resident runtime (`runtime/resident/`): a position-independent blob the
-  loader installs at the top of the MEM1 arena (its tables and buffers at
-  the top of the MEM2 arena); it hooks the game's
-  `IOS_IoctlAsync` (found by structure, not by SDK patterns), sees every
-  disc read and serves same-size replacements from memory through the
-  redirect table, files of a new size through the virtual window (FST
-  rewritten in the loader, reads above the disc answered from memory), and
-  files stored on the SD card (fetched sector by sector through the game's
-  own IPC, no file system in the runtime), and the disc's own bytes for
-  relocated or partially patched files. Verified in Dolphin against
-  Dolphin's own DI and SD logs and by checksums of the rewritten game
-  buffers, on Mario Kart Wii, Super Smash Bros. Brawl, Wario Land: Shake
-  It! and Kirby's Epic Yarn (SDKs from 2007 to 2009; the runtime's code
-  lives in MEM1 because a 2009 SDK keeps no instruction BAT for MEM2,
-  see `docs/CONDUCTOR_REVIEW_2.md` section 23). A Riivolution-format
-  package runs end to end this way
-  (`wii/modplan.cpp`): `<file>` and `<folder>` patches, including created
-  files, and `<memory>` patches (plain, search and ocarina) applied
-  before the game starts, with several packages composing in order and
-  option choices applied over the defaults; the GUI enables packages,
-  sets their options and launches, keeping the choices per game.
-  `<savegame external>` serves the title's NAND data directory from a
-  folder on the card: the resident runtime hooks the SDK's IOS calls
-  and answers the ISFS requests from its own FAT32 engine over SDIO,
-  importing the temporaries the SDK's safe write renames in (Mario
-  Kart Wii's `rksys.dat` lands on the card in Dolphin); `clone` copies
-  the NAND save into a folder created at launch, as the game (a hidden
-  `riftwii.cln` in the folder marks a clone still due; the game never
-  sees hidden entries).
-- `vendor-pugixml`: MIT-licensed XML parser, pinned at v1.15.
-- `vendor-libgui`: pinned GPL libwiigui 1.07 snapshot, used only by the Wii
-  frontend (not built by the host build).
-
-## Host build
-
-Requires CMake 3.20+, Ninja, and a C++17 compiler.
-
-```
-cmake -S . -B build-host -G Ninja
-cmake --build build-host
-ctest --test-dir build-host --output-on-failure
-```
-
-## Wii frontend
-
-Requires devkitPPC, libogc, libfat, and the Wii/PPC portlibs used by
-`Makefile.wii`. Run from the project root in the devkitPro shell:
-
-```
-make -f Makefile.wii
-```
-
-This produces `riftwii.dol` and `riftwii.elf`. The build uses relative paths
-and supports a project directory containing spaces. The frontend links the
-XML/overlay core and libwiigui; it is not part of the host test build.
-
-The frontend (`wii/rift_menu.cpp`) reads both drives into a grid of
-games, filters it by the packs in `sd:/riivolution`, and for the picked
-game lists its packs (those whose `<id>` matches the game's ID, revision
-and disc number) with their options. Choices are saved to
-`sd:/riftwii/choices/<game id>.txt` and restored on the next start; a
-launch logs to `sd:/riftwii/boot.log`, the menu to `session.log`. The
-menu's artwork is painted at start on a small software canvas
-(`include/riftwii/canvas.hpp`, host-tested) into GX textures, so it
-ships no image files. On the game page, the Wii Remote's 2 or a
-GameCube pad's Z ("Dump", a development aid) writes the disc header,
-partition table, TMD, FST, apploader and `/opening.bnr` to
-`sd:/riftwii/dump/`. `sd:/riftwii/guiscript.txt` (see
-`wii/guiscript.hpp`) plays scripted input and saves screenshots, for
-checking the menu in Dolphin.
-
-### Manual testing
-
-Copy `riftwii.dol` to `sd:/apps/riftwii/boot.dol` and launch it from the
-Homebrew Channel, or load the DOL in Dolphin with an SD image configured.
-
-### Headless runs in Dolphin
-
-If `sd:/riftwii/autorun.txt` exists the frontend skips the GUI and runs
-the commands in it (`sd <path-or-id> [cios-slot]`, `usb <path-or-id> [cios-slot]`,
-`disc`, `probe`, `layout`, `meta [dir]`, `dump <disc path>
-[sd path]`, `dol [sd path]`, `nofallback`, `hook`, `replace <disc path>
-<sd path>`, `grow <disc path> <sd path>`, `sdreplace <disc path> <sd
-path>`, `sdgrow <disc path> <sd path>`, `keep <disc path>`, `xml <sd
-path>`, `set <option>=<choice>`, `boot`, `launch`), logging to
-`sd:/riftwii/autorun.log`;
-under Dolphin it powers off afterwards so the SD folder syncs back.
-`tools/dolphin/run.sh` drives this: it expects `build-dolphin/user/` (an
-isolated Dolphin user directory with `WiiSDCard`, folder sync and a
-`DefaultISO` pointing at your own dump, plus the USB Gecko on slot B) and
-prints the Gecko and Dolphin logs after the run:
-
-```
-DOLPHIN_DIR=/c/path/to/Dolphin-x64 tools/dolphin/run.sh 45
-```
-Verify startup, pointer/controller navigation, scrolling, package details,
-rescan, and exit. Test missing/empty package directories, malformed XML,
-uppercase `.XML` extensions, files larger than 16 KiB, and the 1 MiB limit.
-Test more than eight packages to exercise scrolling. Hardware/emulator
-behavior has not been verified by the automated host tests.
-
-## Scope
-
-The loader validates and plans Riivolution-format XML patches and composes
-read overlays.
-
-Parsing (`parse_package`) accepts the whole documented format, including the
-XML declaration, `shiftfiles`, `<folder>`, `<memory>` (plain/ocarina/search),
-`<savegame>`, `<macro>`/`<param>`, bare file-name `disc` targets and
-`{$__gameid}`/`{$__region}`/`{$__maker}`/param placeholders. Unknown
-attributes and elements are tolerated and reported in `Package::warnings`;
-malformed values, DOCTYPE/entities and non-declaration processing
-instructions are rejected. The fixtures under `tests/fixtures/` exercise
-every construct and are authored for this project.
-
-Planning (`plan_package`) resolves the selected choices for a disc identity:
-placeholders are substituted, paths resolved, and any selected feature the
-runtime cannot execute yet (controlled by `PlanOptions`) makes planning fail
-with a message naming the option, choice, patch and feature, so a mod is
-never launched partially applied.
-
-Replacement (`build_replacement`, `apply_patches`): `DirectoryProvider`
-(game dir + SD dir) feeds the engine, which turns planned `FilePatch`es into
-an owned `AppliedFile` view backed by `ReadOverlay`; several patches on one
-disc file compose in order. Covered and tested: `offset` (low 2 bits
-cleared, since DI reads address the disc in 4-byte words), `fileoffset`,
-`length` (0 = rest of external), `resize` (truncate/extend vs keep tail),
-`create` (a disc file reported *not found* becomes an empty original; I/O
-errors never do), short-external zero padding, past-EOF zero gaps, overflow
-checks, and a 256 MiB per-file cap that holds for files above 4 GiB. The
-end-to-end test runs XML text -> `parse_package` -> `plan_package` ->
-provider -> split `read()` consumption and compares every byte against an
-oracle.
-
-Still future: hardware runs of everything the Dolphin sections of
-`docs/CONDUCTOR_REVIEW_2.md` cover (the runtime architecture and the
-gate sequence are described there).
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): how a launch works and
+  which file owns what.
+- [`docs/DEVELOPING.md`](docs/DEVELOPING.md): building (CMake host tests,
+  `make -f Makefile.wii` for the Wii app), testing in Dolphin, releasing.
+- [`docs/README.md`](docs/README.md): every other document.

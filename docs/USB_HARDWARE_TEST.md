@@ -1,12 +1,12 @@
 # SD and USB d2x hardware test
 
-This milestone boots Wii images from FAT32 SD or USB media through a
-user-installed d2x cIOS. It does not support IOS58-only image boot, NTFS, RVZ,
-or a cIOS-free path. RiftWii never writes USB. The SD catalog and image mapper
+RiftWii boots Wii images from an SD card (FAT32) or a USB drive (FAT32 or
+NTFS) through a user-installed d2x cIOS. It does not support IOS58-only image
+boot, RVZ, or a cIOS-free path. RiftWii never writes USB. The SD catalog and image mapper
 are read-only; because SD also holds XML packages, logs, and redirected saves,
 those normal RiftWii files may be written there.
 
-Use known-good FAT32 media with 512-byte logical sectors. Put a Wii `.wbfs`
+Use known-good media with 512-byte logical sectors. Put a Wii `.wbfs`
 file (and every consecutive `.wbf1`, `.wbf2`, … piece when split) in
 `usb:/wbfs`, either directly or one level below it, for example
 `usb:/wbfs/Game [RMCE01]/RMCE01.wbfs`. Raw `.iso` files belong in
