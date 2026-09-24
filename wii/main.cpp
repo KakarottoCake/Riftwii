@@ -62,15 +62,30 @@ void OpenSessionLog(bool sd_mounted) {
     riftwii::wii::LogOpen("sd:/riftwii/session.log");
     riftwii::wii::logf("RiftWii %s on %s, IOS%d rev %d\n", RIFTWII_VERSION,
                        riftwii::wii::running_in_dolphin() ? "Dolphin" : "Wii", IOS_GetVersion(), IOS_GetRevision());
+    riftwii::wii::logf("Memory: MEM1 heap 0x%08x-0x%08x, MEM2 heap 0x%08x-0x%08x\n",
+                       reinterpret_cast<u32>(SYS_GetArena1Lo()), reinterpret_cast<u32>(SYS_GetArena1Hi()),
+                       reinterpret_cast<u32>(SYS_GetArena2Lo()), reinterpret_cast<u32>(SYS_GetArena2Hi()));
 }
 
 }  // namespace
+
+// The start of MEM2 an IOS reload may use (see main).
+constexpr u32 kMem2Reserved = 0x90800000;
 
 int main() {
     // The game's apploader is loaded at 0x81200000 and its DOL fills MEM1
     // from 0x80004000 up; this loader is linked at 0x80A00000 (see
     // Makefile.wii) and keeps its heap below the apploader.
     SYS_SetArena1Hi(reinterpret_cast<void*>(0x81200000));
+    // An IOS reload (Menu IOS, a USB or SD game's cIOS, a disc game's own
+    // IOS) stages the new kernel in low MEM2 and overwrites it: with the
+    // 1.0.5 font the heap outgrew MEM1 and spilled there, and every launch
+    // then crashed in malloc right after the reload (heap chunks at
+    // 0x9011E000-0x9014C500 destroyed). Nothing of ours lives below
+    // kMem2Reserved: the heap and the menu's textures start above it.
+    if (reinterpret_cast<u32>(SYS_GetArena2Lo()) < kMem2Reserved) {
+        SYS_SetArena2Lo(reinterpret_cast<void*>(kMem2Reserved));
+    }
     const bool sd_mounted = MountStartupSd();
 
     if (riftwii::wii::AutorunPresent()) {
