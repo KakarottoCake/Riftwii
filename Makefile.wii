@@ -26,7 +26,7 @@ SOURCES		:=	wii src runtime vendor-pugixml/src \
 # the GamePad through it, guarded so plain Wii and Dolphin are unaffected.
 EXCLUDES	:=	vendor-libgui/source/demo.cpp vendor-libgui/source/menu.cpp vendor-libgui/source/filebrowser.cpp \
 				vendor-libgui/source/gettext.cpp
-INCLUDES	:=	wii vendor-libgui/source include runtime runtime/resident runtime/pad vendor-pugixml/src
+INCLUDES	:=	wii vendor-libgui/source include runtime runtime/resident runtime/pad vendor-pugixml/src vendor-bearssl/inc
 DATA		:=	wii/assets wii/lang vendor-gecko vendor-libgui/source/images vendor-libgui/source/fonts vendor-libgui/source/sounds vendor-libgui/source/lang \
 				build-runtime
 
@@ -42,7 +42,8 @@ LDFLAGS		=	-g $(MACHDEP) -Wl,-Map,$(notdir $@).map -Wl,--section-start,.init=0x8
 #---------------------------------------------------------------------------------
 # any extra libraries we wish to link with the project
 #---------------------------------------------------------------------------------
-LIBS :=	-lpng -lz -lfat -lwiiuse -lbte -lasnd -logc -lvorbisidec -logg -lfreetype -lbrotlidec -lbrotlicommon -lbz2
+# libbearssl.a comes from Makefile.bearssl (the TLS client, wii/tls.cpp).
+LIBS :=	-lbearssl -lpng -lz -lfat -lwiiuse -lbte -lasnd -logc -lvorbisidec -logg -lfreetype -lbrotlidec -lbrotlicommon -lbz2
 #---------------------------------------------------------------------------------
 # list of directories containing libraries, this must be the top level containing
 # include and lib
@@ -113,13 +114,13 @@ export INCLUDE	:=	$(foreach dir,$(INCLUDES),-I$(PROJECT_ROOT)/$(dir)) \
 # build a list of library paths
 #---------------------------------------------------------------------------------
 export LIBPATHS	:=	$(foreach dir,$(LIBDIRS),-L$(dir)/lib) \
-					-L$(LIBOGC_LIB)
+					-L$(LIBOGC_LIB) -L$(PROJECT_ROOT)/build-bearssl
 
 export OUTPUT	:=	$(PROJECT_ROOT)/$(TARGET)
-.PHONY: $(BUILD) clean runtime-blob
+.PHONY: $(BUILD) clean runtime-blob bearssl-lib
 
 #---------------------------------------------------------------------------------
-$(BUILD): runtime-blob
+$(BUILD): runtime-blob bearssl-lib
 	@[ -d $@ ] || mkdir -p $@
 	@IN_BUILD=1 PROJECT_ROOT="$(PROJECT_ROOT)" $(MAKE) --no-print-directory -C "$(BUILD)" -f ../Makefile.wii
 
@@ -129,10 +130,13 @@ $(BUILD): runtime-blob
 runtime-blob:
 	@$(MAKE) --no-print-directory -f Makefile.runtime
 
+bearssl-lib:
+	@$(MAKE) --no-print-directory -f Makefile.bearssl
+
 #---------------------------------------------------------------------------------
 clean:
 	@echo clean ...
-	@rm -fr "$(BUILD)" "$(TARGET).elf" "$(TARGET).dol" build-runtime
+	@rm -fr "$(BUILD)" "$(TARGET).elf" "$(TARGET).dol" build-runtime build-bearssl
 
 #---------------------------------------------------------------------------------
 run:

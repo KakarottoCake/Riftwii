@@ -16,7 +16,7 @@ namespace riftwii::wii {
 
 constexpr const char* kCheatDir = "sd:/riftwii/cheats";
 
-// One GET, following up to three http:// redirects. `body` holds at most
+// One GET (http:// or https://), following up to three redirects. `body` holds at most
 // `max_bytes`.
 bool HttpGet(const std::string& url, std::vector<std::uint8_t>& body, std::string& error,
              std::size_t max_bytes = 8u << 20, int timeout_ms = 15000);
@@ -26,6 +26,12 @@ std::string TitlesPath(const std::string& lang);
 // Fetches the names when the file is missing or older than a week
 // (`force`: always). False with `error` when it could not.
 bool UpdateTitles(const std::string& lang, bool force, std::string& error);
+
+// The newest RiftWii release on GitHub (a tag such as "v2.0.1-beta"),
+// asked at most once a day unless `force`: sd:/riftwii/update.txt keeps
+// the last answer. `newer` says whether it is newer than this build.
+bool CheckForUpdate(bool force, std::string& latest, bool& newer, std::string& error);
+constexpr const char* kReleasesPage = "github.com/KakarottoCake/Riftwii/releases";
 
 // sd:/riftwii/cheats/<ID>.txt.
 std::string CheatPath(const std::string& game_id);

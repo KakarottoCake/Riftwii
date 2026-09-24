@@ -1,0 +1,41 @@
+# Builds BearSSL (vendor-bearssl, https://bearssl.org, 0.6) for the Wii as
+# build-bearssl/libbearssl.a. Makefile.wii links it as an archive, so only
+# what RiftWii's TLS client uses ends up in the DOL.
+#
+#   export DEVKITPRO=/opt/devkitpro DEVKITPPC=/opt/devkitpro/devkitPPC
+#   make -f Makefile.bearssl
+ifeq ($(strip $(DEVKITPPC)),)
+$(error "Please set DEVKITPPC in your environment. export DEVKITPPC=<path to>devkitPPC")
+endif
+
+PREFIX  := $(DEVKITPPC)/bin/powerpc-eabi-
+CC      := $(PREFIX)gcc
+AR      := $(PREFIX)ar
+
+SRC     := vendor-bearssl/src
+OUT     := build-bearssl
+LIB     := $(OUT)/libbearssl.a
+
+# No OS randomness source: wii/tls.cpp seeds the engine itself.
+CFLAGS  := -Os -mrvl -mcpu=750 -meabi -mhard-float -ffunction-sections -fdata-sections \
+           -W -Wall -DBR_USE_URANDOM=0 -DBR_USE_GETENTROPY=0 -DBR_USE_WIN32_RAND=0 -DBR_USE_UNIX_TIME=1 \
+           -Ivendor-bearssl/inc -I$(SRC)
+
+CSRCS   := $(wildcard $(SRC)/*.c $(SRC)/*/*.c)
+OBJS    := $(addprefix $(OUT)/obj/,$(notdir $(CSRCS:.c=.o)))
+vpath %.c $(sort $(dir $(CSRCS)))
+
+$(LIB): $(OBJS)
+	@rm -f $@
+	@$(AR) rcs $@ $^
+	@echo built $@
+
+$(OUT)/obj/%.o: %.c | $(OUT)/obj
+	@$(CC) $(CFLAGS) -c -o $@ $<
+
+$(OUT)/obj:
+	@mkdir -p $@
+
+.PHONY: clean
+clean:
+	@rm -rf $(OUT)

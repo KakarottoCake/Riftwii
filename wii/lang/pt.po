@@ -510,6 +510,27 @@ msgstr "Volta ao Homebrew Channel."
 msgid "No d2x cIOS was found in slots 248 to 252, so the menu runs under IOS 58. Install d2x to play games from SD or USB."
 msgstr "Nenhum cIOS d2x foi encontrado nos slots 248 a 252, então o menu usa o IOS 58. Instale o d2x para jogar pelo SD ou USB."
 
+msgid "Check for a new version"
+msgstr "Procurar uma versão nova"
+
+msgid "Check"
+msgstr "Procurar"
+
+msgid "This is RiftWii {1}. Looks on GitHub for a newer release."
+msgstr "Esta é a RiftWii {1}. Procura no GitHub uma versão mais nova."
+
+msgid "Asking GitHub..."
+msgstr "Consultando o GitHub..."
+
+msgid "RiftWii {1} is out: {2}"
+msgstr "Saiu a RiftWii {1}: {2}"
+
+msgid "RiftWii {1} is the newest version."
+msgstr "A RiftWii {1} é a versão mais recente."
+
+msgid "Could not check: {1}"
+msgstr "Não foi possível verificar: {1}"
+
 msgid "Favourites"
 msgstr "Favoritos"
 

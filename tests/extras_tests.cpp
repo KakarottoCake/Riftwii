@@ -8,6 +8,7 @@
 #include "riftwii/launch.hpp"
 #include "riftwii/playhistory.hpp"
 #include "riftwii/settingsfile.hpp"
+#include "riftwii/update.hpp"
 #include "riftwii/videopatch.hpp"
 
 #include <cstring>
@@ -37,7 +38,26 @@ void TestHttp() {
     EXPECT_EQ(url.port, 8080);
     EXPECT_EQ(url.path, "/");
     EXPECT_TRUE(http_get_request(url).find("Host: 192.168.1.2:8080\r\n") != std::string::npos);
-    EXPECT_FALSE(parse_http_url("https://www.gametdb.com/", url, error));
+    EXPECT_TRUE(parse_http_url("https://api.github.com/repos/a/b/releases?per_page=1", url, error));
+    EXPECT_TRUE(url.tls);
+    EXPECT_EQ(url.port, 443);
+    EXPECT_EQ(url.host, "api.github.com");
+    EXPECT_TRUE(http_get_request(url).find("Host: api.github.com\r\n") != std::string::npos);
+    EXPECT_FALSE(parse_http_url("ftp://www.gametdb.com/", url, error));
+
+    // The update check.
+    std::string tag;
+    EXPECT_TRUE(release_tag_from_json("[{\"url\":\"x\",\"tag_name\" : \"v2.0.1-beta\",\"tag_name\":\"old\"}]", tag));
+    EXPECT_EQ(tag, "v2.0.1-beta");
+    EXPECT_FALSE(release_tag_from_json("[]", tag));
+    EXPECT_FALSE(release_tag_from_json("{\"tag_name\":3}", tag));
+    EXPECT_EQ(compare_versions("v1.0.9-beta", "2.0.0-beta"), -1);
+    EXPECT_EQ(compare_versions("2.0.0", "2.0.0-beta"), 1);
+    EXPECT_EQ(compare_versions("v2.0.0-beta", "2.0.0-beta"), 0);
+    EXPECT_EQ(compare_versions("2.0.0-rc1", "2.0.0-beta"), 1);
+    EXPECT_EQ(compare_versions("2.0", "2.0.0"), 0);
+    EXPECT_EQ(compare_versions("2.0.10", "2.0.9"), 1);
+    EXPECT_EQ(compare_versions("1.0.5 Beta", "1.0.5-beta"), 0);
 
     const std::string plain = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 5\r\n\r\nhello";
     EXPECT_FALSE(http_response_complete(bytes(plain.substr(0, plain.size() - 1))));
