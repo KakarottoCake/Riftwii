@@ -2,8 +2,8 @@
 #include "covers.hpp"
 
 #include <ogc/cache.h>
-#include <png.h>
 #include <sys/stat.h>
+#include <zlib.h>
 
 #include <cstdio>
 #include <ctime>
@@ -14,6 +14,7 @@
 #include "log.hpp"
 #include "online.hpp"
 #include "riftwii/coverart.hpp"
+#include "riftwii/pngdecode.hpp"
 #include "skin.hpp"
 
 namespace riftwii::wii {
@@ -49,23 +50,31 @@ bool WriteAll(const std::string& path, const std::vector<std::uint8_t>& bytes) {
     return true;
 }
 
-// PNG to RGBA rows, with libpng's simplified reader.
+// The PNG's zlib stream, with zlib (which the menu links anyway).
+bool Inflate(const std::uint8_t* data, std::size_t size, std::uint8_t* out, std::size_t out_size) {
+    z_stream z = {};
+    if (inflateInit(&z) != Z_OK) return false;
+    z.next_in = const_cast<Bytef*>(data);
+    z.avail_in = static_cast<uInt>(size);
+    z.next_out = out;
+    z.avail_out = static_cast<uInt>(out_size);
+    int result = Z_OK;
+    while (z.avail_out > 0 && result == Z_OK) result = inflate(&z, Z_SYNC_FLUSH);
+    inflateEnd(&z);
+    return z.avail_out == 0 && (result == Z_OK || result == Z_STREAM_END || result == Z_BUF_ERROR);
+}
+
+// PNG to RGBA rows (src/pngdecode.cpp, in place of libpng: about 110 KiB
+// less of the DOL, which is MEM1 the menu's heap gets back).
 bool DecodePng(const std::vector<std::uint8_t>& png, std::vector<std::uint8_t>& rgba, int& w, int& h) {
-    png_image image = {};
-    image.version = PNG_IMAGE_VERSION;
-    if (!png_image_begin_read_from_memory(&image, png.data(), png.size())) return false;
-    image.format = PNG_FORMAT_RGBA;
-    if (image.width == 0 || image.height == 0 || image.width > 1024 || image.height > 1024) {
-        png_image_free(&image);
+    std::uint32_t width = 0, height = 0;
+    std::string error;
+    if (!decode_png(png.data(), png.size(), &Inflate, 1024, rgba, width, height, error)) {
+        logf("Covers: %s\n", error.c_str());
         return false;
     }
-    rgba.assign(PNG_IMAGE_SIZE(image), 0);
-    if (!png_image_finish_read(&image, nullptr, rgba.data(), 0, nullptr)) {
-        png_image_free(&image);
-        return false;
-    }
-    w = static_cast<int>(image.width);
-    h = static_cast<int>(image.height);
+    w = static_cast<int>(width);
+    h = static_cast<int>(height);
     return true;
 }
 

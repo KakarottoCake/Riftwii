@@ -22,8 +22,27 @@
 
 #include "FreeTypeGX.h"
 
+#include FT_MODULE_H
+
 #define ALIGN8(x) (((x) + 7) & ~7)
 
+// The menu font is one TrueType font without hinting instructions, so
+// FreeType needs its TrueType driver, the sfnt tables, the auto-hinter
+// (which hints such fonts) and the anti-aliased renderer. Adding just
+// those, instead of FT_Init_FreeType's full list, keeps the other font
+// drivers out of the DOL (about 300 KiB of MEM1). Each class starts with
+// its FT_Module_Class, which is how FreeType's own module list adds
+// them; the allocator calls are ftsystem.c's.
+extern "C" {
+extern const FT_Module_Class sfnt_module_class;
+extern const FT_Module_Class tt_driver_class;
+extern const FT_Module_Class autofit_module_class;
+extern const FT_Module_Class ft_smooth_renderer_class;
+FT_Memory FT_New_Memory(void);
+void FT_Done_Memory(FT_Memory memory);
+}
+
+static FT_Memory ftMemory;		/**< FreeType allocator. */
 static FT_Library ftLibrary;	/**< FreeType FT_Library instance. */
 static FT_Face ftFace;			/**< FreeType reusable FT_Face typographic object. */
 static FT_GlyphSlot ftSlot;		/**< FreeType reusable FT_GlyphSlot glyph container object. */
@@ -32,7 +51,12 @@ FreeTypeGX *fontSystem[MAX_FONT_SIZE+1];
 
 void InitFreeType(uint8_t* fontBuffer, FT_Long bufferSize)
 {
-	FT_Init_FreeType(&ftLibrary);
+	ftMemory = FT_New_Memory();
+	FT_New_Library(ftMemory, &ftLibrary);
+	FT_Add_Module(ftLibrary, &sfnt_module_class);
+	FT_Add_Module(ftLibrary, &tt_driver_class);
+	FT_Add_Module(ftLibrary, &autofit_module_class);
+	FT_Add_Module(ftLibrary, &ft_smooth_renderer_class);
 	FT_New_Memory_Face(ftLibrary, (FT_Byte *)fontBuffer, bufferSize, 0, &ftFace);
 	ftSlot = ftFace->glyph;
 
@@ -43,8 +67,10 @@ void InitFreeType(uint8_t* fontBuffer, FT_Long bufferSize)
 void DeinitFreeType()
 {
 	ClearFontData();
-	FT_Done_FreeType(ftLibrary);
+	FT_Done_Library(ftLibrary);
+	FT_Done_Memory(ftMemory);
 	ftLibrary = nullptr;
+	ftMemory = nullptr;
 }
 
 void ChangeFontSize(FT_UInt pixelSize)

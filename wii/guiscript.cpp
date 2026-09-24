@@ -15,6 +15,7 @@
 #include "input.h"
 #include "libwiigui/gui.h"
 #include "log.hpp"
+#include "memlimits.hpp"
 
 namespace riftwii::wii {
 namespace {
@@ -148,6 +149,10 @@ void Advance(const void* xfb, int width, int height) {
             asm volatile("trap");  // a program exception, in Dolphin too
         } else if (cmd == "finalshot") {
             words >> g_final_shot;
+        } else if (cmd == "mem") {
+            std::string label;
+            words >> label;
+            mem::LogUsage(label.empty() ? "guiscript" : label.c_str());
         } else if (cmd == "shot") {
             std::string path;
             words >> path;
