@@ -370,14 +370,17 @@ void GuiText::Draw()
 				textDyn[linenum][n] = text[ch];
 				textDyn[linenum][n+1] = 0;
 
-				if(text[ch] == ' ' || ch == textlen-1)
+				// RiftWii: a line may also break after a CJK character
+				// (Japanese has no spaces); that character is kept.
+				const bool cjk = text[ch] >= 0x2E80;
+				if(text[ch] == ' ' || cjk || ch == textlen-1)
 				{
 					if(fontSystem[currentSize]->getWidth(textDyn[linenum]) > maxWidth)
 					{
 						if(lastSpace >= 0)
 						{
-							textDyn[linenum][lastSpaceIndex] = 0; // discard space, and everything after
-							ch = lastSpace; // go backwards to the last space
+							textDyn[linenum][lastSpaceIndex] = 0; // discard space (or keep the CJK character), and everything after
+							ch = lastSpace; // go backwards to the last break
 							lastSpace = -1; // we have used this space
 							lastSpaceIndex = -1;
 						}
@@ -393,6 +396,11 @@ void GuiText::Draw()
 				{
 					lastSpace = ch;
 					lastSpaceIndex = n;
+				}
+				else if(cjk && n >= 0)
+				{
+					lastSpace = ch;
+					lastSpaceIndex = n + 1;
 				}
 				++ch;
 				++n;

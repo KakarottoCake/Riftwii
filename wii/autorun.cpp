@@ -14,6 +14,7 @@
 #include "boot.hpp"
 #include "di.hpp"
 #include "frontend.hpp"
+#include "gameextras.hpp"
 #include "ios_reload.hpp"
 #include "log.hpp"
 #include "menuios.hpp"
@@ -585,6 +586,7 @@ void RunAutorun() {
                 }
             }
             const std::vector<PackageChoices> selections = state.model.selections();
+            PrepareLaunchExtras(state);  // the game's cheats and video settings
             if (state.game_id.empty()) {
                 ok = false;
                 error = "launch needs a disc";
