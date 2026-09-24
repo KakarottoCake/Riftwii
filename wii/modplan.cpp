@@ -187,9 +187,67 @@ std::string nearest_on_card(const std::string& sd_path) {
 
 // One package: parse, plan with its default choices, expand folders and
 // read valuefiles, appending to the combined lists.
+// <shift>, after every package's files are laid out: the destination's
+// FST entry takes the source's extent where the patches left it (its
+// relocation, else its disc entry), as Riivolution points one node at
+// the other. A path that is not a disc file is skipped with a note, as
+// Riivolution skips it.
+static void apply_shifts(const std::vector<ShiftPatch>& shifts, const Fst& fst, CompiledMod& mod) {
+    const auto same = [](const std::string& a, const std::string& b) { return strcasecmp(a.c_str(), b.c_str()) == 0; };
+    const auto find_file = [&](const std::string& path) {
+        std::uint32_t index = fst.find(path, false);
+        if (index == Fst::npos) index = fst.find(path, true);
+        return index != Fst::npos && fst.entries()[index].is_directory ? Fst::npos : index;
+    };
+    for (const ShiftPatch& shift : shifts) {
+        std::uint64_t offset = 0;
+        std::uint32_t size = 0;
+        bool have_source = false;
+        for (const FstRelocation& r : mod.relocations) {
+            if (!same(r.disc_path, shift.source)) continue;
+            offset = r.offset;
+            size = r.size;
+            have_source = true;
+        }
+        const std::uint32_t source = find_file(shift.source);
+        if (!have_source && source != Fst::npos) {
+            offset = fst.entries()[source].offset;
+            size = fst.entries()[source].size;
+            have_source = true;
+        }
+        std::string destination = shift.destination;
+        const std::uint32_t target = find_file(shift.destination);
+        if (target != Fst::npos) fst.path_of(target, destination);
+        bool placed = false;
+        if (have_source) {
+            for (FstRelocation& r : mod.relocations) {
+                if (!same(r.disc_path, destination)) continue;
+                r.offset = offset;
+                r.size = size;
+                placed = true;
+            }
+            if (!placed && target != Fst::npos) {
+                FstRelocation r;
+                r.disc_path = destination;
+                r.offset = offset;
+                r.size = size;
+                mod.relocations.push_back(r);
+                placed = true;
+            }
+        }
+        const std::string head = "shift " + shift.source + " -> " + shift.destination + ": ";
+        if (!placed) {
+            mod.notes.push_back(head + (have_source ? "the destination" : "the source") + " is not a disc file, skipped");
+            continue;
+        }
+        mod.notes.push_back(head + std::to_string(size) + " bytes");
+        logf("Mods: %s%u bytes\n", head.c_str(), static_cast<unsigned>(size));
+    }
+}
+
 static bool gather_package(const PackageSelection& selection, const DiscProbe& probe, const Fst& fst,
-                           WiiProvider& provider, std::vector<FilePatch>& files, CompiledMod& mod,
-                           std::string& error) {
+                           WiiProvider& provider, std::vector<FilePatch>& files, std::vector<ShiftPatch>& shifts,
+                           CompiledMod& mod, std::string& error) {
     const std::string& xml_sd_path = selection.xml_sd_path;
     std::ifstream xml(xml_sd_path, std::ios::binary);
     if (!xml) {
@@ -243,6 +301,7 @@ static bool gather_package(const PackageSelection& selection, const DiscProbe& p
     std::vector<FilePatch> expanded;
     if (!expand_plan(plan, fst, provider, expanded, mod.notes, error)) return false;
     files.insert(files.end(), expanded.begin(), expanded.end());
+    shifts.insert(shifts.end(), plan.shifts.begin(), plan.shifts.end());
     logf("Mods: %s: %u file patch(es), %u memory patch(es)\n", xml_sd_path.c_str(),
          static_cast<unsigned>(expanded.size()), static_cast<unsigned>(plan.memory.size()));
 
@@ -304,7 +363,7 @@ static bool gather_package(const PackageSelection& selection, const DiscProbe& p
         mod.memory.push_back(std::move(m));
     }
     if (!plan.memory.empty()) mod.notes.push_back(std::to_string(plan.memory.size()) + " memory patch(es)");
-    if (expanded.empty() && plan.memory.empty() && plan.savegames.empty()) {
+    if (expanded.empty() && plan.memory.empty() && plan.savegames.empty() && plan.shifts.empty()) {
         std::vector<std::string> folder_notes(mod.notes.begin() + expand_notes_from, mod.notes.end());
         error = describe_empty_plan(xml_sd_path, probe.header.game_id, plan, folder_notes);
         return false;
@@ -326,12 +385,14 @@ bool compile_packages(const std::vector<PackageSelection>& packages, const DiscP
     // 1. Every package's file patches, in package then document order,
     //    and its memory patches.
     std::vector<FilePatch> files;
+    std::vector<ShiftPatch> shifts;
     for (const PackageSelection& selection : packages) {
         ProgressWithin(mod.xml_paths.size(), packages.size(), 10, 25);
         mod.xml_paths.push_back(selection.xml_sd_path);
-        if (!gather_package(selection, probe, fst, provider, files, mod, error)) return false;
+        if (!gather_package(selection, probe, fst, provider, files, shifts, mod, error)) return false;
     }
     if (files.empty()) {
+        apply_shifts(shifts, fst, mod);
         out = std::move(mod);
         error.clear();
         return true;
@@ -511,6 +572,7 @@ bool compile_packages(const std::vector<PackageSelection>& packages, const DiscP
     }
 
     if (layouts.empty()) {  // every file patch was skipped above
+        apply_shifts(shifts, fst, mod);
         out = std::move(mod);
         error.clear();
         return true;
@@ -537,6 +599,7 @@ bool compile_packages(const std::vector<PackageSelection>& packages, const DiscP
         return false;
     }
     mod.entries.assign(rt_entries(header), rt_entries(header) + header->entry_count);
+    apply_shifts(shifts, fst, mod);
     out = std::move(mod);
     error.clear();
     return true;
