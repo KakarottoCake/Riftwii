@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "autorun.hpp"
+#include "progress.hpp"
 
 #include <fat.h>
 #include <gccore.h>
@@ -54,6 +55,7 @@ struct Session {
 
     bool ensure_probe(std::string& error) {
         if (probed) return true;
+        ProgressStage(source.kind == LaunchSource::Kind::Disc ? "Reading the disc" : "Opening the game image", 3);
         if (source.kind != LaunchSource::Kind::Disc) {
             const int slots[] = {source.cios_slot ? source.cios_slot : 249, source.cios_slot ? 0 : 250,
                                  source.cios_slot ? 0 : 251};

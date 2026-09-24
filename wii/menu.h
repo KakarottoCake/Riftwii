@@ -11,6 +11,13 @@ void InitGUIThreads();
 // on MENU_EXIT. With MENU_LAUNCH the model holds the selection.
 int MainMenu(int menuitem, FrontendState& state);
 
+// Stops the GUI thread drawing, for the crash screen (wii/crash.cpp).
+void MenuHaltForCrash();
+
+// A line Home shows in its status bar until a game is picked: why
+// RiftWii restarted (wii/restart.hpp). Empty for none.
+void SetHomeNotice(const std::string& text);
+
 enum
 {
 	MENU_EXIT = -1,

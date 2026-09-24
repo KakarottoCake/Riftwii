@@ -24,7 +24,10 @@ std::vector<int> MenuIosChoices();
 // USB or DI are touched: reloads into the saved slot when it is installed,
 // taking the card and the session log down and back up around the reload.
 // Returns false after a failed reload (the menu stays on the old IOS).
-bool StartMenuIos(bool sd_mounted);
+// `fresh` (after a restart, wii/restart.hpp) reloads even into the IOS
+// already running, IOS 58 when no slot is saved, so nothing the old run
+// left open survives.
+bool StartMenuIos(bool sd_mounted, bool fresh = false);
 
 // The cIOS slot the menu is running under, or 0.
 int MenuCiosSlot();

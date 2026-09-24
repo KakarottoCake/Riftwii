@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "boot.hpp"
+#include "progress.hpp"
 
 #include <fat.h>
 #include <gccore.h>
@@ -562,6 +563,7 @@ namespace {
 bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, const SavegameOptions& savegame,
                         std::uint32_t required, std::string& error) {
     bool force_ios_fields = options.preserve_current_ios;
+    if (!options.preserve_current_ios) ProgressStage("Starting the game's IOS", 62);
     if (options.preserve_current_ios) {
         logf("Keeping IOS%d for the launch; reporting IOS%u to the game\n", IOS_GetVersion(), required);
     } else switch (reload_ios(static_cast<int>(required), error)) {
@@ -595,6 +597,7 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
     std::int32_t es_result = 0;
     if (!open_game_partition(probe.partition, tmd, es_result, error)) return false;
     logf("Partition open again (ES result %d)\n", es_result);
+    ProgressStage("Loading the game", 70);
 
     // The partition's layout again, from the reloaded IOS's drive: the
     // apploader header, the data header for the DOL, and the FST in case
@@ -771,6 +774,14 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
     }
     init(apploader_report);
     std::vector<MemoryRegion> loaded;  // what the apploader filled, in load order
+    // For the progress bar: the DOL (up to the FST, when it follows) and
+    // the FST are most of what the apploader reads.
+    const std::uint64_t dol_span = layout.data_header.fst_offset > layout.data_header.dol_offset &&
+                                           layout.data_header.fst_offset - layout.data_header.dol_offset < 0x1800000
+                                       ? layout.data_header.fst_offset - layout.data_header.dol_offset
+                                       : 0x600000;
+    const std::uint64_t expected = dol_span + layout.data_header.fst_size;
+    std::uint64_t loaded_bytes = 0;
     for (;;) {
         void* destination = nullptr;
         int length = 0;
@@ -779,6 +790,8 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         const std::uint32_t dest = reinterpret_cast<std::uint32_t>(destination);
         logf("  load 0x%08x <- %d bytes from word 0x%08x\n", dest, length, word_offset);
         if (length == 0) continue;  // some apploaders emit empty steps (Dolphin skips them too)
+        if (length > 0) loaded_bytes += static_cast<std::uint32_t>(length);
+        ProgressWithin(loaded_bytes, expected, 70, 97);
         if (length < 0 || word_offset < 0 || !in_ram(dest, static_cast<std::uint32_t>(length))) {
             error = "the apploader asked for a load outside RAM";
             return false;
@@ -978,6 +991,7 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
     store32(0x80003184, 0x80000000);            // where the game id lives
     store32(0x80003194, probe.partition.type);
     store32(0x80003198, static_cast<u32>(probe.partition.offset >> 2));
+    ProgressStage("Starting the game", 100);
     configure_video_for_game(probe.header.game_id.size() > 3 ? probe.header.game_id[3] : 'E');
     DCFlushRange(reinterpret_cast<void*>(kMem1Start), 0x3400);
     if (force_ios_fields) {
@@ -1189,6 +1203,7 @@ bool boot_game(const DiscProbe& probe, const BootOptions& options, std::string& 
         logf("Keeping IOS%d for the GameCube adapter; reporting IOS%u to the game\n", running_ios, required);
     }
     SavegameOptions savegame;
+    ProgressStage(effective.savegame_dir.empty() ? "Getting the game ready" : "Preparing the save", 60);
     if (!effective.savegame_dir.empty() && !prepare_savegame(probe, effective, savegame, error)) return false;
     if (effective.install_resident && effective.file_device) {
         // The save redirect's volume carries the root too; without one,

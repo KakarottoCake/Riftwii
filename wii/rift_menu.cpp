@@ -52,6 +52,7 @@
 #include "log.hpp"
 #include "menuios.hpp"
 #include "online.hpp"
+#include "restart.hpp"
 #include "riftwii/settingsfile.hpp"
 #include "netpacks.hpp"
 #include "video.h"
@@ -105,6 +106,16 @@ static void HaltGui()
 	guiHalt = true;
 	while(!LWP_ThreadIsSuspended(guithread))
 		usleep(THREAD_SLEEP);
+}
+
+// The crash screen (wii/crash.cpp) draws over the menu's last frame: the
+// GUI thread stops drawing first, unless it is the thread that crashed.
+void MenuHaltForCrash()
+{
+	if (guithread == LWP_THREAD_NULL || LWP_GetSelf() == guithread) return;
+	guiHalt = true;
+	for (int i = 0; i < 50 && !LWP_ThreadIsSuspended(guithread); ++i)
+		usleep(10000);
 }
 
 static void *
@@ -429,8 +440,13 @@ public:
 	void Draw() override { skin::Draw(skin::bar, 0, 356); }
 };
 
+static std::string g_homeNotice;
+
+void SetHomeNotice(const std::string& text) { g_homeNotice = text; }
+
 static std::string HomeStatus(const FrontendState& state, std::size_t shown)
 {
+	if (!g_homeNotice.empty()) return g_homeNotice;
 	std::string status;
 	for (const std::string& p : {ShortSourceProblem("SD", state.sd_catalog), ShortSourceProblem("USB", state.usb_catalog)}) {
 		if (p.empty()) continue;
@@ -1854,7 +1870,7 @@ static void ShowLaunchFrame(const FrontendState& state, int action)
 	titleTxt.SetWrap(true, 560, 2);
 	Panel card(skin::panelSettings, 34, 160);
 	GuiText footTxt("The game takes over the screen when it is ready.", 15, skin::kInkDim);
-	Place(footTxt, 0, 428, true);
+	Place(footTxt, 0, 444, true);
 
 	HaltGui();
 	hidePointers = true;
@@ -1879,7 +1895,9 @@ int MainMenu(int menu, FrontendState& state)
 	mainWindow = new GuiWindow(screenwidth, screenheight);
 	backdrop = new skin::GuiBackdrop();
 	mainWindow->Append(backdrop);
-	riftwii::wii::GuiScriptLoad("sd:/riftwii/guiscript.txt");
+	riftwii::wii::GuiScriptLoad(riftwii::wii::CurrentRestartNote().kind == riftwii::wii::RestartKind::None
+	                                ? "sd:/riftwii/guiscript.txt"
+	                                : "sd:/riftwii/guiscript-restart.txt");
 
 	ResumeGui();
 
@@ -1892,6 +1910,7 @@ int MainMenu(int menu, FrontendState& state)
 				currentMenu = MenuSettings(state);
 				break;
 			case MENU_HOME:
+				g_homeNotice.clear();
 				currentMenu = MenuHome(state);
 				break;
 			case MENU_SOURCE:

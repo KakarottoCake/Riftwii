@@ -15,7 +15,13 @@
 //   shot <path>          save the screen as a 24-bit BMP (sd:/...)
 //   finalshot <path>     save the launch screen once the menu has left
 //                        (on a dump, which press 2 on the game page starts)
+//   failnext             the next launch fails at once (tests the way back)
+//   crash                a trap instruction (tests wii/crash.cpp)
+//   launchshots          save the launch screen at each progress stage
+//                        while the card is up (sd:/riftwii/launch_<n>.bmp)
 //
+// After a restart (wii/restart.hpp) the menu reads guiscript-restart.txt
+// instead, so a script that crashes on purpose does not run again.
 // Nothing happens when the file is absent.
 namespace riftwii::wii {
 
@@ -29,5 +35,12 @@ void GuiScriptApply();
 void GuiScriptAfterFrame(const void* xfb, int width, int height);
 // Takes the finalshot, if the script asked for one.
 void GuiScriptFinalShot(const void* xfb, int width, int height);
+// Whether the script asked the next launch to fail (failnext).
+bool GuiScriptFailLaunch();
+// The crash screen, saved as sd:/riftwii/crashscreen.bmp when a script
+// was loaded (Dolphin's frame dump misses screens drawn without GX).
+void GuiScriptCrashShot(const void* xfb, int width, int height);
+// A launch stage at `percent` (wii/progress.cpp), when launchshots is on.
+void GuiScriptLaunchShot(int percent, const void* xfb, int width, int height);
 
 }  // namespace riftwii::wii

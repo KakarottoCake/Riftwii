@@ -24,6 +24,10 @@ namespace riftwii::wii::mem {
 
 constexpr u32 kMem1Ceiling = 0x81200000;  // the game's apploader
 constexpr u32 kMem2Floor = 0x90800000;    // below: an IOS reload's
+// The first bytes above the floor hold the restart snapshot and handoff
+// (wii/restart.hpp); the heap starts after them.
+constexpr u32 kRestartArea = kMem2Floor;
+constexpr u32 kRestartBytes = 0x9000;
 
 // First thing in main: applies the limits above to libogc's arenas.
 void Init();
