@@ -365,6 +365,16 @@ void TestSettings() {
     EXPECT_EQ(pickBack.game.video_mode, "480p");
     EXPECT_EQ(pickBack.game.language, "console");
     EXPECT_EQ(pickBack.game.cios, "248");
+
+    LoaderSettings fav;
+    fav.parse("favorites = SB4E01, RMCE01,,bad id,R8PE01\n");
+    EXPECT_EQ(fav.favorites.size(), 3u);
+    EXPECT_EQ(fav.favorites.count("RMCE01"), 1u);
+    LoaderSettings favAgain;
+    favAgain.parse(fav.serialize());
+    EXPECT_TRUE(favAgain.favorites == fav.favorites);
+    EXPECT_EQ(favAgain.other.count("favorites"), 0u);
+    EXPECT_TRUE(LoaderSettings{}.serialize().find("favorites") == std::string::npos);
 }
 
 void TestGameLanguage() {

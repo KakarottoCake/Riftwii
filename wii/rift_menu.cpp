@@ -331,7 +331,7 @@ static std::string PackSummary(const riftwii::LaunchPackage& p)
 
 // The Home views, stepped with 1; the one last used is remembered in
 // settings.txt ("view").
-enum class Filter { Mods, All, Recent };
+enum class Filter { Mods, All, Recent, Favorites };
 static Filter g_filter = Filter::Mods;
 static bool g_filterLoaded = false;
 static bool g_scanned = false;   // the drives were read this session
@@ -344,12 +344,13 @@ static const char* FilterLabel(Filter f)
 	switch (f) {
 		case Filter::Mods: return "Games with mods";
 		case Filter::Recent: return "Recently played";
+		case Filter::Favorites: return "Favourites";
 		default: return "All games";
 	}
 }
 static const char* FilterKey(Filter f)
 {
-	return f == Filter::Mods ? "mods" : f == Filter::Recent ? "recent" : "all";
+	return f == Filter::Mods ? "mods" : f == Filter::Recent ? "recent" : f == Filter::Favorites ? "favorites" : "all";
 }
 static void LoadFilter()
 {
@@ -360,6 +361,7 @@ static void LoadFilter()
 	if (it == other.end()) return;
 	if (it->second == "all") g_filter = Filter::All;
 	else if (it->second == "recent" && riftwii::wii::History().size() != 0) g_filter = Filter::Recent;
+	else if (it->second == "favorites" && !riftwii::wii::Settings().favorites.empty()) g_filter = Filter::Favorites;
 }
 
 // Which games have packs: every XML in sd:/riivolution and in the
@@ -423,6 +425,7 @@ static void BuildHome(const FrontendState& state, std::vector<GridItem>& items, 
 	for (const Row& r : rows) {
 		const bool mods = g_packs.has_packs(r.game->id);
 		if (g_filter == Filter::Mods && !mods) continue;
+		if (g_filter == Filter::Favorites && riftwii::wii::Settings().favorites.count(r.game->id) == 0) continue;
 		GridItem item;
 		item.title = r.name;
 		item.id = r.game->id;
@@ -457,8 +460,10 @@ static std::string HomeStatus(const FrontendState& state, std::size_t shown)
 	if (!status.empty()) return status;
 	if (g_filter == Filter::Mods && shown <= 1) return "No game here has packs in sd:/riivolution yet. Press 1 for all games.";
 	if (g_filter == Filter::Recent && shown <= 1) return "No game on these drives was played from RiftWii yet. Press 1 for all games.";
+	if (g_filter == Filter::Favorites && shown <= 1)
+		return tr("No favourite is on these drives. Mark games on their page. Press 1 for all games.");
 	if (shown <= 1) return "No games found (usb:/wbfs, usb:/games, sd:/wbfs, sd:/games)";
-	return std::string(tr(FilterLabel(g_filter))) + "   " + tr("1: filter   2: settings   +: rescan");
+	return std::string(tr(FilterLabel(g_filter))) + "   " + tr("1: view   2: settings   -: A to Z   +: rescan");
 }
 
 static void ScanDrives(FrontendState& state, GuiText& status)
@@ -506,6 +511,28 @@ static void ClockText(std::string& clock, std::string& date)
 	date = tr("{1} {2}/{3}", {tr(days[local.tm_wday % 7]), std::to_string(local.tm_mon + 1), std::to_string(local.tm_mday)});
 }
 
+// A to Z: the first game (in the view's order) whose name starts with
+// the next letter after the focused one's, wrapping round. Names that
+// start with anything else come before A.
+static int NextLetter(const std::vector<GridItem>& items, int focused)
+{
+	const auto letter = [&](std::size_t i) -> int {
+		const char c = items[i].title.empty() ? 0 : items[i].title[0];
+		if (c >= 'a' && c <= 'z') return c - 'a' + 'A';
+		return c >= 'A' && c <= 'Z' ? c : '#';
+	};
+	// The disc tile (0) has no letter: from it, the first letter comes next.
+	const int from = focused > 0 && static_cast<std::size_t>(focused) < items.size()
+		? letter(static_cast<std::size_t>(focused)) : 0;
+	int best = -1, first = -1;
+	for (std::size_t i = 1; i < items.size(); ++i) {
+		const int l = letter(i);
+		if (l > from && (best < 0 || l < letter(static_cast<std::size_t>(best)))) best = static_cast<int>(i);
+		if (first < 0 || l < letter(static_cast<std::size_t>(first))) first = static_cast<int>(i);
+	}
+	return best >= 0 ? best : first;
+}
+
 static int MenuSource(FrontendState& state)
 {
 	int menu = MENU_NONE;
@@ -535,12 +562,14 @@ static int MenuSource(FrontendState& state)
 		WPAD_BUTTON_1 | WPAD_CLASSIC_BUTTON_Y, PAD_BUTTON_Y, WIIDRC_BUTTON_X, &skin::iconDrives);
 	SkinButton settingsBtn(skin::roundBtn, skin::roundBtnOver, 2, 538, 386, nullptr,
 		WPAD_BUTTON_2 | WPAD_CLASSIC_BUTTON_X, PAD_TRIGGER_R, WIIDRC_BUTTON_Y, &skin::iconGear);
-	GuiTrigger trigRescan, trigExit;
+	GuiTrigger trigRescan, trigExit, trigJump;
 	trigRescan.SetButtonOnlyTrigger(-1, WPAD_BUTTON_PLUS | WPAD_CLASSIC_BUTTON_PLUS, PAD_BUTTON_X, WIIDRC_BUTTON_PLUS);
 	trigExit.SetButtonOnlyTrigger(-1, WPAD_BUTTON_HOME | WPAD_CLASSIC_BUTTON_HOME, PAD_BUTTON_START, WIIDRC_BUTTON_HOME);
-	GuiButton rescanBtn(0, 0), exitBtn(0, 0);  // hotkeys only
+	trigJump.SetButtonOnlyTrigger(-1, WPAD_BUTTON_MINUS | WPAD_CLASSIC_BUTTON_MINUS, PAD_TRIGGER_L, WIIDRC_BUTTON_MINUS);
+	GuiButton rescanBtn(0, 0), exitBtn(0, 0), jumpBtn(0, 0);  // hotkeys only
 	rescanBtn.SetTrigger(&trigRescan);
 	exitBtn.SetTrigger(&trigExit);
+	jumpBtn.SetTrigger(&trigJump);
 
 	HaltGui();
 	GuiWindow w(screenwidth, screenheight);
@@ -554,6 +583,7 @@ static int MenuSource(FrontendState& state)
 	w.Append(&settingsBtn.button);
 	w.Append(&rescanBtn);
 	w.Append(&exitBtn);
+	w.Append(&jumpBtn);
 	mainWindow->Append(&w);
 
 	const auto refresh = [&](bool keepFocus) {
@@ -636,10 +666,14 @@ static int MenuSource(FrontendState& state)
 			menu = MENU_OPTIONS;
 		} else if (filterBtn.Clicked()) {
 			filterBtn.button.ResetState();
-			// Recently played joins the cycle once a game was played.
+			// Recently played joins the cycle once a game was played, and
+			// Favourites once one is marked.
 			const bool anyPlayed = riftwii::wii::History().size() != 0;
-			g_filter = g_filter == Filter::Mods ? Filter::All
-				: g_filter == Filter::All && anyPlayed ? Filter::Recent : Filter::Mods;
+			const bool anyFavorite = !riftwii::wii::Settings().favorites.empty();
+			if (g_filter == Filter::Mods) g_filter = Filter::All;
+			else if (g_filter == Filter::All && anyPlayed) g_filter = Filter::Recent;
+			else if (g_filter != Filter::Favorites && anyFavorite) g_filter = Filter::Favorites;
+			else g_filter = Filter::Mods;
 			logf("Home: filter %s\n", FilterLabel(g_filter));
 			riftwii::wii::Settings().other["view"] = FilterKey(g_filter);
 			riftwii::wii::SaveSettings();
@@ -648,6 +682,10 @@ static int MenuSource(FrontendState& state)
 			rescanBtn.ResetState();
 			ScanDrives(state, statusTxt);
 			refresh(true);
+		} else if (jumpBtn.GetState() == STATE::CLICKED) {
+			jumpBtn.ResetState();
+			const int to = NextLetter(items, grid.FocusedIndex());
+			if (to >= 0) grid.Focus(to);
 		}
 		ResumeGui();
 	}
@@ -703,7 +741,7 @@ static std::string SaveNote(const riftwii::LaunchModel& model)
 }
 
 struct RowRef {
-	enum class What { Mods, Saves, Cheats, Width, Deflicker, Borders, VideoMode, Language, Cios, Pack, Option, Note } what = What::Note;
+	enum class What { Mods, Saves, Cheats, Width, Deflicker, Borders, VideoMode, Language, Cios, Favorite, Pack, Option, Note } what = What::Note;
 	std::size_t pkg = 0, opt = 0;
 };
 
@@ -886,6 +924,12 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 		cios.on = game.cios != "global";
 		add(cios, {RowRef::What::Cios});
 	}
+	FlowRow favorite;
+	favorite.kind = FlowRow::Kind::Toggle;
+	favorite.label = tr("Favourite");
+	favorite.on = global.favorites.count(state.game_id) != 0;
+	favorite.value = favorite.on ? tr("On") : tr("Off");
+	add(favorite, {RowRef::What::Favorite});
 }
 
 // The Mods page: each pack made for the game as a switch, its options
@@ -1388,6 +1432,8 @@ static int MenuHome(FrontendState& state)
 				say(tr("The TV signal the game sends. PAL 50 Hz needs a TV that takes it, 480p a component cable."));
 			else if (ref.what == RowRef::What::Language)
 				say(tr("The language the game is told the console uses. Pick one the game has: some games stop without it."));
+			else if (ref.what == RowRef::What::Favorite)
+				say(tr("Favourites have their own view on Home: press 1 there until it shows."));
 			else if (ref.what == RowRef::What::Cios)
 				say(tr("The d2x cIOS the game runs under. Automatic uses the menu's, else the first of 249, 250 and 251 that works."));
 			else say("");
@@ -1437,6 +1483,14 @@ static int MenuHome(FrontendState& state)
 			} else if (ref.what == RowRef::What::Cios) {
 				state.model.game.cios = StepValue(kCiosChoices, state.model.game.cios, direction);
 				changed = true;
+			} else if (ref.what == RowRef::What::Favorite && !state.game_id.empty()) {
+				std::set<std::string>& favorites = riftwii::wii::Settings().favorites;
+				if (favorites.count(state.game_id) != 0) favorites.erase(state.game_id);
+				else favorites.insert(state.game_id);
+				if (!riftwii::wii::SaveSettings()) say(tr("Could not save the settings to the SD card."));
+				BuildGameRows(state, rows, refs);
+				list.Refresh();
+				list.Select(acted);
 			}
 			if (changed) {
 				saveOrSay();
