@@ -191,7 +191,14 @@ works here:
 - A hex value with an odd number of digits loses its last digit.
 - A `{$name}` no param sets becomes empty. An option's params win over
   its choice's, and over a macro's.
+- An option that `<macro>`s copy is a template: the copies take its
+  place in the list and it is not shown itself.
 - Anything after the last `>` in the file is ignored.
+- The choices are shared with Riivolution through its own file,
+  `sd:/riivolution/config/<first 4 letters of the game ID>.xml`. A game
+  RiftWii has never saved choices for starts from that file, and every
+  change in RiftWii is written back to it, so both loaders turn on the
+  same mods.
 
 The log notes each yes/no value, hex value and cut-off text read this way.
 `<shift>` and `<dlc>` are not supported yet.

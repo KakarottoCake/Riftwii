@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "autorun.hpp"
+#include "riftwii/riiconfig.hpp"
 #include "loadersettings.hpp"
 #include "log.hpp"
 #include "menuios.hpp"
@@ -32,6 +33,39 @@ bool ensure_directory(const char* path, std::string& error) {
     }
     error = std::string("cannot create choices directory ") + path + ": " + std::strerror(errno);
     return false;
+}
+
+bool ReadRiivolutionConfig(const std::string& game_id, RiivolutionConfig& out) {
+    const std::string path = std::string(kPackageDir) + "/config/" + riivolution_config_name(game_id) + ".xml";
+    std::ifstream in(path, std::ios::binary);
+    if (!in) return false;
+    std::stringstream text;
+    text << in.rdbuf();
+    if (parse_riivolution_config(text.str(), out)) return true;
+    logf("Riivolution config %s: not a version 2 config, ignored\n", path.c_str());
+    return false;
+}
+
+// Riivolution's record of the game's choices follows RiftWii's, so the
+// same mods are on in either loader. Only games with packs get one.
+void WriteRiivolutionConfig(const FrontendState& state) {
+    bool any = false;
+    for (const LaunchPackage& p : state.model.packages) any = any || (p.valid && p.for_disc && !p.package.options.empty());
+    if (!any || state.game_id.size() < 4) return;
+    RiivolutionConfig existing;
+    ReadRiivolutionConfig(state.game_id, existing);
+    const std::string text = write_riivolution_config(merge_riivolution_config(state.model, existing));
+    std::string error;
+    const std::string dir = std::string(kPackageDir) + "/config";
+    if (!ensure_directory(kPackageDir, error) || !ensure_directory(dir.c_str(), error)) {
+        logf("Riivolution config: %s\n", error.c_str());
+        return;
+    }
+    const std::string path = dir + "/" + riivolution_config_name(state.game_id) + ".xml";
+    std::ofstream out(path, std::ios::binary | std::ios::trunc);
+    out << text;
+    out.flush();
+    if (!out) logf("Riivolution config: cannot write %s\n", path.c_str());
 }
 }
 
@@ -174,6 +208,14 @@ std::string ScanPackages(FrontendState& state) {
             std::stringstream text;
             text << saved.rdbuf();
             state.model.restore(text.str());
+        } else if (!state.game_id.empty()) {
+            // A game RiftWii has never saved: start from what Riivolution
+            // last used for it.
+            RiivolutionConfig config;
+            if (ReadRiivolutionConfig(state.game_id, config)) {
+                const unsigned applied = apply_riivolution_config(state.model, config);
+                logf("Riivolution config for %s: %u option(s) taken\n", state.game_id.c_str(), applied);
+            }
         }
     }
     std::size_t shown = 0;
@@ -205,6 +247,7 @@ bool SaveChoices(const FrontendState& state, std::string& error) {
         error = "cannot write " + state.choices_path;
         return false;
     }
+    WriteRiivolutionConfig(state);
     error.clear();
     return true;
 }

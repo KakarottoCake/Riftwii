@@ -105,6 +105,9 @@ struct Option {
     std::string section;
     std::string id;
     std::string name;
+    // The name Riivolution saves its choice under (riivolution/config):
+    // the id, else the section's id (or name) followed by the option name.
+    std::string config_id;
     std::size_t selected = 0;  // 0 = disabled, otherwise 1-based choice
     std::vector<Choice> choices;
     std::vector<Param> params;
