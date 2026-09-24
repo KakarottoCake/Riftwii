@@ -14,6 +14,22 @@ copying Riivolution code (see `NOTICE.md`). Licence: GPL-3.0-or-later
 > a GitHub issue, with your Wii model, system menu version, and
 > `sd:/riftwii/boot.log`.
 
+## About AI assistance
+
+Yes, RiftWii was written with AI assistance, and I won't pretend
+otherwise. But it was not vibecoded. Every step was supervised closely,
+because even the best models make terrible calls when you just throw
+them at a project and walk away. Left alone, they suggested "fixes" like
+patching discs at random based on assembly fingerprints to make a
+problem go away, and seemed to think that was fine. I can't imagine what
+a truly vibecoded version of this would look like. The design decisions,
+the testing on real hardware and the refusal to ship shortcuts like that
+are mine.
+
+This is a hobby project. As a kid I wanted to play mods straight from a
+USB drive, and Riivolution never allowed it; its developer was firmly
+against USB loading. RiftWii exists to finally get past that.
+
 ## For Wii owners: install and use
 
 You need: a Wii with the Homebrew Channel installed and an SD card. An original
@@ -21,7 +37,7 @@ game disc remains supported. SD and USB image boot need a user-installed d2x
 cIOS (slot 249, 250 or 251). The SD card must be FAT32; a USB drive may be
 FAT32 or NTFS; both need 512-byte sectors. Both support `.wbfs` (including
 split `.wbf1`, `.wbf2`, …) in `<source>:/wbfs` and raw `.iso` in
-`<source>:/games`.
+`<source>:/games`. Compressed `.rvz` images are not supported.
 
 1. Copy `riftwii.dol` from the release into `sd:/apps/riftwii/boot.dol`,
    with `hbc/meta.xml` and `hbc/icon.png` next to it for the Homebrew
@@ -31,27 +47,61 @@ split `.wbf1`, `.wbf2`, …) in `<source>:/wbfs` and raw `.iso` in
    `sd:/riivolution/`, the same layout Riivolution uses.
 3. Start RiftWii from the Homebrew Channel. It reads the SD card and the
    USB drive and shows the games that have mod packs as tiles, with the
-   disc drive first. The round button at the bottom left (or 1) switches
-   between games with mods and all games. Games with packs carry a
-   **MODS** tag.
-4. Pick a game. Its page lists only the packs made for it; broken XML
-   shows its error under the pack. A on a pack turns it on and shows its
-   settings under it; A on a setting steps it, Minus steps it back.
-   Options that share an id and a section across packs show once, as
-   Riivolution does.
-5. **Saves**, the first row, keeps the Wii saving as usual, or keeps this
+   disc drive first. The round button at the bottom left (or 1) steps
+   through games with mods, all games and, once you have played
+   something, **Recently played**; the view you pick is remembered, and
+   Home opens on the last game you played. Games with packs carry a
+   **MODS** tag. Games show their real names (Super Mario Galaxy 2, not
+   the disc's SUPER MARIO GALAXY MORE): when the Wii is online RiftWii
+   fetches GameTDB's name list in the menu's language, at most once a
+   week.
+4. Pick a game. Its page shows how often you played it, and **Mods**,
+   the first row, opens the packs made for it. Each pack has an On/Off
+   switch; once it is on, its settings show under it, each with arrow
+   buttons on either side of its value (Minus steps back too). Broken
+   XML shows its error under the pack. Options that share an id and a
+   section across packs show once, as Riivolution does. In every list,
+   hold A and move the Wii Remote to drag it up or down (a quick flick
+   keeps it going); the D-pad still works.
+5. **Saves**, the next row, keeps the Wii saving as usual, or keeps this
    game's saves on the SD card: cloned once from the Wii's save
    (`sd:/riftwii/saves/<ID>/clone`) or started fresh
    (`sd:/riftwii/saves/<ID>/fresh`). While a pack that brings its own
    saves (`<savegame>` in its XML) is on, the row reads "Kept by the
    pack" and cannot be changed; turning the pack off restores your
    choice.
-6. **Start** (Plus) boots, with nothing on for the plain game. While it
+6. **Cheats**, the row after it, opens the game's cheat list. When the
+   Wii is online, the first visit downloads the latest cheats for the
+   game from the GeckoCodes archive (**Download** gets them again later).
+   Tick the ones you want; **Use cheats** turns them all on or off. The
+   list is a plain text file, `sd:/riftwii/cheats/<ID>.txt`, in the
+   usual format other loaders read: edit it on a computer to add your
+   own. Codes with values to fill in (`XXXX`) show "Edit first" until you
+   do.
+7. **Picture width**, **Deflicker** and **Black borders** change how the
+   game draws its picture, like USB Loader GX's video settings:
+   - *Picture width*: 720 fills the TV from side to side; many games draw
+     640 pixels and leave black bars that old TVs hid (overscan).
+     *Framebuffer* matches the game's drawing width, 704 is the
+     broadcast-safe width.
+   - *Deflicker*: the filter that blurs the picture to hide interlace
+     flicker. *Off* gives the sharpest picture, especially over
+     component or HDMI adapters.
+   - *Black borders*: *Remove* also stretches the picture over the bars
+     at the top and bottom. After a game has run once, the page tells
+     you which borders it left.
+   *Default* follows Settings, where the same three rows set it for
+   every game.
+8. **Start** (Plus) boots, with nothing on for the plain game. While it
    starts, the log prints on screen. Your choices are saved per game.
-7. Settings (the gear, or 2) holds the menu IOS (pick the cIOS slot with
-   fakemote for USB DS3/DS4 pads), network packs, Rescan and Exit. HOME
-   exits too.
-8. **Network packs (RiiFS).** Packs can come from a PC running a RiiFS
+9. Settings (the gear, or 2) holds the menu language (English, Español,
+   日本語, Português, Italiano; *Wii* follows the console), the default
+   picture settings, whether names and cheats are downloaded, the menu
+   IOS (pick the cIOS slot with fakemote for USB DS3/DS4 pads), network
+   packs, Rescan and Exit. HOME exits too. A translation can be fixed or
+   finished by putting a copy of `wii/lang/<lang>.po` at
+   `sd:/riftwii/lang/<lang>.po`.
+10. **Network packs (RiiFS).** Packs can come from a PC running a RiiFS
    server, as with Riivolution: put an XML in `sd:/riivolution` with
    `<network protocol="riifs" address="192.168.1.20" port="1137"/>`, or
    turn on *Find network packs* in Settings to look for servers on your
@@ -77,6 +127,12 @@ comes from. Nothing is launched half patched. A memory patch whose file
 is missing from the card is skipped with a warning (as Dolphin does),
 and a missing folder is logged with what the nearest existing folder
 holds.
+
+If a game stops with its own disc error ("An error has occurred") while
+it loads, a read RiftWii serves has failed even after being retried.
+RiftWii writes what went wrong to `sd:/riftwii/lastgame.txt` at that
+moment, and the next `session.log` repeats it: please send that file
+with your report.
 
 ## For developers
 

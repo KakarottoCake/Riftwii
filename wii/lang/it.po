@@ -1,0 +1,454 @@
+# RiftWii menu: Italian. Written by tools/lang_source.py; edit the table there.
+# A copy at sd:/riftwii/lang/it.po overrides these entries on the Wii.
+msgid ""
+msgstr "Content-Type: text/plain; charset=UTF-8\n"
+
+msgid "Games with mods"
+msgstr "Giochi con mod"
+
+msgid "All games"
+msgstr "Tutti i giochi"
+
+msgid "Recently played"
+msgstr "Giocati di recente"
+
+msgid "No game on these drives was played from RiftWii yet. Press 1 for all games."
+msgstr "Nessun gioco di queste unità è stato ancora giocato da RiftWii. Premi 1 per vederli tutti."
+
+msgid "{1}/{2}"
+msgstr "{2}/{1}"
+
+msgid "Played once, on {1}"
+msgstr "Giocato una volta, il {1}"
+
+msgid "Played {1} times, last on {2}"
+msgstr "Giocato {1} volte, l'ultima il {2}"
+
+msgid "1: filter   2: settings   +: rescan"
+msgstr "1: filtro   2: impostazioni   +: cerca di nuovo"
+
+msgid "Page {1} of {2}"
+msgstr "Pagina {1} di {2}"
+
+msgid "{1}: no games in /wbfs or /games"
+msgstr "{1}: nessun gioco in /wbfs o /games"
+
+msgid "SD: no card"
+msgstr "SD: nessuna scheda"
+
+msgid "No d2x cIOS in 249-251: games cannot boot yet"
+msgstr "Nessun cIOS d2x in 249-251: i giochi non possono ancora partire"
+
+msgid "No game here has packs in sd:/riivolution yet. Press 1 for all games."
+msgstr "Nessun gioco ha ancora pacchetti in sd:/riivolution. Premi 1 per vederli tutti."
+
+msgid "No games found (usb:/wbfs, usb:/games, sd:/wbfs, sd:/games)"
+msgstr "Nessun gioco trovato (usb:/wbfs, usb:/games, sd:/wbfs, sd:/games)"
+
+msgid "Reading the SD card..."
+msgstr "Lettura della scheda SD..."
+
+msgid "Reading the USB drive... (a big drive takes a moment)"
+msgstr "Lettura dell'unità USB... (un'unità grande richiede un momento)"
+
+msgid "Reading the disc..."
+msgstr "Lettura del disco..."
+
+msgid "scan failed"
+msgstr "ricerca non riuscita"
+
+msgid "(the menu runs under IOS {1}; USB drives need a base-58 cIOS for that, or set the menu IOS back to 58)"
+msgstr "(il menu usa l'IOS {1}; per questo le unità USB richiedono un cIOS con base 58, oppure riporta l'IOS del menu a 58)"
+
+msgid "No disc in the drive"
+msgstr "Nessun disco nell'unità"
+
+msgid "Disc drive"
+msgstr "Lettore di dischi"
+
+msgid "USB drive"
+msgstr "Unità USB"
+
+msgid "SD card"
+msgstr "Scheda SD"
+
+msgid "Sun"
+msgstr "Dom"
+
+msgid "Mon"
+msgstr "Lun"
+
+msgid "Tue"
+msgstr "Mar"
+
+msgid "Wed"
+msgstr "Mer"
+
+msgid "Thu"
+msgstr "Gio"
+
+msgid "Fri"
+msgstr "Ven"
+
+msgid "Sat"
+msgstr "Sab"
+
+msgid "{1}:{2} AM"
+msgstr "{3}:{2}"
+
+msgid "{1}:{2} PM"
+msgstr "{3}:{2}"
+
+msgid "{1} {2}/{3}"
+msgstr "{1} {3}/{2}"
+
+msgid "MODS"
+msgstr "MOD"
+
+msgid "Back"
+msgstr "Indietro"
+
+msgid "Start"
+msgstr "Gioca"
+
+msgid "Saves"
+msgstr "Salvataggi"
+
+msgid "On the Wii"
+msgstr "Sulla Wii"
+
+msgid "SD, from Wii save"
+msgstr "SD, dal salvataggio Wii"
+
+msgid "SD, fresh start"
+msgstr "SD, da zero"
+
+msgid "Kept by the pack"
+msgstr "Gestiti dal pacchetto"
+
+msgid "This pack keeps its own saves. Turn it off to choose here."
+msgstr "Questo pacchetto ha i propri salvataggi. Disattivalo per scegliere qui."
+
+msgid "Saves go to the SD card, starting from the Wii's save."
+msgstr "I salvataggi vanno sulla scheda SD, partendo da quello della Wii."
+
+msgid "Saves go to the SD card, starting fresh."
+msgstr "I salvataggi vanno sulla scheda SD, partendo da zero."
+
+msgid "Saves stay on the Wii, as usual."
+msgstr "I salvataggi restano sulla Wii, come sempre."
+
+msgid "Broken"
+msgstr "Danneggiato"
+
+msgid "On"
+msgstr "Sì"
+
+msgid "Off"
+msgstr "No"
+
+msgid "Mods"
+msgstr "Mod"
+
+msgid "None"
+msgstr "Nessuno"
+
+msgid "{1} on"
+msgstr "{1} attivi"
+
+msgid "On: {1}"
+msgstr "Attivi: {1}"
+
+msgid "No mods for this game."
+msgstr "Nessuna mod per questo gioco."
+
+msgid "No mods on the SD card. Put Riivolution XML in sd:/riivolution."
+msgstr "Nessuna mod sulla scheda SD. Metti gli XML di Riivolution in sd:/riivolution."
+
+msgid "{1} mod pack(s) for this game. Press A to turn them on."
+msgstr "{1} pacchetto/i di mod per questo gioco. Premi A per attivarli."
+
+msgid "No mods on the SD card"
+msgstr "Nessuna mod sulla scheda SD"
+
+msgid "No mods for this game"
+msgstr "Nessuna mod per questo gioco"
+
+msgid "Put Riivolution XML in sd:/riivolution"
+msgstr "Metti gli XML di Riivolution in sd:/riivolution"
+
+msgid "{1} XML file(s) are for other games"
+msgstr "{1} file XML sono per altri giochi"
+
+msgid "Package scan failed; go back and try again"
+msgstr "Lettura dei pacchetti non riuscita; torna indietro e riprova"
+
+msgid "This XML cannot be read; the error is listed under it."
+msgstr "Questo XML non può essere letto; l'errore è indicato sotto."
+
+msgid "This XML cannot be read; fix it on the card and come back."
+msgstr "Questo XML non può essere letto; correggilo sulla scheda e torna."
+
+msgid "This pack cannot be turned on."
+msgstr "Questo pacchetto non può essere attivato."
+
+msgid "Off. A turns it on."
+msgstr "Disattivato. A lo attiva."
+
+msgid "Off. A turns it on and shows its setting."
+msgstr "Disattivato. A lo attiva e ne mostra l'opzione."
+
+msgid "Off. A turns it on and shows its {1} settings."
+msgstr "Disattivato. A lo attiva e ne mostra le {1} opzioni."
+
+msgid "On. It applies as a whole."
+msgstr "Attivato. Si applica per intero."
+
+msgid "On, but nothing chosen yet: pick its settings below."
+msgstr "Attivato, ma non hai ancora scelto nulla: scegli le opzioni qui sotto."
+
+msgid "On, {1} of {2} settings chosen."
+msgstr "Attivato, {1} di {2} opzioni scelte."
+
+msgid "No game is selected; go back and pick one."
+msgstr "Nessun gioco scelto; torna indietro e scegline uno."
+
+msgid "Press Start again to play."
+msgstr "Premi di nuovo Gioca per iniziare."
+
+msgid "Preparing the mods..."
+msgstr "Preparazione delle mod..."
+
+msgid "Cheats"
+msgstr "Trucchi"
+
+msgid "Picture width"
+msgstr "Larghezza immagine"
+
+msgid "Deflicker"
+msgstr "Antisfarfallio"
+
+msgid "Black borders"
+msgstr "Bordi neri"
+
+msgid "Framebuffer"
+msgstr "Framebuffer"
+
+msgid "704 pixels"
+msgstr "704 pixel"
+
+msgid "720 pixels (full)"
+msgstr "720 pixel (pieno)"
+
+msgid "Game's own"
+msgstr "Del gioco"
+
+msgid "Off (sharp)"
+msgstr "No (nitido)"
+
+msgid "Low"
+msgstr "Basso"
+
+msgid "Medium"
+msgstr "Medio"
+
+msgid "High"
+msgstr "Alto"
+
+msgid "Remove"
+msgstr "Rimuovi"
+
+msgid "Keep"
+msgstr "Mantieni"
+
+msgid "Default ({1})"
+msgstr "Predefinito ({1})"
+
+msgid "On, none picked"
+msgstr "Sì, nessuno scelto"
+
+msgid "On, {1} picked"
+msgstr "Sì, {1} scelti"
+
+msgid "Cheat codes for this game. Press A to choose them."
+msgstr "Codici trucco per questo gioco. Premi A per sceglierli."
+
+msgid "How wide the picture is drawn. 720 fills the screen from side to side."
+msgstr "La larghezza dell'immagine. 720 riempie lo schermo da un lato all'altro."
+
+msgid "A filter that softens the picture to hide flicker. Off gives the sharpest picture."
+msgstr "Un filtro che ammorbidisce l'immagine per nascondere lo sfarfallio. Con No è più nitida."
+
+msgid "Remove stretches the picture to fill the screen."
+msgstr "Rimuovi allarga l'immagine per riempire lo schermo."
+
+msgid "Last time, this game left black borders on all sides."
+msgstr "L'ultima volta questo gioco ha lasciato bordi neri su tutti i lati."
+
+msgid "Last time, this game left black borders at the sides."
+msgstr "L'ultima volta questo gioco ha lasciato bordi neri ai lati."
+
+msgid "Last time, this game left black borders at the top and bottom."
+msgstr "L'ultima volta questo gioco ha lasciato bordi neri sopra e sotto."
+
+msgid "Last time, this game filled the whole screen."
+msgstr "L'ultima volta questo gioco ha riempito tutto lo schermo."
+
+msgid "Use cheats"
+msgstr "Usa trucchi"
+
+msgid "Get the latest cheats"
+msgstr "Scarica i trucchi più recenti"
+
+msgid "Download cheats"
+msgstr "Scarica trucchi"
+
+msgid "Download"
+msgstr "Scarica"
+
+msgid "Edit first"
+msgstr "Da modificare"
+
+msgid "The cheats are in {1}. Edit it on a computer to add your own."
+msgstr "I trucchi sono in {1}. Modificalo su un computer per aggiungerne di tuoi."
+
+msgid "Downloading cheats..."
+msgstr "Download dei trucchi..."
+
+msgid "{1} cheats. Turn on the ones you want."
+msgstr "{1} trucchi. Attiva quelli che vuoi."
+
+msgid "Could not download cheats: {1}"
+msgstr "Impossibile scaricare i trucchi: {1}"
+
+msgid "No cheats found online for this game."
+msgstr "Nessun trucco trovato online per questo gioco."
+
+msgid "This cheat has values to fill in (the X's). Edit the file first."
+msgstr "Questo trucco ha dei valori da inserire (le X). Modifica prima il file."
+
+msgid "Cheats are only applied when this is On."
+msgstr "I trucchi si applicano solo quando questo è su Sì."
+
+msgid "Replaces the file with the latest cheats from the GeckoCodes archive."
+msgstr "Sostituisce il file con i trucchi più recenti dell'archivio GeckoCodes."
+
+msgid "Downloads are off in Settings."
+msgstr "I download sono disattivati nelle Impostazioni."
+
+msgid "No game is selected."
+msgstr "Nessun gioco scelto."
+
+msgid "No cheat file yet. Choose Download to get one."
+msgstr "Nessun file di trucchi. Scegli Scarica per ottenerne uno."
+
+msgid "No cheat file. Put one at {1}"
+msgstr "Nessun file di trucchi. Mettine uno in {1}"
+
+msgid "The cheat file has no cheats in it: {1}"
+msgstr "Il file dei trucchi non ne contiene: {1}"
+
+msgid "Settings"
+msgstr "Impostazioni"
+
+msgid "Language"
+msgstr "Lingua"
+
+msgid "Wii: {1}"
+msgstr "Wii: {1}"
+
+msgid "Download names and cheats"
+msgstr "Scarica nomi e trucchi"
+
+msgid "Get the latest game names"
+msgstr "Aggiorna i nomi dei giochi"
+
+msgid "Update"
+msgstr "Aggiorna"
+
+msgid "Menu IOS"
+msgstr "IOS del menu"
+
+msgid "Menu IOS: IOS 58 (no d2x cIOS found)"
+msgstr "IOS del menu: IOS 58 (nessun cIOS d2x)"
+
+msgid "Find network packs (RiiFS)"
+msgstr "Cerca pacchetti in rete (RiiFS)"
+
+msgid "Copy network packs again"
+msgstr "Copia di nuovo i pacchetti in rete"
+
+msgid "Resync"
+msgstr "Risincronizza"
+
+msgid "Look for games again"
+msgstr "Cerca di nuovo i giochi"
+
+msgid "Rescan"
+msgstr "Cerca"
+
+msgid "Leave RiftWii"
+msgstr "Esci da RiftWii"
+
+msgid "Exit"
+msgstr "Esci"
+
+msgid "These apply to every game. A game's own page can change them for that game."
+msgstr "Valgono per tutti i giochi. La pagina di ogni gioco può cambiarle per quel gioco."
+
+msgid "Game names follow the language when they are downloaded."
+msgstr "I nomi dei giochi seguono la lingua quando vengono scaricati."
+
+msgid "Game names and cheats are downloaded when the Wii is online."
+msgstr "Nomi e trucchi vengono scaricati quando la Wii è online."
+
+msgid "Nothing is downloaded. Names and cheats already on the card are still used."
+msgstr "Non viene scaricato nulla. Nomi e trucchi già sulla scheda restano in uso."
+
+msgid "Downloads are off. Turn on Download names and cheats first."
+msgstr "I download sono disattivati. Attiva prima Scarica nomi e trucchi."
+
+msgid "Downloading game names..."
+msgstr "Download dei nomi dei giochi..."
+
+msgid "Game names updated."
+msgstr "Nomi dei giochi aggiornati."
+
+msgid "Could not download game names: {1}"
+msgstr "Impossibile scaricare i nomi: {1}"
+
+msgid "Cannot write sd:/riftwii/settings.txt"
+msgstr "Impossibile scrivere sd:/riftwii/settings.txt"
+
+msgid "Cannot write sd:/riftwii/menu_ios.txt"
+msgstr "Impossibile scrivere sd:/riftwii/menu_ios.txt"
+
+msgid "The menu runs under the Homebrew Channel's IOS (the default)."
+msgstr "Il menu usa l'IOS dell'Homebrew Channel (predefinito)."
+
+msgid "The menu and every game run under cIOS {1}, so a cIOS with fakemote makes USB DS3/DS4 pads work as Wii Remotes. USB drives in the menu need a base-58 cIOS."
+msgstr "Il menu e tutti i giochi usano il cIOS {1}, quindi un cIOS con fakemote fa funzionare i controller USB DS3/DS4 come Wii Remote. Le unità USB nel menu richiedono un cIOS con base 58."
+
+msgid "Takes effect the next time RiftWii starts."
+msgstr "Ha effetto al prossimo avvio di RiftWii."
+
+msgid "Looks for a PC running a RiiFS server when the games are read. Rescan to look now."
+msgstr "Cerca un PC con un server RiiFS quando legge i giochi. Usa Cerca per farlo ora."
+
+msgid "Only servers named by <network> in an XML on the card are used."
+msgstr "Si usano solo i server indicati da <network> in un XML sulla scheda."
+
+msgid "The next launch copies every file of its network packs again."
+msgstr "Il prossimo avvio copia di nuovo tutti i file dei suoi pacchetti in rete."
+
+msgid "Starting"
+msgstr "Avvio di"
+
+msgid "Dumping files from"
+msgstr "Copia dei file da"
+
+msgid "The game takes over the screen when it is ready."
+msgstr "Il gioco apparirà sullo schermo quando è pronto."
+
+msgid "Opening the game..."
+msgstr "Apertura del gioco..."

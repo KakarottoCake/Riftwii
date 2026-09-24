@@ -11,6 +11,7 @@
 #include "riftwii/fst.hpp"
 #include "riftwii/hook.hpp"
 #include "riftwii/patch.hpp"
+#include "riftwii/videopatch.hpp"
 
 // E1: boot an unmodified disc the way the System Menu would, from a
 // homebrew loader. The sequence (drive reset, disc id, partition table,
@@ -131,6 +132,18 @@ struct BootOptions {
     // IOS reload; otherwise left off with a log line.
     bool file_device = true;
 };
+
+// What the menu adds to the next launch, whichever way it boots: video
+// mode patches and cheats (a GCT for the Gecko code handler,
+// riftwii/cheats.hpp). Applied after the apploader has loaded the game
+// and after the packs' memory patches.
+struct LaunchExtras {
+    std::string game_id;
+    VideoSettings video;
+    std::vector<std::uint8_t> cheat_gct;  // empty: no cheats
+    std::size_t cheat_count = 0;
+};
+void SetLaunchExtras(LaunchExtras extras);
 
 // Reloads IOS, runs the apploader and jumps to the game. Only returns on
 // failure. The caller must have shut down its own GUI, audio and pads;

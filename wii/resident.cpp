@@ -268,6 +268,11 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
     ctx->virtual_start_words = payload.empty() ? 0 : options.virtual_start_words;
     ctx->sdio_fd = sdio_fd;
     ctx->sdio_sdhc = options.sdio_d2x ? RT_SD_D2X : options.sdio_sdhc ? 1 : 0;
+    if (options.note_sector != 0 && sdio_fd != 0xFFFFFFFFu && options.note_header.size() <= RT_NOTE_BYTES / 2) {
+        ctx->note_sector = options.note_sector;
+        ctx->note_header = static_cast<std::uint32_t>(options.note_header.size());
+        std::memcpy(ctx->note_text, options.note_header.data(), options.note_header.size());
+    }
     // What the runtime calls when it needs an SDK function itself: the
     // replay slot of a hooked one (its displaced words, then the jump
     // back), the function itself when it is not hooked, 0 when absent.
