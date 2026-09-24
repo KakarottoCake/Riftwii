@@ -267,12 +267,6 @@ SaveOverride resolve_save_override(const std::string& save_mode, const std::stri
 
 std::string LaunchModel::save() const {
     std::string text = "*riftwii*\tsaves\t" + save_mode + "\n";
-    // Loader settings only where they differ from the defaults.
-    if (game.cheats) text += "*riftwii*\tcheats\ton\n";
-    for (const std::string& name : game.cheat_names) text += "*riftwii*\tcheat\t" + clean(name) + "\n";
-    if (game.video_width != "global") text += "*riftwii*\tvideo\t" + clean(game.video_width) + "\n";
-    if (game.deflicker != "global") text += "*riftwii*\tdeflicker\t" + clean(game.deflicker) + "\n";
-    if (game.borders != "global") text += "*riftwii*\tborders\t" + clean(game.borders) + "\n";
     for (const LaunchPackage& p : packages) {
         // Only this game's packs: the file is per game ID, and another
         // game's pack could not be turned on here anyway.
@@ -305,21 +299,9 @@ void LaunchModel::restore(const std::string& text) {
             // name would collide, which FAT allows but nobody does).
             // Unknown settings stay untouched.
             const std::size_t t2 = line.find('\t', t1 + 1);
-            if (t2 == std::string::npos) continue;
-            const std::string key = line.substr(t1 + 1, t2 - t1 - 1);
-            const std::string value = line.substr(t2 + 1);
-            if (key == "saves") {
-                if (value == "nand" || value == "separate" || value == "fresh") save_mode = value;
-            } else if (key == "cheats") {
-                game.cheats = value == "on";
-            } else if (key == "cheat") {
-                if (!value.empty()) game.cheat_names.insert(value);
-            } else if (key == "video" && !value.empty()) {
-                game.video_width = value;
-            } else if (key == "deflicker" && !value.empty()) {
-                game.deflicker = value;
-            } else if (key == "borders" && !value.empty()) {
-                game.borders = value;
+            if (t2 != std::string::npos && line.substr(t1 + 1, t2 - t1 - 1) == "saves") {
+                const std::string mode = line.substr(t2 + 1);
+                if (mode == "nand" || mode == "separate" || mode == "fresh") save_mode = mode;
             }
             continue;
         }

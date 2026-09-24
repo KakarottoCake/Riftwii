@@ -27,28 +27,13 @@ sockaddr_in address_of(const NetServer& server) {
     return a;
 }
 
-// Polls `socket` for `events` until one comes or `timeout_ms` passes, in
-// short slices: a poll can return early with nothing (Dolphin's does), so
-// one long poll is not a wait. The revents seen are left in `revents`.
-s32 poll_for(std::int32_t socket, std::uint32_t events, int timeout_ms, std::uint32_t& revents) {
-    constexpr int kSlice = 100;
-    s32 polled = 0;
-    for (int waited = 0;; waited += kSlice) {
-        pollsd p;
-        p.socket = socket;
-        p.events = events;
-        p.revents = 0;
-        polled = net_poll(&p, 1, kSlice);
-        revents = p.revents;
-        if (polled != 0 || waited >= timeout_ms) return polled;
-        usleep(1000);  // in case the poll returned at once
-    }
-}
-
 // Waits until `socket` has `events`, at most `timeout_ms`.
 bool wait_for(std::int32_t socket, std::uint32_t events, int timeout_ms) {
-    std::uint32_t revents = 0;
-    return poll_for(socket, events, timeout_ms, revents) > 0 && (revents & events) != 0;
+    pollsd p;
+    p.socket = socket;
+    p.events = events;
+    p.revents = 0;
+    return net_poll(&p, 1, timeout_ms) > 0 && (p.revents & events) != 0;
 }
 
 }  // namespace
@@ -223,30 +208,6 @@ bool SocketTransport::receive(void* data, std::size_t length) {
         length -= static_cast<std::size_t>(n);
     }
     return length == 0;
-}
-
-bool SocketTransport::receive_some(void* data, std::size_t max, std::size_t& got) {
-    got = 0;
-    if (socket_ < 0) return false;
-    for (;;) {
-        // A server that answers and closes at once can leave only a hang-up
-        // in revents: the reply is still waiting, so read it (recv then
-        // gives the data, or 0 for the close).
-        std::uint32_t revents = 0;
-        const s32 polled = poll_for(socket_, POLLIN, timeout_ms_, revents);
-        if (polled <= 0 || (revents & (POLLIN | POLLHUP | POLLERR)) == 0) {
-            logf("Net: nothing to read (poll %d, revents 0x%x)\n", static_cast<int>(polled), static_cast<unsigned>(revents));
-            return false;
-        }
-        const s32 n = net_recv(socket_, data, static_cast<s32>(max > 0x8000 ? 0x8000 : max), 0);
-        if (n == -EAGAIN) continue;
-        if (n < 0) {
-            logf("Net: recv failed (%d)\n", static_cast<int>(n));
-            return false;
-        }
-        got = static_cast<std::size_t>(n);
-        return true;
-    }
 }
 
 }  // namespace riftwii::wii
