@@ -29,7 +29,6 @@ namespace {
 constexpr const char* kTitlesUrl = "http://www.gametdb.com/wiitdb.txt?LANG=";
 constexpr const char* kCheatsUrl = "http://codes.rc24.xyz/txt.php?txt=";
 constexpr std::time_t kWeek = 7 * 24 * 60 * 60;
-constexpr std::time_t kDay = 24 * 60 * 60;
 constexpr const char* kReleasesApi = "https://api.github.com/repos/KakarottoCake/Riftwii/releases?per_page=1";
 constexpr const char* kUpdateNote = "sd:/riftwii/update.txt";
 
@@ -249,18 +248,20 @@ bool CheckForUpdate(bool force, std::string& latest, bool& newer, std::string& e
     newer = false;
     UpdateNote note = ReadUpdateNote();
     latest = note.latest;
-    const std::time_t now = std::time(nullptr);
-    if (force || latest.empty() || note.dol.url.empty() || now < note.checked || now - note.checked >= kDay) {
-        std::vector<std::uint8_t> body;
-        if (!HttpGet(kReleasesApi, body, error, 256u << 10)) return false;
+    // Asked at every start: releases can come hours apart, and a day-old
+    // answer hid them until the next day (testers had to look in Settings).
+    std::vector<std::uint8_t> body;
+    std::string tag;
+    const bool asked = HttpGet(kReleasesApi, body, error, 256u << 10) &&
+                       release_tag_from_json(std::string(body.begin(), body.end()), tag);
+    if (!asked) {
+        if (error.empty()) error = "GitHub's answer names no release";
+        if (force || latest.empty() || note.dol.url.empty()) return false;
+        logf("Update check: %s; using the last answer (%s)\n", error.c_str(), latest.c_str());
+    } else {
         const std::string json(body.begin(), body.end());
-        std::string tag;
-        if (!release_tag_from_json(json, tag)) {
-            error = "GitHub's answer names no release";
-            return false;
-        }
         latest = tag;
-        note.checked = now;
+        note.checked = std::time(nullptr);
         note.latest = tag;
         note.dol = ReleaseAsset{};
         release_asset_from_json(json, "riftwii.dol", note.dol);

@@ -149,7 +149,7 @@ the list explains the row you are on.
   fakemote to use USB DS3/DS4 pads as Wii Remotes.
 - **Find network packs (RiiFS)** and **Copy network packs again** (below).
 - **Look for games again**, **Check for a new version** (on GitHub; with
-  downloads on, RiftWii also looks once a day at start and says so on
+  downloads on, RiftWii also looks at every start and says so on
   Home), and **Leave RiftWii** (HOME does that too).
 
 ### RVZ games

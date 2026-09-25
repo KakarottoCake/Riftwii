@@ -657,7 +657,7 @@ static void ScanDrives(FrontendState& state, GuiText& status)
 	}
 	// After the USB scan: packs on the drive count too.
 	LoadPackIndex();
-	// A newer release, at most once a day and only when downloads are on.
+	// A newer release, asked at every start when downloads are on.
 	static bool updateChecked = false;
 	if (!updateChecked && riftwii::wii::Settings().online) {
 		updateChecked = true;
