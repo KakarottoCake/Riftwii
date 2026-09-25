@@ -302,7 +302,7 @@ and a beta on Beta.
 
 **Experimental** features are in stable versions too, but they are not
 yet confirmed on real Wiis and may not work on yours. The menu marks
-them (a note before the launch, or "experimental" in Settings):
+them (a note before the launch, or "Experimental" in the Settings note):
 
 - **The GameCube controller adapter** in games (it works in the menu on a
   Wii U). It stays off for RVZ games

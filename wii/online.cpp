@@ -262,6 +262,14 @@ bool CheckForUpdate(bool force, std::string& latest, bool& newer, std::string& e
     std::string tag;
     const bool asked = HttpGet(channel == "stable" ? kLatestApi : kReleasesApi, body, error, 256u << 10) &&
                        release_tag_from_json(std::string(body.begin(), body.end()), tag);
+    if (!asked && channel == "stable" && error.find("answered 404") != std::string::npos) {
+        // GitHub has no latest release while every release is a
+        // pre-release: nothing to offer on Stable yet.
+        logf("Update check (stable channel): no stable release yet, this is %s\n", RIFTWII_VERSION);
+        error.clear();
+        latest.clear();
+        return true;
+    }
     if (!asked) {
         if (error.empty()) error = "GitHub's answer names no release";
         error += channel == "stable" ? " (Stable channel)" : " (Beta channel)";
