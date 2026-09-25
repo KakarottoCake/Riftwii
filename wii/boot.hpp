@@ -104,6 +104,10 @@ struct BootOptions {
     // the USB Gecko.
     bool install_resident = false;
     bool resident_gecko = false;
+    // The game is an image (d2x or RVZ) whose BCA is not a retail one:
+    // the runtime answers the BCA read (installed for it when nothing
+    // else needs it). Set by boot_game.
+    bool retail_bca = false;
     // E3: same-size replacements the runtime serves from memory (requires
     // install_resident). Built by the caller from the FST while the SD card
     // is still mounted.

@@ -40,6 +40,10 @@ std::uint32_t frag_device();
 // Disc ID (the first 0x20 bytes of the disc, copied to `out32`).
 bool read_disc_id(std::uint8_t out32[32], std::string& error);  // 0x70
 
+// The disc's Burst Cutting Area, 0x40 bytes (DVDLowReadDiskBca). d2x
+// answers it from bytes 0x100-0x13F of the image.
+bool read_bca(std::uint8_t out64[64], std::string& error);  // 0xDA
+
 // Reads that do not need an open partition (system area, first 0x50000
 // bytes). `word_offset` is bytes / 4.
 bool read_unencrypted(void* buffer32, std::uint32_t length, std::uint32_t word_offset,

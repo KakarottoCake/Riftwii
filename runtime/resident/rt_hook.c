@@ -13,6 +13,7 @@
 
 #define RT_DI_READ 0x71u
 #define RT_DI_SEEK 0xABu
+#define RT_DI_READ_BCA 0xDAu
 
 /* /dev/sdio/slot0 (wiibrew, libogc wiisd.c) */
 #define RT_SDIO_SENDCMD 7u
@@ -2588,6 +2589,27 @@ void rt_on_fs_complete(struct rt_context* ctx, int32_t* result, void* tag, uintp
     /* An unknown tag: nothing to continue, nothing to call. */
 }
 
+int rt_answer_bca(struct rt_context* ctx, uintptr_t* args) {
+    const uint32_t ioctl = (uint32_t)args[1];
+    const uint32_t* in = (const uint32_t*)args[2];
+    const uint32_t in_len = (uint32_t)args[3];
+    uint8_t* out = (uint8_t*)args[4];
+    const uint32_t out_len = (uint32_t)args[5];
+    uintptr_t sink;
+    uint32_t i;
+    if (!(ctx->flags & RT_FLAG_BCA) || ioctl != RT_DI_READ_BCA || in_len != 0x20 || in == 0 ||
+        (in[0] >> 24) != RT_DI_READ_BCA || out == 0 || out_len <= RT_BCA_MARK) {
+        return 0;
+    }
+    for (i = 0; i < out_len && i < RT_BCA_BYTES; ++i) out[i] = i == RT_BCA_MARK ? 1u : 0u;
+    rt_flush_range((uintptr_t)out, i);
+    sink = ((uintptr_t)ctx->bca_sink + 31u) & ~(uintptr_t)31u;
+    args[4] = sink;
+    args[5] = RT_BCA_BYTES;
+    ctx->bca_answers++;
+    return 1;
+}
+
 int rt_on_ipc(struct rt_context* ctx, uint32_t entry_index, uintptr_t* args, uint32_t* result) {
     if (entry_index == RT_IPC_ASYNC_IOCTL) {
         /* Disc reads and seeks keep their hook; every other async ioctl
@@ -2600,6 +2622,9 @@ int rt_on_ipc(struct rt_context* ctx, uint32_t entry_index, uintptr_t* args, uin
         if (rt_is_di_read(ioctl, in, in_len) || rt_is_di_seek(ioctl, in, in_len)) {
             return rt_on_ioctl_async(ctx, args, result);
         }
+        /* The BCA request still goes to IOS (into the sink), so the game's
+         * callback runs from IOS's reply as for any other command. */
+        if (rt_answer_bca(ctx, args)) return 0;
         return rt_on_async_fs(ctx, entry_index, args, result);
     }
     if (entry_index >= RT_IPC_COMMANDS) return rt_on_sync_fs(ctx, entry_index, args, result);

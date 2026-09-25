@@ -3550,6 +3550,57 @@ static void TestWindowedRead() {
     EXPECT_EQ(out[0x60], 0xEE);  // nothing written past the request
 }
 
+// RT_FLAG_BCA: DVDLowReadDiskBca gets a retail Wii BCA in the game's
+// buffer, while IOS's own answer is sent to the context's sink; other
+// ioctls, and the BCA read without the flag, are left alone.
+void TestRetailBca() {
+    std::vector<std::uint8_t> storage(sizeof(rt_context) + 64);
+    rt_context& ctx = *reinterpret_cast<rt_context*>(storage.data());
+    std::memset(&ctx, 0, sizeof(rt_context));
+    ctx.magic = RT_CONTEXT_MAGIC;
+    std::uint8_t out[0x40];
+    std::memset(out, 0xEE, sizeof(out));
+    std::uint32_t cmd[8] = {0xDA000000, 0, 0, 0, 0, 0, 0, 0};
+    std::uintptr_t args[8] = {3, 0xDA, reinterpret_cast<std::uintptr_t>(cmd), 0x20,
+                              reinterpret_cast<std::uintptr_t>(out), sizeof(out), 0x80005000, 0x80006000};
+    std::uint32_t result = 0;
+
+    // Without the flag (a disc from the drive): untouched.
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC_IOCTL, args, &result), 0);
+    EXPECT_EQ(args[4], reinterpret_cast<std::uintptr_t>(out));
+    EXPECT_EQ(out[0], 0xEE);
+    EXPECT_EQ(ctx.bca_answers, 0u);
+
+    ctx.flags = RT_FLAG_BCA;
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC_IOCTL, args, &result), 0);  // IOS still runs it
+    for (std::uint32_t i = 0; i < 0x40; ++i) EXPECT_EQ(out[i], i == 0x33 ? 1 : 0);
+    const std::uintptr_t sink = args[4];
+    EXPECT_TRUE(sink != reinterpret_cast<std::uintptr_t>(out));
+    EXPECT_EQ(sink & 31u, 0u);
+    EXPECT_TRUE(sink >= reinterpret_cast<std::uintptr_t>(ctx.bca_sink));
+    EXPECT_TRUE(sink + RT_BCA_BYTES <= reinterpret_cast<std::uintptr_t>(ctx.bca_sink) + sizeof(ctx.bca_sink));
+    EXPECT_EQ(args[5], static_cast<std::uintptr_t>(RT_BCA_BYTES));
+    EXPECT_EQ(args[6], static_cast<std::uintptr_t>(0x80005000));  // the game's callback, as it was
+    EXPECT_EQ(args[7], static_cast<std::uintptr_t>(0x80006000));
+    EXPECT_EQ(ctx.bca_answers, 1u);
+
+    // Another ioctl, and a BCA read with a malformed block: untouched.
+    std::uint8_t other[0x40];
+    std::memset(other, 0xEE, sizeof(other));
+    std::uint32_t id_cmd[8] = {0x70000000, 0, 0, 0, 0, 0, 0, 0};
+    std::uintptr_t id_args[8] = {3, 0x70, reinterpret_cast<std::uintptr_t>(id_cmd), 0x20,
+                                 reinterpret_cast<std::uintptr_t>(other), 0x20, 0x80005000, 0x80006000};
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC_IOCTL, id_args, &result), 0);
+    EXPECT_EQ(id_args[4], reinterpret_cast<std::uintptr_t>(other));
+    std::uint32_t bad_cmd[8] = {0x71000000, 0, 0, 0, 0, 0, 0, 0};
+    std::uintptr_t bad_args[8] = {3, 0xDA, reinterpret_cast<std::uintptr_t>(bad_cmd), 0x20,
+                                  reinterpret_cast<std::uintptr_t>(other), sizeof(other), 0x80005000, 0x80006000};
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC_IOCTL, bad_args, &result), 0);
+    EXPECT_EQ(bad_args[4], reinterpret_cast<std::uintptr_t>(other));
+    EXPECT_EQ(other[0x33], 0xEE);
+    EXPECT_EQ(ctx.bca_answers, 1u);
+}
+
 int main() {
     TestBlob();
     TestJumpAndDisplace();
@@ -3564,6 +3615,7 @@ int main() {
     TestFsJobKirby();
     TestFsClone();
     TestResidentHandler();
+    TestRetailBca();
     TestPayloadAndRedirect();
     TestVirtualWindow();
     TestWindowedRead();

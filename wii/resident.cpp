@@ -337,6 +337,7 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
     }
     rt_context* ctx = reinterpret_cast<rt_context*>(place.code_base + blob.context_offset);
     ctx->flags = options.gecko ? RT_FLAG_GECKO : 0;
+    if (options.retail_bca) ctx->flags |= RT_FLAG_BCA;
     ctx->gecko_channel = 1;
     ctx->original_ioctl_async = symbols.ioctl_async;
     ctx->table = payload.empty() ? 0 : payload_address;
