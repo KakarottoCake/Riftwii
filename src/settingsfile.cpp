@@ -71,6 +71,8 @@ void LoaderSettings::parse(const std::string& text) {
                 if (plain) favorites.insert(id);
                 at = comma + 1;
             }
+        } else if (key == "update_channel") {
+            if (value == "auto" || value == "stable" || value == "beta") update_channel = value;
         } else if (key == "gc_adapter") {
             if (value == "auto" || value == "off" || value == "on" || value == "demo") gc_adapter = value;
         } else {
@@ -92,6 +94,7 @@ std::string LoaderSettings::serialize() const {
     s += "wfc_domain = " + wfc_domain + "\n";
     s += "home_tiles = " + home_tiles + "\n";
     s += std::string("online = ") + (online ? "on" : "off") + "\n";
+    s += "update_channel = " + update_channel + "\n";
     s += "gc_adapter = " + gc_adapter + "\n";
     if (!favorites.empty()) {
         std::string list;

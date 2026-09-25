@@ -119,4 +119,9 @@ int compare_versions(const std::string& a, const std::string& b) {
     return x.suffix < y.suffix ? -1 : 1;
 }
 
+std::string effective_update_channel(const std::string& setting, const std::string& version) {
+    if (setting == "stable" || setting == "beta") return setting;
+    return version.find('-') != std::string::npos ? "beta" : "stable";
+}
+
 }  // namespace riftwii

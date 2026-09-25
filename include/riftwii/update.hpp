@@ -3,9 +3,10 @@
 
 #include <string>
 
-// The update check: RiftWii asks GitHub for its newest release
-// (https://api.github.com/repos/KakarottoCake/Riftwii/releases?per_page=1,
-// which lists pre-releases too) and compares its tag with its own version.
+// The update check: RiftWii asks GitHub for its newest release and
+// compares its tag with its own version. The Stable channel asks for the
+// latest release (/releases/latest, which leaves pre-releases out), the
+// Beta channel for the newest of all (/releases?per_page=1).
 namespace riftwii {
 
 // The first "tag_name" in a GitHub API answer.
@@ -27,5 +28,10 @@ bool release_asset_from_json(const std::string& json, const std::string& name, R
 // numbers, then the suffixes as text ("beta" after "alpha", "rc" after
 // "beta"). -1, 0 or 1.
 int compare_versions(const std::string& a, const std::string& b);
+
+// The update channel a setting means for this build: "stable" or "beta"
+// as set, and "auto" follows the version: one with a "-suffix" (beta,
+// rc1) is a pre-release build and follows Beta.
+std::string effective_update_channel(const std::string& setting, const std::string& version);
 
 }  // namespace riftwii
