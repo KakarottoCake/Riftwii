@@ -215,8 +215,10 @@ with its switch on Wii U). Plug the adapter's black USB plug into the Wii
 before you start the game (the grey one only adds power for rumble). In
 games that support the GameCube controller (Mario Kart Wii, Super Smash
 Bros. Brawl and others), its controllers fill the ports that have no
-controller plugged in, rumble included. **Check the GameCube adapter**
-shows what each port reports before you start a game.
+controller plugged in, rumble included. Its controllers work the RiftWii
+menu too, like a GameCube controller in the Wii's own ports.
+**Check the GameCube adapter** shows what each port reports before you
+start a game.
 
 **GameCube adapter** in Settings is **Automatic** at first: the adapter
 is used when it is plugged in as the game starts, and the game is left
@@ -224,7 +226,9 @@ alone when it is not. **On** always sets it up, so it can be plugged in
 during the game; **Off** never does. `boot.log` says what was found.
 
 It needs a menu IOS with USB HID: IOS 58 (the default) or a d2x cIOS;
-the game then keeps that IOS. Games without GameCube controller support
+the game then keeps that IOS. On a Wii U it needs IOS 58. It stays off
+for games read from the USB drive (and RVZ games or packs read from it),
+where it broke the game's disc reads. Games without GameCube controller support
 ignore it, and so do mods that bring their own controller code (mkwcat's
 NSMBW project) or read the controller hardware directly (Gecko codes
 that add GameCube controls to NSMBW).

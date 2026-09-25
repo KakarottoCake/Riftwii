@@ -30,7 +30,7 @@ below names the files that own it.
 | Network packs (RiiFS) | `wii/netpacks.cpp`, `src/riifs.cpp`, `src/riifs_sync.cpp`, `docs/RIIFS.md` |
 | Settings, play history, translations | `wii/loadersettings.cpp`, `src/settingsfile.cpp`, `src/playhistory.cpp`, `wii/i18n.cpp`, `tools/lang_source.py` |
 | Menu IOS (IOS 58 or a d2x cIOS slot) | `wii/menuios.cpp` |
-| GameCube adapter test page | `wii/gcadapter.cpp` (drives `runtime/rtgcad.c` with libogc's IPC) |
+| GameCube adapter in the menu (its controllers work the menu; Settings' test page) | `wii/gcadapter.cpp` (drives `runtime/rtgcad.c` with libogc's IPC, or on IOS 58 through libogc's USB handle), `vendor-libgui/source/input.cpp` |
 | Memory limits: the heap never enters memory a launch overwrites | `wii/memlimits.cpp` |
 
 Everything the menu decides is plain data (`LaunchModel`, the per-game
@@ -87,7 +87,12 @@ disc at another offset. Failed SD and disc reads are retried three times.
 With `<savegame>` it also answers the game's NAND file calls from a
 folder on the card (`runtime/rtfs.c` on the FAT32 engine
 `runtime/rtfat.c`), and it serves Riivolution's `file` device for
-Pulsar packs.
+Pulsar packs. On the raw `/dev/sdio/slot0` path the card gets one
+command at a time: savegame transfers and mod file reads wait for each
+other, and a failed transfer is tried again after a pause (2, 8, 32 ms).
+What still fails is written to a one-sector card log
+(`sd:/riftwii/cardlog.bin`) that the menu turns into
+`sd:/riftwii/cardlog.txt` at the next start (`src/cardlog.cpp`).
 
 **Pad hook** (`runtime/pad/`, `runtime/rtgcad.c`). With the GameCube
 adapter on, a second blob hooks the game's `PADRead` and
@@ -155,6 +160,7 @@ addresses into source lines (keep the `riftwii.elf` of each release).
 | `sd:/riftwii/riifs/` | Files copied from network packs |
 | `sd:/riftwii/session.log`, `boot.log` | The menu's log and the last launch's log |
 | `sd:/riftwii/crash.txt` | The last crash report |
+| `sd:/riftwii/cardlog.bin`, `cardlog.txt` | The SD card's failures during the last game, and their text |
 | `sd:/riftwii/autorun.txt`, `guiscript.txt` | Test scripts (see `DEVELOPING.md`) |
 
 ## Rules the code keeps

@@ -1905,6 +1905,9 @@ static void GcAdapterTestPage()
 	w.Append(&backBtn.button);
 	mainWindow->Append(&w);
 	std::string why;
+	// The menu may already run it (its controllers work the menu); then
+	// it keeps running after this page.
+	const bool was_running = riftwii::wii::GcAdapterRunning();
 	const bool started = riftwii::wii::GcAdapterStart(why);
 	if (!started) {
 		statusTxt.SetText(tr("This IOS has no USB HID (IOS{1}). Choose IOS 58 or a d2x cIOS as the Menu IOS.",
@@ -1923,8 +1926,8 @@ static void GcAdapterTestPage()
 			riftwii::wii::GcAdapterPoll(v);
 			statusTxt.SetText(AdapterStatus(v).c_str());
 			char hid[96];
-			std::snprintf(hid, sizeof(hid), "USB HID v%u on IOS%d, %u USB device(s), %u reports", v.version,
-				IOS_GetVersion(), v.listed, v.reports);
+			std::snprintf(hid, sizeof(hid), "USB HID v%u%s on IOS%d, %u USB device(s), %u reports", v.version,
+				v.through_ogc ? " (libogc)" : "", IOS_GetVersion(), v.listed, v.reports);
 			hidTxt.SetText(hid);
 			for (unsigned p = 0; p < GCAD_PORTS; ++p) {
 				const std::string port = tr("Port {1}", {std::to_string(p + 1)}) + ":  ";
@@ -1937,7 +1940,7 @@ static void GcAdapterTestPage()
 		ResumeGui();
 	}
 	HaltGui();
-	if (started) riftwii::wii::GcAdapterStop();
+	if (started && !was_running) riftwii::wii::GcAdapterStop();
 	mainWindow->Remove(&w);
 	ResumeGui();
 }

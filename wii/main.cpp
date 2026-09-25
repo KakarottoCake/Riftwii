@@ -21,6 +21,7 @@
 #include "autorun.hpp"
 #include "console.hpp"
 #include "crash.hpp"
+#include "gcadapter.hpp"
 #include "guiscript.hpp"
 #include "i18n.hpp"
 #include "ios_reload.hpp"
@@ -35,6 +36,7 @@
 int ExitRequested = 0;
 
 void ExitApp() {
+    riftwii::wii::GcAdapterMenuEnd();
     ShutoffRumble();
     ShutdownAudio();
     StopGX();
@@ -147,6 +149,9 @@ int main() {
     InitGUIThreads();
     riftwii::wii::CrashSetPhase(riftwii::wii::CrashPhase::Menu);
     const int action = MainMenu(MENU_SOURCE, state);
+    // Before anything is launched: nothing of the menu's adapter may be
+    // left in flight for the game (or the next IOS) to answer.
+    riftwii::wii::GcAdapterMenuEnd();
     riftwii::wii::mem::LogUsage("menu closed");
     const riftwii::wii::LaunchSource source = riftwii::wii::SelectedSource(state);
 

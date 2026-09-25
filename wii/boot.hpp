@@ -164,6 +164,10 @@ struct LaunchExtras {
 };
 void SetLaunchExtras(LaunchExtras extras);
 
+// A Wii U: its Wii mode has the BC-NAND title (00000001-00000200), a Wii
+// has none. Asked once.
+bool is_wii_u();
+
 // Reloads IOS, runs the apploader and jumps to the game. Only returns on
 // failure. The caller must have shut down its own GUI, audio and pads;
 // the SD card is unmounted here because the IOS reload kills its fd.
