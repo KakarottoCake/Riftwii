@@ -14,7 +14,6 @@ namespace {
 constexpr std::uint32_t kInquiry = 0x12;
 constexpr std::uint32_t kReadDiscId = 0x70;
 constexpr std::uint32_t kRead = 0x71;
-constexpr std::uint32_t kWaitForCoverClose = 0x79;
 constexpr std::uint32_t kGetCoverStatus = 0x88;
 constexpr std::uint32_t kReset = 0x8A;
 constexpr std::uint32_t kOpenPartition = 0x8B;
@@ -116,21 +115,12 @@ void close() {
     g_fd = -1;
 }
 
-bool is_open() { return g_fd >= 0; }
-
-int last_reply() { return g_last_reply; }
-
 bool cover_status(bool& disc_inserted, std::string& error) {
     std::memset(g_in, 0, sizeof(g_in));
     std::memset(g_out, 0, sizeof(g_out));
     if (!command(kGetCoverStatus, "get cover status", g_out, sizeof(g_out), kReplySuccess, error)) return false;
     disc_inserted = (g_out[0] & 2) != 0;
     return true;
-}
-
-bool wait_for_cover_close(std::string& error) {
-    std::memset(g_in, 0, sizeof(g_in));
-    return command(kWaitForCoverClose, "wait for cover close", nullptr, 0, kReplyCoverClosed, error);
 }
 
 bool reset(bool spin_up, std::string& error) {

@@ -26,7 +26,6 @@
 namespace riftwii::wii {
 
 bool GuiScriptLoad(const char* path);
-bool GuiScriptActive();
 // After the pads are read: overrides channel 0 with the script's pointer
 // and presses.
 void GuiScriptApply();

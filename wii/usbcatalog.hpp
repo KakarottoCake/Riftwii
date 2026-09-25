@@ -96,9 +96,5 @@ bool slot_has_ticket(int slot);
 // caller-owned memory that must outlive d2x configuration and the game boot.
 bool activate_image_game(const ImageGame& game, int cios_slot, void*& storage, std::size_t& storage_bytes,
                          const char* log_path, std::string& error);
-inline bool activate_usb_game(const UsbGame& game, int cios_slot, void*& storage, std::size_t& storage_bytes,
-                              const char* log_path, std::string& error) {
-    return activate_image_game(game, cios_slot, storage, storage_bytes, log_path, error);
-}
 
 }  // namespace riftwii::wii
