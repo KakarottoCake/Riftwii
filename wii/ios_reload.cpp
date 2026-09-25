@@ -17,6 +17,7 @@
 #include "gcadapter.hpp"
 #include "memlimits.hpp"
 #include "netsock.hpp"
+#include "umsdev.hpp"
 
 extern "C" void udelay(int us);
 
@@ -97,9 +98,11 @@ ReloadResult reload_ios(int version, std::string& error, bool force) {
     }
     // The network's IOS state dies with the reload; close it first so
     // nothing of it is left half open (1.0.5 left it up after downloads).
-    // The adapter's transfers too: their replies must not outlive it.
+    // The adapter's transfers too: their replies must not outlive it. And
+    // d2x's USB device, opened (or refused) by the IOS going away.
     NetStop();
     GcAdapterStop();
+    ums::Forget();
     __IOS_ShutdownSubsystems();
     s32 res = __ES_Init();
     if (res < 0) {

@@ -23,7 +23,10 @@ constexpr std::uint32_t kSectorBytes = 512;
 constexpr std::uint32_t kBounceSectors = 64;  // 32 KiB per request
 
 s32 g_fd = -1;
+// A failed open is not retried under the same IOS; its reason is kept
+// for the later callers. An IOS reload clears both (Forget).
 bool g_failed = false;
+std::string g_failure;
 std::uint8_t* g_bounce = nullptr;
 std::uint32_t g_args[8] ATTRIBUTE_ALIGN(32);
 ioctlv g_vec[3] ATTRIBUTE_ALIGN(32);
@@ -37,7 +40,7 @@ bool ReadBlocks(std::uint64_t lba, std::uint32_t count, std::uint8_t* out) { ret
 bool Open(std::string& error) {
     if (g_fd >= 0) return true;
     if (g_failed) {
-        error = "the USB drive could not be opened through d2x earlier";
+        error = g_failure;
         return false;
     }
     // One driver for the drive: libogc's lets go first.
@@ -49,6 +52,7 @@ bool Open(std::string& error) {
                 ") has no d2x USB device; packs and RVZ games on the USB drive need the game to run under a d2x "
                 "cIOS (for a disc, set Menu IOS to your d2x slot in Settings)";
         g_failed = true;
+        g_failure = error;
         return false;
     }
     const s32 init = IOS_Ioctlv(g_fd, kInit, 0, 0, nullptr);
@@ -67,6 +71,7 @@ bool Open(std::string& error) {
         IOS_Close(g_fd);
         g_fd = -1;
         g_failed = true;
+        g_failure = error;
         return false;
     }
     if (!g_bounce) g_bounce = skin::Mem2Alloc(kBounceSectors * kSectorBytes);
@@ -77,6 +82,14 @@ bool Open(std::string& error) {
         return false;
     }
     return true;
+}
+
+void Forget() {
+    if (g_fd >= 0) IOS_Close(g_fd);
+    g_fd = -1;
+    g_failed = false;
+    g_failure.clear();
+    g_mounted = false;
 }
 
 int Fd() { return g_fd; }
