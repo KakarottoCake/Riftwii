@@ -818,12 +818,84 @@ static void rt_fs_build_status(struct rt_fs_state* st) {
     rt_flush_range((uintptr_t)st->response, sizeof(st->response));
 }
 
+/* Whether a read of the mod's files from the card is in flight (one of
+ * the disc engine's records on an SD run): RT_CARDLOG_MOD_READING or 0. */
+static uint32_t rt_mod_reading(const struct rt_context* ctx) {
+    uint32_t i;
+    for (i = 0; i < RT_MAX_PENDING; ++i) {
+        const struct rt_pending* record = &ctx->pending[i];
+        if (record->in_use && (record->phase == RT_PHASE_SD || record->phase == RT_PHASE_SD_WAIT) &&
+            record->run_index < record->run_count && record->runs[record->run_index].kind == RT_KIND_SD) {
+            return RT_CARDLOG_MOD_READING;
+        }
+    }
+    return 0;
+}
+
+/* Notes an event in the card log (rt_hook.h); rt_cardlog_flush writes it
+ * to the card once the engine is free. */
+static void rt_cardlog_note(struct rt_context* ctx, struct rt_fs_state* st, uint32_t kind, int32_t result,
+                            uint32_t sector, uint32_t count, uint32_t attempt, uint32_t flags, uint32_t status,
+                            uint32_t polls) {
+    uint32_t msr;
+    if (st->cardlog_lba == 0) return;
+    flags |= rt_mod_reading(ctx);
+    msr = rt_interrupts_off();
+    if (st->cardlog.events < RT_CARDLOG_RECORDS) {
+        struct rt_cardlog_record* r = &st->cardlog.records[st->cardlog.events];
+        const uint32_t now = rt_fs_ticks();
+        r->kind = (uint8_t)kind;
+        r->attempt = (uint8_t)attempt;
+        r->flags = (uint16_t)flags;
+        r->result = result;
+        r->sector = sector;
+        r->count = count;
+        r->status = status;
+        r->time = now;
+        r->since_write = st->wrote ? now - st->last_write : RT_CARDLOG_NO_WRITE;
+        r->polls = polls;
+    }
+    st->cardlog.events++;
+    st->cardlog_dirty = 1;
+    rt_interrupts_restore(msr);
+}
+
+/* An event of the engine's transfer in flight. The log's own write notes
+ * nothing: its failures would only ask for another write. */
+static void rt_cardlog_transfer(struct rt_context* ctx, struct rt_fs_state* st, uint32_t kind, int32_t result,
+                                int async, uint32_t status, uint32_t polls) {
+    const struct rtfat_op* op = &st->req.fat;
+    if (st->cardlog_writing) return;
+    rt_cardlog_note(ctx, st, kind, result, op->io_lba, op->io_count, st->io_tries,
+                    (op->io_write ? RT_CARDLOG_WRITE : 0u) | (async ? RT_CARDLOG_ASYNC : 0u), status, polls);
+}
+
+/* The R1 status the card gave for the engine's last command on
+ * /dev/sdio/slot0 (d2x answers none: 0). */
+static uint32_t rt_fs_command_status(const struct rt_context* ctx, struct rt_fs_state* st) {
+    if (ctx->sdio_sdhc == RT_SD_D2X) return 0;
+    rt_flush_range((uintptr_t)st->response, sizeof(st->response)); /* drops the line: IOS wrote it */
+    return st->response[0];
+}
+
+/* A save write went through: the time the card log measures from. */
+static void rt_fs_wrote(struct rt_fs_state* st) {
+    if (!st->req.fat.io_write || st->cardlog_writing) return;
+    st->last_write = rt_fs_ticks();
+    st->wrote = 1;
+}
+
 /* The answer of the CMD13 just completed: still receiving or programming?
  * A write error the card reports on the way is kept for the transfer. */
-static int rt_fs_card_writing(struct rt_fs_state* st) {
+static int rt_fs_card_writing(struct rt_context* ctx, struct rt_fs_state* st, uint32_t polls) {
     uint32_t state;
     rt_flush_range((uintptr_t)st->response, sizeof(st->response)); /* drops the line: IOS wrote it */
-    if (st->req.fat.io_write && (st->response[0] & RT_SD_R1_WRITE_ERRORS) != 0) st->io_flags |= RT_FS_IO_CARD_ERROR;
+    st->last_status = st->response[0];
+    if (st->req.fat.io_write && (st->response[0] & RT_SD_R1_WRITE_ERRORS) != 0 &&
+        !(st->io_flags & RT_FS_IO_CARD_ERROR)) {
+        st->io_flags |= RT_FS_IO_CARD_ERROR;
+        rt_cardlog_transfer(ctx, st, RT_CARDLOG_CARD_ERROR, 0, !rt_fs_in_thread(), st->response[0], polls);
+    }
     state = (st->response[0] >> 9) & 15u;
     return state == RT_SD_STATE_RCV || state == RT_SD_STATE_PRG;
 }
@@ -849,9 +921,18 @@ static void rt_fs_settle_sync(struct rt_context* ctx, struct rt_fs_state* st) {
     uint32_t i;
     if (rt_sd_settles(ctx, st)) {
         for (i = 0; i < RT_SD_SETTLE_POLLS; ++i) {
+            int32_t r;
             rt_fs_build_status(st);
             st->settle_polls++;
-            if (rt_fs_status_call(ctx, st, 0) < 0 || !rt_fs_card_writing(st)) break;
+            r = rt_fs_status_call(ctx, st, 0);
+            if (r < 0) {
+                rt_cardlog_transfer(ctx, st, RT_CARDLOG_STATUS_FAILED, r, 0, st->last_status, i + 1u);
+                break;
+            }
+            if (!rt_fs_card_writing(ctx, st, i + 1u)) break;
+        }
+        if (i == RT_SD_SETTLE_POLLS) {
+            rt_cardlog_transfer(ctx, st, RT_CARDLOG_WAIT_TIMEOUT, 0, 0, st->last_status, i);
         }
     }
     st->card_busy = 0;
@@ -861,12 +942,18 @@ static void rt_fs_settle_sync(struct rt_context* ctx, struct rt_fs_state* st) {
  * counts its CMD13s). 1 when one is in flight, 0 when the card is taken
  * as idle. */
 static int rt_fs_settle_next(struct rt_context* ctx, struct rt_fs_state* st, int32_t last) {
-    if (st->pend.reserved != 0 && (last < 0 || !rt_fs_card_writing(st))) {
+    if (st->pend.reserved != 0 && last < 0) {
+        rt_cardlog_transfer(ctx, st, RT_CARDLOG_STATUS_FAILED, last, 1, st->last_status, st->pend.reserved);
+    }
+    if (st->pend.reserved != 0 && (last < 0 || !rt_fs_card_writing(ctx, st, st->pend.reserved))) {
         st->pend.reserved = 0;
         st->card_busy = 0;
         return 0;
     }
     if (!rt_sd_settles(ctx, st) || st->pend.reserved >= RT_SD_SETTLE_POLLS) {
+        if (st->pend.reserved >= RT_SD_SETTLE_POLLS) {
+            rt_cardlog_transfer(ctx, st, RT_CARDLOG_WAIT_TIMEOUT, 0, 1, st->last_status, st->pend.reserved);
+        }
         st->pend.reserved = 0;
         st->card_busy = 0;
         return 0;
@@ -874,10 +961,14 @@ static int rt_fs_settle_next(struct rt_context* ctx, struct rt_fs_state* st, int
     rt_fs_build_status(st);
     st->settle_polls++;
     st->pend.reserved++;
-    if (rt_fs_status_call(ctx, st, 1) < 0) {
-        st->pend.reserved = 0;
-        st->card_busy = 0;
-        return 0;
+    {
+        const int32_t r = rt_fs_status_call(ctx, st, 1);
+        if (r < 0) {
+            rt_cardlog_transfer(ctx, st, RT_CARDLOG_STATUS_FAILED, r, 1, st->last_status, st->pend.reserved);
+            st->pend.reserved = 0;
+            st->card_busy = 0;
+            return 0;
+        }
     }
     return 1;
 }
@@ -913,12 +1004,16 @@ static void rt_fs_transfer_sync(struct rt_context* ctx, struct rt_fs_state* st) 
         if (r < 0) {
             st->failures++;
             st->io_flags |= RT_FS_IO_RETRY;
+            rt_cardlog_transfer(ctx, st, RT_CARDLOG_FAILED, r, 0, rt_fs_command_status(ctx, st), 0);
+        } else {
+            rt_fs_wrote(st);
         }
         st->req.fat.io_status = r < 0 ? r : 0;
         /* After a write, and before a failed transfer goes again, the card
          * must be done with whatever it was doing. */
         if (st->req.fat.io_write || r < 0) rt_fs_settle_sync(ctx, st);
     } while (rt_fs_should_retry(st));
+    if (r < 0) rt_cardlog_transfer(ctx, st, RT_CARDLOG_GAVE_UP, r, 0, st->last_status, 0);
 }
 
 /* Issues the engine's pending transfer with the FILE record as its tag:
@@ -938,11 +1033,74 @@ static int rt_fs_issue_async(struct rt_context* ctx, struct rt_fs_state* st) {
         st->io_tries++;
         if (r >= 0) return 1;
         st->failures++;
+        rt_cardlog_transfer(ctx, st, RT_CARDLOG_REFUSED, r, 1, st->last_status, 0);
         if (st->io_tries >= RT_SD_TRANSFER_TRIES) break;
         st->io_retries++;
     }
+    rt_cardlog_transfer(ctx, st, RT_CARDLOG_GAVE_UP, r, 1, st->last_status, 0);
     st->req.fat.io_status = r;
     return 0;
+}
+
+/* The card log's write is over: the engine is free again. */
+static void rt_cardlog_end(struct rt_fs_state* st) {
+    const uint32_t msr = rt_interrupts_off();
+    st->cardlog_writing = 0;
+    st->fs.busy = 0;
+    rt_interrupts_restore(msr);
+}
+
+/* Writes the card log to its sector when events are waiting and the
+ * engine is free, claiming the engine as a request would (the game's
+ * requests wait or queue behind it). `sync`: on the caller's thread;
+ * otherwise issued with the FILE record, rt_on_fs_complete ending it. */
+static void rt_cardlog_flush(struct rt_context* ctx, struct rt_fs_state* st, int sync) {
+    struct rtfat_op* op = &st->req.fat;
+    uint32_t msr;
+    if (!st->cardlog_dirty || st->cardlog_lba == 0 || st->dead || st->cardlog_errors >= RT_CARDLOG_MAX_ERRORS) return;
+    msr = rt_interrupts_off();
+    if (st->fs.busy || st->queue_count != 0 || st->pend.in_use || st->cardlog_writing) {
+        rt_interrupts_restore(msr);
+        return;
+    }
+    st->fs.busy = 1;
+    st->cardlog_writing = 1;
+    st->cardlog_dirty = 0;
+    rt_interrupts_restore(msr);
+    st->cardlog.magic = RT_CARDLOG_MAGIC;
+    st->cardlog.version = RT_CARDLOG_VERSION;
+    st->cardlog.path = ctx->sdio_sdhc == RT_SD_D2X ? RT_CARDLOG_PATH_D2X
+                       : ctx->sdio_sdhc            ? RT_CARDLOG_PATH_SDHC
+                                                   : RT_CARDLOG_PATH_SDSC;
+    st->cardlog.transfers = st->transfers;
+    st->cardlog.failures = st->failures;
+    st->cardlog.retries = st->io_retries;
+    st->cardlog.settle_polls = st->settle_polls;
+    op->io_lba = st->cardlog_lba;
+    op->io_count = 1;
+    op->io_buffer = (uint32_t)(uintptr_t)&st->cardlog;
+    op->io_write = 1;
+    op->io_status = 0;
+    st->io_tries = 0;
+    st->io_flags = 0;
+    if (sync) {
+        rt_fs_transfer_sync(ctx, st);
+        if (op->io_status < 0) {
+            st->cardlog_dirty = 1; /* again after the next request */
+            st->cardlog_errors++;
+        }
+        rt_cardlog_end(st);
+        return;
+    }
+    st->pend.in_use = 1;
+    st->pend.kind = RT_FS_OP_FILE;
+    st->pend.job = 0;
+    if (!rt_fs_issue_async(ctx, st)) {
+        st->pend.in_use = 0;
+        st->cardlog_dirty = 1;
+        st->cardlog_errors++;
+        rt_cardlog_end(st);
+    }
 }
 
 /* Runs the request in flight until it is complete (DONE: result in
@@ -1065,7 +1223,8 @@ static void rt_fs_job_end(struct rt_context* ctx, struct rt_fs_state* st);
 /* Starts the requests queued behind the engine once it is free: each
  * runs until its first transfer is in flight (the completion continues
  * it) or completes at once (its result deferred to the game's callback,
- * or, for the import job's request, resuming the job). */
+ * or, for the import job's request, resuming the job). With nothing
+ * left to start, the card log goes out if it has news. */
 static void rt_fs_start_queued(struct rt_context* ctx, struct rt_fs_state* st) {
     while (st->queue_count != 0 && !st->fs.busy) {
         struct rt_fs_queued q;
@@ -1112,6 +1271,7 @@ static void rt_fs_start_queued(struct rt_context* ctx, struct rt_fs_state* st) {
         rt_fs_report(ctx, q.entry_index, &q.ipc, r, 0);
         rt_fs_deliver(ctx, st, q.ipc.callback, q.ipc.user_data, r);
     }
+    rt_cardlog_flush(ctx, st, 0);
 }
 
 /* Waits for the engine on the game's thread, each turn sleeping in a
@@ -2235,15 +2395,33 @@ void rt_on_fs_complete(struct rt_context* ctx, int32_t* result, void* tag, uintp
             if (*result < 0) {
                 st->failures++;
                 st->io_flags |= RT_FS_IO_RETRY;
+                rt_cardlog_transfer(ctx, st, RT_CARDLOG_FAILED, *result, 1, rt_fs_command_status(ctx, st), 0);
+            } else {
+                rt_fs_wrote(st);
             }
             req->fat.io_status = *result < 0 ? *result : 0;
             /* A write waits for the card; so does a failed transfer before
              * it goes again. */
             if ((req->fat.io_write || *result < 0) && rt_fs_settle_next(ctx, st, 0)) return;
         }
-        /* The transfer again (the engine goes on when it is refused: its
-         * status then fails the request). */
-        if (rt_fs_should_retry(st) && rt_fs_issue_async(ctx, st)) return;
+        /* The transfer again (the engine goes on when it is refused on
+         * every try: its status then fails the request). */
+        if (rt_fs_should_retry(st)) {
+            if (rt_fs_issue_async(ctx, st)) return;
+        } else if (req->fat.io_status < 0) {
+            rt_cardlog_transfer(ctx, st, RT_CARDLOG_GAVE_UP, req->fat.io_status, 1, st->last_status, 0);
+        }
+        if (st->cardlog_writing) {
+            /* The card log's write, not a request: nothing to answer. */
+            if (req->fat.io_status < 0) {
+                st->cardlog_dirty = 1;
+                st->cardlog_errors++;
+            }
+            st->pend.in_use = 0;
+            rt_cardlog_end(st);
+            rt_fs_start_queued(ctx, st);
+            return;
+        }
         if (rt_fs_advance(ctx, st, 0) == RT_FS_ADVANCE_ISSUED) return;
         st->pend.in_use = 0;
         if (st->pend.job) {
@@ -2346,6 +2524,27 @@ static int rt_issue_disc_chunk(struct rt_context* ctx, struct rt_pending* record
     return 1;
 }
 
+/* A failed read of the mod's files from the card, for the card log. */
+static void rt_cardlog_mod_read(struct rt_context* ctx, struct rt_pending* record, int32_t result) {
+    struct rt_fs_state* st = rt_fs_of(ctx);
+    const struct rt_sdio_request* rq = &record->request;
+    uint32_t sector;
+    uint32_t count;
+    uint32_t status = 0;
+    if (st == 0) return;
+    if (ctx->sdio_sdhc == RT_SD_D2X) {
+        sector = rq->cmd;
+        count = rq->cmd_type;
+    } else {
+        sector = ctx->sdio_sdhc ? rq->arg : rq->arg / RT_SECTOR_BYTES;
+        count = rq->blk_cnt;
+        rt_flush_range((uintptr_t)record->response, sizeof(record->response));
+        status = record->response[0];
+    }
+    rt_cardlog_note(ctx, st, RT_CARDLOG_MOD_READ, result, sector, count, 0, RT_CARDLOG_ASYNC, status, 0);
+    rt_cardlog_flush(ctx, st, 0);
+}
+
 /* Reads `sectors` sectors from `sector` of the card (or, for `usb`, of
  * the USB drive) into `target` (32-byte aligned) for `record`, which
  * moves to `phase`. 1 when the request is in flight, -1 on an IPC
@@ -2389,6 +2588,7 @@ static int rt_issue_sd_read(struct rt_context* ctx, struct rt_pending* record, i
     ctx->sd_requests++;
     if (fd == 0xFFFFFFFFu || rt_ioctlv_async(ctx, record, fd, ioctl) < 0) {
         ctx->sd_failures++;
+        if (!usb) rt_cardlog_mod_read(ctx, record, -1);
         return -1;
     }
     return 1;
@@ -2981,6 +3181,7 @@ void rt_on_di_complete(struct rt_context* ctx, int32_t* result, struct rt_pendin
         if (failed) {
             if (record->phase == RT_PHASE_SD) ctx->sd_failures++;
             else ctx->disc_failures++;
+            if (record->phase == RT_PHASE_SD && run->kind == RT_KIND_SD) rt_cardlog_mod_read(ctx, record, *result);
             /* The same chunk again (run_done has not moved), a few times:
              * a card or drive that misses once usually answers next time. */
             if (ctx->retry[slot] < RT_READ_RETRIES) {

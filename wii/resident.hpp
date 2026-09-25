@@ -41,6 +41,9 @@ struct SavegameOptions {
     // redirect needs; when something is missing it is left off with a log
     // line, never failing the launch.
     bool file_device = false;
+    // The card log's sector (sd:/riftwii/cardlog.bin, riftwii/cardlog.hpp):
+    // where the runtime notes the card's failures. 0: none.
+    std::uint32_t cardlog_lba = 0;
 };
 
 // An RVZ game (docs/RVZ.md): the RVZ blob (riftwii_rt_rvz_bin) is
