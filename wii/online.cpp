@@ -15,6 +15,7 @@
 #include <gccore.h>
 
 #include "bearssl.h"
+#include "loadersettings.hpp"
 #include "log.hpp"
 #include "netsock.hpp"
 #include "tls.hpp"
@@ -30,6 +31,7 @@ constexpr const char* kTitlesUrl = "http://www.gametdb.com/wiitdb.txt?LANG=";
 constexpr const char* kCheatsUrl = "http://codes.rc24.xyz/txt.php?txt=";
 constexpr std::time_t kWeek = 7 * 24 * 60 * 60;
 constexpr const char* kReleasesApi = "https://api.github.com/repos/KakarottoCake/Riftwii/releases?per_page=1";
+constexpr const char* kLatestApi = "https://api.github.com/repos/KakarottoCake/Riftwii/releases/latest";
 constexpr const char* kUpdateNote = "sd:/riftwii/update.txt";
 
 bool get_once(const HttpUrl& url, HttpResponse& response, std::string& error, std::size_t max_bytes, int timeout_ms) {
@@ -142,6 +144,7 @@ namespace {
 // installed since.
 struct UpdateNote {
     std::time_t checked = 0;
+    std::string channel;  // the channel `latest` was asked on
     std::string latest;
     ReleaseAsset dol;
     std::string installed;
@@ -156,6 +159,7 @@ UpdateNote ReadUpdateNote() {
             while (!text.empty() && (text.back() == '\n' || text.back() == '\r')) text.pop_back();
             if (text.rfind("checked ", 0) == 0) note.checked = static_cast<std::time_t>(std::strtoll(text.c_str() + 8, nullptr, 10));
             if (text.rfind("latest ", 0) == 0) note.latest = text.substr(7);
+            if (text.rfind("channel ", 0) == 0) note.channel = text.substr(8);
             if (text.rfind("dol ", 0) == 0) note.dol.url = text.substr(4);
             if (text.rfind("sha256 ", 0) == 0) note.dol.sha256 = text.substr(7);
             if (text.rfind("size ", 0) == 0) note.dol.size = std::strtoull(text.c_str() + 5, nullptr, 10);
@@ -168,7 +172,8 @@ UpdateNote ReadUpdateNote() {
 
 void WriteUpdateNote(const UpdateNote& note) {
     if (FILE* f = std::fopen(kUpdateNote, "wb")) {
-        std::fprintf(f, "checked %lld\nlatest %s\n", static_cast<long long>(note.checked), note.latest.c_str());
+        std::fprintf(f, "checked %lld\nchannel %s\nlatest %s\n", static_cast<long long>(note.checked),
+                     note.channel.c_str(), note.latest.c_str());
         if (!note.dol.url.empty()) {
             std::fprintf(f, "dol %s\nsha256 %s\nsize %llu\n", note.dol.url.c_str(), note.dol.sha256.c_str(),
                          note.dol.size);
@@ -247,26 +252,31 @@ void UpdateMetaVersion(const std::string& dol_path, const std::string& latest) {
 bool CheckForUpdate(bool force, std::string& latest, bool& newer, std::string& error) {
     newer = false;
     UpdateNote note = ReadUpdateNote();
+    const std::string channel = effective_update_channel(Settings().update_channel, RIFTWII_VERSION);
+    // The last answer stands in only for the same channel.
+    if (note.channel != channel) note = UpdateNote{};
     latest = note.latest;
     // Asked at every start: releases can come hours apart, and a day-old
     // answer hid them until the next day (testers had to look in Settings).
     std::vector<std::uint8_t> body;
     std::string tag;
-    const bool asked = HttpGet(kReleasesApi, body, error, 256u << 10) &&
+    const bool asked = HttpGet(channel == "stable" ? kLatestApi : kReleasesApi, body, error, 256u << 10) &&
                        release_tag_from_json(std::string(body.begin(), body.end()), tag);
     if (!asked) {
         if (error.empty()) error = "GitHub's answer names no release";
+        error += channel == "stable" ? " (Stable channel)" : " (Beta channel)";
         if (force || latest.empty() || note.dol.url.empty()) return false;
         logf("Update check: %s; using the last answer (%s)\n", error.c_str(), latest.c_str());
     } else {
         const std::string json(body.begin(), body.end());
         latest = tag;
+        note.channel = channel;
         note.checked = std::time(nullptr);
         note.latest = tag;
         note.dol = ReleaseAsset{};
         release_asset_from_json(json, "riftwii.dol", note.dol);
         WriteUpdateNote(note);
-        logf("Update check: newest release %s, this is %s%s\n", latest.c_str(), RIFTWII_VERSION,
+        logf("Update check (%s channel): newest release %s, this is %s%s\n", channel.c_str(), latest.c_str(), RIFTWII_VERSION,
              note.dol.url.empty() ? " (it has no riftwii.dol)" : "");
     }
     newer = compare_versions(latest, RIFTWII_VERSION) > 0;

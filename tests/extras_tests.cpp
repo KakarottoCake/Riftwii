@@ -86,6 +86,12 @@ void TestHttp() {
     EXPECT_EQ(compare_versions("2.0", "2.0.0"), 0);
     EXPECT_EQ(compare_versions("2.0.10", "2.0.9"), 1);
     EXPECT_EQ(compare_versions("1.0.5 Beta", "1.0.5-beta"), 0);
+    EXPECT_EQ(compare_versions("2.1.0", "2.1.0-rc1"), 1);
+    EXPECT_EQ(effective_update_channel("auto", "2.1.0"), "stable");
+    EXPECT_EQ(effective_update_channel("auto", "2.1.0-rc1"), "beta");
+    EXPECT_EQ(effective_update_channel("auto", "2.0.10-beta"), "beta");
+    EXPECT_EQ(effective_update_channel("stable", "2.1.1-beta"), "stable");
+    EXPECT_EQ(effective_update_channel("beta", "2.1.0"), "beta");
 
     const std::string plain = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 5\r\n\r\nhello";
     EXPECT_FALSE(http_response_complete(bytes(plain.substr(0, plain.size() - 1))));

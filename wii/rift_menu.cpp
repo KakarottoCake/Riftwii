@@ -38,6 +38,7 @@
 #include "gui_flowlist.hpp"
 #include "covers.hpp"
 #include "riftwii/coverart.hpp"
+#include "riftwii/update.hpp"
 #include "gui_gamegrid.hpp"
 #include "guiscript.hpp"
 #include "gcadapter.hpp"
@@ -1909,6 +1910,13 @@ static std::string PadButtons(const gcad_pad& pad)
 	return (s.empty() ? std::string("-") : s) + "   " + sticks;
 }
 
+static std::string ChannelNote(const riftwii::LoaderSettings& settings)
+{
+	if (riftwii::effective_update_channel(settings.update_channel, RIFTWII_VERSION) == "beta")
+		return tr("Beta: every new version, including test builds that may have new bugs. For testers.");
+	return tr("Stable: only versions marked stable, which testers have checked.");
+}
+
 static std::string AdapterNote(const std::string& mode)
 {
 	if (mode == "off") return tr("The adapter is left alone.");
@@ -1921,6 +1929,8 @@ static std::string AdapterStatus(const riftwii::wii::GcAdapterView& v)
 	switch (v.link) {
 		case GCAD_LINK_POLL: return tr("Adapter: working");
 		case GCAD_LINK_SETUP:
+		case GCAD_LINK_SETTLE:
+		case GCAD_LINK_CTRL:
 		case GCAD_LINK_INIT: return tr("Adapter: starting...");
 		case GCAD_LINK_BUSY: return tr("Adapter: another program is using it, waiting");
 		case GCAD_LINK_FAILED: return tr("Adapter: it did not answer ({1}), trying again", {std::to_string(v.last_error)});
@@ -2009,7 +2019,7 @@ static int MenuSettings(FrontendState& state)
 
 	bool netOn = riftwii::wii::NetworkPacksEnabled();
 	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kGameLanguage, kGameCios, kServer, kHomeTiles, kOnline, kNames, kGcAdapter, kGcTest, kIos, kNet, kResync,
-		kRescan, kUpdate, kExit, kNone };
+		kRescan, kChannel, kUpdate, kExit, kNone };
 	std::vector<FlowRow> rows;
 	std::vector<RowAction> actions;
 	const auto build = [&]() {
@@ -2083,6 +2093,10 @@ static int MenuSettings(FrontendState& state)
 		rescan.value = "Rescan";
 		rows.push_back(rescan);
 		actions.push_back(kRescan);
+		{
+			const bool beta = riftwii::effective_update_channel(settings.update_channel, RIFTWII_VERSION) == "beta";
+			option(tr("Updates"), beta ? tr("Beta") : tr("Stable"), beta, kChannel);
+		}
 		FlowRow update;
 		update.kind = FlowRow::Kind::Action;
 		update.label = tr("Check for a new version");
@@ -2162,6 +2176,7 @@ static int MenuSettings(FrontendState& state)
 					: "Only servers named by <network> in an XML on the card are used.";
 			case kResync: return "The next launch copies every file of its network packs again.";
 			case kRescan: return tr("Reads the SD card and the USB drive again.");
+			case kChannel: return ChannelNote(settings);
 			case kUpdate: return tr("This is RiftWii {1}. Looks on GitHub for a newer release.", {RIFTWII_VERSION});
 			case kExit: return tr("Back to the Homebrew Channel.");
 			case kNone:  // the Menu IOS row when there is nothing to choose
@@ -2279,6 +2294,13 @@ static int MenuSettings(FrontendState& state)
 					// Automatic, On, Off, and round again.
 					settings.gc_adapter = settings.gc_adapter == "on" ? "off" : settings.gc_adapter == "off" ? "auto" : "on";
 					saveAndNote(AdapterNote(settings.gc_adapter));
+					rebuild();
+					break;
+				case kChannel:
+					// Stable and Beta; the setting stays explicit once changed.
+					settings.update_channel =
+						riftwii::effective_update_channel(settings.update_channel, RIFTWII_VERSION) == "beta" ? "stable" : "beta";
+					saveAndNote(ChannelNote(settings));
 					rebuild();
 					break;
 				case kGcTest:
