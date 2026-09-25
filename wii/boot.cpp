@@ -935,9 +935,11 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
     bool gc_adapter = g_extras.gc_adapter != GcAdapterMode::Off;
     if (gc_adapter && g_extras.gc_adapter != GcAdapterMode::Demo && (rvz.usb_fd >= 0 || pieces.needs_usb())) {
         // The runtime reads the USB drive through d2x while the game runs.
-        logf("GameCube adapter: off: %s the USB drive, which the adapter breaks\n",
-             rvz.usb_fd >= 0 ? "the RVZ is read from" : "packs are read from");
-        gc_adapter = false;
+        // On (not Automatic) tries anyway: an experiment the player chose.
+        const bool forced = g_extras.gc_adapter_forced;
+        logf("GameCube adapter: %s: %s the USB drive, which the adapter broke on a Wii\n",
+             forced ? "on anyway (the setting is On)" : "off", rvz.usb_fd >= 0 ? "the RVZ is read from" : "packs are read from");
+        gc_adapter = forced;
     }
     DolHeader dol;
     if (options.install_resident || gc_adapter) {
@@ -1332,7 +1334,13 @@ bool boot_game(const DiscProbe& probe, const BootOptions& options, std::string& 
         const char* off = is_wii_u() && running_ios != 58 ? "on a Wii U it needs IOS 58 (the Menu IOS)"
                           : di::frag_device() == 1          ? "the game is read from the USB drive, which the adapter breaks"
                                                             : nullptr;
-        if (off) {
+        // On (not Automatic) tries anyway: an experiment the player chose.
+        // Every /dev/usb/hid call at launch has a time limit, so a module
+        // that never answers turns the adapter off rather than hang.
+        g_extras.gc_adapter_forced = g_extras.gc_adapter == GcAdapterMode::On;  // the player's choice, not Automatic's
+        if (off && g_extras.gc_adapter_forced) {
+            logf("GameCube adapter: on anyway (the setting is On), although %s\n", off);
+        } else if (off) {
             logf("GameCube adapter: off: %s\n", off);
             g_extras.gc_adapter = GcAdapterMode::Off;
         }

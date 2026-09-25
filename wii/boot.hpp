@@ -155,6 +155,7 @@ enum class GcAdapterMode { Off, On, Auto, Demo };
 struct LaunchExtras {
     std::string game_id;
     GcAdapterMode gc_adapter = GcAdapterMode::Off;
+    bool gc_adapter_forced = false;     // the setting is On: the adapter is tried where Automatic leaves it off
     VideoSettings video;  // its target is set at boot, from its mode
     int language = -1;    // riftwii/gamelang.hpp code; -1: the console's
     WfcServer server = WfcServer::Off;  // online play (wii/wfc.hpp)

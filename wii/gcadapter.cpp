@@ -242,8 +242,11 @@ void ResetShared() {
 // Why the menu leaves the adapter alone, or nullptr.
 const char* MenuOff() {
     if (Settings().gc_adapter == "off") return "the setting is Off";
-    // A Wii U's d2x cIOS never answered /dev/usb/hid with an adapter in.
-    if (IOS_GetVersion() != 58 && is_wii_u()) return "on a Wii U it needs IOS 58 as the Menu IOS";
+    // A Wii U's d2x cIOS never answered /dev/usb/hid with an adapter in
+    // (On tries anyway; every call at the start has a time limit).
+    if (Settings().gc_adapter != "on" && IOS_GetVersion() != 58 && is_wii_u()) {
+        return "on a Wii U it needs IOS 58 as the Menu IOS (or the setting On)";
+    }
     return nullptr;
 }
 
