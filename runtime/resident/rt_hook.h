@@ -83,6 +83,16 @@ extern "C" {
 /* rt_context.flags */
 #define RT_FLAG_GECKO 0x1u /* report DI reads over the USB Gecko in EXI channel gecko_channel */
 #define RT_FLAG_FS 0x2u    /* route savegame calls through rtfs (docs section 24) */
+#define RT_FLAG_BCA 0x4u   /* answer DVDLowReadDiskBca with a retail Wii disc's BCA (the game is an image) */
+
+/* DVDLowReadDiskBca (ioctl 0xDA) returns the disc's 0x40-byte Burst
+ * Cutting Area. On a retail Wii disc it is 0x33 zero bytes, then 0x01,
+ * then zeros (Dolphin's DVDInterface answers the same); New Super Mario
+ * Bros. Wii checks that and stops a few minutes into play when it does not
+ * match. d2x answers it from bytes 0x100-0x13F of the image, which images
+ * made from a disc dump usually leave zero. */
+#define RT_BCA_BYTES 0x40u
+#define RT_BCA_MARK 0x33u  /* the byte that is 1 */
 
 /* Outstanding redirected reads. The DVD driver issues one at a time, but
  * the next may start from the previous one's callback before its record is
@@ -659,6 +669,11 @@ struct rt_context {
     /* Retries: a failed request is issued again up to RT_READ_RETRIES times. */
     uint32_t read_retries;        /* failed requests issued again */
     uint32_t retry[RT_MAX_PENDING]; /* per record: retries of the request in flight */
+    /* RT_FLAG_BCA: BCA reads answered, and where IOS puts its own answer
+     * instead of the game's buffer (the 32-byte aligned 0x40 bytes inside,
+     * whole cache lines of their own). */
+    uint32_t bca_answers;
+    uint8_t bca_sink[RT_BCA_BYTES + 32u];
 };
 
 typedef char rt_context_layout[(sizeof(struct rt_context) <= 2048u) ? 1 : -1];
@@ -673,6 +688,12 @@ typedef char rt_context_layout[(sizeof(struct rt_context) <= 2048u) ? 1 : -1];
  * return `*result` to the caller instead (unused so far).
  */
 int rt_on_ioctl_async(struct rt_context* ctx, uintptr_t* args, uint32_t* result);
+
+/* RT_FLAG_BCA: a DVDLowReadDiskBca (the eight IOS_IoctlAsync arguments,
+ * as above). Writes a retail BCA into the game's buffer and points the
+ * request's output at ctx->bca_sink, so IOS's answer lands there and the
+ * game's callback runs as before. Returns 1 when it took the request. */
+int rt_answer_bca(struct rt_context* ctx, uintptr_t* args);
 
 /* Common entry used by all fourteen wrappers. Async IOS_Ioctl keeps the
  * legacy DI path for disc reads (entry RT_IPC_ASYNC_IOCTL) and otherwise

@@ -1039,6 +1039,7 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         ro.savegame = savegame;
         ro.savegame.file_device = file_device && card.fd >= 0;
         ro.rvz = rvz;
+        ro.retail_bca = options.retail_bca;
         ro.mem1_floor = mem1_floor;
         if (!install_resident(dol, ro, resident, error)) return false;
     }
@@ -1382,6 +1383,27 @@ bool boot_game(const DiscProbe& probe, const BootOptions& options, std::string& 
         // often lacks (IOS36 has none); the running one has it.
         effective.preserve_current_ios = true;
         logf("Keeping IOS%d for the GameCube adapter; reporting IOS%u to the game\n", running_ios, required);
+    }
+    if (di::frag_device() != 0 || di::has_partition_resolver()) {
+        // An image has no drive to answer the BCA read; d2x answers from
+        // its bytes 0x100-0x13F, usually zero in images made from a dump.
+        // A game that checks it (New Super Mario Bros. Wii) stops minutes
+        // into play, so the runtime answers as a retail disc does.
+        std::uint8_t bca[RT_BCA_BYTES];
+        std::string why;
+        bool retail = di::read_bca(bca, why);
+        // Only the start is fixed; the last bytes hold disc data.
+        for (std::uint32_t i = 0; retail && i <= RT_BCA_MARK; ++i) {
+            if (bca[i] != (i == RT_BCA_MARK ? 1u : 0u)) retail = false;
+        }
+        if (retail) {
+            logf("BCA: the image has a retail one\n");
+        } else {
+            logf("BCA: %s; the resident runtime answers with a retail one\n",
+                 why.empty() ? "the image has none" : why.c_str());
+            effective.retail_bca = true;
+            effective.install_resident = true;
+        }
     }
     RvzResidentOptions rvz;
     if (di::has_partition_resolver()) {

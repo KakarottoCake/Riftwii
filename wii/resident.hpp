@@ -85,6 +85,9 @@ struct ResidentOptions {
     std::uint32_t mem1_floor = 0;
     SavegameOptions savegame;
     RvzResidentOptions rvz;
+    // The game is an image without a retail BCA: the runtime answers
+    // DVDLowReadDiskBca with one (RT_FLAG_BCA).
+    bool retail_bca = false;
 };
 
 struct ResidentInstall {

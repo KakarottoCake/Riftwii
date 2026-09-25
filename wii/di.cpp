@@ -19,6 +19,7 @@ constexpr std::uint32_t kReset = 0x8A;
 constexpr std::uint32_t kOpenPartition = 0x8B;
 constexpr std::uint32_t kClosePartition = 0x8C;
 constexpr std::uint32_t kReadUnencrypted = 0x8D;
+constexpr std::uint32_t kReadBca = 0xDA;
 constexpr std::uint32_t kResetDisable = 0xF6;
 constexpr std::uint32_t kFragSet = 0xF9;
 constexpr std::uint32_t kModeGet = 0xFA;
@@ -26,6 +27,7 @@ constexpr std::uint32_t kModeGet = 0xFA;
 char g_path[] ATTRIBUTE_ALIGN(32) = "/dev/di";
 std::uint32_t g_in[8] ATTRIBUTE_ALIGN(32);
 std::uint32_t g_out[8] ATTRIBUTE_ALIGN(32);
+std::uint8_t g_bca[64] ATTRIBUTE_ALIGN(32);
 ioctlv g_vectors[5] ATTRIBUTE_ALIGN(32);
 std::uint8_t g_bounce[32 * 1024] ATTRIBUTE_ALIGN(32);
 s32 g_fd = -1;
@@ -189,6 +191,14 @@ bool read_disc_id(std::uint8_t out32[32], std::string& error) {
     std::memset(g_out, 0, sizeof(g_out));
     if (!command(kReadDiscId, "read disc id", g_out, sizeof(g_out), kReplySuccess, error)) return false;
     std::memcpy(out32, g_out, 32);
+    return true;
+}
+
+bool read_bca(std::uint8_t out64[64], std::string& error) {
+    std::memset(g_in, 0, sizeof(g_in));
+    std::memset(g_bca, 0, sizeof(g_bca));
+    if (!command(kReadBca, "read BCA", g_bca, sizeof(g_bca), kReplySuccess, error)) return false;
+    std::memcpy(out64, g_bca, sizeof(g_bca));
     return true;
 }
 
