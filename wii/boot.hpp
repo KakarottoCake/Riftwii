@@ -33,6 +33,14 @@ struct DiscProbe {
     int running_ios = 0;                // IOS at probe time
 };
 
+// The card log (riftwii/cardlog.hpp): created blank before a game with
+// the savegame redirect, filled by the resident runtime during it.
+inline constexpr const char* kCardLogPath = "sd:/riftwii/cardlog.bin";
+// The last game's card log as text lines, empty when it noted nothing (or
+// there is none); a log with events is blanked once read, so each is
+// reported once. Needs the card mounted.
+std::vector<std::string> TakeCardLog();
+
 struct ProbeOptions {
     // d2x FRAG mode exposes a virtual disc and must not receive the normal
     // cover wait/reset sequence, which would clear its configured image.

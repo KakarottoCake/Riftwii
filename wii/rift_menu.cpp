@@ -602,6 +602,29 @@ static void WarnAboutDrives(const std::string& sdError, const std::string& usbEr
 		tr("OK"));
 }
 
+// What the last game's card log noted (wii/boot.hpp TakeCardLog): into
+// the session log and sd:/riftwii/cardlog.txt, with a popup. Once per run.
+static void ReportCardLog()
+{
+	static bool done = false;
+	if (done) return;
+	done = true;
+	const std::vector<std::string> lines = riftwii::wii::TakeCardLog();
+	if (lines.empty()) return;
+	FILE* f = std::fopen("sd:/riftwii/cardlog.txt", "a");
+	for (const std::string& line : lines) {
+		logf("%s\n", line.c_str());
+		if (f) std::fprintf(f, "%s\n", line.c_str());
+	}
+	if (f) {
+		std::fprintf(f, "\n");
+		std::fclose(f);
+	}
+	ShowPopup(tr("SD card problems"),
+		tr("The SD card had trouble while the last game was saving. The details are in sd:/riftwii/cardlog.txt; please send that file to the RiftWii developers."),
+		tr("OK"));
+}
+
 static void ScanDrives(FrontendState& state, GuiText& status)
 {
 	std::string error;
@@ -623,6 +646,7 @@ static void ScanDrives(FrontendState& state, GuiText& status)
 	const bool usb = scan_usb_games(state.usb_catalog, error);
 	HaltGui();
 	WarnAboutDrives(sdError, usb ? std::string() : error.empty() ? std::string("scan failed") : error);
+	if (sd) ReportCardLog();
 	if (!usb) {
 		logf("USB scan failed: %s\n", error.c_str());
 		state.usb_catalog.status = "USB: " + (error.empty() ? std::string(tr("scan failed")) : error);

@@ -261,6 +261,59 @@ typedef void (*rt_game_callback_fn)(int32_t result, uint32_t user_data);
  * reaches the game: a single refused or failed command on the card
  * otherwise fails the game's save call, or leaves a save half-written. */
 #define RT_SD_TRANSFER_TRIES 4u
+
+/* The card log: one sector of the card (sd:/riftwii/cardlog.bin, which
+ * the loader creates before the game and reads back at its next start)
+ * where the savegame engine notes what went wrong with the card during
+ * the game, so a failure on hardware can be traced to its cause. Words
+ * are big-endian (the Wii's own order). The first RT_CARDLOG_RECORDS
+ * events are kept; `events` counts them all. */
+#define RT_CARDLOG_MAGIC 0x52574344u  /* "RWCD" */
+#define RT_CARDLOG_VERSION 1u
+#define RT_CARDLOG_RECORDS 15u
+/* Event kinds. */
+#define RT_CARDLOG_REFUSED 1u         /* IOS refused to take a save transfer */
+#define RT_CARDLOG_FAILED 2u          /* a save transfer failed */
+#define RT_CARDLOG_STATUS_FAILED 3u   /* a CMD13 of the wait after a write failed */
+#define RT_CARDLOG_WAIT_TIMEOUT 4u    /* the card was still busy when the wait gave up */
+#define RT_CARDLOG_CARD_ERROR 5u      /* the card's status carried write-error bits */
+#define RT_CARDLOG_GAVE_UP 6u         /* every try failed: the error reached the game */
+#define RT_CARDLOG_MOD_READ 7u        /* a read of the mod's files from the card failed */
+/* Event flags. */
+#define RT_CARDLOG_WRITE 1u           /* the transfer was a write */
+#define RT_CARDLOG_ASYNC 2u           /* on the async path (the IPC interrupt) */
+#define RT_CARDLOG_MOD_READING 4u     /* a read of the mod's files was in flight */
+/* The card access path, in the header. */
+#define RT_CARDLOG_PATH_SDSC 0u       /* /dev/sdio/slot0, byte addresses */
+#define RT_CARDLOG_PATH_SDHC 1u       /* /dev/sdio/slot0, block addresses */
+#define RT_CARDLOG_PATH_D2X 2u        /* d2x's /dev/sdio/sdhc */
+#define RT_CARDLOG_NO_WRITE 0xFFFFFFFFu /* since_write: no write had completed */
+#define RT_CARDLOG_MAX_ERRORS 4u       /* a card that takes no log write is not asked again */
+
+struct rt_cardlog_record {
+    uint8_t kind;          /* RT_CARDLOG_* kind */
+    uint8_t attempt;       /* 1-based try of the transfer (0: not a save transfer) */
+    uint16_t flags;        /* RT_CARDLOG_WRITE, _ASYNC, _MOD_READING */
+    int32_t result;        /* the IPC result (0 when there was none) */
+    uint32_t sector;       /* the transfer's first sector */
+    uint32_t count;        /* and its sector count */
+    uint32_t status;       /* the card's R1 status: the command's own answer, or the last CMD13's */
+    uint32_t time;         /* time base (60.75 MHz) when it happened */
+    uint32_t since_write;  /* time base ticks since the last save write completed */
+    uint32_t polls;        /* CMD13s sent in the wait so far (WAIT_TIMEOUT, STATUS_FAILED) */
+};
+
+struct rt_cardlog {
+    uint32_t magic;          /* RT_CARDLOG_MAGIC */
+    uint32_t version;        /* RT_CARDLOG_VERSION */
+    uint32_t events;         /* events noted, kept or not */
+    uint32_t path;           /* RT_CARDLOG_PATH_* */
+    uint32_t transfers;      /* rt_fs_state's counters when the log was written */
+    uint32_t failures;
+    uint32_t retries;
+    uint32_t settle_polls;
+    struct rt_cardlog_record records[RT_CARDLOG_RECORDS];
+};
 /* Both come out of the game's MEM2 arena. Saves are small and written
  * rarely; a smaller transfer only means a few more round trips. */
 #define RT_FS_BOUNCE_BYTES 0x4000u    /* one transfer moves up to 32 sectors */
@@ -407,6 +460,13 @@ struct rt_fs_state {
     uint32_t io_flags;             /* the transfer in flight: RT_FS_IO_RETRY, RT_FS_IO_CARD_ERROR */
     uint32_t io_retries;           /* transfers sent again after a failure or a card error */
     uint32_t fault_count;          /* RT_FS_FAULT_EVERY builds: transfers seen by the fault injection */
+    uint32_t cardlog_lba;          /* loader-filled: the card log's sector (RT_CARDLOG_*), 0 = none */
+    uint32_t cardlog_dirty;        /* events noted since the log was last written */
+    uint32_t cardlog_writing;      /* the engine is writing the log (its own failures are not noted) */
+    uint32_t cardlog_errors;       /* the log's own writes that failed; RT_CARDLOG_MAX_ERRORS stop it */
+    uint32_t last_status;          /* the last CMD13's R1 status */
+    uint32_t last_write;           /* time base when a save write last completed */
+    uint32_t wrote;                /* a save write has completed (last_write is valid) */
     struct rt_fs_pend pend;
     struct rt_fs_pend snoop[RT_FS_SNOOPS];
     struct rt_fs_pend deliver[RT_FS_DELIVERS];
@@ -426,6 +486,7 @@ struct rt_fs_state {
     struct rt_ioctlv dvec[4] __attribute__((aligned(32)));      /* the clone's ReadDir vectors */
     uint8_t names[RT_FS_CLONE_MAX * RTFAT_SLOT_BYTES] __attribute__((aligned(32)));  /* the clone's listing */
     uint8_t bounce[RT_FS_BOUNCE_BYTES] __attribute__((aligned(32)));
+    struct rt_cardlog cardlog __attribute__((aligned(32)));  /* one sector, DMAed to the card */
     uint8_t import[RT_FS_IMPORT_BYTES] __attribute__((aligned(32)));
     /* The synchronous import's stage/backup/rename paths. They cannot live
      * on the stack like the job's can in its record: the engine only ever

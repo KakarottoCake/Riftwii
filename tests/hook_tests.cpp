@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+#include "riftwii/cardlog.hpp"
 #include "riftwii/fst.hpp"
 #include "riftwii/hook.hpp"
 #include "riftwii/symsearch.hpp"
@@ -638,6 +639,30 @@ struct FsCard {
     }
 };
 FsCard* g_fs_card = nullptr;
+
+// The card log as the Wii writes it: big-endian words.
+static_assert(sizeof(rt_cardlog) == riftwii::kCardLogBytes, "the card log is one sector");
+static_assert(sizeof(rt_cardlog_record) == 32, "card log records are 32 bytes");
+static_assert(RT_CARDLOG_MAGIC == riftwii::kCardLogMagic && RT_CARDLOG_VERSION == riftwii::kCardLogVersion &&
+                  RT_CARDLOG_RECORDS == riftwii::kCardLogRecords && RT_CARDLOG_NO_WRITE == riftwii::kCardLogNoWrite,
+              "rt_hook.h and riftwii/cardlog.hpp agree");
+std::vector<std::uint8_t> CardLogBytes(const rt_cardlog& log) {
+    std::vector<std::uint8_t> out;
+    const auto word = [&](std::uint32_t v) {
+        for (int shift = 24; shift >= 0; shift -= 8) out.push_back(static_cast<std::uint8_t>(v >> shift));
+    };
+    word(log.magic); word(log.version); word(log.events); word(log.path);
+    word(log.transfers); word(log.failures); word(log.retries); word(log.settle_polls);
+    for (const rt_cardlog_record& r : log.records) {
+        out.push_back(r.kind);
+        out.push_back(r.attempt);
+        out.push_back(static_cast<std::uint8_t>(r.flags >> 8));
+        out.push_back(static_cast<std::uint8_t>(r.flags));
+        word(static_cast<std::uint32_t>(r.result)); word(r.sector); word(r.count); word(r.status);
+        word(r.time); word(r.since_write); word(r.polls);
+    }
+    return out;
+}
 // Something to do once, in the middle of a synchronous card transfer:
 // what an IPC callback of the game does while a thread-side request
 // holds the engine.
@@ -1375,9 +1400,13 @@ static void TestFsAsyncIntercept() {
 
     // An async write whose transfer IOS first refuses, then fails: it goes
     // again, the game is told it worked, and the bytes are on the card.
+    // Both events land in the card log, written to its sector afterwards.
     {
         const std::uint32_t failures0 = st->failures;
         const std::uint32_t retries0 = st->io_retries;
+        const std::uint32_t log_lba = static_cast<std::uint32_t>(card.image.bytes.size() / 512 - 1);
+        std::memset(&st->cardlog, 0, sizeof(st->cardlog));
+        st->cardlog_lba = log_lba;
         args[0] = fd_a; args[1] = 0; args[2] = 0;
         EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(5), args, &result), 1);
         EXPECT_EQ(result, 0u);
@@ -1393,6 +1422,36 @@ static void TestFsAsyncIntercept() {
         EXPECT_EQ(st->failures, failures0 + 2u);
         EXPECT_EQ(st->io_retries, retries0 + 2u);
         EXPECT_EQ(st->fs.busy, 0u);
+        EXPECT_EQ(st->cardlog.events, 2u);
+        EXPECT_EQ(st->cardlog.records[0].kind, RT_CARDLOG_REFUSED);
+        EXPECT_EQ(st->cardlog.records[0].attempt, 1u);
+        EXPECT_EQ(st->cardlog.records[0].flags, RT_CARDLOG_ASYNC);  // the read of the sector the bytes go into
+        EXPECT_EQ(st->cardlog.records[1].kind, RT_CARDLOG_FAILED);
+        EXPECT_EQ(st->cardlog.records[1].attempt, 2u);
+        EXPECT_EQ(st->cardlog.records[1].result, -4);
+        EXPECT_EQ(st->cardlog.records[1].count, 1u);
+        EXPECT_EQ(st->cardlog.magic, RT_CARDLOG_MAGIC);
+        EXPECT_EQ(st->cardlog_dirty, 0u);
+        EXPECT_EQ(st->cardlog_writing, 0u);
+        EXPECT_EQ(std::memcmp(card.image.bytes.data() + std::size_t(log_lba) * 512, &st->cardlog, 512), 0);
+        st->cardlog_lba = 0;
+        // What the loader reads back from it.
+        const std::vector<std::uint8_t> bytes = CardLogBytes(st->cardlog);
+        riftwii::CardLog parsed;
+        EXPECT_TRUE(riftwii::parse_card_log(bytes.data(), bytes.size(), parsed));
+        EXPECT_EQ(parsed.events, 2u);
+        EXPECT_EQ(parsed.kept.size(), std::size_t(2));
+        EXPECT_EQ(parsed.kept[1].kind, 2u);
+        EXPECT_EQ(parsed.kept[1].result, -4);
+        EXPECT_EQ(parsed.kept[1].attempt, 2u);
+        EXPECT_EQ(parsed.failures, st->failures);
+        const std::vector<std::string> lines = riftwii::describe_card_log(parsed);
+        EXPECT_EQ(lines.size(), std::size_t(3));
+        EXPECT_TRUE(lines[1].find("save read refused by IOS (try 1): IPC -1") != std::string::npos);
+        EXPECT_TRUE(lines[2].find("save read failed (try 2): IPC -4") != std::string::npos);
+        EXPECT_TRUE(lines[2].find("from the IPC interrupt") != std::string::npos);
+        const std::vector<std::uint8_t> blank(512, 0);
+        EXPECT_FALSE(riftwii::parse_card_log(blank.data(), blank.size(), parsed));
         ios.delivered.clear();
         args[0] = fd_a; args[1] = 0; args[2] = 0;
         EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(5), args, &result), 1);

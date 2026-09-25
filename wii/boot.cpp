@@ -37,6 +37,7 @@
 #include "usbcatalog.hpp"
 #include "wfc.hpp"
 #include "codehandleronly_bin.h"
+#include "riftwii/cardlog.hpp"
 #include "riftwii/codehook.hpp"
 #include "riftwii/gamelang.hpp"
 #include "riftwii/symsearch.hpp"
@@ -1249,6 +1250,14 @@ bool prepare_savegame(const DiscProbe& probe, const BootOptions& options, Savega
         error = "cannot remove the stale clone marker " + marker;
         return false;
     }
+    // A blank card log for this game (the menu has reported the last one).
+    // Without it the game runs all the same, unlogged.
+    bool cardlog = false;
+    if (FILE* f = std::fopen(kCardLogPath, "wb")) {
+        static const std::uint8_t blank[riftwii::kCardLogBytes] = {};
+        cardlog = std::fwrite(blank, 1, sizeof(blank), f) == sizeof(blank);
+        cardlog = std::fclose(f) == 0 && cardlog;
+    }
     LogClose();
     fatUnmount("sd:");
     const bool mounted = fatMountSimple("sd", sd_interface());
@@ -1258,6 +1267,17 @@ bool prepare_savegame(const DiscProbe& probe, const BootOptions& options, Savega
         return false;
     }
     if (!resolve_sd_directory(options.savegame_dir, out.volume, error)) return false;
+    if (cardlog) {
+        forget_sd_layout();
+        Fat32File file;
+        std::string why;
+        if (resolve_sd_file(kCardLogPath, file, why) && !file.fragments.empty() &&
+            file.fragments.front().sector_count != 0 && file.fragments.front().sector <= 0xFFFFFFFFu) {
+            out.cardlog_lba = static_cast<std::uint32_t>(file.fragments.front().sector);
+        } else {
+            logf("Card log: off (%s)\n", why.empty() ? "no sector" : why.c_str());
+        }
+    }
     out.prefix = prefix;
     out.enabled = true;
     logf("Savegame: %s served from %s%s\n", prefix, options.savegame_dir.c_str(),
@@ -1267,6 +1287,22 @@ bool prepare_savegame(const DiscProbe& probe, const BootOptions& options, Savega
 }
 
 void SetLaunchExtras(LaunchExtras extras) { g_extras = std::move(extras); }
+
+std::vector<std::string> TakeCardLog() {
+    std::uint8_t bytes[riftwii::kCardLogBytes] = {};
+    FILE* f = std::fopen(kCardLogPath, "rb");
+    if (f == nullptr) return {};
+    const bool read = std::fread(bytes, 1, sizeof(bytes), f) == sizeof(bytes);
+    std::fclose(f);
+    riftwii::CardLog log;
+    if (!read || !riftwii::parse_card_log(bytes, sizeof(bytes), log) || log.events == 0) return {};
+    if (FILE* blank = std::fopen(kCardLogPath, "wb")) {
+        static const std::uint8_t zeros[riftwii::kCardLogBytes] = {};
+        std::fwrite(zeros, 1, sizeof(zeros), blank);
+        std::fclose(blank);
+    }
+    return riftwii::describe_card_log(log);
+}
 
 namespace {
 
