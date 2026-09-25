@@ -1398,6 +1398,48 @@ static void TestFsAsyncIntercept() {
     EXPECT_EQ(result, 16u);
     for (int i = 0; i < 16; ++i) EXPECT_EQ(data[256 + i], static_cast<std::uint8_t>(0xA0 + i));
 
+    // /dev/sdio/slot0 takes one command at a time: a savegame transfer
+    // waits in null round trips while a read of the card is in flight
+    // (mod reads hold back meanwhile), and goes out once it is over.
+    {
+        st->card_rca = 7;  // the raw slot0 path, where the engine waits for the card
+        ctx.pending[0].pad_request[1] = 1;  // a mod read in flight
+        const std::uint32_t waits0 = st->card_waits;
+        for (int i = 0; i < 16; ++i) data[i] = static_cast<std::uint8_t>(0xC0 + i);
+        args[0] = fd_a; args[1] = 0; args[2] = 0;
+        EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(5), args, &result), 1);
+        args[0] = fd_a; args[1] = FsAddr(data); args[2] = 16; args[3] = 0x80001046; args[4] = 0x80002046;
+        EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC(4), args, &result), 1);
+        EXPECT_EQ(ios.queue.size(), std::size_t(1));
+        EXPECT_EQ(ios.queue[0].kind, 2);  // a wait, not the transfer
+        EXPECT_EQ(st->card_wanted, 1u);
+        EXPECT_EQ(st->card_busy, 0u);
+        ios.complete_one();  // still reading: another wait
+        EXPECT_EQ(ios.queue.size(), std::size_t(1));
+        EXPECT_EQ(ios.queue[0].kind, 2);
+        ctx.pending[0].pad_request[1] = 0;  // the read is over
+        ios.complete_one();
+        EXPECT_EQ(ios.queue.size(), std::size_t(1));
+        EXPECT_EQ(ios.queue[0].kind, 1);  // now the transfer
+        EXPECT_EQ(st->card_wanted, 0u);
+        EXPECT_EQ(st->card_busy, 1u);  // mod reads wait for it
+        ios.drain();
+        EXPECT_EQ(ios.delivered.size(), std::size_t(1));
+        EXPECT_EQ(ios.delivered[0].cb, 0x80001046u);
+        EXPECT_EQ(ios.delivered[0].result, 16);
+        EXPECT_EQ(st->card_busy, 0u);
+        EXPECT_EQ(st->card_waits, waits0 + 2u);
+        ios.delivered.clear();
+        st->card_rca = 0;
+        args[0] = fd_a; args[1] = 0; args[2] = 0;
+        EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(5), args, &result), 1);
+        std::memset(data + 256, 0, 16);
+        args[0] = fd_a; args[1] = FsAddr(data + 256); args[2] = 16;
+        EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(3), args, &result), 1);
+        EXPECT_EQ(result, 16u);
+        for (int i = 0; i < 16; ++i) EXPECT_EQ(data[256 + i], static_cast<std::uint8_t>(0xC0 + i));
+    }
+
     // An async write whose transfer IOS first refuses, then fails: it goes
     // again, the game is told it worked, and the bytes are on the card.
     // Both events land in the card log, written to its sector afterwards.
