@@ -102,6 +102,7 @@ extern "C" {
 #define RT_PHASE_RVZ_GROUP 5u /* RVZ: a piece of a group's stored bytes is in flight */
 #define RT_PHASE_SD_WAIT 6u  /* a null round trip while the card finishes a savegame write */
 #define RT_PHASE_RVZ_WAIT 7u /* RVZ: a null round trip before a read of the card (as RT_PHASE_SD_WAIT) */
+#define RT_PHASE_NO_DRIVE 8u /* a read the table serves whole: the null round trip that starts it */
 
 /* DI results as the DVD driver sees them (wiibrew /dev/di). */
 #define RT_DI_SUCCESS 1

@@ -560,6 +560,35 @@ static int rt_rvz_on_read(struct rt_context* ctx, struct rt_rvz_state* st, uintp
 static struct rt_rvz_state* rt_rvz_of(const struct rt_context* ctx);
 #endif
 
+/* A request that does nothing on the card's device (d2x's ISINSERTED,
+ * or GETSTATUS on /dev/sdio/slot0, which asks the host controller, not
+ * the card), with the completion entry as its callback: a read the drive
+ * need not see then starts from the IPC interrupt, like a disc reply. */
+static int32_t rt_null_trip(struct rt_context* ctx, struct rt_pending* record) {
+    if (ctx->sdio_fd == 0xFFFFFFFFu) return -1;
+    if (ctx->sdio_sdhc != RT_SD_D2X) return rt_sd_wait_trip(ctx, record);
+#ifdef RT_TARGET_PPC
+    {
+        rt_ioctlv_async_fn vfn = (rt_ioctlv_async_fn)(uintptr_t)ctx->ioctlv_async;
+        if (vfn == 0) return -1;
+        return vfn(ctx->sdio_fd, RT_SDHC_ISINSERTED, 0, 0, record->vec, ctx->complete_entry, record);
+    }
+#else
+    if (rt_host_ioctlv_async == 0) return -1;
+    return rt_host_ioctlv_async(ctx->sdio_fd, RT_SDHC_ISINSERTED, 0, 0, record->vec, ctx->complete_entry, record);
+#endif
+}
+
+/* Whether the drive must read for these runs: a gap (passthrough) keeps
+ * the disc's own bytes, which only the game's read brings. */
+static int rt_needs_drive(const rt_run* runs, int count) {
+    int i;
+    for (i = 0; i < count; ++i) {
+        if (runs[i].kind == RT_KIND_PASSTHROUGH) return 1;
+    }
+    return 0;
+}
+
 int rt_on_ioctl_async(struct rt_context* ctx, uintptr_t* args, uint32_t* result) {
     const uint32_t fd = (uint32_t)args[0];
     const uint32_t ioctl = (uint32_t)args[1];
@@ -631,6 +660,19 @@ int rt_on_ioctl_async(struct rt_context* ctx, uintptr_t* args, uint32_t* result)
                     rec->chunk_skip = 0;
                     rec->di_result = 0;
                     ctx->retry[rec - ctx->pending] = 0;
+                    if (in_window || (covered == length && !rt_needs_drive(rec->runs, count))) {
+                        /* Every byte comes from the table (a virtual read's
+                         * gaps are zeros): the drive is left alone, as a
+                         * disc with the mod's files on it would be. */
+                        rec->phase = RT_PHASE_NO_DRIVE;
+                        if (rt_null_trip(ctx, rec) >= 0) {
+                            if (in_window) ctx->virtual_reads++;
+                            ctx->redirected_reads++;
+                            *result = 0; /* queued, as IOS answers an accepted request */
+                            return 1;
+                        }
+                        rec->phase = RT_PHASE_DISC; /* no device for the round trip: the drive's read */
+                    }
                     if (in_window) {
                         /* The drive must never see the virtual offset: fetch the
                          * same length from the partition start instead (always
@@ -3290,7 +3332,11 @@ void rt_on_di_complete(struct rt_context* ctx, int32_t* result, struct rt_pendin
 #endif
     slot = (uint32_t)(record - ctx->pending);
     if (slot >= RT_MAX_PENDING) slot = 0;
-    if (record->phase == RT_PHASE_SD_WAIT) {
+    if (record->phase == RT_PHASE_NO_DRIVE) {
+        /* The null round trip: nothing of the drive's to wait for. */
+        record->di_result = RT_DI_SUCCESS;
+        rt_fill_memory_runs(record);
+    } else if (record->phase == RT_PHASE_SD_WAIT) {
         /* The card was finishing a savegame write: the chunk now, or
          * another wait. */
         const int issued = rt_issue_sd_chunk(ctx, record);
