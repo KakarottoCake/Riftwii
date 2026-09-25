@@ -839,6 +839,7 @@ static int MenuSource(FrontendState& state)
 	};
 	if (!g_scanned) {
 		ScanDrives(state, statusTxt);
+		riftwii::wii::GcAdapterMenuAllowStart();
 		refresh(true);
 		// The first time Home shows, it opens on the last game played.
 		const std::vector<std::string> recent = riftwii::wii::History().recent(1);

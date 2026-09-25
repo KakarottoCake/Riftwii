@@ -6,6 +6,7 @@
 #include <ogc/system.h>
 
 #include <cstddef>
+#include <malloc.h>
 
 #include "ios_reload.hpp"
 #include "log.hpp"
@@ -64,6 +65,12 @@ void LogUsage(const char* when) {
         logf("Memory: %u allocation(s) refused for lack of room, %u outside the limits\n",
              static_cast<unsigned>(g_refused), static_cast<unsigned>(g_violations));
     }
+}
+
+void CheckHeap(const char* when) {
+    logf("Heap check (%s)\n", when);
+    const struct mallinfo info = mallinfo();
+    logf("Heap check (%s): OK, %u KiB free in the heap\n", when, Kib(static_cast<u32>(info.fordblks)));
 }
 
 void PoisonReloadArea() {

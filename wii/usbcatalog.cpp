@@ -6,6 +6,7 @@
 #include <ogc/es.h>
 #include <ogc/usbstorage.h>
 #include <malloc.h>
+#include <unistd.h>
 #include <sdcard/wiisd_io.h>
 
 #include <algorithm>
@@ -27,6 +28,7 @@
 #include "riftwii/disc.hpp"
 #include "riftwii/rvz.hpp"
 #include "riftwii/titles.hpp"
+#include "memlimits.hpp"
 #include "umsdev.hpp"
 
 namespace riftwii::wii {
@@ -76,8 +78,19 @@ bool usb_read(std::uint64_t sector, std::uint32_t count, std::uint8_t* out) {
 bool d2x_usb_block_read(std::uint64_t sector, std::uint32_t count, std::uint8_t* out) {
     return ums::Read(sector, count, out);
 }
+// A read of the card can fail for a moment (it did as the menu's GameCube
+// adapter started): tried again before the card counts as unreadable.
 bool sd_read(std::uint64_t sector, std::uint32_t count, std::uint8_t* out) {
-    return sector <= 0xFFFFFFFFull && sd_interface()->readSectors(static_cast<sec_t>(sector), count, out);
+    if (sector > 0xFFFFFFFFull) return false;
+    for (int attempt = 1; attempt <= 4; ++attempt) {
+        if (sd_interface()->readSectors(static_cast<sec_t>(sector), count, out)) {
+            if (attempt > 1) logf("SD: a read of sector %lu worked on try %d\n", static_cast<unsigned long>(sector), attempt);
+            return true;
+        }
+        usleep(50000);
+    }
+    logf("SD: a read of sector %lu failed 4 times\n", static_cast<unsigned long>(sector));
+    return false;
 }
 const char* device_name(ImageDevice device) { return device == ImageDevice::Usb ? "USB" : "SD"; }
 bool extension(const std::string& name, const char* ext) {
@@ -159,6 +172,9 @@ bool ensure_usb(std::string& error) {
     }
     if (!mount_image_volume(&usb_read, g_usb_volume, error)) {
         error = "USB has no readable FAT32 or NTFS volume: " + error;
+        if (error.find("signature missing") != std::string::npos) {
+            error += " (a Wii U-formatted drive cannot be read: format it FAT32 on a computer)";
+        }
         unmount_usb_games();
         return false;
     }
@@ -770,10 +786,12 @@ bool activate_disc_cios(int cios_slot, const char* log_path, std::string& error)
 }
 
 namespace {
-// For a USB drive d2x does not answer (the launch stopping at the disc
-// probe): the list d2x is about to get, what d2x's own USB device sees of
-// the drive, and the game's first sector read through it. The menu's view
-// came from libogc under the menu IOS; the two must agree.
+// Before d2x gets the list: the list, what d2x's own USB device sees of
+// the drive, and the game's first sector read through it. Some drives
+// (a USB 3 HDD on a Wii U) left d2x's first read of the game hanging
+// forever after the reload to the cIOS unless something had read the
+// drive through d2x first; this read does, and waits for a drive that is
+// slow to answer (up to 20 s).
 void log_d2x_usb_view(const D2xFragmentList& list) {
     logf("USB: %u fragment(s), %u disc sectors\n", static_cast<unsigned>(list.entries.size()),
          static_cast<unsigned>(list.size));
@@ -782,16 +800,28 @@ void log_d2x_usb_view(const D2xFragmentList& list) {
         logf("USB: fragment %u: disc sector %u, %u sectors, at drive sector %u\n", static_cast<unsigned>(i),
              static_cast<unsigned>(f.offset), static_cast<unsigned>(f.count), static_cast<unsigned>(f.sector));
     }
-    std::string why;
-    if (!ums::Open(why)) {
-        logf("USB (d2x): %s\n", why.c_str());
-        return;
-    }
     if (list.entries.empty()) return;
-    logf("USB (d2x): reading drive sector %u, the game's first\n", static_cast<unsigned>(list.entries[0].sector));
     static std::uint8_t first[512] ATTRIBUTE_ALIGN(32);
-    if (!ums::Read(list.entries[0].sector, 1, first)) {
-        logf("USB (d2x): that read failed\n");
+    bool read = false;
+    for (int attempt = 1; attempt <= 20 && !read; ++attempt) {
+        std::string why;
+        if (!ums::Open(why)) {
+            logf("USB (d2x): %s\n", why.c_str());
+        } else {
+            if (attempt == 1) {
+                logf("USB (d2x): reading drive sector %u, the game's first\n",
+                     static_cast<unsigned>(list.entries[0].sector));
+            }
+            read = ums::Read(list.entries[0].sector, 1, first);
+            if (!read) logf("USB (d2x): that read failed (try %d)\n", attempt);
+        }
+        if (!read) {
+            ums::Forget();  // opened again from scratch on the next try
+            usleep(1000000);
+        }
+    }
+    if (!read) {
+        logf("USB (d2x): the drive did not answer in 20 s; trying the launch anyway\n");
         return;
     }
     char id[7];
@@ -879,6 +909,7 @@ bool activate_image_game(const ImageGame& game, int cios_slot, void*& storage, s
         return post_reload_failure(log_path, error);
     }
     const std::uint32_t device = disc_device == ImageDevice::Usb ? 1 : 2;
+    mem::CheckHeap("after the cIOS reload");
     if (disc_device == ImageDevice::Usb && !rvz) log_d2x_usb_view(game.fragments);
     logf("%s: d2x F9 config\n", device_name(game.device));
     if (!di::configure_frag(device,storage,static_cast<std::uint32_t>(bytes.size()),error)) { error = "d2x F9 fragment setup failed: " + error; return post_reload_failure(log_path, error); }
@@ -903,6 +934,7 @@ bool activate_image_game(const ImageGame& game, int cios_slot, void*& storage, s
         return post_reload_failure(log_path, error);
     }
     logf("%s: d2x ready\n", device_name(game.device));
+    mem::CheckHeap("d2x ready");
     return true;
 }
 
