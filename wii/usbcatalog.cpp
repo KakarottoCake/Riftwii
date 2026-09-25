@@ -596,8 +596,10 @@ bool check_image_game(ImageGame& game, std::string& error) {
 }
 
 std::string rvz_warning(const ImageGame& game) {
-    if (game.format != UsbImageFormat::Rvz || game.rvz_support != RvzSupport::AtOwnRisk) return std::string();
-    std::string text = "Play at your own risk:";
+    if (game.format != UsbImageFormat::Rvz) return std::string();
+    std::string text = "RVZ is experimental; if it fails, use a WBFS or ISO copy.";
+    if (game.rvz_support != RvzSupport::AtOwnRisk) return text;
+    text += " Play at your own risk:";
     for (const std::string& r : game.rvz_reasons) text += " " + r;
     return text;
 }

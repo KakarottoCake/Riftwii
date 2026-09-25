@@ -487,6 +487,18 @@ static bool PacksOnUsb(const FrontendState& state)
 	return false;
 }
 
+// Shown once before a launch that uses what is still experimental: an
+// RVZ game (the catalog's note), packs on the USB drive.
+static std::string LaunchNote(const FrontendState& state)
+{
+	std::string note = state.launch_warning;
+	if (PacksOnUsb(state)) {
+		if (!note.empty()) note += " ";
+		note += tr("Packs on USB are experimental; if it fails, copy them to SD.");
+	}
+	return note;
+}
+
 static std::string HomeStatus(const FrontendState& state, std::size_t shown)
 {
 	if (!g_homeNotice.empty()) return g_homeNotice;
@@ -1828,9 +1840,9 @@ static int MenuHome(FrontendState& state)
 				say(FlatCapped(state.usb_catalog.cios_note, 150));
 			} else if (state.use_sd && !state.sd_catalog.cios_note.empty()) {
 				say(FlatCapped(state.sd_catalog.cios_note, 150));
-			} else if (!state.launch_warning.empty() && !state.warning_shown) {
+			} else if (!LaunchNote(state).empty() && !state.warning_shown) {
 				state.warning_shown = true;
-				say(FlatCapped(state.launch_warning + " " + tr("Press Start again to play."), 200));
+				say(FlatCapped(LaunchNote(state) + " " + tr("Press Start again to play."), 200));
 			} else if (!saveOrSay()) {
 				// the status shows why
 			} else if (!riftwii::needs_launch_pipeline(!state.model.selections().empty(), state.model.save_mode)) {
@@ -1920,8 +1932,9 @@ static std::string ChannelNote(const riftwii::LoaderSettings& settings)
 static std::string AdapterNote(const std::string& mode)
 {
 	if (mode == "off") return tr("The adapter is left alone.");
-	if (mode == "on") return tr("Always on, even with no adapter plugged in, so it can be plugged in during a game. It needs IOS 58 or a d2x cIOS.");
-	return tr("When the adapter is plugged in as a game starts, its controllers fill the ports that have none plugged in, in games that support the GameCube controller. It needs IOS 58 or a d2x cIOS.");
+	// Experimental: confirmed in the menu on a Wii U, not yet in games.
+	if (mode == "on") return tr("Experimental. Always on, even with no adapter plugged in, so it can be plugged in during a game. It needs IOS 58 or a d2x cIOS.");
+	return tr("Experimental. When the adapter is plugged in as a game starts, its controllers fill the ports that have none plugged in, in games that support the GameCube controller. It needs IOS 58 or a d2x cIOS.");
 }
 
 static std::string AdapterStatus(const riftwii::wii::GcAdapterView& v)
@@ -2055,7 +2068,7 @@ static int MenuSettings(FrontendState& state)
 		names.dim = !settings.online;
 		rows.push_back(names);
 		actions.push_back(kNames);
-		option(tr("GameCube adapter"), settings.gc_adapter == "demo" ? std::string("Demo")
+		option(tr("GameCube adapter (experimental)"), settings.gc_adapter == "demo" ? std::string("Demo")
 			: settings.gc_adapter == "on" ? tr("On") : settings.gc_adapter == "off" ? tr("Off") : tr("Automatic"),
 			settings.gc_adapter != "off", kGcAdapter);
 		FlowRow gcTest;

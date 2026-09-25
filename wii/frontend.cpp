@@ -150,6 +150,7 @@ bool SelectUsbGame(FrontendState& state, std::size_t index, std::string& error) 
     state.game_revision = g.revision;
     state.game_disc_number = g.disc_number;
     state.disc_status = "USB: " + (g.display.empty() ? g.title : g.display) + "  (" + g.id + ")";
+    state.launch_warning = rvz_warning(g);
     // The full warning names the slots and the d2x version; the status
     // line only carries the short form (the note is also in boot.log).
     if (!state.usb_catalog.cios_note.empty()) state.disc_status += "  [no cIOS: install d2x for USB boot]";
