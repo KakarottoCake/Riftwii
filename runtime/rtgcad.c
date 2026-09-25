@@ -158,13 +158,14 @@ static void submit_finish(gcad* g, uint32_t now) {
     }
 }
 
+/* v5 setup: resume, then the device's parameters. No Attach: IOS 58
+ * lists the adapter as attached already, and neither libogc's
+ * USB_OpenDevice nor Nintendont's HID driver sends one. */
 static void submit_setup(gcad* g, uint32_t step) {
     zero(g->setup_in, sizeof(g->setup_in));
     gcad_put32(g->setup_in, (uint32_t)g->dev_id);
     g->setup_step = (uint8_t)step;
-    if (step == GCAD_STEP_ATTACH) {
-        ioctl_(g, GCAD_TAG_SETUP, step, GCAD_V5_ATTACH, g->setup_in, 0x20, 0, 0);
-    } else if (step == GCAD_STEP_RESUME) {
+    if (step == GCAD_STEP_RESUME) {
         gcad_put32(g->setup_in + 8, 1);  /* byte 11: resume */
         ioctl_(g, GCAD_TAG_SETUP, step, GCAD_V5_SUSPEND_RESUME, g->setup_in, 0x20, 0, 0);
     } else {
@@ -211,6 +212,33 @@ static void start_init(gcad* g, uint32_t now) {
     if (!send_out(g, GCAD_STEP_INIT, 1)) link_failed(g, now, GCAD_LINK_FAILED);
 }
 
+/* HID SET_PROTOCOL(report) before the init command, as Nintendont and
+ * Dolphin send it: some clones need it, and Mayflash adapters refuse it,
+ * which is fine: the answer is not looked at. It goes on the SETUP slot;
+ * init follows its reply, or GCAD_CTRL_MS without one. */
+static void start_ctrl(gcad* g, uint32_t now) {
+    int sent;
+    g->link = GCAD_LINK_CTRL;
+    g->link_time = now;
+    g->setup_step = GCAD_STEP_CTRL;
+    if (g->version == 4) {
+        zero(g->setup_in, sizeof(g->setup_in));
+        gcad_put32(g->setup_in + 16, (uint32_t)g->dev_id);
+        g->setup_in[20] = 0x21;  /* class request to the interface */
+        g->setup_in[21] = 0x0B;  /* SET_PROTOCOL */
+        g->setup_in[23] = 0x01;  /* report protocol */
+        sent = ioctl_(g, GCAD_TAG_SETUP, GCAD_STEP_CTRL, GCAD_V4_CONTROL, g->setup_in, 32, 0, 0);
+    } else {
+        zero(g->setup_out, sizeof(g->setup_out));
+        gcad_put32(g->setup_out, (uint32_t)g->dev_id);
+        g->setup_out[8] = 0x21;
+        g->setup_out[9] = 0x0B;
+        g->setup_out[11] = 0x01;
+        sent = ioctlv_(g, GCAD_TAG_SETUP, GCAD_STEP_CTRL, GCAD_V5_CONTROL, g->setup_out, g->out_data, 0, 1);
+    }
+    if (!sent) start_init(g, now);
+}
+
 /* Starts (or restarts) the link to g->dev_id. */
 static void start_link(gcad* g, uint32_t now) {
     if (g->busy & (BIT(GCAD_TAG_SETUP) | BIT(GCAD_TAG_IN) | BIT(GCAD_TAG_OUT))) {
@@ -221,10 +249,10 @@ static void start_link(gcad* g, uint32_t now) {
     ++g->generation;
     if (g->version == 5) {
         g->link = GCAD_LINK_SETUP;
-        submit_setup(g, GCAD_STEP_ATTACH);
+        submit_setup(g, GCAD_STEP_RESUME);
         if (!(g->busy & BIT(GCAD_TAG_SETUP))) link_failed(g, now, GCAD_LINK_FAILED);
     } else {
-        start_init(g, now);
+        start_ctrl(g, now);
     }
 }
 
@@ -332,6 +360,12 @@ void gcad_tick(gcad* g, uint32_t now) {
         elapsed(now, g->link_time) >= ms(g, g->link == GCAD_LINK_BUSY ? GCAD_RESCAN_MS : GCAD_RELINK_MS)) {
         start_link(g, now);
     }
+    if (g->link == GCAD_LINK_SETTLE && elapsed(now, g->link_time) >= ms(g, GCAD_SETTLE_MS)) {
+        g->finish_pending = 1;  /* sent once the setup is done, as fakemote does */
+        start_link(g, now);
+        if (!(g->busy & BIT(GCAD_TAG_SETUP)) && g->finish_pending) submit_finish(g, now);
+    }
+    if (g->link == GCAD_LINK_CTRL && elapsed(now, g->link_time) >= ms(g, GCAD_CTRL_MS)) start_init(g, now);
     if (!g->stale && elapsed(now, g->data_time) >= ms(g, GCAD_TIMEOUT_MS)) set_stale(g);
 }
 
@@ -380,9 +414,10 @@ static void on_change(gcad* g, int32_t result, uint32_t now) {
     }
     if (g->version == 5) {
         if (start) {
-            g->finish_pending = 1;  /* sent once the setup is done, as fakemote does */
-            start_link(g, now);
-            if (!(g->busy & BIT(GCAD_TAG_SETUP)) && g->finish_pending) submit_finish(g, now);
+            /* Given a moment to finish attaching before it is used, as
+             * Nintendont waits after a change; gcad_tick goes on. */
+            g->link = GCAD_LINK_SETTLE;
+            g->link_time = now;
         } else {
             submit_finish(g, now);
         }
@@ -393,13 +428,13 @@ static void on_change(gcad* g, int32_t result, uint32_t now) {
 }
 
 static void on_setup(gcad* g, int32_t result, int current, uint32_t now) {
+    if (g->setup_step == GCAD_STEP_CTRL) {
+        g->ctrl_result = result;
+        if (current && g->link == GCAD_LINK_CTRL && !g->stopping) start_init(g, now);
+        return;
+    }
     if (current && g->link == GCAD_LINK_SETUP) {
-        if (g->setup_step == GCAD_STEP_ATTACH) {
-            /* Refused when it is already ours or another handle has it;
-             * whether it can be used is GetDeviceInfo's answer. */
-            g->attach_result = result;
-            submit_setup(g, GCAD_STEP_RESUME);
-        } else if (g->setup_step == GCAD_STEP_RESUME) {
+        if (g->setup_step == GCAD_STEP_RESUME) {
             /* -4 when it is already resumed (the state must change). */
             g->resume_result = result;
             submit_setup(g, GCAD_STEP_INFO);
@@ -417,7 +452,7 @@ static void on_setup(gcad* g, int32_t result, int current, uint32_t now) {
     }
     if (g->busy & BIT(GCAD_TAG_SETUP)) return;  /* the chain goes on */
     if (g->finish_pending && !g->stopping) submit_finish(g, now);
-    if (current && g->link == GCAD_LINK_INIT && !g->stopping) start_init(g, now);
+    if (current && g->link == GCAD_LINK_INIT && !g->stopping) start_ctrl(g, now);
 }
 
 static void on_out(gcad* g, int32_t result, int current, uint32_t now) {
@@ -511,8 +546,7 @@ void gcad_rumble(gcad* g, uint32_t port, uint32_t command) {
     g->rumble_want[port] = (uint8_t)(command == 1 && (g->raw[port][0] & 0x10) ? 1 : 0);
 }
 
-/* gcad_stop's cancels, one at a time on the STOP slot, then (v5) the
- * device goes back. */
+/* gcad_stop's cancels, one at a time on the STOP slot. */
 static void stop_next(gcad* g) {
     if (g->busy & BIT(GCAD_TAG_STOP)) return;
     if (g->version == 4) {
@@ -557,14 +591,8 @@ static void stop_next(gcad* g) {
         gcad_put32(g->stop_msg, (uint32_t)g->dev_id);
         g->stop_msg[8] = 2;  /* the interrupt OUT endpoint */
         ioctl_(g, GCAD_TAG_STOP, GCAD_STEP_CANCEL, GCAD_V5_CANCEL_ENDPOINT, g->stop_msg, 0x20, 0, 0);
-        return;
     }
-    if (g->busy == 0 && g->dev_id >= 0 && !(g->stopping & 16)) {
-        g->stopping |= 16;
-        zero(g->stop_msg, sizeof(g->stop_msg));
-        gcad_put32(g->stop_msg, (uint32_t)g->dev_id);
-        ioctl_(g, GCAD_TAG_STOP, GCAD_STEP_CANCEL, GCAD_V5_RELEASE, g->stop_msg, 0x20, 0, 0);
-    }
+    /* Nothing to release: without an Attach the device was never taken. */
 }
 
 void gcad_stop(gcad* g, uint32_t now) {

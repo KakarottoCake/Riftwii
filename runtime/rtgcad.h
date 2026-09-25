@@ -41,6 +41,8 @@ extern "C" {
 #define GCAD_RELINK_MS 1000u      /* a failed link is tried again after this */
 #define GCAD_RESCAN_MS 2000u      /* a device another handle owns, or a failed device list */
 #define GCAD_RECAL_MS 3000u       /* X+Y+Start held this long takes a new origin, like the pad */
+#define GCAD_CTRL_MS 100u         /* SET_PROTOCOL unanswered this long: init anyway */
+#define GCAD_SETTLE_MS 500u       /* v5: a newly listed adapter is set up this long after the change */
 
 /* /dev/usb/hid ioctls. */
 #define GCAD_V4_GET_DEVICE_CHANGE 0u
@@ -79,6 +81,8 @@ extern "C" {
 #define GCAD_LINK_POLL 3u    /* reports flowing */
 #define GCAD_LINK_FAILED 4u  /* waiting to try again */
 #define GCAD_LINK_BUSY 5u    /* v5: another handle owns it for now */
+#define GCAD_LINK_CTRL 6u    /* SET_PROTOCOL in flight, init next */
+#define GCAD_LINK_SETTLE 7u  /* v5: listed just now, set up after GCAD_SETTLE_MS */
 
 /* Event codes for gcad_env_event (the test page's log). */
 #define GCAD_EV_REPLY 1u     /* a = tag | step << 8, b = result */
@@ -93,7 +97,7 @@ extern "C" {
 /* Steps inside the slots, for the log. */
 #define GCAD_STEP_CHANGE 0u
 #define GCAD_STEP_FINISH 1u
-#define GCAD_STEP_ATTACH 2u
+#define GCAD_STEP_CTRL 2u    /* SET_PROTOCOL */
 #define GCAD_STEP_RESUME 3u
 #define GCAD_STEP_INFO 4u
 #define GCAD_STEP_INIT 5u
@@ -167,7 +171,7 @@ typedef struct gcad {
     uint32_t reports, bad_reports, errors, changes, links;
     int32_t last_error;
     uint32_t last_error_step;
-    int32_t attach_result, resume_result, info_result, init_result;
+    int32_t ctrl_result, resume_result, info_result, init_result;
     uint32_t listed;           /* devices in the last list */
 } gcad;
 

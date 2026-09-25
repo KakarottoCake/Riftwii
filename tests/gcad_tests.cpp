@@ -74,6 +74,8 @@ struct FakeHid {
     bool locked = false;                // v5: locked to our handle until AttachFinish
     bool owned_by_other = false;        // v5: another handle attached it
     bool ours = false;
+    int attach_calls = 0;                // v5 Attach/Release requests seen
+    int control_answer = 0;              // v5 SET_PROTOCOL: 0 ok, <0 refused (Mayflash), 1 no answer
     bool resumed = false;
     bool info_read = false;
     std::deque<Request> queue;          // answered at once when possible
@@ -221,18 +223,15 @@ std::int32_t Handle(Request& r) {
             return 0;
         }
         std::int32_t result = 0;
-        if (r.cmd == GCAD_V5_ATTACH) {
-            if (h.owned_by_other) result = kEinval;
-            else h.ours = true;
-        } else if (r.cmd == GCAD_V5_RELEASE) {
-            if (!h.ours) result = kEinval;
-            h.ours = false;
+        if (r.cmd == GCAD_V5_ATTACH || r.cmd == GCAD_V5_RELEASE) {
+            h.attach_calls += 1;  // IOS 58 needs neither; the driver sends none
         } else if (r.cmd == GCAD_V5_SUSPEND_RESUME) {
             const bool want = r.in[11] != 0;
-            if (!h.ours || want == h.resumed) result = kEinval;
+            if (want == h.resumed) result = kEinval;
             else h.resumed = want;
         } else if (r.cmd == GCAD_V5_GET_DEVICE_INFO) {
-            if (r.out_len != 0x60 || r.in[8] != 0 || !h.ours || !h.resumed) {
+            // Another handle owns it: refused until it lets go.
+            if (r.out_len != 0x60 || r.in[8] != 0 || h.owned_by_other || !h.resumed) {
                 result = kEinval;
             } else {
                 std::memset(r.out, 0, 0x60);
@@ -240,6 +239,7 @@ std::int32_t Handle(Request& r) {
                 r.out[80 + 2] = 0x81;
                 r.out[88 + 2] = 0x02;
                 h.info_read = true;
+                h.ours = true;
             }
         } else {
             const std::uint8_t which = r.in[8];
@@ -265,7 +265,7 @@ std::int32_t Handle(Request& r) {
         if (r.cmd == GCAD_V5_CONTROL) {
             if (!r.data_in) return kEinval;
             h.control_setup.push_back((r.in[8] << 8) | r.in[9]);
-            h.replies.push_back({r.tag, 0});
+            if (h.control_answer != 1) h.replies.push_back({r.tag, h.control_answer});
             return 0;
         }
         const bool out = be32(r.in.data() + 8) != 0;
@@ -346,6 +346,12 @@ void Plug(std::uint32_t new_id) {
         h.list_changed = true;
     }
     Pump();
+    // v5: the driver sets a newly listed adapter up after a short wait.
+    if (h.version == 5 && g_driver != nullptr) {
+        g_driver->now += GCAD_SETTLE_MS;
+        gcad_tick(g_driver->g, g_driver->now);
+        Pump();
+    }
 }
 
 gcad* NewState() {
@@ -365,6 +371,11 @@ void Start(FakeHid& hid, Driver& driver, std::uint32_t version) {
     gcad_init(driver.g, &driver, 7, version, 1);
     gcad_tick(driver.g, driver.now);
     Pump();
+    if (version == 5) {
+        driver.now += GCAD_SETTLE_MS;
+        gcad_tick(driver.g, driver.now);
+        Pump();
+    }
 }
 
 }  // namespace
@@ -472,14 +483,16 @@ static void TestV5() {
     Driver d;
     Start(hid, d, 5);
     gcad* g = d.g;
-    // List, Attach, resume, info, AttachFinish, init; no control request
-    // (SET_PROTOCOL, which Mayflash adapters refuse).
+    // List, a short wait, resume, info, AttachFinish, SET_PROTOCOL, init;
+    // no Attach (IOS 58 lists it attached; libogc and Nintendont send none).
     EXPECT_FALSE(hid.locked);
     EXPECT_TRUE(hid.ours);
     EXPECT_TRUE(hid.resumed);
     EXPECT_TRUE(hid.info_read);
     EXPECT_EQ(g->link, GCAD_LINK_POLL);
-    EXPECT_EQ(hid.control_setup.size(), 0u);
+    EXPECT_EQ(hid.attach_calls, 0);
+    EXPECT_EQ(hid.control_setup.size(), 1u);
+    if (!hid.control_setup.empty()) EXPECT_EQ(hid.control_setup[0], 0x210B);
     EXPECT_TRUE(!hid.sent_out.empty() && hid.sent_out[0].size() == 1 && hid.sent_out[0][0] == 0x13);
     EXPECT_EQ(hid.waiting_in.size(), 1u);
     EXPECT_EQ(hid.waiting_list.size(), 1u);  // listening for the next change
@@ -558,7 +571,7 @@ static void TestV5() {
     gcad_stop(g, d.now);
     Pump();
     EXPECT_TRUE(gcad_idle(g));
-    EXPECT_FALSE(hid.ours);
+    EXPECT_EQ(hid.attach_calls, 0);  // nothing taken, nothing released
     EXPECT_TRUE(hid.waiting_list.empty());
     EXPECT_TRUE(hid.waiting_in.empty());
     EXPECT_FALSE(gcad_port(g, 0, &unused, d.now));
@@ -612,6 +625,30 @@ static void TestV5AlreadyResumed() {
     EXPECT_EQ(d.g->link, GCAD_LINK_POLL);
 }
 
+static void TestV5SetProtocolRefused() {
+    // Mayflash adapters refuse SET_PROTOCOL: init follows anyway.
+    FakeHid hid;
+    hid.control_answer = -4;
+    Driver d;
+    Start(hid, d, 5);
+    EXPECT_EQ(d.g->ctrl_result, -4);
+    EXPECT_EQ(d.g->link, GCAD_LINK_POLL);
+    EXPECT_TRUE(!hid.sent_out.empty() && hid.sent_out[0][0] == 0x13);
+
+    // No answer at all: init after GCAD_CTRL_MS.
+    FakeHid hid2;
+    hid2.control_answer = 1;
+    Driver d2;
+    Start(hid2, d2, 5);
+    EXPECT_EQ(d2.g->link, GCAD_LINK_CTRL);
+    EXPECT_TRUE(hid2.sent_out.empty());
+    d2.now += GCAD_CTRL_MS;
+    gcad_tick(d2.g, d2.now);
+    Pump();
+    EXPECT_EQ(d2.g->link, GCAD_LINK_POLL);
+    EXPECT_TRUE(!hid2.sent_out.empty() && hid2.sent_out[0][0] == 0x13);
+}
+
 static void TestV5KnownDevice() {
     // The menu's USB took v5's list: the driver's own request waits for
     // the next change, and the device the loader passed links anyway.
@@ -644,7 +681,7 @@ static void TestV4() {
     EXPECT_EQ(g->dev_id, 2);
     EXPECT_EQ(g->link, GCAD_LINK_POLL);
     EXPECT_EQ(g->listed, 2u);
-    EXPECT_EQ(hid.control_setup.size(), 0u);
+    EXPECT_EQ(hid.control_setup.size(), 1u);  // SET_PROTOCOL, answer ignored
     EXPECT_TRUE(!hid.sent_out.empty() && hid.sent_out[0][0] == 0x13);
     EXPECT_EQ(hid.waiting_list.size(), 1u);
     EXPECT_TRUE(Deliver(Report(0x14, 0x08, 0, 128, 128)));
@@ -729,6 +766,10 @@ static void TestListErrorRetries() {
     EXPECT_TRUE(d.g->change_failed);
     hid.waiting_list.clear();
     d.now += GCAD_RESCAN_MS;
+    gcad_tick(d.g, d.now);
+    Pump();
+    EXPECT_EQ(d.g->link, GCAD_LINK_SETTLE);  // listed now, set up after the wait
+    d.now += GCAD_SETTLE_MS;
     gcad_tick(d.g, d.now);
     Pump();
     EXPECT_EQ(d.g->link, GCAD_LINK_POLL);
@@ -857,6 +898,7 @@ int main() {
     TestV5();
     TestV5OwnedElsewhere();
     TestV5AlreadyResumed();
+    TestV5SetProtocolRefused();
     TestV5KnownDevice();
     TestV4();
     TestNoAdapter();
