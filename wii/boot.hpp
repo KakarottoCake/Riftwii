@@ -45,6 +45,11 @@ struct ProbeOptions {
     // d2x FRAG mode exposes a virtual disc and must not receive the normal
     // cover wait/reset sequence, which would clear its configured image.
     bool virtual_source = false;
+    // Only the header and the partition table: the game partition stays
+    // shut. Under d2x an opened partition counts as a running title, and
+    // until the next IOS reload d2x then refuses to open its USB and SD
+    // devices (its stealth mode), which libogc's USB driver needs too.
+    bool header_only = false;
 };
 
 // Brings the drive up and identifies the disc, its game partition and the

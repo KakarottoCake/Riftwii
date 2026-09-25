@@ -442,6 +442,10 @@ bool probe_disc(DiscProbe& out, std::string& error, const ProbeOptions& options)
     }
     logf("Partitions: %u listed, game partition at 0x%08llx\n", static_cast<unsigned>(table.size()),
          static_cast<unsigned long long>(out.partition.offset));
+    if (options.header_only) {
+        error.clear();
+        return true;
+    }
     if (!open_game_partition(out.partition, out.tmd, out.es_result, error)) return false;
     out.tmd_bytes.assign(g_tmd, g_tmd + di::kTmdBufferBytes);
     out.running_ios = IOS_GetVersion();
