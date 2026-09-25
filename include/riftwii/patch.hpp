@@ -178,6 +178,10 @@ bool parse_package(const std::string& xml, Package& output, std::string& error,
                    const std::string& folder = "/riivolution");
 bool read_package(std::istream& input, Package& output, std::string& error,
                   const std::string& folder = "/riivolution");
+// Well-formed XML whose root is not <wiidisc>: not a Riivolution pack at
+// all (a Homebrew Channel meta.xml left in the folder, say). Riivolution
+// skips those; the pack lists do too, rather than show them as broken.
+bool is_foreign_xml(const std::string& xml);
 
 // Joins `path` onto `root` (absolute paths replace the root), normalises "."
 // and "..", and rejects escapes above "/" and characters that cannot be part

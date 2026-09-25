@@ -1138,6 +1138,13 @@ bool substitute_params(const std::string& input, const std::vector<Param>& param
         return false;
     }
 }
+bool is_foreign_xml(const std::string& xml) {
+    pugi::xml_document doc;
+    if (!doc.load_buffer(xml.data(), xml.size())) return false;  // malformed: maybe a pack with a mistake
+    const pugi::xml_node root = doc.document_element();
+    return root && std::string(root.name()) != "wiidisc";
+}
+
 bool parse_package(const std::string& input, Package& output, std::string& error, const std::string& folder) {
     try {
         // Anything after the last '>' (NUL padding, a stray line) is not
