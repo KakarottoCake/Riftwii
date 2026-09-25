@@ -2964,6 +2964,34 @@ static int rt_rvz_on_read(struct rt_context* ctx, struct rt_rvz_state* st, uintp
     return 1;
 }
 
+/* A read of the card for the RVZ (its group table, or a group on the
+ * card), in `phase`: on /dev/sdio/slot0 it waits for a savegame command
+ * as a mod's reads do (rt_issue_sd_chunk), in null round trips that come
+ * back as RT_PHASE_RVZ_WAIT. 1: in flight, -1: refused. */
+static int rt_rvz_card_read(struct rt_context* ctx, struct rt_rvz_state* st, struct rt_pending* record,
+                            uint32_t sector, uint32_t sectors, uint32_t target, uint32_t phase) {
+    struct rt_fs_state* fs = rt_fs_of(ctx);
+    if (fs != 0 && rt_sd_settles(ctx, fs)) {
+        const uint32_t msr = rt_interrupts_off();
+        int r;
+        if ((fs->card_busy || fs->card_wanted || rt_fs_backing_off(fs)) &&
+            record->pad_request[0] < RT_SD_CARD_WAITS) {
+            record->pad_request[0]++;
+            st->wait_sector = sector;
+            st->wait_target = target;
+            st->wait_how = phase << 16 | sectors;
+            record->phase = RT_PHASE_RVZ_WAIT;
+            r = rt_sd_wait_trip(ctx, record) < 0 ? -1 : 1;
+        } else {
+            record->pad_request[0] = 0;
+            r = rt_issue_sd_read(ctx, record, 0, sector, sectors, target, phase);
+        }
+        rt_interrupts_restore(msr);
+        return r;
+    }
+    return rt_issue_sd_read(ctx, record, 0, sector, sectors, target, phase);
+}
+
 /* Issues the next piece of the group being fetched. 1: in flight. */
 static int rt_rvz_fetch_piece(struct rt_context* ctx, struct rt_rvz_state* st, struct rt_pending* record) {
     uint32_t device = 0;
@@ -2976,8 +3004,12 @@ static int rt_rvz_fetch_piece(struct rt_context* ctx, struct rt_rvz_state* st, s
     if (n > RT_RVZ_REQUEST_SECTORS) n = RT_RVZ_REQUEST_SECTORS;
     st->fetch_last = n;
     st->sd_requests++;
-    if (rt_issue_sd_read(ctx, record, st->on_usb != 0, device, n,
-                         st->fetch_target + st->fetch_done * RT_SECTOR_BYTES, RT_PHASE_RVZ_GROUP) < 0) {
+    if ((st->on_usb != 0 ? rt_issue_sd_read(ctx, record, 1, device, n,
+                                            st->fetch_target + st->fetch_done * RT_SECTOR_BYTES,
+                                            RT_PHASE_RVZ_GROUP)
+                         : rt_rvz_card_read(ctx, st, record, device, n,
+                                            st->fetch_target + st->fetch_done * RT_SECTOR_BYTES,
+                                            RT_PHASE_RVZ_GROUP)) < 0) {
         return rt_rvz_fail(st, RT_RVZ_ERR_SD);
     }
     return 1;
@@ -3116,7 +3148,7 @@ static int rt_rvz_serve_run(struct rt_context* ctx, struct rt_rvz_state* st, str
                 st->want_entry_sector = sector;
                 st->entry_loads++;
                 st->sd_requests++;
-                if (rt_issue_sd_read(ctx, record, 0, device, 1, (uint32_t)(uintptr_t)st->entries,
+                if (rt_rvz_card_read(ctx, st, record, device, 1, (uint32_t)(uintptr_t)st->entries,
                                      RT_PHASE_RVZ_ENTRY) < 0) {
                     return rt_rvz_fail(st, RT_RVZ_ERR_SD);
                 }
@@ -3139,6 +3171,18 @@ static void rt_rvz_complete(struct rt_context* ctx, struct rt_rvz_state* st, int
                             struct rt_pending* record, uintptr_t* callback, uintptr_t* user_data) {
     if (record->phase == RT_PHASE_RVZ_START) {
         rt_fill_memory_runs(record); /* MEM and ZERO runs, zeros in virtual gaps */
+    } else if (record->phase == RT_PHASE_RVZ_WAIT) {
+        /* Its read of the card now, or another wait. */
+        if (rt_rvz_card_read(ctx, st, record, st->wait_sector, st->wait_how & 0xFFFFu, st->wait_target,
+                             st->wait_how >> 16) > 0) {
+            *callback = 0;
+            return;
+        }
+        ctx->sd_failures++;
+        st->last_error = RT_RVZ_ERR_SD;
+        record->di_result = RT_DI_ERROR;
+    } else if (record->phase == RT_PHASE_SD_WAIT) {
+        /* A mod's chunk waited for the card: the loop below issues it. */
     } else if (*result < 0) {
         ctx->sd_failures++;
         st->last_error = RT_RVZ_ERR_SD;
