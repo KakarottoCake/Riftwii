@@ -188,7 +188,6 @@ bool GuiScriptLoad(const char* path) {
     return g_active;
 }
 
-bool GuiScriptActive() { return g_active; }
 
 void GuiScriptApply() {
     if (!g_active) return;

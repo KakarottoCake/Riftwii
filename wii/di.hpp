@@ -18,16 +18,13 @@ namespace riftwii::di {
 
 // DI reply codes (the ioctl return value, positive on completion).
 constexpr int kReplySuccess = 1;
-constexpr int kReplyCoverClosed = 4;
 
 // Opens /dev/di. Fails when IOS refuses (no DI module, or already open).
 bool open(std::string& error);
 void close();
-bool is_open();
 
 // Cover / drive state.
 bool cover_status(bool& disc_inserted, std::string& error);   // 0x88
-bool wait_for_cover_close(std::string& error);                // 0x79
 bool reset(bool spin_up, std::string& error);                 // 0x8A
 bool inquiry(std::uint8_t out32[32], std::string& error);     // 0x12
 
@@ -39,9 +36,6 @@ bool disable_reset(std::string& error);                         // 0xF6
 bool configure_frag(std::uint32_t device, const void* list32, std::uint32_t bytes, std::string& error); // 0xF9
 // The device of the last fragment list d2x accepted: 1 USB, 2 SD, 0 none.
 std::uint32_t frag_device();
-inline bool configure_frag_usb(const void* list32, std::uint32_t bytes, std::string& error) {
-    return configure_frag(1, list32, bytes, error);
-}
 
 // Disc ID (the first 0x20 bytes of the disc, copied to `out32`).
 bool read_disc_id(std::uint8_t out32[32], std::string& error);  // 0x70
@@ -71,9 +65,6 @@ bool read(void* buffer32, std::uint32_t length, std::uint32_t word_offset,
 using PartitionResolver = std::function<const ByteSource*(std::uint64_t partition_offset)>;
 void set_partition_resolver(PartitionResolver resolve);
 bool has_partition_resolver();
-
-// The raw reply of the last call, for diagnostics.
-int last_reply();
 
 // ByteSource over the unencrypted system area (0 .. 0x50000), for the
 // disc header and partition table parsers. size() reports the nominal
