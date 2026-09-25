@@ -1224,6 +1224,86 @@ static void TestCommitGhost(Low& low) {
     }
 }
 
+// ---- NSMBW's first save through the import (seen on a Dolphin card) ----
+static void TestCommitOverExisting(Low& low) {
+    // The game creates an empty NerSMBW.sav on the card, then renames its
+    // NAND copy over it (backup, stage in, backup out), then imports
+    // banner.bin into a new name. The card was left with the stage's
+    // entry next to banner.bin, both on one chain.
+    fatimg::Image img(512, 64, 0, 256);
+    Device dev(img);
+    rtfat_volume vol{};
+    vol.sectors_per_cluster = 64;
+    vol.fat_lba = img.reserved;
+    vol.fat_count = img.fats;
+    vol.fat_sectors = img.fat_sectors;
+    vol.data_lba = static_cast<std::uint32_t>(img.data_start_sector());
+    vol.cluster_count = img.clusters;
+    vol.dir_cluster = 3;
+    vol.alloc_hint = 4;
+    Bytes root;
+    cat(root, short_entry("SAVE       ", 0x10, 3, 0));
+    EXPECT_TRUE(img.write_dir({2}, root));
+    Bytes dot;
+    cat(dot, short_entry(".          ", 0x10, 3, 0));
+    cat(dot, short_entry("..         ", 0x10, 2, 0));
+    EXPECT_TRUE(img.write_dir({3}, dot));
+    rtfat_op& op = *low.op;
+    const Bytes payload = pattern(57 * 512 + 160, 0x33);
+    auto make = [&](const char* name) {
+        std::memset(&op, 0, sizeof(op));
+        SetName(op.name, name);
+        op.want_hidden = 1;
+        EXPECT_EQ(Run(vol, op, dev, RTFAT_OP_CREATE), RTFAT_OK);
+        std::memset(&op, 0, sizeof(op));
+        SetName(op.name, name);
+        op.want_hidden = 1;
+        EXPECT_EQ(Run(vol, op, dev, RTFAT_OP_LOOKUP), RTFAT_OK);
+        rtfat_file file{};
+        file.first_cluster = op.found.first_cluster;
+        file.entry_lba = op.found.entry_lba;
+        file.entry_index = op.found.entry_index;
+        std::memcpy(low.data, payload.data(), payload.size());
+        op.file = &file;
+        op.buffer = Addr(low.data);
+        op.length = static_cast<std::uint32_t>(payload.size());
+        op.bounce = Addr(low.bounce);
+        op.bounce_bytes = Low::kBounce;
+        EXPECT_EQ(Run(vol, op, dev, RTFAT_OP_WRITE), std::int32_t(payload.size()));
+    };
+    auto rename = [&](const char* from, const char* to, int hidden) {
+        std::memset(&op, 0, sizeof(op));
+        SetName(op.name, from);
+        SetName(op.name2, to);
+        op.want_hidden = hidden;
+        EXPECT_EQ(Run(vol, op, dev, RTFAT_OP_RENAME), RTFAT_OK);
+    };
+    auto gone = [&](const char* name) {
+        std::memset(&op, 0, sizeof(op));
+        SetName(op.name, name);
+        op.want_hidden = 1;
+        EXPECT_EQ(Run(vol, op, dev, RTFAT_OP_LOOKUP), RTFAT_ENOENT);
+    };
+    std::memset(&op, 0, sizeof(op));
+    SetName(op.name, "NerSMBW.sav");
+    EXPECT_EQ(Run(vol, op, dev, RTFAT_OP_CREATE), RTFAT_OK);
+    make(".rwstage.tmp");
+    rename("NerSMBW.sav", ".rwback.tmp", 1);
+    rename(".rwstage.tmp", "NerSMBW.sav", 2);
+    std::memset(&op, 0, sizeof(op));
+    SetName(op.name, ".rwback.tmp");
+    op.want_hidden = 1;
+    EXPECT_EQ(Run(vol, op, dev, RTFAT_OP_DELETE), RTFAT_OK);
+    gone(".rwstage.tmp");
+    gone(".rwback.tmp");
+    make(".rwstage.tmp");
+    rename(".rwstage.tmp", "banner.bin", 2);
+    gone(".rwstage.tmp");
+    std::memset(&op, 0, sizeof(op));
+    SetName(op.name, "banner.bin");
+    EXPECT_EQ(Run(vol, op, dev, RTFAT_OP_LOOKUP), RTFAT_OK);
+}
+
 int main() {
     Low low;
     if (!low.op) {
@@ -1239,6 +1319,7 @@ int main() {
     TestCreate(low);
     TestDeleteRename(low);
     TestCommitGhost(low);
+    TestCommitOverExisting(low);
     TestStraddle(low);
     TestLongNames(low);
     TestList(low);

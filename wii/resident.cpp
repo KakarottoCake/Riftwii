@@ -388,6 +388,7 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
         }
         st->complete_fs = place.code_base + blob.complete_fs_offset;
         st->clone_pending = options.savegame.enabled && options.savegame.clone ? 1u : 0u;
+        st->card_rca = options.sdio_d2x ? 0u : options.sdio_rca;
         st->open_sync = original(RT_IPC_SYNC(1));
         st->close_sync = original(RT_IPC_SYNC(2));
         st->read_sync = original(RT_IPC_SYNC(3));

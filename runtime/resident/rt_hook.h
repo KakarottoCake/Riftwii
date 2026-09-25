@@ -100,6 +100,7 @@ extern "C" {
 #define RT_PHASE_RVZ_START 3u /* RVZ: the null round trip that starts the read */
 #define RT_PHASE_RVZ_ENTRY 4u /* RVZ: a sector of the group table is in flight */
 #define RT_PHASE_RVZ_GROUP 5u /* RVZ: a piece of a group's stored bytes is in flight */
+#define RT_PHASE_SD_WAIT 6u  /* a null round trip while the card finishes a savegame write */
 
 /* DI results as the DVD driver sees them (wiibrew /dev/di). */
 #define RT_DI_SUCCESS 1
@@ -315,7 +316,7 @@ struct rt_fs_pend {
     int32_t result;      /* DELIVER: the result to hand over */
     uint32_t job;        /* FILE: the request is the import job's; its completion resumes the job */
     int32_t fd;          /* CLOSE_SNOOP: forget only this fd after a successful completion */
-    uint32_t reserved;
+    uint32_t reserved;   /* FILE: CMD13s sent since its write completed (rt_fs_settle_next), 0 = none */
     char path[64];       /* SNOOP: the opened path, for the /dev/fs compare */
     uint32_t status[8] __attribute__((aligned(32)));  /* DELIVER: GETSTATUS's out word, its own line */
 };
@@ -395,7 +396,10 @@ struct rt_fs_state {
     uint32_t clone_failures;       /* files the clone could not copy, or a clone that could not start */
     uint32_t clone_marker;         /* clone markers deleted (the clone ran to its end) */
     uint32_t import_jobs;          /* of the imports, asynchronous ones (jobs) */
-    uint32_t reserved[4];
+    uint32_t card_rca;             /* loader-filled: the card's address for CMD13 on /dev/sdio/slot0, 0 = no waits */
+    uint32_t card_busy;            /* a write went to the card and it has not been seen idle since */
+    uint32_t settle_polls;         /* CMD13s sent while waiting for the card after a write */
+    uint32_t reserved[1];
     struct rt_fs_pend pend;
     struct rt_fs_pend snoop[RT_FS_SNOOPS];
     struct rt_fs_pend deliver[RT_FS_DELIVERS];

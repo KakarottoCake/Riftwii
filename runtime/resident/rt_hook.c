@@ -20,6 +20,13 @@
 #define RT_SD_CMD_WRITEMULTIBLOCK 0x19u
 #define RT_SD_CMDTYPE_AC 3u
 #define RT_SD_RESPONSE_R1 1u
+/* CMD13 SEND_STATUS: the R1 card status in the response's first word,
+ * the card's state in its bits 9-12 (wiibrew /dev/sdio/slot0, the SD
+ * physical layer spec). */
+#define RT_SD_CMD_SENDSTATUS 0x0Du
+#define RT_SD_STATE_RCV 6u
+#define RT_SD_STATE_PRG 7u
+#define RT_SD_SETTLE_POLLS 8192u  /* about half a second of CMD13s; the spec allows 250 ms per write */
 
 int rt_is_di_read(uint32_t ioctl, const uint32_t* in, uint32_t in_len) {
     /* DVDLowRead: ioctl 0x71 with a 0x20-byte command block whose first
@@ -285,6 +292,29 @@ static int32_t rt_fs_ioctl_async(struct rt_context* ctx, struct rt_fs_state* st,
     return fn((uint32_t)fd, request, (uint32_t*)(uintptr_t)in, in_len, out, out_len, st->complete_fs,
               (struct rt_pending*)tag);
 }
+/* CMD13 in the state's request, its answer in the state's response line
+ * (a plain SENDCMD, no DMA: libogc's wiisd.c sends status requests the
+ * same way). */
+static int32_t rt_fs_status_call(struct rt_context* ctx, struct rt_fs_state* st, int async) {
+    if (async) {
+        rt_ioctl_async_fn fn = (rt_ioctl_async_fn)(uintptr_t)ctx->di_read_entry;
+        if (fn == 0) return -1;
+        return fn(ctx->sdio_fd, RT_SDIO_SENDCMD, (uint32_t*)(void*)&st->request, sizeof(st->request),
+                  (uint32_t)(uintptr_t)st->response, 16, st->complete_fs, (struct rt_pending*)&st->pend);
+    }
+    if (st->ioctl_sync == 0) return -1;
+    return rt_fs_ioctl_sync(st, (int32_t)ctx->sdio_fd, RT_SDIO_SENDCMD, (uint32_t)(uintptr_t)&st->request,
+                            sizeof(st->request), (uint32_t)(uintptr_t)st->response, 16);
+}
+/* A disc read's null round trip while the card is busy (GETSTATUS asks
+ * the host controller, not the card). */
+static int32_t rt_sd_wait_trip(struct rt_context* ctx, struct rt_pending* record) {
+    rt_ioctl_async_fn fn = (rt_ioctl_async_fn)(uintptr_t)ctx->di_read_entry;
+    if (fn == 0) return -1;
+    rt_flush_range((uintptr_t)record->response, sizeof(record->response));
+    return fn(ctx->sdio_fd, RT_SDIO_GETSTATUS, 0, 0, (uint32_t)(uintptr_t)record->response, 4, ctx->complete_entry,
+              record);
+}
 /* On a thread (external interrupts on) rather than inside an interrupt
  * handler: synchronous IOS calls may sleep here. MSR[EE] is 0x8000. */
 static int rt_fs_in_thread(void) {
@@ -388,6 +418,17 @@ static int32_t rt_fs_getstatus_async(struct rt_context* ctx, struct rt_fs_state*
     (void)ctx;
     (void)st;
     return rt_host_fs_defer == 0 ? -1 : rt_host_fs_defer(slot);
+}
+static int32_t rt_fs_status_call(struct rt_context* ctx, struct rt_fs_state* st, int async) {
+    (void)ctx;
+    (void)st;
+    (void)async;
+    return -1;
+}
+static int32_t rt_sd_wait_trip(struct rt_context* ctx, struct rt_pending* record) {
+    if (rt_host_ioctl_async == 0) return -1;
+    return rt_host_ioctl_async(ctx->sdio_fd, RT_SDIO_GETSTATUS, 0, 0, (uint32_t)(uintptr_t)record->response, 4,
+                               ctx->complete_entry, record);
 }
 static int32_t rt_fs_open_sync(struct rt_fs_state* st, uint32_t path, uint32_t mode) {
     (void)st;
@@ -740,15 +781,101 @@ static void rt_fs_build_sendcmd(struct rt_context* ctx, struct rt_fs_state* st) 
     rt_flush_range((uintptr_t)op->io_buffer, bytes);
 }
 
+/* After a write on /dev/sdio/slot0 the card goes on programming its
+ * flash; a command sent meanwhile is refused, and a disc read of the
+ * mods landing there (Newer streams its music from the card) failed and
+ * took the savegame down with it. libogc's driver deselects the card
+ * after every transfer (an R1b command, which waits out the busy card);
+ * d2x's /dev/sdio/sdhc waits too. Here the engine asks the card's status
+ * (CMD13) after each write until it has left the receive and programming
+ * states, and `card_busy` holds the disc engine's card reads back until
+ * then. Not for d2x's device, nor without the card's address. */
+static int rt_sd_settles(const struct rt_context* ctx, const struct rt_fs_state* st) {
+    return ctx->sdio_sdhc != RT_SD_D2X && st->card_rca != 0 && ctx->sdio_fd != 0xFFFFFFFFu;
+}
+
+static void rt_fs_build_status(struct rt_fs_state* st) {
+    struct rt_sdio_request* rq = &st->request;
+    uint32_t i;
+    rq->cmd = RT_SD_CMD_SENDSTATUS;
+    rq->cmd_type = RT_SD_CMDTYPE_AC;
+    rq->rsp_type = RT_SD_RESPONSE_R1;
+    rq->arg = st->card_rca << 16;
+    rq->blk_cnt = 0;
+    rq->blk_size = 0;
+    rq->dma_addr = 0;
+    rq->isdma = 0;
+    rq->pad0 = 0;
+    for (i = 0; i < 4; ++i) st->response[i] = 0;
+    rt_flush_range((uintptr_t)rq, sizeof(*rq));
+    rt_flush_range((uintptr_t)st->response, sizeof(st->response));
+}
+
+/* The answer of the CMD13 just completed: still receiving or programming? */
+static int rt_fs_card_writing(struct rt_fs_state* st) {
+    uint32_t state;
+    rt_flush_range((uintptr_t)st->response, sizeof(st->response)); /* drops the line: IOS wrote it */
+    state = (st->response[0] >> 9) & 15u;
+    return state == RT_SD_STATE_RCV || state == RT_SD_STATE_PRG;
+}
+
+/* Marks the card busy right before a write goes out. */
+static void rt_fs_mark_write(struct rt_context* ctx, struct rt_fs_state* st) {
+    if (st->req.fat.io_write && rt_sd_settles(ctx, st)) st->card_busy = 1;
+}
+
+/* The synchronous wait, on the caller's thread. */
+static void rt_fs_settle_sync(struct rt_context* ctx, struct rt_fs_state* st) {
+    uint32_t i;
+    if (rt_sd_settles(ctx, st)) {
+        for (i = 0; i < RT_SD_SETTLE_POLLS; ++i) {
+            rt_fs_build_status(st);
+            st->settle_polls++;
+            if (rt_fs_status_call(ctx, st, 0) < 0 || !rt_fs_card_writing(st)) break;
+        }
+    }
+    st->card_busy = 0;
+}
+
+/* The asynchronous wait, as the FILE record's next request (pend.reserved
+ * counts its CMD13s). 1 when one is in flight, 0 when the card is taken
+ * as idle. */
+static int rt_fs_settle_next(struct rt_context* ctx, struct rt_fs_state* st, int32_t last) {
+    if (st->pend.reserved != 0 && (last < 0 || !rt_fs_card_writing(st))) {
+        st->pend.reserved = 0;
+        st->card_busy = 0;
+        return 0;
+    }
+    if (!rt_sd_settles(ctx, st) || st->pend.reserved >= RT_SD_SETTLE_POLLS) {
+        st->pend.reserved = 0;
+        st->card_busy = 0;
+        return 0;
+    }
+    rt_fs_build_status(st);
+    st->settle_polls++;
+    st->pend.reserved++;
+    if (rt_fs_status_call(ctx, st, 1) < 0) {
+        st->pend.reserved = 0;
+        st->card_busy = 0;
+        return 0;
+    }
+    return 1;
+}
+
 /* Performs the engine's pending transfer on the caller's thread and
  * records its status. */
 static void rt_fs_transfer_sync(struct rt_context* ctx, struct rt_fs_state* st) {
     int32_t r;
+    uint32_t msr;
     rt_fs_build_sendcmd(ctx, st);
+    msr = rt_interrupts_off();
+    rt_fs_mark_write(ctx, st);
+    rt_interrupts_restore(msr);
     r = rt_fs_sendcmd_call(ctx, st, 0);
     st->transfers++;
     if (r < 0) st->failures++;
     st->req.fat.io_status = r < 0 ? r : 0;
+    if (st->req.fat.io_write) rt_fs_settle_sync(ctx, st);
 }
 
 /* Issues the engine's pending transfer with the FILE record as its tag:
@@ -756,8 +883,13 @@ static void rt_fs_transfer_sync(struct rt_context* ctx, struct rt_fs_state* st) 
  * status then fails the request on its next step). */
 static int rt_fs_issue_async(struct rt_context* ctx, struct rt_fs_state* st) {
     int32_t r;
+    uint32_t msr;
     rt_fs_build_sendcmd(ctx, st);
+    msr = rt_interrupts_off();
+    rt_fs_mark_write(ctx, st);
     r = rt_fs_sendcmd_call(ctx, st, 1);
+    if (r < 0 && st->req.fat.io_write) st->card_busy = 0;
+    rt_interrupts_restore(msr);
     st->transfers++;
     if (r < 0) {
         st->failures++;
@@ -2047,8 +2179,14 @@ void rt_on_fs_complete(struct rt_context* ctx, int32_t* result, void* tag, uintp
     }
     if (tag == (void*)&st->pend && st->pend.in_use) {
         struct rtfs_request* req = &st->req;
-        if (*result < 0) st->failures++;
-        req->fat.io_status = *result < 0 ? *result : 0;
+        if (st->pend.reserved != 0) {
+            /* A CMD13 after a write: another, or the engine goes on. */
+            if (rt_fs_settle_next(ctx, st, *result)) return;
+        } else {
+            if (*result < 0) st->failures++;
+            req->fat.io_status = *result < 0 ? *result : 0;
+            if (req->fat.io_write && rt_fs_settle_next(ctx, st, 0)) return;
+        }
         if (rt_fs_advance(ctx, st, 0) == RT_FS_ADVANCE_ISSUED) return;
         st->pend.in_use = 0;
         if (st->pend.job) {
@@ -2217,6 +2355,27 @@ static int rt_issue_sd_chunk(struct rt_context* ctx, struct rt_pending* record) 
     record->chunk_skip = skip;
     record->chunk_bytes = sectors * RT_SECTOR_BYTES - skip;
     if (record->chunk_bytes > remaining) record->chunk_bytes = remaining;
+    if (run->kind == RT_KIND_SD) {
+        /* Not while a savegame write is still being programmed (rt_sd_settles):
+         * checked and issued with interrupts off, so a write cannot slip in
+         * between. pad_request[0] counts the waits (the request line is
+         * only ever flushed, never dropped). */
+        struct rt_fs_state* fs = rt_fs_of(ctx);
+        if (fs != 0 && rt_sd_settles(ctx, fs)) {
+            const uint32_t msr = rt_interrupts_off();
+            int r;
+            if (fs->card_busy && record->pad_request[0] < RT_SD_SETTLE_POLLS) {
+                record->pad_request[0]++;
+                record->phase = RT_PHASE_SD_WAIT;
+                r = rt_sd_wait_trip(ctx, record) < 0 ? -1 : 1;
+            } else {
+                record->pad_request[0] = 0;
+                r = rt_issue_sd_read(ctx, record, 0, sector, sectors, record->bounce, RT_PHASE_SD);
+            }
+            rt_interrupts_restore(msr);
+            return r;
+        }
+    }
     return rt_issue_sd_read(ctx, record, run->kind == RT_KIND_USB, sector, sectors, record->bounce, RT_PHASE_SD);
 }
 
@@ -2726,7 +2885,18 @@ void rt_on_di_complete(struct rt_context* ctx, int32_t* result, struct rt_pendin
 #endif
     slot = (uint32_t)(record - ctx->pending);
     if (slot >= RT_MAX_PENDING) slot = 0;
-    if (record->phase == RT_PHASE_DISC) {
+    if (record->phase == RT_PHASE_SD_WAIT) {
+        /* The card was finishing a savegame write: the chunk now, or
+         * another wait. */
+        const int issued = rt_issue_sd_chunk(ctx, record);
+        if (issued > 0) {
+            *callback = 0;
+            return;
+        }
+        ctx->sd_failures++;
+        record->di_result = RT_DI_ERROR;
+        record->run_index = record->run_count;
+    } else if (record->phase == RT_PHASE_DISC) {
         /* A virtual read's stand-in at the partition start: every byte of
          * the answer comes from the table, so the drive's verdict on it
          * does not matter. */

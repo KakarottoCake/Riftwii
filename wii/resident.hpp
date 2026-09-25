@@ -70,6 +70,7 @@ struct ResidentOptions {
     std::int32_t sdio_fd = -1;
     bool sdio_sdhc = false;
     bool sdio_d2x = false;  // sdio_fd is d2x's /dev/sdio/sdhc (d2xsd.hpp)
+    std::uint16_t sdio_rca = 0;  // slot0's card address: the savegame engine waits out each write with CMD13
     // USB runs (packs on the USB drive) need d2x's /dev/usb2, opened and
     // started by the loader (umsdev.hpp).
     std::int32_t usb_fd = -1;
