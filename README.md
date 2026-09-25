@@ -8,11 +8,12 @@ packs that Riivolution uses, and it was written from scratch without
 copying Riivolution code (see `NOTICE.md`). Licence: GPL-3.0-or-later
 (`LICENSE`); third-party notices in `NOTICE.md`.
 
-> 2.0 Beta. The menu and the mod engine are checked by host tests and in
-> the Dolphin emulator, and players run RiftWii on real Wiis. SD and USB
-> game loading depend on d2x and are the least proven, as is the new
-> GameCube adapter support. Please report anything odd as a GitHub issue
-> (see [Reporting a problem](#reporting-a-problem)).
+> 2.1. The menu and the mod engine are checked by host tests and in the
+> Dolphin emulator, and players run RiftWii on real Wiis. What is not yet
+> confirmed on real Wiis is marked **Experimental** (see
+> [Stable and beta versions](#stable-and-beta-versions)). Please report
+> anything odd as a GitHub issue (see
+> [Reporting a problem](#reporting-a-problem)).
 
 ## About AI assistance
 
@@ -144,13 +145,14 @@ the list explains the row you are on.
   every game.
 - **Home tiles**: covers or names.
 - **Download names and cheats**, and **Get the latest game names**.
-- **GameCube adapter**, and **Check the GameCube adapter** (below).
+- **GameCube adapter** (experimental), and **Check the GameCube adapter** (below).
 - **Menu IOS**: IOS 58, or a d2x cIOS slot (248 to 252). Pick the slot that has
   fakemote to use USB DS3/DS4 pads as Wii Remotes.
 - **Find network packs (RiiFS)** and **Copy network packs again** (below).
-- **Look for games again**, **Check for a new version** (on GitHub; with
-  downloads on, RiftWii also looks at every start and says so on
-  Home), and **Leave RiftWii** (HOME does that too).
+- **Look for games again**, **Updates** (Stable or Beta, below),
+  **Check for a new version** (on GitHub; with downloads on, RiftWii also
+  looks at every start and asks before it updates), and **Leave RiftWii**
+  (HOME does that too).
 
 ### RVZ games
 
@@ -288,6 +290,26 @@ or Wii U GamePad (same button names; X stands in for 1). The GameCube
 control stick and the Classic Controller's left stick move a pointer
 like a Wii Remote's; the D-pad moves the highlight. With no pointer on
 screen, only the highlighted tile or row answers to A.
+
+## Stable and beta versions
+
+Stable versions (2.1.0, 2.1.1, ...) are the ones testers have checked on
+real Wiis. Beta versions (2.1.1-beta, 2.2.0-rc1, ...) come more often and
+carry new fixes and features that are not checked yet. **Settings >
+Updates** picks which ones RiftWii offers: **Stable** only stable
+versions, **Beta** every new version. A stable version starts on Stable
+and a beta on Beta.
+
+**Experimental** features are in stable versions too, but they are not
+yet confirmed on real Wiis and may not work on yours. The menu marks
+them (a note before the launch, or "experimental" in Settings):
+
+- **The GameCube controller adapter** in games (it works in the menu on a
+  Wii U). It stays off for RVZ games
+  ([issue #4](https://github.com/KakarottoCake/Riftwii/issues/4)).
+- **RVZ games**: if one does not start or play, use a WBFS or ISO copy.
+- **Packs on the USB drive** (`usb:/riivolution`): if the game does not
+  start, copy the pack to the SD card.
 
 ## Troubleshooting
 
