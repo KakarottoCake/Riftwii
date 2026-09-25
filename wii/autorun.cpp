@@ -60,6 +60,8 @@ struct Session {
     // A pack is on the USB drive: d2x's USB device is opened before the
     // probe opens the game partition, after which d2x refuses to open it.
     bool usb_packs = false;
+    // The disc's launch moved to a d2x cIOS for those packs: keep it.
+    bool on_cios = false;
 
     explicit Session(const LaunchSource& launch_source = LaunchSource(), const char* active_log = nullptr)
         : source(launch_source), log_path(active_log) {}
@@ -88,6 +90,10 @@ struct Session {
                 return false;
             }
         } else {
+            if (usb_packs && MenuCiosSlot() == 0) {
+                if (!activate_disc_cios(source.cios_slot, log_path, error)) return false;
+                on_cios = true;
+            }
             open_usb_for_packs();
             if (!probe_disc(probe, error)) return false;
         }
@@ -356,7 +362,8 @@ bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error, 
     const SaveOverride saves = resolve_save_override(save_mode, mod.savegame_dir, game_id);
     const bool xml_saves = !mod.savegame_dir.empty();
     const std::string dir = xml_saves ? mod.savegame_dir : saves.dir;
-    BootOptions options; options.allow_ios_fallback=true; options.preserve_current_ios=source.kind != LaunchSource::Kind::Disc || MenuCiosSlot() != 0;
+    BootOptions options; options.allow_ios_fallback=true;
+    options.preserve_current_ios = source.kind != LaunchSource::Kind::Disc || MenuCiosSlot() != 0 || s.on_cios;
     options.install_resident=!mod.entries.empty() || !mod.relocations.empty() || !dir.empty();
     options.table_entries=mod.entries; options.relocations=mod.relocations; options.memory_patches=mod.memory;
     options.main_dol=mod.main_dol;

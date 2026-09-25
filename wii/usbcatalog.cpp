@@ -75,6 +75,34 @@ bool join(const std::string& a, const std::string& b, std::string& out) {
     out = a + "/" + b;
     return true;
 }
+// On IOS 58 libogc lists every USB device that is not HID under the
+// mass-storage class, a USB LAN adapter too (once IOS has seen it, so not
+// always on the first start). Such an entry is asked for its interfaces as
+// libogc's storage driver does; opening one there only resumes it and
+// closing does not suspend it. Under a cIOS (device id 0) IOS filters the
+// class itself. A device that cannot be asked is not counted.
+bool is_mass_storage(const usb_device_entry& entry) {
+    if (entry.device_id == 0) return true;
+    s32 fd = -1;
+    if (USB_OpenDevice(entry.device_id, entry.vid, entry.pid, &fd) < 0) return false;
+    usb_devdesc desc;
+    std::memset(&desc, 0, sizeof(desc));
+    bool storage = false;
+    if (USB_GetDescriptors(fd, &desc) >= 0) {
+        for (u8 c = 0; c < desc.bNumConfigurations && !storage; ++c) {
+            const usb_configurationdesc& conf = desc.configurations[c];
+            for (u8 i = 0; i < conf.bNumInterfaces; ++i) {
+                const usb_interfacedesc& iface = conf.interfaces[i];
+                if (iface.bInterfaceClass == kUsbClassMassStorage && iface.bInterfaceProtocol == 0x50) storage = true;
+            }
+        }
+        USB_FreeDescriptors(&desc);
+    }
+    USB_CloseDevice(&fd);
+    if (!storage) logf("USB: %04x:%04x is not a drive (a network adapter or hub?), not counted\n", entry.vid, entry.pid);
+    return storage;
+}
+
 bool ensure_usb(std::string& error) {
     if (g_raw_mounted && g_usb_volume) return true;
     // libogc's storage driver and d2x each pick one drive, not always the
@@ -82,8 +110,12 @@ bool ensure_usb(std::string& error) {
     // read the wrong disk. Say so instead of failing somewhere later.
     USB_Initialize();
     static usb_device_entry devices[8] ATTRIBUTE_ALIGN(32);
+    u8 listed = 0;
     u8 drives = 0;
-    if (USB_GetDeviceList(devices, 8, kUsbClassMassStorage, &drives) >= 0 && drives > 1) {
+    if (USB_GetDeviceList(devices, 8, kUsbClassMassStorage, &listed) >= 0 && listed > 1) {
+        for (u8 i = 0; i < listed && i < 8; ++i) drives += is_mass_storage(devices[i]) ? 1 : 0;
+    }
+    if (drives > 1) {
         logf("USB: %u drives plugged in\n", static_cast<unsigned>(drives));
         error = std::to_string(drives) + " USB drives are plugged in. RiftWii and d2x can use only one: "
                 "unplug the others (keep the one with your games) and try again";
@@ -678,6 +710,44 @@ void release_usb_driver() {
     unmount_usb_games();
     if (g_usb_started) __io_usbstorage.shutdown();
     g_usb_started = false;
+}
+
+bool activate_disc_cios(int cios_slot, const char* log_path, std::string& error) {
+    const int slots[] = {cios_slot ? cios_slot : 249, cios_slot ? 0 : 250, cios_slot ? 0 : 251};
+    std::string skipped;
+    for (int slot : slots) {
+        if (!slot) continue;
+        std::string why;
+        // Vetted while this IOS still runs, as for USB games.
+        if (!running_in_dolphin() && !slot_title_is_launchable(slot, why)) {
+            logf("Disc: skipping IOS%d (%s)\n", slot, why.c_str());
+            skipped += (skipped.empty() ? "" : ", ") + std::string("IOS") + std::to_string(slot) + ": " + why;
+            continue;
+        }
+        logf("Disc: reload IOS%d for the packs on the USB drive; releasing Wii Remotes, USB, SD and DI\n", slot);
+        LogClose();
+        release_wii_remotes();
+        fatUnmount("sd:");
+        __io_wiisd.shutdown();
+        g_sd_back = false;
+        release_usb_driver();
+        di::close();
+        const ReloadResult r = reload_ios(slot, error, true);
+        if (r == ReloadResult::Terminal) return false;
+        g_sd_back = fatMountSimple("sd", sd_interface());
+        if (g_sd_back && log_path) LogOpen(log_path, true);
+        if (r == ReloadResult::NotInstalled || r == ReloadResult::Failed) {
+            logf("Disc: IOS%d: %s\n", slot, error.c_str());
+            skipped += (skipped.empty() ? "" : ", ") + std::string("IOS") + std::to_string(slot) + ": " + error;
+            continue;
+        }
+        logf("Disc: reloaded IOS%d rev %d (%s)\n", IOS_GetVersion(), IOS_GetRevision(), last_reload_detail().c_str());
+        error.clear();
+        return true;
+    }
+    error = "packs on the USB drive need a d2x cIOS (249, 250 or 251), and none could be started" +
+            (skipped.empty() ? std::string() : " (" + skipped + ")");
+    return false;
 }
 
 bool activate_image_game(const ImageGame& game, int cios_slot, void*& storage, std::size_t& storage_bytes,
