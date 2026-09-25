@@ -23,6 +23,7 @@
 #include "modplan.hpp"
 #include "netpacks.hpp"
 #include "sdfile.hpp"
+#include "umsdev.hpp"
 
 namespace riftwii::wii {
 namespace {
@@ -39,6 +40,13 @@ std::string basename_of(const std::string& disc_path) {
     return slash == std::string::npos ? disc_path : disc_path.substr(slash + 1);
 }
 
+bool any_on_usb(const std::vector<PackageChoices>& packages) {
+    for (const PackageChoices& p : packages) {
+        if (p.xml_sd_path.compare(0, 5, "usb:/") == 0) return true;
+    }
+    return false;
+}
+
 // Shared state for one session: the probe and, lazily, the layout.
 struct Session {
     LaunchSource source;
@@ -49,6 +57,9 @@ struct Session {
     void* frag_storage = nullptr;
     std::size_t frag_storage_bytes = 0;
     const char* log_path = nullptr;
+    // A pack is on the USB drive: d2x's USB device is opened before the
+    // probe opens the game partition, after which d2x refuses to open it.
+    bool usb_packs = false;
 
     explicit Session(const LaunchSource& launch_source = LaunchSource(), const char* active_log = nullptr)
         : source(launch_source), log_path(active_log) {}
@@ -66,16 +77,30 @@ struct Session {
                 if (reload_terminal_failure()) return false;
             }
             if (!active) return false;
+            open_usb_for_packs();
             logf("%s: virtual-disc probe\n", source.kind == LaunchSource::Kind::Usb ? "USB" : "SD");
-            if (!probe_disc(probe, error, ProbeOptions{true})) return false;
+            ProbeOptions virtual_disc;
+            virtual_disc.virtual_source = true;
+            if (!probe_disc(probe, error, virtual_disc)) return false;
             if (probe.header.game_id != source.game.id || probe.header.version != source.game.revision ||
                 probe.header.disc_number != source.game.disc_number) {
                 error="d2x virtual disc identity does not match the selected image";
                 return false;
             }
-        } else if (!probe_disc(probe, error)) return false;
+        } else {
+            open_usb_for_packs();
+            if (!probe_disc(probe, error)) return false;
+        }
         probed = true;
         return true;
+    }
+    // A failure is only logged here: the pack that needs the drive says
+    // why when it is read.
+    void open_usb_for_packs() {
+        if (!usb_packs) return;
+        std::string why;
+        if (ums::Open(why)) logf("USB: d2x's /dev/usb2 opened for the packs, before the game partition\n");
+        else logf("USB: d2x's /dev/usb2 for the packs: %s\n", why.c_str());
     }
     bool ensure_layout(std::string& error) {
         if (!ensure_probe(error)) return false;
@@ -237,12 +262,16 @@ bool ProbeInserted(std::string& game_id, std::string& title, std::string& error,
         error = "no disc in the drive";
         return false;
     }
-    Session s;
-    if (!s.ensure_probe(error)) return false;
-    game_id = s.probe.header.game_id;
-    title = s.probe.header.title;
-    if (revision) *revision = s.probe.header.version;
-    if (disc_number) *disc_number = s.probe.header.disc_number;
+    // The menu only needs the header; an opened partition would leave a
+    // d2x Menu IOS refusing USB for the rest of the session.
+    DiscProbe probe;
+    ProbeOptions options;
+    options.header_only = true;
+    if (!probe_disc(probe, error, options)) return false;
+    game_id = probe.header.game_id;
+    title = probe.header.title;
+    if (revision) *revision = probe.header.version;
+    if (disc_number) *disc_number = probe.header.disc_number;
     return true;
 }
 
@@ -270,6 +299,7 @@ void LogCompileNotes(const CompiledMod& mod) {
 
 bool CompileSelection(const std::vector<PackageChoices>& packages, CompiledMod& out, std::string& error, const LaunchSource& source) {
     Session s(source, "sd:/riftwii/boot.log");
+    s.usb_packs = any_on_usb(packages);
     if (!s.ensure_layout(error)) return false;
     CompiledMod mod;
     if (!compile_packages(packages, s.probe, s.partition, mod, error)) return false;
@@ -315,7 +345,9 @@ bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error, 
                const std::string& save_mode, const std::string& game_id) {
     // Keep one session across activation, DI probing, package compilation and
     // boot. In particular, a USB fragment list must survive the cIOS reload.
-    Session s(source, "sd:/riftwii/boot.log"); if (!s.ensure_layout(error)) return false;
+    Session s(source, "sd:/riftwii/boot.log");
+    s.usb_packs = any_on_usb(packages);
+    if (!s.ensure_layout(error)) return false;
     CompiledMod mod; if (!compile_packages(packages, s.probe, s.partition, mod, error)) return false;
     LogCompileNotes(mod);
     logf("%u package(s): %u table entries, %u relocation(s), %u memory patch(es)\n",
