@@ -20,6 +20,7 @@
 #include "input.h"
 #include "libwiigui/gui.h"
 #include "wiidrc.h"
+#include "gcadapter.hpp"
 
 static void UpdatePadPointers();
 
@@ -71,6 +72,34 @@ void UpdatePads()
 		userInput[i].pad.substickY = PAD_SubStickY(i);
 		userInput[i].pad.triggerL = PAD_TriggerL(i);
 		userInput[i].pad.triggerR = PAD_TriggerR(i);
+	}
+
+	// Riftwii: a GameCube controller adapter for Wii U works the menu like
+	// the Wii's own GameCube ports, its port N on channel N. Buttons add to
+	// the port's; a stick is taken while the port's own is idle.
+	static u16 adapterHeld[4] = {0, 0, 0, 0};
+	riftwii::wii::GcAdapterView adapter;
+	riftwii::wii::GcAdapterMenuPads(adapter);
+	for (int i = 0; i < 4; i++)
+	{
+		const u16 held = adapter.present[i] ? adapter.pads[i].buttons : 0;
+		userInput[i].pad.btns_d |= held & ~adapterHeld[i];
+		userInput[i].pad.btns_u |= adapterHeld[i] & ~held;
+		userInput[i].pad.btns_h |= held;
+		adapterHeld[i] = held;
+		if (!adapter.present[i]) continue;
+		const gcad_pad &a = adapter.pads[i];
+		PADData &p = userInput[i].pad;
+		if (abs(p.stickX) < 14 && abs(p.stickY) < 14) {
+			p.stickX = a.stick_x;
+			p.stickY = a.stick_y;
+		}
+		if (abs(p.substickX) < 14 && abs(p.substickY) < 14) {
+			p.substickX = a.substick_x;
+			p.substickY = a.substick_y;
+		}
+		if (a.trigger_l > p.triggerL) p.triggerL = a.trigger_l;
+		if (a.trigger_r > p.triggerR) p.triggerR = a.trigger_r;
 	}
 
 	UpdatePadPointers();

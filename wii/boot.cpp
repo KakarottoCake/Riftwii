@@ -1304,16 +1304,14 @@ std::vector<std::string> TakeCardLog() {
     return riftwii::describe_card_log(log);
 }
 
-namespace {
-
-// A Wii U: its Wii mode has the BC-NAND title (00000001-00000200), a Wii
-// has none.
 bool is_wii_u() {
-    u32 contents = 0;
-    return ES_GetTitleContentsCount(0x0000000100000200ULL, &contents) >= 0 && contents > 0;
+    static int known = -1;
+    if (known < 0) {
+        u32 contents = 0;
+        known = ES_GetTitleContentsCount(0x0000000100000200ULL, &contents) >= 0 && contents > 0;
+    }
+    return known == 1;
 }
-
-}  // namespace
 
 bool boot_game(const DiscProbe& probe, const BootOptions& options, std::string& error) {
     const std::uint32_t required = probe.tmd.required_ios();
@@ -1326,12 +1324,14 @@ bool boot_game(const DiscProbe& probe, const BootOptions& options, std::string& 
     const int running_ios = IOS_GetVersion();
     if (g_extras.gc_adapter == GcAdapterMode::Auto || g_extras.gc_adapter == GcAdapterMode::On) {
         // Where the adapter broke the launch on hardware, it stays off and
-        // USB is not touched for it: on a Wii U /dev/usb/hid never answered
-        // (d2x) or answered nothing (IOS58); with the game read from the
-        // USB drive through d2x, the game's disc reads failed.
-        const char* off = is_wii_u()               ? "not supported on a Wii U yet"
-                          : di::frag_device() == 1 ? "the game is read from the USB drive, which the adapter breaks"
-                                                   : nullptr;
+        // USB is not touched for it: on a Wii U's d2x cIOS /dev/usb/hid
+        // never answered; with the game read from the USB drive through
+        // d2x, the game's disc reads failed. A Wii U's IOS 58 refused
+        // RiftWii's handle only while the menu's USB held /dev/usb/hid;
+        // the game's is opened after libogc's USB is shut down.
+        const char* off = is_wii_u() && running_ios != 58 ? "on a Wii U it needs IOS 58 (the Menu IOS)"
+                          : di::frag_device() == 1          ? "the game is read from the USB drive, which the adapter breaks"
+                                                            : nullptr;
         if (off) {
             logf("GameCube adapter: off: %s\n", off);
             g_extras.gc_adapter = GcAdapterMode::Off;

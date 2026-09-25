@@ -56,6 +56,9 @@ bool usb_hid_present();
 // was listed. Unknown when this IOS cannot tell (v5), taken as plugged in.
 enum class AdapterSeen { Found, Missing, Unknown };
 AdapterSeen look_for_gc_adapter(std::string& how);
+// One look at libogc's USB device list (starting libogc's USB if need
+// be): the adapter's v5 device id when it has one, and every VID:PID.
+AdapterSeen ogc_adapter(std::int32_t& dev_id, std::string& devices);
 
 // While boot.log is still open: PADRead and PADControlMotor in the
 // loaded game, into a fresh `out`, then /dev/usb/hid opened for the game
