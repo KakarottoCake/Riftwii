@@ -41,6 +41,7 @@ struct PadHook {
     std::uint32_t new_arena2_lo = 0; // the end of the state
     std::int32_t fd = -1;            // /dev/usb/hid
     std::uint32_t version = 0;       // 4 or 5
+    std::int32_t known_dev = -1;     // the adapter's v5 device id from libogc's list, -1: none
 };
 
 // Opens /dev/usb/hid on RiftWii's own handle and tells v4 from v5.
@@ -57,7 +58,8 @@ enum class AdapterSeen { Found, Missing, Unknown };
 AdapterSeen look_for_gc_adapter(std::string& how);
 
 // While boot.log is still open: PADRead and PADControlMotor in the
-// loaded game, into a fresh `out`. False (with a reason) turns the
+// loaded game, into a fresh `out`, then /dev/usb/hid opened for the game
+// (libogc's USB is shut down for it). False (with a reason) turns the
 // adapter off.
 bool find_pad_functions(const DolHeader& dol, bool demo, PadHook& out, std::string& why);
 

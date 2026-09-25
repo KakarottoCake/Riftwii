@@ -27,11 +27,42 @@ constexpr std::uint32_t kBusClockField = 0x800000F8;  // the time base runs at a
 constexpr unsigned kScratchRegister = 12;             // pad_entry.S's jump back
 constexpr std::uint32_t kNop = 0x60000000;
 // v5 serves 16 handles, picked by the open mode: libogc's USB takes 0 and
-// fakemote (a cIOS module) 15, so this one is ours. v4 ignores it.
-constexpr int kHidHandle = 1;
+// fakemote (a cIOS module) 15. 0 is tried first (free once libogc's USB
+// is shut down; a Wii U's IOS 58 answered nothing on 1), then 1. v4
+// ignores it.
+constexpr int kHidHandles[2] = {0, 1};
+// A USB HID module that does not answer (a Wii U's d2x cIOS never
+// returned from opening /dev/usb/hid with an adapter plugged in) turns
+// the adapter off instead of hanging the launch.
+constexpr unsigned kHidTimeoutMs = 1500;
 
 char g_hid_path[] ATTRIBUTE_ALIGN(32) = "/dev/usb/hid";
 std::uint32_t g_version_out[8] ATTRIBUTE_ALIGN(32);
+volatile bool g_async_done = false;
+volatile s32 g_async_result = 0;
+bool g_hid_stuck = false;  // a request timed out: /dev/usb/hid is left alone from then on
+
+s32 on_async(s32 result, void*) {
+    g_async_result = result;
+    g_async_done = true;
+    return 0;
+}
+
+// Waits for the reply of a request just submitted (`submitted` is what
+// the submit returned). False on a timeout: the request stays with IOS.
+bool await_async(s32 submitted, s32& result) {
+    if (submitted < 0) {
+        result = submitted;
+        return true;
+    }
+    for (unsigned i = 0; i < kHidTimeoutMs && !g_async_done; ++i) usleep(1000);
+    if (!g_async_done) {
+        g_hid_stuck = true;
+        return false;
+    }
+    result = g_async_result;
+    return true;
+}
 std::uint32_t align_up(std::uint32_t v) { return (v + 31) & ~31u; }
 
 const rt_pad_header& header() { return *reinterpret_cast<const rt_pad_header*>(riftwii_pad_bin); }
@@ -55,29 +86,51 @@ bool overlaps(const MemoryPatch& p, std::uint32_t start, std::uint32_t bytes) {
 
 // v4's GetVersion answers 0x40001 itself, v5's writes 0x50001 into its
 // output; v4 is asked first, as libogc does (v5's number is
-// GetDeviceChange on v4). Opened on RiftWii's own v5 handle first; when
-// that gets neither answer (a Wii U's IOS 58 did), on handle 0, libogc's.
-// Every step is logged first: a d2x cIOS hung somewhere in here with an
-// adapter plugged in.
+// GetDeviceChange on v4). Every call is asynchronous with a timeout.
 bool open_usb_hid(std::int32_t& fd, std::uint32_t& version, std::string& why) {
-    const int handles[2] = {kHidHandle, 0};
+    fd = -1;
+    if (g_hid_stuck) {
+        why = "/dev/usb/hid did not answer earlier; left alone";
+        return false;
+    }
     std::string tried;
-    for (const int handle : handles) {
-        logf("GameCube adapter: opening /dev/usb/hid (handle %d)\n", handle);
-        fd = IOS_Open(g_hid_path, handle);
-        if (fd < 0) {
+    for (const int handle : kHidHandles) {
+        s32 ret = 0;
+        g_async_done = false;
+        if (!await_async(IOS_OpenAsync(g_hid_path, handle, on_async, nullptr), ret)) {
+            why = "/dev/usb/hid did not answer when opened (handle " + std::to_string(handle) + ", " +
+                  std::to_string(kHidTimeoutMs) + " ms)";
+            return false;
+        }
+        if (ret < 0) {
             tried += (tried.empty() ? "" : "; ") + std::string("handle ") + std::to_string(handle) + ": open " +
-                     std::to_string(fd);
+                     std::to_string(ret);
             continue;
         }
-        logf("GameCube adapter: asking /dev/usb/hid fd %d its version\n", static_cast<int>(fd));
-        const s32 v4 = IOS_Ioctl(fd, GCAD_V4_GET_VERSION, nullptr, 0, nullptr, 0);
+        fd = ret;
+        s32 v4 = 0;
+        g_async_done = false;
+        if (!await_async(IOS_IoctlAsync(fd, GCAD_V4_GET_VERSION, nullptr, 0, nullptr, 0, on_async, nullptr), v4)) {
+            why = "/dev/usb/hid did not answer its v4 GetVersion";
+            fd = -1;  // left open: closing it could wait too
+            return false;
+        }
         if (v4 == static_cast<s32>(GCAD_V4_VERSION)) {
             version = 4;
             return true;
         }
         std::memset(g_version_out, 0, sizeof(g_version_out));
-        const s32 v5 = IOS_Ioctl(fd, GCAD_V5_GET_VERSION, nullptr, 0, g_version_out, sizeof(g_version_out));
+        DCFlushRange(g_version_out, sizeof(g_version_out));
+        s32 v5 = 0;
+        g_async_done = false;
+        if (!await_async(IOS_IoctlAsync(fd, GCAD_V5_GET_VERSION, nullptr, 0, g_version_out, sizeof(g_version_out),
+                                        on_async, nullptr),
+                         v5)) {
+            why = "/dev/usb/hid did not answer its v5 GetVersion";
+            fd = -1;
+            return false;
+        }
+        DCInvalidateRange(g_version_out, sizeof(g_version_out));
         if (v5 == 0 && g_version_out[0] == GCAD_V5_VERSION) {
             version = 5;
             return true;
@@ -132,26 +185,17 @@ AdapterSeen ogc_adapter(std::int32_t& dev_id, std::string& devices) {
 }
 
 bool usb_hid_present() {
-    const s32 fd = IOS_Open(g_hid_path, kHidHandle);
-    if (fd < 0) return false;
+    std::int32_t fd = -1;
+    std::uint32_t version = 0;
+    std::string why;
+    if (!open_usb_hid(fd, version, why)) return false;
     IOS_Close(fd);
     return true;
 }
 
 AdapterSeen look_for_gc_adapter(std::string& how) {
-    // Right after an IOS reload USB is still finding its devices: leave
-    // it alone for its first 2 s (a d2x cIOS hung when asked sooner, with
-    // an adapter plugged in).
-    const unsigned since = ms_since_ios_reload();
-    if (since < 2000) {
-        logf("GameCube adapter: waiting %u ms for USB after the IOS reload\n", 2000 - since);
-        usleep((2000 - since) * 1000);
-    }
-    std::int32_t fd = -1;
-    std::uint32_t version = 0;
-    if (!open_usb_hid(fd, version, how)) return AdapterSeen::Missing;
-    logf("GameCube adapter: /dev/usb/hid v%u; closing it and asking USB for its devices\n", version);
-    IOS_Close(fd);
+    // The USB device list only: /dev/usb/hid is opened later, once, with
+    // a timeout (a Wii U's d2x cIOS never answered the open).
     // v5 lists devices once per change, to whoever asks first: the menu's
     // USB (libogc) had the list and keeps it. v4 is asked through oh0.
     // Just after an IOS reload the devices are still being found: up to
@@ -170,7 +214,7 @@ AdapterSeen look_for_gc_adapter(std::string& how) {
     how = std::string(seen == AdapterSeen::Found     ? "plugged in"
                       : seen == AdapterSeen::Missing ? "not plugged in"
                                                      : "unknown, taken as plugged in") +
-          " (/dev/usb/hid v" + std::to_string(version) + ", USB lists " + devices + extra + ")";
+          " (USB lists " + devices + extra + ")";
     return seen;
 }
 
@@ -203,6 +247,26 @@ bool find_pad_functions(const DolHeader& dol, bool demo, PadHook& out, std::stri
     out.motor = pad.control_motor;
     logf("GameCube adapter: PADRead at 0x%08x (%u error stores), PADControlMotor at 0x%08x\n", out.read,
          out.read_sites, out.motor);
+
+    // The adapter's device, with the IOS the game will run. The menu's
+    // USB storage left libogc's device-change requests pending: v5 takes
+    // one at a time (Dolphin refuses a second), and their answers would
+    // reach the game. libogc cancels its own; the Shutdown on ours clears
+    // one it re-armed while going.
+    std::string devices;
+    ogc_adapter(out.known_dev, devices);  // v5's list goes with libogc's USB
+    USB_Deinitialize();
+    usleep(50000);
+    if (!open_usb_hid(out.fd, out.version, why)) {
+        if (!demo) return false;
+        logf("GameCube adapter: %s; demo mode goes on without it\n", why.c_str());
+        out.fd = -1;
+        out.version = 5;
+    } else if (out.version == 5) {
+        IOS_Ioctl(out.fd, GCAD_V5_SHUTDOWN, nullptr, 0, nullptr, 0);  // an error when nothing was pending
+    }
+    logf("GameCube adapter: /dev/usb/hid v%u fd %d, adapter device %d\n", out.version, static_cast<int>(out.fd),
+         static_cast<int>(out.known_dev));
     return true;
 }
 
@@ -237,24 +301,7 @@ bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
         }
     }
 
-    // 2. The adapter's device, with the IOS the game will run. The menu's
-    // USB storage left libogc's device-change requests pending: v5 takes
-    // one at a time (Dolphin refuses a second), and their answers would
-    // reach the game. libogc cancels its own; the Shutdown on ours clears
-    // one it re-armed while going.
-    std::int32_t known_dev = -1;
-    std::string devices;
-    ogc_adapter(known_dev, devices);  // v5's list goes with libogc's USB
-    USB_Deinitialize();
-    usleep(50000);
-    if (!open_usb_hid(out.fd, out.version, why)) {
-        if (!demo) return false;
-        logf("GameCube adapter: %s; demo mode goes on without it\n", why.c_str());
-        out.fd = -1;
-        out.version = 5;
-    } else if (out.version == 5) {
-        IOS_Ioctl(out.fd, GCAD_V5_SHUTDOWN, nullptr, 0, nullptr, 0);  // an error when nothing was pending
-    }
+    // 2. /dev/usb/hid, opened by find_pad_functions.
     if (out.version == 5 && ioctlv_async == 0) {
         why = "/dev/usb/hid v5 needs the game's IOS_IoctlvAsync, which was not found";
         if (out.fd >= 0) IOS_Close(out.fd);
@@ -307,12 +354,10 @@ bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
     ctx->ticks_per_ms = read32(kBusClockField) / 4000u;
     ctx->inited = 0;
     ctx->flags = demo ? RT_PAD_FLAG_DEMO : 0u;
-    ctx->known_dev = out.version == 5 ? known_dev : -1;
+    ctx->known_dev = out.version == 5 ? out.known_dev : -1;
     out.active = true;
-    logf("GameCube adapter: /dev/usb/hid v%u fd %d, adapter device %d; blob %u bytes at 0x%08x, state %u bytes at "
-         "0x%08x%s\n",
-         out.version, out.fd, static_cast<int>(ctx->known_dev), h.size, out.code_base, out.state_bytes, out.state_base,
-         demo ? " (demo)" : "");
+    logf("GameCube adapter: blob %u bytes at 0x%08x, state %u bytes at 0x%08x%s\n", h.size, out.code_base,
+         out.state_bytes, out.state_base, demo ? " (demo)" : "");
     return true;
 }
 
