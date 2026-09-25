@@ -115,23 +115,6 @@ bool Defer(std::uint32_t tag, std::uint32_t cmd, std::int32_t dev) {
     return true;
 }
 
-// The adapter's v5 device id in libogc's HID list: libogc keeps that list
-// from /dev/usb/hid's device changes when it is v5. On v4 its list comes
-// from /dev/usb/oh0, without ids (0).
-bool OgcV5Adapter(std::int32_t& dev) {
-    static usb_device_entry list[32] ATTRIBUTE_ALIGN(32);
-    u8 count = 0;
-    dev = -1;
-    if (USB_Initialize() < 0 || USB_GetDeviceList(list, 32, USB_CLASS_HID, &count) < 0) return false;
-    for (unsigned i = 0; i < count && i < 32; ++i) {
-        if ((static_cast<std::uint32_t>(list[i].vid) << 16 | list[i].pid) == GCAD_VID_PID && list[i].device_id != 0) {
-            dev = list[i].device_id;
-            return true;
-        }
-    }
-    return false;
-}
-
 // Gives the shared mode's answers to the driver, and makes libogc's
 // synchronous calls. Runs with interrupts on: libogc's calls use IPC.
 void ServeShared() {
@@ -276,9 +259,13 @@ bool GcAdapterStart(std::string& why) {
         }
     }
     ResetShared();
+    // A v5 device id in libogc's list: libogc keeps that list from
+    // /dev/usb/hid's device changes when it is v5 (on v4 it comes from
+    // /dev/usb/oh0, without ids).
     std::int32_t dev = -1;
     std::uint32_t version = 5;
-    if (OgcV5Adapter(dev)) {
+    std::string devices;
+    if (ogc_adapter(dev, devices) == AdapterSeen::Found && dev >= 0) {
         // libogc's USB owns v5's handle: its device-change notices, its
         // list and its transfers stand in for ours.
         g_fd = -1;
