@@ -182,16 +182,32 @@ static void Place(GuiText& t, int x, int y, bool centre = false)
 	t.SetPosition(x, y);
 }
 
+// The `n`th lowest set bit of `mask`, or 0.
+static u32 NthBit(u32 mask, int n)
+{
+	for (u32 bit = 1; bit != 0; bit <<= 1) {
+		if (!(mask & bit)) continue;
+		if (n-- == 0) return bit;
+	}
+	return 0;
+}
+
 // A painted button (skin textures) triggered by A and by a hotkey. The
 // Wii U GamePad mirrors the Wii names; every button carries a GamePad and
 // a GameCube hotkey so the menus are drivable without a pointer.
 struct SkinButton {
+	// libwiigui fires a button-only trigger only when the buttons pressed
+	// equal its whole mask (per controller), so "B or HOME" as one mask
+	// never fired on a Wii Remote or Classic Controller: each hotkey gets a
+	// trigger of its own (the Nth Remote, Classic, GameCube and GamePad
+	// button together; libwiigui compares each controller on its own).
+	static constexpr int kMaxHot = 4;  // with trigA, libwiigui's 5 triggers
 	GuiImage image;
 	GuiImage imageOver;
 	GuiImage icon;
 	GuiText text;
 	GuiTrigger trigA;
-	GuiTrigger trigHot;
+	GuiTrigger trigHot[kMaxHot];
 	GuiButton button;
 	// `x`, `y`: where the visible shape starts; `margin`: the texture's
 	// transparent border around it.
@@ -202,7 +218,6 @@ struct SkinButton {
 		  text(label, 22, skin::kInk), button(face.w, face.h)
 	{
 		trigA.SetSimpleTrigger(-1, WPAD_BUTTON_A | WPAD_CLASSIC_BUTTON_A, PAD_BUTTON_A, WIIDRC_BUTTON_A);
-		trigHot.SetButtonOnlyTrigger(-1, wpadHot, padHot, drcHot);
 		button.SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
 		button.SetPosition(x - margin, y - margin);
 		button.SetImage(&image);
@@ -214,7 +229,18 @@ struct SkinButton {
 		}
 		if (soundOver) button.SetSoundOver(soundOver);
 		button.SetTrigger(&trigA);
-		if (wpadHot || padHot || drcHot) button.SetTrigger(&trigHot);
+		for (int k = 0; k < kMaxHot; ++k) {
+			const u32 remote = NthBit(wpadHot & 0xFFFF, k);
+			const u32 classic = NthBit(wpadHot & 0xFFFF0000u, k);
+			const u16 pad = static_cast<u16>(NthBit(padHot, k));
+			const u16 drc = static_cast<u16>(NthBit(drcHot, k));
+			if (!remote && !classic && !pad && !drc) break;
+			// An empty half would match any press of the other controller
+			// (0 == 0), so it gets a bit no controller sends.
+			constexpr u32 kNoRemote = 0x0040, kNoClassic = 0x0100u << 16;
+			trigHot[k].SetButtonOnlyTrigger(-1, (remote ? remote : kNoRemote) | (classic ? classic : kNoClassic), pad, drc);
+			button.SetTrigger(&trigHot[k]);
+		}
 		button.SetEffectGrow();
 	}
 	bool Clicked() { return button.GetState() == STATE::CLICKED; }
@@ -593,6 +619,23 @@ static void RunUpdate(const std::string& latest)
 	g_homeNotice = tr("RiftWii {1} is installed. Start RiftWii again to use it.", {latest});
 }
 
+// A newer release found at start: the player picks Update or Not now, and
+// Not now is asked once more before it counts (and is logged as a choice).
+static bool AgreeToUpdate(const std::string& latest)
+{
+	if (ShowPopup(tr("Update available"),
+		    tr("RiftWii {1} is out (this is {2}). Update now? It takes a minute.", {latest, RIFTWII_VERSION}),
+		    tr("Update"), tr("Not now")) == 0)
+		return true;
+	if (ShowPopup(tr("Are you sure?"),
+		    tr("Are you sure you don't want to update? If you had an issue, it could have been fixed in the latest update!"),
+		    tr("Update"), tr("Not now")) == 0)
+		return true;
+	riftwii::wii::NoteUpdateDeclined(latest);
+	g_homeNotice = tr("RiftWii {1} is out. Settings > Check for a new version installs it.", {latest});
+	return false;
+}
+
 // A drive that is there but cannot be read gets a box; one that is simply
 // not inserted does not. Each problem is shown once until it changes.
 static void WarnAboutDrives(const std::string& sdError, const std::string& usbError)
@@ -664,7 +707,8 @@ static void ScanDrives(FrontendState& state, GuiText& status)
 	}
 	// After the USB scan: packs on the drive count too.
 	LoadPackIndex();
-	// A newer release, asked at every start when downloads are on.
+	// A newer release, asked at every start when downloads are on; the
+	// player is asked before it is installed.
 	static bool updateChecked = false;
 	if (!updateChecked && riftwii::wii::Settings().online) {
 		updateChecked = true;
@@ -676,7 +720,7 @@ static void ScanDrives(FrontendState& state, GuiText& status)
 		if (!ok) logf("Update check: %s\n", why.c_str());
 		else if (newer && riftwii::wii::UpdateInstalled(latest))
 			g_homeNotice = tr("RiftWii {1} is installed. Start RiftWii again to use it.", {latest});
-		else if (newer)
+		else if (newer && AgreeToUpdate(latest))
 			RunUpdate(latest);
 	}
 	g_scanned = true;

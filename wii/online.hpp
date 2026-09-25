@@ -42,6 +42,11 @@ bool UpdateInstalled(const std::string& latest);
 // puts it in place of the running boot.dol, keeping the old one as
 // boot.dol.old; meta.xml's version follows. `where` is the file replaced.
 bool InstallUpdate(const std::string& latest, std::string& where, std::string& error);
+// The player turned down `latest` at start (Not now, twice). Logged to the
+// session now, and to boot.log by LogDeclinedUpdate at a launch, so a bug
+// report shows the version that might already fix it was declined.
+void NoteUpdateDeclined(const std::string& latest);
+void LogDeclinedUpdate();
 
 // sd:/riftwii/cheats/<ID>.txt.
 std::string CheatPath(const std::string& game_id);
