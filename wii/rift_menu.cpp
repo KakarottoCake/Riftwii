@@ -472,6 +472,136 @@ static std::string HomeStatus(const FrontendState& state, std::size_t shown)
 	return std::string(tr(FilterLabel(g_filter))) + "   " + tr("1: view   2: settings   -: A to Z   +: rescan");
 }
 
+class Panel : public GuiElement {
+public:
+	Panel(const skin::Tex& tex, int x, int y) : tex(tex), x(x), y(y) {}
+	void Draw() override { skin::Draw(tex, x - 4.0f, y - 4.0f); }
+private:
+	const skin::Tex& tex;
+	int x, y;
+};
+
+// A box over the current page: a title, some text and up to two buttons
+// (A for the first, B or HOME for the second). The page underneath takes
+// no input while it is up. Built and closed with the GUI halted.
+class Dim : public GuiElement {
+public:
+	void Draw() override { Menu_DrawRectangle(0, 0, screenwidth, screenheight, (GXColor){0, 0, 0, 150}, 1); }
+};
+
+class PopupBox {
+public:
+	PopupBox(const std::string& title, const std::string& body, const std::string& ok = "",
+		 const std::string& cancel = "")
+		: panel(skin::panelSettings, 34, 102), titleTxt(title.c_str(), 24, skin::kInk),
+		  bodyTxt(body.c_str(), 16, skin::kInkSoft),
+		  okBtn(skin::pill, skin::pillOver, 4, cancel.empty() ? 198 : 70, 314, ok.c_str(),
+			WPAD_BUTTON_A | WPAD_CLASSIC_BUTTON_A, PAD_BUTTON_A, WIIDRC_BUTTON_A),
+		  cancelBtn(skin::pill, skin::pillOver, 4, 326, 314, cancel.c_str(),
+			WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B | WPAD_BUTTON_HOME | WPAD_CLASSIC_BUTTON_HOME, PAD_BUTTON_B,
+			WIIDRC_BUTTON_B | WIIDRC_BUTTON_HOME),
+		  hasOk(!ok.empty()), hasCancel(!cancel.empty()), w(screenwidth, screenheight)
+	{
+		Place(titleTxt, 56, 120);
+		Place(bodyTxt, 56, 160);
+		bodyTxt.SetWrap(true, 528, 7);
+		w.Append(&dim);
+		w.Append(&panel);
+		w.Append(&titleTxt);
+		w.Append(&bodyTxt);
+		if (hasOk) w.Append(&okBtn.button);
+		if (hasCancel) w.Append(&cancelBtn.button);
+		mainWindow->SetState(STATE::DISABLED);
+		mainWindow->Append(&w);
+		w.SetState(STATE::DEFAULT);
+	}
+	~PopupBox()
+	{
+		mainWindow->Remove(&w);
+		mainWindow->SetState(STATE::DEFAULT);
+	}
+	void SetBody(const std::string& body) { bodyTxt.SetText(body.c_str()); }
+	// Until a button is pressed: 0 the first, 1 the second.
+	int Wait()
+	{
+		ResumeGui();
+		int choice = -1;
+		while (choice < 0) {
+			usleep(20000);
+			HaltGui();
+			ClearStaleButtons({&okBtn.button, &cancelBtn.button});
+			if (hasOk && okBtn.Clicked()) choice = 0;
+			else if (hasCancel && cancelBtn.Clicked()) choice = 1;
+			if (choice < 0) ResumeGui();
+		}
+		return choice;
+	}
+private:
+	Dim dim;
+	Panel panel;
+	GuiText titleTxt;
+	GuiText bodyTxt;
+	SkinButton okBtn;
+	SkinButton cancelBtn;
+	bool hasOk, hasCancel;
+	GuiWindow w;
+};
+
+static int ShowPopup(const std::string& title, const std::string& body, const std::string& ok,
+	const std::string& cancel = "")
+{
+	PopupBox box(title, body, ok, cancel);
+	return box.Wait();
+}
+
+// Downloads and installs a newer release (riftwii::wii::InstallUpdate),
+// then offers to leave so the Homebrew Channel starts it.
+static void RunUpdate(const std::string& latest)
+{
+	std::string where, error;
+	bool ok;
+	{
+		PopupBox box(tr("Updating RiftWii"),
+			tr("RiftWii {1} is out. Downloading and installing it now; this takes a minute...", {latest}));
+		ResumeGui();
+		ok = riftwii::wii::InstallUpdate(latest, where, error);
+		HaltGui();
+	}
+	if (!ok) {
+		logf("Update: %s\n", error.c_str());
+		ShowPopup(tr("Update failed"),
+			tr("RiftWii {1} could not be installed: {2}. This version keeps working; the new one is at {3}",
+				{latest, FlatCapped(error, 140), riftwii::wii::kReleasesPage}),
+			tr("OK"));
+		return;
+	}
+	if (ShowPopup(tr("RiftWii updated"),
+		    tr("RiftWii {1} is installed ({2}). It runs the next time RiftWii starts. Leave to the Homebrew Channel now and start it again?",
+			    {latest, where}),
+		    tr("Leave"), tr("Later")) == 0) {
+		ExitRequested = 1;
+		ResumeGui();
+		while (1) usleep(THREAD_SLEEP);
+	}
+	g_homeNotice = tr("RiftWii {1} is installed. Start RiftWii again to use it.", {latest});
+}
+
+// A drive that is there but cannot be read gets a box; one that is simply
+// not inserted does not. Each problem is shown once until it changes.
+static void WarnAboutDrives(const std::string& sdError, const std::string& usbError)
+{
+	static std::string shown;
+	std::string text;
+	const auto missing = [](const std::string& e) { return e.find("is inserted") != std::string::npos; };
+	if (!sdError.empty() && !missing(sdError)) text += tr("SD card: {1}", {FlatCapped(sdError, 160)}) + "\n";
+	if (!usbError.empty() && !missing(usbError)) text += tr("USB drive: {1}", {FlatCapped(usbError, 160)}) + "\n";
+	if (text.empty() || text == shown) return;
+	shown = text;
+	ShowPopup(tr("Drive problem"),
+		text + tr("Games on that drive are not listed. Check the drive on a computer; details are in sd:/riftwii/session.log."),
+		tr("OK"));
+}
+
 static void ScanDrives(FrontendState& state, GuiText& status)
 {
 	std::string error;
@@ -481,15 +611,18 @@ static void ScanDrives(FrontendState& state, GuiText& status)
 	const std::string net = riftwii::wii::RefreshNetworkPacks([&](const char* line) { status.SetText(line); });
 	if (!net.empty()) logf("%s\n", net.c_str());
 	HaltGui();
+	std::string sdError;
 	if (!sd) {
 		logf("SD scan failed: %s\n", error.c_str());
 		state.sd_catalog.status = "SD: " + (error.empty() ? std::string(tr("scan failed")) : error);
+		sdError = error.empty() ? std::string("scan failed") : error;
 	}
 	error.clear();
 	status.SetText("Reading the USB drive... (a big drive takes a moment)");
 	ResumeGui();
 	const bool usb = scan_usb_games(state.usb_catalog, error);
 	HaltGui();
+	WarnAboutDrives(sdError, usb ? std::string() : error.empty() ? std::string("scan failed") : error);
 	if (!usb) {
 		logf("USB scan failed: %s\n", error.c_str());
 		state.usb_catalog.status = "USB: " + (error.empty() ? std::string(tr("scan failed")) : error);
@@ -510,8 +643,10 @@ static void ScanDrives(FrontendState& state, GuiText& status)
 		const bool ok = riftwii::wii::CheckForUpdate(false, latest, newer, why);
 		HaltGui();
 		if (!ok) logf("Update check: %s\n", why.c_str());
-		else if (newer && g_homeNotice.empty())
-			g_homeNotice = tr("RiftWii {1} is out: {2}", {latest, riftwii::wii::kReleasesPage});
+		else if (newer && riftwii::wii::UpdateInstalled(latest))
+			g_homeNotice = tr("RiftWii {1} is installed. Start RiftWii again to use it.", {latest});
+		else if (newer)
+			RunUpdate(latest);
 	}
 	g_scanned = true;
 }
@@ -787,15 +922,6 @@ private:
 };
 
 // A white card at (x, y) drawn from a panel texture.
-class Panel : public GuiElement {
-public:
-	Panel(const skin::Tex& tex, int x, int y) : tex(tex), x(x), y(y) {}
-	void Draw() override { skin::Draw(tex, x - 4.0f, y - 4.0f); }
-private:
-	const skin::Tex& tex;
-	int x, y;
-};
-
 static std::string SaveLabel(const std::string& mode)
 {
 	if (mode == "separate") return "SD, from Wii save";
@@ -2132,7 +2258,10 @@ static int MenuSettings(FrontendState& state)
 						logf("Update check: %s\n", error.c_str());
 						note(tr("Could not check: {1}", {FlatCapped(error, 90)}));
 					} else if (newer) {
-						note(tr("RiftWii {1} is out: {2}", {latest, riftwii::wii::kReleasesPage}));
+						RunUpdate(latest);
+						note(riftwii::wii::UpdateInstalled(latest)
+							? tr("RiftWii {1} is installed. Start RiftWii again to use it.", {latest})
+							: tr("RiftWii {1} is out: {2}", {latest, riftwii::wii::kReleasesPage}));
 					} else {
 						note(tr("RiftWii {1} is the newest version.", {RIFTWII_VERSION}));
 					}

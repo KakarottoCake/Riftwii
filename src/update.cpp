@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdlib>
 #include <vector>
 
 namespace riftwii {
@@ -33,25 +34,75 @@ Version parse(const std::string& text) {
 
 }  // namespace
 
-bool release_tag_from_json(const std::string& json, std::string& tag) {
-    const std::string key = "\"tag_name\"";
-    std::size_t at = json.find(key);
-    if (at == std::string::npos) return false;
-    at += key.size();
-    while (at < json.size() && (json[at] == ' ' || json[at] == '\t' || json[at] == '\n' || json[at] == '\r')) ++at;
+namespace {
+
+bool blank(char c) { return c == ' ' || c == '\t' || c == '\n' || c == '\r'; }
+
+// The value after the key that ends at `at` (just past its closing
+// quote): a string into `text`, or a bare token (number, null) into
+// `bare`. False when no ':' follows.
+bool value_after(const std::string& json, std::size_t at, std::string& text, std::string& bare) {
+    text.clear();
+    bare.clear();
+    while (at < json.size() && blank(json[at])) ++at;
     if (at >= json.size() || json[at] != ':') return false;
     ++at;
-    while (at < json.size() && (json[at] == ' ' || json[at] == '\t' || json[at] == '\n' || json[at] == '\r')) ++at;
-    if (at >= json.size() || json[at] != '"') return false;
-    ++at;
-    std::string out;
-    for (; at < json.size() && json[at] != '"'; ++at) {
-        if (json[at] == '\\' && at + 1 < json.size()) ++at;  // tags have no escapes worth decoding
-        out += json[at];
+    while (at < json.size() && blank(json[at])) ++at;
+    if (at < json.size() && json[at] == '"') {
+        for (++at; at < json.size() && json[at] != '"'; ++at) {
+            if (json[at] == '\\' && at + 1 < json.size()) ++at;  // nothing here needs decoding
+            text += json[at];
+        }
+        return at < json.size();
     }
-    if (at >= json.size() || out.empty() || out.size() > 64) return false;
-    tag = out;
+    for (; at < json.size() && json[at] != ',' && json[at] != '}' && json[at] != ']' && !blank(json[at]); ++at)
+        bare += json[at];
     return true;
+}
+
+// The first `"key"` at or after `from` and before `to`; npos when none.
+std::size_t find_key(const std::string& json, const std::string& key, std::size_t from, std::size_t to) {
+    const std::size_t at = json.find("\"" + key + "\"", from);
+    return at == std::string::npos || at >= to ? std::string::npos : at;
+}
+
+}  // namespace
+
+bool release_tag_from_json(const std::string& json, std::string& tag) {
+    const std::size_t at = find_key(json, "tag_name", 0, json.size());
+    std::string text, bare;
+    if (at == std::string::npos || !value_after(json, at + 10, text, bare)) return false;
+    if (text.empty() || text.size() > 64) return false;
+    tag = text;
+    return true;
+}
+
+bool release_asset_from_json(const std::string& json, const std::string& name, ReleaseAsset& out) {
+    // GitHub lists an asset's "name" before its "size", "digest" and
+    // "browser_download_url"; nothing of another asset comes between.
+    std::string text, bare;
+    for (std::size_t at = find_key(json, "name", 0, json.size()); at != std::string::npos;
+         at = find_key(json, "name", at + 6, json.size())) {
+        if (!value_after(json, at + 6, text, bare) || text != name) continue;
+        const std::size_t url_at = find_key(json, "browser_download_url", at, json.size());
+        if (url_at == std::string::npos || !value_after(json, url_at + 22, text, bare) || text.empty()) return false;
+        ReleaseAsset asset;
+        asset.url = text;
+        const std::size_t digest_at = find_key(json, "digest", at, url_at);
+        if (digest_at != std::string::npos && value_after(json, digest_at + 8, text, bare) &&
+            text.compare(0, 7, "sha256:") == 0 && text.size() == 7 + 64) {
+            for (std::size_t i = 7; i < text.size(); ++i)
+                asset.sha256 += static_cast<char>(std::tolower(static_cast<unsigned char>(text[i])));
+        }
+        const std::size_t size_at = find_key(json, "size", at, url_at);
+        if (size_at != std::string::npos && value_after(json, size_at + 6, text, bare) && !bare.empty() &&
+            std::isdigit(static_cast<unsigned char>(bare[0]))) {
+            asset.size = std::strtoull(bare.c_str(), nullptr, 10);
+        }
+        out = asset;
+        return true;
+    }
+    return false;
 }
 
 int compare_versions(const std::string& a, const std::string& b) {

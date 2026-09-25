@@ -11,6 +11,17 @@ namespace riftwii {
 // The first "tag_name" in a GitHub API answer.
 bool release_tag_from_json(const std::string& json, std::string& tag);
 
+// A file attached to a release: where to download it, its SHA-256 (lowercase
+// hex, empty when GitHub gave none) and its size in bytes (0: unknown).
+struct ReleaseAsset {
+    std::string url;
+    std::string sha256;
+    unsigned long long size = 0;
+};
+// The first asset named `name` in a GitHub API answer (its
+// "browser_download_url", "digest": "sha256:..." and "size").
+bool release_asset_from_json(const std::string& json, const std::string& name, ReleaseAsset& out);
+
 // Orders versions such as "2.0.0-beta", "v1.0.9-beta" and "2.0.1": the
 // numbers first, then a final release after any "-suffix" of the same
 // numbers, then the suffixes as text ("beta" after "alpha", "rc" after

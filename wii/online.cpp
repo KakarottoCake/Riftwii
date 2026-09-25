@@ -6,15 +6,20 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include <cctype>
 #include <cerrno>
 #include <cstdio>
 #include <cstdlib>
 #include <ctime>
 
+#include <gccore.h>
+
+#include "bearssl.h"
 #include "log.hpp"
 #include "netsock.hpp"
 #include "tls.hpp"
 #include "riftwii/cheats.hpp"
+#include "riftwii/dol.hpp"
 #include "riftwii/http.hpp"
 #include "riftwii/update.hpp"
 
@@ -132,38 +137,204 @@ bool UpdateTitles(const std::string& lang, bool force, std::string& error) {
     return true;
 }
 
-bool CheckForUpdate(bool force, std::string& latest, bool& newer, std::string& error) {
-    newer = false;
-    latest.clear();
-    // "checked <seconds>" and "latest <tag>" from the last time.
+namespace {
+
+// sd:/riftwii/update.txt: what the last check found, and what was
+// installed since.
+struct UpdateNote {
     std::time_t checked = 0;
+    std::string latest;
+    ReleaseAsset dol;
+    std::string installed;
+};
+
+UpdateNote ReadUpdateNote() {
+    UpdateNote note;
     if (FILE* f = std::fopen(kUpdateNote, "rb")) {
-        char line[128];
+        char line[1024];
         while (std::fgets(line, sizeof(line), f)) {
             std::string text(line);
             while (!text.empty() && (text.back() == '\n' || text.back() == '\r')) text.pop_back();
-            if (text.rfind("checked ", 0) == 0) checked = static_cast<std::time_t>(std::strtoll(text.c_str() + 8, nullptr, 10));
-            if (text.rfind("latest ", 0) == 0) latest = text.substr(7);
+            if (text.rfind("checked ", 0) == 0) note.checked = static_cast<std::time_t>(std::strtoll(text.c_str() + 8, nullptr, 10));
+            if (text.rfind("latest ", 0) == 0) note.latest = text.substr(7);
+            if (text.rfind("dol ", 0) == 0) note.dol.url = text.substr(4);
+            if (text.rfind("sha256 ", 0) == 0) note.dol.sha256 = text.substr(7);
+            if (text.rfind("size ", 0) == 0) note.dol.size = std::strtoull(text.c_str() + 5, nullptr, 10);
+            if (text.rfind("installed ", 0) == 0) note.installed = text.substr(10);
         }
         std::fclose(f);
     }
+    return note;
+}
+
+void WriteUpdateNote(const UpdateNote& note) {
+    if (FILE* f = std::fopen(kUpdateNote, "wb")) {
+        std::fprintf(f, "checked %lld\nlatest %s\n", static_cast<long long>(note.checked), note.latest.c_str());
+        if (!note.dol.url.empty()) {
+            std::fprintf(f, "dol %s\nsha256 %s\nsize %llu\n", note.dol.url.c_str(), note.dol.sha256.c_str(),
+                         note.dol.size);
+        }
+        if (!note.installed.empty()) std::fprintf(f, "installed %s\n", note.installed.c_str());
+        std::fclose(f);
+    }
+}
+
+bool EndsWithDol(const std::string& path) {
+    if (path.size() < 4) return false;
+    std::string tail = path.substr(path.size() - 4);
+    for (char& c : tail) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    return tail == ".dol";
+}
+
+// The boot.dol this run came from: the Homebrew Channel passes its path
+// as argv[0] ("sd:/apps/riftwii/boot.dol"; older loaders leave out "sd:").
+// Empty when it is not a file on the SD card.
+std::string RunningDolPath() {
+    if (__system_argv != nullptr && __system_argv->argvMagic == ARGV_MAGIC && __system_argv->argc > 0 &&
+        __system_argv->argv != nullptr && __system_argv->argv[0] != nullptr) {
+        std::string path = __system_argv->argv[0];
+        if (path.rfind("/apps/", 0) == 0) path = "sd:" + path;
+        struct stat st;
+        if (path.rfind("sd:/", 0) == 0 && EndsWithDol(path) && stat(path.c_str(), &st) == 0) return path;
+    }
+    struct stat st;
+    if (stat("sd:/apps/riftwii/boot.dol", &st) == 0) return "sd:/apps/riftwii/boot.dol";
+    return "";
+}
+
+std::string Sha256Hex(const std::vector<std::uint8_t>& bytes) {
+    br_sha256_context ctx;
+    br_sha256_init(&ctx);
+    br_sha256_update(&ctx, bytes.data(), bytes.size());
+    unsigned char digest[32];
+    br_sha256_out(&ctx, digest);
+    static const char hex[] = "0123456789abcdef";
+    std::string out;
+    for (unsigned char b : digest) {
+        out += hex[b >> 4];
+        out += hex[b & 15];
+    }
+    return out;
+}
+
+// meta.xml's <version> next to the DOL, so the Homebrew Channel shows the
+// new one. Best effort: the DOL is what counts.
+void UpdateMetaVersion(const std::string& dol_path, const std::string& latest) {
+    const std::string meta = dol_path.substr(0, dol_path.rfind('/') + 1) + "meta.xml";
+    FILE* f = std::fopen(meta.c_str(), "rb");
+    if (!f) return;
+    std::string text;
+    char buf[1024];
+    std::size_t n;
+    while ((n = std::fread(buf, 1, sizeof(buf), f)) > 0) text.append(buf, n);
+    std::fclose(f);
+    const std::size_t open = text.find("<version>");
+    const std::size_t close = text.find("</version>");
+    if (open == std::string::npos || close == std::string::npos || close < open) return;
+    // The releases' own spelling: "v2.0.3-beta" becomes "2.0.3 Beta".
+    std::string version = !latest.empty() && (latest[0] == 'v' || latest[0] == 'V') ? latest.substr(1) : latest;
+    const std::size_t dash = version.find('-');
+    if (dash != std::string::npos && dash + 1 < version.size()) {
+        version[dash] = ' ';
+        version[dash + 1] = static_cast<char>(std::toupper(static_cast<unsigned char>(version[dash + 1])));
+    }
+    text.replace(open + 9, close - open - 9, version);
+    std::string error;
+    if (!write_file(meta, std::vector<std::uint8_t>(text.begin(), text.end()), error)) logf("Update: meta.xml: %s\n", error.c_str());
+}
+
+}  // namespace
+
+bool CheckForUpdate(bool force, std::string& latest, bool& newer, std::string& error) {
+    newer = false;
+    UpdateNote note = ReadUpdateNote();
+    latest = note.latest;
     const std::time_t now = std::time(nullptr);
-    if (force || latest.empty() || now < checked || now - checked >= kDay) {
+    if (force || latest.empty() || note.dol.url.empty() || now < note.checked || now - note.checked >= kDay) {
         std::vector<std::uint8_t> body;
         if (!HttpGet(kReleasesApi, body, error, 256u << 10)) return false;
+        const std::string json(body.begin(), body.end());
         std::string tag;
-        if (!release_tag_from_json(std::string(body.begin(), body.end()), tag)) {
+        if (!release_tag_from_json(json, tag)) {
             error = "GitHub's answer names no release";
             return false;
         }
         latest = tag;
-        if (FILE* f = std::fopen(kUpdateNote, "wb")) {
-            std::fprintf(f, "checked %lld\nlatest %s\n", static_cast<long long>(now), latest.c_str());
-            std::fclose(f);
-        }
-        logf("Update check: newest release %s, this is %s\n", latest.c_str(), RIFTWII_VERSION);
+        note.checked = now;
+        note.latest = tag;
+        note.dol = ReleaseAsset{};
+        release_asset_from_json(json, "riftwii.dol", note.dol);
+        WriteUpdateNote(note);
+        logf("Update check: newest release %s, this is %s%s\n", latest.c_str(), RIFTWII_VERSION,
+             note.dol.url.empty() ? " (it has no riftwii.dol)" : "");
     }
     newer = compare_versions(latest, RIFTWII_VERSION) > 0;
+    return true;
+}
+
+bool UpdateInstalled(const std::string& latest) {
+    const UpdateNote note = ReadUpdateNote();
+    return !note.installed.empty() && note.installed == latest;
+}
+
+bool InstallUpdate(const std::string& latest, std::string& where, std::string& error) {
+    UpdateNote note = ReadUpdateNote();
+    if (note.latest != latest || note.dol.url.empty()) {
+        error = "release " + latest + " has no riftwii.dol attached";
+        return false;
+    }
+    where = RunningDolPath();
+    if (where.empty()) {
+        error = "RiftWii was not started from a boot.dol on the SD card, so there is nothing to replace";
+        return false;
+    }
+    logf("Update: downloading %s for %s\n", latest.c_str(), where.c_str());
+    std::vector<std::uint8_t> body;
+    if (!HttpGet(note.dol.url, body, error, 16u << 20, 30000)) return false;
+    if (note.dol.size != 0 && body.size() != note.dol.size) {
+        error = "the download has " + std::to_string(body.size()) + " bytes, GitHub says " +
+                std::to_string(note.dol.size);
+        return false;
+    }
+    if (!note.dol.sha256.empty() && Sha256Hex(body) != note.dol.sha256) {
+        error = "the download does not match GitHub's SHA-256";
+        return false;
+    }
+    DolHeader header;
+    if (!parse_dol_header(body.data(), body.size(), header, error)) {
+        error = "the download is not a DOL: " + error;
+        return false;
+    }
+    if (header.image_size() > body.size()) {
+        error = "the download is shorter than its DOL header says";
+        return false;
+    }
+    // New file first, then the swap; the old one stays as boot.dol.old.
+    const std::string fresh = where + ".new";
+    const std::string old = where + ".old";
+    if (!write_file(fresh, body, error)) return false;
+    struct stat st;
+    if (stat(fresh.c_str(), &st) != 0 || static_cast<std::size_t>(st.st_size) != body.size()) {
+        std::remove(fresh.c_str());
+        error = "the new DOL did not land whole on the card";
+        return false;
+    }
+    std::remove(old.c_str());
+    if (std::rename(where.c_str(), old.c_str()) != 0) {
+        std::remove(fresh.c_str());
+        error = "cannot move the old " + where + " aside";
+        return false;
+    }
+    if (std::rename(fresh.c_str(), where.c_str()) != 0) {
+        std::rename(old.c_str(), where.c_str());
+        error = "cannot put the new DOL in place";
+        return false;
+    }
+    UpdateMetaVersion(where, latest);
+    note.installed = latest;
+    WriteUpdateNote(note);
+    logf("Update: %s installed in %s (%u bytes%s)\n", latest.c_str(), where.c_str(),
+         static_cast<unsigned>(body.size()), note.dol.sha256.empty() ? "" : ", SHA-256 checked");
     return true;
 }
 
