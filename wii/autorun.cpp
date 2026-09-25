@@ -84,6 +84,7 @@ struct Session {
             ProbeOptions virtual_disc;
             virtual_disc.virtual_source = true;
             if (!probe_disc(probe, error, virtual_disc)) return false;
+            mem::CheckHeap("after the disc probe");
             if (probe.header.game_id != source.game.id || probe.header.version != source.game.revision ||
                 probe.header.disc_number != source.game.disc_number) {
                 error="d2x virtual disc identity does not match the selected image";
@@ -112,6 +113,7 @@ struct Session {
         if (!ensure_probe(error)) return false;
         if (laid_out) return true;
         if (!read_partition_layout(partition, error)) return false;
+        mem::CheckHeap("after the file table");
         laid_out = true;
         return true;
     }

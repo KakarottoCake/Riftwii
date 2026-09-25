@@ -71,6 +71,7 @@ unsigned g_op_count = 0;
 // The menu's use (GcAdapterMenuPads).
 bool g_menu_started = false;   // the menu started the driver (not the test page)
 bool g_menu_ended = false;
+bool g_menu_allowed = false;  // GcAdapterMenuAllowStart
 bool g_menu_failed = false;    // it would not start: not tried again
 bool g_menu_said_off = false;
 u64 g_menu_checked = 0;
@@ -347,6 +348,7 @@ void GcAdapterMenuPads(GcAdapterView& out) {
         return;
     }
     if (!g_running) {
+        if (!g_menu_allowed) return;
         // Looked for every 2 s, so it can be plugged in with the menu up.
         const u64 now = gettime();
         if (g_menu_failed || (g_menu_checked != 0 && diff_msec(g_menu_checked, now) < 2000)) return;
@@ -369,6 +371,10 @@ void GcAdapterMenuPads(GcAdapterView& out) {
         g_menu_started = true;
     }
     GcAdapterPoll(out);
+}
+
+void GcAdapterMenuAllowStart() {
+    g_menu_allowed = true;
 }
 
 void GcAdapterMenuEnd() {

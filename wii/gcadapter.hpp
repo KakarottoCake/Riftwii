@@ -43,6 +43,10 @@ void GcAdapterStop();
 // The menu's controllers (UpdatePads, every frame): starts the adapter
 // once it is plugged in (unless the setting is Off), and gives its ports.
 void GcAdapterMenuPads(GcAdapterView& out);
+// The menu's first drive scan is over: the adapter may start. Until then
+// it waits, so its USB traffic never meets the scan's first card reads
+// (a card read failed as the adapter started).
+void GcAdapterMenuAllowStart();
 // The menu is over (a launch, or leaving): stops it for good.
 void GcAdapterMenuEnd();
 

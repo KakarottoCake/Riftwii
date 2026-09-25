@@ -36,6 +36,10 @@ void Init();
 // size override shows here), then, with LogUsage, what is used and free.
 void LogLimits();
 void LogUsage(const char* when);
+// Walks the heap's free lists (mallinfo) after logging `when`: a heap
+// damaged by an earlier step crashes here, right after that line, rather
+// than somewhere later, so the log names the step that damaged it.
+void CheckHeap(const char* when);
 
 // In Dolphin only (a no-op on a Wii): fills MEM2 from where libogc left
 // arena 2's low end up to kMem2Floor with 0xDEADBEEF. Called by

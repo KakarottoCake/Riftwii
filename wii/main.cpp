@@ -159,6 +159,7 @@ int main() {
     // left in flight for the game (or the next IOS) to answer.
     riftwii::wii::GcAdapterMenuEnd();
     riftwii::wii::mem::LogUsage("menu closed");
+    riftwii::wii::mem::CheckHeap("menu closed");
     const riftwii::wii::LaunchSource source = riftwii::wii::SelectedSource(state);
 
     EnterConsolePhase();
