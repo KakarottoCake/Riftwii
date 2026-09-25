@@ -1800,7 +1800,7 @@ static int MenuHome(FrontendState& state)
 				if (ok) menu = MENU_LAUNCH;
 				else {
 					logf("Compile failed: %s\n", error.c_str());
-					say(FlatCapped(error, 150));
+					say(FlatCapped(error, 130) + " " + tr("(Log: sd:/riftwii/session.log)"));
 				}
 			}
 		} else if (dumpBtn.GetState() == STATE::CLICKED) {

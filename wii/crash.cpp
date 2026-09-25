@@ -152,8 +152,10 @@ void ShowOnScreen() {
     std::snprintf(summary, sizeof(summary), "RiftWii restarted after a crash (%s at %08X). Details: sd:/riftwii/crash.txt",
                   ExceptionName(g_info.exid), g_info.pc);
     if (g_phase != CrashPhase::Early) {
-        PrintIndented(loop ? "Saved. It crashed again right after restarting: press A to leave."
-                           : "Saved. A or RESET: start RiftWii again.\nHOME: leave to the Homebrew Channel.");
+        PrintIndented("Saved. To get help, send crash.txt and session.log from the\n"
+                      "riftwii folder on your SD card (put the card in a PC or phone).\n");
+        PrintIndented(loop ? "It crashed again right after restarting: press A to leave."
+                           : "A or RESET: start RiftWii again.\nHOME: leave to the Homebrew Channel.");
     }
     const ExitChoice choice =
         g_phase == CrashPhase::Early ? ExitChoice::Restart : WaitForChoice(kAutoRestartSeconds);

@@ -62,10 +62,15 @@ void EnterConsolePhase() {
 // wii/restart.hpp; also after two minutes untouched) or out to the
 // Homebrew Channel.
 void OfferRestart(const std::string& error) {
+    // Players asking for help seldom know where the logs are: say it here,
+    // where the failure is, in words a first-time user can follow.
+    riftwii::wii::logf("\nTo get help, send boot.log and session.log. They are in the\n"
+                       "riftwii folder on your SD card (put the card in a PC or phone).\n");
     if (!riftwii::wii::CanRestart()) return;
     riftwii::wii::logf("\nA: back to RiftWii   HOME: leave to the Homebrew Channel\n");
     if (riftwii::wii::WaitForChoice(120) != riftwii::wii::ExitChoice::Restart) std::exit(0);
-    riftwii::wii::WarmRestart(riftwii::wii::RestartKind::LaunchFailed, "The launch failed: " + error);
+    riftwii::wii::WarmRestart(riftwii::wii::RestartKind::LaunchFailed,
+                              "The launch failed (for help, send sd:/riftwii/boot.log): " + error);
 }
 
 // libfat's default initializer probes USB as well as SD. Mount only the SD
