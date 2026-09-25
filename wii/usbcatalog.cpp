@@ -769,6 +769,38 @@ bool activate_disc_cios(int cios_slot, const char* log_path, std::string& error)
     return false;
 }
 
+namespace {
+// For a USB drive d2x does not answer (the launch stopping at the disc
+// probe): the list d2x is about to get, what d2x's own USB device sees of
+// the drive, and the game's first sector read through it. The menu's view
+// came from libogc under the menu IOS; the two must agree.
+void log_d2x_usb_view(const D2xFragmentList& list) {
+    logf("USB: %u fragment(s), %u disc sectors\n", static_cast<unsigned>(list.entries.size()),
+         static_cast<unsigned>(list.size));
+    for (std::size_t i = 0; i < list.entries.size() && i < 4; ++i) {
+        const D2xFragment& f = list.entries[i];
+        logf("USB: fragment %u: disc sector %u, %u sectors, at drive sector %u\n", static_cast<unsigned>(i),
+             static_cast<unsigned>(f.offset), static_cast<unsigned>(f.count), static_cast<unsigned>(f.sector));
+    }
+    std::string why;
+    if (!ums::Open(why)) {
+        logf("USB (d2x): %s\n", why.c_str());
+        return;
+    }
+    if (list.entries.empty()) return;
+    logf("USB (d2x): reading drive sector %u, the game's first\n", static_cast<unsigned>(list.entries[0].sector));
+    static std::uint8_t first[512] ATTRIBUTE_ALIGN(32);
+    if (!ums::Read(list.entries[0].sector, 1, first)) {
+        logf("USB (d2x): that read failed\n");
+        return;
+    }
+    char id[7];
+    for (int i = 0; i < 6; ++i) id[i] = first[i] >= 0x20 && first[i] < 0x7F ? static_cast<char>(first[i]) : '.';
+    id[6] = 0;
+    logf("USB (d2x): it starts with \"%s\" (%02x %02x %02x %02x)\n", id, first[0], first[1], first[2], first[3]);
+}
+}  // namespace
+
 bool activate_image_game(const ImageGame& game, int cios_slot, void*& storage, std::size_t& storage_bytes,
                          const char* log_path, std::string& error) {
     if (cios_slot < 3 || cios_slot > 255) { error = "cIOS slot must be 3..255"; return false; }
@@ -847,6 +879,7 @@ bool activate_image_game(const ImageGame& game, int cios_slot, void*& storage, s
         return post_reload_failure(log_path, error);
     }
     const std::uint32_t device = disc_device == ImageDevice::Usb ? 1 : 2;
+    if (disc_device == ImageDevice::Usb && !rvz) log_d2x_usb_view(game.fragments);
     logf("%s: d2x F9 config\n", device_name(game.device));
     if (!di::configure_frag(device,storage,static_cast<std::uint32_t>(bytes.size()),error)) { error = "d2x F9 fragment setup failed: " + error; return post_reload_failure(log_path, error); }
     // Existing physical probes reset the drive. Disable reset after F9 so
