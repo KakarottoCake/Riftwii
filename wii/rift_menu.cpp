@@ -1931,8 +1931,8 @@ static std::string ChannelNote(const riftwii::LoaderSettings& settings)
 
 static std::string AdapterNote(const std::string& mode)
 {
-	if (mode == "off") return tr("The adapter is left alone.");
 	// Experimental: confirmed in the menu on a Wii U, not yet in games.
+	if (mode == "off") return tr("Experimental. The adapter is left alone.");
 	if (mode == "on") return tr("Experimental. Always on, even with no adapter plugged in, so it can be plugged in during a game. It needs IOS 58 or a d2x cIOS.");
 	return tr("Experimental. When the adapter is plugged in as a game starts, its controllers fill the ports that have none plugged in, in games that support the GameCube controller. It needs IOS 58 or a d2x cIOS.");
 }
@@ -2068,7 +2068,7 @@ static int MenuSettings(FrontendState& state)
 		names.dim = !settings.online;
 		rows.push_back(names);
 		actions.push_back(kNames);
-		option(tr("GameCube adapter (experimental)"), settings.gc_adapter == "demo" ? std::string("Demo")
+		option(tr("GameCube adapter"), settings.gc_adapter == "demo" ? std::string("Demo")
 			: settings.gc_adapter == "on" ? tr("On") : settings.gc_adapter == "off" ? tr("Off") : tr("Automatic"),
 			settings.gc_adapter != "off", kGcAdapter);
 		FlowRow gcTest;
@@ -2377,6 +2377,8 @@ static int MenuSettings(FrontendState& state)
 						note(riftwii::wii::UpdateInstalled(latest)
 							? tr("RiftWii {1} is installed. Start RiftWii again to use it.", {latest})
 							: tr("RiftWii {1} is out: {2}", {latest, riftwii::wii::kReleasesPage}));
+					} else if (latest.empty()) {
+						note(tr("No stable version is out yet. This is RiftWii {1}.", {RIFTWII_VERSION}));
 					} else {
 						note(tr("RiftWii {1} is the newest version.", {RIFTWII_VERSION}));
 					}
