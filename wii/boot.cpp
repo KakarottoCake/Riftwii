@@ -1328,6 +1328,13 @@ bool boot_game(const DiscProbe& probe, const BootOptions& options, std::string& 
     logf("Booting %s with IOS%u\n", probe.header.game_id.c_str(), required);
     BootOptions effective = options;
     const int running_ios = IOS_GetVersion();
+    if (g_extras.gc_adapter != GcAdapterMode::Off && di::has_partition_resolver()) {
+        // RVZ games and the adapter conflict (GitHub issue #4): off for
+        // every RVZ launch, even with the setting On, until that is solved.
+        logf("GameCube adapter: off: RVZ games and the adapter do not work together yet (issue #4)\n");
+        g_extras.gc_adapter = GcAdapterMode::Off;
+        g_extras.gc_adapter_forced = false;
+    }
     if (g_extras.gc_adapter == GcAdapterMode::Auto || g_extras.gc_adapter == GcAdapterMode::On) {
         // Where the adapter broke the launch on hardware, it stays off and
         // USB is not touched for it: on a Wii U's d2x cIOS /dev/usb/hid
