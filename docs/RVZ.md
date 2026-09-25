@@ -77,7 +77,10 @@ table when the group's entry is not in the one held, the group's stored
 bytes in requests of at most 32 KiB that never cross a piece of the file,
 then Zstandard, the hash exception lists skipped, and the bytes copied or
 unpacked straight into the game's buffer. The last group decoded is kept,
-so the small reads games make in a row cost one decode. A mod's table
+so the small reads games make in a row cost one decode. On
+`/dev/sdio/slot0` with a savegame folder, each read of the card first
+waits (null round trips) while a savegame command has the card, and
+savegame commands wait for it: the card takes one command at a time. A mod's table
 still applies on top (memory, files on the card or the USB drive,
 relocated files: `tests/rvz_tests.cpp` checks every edge of each against
 the RVZ's bytes), and what it leaves to the disc comes from the RVZ. A read past the partition's data fails as it

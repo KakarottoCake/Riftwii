@@ -432,6 +432,7 @@ constexpr std::uint32_t kUsbFd = 11;
 bool g_d2x = false;
 unsigned g_usb_reads = 0;
 unsigned g_issued = 0;
+unsigned g_status_trips = 0;
 unsigned g_largest_request = 0;
 rt_pending* g_record = nullptr;
 
@@ -498,6 +499,7 @@ std::int32_t RvzIoctl(std::uint32_t fd, std::uint32_t ioctl, std::uint32_t*, std
     EXPECT_EQ(callback, kCompleteEntry);
     g_record = record;
     ++g_issued;
+    ++g_status_trips;
     return 0;
 }
 
@@ -777,6 +779,54 @@ void CheckRuntime(const char* name, bool d2x, std::uint32_t piece, bool usb = fa
         EXPECT_EQ(cb, kGameCallback);
         EXPECT_EQ(res, RT_DI_ERROR);
         check(size / 2, 0x20);
+    }
+
+    // On /dev/sdio/slot0 a read of the card waits while a savegame
+    // command wants the card (null round trips), then goes out.
+    if (!d2x && !usb && !mod) {
+        std::uint8_t* fs_bytes = LowBuffer(sizeof(rt_fs_state));
+        EXPECT_TRUE(fs_bytes != nullptr);
+        if (fs_bytes != nullptr) {
+            std::memset(fs_bytes, 0, sizeof(rt_fs_state));
+            rt_fs_state& fs = *reinterpret_cast<rt_fs_state*>(fs_bytes);
+            fs.card_rca = 7;
+            fs.card_wanted = 1;
+            ctx.fs_state = Low(&fs);
+            ctx.flags |= RT_FLAG_FS;
+            st.cached_group = RT_RVZ_NO_GROUP;
+            st.entry_sector = RT_RVZ_NO_GROUP;
+            const std::uint64_t at = (size / 3) & ~std::uint64_t(3);
+            std::uint32_t cmd[8] = {0x71000000, 0x40, static_cast<std::uint32_t>(at >> 2), 0, 0, 0, 0, 0};
+            std::uintptr_t args[8] = {3, 0x71, reinterpret_cast<std::uintptr_t>(cmd), 0x20,
+                                      reinterpret_cast<std::uintptr_t>(out), 0x40, kGameCallback, 0x80006000};
+            std::uint32_t r = 0;
+            std::memset(out, 0xEE, 0x40);
+            EXPECT_EQ(rt_on_ioctl_async(&ctx, args, &r), 1);
+            rt_pending* rec = g_record;
+            std::int32_t res = 0;
+            std::uintptr_t cb = 0;
+            std::uintptr_t ud = 0;
+            const unsigned trips0 = g_status_trips;
+            for (int i = 0; i < 3; ++i) {
+                res = 0;
+                rt_on_di_complete(&ctx, &res, rec, &cb, &ud);  // the start, then waits: another wait each time
+                EXPECT_EQ(cb, 0u);
+                EXPECT_EQ(rec->phase, RT_PHASE_RVZ_WAIT);
+            }
+            EXPECT_EQ(g_status_trips, trips0 + 3);
+            fs.card_wanted = 0;  // the savegame command is over
+            for (int step = 0; step < 1000 && cb == 0; ++step) {
+                res = 0;
+                rt_on_di_complete(&ctx, &res, rec, &cb, &ud);
+                EXPECT_TRUE(cb != 0 || rec->phase != RT_PHASE_RVZ_WAIT);
+            }
+            EXPECT_EQ(cb, kGameCallback);
+            EXPECT_EQ(res, RT_DI_SUCCESS);
+            EXPECT_TRUE(image->read_partition(0, at, want.data(), 0x40));
+            EXPECT_EQ(std::memcmp(out, want.data(), 0x40), 0);
+            ctx.flags &= ~RT_FLAG_FS;
+            ctx.fs_state = 0;
+        }
     }
 
     rt_host_ioctlv_async = nullptr;

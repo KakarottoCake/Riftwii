@@ -101,6 +101,7 @@ extern "C" {
 #define RT_PHASE_RVZ_ENTRY 4u /* RVZ: a sector of the group table is in flight */
 #define RT_PHASE_RVZ_GROUP 5u /* RVZ: a piece of a group's stored bytes is in flight */
 #define RT_PHASE_SD_WAIT 6u  /* a null round trip while the card finishes a savegame write */
+#define RT_PHASE_RVZ_WAIT 7u /* RVZ: a null round trip before a read of the card (as RT_PHASE_SD_WAIT) */
 
 /* DI results as the DVD driver sees them (wiibrew /dev/di). */
 #define RT_DI_SUCCESS 1
@@ -590,7 +591,10 @@ struct rt_rvz_state {
     uint32_t busy_refusals;       /* of those, reads that arrived while another was served */
     uint32_t decode_ticks;        /* time base ticks spent decoding, wraps */
     uint32_t last_error;          /* a code for the last failure (rt_hook.c) */
-    uint32_t reserved[3];
+    /* The read of the card waiting for a savegame command (RT_PHASE_RVZ_WAIT). */
+    uint32_t wait_sector;
+    uint32_t wait_target;
+    uint32_t wait_how;            /* its phase << 16 | sectors */
     uint32_t entries[RT_RVZ_ENTRIES_PER_SECTOR * 2] __attribute__((aligned(32)));  /* one table sector */
     uint32_t status[8] __attribute__((aligned(32)));  /* the null round trip's out word */
     rtrvz_junk junk;
