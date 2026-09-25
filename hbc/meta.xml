@@ -2,14 +2,14 @@
 <app version="1">
   <name>RiftWii</name>
   <coder>KakarottoCake</coder>
-  <version>2.0.5 Beta</version>
-  <release_date>20260925030000</release_date>
+  <version>2.0.6 Beta</version>
+  <release_date>20260925090000</release_date>
   <short_description>Mod loader for Wii games</short_description>
   <long_description>RiftWii loads Riivolution-format mod packs (XML in sd:/riivolution) into Wii games from the disc, a USB drive or the SD card, and can keep modded saves on the SD card, apart from your Wii saves.
 
 Games that have mods show as tiles with their covers; 1 switches to all games. Pick a game, open Mods, turn its packs on and pick their settings, and press Start. Games can also have cheats, picture settings and an online server (Wiimmfi, WiiLink WFC, AltWFC).
 
-Dolphin's .rvz images play too, and the GameCube controller adapter for Wii U works in games that support the GameCube controller.
+Dolphin's .rvz images play too, and the GameCube controller adapter for Wii U works in the menu and in games that support the GameCube controller.
 
 USB and SD games need a d2x cIOS (slots 248 to 252). The SD card must be FAT32; a USB drive may be FAT32 or NTFS.
 
