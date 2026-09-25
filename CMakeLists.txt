@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(Riftwii VERSION 2.0.6 LANGUAGES C CXX)
+project(Riftwii VERSION 2.0.7 LANGUAGES C CXX)
 # Shown after the version number (menu, logs): "" for a final release.
 set(RIFTWII_VERSION_SUFFIX "-beta")
 set(CMAKE_CXX_STANDARD 17)
