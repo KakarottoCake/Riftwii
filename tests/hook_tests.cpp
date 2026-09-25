@@ -642,8 +642,13 @@ FsCard* g_fs_card = nullptr;
 // what an IPC callback of the game does while a thread-side request
 // holds the engine.
 void (*g_on_transfer)() = nullptr;
+std::uint32_t g_fail_transfers = 0;  // fail the next N synchronous transfers with an IPC error
 std::int32_t FsTransfer(std::uint32_t lba, std::uint32_t count, std::uint32_t buffer, std::uint32_t is_write) {
     if (!g_fs_card) return -1;
+    if (g_fail_transfers != 0) {
+        --g_fail_transfers;
+        return -4;
+    }
     if (g_on_transfer) {
         void (*once)() = g_on_transfer;
         g_on_transfer = nullptr;
@@ -1027,15 +1032,28 @@ static void TestFsSyncIntercept() {
     EXPECT_EQ(st->waits, 1u);
     st->dead = 0;
 
-    // A transfer the card refuses: the request fails with -114, the engine
-    // is released, and the next request runs.
+    // A transfer the card refuses every time: the request fails with -114
+    // once its tries are spent, the engine is released, and the next
+    // request runs.
     rt_host_fs_transfer = nullptr;
     EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(1), args, &result), 1);
     EXPECT_EQ(static_cast<std::int32_t>(result), RTFAT_EIO);
     EXPECT_EQ(st->fs.busy, 0u);
     EXPECT_EQ(st->dead, 0u);
-    EXPECT_EQ(st->failures, 1u);
+    EXPECT_EQ(st->failures, RT_SD_TRANSFER_TRIES);
+    EXPECT_EQ(st->io_retries, RT_SD_TRANSFER_TRIES - 1u);
     rt_host_fs_transfer = FsTransfer;
+
+    // One that fails and then goes through: the game never sees the failure.
+    g_fail_transfers = RT_SD_TRANSFER_TRIES - 1u;
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(1), args, &result), 1);
+    EXPECT_TRUE(static_cast<std::int32_t>(result) >= static_cast<std::int32_t>(RTFS_FD_BASE));
+    EXPECT_EQ(g_fail_transfers, 0u);
+    EXPECT_EQ(st->failures, 2u * RT_SD_TRANSFER_TRIES - 1u);
+    args[0] = result;
+    EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(2), args, &result), 1);
+    FsCopyPath(path, prefix + "/save.bin");
+    args[0] = FsAddr(path); args[1] = 3;
     EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(1), args, &result), 1);
     EXPECT_TRUE(static_cast<std::int32_t>(result) >= static_cast<std::int32_t>(RTFS_FD_BASE));
     args[0] = result;
@@ -1355,9 +1373,39 @@ static void TestFsAsyncIntercept() {
     EXPECT_EQ(result, 16u);
     for (int i = 0; i < 16; ++i) EXPECT_EQ(data[256 + i], static_cast<std::uint8_t>(0xA0 + i));
 
-    // A transfer IOS refuses to issue: the request fails with -114 (deferred
-    // delivery), the engine is released, later requests run.
-    ios.refuse_issues = 1;
+    // An async write whose transfer IOS first refuses, then fails: it goes
+    // again, the game is told it worked, and the bytes are on the card.
+    {
+        const std::uint32_t failures0 = st->failures;
+        const std::uint32_t retries0 = st->io_retries;
+        args[0] = fd_a; args[1] = 0; args[2] = 0;
+        EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(5), args, &result), 1);
+        EXPECT_EQ(result, 0u);
+        for (int i = 0; i < 16; ++i) data[i] = static_cast<std::uint8_t>(0xB0 + i);
+        ios.refuse_issues = 1;
+        ios.fail_transfers = 1;
+        args[0] = fd_a; args[1] = FsAddr(data); args[2] = 16; args[3] = 0x80001044; args[4] = 0x80002044;
+        EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC(4), args, &result), 1);
+        ios.drain();
+        EXPECT_EQ(ios.delivered.size(), std::size_t(1));
+        EXPECT_EQ(ios.delivered[0].cb, 0x80001044u);
+        EXPECT_EQ(ios.delivered[0].result, 16);
+        EXPECT_EQ(st->failures, failures0 + 2u);
+        EXPECT_EQ(st->io_retries, retries0 + 2u);
+        EXPECT_EQ(st->fs.busy, 0u);
+        ios.delivered.clear();
+        args[0] = fd_a; args[1] = 0; args[2] = 0;
+        EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(5), args, &result), 1);
+        std::memset(data + 256, 0, 16);
+        args[0] = fd_a; args[1] = FsAddr(data + 256); args[2] = 16;
+        EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_SYNC(3), args, &result), 1);
+        EXPECT_EQ(result, 16u);
+        for (int i = 0; i < 16; ++i) EXPECT_EQ(data[256 + i], static_cast<std::uint8_t>(0xB0 + i));
+    }
+
+    // A transfer IOS refuses to issue on every try: the request fails with
+    // -114 (deferred delivery), the engine is released, later requests run.
+    ios.refuse_issues = RT_SD_TRANSFER_TRIES;
     FsCopyPath(path, prefix + "/save.bin");
     args[0] = FsAddr(path); args[1] = 1; args[2] = 0x80001050; args[3] = 0x80002050;
     EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC(1), args, &result), 1);
@@ -1371,8 +1419,8 @@ static void TestFsAsyncIntercept() {
     EXPECT_EQ(ios.delivered[0].cb, 0x80001050u);
     EXPECT_EQ(ios.delivered[0].result, RTFAT_EIO);
     ios.delivered.clear();
-    // A transfer that fails at completion: -114 by tail call.
-    ios.fail_transfers = 1;
+    // A transfer that fails at completion on every try: -114 by tail call.
+    ios.fail_transfers = RT_SD_TRANSFER_TRIES;
     EXPECT_EQ(rt_on_ipc(&ctx, RT_IPC_ASYNC(1), args, &result), 1);
     ios.drain();
     EXPECT_EQ(ios.delivered.size(), std::size_t(1));

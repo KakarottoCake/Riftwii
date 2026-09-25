@@ -257,6 +257,10 @@ typedef void (*rt_game_callback_fn)(int32_t result, uint32_t user_data);
 #define RT_FS_SNOOPS 2u
 #define RT_FS_DELIVERS 4u
 #define RT_FS_QUEUE 4u
+/* A save transfer is sent this many times at most before its error
+ * reaches the game: a single refused or failed command on the card
+ * otherwise fails the game's save call, or leaves a save half-written. */
+#define RT_SD_TRANSFER_TRIES 4u
 /* Both come out of the game's MEM2 arena. Saves are small and written
  * rarely; a smaller transfer only means a few more round trips. */
 #define RT_FS_BOUNCE_BYTES 0x4000u    /* one transfer moves up to 32 sectors */
@@ -399,7 +403,10 @@ struct rt_fs_state {
     uint32_t card_rca;             /* loader-filled: the card's address for CMD13 on /dev/sdio/slot0, 0 = no waits */
     uint32_t card_busy;            /* a write went to the card and it has not been seen idle since */
     uint32_t settle_polls;         /* CMD13s sent while waiting for the card after a write */
-    uint32_t reserved[1];
+    uint32_t io_tries;             /* attempts made at the transfer in flight (RT_SD_TRANSFER_TRIES at most) */
+    uint32_t io_flags;             /* the transfer in flight: RT_FS_IO_RETRY, RT_FS_IO_CARD_ERROR */
+    uint32_t io_retries;           /* transfers sent again after a failure or a card error */
+    uint32_t fault_count;          /* RT_FS_FAULT_EVERY builds: transfers seen by the fault injection */
     struct rt_fs_pend pend;
     struct rt_fs_pend snoop[RT_FS_SNOOPS];
     struct rt_fs_pend deliver[RT_FS_DELIVERS];

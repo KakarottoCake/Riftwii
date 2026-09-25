@@ -27,6 +27,13 @@
 #define RT_SD_STATE_RCV 6u
 #define RT_SD_STATE_PRG 7u
 #define RT_SD_SETTLE_POLLS 8192u  /* about half a second of CMD13s; the spec allows 250 ms per write */
+/* The status bits that report a failed write: OUT_OF_RANGE, ADDRESS_ERROR,
+ * BLOCK_LEN_ERROR, WP_VIOLATION, CARD_ECC_FAILED, CC_ERROR, ERROR. The
+ * command-level ones (COM_CRC_ERROR, ILLEGAL_COMMAND) describe the
+ * previous command, not the data, and are left out. */
+#define RT_SD_R1_WRITE_ERRORS 0xE4380000u
+#define RT_FS_IO_RETRY 1u       /* the transfer failed: send it again once the card is idle */
+#define RT_FS_IO_CARD_ERROR 2u  /* the card reported a write error while settling */
 
 int rt_is_di_read(uint32_t ioctl, const uint32_t* in, uint32_t in_len) {
     /* DVDLowRead: ioctl 0x71 with a 0x20-byte command block whose first
@@ -811,10 +818,12 @@ static void rt_fs_build_status(struct rt_fs_state* st) {
     rt_flush_range((uintptr_t)st->response, sizeof(st->response));
 }
 
-/* The answer of the CMD13 just completed: still receiving or programming? */
+/* The answer of the CMD13 just completed: still receiving or programming?
+ * A write error the card reports on the way is kept for the transfer. */
 static int rt_fs_card_writing(struct rt_fs_state* st) {
     uint32_t state;
     rt_flush_range((uintptr_t)st->response, sizeof(st->response)); /* drops the line: IOS wrote it */
+    if (st->req.fat.io_write && (st->response[0] & RT_SD_R1_WRITE_ERRORS) != 0) st->io_flags |= RT_FS_IO_CARD_ERROR;
     state = (st->response[0] >> 9) & 15u;
     return state == RT_SD_STATE_RCV || state == RT_SD_STATE_PRG;
 }
@@ -823,6 +832,17 @@ static int rt_fs_card_writing(struct rt_fs_state* st) {
 static void rt_fs_mark_write(struct rt_context* ctx, struct rt_fs_state* st) {
     if (st->req.fat.io_write && rt_sd_settles(ctx, st)) st->card_busy = 1;
 }
+
+#ifdef RT_FS_FAULT_EVERY
+/* Test builds (make RT_DEFINES=-DRT_FS_FAULT_EVERY=n): every n-th save
+ * transfer is reported failed, as a card that refused it would be, so the
+ * retries can be watched in an emulator whose card never fails. */
+static int rt_fs_fault(struct rt_fs_state* st) {
+    return ++st->fault_count % (uint32_t)(RT_FS_FAULT_EVERY) == 0u;
+}
+#else
+#define rt_fs_fault(st) 0
+#endif
 
 /* The synchronous wait, on the caller's thread. */
 static void rt_fs_settle_sync(struct rt_context* ctx, struct rt_fs_state* st) {
@@ -862,41 +882,67 @@ static int rt_fs_settle_next(struct rt_context* ctx, struct rt_fs_state* st, int
     return 1;
 }
 
+/* Whether the transfer that just ended (and whose card wait is over) is
+ * sent again: it failed, or the card reported a write error, and tries
+ * remain. A card error on the last try is not turned into a failure: the
+ * write itself was accepted, and bits that are set on every write would
+ * otherwise fail every save. */
+static int rt_fs_should_retry(struct rt_fs_state* st) {
+    const uint32_t flags = st->io_flags;
+    st->io_flags = 0;
+    if (!(flags & (RT_FS_IO_RETRY | RT_FS_IO_CARD_ERROR))) return 0;
+    if (st->io_tries >= RT_SD_TRANSFER_TRIES) return 0;
+    st->io_retries++;
+    return 1;
+}
+
 /* Performs the engine's pending transfer on the caller's thread and
- * records its status. */
+ * records its status, sending it again while it fails and tries remain. */
 static void rt_fs_transfer_sync(struct rt_context* ctx, struct rt_fs_state* st) {
     int32_t r;
     uint32_t msr;
-    rt_fs_build_sendcmd(ctx, st);
-    msr = rt_interrupts_off();
-    rt_fs_mark_write(ctx, st);
-    rt_interrupts_restore(msr);
-    r = rt_fs_sendcmd_call(ctx, st, 0);
-    st->transfers++;
-    if (r < 0) st->failures++;
-    st->req.fat.io_status = r < 0 ? r : 0;
-    if (st->req.fat.io_write) rt_fs_settle_sync(ctx, st);
+    do {
+        rt_fs_build_sendcmd(ctx, st);
+        msr = rt_interrupts_off();
+        rt_fs_mark_write(ctx, st);
+        rt_interrupts_restore(msr);
+        r = rt_fs_sendcmd_call(ctx, st, 0);
+        if (r >= 0 && rt_fs_fault(st)) r = RTFAT_EIO;
+        st->transfers++;
+        st->io_tries++;
+        if (r < 0) {
+            st->failures++;
+            st->io_flags |= RT_FS_IO_RETRY;
+        }
+        st->req.fat.io_status = r < 0 ? r : 0;
+        /* After a write, and before a failed transfer goes again, the card
+         * must be done with whatever it was doing. */
+        if (st->req.fat.io_write || r < 0) rt_fs_settle_sync(ctx, st);
+    } while (rt_fs_should_retry(st));
 }
 
 /* Issues the engine's pending transfer with the FILE record as its tag:
- * 1 when in flight (the completion continues), 0 when refused (the
- * status then fails the request on its next step). */
+ * 1 when in flight (the completion continues), 0 when refused on every
+ * try (the status then fails the request on its next step). */
 static int rt_fs_issue_async(struct rt_context* ctx, struct rt_fs_state* st) {
     int32_t r;
     uint32_t msr;
-    rt_fs_build_sendcmd(ctx, st);
-    msr = rt_interrupts_off();
-    rt_fs_mark_write(ctx, st);
-    r = rt_fs_sendcmd_call(ctx, st, 1);
-    if (r < 0 && st->req.fat.io_write) st->card_busy = 0;
-    rt_interrupts_restore(msr);
-    st->transfers++;
-    if (r < 0) {
+    for (;;) {
+        rt_fs_build_sendcmd(ctx, st);
+        msr = rt_interrupts_off();
+        rt_fs_mark_write(ctx, st);
+        r = rt_fs_sendcmd_call(ctx, st, 1);
+        if (r < 0 && st->req.fat.io_write) st->card_busy = 0;
+        rt_interrupts_restore(msr);
+        st->transfers++;
+        st->io_tries++;
+        if (r >= 0) return 1;
         st->failures++;
-        st->req.fat.io_status = r;
-        return 0;
+        if (st->io_tries >= RT_SD_TRANSFER_TRIES) break;
+        st->io_retries++;
     }
-    return 1;
+    st->req.fat.io_status = r;
+    return 0;
 }
 
 /* Runs the request in flight until it is complete (DONE: result in
@@ -919,6 +965,8 @@ static int rt_fs_advance(struct rt_context* ctx, struct rt_fs_state* st, int syn
             return RT_FS_ADVANCE_DONE;
         }
         if (step != RTFAT_IO) break;
+        st->io_tries = 0;
+        st->io_flags = 0;
         if (sync) rt_fs_transfer_sync(ctx, st);
         else if (rt_fs_issue_async(ctx, st)) return RT_FS_ADVANCE_ISSUED;
     }
@@ -2180,13 +2228,22 @@ void rt_on_fs_complete(struct rt_context* ctx, int32_t* result, void* tag, uintp
     if (tag == (void*)&st->pend && st->pend.in_use) {
         struct rtfs_request* req = &st->req;
         if (st->pend.reserved != 0) {
-            /* A CMD13 after a write: another, or the engine goes on. */
+            /* A CMD13 after the transfer: another, or the wait is over. */
             if (rt_fs_settle_next(ctx, st, *result)) return;
         } else {
-            if (*result < 0) st->failures++;
+            if (*result >= 0 && rt_fs_fault(st)) *result = RTFAT_EIO;
+            if (*result < 0) {
+                st->failures++;
+                st->io_flags |= RT_FS_IO_RETRY;
+            }
             req->fat.io_status = *result < 0 ? *result : 0;
-            if (req->fat.io_write && rt_fs_settle_next(ctx, st, 0)) return;
+            /* A write waits for the card; so does a failed transfer before
+             * it goes again. */
+            if ((req->fat.io_write || *result < 0) && rt_fs_settle_next(ctx, st, 0)) return;
         }
+        /* The transfer again (the engine goes on when it is refused: its
+         * status then fails the request). */
+        if (rt_fs_should_retry(st) && rt_fs_issue_async(ctx, st)) return;
         if (rt_fs_advance(ctx, st, 0) == RT_FS_ADVANCE_ISSUED) return;
         st->pend.in_use = 0;
         if (st->pend.job) {
