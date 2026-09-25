@@ -69,6 +69,7 @@ void PackIndex::add(const std::string& xml) {
     Package package;
     std::string error;
     DiscFilter filter;
+    if (is_foreign_xml(xml)) return;
     if (parse_package(xml, package, error)) {
         filter = package.filter;
     } else {
@@ -91,6 +92,7 @@ bool PackIndex::has_packs(const std::string& game_id) const {
 
 void LaunchModel::add(const std::string& file, const std::string& path, const std::string& xml,
                       const DiscIdentity* disc) {
+    if (is_foreign_xml(xml)) return;  // not a pack: listed nowhere
     LaunchPackage p;
     p.file = file;
     p.path = path;

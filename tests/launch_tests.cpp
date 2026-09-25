@@ -112,6 +112,12 @@ static void test_model() {
     model.add("a.xml", "sd:/riivolution/a.xml", kModA, &disc);
     model.add("other.xml", "sd:/riivolution/other.xml", kModOther, &disc);
     model.add("broken.xml", "sd:/riivolution/broken.xml", "<wiidisc", &disc);
+    // A Homebrew Channel meta.xml left in the folder is no pack: not listed.
+    model.add("meta.xml", "sd:/riivolution/meta.xml",
+              "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<app version=\"1\"><name>x</name></app>\n", &disc);
+    EXPECT_TRUE(riftwii::is_foreign_xml("<app version=\"1\"/>"));
+    EXPECT_FALSE(riftwii::is_foreign_xml("<wiidisc version=\"1\"/>"));
+    EXPECT_FALSE(riftwii::is_foreign_xml("<wiidisc"));  // a pack with a mistake stays listed, as broken
     EXPECT_EQ(model.packages.size(), std::size_t(3));
     EXPECT_TRUE(model.packages[0].valid);
     EXPECT_TRUE(model.packages[0].for_disc);
