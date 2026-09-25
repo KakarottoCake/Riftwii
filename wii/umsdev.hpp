@@ -19,6 +19,10 @@ namespace riftwii::wii::ums {
 // Opens and starts the device once; false with `error` when this IOS has
 // no d2x USB device or the drive is unusable.
 bool Open(std::string& error);
+// Before an IOS reload: the fd and a failed open belong to the IOS that is
+// going away (a disc's packs failing under IOS 58 must be tried again
+// once Settings has loaded the d2x slot).
+void Forget();
 // The open fd, or -1.
 int Fd();
 // Raw sectors into any buffer (through a MEM2 bounce buffer: d2x's USB
