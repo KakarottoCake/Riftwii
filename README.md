@@ -228,7 +228,9 @@ during the game; **Off** never does. `boot.log` says what was found.
 It needs a menu IOS with USB HID: IOS 58 (the default) or a d2x cIOS;
 the game then keeps that IOS. On a Wii U it needs IOS 58. It stays off
 for games read from the USB drive (and RVZ games or packs read from it),
-where it broke the game's disc reads. Games without GameCube controller support
+where it broke the game's disc reads. **On** tries it there anyway (an
+experiment: if the game then fails to read its disc, go back to
+**Automatic**). Games without GameCube controller support
 ignore it, and so do mods that bring their own controller code (mkwcat's
 NSMBW project) or read the controller hardware directly (Gecko codes
 that add GameCube controls to NSMBW).
