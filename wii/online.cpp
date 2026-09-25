@@ -273,6 +273,22 @@ bool CheckForUpdate(bool force, std::string& latest, bool& newer, std::string& e
     return true;
 }
 
+namespace {
+std::string g_declined;
+}  // namespace
+
+void NoteUpdateDeclined(const std::string& latest) {
+    g_declined = latest;
+    logf("Update: the player chose \"Not now\" twice for %s (asked again, then declined on purpose); "
+         "staying on %s\n", latest.c_str(), RIFTWII_VERSION);
+}
+
+void LogDeclinedUpdate() {
+    if (g_declined.empty()) return;
+    logf("Update: %s is out, but the player chose \"Not now\" twice at start; this is still %s\n",
+         g_declined.c_str(), RIFTWII_VERSION);
+}
+
 bool UpdateInstalled(const std::string& latest) {
     const UpdateNote note = ReadUpdateNote();
     return !note.installed.empty() && note.installed == latest;

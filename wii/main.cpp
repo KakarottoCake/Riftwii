@@ -29,6 +29,7 @@
 #include "log.hpp"
 #include "memlimits.hpp"
 #include "menuios.hpp"
+#include "online.hpp"
 #include "progress.hpp"
 #include "restart.hpp"
 #include "skin.hpp"
@@ -165,6 +166,7 @@ int main() {
     if (action == MENU_LAUNCH) {
         riftwii::wii::LogOpen("sd:/riftwii/boot.log");
         riftwii::wii::logf("RiftWii %s: launch %s with packages\n", RIFTWII_VERSION, state.game_id.c_str());
+        riftwii::wii::LogDeclinedUpdate();
         if (riftwii::wii::GuiScriptFailLaunch()) error = "a test failure the guiscript asked for";
         const bool booted = !error.empty() ? false : (source.kind == riftwii::wii::LaunchSource::Kind::Disc && state.has_compiled)
                                 ? riftwii::wii::BootCompiled(state.compiled, error, source, state.model.save_mode,
@@ -180,6 +182,7 @@ int main() {
     } else if (action == MENU_BOOT) {
         riftwii::wii::LogOpen("sd:/riftwii/boot.log");
         riftwii::wii::logf("RiftWii %s: boot %s\n", RIFTWII_VERSION, source.kind == riftwii::wii::LaunchSource::Kind::Usb ? "USB" : source.kind == riftwii::wii::LaunchSource::Kind::Sd ? "SD" : "disc");
+        riftwii::wii::LogDeclinedUpdate();
         if (riftwii::wii::GuiScriptFailLaunch()) error = "a test failure the guiscript asked for";
         if (!error.empty() || !riftwii::wii::RunBoot(true, error, source)) {
             if (riftwii::wii::reload_terminal_failure()) riftwii::wii::halt_after_terminal_reload();
