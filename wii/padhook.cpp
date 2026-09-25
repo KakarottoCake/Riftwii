@@ -31,7 +31,6 @@ constexpr std::uint32_t kNop = 0x60000000;
 constexpr int kHidHandle = 1;
 
 char g_hid_path[] ATTRIBUTE_ALIGN(32) = "/dev/usb/hid";
-char g_ven_path[] ATTRIBUTE_ALIGN(32) = "/dev/usb/ven";
 std::uint32_t g_version_out[8] ATTRIBUTE_ALIGN(32);
 std::uint32_t align_up(std::uint32_t v) { return (v + 31) & ~31u; }
 
@@ -54,40 +53,43 @@ bool overlaps(const MemoryPatch& p, std::uint32_t start, std::uint32_t bytes) {
 
 }  // namespace
 
-// v5 comes with /dev/usb/ven, v4 without it (libogc tells them apart
-// the same way). Each is asked only its own GetVersion: v4's number is
-// AttachFinish on v5, and v5's is GetDeviceChange on v4, which can wait.
-// v4's answers 0x40001 itself, v5's writes 0x50001 into its output.
+// v4's GetVersion answers 0x40001 itself, v5's writes 0x50001 into its
+// output; v4 is asked first, as libogc does (v5's number is
+// GetDeviceChange on v4). Opened on RiftWii's own v5 handle first; when
+// that gets neither answer (a Wii U's IOS 58 did), on handle 0, libogc's.
+// Every step is logged first: a d2x cIOS hung somewhere in here with an
+// adapter plugged in.
 bool open_usb_hid(std::int32_t& fd, std::uint32_t& version, std::string& why) {
-    const s32 ven = IOS_Open(g_ven_path, IPC_OPEN_NONE);
-    if (ven >= 0) IOS_Close(ven);
-    fd = IOS_Open(g_hid_path, kHidHandle);
-    if (fd < 0) {
-        why = "/dev/usb/hid did not open (" + std::to_string(fd) + "): this IOS has no USB HID";
-        return false;
-    }
-    char buf[160];
-    if (ven >= 0) {
-        std::memset(g_version_out, 0, sizeof(g_version_out));
-        const s32 ret = IOS_Ioctl(fd, GCAD_V5_GET_VERSION, nullptr, 0, g_version_out, sizeof(g_version_out));
-        if (ret == 0 && g_version_out[0] == GCAD_V5_VERSION) {
-            version = 5;
-            return true;
+    const int handles[2] = {kHidHandle, 0};
+    std::string tried;
+    for (const int handle : handles) {
+        logf("GameCube adapter: opening /dev/usb/hid (handle %d)\n", handle);
+        fd = IOS_Open(g_hid_path, handle);
+        if (fd < 0) {
+            tried += (tried.empty() ? "" : "; ") + std::string("handle ") + std::to_string(handle) + ": open " +
+                     std::to_string(fd);
+            continue;
         }
-        std::snprintf(buf, sizeof(buf), "/dev/usb/hid (with /dev/usb/ven) is not v5: GetVersion %d, %08x",
-                      static_cast<int>(ret), static_cast<unsigned>(g_version_out[0]));
-    } else {
-        const s32 ret = IOS_Ioctl(fd, GCAD_V4_GET_VERSION, nullptr, 0, nullptr, 0);
-        if (ret == static_cast<s32>(GCAD_V4_VERSION)) {
+        logf("GameCube adapter: asking /dev/usb/hid fd %d its version\n", static_cast<int>(fd));
+        const s32 v4 = IOS_Ioctl(fd, GCAD_V4_GET_VERSION, nullptr, 0, nullptr, 0);
+        if (v4 == static_cast<s32>(GCAD_V4_VERSION)) {
             version = 4;
             return true;
         }
-        std::snprintf(buf, sizeof(buf), "/dev/usb/hid (no /dev/usb/ven) is not v4: GetVersion %d (ven %d)",
-                      static_cast<int>(ret), static_cast<int>(ven));
+        std::memset(g_version_out, 0, sizeof(g_version_out));
+        const s32 v5 = IOS_Ioctl(fd, GCAD_V5_GET_VERSION, nullptr, 0, g_version_out, sizeof(g_version_out));
+        if (v5 == 0 && g_version_out[0] == GCAD_V5_VERSION) {
+            version = 5;
+            return true;
+        }
+        IOS_Close(fd);
+        fd = -1;
+        char buf[96];
+        std::snprintf(buf, sizeof(buf), "handle %d: v4 GetVersion %d, v5 GetVersion %d (%08x)", handle,
+                      static_cast<int>(v4), static_cast<int>(v5), static_cast<unsigned>(g_version_out[0]));
+        tried += (tried.empty() ? "" : "; ") + std::string(buf);
     }
-    IOS_Close(fd);
-    fd = -1;
-    why = buf;
+    why = "/dev/usb/hid answers neither as v4 nor as v5 (" + tried + ")";
     return false;
 }
 
@@ -137,9 +139,18 @@ bool usb_hid_present() {
 }
 
 AdapterSeen look_for_gc_adapter(std::string& how) {
+    // Right after an IOS reload USB is still finding its devices: leave
+    // it alone for its first 2 s (a d2x cIOS hung when asked sooner, with
+    // an adapter plugged in).
+    const unsigned since = ms_since_ios_reload();
+    if (since < 2000) {
+        logf("GameCube adapter: waiting %u ms for USB after the IOS reload\n", 2000 - since);
+        usleep((2000 - since) * 1000);
+    }
     std::int32_t fd = -1;
     std::uint32_t version = 0;
     if (!open_usb_hid(fd, version, how)) return AdapterSeen::Missing;
+    logf("GameCube adapter: /dev/usb/hid v%u; closing it and asking USB for its devices\n", version);
     IOS_Close(fd);
     // v5 lists devices once per change, to whoever asks first: the menu's
     // USB (libogc) had the list and keeps it. v4 is asked through oh0.
