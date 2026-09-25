@@ -55,8 +55,23 @@ constexpr const char* kRvzStubDir = "sd:/riftwii/rvz";
 constexpr std::size_t kMaxGames = 4000, kMaxPath = 240;
 constexpr u8 kUsbClassMassStorage = 0x08;
 
+// libogc's storage driver takes a USB device change reported by IOS as
+// the drive's removal and fails every read from then on: bringing up the
+// network of a USB LAN adapter does that on IOS 58. isInserted() finds
+// the drive again (opened under its new device id), so a failed read does
+// that once and is tried again.
+bool usb_read_sectors(sec_t sector, sec_t count, void* out) {
+    if (__io_usbstorage.readSectors(sector, count, out)) return true;
+    const bool back = __io_usbstorage.isInserted();
+    logf("USB: a read of sector %lu failed; the drive %s\n", static_cast<unsigned long>(sector),
+         back ? "was opened again (a USB device change, such as a network adapter starting?)" : "is gone");
+    return back && __io_usbstorage.readSectors(sector, count, out);
+}
+// libfat's usb: goes through the same retry.
+DISC_INTERFACE g_usb_io;
+
 bool usb_read(std::uint64_t sector, std::uint32_t count, std::uint8_t* out) {
-    return sector <= 0xFFFFFFFFull && __io_usbstorage.readSectors(static_cast<sec_t>(sector), count, out);
+    return sector <= 0xFFFFFFFFull && usb_read_sectors(static_cast<sec_t>(sector), count, out);
 }
 bool d2x_usb_block_read(std::uint64_t sector, std::uint32_t count, std::uint8_t* out) {
     return ums::Read(sector, count, out);
@@ -131,7 +146,9 @@ bool ensure_usb(std::string& error) {
     // the drive is read raw below.
     if (!g_libfat_mounted) {
         logf("USB: mounting\n");
-        g_libfat_mounted = fatMountSimple("usb", &__io_usbstorage);
+        g_usb_io = __io_usbstorage;
+        g_usb_io.readSectors = usb_read_sectors;
+        g_libfat_mounted = fatMountSimple("usb", &g_usb_io);
         if (!g_libfat_mounted) logf("USB: libfat cannot mount it (not FAT32); reading it raw\n");
     }
     logf("USB: %u-byte sectors\n", static_cast<unsigned>(__io_usbstorage_sector_size));
