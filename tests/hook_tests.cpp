@@ -2505,6 +2505,22 @@ std::int32_t FakeIoctlAsync(std::uint32_t fd, std::uint32_t ioctl, std::uint32_t
 // The game's own read issued again (a retry): into its buffer, as it asked.
 std::vector<std::uint32_t> g_game_reads;  // (buffer, word offset, length) triples
 
+// The null round trip that starts a read the drive need not see:
+// /dev/sdio/slot0's GETSTATUS on the card's fd.
+unsigned g_null_trips = 0;
+rt_pending* g_null_record = nullptr;
+std::int32_t NullTripAsync(std::uint32_t fd, std::uint32_t ioctl, std::uint32_t* in, std::uint32_t in_len,
+                           std::uint32_t out, std::uint32_t out_len, std::uint32_t callback, rt_pending* record) {
+    EXPECT_EQ(fd, 9u);
+    EXPECT_EQ(ioctl, static_cast<std::uint32_t>(RT_SDIO_GETSTATUS));
+    EXPECT_TRUE(in == nullptr && in_len == 0u);
+    EXPECT_TRUE(out != 0u && out_len == 4u);
+    EXPECT_EQ(callback, 0x935D0100u);
+    ++g_null_trips;
+    g_null_record = record;
+    return 0;
+}
+
 std::int32_t FakeGameReadAsync(std::uint32_t fd, std::uint32_t ioctl, std::uint32_t* in, std::uint32_t in_len,
                                std::uint32_t out, std::uint32_t out_len, std::uint32_t callback, rt_pending* record) {
     EXPECT_EQ(fd, 3u);
@@ -3273,6 +3289,74 @@ static void TestPayloadAndRedirect() {
     EXPECT_EQ(rt_on_ioctl_async(&ctx, vargs, &result), 0);
     EXPECT_EQ(vcmd[2], 0x3FCu);
     EXPECT_EQ(vargs[6], 0x80005000u);  // nothing of the table there: passed through
+
+    // With the card's device there, a read the table serves whole never
+    // reaches the drive (a disc with the mod's files on it would not seek
+    // at all): a null round trip on the card's device starts it instead.
+    rt_host_ioctl_async = &NullTripAsync;
+    ctx.sdio_fd = 9;
+    ctx.sdio_sdhc = 1;
+    g_null_trips = 0;
+    std::memset(vout, 0xEE, 0x40);
+    vcmd[2] = 0x80000000u;
+    vargs[6] = 0x80005000;
+    vargs[7] = 0x80006000;
+    result = 0xFFFF;
+    EXPECT_EQ(rt_on_ioctl_async(&ctx, vargs, &result), 1);  // answered: the drive never sees it
+    EXPECT_EQ(result, 0u);
+    EXPECT_EQ(vcmd[2], 0x80000000u);  // the game's command is left alone
+    EXPECT_EQ(vargs[6], 0x80005000u);
+    EXPECT_EQ(g_null_trips, 1u);
+    rec = g_null_record;
+    EXPECT_TRUE(rec != nullptr);
+    if (rec != nullptr) {
+        EXPECT_EQ(rec->phase, static_cast<std::uint32_t>(RT_PHASE_NO_DRIVE));
+        di_result = 0;  // GETSTATUS's answer
+        rt_on_di_complete(&ctx, &di_result, rec, &cb, &ud);
+        EXPECT_EQ(cb, 0x80005000u);
+        EXPECT_EQ(ud, 0x80006000u);
+        EXPECT_EQ(di_result, 1);
+        EXPECT_EQ(vout[0], 9);
+        EXPECT_EQ(vout[4], 5);
+        EXPECT_EQ(vout[5], 0);
+        EXPECT_EQ(rec->in_use, 0u);
+    }
+    // Below the window, a read inside the replaced bytes: whole, no drive.
+    ctx.table = table_address;
+    std::memset(out, 0xEE, 0x20);
+    di_cmd[1] = 4;
+    di_cmd[2] = 0x1000 >> 2;
+    args[5] = 4;
+    args[6] = 0x80005000;
+    args[7] = 0x80006000;
+    EXPECT_EQ(rt_on_ioctl_async(&ctx, args, &result), 1);
+    EXPECT_EQ(g_null_trips, 2u);
+    rec = g_null_record;
+    if (rec != nullptr) {
+        di_result = 0;
+        rt_on_di_complete(&ctx, &di_result, rec, &cb, &ud);
+        EXPECT_EQ(di_result, 1);
+        EXPECT_EQ(cb, 0x80005000u);
+        EXPECT_EQ(out[0], 1);
+        EXPECT_EQ(out[3], 4);
+        EXPECT_EQ(out[4], 0xEE);  // past the read
+    }
+    // A read that needs the disc's own bytes too still goes to the drive.
+    di_cmd[1] = 0x20;
+    di_cmd[2] = 0x3FC;
+    args[5] = 0x20;
+    args[6] = 0x80005000;
+    args[7] = 0x80006000;
+    EXPECT_EQ(rt_on_ioctl_async(&ctx, args, &result), 0);
+    EXPECT_EQ(args[6], 0x935D0100u);
+    EXPECT_EQ(g_null_trips, 2u);
+    rec = reinterpret_cast<rt_pending*>(args[7]);
+    di_result = 1;
+    rt_on_di_complete(&ctx, &di_result, rec, &cb, &ud);
+    EXPECT_EQ(di_result, 1);
+    rt_host_ioctl_async = nullptr;
+    ctx.sdio_fd = 0;
+    ctx.sdio_sdhc = 0;
 
     TestSdChain(low + 0x8000, low + 0x9000);
 }
