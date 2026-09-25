@@ -43,18 +43,20 @@ bool Open(std::string& error) {
         error = g_failure;
         return false;
     }
-    // One driver for the drive: libogc's lets go first.
-    release_usb_driver();
     static char path[] ATTRIBUTE_ALIGN(32) = "/dev/usb2";
     g_fd = IOS_Open(path, 0);
     if (g_fd < 0) {
-        error = "this IOS (" + std::to_string(IOS_GetVersion()) +
-                ") has no d2x USB device; packs and RVZ games on the USB drive need the game to run under a d2x "
-                "cIOS (for a disc, set Menu IOS to your d2x slot in Settings)";
+        // libogc's driver is still up: a failure here leaves the menu's
+        // USB drive mounted.
+        error = "this IOS (" + std::to_string(IOS_GetVersion()) + ") has no d2x USB device (" +
+                std::to_string(g_fd) + "); packs and RVZ games on the USB drive need a d2x cIOS";
+        g_fd = -1;
         g_failed = true;
         g_failure = error;
         return false;
     }
+    // One driver for the drive: libogc's lets go before d2x's starts.
+    release_usb_driver();
     const s32 init = IOS_Ioctlv(g_fd, kInit, 0, 0, nullptr);
     g_vec[0].data = &g_args[0];
     g_vec[0].len = 4;

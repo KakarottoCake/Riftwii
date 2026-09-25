@@ -96,5 +96,10 @@ bool slot_has_ticket(int slot);
 // caller-owned memory that must outlive d2x configuration and the game boot.
 bool activate_image_game(const ImageGame& game, int cios_slot, void*& storage, std::size_t& storage_bytes,
                          const char* log_path, std::string& error);
+// For a disc whose packs are on the USB drive while the menu runs a non-d2x
+// IOS: reloads the cIOS (`cios_slot`, or 249, then 250, then 251) with the
+// same teardown as activate_image_game, and brings the SD card and the log
+// back. The game then runs under it (d2x's USB device is read in game).
+bool activate_disc_cios(int cios_slot, const char* log_path, std::string& error);
 
 }  // namespace riftwii::wii

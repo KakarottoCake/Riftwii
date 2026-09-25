@@ -453,6 +453,13 @@ static bool g_coversOff = false;
 
 void SetHomeNotice(const std::string& text) { g_homeNotice = text; }
 
+static bool PacksOnUsb(const FrontendState& state)
+{
+	for (const auto& p : state.model.selections())
+		if (p.xml_sd_path.compare(0, 5, "usb:/") == 0) return true;
+	return false;
+}
+
 static std::string HomeStatus(const FrontendState& state, std::size_t shown)
 {
 	if (!g_homeNotice.empty()) return g_homeNotice;
@@ -1783,9 +1790,11 @@ static int MenuHome(FrontendState& state)
 				// the status shows why
 			} else if (!riftwii::needs_launch_pipeline(!state.model.selections().empty(), state.model.save_mode)) {
 				menu = MENU_BOOT;  // no resident work: boot the game as it is
-			} else if (state.use_usb || state.use_sd) {
+			} else if (state.use_usb || state.use_sd || (riftwii::wii::MenuCiosSlot() == 0 && PacksOnUsb(state))) {
 				// cIOS reload and F9 happen after the GUI exits; compilation
-				// follows the virtual DI probe in RunLaunch.
+				// follows the virtual DI probe in RunLaunch. So does a disc's
+				// with packs on the USB drive under a non-d2x Menu IOS: they
+				// are read through d2x, loaded for the launch.
 				menu = MENU_LAUNCH;
 			} else {
 				// A physical disc: compile now, while problems can still be
