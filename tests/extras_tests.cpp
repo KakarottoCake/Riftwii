@@ -53,6 +53,32 @@ void TestHttp() {
     EXPECT_EQ(tag, "v2.0.1-beta");
     EXPECT_FALSE(release_tag_from_json("[]", tag));
     EXPECT_FALSE(release_tag_from_json("{\"tag_name\":3}", tag));
+    {
+        // The shape of GitHub's answer: the release's own "name", then the
+        // assets, each with an "uploader" object inside.
+        const std::string json =
+            "[{\"tag_name\":\"v2.0.3-beta\",\"name\":\"RiftWii 2.0.3 Beta\",\"assets\":["
+            "{\"id\":1,\"name\":\"riftwii-v2.0.3-beta.zip\",\"uploader\":{\"login\":\"x\"},\"size\":900,"
+            "\"digest\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\","
+            "\"browser_download_url\":\"https://github.com/a/b/releases/download/v2.0.3-beta/riftwii-v2.0.3-beta.zip\"},"
+            "{\"id\":2,\"name\" : \"riftwii.dol\",\"uploader\":{\"login\":\"x\",\"id\":5},\"size\": 4526176,"
+            "\"digest\":\"sha256:ABCDEF0123456789abcdef0123456789ABCDEF0123456789abcdef0123456789\",\"download_count\":3,"
+            "\"browser_download_url\":\"https://github.com/a/b/releases/download/v2.0.3-beta/riftwii.dol\"}]}]";
+        ReleaseAsset dol;
+        EXPECT_TRUE(release_asset_from_json(json, "riftwii.dol", dol));
+        EXPECT_EQ(dol.url, "https://github.com/a/b/releases/download/v2.0.3-beta/riftwii.dol");
+        EXPECT_EQ(dol.sha256, "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789");
+        EXPECT_TRUE(dol.size == 4526176ull);
+        ReleaseAsset none;
+        EXPECT_FALSE(release_asset_from_json(json, "boot.dol", none));
+        // An older answer without digests: the URL alone.
+        const std::string old = "[{\"assets\":[{\"name\":\"riftwii.dol\",\"size\":7,\"digest\":null,"
+                                "\"browser_download_url\":\"https://x/riftwii.dol\"}]}]";
+        EXPECT_TRUE(release_asset_from_json(old, "riftwii.dol", dol));
+        EXPECT_EQ(dol.url, "https://x/riftwii.dol");
+        EXPECT_TRUE(dol.sha256.empty());
+        EXPECT_TRUE(dol.size == 7ull);
+    }
     EXPECT_EQ(compare_versions("v1.0.9-beta", "2.0.0-beta"), -1);
     EXPECT_EQ(compare_versions("2.0.0", "2.0.0-beta"), 1);
     EXPECT_EQ(compare_versions("v2.0.0-beta", "2.0.0-beta"), 0);

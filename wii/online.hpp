@@ -33,6 +33,15 @@ bool UpdateTitles(const std::string& lang, bool force, std::string& error);
 bool CheckForUpdate(bool force, std::string& latest, bool& newer, std::string& error);
 constexpr const char* kReleasesPage = "github.com/KakarottoCake/Riftwii/releases";
 
+// Whether `latest` was already installed by InstallUpdate (it runs once
+// RiftWii is started again).
+bool UpdateInstalled(const std::string& latest);
+// Downloads the riftwii.dol the last CheckForUpdate found for `latest`,
+// checks it (size, SHA-256 when GitHub gives one, a valid DOL header) and
+// puts it in place of the running boot.dol, keeping the old one as
+// boot.dol.old; meta.xml's version follows. `where` is the file replaced.
+bool InstallUpdate(const std::string& latest, std::string& where, std::string& error);
+
 // sd:/riftwii/cheats/<ID>.txt.
 std::string CheatPath(const std::string& game_id);
 // Fetches the game's cheats, replacing the file. The archive answers
