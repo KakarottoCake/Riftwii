@@ -932,6 +932,12 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
     // partition reads go through the SD card, which is handed on below.
     std::uint8_t dol_bytes[kDolHeaderBytes];
     bool gc_adapter = g_extras.gc_adapter != GcAdapterMode::Off;
+    if (gc_adapter && g_extras.gc_adapter != GcAdapterMode::Demo && (rvz.usb_fd >= 0 || pieces.needs_usb())) {
+        // The runtime reads the USB drive through d2x while the game runs.
+        logf("GameCube adapter: off: %s the USB drive, which the adapter breaks\n",
+             rvz.usb_fd >= 0 ? "the RVZ is read from" : "packs are read from");
+        gc_adapter = false;
+    }
     DolHeader dol;
     if (options.install_resident || gc_adapter) {
         if (!options.main_dol.empty()) {
@@ -1016,6 +1022,7 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         ro.sdio_fd = card.fd;
         ro.sdio_sdhc = card.sdhc;
         ro.sdio_d2x = card.d2x;
+        ro.sdio_rca = card.rca;
         if (ro.pieces.needs_usb()) {
             // Opened when the packs were compiled, under this same IOS.
             if (!ums::Open(error)) return false;
@@ -1261,6 +1268,17 @@ bool prepare_savegame(const DiscProbe& probe, const BootOptions& options, Savega
 
 void SetLaunchExtras(LaunchExtras extras) { g_extras = std::move(extras); }
 
+namespace {
+
+// A Wii U: its Wii mode has the BC-NAND title (00000001-00000200), a Wii
+// has none.
+bool is_wii_u() {
+    u32 contents = 0;
+    return ES_GetTitleContentsCount(0x0000000100000200ULL, &contents) >= 0 && contents > 0;
+}
+
+}  // namespace
+
 bool boot_game(const DiscProbe& probe, const BootOptions& options, std::string& error) {
     const std::uint32_t required = probe.tmd.required_ios();
     if (required == 0) {
@@ -1270,6 +1288,19 @@ bool boot_game(const DiscProbe& probe, const BootOptions& options, std::string& 
     logf("Booting %s with IOS%u\n", probe.header.game_id.c_str(), required);
     BootOptions effective = options;
     const int running_ios = IOS_GetVersion();
+    if (g_extras.gc_adapter == GcAdapterMode::Auto || g_extras.gc_adapter == GcAdapterMode::On) {
+        // Where the adapter broke the launch on hardware, it stays off and
+        // USB is not touched for it: on a Wii U /dev/usb/hid never answered
+        // (d2x) or answered nothing (IOS58); with the game read from the
+        // USB drive through d2x, the game's disc reads failed.
+        const char* off = is_wii_u()               ? "not supported on a Wii U yet"
+                          : di::frag_device() == 1 ? "the game is read from the USB drive, which the adapter breaks"
+                                                   : nullptr;
+        if (off) {
+            logf("GameCube adapter: off: %s\n", off);
+            g_extras.gc_adapter = GcAdapterMode::Off;
+        }
+    }
     if (g_extras.gc_adapter == GcAdapterMode::Auto || g_extras.gc_adapter == GcAdapterMode::On) {
         // Auto: on only when an adapter is there now, so games that use
         // USB input of their own (and games with their own adapter code)

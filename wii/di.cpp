@@ -31,6 +31,7 @@ ioctlv g_vectors[5] ATTRIBUTE_ALIGN(32);
 std::uint8_t g_bounce[32 * 1024] ATTRIBUTE_ALIGN(32);
 s32 g_fd = -1;
 int g_last_reply = 0;
+std::uint32_t g_frag_device = 0;
 
 bool aligned32(const void* p) { return (reinterpret_cast<std::uintptr_t>(p) & 31) == 0; }
 
@@ -179,8 +180,11 @@ bool configure_frag(std::uint32_t device, const void* list32, std::uint32_t byte
         error = g_last_reply < 0 ? describe("d2x fragment setup", g_last_reply) : "d2x rejected the fragment list: " + std::to_string(g_out[0]);
         return false;
     }
+    g_frag_device = device;
     error.clear(); return true;
 }
+
+std::uint32_t frag_device() { return g_frag_device; }
 
 bool inquiry(std::uint8_t out32[32], std::string& error) {
     std::memset(g_in, 0, sizeof(g_in));

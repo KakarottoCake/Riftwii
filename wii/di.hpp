@@ -37,6 +37,8 @@ bool inquiry(std::uint8_t out32[32], std::string& error);     // 0x12
 bool probe_d2x(std::uint32_t& mode, std::string& error);       // 0xFA
 bool disable_reset(std::string& error);                         // 0xF6
 bool configure_frag(std::uint32_t device, const void* list32, std::uint32_t bytes, std::string& error); // 0xF9
+// The device of the last fragment list d2x accepted: 1 USB, 2 SD, 0 none.
+std::uint32_t frag_device();
 inline bool configure_frag_usb(const void* list32, std::uint32_t bytes, std::string& error) {
     return configure_frag(1, list32, bytes, error);
 }
