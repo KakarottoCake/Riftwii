@@ -29,6 +29,10 @@ ReloadResult reload_ios(int version, std::string& error, bool force = false);
 // initializing input.
 bool reload_terminal_failure();
 
+// Milliseconds since reload_ios last brought an IOS up (a large number
+// when it never has): USB devices take a moment to be found after it.
+unsigned ms_since_ios_reload();
+
 // How the last successful reload_ios() went (how long the new IOS took to
 // announce itself and to open IPC), for the boot log, which is closed while
 // the reload runs.

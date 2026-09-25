@@ -6,6 +6,7 @@
 #include <ogc/ios.h>
 #include <ogc/ipc.h>
 #include <ogc/irq.h>
+#include <ogc/lwp_watchdog.h>
 #include <ogc/machine/processor.h>
 #include <wiiuse/wpad.h>
 
@@ -61,6 +62,12 @@ bool running_in_dolphin() {
 }
 
 bool reload_terminal_failure() { return g_terminal_failure; }
+
+u64 g_reloaded_at = 0;  // gettime() at the last reload that worked
+
+unsigned ms_since_ios_reload() {
+    return g_reloaded_at == 0 ? 0xFFFFFFFFu : static_cast<unsigned>(ticks_to_millisecs(gettime() - g_reloaded_at));
+}
 
 const std::string& last_reload_detail() { return g_reload_detail; }
 
@@ -164,6 +171,7 @@ ReloadResult reload_ios(int version, std::string& error, bool force) {
         return ReloadResult::Failed;
     }
     error.clear();
+    g_reloaded_at = gettime();
     return ReloadResult::Ok;
 }
 

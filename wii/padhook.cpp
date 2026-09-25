@@ -11,6 +11,7 @@
 #include <cstdio>
 #include <cstring>
 
+#include "ios_reload.hpp"
 #include "log.hpp"
 #include "pad_hook.h"
 #include "riftwii/hook.hpp"
@@ -30,58 +31,8 @@ constexpr std::uint32_t kNop = 0x60000000;
 constexpr int kHidHandle = 1;
 
 char g_hid_path[] ATTRIBUTE_ALIGN(32) = "/dev/usb/hid";
+char g_ven_path[] ATTRIBUTE_ALIGN(32) = "/dev/usb/ven";
 std::uint32_t g_version_out[8] ATTRIBUTE_ALIGN(32);
-std::uint8_t g_list[0x600] ATTRIBUTE_ALIGN(32);  // a v4 device list
-volatile bool g_list_done = false;
-volatile s32 g_list_result = 0;
-
-s32 on_list_reply(s32 result, void*) {
-    g_list_result = result;
-    g_list_done = true;
-    return 0;
-}
-
-bool wait_list(unsigned ms) {
-    for (unsigned i = 0; i < ms && !g_list_done; ++i) usleep(1000);
-    return g_list_done;
-}
-
-bool ask_list(s32 fd) {
-    g_list_done = false;
-    return IOS_IoctlAsync(fd, GCAD_V4_GET_DEVICE_CHANGE, nullptr, 0, g_list, sizeof(g_list), on_list_reply, nullptr) >= 0;
-}
-
-// v4 answers a device-list request at once only when something is new
-// to it: the first request after IOS starts, a plug or unplug, or a
-// Shutdown that cancelled a waiting request (Dolphin's HIDv4 model). A
-// request that waits is cancelled that way and asked again.
-bool v4_list(s32 fd) {
-    for (int attempt = 0; attempt < 2; ++attempt) {
-        if (!ask_list(fd)) return false;
-        if (wait_list(100)) {
-            if (g_list_result < 0) return false;
-            DCInvalidateRange(g_list, sizeof(g_list));
-            return true;
-        }
-        IOS_Ioctl(fd, GCAD_V4_SHUTDOWN, nullptr, 0, nullptr, 0);
-        if (!wait_list(500)) return false;  // not even cancelled: leave it
-    }
-    return false;
-}
-
-// Leaves v4 ready to answer the next request at once, for the game's
-// driver, whoever asked last (the menu, or look_for_gc_adapter): a
-// waiting request cancelled by Shutdown.
-void v4_leave_fresh(s32 fd) {
-    for (int attempt = 0; attempt < 3; ++attempt) {
-        if (!ask_list(fd)) return;
-        if (wait_list(50)) continue;  // answered: that news is gone, ask again
-        IOS_Ioctl(fd, GCAD_V4_SHUTDOWN, nullptr, 0, nullptr, 0);
-        wait_list(500);
-        return;
-    }
-}
-
 std::uint32_t align_up(std::uint32_t v) { return (v + 31) & ~31u; }
 
 const rt_pad_header& header() { return *reinterpret_cast<const rt_pad_header*>(riftwii_pad_bin); }
@@ -103,34 +54,48 @@ bool overlaps(const MemoryPatch& p, std::uint32_t start, std::uint32_t bytes) {
 
 }  // namespace
 
-// v4's GetVersion answers 0x40001 itself, v5's writes 0x50001 into its
-// output (wiibrew; v4 is asked first, as libogc does).
+// v5 comes with /dev/usb/ven, v4 without it (libogc tells them apart
+// the same way). Each is asked only its own GetVersion: v4's number is
+// AttachFinish on v5, and v5's is GetDeviceChange on v4, which can wait.
+// v4's answers 0x40001 itself, v5's writes 0x50001 into its output.
 bool open_usb_hid(std::int32_t& fd, std::uint32_t& version, std::string& why) {
+    const s32 ven = IOS_Open(g_ven_path, IPC_OPEN_NONE);
+    if (ven >= 0) IOS_Close(ven);
     fd = IOS_Open(g_hid_path, kHidHandle);
     if (fd < 0) {
         why = "/dev/usb/hid did not open (" + std::to_string(fd) + "): this IOS has no USB HID";
         return false;
     }
-    if (IOS_Ioctl(fd, GCAD_V4_GET_VERSION, nullptr, 0, nullptr, 0) == static_cast<s32>(GCAD_V4_VERSION)) {
-        version = 4;
-        return true;
-    }
-    std::memset(g_version_out, 0, sizeof(g_version_out));
-    if (IOS_Ioctl(fd, GCAD_V5_GET_VERSION, nullptr, 0, g_version_out, sizeof(g_version_out)) == 0 &&
-        g_version_out[0] == GCAD_V5_VERSION) {
-        version = 5;
-        return true;
+    char buf[160];
+    if (ven >= 0) {
+        std::memset(g_version_out, 0, sizeof(g_version_out));
+        const s32 ret = IOS_Ioctl(fd, GCAD_V5_GET_VERSION, nullptr, 0, g_version_out, sizeof(g_version_out));
+        if (ret == 0 && g_version_out[0] == GCAD_V5_VERSION) {
+            version = 5;
+            return true;
+        }
+        std::snprintf(buf, sizeof(buf), "/dev/usb/hid (with /dev/usb/ven) is not v5: GetVersion %d, %08x",
+                      static_cast<int>(ret), static_cast<unsigned>(g_version_out[0]));
+    } else {
+        const s32 ret = IOS_Ioctl(fd, GCAD_V4_GET_VERSION, nullptr, 0, nullptr, 0);
+        if (ret == static_cast<s32>(GCAD_V4_VERSION)) {
+            version = 4;
+            return true;
+        }
+        std::snprintf(buf, sizeof(buf), "/dev/usb/hid (no /dev/usb/ven) is not v4: GetVersion %d (ven %d)",
+                      static_cast<int>(ret), static_cast<int>(ven));
     }
     IOS_Close(fd);
     fd = -1;
-    why = "/dev/usb/hid answers neither as v4 nor as v5";
+    why = buf;
     return false;
 }
 
 // The adapter in libogc's HID list, which it keeps from IOS's device
-// changes when /dev/usb/hid is v5 (its device ids are v5's); without
-// that list, oh0's, with no ids. `devices` lists every VID:PID, or the
-// error when there is no list.
+// changes when /dev/usb/hid is v5 (its device ids are v5's); on v4,
+// /dev/usb/oh0's list, with no ids, which leaves /dev/usb/hid's first
+// device list to the game. `devices` lists every VID:PID, or the error
+// when there is no list.
 AdapterSeen ogc_adapter(std::int32_t& dev_id, std::string& devices) {
     static usb_device_entry list[32] ATTRIBUTE_ALIGN(32);
     u8 count = 0;
@@ -175,46 +140,27 @@ AdapterSeen look_for_gc_adapter(std::string& how) {
     std::int32_t fd = -1;
     std::uint32_t version = 0;
     if (!open_usb_hid(fd, version, how)) return AdapterSeen::Missing;
-    if (version != 4) {
-        // v5 lists devices once per change, to whoever asks first: the
-        // menu's USB (libogc) had the list and keeps it.
-        IOS_Close(fd);
-        std::int32_t dev_id = -1;
-        std::string devices;
-        const AdapterSeen seen = ogc_adapter(dev_id, devices);
-        how = std::string(seen == AdapterSeen::Found     ? "plugged in"
-                          : seen == AdapterSeen::Missing ? "not plugged in"
-                                                         : "unknown, taken as plugged in") +
-              " (/dev/usb/hid v5, USB lists " + devices + ")";
-        return seen;
-    }
-    if (!v4_list(fd)) {
-        v4_leave_fresh(fd);
-        IOS_Close(fd);
-        how = "/dev/usb/hid v4 gave no device list; taken as plugged in";
-        return AdapterSeen::Unknown;
-    }
-    // Every device, for reports from other adapters: entries are [size]
-    // [device id][descriptors], VID and PID in the fifth word.
-    std::string devices;
-    unsigned listed = 0;
-    for (std::uint32_t at = 0; at + 20 <= sizeof(g_list) && listed < 8;) {
-        const std::uint32_t size = gcad_get32(g_list + at);
-        if (size == 0xFFFFFFFFu || size < 20 || (size & 3) != 0 || size > sizeof(g_list) - at) break;
-        char one[16];
-        const std::uint32_t id = gcad_get32(g_list + at + 16);
-        std::snprintf(one, sizeof(one), "%s%04x:%04x", listed ? ", " : "", static_cast<unsigned>(id >> 16),
-                      static_cast<unsigned>(id & 0xFFFF));
-        devices += one;
-        ++listed;
-        at += size;
-    }
-    const bool found = gcad_find_v4(g_list, sizeof(g_list)) >= 0;
-    v4_leave_fresh(fd);
     IOS_Close(fd);
-    how = std::string(found ? "plugged in" : "not plugged in") + " (/dev/usb/hid v4 lists " +
-          (listed ? devices : std::string("no devices")) + ")";
-    return found ? AdapterSeen::Found : AdapterSeen::Missing;
+    // v5 lists devices once per change, to whoever asks first: the menu's
+    // USB (libogc) had the list and keeps it. v4 is asked through oh0.
+    // Just after an IOS reload the devices are still being found: up to
+    // 2.5 s after it, look again.
+    std::int32_t dev_id = -1;
+    std::string devices;
+    AdapterSeen seen = ogc_adapter(dev_id, devices);
+    unsigned waited = 0;
+    while (seen == AdapterSeen::Missing && ms_since_ios_reload() < 2500) {
+        usleep(100000);
+        waited += 100;
+        seen = ogc_adapter(dev_id, devices);
+    }
+    char extra[64] = "";
+    if (waited) std::snprintf(extra, sizeof(extra), ", after %u ms more", waited);
+    how = std::string(seen == AdapterSeen::Found     ? "plugged in"
+                      : seen == AdapterSeen::Missing ? "not plugged in"
+                                                     : "unknown, taken as plugged in") +
+          " (/dev/usb/hid v" + std::to_string(version) + ", USB lists " + devices + extra + ")";
+    return seen;
 }
 
 bool find_pad_functions(const DolHeader& dol, bool demo, PadHook& out, std::string& why) {
@@ -297,8 +243,6 @@ bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
         out.version = 5;
     } else if (out.version == 5) {
         IOS_Ioctl(out.fd, GCAD_V5_SHUTDOWN, nullptr, 0, nullptr, 0);  // an error when nothing was pending
-    } else {
-        v4_leave_fresh(out.fd);  // the driver's first request must be answered
     }
     if (out.version == 5 && ioctlv_async == 0) {
         why = "/dev/usb/hid v5 needs the game's IOS_IoctlvAsync, which was not found";
