@@ -174,7 +174,7 @@ void ServeShared() {
 }
 
 const char* StepName(unsigned step) {
-    static const char* const names[] = {"list", "attach finish", "attach", "resume", "device info", "init",
+    static const char* const names[] = {"list", "attach finish", "set protocol", "resume", "device info", "init",
                                         "rumble", "poll", "cancel", "set protocol"};
     return step < sizeof(names) / sizeof(names[0]) ? names[step] : "?";
 }
