@@ -818,16 +818,14 @@ static void rt_fs_build_status(struct rt_fs_state* st) {
     rt_flush_range((uintptr_t)st->response, sizeof(st->response));
 }
 
-/* Whether a read of the mod's files from the card is in flight (one of
- * the disc engine's records on an SD run): RT_CARDLOG_MOD_READING or 0. */
+/* Whether a read of the card on /dev/sdio/slot0 is in flight for one of
+ * the disc engine's records (the mod's files, an RVZ): the flag
+ * rt_issue_sd_read sets and rt_on_di_complete clears.
+ * RT_CARDLOG_MOD_READING or 0. */
 static uint32_t rt_mod_reading(const struct rt_context* ctx) {
     uint32_t i;
     for (i = 0; i < RT_MAX_PENDING; ++i) {
-        const struct rt_pending* record = &ctx->pending[i];
-        if (record->in_use && (record->phase == RT_PHASE_SD || record->phase == RT_PHASE_SD_WAIT) &&
-            record->run_index < record->run_count && record->runs[record->run_index].kind == RT_KIND_SD) {
-            return RT_CARDLOG_MOD_READING;
-        }
+        if (ctx->pending[i].pad_request[1] != 0) return RT_CARDLOG_MOD_READING;
     }
     return 0;
 }
@@ -900,9 +898,72 @@ static int rt_fs_card_writing(struct rt_context* ctx, struct rt_fs_state* st, ui
     return state == RT_SD_STATE_RCV || state == RT_SD_STATE_PRG;
 }
 
-/* Marks the card busy right before a write goes out. */
-static void rt_fs_mark_write(struct rt_context* ctx, struct rt_fs_state* st) {
-    if (st->req.fat.io_write && rt_sd_settles(ctx, st)) st->card_busy = 1;
+/* Marks the card busy right before a savegame transfer goes out: mod
+ * reads wait until it is done (a write: until the card has programmed
+ * it). Interrupts off, together with the send. */
+static void rt_fs_mark_busy(struct rt_context* ctx, struct rt_fs_state* st) {
+    if (rt_sd_settles(ctx, st)) st->card_busy = 1;
+}
+
+/* Whether the pause after a failed command still runs. */
+static int rt_fs_backing_off(struct rt_fs_state* st) {
+    if (!st->backing_off) return 0;
+    if ((int32_t)(st->not_before - rt_fs_ticks()) > 0) return 1;
+    st->backing_off = 0;
+    return 0;
+}
+
+/* Starts the pause after a failed command: the next command waits 2 ms
+ * after a first failure, 8 ms after a second, 32 ms after a third. A
+ * command sent into the controller's error state at once fails too (the
+ * card log of 2.0.4: four tries within a millisecond, all failed). */
+static void rt_fs_back_off(struct rt_fs_state* st) {
+    uint32_t shift = st->io_tries > 0u ? 2u * (st->io_tries - 1u) : 0u;
+    if (shift > 4u) shift = 4u;
+    st->not_before = rt_fs_ticks() + (RT_SD_BACKOFF_TICKS << shift);
+    st->backing_off = 1;
+}
+
+/* Whether a savegame command must wait before it goes to the card: a
+ * read is in flight on it, or a failure's pause runs. /dev/sdio/slot0
+ * only (d2x's device serves one request at a time itself). */
+static int rt_fs_card_blocked(const struct rt_context* ctx, struct rt_fs_state* st) {
+    return rt_sd_settles(ctx, st) && (rt_mod_reading(ctx) != 0 || rt_fs_backing_off(st));
+}
+
+/* One turn of an asynchronous wait for the card: a null round trip with
+ * the FILE record as its tag; its completion sends what `gate` names.
+ * 1 when in flight, 0 when the command should go out now (waited
+ * long enough, or the round trip was refused). Interrupts off. */
+static int rt_fs_gate_async(struct rt_context* ctx, struct rt_fs_state* st, uint32_t gate) {
+    if (st->gate_polls >= RT_SD_CARD_WAITS) return 0;
+    st->gate_polls++;
+    st->card_waits++;
+    st->card_wanted = 1;
+    st->gate = gate;
+    if (rt_fs_getstatus_async(ctx, st, &st->pend) >= 0) return 1;
+    st->gate = 0;
+    return 0;
+}
+
+/* The synchronous wait for the card, on the caller's thread: returns
+ * with interrupts off (the caller marks the card busy and restores
+ * them) once the card is free or the wait is over. */
+static uint32_t rt_fs_gate_sync(struct rt_context* ctx, struct rt_fs_state* st) {
+    const int can_wait = rt_fs_in_thread();
+    uint32_t waited = 0;
+    uint32_t msr;
+    for (;;) {
+        msr = rt_interrupts_off();
+        if (!can_wait || waited >= RT_SD_CARD_WAITS || !rt_fs_card_blocked(ctx, st)) break;
+        st->card_wanted = 1;
+        rt_interrupts_restore(msr);
+        waited++;
+        st->card_waits++;
+        rt_fs_wait_tick(ctx, st);
+    }
+    st->card_wanted = 0;
+    return msr;
 }
 
 #ifdef RT_FS_FAULT_EVERY
@@ -922,6 +983,7 @@ static void rt_fs_settle_sync(struct rt_context* ctx, struct rt_fs_state* st) {
     if (rt_sd_settles(ctx, st)) {
         for (i = 0; i < RT_SD_SETTLE_POLLS; ++i) {
             int32_t r;
+            rt_interrupts_restore(rt_fs_gate_sync(ctx, st));
             rt_fs_build_status(st);
             st->settle_polls++;
             r = rt_fs_status_call(ctx, st, 0);
@@ -936,6 +998,32 @@ static void rt_fs_settle_sync(struct rt_context* ctx, struct rt_fs_state* st) {
         }
     }
     st->card_busy = 0;
+}
+
+/* The next CMD13 of the asynchronous wait, or a wait for the card before
+ * it (RT_FS_GATE_STATUS). 1 when one is in flight, 0 when it was refused
+ * (the card is then taken as idle). */
+static int rt_fs_status_send(struct rt_context* ctx, struct rt_fs_state* st) {
+    int32_t r;
+    const uint32_t msr = rt_interrupts_off();
+    if (rt_fs_card_blocked(ctx, st) && rt_fs_gate_async(ctx, st, RT_FS_GATE_STATUS)) {
+        rt_interrupts_restore(msr);
+        return 1;
+    }
+    st->gate_polls = 0;
+    st->card_wanted = 0;
+    rt_fs_build_status(st);
+    st->settle_polls++;
+    st->pend.reserved++;
+    r = rt_fs_status_call(ctx, st, 1);
+    rt_interrupts_restore(msr);
+    if (r < 0) {
+        rt_cardlog_transfer(ctx, st, RT_CARDLOG_STATUS_FAILED, r, 1, st->last_status, st->pend.reserved);
+        st->pend.reserved = 0;
+        st->card_busy = 0;
+        return 0;
+    }
+    return 1;
 }
 
 /* The asynchronous wait, as the FILE record's next request (pend.reserved
@@ -958,19 +1046,7 @@ static int rt_fs_settle_next(struct rt_context* ctx, struct rt_fs_state* st, int
         st->card_busy = 0;
         return 0;
     }
-    rt_fs_build_status(st);
-    st->settle_polls++;
-    st->pend.reserved++;
-    {
-        const int32_t r = rt_fs_status_call(ctx, st, 1);
-        if (r < 0) {
-            rt_cardlog_transfer(ctx, st, RT_CARDLOG_STATUS_FAILED, r, 1, st->last_status, st->pend.reserved);
-            st->pend.reserved = 0;
-            st->card_busy = 0;
-            return 0;
-        }
-    }
-    return 1;
+    return rt_fs_status_send(ctx, st);
 }
 
 /* Whether the transfer that just ended (and whose card wait is over) is
@@ -994,8 +1070,8 @@ static void rt_fs_transfer_sync(struct rt_context* ctx, struct rt_fs_state* st) 
     uint32_t msr;
     do {
         rt_fs_build_sendcmd(ctx, st);
-        msr = rt_interrupts_off();
-        rt_fs_mark_write(ctx, st);
+        msr = rt_fs_gate_sync(ctx, st);
+        rt_fs_mark_busy(ctx, st);
         rt_interrupts_restore(msr);
         r = rt_fs_sendcmd_call(ctx, st, 0);
         if (r >= 0 && rt_fs_fault(st)) r = RTFAT_EIO;
@@ -1005,6 +1081,7 @@ static void rt_fs_transfer_sync(struct rt_context* ctx, struct rt_fs_state* st) 
             st->failures++;
             st->io_flags |= RT_FS_IO_RETRY;
             rt_cardlog_transfer(ctx, st, RT_CARDLOG_FAILED, r, 0, rt_fs_command_status(ctx, st), 0);
+            rt_fs_back_off(st);
         } else {
             rt_fs_wrote(st);
         }
@@ -1012,12 +1089,14 @@ static void rt_fs_transfer_sync(struct rt_context* ctx, struct rt_fs_state* st) 
         /* After a write, and before a failed transfer goes again, the card
          * must be done with whatever it was doing. */
         if (st->req.fat.io_write || r < 0) rt_fs_settle_sync(ctx, st);
+        else st->card_busy = 0;
     } while (rt_fs_should_retry(st));
     if (r < 0) rt_cardlog_transfer(ctx, st, RT_CARDLOG_GAVE_UP, r, 0, st->last_status, 0);
 }
 
-/* Issues the engine's pending transfer with the FILE record as its tag:
- * 1 when in flight (the completion continues), 0 when refused on every
+/* Issues the engine's pending transfer with the FILE record as its tag,
+ * after a wait for the card when it is in use (RT_FS_GATE_TRANSFER): 1
+ * when in flight (the completion continues), 0 when refused on every
  * try (the status then fails the request on its next step). */
 static int rt_fs_issue_async(struct rt_context* ctx, struct rt_fs_state* st) {
     int32_t r;
@@ -1025,15 +1104,22 @@ static int rt_fs_issue_async(struct rt_context* ctx, struct rt_fs_state* st) {
     for (;;) {
         rt_fs_build_sendcmd(ctx, st);
         msr = rt_interrupts_off();
-        rt_fs_mark_write(ctx, st);
+        if (rt_fs_card_blocked(ctx, st) && rt_fs_gate_async(ctx, st, RT_FS_GATE_TRANSFER)) {
+            rt_interrupts_restore(msr);
+            return 1;
+        }
+        st->gate_polls = 0;
+        st->card_wanted = 0;
+        rt_fs_mark_busy(ctx, st);
         r = rt_fs_sendcmd_call(ctx, st, 1);
-        if (r < 0 && st->req.fat.io_write) st->card_busy = 0;
+        if (r < 0) st->card_busy = 0;
         rt_interrupts_restore(msr);
         st->transfers++;
         st->io_tries++;
         if (r >= 0) return 1;
         st->failures++;
         rt_cardlog_transfer(ctx, st, RT_CARDLOG_REFUSED, r, 1, st->last_status, 0);
+        rt_fs_back_off(st);
         if (st->io_tries >= RT_SD_TRANSFER_TRIES) break;
         st->io_retries++;
     }
@@ -2387,7 +2473,17 @@ void rt_on_fs_complete(struct rt_context* ctx, int32_t* result, void* tag, uintp
     }
     if (tag == (void*)&st->pend && st->pend.in_use) {
         struct rtfs_request* req = &st->req;
-        if (st->pend.reserved != 0) {
+        if (st->gate == RT_FS_GATE_TRANSFER) {
+            /* A wait for the card: the transfer now, or another wait. */
+            st->gate = 0;
+            if (rt_fs_issue_async(ctx, st)) return;
+            goto transfer_over; /* refused on every try: noted, its status fails the request */
+        }
+        if (st->gate == RT_FS_GATE_STATUS) {
+            /* A wait before the wait's CMD13: it now, or another wait. */
+            st->gate = 0;
+            if (rt_fs_status_send(ctx, st)) return;
+        } else if (st->pend.reserved != 0) {
             /* A CMD13 after the transfer: another, or the wait is over. */
             if (rt_fs_settle_next(ctx, st, *result)) return;
         } else {
@@ -2396,13 +2492,15 @@ void rt_on_fs_complete(struct rt_context* ctx, int32_t* result, void* tag, uintp
                 st->failures++;
                 st->io_flags |= RT_FS_IO_RETRY;
                 rt_cardlog_transfer(ctx, st, RT_CARDLOG_FAILED, *result, 1, rt_fs_command_status(ctx, st), 0);
+                rt_fs_back_off(st);
             } else {
                 rt_fs_wrote(st);
             }
             req->fat.io_status = *result < 0 ? *result : 0;
             /* A write waits for the card; so does a failed transfer before
-             * it goes again. */
+             * it goes again. A read that went through frees the card. */
             if ((req->fat.io_write || *result < 0) && rt_fs_settle_next(ctx, st, 0)) return;
+            st->card_busy = 0;
         }
         /* The transfer again (the engine goes on when it is refused on
          * every try: its status then fails the request). */
@@ -2411,6 +2509,7 @@ void rt_on_fs_complete(struct rt_context* ctx, int32_t* result, void* tag, uintp
         } else if (req->fat.io_status < 0) {
             rt_cardlog_transfer(ctx, st, RT_CARDLOG_GAVE_UP, req->fat.io_status, 1, st->last_status, 0);
         }
+    transfer_over:
         if (st->cardlog_writing) {
             /* The card log's write, not a request: nothing to answer. */
             if (req->fat.io_status < 0) {
@@ -2586,7 +2685,10 @@ static int rt_issue_sd_read(struct rt_context* ctx, struct rt_pending* record, i
     rt_flush_range((uintptr_t)target, sectors * RT_SECTOR_BYTES); /* no stale lines over the DMA target */
     record->phase = phase;
     ctx->sd_requests++;
+    /* A read of /dev/sdio/slot0 in flight: savegame commands wait for it. */
+    record->pad_request[1] = !usb && ctx->sdio_sdhc != RT_SD_D2X ? 1u : 0u;
     if (fd == 0xFFFFFFFFu || rt_ioctlv_async(ctx, record, fd, ioctl) < 0) {
+        record->pad_request[1] = 0;
         ctx->sd_failures++;
         if (!usb) rt_cardlog_mod_read(ctx, record, -1);
         return -1;
@@ -2621,7 +2723,8 @@ static int rt_issue_sd_chunk(struct rt_context* ctx, struct rt_pending* record) 
         if (fs != 0 && rt_sd_settles(ctx, fs)) {
             const uint32_t msr = rt_interrupts_off();
             int r;
-            if (fs->card_busy && record->pad_request[0] < RT_SD_SETTLE_POLLS) {
+            if ((fs->card_busy || fs->card_wanted || rt_fs_backing_off(fs)) &&
+                record->pad_request[0] < RT_SD_CARD_WAITS) {
                 record->pad_request[0]++;
                 record->phase = RT_PHASE_SD_WAIT;
                 r = rt_sd_wait_trip(ctx, record) < 0 ? -1 : 1;
@@ -3131,6 +3234,7 @@ void rt_on_di_complete(struct rt_context* ctx, int32_t* result, struct rt_pendin
                        uintptr_t* user_data) {
     uint32_t slot;
     ctx->completions++;
+    record->pad_request[1] = 0; /* its read of the card, if any, is over */
 #ifdef RT_RVZ
     {
         struct rt_rvz_state* st = rt_rvz_of(ctx);

@@ -175,7 +175,8 @@ struct rt_pending {
                             * when the read splits into more than RT_MAX_RUNS pieces, which are
                             * then served RT_MAX_RUNS at a time (windows) */
     struct rt_sdio_request request;  /* offset 0x40 */
-    uint32_t pad_request[7];
+    uint32_t pad_request[7];         /* [0]: waits for the card (RT_PHASE_SD_WAIT); [1]: a read of the card
+                                      * on /dev/sdio/slot0 in flight (savegame commands wait for it) */
     uint32_t response[4];            /* offset 0x80 */
     uint32_t pad_response[4];
     struct rt_ioctlv vec[3];         /* offset 0xA0 */
@@ -261,6 +262,15 @@ typedef void (*rt_game_callback_fn)(int32_t result, uint32_t user_data);
  * reaches the game: a single refused or failed command on the card
  * otherwise fails the game's save call, or leaves a save half-written. */
 #define RT_SD_TRANSFER_TRIES 4u
+/* /dev/sdio/slot0 takes one card command at a time: a savegame command
+ * sent while a read of the mod's files was in flight failed on hardware,
+ * and every command after it for a while (the card log of 2.0.4). The
+ * savegame engine and the mod reads therefore wait for each other, and a
+ * failed command waits before the next one goes out. */
+#define RT_SD_CARD_WAITS 65536u        /* null round trips a command waits for the card at most */
+#define RT_SD_BACKOFF_TICKS 121500u    /* 2 ms of time base: the pause after a failure (then 8, then 32 ms) */
+#define RT_FS_GATE_TRANSFER 1u         /* rt_fs_state.gate: the transfer goes out after the wait */
+#define RT_FS_GATE_STATUS 2u           /* the wait's CMD13 goes out after the wait */
 
 /* The card log: one sector of the card (sd:/riftwii/cardlog.bin, which
  * the loader creates before the game and reads back at its next start)
@@ -467,6 +477,12 @@ struct rt_fs_state {
     uint32_t last_status;          /* the last CMD13's R1 status */
     uint32_t last_write;           /* time base when a save write last completed */
     uint32_t wrote;                /* a save write has completed (last_write is valid) */
+    uint32_t card_wanted;          /* a savegame command waits for the card: mod reads hold back */
+    uint32_t gate;                 /* RT_FS_GATE_*: what the FILE record's null round trip in flight is waiting to send */
+    uint32_t gate_polls;           /* null round trips the command has waited so far */
+    uint32_t card_waits;           /* null round trips savegame commands waited for the card, in all */
+    uint32_t backing_off;          /* a failure's pause runs until not_before */
+    uint32_t not_before;           /* time base when the next command may go out */
     struct rt_fs_pend pend;
     struct rt_fs_pend snoop[RT_FS_SNOOPS];
     struct rt_fs_pend deliver[RT_FS_DELIVERS];
