@@ -28,8 +28,9 @@ std::string TitlesPath(const std::string& lang);
 bool UpdateTitles(const std::string& lang, bool force, std::string& error);
 
 // The newest RiftWii release on GitHub (a tag such as "v2.0.1-beta"),
-// asked at most once a day unless `force`: sd:/riftwii/update.txt keeps
-// the last answer. `newer` says whether it is newer than this build.
+// asked every time. sd:/riftwii/update.txt keeps the last answer, which
+// stands in when GitHub cannot be reached (not with `force`). `newer`
+// says whether it is newer than this build.
 bool CheckForUpdate(bool force, std::string& latest, bool& newer, std::string& error);
 constexpr const char* kReleasesPage = "github.com/KakarottoCake/Riftwii/releases";
 
