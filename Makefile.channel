@@ -8,9 +8,8 @@
 #   make -f Makefile.channel
 #
 # Both are linked where homebrew usually is (0x80004000), clear of RiftWii
-# (0x80a00000 up), which they start. The forwarder was first linked high
-# in MEM1 (0x81300000): it started from a DOL but not as a channel, where
-# the Wii stayed on a black screen.
+# (0x80a00000 up), which they start. tools/make_channel.py gives the
+# forwarder the entry a channel needs (channel_entry there).
 ifeq ($(strip $(DEVKITPPC)),)
 $(error "Please set DEVKITPPC in your environment. export DEVKITPPC=<path to>devkitPPC")
 endif

@@ -25,7 +25,7 @@ import sys
 import zlib
 
 TITLE_ID = 0x0001000152465457  # 00010001-RFTW
-TITLE_VERSION = 1
+TITLE_VERSION = 2  # 2: the forwarder has a channel entry (channel_entry)
 IOS = 58
 CHANNEL_NAME = "RiftWii"
 
@@ -820,6 +820,51 @@ def opening(banner, icon, sound):
     return bytes(head) + u8({"meta": files})
 
 
+# ------------------------------------------------------- channel entry ----
+ENTRY_AT = 0x80003400
+
+
+def channel_entry(dol):
+    """The forwarder's DOL as a channel's boot content. The Wii starts a
+    channel's program at the DOL's entry point with address translation
+    off, so the entry must be a physical address: every retail channel's
+    is 0x3400, with a small text section at 0x80003400. From the
+    Homebrew Channel a DOL starts with translation on (libogc's entry,
+    0x80003f00), and Dolphin starts a channel that way too; on a Wii
+    that entry left a black screen.
+
+    This adds a text section at 0x80003400 holding one relative branch
+    to the DOL's own entry, and makes 0x3400 the entry. The branch works
+    in real mode, and libogc's start code sets up the BATs and caches
+    itself before it turns translation on."""
+    d = bytearray(dol)
+    offsets = list(struct.unpack_from(">18I", d, 0x00))
+    starts = list(struct.unpack_from(">18I", d, 0x48))
+    sizes = list(struct.unpack_from(">18I", d, 0x90))
+    bss, bss_size, entry = struct.unpack_from(">III", d, 0xD8)
+    if not 0x80003f00 <= entry < 0x81800000:
+        sys.exit(f"forwarder: entry {entry:08x} is not libogc's")
+    for i in range(18):
+        if sizes[i] and starts[i] < ENTRY_AT + 32 and ENTRY_AT < starts[i] + sizes[i]:
+            sys.exit(f"forwarder: a section already covers {ENTRY_AT:08x}")
+    if bss_size and bss < ENTRY_AT + 32 and ENTRY_AT < bss + bss_size:
+        sys.exit(f"forwarder: the bss covers {ENTRY_AT:08x}")
+    free = [i for i in range(7) if not sizes[i]]
+    if not free:
+        sys.exit("forwarder: no free text section")
+    branch = 0x48000000 | ((entry - ENTRY_AT) & 0x03FFFFFC)
+    stub = struct.pack(">I", branch) + bytes(28)
+    d += bytes(-len(d) % 32)
+    i = free[0]
+    offsets[i], starts[i], sizes[i] = len(d), ENTRY_AT, len(stub)
+    d += stub
+    struct.pack_into(">18I", d, 0x00, *offsets)
+    struct.pack_into(">18I", d, 0x48, *starts)
+    struct.pack_into(">18I", d, 0x90, *sizes)
+    struct.pack_into(">I", d, 0xE0, ENTRY_AT & 0x3FFFFFFF)
+    return bytes(d)
+
+
 # -------------------------------------------------------- TMD and ticket ----
 def tmd(contents):
     """Unsigned: RiftWii signs it on the console, as it does the ticket."""
@@ -862,7 +907,7 @@ def package(contents):
 
 def main(argv):
     if len(argv) in (5, 6) and argv[1] == "build":
-        forwarder = open(argv[2], "rb").read()
+        forwarder = channel_entry(open(argv[2], "rb").read())
         banner, icon = banner_art(argv[3])
         app0 = opening(banner, icon, bns(*banner_sound()))
         blob = package([app0, forwarder])
