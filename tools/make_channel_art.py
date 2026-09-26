@@ -5,8 +5,9 @@ build itself needs only the standard library). Needs Pillow and numpy.
 
     make_channel_art.py <out dir>
 
-also draws the installer's Homebrew Channel icon
-(channel/installer/hbc/icon.png).
+also draws the Homebrew Channel icons (hbc/icon.png for RiftWii,
+channel/installer/hbc/icon.png for the installer) and the forwarder's
+start screen (channel/forwarder/data).
 
 Everything is drawn here from scratch; the letters use RiftWii's own menu
 font (wii/font/rounded.ttf, SIL OFL). Most textures are white with an
@@ -179,9 +180,53 @@ def letters(out):
     return info
 
 
-def hbc_icon(path):
-    """The installer's Homebrew Channel icon (128x48): the word over the
-    nebula, with the rift through it and "CHANNEL" underneath."""
+def splash(out):
+    """The forwarder's start screen (channel/forwarder/data): the backdrop
+    (320x240 RGB, drawn twice its size), the word with its glow (RGBA,
+    split at the seam so the rift shows between "Rift" and "Wii") and the
+    rift (alpha only)."""
+    os.makedirs(out, exist_ok=True)
+    open(os.path.join(out, "splash_bg.rgb"), "wb").write(nebula(320, 240).tobytes())
+    k = 2
+    font = ImageFont.truetype(FONT, 92 * k)
+    gap = 22 * k
+    l, t, r, b = font.getbbox(WORD)
+    split = font.getlength("Rift")
+    w = int(r - l + gap) + 60 * k
+    h = int(b - t) + 60 * k
+    x0, y0 = 30 * k - l, 30 * k - t
+    mask = Image.new("L", (w, h), 0)
+    d = ImageDraw.Draw(mask)
+    d.text((x0, y0), "Rift", font=font, fill=255)
+    d.text((x0 + split + gap, y0), "Wii", font=font, fill=255)
+    a = np.asarray(mask, np.float64) / 255
+    glow = np.asarray(mask.filter(ImageFilter.GaussianBlur(14 * k)), np.float64) / 255 * 1.6
+    y = np.linspace(0, 1, h)[:, None, None]
+    xs = np.arange(w)[None, :, None]
+    seam = x0 + split + gap / 2
+    fill = np.where(xs < seam, (1 - y) * np.array([255, 255, 255]) + y * np.array([200, 228, 255]),
+                    (1 - y) * np.array([150, 232, 255]) + y * np.array([30, 150, 235]))
+    halo = np.where(xs < seam, np.array([47, 182, 233]), np.array([150, 90, 255])) * np.ones((h, 1, 1))
+    ga = np.clip(glow, 0, 1)[..., None] * 0.8
+    alpha = a[..., None] + ga * (1 - a[..., None])
+    rgb = (fill * a[..., None] + halo * ga * (1 - a[..., None])) / np.maximum(alpha, 1e-6)
+    img = Image.fromarray(np.concatenate([np.clip(rgb, 0, 255), alpha * 255], -1).astype(np.uint8))
+    w2, h2 = w // k, h // k
+    w2 -= w2 % 2
+    word = img.resize((w2, h2), Image.LANCZOS)
+    open(os.path.join(out, "splash_word.rgba"), "wb").write(word.tobytes())
+    tear = (np.clip(rift(48, 300, 42), 0, 1) * 255 + 0.5).astype(np.uint8)
+    open(os.path.join(out, "splash_rift.a"), "wb").write(tear.tobytes())
+    with open(os.path.join(out, "splash.h"), "w") as f:
+        f.write("// Written by tools/make_channel_art.py.\n#pragma once\n")
+        f.write("#define kBgWidth 320\n#define kBgHeight 240\n")
+        f.write(f"#define kWordWidth {w2}\n#define kWordHeight {h2}\n#define kWordSeam {int(seam / k)}\n")
+        f.write("#define kRiftWidth 48\n#define kRiftHeight 300\n")
+
+
+def hbc_icon(path, tag):
+    """A Homebrew Channel icon (128x48): the word over the nebula, with
+    the rift through it and `tag` underneath."""
     w, h, k = 128, 48, 4
     sky = nebula(w * k, h * k).convert("RGBA")
     font = ImageFont.truetype(FONT, 25 * k)
@@ -209,7 +254,6 @@ def hbc_icon(path):
     sky = Image.composite(Image.new("RGBA", sky.size, (8, 14, 40, 255)), sky, outline)
     sky = Image.composite(letters, sky, mask)
     small = ImageFont.truetype(FONT, 8 * k)
-    tag = "C H A N N E L"
     l, t, r, b = small.getbbox(tag)
     ImageDraw.Draw(sky).text(((w * k - (r - l)) // 2 - l, 36 * k - t), tag, font=small, fill=(150, 196, 240, 255))
     sky = sky.resize((w, h), Image.LANCZOS)
@@ -237,8 +281,10 @@ def main(argv):
     save_alpha(os.path.join(out, "rift.png"), rift(64, 128, 42))
     save_alpha(os.path.join(out, "streak.png"), streak(32, 128))
     info = letters(out)
+    hbc_icon(os.path.join(HERE, "..", "channel", "installer", "hbc", "icon.png"), "C H A N N E L")
+    hbc_icon(os.path.join(HERE, "..", "hbc", "icon.png"), "M O D   L O A D E R")
+    splash(os.path.join(HERE, "..", "channel", "forwarder", "data"))
     json.dump(info, open(os.path.join(out, "letters.json"), "w"), indent=1)
-    hbc_icon(os.path.join(HERE, "..", "channel", "installer", "hbc", "icon.png"))
     print("art written to", out)
     return 0
 

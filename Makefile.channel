@@ -39,21 +39,32 @@ $(OBJDIR):
 	@mkdir -p $(OBJDIR)
 
 # ---- the forwarder
-# The logo is committed (channel/forwarder/data/logo.rgba, from
-# hbc/icon.png); bin2o turns it into logo_rgba and logo_rgba.h.
-$(OBJDIR)/logo_rgba.o $(OBJDIR)/logo_rgba.h: channel/forwarder/data/logo.rgba | $(OBJDIR)
-	@echo $(notdir $<)
-	@cd $(OBJDIR) && cp ../../$< logo.rgba && bin2s -a 32 -H logo_rgba.h logo.rgba | $(AS) -o logo_rgba.o
+# The start screen's pictures are committed (channel/forwarder/data, from
+# tools/make_channel_art.py); bin2s turns each into a symbol and header.
+SPLASH   := splash_bg.rgb splash_rift.a splash_word.rgba
+SPLASHO  := $(foreach f,$(SPLASH),$(OBJDIR)/$(subst .,_,$(f)).o)
 
-$(OBJDIR)/fw_main.o: channel/forwarder/main.c $(OBJDIR)/logo_rgba.h | $(OBJDIR)
+$(OBJDIR)/%_rgb.o $(OBJDIR)/%_rgb.h: channel/forwarder/data/%.rgb | $(OBJDIR)
 	@echo $(notdir $<)
-	@$(CC) $(CFLAGS) -c $< -o $@
+	@cd $(OBJDIR) && cp ../../$< . && bin2s -a 32 -H $*_rgb.h $(notdir $<) | $(AS) -o $*_rgb.o
+
+$(OBJDIR)/%_rgba.o $(OBJDIR)/%_rgba.h: channel/forwarder/data/%.rgba | $(OBJDIR)
+	@echo $(notdir $<)
+	@cd $(OBJDIR) && cp ../../$< . && bin2s -a 32 -H $*_rgba.h $(notdir $<) | $(AS) -o $*_rgba.o
+
+$(OBJDIR)/%_a.o $(OBJDIR)/%_a.h: channel/forwarder/data/%.a | $(OBJDIR)
+	@echo $(notdir $<)
+	@cd $(OBJDIR) && cp ../../$< . && bin2s -a 32 -H $*_a.h $(notdir $<) | $(AS) -o $*_a.o
+
+$(OBJDIR)/fw_main.o: channel/forwarder/main.c channel/forwarder/data/splash.h $(SPLASHO) | $(OBJDIR)
+	@echo $(notdir $<)
+	@$(CC) $(CFLAGS) -Ichannel/forwarder/data -c $< -o $@
 
 $(OBJDIR)/dolboot.o: channel/common/dolboot.c channel/common/dolboot.h | $(OBJDIR)
 	@echo $(notdir $<)
 	@$(CC) $(CFLAGS) -c $< -o $@
 
-$(FWELF): $(OBJDIR)/fw_main.o $(OBJDIR)/dolboot.o $(OBJDIR)/logo_rgba.o
+$(FWELF): $(OBJDIR)/fw_main.o $(OBJDIR)/dolboot.o $(SPLASHO)
 	@echo linking ... $(notdir $@)
 	@$(CC) $(FWLD) $^ -L$(LIBOGC_LIB) -lfat -logc -lm -o $@
 
