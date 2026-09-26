@@ -774,7 +774,12 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
     // reads its DOL again, so the runtime does not serve it.
     std::size_t dol_override = SIZE_MAX;
     if (!options.main_dol.empty()) {
-        const std::uint64_t size = (options.main_dol.size() + 31) & ~std::uint64_t(31);
+        // Padded 32 bytes past its 32-byte-rounded end: an apploader rounds a
+        // section's length up to 32 bytes, so a last section ending at the
+        // file's end is read up to 31 bytes past it. Those bytes came from
+        // the disc, where after the FST a WBFS image may keep nothing: d2x
+        // never answered (an older CT-code DOL, stuck at 93%).
+        const std::uint64_t size = ((options.main_dol.size() + 31) & ~std::uint64_t(31)) + 32;
         const std::uint64_t fst_start = header.fst_offset;
         const std::uint64_t fst_end = fst_start + ((header.fst_size + 31) & ~std::uint64_t(31));
         const bool in_place = header.dol_offset + size <= fst_start || header.dol_offset >= fst_end;
