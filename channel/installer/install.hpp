@@ -12,6 +12,8 @@ namespace installer {
 bool Installed(unsigned& version);
 // The version this installer puts on.
 unsigned PackageVersion();
+// Whether this is a Wii U's vWii, which gets the channel's vWii package.
+bool OnVWii();
 
 bool Install(std::string& error);
 bool Remove(std::string& error);

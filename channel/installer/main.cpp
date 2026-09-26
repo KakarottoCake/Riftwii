@@ -105,8 +105,9 @@ void screen(const std::string& status, const std::string& note) {
     if (!present) std::printf("\x1b[33mnot installed\x1b[37m\n");
     else if (installed < ours) std::printf("\x1b[33mversion %u (this installer has %u)\x1b[37m\n", installed, ours);
     else std::printf("\x1b[32minstalled\x1b[37m (version %u)\n", installed);
-    if (g_cios) std::printf("  Running on:   IOS%d (d2x cIOS)\n\n", g_cios);
-    else std::printf("  Running on:   IOS%d\n\n", IOS_GetVersion());
+    const char* console = installer::OnVWii() ? "Wii U (vWii)" : "Wii";
+    if (g_cios) std::printf("  Running on:   %s, IOS%d (d2x cIOS)\n\n", console, g_cios);
+    else std::printf("  Running on:   %s, IOS%d\n\n", console, IOS_GetVersion());
     if (!status.empty()) std::printf("  %s\n\n", status.c_str());
     else std::printf("\n\n");
     if (g_cios) {

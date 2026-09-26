@@ -4,10 +4,11 @@
 Wii Menu banner, icon and sound (content 0), the forwarder (content 1),
 and the TMD and ticket RiftWii installs them with.
 
-    make_channel.py build <loader.dol> <forwarder.dol> <art dir> <out.bin> [dir]
-        the package the installer (channel/installer) carries, and beside
-        it riftwii_channel_info.h (its title ID and version); a fifth
-        argument also writes the banner (00000000.app) there
+    make_channel.py build <loader.dol> <vwii forwarder.dol> <start.bin> <wii forwarder.dol> <art dir> <out dir> [dir]
+        the two packages the installer (channel/installer) carries,
+        riftwii_channel_vwii.bin and riftwii_channel_wii.bin, and
+        riftwii_channel_info.h (the title ID and version) in <out dir>;
+        a seventh argument also writes the banner (00000000.app) there
 
 Nothing here is encrypted or signed: the console does that when RiftWii
 installs the channel. The formats (U8, IMD5, LZ77, TPL, BRLYT, BRLAN,
@@ -30,7 +31,7 @@ import zlib
 # 00010001-RFTW, in 4:3 on a vWii; the installer removes that one.)
 TITLE_ID = 0x0001000155465457  # 00010001-UFTW
 OLD_TITLE_ID = 0x0001000152465457  # 00010001-RFTW
-TITLE_VERSION = 6  # 5: boot program (channel/loader) and forwarder as two contents; 6: UFTW
+TITLE_VERSION = 7  # 5: boot program and forwarder (vWii); 6: UFTW; 7: a Wii and a vWii package
 IOS = 58
 CHANNEL_NAME = "RiftWii"
 
@@ -826,6 +827,55 @@ def opening(banner, icon, sound):
 
 
 # ------------------------------------------------------------ boot program ----
+# A Wii and a vWii start a channel's boot program differently, and each
+# gets a package of its own (the installer picks one):
+#
+# - Wii: the CPU starts at physical 0x3400 with translation off, whatever
+#   the DOL's entry field says. The forwarder is the boot program, with
+#   channel/forwarder/start.S added at 0x80003400 (wii_forwarder).
+# - vWii: the Wii U's BC-NAND loads the boot program and jumps to its
+#   entry field. It never started the forwarder as the boot program; it
+#   starts the small channel/loader, which reads the forwarder from
+#   content 2 (check_loader). On a Wii that one did not start.
+WII_START_AT = 0x80003400
+
+
+def wii_forwarder(dol, start):
+    """The forwarder's DOL as a Wii channel's boot program: `start`
+    (start.S) as the first text section, at 0x80003400, where a Wii
+    starts. It sets the CPU up as the Homebrew Channel does for a program
+    and jumps to the forwarder's own entry, which it reads from its word
+    at +8 and which the entry field keeps."""
+    if len(start) < 12 or start[4:8] != b"RFTW" or start[8:12] != bytes(4):
+        sys.exit("forwarder: start.bin is not channel/forwarder/start.S")
+    d = bytearray(dol)
+    offsets = list(struct.unpack_from(">18I", d, 0x00))
+    starts = list(struct.unpack_from(">18I", d, 0x48))
+    sizes = list(struct.unpack_from(">18I", d, 0x90))
+    bss, bss_size, entry = struct.unpack_from(">III", d, 0xD8)
+    if not 0x80003f00 <= entry < 0x81800000:
+        sys.exit(f"forwarder: entry {entry:08x} is not libogc's")
+    for i in range(18):
+        if sizes[i] and starts[i] < WII_START_AT + 32 and WII_START_AT < starts[i] + sizes[i]:
+            sys.exit(f"forwarder: a section already covers {WII_START_AT:08x}")
+    if bss_size and bss < WII_START_AT + 32 and WII_START_AT < bss + bss_size:
+        sys.exit(f"forwarder: the bss covers {WII_START_AT:08x}")
+    if sizes[6]:
+        sys.exit("forwarder: no free text section")
+    stub = bytearray(start)
+    struct.pack_into(">I", stub, 8, entry)  # start.S's `entry`
+    stub += bytes(-len(stub) % 32)
+    d += bytes(-len(d) % 32)
+    for table in (offsets, starts, sizes):
+        table[0:7] = [0] + table[0:6]
+    offsets[0], starts[0], sizes[0] = len(d), WII_START_AT, len(stub)
+    d += stub
+    struct.pack_into(">18I", d, 0x00, *offsets)
+    struct.pack_into(">18I", d, 0x48, *starts)
+    struct.pack_into(">18I", d, 0x90, *sizes)
+    return bytes(d)
+
+
 LOADER_AT = 0x80003400
 LOADER_HI = 0x80010000
 
@@ -896,22 +946,27 @@ def package(contents):
 
 
 def main(argv):
-    if len(argv) in (6, 7) and argv[1] == "build":
-        loader = check_loader(open(argv[2], "rb").read())
-        forwarder = open(argv[3], "rb").read()
-        argv = argv[:2] + argv[3:]
-        banner, icon = banner_art(argv[3])
+    if len(argv) in (8, 9) and argv[1] == "build":
+        read = lambda path: open(path, "rb").read()
+        loader = check_loader(read(argv[2]))
+        vwii_forwarder = read(argv[3])
+        wii_boot = wii_forwarder(read(argv[5]), read(argv[4]))
+        banner, icon = banner_art(argv[6])
         app0 = opening(banner, icon, bns(*banner_sound()))
-        blob = package([app0, loader, forwarder])
-        open(argv[4], "wb").write(blob)
-        info = os.path.join(os.path.dirname(argv[4]) or ".", "riftwii_channel_info.h")
+        out = argv[7]
+        vwii = package([app0, loader, vwii_forwarder])
+        wii = package([app0, wii_boot])
+        open(os.path.join(out, "riftwii_channel_vwii.bin"), "wb").write(vwii)
+        open(os.path.join(out, "riftwii_channel_wii.bin"), "wb").write(wii)
+        info = os.path.join(out, "riftwii_channel_info.h")
         open(info, "w").write("// Written by tools/make_channel.py.\n#pragma once\n"
                               f"#define RIFTWII_CHANNEL_TITLE 0x{TITLE_ID:016x}ull\n"
                               f"#define RIFTWII_CHANNEL_OLD_TITLE 0x{OLD_TITLE_ID:016x}ull\n"
                               f"#define RIFTWII_CHANNEL_VERSION {TITLE_VERSION}u\n")
-        if len(argv) == 6:
-            open(os.path.join(argv[5], "00000000.app"), "wb").write(app0)
-        print(f"channel: banner {len(app0)}, loader {len(loader)}, forwarder {len(forwarder)}, package {len(blob)} bytes")
+        if len(argv) == 9:
+            open(os.path.join(argv[8], "00000000.app"), "wb").write(app0)
+        print(f"channel: banner {len(app0)}; vWii: loader {len(loader)}, forwarder {len(vwii_forwarder)}, "
+              f"package {len(vwii)}; Wii: forwarder {len(wii_boot)}, package {len(wii)} bytes")
         return 0
     print(__doc__)
     return 2
