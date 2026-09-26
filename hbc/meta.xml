@@ -2,8 +2,8 @@
 <app version="1">
   <name>RiftWii</name>
   <coder>KakarottoCake</coder>
-  <version>2.1.0 RC5</version>
-  <release_date>20260926021500</release_date>
+  <version>2.1.0 RC6</version>
+  <release_date>20260926023900</release_date>
   <short_description>Mod loader for Wii games</short_description>
   <long_description>RiftWii loads Riivolution-format mod packs (XML in sd:/riivolution) into Wii games from the disc, a USB drive or the SD card, and can keep modded saves on the SD card, apart from your Wii saves.
 
