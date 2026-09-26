@@ -72,8 +72,17 @@ $(FWDOL): $(FWELF)
 	@elf2dol $< $@
 
 # ---- the package: the forwarder and the banner (channel/art)
-$(PACKAGE): $(FWDOL) tools/make_channel.py $(ART)
-	@$(PYTHON) tools/make_channel.py build $(FWDOL) channel/art $@
+# The channel's first code (channel/forwarder/start.S), as raw
+# instructions for tools/make_channel.py to put at 0x80003400.
+FWSTART  := $(OUT)/start.bin
+
+$(FWSTART): channel/forwarder/start.S | $(OBJDIR)
+	@echo $(notdir $<)
+	@$(CC) $(MACHDEP) -x assembler-with-cpp -c $< -o $(OBJDIR)/fw_start.o
+	@$(OBJCOPY) -O binary -j .text $(OBJDIR)/fw_start.o $@
+
+$(PACKAGE): $(FWDOL) $(FWSTART) tools/make_channel.py $(ART)
+	@$(PYTHON) tools/make_channel.py build $(FWDOL) $(FWSTART) channel/art $@
 
 $(OBJDIR)/riftwii_channel_bin.o $(OBJDIR)/riftwii_channel_bin.h: $(PACKAGE) | $(OBJDIR)
 	@echo $(notdir $<)

@@ -37,18 +37,25 @@ two contents:
 The forwarder and the installer are linked at the usual `0x80004000`, clear
 of RiftWii (`0x80a00000` up).
 
-The Wii starts a channel's program at its DOL's entry point with address
-translation off, so that entry is a physical address: every retail
-channel's is `0x3400`, with a small text section at `0x80003400`. A DOL
-started from the Homebrew Channel (and a channel in Dolphin) starts with
-translation on instead, at libogc's `0x80003f00`, which on a Wii left the
-channel on a black screen. So `tools/make_channel.py` (`channel_entry`)
-adds to the forwarder's DOL a first text section at `0x80003400`, and makes
-`0x3400` the entry: the layout of retail channels and of the loaders that run
-on both a Wii and a vWii (the Homebrew Channel's channel stub, OpenDolBoot).
-In real mode it clears the BI2 pointer at `0x800000f4` and branches
-(relative) to libogc's entry; libogc's start code sets up the BATs and
-caches itself, on a Wii and a vWii, before it turns translation on. `build-channel/forwarder.dol` itself keeps
+A Wii and a vWii start a channel's program differently, and
+`tools/make_channel.py` (`channel_entry`) lays the forwarder's DOL out for
+both, as OpenDolBoot and the Homebrew Channel's channel stub do:
+
+- **Wii:** the CPU starts at physical `0x3400` with address translation off,
+  whatever the DOL's entry field says (every retail channel has a small
+  section there). The forwarder's first text section is
+  `channel/forwarder/start.S` at `0x80003400`: it sets the CPU up as the
+  Homebrew Channel does for a program (caches, BATs, segments, HID4), clears
+  the BI2 pointer at `0x800000f4`, and jumps to the forwarder's entry with
+  translation on.
+- **vWii:** a Wii U boot program (BC-NAND) loads the DOL and jumps to its
+  entry field. So that field stays the forwarder's own (libogc's,
+  `0x80003f00`).
+
+Without the section, a Wii stayed on a black screen; with the entry field
+set to `0x3400`, as in retail Wii channels, a vWii did. Dolphin starts a
+channel either way, so it showed neither. The forwarder writes
+`Channel started` to `sd:/riftwii/channel.log` once it runs. `build-channel/forwarder.dol` itself keeps
 libogc's entry, so it still runs from the Homebrew Channel or Dolphin.
 
 The installer reloads IOS 58 before it reads RiftWii back in: a reload
