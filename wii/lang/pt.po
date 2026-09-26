@@ -459,14 +459,14 @@ msgstr "Testar o adaptador de GameCube"
 msgid "Test"
 msgstr "Testar"
 
-msgid "When the adapter is plugged in as a game starts, its controllers fill the ports that have none plugged in, in games that support the GameCube controller. It needs IOS 58 or a d2x cIOS."
-msgstr "Se o adaptador estiver conectado quando um jogo começa, os controles dele ocupam as portas sem nenhum conectado, nos jogos compatíveis com o controle de GameCube. Precisa do IOS 58 ou de um cIOS d2x."
+msgid "Experimental. When the adapter is plugged in as a game starts, its controllers fill the ports that have none plugged in, in games that support the GameCube controller. It needs IOS 58 or a d2x cIOS."
+msgstr "Experimental. Se o adaptador estiver conectado quando um jogo começa, os controles dele ocupam as portas sem nenhum conectado, nos jogos compatíveis com o controle de GameCube. Precisa do IOS 58 ou de um cIOS d2x."
 
-msgid "Always on, even with no adapter plugged in, so it can be plugged in during a game. It needs IOS 58 or a d2x cIOS."
-msgstr "Sempre ativo, mesmo sem adaptador, para poder conectá-lo durante o jogo. Precisa do IOS 58 ou de um cIOS d2x."
+msgid "Experimental. Always on, even with no adapter plugged in, so it can be plugged in during a game. It needs IOS 58 or a d2x cIOS."
+msgstr "Experimental. Sempre ativo, mesmo sem adaptador, para poder conectá-lo durante o jogo. Precisa do IOS 58 ou de um cIOS d2x."
 
-msgid "The adapter is left alone."
-msgstr "O adaptador não é usado."
+msgid "Experimental. The adapter is left alone."
+msgstr "Experimental. O adaptador não é usado."
 
 msgid "Adapter: working"
 msgstr "Adaptador: funcionando"
@@ -620,3 +620,153 @@ msgstr "Personalizado (sem wfc_domain)"
 
 msgid "The online server the game uses in place of Nintendo's, which closed. Custom uses wfc_domain in settings.txt."
 msgstr "O servidor online que o jogo usa no lugar do da Nintendo, que foi desligado. Personalizado usa wfc_domain do settings.txt."
+
+msgid "Packs on USB are experimental; if it fails, copy them to SD."
+msgstr "Packs no USB são experimentais; se falhar, copie-os para o SD."
+
+msgid "Updating RiftWii"
+msgstr "Atualizando a RiftWii"
+
+msgid "RiftWii {1} is out. Downloading and installing it now; this takes a minute..."
+msgstr "Saiu a RiftWii {1}. Baixando e instalando agora; leva um minuto..."
+
+msgid "Update failed"
+msgstr "A atualização falhou"
+
+msgid "RiftWii {1} could not be installed: {2}. This version keeps working; the new one is at {3}"
+msgstr "Não foi possível instalar a RiftWii {1}: {2}. Esta versão continua funcionando; a nova está em {3}"
+
+msgid "OK"
+msgstr "OK"
+
+msgid "RiftWii updated"
+msgstr "RiftWii atualizada"
+
+msgid "RiftWii {1} is installed ({2}). It runs the next time RiftWii starts. Leave to the Homebrew Channel now and start it again?"
+msgstr "A RiftWii {1} está instalada ({2}). Ela será usada na próxima vez que a RiftWii iniciar. Voltar agora ao Homebrew Channel e iniciá-la de novo?"
+
+msgid "Leave"
+msgstr "Sair"
+
+msgid "Later"
+msgstr "Depois"
+
+msgid "RiftWii {1} is installed. Start RiftWii again to use it."
+msgstr "A RiftWii {1} está instalada. Inicie a RiftWii de novo para usá-la."
+
+msgid "Update available"
+msgstr "Atualização disponível"
+
+msgid "RiftWii {1} is out (this is {2}). Update now? It takes a minute."
+msgstr "Saiu a RiftWii {1} (esta é a {2}). Atualizar agora? Leva um minuto."
+
+msgid "Not now"
+msgstr "Agora não"
+
+msgid "Are you sure?"
+msgstr "Tem certeza?"
+
+msgid "Are you sure you don't want to update? If you had an issue, it could have been fixed in the latest update!"
+msgstr "Tem certeza de que não quer atualizar? Se você teve algum problema, ele pode ter sido corrigido na última atualização!"
+
+msgid "RiftWii {1} is out. Settings > Check for a new version installs it."
+msgstr "Saiu a RiftWii {1}. Configurações > Procurar uma versão nova a instala."
+
+msgid "Updates"
+msgstr "Atualizações"
+
+msgid "Beta"
+msgstr "Beta"
+
+msgid "Stable"
+msgstr "Estável"
+
+msgid "Beta: every new version, including test builds that may have new bugs. For testers."
+msgstr "Beta: toda versão nova, incluindo as de teste, que podem ter bugs novos. Para testadores."
+
+msgid "Stable: only versions marked stable, which testers have checked."
+msgstr "Estável: só as versões marcadas como estáveis, que os testadores verificaram."
+
+msgid "No stable version is out yet. This is RiftWii {1}."
+msgstr "Ainda não saiu nenhuma versão estável. Esta é a RiftWii {1}."
+
+msgid "SD card: {1}"
+msgstr "Cartão SD: {1}"
+
+msgid "USB drive: {1}"
+msgstr "Unidade USB: {1}"
+
+msgid "Drive problem"
+msgstr "Problema em uma unidade"
+
+msgid "Games on that drive are not listed. Check the drive on a computer; details are in sd:/riftwii/session.log."
+msgstr "Os jogos dessa unidade não aparecem. Verifique a unidade em um computador; os detalhes estão em sd:/riftwii/session.log."
+
+msgid "SD card problems"
+msgstr "Problemas no cartão SD"
+
+msgid "The SD card had trouble while the last game was saving. The details are in sd:/riftwii/cardlog.txt; please send that file to the RiftWii developers."
+msgstr "O cartão SD teve problemas enquanto o último jogo salvava. Os detalhes estão em sd:/riftwii/cardlog.txt; envie esse arquivo aos desenvolvedores da RiftWii."
+
+msgid "Press Start again to play."
+msgstr "Aperte Jogar de novo para começar."
+
+msgid "Game cIOS"
+msgstr "cIOS do jogo"
+
+msgid "Add RiftWii to the Wii Menu?"
+msgstr "Adicionar a RiftWii ao Menu Wii?"
+
+msgid "RiftWii can have a channel on the Wii Menu, so it starts without the Homebrew Channel. The channel only starts RiftWii from your SD card: RiftWii's updates keep working and the channel never needs reinstalling. The channel installer opens, then brings you back here. Settings can open it again later."
+msgstr "A RiftWii pode ter um canal no Menu Wii, para iniciar sem o Homebrew Channel. O canal só inicia a RiftWii do seu cartão SD: as atualizações da RiftWii continuam funcionando e o canal nunca precisa ser reinstalado. O instalador do canal abre e depois traz você de volta aqui. As Configurações podem abri-lo de novo mais tarde."
+
+msgid "Open installer"
+msgstr "Abrir instalador"
+
+msgid "No thanks"
+msgstr "Não, obrigado"
+
+msgid "RiftWii channel on the Wii Menu"
+msgstr "Canal da RiftWii no Menu Wii"
+
+msgid "Installed"
+msgstr "Instalado"
+
+msgid "Add"
+msgstr "Adicionar"
+
+msgid "Open the channel installer?"
+msgstr "Abrir o instalador do canal?"
+
+msgid "RiftWii closes and the channel installer opens. It adds, updates or removes the RiftWii channel, then brings you back here."
+msgstr "A RiftWii fecha e o instalador do canal abre. Ele adiciona, atualiza ou remove o canal da RiftWii e depois traz você de volta aqui."
+
+msgid "Open"
+msgstr "Abrir"
+
+msgid "Cancel"
+msgstr "Cancelar"
+
+msgid "The RiftWii channel"
+msgstr "O canal da RiftWii"
+
+msgid "Opening the installer for"
+msgstr "Abrindo o instalador de"
+
+msgid "RiftWii starts again when it is done."
+msgstr "A RiftWii inicia de novo quando terminar."
+
+msgid "A Wii Menu channel that starts RiftWii from the SD card. It holds no copy of RiftWii, so updates keep working. Opens the channel installer, to add, update or remove it."
+msgstr "Um canal do Menu Wii que inicia a RiftWii pelo cartão SD. Ele não tem nenhuma cópia da RiftWii, então as atualizações continuam funcionando. Abre o instalador do canal, para adicioná-lo, atualizá-lo ou removê-lo."
+
+msgid "Copy apps/riftwii_channel from the RiftWii zip to the SD card first"
+msgstr "Copie primeiro apps/riftwii_channel do zip da RiftWii para o cartão SD"
+
+msgid "Dolphin checks real signatures, so the channel can only be installed on a Wii"
+msgstr "O Dolphin verifica as assinaturas reais, então o canal só pode ser instalado em um Wii"
+
+msgid "Installing the channel needs a d2x cIOS in slot 249, 250 or 251"
+msgstr "Instalar o canal precisa de um cIOS d2x no slot 249, 250 ou 251"
+
+msgid "(Log: sd:/riftwii/session.log)"
+msgstr "(Log: sd:/riftwii/session.log)"

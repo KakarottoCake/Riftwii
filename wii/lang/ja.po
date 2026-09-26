@@ -459,14 +459,14 @@ msgstr "接続タップを確認"
 msgid "Test"
 msgstr "テスト"
 
-msgid "When the adapter is plugged in as a game starts, its controllers fill the ports that have none plugged in, in games that support the GameCube controller. It needs IOS 58 or a d2x cIOS."
-msgstr "ゲーム開始時に接続タップがつながっていれば、ゲームキューブコントローラに対応したゲームで、何もつながっていないポートに接続タップのコントローラが入ります。IOS 58かd2x cIOSが必要です。"
+msgid "Experimental. When the adapter is plugged in as a game starts, its controllers fill the ports that have none plugged in, in games that support the GameCube controller. It needs IOS 58 or a d2x cIOS."
+msgstr "試験的な機能です。ゲーム開始時に接続タップがつながっていれば、ゲームキューブコントローラに対応したゲームで、何もつながっていないポートに接続タップのコントローラが入ります。IOS 58かd2x cIOSが必要です。"
 
-msgid "Always on, even with no adapter plugged in, so it can be plugged in during a game. It needs IOS 58 or a d2x cIOS."
-msgstr "接続タップがなくても常に有効なので、ゲーム中につなぐこともできます。IOS 58かd2x cIOSが必要です。"
+msgid "Experimental. Always on, even with no adapter plugged in, so it can be plugged in during a game. It needs IOS 58 or a d2x cIOS."
+msgstr "試験的な機能です。接続タップがなくても常に有効なので、ゲーム中につなぐこともできます。IOS 58かd2x cIOSが必要です。"
 
-msgid "The adapter is left alone."
-msgstr "接続タップは使いません。"
+msgid "Experimental. The adapter is left alone."
+msgstr "試験的な機能です。接続タップは使いません。"
 
 msgid "Adapter: working"
 msgstr "接続タップ：動作中"
@@ -620,3 +620,153 @@ msgstr "カスタム（wfc_domain未設定）"
 
 msgid "The online server the game uses in place of Nintendo's, which closed. Custom uses wfc_domain in settings.txt."
 msgstr "終了したNintendoのサーバーの代わりにゲームが使うオンラインサーバーです。カスタムはsettings.txtのwfc_domainを使います。"
+
+msgid "Packs on USB are experimental; if it fails, copy them to SD."
+msgstr "USBのパックは試験的な機能です。うまくいかない場合はSDにコピーしてください。"
+
+msgid "Updating RiftWii"
+msgstr "RiftWiiを更新しています"
+
+msgid "RiftWii {1} is out. Downloading and installing it now; this takes a minute..."
+msgstr "RiftWii {1}が出ています。ダウンロードしてインストールしています。1分ほどかかります..."
+
+msgid "Update failed"
+msgstr "更新に失敗しました"
+
+msgid "RiftWii {1} could not be installed: {2}. This version keeps working; the new one is at {3}"
+msgstr "RiftWii {1}をインストールできませんでした: {2}。このバージョンはそのまま使えます。新しいものは{3}にあります"
+
+msgid "OK"
+msgstr "OK"
+
+msgid "RiftWii updated"
+msgstr "RiftWiiを更新しました"
+
+msgid "RiftWii {1} is installed ({2}). It runs the next time RiftWii starts. Leave to the Homebrew Channel now and start it again?"
+msgstr "RiftWii {1}をインストールしました ({2})。次にRiftWiiを起動したときに使われます。今Homebrew Channelに戻って、もう一度起動しますか?"
+
+msgid "Leave"
+msgstr "終了"
+
+msgid "Later"
+msgstr "あとで"
+
+msgid "RiftWii {1} is installed. Start RiftWii again to use it."
+msgstr "RiftWii {1}をインストールしました。使うにはRiftWiiをもう一度起動してください。"
+
+msgid "Update available"
+msgstr "更新があります"
+
+msgid "RiftWii {1} is out (this is {2}). Update now? It takes a minute."
+msgstr "RiftWii {1}が出ています (これは{2}です)。今すぐ更新しますか? 1分ほどかかります。"
+
+msgid "Not now"
+msgstr "今はしない"
+
+msgid "Are you sure?"
+msgstr "よろしいですか?"
+
+msgid "Are you sure you don't want to update? If you had an issue, it could have been fixed in the latest update!"
+msgstr "本当に更新しませんか? 何か問題があった場合、最新の更新で直っているかもしれません!"
+
+msgid "RiftWii {1} is out. Settings > Check for a new version installs it."
+msgstr "RiftWii {1}が出ています。設定 > 新しいバージョンを確認 でインストールできます。"
+
+msgid "Updates"
+msgstr "アップデート"
+
+msgid "Beta"
+msgstr "ベータ"
+
+msgid "Stable"
+msgstr "安定版"
+
+msgid "Beta: every new version, including test builds that may have new bugs. For testers."
+msgstr "ベータ: テスト版を含むすべての新しいバージョンです。新しい不具合があるかもしれません。テスター向けです。"
+
+msgid "Stable: only versions marked stable, which testers have checked."
+msgstr "安定版: テスターが確認した、安定版とされたバージョンだけです。"
+
+msgid "No stable version is out yet. This is RiftWii {1}."
+msgstr "安定版はまだ出ていません。これはRiftWii {1}です。"
+
+msgid "SD card: {1}"
+msgstr "SDカード: {1}"
+
+msgid "USB drive: {1}"
+msgstr "USBドライブ: {1}"
+
+msgid "Drive problem"
+msgstr "ドライブの問題"
+
+msgid "Games on that drive are not listed. Check the drive on a computer; details are in sd:/riftwii/session.log."
+msgstr "そのドライブのゲームは表示されません。パソコンでドライブを確認してください。詳しくはsd:/riftwii/session.logにあります。"
+
+msgid "SD card problems"
+msgstr "SDカードの問題"
+
+msgid "The SD card had trouble while the last game was saving. The details are in sd:/riftwii/cardlog.txt; please send that file to the RiftWii developers."
+msgstr "前回のゲームのセーブ中にSDカードで問題が起きました。詳しくはsd:/riftwii/cardlog.txtにあります。このファイルをRiftWiiの開発者に送ってください。"
+
+msgid "Press Start again to play."
+msgstr "もう一度「はじめる」を押すと遊べます。"
+
+msgid "Game cIOS"
+msgstr "ゲームのcIOS"
+
+msgid "Add RiftWii to the Wii Menu?"
+msgstr "RiftWiiをWiiメニューに追加しますか?"
+
+msgid "RiftWii can have a channel on the Wii Menu, so it starts without the Homebrew Channel. The channel only starts RiftWii from your SD card: RiftWii's updates keep working and the channel never needs reinstalling. The channel installer opens, then brings you back here. Settings can open it again later."
+msgstr "RiftWiiはWiiメニューにチャンネルを置けるので、Homebrew Channelなしで起動できます。チャンネルはSDカードのRiftWiiを起動するだけなので、RiftWiiの更新はそのまま使え、チャンネルを入れ直す必要はありません。チャンネルのインストーラーが開き、そのあとここに戻ります。あとで設定からもう一度開けます。"
+
+msgid "Open installer"
+msgstr "インストーラーを開く"
+
+msgid "No thanks"
+msgstr "いいえ"
+
+msgid "RiftWii channel on the Wii Menu"
+msgstr "WiiメニューのRiftWiiチャンネル"
+
+msgid "Installed"
+msgstr "インストール済み"
+
+msgid "Add"
+msgstr "追加"
+
+msgid "Open the channel installer?"
+msgstr "チャンネルのインストーラーを開きますか?"
+
+msgid "RiftWii closes and the channel installer opens. It adds, updates or removes the RiftWii channel, then brings you back here."
+msgstr "RiftWiiを閉じてチャンネルのインストーラーを開きます。RiftWiiチャンネルの追加、更新、削除をして、ここに戻ってきます。"
+
+msgid "Open"
+msgstr "開く"
+
+msgid "Cancel"
+msgstr "キャンセル"
+
+msgid "The RiftWii channel"
+msgstr "RiftWiiチャンネル"
+
+msgid "Opening the installer for"
+msgstr "インストーラーを開いています"
+
+msgid "RiftWii starts again when it is done."
+msgstr "終わるとRiftWiiがもう一度起動します。"
+
+msgid "A Wii Menu channel that starts RiftWii from the SD card. It holds no copy of RiftWii, so updates keep working. Opens the channel installer, to add, update or remove it."
+msgstr "SDカードのRiftWiiを起動するWiiメニューのチャンネルです。RiftWiiのコピーは入っていないので、更新はそのまま使えます。チャンネルのインストーラーを開いて、追加、更新、削除ができます。"
+
+msgid "Copy apps/riftwii_channel from the RiftWii zip to the SD card first"
+msgstr "先にRiftWiiのzipにあるapps/riftwii_channelをSDカードにコピーしてください"
+
+msgid "Dolphin checks real signatures, so the channel can only be installed on a Wii"
+msgstr "Dolphinは本物の署名を確認するので、チャンネルはWiiにしかインストールできません"
+
+msgid "Installing the channel needs a d2x cIOS in slot 249, 250 or 251"
+msgstr "チャンネルのインストールには、スロット249、250、251のどれかにd2x cIOSが必要です"
+
+msgid "(Log: sd:/riftwii/session.log)"
+msgstr "(ログ: sd:/riftwii/session.log)"
