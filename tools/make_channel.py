@@ -25,7 +25,7 @@ import sys
 import zlib
 
 TITLE_ID = 0x0001000152465457  # 00010001-RFTW
-TITLE_VERSION = 2  # 2: the forwarder has a channel entry (channel_entry)
+TITLE_VERSION = 3  # 2: a channel entry (channel_entry); 3: laid out as on every loader
 IOS = 58
 CHANNEL_NAME = "RiftWii"
 
@@ -833,10 +833,14 @@ def channel_entry(dol):
     0x80003f00), and Dolphin starts a channel that way too; on a Wii
     that entry left a black screen.
 
-    This adds a text section at 0x80003400 holding one relative branch
-    to the DOL's own entry, and makes 0x3400 the entry. The branch works
-    in real mode, and libogc's start code sets up the BATs and caches
-    itself before it turns translation on."""
+    This adds a text section at 0x80003400 and makes 0x3400 the entry.
+    It is the first text section, as in retail channels and in the
+    loaders that run on both a Wii and a vWii (the Homebrew Channel's
+    channel stub, OpenDolBoot). In real mode it clears the BI2 pointer
+    at 0x800000f4, as OpenDolBoot does (nothing was booted from a disc),
+    then branches (relative, so real mode is fine) to the DOL's own
+    entry. libogc's start code sets up the BATs and caches itself, on a
+    Wii and a vWii, before it turns translation on."""
     d = bytearray(dol)
     offsets = list(struct.unpack_from(">18I", d, 0x00))
     starts = list(struct.unpack_from(">18I", d, 0x48))
@@ -849,14 +853,18 @@ def channel_entry(dol):
             sys.exit(f"forwarder: a section already covers {ENTRY_AT:08x}")
     if bss_size and bss < ENTRY_AT + 32 and ENTRY_AT < bss + bss_size:
         sys.exit(f"forwarder: the bss covers {ENTRY_AT:08x}")
-    free = [i for i in range(7) if not sizes[i]]
-    if not free:
+    if sizes[6]:
         sys.exit("forwarder: no free text section")
-    branch = 0x48000000 | ((entry - ENTRY_AT) & 0x03FFFFFC)
-    stub = struct.pack(">I", branch) + bytes(28)
+    code = [
+        0x38000000,  # li   r0, 0
+        0x900000F4,  # stw  r0, 0xf4(0)
+        0x48000000 | ((entry - (ENTRY_AT + 8)) & 0x03FFFFFC),  # b entry
+    ]
+    stub = struct.pack(">3I", *code) + bytes(20)
     d += bytes(-len(d) % 32)
-    i = free[0]
-    offsets[i], starts[i], sizes[i] = len(d), ENTRY_AT, len(stub)
+    for table in (offsets, starts, sizes):
+        table[0:7] = [0] + table[0:6]
+    offsets[0], starts[0], sizes[0] = len(d), ENTRY_AT, len(stub)
     d += stub
     struct.pack_into(">18I", d, 0x00, *offsets)
     struct.pack_into(">18I", d, 0x48, *starts)
