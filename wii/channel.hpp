@@ -4,27 +4,27 @@
 #include <string>
 
 // The RiftWii channel (docs/CHANNEL.md): a Wii Menu channel that starts
-// RiftWii from apps/riftwii/boot.dol on the SD card or USB drive. The
-// channel holds only that small forwarder and its banner
-// (tools/make_channel.py, embedded in this program), so RiftWii's own
-// updates never need it reinstalled.
+// RiftWii from apps/riftwii/boot.dol on the SD card or USB drive. Its
+// installer is an app of its own in the release zip (apps/riftwii_channel,
+// channel/installer), so RiftWii carries none of the channel; Settings and
+// a one-time offer only start that installer.
 namespace riftwii::wii {
 
 // Whether the channel is on this Wii, and its version (0 when it is not).
 bool ChannelInstalled(unsigned& version);
-// The version this build of RiftWii installs.
-unsigned ChannelPackageVersion();
 
-// Whether installing can work here: a d2x cIOS to install under (its
-// signature patches take the channel's unsigned TMD and ticket), and not
-// Dolphin, whose ES checks real signatures. `why` says what is missing.
+// Whether the installer app is on the card (Settings opens it); `why`
+// says where to get it when it is not.
+bool ChannelInstallerPresent(std::string& why);
+
+// Whether installing can work here: the installer app on the card, a d2x
+// cIOS for it (its signature patches take the channel's fakesigned TMD
+// and ticket), and not Dolphin, whose ES checks real signatures. `why`
+// says what is missing.
 bool ChannelCanInstall(std::string& why);
 
-// Install or remove the channel. Runs after the menu has closed: reloads a
-// d2x cIOS (the drives are released and the card comes back, as for a
-// launch), does the NAND work, and leaves the IOS for the caller's restart.
-// Everything is logged; `result` is a line for Home.
-bool InstallChannel(std::string& result);
-bool RemoveChannel(std::string& result);
+// Starts the installer app. Runs after the menu has closed; returns only
+// if it cannot, with `error` saying why.
+bool StartChannelInstaller(std::string& error);
 
 }  // namespace riftwii::wii

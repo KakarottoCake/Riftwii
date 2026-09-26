@@ -198,17 +198,11 @@ int main() {
             OfferRestart(error);
         }
     } else if (action == MENU_CHANNEL) {
-        // The RiftWii channel (wii/channel.hpp): under a d2x cIOS, then a
-        // fresh start, whose Home says how it went.
-        std::string result;
-        if (ChannelTaskIsRemove()) {
-            riftwii::wii::RemoveChannel(result);
-        } else {
-            riftwii::wii::InstallChannel(result);
-        }
-        if (riftwii::wii::reload_terminal_failure()) riftwii::wii::halt_after_terminal_reload();
-        riftwii::wii::logf("%s\n", result.c_str());
-        riftwii::wii::WarmRestart(riftwii::wii::RestartKind::ChannelDone, result);
+        // The channel installer app (wii/channel.hpp). Only comes back if
+        // it cannot start; a fresh start then says why on Home.
+        std::string error;
+        riftwii::wii::StartChannelInstaller(error);
+        riftwii::wii::WarmRestart(riftwii::wii::RestartKind::ChannelDone, error);
         riftwii::wii::logf("Press HOME, Start or RESET to exit.\n");
         riftwii::wii::WaitForExit();
         std::exit(0);

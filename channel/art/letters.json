@@ -1,0 +1,63 @@
+{
+ "letters": [
+  {
+   "char": "R",
+   "tex": "letter_Ru",
+   "w": 108,
+   "h": 120,
+   "x": -20.0,
+   "advance": 65.0
+  },
+  {
+   "char": "i",
+   "tex": "letter_il",
+   "w": 76,
+   "h": 120,
+   "x": 45.0,
+   "advance": 34.0
+  },
+  {
+   "char": "f",
+   "tex": "letter_fl",
+   "w": 96,
+   "h": 120,
+   "x": 79.0,
+   "advance": 55.0
+  },
+  {
+   "char": "t",
+   "tex": "letter_tl",
+   "w": 96,
+   "h": 120,
+   "x": 134.0,
+   "advance": 55.0
+  },
+  {
+   "char": "W",
+   "tex": "letter_Wu",
+   "w": 132,
+   "h": 120,
+   "x": 189.0,
+   "advance": 91.0
+  },
+  {
+   "char": "i",
+   "tex": "letter_il",
+   "w": 76,
+   "h": 120,
+   "x": 280.0,
+   "advance": 34.0
+  },
+  {
+   "char": "i",
+   "tex": "letter_il",
+   "w": 76,
+   "h": 120,
+   "x": 314.0,
+   "advance": 34.0
+  }
+ ],
+ "height": 120,
+ "width": 368.0,
+ "word_split": 0.5581395348837209
+}
