@@ -72,7 +72,12 @@ a GameCube controller) jumps to the next game starting with another
 letter, A to Z. RiftWii remembers the view and opens on the last game
 you played. When the Wii is online,
 games show their real names from GameTDB (Super Mario Galaxy 2, not the
-disc's SUPER MARIO GALAXY MORE), in the menu's language.
+disc's SUPER MARIO GALAXY MORE), in the menu's language. The line at the
+bottom says how many games the view holds.
+
+With Screen Burn-In Reduction on in the Wii's own settings, the menu dims
+after five minutes without input, as the Wii Menu does. Any button, or
+moving the pointer, brings it back; that press does nothing else.
 
 The tiles show each game's cover, the name of the one you point at
 under them. Covers come from GameTDB while Home is open (about a second
@@ -130,7 +135,9 @@ the game starts as it is. While it starts, its progress prints on
 screen. Your choices are saved for each game.
 
 In every list, hold A and move the Wii Remote to drag it (a quick flick
-keeps it going); the D-pad works too.
+keeps it going); the D-pad works too. A longer list has up and down
+arrows on its right edge: point at one and press A to move a row, or hold
+A to keep going. Each arrow goes away at its end of the list.
 
 ### Settings
 
@@ -151,8 +158,11 @@ the list explains the row you are on.
 - **Find network packs (RiiFS)** and **Copy network packs again** (below).
 - **Look for games again**, **Updates** (Stable or Beta, below),
   **Check for a new version** (on GitHub; with downloads on, RiftWii also
-  looks at every start and asks before it updates), and **Leave RiftWii**
-  (HOME does that too).
+  looks at every start and asks before it updates), **HOME button**, and
+  **Leave RiftWii** (HOME does that too).
+- **HOME button**: where HOME and Leave RiftWii take you: the Homebrew
+  Channel, the Wii Menu, Priiloader's menu (the Wii Menu if Priiloader is
+  not installed), or power off.
 
 ### RVZ games
 

@@ -750,6 +750,56 @@ T = {
         "RiftWiiを再起動できませんでした。Homebrew Channelからもう一度起動してください。",
         "A RiftWii não conseguiu reiniciar. Inicie-a de novo pelo Homebrew Channel.",
         "RiftWii non è riuscita a riavviarsi. Avviala di nuovo dall'Homebrew Channel."),
+    "1 game": (
+        "1 juego",
+        "ゲーム1本",
+        "1 jogo",
+        "1 gioco"),
+    "{1} games": (
+        "{1} juegos",
+        "ゲーム{1}本",
+        "{1} jogos",
+        "{1} giochi"),
+    "HOME button": (
+        "Botón HOME",
+        "HOMEボタン",
+        "Botão HOME",
+        "Tasto HOME"),
+    "Homebrew Channel": (
+        "Homebrew Channel",
+        "Homebrew Channel",
+        "Homebrew Channel",
+        "Homebrew Channel"),
+    "Wii Menu": (
+        "Menú de Wii",
+        "Wiiメニュー",
+        "Menu Wii",
+        "Menu Wii"),
+    "Power off": (
+        "Apagar",
+        "電源を切る",
+        "Desligar",
+        "Spegni"),
+    "Back to the Wii Menu.": (
+        "Vuelve al menú de Wii.",
+        "Wiiメニューに戻ります。",
+        "Volta ao Menu Wii.",
+        "Torna al Menu Wii."),
+    "To Priiloader's menu. Without Priiloader, the Wii Menu starts.": (
+        "Al menú de Priiloader. Sin Priiloader, se inicia el menú de Wii.",
+        "Priiloaderのメニューに移ります。Priiloaderがなければ、Wiiメニューが起動します。",
+        "Para o menu do Priiloader. Sem o Priiloader, o Menu Wii é iniciado.",
+        "Al menu di Priiloader. Senza Priiloader, si avvia il Menu Wii."),
+    "Turns the Wii off.": (
+        "Apaga la Wii.",
+        "Wiiの電源を切ります。",
+        "Desliga o Wii.",
+        "Spegne la Wii."),
+    "Where HOME and Leave RiftWii take you: the Homebrew Channel, the Wii Menu, Priiloader, or off.": (
+        "Adónde llevan HOME y Leave RiftWii: al Homebrew Channel, al menú de Wii, a Priiloader o a apagar la consola.",
+        "HOMEボタンと「Leave RiftWii」の行き先です: Homebrew Channel、Wiiメニュー、Priiloader、または電源オフ。",
+        "Para onde HOME e Leave RiftWii levam: o Homebrew Channel, o Menu Wii, o Priiloader ou desligar.",
+        "Dove portano HOME e Leave RiftWii: all'Homebrew Channel, al Menu Wii, a Priiloader o allo spegnimento."),
 }
 
 

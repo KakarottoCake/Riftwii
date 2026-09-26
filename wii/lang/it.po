@@ -812,3 +812,33 @@ msgstr "L'unità non riesce a leggere questo disco. Se è un disco masterizzato,
 
 msgid "RiftWii could not restart. Start it again from the Homebrew Channel."
 msgstr "RiftWii non è riuscita a riavviarsi. Avviala di nuovo dall'Homebrew Channel."
+
+msgid "1 game"
+msgstr "1 gioco"
+
+msgid "{1} games"
+msgstr "{1} giochi"
+
+msgid "HOME button"
+msgstr "Tasto HOME"
+
+msgid "Homebrew Channel"
+msgstr "Homebrew Channel"
+
+msgid "Wii Menu"
+msgstr "Menu Wii"
+
+msgid "Power off"
+msgstr "Spegni"
+
+msgid "Back to the Wii Menu."
+msgstr "Torna al Menu Wii."
+
+msgid "To Priiloader's menu. Without Priiloader, the Wii Menu starts."
+msgstr "Al menu di Priiloader. Senza Priiloader, si avvia il Menu Wii."
+
+msgid "Turns the Wii off."
+msgstr "Spegne la Wii."
+
+msgid "Where HOME and Leave RiftWii take you: the Homebrew Channel, the Wii Menu, Priiloader, or off."
+msgstr "Dove portano HOME e Leave RiftWii: all'Homebrew Channel, al Menu Wii, a Priiloader o allo spegnimento."

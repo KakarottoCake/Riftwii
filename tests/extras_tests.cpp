@@ -528,6 +528,12 @@ void TestCoverArt() {
     EXPECT_EQ(s.home_tiles, "names");
     s.parse("home_tiles = huge\n");
     EXPECT_EQ(s.home_tiles, "names");
+    EXPECT_EQ(s.home_button, "hbc");
+    s.parse("home_button = priiloader\n");
+    EXPECT_EQ(s.home_button, "priiloader");
+    s.parse("home_button = moon\n");
+    EXPECT_EQ(s.home_button, "priiloader");
+    EXPECT_TRUE(s.serialize().find("home_button = priiloader\n") != std::string::npos);
 }
 
 void TestGameLanguage() {

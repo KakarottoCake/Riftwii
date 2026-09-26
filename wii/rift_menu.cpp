@@ -26,6 +26,7 @@
 #include <string.h>
 #include <strings.h>
 #include <algorithm>
+#include <cstdlib>
 #include <atomic>
 #include <ctime>
 #include <fstream>
@@ -33,6 +34,7 @@
 #include <set>
 #include <sstream>
 #include <wiiuse/wpad.h>
+#include <ogc/lwp_watchdog.h>
 
 #include "libwiigui/gui.h"
 #include "gui_flowlist.hpp"
@@ -104,6 +106,51 @@ static lwp_t guithread = LWP_THREAD_NULL;
 static std::atomic<bool> guiHalt{true};
 static std::atomic<bool> hidePointers{false};
 
+// The Wii's screen burn-in reduction (Wii Settings): while it is on, the
+// menu dims after five idle minutes, as the Wii Menu does. A button, a
+// stick or a moved pointer brings it back; that press does nothing else.
+#ifndef RIFTWII_DIM_SECONDS
+#define RIFTWII_DIM_SECONDS 300
+#endif
+static bool dimAllowed = false;
+static u64 lastActive = 0;
+static int dimAlpha = 0;
+static bool swallowInput = false;
+static int pointerX[4], pointerY[4];
+static bool pointerSeen[4];
+
+// Whether anyone is using a controller this frame.
+static bool AnyActivity()
+{
+	bool active = false;
+	for (int i = 0; i < 4; ++i) {
+		const GuiTrigger& t = userInput[i];
+		if (t.pad.btns_h || t.wiidrcdata.btns_h || std::abs(t.pad.stickX) > 40 || std::abs(t.pad.stickY) > 40)
+			active = true;
+		if (!t.wpad) continue;
+		if (t.wpad->btns_h) active = true;
+		const bool seen = t.wpad->ir.valid;
+		const int x = static_cast<int>(t.wpad->ir.x), y = static_cast<int>(t.wpad->ir.y);
+		// A remote lying still jitters a little: only a real move counts.
+		if (seen != pointerSeen[i] || (seen && (std::abs(x - pointerX[i]) > 12 || std::abs(y - pointerY[i]) > 12))) {
+			pointerSeen[i] = seen;
+			pointerX[i] = x;
+			pointerY[i] = y;
+			active = true;
+		}
+	}
+	return active;
+}
+
+static bool AnyHeld()
+{
+	for (int i = 0; i < 4; ++i) {
+		const GuiTrigger& t = userInput[i];
+		if (t.pad.btns_h || t.wiidrcdata.btns_h || (t.wpad && t.wpad->btns_h)) return true;
+	}
+	return false;
+}
+
 static void ResumeGui()
 {
 	guiHalt = false;
@@ -143,6 +190,14 @@ UpdateGUI(void *arg)
 		{
 			UpdatePads();
 			riftwii::wii::GuiScriptApply();
+			const u64 now = gettime();
+			if (AnyActivity() || lastActive == 0) {
+				if (dimAlpha > 0) swallowInput = true;
+				lastActive = now;
+			}
+			const bool idle = dimAllowed && diff_sec(lastActive, now) >= RIFTWII_DIM_SECONDS;
+			dimAlpha = idle ? std::min(dimAlpha + 4, 150) : std::max(dimAlpha - 30, 0);
+			if (swallowInput && !AnyHeld()) swallowInput = false;
 			mainWindow->Draw();
 
 			for(i = 3; i >= 0; i--)
@@ -152,12 +207,15 @@ UpdateGUI(void *arg)
 						96, 96, skin::hand[i].data, userInput[i].wpad->ir.angle, 1, 1, 255);
 				DoRumble(i);
 			}
+			if (dimAlpha > 0)
+				Menu_DrawRectangle(0, 0, screenwidth, screenheight, (GXColor){0, 0, 0, static_cast<u8>(dimAlpha)}, 1);
 
 			Menu_Render();
 			riftwii::wii::GuiScriptAfterFrame(Menu_CurrentXfb(), Menu_XfbWidth(), Menu_XfbHeight());
 
-			for(i = 0; i < 4; i++)
-				mainWindow->Update(&userInput[i]);
+			if (!idle && !swallowInput)
+				for(i = 0; i < 4; i++)
+					mainWindow->Update(&userInput[i]);
 
 			if(ExitRequested)
 			{
@@ -176,6 +234,7 @@ UpdateGUI(void *arg)
 
 void InitGUIThreads()
 {
+	dimAllowed = CONF_Init() >= 0 && CONF_GetScreenSaverMode() == 1;
 	if (LWP_CreateThread(&guithread, UpdateGUI, nullptr, nullptr, 24576, 70) < 0)
 		ExitApp();
 	HaltGui();
@@ -520,7 +579,9 @@ static std::string HomeStatus(const FrontendState& state, std::size_t shown)
 	if (g_filter == Filter::Favorites && shown <= 1)
 		return tr("No favourite is on these drives. Mark games on their page. Press 1 for all games.");
 	if (shown <= 1) return "No games found (usb:/wbfs, usb:/games, sd:/wbfs, sd:/games)";
-	return std::string(tr(FilterLabel(g_filter))) + "   " + tr("1: view   2: settings   -: A to Z   +: rescan");
+	// The disc drive's tile is not a game.
+	const std::string count = shown == 2 ? std::string(tr("1 game")) : tr("{1} games", {std::to_string(shown - 1)});
+	return std::string(tr(FilterLabel(g_filter))) + ": " + count + "   " + tr("1: view   2: settings   -: A to Z   +: rescan");
 }
 
 class Panel : public GuiElement {
@@ -659,7 +720,7 @@ static void RunUpdate(const std::string& latest)
 		    tr("RiftWii {1} is installed ({2}). It runs the next time RiftWii starts. Leave to the Homebrew Channel now and start it again?",
 			    {latest, where}),
 		    tr("Leave"), tr("Later")) == 0) {
-		ExitRequested = 1;
+		ExitRequested = 2;
 		ResumeGui();
 		while (1) usleep(THREAD_SLEEP);
 	}
@@ -1107,6 +1168,7 @@ static const char* const kGameLanguages[] = {"global", "console", "ja", "en", "d
 	"zh-hant", "ko"};
 static const char* const kCiosChoices[] = {"global", "auto", "248", "249", "250", "251", "252"};
 static const char* const kServers[] = {"global", "off", "wiimmfi", "wiilink", "altwfc", "custom"};
+static const char* const kHomeButtons[] = {"global", "hbc", "menu", "priiloader", "off"};
 
 template <std::size_t N>
 static std::string StepValue(const char* const (&list)[N], const std::string& value, int direction, bool withGlobal = true)
@@ -1166,6 +1228,23 @@ static std::string CiosName(const std::string& v)
 	if (v == "auto") return tr("Automatic");
 	return "cIOS " + v;
 }
+static std::string HomeButtonName(const std::string& v)
+{
+	if (v == "menu") return tr("Wii Menu");
+	if (v == "priiloader") return "Priiloader";
+	if (v == "off") return tr("Power off");
+	return tr("Homebrew Channel");
+}
+
+// Where Leave RiftWii (and HOME) goes.
+static std::string LeaveNote(const std::string& v)
+{
+	if (v == "menu") return tr("Back to the Wii Menu.");
+	if (v == "priiloader") return tr("To Priiloader's menu. Without Priiloader, the Wii Menu starts.");
+	if (v == "off") return tr("Turns the Wii off.");
+	return tr("Back to the Homebrew Channel.");
+}
+
 static std::string ServerName(const std::string& v)
 {
 	if (v == "wiimmfi") return "Wiimmfi";
@@ -2097,7 +2176,7 @@ static int MenuSettings(FrontendState& state)
 
 	bool netOn = riftwii::wii::NetworkPacksEnabled();
 	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kGameLanguage, kGameCios, kServer, kHomeTiles, kOnline, kNames, kGcAdapter, kGcTest, kIos, kNet, kResync,
-		kRescan, kChannel, kUpdate, kWiiChannel, kExit, kNone };
+		kRescan, kChannel, kUpdate, kWiiChannel, kHomeButton, kExit, kNone };
 	// The RiftWii channel on the Wii Menu (wii/channel.hpp).
 	unsigned channelVersion = 0;
 	const bool channelThere = riftwii::wii::ChannelInstalled(channelVersion);
@@ -2194,6 +2273,7 @@ static int MenuSettings(FrontendState& state)
 		wiiChannel.dim = !channelCan;
 		rows.push_back(wiiChannel);
 		actions.push_back(kWiiChannel);
+		option(tr("HOME button"), HomeButtonName(settings.home_button), settings.home_button != "hbc", kHomeButton);
 		FlowRow exitRow;
 		exitRow.kind = FlowRow::Kind::Action;
 		exitRow.label = "Leave RiftWii";
@@ -2271,7 +2351,9 @@ static int MenuSettings(FrontendState& state)
 			case kWiiChannel:
 				if (!channelCan) return std::string(tr(channelWhy.c_str())) + ".";
 				return tr("A Wii Menu channel that starts RiftWii from the SD card. It holds no copy of RiftWii, so updates keep working. Opens the channel installer, to add, update or remove it.");
-			case kExit: return tr("Back to the Homebrew Channel.");
+			case kHomeButton:
+				return tr("Where HOME and Leave RiftWii take you: the Homebrew Channel, the Wii Menu, Priiloader, or off.");
+			case kExit: return LeaveNote(settings.home_button);
 			case kNone:  // the Menu IOS row when there is nothing to choose
 				return tr("No d2x cIOS was found in slots 248 to 252, so the menu runs under IOS 58. Install d2x to play games from SD or USB.");
 			default: return "";
@@ -2351,6 +2433,11 @@ static int MenuSettings(FrontendState& state)
 				case kServer:
 					settings.wfc_server = StepValue(kServers, settings.wfc_server, direction, false);
 					saveAndNote(tr("The online server the game uses in place of Nintendo's, which closed. Custom uses wfc_domain in settings.txt."));
+					rebuild();
+					break;
+				case kHomeButton:
+					settings.home_button = StepValue(kHomeButtons, settings.home_button, direction, false);
+					saveAndNote(tr("Where HOME and Leave RiftWii take you: the Homebrew Channel, the Wii Menu, Priiloader, or off."));
 					rebuild();
 					break;
 				case kHomeTiles:

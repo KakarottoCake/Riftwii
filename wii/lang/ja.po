@@ -812,3 +812,33 @@ msgstr "ドライブがこのディスクを読めません。焼いたディス
 
 msgid "RiftWii could not restart. Start it again from the Homebrew Channel."
 msgstr "RiftWiiを再起動できませんでした。Homebrew Channelからもう一度起動してください。"
+
+msgid "1 game"
+msgstr "ゲーム1本"
+
+msgid "{1} games"
+msgstr "ゲーム{1}本"
+
+msgid "HOME button"
+msgstr "HOMEボタン"
+
+msgid "Homebrew Channel"
+msgstr "Homebrew Channel"
+
+msgid "Wii Menu"
+msgstr "Wiiメニュー"
+
+msgid "Power off"
+msgstr "電源を切る"
+
+msgid "Back to the Wii Menu."
+msgstr "Wiiメニューに戻ります。"
+
+msgid "To Priiloader's menu. Without Priiloader, the Wii Menu starts."
+msgstr "Priiloaderのメニューに移ります。Priiloaderがなければ、Wiiメニューが起動します。"
+
+msgid "Turns the Wii off."
+msgstr "Wiiの電源を切ります。"
+
+msgid "Where HOME and Leave RiftWii take you: the Homebrew Channel, the Wii Menu, Priiloader, or off."
+msgstr "HOMEボタンと「Leave RiftWii」の行き先です: Homebrew Channel、Wiiメニュー、Priiloader、または電源オフ。"

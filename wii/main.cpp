@@ -36,13 +36,43 @@
 #include "channel.hpp"
 #include "skin.hpp"
 
+// 1: the player left the menu (HOME, Leave RiftWii), which goes where
+// Settings' HOME button says; 2: back to the loader whatever it says
+// (after an update, to start the new version).
 int ExitRequested = 0;
+
+namespace {
+
+// Where the HOME button leaves to, other than the loader that started
+// RiftWii (the Homebrew Channel), which std::exit returns to.
+void LeaveTo(const std::string& where) {
+    if (where == "off") {
+        // Standby or off, as the Wii's own power setting says.
+        SYS_ResetSystem(SYS_POWEROFF, 0, 0);
+    } else if (where == "menu" || where == "priiloader") {
+        if (where == "priiloader") {
+            // Priiloader looks for "Daco" at 0x8132FFFB when the Wii Menu
+            // is loaded and opens its own menu. Without Priiloader the
+            // word is ignored and the Wii Menu starts.
+            volatile u8* magic = reinterpret_cast<volatile u8*>(0x8132FFFB);
+            magic[0] = 'D';
+            magic[1] = 'a';
+            magic[2] = 'c';
+            magic[3] = 'o';
+            DCFlushRange(reinterpret_cast<void*>(0x8132FFE0), 0x40);
+        }
+        SYS_ResetSystem(SYS_RETURNTOMENU, 0, 0);
+    }
+}
+
+}  // namespace
 
 void ExitApp() {
     riftwii::wii::GcAdapterMenuEnd();
     ShutoffRumble();
     ShutdownAudio();
     StopGX();
+    if (ExitRequested == 1) LeaveTo(riftwii::wii::Settings().home_button);
     std::exit(0);
 }
 
