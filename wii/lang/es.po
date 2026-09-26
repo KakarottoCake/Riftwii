@@ -770,3 +770,21 @@ msgstr "Para instalar el canal hace falta un cIOS d2x en el slot 249, 250 o 251"
 
 msgid "(Log: sd:/riftwii/session.log)"
 msgstr "(Registro: sd:/riftwii/session.log)"
+
+msgid "RiftWii needs an SD card"
+msgstr "RiftWii necesita una tarjeta SD"
+
+msgid "USB mode is not supported yet"
+msgstr "El modo USB aún no es compatible"
+
+msgid "No SD card was found"
+msgstr "No se encontró ninguna tarjeta SD"
+
+msgid "RiftWii was started from a USB drive. It keeps its settings, logs and saves on the SD card, so for now it needs one to run. Copy the sd-card folder from the RiftWii zip to a FAT32 SD card, put the card in the Wii and start RiftWii from it."
+msgstr "RiftWii se inició desde una unidad USB. Guarda sus ajustes, registros y partidas en la tarjeta SD, así que por ahora necesita una para funcionar. Copia la carpeta sd-card del zip de RiftWii a una tarjeta SD en FAT32, ponla en la Wii e inicia RiftWii desde ella."
+
+msgid "RiftWii keeps its settings, logs and saves on the SD card and could not read one. Put a FAT32 SD card in the Wii with the sd-card folder from the RiftWii zip on it, then start RiftWii again."
+msgstr "RiftWii guarda sus ajustes, registros y partidas en la tarjeta SD y no pudo leer ninguna. Pon en la Wii una tarjeta SD en FAT32 con la carpeta sd-card del zip de RiftWii y vuelve a iniciar RiftWii."
+
+msgid "Need a card? Scan this."
+msgstr "¿Necesitas una? Escanea esto."

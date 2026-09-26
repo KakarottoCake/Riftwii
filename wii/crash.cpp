@@ -144,16 +144,22 @@ void ShowOnScreen() {
         logf("%.*s\n", static_cast<int>(n), line);
         line += n + (end ? 1 : 0);
     }
+    bool saved = false;
     if (FILE* f = std::fopen("sd:/riftwii/crash.txt", "w")) {
-        std::fputs(g_report, f);
-        std::fclose(f);
+        saved = std::fputs(g_report, f) >= 0;
+        saved = std::fclose(f) == 0 && saved;
     }
     char summary[160];
     std::snprintf(summary, sizeof(summary), "RiftWii restarted after a crash (%s at %08X). Details: sd:/riftwii/crash.txt",
                   ExceptionName(g_info.exid), g_info.pc);
     if (g_phase != CrashPhase::Early) {
-        PrintIndented("Saved. To get help, send crash.txt and session.log from the\n"
-                      "riftwii folder on your SD card (put the card in a PC or phone).\n");
+        if (saved) {
+            PrintIndented("Saved. To get help, send crash.txt and session.log from the\n"
+                          "riftwii folder on your SD card (put the card in a PC or phone).\n");
+        } else {
+            PrintIndented("Not saved: no SD card could be written. To get help, send a\n"
+                          "photo of this screen.\n");
+        }
         PrintIndented(loop ? "It crashed again right after restarting: press A to leave."
                            : "A or RESET: start RiftWii again.\nHOME: leave to the Homebrew Channel.");
     }

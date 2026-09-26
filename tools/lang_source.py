@@ -693,6 +693,29 @@ T = {
     "(Log: sd:/riftwii/session.log)": (
         "(Registro: sd:/riftwii/session.log)", "(ログ: sd:/riftwii/session.log)",
         "(Log: sd:/riftwii/session.log)", "(Log: sd:/riftwii/session.log)"),
+    # No SD card at start (USB mode is not supported yet)
+    "RiftWii needs an SD card": (
+        "RiftWii necesita una tarjeta SD", "RiftWiiにはSDカードが必要です", "A RiftWii precisa de um cartão SD",
+        "RiftWii ha bisogno di una scheda SD"),
+    "USB mode is not supported yet": (
+        "El modo USB aún no es compatible", "USBモードにはまだ対応していません", "O modo USB ainda não é suportado",
+        "La modalità USB non è ancora supportata"),
+    "No SD card was found": (
+        "No se encontró ninguna tarjeta SD", "SDカードが見つかりませんでした", "Nenhum cartão SD foi encontrado",
+        "Nessuna scheda SD trovata"),
+    "RiftWii was started from a USB drive. It keeps its settings, logs and saves on the SD card, so for now it needs one to run. Copy the sd-card folder from the RiftWii zip to a FAT32 SD card, put the card in the Wii and start RiftWii from it.": (
+        "RiftWii se inició desde una unidad USB. Guarda sus ajustes, registros y partidas en la tarjeta SD, así que por ahora necesita una para funcionar. Copia la carpeta sd-card del zip de RiftWii a una tarjeta SD en FAT32, ponla en la Wii e inicia RiftWii desde ella.",
+        "RiftWiiはUSBドライブから起動されました。設定、ログ、セーブはSDカードに保存するので、今のところ動かすにはSDカードが必要です。RiftWiiのzipにあるsd-cardフォルダをFAT32のSDカードにコピーし、Wiiに入れて、そこからRiftWiiを起動してください。",
+        "A RiftWii foi iniciada de uma unidade USB. Ela guarda as configurações, os registros e os saves no cartão SD, então por enquanto precisa de um para funcionar. Copie a pasta sd-card do zip da RiftWii para um cartão SD em FAT32, coloque o cartão no Wii e inicie a RiftWii por ele.",
+        "RiftWii è stata avviata da un'unità USB. Tiene impostazioni, log e salvataggi sulla scheda SD, quindi per ora ne serve una per funzionare. Copia la cartella sd-card dallo zip di RiftWii su una scheda SD in FAT32, inseriscila nella Wii e avvia RiftWii da lì."),
+    "RiftWii keeps its settings, logs and saves on the SD card and could not read one. Put a FAT32 SD card in the Wii with the sd-card folder from the RiftWii zip on it, then start RiftWii again.": (
+        "RiftWii guarda sus ajustes, registros y partidas en la tarjeta SD y no pudo leer ninguna. Pon en la Wii una tarjeta SD en FAT32 con la carpeta sd-card del zip de RiftWii y vuelve a iniciar RiftWii.",
+        "RiftWiiは設定、ログ、セーブをSDカードに保存しますが、SDカードを読み込めませんでした。RiftWiiのzipにあるsd-cardフォルダを入れたFAT32のSDカードをWiiに入れて、もう一度RiftWiiを起動してください。",
+        "A RiftWii guarda as configurações, os registros e os saves no cartão SD e não conseguiu ler nenhum. Coloque no Wii um cartão SD em FAT32 com a pasta sd-card do zip da RiftWii e inicie a RiftWii de novo.",
+        "RiftWii tiene impostazioni, log e salvataggi sulla scheda SD e non è riuscita a leggerne una. Inserisci nella Wii una scheda SD in FAT32 con la cartella sd-card dello zip di RiftWii, poi riavvia RiftWii."),
+    "Need a card? Scan this.": (
+        "¿Necesitas una? Escanea esto.", "カードが必要ならこれをスキャン", "Precisa de um? Escaneie isto.",
+        "Ti serve una scheda? Scansiona qui."),
 }
 
 

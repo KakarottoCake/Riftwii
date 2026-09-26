@@ -8,6 +8,7 @@
 #include <brotli/decode.h>
 #include <cstddef>
 #include <cstdlib>
+#include <cstring>
 #include <string>
 #include <vector>
 
@@ -78,8 +79,25 @@ void OfferRestart(const std::string& error) {
 // libfat's default initializer probes USB as well as SD. Mount only the SD
 // card here so autorun and the SD-backed package paths work; USB starts when
 // Home reads the drives (wii/usbcatalog.cpp), after the menu IOS is up.
+// A few tries: some cards are slow to answer right after the Homebrew
+// Channel lets go of them.
 bool MountStartupSd() {
-    return __io_wiisd.startup() && __io_wiisd.isInserted() && fatMountSimple("sd", &__io_wiisd);
+    for (int attempt = 0; attempt < 3; ++attempt) {
+        if (attempt > 0) {
+            __io_wiisd.shutdown();
+            usleep(250000);
+        }
+        if (__io_wiisd.startup() && __io_wiisd.isInserted() && fatMountSimple("sd", &__io_wiisd)) return true;
+    }
+    return false;
+}
+
+// The Homebrew Channel passes the DOL's path, "usb:/apps/..." when it
+// started RiftWii from a USB drive.
+bool StartedFromUsb() {
+    return __system_argv != nullptr && __system_argv->argvMagic == ARGV_MAGIC && __system_argv->argc > 0 &&
+           __system_argv->argv != nullptr && __system_argv->argv[0] != nullptr &&
+           std::strncmp(__system_argv->argv[0], "usb:", 4) == 0;
 }
 
 // The menu phase's log: every scan, probe and failure from startup until a
@@ -160,7 +178,8 @@ int main() {
     InitFreeType(font, font_size);
     InitGUIThreads();
     riftwii::wii::CrashSetPhase(riftwii::wii::CrashPhase::Menu);
-    const int action = MainMenu(MENU_SOURCE, state);
+    if (!sd_mounted) SetNoSdCard(StartedFromUsb());
+    const int action = MainMenu(sd_mounted ? MENU_SOURCE : MENU_NEEDS_SD, state);
     // Before anything is launched: nothing of the menu's adapter may be
     // left in flight for the game (or the next IOS) to answer.
     riftwii::wii::GcAdapterMenuEnd();

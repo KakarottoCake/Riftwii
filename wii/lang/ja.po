@@ -770,3 +770,21 @@ msgstr "チャンネルのインストールには、スロット249、250、251
 
 msgid "(Log: sd:/riftwii/session.log)"
 msgstr "(ログ: sd:/riftwii/session.log)"
+
+msgid "RiftWii needs an SD card"
+msgstr "RiftWiiにはSDカードが必要です"
+
+msgid "USB mode is not supported yet"
+msgstr "USBモードにはまだ対応していません"
+
+msgid "No SD card was found"
+msgstr "SDカードが見つかりませんでした"
+
+msgid "RiftWii was started from a USB drive. It keeps its settings, logs and saves on the SD card, so for now it needs one to run. Copy the sd-card folder from the RiftWii zip to a FAT32 SD card, put the card in the Wii and start RiftWii from it."
+msgstr "RiftWiiはUSBドライブから起動されました。設定、ログ、セーブはSDカードに保存するので、今のところ動かすにはSDカードが必要です。RiftWiiのzipにあるsd-cardフォルダをFAT32のSDカードにコピーし、Wiiに入れて、そこからRiftWiiを起動してください。"
+
+msgid "RiftWii keeps its settings, logs and saves on the SD card and could not read one. Put a FAT32 SD card in the Wii with the sd-card folder from the RiftWii zip on it, then start RiftWii again."
+msgstr "RiftWiiは設定、ログ、セーブをSDカードに保存しますが、SDカードを読み込めませんでした。RiftWiiのzipにあるsd-cardフォルダを入れたFAT32のSDカードをWiiに入れて、もう一度RiftWiiを起動してください。"
+
+msgid "Need a card? Scan this."
+msgstr "カードが必要ならこれをスキャン"

@@ -58,6 +58,7 @@
 #include "restart.hpp"
 #include "channel.hpp"
 #include "riftwii/settingsfile.hpp"
+#include "sdcard_qr.hpp"
 #include "netpacks.hpp"
 #include "netsock.hpp"
 #include "video.h"
@@ -90,6 +91,7 @@ static const char* ScreenName(int menu)
 		case MENU_DUMP: return "dump";
 		case MENU_SOURCE: return "home";
 		case MENU_CHANNEL: return "channel";
+		case MENU_NEEDS_SD: return "needs an SD card";
 		default: return "?";
 	}
 }
@@ -2465,6 +2467,87 @@ static int MenuSettings(FrontendState& state)
 }
 
 // ---------------------------------------------------------------------------
+// No SD card: RiftWii keeps its settings, logs and saves there, so it
+// does not run without one (USB mode is not supported yet). A QR code
+// leads to SD cards to buy; tools/make_qr.py generates it.
+
+static bool g_noSdFromUsb = false;
+
+void SetNoSdCard(bool fromUsb) { g_noSdFromUsb = fromUsb; }
+
+class QrCode : public GuiElement {
+public:
+	QrCode(int x, int y, int module) : x(x), y(y), module(module) {}
+	// White quiet zone of two modules, then the dark modules, a run of
+	// them on a row as one rectangle.
+	void Draw() override
+	{
+		const int quiet = 2 * module;
+		const int side = kSdCardQrSize * module + 2 * quiet;
+		Menu_DrawRectangle(x, y, side, side, skin::kWhite, 1);
+		for (int r = 0; r < kSdCardQrSize; ++r) {
+			const char* row = kSdCardQr[r];
+			for (int c = 0; c < kSdCardQrSize;) {
+				if (row[c] != '#') { ++c; continue; }
+				int end = c;
+				while (end < kSdCardQrSize && row[end] == '#') ++end;
+				Menu_DrawRectangle(x + quiet + c * module, y + quiet + r * module, (end - c) * module, module,
+					(GXColor){0, 0, 0, 255}, 1);
+				c = end;
+			}
+		}
+	}
+private:
+	int x, y, module;
+};
+
+static int MenuNeedsSd()
+{
+	GuiText titleTxt(tr("RiftWii needs an SD card"), 28, skin::kInk);
+	Place(titleTxt, 40, 36);
+	GuiText subTxt(g_noSdFromUsb ? tr("USB mode is not supported yet") : tr("No SD card was found"), 18,
+		skin::kAccentInk);
+	Place(subTxt, 40, 74);
+	Panel card(skin::panelSettings, 34, 120);
+	GuiText bodyTxt(g_noSdFromUsb
+			? tr("RiftWii was started from a USB drive. It keeps its settings, logs and saves on the SD card, so for now it needs one to run. Copy the sd-card folder from the RiftWii zip to a FAT32 SD card, put the card in the Wii and start RiftWii from it.")
+			: tr("RiftWii keeps its settings, logs and saves on the SD card and could not read one. Put a FAT32 SD card in the Wii with the sd-card folder from the RiftWii zip on it, then start RiftWii again."),
+		16, skin::kInkSoft);
+	Place(bodyTxt, 56, 142);
+	bodyTxt.SetWrap(true, 330, 10);
+	constexpr int kModule = 5;
+	constexpr int kQrSide = kSdCardQrSize * kModule + 4 * kModule;
+	QrCode qr(588 - 16 - kQrSide, 138, kModule);
+	GuiText scanTxt(tr("Need a card? Scan this."), 14, skin::kInkDim);
+	scanTxt.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
+	scanTxt.SetPosition(588 - 16 - kQrSide / 2 - screenwidth / 2, 138 + kQrSide + 8);
+	SkinButton exitBtn(skin::pill, skin::pillOver, 4, 198, 412, tr("Exit"),
+		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B | WPAD_BUTTON_HOME | WPAD_CLASSIC_BUTTON_HOME, PAD_BUTTON_B | PAD_BUTTON_START,
+		WIIDRC_BUTTON_B | WIIDRC_BUTTON_HOME);
+
+	HaltGui();
+	GuiWindow w(screenwidth, screenheight);
+	w.Append(&titleTxt);
+	w.Append(&subTxt);
+	w.Append(&card);
+	w.Append(&bodyTxt);
+	w.Append(&qr);
+	w.Append(&scanTxt);
+	w.Append(&exitBtn.button);
+	mainWindow->Append(&w);
+	ResumeGui();
+	for (;;) {
+		usleep(THREAD_SLEEP);
+		HaltGui();
+		const bool done = exitBtn.Clicked();
+		if (done) break;
+		ResumeGui();
+	}
+	mainWindow->Remove(&w);
+	return MENU_EXIT;
+}
+
+// ---------------------------------------------------------------------------
 // Launch frame: stays on screen while the boot log prints into its card.
 
 static void ShowLaunchFrame(const FrontendState& state, int action)
@@ -2523,6 +2606,9 @@ int MainMenu(int menu, FrontendState& state)
 			case MENU_HOME:
 				g_homeNotice.clear();
 				currentMenu = MenuHome(state);
+				break;
+			case MENU_NEEDS_SD:
+				currentMenu = MenuNeedsSd();
 				break;
 			case MENU_SOURCE:
 			default:
