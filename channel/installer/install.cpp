@@ -229,9 +229,10 @@ bool delete_tickets(u64 title, std::string& error) {
 
 unsigned PackageVersion() { return RIFTWII_CHANNEL_VERSION; }
 
-bool Installed(unsigned& version) {
+namespace {
+
+bool installed_as(u64 title, unsigned& version) {
     version = 0;
-    const u64 title = RIFTWII_CHANNEL_TITLE;
     u32 tickets = 0;
     if (ES_GetNumTicketViews(title, &tickets) < 0 || tickets == 0) return false;
     u32 size = 0;
@@ -240,6 +241,24 @@ bool Installed(unsigned& version) {
     if (ES_GetTMDView(title, reinterpret_cast<tmd_view*>(view), size) < 0) return false;
     version = reinterpret_cast<const tmd_view*>(view)->title_version;
     return true;
+}
+
+bool remove_title(u64 title, std::string& error) {
+    const s32 r = ES_DeleteTitle(title);
+    if (r < 0 && r != -106) {  // -106: not there
+        error = "ES_DeleteTitle: " + std::to_string(r);
+        return false;
+    }
+    return delete_tickets(title, error);
+}
+
+}  // namespace
+
+// The channel as it was up to version 5 (00010001-RFTW, 4:3 on a vWii)
+// counts too, as one to update.
+bool Installed(unsigned& version) {
+    if (installed_as(RIFTWII_CHANNEL_TITLE, version)) return true;
+    return installed_as(RIFTWII_CHANNEL_OLD_TITLE, version);
 }
 
 bool Install(std::string& error) {
@@ -283,21 +302,20 @@ bool Install(std::string& error) {
             }
         }
     }
+    unsigned old_version = 0;
+    if (ok && installed_as(RIFTWII_CHANNEL_OLD_TITLE, old_version)) {
+        std::string why;
+        if (remove_title(RIFTWII_CHANNEL_OLD_TITLE, why)) Log("Removed the old channel (00010001-RFTW, version %u)\n", old_version);
+        else Log("Could not remove the old channel: %s\n", why.c_str());
+    }
     if (ok) Log("Installed (IOS%d)\n", IOS_GetVersion());
     else Log("Install failed: %s\n", error.c_str());
     return ok;
 }
 
 bool Remove(std::string& error) {
-    const u64 title = RIFTWII_CHANNEL_TITLE;
     Log("Removing the channel\n");
-    bool ok = true;
-    const s32 r = ES_DeleteTitle(title);
-    if (r < 0 && r != -106) {  // -106: not there
-        error = "ES_DeleteTitle: " + std::to_string(r);
-        ok = false;
-    }
-    ok = ok && delete_tickets(title, error);
+    const bool ok = remove_title(RIFTWII_CHANNEL_TITLE, error) && remove_title(RIFTWII_CHANNEL_OLD_TITLE, error);
     if (ok) Log("Removed\n");
     else Log("Removal failed: %s\n", error.c_str());
     return ok;

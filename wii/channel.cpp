@@ -16,7 +16,9 @@
 namespace riftwii::wii {
 namespace {
 
-constexpr u64 kChannelTitle = 0x0001000152465457ull;  // 00010001-RFTW, tools/make_channel.py
+// 00010001-UFTW (tools/make_channel.py); up to its version 5 it was
+// 00010001-RFTW, which counts too until the installer replaces it.
+constexpr u64 kChannelTitles[] = {0x0001000155465457ull, 0x0001000152465457ull};
 constexpr const char* kInstaller = "sd:/apps/riftwii_channel/boot.dol";
 
 bool installer_on_card() {
@@ -28,14 +30,17 @@ bool installer_on_card() {
 
 bool ChannelInstalled(unsigned& version) {
     version = 0;
-    u32 tickets = 0;
-    if (ES_GetNumTicketViews(kChannelTitle, &tickets) < 0 || tickets == 0) return false;
-    u32 size = 0;
-    if (ES_GetTMDViewSize(kChannelTitle, &size) < 0 || size < sizeof(tmd_view) || size > 0x400) return false;
-    static u8 view[0x400] ATTRIBUTE_ALIGN(32);
-    if (ES_GetTMDView(kChannelTitle, reinterpret_cast<tmd_view*>(view), size) < 0) return false;
-    version = reinterpret_cast<const tmd_view*>(view)->title_version;
-    return true;
+    for (u64 title : kChannelTitles) {
+        u32 tickets = 0;
+        if (ES_GetNumTicketViews(title, &tickets) < 0 || tickets == 0) continue;
+        u32 size = 0;
+        if (ES_GetTMDViewSize(title, &size) < 0 || size < sizeof(tmd_view) || size > 0x400) continue;
+        static u8 view[0x400] ATTRIBUTE_ALIGN(32);
+        if (ES_GetTMDView(title, reinterpret_cast<tmd_view*>(view), size) < 0) continue;
+        version = reinterpret_cast<const tmd_view*>(view)->title_version;
+        return true;
+    }
+    return false;
 }
 
 bool ChannelInstallerPresent(std::string& why) {

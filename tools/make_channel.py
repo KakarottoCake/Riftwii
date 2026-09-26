@@ -24,8 +24,13 @@ import struct
 import sys
 import zlib
 
-TITLE_ID = 0x0001000152465457  # 00010001-RFTW
-TITLE_VERSION = 5  # 5: boot program (channel/loader) and forwarder as two contents
+# A vWii forces 4:3 (or title checks) on a title ID that starts with C, D,
+# E, F, H, J, L, M, N, P, Q, R, S, T, W or X, unless Priiloader's
+# pillarboxing hacks are on. U is none of them. (Versions 1 to 5 were
+# 00010001-RFTW, in 4:3 on a vWii; the installer removes that one.)
+TITLE_ID = 0x0001000155465457  # 00010001-UFTW
+OLD_TITLE_ID = 0x0001000152465457  # 00010001-RFTW
+TITLE_VERSION = 6  # 5: boot program (channel/loader) and forwarder as two contents; 6: UFTW
 IOS = 58
 CHANNEL_NAME = "RiftWii"
 
@@ -902,6 +907,7 @@ def main(argv):
         info = os.path.join(os.path.dirname(argv[4]) or ".", "riftwii_channel_info.h")
         open(info, "w").write("// Written by tools/make_channel.py.\n#pragma once\n"
                               f"#define RIFTWII_CHANNEL_TITLE 0x{TITLE_ID:016x}ull\n"
+                              f"#define RIFTWII_CHANNEL_OLD_TITLE 0x{OLD_TITLE_ID:016x}ull\n"
                               f"#define RIFTWII_CHANNEL_VERSION {TITLE_VERSION}u\n")
         if len(argv) == 6:
             open(os.path.join(argv[5], "00000000.app"), "wb").write(app0)
