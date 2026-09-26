@@ -88,17 +88,34 @@ def png_image(path):
     return Image(w, h, [tuple(rows[y][x * 4:x * 4 + 4]) for y in range(h) for x in range(w)])
 
 
+def shrink(image, n):
+    """The image n times smaller each way (the mean of each n x n block)."""
+    w, h = max(1, image.width // n), max(1, image.height // n)
+
+    def pixel(x, y):
+        block = [image.at(x * n + i, y * n + j) for j in range(n) for i in range(n)]
+        return tuple(sum(p[k] for p in block) // len(block) for k in range(4))
+    return Image(w, h, [pixel(x, y) for y in range(h) for x in range(w)])
+
+
+# Texture formats: 2 IA4 (one byte a pixel: the soft shapes), 3 IA8 (two
+# bytes: the letters, whose edges want the finer steps), 4 RGB565 (the
+# backdrop). The shapes are white; the banner tints them.
+TILE = {2: (8, 4), 3: (4, 4), 4: (4, 4)}
+
+
 def tpl(image, fmt):
-    """One texture: format 3 (IA8, for the white shapes the banner tints)
-    or 4 (RGB565, for the backdrop)."""
     w, h = image.width, image.height
+    bw, bh = TILE[fmt]
     data = bytearray()
-    for ty in range(0, h, 4):
-        for tx in range(0, w, 4):
-            for y in range(ty, ty + 4):
-                for x in range(tx, tx + 4):
+    for ty in range(0, h, bh):
+        for tx in range(0, w, bw):
+            for y in range(ty, ty + bh):
+                for x in range(tx, tx + bw):
                     r, g, b, a = image.at(min(x, w - 1), min(y, h - 1))
-                    if fmt == 3:
+                    if fmt == 2:
+                        data.append(((a * 15 + 127) // 255) << 4 | (max(r, g, b) * 15 + 127) // 255)
+                    elif fmt == 3:
                         data += bytes((a, max(r, g, b)))
                     else:
                         data += struct.pack(">H", ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3))
@@ -507,7 +524,7 @@ def wave(base, amp, period, phase=0.0):
     return lambda f: base + amp * (math.sin(2 * math.pi * f / period + phase) - math.sin(phase))
 
 
-def cycle(fn, period, phase, length=LOOP, step=6):
+def cycle(fn, period, phase, length=LOOP, step=15):
     """A motion that repeats every period frames, restarting with a jump
     (two keys on one frame): fn(u) for u from 0 to 1. The loop's length is
     a whole number of periods, so it joins up."""
@@ -590,12 +607,12 @@ def scene_banner(art):
 
     # ---- banner_loop
     loop = {}
-    loop[("P_bg", "x")] = sampled(wave(0, 14, LOOP), 0, LOOP, 16)
+    loop[("P_bg", "x")] = sampled(wave(0, 14, LOOP), 0, LOOP, 32)
     loop[("P_cloudA", "rot")] = line(0, 0, LOOP, -40)
-    loop[("P_cloudA", "sx")] = sampled(wave(1, 0.08, LOOP), 0, LOOP, 16)
-    loop[("P_cloudA", "sy")] = sampled(wave(1, 0.08, LOOP), 0, LOOP, 16)
+    loop[("P_cloudA", "sx")] = sampled(wave(1, 0.08, LOOP), 0, LOOP, 32)
+    loop[("P_cloudA", "sy")] = sampled(wave(1, 0.08, LOOP), 0, LOOP, 32)
     loop[("P_cloudB", "rot")] = line(0, 140, LOOP, 180)
-    loop[("P_cloudB", "alpha")] = sampled(wave(130, 50, LOOP / 2, 1.0), 0, LOOP, 12)
+    loop[("P_cloudB", "alpha")] = sampled(wave(130, 50, LOOP / 2, 1.0), 0, LOOP, 24)
     for i, s in enumerate(stars):
         period = rnd.choice([120, 160, 240])
         ph = rnd.uniform(0, 1)
@@ -604,13 +621,13 @@ def scene_banner(art):
         loop[(s.name, "sx")] = cycle(lambda u, sc=sc: sc * (0.6 + 0.4 * math.sin(math.pi * u)), period, ph)
         loop[(s.name, "sy")] = loop[(s.name, "sx")]
         loop[(s.name, "rot")] = line(0, 0, LOOP, rnd.choice([-90, 90]))
-    loop[("P_halo", "alpha")] = sampled(wave(150, 45, 240), 0, LOOP, 10)
-    loop[("P_halo", "sx")] = sampled(wave(1, 0.05, 240), 0, LOOP, 10)
+    loop[("P_halo", "alpha")] = sampled(wave(150, 45, 240), 0, LOOP, 24)
+    loop[("P_halo", "sx")] = sampled(wave(1, 0.05, 240), 0, LOOP, 24)
     loop[("P_ringA", "rot")] = line(0, 0, LOOP, 360)
     loop[("P_ringB", "rot")] = line(0, 0, LOOP, -360)
-    loop[("P_riftGlow", "sx")] = sampled(lambda f: 1 + 0.18 * (math.sin(f / 7.0) * math.sin(f / 17.0)), 0, LOOP, 4)
-    loop[("P_riftGlow", "alpha")] = sampled(wave(210, 40, 120), 0, LOOP, 8)
-    loop[("P_rift", "sx")] = sampled(lambda f: 1 + 0.22 * math.sin(f / 5.0) * math.sin(f / 13.0), 0, LOOP, 4)
+    loop[("P_riftGlow", "sx")] = sampled(lambda f: 1 + 0.18 * (math.sin(f / 7.0) * math.sin(f / 17.0)), 0, LOOP, 8)
+    loop[("P_riftGlow", "alpha")] = sampled(wave(210, 40, 120), 0, LOOP, 20)
+    loop[("P_rift", "sx")] = sampled(lambda f: 1 + 0.22 * math.sin(f / 5.0) * math.sin(f / 13.0), 0, LOOP, 8)
     for i, sp in enumerate(sparks):
         period = [160, 240, 120][i % 3]
         ph = (i * 0.37) % 1
@@ -619,8 +636,8 @@ def scene_banner(art):
         loop[(sp.name, "x")] = cycle(lambda u, d=drift: seam + d * u ** 1.5, period, ph)
         loop[(sp.name, "alpha")] = cycle(lambda u: 255 * min(1.0, u * 6) * (1 - u) ** 1.5, period, ph)
     for i in range(len(L)):
-        loop[(f"N_L{i}", "y")] = sampled(wave(0, 4.0, 240, i * 0.7), 0, LOOP, 12)
-        loop[(f"P_G{i}", "alpha")] = sampled(wave(150, 60, 240, i * 0.7 + 1.5), 0, LOOP, 12)
+        loop[(f"N_L{i}", "y")] = sampled(wave(0, 4.0, 240, i * 0.7), 0, LOOP, 24)
+        loop[(f"P_G{i}", "alpha")] = sampled(wave(150, 60, 240, i * 0.7 + 1.5), 0, LOOP, 24)
     loop[("P_shine", "x")] = [(0.0, -330.0, 0.0), (250.0, -330.0, 0.0), (250.0, -330.0, 660 / 70), (320.0, 330.0, 660 / 70),
                               (320.0, 330.0, 0.0), (float(LOOP), 330.0, 0.0), (float(LOOP), -330.0, 0.0)]
     loop[("P_shine", "alpha")] = ease((0, 0), (250, 0), (270, 170), (300, 170), (320, 0), (LOOP, 0))
@@ -708,11 +725,11 @@ def scene_icon(art):
     anim[("P_ringA", "rot")] = line(0, 0, LOOP, 360)
     anim[("P_ringB", "rot")] = line(0, 0, LOOP, -360)
     anim[("P_cloud", "rot")] = line(0, 0, LOOP, -60)
-    anim[("P_halo", "alpha")] = sampled(wave(170, 50, 240), 0, LOOP, 10)
-    anim[("P_rift", "sx")] = sampled(lambda f: 1 + 0.22 * math.sin(f / 5.0) * math.sin(f / 13.0), 0, LOOP, 4)
-    anim[("P_riftGlow", "alpha")] = sampled(wave(200, 45, 120), 0, LOOP, 8)
-    anim[("N_word", "y")] = sampled(wave(4, 1.5, 240), 0, LOOP, 12)
-    anim[("P_wglow", "alpha")] = sampled(wave(170, 70, 240, 1.5), 0, LOOP, 12)
+    anim[("P_halo", "alpha")] = sampled(wave(170, 50, 240), 0, LOOP, 24)
+    anim[("P_rift", "sx")] = sampled(lambda f: 1 + 0.22 * math.sin(f / 5.0) * math.sin(f / 13.0), 0, LOOP, 8)
+    anim[("P_riftGlow", "alpha")] = sampled(wave(200, 45, 120), 0, LOOP, 20)
+    anim[("N_word", "y")] = sampled(wave(4, 1.5, 240), 0, LOOP, 24)
+    anim[("P_wglow", "alpha")] = sampled(wave(170, 70, 240, 1.5), 0, LOOP, 24)
     anim[("P_shine", "x")] = [(0.0, -90.0, 0.0), (300.0, -90.0, 0.0), (300.0, -90.0, 180 / 50), (350.0, 90.0, 180 / 50),
                               (350.0, 90.0, 0.0), (float(LOOP), 90.0, 0.0), (float(LOOP), -90.0, 0.0)]
     anim[("P_shine", "alpha")] = ease((0, 0), (300, 0), (315, 190), (335, 190), (350, 0), (LOOP, 0))
@@ -725,18 +742,48 @@ def scene_icon(art):
     return root, anim
 
 
-def load_art(art_dir):
-    """The pictures, as TPLs, and the letter placement."""
+# The Wii Menu sets aside room for a channel's icon and banner by the sizes
+# in its header, and crashes when it cannot (seen on a vWii with a 272 KB
+# icon). Nintendo's own channels stay under about 92 KB and 490 KB; ours
+# must stay well under those.
+ICON_LIMIT = 0x10000
+BANNER_LIMIT = 0x60000
+
+# Per picture: how much smaller than drawn, and the format; the banner's
+# and the icon's own. The letters keep IA8; the blurry shapes lose little
+# at a quarter of the size or at IA4.
+BANNER_FORMS = {"nebula": (1, 4), "cloud": (2, 2), "glow": (1, 2), "sparkle": (1, 2), "ring_a": (1, 2),
+                "ring_b": (1, 2), "rift": (1, 2), "streak": (1, 2), "tagline": (1, 2), "word": (1, 3),
+                "word_glow": (2, 2)}
+ICON_FORMS = {"nebula": (4, 4), "cloud": (4, 2), "glow": (2, 2), "sparkle": (1, 2), "ring_a": (2, 2),
+              "ring_b": (2, 2), "rift": (2, 2), "streak": (2, 2), "word": (2, 3), "word_glow": (4, 2)}
+
+
+def form(name, forms):
+    if name in forms:
+        return forms[name]
+    if name.endswith("_glow"):
+        return (2, 2)  # a letter's glow
+    return (1, 3)      # a letter
+
+
+def load_art(art_dir, forms=BANNER_FORMS):
+    """The pictures, as TPLs (and as images, for the previewer), and the
+    letter placement. Sizes in the layout are the drawn pictures' own."""
     art = json.load(open(os.path.join(art_dir, "letters.json")))
     textures, images = {}, {}
     for f in sorted(os.listdir(art_dir)):
         if f.endswith(".png"):
-            img = png_image(os.path.join(art_dir, f))
+            full = png_image(os.path.join(art_dir, f))
+            if f[:-4] == "word":
+                art["word_w"], art["word_h"] = full.width, full.height
+            if f[:-4] == "tagline":
+                art["tag_w"], art["tag_h"] = full.width, full.height
+            factor, fmt = form(f[:-4], forms)
+            img = shrink(full, factor) if factor > 1 else full
             name = "rw_" + f[:-4] + ".tpl"
             images[name] = img
-            textures[name] = tpl(img, 4 if f == "nebula.png" else 3)
-    art["word_w"], art["word_h"] = images["rw_word.tpl"].width, images["rw_word.tpl"].height
-    art["tag_w"], art["tag_h"] = images["rw_tagline.tpl"].width, images["rw_tagline.tpl"].height
+            textures[name] = tpl(img, fmt)
     return art, textures, images
 
 
@@ -747,10 +794,14 @@ def banner_art(art_dir):
     banner = u8({"arc": {"anim": {"banner_start.brlan": brlan(START, start), "banner_loop.brlan": brlan(LOOP, loop)},
                          "blyt": {"banner.brlyt": brlyt(root, used)},
                          "timg": {k: v for k, v in textures.items() if k in used}}})
+    _, textures, _ = load_art(art_dir, ICON_FORMS)
     root, anim = scene_icon(art)
     used = {n.tex for n in root.walk() if n.tex}
     icon = u8({"arc": {"anim": {"icon.brlan": brlan(LOOP, anim)}, "blyt": {"icon.brlyt": brlyt(root, used)},
                        "timg": {k: v for k, v in textures.items() if k in used}}})
+    if len(icon) > ICON_LIMIT or len(banner) > BANNER_LIMIT:
+        sys.exit(f"channel: icon {len(icon)} bytes (at most {ICON_LIMIT}), banner {len(banner)} bytes "
+                 f"(at most {BANNER_LIMIT}): the Wii Menu crashes on a channel it has no room for")
     return banner, icon
 
 
