@@ -747,7 +747,7 @@ void release_usb_driver() {
     g_usb_started = false;
 }
 
-bool activate_disc_cios(int cios_slot, const char* log_path, std::string& error) {
+bool activate_disc_cios(int cios_slot, const char* log_path, std::string& error, const char* purpose) {
     const int slots[] = {cios_slot ? cios_slot : 249, cios_slot ? 0 : 250, cios_slot ? 0 : 251};
     std::string skipped;
     for (int slot : slots) {
@@ -759,7 +759,7 @@ bool activate_disc_cios(int cios_slot, const char* log_path, std::string& error)
             skipped += (skipped.empty() ? "" : ", ") + std::string("IOS") + std::to_string(slot) + ": " + why;
             continue;
         }
-        logf("Disc: reload IOS%d for the packs on the USB drive; releasing Wii Remotes, USB, SD and DI\n", slot);
+        logf("Disc: reload IOS%d for %s; releasing Wii Remotes, USB, SD and DI\n", slot, purpose);
         LogClose();
         release_wii_remotes();
         fatUnmount("sd:");
@@ -780,7 +780,7 @@ bool activate_disc_cios(int cios_slot, const char* log_path, std::string& error)
         error.clear();
         return true;
     }
-    error = "packs on the USB drive need a d2x cIOS (249, 250 or 251), and none could be started" +
+    error = std::string(purpose) + " needs a d2x cIOS (249, 250 or 251), and none could be started" +
             (skipped.empty() ? std::string() : " (" + skipped + ")");
     return false;
 }

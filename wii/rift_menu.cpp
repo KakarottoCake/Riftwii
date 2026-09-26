@@ -56,6 +56,7 @@
 #include "menuios.hpp"
 #include "online.hpp"
 #include "restart.hpp"
+#include "channel.hpp"
 #include "riftwii/settingsfile.hpp"
 #include "netpacks.hpp"
 #include "netsock.hpp"
@@ -88,6 +89,7 @@ static const char* ScreenName(int menu)
 		case MENU_BOOT: return "boot unmodified";
 		case MENU_DUMP: return "dump";
 		case MENU_SOURCE: return "home";
+		case MENU_CHANNEL: return "channel";
 		default: return "?";
 	}
 }
@@ -480,6 +482,10 @@ static bool g_coversOff = false;
 
 void SetHomeNotice(const std::string& text) { g_homeNotice = text; }
 
+// The RiftWii channel task main runs after MENU_CHANNEL (wii/channel.hpp).
+static bool g_channelRemove = false;
+bool ChannelTaskIsRemove() { return g_channelRemove; }
+
 static bool PacksOnUsb(const FrontendState& state)
 {
 	for (const auto& p : state.model.selections())
@@ -688,6 +694,29 @@ static void ReportCardLog()
 		tr("OK"));
 }
 
+// Asked once per SD card (sd:/riftwii/channel_offered.txt remembers the
+// answer): the channel can be added, and is not there yet. True to add it.
+static bool OfferChannelOnce()
+{
+	static const char* const kMarker = "sd:/riftwii/channel_offered.txt";
+	struct stat st;
+	if (stat(kMarker, &st) == 0) return false;
+	if (riftwii::wii::CurrentRestartNote().kind == riftwii::wii::RestartKind::ChannelDone) return false;
+	unsigned version = 0;
+	std::string why;
+	if (riftwii::wii::ChannelInstalled(version) || !riftwii::wii::ChannelCanInstall(why)) return false;
+	const bool add = ShowPopup(tr("Add RiftWii to the Wii Menu?"),
+		tr("RiftWii can put a channel on the Wii Menu, so it starts without the Homebrew Channel. The channel only starts RiftWii from your SD card: RiftWii's updates keep working and the channel never needs reinstalling. It takes a few seconds, then RiftWii starts again. Settings can remove it later."),
+		tr("Add channel"), tr("No thanks")) == 0;
+	FILE* f = std::fopen(kMarker, "w");
+	if (f) {
+		std::fprintf(f, "%s\n", add ? "added" : "declined");
+		std::fclose(f);
+	}
+	logf("Channel: offered, %s\n", add ? "accepted" : "declined");
+	return add;
+}
+
 static void ScanDrives(FrontendState& state, GuiText& status)
 {
 	std::string error;
@@ -840,6 +869,10 @@ static int MenuSource(FrontendState& state)
 	if (!g_scanned) {
 		ScanDrives(state, statusTxt);
 		riftwii::wii::GcAdapterMenuAllowStart();
+		if (OfferChannelOnce()) {
+			g_channelRemove = false;
+			menu = MENU_CHANNEL;
+		}
 		refresh(true);
 		// The first time Home shows, it opens on the last game played.
 		const std::vector<std::string> recent = riftwii::wii::History().recent(1);
@@ -2033,7 +2066,13 @@ static int MenuSettings(FrontendState& state)
 
 	bool netOn = riftwii::wii::NetworkPacksEnabled();
 	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kGameLanguage, kGameCios, kServer, kHomeTiles, kOnline, kNames, kGcAdapter, kGcTest, kIos, kNet, kResync,
-		kRescan, kChannel, kUpdate, kExit, kNone };
+		kRescan, kChannel, kUpdate, kWiiChannel, kExit, kNone };
+	// The RiftWii channel on the Wii Menu (wii/channel.hpp).
+	unsigned channelVersion = 0;
+	const bool channelThere = riftwii::wii::ChannelInstalled(channelVersion);
+	const bool channelOld = channelThere && channelVersion < riftwii::wii::ChannelPackageVersion();
+	std::string channelWhy;
+	const bool channelCan = riftwii::wii::ChannelCanInstall(channelWhy);
 	std::vector<FlowRow> rows;
 	std::vector<RowAction> actions;
 	const auto build = [&]() {
@@ -2118,6 +2157,13 @@ static int MenuSettings(FrontendState& state)
 		update.dim = !settings.online;
 		rows.push_back(update);
 		actions.push_back(kUpdate);
+		FlowRow wiiChannel;
+		wiiChannel.kind = FlowRow::Kind::Action;
+		wiiChannel.label = tr("RiftWii channel on the Wii Menu");
+		wiiChannel.value = channelOld ? tr("Update") : channelThere ? tr("Remove") : tr("Add");
+		wiiChannel.dim = !channelCan;
+		rows.push_back(wiiChannel);
+		actions.push_back(kWiiChannel);
 		FlowRow exitRow;
 		exitRow.kind = FlowRow::Kind::Action;
 		exitRow.label = "Leave RiftWii";
@@ -2192,6 +2238,9 @@ static int MenuSettings(FrontendState& state)
 			case kRescan: return tr("Reads the SD card and the USB drive again.");
 			case kChannel: return ChannelNote(settings);
 			case kUpdate: return tr("This is RiftWii {1}. Looks on GitHub for a newer release.", {RIFTWII_VERSION});
+			case kWiiChannel:
+				if (!channelCan) return channelWhy + ".";
+				return tr("A Wii Menu channel that starts RiftWii from the SD card. It holds no copy of RiftWii, so updates keep working.");
 			case kExit: return tr("Back to the Homebrew Channel.");
 			case kNone:  // the Menu IOS row when there is nothing to choose
 				return tr("No d2x cIOS was found in slots 248 to 252, so the menu runs under IOS 58. Install d2x to play games from SD or USB.");
@@ -2385,6 +2434,25 @@ static int MenuSettings(FrontendState& state)
 					}
 					break;
 				}
+				case kWiiChannel: {
+					if (!channelCan) {
+						note(channelWhy + ".");
+						break;
+					}
+					const bool remove = channelThere && !channelOld;
+					const int answer = remove
+						? ShowPopup(tr("Remove the RiftWii channel?"),
+							tr("The channel leaves the Wii Menu. RiftWii itself stays on the SD card. RiftWii starts again when it is done."),
+							tr("Remove"), tr("Cancel"))
+						: ShowPopup(channelOld ? tr("Update the RiftWii channel?") : tr("Add the RiftWii channel?"),
+							tr("The channel starts RiftWii from the SD card, without the Homebrew Channel. It takes a few seconds, then RiftWii starts again."),
+							channelOld ? tr("Update") : tr("Add"), tr("Cancel"));
+					if (answer == 0) {
+						g_channelRemove = remove;
+						menu = MENU_CHANNEL;
+					}
+					break;
+				}
 				case kExit:
 					menu = MENU_EXIT;
 					break;
@@ -2415,15 +2483,17 @@ static int MenuSettings(FrontendState& state)
 
 static void ShowLaunchFrame(const FrontendState& state, int action)
 {
-	const std::string title = GameTitle(state);
-	const char* doing = action == MENU_DUMP ? "Dumping files from" : "Starting";
+	const std::string title = action == MENU_CHANNEL ? std::string(tr("The RiftWii channel")) : GameTitle(state);
+	const char* doing = action == MENU_DUMP ? "Dumping files from"
+		: action == MENU_CHANNEL ? (g_channelRemove ? "Removing" : "Adding to the Wii Menu") : "Starting";
 	GuiText doingTxt(doing, 16, skin::kInkDim);
 	Place(doingTxt, 40, 40);
 	GuiText titleTxt(title.c_str(), 28, skin::kInk);
 	Place(titleTxt, 40, 62);
 	titleTxt.SetWrap(true, 560, 2);
 	Panel card(skin::panelSettings, 34, 160);
-	GuiText footTxt("The game takes over the screen when it is ready.", 15, skin::kInkDim);
+	GuiText footTxt(action == MENU_CHANNEL ? "RiftWii starts again when it is done."
+		: "The game takes over the screen when it is ready.", 15, skin::kInkDim);
 	Place(footTxt, 0, 444, true);
 
 	HaltGui();
@@ -2455,7 +2525,8 @@ int MainMenu(int menu, FrontendState& state)
 
 	ResumeGui();
 
-	while(currentMenu != MENU_EXIT && currentMenu != MENU_LAUNCH && currentMenu != MENU_BOOT && currentMenu != MENU_DUMP)
+	while(currentMenu != MENU_EXIT && currentMenu != MENU_LAUNCH && currentMenu != MENU_BOOT && currentMenu != MENU_DUMP &&
+		currentMenu != MENU_CHANNEL)
 	{
 		logf("Screen: %s\n", ScreenName(currentMenu));
 		switch (currentMenu)
@@ -2475,7 +2546,7 @@ int MainMenu(int menu, FrontendState& state)
 	}
 
 	logf("Screen: %s\n", ScreenName(currentMenu));
-	if (currentMenu == MENU_LAUNCH || currentMenu == MENU_BOOT || currentMenu == MENU_DUMP) {
+	if (currentMenu == MENU_LAUNCH || currentMenu == MENU_BOOT || currentMenu == MENU_DUMP || currentMenu == MENU_CHANNEL) {
 		// The GUI thread is halted after this; main prints the boot log
 		// into the card of the frame left on screen.
 		ShowLaunchFrame(state, currentMenu);

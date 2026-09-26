@@ -17,7 +17,7 @@
 // the reason on Home.
 namespace riftwii::wii {
 
-enum class RestartKind : unsigned { None = 0, LaunchFailed = 1, Crashed = 2 };
+enum class RestartKind : unsigned { None = 0, LaunchFailed = 1, Crashed = 2, ChannelDone = 3 };
 
 // What the previous run left, read once at startup (and cleared).
 struct RestartNote {

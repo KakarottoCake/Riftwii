@@ -8,3 +8,4 @@ build-dolphin/
 build-runtime/
 *.dtm
 build-bearssl/
+build-channel/

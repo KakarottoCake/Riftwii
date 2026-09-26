@@ -26,9 +26,10 @@ SOURCES		:=	wii src runtime vendor-pugixml/src vendor-zstd \
 # the GamePad through it, guarded so plain Wii and Dolphin are unaffected.
 EXCLUDES	:=	vendor-libgui/source/demo.cpp vendor-libgui/source/menu.cpp vendor-libgui/source/filebrowser.cpp \
 				vendor-libgui/source/gettext.cpp vendor-libgui/source/pngu.c
-INCLUDES	:=	wii vendor-libgui/source include runtime runtime/resident runtime/pad vendor-pugixml/src vendor-bearssl/inc vendor-wwfc vendor-zstd
+INCLUDES	:=	wii vendor-libgui/source include runtime runtime/resident runtime/pad vendor-pugixml/src vendor-bearssl/inc vendor-wwfc vendor-zstd \
+				build-channel
 DATA		:=	wii/assets wii/lang vendor-gecko vendor-libgui/source/images vendor-libgui/source/fonts vendor-libgui/source/sounds vendor-libgui/source/lang \
-				build-runtime
+				build-runtime build-channel
 
 #---------------------------------------------------------------------------------
 # options for code generation
@@ -86,7 +87,8 @@ BINFILES	:=	$(foreach dir,$(DATA),$(notdir $(wildcard $(dir)/*.ttf) \
 # before runtime-blob creates build-runtime/riftwii_rt.bin. VPATH resolves it
 # for the recursive build after runtime-blob has completed. menufont.bin is listed
 # because the wildcards above only pick up the known asset types.
-BINFILES	+=	riftwii_rt.zst riftwii_rt_rvz.zst riftwii_rt_rvz.rel riftwii_pad.bin codehandleronly.bin menufont.bin
+BINFILES	+=	riftwii_rt.zst riftwii_rt_rvz.zst riftwii_rt_rvz.rel riftwii_pad.bin codehandleronly.bin menufont.bin \
+				riftwii_channel.zst
 
 #---------------------------------------------------------------------------------
 # use CXX for linking C++ projects, CC for standard C
@@ -117,10 +119,11 @@ export LIBPATHS	:=	$(foreach dir,$(LIBDIRS),-L$(dir)/lib) \
 					-L$(LIBOGC_LIB) -L$(PROJECT_ROOT)/build-bearssl
 
 export OUTPUT	:=	$(PROJECT_ROOT)/$(TARGET)
-.PHONY: $(BUILD) clean runtime-blob bearssl-lib
+PYTHON	?=	python3
+.PHONY: $(BUILD) clean runtime-blob bearssl-lib channel-blob
 
 #---------------------------------------------------------------------------------
-$(BUILD): runtime-blob bearssl-lib
+$(BUILD): runtime-blob bearssl-lib channel-blob
 	@[ -d $@ ] || mkdir -p $@
 	@IN_BUILD=1 PROJECT_ROOT="$(PROJECT_ROOT)" $(MAKE) --no-print-directory -C "$(BUILD)" -f ../Makefile.wii
 
@@ -134,10 +137,15 @@ runtime-blob:
 bearssl-lib:
 	@$(MAKE) --no-print-directory -f Makefile.bearssl
 
+# The RiftWii channel's package (docs/CHANNEL.md): its forwarder and
+# banner, embedded as riftwii_channel_bin for wii/channel.cpp.
+channel-blob:
+	@$(MAKE) --no-print-directory -f Makefile.channel PYTHON=$(PYTHON)
+
 #---------------------------------------------------------------------------------
 clean:
 	@echo clean ...
-	@rm -fr "$(BUILD)" "$(TARGET).elf" "$(TARGET).dol" build-runtime build-bearssl
+	@rm -fr "$(BUILD)" "$(TARGET).elf" "$(TARGET).dol" build-runtime build-bearssl build-channel
 
 #---------------------------------------------------------------------------------
 run:
