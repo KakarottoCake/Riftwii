@@ -285,8 +285,8 @@ The log notes each yes/no value, hex value and cut-off text read this way.
 
 ### Controls
 
-A Wii Remote (pointer or D-pad), Classic Controller, GameCube controller
-or Wii U GamePad (same button names; X stands in for 1). The GameCube
+A Wii Remote (pointer or D-pad), Classic Controller or GameCube
+controller, with the same button names on all of them. The GameCube
 control stick and the Classic Controller's left stick move a pointer
 like a Wii Remote's; the D-pad moves the highlight. With no pointer on
 screen, only the highlighted tile or row answers to A.
