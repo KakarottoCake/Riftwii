@@ -8,7 +8,8 @@
   <a href="https://github.com/KakarottoCake/Riftwii/releases/latest"><b>Download</b></a> ·
   <a href="docs/GUIDE.md">Guide</a> ·
   <a href="docs/GUIDE.md#troubleshooting">Troubleshooting</a> ·
-  <a href="https://github.com/KakarottoCake/Riftwii/issues">Report a problem</a>
+  <a href="https://github.com/KakarottoCake/Riftwii/issues">Report a problem</a> ·
+  <a href="https://discord.gg/gGsTdjjQaK">Discord</a>
 </p>
 
 <table>
@@ -48,7 +49,7 @@ You need a Wii (or a Wii U in Wii mode) with the Homebrew Channel and a FAT32 SD
 3. Put mod packs in `sd:/riivolution` and games in `wbfs` or `games`.
 4. Start RiftWii from the Homebrew Channel.
 
-The [guide](docs/GUIDE.md) covers everything else: each screen, online play, the GameCube adapter, writing packs, and what to send when something goes wrong.
+Questions, test builds and help are on the [RiftWii Discord](https://discord.gg/gGsTdjjQaK). The [guide](docs/GUIDE.md) covers everything else: each screen, online play, the GameCube adapter, writing packs, and what to send when something goes wrong.
 
 ## About AI assistance
 
