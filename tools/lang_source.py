@@ -387,18 +387,18 @@ T = {
     "Check the GameCube adapter": ("Probar el adaptador de GameCube", "接続タップを確認",
                                    "Testar o adaptador de GameCube", "Prova l'adattatore GameCube"),
     "Test": ("Probar", "テスト", "Testar", "Prova"),
-    "When the adapter is plugged in as a game starts, its controllers fill the ports that have none plugged in, in games that support the GameCube controller. It needs IOS 58 or a d2x cIOS.": (
-        "Si el adaptador está conectado al iniciar un juego, sus mandos ocupan los puertos que no tienen ninguno conectado, en los juegos compatibles con el mando de GameCube. Necesita IOS 58 o un cIOS d2x.",
-        "ゲーム開始時に接続タップがつながっていれば、ゲームキューブコントローラに対応したゲームで、何もつながっていないポートに接続タップのコントローラが入ります。IOS 58かd2x cIOSが必要です。",
-        "Se o adaptador estiver conectado quando um jogo começa, os controles dele ocupam as portas sem nenhum conectado, nos jogos compatíveis com o controle de GameCube. Precisa do IOS 58 ou de um cIOS d2x.",
-        "Se l'adattatore è collegato quando parte un gioco, i suoi controller occupano le porte senza nulla collegato, nei giochi che supportano il controller GameCube. Serve l'IOS 58 o un cIOS d2x."),
-    "Always on, even with no adapter plugged in, so it can be plugged in during a game. It needs IOS 58 or a d2x cIOS.": (
-        "Siempre activo, aunque no haya adaptador, para poder conectarlo durante el juego. Necesita IOS 58 o un cIOS d2x.",
-        "接続タップがなくても常に有効なので、ゲーム中につなぐこともできます。IOS 58かd2x cIOSが必要です。",
-        "Sempre ativo, mesmo sem adaptador, para poder conectá-lo durante o jogo. Precisa do IOS 58 ou de um cIOS d2x.",
-        "Sempre attivo, anche senza adattatore, così lo si può collegare durante il gioco. Serve l'IOS 58 o un cIOS d2x."),
-    "The adapter is left alone.": ("El adaptador no se usa.", "接続タップは使いません。", "O adaptador não é usado.",
-                                   "L'adattatore non viene usato."),
+    "Experimental. When the adapter is plugged in as a game starts, its controllers fill the ports that have none plugged in, in games that support the GameCube controller. It needs IOS 58 or a d2x cIOS.": (
+        "Experimental. Si el adaptador está conectado al iniciar un juego, sus mandos ocupan los puertos que no tienen ninguno conectado, en los juegos compatibles con el mando de GameCube. Necesita IOS 58 o un cIOS d2x.",
+        "試験的な機能です。ゲーム開始時に接続タップがつながっていれば、ゲームキューブコントローラに対応したゲームで、何もつながっていないポートに接続タップのコントローラが入ります。IOS 58かd2x cIOSが必要です。",
+        "Experimental. Se o adaptador estiver conectado quando um jogo começa, os controles dele ocupam as portas sem nenhum conectado, nos jogos compatíveis com o controle de GameCube. Precisa do IOS 58 ou de um cIOS d2x.",
+        "Sperimentale. Se l'adattatore è collegato quando parte un gioco, i suoi controller occupano le porte senza nulla collegato, nei giochi che supportano il controller GameCube. Serve l'IOS 58 o un cIOS d2x."),
+    "Experimental. Always on, even with no adapter plugged in, so it can be plugged in during a game. It needs IOS 58 or a d2x cIOS.": (
+        "Experimental. Siempre activo, aunque no haya adaptador, para poder conectarlo durante el juego. Necesita IOS 58 o un cIOS d2x.",
+        "試験的な機能です。接続タップがなくても常に有効なので、ゲーム中につなぐこともできます。IOS 58かd2x cIOSが必要です。",
+        "Experimental. Sempre ativo, mesmo sem adaptador, para poder conectá-lo durante o jogo. Precisa do IOS 58 ou de um cIOS d2x.",
+        "Sperimentale. Sempre attivo, anche senza adattatore, così lo si può collegare durante il gioco. Serve l'IOS 58 o un cIOS d2x."),
+    "Experimental. The adapter is left alone.": ("Experimental. El adaptador no se usa.", "試験的な機能です。接続タップは使いません。", "Experimental. O adaptador não é usado.",
+                                   "Sperimentale. L'adattatore non viene usato."),
     "Adapter: working": ("Adaptador: funcionando", "接続タップ：動作中", "Adaptador: funcionando", "Adattatore: funziona"),
     "Adapter: starting...": ("Adaptador: iniciando...", "接続タップ：準備中...", "Adaptador: iniciando...",
                              "Adattatore: avvio..."),
@@ -542,6 +542,157 @@ T = {
         "終了したNintendoのサーバーの代わりにゲームが使うオンラインサーバーです。カスタムはsettings.txtのwfc_domainを使います。",
         "O servidor online que o jogo usa no lugar do da Nintendo, que foi desligado. Personalizado usa wfc_domain do settings.txt.",
         "Il server online che il gioco usa al posto di quello di Nintendo, ormai chiuso. Personalizzato usa wfc_domain in settings.txt."),
+    # Packs on USB
+    "Packs on USB are experimental; if it fails, copy them to SD.": (
+        "Los packs en USB son experimentales; si falla, cópialos a la SD.",
+        "USBのパックは試験的な機能です。うまくいかない場合はSDにコピーしてください。",
+        "Packs no USB são experimentais; se falhar, copie-os para o SD.",
+        "I pacchetti su USB sono sperimentali; se non funziona, copiali sulla SD."),
+    # Updates (the pop-ups at start, and the Settings row)
+    "Updating RiftWii": ("Actualizando RiftWii", "RiftWiiを更新しています", "Atualizando a RiftWii", "Aggiornamento di RiftWii"),
+    "RiftWii {1} is out. Downloading and installing it now; this takes a minute...": (
+        "Ya salió RiftWii {1}. Se está descargando e instalando; tarda un minuto...",
+        "RiftWii {1}が出ています。ダウンロードしてインストールしています。1分ほどかかります...",
+        "Saiu a RiftWii {1}. Baixando e instalando agora; leva um minuto...",
+        "È uscita RiftWii {1}. La sto scaricando e installando; ci vuole un minuto..."),
+    "Update failed": ("La actualización falló", "更新に失敗しました", "A atualização falhou", "Aggiornamento non riuscito"),
+    # {1} the new version, {2} why, {3} where to get it.
+    "RiftWii {1} could not be installed: {2}. This version keeps working; the new one is at {3}": (
+        "No se pudo instalar RiftWii {1}: {2}. Esta versión sigue funcionando; la nueva está en {3}",
+        "RiftWii {1}をインストールできませんでした: {2}。このバージョンはそのまま使えます。新しいものは{3}にあります",
+        "Não foi possível instalar a RiftWii {1}: {2}. Esta versão continua funcionando; a nova está em {3}",
+        "Impossibile installare RiftWii {1}: {2}. Questa versione continua a funzionare; la nuova è su {3}"),
+    "OK": ("Aceptar", "OK", "OK", "OK"),
+    "RiftWii updated": ("RiftWii actualizada", "RiftWiiを更新しました", "RiftWii atualizada", "RiftWii aggiornata"),
+    # {1} the new version, {2} where it was written.
+    "RiftWii {1} is installed ({2}). It runs the next time RiftWii starts. Leave to the Homebrew Channel now and start it again?": (
+        "RiftWii {1} está instalada ({2}). Se usará la próxima vez que se inicie RiftWii. ¿Volver ahora al Homebrew Channel para iniciarla otra vez?",
+        "RiftWii {1}をインストールしました ({2})。次にRiftWiiを起動したときに使われます。今Homebrew Channelに戻って、もう一度起動しますか?",
+        "A RiftWii {1} está instalada ({2}). Ela será usada na próxima vez que a RiftWii iniciar. Voltar agora ao Homebrew Channel e iniciá-la de novo?",
+        "RiftWii {1} è installata ({2}). Verrà usata al prossimo avvio di RiftWii. Tornare ora all'Homebrew Channel e riavviarla?"),
+    "Leave": ("Salir", "終了", "Sair", "Esci"),
+    "Later": ("Más tarde", "あとで", "Depois", "Più tardi"),
+    "RiftWii {1} is installed. Start RiftWii again to use it.": (
+        "RiftWii {1} está instalada. Inicia RiftWii de nuevo para usarla.",
+        "RiftWii {1}をインストールしました。使うにはRiftWiiをもう一度起動してください。",
+        "A RiftWii {1} está instalada. Inicie a RiftWii de novo para usá-la.",
+        "RiftWii {1} è installata. Avvia di nuovo RiftWii per usarla."),
+    "Update available": ("Actualización disponible", "更新があります", "Atualização disponível", "Aggiornamento disponibile"),
+    # {1} the new version, {2} this one.
+    "RiftWii {1} is out (this is {2}). Update now? It takes a minute.": (
+        "Ya salió RiftWii {1} (esta es {2}). ¿Actualizar ahora? Tarda un minuto.",
+        "RiftWii {1}が出ています (これは{2}です)。今すぐ更新しますか? 1分ほどかかります。",
+        "Saiu a RiftWii {1} (esta é a {2}). Atualizar agora? Leva um minuto.",
+        "È uscita RiftWii {1} (questa è la {2}). Aggiornare ora? Ci vuole un minuto."),
+    "Not now": ("Ahora no", "今はしない", "Agora não", "Non ora"),
+    "Are you sure?": ("¿Seguro?", "よろしいですか?", "Tem certeza?", "Sei sicuro?"),
+    "Are you sure you don't want to update? If you had an issue, it could have been fixed in the latest update!": (
+        "¿Seguro que no quieres actualizar? ¡Si tenías algún problema, puede que la última versión ya lo solucione!",
+        "本当に更新しませんか? 何か問題があった場合、最新の更新で直っているかもしれません!",
+        "Tem certeza de que não quer atualizar? Se você teve algum problema, ele pode ter sido corrigido na última atualização!",
+        "Sei sicuro di non voler aggiornare? Se hai avuto un problema, potrebbe essere stato risolto nell'ultimo aggiornamento!"),
+    "RiftWii {1} is out. Settings > Check for a new version installs it.": (
+        "Ya salió RiftWii {1}. Ajustes > Buscar una versión nueva la instala.",
+        "RiftWii {1}が出ています。設定 > 新しいバージョンを確認 でインストールできます。",
+        "Saiu a RiftWii {1}. Configurações > Procurar uma versão nova a instala.",
+        "È uscita RiftWii {1}. Impostazioni > Cerca una nuova versione la installa."),
+    "Updates": ("Actualizaciones", "アップデート", "Atualizações", "Aggiornamenti"),
+    "Beta": ("Beta", "ベータ", "Beta", "Beta"),
+    "Stable": ("Estable", "安定版", "Estável", "Stabile"),
+    "Beta: every new version, including test builds that may have new bugs. For testers.": (
+        "Beta: cada versión nueva, incluidas las de prueba, que pueden tener fallos nuevos. Para testers.",
+        "ベータ: テスト版を含むすべての新しいバージョンです。新しい不具合があるかもしれません。テスター向けです。",
+        "Beta: toda versão nova, incluindo as de teste, que podem ter bugs novos. Para testadores.",
+        "Beta: ogni nuova versione, comprese quelle di prova, che possono avere nuovi bug. Per i tester."),
+    "Stable: only versions marked stable, which testers have checked.": (
+        "Estable: solo las versiones marcadas como estables, que los testers han probado.",
+        "安定版: テスターが確認した、安定版とされたバージョンだけです。",
+        "Estável: só as versões marcadas como estáveis, que os testadores verificaram.",
+        "Stabile: solo le versioni segnate come stabili, già controllate dai tester."),
+    "No stable version is out yet. This is RiftWii {1}.": (
+        "Aún no hay ninguna versión estable. Esta es RiftWii {1}.",
+        "安定版はまだ出ていません。これはRiftWii {1}です。",
+        "Ainda não saiu nenhuma versão estável. Esta é a RiftWii {1}.",
+        "Non è ancora uscita una versione stabile. Questa è RiftWii {1}."),
+    # Drive and SD card problems (pop-ups at start)
+    "SD card: {1}": ("Tarjeta SD: {1}", "SDカード: {1}", "Cartão SD: {1}", "Scheda SD: {1}"),
+    "USB drive: {1}": ("Unidad USB: {1}", "USBドライブ: {1}", "Unidade USB: {1}", "Unità USB: {1}"),
+    "Drive problem": ("Problema con una unidad", "ドライブの問題", "Problema em uma unidade", "Problema con un'unità"),
+    "Games on that drive are not listed. Check the drive on a computer; details are in sd:/riftwii/session.log.": (
+        "Los juegos de esa unidad no aparecen. Revisa la unidad en un ordenador; los detalles están en sd:/riftwii/session.log.",
+        "そのドライブのゲームは表示されません。パソコンでドライブを確認してください。詳しくはsd:/riftwii/session.logにあります。",
+        "Os jogos dessa unidade não aparecem. Verifique a unidade em um computador; os detalhes estão em sd:/riftwii/session.log.",
+        "I giochi di quell'unità non sono elencati. Controlla l'unità su un computer; i dettagli sono in sd:/riftwii/session.log."),
+    "SD card problems": ("Problemas con la tarjeta SD", "SDカードの問題", "Problemas no cartão SD", "Problemi con la scheda SD"),
+    "The SD card had trouble while the last game was saving. The details are in sd:/riftwii/cardlog.txt; please send that file to the RiftWii developers.": (
+        "La tarjeta SD tuvo problemas mientras el último juego guardaba. Los detalles están en sd:/riftwii/cardlog.txt; envía ese archivo a los desarrolladores de RiftWii.",
+        "前回のゲームのセーブ中にSDカードで問題が起きました。詳しくはsd:/riftwii/cardlog.txtにあります。このファイルをRiftWiiの開発者に送ってください。",
+        "O cartão SD teve problemas enquanto o último jogo salvava. Os detalhes estão em sd:/riftwii/cardlog.txt; envie esse arquivo aos desenvolvedores da RiftWii.",
+        "La scheda SD ha avuto problemi mentre l'ultimo gioco salvava. I dettagli sono in sd:/riftwii/cardlog.txt; invia quel file agli sviluppatori di RiftWii."),
+    # Starting a game
+    "Press Start again to play.": (
+        "Pulsa Jugar otra vez para empezar.",
+        "もう一度「はじめる」を押すと遊べます。",
+        "Aperte Jogar de novo para começar.",
+        "Premi di nuovo Gioca per iniziare."),
+    "Game cIOS": ("cIOS del juego", "ゲームのcIOS", "cIOS do jogo", "cIOS del gioco"),
+    # The RiftWii channel
+    "Add RiftWii to the Wii Menu?": (
+        "¿Añadir RiftWii al Menú Wii?", "RiftWiiをWiiメニューに追加しますか?", "Adicionar a RiftWii ao Menu Wii?",
+        "Aggiungere RiftWii al Menu Wii?"),
+    "RiftWii can have a channel on the Wii Menu, so it starts without the Homebrew Channel. The channel only starts RiftWii from your SD card: RiftWii's updates keep working and the channel never needs reinstalling. The channel installer opens, then brings you back here. Settings can open it again later.": (
+        "RiftWii puede tener un canal en el Menú Wii, para iniciarse sin el Homebrew Channel. El canal solo inicia RiftWii desde tu tarjeta SD: las actualizaciones de RiftWii siguen funcionando y el canal nunca hay que reinstalarlo. Se abre el instalador del canal y luego vuelves aquí. Ajustes puede abrirlo de nuevo más tarde.",
+        "RiftWiiはWiiメニューにチャンネルを置けるので、Homebrew Channelなしで起動できます。チャンネルはSDカードのRiftWiiを起動するだけなので、RiftWiiの更新はそのまま使え、チャンネルを入れ直す必要はありません。チャンネルのインストーラーが開き、そのあとここに戻ります。あとで設定からもう一度開けます。",
+        "A RiftWii pode ter um canal no Menu Wii, para iniciar sem o Homebrew Channel. O canal só inicia a RiftWii do seu cartão SD: as atualizações da RiftWii continuam funcionando e o canal nunca precisa ser reinstalado. O instalador do canal abre e depois traz você de volta aqui. As Configurações podem abri-lo de novo mais tarde.",
+        "RiftWii può avere un canale nel Menu Wii, così si avvia senza l'Homebrew Channel. Il canale avvia solo RiftWii dalla tua scheda SD: gli aggiornamenti di RiftWii continuano a funzionare e il canale non va mai reinstallato. Si apre l'installer del canale, che poi ti riporta qui. Le Impostazioni possono riaprirlo più tardi."),
+    "Open installer": ("Abrir instalador", "インストーラーを開く", "Abrir instalador", "Apri l'installer"),
+    "No thanks": ("No, gracias", "いいえ", "Não, obrigado", "No, grazie"),
+    "RiftWii channel on the Wii Menu": (
+        "Canal de RiftWii en el Menú Wii", "WiiメニューのRiftWiiチャンネル", "Canal da RiftWii no Menu Wii",
+        "Canale RiftWii nel Menu Wii"),
+    "Installed": ("Instalado", "インストール済み", "Instalado", "Installato"),
+    "Add": ("Añadir", "追加", "Adicionar", "Aggiungi"),
+    "Open the channel installer?": (
+        "¿Abrir el instalador del canal?", "チャンネルのインストーラーを開きますか?", "Abrir o instalador do canal?",
+        "Aprire l'installer del canale?"),
+    "RiftWii closes and the channel installer opens. It adds, updates or removes the RiftWii channel, then brings you back here.": (
+        "RiftWii se cierra y se abre el instalador del canal. Añade, actualiza o quita el canal de RiftWii y luego te trae de vuelta aquí.",
+        "RiftWiiを閉じてチャンネルのインストーラーを開きます。RiftWiiチャンネルの追加、更新、削除をして、ここに戻ってきます。",
+        "A RiftWii fecha e o instalador do canal abre. Ele adiciona, atualiza ou remove o canal da RiftWii e depois traz você de volta aqui.",
+        "RiftWii si chiude e si apre l'installer del canale. Aggiunge, aggiorna o rimuove il canale RiftWii, poi ti riporta qui."),
+    "Open": ("Abrir", "開く", "Abrir", "Apri"),
+    "Cancel": ("Cancelar", "キャンセル", "Cancelar", "Annulla"),
+    # The screen shown while the installer starts: the line above the title.
+    "The RiftWii channel": ("El canal de RiftWii", "RiftWiiチャンネル", "O canal da RiftWii", "Il canale RiftWii"),
+    "Opening the installer for": ("Abriendo el instalador de", "インストーラーを開いています", "Abrindo o instalador de",
+                                  "Apertura dell'installer per"),
+    "RiftWii starts again when it is done.": (
+        "RiftWii se inicia de nuevo al terminar.", "終わるとRiftWiiがもう一度起動します。",
+        "A RiftWii inicia de novo quando terminar.", "RiftWii si riavvia quando ha finito."),
+    "A Wii Menu channel that starts RiftWii from the SD card. It holds no copy of RiftWii, so updates keep working. Opens the channel installer, to add, update or remove it.": (
+        "Un canal del Menú Wii que inicia RiftWii desde la tarjeta SD. No lleva ninguna copia de RiftWii, así que las actualizaciones siguen funcionando. Abre el instalador del canal para añadirlo, actualizarlo o quitarlo.",
+        "SDカードのRiftWiiを起動するWiiメニューのチャンネルです。RiftWiiのコピーは入っていないので、更新はそのまま使えます。チャンネルのインストーラーを開いて、追加、更新、削除ができます。",
+        "Um canal do Menu Wii que inicia a RiftWii pelo cartão SD. Ele não tem nenhuma cópia da RiftWii, então as atualizações continuam funcionando. Abre o instalador do canal, para adicioná-lo, atualizá-lo ou removê-lo.",
+        "Un canale del Menu Wii che avvia RiftWii dalla scheda SD. Non contiene una copia di RiftWii, quindi gli aggiornamenti continuano a funzionare. Apre l'installer del canale, per aggiungerlo, aggiornarlo o rimuoverlo."),
+    # Why the channel installer can not be opened.
+    "Copy apps/riftwii_channel from the RiftWii zip to the SD card first": (
+        "Copia primero apps/riftwii_channel del zip de RiftWii a la tarjeta SD",
+        "先にRiftWiiのzipにあるapps/riftwii_channelをSDカードにコピーしてください",
+        "Copie primeiro apps/riftwii_channel do zip da RiftWii para o cartão SD",
+        "Copia prima apps/riftwii_channel dallo zip di RiftWii sulla scheda SD"),
+    "Dolphin checks real signatures, so the channel can only be installed on a Wii": (
+        "Dolphin comprueba las firmas reales, así que el canal solo se puede instalar en una Wii",
+        "Dolphinは本物の署名を確認するので、チャンネルはWiiにしかインストールできません",
+        "O Dolphin verifica as assinaturas reais, então o canal só pode ser instalado em um Wii",
+        "Dolphin controlla le firme reali, quindi il canale si può installare solo su una Wii"),
+    "Installing the channel needs a d2x cIOS in slot 249, 250 or 251": (
+        "Para instalar el canal hace falta un cIOS d2x en el slot 249, 250 o 251",
+        "チャンネルのインストールには、スロット249、250、251のどれかにd2x cIOSが必要です",
+        "Instalar o canal precisa de um cIOS d2x no slot 249, 250 ou 251",
+        "Per installare il canale serve un cIOS d2x nello slot 249, 250 o 251"),
+    "(Log: sd:/riftwii/session.log)": (
+        "(Registro: sd:/riftwii/session.log)", "(ログ: sd:/riftwii/session.log)",
+        "(Log: sd:/riftwii/session.log)", "(Log: sd:/riftwii/session.log)"),
 }
 
 
@@ -552,7 +703,7 @@ def escape(s):
 def check(repo):
     """Every msgid must appear as a literal in the menu's sources, or it
     would never be looked up."""
-    sources = ["wii/rift_menu.cpp", "wii/gameextras.cpp", "wii/gui_gamegrid.cpp"]
+    sources = ["wii/rift_menu.cpp", "wii/gameextras.cpp", "wii/gui_gamegrid.cpp", "wii/channel.cpp"]
     text = "".join(open(os.path.join(repo, p), encoding="utf-8").read() for p in sources)
     missing = [k for k in T if '"%s"' % escape(k) not in text]
     for k in missing:

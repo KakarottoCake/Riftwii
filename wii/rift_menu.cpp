@@ -2088,7 +2088,7 @@ static int MenuSettings(FrontendState& state)
 		option(tr("Video mode"), VideoModeName(settings.video_mode), settings.video_mode != "game", kVideoMode);
 		option(tr("Game language"), GameLanguageName(settings.game_language), settings.game_language != "console",
 			kGameLanguage);
-		option("Game cIOS", CiosName(settings.game_cios), settings.game_cios != "auto", kGameCios);
+		option(tr("Game cIOS"), CiosName(settings.game_cios), settings.game_cios != "auto", kGameCios);
 		option(tr("Online server"), ServerName(settings.wfc_server), settings.wfc_server != "off", kServer);
 		option(tr("Home tiles"), settings.home_tiles == "names" ? tr("Names") : tr("Covers"),
 			settings.home_tiles != "names", kHomeTiles);
@@ -2232,7 +2232,7 @@ static int MenuSettings(FrontendState& state)
 			case kChannel: return ChannelNote(settings);
 			case kUpdate: return tr("This is RiftWii {1}. Looks on GitHub for a newer release.", {RIFTWII_VERSION});
 			case kWiiChannel:
-				if (!channelCan) return channelWhy + ".";
+				if (!channelCan) return std::string(tr(channelWhy.c_str())) + ".";
 				return tr("A Wii Menu channel that starts RiftWii from the SD card. It holds no copy of RiftWii, so updates keep working. Opens the channel installer, to add, update or remove it.");
 			case kExit: return tr("Back to the Homebrew Channel.");
 			case kNone:  // the Menu IOS row when there is nothing to choose
@@ -2429,7 +2429,7 @@ static int MenuSettings(FrontendState& state)
 				}
 				case kWiiChannel: {
 					if (!channelCan) {
-						note(channelWhy + ".");
+						note(std::string(tr(channelWhy.c_str())) + ".");
 						break;
 					}
 					if (ShowPopup(tr("Open the channel installer?"),
