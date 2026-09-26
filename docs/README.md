@@ -1,6 +1,6 @@
 # RiftWii documentation
 
-For players, the project's `README.md` covers installing and using
+For players, [GUIDE.md](GUIDE.md) covers installing and using
 RiftWii. These pages are for people working on it.
 
 ## Current
