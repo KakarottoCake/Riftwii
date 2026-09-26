@@ -27,6 +27,7 @@
 #include "d2xsd.hpp"
 #include "di.hpp"
 #include "ios_reload.hpp"
+#include "menuios.hpp"
 #include "log.hpp"
 #include "riftwii/mempatch.hpp"
 #include "padhook.hpp"
@@ -1389,7 +1390,14 @@ bool boot_game(const DiscProbe& probe, const BootOptions& options, std::string& 
         effective.preserve_current_ios = true;
         logf("Keeping IOS%d for the GameCube adapter; reporting IOS%u to the game\n", running_ios, required);
     }
-    if (di::frag_device() != 0 || di::has_partition_resolver()) {
+    // A burned disc read through d2x (its DVD-ROM mode, bit 0): the burn
+    // has no BCA either, and d2x answers the same way.
+    std::uint32_t d2x_mode = 0;
+    std::string no_d2x;
+    const bool burned = di::frag_device() == 0 && !di::has_partition_resolver() && MenuCiosSlot() != 0 &&
+                        di::probe_d2x(d2x_mode, no_d2x) && (d2x_mode & 1u) != 0;
+    if (burned) logf("Disc: a burned disc, read through d2x's DVD-ROM mode\n");
+    if (di::frag_device() != 0 || di::has_partition_resolver() || burned) {
         // An image has no drive to answer the BCA read; d2x answers from
         // its bytes 0x100-0x13F, usually zero in images made from a dump.
         // A game that checks it (New Super Mario Bros. Wii) stops minutes

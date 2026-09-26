@@ -716,6 +716,35 @@ T = {
     "Need a card? Scan this.": (
         "¿Necesitas una? Escanea esto.", "カードが必要ならこれをスキャン", "Precisa de um? Escaneie isto.",
         "Ti serve una scheda? Scansiona qui."),
+    # Burned discs (a d2x cIOS reads them on older Wiis); {1} a cIOS slot.
+    "Is this a burned disc?": (
+        "¿Es un disco grabado?", "焼いたディスクですか?", "É um disco gravado?", "È un disco masterizzato?"),
+    "The drive could not read this disc. If it is a burned disc, RiftWii can read it through d2x on older Wiis (later Wii drives read only Nintendo discs). The menu then restarts under IOS{1} for this session.": (
+        "La unidad no pudo leer este disco. Si es un disco grabado, RiftWii puede leerlo con d2x en las Wii más antiguas (las unidades posteriores solo leen discos de Nintendo). El menú se reinicia entonces con el IOS{1} para esta sesión.",
+        "ドライブがこのディスクを読めませんでした。焼いたディスクなら、古いWiiではRiftWiiがd2x経由で読めます (後期のWiiのドライブは任天堂のディスクしか読めません)。その場合、このセッションの間メニューをIOS{1}で再起動します。",
+        "A unidade não conseguiu ler este disco. Se for um disco gravado, a RiftWii pode lê-lo pelo d2x nos Wii mais antigos (as unidades posteriores só leem discos da Nintendo). O menu então reinicia no IOS{1} nesta sessão.",
+        "L'unità non è riuscita a leggere questo disco. Se è un disco masterizzato, RiftWii può leggerlo tramite d2x sulle Wii più vecchie (le unità successive leggono solo dischi Nintendo). Il menu si riavvia quindi con l'IOS{1} per questa sessione."),
+    "Try with d2x": ("Probar con d2x", "d2xで試す", "Tentar com d2x", "Prova con d2x"),
+    "The menu runs under IOS{1} for this session, to read burned discs. Pick the disc.": (
+        "El menú usa el IOS{1} en esta sesión para leer discos grabados. Elige el disco.",
+        "焼いたディスクを読むため、このセッションではメニューがIOS{1}で動いています。ディスクを選んでください。",
+        "O menu usa o IOS{1} nesta sessão para ler discos gravados. Escolha o disco.",
+        "In questa sessione il menu usa l'IOS{1} per leggere i dischi masterizzati. Scegli il disco."),
+    "The drive cannot read this disc, even through d2x. Later Wii drives read only Nintendo discs, never burned ones; on an older Wii, the burn may be bad.": (
+        "La unidad no puede leer este disco, ni siquiera con d2x. Las unidades posteriores de Wii solo leen discos de Nintendo, nunca grabados; en una Wii antigua, puede que la grabación esté mal.",
+        "d2xを使ってもドライブがこのディスクを読めません。後期のWiiのドライブは任天堂のディスクしか読めず、焼いたディスクは読めません。古いWiiなら、書き込みが失敗しているかもしれません。",
+        "A unidade não consegue ler este disco, nem pelo d2x. As unidades posteriores do Wii só leem discos da Nintendo, nunca gravados; num Wii antigo, a gravação pode estar ruim.",
+        "L'unità non riesce a leggere questo disco, nemmeno tramite d2x. Le unità Wii successive leggono solo dischi Nintendo, mai masterizzati; su una Wii più vecchia, la masterizzazione potrebbe essere difettosa."),
+    "The drive cannot read this disc. If it is a burned disc, RiftWii needs a d2x cIOS to read it.": (
+        "La unidad no puede leer este disco. Si es un disco grabado, RiftWii necesita un cIOS d2x para leerlo.",
+        "ドライブがこのディスクを読めません。焼いたディスクを読むには、RiftWiiにd2x cIOSが必要です。",
+        "A unidade não consegue ler este disco. Se for um disco gravado, a RiftWii precisa de um cIOS d2x para lê-lo.",
+        "L'unità non riesce a leggere questo disco. Se è un disco masterizzato, RiftWii ha bisogno di un cIOS d2x per leggerlo."),
+    "RiftWii could not restart. Start it again from the Homebrew Channel.": (
+        "RiftWii no pudo reiniciarse. Vuelve a iniciarla desde el Homebrew Channel.",
+        "RiftWiiを再起動できませんでした。Homebrew Channelからもう一度起動してください。",
+        "A RiftWii não conseguiu reiniciar. Inicie-a de novo pelo Homebrew Channel.",
+        "RiftWii non è riuscita a riavviarsi. Avviala di nuovo dall'Homebrew Channel."),
 }
 
 

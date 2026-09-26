@@ -159,7 +159,8 @@ int main() {
     if (restart.kind != riftwii::wii::RestartKind::None) {
         riftwii::wii::logf("Restarted: %s\n", restart.message.c_str());
     }
-    riftwii::wii::StartMenuIos(sd_mounted, restart.kind != riftwii::wii::RestartKind::None);
+    riftwii::wii::StartMenuIos(sd_mounted, restart.kind != riftwii::wii::RestartKind::None,
+                               restart.kind == riftwii::wii::RestartKind::BurnedDisc ? riftwii::wii::BurnedDiscSlot() : 0);
     SetHomeNotice(restart.message);
     FrontendState state;
     riftwii::wii::InitializeFrontend(state);

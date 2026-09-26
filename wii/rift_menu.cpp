@@ -53,6 +53,7 @@
 #include "i18n.hpp"
 #include "loadersettings.hpp"
 #include "log.hpp"
+#include "ios_reload.hpp"
 #include "menuios.hpp"
 #include "online.hpp"
 #include "restart.hpp"
@@ -604,6 +605,35 @@ static int ShowPopup(const std::string& title, const std::string& body, const st
 	return box.Wait();
 }
 
+// The drive answered but would not read the disc's ID: a burned disc
+// under the Wii's own IOS, or one the drive cannot read at all. Under
+// IOS 58 the menu offers to restart under d2x for this session, which
+// reads burned discs on older Wiis; under d2x it says the drive cannot.
+// `error` becomes what Home's status line shows.
+static void OfferBurnedDisc(std::string& error)
+{
+	if (riftwii::wii::running_in_dolphin()) return;
+	if (riftwii::wii::MenuCiosSlot() != 0) {
+		error = tr("The drive cannot read this disc, even through d2x. Later Wii drives read only Nintendo discs, never burned ones; on an older Wii, the burn may be bad.");
+		return;
+	}
+	const int slot = riftwii::wii::BurnedDiscSlot();
+	if (slot == 0) {
+		error = tr("The drive cannot read this disc. If it is a burned disc, RiftWii needs a d2x cIOS to read it.");
+		return;
+	}
+	const std::string ios = std::to_string(slot);
+	if (ShowPopup(tr("Is this a burned disc?"),
+		    tr("The drive could not read this disc. If it is a burned disc, RiftWii can read it through d2x on older Wiis (later Wii drives read only Nintendo discs). The menu then restarts under IOS{1} for this session.", {ios}),
+		    tr("Try with d2x"), tr("Cancel")) != 0) {
+		return;
+	}
+	logf("Home: restarting under IOS%d for a burned disc\n", slot);
+	riftwii::wii::WarmRestart(riftwii::wii::RestartKind::BurnedDisc,
+		tr("The menu runs under IOS{1} for this session, to read burned discs. Pick the disc.", {ios}));
+	error = tr("RiftWii could not restart. Start it again from the Homebrew Channel.");
+}
+
 // Downloads and installs a newer release (riftwii::wii::InstallUpdate),
 // then offers to leave so the Homebrew Channel starts it.
 static void RunUpdate(const std::string& latest)
@@ -954,6 +984,11 @@ static int MenuSource(FrontendState& state)
 				logf("DISC: probing\n");
 				ok = SelectDisc(state, error);
 				if (!ok && error.empty()) error = "No disc in the drive";
+				if (!ok && error.compare(0, 12, "read disc id") == 0) {
+					HaltGui();
+					OfferBurnedDisc(error);
+					ResumeGui();
+				}
 			} else if (entry.kind == HomeEntry::Kind::Usb) {
 				ok = SelectUsbGame(state, entry.index, error);
 			} else {

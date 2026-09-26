@@ -172,6 +172,19 @@ drive is read through d2x (the drive needs 512-byte sectors). An RVZ
 copied in more than 1024 pieces has to be copied again. More in
 `docs/RVZ.md`.
 
+### Burned discs (experimental)
+
+A Wii game burned to a DVD-R or DVD+R (the `.iso` as it is) plays from
+the disc drive on older Wiis only: later Wii drives read nothing but
+Nintendo's own discs, and no software changes that. To see whether
+yours can, play a movie DVD in WiiMC.
+
+The Wii's own IOS refuses a burned disc, so when the Disc tile cannot
+read one, RiftWii offers to restart its menu under your d2x cIOS for
+that session. d2x reads the burn as a plain DVD, and the game then
+starts as from any disc, mods included. With the menu IOS set to a d2x
+slot in Settings, burned discs work straight away.
+
 ### Network packs (RiiFS)
 
 Packs can come from a PC running a RiiFS server, as with Riivolution.

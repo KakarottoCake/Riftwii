@@ -788,3 +788,24 @@ msgstr "RiftWiiは設定、ログ、セーブをSDカードに保存しますが
 
 msgid "Need a card? Scan this."
 msgstr "カードが必要ならこれをスキャン"
+
+msgid "Is this a burned disc?"
+msgstr "焼いたディスクですか?"
+
+msgid "The drive could not read this disc. If it is a burned disc, RiftWii can read it through d2x on older Wiis (later Wii drives read only Nintendo discs). The menu then restarts under IOS{1} for this session."
+msgstr "ドライブがこのディスクを読めませんでした。焼いたディスクなら、古いWiiではRiftWiiがd2x経由で読めます (後期のWiiのドライブは任天堂のディスクしか読めません)。その場合、このセッションの間メニューをIOS{1}で再起動します。"
+
+msgid "Try with d2x"
+msgstr "d2xで試す"
+
+msgid "The menu runs under IOS{1} for this session, to read burned discs. Pick the disc."
+msgstr "焼いたディスクを読むため、このセッションではメニューがIOS{1}で動いています。ディスクを選んでください。"
+
+msgid "The drive cannot read this disc, even through d2x. Later Wii drives read only Nintendo discs, never burned ones; on an older Wii, the burn may be bad."
+msgstr "d2xを使ってもドライブがこのディスクを読めません。後期のWiiのドライブは任天堂のディスクしか読めず、焼いたディスクは読めません。古いWiiなら、書き込みが失敗しているかもしれません。"
+
+msgid "The drive cannot read this disc. If it is a burned disc, RiftWii needs a d2x cIOS to read it."
+msgstr "ドライブがこのディスクを読めません。焼いたディスクを読むには、RiftWiiにd2x cIOSが必要です。"
+
+msgid "RiftWii could not restart. Start it again from the Homebrew Channel."
+msgstr "RiftWiiを再起動できませんでした。Homebrew Channelからもう一度起動してください。"

@@ -788,3 +788,24 @@ msgstr "RiftWii tiene impostazioni, log e salvataggi sulla scheda SD e non è ri
 
 msgid "Need a card? Scan this."
 msgstr "Ti serve una scheda? Scansiona qui."
+
+msgid "Is this a burned disc?"
+msgstr "È un disco masterizzato?"
+
+msgid "The drive could not read this disc. If it is a burned disc, RiftWii can read it through d2x on older Wiis (later Wii drives read only Nintendo discs). The menu then restarts under IOS{1} for this session."
+msgstr "L'unità non è riuscita a leggere questo disco. Se è un disco masterizzato, RiftWii può leggerlo tramite d2x sulle Wii più vecchie (le unità successive leggono solo dischi Nintendo). Il menu si riavvia quindi con l'IOS{1} per questa sessione."
+
+msgid "Try with d2x"
+msgstr "Prova con d2x"
+
+msgid "The menu runs under IOS{1} for this session, to read burned discs. Pick the disc."
+msgstr "In questa sessione il menu usa l'IOS{1} per leggere i dischi masterizzati. Scegli il disco."
+
+msgid "The drive cannot read this disc, even through d2x. Later Wii drives read only Nintendo discs, never burned ones; on an older Wii, the burn may be bad."
+msgstr "L'unità non riesce a leggere questo disco, nemmeno tramite d2x. Le unità Wii successive leggono solo dischi Nintendo, mai masterizzati; su una Wii più vecchia, la masterizzazione potrebbe essere difettosa."
+
+msgid "The drive cannot read this disc. If it is a burned disc, RiftWii needs a d2x cIOS to read it."
+msgstr "L'unità non riesce a leggere questo disco. Se è un disco masterizzato, RiftWii ha bisogno di un cIOS d2x per leggerlo."
+
+msgid "RiftWii could not restart. Start it again from the Homebrew Channel."
+msgstr "RiftWii non è riuscita a riavviarsi. Avviala di nuovo dall'Homebrew Channel."

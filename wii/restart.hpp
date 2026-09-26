@@ -17,7 +17,9 @@
 // the reason on Home.
 namespace riftwii::wii {
 
-enum class RestartKind : unsigned { None = 0, LaunchFailed = 1, Crashed = 2, ChannelDone = 3 };
+// BurnedDisc: the menu runs under a d2x cIOS for the new session, which
+// reads burned discs (wii/menuios.hpp, BurnedDiscSlot).
+enum class RestartKind : unsigned { None = 0, LaunchFailed = 1, Crashed = 2, ChannelDone = 3, BurnedDisc = 4 };
 
 // What the previous run left, read once at startup (and cleared).
 struct RestartNote {
