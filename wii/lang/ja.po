@@ -792,8 +792,11 @@ msgstr "カードが必要ならこれをスキャン"
 msgid "Is this a burned disc?"
 msgstr "焼いたディスクですか?"
 
-msgid "The drive could not read this disc. If it is a burned disc, RiftWii can read it through d2x on older Wiis (later Wii drives read only Nintendo discs). The menu then restarts under IOS{1} for this session."
-msgstr "ドライブがこのディスクを読めませんでした。焼いたディスクなら、古いWiiではRiftWiiがd2x経由で読めます (後期のWiiのドライブは任天堂のディスクしか読めません)。その場合、このセッションの間メニューをIOS{1}で再起動します。"
+msgid "The drive could not read this disc. If it is a burned disc, RiftWii can read it through d2x on older Wiis (later Wii drives read only Nintendo discs). Burned discs can wear out the disc drive sooner: use them at your own risk. The menu then restarts under IOS{1} for this session."
+msgstr "ドライブがこのディスクを読めませんでした。焼いたディスクなら、古いWiiではRiftWiiがd2x経由で読めます (後期のWiiのドライブは任天堂のディスクしか読めません)。焼いたディスクはディスクドライブの寿命を縮めることがあります。自己責任で使ってください。その場合、このセッションの間メニューをIOS{1}で再起動します。"
+
+msgid "Burned disc: it wears the Wii's disc drive more than a pressed disc does. Play at your own risk."
+msgstr "焼いたディスクです。正規のディスクよりWiiのドライブに負担がかかります。自己責任で遊んでください。"
 
 msgid "Try with d2x"
 msgstr "d2xで試す"

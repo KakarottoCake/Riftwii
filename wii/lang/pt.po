@@ -792,8 +792,11 @@ msgstr "Precisa de um? Escaneie isto."
 msgid "Is this a burned disc?"
 msgstr "É um disco gravado?"
 
-msgid "The drive could not read this disc. If it is a burned disc, RiftWii can read it through d2x on older Wiis (later Wii drives read only Nintendo discs). The menu then restarts under IOS{1} for this session."
-msgstr "A unidade não conseguiu ler este disco. Se for um disco gravado, a RiftWii pode lê-lo pelo d2x nos Wii mais antigos (as unidades posteriores só leem discos da Nintendo). O menu então reinicia no IOS{1} nesta sessão."
+msgid "The drive could not read this disc. If it is a burned disc, RiftWii can read it through d2x on older Wiis (later Wii drives read only Nintendo discs). Burned discs can wear out the disc drive sooner: use them at your own risk. The menu then restarts under IOS{1} for this session."
+msgstr "A unidade não conseguiu ler este disco. Se for um disco gravado, a RiftWii pode lê-lo pelo d2x nos Wii mais antigos (as unidades posteriores só leem discos da Nintendo). Discos gravados podem desgastar a unidade mais cedo: use-os por sua conta e risco. O menu então reinicia no IOS{1} nesta sessão."
+
+msgid "Burned disc: it wears the Wii's disc drive more than a pressed disc does. Play at your own risk."
+msgstr "Disco gravado: ele desgasta a unidade do Wii mais que um disco original. Jogue por sua conta e risco."
 
 msgid "Try with d2x"
 msgstr "Tentar com d2x"

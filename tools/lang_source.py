@@ -719,11 +719,16 @@ T = {
     # Burned discs (a d2x cIOS reads them on older Wiis); {1} a cIOS slot.
     "Is this a burned disc?": (
         "¿Es un disco grabado?", "焼いたディスクですか?", "É um disco gravado?", "È un disco masterizzato?"),
-    "The drive could not read this disc. If it is a burned disc, RiftWii can read it through d2x on older Wiis (later Wii drives read only Nintendo discs). The menu then restarts under IOS{1} for this session.": (
-        "La unidad no pudo leer este disco. Si es un disco grabado, RiftWii puede leerlo con d2x en las Wii más antiguas (las unidades posteriores solo leen discos de Nintendo). El menú se reinicia entonces con el IOS{1} para esta sesión.",
-        "ドライブがこのディスクを読めませんでした。焼いたディスクなら、古いWiiではRiftWiiがd2x経由で読めます (後期のWiiのドライブは任天堂のディスクしか読めません)。その場合、このセッションの間メニューをIOS{1}で再起動します。",
-        "A unidade não conseguiu ler este disco. Se for um disco gravado, a RiftWii pode lê-lo pelo d2x nos Wii mais antigos (as unidades posteriores só leem discos da Nintendo). O menu então reinicia no IOS{1} nesta sessão.",
-        "L'unità non è riuscita a leggere questo disco. Se è un disco masterizzato, RiftWii può leggerlo tramite d2x sulle Wii più vecchie (le unità successive leggono solo dischi Nintendo). Il menu si riavvia quindi con l'IOS{1} per questa sessione."),
+    "The drive could not read this disc. If it is a burned disc, RiftWii can read it through d2x on older Wiis (later Wii drives read only Nintendo discs). Burned discs can wear out the disc drive sooner: use them at your own risk. The menu then restarts under IOS{1} for this session.": (
+        "La unidad no pudo leer este disco. Si es un disco grabado, RiftWii puede leerlo con d2x en las Wii más antiguas (las unidades posteriores solo leen discos de Nintendo). Los discos grabados pueden desgastar antes la unidad: úsalos bajo tu propia responsabilidad. El menú se reinicia entonces con el IOS{1} para esta sesión.",
+        "ドライブがこのディスクを読めませんでした。焼いたディスクなら、古いWiiではRiftWiiがd2x経由で読めます (後期のWiiのドライブは任天堂のディスクしか読めません)。焼いたディスクはディスクドライブの寿命を縮めることがあります。自己責任で使ってください。その場合、このセッションの間メニューをIOS{1}で再起動します。",
+        "A unidade não conseguiu ler este disco. Se for um disco gravado, a RiftWii pode lê-lo pelo d2x nos Wii mais antigos (as unidades posteriores só leem discos da Nintendo). Discos gravados podem desgastar a unidade mais cedo: use-os por sua conta e risco. O menu então reinicia no IOS{1} nesta sessão.",
+        "L'unità non è riuscita a leggere questo disco. Se è un disco masterizzato, RiftWii può leggerlo tramite d2x sulle Wii più vecchie (le unità successive leggono solo dischi Nintendo). I dischi masterizzati possono consumare prima l'unità: usali a tuo rischio. Il menu si riavvia quindi con l'IOS{1} per questa sessione."),
+    "Burned disc: it wears the Wii's disc drive more than a pressed disc does. Play at your own risk.": (
+        "Disco grabado: desgasta la unidad de la Wii más que un disco original. Juega bajo tu propia responsabilidad.",
+        "焼いたディスクです。正規のディスクよりWiiのドライブに負担がかかります。自己責任で遊んでください。",
+        "Disco gravado: ele desgasta a unidade do Wii mais que um disco original. Jogue por sua conta e risco.",
+        "Disco masterizzato: consuma l'unità della Wii più di un disco originale. Gioca a tuo rischio."),
     "Try with d2x": ("Probar con d2x", "d2xで試す", "Tentar com d2x", "Prova con d2x"),
     "The menu runs under IOS{1} for this session, to read burned discs. Pick the disc.": (
         "El menú usa el IOS{1} en esta sesión para leer discos grabados. Elige el disco.",
@@ -755,7 +760,7 @@ def escape(s):
 def check(repo):
     """Every msgid must appear as a literal in the menu's sources, or it
     would never be looked up."""
-    sources = ["wii/rift_menu.cpp", "wii/gameextras.cpp", "wii/gui_gamegrid.cpp", "wii/channel.cpp"]
+    sources = ["wii/rift_menu.cpp", "wii/gameextras.cpp", "wii/gui_gamegrid.cpp", "wii/channel.cpp", "wii/frontend.cpp"]
     text = "".join(open(os.path.join(repo, p), encoding="utf-8").read() for p in sources)
     missing = [k for k in T if '"%s"' % escape(k) not in text]
     for k in missing:

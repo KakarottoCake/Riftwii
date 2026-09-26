@@ -792,8 +792,11 @@ msgstr "Ti serve una scheda? Scansiona qui."
 msgid "Is this a burned disc?"
 msgstr "È un disco masterizzato?"
 
-msgid "The drive could not read this disc. If it is a burned disc, RiftWii can read it through d2x on older Wiis (later Wii drives read only Nintendo discs). The menu then restarts under IOS{1} for this session."
-msgstr "L'unità non è riuscita a leggere questo disco. Se è un disco masterizzato, RiftWii può leggerlo tramite d2x sulle Wii più vecchie (le unità successive leggono solo dischi Nintendo). Il menu si riavvia quindi con l'IOS{1} per questa sessione."
+msgid "The drive could not read this disc. If it is a burned disc, RiftWii can read it through d2x on older Wiis (later Wii drives read only Nintendo discs). Burned discs can wear out the disc drive sooner: use them at your own risk. The menu then restarts under IOS{1} for this session."
+msgstr "L'unità non è riuscita a leggere questo disco. Se è un disco masterizzato, RiftWii può leggerlo tramite d2x sulle Wii più vecchie (le unità successive leggono solo dischi Nintendo). I dischi masterizzati possono consumare prima l'unità: usali a tuo rischio. Il menu si riavvia quindi con l'IOS{1} per questa sessione."
+
+msgid "Burned disc: it wears the Wii's disc drive more than a pressed disc does. Play at your own risk."
+msgstr "Disco masterizzato: consuma l'unità della Wii più di un disco originale. Gioca a tuo rischio."
 
 msgid "Try with d2x"
 msgstr "Prova con d2x"

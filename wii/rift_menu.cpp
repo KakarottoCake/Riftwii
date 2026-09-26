@@ -624,7 +624,7 @@ static void OfferBurnedDisc(std::string& error)
 	}
 	const std::string ios = std::to_string(slot);
 	if (ShowPopup(tr("Is this a burned disc?"),
-		    tr("The drive could not read this disc. If it is a burned disc, RiftWii can read it through d2x on older Wiis (later Wii drives read only Nintendo discs). The menu then restarts under IOS{1} for this session.", {ios}),
+		    tr("The drive could not read this disc. If it is a burned disc, RiftWii can read it through d2x on older Wiis (later Wii drives read only Nintendo discs). Burned discs can wear out the disc drive sooner: use them at your own risk. The menu then restarts under IOS{1} for this session.", {ios}),
 		    tr("Try with d2x"), tr("Cancel")) != 0) {
 		return;
 	}

@@ -185,6 +185,14 @@ that session. d2x reads the burn as a plain DVD, and the game then
 starts as from any disc, mods included. With the menu IOS set to a d2x
 slot in Settings, burned discs work straight away.
 
+**Burned discs are at your own risk.** A burned disc reflects less light
+than a pressed one, so the drive works harder and retries more, and a
+drive that plays many of them can wear out sooner. RiftWii says so
+before each launch of one. Use good discs (Verbatim DVD-R), burn slowly
+(4x or less) and re-burn a disc that loads slowly. Games on a USB drive
+or the SD card, and a USB DVD drive (below), do not use the Wii's drive
+at all.
+
 ### USB DVD drives (experimental)
 
 On a Wii whose own drive cannot read burned discs, a USB DVD drive can:

@@ -14,6 +14,8 @@
 #include <vector>
 
 #include "autorun.hpp"
+#include "di.hpp"
+#include "i18n.hpp"
 #include "riftwii/riiconfig.hpp"
 #include "loadersettings.hpp"
 #include "log.hpp"
@@ -124,6 +126,14 @@ bool SelectDisc(FrontendState& state, std::string& error) {
     }
     state.disc_status = "Disc: " + state.game_id + "  " + state.disc_title;
     state.choices_path = std::string(kChoicesDir) + "/" + state.game_id + ".txt";
+    // A burned disc, read through d2x's DVD-ROM mode (bit 0): harder on
+    // the Wii's drive than a pressed disc, so it is said before each launch.
+    std::uint32_t mode = 0;
+    std::string no_d2x;
+    if (MenuCiosSlot() != 0 && di::probe_d2x(mode, no_d2x) && (mode & 1u) != 0) {
+        logf("Disc: a burned disc, read through d2x's DVD-ROM mode\n");
+        state.launch_warning = tr("Burned disc: it wears the Wii's disc drive more than a pressed disc does. Play at your own risk.");
+    }
     error.clear();
     return true;
 }
