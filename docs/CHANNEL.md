@@ -35,9 +35,19 @@ two contents:
 - **1**, the forwarder.
 
 The forwarder and the installer are linked at the usual `0x80004000`, clear
-of RiftWii (`0x80a00000` up). (Linked high in MEM1, at `0x81300000`, the
-forwarder ran from a DOL but left a real Wii on a black screen as a
-channel.)
+of RiftWii (`0x80a00000` up).
+
+The Wii starts a channel's program at its DOL's entry point with address
+translation off, so that entry is a physical address: every retail
+channel's is `0x3400`, with a small text section at `0x80003400`. A DOL
+started from the Homebrew Channel (and a channel in Dolphin) starts with
+translation on instead, at libogc's `0x80003f00`, which on a Wii left the
+channel on a black screen. So `tools/make_channel.py` (`channel_entry`)
+adds to the forwarder's DOL a section at `0x80003400` holding one relative
+branch to libogc's entry, and makes `0x3400` the entry. The branch works in
+real mode, and libogc's start code sets up the BATs and caches itself
+before it turns translation on. `build-channel/forwarder.dol` itself keeps
+libogc's entry, so it still runs from the Homebrew Channel or Dolphin.
 
 The installer reloads IOS 58 before it reads RiftWii back in: a reload
 overwrites the bottom of MEM2, where the file is read to.
