@@ -29,34 +29,45 @@ The installer adds, updates or removes the channel. It needs a d2x cIOS in slot
 `sd:/riftwii/channel.log`.
 
 The channel is title `00010001-52465457` (`RFTW`), runs under IOS 58, and has
-two contents:
+three contents:
 
 - **0**, the banner: the icon, banner and sound shown in the Wii Menu.
-- **1**, the forwarder.
+- **1**, the boot program (`channel/loader`), about 4 KiB.
+- **2**, the forwarder (`channel/forwarder`), which the boot program starts.
 
-The forwarder and the installer are linked at the usual `0x80004000`, clear
-of RiftWii (`0x80a00000` up).
+### Starting on a Wii and a vWii
 
-A Wii and a vWii start a channel's program differently, and
-`tools/make_channel.py` (`channel_entry`) lays the forwarder's DOL out for
-both, as OpenDolBoot and the Homebrew Channel's channel stub do:
+A Wii and a vWii start a channel's boot program differently:
 
 - **Wii:** the CPU starts at physical `0x3400` with address translation off,
   whatever the DOL's entry field says (every retail channel has a small
-  section there). The forwarder's first text section is
-  `channel/forwarder/start.S` at `0x80003400`: it sets the CPU up as the
-  Homebrew Channel does for a program (caches, BATs, segments, HID4), clears
-  the BI2 pointer at `0x800000f4`, and jumps to the forwarder's entry with
-  translation on.
+  section there).
 - **vWii:** a Wii U boot program (BC-NAND) loads the DOL and jumps to its
-  entry field. So that field stays the forwarder's own (libogc's,
-  `0x80003f00`).
+  entry field, with translation on. It did not start the forwarder as the
+  boot program (770 KiB across low MEM1) at all: no line of its log was
+  ever written.
 
-Without the section, a Wii stayed on a black screen; with the entry field
-set to `0x3400`, as in retail Wii channels, a vWii did. Dolphin starts a
-channel either way, so it showed neither. The forwarder writes
-`Channel started` to `sd:/riftwii/channel.log` once it runs. `build-channel/forwarder.dol` itself keeps
-libogc's entry, so it still runs from the Homebrew Channel or Dolphin.
+So the boot program is small and laid out for both, as FIX94's vWii NAND
+loader (the one tools like WiiForwarder2vWii put into forwarders) and
+OpenDolBoot are: `channel/loader/start.S` at `0x80003400` as its first
+section, the entry field at `vwii_entry` just after it. Either way it sets
+the CPU up as the Homebrew Channel does for a program (caches, BATs,
+segments, HID4), clears the BI2 pointer at `0x800000f4` and runs
+`channel/loader/loader.c` at `0x80004000`, which uses no library: it opens
+`/dev/es` through the IPC registers, reads content 2 into MEM2
+(`0x91000000`), copies its sections into place and jumps to it. With no
+forwarder to start it goes back to the Wii Menu. `tools/make_channel.py`
+(`check_loader`) checks the layout.
+
+The forwarder is linked at `0x80100000`, above the boot program; the
+installer at the usual `0x80004000`; both below RiftWii (`0x80a00000` up).
+The forwarder writes `Channel started` to `sd:/riftwii/channel.log` once it
+runs, and `build-channel/forwarder.dol` still runs from the Homebrew
+Channel or Dolphin by itself.
+
+Dolphin starts NAND titles as a Wii does, so it tests the Wii path, not the
+vWii one. It also stalls on a boot program whose sections are not 32-byte
+sizes, which `channel/loader/loader.ld` pads as retail ones are.
 
 The installer reloads IOS 58 before it reads RiftWii back in: a reload
 overwrites the bottom of MEM2, where the file is read to.

@@ -1,15 +1,17 @@
-# Builds the RiftWii channel (docs/CHANNEL.md): the forwarder
-# (channel/forwarder), the package tools/make_channel.py makes of it and
-# its banner, and the installer app that carries that package
+# Builds the RiftWii channel (docs/CHANNEL.md): its boot program
+# (channel/loader), the forwarder (channel/forwarder) that one starts, the
+# package tools/make_channel.py makes of them and the banner, and the
+# installer app that carries that package
 # (channel/installer), build-channel/installer.dol. The release zip ships
 # the installer as apps/riftwii_channel; RiftWii itself carries none of it.
 #
 #   export DEVKITPRO=/opt/devkitpro DEVKITPPC=/opt/devkitpro/devkitPPC
 #   make -f Makefile.channel
 #
-# Both are linked where homebrew usually is (0x80004000), clear of RiftWii
-# (0x80a00000 up), which they start. tools/make_channel.py gives the
-# forwarder the entry a channel needs (channel_entry there).
+# The loader sits at 0x80003400-0x8000ffff, as small as the Wii and the
+# vWii both need; the forwarder is linked above it (0x80100000), the
+# installer where homebrew usually is (0x80004000); both below RiftWii
+# (0x80a00000 up), which they start.
 ifeq ($(strip $(DEVKITPPC)),)
 $(error "Please set DEVKITPPC in your environment. export DEVKITPPC=<path to>devkitPPC")
 endif
@@ -28,7 +30,7 @@ ART      := $(wildcard channel/art/*)
 
 CFLAGS   := -O2 -Wall -Wextra -Werror $(MACHDEP) -I$(OBJDIR) -Ichannel/common -I$(LIBOGC_INC)
 CXXFLAGS := $(CFLAGS) -std=gnu++17 -fno-exceptions -fno-rtti -Ivendor-bearssl/inc
-FWLD     := $(MACHDEP) -Wl,-Map,$(OUT)/forwarder.map
+FWLD     := $(MACHDEP) -Wl,-Map,$(OUT)/forwarder.map -Wl,--section-start,.init=0x80100000
 INSTLD   := $(MACHDEP) -Wl,-Map,$(OUT)/installer.map
 
 .PHONY: all clean bearssl
@@ -71,18 +73,32 @@ $(FWDOL): $(FWELF)
 	@echo output ... $(notdir $@)
 	@elf2dol $< $@
 
-# ---- the package: the forwarder and the banner (channel/art)
-# The channel's first code (channel/forwarder/start.S), as raw
-# instructions for tools/make_channel.py to put at 0x80003400.
-FWSTART  := $(OUT)/start.bin
+# ---- the loader: the channel's boot program, with no library
+LDRDOL   := $(OUT)/loader.dol
+LDRELF   := $(OUT)/loader.elf
+LDRFLAGS := -O2 -Wall -Wextra -Werror -mcpu=750 -meabi -mhard-float -mno-sdata \
+            -ffreestanding -fno-builtin -fno-tree-loop-distribute-patterns
 
-$(FWSTART): channel/forwarder/start.S | $(OBJDIR)
+$(OBJDIR)/ldr_start.o: channel/loader/start.S | $(OBJDIR)
 	@echo $(notdir $<)
-	@$(CC) $(MACHDEP) -x assembler-with-cpp -c $< -o $(OBJDIR)/fw_start.o
-	@$(OBJCOPY) -O binary -j .text $(OBJDIR)/fw_start.o $@
+	@$(CC) $(LDRFLAGS) -x assembler-with-cpp -c $< -o $@
 
-$(PACKAGE): $(FWDOL) $(FWSTART) tools/make_channel.py $(ART)
-	@$(PYTHON) tools/make_channel.py build $(FWDOL) $(FWSTART) channel/art $@
+$(OBJDIR)/ldr_loader.o: channel/loader/loader.c | $(OBJDIR)
+	@echo $(notdir $<)
+	@$(CC) $(LDRFLAGS) -c $< -o $@
+
+$(LDRELF): $(OBJDIR)/ldr_start.o $(OBJDIR)/ldr_loader.o channel/loader/loader.ld
+	@echo linking ... $(notdir $@)
+	@$(CC) $(LDRFLAGS) -nostartfiles -nostdlib -T channel/loader/loader.ld -Wl,-Map,$(OUT)/loader.map \
+		$(filter %.o,$^) -lgcc -o $@
+
+$(LDRDOL): $(LDRELF)
+	@echo output ... $(notdir $@)
+	@elf2dol $< $@
+
+# ---- the package: the loader, the forwarder and the banner (channel/art)
+$(PACKAGE): $(LDRDOL) $(FWDOL) tools/make_channel.py $(ART)
+	@$(PYTHON) tools/make_channel.py build $(LDRDOL) $(FWDOL) channel/art $@
 
 $(OBJDIR)/riftwii_channel_bin.o $(OBJDIR)/riftwii_channel_bin.h: $(PACKAGE) | $(OBJDIR)
 	@echo $(notdir $<)

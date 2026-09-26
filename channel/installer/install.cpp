@@ -22,11 +22,13 @@ namespace {
 
 // The package tools/make_channel.py writes: "RWCH", its format, the
 // title ID, the channel's version, the part count, then per part its
-// offset and size. The parts: the TMD, the ticket, content 0 (banner)
-// and content 1 (the forwarder), none encrypted or signed.
+// offset and size. The parts: the TMD, the ticket, then the contents:
+// 0 the banner, 1 the boot program (channel/loader), 2 the forwarder;
+// none encrypted or signed.
 constexpr u32 kPackageMagic = 0x52574348;
 constexpr u32 kPackageFormat = 1;
-constexpr u32 kParts = 4;
+constexpr u32 kContents = 3;
+constexpr u32 kParts = 2 + kContents;
 constexpr u32 kTmdHeader = 0x1E4;
 constexpr u32 kTmdContent = 0x24;
 constexpr u32 kTicketSize = 0x2A4;
@@ -78,7 +80,7 @@ bool parse(Package& out, std::string& error) {
         }
         out.parts[i] = {p + at, n};
     }
-    if (out.parts[0].size != kTmdHeader + 2 * kTmdContent || out.parts[1].size != kTicketSize ||
+    if (out.parts[0].size != kTmdHeader + kContents * kTmdContent || out.parts[1].size != kTicketSize ||
         out.title != RIFTWII_CHANNEL_TITLE || out.version != RIFTWII_CHANNEL_VERSION) {
         error = "the channel package in this installer is damaged";
         return false;
@@ -273,7 +275,7 @@ bool Install(std::string& error) {
             error = "ES_AddTitleStart: " + std::to_string(r);
             ok = false;
         } else {
-            ok = add_content(pkg.title, 0, 0, pkg.parts[2], error) && add_content(pkg.title, 1, 1, pkg.parts[3], error);
+            for (u32 i = 0; ok && i < kContents; ++i) ok = add_content(pkg.title, i, u16(i), pkg.parts[2 + i], error);
             const s32 f = ok ? ES_AddTitleFinish() : ES_AddTitleCancel();
             if (ok && f < 0) {
                 error = "ES_AddTitleFinish: " + std::to_string(f);
