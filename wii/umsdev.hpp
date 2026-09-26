@@ -26,8 +26,11 @@ bool Open(std::string& error);
 void Forget();
 // The open fd, or -1.
 int Fd();
-// Raw sectors into any buffer (through a MEM2 bounce buffer: d2x's USB
-// driver reads into MEM2 only).
+// The drive's sector size once open: 512 for a hard drive, 2048 for a
+// DVD in a USB DVD drive. Packs and RVZ games need 512 (Volume says so).
+std::uint32_t SectorBytes();
+// Raw sectors of SectorBytes() each into any buffer (through a MEM2
+// bounce buffer: d2x's USB driver reads into MEM2 only).
 bool Read(std::uint64_t sector, std::uint32_t count, std::uint8_t* out);
 // The drive's FAT32 volume, read through Read (Open first).
 bool Volume(const Fat32Volume*& out, std::string& error);

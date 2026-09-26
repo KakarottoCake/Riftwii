@@ -86,6 +86,17 @@ struct DiscRange {
 bool build_sparse_fragments(const UsbImage& file, const std::vector<DiscRange>& ranges, std::uint64_t disc_bytes,
                             D2xFragmentList& out, std::string& error);
 
+// A Wii disc burned as-is to a DVD and read in a USB DVD drive: the
+// drive's sectors are the disc's from sector 0, so the list is a single
+// fragment. d2x counts the list in the drive's own sectors (2048 bytes for
+// a DVD). `disc_end` is where the disc's data ends (disc_data_end); the
+// list is sized as a single-layer disc unless that lies past one layer,
+// and d2x reads the rest of the size as zeros.
+bool build_raw_disc_fragments(std::uint64_t disc_end, std::uint32_t sector_bytes, D2xFragmentList& out,
+                              std::string& error);
+// Where the data of the disc's last partition ends: all a game can read.
+bool disc_data_end(const ByteSource& disc, std::uint64_t& end, std::string& error);
+
 // Collects a split WBFS set from an in-memory directory listing: the primary
 // .wbfs plus consecutive .wbf1, .wbf2, ... pieces. A split set must be
 // consecutive, so a later piece may not silently hide a missing earlier one.

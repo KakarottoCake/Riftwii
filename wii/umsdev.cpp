@@ -19,10 +19,11 @@ constexpr s32 kUmsBase = ('U' << 24) | ('M' << 16) | ('S' << 8);
 constexpr s32 kInit = kUmsBase + 0x1;
 constexpr s32 kGetCapacity = kUmsBase + 0x2;
 constexpr s32 kReadSectors = kUmsBase + 0x3;
-constexpr std::uint32_t kSectorBytes = 512;
-constexpr std::uint32_t kBounceSectors = 64;  // 32 KiB per request
+constexpr std::uint32_t kFatSectorBytes = 512;  // packs and RVZ games
+constexpr std::uint32_t kBounceBytes = 32 * 1024;  // per request, as d2x reads
 
 s32 g_fd = -1;
+std::uint32_t g_sector_bytes = kFatSectorBytes;
 // A failed open is not retried under the same IOS; its reason is kept
 // for the later callers. An IOS reload clears both (Forget).
 bool g_failed = false;
@@ -66,17 +67,20 @@ bool Open(std::string& error) {
     const std::uint32_t sector_bytes = g_args[0];
     logf("USB (d2x): fd %d, init %d, %d sectors of %u bytes\n", static_cast<int>(g_fd), static_cast<int>(init),
          static_cast<int>(sectors), static_cast<unsigned>(sector_bytes));
-    if (init < 0 || sectors <= 0 || sector_bytes != kSectorBytes) {
+    // 512 for a hard drive or stick, 2048 for a DVD drive.
+    const bool size_ok = sector_bytes >= kFatSectorBytes && sector_bytes <= kBounceBytes &&
+                         (sector_bytes & (sector_bytes - 1)) == 0;
+    if (init < 0 || sectors <= 0 || !size_ok) {
         error = init < 0 || sectors <= 0 ? "the USB drive did not start through d2x (" + std::to_string(init) + ")"
-                                         : "the USB drive has " + std::to_string(sector_bytes) +
-                                               "-byte sectors; packs on it need 512";
+                                         : "the USB drive has " + std::to_string(sector_bytes) + "-byte sectors";
         IOS_Close(g_fd);
         g_fd = -1;
         g_failed = true;
         g_failure = error;
         return false;
     }
-    if (!g_bounce) g_bounce = skin::Mem2Alloc(kBounceSectors * kSectorBytes);
+    g_sector_bytes = sector_bytes;
+    if (!g_bounce) g_bounce = skin::Mem2Alloc(kBounceBytes);
     if (!g_bounce) {
         error = "no MEM2 left for the USB buffer";
         IOS_Close(g_fd);
@@ -96,10 +100,12 @@ void Forget() {
 
 int Fd() { return g_fd; }
 
+std::uint32_t SectorBytes() { return g_sector_bytes; }
+
 bool Read(std::uint64_t sector, std::uint32_t count, std::uint8_t* out) {
     if (g_fd < 0 || !g_bounce || sector > 0xFFFFFFFFull) return false;
     while (count > 0) {
-        const std::uint32_t n = std::min(count, kBounceSectors);
+        const std::uint32_t n = std::min(count, kBounceBytes / g_sector_bytes);
         g_args[0] = static_cast<std::uint32_t>(sector);
         g_args[1] = n;
         g_vec[0].data = &g_args[0];
@@ -107,13 +113,13 @@ bool Read(std::uint64_t sector, std::uint32_t count, std::uint8_t* out) {
         g_vec[1].data = &g_args[1];
         g_vec[1].len = 4;
         g_vec[2].data = g_bounce;
-        g_vec[2].len = n * kSectorBytes;
+        g_vec[2].len = n * g_sector_bytes;
         DCFlushRange(g_args, sizeof(g_args));
-        DCInvalidateRange(g_bounce, n * kSectorBytes);
+        DCInvalidateRange(g_bounce, n * g_sector_bytes);
         if (IOS_Ioctlv(g_fd, kReadSectors, 2, 1, g_vec) < 0) return false;
-        DCInvalidateRange(g_bounce, n * kSectorBytes);
-        std::memcpy(out, g_bounce, n * kSectorBytes);
-        out += n * kSectorBytes;
+        DCInvalidateRange(g_bounce, n * g_sector_bytes);
+        std::memcpy(out, g_bounce, n * g_sector_bytes);
+        out += n * g_sector_bytes;
         sector += n;
         count -= n;
     }
@@ -122,12 +128,16 @@ bool Read(std::uint64_t sector, std::uint32_t count, std::uint8_t* out) {
 
 bool Volume(const Fat32Volume*& out, std::string& error) {
     if (!Open(error)) return false;
+    if (g_sector_bytes != kFatSectorBytes) {
+        error = "the USB drive has " + std::to_string(g_sector_bytes) + "-byte sectors; packs on it need 512";
+        return false;
+    }
     if (!g_mounted) {
         if (!Fat32Volume::mount(&ReadBlocks, g_volume, error)) {
             error = "the USB drive has no FAT32 volume (packs on USB need FAT32): " + error;
             return false;
         }
-        if (g_volume.geometry().bytes_per_sector != kSectorBytes) {
+        if (g_volume.geometry().bytes_per_sector != kFatSectorBytes) {
             error = "the USB volume has " + std::to_string(g_volume.geometry().bytes_per_sector) + "-byte sectors";
             return false;
         }

@@ -131,8 +131,73 @@ bool is_mass_storage(const usb_device_entry& entry) {
     return storage;
 }
 
+// A USB DVD drive (2048-byte sectors) holding a Wii disc burned as-is:
+// the whole drive is the disc, listed as one game and handed to d2x as a
+// single fragment (riftwii/usbgame.hpp, build_raw_disc_fragments).
+bool g_usb_raw_disc = false;
+ImageGame g_usb_disc_game;
+
+// The drive's sectors as a disc, through libogc's driver.
+class UsbRawDisc final : public ByteSource {
+public:
+    std::uint64_t size() const override { return 0x230480000ull; }  // a dual-layer Wii disc
+    bool read(std::uint64_t offset, std::uint8_t* destination, std::size_t length) const override {
+        static std::uint8_t bounce[32 * 1024] ATTRIBUTE_ALIGN(32);
+        const std::uint32_t bytes = __io_usbstorage_sector_size;
+        if (bytes == 0 || bytes > sizeof(bounce)) return false;
+        while (length > 0) {
+            const std::uint64_t sector = offset / bytes;
+            const std::size_t skip = static_cast<std::size_t>(offset % bytes);
+            const std::uint32_t count = static_cast<std::uint32_t>(
+                std::min<std::uint64_t>((skip + length + bytes - 1) / bytes, sizeof(bounce) / bytes));
+            if (sector > 0xFFFFFFFFull || !usb_read_sectors(static_cast<sec_t>(sector), count, bounce)) return false;
+            const std::size_t take = std::min<std::size_t>(length, count * bytes - skip);
+            std::memcpy(destination, bounce + skip, take);
+            destination += take;
+            offset += take;
+            length -= take;
+        }
+        return true;
+    }
+};
+
+// A drive with sectors other than 512 bytes: a Wii disc burned to a DVD in
+// a USB DVD drive, or nothing RiftWii can use.
+bool open_usb_raw_disc(std::string& error) {
+    const std::uint32_t bytes = __io_usbstorage_sector_size;
+    const UsbRawDisc disc;
+    DiscHeader header;
+    std::string why;
+    if (!read_disc_header(disc, header, why) || !header.wii_magic) {
+        error = "the USB device has " + std::to_string(bytes) +
+                "-byte sectors and holds no Wii disc (a USB DVD drive plays a Wii game burned to the DVD as it is; "
+                "other drives need 512-byte sectors)";
+        return false;
+    }
+    std::uint64_t end = 0;
+    ImageGame game;
+    if (!disc_data_end(disc, end, why) || !build_raw_disc_fragments(end, bytes, game.fragments, why)) {
+        error = "the Wii disc in the USB DVD drive cannot be read: " + why;
+        return false;
+    }
+    game.device = ImageDevice::Usb;
+    game.path = "usb:/";
+    game.format = UsbImageFormat::Iso;
+    game.id = header.game_id;
+    game.title = header.title;
+    game.revision = header.version;
+    game.disc_number = header.disc_number;
+    game.checked = true;
+    logf("USB DVD: %s \"%s\", data to %llu MiB, %u sectors of %u bytes\n", game.id.c_str(), game.title.c_str(),
+         static_cast<unsigned long long>(end >> 20), static_cast<unsigned>(game.fragments.entries[0].count),
+         static_cast<unsigned>(bytes));
+    g_usb_disc_game = std::move(game);
+    g_usb_raw_disc = true;
+    return true;
+}
+
 bool ensure_usb(std::string& error) {
-    if (g_raw_mounted && g_usb_volume) return true;
+    if (g_raw_mounted && (g_usb_volume || g_usb_raw_disc)) return true;
     // libogc's storage driver and d2x each pick one drive, not always the
     // same one when two are plugged in, and the games then go missing or
     // read the wrong disk. Say so instead of failing somewhere later.
@@ -153,7 +218,22 @@ bool ensure_usb(std::string& error) {
     if (!__io_usbstorage.startup()) { error = "USB storage did not start (use a powered USB drive)"; return false; }
     g_usb_started = true;
     logf("USB: checking for a device\n");
-    if (!__io_usbstorage.isInserted()) { error = "no USB mass-storage device is inserted"; return false; }
+    if (!__io_usbstorage.isInserted()) {
+        // A DVD drive answers only once its disc has spun up.
+        // A LAN adapter lists as storage on IOS 58: only a real drive waits.
+        u8 any = 0;
+        bool drive = false;
+        if (USB_GetDeviceList(devices, 8, kUsbClassMassStorage, &any) >= 0) {
+            for (u8 i = 0; i < any && i < 8 && !drive; ++i) drive = is_mass_storage(devices[i]);
+        }
+        if (drive) {
+            for (int wait = 0; wait < 10 && !__io_usbstorage.isInserted(); ++wait) {
+                if (wait == 0) logf("USB: a device is plugged in but not ready; waiting up to 10 s\n");
+                usleep(1000000);
+            }
+        }
+        if (!__io_usbstorage.isInserted()) { error = "no USB mass-storage device is inserted"; return false; }
+    }
     // libfat's mount path performs the interface setup that populates the
     // storage capacity/sector-size state. It fails on NTFS, which is fine:
     // the drive is read raw below.
@@ -166,9 +246,12 @@ bool ensure_usb(std::string& error) {
     }
     logf("USB: %u-byte sectors\n", static_cast<unsigned>(__io_usbstorage_sector_size));
     if (__io_usbstorage_sector_size != 512) {
-        error = "USB device has " + std::to_string(__io_usbstorage_sector_size) + "-byte sectors; d2x fragment mode requires 512";
-        unmount_usb_games();
-        return false;
+        if (!open_usb_raw_disc(error)) {
+            unmount_usb_games();
+            return false;
+        }
+        g_raw_mounted = true;
+        return true;
     }
     if (!mount_image_volume(&usb_read, g_usb_volume, error)) {
         error = "USB has no readable FAT32 or NTFS volume: " + error;
@@ -709,6 +792,18 @@ bool slot_has_ticket(int slot) {
 
 bool scan_usb_games(ImageCatalog& out, std::string& error) {
     out = ImageCatalog{}; out.device = ImageDevice::Usb; if (!ensure_usb(error)) return false;
+    if (g_usb_raw_disc) {
+        out.games.push_back(g_usb_disc_game);
+        apply_titles(out);
+        out.status = "USB DVD drive: " + g_usb_disc_game.id;
+        logf("%s\n", out.status.c_str());
+        if (!running_in_dolphin()) {
+            const CiosSlotState slots[] = {{249, slot_has_ticket(249)}, {250, slot_has_ticket(250)}, {251, slot_has_ticket(251)}};
+            out.cios_note = cios_readiness_note(slots, 3);
+        }
+        error.clear();
+        return true;
+    }
     std::string failure; scan_dir(*g_usb_volume, "usb:/", ImageDevice::Usb, "usb:/wbfs", true, UsbImageFormat::Wbfs, out, failure); scan_dir(*g_usb_volume, "usb:/", ImageDevice::Usb, "usb:/games", false, UsbImageFormat::Iso, out, failure);
     apply_titles(out);
     out.status = out.games.empty() ? (failure.empty() ? std::string("No valid Wii images under usb:/wbfs or usb:/games on the ") + g_usb_volume->kind() + " drive" : "No valid USB images: " + failure) : "USB: " + std::to_string(out.games.size()) + " valid game(s)";
@@ -740,7 +835,7 @@ bool scan_sd_games(ImageCatalog& out, std::string& error) {
     }
     error.clear(); return true;
 }
-void unmount_usb_games() { if (g_libfat_mounted) fatUnmount("usb:"); g_libfat_mounted=false; g_raw_mounted=false; g_usb_volume.reset(); }
+void unmount_usb_games() { if (g_libfat_mounted) fatUnmount("usb:"); g_libfat_mounted=false; g_raw_mounted=false; g_usb_volume.reset(); g_usb_raw_disc=false; }
 void release_usb_driver() {
     unmount_usb_games();
     if (g_usb_started) __io_usbstorage.shutdown();
@@ -801,7 +896,7 @@ void log_d2x_usb_view(const D2xFragmentList& list) {
              static_cast<unsigned>(f.offset), static_cast<unsigned>(f.count), static_cast<unsigned>(f.sector));
     }
     if (list.entries.empty()) return;
-    static std::uint8_t first[512] ATTRIBUTE_ALIGN(32);
+    static std::uint8_t first[32 * 1024] ATTRIBUTE_ALIGN(32);  // one sector of any size
     bool read = false;
     for (int attempt = 1; attempt <= 20 && !read; ++attempt) {
         std::string why;

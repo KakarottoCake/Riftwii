@@ -498,9 +498,55 @@ void test_sparse_fragments() {
     EXPECT_FALSE(build_sparse_fragments(stub, {{0x118240000ull, 0, 0x200}}, 0x118240000ull, list, error));
 }
 
+// A Wii disc burned to a DVD in a USB DVD drive: one fragment in the
+// drive's 2048-byte sectors, sized by where the last partition ends.
+void test_raw_disc_fragments() {
+    constexpr std::uint64_t kDual = 143432ull * 2 * 0x8000;
+    constexpr std::uint64_t kSingle = 143432ull * 0x8000;
+    constexpr std::uint64_t kPart = 0xF800000;
+    const auto disc = [&](std::uint64_t data_size) {
+        std::vector<std::uint8_t> table(0x28, 0);
+        be32(table, 0x00, 1);                 // group 0: one partition
+        be32(table, 0x04, (0x40000 + 0x20) >> 2);
+        be32(table, 0x20, static_cast<std::uint32_t>(kPart >> 2));
+        be32(table, 0x24, 0);                 // a game partition
+        std::vector<std::uint8_t> header(0x2C0, 0);
+        be32(header, 0x2A4, 0x208);           // TMD size
+        be32(header, 0x2A8, 0x2C0 >> 2);
+        be32(header, 0x2B8, 0x20000 >> 2);    // data offset
+        be32(header, 0x2BC, static_cast<std::uint32_t>(data_size >> 2));
+        return SparseSource(kDual, {{0x40000, table}, {kPart, header}});
+    };
+    std::string error;
+    std::uint64_t end = 0;
+    EXPECT_TRUE(disc_data_end(disc(0x100000000ull), end, error));
+    EXPECT_EQ(end, kPart + 0x20000 + 0x100000000ull);
+    D2xFragmentList list;
+    EXPECT_TRUE(build_raw_disc_fragments(end, 2048, list, error));
+    EXPECT_EQ(list.size, static_cast<std::uint32_t>(kSingle / 2048));
+    EXPECT_EQ(list.num, 1u);
+    EXPECT_EQ(list.entries[0].offset, 0u);
+    EXPECT_EQ(list.entries[0].sector, 0u);
+    EXPECT_EQ(list.entries[0].count, static_cast<std::uint32_t>((end + 2047) / 2048));
+    std::vector<std::uint8_t> bytes;
+    EXPECT_TRUE(list.encode(bytes, error));
+    // Past one layer: sized as two.
+    EXPECT_TRUE(disc_data_end(disc(0x200000000ull), end, error));
+    EXPECT_TRUE(build_raw_disc_fragments(end, 2048, list, error));
+    EXPECT_EQ(list.size, static_cast<std::uint32_t>(kDual / 2048));
+    // A hard drive's sectors work the same way.
+    EXPECT_TRUE(build_raw_disc_fragments(kSingle, 512, list, error));
+    EXPECT_EQ(list.entries[0].count, static_cast<std::uint32_t>(kSingle / 512));
+    EXPECT_EQ(list.size, static_cast<std::uint32_t>(kSingle / 512));
+    EXPECT_FALSE(build_raw_disc_fragments(end, 3000, list, error));
+    EXPECT_FALSE(build_raw_disc_fragments(0, 2048, list, error));
+    EXPECT_FALSE(build_raw_disc_fragments(kDual + 1, 2048, list, error));
+}
+
 }  // namespace
 
 int main() {
+    test_raw_disc_fragments();
     test_sparse_fragments();
     test_basic();
     test_large_iso();

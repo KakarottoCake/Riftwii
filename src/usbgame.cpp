@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/usbgame.hpp"
 
+#include "riftwii/disc.hpp"
+
 #include <algorithm>
 #include <cstring>
 #include <limits>
@@ -316,6 +318,41 @@ bool build_usb_fragments(const UsbImage& image, D2xFragmentList& out, std::strin
     if (!build_map(image, raw, sectors, error) || !validate_fragments(raw, sectors, checked, error)) return false;
     out.size = static_cast<std::uint32_t>(sectors); out.num = static_cast<std::uint32_t>(checked.size());
     out.maxnum = kD2xFragmentLimit; out.entries = std::move(checked); error.clear(); return true;
+}
+
+bool build_raw_disc_fragments(std::uint64_t disc_end, std::uint32_t sector_bytes, D2xFragmentList& out,
+                              std::string& error) {
+    if (sector_bytes < kUsbSectorBytes || sector_bytes > 0x8000 || (sector_bytes & (sector_bytes - 1)) != 0) {
+        error = "the drive's " + std::to_string(sector_bytes) + "-byte sectors are not supported";
+        return false;
+    }
+    if (disc_end == 0 || disc_end > kWiiDiscBytes) {
+        error = "the disc's data does not end inside a Wii disc";
+        return false;
+    }
+    const std::uint64_t size = (disc_end > kSingleLayerBytes ? kWiiDiscBytes : kSingleLayerBytes) / sector_bytes;
+    const std::uint64_t count = std::min<std::uint64_t>((disc_end + sector_bytes - 1) / sector_bytes, size);
+    std::vector<D2xFragment> raw{D2xFragment{0, 0, static_cast<std::uint32_t>(count)}}, checked;
+    if (!validate_fragments(raw, size, checked, error)) return false;
+    out.size = static_cast<std::uint32_t>(size);
+    out.num = static_cast<std::uint32_t>(checked.size());
+    out.maxnum = kD2xFragmentLimit;
+    out.entries = std::move(checked);
+    error.clear();
+    return true;
+}
+
+bool disc_data_end(const ByteSource& disc, std::uint64_t& end, std::string& error) {
+    std::vector<PartitionEntry> table;
+    if (!read_partition_table(disc, table, error)) return false;
+    end = 0;
+    for (const PartitionEntry& e : table) {
+        PartitionHeader header;
+        if (!read_partition_header(disc, e.offset, header, error)) return false;
+        end = std::max(end, header.data_offset + header.data_size);
+    }
+    error.clear();
+    return true;
 }
 
 bool build_sparse_fragments(const UsbImage& file, const std::vector<DiscRange>& ranges, std::uint64_t disc_bytes,

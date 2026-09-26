@@ -185,6 +185,21 @@ that session. d2x reads the burn as a plain DVD, and the game then
 starts as from any disc, mods included. With the menu IOS set to a d2x
 slot in Settings, burned discs work straight away.
 
+### USB DVD drives (experimental)
+
+On a Wii whose own drive cannot read burned discs, a USB DVD drive can:
+burn the game's `.iso` as it is to a DVD-R or DVD+R, put it in the drive
+and plug the drive in instead of a USB hard drive (d2x uses one USB
+device at a time). RiftWii lists the disc among the USB games and d2x
+plays it straight from the drive, mods included. Pressed Nintendo discs
+do not work: computer DVD drives cannot read them.
+
+Most USB DVD drives need more power than one Wii USB port gives: use a
+drive with a Y-cable in both ports (the data plug in port 0, the one on
+the edge of the Wii) or one with its own power supply. Expect disc-like
+loading, a little slower on seeks. d2x reads the drive every 10 seconds
+while it is idle, so it does not go to sleep mid-game.
+
 ### Network packs (RiiFS)
 
 Packs can come from a PC running a RiiFS server, as with Riivolution.
