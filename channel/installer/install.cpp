@@ -14,21 +14,27 @@
 
 #include <bearssl.h>
 
-#include "riftwii_channel_bin.h"
 #include "riftwii_channel_info.h"
+#include "riftwii_channel_vwii_bin.h"
+#include "riftwii_channel_wii_bin.h"
 
 namespace installer {
 namespace {
 
 // The package tools/make_channel.py writes: "RWCH", its format, the
 // title ID, the channel's version, the part count, then per part its
-// offset and size. The parts: the TMD, the ticket, then the contents:
-// 0 the banner, 1 the boot program (channel/loader), 2 the forwarder;
-// none encrypted or signed.
+// offset and size. The parts: the TMD, the ticket, then the contents,
+// none encrypted or signed. There are two packages, as a Wii and a vWii
+// start a channel differently (docs/CHANNEL.md):
+// - vWii: 0 the banner, 1 the boot program (channel/loader), 2 the
+//   forwarder;
+// - Wii: 0 the banner, 1 the forwarder with its start at 0x80003400.
 constexpr u32 kPackageMagic = 0x52574348;
 constexpr u32 kPackageFormat = 1;
-constexpr u32 kContents = 3;
-constexpr u32 kParts = 2 + kContents;
+constexpr u32 kMaxContents = 3;
+constexpr u32 kMaxParts = 2 + kMaxContents;
+// A vWii has the Wii U's boot program for channels, BC-NAND; a Wii never.
+constexpr u64 kBcNand = 0x0000000100000200ull;
 constexpr u32 kTmdHeader = 0x1E4;
 constexpr u32 kTmdContent = 0x24;
 constexpr u32 kTicketSize = 0x2A4;
@@ -58,21 +64,25 @@ struct Part {
 struct Package {
     u64 title = 0;
     u32 version = 0;
-    Part parts[kParts];
+    u32 contents = 0;
+    Part parts[kMaxParts];
 };
 
-// The package is built into this program (Makefile.channel).
+// Both packages are built into this program (Makefile.channel).
 bool parse(Package& out, std::string& error) {
-    const u32 size = riftwii_channel_bin_size;
-    const u8* p = riftwii_channel_bin;
-    if (size < 0x20 + 8 * kParts || be32(p) != kPackageMagic || be32(p + 4) != kPackageFormat ||
-        be32(p + 0x14) != kParts) {
+    const bool vwii = installer::OnVWii();
+    const u32 size = vwii ? riftwii_channel_vwii_bin_size : riftwii_channel_wii_bin_size;
+    const u8* p = vwii ? riftwii_channel_vwii_bin : riftwii_channel_wii_bin;
+    const u32 parts = size >= 0x20 ? be32(p + 0x14) : 0;
+    if (size < 0x20 + 8 * kMaxParts || be32(p) != kPackageMagic || be32(p + 4) != kPackageFormat ||
+        parts < 3 || parts > kMaxParts) {
         error = "the channel package in this installer is damaged";
         return false;
     }
     out.title = be64(p + 8);
     out.version = be32(p + 0x10);
-    for (u32 i = 0; i < kParts; ++i) {
+    out.contents = parts - 2;
+    for (u32 i = 0; i < parts; ++i) {
         const u32 at = be32(p + 0x18 + 8 * i), n = be32(p + 0x1C + 8 * i);
         if (at > size || n > size - at) {
             error = "the channel package in this installer is damaged";
@@ -80,7 +90,7 @@ bool parse(Package& out, std::string& error) {
         }
         out.parts[i] = {p + at, n};
     }
-    if (out.parts[0].size != kTmdHeader + kContents * kTmdContent || out.parts[1].size != kTicketSize ||
+    if (out.parts[0].size != kTmdHeader + out.contents * kTmdContent || out.parts[1].size != kTicketSize ||
         out.title != RIFTWII_CHANNEL_TITLE || out.version != RIFTWII_CHANNEL_VERSION) {
         error = "the channel package in this installer is damaged";
         return false;
@@ -229,6 +239,11 @@ bool delete_tickets(u64 title, std::string& error) {
 
 unsigned PackageVersion() { return RIFTWII_CHANNEL_VERSION; }
 
+bool OnVWii() {
+    u32 contents = 0;
+    return ES_GetTitleContentsCount(kBcNand, &contents) >= 0 && contents > 0;
+}
+
 namespace {
 
 bool installed_as(u64 title, unsigned& version) {
@@ -263,7 +278,7 @@ bool Installed(unsigned& version) {
 
 bool Install(std::string& error) {
     Package pkg;
-    Log("Installing the channel, version %u\n", PackageVersion());
+    Log("Installing the channel, version %u, for a %s\n", PackageVersion(), OnVWii() ? "vWii" : "Wii");
     bool ok = parse(pkg, error);
     Buffer certs;
     u32 certs_size = 0;
@@ -294,7 +309,7 @@ bool Install(std::string& error) {
             error = "ES_AddTitleStart: " + std::to_string(r);
             ok = false;
         } else {
-            for (u32 i = 0; ok && i < kContents; ++i) ok = add_content(pkg.title, i, u16(i), pkg.parts[2 + i], error);
+            for (u32 i = 0; ok && i < pkg.contents; ++i) ok = add_content(pkg.title, i, u16(i), pkg.parts[2 + i], error);
             const s32 f = ok ? ES_AddTitleFinish() : ES_AddTitleCancel();
             if (ok && f < 0) {
                 error = "ES_AddTitleFinish: " + std::to_string(f);

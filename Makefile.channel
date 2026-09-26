@@ -8,10 +8,13 @@
 #   export DEVKITPRO=/opt/devkitpro DEVKITPPC=/opt/devkitpro/devkitPPC
 #   make -f Makefile.channel
 #
-# The loader sits at 0x80003400-0x8000ffff, as small as the Wii and the
-# vWii both need; the forwarder is linked above it (0x80100000), the
-# installer where homebrew usually is (0x80004000); both below RiftWii
-# (0x80a00000 up), which they start.
+# A Wii and a vWii start a channel differently (docs/CHANNEL.md), and the
+# channel comes in two packages, which the installer picks between:
+# - vWii: the loader (0x80003400-0x8000ffff) starts the forwarder, linked
+#   above it (0x80100000);
+# - Wii: the forwarder is the boot program, linked where homebrew usually
+#   is (0x80004000), with channel/forwarder/start.S added at 0x80003400.
+# The installer is at 0x80004000 too; all below RiftWii (0x80a00000 up).
 ifeq ($(strip $(DEVKITPPC)),)
 $(error "Please set DEVKITPPC in your environment. export DEVKITPPC=<path to>devkitPPC")
 endif
@@ -22,7 +25,10 @@ OUT      := build-channel
 OBJDIR   := $(OUT)/obj
 FWDOL    := $(OUT)/forwarder.dol
 FWELF    := $(OUT)/forwarder.elf
-PACKAGE  := $(OUT)/riftwii_channel.bin
+FWWIIDOL := $(OUT)/forwarder_wii.dol
+FWWIIELF := $(OUT)/forwarder_wii.elf
+FWSTART  := $(OUT)/start.bin
+PACKAGES := $(OUT)/riftwii_channel_vwii.bin $(OUT)/riftwii_channel_wii.bin
 INSTDOL  := $(OUT)/installer.dol
 INSTELF  := $(OUT)/installer.elf
 PYTHON   ?= python3
@@ -31,6 +37,7 @@ ART      := $(wildcard channel/art/*)
 CFLAGS   := -O2 -Wall -Wextra -Werror $(MACHDEP) -I$(OBJDIR) -Ichannel/common -I$(LIBOGC_INC)
 CXXFLAGS := $(CFLAGS) -std=gnu++17 -fno-exceptions -fno-rtti -Ivendor-bearssl/inc
 FWLD     := $(MACHDEP) -Wl,-Map,$(OUT)/forwarder.map -Wl,--section-start,.init=0x80100000
+FWWIILD  := $(MACHDEP) -Wl,-Map,$(OUT)/forwarder_wii.map
 INSTLD   := $(MACHDEP) -Wl,-Map,$(OUT)/installer.map
 
 .PHONY: all clean bearssl
@@ -73,6 +80,21 @@ $(FWDOL): $(FWELF)
 	@echo output ... $(notdir $@)
 	@elf2dol $< $@
 
+$(FWWIIELF): $(OBJDIR)/fw_main.o $(OBJDIR)/dolboot.o $(SPLASHO)
+	@echo linking ... $(notdir $@)
+	@$(CC) $(FWWIILD) $^ -L$(LIBOGC_LIB) -lfat -logc -lm -o $@
+
+$(FWWIIDOL): $(FWWIIELF)
+	@echo output ... $(notdir $@)
+	@elf2dol $< $@
+
+# The Wii forwarder's first code (channel/forwarder/start.S), as raw
+# instructions for tools/make_channel.py to put at 0x80003400.
+$(FWSTART): channel/forwarder/start.S | $(OBJDIR)
+	@echo $(notdir $<)
+	@$(CC) $(MACHDEP) -x assembler-with-cpp -c $< -o $(OBJDIR)/fw_start.o
+	@$(OBJCOPY) -O binary -j .text $(OBJDIR)/fw_start.o $@
+
 # ---- the loader: the channel's boot program, with no library
 LDRDOL   := $(OUT)/loader.dol
 LDRELF   := $(OUT)/loader.elf
@@ -96,13 +118,14 @@ $(LDRDOL): $(LDRELF)
 	@echo output ... $(notdir $@)
 	@elf2dol $< $@
 
-# ---- the package: the loader, the forwarder and the banner (channel/art)
-$(PACKAGE): $(LDRDOL) $(FWDOL) tools/make_channel.py $(ART)
-	@$(PYTHON) tools/make_channel.py build $(LDRDOL) $(FWDOL) channel/art $@
+# ---- the packages: the banner (channel/art) and, for a vWii, the loader
+# and the forwarder, for a Wii the forwarder with start.S
+$(PACKAGES) &: $(LDRDOL) $(FWDOL) $(FWSTART) $(FWWIIDOL) tools/make_channel.py $(ART)
+	@$(PYTHON) tools/make_channel.py build $(LDRDOL) $(FWDOL) $(FWSTART) $(FWWIIDOL) channel/art $(OUT)
 
-$(OBJDIR)/riftwii_channel_bin.o $(OBJDIR)/riftwii_channel_bin.h: $(PACKAGE) | $(OBJDIR)
+$(OBJDIR)/riftwii_channel_%_bin.o $(OBJDIR)/riftwii_channel_%_bin.h: $(OUT)/riftwii_channel_%.bin | $(OBJDIR)
 	@echo $(notdir $<)
-	@cd $(OBJDIR) && cp ../riftwii_channel.bin . && bin2s -a 32 -H riftwii_channel_bin.h riftwii_channel.bin | $(AS) -o riftwii_channel_bin.o
+	@cd $(OBJDIR) && cp ../riftwii_channel_$*.bin . && bin2s -a 32 -H riftwii_channel_$*_bin.h riftwii_channel_$*.bin | $(AS) -o riftwii_channel_$*_bin.o
 
 # ---- the installer
 bearssl:
@@ -112,11 +135,11 @@ $(OBJDIR)/inst_main.o: channel/installer/main.cpp channel/installer/install.hpp 
 	@echo $(notdir $<)
 	@$(CXX) $(CXXFLAGS) -c $< -o $@
 
-$(OBJDIR)/install.o: channel/installer/install.cpp channel/installer/install.hpp $(OBJDIR)/riftwii_channel_bin.h | $(OBJDIR)
+$(OBJDIR)/install.o: channel/installer/install.cpp channel/installer/install.hpp $(OBJDIR)/riftwii_channel_vwii_bin.h $(OBJDIR)/riftwii_channel_wii_bin.h | $(OBJDIR)
 	@echo $(notdir $<)
 	@$(CXX) $(CXXFLAGS) -I$(OUT) -c $< -o $@
 
-$(INSTELF): $(OBJDIR)/inst_main.o $(OBJDIR)/install.o $(OBJDIR)/dolboot.o $(OBJDIR)/riftwii_channel_bin.o bearssl
+$(INSTELF): $(OBJDIR)/inst_main.o $(OBJDIR)/install.o $(OBJDIR)/dolboot.o $(OBJDIR)/riftwii_channel_vwii_bin.o $(OBJDIR)/riftwii_channel_wii_bin.o bearssl
 	@echo linking ... $(notdir $@)
 	@$(CXX) $(INSTLD) $(filter %.o,$^) -L$(LIBOGC_LIB) -Lbuild-bearssl -lbearssl -lwiiuse -lbte -lfat -logc -lm -o $@
 
