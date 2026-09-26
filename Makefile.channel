@@ -7,10 +7,10 @@
 #   export DEVKITPRO=/opt/devkitpro DEVKITPPC=/opt/devkitpro/devkitPPC
 #   make -f Makefile.channel
 #
-# The forwarder is linked at 0x81300000: RiftWii loads at 0x80a00000 and
-# ordinary homebrew at 0x80004000, and the forwarder copies either into
-# place while it runs. The installer is linked where homebrew usually is,
-# clear of RiftWii, which it starts again when it closes.
+# Both are linked where homebrew usually is (0x80004000), clear of RiftWii
+# (0x80a00000 up), which they start. The forwarder was first linked high
+# in MEM1 (0x81300000): it started from a DOL but not as a channel, where
+# the Wii stayed on a black screen.
 ifeq ($(strip $(DEVKITPPC)),)
 $(error "Please set DEVKITPPC in your environment. export DEVKITPPC=<path to>devkitPPC")
 endif
@@ -29,7 +29,7 @@ ART      := $(wildcard channel/art/*)
 
 CFLAGS   := -O2 -Wall -Wextra -Werror $(MACHDEP) -I$(OBJDIR) -Ichannel/common -I$(LIBOGC_INC)
 CXXFLAGS := $(CFLAGS) -std=gnu++17 -fno-exceptions -fno-rtti -Ivendor-bearssl/inc
-FWLD     := $(MACHDEP) -Wl,--section-start,.init=0x81300000 -Wl,-Map,$(OUT)/forwarder.map
+FWLD     := $(MACHDEP) -Wl,-Map,$(OUT)/forwarder.map
 INSTLD   := $(MACHDEP) -Wl,-Map,$(OUT)/installer.map
 
 .PHONY: all clean bearssl

@@ -34,9 +34,13 @@ two contents:
 - **0**, the banner: the icon, banner and sound shown in the Wii Menu.
 - **1**, the forwarder.
 
-The forwarder is linked at `0x81300000`, clear of RiftWii (`0x80a00000` up)
-and of ordinary homebrew (`0x80004000` up). The installer is linked at the
-usual `0x80004000`, clear of RiftWii.
+The forwarder and the installer are linked at the usual `0x80004000`, clear
+of RiftWii (`0x80a00000` up). (Linked high in MEM1, at `0x81300000`, the
+forwarder ran from a DOL but left a real Wii on a black screen as a
+channel.)
+
+The installer reloads IOS 58 before it reads RiftWii back in: a reload
+overwrites the bottom of MEM2, where the file is read to.
 
 ## The banner
 

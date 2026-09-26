@@ -7,8 +7,8 @@
 // apps/riftwii/boot.dol, and the channel starts whatever is there.
 //
 // The DOL is read whole into MEM2, then copied into place by the code
-// below. This program is linked high in MEM1 (see Makefile.forwarder), clear
-// of RiftWii (0x80a00000 up) and of ordinary homebrew (0x80004000 up).
+// in channel/common/dolboot.c. This program is linked where homebrew
+// usually is (0x80004000), clear of RiftWii (0x80a00000 up).
 
 #include <gccore.h>
 #include <fat.h>
