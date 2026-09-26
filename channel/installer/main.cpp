@@ -119,24 +119,32 @@ void screen(const std::string& status, const std::string& note) {
 
 void leave() {
     installer::Log("Leaving\n");
+    const bool back = riftwii_on_card();
     WPAD_Shutdown();
-    if (riftwii_on_card()) {
-        u32 size = 0;
-        u8* dol = dolboot_read(kRiftWii, &size, [](u32 n) -> void* {
-            // MEM2, off the arena directly: RiftWii lands in MEM1.
-            const u32 lo = (reinterpret_cast<u32>(SYS_GetArena2Lo()) + 31) & ~31u;
-            if (lo + n > reinterpret_cast<u32>(SYS_GetArena2Hi())) return nullptr;
-            SYS_SetArena2Lo(reinterpret_cast<void*>(lo + ((n + 31) & ~31u)));
-            return reinterpret_cast<void*>(lo);
-        });
-        if (dol && dolboot_valid(dol, size)) {
+    if (g_sd) {
+        fatUnmount("sd:");
+        __io_wiisd.shutdown();
+        g_sd = false;
+    }
+    if (back) {
+        // IOS 58 first, as the Homebrew Channel starts RiftWii, and only
+        // then RiftWii read: a reload overwrites the bottom of MEM2, where
+        // it is read to (RiftWii came back with its code damaged).
+        IOS_ReloadIOS(58);
+        if (fatMountSimple("sd", &__io_wiisd)) {
+            u32 size = 0;
+            u8* dol = dolboot_read(kRiftWii, &size, [](u32 n) -> void* {
+                // MEM2, off the arena directly: RiftWii lands in MEM1.
+                const u32 lo = (reinterpret_cast<u32>(SYS_GetArena2Lo()) + 31) & ~31u;
+                if (lo + n > reinterpret_cast<u32>(SYS_GetArena2Hi())) return nullptr;
+                SYS_SetArena2Lo(reinterpret_cast<void*>(lo + ((n + 31) & ~31u)));
+                return reinterpret_cast<void*>(lo);
+            });
             fatUnmount("sd:");
             __io_wiisd.shutdown();
-            IOS_ReloadIOS(58);  // as the Homebrew Channel starts it
-            dolboot_run(dol, kRiftWii);
+            if (dol && dolboot_valid(dol, size)) dolboot_run(dol, kRiftWii);
         }
     }
-    if (g_sd) fatUnmount("sd:");
     std::exit(0);  // back to the Homebrew Channel
 }
 
