@@ -4,10 +4,11 @@
 Wii Menu banner, icon and sound (content 0), the forwarder (content 1),
 and the TMD and ticket RiftWii installs them with.
 
-    make_channel.py build <forwarder.dol> <art dir> <out.bin> [dir]
-        the package wii/channel.cpp installs, and beside it
-        riftwii_channel_info.h (its title ID and version, for the menu);
-        a fourth argument also writes the banner (00000000.app) there
+    make_channel.py build <forwarder.dol> <start.bin> <art dir> <out.bin> [dir]
+        the package the installer (channel/installer) carries, and beside
+        it riftwii_channel_info.h (its title ID and version); start.bin is
+        channel/forwarder/start.S assembled; a fifth argument also writes
+        the banner (00000000.app) there
 
 Nothing here is encrypted or signed: the console does that when RiftWii
 installs the channel. The formats (U8, IMD5, LZ77, TPL, BRLYT, BRLAN,
@@ -25,7 +26,7 @@ import sys
 import zlib
 
 TITLE_ID = 0x0001000152465457  # 00010001-RFTW
-TITLE_VERSION = 3  # 2: a channel entry (channel_entry); 3: laid out as on every loader
+TITLE_VERSION = 4  # 2-3: a start at 0x3400; 4: the entry field for the vWii (channel_entry)
 IOS = 58
 CHANNEL_NAME = "RiftWii"
 
@@ -824,23 +825,24 @@ def opening(banner, icon, sound):
 ENTRY_AT = 0x80003400
 
 
-def channel_entry(dol):
-    """The forwarder's DOL as a channel's boot content. The Wii starts a
-    channel's program at the DOL's entry point with address translation
-    off, so the entry must be a physical address: every retail channel's
-    is 0x3400, with a small text section at 0x80003400. From the
-    Homebrew Channel a DOL starts with translation on (libogc's entry,
-    0x80003f00), and Dolphin starts a channel that way too; on a Wii
-    that entry left a black screen.
+def channel_entry(dol, start):
+    """The forwarder's DOL as a channel's boot content, for a Wii and a
+    vWii, which start it differently:
 
-    This adds a text section at 0x80003400 and makes 0x3400 the entry.
-    It is the first text section, as in retail channels and in the
-    loaders that run on both a Wii and a vWii (the Homebrew Channel's
-    channel stub, OpenDolBoot). In real mode it clears the BI2 pointer
-    at 0x800000f4, as OpenDolBoot does (nothing was booted from a disc),
-    then branches (relative, so real mode is fine) to the DOL's own
-    entry. libogc's start code sets up the BATs and caches itself, on a
-    Wii and a vWii, before it turns translation on."""
+    - A Wii starts a channel's program at 0x3400 with address translation
+      off, whatever the DOL's entry field says. So the first text section
+      is `start` (channel/forwarder/start.S) at 0x80003400: it sets the
+      CPU up as the Homebrew Channel does for a program, then jumps to
+      the forwarder's entry with translation on.
+    - A vWii loads the DOL with a boot program of the Wii U's (BC-NAND),
+      which then jumps to the DOL's entry field. So that field stays the
+      forwarder's own entry (libogc's, 0x80003f00), as OpenDolBoot and
+      the Homebrew Channel's channel stub leave it. (Set to 0x3400, as
+      in retail Wii channels, the vWii stayed on a black screen.)
+
+    Dolphin starts a channel either way, so it never showed either."""
+    if len(start) < 12 or start[4:8] != b"RFTW" or start[8:12] != bytes(4):
+        sys.exit("forwarder: start.bin is not channel/forwarder/start.S")
     d = bytearray(dol)
     offsets = list(struct.unpack_from(">18I", d, 0x00))
     starts = list(struct.unpack_from(">18I", d, 0x48))
@@ -855,12 +857,9 @@ def channel_entry(dol):
         sys.exit(f"forwarder: the bss covers {ENTRY_AT:08x}")
     if sizes[6]:
         sys.exit("forwarder: no free text section")
-    code = [
-        0x38000000,  # li   r0, 0
-        0x900000F4,  # stw  r0, 0xf4(0)
-        0x48000000 | ((entry - (ENTRY_AT + 8)) & 0x03FFFFFC),  # b entry
-    ]
-    stub = struct.pack(">3I", *code) + bytes(20)
+    stub = bytearray(start)
+    struct.pack_into(">I", stub, 8, entry)  # start.S's `entry`
+    stub += bytes(-len(stub) % 32)
     d += bytes(-len(d) % 32)
     for table in (offsets, starts, sizes):
         table[0:7] = [0] + table[0:6]
@@ -869,8 +868,7 @@ def channel_entry(dol):
     struct.pack_into(">18I", d, 0x00, *offsets)
     struct.pack_into(">18I", d, 0x48, *starts)
     struct.pack_into(">18I", d, 0x90, *sizes)
-    struct.pack_into(">I", d, 0xE0, ENTRY_AT & 0x3FFFFFFF)
-    return bytes(d)
+    return bytes(d)  # the entry field stays the forwarder's, for the vWii
 
 
 # -------------------------------------------------------- TMD and ticket ----
@@ -914,8 +912,9 @@ def package(contents):
 
 
 def main(argv):
-    if len(argv) in (5, 6) and argv[1] == "build":
-        forwarder = channel_entry(open(argv[2], "rb").read())
+    if len(argv) in (6, 7) and argv[1] == "build":
+        forwarder = channel_entry(open(argv[2], "rb").read(), open(argv[3], "rb").read())
+        argv = argv[:2] + argv[3:]
         banner, icon = banner_art(argv[3])
         app0 = opening(banner, icon, bns(*banner_sound()))
         blob = package([app0, forwarder])

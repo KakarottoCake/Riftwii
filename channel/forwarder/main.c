@@ -205,6 +205,13 @@ int main(void) {
     const char* path = NULL;
     for (int i = 0; i < 2 && !dol; ++i) {
         if (!mount(i)) continue;
+        if (i == 0) {  // that the channel got this far, in the installer's log
+            FILE* log = fopen("sd:/riftwii/channel.log", "a");
+            if (log) {
+                fprintf(log, "Channel started, IOS%d\n", IOS_GetVersion());
+                fclose(log);
+            }
+        }
         dol = dolboot_read(kPaths[i], &size, mem2);
         if (dol) path = kPaths[i];
         unmount(i);
