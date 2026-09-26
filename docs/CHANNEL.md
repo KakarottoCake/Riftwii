@@ -28,7 +28,7 @@ The installer adds, updates or removes the channel. It needs a d2x cIOS in slot
 249, 250 or 251, which it switches to first. What it does is logged to
 `sd:/riftwii/channel.log`.
 
-The channel is title `00010001-52465457` (`RFTW`), runs under IOS 58, and has
+The channel is title `00010001-55465457` (`UFTW`), runs under IOS 58, and has
 three contents:
 
 - **0**, the banner: the icon, banner and sound shown in the Wii Menu.
