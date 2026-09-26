@@ -32,6 +32,7 @@ extern Tex coverTile, coverTileOver;     // 80x112 cover tiles, drawn at -7,-7
 extern Tex roundBtn, roundBtnOver;       // 76 round buttons, drawn at -2,-2
 extern Tex pill, pillOver;               // 244x52 buttons, drawn at -4,-4
 extern Tex pillPrimary, pillPrimaryOver;
+extern Tex homeBtn, homeBtnOver;        // 248x72 HOME Menu buttons, drawn at -8,-8
 extern Tex chipOff, chipOn;              // 208x30 option chips, drawn at -2,-3
 extern Tex rowFocus;                     // 548x44 highlighted list row
 extern Tex stepBack, stepBackOver, stepForward, stepForwardOver;  // 34 round arrow buttons, drawn at -4,-4

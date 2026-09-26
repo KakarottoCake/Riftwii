@@ -507,9 +507,6 @@ msgstr "Mostra in tempo reale cosa premono i controller dell'adattatore."
 msgid "Reads the SD card and the USB drive again."
 msgstr "Rilegge la scheda SD e l'unità USB."
 
-msgid "Back to the Homebrew Channel."
-msgstr "Torna all'Homebrew Channel."
-
 msgid "No d2x cIOS was found in slots 248 to 252, so the menu runs under IOS 58. Install d2x to play games from SD or USB."
 msgstr "Nessun cIOS d2x trovato negli slot da 248 a 252, quindi il menu usa l'IOS 58. Installa d2x per giocare da SD o USB."
 
@@ -819,9 +816,6 @@ msgstr "1 gioco"
 msgid "{1} games"
 msgstr "{1} giochi"
 
-msgid "HOME button"
-msgstr "Tasto HOME"
-
 msgid "Homebrew Channel"
 msgstr "Homebrew Channel"
 
@@ -831,14 +825,11 @@ msgstr "Menu Wii"
 msgid "Power off"
 msgstr "Spegni"
 
-msgid "Back to the Wii Menu."
-msgstr "Torna al Menu Wii."
+msgid "HOME Menu"
+msgstr "Menu HOME"
 
-msgid "To Priiloader's menu. Without Priiloader, the Wii Menu starts."
-msgstr "Al menu di Priiloader. Senza Priiloader, si avvia il Menu Wii."
+msgid "Close"
+msgstr "Chiudi"
 
-msgid "Turns the Wii off."
-msgstr "Spegne la Wii."
-
-msgid "Where HOME and Leave RiftWii take you: the Homebrew Channel, the Wii Menu, Priiloader, or off."
-msgstr "Dove portano HOME e Leave RiftWii: all'Homebrew Channel, al Menu Wii, a Priiloader o allo spegnimento."
+msgid "Opens the HOME Menu, as HOME does: the Homebrew Channel, the Wii Menu, Priiloader or power off."
+msgstr "Apre il menu HOME, come il tasto HOME: Homebrew Channel, Menu Wii, Priiloader o spegnimento."

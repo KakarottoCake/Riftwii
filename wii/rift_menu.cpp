@@ -666,6 +666,143 @@ static int ShowPopup(const std::string& title, const std::string& body, const st
 	return box.Wait();
 }
 
+// Where the player leaves to, for wii/main.cpp's ExitApp: 1 the loader
+// that started RiftWii (the Homebrew Channel), 2 the Wii Menu,
+// 3 Priiloader, 4 power off.
+static int g_leave = 1;
+
+// The HOME Menu's band across the top.
+class HomeBand : public GuiElement {
+public:
+	void Draw() override {
+		Menu_DrawRectangle(0, 0, screenwidth, 70, (GXColor){247, 247, 249, 255}, 1);
+		Menu_DrawRectangle(0, 70, screenwidth, 3, skin::kAccent, 1);
+		Menu_DrawRectangle(0, 73, screenwidth, 4, (GXColor){0, 0, 0, 36}, 1);
+	}
+};
+
+// Each connected Wii Remote's battery, as the Wii's own HOME Menu shows
+// it: P1 to P4, four bars each.
+class HomeBatteries : public GuiElement {
+public:
+	HomeBatteries() {
+		for (int i = 0; i < 4; ++i) {
+			const std::string name = "P" + std::to_string(i + 1);
+			label[i] = new GuiText(name.c_str(), 18, skin::kInkSoft);
+			label[i]->SetParent(this);
+			label[i]->SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
+		}
+	}
+	~HomeBatteries() override {
+		for (GuiText* l : label) delete l;
+	}
+	void Draw() override {
+		for (int i = 0; i < 4; ++i) {
+			u32 type = 0;
+			if (WPAD_Probe(i, &type) != WPAD_ERR_NONE) continue;
+			const int x = 118 + i * 110, y = 428;
+			label[i]->SetPosition(x, y - 1);
+			label[i]->Draw();
+			// The status report's level follows the batteries' voltage: the
+			// Wii Menu's bars step at about 14, 40, 66 and 92 (Dolphin's fit
+			// of it, charge = level * 2.46 / 255 - 0.013).
+			const int level = WPAD_BatteryLevel(i);
+			const int bars = level >= 92 ? 4 : level >= 66 ? 3 : level >= 40 ? 2 : level >= 14 ? 1 : 0;
+			for (int b = 0; b < 4; ++b) {
+				const GXColor c = b >= bars ? (GXColor){214, 214, 222, 255}
+					: bars == 1 ? (GXColor){222, 72, 72, 255} : skin::kAccent;
+				Menu_DrawRectangle(x + 30 + b * 11, y + 1, 8, 16, c, 1);
+			}
+		}
+	}
+private:
+	GuiText* label[4];
+};
+
+// Without a pointer, the D-pad moves between the HOME Menu's buttons
+// (two columns, Close under them) and A presses the one lit.
+class HomeFocus : public GuiElement {
+public:
+	HomeFocus(GuiButton* const (&b)[5]) {
+		for (int i = 0; i < 5; ++i) buttons[i] = b[i];
+	}
+	void Draw() override {}
+	void Update(GuiTrigger* t) override {
+		if (!t || AnyPointerLive()) {
+			shown = -1;
+			return;
+		}
+		int to = focus;
+		if (t->Up()) to = focus == 4 ? 2 : focus >= 2 ? focus - 2 : focus;
+		else if (t->Down()) to = focus < 2 ? focus + 2 : 4;
+		else if (t->Left() && focus < 4) to = focus & ~1;
+		else if (t->Right() && focus < 4) to = focus | 1;
+		if (to != focus && soundOver) soundOver->Play();
+		focus = to;
+		if (focus == shown) return;
+		shown = focus;
+		for (int i = 0; i < 5; ++i) buttons[i]->SetState(i == focus ? STATE::SELECTED : STATE::DEFAULT);
+	}
+private:
+	GuiButton* buttons[5];
+	int focus = 4;  // Close first: a HOME pressed by mistake costs nothing
+	int shown = -1;
+};
+
+// The HOME Menu, like the Wii's own: leave to the Homebrew Channel, the
+// Wii Menu or Priiloader, or turn the Wii off. Close, B or HOME goes
+// back. 0 when closed, else where to go (g_leave). Built and closed with
+// the GUI halted.
+static int ShowHomeMenu()
+{
+	Dim dim;
+	HomeBand band;
+	GuiText titleTxt(tr("HOME Menu"), 26, skin::kInk);
+	Place(titleTxt, 0, 20, true);
+	HomeBar bar;
+	HomeBatteries batteries;
+	SkinButton hbcBtn(skin::homeBtn, skin::homeBtnOver, 8, 60, 104, tr("Homebrew Channel"), 0, 0, 0);
+	SkinButton menuBtn(skin::homeBtn, skin::homeBtnOver, 8, 332, 104, tr("Wii Menu"), 0, 0, 0);
+	SkinButton priiBtn(skin::homeBtn, skin::homeBtnOver, 8, 60, 196, "Priiloader", 0, 0, 0);
+	SkinButton offBtn(skin::homeBtn, skin::homeBtnOver, 8, 332, 196, tr("Power off"), 0, 0, 0);
+	SkinButton closeBtn(skin::pill, skin::pillOver, 4, 198, 292, tr("Close"),
+		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B | WPAD_BUTTON_HOME | WPAD_CLASSIC_BUTTON_HOME, PAD_BUTTON_B | PAD_BUTTON_START,
+		WIIDRC_BUTTON_B | WIIDRC_BUTTON_HOME);
+	GuiButton* const buttons[5] = {&hbcBtn.button, &menuBtn.button, &priiBtn.button, &offBtn.button, &closeBtn.button};
+	HomeFocus focus(buttons);
+
+	GuiWindow w(screenwidth, screenheight);
+	w.Append(&dim);
+	w.Append(&band);
+	w.Append(&titleTxt);
+	w.Append(&bar);
+	w.Append(&batteries);
+	w.Append(&focus);
+	for (GuiButton* b : buttons) w.Append(b);
+	mainWindow->SetState(STATE::DISABLED);
+	mainWindow->Append(&w);
+	w.SetState(STATE::DEFAULT);
+	logf("HOME Menu: open\n");
+	ResumeGui();
+	int choice = -1;
+	while (choice < 0) {
+		usleep(20000);
+		HaltGui();
+		if (hbcBtn.Clicked()) choice = 1;
+		else if (menuBtn.Clicked()) choice = 2;
+		else if (priiBtn.Clicked()) choice = 3;
+		else if (offBtn.Clicked()) choice = 4;
+		else if (closeBtn.Clicked()) choice = 0;
+		if (choice < 0) ResumeGui();
+	}
+	static const char* const kWhere[] = {"closed", "Homebrew Channel", "Wii Menu", "Priiloader", "power off"};
+	logf("HOME Menu: %s\n", kWhere[choice]);
+	mainWindow->Remove(&w);
+	mainWindow->SetState(STATE::DEFAULT);
+	if (choice > 0) g_leave = choice;
+	return choice;
+}
+
 // The drive answered but would not read the disc's ID: a burned disc
 // under the Wii's own IOS, or one the drive cannot read at all. Under
 // IOS 58 the menu offers to restart under d2x for this session, which
@@ -720,7 +857,7 @@ static void RunUpdate(const std::string& latest)
 		    tr("RiftWii {1} is installed ({2}). It runs the next time RiftWii starts. Leave to the Homebrew Channel now and start it again?",
 			    {latest, where}),
 		    tr("Leave"), tr("Later")) == 0) {
-		ExitRequested = 2;
+		ExitRequested = 1;
 		ResumeGui();
 		while (1) usleep(THREAD_SLEEP);
 	}
@@ -1066,7 +1203,8 @@ static int MenuSource(FrontendState& state)
 		if (menu != MENU_NONE) {
 			// picked
 		} else if (exitBtn.GetState() == STATE::CLICKED) {
-			menu = MENU_EXIT;
+			exitBtn.ResetState();
+			if (ShowHomeMenu() > 0) menu = MENU_EXIT;
 		} else if (settingsBtn.Clicked()) {
 			g_homeFocus = grid.FocusedIndex();
 			menu = MENU_OPTIONS;
@@ -1168,7 +1306,6 @@ static const char* const kGameLanguages[] = {"global", "console", "ja", "en", "d
 	"zh-hant", "ko"};
 static const char* const kCiosChoices[] = {"global", "auto", "248", "249", "250", "251", "252"};
 static const char* const kServers[] = {"global", "off", "wiimmfi", "wiilink", "altwfc", "custom"};
-static const char* const kHomeButtons[] = {"global", "hbc", "menu", "priiloader", "off"};
 
 template <std::size_t N>
 static std::string StepValue(const char* const (&list)[N], const std::string& value, int direction, bool withGlobal = true)
@@ -1228,23 +1365,6 @@ static std::string CiosName(const std::string& v)
 	if (v == "auto") return tr("Automatic");
 	return "cIOS " + v;
 }
-static std::string HomeButtonName(const std::string& v)
-{
-	if (v == "menu") return tr("Wii Menu");
-	if (v == "priiloader") return "Priiloader";
-	if (v == "off") return tr("Power off");
-	return tr("Homebrew Channel");
-}
-
-// Where Leave RiftWii (and HOME) goes.
-static std::string LeaveNote(const std::string& v)
-{
-	if (v == "menu") return tr("Back to the Wii Menu.");
-	if (v == "priiloader") return tr("To Priiloader's menu. Without Priiloader, the Wii Menu starts.");
-	if (v == "off") return tr("Turns the Wii off.");
-	return tr("Back to the Homebrew Channel.");
-}
-
 static std::string ServerName(const std::string& v)
 {
 	if (v == "wiimmfi") return "Wiimmfi";
@@ -2176,7 +2296,7 @@ static int MenuSettings(FrontendState& state)
 
 	bool netOn = riftwii::wii::NetworkPacksEnabled();
 	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kGameLanguage, kGameCios, kServer, kHomeTiles, kOnline, kNames, kGcAdapter, kGcTest, kIos, kNet, kResync,
-		kRescan, kChannel, kUpdate, kWiiChannel, kHomeButton, kExit, kNone };
+		kRescan, kChannel, kUpdate, kWiiChannel, kExit, kNone };
 	// The RiftWii channel on the Wii Menu (wii/channel.hpp).
 	unsigned channelVersion = 0;
 	const bool channelThere = riftwii::wii::ChannelInstalled(channelVersion);
@@ -2273,7 +2393,6 @@ static int MenuSettings(FrontendState& state)
 		wiiChannel.dim = !channelCan;
 		rows.push_back(wiiChannel);
 		actions.push_back(kWiiChannel);
-		option(tr("HOME button"), HomeButtonName(settings.home_button), settings.home_button != "hbc", kHomeButton);
 		FlowRow exitRow;
 		exitRow.kind = FlowRow::Kind::Action;
 		exitRow.label = "Leave RiftWii";
@@ -2351,9 +2470,7 @@ static int MenuSettings(FrontendState& state)
 			case kWiiChannel:
 				if (!channelCan) return std::string(tr(channelWhy.c_str())) + ".";
 				return tr("A Wii Menu channel that starts RiftWii from the SD card. It holds no copy of RiftWii, so updates keep working. Opens the channel installer, to add, update or remove it.");
-			case kHomeButton:
-				return tr("Where HOME and Leave RiftWii take you: the Homebrew Channel, the Wii Menu, Priiloader, or off.");
-			case kExit: return LeaveNote(settings.home_button);
+			case kExit: return tr("Opens the HOME Menu, as HOME does: the Homebrew Channel, the Wii Menu, Priiloader or power off.");
 			case kNone:  // the Menu IOS row when there is nothing to choose
 				return tr("No d2x cIOS was found in slots 248 to 252, so the menu runs under IOS 58. Install d2x to play games from SD or USB.");
 			default: return "";
@@ -2433,11 +2550,6 @@ static int MenuSettings(FrontendState& state)
 				case kServer:
 					settings.wfc_server = StepValue(kServers, settings.wfc_server, direction, false);
 					saveAndNote(tr("The online server the game uses in place of Nintendo's, which closed. Custom uses wfc_domain in settings.txt."));
-					rebuild();
-					break;
-				case kHomeButton:
-					settings.home_button = StepValue(kHomeButtons, settings.home_button, direction, false);
-					saveAndNote(tr("Where HOME and Leave RiftWii take you: the Homebrew Channel, the Wii Menu, Priiloader, or off."));
 					rebuild();
 					break;
 				case kHomeTiles:
@@ -2564,7 +2676,7 @@ static int MenuSettings(FrontendState& state)
 					break;
 				}
 				case kExit:
-					menu = MENU_EXIT;
+					if (ShowHomeMenu() > 0) menu = MENU_EXIT;
 					break;
 				default:
 					break;
@@ -2747,7 +2859,7 @@ int MainMenu(int menu, FrontendState& state)
 		return currentMenu;
 	}
 
-	ExitRequested = 1;
+	ExitRequested = g_leave;
 	ResumeGui();
 	while(1) usleep(THREAD_SLEEP);
 	return MENU_EXIT;

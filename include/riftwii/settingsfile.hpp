@@ -25,7 +25,6 @@ struct LoaderSettings {
     std::string wfc_server = "off";       // online play: riftwii/wfcpatch.hpp names
     std::string wfc_domain;               // the "custom" server's domain
     std::string home_tiles = "covers";    // Home's tiles: covers or names
-    std::string home_button = "hbc";      // where HOME leaves to: hbc, menu (the Wii Menu), priiloader, off
     bool online = true;                   // download game names and cheats when the Wii is online
     std::string update_channel = "auto";  // stable, beta, or auto (the build's own: beta for a -suffix version)
     std::string gc_adapter = "auto";      // GameCube controller adapter for Wii U: auto (when plugged in at launch), on, off (demo: Dolphin tests)

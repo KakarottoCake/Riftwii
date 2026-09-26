@@ -11,7 +11,7 @@
 
 namespace riftwii::wii::skin {
 
-Tex tile, tileOver, coverTile, coverTileOver, roundBtn, roundBtnOver, pill, pillOver, pillPrimary, pillPrimaryOver, chipOff, chipOn, rowFocus,
+Tex tile, tileOver, coverTile, coverTileOver, roundBtn, roundBtnOver, pill, pillOver, pillPrimary, pillPrimaryOver, homeBtn, homeBtnOver, chipOff, chipOn, rowFocus,
     stepBack, stepBackOver, stepForward, stepForwardOver, switchOn, switchOff,
     panelGame, panelSettings, bar, bannerStripes, arrowLeft, arrowLeftOver, arrowRight, arrowRightOver, iconDrives,
     scrollUp, scrollUpOver, scrollDown, scrollDownOver,
@@ -212,6 +212,8 @@ void Init() {
     pillOver = Card(244, 52, 4, 26, true);
     pillPrimary = Card(244, 52, 4, 26, false, true);
     pillPrimaryOver = Card(244, 52, 4, 26, true, true);
+    homeBtn = Card(248, 72, 8, 20, false);
+    homeBtnOver = Card(248, 72, 8, 20, true);
     chipOff = Chip(false);
     chipOn = Chip(true);
     {

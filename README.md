@@ -158,11 +158,17 @@ the list explains the row you are on.
 - **Find network packs (RiiFS)** and **Copy network packs again** (below).
 - **Look for games again**, **Updates** (Stable or Beta, below),
   **Check for a new version** (on GitHub; with downloads on, RiftWii also
-  looks at every start and asks before it updates), **HOME button**, and
-  **Leave RiftWii** (HOME does that too).
-- **HOME button**: where HOME and Leave RiftWii take you: the Homebrew
-  Channel, the Wii Menu, Priiloader's menu (the Wii Menu if Priiloader is
-  not installed), or power off.
+  looks at every start and asks before it updates), and **Leave RiftWii**,
+  which opens the HOME Menu (below).
+
+### HOME Menu
+
+HOME on Home (or **Leave RiftWii** in Settings) opens the HOME Menu, as
+on the Wii: **Homebrew Channel**, **Wii Menu**, **Priiloader** (its menu;
+the Wii Menu if Priiloader is not installed) or **Power off**. **Close**,
+B or HOME goes back, so a HOME pressed by mistake costs nothing. Without
+a pointer, the D-pad moves between the buttons, starting on Close. The
+bar at the bottom shows each Wii Remote's batteries.
 
 ### RVZ games
 

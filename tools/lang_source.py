@@ -453,11 +453,6 @@ T = {
         "SDカードとUSBドライブをもう一度読み込みます。",
         "Lê o cartão SD e a unidade USB de novo.",
         "Rilegge la scheda SD e l'unità USB."),
-    "Back to the Homebrew Channel.": (
-        "Vuelve al Homebrew Channel.",
-        "Homebrew Channelに戻ります。",
-        "Volta ao Homebrew Channel.",
-        "Torna all'Homebrew Channel."),
     "No d2x cIOS was found in slots 248 to 252, so the menu runs under IOS 58. Install d2x to play games from SD or USB.": (
         "No se encontró ningún cIOS d2x en los slots 248 a 252, así que el menú usa el IOS 58. Instala d2x para jugar desde SD o USB.",
         "スロット248〜252にd2x cIOSがないため、メニューはIOS 58で動いています。SDやUSBのゲームを遊ぶにはd2xを入れてください。",
@@ -760,11 +755,6 @@ T = {
         "ゲーム{1}本",
         "{1} jogos",
         "{1} giochi"),
-    "HOME button": (
-        "Botón HOME",
-        "HOMEボタン",
-        "Botão HOME",
-        "Tasto HOME"),
     "Homebrew Channel": (
         "Homebrew Channel",
         "Homebrew Channel",
@@ -780,26 +770,21 @@ T = {
         "電源を切る",
         "Desligar",
         "Spegni"),
-    "Back to the Wii Menu.": (
-        "Vuelve al menú de Wii.",
-        "Wiiメニューに戻ります。",
-        "Volta ao Menu Wii.",
-        "Torna al Menu Wii."),
-    "To Priiloader's menu. Without Priiloader, the Wii Menu starts.": (
-        "Al menú de Priiloader. Sin Priiloader, se inicia el menú de Wii.",
-        "Priiloaderのメニューに移ります。Priiloaderがなければ、Wiiメニューが起動します。",
-        "Para o menu do Priiloader. Sem o Priiloader, o Menu Wii é iniciado.",
-        "Al menu di Priiloader. Senza Priiloader, si avvia il Menu Wii."),
-    "Turns the Wii off.": (
-        "Apaga la Wii.",
-        "Wiiの電源を切ります。",
-        "Desliga o Wii.",
-        "Spegne la Wii."),
-    "Where HOME and Leave RiftWii take you: the Homebrew Channel, the Wii Menu, Priiloader, or off.": (
-        "Adónde llevan HOME y Leave RiftWii: al Homebrew Channel, al menú de Wii, a Priiloader o a apagar la consola.",
-        "HOMEボタンと「Leave RiftWii」の行き先です: Homebrew Channel、Wiiメニュー、Priiloader、または電源オフ。",
-        "Para onde HOME e Leave RiftWii levam: o Homebrew Channel, o Menu Wii, o Priiloader ou desligar.",
-        "Dove portano HOME e Leave RiftWii: all'Homebrew Channel, al Menu Wii, a Priiloader o allo spegnimento."),
+    "HOME Menu": (
+        "Menú HOME",
+        "HOMEメニュー",
+        "Menu HOME",
+        "Menu HOME"),
+    "Close": (
+        "Cerrar",
+        "とじる",
+        "Fechar",
+        "Chiudi"),
+    "Opens the HOME Menu, as HOME does: the Homebrew Channel, the Wii Menu, Priiloader or power off.": (
+        "Abre el menú HOME, como el botón HOME: Homebrew Channel, menú de Wii, Priiloader o apagar.",
+        "HOMEボタンと同じく、HOMEメニューを開きます: Homebrew Channel、Wiiメニュー、Priiloader、電源を切る。",
+        "Abre o menu HOME, como o botão HOME: Homebrew Channel, Menu Wii, Priiloader ou desligar.",
+        "Apre il menu HOME, come il tasto HOME: Homebrew Channel, Menu Wii, Priiloader o spegnimento."),
 }
 
 
