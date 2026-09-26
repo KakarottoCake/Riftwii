@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<app version="1">
+  <name>RiftWii Channel Installer</name>
+  <coder>KakarottoCake</coder>
+  <version>1</version>
+  <short_description>Adds RiftWii to the Wii Menu</short_description>
+  <long_description>Puts a RiftWii channel on the Wii Menu, updates it or removes it. The channel holds no copy of RiftWii: it starts apps/riftwii/boot.dol from the SD card (or the USB drive), so RiftWii's own updates never need it installed again.
+
+RiftWii's Settings opens this installer too, and it goes back to RiftWii when it closes.
+
+Needs a d2x cIOS in slot 249, 250 or 251. Free software under the GPL, version 3 or later.</long_description>
+</app>

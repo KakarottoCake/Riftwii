@@ -9,11 +9,8 @@ void InitGUIThreads();
 
 // Returns MENU_LAUNCH, MENU_BOOT, MENU_DUMP or MENU_CHANNEL with the GUI
 // torn down; exits on MENU_EXIT. With MENU_LAUNCH the model holds the
-// selection; with MENU_CHANNEL, ChannelTaskIsRemove() says which task.
+// selection.
 int MainMenu(int menuitem, FrontendState& state);
-
-// For MENU_CHANNEL: remove the RiftWii channel rather than install it.
-bool ChannelTaskIsRemove();
 
 // Stops the GUI thread drawing, for the crash screen (wii/crash.cpp).
 void MenuHaltForCrash();
@@ -32,5 +29,5 @@ enum
 	MENU_BOOT,     // leave the GUI and boot the game unmodified
 	MENU_DUMP,     // leave the GUI and dump test files from the disc
 	MENU_SOURCE,   // home: every game as tiles
-	MENU_CHANNEL   // leave the GUI and install or remove the RiftWii channel
+	MENU_CHANNEL   // leave the GUI and start the RiftWii channel installer
 };

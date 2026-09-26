@@ -6,9 +6,10 @@ and the TMD and ticket RiftWii installs them with.
 
     make_channel.py logo <icon.png> <logo.rgba>
         the forwarder's logo, raw RGBA (channel/forwarder/data)
-    make_channel.py build <forwarder.dol> <icon.png> <out.bin> [preview dir]
+    make_channel.py build <forwarder.dol> <art dir> <out.bin> [dir]
         the package wii/channel.cpp installs, and beside it
-        riftwii_channel_info.h (its title ID and version, for the menu)
+        riftwii_channel_info.h (its title ID and version, for the menu);
+        a fourth argument also writes the banner (00000000.app) there
 
 Nothing here is encrypted or signed: the console does that when RiftWii
 installs the channel. The formats (U8, IMD5, LZ77, TPL, BRLYT, BRLAN,
@@ -17,8 +18,10 @@ checked against what a retail disc's banner holds; no Nintendo data is
 used. Standard library only.
 """
 import hashlib
+import json
 import math
 import os
+import random
 import struct
 import sys
 import zlib
@@ -74,9 +77,9 @@ def read_png(path):
 
 # ------------------------------------------------------------ textures ----
 class Image:
-    def __init__(self, width, height, pixel):
+    def __init__(self, width, height, pixels):
         self.width, self.height = width, height
-        self.pixels = [pixel(x, y) for y in range(height) for x in range(width)]
+        self.pixels = pixels
 
     def at(self, x, y):
         return self.pixels[y * self.width + x]
@@ -84,35 +87,25 @@ class Image:
 
 def png_image(path):
     w, h, rows = read_png(path)
-    return Image(w, h, lambda x, y: tuple(rows[y][x * 4:x * 4 + 4]))
+    return Image(w, h, [tuple(rows[y][x * 4:x * 4 + 4]) for y in range(h) for x in range(w)])
 
 
-def glow_image(size):
-    """White with a soft round alpha: lights and the sweeping shine."""
-    def pixel(x, y):
-        dx = (x + 0.5) / size * 2 - 1
-        dy = (y + 0.5) / size * 2 - 1
-        d = min(1.0, math.sqrt(dx * dx + dy * dy))
-        return (255, 255, 255, int(255 * (1 - d) ** 2 * (1 + 2 * d) + 0.5))
-    return Image(size, size, pixel)
-
-
-def tpl(image):
-    """One RGBA8 (format 6) image: 4x4 tiles of 16 alpha-red pairs, then
-    16 green-blue pairs."""
+def tpl(image, fmt):
+    """One texture: format 3 (IA8, for the white shapes the banner tints)
+    or 4 (RGB565, for the backdrop)."""
     w, h = image.width, image.height
     data = bytearray()
     for ty in range(0, h, 4):
         for tx in range(0, w, 4):
-            ar, gb = bytearray(), bytearray()
             for y in range(ty, ty + 4):
                 for x in range(tx, tx + 4):
                     r, g, b, a = image.at(min(x, w - 1), min(y, h - 1))
-                    ar += bytes((a, r))
-                    gb += bytes((g, b))
-            data += ar + gb
+                    if fmt == 3:
+                        data += bytes((a, max(r, g, b)))
+                    else:
+                        data += struct.pack(">H", ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3))
     header = struct.pack(">III", 0x0020AF30, 1, 0x0C) + struct.pack(">II", 0x14, 0)
-    header += struct.pack(">HHIIIIIIfBBBB", h, w, 6, 0x40, 0, 0, 1, 1, 0.0, 0, 0, 0, 0)
+    header += struct.pack(">HHIIIIIIfBBBB", h, w, fmt, 0x40, 0, 0, 1, 1, 0.0, 0, 0, 0, 0)
     header += bytes(0x40 - len(header))
     return bytes(header + data)
 
@@ -133,106 +126,137 @@ def name_field(name, size):
     return raw + bytes(size - len(raw))
 
 
-def pane_body(name, trans=(0, 0), size=(0, 0), scale=(1, 1), rot=0.0, alpha=255):
-    return (struct.pack(">BBBB", 0x01, 4, alpha, 0) + name_field(name, 16) + bytes(8) +
-            struct.pack(">3f3f2f2f", trans[0], trans[1], 0, 0, 0, rot, scale[0], scale[1], size[0], size[1]))
+class Node:
+    """A pane (a group that moves its children) or a picture (a textured
+    quad, tinted by its four vertex colours: top left, top right, bottom
+    left, bottom right). Coordinates: the screen's centre is 0,0, y up."""
+
+    def __init__(self, name, tex=None, pos=(0, 0), size=(0, 0), colors=None, rot=0.0, scale=(1, 1),
+                 alpha=255, children=()):
+        self.name, self.tex = name, tex
+        self.pos, self.size, self.rot, self.scale, self.alpha = pos, size, rot, scale, alpha
+        colors = colors or [(255, 255, 255)] * 4
+        if len(colors) == 1:
+            colors = colors * 4
+        elif len(colors) == 2:
+            colors = [colors[0], colors[0], colors[1], colors[1]]
+        self.colors = [c if len(c) == 4 else (*c, 255) for c in colors]
+        self.children = list(children)
+
+    def walk(self):
+        yield self
+        for c in self.children:
+            yield from c.walk()
 
 
-class Layout:
-    """A banner or icon layout: one root pane holding pictures and panes,
-    every picture with its own simple textured material (one texture map,
-    one SRT, one coordinate generator, no TEV stages: the Wii Menu's
-    default shading, the vertex colours times the texture)."""
+def brlyt(root, textures):
+    """root's children become the layout's panes. Every picture gets its
+    own material, the Wii Menu's plain textured one: one texture map, one
+    SRT, one coordinate generator and no TEV stages (texture times vertex
+    colour), as retail banners use."""
+    tex_names = sorted(textures)
+    mats, panes = [], []
 
-    def __init__(self, width, height):
-        self.width, self.height = width, height
-        self.textures, self.materials, self.panes = [], [], []
+    def body(n):
+        # flags: visible, and children take on this pane's alpha
+        return (struct.pack(">BBBB", 0x03, 4, n.alpha, 0) + name_field(n.name, 16) + bytes(8) +
+                struct.pack(">3f3f2f2f", n.pos[0], n.pos[1], 0, 0, 0, n.rot, n.scale[0], n.scale[1],
+                            n.size[0], n.size[1]))
 
-    def texture(self, name):
-        if name not in self.textures:
-            self.textures.append(name)
-        return self.textures.index(name)
-
-    def picture(self, name, texture, trans, size, colors, rot=0.0, alpha=255):
-        mat = len(self.materials)
-        self.materials.append((name, self.texture(texture)))
-        colors = [c if len(c) == 4 else (*c, 255) for c in colors]
-        body = pane_body(name, trans, size, rot=rot, alpha=alpha)
-        body += b"".join(bytes(c) for c in colors)  # top left, top right, bottom left, bottom right
-        body += struct.pack(">HBB", mat, 1, 0) + struct.pack(">8f", 0, 0, 1, 0, 0, 1, 1, 1)
-        self.panes.append(section(b"pic1", body))
-
-    def pane(self, name, trans=(0, 0)):
-        self.panes.append(section(b"pan1", pane_body(name, trans, (30, 40))))
-
-    def begin(self):
-        self.panes.append(section(b"pas1", b""))
-
-    def end(self):
-        self.panes.append(section(b"pae1", b""))
-
-    def build(self):
-        names = b""
-        entries = b""
-        for t in self.textures:
-            entries += struct.pack(">II", 8 * len(self.textures) + len(names), 0)
-            names += t.encode("ascii") + b"\0"
-        txl = section(b"txl1", struct.pack(">HH", len(self.textures), 0) + entries + names)
-        mats = []
-        for name, tex in self.materials:
-            m = name_field(name, 20)
-            m += struct.pack(">4h", 0, 0, 0, 0) + struct.pack(">4h", 255, 255, 255, 255) + struct.pack(">4h", 255, 255, 255, 255)
-            m += b"\xff" * 16
-            m += struct.pack(">I", 0x111)
-            m += struct.pack(">HBB", tex, 0, 0)
-            m += struct.pack(">5f", 0, 0, 0, 1, 1)
-            m += bytes((1, 4, 0x1E, 0))
+    def emit(n):
+        if n.tex:
+            m = name_field(n.name, 20)
+            m += struct.pack(">4h", 0, 0, 0, 0) + struct.pack(">4h", 255, 255, 255, 255) * 2
+            m += b"\xff" * 16 + struct.pack(">I", 0x111)
+            m += struct.pack(">HBB", tex_names.index(n.tex), 0, 0)
+            m += struct.pack(">5f", 0, 0, 0, 1, 1) + bytes((1, 4, 0x1E, 0))
+            b = body(n) + b"".join(bytes(c) for c in n.colors)
+            b += struct.pack(">HBB", len(mats), 1, 0) + struct.pack(">8f", 0, 0, 1, 0, 0, 1, 1, 1)
             mats.append(m)
-        table = 12 + 4 * len(mats)
-        offsets, at = b"", table
-        for m in mats:
-            offsets += struct.pack(">I", at)
-            at += len(m)
-        mat = section(b"mat1", struct.pack(">HH", len(mats), 0) + offsets + b"".join(mats))
-        lyt = section(b"lyt1", struct.pack(">B3xff", 1, self.width, self.height))
-        root = section(b"pan1", pane_body("RootPane", size=(self.width, self.height)))
-        grp = section(b"grp1", name_field("RootGroup", 16) + struct.pack(">HH", 0, 0))
-        parts = [lyt, txl, mat, root, section(b"pas1", b"")] + self.panes + [section(b"pae1", b""), grp]
-        body = b"".join(parts)
-        return b"RLYT" + struct.pack(">HHIHH", 0xFEFF, 0x0008, 16 + len(body), 0x10, len(parts)) + body
+            panes.append(section(b"pic1", b))
+        else:
+            panes.append(section(b"pan1", body(n)))
+        if n.children:
+            panes.append(section(b"pas1", b""))
+            for c in n.children:
+                emit(c)
+            panes.append(section(b"pae1", b""))
+
+    for c in root.children:
+        emit(c)
+    names, entries = b"", b""
+    for t in tex_names:
+        entries += struct.pack(">II", 8 * len(tex_names) + len(names), 0)
+        names += t.encode("ascii") + b"\0"
+    txl = section(b"txl1", struct.pack(">HH", len(tex_names), 0) + entries + names)
+    table = 12 + 4 * len(mats)
+    offsets, at = b"", table
+    for m in mats:
+        offsets += struct.pack(">I", at)
+        at += len(m)
+    mat = section(b"mat1", struct.pack(">HH", len(mats), 0) + offsets + b"".join(mats))
+    lyt = section(b"lyt1", struct.pack(">B3xff", 1, 608, 456))
+    rootpane = section(b"pan1", struct.pack(">BBBB", 0x01, 4, 255, 0) + name_field("RootPane", 16) + bytes(8) +
+                       struct.pack(">3f3f2f2f", 0, 0, 0, 0, 0, 0, 1, 1, 608, 456))
+    grp = section(b"grp1", name_field("RootGroup", 16) + struct.pack(">HH", 0, 0))
+    parts = [lyt, txl, mat, rootpane, section(b"pas1", b"")] + panes + [section(b"pae1", b""), grp]
+    data = b"".join(parts)
+    return b"RLYT" + struct.pack(">HHIHH", 0xFEFF, 0x0008, 16 + len(data), 0x10, len(parts)) + data
 
 
 # ---------------------------------------------------------------- BRLAN ----
-def hermite(keys):
-    """(frame, value) keys with slopes that ease in and out (flat at each key)."""
-    return [(f, v, 0.0) for f, v in keys]
+# What a track animates. RLPA: 0/1 move x/y, 5 turn, 6/7 scale x/y.
+# RLVC 16: the pane's alpha.
+TARGETS = {"x": (b"RLPA", 0), "y": (b"RLPA", 1), "rot": (b"RLPA", 5), "sx": (b"RLPA", 6),
+           "sy": (b"RLPA", 7), "alpha": (b"RLVC", 16)}
 
 
-def anim_group(target, keys):
-    body = struct.pack(">BBBBHHI", 0, target, 2, 0, len(keys), 0, 12)
-    return body + b"".join(struct.pack(">3f", *k) for k in keys)
+def hermite_at(keys, f):
+    """The value of a track at frame f, as the Wii Menu works it out: cubic
+    Hermite between keys, slopes in value per frame, flat outside."""
+    if f <= keys[0][0]:
+        return keys[0][1]
+    if f >= keys[-1][0]:
+        return keys[-1][1]
+    for (f0, v0, s0), (f1, v1, s1) in zip(keys, keys[1:]):
+        if f0 <= f < f1:
+            if f1 == f0:
+                continue
+            t = (f - f0) / (f1 - f0)
+            d = f1 - f0
+            return (v0 * (2 * t ** 3 - 3 * t ** 2 + 1) + v1 * (-2 * t ** 3 + 3 * t ** 2) +
+                    s0 * d * (t ** 3 - 2 * t ** 2 + t) + s1 * d * (t ** 3 - t ** 2))
+    return keys[-1][1]
 
 
-def anim_tag(magic, groups):
-    head = 8 + 4 * len(groups)
-    offsets, at = b"", head
-    for g in groups:
-        offsets += struct.pack(">I", at)
-        at += len(g)
-    return magic + struct.pack(">B3x", len(groups)) + offsets + b"".join(groups)
-
-
-# RLPA targets: 0/1 translate x/y, 5 rotate z, 6/7 scale x/y. RLVC 16: the pane's alpha.
-def anim_entry(name, tags):
-    head = 24 + 4 * len(tags)
-    offsets, at = b"", head
-    for t in tags:
-        offsets += struct.pack(">I", at)
-        at += len(t)
-    return name_field(name, 20) + struct.pack(">BBH", len(tags), 0, 0) + offsets + b"".join(tags)
-
-
-def brlan(frames, entries):
+def brlan(frames, tracks):
+    """tracks: {(pane name, target): [(frame, value, slope), ...]}."""
+    by_pane = {}
+    for (pane, target), keys in tracks.items():
+        by_pane.setdefault(pane, []).append((TARGETS[target], keys))
+    entries = []
+    for pane, groups in by_pane.items():
+        tags = []
+        for magic in (b"RLPA", b"RLVC"):
+            gs = [(idx, keys) for (m, idx), keys in groups if m == magic]
+            if not gs:
+                continue
+            blobs = []
+            for idx, keys in sorted(gs):
+                blob = struct.pack(">BBBBHHI", 0, idx, 2, 0, len(keys), 0, 12)
+                blobs.append(blob + b"".join(struct.pack(">3f", *k) for k in keys))
+            head = 8 + 4 * len(blobs)
+            offsets, at = b"", head
+            for b in blobs:
+                offsets += struct.pack(">I", at)
+                at += len(b)
+            tags.append(magic + struct.pack(">B3x", len(blobs)) + offsets + b"".join(blobs))
+        head = 24 + 4 * len(tags)
+        offsets, at = b"", head
+        for t in tags:
+            offsets += struct.pack(">I", at)
+            at += len(t)
+        entries.append(name_field(pane, 20) + struct.pack(">BBH", len(tags), 0, 0) + offsets + b"".join(tags))
     head = 0x14 + 4 * len(entries)
     offsets, at = b"", head
     for e in entries:
@@ -357,19 +381,77 @@ def adpcm(samples):
     return bytes(out)
 
 
-def chime(rate=32000):
-    """Two soft bell notes, a fifth apart, about a second long."""
-    total = int(rate * 1.2)
-    samples = []
-    for i in range(total):
+def banner_sound(rate=32000):
+    """The banner's sound, timed to banner_start (60 frames a second): a
+    rising whoosh as the sky fades up, a crackling zap as the rift tears
+    open, a plucked note for each letter as it flies out (rising, in the
+    order they come), and a warm chord as the word settles."""
+    total = int(rate * 3.8)
+    out = [0.0] * total
+    rnd = random.Random(1)
+
+    def add(at, samples, gain):
+        start = int(at * rate)
+        for i, v in enumerate(samples):
+            if start + i < total:
+                out[start + i] += v * gain
+
+    # the whoosh: noise through a resonant filter sweeping up
+    n = int(rate * 0.55)
+    low = band = 0.0
+    whoosh = []
+    for i in range(n):
+        t = i / n
+        cutoff = 250 + 3200 * t * t
+        f = 2 * math.sin(math.pi * cutoff / rate)
+        x = rnd.uniform(-1, 1)
+        low += f * band
+        high = x - low - 0.35 * band
+        band += f * high
+        whoosh.append(band * (t ** 1.5) * (1 - max(0.0, t - 0.85) / 0.15))
+    add(0.0, whoosh, 0.55)
+
+    # the zap: a falling tone with crackle, as the rift opens (frame 28)
+    n = int(rate * 0.45)
+    zap, phase = [], 0.0
+    for i in range(n):
         t = i / rate
-        v = 0.0
-        for start, freq in ((0.0, 1318.5), (0.14, 1975.5)):
-            if t >= start:
-                u = t - start
-                env = math.exp(-u * 4.0) * min(1.0, u * 200)
-                v += env * (math.sin(2 * math.pi * freq * u) + 0.25 * math.sin(4 * math.pi * freq * u))
-        samples.append(int(max(-1, min(1, v * 0.28)) * 32767))
+        freq = 200 + 2600 * math.exp(-t * 14)
+        phase += 2 * math.pi * freq / rate
+        env = math.exp(-t * 7)
+        crackle = rnd.uniform(-1, 1) if rnd.random() < 0.08 * env else 0.0
+        zap.append(env * (0.6 * math.sin(phase) + 0.25 * math.sin(phase * 2.01)) + crackle * 0.7)
+    add(28 / 60, zap, 0.5)
+
+    # the letters: A major pentatonic, one note per letter, 6 frames apart
+    notes = [880.0, 987.8, 1108.7, 1318.5, 1480.0, 1760.0, 1975.5]
+    for k, freq in enumerate(notes):
+        n = int(rate * 0.5)
+        pluck = []
+        for i in range(n):
+            t = i / rate
+            env = math.exp(-t * 9) * min(1.0, t * 400)
+            pluck.append(env * (math.sin(2 * math.pi * freq * t) + 0.3 * math.sin(4 * math.pi * freq * t) +
+                                0.12 * math.sin(2 * math.pi * freq * 3.003 * t)))
+        add((34 + 6 * k) / 60, pluck, 0.22)
+
+    # the word settles: a soft A major chord with a shimmer on top
+    n = total - int(rate * 1.45)
+    chord = []
+    for i in range(n):
+        t = i / rate
+        env = min(1.0, t / 0.12) * math.exp(-t * 1.3)
+        v = sum(math.sin(2 * math.pi * f * t) * a for f, a in ((220.0, 0.5), (277.2, 0.35), (329.6, 0.35), (440.0, 0.3)))
+        v += 0.18 * math.sin(2 * math.pi * 1760.0 * t) * (0.5 + 0.5 * math.sin(2 * math.pi * 6 * t))
+        chord.append(v * env)
+    add(1.45, chord, 0.32)
+
+    peak = max(abs(v) for v in out) or 1.0
+    fade = int(rate * 0.3)
+    samples = []
+    for i, v in enumerate(out):
+        g = 0.85 / peak * (min(1.0, (total - i) / fade))
+        samples.append(int(max(-1.0, min(1.0, v * g)) * 32767))
     return rate, samples
 
 
@@ -391,49 +473,286 @@ def bns(rate, samples):
 
 
 # ------------------------------------------------------------ the banner ----
-NAVY_TOP, NAVY_BOTTOM = (26, 44, 84), (8, 14, 30)
-LIGHT = (70, 150, 255)
+# channel/art/ holds the pictures (tools/make_channel_art.py draws them).
+# Here they are placed and animated: the banner plays banner_start once when
+# the channel is picked, then banner_loop for as long as it stays open; the
+# icon (the Wii Menu tile) loops icon.brlan.
+ICE = (205, 238, 255)
+CYAN = (47, 182, 233)      # RiftWii's accent colour
+DEEP = (20, 110, 210)
+VIOLET = (150, 90, 255)
+PINK = (235, 110, 225)
+
+START = 110                # banner_start: about 1.8 seconds
+LOOP = 480                 # banner_loop and icon: 8 seconds
 
 
-def banner_art(logo):
-    """The banner (608x456, shown when the channel is picked) and the icon
-    (the Wii Menu tile, 128x96 in the middle of the same space)."""
-    textures = {"rw_white.tpl": tpl(Image(8, 8, lambda x, y: (255, 255, 255, 255))),
-                "rw_glow.tpl": tpl(glow_image(64)),
-                "rw_logo.tpl": tpl(logo)}
-    lw, lh = logo.width, logo.height
+def ease(*points):
+    """(frame, value) keys that ease in and out of each point."""
+    return [(float(f), float(v), 0.0) for f, v in points]
 
-    def scene(width, height, logo_scale, glow_size, shine_size, sweep):
-        lay = Layout(608, 456)
-        lay.picture("P_back", "rw_white.tpl", (0, 0), (width, height),
-                    [NAVY_TOP, NAVY_TOP, NAVY_BOTTOM, NAVY_BOTTOM])
-        lay.picture("P_glow", "rw_glow.tpl", (0, 0), (glow_size, glow_size), [(*LIGHT, 150)] * 4)
-        lay.pane("N_logo")
-        lay.begin()
-        lay.picture("P_logo", "rw_logo.tpl", (0, 0), (lw * logo_scale, lh * logo_scale), [(255, 255, 255)] * 4)
-        lay.end()
-        lay.picture("P_shine", "rw_glow.tpl", (-sweep, 0), shine_size, [(255, 255, 255, 110)] * 4, rot=-20.0, alpha=0)
-        # 4 seconds at 60 frames: the light breathes, the logo swells a
-        # little, and a shine crosses the logo once.
-        anim = brlan(240, [
-            anim_entry("P_glow", [
-                anim_tag(b"RLPA", [anim_group(6, hermite([(0, 1.0), (120, 1.15), (240, 1.0)])),
-                                   anim_group(7, hermite([(0, 1.0), (120, 1.15), (240, 1.0)]))]),
-                anim_tag(b"RLVC", [anim_group(16, hermite([(0, 150), (120, 230), (240, 150)]))])]),
-            anim_entry("N_logo", [
-                anim_tag(b"RLPA", [anim_group(6, hermite([(0, 1.0), (120, 1.04), (240, 1.0)])),
-                                   anim_group(7, hermite([(0, 1.0), (120, 1.04), (240, 1.0)]))])]),
-            anim_entry("P_shine", [
-                anim_tag(b"RLPA", [anim_group(0, [(0, -sweep, 0.0), (100, sweep, 2 * sweep / 100), (240, sweep, 0.0)])]),
-                anim_tag(b"RLVC", [anim_group(16, hermite([(0, 0), (20, 255), (80, 255), (100, 0), (240, 0)]))])]),
-        ])
-        return lay.build(), anim
 
-    banner_lyt, banner_anim = scene(832, 456, 3.0, 460, (140, 300), 420)
-    icon_lyt, icon_anim = scene(128, 96, 0.9, 110, (36, 110), 80)
-    banner = u8({"arc": {"anim": {"banner.brlan": banner_anim}, "blyt": {"banner.brlyt": banner_lyt},
-                         "timg": textures}})
-    icon = u8({"arc": {"anim": {"icon.brlan": icon_anim}, "blyt": {"icon.brlyt": icon_lyt}, "timg": textures}})
+def line(f0, v0, f1, v1):
+    s = (v1 - v0) / (f1 - f0)
+    return [(float(f0), float(v0), s), (float(f1), float(v1), s)]
+
+
+def sampled(fn, f0, f1, step=8):
+    """Keys that follow fn(frame) closely: samples with their slopes."""
+    frames = list(range(int(f0), int(f1), step)) + [int(f1)]
+    return [(float(f), float(fn(f)), (fn(f + 0.5) - fn(f - 0.5))) for f in frames]
+
+
+def wave(base, amp, period, phase=0.0):
+    """base + a sine that starts at 0, so the loop picks up where the
+    start animation leaves the pane."""
+    return lambda f: base + amp * (math.sin(2 * math.pi * f / period + phase) - math.sin(phase))
+
+
+def cycle(fn, period, phase, length=LOOP, step=6):
+    """A motion that repeats every period frames, restarting with a jump
+    (two keys on one frame): fn(u) for u from 0 to 1. The loop's length is
+    a whole number of periods, so it joins up."""
+    assert length % period == 0
+    h = 0.5 / period
+
+    def key(f, u):
+        u1, u2 = max(0.0, u - h), min(1.0, u + h)
+        return (float(f), float(fn(u)), (fn(u2) - fn(u1)) / ((u2 - u1) * period))
+
+    keys, f, off = [], 0.0, phase * period
+    while f < length:
+        u = ((f + off) % period) / period
+        boundary = f + (1 - u) * period
+        end = min(length, boundary)
+        a = f
+        while a < end:
+            keys.append(key(a, ((a + off) % period) / period))
+            a = min(end, a + step)
+        keys.append(key(end, 1.0 if end == boundary else ((end + off) % period) / period))
+        f = end
+    return keys
+
+
+def scene_banner(art):
+    L = art["letters"]
+    gap = 26.0                                     # the rift shows between "Rift" and "Wii"
+    width = art["width"] + gap
+    scale = 1.22
+    centers = []
+    for i, l in enumerate(L):
+        shift = gap if i >= 4 else 0.0
+        centers.append(l["x"] + l["w"] / 2 + shift - width / 2)
+    seam = (sum(l["advance"] for l in L[:4]) + gap / 2 - width / 2) * scale
+    word_y = 18.0
+
+    root = Node("root")
+    kids = root.children
+    kids.append(Node("P_bg", "rw_nebula.tpl", size=(860, 484)))
+    kids.append(Node("P_cloudA", "rw_cloud.tpl", (-190, 60), (620, 620), [(*VIOLET, 150)], alpha=150))
+    kids.append(Node("P_cloudB", "rw_cloud.tpl", (220, -70), (560, 560), [(*CYAN, 120)], rot=140, alpha=130))
+    rnd = random.Random(7)
+    stars = []
+    for i in range(18):
+        while True:
+            p = (rnd.uniform(-400, 400), rnd.uniform(-215, 215))
+            if abs(p[1] - word_y) > 90 or abs(p[0]) > 300:
+                break
+        s = rnd.uniform(10, 26)
+        stars.append(Node(f"P_star{i:02d}", "rw_sparkle.tpl", p, (s, s), [(*rnd.choice([ICE, ICE, CYAN, PINK]), 255)]))
+    kids.extend(stars)
+
+    portal = Node("N_portal", pos=(0, word_y))
+    kids.append(portal)
+    portal.children.append(Node("P_halo", "rw_glow.tpl", (seam, 0), (560, 400), [(*DEEP, 255)], alpha=150))
+    tilt = Node("N_tilt", pos=(seam, -6), scale=(1.0, 0.30), rot=-8)
+    tilt.children.append(Node("P_ringA", "rw_ring_a.tpl", size=(600, 600), colors=[(*CYAN, 255)], alpha=230))
+    tilt.children.append(Node("P_ringB", "rw_ring_b.tpl", size=(520, 520), colors=[(*VIOLET, 255)], alpha=200))
+    portal.children.append(tilt)
+    portal.children.append(Node("P_riftGlow", "rw_glow.tpl", (seam, 0), (150, 420), [(*CYAN, 255)], alpha=210))
+    portal.children.append(Node("P_rift", "rw_rift.tpl", (seam, 0), (108, 250), [(*ICE, 255)]))
+    sparks = []
+    for i in range(12):
+        sparks.append(Node(f"P_spark{i:02d}", "rw_glow.tpl", (seam, 0), (12, 12), [(*ICE, 255)], alpha=0))
+    portal.children.extend(sparks)
+
+    word = Node("N_word", pos=(0, 0), scale=(scale, scale))
+    portal.children.append(word)
+    for i, l in enumerate(L):
+        rift_part = i < 4
+        glow_color = (*(CYAN if rift_part else VIOLET), 255)
+        fill = [(255, 255, 255), (200, 228, 255)] if rift_part else [(150, 232, 255), (30, 150, 235)]
+        n = Node(f"N_L{i}", pos=(centers[i], 0))
+        n.children.append(Node(f"P_G{i}", "rw_" + l["tex"] + "_glow.tpl", size=(l["w"], l["h"]), colors=[glow_color], alpha=150))
+        n.children.append(Node(f"P_L{i}", "rw_" + l["tex"] + ".tpl", size=(l["w"], l["h"]), colors=fill))
+        word.children.append(n)
+    portal.children.append(Node("P_shine", "rw_streak.tpl", (-330, 0), (60, 250), [(255, 255, 255, 255)], rot=-18, alpha=0))
+    kids.append(Node("P_tag", "rw_tagline.tpl", (0, -128), (art["tag_w"], art["tag_h"]), [(150, 196, 240)], alpha=210))
+    kids.append(Node("P_flash", "rw_glow.tpl", (seam, word_y), (900, 900), [(235, 248, 255, 255)], alpha=0))
+
+    # ---- banner_loop
+    loop = {}
+    loop[("P_bg", "x")] = sampled(wave(0, 14, LOOP), 0, LOOP, 16)
+    loop[("P_cloudA", "rot")] = line(0, 0, LOOP, -40)
+    loop[("P_cloudA", "sx")] = sampled(wave(1, 0.08, LOOP), 0, LOOP, 16)
+    loop[("P_cloudA", "sy")] = sampled(wave(1, 0.08, LOOP), 0, LOOP, 16)
+    loop[("P_cloudB", "rot")] = line(0, 140, LOOP, 180)
+    loop[("P_cloudB", "alpha")] = sampled(wave(130, 50, LOOP / 2, 1.0), 0, LOOP, 12)
+    for i, s in enumerate(stars):
+        period = rnd.choice([120, 160, 240])
+        ph = rnd.uniform(0, 1)
+        loop[(s.name, "alpha")] = cycle(lambda u: 255 * max(0.0, math.sin(math.pi * u)) ** 2, period, ph)
+        sc = rnd.uniform(0.7, 1.2)
+        loop[(s.name, "sx")] = cycle(lambda u, sc=sc: sc * (0.6 + 0.4 * math.sin(math.pi * u)), period, ph)
+        loop[(s.name, "sy")] = loop[(s.name, "sx")]
+        loop[(s.name, "rot")] = line(0, 0, LOOP, rnd.choice([-90, 90]))
+    loop[("P_halo", "alpha")] = sampled(wave(150, 45, 240), 0, LOOP, 10)
+    loop[("P_halo", "sx")] = sampled(wave(1, 0.05, 240), 0, LOOP, 10)
+    loop[("P_ringA", "rot")] = line(0, 0, LOOP, 360)
+    loop[("P_ringB", "rot")] = line(0, 0, LOOP, -360)
+    loop[("P_riftGlow", "sx")] = sampled(lambda f: 1 + 0.18 * (math.sin(f / 7.0) * math.sin(f / 17.0)), 0, LOOP, 4)
+    loop[("P_riftGlow", "alpha")] = sampled(wave(210, 40, 120), 0, LOOP, 8)
+    loop[("P_rift", "sx")] = sampled(lambda f: 1 + 0.22 * math.sin(f / 5.0) * math.sin(f / 13.0), 0, LOOP, 4)
+    for i, sp in enumerate(sparks):
+        period = [160, 240, 120][i % 3]
+        ph = (i * 0.37) % 1
+        drift = rnd.uniform(-70, 70)
+        loop[(sp.name, "y")] = cycle(lambda u: -60 + 230 * u, period, ph)
+        loop[(sp.name, "x")] = cycle(lambda u, d=drift: seam + d * u ** 1.5, period, ph)
+        loop[(sp.name, "alpha")] = cycle(lambda u: 255 * min(1.0, u * 6) * (1 - u) ** 1.5, period, ph)
+    for i in range(len(L)):
+        loop[(f"N_L{i}", "y")] = sampled(wave(0, 4.0, 240, i * 0.7), 0, LOOP, 12)
+        loop[(f"P_G{i}", "alpha")] = sampled(wave(150, 60, 240, i * 0.7 + 1.5), 0, LOOP, 12)
+    loop[("P_shine", "x")] = [(0.0, -330.0, 0.0), (250.0, -330.0, 0.0), (250.0, -330.0, 660 / 70), (320.0, 330.0, 660 / 70),
+                              (320.0, 330.0, 0.0), (float(LOOP), 330.0, 0.0), (float(LOOP), -330.0, 0.0)]
+    loop[("P_shine", "alpha")] = ease((0, 0), (250, 0), (270, 170), (300, 170), (320, 0), (LOOP, 0))
+
+    # ---- banner_start: the backdrop fades up, the rift tears open with a
+    # flash, the rings spin up, and the letters fly out of the rift one by
+    # one, nearest first, and settle into the word.
+    start = {}
+    start[("P_bg", "alpha")] = ease((0, 0), (22, 255))
+    start[("P_cloudA", "alpha")] = ease((0, 0), (40, 150))
+    start[("P_cloudB", "alpha")] = ease((0, 0), (40, 130))
+    start[("P_rift", "sy")] = ease((0, 0), (10, 0), (30, 1.12), (38, 1.0))
+    start[("P_rift", "sx")] = ease((0, 0.3), (26, 0.3), (32, 1.6), (44, 1.0))
+    start[("P_riftGlow", "alpha")] = ease((0, 0), (12, 0), (30, 255), (60, 210))
+    start[("P_riftGlow", "sy")] = ease((0, 0), (10, 0), (32, 1.0))
+    start[("P_flash", "alpha")] = ease((0, 0), (28, 0), (33, 230), (60, 0))
+    start[("P_flash", "sx")] = ease((0, 0.2), (28, 0.2), (60, 1.2))
+    start[("P_flash", "sy")] = ease((0, 0.2), (28, 0.2), (60, 1.2))
+    start[("P_halo", "alpha")] = ease((0, 0), (30, 0), (60, 150))
+    start[("N_tilt", "sx")] = ease((0, 0.2), (32, 0.2), (62, 1.08), (74, 1.0))
+    start[("N_tilt", "sy")] = ease((0, 0.06), (32, 0.06), (62, 0.33), (74, 0.30))
+    start[("P_ringA", "alpha")] = ease((0, 0), (32, 0), (56, 230))
+    start[("P_ringB", "alpha")] = ease((0, 0), (36, 0), (60, 200))
+    start[("P_ringA", "rot")] = ease((0, -240), (32, -240)) + [(32.0, -240.0, 9.0), (float(START), 0.0, 0.75)]
+    start[("P_ringB", "rot")] = ease((0, 240), (36, 240)) + [(36.0, 240.0, -9.0), (float(START), 0.0, -0.75)]
+    seam_word = seam / scale
+    order = sorted(range(len(L)), key=lambda i: abs(centers[i] - seam_word))
+    for rank, i in enumerate(order):
+        t0 = 34 + rank * 6
+        t1 = t0 + 20
+        side = 1 if centers[i] > seam_word else -1
+        start[(f"N_L{i}", "x")] = ease((0, seam_word), (t0, seam_word), (t1, centers[i] + side * 10), (t1 + 10, centers[i]))
+        start[(f"N_L{i}", "y")] = ease((0, 0), (t0, 0), (t0 + 10, 22), (t1, -4), (t1 + 10, 0))
+        start[(f"N_L{i}", "sx")] = ease((0, 0.05), (t0, 0.05), (t1, 1.15), (t1 + 10, 1.0))
+        start[(f"N_L{i}", "sy")] = ease((0, 0.05), (t0, 0.05), (t1, 1.15), (t1 + 10, 1.0))
+        start[(f"N_L{i}", "rot")] = ease((0, side * -35), (t0, side * -35), (t1, side * 4), (t1 + 10, 0))
+        start[(f"N_L{i}", "alpha")] = ease((0, 0), (t0, 0), (t0 + 6, 255))
+        start[(f"P_G{i}", "alpha")] = ease((0, 0), (t0, 0), (t1, 255), (t1 + 26, 150))
+    start[("P_shine", "x")] = ease((0, -330), (84, -330)) + [(84.0, -330.0, 660 / 26), (float(START), 330.0, 660 / 26)]
+    start[("P_shine", "alpha")] = ease((0, 0), (84, 0), (94, 170), (104, 170), (START, 0))
+    start[("P_tag", "alpha")] = ease((0, 0), (80, 0), (104, 210))
+    start[("P_tag", "y")] = ease((0, -142), (80, -142), (104, -128))
+    for s in stars:
+        v0 = hermite_at(loop[(s.name, "alpha")], 0)
+        start[(s.name, "alpha")] = ease((0, 0), (60, 0), (START, v0))
+    for sp in sparks:
+        start[(sp.name, "alpha")] = ease((0, 0), (START - 1, 0), (START, hermite_at(loop[(sp.name, "alpha")], 0)))
+    # the loop's first frame, for everything the start leaves alone
+    for (pane, target), keys in loop.items():
+        if (pane, target) not in start:
+            start[(pane, target)] = ease((0, hermite_at(keys, 0)))
+    return root, start, loop
+
+
+def scene_icon(art):
+    """The Wii Menu tile: 128x96 in the middle of the screen."""
+    root = Node("root")
+    kids = root.children
+    ww, wh = art["word_w"], art["word_h"]
+    s = 104.0 / ww
+    split = art["word_split"]
+    kids.append(Node("P_bg", "rw_nebula.tpl", size=(176, 104)))
+    kids.append(Node("P_cloud", "rw_cloud.tpl", (-30, 16), (150, 150), [(*VIOLET, 150)], alpha=150))
+    kids.append(Node("P_halo", "rw_glow.tpl", (0, 4), (170, 110), [(*DEEP, 255)], alpha=170))
+    tilt = Node("N_tilt", pos=(0, 0), scale=(1.0, 0.30), rot=-8)
+    tilt.children.append(Node("P_ringA", "rw_ring_a.tpl", size=(150, 150), colors=[(*CYAN, 255)], alpha=230))
+    tilt.children.append(Node("P_ringB", "rw_ring_b.tpl", size=(128, 128), colors=[(*VIOLET, 255)], alpha=200))
+    kids.append(tilt)
+    seam = (split - 0.5) * ww * s
+    kids.append(Node("P_riftGlow", "rw_glow.tpl", (seam, 4), (40, 104), [(*CYAN, 255)], alpha=200))
+    kids.append(Node("P_rift", "rw_rift.tpl", (seam, 4), (32, 70), [(*ICE, 255)]))
+    word = Node("N_word", pos=(0, 4), scale=(s, s))
+    word.children.append(Node("P_wglow", "rw_word_glow.tpl", size=(ww, wh), colors=[(*CYAN, 255)], alpha=170))
+    word.children.append(Node("P_word", "rw_word.tpl", size=(ww, wh), colors=[(255, 255, 255), (196, 228, 255)]))
+    kids.append(word)
+    kids.append(Node("P_shine", "rw_streak.tpl", (-90, 4), (18, 90), [(255, 255, 255, 255)], rot=-18, alpha=0))
+    rnd = random.Random(3)
+    stars = []
+    for i in range(6):
+        p = (rnd.choice([-1, 1]) * rnd.uniform(30, 60), rnd.choice([-1, 1]) * rnd.uniform(26, 42))
+        stars.append(Node(f"P_star{i}", "rw_sparkle.tpl", p, (9, 9), [(*rnd.choice([ICE, CYAN, PINK]), 255)]))
+    kids.extend(stars)
+
+    anim = {}
+    anim[("P_ringA", "rot")] = line(0, 0, LOOP, 360)
+    anim[("P_ringB", "rot")] = line(0, 0, LOOP, -360)
+    anim[("P_cloud", "rot")] = line(0, 0, LOOP, -60)
+    anim[("P_halo", "alpha")] = sampled(wave(170, 50, 240), 0, LOOP, 10)
+    anim[("P_rift", "sx")] = sampled(lambda f: 1 + 0.22 * math.sin(f / 5.0) * math.sin(f / 13.0), 0, LOOP, 4)
+    anim[("P_riftGlow", "alpha")] = sampled(wave(200, 45, 120), 0, LOOP, 8)
+    anim[("N_word", "y")] = sampled(wave(4, 1.5, 240), 0, LOOP, 12)
+    anim[("P_wglow", "alpha")] = sampled(wave(170, 70, 240, 1.5), 0, LOOP, 12)
+    anim[("P_shine", "x")] = [(0.0, -90.0, 0.0), (300.0, -90.0, 0.0), (300.0, -90.0, 180 / 50), (350.0, 90.0, 180 / 50),
+                              (350.0, 90.0, 0.0), (float(LOOP), 90.0, 0.0), (float(LOOP), -90.0, 0.0)]
+    anim[("P_shine", "alpha")] = ease((0, 0), (300, 0), (315, 190), (335, 190), (350, 0), (LOOP, 0))
+    for i, st in enumerate(stars):
+        period = [120, 160, 240][i % 3]
+        ph = rnd.uniform(0, 1)
+        anim[(st.name, "alpha")] = cycle(lambda u: 255 * max(0.0, math.sin(math.pi * u)) ** 2, period, ph)
+        anim[(st.name, "sx")] = cycle(lambda u: 0.6 + 0.5 * math.sin(math.pi * u), period, ph)
+        anim[(st.name, "sy")] = anim[(st.name, "sx")]
+    return root, anim
+
+
+def load_art(art_dir):
+    """The pictures, as TPLs, and the letter placement."""
+    art = json.load(open(os.path.join(art_dir, "letters.json")))
+    textures, images = {}, {}
+    for f in sorted(os.listdir(art_dir)):
+        if f.endswith(".png"):
+            img = png_image(os.path.join(art_dir, f))
+            name = "rw_" + f[:-4] + ".tpl"
+            images[name] = img
+            textures[name] = tpl(img, 4 if f == "nebula.png" else 3)
+    art["word_w"], art["word_h"] = images["rw_word.tpl"].width, images["rw_word.tpl"].height
+    art["tag_w"], art["tag_h"] = images["rw_tagline.tpl"].width, images["rw_tagline.tpl"].height
+    return art, textures, images
+
+
+def banner_art(art_dir):
+    art, textures, _ = load_art(art_dir)
+    root, start, loop = scene_banner(art)
+    used = {n.tex for n in root.walk() if n.tex}
+    banner = u8({"arc": {"anim": {"banner_start.brlan": brlan(START, start), "banner_loop.brlan": brlan(LOOP, loop)},
+                         "blyt": {"banner.brlyt": brlyt(root, used)},
+                         "timg": {k: v for k, v in textures.items() if k in used}}})
+    root, anim = scene_icon(art)
+    used = {n.tex for n in root.walk() if n.tex}
+    icon = u8({"arc": {"anim": {"icon.brlan": brlan(LOOP, anim)}, "blyt": {"icon.brlyt": brlyt(root, used)},
+                       "timg": {k: v for k, v in textures.items() if k in used}}})
     return banner, icon
 
 
@@ -492,42 +811,6 @@ def package(contents):
     return head + bytes(at - len(head)) + body
 
 
-def preview(out_dir, logo, lw_scale=3.0):
-    """A still of the banner and icon (their first frame), to check the
-    art without a Wii Menu."""
-    os.makedirs(out_dir, exist_ok=True)
-
-    def still(w, h, s, glow, name):
-        rows = []
-        for y in range(h):
-            row = bytearray()
-            t = y / (h - 1)
-            for x in range(w):
-                c = [NAVY_TOP[k] * (1 - t) + NAVY_BOTTOM[k] * t for k in range(3)]
-                dx, dy = (x - w / 2) / (glow / 2), (y - h / 2) / (glow / 2)
-                d = min(1.0, math.sqrt(dx * dx + dy * dy))
-                a = (1 - d) ** 2 * (1 + 2 * d) * 150 / 255
-                c = [c[k] * (1 - a) + LIGHT[k] * a for k in range(3)]
-                lx = int((x - (w - logo.width * s) / 2) / s)
-                ly = int((y - (h - logo.height * s) / 2) / s)
-                if 0 <= lx < logo.width and 0 <= ly < logo.height:
-                    p = logo.at(lx, ly)
-                    la = p[3] / 255
-                    c = [p[k] * la + c[k] * (1 - la) for k in range(3)]
-                row += bytes(int(v) for v in c)
-            rows.append(bytes(row))
-        raw = b"".join(b"\0" + r for r in rows)
-
-        def chunk(kind, body):
-            return struct.pack(">I", len(body)) + kind + body + struct.pack(">I", zlib.crc32(kind + body))
-        png = b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 2, 0, 0, 0))
-        png += chunk(b"IDAT", zlib.compress(raw, 9)) + chunk(b"IEND", b"")
-        open(os.path.join(out_dir, name), "wb").write(png)
-
-    still(832, 456, 3.0, 460, "banner.png")
-    still(128, 96, 0.9, 110, "icon.png")
-
-
 def main(argv):
     if len(argv) == 4 and argv[1] == "logo":
         logo = png_image(argv[2])
@@ -535,9 +818,8 @@ def main(argv):
         return 0
     if len(argv) in (5, 6) and argv[1] == "build":
         forwarder = open(argv[2], "rb").read()
-        logo = png_image(argv[3])
-        banner, icon = banner_art(logo)
-        app0 = opening(banner, icon, bns(*chime()))
+        banner, icon = banner_art(argv[3])
+        app0 = opening(banner, icon, bns(*banner_sound()))
         blob = package([app0, forwarder])
         open(argv[4], "wb").write(blob)
         info = os.path.join(os.path.dirname(argv[4]) or ".", "riftwii_channel_info.h")
@@ -545,7 +827,6 @@ def main(argv):
                               f"#define RIFTWII_CHANNEL_TITLE 0x{TITLE_ID:016x}ull\n"
                               f"#define RIFTWII_CHANNEL_VERSION {TITLE_VERSION}u\n")
         if len(argv) == 6:
-            preview(argv[5], logo)
             open(os.path.join(argv[5], "00000000.app"), "wb").write(app0)
         print(f"channel: banner {len(app0)} bytes, forwarder {len(forwarder)} bytes, package {len(blob)} bytes")
         return 0

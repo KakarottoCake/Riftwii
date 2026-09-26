@@ -101,7 +101,10 @@ Gecko lines and Dolphin's DI and SD logs), savegames, and heap placement
    `release_date`), then `make -f Makefile.wii clean` and build.
 2. Run the host tests and the Dolphin checks above.
 3. Pack the zip: `sd-card/apps/riftwii/` with `boot.dol` (the new
-   `riftwii.dol`), `meta.xml` and `icon.png`; `sd-card/riivolution/`,
+   `riftwii.dol`), `meta.xml` and `icon.png`; `sd-card/apps/riftwii_channel/`
+   with `boot.dol` (`build-channel/installer.dol`, from
+   `make -f Makefile.channel`) and `channel/installer/hbc/meta.xml` and
+   `icon.png`; `sd-card/riivolution/`,
    `sd-card/wbfs/`, `sd-card/games/`, `usb-drive/wbfs/` and
    `usb-drive/games/`, each with a short text file saying what goes
    there; a `README.txt` for players at the top.

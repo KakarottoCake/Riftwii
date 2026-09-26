@@ -19,13 +19,12 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "dolboot.h"
 #include "logo_rgba.h"  // RGBA, from hbc/icon.png (tools/make_channel.py logo)
 
 #define kLogoWidth 128
 #define kLogoHeight 48
 #define kLogo logo_rgba
-
-#define DOL_MAX (16u << 20)
 
 static const char* const kPaths[] = {
     "sd:/apps/riftwii/boot.dol",
@@ -148,76 +147,11 @@ static void unmount(int which) {
 
 // Into MEM2, taken off the arena directly: the heap would put part of it
 // in MEM1, where the sections are copied to.
-static u8* read_dol(const char* path, u32* size) {
-    FILE* f = fopen(path, "rb");
-    if (!f) return NULL;
-    fseek(f, 0, SEEK_END);
-    const long n = ftell(f);
-    fseek(f, 0, SEEK_SET);
-    u8* data = NULL;
-    if (n > 0x100 && (u32)n <= DOL_MAX) {
-        const u32 lo = ((u32)SYS_GetArena2Lo() + 31) & ~31u;
-        if (lo + (u32)n <= (u32)SYS_GetArena2Hi()) {
-            SYS_SetArena2Lo((void*)(lo + (((u32)n + 31) & ~31u)));
-            data = (u8*)lo;
-        }
-    }
-    if (data && fread(data, 1, (size_t)n, f) != (size_t)n) data = NULL;
-    fclose(f);
-    *size = (u32)n;
-    return data;
-}
-
-typedef struct {
-    u32 offset[18];
-    u32 address[18];
-    u32 size[18];
-    u32 bss_address;
-    u32 bss_size;
-    u32 entry;
-} DolHeader;
-
-// The DOL's sections must fit its file and land in MEM1, clear of this
-// program.
-static bool dol_ok(const u8* data, u32 size) {
-    extern u8 __app_start[], __bss_end[];
-    const u32 self_lo = (u32)__app_start, self_hi = (u32)__bss_end;
-    const DolHeader* h = (const DolHeader*)data;
-    for (int i = 0; i < 18; ++i) {
-        if (h->size[i] == 0) continue;
-        const u32 lo = h->address[i], hi = lo + h->size[i];
-        if (h->offset[i] + h->size[i] > size || lo < 0x80003f00 || hi > 0x81200000) return false;
-        if (lo < self_hi && hi > self_lo) return false;
-    }
-    const u32 bss_hi = h->bss_address + h->bss_size;
-    if (h->bss_size && (h->bss_address < 0x80003f00 || bss_hi > 0x81200000 ||
-                        (h->bss_address < self_hi && bss_hi > self_lo))) {
-        return false;
-    }
-    return h->entry >= 0x80003f00 && h->entry < 0x81200000;
-}
-
-// Hands `path` over as argv[0], as the Homebrew Channel does: in the
-// program's "_arg" block after its entry branch, with the string placed
-// after its BSS, where libogc keeps its arena clear of it.
-static void set_argv(const DolHeader* h, const char* path) {
-    u32 text0 = h->address[0];
-    struct __argv* args = (struct __argv*)(text0 + 8);
-    if (*(u32*)(text0 + 4) != ARGV_MAGIC) return;
-    u32 end = 0;
-    for (int i = 0; i < 18; ++i) {
-        if (h->size[i] && h->address[i] + h->size[i] > end) end = h->address[i] + h->size[i];
-    }
-    if (h->bss_address + h->bss_size > end) end = h->bss_address + h->bss_size;
-    char* line = (char*)((end + 31) & ~31u);
-    const u32 len = strlen(path) + 1;
-    memcpy(line, path, len);
-    line[len] = 0;
-    DCFlushRange(line, (len + 32) & ~31u);
-    args->argvMagic = ARGV_MAGIC;
-    args->commandLine = line;
-    args->length = (int)len + 1;
-    DCFlushRange(args, sizeof(*args));
+static void* mem2(u32 n) {
+    const u32 lo = ((u32)SYS_GetArena2Lo() + 31) & ~31u;
+    if (lo + n > (u32)SYS_GetArena2Hi()) return NULL;
+    SYS_SetArena2Lo((void*)(lo + ((n + 31) & ~31u)));
+    return (void*)lo;
 }
 
 int main(void) {
@@ -229,12 +163,12 @@ int main(void) {
     const char* path = NULL;
     for (int i = 0; i < 2 && !dol; ++i) {
         if (!mount(i)) continue;
-        dol = read_dol(kPaths[i], &size);
+        dol = dolboot_read(kPaths[i], &size, mem2);
         if (dol) path = kPaths[i];
         unmount(i);
     }
     if (!dol) fail("apps/riftwii/boot.dol is not on the SD card or the USB drive.");
-    if (!dol_ok(dol, size)) fail("apps/riftwii/boot.dol is damaged or is not a Wii program.");
+    if (!dolboot_valid(dol, size)) fail("apps/riftwii/boot.dol is damaged or is not a Wii program.");
 
     outro();
     VIDEO_SetBlack(TRUE);
@@ -243,21 +177,6 @@ int main(void) {
 
     // Keeps the IOS this channel runs under (58, from its TMD), as the
     // Homebrew Channel does.
-    const DolHeader h = *(const DolHeader*)dol;
-    SYS_ResetSystem(SYS_SHUTDOWN, 0, 0);
-    IRQ_Disable();
-
-    for (int i = 0; i < 18; ++i) {
-        if (h.size[i] == 0) continue;
-        memmove((void*)h.address[i], dol + h.offset[i], h.size[i]);
-        DCFlushRange((void*)h.address[i], h.size[i]);
-        ICInvalidateRange((void*)h.address[i], h.size[i]);
-    }
-    if (h.bss_size) {
-        memset((void*)h.bss_address, 0, h.bss_size);
-        DCFlushRange((void*)h.bss_address, h.bss_size);
-    }
-    set_argv(&h, path);
-    ((void (*)(void))h.entry)();
+    dolboot_run(dol, path);
     return 0;
 }

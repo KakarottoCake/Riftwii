@@ -1,14 +1,16 @@
 # Builds the RiftWii channel (docs/CHANNEL.md): the forwarder
-# (channel/forwarder) and the package wii/channel.cpp installs,
-# build-channel/riftwii_channel.zst (zstd, as the runtime blobs are:
-# the loader's MEM1 carries it), which Makefile.wii embeds.
+# (channel/forwarder), the package tools/make_channel.py makes of it and
+# its banner, and the installer app that carries that package
+# (channel/installer), build-channel/installer.dol. The release zip ships
+# the installer as apps/riftwii_channel; RiftWii itself carries none of it.
 #
 #   export DEVKITPRO=/opt/devkitpro DEVKITPPC=/opt/devkitpro/devkitPPC
 #   make -f Makefile.channel
 #
 # The forwarder is linked at 0x81300000: RiftWii loads at 0x80a00000 and
 # ordinary homebrew at 0x80004000, and the forwarder copies either into
-# place while it runs.
+# place while it runs. The installer is linked where homebrew usually is,
+# clear of RiftWii, which it starts again when it closes.
 ifeq ($(strip $(DEVKITPPC)),)
 $(error "Please set DEVKITPPC in your environment. export DEVKITPPC=<path to>devkitPPC")
 endif
@@ -20,43 +22,72 @@ OBJDIR   := $(OUT)/obj
 FWDOL    := $(OUT)/forwarder.dol
 FWELF    := $(OUT)/forwarder.elf
 PACKAGE  := $(OUT)/riftwii_channel.bin
-PACKED   := $(OUT)/riftwii_channel.zst
+INSTDOL  := $(OUT)/installer.dol
+INSTELF  := $(OUT)/installer.elf
 PYTHON   ?= python3
-ZSTD     ?= zstd
+ART      := $(wildcard channel/art/*)
 
-CFLAGS   := -O2 -Wall -Wextra -Werror $(MACHDEP) -I$(OBJDIR) -I$(LIBOGC_INC)
-LDFLAGS  := $(MACHDEP) -Wl,--section-start,.init=0x81300000 -Wl,-Map,$(OUT)/forwarder.map
-LIBS     := -L$(LIBOGC_LIB) -lfat -logc -lm
+CFLAGS   := -O2 -Wall -Wextra -Werror $(MACHDEP) -I$(OBJDIR) -Ichannel/common -I$(LIBOGC_INC)
+CXXFLAGS := $(CFLAGS) -std=gnu++17 -fno-exceptions -fno-rtti -Ivendor-bearssl/inc
+FWLD     := $(MACHDEP) -Wl,--section-start,.init=0x81300000 -Wl,-Map,$(OUT)/forwarder.map
+INSTLD   := $(MACHDEP) -Wl,-Map,$(OUT)/installer.map
 
-.PHONY: all clean
-all: $(PACKED)
+.PHONY: all clean bearssl
+all: $(INSTDOL)
 
 $(OBJDIR):
 	@mkdir -p $(OBJDIR)
 
+# ---- the forwarder
 # The logo is committed (channel/forwarder/data/logo.rgba, from
 # hbc/icon.png); bin2o turns it into logo_rgba and logo_rgba.h.
 $(OBJDIR)/logo_rgba.o $(OBJDIR)/logo_rgba.h: channel/forwarder/data/logo.rgba | $(OBJDIR)
 	@echo $(notdir $<)
 	@cd $(OBJDIR) && cp ../../$< logo.rgba && bin2s -a 32 -H logo_rgba.h logo.rgba | $(AS) -o logo_rgba.o
 
-$(OBJDIR)/main.o: channel/forwarder/main.c $(OBJDIR)/logo_rgba.h | $(OBJDIR)
+$(OBJDIR)/fw_main.o: channel/forwarder/main.c $(OBJDIR)/logo_rgba.h | $(OBJDIR)
 	@echo $(notdir $<)
 	@$(CC) $(CFLAGS) -c $< -o $@
 
-$(FWELF): $(OBJDIR)/main.o $(OBJDIR)/logo_rgba.o
+$(OBJDIR)/dolboot.o: channel/common/dolboot.c channel/common/dolboot.h | $(OBJDIR)
+	@echo $(notdir $<)
+	@$(CC) $(CFLAGS) -c $< -o $@
+
+$(FWELF): $(OBJDIR)/fw_main.o $(OBJDIR)/dolboot.o $(OBJDIR)/logo_rgba.o
 	@echo linking ... $(notdir $@)
-	@$(CC) $(LDFLAGS) $^ $(LIBS) -o $@
+	@$(CC) $(FWLD) $^ -L$(LIBOGC_LIB) -lfat -logc -lm -o $@
 
 $(FWDOL): $(FWELF)
 	@echo output ... $(notdir $@)
 	@elf2dol $< $@
 
-$(PACKAGE): $(FWDOL) tools/make_channel.py hbc/icon.png
-	@$(PYTHON) tools/make_channel.py build $(FWDOL) hbc/icon.png $@
+# ---- the package: the forwarder and the banner (channel/art)
+$(PACKAGE): $(FWDOL) tools/make_channel.py $(ART)
+	@$(PYTHON) tools/make_channel.py build $(FWDOL) channel/art $@
 
-$(PACKED): $(PACKAGE)
-	@$(ZSTD) -q -19 -f -o $@ $<
+$(OBJDIR)/riftwii_channel_bin.o $(OBJDIR)/riftwii_channel_bin.h: $(PACKAGE) | $(OBJDIR)
+	@echo $(notdir $<)
+	@cd $(OBJDIR) && cp ../riftwii_channel.bin . && bin2s -a 32 -H riftwii_channel_bin.h riftwii_channel.bin | $(AS) -o riftwii_channel_bin.o
+
+# ---- the installer
+bearssl:
+	@$(MAKE) --no-print-directory -f Makefile.bearssl
+
+$(OBJDIR)/inst_main.o: channel/installer/main.cpp channel/installer/install.hpp | $(OBJDIR)
+	@echo $(notdir $<)
+	@$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(OBJDIR)/install.o: channel/installer/install.cpp channel/installer/install.hpp $(OBJDIR)/riftwii_channel_bin.h | $(OBJDIR)
+	@echo $(notdir $<)
+	@$(CXX) $(CXXFLAGS) -I$(OUT) -c $< -o $@
+
+$(INSTELF): $(OBJDIR)/inst_main.o $(OBJDIR)/install.o $(OBJDIR)/dolboot.o $(OBJDIR)/riftwii_channel_bin.o bearssl
+	@echo linking ... $(notdir $@)
+	@$(CXX) $(INSTLD) $(filter %.o,$^) -L$(LIBOGC_LIB) -Lbuild-bearssl -lbearssl -lwiiuse -lbte -lfat -logc -lm -o $@
+
+$(INSTDOL): $(INSTELF)
+	@echo output ... $(notdir $@)
+	@elf2dol $< $@
 
 clean:
 	rm -rf $(OUT)
