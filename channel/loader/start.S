@@ -1,29 +1,39 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# The RiftWii channel's first code. Launched from the Wii Menu, a
-# channel's program starts at 0x3400 with address translation off
-# (every retail channel's DOL has its entry there). This sets the CPU
-# up as the Homebrew Channel leaves it for a program it starts, then
-# jumps to the forwarder's own entry (libogc's) with translation on,
-# the one way homebrew is known to start on a Wii and a vWii alike.
+# The RiftWii channel's boot program starts here. A Wii and a vWii start
+# a channel's boot program differently:
 #
-# tools/make_channel.py (channel_entry) puts this at 0x80003400 as the
-# DOL's first text section and fills in `entry`. It runs from physical
-# 0x3400, so it uses no absolute addresses but those.
+# - A Wii starts it at physical 0x3400 with address translation off,
+#   whatever the DOL's entry field says: `_start` below.
+# - A vWii loads it with a boot program of the Wii U's (BC-NAND), which
+#   jumps to the DOL's entry field with translation on: `vwii_entry`.
+#
+# Both then set the CPU up as the Homebrew Channel does for a program
+# (caches, BATs, segments, HID4) and go on to loader.c with translation
+# on. The layout follows FIX94's vWii NAND loader and OpenDolBoot: a
+# section at 0x80003400, and the loader itself small and at 0x80004000.
 
 #define HID0	1008
 #define HID4	1011
 
-	.text
+	.section .start, "ax", @progbits
 	.globl	_start
-_start:
+_start:				# 0x80003400, real mode (a Wii)
 	b	setup
-	.long	0x52465457		# "RFTW": channel_entry checks this is the stub
-entry:
-	.long	0			# the forwarder's entry, from channel_entry
+	.long	0x52465457		# "RFTW": tools/make_channel.py checks for it
+
+	.globl	vwii_entry
+vwii_entry:			# 0x80003408, translation on (a vWii): the DOL's entry
+	li	3, 0
+	mtsrr1	3			# into setup with interrupts and translation off
+	lis	3, setup@h
+	ori	3, 3, setup@l
+	clrlwi	3, 3, 2			# its physical address
+	mtsrr0	3
+	rfi
 
 setup:
-	# Caches off and invalidated, then on (the branch caches too)
+	# Caches off and invalidated, then on
 	lis	3, 0x0011
 	ori	3, 3, 0x0c64
 	mtspr	HID0, 3
@@ -112,10 +122,27 @@ setup:
 	li	0, 0
 	stw	0, 0xf4(0)
 
-	# To the forwarder's entry, translation on
-	lwz	3, 0x3408(0)		# entry, at physical 0x3400 + 8
+	# On to `crt`, translation on
+	lis	3, crt@h
+	ori	3, 3, crt@l
 	mtsrr0	3
-	mfmsr	3
-	ori	3, 3, 0x30
+	li	3, 0x2030		# floating point, translation on
 	mtsrr1	3
 	rfi
+
+crt:
+	lis	1, __stack_top@h
+	ori	1, 1, __stack_top@l
+	li	0, 0
+	stwu	0, -64(1)
+	lis	3, __bss_start@h
+	ori	3, 3, __bss_start@l
+	lis	4, __bss_end@h
+	ori	4, 4, __bss_end@l
+1:	cmplw	3, 4
+	bge	2f
+	stw	0, 0(3)
+	addi	3, 3, 4
+	b	1b
+2:	bl	loader_main
+3:	b	3b

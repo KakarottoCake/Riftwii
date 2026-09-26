@@ -4,11 +4,10 @@
 Wii Menu banner, icon and sound (content 0), the forwarder (content 1),
 and the TMD and ticket RiftWii installs them with.
 
-    make_channel.py build <forwarder.dol> <start.bin> <art dir> <out.bin> [dir]
+    make_channel.py build <loader.dol> <forwarder.dol> <art dir> <out.bin> [dir]
         the package the installer (channel/installer) carries, and beside
-        it riftwii_channel_info.h (its title ID and version); start.bin is
-        channel/forwarder/start.S assembled; a fifth argument also writes
-        the banner (00000000.app) there
+        it riftwii_channel_info.h (its title ID and version); a fifth
+        argument also writes the banner (00000000.app) there
 
 Nothing here is encrypted or signed: the console does that when RiftWii
 installs the channel. The formats (U8, IMD5, LZ77, TPL, BRLYT, BRLAN,
@@ -26,7 +25,7 @@ import sys
 import zlib
 
 TITLE_ID = 0x0001000152465457  # 00010001-RFTW
-TITLE_VERSION = 4  # 2-3: a start at 0x3400; 4: the entry field for the vWii (channel_entry)
+TITLE_VERSION = 5  # 5: boot program (channel/loader) and forwarder as two contents
 IOS = 58
 CHANNEL_NAME = "RiftWii"
 
@@ -821,54 +820,34 @@ def opening(banner, icon, sound):
     return bytes(head) + u8({"meta": files})
 
 
-# ------------------------------------------------------- channel entry ----
-ENTRY_AT = 0x80003400
+# ------------------------------------------------------------ boot program ----
+LOADER_AT = 0x80003400
+LOADER_HI = 0x80010000
 
 
-def channel_entry(dol, start):
-    """The forwarder's DOL as a channel's boot content, for a Wii and a
-    vWii, which start it differently:
-
-    - A Wii starts a channel's program at 0x3400 with address translation
-      off, whatever the DOL's entry field says. So the first text section
-      is `start` (channel/forwarder/start.S) at 0x80003400: it sets the
-      CPU up as the Homebrew Channel does for a program, then jumps to
-      the forwarder's entry with translation on.
-    - A vWii loads the DOL with a boot program of the Wii U's (BC-NAND),
-      which then jumps to the DOL's entry field. So that field stays the
-      forwarder's own entry (libogc's, 0x80003f00), as OpenDolBoot and
-      the Homebrew Channel's channel stub leave it. (Set to 0x3400, as
-      in retail Wii channels, the vWii stayed on a black screen.)
-
-    Dolphin starts a channel either way, so it never showed either."""
-    if len(start) < 12 or start[4:8] != b"RFTW" or start[8:12] != bytes(4):
-        sys.exit("forwarder: start.bin is not channel/forwarder/start.S")
-    d = bytearray(dol)
-    offsets = list(struct.unpack_from(">18I", d, 0x00))
-    starts = list(struct.unpack_from(">18I", d, 0x48))
-    sizes = list(struct.unpack_from(">18I", d, 0x90))
-    bss, bss_size, entry = struct.unpack_from(">III", d, 0xD8)
-    if not 0x80003f00 <= entry < 0x81800000:
-        sys.exit(f"forwarder: entry {entry:08x} is not libogc's")
+def check_loader(dol):
+    """The channel's boot program (channel/loader), checked for the layout
+    both a Wii and a vWii need: a Wii starts it at physical 0x3400 whatever
+    the DOL's entry field says, a vWii (the Wii U's BC-NAND) jumps to that
+    field. So: the first text section at 0x80003400 holding start.S (its
+    "RFTW" mark at +4), the entry field at vwii_entry (0x80003408), and
+    all of it small and below 0x80010000, under the forwarder."""
+    if len(dol) < 0x100:
+        sys.exit("loader: not a DOL")
+    offsets = struct.unpack_from(">18I", dol, 0x00)
+    starts = struct.unpack_from(">18I", dol, 0x48)
+    sizes = struct.unpack_from(">18I", dol, 0x90)
+    bss, bss_size, entry = struct.unpack_from(">III", dol, 0xD8)
+    if starts[0] != LOADER_AT or dol[offsets[0] + 4:offsets[0] + 8] != b"RFTW":
+        sys.exit(f"loader: the first text section is not start.S at {LOADER_AT:08x}")
+    if entry != LOADER_AT + 8:
+        sys.exit(f"loader: entry {entry:08x}, not vwii_entry ({LOADER_AT + 8:08x})")
     for i in range(18):
-        if sizes[i] and starts[i] < ENTRY_AT + 32 and ENTRY_AT < starts[i] + sizes[i]:
-            sys.exit(f"forwarder: a section already covers {ENTRY_AT:08x}")
-    if bss_size and bss < ENTRY_AT + 32 and ENTRY_AT < bss + bss_size:
-        sys.exit(f"forwarder: the bss covers {ENTRY_AT:08x}")
-    if sizes[6]:
-        sys.exit("forwarder: no free text section")
-    stub = bytearray(start)
-    struct.pack_into(">I", stub, 8, entry)  # start.S's `entry`
-    stub += bytes(-len(stub) % 32)
-    d += bytes(-len(d) % 32)
-    for table in (offsets, starts, sizes):
-        table[0:7] = [0] + table[0:6]
-    offsets[0], starts[0], sizes[0] = len(d), ENTRY_AT, len(stub)
-    d += stub
-    struct.pack_into(">18I", d, 0x00, *offsets)
-    struct.pack_into(">18I", d, 0x48, *starts)
-    struct.pack_into(">18I", d, 0x90, *sizes)
-    return bytes(d)  # the entry field stays the forwarder's, for the vWii
+        if sizes[i] and not LOADER_AT <= starts[i] <= starts[i] + sizes[i] <= LOADER_HI:
+            sys.exit(f"loader: section {i} ({starts[i]:08x}+{sizes[i]:x}) is not below {LOADER_HI:08x}")
+    if bss_size and bss + bss_size > LOADER_HI:
+        sys.exit(f"loader: its bss reaches past {LOADER_HI:08x}")
+    return dol
 
 
 # -------------------------------------------------------- TMD and ticket ----
@@ -913,11 +892,12 @@ def package(contents):
 
 def main(argv):
     if len(argv) in (6, 7) and argv[1] == "build":
-        forwarder = channel_entry(open(argv[2], "rb").read(), open(argv[3], "rb").read())
+        loader = check_loader(open(argv[2], "rb").read())
+        forwarder = open(argv[3], "rb").read()
         argv = argv[:2] + argv[3:]
         banner, icon = banner_art(argv[3])
         app0 = opening(banner, icon, bns(*banner_sound()))
-        blob = package([app0, forwarder])
+        blob = package([app0, loader, forwarder])
         open(argv[4], "wb").write(blob)
         info = os.path.join(os.path.dirname(argv[4]) or ".", "riftwii_channel_info.h")
         open(info, "w").write("// Written by tools/make_channel.py.\n#pragma once\n"
@@ -925,7 +905,7 @@ def main(argv):
                               f"#define RIFTWII_CHANNEL_VERSION {TITLE_VERSION}u\n")
         if len(argv) == 6:
             open(os.path.join(argv[5], "00000000.app"), "wb").write(app0)
-        print(f"channel: banner {len(app0)} bytes, forwarder {len(forwarder)} bytes, package {len(blob)} bytes")
+        print(f"channel: banner {len(app0)}, loader {len(loader)}, forwarder {len(forwarder)}, package {len(blob)} bytes")
         return 0
     print(__doc__)
     return 2
