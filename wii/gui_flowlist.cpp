@@ -20,6 +20,8 @@ constexpr int kSwitchW = 60;  // skin::switchOn/switchOff
 constexpr int kStepperW = kStep + kGap + kChipW + kGap + kStep;
 constexpr int kDragStart = 8;  // pixels the pointer moves before a press becomes a drag
 constexpr int kTrackW = 6;
+constexpr int kArrow = 34;       // skin::scrollUp/scrollDown
+constexpr int kArrowRepeat = 8;  // frames between rows while an arrow is held
 constexpr u32 kWpadA = WPAD_BUTTON_A | WPAD_CLASSIC_BUTTON_A;
 
 bool AnyPointer() {
@@ -136,15 +138,33 @@ bool GuiFlowList::Actionable(int row) const {
     return row >= 0 && row < Count() && (*rows)[row].kind != FlowRow::Kind::Info;
 }
 
+// The arrows sit on the list's right edge, at the ends of its track.
+int GuiFlowList::ArrowX() const { return x0 + rowWidth + 5 - kArrow / 2; }
+
+int GuiFlowList::ArrowY(int dir) const { return dir < 0 ? y0 : y0 + visible * kRowHeight - kArrow; }
+
+int GuiFlowList::ArrowAt(int x, int y) const {
+    if (Count() <= visible) return 0;
+    for (int dir = -1; dir <= 1; dir += 2) {
+        if (dir < 0 ? aim <= 0 : aim >= MaxScroll()) continue;
+        // The hit area reaches a little past the button.
+        const int ax = ArrowX(), ay = ArrowY(dir);
+        if (x >= ax && x < ax + kArrow + 8 && y >= ay - 6 && y < ay + kArrow + 6) return dir;
+    }
+    return 0;
+}
+
 bool GuiFlowList::OnTrack(int x, int y) const {
     const int trackX = x0 + rowWidth + 2;
-    return Count() > visible && x >= trackX - 8 && x < trackX + kTrackW + 12 && y >= y0 && y < y0 + visible * kRowHeight;
+    return Count() > visible && x >= trackX - 8 && x < trackX + kTrackW + 12 && y >= y0 + kArrow + 4 &&
+           y < y0 + visible * kRowHeight - kArrow - 4;
 }
 
 void GuiFlowList::ScrollFromTrack(int y) {
-    const int trackH = visible * kRowHeight;
-    const float at = static_cast<float>(y - y0) / trackH;
-    ScrollTo(at * (MaxScroll() + trackH) - trackH / 2.0f);
+    const int top = y0 + kArrow + 4, trackH = visible * kRowHeight - 2 * (kArrow + 4);
+    const float at = static_cast<float>(y - top) / trackH;
+    const int boxH = visible * kRowHeight;
+    ScrollTo(at * (MaxScroll() + boxH) - boxH / 2.0f);
     scroll = aim;
 }
 
@@ -259,14 +279,23 @@ void GuiFlowList::Draw() {
 
     if (Count() > visible) {
         // Where the list is, along its right edge; A on it (held) drags it.
-        const int trackX = x0 + rowWidth + 2, trackH = boxH - 8;
+        const int trackX = x0 + rowWidth + 2, trackTop = y0 + kArrow + 4, trackH = boxH - 2 * (kArrow + 4);
         const int total = Count() * kRowHeight;
         int thumb = trackH * boxH / total;
-        if (thumb < 24) thumb = 24;
-        const int thumbY = y0 + 4 + static_cast<int>((trackH - thumb) * scroll / MaxScroll());
-        Menu_DrawRectangle(trackX, y0 + 4, kTrackW, trackH, skin::WithAlpha((GXColor){230, 230, 236, 255}, alpha), 1);
+        if (thumb < 16) thumb = 16;
+        const int thumbY = trackTop + static_cast<int>((trackH - thumb) * scroll / MaxScroll());
+        Menu_DrawRectangle(trackX, trackTop, kTrackW, trackH, skin::WithAlpha((GXColor){230, 230, 236, 255}, alpha), 1);
         Menu_DrawRectangle(trackX, thumbY, kTrackW, thumb,
                            skin::WithAlpha(grabTrack ? skin::kAccent : (GXColor){168, 168, 180, 255}, alpha), 1);
+        // Each arrow shows while the list can still go its way.
+        if (aim > 0) {
+            const bool over = hoverArrow < 0 || grabArrow < 0;
+            skin::Draw(over ? skin::scrollUpOver : skin::scrollUp, ArrowX() - 4, ArrowY(-1) - 4, alpha);
+        }
+        if (aim < MaxScroll()) {
+            const bool over = hoverArrow > 0 || grabArrow > 0;
+            skin::Draw(over ? skin::scrollDownOver : skin::scrollDown, ArrowX() - 4, ArrowY(1) - 4, alpha);
+        }
     }
     UpdateEffects();
 }
@@ -280,6 +309,18 @@ void GuiFlowList::Update(GuiTrigger* t) {
     // A held on the list by this Wii Remote: follow it until A is let go.
     if (grabChan >= 0 && t->chan == grabChan) {
         const bool held = t->wpad && (t->wpad->btns_h & kWpadA);
+        if (grabArrow != 0) {
+            // A held arrow keeps going, a row at a time, until A is let go
+            // or the list reaches that end.
+            if (held && pointing && ArrowAt(px, py) == grabArrow) {
+                if (++arrowHeld >= 2 * kArrowRepeat && arrowHeld % kArrowRepeat == 0)
+                    ScrollTo(aim + grabArrow * kRowHeight);
+                return;
+            }
+            grabChan = -1;
+            grabArrow = 0;
+            return;
+        }
         if (held && pointing) {
             if (grabTrack) {
                 ScrollFromTrack(py);
@@ -316,6 +357,22 @@ void GuiFlowList::Update(GuiTrigger* t) {
         // While pointing, the D-pad scrolls by a row.
         if (t->Down()) ScrollTo(aim + kRowHeight);
         else if (t->Up()) ScrollTo(aim - kRowHeight);
+        const int arrow = ArrowAt(px, py);
+        if (arrow != hoverArrow && arrow != 0) soundOver->Play();
+        hoverArrow = arrow;
+        if (arrow != 0) {
+            hover = -1;
+            if (a) {
+                // One row per press; held, it repeats.
+                ScrollTo(aim + arrow * kRowHeight);
+                soundClick->Play();
+                grabChan = t->chan;
+                grabArrow = arrow;
+                arrowHeld = 0;
+                fling = 0;
+            }
+            return;
+        }
         if (a && OnTrack(px, py)) {
             grabChan = t->chan;
             grabTrack = true;
@@ -347,6 +404,7 @@ void GuiFlowList::Update(GuiTrigger* t) {
     }
     if (AnyPointer()) return;
     hover = -1;
+    hoverArrow = 0;
     int target = focus;
     if (t->Down()) target = focus + 1;
     else if (t->Up()) target = focus - 1;

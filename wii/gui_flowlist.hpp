@@ -16,7 +16,9 @@
 //   Info    plain text
 // With the pointer, holding A and moving the Wii Remote drags the list; a
 // press that does not move acts on the row when A is let go. The D-pad
-// moves the focus, and Left/Right step an option.
+// moves the focus, and Left/Right step an option. A longer list has up and
+// down arrows on its right edge, as the Wii Menu's lists do: pointing at
+// one and pressing (or holding) A scrolls it, and each goes away at its end.
 struct FlowRow {
     enum class Kind { Header, Option, Toggle, Action, Info };
     Kind kind = Kind::Info;
@@ -55,6 +57,10 @@ private:
     Part PartAt(int row, int x) const;
     bool Actionable(int row) const;
     bool OnTrack(int x, int y) const;
+    // -1 on the up arrow, 1 on the down arrow (while shown), else 0.
+    int ArrowAt(int x, int y) const;
+    int ArrowX() const;
+    int ArrowY(int dir) const;
     void ScrollFromTrack(int y);
 
     const std::vector<FlowRow>* rows = nullptr;
@@ -68,6 +74,8 @@ private:
     float grabScroll = 0;
     Part grabPart = Part::None;
     bool dragging = false, grabTrack = false;
+    int grabArrow = 0, arrowHeld = 0;  // an arrow held: which, and for how many frames
+    int hoverArrow = 0;
     int textFirst = -1;
     bool dirty = true;
     GuiText* label[kMaxVisible + 1];

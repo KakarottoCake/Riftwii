@@ -40,6 +40,7 @@ extern Tex panelGame, panelSettings;     // 572x232 and 572x276 white panels, dr
 extern Tex bar;                          // 640x124 bottom bar
 extern Tex bannerStripes;                // 640x192 overlay for the game banner
 extern Tex arrowLeft, arrowLeftOver, arrowRight, arrowRightOver;  // 44 page arrows, drawn at -2,-2
+extern Tex scrollUp, scrollUpOver, scrollDown, scrollDownOver;    // 34 list scroll arrows, drawn at -4,-4
 extern Tex iconDrives, iconGear;         // 28x28
 extern Tex hand[4];                      // 96x96 pointers, fingertip at the centre
 

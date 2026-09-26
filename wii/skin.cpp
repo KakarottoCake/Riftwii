@@ -14,6 +14,7 @@ namespace riftwii::wii::skin {
 Tex tile, tileOver, coverTile, coverTileOver, roundBtn, roundBtnOver, pill, pillOver, pillPrimary, pillPrimaryOver, chipOff, chipOn, rowFocus,
     stepBack, stepBackOver, stepForward, stepForwardOver, switchOn, switchOff,
     panelGame, panelSettings, bar, bannerStripes, arrowLeft, arrowLeftOver, arrowRight, arrowRightOver, iconDrives,
+    scrollUp, scrollUpOver, scrollDown, scrollDownOver,
     iconGear, hand[4];
 
 // Textures and the menu font live below the MEM2 arena's low end, taken
@@ -93,6 +94,19 @@ Tex Arrow(bool left, bool over) {
     const float s = left ? -1.0f : 1.0f;
     c.line(24 - 3 * s, 16, 24 + 4 * s, 24, 3.5f, kGlyph);
     c.line(24 + 4 * s, 24, 24 - 3 * s, 32, 3.5f, kGlyph);
+    return Upload(c);
+}
+
+// A list's scroll arrow: 34 across, in a 44 canvas, pointing up or down.
+Tex ScrollArrow(bool up, bool over) {
+    Canvas c(44, 44);
+    if (over) c.circle(21, 21, 20.5f, kGlow);
+    c.circle(21, 22.5f, 17.5f, kShadow);
+    c.circle(21, 21, 17, over ? rgba(0xE3F5FC) : kWhiteC);
+    c.ring(21, 21, 17, 2, over ? kAccentC : kEdgeStrong);
+    const float s = up ? -1.0f : 1.0f;
+    c.line(14, 21 - 2.5f * s, 21, 21 + 3.5f * s, 3.2f, over ? kAccentC : kGlyph);
+    c.line(21, 21 + 3.5f * s, 28, 21 - 2.5f * s, 3.2f, over ? kAccentC : kGlyph);
     return Upload(c);
 }
 
@@ -220,6 +234,10 @@ void Init() {
     arrowLeftOver = Arrow(true, true);
     arrowRight = Arrow(false, false);
     arrowRightOver = Arrow(false, true);
+    scrollUp = ScrollArrow(true, false);
+    scrollUpOver = ScrollArrow(true, true);
+    scrollDown = ScrollArrow(false, false);
+    scrollDownOver = ScrollArrow(false, true);
     iconDrives = Drives();
     iconGear = Gear();
     const Rgba players[4] = {rgba(0x3B8FD6), rgba(0xD64545), rgba(0x3FA34D), rgba(0xD9A21B)};
