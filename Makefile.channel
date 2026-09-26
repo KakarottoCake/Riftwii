@@ -1,0 +1,62 @@
+# Builds the RiftWii channel (docs/CHANNEL.md): the forwarder
+# (channel/forwarder) and the package wii/channel.cpp installs,
+# build-channel/riftwii_channel.zst (zstd, as the runtime blobs are:
+# the loader's MEM1 carries it), which Makefile.wii embeds.
+#
+#   export DEVKITPRO=/opt/devkitpro DEVKITPPC=/opt/devkitpro/devkitPPC
+#   make -f Makefile.channel
+#
+# The forwarder is linked at 0x81300000: RiftWii loads at 0x80a00000 and
+# ordinary homebrew at 0x80004000, and the forwarder copies either into
+# place while it runs.
+ifeq ($(strip $(DEVKITPPC)),)
+$(error "Please set DEVKITPPC in your environment. export DEVKITPPC=<path to>devkitPPC")
+endif
+
+include $(DEVKITPPC)/wii_rules
+
+OUT      := build-channel
+OBJDIR   := $(OUT)/obj
+FWDOL    := $(OUT)/forwarder.dol
+FWELF    := $(OUT)/forwarder.elf
+PACKAGE  := $(OUT)/riftwii_channel.bin
+PACKED   := $(OUT)/riftwii_channel.zst
+PYTHON   ?= python3
+ZSTD     ?= zstd
+
+CFLAGS   := -O2 -Wall -Wextra -Werror $(MACHDEP) -I$(OBJDIR) -I$(LIBOGC_INC)
+LDFLAGS  := $(MACHDEP) -Wl,--section-start,.init=0x81300000 -Wl,-Map,$(OUT)/forwarder.map
+LIBS     := -L$(LIBOGC_LIB) -lfat -logc -lm
+
+.PHONY: all clean
+all: $(PACKED)
+
+$(OBJDIR):
+	@mkdir -p $(OBJDIR)
+
+# The logo is committed (channel/forwarder/data/logo.rgba, from
+# hbc/icon.png); bin2o turns it into logo_rgba and logo_rgba.h.
+$(OBJDIR)/logo_rgba.o $(OBJDIR)/logo_rgba.h: channel/forwarder/data/logo.rgba | $(OBJDIR)
+	@echo $(notdir $<)
+	@cd $(OBJDIR) && cp ../../$< logo.rgba && bin2s -a 32 -H logo_rgba.h logo.rgba | $(AS) -o logo_rgba.o
+
+$(OBJDIR)/main.o: channel/forwarder/main.c $(OBJDIR)/logo_rgba.h | $(OBJDIR)
+	@echo $(notdir $<)
+	@$(CC) $(CFLAGS) -c $< -o $@
+
+$(FWELF): $(OBJDIR)/main.o $(OBJDIR)/logo_rgba.o
+	@echo linking ... $(notdir $@)
+	@$(CC) $(LDFLAGS) $^ $(LIBS) -o $@
+
+$(FWDOL): $(FWELF)
+	@echo output ... $(notdir $@)
+	@elf2dol $< $@
+
+$(PACKAGE): $(FWDOL) tools/make_channel.py hbc/icon.png
+	@$(PYTHON) tools/make_channel.py build $(FWDOL) hbc/icon.png $@
+
+$(PACKED): $(PACKAGE)
+	@$(ZSTD) -q -19 -f -o $@ $<
+
+clean:
+	rm -rf $(OUT)

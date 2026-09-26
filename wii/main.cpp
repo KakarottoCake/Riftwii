@@ -32,6 +32,7 @@
 #include "online.hpp"
 #include "progress.hpp"
 #include "restart.hpp"
+#include "channel.hpp"
 #include "skin.hpp"
 
 int ExitRequested = 0;
@@ -90,6 +91,11 @@ void OpenSessionLog(bool sd_mounted) {
     riftwii::wii::LogOpen("sd:/riftwii/session.log");
     riftwii::wii::logf("RiftWii %s on %s, IOS%d rev %d\n", RIFTWII_VERSION,
                        riftwii::wii::running_in_dolphin() ? "Dolphin" : "Wii", IOS_GetVersion(), IOS_GetRevision());
+    // Who started it: the Homebrew Channel and the RiftWii channel both
+    // pass the DOL's path.
+    const bool has_path = __system_argv != nullptr && __system_argv->argvMagic == ARGV_MAGIC &&
+                          __system_argv->argc > 0 && __system_argv->argv != nullptr && __system_argv->argv[0] != nullptr;
+    riftwii::wii::logf("Started from %s\n", has_path ? __system_argv->argv[0] : "(no path given)");
     riftwii::wii::mem::LogLimits();
     riftwii::wii::mem::LogUsage("start");
 }
@@ -191,6 +197,21 @@ int main() {
             riftwii::wii::logf("FAILED: %s\n", error.c_str());
             OfferRestart(error);
         }
+    } else if (action == MENU_CHANNEL) {
+        // The RiftWii channel (wii/channel.hpp): under a d2x cIOS, then a
+        // fresh start, whose Home says how it went.
+        std::string result;
+        if (ChannelTaskIsRemove()) {
+            riftwii::wii::RemoveChannel(result);
+        } else {
+            riftwii::wii::InstallChannel(result);
+        }
+        if (riftwii::wii::reload_terminal_failure()) riftwii::wii::halt_after_terminal_reload();
+        riftwii::wii::logf("%s\n", result.c_str());
+        riftwii::wii::WarmRestart(riftwii::wii::RestartKind::ChannelDone, result);
+        riftwii::wii::logf("Press HOME, Start or RESET to exit.\n");
+        riftwii::wii::WaitForExit();
+        std::exit(0);
     } else if (action == MENU_DUMP) {
         riftwii::wii::LogOpen("sd:/riftwii/dump.log");
         riftwii::wii::logf("RiftWii: dump test files\n");
