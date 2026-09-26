@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// The RiftWii channel: shows the RiftWii logo for a moment, then starts
-// RiftWii itself from the SD card (or the USB drive). The channel holds
+// The RiftWii channel: a moment of the RiftWii start screen (the rift
+// tears open and the name comes out of it), then RiftWii itself from the
+// SD card (or the USB drive). The channel holds
 // only this program, never RiftWii: RiftWii's own updates replace
 // apps/riftwii/boot.dol, and the channel starts whatever is there.
 //
@@ -20,11 +21,12 @@
 #include <unistd.h>
 
 #include "dolboot.h"
-#include "logo_rgba.h"  // RGBA, from hbc/icon.png (tools/make_channel.py logo)
-
-#define kLogoWidth 128
-#define kLogoHeight 48
-#define kLogo logo_rgba
+// The start screen's pictures (tools/make_channel_art.py): the backdrop
+// (RGB, drawn twice its size), the name (RGBA) and the rift (alpha).
+#include "splash.h"
+#include "splash_bg_rgb.h"
+#include "splash_rift_a.h"
+#include "splash_word_rgba.h"
 
 static const char* const kPaths[] = {
     "sd:/apps/riftwii/boot.dol",
@@ -35,12 +37,12 @@ static GXRModeObj* g_mode;
 static u32* g_xfb;
 
 // The screen in the Wii's own pixel format: two pixels share one Cb/Cr.
-static u32 yuv_pair(int r0, int g0, int b0, int r1, int g1, int b1) {
-    const int y0 = (299 * r0 + 587 * g0 + 114 * b0) / 1000;
-    const int y1 = (299 * r1 + 587 * g1 + 114 * b1) / 1000;
-    const int r = (r0 + r1) / 2, g = (g0 + g1) / 2, b = (b0 + b1) / 2;
-    int cb = 128 + (-169 * r - 331 * g + 500 * b) / 1000;
-    int cr = 128 + (500 * r - 419 * g - 81 * b) / 1000;
+static u32 yuv_pair(const int* c0, const int* c1) {
+    const int y0 = (77 * c0[0] + 150 * c0[1] + 29 * c0[2]) >> 8;
+    const int y1 = (77 * c1[0] + 150 * c1[1] + 29 * c1[2]) >> 8;
+    const int r = (c0[0] + c1[0]) >> 1, g = (c0[1] + c1[1]) >> 1, b = (c0[2] + c1[2]) >> 1;
+    int cb = 128 + ((-43 * r - 85 * g + 128 * b) >> 8);
+    int cr = 128 + ((128 * r - 107 * g - 21 * b) >> 8);
     if (cb < 0) cb = 0;
     if (cb > 255) cb = 255;
     if (cr < 0) cr = 0;
@@ -48,42 +50,72 @@ static u32 yuv_pair(int r0, int g0, int b0, int r1, int g1, int b1) {
     return ((u32)y0 << 24) | ((u32)cb << 16) | ((u32)y1 << 8) | (u32)cr;
 }
 
-// The background: RiftWii's dark blue, lighter toward the middle.
-static void background(int x, int y, int* r, int* g, int* b) {
-    const int w = g_mode->fbWidth, h = g_mode->xfbHeight;
-    const int dx = x - w / 2, dy = (y - h / 2) * 2;
-    const int d = (dx * dx + dy * dy) / (w * 4);
-    const int k = d > 64 ? 64 : d;
-    *r = 22 - k / 4;
-    *g = 34 - k / 3;
-    *b = 58 - k / 2;
+// One frame of the start screen. Levels are 0..256.
+typedef struct {
+    int sky;    // the backdrop's brightness
+    int tear;   // how far the rift has opened (its height)
+    int glow;   // the rift's brightness
+    int flash;  // white over everything
+    int word;   // the name's opacity
+    int apart;  // how far "Rift" and "Wii" still are from their places, toward the rift
+} Frame;
+
+static void blend(int* c, int r, int g, int b, int a) {
+    c[0] += (r - c[0]) * a >> 8;
+    c[1] += (g - c[1]) * a >> 8;
+    c[2] += (b - c[2]) * a >> 8;
 }
 
-// One frame: the logo, twice its size, at `alpha` (0..256) over the
-// background, lifted by `rise` lines.
-static void draw(int alpha, int rise) {
+static void draw(const Frame* f) {
     const int w = g_mode->fbWidth, h = g_mode->xfbHeight;
-    const int scale = 2;
-    const int lw = kLogoWidth * scale, lh = kLogoHeight * scale;
-    const int left = (w - lw) / 2 & ~1, top = (h - lh) / 2 - rise;
+    const int word_x = (w - kWordWidth) / 2, word_y = (h - kWordHeight) / 2 - 6;
+    const int rift_x = word_x + kWordSeam - kRiftWidth / 2;
+    const int cy = h / 2 - 6;
+    const int half = kRiftHeight * f->tear / 512;  // the rift's half height now
     for (int y = 0; y < h; ++y) {
         u32* row = g_xfb + y * (w / 2);
+        const u8* bg_row = splash_bg_rgb + (y * kBgHeight / h) * kBgWidth * 3;
+        const int wy = y - word_y;
+        const bool in_word = f->word > 0 && wy >= 0 && wy < kWordHeight;
+        const bool in_rift = half > 0 && y >= cy - half && y < cy + half;
+        const int ry = in_rift ? kRiftHeight / 2 + (y - cy) * (kRiftHeight / 2) / half : 0;
         for (int x = 0; x < w; x += 2) {
             int c[2][3];
             for (int i = 0; i < 2; ++i) {
-                background(x + i, y, &c[i][0], &c[i][1], &c[i][2]);
-                const int lx = (x + i - left) / scale, ly = (y - top) / scale;
-                if (x + i >= left && y >= top && lx < kLogoWidth && ly < kLogoHeight) {
-                    const u8* p = kLogo + (ly * kLogoWidth + lx) * 4;
-                    const int a = p[3] * alpha / 256;
-                    for (int k = 0; k < 3; ++k) c[i][k] = (p[k] * a + c[i][k] * (255 - a)) / 255;
+                const int px = x + i;
+                const u8* bg = bg_row + (px * kBgWidth / w) * 3;
+                c[i][0] = bg[0] * f->sky >> 8;
+                c[i][1] = bg[1] * f->sky >> 8;
+                c[i][2] = bg[2] * f->sky >> 8;
+                const int rx = px - rift_x;
+                if (in_rift && rx >= 0 && rx < kRiftWidth) {
+                    const int a = splash_rift_a[ry * kRiftWidth + rx] * f->glow >> 8;
+                    blend(c[i], 205, 238, 255, a);
                 }
+                if (in_word) {
+                    // "Rift" is drawn nearer the rift by `apart`, "Wii" too
+                    int wx = px - word_x;
+                    wx += wx < kWordSeam ? -f->apart : f->apart;
+                    const int side = px - word_x < kWordSeam;
+                    if (wx >= 0 && wx < kWordWidth && (wx < kWordSeam) == side) {
+                        const u8* p = splash_word_rgba + (wy * kWordWidth + wx) * 4;
+                        blend(c[i], p[0], p[1], p[2], p[3] * f->word >> 8);
+                    }
+                }
+                if (f->flash) blend(c[i], 255, 255, 255, f->flash);
             }
-            row[x / 2] = yuv_pair(c[0][0], c[0][1], c[0][2], c[1][0], c[1][1], c[1][2]);
+            row[x / 2] = yuv_pair(c[0], c[1]);
         }
     }
     DCFlushRange(g_xfb, w * h * 2);
     VIDEO_WaitVSync();
+}
+
+static int ease_out(int t, int span) {  // 0..256 over span frames, slowing down
+    if (t <= 0) return 0;
+    if (t >= span) return 256;
+    const int u = 256 - t * 256 / span;
+    return 256 - u * u / 256;
 }
 
 static void video_init(void) {
@@ -98,17 +130,27 @@ static void video_init(void) {
     if (g_mode->viTVMode & VI_NON_INTERLACE) VIDEO_WaitVSync();
 }
 
-// The logo fades in and drifts up a little: about half a second.
+// About a second: the sky comes up, the rift tears open with a flash,
+// and "Rift" and "Wii" come out of it to their places.
 static void intro(void) {
-    for (int f = 0; f <= 30; ++f) {
-        const int t = f * 256 / 30;
-        const int eased = 256 - (256 - t) * (256 - t) / 256;
-        draw(eased, eased * 8 / 256);
+    for (int t = 0; t <= 62; ++t) {
+        Frame f;
+        f.sky = ease_out(t, 16);
+        f.tear = ease_out(t - 6, 16);
+        f.glow = 256;
+        f.flash = t >= 20 && t < 32 ? (32 - t) * 15 : 0;
+        f.word = ease_out(t - 20, 18);
+        f.apart = (256 - ease_out(t - 20, 26)) * 60 >> 8;
+        draw(&f);
     }
 }
 
+// Everything fades out once RiftWii is read.
 static void outro(void) {
-    for (int f = 30; f >= 0; f -= 3) draw(f * 256 / 30, 8);
+    for (int t = 12; t >= 0; t -= 2) {
+        Frame f = {t * 256 / 12, 256, t * 256 / 12, 0, t * 256 / 12, 0};
+        draw(&f);
+    }
 }
 
 // Nothing to start: a message on the console, then back to the Wii Menu

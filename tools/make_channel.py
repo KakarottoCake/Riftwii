@@ -4,8 +4,6 @@
 Wii Menu banner, icon and sound (content 0), the forwarder (content 1),
 and the TMD and ticket RiftWii installs them with.
 
-    make_channel.py logo <icon.png> <logo.rgba>
-        the forwarder's logo, raw RGBA (channel/forwarder/data)
     make_channel.py build <forwarder.dol> <art dir> <out.bin> [dir]
         the package wii/channel.cpp installs, and beside it
         riftwii_channel_info.h (its title ID and version, for the menu);
@@ -812,10 +810,6 @@ def package(contents):
 
 
 def main(argv):
-    if len(argv) == 4 and argv[1] == "logo":
-        logo = png_image(argv[2])
-        open(argv[3], "wb").write(b"".join(bytes(p) for p in logo.pixels))
-        return 0
     if len(argv) in (5, 6) and argv[1] == "build":
         forwarder = open(argv[2], "rb").read()
         banner, icon = banner_art(argv[3])
