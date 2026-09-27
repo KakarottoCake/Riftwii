@@ -565,19 +565,11 @@ static bool PacksOnUsb(const FrontendState& state)
 }
 
 // Shown once before a launch that uses what is still experimental: an
-// RVZ game (the catalog's note), packs on the USB drive.
+// RVZ game (the catalog's note). What cannot work at all is refused
+// instead (ModPlaceProblem).
 static std::string LaunchNote(const FrontendState& state)
 {
-	std::string note = state.launch_warning;
-	if (PacksOnUsb(state)) {
-		if (!note.empty()) note += " ";
-		note += tr("Packs on USB are experimental; if it fails, copy them to SD.");
-	}
-	if (state.use_sd && !state.model.code_builds().empty()) {
-		if (!note.empty()) note += " ";
-		note += "Code builds read the SD card while the game runs, so they may not work with a game on SD. Play it from USB or disc if it fails.";
-	}
-	return note;
+	return state.launch_warning;
 }
 
 static std::string HomeStatus(const FrontendState& state, std::size_t shown)
@@ -1826,6 +1818,8 @@ static void MenuCheats(FrontendState& state)
 // What the game page says about the Mods row.
 static std::string ModsNote(const FrontendState& state, const std::string& scanStatus)
 {
+	if (const std::string problem = riftwii::wii::ModPlaceProblem(state, true); !problem.empty())
+		return FlatCapped(problem, 90);
 	std::size_t enabled = 0;
 	const std::size_t shown = ShownPacks(state, &enabled);
 	if (shown == 0) {
@@ -2280,6 +2274,9 @@ static int MenuHome(FrontendState& state)
 				say(FlatCapped(state.usb_catalog.cios_note, 150));
 			} else if (state.use_sd && !state.sd_catalog.cios_note.empty()) {
 				say(FlatCapped(state.sd_catalog.cios_note, 150));
+			} else if (const std::string problem = riftwii::wii::ModPlaceProblem(state); !problem.empty()) {
+				// Mods where they cannot work: not even tried.
+				say(FlatCapped(problem, 200));
 			} else if (std::string codes_error; !riftwii::wii::CheckCodeBuilds(state, codes_error)) {
 				say(FlatCapped(codes_error, 200));
 			} else if (!LaunchNote(state).empty() && !state.warning_shown) {

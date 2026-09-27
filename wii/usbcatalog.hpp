@@ -72,6 +72,12 @@ bool check_image_game(ImageGame& game, std::string& error);
 // For an RVZ game that plays at the player's own risk: the warning to show
 // before it starts. Empty otherwise.
 std::string rvz_warning(const ImageGame& game);
+// Mods for `game_id` left on the USB drive (FAT32 or NTFS): Riivolution
+// XMLs in usb:/riivolution or usb:/apps/riivolution, and code builds (a
+// <game ID>.gct in a top folder or its codes folder). Mods are read from
+// the SD card only, so the menu will not start the game while these are
+// there. The folders to move, like "usb:/Project+"; empty with no drive.
+std::vector<std::string> usb_mod_folders(const std::string& game_id);
 // Development aid for Dolphin, which has no d2x: partition reads of the
 // disc Dolphin boots (the RVZ's stub, made by tools/rvz) are answered from
 // the RVZ at `sd_path` instead.

@@ -618,8 +618,23 @@ msgstr "Personalizado (sem wfc_domain)"
 msgid "The online server the game uses in place of Nintendo's, which closed. Custom uses wfc_domain in settings.txt."
 msgstr "O servidor online que o jogo usa no lugar do da Nintendo, que foi desligado. Personalizado usa wfc_domain do settings.txt."
 
-msgid "Packs on USB are experimental; if it fails, copy them to SD."
-msgstr "Packs no USB são experimentais; se falhar, copie-os para o SD."
+msgid " and the pack's folders"
+msgstr " e as pastas do pack"
+
+msgid " (and {1} more)"
+msgstr " (e mais {1})"
+
+msgid "Mods on the USB drive won't work. Move {1} to the SD card."
+msgstr "Mods no USB não funcionam. Mova {1} para o SD."
+
+msgid "This won't work: mods have to be on the SD card, not the USB drive. Move {1} to the same spot on your SD card and try again. Your games can stay on USB."
+msgstr "Assim não vai funcionar: os mods precisam estar no SD, não no USB. Mova {1} para o mesmo lugar no seu SD e tente de novo. Os jogos podem ficar no USB."
+
+msgid "Code builds need the game on USB or disc, not the SD card."
+msgstr "Builds de códigos precisam do jogo no USB ou no disco, não no SD."
+
+msgid "This won't work: code builds like Project+ read the SD card while you play, so the game can't be on the SD card too. Put it on a USB drive or use the disc."
+msgstr "Assim não vai funcionar: builds de códigos como o Project+ leem o SD enquanto você joga, então o jogo não pode estar no SD também. Coloque-o num USB ou use o disco."
 
 msgid "Updating RiftWii"
 msgstr "Atualizando a RiftWii"

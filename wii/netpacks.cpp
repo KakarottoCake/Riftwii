@@ -207,13 +207,8 @@ std::vector<PackFile> ListPackFiles(std::size_t limit, bool& limited) {
             add(name, path, "");
         }
     }
-    // The USB drive's, when the menu has it mounted (FAT32): its files
-    // are read from the drive through d2x while the game runs.
-    for (const char* folder : {"usb:/riivolution", "usb:/apps/riivolution"}) {
-        for (const std::string& name : xml_names(folder, limit - std::min(limit, out.size()), limited)) {
-            add(name, std::string(folder) + "/" + name, " @ USB");
-        }
-    }
+    // Not the USB drive's: mods are read from the SD card only. A game with
+    // packs left on the drive is refused at Start (usb_mod_folders).
     for (const NetServer& server : cached_servers()) {
         for (const char* sub : {"/riivolution", "/apps/riivolution"}) {
             const std::string dir = std::string(kNetCacheDir) + "/" + server.folder() + sub;

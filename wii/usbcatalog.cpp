@@ -26,6 +26,7 @@
 #include "log.hpp"
 #include "menuios.hpp"
 #include "riftwii/disc.hpp"
+#include "riftwii/launch.hpp"
 #include "riftwii/rvz.hpp"
 #include "riftwii/titles.hpp"
 #include "memlimits.hpp"
@@ -708,6 +709,58 @@ bool check_image_game(ImageGame& game, std::string& error) {
     game = std::move(opened);
     error.clear();
     return !rvz_refused(game, error);
+}
+
+std::vector<std::string> usb_mod_folders(const std::string& game_id) {
+    std::vector<std::string> out;
+    if (!g_usb_volume || game_id.empty()) return out;
+    const ImageVolume& volume = *g_usb_volume;
+    const auto lower = [](std::string s) {
+        for (char& c : s) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        return s;
+    };
+    const auto found = [&](const std::string& folder, const std::string& file) {
+        logf("USB: mod for %s on the USB drive: usb:%s\n", game_id.c_str(), file.c_str());
+        const std::string where = "usb:" + folder;
+        if (std::find(out.begin(), out.end(), where) == out.end()) out.push_back(where);
+    };
+    std::string error;
+    // Riivolution packs: each XML read (small ones only, a few dozen at most)
+    // to see which game it is for.
+    unsigned read = 0;
+    for (const char* folder : {"/riivolution", "/apps/riivolution"}) {
+        std::vector<VolumeEntry> entries;
+        if (!volume.list(folder, entries, error)) continue;
+        for (const VolumeEntry& e : entries) {
+            if (e.is_directory || e.name.empty() || e.name[0] == '.' || !extension(e.name, ".xml")) continue;
+            if (e.size == 0 || e.size > 256 * 1024 || ++read > 64) continue;
+            VolumeFile file;
+            if (!volume.lookup(std::string(folder) + "/" + e.name, file, error)) continue;
+            std::string text(static_cast<std::size_t>(file.entry.size), '\0');
+            if (!volume.read(file, 0, reinterpret_cast<std::uint8_t*>(&text[0]), text.size())) continue;
+            PackIndex index;
+            index.add(text);
+            if (index.has_packs(game_id)) found(folder, std::string(folder) + "/" + e.name);
+        }
+    }
+    // Code builds, found the way the SD card's are (codebuilds.cpp).
+    const std::string want = lower(game_id) + ".gct";
+    std::vector<VolumeEntry> top;
+    if (!volume.list("/", top, error)) return out;
+    for (const VolumeEntry& t : top) {
+        if (!t.is_directory || t.name.empty() || t.name[0] == '.') continue;
+        std::vector<std::string> dirs{"/" + t.name};
+        if (lower(t.name) != "codes") dirs.push_back("/" + t.name + "/codes");
+        for (const std::string& dir : dirs) {
+            std::vector<VolumeEntry> entries;
+            if (!volume.list(dir, entries, error)) continue;
+            for (const VolumeEntry& e : entries) {
+                if (e.is_directory || lower(e.name) != want) continue;
+                found("/" + t.name, dir + "/" + e.name);
+            }
+        }
+    }
+    return out;
 }
 
 std::string rvz_warning(const ImageGame& game) {

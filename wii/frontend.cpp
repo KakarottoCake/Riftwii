@@ -224,6 +224,7 @@ std::string ScanPackages(FrontendState& state) {
     for (const CodeBuildFile& b : ListCodeBuilds()) {
         state.model.add_code_build(b.key, b.folder, b.gct, b.game_id, disc);
     }
+    state.usb_mods = usb_mod_folders(state.game_id);
     if (!state.choices_path.empty()) {
         std::ifstream saved(state.choices_path, std::ios::binary);
         if (saved) {
@@ -250,6 +251,28 @@ std::string ScanPackages(FrontendState& state) {
     if (limited) return "First 150 packages shown; directory limit reached";
     if (state.model.packages.empty()) return "No XML packages in sd:/riivolution";
     return kScanReady;
+}
+
+std::string ModPlaceProblem(const FrontendState& state, bool brief) {
+    if (!state.usb_mods.empty()) {
+        std::string where = state.usb_mods.front();
+        for (const std::string& f : state.usb_mods) {
+            if (f == "usb:/riivolution" || f == "usb:/apps/riivolution") {
+                where = f + tr(" and the pack's folders");
+                break;
+            }
+        }
+        if (state.usb_mods.size() > 1 && where == state.usb_mods.front())
+            where += tr(" (and {1} more)", {std::to_string(state.usb_mods.size() - 1)});
+        if (brief) return tr("Mods on the USB drive won't work. Move {1} to the SD card.", {where});
+        return tr("This won't work: mods have to be on the SD card, not the USB drive. Move {1} to the same spot on your SD card and try again. Your games can stay on USB.",
+                  {where});
+    }
+    if (state.use_sd && !state.model.code_builds().empty()) {
+        if (brief) return tr("Code builds need the game on USB or disc, not the SD card.");
+        return tr("This won't work: code builds like Project+ read the SD card while you play, so the game can't be on the SD card too. Put it on a USB drive or use the disc.");
+    }
+    return "";
 }
 
 bool SaveChoices(const FrontendState& state, std::string& error) {
