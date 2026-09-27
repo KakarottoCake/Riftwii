@@ -477,6 +477,15 @@ bool add_game(const ImageVolume& volume, const std::string& prefix, ImageDevice 
     logf("  %s \"%s\", %u piece(s)\n", game.id.c_str(), game.title.c_str(), pieces);
     catalog.games.push_back(std::move(game)); return true;
 }
+// What a file in a catalog folder is read as, if it is a game. USB Loader
+// GX and other loaders keep .iso images in wbfs too ("Title [ID]/ID.iso"),
+// so wbfs takes both.
+bool image_format(const std::string& name, UsbImageFormat folder, UsbImageFormat& out) {
+    if (folder == UsbImageFormat::Wbfs && extension(name, ".wbfs")) { out = UsbImageFormat::Wbfs; return true; }
+    if (extension(name, ".iso")) { out = UsbImageFormat::Iso; return true; }
+    if (folder == UsbImageFormat::Iso && extension(name, ".rvz")) { out = UsbImageFormat::Rvz; return true; }
+    return false;
+}
 // Lists a catalog directory with the volume's own bounded walker,
 // never libfat's readdir: a cross-linked directory chain (e.g. from an
 // interrupted multi-GB copy) loops readdir forever on successful reads,
@@ -521,9 +530,16 @@ void scan_dir(const ImageVolume& volume, const std::string& prefix, ImageDevice 
             std::vector<std::string> subnames;
             subnames.reserve(subentries.size());
             for (const VolumeEntry& x : subentries) subnames.push_back(x.name);
-            for (const std::string& x : subnames) { if (c.games.size()>=kMaxGames) return; std::string p; if (join(path,x,p) && extension(x,".wbfs")) add_game(volume,prefix,device,p,subnames,fmt,c,failure); }
-        } else if (!e.is_directory && ((fmt==UsbImageFormat::Wbfs && extension(e.name,".wbfs")) || (fmt==UsbImageFormat::Iso && extension(e.name,".iso")))) add_game(volume,prefix,device,path,siblings,fmt,c,failure);
-        else if (!e.is_directory && fmt==UsbImageFormat::Iso && extension(e.name,".rvz")) add_game(volume,prefix,device,path,siblings,UsbImageFormat::Rvz,c,failure);
+            for (const std::string& x : subnames) {
+                if (c.games.size() >= kMaxGames) return;
+                std::string p;
+                UsbImageFormat f;
+                if (join(path, x, p) && image_format(x, UsbImageFormat::Wbfs, f)) add_game(volume, prefix, device, p, subnames, f, c, failure);
+            }
+        } else if (!e.is_directory) {
+            UsbImageFormat f;
+            if (image_format(e.name, fmt, f)) add_game(volume, prefix, device, path, siblings, f, c, failure);
+        }
     }
 }
 

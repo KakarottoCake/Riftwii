@@ -24,8 +24,9 @@ Everything about installing and using RiftWii. The [README](../README.md) has th
    authors ship them) into `sd:/riivolution/` (or
    `sd:/apps/riivolution/`), the same places Riivolution uses. Packs
    can also go in `usb:/riivolution/` on a FAT32 USB drive (see below).
-4. Game images go in `wbfs` (`.wbfs`) or `games` (`.iso`, `.rvz`) at the
-   top of the SD card or the USB drive. The zip's `usb-drive` folder shows
+4. Game images go in `wbfs` (`.wbfs` or `.iso`, also in `Title [ID]`
+   folders the way USB Loader GX keeps them) or `games` (`.iso`, `.rvz`)
+   at the top of the SD card or the USB drive. The zip's `usb-drive` folder shows
    where.
 5. Start RiftWii from the Homebrew Channel.
 
