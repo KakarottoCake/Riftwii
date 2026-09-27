@@ -12,7 +12,8 @@ Everything about installing and using RiftWii. The [README](../README.md) has th
     the SD card or a USB drive. These need a **d2x cIOS** installed in
     slot 249, 250 or 251. A USB drive may be FAT32 or NTFS, or a drive
     formatted as WBFS by a WBFS manager or USB loader (its games are
-    listed straight from the drive). Both need 512-byte sectors;
+    listed straight from the drive). The SD card and the USB drive both
+    need 512-byte sectors;
   - Dolphin's compressed `.rvz` images, from the same places (below).
 
 ## Installing
