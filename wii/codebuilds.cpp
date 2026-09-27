@@ -192,10 +192,10 @@ bool PickCodeBuild(const std::string& game_id, const std::string& gct, std::stri
     }
     for (const auto& pick : read_picks())
         if (pick.first == game_id && lower(pick.second) == lower(gct)) return true;
-    std::vector<CodeBuildFile> found;
-    add_codes(dir_of(gct), found);
-    for (const CodeBuildFile& b : found)
-        if (lower(b.gct) == lower(gct) && b.game_id == game_id) return true;  // listed by its name already
+    // Only the scan decides what is listed by its name already: a <game ID>.gct
+    // deeper than it looks still has to be picked.
+    for (const CodeBuildFile& b : ListCodeBuilds())
+        if (lower(b.gct) == lower(gct) && b.game_id == game_id) return true;
     std::vector<std::pair<std::string, std::string>> picks = read_picks();
     picks.emplace_back(game_id, gct);
     return write_picks(picks, error);
