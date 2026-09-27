@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <memory>
 
 #include "riftwii/disc.hpp"
 #include "riftwii/imagevolume.hpp"
@@ -17,6 +18,39 @@ constexpr std::uint32_t kDiscHeaderCopy = 0x100;
 std::uint32_t be32(const std::uint8_t* p) {
     return (std::uint32_t(p[0]) << 24) | (std::uint32_t(p[1]) << 16) | (std::uint32_t(p[2]) << 8) | p[3];
 }
+
+// Bytes of a run of device blocks, read a block at a time where a read is
+// not block aligned.
+class BlockRangeSource final : public ByteSource {
+public:
+    BlockRangeSource(BlockReader reader, std::uint64_t lba, std::uint64_t blocks)
+        : reader_(std::move(reader)), lba_(lba), bytes_(blocks * 512) {}
+    std::uint64_t size() const override { return bytes_; }
+    bool read(std::uint64_t offset, std::uint8_t* destination, std::size_t length) const override {
+        if (offset > bytes_ || length > bytes_ - offset) return false;
+        std::uint8_t block[512];
+        while (length) {
+            const std::uint64_t lba = lba_ + offset / 512;
+            const std::size_t skip = static_cast<std::size_t>(offset % 512);
+            if (skip == 0 && length >= 512) {
+                const std::size_t whole = std::min<std::size_t>(length / 512, 2048);
+                if (!reader_(lba, static_cast<std::uint32_t>(whole), destination)) return false;
+                offset += whole * 512; destination += whole * 512; length -= whole * 512;
+                continue;
+            }
+            const std::size_t take = std::min(length, 512 - skip);
+            if (!reader_(lba, 1, block)) return false;
+            std::memcpy(destination, block + skip, take);
+            offset += take; destination += take; length -= take;
+        }
+        return true;
+    }
+
+private:
+    BlockReader reader_;
+    std::uint64_t lba_ = 0;
+    std::uint64_t bytes_ = 0;
+};
 
 bool is_wbfs(const std::uint8_t* block) { return std::memcmp(block, "WBFS", 4) == 0; }
 
@@ -141,6 +175,19 @@ bool list_wbfs_discs(const BlockReader& reader, const WbfsPartition& partition, 
     }
     error.clear();
     return true;
+}
+
+UsbImage wbfs_slot_image(const BlockReader& reader, const WbfsPartition& partition, std::uint32_t slot) {
+    const std::uint64_t blocks = partition.layout.hd_sectors;
+    UsbImagePiece piece;
+    piece.source = std::make_shared<BlockRangeSource>(reader, partition.lba, blocks);
+    piece.file.entry.size = blocks * 512;
+    piece.file.fragments.push_back({partition.lba, blocks});
+    UsbImage image;
+    image.format = UsbImageFormat::Wbfs;
+    image.pieces.push_back(std::move(piece));
+    image.wbfs_slot = slot;
+    return image;
 }
 
 }  // namespace riftwii

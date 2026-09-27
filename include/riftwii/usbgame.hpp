@@ -51,6 +51,9 @@ enum class UsbImageFormat { Iso, Wbfs, Rvz };
 struct UsbImage {
     UsbImageFormat format = UsbImageFormat::Iso;
     std::vector<UsbImagePiece> pieces;
+    // Which disc of a WBFS: a .wbfs file holds one, in slot 0; a WBFS
+    // partition (riftwii/wbfspart.hpp) is one piece holding many.
+    std::uint32_t wbfs_slot = 0;
 };
 
 // A ByteSource over a concatenation of files.  It deliberately knows no FAT

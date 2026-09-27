@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "riftwii/fat32.hpp"
+#include "riftwii/usbgame.hpp"
 
 namespace riftwii {
 
@@ -58,5 +59,11 @@ struct WbfsDisc {
 // damaged slot does not hide the rest; false only when nothing can be read.
 bool list_wbfs_discs(const BlockReader& reader, const WbfsPartition& partition, std::vector<WbfsDisc>& out,
                      std::vector<std::string>& skipped, std::string& error);
+
+// A slot's disc for build_usb_fragments and UsbDiscSource, as a .wbfs file
+// is: one piece, the whole partition, so each WBFS block maps to device
+// block partition.lba + wlba * block_sectors. The piece reads the drive
+// through `reader`.
+UsbImage wbfs_slot_image(const BlockReader& reader, const WbfsPartition& partition, std::uint32_t slot);
 
 }  // namespace riftwii
