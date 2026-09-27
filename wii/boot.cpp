@@ -1540,7 +1540,12 @@ bool boot_game(const DiscProbe& probe, const BootOptions& options, std::string& 
     SavegameOptions savegame;
     ProgressStage(effective.savegame_dir.empty() ? "Getting the game ready" : "Preparing the save", 60);
     if (!effective.savegame_dir.empty() && !prepare_savegame(probe, effective, savegame, error)) return false;
-    if (effective.install_resident && effective.file_device) {
+    if (effective.install_resident && effective.file_device && !g_extras.code_builds.empty()) {
+        // A code build (Project+) reads the SD card itself, through the
+        // game's own SD driver; the runtime holding the card open for the
+        // file device (a Riivolution pack's) would stand in its way.
+        logf("Riivolution's \"file\" device is off: %s reads the SD card itself\n", g_extras.code_builds.c_str());
+    } else if (effective.install_resident && effective.file_device) {
         // The save redirect's volume carries the root too; without one,
         // the root's own.
         std::string why;
