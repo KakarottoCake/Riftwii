@@ -82,7 +82,7 @@ bool mount_candidate(const BlockReader& reader, std::uint64_t lba, std::unique_p
 }
 
 // The partitions a GPT lists, in table order.
-void gpt_partitions(const BlockReader& reader, std::vector<std::uint64_t>& out) {
+void gpt_partitions(const BlockReader& reader, std::vector<DrivePartition>& out) {
     std::uint8_t header[512];
     if (!reader(1, 1, header) || std::memcmp(header, "EFI PART", 8) != 0) return;
     const std::uint64_t table = le64(header + 0x48);
@@ -98,11 +98,28 @@ void gpt_partitions(const BlockReader& reader, std::vector<std::uint64_t>& out) 
         bool used = false;
         for (int k = 0; k < 16; ++k) used = used || e[k] != 0;  // type GUID zero: unused
         const std::uint64_t first = le64(e + 0x20);
-        if (used && first != 0) out.push_back(first);
+        const std::uint64_t last = le64(e + 0x28);
+        if (used && first != 0) out.push_back({first, last >= first ? last - first + 1 : 0});
     }
 }
 
 }  // namespace
+
+std::vector<DrivePartition> drive_partitions(const BlockReader& reader, const std::uint8_t* mbr) {
+    std::vector<DrivePartition> out;
+    if (mbr[510] != 0x55 || mbr[511] != 0xAA) return out;
+    bool protective = false;
+    for (int i = 0; i < 4; ++i) {
+        const std::uint8_t* pe = mbr + 0x1BE + i * 16;
+        const std::uint8_t type = pe[4];
+        const std::uint32_t lba = le32(pe + 8);
+        if (type == 0xEE) protective = true;
+        if (type == 0 || type == 0xEE || type == 0x05 || type == 0x0F || lba == 0) continue;
+        out.push_back({lba, le32(pe + 12)});
+    }
+    if (protective) gpt_partitions(reader, out);
+    return out;
+}
 
 bool mount_image_volume(BlockReader reader, std::unique_ptr<ImageVolume>& out, std::string& error) {
     out.reset();
@@ -126,19 +143,8 @@ bool mount_image_volume(BlockReader reader, std::unique_ptr<ImageVolume>& out, s
         error = "no FAT32 or NTFS volume (" + tried + ")";
         return false;
     }
-    std::vector<std::uint64_t> starts;
-    bool protective = false;
-    for (int i = 0; i < 4; ++i) {
-        const std::uint8_t* pe = mbr + 0x1BE + i * 16;
-        const std::uint8_t type = pe[4];
-        const std::uint32_t lba = le32(pe + 8);
-        if (type == 0xEE) protective = true;
-        if (type == 0 || type == 0xEE || type == 0x05 || type == 0x0F || lba == 0) continue;
-        starts.push_back(lba);
-    }
-    if (protective) gpt_partitions(reader, starts);
-    for (std::uint64_t lba : starts) {
-        if (mount_candidate(reader, lba, out, e)) {
+    for (const DrivePartition& p : drive_partitions(reader, mbr)) {
+        if (mount_candidate(reader, p.lba, out, e)) {
             error.clear();
             return true;
         }

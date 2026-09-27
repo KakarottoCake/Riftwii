@@ -1,0 +1,343 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+#include "riftwii/imagevolume.hpp"
+#include "riftwii/wbfspart.hpp"
+
+#include <cstdint>
+#include <cstring>
+#include <fstream>
+#include <iostream>
+#include <iterator>
+#include <map>
+#include <set>
+#include <string>
+#include <vector>
+
+using namespace riftwii;
+
+static int g_failures = 0;
+#define EXPECT_TRUE(cond) do { if (!(cond)) { std::cerr << "FAILED: " #cond " at line " << __LINE__ << std::endl; g_failures++; } } while (0)
+#define EXPECT_FALSE(cond) do { if (cond) { std::cerr << "FAILED: false expected for " #cond " at line " << __LINE__ << std::endl; g_failures++; } } while (0)
+#define EXPECT_EQ(a, b) do { const auto va_ = (a); const auto vb_ = (b); if (va_ != vb_) { std::cerr << "FAILED: " #a " == " #b " (" << va_ << " != " << vb_ << ") at line " << __LINE__ << std::endl; g_failures++; } } while (0)
+
+namespace {
+
+using Block = std::vector<std::uint8_t>;
+
+void be32(std::uint8_t* p, std::uint32_t x) { p[0] = x >> 24; p[1] = x >> 16; p[2] = x >> 8; p[3] = x; }
+void le32(std::uint8_t* p, std::uint32_t x) { p[0] = x; p[1] = x >> 8; p[2] = x >> 16; p[3] = x >> 24; }
+void le64(std::uint8_t* p, std::uint64_t x) { le32(p, static_cast<std::uint32_t>(x)); le32(p + 4, static_cast<std::uint32_t>(x >> 32)); }
+
+// A drive of 512-byte blocks: the ones set are held, the rest read as
+// zeros, and any listed in `bad` fail.
+struct Drive {
+    std::map<std::uint64_t, Block> blocks;
+    std::set<std::uint64_t> bad;
+    Block& at(std::uint64_t lba) {
+        Block& b = blocks[lba];
+        b.resize(512);
+        return b;
+    }
+    BlockReader reader() const {
+        return [this](std::uint64_t lba, std::uint32_t count, std::uint8_t* out) {
+            for (std::uint32_t i = 0; i < count; ++i) {
+                if (bad.count(lba + i)) return false;
+                const auto it = blocks.find(lba + i);
+                if (it == blocks.end()) std::memset(out + i * 512, 0, 512);
+                else std::memcpy(out + i * 512, it->second.data(), 512);
+            }
+            return true;
+        };
+    }
+};
+
+void mbr_entry(Drive& d, int index, std::uint8_t type, std::uint32_t lba, std::uint32_t count) {
+    Block& mbr = d.at(0);
+    std::uint8_t* e = mbr.data() + 0x1BE + index * 16;
+    e[4] = type;
+    le32(e + 8, lba);
+    le32(e + 12, count);
+    mbr[510] = 0x55;
+    mbr[511] = 0xAA;
+}
+
+// A WBFS header like the user's drive: 512-byte sectors, 16 MiB blocks.
+void wbfs_header(Drive& d, std::uint64_t lba, std::uint32_t hd_sectors, std::uint8_t wbfs_shift = 24,
+                 std::uint8_t hd_shift = 9) {
+    Block& h = d.at(lba);
+    std::memcpy(h.data(), "WBFS", 4);
+    be32(h.data() + 4, hd_sectors);
+    h[8] = hd_shift;
+    h[9] = wbfs_shift;
+    h[10] = 1;
+}
+
+// Marks `slot` used and gives it a disc header copy.
+void wbfs_disc(Drive& d, std::uint64_t lba, std::uint32_t info_sectors, std::uint32_t slot, const char* id,
+               const char* title, bool wii = true) {
+    d.at(lba)[12 + slot] = 1;
+    Block& info = d.at(lba + 1 + std::uint64_t(slot) * info_sectors);
+    std::memcpy(info.data(), id, 6);
+    if (wii) be32(info.data() + 0x18, 0x5D1C9EA3);
+    std::strncpy(reinterpret_cast<char*>(info.data() + 0x20), title, 63);
+}
+
+constexpr std::uint32_t kUserSectors = 1945600000;  // the user's drive, from its header
+constexpr std::uint32_t kUserInfo = 3;              // 1536-byte disc infos
+
+void test_layout_matches_libwbfs() {
+    // 16 MiB blocks, as on the user's drive: 560 blocks per disc, 500 slots.
+    Drive d;
+    wbfs_header(d, 0, kUserSectors);
+    WbfsLayout l;
+    std::string error;
+    EXPECT_TRUE(parse_wbfs_header(d.at(0).data(), l, error));
+    EXPECT_EQ(l.hd_sectors, kUserSectors);
+    EXPECT_EQ(l.block_sectors, 32768u);
+    EXPECT_EQ(l.blocks, 59375u);
+    EXPECT_EQ(l.disc_blocks, 560u);
+    EXPECT_EQ(l.disc_info_sectors, kUserInfo);
+    EXPECT_EQ(l.slots, 500u);
+    EXPECT_TRUE(l.used.empty());
+
+    // 2 MiB blocks on 20 GiB, as wwt reports it: 4482 blocks per disc,
+    // 9728-byte disc infos and 215 slots before the free-block table.
+    Drive s;
+    wbfs_header(s, 0, 41943040, 21);
+    EXPECT_TRUE(parse_wbfs_header(s.at(0).data(), l, error));
+    EXPECT_EQ(l.blocks, 10240u);
+    EXPECT_EQ(l.disc_blocks, 4482u);
+    EXPECT_EQ(l.disc_info_sectors, 19u);
+    EXPECT_EQ(l.slots, 215u);
+}
+
+void test_mbr_partition_with_fat16_type() {
+    // WBFS tools leave a FAT16 type byte; the partition is found by content.
+    for (std::uint8_t type : {std::uint8_t(0x04), std::uint8_t(0x06), std::uint8_t(0x0E), std::uint8_t(0x07)}) {
+        Drive d;
+        constexpr std::uint32_t kStart = 2048;
+        mbr_entry(d, 0, type, kStart, kUserSectors);
+        wbfs_header(d, kStart, kUserSectors);
+        wbfs_disc(d, kStart, kUserInfo, 0, "RMAP01", "Mario Tennis");
+        wbfs_disc(d, kStart, kUserInfo, 2, "RSPP01", "Wii Sports");
+        wbfs_disc(d, kStart, kUserInfo, 7, "RYQP69", "Quiz");
+        WbfsPartition p;
+        std::string error;
+        EXPECT_TRUE(find_wbfs_partition(d.reader(), p, error));
+        EXPECT_EQ(p.lba, std::uint64_t(kStart));
+        EXPECT_EQ(p.layout.used.size(), std::size_t(3));
+        std::vector<WbfsDisc> discs;
+        std::vector<std::string> skipped;
+        EXPECT_TRUE(list_wbfs_discs(d.reader(), p, discs, skipped, error));
+        EXPECT_EQ(discs.size(), std::size_t(3));
+        EXPECT_TRUE(skipped.empty());
+        if (discs.size() == 3) {
+            EXPECT_EQ(discs[0].slot, 0u);
+            EXPECT_EQ(discs[0].id, std::string("RMAP01"));
+            EXPECT_EQ(discs[0].title, std::string("Mario Tennis"));
+            EXPECT_EQ(discs[1].slot, 2u);
+            EXPECT_EQ(discs[1].id, std::string("RSPP01"));
+            EXPECT_EQ(discs[2].slot, 7u);
+            EXPECT_EQ(discs[2].id, std::string("RYQP69"));
+        }
+        // The same drive is no FAT32 or NTFS volume.
+        std::unique_ptr<ImageVolume> volume;
+        EXPECT_FALSE(mount_image_volume(d.reader(), volume, error));
+    }
+}
+
+void test_second_partition_and_gpt() {
+    // Behind another partition in the MBR.
+    Drive d;
+    mbr_entry(d, 0, 0x83, 63, 1000);
+    mbr_entry(d, 1, 0x06, 4096, 100000000);
+    wbfs_header(d, 4096, 100000000);
+    WbfsPartition p;
+    std::string error;
+    EXPECT_TRUE(find_wbfs_partition(d.reader(), p, error));
+    EXPECT_EQ(p.lba, std::uint64_t(4096));
+
+    // In a GPT, with the size from the entry's last LBA.
+    Drive g;
+    mbr_entry(g, 0, 0xEE, 1, 0xFFFFFFFF);
+    Block& header = g.at(1);
+    std::memcpy(header.data(), "EFI PART", 8);
+    le64(header.data() + 0x48, 2);
+    le32(header.data() + 0x50, 4);
+    le32(header.data() + 0x54, 128);
+    Block& entries = g.at(2);
+    entries[0] = 0xA2;  // any type GUID
+    le64(entries.data() + 0x20, 8192);
+    le64(entries.data() + 0x28, 8192 + 100000000 - 1);
+    wbfs_header(g, 8192, 100000000);
+    EXPECT_TRUE(find_wbfs_partition(g.reader(), p, error));
+    EXPECT_EQ(p.lba, std::uint64_t(8192));
+    const std::vector<DrivePartition> parts = drive_partitions(g.reader(), g.at(0).data());
+    EXPECT_EQ(parts.size(), std::size_t(1));
+    if (!parts.empty()) EXPECT_EQ(parts[0].blocks, std::uint64_t(100000000));
+}
+
+void test_block_zero_without_mbr() {
+    Drive d;
+    wbfs_header(d, 0, kUserSectors);
+    wbfs_disc(d, 0, kUserInfo, 499, "RMCP01", "Mario Kart Wii");  // the last slot
+    WbfsPartition p;
+    std::string error;
+    EXPECT_TRUE(find_wbfs_partition(d.reader(), p, error));
+    EXPECT_EQ(p.lba, std::uint64_t(0));
+    std::vector<WbfsDisc> discs;
+    std::vector<std::string> skipped;
+    EXPECT_TRUE(list_wbfs_discs(d.reader(), p, discs, skipped, error));
+    EXPECT_EQ(discs.size(), std::size_t(1));
+    if (!discs.empty()) EXPECT_EQ(discs[0].slot, 499u);
+}
+
+bool refuses(Drive& d, const std::string& want) {
+    WbfsPartition p;
+    std::string error;
+    if (find_wbfs_partition(d.reader(), p, error)) return false;
+    if (error.find(want) == std::string::npos) {
+        std::cerr << "  error was: " << error << std::endl;
+        return false;
+    }
+    return true;
+}
+
+void test_bad_headers() {
+    {
+        Drive d;  // 4096-byte sectors: d2x cannot use it
+        wbfs_header(d, 0, 1000000, 24, 12);
+        EXPECT_TRUE(refuses(d, "512-byte"));
+    }
+    {
+        Drive d;  // blocks smaller than a Wii sector
+        wbfs_header(d, 0, 1000000, 14);
+        EXPECT_TRUE(refuses(d, "block-size shift 14"));
+    }
+    {
+        Drive d;  // too small to hold one block past the tables
+        wbfs_header(d, 0, 32768);
+        EXPECT_TRUE(refuses(d, "1 blocks"));
+    }
+    {
+        Drive d;  // more blocks than a u16 can name
+        wbfs_header(d, 0, 0xFFFFFFFF, 15);
+        EXPECT_TRUE(refuses(d, "do not make a valid WBFS"));
+    }
+    {
+        Drive d;  // larger than the partition holding it
+        mbr_entry(d, 0, 0x06, 2048, 1000000);
+        wbfs_header(d, 2048, 2000000);
+        EXPECT_TRUE(refuses(d, "its partition holds 1000000"));
+    }
+    {
+        Drive d;  // neither at block 0 nor in a partition
+        mbr_entry(d, 0, 0x06, 2048, 1000000);
+        EXPECT_TRUE(refuses(d, "no WBFS partition found"));
+    }
+    {
+        Drive d;  // no MBR and no WBFS
+        EXPECT_TRUE(refuses(d, "no WBFS partition found"));
+    }
+    {
+        Drive d;  // block 0 unreadable
+        d.bad.insert(0);
+        EXPECT_TRUE(refuses(d, "cannot read block 0"));
+    }
+}
+
+void test_damaged_slots_are_skipped() {
+    Drive d;
+    wbfs_header(d, 0, kUserSectors);
+    wbfs_disc(d, 0, kUserInfo, 0, "RMAP01", "Good");
+    wbfs_disc(d, 0, kUserInfo, 1, "RMAP01", "No magic", false);
+    wbfs_disc(d, 0, kUserInfo, 2, "RM\x01P01", "Bad id");
+    wbfs_disc(d, 0, kUserInfo, 3, "RSPP01", "Unreadable");
+    wbfs_disc(d, 0, kUserInfo, 4, "RYQP69", "Good too");
+    d.bad.insert(1 + 3 * kUserInfo);
+    WbfsPartition p;
+    std::string error;
+    EXPECT_TRUE(find_wbfs_partition(d.reader(), p, error));
+    std::vector<WbfsDisc> discs;
+    std::vector<std::string> skipped;
+    EXPECT_TRUE(list_wbfs_discs(d.reader(), p, discs, skipped, error));
+    EXPECT_EQ(discs.size(), std::size_t(2));
+    EXPECT_EQ(skipped.size(), std::size_t(3));
+    if (discs.size() == 2) {
+        EXPECT_EQ(discs[0].slot, 0u);
+        EXPECT_EQ(discs[1].slot, 4u);
+    }
+    if (skipped.size() == 3) {
+        EXPECT_TRUE(skipped[0].find("slot 1 (\"RMAP01\"): ") == 0);
+        EXPECT_TRUE(skipped[1].find("slot 2 (\"RM?P01\"): ") == 0);
+        EXPECT_TRUE(skipped[2].find("slot 3: cannot read") == 0);
+    }
+
+    // Nothing readable at all is a failure, not an empty list.
+    Drive all_bad;
+    wbfs_header(all_bad, 0, kUserSectors);
+    wbfs_disc(all_bad, 0, kUserInfo, 0, "RMAP01", "Gone");
+    all_bad.bad.insert(1);
+    EXPECT_TRUE(find_wbfs_partition(all_bad.reader(), p, error));
+    EXPECT_FALSE(list_wbfs_discs(all_bad.reader(), p, discs, skipped, error));
+}
+
+// The first 64 MiB of the user's WBFS partition (header, disc table and
+// every disc info), kept out of git in tests/local. Skipped when absent.
+void test_real_drive_backup(const std::string& dir) {
+    std::ifstream file(dir + "/wbfs-drive-backup.bin", std::ios::binary);
+    if (!file) {
+        std::cout << "wbfspart: no drive backup in " << dir << ", skipping that test\n";
+        return;
+    }
+    const std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+    // At block 0 of a drive with no MBR, then behind an MBR at a nonzero
+    // block with a FAT16 type byte, as on the drive itself.
+    for (const std::uint64_t start : {std::uint64_t(0), std::uint64_t(2048)}) {
+        Drive d;
+        if (start != 0) mbr_entry(d, 0, 0x06, static_cast<std::uint32_t>(start), kUserSectors);
+        BlockReader base = d.reader();
+        BlockReader reader = [&](std::uint64_t lba, std::uint32_t count, std::uint8_t* out) {
+            if (lba < start) return base(lba, count, out);
+            const std::uint64_t at = (lba - start) * 512;
+            if (at > bytes.size() || std::uint64_t(count) * 512 > bytes.size() - at) return false;
+            std::memcpy(out, bytes.data() + at, std::size_t(count) * 512);
+            return true;
+        };
+        WbfsPartition p;
+        std::string error;
+        EXPECT_TRUE(find_wbfs_partition(reader, p, error));
+        EXPECT_EQ(p.lba, start);
+        EXPECT_EQ(p.layout.hd_sectors, kUserSectors);
+        EXPECT_EQ(p.layout.disc_blocks, 560u);
+        EXPECT_EQ(p.layout.slots, 500u);
+        std::vector<WbfsDisc> discs;
+        std::vector<std::string> skipped;
+        EXPECT_TRUE(list_wbfs_discs(reader, p, discs, skipped, error));
+        // 327 slots in use: 326 games and Configurable USB Loader's
+        // settings entry, which is not a game.
+        EXPECT_EQ(p.layout.used.size(), std::size_t(327));
+        EXPECT_EQ(discs.size(), std::size_t(326));
+        EXPECT_EQ(skipped.size(), std::size_t(1));
+        if (!skipped.empty()) EXPECT_TRUE(skipped[0].find("slot 242 (\"__CFG_\")") == 0);
+        if (discs.size() >= 3) {
+            EXPECT_EQ(discs[0].id, std::string("RMAP01"));
+            EXPECT_EQ(discs[1].id, std::string("RYQP69"));
+            EXPECT_EQ(discs[2].id, std::string("RSPP01"));
+        }
+    }
+}
+
+}  // namespace
+
+int main(int argc, char** argv) {
+    test_layout_matches_libwbfs();
+    test_mbr_partition_with_fat16_type();
+    test_second_partition_and_gpt();
+    test_block_zero_without_mbr();
+    test_bad_headers();
+    test_damaged_slots_are_skipped();
+    test_real_drive_backup(argc > 1 ? argv[1] : "tests/local");
+    if (g_failures == 0) std::cout << "wbfspart tests passed\n";
+    else std::cerr << g_failures << " TEST CHECKS FAILED\n";
+    return g_failures == 0 ? 0 : 1;
+}
