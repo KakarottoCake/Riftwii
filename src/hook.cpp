@@ -217,7 +217,7 @@ bool displaceable(std::uint32_t instruction, unsigned scratch_reg, std::string& 
 
 bool plan_resident_placement(std::uint32_t arena1_hi, std::uint32_t mem1_floor, std::uint32_t arena2_lo,
                              std::uint32_t arena2_end, std::uint32_t blob_size, std::uint32_t extra_bytes,
-                             ResidentPlacement& out, std::string& error) {
+                             ResidentPlacement& out, std::string& error, bool code_in_mem2) {
     ResidentPlacement p;
     // Code: right below the MEM1 arena top, on a 32-byte line (the blob's
     // context and DMA buffers are laid out for one).
@@ -229,14 +229,15 @@ bool plan_resident_placement(std::uint32_t arena1_hi, std::uint32_t mem1_floor, 
         error = "resident blob size is not a positive multiple of 32 that fits";
         return false;
     }
-    p.code_base = arena1_hi - blob_size;
-    if (p.code_base < mem1_floor) {
+    if (code_in_mem2) extra_bytes += blob_size;
+    p.code_base = code_in_mem2 ? arena2_lo : arena1_hi - blob_size;
+    if (!code_in_mem2 && p.code_base < mem1_floor) {
         error = "no room for the resident code between " + hex32(mem1_floor) + " and the MEM1 arena top " +
                 hex32(arena1_hi);
         return false;
     }
     p.code_bytes = blob_size;
-    p.new_arena1_hi = p.code_base;
+    p.new_arena1_hi = code_in_mem2 ? arena1_hi : p.code_base;
 
     // Data: the bottom of the MEM2 arena up to a 32-byte line, only when
     // needed; staged at the top of the arena, the same size.

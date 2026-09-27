@@ -276,6 +276,12 @@ static void TestPlacement() {
     EXPECT_FALSE(riftwii::plan_resident_placement(0x817E9E60, 0x81240000, 0x90000810, 0x935E0000, 7840, 32, p, error));  // unaligned start
     EXPECT_FALSE(riftwii::plan_resident_placement(0x817E9E60, 0x81240000, 0x80000800, 0x935E0000, 7840, 32, p, error));  // MEM1 as MEM2 start
     // The code must clear the floor (loader, apploader image).
+    // The code in MEM2: first in the reservation, MEM1 untouched.
+    EXPECT_TRUE(riftwii::plan_resident_placement(0x817E9E60, 0x81240000, 0x90000800, 0x935E0000, 7840, 32, p, error, true));
+    EXPECT_EQ(p.code_base, 0x90000800u);
+    EXPECT_EQ(p.data_base, 0x90000800u);
+    EXPECT_EQ(p.new_arena1_hi, 0x817E9E60u);
+    EXPECT_TRUE(p.data_bytes >= 7840u + 32u);
     EXPECT_TRUE(riftwii::plan_resident_placement(0x81241EA0, 0x81240000, 0x90000800, 0x935E0000, 7840, 0, p, error));
     EXPECT_EQ(p.code_base, 0x81240000u);
     EXPECT_FALSE(riftwii::plan_resident_placement(0x81241E80, 0x81240000, 0x90000800, 0x935E0000, 7840, 0, p, error));

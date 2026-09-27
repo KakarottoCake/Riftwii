@@ -83,6 +83,10 @@ struct ResidentOptions {
     // The lowest MEM1 address the code may take: above this loader and the
     // apploader image, which the game reclaims only after it starts.
     std::uint32_t mem1_floor = 0;
+    // Non-zero: the code goes to MEM2 with the data and each hooked function
+    // jumps there through a 16-byte veneer written from this MEM1 address
+    // (RT_IPC_ENTRIES of them at most), so the MEM1 arena stays whole.
+    std::uint32_t mem1_veneers = 0;
     SavegameOptions savegame;
     RvzResidentOptions rvz;
     // The game is an image without a retail BCA: the runtime answers

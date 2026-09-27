@@ -170,8 +170,11 @@ struct ResidentPlacement {
     std::uint32_t new_arena2_lo = 0;    // what 0x80003124 becomes (unchanged when data_bytes == 0)
     std::uint32_t stage_base = 0;       // where the loader builds the data (data_bytes, ending at or below arena2_end)
 };
+// code_in_mem2: the code goes first in the MEM2 reservation (data_base ==
+// code_base, the data after it) and the MEM1 arena stays whole, for games
+// that size their heaps to all of MEM1 (Project+).
 bool plan_resident_placement(std::uint32_t arena1_hi, std::uint32_t mem1_floor, std::uint32_t arena2_lo,
                              std::uint32_t arena2_end, std::uint32_t blob_size, std::uint32_t extra_bytes,
-                             ResidentPlacement& out, std::string& error);
+                             ResidentPlacement& out, std::string& error, bool code_in_mem2 = false);
 
 }  // namespace riftwii

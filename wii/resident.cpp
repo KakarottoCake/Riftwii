@@ -305,12 +305,13 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
     const std::uint32_t arena2_lo = read32(kMem2ArenaLoField);
     const std::uint32_t arena2_end = read32(kMem2ArenaEndField);
     ResidentPlacement place;
+    const bool code_in_mem2 = options.mem1_veneers != 0;
     if (!plan_resident_placement(arena1_hi, options.mem1_floor, arena2_lo, arena2_end, blob.size,
                                  static_cast<std::uint32_t>(payload.size()) + bounce_bytes + fs_bytes + rvz_bytes,
-                                 place, error)) {
+                                 place, error, code_in_mem2)) {
         return false;
     }
-    const std::uint32_t payload_address = place.data_base;
+    const std::uint32_t payload_address = place.data_base + (code_in_mem2 ? blob.size : 0);
     if (has_table && !build_payload(pieces, payload_address, options.table_tag, sdio_fd, payload, error)) {
         return false;
     }
@@ -323,19 +324,22 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
     const std::uint32_t rvz_dctx_address = rvz_group_address + rvz_buffers.group;
     // Where each final address is written now.
     const auto staged = [&](std::uint32_t address) { return address - place.data_base + place.stage_base; };
+    // Where each of the code's final addresses is written now: staged too
+    // when it goes to MEM2 (copied down with the data at the jump).
+    const auto code_now = [&](std::uint32_t address) { return code_in_mem2 ? staged(address) : address; };
 
     // 4. Copy the blob and the payload, fill in the context and the
     //    loader-patched slots: each hooked function's displaced words and
     //    the jump back into it.
-    std::memcpy(reinterpret_cast<void*>(place.code_base), blob_bytes.data(), blob.size);
-    if (rvz && !apply_resident_relocs(reinterpret_cast<std::uint8_t*>(place.code_base), blob.size,
+    std::memcpy(reinterpret_cast<void*>(code_now(place.code_base)), blob_bytes.data(), blob.size);
+    if (rvz && !apply_resident_relocs(reinterpret_cast<std::uint8_t*>(code_now(place.code_base)), blob.size,
                                       riftwii_rt_rvz_rel, riftwii_rt_rvz_rel_size, place.code_base, error)) {
         return false;
     }
     if (!payload.empty()) {
         std::memcpy(reinterpret_cast<void*>(staged(payload_address)), payload.data(), payload.size());
     }
-    rt_context* ctx = reinterpret_cast<rt_context*>(place.code_base + blob.context_offset);
+    rt_context* ctx = reinterpret_cast<rt_context*>(code_now(place.code_base + blob.context_offset));
     ctx->flags = options.gecko ? RT_FLAG_GECKO : 0;
     if (options.retail_bca) ctx->flags |= RT_FLAG_BCA;
     ctx->gecko_channel = 1;
@@ -362,14 +366,14 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
     }
     for (std::uint32_t e = 0; e < RT_IPC_ENTRIES; ++e) {
         if (!hooked[e]) continue;
-        store_words(place.code_base + blob.replay_offsets[e], displaced[e], 4);
+        store_words(code_now(place.code_base + blob.replay_offsets[e]), displaced[e], 4);
         const auto resume = encode_absolute_jump(kContinueScratchRegister, hook_site[e] + kHookStubBytes);
-        store_words(place.code_base + blob.continue_offsets[e], resume.data(), 4);
+        store_words(code_now(place.code_base + blob.continue_offsets[e]), resume.data(), 4);
     }
     if (open_at_second && hooked[RT_IPC_SYNC(1)]) {
         const std::uint32_t undo = 0x80210000u;  // lwz r1,0(r1): the function's own frame, undone
-        store_words(place.code_base + blob.open_undo_offsets[0], &undo, 1);
-        store_words(place.code_base + blob.open_undo_offsets[1], &undo, 1);
+        store_words(code_now(place.code_base + blob.open_undo_offsets[0]), &undo, 1);
+        store_words(code_now(place.code_base + blob.open_undo_offsets[1]), &undo, 1);
     }
     // The savegame state: the engine's context (volume, prefix), the
     // completion entry and the two originals the sync path calls.
@@ -428,13 +432,24 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
         std::copy(options.rvz.table_extents.begin(), options.rvz.table_extents.end(), st->table_extents);
         ctx->rvz_state = rvz_state_address;
     }
-    sync_code(place.code_base, blob.size);
+    if (!code_in_mem2) sync_code(place.code_base, blob.size);  // else synced after the copy at the jump
 
-    // 5. Divert the game's functions to their trampolines.
+    // 5. Divert the game's functions to their trampolines: directly, or
+    //    through a MEM1 veneer (r12 is free there, as for the jump back:
+    //    no displaced instruction uses it) when the code is in MEM2.
+    unsigned veneers = 0;
     for (std::uint32_t e = 0; e < RT_IPC_ENTRIES; ++e) {
         if (!hooked[e]) continue;
+        std::uint32_t target = place.code_base + blob.hook_offsets[e];
+        if (code_in_mem2) {
+            const std::uint32_t veneer = options.mem1_veneers + veneers++ * 16;
+            const auto jump = encode_absolute_jump(kContinueScratchRegister, target);
+            store_words(veneer, jump.data(), 4);
+            sync_code(veneer, 16);
+            target = veneer;
+        }
         std::uint32_t branch = 0;
-        if (!encode_branch(hook_site[e], place.code_base + blob.hook_offsets[e], branch)) {
+        if (!encode_branch(hook_site[e], target, branch)) {
             // Out of b's reach (not in MEM1): the function stays unhooked.
             hooked[e] = false;
             --hooked_count;
@@ -470,6 +485,10 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
     out.rvz_state = rvz ? rvz_state_address : 0;
     logf("Resident: %u bytes at 0x%08x, MEM1 arena top 0x%08x -> 0x%08x, gecko %s, %u IPC function(s) hooked\n",
          blob.size, place.code_base, arena1_hi, place.new_arena1_hi, options.gecko ? "on" : "off", hooked_count);
+    if (code_in_mem2) {
+        logf("Resident: code in MEM2 with the data, the MEM1 arena kept whole; %u veneer(s) at 0x%08x\n", veneers,
+             options.mem1_veneers);
+    }
     if (place.data_bytes != 0) {
         logf("Resident: %u bytes of data at 0x%08x (staged at 0x%08x), MEM2 arena start 0x%08x -> 0x%08x, end 0x%08x kept\n",
              place.data_bytes, place.data_base, place.stage_base, arena2_lo, place.new_arena2_lo, arena2_end);

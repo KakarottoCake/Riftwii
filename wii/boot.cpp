@@ -55,6 +55,7 @@ using ApploaderEntry = void (*)(ApploaderInit* init, ApploaderMain* main, Apploa
 constexpr std::uint32_t kApploaderLoadAddress = 0x81200000;
 constexpr std::uint32_t kLoaderStart = 0x80A00000;  // Makefile.wii: --section-start,.init
 constexpr std::uint32_t kGameStart = 0x80004000;    // where games' executables start
+constexpr std::uint32_t kCodeVeneers = 0x80002300;  // past the code handler (0x800022B0), before 0x80003000
 constexpr std::uint32_t kMem1Start = 0x80000000;
 constexpr std::uint32_t kMem1End = 0x81800000;
 constexpr std::uint32_t kMem2Start = 0x90000000;
@@ -1134,6 +1135,10 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         ro.rvz = rvz;
         ro.retail_bca = options.retail_bca;
         ro.mem1_floor = mem1_floor;
+        // A code build (Project+) sizes the game's heaps to all of MEM1;
+        // its list is placed elsewhere, so the handler's own list room is
+        // free for the veneers and the runtime's code goes to MEM2.
+        if (g_extras.code_list_start != 0 && !g_extras.cheat_gct.empty()) ro.mem1_veneers = kCodeVeneers;
         if (!install_resident(dol, ro, resident, error)) return false;
     }
     // The GameCube adapter: below the runtime, or on its own.
@@ -1217,7 +1222,7 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         const std::uint32_t loader_end = reinterpret_cast<std::uint32_t>(SYS_GetArena1Hi());
         std::vector<MemoryRegion> writable;
         writable.push_back(MemoryRegion{kMem1Start, kLoaderStart - kMem1Start});
-        if (options.install_resident && resident.code_base >= loader_end) {
+        if (options.install_resident && resident.code_base >= loader_end && resident.code_base < kMem1End) {
             writable.push_back(MemoryRegion{loader_end, resident.code_base - loader_end});
             const std::uint32_t code_end = resident.code_base + resident.code_bytes;
             writable.push_back(MemoryRegion{code_end, kMem1End - code_end});
@@ -1285,6 +1290,7 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         std::memcpy(reinterpret_cast<void*>(resident.data_base), reinterpret_cast<const void*>(resident.stage_base),
                     resident.data_bytes);
         DCFlushRange(reinterpret_cast<void*>(resident.data_base), resident.data_bytes);
+        ICInvalidateRange(reinterpret_cast<void*>(resident.data_base), resident.data_bytes);  // the code, when it is here
     }
     if (codes_first) {
         // As Gecko loaders do: the handler runs once before the game, so a
