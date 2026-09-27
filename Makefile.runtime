@@ -24,7 +24,11 @@ SRC     := runtime/resident
 OUT     := build-runtime
 BLOB    := $(OUT)/riftwii_rt.bin
 
-CFLAGS  := -O2 -mcpu=750 -meabi -msoft-float -msdata=none \
+# -Os: the runtime lives in the game's own memory, and some mods leave it
+# almost none (Project+). It is a third smaller than -O2 and no slower
+# where it matters: its copies are byte loops either way, and IOS does the
+# reading. libgcc supplies -Os's register save and restore routines.
+CFLAGS  := -Os -mcpu=750 -meabi -msoft-float -msdata=none \
            -ffreestanding -nostdlib -fno-builtin -fno-jump-tables \
            -fno-tree-loop-distribute-patterns -fno-asynchronous-unwind-tables \
            -fno-stack-protector -fno-common -ffunction-sections -std=c99 -Wall -Wextra -Wpedantic -Werror \
@@ -94,11 +98,11 @@ $(OUT)/rtfs.o: runtime/rtfs.c runtime/rtfs.h runtime/rtfat.h | $(OUT)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 $(OUT)/riftwii_rt.elf: $(OBJS) $(SRC)/rt.ld
-	$(CC) $(CFLAGS) $(LDFLAGS) -Wl,--defsym,RT_BASE=0x00000000 -o $@ $(OBJS)
+	$(CC) $(CFLAGS) $(LDFLAGS) -Wl,--defsym,RT_BASE=0x00000000 -o $@ $(OBJS) -lgcc
 	@$(SIZE) -A $@ | awk '$$1 ~ /^\.(rodata|data|bss)$$/ && $$2 != 0 { print "runtime: section " $$1 " is not empty (" $$2 " bytes); the blob would not be position independent"; bad = 1 } END { exit bad }'
 
 $(OUT)/riftwii_rt_alt.elf: $(OBJS) $(SRC)/rt.ld
-	$(CC) $(CFLAGS) $(LDFLAGS) -Wl,--defsym,RT_BASE=0x12340000 -o $@ $(OBJS)
+	$(CC) $(CFLAGS) $(LDFLAGS) -Wl,--defsym,RT_BASE=0x12340000 -o $@ $(OBJS) -lgcc
 
 $(BLOB): $(OUT)/riftwii_rt.elf $(OUT)/riftwii_rt_alt.elf
 	$(OBJCOPY) -O binary $(OUT)/riftwii_rt.elf $@
@@ -120,12 +124,12 @@ $(PADOUT)/rtgcad.o: runtime/rtgcad.c runtime/rtgcad.h | $(PADOUT)
 
 $(PADOUT)/riftwii_pad.elf: $(PADOBJS) $(PADSRC)/pad.ld
 	$(CC) $(CFLAGS) -nostdlib -nostartfiles -static -Wl,--build-id=none -Wl,--gc-sections -T $(PADSRC)/pad.ld \
-		-Wl,--defsym,RT_BASE=0x00000000 -o $@ $(PADOBJS)
+		-Wl,--defsym,RT_BASE=0x00000000 -o $@ $(PADOBJS) -lgcc
 	@$(SIZE) -A $@ | awk '$$1 ~ /^\.(rodata|data|bss)$$/ && $$2 != 0 { print "runtime: section " $$1 " is not empty (" $$2 " bytes) in the pad blob"; bad = 1 } END { exit bad }'
 
 $(PADOUT)/riftwii_pad_alt.elf: $(PADOBJS) $(PADSRC)/pad.ld
 	$(CC) $(CFLAGS) -nostdlib -nostartfiles -static -Wl,--build-id=none -Wl,--gc-sections -T $(PADSRC)/pad.ld \
-		-Wl,--defsym,RT_BASE=0x12340000 -o $@ $(PADOBJS)
+		-Wl,--defsym,RT_BASE=0x12340000 -o $@ $(PADOBJS) -lgcc
 
 $(PADBLOB): $(PADOUT)/riftwii_pad.elf $(PADOUT)/riftwii_pad_alt.elf
 	$(OBJCOPY) -O binary $(PADOUT)/riftwii_pad.elf $@

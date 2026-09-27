@@ -512,9 +512,13 @@ struct rt_fs_state {
     uint32_t count_out[8] __attribute__((aligned(32)));         /* and out, their own lines (IOS DMA) */
     uint32_t wait_status[8] __attribute__((aligned(32)));       /* a sync wait's GETSTATUS out word */
     struct rt_ioctlv dvec[4] __attribute__((aligned(32)));      /* the clone's ReadDir vectors */
-    uint8_t names[RT_FS_CLONE_MAX * RTFAT_SLOT_BYTES] __attribute__((aligned(32)));  /* the clone's listing */
     uint8_t bounce[RT_FS_BOUNCE_BYTES] __attribute__((aligned(32)));
     struct rt_cardlog cardlog __attribute__((aligned(32)));  /* one sector, DMAed to the card */
+    /* Savegame redirection only, from here to the end: the clone's listing
+     * and the imports' buffers. With no save directory served (the file
+     * device alone) nothing classifies as inside it, so no import or clone
+     * runs, and the loader leaves this tail out (RT_FS_SAVEGAME_TAIL). */
+    uint8_t names[RT_FS_CLONE_MAX * RTFAT_SLOT_BYTES] __attribute__((aligned(32)));  /* the clone's listing */
     uint8_t import[RT_FS_IMPORT_BYTES] __attribute__((aligned(32)));
     /* The synchronous import's stage/backup/rename paths. They cannot live
      * on the stack like the job's can in its record: the engine only ever

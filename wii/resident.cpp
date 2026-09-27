@@ -6,6 +6,7 @@
 #include <ogc/machine/processor.h>
 
 #include <algorithm>
+#include <cstddef>
 #include <cstring>
 #include <vector>
 
@@ -277,7 +278,11 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
             return false;
         }
     }
-    const std::uint32_t fs_bytes = has_fs ? static_cast<std::uint32_t>(sizeof(rt_fs_state)) + 32 : 0;
+    // The state's savegame-only tail (rt_hook.h) is left out for the file
+    // device alone.
+    const std::uint32_t fs_state_bytes = static_cast<std::uint32_t>(
+        options.savegame.enabled ? sizeof(rt_fs_state) : offsetof(rt_fs_state, names));
+    const std::uint32_t fs_bytes = has_fs ? fs_state_bytes + 32 : 0;
     const std::uint32_t sdio_fd = options.sdio_fd < 0 ? 0xFFFFFFFFu : static_cast<std::uint32_t>(options.sdio_fd);
     // A replacement the game already holds in memory for its whole run is
     // served from there: the rewritten FST the apploader loaded, which the
@@ -380,7 +385,7 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
     if (has_fs) {
         // Position-independent: rtfs_init stores no pointer into itself.
         rt_fs_state* st = reinterpret_cast<rt_fs_state*>(staged(fs_state_address));
-        std::memset(st, 0, sizeof(*st));
+        std::memset(st, 0, fs_state_bytes);
         const char* prefix = options.savegame.enabled ? options.savegame.prefix.c_str() : "";
         if (rtfs_init(&st->fs, &options.savegame.volume, prefix, -1) != RTFAT_OK) {
             error = "savegame redirection: rtfs_init refused the prefix '" + options.savegame.prefix + "'";
@@ -524,7 +529,7 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
              where.c_str(), rvz_buffers.stored, rvz_buffers.group, rvz_dctx_bytes, rvz_state_address);
     }
     if (has_fs && !options.savegame.enabled) {
-        logf("Resident: card state %u bytes at 0x%08x, SD fd %d (%s)\n", static_cast<unsigned>(sizeof(rt_fs_state)),
+        logf("Resident: card state %u bytes at 0x%08x, SD fd %d (%s)\n", static_cast<unsigned>(fs_state_bytes),
              fs_state_address, options.sdio_fd, options.sdio_sdhc ? "SDHC" : "SDSC");
     }
     if (options.savegame.enabled) {
