@@ -788,9 +788,12 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
             fst_override.bytes = layout.fst_bytes;
             if (!fst.patch_image(fst_override.bytes, error)) return false;
         } else {
-            // The table is rebuilt, padded to 32 bytes like the disc's, and
-            // stays at its offset: the bytes after the original table must
-            // be free (not the DOL, not a file the game still reads there).
+            // The table is rebuilt, padded to 32 bytes like the disc's. It
+            // stays at its offset when the bytes after the original table
+            // are free (not the DOL, not a file the game still reads
+            // there); on an image packed tight (a file right after the
+            // table) it moves to the virtual window, past the disc's end,
+            // with the data header pointing there.
             if (!fst.serialize(fst_override.bytes, error)) return false;
             fst_override.bytes.resize((fst_override.bytes.size() + 31) & ~std::size_t(31), 0);
             const std::uint64_t fst_start = layout.data_header.fst_offset;
@@ -804,20 +807,30 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
                 return false;
             }
             // A replaced DOL is placed after this, clear of the FST.
+            std::string in_the_way;
             if (options.main_dol.empty() && layout.data_header.dol_offset < fst_end &&
                 layout.data_header.dol_offset + dol.image_size() > fst_start) {
-                error = "the grown FST would overlap the DOL";
-                return false;
+                in_the_way = "the DOL";
             }
-            for (std::uint32_t i = 0; i < fst.count(); ++i) {
+            for (std::uint32_t i = 0; in_the_way.empty() && i < fst.count(); ++i) {
                 const FstEntry& e = fst.entries()[i];
                 if (e.is_directory || e.size == 0 || e.offset >= kVirtualWindowStart) continue;
                 if (e.offset < fst_end && e.offset + e.size > fst_start) {
-                    std::string path;
-                    fst.path_of(i, path);
-                    error = "the grown FST would overlap '" + path + "'";
+                    fst.path_of(i, in_the_way);
+                    in_the_way = "'" + in_the_way + "'";
+                }
+            }
+            if (!in_the_way.empty()) {
+                const std::uint64_t moved = (window_cursor + 0x7FFF) & ~std::uint64_t(0x7FFF);
+                if (((moved + fst_override.bytes.size()) >> 2) > 0xFFFFFFFFull) {
+                    error = "the grown FST would overlap " + in_the_way + " and the virtual window is full";
                     return false;
                 }
+                fst_override.offset = moved;
+                header.fst_offset = moved;
+                window_cursor = moved + fst_override.bytes.size();
+                logf("FST: the grown table would overlap %s; moved to 0x%llx\n", in_the_way.c_str(),
+                     static_cast<unsigned long long>(moved));
             }
             header.fst_size = fst_override.bytes.size();
             if (header.fst_max_size < header.fst_size) header.fst_max_size = header.fst_size;
@@ -931,7 +944,8 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         if (length == 0) continue;  // some apploaders emit empty steps (Dolphin skips them too)
         if (length > 0) loaded_bytes += static_cast<std::uint32_t>(length);
         ProgressWithin(loaded_bytes, expected, 70, 97);
-        if (length < 0 || word_offset < 0 || !in_ram(dest, static_cast<std::uint32_t>(length))) {
+        // The word offset is unsigned: the virtual window starts at word 0x80000000.
+        if (length < 0 || !in_ram(dest, static_cast<std::uint32_t>(length))) {
             error = "the apploader asked for a load outside RAM";
             return false;
         }
@@ -999,7 +1013,7 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         // The game's own image, for search and ocarina patches: the DOL
         // sections, not the FST nor the apploader's buffers above the
         // arena.
-        if ((std::uint64_t(woff) << 2) != layout.data_header.fst_offset &&
+        if ((std::uint64_t(woff) << 2) != header.fst_offset &&
             dest < reinterpret_cast<std::uint32_t>(SYS_GetArena1Hi())) {
             loaded.push_back(MemoryRegion{dest, len});
         }
