@@ -243,15 +243,15 @@ You don't need either: RiftWii runs the codes itself, and the game can
 be on a disc or a USB drive.
 
 1. Copy the build's folder to the top of the SD card, as the build's
-   instructions say (for REX that is `sd:/rex_`, with its `pf` folder
+   instructions say (`sd:/Project+`, `sd:/rex_`, with the `pf` folder
    inside).
-2. Copy the build's `gameconfig.txt` to the top of the SD card too (or
-   leave it inside the build's folder). It says where the codes go in
-   memory, and RiftWii needs it for any build bigger than a handful of
-   codes.
+2. Keep the build's `gameconfig.txt` (Project+ and Legacy XP call it
+   `gc.txt`) inside the build's folder, or copy it to the top of the SD
+   card. It says where the codes go in memory, and RiftWii needs it for
+   any build bigger than a handful of codes.
 3. Open the game's page, then **Mods**. The build shows up as
-   **rex_ (codes)** (or whatever its folder is called). Turn it on and
-   press Start.
+   **Project+ (codes)** (or whatever its folder is called). Turn it on
+   and press Start.
 
 RiftWii finds a build by its code file, named after the game
 (`RSBE01.GCT` for Brawl, any case), in a folder at the top of the card
@@ -273,8 +273,12 @@ A few things to know:
 - Play the game from the disc or a USB drive. The build reads the SD
   card while the game runs, so a game that is itself on the SD card may
   not work.
-- If Start says the codes don't fit, `gameconfig.txt` is missing or is
-  not the build's own. Copy the one that came with the build.
+- If Start says the codes don't fit, `gameconfig.txt` (or `gc.txt`) is
+  missing or is not the build's own. Copy the one that came with the
+  build.
+- Tested in Dolphin with Project+ 3.2 and REX. Older builds that go in
+  `sd:/codes` with `gameconfig.txt` at the top of the card (Project M,
+  Brawl Minus, Legacy XP's setup for USB loaders) use the same files.
 - `boot.log` lists the codes, where they went and what `gameconfig.txt`
   changed, if something goes wrong.
 

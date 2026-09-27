@@ -37,13 +37,22 @@ bool parse_hex(const std::string& text, std::uint32_t& out) {
 }
 
 // "RSBE01:" (letters and digits, up to six, then a colon and nothing else).
+// A '?' stands for any character ("RSBE??:", as Project+ ships it).
 bool section_id(const std::string& line, std::string& id) {
     if (line.size() < 2 || line.back() != ':') return false;
     const std::string s = trim(line.substr(0, line.size() - 1));
     if (s.empty() || s.size() > 6) return false;
     for (char c : s)
-        if (!std::isalnum(static_cast<unsigned char>(c))) return false;
+        if (!std::isalnum(static_cast<unsigned char>(c)) && c != '?') return false;
     id = s;
+    return true;
+}
+
+// The section is for the game: its ID starts the game's, '?' matching anything.
+bool section_matches(const std::string& id, const std::string& game_id) {
+    if (id.size() > game_id.size()) return false;
+    for (std::size_t i = 0; i < id.size(); ++i)
+        if (id[i] != '?' && std::toupper(static_cast<unsigned char>(id[i])) != game_id[i]) return false;
     return true;
 }
 
@@ -76,7 +85,7 @@ GameConfig parse_gameconfig(const std::string& text, const std::string& game_id)
         if (line.empty()) continue;
         std::string id;
         if (section_id(line, id)) {
-            in_game = game_id.compare(0, id.size(), id) == 0 && id.size() <= game_id.size();
+            in_game = section_matches(id, game_id);
             out.found = out.found || in_game;
             continue;
         }

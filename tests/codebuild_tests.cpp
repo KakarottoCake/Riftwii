@@ -77,6 +77,12 @@ void test_gameconfig() {
     EXPECT_EQ(c.codelist_start, 0x80570000u);
     EXPECT_TRUE(c.pokes.empty());
     EXPECT_EQ(c.ignored.size(), 1u);
+    // Project+'s gc.txt: '?' matches any character.
+    c = parse_gameconfig("RSBE??:\ncodeliststart = 80566528\ncodelistend = 80580000\nhooktype = 7\n", "RSBE01");
+    EXPECT_TRUE(c.found);
+    EXPECT_EQ(c.codelist_end, 0x80580000u);
+    EXPECT_FALSE(parse_gameconfig("RSBE??:\nhooktype = 7\n", "RSBP01").found);
+    EXPECT_FALSE(parse_gameconfig("RSBE??:\nhooktype = 7\n", "RSBE").found);
     // A bad poke is set aside, not half read.
     c = parse_gameconfig("RSBE01:\npoke(80001000)\npoke(8000100G, 1)\n", "RSBE01");
     EXPECT_TRUE(c.pokes.empty());

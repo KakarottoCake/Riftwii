@@ -139,12 +139,14 @@ bool write_picks(const std::vector<std::pair<std::string, std::string>>& picks, 
     return true;
 }
 
-// Where the code list goes for `game_id`: a gameconfig.txt in the code
-// file's folder or a folder above it, up to the top of the card.
+// Where the code list goes for `game_id`: a gameconfig.txt (or gc.txt, as
+// Project+ names it) in the code file's folder or a folder above it, up to
+// the top of the card.
 GameConfig load_config(const std::string& folder, const std::string& game_id, std::string& from) {
     std::vector<std::string> paths;
     for (std::string dir = folder; dir.size() > 4 && dir.compare(0, 4, "sd:/") == 0; dir = dir_of(dir)) {
         paths.push_back(dir + "/gameconfig.txt");
+        paths.push_back(dir + "/gc.txt");
     }
     paths.push_back("sd:/gameconfig.txt");
     for (const std::string& path : paths) {
