@@ -20,6 +20,7 @@
 #include "loadersettings.hpp"
 #include "log.hpp"
 #include "menuios.hpp"
+#include "codebuilds.hpp"
 #include "netpacks.hpp"
 
 namespace riftwii::wii {
@@ -218,6 +219,10 @@ std::string ScanPackages(FrontendState& state) {
         std::stringstream text;
         if (input) text << input.rdbuf();
         state.model.add(pack.file, pack.path, input ? text.str() : std::string(), disc);
+    }
+    // Code builds (Project+ and the like) show beside the XML packs.
+    for (const CodeBuildFile& b : ListCodeBuilds()) {
+        state.model.add_code_build(b.key, b.folder, b.gct, b.game_id, disc);
     }
     if (!state.choices_path.empty()) {
         std::ifstream saved(state.choices_path, std::ios::binary);

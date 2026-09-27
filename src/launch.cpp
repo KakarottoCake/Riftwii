@@ -81,6 +81,12 @@ void PackIndex::add(const std::string& xml) {
     filters_.push_back(std::move(filter));
 }
 
+void PackIndex::add_game(const std::string& game_id) {
+    DiscFilter filter;
+    filter.game = game_id;
+    filters_.push_back(filter);
+}
+
 bool PackIndex::has_packs(const std::string& game_id) const {
     DiscIdentity disc;
     disc.id = game_id;
@@ -116,6 +122,26 @@ void LaunchModel::add(const std::string& file, const std::string& path, const st
         }
     }
     packages.push_back(std::move(p));
+}
+
+void LaunchModel::add_code_build(const std::string& file, const std::string& folder, const std::string& gct,
+                                 const std::string& game_id, const DiscIdentity* disc) {
+    LaunchPackage p;
+    p.file = file;
+    p.path = folder;
+    p.gct_path = gct;
+    p.valid = true;
+    p.for_disc = disc == nullptr || disc->id == game_id;
+    p.package.filter.game = game_id;
+    p.detail = "code build for " + game_id;
+    packages.push_back(std::move(p));
+}
+
+std::vector<const LaunchPackage*> LaunchModel::code_builds() const {
+    std::vector<const LaunchPackage*> out;
+    for (const LaunchPackage& p : packages)
+        if (p.code_build() && p.enabled && p.valid && p.for_disc) out.push_back(&p);
+    return out;
 }
 
 bool LaunchModel::set_enabled(std::size_t package, bool enabled) {
@@ -232,7 +258,7 @@ std::string LaunchModel::choice_name(std::size_t package, std::size_t option) co
 std::vector<PackageChoices> LaunchModel::selections() const {
     std::vector<PackageChoices> out;
     for (const LaunchPackage& p : packages) {
-        if (!p.enabled || !p.valid || !p.for_disc) continue;
+        if (!p.enabled || !p.valid || !p.for_disc || p.code_build()) continue;
         PackageChoices s;
         s.xml_sd_path = p.path;
         for (const Option& o : p.package.options) {

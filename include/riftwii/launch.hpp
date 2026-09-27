@@ -28,6 +28,11 @@ struct LaunchPackage {
     bool for_disc = true;  // its filter matches the disc (true when no disc is known)
     bool enabled = false;  // chosen for launch
     Package package;       // its options carry the current choices
+    // A code build instead of an XML pack: a mod made of Gecko codes that
+    // load its files while the game runs (a Project+ build, for one). Its
+    // code file; `path` is its folder. No options, never compiled.
+    std::string gct_path;
+    bool code_build() const { return !gct_path.empty(); }
 };
 
 // Visibility on the mods screen: only packs made for the selected game.
@@ -71,6 +76,7 @@ SaveOverride resolve_save_override(const std::string& save_mode, const std::stri
 class PackIndex {
 public:
     void add(const std::string& xml);
+    void add_game(const std::string& game_id);  // a code build's game
     bool has_packs(const std::string& game_id) const;
     std::size_t size() const { return filters_.size(); }
 
@@ -103,6 +109,13 @@ public:
     // never enabled. Parse failures leave the entry invalid with the error
     // in `detail`.
     void add(const std::string& file, const std::string& path, const std::string& xml, const DiscIdentity* disc);
+    // A code build for `game_id` (its code file is named after the game):
+    // `file` names it in the choices file ("rex_/RSBE01.GCT"), `folder` is
+    // where it lives, `gct` its code file.
+    void add_code_build(const std::string& file, const std::string& folder, const std::string& gct,
+                        const std::string& game_id, const DiscIdentity* disc);
+    // The code files of the code builds turned on for this disc.
+    std::vector<const LaunchPackage*> code_builds() const;
 
     // Enabling a package that is invalid or for another disc is refused.  A
     // package with exactly one off option and one choice selects that choice
@@ -137,6 +150,7 @@ public:
 
     // What to compile: every enabled package with every option stated
     // explicitly, so a package's defaults never leak past the frontend.
+    // Code builds are not compiled (code_builds() lists them).
     std::vector<PackageChoices> selections() const;
 
     // Persistence, one line per fact, tab-separated:

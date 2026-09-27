@@ -8,6 +8,7 @@
 #include <sys/stat.h>
 
 #include "boot.hpp"
+#include "codebuilds.hpp"
 #include "i18n.hpp"
 #include "loadersettings.hpp"
 #include "log.hpp"
@@ -105,6 +106,35 @@ std::string PlayNote(const std::string& game_id) {
     return tr("Played {1} times, last on {2}", {std::to_string(r->count), day});
 }
 
+namespace {
+
+// The cheats picked for the game, as a code list (empty when none).
+std::vector<std::uint8_t> CheatGct(const FrontendState& state, std::size_t& count, bool log) {
+    count = 0;
+    if (!state.model.game.cheats || state.model.game.cheat_names.empty()) return {};
+    CheatFile file;
+    std::string status;
+    if (!LoadGameCheats(state.game_id, false, file, status)) {
+        if (log) logf("Cheats: none loaded for %s: %s\n", state.game_id.c_str(), status.c_str());
+        return {};
+    }
+    std::vector<std::uint8_t> gct = build_gct(file, state.model.game.cheat_names, count);
+    if (log)
+        logf("Cheats: %u of %u picked for %s\n", static_cast<unsigned>(count),
+             static_cast<unsigned>(state.model.game.cheat_names.size()), state.game_id.c_str());
+    if (count == 0) gct.clear();
+    return gct;
+}
+
+}  // namespace
+
+bool CheckCodeBuilds(const FrontendState& state, std::string& error) {
+    if (state.model.code_builds().empty()) return true;
+    std::size_t count = 0;
+    CodeBuildLaunch launch;
+    return PrepareCodeBuilds(state.model, state.game_id, CheatGct(state, count, false), launch, error);
+}
+
 void PrepareLaunchExtras(const FrontendState& state) {
     LaunchExtras extras;
     extras.game_id = state.game_id;
@@ -117,17 +147,18 @@ void PrepareLaunchExtras(const FrontendState& state) {
                         : adapter == "demo" ? GcAdapterMode::Demo
                         : adapter == "off"  ? GcAdapterMode::Off
                                             : GcAdapterMode::Auto;
-    if (state.model.game.cheats && !state.model.game.cheat_names.empty()) {
-        CheatFile file;
-        std::string status;
-        if (LoadGameCheats(state.game_id, false, file, status)) {
-            extras.cheat_gct = build_gct(file, state.model.game.cheat_names, extras.cheat_count);
-            if (extras.cheat_count == 0) extras.cheat_gct.clear();
-            logf("Cheats: %u of %u picked for %s\n", static_cast<unsigned>(extras.cheat_count),
-                 static_cast<unsigned>(state.model.game.cheat_names.size()), state.game_id.c_str());
-        } else {
-            logf("Cheats: none loaded for %s: %s\n", state.game_id.c_str(), status.c_str());
-        }
+    extras.cheat_gct = CheatGct(state, extras.cheat_count, true);
+    CodeBuildLaunch builds;
+    std::string error;
+    if (PrepareCodeBuilds(state.model, state.game_id, extras.cheat_gct, builds, error)) {
+        extras.cheat_gct = std::move(builds.gct);
+        extras.code_builds = builds.names;
+        extras.code_list_start = builds.list_start;
+        extras.code_list_end = builds.list_end;
+        extras.code_hooktype = builds.hooktype;
+        extras.pokes = std::move(builds.pokes);
+    } else {
+        logf("Code builds are off: %s\n", error.c_str());  // the game page checked before Start
     }
     SetLaunchExtras(std::move(extras));
 }

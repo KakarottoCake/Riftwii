@@ -9,6 +9,7 @@
 #include "riftwii/disc.hpp"
 #include "riftwii/dol.hpp"
 #include "riftwii/fst.hpp"
+#include "riftwii/gameconfig.hpp"
 #include "riftwii/hook.hpp"
 #include "riftwii/patch.hpp"
 #include "riftwii/videopatch.hpp"
@@ -169,8 +170,17 @@ struct LaunchExtras {
     int language = -1;    // riftwii/gamelang.hpp code; -1: the console's
     WfcServer server = WfcServer::Off;  // online play (wii/wfc.hpp)
     std::string wfc_domain;             // the server's domain; empty for WiiLink
-    std::vector<std::uint8_t> cheat_gct;  // empty: no cheats
+    std::vector<std::uint8_t> cheat_gct;  // empty: no codes (a code build's, then the cheats)
     std::size_t cheat_count = 0;
+    // Code builds (wii/codebuilds.hpp), from their gameconfig.txt: where the
+    // code list goes (0: the handler's own room), what runs the handler
+    // (7: the audio frame, else the video retrace) and the words written
+    // before the game starts.
+    std::string code_builds;
+    std::uint32_t code_list_start = 0;
+    std::uint32_t code_list_end = 0;
+    int code_hooktype = 0;
+    std::vector<GamePoke> pokes;
 };
 void SetLaunchExtras(LaunchExtras extras);
 

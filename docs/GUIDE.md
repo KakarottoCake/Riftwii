@@ -233,6 +233,51 @@ leaderboards to the SD card, as they do under Riivolution. CT-CODE
 packs that replace the game's `main.dol` (CTGP Revolution 1.02) work
 too.
 
+### Code builds (Project+, REX and other Gecko code mods)
+
+Some mods are not Riivolution packs at all. Project+ and builds made
+from it (REX, for Super Smash Bros. Brawl) are a big Gecko code file
+that loads the mod's files from the SD card while the game runs. They
+usually come with their own launcher or a USB loader set up for them.
+You don't need either: RiftWii runs the codes itself, and the game can
+be on a disc or a USB drive.
+
+1. Copy the build's folder to the top of the SD card, as the build's
+   instructions say (for REX that is `sd:/rex_`, with its `pf` folder
+   inside).
+2. Copy the build's `gameconfig.txt` to the top of the SD card too (or
+   leave it inside the build's folder). It says where the codes go in
+   memory, and RiftWii needs it for any build bigger than a handful of
+   codes.
+3. Open the game's page, then **Mods**. The build shows up as
+   **rex_ (codes)** (or whatever its folder is called). Turn it on and
+   press Start.
+
+RiftWii finds a build by its code file, named after the game
+(`RSBE01.GCT` for Brawl, any case), in a folder at the top of the card
+or in that folder's `codes` folder. Plain code files work too: put
+`<game ID>.gct` in `sd:/codes` and it shows up as **sd:/codes**.
+
+If a build doesn't show up (its code file has another name, or sits
+deeper), pick it yourself: **Add a code build...** at the bottom of the
+Mods page lets you open the build's folder on the SD card and pick its
+`.gct` file. It's turned on and remembered for that game.
+**Remove from the list** under it takes it off again (the files stay on
+the card).
+
+You can skip the build's `apps` folder (the launchers). Cheats you pick
+for the game run alongside the build.
+
+A few things to know:
+
+- Play the game from the disc or a USB drive. The build reads the SD
+  card while the game runs, so a game that is itself on the SD card may
+  not work.
+- If Start says the codes don't fit, `gameconfig.txt` is missing or is
+  not the build's own. Copy the one that came with the build.
+- `boot.log` lists the codes, where they went and what `gameconfig.txt`
+  changed, if something goes wrong.
+
 ### GameCube controller adapter for Wii U
 
 The Nintendo adapter (WUP-028) or a copy that works like it (a Mayflash

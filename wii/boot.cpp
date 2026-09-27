@@ -54,6 +54,7 @@ using ApploaderEntry = void (*)(ApploaderInit* init, ApploaderMain* main, Apploa
 
 constexpr std::uint32_t kApploaderLoadAddress = 0x81200000;
 constexpr std::uint32_t kLoaderStart = 0x80A00000;  // Makefile.wii: --section-start,.init
+constexpr std::uint32_t kGameStart = 0x80004000;    // where games' executables start
 constexpr std::uint32_t kMem1Start = 0x80000000;
 constexpr std::uint32_t kMem1End = 0x81800000;
 constexpr std::uint32_t kMem2Start = 0x90000000;
@@ -82,16 +83,47 @@ bool g_card_live_for_log = false;
 // the end of the game's video retrace handler. Leaves the game untouched
 // and says why when that cannot be done.
 bool install_cheats(const std::vector<MemoryRegion>& loaded, const std::vector<MemoryPatch>& patches,
-                    std::string& why) {
+                    const std::vector<MemoryRegion>& keep_out, std::string& why) {
     const std::vector<std::uint8_t>& gct = g_extras.cheat_gct;
-    if (gct.size() > kCodeListEnd - kCodeListAddress) {
-        why = "the cheats picked need " + std::to_string(gct.size()) + " bytes and the code handler holds " +
-              std::to_string(kCodeListEnd - kCodeListAddress) + "; pick fewer";
+    // A code build's gameconfig.txt may move the list out of the handler's
+    // own room, to memory the game leaves free.
+    const bool moved = g_extras.code_list_start != 0;
+    const std::uint32_t list = moved ? g_extras.code_list_start : kCodeListAddress;
+    const std::uint32_t list_end = moved ? g_extras.code_list_end : kCodeListEnd;
+    const auto overlap = [](std::uint32_t a, std::uint32_t a_end, std::uint32_t b, std::uint32_t b_end) {
+        return a < b_end && b < a_end;
+    };
+    char where[96];
+    std::snprintf(where, sizeof(where), "the code list (0x%08x-0x%08x)", static_cast<unsigned>(list),
+                  static_cast<unsigned>(list_end));
+    if (moved) {
+        if (list < kCodeListEnd || list_end <= list || list_end > kLoaderStart) {
+            why = std::string(where) + " is outside the memory a game can give it";
+            return false;
+        }
+        for (const MemoryRegion& r : loaded) {
+            if (overlap(list, list_end, r.address, r.address + r.length)) {
+                why = std::string(where) + " is over the game's own code or data";
+                return false;
+            }
+        }
+        for (const MemoryRegion& r : keep_out) {
+            if (r.length != 0 && overlap(list, list_end, r.address, r.address + r.length)) {
+                why = std::string(where) + " is over RiftWii's own code for this launch";
+                return false;
+            }
+        }
+    }
+    if (gct.size() > list_end - list) {
+        why = "the codes need " + std::to_string(gct.size()) + " bytes and " + where + " holds " +
+              std::to_string(list_end - list) + "; pick fewer cheats";
         return false;
     }
     for (const MemoryPatch& p : patches) {
-        if (p.has_offset && p.offset < kCodeListEnd && p.offset + p.value.size() > kCodeHandlerAddress) {
-            why = "a pack's memory patch uses the code handler's memory (0x80001800-0x80003000)";
+        if (!p.has_offset) continue;
+        const std::uint32_t end = p.offset + static_cast<std::uint32_t>(p.value.size());
+        if (overlap(p.offset, end, kCodeHandlerAddress, kCodeListEnd) || (moved && overlap(p.offset, end, list, list_end))) {
+            why = "a pack's memory patch uses the code handler's memory or " + std::string(where);
             return false;
         }
     }
@@ -99,24 +131,55 @@ bool install_cheats(const std::vector<MemoryRegion>& loaded, const std::vector<M
     for (const MemoryRegion& r : loaded) {
         text.push_back(CodeRange{r.address, reinterpret_cast<const std::uint8_t*>(r.address), r.length});
     }
-    const std::uint32_t hook = find_cheat_hook(text);
+    const bool audio = g_extras.code_hooktype == 7;
+    const std::uint32_t hook = find_code_hook(text, audio ? CodeHook::AudioFrame : CodeHook::Retrace);
     const std::uint32_t branch = hook != 0 ? encode_b(hook, kCodeHandlerEntry) : 0;
     if (branch == 0) {
-        why = "the game's video retrace handler was not found, so there is nowhere to run them from";
+        why = audio ? "the game's AXNextFrame (gameconfig.txt's hook type 7) was not found, so there is nowhere to run them from"
+                    : "the game's video retrace handler was not found, so there is nowhere to run them from";
         return false;
     }
-    std::memcpy(reinterpret_cast<void*>(kCodeHandlerAddress), codehandleronly_bin, codehandleronly_bin_size);
-    std::memcpy(reinterpret_cast<void*>(kCodeHandlerAddress), g_extras.game_id.c_str(),
+    std::uint8_t* handler = reinterpret_cast<std::uint8_t*>(kCodeHandlerAddress);
+    std::memcpy(handler, codehandleronly_bin, codehandleronly_bin_size);
+    if (moved && !relocate_code_list(handler, codehandleronly_bin_size, list)) {
+        why = "the code handler cannot be pointed at " + std::string(where);
+        return false;
+    }
+    std::memcpy(handler, g_extras.game_id.c_str(),
                 std::min<std::size_t>(6, g_extras.game_id.size()));  // where cheat tools look for it
-    std::memset(reinterpret_cast<void*>(kCodeListAddress), 0, kCodeListEnd - kCodeListAddress);
-    std::memcpy(reinterpret_cast<void*>(kCodeListAddress), gct.data(), gct.size());
+    std::memset(reinterpret_cast<void*>(list), 0, list_end - list);
+    std::memcpy(reinterpret_cast<void*>(list), gct.data(), gct.size());
     DCFlushRange(reinterpret_cast<void*>(kCodeHandlerAddress), kCodeListEnd - kCodeHandlerAddress);
     ICInvalidateRange(reinterpret_cast<void*>(kCodeHandlerAddress), kCodeListEnd - kCodeHandlerAddress);
+    if (moved) {
+        DCFlushRange(reinterpret_cast<void*>(list & ~31u), ((list_end + 31) & ~31u) - (list & ~31u));
+        ICInvalidateRange(reinterpret_cast<void*>(list & ~31u), ((list_end + 31) & ~31u) - (list & ~31u));
+    }
     *reinterpret_cast<volatile std::uint32_t*>(hook) = branch;
     DCFlushRange(reinterpret_cast<void*>(hook & ~31u), 32);
     ICInvalidateRange(reinterpret_cast<void*>(hook & ~31u), 32);
-    logf("Cheats: %u code(s), %u bytes, handler at 0x%08x called from 0x%08x\n",
-         static_cast<unsigned>(g_extras.cheat_count), static_cast<unsigned>(gct.size()), kCodeHandlerAddress, hook);
+    logf("Codes: %u cheat(s)%s%s, %u bytes at 0x%08x, handler at 0x%08x called from %s 0x%08x\n",
+         static_cast<unsigned>(g_extras.cheat_count), g_extras.code_builds.empty() ? "" : " and ",
+         g_extras.code_builds.c_str(), static_cast<unsigned>(gct.size()), static_cast<unsigned>(list),
+         kCodeHandlerAddress, audio ? "AXNextFrame" : "the retrace handler", hook);
+    // gameconfig.txt's words, last: they may turn off what would undo the
+    // codes (a Project+ build stops the game clearing the memory its list is in).
+    for (const GamePoke& p : g_extras.pokes) {
+        if (p.address < kMem1Start || p.address + 4 > kLoaderStart || (p.address & 3) != 0) {
+            logf("  poke 0x%08x skipped: outside the game's memory\n", static_cast<unsigned>(p.address));
+            continue;
+        }
+        if (p.conditional) {
+            if (p.check_address < kMem1Start || p.check_address + 4 > kMem1End || (p.check_address & 3) != 0 ||
+                *reinterpret_cast<volatile std::uint32_t*>(p.check_address) != p.check_value) {
+                continue;
+            }
+        }
+        *reinterpret_cast<volatile std::uint32_t*>(p.address) = p.value;
+        DCFlushRange(reinterpret_cast<void*>(p.address & ~31u), 32);
+        ICInvalidateRange(reinterpret_cast<void*>(p.address & ~31u), 32);
+        logf("  poke 0x%08x = 0x%08x\n", static_cast<unsigned>(p.address), static_cast<unsigned>(p.value));
+    }
     return true;
 }
 
@@ -819,6 +882,16 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         }
     }
 
+    // A code build that keeps the game from clearing its own memory at
+    // start (Project+'s poke over the clearing call, so its code list
+    // survives) would leave the game whatever this memory held: clear it
+    // as a fresh console would have it, before the game goes in.
+    if (!g_extras.pokes.empty()) {
+        std::memset(reinterpret_cast<void*>(kGameStart), 0, kLoaderStart - kGameStart);
+        DCFlushRange(reinterpret_cast<void*>(kGameStart), kLoaderStart - kGameStart);
+        logf("Code builds: game memory 0x%08x-0x%08x cleared\n", static_cast<unsigned>(kGameStart),
+             static_cast<unsigned>(kLoaderStart));
+    }
     di::PartitionSource data;
     const std::uint64_t app_bytes = apploader.total_size();
     std::uint8_t* app = reinterpret_cast<std::uint8_t*>(kApploaderLoadAddress);
@@ -1163,9 +1236,14 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
     }
     // The menu's extras, over the game as loaded and patched.
     apply_video(loaded, card.fd < 0);  // not while the runtime's card handle is open
+    bool codes_first = false;  // run the codes once before the game starts
     if (!g_extras.cheat_gct.empty()) {
         std::string why;
-        if (!install_cheats(loaded, options.memory_patches, why)) logf("Cheats are off: %s\n", why.c_str());
+        std::vector<MemoryRegion> keep_out;
+        if (options.install_resident) keep_out.push_back(MemoryRegion{resident.code_base, resident.code_bytes});
+        if (pad.active) keep_out.push_back(MemoryRegion{pad.code_base, pad.code_bytes});
+        if (!install_cheats(loaded, options.memory_patches, keep_out, why)) logf("Codes are off: %s\n", why.c_str());
+        else codes_first = !g_extras.code_builds.empty();
     }
     if (pad.active) {
         std::string why;
@@ -1193,6 +1271,13 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         std::memcpy(reinterpret_cast<void*>(resident.data_base), reinterpret_cast<const void*>(resident.stage_base),
                     resident.data_bytes);
         DCFlushRange(reinterpret_cast<void*>(resident.data_base), resident.data_bytes);
+    }
+    if (codes_first) {
+        // As Gecko loaders do: the handler runs once before the game, so a
+        // code build's writes to the game's tables (Project+ resizes its
+        // heaps) are in place before the game reads them at start. The
+        // handler returns to its caller like the hooked function would.
+        reinterpret_cast<void (*)()>(kCodeHandlerEntry)();
     }
     game_entry();
     // A game entry must never return, but release the card if it does.

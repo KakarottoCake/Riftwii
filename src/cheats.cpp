@@ -129,4 +129,27 @@ std::vector<std::uint8_t> build_gct(const CheatFile& file, const std::set<std::s
     return out;
 }
 
+namespace {
+
+std::uint32_t get32(const std::vector<std::uint8_t>& b, std::size_t at) {
+    return (std::uint32_t(b[at]) << 24) | (std::uint32_t(b[at + 1]) << 16) | (std::uint32_t(b[at + 2]) << 8) | b[at + 3];
+}
+
+}  // namespace
+
+bool valid_gct(const std::vector<std::uint8_t>& gct) {
+    if (gct.size() < 16 || gct.size() % 8 != 0) return false;
+    const std::size_t end = gct.size() - 8;
+    return get32(gct, 0) == 0x00D0C0DE && get32(gct, 4) == 0x00D0C0DE && get32(gct, end) == 0xF0000000 &&
+           get32(gct, end + 4) == 0;
+}
+
+std::vector<std::uint8_t> join_gct(const std::vector<std::uint8_t>& first, const std::vector<std::uint8_t>& second) {
+    if (first.empty()) return second;
+    if (second.empty()) return first;
+    std::vector<std::uint8_t> out(first.begin(), first.end() - 8);  // without its end
+    out.insert(out.end(), second.begin() + 8, second.end());       // without its header
+    return out;
+}
+
 }  // namespace riftwii

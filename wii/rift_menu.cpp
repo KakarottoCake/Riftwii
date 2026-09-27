@@ -51,6 +51,7 @@
 #include "demo.h"
 #include "input.h"
 #include "riftwii/patch.hpp"
+#include "codebuilds.hpp"
 #include "gameextras.hpp"
 #include "i18n.hpp"
 #include "loadersettings.hpp"
@@ -392,12 +393,18 @@ static std::string MenuIosNote(int slot)
 	return note;
 }
 
-// The pack's name without ".xml", for display.
+// The pack's name without ".xml", for display; a code build's is its
+// folder's ("rex_/RSBE01.GCT": "rex_ (codes)").
 static std::string PackName(const std::string& file)
 {
 	if (file.size() > 4) {
 		const std::string ext = file.substr(file.size() - 4);
 		if (strcasecmp(ext.c_str(), ".xml") == 0) return file.substr(0, file.size() - 4);
+		const std::size_t slash = file.find('/');
+		if (strcasecmp(ext.c_str(), ".gct") == 0 && slash != std::string::npos) {
+			const std::string top = file.substr(0, slash);
+			return strcasecmp(top.c_str(), "codes") == 0 ? "sd:/codes" : top + " (codes)";
+		}
 	}
 	return file;
 }
@@ -405,6 +412,11 @@ static std::string PackName(const std::string& file)
 // What the status line says about a focused pack.
 static std::string PackSummary(const riftwii::LaunchPackage& p)
 {
+	if (p.code_build()) {
+		const std::string where = p.gct_path;
+		return p.enabled ? "On. Runs the codes in " + where + "; they load the build's files from the SD card."
+				 : "Off. A turns on the codes in " + where + ".";
+	}
 	if (!p.valid) return "This XML cannot be read; the error is listed under it.";
 	const std::size_t n = p.package.options.size();
 	if (!p.enabled) {
@@ -471,6 +483,7 @@ static void LoadPackIndex()
 		text << in.rdbuf();
 		g_packs.add(text.str());
 	}
+	for (const riftwii::wii::CodeBuildFile& b : riftwii::wii::ListCodeBuilds()) g_packs.add_game(b.game_id);
 	logf("Home: %u pack(s) indexed\n", static_cast<unsigned>(g_packs.size()));
 }
 
@@ -559,6 +572,10 @@ static std::string LaunchNote(const FrontendState& state)
 	if (PacksOnUsb(state)) {
 		if (!note.empty()) note += " ";
 		note += tr("Packs on USB are experimental; if it fails, copy them to SD.");
+	}
+	if (state.use_sd && !state.model.code_builds().empty()) {
+		if (!note.empty()) note += " ";
+		note += "Code builds read the SD card while the game runs, so they may not work with a game on SD. Play it from USB or disc if it fails.";
 	}
 	return note;
 }
@@ -1292,7 +1309,8 @@ static std::string SaveNote(const riftwii::LaunchModel& model)
 }
 
 struct RowRef {
-	enum class What { Mods, Saves, Cheats, Width, Deflicker, Borders, VideoMode, Language, Cios, Server, Favorite, Pack, Option, Note } what = What::Note;
+	enum class What { Mods, Saves, Cheats, Width, Deflicker, Borders, VideoMode, Language, Cios, Server, Favorite, Pack, Option, Note,
+		AddCodes, ForgetCodes } what = What::Note;
 	std::size_t pkg = 0, opt = 0;
 };
 
@@ -1535,6 +1553,13 @@ static void BuildModRows(const FrontendState& state, const std::string& scanStat
 			}
 			continue;
 		}
+		if (p.code_build() && riftwii::wii::IsPickedCodeBuild(p.file)) {
+			FlowRow forget;
+			forget.kind = FlowRow::Kind::Action;
+			forget.indent = true;
+			forget.label = "Remove from the list";
+			add(forget, {RowRef::What::ForgetCodes, i});
+		}
 		if (!p.enabled) continue;
 		for (std::size_t o = 0; o < p.package.options.size(); ++o) {
 			// An option merged across packs shows once, under the
@@ -1561,6 +1586,10 @@ static void BuildModRows(const FrontendState& state, const std::string& scanStat
 			: tr("{1} XML file(s) are for other games", {std::to_string(state.model.packages.size())});
 		add(hint, {RowRef::What::Note});
 	}
+	FlowRow pick;
+	pick.kind = FlowRow::Kind::Action;
+	pick.label = "Add a code build...";
+	add(pick, {RowRef::What::AddCodes});
 }
 
 static std::string SourceWhere(const FrontendState& state)
@@ -1812,9 +1841,132 @@ static std::string ModsNote(const FrontendState& state, const std::string& scanS
 }
 
 // ---------------------------------------------------------------------------
+// Add a code build: the SD card's folders, to pick a build's code file
+// (riftwii/codebuilds.txt keeps it). True with its key when one was picked.
+
+static bool MenuPickCodes(const FrontendState& state, std::string& key)
+{
+	std::string folder = "sd:";
+	std::vector<riftwii::wii::CodeBrowseEntry> entries;
+	std::vector<FlowRow> rows;
+	const std::string wanted = state.game_id + ".gct";
+	const auto fill = [&]() {
+		entries = riftwii::wii::BrowseForCodes(folder + "/");
+		// The game's own code file first.
+		std::stable_partition(entries.begin(), entries.end(), [&](const riftwii::wii::CodeBrowseEntry& e) {
+			return !e.folder && strcasecmp(e.name.c_str(), wanted.c_str()) == 0;
+		});
+		rows.clear();
+		if (folder != "sd:") {
+			FlowRow up;
+			up.kind = FlowRow::Kind::Action;
+			up.label = "..  (up a folder)";
+			rows.push_back(up);
+		}
+		for (const riftwii::wii::CodeBrowseEntry& e : entries) {
+			FlowRow row;
+			row.kind = FlowRow::Kind::Action;
+			row.label = e.folder ? e.name + "/" : e.name;
+			if (!e.folder) {
+				row.value = "Pick";
+				row.on = strcasecmp(e.name.c_str(), wanted.c_str()) == 0;
+			}
+			rows.push_back(row);
+		}
+		if (rows.empty()) {
+			FlowRow none;
+			none.label = "Nothing here";
+			none.dim = true;
+			rows.push_back(none);
+		}
+	};
+	fill();
+
+	GuiText titleTxt("Add a code build", 30, skin::kInk);
+	Place(titleTxt, 40, 28);
+	std::string whereText = folder + "/";
+	GuiText whereTxt(whereText.c_str(), 16, skin::kInkDim);
+	whereTxt.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
+	whereTxt.SetPosition(-40, 40);
+	Panel panel(skin::panelGame, 34, 76);
+	GuiFlowList list(46, 82, 548, 5);
+	list.SetRows(&rows);
+	// In a folder, the first entry (the game's code file when it is there),
+	// not the way up.
+	const auto firstRow = [&]() { return folder != "sd:" && rows.size() > 1 ? 1 : 0; };
+	list.Select(firstRow());
+	GuiText noteTxt("", 16, skin::kInkSoft);
+	Place(noteTxt, 52, 312);
+	noteTxt.SetWrap(true, 536, 4);
+	const std::string help = "Open the build's folder and pick its code file (" + state.game_id +
+		".gct). Its gameconfig.txt is read from the same folder, a folder above it or the top of the card.";
+	noteTxt.SetText(help.c_str());
+	SkinButton backBtn(skin::pill, skin::pillOver, 4, 198, 406, "Back",
+		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
+
+	HaltGui();
+	GuiWindow w(screenwidth, screenheight);
+	w.Append(&titleTxt);
+	w.Append(&whereTxt);
+	w.Append(&panel);
+	w.Append(&list);
+	w.Append(&noteTxt);
+	w.Append(&backBtn.button);
+	mainWindow->Append(&w);
+	ResumeGui();
+
+	bool picked = false;
+	bool done = false;
+	while (!done)
+	{
+		usleep(10000);
+		HaltGui();
+		ClearStaleButtons({&backBtn.button});
+		const int acted = list.GetClicked();
+		if (acted >= 0 && static_cast<std::size_t>(acted) < rows.size() && !rows[static_cast<std::size_t>(acted)].dim) {
+			std::size_t at = static_cast<std::size_t>(acted);
+			bool moved = false;
+			if (folder != "sd:" && at == 0) {
+				folder = folder.substr(0, folder.rfind('/'));
+				moved = true;
+			} else {
+				if (folder != "sd:") --at;
+				const riftwii::wii::CodeBrowseEntry e = entries[at];
+				if (e.folder) {
+					folder += "/" + e.name;
+					moved = true;
+				} else {
+					std::string error;
+					if (riftwii::wii::PickCodeBuild(state.game_id, folder + "/" + e.name, key, error)) {
+						picked = true;
+						done = true;
+					} else {
+						noteTxt.SetText(FlatCapped(error, 200).c_str());
+					}
+				}
+			}
+			if (moved) {
+				fill();
+				whereText = folder + "/";
+				whereTxt.SetText(whereText.c_str());
+				list.Refresh();
+				list.Select(firstRow());
+				noteTxt.SetText(help.c_str());
+			}
+		}
+		if (backBtn.Clicked()) done = true;
+		ResumeGui();
+	}
+
+	HaltGui();
+	mainWindow->Remove(&w);
+	return picked;
+}
+
+// ---------------------------------------------------------------------------
 // Mods: the packs made for the game, opened from the game page.
 
-static void MenuMods(FrontendState& state, const std::string& scanStatus)
+static void MenuMods(FrontendState& state, std::string& scanStatus)
 {
 	std::vector<FlowRow> rows;
 	std::vector<RowRef> refs;
@@ -1864,6 +2016,10 @@ static void MenuMods(FrontendState& state, const std::string& scanStatus)
 			else if (ref.what == RowRef::What::Option) {
 				const riftwii::Option& o = state.model.packages[ref.pkg].package.options[ref.opt];
 				say(o.section.empty() ? PackName(state.model.packages[ref.pkg].file) : o.section);
+			} else if (ref.what == RowRef::What::AddCodes) {
+				say("For mods made of Gecko codes, like Project+ builds: pick the build's code file on the SD card.");
+			} else if (ref.what == RowRef::What::ForgetCodes) {
+				say("Takes this build off the list. Its files stay on the SD card.");
 			} else say("");
 		}
 
@@ -1883,6 +2039,26 @@ static void MenuMods(FrontendState& state, const std::string& scanStatus)
 				if (!changed && p.valid) say("This pack cannot be turned on.");
 			} else if (ref.what == RowRef::What::Option) {
 				changed = state.model.cycle(ref.pkg, ref.opt, direction);
+			} else if (ref.what == RowRef::What::AddCodes || ref.what == RowRef::What::ForgetCodes) {
+				std::string key, error;
+				bool listChanged = false;
+				if (ref.what == RowRef::What::AddCodes) {
+					mainWindow->Remove(&w);
+					listChanged = MenuPickCodes(state, key);
+					mainWindow->Append(&w);
+				} else if (riftwii::wii::ForgetCodeBuild(state.model.packages[ref.pkg].file, error)) {
+					listChanged = true;
+				} else {
+					say(error);
+				}
+				if (listChanged) {
+					scanStatus = riftwii::wii::ScanPackages(state);
+					// A new pick is turned on at once.
+					for (std::size_t i = 0; i < state.model.packages.size(); ++i)
+						if (!key.empty() && state.model.packages[i].file == key && !state.model.packages[i].enabled)
+							state.model.set_enabled(i, true);
+					changed = true;
+				}
 			}
 			if (changed) {
 				std::string error;
@@ -2104,6 +2280,8 @@ static int MenuHome(FrontendState& state)
 				say(FlatCapped(state.usb_catalog.cios_note, 150));
 			} else if (state.use_sd && !state.sd_catalog.cios_note.empty()) {
 				say(FlatCapped(state.sd_catalog.cios_note, 150));
+			} else if (std::string codes_error; !riftwii::wii::CheckCodeBuilds(state, codes_error)) {
+				say(FlatCapped(codes_error, 200));
 			} else if (!LaunchNote(state).empty() && !state.warning_shown) {
 				state.warning_shown = true;
 				say(FlatCapped(LaunchNote(state) + " " + tr("Press Start again to play."), 200));
