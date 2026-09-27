@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/disc.hpp"
 #include "riftwii/imagevolume.hpp"
+#include "riftwii/titles.hpp"
 #include "riftwii/wbfspart.hpp"
 
 #include <algorithm>
@@ -336,6 +337,18 @@ void test_slot_fragments() {
     EXPECT_TRUE(error.find("exceeds") != std::string::npos);
 }
 
+void test_catalog_names() {
+    // The menu lists a WBFS drive's game as "usb:/wbfs slot N": its name
+    // comes from the title list, else the disc header, never the path.
+    const std::string path = "usb:/wbfs slot 242";
+    EXPECT_EQ(id_from_image_path(path), std::string());
+    EXPECT_EQ(folder_title(path, "RMCP01"), std::string());
+    EXPECT_EQ(display_title(nullptr, "RMCP01", path, "MARIO KART WII"), std::string("MARIO KART WII"));
+    TitleTable table;
+    table.add_text("RMCP01 = Mario Kart Wii\n");
+    EXPECT_EQ(display_title(&table, "RMCP01", path, "MARIO KART WII"), std::string("Mario Kart Wii"));
+}
+
 // The first 64 MiB of the user's WBFS partition (header, disc table and
 // every disc info), kept out of git in tests/local. Skipped when absent.
 void test_real_drive_backup(const std::string& dir) {
@@ -519,6 +532,7 @@ int main(int argc, char** argv) {
     test_bad_headers();
     test_damaged_slots_are_skipped();
     test_slot_fragments();
+    test_catalog_names();
     test_real_drive_backup(argc > 1 ? argv[1] : "tests/local");
     test_real_game_image(argc > 1 ? argv[1] : "tests/local");
     if (g_failures == 0) std::cout << "wbfspart tests passed\n";

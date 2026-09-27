@@ -23,6 +23,9 @@ struct ImageGame {
     std::uint8_t revision = 0;
     std::uint8_t disc_number = 0;
     UsbImageFormat format = UsbImageFormat::Iso;
+    // A disc of a USB drive formatted as WBFS (riftwii/wbfspart.hpp): its
+    // slot there. -1 for image files.
+    int wbfs_slot = -1;
     D2xFragmentList fragments;
     // Header read and fragment list built. An image whose name carries its
     // ID is listed without being opened (a drive can hold hundreds);
@@ -56,7 +59,8 @@ using UsbGame = ImageGame;
 using UsbCatalog = ImageCatalog;
 
 // Starts libogc USB storage, mounts usb: read-only from RiftWii's point of
-// view, and scans usb:/wbfs (flat and one nested game folder) and usb:/games.
+// view, and scans usb:/wbfs (flat and one nested game folder) and usb:/games,
+// or lists the slots of a drive formatted as WBFS.
 // Entries that cannot be proven to be Wii images are skipped with their first
 // failure retained in status. The USB volume must expose 512-byte sectors.
 bool scan_usb_games(UsbCatalog& out, std::string& error);
