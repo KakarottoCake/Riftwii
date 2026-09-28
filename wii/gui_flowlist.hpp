@@ -40,6 +40,8 @@ public:
     void Refresh();                                  // after the rows changed
     void Select(int index);
     int Selected() const { return focus; }
+    // Scrolled to the bottom (a list that fits is always there).
+    bool AtEnd() const { return scroll >= static_cast<float>(MaxScroll()) - 1.0f; }
     // The row acted on (A, or stepped forward), or stepped back (-, the
     // left arrow), since the last call; -1 when none.
     int GetClicked();

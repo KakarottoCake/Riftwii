@@ -2569,6 +2569,8 @@ static void CreditsPage()
 	w.Append(&backBtn.button);
 	mainWindow->Append(&w);
 	ResumeGui();
+	// For whoever reads all the way to the end of the licence.
+	static bool readItAll = false;
 	bool done = false;
 	while (!done)
 	{
@@ -2578,6 +2580,13 @@ static void CreditsPage()
 		list.GetClicked();
 		list.GetClickedBack();
 		if (backBtn.Clicked()) done = true;
+		if (!done && !readItAll && list.AtEnd()) {
+			readItAll = true;
+			logf("Credits: read to the end of the licence\n");
+			ShowPopup(tr("Achievement unlocked: Licence Enthusiast"),
+				tr("You read all 5,644 words of the GNU General Public License, version 3. Almost nobody does this. RiftWii is proud of you. Your reward: absolutely nothing, as the licence says (\"WITHOUT ANY WARRANTY\")."),
+				tr("Worth it"));
+		}
 		ResumeGui();
 	}
 	HaltGui();
