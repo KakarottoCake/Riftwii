@@ -560,10 +560,10 @@ void TestPlayLogRecord() {
     EXPECT_EQ(r[4 + 2 * 6], 0x00);
     EXPECT_EQ(r[5 + 2 * 6], 0xE9);  // é
     EXPECT_EQ(r[4 + 2 * 7] | r[5 + 2 * 7], 0);
-    EXPECT_EQ(r[0x54], 0x01);
-    EXPECT_EQ(r[0x5B], 0x08);
-    EXPECT_EQ(r[0x5C], 0x01);
-    EXPECT_EQ(std::string(r.begin() + 0x64, r.begin() + 0x6A), "RMGE01");
+    EXPECT_EQ(r[0x58], 0x01);
+    EXPECT_EQ(r[0x5F], 0x08);
+    EXPECT_EQ(r[0x60], 0x01);
+    EXPECT_EQ(std::string(r.begin() + 0x68, r.begin() + 0x6E), "RMGE01");
     std::uint32_t sum = 0;
     for (std::size_t at = 4; at < kPlayLogBytes; at += 4) {
         sum += (std::uint32_t(r[at]) << 24) | (std::uint32_t(r[at + 1]) << 16) | (std::uint32_t(r[at + 2]) << 8) | r[at + 3];

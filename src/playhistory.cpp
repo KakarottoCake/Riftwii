@@ -123,9 +123,9 @@ std::vector<std::uint8_t> play_log_record(const std::string& utf8_name, const st
         if (name.back() >= 0xD800 && name.back() < 0xDC00) name.pop_back();
     }
     for (std::size_t i = 0; i < name.size(); ++i) put_be(out, 0x04 + 2 * i, name[i], 2);
-    put_be(out, 0x54, ticks, 8);
-    put_be(out, 0x5C, ticks, 8);
-    for (std::size_t i = 0; i < 6 && i < game_id.size(); ++i) out[0x64 + i] = static_cast<std::uint8_t>(game_id[i]);
+    put_be(out, 0x58, ticks, 8);
+    put_be(out, 0x60, ticks, 8);
+    for (std::size_t i = 0; i < 6 && i < game_id.size(); ++i) out[0x68 + i] = static_cast<std::uint8_t>(game_id[i]);
     std::uint32_t sum = 0;
     for (std::size_t at = 0x04; at < kPlayLogBytes; at += 4) {
         sum += (std::uint32_t(out[at]) << 24) | (std::uint32_t(out[at + 1]) << 16) |
