@@ -11,8 +11,9 @@
 namespace riftwii {
 namespace {
 
+// Six characters, or the first four (a loader that knows only those).
 bool game_id_ok(const std::string& id) {
-    if (id.size() != 6) return false;
+    if (id.size() != 6 && id.size() != 4) return false;
     for (char c : id) {
         if (!((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9'))) return false;
     }
@@ -63,10 +64,19 @@ bool parse_headless_launch(const std::vector<std::string>& args, HeadlessLaunch&
         } else if (key == "from") {
             ok = value == "usb" || value == "sd" || value == "disc";
             out.from = value;
+        } else if (key == "path") {
+            const bool usb = value.compare(0, 5, "usb:/") == 0;
+            ok = usb || value.compare(0, 4, "sd:/") == 0;
+            out.path = value;
+            if (ok && out.from.empty()) out.from = usb ? "usb" : "sd";
         } else if (key == "xml") {
             out.packs_given = true;
-            if (value != "none") {
-                ok = value.compare(0, 4, "sd:/") == 0 || value.compare(0, 5, "usb:/") == 0;
+            if (value == "all") {
+                out.all_packs = true;
+            } else if (value != "none") {
+                // A path, or a file name in a riivolution folder.
+                ok = value.compare(0, 4, "sd:/") == 0 || value.compare(0, 5, "usb:/") == 0 ||
+                     (!value.empty() && value.find_first_of(":/\\") == std::string::npos);
                 out.xmls.push_back(value);
             }
         } else if (key == "video_mode") {
@@ -108,10 +118,56 @@ bool parse_headless_launch(const std::vector<std::string>& args, HeadlessLaunch&
             return false;
         }
     }
-    if (out.game.empty()) {
+    if (!out.path.empty() && out.from != (out.path[0] == 'u' ? "usb" : "sd")) {
+        error = "path= is not on the drive from= names";
+        return false;
+    }
+    if (out.game.empty() && out.path.empty() && out.from != "disc") {
         error = "no game= argument";
         return false;
     }
+    return true;
+}
+
+namespace {
+
+std::uint32_t be32(const std::uint8_t* p) {
+    return (std::uint32_t(p[0]) << 24) | (std::uint32_t(p[1]) << 16) | (std::uint32_t(p[2]) << 8) | p[3];
+}
+
+// A NUL-terminated field of at most `max` bytes (unterminated: all of it).
+std::string field(const std::uint8_t* p, std::size_t max) {
+    std::size_t n = 0;
+    while (n < max && p[n] != 0) ++n;
+    return std::string(reinterpret_cast<const char*>(p), n);
+}
+
+}  // namespace
+
+bool friiv_launch_args(const std::uint8_t* data, std::size_t size, std::vector<std::string>& args) {
+    // FRIIV_CFG, version 1, big-endian: magic 'FRIV', version, flags, the
+    // game ID's first four bytes, GamePath[255], ModXml[64], then padding
+    // to 384 bytes.
+    constexpr std::size_t kSize = 384, kPath = 16, kPathMax = 255, kXml = kPath + kPathMax, kXmlMax = 64;
+    constexpr std::uint32_t kMagic = 0x46524956, kAutoBoot = 1, kGameUsb = 2, kNoPatches = 4;
+    args.clear();
+    if (data == nullptr || size < kSize || be32(data) != kMagic || be32(data + 4) < 1) return false;
+    const std::uint32_t flags = be32(data + 8);
+    if (!(flags & kAutoBoot)) return false;  // only a boot request counts
+    args.push_back("--launch");
+    std::string path = field(data + kPath, kPathMax);
+    if (path.empty()) {
+        args.push_back("from=disc");
+    } else {
+        if (path[0] != '/') path.insert(0, "/");
+        args.push_back(std::string("path=") + ((flags & kGameUsb) ? "usb:" : "sd:") + path);
+    }
+    const std::string id = field(data + 12, 4);
+    if (id.size() == 4) args.push_back("game=" + id);
+    const std::string xml = field(data + kXml, kXmlMax);
+    if (flags & kNoPatches) args.push_back("xml=none");
+    else if (!xml.empty()) args.push_back("xml=" + xml);
+    else args.push_back("xml=all");  // every pack for the game, as Friivolution loads them
     return true;
 }
 

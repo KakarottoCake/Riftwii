@@ -27,18 +27,26 @@ bool same_path(const std::string& a, const std::string& b) {
     return true;
 }
 
+// The image path= names, else one whose ID is game= (all six characters,
+// or the first four).
+bool wanted(const HeadlessLaunch& h, const ImageGame& g) {
+    if (!h.path.empty() && !same_path(g.path, h.path)) return false;
+    return h.game.empty() || g.id.compare(0, h.game.size(), h.game) == 0;
+}
+
 // Finds the game on the drive `from` names, else on the USB drive, the SD
 // card and the disc, in that order.
 bool select_game(const HeadlessLaunch& h, FrontendState& state, std::string& error) {
+    const std::string what = h.path.empty() ? h.game : h.path;
     if (h.from.empty() || h.from == "usb") {
         std::string scan_error;
         if (scan_usb_games(state.usb_catalog, scan_error)) {
             for (std::size_t i = 0; i < state.usb_catalog.games.size(); ++i) {
-                if (state.usb_catalog.games[i].id == h.game) return SelectUsbGame(state, i, error);
+                if (wanted(h, state.usb_catalog.games[i])) return SelectUsbGame(state, i, error);
             }
         }
         if (h.from == "usb") {
-            error = h.game + " is not on the USB drive" + (scan_error.empty() ? "" : " (" + scan_error + ")");
+            error = what + " is not on the USB drive" + (scan_error.empty() ? "" : " (" + scan_error + ")");
             return false;
         }
     }
@@ -46,20 +54,29 @@ bool select_game(const HeadlessLaunch& h, FrontendState& state, std::string& err
         std::string scan_error;
         if (scan_sd_games(state.sd_catalog, scan_error)) {
             for (std::size_t i = 0; i < state.sd_catalog.games.size(); ++i) {
-                if (state.sd_catalog.games[i].id == h.game) return SelectSdGame(state, i, error);
+                if (wanted(h, state.sd_catalog.games[i])) return SelectSdGame(state, i, error);
             }
         }
         if (h.from == "sd") {
-            error = h.game + " is not on the SD card" + (scan_error.empty() ? "" : " (" + scan_error + ")");
+            error = what + " is not on the SD card" + (scan_error.empty() ? "" : " (" + scan_error + ")");
             return false;
         }
     }
     IdentifyDisc(state);
-    if (state.game_id != h.game) {
-        error = h.game + " was not found on the USB drive, the SD card or in the disc drive";
+    if (state.game_id.empty() || state.game_id.compare(0, h.game.size(), h.game) != 0) {
+        error = h.game.empty() ? std::string("there is no game in the disc drive")
+                               : h.game + " was not found on the USB drive, the SD card or in the disc drive";
         return false;
     }
     return true;
+}
+
+// A pack named by its file name alone (sd:/riivolution/ctgp.xml for
+// "ctgp.xml"), in any folder the packs were found in.
+bool same_pack(const std::string& path, const std::string& xml) {
+    if (xml.find_first_of(":/") != std::string::npos) return same_path(path, xml);
+    const std::size_t slash = path.find_last_of('/');
+    return same_path(slash == std::string::npos ? path : path.substr(slash + 1), xml);
 }
 
 // The other loader's picks over RiftWii's saved ones: the packs it named
@@ -67,11 +84,12 @@ bool select_game(const HeadlessLaunch& h, FrontendState& state, std::string& err
 bool apply_choices(const HeadlessLaunch& h, FrontendState& state, std::string& error) {
     LaunchModel& model = state.model;
     if (h.packs_given) {
-        for (std::size_t i = 0; i < model.packages.size(); ++i) model.set_enabled(i, false);
+        // xml=all: each pack for this game that can be used.
+        for (std::size_t i = 0; i < model.packages.size(); ++i) model.set_enabled(i, h.all_packs);
         for (const std::string& xml : h.xmls) {
             bool found = false;
             for (std::size_t i = 0; i < model.packages.size() && !found; ++i) {
-                if (!same_path(model.packages[i].path, xml)) continue;
+                if (!same_pack(model.packages[i].path, xml)) continue;
                 found = true;
                 if (!model.set_enabled(i, true)) {
                     const LaunchPackage& p = model.packages[i];
@@ -131,6 +149,19 @@ bool launch(const std::vector<std::string>& args, std::string& error) {
 bool HeadlessArguments(std::vector<std::string>& args) {
     args.clear();
     if (__system_argv != nullptr && __system_argv->argvMagic == ARGV_MAGIC && __system_argv->argv != nullptr) {
+        // Started the way a loader starts Friivolution: argv[1] is its
+        // binary FRIIV_CFG (NUL bytes and all), read from the argument
+        // buffer itself.
+        if (__system_argv->argc >= 2 && __system_argv->argv[1] != nullptr && __system_argv->commandLine != nullptr) {
+            const char* start = __system_argv->commandLine;
+            const char* cfg = __system_argv->argv[1];
+            const std::ptrdiff_t at = cfg - start;
+            if (at > 0 && at < __system_argv->length &&
+                friiv_launch_args(reinterpret_cast<const std::uint8_t*>(cfg),
+                                  static_cast<std::size_t>(__system_argv->length - at), args))
+                return true;
+            args.clear();
+        }
         for (int i = 1; i < __system_argv->argc; ++i) {
             if (__system_argv->argv[i] != nullptr) args.emplace_back(__system_argv->argv[i]);
         }

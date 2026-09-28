@@ -23,17 +23,21 @@ A loader that cannot pass arguments can write the same lines, `--launch`
 first, to `sd:/riftwii/launch.txt` and start RiftWii without any. RiftWii
 deletes the file as it reads it.
 
+A loader that already starts Friivolution can start RiftWii the same way,
+unchanged: see "Friivolution's argument" below.
+
 ## Keys
 
-Only `game` is required. Anything left out is what RiftWii would use for
-that game from its own menu (the game's saved choices, then RiftWii's
-Settings).
+`game` or `path` is required (or `from=disc`, for whatever disc is in
+the drive). Anything left out is what RiftWii would use for that game
+from its own menu (the game's saved choices, then RiftWii's Settings).
 
 | Key | Values | Meaning |
 | --- | --- | --- |
-| `game` | `RMCE01` | The six-character game ID. |
+| `game` | `RMCE01`, or `RMCE` | The game ID, all six characters or the first four. |
 | `from` | `usb`, `sd`, `disc` | Where the game is. Without it RiftWii looks on the USB drive, the SD card, then the disc. Images are found by ID in `wbfs/`, `games/` and the user's `game_folders`. |
-| `xml` | `sd:/riivolution/ctgp.xml`, or `none` | A pack to turn on; repeat it for several. Every pack not named is off; `none` turns them all off. Without any `xml`, the packs RiftWii has saved for the game are used. Each pack's options are the ones saved for it in RiftWii, else in Riivolution's `sd:/riivolution/config/<ID4>.xml`, else the pack's defaults. |
+| `path` | `usb:/wbfs/Mario Kart Wii [RMCE01]/RMCE01.wbfs` | The image itself, for a loader that knows it (the first part of a split image). It sets `from`. With `game` too, the image must have that ID. |
+| `xml` | `sd:/riivolution/ctgp.xml`, `ctgp.xml`, `all` or `none` | A pack to turn on, by its path or by its file name in a `riivolution` folder; repeat it for several. Every pack not named is off; `all` turns on every pack for the game, `none` turns them all off. Without any `xml`, the packs RiftWii has saved for the game are used. Each pack's options are the ones saved for it in RiftWii, else in Riivolution's `sd:/riivolution/config/<ID4>.xml`, else the pack's defaults. |
 | `video_mode` | `game`, `system`, `ntsc`, `pal60`, `pal50`, `480p` | The TV format. |
 | `video_width` | `game`, `framebuffer`, `704`, `720` | The picture width. |
 | `deflicker` | `game`, `off`, `low`, `medium`, `high` | |
@@ -66,9 +70,39 @@ gct=sd:/codes/RMCE01.gct
 return_to=00010001-554c4e52
 ```
 
+## Friivolution's argument
+
+Friivolution takes one binary argument from a loader, `FRIIV_CFG`
+(described in Friivolution's `launcher/include/FriivConfig.h`), the way
+Nintendont takes its own. RiftWii reads the same argument, so a loader
+set up to start Friivolution starts RiftWii when its path points at
+RiftWii's `boot.dol` instead. RiftWii's `meta.xml` version is past 1.00,
+the check such loaders make.
+
+The 384 bytes (big-endian) are: `'FRIV'`, the version (1), the flags,
+the game ID's first four characters (or zero), the image path (255
+bytes), one pack's file name (64 bytes) and padding. RiftWii turns them
+into the arguments above:
+
+| FRIIV_CFG | RiftWii |
+| --- | --- |
+| Flag 1 (boot) not set | Not a launch: the menu opens, as Friivolution's does |
+| Image path, flag 2 set / not set | `path=usb:<path>` / `path=sd:<path>` |
+| Empty image path | `from=disc` |
+| Game ID | `game=<ID4>` |
+| Pack file name | `xml=<name>` |
+| No pack named | `xml=all`: every pack for the game, as Friivolution loads them all |
+| Flag 4 (no patches) | `xml=none` |
+
+The options each pack uses come from where they always do (RiftWii's
+saved choices, else Riivolution's `config/<ID4>.xml`, which is where
+Friivolution keeps them). Friivolution's "hold B for the menu" at start
+has no counterpart: RiftWii boots.
+
 ## For RiftWii's developers
 
 The arguments are parsed in `src/launchargs.cpp` (host-tested in
-`tests/extras_tests.cpp`) and run by `wii/headless.cpp`, which takes the
+`tests/extras_tests.cpp`, `friiv_launch_args` for Friivolution's
+argument) and run by `wii/headless.cpp`, which takes the
 same path as Start on the game page: `ScanPackages`, the loader's picks
 on top, `PrepareLaunchExtras`, then `RunLaunch` or `RunBoot`.

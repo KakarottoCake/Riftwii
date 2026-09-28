@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -18,10 +19,12 @@
 namespace riftwii {
 
 struct HeadlessLaunch {
-    std::string game;                // the six-character game ID
+    std::string game;                // the game ID: six characters, or the first four
     std::string from;                // "usb", "sd", "disc"; empty: the first that has it
-    std::vector<std::string> xmls;   // packs to turn on (the others off)
+    std::string path;                // the image itself (usb:/ or sd:/); empty: found by ID
+    std::vector<std::string> xmls;   // packs to turn on (the others off): paths, or file names
     bool packs_given = false;        // an xml= was passed (xml=none: every pack off)
+    bool all_packs = false;          // xml=all: every pack for the game on
     GameSettings settings;           // "global" where not given: RiftWii's own
     std::string wfc_domain;          // for server=custom
     std::string gct;                 // cheat codes file; "none": no cheats; empty: RiftWii's own
@@ -36,5 +39,14 @@ bool is_headless_launch(const std::vector<std::string>& args);
 // Reads the arguments after "--launch". False with `error` naming the
 // argument that is missing, unknown or has a value RiftWii does not take.
 bool parse_headless_launch(const std::vector<std::string>& args, HeadlessLaunch& out, std::string& error);
+
+// Friivolution's launch argument (FRIIV_CFG, docs/HEADLESS.md): a loader
+// that starts Friivolution this way can start RiftWii the same way. The
+// 384 bytes of argv[1] become the matching "--launch" arguments: the
+// image's path, or the disc; the game ID's first four characters when
+// given; one pack by file name, every pack for the game, or none. False
+// when `data` is not such an argument asking to boot (then RiftWii opens
+// its menu, as Friivolution does).
+bool friiv_launch_args(const std::uint8_t* data, std::size_t size, std::vector<std::string>& args);
 
 }  // namespace riftwii

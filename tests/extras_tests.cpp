@@ -591,6 +591,72 @@ void TestHeadlessArguments() {
     EXPECT_TRUE(error.find("speed") != std::string::npos);
     EXPECT_FALSE(parse_headless_launch({"--launch", "game=rmce01"}, h, error));
     EXPECT_FALSE(parse_headless_launch({"--launch", "game=RMCE01", "gct=usb:/codes/x.gct"}, h, error));
+    // An image by its path, a four-character ID, packs by file name or all.
+    EXPECT_TRUE(parse_headless_launch({"--launch", "path=usb:/wbfs/Mario Kart Wii [RMCE01]/RMCE01.wbfs", "game=RMCE",
+                                       "xml=ctgp.xml"}, h, error));
+    EXPECT_EQ(h.from, "usb");
+    EXPECT_EQ(h.game, "RMCE");
+    EXPECT_EQ(h.xmls.size(), 1u);
+    EXPECT_TRUE(parse_headless_launch({"--launch", "path=sd:/games/x.iso", "xml=all"}, h, error));
+    EXPECT_EQ(h.from, "sd");
+    EXPECT_TRUE(h.all_packs);
+    EXPECT_TRUE(parse_headless_launch({"--launch", "from=disc"}, h, error));
+    EXPECT_FALSE(parse_headless_launch({"--launch", "path=sd:/games/x.iso", "from=usb"}, h, error));
+    EXPECT_FALSE(parse_headless_launch({"--launch", "path=/games/x.iso"}, h, error));
+    EXPECT_FALSE(parse_headless_launch({"--launch", "game=RMC"}, h, error));
+    EXPECT_FALSE(parse_headless_launch({"--launch", "game=RMCE01", "xml=../ctgp.xml"}, h, error));
+}
+
+// Friivolution's FRIIV_CFG, laid out the way a loader builds it.
+std::vector<std::uint8_t> FriivConfig(std::uint32_t flags, const char* id, const char* path, const char* xml) {
+    std::vector<std::uint8_t> b(384, 0);
+    const auto put = [&b](std::size_t at, std::uint32_t v) {
+        for (int i = 0; i < 4; ++i) b[at + i] = static_cast<std::uint8_t>(v >> (24 - 8 * i));
+    };
+    put(0, 0x46524956);
+    put(4, 1);
+    put(8, flags);
+    std::memcpy(&b[12], id, std::strlen(id));
+    std::memcpy(&b[16], path, std::strlen(path));
+    std::memcpy(&b[271], xml, std::strlen(xml));
+    return b;
+}
+
+void TestFriivolutionArguments() {
+    std::vector<std::string> args;
+    auto cfg = FriivConfig(1 | 2, "SB4E", "/wbfs/Super Mario Galaxy 2 [SB4E01]/SB4E01.wbfs", "smg2-mod.xml");
+    EXPECT_TRUE(friiv_launch_args(cfg.data(), cfg.size(), args));
+    const std::vector<std::string> want = {"--launch", "path=usb:/wbfs/Super Mario Galaxy 2 [SB4E01]/SB4E01.wbfs",
+                                           "game=SB4E", "xml=smg2-mod.xml"};
+    EXPECT_TRUE(args == want);
+    HeadlessLaunch h;
+    std::string error;
+    EXPECT_TRUE(parse_headless_launch(args, h, error));
+    EXPECT_EQ(h.from, "usb");
+    // SD, no ID given, every pack for the game.
+    cfg = FriivConfig(1, "", "games/game.iso", "");
+    EXPECT_TRUE(friiv_launch_args(cfg.data(), cfg.size(), args));
+    EXPECT_TRUE(args == (std::vector<std::string>{"--launch", "path=sd:/games/game.iso", "xml=all"}));
+    EXPECT_TRUE(parse_headless_launch(args, h, error));
+    // The disc, without patches.
+    cfg = FriivConfig(1 | 4, "RMCE", "", "ignored.xml");
+    EXPECT_TRUE(friiv_launch_args(cfg.data(), cfg.size(), args));
+    EXPECT_TRUE(args == (std::vector<std::string>{"--launch", "from=disc", "game=RMCE", "xml=none"}));
+    EXPECT_TRUE(parse_headless_launch(args, h, error));
+    // Not a boot request, not the magic, too short: the menu opens.
+    cfg = FriivConfig(0, "RMCE", "/wbfs/x.wbfs", "");
+    EXPECT_FALSE(friiv_launch_args(cfg.data(), cfg.size(), args));
+    cfg = FriivConfig(1, "RMCE", "/wbfs/x.wbfs", "");
+    cfg[0] = 'X';
+    EXPECT_FALSE(friiv_launch_args(cfg.data(), cfg.size(), args));
+    cfg = FriivConfig(1, "RMCE", "/wbfs/x.wbfs", "");
+    EXPECT_FALSE(friiv_launch_args(cfg.data(), 383, args));
+    // A path filling its whole field, with no NUL, stays inside it.
+    std::string longPath(255, 'a');
+    longPath[0] = '/';
+    cfg = FriivConfig(1, "RMCE", longPath.c_str(), "");
+    EXPECT_TRUE(friiv_launch_args(cfg.data(), cfg.size(), args));
+    EXPECT_EQ(args[1].size(), std::string("path=sd:").size() + 255);
 }
 
 void TestReturnTo() {
@@ -760,6 +826,7 @@ int main() {
     TestPlayLogRecord();
     TestReturnTo();
     TestHeadlessArguments();
+    TestFriivolutionArguments();
     TestHttp();
     TestCheats();
     TestVideo();
