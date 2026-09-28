@@ -28,7 +28,12 @@ Everything about installing and using RiftWii. The [README](../README.md) has th
 4. Game images go in `wbfs` (`.wbfs` or `.iso`, also in `Title [ID]`
    folders the way USB Loader GX keeps them) or `games` (`.iso`, `.rvz`)
    at the top of the SD card or the USB drive. The zip's `usb-drive` folder shows
-   where.
+   where. Games kept somewhere else can be added with a line in
+   `sd:/riftwii/settings.txt`, folders split by `;`:
+   `game_folders = /Wii Games; usb:/iso/wii` (a plain `/path` is looked
+   for on both drives; `sd:/` or `usb:/` in front limits it to one). A
+   drive with several partitions is read from the one holding those
+   folders, `wbfs` or `games`.
 5. Start RiftWii from the Homebrew Channel.
 
 ## Using RiftWii

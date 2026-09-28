@@ -4,6 +4,7 @@
 #include <map>
 #include <set>
 #include <string>
+#include <vector>
 
 #include "riftwii/launch.hpp"
 #include "riftwii/videopatch.hpp"
@@ -30,11 +31,20 @@ struct LoaderSettings {
     std::string update_channel = "auto";  // stable, beta, or auto (the build's own: beta for a -suffix version)
     std::string gc_adapter = "auto";      // GameCube controller adapter for Wii U: auto (when plugged in at launch), on, off (demo: Dolphin tests)
     std::set<std::string> favorites;      // game IDs, written "favorites = ID,ID"
+    // More folders to look for games in, besides wbfs and games:
+    // "game_folders = /Wii Games; usb:/iso". A plain "/path" is looked
+    // for on both drives, "sd:/path" or "usb:/path" on that one.
+    std::vector<std::string> game_folders;
     std::map<std::string, std::string> other;
 
     void parse(const std::string& text);
     std::string serialize() const;
 };
+
+// The extra game folders for one drive ("sd" or "usb"), as "/path":
+// slashes turned forward, no trailing slash, wbfs and games left out
+// (they are always looked in).
+std::vector<std::string> game_folders_on(const LoaderSettings& settings, const std::string& device);
 
 // The video settings a launch uses: the game's own choices, where it has
 // them, over the global defaults. The mode is left for the Wii to turn

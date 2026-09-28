@@ -131,7 +131,7 @@ bool Volume(const ImageVolume*& out, std::string& error) {
         error = "the USB drive has " + std::to_string(g_sector_bytes) + "-byte sectors; packs on it need 512";
         return false;
     }
-    if (!g_volume && !mount_image_volume(&ReadBlocks, g_volume, error)) {
+    if (!g_volume && !mount_image_volume(&ReadBlocks, g_volume, error, usb_wanted_folders())) {
         error = "the USB drive has no FAT32 or NTFS volume: " + error;
         g_volume.reset();
         return false;

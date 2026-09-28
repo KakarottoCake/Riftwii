@@ -60,6 +60,10 @@ using UsbCatalog = ImageCatalog;
 // Entries that cannot be proven to be Wii images are skipped with their first
 // failure retained in status. The USB volume must expose 512-byte sectors.
 bool scan_usb_games(UsbCatalog& out, std::string& error);
+// The top folders that pick a USB drive's partition when it has several:
+// the user's game_folders, then wbfs, games and riivolution. Every mount
+// of the drive uses it, so the menu and the launch read the same one.
+std::vector<std::string> usb_wanted_folders();
 bool scan_sd_games(ImageCatalog& out, std::string& error);
 void unmount_usb_games();
 // Unmounts and stops libogc's USB driver when it was started in this IOS

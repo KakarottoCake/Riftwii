@@ -254,7 +254,7 @@ bool ensure_usb(std::string& error) {
         g_raw_mounted = true;
         return true;
     }
-    if (!mount_image_volume(&usb_read, g_usb_volume, error)) {
+    if (!mount_image_volume(&usb_read, g_usb_volume, error, usb_wanted_folders())) {
         error = "USB has no readable FAT32 or NTFS volume: " + error;
         if (error.find("signature missing") != std::string::npos) {
             error += " (a Wii U-formatted drive cannot be read: format it FAT32 on a computer)";
@@ -482,10 +482,12 @@ bool add_game(const ImageVolume& volume, const std::string& prefix, ImageDevice 
 // What a file in a catalog folder is read as, if it is a game. USB Loader
 // GX and other loaders keep .iso images in wbfs too ("Title [ID]/ID.iso"),
 // so wbfs takes both.
+// `folder` is what the folder holds: Wbfs (wbfs and iso), Iso (iso and
+// rvz), or Rvz for a folder of the user's own, which may hold all three.
 bool image_format(const std::string& name, UsbImageFormat folder, UsbImageFormat& out) {
-    if (folder == UsbImageFormat::Wbfs && extension(name, ".wbfs")) { out = UsbImageFormat::Wbfs; return true; }
+    if (folder != UsbImageFormat::Iso && extension(name, ".wbfs")) { out = UsbImageFormat::Wbfs; return true; }
     if (extension(name, ".iso")) { out = UsbImageFormat::Iso; return true; }
-    if (folder == UsbImageFormat::Iso && extension(name, ".rvz")) { out = UsbImageFormat::Rvz; return true; }
+    if (folder != UsbImageFormat::Wbfs && extension(name, ".rvz")) { out = UsbImageFormat::Rvz; return true; }
     return false;
 }
 // Lists a catalog directory with the volume's own bounded walker,
@@ -536,12 +538,25 @@ void scan_dir(const ImageVolume& volume, const std::string& prefix, ImageDevice 
                 if (c.games.size() >= kMaxGames) return;
                 std::string p;
                 UsbImageFormat f;
-                if (join(path, x, p) && image_format(x, UsbImageFormat::Wbfs, f)) add_game(volume, prefix, device, p, subnames, f, c, failure);
+                const UsbImageFormat inner = fmt == UsbImageFormat::Rvz ? fmt : UsbImageFormat::Wbfs;
+                if (join(path, x, p) && image_format(x, inner, f)) add_game(volume, prefix, device, p, subnames, f, c, failure);
             }
         } else if (!e.is_directory) {
             UsbImageFormat f;
             if (image_format(e.name, fmt, f)) add_game(volume, prefix, device, path, siblings, f, c, failure);
         }
+    }
+}
+
+// The folders settings.txt adds (game_folders), each with its own
+// subfolders one level down, any image kind.
+void scan_own_folders(const ImageVolume& volume, const std::string& device, ImageDevice kind, ImageCatalog& c,
+                      std::string& failure) {
+    for (const std::string& folder : game_folders_on(Settings(), device)) {
+        const std::size_t before = c.games.size();
+        scan_dir(volume, device + ":/", kind, device + ":" + folder, true, UsbImageFormat::Rvz, c, failure);
+        logf("%s scan: %s:%s (game_folders): %u game(s)\n", device_name(kind), device.c_str(), folder.c_str(),
+             static_cast<unsigned>(c.games.size() - before));
     }
 }
 
@@ -886,6 +901,7 @@ bool scan_usb_games(ImageCatalog& out, std::string& error) {
         return true;
     }
     std::string failure; scan_dir(*g_usb_volume, "usb:/", ImageDevice::Usb, "usb:/wbfs", true, UsbImageFormat::Wbfs, out, failure); scan_dir(*g_usb_volume, "usb:/", ImageDevice::Usb, "usb:/games", false, UsbImageFormat::Iso, out, failure);
+    scan_own_folders(*g_usb_volume, "usb", ImageDevice::Usb, out, failure);
     apply_titles(out);
     out.status = out.games.empty() ? (failure.empty() ? std::string("No valid Wii images under usb:/wbfs or usb:/games on the ") + g_usb_volume->kind() + " drive" : "No valid USB images: " + failure) : "USB: " + std::to_string(out.games.size()) + " valid game(s)";
     logf("%s\n", out.status.c_str());
@@ -899,12 +915,20 @@ bool scan_usb_games(ImageCatalog& out, std::string& error) {
     error.clear(); return true;
 }
 
+std::vector<std::string> usb_wanted_folders() {
+    std::vector<std::string> wanted = game_folders_on(Settings(), "usb");
+    const std::vector<std::string>& defaults = default_wanted_folders();
+    wanted.insert(wanted.end(), defaults.begin(), defaults.end());
+    return wanted;
+}
+
 bool scan_sd_games(ImageCatalog& out, std::string& error) {
     out = ImageCatalog{}; out.device = ImageDevice::Sd;
     logf("SD: scanning for images\n");
     if (!__io_wiisd.isInserted()) { error = "no SD card is inserted"; return false; }
     if (!mount_image_volume(&sd_read, g_sd_volume, error)) { error = "SD has no readable FAT32 or NTFS volume: " + error; return false; }
     std::string failure; scan_dir(*g_sd_volume, "sd:/", ImageDevice::Sd, "sd:/wbfs", true, UsbImageFormat::Wbfs, out, failure); scan_dir(*g_sd_volume, "sd:/", ImageDevice::Sd, "sd:/games", false, UsbImageFormat::Iso, out, failure);
+    scan_own_folders(*g_sd_volume, "sd", ImageDevice::Sd, out, failure);
     apply_titles(out);
     out.status = out.games.empty() ? (failure.empty() ? "No valid Wii images under sd:/wbfs or sd:/games" : "No valid SD images: " + failure) : "SD: " + std::to_string(out.games.size()) + " valid game(s)";
     logf("%s\n", out.status.c_str());
@@ -1100,7 +1124,7 @@ bool activate_image_game(const ImageGame& game, int cios_slot, void*& storage, s
     if (rvz && game.device == ImageDevice::Usb) {
         // The RVZ itself, through d2x's USB device from now on.
         logf("USB: d2x's /dev/usb2 for the RVZ\n");
-        if (!ums::Open(error) || !mount_image_volume(&d2x_usb_block_read, g_rvz_usb_volume, error)) {
+        if (!ums::Open(error) || !mount_image_volume(&d2x_usb_block_read, g_rvz_usb_volume, error, usb_wanted_folders())) {
             error = "USB drive after the cIOS reload: " + error;
             return post_reload_failure(log_path, error);
         }

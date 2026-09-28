@@ -533,6 +533,22 @@ void TestCoverArt() {
     EXPECT_EQ(s.menu_sounds, "off");
     s.parse("menu_sounds = loud\n");
     EXPECT_EQ(s.menu_sounds, "off");
+
+    EXPECT_TRUE(s.game_folders.empty());
+    s.parse("game_folders = /Wii Games/ ; usb:\\iso\\wii; SD:/sd only; /WBFS; /../up; /Wii Games\n");
+    EXPECT_EQ(s.game_folders.size(), 5u);
+    const std::vector<std::string> usb = game_folders_on(s, "usb");
+    EXPECT_EQ(usb.size(), 2u);
+    if (usb.size() == 2) {
+        EXPECT_EQ(usb[0], "/Wii Games");
+        EXPECT_EQ(usb[1], "/iso/wii");
+    }
+    const std::vector<std::string> sd = game_folders_on(s, "sd");
+    EXPECT_EQ(sd.size(), 2u);
+    if (sd.size() == 2) EXPECT_EQ(sd[1], "/sd only");
+    LoaderSettings back;
+    back.parse(s.serialize());
+    EXPECT_EQ(back.game_folders.size(), 5u);
 }
 
 void TestGameLanguage() {
