@@ -187,6 +187,14 @@ static void UpdatePadPointers()
 				userInput[i].pad.stickX = 0;
 				userInput[i].pad.stickY = 0;
 			}
+			// Pointing just past an edge keeps the pointer on it, as
+			// the pad's does, instead of letting it slide off screen.
+			if (remote && w->ir.valid) {
+				if (w->ir.x < 0) w->ir.x = 0;
+				if (w->ir.y < 0) w->ir.y = 0;
+				if (w->ir.x > screenwidth - 1) w->ir.x = screenwidth - 1;
+				if (w->ir.y > screenheight - 1) w->ir.y = screenheight - 1;
+			}
 			continue;
 		}
 		if (!placed[i]) {
