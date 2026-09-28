@@ -121,8 +121,9 @@ Gecko lines and Dolphin's DI and SD logs), savegames, and heap placement
    and ending with a "Licence and source" line: GPL-3.0-or-later, the
    source at the tag, the credits in `NOTICE.md`.
 5. When a third-party piece is added: a row in `NOTICE.md` (what, where
-   from with the commit, licence), a header in each file that follows
-   it naming the project, and a line in the README's Credits and in
+   from with the commit, licence), `SPDX-FileCopyrightText` lines (one per
+   holder, above the licence line) in each file that follows it, and a
+   line in the README's Credits and in
    `wii/credits.cpp`. Binaries built from someone else's source ship
    with that source, as `vendor-gecko/` does.
 

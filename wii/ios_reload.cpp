@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 RiftWii contributors
+// SPDX-FileCopyrightText: 2014 Alex Chadwick (Brainslug) <https://github.com/Chadderz121/brainslug-wii>
+// SPDX-FileCopyrightText: 2020 Florian Bach (Brainslug)
+// SPDX-FileCopyrightText: Michael Wiedenbauer, Dave Murphy, Hector Martin (libogc) <https://github.com/devkitPro/libogc>
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "ios_reload.hpp"
 

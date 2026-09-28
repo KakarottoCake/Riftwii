@@ -1,8 +1,7 @@
+// SPDX-FileCopyrightText: 2026 RiftWii contributors
+// SPDX-FileCopyrightText: 2017 Alex Chadwick (wup-028-bslug) <https://github.com/Chadderz121/wup-028-bslug>
+// SPDX-FileCopyrightText: FIX94 and the Nintendont contributors, used with permission <https://github.com/FIX94/Nintendont>
 // SPDX-License-Identifier: GPL-3.0-or-later
-// The WUP-028 adapter handling follows Nintendont's USB HID driver (FIX94 and
-// contributors, https://github.com/FIX94/Nintendont, kernel/HID.c, GPL-2.0; used
-// with its developers' permission, with this attribution) and wup-028-bslug
-// (Alex Chadwick 2017, https://github.com/Chadderz121/wup-028-bslug, MIT). See NOTICE.md.
 #include "gcadapter.hpp"
 
 #include <gccore.h>

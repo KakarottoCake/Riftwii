@@ -1,9 +1,7 @@
+// SPDX-FileCopyrightText: 2026 RiftWii contributors
+// SPDX-FileCopyrightText: 2018 Leseratte (Wiimmfi)
+// SPDX-FileCopyrightText: USB Loader GX contributors <https://github.com/wiidev/usbloadergx>
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Credit: USB Loader GX (https://github.com/wiidev/usbloadergx),
-// source/patches/gamepatches.c, GPL-3.0: do_new_wiimmfi (Leseratte's Mario
-// Kart Wii Wiimmfi patch, 2018, with the error 51420 fix, 2021: copied
-// unchanged as data) and patch_error_codes (the Mario Kart Wii remote code
-// execution fix: reimplemented). See NOTICE.md.
 #pragma once
 
 #include <cstdint>

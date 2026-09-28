@@ -1,9 +1,8 @@
+// SPDX-FileCopyrightText: 2026 RiftWii contributors
+// SPDX-FileCopyrightText: 2014 Alex Chadwick (Brainslug) <https://github.com/Chadderz121/brainslug-wii>
+// SPDX-FileCopyrightText: 2020 Florian Bach (Brainslug)
+// SPDX-FileCopyrightText: USB Loader GX contributors <https://github.com/wiidev/usbloadergx>
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Credit: USB Loader GX (https://github.com/wiidev/usbloadergx),
-// source/patches/gamepatches.c, GPL-3.0: apply_return_to asks d2x's
-// "return to" the way PatchNewReturnTo does, and the online server
-// patches go last, in the order it applies them. Reimplemented here; see
-// NOTICE.md.
 #include "boot.hpp"
 #include "progress.hpp"
 

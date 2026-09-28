@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: 2026 RiftWii contributors
+// SPDX-FileCopyrightText: Michael Wiedenbauer, Dave Murphy, Sven Peter (libogc) <https://github.com/devkitPro/libogc>
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "sdio.hpp"
 

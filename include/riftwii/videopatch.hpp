@@ -1,7 +1,6 @@
+// SPDX-FileCopyrightText: 2026 RiftWii contributors
+// SPDX-FileCopyrightText: USB Loader GX contributors <https://github.com/wiidev/usbloadergx>
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Credit: USB Loader GX (https://github.com/wiidev/usbloadergx),
-// source/patches/gamepatches.c: the render mode tables of its video mode
-// patcher, GPL-3.0. Reimplemented here; see NOTICE.md.
 #pragma once
 
 #include <cstddef>

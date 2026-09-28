@@ -1,3 +1,5 @@
+/* SPDX-FileCopyrightText: 2026 RiftWii contributors */
+/* SPDX-FileCopyrightText: libogc contributors <https://github.com/devkitPro/libogc> */
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /*
  * Resident runtime, C part. Rules that keep this position-independent and

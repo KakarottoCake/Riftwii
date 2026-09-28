@@ -1,7 +1,7 @@
+// SPDX-FileCopyrightText: 2026 RiftWii contributors
+// SPDX-FileCopyrightText: 2008 Nuke (GeckoOS for USB Gecko)
+// SPDX-FileCopyrightText: USB Loader GX contributors <https://github.com/wiidev/usbloadergx>
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Credit: USB Loader GX (https://github.com/wiidev/usbloadergx),
-// source/patches/patchcode.c: langpatcher (Copyright (C) 2008 Nuke, GeckoOS
-// for USB Gecko), GPL-2.0-or-later. Reimplemented here; see NOTICE.md.
 #pragma once
 
 #include <cstddef>

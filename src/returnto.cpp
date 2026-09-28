@@ -1,7 +1,7 @@
+// SPDX-FileCopyrightText: 2026 RiftWii contributors
+// SPDX-FileCopyrightText: giantpune
+// SPDX-FileCopyrightText: USB Loader GX contributors <https://github.com/wiidev/usbloadergx>
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Credit: USB Loader GX (https://github.com/wiidev/usbloadergx),
-// source/patches/gamepatches.c: PatchReturnTo (giantpune's "magic super
-// patch to return to channels"), GPL-3.0. Reimplemented here; see NOTICE.md.
 #include "riftwii/returnto.hpp"
 
 #include <cstring>

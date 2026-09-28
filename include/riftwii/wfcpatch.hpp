@@ -1,9 +1,8 @@
+// SPDX-FileCopyrightText: 2026 RiftWii contributors
+// SPDX-FileCopyrightText: ToadKing (wiilauncher-nossl)
+// SPDX-FileCopyrightText: Leseratte (Wiimmfi)
+// SPDX-FileCopyrightText: USB Loader GX contributors <https://github.com/wiidev/usbloadergx>
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Credit: USB Loader GX (https://github.com/wiidev/usbloadergx),
-// source/patches/gamepatches.c, GPL-3.0: PrivateServerPatcher and
-// domainpatcher (after ToadKing's wiilauncher-nossl), and
-// do_new_wiimmfi_nonMKWii (Leseratte of the Wiimmfi team). Reimplemented
-// here, except Leseratte's patch data, which is copied unchanged. See NOTICE.md.
 #pragma once
 
 #include <cstddef>
