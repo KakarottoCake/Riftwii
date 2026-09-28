@@ -165,8 +165,11 @@ msgstr "Nenhum mod para este jogo."
 msgid "No mods on the SD card. Put Riivolution XML in sd:/riivolution."
 msgstr "Nenhum mod no cartão SD. Coloque os XML do Riivolution em sd:/riivolution."
 
-msgid "{1} mod pack(s) for this game. Press A to turn them on."
-msgstr "{1} pacote(s) de mods para este jogo. Aperte A para ativá-los."
+msgid "1 mod pack for this game. Press A to turn it on."
+msgstr "1 pacote de mods para este jogo. Aperte A para ativá-lo."
+
+msgid "{1} mod packs for this game. Press A to turn them on."
+msgstr "{1} pacotes de mods para este jogo. Aperte A para ativá-los."
 
 msgid "No mods on the SD card"
 msgstr "Nenhum mod no cartão SD"
@@ -177,8 +180,11 @@ msgstr "Nenhum mod para este jogo"
 msgid "Put Riivolution XML in sd:/riivolution"
 msgstr "Coloque os XML do Riivolution em sd:/riivolution"
 
-msgid "{1} XML file(s) are for other games"
-msgstr "{1} arquivo(s) XML são de outros jogos"
+msgid "1 XML file is for another game"
+msgstr "1 arquivo XML é de outro jogo"
+
+msgid "{1} XML files are for other games"
+msgstr "{1} arquivos XML são de outros jogos"
 
 msgid "Package scan failed; go back and try again"
 msgstr "Falha ao ler os packs; volte e tente de novo"
@@ -339,8 +345,8 @@ msgstr "Nenhum jogo escolhido."
 msgid "No cheat file yet. Choose Download to get one."
 msgstr "Ainda não há arquivo de trapaças. Escolha Baixar para obter um."
 
-msgid "No cheat file. Put one at {1}"
-msgstr "Nenhum arquivo de trapaças. Coloque um em {1}"
+msgid "No cheat file at {1}"
+msgstr "Nenhum arquivo de trapaças em {1}"
 
 msgid "The cheat file has no cheats in it: {1}"
 msgstr "O arquivo de trapaças está vazio: {1}"

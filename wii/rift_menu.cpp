@@ -645,7 +645,7 @@ static std::string HomeStatus(const FrontendState& state, std::size_t shown)
 	if (shown <= 1) return "No games found (usb:/wbfs, usb:/games, sd:/wbfs, sd:/games)";
 	// The disc drive's tile is not a game.
 	const std::string count = shown == 2 ? std::string(tr("1 game")) : tr("{1} games", {std::to_string(shown - 1)});
-	return std::string(tr(FilterLabel(g_filter))) + ": " + count + "   " + tr("1: view   2: settings   -/+: pages   B: A to Z");
+	return std::string(tr(FilterLabel(g_filter))) + ": " + count + "\n" + tr("1: view   2: settings   -/+: pages   B: A to Z");
 }
 
 class Panel : public GuiElement {
@@ -1328,7 +1328,9 @@ static int MenuSource(FrontendState& state)
 				menu = MENU_HOME;
 			} else {
 				logf("Home: %s\n", error.c_str());
-				statusTxt.SetText(FlatCapped(error, 150).c_str());
+				std::string shown = FlatCapped(error, 150);
+				if (!shown.empty() && shown[0] >= 'a' && shown[0] <= 'z') shown[0] = static_cast<char>(shown[0] - 'a' + 'A');
+				statusTxt.SetText(shown.c_str());
 			}
 		}
 		if (menu != MENU_NONE) {
@@ -1395,7 +1397,7 @@ private:
 // The game's banner: its hue across the top with light stripes.
 class GameBanner : public GuiElement {
 public:
-	static constexpr int kHeight = 136;
+	static constexpr int kHeight = 120;
 	explicit GameBanner(GXColor hue) : hue(hue) {}
 	void Draw() override {
 		Menu_DrawRectangle(0, 0, screenwidth, kHeight, hue, 1);
@@ -1707,7 +1709,8 @@ static void BuildModRows(const FrontendState& state, const std::string& scanStat
 		hint.dim = true;
 		hint.label = scanStatus != riftwii::wii::kScanReady ? FlatCapped(scanStatus, 44)
 			: state.model.packages.empty() ? "Put Riivolution XML in sd:/riivolution"
-			: tr("{1} XML file(s) are for other games", {std::to_string(state.model.packages.size())});
+			: state.model.packages.size() == 1 ? tr("1 XML file is for another game")
+			: tr("{1} XML files are for other games", {std::to_string(state.model.packages.size())});
 		add(hint, {RowRef::What::Note});
 	}
 	FlowRow pick;
@@ -1962,7 +1965,9 @@ static std::string ModsNote(const FrontendState& state, const std::string& scanS
 	std::string names;
 	for (const riftwii::LaunchPackage& p : state.model.packages)
 		if (riftwii::show_package(p) && p.valid && p.enabled) names += (names.empty() ? "" : ", ") + PackName(p.file);
-	if (names.empty()) return tr("{1} mod pack(s) for this game. Press A to turn them on.", {std::to_string(shown)});
+	if (names.empty())
+		return shown == 1 ? tr("1 mod pack for this game. Press A to turn it on.")
+				  : tr("{1} mod packs for this game. Press A to turn them on.", {std::to_string(shown)});
 	return FlatCapped(tr("On: {1}", {names}), 90);
 }
 
@@ -2232,28 +2237,28 @@ static int MenuHome(FrontendState& state)
 	GameBanner banner(skin::HueFor(state.game_id));
 	const std::string where = SourceWhere(state);
 	GuiText whereTxt(where.c_str(), 16, skin::WithAlpha(skin::kWhite, 200));
-	Place(whereTxt, 40, 16);
+	Place(whereTxt, 40, 10);
 	const std::string title = GameTitle(state);
 	GuiText titleTxt(title.c_str(), 28, skin::kWhite);
-	Place(titleTxt, 40, 38);
+	Place(titleTxt, 40, 30);
 	const bool hasCover = riftwii::wii::CoverStored(state.game_id);
 	titleTxt.SetWrap(true, hasCover ? 460 : 560, 2);
-	CoverArt cover(state.game_id, 528, 12);
+	CoverArt cover(state.game_id, 528, 4);
 	// The ID, and how often the game was played from RiftWii.
 	const std::string played = riftwii::wii::PlayNote(state.game_id);
 	const std::string idLine = played.empty() ? state.game_id : state.game_id + "   " + played;
 	GuiText idTxt(idLine.c_str(), 16, skin::WithAlpha(skin::kWhite, 200));
-	Place(idTxt, 40, 108);
+	Place(idTxt, 40, 96);
 
-	Panel panel(skin::panelGame, 34, 144);
-	GuiFlowList list(46, 150, 548, 5);
+	Panel panel(skin::panelGame, 34, 124);
+	GuiFlowList list(46, 130, 548, 5);
 	list.SetRows(&rows);
 	list.Select(0);
 
 	GuiText statusTxt(ModsNote(state, scanStatus).c_str(), 15, skin::kInkSoft);
 	// Two lines between the card and the buttons: a cIOS remedy or a
 	// compile error must stay readable in full.
-	Place(statusTxt, 0, 368, true);
+	Place(statusTxt, 0, 362, true);
 	statusTxt.SetWrap(true, 572, 2);
 
 	SkinButton backBtn(skin::pill, skin::pillOver, 4, 50, 406, "Back",

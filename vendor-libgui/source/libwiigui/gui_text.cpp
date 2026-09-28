@@ -368,7 +368,27 @@ void GuiText::Draw()
 			while(ch < textlen && linenum < 20)
 			{
 				if(n == 0)
+				{
 					textDyn[linenum] = new wchar_t[textlen + 1];
+					textDyn[linenum][0] = 0;
+				}
+
+				// RiftWii: a newline ends the line (after the usual break
+				// at the last space when the line is too long already).
+				if(text[ch] == '\n')
+				{
+					if(lastSpace >= 0 && fontSystem[currentSize]->getWidth(textDyn[linenum]) > maxWidth)
+					{
+						textDyn[linenum][lastSpaceIndex] = 0;
+						ch = lastSpace;
+					}
+					++linenum;
+					n = 0;
+					lastSpace = -1;
+					lastSpaceIndex = -1;
+					++ch;
+					continue;
+				}
 
 				textDyn[linenum][n] = text[ch];
 				textDyn[linenum][n+1] = 0;

@@ -165,7 +165,10 @@ msgstr "このゲームのMODはありません。"
 msgid "No mods on the SD card. Put Riivolution XML in sd:/riivolution."
 msgstr "SDカードにMODがありません。RiivolutionのXMLを sd:/riivolution に入れてください。"
 
-msgid "{1} mod pack(s) for this game. Press A to turn them on."
+msgid "1 mod pack for this game. Press A to turn it on."
+msgstr "このゲームのMODパックが1個あります。Aでオンにできます。"
+
+msgid "{1} mod packs for this game. Press A to turn them on."
 msgstr "このゲームのMODパックが{1}個あります。Aでオンにできます。"
 
 msgid "No mods on the SD card"
@@ -177,7 +180,10 @@ msgstr "このゲームのMODはありません"
 msgid "Put Riivolution XML in sd:/riivolution"
 msgstr "RiivolutionのXMLを sd:/riivolution に入れてください"
 
-msgid "{1} XML file(s) are for other games"
+msgid "1 XML file is for another game"
+msgstr "1個のXMLは他のゲーム用です"
+
+msgid "{1} XML files are for other games"
 msgstr "{1}個のXMLは他のゲーム用です"
 
 msgid "Package scan failed; go back and try again"
@@ -339,8 +345,8 @@ msgstr "ゲームが選ばれていません。"
 msgid "No cheat file yet. Choose Download to get one."
 msgstr "チートファイルがまだありません。「ダウンロード」で取得できます。"
 
-msgid "No cheat file. Put one at {1}"
-msgstr "チートファイルがありません。{1} に置いてください"
+msgid "No cheat file at {1}"
+msgstr "{1} にチートファイルがありません"
 
 msgid "The cheat file has no cheats in it: {1}"
 msgstr "チートファイルにチートがありません: {1}"

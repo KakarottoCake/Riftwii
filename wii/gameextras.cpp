@@ -55,7 +55,7 @@ bool LoadGameCheats(const std::string& game_id, bool download, CheatFile& out, s
     }
     if (!have) {
         status = Settings().online ? tr("No cheat file yet. Choose Download to get one.")
-                                   : tr("No cheat file. Put one at {1}", {path.substr(3)});
+                                   : tr("No cheat file at {1}", {path.substr(3)});
         return false;
     }
     std::string error;
