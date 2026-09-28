@@ -57,6 +57,8 @@ void LoaderSettings::parse(const std::string& text) {
             if (parse_cios_choice(value, slot)) game_cios = value;
         } else if (key == "home_tiles") {
             if (value == "covers" || value == "names") home_tiles = value;
+        } else if (key == "menu_sounds") {
+            if (value == "normal" || value == "quiet" || value == "off") menu_sounds = value;
         } else if (key == "online") {
             online = value != "off";
         } else if (key == "favorites") {
@@ -93,6 +95,7 @@ std::string LoaderSettings::serialize() const {
     s += "wfc_server = " + wfc_server + "\n";
     s += "wfc_domain = " + wfc_domain + "\n";
     s += "home_tiles = " + home_tiles + "\n";
+    s += "menu_sounds = " + menu_sounds + "\n";
     s += std::string("online = ") + (online ? "on" : "off") + "\n";
     s += "update_channel = " + update_channel + "\n";
     s += "gc_adapter = " + gc_adapter + "\n";

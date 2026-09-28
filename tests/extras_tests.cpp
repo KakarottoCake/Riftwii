@@ -528,6 +528,11 @@ void TestCoverArt() {
     EXPECT_EQ(s.home_tiles, "names");
     s.parse("home_tiles = huge\n");
     EXPECT_EQ(s.home_tiles, "names");
+    EXPECT_EQ(s.menu_sounds, "quiet");
+    s.parse("menu_sounds = off\n");
+    EXPECT_EQ(s.menu_sounds, "off");
+    s.parse("menu_sounds = loud\n");
+    EXPECT_EQ(s.menu_sounds, "off");
 }
 
 void TestGameLanguage() {

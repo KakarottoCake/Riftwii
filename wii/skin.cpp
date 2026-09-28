@@ -15,7 +15,7 @@ Tex tile, tileOver, coverTile, coverTileOver, roundBtn, roundBtnOver, pill, pill
     stepBack, stepBackOver, stepForward, stepForwardOver, switchOn, switchOff,
     panelGame, panelSettings, bar, bannerStripes, arrowLeft, arrowLeftOver, arrowRight, arrowRightOver, iconDrives,
     scrollUp, scrollUpOver, scrollDown, scrollDownOver,
-    iconGear, hand[4];
+    iconGear, iconDisc, hand[4];
 
 // Textures and the menu font live below the MEM2 arena's low end, taken
 // once and never freed: the menu keeps them until the game replaces all of
@@ -142,6 +142,18 @@ Tex Drives() {
     return Upload(c);
 }
 
+// A disc seen from above: silver, a track ring, the clear hub and its hole.
+Tex Disc() {
+    Canvas c(40, 40);
+    c.circle(20, 20, 18.5f, rgba(0xDCDCE4));
+    c.ring(20, 20, 18.5f, 1.6f, kGlyph);
+    c.ring(20, 20, 12.5f, 1.0f, rgba(0xB4B4C0));
+    c.circle(20, 20, 6.5f, kWhiteC);
+    c.ring(20, 20, 6.5f, 1.4f, kGlyph);
+    c.ring(20, 20, 2.6f, 1.2f, kGlyph);
+    return Upload(c);
+}
+
 Tex Gear() {
     Canvas c(28, 28);
     for (int i = 0; i < 8; ++i) {
@@ -242,6 +254,7 @@ void Init() {
     scrollDownOver = ScrollArrow(false, true);
     iconDrives = Drives();
     iconGear = Gear();
+    iconDisc = Disc();
     const Rgba players[4] = {rgba(0x3B8FD6), rgba(0xD64545), rgba(0x3FA34D), rgba(0xD9A21B)};
     for (int i = 0; i < 4; ++i) hand[i] = Hand(players[i]);
     g_ready = true;

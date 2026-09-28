@@ -537,6 +537,45 @@ T = {
         "終了したNintendoのサーバーの代わりにゲームが使うオンラインサーバーです。カスタムはsettings.txtのwfc_domainを使います。",
         "O servidor online que o jogo usa no lugar do da Nintendo, que foi desligado. Personalizado usa wfc_domain do settings.txt.",
         "Il server online che il gioco usa al posto di quello di Nintendo, ormai chiuso. Personalizzato usa wfc_domain in settings.txt."),
+    # Covers (Home's status line and the game page's Cover row)
+    "Getting covers from GameTDB: {1} left": (
+        "Descargando portadas de GameTDB: faltan {1}",
+        "GameTDBからカバーを取得中: 残り{1}",
+        "Baixando capas do GameTDB: faltam {1}",
+        "Scaricamento copertine da GameTDB: ne mancano {1}"),
+    "Covers could not be downloaded ({1}). Press + to try again.": (
+        "No se pudieron descargar las portadas ({1}). Pulsa + para volver a intentarlo.",
+        "カバーをダウンロードできませんでした ({1})。+でもう一度試せます。",
+        "Não foi possível baixar as capas ({1}). Aperte + para tentar de novo.",
+        "Impossibile scaricare le copertine ({1}). Premi + per riprovare."),
+    "Cover": ("Portada", "カバー", "Capa", "Copertina"),
+    "Download again": ("Volver a descargar", "もう一度ダウンロード", "Baixar de novo", "Scarica di nuovo"),
+    "Downloads this game's box art from GameTDB now.": (
+        "Descarga ahora la portada de este juego desde GameTDB.",
+        "このゲームのカバーを今すぐGameTDBからダウンロードします。",
+        "Baixa agora a capa deste jogo do GameTDB.",
+        "Scarica ora la copertina di questo gioco da GameTDB."),
+    "Downloading the cover...": ("Descargando la portada...", "カバーをダウンロード中...", "Baixando a capa...", "Scaricamento della copertina..."),
+    "Cover downloaded.": ("Portada descargada.", "カバーをダウンロードしました。", "Capa baixada.", "Copertina scaricata."),
+    "GameTDB has no cover for this game.": (
+        "GameTDB no tiene portada para este juego.",
+        "GameTDBにはこのゲームのカバーがありません。",
+        "O GameTDB não tem capa para este jogo.",
+        "GameTDB non ha una copertina per questo gioco."),
+    "Could not download the cover: {1}": (
+        "No se pudo descargar la portada: {1}",
+        "カバーをダウンロードできませんでした: {1}",
+        "Não foi possível baixar a capa: {1}",
+        "Impossibile scaricare la copertina: {1}"),
+    # Menu sounds (Settings)
+    "Menu sounds": ("Sonidos del menú", "メニューの音", "Sons do menu", "Suoni del menu"),
+    "Normal": ("Normal", "標準", "Normal", "Normale"),
+    "Quiet": ("Bajo", "小さめ", "Baixo", "Bassi"),
+    "How loud the menu's clicks are. Quiet softens the tick the pointer makes moving onto something.": (
+        "El volumen de los clics del menú. Bajo suaviza el sonido al pasar el puntero sobre algo.",
+        "メニューのクリック音の大きさです。小さめにすると、ポインターが何かに重なったときの音が控えめになります。",
+        "O volume dos cliques do menu. Baixo suaviza o som quando o ponteiro passa sobre algo.",
+        "Il volume dei clic del menu. Bassi attenua il suono quando il puntatore passa sopra qualcosa."),
     # Packs on USB
     "Packs on USB are experimental; if it fails, copy them to SD.": (
         "Los packs en USB son experimentales; si falla, cópialos a la SD.",

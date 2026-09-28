@@ -377,6 +377,19 @@ static std::string ShortSourceProblem(const char* tag, const riftwii::wii::Image
 	return std::string(tag) + ": " + FlatCapped(reason, 110);
 }
 
+// "Menu sounds": Quiet (the default) softens the tick the pointer makes
+// moving onto something, which a tester found too loud.
+static void ApplyMenuSounds()
+{
+	const std::string& v = riftwii::wii::Settings().menu_sounds;
+	GuiSound::hoverPercent = v == "off" ? 0 : v == "quiet" ? 30 : 100;
+	GuiSound::otherPercent = v == "off" ? 0 : v == "quiet" ? 70 : 100;
+}
+static const char* MenuSoundsName(const std::string& v)
+{
+	return v == "off" ? tr("Off") : v == "normal" ? tr("Normal") : tr("Quiet");
+}
+
 // The Menu IOS setting's label and what choosing a slot means.
 static std::string MenuIosLabel(int slot)
 {
@@ -1137,10 +1150,14 @@ static int MenuSource(FrontendState& state)
 	queueCovers();
 
 	int shownPage = -1, shownPages = -1;
+	// The status line says covers are coming while they are, and why they
+	// stopped when a download failed.
+	bool coverNoteShown = false;
 	while(menu == MENU_NONE)
 	{
 		usleep(10000);
 		std::string arrived;
+		std::string coverNote;
 		if (!coverQueue.empty() && !g_coversOff && !riftwii::wii::NetFailed()) {
 			std::size_t pick = 0;
 			bool onPage = false;
@@ -1161,10 +1178,20 @@ static int MenuSource(FrontendState& state)
 				logf("Covers: stopped: %s\n", error.c_str());
 				g_coversOff = true;
 				coverQueue.clear();
+				coverNote = tr("Covers could not be downloaded ({1}). Press + to try again.", {FlatCapped(error, 60)});
 			}
+			if (coverNote.empty() && !coverQueue.empty())
+				coverNote = tr("Getting covers from GameTDB: {1} left", {std::to_string(coverQueue.size())});
 		}
 		HaltGui();
 		if (!arrived.empty()) grid.CoverArrived(arrived);
+		if (!coverNote.empty()) {
+			statusTxt.SetText(coverNote.c_str());
+			coverNoteShown = !g_coversOff;  // a failure stays up
+		} else if (coverNoteShown) {
+			statusTxt.SetText(HomeStatus(state, items.size()).c_str());
+			coverNoteShown = false;
+		}
 		ClearStaleButtons({&filterBtn.button, &settingsBtn.button});
 		if (grid.Page() != shownPage || grid.Pages() != shownPages) {
 			shownPage = grid.Page();
@@ -1237,6 +1264,9 @@ static int MenuSource(FrontendState& state)
 			rescanBtn.ResetState();
 			ScanDrives(state, statusTxt);
 			refresh(true);
+			// Covers that failed (or were never tried) are asked for again.
+			g_coversOff = false;
+			g_coversChecked.clear();
 			queueCovers();
 		} else if (jumpBtn.GetState() == STATE::CLICKED) {
 			jumpBtn.ResetState();
@@ -1304,7 +1334,7 @@ static std::string SaveNote(const riftwii::LaunchModel& model)
 
 struct RowRef {
 	enum class What { Mods, Saves, Cheats, Width, Deflicker, Borders, VideoMode, Language, Cios, Server, Favorite, Pack, Option, Note,
-		AddCodes, ForgetCodes } what = What::Note;
+		AddCodes, ForgetCodes, Cover } what = What::Note;
 	std::size_t pkg = 0, opt = 0;
 };
 
@@ -1512,6 +1542,13 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 	favorite.on = global.favorites.count(state.game_id) != 0;
 	favorite.value = favorite.on ? tr("On") : tr("Off");
 	add(favorite, {RowRef::What::Favorite});
+	if (global.online && !state.game_id.empty()) {
+		FlowRow cover;
+		cover.kind = FlowRow::Kind::Action;
+		cover.label = tr("Cover");
+		cover.value = riftwii::wii::CoverStored(state.game_id) ? tr("Download again") : tr("Download");
+		add(cover, {RowRef::What::Cover});
+	}
 }
 
 // The Mods page: each pack made for the game as a switch, its options
@@ -2191,6 +2228,8 @@ static int MenuHome(FrontendState& state)
 				say(tr("The language the game is told the console uses. Pick one the game has: some games stop without it."));
 			else if (ref.what == RowRef::What::Favorite)
 				say(tr("Favourites have their own view on Home: press 1 there until it shows."));
+			else if (ref.what == RowRef::What::Cover)
+				say(tr("Downloads this game's box art from GameTDB now."));
 			else if (ref.what == RowRef::What::Cios)
 				say(tr("The d2x cIOS the game runs under. Automatic uses the menu's, else the first of 249, 250 and 251 that works."));
 			else if (ref.what == RowRef::What::Server)
@@ -2245,6 +2284,25 @@ static int MenuHome(FrontendState& state)
 			} else if (ref.what == RowRef::What::Server) {
 				state.model.game.server = StepValue(kServers, state.model.game.server, direction);
 				changed = true;
+			} else if (ref.what == RowRef::What::Cover && !state.game_id.empty()) {
+				say(tr("Downloading the cover..."));
+				ResumeGui();
+				std::string error;
+				const riftwii::wii::CoverFetch got = riftwii::wii::FetchCover(state.game_id, error);
+				HaltGui();
+				riftwii::wii::ForgetCover(state.game_id);
+				if (got == riftwii::wii::CoverFetch::Stored) {
+					g_coversOff = false;
+					titleTxt.SetWrap(true, 460, 2);
+					say(tr("Cover downloaded."));
+				} else if (got == riftwii::wii::CoverFetch::NotFound) {
+					say(tr("GameTDB has no cover for this game."));
+				} else {
+					say(tr("Could not download the cover: {1}", {FlatCapped(error, 100)}));
+				}
+				BuildGameRows(state, rows, refs);
+				list.Refresh();
+				list.Select(acted);
 			} else if (ref.what == RowRef::What::Favorite && !state.game_id.empty()) {
 				std::set<std::string>& favorites = riftwii::wii::Settings().favorites;
 				if (favorites.count(state.game_id) != 0) favorites.erase(state.game_id);
@@ -2472,7 +2530,7 @@ static int MenuSettings(FrontendState& state)
 	const bool iosChoosable = iosChoices.size() > 1 || iosSlot != 0;
 
 	bool netOn = riftwii::wii::NetworkPacksEnabled();
-	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kGameLanguage, kGameCios, kServer, kHomeTiles, kOnline, kNames, kGcAdapter, kGcTest, kIos, kNet, kResync,
+	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kGameLanguage, kGameCios, kServer, kHomeTiles, kSounds, kOnline, kNames, kGcAdapter, kGcTest, kIos, kNet, kResync,
 		kRescan, kChannel, kUpdate, kWiiChannel, kExit, kNone };
 	// The RiftWii channel on the Wii Menu (wii/channel.hpp).
 	unsigned channelVersion = 0;
@@ -2505,6 +2563,7 @@ static int MenuSettings(FrontendState& state)
 		option(tr("Online server"), ServerName(settings.wfc_server), settings.wfc_server != "off", kServer);
 		option(tr("Home tiles"), settings.home_tiles == "names" ? tr("Names") : tr("Covers"),
 			settings.home_tiles != "names", kHomeTiles);
+		option(tr("Menu sounds"), MenuSoundsName(settings.menu_sounds), settings.menu_sounds != "off", kSounds);
 		option(tr("Download names and cheats"), settings.online ? tr("On") : tr("Off"), settings.online, kOnline,
 			FlowRow::Kind::Toggle);
 		FlowRow names;
@@ -2629,6 +2688,7 @@ static int MenuSettings(FrontendState& state)
 			case kGameLanguage: return tr("The language the game is told the console uses. Pick one the game has: some games stop without it.");
 			case kGameCios: return tr("The d2x cIOS the game runs under. Automatic uses the menu's, else the first of 249, 250 and 251 that works.");
 			case kHomeTiles: return tr("Covers shows each game's box art from GameTDB, fetched while Home is open when downloads are on. Names shows the names only.");
+			case kSounds: return tr("How loud the menu's clicks are. Quiet softens the tick the pointer makes moving onto something.");
 			case kServer: return tr("The online server the game uses in place of Nintendo's, which closed. Custom uses wfc_domain in settings.txt.");
 			case kOnline:
 				return settings.online ? tr("Game names and cheats are downloaded when the Wii is online.")
@@ -2729,6 +2789,16 @@ static int MenuSettings(FrontendState& state)
 					saveAndNote(tr("The online server the game uses in place of Nintendo's, which closed. Custom uses wfc_domain in settings.txt."));
 					rebuild();
 					break;
+				case kSounds: {
+					static const char* const kSoundChoices[] = {"normal", "quiet", "off"};
+					int at = 0;
+					while (at < 3 && settings.menu_sounds != kSoundChoices[at]) ++at;
+					settings.menu_sounds = kSoundChoices[((at % 3) + 3 + direction) % 3];
+					ApplyMenuSounds();
+					saveAndNote(tr("How loud the menu's clicks are. Quiet softens the tick the pointer makes moving onto something."));
+					rebuild();
+					break;
+				}
 				case kHomeTiles:
 					settings.home_tiles = settings.home_tiles == "names" ? "covers" : "names";
 					saveAndNote(tr("Covers shows each game's box art from GameTDB, fetched while Home is open when downloads are on. Names shows the names only."));
@@ -2995,6 +3065,7 @@ int MainMenu(int menu, FrontendState& state)
 	int currentMenu = menu;
 
 	skin::Init();
+	ApplyMenuSounds();
 	soundOver = new GuiSound(button_over_pcm, button_over_pcm_size, SOUND::PCM);
 	mainWindow = new GuiWindow(screenwidth, screenheight);
 	backdrop = new skin::GuiBackdrop();

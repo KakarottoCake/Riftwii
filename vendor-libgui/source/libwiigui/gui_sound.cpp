@@ -9,6 +9,10 @@
  ***************************************************************************/
 
 #include "gui.h"
+#include "../filelist.h"
+
+int GuiSound::hoverPercent = 100;
+int GuiSound::otherPercent = 100;
 
 /**
  * Constructor for the GuiSound class.
@@ -42,7 +46,9 @@ void GuiSound::Play()
 	switch(type)
 	{
 		case SOUND::PCM:
-		vol = 255*(volume/100.0);
+		vol = 255*(volume/100.0) * (sound == button_over_pcm ? hoverPercent : otherPercent) / 100;
+		if (vol <= 0)
+			break;
 		voice = ASND_GetFirstUnusedVoice();
 		if(voice >= 0)
 			ASND_SetVoice(voice, VOICE_STEREO_16BIT, 48000, 0,

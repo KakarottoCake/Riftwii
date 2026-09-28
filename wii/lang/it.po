@@ -618,6 +618,45 @@ msgstr "Personalizzato (wfc_domain non impostato)"
 msgid "The online server the game uses in place of Nintendo's, which closed. Custom uses wfc_domain in settings.txt."
 msgstr "Il server online che il gioco usa al posto di quello di Nintendo, ormai chiuso. Personalizzato usa wfc_domain in settings.txt."
 
+msgid "Getting covers from GameTDB: {1} left"
+msgstr "Scaricamento copertine da GameTDB: ne mancano {1}"
+
+msgid "Covers could not be downloaded ({1}). Press + to try again."
+msgstr "Impossibile scaricare le copertine ({1}). Premi + per riprovare."
+
+msgid "Cover"
+msgstr "Copertina"
+
+msgid "Download again"
+msgstr "Scarica di nuovo"
+
+msgid "Downloads this game's box art from GameTDB now."
+msgstr "Scarica ora la copertina di questo gioco da GameTDB."
+
+msgid "Downloading the cover..."
+msgstr "Scaricamento della copertina..."
+
+msgid "Cover downloaded."
+msgstr "Copertina scaricata."
+
+msgid "GameTDB has no cover for this game."
+msgstr "GameTDB non ha una copertina per questo gioco."
+
+msgid "Could not download the cover: {1}"
+msgstr "Impossibile scaricare la copertina: {1}"
+
+msgid "Menu sounds"
+msgstr "Suoni del menu"
+
+msgid "Normal"
+msgstr "Normale"
+
+msgid "Quiet"
+msgstr "Bassi"
+
+msgid "How loud the menu's clicks are. Quiet softens the tick the pointer makes moving onto something."
+msgstr "Il volume dei clic del menu. Bassi attenua il suono quando il puntatore passa sopra qualcosa."
+
 msgid "Packs on USB are experimental; if it fails, copy them to SD."
 msgstr "I pacchetti su USB sono sperimentali; se non funziona, copiali sulla SD."
 

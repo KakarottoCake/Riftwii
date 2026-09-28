@@ -618,6 +618,45 @@ msgstr "カスタム（wfc_domain未設定）"
 msgid "The online server the game uses in place of Nintendo's, which closed. Custom uses wfc_domain in settings.txt."
 msgstr "終了したNintendoのサーバーの代わりにゲームが使うオンラインサーバーです。カスタムはsettings.txtのwfc_domainを使います。"
 
+msgid "Getting covers from GameTDB: {1} left"
+msgstr "GameTDBからカバーを取得中: 残り{1}"
+
+msgid "Covers could not be downloaded ({1}). Press + to try again."
+msgstr "カバーをダウンロードできませんでした ({1})。+でもう一度試せます。"
+
+msgid "Cover"
+msgstr "カバー"
+
+msgid "Download again"
+msgstr "もう一度ダウンロード"
+
+msgid "Downloads this game's box art from GameTDB now."
+msgstr "このゲームのカバーを今すぐGameTDBからダウンロードします。"
+
+msgid "Downloading the cover..."
+msgstr "カバーをダウンロード中..."
+
+msgid "Cover downloaded."
+msgstr "カバーをダウンロードしました。"
+
+msgid "GameTDB has no cover for this game."
+msgstr "GameTDBにはこのゲームのカバーがありません。"
+
+msgid "Could not download the cover: {1}"
+msgstr "カバーをダウンロードできませんでした: {1}"
+
+msgid "Menu sounds"
+msgstr "メニューの音"
+
+msgid "Normal"
+msgstr "標準"
+
+msgid "Quiet"
+msgstr "小さめ"
+
+msgid "How loud the menu's clicks are. Quiet softens the tick the pointer makes moving onto something."
+msgstr "メニューのクリック音の大きさです。小さめにすると、ポインターが何かに重なったときの音が控えめになります。"
+
 msgid "Packs on USB are experimental; if it fails, copy them to SD."
 msgstr "USBのパックは試験的な機能です。うまくいかない場合はSDにコピーしてください。"
 
