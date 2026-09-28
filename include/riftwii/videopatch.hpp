@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: 2026 RiftWii contributors
+// SPDX-FileCopyrightText: USB Loader GX contributors <https://github.com/wiidev/usbloadergx>
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
@@ -20,7 +22,7 @@
 //     interlace flicker. It blurs; turning it off gives a sharp picture.
 //   - Mode: the TV format the game outputs (NTSC, PAL 50 Hz, PAL 60 Hz,
 //     480p). Each table the SDK defines is converted to the same kind of
-//     table in the other format, as USB Loader GX does; a table with
+//     table in the other format, as that patcher does; a table with
 //     unusual heights keeps its own format (it still works, unforced).
 namespace riftwii {
 

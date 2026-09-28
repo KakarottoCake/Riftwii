@@ -32,6 +32,8 @@ below names the files that own it.
 | Menu IOS (IOS 58 or a d2x cIOS slot) | `wii/menuios.cpp` |
 | GameCube adapter in the menu (its controllers work the menu; Settings' test page) | `wii/gcadapter.cpp` (drives `runtime/rtgcad.c` with libogc's IPC, or on IOS 58 through libogc's USB handle), `vendor-libgui/source/input.cpp` |
 | Memory limits: the heap never enters memory a launch overwrites | `wii/memlimits.cpp` |
+| Launches another loader asks for (`--launch` arguments, no menu; `docs/HEADLESS.md`) | `wii/headless.cpp`, `src/launchargs.cpp` |
+| Screenshots: the menu's, and importing the ones games left on the NAND as PNGs | `wii/screenshot.cpp`, `src/shotfile.cpp`, `src/pngencode.cpp` (a PNG writer with its own deflate) |
 
 Everything the menu decides is plain data (`LaunchModel`, the per-game
 choices file) and host-tested; the screens only draw and read the pads.
@@ -66,8 +68,9 @@ the pack, option and file named, so a game never starts half patched.
 3. Run the game's apploader. Overrides replace what it loads on the way
    in: the rewritten FST (files that grew or were created move into a
    virtual window above the disc), the data header, a pack's `main.dol`.
-4. Install the resident runtime (`wii/resident.cpp`) and the pad hook
-   (`wii/padhook.cpp`); apply memory patches, cheats (the Gecko code
+4. Install the resident runtime (`wii/resident.cpp`), the pad hook
+   (`wii/padhook.cpp`) and the screenshot hook (`wii/shothook.cpp`);
+   apply memory patches, cheats (the Gecko code
    handler, `vendor-gecko/`), video patches (`src/videopatch.cpp`: width,
    deflicker, borders, and a forced TV format that converts the game's
    render mode tables) and the game language (`src/gamelang.cpp`); last,
@@ -100,6 +103,22 @@ adapter on, a second blob hooks the game's `PADRead` and
 through the game's own asynchronous IPC. The adapter's controllers fill
 ports with nothing plugged in; rumble goes back to them.
 
+**Screenshot hook** (`runtime/shot/`, `runtime/rtshot.c`). With In-game
+screenshots on, a third blob hooks the game's `IOS_IoctlvAsync` and, when
+the game has one, `PADRead`. Each Bluetooth ACL read from the dongle's
+bulk-in endpoint gets the blob's completion in place of the game's: the
+Wii Remote's input report is read (and HOME hidden while the combo holds
+it) before the game's callback runs. On the combo (1 held, then HOME; or
+L and R held, then Down) it copies the frame the video interface shows
+into MEM2 and writes it to `/shared2/riftwii/shotNNNN.raw` on the NAND
+through the game's own asynchronous IOS calls, one request from each
+completion, so the game never waits. Where another blob already hooked
+the function (the resident runtime's `IOS_IoctlvAsync`, the adapter's
+`PADRead`), the replay slot takes that blob's branch and both run. The
+menu turns the files into PNGs at its next start. `docs/BLUETOOTH.md`
+has what the same tap would take to support other Bluetooth
+controllers.
+
 ## Memory
 
 | Where | What |
@@ -107,16 +126,40 @@ ports with nothing plugged in; rumble goes back to them.
 | `0x80000000`–`0x80003400` | Low-memory globals; the Gecko code handler at `0x80001800` |
 | `0x80A00000`–`0x81200000` | The RiftWii loader (link address in `Makefile.wii`) and its heap |
 | `0x81200000` | The game's apploader, while it runs |
-| Top of the game's MEM1 arena | Resident runtime code, then the pad blob below it |
+| Top of the game's MEM1 arena | Resident runtime code, then the pad blob and the screenshot blob below it |
 | `0x90000000`–`0x90800000` | Left alone by the loader: an IOS reload stages its kernel here |
 | `0x90800000`–`0x90809000` | The restart snapshot and handoff (`wii/restart.hpp`) |
-| Bottom of the game's MEM2 arena | Resident runtime data, then the pad state |
+| Bottom of the game's MEM2 arena | Resident runtime data, then the pad state, then the screenshot state and frame (about 830 KB) |
 | `0x933E0000` and up | IOS |
 
 `wii/memlimits.cpp` keeps the loader's heap between the end of its own
 image and `0x81200000`, and in MEM2 above `0x90800000`. In Dolphin it
 fills the reload area with `0xDEADBEEF` at each reload, so a heap that
 strays there fails in the emulator as it would on a Wii.
+
+### The loader's size and the game's room
+
+The loader's own program (`boot.dol`) is linked at `0x80A00000` and
+grows upward from there, toward the apploader at `0x81200000`. The game
+loads from `0x80004000` up to just below `0x80A00000`, so the loader
+getting bigger never takes room from the game: the line between them is
+fixed. What growth does take is the loader's own MEM1 heap, the space
+between the end of its image and `0x81200000` (about 2.4 MiB at 2.2.3,
+image end `0x80F8C560`, 4.7 MB file of which most is the menu font and
+the packed runtime blobs). That heap holds a big pack's file table while
+it is planned, so it is the thing to watch: `session.log` prints the
+MEM1 figures at start and at each "Heap check".
+
+A game whose DOL (or bss) reaches `0x80A00000` would overwrite the
+loader while the apploader still runs. The loader checks every
+apploader load against its own range and stops with "overlaps the
+loader" instead of crashing; no game seen so far comes close (Brawl,
+among the largest, ends at `0x805A5154`).
+
+The in-game part (the resident runtime) is separate and small: 43 KB of
+code at the top of the game's MEM1 arena (or in MEM2 for code builds
+such as Project+), plus its data in MEM2. It is built with `-Os` for that
+reason (`Makefile.runtime`).
 
 ## Restarts and crashes
 
@@ -147,7 +190,7 @@ addresses into source lines (keep the `riftwii.elf` of each release).
 | --- | --- |
 | `sd:/apps/riftwii/` | The app (`boot.dol`, `meta.xml`, `icon.png`) |
 | `sd:/riivolution/` | Mod packs: XML files and their folders |
-| `usb:/riivolution/` | Not listed: mods are read from the SD card only, and a game with mods on the USB drive is refused at Start (`usb_mod_folders`, `ModPlaceProblem`). The runtime's USB runs (`RT_KIND_USB`, d2x's `/dev/usb2`, `wii/umsdev.cpp`) remain but nothing lists such packs |
+| `usb:/riivolution/` | Mod packs on a FAT32 or NTFS USB drive: listed through the menu's mount (`usb_xml_names`), read at launch through d2x's `/dev/usb2` (`wii/umsdev.cpp`, an `ImageVolume`); table runs of kind `RT_KIND_USB`, and small NTFS files kept in their MFT record become MEM replacements (`CompiledMod::mem`). Code builds on USB are refused at Start (`usb_mod_folders`, `ModPlaceProblem`) |
 | `sd:/riftwii/settings.txt` | Settings |
 | `sd:/riftwii/menu_ios.txt` | The menu IOS slot |
 | `sd:/riftwii/choices/<ID>.txt` | Per-game choices (packs, options, saves, cheats, picture) |

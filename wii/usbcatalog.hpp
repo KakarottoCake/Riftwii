@@ -64,6 +64,10 @@ using UsbCatalog = ImageCatalog;
 // Entries that cannot be proven to be Wii images are skipped with their first
 // failure retained in status. The USB volume must expose 512-byte sectors.
 bool scan_usb_games(UsbCatalog& out, std::string& error);
+// The top folders that pick a USB drive's partition when it has several:
+// the user's game_folders, then wbfs, games and riivolution. Every mount
+// of the drive uses it, so the menu and the launch read the same one.
+std::vector<std::string> usb_wanted_folders();
 bool scan_sd_games(ImageCatalog& out, std::string& error);
 void unmount_usb_games();
 // Unmounts and stops libogc's USB driver when it was started in this IOS
@@ -76,12 +80,18 @@ bool check_image_game(ImageGame& game, std::string& error);
 // For an RVZ game that plays at the player's own risk: the warning to show
 // before it starts. Empty otherwise.
 std::string rvz_warning(const ImageGame& game);
-// Mods for `game_id` left on the USB drive (FAT32 or NTFS): Riivolution
-// XMLs in usb:/riivolution or usb:/apps/riivolution, and code builds (a
-// <game ID>.gct in a top folder or its codes folder). Mods are read from
-// the SD card only, so the menu will not start the game while these are
-// there. The folders to move, like "usb:/Project+"; empty with no drive.
+// Code builds for `game_id` left on the USB drive (FAT32 or NTFS): a
+// <game ID>.gct in a top folder or its codes folder. A code build reads
+// the SD card itself while the game runs, so the menu will not start the
+// game while one is there. The folders to move, like "usb:/Project+";
+// empty with no drive.
 std::vector<std::string> usb_mod_folders(const std::string& game_id);
+// Pack XMLs on the USB drive (FAT32 or NTFS), for the menu: the .xml
+// names directly in `folder` ("/riivolution"), sorted, hidden ones left
+// out; and a whole XML by "usb:/..." path (1 MiB at most). Nothing with no
+// drive mounted.
+std::vector<std::string> usb_xml_names(const std::string& folder);
+bool read_usb_text(const std::string& usb_path, std::string& out);
 // Development aid for Dolphin, which has no d2x: partition reads of the
 // disc Dolphin boots (the RVZ's stub, made by tools/rvz) are answered from
 // the RVZ at `sd_path` instead.

@@ -67,6 +67,75 @@ This is a hobby project. As a kid I wanted to play mods straight from a
 USB drive, and Riivolution never allowed it; its developer was firmly
 against USB loading. RiftWii exists to finally get past that.
 
+## Credits
+
+RiftWii stands on a lot of other people's work. Code that follows or
+contains theirs names them in its file header, and
+[NOTICE.md](NOTICE.md) lists each piece: what it is, where it came from
+(with the commit), and its licence.
+
+- **USB Loader GX** (https://github.com/wiidev/usbloadergx, GPL-3.0):
+  the online server patches (`PrivateServerPatcher`, `domainpatcher`),
+  the Wiimmfi patches and Mario Kart Wii security fix, the
+  return-to-channel patch, the language patch, the video mode tables,
+  and RiftWii's copy of the Gecko code handler. Thanks to its developers
+  and everyone whose work it carries: ToadKing (wiilauncher-nossl),
+  Leseratte and the Wiimmfi team, giantpune, Nuke and the GeckoOS
+  authors.
+- **Gecko OS** by Nuke, brkirch, Link and the Gecko authors: the cheat
+  code handler (full source in [vendor-gecko](vendor-gecko)).
+- **Brainslug** by Alex Chadwick and Florian Bach (MIT): the boot
+  sequence. **wup-028-bslug** by Alex Chadwick (MIT): the GameCube
+  controller adapter.
+- **Nintendont** by FIX94 and contributors: the USB HID driver, used
+  with its developers' permission. **WiiDRC** by FIX94: the Wii U
+  GamePad.
+- **libwiigui** by Tantric, **FreeTypeGX** by Armin Tamzarian,
+  **oggplayer** by Hermes: the menu's toolkit, text and music player.
+- **WiiLink WFC** (wfc-patcher-wii): WiiLink online play.
+- **d2x cIOS**: the USB and SD game loading interface.
+- **devkitPro and libogc** (Michael Wiedenbauer, Dave Murphy, Hector
+  Martin, Sven Peter and others): the toolchain and the Wii library.
+- **Dolphin**, **wiibrew** and the **Riivolution patch format wiki**:
+  how the Wii and the patch format behave (read as documentation).
+- **pugixml** by Arseny Kapoulkine, **Zstandard** by Meta, **BearSSL**
+  by Thomas Pornin, **FreeType**, **zlib**, **brotli**, **Tremor**.
+- **GameTDB** for game names and covers, **RiiConnect24** for the cheat
+  archive, **M+ Fonts** for the menu font, **Zane Little** for the menu
+  music.
+
 ## Licence
 
-GPL-3.0-or-later ([LICENSE](LICENSE)). RiftWii was written from scratch and contains no Riivolution code; third-party notices are in [NOTICE.md](NOTICE.md). Developers: see [docs/DEVELOPING.md](docs/DEVELOPING.md) and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+GPL-3.0-or-later ([LICENSE](LICENSE)). RiftWii contains no Riivolution
+code. Its third-party components, their origins and licences are in
+[NOTICE.md](NOTICE.md). Each release zip carries `LICENSE.txt`,
+`NOTICE.md` and `SOURCE.txt` (which commit of this repository it was
+built from), and RiftWii shows its licence and credits in Settings >
+Credits and licence.
+
+### A note for the licence enthusiasts
+
+Good news: RiftWii follows the GPL to the letter, and then some. For
+anyone who needs it spelled out:
+
+- Every file that follows someone else's work says so at the top, with
+  the project, the file and the functions.
+- [NOTICE.md](NOTICE.md) lists every component, where it came from (down
+  to the commit) and its licence.
+- Every release zip carries the full licence, the notices and the exact
+  commit it was built from.
+- The Gecko code handler ships with its assembly source, which rebuilds
+  it byte for byte. That's more than most Wii loaders bother with.
+- RiftWii itself will show you all ~840 lines of the GPL, in Settings >
+  Credits and licence. Scrolling to the end is left as an exercise for
+  the reader.
+
+If you still think something is missing a credit, open an
+[issue](https://github.com/KakarottoCake/Riftwii/issues). It'll be
+fixed, politely, and probably faster than it took to write the comment.
+
+This is a free hobby project that loads mods into games for a console
+from 2006. It's not that serious.
+
+Developers: see [docs/DEVELOPING.md](docs/DEVELOPING.md) and
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).

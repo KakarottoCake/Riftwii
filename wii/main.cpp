@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include <fat.h>
 #include <gccore.h>
+#include <ogc/lwp_watchdog.h>
 #include <ogc/system.h>
 #include <sdcard/wiisd_io.h>
 #include <sys/stat.h>
@@ -12,6 +13,8 @@
 #include <string>
 #include <vector>
 
+#include "menumusic.hpp"
+#include "screenshot.hpp"
 #include "FreeTypeGX.h"
 #include "audio.h"
 #include "input.h"
@@ -20,6 +23,7 @@
 #include "menufont_bin.h"
 
 #include "autorun.hpp"
+#include "headless.hpp"
 #include "console.hpp"
 #include "crash.hpp"
 #include "gcadapter.hpp"
@@ -38,8 +42,8 @@
 
 // Where the player leaves to (the HOME Menu, wii/rift_menu.cpp): 1 back
 // to the loader that started RiftWii (the Homebrew Channel), 2 the Wii
-// Menu, 3 Priiloader, 4 power off.
-int ExitRequested = 0;
+// Menu, 3 Priiloader, 4 power off, 5 the power button (off, red light).
+volatile int ExitRequested = 0;
 
 namespace {
 
@@ -48,6 +52,12 @@ void LeaveTo(int where) {
     if (where == 4) {
         // Standby or off, as the Wii's own power setting says.
         SYS_ResetSystem(SYS_POWEROFF, 0, 0);
+    } else if (where == 5) {
+        // The power button: the drives finish their writes, then the Wii
+        // turns fully off (red light), whatever WiiConnect24 is set to.
+        fatUnmount("sd:");
+        fatUnmount("usb:");
+        SYS_ResetSystem(SYS_POWEROFF_STANDBY, 0, 0);
     } else if (where == 2 || where == 3) {
         if (where == 3) {
             // Priiloader looks for "Daco" at 0x8132FFFB when the Wii Menu
@@ -67,6 +77,8 @@ void LeaveTo(int where) {
 }  // namespace
 
 void ExitApp() {
+    riftwii::wii::MenuMusicStop();
+    riftwii::wii::ScreenshotsStop();
     riftwii::wii::GcAdapterMenuEnd();
     ShutoffRumble();
     ShutdownAudio();
@@ -171,6 +183,17 @@ int main() {
     riftwii::wii::CrashInstall();
     const bool sd_mounted = MountStartupSd();
 
+    // Another loader (USB Loader GX) starting a game through RiftWii:
+    // no menu (docs/HEADLESS.md).
+    if (std::vector<std::string> args; riftwii::wii::HeadlessArguments(args)) {
+        riftwii::wii::ConsoleStart(false);
+        riftwii::wii::CrashSetPhase(riftwii::wii::CrashPhase::Console);
+        riftwii::wii::RunHeadless(args);
+        riftwii::wii::logf("Press HOME, Start or RESET to exit.\n");
+        riftwii::wii::WaitForExit();
+        std::exit(0);
+    }
+
     if (riftwii::wii::AutorunPresent()) {
         riftwii::wii::ConsoleStart(false);
         riftwii::wii::CrashSetPhase(riftwii::wii::CrashPhase::Console);
@@ -192,12 +215,21 @@ int main() {
                                restart.kind == riftwii::wii::RestartKind::BurnedDisc ? riftwii::wii::BurnedDiscSlot() : 0);
     SetHomeNotice(restart.message);
     FrontendState state;
+    // Where the start's time goes (the log's own clock does the rest).
+    u64 step = gettime();
+    const auto timed = [&step](const char* what) {
+        const u64 now = gettime();
+        riftwii::wii::logf("Startup: %s in %u ms\n", what, static_cast<unsigned>(diff_msec(step, now)));
+        step = now;
+    };
     riftwii::wii::InitializeFrontend(state);
     riftwii::wii::SetMenuLanguage(riftwii::wii::MenuLanguage());
+    timed("settings and language");
 
     InitVideo();
     SetupPads();
     InitAudio();
+    timed("video, pads and audio");
     u8* font = nullptr;
     std::size_t font_size = 0;
     if (!UnpackMenuFont(font, font_size)) {
@@ -205,11 +237,16 @@ int main() {
         riftwii::wii::logf("Menu font: unpacking failed\n");
         ExitApp();
     }
+    timed("font unpacked");
     InitFreeType(font, font_size);
     InitGUIThreads();
+    timed("FreeType and the GUI thread");
+    riftwii::wii::ScreenshotsStart();
     riftwii::wii::CrashSetPhase(riftwii::wii::CrashPhase::Menu);
     if (!sd_mounted) SetNoSdCard(StartedFromUsb());
     const int action = MainMenu(sd_mounted ? MENU_SOURCE : MENU_NEEDS_SD, state);
+    riftwii::wii::MenuMusicStop();
+    riftwii::wii::ScreenshotsStop();
     // Before anything is launched: nothing of the menu's adapter may be
     // left in flight for the game (or the next IOS) to answer.
     riftwii::wii::GcAdapterMenuEnd();

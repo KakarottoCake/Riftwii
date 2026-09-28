@@ -25,6 +25,9 @@ struct VolumeEntry {
 struct VolumeFile {
     VolumeEntry entry;
     std::vector<Fragment> fragments;  // absolute 512-byte device blocks, in file order, coalesced
+    // NTFS keeps a small file (up to about 700 bytes) inside its MFT record:
+    // its bytes are here and it has no fragments.
+    std::vector<std::uint8_t> inline_bytes;
 };
 
 class ImageVolume {
@@ -45,14 +48,23 @@ struct DrivePartition {
     std::uint64_t lba = 0;
     std::uint64_t blocks = 0;
 };
-// The partitions in `mbr` (the drive's block 0), in table order, leaving
-// out empty and extended entries. Empty when block 0 is not an MBR.
+// The partitions in `mbr` (the drive's block 0), in table order (an
+// extended partition's logical ones in its place), leaving out empty and
+// extended entries. Empty when block 0 is not an MBR.
 std::vector<DrivePartition> drive_partitions(const BlockReader& reader, const std::uint8_t* mbr);
 
 // Mounts whichever file system the drive holds: FAT32 or NTFS, at block 0
-// or in the first matching MBR / GPT partition. `error` names what was
-// tried when neither is found.
+// or in an MBR (primary or logical) or GPT partition. With several, the
+// one whose top folder holds the most of `wanted` wins (earlier names
+// weigh more; ASCII case-insensitive), then the first. `error` names
+// what was tried when none mounts.
 bool mount_image_volume(BlockReader reader, std::unique_ptr<ImageVolume>& out, std::string& error);
+bool mount_image_volume(BlockReader reader, std::unique_ptr<ImageVolume>& out, std::string& error,
+                        const std::vector<std::string>& wanted);
+
+// The top folders mount_image_volume looks for by default: game folders
+// first, then the mod packs.
+const std::vector<std::string>& default_wanted_folders();
 
 // A file of an ImageVolume as a ByteSource (the volume must outlive it).
 class VolumeFileSource final : public ByteSource {

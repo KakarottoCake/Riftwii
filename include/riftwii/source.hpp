@@ -10,10 +10,17 @@
 
 namespace riftwii {
 
-// Upper bound for any single game/external file handled by this milestone.
-// Keeps host tests and Wii memory use predictable; larger files are rejected
-// with a clear error instead of being partially consumed.
+// Upper bound for a host file read whole through FileByteSource (its
+// positioning is `long`, 32 bits on the Wii and this Windows toolchain).
+// Larger files are rejected with a clear error instead of being partially
+// consumed.
 constexpr std::uint64_t kMaxFileBytes = 256ULL * 1024ULL * 1024ULL;
+// Upper bound for a file the patch model composes: a disc file, an
+// external, a patch range or the result. They are streamed through
+// ReadOverlay and never held whole, so the limit is the formats' own: FST
+// sizes and redirect entries are 32-bit, and a FAT32 file is at most
+// 4 GiB - 1. (Other M Redux patches 270 MB movies.)
+constexpr std::uint64_t kMaxPatchFileBytes = 0xFFFFFFFFULL;
 
 // Why an open failed. Only NotFound may be turned into "an empty original"
 // by create="true"; every other status must surface as an error so that an

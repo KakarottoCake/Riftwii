@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 RiftWii contributors
+// SPDX-FileCopyrightText: 2018 Leseratte (Wiimmfi)
+// SPDX-FileCopyrightText: USB Loader GX contributors <https://github.com/wiidev/usbloadergx>
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "wfc.hpp"
 
@@ -59,7 +62,7 @@ void MkwRceFix(char region) {
 }
 
 // Wiimmfi's Mario Kart Wii patch (Leseratte, 2018; the error 51420 fix,
-// 2021), as USB Loader GX applies it. The blob is Wiimmfi's; do not edit.
+// 2021), as do_new_wiimmfi applies it. The blob is Wiimmfi's; do not edit.
 bool MkwWiimmfi(char region) {
     u32 patched, patch1, patch2, patch3, errorfix, urls, https_at, retry_at;
     const char* url3;

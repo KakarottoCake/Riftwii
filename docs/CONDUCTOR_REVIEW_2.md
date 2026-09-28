@@ -85,6 +85,14 @@ the distributed program to be **GPL-3.0-or-later**. Needed: `LICENSE`
 URL/version and licence, and an SPDX header in project sources. Decision D1.
 
 ### F4 - Provenance hazard from the failed USB Loader GX attempt
+
+> Note added 2026-09-28: "USB Loader GX Riiloaded" was an earlier,
+> abandoned attempt, before RiftWii, to add Riivolution support to a local
+> fork of USB Loader GX. It was never published. This finding is the rule
+> that kept its code out of RiftWii. It is not USB Loader GX itself: the
+> parts of USB Loader GX that RiftWii does follow are credited in
+> `NOTICE.md` and in each file's header.
+
 `D:\AI Projects\USB Loader GX Riiloaded\RIIVOLUTION_HANDOFF.md` records that
 the earlier project used `C:\Users\...\Downloads\rawksd-2013` (a Riivolution
 source dump) as reference material. Anything in that tree's `source/riivo*`

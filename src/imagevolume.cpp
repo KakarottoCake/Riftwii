@@ -81,6 +81,52 @@ bool mount_candidate(const BlockReader& reader, std::uint64_t lba, std::unique_p
     return true;
 }
 
+// The logical partitions of an MBR extended partition, in chain order.
+void logical_partitions(const BlockReader& reader, std::uint64_t extended, std::vector<DrivePartition>& out) {
+    std::uint64_t ebr = extended;
+    for (int n = 0; n < 32; ++n) {
+        std::uint8_t b[512];
+        if (!reader(ebr, 1, b) || b[510] != 0x55 || b[511] != 0xAA) return;
+        const std::uint8_t* first = b + 0x1BE;
+        const std::uint8_t* next = first + 16;
+        if (first[4] != 0 && le32(first + 8) != 0) out.push_back({ebr + le32(first + 8), le32(first + 12)});
+        if ((next[4] != 0x05 && next[4] != 0x0F) || le32(next + 8) == 0) return;
+        ebr = extended + le32(next + 8);  // relative to the extended partition
+    }
+}
+
+int ascii_lower(int c) { return (c >= 'A' && c <= 'Z') ? c + 32 : c; }
+
+bool same_name(const std::string& a, const std::string& b) {
+    if (a.size() != b.size()) return false;
+    for (std::size_t i = 0; i < a.size(); ++i) {
+        if (ascii_lower(static_cast<unsigned char>(a[i])) != ascii_lower(static_cast<unsigned char>(b[i]))) return false;
+    }
+    return true;
+}
+
+// How well a volume's top folder matches `wanted`: the first name counts
+// most. Leading slashes and anything past the first folder are ignored.
+std::size_t score_volume(const ImageVolume& volume, const std::vector<std::string>& wanted) {
+    std::vector<VolumeEntry> top;
+    std::string e;
+    if (!volume.list("/", top, e)) return 0;
+    std::size_t score = 0;
+    for (std::size_t i = 0; i < wanted.size(); ++i) {
+        std::string name = wanted[i];
+        while (!name.empty() && name[0] == '/') name.erase(0, 1);
+        name = name.substr(0, name.find('/'));
+        if (name.empty()) continue;
+        for (const VolumeEntry& entry : top) {
+            if (entry.is_directory && same_name(entry.name, name)) {
+                score += wanted.size() - i;
+                break;
+            }
+        }
+    }
+    return score;
+}
+
 // The partitions a GPT lists, in table order.
 void gpt_partitions(const BlockReader& reader, std::vector<DrivePartition>& out) {
     std::uint8_t header[512];
@@ -114,6 +160,7 @@ std::vector<DrivePartition> drive_partitions(const BlockReader& reader, const st
         const std::uint8_t type = pe[4];
         const std::uint32_t lba = le32(pe + 8);
         if (type == 0xEE) protective = true;
+        if ((type == 0x05 || type == 0x0F) && lba != 0) logical_partitions(reader, lba, out);
         if (type == 0 || type == 0xEE || type == 0x05 || type == 0x0F || lba == 0) continue;
         out.push_back({lba, le32(pe + 12)});
     }
@@ -121,7 +168,17 @@ std::vector<DrivePartition> drive_partitions(const BlockReader& reader, const st
     return out;
 }
 
+const std::vector<std::string>& default_wanted_folders() {
+    static const std::vector<std::string> names = {"wbfs", "games", "riivolution"};
+    return names;
+}
+
 bool mount_image_volume(BlockReader reader, std::unique_ptr<ImageVolume>& out, std::string& error) {
+    return mount_image_volume(std::move(reader), out, error, default_wanted_folders());
+}
+
+bool mount_image_volume(BlockReader reader, std::unique_ptr<ImageVolume>& out, std::string& error,
+                        const std::vector<std::string>& wanted) {
     out.reset();
     if (!reader) {
         error = "no block reader";
@@ -143,12 +200,23 @@ bool mount_image_volume(BlockReader reader, std::unique_ptr<ImageVolume>& out, s
         error = "no FAT32 or NTFS volume (" + tried + ")";
         return false;
     }
+    // Every partition that mounts is scored; one volume is kept at a time.
+    std::size_t best_score = 0;
     for (const DrivePartition& p : drive_partitions(reader, mbr)) {
-        if (mount_candidate(reader, p.lba, out, e)) {
-            error.clear();
-            return true;
+        std::unique_ptr<ImageVolume> candidate;
+        if (!mount_candidate(reader, p.lba, candidate, e)) {
+            tried += "; " + e;
+            continue;
         }
-        tried += "; " + e;
+        const std::size_t score = score_volume(*candidate, wanted);
+        if (!out || score > best_score) {
+            out = std::move(candidate);
+            best_score = score;
+        }
+    }
+    if (out) {
+        error.clear();
+        return true;
     }
     error = "no FAT32 or NTFS partition found (" + tried + ")";
     return false;

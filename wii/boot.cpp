@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 RiftWii contributors
+// SPDX-FileCopyrightText: 2014 Alex Chadwick (Brainslug) <https://github.com/Chadderz121/brainslug-wii>
+// SPDX-FileCopyrightText: 2020 Florian Bach (Brainslug)
+// SPDX-FileCopyrightText: USB Loader GX contributors <https://github.com/wiidev/usbloadergx>
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "boot.hpp"
 #include "progress.hpp"
@@ -32,6 +36,7 @@
 #include "riftwii/mempatch.hpp"
 #include "padhook.hpp"
 #include "resident.hpp"
+#include "shothook.hpp"
 #include "sdfile.hpp"
 #include "sdio.hpp"
 #include "umsdev.hpp"
@@ -41,6 +46,10 @@
 #include "riftwii/cardlog.hpp"
 #include "riftwii/codehook.hpp"
 #include "riftwii/gamelang.hpp"
+#include "riftwii/playhistory.hpp"
+#include "riftwii/returnto.hpp"
+#include "channel.hpp"
+#include "loadersettings.hpp"
 #include "riftwii/symsearch.hpp"
 
 namespace riftwii::wii {
@@ -681,6 +690,9 @@ bool dump_metadata(const DiscProbe& probe, const OpenedPartition& partition, con
     return true;
 }
 
+// Return to RiftWii, below with the play log.
+void apply_return_to(const std::vector<MemoryRegion>& loaded);
+
 namespace {
 
 // The part of the boot that runs after the SD card and the log are gone.
@@ -1040,7 +1052,7 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         gc_adapter = forced;
     }
     DolHeader dol;
-    if (options.install_resident || gc_adapter) {
+    if (options.install_resident || gc_adapter || g_extras.screenshots) {
         if (!options.main_dol.empty()) {
             std::memcpy(dol_bytes, options.main_dol.data(), sizeof(dol_bytes));  // the executable that ran
         } else if (!data.read(layout.data_header.dol_offset, dol_bytes, sizeof(dol_bytes))) {
@@ -1153,6 +1165,29 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
             logf("GameCube adapter: off: %s\n", why.c_str());
         }
     }
+    // In-game screenshots: below the adapter, the runtime, or alone.
+    ShotHook shot;
+    if (g_extras.screenshots) {
+        std::string why;
+        const std::uint32_t arena1_hi = pad.active                 ? pad.new_arena1_hi
+                                        : options.install_resident ? resident.new_arena1_hi
+                                                                   : game_arena1_hi();
+        const std::uint32_t arena2_lo = pad.active                 ? pad.new_arena2_lo
+                                        : options.install_resident ? resident.new_arena2_lo
+                                                                   : read32(0x80003124);
+        ShotIpc known;
+        if (options.install_resident) {
+            known.open_async = resident.originals[RT_IPC_ASYNC(1)];
+            known.close_async = resident.originals[RT_IPC_ASYNC(2)];
+            known.write_async = resident.originals[RT_IPC_ASYNC(4)];
+            known.ioctl_async = resident.originals[RT_IPC_ASYNC(6)];
+            known.ioctlv_async = resident.ioctlv_async;
+        }
+        if (!plan_shot_hook(dol, arena1_hi, mem1_floor, arena2_lo, known, pad.read, g_extras.screenshots_demo,
+                            options.memory_patches, shot, why)) {
+            logf("Screenshots: off: %s\n", why.c_str());
+        }
+    }
     logf("Handing over\n");
 
     // Low-memory globals the SDK expects from the System Menu (wiibrew
@@ -1170,10 +1205,11 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
     store32(0x800000FC, 0x2B73A840);            // CPU clock
     // MEM1 arena end (0x34 from the apploader, 0x3110 as the System Menu
     // sets it): the FST, or the runtime's code just below it.
-    const std::uint32_t arena1_end = pad.active                 ? pad.new_arena1_hi
+    const std::uint32_t arena1_end = shot.active                ? shot.new_arena1_hi
+                                     : pad.active               ? pad.new_arena1_hi
                                      : options.install_resident ? resident.new_arena1_hi
                                                                 : load32(0x80000038);
-    if (options.install_resident || pad.active) store32(0x80000034, arena1_end);
+    if (options.install_resident || pad.active || shot.active) store32(0x80000034, arena1_end);
     store32(0x80003110, arena1_end);
     std::memcpy(reinterpret_cast<void*>(0x80003180), probe.disc_id, 4);
     store32(0x80003184, 0x80000000);            // where the game id lives
@@ -1191,7 +1227,9 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         write32(0x80003140, pretended);
         write32(0x80003188, pretended);
     }
-    if (pad.active) {
+    if (shot.active) {
+        write32(0x80003124, shot.new_arena2_lo);  // above the adapter's and the runtime's
+    } else if (pad.active) {
         // IOS's own field, like 0x3140: uncached, after the flush. The end
         // (0x3128) is never moved: the top of MEM2 stays the game's.
         write32(0x80003124, pad.new_arena2_lo);
@@ -1242,6 +1280,10 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
             exclusions.push_back(MemoryRegion{pad.code_base, pad.code_bytes});
             exclusions.push_back(MemoryRegion{pad.state_base, pad.state_bytes});
         }
+        if (shot.active) {
+            exclusions.push_back(MemoryRegion{shot.code_base, shot.code_bytes});
+            exclusions.push_back(MemoryRegion{shot.state_base, shot.state_bytes});
+        }
         if (options.install_resident) {
             exclusions.reserve(exclusions.size() + resident.hook_site_count);
             for (unsigned i = 0; i < resident.hook_site_count; ++i) {
@@ -1261,6 +1303,7 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         std::vector<MemoryRegion> keep_out;
         if (options.install_resident) keep_out.push_back(MemoryRegion{resident.code_base, resident.code_bytes});
         if (pad.active) keep_out.push_back(MemoryRegion{pad.code_base, pad.code_bytes});
+        if (shot.active) keep_out.push_back(MemoryRegion{shot.code_base, shot.code_bytes});
         if (!install_cheats(loaded, options.memory_patches, keep_out, why)) logf("Codes are off: %s\n", why.c_str());
         else codes_first = !g_extras.code_builds.empty();
     }
@@ -1268,7 +1311,11 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         std::string why;
         if (!install_pad_hook(pad, why)) logf("GameCube adapter: off: %s\n", why.c_str());
     }
-    // Last, as USB Loader GX does: Wiimmfi's Mario Kart Wii patch goes
+    if (shot.active) {
+        std::string why;
+        if (!install_shot_hook(shot, why)) logf("Screenshots: off: %s\n", why.c_str());
+    }
+    // Last, in gamepatches.c's order: Wiimmfi's Mario Kart Wii patch goes
     // below everything else in the MEM1 arena. Packs bring their own online
     // setup (and may have replaced the code these patches expect).
     if (g_extras.server != WfcServer::Off) {
@@ -1277,6 +1324,7 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         if (packs) logf("WFC: not patched; packs are on\n");
         else ApplyWfc(loaded, g_extras.server, g_extras.wfc_domain, g_extras.game_id, probe.header.version);
     }
+    apply_return_to(loaded);
     settime(secs_to_ticks(static_cast<u64>(std::time(nullptr)) - kWiiEpochOffset));
 
     release_card_and_log();
@@ -1431,6 +1479,116 @@ bool is_wii_u() {
     return known == 1;
 }
 
+// Return to RiftWii (Settings): a game's HOME Menu "Wii Menu" starts the
+// RiftWii channel, which starts RiftWii. Two ways, both tried: d2x's own
+// "return to" (ES ioctl 0xA1, as PatchNewReturnTo asks it) for a game under
+// d2x, and the game's __OSLaunchMenu patched to load the channel's title
+// (src/returnto.cpp) for one under any IOS.
+void apply_return_to(const std::vector<MemoryRegion>& loaded) {
+    if (g_extras.return_to_menu) return;
+    if (g_extras.return_to == 0 && Settings().return_to != "riftwii") return;
+    const u64 title = g_extras.return_to != 0 ? g_extras.return_to : ChannelTitle();
+    if (title == 0) {
+        logf("Return to RiftWii: the RiftWii channel is not installed; the Wii Menu stays\n");
+        return;
+    }
+    if ((title >> 32) != 0x00010001) {
+        logf("Return to %08x-%08x: only 00010001 titles can be patched in; the Wii Menu stays\n",
+             static_cast<u32>(title >> 32), static_cast<u32>(title));
+        return;
+    }
+    std::vector<CodeSpan> spans;
+    for (const MemoryRegion& r : loaded) spans.push_back(CodeSpan{reinterpret_cast<std::uint8_t*>(r.address), r.length, r.address});
+    const ReturnToReport report = patch_return_to(spans, static_cast<std::uint32_t>(title));
+    if (report.patched) {
+        for (const MemoryRegion& r : loaded) {
+            DCFlushRange(reinterpret_cast<void*>(r.address), r.length);
+            ICInvalidateRange(reinterpret_cast<void*>(r.address), r.length);
+        }
+    }
+    alignas(32) static u64 target;
+    target = title;
+    s32 d2x = -1;
+    const s32 es = IOS_Open("/dev/es", 0);
+    if (es >= 0) {
+        alignas(32) static ioctlv vector[1];
+        vector[0].data = &target;
+        vector[0].len = sizeof target;
+        d2x = IOS_Ioctlv(es, 0xA1, 1, 0, vector);
+        IOS_Close(es);
+    }
+    logf("Return to %08x-%08x: game %s; d2x %s\n", static_cast<u32>(title >> 32), static_cast<u32>(title),
+         report.describe().c_str(), d2x >= 0 ? "set" : "not available");
+}
+
+// IOS's file system keeps the Wii Menu's files to the Wii Menu. With
+// AHBPROT off (the Homebrew Channel starts apps that way) the PPC can
+// write IOS's memory in MEM2, so the permission check can be opened for
+// the rest of this IOS's life: in its Thumb code, "cmp r3, r1; beq" before
+// "movs r5, #0x66" becomes an unconditional branch past the refusal. IOS's
+// memory is written only there, and only after IOS refused. An IOS
+// reload (the game's) brings the check back.
+bool open_nand_permissions() {
+    if (read32(0x0D800064) != 0xFFFFFFFF) {
+        logf("Message Board: no AHBPROT access, IOS%d left as it is\n", IOS_GetVersion());
+        return false;
+    }
+    static const u8 kCheck[] = {0x42, 0x8B, 0xD0, 0x01, 0x25, 0x66};
+    const u16 protection = read16(0x0D8B420A);
+    write16(0x0D8B420A, 2);  // MEM2 protection off while IOS's code is written
+    int patched = 0;
+    // IOS lives at the top of MEM2; read and written uncached.
+    for (u32 at = 0xD3400000; at + sizeof kCheck <= 0xD4000000; at += 2) {
+        volatile u8* p = reinterpret_cast<volatile u8*>(at);
+        bool same = true;
+        for (std::size_t i = 0; same && i < sizeof kCheck; ++i) same = p[i] == kCheck[i];
+        if (!same) continue;
+        *reinterpret_cast<volatile u16*>(at + 2) = 0xE001;  // beq +2 -> b +2
+        ++patched;
+    }
+    write16(0x0D8B420A, protection);
+    logf("Message Board: IOS%d's NAND permission check %s\n", IOS_GetVersion(),
+         patched ? "opened" : "not found");
+    return patched != 0;
+}
+
+// The Wii Menu's play log, so the Message Board shows the game and how
+// long it was played, as it does for a disc started from the Wii Menu.
+// Written under the IOS running now (the game's may lack the patch); a
+// failure only costs the entry. message_board = off in settings.txt skips
+// it.
+s32 write_play_file(const u8* buffer, u32 bytes) {
+    alignas(32) static const char kPath[] = "/title/00000001/00000002/data/play_rec.dat";
+    s32 fd = ISFS_Open(kPath, ISFS_OPEN_WRITE);
+    if (fd == -106) {  // not there yet
+        const s32 made = ISFS_CreateFile(kPath, 0, 3, 3, 3);
+        fd = made < 0 ? made : ISFS_Open(kPath, ISFS_OPEN_WRITE);
+    }
+    if (fd < 0) return fd;
+    const s32 r = ISFS_Write(fd, buffer, bytes);
+    ISFS_Close(fd);
+    return r;
+}
+
+void write_play_log(const DiscProbe& probe) {
+    const auto off = Settings().other.find("message_board");
+    if (off != Settings().other.end() && off->second == "off") return;
+    const std::string name = GameDisplayName(probe.header.game_id,
+                                             probe.header.title.empty() ? probe.header.game_id : probe.header.title);
+    const u64 ticks = secs_to_ticks(static_cast<u64>(std::time(nullptr)) - kWiiEpochOffset);
+    const std::vector<std::uint8_t> record = play_log_record(name, probe.header.game_id, ticks);
+    alignas(32) static u8 buffer[kPlayLogBytes];
+    std::memcpy(buffer, record.data(), sizeof buffer);
+    s32 r = ISFS_Initialize();
+    if (r >= 0) r = write_play_file(buffer, sizeof buffer);
+    if (r == -102 && open_nand_permissions()) r = write_play_file(buffer, sizeof buffer);
+    if (r == static_cast<s32>(sizeof buffer)) {
+        logf("Message Board: play log written (%s)\n", name.c_str());
+    } else {
+        logf("Message Board: play log not written (error %d under IOS%d)\n", r, IOS_GetVersion());
+    }
+}
+
 bool boot_game(const DiscProbe& probe, const BootOptions& options, std::string& error) {
     const std::uint32_t required = probe.tmd.required_ios();
     if (required == 0) {
@@ -1438,6 +1596,7 @@ bool boot_game(const DiscProbe& probe, const BootOptions& options, std::string& 
         return false;
     }
     logf("Booting %s with IOS%u\n", probe.header.game_id.c_str(), required);
+    write_play_log(probe);
     BootOptions effective = options;
     const int running_ios = IOS_GetVersion();
     if (g_extras.gc_adapter != GcAdapterMode::Off && di::has_partition_resolver()) {

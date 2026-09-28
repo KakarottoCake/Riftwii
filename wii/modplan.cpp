@@ -47,21 +47,37 @@ private:
     std::uint64_t size_;
 };
 
-// An SD (or USB) file as a ByteSource: read raw through the sectors its
-// lookup found, the same ones the redirect table will point at.
+// An SD file as a ByteSource: read raw through the sectors its lookup
+// found, the same ones the redirect table will point at.
 class SdFileSource final : public ByteSource {
 public:
-    SdFileSource(const Fat32File& file, const Fat32Volume* usb) : file_(file), usb_(usb) {}
+    explicit SdFileSource(const Fat32File& file) : file_(file) {}
     std::uint64_t size() const override { return file_.entry.size; }
     bool read(std::uint64_t offset, std::uint8_t* destination, std::size_t length) const override {
-        if (usb_) return usb_->read(file_, offset, destination, length);
         return read_sd_file(file_, offset, destination, length);
     }
 
 private:
     const Fat32File& file_;  // owned by the provider's map, which outlives the sources
-    const Fat32Volume* usb_;  // the USB drive's volume, or null for the card
 };
+
+// A file on the USB drive (FAT32 or NTFS) as a ByteSource, read through
+// d2x the same way.
+class UsbFileSource final : public ByteSource {
+public:
+    UsbFileSource(const VolumeFile& file, const ImageVolume& volume) : file_(file), volume_(volume) {}
+    std::uint64_t size() const override { return file_.entry.size; }
+    bool read(std::uint64_t offset, std::uint8_t* destination, std::size_t length) const override {
+        return volume_.read(file_, offset, destination, length);
+    }
+
+private:
+    const VolumeFile& file_;  // owned by the provider's map, which outlives the sources
+    const ImageVolume& volume_;
+};
+
+// The volumes' own "not there" errors (fat32.cpp, ntfs.cpp).
+bool is_missing(const std::string& error) { return error.find("no such ") != std::string::npos; }
 
 // A pack on the USB drive names its files with this in front
 // ("usb:/riivolution/..."); every other external is on the SD card.
@@ -111,16 +127,36 @@ public:
         std::string abs = usb ? sd_path.substr(4) : sd_path;
         if (abs.empty() || abs[0] != '/') abs = "/" + abs;
         const std::string key = (usb ? "usb:" : "sd:") + abs;
-        const Fat32Volume* volume = nullptr;
-        if (usb && !ums::Volume(volume, error)) {
-            error = "external file '" + sd_path + "': " + error;
-            return OpenStatus::IoError;
+        if (usb) {
+            const ImageVolume* volume = nullptr;
+            if (!ums::Volume(volume, error)) {
+                error = "external file '" + sd_path + "': " + error;
+                return OpenStatus::IoError;
+            }
+            auto found = usb_files_.find(key);
+            if (found == usb_files_.end()) {
+                VolumeFile file;
+                if (!volume->lookup(abs, file, error)) {
+                    const OpenStatus status = is_missing(error) ? OpenStatus::NotFound : OpenStatus::IoError;
+                    error = "external file '" + sd_path + "' " + to_string(status) + ": " + error;
+                    return status;
+                }
+                if (file.entry.is_directory) {
+                    error = "'" + key + "' is a directory";
+                    return OpenStatus::Invalid;
+                }
+                found = usb_files_.emplace(key, std::move(file)).first;
+            }
+            auto source = std::make_unique<UsbFileSource>(found->second, *volume);
+            sources_[source.get()] = Placed{&found->second.fragments, true, &found->second.inline_bytes};
+            out = std::move(source);
+            return OpenStatus::Ok;
         }
         auto found = files_.find(key);
         if (found == files_.end()) {
             Fat32File file;
             bool missing = false;
-            const bool ok = usb ? volume->lookup(abs, file, missing, error) : resolve_sd_file(key, file, missing, error);
+            const bool ok = resolve_sd_file(key, file, missing, error);
             if (ok && file.entry.is_directory) {
                 error = "'" + key + "' is a directory";
                 return OpenStatus::Invalid;
@@ -132,8 +168,8 @@ public:
             }
             found = files_.emplace(key, std::move(file)).first;
         }
-        auto source = std::make_unique<SdFileSource>(found->second, volume);
-        sources_[source.get()] = Placed{&found->second, usb};
+        auto source = std::make_unique<SdFileSource>(found->second);
+        sources_[source.get()] = Placed{&found->second.fragments, false, nullptr};
         out = std::move(source);
         return OpenStatus::Ok;
     }
@@ -142,13 +178,24 @@ public:
         const bool usb = OnUsb(sd_dir);
         std::string abs = usb ? sd_dir.substr(4) : sd_dir;
         if (abs.empty() || abs[0] != '/') abs = "/" + abs;
+        out.clear();
+        if (usb) {
+            const ImageVolume* volume = nullptr;
+            if (!ums::Volume(volume, error)) return OpenStatus::IoError;
+            std::vector<VolumeEntry> listed;
+            if (!volume->list(abs, listed, error)) return is_missing(error) ? OpenStatus::NotFound : OpenStatus::IoError;
+            out.reserve(listed.size());
+            for (const VolumeEntry& e : listed) {
+                ExternalEntry x;
+                x.name = e.name;
+                x.is_directory = e.is_directory;
+                out.push_back(std::move(x));
+            }
+            return OpenStatus::Ok;
+        }
         std::vector<Fat32Entry> entries;
         bool missing = false;
-        if (usb) {
-            const Fat32Volume* volume = nullptr;
-            if (!ums::Volume(volume, error)) return OpenStatus::IoError;
-            if (!volume->list(abs, entries, missing, error)) return missing ? OpenStatus::NotFound : OpenStatus::IoError;
-        } else if (!list_sd_directory("sd:" + abs, entries, missing, error)) {
+        if (!list_sd_directory("sd:" + abs, entries, missing, error)) {
             return missing ? OpenStatus::NotFound : OpenStatus::IoError;
         }
         out.clear();
@@ -163,14 +210,17 @@ public:
     }
 
     // The sectors of an external source, from its lookup, and whether
-    // they are the USB drive's.
-    bool fragments_of(const ByteSource* source, const std::vector<Fragment>*& out, bool& usb, std::string& error) {
+    // they are the USB drive's; or its bytes, for a small NTFS file kept
+    // in its MFT record (`in_record` not empty).
+    bool fragments_of(const ByteSource* source, const std::vector<Fragment>*& out,
+                      const std::vector<std::uint8_t>*& in_record, bool& usb, std::string& error) {
         const auto found = sources_.find(source);
         if (found == sources_.end()) {
             error = "placer: unknown external source";
             return false;
         }
-        out = &found->second.file->fragments;
+        out = found->second.fragments;
+        in_record = found->second.in_record;
         usb = found->second.usb;
         return true;
     }
@@ -180,10 +230,12 @@ private:
     std::uint64_t dol_offset_ = 0;
     std::uint64_t dol_size_ = 0;
     struct Placed {
-        const Fat32File* file = nullptr;
+        const std::vector<Fragment>* fragments = nullptr;
         bool usb = false;
+        const std::vector<std::uint8_t>* in_record = nullptr;
     };
     std::map<std::string, Fat32File> files_;  // node-based: the sources keep references
+    std::map<std::string, VolumeFile> usb_files_;
     std::map<const ByteSource*, Placed> sources_;
 };
 
@@ -364,6 +416,7 @@ static bool gather_package(const PackageSelection& selection, const DiscProbe& p
     // the nearest folder that exists holds, so a misplaced or incomplete
     // copy shows in the log. A few distinct folders at most.
     std::set<std::string> hinted;
+    std::string first_missing;  // the first folder or file the card lacks
     for (std::size_t i = expand_notes_from; i < mod.notes.size() && hinted.size() < 4; ++i) {
         const std::string& note = mod.notes[i];
         if (note.find("not on the card") == std::string::npos) continue;
@@ -377,13 +430,18 @@ static bool gather_package(const PackageSelection& selection, const DiscProbe& p
             const std::size_t end = note.find('\'', quote + 10);
             if (end != std::string::npos) missing = note.substr(quote + 10, end - quote - 10);
         }
+        if (first_missing.empty()) first_missing = missing;
         const std::string hint = missing.empty() ? std::string() : nearest_on_card(missing);
         if (!hint.empty() && hinted.insert(hint).second) mod.notes.push_back(hint);
     }
 
     // Memory patches: a valuefile is read now, while the card is mounted.
-    // One the card lacks is skipped with a warning, as Dolphin's Riivolution
-    // support does; an unreadable one still stops the launch.
+    // One the card lacks is skipped with a warning, as Dolphin does, unless
+    // the pack has no files at all on the card (below): then it is usually
+    // the pack's own code, which its other memory patches jump into, so the
+    // game would start to a black screen (Neo Mario Galaxy copied into the
+    // wrong folder did). An unreadable one stops the launch.
+    std::string missing_value;
     for (MemoryPatch m : plan.memory) {
         if (!m.valuefile.empty()) {
             std::unique_ptr<ByteSource> source;
@@ -394,6 +452,7 @@ static bool gather_package(const PackageSelection& selection, const DiscProbe& p
                 const std::string hint = nearest_on_card(m.valuefile);
                 if (!hint.empty()) warning += " (" + hint + ")";
                 mod.warnings.push_back(warning);
+                if (missing_value.empty()) missing_value = m.valuefile;
                 continue;
             }
             if (opened != OpenStatus::Ok || !source) {
@@ -418,6 +477,24 @@ static bool gather_package(const PackageSelection& selection, const DiscProbe& p
         mod.memory.push_back(std::move(m));
     }
     if (!plan.memory.empty()) mod.notes.push_back(std::to_string(plan.memory.size()) + " memory patch(es)");
+    // A pack whose files are not where its XML says (its folder copied one
+    // level too deep, or not at all) is not started half applied.
+    if (expanded.empty() && (!missing_value.empty() || !first_missing.empty())) {
+        const std::string& what = !missing_value.empty() ? missing_value : first_missing;
+        const bool usb = OnUsb(what);
+        std::string path = usb ? what.substr(4) : what;
+        if (path.empty() || path[0] != '/') path = "/" + path;
+        const std::string device = usb ? "usb:" : "sd:";
+        const std::string top = device + path.substr(0, path.find('/', 1));
+        const std::string xml_name = xml_sd_path.substr(xml_sd_path.find_last_of('/') + 1);
+        error = "This won't work: " + xml_name + " needs its files in " + top + ", and " +
+                (missing_value.empty() ? std::string("none of them are there") : device + path + " is missing") +
+                ". Copy the pack's whole folder to the top of the " + (usb ? "USB drive" : "SD card") +
+                ", next to the riivolution folder.";
+        const std::string hint = nearest_on_card(what);
+        if (!hint.empty()) error += " (" + hint + ")";
+        return false;
+    }
     if (expanded.empty() && plan.memory.empty() && plan.savegames.empty() && plan.shifts.empty()) {
         std::vector<std::string> folder_notes(mod.notes.begin() + expand_notes_from, mod.notes.end());
         error = describe_empty_plan(xml_sd_path, probe.header.game_id, plan, folder_notes);
@@ -636,11 +713,30 @@ bool compile_packages(const std::vector<PackageSelection>& packages, const DiscP
     // 4. External bytes to SD sectors, and the table.
     logf("Mods: %u disc file(s) patched; mapping them to the card\n", static_cast<unsigned>(layouts.size()));
     ProgressStage("Finding the files on the SD card", 56);
+    // A small NTFS file has no sectors to point at: its bytes go into the
+    // game's memory instead. Placed as MEM runs whose source is an offset
+    // into `in_memory` until they are split off below.
+    std::vector<std::uint8_t> in_memory;
     const ExternalPlacer placer = [&](const ByteSource* external, std::uint64_t source_offset, std::uint64_t length,
                                       std::vector<PlacedRun>& runs, std::string& e) {
         const std::vector<Fragment>* fragments = nullptr;
+        const std::vector<std::uint8_t>* in_record = nullptr;
         bool usb = false;
-        if (!provider.fragments_of(external, fragments, usb, e)) return false;
+        if (!provider.fragments_of(external, fragments, in_record, usb, e)) return false;
+        if (in_record != nullptr && !in_record->empty()) {
+            if (source_offset > in_record->size() || length > in_record->size() - source_offset) {
+                e = "range extends past the file";
+                return false;
+            }
+            PlacedRun r;
+            r.kind = RT_KIND_MEM;
+            r.length = length;
+            r.source = in_memory.size();
+            in_memory.insert(in_memory.end(), in_record->begin() + source_offset,
+                             in_record->begin() + source_offset + length);
+            runs.assign(1, r);
+            return true;
+        }
         return place_on_fragments(*fragments, source_offset, length, runs, e, usb ? RT_KIND_USB : RT_KIND_SD);
     };
     std::vector<std::uint8_t> table;
@@ -654,7 +750,19 @@ bool compile_packages(const std::vector<PackageSelection>& packages, const DiscP
         error = "compiled table failed validation: " + std::to_string(status);
         return false;
     }
-    mod.entries.assign(rt_entries(header), rt_entries(header) + header->entry_count);
+    mod.entries.clear();
+    for (const rt_entry* e = rt_entries(header); e != rt_entries(header) + header->entry_count; ++e) {
+        if (e->kind != RT_KIND_MEM) {
+            mod.entries.push_back(*e);
+            continue;
+        }
+        MemReplacement m;
+        m.virtual_offset = e->vstart;
+        m.bytes.assign(in_memory.begin() + e->source, in_memory.begin() + e->source + e->length);
+        mod.mem.push_back(std::move(m));
+    }
+    if (!in_memory.empty())
+        mod.notes.push_back(std::to_string(in_memory.size()) + " bytes of small NTFS files go into memory");
     apply_shifts(shifts, fst, mod);
     out = std::move(mod);
     error.clear();

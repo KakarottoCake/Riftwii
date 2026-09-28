@@ -1,3 +1,6 @@
+/* SPDX-FileCopyrightText: 2026 RiftWii contributors */
+/* SPDX-FileCopyrightText: 2017 Alex Chadwick (wup-028-bslug) <https://github.com/Chadderz121/wup-028-bslug> */
+/* SPDX-FileCopyrightText: FIX94 and the Nintendont contributors, used with permission <https://github.com/FIX94/Nintendont> */
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The GameCube adapter's in-game blob: PADRead and PADControlMotor
  * hooked, the WUP-028 driver (runtime/rtgcad.c) behind them. Its own

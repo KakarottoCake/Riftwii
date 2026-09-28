@@ -251,6 +251,8 @@ void GuiGameGrid::DrawNameTile(int i, bool on, int alpha) {
     s.lines[1]->SetPosition(static_cast<int>(x + kTextLeft + dx), static_cast<int>(y + 27 + dy));
     s.lines[0]->Draw();
     s.lines[1]->Draw();
+    if (item.badge == "DISC")
+        skin::Draw(skin::iconDisc, x + tileW - 46 - dx, y + 8 + dy, alpha, s.scale);
     // Source badge and MODS tag along the bottom line.
     const int baseY = static_cast<int>(y + tileH - 26 + grow * (tileH / 2.0f - 26));
     s.id->SetPosition(static_cast<int>(x + kTextLeft + dx), baseY);
@@ -289,6 +291,8 @@ void GuiGameGrid::DrawCoverTile(int i, bool on, int alpha) {
         }
         s.id->SetPosition(at_x(kCoverTextLeft), at_y(tileH - 40));
         s.id->Draw();
+        // The disc drive has no box art: a disc instead.
+        if (item.badge == "DISC") skin::Draw(skin::iconDisc, at_x(20), at_y(44), alpha, s.scale);
         Menu_DrawRectangle(at_x(8), at_y(tileH - 6), (tileW - 16) * s.scale, 3, skin::WithAlpha(item.hue, alpha), 1);
     }
     // Source badge and MODS tag along the bottom, over the cover.

@@ -337,9 +337,10 @@ bool BootCompiled(const CompiledMod& mod, std::string& error, const LaunchSource
     BootOptions options;
     options.allow_ios_fallback = true;
     options.preserve_current_ios = source.kind != LaunchSource::Kind::Disc || MenuCiosSlot() != 0;
-    options.install_resident = !mod.entries.empty() || !mod.relocations.empty() || !dir.empty();
+    options.install_resident = !mod.entries.empty() || !mod.mem.empty() || !mod.relocations.empty() || !dir.empty();
     options.resident_gecko = false;
     options.table_entries = mod.entries;
+    options.replacements = mod.mem;
     options.relocations = mod.relocations;
     options.memory_patches = mod.memory;
     options.main_dol = mod.main_dol;
@@ -366,8 +367,8 @@ bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error, 
     const std::string dir = xml_saves ? mod.savegame_dir : saves.dir;
     BootOptions options; options.allow_ios_fallback=true;
     options.preserve_current_ios = source.kind != LaunchSource::Kind::Disc || MenuCiosSlot() != 0 || s.on_cios;
-    options.install_resident=!mod.entries.empty() || !mod.relocations.empty() || !dir.empty();
-    options.table_entries=mod.entries; options.relocations=mod.relocations; options.memory_patches=mod.memory;
+    options.install_resident=!mod.entries.empty() || !mod.mem.empty() || !mod.relocations.empty() || !dir.empty();
+    options.table_entries=mod.entries; options.replacements=mod.mem; options.relocations=mod.relocations; options.memory_patches=mod.memory;
     options.main_dol=mod.main_dol;
     options.savegame_dir=dir; options.savegame_clone=xml_saves ? mod.savegame_clone : saves.clone;
     if (!xml_saves && !saves.note.empty()) logf("Saves: %s\n", saves.note.c_str());
@@ -419,7 +420,8 @@ void RunAutorun() {
              static_cast<unsigned>(packages.size()), static_cast<unsigned>(mod.entries.size()),
              static_cast<unsigned>(mod.relocations.size()), static_cast<unsigned>(mod.memory.size()),
              mod.savegame_dir.empty() ? "" : ", savegame in ", mod.savegame_dir.c_str());
-        if (!mod.entries.empty() || !mod.relocations.empty() || !mod.savegame_dir.empty()) install_resident = true;
+        if (!mod.entries.empty() || !mod.mem.empty() || !mod.relocations.empty() || !mod.savegame_dir.empty())
+            install_resident = true;
         mods = std::move(mod);
         return true;
     };
@@ -661,6 +663,7 @@ void RunAutorun() {
             options.install_resident = install_resident;
             options.resident_gecko = install_resident;
             options.replacements = replacements;
+            options.replacements.insert(options.replacements.end(), mods.mem.begin(), mods.mem.end());
             options.virtual_files = virtual_files;
             options.sd_replacements = sd_replacements;
             options.verify_sd = true;

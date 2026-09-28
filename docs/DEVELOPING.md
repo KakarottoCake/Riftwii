@@ -101,15 +101,31 @@ Gecko lines and Dolphin's DI and SD logs), savegames, and heap placement
    `release_date`), then `make -f Makefile.wii clean` and build.
 2. Run the host tests and the Dolphin checks above.
 3. Pack the zip: `sd-card/apps/riftwii/` with `boot.dol` (the new
-   `riftwii.dol`), `meta.xml` and `icon.png`; `sd-card/apps/riftwii_channel/`
+   `riftwii.dol`), `meta.xml`, `icon.png` and `music.ogg` (all from `hbc/`);
+   `sd-card/apps/riftwii_channel/`
    with `boot.dol` (`build-channel/installer.dol`, from
    `make -f Makefile.channel`) and `channel/installer/hbc/meta.xml` and
    `icon.png`; `sd-card/riivolution/`,
    `sd-card/wbfs/`, `sd-card/games/`, `usb-drive/wbfs/` and
    `usb-drive/games/`, each with a short text file saying what goes
    there; a `README.txt` for players at the top.
+   The GPL goes with every copy: also at the top, `LICENSE.txt` (the
+   repository's `LICENSE`), `NOTICE.md`, and `SOURCE.txt` naming the
+   tag and commit the zip was built from and the repository URL. The
+   README's last section says the same in a few lines and lists the
+   credits. If `LICENSE` changed, `python tools/make_licence.py` first
+   (`--check` tells), so Settings > Credits and licence shows the same
+   text.
 4. `gh release create vX.Y.Z-beta --prerelease` with the zip and
-   `riftwii.dol`, the notes giving what changed and the DOL's SHA-256.
+   `riftwii.dol`, the notes giving what changed and the DOL's SHA-256,
+   and ending with a "Licence and source" line: GPL-3.0-or-later, the
+   source at the tag, the credits in `NOTICE.md`.
+5. When a third-party piece is added: a row in `NOTICE.md` (what, where
+   from with the commit, licence), `SPDX-FileCopyrightText` lines (one per
+   holder, above the licence line) in each file that follows it, and a
+   line in the README's Credits and in
+   `wii/credits.cpp`. Binaries built from someone else's source ship
+   with that source, as `vendor-gecko/` does.
 
 ## Ground rules
 

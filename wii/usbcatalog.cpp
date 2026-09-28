@@ -258,7 +258,7 @@ bool ensure_usb(std::string& error) {
         g_raw_mounted = true;
         return true;
     }
-    if (!mount_image_volume(&usb_read, g_usb_volume, error)) {
+    if (!mount_image_volume(&usb_read, g_usb_volume, error, usb_wanted_folders())) {
         // A drive formatted as WBFS by a USB loader's tools (libfat cannot
         // mount it either, so nothing can write to it).
         WbfsPartition wbfs;
@@ -294,6 +294,7 @@ bool add_piece(const ImageVolume& volume, const std::string& prefix, const std::
     UsbImagePiece p; p.path=path;
     if (!volume.lookup(path.substr(prefix.size() - 1), p.file, error)) return false;
     if (p.file.entry.is_directory) { error = "'" + path + "' is a directory"; return false; }
+    if (!p.file.inline_bytes.empty()) { error = "'" + path + "' is too small to be a disc image"; return false; }
     // Headers are read through the same fragment list d2x will be given,
     // so what the catalog validates is exactly what the game will read.
     p.source = std::make_shared<VolumeFileSource>(volume, p.file);
@@ -509,10 +510,12 @@ bool add_game(const ImageVolume& volume, const std::string& prefix, ImageDevice 
 // What a file in a catalog folder is read as, if it is a game. USB Loader
 // GX and other loaders keep .iso images in wbfs too ("Title [ID]/ID.iso"),
 // so wbfs takes both.
+// `folder` is what the folder holds: Wbfs (wbfs and iso), Iso (iso and
+// rvz), or Rvz for a folder of the user's own, which may hold all three.
 bool image_format(const std::string& name, UsbImageFormat folder, UsbImageFormat& out) {
-    if (folder == UsbImageFormat::Wbfs && extension(name, ".wbfs")) { out = UsbImageFormat::Wbfs; return true; }
+    if (folder != UsbImageFormat::Iso && extension(name, ".wbfs")) { out = UsbImageFormat::Wbfs; return true; }
     if (extension(name, ".iso")) { out = UsbImageFormat::Iso; return true; }
-    if (folder == UsbImageFormat::Iso && extension(name, ".rvz")) { out = UsbImageFormat::Rvz; return true; }
+    if (folder != UsbImageFormat::Wbfs && extension(name, ".rvz")) { out = UsbImageFormat::Rvz; return true; }
     return false;
 }
 // Lists a catalog directory with the volume's own bounded walker,
@@ -563,7 +566,8 @@ void scan_dir(const ImageVolume& volume, const std::string& prefix, ImageDevice 
                 if (c.games.size() >= kMaxGames) return;
                 std::string p;
                 UsbImageFormat f;
-                if (join(path, x, p) && image_format(x, UsbImageFormat::Wbfs, f)) add_game(volume, prefix, device, p, subnames, f, c, failure);
+                const UsbImageFormat inner = fmt == UsbImageFormat::Rvz ? fmt : UsbImageFormat::Wbfs;
+                if (join(path, x, p) && image_format(x, inner, f)) add_game(volume, prefix, device, p, subnames, f, c, failure);
             }
         } else if (!e.is_directory) {
             UsbImageFormat f;
@@ -596,6 +600,18 @@ void scan_wbfs(ImageCatalog& c, std::string& failure) {
         game.format = UsbImageFormat::Wbfs;
         game.wbfs_slot = static_cast<int>(disc.slot);
         c.games.push_back(std::move(game));
+    }
+}
+
+// The folders settings.txt adds (game_folders), each with its own
+// subfolders one level down, any image kind.
+void scan_own_folders(const ImageVolume& volume, const std::string& device, ImageDevice kind, ImageCatalog& c,
+                      std::string& failure) {
+    for (const std::string& folder : game_folders_on(Settings(), device)) {
+        const std::size_t before = c.games.size();
+        scan_dir(volume, device + ":/", kind, device + ":" + folder, true, UsbImageFormat::Rvz, c, failure);
+        logf("%s scan: %s:%s (game_folders): %u game(s)\n", device_name(kind), device.c_str(), folder.c_str(),
+             static_cast<unsigned>(c.games.size() - before));
     }
 }
 
@@ -799,25 +815,7 @@ std::vector<std::string> usb_mod_folders(const std::string& game_id) {
         if (std::find(out.begin(), out.end(), where) == out.end()) out.push_back(where);
     };
     std::string error;
-    // Riivolution packs: each XML read (small ones only, a few dozen at most)
-    // to see which game it is for.
-    unsigned read = 0;
-    for (const char* folder : {"/riivolution", "/apps/riivolution"}) {
-        std::vector<VolumeEntry> entries;
-        if (!volume.list(folder, entries, error)) continue;
-        for (const VolumeEntry& e : entries) {
-            if (e.is_directory || e.name.empty() || e.name[0] == '.' || !extension(e.name, ".xml")) continue;
-            if (e.size == 0 || e.size > 256 * 1024 || ++read > 64) continue;
-            VolumeFile file;
-            if (!volume.lookup(std::string(folder) + "/" + e.name, file, error)) continue;
-            std::string text(static_cast<std::size_t>(file.entry.size), '\0');
-            if (!volume.read(file, 0, reinterpret_cast<std::uint8_t*>(&text[0]), text.size())) continue;
-            PackIndex index;
-            index.add(text);
-            if (index.has_packs(game_id)) found(folder, std::string(folder) + "/" + e.name);
-        }
-    }
-    // Code builds, found the way the SD card's are (codebuilds.cpp).
+    // Found the way the SD card's are (codebuilds.cpp).
     const std::string want = lower(game_id) + ".gct";
     std::vector<VolumeEntry> top;
     if (!volume.list("/", top, error)) return out;
@@ -835,6 +833,35 @@ std::vector<std::string> usb_mod_folders(const std::string& game_id) {
         }
     }
     return out;
+}
+
+std::vector<std::string> usb_xml_names(const std::string& folder) {
+    std::vector<std::string> out;
+    std::vector<VolumeEntry> entries;
+    std::string error;
+    if (!g_usb_volume || !g_usb_volume->list(folder, entries, error)) return out;
+    for (const VolumeEntry& e : entries) {
+        if (!e.is_directory && !e.name.empty() && e.name[0] != '.' && extension(e.name, ".xml")) out.push_back(e.name);
+    }
+    std::sort(out.begin(), out.end());
+    return out;
+}
+
+bool read_usb_text(const std::string& usb_path, std::string& out) {
+    out.clear();
+    VolumeFile file;
+    std::string error;
+    if (!g_usb_volume || usb_path.compare(0, 5, "usb:/") != 0) return false;
+    if (!g_usb_volume->lookup(usb_path.substr(4), file, error) || file.entry.is_directory ||
+        file.entry.size > (1u << 20)) {
+        return false;
+    }
+    out.assign(static_cast<std::size_t>(file.entry.size), '\0');
+    if (!out.empty() && !g_usb_volume->read(file, 0, reinterpret_cast<std::uint8_t*>(&out[0]), out.size())) {
+        out.clear();
+        return false;
+    }
+    return true;
 }
 
 std::string rvz_warning(const ImageGame& game) {
@@ -952,6 +979,7 @@ bool scan_usb_games(ImageCatalog& out, std::string& error) {
         scan_wbfs(out, failure);
     } else {
         scan_dir(*g_usb_volume, "usb:/", ImageDevice::Usb, "usb:/wbfs", true, UsbImageFormat::Wbfs, out, failure); scan_dir(*g_usb_volume, "usb:/", ImageDevice::Usb, "usb:/games", false, UsbImageFormat::Iso, out, failure);
+        scan_own_folders(*g_usb_volume, "usb", ImageDevice::Usb, out, failure);
     }
     apply_titles(out);
     const std::string empty_drive = g_usb_wbfs ? std::string("No Wii games on the WBFS drive") : std::string("No valid Wii images under usb:/wbfs or usb:/games on the ") + g_usb_volume->kind() + " drive";
@@ -968,12 +996,20 @@ bool scan_usb_games(ImageCatalog& out, std::string& error) {
     error.clear(); return true;
 }
 
+std::vector<std::string> usb_wanted_folders() {
+    std::vector<std::string> wanted = game_folders_on(Settings(), "usb");
+    const std::vector<std::string>& defaults = default_wanted_folders();
+    wanted.insert(wanted.end(), defaults.begin(), defaults.end());
+    return wanted;
+}
+
 bool scan_sd_games(ImageCatalog& out, std::string& error) {
     out = ImageCatalog{}; out.device = ImageDevice::Sd;
     logf("SD: scanning for images\n");
     if (!__io_wiisd.isInserted()) { error = "no SD card is inserted"; return false; }
     if (!mount_image_volume(&sd_read, g_sd_volume, error)) { error = "SD has no readable FAT32 or NTFS volume: " + error; return false; }
     std::string failure; scan_dir(*g_sd_volume, "sd:/", ImageDevice::Sd, "sd:/wbfs", true, UsbImageFormat::Wbfs, out, failure); scan_dir(*g_sd_volume, "sd:/", ImageDevice::Sd, "sd:/games", false, UsbImageFormat::Iso, out, failure);
+    scan_own_folders(*g_sd_volume, "sd", ImageDevice::Sd, out, failure);
     apply_titles(out);
     out.status = out.games.empty() ? (failure.empty() ? "No valid Wii images under sd:/wbfs or sd:/games" : "No valid SD images: " + failure) : "SD: " + std::to_string(out.games.size()) + " valid game(s)";
     logf("%s\n", out.status.c_str());
@@ -1169,7 +1205,7 @@ bool activate_image_game(const ImageGame& game, int cios_slot, void*& storage, s
     if (rvz && game.device == ImageDevice::Usb) {
         // The RVZ itself, through d2x's USB device from now on.
         logf("USB: d2x's /dev/usb2 for the RVZ\n");
-        if (!ums::Open(error) || !mount_image_volume(&d2x_usb_block_read, g_rvz_usb_volume, error)) {
+        if (!ums::Open(error) || !mount_image_volume(&d2x_usb_block_read, g_rvz_usb_volume, error, usb_wanted_folders())) {
             error = "USB drive after the cIOS reload: " + error;
             return post_reload_failure(log_path, error);
         }

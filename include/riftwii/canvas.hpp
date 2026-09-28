@@ -48,8 +48,15 @@ public:
     void curve(const std::vector<float>& top, float thickness, Rgba color);
 
 private:
+    // Pixels [x0, x1) x [y0, y1) where a shape's coverage is `coverage`
+    // throughout, so paint() skips working it out.
+    struct Inner {
+        int x0, x1, y0, y1;
+        float coverage;
+    };
+    static Inner inside_rounded_rect(float x, float y, float w, float h, float radius, float depth);
     template <typename Coverage>
-    void paint(float x0, float y0, float x1, float y1, Rgba color, Coverage coverage);
+    void paint(float x0, float y0, float x1, float y1, Rgba color, Coverage coverage, const Inner& inner = Inner{0, 0, 0, 0, 0.0f});
     void blend(int x, int y, Rgba color, float coverage);
 
     int width_, height_;

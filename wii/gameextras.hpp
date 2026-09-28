@@ -5,6 +5,7 @@
 
 #include "frontend.hpp"
 #include "riftwii/cheats.hpp"
+#include "riftwii/launchargs.hpp"
 #include "riftwii/playhistory.hpp"
 
 // The per-game extras the game page offers beside the mod packs: cheats
@@ -25,7 +26,9 @@ std::string BorderNote(const std::string& game_id);
 // Builds the extras for the selected game from its choices and the
 // global settings and passes them to the boot code. Needs the card
 // mounted; call it just before leaving the menu.
-void PrepareLaunchExtras(const FrontendState& state);
+// A headless launch (wii/headless.hpp) passes what the other loader
+// chose: its cheat file, custom server domain and return-to title.
+void PrepareLaunchExtras(const FrontendState& state, const HeadlessLaunch* headless = nullptr);
 // Whether the code builds turned on for the game (with its cheats) can
 // run; `error` says why not, for the game page. Needs the card mounted.
 bool CheckCodeBuilds(const FrontendState& state, std::string& error);

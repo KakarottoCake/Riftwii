@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: 2026 RiftWii contributors
+// SPDX-FileCopyrightText: USB Loader GX contributors <https://github.com/wiidev/usbloadergx>
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/videopatch.hpp"
 
@@ -48,7 +50,7 @@ void set_filter(std::uint8_t* p, Deflicker d) {
 }
 
 // The heights of the SDK's tables (libogc's video.c, the Wii SDK's PAL
-// ones as USB Loader GX lists them): efb, xfb, VI origin and VI height
+// ones as gamepatches.c lists them): efb, xfb, VI origin and VI height
 // for each kind of table, in 480- and 576-line formats.
 struct Heights {
     unsigned efb, xfb, y, h;

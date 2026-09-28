@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 RiftWii contributors
+// SPDX-FileCopyrightText: 2008 Nuke (GeckoOS for USB Gecko)
+// SPDX-FileCopyrightText: USB Loader GX contributors <https://github.com/wiidev/usbloadergx>
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/gamelang.hpp"
 

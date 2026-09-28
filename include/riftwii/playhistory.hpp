@@ -33,4 +33,16 @@ private:
     std::map<std::string, PlayRecord> games_;
 };
 
+// The Wii Menu's play log, /title/00000001/00000002/data/play_rec.dat
+// (layout as wiibrew documents it): 0x80 bytes, big-endian. A checksum
+// (the sum of the 31 words after it); at 0x04 the game's name in UTF-16
+// (40 units, the last a terminator); at 0x58 the start time and at 0x60
+// the time last seen (both `ticks`, Wii time base ticks since 2000; the
+// 64-bit fields are 8-byte aligned, as a record a game left in Dolphin's
+// NAND shows); at 0x68 the six-character game ID; zeros. The game's SDK moves "last seen" on while it runs; the Wii
+// Menu turns the record into a Message Board entry with the time played.
+constexpr std::size_t kPlayLogBytes = 0x80;
+std::vector<std::uint8_t> play_log_record(const std::string& utf8_name, const std::string& game_id,
+                                          std::uint64_t ticks);
+
 }  // namespace riftwii

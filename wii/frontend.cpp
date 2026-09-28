@@ -214,12 +214,7 @@ std::string ScanPackages(FrontendState& state) {
         identity.number = state.game_disc_number;
         disc = &identity;
     }
-    for (const PackFile& pack : found) {
-        std::ifstream input(pack.path, std::ios::binary);
-        std::stringstream text;
-        if (input) text << input.rdbuf();
-        state.model.add(pack.file, pack.path, input ? text.str() : std::string(), disc);
-    }
+    for (const PackFile& pack : found) state.model.add(pack.file, pack.path, ReadPackText(pack.path), disc);
     // Code builds (Project+ and the like) show beside the XML packs.
     for (const CodeBuildFile& b : ListCodeBuilds()) {
         state.model.add_code_build(b.key, b.folder, b.gct, b.game_id, disc);
@@ -256,16 +251,9 @@ std::string ScanPackages(FrontendState& state) {
 std::string ModPlaceProblem(const FrontendState& state, bool brief) {
     if (!state.usb_mods.empty()) {
         std::string where = state.usb_mods.front();
-        for (const std::string& f : state.usb_mods) {
-            if (f == "usb:/riivolution" || f == "usb:/apps/riivolution") {
-                where = f + tr(" and the pack's folders");
-                break;
-            }
-        }
-        if (state.usb_mods.size() > 1 && where == state.usb_mods.front())
-            where += tr(" (and {1} more)", {std::to_string(state.usb_mods.size() - 1)});
-        if (brief) return tr("Mods on the USB drive won't work. Move {1} to the SD card.", {where});
-        return tr("This won't work: mods have to be on the SD card, not the USB drive. Move {1} to the same spot on your SD card and try again. Your games can stay on USB.",
+        if (state.usb_mods.size() > 1) where += tr(" (and {1} more)", {std::to_string(state.usb_mods.size() - 1)});
+        if (brief) return tr("Code builds on the USB drive won't work. Move {1} to the SD card.", {where});
+        return tr("This won't work: code builds like Project+ have to be on the SD card, not the USB drive. Move {1} to the same spot on your SD card and try again. Your games can stay on USB.",
                   {where});
     }
     if (state.use_sd && !state.model.code_builds().empty()) {

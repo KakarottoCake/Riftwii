@@ -281,7 +281,7 @@ bool AppliedFile::build(const FilePatch& patch, ContentProvider& provider,
                     return false;
                 }
                 orig_size = opened->size();
-                if (orig_size > kMaxFileBytes) {
+                if (orig_size > kMaxPatchFileBytes) {
                     error = "disc file too large '" + patch.disc + "'";
                     return false;
                 }
@@ -310,7 +310,7 @@ bool AppliedFile::build(const FilePatch& patch, ContentProvider& provider,
             }
         }
         const std::uint64_t ext_raw = external->size();
-        if (ext_raw > kMaxFileBytes) {
+        if (ext_raw > kMaxPatchFileBytes) {
             error = "external file too large '" + patch.external + "'";
             return false;
         }
@@ -321,7 +321,7 @@ bool AppliedFile::build(const FilePatch& patch, ContentProvider& provider,
         const std::uint64_t patch_size =
             patch.length == 0 ? ext_usable : patch.length;
 
-        if (patch_size > kMaxFileBytes) {
+        if (patch_size > kMaxPatchFileBytes) {
             error = "patch range too large for '" + patch.disc + "'";
             return false;
         }
@@ -332,7 +332,7 @@ bool AppliedFile::build(const FilePatch& patch, ContentProvider& provider,
         const std::uint64_t patch_end = patch_start + patch_size;
         const std::uint64_t target =
             patch.resize ? patch_end : std::max(orig_size, patch_end);
-        if (target > kMaxFileBytes) {
+        if (target > kMaxPatchFileBytes) {
             error = "replacement too large for '" + patch.disc + "'";
             return false;
         }

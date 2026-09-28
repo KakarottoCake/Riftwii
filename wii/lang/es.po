@@ -459,6 +459,60 @@ msgstr "Probar el adaptador de GameCube"
 msgid "Test"
 msgstr "Probar"
 
+msgid "Welcome to RiftWii"
+msgstr "Te damos la bienvenida a RiftWii"
+
+msgid "RiftWii starts your Wii games with Riivolution-format mods, from the disc, a USB drive or the SD card. Your game files are never changed. This short tour shows the basics."
+msgstr "RiftWii inicia tus juegos de Wii con mods en formato Riivolution, desde el disco, una unidad USB o la tarjeta SD. Tus archivos de juego nunca se modifican. Este breve recorrido te enseña lo básico."
+
+msgid "Your games"
+msgstr "Tus juegos"
+
+msgid "Put games in the wbfs or games folder at the top of the SD card or the USB drive (WBFS, ISO or RVZ). A disc in the drive shows up too. Home lists games that have mods first: press 1, or the round button at the bottom left, to see all your games."
+msgstr "Pon los juegos en la carpeta wbfs o games de la raíz de la tarjeta SD o de la unidad USB (WBFS, ISO o RVZ). También aparece el disco que esté en la unidad. Al principio se muestran los juegos con mods: pulsa 1, o el botón redondo de abajo a la izquierda, para ver todos."
+
+msgid "Put mod packs (the XML file and the folders that come with it) in sd:/riivolution or usb:/riivolution. Pick a game, open Mods, switch a pack on and choose its options. Start (or +) plays the game with them."
+msgstr "Pon los paquetes de mods (el archivo XML y las carpetas que lo acompañan) en sd:/riivolution o usb:/riivolution. Elige un juego, abre Mods, activa un paquete y elige sus opciones. Jugar (o +) inicia el juego con ellos."
+
+msgid "Buttons"
+msgstr "Botones"
+
+msgid "Point with the Wii Remote and press A, or move with the D-pad. B goes back, 2 opens Settings and HOME opens the HOME Menu. The Classic Controller and GameCube controllers work too, with the same buttons."
+msgstr "Apunta con el mando de Wii y pulsa A, o muévete con la cruceta. B vuelve atrás, 2 abre los ajustes y HOME abre el menú HOME. El mando clásico y los mandos de GameCube también sirven, con los mismos botones."
+
+msgid "You're all set"
+msgstr "Todo listo"
+
+msgid "Settings has the video, language, online and update options. For more help, see the guide on RiftWii's GitHub page or join the Discord. Settings > Tutorial shows this tour again."
+msgstr "En los ajustes están las opciones de vídeo, idioma, juego en línea y actualizaciones. Para más ayuda, mira la guía en la página de GitHub de RiftWii o únete al Discord. Ajustes > Tutorial muestra este recorrido otra vez."
+
+msgid "Next"
+msgstr "Siguiente"
+
+msgid "Skip"
+msgstr "Omitir"
+
+msgid "Let's go"
+msgstr "¡Vamos!"
+
+msgid "Tutorial"
+msgstr "Tutorial"
+
+msgid "Show"
+msgstr "Ver"
+
+msgid "The short tour of RiftWii's basics that a new SD card starts with."
+msgstr "El breve recorrido por lo básico de RiftWii que aparece con una tarjeta SD nueva."
+
+msgid "Credits and licence"
+msgstr "Créditos y licencia"
+
+msgid "View"
+msgstr "Ver"
+
+msgid "Who RiftWii's parts come from, its licence (the GNU GPL, version 3 or later) and where its source is."
+msgstr "De quién vienen las partes de RiftWii, su licencia (la GNU GPL, versión 3 o posterior) y dónde está su código fuente."
+
 msgid "Experimental. When the adapter is plugged in as a game starts, its controllers fill the ports that have none plugged in, in games that support the GameCube controller. It needs IOS 58 or a d2x cIOS."
 msgstr "Experimental. Si el adaptador está conectado al iniciar un juego, sus mandos ocupan los puertos que no tienen ninguno conectado, en los juegos compatibles con el mando de GameCube. Necesita IOS 58 o un cIOS d2x."
 
@@ -618,17 +672,86 @@ msgstr "Personalizado (sin wfc_domain)"
 msgid "The online server the game uses in place of Nintendo's, which closed. Custom uses wfc_domain in settings.txt."
 msgstr "El servidor en línea que usa el juego en lugar del de Nintendo, que cerró. Personalizado usa wfc_domain de settings.txt."
 
-msgid " and the pack's folders"
-msgstr " y las carpetas del pack"
+msgid "Getting covers from GameTDB: {1} left"
+msgstr "Descargando portadas de GameTDB: faltan {1}"
+
+msgid "Covers could not be downloaded ({1}). Press + to try again."
+msgstr "No se pudieron descargar las portadas ({1}). Pulsa + para volver a intentarlo."
+
+msgid "Cover"
+msgstr "Portada"
+
+msgid "Download again"
+msgstr "Volver a descargar"
+
+msgid "Downloads this game's box art from GameTDB now."
+msgstr "Descarga ahora la portada de este juego desde GameTDB."
+
+msgid "Downloading the cover..."
+msgstr "Descargando la portada..."
+
+msgid "Cover downloaded."
+msgstr "Portada descargada."
+
+msgid "GameTDB has no cover for this game."
+msgstr "GameTDB no tiene portada para este juego."
+
+msgid "Could not download the cover: {1}"
+msgstr "No se pudo descargar la portada: {1}"
+
+msgid "Menu sounds"
+msgstr "Sonidos del menú"
+
+msgid "Normal"
+msgstr "Normal"
+
+msgid "Quiet"
+msgstr "Bajo"
+
+msgid "How loud the menu's clicks are. Quiet softens the tick the pointer makes moving onto something."
+msgstr "El volumen de los clics del menú. Bajo suaviza el sonido al pasar el puntero sobre algo."
+
+msgid "Wii Menu button"
+msgstr "Botón Menú de Wii"
+
+msgid "Back to RiftWii"
+msgstr "Volver a RiftWii"
+
+msgid "The Wii Menu button in a game's HOME Menu brings you back to RiftWii. It needs the RiftWii channel installed."
+msgstr "El botón Menú de Wii del menú HOME de un juego te devuelve a RiftWii. Necesita el canal de RiftWii instalado."
+
+msgid "The Wii Menu button in a game's HOME Menu can bring you back to RiftWii once the RiftWii channel is installed (Settings)."
+msgstr "El botón Menú de Wii del menú HOME de un juego puede devolverte a RiftWii cuando instales el canal de RiftWii (Ajustes)."
+
+msgid "Menu music"
+msgstr "Música del menú"
+
+msgid "In-game screenshots"
+msgstr "Capturas en el juego"
+
+msgid "In a game, hold 1 and press HOME (or hold L and R and press Down on a GameCube controller). The pictures go to sd:/riftwii/screenshots the next time RiftWii starts. Takes about 0.8 MB of the game's memory."
+msgstr "En un juego, mantén 1 y pulsa HOME (o mantén L y R y pulsa Abajo en un mando de GameCube). Las imágenes van a sd:/riftwii/screenshots la próxima vez que se inicie RiftWii. Usa unos 0,8 MB de la memoria del juego."
+
+msgid "Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder."
+msgstr "Música mientras el menú está abierto: music.ogg de sd:/riftwii, o la de la carpeta de RiftWii."
+
+msgid "No music.ogg found in sd:/riftwii or in RiftWii's own folder."
+msgstr "No hay ningún music.ogg en sd:/riftwii ni en la carpeta de RiftWii."
+
+msgid "On a Wii U the GameCube adapter may not work in game from the front USB ports; the rear ones work."
+msgstr "En una Wii U, el adaptador de GameCube puede no funcionar en el juego desde los puertos USB delanteros; los traseros sí funcionan."
+
+msgid "Packs on USB are experimental; if it fails, copy them to SD."
+msgstr "Los packs en USB son experimentales; si falla, cópialos a la SD."
 
 msgid " (and {1} more)"
 msgstr " (y {1} más)"
 
-msgid "Mods on the USB drive won't work. Move {1} to the SD card."
-msgstr "Los mods en el USB no funcionan. Mueve {1} a la SD."
+msgid "Code builds on the USB drive won't work. Move {1} to the SD card."
+msgstr "Las builds de códigos en el USB no funcionan. Mueve {1} a la SD."
 
-msgid "This won't work: mods have to be on the SD card, not the USB drive. Move {1} to the same spot on your SD card and try again. Your games can stay on USB."
-msgstr "Así no va a funcionar: los mods tienen que estar en la SD, no en el USB. Mueve {1} al mismo sitio de tu SD y vuelve a intentarlo. Los juegos pueden seguir en el USB."
+msgid "This won't work: code builds like Project+ have to be on the SD card, not the USB drive. Move {1} to the same spot on your SD card and try again. Your games can stay on USB."
+msgstr "Así no va a funcionar: las builds de códigos como Project+ tienen que estar en la SD, no en el USB. Mueve {1} al mismo sitio de tu SD y vuelve a intentarlo. Los juegos pueden seguir en el USB."
 
 msgid "Code builds need the game on USB or disc, not the SD card."
 msgstr "Las builds de códigos necesitan el juego en USB o en disco, no en la SD."

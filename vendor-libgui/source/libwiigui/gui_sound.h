@@ -33,6 +33,10 @@ public:
 	//!Set the sound to loop playback (only applies to OGG)
 	//!\param l Loop (true to loop)
 	void SetLoop(bool l);
+	//!Riftwii: every PCM sound's volume is scaled by these (percent): the
+	//!hover tick (button_over_pcm) by hoverPercent, the rest by otherPercent.
+	static int hoverPercent;
+	static int otherPercent;
 protected:
 	const u8 * sound; //!< Pointer to the sound data
 	SOUND type; //!< Sound format type (PCM or OGG)

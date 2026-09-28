@@ -12,12 +12,21 @@ RiftWii. These pages are for people working on it.
 | [HARNESS.md](HARNESS.md) | The isolated Dolphin setup in detail |
 | [USB_HARDWARE_TEST.md](USB_HARDWARE_TEST.md) | Checking SD and USB image boot on a Wii with d2x |
 | [RIIFS.md](RIIFS.md) | The RiiFS network-pack protocol and how RiftWii uses it |
+| [HEADLESS.md](HEADLESS.md) | Starting a game through RiftWii from another loader |
+| [BLUETOOTH.md](BLUETOOTH.md) | Research: other Bluetooth controllers without a cIOS, and what exists toward it |
 
 ## History
 
 Written while RiftWii was being built, kept because code comments cite
 their sections. They describe the project as it was on their dates;
-where they disagree with the code, the code is right.
+where they disagree with the code, the code is right. "Conductor" and
+"Muse" are the AI assistants that reviewed and wrote code under the
+maintainer's direction (see "About AI assistance" in the main README).
+"USB Loader GX Riiloaded" in them is an earlier, abandoned, unpublished
+attempt to add Riivolution support to a fork of USB Loader GX; these
+documents are the rules that kept its code out of RiftWii. Credit for
+the parts of USB Loader GX that RiftWii does follow is in
+[NOTICE.md](../NOTICE.md).
 
 | Page | What it was |
 | --- | --- |

@@ -708,8 +708,10 @@ bool NtfsVolume::file_of(const DirEntry& d, VolumeFile& out, std::string& error)
         return false;
     }
     if (data.resident) {
-        error = what + " is too small to be a disc image";
-        return false;
+        // Kept inside its MFT record: no sectors of its own.
+        out.entry.size = data.value.size();
+        out.inline_bytes = data.value;
+        return true;
     }
     out.entry.size = data.data_size;
     const std::uint64_t per_cluster = geo_.cluster_bytes / kBlock;
@@ -767,6 +769,10 @@ bool NtfsVolume::read(const VolumeFile& file, std::uint64_t offset, std::uint8_t
     if (!reader_) return false;
     if (offset > file.entry.size || length > file.entry.size - offset) return false;
     if (length == 0) return true;
+    if (!file.inline_bytes.empty()) {
+        std::memcpy(out, file.inline_bytes.data() + offset, length);
+        return true;
+    }
     std::vector<PlacedRun> runs;
     std::string error;
     if (!place_on_fragments(file.fragments, offset, length, runs, error)) return false;

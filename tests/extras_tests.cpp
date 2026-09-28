@@ -8,6 +8,8 @@
 #include "riftwii/langfile.hpp"
 #include "riftwii/launch.hpp"
 #include "riftwii/playhistory.hpp"
+#include "riftwii/returnto.hpp"
+#include "riftwii/launchargs.hpp"
 #include "riftwii/settingsfile.hpp"
 #include "riftwii/update.hpp"
 #include "riftwii/wfcpatch.hpp"
@@ -528,6 +530,206 @@ void TestCoverArt() {
     EXPECT_EQ(s.home_tiles, "names");
     s.parse("home_tiles = huge\n");
     EXPECT_EQ(s.home_tiles, "names");
+    EXPECT_EQ(s.menu_sounds, "quiet");
+    s.parse("menu_sounds = off\n");
+    EXPECT_EQ(s.menu_sounds, "off");
+    s.parse("menu_sounds = loud\n");
+    EXPECT_EQ(s.menu_sounds, "off");
+    EXPECT_EQ(s.menu_music, "on");
+    s.parse("menu_music = off\n");
+    EXPECT_EQ(s.menu_music, "off");
+    s.parse("menu_music = loud\n");
+    EXPECT_EQ(s.menu_music, "off");
+    EXPECT_EQ(s.return_to, "riftwii");
+    s.parse("return_to = menu\n");
+    EXPECT_EQ(s.return_to, "menu");
+
+    EXPECT_TRUE(s.game_folders.empty());
+    s.parse("game_folders = /Wii Games/ ; usb:\\iso\\wii; SD:/sd only; /WBFS; /../up; /Wii Games\n");
+    EXPECT_EQ(s.game_folders.size(), 5u);
+    const std::vector<std::string> usb = game_folders_on(s, "usb");
+    EXPECT_EQ(usb.size(), 2u);
+    if (usb.size() == 2) {
+        EXPECT_EQ(usb[0], "/Wii Games");
+        EXPECT_EQ(usb[1], "/iso/wii");
+    }
+    const std::vector<std::string> sd = game_folders_on(s, "sd");
+    EXPECT_EQ(sd.size(), 2u);
+    if (sd.size() == 2) EXPECT_EQ(sd[1], "/sd only");
+    LoaderSettings back;
+    back.parse(s.serialize());
+    EXPECT_EQ(back.game_folders.size(), 5u);
+}
+
+void TestHeadlessArguments() {
+    HeadlessLaunch h;
+    std::string error;
+    EXPECT_FALSE(is_headless_launch({"game=RMCE01"}));
+    EXPECT_TRUE(parse_headless_launch({"--launch", "game=RMCE01", "from=usb", "xml=sd:/riivolution/ctgp.xml",
+                                       "video_mode=pal60", "language=en", "cios=249", "server=wiimmfi",
+                                       "gct=sd:/codes/RMCE01.gct", "return_to=00010001-47584C44"}, h, error));
+    EXPECT_EQ(h.game, "RMCE01");
+    EXPECT_EQ(h.from, "usb");
+    EXPECT_TRUE(h.packs_given);
+    EXPECT_EQ(h.xmls.size(), 1u);
+    EXPECT_EQ(h.settings.video_mode, "pal60");
+    EXPECT_EQ(h.settings.language, "en");
+    EXPECT_EQ(h.settings.cios, "249");
+    EXPECT_EQ(h.settings.server, "wiimmfi");
+    EXPECT_EQ(h.settings.deflicker, "global");
+    EXPECT_EQ(h.gct, "sd:/codes/RMCE01.gct");
+    EXPECT_TRUE(h.return_to == 0x0001000147584C44ULL);
+    EXPECT_TRUE(parse_headless_launch({"--launch", "game=RSBE01", "xml=none", "return_to=menu"}, h, error));
+    EXPECT_TRUE(h.packs_given);
+    EXPECT_TRUE(h.xmls.empty());
+    EXPECT_TRUE(h.return_to_menu);
+    EXPECT_FALSE(parse_headless_launch({"--launch", "from=usb"}, h, error));
+    EXPECT_TRUE(error.find("game=") != std::string::npos);
+    EXPECT_FALSE(parse_headless_launch({"--launch", "game=RMCE01", "video_mode=pal70"}, h, error));
+    EXPECT_TRUE(error.find("video_mode") != std::string::npos);
+    EXPECT_FALSE(parse_headless_launch({"--launch", "game=RMCE01", "speed=fast"}, h, error));
+    EXPECT_TRUE(error.find("speed") != std::string::npos);
+    EXPECT_FALSE(parse_headless_launch({"--launch", "game=rmce01"}, h, error));
+    EXPECT_FALSE(parse_headless_launch({"--launch", "game=RMCE01", "gct=usb:/codes/x.gct"}, h, error));
+    // An image by its path, a four-character ID, packs by file name or all.
+    EXPECT_TRUE(parse_headless_launch({"--launch", "path=usb:/wbfs/Mario Kart Wii [RMCE01]/RMCE01.wbfs", "game=RMCE",
+                                       "xml=ctgp.xml"}, h, error));
+    EXPECT_EQ(h.from, "usb");
+    EXPECT_EQ(h.game, "RMCE");
+    EXPECT_EQ(h.xmls.size(), 1u);
+    EXPECT_TRUE(parse_headless_launch({"--launch", "path=sd:/games/x.iso", "xml=all"}, h, error));
+    EXPECT_EQ(h.from, "sd");
+    EXPECT_TRUE(h.all_packs);
+    EXPECT_TRUE(parse_headless_launch({"--launch", "from=disc"}, h, error));
+    EXPECT_FALSE(parse_headless_launch({"--launch", "path=sd:/games/x.iso", "from=usb"}, h, error));
+    EXPECT_FALSE(parse_headless_launch({"--launch", "path=/games/x.iso"}, h, error));
+    EXPECT_FALSE(parse_headless_launch({"--launch", "game=RMC"}, h, error));
+    EXPECT_FALSE(parse_headless_launch({"--launch", "game=RMCE01", "xml=../ctgp.xml"}, h, error));
+}
+
+// Friivolution's FRIIV_CFG, laid out the way a loader builds it.
+std::vector<std::uint8_t> FriivConfig(std::uint32_t flags, const char* id, const char* path, const char* xml) {
+    std::vector<std::uint8_t> b(384, 0);
+    const auto put = [&b](std::size_t at, std::uint32_t v) {
+        for (int i = 0; i < 4; ++i) b[at + i] = static_cast<std::uint8_t>(v >> (24 - 8 * i));
+    };
+    put(0, 0x46524956);
+    put(4, 1);
+    put(8, flags);
+    std::memcpy(&b[12], id, std::strlen(id));
+    std::memcpy(&b[16], path, std::strlen(path));
+    std::memcpy(&b[271], xml, std::strlen(xml));
+    return b;
+}
+
+void TestFriivolutionArguments() {
+    std::vector<std::string> args;
+    auto cfg = FriivConfig(1 | 2, "SB4E", "/wbfs/Super Mario Galaxy 2 [SB4E01]/SB4E01.wbfs", "smg2-mod.xml");
+    EXPECT_TRUE(friiv_launch_args(cfg.data(), cfg.size(), args));
+    const std::vector<std::string> want = {"--launch", "path=usb:/wbfs/Super Mario Galaxy 2 [SB4E01]/SB4E01.wbfs",
+                                           "game=SB4E", "xml=smg2-mod.xml"};
+    EXPECT_TRUE(args == want);
+    HeadlessLaunch h;
+    std::string error;
+    EXPECT_TRUE(parse_headless_launch(args, h, error));
+    EXPECT_EQ(h.from, "usb");
+    // SD, no ID given, every pack for the game.
+    cfg = FriivConfig(1, "", "games/game.iso", "");
+    EXPECT_TRUE(friiv_launch_args(cfg.data(), cfg.size(), args));
+    EXPECT_TRUE(args == (std::vector<std::string>{"--launch", "path=sd:/games/game.iso", "xml=all"}));
+    EXPECT_TRUE(parse_headless_launch(args, h, error));
+    // The disc, without patches.
+    cfg = FriivConfig(1 | 4, "RMCE", "", "ignored.xml");
+    EXPECT_TRUE(friiv_launch_args(cfg.data(), cfg.size(), args));
+    EXPECT_TRUE(args == (std::vector<std::string>{"--launch", "from=disc", "game=RMCE", "xml=none"}));
+    EXPECT_TRUE(parse_headless_launch(args, h, error));
+    // Not a boot request, not the magic, too short: the menu opens.
+    cfg = FriivConfig(0, "RMCE", "/wbfs/x.wbfs", "");
+    EXPECT_FALSE(friiv_launch_args(cfg.data(), cfg.size(), args));
+    cfg = FriivConfig(1, "RMCE", "/wbfs/x.wbfs", "");
+    cfg[0] = 'X';
+    EXPECT_FALSE(friiv_launch_args(cfg.data(), cfg.size(), args));
+    cfg = FriivConfig(1, "RMCE", "/wbfs/x.wbfs", "");
+    EXPECT_FALSE(friiv_launch_args(cfg.data(), 383, args));
+    // A path filling its whole field, with no NUL, stays inside it.
+    std::string longPath(255, 'a');
+    longPath[0] = '/';
+    cfg = FriivConfig(1, "RMCE", longPath.c_str(), "");
+    EXPECT_TRUE(friiv_launch_args(cfg.data(), cfg.size(), args));
+    EXPECT_EQ(args[1].size(), std::string("path=sd:").size() + 255);
+}
+
+void TestReturnTo() {
+    auto put = [](std::vector<std::uint8_t>& b, std::size_t at, std::uint32_t v) {
+        b[at] = v >> 24; b[at + 1] = (v >> 16) & 0xFF; b[at + 2] = (v >> 8) & 0xFF; b[at + 3] = v & 0xFF;
+    };
+    auto get = [](const std::vector<std::uint8_t>& b, std::size_t at) {
+        return (std::uint32_t(b[at]) << 24) | (std::uint32_t(b[at + 1]) << 16) | (std::uint32_t(b[at + 2]) << 8) | b[at + 3];
+    };
+    std::vector<std::uint8_t> text(0x1000, 0), data(0x100, 0);
+    // __OSLaunchMenu's three places: li r4,2; li r3,1 (li r5,0 after the first).
+    for (std::size_t at : {0x100u, 0x180u, 0x200u}) {
+        put(text, at, 0x38800002);
+        put(text, at + 4, 0x38600001);
+    }
+    put(text, 0x108, 0x38A00000);
+    std::memcpy(data.data() + 0x10, "Metrowerks Target", 17);
+    std::vector<CodeSpan> spans = {{text.data(), text.size(), 0x80004000}, {data.data(), data.size(), 0x80300000}};
+    const ReturnToReport r = patch_return_to(spans, 0x55465457);
+    EXPECT_TRUE(r.patched);
+    EXPECT_EQ(r.sites, 3u);
+    // The stub, 0x30 past the string.
+    EXPECT_EQ(get(data, 0x40), 0x3C600001u);
+    EXPECT_EQ(get(data, 0x44), 0x60630001u);
+    EXPECT_EQ(get(data, 0x48), 0x3C805546u);
+    EXPECT_EQ(get(data, 0x4C), 0x60845457u);
+    EXPECT_EQ(get(data, 0x50), 0x4E800020u);
+    // Each place calls it and the second word is a nop.
+    for (std::size_t at : {0x100u, 0x180u, 0x200u}) {
+        const std::uint32_t bl = get(text, at);
+        EXPECT_EQ(bl & 0xFC000003u, 0x48000001u);
+        EXPECT_EQ(0x80004000u + static_cast<std::uint32_t>(at) + (bl & 0x03FFFFFCu), 0x80300040u);
+        EXPECT_EQ(get(text, at + 4), 0x60000000u);
+    }
+    EXPECT_EQ(get(text, 0x108), 0x38A00000u);
+    // Two places only: nothing written.
+    std::vector<std::uint8_t> short_text(0x400, 0), short_data(0x100, 0);
+    for (std::size_t at : {0x100u, 0x180u}) {
+        put(short_text, at, 0x38800002);
+        put(short_text, at + 4, 0x38600001);
+    }
+    put(short_text, 0x108, 0x38A00000);
+    std::memcpy(short_data.data() + 0x10, "Metrowerks Target", 17);
+    const std::vector<std::uint8_t> before = short_text;
+    const ReturnToReport s = patch_return_to({{short_text.data(), short_text.size(), 0x80004000},
+                                              {short_data.data(), short_data.size(), 0x80300000}}, 0x55465457);
+    EXPECT_FALSE(s.patched);
+    EXPECT_TRUE(short_text == before);
+}
+
+void TestPlayLogRecord() {
+    const std::vector<std::uint8_t> r = play_log_record("Mario \xC3\xA9", "RMGE01", 0x0102030405060708ULL);
+    EXPECT_EQ(r.size(), kPlayLogBytes);
+    if (r.size() != kPlayLogBytes) return;
+    EXPECT_EQ(r[4], 0);
+    EXPECT_EQ(r[5], 'M');
+    EXPECT_EQ(r[4 + 2 * 6], 0x00);
+    EXPECT_EQ(r[5 + 2 * 6], 0xE9);  // é
+    EXPECT_EQ(r[4 + 2 * 7] | r[5 + 2 * 7], 0);
+    EXPECT_EQ(r[0x58], 0x01);
+    EXPECT_EQ(r[0x5F], 0x08);
+    EXPECT_EQ(r[0x60], 0x01);
+    EXPECT_EQ(std::string(r.begin() + 0x68, r.begin() + 0x6E), "RMGE01");
+    std::uint32_t sum = 0;
+    for (std::size_t at = 4; at < kPlayLogBytes; at += 4) {
+        sum += (std::uint32_t(r[at]) << 24) | (std::uint32_t(r[at + 1]) << 16) | (std::uint32_t(r[at + 2]) << 8) | r[at + 3];
+    }
+    const std::uint32_t stored = (std::uint32_t(r[0]) << 24) | (std::uint32_t(r[1]) << 16) | (std::uint32_t(r[2]) << 8) | r[3];
+    EXPECT_EQ(stored, sum);
+    // A long name keeps its terminator.
+    const std::vector<std::uint8_t> l = play_log_record(std::string(60, 'x'), "RMGE01", 1);
+    EXPECT_EQ(l[4 + 2 * 38 + 1], 'x');
+    EXPECT_EQ(l[4 + 2 * 39] | l[4 + 2 * 39 + 1], 0);
 }
 
 void TestGameLanguage() {
@@ -621,6 +823,10 @@ void TestHistory() {
 }  // namespace
 
 int main() {
+    TestPlayLogRecord();
+    TestReturnTo();
+    TestHeadlessArguments();
+    TestFriivolutionArguments();
     TestHttp();
     TestCheats();
     TestVideo();

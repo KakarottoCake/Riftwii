@@ -3,7 +3,9 @@
 
 #include <cstdio>
 #include <ctime>
+#include <algorithm>
 #include <fstream>
+#include <iterator>
 #include <sstream>
 #include <sys/stat.h>
 
@@ -135,7 +137,7 @@ bool CheckCodeBuilds(const FrontendState& state, std::string& error) {
     return PrepareCodeBuilds(state.model, state.game_id, CheatGct(state, count, false), launch, error);
 }
 
-void PrepareLaunchExtras(const FrontendState& state) {
+void PrepareLaunchExtras(const FrontendState& state, const HeadlessLaunch* headless) {
     LaunchExtras extras;
     extras.game_id = state.game_id;
     extras.video = effective_video(state.model.game, Settings());
@@ -147,6 +149,8 @@ void PrepareLaunchExtras(const FrontendState& state) {
                         : adapter == "demo" ? GcAdapterMode::Demo
                         : adapter == "off"  ? GcAdapterMode::Off
                                             : GcAdapterMode::Auto;
+    extras.screenshots = Settings().screenshots == "on" || Settings().screenshots == "demo";
+    extras.screenshots_demo = Settings().screenshots == "demo";
     extras.cheat_gct = CheatGct(state, extras.cheat_count, true);
     CodeBuildLaunch builds;
     std::string error;
@@ -159,6 +163,32 @@ void PrepareLaunchExtras(const FrontendState& state) {
         extras.pokes = std::move(builds.pokes);
     } else {
         logf("Code builds are off: %s\n", error.c_str());  // the game page checked before Start
+    }
+    if (headless) {
+        if (!headless->wfc_domain.empty() && extras.server == WfcServer::Custom) extras.wfc_domain = headless->wfc_domain;
+        // A code build (Project+) brings its own codes; the other loader's
+        // cheats only count without one.
+        const bool no_build = extras.code_builds.empty();
+        if (no_build && headless->gct == "none") {
+            extras.cheat_gct.clear();
+            extras.cheat_count = 0;
+        } else if (no_build && !headless->gct.empty()) {
+            std::ifstream in(headless->gct, std::ios::binary);
+            std::vector<std::uint8_t> gct((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+            // A GCT starts 00D0C0DE 00D0C0DE and ends F0000000 00000000.
+            static const std::uint8_t kMagic[8] = {0x00, 0xD0, 0xC0, 0xDE, 0x00, 0xD0, 0xC0, 0xDE};
+            if (gct.size() >= 16 && gct.size() % 8 == 0 && std::equal(kMagic, kMagic + 8, gct.begin())) {
+                extras.cheat_count = gct.size() / 8 - 2;
+                extras.cheat_gct = std::move(gct);
+                logf("Cheats: %s (%u lines)\n", headless->gct.c_str(), static_cast<unsigned>(extras.cheat_count));
+            } else {
+                logf("Cheats: %s is missing or not a GCT file; no cheats\n", headless->gct.c_str());
+                extras.cheat_gct.clear();
+                extras.cheat_count = 0;
+            }
+        }
+        extras.return_to = headless->return_to;
+        extras.return_to_menu = headless->return_to_menu;
     }
     SetLaunchExtras(std::move(extras));
 }

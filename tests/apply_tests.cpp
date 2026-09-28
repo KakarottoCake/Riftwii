@@ -42,6 +42,45 @@ public:
     }
 };
 
+// A file of any size that is never held in memory: byte i is (i * 7 + seed)
+// mod 251, so reads far into it can be checked without storing it.
+class PatternSource final : public riftwii::ByteSource {
+public:
+    PatternSource(std::uint64_t size, std::uint8_t seed) : size_(size), seed_(seed) {}
+    static std::uint8_t at(std::uint64_t i, std::uint8_t seed) { return static_cast<std::uint8_t>((i * 7 + seed) % 251); }
+    std::uint64_t size() const override { return size_; }
+    bool read(std::uint64_t offset, std::uint8_t* out, std::size_t length) const override {
+        if (offset > size_ || length > size_ - offset) return false;
+        for (std::size_t i = 0; i < length; ++i) out[i] = at(offset + i, seed_);
+        return true;
+    }
+
+private:
+    std::uint64_t size_;
+    std::uint8_t seed_;
+};
+
+// Disc and external files of given sizes, each a PatternSource.
+class BigProvider final : public riftwii::ContentProvider {
+public:
+    std::map<std::string, std::uint64_t> disc;
+    std::map<std::string, std::uint64_t> ext;
+    riftwii::OpenStatus open_disc(const std::string& p, std::unique_ptr<riftwii::ByteSource>& out,
+                                  std::string& error) override {
+        auto it = disc.find(p);
+        if (it == disc.end()) { error = "no such disc file"; return riftwii::OpenStatus::NotFound; }
+        out.reset(new PatternSource(it->second, 1));
+        return riftwii::OpenStatus::Ok;
+    }
+    riftwii::OpenStatus open_external(const std::string& p, std::unique_ptr<riftwii::ByteSource>& out,
+                                      std::string& error) override {
+        auto it = ext.find(p);
+        if (it == ext.end()) { error = "no such external file"; return riftwii::OpenStatus::NotFound; }
+        out.reset(new PatternSource(it->second, 2));
+        return riftwii::OpenStatus::Ok;
+    }
+};
+
 static riftwii::FilePatch MakePatch(const std::string& disc, const std::string& external,
                                     std::uint64_t offset, std::uint64_t length,
                                     std::uint64_t fileoffset, bool resize, bool create) {
@@ -503,8 +542,56 @@ static void test_e2e_disc_to_consumed_replacement() {
     fs::remove_all(base, ec);
 }
 
+// Files past the old 256 MiB cap (Other M Redux's movies) are patched
+// without being read whole; only what cannot fit 32 bits is refused.
+static void test_files_above_256_mib() {
+    const std::uint64_t kBig = 300ULL * 1024 * 1024 + 12;
+    BigProvider provider;
+    provider.disc["/movie/big.sfd"] = kBig;
+    provider.ext["sd:/big.sfd"] = kBig + 1000;
+    provider.ext["sd:/small.bin"] = 64;
+    std::string err;
+
+    // A small patch deep inside a big original.
+    std::unique_ptr<riftwii::AppliedFile> out;
+    EXPECT_TRUE(riftwii::build_replacement(MakePatch("/movie/big.sfd", "sd:/small.bin", 280ULL << 20, 0, 0, false, false),
+                                           provider, out, err));
+    EXPECT_EQ(err, std::string(""));
+    if (out) {
+        EXPECT_EQ(out->size(), kBig);
+        std::uint8_t b[4];
+        EXPECT_TRUE(out->read((280ULL << 20) - 2, b, 4));
+        EXPECT_EQ(b[0], PatternSource::at((280ULL << 20) - 2, 1));
+        EXPECT_EQ(b[2], PatternSource::at(0, 2));
+        EXPECT_TRUE(out->read(kBig - 1, b, 1));
+        EXPECT_EQ(b[0], PatternSource::at(kBig - 1, 1));
+    }
+
+    // A whole replacement by a bigger external (resize).
+    out.reset();
+    EXPECT_TRUE(riftwii::build_replacement(MakePatch("/movie/big.sfd", "sd:/big.sfd", 0, 0, 0, true, false),
+                                           provider, out, err));
+    if (out) {
+        EXPECT_EQ(out->size(), kBig + 1000);
+        std::uint8_t b[2];
+        EXPECT_TRUE(out->read(kBig + 998, b, 2));
+        EXPECT_EQ(b[1], PatternSource::at(kBig + 999, 2));
+    }
+
+    // Past 32 bits: refused, not wrapped.
+    provider.disc["/huge.bin"] = 0x100000000ULL;
+    out.reset();
+    EXPECT_FALSE(riftwii::build_replacement(MakePatch("/huge.bin", "sd:/small.bin", 0, 0, 0, false, false),
+                                            provider, out, err));
+    EXPECT_EQ(err, std::string("disc file too large '/huge.bin'"));
+    EXPECT_FALSE(riftwii::build_replacement(MakePatch("/movie/big.sfd", "sd:/small.bin", 0xFFFFFFF0ULL, 64, 0, false, false),
+                                            provider, out, err));
+    EXPECT_EQ(err, std::string("replacement too large for '/movie/big.sfd'"));
+}
+
 int main() {
     test_full_replace();
+    test_files_above_256_mib();
     test_partial_no_resize_keeps_tail();
     test_resize_truncate();
     test_resize_extend();

@@ -387,6 +387,53 @@ T = {
     "Check the GameCube adapter": ("Probar el adaptador de GameCube", "接続タップを確認",
                                    "Testar o adaptador de GameCube", "Prova l'adattatore GameCube"),
     "Test": ("Probar", "テスト", "Testar", "Prova"),
+    # First-start tutorial
+    "Welcome to RiftWii": ("Te damos la bienvenida a RiftWii", "RiftWiiへようこそ", "Boas-vindas ao RiftWii", "Benvenuto in RiftWii"),
+    "RiftWii starts your Wii games with Riivolution-format mods, from the disc, a USB drive or the SD card. Your game files are never changed. This short tour shows the basics.": (
+        "RiftWii inicia tus juegos de Wii con mods en formato Riivolution, desde el disco, una unidad USB o la tarjeta SD. Tus archivos de juego nunca se modifican. Este breve recorrido te enseña lo básico.",
+        "RiftWiiは、ディスク、USBドライブ、SDカードのWiiゲームを、Riivolution形式のMODつきで起動します。ゲームのファイルは変更されません。このガイドで基本を紹介します。",
+        "O RiftWii inicia seus jogos de Wii com mods no formato Riivolution, a partir do disco, de uma unidade USB ou do cartão SD. Os arquivos dos jogos nunca são alterados. Este breve tour mostra o básico.",
+        "RiftWii avvia i tuoi giochi Wii con mod in formato Riivolution, dal disco, da un'unità USB o dalla scheda SD. I file dei giochi non vengono mai modificati. Questa breve guida mostra le basi."),
+    "Your games": ("Tus juegos", "ゲーム", "Seus jogos", "I tuoi giochi"),
+    "Put games in the wbfs or games folder at the top of the SD card or the USB drive (WBFS, ISO or RVZ). A disc in the drive shows up too. Home lists games that have mods first: press 1, or the round button at the bottom left, to see all your games.": (
+        "Pon los juegos en la carpeta wbfs o games de la raíz de la tarjeta SD o de la unidad USB (WBFS, ISO o RVZ). También aparece el disco que esté en la unidad. Al principio se muestran los juegos con mods: pulsa 1, o el botón redondo de abajo a la izquierda, para ver todos.",
+        "ゲームはSDカードかUSBドライブのwbfsまたはgamesフォルダに入れてください (WBFS、ISO、RVZ)。ドライブのディスクも表示されます。最初はMODがあるゲームだけが表示されます。すべてのゲームを見るには、1か左下の丸いボタンを押してください。",
+        "Coloque os jogos na pasta wbfs ou games na raiz do cartão SD ou da unidade USB (WBFS, ISO ou RVZ). O disco na unidade também aparece. No início são mostrados os jogos com mods: aperte 1, ou o botão redondo embaixo à esquerda, para ver todos.",
+        "Metti i giochi nella cartella wbfs o games nella radice della scheda SD o dell'unità USB (WBFS, ISO o RVZ). Appare anche il disco nell'unità. All'inizio vengono mostrati i giochi con mod: premi 1, o il pulsante rotondo in basso a sinistra, per vederli tutti."),
+    "Put mod packs (the XML file and the folders that come with it) in sd:/riivolution or usb:/riivolution. Pick a game, open Mods, switch a pack on and choose its options. Start (or +) plays the game with them.": (
+        "Pon los paquetes de mods (el archivo XML y las carpetas que lo acompañan) en sd:/riivolution o usb:/riivolution. Elige un juego, abre Mods, activa un paquete y elige sus opciones. Jugar (o +) inicia el juego con ellos.",
+        "MODパック (XMLファイルと一緒のフォルダ) はsd:/riivolutionかusb:/riivolutionに入れてください。ゲームを選び、MODを開いてパックをオンにし、設定を選びます。はじめる (か+) でMODつきで遊べます。",
+        "Coloque os pacotes de mods (o arquivo XML e as pastas que vêm com ele) em sd:/riivolution ou usb:/riivolution. Escolha um jogo, abra Mods, ative um pacote e escolha as opções. Jogar (ou +) inicia o jogo com eles.",
+        "Metti i pacchetti di mod (il file XML e le cartelle che lo accompagnano) in sd:/riivolution o usb:/riivolution. Scegli un gioco, apri Mod, attiva un pacchetto e scegli le sue opzioni. Gioca (o +) avvia il gioco con le mod."),
+    "Buttons": ("Botones", "ボタン", "Botões", "Pulsanti"),
+    "Point with the Wii Remote and press A, or move with the D-pad. B goes back, 2 opens Settings and HOME opens the HOME Menu. The Classic Controller and GameCube controllers work too, with the same buttons.": (
+        "Apunta con el mando de Wii y pulsa A, o muévete con la cruceta. B vuelve atrás, 2 abre los ajustes y HOME abre el menú HOME. El mando clásico y los mandos de GameCube también sirven, con los mismos botones.",
+        "Wiiリモコンでポイントして A を押すか、十字ボタンで動かします。B で戻り、2 で設定、HOME でHOMEメニューを開きます。クラシックコントローラとゲームキューブコントローラも同じボタンで使えます。",
+        "Aponte com o Wii Remote e aperte A, ou mova com o direcional. B volta, 2 abre as configurações e HOME abre o menu HOME. O Classic Controller e os controles de GameCube também funcionam, com os mesmos botões.",
+        "Punta con il telecomando Wii e premi A, o muoviti con la croce direzionale. B torna indietro, 2 apre le impostazioni e HOME apre il menu HOME. Anche il Classic Controller e i controller GameCube funzionano, con gli stessi pulsanti."),
+    "You're all set": ("Todo listo", "準備完了", "Tudo pronto", "Tutto pronto"),
+    "Settings has the video, language, online and update options. For more help, see the guide on RiftWii's GitHub page or join the Discord. Settings > Tutorial shows this tour again.": (
+        "En los ajustes están las opciones de vídeo, idioma, juego en línea y actualizaciones. Para más ayuda, mira la guía en la página de GitHub de RiftWii o únete al Discord. Ajustes > Tutorial muestra este recorrido otra vez.",
+        "設定には、映像、言語、オンライン、アップデートの設定があります。くわしくはRiftWiiのGitHubページのガイドか、Discordを見てください。設定 > チュートリアル でこのガイドをもう一度見られます。",
+        "As configurações têm as opções de vídeo, idioma, jogo online e atualizações. Para mais ajuda, veja o guia na página do RiftWii no GitHub ou entre no Discord. Configurações > Tutorial mostra este tour de novo.",
+        "Nelle impostazioni ci sono le opzioni di video, lingua, gioco online e aggiornamenti. Per altro aiuto, leggi la guida sulla pagina GitHub di RiftWii o entra nel Discord. Impostazioni > Tutorial mostra di nuovo questa guida."),
+    "Next": ("Siguiente", "次へ", "Próximo", "Avanti"),
+    "Skip": ("Omitir", "スキップ", "Pular", "Salta"),
+    "Let's go": ("¡Vamos!", "はじめる", "Vamos lá", "Iniziamo"),
+    "Tutorial": ("Tutorial", "チュートリアル", "Tutorial", "Tutorial"),
+    "Show": ("Ver", "表示", "Ver", "Mostra"),
+    "The short tour of RiftWii's basics that a new SD card starts with.": (
+        "El breve recorrido por lo básico de RiftWii que aparece con una tarjeta SD nueva.",
+        "新しいSDカードで最初に表示される、RiftWiiの基本の短いガイドです。",
+        "O breve tour pelo básico do RiftWii que aparece com um cartão SD novo.",
+        "La breve guida alle basi di RiftWii che appare con una nuova scheda SD."),
+    "Credits and licence": ("Créditos y licencia", "クレジットとライセンス", "Créditos e licença", "Riconoscimenti e licenza"),
+    "View": ("Ver", "表示", "Ver", "Vedi"),
+    "Who RiftWii's parts come from, its licence (the GNU GPL, version 3 or later) and where its source is.": (
+        "De quién vienen las partes de RiftWii, su licencia (la GNU GPL, versión 3 o posterior) y dónde está su código fuente.",
+        "RiftWiiの各部分の作者、ライセンス (GNU GPL バージョン3以降) とソースコードの場所。",
+        "De quem vêm as partes do RiftWii, sua licença (a GNU GPL, versão 3 ou posterior) e onde está seu código-fonte.",
+        "Da chi provengono le parti di RiftWii, la sua licenza (la GNU GPL, versione 3 o successiva) e dove si trova il suo codice sorgente."),
     "Experimental. When the adapter is plugged in as a game starts, its controllers fill the ports that have none plugged in, in games that support the GameCube controller. It needs IOS 58 or a d2x cIOS.": (
         "Experimental. Si el adaptador está conectado al iniciar un juego, sus mandos ocupan los puertos que no tienen ninguno conectado, en los juegos compatibles con el mando de GameCube. Necesita IOS 58 o un cIOS d2x.",
         "試験的な機能です。ゲーム開始時に接続タップがつながっていれば、ゲームキューブコントローラに対応したゲームで、何もつながっていないポートに接続タップのコントローラが入ります。IOS 58かd2x cIOSが必要です。",
@@ -537,20 +584,100 @@ T = {
         "終了したNintendoのサーバーの代わりにゲームが使うオンラインサーバーです。カスタムはsettings.txtのwfc_domainを使います。",
         "O servidor online que o jogo usa no lugar do da Nintendo, que foi desligado. Personalizado usa wfc_domain do settings.txt.",
         "Il server online che il gioco usa al posto di quello di Nintendo, ormai chiuso. Personalizzato usa wfc_domain in settings.txt."),
+    # Covers (Home's status line and the game page's Cover row)
+    "Getting covers from GameTDB: {1} left": (
+        "Descargando portadas de GameTDB: faltan {1}",
+        "GameTDBからカバーを取得中: 残り{1}",
+        "Baixando capas do GameTDB: faltam {1}",
+        "Scaricamento copertine da GameTDB: ne mancano {1}"),
+    "Covers could not be downloaded ({1}). Press + to try again.": (
+        "No se pudieron descargar las portadas ({1}). Pulsa + para volver a intentarlo.",
+        "カバーをダウンロードできませんでした ({1})。+でもう一度試せます。",
+        "Não foi possível baixar as capas ({1}). Aperte + para tentar de novo.",
+        "Impossibile scaricare le copertine ({1}). Premi + per riprovare."),
+    "Cover": ("Portada", "カバー", "Capa", "Copertina"),
+    "Download again": ("Volver a descargar", "もう一度ダウンロード", "Baixar de novo", "Scarica di nuovo"),
+    "Downloads this game's box art from GameTDB now.": (
+        "Descarga ahora la portada de este juego desde GameTDB.",
+        "このゲームのカバーを今すぐGameTDBからダウンロードします。",
+        "Baixa agora a capa deste jogo do GameTDB.",
+        "Scarica ora la copertina di questo gioco da GameTDB."),
+    "Downloading the cover...": ("Descargando la portada...", "カバーをダウンロード中...", "Baixando a capa...", "Scaricamento della copertina..."),
+    "Cover downloaded.": ("Portada descargada.", "カバーをダウンロードしました。", "Capa baixada.", "Copertina scaricata."),
+    "GameTDB has no cover for this game.": (
+        "GameTDB no tiene portada para este juego.",
+        "GameTDBにはこのゲームのカバーがありません。",
+        "O GameTDB não tem capa para este jogo.",
+        "GameTDB non ha una copertina per questo gioco."),
+    "Could not download the cover: {1}": (
+        "No se pudo descargar la portada: {1}",
+        "カバーをダウンロードできませんでした: {1}",
+        "Não foi possível baixar a capa: {1}",
+        "Impossibile scaricare la copertina: {1}"),
+    # Menu sounds (Settings)
+    "Menu sounds": ("Sonidos del menú", "メニューの音", "Sons do menu", "Suoni del menu"),
+    "Normal": ("Normal", "標準", "Normal", "Normale"),
+    "Quiet": ("Bajo", "小さめ", "Baixo", "Bassi"),
+    "How loud the menu's clicks are. Quiet softens the tick the pointer makes moving onto something.": (
+        "El volumen de los clics del menú. Bajo suaviza el sonido al pasar el puntero sobre algo.",
+        "メニューのクリック音の大きさです。小さめにすると、ポインターが何かに重なったときの音が控えめになります。",
+        "O volume dos cliques do menu. Baixo suaviza o som quando o ponteiro passa sobre algo.",
+        "Il volume dei clic del menu. Bassi attenua il suono quando il puntatore passa sopra qualcosa."),
+    # Return to RiftWii (Settings)
+    "Wii Menu button": ("Botón Menú de Wii", "Wiiメニューボタン", "Botão Menu Wii", "Pulsante Menu Wii"),
+    "Back to RiftWii": ("Volver a RiftWii", "RiftWiiに戻る", "Voltar ao RiftWii", "Torna a RiftWii"),
+    "The Wii Menu button in a game's HOME Menu brings you back to RiftWii. It needs the RiftWii channel installed.": (
+        "El botón Menú de Wii del menú HOME de un juego te devuelve a RiftWii. Necesita el canal de RiftWii instalado.",
+        "ゲームのHOMEメニューの「Wiiメニュー」ボタンでRiftWiiに戻ります。RiftWiiチャンネルのインストールが必要です。",
+        "O botão Menu Wii do menu HOME de um jogo leva você de volta ao RiftWii. Precisa do canal do RiftWii instalado.",
+        "Il pulsante Menu Wii del menu HOME di un gioco ti riporta a RiftWii. Serve il canale RiftWii installato."),
+    "The Wii Menu button in a game's HOME Menu can bring you back to RiftWii once the RiftWii channel is installed (Settings).": (
+        "El botón Menú de Wii del menú HOME de un juego puede devolverte a RiftWii cuando instales el canal de RiftWii (Ajustes).",
+        "RiftWiiチャンネルをインストールすると(設定)、ゲームのHOMEメニューの「Wiiメニュー」ボタンでRiftWiiに戻れます。",
+        "O botão Menu Wii do menu HOME de um jogo pode levar você de volta ao RiftWii depois de instalar o canal do RiftWii (Configurações).",
+        "Il pulsante Menu Wii del menu HOME di un gioco può riportarti a RiftWii una volta installato il canale RiftWii (Impostazioni)."),
+    # Menu music (Settings)
+    "Menu music": ("Música del menú", "メニューの音楽", "Música do menu", "Musica del menu"),
+    "In-game screenshots": ("Capturas en el juego", "ゲーム中のスクリーンショット", "Capturas no jogo", "Screenshot nel gioco"),
+    "In a game, hold 1 and press HOME (or hold L and R and press Down on a GameCube controller). The pictures go to sd:/riftwii/screenshots the next time RiftWii starts. Takes about 0.8 MB of the game's memory.": (
+        "En un juego, mantén 1 y pulsa HOME (o mantén L y R y pulsa Abajo en un mando de GameCube). Las imágenes van a sd:/riftwii/screenshots la próxima vez que se inicie RiftWii. Usa unos 0,8 MB de la memoria del juego.",
+        "ゲーム中に1を押したままHOMEを押します(ゲームキューブコントローラーならLとRを押したまま下)。画像は次にRiftWiiを起動したときにsd:/riftwii/screenshotsに保存されます。ゲームのメモリを約0.8MB使います。",
+        "Em um jogo, segure 1 e aperte HOME (ou segure L e R e aperte Baixo num controle de GameCube). As imagens vão para sd:/riftwii/screenshots na próxima vez que o RiftWii abrir. Usa cerca de 0,8 MB da memória do jogo.",
+        "In un gioco, tieni premuto 1 e premi HOME (o tieni premuti L e R e premi Giù su un controller GameCube). Le immagini vanno in sd:/riftwii/screenshots al prossimo avvio di RiftWii. Usa circa 0,8 MB della memoria del gioco."),
+    "Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder.": (
+        "Música mientras el menú está abierto: music.ogg de sd:/riftwii, o la de la carpeta de RiftWii.",
+        "メニューを開いている間の音楽です: sd:/riftwiiのmusic.ogg、なければRiftWiiのフォルダのものを流します。",
+        "Música enquanto o menu está aberto: music.ogg de sd:/riftwii, ou a da pasta do RiftWii.",
+        "Musica mentre il menu è aperto: music.ogg da sd:/riftwii, o quella nella cartella di RiftWii."),
+    "No music.ogg found in sd:/riftwii or in RiftWii's own folder.": (
+        "No hay ningún music.ogg en sd:/riftwii ni en la carpeta de RiftWii.",
+        "sd:/riftwiiにもRiftWiiのフォルダにもmusic.oggがありません。",
+        "Nenhum music.ogg em sd:/riftwii nem na pasta do RiftWii.",
+        "Nessun music.ogg in sd:/riftwii né nella cartella di RiftWii."),
+    "On a Wii U the GameCube adapter may not work in game from the front USB ports; the rear ones work.": (
+        "En una Wii U, el adaptador de GameCube puede no funcionar en el juego desde los puertos USB delanteros; los traseros sí funcionan.",
+        "Wii Uでは、前面のUSBポートだとゲーム中にゲームキューブアダプターが動かないことがあります。背面のポートなら動きます。",
+        "No Wii U, o adaptador de GameCube pode não funcionar no jogo pelas portas USB da frente; as de trás funcionam.",
+        "Su Wii U l'adattatore GameCube potrebbe non funzionare in gioco dalle porte USB anteriori; quelle posteriori funzionano."),
+    # Packs on USB
+    "Packs on USB are experimental; if it fails, copy them to SD.": (
+        "Los packs en USB son experimentales; si falla, cópialos a la SD.",
+        "USBのパックは試験的な機能です。うまくいかない場合はSDにコピーしてください。",
+        "Packs no USB são experimentais; se falhar, copie-os para o SD.",
+        "I pacchetti su USB sono sperimentali; se non funziona, copiali sulla SD."),
     # Mods where they cannot work (refused at Start). {1} is a folder like
-    # "usb:/Project+", maybe followed by one of the two pieces below.
-    " and the pack's folders": (" y las carpetas del pack", "とパックのフォルダ", " e as pastas do pack", " e le cartelle del pacchetto"),
+    # "usb:/Project+", maybe followed by the piece below.
     " (and {1} more)": (" (y {1} más)", " (ほか{1}件)", " (e mais {1})", " (e altri {1})"),
-    "Mods on the USB drive won't work. Move {1} to the SD card.": (
-        "Los mods en el USB no funcionan. Mueve {1} a la SD.",
-        "USBドライブのMODは動きません。{1}をSDカードに移してください。",
-        "Mods no USB não funcionam. Mova {1} para o SD.",
-        "Le mod sull'unità USB non funzionano. Sposta {1} sulla SD."),
-    "This won't work: mods have to be on the SD card, not the USB drive. Move {1} to the same spot on your SD card and try again. Your games can stay on USB.": (
-        "Así no va a funcionar: los mods tienen que estar en la SD, no en el USB. Mueve {1} al mismo sitio de tu SD y vuelve a intentarlo. Los juegos pueden seguir en el USB.",
-        "このままでは動きません。MODはUSBドライブではなくSDカードに置く必要があります。{1}をSDカードの同じ場所に移して、もう一度試してください。ゲームはUSBのままで大丈夫です。",
-        "Assim não vai funcionar: os mods precisam estar no SD, não no USB. Mova {1} para o mesmo lugar no seu SD e tente de novo. Os jogos podem ficar no USB.",
-        "Così non funziona: le mod devono stare sulla SD, non sull'unità USB. Sposta {1} nello stesso punto della SD e riprova. I giochi possono restare su USB."),
+    "Code builds on the USB drive won't work. Move {1} to the SD card.": (
+        "Las builds de códigos en el USB no funcionan. Mueve {1} a la SD.",
+        "USBドライブのコードビルドは動きません。{1}をSDカードに移してください。",
+        "Builds de códigos no USB não funcionam. Mova {1} para o SD.",
+        "Le build di codici sull'unità USB non funzionano. Sposta {1} sulla SD."),
+    "This won't work: code builds like Project+ have to be on the SD card, not the USB drive. Move {1} to the same spot on your SD card and try again. Your games can stay on USB.": (
+        "Así no va a funcionar: las builds de códigos como Project+ tienen que estar en la SD, no en el USB. Mueve {1} al mismo sitio de tu SD y vuelve a intentarlo. Los juegos pueden seguir en el USB.",
+        "このままでは動きません。Project+などのコードビルドはUSBドライブではなくSDカードに置く必要があります。{1}をSDカードの同じ場所に移して、もう一度試してください。ゲームはUSBのままで大丈夫です。",
+        "Assim não vai funcionar: builds de códigos como o Project+ precisam estar no SD, não no USB. Mova {1} para o mesmo lugar no seu SD e tente de novo. Os jogos podem ficar no USB.",
+        "Così non funziona: le build di codici come Project+ devono stare sulla SD, non sull'unità USB. Sposta {1} nello stesso punto della SD e riprova. I giochi possono restare su USB."),
     "Code builds need the game on USB or disc, not the SD card.": (
         "Las builds de códigos necesitan el juego en USB o en disco, no en la SD.",
         "コードビルドはSDカードではなく、USBかディスクのゲームで遊んでください。",

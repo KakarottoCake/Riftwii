@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 RiftWii contributors
+// SPDX-FileCopyrightText: ToadKing (wiilauncher-nossl)
+// SPDX-FileCopyrightText: Leseratte (Wiimmfi)
+// SPDX-FileCopyrightText: USB Loader GX contributors <https://github.com/wiidev/usbloadergx>
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/wfcpatch.hpp"
 
@@ -100,7 +104,7 @@ unsigned patch_wfc_domain(std::uint8_t* bytes, std::size_t size, const std::stri
 }
 
 int patch_wiimmfi_generic(std::uint8_t* bytes, std::size_t size) {
-    // Leseratte's patch as USB Loader GX ships it (version 3). The User-Agent
+    // Leseratte's patch as do_new_wiimmfi_nonMKWii has it (version 3). The User-Agent
     // mark tells Wiimmfi which patcher and version patched the game.
     static const char kGt2[] = "<GT2> RECV-0x%02x <- [--------:-----] [pid=%u]";
     static const std::uint8_t kGt2Locator[8] = {0x38, 0x61, 0x00, 0x08, 0x38, 0xA0, 0x00, 0x14};

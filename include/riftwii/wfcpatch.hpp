@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 RiftWii contributors
+// SPDX-FileCopyrightText: ToadKing (wiilauncher-nossl)
+// SPDX-FileCopyrightText: Leseratte (Wiimmfi)
+// SPDX-FileCopyrightText: USB Loader GX contributors <https://github.com/wiidev/usbloadergx>
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
@@ -8,10 +12,7 @@
 // Online play after Nintendo Wi-Fi Connection: a game can be pointed at a
 // replacement server. The patches that work on any game's loaded code are
 // here; the Wii side (wii/wfc.cpp) adds Mario Kart Wii's Wiimmfi patch and
-// WiiLink WFC's hook. Reimplemented from USB Loader GX's gamepatches.c
-// (PrivateServerPatcher, domainpatcher, do_new_wiimmfi_nonMKWii by
-// Leseratte of the Wiimmfi team), which credits ToadKing's
-// wiilauncher-nossl for the first two.
+// WiiLink WFC's hook.
 namespace riftwii {
 
 enum class WfcServer { Off, Wiimmfi, WiiLink, AltWfc, Custom };

@@ -24,15 +24,22 @@ Everything about installing and using RiftWii. The [README](../README.md) has th
    what is there. That puts RiftWii in `sd:/apps/riftwii/`.
 3. Put your mod packs (an XML file plus the folders it names, as their
    authors ship them) into `sd:/riivolution/` (or
-   `sd:/apps/riivolution/`), the same places Riivolution uses. Mods
-   always go on the SD card, never the USB drive: RiftWii won't start a
-   game that has mods on the USB drive, and says what to move.
+   `sd:/apps/riivolution/`), the same places Riivolution uses. Packs
+   can also go in `usb:/riivolution/` on the USB drive, FAT32 or NTFS
+   (see below). Code builds (Project+, REX) must stay on the SD card.
 4. Game images go in `wbfs` (`.wbfs` or `.iso`, also in `Title [ID]`
    folders the way USB Loader GX keeps them) or `games` (`.iso`, `.rvz`)
    at the top of the SD card or the USB drive. The zip's `usb-drive` folder shows
-   where. A drive formatted as WBFS has no folders: RiftWii lists every
+   where. Games kept somewhere else can be added with a line in
+   `sd:/riftwii/settings.txt`, folders split by `;`:
+   `game_folders = /Wii Games; usb:/iso/wii` (a plain `/path` is looked
+   for on both drives; `sd:/` or `usb:/` in front limits it to one). A
+   drive with several partitions is read from the one holding those
+   folders, `wbfs` or `games`.
+   A drive formatted as WBFS has no folders: RiftWii lists every
    game on it, and only reads it.
-5. Start RiftWii from the Homebrew Channel.
+5. Start RiftWii from the Homebrew Channel. The first time, a short
+   tour shows the basics (Settings > Tutorial shows it again).
 
 ## Using RiftWii
 
@@ -62,6 +69,10 @@ a game GameTDB has no cover for shows its name. **Home tiles** in
 Settings switches to name tiles.
 
 ### A game's page
+
+Games you start show on the Wii Message Board with how long you
+played, as discs from the Wii Menu do (`message_board = off` in
+`sd:/riftwii/settings.txt` turns that off).
 
 Pick a game to open its page. It shows how often you played it, and
 these rows:
@@ -127,6 +138,15 @@ the list explains the row you are on.
   **Game language**, **Game cIOS**, **Online server**: the defaults for
   every game.
 - **Home tiles**: covers or names.
+- **Wii Menu button**: *Back to RiftWii* makes the Wii Menu button of a
+  game's HOME Menu start RiftWii again (it needs the RiftWii channel);
+  *Wii Menu* leaves it as it was.
+- **Menu sounds** (Normal, Quiet, Off) and **Menu music**: the music is
+  `music.ogg` (Ogg Vorbis, up to 6 MB) from `sd:/riftwii/`, or else the one
+  the release puts in `sd:/apps/riftwii/`, looped while the menu is open.
+- **In-game screenshots** (off at first): see Screenshots below. It takes
+  about 0.8 MB of the game's memory, so leave it off for a game that
+  runs short.
 - **Download names and cheats**, and **Get the latest game names**.
 - **GameCube adapter** (experimental), and **Check the GameCube adapter** (below).
 - **Menu IOS**: IOS 58, or a d2x cIOS slot (248 to 252). Pick the slot that has
@@ -136,6 +156,10 @@ the list explains the row you are on.
   **Check for a new version** (on GitHub; with downloads on, RiftWii also
   looks at every start and asks before it updates), and **Leave RiftWii**,
   which opens the HOME Menu (below).
+- **Tutorial** shows the short tour of the basics again: a new SD card
+  starts with it, once.
+- **Credits and licence**: RiftWii's licence (the GNU GPL, version 3 or
+  later, in full), where its source is, and who its parts come from.
 
 ### HOME Menu
 
@@ -331,14 +355,19 @@ number).
 
 It reads an XML the way Riivolution does, so a pack that works there
 works here:
-- XMLs are read from `sd:/riivolution` and `sd:/apps/riivolution`. A
-  `root` without a leading `/` starts in the XML's folder, and no `root`
-  means that folder.
-- Packs are read from the SD card only. Many mods read their own files
-  from the SD card while the game runs (Pulsar packs through
-  Riivolution's `file` device, for one), so a pack on the USB drive
-  would half work at best. A game with a pack for it in
-  `usb:/riivolution` does not start until the pack is moved.
+- XMLs are read from `sd:/riivolution` and `sd:/apps/riivolution`, and
+  from `usb:/riivolution` and `usb:/apps/riivolution` (listed with
+  "@ USB"). A `root` without a leading `/` starts in the XML's folder,
+  and no `root` means that folder.
+- A pack on the USB drive reads its files from that drive while the
+  game runs. This needs a d2x cIOS: an SD or USB game already runs
+  under one; for a disc, set Menu IOS to your d2x slot in Settings. The
+  drive may be FAT32 or NTFS, with 512-byte sectors (not 4K-sector
+  drives). Files must not be compressed or sparse on NTFS; files small
+  enough for NTFS to keep inside its file table are carried in memory.
+  The pack's save folder and Riivolution's `file` device stay on the SD
+  card, so a Pulsar pack (Retro Rewind and the like) on USB keeps its
+  settings, ghosts and leaderboards on the SD card.
 - Only `yes` and `true` (any case) mean yes; any other value means no.
 - A hex value with an odd number of digits loses its last digit.
 - A `{$name}` no param sets becomes empty. An option's params win over
@@ -367,6 +396,28 @@ control stick and the Classic Controller's left stick move a pointer
 like a Wii Remote's; the D-pad moves the highlight. With no pointer on
 screen, only the highlighted tile or row answers to A.
 
+The power button, on the Wii or on a Wii Remote, turns the Wii off from
+the menu: the screen fades out and the Wii goes fully off (red light).
+The HOME Menu's power off follows the Wii's own setting instead (yellow
+with WiiConnect24 on).
+
+### Screenshots
+
+Hold **1** on a Wii Remote and press **HOME**, or hold **L** and **R** on
+a GameCube controller and press **Down**.
+
+- In the menu the screen flashes and the picture goes to
+  `sd:/riftwii/screenshots/riftwii-0001.png` (then 0002, and so on). In
+  the menu, 1, L and R do their usual job when you let go of them.
+- In a game (with Settings > In-game screenshots on) the picture is kept
+  on the Wii's internal memory while you play, without pausing the game,
+  and goes to `sd:/riftwii/screenshots/<game ID>-0001.png` the next time
+  RiftWii starts. The HOME press that finishes the combo never reaches
+  the game, so its HOME Menu does not open. A game keeps at most 32
+  pictures per session. The Wii Remote combo works with the Wii Remote
+  alone, not with buttons on a Classic Controller. The GameCube combo
+  works in games that support the GameCube controller.
+
 ## Stable and beta versions
 
 Stable versions (2.1.0, 2.1.1, ...) are the ones testers have checked on
@@ -384,6 +435,8 @@ them (a note before the launch, or "Experimental" in the Settings note):
   Wii U). It stays off for RVZ games
   ([issue #4](https://github.com/KakarottoCake/Riftwii/issues/4)).
 - **RVZ games**: if one does not start or play, use a WBFS or ISO copy.
+- **Packs on the USB drive** (`usb:/riivolution`): if the game does not
+  start, copy the pack to the SD card.
 
 ## Troubleshooting
 
