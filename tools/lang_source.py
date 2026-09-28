@@ -588,6 +588,11 @@ T = {
         "sd:/riftwiiにもRiftWiiのフォルダにもmusic.oggがありません。",
         "Nenhum music.ogg em sd:/riftwii nem na pasta do RiftWii.",
         "Nessun music.ogg in sd:/riftwii né nella cartella di RiftWii."),
+    "On a Wii U the GameCube adapter may not work in game from the front USB ports; the rear ones work.": (
+        "En una Wii U, el adaptador de GameCube puede no funcionar en el juego desde los puertos USB delanteros; los traseros sí funcionan.",
+        "Wii Uでは、前面のUSBポートだとゲーム中にゲームキューブアダプターが動かないことがあります。背面のポートなら動きます。",
+        "No Wii U, o adaptador de GameCube pode não funcionar no jogo pelas portas USB da frente; as de trás funcionam.",
+        "Su Wii U l'adattatore GameCube potrebbe non funzionare in gioco dalle porte USB anteriori; quelle posteriori funzionano."),
     # Packs on USB
     "Packs on USB are experimental; if it fails, copy them to SD.": (
         "Los packs en USB son experimentales; si falla, cópialos a la SD.",

@@ -666,6 +666,9 @@ msgstr "Música mientras el menú está abierto: music.ogg de sd:/riftwii, o la 
 msgid "No music.ogg found in sd:/riftwii or in RiftWii's own folder."
 msgstr "No hay ningún music.ogg en sd:/riftwii ni en la carpeta de RiftWii."
 
+msgid "On a Wii U the GameCube adapter may not work in game from the front USB ports; the rear ones work."
+msgstr "En una Wii U, el adaptador de GameCube puede no funcionar en el juego desde los puertos USB delanteros; los traseros sí funcionan."
+
 msgid "Packs on USB are experimental; if it fails, copy them to SD."
 msgstr "Los packs en USB son experimentales; si falla, cópialos a la SD."
 

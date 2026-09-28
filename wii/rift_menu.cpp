@@ -49,6 +49,7 @@
 #include "menu.h"
 #include "autorun.hpp"
 #include "menumusic.hpp"
+#include "boot.hpp"
 #include "demo.h"
 #include "input.h"
 #include "riftwii/patch.hpp"
@@ -584,6 +585,15 @@ static std::string LaunchNote(const FrontendState& state)
 	if (PacksOnUsb(state)) {
 		if (!note.empty()) note += " ";
 		note += tr("Packs on USB are experimental; if it fails, copy them to SD.");
+	}
+	// A game image runs under d2x, whose USB reaches only a Wii U's rear
+	// ports in game (the menu's IOS 58 reaches all four). Which port the
+	// adapter is in cannot be told from IOS's device ID yet, so any
+	// adapter the menu is using gets the note.
+	if ((state.use_usb || state.use_sd) && riftwii::wii::GcAdapterRunning() &&
+	    riftwii::wii::Settings().gc_adapter != "off" && riftwii::wii::is_wii_u()) {
+		if (!note.empty()) note += " ";
+		note += tr("On a Wii U the GameCube adapter may not work in game from the front USB ports; the rear ones work.");
 	}
 	return note;
 }
