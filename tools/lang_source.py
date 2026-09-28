@@ -387,6 +387,13 @@ T = {
     "Check the GameCube adapter": ("Probar el adaptador de GameCube", "接続タップを確認",
                                    "Testar o adaptador de GameCube", "Prova l'adattatore GameCube"),
     "Test": ("Probar", "テスト", "Testar", "Prova"),
+    "Credits and licence": ("Créditos y licencia", "クレジットとライセンス", "Créditos e licença", "Riconoscimenti e licenza"),
+    "View": ("Ver", "表示", "Ver", "Vedi"),
+    "Who RiftWii's parts come from, its licence (the GNU GPL, version 3 or later) and where its source is.": (
+        "De quién vienen las partes de RiftWii, su licencia (la GNU GPL, versión 3 o posterior) y dónde está su código fuente.",
+        "RiftWiiの各部分の作者、ライセンス (GNU GPL バージョン3以降) とソースコードの場所。",
+        "De quem vêm as partes do RiftWii, sua licença (a GNU GPL, versão 3 ou posterior) e onde está seu código-fonte.",
+        "Da chi provengono le parti di RiftWii, la sua licenza (la GNU GPL, versione 3 o successiva) e dove si trova il suo codice sorgente."),
     "Experimental. When the adapter is plugged in as a game starts, its controllers fill the ports that have none plugged in, in games that support the GameCube controller. It needs IOS 58 or a d2x cIOS.": (
         "Experimental. Si el adaptador está conectado al iniciar un juego, sus mandos ocupan los puertos que no tienen ninguno conectado, en los juegos compatibles con el mando de GameCube. Necesita IOS 58 o un cIOS d2x.",
         "試験的な機能です。ゲーム開始時に接続タップがつながっていれば、ゲームキューブコントローラに対応したゲームで、何もつながっていないポートに接続タップのコントローラが入ります。IOS 58かd2x cIOSが必要です。",

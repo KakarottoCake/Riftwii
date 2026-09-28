@@ -85,9 +85,9 @@ BINFILES	:=	$(foreach dir,$(DATA),$(notdir $(wildcard $(dir)/*.ttf) \
 					$(wildcard $(dir)/*.po)))
 # Do not discover this through wildcard: the outer build evaluates BINFILES
 # before runtime-blob creates build-runtime/riftwii_rt.bin. VPATH resolves it
-# for the recursive build after runtime-blob has completed. menufont.bin is listed
+# for the recursive build after runtime-blob has completed. menufont.bin and licence.bin are listed
 # because the wildcards above only pick up the known asset types.
-BINFILES	+=	riftwii_rt.zst riftwii_rt_rvz.zst riftwii_rt_rvz.rel riftwii_pad.bin codehandleronly.bin menufont.bin
+BINFILES	+=	riftwii_rt.zst riftwii_rt_rvz.zst riftwii_rt_rvz.rel riftwii_pad.bin codehandleronly.bin menufont.bin licence.bin
 
 #---------------------------------------------------------------------------------
 # use CXX for linking C++ projects, CC for standard C

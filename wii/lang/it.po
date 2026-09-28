@@ -459,6 +459,15 @@ msgstr "Prova l'adattatore GameCube"
 msgid "Test"
 msgstr "Prova"
 
+msgid "Credits and licence"
+msgstr "Riconoscimenti e licenza"
+
+msgid "View"
+msgstr "Vedi"
+
+msgid "Who RiftWii's parts come from, its licence (the GNU GPL, version 3 or later) and where its source is."
+msgstr "Da chi provengono le parti di RiftWii, la sua licenza (la GNU GPL, versione 3 o successiva) e dove si trova il suo codice sorgente."
+
 msgid "Experimental. When the adapter is plugged in as a game starts, its controllers fill the ports that have none plugged in, in games that support the GameCube controller. It needs IOS 58 or a d2x cIOS."
 msgstr "Sperimentale. Se l'adattatore è collegato quando parte un gioco, i suoi controller occupano le porte senza nulla collegato, nei giochi che supportano il controller GameCube. Serve l'IOS 58 o un cIOS d2x."
 

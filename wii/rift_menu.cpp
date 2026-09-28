@@ -43,6 +43,7 @@
 #include "riftwii/update.hpp"
 #include "gui_gamegrid.hpp"
 #include "guiscript.hpp"
+#include "credits.hpp"
 #include "gcadapter.hpp"
 #include "skin.hpp"
 #include "wiidrc.h"
@@ -2536,6 +2537,54 @@ static void GcAdapterTestPage()
 	ResumeGui();
 }
 
+// Settings > Credits and licence: RiftWii's licence notice, who its
+// parts come from and the GNU GPL in full (wii/credits.hpp).
+static void CreditsPage()
+{
+	GuiText titleTxt(tr("Credits and licence"), 30, skin::kInk);
+	Place(titleTxt, 40, 28);
+	GuiText versionTxt("GPL-3.0-or-later", 15, skin::kInkDim);
+	versionTxt.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
+	versionTxt.SetPosition(-40, 40);
+	std::vector<FlowRow> rows;
+	for (const std::string& line : riftwii::wii::CreditsLines(64)) {
+		FlowRow row;
+		row.kind = FlowRow::Kind::Info;
+		row.label = line;
+		rows.push_back(row);
+	}
+	Panel panel(skin::panelSettings, 34, 76);
+	GuiFlowList list(46, 82, 548, 6);
+	list.SetRows(&rows);
+	list.Select(0);
+	SkinButton backBtn(skin::pill, skin::pillOver, 4, 198, 406, "Back",
+		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
+
+	HaltGui();
+	GuiWindow w(screenwidth, screenheight);
+	w.Append(&titleTxt);
+	w.Append(&versionTxt);
+	w.Append(&panel);
+	w.Append(&list);
+	w.Append(&backBtn.button);
+	mainWindow->Append(&w);
+	ResumeGui();
+	bool done = false;
+	while (!done)
+	{
+		usleep(20000);
+		HaltGui();
+		ClearStaleButtons({&backBtn.button});
+		list.GetClicked();
+		list.GetClickedBack();
+		if (backBtn.Clicked()) done = true;
+		ResumeGui();
+	}
+	HaltGui();
+	mainWindow->Remove(&w);
+	ResumeGui();
+}
+
 static int MenuSettings(FrontendState& state)
 {
 	int menu = MENU_NONE;
@@ -2547,7 +2596,7 @@ static int MenuSettings(FrontendState& state)
 
 	bool netOn = riftwii::wii::NetworkPacksEnabled();
 	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kGameLanguage, kGameCios, kServer, kHomeTiles, kSounds, kMusic, kReturnTo, kOnline, kNames, kGcAdapter, kGcTest, kIos, kNet, kResync,
-		kRescan, kChannel, kUpdate, kWiiChannel, kExit, kNone };
+		kRescan, kChannel, kUpdate, kWiiChannel, kCredits, kExit, kNone };
 	// The RiftWii channel on the Wii Menu (wii/channel.hpp).
 	unsigned channelVersion = 0;
 	const bool channelThere = riftwii::wii::ChannelInstalled(channelVersion);
@@ -2649,6 +2698,12 @@ static int MenuSettings(FrontendState& state)
 		wiiChannel.dim = !channelCan;
 		rows.push_back(wiiChannel);
 		actions.push_back(kWiiChannel);
+		FlowRow credits;
+		credits.kind = FlowRow::Kind::Action;
+		credits.label = tr("Credits and licence");
+		credits.value = tr("View");
+		rows.push_back(credits);
+		actions.push_back(kCredits);
 		FlowRow exitRow;
 		exitRow.kind = FlowRow::Kind::Action;
 		exitRow.label = "Leave RiftWii";
@@ -2718,6 +2773,7 @@ static int MenuSettings(FrontendState& state)
 			case kNames: return tr("Downloads the newest game names from GameTDB.");
 			case kGcAdapter: return AdapterNote(settings.gc_adapter);
 			case kGcTest: return tr("Shows live what the controllers in the adapter are pressing.");
+			case kCredits: return tr("Who RiftWii's parts come from, its licence (the GNU GPL, version 3 or later) and where its source is.");
 			case kIos: return MenuIosNote(iosSlot);
 			case kNet:
 				return netOn ? "Looks for a PC running a RiiFS server when the games are read. Rescan to look now."
@@ -2880,6 +2936,13 @@ static int MenuSettings(FrontendState& state)
 					mainWindow->Remove(&w);
 					ResumeGui();
 					GcAdapterTestPage();
+					HaltGui();
+					mainWindow->Append(&w);
+					break;
+				case kCredits:
+					mainWindow->Remove(&w);
+					ResumeGui();
+					CreditsPage();
 					HaltGui();
 					mainWindow->Append(&w);
 					break;

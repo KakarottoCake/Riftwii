@@ -109,8 +109,22 @@ Gecko lines and Dolphin's DI and SD logs), savegames, and heap placement
    `sd-card/wbfs/`, `sd-card/games/`, `usb-drive/wbfs/` and
    `usb-drive/games/`, each with a short text file saying what goes
    there; a `README.txt` for players at the top.
+   The GPL goes with every copy: also at the top, `LICENSE.txt` (the
+   repository's `LICENSE`), `NOTICE.md`, and `SOURCE.txt` naming the
+   tag and commit the zip was built from and the repository URL. The
+   README's last section says the same in a few lines and lists the
+   credits. If `LICENSE` changed, `python tools/make_licence.py` first
+   (`--check` tells), so Settings > Credits and licence shows the same
+   text.
 4. `gh release create vX.Y.Z-beta --prerelease` with the zip and
-   `riftwii.dol`, the notes giving what changed and the DOL's SHA-256.
+   `riftwii.dol`, the notes giving what changed and the DOL's SHA-256,
+   and ending with a "Licence and source" line: GPL-3.0-or-later, the
+   source at the tag, the credits in `NOTICE.md`.
+5. When a third-party piece is added: a row in `NOTICE.md` (what, where
+   from with the commit, licence), a header in each file that follows
+   it naming the project, and a line in the README's Credits and in
+   `wii/credits.cpp`. Binaries built from someone else's source ship
+   with that source, as `vendor-gecko/` does.
 
 ## Ground rules
 
