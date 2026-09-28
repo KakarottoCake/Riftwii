@@ -21,6 +21,27 @@ float rounded_rect_distance(float px, float py, float x, float y, float w, float
 
 }  // namespace
 
+// The pixels whose centres are surely deeper than `depth` inside the
+// rounded rectangle (distance below `depth`, which is negative or zero),
+// with a pixel to spare: there a shape's coverage is known without the
+// distance. Empty if there are none.
+Canvas::Inner Canvas::inside_rounded_rect(float x, float y, float w, float h, float radius, float depth) {
+    Inner in{0, 0, 0, 0, 0.0f};
+    const float hw = w * 0.5f, hh = h * 0.5f;
+    radius = std::min(radius, std::min(hw, hh));
+    // Inside the straight part, the distance is max(qx, qy) - radius.
+    const float slack = std::min(0.0f, depth + radius) - 1.0f;
+    const float ax = hw - radius + slack, ay = hh - radius + slack;
+    if (radius < 0.0f || ax <= 0.0f || ay <= 0.0f) return in;
+    const float cx = x + hw, cy = y + hh;
+    in.x0 = static_cast<int>(std::floor(cx - ax - 0.5f)) + 1;
+    in.x1 = static_cast<int>(std::ceil(cx + ax - 0.5f));
+    in.y0 = static_cast<int>(std::floor(cy - ay - 0.5f)) + 1;
+    in.y1 = static_cast<int>(std::ceil(cy + ay - 0.5f));
+    if (in.x0 >= in.x1 || in.y0 >= in.y1) in = Inner{0, 0, 0, 0, 0.0f};
+    return in;
+}
+
 Canvas::Canvas(int width, int height)
     : width_(std::max(width, 0)), height_(std::max(height, 0)),
       px_(static_cast<std::size_t>(width_) * static_cast<std::size_t>(height_) * 4, 0) {}
@@ -35,6 +56,15 @@ void Canvas::blend(int x, int y, Rgba color, float coverage) {
     const float sa = clamp01(coverage) * (color.a / 255.0f);
     if (sa <= 0.0f) return;
     std::uint8_t* p = &px_[(static_cast<std::size_t>(y) * width_ + x) * 4];
+    // Over nothing, or fully opaque: the source colour itself (what the
+    // sums below come to in both cases).
+    if (p[3] == 0 || sa >= 1.0f) {
+        p[0] = color.r;
+        p[1] = color.g;
+        p[2] = color.b;
+        p[3] = p[3] == 0 ? static_cast<std::uint8_t>(std::lround(sa * 255.0f)) : 255;
+        return;
+    }
     const float da = p[3] / 255.0f;
     const float oa = sa + da * (1.0f - sa);
     if (oa <= 0.0f) return;
@@ -49,16 +79,29 @@ void Canvas::blend(int x, int y, Rgba color, float coverage) {
 }
 
 template <typename Coverage>
-void Canvas::paint(float x0, float y0, float x1, float y1, Rgba color, Coverage coverage) {
+void Canvas::paint(float x0, float y0, float x1, float y1, Rgba color, Coverage coverage, const Inner& inner) {
     const int ix0 = std::max(0, static_cast<int>(std::floor(x0)));
     const int iy0 = std::max(0, static_cast<int>(std::floor(y0)));
     const int ix1 = std::min(width_, static_cast<int>(std::ceil(x1)));
     const int iy1 = std::min(height_, static_cast<int>(std::ceil(y1)));
-    for (int y = iy0; y < iy1; ++y) {
-        for (int x = ix0; x < ix1; ++x) {
+    const auto run = [&](int y, int from, int to) {
+        for (int x = from; x < to; ++x) {
             const float c = coverage(x + 0.5f, y + 0.5f);
             if (c > 0.0f) blend(x, y, color, c);
         }
+    };
+    // Inside `inner` the coverage is the same everywhere: no distances.
+    const int in0 = std::max(ix0, inner.x0), in1 = std::min(ix1, inner.x1);
+    for (int y = iy0; y < iy1; ++y) {
+        if (y < inner.y0 || y >= inner.y1 || in0 >= in1) {
+            run(y, ix0, ix1);
+            continue;
+        }
+        run(y, ix0, in0);
+        if (inner.coverage > 0.0f) {
+            for (int x = in0; x < in1; ++x) blend(x, y, color, inner.coverage);
+        }
+        run(y, in1, ix1);
     }
 }
 
@@ -73,26 +116,31 @@ void Canvas::rect(float x, float y, float w, float h, Rgba color) {
 }
 
 void Canvas::rounded_rect(float x, float y, float w, float h, float radius, Rgba color) {
+    Inner inner = inside_rounded_rect(x, y, w, h, radius, -0.5f);  // covered fully
+    inner.coverage = 1.0f;
     paint(x - 1, y - 1, x + w + 1, y + h + 1, color, [&](float px, float py) {
         return clamp01(0.5f - rounded_rect_distance(px, py, x, y, w, h, radius));
-    });
+    }, inner);
 }
 
 void Canvas::rounded_border(float x, float y, float w, float h, float radius, float thickness, Rgba color) {
+    const Inner inner = inside_rounded_rect(x, y, w, h, radius, -thickness - 0.5f);  // inside the border
     paint(x - 1, y - 1, x + w + 1, y + h + 1, color, [&](float px, float py) {
         const float d = rounded_rect_distance(px, py, x, y, w, h, radius);
         return clamp01(0.5f - d) * clamp01(d + thickness + 0.5f);
-    });
+    }, inner);
 }
 
 void Canvas::shadow(float x, float y, float w, float h, float radius, float blur, Rgba color) {
     blur = std::max(blur, 1.0f);
+    Inner inner = inside_rounded_rect(x, y, w, h, radius, 0.0f);
+    inner.coverage = 1.0f;
     paint(x - blur - 1, y - blur - 1, x + w + blur + 1, y + h + blur + 1, color, [&](float px, float py) {
         const float d = rounded_rect_distance(px, py, x, y, w, h, radius);
         if (d <= 0.0f) return 1.0f;
         const float t = clamp01(1.0f - d / blur);
         return t * t;
-    });
+    }, inner);
 }
 
 void Canvas::rounded_gradient(float x, float y, float w, float h, float radius, Rgba top, Rgba bottom) {
@@ -127,17 +175,35 @@ void Canvas::line(float x0, float y0, float x1, float y1, float thickness, Rgba 
     const float r = thickness * 0.5f;
     const float dx = x1 - x0, dy = y1 - y0;
     const float len2 = dx * dx + dy * dy;
-    paint(std::min(x0, x1) - r - 1, std::min(y0, y1) - r - 1, std::max(x0, x1) + r + 1, std::max(y0, y1) + r + 1,
-          color, [&](float px, float py) {
-              const float t = len2 > 0 ? clamp01(((px - x0) * dx + (py - y0) * dy) / len2) : 0.0f;
-              const float d = std::hypot(px - (x0 + t * dx), py - (y0 + t * dy)) - r;
-              return clamp01(0.5f - d);
-          });
+    const auto coverage = [&](float px, float py) {
+        const float t = len2 > 0 ? clamp01(((px - x0) * dx + (py - y0) * dy) / len2) : 0.0f;
+        const float d = std::hypot(px - (x0 + t * dx), py - (y0 + t * dy)) - r;
+        return clamp01(0.5f - d);
+    };
+    const float bx0 = std::min(x0, x1) - r - 1, bx1 = std::max(x0, x1) + r + 1;
+    const float by0 = std::min(y0, y1) - r - 1, by1 = std::max(y0, y1) + r + 1;
+    if (std::fabs(dy) < 1.0f) {
+        paint(bx0, by0, bx1, by1, color, coverage);
+        return;
+    }
+    // A slanted line covers only a short stretch of each row: the pixels
+    // closer than r + 0.5 to the line through both ends (its caps too), with
+    // two pixels to spare. The distance is worked out as before inside it.
+    const float reach = (r + 0.5f) * std::sqrt(len2) / std::fabs(dy) + 2.0f;
+    const int iy0 = std::max(0, static_cast<int>(std::floor(by0)));
+    const int iy1 = std::min(height_, static_cast<int>(std::ceil(by1)));
+    for (int y = iy0; y < iy1; ++y) {
+        const float cx = x0 + (y + 0.5f - y0) * dx / dy;  // where the line crosses the row
+        paint(std::max(bx0, cx - reach - 0.5f), static_cast<float>(y), std::min(bx1, cx + reach + 0.5f),
+              static_cast<float>(y + 1), color, coverage);
+    }
 }
 
 void Canvas::area_below(const std::vector<float>& top, Rgba color) {
     for (int x = 0; x < width_ && x < static_cast<int>(top.size()); ++x) {
-        for (int y = 0; y < height_; ++y) {
+        // Nothing is covered above top[x] - 1.
+        const float first = std::floor(top[x] - 1.0f);
+        for (int y = first > 0.0f ? static_cast<int>(first) : 0; y < height_; ++y) {
             const float c = clamp01(y + 0.5f - top[x] + 0.5f);
             if (c > 0.0f) blend(x, y, color, c);
         }
@@ -149,7 +215,17 @@ void Canvas::curve(const std::vector<float>& top, float thickness, Rgba color) {
     const int n = std::min(width_, static_cast<int>(top.size()));
     const float r = thickness * 0.5f;
     for (int x = 0; x < n; ++x) {
-        for (int y = 0; y < height_; ++y) {
+        // Only rows near the segments' own heights can be reached.
+        float lo = 1e9f, hi = -1e9f;
+        for (int k = std::max(0, x - 3); k < std::min(n - 1, x + 3); ++k) {
+            lo = std::min(lo, std::min(top[k], top[k + 1]));
+            hi = std::max(hi, std::max(top[k], top[k + 1]));
+        }
+        if (lo > hi) continue;  // no segment: nothing to draw
+        const float first = std::floor(lo - r - 2.0f), last = std::ceil(hi + r + 2.0f);
+        const int y0 = first > 0.0f ? static_cast<int>(first) : 0;
+        const int y1 = last < static_cast<float>(height_) ? static_cast<int>(last) : height_;
+        for (int y = y0; y < y1; ++y) {
             const float px = x + 0.5f, py = y + 0.5f;
             float best = 1e9f;
             for (int k = std::max(0, x - 3); k < std::min(n - 1, x + 3); ++k) {
