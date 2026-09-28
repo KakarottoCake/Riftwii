@@ -9,6 +9,7 @@
 #include "riftwii/launch.hpp"
 #include "riftwii/playhistory.hpp"
 #include "riftwii/returnto.hpp"
+#include "riftwii/launchargs.hpp"
 #include "riftwii/settingsfile.hpp"
 #include "riftwii/update.hpp"
 #include "riftwii/wfcpatch.hpp"
@@ -560,6 +561,38 @@ void TestCoverArt() {
     EXPECT_EQ(back.game_folders.size(), 5u);
 }
 
+void TestHeadlessArguments() {
+    HeadlessLaunch h;
+    std::string error;
+    EXPECT_FALSE(is_headless_launch({"game=RMCE01"}));
+    EXPECT_TRUE(parse_headless_launch({"--launch", "game=RMCE01", "from=usb", "xml=sd:/riivolution/ctgp.xml",
+                                       "video_mode=pal60", "language=en", "cios=249", "server=wiimmfi",
+                                       "gct=sd:/codes/RMCE01.gct", "return_to=00010001-47584C44"}, h, error));
+    EXPECT_EQ(h.game, "RMCE01");
+    EXPECT_EQ(h.from, "usb");
+    EXPECT_TRUE(h.packs_given);
+    EXPECT_EQ(h.xmls.size(), 1u);
+    EXPECT_EQ(h.settings.video_mode, "pal60");
+    EXPECT_EQ(h.settings.language, "en");
+    EXPECT_EQ(h.settings.cios, "249");
+    EXPECT_EQ(h.settings.server, "wiimmfi");
+    EXPECT_EQ(h.settings.deflicker, "global");
+    EXPECT_EQ(h.gct, "sd:/codes/RMCE01.gct");
+    EXPECT_TRUE(h.return_to == 0x0001000147584C44ULL);
+    EXPECT_TRUE(parse_headless_launch({"--launch", "game=RSBE01", "xml=none", "return_to=menu"}, h, error));
+    EXPECT_TRUE(h.packs_given);
+    EXPECT_TRUE(h.xmls.empty());
+    EXPECT_TRUE(h.return_to_menu);
+    EXPECT_FALSE(parse_headless_launch({"--launch", "from=usb"}, h, error));
+    EXPECT_TRUE(error.find("game=") != std::string::npos);
+    EXPECT_FALSE(parse_headless_launch({"--launch", "game=RMCE01", "video_mode=pal70"}, h, error));
+    EXPECT_TRUE(error.find("video_mode") != std::string::npos);
+    EXPECT_FALSE(parse_headless_launch({"--launch", "game=RMCE01", "speed=fast"}, h, error));
+    EXPECT_TRUE(error.find("speed") != std::string::npos);
+    EXPECT_FALSE(parse_headless_launch({"--launch", "game=rmce01"}, h, error));
+    EXPECT_FALSE(parse_headless_launch({"--launch", "game=RMCE01", "gct=usb:/codes/x.gct"}, h, error));
+}
+
 void TestReturnTo() {
     auto put = [](std::vector<std::uint8_t>& b, std::size_t at, std::uint32_t v) {
         b[at] = v >> 24; b[at + 1] = (v >> 16) & 0xFF; b[at + 2] = (v >> 8) & 0xFF; b[at + 3] = v & 0xFF;
@@ -726,6 +759,7 @@ void TestHistory() {
 int main() {
     TestPlayLogRecord();
     TestReturnTo();
+    TestHeadlessArguments();
     TestHttp();
     TestCheats();
     TestVideo();

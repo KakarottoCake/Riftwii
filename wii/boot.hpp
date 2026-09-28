@@ -181,6 +181,11 @@ struct LaunchExtras {
     std::uint32_t code_list_end = 0;
     int code_hooktype = 0;
     std::vector<GamePoke> pokes;
+    // What a game's Wii Menu button starts, for a headless launch
+    // (wii/headless.hpp): a title, or the Wii Menu itself; neither
+    // leaves it to the Wii Menu button setting.
+    std::uint64_t return_to = 0;
+    bool return_to_menu = false;
 };
 void SetLaunchExtras(LaunchExtras extras);
 

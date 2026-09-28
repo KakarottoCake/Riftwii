@@ -32,6 +32,7 @@ below names the files that own it.
 | Menu IOS (IOS 58 or a d2x cIOS slot) | `wii/menuios.cpp` |
 | GameCube adapter in the menu (its controllers work the menu; Settings' test page) | `wii/gcadapter.cpp` (drives `runtime/rtgcad.c` with libogc's IPC, or on IOS 58 through libogc's USB handle), `vendor-libgui/source/input.cpp` |
 | Memory limits: the heap never enters memory a launch overwrites | `wii/memlimits.cpp` |
+| Launches another loader asks for (`--launch` arguments, no menu; `docs/HEADLESS.md`) | `wii/headless.cpp`, `src/launchargs.cpp` |
 
 Everything the menu decides is plain data (`LaunchModel`, the per-game
 choices file) and host-tested; the screens only draw and read the pads.

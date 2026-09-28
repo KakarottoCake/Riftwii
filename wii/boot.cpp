@@ -1445,10 +1445,16 @@ bool is_wii_u() {
 // d2x, and the game's __OSLaunchMenu patched to load the channel's title
 // (src/returnto.cpp) for one under any IOS.
 void apply_return_to(const std::vector<MemoryRegion>& loaded) {
-    if (Settings().return_to != "riftwii") return;
-    const u64 title = ChannelTitle();
+    if (g_extras.return_to_menu) return;
+    if (g_extras.return_to == 0 && Settings().return_to != "riftwii") return;
+    const u64 title = g_extras.return_to != 0 ? g_extras.return_to : ChannelTitle();
     if (title == 0) {
         logf("Return to RiftWii: the RiftWii channel is not installed; the Wii Menu stays\n");
+        return;
+    }
+    if ((title >> 32) != 0x00010001) {
+        logf("Return to %08x-%08x: only 00010001 titles can be patched in; the Wii Menu stays\n",
+             static_cast<u32>(title >> 32), static_cast<u32>(title));
         return;
     }
     std::vector<CodeSpan> spans;
@@ -1471,7 +1477,7 @@ void apply_return_to(const std::vector<MemoryRegion>& loaded) {
         d2x = IOS_Ioctlv(es, 0xA1, 1, 0, vector);
         IOS_Close(es);
     }
-    logf("Return to RiftWii (%08x-%08x): game %s; d2x %s\n", static_cast<u32>(title >> 32), static_cast<u32>(title),
+    logf("Return to %08x-%08x: game %s; d2x %s\n", static_cast<u32>(title >> 32), static_cast<u32>(title),
          report.describe().c_str(), d2x >= 0 ? "set" : "not available");
 }
 

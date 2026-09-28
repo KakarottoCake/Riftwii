@@ -21,6 +21,7 @@
 #include "menufont_bin.h"
 
 #include "autorun.hpp"
+#include "headless.hpp"
 #include "console.hpp"
 #include "crash.hpp"
 #include "gcadapter.hpp"
@@ -172,6 +173,17 @@ int main() {
     const riftwii::wii::RestartNote restart = riftwii::wii::TakeRestartNote();
     riftwii::wii::CrashInstall();
     const bool sd_mounted = MountStartupSd();
+
+    // Another loader (USB Loader GX) starting a game through RiftWii:
+    // no menu (docs/HEADLESS.md).
+    if (std::vector<std::string> args; riftwii::wii::HeadlessArguments(args)) {
+        riftwii::wii::ConsoleStart(false);
+        riftwii::wii::CrashSetPhase(riftwii::wii::CrashPhase::Console);
+        riftwii::wii::RunHeadless(args);
+        riftwii::wii::logf("Press HOME, Start or RESET to exit.\n");
+        riftwii::wii::WaitForExit();
+        std::exit(0);
+    }
 
     if (riftwii::wii::AutorunPresent()) {
         riftwii::wii::ConsoleStart(false);
