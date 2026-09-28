@@ -25,7 +25,7 @@
 #include "demo.h"
 
 struct SSettings Settings;
-int ExitRequested = 0;
+volatile int ExitRequested = 0;
 
 void ExitApp()
 {

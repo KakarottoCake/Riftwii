@@ -34,7 +34,8 @@ struct SSettings {
 extern struct SSettings Settings;
 
 void ExitApp();
-extern int ExitRequested;
+extern volatile int ExitRequested;  // RiftWii: set from the power button's interrupt too
+constexpr int kExitPowerButton = 5;  // RiftWii: fade out, then off with the red light
 extern FreeTypeGX *fontSystem[];
 
 #endif

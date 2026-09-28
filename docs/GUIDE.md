@@ -389,6 +389,11 @@ control stick and the Classic Controller's left stick move a pointer
 like a Wii Remote's; the D-pad moves the highlight. With no pointer on
 screen, only the highlighted tile or row answers to A.
 
+The power button, on the Wii or on a Wii Remote, turns the Wii off from
+the menu: the screen fades out and the Wii goes fully off (red light).
+The HOME Menu's power off follows the Wii's own setting instead (yellow
+with WiiConnect24 on).
+
 ## Stable and beta versions
 
 Stable versions (2.1.0, 2.1.1, ...) are the ones testers have checked on

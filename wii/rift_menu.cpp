@@ -223,7 +223,10 @@ UpdateGUI(void *arg)
 
 			if(ExitRequested)
 			{
-				for(i = 0; i <= 255; i += 15)
+				// The power button fades out more slowly, as the Wii Menu does.
+				const int step = ExitRequested == kExitPowerButton ? 6 : 15;
+				if (ExitRequested == kExitPowerButton) logf("Power button: turning the Wii off\n");
+				for(i = 0; i <= 255; i += step)
 				{
 					mainWindow->Draw();
 					Menu_DrawRectangle(0,0,screenwidth,screenheight,(GXColor){0, 0, 0, (u8)i},1);
@@ -236,9 +239,24 @@ UpdateGUI(void *arg)
 	return nullptr;
 }
 
+// The console's power button, or a Wii Remote's: the GUI thread fades the
+// screen out and turns the Wii off. Called from interrupts: only the
+// request is set here.
+static void PowerPressed()
+{
+	if (!ExitRequested) ExitRequested = kExitPowerButton;
+}
+
+static void RemotePowerPressed(s32)
+{
+	PowerPressed();
+}
+
 void InitGUIThreads()
 {
 	dimAllowed = CONF_Init() >= 0 && CONF_GetScreenSaverMode() == 1;
+	SYS_SetPowerCallback(PowerPressed);
+	WPAD_SetPowerButtonCallback(RemotePowerPressed);
 	if (LWP_CreateThread(&guithread, UpdateGUI, nullptr, nullptr, 24576, 70) < 0)
 		ExitApp();
 	HaltGui();
