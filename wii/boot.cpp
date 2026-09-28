@@ -1433,11 +1433,55 @@ bool is_wii_u() {
     return known == 1;
 }
 
+// IOS's file system keeps the Wii Menu's files to the Wii Menu. With
+// AHBPROT off (the Homebrew Channel starts apps that way) the PPC can
+// write IOS's memory in MEM2, so the permission check can be opened for
+// the rest of this IOS's life: in its Thumb code, "cmp r3, r1; beq" before
+// "movs r5, #0x66" becomes an unconditional branch past the refusal. IOS's
+// memory is written only there, and only after IOS refused. An IOS
+// reload (the game's) brings the check back.
+bool open_nand_permissions() {
+    if (read32(0x0D800064) != 0xFFFFFFFF) {
+        logf("Message Board: no AHBPROT access, IOS%d left as it is\n", IOS_GetVersion());
+        return false;
+    }
+    static const u8 kCheck[] = {0x42, 0x8B, 0xD0, 0x01, 0x25, 0x66};
+    const u16 protection = read16(0x0D8B420A);
+    write16(0x0D8B420A, 2);  // MEM2 protection off while IOS's code is written
+    int patched = 0;
+    // IOS lives at the top of MEM2; read and written uncached.
+    for (u32 at = 0xD3400000; at + sizeof kCheck <= 0xD4000000; at += 2) {
+        volatile u8* p = reinterpret_cast<volatile u8*>(at);
+        bool same = true;
+        for (std::size_t i = 0; same && i < sizeof kCheck; ++i) same = p[i] == kCheck[i];
+        if (!same) continue;
+        *reinterpret_cast<volatile u16*>(at + 2) = 0xE001;  // beq +2 -> b +2
+        ++patched;
+    }
+    write16(0x0D8B420A, protection);
+    logf("Message Board: IOS%d's NAND permission check %s\n", IOS_GetVersion(),
+         patched ? "opened" : "not found");
+    return patched != 0;
+}
+
 // The Wii Menu's play log, so the Message Board shows the game and how
 // long it was played, as it does for a disc started from the Wii Menu.
-// Written under the IOS running now (a later reload may lack the
-// permission); a failure only costs the entry. message_board = off in
-// settings.txt skips it.
+// Written under the IOS running now (the game's may lack the patch); a
+// failure only costs the entry. message_board = off in settings.txt skips
+// it.
+s32 write_play_file(const u8* buffer, u32 bytes) {
+    alignas(32) static const char kPath[] = "/title/00000001/00000002/data/play_rec.dat";
+    s32 fd = ISFS_Open(kPath, ISFS_OPEN_WRITE);
+    if (fd == -106) {  // not there yet
+        const s32 made = ISFS_CreateFile(kPath, 0, 3, 3, 3);
+        fd = made < 0 ? made : ISFS_Open(kPath, ISFS_OPEN_WRITE);
+    }
+    if (fd < 0) return fd;
+    const s32 r = ISFS_Write(fd, buffer, bytes);
+    ISFS_Close(fd);
+    return r;
+}
+
 void write_play_log(const DiscProbe& probe) {
     const auto off = Settings().other.find("message_board");
     if (off != Settings().other.end() && off->second == "off") return;
@@ -1447,19 +1491,9 @@ void write_play_log(const DiscProbe& probe) {
     const std::vector<std::uint8_t> record = play_log_record(name, probe.header.game_id, ticks);
     alignas(32) static u8 buffer[kPlayLogBytes];
     std::memcpy(buffer, record.data(), sizeof buffer);
-    alignas(32) static const char kPath[] = "/title/00000001/00000002/data/play_rec.dat";
     s32 r = ISFS_Initialize();
-    if (r >= 0) {
-        ISFS_Delete(kPath);
-        r = ISFS_CreateFile(kPath, 0, 3, 3, 3);
-    }
-    s32 fd = r >= 0 ? ISFS_Open(kPath, ISFS_OPEN_WRITE) : r;
-    if (fd >= 0) {
-        r = ISFS_Write(fd, buffer, sizeof buffer);
-        ISFS_Close(fd);
-    } else {
-        r = fd;
-    }
+    if (r >= 0) r = write_play_file(buffer, sizeof buffer);
+    if (r == -102 && open_nand_permissions()) r = write_play_file(buffer, sizeof buffer);
     if (r == static_cast<s32>(sizeof buffer)) {
         logf("Message Board: play log written (%s)\n", name.c_str());
     } else {
