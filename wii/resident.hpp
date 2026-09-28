@@ -110,6 +110,8 @@ struct ResidentInstall {
     // replay slot of a hooked function, else the function (0 if absent).
     std::uint32_t ioctl_async_original = 0;
     std::uint32_t ioctlv_async_original = 0;
+    // The same for every SDK entry (RT_IPC_ASYNC / RT_IPC_SYNC order).
+    std::array<std::uint32_t, RT_IPC_ENTRIES> originals{};
     std::uint32_t table = 0;          // redirect table address, 0 when there are no replacements
     std::uint32_t payload_bytes = 0;
     std::uint32_t bounce_bytes = 0;   // SD bounce buffers after the payload, 0 without SD replacements

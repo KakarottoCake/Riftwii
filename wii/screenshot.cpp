@@ -10,10 +10,12 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
 #include <map>
 #include <string>
+#include <vector>
 
 #include "libwiigui/gui.h"
 #include "log.hpp"
@@ -110,13 +112,19 @@ void ImportGameShots() {
         logf("Screenshot: no memory to import the game's screenshots\n");
         return;
     }
-    unsigned done = 0, dropped = 0;
+    // In the order they were taken (the NAND lists in its own order).
+    std::vector<std::string> files;
     const char* name = names;
-    for (u32 i = 0; i < count && !g_stop; ++i, name += std::strlen(name) + 1) {
+    for (u32 i = 0; i < count; ++i, name += std::strlen(name) + 1) {
         const std::size_t len = std::strlen(name);
-        if (len < 5 || len > 12 || std::strcmp(name + len - 4, ".raw") != 0) continue;
+        if (len >= 5 && len <= 12 && std::strcmp(name + len - 4, ".raw") == 0) files.push_back(name);
+    }
+    std::sort(files.begin(), files.end());
+    unsigned done = 0, dropped = 0;
+    for (const std::string& file : files) {
+        if (g_stop) break;
         char path[80];
-        std::snprintf(path, sizeof(path), "%s/%s", kGameShotDir, name);
+        std::snprintf(path, sizeof(path), "%s/%s", kGameShotDir, file.c_str());
         const s32 fd = ISFS_Open(path, ISFS_OPEN_READ);
         if (fd < 0) {
             logf("Screenshot: cannot open %s (%d)\n", path, static_cast<int>(fd));

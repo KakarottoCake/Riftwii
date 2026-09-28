@@ -36,6 +36,7 @@
 #include "riftwii/mempatch.hpp"
 #include "padhook.hpp"
 #include "resident.hpp"
+#include "shothook.hpp"
 #include "sdfile.hpp"
 #include "sdio.hpp"
 #include "umsdev.hpp"
@@ -1051,7 +1052,7 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         gc_adapter = forced;
     }
     DolHeader dol;
-    if (options.install_resident || gc_adapter) {
+    if (options.install_resident || gc_adapter || g_extras.screenshots) {
         if (!options.main_dol.empty()) {
             std::memcpy(dol_bytes, options.main_dol.data(), sizeof(dol_bytes));  // the executable that ran
         } else if (!data.read(layout.data_header.dol_offset, dol_bytes, sizeof(dol_bytes))) {
@@ -1164,6 +1165,29 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
             logf("GameCube adapter: off: %s\n", why.c_str());
         }
     }
+    // In-game screenshots: below the adapter, the runtime, or alone.
+    ShotHook shot;
+    if (g_extras.screenshots) {
+        std::string why;
+        const std::uint32_t arena1_hi = pad.active                 ? pad.new_arena1_hi
+                                        : options.install_resident ? resident.new_arena1_hi
+                                                                   : game_arena1_hi();
+        const std::uint32_t arena2_lo = pad.active                 ? pad.new_arena2_lo
+                                        : options.install_resident ? resident.new_arena2_lo
+                                                                   : read32(0x80003124);
+        ShotIpc known;
+        if (options.install_resident) {
+            known.open_async = resident.originals[RT_IPC_ASYNC(1)];
+            known.close_async = resident.originals[RT_IPC_ASYNC(2)];
+            known.write_async = resident.originals[RT_IPC_ASYNC(4)];
+            known.ioctl_async = resident.originals[RT_IPC_ASYNC(6)];
+            known.ioctlv_async = resident.ioctlv_async;
+        }
+        if (!plan_shot_hook(dol, arena1_hi, mem1_floor, arena2_lo, known, pad.read, g_extras.screenshots_demo,
+                            options.memory_patches, shot, why)) {
+            logf("Screenshots: off: %s\n", why.c_str());
+        }
+    }
     logf("Handing over\n");
 
     // Low-memory globals the SDK expects from the System Menu (wiibrew
@@ -1181,10 +1205,11 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
     store32(0x800000FC, 0x2B73A840);            // CPU clock
     // MEM1 arena end (0x34 from the apploader, 0x3110 as the System Menu
     // sets it): the FST, or the runtime's code just below it.
-    const std::uint32_t arena1_end = pad.active                 ? pad.new_arena1_hi
+    const std::uint32_t arena1_end = shot.active                ? shot.new_arena1_hi
+                                     : pad.active               ? pad.new_arena1_hi
                                      : options.install_resident ? resident.new_arena1_hi
                                                                 : load32(0x80000038);
-    if (options.install_resident || pad.active) store32(0x80000034, arena1_end);
+    if (options.install_resident || pad.active || shot.active) store32(0x80000034, arena1_end);
     store32(0x80003110, arena1_end);
     std::memcpy(reinterpret_cast<void*>(0x80003180), probe.disc_id, 4);
     store32(0x80003184, 0x80000000);            // where the game id lives
@@ -1202,7 +1227,9 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         write32(0x80003140, pretended);
         write32(0x80003188, pretended);
     }
-    if (pad.active) {
+    if (shot.active) {
+        write32(0x80003124, shot.new_arena2_lo);  // above the adapter's and the runtime's
+    } else if (pad.active) {
         // IOS's own field, like 0x3140: uncached, after the flush. The end
         // (0x3128) is never moved: the top of MEM2 stays the game's.
         write32(0x80003124, pad.new_arena2_lo);
@@ -1253,6 +1280,10 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
             exclusions.push_back(MemoryRegion{pad.code_base, pad.code_bytes});
             exclusions.push_back(MemoryRegion{pad.state_base, pad.state_bytes});
         }
+        if (shot.active) {
+            exclusions.push_back(MemoryRegion{shot.code_base, shot.code_bytes});
+            exclusions.push_back(MemoryRegion{shot.state_base, shot.state_bytes});
+        }
         if (options.install_resident) {
             exclusions.reserve(exclusions.size() + resident.hook_site_count);
             for (unsigned i = 0; i < resident.hook_site_count; ++i) {
@@ -1272,12 +1303,17 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         std::vector<MemoryRegion> keep_out;
         if (options.install_resident) keep_out.push_back(MemoryRegion{resident.code_base, resident.code_bytes});
         if (pad.active) keep_out.push_back(MemoryRegion{pad.code_base, pad.code_bytes});
+        if (shot.active) keep_out.push_back(MemoryRegion{shot.code_base, shot.code_bytes});
         if (!install_cheats(loaded, options.memory_patches, keep_out, why)) logf("Codes are off: %s\n", why.c_str());
         else codes_first = !g_extras.code_builds.empty();
     }
     if (pad.active) {
         std::string why;
         if (!install_pad_hook(pad, why)) logf("GameCube adapter: off: %s\n", why.c_str());
+    }
+    if (shot.active) {
+        std::string why;
+        if (!install_shot_hook(shot, why)) logf("Screenshots: off: %s\n", why.c_str());
     }
     // Last, in gamepatches.c's order: Wiimmfi's Mario Kart Wii patch goes
     // below everything else in the MEM1 arena. Packs bring their own online

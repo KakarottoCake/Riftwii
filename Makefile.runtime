@@ -46,6 +46,13 @@ PADOUT  := $(OUT)/pad
 PADBLOB := $(OUT)/riftwii_pad.bin
 PADOBJS := $(PADOUT)/pad_entry.o $(PADOUT)/pad_hook.o $(PADOUT)/rtgcad.o
 
+# The in-game screenshot blob (runtime/shot): IOS_IoctlvAsync and PADRead
+# hooks, installed only when the option is on.
+SHOTSRC  := runtime/shot
+SHOTOUT  := $(OUT)/shot
+SHOTBLOB := $(OUT)/riftwii_shot.bin
+SHOTOBJS := $(SHOTOUT)/shot_entry.o $(SHOTOUT)/shot_hook.o $(SHOTOUT)/rtshot.o
+
 # The RVZ blob (docs/RVZ.md): the same runtime built with RT_RVZ, plus
 # RVZ packing and Zstandard. Zstandard's constant tables make it the one
 # blob that is not position independent by itself; tools/rtreloc.py
@@ -74,7 +81,7 @@ BLOBZST := $(OUT)/riftwii_rt.zst
 RVZZST  := $(OUT)/riftwii_rt_rvz.zst
 
 .PHONY: all clean
-all: $(BLOB) $(PADBLOB) $(RVZBLOB) $(BLOBZST) $(RVZZST)
+all: $(BLOB) $(PADBLOB) $(SHOTBLOB) $(RVZBLOB) $(BLOBZST) $(RVZZST)
 
 $(OUT)/%.zst: $(OUT)/%.bin
 	$(ZSTD) -q -19 -f -o $@ $<
@@ -136,6 +143,31 @@ $(PADBLOB): $(PADOUT)/riftwii_pad.elf $(PADOUT)/riftwii_pad_alt.elf
 	$(OBJCOPY) -O binary $(PADOUT)/riftwii_pad_alt.elf $(PADOUT)/riftwii_pad_alt.bin
 	@cmp $@ $(PADOUT)/riftwii_pad_alt.bin || { echo "runtime: pad blob differs between link bases; not position independent"; rm -f $@; exit 1; }
 	@echo "pad blob: $$(stat -c %s $@) bytes"
+
+$(SHOTOUT):
+	@mkdir -p $(SHOTOUT)
+
+$(SHOTOUT)/shot_entry.o: $(SHOTSRC)/shot_entry.S $(SHOTSRC)/shot_hook.h | $(SHOTOUT)
+	$(CC) $(CFLAGS) -I$(SHOTSRC) -c -o $@ $<
+
+$(SHOTOUT)/shot_hook.o: $(SHOTSRC)/shot_hook.c $(SHOTSRC)/shot_hook.h runtime/rtshot.h | $(SHOTOUT)
+	$(CC) $(CFLAGS) -I$(SHOTSRC) -c -o $@ $<
+
+$(SHOTOUT)/rtshot.o: runtime/rtshot.c runtime/rtshot.h | $(SHOTOUT)
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(SHOTOUT)/riftwii_shot.elf: $(SHOTOBJS) $(SHOTSRC)/shot.ld
+	$(CC) $(CFLAGS) -nostdlib -nostartfiles -static -Wl,--build-id=none -Wl,--gc-sections -T $(SHOTSRC)/shot.ld 		-Wl,--defsym,RT_BASE=0x00000000 -o $@ $(SHOTOBJS) -lgcc
+	@$(SIZE) -A $@ | awk '$$1 ~ /^\.(rodata|data|bss)$$/ && $$2 != 0 { print "runtime: section " $$1 " is not empty (" $$2 " bytes) in the shot blob"; bad = 1 } END { exit bad }'
+
+$(SHOTOUT)/riftwii_shot_alt.elf: $(SHOTOBJS) $(SHOTSRC)/shot.ld
+	$(CC) $(CFLAGS) -nostdlib -nostartfiles -static -Wl,--build-id=none -Wl,--gc-sections -T $(SHOTSRC)/shot.ld 		-Wl,--defsym,RT_BASE=0x12340000 -o $@ $(SHOTOBJS) -lgcc
+
+$(SHOTBLOB): $(SHOTOUT)/riftwii_shot.elf $(SHOTOUT)/riftwii_shot_alt.elf
+	$(OBJCOPY) -O binary $(SHOTOUT)/riftwii_shot.elf $@
+	$(OBJCOPY) -O binary $(SHOTOUT)/riftwii_shot_alt.elf $(SHOTOUT)/riftwii_shot_alt.bin
+	@cmp $@ $(SHOTOUT)/riftwii_shot_alt.bin || { echo "runtime: shot blob differs between link bases; not position independent"; rm -f $@; exit 1; }
+	@echo "shot blob: $$(stat -c %s $@) bytes"
 $(RVZOUT):
 	@mkdir -p $(RVZOUT)
 

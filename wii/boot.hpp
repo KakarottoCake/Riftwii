@@ -186,6 +186,9 @@ struct LaunchExtras {
     // leaves it to the Wii Menu button setting.
     std::uint64_t return_to = 0;
     bool return_to_menu = false;
+    // In-game screenshots (wii/shothook.hpp); demo also shoots by itself.
+    bool screenshots = false;
+    bool screenshots_demo = false;
 };
 void SetLaunchExtras(LaunchExtras extras);
 

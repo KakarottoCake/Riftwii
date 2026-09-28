@@ -5,6 +5,7 @@
 #include "riftwii/pngdecode.hpp"
 #include "riftwii/pngencode.hpp"
 #include "riftwii/shotfile.hpp"
+#include "rtshot.h"
 
 #include <cstdlib>
 #include <cstring>
@@ -280,6 +281,181 @@ void test_header() {
     EXPECT_TRUE(riftwii::shot_file_name("riftwii", 12345) == "riftwii-12345.png");
 }
 
+
+// An HCI ACL packet carrying one Wii Remote input report.
+Bytes Report(std::uint16_t handle, std::uint8_t id, std::uint8_t b0, std::uint8_t b1, std::uint16_t cid = 0x41) {
+    Bytes hid = {0xA1, id, b0, b1, 0, 0, 0};
+    Bytes acl = {std::uint8_t(handle), std::uint8_t(0x20 | (handle >> 8)), std::uint8_t(hid.size() + 4), 0,
+                 std::uint8_t(hid.size()), 0, std::uint8_t(cid), std::uint8_t(cid >> 8)};
+    acl.insert(acl.end(), hid.begin(), hid.end());
+    return acl;
+}
+
+int Feed(rtshot_input& in, Bytes& acl) { return rtshot_acl(&in, acl.data(), std::uint32_t(acl.size())); }
+
+void test_remote_combo() {
+    rtshot_input in{};
+    Bytes r = Report(1, 0x30, 0, 0x02);  // 1 held
+    EXPECT_EQ(Feed(in, r), 0);
+    r = Report(1, 0x30, 0, 0x82);        // and HOME: fired, HOME hidden
+    EXPECT_EQ(Feed(in, r), 1);
+    EXPECT_EQ(r[11], 0x02);
+    r = Report(1, 0x37, 0, 0x82);        // still held: hidden, not fired again
+    EXPECT_EQ(Feed(in, r), 0);
+    EXPECT_EQ(r[11], 0x02);
+    r = Report(1, 0x30, 0, 0x80);        // 1 let go, HOME still down: still hidden
+    EXPECT_EQ(Feed(in, r), 0);
+    EXPECT_EQ(r[11], 0x00);
+    r = Report(1, 0x30, 0, 0x00);        // HOME let go
+    EXPECT_EQ(Feed(in, r), 0);
+    r = Report(1, 0x30, 0, 0x80);        // HOME alone reaches the game
+    EXPECT_EQ(Feed(in, r), 0);
+    EXPECT_EQ(r[11], 0x80);
+    r = Report(1, 0x30, 0, 0x82);        // HOME first, then 1: not the combo
+    EXPECT_EQ(Feed(in, r), 0);
+    EXPECT_EQ(r[11], 0x82);
+    // Both pressed in one report: 1 was not held before.
+    rtshot_input fresh{};
+    r = Report(2, 0x30, 0, 0x82);
+    EXPECT_EQ(Feed(fresh, r), 0);
+    // A second remote is its own: remote 2 holds 1 while remote 1 presses HOME.
+    rtshot_input two{};
+    r = Report(2, 0x30, 0, 0x02);
+    Feed(two, r);
+    r = Report(1, 0x30, 0, 0x80);
+    EXPECT_EQ(Feed(two, r), 0);
+    r = Report(2, 0x33, 0x10, 0x82);     // remote 2 (with Plus held too): fired
+    EXPECT_EQ(Feed(two, r), 1);
+    EXPECT_EQ(r[10], 0x10);
+    // What is not a button report is left alone.
+    rtshot_input other{};
+    r = Report(1, 0x30, 0, 0x02, 0x0001);  // the signalling channel
+    Feed(other, r);
+    r = Report(1, 0x30, 0, 0x82, 0x0001);
+    EXPECT_EQ(Feed(other, r), 0);
+    EXPECT_EQ(r[11], 0x82);
+    r = Report(1, 0x3D, 0, 0x02);  // no buttons in 0x3D
+    Feed(other, r);
+    r = Report(1, 0x3D, 0, 0x82);
+    EXPECT_EQ(Feed(other, r), 0);
+    EXPECT_EQ(r[11], 0x82);
+    EXPECT_EQ(other.reports, 0u);
+    Bytes short_packet = {1, 0x20, 4, 0};
+    EXPECT_EQ(rtshot_acl(&other, short_packet.data(), 4), 0);
+    r = Report(1, 0x30, 0, 0x02);
+    r[2] = 99;  // lengths that disagree
+    EXPECT_EQ(Feed(other, r), 0);
+    EXPECT_EQ(other.reports, 0u);
+}
+
+void test_pad_combo() {
+    rtshot_input in{};
+    std::uint8_t status[48] = {};
+    auto set = [&](int port, unsigned buttons, std::uint8_t l = 0, std::uint8_t r = 0, int err = 0) {
+        std::uint8_t* s = status + port * 12;
+        s[0] = std::uint8_t(buttons >> 8);
+        s[1] = std::uint8_t(buttons);
+        s[6] = l;
+        s[7] = r;
+        s[10] = std::uint8_t(err);
+    };
+    for (int p = 1; p < 4; ++p) set(p, 0, 0, 0, -1);  // nothing plugged in
+    set(0, RTSHOT_PAD_L | RTSHOT_PAD_R);
+    EXPECT_EQ(rtshot_pads(&in, status), 0);
+    set(0, RTSHOT_PAD_L | RTSHOT_PAD_R | RTSHOT_PAD_DOWN);
+    EXPECT_EQ(rtshot_pads(&in, status), 1);
+    EXPECT_EQ(status[1] & RTSHOT_PAD_DOWN, 0u);  // hidden
+    EXPECT_EQ(status[1] & RTSHOT_PAD_L, RTSHOT_PAD_L);
+    set(0, RTSHOT_PAD_DOWN);  // L and R let go, Down held: still hidden
+    EXPECT_EQ(rtshot_pads(&in, status), 0);
+    EXPECT_EQ(status[1] & RTSHOT_PAD_DOWN, 0u);
+    set(0, 0);
+    EXPECT_EQ(rtshot_pads(&in, status), 0);
+    set(0, RTSHOT_PAD_DOWN);  // Down alone
+    EXPECT_EQ(rtshot_pads(&in, status), 0);
+    EXPECT_EQ(status[1] & RTSHOT_PAD_DOWN, RTSHOT_PAD_DOWN);
+    set(0, 0);
+    rtshot_pads(&in, status);
+    // Analog triggers half down count; a little does not.
+    set(0, 0, 0x90, 0x90);
+    rtshot_pads(&in, status);
+    set(0, RTSHOT_PAD_DOWN, 0x90, 0x90);
+    EXPECT_EQ(rtshot_pads(&in, status), 1);
+    set(0, 0);
+    rtshot_pads(&in, status);
+    set(0, 0, 0x20, 0x90);
+    rtshot_pads(&in, status);
+    set(0, RTSHOT_PAD_DOWN, 0x20, 0x90);
+    EXPECT_EQ(rtshot_pads(&in, status), 0);
+    // A port with no new data (err -3) keeps its state.
+    set(2, RTSHOT_PAD_L | RTSHOT_PAD_R | RTSHOT_PAD_DOWN, 0, 0, -3);
+    EXPECT_EQ(rtshot_pads(&in, status), 0);
+}
+
+void test_vi_frame() {
+    struct rtshot_frame f{};
+    const std::uint32_t mem1 = (1u << 28) | (0x00F00000u >> 5);
+    // 480i, both fields in one buffer: a stride of two lines.
+    EXPECT_EQ(rtshot_frame(0x0F06, (40 << 8) | 80, mem1, &f), 1);
+    EXPECT_EQ(f.address, 0x00F00000u);
+    EXPECT_EQ(f.width, 640u);
+    EXPECT_EQ(f.lines, 480u);
+    EXPECT_EQ(f.stride, 1280u);
+    EXPECT_EQ(f.flags, 0u);
+    // 480p: one buffer line per line.
+    EXPECT_EQ(rtshot_frame((480 << 4) | 6, (40 << 8) | 40, mem1, &f), 1);
+    EXPECT_EQ(f.lines, 480u);
+    // PAL 576i.
+    EXPECT_EQ(rtshot_frame((287 << 4) | 5, (40 << 8) | 80, mem1, &f), 1);
+    EXPECT_EQ(f.lines, 574u);
+    // A field-rendered 240-line picture: shown twice.
+    EXPECT_EQ(rtshot_frame(0x0F06, (40 << 8) | 40, mem1, &f), 1);
+    EXPECT_EQ(f.lines, 240u);
+    EXPECT_EQ(f.flags, std::uint32_t(RTSHOT_DOUBLE_LINES));
+    // MEM2, and an address without the page-offset bit.
+    EXPECT_EQ(rtshot_frame(0x0F06, (40 << 8) | 80, (1u << 28) | (0x10200000u >> 5), &f), 1);
+    EXPECT_EQ(f.address, 0x10200000u);
+    EXPECT_EQ(rtshot_frame(0x0F06, (40 << 8) | 80, 0x00100000u, &f), 1);
+    EXPECT_EQ(f.address, 0x00100000u);
+    // Nothing to take.
+    EXPECT_EQ(rtshot_frame(0, (40 << 8) | 80, mem1, &f), 0);                          // VI off
+    EXPECT_EQ(rtshot_frame(0x0F06, (40 << 8) | 120, mem1, &f), 0);                    // a stride of three lines
+    EXPECT_EQ(rtshot_frame(0x0F06, (46 << 8) | 92, mem1, &f), 0);                     // wider than 720
+    EXPECT_EQ(rtshot_frame(0x0F06, (40 << 8) | 80, (1u << 28) | (0x017F0000u >> 5), &f), 0);  // past MEM1
+    EXPECT_EQ(rtshot_frame(0x0F06, (40 << 8) | 80, 0x00100010u, &f), 0);              // unaligned
+}
+
+void test_shot_file() {
+    char path[32];
+    rtshot_path(path, 7);
+    EXPECT_TRUE(std::string(path) == "/shared2/riftwii/shot0007.raw");
+    rtshot_path(path, 12345);
+    EXPECT_TRUE(std::string(path) == "/shared2/riftwii/shot2345.raw");
+    rtshot_dir(path);
+    EXPECT_TRUE(std::string(path) == "/shared2/riftwii");
+    std::uint8_t attr[RTSHOT_FS_ATTR_BYTES];
+    rtshot_fs_attr(attr, "/shared2/riftwii");
+    EXPECT_TRUE(std::string(reinterpret_cast<const char*>(attr + 6)) == "/shared2/riftwii");
+    EXPECT_EQ(attr[70], 3);
+    EXPECT_EQ(attr[71], 3);
+    EXPECT_EQ(attr[72], 3);
+    EXPECT_EQ(attr[73], 0);
+    // The blob's header is what the menu reads.
+    struct rtshot_frame f{};
+    rtshot_frame(0x0F06, (40 << 8) | 40, (1u << 28) | (0x00F00000u >> 5), &f);
+    std::uint8_t h[RTSHOT_HEADER_BYTES];
+    rtshot_header(h, &f, reinterpret_cast<const std::uint8_t*>("SB4E01"), 2, 12345);
+    riftwii::ShotInfo info;
+    std::string error;
+    EXPECT_TRUE(riftwii::parse_shot_header(h, RTSHOT_HEADER_BYTES + 640 * 2 * 240, info, error));
+    EXPECT_EQ(info.width, 640u);
+    EXPECT_EQ(info.lines, 240u);
+    EXPECT_EQ(info.flags, riftwii::kShotFlagDoubleLines);
+    EXPECT_TRUE(info.game_id == "SB4E01");
+    EXPECT_EQ(info.index, 2u);
+    EXPECT_EQ(std::size_t(RTSHOT_FRAME_BYTES), riftwii::kShotHeaderBytes + 720 * 2 * 576);
+}
+
 }  // namespace
 
 int main() {
@@ -287,6 +463,10 @@ int main() {
     test_png_refusals();
     test_yuyv();
     test_header();
+    test_remote_combo();
+    test_pad_combo();
+    test_vi_frame();
+    test_shot_file();
     if (g_failures == 0) {
         std::cout << "ALL SHOT TESTS PASSED" << std::endl;
         return 0;

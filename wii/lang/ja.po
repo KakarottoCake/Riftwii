@@ -726,6 +726,12 @@ msgstr "RiftWiiチャンネルをインストールすると(設定)、ゲーム
 msgid "Menu music"
 msgstr "メニューの音楽"
 
+msgid "In-game screenshots"
+msgstr "ゲーム中のスクリーンショット"
+
+msgid "In a game, hold 1 and press HOME (or hold L and R and press Down on a GameCube controller). The pictures go to sd:/riftwii/screenshots the next time RiftWii starts. Takes about 0.8 MB of the game's memory."
+msgstr "ゲーム中に1を押したままHOMEを押します(ゲームキューブコントローラーならLとRを押したまま下)。画像は次にRiftWiiを起動したときにsd:/riftwii/screenshotsに保存されます。ゲームのメモリを約0.8MB使います。"
+
 msgid "Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder."
 msgstr "メニューを開いている間の音楽です: sd:/riftwiiのmusic.ogg、なければRiftWiiのフォルダのものを流します。"
 

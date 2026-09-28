@@ -64,6 +64,8 @@ void LoaderSettings::parse(const std::string& text) {
             if (value == "riftwii" || value == "menu") return_to = value;
         } else if (key == "menu_music") {
             if (value == "on" || value == "off") menu_music = value;
+        } else if (key == "screenshots") {
+            if (value == "on" || value == "off" || value == "demo") screenshots = value;
         } else if (key == "menu_sounds") {
             if (value == "normal" || value == "quiet" || value == "off") menu_sounds = value;
         } else if (key == "online") {
@@ -118,6 +120,7 @@ std::string LoaderSettings::serialize() const {
     s += "menu_sounds = " + menu_sounds + "\n";
     s += "menu_music = " + menu_music + "\n";
     s += "return_to = " + return_to + "\n";
+    s += "screenshots = " + screenshots + "\n";
     s += std::string("online = ") + (online ? "on" : "off") + "\n";
     s += "update_channel = " + update_channel + "\n";
     s += "gc_adapter = " + gc_adapter + "\n";

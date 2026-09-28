@@ -149,6 +149,8 @@ void PrepareLaunchExtras(const FrontendState& state, const HeadlessLaunch* headl
                         : adapter == "demo" ? GcAdapterMode::Demo
                         : adapter == "off"  ? GcAdapterMode::Off
                                             : GcAdapterMode::Auto;
+    extras.screenshots = Settings().screenshots == "on" || Settings().screenshots == "demo";
+    extras.screenshots_demo = Settings().screenshots == "demo";
     extras.cheat_gct = CheatGct(state, extras.cheat_count, true);
     CodeBuildLaunch builds;
     std::string error;

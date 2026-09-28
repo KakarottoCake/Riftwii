@@ -140,6 +140,9 @@ the list explains the row you are on.
 - **Menu sounds** (Normal, Quiet, Off) and **Menu music**: the music is
   `music.ogg` (Ogg Vorbis, up to 6 MB) from `sd:/riftwii/`, or else the one
   the release puts in `sd:/apps/riftwii/`, looped while the menu is open.
+- **In-game screenshots** (off at first): see Screenshots below. It takes
+  about 0.8 MB of the game's memory, so leave it off for a game that
+  runs short.
 - **Download names and cheats**, and **Get the latest game names**.
 - **GameCube adapter** (experimental), and **Check the GameCube adapter** (below).
 - **Menu IOS**: IOS 58, or a d2x cIOS slot (248 to 252). Pick the slot that has
@@ -393,6 +396,23 @@ The power button, on the Wii or on a Wii Remote, turns the Wii off from
 the menu: the screen fades out and the Wii goes fully off (red light).
 The HOME Menu's power off follows the Wii's own setting instead (yellow
 with WiiConnect24 on).
+
+### Screenshots
+
+Hold **1** on a Wii Remote and press **HOME**, or hold **L** and **R** on
+a GameCube controller and press **Down**.
+
+- In the menu the screen flashes and the picture goes to
+  `sd:/riftwii/screenshots/riftwii-0001.png` (then 0002, and so on). In
+  the menu, 1, L and R do their usual job when you let go of them.
+- In a game (with Settings > In-game screenshots on) the picture is kept
+  on the Wii's internal memory while you play, without pausing the game,
+  and goes to `sd:/riftwii/screenshots/<game ID>-0001.png` the next time
+  RiftWii starts. The HOME press that finishes the combo never reaches
+  the game, so its HOME Menu does not open. A game keeps at most 32
+  pictures per session. The Wii Remote combo works with the Wii Remote
+  alone, not with buttons on a Classic Controller. The GameCube combo
+  works in games that support the GameCube controller.
 
 ## Stable and beta versions
 

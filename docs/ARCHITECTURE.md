@@ -33,6 +33,7 @@ below names the files that own it.
 | GameCube adapter in the menu (its controllers work the menu; Settings' test page) | `wii/gcadapter.cpp` (drives `runtime/rtgcad.c` with libogc's IPC, or on IOS 58 through libogc's USB handle), `vendor-libgui/source/input.cpp` |
 | Memory limits: the heap never enters memory a launch overwrites | `wii/memlimits.cpp` |
 | Launches another loader asks for (`--launch` arguments, no menu; `docs/HEADLESS.md`) | `wii/headless.cpp`, `src/launchargs.cpp` |
+| Screenshots: the menu's, and importing the ones games left on the NAND as PNGs | `wii/screenshot.cpp`, `src/shotfile.cpp`, `src/pngencode.cpp` (a PNG writer with its own deflate) |
 
 Everything the menu decides is plain data (`LaunchModel`, the per-game
 choices file) and host-tested; the screens only draw and read the pads.
@@ -67,8 +68,9 @@ the pack, option and file named, so a game never starts half patched.
 3. Run the game's apploader. Overrides replace what it loads on the way
    in: the rewritten FST (files that grew or were created move into a
    virtual window above the disc), the data header, a pack's `main.dol`.
-4. Install the resident runtime (`wii/resident.cpp`) and the pad hook
-   (`wii/padhook.cpp`); apply memory patches, cheats (the Gecko code
+4. Install the resident runtime (`wii/resident.cpp`), the pad hook
+   (`wii/padhook.cpp`) and the screenshot hook (`wii/shothook.cpp`);
+   apply memory patches, cheats (the Gecko code
    handler, `vendor-gecko/`), video patches (`src/videopatch.cpp`: width,
    deflicker, borders, and a forced TV format that converts the game's
    render mode tables) and the game language (`src/gamelang.cpp`); last,
@@ -101,6 +103,22 @@ adapter on, a second blob hooks the game's `PADRead` and
 through the game's own asynchronous IPC. The adapter's controllers fill
 ports with nothing plugged in; rumble goes back to them.
 
+**Screenshot hook** (`runtime/shot/`, `runtime/rtshot.c`). With In-game
+screenshots on, a third blob hooks the game's `IOS_IoctlvAsync` and, when
+the game has one, `PADRead`. Each Bluetooth ACL read from the dongle's
+bulk-in endpoint gets the blob's completion in place of the game's: the
+Wii Remote's input report is read (and HOME hidden while the combo holds
+it) before the game's callback runs. On the combo (1 held, then HOME; or
+L and R held, then Down) it copies the frame the video interface shows
+into MEM2 and writes it to `/shared2/riftwii/shotNNNN.raw` on the NAND
+through the game's own asynchronous IOS calls, one request from each
+completion, so the game never waits. Where another blob already hooked
+the function (the resident runtime's `IOS_IoctlvAsync`, the adapter's
+`PADRead`), the replay slot takes that blob's branch and both run. The
+menu turns the files into PNGs at its next start. `docs/BLUETOOTH.md`
+has what the same tap would take to support other Bluetooth
+controllers.
+
 ## Memory
 
 | Where | What |
@@ -108,10 +126,10 @@ ports with nothing plugged in; rumble goes back to them.
 | `0x80000000`–`0x80003400` | Low-memory globals; the Gecko code handler at `0x80001800` |
 | `0x80A00000`–`0x81200000` | The RiftWii loader (link address in `Makefile.wii`) and its heap |
 | `0x81200000` | The game's apploader, while it runs |
-| Top of the game's MEM1 arena | Resident runtime code, then the pad blob below it |
+| Top of the game's MEM1 arena | Resident runtime code, then the pad blob and the screenshot blob below it |
 | `0x90000000`–`0x90800000` | Left alone by the loader: an IOS reload stages its kernel here |
 | `0x90800000`–`0x90809000` | The restart snapshot and handoff (`wii/restart.hpp`) |
-| Bottom of the game's MEM2 arena | Resident runtime data, then the pad state |
+| Bottom of the game's MEM2 arena | Resident runtime data, then the pad state, then the screenshot state and frame (about 830 KB) |
 | `0x933E0000` and up | IOS |
 
 `wii/memlimits.cpp` keeps the loader's heap between the end of its own
