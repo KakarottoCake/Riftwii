@@ -41,6 +41,8 @@
 #include "riftwii/cardlog.hpp"
 #include "riftwii/codehook.hpp"
 #include "riftwii/gamelang.hpp"
+#include "riftwii/playhistory.hpp"
+#include "loadersettings.hpp"
 #include "riftwii/symsearch.hpp"
 
 namespace riftwii::wii {
@@ -1431,6 +1433,40 @@ bool is_wii_u() {
     return known == 1;
 }
 
+// The Wii Menu's play log, so the Message Board shows the game and how
+// long it was played, as it does for a disc started from the Wii Menu.
+// Written under the IOS running now (a later reload may lack the
+// permission); a failure only costs the entry. message_board = off in
+// settings.txt skips it.
+void write_play_log(const DiscProbe& probe) {
+    const auto off = Settings().other.find("message_board");
+    if (off != Settings().other.end() && off->second == "off") return;
+    const std::string name = GameDisplayName(probe.header.game_id,
+                                             probe.header.title.empty() ? probe.header.game_id : probe.header.title);
+    const u64 ticks = secs_to_ticks(static_cast<u64>(std::time(nullptr)) - kWiiEpochOffset);
+    const std::vector<std::uint8_t> record = play_log_record(name, probe.header.game_id, ticks);
+    alignas(32) static u8 buffer[kPlayLogBytes];
+    std::memcpy(buffer, record.data(), sizeof buffer);
+    alignas(32) static const char kPath[] = "/title/00000001/00000002/data/play_rec.dat";
+    s32 r = ISFS_Initialize();
+    if (r >= 0) {
+        ISFS_Delete(kPath);
+        r = ISFS_CreateFile(kPath, 0, 3, 3, 3);
+    }
+    s32 fd = r >= 0 ? ISFS_Open(kPath, ISFS_OPEN_WRITE) : r;
+    if (fd >= 0) {
+        r = ISFS_Write(fd, buffer, sizeof buffer);
+        ISFS_Close(fd);
+    } else {
+        r = fd;
+    }
+    if (r == static_cast<s32>(sizeof buffer)) {
+        logf("Message Board: play log written (%s)\n", name.c_str());
+    } else {
+        logf("Message Board: play log not written (error %d under IOS%d)\n", r, IOS_GetVersion());
+    }
+}
+
 bool boot_game(const DiscProbe& probe, const BootOptions& options, std::string& error) {
     const std::uint32_t required = probe.tmd.required_ios();
     if (required == 0) {
@@ -1438,6 +1474,7 @@ bool boot_game(const DiscProbe& probe, const BootOptions& options, std::string& 
         return false;
     }
     logf("Booting %s with IOS%u\n", probe.header.game_id.c_str(), required);
+    write_play_log(probe);
     BootOptions effective = options;
     const int running_ios = IOS_GetVersion();
     if (g_extras.gc_adapter != GcAdapterMode::Off && di::has_partition_resolver()) {

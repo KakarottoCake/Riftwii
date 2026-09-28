@@ -65,6 +65,10 @@ Settings switches to name tiles.
 
 ### A game's page
 
+Games you start show on the Wii Message Board with how long you
+played, as discs from the Wii Menu do (`message_board = off` in
+`sd:/riftwii/settings.txt` turns that off).
+
 Pick a game to open its page. It shows how often you played it, and
 these rows:
 

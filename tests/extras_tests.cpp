@@ -551,6 +551,31 @@ void TestCoverArt() {
     EXPECT_EQ(back.game_folders.size(), 5u);
 }
 
+void TestPlayLogRecord() {
+    const std::vector<std::uint8_t> r = play_log_record("Mario \xC3\xA9", "RMGE01", 0x0102030405060708ULL);
+    EXPECT_EQ(r.size(), kPlayLogBytes);
+    if (r.size() != kPlayLogBytes) return;
+    EXPECT_EQ(r[4], 0);
+    EXPECT_EQ(r[5], 'M');
+    EXPECT_EQ(r[4 + 2 * 6], 0x00);
+    EXPECT_EQ(r[5 + 2 * 6], 0xE9);  // é
+    EXPECT_EQ(r[4 + 2 * 7] | r[5 + 2 * 7], 0);
+    EXPECT_EQ(r[0x54], 0x01);
+    EXPECT_EQ(r[0x5B], 0x08);
+    EXPECT_EQ(r[0x5C], 0x01);
+    EXPECT_EQ(std::string(r.begin() + 0x64, r.begin() + 0x6A), "RMGE01");
+    std::uint32_t sum = 0;
+    for (std::size_t at = 4; at < kPlayLogBytes; at += 4) {
+        sum += (std::uint32_t(r[at]) << 24) | (std::uint32_t(r[at + 1]) << 16) | (std::uint32_t(r[at + 2]) << 8) | r[at + 3];
+    }
+    const std::uint32_t stored = (std::uint32_t(r[0]) << 24) | (std::uint32_t(r[1]) << 16) | (std::uint32_t(r[2]) << 8) | r[3];
+    EXPECT_EQ(stored, sum);
+    // A long name keeps its terminator.
+    const std::vector<std::uint8_t> l = play_log_record(std::string(60, 'x'), "RMGE01", 1);
+    EXPECT_EQ(l[4 + 2 * 38 + 1], 'x');
+    EXPECT_EQ(l[4 + 2 * 39] | l[4 + 2 * 39 + 1], 0);
+}
+
 void TestGameLanguage() {
     int code = 0;
     EXPECT_TRUE(parse_game_language("zh-hant", code));
@@ -642,6 +667,7 @@ void TestHistory() {
 }  // namespace
 
 int main() {
+    TestPlayLogRecord();
     TestHttp();
     TestCheats();
     TestVideo();
