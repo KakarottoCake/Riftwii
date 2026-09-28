@@ -691,7 +691,8 @@ bool dump_metadata(const DiscProbe& probe, const OpenedPartition& partition, con
 }
 
 // Return to RiftWii, below with the play log.
-void apply_return_to(const std::vector<MemoryRegion>& loaded);
+std::vector<CodeSpan> code_spans(const std::vector<MemoryRegion>& loaded);
+void apply_return_to(const std::vector<MemoryRegion>& loaded, const ReturnToArea& area);
 
 namespace {
 
@@ -1245,6 +1246,8 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         write32(0x80003124, resident.new_arena2_lo);
     }
 
+    // Return to RiftWii's stub place, as loaded: packs may put code there.
+    const ReturnToArea return_area = find_return_area(code_spans(loaded));
     // <memory> patches, last of all so they win over the globals above (as
     // in Dolphin, which writes low memory before its patches). Writes may
     // land anywhere in MEM1 except this loader, the runtime's code and its
@@ -1332,7 +1335,7 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         if (packs) logf("WFC: not patched; packs are on\n");
         else ApplyWfc(loaded, g_extras.server, g_extras.wfc_domain, g_extras.game_id, probe.header.version);
     }
-    apply_return_to(loaded);
+    apply_return_to(loaded, return_area);
     settime(secs_to_ticks(static_cast<u64>(std::time(nullptr)) - kWiiEpochOffset));
 
     release_card_and_log();
@@ -1492,7 +1495,13 @@ bool is_wii_u() {
 // "return to" (ES ioctl 0xA1, as PatchNewReturnTo asks it) for a game under
 // d2x, and the game's __OSLaunchMenu patched to load the channel's title
 // (src/returnto.cpp) for one under any IOS.
-void apply_return_to(const std::vector<MemoryRegion>& loaded) {
+std::vector<CodeSpan> code_spans(const std::vector<MemoryRegion>& loaded) {
+    std::vector<CodeSpan> spans;
+    for (const MemoryRegion& r : loaded) spans.push_back(CodeSpan{reinterpret_cast<std::uint8_t*>(r.address), r.length, r.address});
+    return spans;
+}
+
+void apply_return_to(const std::vector<MemoryRegion>& loaded, const ReturnToArea& area) {
     if (g_extras.return_to_menu) return;
     if (g_extras.return_to == 0 && Settings().return_to != "riftwii") return;
     const u64 title = g_extras.return_to != 0 ? g_extras.return_to : ChannelTitle();
@@ -1505,9 +1514,7 @@ void apply_return_to(const std::vector<MemoryRegion>& loaded) {
              static_cast<u32>(title >> 32), static_cast<u32>(title));
         return;
     }
-    std::vector<CodeSpan> spans;
-    for (const MemoryRegion& r : loaded) spans.push_back(CodeSpan{reinterpret_cast<std::uint8_t*>(r.address), r.length, r.address});
-    const ReturnToReport report = patch_return_to(spans, static_cast<std::uint32_t>(title));
+    const ReturnToReport report = patch_return_to(code_spans(loaded), static_cast<std::uint32_t>(title), area);
     if (report.patched) {
         for (const MemoryRegion& r : loaded) {
             DCFlushRange(reinterpret_cast<void*>(r.address), r.length);

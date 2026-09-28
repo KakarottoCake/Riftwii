@@ -33,8 +33,24 @@ struct ReturnToReport {
     std::string describe() const;
 };
 
+// The string starts the SDK's debugger vector table, unused in a retail
+// game, and mod loaders put their own code there too (Pulsar's loader
+// takes the first 0xADC bytes, string and all). So the table's first
+// 4 KiB are copied before a pack's memory patches run, and the stub
+// goes where they left the copy unchanged.
+struct ReturnToArea {
+    std::uint32_t address = 0;          // the string's; 0: not found
+    std::vector<std::uint8_t> bytes;    // the table as loaded
+};
+
+ReturnToArea find_return_area(const std::vector<CodeSpan>& spans);
+
 // Patches the loaded game so its "Wii Menu" launches 00010001-`title_low`.
-// Nothing is written unless all three places and the stub's place are found.
+// Nothing is written unless all three places and the stub's place are
+// found. The stub goes 0x30 past the string when nothing in `area`
+// changed since it was copied, else as high in it as 20 unchanged bytes
+// fit, away from the loader's code and whatever that code keeps after it.
+ReturnToReport patch_return_to(const std::vector<CodeSpan>& spans, std::uint32_t title_low, const ReturnToArea& area);
 ReturnToReport patch_return_to(const std::vector<CodeSpan>& spans, std::uint32_t title_low);
 
 }  // namespace riftwii

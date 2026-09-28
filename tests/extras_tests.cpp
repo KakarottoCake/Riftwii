@@ -705,6 +705,48 @@ void TestReturnTo() {
                                               {short_data.data(), short_data.size(), 0x80300000}}, 0x55465457);
     EXPECT_FALSE(s.patched);
     EXPECT_TRUE(short_text == before);
+
+    // A pack's loader over the table: the string gone (Pulsar's), or kept
+    // with code after it. The stub goes to the table's highest unchanged
+    // 20 bytes, found from the copy taken before the pack's patches.
+    for (bool keep_string : {false, true}) {
+        std::vector<std::uint8_t> t2(0x400, 0), table(0x2000, 0);
+        for (std::size_t at : {0x100u, 0x180u, 0x200u}) {
+            put(t2, at, 0x38800002);
+            put(t2, at + 4, 0x38600001);
+        }
+        put(t2, 0x108, 0x38A00000);
+        std::memcpy(table.data(), "Metrowerks Target", 17);
+        for (std::size_t at = 0x100; at < 0x2000; at += 0x100) put(table, at, 0x7C5143A6);
+        const std::vector<CodeSpan> spans2 = {{t2.data(), t2.size(), 0x80300000}, {table.data(), table.size(), 0x80004000}};
+        const ReturnToArea area = find_return_area(spans2);
+        EXPECT_EQ(area.address, 0x80004000u);
+        EXPECT_EQ(area.bytes.size(), 0x1000u);
+        for (std::size_t at = keep_string ? 0x20 : 0; at < 0xADC; ++at) table[at] = 0xA5;
+        put(table, 0xFF0, 0x12345678);  // changed near the top as well
+        const std::vector<std::uint8_t> loader(table.begin(), table.begin() + 0xADC);
+        const ReturnToReport p = patch_return_to(spans2, 0x55465457, area);
+        EXPECT_TRUE(p.patched);
+        EXPECT_TRUE(std::equal(loader.begin(), loader.end(), table.begin()));
+        EXPECT_EQ(get(table, 0xFF0), 0x12345678u);
+        EXPECT_EQ(get(table, 0xFDC), 0x3C600001u);
+        EXPECT_EQ(get(table, 0xFEC), 0x4E800020u);
+        const std::uint32_t bl = get(t2, 0x100);
+        EXPECT_EQ(0x80300100u + (bl & 0x03FFFFFCu) - 0x04000000u, 0x80004FDCu);
+    }
+    // Nothing changed: 0x30 past the string, as before.
+    {
+        std::vector<std::uint8_t> t3(0x400, 0), table(0x2000, 0);
+        for (std::size_t at : {0x100u, 0x180u, 0x200u}) {
+            put(t3, at, 0x38800002);
+            put(t3, at + 4, 0x38600001);
+        }
+        put(t3, 0x108, 0x38A00000);
+        std::memcpy(table.data(), "Metrowerks Target", 17);
+        const std::vector<CodeSpan> spans3 = {{table.data(), table.size(), 0x80004000}, {t3.data(), t3.size(), 0x80300000}};
+        EXPECT_TRUE(patch_return_to(spans3, 0x55465457, find_return_area(spans3)).patched);
+        EXPECT_EQ(get(table, 0x30), 0x3C600001u);
+    }
 }
 
 void TestPlayLogRecord() {
