@@ -1019,7 +1019,8 @@ static void ShowTutorialOnce()
 {
 	static const char* const kMarker = "sd:/riftwii/tutorial_done.txt";
 	struct stat st;
-	if (stat(kMarker, &st) == 0) return;
+	// Without a card nothing could remember it: it would show every start.
+	if (stat("sd:/", &st) != 0 || stat(kMarker, &st) == 0) return;
 	const bool used = stat("sd:/riftwii/settings.txt", &st) == 0 || stat("sd:/riftwii/history.txt", &st) == 0 ||
 			  stat("sd:/riftwii/covers", &st) == 0 || stat("sd:/riftwii/channel_offered.txt", &st) == 0;
 	if (!used) ShowTutorial();
@@ -2616,12 +2617,12 @@ static void CreditsPage()
 	GuiText versionTxt("GPL-3.0-or-later", 15, skin::kInkDim);
 	versionTxt.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
 	versionTxt.SetPosition(-40, 40);
+	// About 840 lines: moved into the rows, not copied (the MEM1 heap is small).
 	std::vector<FlowRow> rows;
-	for (const std::string& line : riftwii::wii::CreditsLines(64)) {
-		FlowRow row;
-		row.kind = FlowRow::Kind::Info;
-		row.label = line;
-		rows.push_back(row);
+	{
+		std::vector<std::string> lines = riftwii::wii::CreditsLines(64);
+		rows.resize(lines.size());
+		for (std::size_t i = 0; i < lines.size(); ++i) rows[i].label = std::move(lines[i]);
 	}
 	Panel panel(skin::panelSettings, 34, 76);
 	GuiFlowList list(46, 82, 548, 6);

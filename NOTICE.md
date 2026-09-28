@@ -71,3 +71,9 @@ only (how its choices files and macros work), never copied. Behavioural referenc
   description in Dolphin's `docs/WiaAndRvz.md`; no Dolphin code was used.
   Its test images are built from scratch by `tools/rvz/make_test_disc.py`
   and converted with DolphinTool.
+- Screenshots (`wii/screenshot.cpp`, `wii/shothook.cpp`, `runtime/shot/`,
+  `runtime/rtshot.c`) follow wiibrew's pages on the Video Interface
+  registers, `/dev/fs`, `/dev/usb/oh1` and the Wii Remote's HID reports,
+  with BT.601 for the YUV to RGB conversion. The PNG writer
+  (`src/pngencode.cpp`) follows the PNG specification and RFC 1951
+  (Deflate). No code was used from any of them.
