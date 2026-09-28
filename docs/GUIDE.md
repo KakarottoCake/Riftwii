@@ -461,6 +461,15 @@ whose file is missing is skipped with a warning (as in Dolphin). Press A
 to go back to RiftWii (it also goes back by itself after two minutes),
 or HOME to leave to the Homebrew Channel.
 
+**A game boots without mods but goes black with them.** When a pack
+reads from the SD card while you play (its files there, or its saves),
+RiftWii usually keeps its own IOS running and tells the game it has the
+one it asked for. A few games don't accept that (Just Dance 2014 and
+other games on IOS57 are switched to their own IOS automatically). For
+another game, add `sd_launch_ios = game` to `sd:/riftwii/settings.txt`:
+every game then starts on its own IOS. (`sd_launch_ios = menu` keeps
+RiftWii's IOS for every game.) Please report the game if it helps.
+
 **RiftWii crashed.** It shows what happened, saves it to
 `sd:/riftwii/crash.txt` and starts again (A, RESET, or after a minute).
 Please send that file with a report.

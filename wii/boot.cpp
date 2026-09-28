@@ -1646,14 +1646,19 @@ bool boot_game(const DiscProbe& probe, const BootOptions& options, std::string& 
             g_extras.gc_adapter = seen == AdapterSeen::Missing ? GcAdapterMode::Off : GcAdapterMode::On;
         }
     }
-    // `sd_launch_ios = game` in settings.txt (a test for games that go
-    // black under the kept IOS, such as Just Dance 2014 on IOS57): reload
-    // the game's own IOS anyway; the runtime opens the card again under it.
+    // Games on IOS57 start under it even when the runtime needs the card:
+    // Just Dance 2014 goes black under IOS58 (on a tester's Wii U, with a
+    // save-only pack and with a files-only one) and runs under IOS57, which
+    // reads the card too. Older IOSes keep the rule above (they may not
+    // read SDHC cards). `sd_launch_ios` in settings.txt overrides it:
+    // `game` reloads for every game, `menu` never does.
     const auto sd_ios = Settings().other.find("sd_launch_ios");
-    const bool reload_for_sd = sd_ios != Settings().other.end() && sd_ios->second == "game";
+    const std::string sd_ios_setting = sd_ios != Settings().other.end() ? sd_ios->second : std::string();
+    const bool reload_for_sd = sd_ios_setting == "game" || (sd_ios_setting != "menu" && required == 57);
     if (!effective.preserve_current_ios && running_ios != static_cast<int>(required) &&
         needs_resident_sd(effective) && reload_for_sd) {
-        logf("Starting IOS%u for the game although the runtime needs the SD card (sd_launch_ios = game)\n", required);
+        logf("Starting IOS%u for the game although the runtime needs the SD card (%s)\n", required,
+             sd_ios_setting == "game" ? "sd_launch_ios = game" : "IOS57 games run under it");
     } else if (!effective.preserve_current_ios && running_ios != static_cast<int>(required) &&
         needs_resident_sd(effective)) {
         // The selected packages/save mode were resolved through this very
