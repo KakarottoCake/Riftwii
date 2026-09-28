@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Parts of this follow USB Loader GX (https://github.com/wiidev/usbloadergx,
-// GPL-3.0, the project's licence): gamepatches.c, the render mode tables of its
-// video mode patcher, reimplemented. See NOTICE.md.
+// Credit: USB Loader GX (https://github.com/wiidev/usbloadergx),
+// source/patches/gamepatches.c: the render mode tables of its video mode
+// patcher, GPL-3.0. Reimplemented here; see NOTICE.md.
 #pragma once
 
 #include <cstddef>
@@ -23,7 +23,7 @@
 //     interlace flicker. It blurs; turning it off gives a sharp picture.
 //   - Mode: the TV format the game outputs (NTSC, PAL 50 Hz, PAL 60 Hz,
 //     480p). Each table the SDK defines is converted to the same kind of
-//     table in the other format, as USB Loader GX does; a table with
+//     table in the other format, as that patcher does; a table with
 //     unusual heights keeps its own format (it still works, unforced).
 namespace riftwii {
 

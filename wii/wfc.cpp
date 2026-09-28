@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// The Mario Kart Wii Wiimmfi patch below (Leseratte, 2018; the error 51420 fix,
-// 2021) is copied unchanged as data from USB Loader GX
-// (https://github.com/wiidev/usbloadergx, GPL-3.0, the project's licence, gamepatches.c), as
-// are the facts of its RCE fix (patch_error_codes). See NOTICE.md.
+// Credit: USB Loader GX (https://github.com/wiidev/usbloadergx),
+// source/patches/gamepatches.c, GPL-3.0: do_new_wiimmfi (Leseratte's Mario
+// Kart Wii Wiimmfi patch, 2018, with the error 51420 fix, 2021: copied
+// unchanged as data) and patch_error_codes (the Mario Kart Wii remote code
+// execution fix: reimplemented). See NOTICE.md.
 #include "wfc.hpp"
 
 #include <gccore.h>
@@ -63,7 +64,7 @@ void MkwRceFix(char region) {
 }
 
 // Wiimmfi's Mario Kart Wii patch (Leseratte, 2018; the error 51420 fix,
-// 2021), as USB Loader GX applies it. The blob is Wiimmfi's; do not edit.
+// 2021), as do_new_wiimmfi applies it. The blob is Wiimmfi's; do not edit.
 bool MkwWiimmfi(char region) {
     u32 patched, patch1, patch2, patch3, errorfix, urls, https_at, retry_at;
     const char* url3;

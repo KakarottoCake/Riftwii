@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// The language patch follows langpatcher in USB Loader GX's patchcode.c
-// (https://github.com/wiidev/usbloadergx; Copyright (C) 2008 Nuke, GeckoOS for
-// USB Gecko, GPL-2.0-or-later), reimplemented. See NOTICE.md.
+// Credit: USB Loader GX (https://github.com/wiidev/usbloadergx),
+// source/patches/patchcode.c: langpatcher (Copyright (C) 2008 Nuke, GeckoOS
+// for USB Gecko), GPL-2.0-or-later. Reimplemented here; see NOTICE.md.
 #pragma once
 
 #include <cstddef>
@@ -10,8 +10,8 @@
 
 // The game language: a game asks the SDK's SCGetLanguage for the
 // console's language setting. Its code is recognisable, so the value it
-// returns can be replaced by a fixed one, as USB Loader GX's language
-// patch does: the load of the setting (lbz r3,8(r1)) becomes li r3,<code>.
+// returns can be replaced by a fixed one, as langpatcher
+// does: the load of the setting (lbz r3,8(r1)) becomes li r3,<code>.
 // A game without that language may stop: Super Mario Galaxy 2 (US)
 // told German panics looking for files its disc does not have.
 namespace riftwii {

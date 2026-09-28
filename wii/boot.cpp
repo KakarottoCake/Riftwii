@@ -1,4 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+// Credit: USB Loader GX (https://github.com/wiidev/usbloadergx),
+// source/patches/gamepatches.c, GPL-3.0: apply_return_to asks d2x's
+// "return to" the way PatchNewReturnTo does, and the online server
+// patches go last, in the order it applies them. Reimplemented here; see
+// NOTICE.md.
 #include "boot.hpp"
 #include "progress.hpp"
 
@@ -1275,7 +1280,7 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         std::string why;
         if (!install_pad_hook(pad, why)) logf("GameCube adapter: off: %s\n", why.c_str());
     }
-    // Last, as USB Loader GX does: Wiimmfi's Mario Kart Wii patch goes
+    // Last, in gamepatches.c's order: Wiimmfi's Mario Kart Wii patch goes
     // below everything else in the MEM1 arena. Packs bring their own online
     // setup (and may have replaced the code these patches expect).
     if (g_extras.server != WfcServer::Off) {
@@ -1441,7 +1446,7 @@ bool is_wii_u() {
 
 // Return to RiftWii (Settings): a game's HOME Menu "Wii Menu" starts the
 // RiftWii channel, which starts RiftWii. Two ways, both tried: d2x's own
-// "return to" (ES ioctl 0xA1, as USB Loader GX asks it) for a game under
+// "return to" (ES ioctl 0xA1, as PatchNewReturnTo asks it) for a game under
 // d2x, and the game's __OSLaunchMenu patched to load the channel's title
 // (src/returnto.cpp) for one under any IOS.
 void apply_return_to(const std::vector<MemoryRegion>& loaded) {

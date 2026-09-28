@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Parts of this follow USB Loader GX (https://github.com/wiidev/usbloadergx,
-// GPL-3.0, the project's licence): gamepatches.c, do_new_wiimmfi (Leseratte's Wiimmfi patch, copied
-// unchanged as data) and patch_error_codes. See NOTICE.md.
+// Credit: USB Loader GX (https://github.com/wiidev/usbloadergx),
+// source/patches/gamepatches.c, GPL-3.0: do_new_wiimmfi (Leseratte's Mario
+// Kart Wii Wiimmfi patch, 2018, with the error 51420 fix, 2021: copied
+// unchanged as data) and patch_error_codes (the Mario Kart Wii remote code
+// execution fix: reimplemented). See NOTICE.md.
 #pragma once
 
 #include <cstdint>
@@ -14,9 +16,9 @@
 // Points the loaded game at an online server (riftwii/wfcpatch.hpp), just
 // before it starts. Besides the string patches:
 //   - Wiimmfi on Mario Kart Wii: Wiimmfi's own patch (its code in 0x500
-//     bytes below the MEM1 arena end), from USB Loader GX's do_new_wiimmfi;
+//     bytes below the MEM1 arena end), from do_new_wiimmfi;
 //   - Wiimmfi, AltWFC or a custom server on Mario Kart Wii: the fix for its
-//     remote code execution hole (USB Loader GX's patch_error_codes);
+//     remote code execution hole (patch_error_codes);
 //   - WiiLink WFC: WiiLink's hook, done as their launcher does
 //     (vendor-wwfc): their downloader payload below the MEM1 arena end, a
 //     128 KB block below the MEM2 arena end for what it fetches, for the

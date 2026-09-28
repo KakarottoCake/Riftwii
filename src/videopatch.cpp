@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// The render mode heights the TV format conversion recognises follow USB Loader GX
-// (https://github.com/wiidev/usbloadergx, GPL-3.0, the project's licence, gamepatches.c);
-// reimplemented. See NOTICE.md.
+// Credit: USB Loader GX (https://github.com/wiidev/usbloadergx),
+// source/patches/gamepatches.c: the render mode tables of its video mode
+// patcher, GPL-3.0. Reimplemented here; see NOTICE.md.
 #include "riftwii/videopatch.hpp"
 
 namespace riftwii {
@@ -51,7 +51,7 @@ void set_filter(std::uint8_t* p, Deflicker d) {
 }
 
 // The heights of the SDK's tables (libogc's video.c, the Wii SDK's PAL
-// ones as USB Loader GX lists them): efb, xfb, VI origin and VI height
+// ones as gamepatches.c lists them): efb, xfb, VI origin and VI height
 // for each kind of table, in 480- and 576-line formats.
 struct Heights {
     unsigned efb, xfb, y, h;

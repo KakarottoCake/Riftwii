@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Parts of this file follow USB Loader GX (https://github.com/wiidev/usbloadergx,
-// GPL-3.0, the project's licence), gamepatches.c: PrivateServerPatcher and domainpatcher (after
-// ToadKing's wiilauncher-nossl) and do_new_wiimmfi_nonMKWii, reimplemented;
-// Leseratte's Wiimmfi patch data is copied unchanged. See NOTICE.md.
+// Credit: USB Loader GX (https://github.com/wiidev/usbloadergx),
+// source/patches/gamepatches.c, GPL-3.0: PrivateServerPatcher and
+// domainpatcher (after ToadKing's wiilauncher-nossl), and
+// do_new_wiimmfi_nonMKWii (Leseratte of the Wiimmfi team). Reimplemented
+// here, except Leseratte's patch data, which is copied unchanged. See NOTICE.md.
 #include "riftwii/wfcpatch.hpp"
 
 #include <cstring>
@@ -104,7 +105,7 @@ unsigned patch_wfc_domain(std::uint8_t* bytes, std::size_t size, const std::stri
 }
 
 int patch_wiimmfi_generic(std::uint8_t* bytes, std::size_t size) {
-    // Leseratte's patch as USB Loader GX ships it (version 3). The User-Agent
+    // Leseratte's patch as do_new_wiimmfi_nonMKWii has it (version 3). The User-Agent
     // mark tells Wiimmfi which patcher and version patched the game.
     static const char kGt2[] = "<GT2> RECV-0x%02x <- [--------:-----] [pid=%u]";
     static const std::uint8_t kGt2Locator[8] = {0x38, 0x61, 0x00, 0x08, 0x38, 0xA0, 0x00, 0x14};
