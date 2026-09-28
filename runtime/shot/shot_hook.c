@@ -169,11 +169,24 @@ static void job_step(struct rt_shot_context* c, struct rt_shot_state* st, int32_
             }
             st->file_fd = result;
             st->phase = RT_SHOT_WRITE;
-            sent = ((shot_write_fn)(uintptr_t)c->write_async)(st->file_fd, (const void*)(uintptr_t)c->frame,
-                                                              st->bytes, c->complete_nand, 0);
+            {
+                const uint32_t from = (c->flags & RT_SHOT_FLAG_DIRECT) ? (uint32_t)(uintptr_t)st->header : c->frame;
+                sent = ((shot_write_fn)(uintptr_t)c->write_async)(st->file_fd, (const void*)(uintptr_t)from,
+                                                                  st->bytes, c->complete_nand, 0);
+            }
             break;
         case RT_SHOT_WRITE:
             if (result != (int32_t)st->bytes) st->error = result < 0 ? result : -1;
+            if (st->error == 0 && (c->flags & RT_SHOT_FLAG_DIRECT)) {
+                st->phase = RT_SHOT_WRITE_PIXELS;
+                sent = ((shot_write_fn)(uintptr_t)c->write_async)(st->file_fd, (const void*)(uintptr_t)st->pixels,
+                                                                  st->pixel_bytes, c->complete_nand, 0);
+                break;
+            }
+            sent = send_next_close(c, st);
+            break;
+        case RT_SHOT_WRITE_PIXELS:
+            if (result != (int32_t)st->pixel_bytes) st->error = result < 0 ? result : -1;
             sent = send_next_close(c, st);
             break;
         case RT_SHOT_CLOSE_FILE:
@@ -207,6 +220,21 @@ static void capture(struct rt_shot_context* c, struct rt_shot_state* st) {
         c->last_error = -1000;
         return;
     }
+    if (c->flags & RT_SHOT_FLAG_DIRECT) {
+        /* No copy: the header here, the picture read by IOS from the
+         * frame buffer itself. Lines the CPU may hold are written back
+         * first (dcbst: the game's view does not change). */
+        const uint32_t start = 0x80000000u | f.address;
+        st->pixels = start;
+        st->pixel_bytes = f.stride * f.lines;
+        for (x = start & ~31u; x < start + st->pixel_bytes; x += 32u)
+            __asm__ volatile("dcbst 0, %0" : : "r"(x) : "memory");
+        __asm__ volatile("sync" : : : "memory");
+        rtshot_header(st->header, &f, (const uint8_t*)(uintptr_t)0x80000000u, c->shots + c->failures + 1u, now());
+        st->bytes = RTSHOT_HEADER_BYTES;
+        flush(st->header, sizeof(st->header));
+        goto start_job;
+    }
     /* Through the cache, each line flushed first (the CPU may hold an
      * older copy) and dropped after, so the game's view of it does not
      * change. */
@@ -233,6 +261,7 @@ static void capture(struct rt_shot_context* c, struct rt_shot_state* st) {
     rtshot_header(out, &f, (const uint8_t*)(uintptr_t)0x80000000u, c->shots + c->failures + 1u, now());
     st->bytes = RTSHOT_HEADER_BYTES + f.stride * f.lines;
     flush(out, st->bytes);
+start_job:
     st->error = 0;
     st->fs_fd = -1;
     st->file_fd = -1;
