@@ -459,6 +459,51 @@ msgstr "接続タップを確認"
 msgid "Test"
 msgstr "テスト"
 
+msgid "Welcome to RiftWii"
+msgstr "RiftWiiへようこそ"
+
+msgid "RiftWii starts your Wii games with Riivolution-format mods, from the disc, a USB drive or the SD card. Your game files are never changed. This short tour shows the basics."
+msgstr "RiftWiiは、ディスク、USBドライブ、SDカードのWiiゲームを、Riivolution形式のMODつきで起動します。ゲームのファイルは変更されません。このガイドで基本を紹介します。"
+
+msgid "Your games"
+msgstr "ゲーム"
+
+msgid "Put games in the wbfs or games folder at the top of the SD card or the USB drive (WBFS, ISO or RVZ). A disc in the drive shows up too. Home lists games that have mods first: press 1, or the round button at the bottom left, to see all your games."
+msgstr "ゲームはSDカードかUSBドライブのwbfsまたはgamesフォルダに入れてください (WBFS、ISO、RVZ)。ドライブのディスクも表示されます。最初はMODがあるゲームだけが表示されます。すべてのゲームを見るには、1か左下の丸いボタンを押してください。"
+
+msgid "Put mod packs (the XML file and the folders that come with it) in sd:/riivolution or usb:/riivolution. Pick a game, open Mods, switch a pack on and choose its options. Start (or +) plays the game with them."
+msgstr "MODパック (XMLファイルと一緒のフォルダ) はsd:/riivolutionかusb:/riivolutionに入れてください。ゲームを選び、MODを開いてパックをオンにし、設定を選びます。はじめる (か+) でMODつきで遊べます。"
+
+msgid "Buttons"
+msgstr "ボタン"
+
+msgid "Point with the Wii Remote and press A, or move with the D-pad. B goes back, 2 opens Settings and HOME opens the HOME Menu. The Classic Controller and GameCube controllers work too, with the same buttons."
+msgstr "Wiiリモコンでポイントして A を押すか、十字ボタンで動かします。B で戻り、2 で設定、HOME でHOMEメニューを開きます。クラシックコントローラとゲームキューブコントローラも同じボタンで使えます。"
+
+msgid "You're all set"
+msgstr "準備完了"
+
+msgid "Settings has the video, language, online and update options. For more help, see the guide on RiftWii's GitHub page or join the Discord. Settings > Tutorial shows this tour again."
+msgstr "設定には、映像、言語、オンライン、アップデートの設定があります。くわしくはRiftWiiのGitHubページのガイドか、Discordを見てください。設定 > チュートリアル でこのガイドをもう一度見られます。"
+
+msgid "Next"
+msgstr "次へ"
+
+msgid "Skip"
+msgstr "スキップ"
+
+msgid "Let's go"
+msgstr "はじめる"
+
+msgid "Tutorial"
+msgstr "チュートリアル"
+
+msgid "Show"
+msgstr "表示"
+
+msgid "The short tour of RiftWii's basics that a new SD card starts with."
+msgstr "新しいSDカードで最初に表示される、RiftWiiの基本の短いガイドです。"
+
 msgid "Credits and licence"
 msgstr "クレジットとライセンス"
 

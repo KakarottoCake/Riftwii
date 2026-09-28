@@ -961,6 +961,52 @@ static void ReportCardLog()
 		tr("OK"));
 }
 
+// A short tour for a new SD card: five pages in the popup box, Next and
+// Back (B) between them. Settings > Tutorial shows it again.
+static void ShowTutorial()
+{
+	struct Page { const char* title; const char* body; };
+	static const Page kPages[] = {
+		{"Welcome to RiftWii",
+		 "RiftWii starts your Wii games with Riivolution-format mods, from the disc, a USB drive or the SD card. Your game files are never changed. This short tour shows the basics."},
+		{"Your games",
+		 "Put games in the wbfs or games folder at the top of the SD card or the USB drive (WBFS, ISO or RVZ). A disc in the drive shows up too. Home lists games that have mods first: press 1, or the round button at the bottom left, to see all your games."},
+		{"Mods",
+		 "Put mod packs (the XML file and the folders that come with it) in sd:/riivolution or usb:/riivolution. Pick a game, open Mods, switch a pack on and choose its options. Start (or +) plays the game with them."},
+		{"Buttons",
+		 "Point with the Wii Remote and press A, or move with the D-pad. B goes back, 2 opens Settings and HOME opens the HOME Menu. The Classic Controller and GameCube controllers work too, with the same buttons."},
+		{"You're all set",
+		 "Settings has the video, language, online and update options. For more help, see the guide on RiftWii's GitHub page or join the Discord. Settings > Tutorial shows this tour again."},
+	};
+	constexpr int kCount = sizeof(kPages) / sizeof(kPages[0]);
+	int page = 0;
+	while (page >= 0 && page < kCount) {
+		const std::string title = std::string(tr(kPages[page].title)) + "  (" + std::to_string(page + 1) + "/" + std::to_string(kCount) + ")";
+		const std::string next = page + 1 == kCount ? tr("Let's go") : tr("Next");
+		const std::string back = page == 0 ? tr("Skip") : tr("Back");
+		page += ShowPopup(title, tr(kPages[page].body), next, back) == 0 ? 1 : -1;
+	}
+	logf("Tutorial: %s\n", page >= kCount ? "finished" : "skipped");
+}
+
+// The tour, once per SD card (sd:/riftwii/tutorial_done.txt remembers).
+// A card that has been used before (settings, play history, covers, the
+// channel offer answered) counts as seen: an update does not show it.
+static void ShowTutorialOnce()
+{
+	static const char* const kMarker = "sd:/riftwii/tutorial_done.txt";
+	struct stat st;
+	if (stat(kMarker, &st) == 0) return;
+	const bool used = stat("sd:/riftwii/settings.txt", &st) == 0 || stat("sd:/riftwii/history.txt", &st) == 0 ||
+			  stat("sd:/riftwii/covers", &st) == 0 || stat("sd:/riftwii/channel_offered.txt", &st) == 0;
+	if (!used) ShowTutorial();
+	mkdir("sd:/riftwii", 0777);
+	if (FILE* f = std::fopen(kMarker, "w")) {
+		std::fprintf(f, "%s\n", used ? "used before" : "shown");
+		std::fclose(f);
+	}
+}
+
 // Asked once per SD card (sd:/riftwii/channel_offered.txt remembers the
 // answer): the channel can be added, and is not there yet. True to open
 // the installer.
@@ -1137,6 +1183,7 @@ static int MenuSource(FrontendState& state)
 	if (!g_scanned) {
 		ScanDrives(state, statusTxt);
 		riftwii::wii::GcAdapterMenuAllowStart();
+		ShowTutorialOnce();
 		if (OfferChannelOnce()) menu = MENU_CHANNEL;
 		refresh(true);
 		// The first time Home shows, it opens on the last game played.
@@ -2605,7 +2652,7 @@ static int MenuSettings(FrontendState& state)
 
 	bool netOn = riftwii::wii::NetworkPacksEnabled();
 	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kGameLanguage, kGameCios, kServer, kHomeTiles, kSounds, kMusic, kReturnTo, kOnline, kNames, kGcAdapter, kGcTest, kIos, kNet, kResync,
-		kRescan, kChannel, kUpdate, kWiiChannel, kCredits, kExit, kNone };
+		kRescan, kChannel, kUpdate, kWiiChannel, kTutorial, kCredits, kExit, kNone };
 	// The RiftWii channel on the Wii Menu (wii/channel.hpp).
 	unsigned channelVersion = 0;
 	const bool channelThere = riftwii::wii::ChannelInstalled(channelVersion);
@@ -2707,6 +2754,12 @@ static int MenuSettings(FrontendState& state)
 		wiiChannel.dim = !channelCan;
 		rows.push_back(wiiChannel);
 		actions.push_back(kWiiChannel);
+		FlowRow tutorial;
+		tutorial.kind = FlowRow::Kind::Action;
+		tutorial.label = tr("Tutorial");
+		tutorial.value = tr("Show");
+		rows.push_back(tutorial);
+		actions.push_back(kTutorial);
 		FlowRow credits;
 		credits.kind = FlowRow::Kind::Action;
 		credits.label = tr("Credits and licence");
@@ -2782,6 +2835,7 @@ static int MenuSettings(FrontendState& state)
 			case kNames: return tr("Downloads the newest game names from GameTDB.");
 			case kGcAdapter: return AdapterNote(settings.gc_adapter);
 			case kGcTest: return tr("Shows live what the controllers in the adapter are pressing.");
+			case kTutorial: return tr("The short tour of RiftWii's basics that a new SD card starts with.");
 			case kCredits: return tr("Who RiftWii's parts come from, its licence (the GNU GPL, version 3 or later) and where its source is.");
 			case kIos: return MenuIosNote(iosSlot);
 			case kNet:
@@ -2947,6 +3001,9 @@ static int MenuSettings(FrontendState& state)
 					GcAdapterTestPage();
 					HaltGui();
 					mainWindow->Append(&w);
+					break;
+				case kTutorial:
+					ShowTutorial();
 					break;
 				case kCredits:
 					mainWindow->Remove(&w);

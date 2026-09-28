@@ -387,6 +387,46 @@ T = {
     "Check the GameCube adapter": ("Probar el adaptador de GameCube", "接続タップを確認",
                                    "Testar o adaptador de GameCube", "Prova l'adattatore GameCube"),
     "Test": ("Probar", "テスト", "Testar", "Prova"),
+    # First-start tutorial
+    "Welcome to RiftWii": ("Te damos la bienvenida a RiftWii", "RiftWiiへようこそ", "Boas-vindas ao RiftWii", "Benvenuto in RiftWii"),
+    "RiftWii starts your Wii games with Riivolution-format mods, from the disc, a USB drive or the SD card. Your game files are never changed. This short tour shows the basics.": (
+        "RiftWii inicia tus juegos de Wii con mods en formato Riivolution, desde el disco, una unidad USB o la tarjeta SD. Tus archivos de juego nunca se modifican. Este breve recorrido te enseña lo básico.",
+        "RiftWiiは、ディスク、USBドライブ、SDカードのWiiゲームを、Riivolution形式のMODつきで起動します。ゲームのファイルは変更されません。このガイドで基本を紹介します。",
+        "O RiftWii inicia seus jogos de Wii com mods no formato Riivolution, a partir do disco, de uma unidade USB ou do cartão SD. Os arquivos dos jogos nunca são alterados. Este breve tour mostra o básico.",
+        "RiftWii avvia i tuoi giochi Wii con mod in formato Riivolution, dal disco, da un'unità USB o dalla scheda SD. I file dei giochi non vengono mai modificati. Questa breve guida mostra le basi."),
+    "Your games": ("Tus juegos", "ゲーム", "Seus jogos", "I tuoi giochi"),
+    "Put games in the wbfs or games folder at the top of the SD card or the USB drive (WBFS, ISO or RVZ). A disc in the drive shows up too. Home lists games that have mods first: press 1, or the round button at the bottom left, to see all your games.": (
+        "Pon los juegos en la carpeta wbfs o games de la raíz de la tarjeta SD o de la unidad USB (WBFS, ISO o RVZ). También aparece el disco que esté en la unidad. Al principio se muestran los juegos con mods: pulsa 1, o el botón redondo de abajo a la izquierda, para ver todos.",
+        "ゲームはSDカードかUSBドライブのwbfsまたはgamesフォルダに入れてください (WBFS、ISO、RVZ)。ドライブのディスクも表示されます。最初はMODがあるゲームだけが表示されます。すべてのゲームを見るには、1か左下の丸いボタンを押してください。",
+        "Coloque os jogos na pasta wbfs ou games na raiz do cartão SD ou da unidade USB (WBFS, ISO ou RVZ). O disco na unidade também aparece. No início são mostrados os jogos com mods: aperte 1, ou o botão redondo embaixo à esquerda, para ver todos.",
+        "Metti i giochi nella cartella wbfs o games nella radice della scheda SD o dell'unità USB (WBFS, ISO o RVZ). Appare anche il disco nell'unità. All'inizio vengono mostrati i giochi con mod: premi 1, o il pulsante rotondo in basso a sinistra, per vederli tutti."),
+    "Put mod packs (the XML file and the folders that come with it) in sd:/riivolution or usb:/riivolution. Pick a game, open Mods, switch a pack on and choose its options. Start (or +) plays the game with them.": (
+        "Pon los paquetes de mods (el archivo XML y las carpetas que lo acompañan) en sd:/riivolution o usb:/riivolution. Elige un juego, abre Mods, activa un paquete y elige sus opciones. Jugar (o +) inicia el juego con ellos.",
+        "MODパック (XMLファイルと一緒のフォルダ) はsd:/riivolutionかusb:/riivolutionに入れてください。ゲームを選び、MODを開いてパックをオンにし、設定を選びます。はじめる (か+) でMODつきで遊べます。",
+        "Coloque os pacotes de mods (o arquivo XML e as pastas que vêm com ele) em sd:/riivolution ou usb:/riivolution. Escolha um jogo, abra Mods, ative um pacote e escolha as opções. Jogar (ou +) inicia o jogo com eles.",
+        "Metti i pacchetti di mod (il file XML e le cartelle che lo accompagnano) in sd:/riivolution o usb:/riivolution. Scegli un gioco, apri Mod, attiva un pacchetto e scegli le sue opzioni. Gioca (o +) avvia il gioco con le mod."),
+    "Buttons": ("Botones", "ボタン", "Botões", "Pulsanti"),
+    "Point with the Wii Remote and press A, or move with the D-pad. B goes back, 2 opens Settings and HOME opens the HOME Menu. The Classic Controller and GameCube controllers work too, with the same buttons.": (
+        "Apunta con el mando de Wii y pulsa A, o muévete con la cruceta. B vuelve atrás, 2 abre los ajustes y HOME abre el menú HOME. El mando clásico y los mandos de GameCube también sirven, con los mismos botones.",
+        "Wiiリモコンでポイントして A を押すか、十字ボタンで動かします。B で戻り、2 で設定、HOME でHOMEメニューを開きます。クラシックコントローラとゲームキューブコントローラも同じボタンで使えます。",
+        "Aponte com o Wii Remote e aperte A, ou mova com o direcional. B volta, 2 abre as configurações e HOME abre o menu HOME. O Classic Controller e os controles de GameCube também funcionam, com os mesmos botões.",
+        "Punta con il telecomando Wii e premi A, o muoviti con la croce direzionale. B torna indietro, 2 apre le impostazioni e HOME apre il menu HOME. Anche il Classic Controller e i controller GameCube funzionano, con gli stessi pulsanti."),
+    "You're all set": ("Todo listo", "準備完了", "Tudo pronto", "Tutto pronto"),
+    "Settings has the video, language, online and update options. For more help, see the guide on RiftWii's GitHub page or join the Discord. Settings > Tutorial shows this tour again.": (
+        "En los ajustes están las opciones de vídeo, idioma, juego en línea y actualizaciones. Para más ayuda, mira la guía en la página de GitHub de RiftWii o únete al Discord. Ajustes > Tutorial muestra este recorrido otra vez.",
+        "設定には、映像、言語、オンライン、アップデートの設定があります。くわしくはRiftWiiのGitHubページのガイドか、Discordを見てください。設定 > チュートリアル でこのガイドをもう一度見られます。",
+        "As configurações têm as opções de vídeo, idioma, jogo online e atualizações. Para mais ajuda, veja o guia na página do RiftWii no GitHub ou entre no Discord. Configurações > Tutorial mostra este tour de novo.",
+        "Nelle impostazioni ci sono le opzioni di video, lingua, gioco online e aggiornamenti. Per altro aiuto, leggi la guida sulla pagina GitHub di RiftWii o entra nel Discord. Impostazioni > Tutorial mostra di nuovo questa guida."),
+    "Next": ("Siguiente", "次へ", "Próximo", "Avanti"),
+    "Skip": ("Omitir", "スキップ", "Pular", "Salta"),
+    "Let's go": ("¡Vamos!", "はじめる", "Vamos lá", "Iniziamo"),
+    "Tutorial": ("Tutorial", "チュートリアル", "Tutorial", "Tutorial"),
+    "Show": ("Ver", "表示", "Ver", "Mostra"),
+    "The short tour of RiftWii's basics that a new SD card starts with.": (
+        "El breve recorrido por lo básico de RiftWii que aparece con una tarjeta SD nueva.",
+        "新しいSDカードで最初に表示される、RiftWiiの基本の短いガイドです。",
+        "O breve tour pelo básico do RiftWii que aparece com um cartão SD novo.",
+        "La breve guida alle basi di RiftWii che appare con una nuova scheda SD."),
     "Credits and licence": ("Créditos y licencia", "クレジットとライセンス", "Créditos e licença", "Riconoscimenti e licenza"),
     "View": ("Ver", "表示", "Ver", "Vedi"),
     "Who RiftWii's parts come from, its licence (the GNU GPL, version 3 or later) and where its source is.": (

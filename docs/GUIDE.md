@@ -34,7 +34,8 @@ Everything about installing and using RiftWii. The [README](../README.md) has th
    for on both drives; `sd:/` or `usb:/` in front limits it to one). A
    drive with several partitions is read from the one holding those
    folders, `wbfs` or `games`.
-5. Start RiftWii from the Homebrew Channel.
+5. Start RiftWii from the Homebrew Channel. The first time, a short
+   tour shows the basics (Settings > Tutorial shows it again).
 
 ## Using RiftWii
 
@@ -148,6 +149,10 @@ the list explains the row you are on.
   **Check for a new version** (on GitHub; with downloads on, RiftWii also
   looks at every start and asks before it updates), and **Leave RiftWii**,
   which opens the HOME Menu (below).
+- **Tutorial** shows the short tour of the basics again: a new SD card
+  starts with it, once.
+- **Credits and licence**: RiftWii's licence (the GNU GPL, version 3 or
+  later, in full), where its source is, and who its parts come from.
 
 ### HOME Menu
 

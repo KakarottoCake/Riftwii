@@ -459,6 +459,51 @@ msgstr "Prova l'adattatore GameCube"
 msgid "Test"
 msgstr "Prova"
 
+msgid "Welcome to RiftWii"
+msgstr "Benvenuto in RiftWii"
+
+msgid "RiftWii starts your Wii games with Riivolution-format mods, from the disc, a USB drive or the SD card. Your game files are never changed. This short tour shows the basics."
+msgstr "RiftWii avvia i tuoi giochi Wii con mod in formato Riivolution, dal disco, da un'unità USB o dalla scheda SD. I file dei giochi non vengono mai modificati. Questa breve guida mostra le basi."
+
+msgid "Your games"
+msgstr "I tuoi giochi"
+
+msgid "Put games in the wbfs or games folder at the top of the SD card or the USB drive (WBFS, ISO or RVZ). A disc in the drive shows up too. Home lists games that have mods first: press 1, or the round button at the bottom left, to see all your games."
+msgstr "Metti i giochi nella cartella wbfs o games nella radice della scheda SD o dell'unità USB (WBFS, ISO o RVZ). Appare anche il disco nell'unità. All'inizio vengono mostrati i giochi con mod: premi 1, o il pulsante rotondo in basso a sinistra, per vederli tutti."
+
+msgid "Put mod packs (the XML file and the folders that come with it) in sd:/riivolution or usb:/riivolution. Pick a game, open Mods, switch a pack on and choose its options. Start (or +) plays the game with them."
+msgstr "Metti i pacchetti di mod (il file XML e le cartelle che lo accompagnano) in sd:/riivolution o usb:/riivolution. Scegli un gioco, apri Mod, attiva un pacchetto e scegli le sue opzioni. Gioca (o +) avvia il gioco con le mod."
+
+msgid "Buttons"
+msgstr "Pulsanti"
+
+msgid "Point with the Wii Remote and press A, or move with the D-pad. B goes back, 2 opens Settings and HOME opens the HOME Menu. The Classic Controller and GameCube controllers work too, with the same buttons."
+msgstr "Punta con il telecomando Wii e premi A, o muoviti con la croce direzionale. B torna indietro, 2 apre le impostazioni e HOME apre il menu HOME. Anche il Classic Controller e i controller GameCube funzionano, con gli stessi pulsanti."
+
+msgid "You're all set"
+msgstr "Tutto pronto"
+
+msgid "Settings has the video, language, online and update options. For more help, see the guide on RiftWii's GitHub page or join the Discord. Settings > Tutorial shows this tour again."
+msgstr "Nelle impostazioni ci sono le opzioni di video, lingua, gioco online e aggiornamenti. Per altro aiuto, leggi la guida sulla pagina GitHub di RiftWii o entra nel Discord. Impostazioni > Tutorial mostra di nuovo questa guida."
+
+msgid "Next"
+msgstr "Avanti"
+
+msgid "Skip"
+msgstr "Salta"
+
+msgid "Let's go"
+msgstr "Iniziamo"
+
+msgid "Tutorial"
+msgstr "Tutorial"
+
+msgid "Show"
+msgstr "Mostra"
+
+msgid "The short tour of RiftWii's basics that a new SD card starts with."
+msgstr "La breve guida alle basi di RiftWii che appare con una nuova scheda SD."
+
 msgid "Credits and licence"
 msgstr "Riconoscimenti e licenza"
 
