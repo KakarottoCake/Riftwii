@@ -112,17 +112,32 @@ void UpdatePads()
  * stick (also what fakemote makes of a USB DS3 or DS4), drives an
  * on-screen pointer the way a Wii Remote does, and A clicks what is under
  * it. It is written into the channel's Wii Remote IR data, so every
- * widget treats it as pointing. A Wii Remote on the same channel takes
- * over the moment it points or presses one of its own buttons; the pad
- * takes back over on its next input. That stick then no longer steps
- * through lists (the D-pad still does).
+ * widget treats it as pointing.
+ *
+ * With a Wii Remote and a pad on one channel, the one used last has it
+ * and the other is ignored until it is really used: the Remote takes over
+ * with one of its buttons or by moving its pointer kRemoteMove pixels (a
+ * Remote lying in view of the sensor bar reports a valid, jittering
+ * pointer every frame, which used to keep the pad from ever moving); the
+ * pad takes over with a button or a deliberate push of kClaim. While the
+ * Remote has the channel, a resting or drifting stick reads as centred,
+ * so it cannot step through lists either. While the pad has it, its stick
+ * moves the pointer and no longer steps lists (the D-pad still does).
+ *
+ * The dead zone is round, and the speed is taken from how far past it
+ * the stick is, in the stick's own direction, so diagonals and full tilt
+ * keep their full speed.
  ***************************************************************************/
 static void UpdatePadPointers()
 {
 	static float x[4], y[4];
 	static bool placed[4] = {false, false, false, false};
-	static bool active[4] = {false, false, false, false};
-	const int deadzone = 14;
+	static bool padHas[4] = {false, false, false, false};
+	static bool anchored[4] = {false, false, false, false};
+	static float anchorX[4], anchorY[4];  // where the idle Remote pointed when the pad took over
+	const int kDeadZone = 20;       // of about +-100: worn sticks rest past the old 14
+	const int kClaim = 45;          // a push, not drift, takes the channel from the Remote
+	const float kRemoteMove = 40.0f;
 
 	for (int i = 0; i < 4; i++)
 	{
@@ -132,42 +147,62 @@ static void UpdatePadPointers()
 		// empty channel ir.valid is still the pointer written last frame.
 		u32 type = 0;
 		const bool remote = WPAD_Probe(i, &type) == WPAD_ERR_NONE;
-		// The Wii Remote's own buttons are the low 16 bits; a Classic
-		// Controller's are the high ones.
-		if (remote && (w->ir.valid || (w->btns_d & 0xFFFF))) {
-			active[i] = false;  // the Wii Remote is in use
-			continue;
-		}
 		if (!remote) w->ir.valid = 0;
 		// A Classic Controller's left stick (scaled to the GameCube
 		// stick's range, about +-100) when the GameCube stick is idle.
 		const bool classic = remote && w->exp.type == WPAD_EXP_CLASSIC;
 		int sx = userInput[i].pad.stickX;
 		int sy = userInput[i].pad.stickY;
-		if (classic && abs(sx) <= deadzone && abs(sy) <= deadzone) {
+		if (classic && sx * sx + sy * sy <= kDeadZone * kDeadZone) {
 			sx = userInput[i].WPAD_StickX(0) * 100 / 128;
 			sy = userInput[i].WPAD_StickY(0) * 100 / 128;
 		}
-		const bool moved = abs(sx) > deadzone || abs(sy) > deadzone;
-		if (moved || userInput[i].pad.btns_d || (classic && (w->btns_d & ~0xFFFFu)))
-			active[i] = true;
-		if (!active[i]) continue;
+		const float r = sqrtf((float)(sx * sx + sy * sy));
+		// The Wii Remote's own buttons are the low 16 bits; a Classic
+		// Controller's are the high ones.
+		const bool remotePressed = remote && (w->btns_d & 0xFFFF);
+		const bool padPressed = userInput[i].pad.btns_d || (classic && (w->btns_d & ~0xFFFFu));
+
+		if (remotePressed) {
+			padHas[i] = false;
+		} else if (padHas[i] && remote && w->ir.valid) {
+			// The Remote's own pointer (the scan refreshed it): it takes
+			// back over once it really moves.
+			if (!anchored[i]) {
+				anchorX[i] = w->ir.x;
+				anchorY[i] = w->ir.y;
+				anchored[i] = true;
+			} else if (hypotf(w->ir.x - anchorX[i], w->ir.y - anchorY[i]) > kRemoteMove) {
+				padHas[i] = false;
+			}
+		}
+		if (!padHas[i] && (padPressed || r > kClaim || (!remote && r > kDeadZone))) {
+			padHas[i] = true;
+			anchored[i] = false;
+		}
+		if (!padHas[i]) {
+			// The Remote has the channel: a stick short of a real push is
+			// centred, so drift steps nothing.
+			if (r <= kClaim) {
+				userInput[i].pad.stickX = 0;
+				userInput[i].pad.stickY = 0;
+			}
+			continue;
+		}
 		if (!placed[i]) {
 			x[i] = screenwidth / 2;
 			y[i] = screenheight / 2;
 			placed[i] = true;
 		}
-		// Quadratic response: fine control near the centre, about 14 px per
-		// frame at full tilt.
-		const auto speed = [&](int v) -> float {
-			if (abs(v) <= deadzone) return 0.0f;
-			float t = (abs(v) - deadzone) / (float)(100 - deadzone);
+		// Quadratic response past the dead zone: fine control near it,
+		// about 14 px per frame at full tilt.
+		if (r > kDeadZone) {
+			float t = (r - kDeadZone) / (float)(100 - kDeadZone);
 			if (t > 1.0f) t = 1.0f;
-			const float s = 1.0f + 13.0f * t * t;
-			return v < 0 ? -s : s;
-		};
-		x[i] += speed(sx);
-		y[i] -= speed(sy);  // stick up is positive, screen y grows downward
+			const float speed = 1.0f + 13.0f * t * t;
+			x[i] += speed * sx / r;
+			y[i] -= speed * sy / r;  // stick up is positive, screen y grows downward
+		}
 		if (x[i] < 0) x[i] = 0;
 		if (y[i] < 0) y[i] = 0;
 		if (x[i] > screenwidth - 1) x[i] = screenwidth - 1;
