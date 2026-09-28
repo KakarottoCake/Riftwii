@@ -382,8 +382,8 @@ static std::string ShortSourceProblem(const char* tag, const riftwii::wii::Image
 static void ApplyMenuSounds()
 {
 	const std::string& v = riftwii::wii::Settings().menu_sounds;
-	GuiSound::hoverPercent = v == "off" ? 0 : v == "quiet" ? 30 : 100;
-	GuiSound::otherPercent = v == "off" ? 0 : v == "quiet" ? 70 : 100;
+	GuiSound::hoverPercent = v == "off" ? 0 : v == "quiet" ? 60 : 100;
+	GuiSound::otherPercent = v == "off" ? 0 : v == "quiet" ? 80 : 100;
 }
 static const char* MenuSoundsName(const std::string& v)
 {
