@@ -113,5 +113,29 @@ code. Its third-party components, their origins and licences are in
 built from), and RiftWii shows its licence and credits in Settings >
 Credits and licence.
 
+### A note for the licence enthusiasts
+
+Good news: RiftWii follows the GPL to the letter, and then some. For
+anyone who needs it spelled out:
+
+- Every file that follows someone else's work says so at the top, with
+  the project, the file and the functions.
+- [NOTICE.md](NOTICE.md) lists every component, where it came from (down
+  to the commit) and its licence.
+- Every release zip carries the full licence, the notices and the exact
+  commit it was built from.
+- The Gecko code handler ships with its assembly source, which rebuilds
+  it byte for byte. That's more than most Wii loaders bother with.
+- RiftWii itself will show you all ~840 lines of the GPL, in Settings >
+  Credits and licence. Scrolling to the end is left as an exercise for
+  the reader.
+
+If you still think something is missing a credit, open an
+[issue](https://github.com/KakarottoCake/Riftwii/issues). It'll be
+fixed, politely, and probably faster than it took to write the comment.
+
+This is a free hobby project that loads mods into games for a console
+from 2006. It's not that serious.
+
 Developers: see [docs/DEVELOPING.md](docs/DEVELOPING.md) and
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
