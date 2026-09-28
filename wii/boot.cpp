@@ -691,8 +691,8 @@ bool dump_metadata(const DiscProbe& probe, const OpenedPartition& partition, con
 }
 
 // Return to RiftWii, below with the play log.
-std::vector<CodeSpan> code_spans(const std::vector<MemoryRegion>& loaded);
-void apply_return_to(const std::vector<MemoryRegion>& loaded, const ReturnToArea& area);
+u64 return_title();
+void apply_return_to(const std::vector<MemoryRegion>& loaded, u64 title, std::uint32_t stub);
 
 namespace {
 
@@ -1213,12 +1213,19 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
     store32(0x800000F8, 0x0E7BE2C0);            // bus clock
     store32(0x800000FC, 0x2B73A840);            // CPU clock
     // MEM1 arena end (0x34 from the apploader, 0x3110 as the System Menu
-    // sets it): the FST, or the runtime's code just below it.
-    const std::uint32_t arena1_end = shot.active                ? shot.new_arena1_hi
+    // sets it): the FST, or the runtime's code just below it, or Return to
+    // RiftWii's stub below all of that. The stub goes where nothing of the
+    // game's can be: a pack's loader may put its code anywhere the game
+    // doesn't use, and CTGP's writes its own over the SDK's spare room as
+    // it runs.
+    const std::uint32_t arena1_top = shot.active                ? shot.new_arena1_hi
                                      : pad.active               ? pad.new_arena1_hi
                                      : options.install_resident ? resident.new_arena1_hi
                                                                 : load32(0x80000038);
-    if (options.install_resident || pad.active || shot.active) store32(0x80000034, arena1_end);
+    const u64 return_to = return_title();
+    const std::uint32_t return_stub = return_to != 0 ? (arena1_top - 32) & ~31u : 0;
+    const std::uint32_t arena1_end = return_stub != 0 ? return_stub : arena1_top;
+    if (options.install_resident || pad.active || shot.active || return_stub != 0) store32(0x80000034, arena1_end);
     store32(0x80003110, arena1_end);
     std::memcpy(reinterpret_cast<void*>(0x80003180), probe.disc_id, 4);
     store32(0x80003184, 0x80000000);            // where the game id lives
@@ -1246,8 +1253,6 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         write32(0x80003124, resident.new_arena2_lo);
     }
 
-    // Return to RiftWii's stub place, as loaded: packs may put code there.
-    const ReturnToArea return_area = find_return_area(code_spans(loaded));
     // <memory> patches, last of all so they win over the globals above (as
     // in Dolphin, which writes low memory before its patches). Writes may
     // land anywhere in MEM1 except this loader, the runtime's code and its
@@ -1287,6 +1292,7 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
             const std::uint32_t arena2_end = reinterpret_cast<std::uint32_t>(SYS_GetArena2Hi());
             writable.push_back(MemoryRegion{kMem2Start, arena2_end > kMem2Start ? arena2_end - kMem2Start : 0});
         }
+        if (return_stub != 0) exclusions.push_back(MemoryRegion{return_stub, 32});
         if (pad.active) {
             exclusions.push_back(MemoryRegion{pad.code_base, pad.code_bytes});
             exclusions.push_back(MemoryRegion{pad.state_base, pad.state_bytes});
@@ -1335,7 +1341,7 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         if (packs) logf("WFC: not patched; packs are on\n");
         else ApplyWfc(loaded, g_extras.server, g_extras.wfc_domain, g_extras.game_id, probe.header.version);
     }
-    apply_return_to(loaded, return_area);
+    apply_return_to(loaded, return_to, return_stub);
     settime(secs_to_ticks(static_cast<u64>(std::time(nullptr)) - kWiiEpochOffset));
 
     release_card_and_log();
@@ -1495,27 +1501,32 @@ bool is_wii_u() {
 // "return to" (ES ioctl 0xA1, as PatchNewReturnTo asks it) for a game under
 // d2x, and the game's __OSLaunchMenu patched to load the channel's title
 // (src/returnto.cpp) for one under any IOS.
-std::vector<CodeSpan> code_spans(const std::vector<MemoryRegion>& loaded) {
-    std::vector<CodeSpan> spans;
-    for (const MemoryRegion& r : loaded) spans.push_back(CodeSpan{reinterpret_cast<std::uint8_t*>(r.address), r.length, r.address});
-    return spans;
-}
-
-void apply_return_to(const std::vector<MemoryRegion>& loaded, const ReturnToArea& area) {
-    if (g_extras.return_to_menu) return;
-    if (g_extras.return_to == 0 && Settings().return_to != "riftwii") return;
+u64 return_title() {
+    if (g_extras.return_to_menu) return 0;
+    if (g_extras.return_to == 0 && Settings().return_to != "riftwii") return 0;
     const u64 title = g_extras.return_to != 0 ? g_extras.return_to : ChannelTitle();
     if (title == 0) {
         logf("Return to RiftWii: the RiftWii channel is not installed; the Wii Menu stays\n");
-        return;
+        return 0;
     }
     if ((title >> 32) != 0x00010001) {
         logf("Return to %08x-%08x: only 00010001 titles can be patched in; the Wii Menu stays\n",
              static_cast<u32>(title >> 32), static_cast<u32>(title));
-        return;
+        return 0;
     }
-    const ReturnToReport report = patch_return_to(code_spans(loaded), static_cast<std::uint32_t>(title), area);
+    return title;
+}
+
+// `stub`: 32 bytes of MEM1 above the game's arena.
+void apply_return_to(const std::vector<MemoryRegion>& loaded, u64 title, std::uint32_t stub) {
+    if (title == 0) return;
+    std::vector<CodeSpan> spans;
+    for (const MemoryRegion& r : loaded) spans.push_back(CodeSpan{reinterpret_cast<std::uint8_t*>(r.address), r.length, r.address});
+    const ReturnToReport report =
+        patch_return_to(spans, static_cast<std::uint32_t>(title), reinterpret_cast<std::uint8_t*>(stub), stub);
     if (report.patched) {
+        DCFlushRange(reinterpret_cast<void*>(stub), 32);
+        ICInvalidateRange(reinterpret_cast<void*>(stub), 32);
         for (const MemoryRegion& r : loaded) {
             DCFlushRange(reinterpret_cast<void*>(r.address), r.length);
             ICInvalidateRange(reinterpret_cast<void*>(r.address), r.length);

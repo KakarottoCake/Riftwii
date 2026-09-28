@@ -4,8 +4,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/returnto.hpp"
 
-#include <cstring>
-
 namespace riftwii {
 namespace {
 
@@ -50,55 +48,9 @@ std::string ReturnToReport::describe() const {
     return "not patched: " + std::to_string(sites) + " of the 3 places found";
 }
 
-ReturnToArea find_return_area(const std::vector<CodeSpan>& spans) {
-    static const char kMark[] = "Metrowerks T";
-    constexpr std::size_t kAreaBytes = 0x1000;
-    ReturnToArea area;
-    for (const CodeSpan& s : spans) {
-        for (std::size_t o = 0; o + 12 <= s.size; ++o) {
-            if (std::memcmp(s.bytes + o, kMark, 12) != 0) continue;
-            const std::size_t n = s.size - o < kAreaBytes ? s.size - o : kAreaBytes;
-            area.address = s.address + static_cast<std::uint32_t>(o);
-            area.bytes.assign(s.bytes + o, s.bytes + o + n);
-            return area;
-        }
-    }
-    return area;
-}
-
-ReturnToReport patch_return_to(const std::vector<CodeSpan>& spans, std::uint32_t title_low) {
-    return patch_return_to(spans, title_low, find_return_area(spans));
-}
-
-ReturnToReport patch_return_to(const std::vector<CodeSpan>& spans, std::uint32_t title_low, const ReturnToArea& area) {
+ReturnToReport patch_return_to(const std::vector<CodeSpan>& spans, std::uint32_t title_low, std::uint8_t* stub,
+                               std::uint32_t stub_address) {
     ReturnToReport report;
-    // The stub's place, word-aligned, in the area as it is now.
-    std::uint8_t* now = nullptr;
-    for (const CodeSpan& s : spans) {
-        if (area.address >= s.address && area.address - s.address + area.bytes.size() <= s.size) {
-            now = s.bytes + (area.address - s.address);
-        }
-    }
-    std::uint8_t* stub = nullptr;
-    std::uint32_t stub_address = 0;
-    if (now) {
-        const std::size_t first = ((area.address + 0x30 + 3) & ~3u) - area.address;
-        std::size_t at = 0;
-        if (std::memcmp(now, area.bytes.data(), area.bytes.size()) == 0) {
-            if (first + 20 <= area.bytes.size()) at = first;
-        } else {
-            for (std::size_t o = (((area.address + area.bytes.size() - 20) & ~3u) - area.address); o >= first && o + 20 <= area.bytes.size(); o -= 4) {
-                if (std::memcmp(now + o, area.bytes.data() + o, 20) == 0) {
-                    at = o;
-                    break;
-                }
-            }
-        }
-        if (at != 0) {
-            stub = now + at;
-            stub_address = area.address + static_cast<std::uint32_t>(at);
-        }
-    }
     report.stub_place = stub != nullptr;
 
     // Newer SDKs load the title into r3/r4 (r5 = 0), older ones into r5/r6.
