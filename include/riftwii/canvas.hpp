@@ -35,28 +35,44 @@ public:
     // A border `thickness` wide just inside the rounded rectangle's edge.
     void rounded_border(float x, float y, float w, float h, float radius, float thickness, Rgba color);
     // A soft shadow around a rounded rectangle, fading out over `blur`.
-    void shadow(float x, float y, float w, float h, float radius, float blur, Rgba color);
+    // With `hollow` above 0 the pixels deeper than that inside the
+    // rectangle are left as they are: for a card drawn over the shadow,
+    // which covers them anyway.
+    void shadow(float x, float y, float w, float h, float radius, float blur, Rgba color, float hollow = 0.0f);
     // Rounded rectangle with a vertical two-colour gradient.
     void rounded_gradient(float x, float y, float w, float h, float radius, Rgba top, Rgba bottom);
     void circle(float cx, float cy, float radius, Rgba color);
     void ring(float cx, float cy, float radius, float thickness, Rgba color);
     // A line with round caps.
     void line(float x0, float y0, float x1, float y1, float thickness, Rgba color);
+    // Lines `thickness` wide rising to the right across the whole canvas,
+    // along x + y = n * `period` (one pass, the same pixels as a line()
+    // for each n).
+    void diagonal_stripes(float period, float thickness, Rgba color);
     // Everything below a curve, `top[x]` being its height at column x
-    // (the menu's bottom bar); and the curve itself, `thickness` thick.
-    void area_below(const std::vector<float>& top, Rgba color);
+    // (the menu's bottom bar), or with `depth` above 0 only the band that
+    // deep below it (a shade something opaque covers further down); and
+    // the curve itself, `thickness` thick.
+    void area_below(const std::vector<float>& top, Rgba color, float depth = 0.0f);
     void curve(const std::vector<float>& top, float thickness, Rgba color);
 
 private:
-    // Pixels [x0, x1) x [y0, y1) where a shape's coverage is `coverage`
-    // throughout, so paint() skips working it out.
+    // Pixels where a shape's coverage is `coverage` throughout, so paint()
+    // skips working it out: a cross of two boxes, [x0, x1) x [y0, y1) (the
+    // wide one) and [vx0, vx1) x [vy0, vy1) (the tall one, for the rows the
+    // wide one leaves out). Empty boxes have x0 == x1.
     struct Inner {
-        int x0, x1, y0, y1;
-        float coverage;
+        int x0 = 0, x1 = 0, y0 = 0, y1 = 0;
+        int vx0 = 0, vx1 = 0, vy0 = 0, vy1 = 0;
+        float coverage = 0.0f;
     };
     static Inner inside_rounded_rect(float x, float y, float w, float h, float radius, float depth);
     template <typename Coverage>
-    void paint(float x0, float y0, float x1, float y1, Rgba color, Coverage coverage, const Inner& inner = Inner{0, 0, 0, 0, 0.0f});
+    void paint(float x0, float y0, float x1, float y1, Rgba color, Coverage coverage, const Inner& inner);
+    template <typename Coverage>
+    void paint(float x0, float y0, float x1, float y1, Rgba color, Coverage coverage) {
+        paint(x0, y0, x1, y1, color, coverage, Inner());
+    }
     void blend(int x, int y, Rgba color, float coverage);
 
     int width_, height_;
