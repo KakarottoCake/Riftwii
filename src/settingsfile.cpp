@@ -60,6 +60,8 @@ void LoaderSettings::parse(const std::string& text) {
             if (parse_cios_choice(value, slot)) game_cios = value;
         } else if (key == "home_tiles") {
             if (value == "covers" || value == "names") home_tiles = value;
+        } else if (key == "return_to") {
+            if (value == "riftwii" || value == "menu") return_to = value;
         } else if (key == "menu_music") {
             if (value == "on" || value == "off") menu_music = value;
         } else if (key == "menu_sounds") {
@@ -115,6 +117,7 @@ std::string LoaderSettings::serialize() const {
     s += "home_tiles = " + home_tiles + "\n";
     s += "menu_sounds = " + menu_sounds + "\n";
     s += "menu_music = " + menu_music + "\n";
+    s += "return_to = " + return_to + "\n";
     s += std::string("online = ") + (online ? "on" : "off") + "\n";
     s += "update_channel = " + update_channel + "\n";
     s += "gc_adapter = " + gc_adapter + "\n";

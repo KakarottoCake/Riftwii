@@ -42,6 +42,8 @@
 #include "riftwii/codehook.hpp"
 #include "riftwii/gamelang.hpp"
 #include "riftwii/playhistory.hpp"
+#include "riftwii/returnto.hpp"
+#include "channel.hpp"
 #include "loadersettings.hpp"
 #include "riftwii/symsearch.hpp"
 
@@ -683,6 +685,9 @@ bool dump_metadata(const DiscProbe& probe, const OpenedPartition& partition, con
     return true;
 }
 
+// Return to RiftWii, below with the play log.
+void apply_return_to(const std::vector<MemoryRegion>& loaded);
+
 namespace {
 
 // The part of the boot that runs after the SD card and the log are gone.
@@ -1279,6 +1284,7 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         if (packs) logf("WFC: not patched; packs are on\n");
         else ApplyWfc(loaded, g_extras.server, g_extras.wfc_domain, g_extras.game_id, probe.header.version);
     }
+    apply_return_to(loaded);
     settime(secs_to_ticks(static_cast<u64>(std::time(nullptr)) - kWiiEpochOffset));
 
     release_card_and_log();
@@ -1431,6 +1437,42 @@ bool is_wii_u() {
         known = ES_GetTitleContentsCount(0x0000000100000200ULL, &contents) >= 0 && contents > 0;
     }
     return known == 1;
+}
+
+// Return to RiftWii (Settings): a game's HOME Menu "Wii Menu" starts the
+// RiftWii channel, which starts RiftWii. Two ways, both tried: d2x's own
+// "return to" (ES ioctl 0xA1, as USB Loader GX asks it) for a game under
+// d2x, and the game's __OSLaunchMenu patched to load the channel's title
+// (src/returnto.cpp) for one under any IOS.
+void apply_return_to(const std::vector<MemoryRegion>& loaded) {
+    if (Settings().return_to != "riftwii") return;
+    const u64 title = ChannelTitle();
+    if (title == 0) {
+        logf("Return to RiftWii: the RiftWii channel is not installed; the Wii Menu stays\n");
+        return;
+    }
+    std::vector<CodeSpan> spans;
+    for (const MemoryRegion& r : loaded) spans.push_back(CodeSpan{reinterpret_cast<std::uint8_t*>(r.address), r.length, r.address});
+    const ReturnToReport report = patch_return_to(spans, static_cast<std::uint32_t>(title));
+    if (report.patched) {
+        for (const MemoryRegion& r : loaded) {
+            DCFlushRange(reinterpret_cast<void*>(r.address), r.length);
+            ICInvalidateRange(reinterpret_cast<void*>(r.address), r.length);
+        }
+    }
+    alignas(32) static u64 target;
+    target = title;
+    s32 d2x = -1;
+    const s32 es = IOS_Open("/dev/es", 0);
+    if (es >= 0) {
+        alignas(32) static ioctlv vector[1];
+        vector[0].data = &target;
+        vector[0].len = sizeof target;
+        d2x = IOS_Ioctlv(es, 0xA1, 1, 0, vector);
+        IOS_Close(es);
+    }
+    logf("Return to RiftWii (%08x-%08x): game %s; d2x %s\n", static_cast<u32>(title >> 32), static_cast<u32>(title),
+         report.describe().c_str(), d2x >= 0 ? "set" : "not available");
 }
 
 // IOS's file system keeps the Wii Menu's files to the Wii Menu. With

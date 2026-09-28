@@ -387,6 +387,11 @@ static void ApplyMenuSounds()
 	GuiSound::hoverPercent = v == "off" ? 0 : v == "quiet" ? 60 : 100;
 	GuiSound::otherPercent = v == "off" ? 0 : v == "quiet" ? 80 : 100;
 }
+static std::string ReturnToNote()
+{
+	unsigned version = 0;
+	return riftwii::wii::ChannelInstalled(version) ? tr("The Wii Menu button in a game's HOME Menu brings you back to RiftWii. It needs the RiftWii channel installed.") : tr("The Wii Menu button in a game's HOME Menu can bring you back to RiftWii once the RiftWii channel is installed (Settings).");
+}
 static const char* MenuSoundsName(const std::string& v)
 {
 	return v == "off" ? tr("Off") : v == "normal" ? tr("Normal") : tr("Quiet");
@@ -2541,7 +2546,7 @@ static int MenuSettings(FrontendState& state)
 	const bool iosChoosable = iosChoices.size() > 1 || iosSlot != 0;
 
 	bool netOn = riftwii::wii::NetworkPacksEnabled();
-	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kGameLanguage, kGameCios, kServer, kHomeTiles, kSounds, kMusic, kOnline, kNames, kGcAdapter, kGcTest, kIos, kNet, kResync,
+	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kGameLanguage, kGameCios, kServer, kHomeTiles, kSounds, kMusic, kReturnTo, kOnline, kNames, kGcAdapter, kGcTest, kIos, kNet, kResync,
 		kRescan, kChannel, kUpdate, kWiiChannel, kExit, kNone };
 	// The RiftWii channel on the Wii Menu (wii/channel.hpp).
 	unsigned channelVersion = 0;
@@ -2577,6 +2582,8 @@ static int MenuSettings(FrontendState& state)
 		option(tr("Menu sounds"), MenuSoundsName(settings.menu_sounds), settings.menu_sounds != "off", kSounds);
 		option(tr("Menu music"), settings.menu_music == "off" ? tr("Off") : tr("On"), settings.menu_music != "off",
 			kMusic, FlowRow::Kind::Toggle);
+		option(tr("Wii Menu button"), settings.return_to == "menu" ? tr("Wii Menu") : tr("Back to RiftWii"),
+			settings.return_to != "menu", kReturnTo);
 		option(tr("Download names and cheats"), settings.online ? tr("On") : tr("Off"), settings.online, kOnline,
 			FlowRow::Kind::Toggle);
 		FlowRow names;
@@ -2702,6 +2709,7 @@ static int MenuSettings(FrontendState& state)
 			case kGameCios: return tr("The d2x cIOS the game runs under. Automatic uses the menu's, else the first of 249, 250 and 251 that works.");
 			case kHomeTiles: return tr("Covers shows each game's box art from GameTDB, fetched while Home is open when downloads are on. Names shows the names only.");
 			case kSounds: return tr("How loud the menu's clicks are. Quiet softens the tick the pointer makes moving onto something.");
+			case kReturnTo: return ReturnToNote();
 			case kMusic: return riftwii::wii::MenuMusicFound() ? tr("Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder.") : tr("No music.ogg found in sd:/riftwii or in RiftWii's own folder.");
 			case kServer: return tr("The online server the game uses in place of Nintendo's, which closed. Custom uses wfc_domain in settings.txt.");
 			case kOnline:
@@ -2813,6 +2821,11 @@ static int MenuSettings(FrontendState& state)
 					rebuild();
 					break;
 				}
+				case kReturnTo:
+					settings.return_to = settings.return_to == "menu" ? "riftwii" : "menu";
+					saveAndNote(ReturnToNote());
+					rebuild();
+					break;
 				case kMusic:
 					settings.menu_music = settings.menu_music == "off" ? "on" : "off";
 					if (settings.menu_music == "off") riftwii::wii::MenuMusicStop();

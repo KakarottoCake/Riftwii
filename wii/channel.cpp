@@ -28,6 +28,14 @@ bool installer_on_card() {
 
 }  // namespace
 
+unsigned long long ChannelTitle() {
+    for (u64 title : kChannelTitles) {
+        u32 tickets = 0;
+        if (ES_GetNumTicketViews(title, &tickets) >= 0 && tickets != 0) return title;
+    }
+    return 0;
+}
+
 bool ChannelInstalled(unsigned& version) {
     version = 0;
     for (u64 title : kChannelTitles) {

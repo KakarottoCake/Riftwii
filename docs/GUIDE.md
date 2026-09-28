@@ -133,6 +133,9 @@ the list explains the row you are on.
   **Game language**, **Game cIOS**, **Online server**: the defaults for
   every game.
 - **Home tiles**: covers or names.
+- **Wii Menu button**: *Back to RiftWii* makes the Wii Menu button of a
+  game's HOME Menu start RiftWii again (it needs the RiftWii channel);
+  *Wii Menu* leaves it as it was.
 - **Menu sounds** (Normal, Quiet, Off) and **Menu music**: the music is
   `music.ogg` (Ogg Vorbis, up to 6 MB) from `sd:/riftwii/`, or else the one
   the release puts in `sd:/apps/riftwii/`, looped while the menu is open.

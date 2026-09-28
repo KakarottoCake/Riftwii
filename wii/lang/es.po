@@ -657,6 +657,18 @@ msgstr "Bajo"
 msgid "How loud the menu's clicks are. Quiet softens the tick the pointer makes moving onto something."
 msgstr "El volumen de los clics del menú. Bajo suaviza el sonido al pasar el puntero sobre algo."
 
+msgid "Wii Menu button"
+msgstr "Botón Menú de Wii"
+
+msgid "Back to RiftWii"
+msgstr "Volver a RiftWii"
+
+msgid "The Wii Menu button in a game's HOME Menu brings you back to RiftWii. It needs the RiftWii channel installed."
+msgstr "El botón Menú de Wii del menú HOME de un juego te devuelve a RiftWii. Necesita el canal de RiftWii instalado."
+
+msgid "The Wii Menu button in a game's HOME Menu can bring you back to RiftWii once the RiftWii channel is installed (Settings)."
+msgstr "El botón Menú de Wii del menú HOME de un juego puede devolverte a RiftWii cuando instales el canal de RiftWii (Ajustes)."
+
 msgid "Menu music"
 msgstr "Música del menú"
 

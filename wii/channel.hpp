@@ -12,6 +12,9 @@ namespace riftwii::wii {
 
 // Whether the channel is on this Wii, and its version (0 when it is not).
 bool ChannelInstalled(unsigned& version);
+// The installed channel's title ID (00010001-UFTW, or the old RFTW), 0
+// when it is not installed.
+unsigned long long ChannelTitle();
 
 // Whether the installer app is on the card (Settings opens it); `why`
 // says where to get it when it is not.

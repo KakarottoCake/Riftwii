@@ -8,6 +8,7 @@
 #include "riftwii/langfile.hpp"
 #include "riftwii/launch.hpp"
 #include "riftwii/playhistory.hpp"
+#include "riftwii/returnto.hpp"
 #include "riftwii/settingsfile.hpp"
 #include "riftwii/update.hpp"
 #include "riftwii/wfcpatch.hpp"
@@ -538,6 +539,9 @@ void TestCoverArt() {
     EXPECT_EQ(s.menu_music, "off");
     s.parse("menu_music = loud\n");
     EXPECT_EQ(s.menu_music, "off");
+    EXPECT_EQ(s.return_to, "riftwii");
+    s.parse("return_to = menu\n");
+    EXPECT_EQ(s.return_to, "menu");
 
     EXPECT_TRUE(s.game_folders.empty());
     s.parse("game_folders = /Wii Games/ ; usb:\\iso\\wii; SD:/sd only; /WBFS; /../up; /Wii Games\n");
@@ -554,6 +558,54 @@ void TestCoverArt() {
     LoaderSettings back;
     back.parse(s.serialize());
     EXPECT_EQ(back.game_folders.size(), 5u);
+}
+
+void TestReturnTo() {
+    auto put = [](std::vector<std::uint8_t>& b, std::size_t at, std::uint32_t v) {
+        b[at] = v >> 24; b[at + 1] = (v >> 16) & 0xFF; b[at + 2] = (v >> 8) & 0xFF; b[at + 3] = v & 0xFF;
+    };
+    auto get = [](const std::vector<std::uint8_t>& b, std::size_t at) {
+        return (std::uint32_t(b[at]) << 24) | (std::uint32_t(b[at + 1]) << 16) | (std::uint32_t(b[at + 2]) << 8) | b[at + 3];
+    };
+    std::vector<std::uint8_t> text(0x1000, 0), data(0x100, 0);
+    // __OSLaunchMenu's three places: li r4,2; li r3,1 (li r5,0 after the first).
+    for (std::size_t at : {0x100u, 0x180u, 0x200u}) {
+        put(text, at, 0x38800002);
+        put(text, at + 4, 0x38600001);
+    }
+    put(text, 0x108, 0x38A00000);
+    std::memcpy(data.data() + 0x10, "Metrowerks Target", 17);
+    std::vector<CodeSpan> spans = {{text.data(), text.size(), 0x80004000}, {data.data(), data.size(), 0x80300000}};
+    const ReturnToReport r = patch_return_to(spans, 0x55465457);
+    EXPECT_TRUE(r.patched);
+    EXPECT_EQ(r.sites, 3u);
+    // The stub, 0x30 past the string.
+    EXPECT_EQ(get(data, 0x40), 0x3C600001u);
+    EXPECT_EQ(get(data, 0x44), 0x60630001u);
+    EXPECT_EQ(get(data, 0x48), 0x3C805546u);
+    EXPECT_EQ(get(data, 0x4C), 0x60845457u);
+    EXPECT_EQ(get(data, 0x50), 0x4E800020u);
+    // Each place calls it and the second word is a nop.
+    for (std::size_t at : {0x100u, 0x180u, 0x200u}) {
+        const std::uint32_t bl = get(text, at);
+        EXPECT_EQ(bl & 0xFC000003u, 0x48000001u);
+        EXPECT_EQ(0x80004000u + static_cast<std::uint32_t>(at) + (bl & 0x03FFFFFCu), 0x80300040u);
+        EXPECT_EQ(get(text, at + 4), 0x60000000u);
+    }
+    EXPECT_EQ(get(text, 0x108), 0x38A00000u);
+    // Two places only: nothing written.
+    std::vector<std::uint8_t> short_text(0x400, 0), short_data(0x100, 0);
+    for (std::size_t at : {0x100u, 0x180u}) {
+        put(short_text, at, 0x38800002);
+        put(short_text, at + 4, 0x38600001);
+    }
+    put(short_text, 0x108, 0x38A00000);
+    std::memcpy(short_data.data() + 0x10, "Metrowerks Target", 17);
+    const std::vector<std::uint8_t> before = short_text;
+    const ReturnToReport s = patch_return_to({{short_text.data(), short_text.size(), 0x80004000},
+                                              {short_data.data(), short_data.size(), 0x80300000}}, 0x55465457);
+    EXPECT_FALSE(s.patched);
+    EXPECT_TRUE(short_text == before);
 }
 
 void TestPlayLogRecord() {
@@ -673,6 +725,7 @@ void TestHistory() {
 
 int main() {
     TestPlayLogRecord();
+    TestReturnTo();
     TestHttp();
     TestCheats();
     TestVideo();
