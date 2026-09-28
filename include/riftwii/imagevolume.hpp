@@ -43,9 +43,17 @@ public:
 };
 
 // Mounts whichever file system the drive holds: FAT32 or NTFS, at block 0
-// or in the first matching MBR / GPT partition. `error` names what was
-// tried when neither is found.
+// or in an MBR (primary or logical) or GPT partition. With several, the
+// one whose top folder holds the most of `wanted` wins (earlier names
+// weigh more; ASCII case-insensitive), then the first. `error` names
+// what was tried when none mounts.
 bool mount_image_volume(BlockReader reader, std::unique_ptr<ImageVolume>& out, std::string& error);
+bool mount_image_volume(BlockReader reader, std::unique_ptr<ImageVolume>& out, std::string& error,
+                        const std::vector<std::string>& wanted);
+
+// The top folders mount_image_volume looks for by default: game folders
+// first, then the mod packs.
+const std::vector<std::string>& default_wanted_folders();
 
 // A file of an ImageVolume as a ByteSource (the volume must outlive it).
 class VolumeFileSource final : public ByteSource {

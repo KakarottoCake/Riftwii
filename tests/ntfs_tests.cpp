@@ -562,6 +562,41 @@ void test_partitions() {
         }
     }
     {
+        // Two partitions: a FAT32 one first without games, then an NTFS
+        // one with /games. The one with the games is chosen.
+        fatimg::Image img(512, 1, 64);
+        img.write_dir({2}, fatimg::short_entry("HELLO   TXT", 0x20, 3, 5));
+        img.write_data({3}, {'h', 'e', 'l', 'l', 'o'});
+        const std::uint64_t ntfs_at = (img.bytes.size() + 511) / 512 + 64;
+        Volume v(ntfs_at);
+        std::copy(img.bytes.begin(), img.bytes.end(), v.disk.begin());
+        std::uint8_t* pe = v.disk.data() + 0x1BE + 16;
+        pe[4] = 0x07;
+        put32(pe + 8, ntfs_at);
+        std::unique_ptr<ImageVolume> vol;
+        EXPECT_TRUE(riftwii::mount_image_volume(v.reader(), vol, error));
+        EXPECT_TRUE(vol && std::string(vol->kind()) == "NTFS");
+        // Asking for a folder only the FAT32 one has picks it instead.
+        EXPECT_TRUE(riftwii::mount_image_volume(v.reader(), vol, error, {"nothing"}));
+        EXPECT_TRUE(vol && std::string(vol->kind()) == "FAT32");
+    }
+    {
+        // A logical partition inside an extended one.
+        const std::uint64_t ext = 64, ntfs_at = 2048;
+        Volume v(ntfs_at);
+        std::uint8_t* pe = v.disk.data() + 0x1BE;
+        pe[4] = 0x0F;
+        put32(pe + 8, ext);
+        v.disk[510] = 0x55; v.disk[511] = 0xAA;
+        std::uint8_t* ebr = v.disk.data() + ext * 512;
+        ebr[0x1BE + 4] = 0x07;
+        put32(ebr + 0x1BE + 8, ntfs_at - ext);
+        ebr[510] = 0x55; ebr[511] = 0xAA;
+        std::unique_ptr<ImageVolume> vol;
+        EXPECT_TRUE(riftwii::mount_image_volume(v.reader(), vol, error));
+        EXPECT_TRUE(vol && std::string(vol->kind()) == "NTFS");
+    }
+    {
         Bytes blank(64 * 512, 0);
         const BlockReader r = [&](std::uint64_t lba, std::uint32_t count, std::uint8_t* out) {
             if ((lba + count) * 512 > blank.size()) return false;
