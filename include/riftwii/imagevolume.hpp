@@ -25,6 +25,9 @@ struct VolumeEntry {
 struct VolumeFile {
     VolumeEntry entry;
     std::vector<Fragment> fragments;  // absolute 512-byte device blocks, in file order, coalesced
+    // NTFS keeps a small file (up to about 700 bytes) inside its MFT record:
+    // its bytes are here and it has no fragments.
+    std::vector<std::uint8_t> inline_bytes;
 };
 
 class ImageVolume {

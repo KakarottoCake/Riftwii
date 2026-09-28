@@ -477,11 +477,8 @@ static void LoadPackIndex()
 	g_packs = riftwii::PackIndex();
 	bool limited = false;
 	for (const riftwii::wii::PackFile& pack : riftwii::wii::ListPackFiles(256, limited)) {
-		std::ifstream in(pack.path, std::ios::binary);
-		if (!in) continue;
-		std::stringstream text;
-		text << in.rdbuf();
-		g_packs.add(text.str());
+		const std::string text = riftwii::wii::ReadPackText(pack.path);
+		if (!text.empty()) g_packs.add(text);
 	}
 	for (const riftwii::wii::CodeBuildFile& b : riftwii::wii::ListCodeBuilds()) g_packs.add_game(b.game_id);
 	logf("Home: %u pack(s) indexed\n", static_cast<unsigned>(g_packs.size()));
@@ -565,11 +562,16 @@ static bool PacksOnUsb(const FrontendState& state)
 }
 
 // Shown once before a launch that uses what is still experimental: an
-// RVZ game (the catalog's note). What cannot work at all is refused
-// instead (ModPlaceProblem).
+// RVZ game (the catalog's note), packs on the USB drive. What cannot work
+// at all is refused instead (ModPlaceProblem).
 static std::string LaunchNote(const FrontendState& state)
 {
-	return state.launch_warning;
+	std::string note = state.launch_warning;
+	if (PacksOnUsb(state)) {
+		if (!note.empty()) note += " ";
+		note += tr("Packs on USB are experimental; if it fails, copy them to SD.");
+	}
+	return note;
 }
 
 static std::string HomeStatus(const FrontendState& state, std::size_t shown)

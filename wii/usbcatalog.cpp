@@ -271,6 +271,7 @@ bool add_piece(const ImageVolume& volume, const std::string& prefix, const std::
     UsbImagePiece p; p.path=path;
     if (!volume.lookup(path.substr(prefix.size() - 1), p.file, error)) return false;
     if (p.file.entry.is_directory) { error = "'" + path + "' is a directory"; return false; }
+    if (!p.file.inline_bytes.empty()) { error = "'" + path + "' is too small to be a disc image"; return false; }
     // Headers are read through the same fragment list d2x will be given,
     // so what the catalog validates is exactly what the game will read.
     p.source = std::make_shared<VolumeFileSource>(volume, p.file);
@@ -725,25 +726,7 @@ std::vector<std::string> usb_mod_folders(const std::string& game_id) {
         if (std::find(out.begin(), out.end(), where) == out.end()) out.push_back(where);
     };
     std::string error;
-    // Riivolution packs: each XML read (small ones only, a few dozen at most)
-    // to see which game it is for.
-    unsigned read = 0;
-    for (const char* folder : {"/riivolution", "/apps/riivolution"}) {
-        std::vector<VolumeEntry> entries;
-        if (!volume.list(folder, entries, error)) continue;
-        for (const VolumeEntry& e : entries) {
-            if (e.is_directory || e.name.empty() || e.name[0] == '.' || !extension(e.name, ".xml")) continue;
-            if (e.size == 0 || e.size > 256 * 1024 || ++read > 64) continue;
-            VolumeFile file;
-            if (!volume.lookup(std::string(folder) + "/" + e.name, file, error)) continue;
-            std::string text(static_cast<std::size_t>(file.entry.size), '\0');
-            if (!volume.read(file, 0, reinterpret_cast<std::uint8_t*>(&text[0]), text.size())) continue;
-            PackIndex index;
-            index.add(text);
-            if (index.has_packs(game_id)) found(folder, std::string(folder) + "/" + e.name);
-        }
-    }
-    // Code builds, found the way the SD card's are (codebuilds.cpp).
+    // Found the way the SD card's are (codebuilds.cpp).
     const std::string want = lower(game_id) + ".gct";
     std::vector<VolumeEntry> top;
     if (!volume.list("/", top, error)) return out;
@@ -761,6 +744,35 @@ std::vector<std::string> usb_mod_folders(const std::string& game_id) {
         }
     }
     return out;
+}
+
+std::vector<std::string> usb_xml_names(const std::string& folder) {
+    std::vector<std::string> out;
+    std::vector<VolumeEntry> entries;
+    std::string error;
+    if (!g_usb_volume || !g_usb_volume->list(folder, entries, error)) return out;
+    for (const VolumeEntry& e : entries) {
+        if (!e.is_directory && !e.name.empty() && e.name[0] != '.' && extension(e.name, ".xml")) out.push_back(e.name);
+    }
+    std::sort(out.begin(), out.end());
+    return out;
+}
+
+bool read_usb_text(const std::string& usb_path, std::string& out) {
+    out.clear();
+    VolumeFile file;
+    std::string error;
+    if (!g_usb_volume || usb_path.compare(0, 5, "usb:/") != 0) return false;
+    if (!g_usb_volume->lookup(usb_path.substr(4), file, error) || file.entry.is_directory ||
+        file.entry.size > (1u << 20)) {
+        return false;
+    }
+    out.assign(static_cast<std::size_t>(file.entry.size), '\0');
+    if (!out.empty() && !g_usb_volume->read(file, 0, reinterpret_cast<std::uint8_t*>(&out[0]), out.size())) {
+        out.clear();
+        return false;
+    }
+    return true;
 }
 
 std::string rvz_warning(const ImageGame& game) {

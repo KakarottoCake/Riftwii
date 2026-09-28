@@ -618,17 +618,17 @@ msgstr "Personalizado (sin wfc_domain)"
 msgid "The online server the game uses in place of Nintendo's, which closed. Custom uses wfc_domain in settings.txt."
 msgstr "El servidor en línea que usa el juego en lugar del de Nintendo, que cerró. Personalizado usa wfc_domain de settings.txt."
 
-msgid " and the pack's folders"
-msgstr " y las carpetas del pack"
+msgid "Packs on USB are experimental; if it fails, copy them to SD."
+msgstr "Los packs en USB son experimentales; si falla, cópialos a la SD."
 
 msgid " (and {1} more)"
 msgstr " (y {1} más)"
 
-msgid "Mods on the USB drive won't work. Move {1} to the SD card."
-msgstr "Los mods en el USB no funcionan. Mueve {1} a la SD."
+msgid "Code builds on the USB drive won't work. Move {1} to the SD card."
+msgstr "Las builds de códigos en el USB no funcionan. Mueve {1} a la SD."
 
-msgid "This won't work: mods have to be on the SD card, not the USB drive. Move {1} to the same spot on your SD card and try again. Your games can stay on USB."
-msgstr "Así no va a funcionar: los mods tienen que estar en la SD, no en el USB. Mueve {1} al mismo sitio de tu SD y vuelve a intentarlo. Los juegos pueden seguir en el USB."
+msgid "This won't work: code builds like Project+ have to be on the SD card, not the USB drive. Move {1} to the same spot on your SD card and try again. Your games can stay on USB."
+msgstr "Así no va a funcionar: las builds de códigos como Project+ tienen que estar en la SD, no en el USB. Mueve {1} al mismo sitio de tu SD y vuelve a intentarlo. Los juegos pueden seguir en el USB."
 
 msgid "Code builds need the game on USB or disc, not the SD card."
 msgstr "Las builds de códigos necesitan el juego en USB o en disco, no en la SD."

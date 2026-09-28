@@ -618,17 +618,17 @@ msgstr "カスタム（wfc_domain未設定）"
 msgid "The online server the game uses in place of Nintendo's, which closed. Custom uses wfc_domain in settings.txt."
 msgstr "終了したNintendoのサーバーの代わりにゲームが使うオンラインサーバーです。カスタムはsettings.txtのwfc_domainを使います。"
 
-msgid " and the pack's folders"
-msgstr "とパックのフォルダ"
+msgid "Packs on USB are experimental; if it fails, copy them to SD."
+msgstr "USBのパックは試験的な機能です。うまくいかない場合はSDにコピーしてください。"
 
 msgid " (and {1} more)"
 msgstr " (ほか{1}件)"
 
-msgid "Mods on the USB drive won't work. Move {1} to the SD card."
-msgstr "USBドライブのMODは動きません。{1}をSDカードに移してください。"
+msgid "Code builds on the USB drive won't work. Move {1} to the SD card."
+msgstr "USBドライブのコードビルドは動きません。{1}をSDカードに移してください。"
 
-msgid "This won't work: mods have to be on the SD card, not the USB drive. Move {1} to the same spot on your SD card and try again. Your games can stay on USB."
-msgstr "このままでは動きません。MODはUSBドライブではなくSDカードに置く必要があります。{1}をSDカードの同じ場所に移して、もう一度試してください。ゲームはUSBのままで大丈夫です。"
+msgid "This won't work: code builds like Project+ have to be on the SD card, not the USB drive. Move {1} to the same spot on your SD card and try again. Your games can stay on USB."
+msgstr "このままでは動きません。Project+などのコードビルドはUSBドライブではなくSDカードに置く必要があります。{1}をSDカードの同じ場所に移して、もう一度試してください。ゲームはUSBのままで大丈夫です。"
 
 msgid "Code builds need the game on USB or disc, not the SD card."
 msgstr "コードビルドはSDカードではなく、USBかディスクのゲームで遊んでください。"

@@ -31,8 +31,7 @@ std::string g_failure;
 std::uint8_t* g_bounce = nullptr;
 std::uint32_t g_args[8] ATTRIBUTE_ALIGN(32);
 ioctlv g_vec[3] ATTRIBUTE_ALIGN(32);
-Fat32Volume g_volume;
-bool g_mounted = false;
+std::unique_ptr<ImageVolume> g_volume;
 
 bool ReadBlocks(std::uint64_t lba, std::uint32_t count, std::uint8_t* out) { return Read(lba, count, out); }
 
@@ -95,7 +94,7 @@ void Forget() {
     g_fd = -1;
     g_failed = false;
     g_failure.clear();
-    g_mounted = false;
+    g_volume.reset();
 }
 
 int Fd() { return g_fd; }
@@ -126,24 +125,18 @@ bool Read(std::uint64_t sector, std::uint32_t count, std::uint8_t* out) {
     return true;
 }
 
-bool Volume(const Fat32Volume*& out, std::string& error) {
+bool Volume(const ImageVolume*& out, std::string& error) {
     if (!Open(error)) return false;
     if (g_sector_bytes != kFatSectorBytes) {
         error = "the USB drive has " + std::to_string(g_sector_bytes) + "-byte sectors; packs on it need 512";
         return false;
     }
-    if (!g_mounted) {
-        if (!Fat32Volume::mount(&ReadBlocks, g_volume, error)) {
-            error = "the USB drive has no FAT32 volume (packs on USB need FAT32): " + error;
-            return false;
-        }
-        if (g_volume.geometry().bytes_per_sector != kFatSectorBytes) {
-            error = "the USB volume has " + std::to_string(g_volume.geometry().bytes_per_sector) + "-byte sectors";
-            return false;
-        }
-        g_mounted = true;
+    if (!g_volume && !mount_image_volume(&ReadBlocks, g_volume, error)) {
+        error = "the USB drive has no FAT32 or NTFS volume: " + error;
+        g_volume.reset();
+        return false;
     }
-    out = &g_volume;
+    out = g_volume.get();
     return true;
 }
 
@@ -152,9 +145,9 @@ bool ReadText(const std::string& usb_path, std::string& out, std::string& error)
         error = "'" + usb_path + "' is not a usb:/ path";
         return false;
     }
-    const Fat32Volume* volume = nullptr;
+    const ImageVolume* volume = nullptr;
     if (!Volume(volume, error)) return false;
-    Fat32File file;
+    VolumeFile file;
     if (!volume->lookup(usb_path.substr(4), file, error)) return false;
     if (file.entry.is_directory || file.entry.size > (1u << 20)) {
         error = "'" + usb_path + "' is not an XML file of 1 MiB or less";

@@ -112,6 +112,11 @@ private:
 };
 
 std::string read_text(const std::string& path) {
+    if (path.compare(0, 5, "usb:/") == 0) {
+        std::string text;
+        read_usb_text(path, text);
+        return text;
+    }
     std::ifstream in(path, std::ios::binary);
     std::stringstream text;
     if (in) text << in.rdbuf();
@@ -178,6 +183,8 @@ bool connect_server(SocketTransport& transport, riifs::Client& client, const Net
 
 }  // namespace
 
+std::string ReadPackText(const std::string& path) { return read_text(path); }
+
 std::vector<PackFile> ListPackFiles(std::size_t limit, bool& limited) {
     limited = false;
     std::vector<PackFile> out;
@@ -207,8 +214,17 @@ std::vector<PackFile> ListPackFiles(std::size_t limit, bool& limited) {
             add(name, path, "");
         }
     }
-    // Not the USB drive's: mods are read from the SD card only. A game with
-    // packs left on the drive is refused at Start (usb_mod_folders).
+    // The USB drive's (FAT32 or NTFS), through the menu's mount of it; at
+    // launch their files are read from the drive through d2x.
+    for (const char* folder : {"/riivolution", "/apps/riivolution"}) {
+        for (const std::string& name : usb_xml_names(folder)) {
+            if (out.size() >= limit) {
+                limited = true;
+                break;
+            }
+            add(name, std::string("usb:") + folder + "/" + name, " @ USB");
+        }
+    }
     for (const NetServer& server : cached_servers()) {
         for (const char* sub : {"/riivolution", "/apps/riivolution"}) {
             const std::string dir = std::string(kNetCacheDir) + "/" + server.folder() + sub;

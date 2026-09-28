@@ -427,8 +427,14 @@ void test_walk(std::uint64_t base) {
     EXPECT_CONTAINS(error, "compressed");
     EXPECT_FALSE(vol.lookup("/games/sparse.iso", f, error));
     EXPECT_CONTAINS(error, "sparse");
-    EXPECT_FALSE(vol.lookup("/zz.txt", f, error));
-    EXPECT_CONTAINS(error, "too small");
+    // Kept in its MFT record: its bytes come with the lookup.
+    EXPECT_TRUE(vol.lookup("/zz.txt", f, error));
+    EXPECT_EQ(f.entry.size, 5u);
+    EXPECT_TRUE(f.fragments.empty());
+    got.assign(3, 0);
+    EXPECT_TRUE(vol.read(f, 1, got.data(), got.size()));
+    EXPECT_TRUE(got == Bytes({'e', 'l', 'l'}));
+    EXPECT_FALSE(vol.read(f, 3, got.data(), got.size()));
     EXPECT_FALSE(vol.lookup("/games/nope.iso", f, error));
     EXPECT_CONTAINS(error, "no such ");
     EXPECT_FALSE(vol.list("/nope", es, error));

@@ -22,6 +22,10 @@ namespace riftwii::wii {
 
 constexpr const char* kNetCacheDir = "sd:/riftwii/riifs";
 
+// A pack XML's text, from the SD card or the USB drive ("usb:/...", read
+// through the menu's mount of it); empty when it cannot be read.
+std::string ReadPackText(const std::string& path);
+
 struct PackFile {
     std::string file;  // the name the menu keys choices by: "mod.xml", "mod.xml @ 192.168.1.20:1137"
     std::string path;  // "sd:/riivolution/mod.xml", "sd:/riftwii/riifs/…/riivolution/mod.xml"

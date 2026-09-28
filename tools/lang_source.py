@@ -537,20 +537,25 @@ T = {
         "終了したNintendoのサーバーの代わりにゲームが使うオンラインサーバーです。カスタムはsettings.txtのwfc_domainを使います。",
         "O servidor online que o jogo usa no lugar do da Nintendo, que foi desligado. Personalizado usa wfc_domain do settings.txt.",
         "Il server online che il gioco usa al posto di quello di Nintendo, ormai chiuso. Personalizzato usa wfc_domain in settings.txt."),
+    # Packs on USB
+    "Packs on USB are experimental; if it fails, copy them to SD.": (
+        "Los packs en USB son experimentales; si falla, cópialos a la SD.",
+        "USBのパックは試験的な機能です。うまくいかない場合はSDにコピーしてください。",
+        "Packs no USB são experimentais; se falhar, copie-os para o SD.",
+        "I pacchetti su USB sono sperimentali; se non funziona, copiali sulla SD."),
     # Mods where they cannot work (refused at Start). {1} is a folder like
-    # "usb:/Project+", maybe followed by one of the two pieces below.
-    " and the pack's folders": (" y las carpetas del pack", "とパックのフォルダ", " e as pastas do pack", " e le cartelle del pacchetto"),
+    # "usb:/Project+", maybe followed by the piece below.
     " (and {1} more)": (" (y {1} más)", " (ほか{1}件)", " (e mais {1})", " (e altri {1})"),
-    "Mods on the USB drive won't work. Move {1} to the SD card.": (
-        "Los mods en el USB no funcionan. Mueve {1} a la SD.",
-        "USBドライブのMODは動きません。{1}をSDカードに移してください。",
-        "Mods no USB não funcionam. Mova {1} para o SD.",
-        "Le mod sull'unità USB non funzionano. Sposta {1} sulla SD."),
-    "This won't work: mods have to be on the SD card, not the USB drive. Move {1} to the same spot on your SD card and try again. Your games can stay on USB.": (
-        "Así no va a funcionar: los mods tienen que estar en la SD, no en el USB. Mueve {1} al mismo sitio de tu SD y vuelve a intentarlo. Los juegos pueden seguir en el USB.",
-        "このままでは動きません。MODはUSBドライブではなくSDカードに置く必要があります。{1}をSDカードの同じ場所に移して、もう一度試してください。ゲームはUSBのままで大丈夫です。",
-        "Assim não vai funcionar: os mods precisam estar no SD, não no USB. Mova {1} para o mesmo lugar no seu SD e tente de novo. Os jogos podem ficar no USB.",
-        "Così non funziona: le mod devono stare sulla SD, non sull'unità USB. Sposta {1} nello stesso punto della SD e riprova. I giochi possono restare su USB."),
+    "Code builds on the USB drive won't work. Move {1} to the SD card.": (
+        "Las builds de códigos en el USB no funcionan. Mueve {1} a la SD.",
+        "USBドライブのコードビルドは動きません。{1}をSDカードに移してください。",
+        "Builds de códigos no USB não funcionam. Mova {1} para o SD.",
+        "Le build di codici sull'unità USB non funzionano. Sposta {1} sulla SD."),
+    "This won't work: code builds like Project+ have to be on the SD card, not the USB drive. Move {1} to the same spot on your SD card and try again. Your games can stay on USB.": (
+        "Así no va a funcionar: las builds de códigos como Project+ tienen que estar en la SD, no en el USB. Mueve {1} al mismo sitio de tu SD y vuelve a intentarlo. Los juegos pueden seguir en el USB.",
+        "このままでは動きません。Project+などのコードビルドはUSBドライブではなくSDカードに置く必要があります。{1}をSDカードの同じ場所に移して、もう一度試してください。ゲームはUSBのままで大丈夫です。",
+        "Assim não vai funcionar: builds de códigos como o Project+ precisam estar no SD, não no USB. Mova {1} para o mesmo lugar no seu SD e tente de novo. Os jogos podem ficar no USB.",
+        "Così non funziona: le build di codici come Project+ devono stare sulla SD, non sull'unità USB. Sposta {1} nello stesso punto della SD e riprova. I giochi possono restare su USB."),
     "Code builds need the game on USB or disc, not the SD card.": (
         "Las builds de códigos necesitan el juego en USB o en disco, no en la SD.",
         "コードビルドはSDカードではなく、USBかディスクのゲームで遊んでください。",

@@ -38,7 +38,7 @@ struct FrontendState {
     // starts it.
     std::string launch_warning;
     bool warning_shown = false;
-    // Folders on the USB drive holding mods for this game (usb_mod_folders),
+    // Folders on the USB drive holding code builds for this game (usb_mod_folders),
     // found by ScanPackages. The game does not start while there are any.
     std::vector<std::string> usb_mods;
 };
@@ -53,8 +53,8 @@ bool SelectUsbGame(FrontendState& state, std::size_t index, std::string& error);
 bool SelectSdGame(FrontendState& state, std::size_t index, std::string& error);
 LaunchSource SelectedSource(const FrontendState& state);
 std::string ScanPackages(FrontendState& state);
-// Why the game cannot start with its mods where they are, or "": mods on
-// the USB drive, or a code build with the game on the SD card. `brief` is
+// Why the game cannot start with its mods where they are, or "": a code
+// build on the USB drive, or one turned on with the game on the SD card. `brief` is
 // the short form for the game page.
 std::string ModPlaceProblem(const FrontendState& state, bool brief = false);
 bool SaveChoices(const FrontendState& state, std::string& error);

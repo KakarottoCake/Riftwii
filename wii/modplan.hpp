@@ -28,6 +28,9 @@ struct CompiledMod {
     bool has_source_identity = false;
     std::vector<std::string> xml_paths;
     std::vector<rt_entry> entries;
+    // Bytes the table serves from memory: small files on an NTFS USB drive,
+    // which have no sectors of their own.
+    std::vector<MemReplacement> mem;
     std::vector<FstRelocation> relocations;
     std::vector<MemoryPatch> memory;  // values read (valuefile resolved), in package and document order
     std::string savegame_dir;         // sd:/ folder of the one <savegame external> selected, empty = none
