@@ -24,8 +24,8 @@ msgstr "Jugado una vez, el {1}"
 msgid "Played {1} times, last on {2}"
 msgstr "Jugado {1} veces, la última el {2}"
 
-msgid "1: view   2: settings   -: A to Z   +: rescan"
-msgstr "1: vista   2: ajustes   -: A a Z   +: buscar de nuevo"
+msgid "1: view   2: settings   -/+: pages   B: A to Z"
+msgstr "1: vista   2: ajustes   -/+: páginas   B: A a Z"
 
 msgid "Page {1} of {2}"
 msgstr "Página {1} de {2}"
@@ -477,8 +477,8 @@ msgstr "Pon los paquetes de mods (el archivo XML y las carpetas que lo acompaña
 msgid "Buttons"
 msgstr "Botones"
 
-msgid "Point with the Wii Remote and press A, or move with the D-pad. B goes back, 2 opens Settings and HOME opens the HOME Menu. The Classic Controller and GameCube controllers work too, with the same buttons."
-msgstr "Apunta con el mando de Wii y pulsa A, o muévete con la cruceta. B vuelve atrás, 2 abre los ajustes y HOME abre el menú HOME. El mando clásico y los mandos de GameCube también sirven, con los mismos botones."
+msgid "Point with the Wii Remote and press A, or move with the D-pad; in the games list, - and + turn the pages. B goes back, 2 opens Settings and HOME opens the HOME Menu. The Classic Controller and GameCube controllers work too, with the same buttons."
+msgstr "Apunta con el mando de Wii y pulsa A, o muévete con la cruceta; en la lista de juegos, - y + pasan de página. B vuelve atrás, 2 abre los ajustes y HOME abre el menú HOME. El mando clásico y los mandos de GameCube también sirven, con los mismos botones."
 
 msgid "You're all set"
 msgstr "Todo listo"
@@ -675,8 +675,8 @@ msgstr "El servidor en línea que usa el juego en lugar del de Nintendo, que cer
 msgid "Getting covers from GameTDB: {1} left"
 msgstr "Descargando portadas de GameTDB: faltan {1}"
 
-msgid "Covers could not be downloaded ({1}). Press + to try again."
-msgstr "No se pudieron descargar las portadas ({1}). Pulsa + para volver a intentarlo."
+msgid "Covers could not be downloaded ({1}). To try again, use Settings > Look for games again."
+msgstr "No se pudieron descargar las portadas ({1}). Para volver a intentarlo, usa Ajustes > Buscar juegos de nuevo."
 
 msgid "Cover"
 msgstr "Portada"

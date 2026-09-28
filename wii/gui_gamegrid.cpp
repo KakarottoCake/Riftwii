@@ -16,12 +16,23 @@ constexpr int kCaptionSize = 18;     // covers: the lit game's name
 constexpr int kCaptionY = 266;
 constexpr int kTextLeft = 11;
 constexpr int kCoverTextLeft = 6;
-constexpr int kArrowLeftX = 2, kArrowRightX = 596;
+// The page arrows (36 across in a 48 canvas) sit 14 in from the screen's
+// edges, inside what a TV's overscan (the Wii U's especially) crops.
+constexpr int kArrowLeftX = 10, kArrowRightX = 586;
 
 // Names: 4x3 wide tiles. Covers: 6x2 at the stored cover size, the name
-// line under them.
+// line under them. Both between the arrows.
 constexpr int kNameCols = 4;
 constexpr int kCoverCols = 6;
+
+// A turned page slides in from this far to the side, easing in.
+constexpr float kSlideFrom = 150.0f;
+
+bool PressedPage(GuiTrigger* t, int delta) {
+    const u32 wpad = delta < 0 ? (WPAD_BUTTON_MINUS | WPAD_CLASSIC_BUTTON_MINUS) : (WPAD_BUTTON_PLUS | WPAD_CLASSIC_BUTTON_PLUS);
+    const u32 drc = delta < 0 ? WIIDRC_BUTTON_MINUS : WIIDRC_BUTTON_PLUS;
+    return (t->wpad && (t->wpad->btns_d & wpad)) || (t->wiidrcdata.btns_d & drc);
+}
 
 bool AnyPointer() {
     for (int i = 0; i < 4; i++)
@@ -83,12 +94,14 @@ GuiGameGrid::~GuiGameGrid() {
 }
 
 const GuiGameGrid::Geometry& GuiGameGrid::Geo() const {
-    static const Geometry names = {kNameCols, 134, 84, 34, 20, 12, 12};
-    static const Geometry coverGrid = {kCoverCols, riftwii::kCoverWidth, riftwii::kCoverHeight, 50, 16, 12, 14};
+    static const Geometry names = {kNameCols, 124, 84, 57, 20, 10, 12};
+    static const Geometry coverGrid = {kCoverCols, riftwii::kCoverWidth, riftwii::kCoverHeight, 58, 16, 9, 14};
     return covers ? coverGrid : names;
 }
 
-int GuiGameGrid::TileX(int slot) const { return Geo().left + (slot % Geo().cols) * (Geo().tileW + Geo().gapX); }
+int GuiGameGrid::TileX(int slot) const {
+    return Geo().left + (slot % Geo().cols) * (Geo().tileW + Geo().gapX) + static_cast<int>(slide);
+}
 int GuiGameGrid::TileY(int slot) const { return Geo().top + (slot / Geo().cols) * (Geo().tileH + Geo().gapY); }
 
 int GuiGameGrid::ArrowY() const {
@@ -217,6 +230,7 @@ void GuiGameGrid::TurnPage(int delta) {
     while (page * kPerPage + slot >= Count() && slot > 0) --slot;
     focus = page * kPerPage + slot;
     laidOut = false;
+    slide = delta * kSlideFrom;
     soundClick->Play();
 }
 
@@ -315,19 +329,26 @@ void GuiGameGrid::Draw() {
     if (!IsVisible()) return;
     if (!laidOut) Layout();
     const int alpha = GetAlpha();
+    // A turned page eases in from the side, fading up as it comes.
+    if (slide != 0.0f) {
+        slide *= 0.75f;
+        if (slide > -0.5f && slide < 0.5f) slide = 0.0f;
+    }
+    const float away = (slide < 0.0f ? -slide : slide) / kSlideFrom;
+    const int tileAlpha = static_cast<int>(alpha * (1.0f - 0.9f * away));
     const int focusSlot = focus / kPerPage == page ? focus % kPerPage : -1;
     const int lit = hover >= 0 ? hover : (AnyPointer() ? -1 : focusSlot);
     // Empty places first, then tiles, the lit one last so it sits on top.
     for (int i = 0; i < kPerPage; ++i) {
         if (page * kPerPage + i < Count()) continue;
-        skin::Draw(covers ? skin::coverTile : skin::tile, TileX(i) - 7, TileY(i) - 7, alpha * 70 / 255);
+        skin::Draw(covers ? skin::coverTile : skin::tile, TileX(i) - 7, TileY(i) - 7, tileAlpha * 70 / 255);
     }
     const auto draw_tile = [&](int i) {
         Slot& s = slots[i];
         const bool on = i == lit;
         s.scale += ((on ? 1.06f : 1.0f) - s.scale) * 0.35f;
-        if (covers) DrawCoverTile(i, on, alpha);
-        else DrawNameTile(i, on, alpha);
+        if (covers) DrawCoverTile(i, on, tileAlpha);
+        else DrawNameTile(i, on, tileAlpha);
     };
     for (int i = 0; i < kPerPage; ++i) {
         if (i == lit || page * kPerPage + i >= Count()) continue;
@@ -353,6 +374,12 @@ void GuiGameGrid::Draw() {
 
 void GuiGameGrid::Update(GuiTrigger* t) {
     if (state == STATE::DISABLED || !t || Count() == 0) return;
+    // Minus and Plus: the previous and the next page, pointing or not.
+    if (PressedPage(t, -1) || PressedPage(t, 1)) {
+        TurnPage(PressedPage(t, -1) ? -1 : 1);
+        hover = -1;
+        return;
+    }
     if (t->wpad && t->wpad->ir.valid) {
         const int x = static_cast<int>(t->wpad->ir.x), y = static_cast<int>(t->wpad->ir.y);
         const int slot = SlotAt(x, y);

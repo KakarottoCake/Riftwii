@@ -645,7 +645,7 @@ static std::string HomeStatus(const FrontendState& state, std::size_t shown)
 	if (shown <= 1) return "No games found (usb:/wbfs, usb:/games, sd:/wbfs, sd:/games)";
 	// The disc drive's tile is not a game.
 	const std::string count = shown == 2 ? std::string(tr("1 game")) : tr("{1} games", {std::to_string(shown - 1)});
-	return std::string(tr(FilterLabel(g_filter))) + ": " + count + "   " + tr("1: view   2: settings   -: A to Z   +: rescan");
+	return std::string(tr(FilterLabel(g_filter))) + ": " + count + "   " + tr("1: view   2: settings   -/+: pages   B: A to Z");
 }
 
 class Panel : public GuiElement {
@@ -997,7 +997,7 @@ static void ShowTutorial()
 		{"Mods",
 		 "Put mod packs (the XML file and the folders that come with it) in sd:/riivolution or usb:/riivolution. Pick a game, open Mods, switch a pack on and choose its options. Start (or +) plays the game with them."},
 		{"Buttons",
-		 "Point with the Wii Remote and press A, or move with the D-pad. B goes back, 2 opens Settings and HOME opens the HOME Menu. The Classic Controller and GameCube controllers work too, with the same buttons."},
+		 "Point with the Wii Remote and press A, or move with the D-pad; in the games list, - and + turn the pages. B goes back, 2 opens Settings and HOME opens the HOME Menu. The Classic Controller and GameCube controllers work too, with the same buttons."},
 		{"You're all set",
 		 "Settings has the video, language, online and update options. For more help, see the guide on RiftWii's GitHub page or join the Discord. Settings > Tutorial shows this tour again."},
 	};
@@ -1173,10 +1173,15 @@ static int MenuSource(FrontendState& state)
 		WPAD_BUTTON_1 | WPAD_CLASSIC_BUTTON_Y, PAD_BUTTON_Y, WIIDRC_BUTTON_X, &skin::iconDrives);
 	SkinButton settingsBtn(skin::roundBtn, skin::roundBtnOver, 2, 538, 386, nullptr,
 		WPAD_BUTTON_2 | WPAD_CLASSIC_BUTTON_X, PAD_TRIGGER_R, WIIDRC_BUTTON_Y, &skin::iconGear);
+	// Minus and Plus turn the grid's pages (in GuiGameGrid). Rescan is in
+	// Settings, and on X of a GameCube controller, which has neither. Its
+	// Wii Remote and Classic buttons are bits neither ever sends (a 0 would
+	// match any press that leaves that half empty).
+	constexpr u32 kNoWpadButton = 0x0020 | (0x0100u << 16);
 	GuiTrigger trigRescan, trigExit, trigJump;
-	trigRescan.SetButtonOnlyTrigger(-1, WPAD_BUTTON_PLUS | WPAD_CLASSIC_BUTTON_PLUS, PAD_BUTTON_X, WIIDRC_BUTTON_PLUS);
+	trigRescan.SetButtonOnlyTrigger(-1, kNoWpadButton, PAD_BUTTON_X, 0);
 	trigExit.SetButtonOnlyTrigger(-1, WPAD_BUTTON_HOME | WPAD_CLASSIC_BUTTON_HOME, PAD_BUTTON_START, WIIDRC_BUTTON_HOME);
-	trigJump.SetButtonOnlyTrigger(-1, WPAD_BUTTON_MINUS | WPAD_CLASSIC_BUTTON_MINUS, PAD_TRIGGER_L, WIIDRC_BUTTON_MINUS);
+	trigJump.SetButtonOnlyTrigger(-1, WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_TRIGGER_L, WIIDRC_BUTTON_B);
 	GuiButton rescanBtn(0, 0), exitBtn(0, 0), jumpBtn(0, 0);  // hotkeys only
 	rescanBtn.SetTrigger(&trigRescan);
 	exitBtn.SetTrigger(&trigExit);
@@ -1266,7 +1271,7 @@ static int MenuSource(FrontendState& state)
 				logf("Covers: stopped: %s\n", error.c_str());
 				g_coversOff = true;
 				coverQueue.clear();
-				coverNote = tr("Covers could not be downloaded ({1}). Press + to try again.", {FlatCapped(error, 60)});
+				coverNote = tr("Covers could not be downloaded ({1}). To try again, use Settings > Look for games again.", {FlatCapped(error, 60)});
 			}
 			if (coverNote.empty() && !coverQueue.empty())
 				coverNote = tr("Getting covers from GameTDB: {1} left", {std::to_string(coverQueue.size())});

@@ -87,13 +87,13 @@ Tex Chip(bool on) {
 
 Tex Arrow(bool left, bool over) {
     Canvas c(48, 48);
-    if (over) c.circle(24, 24, 23, kGlow);
-    c.circle(24, 25, 21, kShadow);
-    c.circle(24, 24, 20, kWhiteC);
-    c.ring(24, 24, 20, 2, over ? kAccentC : kEdgeStrong);
+    if (over) c.circle(24, 24, 20.5f, kGlow);
+    c.circle(24, 25, 18.5f, kShadow);
+    c.circle(24, 24, 18, kWhiteC);
+    c.ring(24, 24, 18, 2, over ? kAccentC : kEdgeStrong);
     const float s = left ? -1.0f : 1.0f;
-    c.line(24 - 3 * s, 16, 24 + 4 * s, 24, 3.5f, kGlyph);
-    c.line(24 + 4 * s, 24, 24 - 3 * s, 32, 3.5f, kGlyph);
+    c.line(24 - 3 * s, 17, 24 + 4 * s, 24, 3.5f, kGlyph);
+    c.line(24 + 4 * s, 24, 24 - 3 * s, 31, 3.5f, kGlyph);
     return Upload(c);
 }
 
@@ -214,8 +214,8 @@ Tex Stripes() {
 
 void Init() {
     if (g_ready) return;
-    tile = Card(134, 84, 7, 14, false);
-    tileOver = Card(134, 84, 7, 14, true);
+    tile = Card(124, 84, 7, 14, false);
+    tileOver = Card(124, 84, 7, 14, true);
     coverTile = Card(80, 112, 7, 8, false);
     coverTileOver = Card(80, 112, 7, 8, true);
     roundBtn = Round(false);

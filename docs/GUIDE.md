@@ -46,9 +46,12 @@ tiles, with the disc drive first. At first it shows only games that
 have mod packs (they carry a **MODS** tag). The round button at the
 bottom left (or **1**) switches between games with mods, all games and,
 once you have played something, **Recently played**, then
-**Favourites** once you mark a game as one on its page. **Minus** (L on
-a GameCube controller) jumps to the next game starting with another
-letter, A to Z. RiftWii remembers the view and opens on the last game
+**Favourites** once you mark a game as one on its page. **Minus** and
+**Plus** turn to the previous and next page of games (the arrows at the
+sides and the D-pad at a page's edge do too). **B** (L on a GameCube
+controller) jumps to the next game starting with another letter, A to
+Z. To look for new games on the drives, use Settings > Look for games
+again (or X on a GameCube controller). RiftWii remembers the view and opens on the last game
 you played. When the Wii is online,
 games show their real names from GameTDB (Super Mario Galaxy 2, not the
 disc's SUPER MARIO GALAXY MORE), in the menu's language. The line at the

@@ -24,8 +24,8 @@ msgstr "{1}に1回遊びました"
 msgid "Played {1} times, last on {2}"
 msgstr "{1}回遊びました (最後は{2})"
 
-msgid "1: view   2: settings   -: A to Z   +: rescan"
-msgstr "1: 表示   2: 設定   -: A〜Z   +: 再検索"
+msgid "1: view   2: settings   -/+: pages   B: A to Z"
+msgstr "1: 表示   2: 設定   -/+: ページ   B: A〜Z"
 
 msgid "Page {1} of {2}"
 msgstr "{1} / {2} ページ"
@@ -477,8 +477,8 @@ msgstr "MODパック (XMLファイルと一緒のフォルダ) はsd:/riivolutio
 msgid "Buttons"
 msgstr "ボタン"
 
-msgid "Point with the Wii Remote and press A, or move with the D-pad. B goes back, 2 opens Settings and HOME opens the HOME Menu. The Classic Controller and GameCube controllers work too, with the same buttons."
-msgstr "Wiiリモコンでポイントして A を押すか、十字ボタンで動かします。B で戻り、2 で設定、HOME でHOMEメニューを開きます。クラシックコントローラとゲームキューブコントローラも同じボタンで使えます。"
+msgid "Point with the Wii Remote and press A, or move with the D-pad; in the games list, - and + turn the pages. B goes back, 2 opens Settings and HOME opens the HOME Menu. The Classic Controller and GameCube controllers work too, with the same buttons."
+msgstr "Wiiリモコンでポイントして A を押すか、十字ボタンで動かします。ゲーム一覧では - と + でページをめくります。B で戻り、2 で設定、HOME でHOMEメニューを開きます。クラシックコントローラとゲームキューブコントローラも同じボタンで使えます。"
 
 msgid "You're all set"
 msgstr "準備完了"
@@ -675,8 +675,8 @@ msgstr "終了したNintendoのサーバーの代わりにゲームが使うオ�
 msgid "Getting covers from GameTDB: {1} left"
 msgstr "GameTDBからカバーを取得中: 残り{1}"
 
-msgid "Covers could not be downloaded ({1}). Press + to try again."
-msgstr "カバーをダウンロードできませんでした ({1})。+でもう一度試せます。"
+msgid "Covers could not be downloaded ({1}). To try again, use Settings > Look for games again."
+msgstr "カバーをダウンロードできませんでした ({1})。設定 > ゲームをもう一度探す でもう一度試せます。"
 
 msgid "Cover"
 msgstr "カバー"

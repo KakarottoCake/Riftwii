@@ -24,8 +24,8 @@ msgstr "Jogado uma vez, em {1}"
 msgid "Played {1} times, last on {2}"
 msgstr "Jogado {1} vezes, a última em {2}"
 
-msgid "1: view   2: settings   -: A to Z   +: rescan"
-msgstr "1: visão   2: configurações   -: A a Z   +: procurar de novo"
+msgid "1: view   2: settings   -/+: pages   B: A to Z"
+msgstr "1: visão   2: configurações   -/+: páginas   B: A a Z"
 
 msgid "Page {1} of {2}"
 msgstr "Página {1} de {2}"
@@ -477,8 +477,8 @@ msgstr "Coloque os pacotes de mods (o arquivo XML e as pastas que vêm com ele) 
 msgid "Buttons"
 msgstr "Botões"
 
-msgid "Point with the Wii Remote and press A, or move with the D-pad. B goes back, 2 opens Settings and HOME opens the HOME Menu. The Classic Controller and GameCube controllers work too, with the same buttons."
-msgstr "Aponte com o Wii Remote e aperte A, ou mova com o direcional. B volta, 2 abre as configurações e HOME abre o menu HOME. O Classic Controller e os controles de GameCube também funcionam, com os mesmos botões."
+msgid "Point with the Wii Remote and press A, or move with the D-pad; in the games list, - and + turn the pages. B goes back, 2 opens Settings and HOME opens the HOME Menu. The Classic Controller and GameCube controllers work too, with the same buttons."
+msgstr "Aponte com o Wii Remote e aperte A, ou mova com o direcional; na lista de jogos, - e + mudam de página. B volta, 2 abre as configurações e HOME abre o menu HOME. O Classic Controller e os controles de GameCube também funcionam, com os mesmos botões."
 
 msgid "You're all set"
 msgstr "Tudo pronto"
@@ -675,8 +675,8 @@ msgstr "O servidor online que o jogo usa no lugar do da Nintendo, que foi deslig
 msgid "Getting covers from GameTDB: {1} left"
 msgstr "Baixando capas do GameTDB: faltam {1}"
 
-msgid "Covers could not be downloaded ({1}). Press + to try again."
-msgstr "Não foi possível baixar as capas ({1}). Aperte + para tentar de novo."
+msgid "Covers could not be downloaded ({1}). To try again, use Settings > Look for games again."
+msgstr "Não foi possível baixar as capas ({1}). Para tentar de novo, use Configurações > Procurar jogos de novo."
 
 msgid "Cover"
 msgstr "Capa"

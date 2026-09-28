@@ -24,8 +24,8 @@ msgstr "Giocato una volta, il {1}"
 msgid "Played {1} times, last on {2}"
 msgstr "Giocato {1} volte, l'ultima il {2}"
 
-msgid "1: view   2: settings   -: A to Z   +: rescan"
-msgstr "1: vista   2: impostazioni   -: dalla A alla Z   +: cerca di nuovo"
+msgid "1: view   2: settings   -/+: pages   B: A to Z"
+msgstr "1: vista   2: impostazioni   -/+: pagine   B: dalla A alla Z"
 
 msgid "Page {1} of {2}"
 msgstr "Pagina {1} di {2}"
@@ -477,8 +477,8 @@ msgstr "Metti i pacchetti di mod (il file XML e le cartelle che lo accompagnano)
 msgid "Buttons"
 msgstr "Pulsanti"
 
-msgid "Point with the Wii Remote and press A, or move with the D-pad. B goes back, 2 opens Settings and HOME opens the HOME Menu. The Classic Controller and GameCube controllers work too, with the same buttons."
-msgstr "Punta con il telecomando Wii e premi A, o muoviti con la croce direzionale. B torna indietro, 2 apre le impostazioni e HOME apre il menu HOME. Anche il Classic Controller e i controller GameCube funzionano, con gli stessi pulsanti."
+msgid "Point with the Wii Remote and press A, or move with the D-pad; in the games list, - and + turn the pages. B goes back, 2 opens Settings and HOME opens the HOME Menu. The Classic Controller and GameCube controllers work too, with the same buttons."
+msgstr "Punta con il telecomando Wii e premi A, o muoviti con la croce direzionale; nell'elenco dei giochi, - e + cambiano pagina. B torna indietro, 2 apre le impostazioni e HOME apre il menu HOME. Anche il Classic Controller e i controller GameCube funzionano, con gli stessi pulsanti."
 
 msgid "You're all set"
 msgstr "Tutto pronto"
@@ -675,8 +675,8 @@ msgstr "Il server online che il gioco usa al posto di quello di Nintendo, ormai 
 msgid "Getting covers from GameTDB: {1} left"
 msgstr "Scaricamento copertine da GameTDB: ne mancano {1}"
 
-msgid "Covers could not be downloaded ({1}). Press + to try again."
-msgstr "Impossibile scaricare le copertine ({1}). Premi + per riprovare."
+msgid "Covers could not be downloaded ({1}). To try again, use Settings > Look for games again."
+msgstr "Impossibile scaricare le copertine ({1}). Per riprovare, usa Impostazioni > Cerca di nuovo i giochi."
 
 msgid "Cover"
 msgstr "Copertina"
