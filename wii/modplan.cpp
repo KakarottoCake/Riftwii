@@ -416,6 +416,7 @@ static bool gather_package(const PackageSelection& selection, const DiscProbe& p
     // the nearest folder that exists holds, so a misplaced or incomplete
     // copy shows in the log. A few distinct folders at most.
     std::set<std::string> hinted;
+    std::string first_missing;  // the first folder or file the card lacks
     for (std::size_t i = expand_notes_from; i < mod.notes.size() && hinted.size() < 4; ++i) {
         const std::string& note = mod.notes[i];
         if (note.find("not on the card") == std::string::npos) continue;
@@ -429,13 +430,18 @@ static bool gather_package(const PackageSelection& selection, const DiscProbe& p
             const std::size_t end = note.find('\'', quote + 10);
             if (end != std::string::npos) missing = note.substr(quote + 10, end - quote - 10);
         }
+        if (first_missing.empty()) first_missing = missing;
         const std::string hint = missing.empty() ? std::string() : nearest_on_card(missing);
         if (!hint.empty() && hinted.insert(hint).second) mod.notes.push_back(hint);
     }
 
     // Memory patches: a valuefile is read now, while the card is mounted.
-    // One the card lacks is skipped with a warning, as Dolphin's Riivolution
-    // support does; an unreadable one still stops the launch.
+    // One the card lacks is skipped with a warning, as Dolphin does, unless
+    // the pack has no files at all on the card (below): then it is usually
+    // the pack's own code, which its other memory patches jump into, so the
+    // game would start to a black screen (Neo Mario Galaxy copied into the
+    // wrong folder did). An unreadable one stops the launch.
+    std::string missing_value;
     for (MemoryPatch m : plan.memory) {
         if (!m.valuefile.empty()) {
             std::unique_ptr<ByteSource> source;
@@ -446,6 +452,7 @@ static bool gather_package(const PackageSelection& selection, const DiscProbe& p
                 const std::string hint = nearest_on_card(m.valuefile);
                 if (!hint.empty()) warning += " (" + hint + ")";
                 mod.warnings.push_back(warning);
+                if (missing_value.empty()) missing_value = m.valuefile;
                 continue;
             }
             if (opened != OpenStatus::Ok || !source) {
@@ -470,6 +477,24 @@ static bool gather_package(const PackageSelection& selection, const DiscProbe& p
         mod.memory.push_back(std::move(m));
     }
     if (!plan.memory.empty()) mod.notes.push_back(std::to_string(plan.memory.size()) + " memory patch(es)");
+    // A pack whose files are not where its XML says (its folder copied one
+    // level too deep, or not at all) is not started half applied.
+    if (expanded.empty() && (!missing_value.empty() || !first_missing.empty())) {
+        const std::string& what = !missing_value.empty() ? missing_value : first_missing;
+        const bool usb = OnUsb(what);
+        std::string path = usb ? what.substr(4) : what;
+        if (path.empty() || path[0] != '/') path = "/" + path;
+        const std::string device = usb ? "usb:" : "sd:";
+        const std::string top = device + path.substr(0, path.find('/', 1));
+        const std::string xml_name = xml_sd_path.substr(xml_sd_path.find_last_of('/') + 1);
+        error = "This won't work: " + xml_name + " needs its files in " + top + ", and " +
+                (missing_value.empty() ? std::string("none of them are there") : device + path + " is missing") +
+                ". Copy the pack's whole folder to the top of the " + (usb ? "USB drive" : "SD card") +
+                ", next to the riivolution folder.";
+        const std::string hint = nearest_on_card(what);
+        if (!hint.empty()) error += " (" + hint + ")";
+        return false;
+    }
     if (expanded.empty() && plan.memory.empty() && plan.savegames.empty() && plan.shifts.empty()) {
         std::vector<std::string> folder_notes(mod.notes.begin() + expand_notes_from, mod.notes.end());
         error = describe_empty_plan(xml_sd_path, probe.header.game_id, plan, folder_notes);
