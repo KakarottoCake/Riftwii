@@ -125,7 +125,7 @@ private:
 // bytes). Gaps past the original end are zero-filled by the overlay itself.
 // A disc file reported NotFound with create="true" behaves as an empty
 // original; any other open failure, and any missing external, is an error.
-// All arithmetic is overflow-checked and outputs are capped at kMaxFileBytes.
+// All arithmetic is overflow-checked and outputs are capped at kMaxPatchFileBytes.
 bool build_replacement(const FilePatch& patch, ContentProvider& provider,
                        std::unique_ptr<AppliedFile>& out, std::string& error);
 
