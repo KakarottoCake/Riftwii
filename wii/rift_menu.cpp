@@ -3259,9 +3259,13 @@ int MainMenu(int menu, FrontendState& state)
 {
 	int currentMenu = menu;
 
+	const u64 skinStart = gettime();
 	skin::Init();
+	logf("Startup: menu art drawn in %u ms\n", static_cast<unsigned>(diff_msec(skinStart, gettime())));
 	ApplyMenuSounds();
+	const u64 musicStart = gettime();
 	riftwii::wii::MenuMusicStart();
+	logf("Startup: music started in %u ms\n", static_cast<unsigned>(diff_msec(musicStart, gettime())));
 	soundOver = new GuiSound(button_over_pcm, button_over_pcm_size, SOUND::PCM);
 	mainWindow = new GuiWindow(screenwidth, screenheight);
 	backdrop = new skin::GuiBackdrop();

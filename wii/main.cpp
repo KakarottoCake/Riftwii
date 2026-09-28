@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include <fat.h>
 #include <gccore.h>
+#include <ogc/lwp_watchdog.h>
 #include <ogc/system.h>
 #include <sdcard/wiisd_io.h>
 #include <sys/stat.h>
@@ -214,12 +215,21 @@ int main() {
                                restart.kind == riftwii::wii::RestartKind::BurnedDisc ? riftwii::wii::BurnedDiscSlot() : 0);
     SetHomeNotice(restart.message);
     FrontendState state;
+    // Where the start's time goes (the log's own clock does the rest).
+    u64 step = gettime();
+    const auto timed = [&step](const char* what) {
+        const u64 now = gettime();
+        riftwii::wii::logf("Startup: %s in %u ms\n", what, static_cast<unsigned>(diff_msec(step, now)));
+        step = now;
+    };
     riftwii::wii::InitializeFrontend(state);
     riftwii::wii::SetMenuLanguage(riftwii::wii::MenuLanguage());
+    timed("settings and language");
 
     InitVideo();
     SetupPads();
     InitAudio();
+    timed("video, pads and audio");
     u8* font = nullptr;
     std::size_t font_size = 0;
     if (!UnpackMenuFont(font, font_size)) {
@@ -227,8 +237,10 @@ int main() {
         riftwii::wii::logf("Menu font: unpacking failed\n");
         ExitApp();
     }
+    timed("font unpacked");
     InitFreeType(font, font_size);
     InitGUIThreads();
+    timed("FreeType and the GUI thread");
     riftwii::wii::ScreenshotsStart();
     riftwii::wii::CrashSetPhase(riftwii::wii::CrashPhase::Menu);
     if (!sd_mounted) SetNoSdCard(StartedFromUsb());
