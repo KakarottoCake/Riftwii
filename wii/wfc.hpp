@@ -1,4 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+// Parts of this follow USB Loader GX (https://github.com/wiidev/usbloadergx,
+// GPL-3.0, the project's licence): gamepatches.c, do_new_wiimmfi (Leseratte's Wiimmfi patch, copied
+// unchanged as data) and patch_error_codes. See NOTICE.md.
 #pragma once
 
 #include <cstdint>

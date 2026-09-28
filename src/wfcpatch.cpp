@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Parts of this file follow USB Loader GX (https://github.com/wiidev/usbloadergx,
-// GPL-2.0-or-later), gamepatches.c: PrivateServerPatcher and domainpatcher (after
+// GPL-3.0, the project's licence), gamepatches.c: PrivateServerPatcher and domainpatcher (after
 // ToadKing's wiilauncher-nossl) and do_new_wiimmfi_nonMKWii, reimplemented;
 // Leseratte's Wiimmfi patch data is copied unchanged. See NOTICE.md.
 #include "riftwii/wfcpatch.hpp"

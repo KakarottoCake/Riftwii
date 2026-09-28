@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// The SCGetLanguage search pattern and its replacement follow USB Loader GX
-// (https://github.com/wiidev/usbloadergx, GPL-2.0-or-later, patchcode.c,
-// langpatcher); reimplemented. See NOTICE.md.
+// The SCGetLanguage search pattern and its replacement follow langpatcher in
+// USB Loader GX's patchcode.c (https://github.com/wiidev/usbloadergx; Copyright
+// (C) 2008 Nuke, GeckoOS for USB Gecko, GPL-2.0-or-later); reimplemented. See NOTICE.md.
 #include "riftwii/gamelang.hpp"
 
 namespace riftwii {

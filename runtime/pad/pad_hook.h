@@ -1,4 +1,8 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
+/* The WUP-028 adapter handling follows Nintendont's USB HID driver (FIX94 and
+ * contributors, https://github.com/FIX94/Nintendont, kernel/HID.c, GPL-2.0; used
+ * with its developers' permission, with this attribution) and wup-028-bslug
+ * (Alex Chadwick 2017, https://github.com/Chadderz121/wup-028-bslug, MIT). See NOTICE.md. */
 /* The GameCube adapter's in-game blob: PADRead and PADControlMotor
  * hooked, the WUP-028 driver (runtime/rtgcad.c) behind them. Its own
  * small blob beside the resident runtime, so a game without the adapter

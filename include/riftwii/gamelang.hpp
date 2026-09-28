@@ -1,4 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+// The language patch follows langpatcher in USB Loader GX's patchcode.c
+// (https://github.com/wiidev/usbloadergx; Copyright (C) 2008 Nuke, GeckoOS for
+// USB Gecko, GPL-2.0-or-later), reimplemented. See NOTICE.md.
 #pragma once
 
 #include <cstddef>

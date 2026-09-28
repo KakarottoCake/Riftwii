@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The render mode heights the TV format conversion recognises follow USB Loader GX
-// (https://github.com/wiidev/usbloadergx, GPL-2.0-or-later, gamepatches.c);
+// (https://github.com/wiidev/usbloadergx, GPL-3.0, the project's licence, gamepatches.c);
 // reimplemented. See NOTICE.md.
 #include "riftwii/videopatch.hpp"
 

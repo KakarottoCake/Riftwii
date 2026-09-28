@@ -118,6 +118,30 @@ image and `0x81200000`, and in MEM2 above `0x90800000`. In Dolphin it
 fills the reload area with `0xDEADBEEF` at each reload, so a heap that
 strays there fails in the emulator as it would on a Wii.
 
+### The loader's size and the game's room
+
+The loader's own program (`boot.dol`) is linked at `0x80A00000` and
+grows upward from there, toward the apploader at `0x81200000`. The game
+loads from `0x80004000` up to just below `0x80A00000`, so the loader
+getting bigger never takes room from the game: the line between them is
+fixed. What growth does take is the loader's own MEM1 heap, the space
+between the end of its image and `0x81200000` (about 2.4 MiB at 2.2.3,
+image end `0x80F8C560`, 4.7 MB file of which most is the menu font and
+the packed runtime blobs). That heap holds a big pack's file table while
+it is planned, so it is the thing to watch: `session.log` prints the
+MEM1 figures at start and at each "Heap check".
+
+A game whose DOL (or bss) reaches `0x80A00000` would overwrite the
+loader while the apploader still runs. The loader checks every
+apploader load against its own range and stops with "overlaps the
+loader" instead of crashing; no game seen so far comes close (Brawl,
+among the largest, ends at `0x805A5154`).
+
+The in-game part (the resident runtime) is separate and small: 43 KB of
+code at the top of the game's MEM1 arena (or in MEM2 for code builds
+such as Project+), plus its data in MEM2. It is built with `-Os` for that
+reason (`Makefile.runtime`).
+
 ## Restarts and crashes
 
 RiftWii can start itself again without the Homebrew Channel

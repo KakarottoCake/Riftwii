@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The Mario Kart Wii Wiimmfi patch below (Leseratte, 2018; the error 51420 fix,
 // 2021) is copied unchanged as data from USB Loader GX
-// (https://github.com/wiidev/usbloadergx, GPL-2.0-or-later, gamepatches.c), as
+// (https://github.com/wiidev/usbloadergx, GPL-3.0, the project's licence, gamepatches.c), as
 // are the facts of its RCE fix (patch_error_codes). See NOTICE.md.
 #include "wfc.hpp"
 

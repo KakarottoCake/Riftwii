@@ -1,4 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+// Parts of this follow USB Loader GX (https://github.com/wiidev/usbloadergx,
+// GPL-3.0, the project's licence): gamepatches.c, the render mode tables of its
+// video mode patcher, reimplemented. See NOTICE.md.
 #pragma once
 
 #include <cstddef>
