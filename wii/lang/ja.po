@@ -657,6 +657,15 @@ msgstr "小さめ"
 msgid "How loud the menu's clicks are. Quiet softens the tick the pointer makes moving onto something."
 msgstr "メニューのクリック音の大きさです。小さめにすると、ポインターが何かに重なったときの音が控えめになります。"
 
+msgid "Menu music"
+msgstr "メニューの音楽"
+
+msgid "Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder."
+msgstr "メニューを開いている間の音楽です: sd:/riftwiiのmusic.ogg、なければRiftWiiのフォルダのものを流します。"
+
+msgid "No music.ogg found in sd:/riftwii or in RiftWii's own folder."
+msgstr "sd:/riftwiiにもRiftWiiのフォルダにもmusic.oggがありません。"
+
 msgid "Packs on USB are experimental; if it fails, copy them to SD."
 msgstr "USBのパックは試験的な機能です。うまくいかない場合はSDにコピーしてください。"
 

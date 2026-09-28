@@ -27,6 +27,7 @@ struct LoaderSettings {
     std::string wfc_domain;               // the "custom" server's domain
     std::string home_tiles = "covers";    // Home's tiles: covers or names
     std::string menu_sounds = "quiet";    // normal, quiet (a soft hover tick), off
+    std::string menu_music = "on";        // on, off: music.ogg while the menu is open
     bool online = true;                   // download game names and cheats when the Wii is online
     std::string update_channel = "auto";  // stable, beta, or auto (the build's own: beta for a -suffix version)
     std::string gc_adapter = "auto";      // GameCube controller adapter for Wii U: auto (when plugged in at launch), on, off (demo: Dolphin tests)

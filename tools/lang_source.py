@@ -576,6 +576,18 @@ T = {
         "メニューのクリック音の大きさです。小さめにすると、ポインターが何かに重なったときの音が控えめになります。",
         "O volume dos cliques do menu. Baixo suaviza o som quando o ponteiro passa sobre algo.",
         "Il volume dei clic del menu. Bassi attenua il suono quando il puntatore passa sopra qualcosa."),
+    # Menu music (Settings)
+    "Menu music": ("Música del menú", "メニューの音楽", "Música do menu", "Musica del menu"),
+    "Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder.": (
+        "Música mientras el menú está abierto: music.ogg de sd:/riftwii, o la de la carpeta de RiftWii.",
+        "メニューを開いている間の音楽です: sd:/riftwiiのmusic.ogg、なければRiftWiiのフォルダのものを流します。",
+        "Música enquanto o menu está aberto: music.ogg de sd:/riftwii, ou a da pasta do RiftWii.",
+        "Musica mentre il menu è aperto: music.ogg da sd:/riftwii, o quella nella cartella di RiftWii."),
+    "No music.ogg found in sd:/riftwii or in RiftWii's own folder.": (
+        "No hay ningún music.ogg en sd:/riftwii ni en la carpeta de RiftWii.",
+        "sd:/riftwiiにもRiftWiiのフォルダにもmusic.oggがありません。",
+        "Nenhum music.ogg em sd:/riftwii nem na pasta do RiftWii.",
+        "Nessun music.ogg in sd:/riftwii né nella cartella di RiftWii."),
     # Packs on USB
     "Packs on USB are experimental; if it fails, copy them to SD.": (
         "Los packs en USB son experimentales; si falla, cópialos a la SD.",

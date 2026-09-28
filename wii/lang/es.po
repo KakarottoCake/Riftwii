@@ -657,6 +657,15 @@ msgstr "Bajo"
 msgid "How loud the menu's clicks are. Quiet softens the tick the pointer makes moving onto something."
 msgstr "El volumen de los clics del menú. Bajo suaviza el sonido al pasar el puntero sobre algo."
 
+msgid "Menu music"
+msgstr "Música del menú"
+
+msgid "Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder."
+msgstr "Música mientras el menú está abierto: music.ogg de sd:/riftwii, o la de la carpeta de RiftWii."
+
+msgid "No music.ogg found in sd:/riftwii or in RiftWii's own folder."
+msgstr "No hay ningún music.ogg en sd:/riftwii ni en la carpeta de RiftWii."
+
 msgid "Packs on USB are experimental; if it fails, copy them to SD."
 msgstr "Los packs en USB son experimentales; si falla, cópialos a la SD."
 

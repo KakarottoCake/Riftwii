@@ -533,6 +533,11 @@ void TestCoverArt() {
     EXPECT_EQ(s.menu_sounds, "off");
     s.parse("menu_sounds = loud\n");
     EXPECT_EQ(s.menu_sounds, "off");
+    EXPECT_EQ(s.menu_music, "on");
+    s.parse("menu_music = off\n");
+    EXPECT_EQ(s.menu_music, "off");
+    s.parse("menu_music = loud\n");
+    EXPECT_EQ(s.menu_music, "off");
 
     EXPECT_TRUE(s.game_folders.empty());
     s.parse("game_folders = /Wii Games/ ; usb:\\iso\\wii; SD:/sd only; /WBFS; /../up; /Wii Games\n");

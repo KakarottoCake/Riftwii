@@ -133,6 +133,9 @@ the list explains the row you are on.
   **Game language**, **Game cIOS**, **Online server**: the defaults for
   every game.
 - **Home tiles**: covers or names.
+- **Menu sounds** (Normal, Quiet, Off) and **Menu music**: the music is
+  `music.ogg` (Ogg Vorbis, up to 6 MB) from `sd:/riftwii/`, or else the one
+  the release puts in `sd:/apps/riftwii/`, looped while the menu is open.
 - **Download names and cheats**, and **Get the latest game names**.
 - **GameCube adapter** (experimental), and **Check the GameCube adapter** (below).
 - **Menu IOS**: IOS 58, or a d2x cIOS slot (248 to 252). Pick the slot that has
