@@ -50,6 +50,7 @@
 #include "menu.h"
 #include "autorun.hpp"
 #include "menumusic.hpp"
+#include "screenshot.hpp"
 #include "boot.hpp"
 #include "demo.h"
 #include "input.h"
@@ -194,6 +195,7 @@ UpdateGUI(void *arg)
 		{
 			UpdatePads();
 			riftwii::wii::GuiScriptApply();
+			riftwii::wii::ScreenshotPoll();
 			const u64 now = gettime();
 			if (AnyActivity() || lastActive == 0) {
 				if (dimAlpha > 0) swallowInput = true;
@@ -213,9 +215,12 @@ UpdateGUI(void *arg)
 			}
 			if (dimAlpha > 0)
 				Menu_DrawRectangle(0, 0, screenwidth, screenheight, (GXColor){0, 0, 0, static_cast<u8>(dimAlpha)}, 1);
+			if (const int flash = riftwii::wii::ScreenshotFlash())
+				Menu_DrawRectangle(0, 0, screenwidth, screenheight, (GXColor){255, 255, 255, static_cast<u8>(flash)}, 1);
 
 			Menu_Render();
 			riftwii::wii::GuiScriptAfterFrame(Menu_CurrentXfb(), Menu_XfbWidth(), Menu_XfbHeight());
+			riftwii::wii::ScreenshotAfterFrame(Menu_CurrentXfb(), Menu_XfbWidth(), Menu_XfbHeight());
 
 			if (!idle && !swallowInput)
 				for(i = 0; i < 4; i++)

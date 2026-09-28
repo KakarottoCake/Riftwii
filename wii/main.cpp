@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "menumusic.hpp"
+#include "screenshot.hpp"
 #include "FreeTypeGX.h"
 #include "audio.h"
 #include "input.h"
@@ -76,6 +77,7 @@ void LeaveTo(int where) {
 
 void ExitApp() {
     riftwii::wii::MenuMusicStop();
+    riftwii::wii::ScreenshotsStop();
     riftwii::wii::GcAdapterMenuEnd();
     ShutoffRumble();
     ShutdownAudio();
@@ -227,10 +229,12 @@ int main() {
     }
     InitFreeType(font, font_size);
     InitGUIThreads();
+    riftwii::wii::ScreenshotsStart();
     riftwii::wii::CrashSetPhase(riftwii::wii::CrashPhase::Menu);
     if (!sd_mounted) SetNoSdCard(StartedFromUsb());
     const int action = MainMenu(sd_mounted ? MENU_SOURCE : MENU_NEEDS_SD, state);
     riftwii::wii::MenuMusicStop();
+    riftwii::wii::ScreenshotsStop();
     // Before anything is launched: nothing of the menu's adapter may be
     // left in flight for the game (or the next IOS) to answer.
     riftwii::wii::GcAdapterMenuEnd();
