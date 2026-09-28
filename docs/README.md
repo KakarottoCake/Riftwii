@@ -12,6 +12,8 @@ RiftWii. These pages are for people working on it.
 | [HARNESS.md](HARNESS.md) | The isolated Dolphin setup in detail |
 | [USB_HARDWARE_TEST.md](USB_HARDWARE_TEST.md) | Checking SD and USB image boot on a Wii with d2x |
 | [RIIFS.md](RIIFS.md) | The RiiFS network-pack protocol and how RiftWii uses it |
+| [HEADLESS.md](HEADLESS.md) | Starting a game through RiftWii from another loader |
+| [BLUETOOTH.md](BLUETOOTH.md) | Research: other Bluetooth controllers without a cIOS, and what exists toward it |
 
 ## History
 
