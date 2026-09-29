@@ -113,15 +113,18 @@ private:
     BlockReader reader_;
     Fat32Geometry geo_;
     Fat32Limits limits_;
-    // A window of FAT blocks for chain traversal: a multi-GB image's chain
+    // Windows of FAT blocks for chain traversal: a multi-GB image's chain
     // spans hundreds of KiB of FAT, and one USB read per 512-byte block
-    // made a game list take minutes. Mutable because all public volume
-    // lookups remain logically const; heap-backed so the volume stays small
-    // enough for the stack.
+    // made a game list take minutes. Several windows, not one: a pack's
+    // thousands of files lie all over the card, and re-reading one window
+    // per file took 20 seconds for Retro Rewind. Windows are aligned to
+    // kFatCacheBlocks from the FAT's start, keyed by their first block, and
+    // dropped whole past kFatCacheWindows (1 MiB). Mutable because all
+    // public volume lookups remain logically const; heap-backed so the
+    // volume stays small enough for the stack.
     static constexpr std::uint32_t kFatCacheBlocks = 64;
-    mutable std::uint64_t fat_cache_lba_ = 0;     // first block held
-    mutable std::uint32_t fat_cache_count_ = 0;   // blocks held; zero when empty
-    mutable std::vector<std::uint8_t> fat_cache_;
+    static constexpr std::size_t kFatCacheWindows = 32;
+    mutable std::map<std::uint64_t, std::vector<std::uint8_t>> fat_cache_;
     // Listings by first cluster, dropped whole past kDirCacheEntries.
     static constexpr std::size_t kDirCacheEntries = 32768;
     mutable std::map<std::uint32_t, std::vector<Fat32Entry>> dir_cache_;
