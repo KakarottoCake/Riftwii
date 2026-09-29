@@ -960,6 +960,7 @@ bool activate_disc_cios(int cios_slot, const char* log_path, std::string& error,
             continue;
         }
         logf("Disc: reload IOS%d for %s; releasing Wii Remotes, USB, SD and DI\n", slot, purpose);
+        mem::CheckHeap("before the cIOS reload");
         LogClose();
         release_wii_remotes();
         fatUnmount("sd:");

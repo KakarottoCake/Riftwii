@@ -94,9 +94,11 @@ struct Session {
             if (usb_packs && MenuCiosSlot() == 0) {
                 if (!activate_disc_cios(source.cios_slot, log_path, error)) return false;
                 on_cios = true;
+                mem::CheckHeap("after the cIOS reload");
             }
             open_usb_for_packs();
             if (!probe_disc(probe, error)) return false;
+            mem::CheckHeap("after the disc probe");
         }
         probed = true;
         return true;
@@ -108,6 +110,7 @@ struct Session {
         std::string why;
         if (ums::Open(why)) logf("USB: d2x's /dev/usb2 opened for the packs, before the game partition\n");
         else logf("USB: d2x's /dev/usb2 for the packs: %s\n", why.c_str());
+        mem::CheckHeap("after d2x's USB device");
     }
     bool ensure_layout(std::string& error) {
         if (!ensure_probe(error)) return false;
