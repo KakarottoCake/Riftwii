@@ -34,6 +34,7 @@
 #include "log.hpp"
 #include "memlimits.hpp"
 #include "menuios.hpp"
+#include "netsock.hpp"
 #include "online.hpp"
 #include "progress.hpp"
 #include "reportsend.hpp"
@@ -78,6 +79,8 @@ void LeaveTo(int where) {
 }  // namespace
 
 void ExitApp() {
+    // A background network job (the start's update check) ends first.
+    riftwii::wii::NetWaitForBackground();
     riftwii::wii::MenuMusicStop();
     riftwii::wii::ScreenshotsStop();
     riftwii::wii::GcAdapterMenuEnd();

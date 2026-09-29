@@ -33,6 +33,7 @@
 #include "ios_reload.hpp"
 #include "menuios.hpp"
 #include "log.hpp"
+#include "netsock.hpp"
 #include "riftwii/mempatch.hpp"
 #include "padhook.hpp"
 #include "resident.hpp"
@@ -1715,6 +1716,8 @@ bool boot_game(const DiscProbe& probe, const BootOptions& options, std::string& 
     }
     logf("Booting %s with IOS%u\n", probe.header.game_id.c_str(), required);
     write_play_log(probe);
+    // A background network job (the start's update check) ends first.
+    NetWaitForBackground();
     BootOptions effective = options;
     const int running_ios = IOS_GetVersion();
     if (g_extras.gc_adapter != GcAdapterMode::Off && di::has_partition_resolver()) {

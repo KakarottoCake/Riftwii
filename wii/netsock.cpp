@@ -3,6 +3,7 @@
 
 #include <fcntl.h>
 #include <network.h>
+#include <ogc/lwp.h>
 #include <poll.h>
 #include <unistd.h>
 
@@ -16,7 +17,17 @@ namespace riftwii::wii {
 namespace {
 
 bool g_up = false;
-bool g_failed = false;
+volatile bool g_failed = false;
+
+lwp_t g_job_thread = LWP_THREAD_NULL;
+void (*g_job)() = nullptr;
+volatile bool g_job_done = true;
+
+void* run_job(void*) {
+    g_job();
+    g_job_done = true;
+    return nullptr;
+}
 
 // /dev/net/ip/top's non-blocking flag for fcntl: 4 (Dolphin's socket code
 // checks the same bit). Not newlib's O_NONBLOCK (0x4000), which
@@ -64,6 +75,7 @@ bool wait_for(std::int32_t socket, std::uint32_t events, int timeout_ms) {
 }  // namespace
 
 bool NetStart(std::string& error) {
+    NetWaitForBackground();
     if (g_up) return true;
     // IOS answers -EAGAIN while the interface comes up.
     s32 rc = -EAGAIN;
@@ -87,9 +99,33 @@ bool NetStart(std::string& error) {
 bool NetFailed() { return g_failed; }
 
 void NetStop() {
+    NetWaitForBackground();
     if (!g_up) return;
     net_deinit();
     g_up = false;
+}
+
+bool NetRunInBackground(void (*job)()) {
+    if (!g_job_done) return false;
+    NetWaitForBackground();  // a finished one's thread
+    g_job = job;
+    g_job_done = false;
+    // TLS keeps its state on the heap; 32 KiB covers its RSA and EC math.
+    if (LWP_CreateThread(&g_job_thread, run_job, nullptr, nullptr, 32768, 40) < 0) {
+        g_job_thread = LWP_THREAD_NULL;
+        g_job_done = true;
+        job();
+    }
+    return true;
+}
+
+bool NetBackgroundBusy() { return !g_job_done; }
+
+void NetWaitForBackground() {
+    // The job's own NetStart and NetStop go straight through.
+    if (g_job_thread == LWP_THREAD_NULL || LWP_GetSelf() == g_job_thread) return;
+    LWP_JoinThread(g_job_thread, nullptr);
+    g_job_thread = LWP_THREAD_NULL;
 }
 
 std::string NetServer::label() const {

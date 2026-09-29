@@ -11,6 +11,7 @@
 #include "dolboot.h"
 #include "ios_reload.hpp"
 #include "log.hpp"
+#include "netsock.hpp"
 #include "usbcatalog.hpp"
 
 namespace riftwii::wii {
@@ -80,6 +81,7 @@ bool StartChannelInstaller(std::string& error) {
         std::free(dol);
         return false;
     }
+    NetWaitForBackground();
     LogClose();
     fatUnmount("sd:");
     fatUnmount("usb:");

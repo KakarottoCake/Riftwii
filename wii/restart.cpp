@@ -11,6 +11,7 @@
 #include <cstring>
 
 #include "log.hpp"
+#include "netsock.hpp"
 #include "memlimits.hpp"
 
 // crt0's pieces (libogc's linker script and tuxedo/common_crt0.S).
@@ -121,6 +122,7 @@ bool WarmRestart(RestartKind kind, const std::string& message, bool unmount) {
     }
     h->magic = kHandoffMagic;
 
+    NetWaitForBackground();
     logf("Restarting RiftWii\n");
     LogClose();
     if (unmount) fatUnmount("sd:");
