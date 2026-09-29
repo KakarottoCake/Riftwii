@@ -507,9 +507,14 @@ static std::string MenuIosNote(int slot)
 }
 
 // The pack's name without ".xml", for display; a code build's is its
-// folder's ("rex_/RSBE01.GCT": "rex_ (codes)").
+// folder's ("rex_/RSBE01.GCT": "rex_ (codes)"; one inside the virtual SD
+// card, "sd.raw/Project+/RSBE01.GCT": "Project+ (in sd.raw)").
 static std::string PackName(const std::string& file)
 {
+	if (file.compare(0, 7, "sd.raw/") == 0) {
+		const std::string rest = file.substr(7);
+		return rest.substr(0, rest.find('/')) + " (in sd.raw)";
+	}
 	if (file.size() > 4) {
 		const std::string ext = file.substr(file.size() - 4);
 		if (strcasecmp(ext.c_str(), ".xml") == 0) return file.substr(0, file.size() - 4);
@@ -526,7 +531,11 @@ static std::string PackName(const std::string& file)
 static std::string PackSummary(const riftwii::LaunchPackage& p)
 {
 	if (p.code_build()) {
-		const std::string where = p.gct_path;
+		const bool image = p.gct_path.compare(0, 5, "vsd:/") == 0;
+		const std::string where = image ? "sd.raw/" + p.gct_path.substr(5) : p.gct_path;
+		if (image)
+			return p.enabled ? "On. Runs the codes in " + where + "; the game gets sd.raw as its SD card."
+					 : "Off. A turns on the codes in " + where + ".";
 		return p.enabled ? "On. Runs the codes in " + where + "; they load the build's files from the SD card."
 				 : "Off. A turns on the codes in " + where + ".";
 	}

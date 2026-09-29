@@ -316,6 +316,37 @@ A few things to know:
 - `boot.log` lists the codes, where they went and what `gameconfig.txt`
   changed, if something goes wrong.
 
+#### Code builds on a virtual SD card (sd.raw)
+
+A build can also live inside a card image instead of on the SD card
+itself: one file, `sd.raw`, holding a whole FAT32 SD card with the
+build's folder inside, like the `sd.raw` Dolphin and Project+'s netplay
+builds use. The game then gets the image as its SD card. This helps when
+the build can't read your real card (an SDXC card, a card formatted
+with big clusters), or when you'd rather keep the build on the USB drive.
+
+1. Put the image at `riftwii/sd.raw` on the SD card, or on the USB drive
+   (the SD card's is used when both have one). An image from Dolphin
+   works as it is: its build folder (`Project+`, `rex_`) goes at the top
+   of the image, as on a real card.
+2. Open the game's page, then **Mods**. The build inside shows up as
+   **Project+ (in sd.raw)**. Turn it on and press Start.
+
+A few things to know:
+
+- The image on the USB drive works with the game on the USB drive too
+  (it's read through d2x while you play). With the game on a disc,
+  keep the image on the SD card.
+- The image should be in one piece or a few: copy it to a freshly
+  formatted drive if Start says it is in too many pieces. FAT32 drives
+  hold files up to 4 GB, so use an image of 4 GB or less there.
+- What the game writes (replays, custom stages, settings) goes into the
+  image.
+- Builds inside `sd.raw` can't be turned on together with builds on the
+  SD card, or with Riivolution packs, yet.
+- Tested in Dolphin with Project+ 3.2 in a 3 GB image on the SD card.
+  The USB drive is untested so far.
+
 ### GameCube controller adapter for Wii U
 
 The Nintendo adapter (WUP-028) or a copy that works like it (a Mayflash

@@ -1093,14 +1093,11 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
             if (!handed_to_runtime) sdio::close_card(card);
         }
     } card_cleanup{card, card_handed_to_runtime};
-    if (g_vsd.enabled && !options.install_resident) {
+    if (g_vsd.enabled && !g_vsd.on_usb && !options.install_resident) {
         release_card_and_log();
         if (!sdio::open_card(card, error)) {
-            logf("Virtual SD card: off: the SD card: %s\n", error.c_str());
-            error.clear();
-            sdio::close_card(card);
-            card = sdio::Card{};
-            g_vsd.enabled = false;
+            error = "the virtual SD card needs the SD card: " + error;
+            return false;
         }
     }
     const bool card_required = pieces.needs_sd() || savegame.enabled || rvz.enabled;
@@ -1173,17 +1170,25 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
     }
     // The virtual SD card: in the resident runtime's place (never with it).
     VsdHook vsd;
-    if (g_vsd.enabled && card.fd >= 0 && !options.install_resident) {
+    if (g_vsd.enabled && !options.install_resident) {
         std::string why;
         VsdDevice device;
-        device.backend = card.d2x ? VSD_BACKEND_D2X_SD : VSD_BACKEND_SLOT0;
-        device.fd = card.fd;
-        device.sdhc = card.sdhc;
-        device.rca = card.rca;
+        if (g_vsd.on_usb) {
+            device.backend = VSD_BACKEND_USB;
+            device.fd = ums::Fd();
+        } else {
+            device.backend = card.d2x ? VSD_BACKEND_D2X_SD : VSD_BACKEND_SLOT0;
+            device.fd = card.fd;
+            device.sdhc = card.sdhc;
+            device.rca = card.rca;
+        }
         const bool veneers = g_extras.code_list_start != 0 && !g_extras.cheat_gct.empty();
         if (!plan_vsd_hook(dol, g_vsd, device, game_arena1_hi(), mem1_floor, read32(0x80003124),
                            veneers ? kCodeVeneers : 0, options.memory_patches, vsd, why)) {
-            logf("Virtual SD card: off: %s\n", why.c_str());
+            // The build's files are only in the image: without it the game
+            // would look for them on a card that does not have them.
+            error = "the virtual SD card: " + why;
+            return false;
         }
     }
     const auto base_arena1_hi = [&]() {
@@ -1400,7 +1405,10 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
     }
     if (vsd.active) {
         std::string why;
-        if (!install_vsd_hook(vsd, why)) logf("Virtual SD card: off: %s\n", why.c_str());
+        if (!install_vsd_hook(vsd, why)) {
+            error = "the virtual SD card: " + why;
+            return false;
+        }
     }
     if (pad.active) {
         std::string why;
@@ -1840,19 +1848,20 @@ bool boot_game(const DiscProbe& probe, const BootOptions& options, std::string& 
         }
     }
 
-    // A code build with a virtual SD card: its image on the card, served
-    // to the game by the virtual SD card blob, which needs the card (and so
-    // the running IOS) at the handoff. Not with packs yet: the resident
-    // runtime reads the same card.
+    // Code builds inside the virtual SD card (sd.raw): the image served to
+    // the game as its SD card by the virtual SD card blob, which needs the
+    // card or d2x's USB device (and so the running IOS) at the handoff.
+    // Not with packs yet: the resident runtime reads the same card.
     g_vsd = VsdImage{};
-    if (!g_extras.code_builds.empty()) {
-        bool present = false;
+    if (g_extras.code_build_in_image) {
         std::string why;
-        if (!find_vsd_image(g_vsd, present, why)) {
-            if (present) logf("Virtual SD card: not used: %s\n", why.c_str());
-        } else if (effective.install_resident) {
-            logf("Virtual SD card: not used: not together with packs yet\n");
-            g_vsd = VsdImage{};
+        if (effective.install_resident) {
+            error = "code builds inside sd.raw don't work together with Riivolution packs yet";
+            return false;
+        }
+        if (!find_vsd_image(g_vsd, why)) {
+            error = "the virtual SD card: " + why;
+            return false;
         } else {
             logf("Virtual SD card: %s (%u sectors, %u piece(s)) for %s\n", g_vsd.path.c_str(), g_vsd.sectors,
                  static_cast<unsigned>(g_vsd.extents.size()), g_extras.code_builds.c_str());

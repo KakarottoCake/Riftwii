@@ -790,6 +790,28 @@ bool read_usb_text(const std::string& usb_path, std::string& out) {
     return true;
 }
 
+bool read_usb_range(const std::string& usb_path, std::uint64_t offset, std::uint8_t* out, std::size_t length,
+                    std::uint64_t& size) {
+    // The last file looked up is kept: a mounted image reads it sector by sector.
+    static std::string cached_path;
+    static VolumeFile cached;
+    static const ImageVolume* cached_volume = nullptr;
+    std::string error;
+    size = 0;
+    if (!g_usb_volume || usb_path.compare(0, 5, "usb:/") != 0) return false;
+    if (cached_path != usb_path || cached_volume != g_usb_volume.get()) {
+        cached_path.clear();
+        if (!g_usb_volume->lookup(usb_path.substr(4), cached, error) || cached.entry.is_directory) return false;
+        cached_path = usb_path;
+        cached_volume = g_usb_volume.get();
+    }
+    size = cached.entry.size;
+    if (offset > size || length > size - offset) return false;
+    return length == 0 || g_usb_volume->read(cached, offset, out, length);
+}
+
+bool usb_volume_ready() { return g_usb_volume != nullptr; }
+
 std::string rvz_warning(const ImageGame& game) {
     if (game.format != UsbImageFormat::Rvz) return std::string();
     std::string text = "RVZ is experimental; if it fails, use a WBFS or ISO copy.";

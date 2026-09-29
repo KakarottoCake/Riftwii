@@ -89,6 +89,13 @@ std::vector<std::string> usb_mod_folders(const std::string& game_id);
 // drive mounted.
 std::vector<std::string> usb_xml_names(const std::string& folder);
 bool read_usb_text(const std::string& usb_path, std::string& out);
+// Bytes of a file on the USB drive (the menu's view), by "usb:/..." path;
+// `size` gets the file's size. False past its end or when there is no
+// such file.
+bool read_usb_range(const std::string& usb_path, std::uint64_t offset, std::uint8_t* out, std::size_t length,
+                    std::uint64_t& size);
+// Whether the menu's view of the USB drive is up (no drive is started for it).
+bool usb_volume_ready();
 // Development aid for Dolphin, which has no d2x: partition reads of the
 // disc Dolphin boots (the RVZ's stub, made by tools/rvz) are answered from
 // the RVZ at `sd_path` instead.

@@ -157,6 +157,7 @@ void PrepareLaunchExtras(const FrontendState& state, const HeadlessLaunch* headl
     if (PrepareCodeBuilds(state.model, state.game_id, extras.cheat_gct, builds, error)) {
         extras.cheat_gct = std::move(builds.gct);
         extras.code_builds = builds.names;
+        extras.code_build_in_image = builds.in_image;
         extras.code_list_start = builds.list_start;
         extras.code_list_end = builds.list_end;
         extras.code_hooktype = builds.hooktype;

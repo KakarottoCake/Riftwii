@@ -14,12 +14,14 @@
 #include "riftwii/hook.hpp"
 #include "riftwii/symsearch.hpp"
 #include "riftwii_vsd_bin.h"
+#include "umsdev.hpp"
 #include "usbcatalog.hpp"
 
 namespace riftwii::wii {
 namespace {
 
 constexpr const char* kImagePath = "sd:/riftwii/sd.raw";
+constexpr const char* kUsbImagePath = "usb:/riftwii/sd.raw";
 constexpr std::uint32_t kMem2ArenaEndField = 0x80003128;
 constexpr unsigned kScratchRegister = 12;  // vsd_entry.S's jump back and the veneers
 constexpr std::uint32_t kNop = 0x60000000;
@@ -67,18 +69,39 @@ std::uint32_t now(const VsdHook& h, std::uint32_t address) {
 
 }  // namespace
 
-bool find_vsd_image(VsdImage& out, bool& present, std::string& why) {
+bool find_vsd_image(VsdImage& out, std::string& why) {
     out = VsdImage{};
-    present = false;
-    struct stat st;
-    if (stat(kImagePath, &st) != 0) {
-        why = std::string(kImagePath) + " is not there";
-        return false;
-    }
-    present = true;
     std::uint64_t size = 0;
     std::vector<Fragment> pieces;
-    if (!sd_file_pieces(kImagePath, size, pieces, why)) return false;
+    struct stat st;
+    if (stat(kImagePath, &st) == 0) {
+        out.path = kImagePath;
+        if (!sd_file_pieces(kImagePath, size, pieces, why)) return false;
+    } else {
+        // On the USB drive, through d2x's device: open for a game on it.
+        const ImageVolume* volume = nullptr;
+        VolumeFile file;
+        if (ums::Fd() < 0) {
+            why = "sd.raw is not on the SD card, and the USB drive is read in-game only for a game on the USB drive";
+            return false;
+        }
+        if (ums::SectorBytes() != RTVSD_SECTOR_BYTES) {
+            why = "the USB drive does not have 512-byte sectors";
+            return false;
+        }
+        if (!ums::Volume(volume, why) || !volume->lookup(std::string(kUsbImagePath).substr(4), file, why)) {
+            why = "sd.raw is on neither the SD card nor the USB drive (" + why + ")";
+            return false;
+        }
+        if (file.entry.is_directory || !file.inline_bytes.empty()) {
+            why = "usb:/riftwii/sd.raw is not an image file";
+            return false;
+        }
+        out.path = kUsbImagePath;
+        out.on_usb = true;
+        size = file.entry.size;
+        pieces = file.fragments;
+    }
     if (size % RTVSD_SECTOR_BYTES != 0 || size / RTVSD_SECTOR_BYTES < kMinSectors ||
         size / RTVSD_SECTOR_BYTES > 0xFFFFFFFFull) {
         why = "its size (" + std::to_string(size) + " bytes) is not a card's";
@@ -87,7 +110,7 @@ bool find_vsd_image(VsdImage& out, bool& present, std::string& why) {
     std::uint64_t file_sector = 0;
     for (const Fragment& f : pieces) {
         if (f.sector + f.sector_count > 0xFFFFFFFFull) {
-            why = "it lies beyond the card's first 2 TiB";
+            why = "it lies beyond the drive's first 2 TiB";
             return false;
         }
         out.extents.push_back(rtvsd_extent{static_cast<std::uint32_t>(file_sector), static_cast<std::uint32_t>(f.sector),
@@ -95,14 +118,13 @@ bool find_vsd_image(VsdImage& out, bool& present, std::string& why) {
         file_sector += f.sector_count;
     }
     if (out.extents.size() > RTVSD_MAX_EXTENTS) {
-        why = "it is in " + std::to_string(out.extents.size()) + " pieces on the card (at most " +
-              std::to_string(RTVSD_MAX_EXTENTS) + "); copy it to a freshly formatted card";
+        why = "it is in " + std::to_string(out.extents.size()) + " pieces (at most " +
+              std::to_string(RTVSD_MAX_EXTENTS) + "); copy it to a freshly formatted drive";
         return false;
     }
-    out.path = kImagePath;
     out.sectors = static_cast<std::uint32_t>(size / RTVSD_SECTOR_BYTES);
     if (file_sector < out.sectors) {
-        why = "its pieces on the card are shorter than the file";
+        why = "its pieces on the drive are shorter than the file";
         return false;
     }
     out.enabled = true;

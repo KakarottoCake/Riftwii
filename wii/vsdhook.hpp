@@ -14,8 +14,11 @@
 // The virtual SD card (runtime/vsd): the game's SD slot answered from a
 // card image, so a code build (Project+, REX) whose files are in the
 // image reads them through the game's own SD driver wherever the image
-// is. The image is sd:/riftwii/sd.raw (a FAT32 card image such as
-// Dolphin's), used when a code build is launched.
+// is. The image is riftwii/sd.raw (a FAT32 card image such as Dolphin's)
+// on the SD card or, when the SD card has none, on the USB drive
+// (wii/vsdimage.hpp), used when the code builds launched are inside it.
+// On the USB drive it is read through d2x's /dev/usb2, which the loader
+// opens for a game on the USB drive only.
 //
 // The blob's code and state go to the bottom of the MEM2 arena, built
 // at its top and copied down at the jump (the resident runtime's way);
@@ -26,15 +29,15 @@ namespace riftwii::wii {
 
 struct VsdImage {
     bool enabled = false;
-    std::string path;                      // "sd:/riftwii/sd.raw"
+    std::string path;                      // "sd:/riftwii/sd.raw" or "usb:/riftwii/sd.raw"
+    bool on_usb = false;                   // extents are the USB drive's sectors
     std::uint32_t sectors = 0;             // the image's size
     std::vector<rtvsd_extent> extents;     // its pieces on the card
 };
 
 // Where the image is, before the card is unmounted: false with `why`
-// when there is none or it cannot be used (the reason is logged by the
-// caller only when an image was there).
-bool find_vsd_image(VsdImage& out, bool& present, std::string& why);
+// when there is none or it cannot be used.
+bool find_vsd_image(VsdImage& out, std::string& why);
 
 // The device holding the image, as the loader left it for the game.
 struct VsdDevice {
