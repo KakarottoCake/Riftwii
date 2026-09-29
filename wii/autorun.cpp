@@ -365,16 +365,27 @@ bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error, 
     {
         // A pack that only swaps the game's executable for a Homebrew
         // Channel app (CTGP Revolution 1.03's channel): the app is started
-        // the way the Homebrew Channel starts it, before a disc probe or an
-        // IOS reload would take its IOS and hardware access away. It finds
-        // the game itself.
+        // the way the Homebrew Channel starts it, not loaded as the game. It
+        // reads the game from the disc drive itself. For a disc, before a
+        // probe or an IOS reload would take its IOS and hardware access
+        // away; for a game on the USB drive or the SD card, after d2x was
+        // set up to serve that game as the disc (the reload into the cIOS
+        // ends the hardware access; the app runs under the cIOS).
         std::string app, dropped;
         if (homebrew_app_stand_in(packages, game_id, app, dropped)) {
             logf("Mods: the packs only replace the game's executable with %s, a Homebrew Channel app: started as "
-                 "the Homebrew Channel starts it (IOS%d kept, hardware access %s), not loaded as the game%s\n",
-                 app.c_str(), IOS_GetVersion(),
-                 *reinterpret_cast<volatile u32*>(0xCD800064) == 0xFFFFFFFFu ? "on" : "off",
-                 dropped.empty() ? "" : ("; " + dropped + " does not apply to it").c_str());
+                 "the Homebrew Channel starts it, not loaded as the game%s\n",
+                 app.c_str(), dropped.empty() ? "" : ("; " + dropped + " does not apply to it").c_str());
+            if (source.kind != LaunchSource::Kind::Disc) {
+                Session s(source, "sd:/riftwii/boot.log");
+                if (!s.ensure_probe(error)) return false;
+                std::string ignored;
+                di::close_partition(ignored);
+                di::close();
+                logf("Homebrew app: d2x serves %s as the disc for it\n", source.game.id.c_str());
+            }
+            logf("Homebrew app: IOS%d, hardware access %s\n", IOS_GetVersion(),
+                 *reinterpret_cast<volatile u32*>(0xCD800064) == 0xFFFFFFFFu ? "on" : "off");
             return StartHomebrewApp(app, error);
         }
     }
