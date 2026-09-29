@@ -6,6 +6,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include <algorithm>
 #include <cctype>
 #include <cerrno>
 #include <cstdio>
@@ -34,12 +35,27 @@ constexpr const char* kReleasesApi = "https://api.github.com/repos/KakarottoCake
 constexpr const char* kLatestApi = "https://api.github.com/repos/KakarottoCake/Riftwii/releases/latest";
 constexpr const char* kUpdateNote = "sd:/riftwii/update.txt";
 
+// Hosts that could not be connected to this session: asked again, they
+// fail at once, so a server the network cannot reach (GameTDB, for one
+// tester) costs one timeout and not one per download.
+std::vector<std::string> g_unreachable;
+
 bool exchange(const HttpUrl& url, const std::string& request, HttpResponse& response, std::string& error,
               std::size_t max_bytes, int timeout_ms) {
     NetServer server;
     if (!ResolveServer(url.host, url.port, server, error)) return false;
+    // By address: GameTDB's names and covers come from one server under
+    // two names.
+    const std::string where = server.label();
+    if (std::find(g_unreachable.begin(), g_unreachable.end(), where) != g_unreachable.end()) {
+        error = url.host + " (" + where + ") could not be reached earlier; not tried again until RiftWii starts again";
+        return false;
+    }
     SocketTransport socket;
-    if (!socket.connect(server, timeout_ms, error)) return false;
+    if (!socket.connect(server, timeout_ms, error)) {
+        g_unreachable.push_back(where);
+        return false;
+    }
     TlsStream tls;
     if (url.tls && !tls.open(socket, url.host, error)) return false;
     const bool sent = url.tls ? tls.send(request.data(), request.size()) : socket.send(request.data(), request.size());

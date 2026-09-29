@@ -18,6 +18,15 @@ namespace {
 bool g_up = false;
 bool g_failed = false;
 
+// /dev/net/ip/top's non-blocking flag for fcntl: 4 (Dolphin's socket code
+// checks the same bit). Not newlib's O_NONBLOCK (0x4000), which
+// <fcntl.h> defines first, nor libogc's (04000): with either, IOS kept the
+// socket blocking and a server that never answered held connect for the
+// stack's own three minutes (a 2.4.3 tester's GameTDB download).
+constexpr u32 kIosNonBlock = 4;
+// A TCP handshake takes well under a second; this allows a lost SYN or two.
+constexpr int kConnectTimeoutMs = 8000;
+
 sockaddr_in address_of(const NetServer& server) {
     sockaddr_in a;
     std::memset(&a, 0, sizeof(a));
@@ -177,10 +186,11 @@ bool SocketTransport::connect(const NetServer& server, int timeout_ms, std::stri
     // Non-blocking while connecting, so a PC that is off costs the timeout
     // and not the stack's own minute.
     const s32 flags = net_fcntl(socket_, F_GETFL, 0);
-    if (flags >= 0) net_fcntl(socket_, F_SETFL, flags | O_NONBLOCK);
+    if (flags >= 0) net_fcntl(socket_, F_SETFL, static_cast<u32>(flags) | kIosNonBlock);
     sockaddr_in to = address_of(server);
     s32 rc = -EINPROGRESS;
-    for (int waited = 0; waited <= timeout_ms; waited += 50) {
+    const int limit = timeout_ms < kConnectTimeoutMs ? timeout_ms : kConnectTimeoutMs;
+    for (int waited = 0; waited <= limit; waited += 50) {
         rc = net_connect(socket_, reinterpret_cast<sockaddr*>(&to), sizeof(to));
         if (rc == 0 || rc == -EISCONN) {
             rc = 0;
@@ -189,7 +199,7 @@ bool SocketTransport::connect(const NetServer& server, int timeout_ms, std::stri
         if (rc != -EINPROGRESS && rc != -EALREADY) break;
         usleep(50 * 1000);
     }
-    if (flags >= 0) net_fcntl(socket_, F_SETFL, flags & ~O_NONBLOCK);
+    if (flags >= 0) net_fcntl(socket_, F_SETFL, static_cast<u32>(flags) & ~kIosNonBlock);
     if (rc != 0) {
         error = "cannot connect to " + server.label() + " (" + std::to_string(rc) + ")";
         close();
