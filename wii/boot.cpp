@@ -1068,6 +1068,13 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         return false;
     }
     logf("Game entry 0x%08x\n", reinterpret_cast<std::uint32_t>(game_entry));
+    // The apploader set the arena, FST and BI2 fields (0x34-0x3C, 0xF4)
+    // through the cache; the runtime and the hooks read them uncached
+    // (read32), which saw what was there before the apploader (0x34 at the
+    // top of MEM1, so a hook went over the FST): to memory with them first.
+    DCFlushRange(reinterpret_cast<void*>(kMem1Start), 0x100);
+    logf("Apploader: arena top 0x%08x, FST 0x%08x (%u bytes), BI2 0x%08x\n", load32(0x80000034),
+         load32(0x80000038), load32(0x8000003C), load32(0x800000F4));
 
 
     // The DOL header for the runtime's search, read now: an RVZ game's
