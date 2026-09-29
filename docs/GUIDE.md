@@ -547,6 +547,8 @@ sent (no internet, or paste.rs was busy), send that file instead.
 
 ## For developers
 
+- [`docs/MAP.md`](MAP.md): every file, and where to start for each
+  feature.
 - [`docs/ARCHITECTURE.md`](ARCHITECTURE.md): how a launch works and
   which file owns what.
 - [`docs/DEVELOPING.md`](DEVELOPING.md): building (CMake host tests,

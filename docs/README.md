@@ -7,6 +7,7 @@ RiftWii. These pages are for people working on it.
 
 | Page | What it covers |
 | --- | --- |
+| [MAP.md](MAP.md) | Every file and folder, and where to start for each feature |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | How a launch works, which file owns what, the memory map, the files on the SD card |
 | [DEVELOPING.md](DEVELOPING.md) | Building, tests, Dolphin runs, test scripts, releasing, ground rules |
 | [HARNESS.md](HARNESS.md) | The isolated Dolphin setup in detail |

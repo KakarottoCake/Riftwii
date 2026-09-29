@@ -1,6 +1,7 @@
 # How RiftWii works
 
-A map of the code for anyone changing it. RiftWii is a Homebrew Channel
+How the code fits together, for anyone changing it; [MAP.md](MAP.md)
+lists every file. RiftWii is a Homebrew Channel
 app that starts a Wii game with Riivolution-format mod packs applied,
 without changing the game's files. It runs in four phases; each section
 below names the files that own it.
@@ -138,6 +139,27 @@ next start the menu turns that into `sd:/riftwii/gamecrash.txt`, deletes
 it, and offers to send a problem report. A game that freezes without an
 exception leaves nothing.
 
+**Virtual SD card** (`runtime/vsd/`, `runtime/rtvsd.c`, `wii/vsdhook.cpp`).
+When the code builds launched are inside `riftwii/sd.raw` (a FAT32 card
+image on the SD card or the USB drive; `wii/vsdimage.cpp` lists them
+through a read-only `vsd:` mount of the image), a blob of about 9 KB
+hooks the game's IOS_Open, IOS_Close, IOS_Ioctl and IOS_Ioctlv, sync and
+async (`find_ipc_api`). An open of `/dev/sdio/slot0` gets a handle of
+the blob's own, and everything on it is answered by a card model
+(`rtvsd.c`, host-tested): the host controller registers, the card
+commands and registers (an SDHC card above 2 GiB, a standard one below),
+the card event left pending. Its block reads and writes become requests
+on the device holding the image, through the game's own IPC functions:
+the SD slot the loader selected (with CMD13 polls after writes), d2x's
+`/dev/sdio/sdhc` for a game on the card, or d2x's `/dev/usb2` for an
+image on the USB drive (opened before the game partition, so for a game
+on the USB drive only). The code and its state (the image's extents, a
+32 KB bounce buffer for USB) go to the bottom of the MEM2 arena, staged
+at its top and copied down at the jump; the game reaches them through
+veneers at `0x80002300`, the code handler's list room a code build
+leaves free (below the MEM1 arena's top without it). Not with the
+resident runtime yet.
+
 ## Memory
 
 | Where | What |
@@ -145,10 +167,11 @@ exception leaves nothing.
 | `0x80000000`–`0x80003400` | Low-memory globals; the Gecko code handler at `0x80001800` |
 | `0x80A00000`–`0x81200000` | The RiftWii loader (link address in `Makefile.wii`) and its heap |
 | `0x81200000` | The game's apploader, while it runs |
+| `0x80002300`–`0x80003000` | With a code build whose code list is elsewhere: veneers into code in MEM2 (the resident runtime's or the virtual SD card's) |
 | Top of the game's MEM1 arena | Resident runtime code, then the pad blob, the screenshot blob and the crash blob below it |
 | `0x90000000`–`0x90800000` | Left alone by the loader: an IOS reload stages its kernel here |
 | `0x90800000`–`0x90809000` | The restart snapshot and handoff (`wii/restart.hpp`) |
-| Bottom of the game's MEM2 arena | Resident runtime data, then the pad state, the screenshot state and frame (about 830 KB), then the crash blob's state (about 5 KB) |
+| Bottom of the game's MEM2 arena | Resident runtime data (or the virtual SD card's code and state, about 49 KB), then the pad state, the screenshot state and frame (about 830 KB), then the crash blob's state (about 5 KB) |
 | `0x933E0000` and up | IOS |
 
 `wii/memlimits.cpp` keeps the loader's heap between the end of its own
@@ -220,8 +243,15 @@ addresses into source lines (keep the `riftwii.elf` of each release).
 | `sd:/riftwii/titles-<lang>.txt` | GameTDB's game names |
 | `sd:/riftwii/lang/<lang>.po` | A translation that overrides the built-in one |
 | `sd:/riftwii/riifs/` | Files copied from network packs |
-| `sd:/riftwii/session.log`, `boot.log` | The menu's log and the last launch's log |
-| `sd:/riftwii/crash.txt` | The last crash report |
+| `sd:/riftwii/session.log`, `session-previous.log`, `boot.log` | The menu's log, the one of the start before, and the last launch's log |
+| `sd:/riftwii/crash.txt` | RiftWii's last crash |
+| `sd:/riftwii/gamecrash.txt` | The last game crash, from the crash blob's record |
+| `sd:/riftwii/report.txt`, `report-state.txt` | The last problem report as sent, and which crash was already offered |
+| `sd:/riftwii/sd.raw` (or `usb:/riftwii/sd.raw`) | The virtual SD card's image, for code builds inside it |
+| `sd:/riftwii/codebuilds.txt` | Code builds picked by hand on the Mods page |
+| `sd:/riftwii/covers/`, `screenshots/` | Cover art as textures; screenshots (menu and games) |
+| `sd:/riftwii/rvz/` | RVZ group tables the runtime reads |
+| `sd:/riftwii/update.txt` | The last update check |
 | `sd:/riftwii/cardlog.bin`, `cardlog.txt` | The SD card's failures during the last game, and their text |
 | `sd:/riftwii/autorun.txt`, `guiscript.txt` | Test scripts (see `DEVELOPING.md`) |
 
