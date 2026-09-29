@@ -27,8 +27,10 @@ struct ReportPart {
 // end kept, since a log's last lines say where it stopped) until it fits.
 std::string assemble_report(const std::string& summary, const std::vector<ReportPart>& parts, std::size_t limit);
 
-// The game boot.log's first line names ("RiftWii 2.4.3-beta: launch SB4E01
-// with packages"), or "" for a boot without packs or a log it cannot read.
+// The game of the launch boot.log holds: the one its first line names
+// ("RiftWii 2.4.3-beta: launch SB4E01 with packages"), else, for a boot
+// without packs, the one its disc line names ("Disc: RSBE01  "Super Smash
+// Bros. Brawl"  disc 0 version 2"). "" when neither is there.
 std::string launched_game_id(const std::string& boot_log);
 
 // The packs a choices file (sd:/riftwii/choices/<ID>.txt) has turned on,

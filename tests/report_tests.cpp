@@ -81,6 +81,13 @@ int main() {
     EXPECT_EQ(launched_game_id("RiftWii 2.4.3-beta: launch RMCE01 with packages\nDrive: rev\n"), "RMCE01");
     EXPECT_EQ(launched_game_id("[     0.000] RiftWii 2.4.3-beta: launch SB4E01 with packages\n"), "SB4E01");
     EXPECT_EQ(launched_game_id("RiftWii 2.4.3-beta: boot USB\n"), "");
+    // A plain boot: the disc line names it.
+    EXPECT_EQ(launched_game_id("[    19.217] RiftWii 2.5.0-beta: boot USB\n[    21.440] Drive: rev 0000\n"
+                               "[    21.473] Disc: RSBE01  \"Super Smash Bros. Brawl\"  disc 0 version 2\n"
+                               "[    30.000] Disc: SB4E01  \"later\"\n"),
+              "RSBE01");
+    EXPECT_EQ(launched_game_id("RiftWii 2.5.0-beta: boot disc\nDisc: RMCE01  \"Mario Kart Wii\"\n"), "RMCE01");
+    EXPECT_EQ(launched_game_id("[ 1.0] RiftWii 2.5.0-beta: boot disc\n[ 2.0] Home: no disc in the drive\n"), "");
     EXPECT_EQ(launched_game_id(""), "");
     EXPECT_EQ(launched_game_id("RiftWii x: launch ../../ with packages\n"), "");
 

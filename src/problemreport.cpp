@@ -85,17 +85,33 @@ std::string assemble_report(const std::string& summary, const std::vector<Report
     return out;
 }
 
-std::string launched_game_id(const std::string& boot_log) {
-    const std::string first = boot_log.substr(0, boot_log.find('\n'));
-    const std::size_t at = first.find(": launch ");
-    if (at == std::string::npos) return "";
-    std::string id = first.substr(at + 9);
-    id = id.substr(0, id.find(' '));
+namespace {
+
+// The game ID that starts `text` (up to the next space), or "".
+std::string game_id_at(const std::string& text) {
+    const std::string id = text.substr(0, text.find(' '));
     if (id.size() != 4 && id.size() != 6) return "";
     for (char c : id) {
         if (!((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9'))) return "";
     }
     return id;
+}
+
+}  // namespace
+
+std::string launched_game_id(const std::string& boot_log) {
+    const std::string first = boot_log.substr(0, boot_log.find('\n'));
+    const std::size_t at = first.find(": launch ");
+    if (at != std::string::npos) return game_id_at(first.substr(at + 9));
+    // A boot without packs: the disc line, the first one only.
+    std::istringstream lines(boot_log);
+    std::string line;
+    while (std::getline(lines, line)) {
+        const std::size_t disc = line.find("] Disc: ");
+        if (disc != std::string::npos) return game_id_at(line.substr(disc + 8));
+        if (line.compare(0, 6, "Disc: ") == 0) return game_id_at(line.substr(6));
+    }
+    return "";
 }
 
 std::vector<std::string> enabled_pack_files(const std::string& choices) {
