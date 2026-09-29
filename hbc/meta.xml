@@ -14,4 +14,5 @@ Dolphin's .rvz images play too, and the GameCube controller adapter for Wii U wo
 USB and SD games need a d2x cIOS (slots 248 to 252). The SD card must be FAT32; a USB drive may be FAT32 or NTFS.
 
 Free software under the GPL, version 3 or later. It contains no Riivolution code.</long_description>
+  <ahb_access/>
 </app>

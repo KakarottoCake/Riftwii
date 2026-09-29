@@ -13,6 +13,7 @@
 #include <sstream>
 
 #include "boot.hpp"
+#include "channel.hpp"
 #include "di.hpp"
 #include "frontend.hpp"
 #include "gameextras.hpp"
@@ -361,6 +362,22 @@ bool BootCompiled(const CompiledMod& mod, std::string& error, const LaunchSource
 
 bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error, const LaunchSource& source,
                const std::string& save_mode, const std::string& game_id) {
+    {
+        // A pack that only swaps the game's executable for a Homebrew
+        // Channel app (CTGP Revolution 1.03's channel): the app is started
+        // the way the Homebrew Channel starts it, before a disc probe or an
+        // IOS reload would take its IOS and hardware access away. It finds
+        // the game itself.
+        std::string app, dropped;
+        if (homebrew_app_stand_in(packages, game_id, app, dropped)) {
+            logf("Mods: the packs only replace the game's executable with %s, a Homebrew Channel app: started as "
+                 "the Homebrew Channel starts it (IOS%d kept, hardware access %s), not loaded as the game%s\n",
+                 app.c_str(), IOS_GetVersion(),
+                 *reinterpret_cast<volatile u32*>(0xCD800064) == 0xFFFFFFFFu ? "on" : "off",
+                 dropped.empty() ? "" : ("; " + dropped + " does not apply to it").c_str());
+            return StartHomebrewApp(app, error);
+        }
+    }
     // Keep one session across activation, DI probing, package compilation and
     // boot. In particular, a USB fragment list must survive the cIOS reload.
     Session s(source, "sd:/riftwii/boot.log");
