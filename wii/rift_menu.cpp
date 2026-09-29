@@ -809,7 +809,10 @@ public:
 		w.Append(e);
 		bodyTxt.SetWrap(true, width, 7);
 	}
-	// Until a button is pressed: 0 the first, 1 the second.
+	// Until a button is pressed: 0 the first, 1 the second. A is the first
+	// button's hotkey, so A with the pointer on the second clicks both in
+	// one frame: the second is asked first, as only a deliberate press
+	// (the pointer, B or HOME) clicks it.
 	int Wait()
 	{
 		ResumeGui();
@@ -818,8 +821,8 @@ public:
 			usleep(20000);
 			HaltGui();
 			ClearStaleButtons({&okBtn.button, &cancelBtn.button});
-			if (hasOk && okBtn.Clicked()) choice = 0;
-			else if (hasCancel && cancelBtn.Clicked()) choice = 1;
+			if (hasCancel && cancelBtn.Clicked()) choice = 1;
+			else if (hasOk && okBtn.Clicked()) choice = 0;
 			if (choice < 0) ResumeGui();
 		}
 		return choice;
