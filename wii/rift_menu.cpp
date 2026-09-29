@@ -152,7 +152,7 @@ static unsigned ActivitySources()
 		const GuiTrigger& t = userInput[i];
 		if (PAD_ButtonsHeld(i) || Pushed(PAD_StickX(i), PAD_StickY(i)))
 			used |= 1u << kActPorts;
-		if (adapterOpen && i < GCAD_PORTS && adapter.present[i] &&
+		if (adapterOpen && i < static_cast<int>(GCAD_PORTS) && adapter.present[i] &&
 		    (adapter.pads[i].buttons || Pushed(adapter.pads[i].stick_x, adapter.pads[i].stick_y)))
 			used |= 1u << kActAdapter;
 		if (t.pad.btns_h || Pushed(t.pad.stickX, t.pad.stickY))
@@ -181,7 +181,7 @@ static std::string AdapterState()
 	riftwii::wii::GcAdapterView adapter;
 	if (!riftwii::wii::GcAdapterMenuLastView(adapter) || !adapter.open) return "adapter not in use";
 	std::string ports;
-	for (int i = 0; i < GCAD_PORTS; ++i)
+	for (int i = 0; i < static_cast<int>(GCAD_PORTS); ++i)
 		if (adapter.present[i]) ports += (ports.empty() ? "" : ",") + std::to_string(i + 1);
 	return "adapter " + std::to_string(adapter.reports) + " reports, link " + std::to_string(adapter.link) +
 	       ", ports " + (ports.empty() ? std::string("none") : ports);

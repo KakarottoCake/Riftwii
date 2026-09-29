@@ -20,7 +20,7 @@ endif()
 # The resident runtime is built with its RVZ code (RT_RVZ): the tests cover
 # both blobs' logic, and without an RVZ state the RVZ code stays out of the
 # way. Its Zstandard is the host library here.
-add_library(riftwii_runtime STATIC runtime/rtable.c runtime/rtfat.c runtime/rtfs.c runtime/rtgcad.c runtime/rtrvz.c runtime/rtshot.c runtime/rtfault.c
+add_library(riftwii_runtime STATIC runtime/rtable.c runtime/rtfat.c runtime/rtfs.c runtime/rtgcad.c runtime/rtrvz.c runtime/rtshot.c runtime/rtfault.c runtime/rtvsd.c
     runtime/resident/rt_hook.c runtime/resident/rt_zstd.c)
 target_include_directories(riftwii_runtime PUBLIC runtime runtime/resident PRIVATE vendor-zstd)
 target_compile_definitions(riftwii_runtime PRIVATE RT_RVZ)
@@ -43,7 +43,7 @@ add_executable(rvzstub tools/rvzstub.cpp)
 target_link_libraries(rvzstub PRIVATE riftwii)
 include(CTest)
 if(BUILD_TESTING)
-    foreach(suite patch overlay apply expand mempatch launch compat fst disc redirect fat32 ntfs titles canvas usbgame rtfat rtfs dol hook riifs extras gcad png shot rvz codebuild qrcode report gamefault)
+    foreach(suite patch overlay apply expand mempatch launch compat fst disc redirect fat32 ntfs titles canvas usbgame rtfat rtfs dol hook riifs extras gcad png shot rvz codebuild qrcode report gamefault vsd)
         add_executable(${suite}_tests tests/${suite}_tests.cpp)
         target_link_libraries(${suite}_tests PRIVATE riftwii)
         if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")

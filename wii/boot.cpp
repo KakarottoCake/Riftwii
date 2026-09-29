@@ -38,6 +38,7 @@
 #include "resident.hpp"
 #include "faulthook.hpp"
 #include "shothook.hpp"
+#include "vsdhook.hpp"
 #include "sdfile.hpp"
 #include "sdio.hpp"
 #include "umsdev.hpp"
@@ -89,6 +90,9 @@ bool aligned32(const void* p) { return (reinterpret_cast<std::uintptr_t>(p) & 31
 LaunchExtras g_extras;
 // Whether the card and boot.log are still up (see release_card_and_log).
 bool g_card_live_for_log = false;
+// A code build's virtual SD card (wii/vsdhook.hpp), found before the
+// card is unmounted, served in-game when the image is usable.
+VsdImage g_vsd;
 
 // The Gecko code handler and the cheats' GCT (vendor-gecko/), called at
 // the end of the game's video retrace handler. Leaves the game untouched
@@ -1089,6 +1093,16 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
             if (!handed_to_runtime) sdio::close_card(card);
         }
     } card_cleanup{card, card_handed_to_runtime};
+    if (g_vsd.enabled && !options.install_resident) {
+        release_card_and_log();
+        if (!sdio::open_card(card, error)) {
+            logf("Virtual SD card: off: the SD card: %s\n", error.c_str());
+            error.clear();
+            sdio::close_card(card);
+            card = sdio::Card{};
+            g_vsd.enabled = false;
+        }
+    }
     const bool card_required = pieces.needs_sd() || savegame.enabled || rvz.enabled;
     if (pieces.needs_usb() && !options.install_resident) {
         error = "files on the USB drive need the resident runtime";
@@ -1157,11 +1171,32 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         if (g_extras.code_list_start != 0 && !g_extras.cheat_gct.empty()) ro.mem1_veneers = kCodeVeneers;
         if (!install_resident(dol, ro, resident, error)) return false;
     }
+    // The virtual SD card: in the resident runtime's place (never with it).
+    VsdHook vsd;
+    if (g_vsd.enabled && card.fd >= 0 && !options.install_resident) {
+        std::string why;
+        VsdDevice device;
+        device.backend = card.d2x ? VSD_BACKEND_D2X_SD : VSD_BACKEND_SLOT0;
+        device.fd = card.fd;
+        device.sdhc = card.sdhc;
+        device.rca = card.rca;
+        const bool veneers = g_extras.code_list_start != 0 && !g_extras.cheat_gct.empty();
+        if (!plan_vsd_hook(dol, g_vsd, device, game_arena1_hi(), mem1_floor, read32(0x80003124),
+                           veneers ? kCodeVeneers : 0, options.memory_patches, vsd, why)) {
+            logf("Virtual SD card: off: %s\n", why.c_str());
+        }
+    }
+    const auto base_arena1_hi = [&]() {
+        return vsd.active ? vsd.new_arena1_hi : options.install_resident ? resident.new_arena1_hi : game_arena1_hi();
+    };
+    const auto base_arena2_lo = [&]() {
+        return vsd.active ? vsd.new_arena2_lo : options.install_resident ? resident.new_arena2_lo : read32(0x80003124);
+    };
     // The GameCube adapter: below the runtime, or on its own.
     if (gc_adapter) {
         std::string why;
-        const std::uint32_t arena1_hi = options.install_resident ? resident.new_arena1_hi : game_arena1_hi();
-        const std::uint32_t arena2_lo = options.install_resident ? resident.new_arena2_lo : read32(0x80003124);
+        const std::uint32_t arena1_hi = base_arena1_hi();
+        const std::uint32_t arena2_lo = base_arena2_lo();
         if (!plan_pad_hook(dol, arena1_hi, mem1_floor, arena2_lo,
                            options.install_resident ? resident.ioctl_async_original : 0,
                            options.install_resident ? resident.ioctlv_async_original : 0, options.memory_patches,
@@ -1174,11 +1209,9 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
     if (g_extras.screenshots) {
         std::string why;
         const std::uint32_t arena1_hi = pad.active                 ? pad.new_arena1_hi
-                                        : options.install_resident ? resident.new_arena1_hi
-                                                                   : game_arena1_hi();
+                                                                   : base_arena1_hi();
         const std::uint32_t arena2_lo = pad.active                 ? pad.new_arena2_lo
-                                        : options.install_resident ? resident.new_arena2_lo
-                                                                   : read32(0x80003124);
+                                                                   : base_arena2_lo();
         ShotIpc known;
         if (options.install_resident) {
             known.open_async = resident.originals[RT_IPC_ASYNC(1)];
@@ -1207,12 +1240,10 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         std::string why;
         const std::uint32_t arena1_hi = shot.active                ? shot.new_arena1_hi
                                         : pad.active               ? pad.new_arena1_hi
-                                        : options.install_resident ? resident.new_arena1_hi
-                                                                   : game_arena1_hi();
+                                                                   : base_arena1_hi();
         const std::uint32_t arena2_lo = shot.active                ? shot.new_arena2_lo
                                         : pad.active               ? pad.new_arena2_lo
-                                        : options.install_resident ? resident.new_arena2_lo
-                                                                   : read32(0x80003124);
+                                                                   : base_arena2_lo();
         const bool answer_bca = options.retail_bca && !options.install_resident;
         if (!plan_fault_hook(dol, arena1_hi, mem1_floor, arena2_lo, answer_bca, options.memory_patches, fault, why)) {
             logf("Game crashes: not recorded%s: %s\n", answer_bca ? " and the BCA read not answered" : "",
@@ -1244,11 +1275,12 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
                                      : shot.active              ? shot.new_arena1_hi
                                      : pad.active               ? pad.new_arena1_hi
                                      : options.install_resident ? resident.new_arena1_hi
+                                     : vsd.active && !vsd.code_in_mem2 ? vsd.new_arena1_hi
                                                                 : load32(0x80000038);
     const u64 return_to = return_title();
     const std::uint32_t return_stub = return_to != 0 ? (arena1_top - 32) & ~31u : 0;
     const std::uint32_t arena1_end = return_stub != 0 ? return_stub : arena1_top;
-    if (options.install_resident || pad.active || shot.active || fault.active || return_stub != 0)
+    if (options.install_resident || vsd.active || pad.active || shot.active || fault.active || return_stub != 0)
         store32(0x80000034, arena1_end);
     store32(0x80003110, arena1_end);
     std::memcpy(reinterpret_cast<void*>(0x80003180), probe.disc_id, 4);
@@ -1277,6 +1309,8 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         write32(0x80003124, pad.new_arena2_lo);
     } else if (options.install_resident && resident.new_arena2_lo != resident.old_arena2_lo) {
         write32(0x80003124, resident.new_arena2_lo);
+    } else if (vsd.active) {
+        write32(0x80003124, vsd.new_arena2_lo);
     }
 
     // <memory> patches, last of all so they win over the globals above (as
@@ -1319,6 +1353,11 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
             writable.push_back(MemoryRegion{kMem2Start, arena2_end > kMem2Start ? arena2_end - kMem2Start : 0});
         }
         if (return_stub != 0) exclusions.push_back(MemoryRegion{return_stub, 32});
+        if (vsd.active) {
+            exclusions.push_back(MemoryRegion{vsd.code_base, vsd.code_bytes});
+            exclusions.push_back(MemoryRegion{vsd.data_base, vsd.data_bytes});
+            exclusions.push_back(MemoryRegion{vsd.stage_base, vsd.data_bytes});
+        }
         if (pad.active) {
             exclusions.push_back(MemoryRegion{pad.code_base, pad.code_bytes});
             exclusions.push_back(MemoryRegion{pad.state_base, pad.state_bytes});
@@ -1349,11 +1388,19 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         std::string why;
         std::vector<MemoryRegion> keep_out;
         if (options.install_resident) keep_out.push_back(MemoryRegion{resident.code_base, resident.code_bytes});
+        if (vsd.active) {
+            keep_out.push_back(MemoryRegion{vsd.code_base, vsd.code_bytes});
+            keep_out.push_back(MemoryRegion{vsd.stage_base, vsd.data_bytes});
+        }
         if (pad.active) keep_out.push_back(MemoryRegion{pad.code_base, pad.code_bytes});
         if (shot.active) keep_out.push_back(MemoryRegion{shot.code_base, shot.code_bytes});
         if (fault.active) keep_out.push_back(MemoryRegion{fault.code_base, fault.code_bytes});
         if (!install_cheats(loaded, options.memory_patches, keep_out, why)) logf("Codes are off: %s\n", why.c_str());
         else codes_first = !g_extras.code_builds.empty();
+    }
+    if (vsd.active) {
+        std::string why;
+        if (!install_vsd_hook(vsd, why)) logf("Virtual SD card: off: %s\n", why.c_str());
     }
     if (pad.active) {
         std::string why;
@@ -1392,6 +1439,7 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         DCFlushRange(reinterpret_cast<void*>(resident.data_base), resident.data_bytes);
         ICInvalidateRange(reinterpret_cast<void*>(resident.data_base), resident.data_bytes);  // the code, when it is here
     }
+    place_vsd_hook(vsd);  // to the bottom of the MEM2 arena, as the runtime's data above
     if (codes_first) {
         // As Gecko loaders do: the handler runs once before the game, so a
         // code build's writes to the game's tables (Project+ resizes its
@@ -1789,6 +1837,29 @@ bool boot_game(const DiscProbe& probe, const BootOptions& options, std::string& 
             savegame.file_device = true;
         } else {
             logf("Riivolution's \"file\" device is off: %s\n", why.c_str());
+        }
+    }
+
+    // A code build with a virtual SD card: its image on the card, served
+    // to the game by the virtual SD card blob, which needs the card (and so
+    // the running IOS) at the handoff. Not with packs yet: the resident
+    // runtime reads the same card.
+    g_vsd = VsdImage{};
+    if (!g_extras.code_builds.empty()) {
+        bool present = false;
+        std::string why;
+        if (!find_vsd_image(g_vsd, present, why)) {
+            if (present) logf("Virtual SD card: not used: %s\n", why.c_str());
+        } else if (effective.install_resident) {
+            logf("Virtual SD card: not used: not together with packs yet\n");
+            g_vsd = VsdImage{};
+        } else {
+            logf("Virtual SD card: %s (%u sectors, %u piece(s)) for %s\n", g_vsd.path.c_str(), g_vsd.sectors,
+                 static_cast<unsigned>(g_vsd.extents.size()), g_extras.code_builds.c_str());
+            if (!effective.preserve_current_ios && running_ios != static_cast<int>(required)) {
+                effective.preserve_current_ios = true;
+                logf("Keeping IOS%d for the virtual SD card; reporting IOS%u to the game\n", running_ios, required);
+            }
         }
     }
 

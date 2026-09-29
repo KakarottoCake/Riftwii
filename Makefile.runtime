@@ -60,6 +60,13 @@ FAULTOUT  := $(OUT)/fault
 FAULTBLOB := $(OUT)/riftwii_fault.bin
 FAULTOBJS := $(FAULTOUT)/fault_entry.o $(FAULTOUT)/fault_hook.o $(FAULTOUT)/rtfault.o $(FAULTOUT)/rtshot.o
 
+# The virtual SD card blob (runtime/vsd): the game's SD slot answered from
+# a card image on the SD card or the USB drive, for code builds.
+VSDSRC  := runtime/vsd
+VSDOUT  := $(OUT)/vsd
+VSDBLOB := $(OUT)/riftwii_vsd.bin
+VSDOBJS := $(VSDOUT)/vsd_entry.o $(VSDOUT)/vsd_hook.o $(VSDOUT)/rtvsd.o
+
 # The RVZ blob (docs/RVZ.md): the same runtime built with RT_RVZ, plus
 # RVZ packing and Zstandard. Zstandard's constant tables make it the one
 # blob that is not position independent by itself; tools/rtreloc.py
@@ -88,7 +95,7 @@ BLOBZST := $(OUT)/riftwii_rt.zst
 RVZZST  := $(OUT)/riftwii_rt_rvz.zst
 
 .PHONY: all clean
-all: $(BLOB) $(PADBLOB) $(SHOTBLOB) $(FAULTBLOB) $(RVZBLOB) $(BLOBZST) $(RVZZST)
+all: $(BLOB) $(PADBLOB) $(SHOTBLOB) $(FAULTBLOB) $(VSDBLOB) $(RVZBLOB) $(BLOBZST) $(RVZZST)
 
 $(OUT)/%.zst: $(OUT)/%.bin
 	$(ZSTD) -q -19 -f -o $@ $<
@@ -205,6 +212,33 @@ $(FAULTBLOB): $(FAULTOUT)/riftwii_fault.elf $(FAULTOUT)/riftwii_fault_alt.elf
 	$(OBJCOPY) -O binary $(FAULTOUT)/riftwii_fault_alt.elf $(FAULTOUT)/riftwii_fault_alt.bin
 	@cmp $@ $(FAULTOUT)/riftwii_fault_alt.bin || { echo "runtime: fault blob differs between link bases; not position independent"; rm -f $@; exit 1; }
 	@echo "fault blob: $$(stat -c %s $@) bytes"
+
+$(VSDOUT):
+	@mkdir -p $(VSDOUT)
+
+$(VSDOUT)/vsd_entry.o: $(VSDSRC)/vsd_entry.S $(VSDSRC)/vsd_hook.h runtime/rtvsd.h | $(VSDOUT)
+	$(CC) $(CFLAGS) -I$(VSDSRC) -c -o $@ $<
+
+$(VSDOUT)/vsd_hook.o: $(VSDSRC)/vsd_hook.c $(VSDSRC)/vsd_hook.h runtime/rtvsd.h | $(VSDOUT)
+	$(CC) $(CFLAGS) -I$(VSDSRC) -c -o $@ $<
+
+$(VSDOUT)/rtvsd.o: runtime/rtvsd.c runtime/rtvsd.h | $(VSDOUT)
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(VSDOUT)/riftwii_vsd.elf: $(VSDOBJS) $(VSDSRC)/vsd.ld
+	$(CC) $(CFLAGS) -nostdlib -nostartfiles -static -Wl,--build-id=none -Wl,--gc-sections -T $(VSDSRC)/vsd.ld \
+		-Wl,--defsym,RT_BASE=0x00000000 -o $@ $(VSDOBJS) -lgcc
+	@$(SIZE) -A $@ | awk '$$1 ~ /^\.(rodata|data|bss)$$/ && $$2 != 0 { print "runtime: section " $$1 " is not empty (" $$2 " bytes) in the vsd blob"; bad = 1 } END { exit bad }'
+
+$(VSDOUT)/riftwii_vsd_alt.elf: $(VSDOBJS) $(VSDSRC)/vsd.ld
+	$(CC) $(CFLAGS) -nostdlib -nostartfiles -static -Wl,--build-id=none -Wl,--gc-sections -T $(VSDSRC)/vsd.ld \
+		-Wl,--defsym,RT_BASE=0x12340000 -o $@ $(VSDOBJS) -lgcc
+
+$(VSDBLOB): $(VSDOUT)/riftwii_vsd.elf $(VSDOUT)/riftwii_vsd_alt.elf
+	$(OBJCOPY) -O binary $(VSDOUT)/riftwii_vsd.elf $@
+	$(OBJCOPY) -O binary $(VSDOUT)/riftwii_vsd_alt.elf $(VSDOUT)/riftwii_vsd_alt.bin
+	@cmp $@ $(VSDOUT)/riftwii_vsd_alt.bin || { echo "runtime: vsd blob differs between link bases; not position independent"; rm -f $@; exit 1; }
+	@echo "vsd blob: $$(stat -c %s $@) bytes"
 $(RVZOUT):
 	@mkdir -p $(RVZOUT)
 

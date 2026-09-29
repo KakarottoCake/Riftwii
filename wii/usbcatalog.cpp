@@ -869,6 +869,25 @@ bool rvz_resident_options(RvzResidentOptions& out, std::string& error) {
     return true;
 }
 
+bool sd_file_pieces(const std::string& sd_path, std::uint64_t& size, std::vector<Fragment>& out, std::string& error) {
+    out.clear();
+    size = 0;
+    std::unique_ptr<ImageVolume> volume;
+    VolumeFile file;
+    if (sd_path.compare(0, 4, "sd:/") != 0) {
+        error = "not on the SD card";
+        return false;
+    }
+    if (!mount_image_volume(&sd_read, volume, error) || !volume->lookup(sd_path.substr(3), file, error)) return false;
+    if (file.entry.is_directory) {
+        error = "it is a folder";
+        return false;
+    }
+    size = file.entry.size;
+    out = file.fragments;
+    return true;
+}
+
 std::string GameDisplayName(const std::string& id, const std::string& internal) {
     return display_title(titles(), id, std::string(), internal);
 }

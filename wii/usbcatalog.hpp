@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 
+#include "riftwii/redirect.hpp"
 #include "riftwii/rvz.hpp"
 #include "riftwii/usbgame.hpp"
 #include "resident.hpp"
@@ -97,6 +98,10 @@ bool serve_disc_from_rvz(const std::string& sd_path, std::string& error);
 // group table written to sd:/riftwii/rvz/<ID>.groups. Needs the card
 // mounted.
 bool rvz_resident_options(RvzResidentOptions& out, std::string& error);
+// A file on the SD card as a fresh view of the card sees it (what libfat
+// wrote is there once it has flushed): its size and its pieces as
+// absolute sectors of the card. Needs the card mounted.
+bool sd_file_pieces(const std::string& sd_path, std::uint64_t& size, std::vector<Fragment>& out, std::string& error);
 // A game's name from the title list (GameTDB, in the menu's language),
 // else `internal`, the disc header's.
 std::string GameDisplayName(const std::string& id, const std::string& internal);
