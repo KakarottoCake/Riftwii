@@ -803,13 +803,24 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         }
         Fst fst = layout.fst;
         std::uint64_t window_cursor = kVirtualWindowStart;
-        unsigned created = 0;
+        // Created files first, all in one rebuild of the table (a pack can
+        // create thousands); the other relocations then find them too.
+        std::vector<FstNewFile> new_files;
         for (const FstRelocation& r : options.relocations) {
-            if (r.create) {
-                std::uint32_t index = 0;
-                if (!fst.create_file(r.disc_path, r.offset, r.size, index, error)) return false;
-                ++created;
-            } else {
+            if (!r.create) continue;
+            FstNewFile f;
+            f.path = r.disc_path;
+            f.offset = r.offset;
+            f.size = r.size;
+            new_files.push_back(std::move(f));
+        }
+        const unsigned created = static_cast<unsigned>(new_files.size());
+        if (created != 0) {
+            std::vector<std::uint32_t> indices;
+            if (!fst.create_files(new_files, indices, error)) return false;
+        }
+        for (const FstRelocation& r : options.relocations) {
+            if (!r.create) {
                 std::uint32_t index = fst.find(r.disc_path, false);
                 if (index == Fst::npos) index = fst.find(r.disc_path, true);
                 if (index == Fst::npos || fst.entries()[index].is_directory) {
