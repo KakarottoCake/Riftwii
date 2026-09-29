@@ -159,6 +159,7 @@ the list explains the row you are on.
   **Check for a new version** (on GitHub; with downloads on, RiftWii also
   looks at every start and asks before it updates), and **Leave RiftWii**,
   which opens the HOME Menu (below).
+- **Send a problem report**: see Reporting a problem below.
 - **Tutorial** shows the short tour of the basics again: a new SD card
   starts with it, once.
 - **Credits and licence**: RiftWii's licence (the GNU GPL, version 3 or
@@ -475,7 +476,7 @@ RiftWii's IOS for every game.) Please report the game if it helps.
 
 **RiftWii crashed.** It shows what happened, saves it to
 `sd:/riftwii/crash.txt` and starts again (A, RESET, or after a minute).
-Please send that file with a report.
+Back on Home it offers to send a report (below).
 
 **The game shows its own error ("An error has occurred") while it
 loads.** Send the logs below with your report.
@@ -488,12 +489,24 @@ must support the GameCube controller. The `GameCube adapter` lines in
 
 ### Reporting a problem
 
-Open a GitHub issue with:
+After a crash or a failed launch, RiftWii asks at the next start whether
+to send a report. For anything else (a black screen, a game that
+freezes, a mod that does not load), use **Settings > Send a problem
+report** after starting RiftWii again.
 
-- `sd:/riftwii/session.log` (the menu) and `sd:/riftwii/boot.log` (the
-  last launch), and `sd:/riftwii/crash.txt` if RiftWii crashed;
-- your Wii model, System Menu version and which cIOS you have;
-- what you did, and what the screen showed (a photo helps).
+A report holds what it takes to see what went wrong: the logs of this
+run and the last one (`session.log`, `session-previous.log`), the last
+launch's `boot.log`, `crash.txt`, `settings.txt`, the last game's
+choices and the XMLs of the packs it had on, the list of files in
+`sd:/riivolution` and `sd:/riftwii`, and which console, System Menu,
+IOS and cIOS slots, and controllers this is. It is sent to
+[paste.rs](https://paste.rs), and RiftWii shows its link and a QR code
+of it: send that link (on the Discord, or in a GitHub issue) with what
+you did and what the screen showed. Anyone who has the link can read
+the report, and nothing is sent unless you choose Send.
+
+The report is also saved as `sd:/riftwii/report.txt`. If it could not be
+sent (no internet, or paste.rs was busy), send that file instead.
 
 ## For developers
 

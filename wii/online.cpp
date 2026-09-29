@@ -34,14 +34,14 @@ constexpr const char* kReleasesApi = "https://api.github.com/repos/KakarottoCake
 constexpr const char* kLatestApi = "https://api.github.com/repos/KakarottoCake/Riftwii/releases/latest";
 constexpr const char* kUpdateNote = "sd:/riftwii/update.txt";
 
-bool get_once(const HttpUrl& url, HttpResponse& response, std::string& error, std::size_t max_bytes, int timeout_ms) {
+bool exchange(const HttpUrl& url, const std::string& request, HttpResponse& response, std::string& error,
+              std::size_t max_bytes, int timeout_ms) {
     NetServer server;
     if (!ResolveServer(url.host, url.port, server, error)) return false;
     SocketTransport socket;
     if (!socket.connect(server, timeout_ms, error)) return false;
     TlsStream tls;
     if (url.tls && !tls.open(socket, url.host, error)) return false;
-    const std::string request = http_get_request(url);
     const bool sent = url.tls ? tls.send(request.data(), request.size()) : socket.send(request.data(), request.size());
     if (!sent) {
         error = "cannot send the request to " + url.host;
@@ -100,7 +100,7 @@ bool HttpGet(const std::string& url, std::vector<std::uint8_t>& body, std::strin
         HttpUrl parsed;
         if (!parse_http_url(where, parsed, error)) return false;
         HttpResponse response;
-        if (!get_once(parsed, response, error, max_bytes, timeout_ms)) return false;
+        if (!exchange(parsed, http_get_request(parsed), response, error, max_bytes, timeout_ms)) return false;
         if (response.status >= 300 && response.status < 400 && response.headers.count("location")) {
             where = response.headers["location"];
             continue;
@@ -114,6 +114,20 @@ bool HttpGet(const std::string& url, std::vector<std::uint8_t>& body, std::strin
     }
     error = "too many redirects for " + url;
     return false;
+}
+
+bool HttpPost(const std::string& url, const std::string& content_type, const std::string& body, int& status,
+              std::string& answer, std::string& error, int timeout_ms) {
+    status = 0;
+    if (!NetStart(error)) return false;
+    HttpUrl parsed;
+    if (!parse_http_url(url, parsed, error)) return false;
+    HttpResponse response;
+    if (!exchange(parsed, http_post_request(parsed, content_type, body), response, error, 64u << 10, timeout_ms))
+        return false;
+    status = response.status;
+    answer.assign(response.body.begin(), response.body.end());
+    return true;
 }
 
 std::string TitlesPath(const std::string& lang) { return "sd:/riftwii/titles-" + lang + ".txt"; }

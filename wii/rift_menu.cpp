@@ -41,6 +41,7 @@
 #include "memlimits.hpp"
 #include "covers.hpp"
 #include "riftwii/coverart.hpp"
+#include "riftwii/qrcode.hpp"
 #include "riftwii/update.hpp"
 #include "gui_gamegrid.hpp"
 #include "guiscript.hpp"
@@ -64,10 +65,10 @@
 #include "ios_reload.hpp"
 #include "menuios.hpp"
 #include "online.hpp"
+#include "reportsend.hpp"
 #include "restart.hpp"
 #include "channel.hpp"
 #include "riftwii/settingsfile.hpp"
-#include "sdcard_qr.hpp"
 #include "netpacks.hpp"
 #include "netsock.hpp"
 #include "video.h"
@@ -666,6 +667,33 @@ public:
 	void Draw() override { Menu_DrawRectangle(0, 0, screenwidth, screenheight, (GXColor){0, 0, 0, 150}, 1); }
 };
 
+// A QR code on screen: a white quiet zone of two modules, then the dark
+// modules, a run of them on a row as one rectangle.
+class QrImage : public GuiElement {
+public:
+	QrImage(const riftwii::QrCode& code, int x, int y, int module) : code(code), x(x), y(y), module(module) {}
+	static int Side(const riftwii::QrCode& code, int module) { return (code.size + 4) * module; }
+	void Draw() override
+	{
+		if (code.size == 0) return;
+		const int quiet = 2 * module;
+		Menu_DrawRectangle(x, y, Side(code, module), Side(code, module), skin::kWhite, 1);
+		for (int r = 0; r < code.size; ++r) {
+			for (int c = 0; c < code.size;) {
+				if (!code.at(c, r)) { ++c; continue; }
+				int end = c;
+				while (end < code.size && code.at(end, r)) ++end;
+				Menu_DrawRectangle(x + quiet + c * module, y + quiet + r * module, (end - c) * module, module,
+					(GXColor){0, 0, 0, 255}, 1);
+				c = end;
+			}
+		}
+	}
+private:
+	riftwii::QrCode code;
+	int x, y, module;
+};
+
 class PopupBox {
 public:
 	PopupBox(const std::string& title, const std::string& body, const std::string& ok = "",
@@ -698,6 +726,13 @@ public:
 		mainWindow->SetState(STATE::DEFAULT);
 	}
 	void SetBody(const std::string& body) { bodyTxt.SetText(body.c_str()); }
+	// Something more drawn in the box (it must outlive the box), with the
+	// text kept to `width` beside it.
+	void Add(GuiElement* e, int width)
+	{
+		w.Append(e);
+		bodyTxt.SetWrap(true, width, 7);
+	}
 	// Until a button is pressed: 0 the first, 1 the second.
 	int Wait()
 	{
@@ -929,6 +964,59 @@ static void RunUpdate(const std::string& latest)
 	g_homeNotice = tr("RiftWii {1} is installed. Start RiftWii again to use it.", {latest});
 }
 
+// Sends a problem report (wii/reportsend.hpp) and shows its link, with a
+// QR code of it for a phone.
+static void SendReport(const std::string& reason)
+{
+	riftwii::wii::ReportOutcome r;
+	{
+		PopupBox box(tr("Sending a report"),
+			tr("Gathering the logs and sending them to paste.rs. This can take half a minute..."));
+		ResumeGui();
+		r = riftwii::wii::SendProblemReport(reason);
+		HaltGui();
+	}
+	if (!r.sent) {
+		ShowPopup(tr("Report not sent"),
+			r.saved ? tr("It could not be sent: {1}. It is saved on the SD card as sd:/riftwii/report.txt: send that file instead.",
+					{FlatCapped(r.error, 120)})
+				: tr("It could not be sent or saved: {1}", {FlatCapped(r.error, 120)}),
+			tr("OK"));
+		return;
+	}
+	riftwii::QrCode code;
+	riftwii::make_qr(r.link, code);
+	constexpr int kModule = 4;
+	const int side = QrImage::Side(code, kModule);
+	QrImage qr(code, 588 - 16 - side, 150, kModule);
+	std::string body = std::string(tr("Send this link to whoever is helping you, or scan the code with a phone:")) +
+		"\n\n" + r.link;
+	if (r.partial) body += std::string("\n\n") + tr("The report was too big, so only its start was kept.");
+	PopupBox box(tr("Report sent"), body, tr("OK"));
+	if (code.size != 0) box.Add(&qr, 588 - 16 - side - 56 - 16);
+	box.Wait();
+}
+
+// What a report holds and where it goes, said before anything is sent.
+static const char* const kReportWhat =
+	"It holds RiftWii's logs and settings, the game's choices and packs, and which console, IOS and controllers this is. It goes to paste.rs, where anyone with its link can read it.";
+
+// After a crash or a failed launch, once: send a report?
+static void OfferReport()
+{
+	static bool asked = false;
+	if (asked) return;
+	asked = true;
+	std::string what;
+	if (!riftwii::wii::UnreportedCrash(what)) return;
+	const bool crash = what == "crash";
+	const int choice = ShowPopup(crash ? tr("RiftWii crashed last time") : tr("The last launch failed"),
+		std::string(tr("Send a report of what happened?")) + " " + tr(kReportWhat), tr("Send"), tr("Not now"));
+	riftwii::wii::NoteCrashAsked();
+	logf("Problem report: %s after the last run's %s\n", choice == 0 ? "sending" : "declined", crash ? "crash" : "failed launch");
+	if (choice == 0) SendReport(crash ? "RiftWii crashed" : "the launch failed");
+}
+
 // A newer release found at start: the player picks Update or Not now, and
 // Not now is asked once more before it counts (and is logged as a choice).
 static bool AgreeToUpdate(const std::string& latest)
@@ -1091,6 +1179,7 @@ static void ScanDrives(FrontendState& state, GuiText& status)
 	// After the USB scan: packs on the drive count too.
 	LoadPackIndex();
 	riftwii::wii::mem::CheckHeap("after the pack index");
+	OfferReport();
 	// A newer release, asked at every start when downloads are on; the
 	// player is asked before it is installed.
 	static bool updateChecked = false;
@@ -2691,7 +2780,7 @@ static int MenuSettings(FrontendState& state)
 
 	bool netOn = riftwii::wii::NetworkPacksEnabled();
 	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kGameLanguage, kGameCios, kServer, kHomeTiles, kSounds, kMusic, kReturnTo, kShots, kOnline, kNames, kGcAdapter, kGcTest, kIos, kNet, kResync,
-		kRescan, kChannel, kUpdate, kWiiChannel, kTutorial, kCredits, kExit, kNone };
+		kRescan, kChannel, kUpdate, kReport, kWiiChannel, kTutorial, kCredits, kExit, kNone };
 	// The RiftWii channel on the Wii Menu (wii/channel.hpp).
 	unsigned channelVersion = 0;
 	const bool channelThere = riftwii::wii::ChannelInstalled(channelVersion);
@@ -2789,6 +2878,12 @@ static int MenuSettings(FrontendState& state)
 		update.dim = !settings.online;
 		rows.push_back(update);
 		actions.push_back(kUpdate);
+		FlowRow report;
+		report.kind = FlowRow::Kind::Action;
+		report.label = tr("Send a problem report");
+		report.value = tr("Send");
+		rows.push_back(report);
+		actions.push_back(kReport);
 		FlowRow wiiChannel;
 		wiiChannel.kind = FlowRow::Kind::Action;
 		wiiChannel.label = tr("RiftWii channel on the Wii Menu");
@@ -2888,6 +2983,7 @@ static int MenuSettings(FrontendState& state)
 			case kRescan: return tr("Reads the SD card and the USB drive again.");
 			case kChannel: return ChannelNote(settings);
 			case kUpdate: return tr("This is RiftWii {1}. Looks on GitHub for a newer release.", {RIFTWII_VERSION});
+			case kReport: return tr("Something went wrong? Sends what it takes to find out to paste.rs, and shows a link to pass on.");
 			case kWiiChannel:
 				if (!channelCan) return std::string(tr(channelWhy.c_str())) + ".";
 				return tr("A Wii Menu channel that starts RiftWii from the SD card. It holds no copy of RiftWii, so updates keep working. Opens the channel installer, to add, update or remove it.");
@@ -3121,6 +3217,10 @@ static int MenuSettings(FrontendState& state)
 					}
 					break;
 				}
+				case kReport:
+					if (ShowPopup(tr("Send a problem report?"), tr(kReportWhat), tr("Send"), tr("Cancel")) == 0)
+						SendReport("sent from Settings");
+					break;
 				case kWiiChannel: {
 					if (!channelCan) {
 						note(std::string(tr(channelWhy.c_str())) + ".");
@@ -3161,37 +3261,11 @@ static int MenuSettings(FrontendState& state)
 // ---------------------------------------------------------------------------
 // No SD card: RiftWii keeps its settings, logs and saves there, so it
 // does not run without one (USB mode is not supported yet). A QR code
-// leads to SD cards to buy; tools/make_qr.py generates it.
+// leads to SD cards to buy.
 
 static bool g_noSdFromUsb = false;
 
 void SetNoSdCard(bool fromUsb) { g_noSdFromUsb = fromUsb; }
-
-class QrCode : public GuiElement {
-public:
-	QrCode(int x, int y, int module) : x(x), y(y), module(module) {}
-	// White quiet zone of two modules, then the dark modules, a run of
-	// them on a row as one rectangle.
-	void Draw() override
-	{
-		const int quiet = 2 * module;
-		const int side = kSdCardQrSize * module + 2 * quiet;
-		Menu_DrawRectangle(x, y, side, side, skin::kWhite, 1);
-		for (int r = 0; r < kSdCardQrSize; ++r) {
-			const char* row = kSdCardQr[r];
-			for (int c = 0; c < kSdCardQrSize;) {
-				if (row[c] != '#') { ++c; continue; }
-				int end = c;
-				while (end < kSdCardQrSize && row[end] == '#') ++end;
-				Menu_DrawRectangle(x + quiet + c * module, y + quiet + r * module, (end - c) * module, module,
-					(GXColor){0, 0, 0, 255}, 1);
-				c = end;
-			}
-		}
-	}
-private:
-	int x, y, module;
-};
 
 static int MenuNeedsSd()
 {
@@ -3208,8 +3282,10 @@ static int MenuNeedsSd()
 	Place(bodyTxt, 56, 142);
 	bodyTxt.SetWrap(true, 330, 10);
 	constexpr int kModule = 5;
-	constexpr int kQrSide = kSdCardQrSize * kModule + 4 * kModule;
-	QrCode qr(588 - 16 - kQrSide, 138, kModule);
+	riftwii::QrCode code;
+	riftwii::make_qr("https://www.amazon.com/s?k=16gb+sd+card", code);
+	const int kQrSide = QrImage::Side(code, kModule);
+	QrImage qr(code, 588 - 16 - kQrSide, 138, kModule);
 	GuiText scanTxt(tr("Need a card? Scan this."), 14, skin::kInkDim);
 	scanTxt.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
 	scanTxt.SetPosition(588 - 16 - kQrSide / 2 - screenwidth / 2, 138 + kQrSide + 8);

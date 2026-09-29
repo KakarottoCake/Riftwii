@@ -77,6 +77,8 @@ bool g_menu_ended = false;
 bool g_menu_allowed = false;  // GcAdapterMenuAllowStart
 bool g_menu_failed = false;    // it would not start: not tried again
 bool g_menu_said_off = false;
+GcAdapterView g_menu_view;
+bool g_menu_view_set = false;
 u64 g_menu_checked = 0;
 
 std::uint32_t Now() { return static_cast<std::uint32_t>(gettime()); }
@@ -374,6 +376,13 @@ void GcAdapterMenuPads(GcAdapterView& out) {
         g_menu_started = true;
     }
     GcAdapterPoll(out);
+    g_menu_view = out;
+    g_menu_view_set = true;
+}
+
+bool GcAdapterMenuLastView(GcAdapterView& out) {
+    out = g_menu_view;
+    return g_menu_view_set;
 }
 
 void GcAdapterMenuAllowStart() {

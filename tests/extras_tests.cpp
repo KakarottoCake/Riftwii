@@ -48,6 +48,14 @@ void TestHttp() {
     EXPECT_EQ(url.host, "api.github.com");
     EXPECT_TRUE(http_get_request(url).find("Host: api.github.com\r\n") != std::string::npos);
     EXPECT_FALSE(parse_http_url("ftp://www.gametdb.com/", url, error));
+    // The problem report's POST: headers, one blank line, then the body.
+    EXPECT_TRUE(parse_http_url("https://paste.rs/", url, error));
+    EXPECT_EQ(http_post_request(url, "text/plain; charset=utf-8", "ab\ncd"),
+              std::string("POST / HTTP/1.1\r\nHost: paste.rs\r\nUser-Agent: RiftWii\r\nAccept: */*\r\n"
+                          "Connection: close\r\nContent-Type: text/plain; charset=utf-8\r\n"
+                          "Content-Length: 5\r\n\r\nab\ncd"));
+    EXPECT_EQ(http_get_request(url), std::string("GET / HTTP/1.1\r\nHost: paste.rs\r\nUser-Agent: RiftWii\r\n"
+                                                 "Accept: */*\r\nConnection: close\r\n\r\n"));
 
     // The update check.
     std::string tag;

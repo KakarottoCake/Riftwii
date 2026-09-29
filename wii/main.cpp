@@ -36,6 +36,7 @@
 #include "menuios.hpp"
 #include "online.hpp"
 #include "progress.hpp"
+#include "reportsend.hpp"
 #include "restart.hpp"
 #include "channel.hpp"
 #include "skin.hpp"
@@ -147,6 +148,7 @@ bool StartedFromUsb() {
 void OpenSessionLog(bool sd_mounted) {
     if (!sd_mounted) return;
     mkdir("sd:/riftwii", 0777);
+    riftwii::wii::RotateSessionLog();
     riftwii::wii::LogOpen("sd:/riftwii/session.log");
     riftwii::wii::logf("RiftWii %s on %s, IOS%d rev %d\n", RIFTWII_VERSION,
                        riftwii::wii::running_in_dolphin() ? "Dolphin" : "Wii", IOS_GetVersion(), IOS_GetRevision());
@@ -245,6 +247,9 @@ int main() {
     riftwii::wii::CrashSetPhase(riftwii::wii::CrashPhase::Menu);
     if (!sd_mounted) SetNoSdCard(StartedFromUsb());
     const int action = MainMenu(sd_mounted ? MENU_SOURCE : MENU_NEEDS_SD, state);
+    // Before the adapter stops: what the player had plugged in, for the
+    // launch's log.
+    const std::string controllers = riftwii::wii::DescribeControllers();
     riftwii::wii::MenuMusicStop();
     riftwii::wii::ScreenshotsStop();
     // Before anything is launched: nothing of the menu's adapter may be
@@ -259,6 +264,7 @@ int main() {
     if (action == MENU_LAUNCH) {
         riftwii::wii::LogOpen("sd:/riftwii/boot.log");
         riftwii::wii::logf("RiftWii %s: launch %s with packages\n", RIFTWII_VERSION, state.game_id.c_str());
+        riftwii::wii::logf("Controllers: %s\n", controllers.c_str());
         riftwii::wii::LogDeclinedUpdate();
         if (riftwii::wii::GuiScriptFailLaunch()) error = "a test failure the guiscript asked for";
         const bool booted = !error.empty() ? false : (source.kind == riftwii::wii::LaunchSource::Kind::Disc && state.has_compiled)
@@ -275,6 +281,7 @@ int main() {
     } else if (action == MENU_BOOT) {
         riftwii::wii::LogOpen("sd:/riftwii/boot.log");
         riftwii::wii::logf("RiftWii %s: boot %s\n", RIFTWII_VERSION, source.kind == riftwii::wii::LaunchSource::Kind::Usb ? "USB" : source.kind == riftwii::wii::LaunchSource::Kind::Sd ? "SD" : "disc");
+        riftwii::wii::logf("Controllers: %s\n", controllers.c_str());
         riftwii::wii::LogDeclinedUpdate();
         if (riftwii::wii::GuiScriptFailLaunch()) error = "a test failure the guiscript asked for";
         if (!error.empty() || !riftwii::wii::RunBoot(true, error, source)) {
