@@ -1213,8 +1213,10 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
                                         : pad.active               ? pad.new_arena2_lo
                                         : options.install_resident ? resident.new_arena2_lo
                                                                    : read32(0x80003124);
-        if (!plan_fault_hook(dol, arena1_hi, mem1_floor, arena2_lo, options.memory_patches, fault, why)) {
-            logf("Game crashes: not recorded: %s\n", why.c_str());
+        const bool answer_bca = options.retail_bca && !options.install_resident;
+        if (!plan_fault_hook(dol, arena1_hi, mem1_floor, arena2_lo, answer_bca, options.memory_patches, fault, why)) {
+            logf("Game crashes: not recorded%s: %s\n", answer_bca ? " and the BCA read not answered" : "",
+                 why.c_str());
         }
     }
     logf("Handing over\n");
@@ -1749,10 +1751,12 @@ bool boot_game(const DiscProbe& probe, const BootOptions& options, std::string& 
         if (retail) {
             logf("BCA: the image has a retail one\n");
         } else {
-            logf("BCA: %s; the resident runtime answers with a retail one\n",
-                 why.empty() ? "the image has none" : why.c_str());
+            // Answered by the resident runtime when it goes in anyway,
+            // else by the small crash blob (wii/faulthook.hpp): the
+            // runtime alone takes some 100 KB of the game's memory, which
+            // Super Smash Bros. Brawl does not have to spare.
+            logf("BCA: %s; answered with a retail one\n", why.empty() ? "the image has none" : why.c_str());
             effective.retail_bca = true;
-            effective.install_resident = true;
         }
     }
     RvzResidentOptions rvz;

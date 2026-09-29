@@ -7,6 +7,7 @@ typedef char rt_fault_context_size_check[sizeof(struct rt_fault_context) == RT_F
 
 void fault_on_exception(struct rt_fault_context* c, uint32_t exception, uint32_t* context, uint32_t dsisr,
                         uint32_t dar);
+void fault_on_ioctl(struct rt_fault_context* c, uint32_t* args);
 
 /* IOS IPC (wiibrew "Hardware/IPC"): PPC message, control, ARM message;
  * the Broadway interrupt flags (the IPC bit is 30). */
@@ -177,4 +178,23 @@ void fault_on_exception(struct rt_fault_context* c, uint32_t exception, uint32_t
                  c->ticks_per_second, 1);
     for (i = 0; i < RTFAULT_VERSION_BYTES; ++i) st->record.riftwii[i] = c->version[i];
     save(c, st);
+}
+
+/* IOS_IoctlAsync's eight arguments: a DVDLowReadDiskBca gets the retail
+ * BCA (all zero but byte 0x33, which is 1) in the game's buffer, and its
+ * output moves to the sink, so IOS answers as usual without touching it. */
+void fault_on_ioctl(struct rt_fault_context* c, uint32_t* args) {
+    const uint32_t* in = (const uint32_t*)(uintptr_t)args[2];
+    uint8_t* out = (uint8_t*)(uintptr_t)args[4];
+    const uint32_t out_len = args[5];
+    uint32_t i;
+    if (!(c->flags & RT_FAULT_FLAG_BCA) || args[1] != RT_FAULT_DI_READ_BCA || args[3] != 0x20u || in == 0 ||
+        (in[0] >> 24) != RT_FAULT_DI_READ_BCA || out == 0 || out_len <= RT_FAULT_BCA_MARK) {
+        return;
+    }
+    for (i = 0; i < out_len && i < RT_FAULT_BCA_BYTES; ++i) out[i] = i == RT_FAULT_BCA_MARK ? 1u : 0u;
+    flush(out, i);
+    args[4] = c->bca_sink;
+    args[5] = RT_FAULT_BCA_BYTES;
+    c->bca_answers++;
 }

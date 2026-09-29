@@ -36,6 +36,15 @@ void sync_code(std::uint32_t address, std::uint32_t bytes) {
     ICInvalidateRange(reinterpret_cast<void*>(address), bytes);
 }
 
+// A plain `b` (not bl, not absolute): another blob's hook.
+bool is_plain_branch(std::uint32_t word, std::uint32_t at, std::uint32_t& target) {
+    if ((word & 0xFC000003u) != 0x48000000u) return false;
+    std::int32_t delta = static_cast<std::int32_t>(word & 0x03FFFFFCu);
+    if (delta & 0x02000000) delta -= 0x04000000;
+    target = at + static_cast<std::uint32_t>(delta);
+    return true;
+}
+
 bool overlaps(const MemoryPatch& p, std::uint32_t start, std::uint32_t bytes) {
     if (!p.has_offset || p.value.empty()) return false;
     return p.offset < static_cast<std::uint64_t>(start) + bytes && p.offset + p.value.size() > start;
@@ -44,7 +53,7 @@ bool overlaps(const MemoryPatch& p, std::uint32_t start, std::uint32_t bytes) {
 }  // namespace
 
 bool plan_fault_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t mem1_floor, std::uint32_t arena2_lo,
-                     const std::vector<MemoryPatch>& patches, FaultHook& out, std::string& why) {
+                     bool answer_bca, const std::vector<MemoryPatch>& patches, FaultHook& out, std::string& why) {
     out = FaultHook{};
     const rt_fault_header& h = header();
     if (riftwii_fault_bin_size < sizeof(rt_fault_header) || h.magic != RT_FAULT_MAGIC ||
@@ -54,7 +63,7 @@ bool plan_fault_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_
         return false;
     }
 
-    // 1. The function: from the game as loaded.
+    // 1. The functions: from the game as loaded. Either one is enough.
     std::vector<CodeRange> text, all;
     for (std::size_t i = 0; i < kDolSections; ++i) {
         const DolSection& s = dol.sections[i];
@@ -63,7 +72,20 @@ bool plan_fault_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_
         all.push_back(r);
         if (i < kDolTextSections) text.push_back(r);
     }
-    if (!find_unhandled_exception(text, all, out.function, why)) return false;
+    std::string crash_why, bca_why;
+    if (!find_unhandled_exception(text, all, out.function, crash_why)) {
+        out.function = 0;
+        logf("Game crashes: not recorded: %s\n", crash_why.c_str());
+    }
+    if (answer_bca) {
+        IpcSymbols symbols;
+        if (find_ipc_symbols(text, symbols, bca_why)) out.ioctl = symbols.ioctl_async;
+        else logf("BCA: not answered: the game's IOS_IoctlAsync was not found: %s\n", bca_why.c_str());
+    }
+    if (out.function == 0 && out.ioctl == 0) {
+        why = "nothing to hook";
+        return false;
+    }
 
     // 2. Memory: the blob below the MEM1 arena's top, its state at the
     //    bottom of the MEM2 arena.
@@ -81,7 +103,7 @@ bool plan_fault_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_
     }
     for (const MemoryPatch& p : patches) {
         if (overlaps(p, out.code_base, out.code_bytes) || overlaps(p, out.state_base, out.state_bytes) ||
-            overlaps(p, out.function, 4)) {
+            (out.function != 0 && overlaps(p, out.function, 4)) || (out.ioctl != 0 && overlaps(p, out.ioctl, 4))) {
             char buf[128];
             std::snprintf(buf, sizeof(buf), "a pack's memory patch at 0x%08x uses the memory it needs",
                           static_cast<unsigned>(p.offset));
@@ -106,40 +128,70 @@ bool plan_fault_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_
     ctx->stack_top = out.state_base + offsetof(rt_fault_state, stack) + RT_FAULT_STACK_BYTES - 16;
     ctx->ticks_per_second = *reinterpret_cast<volatile std::uint32_t*>(kBusClockField) / 4u;
     std::strncpy(ctx->version, RIFTWII_VERSION, sizeof(ctx->version) - 1);
+    ctx->bca_sink = (out.code_base + h.sink + 31u) & ~31u;
+    ctx->flags = out.ioctl != 0 ? RT_FAULT_FLAG_BCA : 0u;
     out.active = true;
-    logf("Game crashes: blob %u bytes at 0x%08x, state %u bytes at 0x%08x; __OSUnhandledException 0x%08x\n", h.size,
-         out.code_base, out.state_bytes, out.state_base, out.function);
+    logf("Game crashes: blob %u bytes at 0x%08x, state %u bytes at 0x%08x; __OSUnhandledException 0x%08x%s\n",
+         h.size, out.code_base, out.state_bytes, out.state_base, out.function,
+         out.ioctl != 0 ? "; it also answers the BCA read" : "");
     return true;
 }
 
 bool install_fault_hook(FaultHook& hook, std::string& why) {
     if (!hook.active) return false;
     const rt_fault_header& h = header();
-    // Checked now, after the packs' patches and the cheats.
-    const std::uint32_t first = *reinterpret_cast<const std::uint32_t*>(hook.function);
-    std::string reason;
-    if (!displaceable(first, kScratchRegister, reason)) {
-        char buf[160];
-        std::snprintf(buf, sizeof(buf), "__OSUnhandledException's first instruction (0x%08x) cannot be moved (%s)",
-                      first, reason.c_str());
-        why = buf;
-        hook.active = false;
-        return false;
+    struct Site {
+        std::uint32_t& function;
+        std::uint32_t hook, replay, resume;
+        const char* name;
+    } sites[2] = {{hook.function, h.hook, h.replay, h.resume, "__OSUnhandledException"},
+                  {hook.ioctl, h.hook_ioctl, h.replay_ioctl, h.resume_ioctl, "IOS_IoctlAsync"}};
+    // Checked now, after the packs' patches, the cheats and the other
+    // blobs' hooks.
+    for (Site& s : sites) {
+        if (s.function == 0) continue;
+        const std::uint32_t first = *reinterpret_cast<const std::uint32_t*>(s.function);
+        std::uint32_t replay[4] = {first, kNop, kNop, kNop};
+        std::uint32_t target = 0;
+        std::string reason;
+        if (is_plain_branch(first, s.function, target)) {
+            // Another hook already: the replay takes the same branch.
+            if (!encode_branch(hook.code_base + s.replay, target, replay[0])) {
+                logf("Game crashes: %s's hook at 0x%08x is out of reach; not hooked\n", s.name, target);
+                s.function = 0;
+                continue;
+            }
+        } else if (!displaceable(first, kScratchRegister, reason)) {
+            logf("Game crashes: %s's first instruction (0x%08x) cannot be moved (%s); not hooked\n", s.name, first,
+                 reason.c_str());
+            s.function = 0;
+            continue;
+        }
+        store_words(hook.code_base + s.replay, replay, 4);
+        const auto resume = encode_absolute_jump(kScratchRegister, s.function + 4);
+        store_words(hook.code_base + s.resume, resume.data(), 4);
     }
-    const std::uint32_t replay[4] = {first, kNop, kNop, kNop};
-    store_words(hook.code_base + h.replay, replay, 4);
-    const auto resume = encode_absolute_jump(kScratchRegister, hook.function + 4);
-    store_words(hook.code_base + h.resume, resume.data(), 4);
     sync_code(hook.code_base, hook.code_bytes);
-    std::uint32_t branch = 0;
-    if (!encode_branch(hook.function, hook.code_base + h.hook, branch)) {
-        why = "__OSUnhandledException is out of a branch's reach";
+    unsigned hooked = 0;
+    for (Site& s : sites) {
+        if (s.function == 0) continue;
+        std::uint32_t branch = 0;
+        if (!encode_branch(s.function, hook.code_base + s.hook, branch)) {
+            logf("Game crashes: %s is out of a branch's reach; not hooked\n", s.name);
+            s.function = 0;
+            continue;
+        }
+        store_words(s.function, &branch, 1);
+        sync_code(s.function & ~31u, 32);
+        ++hooked;
+    }
+    if (hooked == 0) {
+        why = "nothing could be hooked";
         hook.active = false;
         return false;
     }
-    store_words(hook.function, &branch, 1);
-    sync_code(hook.function & ~31u, 32);
-    logf("Game crashes: hooked; a crash is saved for the next start\n");
+    logf("Game crashes: hooked%s%s\n", hook.function ? "; a crash is saved for the next start" : "",
+         hook.ioctl ? "; the BCA read is answered as a retail disc's" : "");
     return true;
 }
 
