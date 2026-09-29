@@ -126,16 +126,42 @@ static bool swallowInput = false;
 static int pointerX[4], pointerY[4];
 static bool pointerSeen[4];
 
-// Whether anyone is using a controller this frame.
-static bool AnyActivity()
+// What is in use, one bit each. The log names the ones seen last when the
+// screen dims and the ones that woke it, so a problem report shows which
+// controller the idle timer stopped seeing.
+enum ActivitySource { kActRemote, kActPorts, kActAdapter, kActPad, kActGamePad, kActPointer, kActSources };
+static const char* const kActNames[kActSources] = {
+	"Wii Remote", "GameCube ports", "GameCube adapter", "menu pad", "Wii U GamePad", "pointer"};
+static u64 lastSeen[kActSources];
+static bool dimLogged = false;
+
+static bool Pushed(int x, int y)
 {
-	bool active = false;
+	return std::abs(x) > 40 || std::abs(y) > 40;
+}
+
+// Which controllers someone is using this frame, as ActivitySource bits.
+// "menu pad" is what the menu reads: the GameCube ports' and the adapter's
+// buttons together, and the stick the pointer has not taken.
+static unsigned ActivitySources()
+{
+	unsigned used = 0;
+	riftwii::wii::GcAdapterView adapter;
+	const bool adapterOpen = riftwii::wii::GcAdapterMenuLastView(adapter) && adapter.open;
 	for (int i = 0; i < 4; ++i) {
 		const GuiTrigger& t = userInput[i];
-		if (t.pad.btns_h || t.wiidrcdata.btns_h || std::abs(t.pad.stickX) > 40 || std::abs(t.pad.stickY) > 40)
-			active = true;
+		if (PAD_ButtonsHeld(i) || Pushed(PAD_StickX(i), PAD_StickY(i)))
+			used |= 1u << kActPorts;
+		if (adapterOpen && i < GCAD_PORTS && adapter.present[i] &&
+		    (adapter.pads[i].buttons || Pushed(adapter.pads[i].stick_x, adapter.pads[i].stick_y)))
+			used |= 1u << kActAdapter;
+		if (t.pad.btns_h || Pushed(t.pad.stickX, t.pad.stickY))
+			used |= 1u << kActPad;
+		if (t.wiidrcdata.btns_h)
+			used |= 1u << kActGamePad;
 		if (!t.wpad) continue;
-		if (t.wpad->btns_h) active = true;
+		if (t.wpad->btns_h)
+			used |= 1u << kActRemote;
 		const bool seen = t.wpad->ir.valid;
 		const int x = static_cast<int>(t.wpad->ir.x), y = static_cast<int>(t.wpad->ir.y);
 		// A remote lying still jitters a little: only a real move counts.
@@ -143,10 +169,42 @@ static bool AnyActivity()
 			pointerSeen[i] = seen;
 			pointerX[i] = x;
 			pointerY[i] = y;
-			active = true;
+			used |= 1u << kActPointer;
 		}
 	}
-	return active;
+	return used;
+}
+
+// The adapter's state for the dim log: whether its reports still come.
+static std::string AdapterState()
+{
+	riftwii::wii::GcAdapterView adapter;
+	if (!riftwii::wii::GcAdapterMenuLastView(adapter) || !adapter.open) return "adapter not in use";
+	std::string ports;
+	for (int i = 0; i < GCAD_PORTS; ++i)
+		if (adapter.present[i]) ports += (ports.empty() ? "" : ",") + std::to_string(i + 1);
+	return "adapter " + std::to_string(adapter.reports) + " reports, link " + std::to_string(adapter.link) +
+	       ", ports " + (ports.empty() ? std::string("none") : ports);
+}
+
+static void LogDimmed(u64 now)
+{
+	std::string seen;
+	for (int s = 0; s < kActSources; ++s) {
+		seen += s ? ", " : "";
+		seen += kActNames[s];
+		seen += lastSeen[s] ? " " + std::to_string(diff_sec(lastSeen[s], now)) + " s ago" : std::string(" never");
+	}
+	logf("Screen dimmed after %u s idle; last used: %s; %s\n", static_cast<unsigned>(diff_sec(lastActive, now)),
+	     seen.c_str(), AdapterState().c_str());
+}
+
+static void LogWoke(unsigned used)
+{
+	std::string by;
+	for (int s = 0; s < kActSources; ++s)
+		if (used & (1u << s)) by += (by.empty() ? "" : ", ") + std::string(kActNames[s]);
+	logf("Screen woke: %s; %s\n", by.c_str(), AdapterState().c_str());
 }
 
 static bool AnyHeld()
@@ -199,11 +257,20 @@ UpdateGUI(void *arg)
 			riftwii::wii::GuiScriptApply();
 			riftwii::wii::ScreenshotPoll();
 			const u64 now = gettime();
-			if (AnyActivity() || lastActive == 0) {
+			const unsigned used = ActivitySources();
+			for (int s = 0; s < kActSources; ++s)
+				if (used & (1u << s)) lastSeen[s] = now;
+			if (used || lastActive == 0) {
 				if (dimAlpha > 0) swallowInput = true;
+				if (dimLogged && used) LogWoke(used);
+				dimLogged = false;
 				lastActive = now;
 			}
 			const bool idle = dimAllowed && diff_sec(lastActive, now) >= RIFTWII_DIM_SECONDS;
+			if (idle && !dimLogged) {
+				LogDimmed(now);
+				dimLogged = true;
+			}
 			dimAlpha = idle ? std::min(dimAlpha + 4, 150) : std::max(dimAlpha - 30, 0);
 			if (swallowInput && !AnyHeld()) swallowInput = false;
 			mainWindow->Draw();
