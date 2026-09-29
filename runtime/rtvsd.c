@@ -82,13 +82,15 @@ void rtvsd_csd(const struct rtvsd_card* card, uint32_t out[4]) {
         put_bits(out, 69, 22, units != 0 ? units - 1u : 0u);
     } else {
         /* Version 1.0: (C_SIZE + 1) << (C_SIZE_MULT + 2) blocks of
-         * 2^READ_BL_LEN bytes, the smallest block and multiplier that fit
-         * C_SIZE's 12 bits (a 2 GiB card needs 1024-byte blocks). */
+         * 2^READ_BL_LEN bytes, the smallest multiplier that fits C_SIZE's
+         * 12 bits. Up to 1 GiB the blocks are 512 bytes; above, 2048
+         * bytes, as Dolphin's card states them: Brawl's driver reads
+         * nothing past 1 GiB of a card with 1024-byte blocks. */
         uint32_t shift = 2; /* sectors per C_SIZE unit, log2: C_SIZE_MULT + 2 + READ_BL_LEN - 9 */
         uint32_t block_len_log2, mult, units;
         while (shift < 11u && (card->sectors >> shift) > 4096u) ++shift;
         units = card->sectors >> shift;
-        block_len_log2 = shift > 9u ? shift : 9u;  /* C_SIZE_MULT tops out at 7 */
+        block_len_log2 = shift > 9u ? 11u : 9u;  /* C_SIZE_MULT tops out at 7 */
         mult = shift - 2u - (block_len_log2 - 9u);
         csd_common(out, block_len_log2);
         put_bits(out, 79, 1, 1);     /* READ_BL_PARTIAL */

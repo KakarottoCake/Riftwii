@@ -99,14 +99,29 @@ int main() {
             EXPECT_EQ(csd[3] & 1u, 1u);                    // end bit
             EXPECT_EQ(csd[0] >> 30, card->sdhc ? 1u : 0u);  // CSD_STRUCTURE
         }
-        // A 2 GiB standard card: 1024-byte blocks, C_SIZE 4095, C_SIZE_MULT 7.
+        // A 2 GiB standard card: 2048-byte blocks, C_SIZE 4095, C_SIZE_MULT 6.
         auto two = make_card(0x400000, {{0, 0, 0x400000}});
         rtvsd_reset(two.get());
         std::uint32_t csd[4];
         rtvsd_csd(two.get(), csd);
-        EXPECT_EQ((csd[1] >> 16) & 15u, 10u);                             // READ_BL_LEN
+        EXPECT_EQ((csd[1] >> 16) & 15u, 11u);                             // READ_BL_LEN
         EXPECT_EQ(((csd[1] & 0x3FFu) << 2) | (csd[2] >> 30), 4095u);     // C_SIZE
-        EXPECT_EQ((csd[2] >> 15) & 7u, 7u);                               // C_SIZE_MULT
+        EXPECT_EQ((csd[2] >> 15) & 7u, 6u);                               // C_SIZE_MULT
+        // 1.5 GiB, as Dolphin states it (Brawl reads nothing past 1 GiB
+        // of a card with 1024-byte blocks): C_SIZE 3071, C_SIZE_MULT 6.
+        auto one_half = make_card(0x300000, {{0, 0, 0x300000}});
+        rtvsd_reset(one_half.get());
+        rtvsd_csd(one_half.get(), csd);
+        EXPECT_EQ((csd[1] >> 16) & 15u, 11u);
+        EXPECT_EQ(((csd[1] & 0x3FFu) << 2) | (csd[2] >> 30), 3071u);
+        EXPECT_EQ((csd[2] >> 15) & 7u, 6u);
+        // 1 GiB and below: 512-byte blocks.
+        auto one = make_card(0x200000, {{0, 0, 0x200000}});
+        rtvsd_reset(one.get());
+        rtvsd_csd(one.get(), csd);
+        EXPECT_EQ((csd[1] >> 16) & 15u, 9u);
+        EXPECT_EQ(((csd[1] & 0x3FFu) << 2) | (csd[2] >> 30), 4095u);
+        EXPECT_EQ((csd[2] >> 15) & 7u, 7u);
         // An 8 GiB SDHC card: C_SIZE 16383 (512 KiB units).
         auto eight = make_card(0x1000000, {{0, 0, 0x1000000}});
         rtvsd_reset(eight.get());
