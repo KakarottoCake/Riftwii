@@ -200,7 +200,11 @@ each one is the matching `wii/*hook.cpp`.
 One suite per area, `tests/<name>_tests.cpp`, registered in
 `CMakeLists.txt` and run with `ctest`. `fat32_image.hpp` builds FAT32
 images in memory, `fixtures/` holds XML and RVZ inputs, `qrcode_ref.inc`
-is reference data from python-qrcode.
+is reference data from python-qrcode. `hook_tests.cpp` and
+`vsdblob_tests.cpp` run the resident runtime's and the virtual SD card
+blob's C code on the host against a fake IOS (the blobs keep addresses
+as 32-bit words, so their memory is placed below 4 GiB; the virtual SD
+card's at the Wii's own MEM1 and MEM2 addresses).
 
 ## `tools/`
 

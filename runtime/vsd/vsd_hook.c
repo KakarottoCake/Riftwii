@@ -35,6 +35,7 @@ typedef int32_t (*ioctlv_async_fn)(int32_t fd, uint32_t ioctl, uint32_t in_count
 
 /* ---- Memory ------------------------------------------------------------- */
 
+#ifdef RT_TARGET_PPC
 static void flush_range(uint32_t address, uint32_t length) {
     uint32_t line = address & ~31u;
     const uint32_t end = address + length;
@@ -49,11 +50,23 @@ static void invalidate_range(uint32_t address, uint32_t length) {
     for (; line < end; line += 32u) __asm__ volatile("dcbi 0, %0" : : "r"(line) : "memory");
     __asm__ volatile("sync" : : : "memory");
 }
+#else
+/* The host has no cache to keep: the tests' fake IOS reads and writes the same memory. */
+static void flush_range(uint32_t address, uint32_t length) {
+    (void)address;
+    (void)length;
+}
+static void invalidate_range(uint32_t address, uint32_t length) {
+    (void)address;
+    (void)length;
+}
+#endif
 
 static void copy(uint8_t* dst, const uint8_t* src, uint32_t n) {
     while (n--) *dst++ = *src++;
 }
 
+#ifdef RT_TARGET_PPC
 static uint32_t interrupts_off(void) {
     uint32_t msr;
     __asm__ volatile("mfmsr %0" : "=r"(msr));
@@ -64,6 +77,60 @@ static uint32_t interrupts_off(void) {
 static void interrupts_restore(uint32_t msr) {
     __asm__ volatile("mtmsr %0" : : "r"(msr) : "memory");
 }
+#else
+static uint32_t interrupts_off(void) { return 0; }
+static void interrupts_restore(uint32_t msr) { (void)msr; }
+#endif
+
+/* The game's IOS functions (their replay slots, vsd_state.original), or the
+ * tests' fake IOS on the host, where a 32-bit address cannot be a function. */
+#ifdef RT_TARGET_PPC
+static int32_t os_ioctl(const struct vsd_state* st, int32_t fd, uint32_t ioctl, uint32_t in, uint32_t in_len,
+                        uint32_t out, uint32_t out_len) {
+    return ((ioctl_fn)(uintptr_t)st->original[VSD_IOCTL])(fd, ioctl, in, in_len, out, out_len);
+}
+static int32_t os_ioctlv(const struct vsd_state* st, int32_t fd, uint32_t ioctl, uint32_t in_count,
+                         uint32_t out_count, uint32_t vec) {
+    return ((ioctlv_fn)(uintptr_t)st->original[VSD_IOCTLV])(fd, ioctl, in_count, out_count, vec);
+}
+static int32_t os_ioctl_async(const struct vsd_state* st, int32_t fd, uint32_t ioctl, uint32_t in, uint32_t in_len,
+                              uint32_t out, uint32_t out_len, uint32_t callback, uint32_t user_data) {
+    return ((ioctl_async_fn)(uintptr_t)st->original[VSD_IOCTL_ASYNC])(fd, ioctl, in, in_len, out, out_len, callback,
+                                                                       user_data);
+}
+static int32_t os_ioctlv_async(const struct vsd_state* st, int32_t fd, uint32_t ioctl, uint32_t in_count,
+                               uint32_t out_count, uint32_t vec, uint32_t callback, uint32_t user_data) {
+    return ((ioctlv_async_fn)(uintptr_t)st->original[VSD_IOCTLV_ASYNC])(fd, ioctl, in_count, out_count, vec,
+                                                                         callback, user_data);
+}
+#else
+ioctl_fn vsd_host_ioctl = 0;
+ioctlv_fn vsd_host_ioctlv = 0;
+ioctl_async_fn vsd_host_ioctl_async = 0;
+ioctlv_async_fn vsd_host_ioctlv_async = 0;
+static int32_t os_ioctl(const struct vsd_state* st, int32_t fd, uint32_t ioctl, uint32_t in, uint32_t in_len,
+                        uint32_t out, uint32_t out_len) {
+    (void)st;
+    return vsd_host_ioctl ? vsd_host_ioctl(fd, ioctl, in, in_len, out, out_len) : IOS_EINVAL;
+}
+static int32_t os_ioctlv(const struct vsd_state* st, int32_t fd, uint32_t ioctl, uint32_t in_count,
+                         uint32_t out_count, uint32_t vec) {
+    (void)st;
+    return vsd_host_ioctlv ? vsd_host_ioctlv(fd, ioctl, in_count, out_count, vec) : IOS_EINVAL;
+}
+static int32_t os_ioctl_async(const struct vsd_state* st, int32_t fd, uint32_t ioctl, uint32_t in, uint32_t in_len,
+                              uint32_t out, uint32_t out_len, uint32_t callback, uint32_t user_data) {
+    (void)st;
+    return vsd_host_ioctl_async ? vsd_host_ioctl_async(fd, ioctl, in, in_len, out, out_len, callback, user_data)
+                                : IOS_EINVAL;
+}
+static int32_t os_ioctlv_async(const struct vsd_state* st, int32_t fd, uint32_t ioctl, uint32_t in_count,
+                               uint32_t out_count, uint32_t vec, uint32_t callback, uint32_t user_data) {
+    (void)st;
+    return vsd_host_ioctlv_async ? vsd_host_ioctlv_async(fd, ioctl, in_count, out_count, vec, callback, user_data)
+                                 : IOS_EINVAL;
+}
+#endif
 
 /* A physical address as the SDK passes it in a command block, to the
  * cached one the CPU uses. */
@@ -228,9 +295,7 @@ static void write_reply(uint32_t out, const uint32_t reply[4]) {
 
 static int32_t transfer_sync(struct vsd_state* st) {
     struct vsd_transfer* t = &st->transfer;
-    const ioctlv_fn ioctlv = (ioctlv_fn)(uintptr_t)st->original[VSD_IOCTLV];
-    const ioctl_fn ioctl = (ioctl_fn)(uintptr_t)st->original[VSD_IOCTL];
-    if (ioctlv == 0) return IOS_EINVAL;
+    if (st->original[VSD_IOCTLV] == 0) return IOS_EINVAL;
     while (t->done < t->count) {
         uint32_t device_sector = 0, data = 0, in_count, out_count, number;
         int32_t r = -1;
@@ -238,7 +303,7 @@ static int32_t transfer_sync(struct vsd_state* st) {
         if (t->chunk == 0) return IOS_EINVAL;
         for (t->tries = 0; t->tries < VSD_TRIES; ++t->tries) {
             number = build_piece(st, device_sector, t->chunk, data, &in_count, &out_count);
-            r = ioctlv(st->fd, number, in_count, out_count, (uint32_t)(uintptr_t)st->vec);
+            r = os_ioctlv(st, st->fd, number, in_count, out_count, (uint32_t)(uintptr_t)st->vec);
             if (r >= 0) break;
             ++st->failures;
             st->last_error = (uint32_t)r;
@@ -247,11 +312,11 @@ static int32_t transfer_sync(struct vsd_state* st) {
             ++st->gave_up;
             return r;
         }
-        if (t->write && st->backend == VSD_BACKEND_SLOT0 && st->rca != 0 && ioctl != 0) {
+        if (t->write && st->backend == VSD_BACKEND_SLOT0 && st->rca != 0 && st->original[VSD_IOCTL] != 0) {
             for (t->polls = 0; t->polls < VSD_SETTLE_POLLS; ++t->polls) {
                 build_status(st);
-                if (ioctl(st->fd, RTVSD_IOCTL_SENDCMD, (uint32_t)(uintptr_t)&st->request, sizeof(st->request),
-                          (uint32_t)(uintptr_t)st->response, 16) < 0 ||
+                if (os_ioctl(st, st->fd, RTVSD_IOCTL_SENDCMD, (uint32_t)(uintptr_t)&st->request, sizeof(st->request),
+                             (uint32_t)(uintptr_t)st->response, 16) < 0 ||
                     !still_busy(st))
                     break;
             }
@@ -266,8 +331,8 @@ static int32_t transfer_sync(struct vsd_state* st) {
 /* The null round trip that carries an answer: a status request on the
  * device, its answer in the slot's own line. */
 static int32_t deliver(struct vsd_state* st, uint32_t callback, uint32_t user_data, int32_t result) {
-    const ioctl_async_fn ioctl_async = (ioctl_async_fn)(uintptr_t)st->original[VSD_IOCTL_ASYNC];
-    const ioctlv_async_fn ioctlv_async = (ioctlv_async_fn)(uintptr_t)st->original[VSD_IOCTLV_ASYNC];
+    const int ioctl_async = st->original[VSD_IOCTL_ASYNC] != 0;
+    const int ioctlv_async = st->original[VSD_IOCTLV_ASYNC] != 0;
     struct vsd_deliver* slot = 0;
     uint32_t i, msr = interrupts_off();
     int32_t r;
@@ -285,21 +350,21 @@ static int32_t deliver(struct vsd_state* st, uint32_t callback, uint32_t user_da
     slot->user_data = user_data;
     slot->result = result;
     flush_range((uint32_t)(uintptr_t)slot->status, sizeof(slot->status));
-    if (st->backend == VSD_BACKEND_SLOT0 && ioctl_async != 0) {
-        r = ioctl_async(st->fd, RTVSD_IOCTL_GETSTATUS, 0, 0, (uint32_t)(uintptr_t)slot->status, 4, st->complete,
-                        (uint32_t)(uintptr_t)slot);
-    } else if (ioctlv_async != 0) {
+    if (st->backend == VSD_BACKEND_SLOT0 && ioctl_async) {
+        r = os_ioctl_async(st, st->fd, RTVSD_IOCTL_GETSTATUS, 0, 0, (uint32_t)(uintptr_t)slot->status, 4,
+                           st->complete, (uint32_t)(uintptr_t)slot);
+    } else if (ioctlv_async) {
         /* d2x's devices answer ioctlvs only. */
         struct vsd_ioctlv* v = (struct vsd_ioctlv*)(uintptr_t)&slot->status[2];
         const uint32_t out_count = st->backend == VSD_BACKEND_USB ? 1u : 0u;
         v->data = (uint32_t)(uintptr_t)&slot->status[0];
         v->len = 4;
         flush_range((uint32_t)(uintptr_t)slot->status, sizeof(slot->status));
-        r = ioctlv_async(st->fd, st->backend == VSD_BACKEND_USB ? UMS_GET_CAPACITY : D2X_SD_ISINSERTED, 0, out_count,
-                         (uint32_t)(uintptr_t)v, st->complete, (uint32_t)(uintptr_t)slot);
-    } else if (ioctl_async != 0) {
-        r = ioctl_async(st->fd, RTVSD_IOCTL_GETSTATUS, 0, 0, (uint32_t)(uintptr_t)slot->status, 4, st->complete,
-                        (uint32_t)(uintptr_t)slot);
+        r = os_ioctlv_async(st, st->fd, st->backend == VSD_BACKEND_USB ? UMS_GET_CAPACITY : D2X_SD_ISINSERTED, 0,
+                            out_count, (uint32_t)(uintptr_t)v, st->complete, (uint32_t)(uintptr_t)slot);
+    } else if (ioctl_async) {
+        r = os_ioctl_async(st, st->fd, RTVSD_IOCTL_GETSTATUS, 0, 0, (uint32_t)(uintptr_t)slot->status, 4,
+                           st->complete, (uint32_t)(uintptr_t)slot);
     } else {
         r = IOS_EINVAL;
     }
@@ -317,15 +382,13 @@ static int32_t transfer_send(struct vsd_state* st) {
     struct vsd_transfer* t = &st->transfer;
     const uint32_t tag = (uint32_t)(uintptr_t)t;
     if (t->phase == VSD_PHASE_SETTLE) {
-        const ioctl_async_fn ioctl_async = (ioctl_async_fn)(uintptr_t)st->original[VSD_IOCTL_ASYNC];
         build_status(st);
-        return ioctl_async(st->fd, RTVSD_IOCTL_SENDCMD, (uint32_t)(uintptr_t)&st->request, sizeof(st->request),
-                           (uint32_t)(uintptr_t)st->response, 16, st->complete, tag);
+        return os_ioctl_async(st, st->fd, RTVSD_IOCTL_SENDCMD, (uint32_t)(uintptr_t)&st->request,
+                              sizeof(st->request), (uint32_t)(uintptr_t)st->response, 16, st->complete, tag);
     }
     {
-        const ioctlv_async_fn ioctlv_async = (ioctlv_async_fn)(uintptr_t)st->original[VSD_IOCTLV_ASYNC];
         uint32_t device_sector = 0, data = 0, in_count, out_count, number;
-        if (ioctlv_async == 0) return IOS_EINVAL;
+        if (st->original[VSD_IOCTLV_ASYNC] == 0) return IOS_EINVAL;
         if (t->tries == 0) {
             t->chunk = next_piece(st, &device_sector, &data);
             if (t->chunk == 0) return IOS_EINVAL;
@@ -336,7 +399,8 @@ static int32_t transfer_send(struct vsd_state* st) {
             data = t->piece_data;
         }
         number = build_piece(st, device_sector, t->chunk, data, &in_count, &out_count);
-        return ioctlv_async(st->fd, number, in_count, out_count, (uint32_t)(uintptr_t)st->vec, st->complete, tag);
+        return os_ioctlv_async(st, st->fd, number, in_count, out_count, (uint32_t)(uintptr_t)st->vec, st->complete,
+                               tag);
     }
 }
 
