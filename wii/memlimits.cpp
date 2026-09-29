@@ -170,6 +170,25 @@ bool WalkHeap(const char* when) {
             ++chunks;
         }
     }
+    // The free lists, as mallinfo walks them (each bin's back links until
+    // they come round to the bin): a link into memory that is not a chunk
+    // made mallinfo itself fault (a tester's Wii U, after an IOS249
+    // reload), so they are followed here first, each step checked.
+    for (u32 bin = bins_lo + 16; bin + 16 <= bins_hi; bin += 8) {
+        u32 p = *reinterpret_cast<const u32*>(bin + 12), steps = 0;
+        while (p != bin) {
+            const char* why = nullptr;
+            if (!InHeap(p) || (p & 7) != 0) why = "a free list that leaves the heap";
+            else if (++steps > chunks + 1) why = "a free list longer than the heap";
+            if (why) {
+                logf("Heap check (%s): BROKEN: %s: bin 0x%08x, link 0x%08x after %u step(s)\n", when, why, bin, p,
+                     static_cast<unsigned>(steps));
+                if (InHeap(p)) Dump(p);
+                return false;
+            }
+            p = *reinterpret_cast<const u32*>(p + 12);
+        }
+    }
     const struct mallinfo info = mallinfo();
     logf("Heap check (%s): OK, %u chunks, %u KiB free in the heap\n", when, static_cast<unsigned>(chunks),
          Kib(static_cast<u32>(info.fordblks)));
