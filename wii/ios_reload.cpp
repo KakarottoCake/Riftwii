@@ -103,10 +103,13 @@ ReloadResult reload_ios(int version, std::string& error, bool force) {
     // The network's IOS state dies with the reload; close it first so
     // nothing of it is left half open (1.0.5 left it up after downloads).
     // The adapter's transfers too: their replies must not outlive it. And
-    // d2x's USB device, opened (or refused) by the IOS going away.
+    // d2x's USB device, opened (or refused) by the IOS going away. And
+    // the NAND's /dev/fs: a handle left open across the reload (the menu's
+    // screenshot import left one) went with heap damage on the next IOS.
     NetStop();
     GcAdapterStop();
     ums::Forget();
+    ISFS_Deinitialize();
     __IOS_ShutdownSubsystems();
     s32 res = __ES_Init();
     if (res < 0) {

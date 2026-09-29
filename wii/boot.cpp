@@ -1613,6 +1613,7 @@ void write_play_log(const DiscProbe& probe) {
     } else {
         logf("Message Board: play log not written (error %d under IOS%d)\n", r, IOS_GetVersion());
     }
+    ISFS_Deinitialize();  // not left open for the game's IOS reload
 }
 
 bool boot_game(const DiscProbe& probe, const BootOptions& options, std::string& error) {
