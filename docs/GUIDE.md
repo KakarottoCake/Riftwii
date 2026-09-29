@@ -478,6 +478,12 @@ RiftWii's IOS for every game.) Please report the game if it helps.
 `sd:/riftwii/crash.txt` and starts again (A, RESET, or after a minute).
 Back on Home it offers to send a report (below).
 
+**The game crashed.** When a game started from RiftWii crashes, what the
+Wii was doing is saved on the way down. Start RiftWii again: it saves
+that as `sd:/riftwii/gamecrash.txt` and offers to send a report. A game
+that only freezes (no crash) leaves nothing: send a report from
+Settings and say what happened.
+
 **The game shows its own error ("An error has occurred") while it
 loads.** Send the logs below with your report.
 
@@ -489,14 +495,14 @@ must support the GameCube controller. The `GameCube adapter` lines in
 
 ### Reporting a problem
 
-After a crash or a failed launch, RiftWii asks at the next start whether
+After RiftWii or a game crashes, or a launch fails, RiftWii asks at the next start whether
 to send a report. For anything else (a black screen, a game that
 freezes, a mod that does not load), use **Settings > Send a problem
 report** after starting RiftWii again.
 
 A report holds what it takes to see what went wrong: the logs of this
 run and the last one (`session.log`, `session-previous.log`), the last
-launch's `boot.log`, `crash.txt`, `settings.txt`, the last game's
+launch's `boot.log`, `crash.txt` and `gamecrash.txt`, `settings.txt`, the last game's
 choices and the XMLs of the packs it had on, the list of files in
 `sd:/riivolution` and `sd:/riftwii`, and which console, System Menu,
 IOS and cIOS slots, and controllers this is. It is sent to

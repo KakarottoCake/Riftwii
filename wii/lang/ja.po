@@ -1008,6 +1008,9 @@ msgstr "RiftWiiのログと設定、ゲームの選択とパック、本体・IO
 msgid "RiftWii crashed last time"
 msgstr "前回RiftWiiがクラッシュしました"
 
+msgid "The game crashed last time"
+msgstr "前回ゲームがクラッシュしました"
+
 msgid "The last launch failed"
 msgstr "前回の起動に失敗しました"
 

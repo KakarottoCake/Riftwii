@@ -53,6 +53,13 @@ SHOTOUT  := $(OUT)/shot
 SHOTBLOB := $(OUT)/riftwii_shot.bin
 SHOTOBJS := $(SHOTOUT)/shot_entry.o $(SHOTOUT)/shot_hook.o $(SHOTOUT)/rtshot.o
 
+# The game crash blob (runtime/fault): __OSUnhandledException hooked, the
+# crash written to the NAND through the IPC registers.
+FAULTSRC  := runtime/fault
+FAULTOUT  := $(OUT)/fault
+FAULTBLOB := $(OUT)/riftwii_fault.bin
+FAULTOBJS := $(FAULTOUT)/fault_entry.o $(FAULTOUT)/fault_hook.o $(FAULTOUT)/rtfault.o $(FAULTOUT)/rtshot.o
+
 # The RVZ blob (docs/RVZ.md): the same runtime built with RT_RVZ, plus
 # RVZ packing and Zstandard. Zstandard's constant tables make it the one
 # blob that is not position independent by itself; tools/rtreloc.py
@@ -81,7 +88,7 @@ BLOBZST := $(OUT)/riftwii_rt.zst
 RVZZST  := $(OUT)/riftwii_rt_rvz.zst
 
 .PHONY: all clean
-all: $(BLOB) $(PADBLOB) $(SHOTBLOB) $(RVZBLOB) $(BLOBZST) $(RVZZST)
+all: $(BLOB) $(PADBLOB) $(SHOTBLOB) $(FAULTBLOB) $(RVZBLOB) $(BLOBZST) $(RVZZST)
 
 $(OUT)/%.zst: $(OUT)/%.bin
 	$(ZSTD) -q -19 -f -o $@ $<
@@ -168,6 +175,36 @@ $(SHOTBLOB): $(SHOTOUT)/riftwii_shot.elf $(SHOTOUT)/riftwii_shot_alt.elf
 	$(OBJCOPY) -O binary $(SHOTOUT)/riftwii_shot_alt.elf $(SHOTOUT)/riftwii_shot_alt.bin
 	@cmp $@ $(SHOTOUT)/riftwii_shot_alt.bin || { echo "runtime: shot blob differs between link bases; not position independent"; rm -f $@; exit 1; }
 	@echo "shot blob: $$(stat -c %s $@) bytes"
+
+$(FAULTOUT):
+	@mkdir -p $(FAULTOUT)
+
+$(FAULTOUT)/fault_entry.o: $(FAULTSRC)/fault_entry.S $(FAULTSRC)/fault_hook.h | $(FAULTOUT)
+	$(CC) $(CFLAGS) -I$(FAULTSRC) -c -o $@ $<
+
+$(FAULTOUT)/fault_hook.o: $(FAULTSRC)/fault_hook.c $(FAULTSRC)/fault_hook.h runtime/rtfault.h runtime/rtshot.h | $(FAULTOUT)
+	$(CC) $(CFLAGS) -I$(FAULTSRC) -c -o $@ $<
+
+$(FAULTOUT)/rtfault.o: runtime/rtfault.c runtime/rtfault.h runtime/rtshot.h | $(FAULTOUT)
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(FAULTOUT)/rtshot.o: runtime/rtshot.c runtime/rtshot.h | $(FAULTOUT)
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(FAULTOUT)/riftwii_fault.elf: $(FAULTOBJS) $(FAULTSRC)/fault.ld
+	$(CC) $(CFLAGS) -nostdlib -nostartfiles -static -Wl,--build-id=none -Wl,--gc-sections -T $(FAULTSRC)/fault.ld \
+		-Wl,--defsym,RT_BASE=0x00000000 -o $@ $(FAULTOBJS) -lgcc
+	@$(SIZE) -A $@ | awk '$$1 ~ /^\.(rodata|data|bss)$$/ && $$2 != 0 { print "runtime: section " $$1 " is not empty (" $$2 " bytes) in the fault blob"; bad = 1 } END { exit bad }'
+
+$(FAULTOUT)/riftwii_fault_alt.elf: $(FAULTOBJS) $(FAULTSRC)/fault.ld
+	$(CC) $(CFLAGS) -nostdlib -nostartfiles -static -Wl,--build-id=none -Wl,--gc-sections -T $(FAULTSRC)/fault.ld \
+		-Wl,--defsym,RT_BASE=0x12340000 -o $@ $(FAULTOBJS) -lgcc
+
+$(FAULTBLOB): $(FAULTOUT)/riftwii_fault.elf $(FAULTOUT)/riftwii_fault_alt.elf
+	$(OBJCOPY) -O binary $(FAULTOUT)/riftwii_fault.elf $@
+	$(OBJCOPY) -O binary $(FAULTOUT)/riftwii_fault_alt.elf $(FAULTOUT)/riftwii_fault_alt.bin
+	@cmp $@ $(FAULTOUT)/riftwii_fault_alt.bin || { echo "runtime: fault blob differs between link bases; not position independent"; rm -f $@; exit 1; }
+	@echo "fault blob: $$(stat -c %s $@) bytes"
 $(RVZOUT):
 	@mkdir -p $(RVZOUT)
 

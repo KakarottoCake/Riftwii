@@ -77,4 +77,16 @@ struct PadSymbols {
 // when the game has none.
 bool find_pad_symbols(const std::vector<CodeRange>& text, PadSymbols& out, std::string& error);
 
+// The SDK's __OSUnhandledException(exception, context, dsisr, dar): where
+// every exception the game has no handler of its own for ends up, and
+// the game's own crash screens (installed with OSSetErrorHandler) are
+// called from. It reports "Unhandled Exception %d" or "Non-recoverable
+// Exception %d" before it dumps the context: the function whose code
+// builds either string's address (`lis` and `addi`/`ori`, directly or as
+// an offset from a string pool's base) is the one. `data` is every
+// section the strings may be in. 0 with `error` when no or several
+// functions match.
+bool find_unhandled_exception(const std::vector<CodeRange>& text, const std::vector<CodeRange>& data,
+                              std::uint32_t& out, std::string& error);
+
 }  // namespace riftwii

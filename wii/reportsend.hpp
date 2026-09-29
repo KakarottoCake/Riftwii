@@ -22,9 +22,14 @@ void RotateSessionLog();
 // GamePad, and the pairings fakemote adds.
 std::string DescribeControllers();
 
+// At startup, once the menu's IOS is up: a crash the game had last time
+// (wii/faulthook.hpp left it on the NAND) becomes sd:/riftwii/gamecrash.txt.
+void ImportGameCrash();
+
 // Whether the last run ended in a crash no report was offered for yet:
-// RiftWii restarting after one, or a crash.txt newer than the last one
-// asked about. `what` says which, for the question.
+// the game crashing (ImportGameCrash found one), RiftWii restarting after
+// a crash or a failed launch, or a crash.txt newer than the last one
+// asked about. `what` says which ("game", "crash", "launch").
 bool UnreportedCrash(std::string& what);
 // The crash just asked about is not asked about again (sent or not).
 void NoteCrashAsked();

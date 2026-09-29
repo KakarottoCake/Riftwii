@@ -216,6 +216,7 @@ int main() {
     riftwii::wii::StartMenuIos(sd_mounted, restart.kind != riftwii::wii::RestartKind::None,
                                restart.kind == riftwii::wii::RestartKind::BurnedDisc ? riftwii::wii::BurnedDiscSlot() : 0);
     SetHomeNotice(restart.message);
+    if (sd_mounted) riftwii::wii::ImportGameCrash();
     FrontendState state;
     // Where the start's time goes (the log's own clock does the rest).
     u64 step = gettime();

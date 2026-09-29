@@ -1008,6 +1008,9 @@ msgstr "Incluye los registros y ajustes de RiftWii, las opciones y packs del jue
 msgid "RiftWii crashed last time"
 msgstr "RiftWii se bloqueó la última vez"
 
+msgid "The game crashed last time"
+msgstr "El juego se bloqueó la última vez"
+
 msgid "The last launch failed"
 msgstr "El último inicio falló"
 

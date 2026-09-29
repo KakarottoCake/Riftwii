@@ -34,6 +34,7 @@ below names the files that own it.
 | Memory limits: the heap never enters memory a launch overwrites | `wii/memlimits.cpp` |
 | Launches another loader asks for (`--launch` arguments, no menu; `docs/HEADLESS.md`) | `wii/headless.cpp`, `src/launchargs.cpp` |
 | Screenshots: the menu's, and importing the ones games left on the NAND as PNGs | `wii/screenshot.cpp`, `src/shotfile.cpp`, `src/pngencode.cpp` (a PNG writer with its own deflate) |
+| Problem reports: gathered, sent to paste.rs, shown as a link and a QR code; a game's crash record imported at start | `wii/reportsend.cpp`, `src/problemreport.cpp`, `src/qrcode.cpp`, `src/gamefault.cpp`, `src/http.cpp` (the POST) |
 
 Everything the menu decides is plain data (`LaunchModel`, the per-game
 choices file) and host-tested; the screens only draw and read the pads.
@@ -69,7 +70,8 @@ the pack, option and file named, so a game never starts half patched.
    in: the rewritten FST (files that grew or were created move into a
    virtual window above the disc), the data header, a pack's `main.dol`.
 4. Install the resident runtime (`wii/resident.cpp`), the pad hook
-   (`wii/padhook.cpp`) and the screenshot hook (`wii/shothook.cpp`);
+   (`wii/padhook.cpp`), the screenshot hook (`wii/shothook.cpp`) and the
+   game crash hook (`wii/faulthook.cpp`);
    apply memory patches, cheats (the Gecko code
    handler, `vendor-gecko/`), video patches (`src/videopatch.cpp`: width,
    deflicker, borders, and a forced TV format that converts the game's
@@ -119,6 +121,23 @@ menu turns the files into PNGs at its next start. `docs/BLUETOOTH.md`
 has what the same tap would take to support other Bluetooth
 controllers.
 
+**Game crash hook** (`runtime/fault/`, `runtime/rtfault.c`). On every
+launch a fourth blob (about 2.4 KB) hooks the game's
+`__OSUnhandledException`, found by the code that builds the address of
+its "Unhandled Exception %d" string (`find_unhandled_exception`, checked
+on nine games with `tools/ipcscan.cpp`). Every exception the game has no
+handler for ends there, and so do crash screens a game or mod installs
+with `OSSetErrorHandler`. The blob records the registers, the stack's
+return addresses and the code around the fault, then carries on into
+the function. The game runs its exception handler with interrupts off,
+so its own IOS calls would never complete: the blob drives the IPC
+registers itself, polling for IOS's acknowledgement and reply (and
+passing over a reply to a request the game made before it crashed), on
+a 4 KB stack of its own. It writes `/shared2/riftwii/crash.bin`. At its
+next start the menu turns that into `sd:/riftwii/gamecrash.txt`, deletes
+it, and offers to send a problem report. A game that freezes without an
+exception leaves nothing.
+
 ## Memory
 
 | Where | What |
@@ -126,10 +145,10 @@ controllers.
 | `0x80000000`–`0x80003400` | Low-memory globals; the Gecko code handler at `0x80001800` |
 | `0x80A00000`–`0x81200000` | The RiftWii loader (link address in `Makefile.wii`) and its heap |
 | `0x81200000` | The game's apploader, while it runs |
-| Top of the game's MEM1 arena | Resident runtime code, then the pad blob and the screenshot blob below it |
+| Top of the game's MEM1 arena | Resident runtime code, then the pad blob, the screenshot blob and the crash blob below it |
 | `0x90000000`–`0x90800000` | Left alone by the loader: an IOS reload stages its kernel here |
 | `0x90800000`–`0x90809000` | The restart snapshot and handoff (`wii/restart.hpp`) |
-| Bottom of the game's MEM2 arena | Resident runtime data, then the pad state, then the screenshot state and frame (about 830 KB) |
+| Bottom of the game's MEM2 arena | Resident runtime data, then the pad state, the screenshot state and frame (about 830 KB), then the crash blob's state (about 5 KB) |
 | `0x933E0000` and up | IOS |
 
 `wii/memlimits.cpp` keeps the loader's heap between the end of its own

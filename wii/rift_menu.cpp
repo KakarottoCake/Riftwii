@@ -1009,12 +1009,15 @@ static void OfferReport()
 	asked = true;
 	std::string what;
 	if (!riftwii::wii::UnreportedCrash(what)) return;
+	const bool game = what == "game";
 	const bool crash = what == "crash";
-	const int choice = ShowPopup(crash ? tr("RiftWii crashed last time") : tr("The last launch failed"),
+	const int choice = ShowPopup(game ? tr("The game crashed last time") : crash ? tr("RiftWii crashed last time")
+			: tr("The last launch failed"),
 		std::string(tr("Send a report of what happened?")) + " " + tr(kReportWhat), tr("Send"), tr("Not now"));
 	riftwii::wii::NoteCrashAsked();
-	logf("Problem report: %s after the last run's %s\n", choice == 0 ? "sending" : "declined", crash ? "crash" : "failed launch");
-	if (choice == 0) SendReport(crash ? "RiftWii crashed" : "the launch failed");
+	const char* what_happened = game ? "the game crashed" : crash ? "RiftWii crashed" : "the launch failed";
+	logf("Problem report: %s after the last run (%s)\n", choice == 0 ? "sending" : "declined", what_happened);
+	if (choice == 0) SendReport(what_happened);
 }
 
 // A newer release found at start: the player picks Update or Not now, and

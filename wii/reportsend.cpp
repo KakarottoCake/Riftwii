@@ -21,6 +21,7 @@
 #include "menuios.hpp"
 #include "online.hpp"
 #include "restart.hpp"
+#include "riftwii/gamefault.hpp"
 #include "riftwii/problemreport.hpp"
 #include "wiidrc.h"
 
@@ -31,9 +32,13 @@ constexpr const char* kSessionLog = "sd:/riftwii/session.log";
 constexpr const char* kPreviousLog = "sd:/riftwii/session-previous.log";
 constexpr const char* kCrashFile = "sd:/riftwii/crash.txt";
 constexpr const char* kStateFile = "sd:/riftwii/report-state.txt";
+constexpr const char* kGameCrashFile = "sd:/riftwii/gamecrash.txt";
+constexpr const char* kGameCrashRecord = "/shared2/riftwii/crash.bin";  // runtime/rtfault.h
 constexpr const char* kPasteUrl = "https://paste.rs/";
 // More than this of one file is never read (the report keeps far less).
 constexpr std::size_t kReadCap = 2u << 20;
+
+bool g_game_crashed = false;  // ImportGameCrash found one this start
 
 bool read_text(const std::string& path, std::string& out) {
     out.clear();
@@ -189,7 +194,7 @@ void add_packs(const std::string& choices, std::vector<ReportPart>& parts) {
 std::string gather(const std::string& reason) {
     std::vector<ReportPart> parts;
     parts.push_back(file_part(kCrashFile));
-    parts.push_back(file_part("sd:/riftwii/gamecrash.txt"));
+    parts.push_back(file_part(kGameCrashFile));
     const ReportPart boot = file_part("sd:/riftwii/boot.log");
     parts.push_back(boot);
     parts.push_back(file_part(kPreviousLog));
@@ -259,7 +264,46 @@ std::string DescribeControllers() {
     return out + "; " + DescribePadPairings(pairings);
 }
 
+void ImportGameCrash() {
+    if (ISFS_Initialize() < 0) return;
+    static u8 record[512] ATTRIBUTE_ALIGN(32);
+    const s32 fd = ISFS_Open(kGameCrashRecord, ISFS_OPEN_READ);
+    if (fd < 0) {
+        ISFS_Deinitialize();
+        return;
+    }
+    const s32 got = ISFS_Read(fd, record, sizeof(record));
+    ISFS_Close(fd);
+    ISFS_Delete(kGameCrashRecord);
+    // /dev/fs is not kept open: an IOS reload with it open damages the heap.
+    ISFS_Deinitialize();
+    std::string text, error;
+    if (got < 0 || !describe_game_fault(record, static_cast<std::size_t>(got), text, error)) {
+        logf("Game crash: %s: %s; deleted\n", kGameCrashRecord, got < 0 ? "unreadable" : error.c_str());
+        return;
+    }
+    if (FILE* f = std::fopen(kGameCrashFile, "wb")) {
+        std::fputs(text.c_str(), f);
+        std::fclose(f);
+    }
+    g_game_crashed = true;
+    const std::string first = text.substr(0, text.find('\n'));
+    logf("Game crash: %s (saved as %s)\n", first.c_str(), kGameCrashFile);
+    // The whole record in the log too, so an older report still has it.
+    std::size_t at = 0;
+    while (at < text.size()) {
+        const std::size_t end = text.find('\n', at);
+        logf("  %s\n", text.substr(at, end - at).c_str());
+        if (end == std::string::npos) break;
+        at = end + 1;
+    }
+}
+
 bool UnreportedCrash(std::string& what) {
+    if (g_game_crashed) {
+        what = "game";
+        return true;
+    }
     const RestartNote& note = CurrentRestartNote();
     bool known = false;
     const std::string asked = asked_stamp(known);
