@@ -173,5 +173,20 @@ struct vsd_state {
     uint8_t bounce[VSD_BOUNCE_BYTES] __attribute__((aligned(32)));
 };
 
+/* The blob's C entry points (vsd_entry.S calls them). */
+int vsd_on_ipc(struct vsd_context* ctx, uint32_t entry, uint32_t* args, int32_t* result);
+void vsd_on_complete(struct vsd_context* ctx, int32_t* result, void* tag, uint32_t* callback, uint32_t* user_data);
+
+#ifndef RT_TARGET_PPC
+/* Host stand-ins for the game's IOS functions (the tests' fake IOS). */
+extern int32_t (*vsd_host_ioctl)(int32_t fd, uint32_t ioctl, uint32_t in, uint32_t in_len, uint32_t out,
+                                 uint32_t out_len);
+extern int32_t (*vsd_host_ioctlv)(int32_t fd, uint32_t ioctl, uint32_t in_count, uint32_t out_count, uint32_t vec);
+extern int32_t (*vsd_host_ioctl_async)(int32_t fd, uint32_t ioctl, uint32_t in, uint32_t in_len, uint32_t out,
+                                       uint32_t out_len, uint32_t callback, uint32_t user_data);
+extern int32_t (*vsd_host_ioctlv_async)(int32_t fd, uint32_t ioctl, uint32_t in_count, uint32_t out_count,
+                                        uint32_t vec, uint32_t callback, uint32_t user_data);
+#endif
+
 #endif
 #endif
