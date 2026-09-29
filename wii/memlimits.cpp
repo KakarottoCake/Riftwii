@@ -7,6 +7,7 @@
 
 #include <cstddef>
 #include <malloc.h>
+#include <reent.h>
 
 #include "ios_reload.hpp"
 #include "log.hpp"
@@ -67,11 +68,114 @@ void LogUsage(const char* when) {
     }
 }
 
-void CheckHeap(const char* when) {
-    logf("Heap check (%s)\n", when);
-    const struct mallinfo info = mallinfo();
-    logf("Heap check (%s): OK, %u KiB free in the heap\n", when, Kib(static_cast<u32>(info.fordblks)));
+namespace {
+
+// The heap's pieces as _sbrk_r handed them out (below): MEM1's, then
+// MEM2's once MEM1 is full.
+struct Segment {
+    u32 start, end;
+};
+Segment g_segments[8];
+volatile u32 g_segment_count = 0;
+
+void NoteGrowth(u32 start, s32 incr) {
+    const u32 n = g_segment_count;
+    if (n > 0 && g_segments[n - 1].end == start) {
+        g_segments[n - 1].end = start + static_cast<u32>(incr);
+    } else if (incr > 0 && n < sizeof(g_segments) / sizeof(g_segments[0])) {
+        g_segments[n] = Segment{start, start + static_cast<u32>(incr)};
+        g_segment_count = n + 1;
+    }
 }
+
+bool InHeap(u32 address) {
+    for (u32 i = 0; i < g_segment_count; ++i)
+        if (address >= g_segments[i].start && address < g_segments[i].end) return true;
+    return false;
+}
+
+// 96 bytes around `at`, as hex and as text: an overrun shows what wrote it.
+void Dump(u32 at) {
+    const u32 from = (at - 48) & ~15u;
+    for (u32 line = from; line < from + 96; line += 16) {
+        if (!InHeap(line) && !InHeap(line + 15)) continue;
+        char hex[3 * 16 + 1], text[17];
+        for (u32 i = 0; i < 16; ++i) {
+            const u8 b = InHeap(line + i) ? *reinterpret_cast<const u8*>(line + i) : 0;
+            static const char kDigits[] = "0123456789abcdef";
+            hex[3 * i] = kDigits[b >> 4];
+            hex[3 * i + 1] = kDigits[b & 15];
+            hex[3 * i + 2] = ' ';
+            text[i] = b >= 0x20 && b < 0x7F ? static_cast<char>(b) : '.';
+        }
+        hex[3 * 16] = 0;
+        text[16] = 0;
+        logf("  %08x  %s %s\n", line, hex, text);
+    }
+}
+
+}  // namespace
+
+// newlib's malloc (dlmalloc 2.6): each chunk is prev_size, size (low bit:
+// the one before is in use), then for a free chunk its bin links; the top
+// chunk is __malloc_av_[2], the bins' headers sit in __malloc_av_ itself.
+extern "C" void* __malloc_av_[];
+extern "C" void __malloc_lock(struct _reent*);
+extern "C" void __malloc_unlock(struct _reent*);
+
+namespace {
+bool WalkHeap(const char* when);
+}
+
+bool CheckHeap(const char* when) {
+    logf("Heap check (%s)\n", when);
+    // Other threads (the GUI's) allocate too: none while the walk runs.
+    __malloc_lock(_REENT);
+    const bool ok = WalkHeap(when);
+    __malloc_unlock(_REENT);
+    return ok;
+}
+
+namespace {
+bool WalkHeap(const char* when) {
+    const u32 top = Address(__malloc_av_[2]);
+    const u32 bins_lo = Address(__malloc_av_) - 8, bins_hi = Address(__malloc_av_) + 258 * 4;
+    const auto link_ok = [&](u32 p) { return InHeap(p) || (p >= bins_lo && p < bins_hi); };
+    u32 chunks = 0;
+    for (u32 s = 0; s < g_segment_count; ++s) {
+        const u32 end = g_segments[s].end;
+        u32 p = (g_segments[s].start + 7) & ~7u, before = 0;
+        while (p + 8 <= end && p != top) {
+            const u32 word = *reinterpret_cast<const u32*>(p + 4);
+            const u32 size = word & ~3u;
+            if (size == 4) break;  // a fencepost: the segment's end as malloc sees it
+            const char* why = nullptr;
+            if (size < 16 || (size & 7) != 0 || p + size > end) why = "a size that does not fit";
+            else if (p + size != top && p + size + 8 <= end) {
+                const u32 next_word = *reinterpret_cast<const u32*>(p + size + 4);
+                if ((next_word & 1) == 0) {  // this chunk is free
+                    const u32 fd = *reinterpret_cast<const u32*>(p + 8), bk = *reinterpret_cast<const u32*>(p + 12);
+                    if (!link_ok(fd) || !link_ok(bk)) why = "a free chunk whose links leave the heap";
+                    else if (*reinterpret_cast<const u32*>(p + size) != size) why = "a free chunk whose end disagrees";
+                }
+            }
+            if (why) {
+                logf("Heap check (%s): BROKEN: %s at 0x%08x (size word 0x%08x, %u chunks in; the one before at 0x%08x)\n",
+                     when, why, p, word, static_cast<unsigned>(chunks), before);
+                Dump(p);
+                return false;
+            }
+            before = p;
+            p += size;
+            ++chunks;
+        }
+    }
+    const struct mallinfo info = mallinfo();
+    logf("Heap check (%s): OK, %u chunks, %u KiB free in the heap\n", when, static_cast<unsigned>(chunks),
+         Kib(static_cast<u32>(info.fordblks)));
+    return true;
+}
+}  // namespace
 
 void PoisonReloadArea() {
     if (!g_dolphin || g_mem2_libogc_lo >= kMem2Floor) return;
@@ -105,7 +209,11 @@ extern "C" void* __wrap__sbrk_r(struct _reent* r, ptrdiff_t incr) {
             __real__sbrk_r(r, -incr);
             g_violations = g_violations + 1;
             p = reinterpret_cast<void*>(-1);
+        } else {
+            NoteGrowth(start, static_cast<s32>(incr));
         }
+    } else if (incr < 0) {
+        NoteGrowth(reinterpret_cast<u32>(p), static_cast<s32>(incr));
     }
     _CPU_ISR_Restore(level);
     return p;

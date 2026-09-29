@@ -38,6 +38,7 @@
 
 #include "libwiigui/gui.h"
 #include "gui_flowlist.hpp"
+#include "memlimits.hpp"
 #include "covers.hpp"
 #include "riftwii/coverart.hpp"
 #include "riftwii/update.hpp"
@@ -1064,6 +1065,7 @@ static void ScanDrives(FrontendState& state, GuiText& status)
 	const std::string net = riftwii::wii::RefreshNetworkPacks([&](const char* line) { status.SetText(line); });
 	if (!net.empty()) logf("%s\n", net.c_str());
 	HaltGui();
+	riftwii::wii::mem::CheckHeap("after the SD scan");
 	std::string sdError;
 	if (!sd) {
 		logf("SD scan failed: %s\n", error.c_str());
@@ -1075,6 +1077,7 @@ static void ScanDrives(FrontendState& state, GuiText& status)
 	ResumeGui();
 	const bool usb = scan_usb_games(state.usb_catalog, error);
 	HaltGui();
+	riftwii::wii::mem::CheckHeap("after the USB scan");
 	WarnAboutDrives(sdError, usb ? std::string() : error.empty() ? std::string("scan failed") : error);
 	if (sd) ReportCardLog();
 	if (!usb) {
@@ -1087,6 +1090,7 @@ static void ScanDrives(FrontendState& state, GuiText& status)
 	}
 	// After the USB scan: packs on the drive count too.
 	LoadPackIndex();
+	riftwii::wii::mem::CheckHeap("after the pack index");
 	// A newer release, asked at every start when downloads are on; the
 	// player is asked before it is installed.
 	static bool updateChecked = false;
@@ -1097,6 +1101,7 @@ static void ScanDrives(FrontendState& state, GuiText& status)
 		ResumeGui();
 		const bool ok = riftwii::wii::CheckForUpdate(false, latest, newer, why);
 		HaltGui();
+		riftwii::wii::mem::CheckHeap("after the update check");
 		if (!ok) logf("Update check: %s\n", why.c_str());
 		else if (newer && riftwii::wii::UpdateInstalled(latest))
 			g_homeNotice = tr("RiftWii {1} is installed. Start RiftWii again to use it.", {latest});
