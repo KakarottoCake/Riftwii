@@ -396,4 +396,93 @@ bool find_pad_symbols(const std::vector<CodeRange>& text, PadSymbols& out, std::
     return true;
 }
 
+namespace {
+
+// Every address where `text` (with its terminating NUL) starts.
+std::vector<std::uint32_t> find_strings(const std::vector<CodeRange>& ranges, const char* text) {
+    std::vector<std::uint32_t> out;
+    const std::string needle(text, std::char_traits<char>::length(text) + 1);
+    for (const CodeRange& r : ranges) {
+        const std::uint8_t* begin = r.bytes;
+        const std::uint8_t* end = r.bytes + r.size;
+        for (const std::uint8_t* p = begin;;) {
+            p = std::search(p, end, needle.begin(), needle.end(),
+                            [](std::uint8_t a, char b) { return a == static_cast<std::uint8_t>(b); });
+            if (p == end) break;
+            out.push_back(r.address + static_cast<std::uint32_t>(p - begin));
+            ++p;
+        }
+    }
+    return out;
+}
+
+constexpr std::size_t kPairWindow = 16;     // instructions between a lis and its addi/ori
+constexpr std::size_t kPoolWindow = 400;    // instructions a pool base register is followed for
+constexpr std::uint32_t kPoolReach = 0x8000;  // bytes past a pool's base its strings may be
+
+}  // namespace
+
+bool find_unhandled_exception(const std::vector<CodeRange>& text, const std::vector<CodeRange>& data,
+                              std::uint32_t& out, std::string& error) {
+    out = 0;
+    std::vector<std::uint32_t> targets = find_strings(data, "Unhandled Exception %d");
+    const std::vector<std::uint32_t> more = find_strings(data, "Non-recoverable Exception %d");
+    targets.insert(targets.end(), more.begin(), more.end());
+    if (targets.empty()) {
+        error = "the game has no \"Unhandled Exception\" string";
+        return false;
+    }
+    const auto hit = [&](std::uint32_t value) {
+        return std::find(targets.begin(), targets.end(), value) != targets.end();
+    };
+    std::set<std::uint32_t> functions;
+    for (const CodeRange& r : text) {
+        const std::size_t words = r.size / 4;
+        for (std::size_t i = 0; i < words; ++i) {
+            const std::uint32_t lis = be32(r.bytes + i * 4);
+            if ((lis & 0xFC1F0000u) != 0x3C000000u) continue;  // lis rA, H (addis rA, 0, H)
+            const std::uint32_t a = (lis >> 21) & 31u;
+            const std::uint32_t high = (lis & 0xFFFFu) << 16;
+            for (std::size_t j = i + 1; j < words && j <= i + kPairWindow; ++j) {
+                const std::uint32_t w = be32(r.bytes + j * 4);
+                const std::uint32_t op = w >> 26;
+                const std::uint32_t src = op == 24 ? (w >> 21) & 31u : (w >> 16) & 31u;
+                const std::uint32_t dst = op == 24 ? (w >> 16) & 31u : (w >> 21) & 31u;
+                if ((op != 14 && op != 24) || src != a) continue;  // addi rB, rA, L / ori rB, rA, L
+                const std::uint32_t low = op == 14 ? static_cast<std::uint32_t>(static_cast<std::int16_t>(w & 0xFFFFu))
+                                                   : (w & 0xFFFFu);
+                const std::uint32_t base = high + low;
+                const std::uint32_t at = r.address + static_cast<std::uint32_t>(j * 4);
+                if (hit(base)) {
+                    if (const std::uint32_t f = function_start(text, at)) functions.insert(f);
+                } else if (std::any_of(targets.begin(), targets.end(),
+                                       [base](std::uint32_t t) { return t > base && t - base < kPoolReach; })) {
+                    // A string pool's base: its strings are `addi rX, rB, offset`.
+                    for (std::size_t k = j + 1; k < words && k <= j + kPoolWindow; ++k) {
+                        const std::uint32_t u = be32(r.bytes + k * 4);
+                        if (u == kBlr) break;
+                        if ((u >> 26) != 14 || ((u >> 16) & 31u) != dst) continue;
+                        const std::uint32_t value = base + static_cast<std::uint32_t>(static_cast<std::int16_t>(u & 0xFFFFu));
+                        if (!hit(value)) continue;
+                        if (const std::uint32_t f =
+                                function_start(text, r.address + static_cast<std::uint32_t>(k * 4)))
+                            functions.insert(f);
+                    }
+                }
+                break;  // the first use of rA after the lis
+            }
+        }
+    }
+    if (functions.size() != 1) {
+        char buf[96];
+        std::snprintf(buf, sizeof(buf), "%u functions use the \"Unhandled Exception\" string",
+                      static_cast<unsigned>(functions.size()));
+        error = buf;
+        return false;
+    }
+    out = *functions.begin();
+    error.clear();
+    return true;
+}
+
 }  // namespace riftwii

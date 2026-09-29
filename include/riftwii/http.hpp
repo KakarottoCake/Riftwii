@@ -7,8 +7,9 @@
 #include <vector>
 
 // HTTP/1.1 GETs, for what RiftWii fetches from the internet (game titles
-// from GameTDB, cheat files, the update check): the request, and the
-// response as read from the connection. https:// goes through the Wii's
+// from GameTDB, cheat files, the update check), and the POST that sends a
+// problem report: the request, and the response as read from the
+// connection. https:// goes through the Wii's
 // TLS client (wii/tls.cpp); the socket loop is in wii/online.cpp.
 namespace riftwii {
 
@@ -23,6 +24,8 @@ bool parse_http_url(const std::string& url, HttpUrl& out, std::string& error);
 
 // The request's bytes: GET, Host, a User-Agent, Connection: close.
 std::string http_get_request(const HttpUrl& url);
+// A POST of `body` (Content-Type `content_type`), body included.
+std::string http_post_request(const HttpUrl& url, const std::string& content_type, const std::string& body);
 
 struct HttpResponse {
     int status = 0;

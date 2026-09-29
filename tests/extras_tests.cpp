@@ -48,6 +48,14 @@ void TestHttp() {
     EXPECT_EQ(url.host, "api.github.com");
     EXPECT_TRUE(http_get_request(url).find("Host: api.github.com\r\n") != std::string::npos);
     EXPECT_FALSE(parse_http_url("ftp://www.gametdb.com/", url, error));
+    // The problem report's POST: headers, one blank line, then the body.
+    EXPECT_TRUE(parse_http_url("https://paste.rs/", url, error));
+    EXPECT_EQ(http_post_request(url, "text/plain; charset=utf-8", "ab\ncd"),
+              std::string("POST / HTTP/1.1\r\nHost: paste.rs\r\nUser-Agent: RiftWii\r\nAccept: */*\r\n"
+                          "Connection: close\r\nContent-Type: text/plain; charset=utf-8\r\n"
+                          "Content-Length: 5\r\n\r\nab\ncd"));
+    EXPECT_EQ(http_get_request(url), std::string("GET / HTTP/1.1\r\nHost: paste.rs\r\nUser-Agent: RiftWii\r\n"
+                                                 "Accept: */*\r\nConnection: close\r\n\r\n"));
 
     // The update check.
     std::string tag;
@@ -666,45 +674,58 @@ void TestReturnTo() {
     auto get = [](const std::vector<std::uint8_t>& b, std::size_t at) {
         return (std::uint32_t(b[at]) << 24) | (std::uint32_t(b[at + 1]) << 16) | (std::uint32_t(b[at + 2]) << 8) | b[at + 3];
     };
-    std::vector<std::uint8_t> text(0x1000, 0), data(0x100, 0);
+    std::vector<std::uint8_t> text(0x1000, 0), stub(32, 0);
     // __OSLaunchMenu's three places: li r4,2; li r3,1 (li r5,0 after the first).
     for (std::size_t at : {0x100u, 0x180u, 0x200u}) {
         put(text, at, 0x38800002);
         put(text, at + 4, 0x38600001);
     }
     put(text, 0x108, 0x38A00000);
-    std::memcpy(data.data() + 0x10, "Metrowerks Target", 17);
-    std::vector<CodeSpan> spans = {{text.data(), text.size(), 0x80004000}, {data.data(), data.size(), 0x80300000}};
-    const ReturnToReport r = patch_return_to(spans, 0x55465457);
+    // The stub near MEM1's top, the places low in it (a backward call).
+    const std::uint32_t stub_address = 0x817E0000;
+    const std::vector<std::uint8_t> pristine = text;
+    std::vector<CodeSpan> spans = {{text.data(), text.size(), 0x80004000}};
+    const ReturnToReport r = patch_return_to(spans, 0x55465457, stub.data(), stub_address);
     EXPECT_TRUE(r.patched);
     EXPECT_EQ(r.sites, 3u);
-    // The stub, 0x30 past the string.
-    EXPECT_EQ(get(data, 0x40), 0x3C600001u);
-    EXPECT_EQ(get(data, 0x44), 0x60630001u);
-    EXPECT_EQ(get(data, 0x48), 0x3C805546u);
-    EXPECT_EQ(get(data, 0x4C), 0x60845457u);
-    EXPECT_EQ(get(data, 0x50), 0x4E800020u);
+    EXPECT_EQ(get(stub, 0x0), 0x3C600001u);
+    EXPECT_EQ(get(stub, 0x4), 0x60630001u);
+    EXPECT_EQ(get(stub, 0x8), 0x3C805546u);
+    EXPECT_EQ(get(stub, 0xC), 0x60845457u);
+    EXPECT_EQ(get(stub, 0x10), 0x4E800020u);
     // Each place calls it and the second word is a nop.
     for (std::size_t at : {0x100u, 0x180u, 0x200u}) {
         const std::uint32_t bl = get(text, at);
         EXPECT_EQ(bl & 0xFC000003u, 0x48000001u);
-        EXPECT_EQ(0x80004000u + static_cast<std::uint32_t>(at) + (bl & 0x03FFFFFCu), 0x80300040u);
+        EXPECT_EQ(0x80004000u + static_cast<std::uint32_t>(at) + (bl & 0x03FFFFFCu), stub_address);
         EXPECT_EQ(get(text, at + 4), 0x60000000u);
     }
     EXPECT_EQ(get(text, 0x108), 0x38A00000u);
-    // Two places only: nothing written.
-    std::vector<std::uint8_t> short_text(0x400, 0), short_data(0x100, 0);
+    // A call from above the stub (a negative offset).
+    std::vector<std::uint8_t> high(0x400, 0), stub2(32, 0);
+    for (std::size_t at : {0x100u, 0x180u, 0x200u}) {
+        put(high, at, 0x38800002);
+        put(high, at + 4, 0x38600001);
+    }
+    put(high, 0x108, 0x38A00000);
+    EXPECT_TRUE(patch_return_to({{high.data(), high.size(), 0x81000000}}, 0x55465457, stub2.data(), 0x80F00000).patched);
+    EXPECT_EQ(0x81000100u + (get(high, 0x100) & 0x03FFFFFCu) - 0x04000000u, 0x80F00000u);
+    // Two places only, or no stub: nothing written.
+    std::vector<std::uint8_t> short_text(0x400, 0), short_stub(32, 0);
     for (std::size_t at : {0x100u, 0x180u}) {
         put(short_text, at, 0x38800002);
         put(short_text, at + 4, 0x38600001);
     }
     put(short_text, 0x108, 0x38A00000);
-    std::memcpy(short_data.data() + 0x10, "Metrowerks Target", 17);
     const std::vector<std::uint8_t> before = short_text;
-    const ReturnToReport s = patch_return_to({{short_text.data(), short_text.size(), 0x80004000},
-                                              {short_data.data(), short_data.size(), 0x80300000}}, 0x55465457);
+    const ReturnToReport s = patch_return_to({{short_text.data(), short_text.size(), 0x80004000}}, 0x55465457,
+                                             short_stub.data(), stub_address);
     EXPECT_FALSE(s.patched);
     EXPECT_TRUE(short_text == before);
+    EXPECT_TRUE(short_stub == std::vector<std::uint8_t>(32, 0));
+    std::vector<std::uint8_t> t3 = pristine;
+    EXPECT_FALSE(patch_return_to({{t3.data(), t3.size(), 0x80004000}}, 0x55465457, nullptr, 0).patched);
+    EXPECT_TRUE(t3 == pristine);
 }
 
 void TestPlayLogRecord() {

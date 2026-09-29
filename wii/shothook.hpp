@@ -52,9 +52,12 @@ struct ShotIpc {
 
 // Before the <memory> patches. `arena1_hi` and `arena2_lo` are the arena
 // ends the other blobs left; `pad_read` is PADRead when the adapter found
-// it (0: searched here).
+// it (0: searched here). `direct`: no frame copy in MEM2 (the picture is
+// written straight from the frame buffer), for games that need all their
+// memory, such as big mods: Newer Super Mario Bros. Wii crashes on its
+// title screen with 0.8 MB of MEM2 gone, and runs with 300 KB.
 bool plan_shot_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t mem1_floor,
-                    std::uint32_t arena2_lo, const ShotIpc& known, std::uint32_t pad_read, bool demo,
+                    std::uint32_t arena2_lo, const ShotIpc& known, std::uint32_t pad_read, bool demo, bool direct,
                     const std::vector<MemoryPatch>& patches, ShotHook& out, std::string& why);
 
 // Last of the hooks (after the patches, the cheats and the adapter's).

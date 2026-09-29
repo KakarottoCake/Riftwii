@@ -2,6 +2,9 @@
 /* The in-game screenshot blob: the combo (runtime/rtshot.h) watched in
  * the game's Bluetooth reads (IOS_IoctlvAsync hooked) and in PADRead,
  * the picture the video interface shows copied into MEM2 when it fires,
+ * or, in direct mode, written straight from the game's frame buffer
+ * (no copy, so no 0.8 MB of the game's MEM2; a moving picture may shear
+ * a little, as the game redraws it while the write runs),
  * and the copy written to the NAND (/shared2/riftwii/shotNNNN.raw)
  * through the game's own asynchronous IOS calls, one request after the
  * other from their completions, so the game never waits for it. The
@@ -32,7 +35,8 @@
 #define RT_SHOT_CONTEXT_BYTES 128u
 
 /* rt_shot_context.flags */
-#define RT_SHOT_FLAG_DEMO 1u  /* also 20 and 40 seconds after the first Wii Remote report (Dolphin tests) */
+#define RT_SHOT_FLAG_DEMO 1u    /* also 20 and 40 seconds after the first Wii Remote report (Dolphin tests) */
+#define RT_SHOT_FLAG_DIRECT 2u  /* no frame copy: the NAND write reads the frame buffer on screen */
 
 #define RT_SHOT_MAX 32u       /* screenshots a game session keeps at most (about 26 MB of NAND) */
 #define RT_SHOT_WATCHES 8u    /* Bluetooth reads watched at once */
@@ -46,6 +50,7 @@
 #define RT_SHOT_WRITE 5u
 #define RT_SHOT_CLOSE_FILE 6u
 #define RT_SHOT_CLOSE_FS 7u
+#define RT_SHOT_WRITE_PIXELS 8u  /* direct mode: the picture, after the header */
 
 /* Big-endian words at the start of the blob. */
 struct rt_shot_header {
@@ -66,7 +71,7 @@ struct rt_shot_header {
 struct rt_shot_context {
     uint32_t magic;
     uint32_t state;            /* struct rt_shot_state, MEM2 */
-    uint32_t frame;            /* RTSHOT_FRAME_BYTES, MEM2, 32-byte aligned */
+    uint32_t frame;            /* RTSHOT_FRAME_BYTES, MEM2, 32-byte aligned; 0 in direct mode */
     uint32_t open_async;       /* the game's IOS_OpenAsync (not through another blob) */
     uint32_t close_async;
     uint32_t write_async;
@@ -101,9 +106,12 @@ struct rt_shot_state {
     uint32_t bytes;            /* the file's size */
     uint32_t tries;            /* CreateFile names tried */
     int32_t error;             /* the job's first failure */
+    uint32_t pixels;           /* direct mode: the frame buffer on screen (cached address) */
+    uint32_t pixel_bytes;
     char path[64] __attribute__((aligned(32)));
     char device[32] __attribute__((aligned(32)));
     uint8_t attr[96] __attribute__((aligned(32)));
+    uint8_t header[RTSHOT_HEADER_BYTES] __attribute__((aligned(32)));  /* direct mode */
 };
 
 #ifdef RT_TARGET_PPC

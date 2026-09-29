@@ -38,8 +38,10 @@
 
 #include "libwiigui/gui.h"
 #include "gui_flowlist.hpp"
+#include "memlimits.hpp"
 #include "covers.hpp"
 #include "riftwii/coverart.hpp"
+#include "riftwii/qrcode.hpp"
 #include "riftwii/update.hpp"
 #include "gui_gamegrid.hpp"
 #include "guiscript.hpp"
@@ -63,10 +65,10 @@
 #include "ios_reload.hpp"
 #include "menuios.hpp"
 #include "online.hpp"
+#include "reportsend.hpp"
 #include "restart.hpp"
 #include "channel.hpp"
 #include "riftwii/settingsfile.hpp"
-#include "sdcard_qr.hpp"
 #include "netpacks.hpp"
 #include "netsock.hpp"
 #include "video.h"
@@ -124,16 +126,42 @@ static bool swallowInput = false;
 static int pointerX[4], pointerY[4];
 static bool pointerSeen[4];
 
-// Whether anyone is using a controller this frame.
-static bool AnyActivity()
+// What is in use, one bit each. The log names the ones seen last when the
+// screen dims and the ones that woke it, so a problem report shows which
+// controller the idle timer stopped seeing.
+enum ActivitySource { kActRemote, kActPorts, kActAdapter, kActPad, kActGamePad, kActPointer, kActSources };
+static const char* const kActNames[kActSources] = {
+	"Wii Remote", "GameCube ports", "GameCube adapter", "menu pad", "Wii U GamePad", "pointer"};
+static u64 lastSeen[kActSources];
+static bool dimLogged = false;
+
+static bool Pushed(int x, int y)
 {
-	bool active = false;
+	return std::abs(x) > 40 || std::abs(y) > 40;
+}
+
+// Which controllers someone is using this frame, as ActivitySource bits.
+// "menu pad" is what the menu reads: the GameCube ports' and the adapter's
+// buttons together, and the stick the pointer has not taken.
+static unsigned ActivitySources()
+{
+	unsigned used = 0;
+	riftwii::wii::GcAdapterView adapter;
+	const bool adapterOpen = riftwii::wii::GcAdapterMenuLastView(adapter) && adapter.open;
 	for (int i = 0; i < 4; ++i) {
 		const GuiTrigger& t = userInput[i];
-		if (t.pad.btns_h || t.wiidrcdata.btns_h || std::abs(t.pad.stickX) > 40 || std::abs(t.pad.stickY) > 40)
-			active = true;
+		if (PAD_ButtonsHeld(i) || Pushed(PAD_StickX(i), PAD_StickY(i)))
+			used |= 1u << kActPorts;
+		if (adapterOpen && i < static_cast<int>(GCAD_PORTS) && adapter.present[i] &&
+		    (adapter.pads[i].buttons || Pushed(adapter.pads[i].stick_x, adapter.pads[i].stick_y)))
+			used |= 1u << kActAdapter;
+		if (t.pad.btns_h || Pushed(t.pad.stickX, t.pad.stickY))
+			used |= 1u << kActPad;
+		if (t.wiidrcdata.btns_h)
+			used |= 1u << kActGamePad;
 		if (!t.wpad) continue;
-		if (t.wpad->btns_h) active = true;
+		if (t.wpad->btns_h)
+			used |= 1u << kActRemote;
 		const bool seen = t.wpad->ir.valid;
 		const int x = static_cast<int>(t.wpad->ir.x), y = static_cast<int>(t.wpad->ir.y);
 		// A remote lying still jitters a little: only a real move counts.
@@ -141,10 +169,42 @@ static bool AnyActivity()
 			pointerSeen[i] = seen;
 			pointerX[i] = x;
 			pointerY[i] = y;
-			active = true;
+			used |= 1u << kActPointer;
 		}
 	}
-	return active;
+	return used;
+}
+
+// The adapter's state for the dim log: whether its reports still come.
+static std::string AdapterState()
+{
+	riftwii::wii::GcAdapterView adapter;
+	if (!riftwii::wii::GcAdapterMenuLastView(adapter) || !adapter.open) return "adapter not in use";
+	std::string ports;
+	for (int i = 0; i < static_cast<int>(GCAD_PORTS); ++i)
+		if (adapter.present[i]) ports += (ports.empty() ? "" : ",") + std::to_string(i + 1);
+	return "adapter " + std::to_string(adapter.reports) + " reports, link " + std::to_string(adapter.link) +
+	       ", ports " + (ports.empty() ? std::string("none") : ports);
+}
+
+static void LogDimmed(u64 now)
+{
+	std::string seen;
+	for (int s = 0; s < kActSources; ++s) {
+		seen += s ? ", " : "";
+		seen += kActNames[s];
+		seen += lastSeen[s] ? " " + std::to_string(diff_sec(lastSeen[s], now)) + " s ago" : std::string(" never");
+	}
+	logf("Screen dimmed after %u s idle; last used: %s; %s\n", static_cast<unsigned>(diff_sec(lastActive, now)),
+	     seen.c_str(), AdapterState().c_str());
+}
+
+static void LogWoke(unsigned used)
+{
+	std::string by;
+	for (int s = 0; s < kActSources; ++s)
+		if (used & (1u << s)) by += (by.empty() ? "" : ", ") + std::string(kActNames[s]);
+	logf("Screen woke: %s; %s\n", by.c_str(), AdapterState().c_str());
 }
 
 static bool AnyHeld()
@@ -197,11 +257,20 @@ UpdateGUI(void *arg)
 			riftwii::wii::GuiScriptApply();
 			riftwii::wii::ScreenshotPoll();
 			const u64 now = gettime();
-			if (AnyActivity() || lastActive == 0) {
+			const unsigned used = ActivitySources();
+			for (int s = 0; s < kActSources; ++s)
+				if (used & (1u << s)) lastSeen[s] = now;
+			if (used || lastActive == 0) {
 				if (dimAlpha > 0) swallowInput = true;
+				if (dimLogged && used) LogWoke(used);
+				dimLogged = false;
 				lastActive = now;
 			}
 			const bool idle = dimAllowed && diff_sec(lastActive, now) >= RIFTWII_DIM_SECONDS;
+			if (idle && !dimLogged) {
+				LogDimmed(now);
+				dimLogged = true;
+			}
 			dimAlpha = idle ? std::min(dimAlpha + 4, 150) : std::max(dimAlpha - 30, 0);
 			if (swallowInput && !AnyHeld()) swallowInput = false;
 			mainWindow->Draw();
@@ -438,9 +507,14 @@ static std::string MenuIosNote(int slot)
 }
 
 // The pack's name without ".xml", for display; a code build's is its
-// folder's ("rex_/RSBE01.GCT": "rex_ (codes)").
+// folder's ("rex_/RSBE01.GCT": "rex_ (codes)"; one inside the virtual SD
+// card, "sd.raw/Project+/RSBE01.GCT": "Project+ (in sd.raw)").
 static std::string PackName(const std::string& file)
 {
+	if (file.compare(0, 7, "sd.raw/") == 0) {
+		const std::string rest = file.substr(7);
+		return rest.substr(0, rest.find('/')) + " (in sd.raw)";
+	}
 	if (file.size() > 4) {
 		const std::string ext = file.substr(file.size() - 4);
 		if (strcasecmp(ext.c_str(), ".xml") == 0) return file.substr(0, file.size() - 4);
@@ -457,7 +531,11 @@ static std::string PackName(const std::string& file)
 static std::string PackSummary(const riftwii::LaunchPackage& p)
 {
 	if (p.code_build()) {
-		const std::string where = p.gct_path;
+		const bool image = p.gct_path.compare(0, 5, "vsd:/") == 0;
+		const std::string where = image ? "sd.raw/" + p.gct_path.substr(5) : p.gct_path;
+		if (image)
+			return p.enabled ? "On. Runs the codes in " + where + "; the game gets sd.raw as its SD card."
+					 : "Off. A turns on the codes in " + where + ".";
 		return p.enabled ? "On. Runs the codes in " + where + "; they load the build's files from the SD card."
 				 : "Off. A turns on the codes in " + where + ".";
 	}
@@ -645,7 +723,7 @@ static std::string HomeStatus(const FrontendState& state, std::size_t shown)
 	if (shown <= 1) return "No games found (usb:/wbfs, usb:/games, sd:/wbfs, sd:/games)";
 	// The disc drive's tile is not a game.
 	const std::string count = shown == 2 ? std::string(tr("1 game")) : tr("{1} games", {std::to_string(shown - 1)});
-	return std::string(tr(FilterLabel(g_filter))) + ": " + count + "   " + tr("1: view   2: settings   -: A to Z   +: rescan");
+	return std::string(tr(FilterLabel(g_filter))) + ": " + count + "\n" + tr("1: view   2: settings   -/+: pages   B: A to Z");
 }
 
 class Panel : public GuiElement {
@@ -663,6 +741,33 @@ private:
 class Dim : public GuiElement {
 public:
 	void Draw() override { Menu_DrawRectangle(0, 0, screenwidth, screenheight, (GXColor){0, 0, 0, 150}, 1); }
+};
+
+// A QR code on screen: a white quiet zone of two modules, then the dark
+// modules, a run of them on a row as one rectangle.
+class QrImage : public GuiElement {
+public:
+	QrImage(const riftwii::QrCode& code, int x, int y, int module) : code(code), x(x), y(y), module(module) {}
+	static int Side(const riftwii::QrCode& code, int module) { return (code.size + 4) * module; }
+	void Draw() override
+	{
+		if (code.size == 0) return;
+		const int quiet = 2 * module;
+		Menu_DrawRectangle(x, y, Side(code, module), Side(code, module), skin::kWhite, 1);
+		for (int r = 0; r < code.size; ++r) {
+			for (int c = 0; c < code.size;) {
+				if (!code.at(c, r)) { ++c; continue; }
+				int end = c;
+				while (end < code.size && code.at(end, r)) ++end;
+				Menu_DrawRectangle(x + quiet + c * module, y + quiet + r * module, (end - c) * module, module,
+					(GXColor){0, 0, 0, 255}, 1);
+				c = end;
+			}
+		}
+	}
+private:
+	riftwii::QrCode code;
+	int x, y, module;
 };
 
 class PopupBox {
@@ -697,6 +802,13 @@ public:
 		mainWindow->SetState(STATE::DEFAULT);
 	}
 	void SetBody(const std::string& body) { bodyTxt.SetText(body.c_str()); }
+	// Something more drawn in the box (it must outlive the box), with the
+	// text kept to `width` beside it.
+	void Add(GuiElement* e, int width)
+	{
+		w.Append(e);
+		bodyTxt.SetWrap(true, width, 7);
+	}
 	// Until a button is pressed: 0 the first, 1 the second.
 	int Wait()
 	{
@@ -928,6 +1040,62 @@ static void RunUpdate(const std::string& latest)
 	g_homeNotice = tr("RiftWii {1} is installed. Start RiftWii again to use it.", {latest});
 }
 
+// Sends a problem report (wii/reportsend.hpp) and shows its link, with a
+// QR code of it for a phone.
+static void SendReport(const std::string& reason)
+{
+	riftwii::wii::ReportOutcome r;
+	{
+		PopupBox box(tr("Sending a report"),
+			tr("Gathering the logs and sending them to paste.rs. This can take half a minute..."));
+		ResumeGui();
+		r = riftwii::wii::SendProblemReport(reason);
+		HaltGui();
+	}
+	if (!r.sent) {
+		ShowPopup(tr("Report not sent"),
+			r.saved ? tr("It could not be sent: {1}. It is saved on the SD card as sd:/riftwii/report.txt: send that file instead.",
+					{FlatCapped(r.error, 120)})
+				: tr("It could not be sent or saved: {1}", {FlatCapped(r.error, 120)}),
+			tr("OK"));
+		return;
+	}
+	riftwii::QrCode code;
+	riftwii::make_qr(r.link, code);
+	constexpr int kModule = 4;
+	const int side = QrImage::Side(code, kModule);
+	QrImage qr(code, 588 - 16 - side, 150, kModule);
+	std::string body = std::string(tr("Send this link to whoever is helping you, or scan the code with a phone:")) +
+		"\n\n" + r.link;
+	if (r.partial) body += std::string("\n\n") + tr("The report was too big, so only its start was kept.");
+	PopupBox box(tr("Report sent"), body, tr("OK"));
+	if (code.size != 0) box.Add(&qr, 588 - 16 - side - 56 - 16);
+	box.Wait();
+}
+
+// What a report holds and where it goes, said before anything is sent.
+static const char* const kReportWhat =
+	"It holds RiftWii's logs and settings, the game's choices and packs, and which console, IOS and controllers this is. It goes to paste.rs, where anyone with its link can read it.";
+
+// After a crash or a failed launch, once: send a report?
+static void OfferReport()
+{
+	static bool asked = false;
+	if (asked) return;
+	asked = true;
+	std::string what;
+	if (!riftwii::wii::UnreportedCrash(what)) return;
+	const bool game = what == "game";
+	const bool crash = what == "crash";
+	const int choice = ShowPopup(game ? tr("The game crashed last time") : crash ? tr("RiftWii crashed last time")
+			: tr("The last launch failed"),
+		std::string(tr("Send a report of what happened?")) + " " + tr(kReportWhat), tr("Send"), tr("Not now"));
+	riftwii::wii::NoteCrashAsked();
+	const char* what_happened = game ? "the game crashed" : crash ? "RiftWii crashed" : "the launch failed";
+	logf("Problem report: %s after the last run (%s)\n", choice == 0 ? "sending" : "declined", what_happened);
+	if (choice == 0) SendReport(what_happened);
+}
+
 // A newer release found at start: the player picks Update or Not now, and
 // Not now is asked once more before it counts (and is logged as a choice).
 static bool AgreeToUpdate(const std::string& latest)
@@ -997,7 +1165,7 @@ static void ShowTutorial()
 		{"Mods",
 		 "Put mod packs (the XML file and the folders that come with it) in sd:/riivolution or usb:/riivolution. Pick a game, open Mods, switch a pack on and choose its options. Start (or +) plays the game with them."},
 		{"Buttons",
-		 "Point with the Wii Remote and press A, or move with the D-pad. B goes back, 2 opens Settings and HOME opens the HOME Menu. The Classic Controller and GameCube controllers work too, with the same buttons."},
+		 "Point with the Wii Remote and press A, or move with the D-pad; in the games list, - and + turn the pages. B goes back, 2 opens Settings and HOME opens the HOME Menu. The Classic Controller and GameCube controllers work too, with the same buttons."},
 		{"You're all set",
 		 "Settings has the video, language, online and update options. For more help, see the guide on RiftWii's GitHub page or join the Discord. Settings > Tutorial shows this tour again."},
 	};
@@ -1064,6 +1232,7 @@ static void ScanDrives(FrontendState& state, GuiText& status)
 	const std::string net = riftwii::wii::RefreshNetworkPacks([&](const char* line) { status.SetText(line); });
 	if (!net.empty()) logf("%s\n", net.c_str());
 	HaltGui();
+	riftwii::wii::mem::CheckHeap("after the SD scan");
 	std::string sdError;
 	if (!sd) {
 		logf("SD scan failed: %s\n", error.c_str());
@@ -1075,6 +1244,7 @@ static void ScanDrives(FrontendState& state, GuiText& status)
 	ResumeGui();
 	const bool usb = scan_usb_games(state.usb_catalog, error);
 	HaltGui();
+	riftwii::wii::mem::CheckHeap("after the USB scan");
 	WarnAboutDrives(sdError, usb ? std::string() : error.empty() ? std::string("scan failed") : error);
 	if (sd) ReportCardLog();
 	if (!usb) {
@@ -1087,6 +1257,8 @@ static void ScanDrives(FrontendState& state, GuiText& status)
 	}
 	// After the USB scan: packs on the drive count too.
 	LoadPackIndex();
+	riftwii::wii::mem::CheckHeap("after the pack index");
+	OfferReport();
 	// A newer release, asked at every start when downloads are on; the
 	// player is asked before it is installed.
 	static bool updateChecked = false;
@@ -1097,6 +1269,7 @@ static void ScanDrives(FrontendState& state, GuiText& status)
 		ResumeGui();
 		const bool ok = riftwii::wii::CheckForUpdate(false, latest, newer, why);
 		HaltGui();
+		riftwii::wii::mem::CheckHeap("after the update check");
 		if (!ok) logf("Update check: %s\n", why.c_str());
 		else if (newer && riftwii::wii::UpdateInstalled(latest))
 			g_homeNotice = tr("RiftWii {1} is installed. Start RiftWii again to use it.", {latest});
@@ -1173,10 +1346,15 @@ static int MenuSource(FrontendState& state)
 		WPAD_BUTTON_1 | WPAD_CLASSIC_BUTTON_Y, PAD_BUTTON_Y, WIIDRC_BUTTON_X, &skin::iconDrives);
 	SkinButton settingsBtn(skin::roundBtn, skin::roundBtnOver, 2, 538, 386, nullptr,
 		WPAD_BUTTON_2 | WPAD_CLASSIC_BUTTON_X, PAD_TRIGGER_R, WIIDRC_BUTTON_Y, &skin::iconGear);
+	// Minus and Plus turn the grid's pages (in GuiGameGrid). Rescan is in
+	// Settings, and on X of a GameCube controller, which has neither. Its
+	// Wii Remote and Classic buttons are bits neither ever sends (a 0 would
+	// match any press that leaves that half empty).
+	constexpr u32 kNoWpadButton = 0x0020 | (0x0100u << 16);
 	GuiTrigger trigRescan, trigExit, trigJump;
-	trigRescan.SetButtonOnlyTrigger(-1, WPAD_BUTTON_PLUS | WPAD_CLASSIC_BUTTON_PLUS, PAD_BUTTON_X, WIIDRC_BUTTON_PLUS);
+	trigRescan.SetButtonOnlyTrigger(-1, kNoWpadButton, PAD_BUTTON_X, 0);
 	trigExit.SetButtonOnlyTrigger(-1, WPAD_BUTTON_HOME | WPAD_CLASSIC_BUTTON_HOME, PAD_BUTTON_START, WIIDRC_BUTTON_HOME);
-	trigJump.SetButtonOnlyTrigger(-1, WPAD_BUTTON_MINUS | WPAD_CLASSIC_BUTTON_MINUS, PAD_TRIGGER_L, WIIDRC_BUTTON_MINUS);
+	trigJump.SetButtonOnlyTrigger(-1, WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_TRIGGER_L, WIIDRC_BUTTON_B);
 	GuiButton rescanBtn(0, 0), exitBtn(0, 0), jumpBtn(0, 0);  // hotkeys only
 	rescanBtn.SetTrigger(&trigRescan);
 	exitBtn.SetTrigger(&trigExit);
@@ -1266,7 +1444,7 @@ static int MenuSource(FrontendState& state)
 				logf("Covers: stopped: %s\n", error.c_str());
 				g_coversOff = true;
 				coverQueue.clear();
-				coverNote = tr("Covers could not be downloaded ({1}). Press + to try again.", {FlatCapped(error, 60)});
+				coverNote = tr("Covers could not be downloaded ({1}). To try again, use Settings > Look for games again.", {FlatCapped(error, 60)});
 			}
 			if (coverNote.empty() && !coverQueue.empty())
 				coverNote = tr("Getting covers from GameTDB: {1} left", {std::to_string(coverQueue.size())});
@@ -1323,7 +1501,9 @@ static int MenuSource(FrontendState& state)
 				menu = MENU_HOME;
 			} else {
 				logf("Home: %s\n", error.c_str());
-				statusTxt.SetText(FlatCapped(error, 150).c_str());
+				std::string shown = FlatCapped(error, 150);
+				if (!shown.empty() && shown[0] >= 'a' && shown[0] <= 'z') shown[0] = static_cast<char>(shown[0] - 'a' + 'A');
+				statusTxt.SetText(shown.c_str());
 			}
 		}
 		if (menu != MENU_NONE) {
@@ -1390,7 +1570,7 @@ private:
 // The game's banner: its hue across the top with light stripes.
 class GameBanner : public GuiElement {
 public:
-	static constexpr int kHeight = 136;
+	static constexpr int kHeight = 120;
 	explicit GameBanner(GXColor hue) : hue(hue) {}
 	void Draw() override {
 		Menu_DrawRectangle(0, 0, screenwidth, kHeight, hue, 1);
@@ -1702,7 +1882,8 @@ static void BuildModRows(const FrontendState& state, const std::string& scanStat
 		hint.dim = true;
 		hint.label = scanStatus != riftwii::wii::kScanReady ? FlatCapped(scanStatus, 44)
 			: state.model.packages.empty() ? "Put Riivolution XML in sd:/riivolution"
-			: tr("{1} XML file(s) are for other games", {std::to_string(state.model.packages.size())});
+			: state.model.packages.size() == 1 ? tr("1 XML file is for another game")
+			: tr("{1} XML files are for other games", {std::to_string(state.model.packages.size())});
 		add(hint, {RowRef::What::Note});
 	}
 	FlowRow pick;
@@ -1957,7 +2138,9 @@ static std::string ModsNote(const FrontendState& state, const std::string& scanS
 	std::string names;
 	for (const riftwii::LaunchPackage& p : state.model.packages)
 		if (riftwii::show_package(p) && p.valid && p.enabled) names += (names.empty() ? "" : ", ") + PackName(p.file);
-	if (names.empty()) return tr("{1} mod pack(s) for this game. Press A to turn them on.", {std::to_string(shown)});
+	if (names.empty())
+		return shown == 1 ? tr("1 mod pack for this game. Press A to turn it on.")
+				  : tr("{1} mod packs for this game. Press A to turn them on.", {std::to_string(shown)});
 	return FlatCapped(tr("On: {1}", {names}), 90);
 }
 
@@ -2227,28 +2410,28 @@ static int MenuHome(FrontendState& state)
 	GameBanner banner(skin::HueFor(state.game_id));
 	const std::string where = SourceWhere(state);
 	GuiText whereTxt(where.c_str(), 16, skin::WithAlpha(skin::kWhite, 200));
-	Place(whereTxt, 40, 16);
+	Place(whereTxt, 40, 10);
 	const std::string title = GameTitle(state);
 	GuiText titleTxt(title.c_str(), 28, skin::kWhite);
-	Place(titleTxt, 40, 38);
+	Place(titleTxt, 40, 30);
 	const bool hasCover = riftwii::wii::CoverStored(state.game_id);
 	titleTxt.SetWrap(true, hasCover ? 460 : 560, 2);
-	CoverArt cover(state.game_id, 528, 12);
+	CoverArt cover(state.game_id, 528, 4);
 	// The ID, and how often the game was played from RiftWii.
 	const std::string played = riftwii::wii::PlayNote(state.game_id);
 	const std::string idLine = played.empty() ? state.game_id : state.game_id + "   " + played;
 	GuiText idTxt(idLine.c_str(), 16, skin::WithAlpha(skin::kWhite, 200));
-	Place(idTxt, 40, 108);
+	Place(idTxt, 40, 96);
 
-	Panel panel(skin::panelGame, 34, 144);
-	GuiFlowList list(46, 150, 548, 5);
+	Panel panel(skin::panelGame, 34, 124);
+	GuiFlowList list(46, 130, 548, 5);
 	list.SetRows(&rows);
 	list.Select(0);
 
 	GuiText statusTxt(ModsNote(state, scanStatus).c_str(), 15, skin::kInkSoft);
 	// Two lines between the card and the buttons: a cIOS remedy or a
 	// compile error must stay readable in full.
-	Place(statusTxt, 0, 368, true);
+	Place(statusTxt, 0, 362, true);
 	statusTxt.SetWrap(true, 572, 2);
 
 	SkinButton backBtn(skin::pill, skin::pillOver, 4, 50, 406, "Back",
@@ -2676,7 +2859,7 @@ static int MenuSettings(FrontendState& state)
 
 	bool netOn = riftwii::wii::NetworkPacksEnabled();
 	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kGameLanguage, kGameCios, kServer, kHomeTiles, kSounds, kMusic, kReturnTo, kShots, kOnline, kNames, kGcAdapter, kGcTest, kIos, kNet, kResync,
-		kRescan, kChannel, kUpdate, kWiiChannel, kTutorial, kCredits, kExit, kNone };
+		kRescan, kChannel, kUpdate, kReport, kWiiChannel, kTutorial, kCredits, kExit, kNone };
 	// The RiftWii channel on the Wii Menu (wii/channel.hpp).
 	unsigned channelVersion = 0;
 	const bool channelThere = riftwii::wii::ChannelInstalled(channelVersion);
@@ -2774,6 +2957,12 @@ static int MenuSettings(FrontendState& state)
 		update.dim = !settings.online;
 		rows.push_back(update);
 		actions.push_back(kUpdate);
+		FlowRow report;
+		report.kind = FlowRow::Kind::Action;
+		report.label = tr("Send a problem report");
+		report.value = tr("Send");
+		rows.push_back(report);
+		actions.push_back(kReport);
 		FlowRow wiiChannel;
 		wiiChannel.kind = FlowRow::Kind::Action;
 		wiiChannel.label = tr("RiftWii channel on the Wii Menu");
@@ -2854,7 +3043,7 @@ static int MenuSettings(FrontendState& state)
 			case kHomeTiles: return tr("Covers shows each game's box art from GameTDB, fetched while Home is open when downloads are on. Names shows the names only.");
 			case kSounds: return tr("How loud the menu's clicks are. Quiet softens the tick the pointer makes moving onto something.");
 			case kReturnTo: return ReturnToNote();
-			case kShots: return tr("In a game, hold 1 and press HOME (or hold L and R and press Down on a GameCube controller). The pictures go to sd:/riftwii/screenshots the next time RiftWii starts. Takes about 0.8 MB of the game's memory.");
+			case kShots: return tr("Experimental. In a game, hold 1 and press HOME (or hold L and R and press Down on a GameCube controller). The pictures go to sd:/riftwii/screenshots the next time RiftWii starts. Some games and mods may not work with it.");
 			case kMusic: return riftwii::wii::MenuMusicFound() ? tr("Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder.") : tr("No music.ogg found in sd:/riftwii or in RiftWii's own folder.");
 			case kServer: return tr("The online server the game uses in place of Nintendo's, which closed. Custom uses wfc_domain in settings.txt.");
 			case kOnline:
@@ -2873,6 +3062,7 @@ static int MenuSettings(FrontendState& state)
 			case kRescan: return tr("Reads the SD card and the USB drive again.");
 			case kChannel: return ChannelNote(settings);
 			case kUpdate: return tr("This is RiftWii {1}. Looks on GitHub for a newer release.", {RIFTWII_VERSION});
+			case kReport: return tr("Something went wrong? Sends what it takes to find out to paste.rs, and shows a link to pass on.");
 			case kWiiChannel:
 				if (!channelCan) return std::string(tr(channelWhy.c_str())) + ".";
 				return tr("A Wii Menu channel that starts RiftWii from the SD card. It holds no copy of RiftWii, so updates keep working. Opens the channel installer, to add, update or remove it.");
@@ -2975,7 +3165,7 @@ static int MenuSettings(FrontendState& state)
 					break;
 				case kShots:
 					settings.screenshots = settings.screenshots == "off" ? "on" : "off";
-					saveAndNote(tr("In a game, hold 1 and press HOME (or hold L and R and press Down on a GameCube controller). The pictures go to sd:/riftwii/screenshots the next time RiftWii starts. Takes about 0.8 MB of the game's memory."));
+					saveAndNote(tr("Experimental. In a game, hold 1 and press HOME (or hold L and R and press Down on a GameCube controller). The pictures go to sd:/riftwii/screenshots the next time RiftWii starts. Some games and mods may not work with it."));
 					rebuild();
 					break;
 				case kMusic:
@@ -3106,6 +3296,10 @@ static int MenuSettings(FrontendState& state)
 					}
 					break;
 				}
+				case kReport:
+					if (ShowPopup(tr("Send a problem report?"), tr(kReportWhat), tr("Send"), tr("Cancel")) == 0)
+						SendReport("sent from Settings");
+					break;
 				case kWiiChannel: {
 					if (!channelCan) {
 						note(std::string(tr(channelWhy.c_str())) + ".");
@@ -3146,37 +3340,11 @@ static int MenuSettings(FrontendState& state)
 // ---------------------------------------------------------------------------
 // No SD card: RiftWii keeps its settings, logs and saves there, so it
 // does not run without one (USB mode is not supported yet). A QR code
-// leads to SD cards to buy; tools/make_qr.py generates it.
+// leads to SD cards to buy.
 
 static bool g_noSdFromUsb = false;
 
 void SetNoSdCard(bool fromUsb) { g_noSdFromUsb = fromUsb; }
-
-class QrCode : public GuiElement {
-public:
-	QrCode(int x, int y, int module) : x(x), y(y), module(module) {}
-	// White quiet zone of two modules, then the dark modules, a run of
-	// them on a row as one rectangle.
-	void Draw() override
-	{
-		const int quiet = 2 * module;
-		const int side = kSdCardQrSize * module + 2 * quiet;
-		Menu_DrawRectangle(x, y, side, side, skin::kWhite, 1);
-		for (int r = 0; r < kSdCardQrSize; ++r) {
-			const char* row = kSdCardQr[r];
-			for (int c = 0; c < kSdCardQrSize;) {
-				if (row[c] != '#') { ++c; continue; }
-				int end = c;
-				while (end < kSdCardQrSize && row[end] == '#') ++end;
-				Menu_DrawRectangle(x + quiet + c * module, y + quiet + r * module, (end - c) * module, module,
-					(GXColor){0, 0, 0, 255}, 1);
-				c = end;
-			}
-		}
-	}
-private:
-	int x, y, module;
-};
 
 static int MenuNeedsSd()
 {
@@ -3193,8 +3361,10 @@ static int MenuNeedsSd()
 	Place(bodyTxt, 56, 142);
 	bodyTxt.SetWrap(true, 330, 10);
 	constexpr int kModule = 5;
-	constexpr int kQrSide = kSdCardQrSize * kModule + 4 * kModule;
-	QrCode qr(588 - 16 - kQrSide, 138, kModule);
+	riftwii::QrCode code;
+	riftwii::make_qr("https://www.amazon.com/s?k=16gb+sd+card", code);
+	const int kQrSide = QrImage::Side(code, kModule);
+	QrImage qr(code, 588 - 16 - kQrSide, 138, kModule);
 	GuiText scanTxt(tr("Need a card? Scan this."), 14, skin::kInkDim);
 	scanTxt.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
 	scanTxt.SetPosition(588 - 16 - kQrSide / 2 - screenwidth / 2, 138 + kQrSide + 8);

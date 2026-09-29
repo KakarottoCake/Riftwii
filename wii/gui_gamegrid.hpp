@@ -78,6 +78,7 @@ private:
     GuiSound* soundClick;
     bool covers = false;
     int page = 0;
+    float slide = 0.0f;  // the page's offset while it slides in
     int focus = 0;       // item index
     int hover = -1;      // slot under a pointer, -1 when none
     int arrowHover = 0;

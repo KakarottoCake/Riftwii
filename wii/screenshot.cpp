@@ -156,6 +156,8 @@ void ImportGameShots() {
 void* Worker(void*) {
     g_busy = true;
     ImportGameShots();
+    // /dev/fs is not kept open: an IOS reload with it open damages the heap.
+    ISFS_Deinitialize();
     g_busy = false;
     while (!g_stop) {
         if (g_frame_ready) {

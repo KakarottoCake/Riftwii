@@ -118,11 +118,22 @@ bool parse_http_url(const std::string& url, HttpUrl& out, std::string& error) {
     return true;
 }
 
-std::string http_get_request(const HttpUrl& url) {
+namespace {
+
+std::string request_head(const char* method, const HttpUrl& url) {
     std::string host = url.host;
     if (url.port != (url.tls ? 443 : 80)) host += ":" + std::to_string(url.port);
-    return "GET " + url.path + " HTTP/1.1\r\nHost: " + host +
-           "\r\nUser-Agent: RiftWii\r\nAccept: */*\r\nConnection: close\r\n\r\n";
+    return std::string(method) + " " + url.path + " HTTP/1.1\r\nHost: " + host +
+           "\r\nUser-Agent: RiftWii\r\nAccept: */*\r\nConnection: close\r\n";
+}
+
+}  // namespace
+
+std::string http_get_request(const HttpUrl& url) { return request_head("GET", url) + "\r\n"; }
+
+std::string http_post_request(const HttpUrl& url, const std::string& content_type, const std::string& body) {
+    return request_head("POST", url) + "Content-Type: " + content_type +
+           "\r\nContent-Length: " + std::to_string(body.size()) + "\r\n\r\n" + body;
 }
 
 bool http_response_complete(const std::vector<std::uint8_t>& raw) {

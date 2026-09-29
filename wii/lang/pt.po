@@ -24,8 +24,8 @@ msgstr "Jogado uma vez, em {1}"
 msgid "Played {1} times, last on {2}"
 msgstr "Jogado {1} vezes, a última em {2}"
 
-msgid "1: view   2: settings   -: A to Z   +: rescan"
-msgstr "1: visão   2: configurações   -: A a Z   +: procurar de novo"
+msgid "1: view   2: settings   -/+: pages   B: A to Z"
+msgstr "1: visão   2: configurações   -/+: páginas   B: A a Z"
 
 msgid "Page {1} of {2}"
 msgstr "Página {1} de {2}"
@@ -165,8 +165,11 @@ msgstr "Nenhum mod para este jogo."
 msgid "No mods on the SD card. Put Riivolution XML in sd:/riivolution."
 msgstr "Nenhum mod no cartão SD. Coloque os XML do Riivolution em sd:/riivolution."
 
-msgid "{1} mod pack(s) for this game. Press A to turn them on."
-msgstr "{1} pacote(s) de mods para este jogo. Aperte A para ativá-los."
+msgid "1 mod pack for this game. Press A to turn it on."
+msgstr "1 pacote de mods para este jogo. Aperte A para ativá-lo."
+
+msgid "{1} mod packs for this game. Press A to turn them on."
+msgstr "{1} pacotes de mods para este jogo. Aperte A para ativá-los."
 
 msgid "No mods on the SD card"
 msgstr "Nenhum mod no cartão SD"
@@ -177,8 +180,11 @@ msgstr "Nenhum mod para este jogo"
 msgid "Put Riivolution XML in sd:/riivolution"
 msgstr "Coloque os XML do Riivolution em sd:/riivolution"
 
-msgid "{1} XML file(s) are for other games"
-msgstr "{1} arquivo(s) XML são de outros jogos"
+msgid "1 XML file is for another game"
+msgstr "1 arquivo XML é de outro jogo"
+
+msgid "{1} XML files are for other games"
+msgstr "{1} arquivos XML são de outros jogos"
 
 msgid "Package scan failed; go back and try again"
 msgstr "Falha ao ler os packs; volte e tente de novo"
@@ -339,8 +345,8 @@ msgstr "Nenhum jogo escolhido."
 msgid "No cheat file yet. Choose Download to get one."
 msgstr "Ainda não há arquivo de trapaças. Escolha Baixar para obter um."
 
-msgid "No cheat file. Put one at {1}"
-msgstr "Nenhum arquivo de trapaças. Coloque um em {1}"
+msgid "No cheat file at {1}"
+msgstr "Nenhum arquivo de trapaças em {1}"
 
 msgid "The cheat file has no cheats in it: {1}"
 msgstr "O arquivo de trapaças está vazio: {1}"
@@ -477,8 +483,8 @@ msgstr "Coloque os pacotes de mods (o arquivo XML e as pastas que vêm com ele) 
 msgid "Buttons"
 msgstr "Botões"
 
-msgid "Point with the Wii Remote and press A, or move with the D-pad. B goes back, 2 opens Settings and HOME opens the HOME Menu. The Classic Controller and GameCube controllers work too, with the same buttons."
-msgstr "Aponte com o Wii Remote e aperte A, ou mova com o direcional. B volta, 2 abre as configurações e HOME abre o menu HOME. O Classic Controller e os controles de GameCube também funcionam, com os mesmos botões."
+msgid "Point with the Wii Remote and press A, or move with the D-pad; in the games list, - and + turn the pages. B goes back, 2 opens Settings and HOME opens the HOME Menu. The Classic Controller and GameCube controllers work too, with the same buttons."
+msgstr "Aponte com o Wii Remote e aperte A, ou mova com o direcional; na lista de jogos, - e + mudam de página. B volta, 2 abre as configurações e HOME abre o menu HOME. O Classic Controller e os controles de GameCube também funcionam, com os mesmos botões."
 
 msgid "You're all set"
 msgstr "Tudo pronto"
@@ -675,8 +681,8 @@ msgstr "O servidor online que o jogo usa no lugar do da Nintendo, que foi deslig
 msgid "Getting covers from GameTDB: {1} left"
 msgstr "Baixando capas do GameTDB: faltam {1}"
 
-msgid "Covers could not be downloaded ({1}). Press + to try again."
-msgstr "Não foi possível baixar as capas ({1}). Aperte + para tentar de novo."
+msgid "Covers could not be downloaded ({1}). To try again, use Settings > Look for games again."
+msgstr "Não foi possível baixar as capas ({1}). Para tentar de novo, use Configurações > Procurar jogos de novo."
 
 msgid "Cover"
 msgstr "Capa"
@@ -729,8 +735,8 @@ msgstr "Música do menu"
 msgid "In-game screenshots"
 msgstr "Capturas no jogo"
 
-msgid "In a game, hold 1 and press HOME (or hold L and R and press Down on a GameCube controller). The pictures go to sd:/riftwii/screenshots the next time RiftWii starts. Takes about 0.8 MB of the game's memory."
-msgstr "Em um jogo, segure 1 e aperte HOME (ou segure L e R e aperte Baixo num controle de GameCube). As imagens vão para sd:/riftwii/screenshots na próxima vez que o RiftWii abrir. Usa cerca de 0,8 MB da memória do jogo."
+msgid "Experimental. In a game, hold 1 and press HOME (or hold L and R and press Down on a GameCube controller). The pictures go to sd:/riftwii/screenshots the next time RiftWii starts. Some games and mods may not work with it."
+msgstr "Experimental. Em um jogo, segure 1 e aperte HOME (ou segure L e R e aperte Baixo num controle de GameCube). As imagens vão para sd:/riftwii/screenshots na próxima vez que o RiftWii abrir. Alguns jogos e mods podem não funcionar com isso."
 
 msgid "Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder."
 msgstr "Música enquanto o menu está aberto: music.ogg de sd:/riftwii, ou a da pasta do RiftWii."
@@ -971,3 +977,54 @@ msgstr "Fechar"
 
 msgid "Opens the HOME Menu, as HOME does: the Homebrew Channel, the Wii Menu, Priiloader or power off."
 msgstr "Abre o menu HOME, como o botão HOME: Homebrew Channel, Menu Wii, Priiloader ou desligar."
+
+msgid "Sending a report"
+msgstr "Enviando um relatório"
+
+msgid "Gathering the logs and sending them to paste.rs. This can take half a minute..."
+msgstr "Juntando os registros e enviando para o paste.rs. Pode levar meio minuto..."
+
+msgid "Report not sent"
+msgstr "Relatório não enviado"
+
+msgid "It could not be sent: {1}. It is saved on the SD card as sd:/riftwii/report.txt: send that file instead."
+msgstr "Não foi possível enviar: {1}. Ele está salvo no cartão SD como sd:/riftwii/report.txt: envie esse arquivo."
+
+msgid "It could not be sent or saved: {1}"
+msgstr "Não foi possível enviar nem salvar: {1}"
+
+msgid "Send this link to whoever is helping you, or scan the code with a phone:"
+msgstr "Envie este link para quem está ajudando você, ou leia o código com um celular:"
+
+msgid "The report was too big, so only its start was kept."
+msgstr "O relatório era grande demais, então só o começo foi mantido."
+
+msgid "Report sent"
+msgstr "Relatório enviado"
+
+msgid "It holds RiftWii's logs and settings, the game's choices and packs, and which console, IOS and controllers this is. It goes to paste.rs, where anyone with its link can read it."
+msgstr "Ele traz os registros e as configurações do RiftWii, as escolhas e os packs do jogo, e qual console, IOS e controles são. Vai para o paste.rs, onde qualquer pessoa com o link pode lê-lo."
+
+msgid "RiftWii crashed last time"
+msgstr "O RiftWii travou da última vez"
+
+msgid "The game crashed last time"
+msgstr "O jogo travou da última vez"
+
+msgid "The last launch failed"
+msgstr "A última inicialização falhou"
+
+msgid "Send a report of what happened?"
+msgstr "Enviar um relatório do que aconteceu?"
+
+msgid "Send"
+msgstr "Enviar"
+
+msgid "Send a problem report"
+msgstr "Enviar um relatório de problema"
+
+msgid "Send a problem report?"
+msgstr "Enviar um relatório de problema?"
+
+msgid "Something went wrong? Sends what it takes to find out to paste.rs, and shows a link to pass on."
+msgstr "Algo deu errado? Envia ao paste.rs o necessário para descobrir e mostra um link para compartilhar."

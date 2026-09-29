@@ -21,6 +21,11 @@ constexpr const char* kCheatDir = "sd:/riftwii/cheats";
 bool HttpGet(const std::string& url, std::vector<std::uint8_t>& body, std::string& error,
              std::size_t max_bytes = 8u << 20, int timeout_ms = 15000);
 
+// One POST of `body`, no redirects. True when the server answered at
+// all: `status` and `answer` (its body, at most 64 KiB) are what it said.
+bool HttpPost(const std::string& url, const std::string& content_type, const std::string& body, int& status,
+              std::string& answer, std::string& error, int timeout_ms = 30000);
+
 // sd:/riftwii/titles-<lang>.txt, where the game names are kept.
 std::string TitlesPath(const std::string& lang);
 // Fetches the names when the file is missing or older than a week

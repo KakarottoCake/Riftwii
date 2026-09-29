@@ -4,8 +4,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/returnto.hpp"
 
-#include <cstring>
-
 namespace riftwii {
 namespace {
 
@@ -50,22 +48,9 @@ std::string ReturnToReport::describe() const {
     return "not patched: " + std::to_string(sites) + " of the 3 places found";
 }
 
-ReturnToReport patch_return_to(const std::vector<CodeSpan>& spans, std::uint32_t title_low) {
+ReturnToReport patch_return_to(const std::vector<CodeSpan>& spans, std::uint32_t title_low, std::uint8_t* stub,
+                               std::uint32_t stub_address) {
     ReturnToReport report;
-    // The stub's place: 0x30 past "Metrowerks T", word-aligned.
-    static const char kMark[] = "Metrowerks T";
-    std::uint8_t* stub = nullptr;
-    std::uint32_t stub_address = 0;
-    for (const CodeSpan& s : spans) {
-        for (std::size_t o = 0; !stub && o + 12 <= s.size; ++o) {
-            if (std::memcmp(s.bytes + o, kMark, 12) != 0) continue;
-            const std::size_t at = (o + 0x30 + 3) & ~std::size_t(3);
-            if (at + 20 <= s.size) {
-                stub = s.bytes + at;
-                stub_address = s.address + static_cast<std::uint32_t>(at);
-            }
-        }
-    }
     report.stub_place = stub != nullptr;
 
     // Newer SDKs load the title into r3/r4 (r5 = 0), older ones into r5/r6.

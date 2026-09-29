@@ -58,8 +58,9 @@ Tex Card(int w, int h, int margin, float radius, bool over, bool primary = false
     // GX textures come in 4x4 tiles: pad right and bottom to fit.
     Canvas c((w + 2 * margin + 3) & ~3, (h + 2 * margin + 3) & ~3);
     const float x = static_cast<float>(margin), y = static_cast<float>(margin);
-    if (over) c.shadow(x - 1, y - 1, w + 2.0f, h + 2.0f, radius + 1, margin - 1.0f, kGlow);
-    c.shadow(x, y + 2, static_cast<float>(w), static_cast<float>(h), radius, 4, kShadow);
+    // The card covers the shadows' insides: only their edges are worked out.
+    if (over) c.shadow(x - 1, y - 1, w + 2.0f, h + 2.0f, radius + 1, margin - 1.0f, kGlow, 2.0f);
+    c.shadow(x, y + 2, static_cast<float>(w), static_cast<float>(h), radius, 4, kShadow, 3.0f);
     c.rounded_rect(x, y, static_cast<float>(w), static_cast<float>(h), radius, kWhiteC);
     if (over || primary) {
         c.rounded_border(x, y, static_cast<float>(w), static_cast<float>(h), radius, primary ? 3.0f : 2.5f, kAccentC);
@@ -87,13 +88,13 @@ Tex Chip(bool on) {
 
 Tex Arrow(bool left, bool over) {
     Canvas c(48, 48);
-    if (over) c.circle(24, 24, 23, kGlow);
-    c.circle(24, 25, 21, kShadow);
-    c.circle(24, 24, 20, kWhiteC);
-    c.ring(24, 24, 20, 2, over ? kAccentC : kEdgeStrong);
+    if (over) c.circle(24, 24, 20.5f, kGlow);
+    c.circle(24, 25, 18.5f, kShadow);
+    c.circle(24, 24, 18, kWhiteC);
+    c.ring(24, 24, 18, 2, over ? kAccentC : kEdgeStrong);
     const float s = left ? -1.0f : 1.0f;
-    c.line(24 - 3 * s, 16, 24 + 4 * s, 24, 3.5f, kGlyph);
-    c.line(24 + 4 * s, 24, 24 - 3 * s, 32, 3.5f, kGlyph);
+    c.line(24 - 3 * s, 17, 24 + 4 * s, 24, 3.5f, kGlyph);
+    c.line(24 + 4 * s, 24, 24 - 3 * s, 31, 3.5f, kGlyph);
     return Upload(c);
 }
 
@@ -198,7 +199,7 @@ Tex Bar() {
     }
     std::vector<float> shade(top);
     for (float& v : shade) v -= 3.0f;
-    c.area_below(shade, rgba(0x000000, 18));
+    c.area_below(shade, rgba(0x000000, 18), 5.0f);  // the bar covers the rest
     c.area_below(top, rgba(0xF7F7F9));
     c.curve(top, 2.5f, kAccentC);
     return Upload(c);
@@ -206,7 +207,7 @@ Tex Bar() {
 
 Tex Stripes() {
     Canvas c(640, 192);
-    for (int k = -200; k < 840; k += 28) c.line(static_cast<float>(k), 200, k + 200.0f, 0, 12, rgba(0xFFFFFF, 20));
+    c.diagonal_stripes(28, 12, rgba(0xFFFFFF, 20));
     return Upload(c);
 }
 
@@ -214,8 +215,8 @@ Tex Stripes() {
 
 void Init() {
     if (g_ready) return;
-    tile = Card(134, 84, 7, 14, false);
-    tileOver = Card(134, 84, 7, 14, true);
+    tile = Card(124, 84, 7, 14, false);
+    tileOver = Card(124, 84, 7, 14, true);
     coverTile = Card(80, 112, 7, 8, false);
     coverTileOver = Card(80, 112, 7, 8, true);
     roundBtn = Round(false);

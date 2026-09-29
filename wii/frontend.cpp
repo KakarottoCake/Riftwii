@@ -256,7 +256,10 @@ std::string ModPlaceProblem(const FrontendState& state, bool brief) {
         return tr("This won't work: code builds like Project+ have to be on the SD card, not the USB drive. Move {1} to the same spot on your SD card and try again. Your games can stay on USB.",
                   {where});
     }
-    if (state.use_sd && !state.model.code_builds().empty()) {
+    // A build inside sd.raw reads the image, not the card: the game may be on the card.
+    bool on_card = false;
+    for (const LaunchPackage* b : state.model.code_builds()) on_card = on_card || b->gct_path.compare(0, 5, "vsd:/") != 0;
+    if (state.use_sd && on_card) {
         if (brief) return tr("Code builds need the game on USB or disc, not the SD card.");
         return tr("This won't work: code builds like Project+ read the SD card while you play, so the game can't be on the SD card too. Put it on a USB drive or use the disc.");
     }

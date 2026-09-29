@@ -36,7 +36,9 @@
 #include "riftwii/mempatch.hpp"
 #include "padhook.hpp"
 #include "resident.hpp"
+#include "faulthook.hpp"
 #include "shothook.hpp"
+#include "vsdhook.hpp"
 #include "sdfile.hpp"
 #include "sdio.hpp"
 #include "umsdev.hpp"
@@ -88,6 +90,9 @@ bool aligned32(const void* p) { return (reinterpret_cast<std::uintptr_t>(p) & 31
 LaunchExtras g_extras;
 // Whether the card and boot.log are still up (see release_card_and_log).
 bool g_card_live_for_log = false;
+// A code build's virtual SD card (wii/vsdhook.hpp), found before the
+// card is unmounted, served in-game when the image is usable.
+VsdImage g_vsd;
 
 // The Gecko code handler and the cheats' GCT (vendor-gecko/), called at
 // the end of the game's video retrace handler. Leaves the game untouched
@@ -691,7 +696,8 @@ bool dump_metadata(const DiscProbe& probe, const OpenedPartition& partition, con
 }
 
 // Return to RiftWii, below with the play log.
-void apply_return_to(const std::vector<MemoryRegion>& loaded);
+u64 return_title();
+void apply_return_to(const std::vector<MemoryRegion>& loaded, u64 title, std::uint32_t stub);
 
 namespace {
 
@@ -1051,8 +1057,10 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
              forced ? "on anyway (the setting is On)" : "off", rvz.usb_fd >= 0 ? "the RVZ is read from" : "packs are read from");
         gc_adapter = forced;
     }
+    // Every launch needs it: the game crash hook (wii/faulthook.hpp) is
+    // always on.
     DolHeader dol;
-    if (options.install_resident || gc_adapter || g_extras.screenshots) {
+    {
         if (!options.main_dol.empty()) {
             std::memcpy(dol_bytes, options.main_dol.data(), sizeof(dol_bytes));  // the executable that ran
         } else if (!data.read(layout.data_header.dol_offset, dol_bytes, sizeof(dol_bytes))) {
@@ -1085,6 +1093,13 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
             if (!handed_to_runtime) sdio::close_card(card);
         }
     } card_cleanup{card, card_handed_to_runtime};
+    if (g_vsd.enabled && !g_vsd.on_usb && !options.install_resident) {
+        release_card_and_log();
+        if (!sdio::open_card(card, error)) {
+            error = "the virtual SD card needs the SD card: " + error;
+            return false;
+        }
+    }
     const bool card_required = pieces.needs_sd() || savegame.enabled || rvz.enabled;
     if (pieces.needs_usb() && !options.install_resident) {
         error = "files on the USB drive need the resident runtime";
@@ -1153,11 +1168,40 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         if (g_extras.code_list_start != 0 && !g_extras.cheat_gct.empty()) ro.mem1_veneers = kCodeVeneers;
         if (!install_resident(dol, ro, resident, error)) return false;
     }
+    // The virtual SD card: in the resident runtime's place (never with it).
+    VsdHook vsd;
+    if (g_vsd.enabled && !options.install_resident) {
+        std::string why;
+        VsdDevice device;
+        if (g_vsd.on_usb) {
+            device.backend = VSD_BACKEND_USB;
+            device.fd = ums::Fd();
+        } else {
+            device.backend = card.d2x ? VSD_BACKEND_D2X_SD : VSD_BACKEND_SLOT0;
+            device.fd = card.fd;
+            device.sdhc = card.sdhc;
+            device.rca = card.rca;
+        }
+        const bool veneers = g_extras.code_list_start != 0 && !g_extras.cheat_gct.empty();
+        if (!plan_vsd_hook(dol, g_vsd, device, game_arena1_hi(), mem1_floor, read32(0x80003124),
+                           veneers ? kCodeVeneers : 0, options.memory_patches, vsd, why)) {
+            // The build's files are only in the image: without it the game
+            // would look for them on a card that does not have them.
+            error = "the virtual SD card: " + why;
+            return false;
+        }
+    }
+    const auto base_arena1_hi = [&]() {
+        return vsd.active ? vsd.new_arena1_hi : options.install_resident ? resident.new_arena1_hi : game_arena1_hi();
+    };
+    const auto base_arena2_lo = [&]() {
+        return vsd.active ? vsd.new_arena2_lo : options.install_resident ? resident.new_arena2_lo : read32(0x80003124);
+    };
     // The GameCube adapter: below the runtime, or on its own.
     if (gc_adapter) {
         std::string why;
-        const std::uint32_t arena1_hi = options.install_resident ? resident.new_arena1_hi : game_arena1_hi();
-        const std::uint32_t arena2_lo = options.install_resident ? resident.new_arena2_lo : read32(0x80003124);
+        const std::uint32_t arena1_hi = base_arena1_hi();
+        const std::uint32_t arena2_lo = base_arena2_lo();
         if (!plan_pad_hook(dol, arena1_hi, mem1_floor, arena2_lo,
                            options.install_resident ? resident.ioctl_async_original : 0,
                            options.install_resident ? resident.ioctlv_async_original : 0, options.memory_patches,
@@ -1170,11 +1214,9 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
     if (g_extras.screenshots) {
         std::string why;
         const std::uint32_t arena1_hi = pad.active                 ? pad.new_arena1_hi
-                                        : options.install_resident ? resident.new_arena1_hi
-                                                                   : game_arena1_hi();
+                                                                   : base_arena1_hi();
         const std::uint32_t arena2_lo = pad.active                 ? pad.new_arena2_lo
-                                        : options.install_resident ? resident.new_arena2_lo
-                                                                   : read32(0x80003124);
+                                                                   : base_arena2_lo();
         ShotIpc known;
         if (options.install_resident) {
             known.open_async = resident.originals[RT_IPC_ASYNC(1)];
@@ -1183,9 +1225,34 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
             known.ioctl_async = resident.originals[RT_IPC_ASYNC(6)];
             known.ioctlv_async = resident.ioctlv_async;
         }
+        // With packs on, no frame copy: mods tend to need all of the
+        // game's memory (Newer Super Mario Bros. Wii does). Any of the
+        // pack's contents counts: its compiled table, memory patches, a
+        // replaced executable.
+        const bool direct = !options.table_entries.empty() || !options.relocations.empty() ||
+                            !options.memory_patches.empty() || !options.main_dol.empty() ||
+                            !options.virtual_files.empty() || !options.replacements.empty() ||
+                            !options.sd_replacements.empty();
         if (!plan_shot_hook(dol, arena1_hi, mem1_floor, arena2_lo, known, pad.read, g_extras.screenshots_demo,
-                            options.memory_patches, shot, why)) {
+                            direct, options.memory_patches, shot, why)) {
             logf("Screenshots: off: %s\n", why.c_str());
+        }
+    }
+    // A crash in the game is saved for the next start: below all of the
+    // above, always.
+    FaultHook fault;
+    {
+        std::string why;
+        const std::uint32_t arena1_hi = shot.active                ? shot.new_arena1_hi
+                                        : pad.active               ? pad.new_arena1_hi
+                                                                   : base_arena1_hi();
+        const std::uint32_t arena2_lo = shot.active                ? shot.new_arena2_lo
+                                        : pad.active               ? pad.new_arena2_lo
+                                                                   : base_arena2_lo();
+        const bool answer_bca = options.retail_bca && !options.install_resident;
+        if (!plan_fault_hook(dol, arena1_hi, mem1_floor, arena2_lo, answer_bca, options.memory_patches, fault, why)) {
+            logf("Game crashes: not recorded%s: %s\n", answer_bca ? " and the BCA read not answered" : "",
+                 why.c_str());
         }
     }
     logf("Handing over\n");
@@ -1204,12 +1271,22 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
     store32(0x800000F8, 0x0E7BE2C0);            // bus clock
     store32(0x800000FC, 0x2B73A840);            // CPU clock
     // MEM1 arena end (0x34 from the apploader, 0x3110 as the System Menu
-    // sets it): the FST, or the runtime's code just below it.
-    const std::uint32_t arena1_end = shot.active                ? shot.new_arena1_hi
+    // sets it): the FST, or the runtime's code just below it, or Return to
+    // RiftWii's stub below all of that. The stub goes where nothing of the
+    // game's can be: a pack's loader may put its code anywhere the game
+    // doesn't use, and CTGP's writes its own over the SDK's spare room as
+    // it runs.
+    const std::uint32_t arena1_top = fault.active               ? fault.new_arena1_hi
+                                     : shot.active              ? shot.new_arena1_hi
                                      : pad.active               ? pad.new_arena1_hi
                                      : options.install_resident ? resident.new_arena1_hi
+                                     : vsd.active && !vsd.code_in_mem2 ? vsd.new_arena1_hi
                                                                 : load32(0x80000038);
-    if (options.install_resident || pad.active || shot.active) store32(0x80000034, arena1_end);
+    const u64 return_to = return_title();
+    const std::uint32_t return_stub = return_to != 0 ? (arena1_top - 32) & ~31u : 0;
+    const std::uint32_t arena1_end = return_stub != 0 ? return_stub : arena1_top;
+    if (options.install_resident || vsd.active || pad.active || shot.active || fault.active || return_stub != 0)
+        store32(0x80000034, arena1_end);
     store32(0x80003110, arena1_end);
     std::memcpy(reinterpret_cast<void*>(0x80003180), probe.disc_id, 4);
     store32(0x80003184, 0x80000000);            // where the game id lives
@@ -1227,7 +1304,9 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         write32(0x80003140, pretended);
         write32(0x80003188, pretended);
     }
-    if (shot.active) {
+    if (fault.active) {
+        write32(0x80003124, fault.new_arena2_lo);  // above all the others
+    } else if (shot.active) {
         write32(0x80003124, shot.new_arena2_lo);  // above the adapter's and the runtime's
     } else if (pad.active) {
         // IOS's own field, like 0x3140: uncached, after the flush. The end
@@ -1235,6 +1314,8 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         write32(0x80003124, pad.new_arena2_lo);
     } else if (options.install_resident && resident.new_arena2_lo != resident.old_arena2_lo) {
         write32(0x80003124, resident.new_arena2_lo);
+    } else if (vsd.active) {
+        write32(0x80003124, vsd.new_arena2_lo);
     }
 
     // <memory> patches, last of all so they win over the globals above (as
@@ -1276,6 +1357,12 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
             const std::uint32_t arena2_end = reinterpret_cast<std::uint32_t>(SYS_GetArena2Hi());
             writable.push_back(MemoryRegion{kMem2Start, arena2_end > kMem2Start ? arena2_end - kMem2Start : 0});
         }
+        if (return_stub != 0) exclusions.push_back(MemoryRegion{return_stub, 32});
+        if (vsd.active) {
+            exclusions.push_back(MemoryRegion{vsd.code_base, vsd.code_bytes});
+            exclusions.push_back(MemoryRegion{vsd.data_base, vsd.data_bytes});
+            exclusions.push_back(MemoryRegion{vsd.stage_base, vsd.data_bytes});
+        }
         if (pad.active) {
             exclusions.push_back(MemoryRegion{pad.code_base, pad.code_bytes});
             exclusions.push_back(MemoryRegion{pad.state_base, pad.state_bytes});
@@ -1283,6 +1370,10 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         if (shot.active) {
             exclusions.push_back(MemoryRegion{shot.code_base, shot.code_bytes});
             exclusions.push_back(MemoryRegion{shot.state_base, shot.state_bytes});
+        }
+        if (fault.active) {
+            exclusions.push_back(MemoryRegion{fault.code_base, fault.code_bytes});
+            exclusions.push_back(MemoryRegion{fault.state_base, fault.state_bytes});
         }
         if (options.install_resident) {
             exclusions.reserve(exclusions.size() + resident.hook_site_count);
@@ -1302,10 +1393,22 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         std::string why;
         std::vector<MemoryRegion> keep_out;
         if (options.install_resident) keep_out.push_back(MemoryRegion{resident.code_base, resident.code_bytes});
+        if (vsd.active) {
+            keep_out.push_back(MemoryRegion{vsd.code_base, vsd.code_bytes});
+            keep_out.push_back(MemoryRegion{vsd.stage_base, vsd.data_bytes});
+        }
         if (pad.active) keep_out.push_back(MemoryRegion{pad.code_base, pad.code_bytes});
         if (shot.active) keep_out.push_back(MemoryRegion{shot.code_base, shot.code_bytes});
+        if (fault.active) keep_out.push_back(MemoryRegion{fault.code_base, fault.code_bytes});
         if (!install_cheats(loaded, options.memory_patches, keep_out, why)) logf("Codes are off: %s\n", why.c_str());
         else codes_first = !g_extras.code_builds.empty();
+    }
+    if (vsd.active) {
+        std::string why;
+        if (!install_vsd_hook(vsd, why)) {
+            error = "the virtual SD card: " + why;
+            return false;
+        }
     }
     if (pad.active) {
         std::string why;
@@ -1314,6 +1417,10 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
     if (shot.active) {
         std::string why;
         if (!install_shot_hook(shot, why)) logf("Screenshots: off: %s\n", why.c_str());
+    }
+    if (fault.active) {
+        std::string why;
+        if (!install_fault_hook(fault, why)) logf("Game crashes: not recorded: %s\n", why.c_str());
     }
     // Last, in gamepatches.c's order: Wiimmfi's Mario Kart Wii patch goes
     // below everything else in the MEM1 arena. Packs bring their own online
@@ -1324,7 +1431,7 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         if (packs) logf("WFC: not patched; packs are on\n");
         else ApplyWfc(loaded, g_extras.server, g_extras.wfc_domain, g_extras.game_id, probe.header.version);
     }
-    apply_return_to(loaded);
+    apply_return_to(loaded, return_to, return_stub);
     settime(secs_to_ticks(static_cast<u64>(std::time(nullptr)) - kWiiEpochOffset));
 
     release_card_and_log();
@@ -1340,6 +1447,7 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         DCFlushRange(reinterpret_cast<void*>(resident.data_base), resident.data_bytes);
         ICInvalidateRange(reinterpret_cast<void*>(resident.data_base), resident.data_bytes);  // the code, when it is here
     }
+    place_vsd_hook(vsd);  // to the bottom of the MEM2 arena, as the runtime's data above
     if (codes_first) {
         // As Gecko loaders do: the handler runs once before the game, so a
         // code build's writes to the game's tables (Project+ resizes its
@@ -1484,23 +1592,32 @@ bool is_wii_u() {
 // "return to" (ES ioctl 0xA1, as PatchNewReturnTo asks it) for a game under
 // d2x, and the game's __OSLaunchMenu patched to load the channel's title
 // (src/returnto.cpp) for one under any IOS.
-void apply_return_to(const std::vector<MemoryRegion>& loaded) {
-    if (g_extras.return_to_menu) return;
-    if (g_extras.return_to == 0 && Settings().return_to != "riftwii") return;
+u64 return_title() {
+    if (g_extras.return_to_menu) return 0;
+    if (g_extras.return_to == 0 && Settings().return_to != "riftwii") return 0;
     const u64 title = g_extras.return_to != 0 ? g_extras.return_to : ChannelTitle();
     if (title == 0) {
         logf("Return to RiftWii: the RiftWii channel is not installed; the Wii Menu stays\n");
-        return;
+        return 0;
     }
     if ((title >> 32) != 0x00010001) {
         logf("Return to %08x-%08x: only 00010001 titles can be patched in; the Wii Menu stays\n",
              static_cast<u32>(title >> 32), static_cast<u32>(title));
-        return;
+        return 0;
     }
+    return title;
+}
+
+// `stub`: 32 bytes of MEM1 above the game's arena.
+void apply_return_to(const std::vector<MemoryRegion>& loaded, u64 title, std::uint32_t stub) {
+    if (title == 0) return;
     std::vector<CodeSpan> spans;
     for (const MemoryRegion& r : loaded) spans.push_back(CodeSpan{reinterpret_cast<std::uint8_t*>(r.address), r.length, r.address});
-    const ReturnToReport report = patch_return_to(spans, static_cast<std::uint32_t>(title));
+    const ReturnToReport report =
+        patch_return_to(spans, static_cast<std::uint32_t>(title), reinterpret_cast<std::uint8_t*>(stub), stub);
     if (report.patched) {
+        DCFlushRange(reinterpret_cast<void*>(stub), 32);
+        ICInvalidateRange(reinterpret_cast<void*>(stub), 32);
         for (const MemoryRegion& r : loaded) {
             DCFlushRange(reinterpret_cast<void*>(r.address), r.length);
             ICInvalidateRange(reinterpret_cast<void*>(r.address), r.length);
@@ -1587,6 +1704,7 @@ void write_play_log(const DiscProbe& probe) {
     } else {
         logf("Message Board: play log not written (error %d under IOS%d)\n", r, IOS_GetVersion());
     }
+    ISFS_Deinitialize();  // not left open for the game's IOS reload
 }
 
 bool boot_game(const DiscProbe& probe, const BootOptions& options, std::string& error) {
@@ -1638,7 +1756,20 @@ bool boot_game(const DiscProbe& probe, const BootOptions& options, std::string& 
             g_extras.gc_adapter = seen == AdapterSeen::Missing ? GcAdapterMode::Off : GcAdapterMode::On;
         }
     }
+    // Games on IOS57 start under it even when the runtime needs the card:
+    // Just Dance 2014 goes black under IOS58 (on a tester's Wii U, with a
+    // save-only pack and with a files-only one) and runs under IOS57, which
+    // reads the card too. Older IOSes keep the rule above (they may not
+    // read SDHC cards). `sd_launch_ios` in settings.txt overrides it:
+    // `game` reloads for every game, `menu` never does.
+    const auto sd_ios = Settings().other.find("sd_launch_ios");
+    const std::string sd_ios_setting = sd_ios != Settings().other.end() ? sd_ios->second : std::string();
+    const bool reload_for_sd = sd_ios_setting == "game" || (sd_ios_setting != "menu" && required == 57);
     if (!effective.preserve_current_ios && running_ios != static_cast<int>(required) &&
+        needs_resident_sd(effective) && reload_for_sd) {
+        logf("Starting IOS%u for the game although the runtime needs the SD card (%s)\n", required,
+             sd_ios_setting == "game" ? "sd_launch_ios = game" : "IOS57 games run under it");
+    } else if (!effective.preserve_current_ios && running_ios != static_cast<int>(required) &&
         needs_resident_sd(effective)) {
         // The selected packages/save mode were resolved through this very
         // card under the running IOS, so it is a proven-good SD driver for
@@ -1676,10 +1807,12 @@ bool boot_game(const DiscProbe& probe, const BootOptions& options, std::string& 
         if (retail) {
             logf("BCA: the image has a retail one\n");
         } else {
-            logf("BCA: %s; the resident runtime answers with a retail one\n",
-                 why.empty() ? "the image has none" : why.c_str());
+            // Answered by the resident runtime when it goes in anyway,
+            // else by the small crash blob (wii/faulthook.hpp): the
+            // runtime alone takes some 100 KB of the game's memory, which
+            // Super Smash Bros. Brawl does not have to spare.
+            logf("BCA: %s; answered with a retail one\n", why.empty() ? "the image has none" : why.c_str());
             effective.retail_bca = true;
-            effective.install_resident = true;
         }
     }
     RvzResidentOptions rvz;
@@ -1712,6 +1845,30 @@ bool boot_game(const DiscProbe& probe, const BootOptions& options, std::string& 
             savegame.file_device = true;
         } else {
             logf("Riivolution's \"file\" device is off: %s\n", why.c_str());
+        }
+    }
+
+    // Code builds inside the virtual SD card (sd.raw): the image served to
+    // the game as its SD card by the virtual SD card blob, which needs the
+    // card or d2x's USB device (and so the running IOS) at the handoff.
+    // Not with packs yet: the resident runtime reads the same card.
+    g_vsd = VsdImage{};
+    if (g_extras.code_build_in_image) {
+        std::string why;
+        if (effective.install_resident) {
+            error = "code builds inside sd.raw don't work together with Riivolution packs yet";
+            return false;
+        }
+        if (!find_vsd_image(g_vsd, why)) {
+            error = "the virtual SD card: " + why;
+            return false;
+        } else {
+            logf("Virtual SD card: %s (%u sectors, %u piece(s)) for %s\n", g_vsd.path.c_str(), g_vsd.sectors,
+                 static_cast<unsigned>(g_vsd.extents.size()), g_extras.code_builds.c_str());
+            if (!effective.preserve_current_ios && running_ios != static_cast<int>(required)) {
+                effective.preserve_current_ios = true;
+                logf("Keeping IOS%d for the virtual SD card; reporting IOS%u to the game\n", running_ios, required);
+            }
         }
     }
 

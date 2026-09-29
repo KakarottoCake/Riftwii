@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(Riftwii VERSION 2.4.0 LANGUAGES C CXX)
+project(Riftwii VERSION 2.6.0 LANGUAGES C CXX)
 # Shown after the version number (menu, logs): "" for a final release.
 set(RIFTWII_VERSION_SUFFIX "-beta")
 set(CMAKE_CXX_STANDARD 17)
@@ -20,7 +20,7 @@ endif()
 # The resident runtime is built with its RVZ code (RT_RVZ): the tests cover
 # both blobs' logic, and without an RVZ state the RVZ code stays out of the
 # way. Its Zstandard is the host library here.
-add_library(riftwii_runtime STATIC runtime/rtable.c runtime/rtfat.c runtime/rtfs.c runtime/rtgcad.c runtime/rtrvz.c runtime/rtshot.c
+add_library(riftwii_runtime STATIC runtime/rtable.c runtime/rtfat.c runtime/rtfs.c runtime/rtgcad.c runtime/rtrvz.c runtime/rtshot.c runtime/rtfault.c runtime/rtvsd.c
     runtime/resident/rt_hook.c runtime/resident/rt_zstd.c)
 target_include_directories(riftwii_runtime PUBLIC runtime runtime/resident PRIVATE vendor-zstd)
 target_compile_definitions(riftwii_runtime PRIVATE RT_RVZ)
@@ -29,7 +29,7 @@ set_target_properties(riftwii_runtime PROPERTIES C_STANDARD 99 C_STANDARD_REQUIR
 if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(riftwii_runtime PRIVATE -ffreestanding -fno-builtin -Wall -Wextra -Wpedantic -Werror)
 endif()
-add_library(riftwii STATIC src/patch.cpp src/overlay.cpp src/source.cpp src/apply.cpp src/expand.cpp src/mempatch.cpp src/launch.cpp src/fst.cpp src/disc.cpp src/redirect.cpp src/fat32.cpp src/ntfs.cpp src/imagevolume.cpp src/wbfspart.cpp src/usbgame.cpp src/titles.cpp src/canvas.cpp src/dol.cpp src/hook.cpp src/symsearch.cpp src/riifs.cpp src/riifs_sync.cpp src/http.cpp src/cheats.cpp src/videopatch.cpp src/gamelang.cpp src/riiconfig.cpp src/update.cpp src/wfcpatch.cpp src/sha1.cpp src/rvz.cpp src/coverart.cpp src/pngdecode.cpp src/settingsfile.cpp src/langfile.cpp src/playhistory.cpp src/returnto.cpp src/launchargs.cpp src/cardlog.cpp src/codehook.cpp src/gameconfig.cpp src/pngencode.cpp src/shotfile.cpp)
+add_library(riftwii STATIC src/patch.cpp src/overlay.cpp src/source.cpp src/apply.cpp src/expand.cpp src/mempatch.cpp src/launch.cpp src/fst.cpp src/disc.cpp src/redirect.cpp src/fat32.cpp src/ntfs.cpp src/imagevolume.cpp src/wbfspart.cpp src/usbgame.cpp src/titles.cpp src/canvas.cpp src/dol.cpp src/hook.cpp src/symsearch.cpp src/riifs.cpp src/riifs_sync.cpp src/http.cpp src/cheats.cpp src/videopatch.cpp src/gamelang.cpp src/riiconfig.cpp src/update.cpp src/wfcpatch.cpp src/sha1.cpp src/rvz.cpp src/coverart.cpp src/pngdecode.cpp src/settingsfile.cpp src/langfile.cpp src/playhistory.cpp src/returnto.cpp src/launchargs.cpp src/cardlog.cpp src/codehook.cpp src/gameconfig.cpp src/pngencode.cpp src/shotfile.cpp src/qrcode.cpp src/problemreport.cpp src/gamefault.cpp)
 target_include_directories(riftwii PUBLIC include)
 target_link_libraries(riftwii PRIVATE pugixml zstddec PUBLIC riftwii_runtime)
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
@@ -43,7 +43,7 @@ add_executable(rvzstub tools/rvzstub.cpp)
 target_link_libraries(rvzstub PRIVATE riftwii)
 include(CTest)
 if(BUILD_TESTING)
-    foreach(suite patch overlay apply expand mempatch launch compat fst disc redirect fat32 ntfs titles canvas usbgame wbfspart rtfat rtfs dol hook riifs extras gcad png shot rvz codebuild)
+    foreach(suite patch overlay apply expand mempatch launch compat fst disc redirect fat32 ntfs titles canvas usbgame wbfspart rtfat rtfs dol hook riifs extras gcad png shot rvz codebuild qrcode report gamefault vsd)
         add_executable(${suite}_tests tests/${suite}_tests.cpp)
         target_link_libraries(${suite}_tests PRIVATE riftwii)
         if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")

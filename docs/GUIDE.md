@@ -50,9 +50,12 @@ tiles, with the disc drive first. At first it shows only games that
 have mod packs (they carry a **MODS** tag). The round button at the
 bottom left (or **1**) switches between games with mods, all games and,
 once you have played something, **Recently played**, then
-**Favourites** once you mark a game as one on its page. **Minus** (L on
-a GameCube controller) jumps to the next game starting with another
-letter, A to Z. RiftWii remembers the view and opens on the last game
+**Favourites** once you mark a game as one on its page. **Minus** and
+**Plus** turn to the previous and next page of games (the arrows at the
+sides and the D-pad at a page's edge do too). **B** (L on a GameCube
+controller) jumps to the next game starting with another letter, A to
+Z. To look for new games on the drives, use Settings > Look for games
+again (or X on a GameCube controller). RiftWii remembers the view and opens on the last game
 you played. When the Wii is online,
 games show their real names from GameTDB (Super Mario Galaxy 2, not the
 disc's SUPER MARIO GALAXY MORE), in the menu's language. The line at the
@@ -144,9 +147,13 @@ the list explains the row you are on.
 - **Menu sounds** (Normal, Quiet, Off) and **Menu music**: the music is
   `music.ogg` (Ogg Vorbis, up to 6 MB) from `sd:/riftwii/`, or else the one
   the release puts in `sd:/apps/riftwii/`, looped while the menu is open.
-- **In-game screenshots** (off at first): see Screenshots below. It takes
-  about 0.8 MB of the game's memory, so leave it off for a game that
-  runs short.
+- **In-game screenshots** (experimental, off at first): see Screenshots
+  below. Without packs it keeps a copy of the picture in about 0.8 MB of
+  the game's memory. With packs on (mods often need all of it: Newer
+  Super Mario Bros. Wii crashes otherwise) the picture is written
+  straight from the screen instead, using almost none, and a picture
+  taken during fast motion may shear slightly. Some games and mods may
+  still not work with it: turn it off for those.
 - **Download names and cheats**, and **Get the latest game names**.
 - **GameCube adapter** (experimental), and **Check the GameCube adapter** (below).
 - **Menu IOS**: IOS 58, or a d2x cIOS slot (248 to 252). Pick the slot that has
@@ -156,6 +163,7 @@ the list explains the row you are on.
   **Check for a new version** (on GitHub; with downloads on, RiftWii also
   looks at every start and asks before it updates), and **Leave RiftWii**,
   which opens the HOME Menu (below).
+- **Send a problem report**: see Reporting a problem below.
 - **Tutorial** shows the short tour of the basics again: a new SD card
   starts with it, once.
 - **Credits and licence**: RiftWii's licence (the GNU GPL, version 3 or
@@ -312,6 +320,37 @@ A few things to know:
 - `boot.log` lists the codes, where they went and what `gameconfig.txt`
   changed, if something goes wrong.
 
+#### Code builds on a virtual SD card (sd.raw)
+
+A build can also live inside a card image instead of on the SD card
+itself: one file, `sd.raw`, holding a whole FAT32 SD card with the
+build's folder inside, like the `sd.raw` Dolphin and Project+'s netplay
+builds use. The game then gets the image as its SD card. This helps when
+the build can't read your real card (an SDXC card, a card formatted
+with big clusters), or when you'd rather keep the build on the USB drive.
+
+1. Put the image at `riftwii/sd.raw` on the SD card, or on the USB drive
+   (the SD card's is used when both have one). An image from Dolphin
+   works as it is: its build folder (`Project+`, `rex_`) goes at the top
+   of the image, as on a real card.
+2. Open the game's page, then **Mods**. The build inside shows up as
+   **Project+ (in sd.raw)**. Turn it on and press Start.
+
+A few things to know:
+
+- The image on the USB drive works with the game on the USB drive too
+  (it's read through d2x while you play). With the game on a disc,
+  keep the image on the SD card.
+- The image should be in one piece or a few: copy it to a freshly
+  formatted drive if Start says it is in too many pieces. FAT32 drives
+  hold files up to 4 GB, so use an image of 4 GB or less there.
+- What the game writes (replays, custom stages, settings) goes into the
+  image.
+- Builds inside `sd.raw` can't be turned on together with builds on the
+  SD card, or with Riivolution packs, yet.
+- Tested in Dolphin with Project+ 3.2 in a 3 GB image on the SD card.
+  The USB drive is untested so far.
+
 ### GameCube controller adapter for Wii U
 
 The Nintendo adapter (WUP-028) or a copy that works like it (a Mayflash
@@ -461,9 +500,24 @@ whose file is missing is skipped with a warning (as in Dolphin). Press A
 to go back to RiftWii (it also goes back by itself after two minutes),
 or HOME to leave to the Homebrew Channel.
 
+**A game boots without mods but goes black with them.** When a pack
+reads from the SD card while you play (its files there, or its saves),
+RiftWii usually keeps its own IOS running and tells the game it has the
+one it asked for. A few games don't accept that (Just Dance 2014 and
+other games on IOS57 are switched to their own IOS automatically). For
+another game, add `sd_launch_ios = game` to `sd:/riftwii/settings.txt`:
+every game then starts on its own IOS. (`sd_launch_ios = menu` keeps
+RiftWii's IOS for every game.) Please report the game if it helps.
+
 **RiftWii crashed.** It shows what happened, saves it to
 `sd:/riftwii/crash.txt` and starts again (A, RESET, or after a minute).
-Please send that file with a report.
+Back on Home it offers to send a report (below).
+
+**The game crashed.** When a game started from RiftWii crashes, what the
+Wii was doing is saved on the way down. Start RiftWii again: it saves
+that as `sd:/riftwii/gamecrash.txt` and offers to send a report. A game
+that only freezes (no crash) leaves nothing: send a report from
+Settings and say what happened.
 
 **The game shows its own error ("An error has occurred") while it
 loads.** Send the logs below with your report.
@@ -476,15 +530,29 @@ must support the GameCube controller. The `GameCube adapter` lines in
 
 ### Reporting a problem
 
-Open a GitHub issue with:
+After RiftWii or a game crashes, or a launch fails, RiftWii asks at the next start whether
+to send a report. For anything else (a black screen, a game that
+freezes, a mod that does not load), use **Settings > Send a problem
+report** after starting RiftWii again.
 
-- `sd:/riftwii/session.log` (the menu) and `sd:/riftwii/boot.log` (the
-  last launch), and `sd:/riftwii/crash.txt` if RiftWii crashed;
-- your Wii model, System Menu version and which cIOS you have;
-- what you did, and what the screen showed (a photo helps).
+A report holds what it takes to see what went wrong: the logs of this
+run and the last one (`session.log`, `session-previous.log`), the last
+launch's `boot.log`, `crash.txt` and `gamecrash.txt`, `settings.txt`, the last game's
+choices and the XMLs of the packs it had on, the list of files in
+`sd:/riivolution` and `sd:/riftwii`, and which console, System Menu,
+IOS and cIOS slots, and controllers this is. It is sent to
+[paste.rs](https://paste.rs), and RiftWii shows its link and a QR code
+of it: send that link (on the Discord, or in a GitHub issue) with what
+you did and what the screen showed. Anyone who has the link can read
+the report, and nothing is sent unless you choose Send.
+
+The report is also saved as `sd:/riftwii/report.txt`. If it could not be
+sent (no internet, or paste.rs was busy), send that file instead.
 
 ## For developers
 
+- [`docs/MAP.md`](MAP.md): every file, and where to start for each
+  feature.
 - [`docs/ARCHITECTURE.md`](ARCHITECTURE.md): how a launch works and
   which file owns what.
 - [`docs/DEVELOPING.md`](DEVELOPING.md): building (CMake host tests,

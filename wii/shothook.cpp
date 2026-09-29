@@ -52,7 +52,7 @@ bool is_plain_branch(std::uint32_t word, std::uint32_t at, std::uint32_t& target
 }  // namespace
 
 bool plan_shot_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t mem1_floor,
-                    std::uint32_t arena2_lo, const ShotIpc& known, std::uint32_t pad_read, bool demo,
+                    std::uint32_t arena2_lo, const ShotIpc& known, std::uint32_t pad_read, bool demo, bool direct,
                     const std::vector<MemoryPatch>& patches, ShotHook& out, std::string& why) {
     out = ShotHook{};
     out.demo = demo;
@@ -110,7 +110,7 @@ bool plan_shot_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t
     out.code_bytes = align_up(h.size);
     out.code_base = (arena1_hi - out.code_bytes) & ~31u;
     const std::uint32_t state_bytes = align_up(sizeof(rt_shot_state));
-    out.state_bytes = state_bytes + align_up(RTSHOT_FRAME_BYTES);
+    out.state_bytes = state_bytes + (direct ? 0u : align_up(RTSHOT_FRAME_BYTES));
     out.state_base = align_up(arena2_lo);
     const std::uint32_t arena2_end = *reinterpret_cast<volatile std::uint32_t*>(kMem2ArenaEndField);
     if (arena1_hi < out.code_bytes || out.code_base < mem1_floor || out.state_base + out.state_bytes > arena2_end) {
@@ -143,20 +143,21 @@ bool plan_shot_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t
         return false;
     }
     ctx->state = out.state_base;
-    ctx->frame = out.state_base + state_bytes;
+    ctx->frame = direct ? 0u : out.state_base + state_bytes;
     ctx->open_async = ipc.open_async;
     ctx->close_async = ipc.close_async;
     ctx->write_async = ipc.write_async;
     ctx->ioctl_async = ipc.ioctl_async;
     ctx->complete_bt = out.code_base + h.complete_bt;
     ctx->complete_nand = out.code_base + h.complete_nand;
-    ctx->flags = demo ? RT_SHOT_FLAG_DEMO : 0u;
+    ctx->flags = (demo ? RT_SHOT_FLAG_DEMO : 0u) | (direct ? RT_SHOT_FLAG_DIRECT : 0u);
     ctx->ticks_per_second = *reinterpret_cast<volatile std::uint32_t*>(kBusClockField) / 4u;
     ctx->number = 1;
     out.active = true;
-    logf("Screenshots: blob %u bytes at 0x%08x, state and frame %u bytes at 0x%08x; IOS_IoctlvAsync 0x%08x, "
+    logf("Screenshots: blob %u bytes at 0x%08x, state%s %u bytes at 0x%08x; IOS_IoctlvAsync 0x%08x, "
          "PADRead 0x%08x%s\n",
-         h.size, out.code_base, out.state_bytes, out.state_base, out.ioctlv, out.pad_read, demo ? " (demo)" : "");
+         h.size, out.code_base, direct ? " (direct: no frame copy)" : " and frame", out.state_bytes, out.state_base,
+         out.ioctlv, out.pad_read, demo ? " (demo)" : "");
     return true;
 }
 

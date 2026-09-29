@@ -3,8 +3,11 @@
 // blending and the GX RGBA8 tile layout the Wii textures use.
 #include "riftwii/canvas.hpp"
 
+#include <algorithm>
+#include <cmath>
 #include <cstdlib>
 #include <iostream>
+#include <vector>
 
 static int g_failures = 0;
 #define EXPECT_TRUE(cond) do { if (!(cond)) { std::cerr << "FAILED: " #cond " at line " << __LINE__ << std::endl; g_failures++; } } while (0)
@@ -101,8 +104,103 @@ static void test_gx_tiles() {
     EXPECT_TRUE(riftwii::to_gx_rgba8(Canvas(6, 4)).empty());  // not a multiple of 4
 }
 
+// The distance to a rounded rectangle (negative inside), worked out here
+// the plain way for the checks below.
+static float ref_distance(float px, float py, float x, float y, float w, float h, float radius) {
+    const float hw = w * 0.5f, hh = h * 0.5f;
+    radius = std::min(radius, std::min(hw, hh));
+    const float qx = std::fabs(px - (x + hw)) - (hw - radius);
+    const float qy = std::fabs(py - (y + hh)) - (hh - radius);
+    const float ox = std::max(qx, 0.0f), oy = std::max(qy, 0.0f);
+    return std::sqrt(ox * ox + oy * oy) + std::min(std::max(qx, qy), 0.0f) - radius;
+}
+
+static float clamp01(float v) { return v < 0.0f ? 0.0f : v > 1.0f ? 1.0f : v; }
+
+// The menu's shortcuts draw what the long way does.
+static void test_shortcuts() {
+    // Shapes on an empty canvas: every pixel as its distance says, the
+    // parts the shortcuts skip included (odd sizes, small and large
+    // corners, thin and thick borders).
+    struct Box { float x, y, w, h, radius, thickness; };
+    const Box boxes[] = {{3.3f, 2.7f, 51.4f, 23.2f, 3.0f, 1.5f}, {4, 4, 60, 30, 14, 3},
+                         {2.5f, 5, 40, 40, 20, 2.5f}, {6, 3, 44, 12, 0, 4}};
+    for (const Box& bx : boxes) {
+        Canvas fill(72, 50), border(72, 50), shade(72, 50);
+        fill.rounded_rect(bx.x, bx.y, bx.w, bx.h, bx.radius, rgba(0xFFFFFF));
+        border.rounded_border(bx.x, bx.y, bx.w, bx.h, bx.radius, bx.thickness, rgba(0xFFFFFF));
+        shade.shadow(bx.x, bx.y, bx.w, bx.h, bx.radius, 4, rgba(0x000000, 255));
+        int bad = 0;
+        for (int y = 0; y < 50; ++y)
+            for (int x = 0; x < 72; ++x) {
+                const float d = ref_distance(x + 0.5f, y + 0.5f, bx.x, bx.y, bx.w, bx.h, bx.radius);
+                const int fillA = static_cast<int>(clamp01(0.5f - d) * 255.0f + 0.5f);
+                const int borderA =
+                    static_cast<int>(clamp01(0.5f - d) * clamp01(d + bx.thickness + 0.5f) * 255.0f + 0.5f);
+                const float t = d <= 0.0f ? 1.0f : clamp01(1.0f - d / 4.0f);
+                const int shadeA = static_cast<int>(t * t * 255.0f + 0.5f);
+                if (std::abs(fill.at(x, y).a - fillA) > 1) ++bad;
+                if (std::abs(border.at(x, y).a - borderA) > 1) ++bad;
+                if (std::abs(shade.at(x, y).a - shadeA) > 1) ++bad;
+            }
+        EXPECT_EQ(bad, 0);
+    }
+
+    // A hollow shadow under a card: the card over it looks the same as
+    // over a full shadow, and the shadow's inside was never touched.
+    Canvas full(90, 60), hollow(90, 60);
+    full.shadow(10, 12, 70, 40, 14, 4, rgba(0x000000, 40));
+    hollow.shadow(10, 12, 70, 40, 14, 4, rgba(0x000000, 40), 3.0f);
+    EXPECT_EQ(hollow.at(45, 32).a, 0);
+    EXPECT_EQ(full.at(45, 32).a, 40);
+    full.rounded_rect(10, 10, 70, 40, 14, rgba(0xFFFFFF));
+    hollow.rounded_rect(10, 10, 70, 40, 14, rgba(0xFFFFFF));
+    int differ = 0;
+    for (int y = 0; y < 60; ++y)
+        for (int x = 0; x < 90; ++x) {
+            const Rgba a = full.at(x, y), b = hollow.at(x, y);
+            if (a.r != b.r || a.g != b.g || a.b != b.b || a.a != b.a) ++differ;
+        }
+    EXPECT_EQ(differ, 0);
+
+    // The menu bar's shade as a band: the bar over it looks the same.
+    std::vector<float> top(64), shade(64);
+    for (int x = 0; x < 64; ++x) {
+        top[x] = 20.0f + 8.0f * std::sin(x * 0.1f);
+        shade[x] = top[x] - 3.0f;
+    }
+    Canvas whole(64, 48), band(64, 48);
+    whole.area_below(shade, rgba(0x000000, 18));
+    band.area_below(shade, rgba(0x000000, 18), 5.0f);
+    EXPECT_EQ(band.at(10, 45).a, 0);
+    whole.area_below(top, rgba(0xF7F7F9));
+    band.area_below(top, rgba(0xF7F7F9));
+    int changed = 0;
+    for (int y = 0; y < 48; ++y)
+        for (int x = 0; x < 64; ++x) {
+            const Rgba a = whole.at(x, y), b = band.at(x, y);
+            if (a.r != b.r || a.g != b.g || a.b != b.b || a.a != b.a) ++changed;
+        }
+    EXPECT_EQ(changed, 0);
+
+    // Stripes in one pass: the lines they stand for, give or take a step
+    // of rounding. The lines end at y = 0 in round caps (6 across); the
+    // stripes have none, so the top rows are left out (the banner draws
+    // its top 8 off screen).
+    Canvas lines(120, 48), stripes(120, 48);
+    for (int k = -60; k < 200; k += 28) lines.line(static_cast<float>(k), 60, k + 60.0f, 0, 12, rgba(0xFFFFFF, 20));
+    stripes.diagonal_stripes(28, 12, rgba(0xFFFFFF, 20));
+    int worst = 0;
+    for (int y = 7; y < 48; ++y)
+        for (int x = 0; x < 120; ++x) worst = std::max(worst, std::abs(lines.at(x, y).a - stripes.at(x, y).a));
+    EXPECT_TRUE(worst <= 1);
+    EXPECT_TRUE(stripes.at(13, 14).a > 15);  // on a line (x + y + 1 = 28)
+    EXPECT_EQ(stripes.at(27, 14).a, 0);      // between two
+}
+
 int main() {
     test_shapes();
+    test_shortcuts();
     test_curves();
     test_blending();
     test_gx_tiles();

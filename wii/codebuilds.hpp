@@ -18,6 +18,11 @@
 // the Mods page as a switch. Where the code list goes and what runs it
 // come from gameconfig.txt (riftwii/gameconfig.hpp): the code file's
 // folder first, then the folders above it up to the top of the card.
+//
+// Code builds inside the virtual SD card's image (sd.raw, wii/vsdimage.hpp)
+// are listed too, keyed "sd.raw/Project+/RSBE01.GCT" with their paths on
+// the image's own card ("vsd:/Project+/RSBE01.GCT"); launching one serves
+// the image to the game as its SD card.
 namespace riftwii::wii {
 
 struct CodeBuildFile {
@@ -54,6 +59,7 @@ struct CodeBuildLaunch {
     int hooktype = 0;                  // gameconfig's; 0 unset
     std::vector<GamePoke> pokes;
     std::string names;                 // for the log
+    bool in_image = false;             // from the virtual SD card's image (all of them, then)
 };
 bool PrepareCodeBuilds(const LaunchModel& model, const std::string& game_id, const std::vector<std::uint8_t>& cheats,
                        CodeBuildLaunch& out, std::string& error);

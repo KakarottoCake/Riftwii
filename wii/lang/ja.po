@@ -24,8 +24,8 @@ msgstr "{1}に1回遊びました"
 msgid "Played {1} times, last on {2}"
 msgstr "{1}回遊びました (最後は{2})"
 
-msgid "1: view   2: settings   -: A to Z   +: rescan"
-msgstr "1: 表示   2: 設定   -: A〜Z   +: 再検索"
+msgid "1: view   2: settings   -/+: pages   B: A to Z"
+msgstr "1: 表示   2: 設定   -/+: ページ   B: A〜Z"
 
 msgid "Page {1} of {2}"
 msgstr "{1} / {2} ページ"
@@ -165,7 +165,10 @@ msgstr "このゲームのMODはありません。"
 msgid "No mods on the SD card. Put Riivolution XML in sd:/riivolution."
 msgstr "SDカードにMODがありません。RiivolutionのXMLを sd:/riivolution に入れてください。"
 
-msgid "{1} mod pack(s) for this game. Press A to turn them on."
+msgid "1 mod pack for this game. Press A to turn it on."
+msgstr "このゲームのMODパックが1個あります。Aでオンにできます。"
+
+msgid "{1} mod packs for this game. Press A to turn them on."
 msgstr "このゲームのMODパックが{1}個あります。Aでオンにできます。"
 
 msgid "No mods on the SD card"
@@ -177,7 +180,10 @@ msgstr "このゲームのMODはありません"
 msgid "Put Riivolution XML in sd:/riivolution"
 msgstr "RiivolutionのXMLを sd:/riivolution に入れてください"
 
-msgid "{1} XML file(s) are for other games"
+msgid "1 XML file is for another game"
+msgstr "1個のXMLは他のゲーム用です"
+
+msgid "{1} XML files are for other games"
 msgstr "{1}個のXMLは他のゲーム用です"
 
 msgid "Package scan failed; go back and try again"
@@ -339,8 +345,8 @@ msgstr "ゲームが選ばれていません。"
 msgid "No cheat file yet. Choose Download to get one."
 msgstr "チートファイルがまだありません。「ダウンロード」で取得できます。"
 
-msgid "No cheat file. Put one at {1}"
-msgstr "チートファイルがありません。{1} に置いてください"
+msgid "No cheat file at {1}"
+msgstr "{1} にチートファイルがありません"
 
 msgid "The cheat file has no cheats in it: {1}"
 msgstr "チートファイルにチートがありません: {1}"
@@ -477,8 +483,8 @@ msgstr "MODパック (XMLファイルと一緒のフォルダ) はsd:/riivolutio
 msgid "Buttons"
 msgstr "ボタン"
 
-msgid "Point with the Wii Remote and press A, or move with the D-pad. B goes back, 2 opens Settings and HOME opens the HOME Menu. The Classic Controller and GameCube controllers work too, with the same buttons."
-msgstr "Wiiリモコンでポイントして A を押すか、十字ボタンで動かします。B で戻り、2 で設定、HOME でHOMEメニューを開きます。クラシックコントローラとゲームキューブコントローラも同じボタンで使えます。"
+msgid "Point with the Wii Remote and press A, or move with the D-pad; in the games list, - and + turn the pages. B goes back, 2 opens Settings and HOME opens the HOME Menu. The Classic Controller and GameCube controllers work too, with the same buttons."
+msgstr "Wiiリモコンでポイントして A を押すか、十字ボタンで動かします。ゲーム一覧では - と + でページをめくります。B で戻り、2 で設定、HOME でHOMEメニューを開きます。クラシックコントローラとゲームキューブコントローラも同じボタンで使えます。"
 
 msgid "You're all set"
 msgstr "準備完了"
@@ -675,8 +681,8 @@ msgstr "終了したNintendoのサーバーの代わりにゲームが使うオ�
 msgid "Getting covers from GameTDB: {1} left"
 msgstr "GameTDBからカバーを取得中: 残り{1}"
 
-msgid "Covers could not be downloaded ({1}). Press + to try again."
-msgstr "カバーをダウンロードできませんでした ({1})。+でもう一度試せます。"
+msgid "Covers could not be downloaded ({1}). To try again, use Settings > Look for games again."
+msgstr "カバーをダウンロードできませんでした ({1})。設定 > ゲームをもう一度探す でもう一度試せます。"
 
 msgid "Cover"
 msgstr "カバー"
@@ -729,8 +735,8 @@ msgstr "メニューの音楽"
 msgid "In-game screenshots"
 msgstr "ゲーム中のスクリーンショット"
 
-msgid "In a game, hold 1 and press HOME (or hold L and R and press Down on a GameCube controller). The pictures go to sd:/riftwii/screenshots the next time RiftWii starts. Takes about 0.8 MB of the game's memory."
-msgstr "ゲーム中に1を押したままHOMEを押します(ゲームキューブコントローラーならLとRを押したまま下)。画像は次にRiftWiiを起動したときにsd:/riftwii/screenshotsに保存されます。ゲームのメモリを約0.8MB使います。"
+msgid "Experimental. In a game, hold 1 and press HOME (or hold L and R and press Down on a GameCube controller). The pictures go to sd:/riftwii/screenshots the next time RiftWii starts. Some games and mods may not work with it."
+msgstr "試験的な機能です。ゲーム中に1を押したままHOMEを押します(ゲームキューブコントローラーならLとRを押したまま下)。画像は次にRiftWiiを起動したときにsd:/riftwii/screenshotsに保存されます。一部のゲームやMODでは使えないことがあります。"
 
 msgid "Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder."
 msgstr "メニューを開いている間の音楽です: sd:/riftwiiのmusic.ogg、なければRiftWiiのフォルダのものを流します。"
@@ -971,3 +977,54 @@ msgstr "とじる"
 
 msgid "Opens the HOME Menu, as HOME does: the Homebrew Channel, the Wii Menu, Priiloader or power off."
 msgstr "HOMEボタンと同じく、HOMEメニューを開きます: Homebrew Channel、Wiiメニュー、Priiloader、電源を切る。"
+
+msgid "Sending a report"
+msgstr "レポートを送信中"
+
+msgid "Gathering the logs and sending them to paste.rs. This can take half a minute..."
+msgstr "ログを集めてpaste.rsに送信しています。30秒ほどかかることがあります..."
+
+msgid "Report not sent"
+msgstr "レポートを送信できませんでした"
+
+msgid "It could not be sent: {1}. It is saved on the SD card as sd:/riftwii/report.txt: send that file instead."
+msgstr "送信できませんでした: {1}。SDカードに sd:/riftwii/report.txt として保存したので、代わりにそのファイルを送ってください。"
+
+msgid "It could not be sent or saved: {1}"
+msgstr "送信も保存もできませんでした: {1}"
+
+msgid "Send this link to whoever is helping you, or scan the code with a phone:"
+msgstr "手伝ってくれている人にこのリンクを送るか、スマートフォンでコードを読み取ってください:"
+
+msgid "The report was too big, so only its start was kept."
+msgstr "レポートが大きすぎたため、最初の部分だけが保存されました。"
+
+msgid "Report sent"
+msgstr "レポートを送信しました"
+
+msgid "It holds RiftWii's logs and settings, the game's choices and packs, and which console, IOS and controllers this is. It goes to paste.rs, where anyone with its link can read it."
+msgstr "RiftWiiのログと設定、ゲームの選択とパック、本体・IOS・コントローラーの情報が入っています。paste.rsに送られ、リンクを知っている人なら誰でも読めます。"
+
+msgid "RiftWii crashed last time"
+msgstr "前回RiftWiiがクラッシュしました"
+
+msgid "The game crashed last time"
+msgstr "前回ゲームがクラッシュしました"
+
+msgid "The last launch failed"
+msgstr "前回の起動に失敗しました"
+
+msgid "Send a report of what happened?"
+msgstr "何が起きたかのレポートを送信しますか？"
+
+msgid "Send"
+msgstr "送信"
+
+msgid "Send a problem report"
+msgstr "問題のレポートを送信"
+
+msgid "Send a problem report?"
+msgstr "問題のレポートを送信しますか？"
+
+msgid "Something went wrong? Sends what it takes to find out to paste.rs, and shows a link to pass on."
+msgstr "問題が起きましたか？原因を調べるのに必要な情報をpaste.rsに送り、共有用のリンクを表示します。"

@@ -137,5 +137,6 @@ fixed, politely, and probably faster than it took to write the comment.
 This is a free hobby project that loads mods into games for a console
 from 2006. It's not that serious.
 
-Developers: see [docs/DEVELOPING.md](docs/DEVELOPING.md) and
-[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+Developers and forks: start with [docs/MAP.md](docs/MAP.md) (every file, and
+where each feature lives), then [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+and [docs/DEVELOPING.md](docs/DEVELOPING.md).

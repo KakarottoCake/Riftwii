@@ -32,10 +32,11 @@ T = {
     "Played once, on {1}": ("Jugado una vez, el {1}", "{1}に1回遊びました", "Jogado uma vez, em {1}", "Giocato una volta, il {1}"),
     "Played {1} times, last on {2}": ("Jugado {1} veces, la última el {2}", "{1}回遊びました (最後は{2})",
                                       "Jogado {1} vezes, a última em {2}", "Giocato {1} volte, l'ultima il {2}"),
-    "1: view   2: settings   -: A to Z   +: rescan": ("1: vista   2: ajustes   -: A a Z   +: buscar de nuevo",
-                                                     "1: 表示   2: 設定   -: A〜Z   +: 再検索",
-                                                     "1: visão   2: configurações   -: A a Z   +: procurar de novo",
-                                                     "1: vista   2: impostazioni   -: dalla A alla Z   +: cerca di nuovo"),
+    "1: view   2: settings   -/+: pages   B: A to Z": (
+        "1: vista   2: ajustes   -/+: páginas   B: A a Z",
+        "1: 表示   2: 設定   -/+: ページ   B: A〜Z",
+        "1: visão   2: configurações   -/+: páginas   B: A a Z",
+        "1: vista   2: impostazioni   -/+: pagine   B: dalla A alla Z"),
     "Page {1} of {2}": ("Página {1} de {2}", "{1} / {2} ページ", "Página {1} de {2}", "Pagina {1} di {2}"),
     "{1}: no games in /wbfs or /games": ("{1}: no hay juegos en /wbfs ni en /games", "{1}: /wbfs と /games にゲームがありません",
                                          "{1}: nenhum jogo em /wbfs ou /games", "{1}: nessun gioco in /wbfs o /games"),
@@ -128,11 +129,16 @@ T = {
         "SDカードにMODがありません。RiivolutionのXMLを sd:/riivolution に入れてください。",
         "Nenhum mod no cartão SD. Coloque os XML do Riivolution em sd:/riivolution.",
         "Nessuna mod sulla scheda SD. Metti gli XML di Riivolution in sd:/riivolution."),
-    "{1} mod pack(s) for this game. Press A to turn them on.": (
-        "{1} paquete(s) de mods para este juego. Pulsa A para activarlos.",
+    "1 mod pack for this game. Press A to turn it on.": (
+        "1 paquete de mods para este juego. Pulsa A para activarlo.",
+        "このゲームのMODパックが1個あります。Aでオンにできます。",
+        "1 pacote de mods para este jogo. Aperte A para ativá-lo.",
+        "1 pacchetto di mod per questo gioco. Premi A per attivarlo."),
+    "{1} mod packs for this game. Press A to turn them on.": (
+        "{1} paquetes de mods para este juego. Pulsa A para activarlos.",
         "このゲームのMODパックが{1}個あります。Aでオンにできます。",
-        "{1} pacote(s) de mods para este jogo. Aperte A para ativá-los.",
-        "{1} pacchetto/i di mod per questo gioco. Premi A per attivarli."),
+        "{1} pacotes de mods para este jogo. Aperte A para ativá-los.",
+        "{1} pacchetti di mod per questo gioco. Premi A per attivarli."),
     "No mods on the SD card": ("No hay mods en la tarjeta SD", "SDカードにMODがありません", "Nenhum mod no cartão SD",
                                "Nessuna mod sulla scheda SD"),
     "No mods for this game": ("No hay mods para este juego", "このゲームのMODはありません", "Nenhum mod para este jogo",
@@ -141,8 +147,16 @@ T = {
                                                "RiivolutionのXMLを sd:/riivolution に入れてください",
                                                "Coloque os XML do Riivolution em sd:/riivolution",
                                                "Metti gli XML di Riivolution in sd:/riivolution"),
-    "{1} XML file(s) are for other games": ("{1} archivo(s) XML son de otros juegos", "{1}個のXMLは他のゲーム用です",
-                                            "{1} arquivo(s) XML são de outros jogos", "{1} file XML sono per altri giochi"),
+    "1 XML file is for another game": (
+        "1 archivo XML es de otro juego",
+        "1個のXMLは他のゲーム用です",
+        "1 arquivo XML é de outro jogo",
+        "1 file XML è per un altro gioco"),
+    "{1} XML files are for other games": (
+        "{1} archivos XML son de otros juegos",
+        "{1}個のXMLは他のゲーム用です",
+        "{1} arquivos XML são de outros jogos",
+        "{1} file XML sono per altri giochi"),
     "Package scan failed; go back and try again": ("Error al leer los packs; vuelve atrás e inténtalo de nuevo",
                                                    "パックの読み込みに失敗しました。もどってやり直してください",
                                                    "Falha ao ler os packs; volte e tente de novo",
@@ -282,8 +296,11 @@ T = {
                                                        "チートファイルがまだありません。「ダウンロード」で取得できます。",
                                                        "Ainda não há arquivo de trapaças. Escolha Baixar para obter um.",
                                                        "Nessun file di trucchi. Scegli Scarica per ottenerne uno."),
-    "No cheat file. Put one at {1}": ("No hay archivo de trucos. Pon uno en {1}", "チートファイルがありません。{1} に置いてください",
-                                      "Nenhum arquivo de trapaças. Coloque um em {1}", "Nessun file di trucchi. Mettine uno in {1}"),
+    "No cheat file at {1}": (
+        "No hay archivo de trucos en {1}",
+        "{1} にチートファイルがありません",
+        "Nenhum arquivo de trapaças em {1}",
+        "Nessun file di trucchi in {1}"),
     "The cheat file has no cheats in it: {1}": ("El archivo de trucos no tiene trucos: {1}", "チートファイルにチートがありません: {1}",
                                                 "O arquivo de trapaças está vazio: {1}", "Il file dei trucchi non ne contiene: {1}"),
 
@@ -406,11 +423,11 @@ T = {
         "Coloque os pacotes de mods (o arquivo XML e as pastas que vêm com ele) em sd:/riivolution ou usb:/riivolution. Escolha um jogo, abra Mods, ative um pacote e escolha as opções. Jogar (ou +) inicia o jogo com eles.",
         "Metti i pacchetti di mod (il file XML e le cartelle che lo accompagnano) in sd:/riivolution o usb:/riivolution. Scegli un gioco, apri Mod, attiva un pacchetto e scegli le sue opzioni. Gioca (o +) avvia il gioco con le mod."),
     "Buttons": ("Botones", "ボタン", "Botões", "Pulsanti"),
-    "Point with the Wii Remote and press A, or move with the D-pad. B goes back, 2 opens Settings and HOME opens the HOME Menu. The Classic Controller and GameCube controllers work too, with the same buttons.": (
-        "Apunta con el mando de Wii y pulsa A, o muévete con la cruceta. B vuelve atrás, 2 abre los ajustes y HOME abre el menú HOME. El mando clásico y los mandos de GameCube también sirven, con los mismos botones.",
-        "Wiiリモコンでポイントして A を押すか、十字ボタンで動かします。B で戻り、2 で設定、HOME でHOMEメニューを開きます。クラシックコントローラとゲームキューブコントローラも同じボタンで使えます。",
-        "Aponte com o Wii Remote e aperte A, ou mova com o direcional. B volta, 2 abre as configurações e HOME abre o menu HOME. O Classic Controller e os controles de GameCube também funcionam, com os mesmos botões.",
-        "Punta con il telecomando Wii e premi A, o muoviti con la croce direzionale. B torna indietro, 2 apre le impostazioni e HOME apre il menu HOME. Anche il Classic Controller e i controller GameCube funzionano, con gli stessi pulsanti."),
+    "Point with the Wii Remote and press A, or move with the D-pad; in the games list, - and + turn the pages. B goes back, 2 opens Settings and HOME opens the HOME Menu. The Classic Controller and GameCube controllers work too, with the same buttons.": (
+        "Apunta con el mando de Wii y pulsa A, o muévete con la cruceta; en la lista de juegos, - y + pasan de página. B vuelve atrás, 2 abre los ajustes y HOME abre el menú HOME. El mando clásico y los mandos de GameCube también sirven, con los mismos botones.",
+        "Wiiリモコンでポイントして A を押すか、十字ボタンで動かします。ゲーム一覧では - と + でページをめくります。B で戻り、2 で設定、HOME でHOMEメニューを開きます。クラシックコントローラとゲームキューブコントローラも同じボタンで使えます。",
+        "Aponte com o Wii Remote e aperte A, ou mova com o direcional; na lista de jogos, - e + mudam de página. B volta, 2 abre as configurações e HOME abre o menu HOME. O Classic Controller e os controles de GameCube também funcionam, com os mesmos botões.",
+        "Punta con il telecomando Wii e premi A, o muoviti con la croce direzionale; nell'elenco dei giochi, - e + cambiano pagina. B torna indietro, 2 apre le impostazioni e HOME apre il menu HOME. Anche il Classic Controller e i controller GameCube funzionano, con gli stessi pulsanti."),
     "You're all set": ("Todo listo", "準備完了", "Tudo pronto", "Tutto pronto"),
     "Settings has the video, language, online and update options. For more help, see the guide on RiftWii's GitHub page or join the Discord. Settings > Tutorial shows this tour again.": (
         "En los ajustes están las opciones de vídeo, idioma, juego en línea y actualizaciones. Para más ayuda, mira la guía en la página de GitHub de RiftWii o únete al Discord. Ajustes > Tutorial muestra este recorrido otra vez.",
@@ -590,11 +607,11 @@ T = {
         "GameTDBからカバーを取得中: 残り{1}",
         "Baixando capas do GameTDB: faltam {1}",
         "Scaricamento copertine da GameTDB: ne mancano {1}"),
-    "Covers could not be downloaded ({1}). Press + to try again.": (
-        "No se pudieron descargar las portadas ({1}). Pulsa + para volver a intentarlo.",
-        "カバーをダウンロードできませんでした ({1})。+でもう一度試せます。",
-        "Não foi possível baixar as capas ({1}). Aperte + para tentar de novo.",
-        "Impossibile scaricare le copertine ({1}). Premi + per riprovare."),
+    "Covers could not be downloaded ({1}). To try again, use Settings > Look for games again.": (
+        "No se pudieron descargar las portadas ({1}). Para volver a intentarlo, usa Ajustes > Buscar juegos de nuevo.",
+        "カバーをダウンロードできませんでした ({1})。設定 > ゲームをもう一度探す でもう一度試せます。",
+        "Não foi possível baixar as capas ({1}). Para tentar de novo, use Configurações > Procurar jogos de novo.",
+        "Impossibile scaricare le copertine ({1}). Per riprovare, usa Impostazioni > Cerca di nuovo i giochi."),
     "Cover": ("Portada", "カバー", "Capa", "Copertina"),
     "Download again": ("Volver a descargar", "もう一度ダウンロード", "Baixar de novo", "Scarica di nuovo"),
     "Downloads this game's box art from GameTDB now.": (
@@ -639,11 +656,11 @@ T = {
     # Menu music (Settings)
     "Menu music": ("Música del menú", "メニューの音楽", "Música do menu", "Musica del menu"),
     "In-game screenshots": ("Capturas en el juego", "ゲーム中のスクリーンショット", "Capturas no jogo", "Screenshot nel gioco"),
-    "In a game, hold 1 and press HOME (or hold L and R and press Down on a GameCube controller). The pictures go to sd:/riftwii/screenshots the next time RiftWii starts. Takes about 0.8 MB of the game's memory.": (
-        "En un juego, mantén 1 y pulsa HOME (o mantén L y R y pulsa Abajo en un mando de GameCube). Las imágenes van a sd:/riftwii/screenshots la próxima vez que se inicie RiftWii. Usa unos 0,8 MB de la memoria del juego.",
-        "ゲーム中に1を押したままHOMEを押します(ゲームキューブコントローラーならLとRを押したまま下)。画像は次にRiftWiiを起動したときにsd:/riftwii/screenshotsに保存されます。ゲームのメモリを約0.8MB使います。",
-        "Em um jogo, segure 1 e aperte HOME (ou segure L e R e aperte Baixo num controle de GameCube). As imagens vão para sd:/riftwii/screenshots na próxima vez que o RiftWii abrir. Usa cerca de 0,8 MB da memória do jogo.",
-        "In un gioco, tieni premuto 1 e premi HOME (o tieni premuti L e R e premi Giù su un controller GameCube). Le immagini vanno in sd:/riftwii/screenshots al prossimo avvio di RiftWii. Usa circa 0,8 MB della memoria del gioco."),
+    "Experimental. In a game, hold 1 and press HOME (or hold L and R and press Down on a GameCube controller). The pictures go to sd:/riftwii/screenshots the next time RiftWii starts. Some games and mods may not work with it.": (
+        "Experimental. En un juego, mantén 1 y pulsa HOME (o mantén L y R y pulsa Abajo en un mando de GameCube). Las imágenes van a sd:/riftwii/screenshots la próxima vez que se inicie RiftWii. Puede que algunos juegos y mods no funcionen con esto.",
+        "試験的な機能です。ゲーム中に1を押したままHOMEを押します(ゲームキューブコントローラーならLとRを押したまま下)。画像は次にRiftWiiを起動したときにsd:/riftwii/screenshotsに保存されます。一部のゲームやMODでは使えないことがあります。",
+        "Experimental. Em um jogo, segure 1 e aperte HOME (ou segure L e R e aperte Baixo num controle de GameCube). As imagens vão para sd:/riftwii/screenshots na próxima vez que o RiftWii abrir. Alguns jogos e mods podem não funcionar com isso.",
+        "Sperimentale. In un gioco, tieni premuto 1 e premi HOME (o tieni premuti L e R e premi Giù su un controller GameCube). Le immagini vanno in sd:/riftwii/screenshots al prossimo avvio di RiftWii. Alcuni giochi e mod potrebbero non funzionare."),
     "Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder.": (
         "Música mientras el menú está abierto: music.ogg de sd:/riftwii, o la de la carpeta de RiftWii.",
         "メニューを開いている間の音楽です: sd:/riftwiiのmusic.ogg、なければRiftWiiのフォルダのものを流します。",
@@ -930,6 +947,56 @@ T = {
         "HOMEボタンと同じく、HOMEメニューを開きます: Homebrew Channel、Wiiメニュー、Priiloader、電源を切る。",
         "Abre o menu HOME, como o botão HOME: Homebrew Channel, Menu Wii, Priiloader ou desligar.",
         "Apre il menu HOME, come il tasto HOME: Homebrew Channel, Menu Wii, Priiloader o spegnimento."),
+    # Problem reports
+    "Sending a report": ("Enviando un informe", "レポートを送信中", "Enviando um relatório", "Invio della segnalazione"),
+    "Gathering the logs and sending them to paste.rs. This can take half a minute...": (
+        "Reuniendo los registros y enviándolos a paste.rs. Puede tardar medio minuto...",
+        "ログを集めてpaste.rsに送信しています。30秒ほどかかることがあります...",
+        "Juntando os registros e enviando para o paste.rs. Pode levar meio minuto...",
+        "Raccolta dei log e invio a paste.rs. Può richiedere mezzo minuto..."),
+    "Report not sent": ("Informe no enviado", "レポートを送信できませんでした", "Relatório não enviado", "Segnalazione non inviata"),
+    "It could not be sent: {1}. It is saved on the SD card as sd:/riftwii/report.txt: send that file instead.": (
+        "No se pudo enviar: {1}. Está guardado en la tarjeta SD como sd:/riftwii/report.txt: envía ese archivo.",
+        "送信できませんでした: {1}。SDカードに sd:/riftwii/report.txt として保存したので、代わりにそのファイルを送ってください。",
+        "Não foi possível enviar: {1}. Ele está salvo no cartão SD como sd:/riftwii/report.txt: envie esse arquivo.",
+        "Impossibile inviarla: {1}. È salvata sulla scheda SD come sd:/riftwii/report.txt: invia quel file."),
+    "It could not be sent or saved: {1}": (
+        "No se pudo enviar ni guardar: {1}",
+        "送信も保存もできませんでした: {1}",
+        "Não foi possível enviar nem salvar: {1}",
+        "Impossibile inviarla o salvarla: {1}"),
+    "Send this link to whoever is helping you, or scan the code with a phone:": (
+        "Envía este enlace a quien te esté ayudando, o escanea el código con un móvil:",
+        "手伝ってくれている人にこのリンクを送るか、スマートフォンでコードを読み取ってください:",
+        "Envie este link para quem está ajudando você, ou leia o código com um celular:",
+        "Invia questo link a chi ti sta aiutando, oppure inquadra il codice con un telefono:"),
+    "The report was too big, so only its start was kept.": (
+        "El informe era demasiado grande y solo se guardó el principio.",
+        "レポートが大きすぎたため、最初の部分だけが保存されました。",
+        "O relatório era grande demais, então só o começo foi mantido.",
+        "La segnalazione era troppo grande, quindi ne è stato tenuto solo l'inizio."),
+    "Report sent": ("Informe enviado", "レポートを送信しました", "Relatório enviado", "Segnalazione inviata"),
+    "It holds RiftWii's logs and settings, the game's choices and packs, and which console, IOS and controllers this is. It goes to paste.rs, where anyone with its link can read it.": (
+        "Incluye los registros y ajustes de RiftWii, las opciones y packs del juego, y qué consola, IOS y mandos son. Se envía a paste.rs, donde cualquiera con el enlace puede leerlo.",
+        "RiftWiiのログと設定、ゲームの選択とパック、本体・IOS・コントローラーの情報が入っています。paste.rsに送られ、リンクを知っている人なら誰でも読めます。",
+        "Ele traz os registros e as configurações do RiftWii, as escolhas e os packs do jogo, e qual console, IOS e controles são. Vai para o paste.rs, onde qualquer pessoa com o link pode lê-lo.",
+        "Contiene i log e le impostazioni di RiftWii, le scelte e i pack del gioco, e quali console, IOS e controller sono. Va su paste.rs, dove chiunque abbia il link può leggerla."),
+    "RiftWii crashed last time": ("RiftWii se bloqueó la última vez", "前回RiftWiiがクラッシュしました", "O RiftWii travou da última vez", "L'ultima volta RiftWii si è bloccato"),
+    "The game crashed last time": ("El juego se bloqueó la última vez", "前回ゲームがクラッシュしました", "O jogo travou da última vez", "L'ultima volta il gioco si è bloccato"),
+    "The last launch failed": ("El último inicio falló", "前回の起動に失敗しました", "A última inicialização falhou", "L'ultimo avvio non è riuscito"),
+    "Send a report of what happened?": (
+        "¿Enviar un informe de lo que pasó?",
+        "何が起きたかのレポートを送信しますか？",
+        "Enviar um relatório do que aconteceu?",
+        "Inviare una segnalazione di quello che è successo?"),
+    "Send": ("Enviar", "送信", "Enviar", "Invia"),
+    "Send a problem report": ("Enviar un informe de problema", "問題のレポートを送信", "Enviar um relatório de problema", "Invia una segnalazione di problema"),
+    "Send a problem report?": ("¿Enviar un informe de problema?", "問題のレポートを送信しますか？", "Enviar um relatório de problema?", "Inviare una segnalazione di problema?"),
+    "Something went wrong? Sends what it takes to find out to paste.rs, and shows a link to pass on.": (
+        "¿Algo salió mal? Envía a paste.rs lo necesario para averiguarlo y muestra un enlace para compartir.",
+        "問題が起きましたか？原因を調べるのに必要な情報をpaste.rsに送り、共有用のリンクを表示します。",
+        "Algo deu errado? Envia ao paste.rs o necessário para descobrir e mostra um link para compartilhar.",
+        "Qualcosa non va? Invia a paste.rs quello che serve per capirlo e mostra un link da condividere."),
 }
 
 

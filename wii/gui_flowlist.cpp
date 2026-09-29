@@ -224,7 +224,8 @@ void GuiFlowList::Draw() {
         if (y >= y0 + boxH) break;
         const bool isLit = index == lit && r.kind != FlowRow::Kind::Info;
         if (isLit) skin::Draw(skin::rowFocus, x0, y, alpha);
-        else if (index + 1 < Count() && !(index + 1 == lit))
+        else if (index + 1 < Count() && !(index + 1 == lit) &&
+                 !(r.kind == FlowRow::Kind::Info && (*rows)[index + 1].kind == FlowRow::Kind::Info))
             Menu_DrawRectangle(x0 + kPad, y + kRowHeight - 1, rowWidth - 2 * kPad, 1,
                                skin::WithAlpha((GXColor){232, 232, 238, 255}, alpha), 1);
 

@@ -19,26 +19,45 @@ float rounded_rect_distance(float px, float py, float x, float y, float w, float
     return std::sqrt(ox * ox + oy * oy) + std::min(std::max(qx, qy), 0.0f) - radius;
 }
 
+// A value in [0, 255.5) to the nearest byte, halves up: what std::lround
+// gives for these, without its library call (the menu's art is millions
+// of these at start).
+std::uint8_t round_byte(float v) { return static_cast<std::uint8_t>(static_cast<int>(v + 0.5f)); }
+
 }  // namespace
 
 // The pixels whose centres are surely deeper than `depth` inside the
 // rounded rectangle (distance below `depth`, which is negative or zero),
 // with a pixel to spare: there a shape's coverage is known without the
-// distance. Empty if there are none.
+// distance. Along a straight side the distance is the distance to that
+// side, so the wide box reaches to within a pixel or so of the left and
+// right sides between the corners, and the tall box likewise of the top
+// and bottom: only the corners and the edges are worked out.
 Canvas::Inner Canvas::inside_rounded_rect(float x, float y, float w, float h, float radius, float depth) {
-    Inner in{0, 0, 0, 0, 0.0f};
+    Inner in;
     const float hw = w * 0.5f, hh = h * 0.5f;
     radius = std::min(radius, std::min(hw, hh));
-    // Inside the straight part, the distance is max(qx, qy) - radius.
-    const float slack = std::min(0.0f, depth + radius) - 1.0f;
-    const float ax = hw - radius + slack, ay = hh - radius + slack;
-    if (radius < 0.0f || ax <= 0.0f || ay <= 0.0f) return in;
+    if (radius < 0.0f) return in;
     const float cx = x + hw, cy = y + hh;
-    in.x0 = static_cast<int>(std::floor(cx - ax - 0.5f)) + 1;
-    in.x1 = static_cast<int>(std::ceil(cx + ax - 0.5f));
-    in.y0 = static_cast<int>(std::floor(cy - ay - 0.5f)) + 1;
-    in.y1 = static_cast<int>(std::ceil(cy + ay - 0.5f));
-    if (in.x0 >= in.x1 || in.y0 >= in.y1) in = Inner{0, 0, 0, 0, 0.0f};
+    // Pixel i's centre is i + 0.5: the pixels closer than `a` to `c`.
+    const auto span = [](float c, float a, int& from, int& to) {
+        from = static_cast<int>(std::floor(c - a - 0.5f)) + 1;
+        to = static_cast<int>(std::ceil(c + a - 0.5f));
+    };
+    // Between the top and bottom corners, and never deeper in y than
+    // allowed; and likewise turned round.
+    const float wideX = hw + depth - 1.0f, wideY = std::min(hh - radius, hh + depth) - 1.0f;
+    const float tallX = std::min(hw - radius, hw + depth) - 1.0f, tallY = hh + depth - 1.0f;
+    if (wideX > 0.0f && wideY > 0.0f) {
+        span(cx, wideX, in.x0, in.x1);
+        span(cy, wideY, in.y0, in.y1);
+        if (in.x0 >= in.x1 || in.y0 >= in.y1) in.x0 = in.x1 = in.y0 = in.y1 = 0;
+    }
+    if (tallX > 0.0f && tallY > 0.0f) {
+        span(cx, tallX, in.vx0, in.vx1);
+        span(cy, tallY, in.vy0, in.vy1);
+        if (in.vx0 >= in.vx1 || in.vy0 >= in.vy1) in.vx0 = in.vx1 = in.vy0 = in.vy1 = 0;
+    }
     return in;
 }
 
@@ -62,7 +81,7 @@ void Canvas::blend(int x, int y, Rgba color, float coverage) {
         p[0] = color.r;
         p[1] = color.g;
         p[2] = color.b;
-        p[3] = p[3] == 0 ? static_cast<std::uint8_t>(std::lround(sa * 255.0f)) : 255;
+        p[3] = p[3] == 0 ? round_byte(sa * 255.0f) : 255;
         return;
     }
     const float da = p[3] / 255.0f;
@@ -70,12 +89,12 @@ void Canvas::blend(int x, int y, Rgba color, float coverage) {
     if (oa <= 0.0f) return;
     const auto mix = [&](std::uint8_t s, std::uint8_t d) {
         const float v = (s * sa + d * da * (1.0f - sa)) / oa;
-        return static_cast<std::uint8_t>(std::lround(std::min(v, 255.0f)));
+        return round_byte(std::min(v, 255.0f));
     };
     p[0] = mix(color.r, p[0]);
     p[1] = mix(color.g, p[1]);
     p[2] = mix(color.b, p[2]);
-    p[3] = static_cast<std::uint8_t>(std::lround(oa * 255.0f));
+    p[3] = round_byte(oa * 255.0f);
 }
 
 template <typename Coverage>
@@ -91,14 +110,30 @@ void Canvas::paint(float x0, float y0, float x1, float y1, Rgba color, Coverage 
         }
     };
     // Inside `inner` the coverage is the same everywhere: no distances.
-    const int in0 = std::max(ix0, inner.x0), in1 = std::min(ix1, inner.x1);
     for (int y = iy0; y < iy1; ++y) {
-        if (y < inner.y0 || y >= inner.y1 || in0 >= in1) {
+        int in0 = 0, in1 = 0;
+        if (y >= inner.y0 && y < inner.y1) {
+            in0 = std::max(ix0, inner.x0);
+            in1 = std::min(ix1, inner.x1);
+        } else if (y >= inner.vy0 && y < inner.vy1) {
+            in0 = std::max(ix0, inner.vx0);
+            in1 = std::min(ix1, inner.vx1);
+        }
+        if (in0 >= in1) {
             run(y, ix0, ix1);
             continue;
         }
         run(y, ix0, in0);
-        if (inner.coverage > 0.0f) {
+        if (inner.coverage >= 1.0f && color.a == 255) {
+            // Opaque over everything: the colour itself, as blend() gives.
+            std::uint8_t* p = &px_[(static_cast<std::size_t>(y) * width_ + in0) * 4];
+            for (int x = in0; x < in1; ++x, p += 4) {
+                p[0] = color.r;
+                p[1] = color.g;
+                p[2] = color.b;
+                p[3] = 255;
+            }
+        } else if (inner.coverage > 0.0f) {
             for (int x = in0; x < in1; ++x) blend(x, y, color, inner.coverage);
         }
         run(y, in1, ix1);
@@ -131,10 +166,10 @@ void Canvas::rounded_border(float x, float y, float w, float h, float radius, fl
     }, inner);
 }
 
-void Canvas::shadow(float x, float y, float w, float h, float radius, float blur, Rgba color) {
+void Canvas::shadow(float x, float y, float w, float h, float radius, float blur, Rgba color, float hollow) {
     blur = std::max(blur, 1.0f);
-    Inner inner = inside_rounded_rect(x, y, w, h, radius, 0.0f);
-    inner.coverage = 1.0f;
+    Inner inner = inside_rounded_rect(x, y, w, h, radius, hollow > 0.0f ? -hollow : 0.0f);
+    inner.coverage = hollow > 0.0f ? 0.0f : 1.0f;
     paint(x - blur - 1, y - blur - 1, x + w + blur + 1, y + h + blur + 1, color, [&](float px, float py) {
         const float d = rounded_rect_distance(px, py, x, y, w, h, radius);
         if (d <= 0.0f) return 1.0f;
@@ -199,13 +234,40 @@ void Canvas::line(float x0, float y0, float x1, float y1, float thickness, Rgba 
     }
 }
 
-void Canvas::area_below(const std::vector<float>& top, Rgba color) {
+void Canvas::diagonal_stripes(float period, float thickness, Rgba color) {
+    const float r = thickness * 0.5f;
+    const float root2 = std::sqrt(2.0f);
+    for (int y = 0; y < height_; ++y) {
+        // x + y + 1 (the pixel's centre, summed) past the last line, stepped
+        // along the row.
+        float u = std::fmod(y + 1.0f, period);
+        for (int x = 0; x < width_; ++x, u += 1.0f) {
+            if (u >= period) u -= period;
+            // The pixel's centre from the nearest line x + y = n * period.
+            const float d = std::min(u, period - u) / root2 - r;
+            if (d < 0.5f) blend(x, y, color, clamp01(0.5f - d));
+        }
+    }
+}
+
+void Canvas::area_below(const std::vector<float>& top, Rgba color, float depth) {
     for (int x = 0; x < width_ && x < static_cast<int>(top.size()); ++x) {
         // Nothing is covered above top[x] - 1.
         const float first = std::floor(top[x] - 1.0f);
-        for (int y = first > 0.0f ? static_cast<int>(first) : 0; y < height_; ++y) {
+        const float last = depth > 0.0f ? std::ceil(top[x] + depth) : static_cast<float>(height_);
+        const int end = last < static_cast<float>(height_) ? static_cast<int>(last) : height_;
+        for (int y = first > 0.0f ? static_cast<int>(first) : 0; y < end; ++y) {
             const float c = clamp01(y + 0.5f - top[x] + 0.5f);
-            if (c > 0.0f) blend(x, y, color, c);
+            if (c >= 1.0f && color.a == 255) {
+                // Opaque over everything: the colour itself, as blend() gives.
+                std::uint8_t* p = &px_[(static_cast<std::size_t>(y) * width_ + x) * 4];
+                p[0] = color.r;
+                p[1] = color.g;
+                p[2] = color.b;
+                p[3] = 255;
+            } else if (c > 0.0f) {
+                blend(x, y, color, c);
+            }
         }
     }
 }

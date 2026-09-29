@@ -57,6 +57,20 @@ int main(int argc, char** argv) {
             std::printf("  IOS_%-6s async 0x%08x  sync 0x%08x%s\n", names[c], api.async[c], api.sync[c],
                         api.async[c] == 0 || api.sync[c] == 0 ? "  (a form the game never calls is not in its DOL)" : "");
         }
+        // The exception handler the crash record hooks (runtime/fault).
+        std::vector<riftwii::CodeRange> all;
+        for (std::size_t s = 0; s < riftwii::kDolSections; ++s) {
+            const riftwii::DolSection& sec = dol.sections[s];
+            if (!sec.used() || sec.offset + sec.size > bytes.size()) continue;
+            all.push_back({sec.address, reinterpret_cast<const std::uint8_t*>(bytes.data()) + sec.offset, sec.size});
+        }
+        std::uint32_t unhandled = 0;
+        if (riftwii::find_unhandled_exception(text, all, unhandled, error)) {
+            std::printf("  __OSUnhandledException 0x%08x\n", unhandled);
+        } else {
+            std::cout << "  __OSUnhandledException: " << error << std::endl;
+            ++failures;
+        }
     }
     return failures == 0 ? 0 : 1;
 }
