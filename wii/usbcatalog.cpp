@@ -1151,7 +1151,11 @@ bool activate_image_game(const ImageGame& game, int cios_slot, void*& storage, s
         return post_reload_failure(log_path, error);
     }
     const std::uint32_t device = disc_device == ImageDevice::Usb ? 1 : 2;
-    mem::CheckHeap("after the cIOS reload");
+    if (!mem::CheckHeap("after the cIOS reload")) {
+        error = "RiftWii's memory was damaged during the reload into IOS" + std::to_string(cios_slot) +
+                " (the details are in boot.log)";
+        return post_reload_failure(log_path, error);
+    }
     if (disc_device == ImageDevice::Usb && !rvz) log_d2x_usb_view(game.fragments);
     logf("%s: d2x F9 config\n", device_name(game.device));
     if (!di::configure_frag(device,storage,static_cast<std::uint32_t>(bytes.size()),error)) { error = "d2x F9 fragment setup failed: " + error; return post_reload_failure(log_path, error); }

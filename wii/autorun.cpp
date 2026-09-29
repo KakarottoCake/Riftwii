@@ -94,7 +94,13 @@ struct Session {
             if (usb_packs && MenuCiosSlot() == 0) {
                 if (!activate_disc_cios(source.cios_slot, log_path, error)) return false;
                 on_cios = true;
-                mem::CheckHeap("after the cIOS reload");
+                // A heap damaged across the reload (a tester's Wii U) would
+                // only fail later, somewhere else: stop here, with the reason.
+                if (!mem::CheckHeap("after the cIOS reload")) {
+                    error = "RiftWii's memory was damaged during the reload into IOS" +
+                            std::to_string(IOS_GetVersion()) + " (the details are in boot.log)";
+                    return false;
+                }
             }
             open_usb_for_packs();
             if (!probe_disc(probe, error)) return false;
