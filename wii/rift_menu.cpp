@@ -1074,6 +1074,8 @@ static void SendReport(const std::string& reason)
 	PopupBox box(tr("Report sent"), body, tr("OK"));
 	if (code.size != 0) box.Add(&qr, 588 - 16 - side - 56 - 16);
 	box.Wait();
+	// Home's status line said what went wrong; now it says it was sent.
+	g_homeNotice = tr("Report sent: {1}", {r.link});
 }
 
 // What a report holds and where it goes, said before anything is sent.
