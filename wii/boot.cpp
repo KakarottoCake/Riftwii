@@ -1465,6 +1465,25 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
 
 }  // namespace
 
+// Whether a pack's replacement executable has the SDK's IPC functions the
+// resident runtime hooks (find_ipc_symbols over its text sections).
+static bool executable_has_ipc(const std::vector<std::uint8_t>& bytes, std::string& why) {
+    DolHeader dol;
+    if (!parse_dol_header(bytes.data(), bytes.size(), dol, why)) return false;
+    std::vector<CodeRange> text;
+    for (std::size_t i = 0; i < kDolTextSections; ++i) {
+        const DolSection& s = dol.sections[i];
+        if (!s.used()) continue;
+        if (static_cast<std::uint64_t>(s.offset) + s.size > bytes.size()) {
+            why = "a text section lies past the end of the file";
+            return false;
+        }
+        text.push_back({s.address, bytes.data() + s.offset, s.size});
+    }
+    IpcSymbols symbols;
+    return find_ipc_symbols(text, symbols, why);
+}
+
 // The savegame folder: created when missing, then located on the card
 // for the runtime's FAT engine. libfat writes back lazily, so the card is
 // unmounted (which flushes) and mounted again before the raw reads, the
@@ -1717,6 +1736,37 @@ bool boot_game(const DiscProbe& probe, const BootOptions& options, std::string& 
     write_play_log(probe);
     BootOptions effective = options;
     const int running_ios = IOS_GetVersion();
+    // A pack whose main.dol is another program, not the game: the CTGP-R
+    // Channel's launcher (CTGP Revolution 1.03's Riivolution XML), which
+    // loads Mario Kart Wii itself later. The resident runtime hooks the
+    // SDK's IPC functions in the executable the apploader loads; this one
+    // has none, and what it loads next would not carry the hooks anyway.
+    // A save redirect (and the file device) is dropped for it and the
+    // program starts; file replacements cannot be served, so those fail.
+    if (effective.install_resident && !effective.main_dol.empty()) {
+        std::string why;
+        if (!executable_has_ipc(effective.main_dol, why)) {
+            const bool files = !effective.table_entries.empty() || !effective.relocations.empty() ||
+                               !effective.replacements.empty() || !effective.virtual_files.empty() ||
+                               !effective.sd_replacements.empty() || di::has_partition_resolver();
+            if (files) {
+                error = "this pack replaces main.dol with a program RiftWii can't hook (" + why +
+                        "), so its file replacements can't be served" +
+                        (di::has_partition_resolver() ? " (and an RVZ game needs them)" : "");
+                return false;
+            }
+            logf("main.dol: the pack's executable is not a game RiftWii can hook (%s); it starts without the "
+                 "resident runtime%s\n",
+                 why.c_str(),
+                 effective.savegame_dir.empty() ? ""
+                                                : ", and the save stays on the console (NAND) instead of the SD card");
+            effective.install_resident = false;
+            effective.resident_gecko = false;
+            effective.savegame_dir.clear();
+            effective.savegame_clone = false;
+            effective.file_device = false;
+        }
+    }
     if (g_extras.gc_adapter != GcAdapterMode::Off && di::has_partition_resolver()) {
         // RVZ games and the adapter conflict (GitHub issue #4): off for
         // every RVZ launch, even with the setting On, until that is solved.
