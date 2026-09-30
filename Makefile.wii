@@ -8,6 +8,14 @@ $(error "Please set DEVKITPPC in your environment. export DEVKITPPC=<path to>dev
 endif
 
 include $(DEVKITPPC)/wii_rules
+# devkitPro's default bin2o leaves mktemp's path unquoted. Workspace-local
+# temporary directories can contain spaces (as this Windows checkout does).
+define bin2o
+        $(eval _tmpasm := $(shell mktemp))
+        $(SILENTCMD)bin2s -a 32 -H "$(subst .,_,$(<F)).h" "$<" > "$(_tmpasm)"
+        $(SILENTCMD)$(CC) -x assembler-with-cpp $(CPPFLAGS) $(ASFLAGS) -c "$(_tmpasm)" -o "$(<F).o"
+        @rm -f -- "$(_tmpasm)"
+endef
 export	FREETYPE_CFLAGS	:=	-I$(DEVKITPRO)/portlibs/ppc/include/freetype2
 export	FREETYPE_LIBS	:=	-lfreetype
 
