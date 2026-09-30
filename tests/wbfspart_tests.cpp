@@ -16,6 +16,24 @@
 #include <string>
 #include <vector>
 
+// 64-bit seek and tell: fseeko/ftello are not declared on the Windows host build.
+namespace {
+int seek64(std::FILE* f, std::uint64_t at) {
+#if defined(_WIN32)
+    return _fseeki64(f, static_cast<__int64>(at), SEEK_SET);
+#else
+    return fseeko(f, static_cast<off_t>(at), SEEK_SET);
+#endif
+}
+std::uint64_t tell64(std::FILE* f) {
+#if defined(_WIN32)
+    return static_cast<std::uint64_t>(_ftelli64(f));
+#else
+    return static_cast<std::uint64_t>(ftello(f));
+#endif
+}
+}  // namespace
+
 using namespace riftwii;
 
 static int g_failures = 0;
@@ -443,7 +461,7 @@ void test_real_game_image(const std::string& dir) {
     BlockReader base = mbr.reader();
     BlockReader reader = [&](std::uint64_t lba, std::uint32_t count, std::uint8_t* out) {
         if (lba < kStart) return base(lba, count, out);
-        if (fseeko(img, static_cast<off_t>((lba - kStart) * 512), SEEK_SET) != 0) return false;
+        if (seek64(img, (lba - kStart) * 512) != 0) return false;
         return std::fread(out, 512, count, img) == count;
     };
 
@@ -474,12 +492,12 @@ void test_real_game_image(const std::string& dir) {
             continue;
         }
         std::fseek(iso, 0, SEEK_END);
-        const std::uint64_t iso_bytes = static_cast<std::uint64_t>(ftello(iso));
+        const std::uint64_t iso_bytes = tell64(iso);
         auto iso_read = [&](std::uint64_t at, std::uint8_t* out, std::size_t n) {
             std::memset(out, 0, n);  // wwt ends an ISO after its last data
             if (at >= iso_bytes) return;
             const std::size_t have = static_cast<std::size_t>(std::min<std::uint64_t>(n, iso_bytes - at));
-            fseeko(iso, static_cast<off_t>(at), SEEK_SET);
+            seek64(iso, at);
             if (std::fread(out, 1, have, iso) != have) std::memset(out, 0xEE, n);
         };
         iso_read(0x50000, b.data(), 0x8000);
