@@ -682,6 +682,17 @@ T = {
         "USBのパックは試験的な機能です。うまくいかない場合はSDにコピーしてください。",
         "Packs no USB são experimentais; se falhar, copie-os para o SD.",
         "I pacchetti su USB sono sperimentali; se non funziona, copiali sulla SD."),
+    # A pack that starts a Homebrew Channel app (CTGP Revolution): not working yet.
+    "CTGP Revolution (a pack that starts a Homebrew Channel app) does not work from RiftWii yet: it stops on a black or green screen. Start CTGP from the Homebrew Channel instead.": (
+        "CTGP Revolution (un pack que inicia una app del Homebrew Channel) todavía no funciona desde RiftWii: se queda en una pantalla negra o verde. Inicia CTGP desde el Homebrew Channel.",
+        "CTGP Revolution（Homebrew Channelのアプリを起動するパック）はまだRiftWiiから動きません。黒または緑の画面で止まります。CTGPはHomebrew Channelから起動してください。",
+        "O CTGP Revolution (um pack que inicia um app do Homebrew Channel) ainda não funciona pelo RiftWii: ele para numa tela preta ou verde. Inicie o CTGP pelo Homebrew Channel.",
+        "CTGP Revolution (un pacchetto che avvia un'app dell'Homebrew Channel) non funziona ancora da RiftWii: si ferma su una schermata nera o verde. Avvia CTGP dall'Homebrew Channel."),
+    "CTGP Revolution does not work from RiftWii yet (see Start).": (
+        "CTGP Revolution todavía no funciona desde RiftWii (mira Jugar).",
+        "CTGP RevolutionはまだRiftWiiから動きません（「はじめる」を参照）。",
+        "O CTGP Revolution ainda não funciona pelo RiftWii (veja Jogar).",
+        "CTGP Revolution non funziona ancora da RiftWii (vedi Gioca)."),
     # Mods where they cannot work (refused at Start). {1} is a folder like
     # "usb:/Project+", maybe followed by the piece below.
     " (and {1} more)": (" (y {1} más)", " (ほか{1}件)", " (e mais {1})", " (e altri {1})"),

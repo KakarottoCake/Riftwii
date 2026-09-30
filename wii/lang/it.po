@@ -750,6 +750,12 @@ msgstr "Su Wii U l'adattatore GameCube potrebbe non funzionare in gioco dalle po
 msgid "Packs on USB are experimental; if it fails, copy them to SD."
 msgstr "I pacchetti su USB sono sperimentali; se non funziona, copiali sulla SD."
 
+msgid "CTGP Revolution (a pack that starts a Homebrew Channel app) does not work from RiftWii yet: it stops on a black or green screen. Start CTGP from the Homebrew Channel instead."
+msgstr "CTGP Revolution (un pacchetto che avvia un'app dell'Homebrew Channel) non funziona ancora da RiftWii: si ferma su una schermata nera o verde. Avvia CTGP dall'Homebrew Channel."
+
+msgid "CTGP Revolution does not work from RiftWii yet (see Start)."
+msgstr "CTGP Revolution non funziona ancora da RiftWii (vedi Gioca)."
+
 msgid " (and {1} more)"
 msgstr " (e altri {1})"
 
