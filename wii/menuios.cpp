@@ -21,6 +21,7 @@ constexpr const char* kSettingPath = "sd:/riftwii/menu_ios.txt";
 constexpr int kFirstSlot = 248;
 constexpr int kLastSlot = 252;
 int g_menu_cios = 0;
+int g_menu_ios_lost = 0;  // MenuIosLost()
 
 // SYSCONF (wiibrew /shared2/sys/SYSCONF): "SCv0", an item count and a
 // table of item offsets; an item starts with a byte holding its type in
@@ -69,6 +70,8 @@ std::vector<int> MenuIosChoices() {
 
 int MenuCiosSlot() { return g_menu_cios; }
 
+int MenuIosLost() { return g_menu_ios_lost; }
+
 int BurnedDiscSlot() {
     for (int slot : {249, 250, 251, 248, 252}) {
         if (slot_has_ticket(slot)) return slot;
@@ -94,11 +97,22 @@ bool StartMenuIos(bool sd_mounted, bool fresh, int session_slot) {
             fatUnmount("sd:");
             __io_wiisd.shutdown();
         }
-        const ReloadResult r = reload_ios(58, error, true);
+        ReloadResult r = reload_ios(58, error, true);
         if (r == ReloadResult::Terminal) halt_after_terminal_reload();
+        // A tester's Wii U came back under the cIOS a failed launch had
+        // reloaded into (IOS249 answered the reload into 58), and the menu
+        // then saw no USB drive. Once more before giving up.
+        std::string first_error;
+        if (IOS_GetVersion() != 58) {
+            first_error = error;
+            r = reload_ios(58, error, true);
+            if (r == ReloadResult::Terminal) halt_after_terminal_reload();
+        }
+        g_menu_ios_lost = IOS_GetVersion() != 58 ? IOS_GetVersion() : 0;
         if (sd_mounted && __io_wiisd.startup() && __io_wiisd.isInserted() && fatMountSimple("sd", &__io_wiisd)) {
             LogReopen();
         }
+        if (!first_error.empty()) logf("Menu IOS: the reload into IOS58 after a restart failed once (%s)\n", first_error.c_str());
         logf("Menu IOS: fresh IOS%d after a restart%s%s\n", IOS_GetVersion(), error.empty() ? "" : ": ",
              error.c_str());
         return false;

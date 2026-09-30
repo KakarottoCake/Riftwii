@@ -191,7 +191,7 @@ void add_packs(const std::string& choices, std::vector<ReportPart>& parts) {
     }
 }
 
-std::string gather(const std::string& reason) {
+std::string gather(const std::string& reason, std::size_t limit) {
     std::vector<ReportPart> parts;
     parts.push_back(file_part(kCrashFile));
     parts.push_back(file_part(kGameCrashFile));
@@ -216,7 +216,7 @@ std::string gather(const std::string& reason) {
     }
     parts.push_back(listing("sd:/riivolution"));
     parts.push_back(listing("sd:/riftwii"));
-    return assemble_report(describe_system(reason), parts, kReportLimit);
+    return assemble_report(describe_system(reason), parts, limit);
 }
 
 }  // namespace
@@ -333,7 +333,7 @@ void NoteCrashAsked() {
 
 ReportOutcome SendProblemReport(const std::string& reason) {
     ReportOutcome out;
-    const std::string report = gather(reason);
+    std::string report = gather(reason, kReportLimit);
     out.bytes = report.size();
     if (FILE* f = std::fopen(kReportPath, "wb")) {
         out.saved = std::fwrite(report.data(), 1, report.size(), f) == report.size();
@@ -343,6 +343,20 @@ ReportOutcome SendProblemReport(const std::string& reason) {
     std::string answer;
     if (HttpPost(kPasteUrl, "text/plain; charset=utf-8", report, status, answer, out.error)) {
         out.sent = paste_link(status, answer, out.link, out.partial, out.error);
+    }
+    if (!out.sent && status >= 500) {
+        // A server error (paste.rs answered a 117 KB report with "500:
+        // oops"): once more, half the size, before giving up.
+        logf("Problem report: paste.rs answered %d to %u bytes; sending a shorter one\n", status,
+             static_cast<unsigned>(report.size()));
+        report = gather(reason, kReportLimit / 2 < report.size() / 2 ? kReportLimit / 2 : report.size() / 2);
+        out.bytes = report.size();
+        status = 0;
+        answer.clear();
+        out.error.clear();
+        if (HttpPost(kPasteUrl, "text/plain; charset=utf-8", report, status, answer, out.error)) {
+            out.sent = paste_link(status, answer, out.link, out.partial, out.error);
+        }
     }
     if (out.sent) {
         logf("Problem report: sent, %s (%u bytes%s)\n", out.link.c_str(), static_cast<unsigned>(out.bytes),

@@ -270,6 +270,13 @@ leaderboards to the SD card, as they do under Riivolution. CT-CODE
 packs that replace the game's `main.dol` (CTGP Revolution 1.02) work
 too.
 
+CTGP Revolution 1.03 does not work from RiftWii until further notice.
+Its pack replaces `main.dol` with the CTGP-R Channel
+(`/apps/ctgpr/boot.dol`), which RiftWii starts the way the Homebrew
+Channel does, but it stops on a black screen from a disc and a green
+one from USB. Start CTGP from the Homebrew Channel instead; the game
+page says so while its pack is on.
+
 ### Code builds (Project+, REX and other Gecko code mods)
 
 Some mods are not Riivolution packs at all. Project+ and builds made

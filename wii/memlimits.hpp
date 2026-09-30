@@ -3,6 +3,8 @@
 
 #include <gctypes.h>
 
+#include <string>
+
 // The Wii's memory as this loader may use it, in one place, and enforced.
 //
 // MEM1 (24 MiB, 0x80000000-0x81800000): the game's DOL fills it from
@@ -43,6 +45,11 @@ void LogUsage(const char* when);
 // step that damaged it. Then the free lists (mallinfo), for the total.
 // False when the heap is damaged.
 bool CheckHeap(const char* when);
+
+// The same check without logging, for while the log is closed (across an
+// IOS reload): false, with `problem` saying what and where, when the heap
+// is damaged.
+bool HeapIntact(std::string& problem);
 
 // In Dolphin only (a no-op on a Wii): fills MEM2 from where libogc left
 // arena 2's low end up to kMem2Floor with 0xDEADBEEF. Called by

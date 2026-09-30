@@ -32,6 +32,8 @@
 #include "riftwii/wbfspart.hpp"
 #include "memlimits.hpp"
 #include "umsdev.hpp"
+#include "gcadapter.hpp"
+#include "netsock.hpp"
 
 namespace riftwii::wii {
 namespace {
@@ -1069,6 +1071,49 @@ void release_usb_driver() {
     g_usb_started = false;
 }
 
+namespace {
+// Everything the menu has open in IOS, let go of for a reload into a cIOS
+// (the log is closed by now), the heap checked after each step: a tester's
+// Wii U had it damaged across this sequence and the reload, and only the
+// first step that breaks it says which (reload_ios closes the network, the
+// adapter, d2x's USB device and the NAND again; they are no-ops by then).
+// "" when every step left it whole.
+std::string release_for_reload() {
+    std::string note;
+    const auto step = [&note](const char* after) {
+        std::string problem;
+        if (note.empty() && !mem::HeapIntact(problem)) note = std::string("broken after ") + after + ": " + problem;
+    };
+    release_wii_remotes();
+    step("releasing the Wii Remotes");
+    fatUnmount("sd:");
+    __io_wiisd.shutdown();
+    g_sd_back = false;
+    step("closing the SD card");
+    release_usb_driver();
+    step("closing the USB drive");
+    di::close();
+    step("closing the disc drive");
+    NetStop();
+    step("stopping the network");
+    GcAdapterStop();
+    step("stopping the GameCube adapter");
+    ums::Forget();
+    step("closing d2x's USB device");
+    ISFS_Deinitialize();
+    step("closing the NAND");
+    return note;
+}
+
+// After the reload, the log open again: what release_for_reload found, and
+// the heap as the new IOS left it.
+void log_release_heap(const std::string& before_reload) {
+    std::string after;
+    if (!before_reload.empty()) logf("Heap across the reload: %s\n", before_reload.c_str());
+    else if (!mem::HeapIntact(after)) logf("Heap across the reload: whole after releasing, broken by the reload itself: %s\n", after.c_str());
+}
+}  // namespace
+
 bool activate_disc_cios(int cios_slot, const char* log_path, std::string& error, const char* purpose) {
     const int slots[] = {cios_slot ? cios_slot : 249, cios_slot ? 0 : 250, cios_slot ? 0 : 251};
     std::string skipped;
@@ -1084,16 +1129,12 @@ bool activate_disc_cios(int cios_slot, const char* log_path, std::string& error,
         logf("Disc: reload IOS%d for %s; releasing Wii Remotes, USB, SD and DI\n", slot, purpose);
         mem::CheckHeap("before the cIOS reload");
         LogClose();
-        release_wii_remotes();
-        fatUnmount("sd:");
-        __io_wiisd.shutdown();
-        g_sd_back = false;
-        release_usb_driver();
-        di::close();
+        const std::string released = release_for_reload();
         const ReloadResult r = reload_ios(slot, error, true);
         if (r == ReloadResult::Terminal) return false;
         g_sd_back = fatMountSimple("sd", sd_interface());
         if (g_sd_back && log_path) LogOpen(log_path, true);
+        log_release_heap(released);
         if (r == ReloadResult::NotInstalled || r == ReloadResult::Failed) {
             logf("Disc: IOS%d: %s\n", slot, error.c_str());
             skipped += (skipped.empty() ? "" : ", ") + std::string("IOS") + std::to_string(slot) + ": " + error;
@@ -1189,12 +1230,7 @@ bool activate_image_game(const ImageGame& game, int cios_slot, void*& storage, s
     logf("%s: reload IOS%d (fragment list %u bytes); releasing Wii Remotes, USB, SD and DI\n",
          device_name(game.device), cios_slot, static_cast<unsigned>(bytes.size()));
     LogClose();
-    release_wii_remotes();
-    fatUnmount("sd:");
-    __io_wiisd.shutdown();
-    g_sd_back = false;
-    release_usb_driver();
-    di::close();
+    const std::string released = release_for_reload();
     const PadPairings pads_before = ReadPadPairings();
     const ReloadResult r=reload_ios(cios_slot,error,true);
     if (r == ReloadResult::Terminal) return false;
@@ -1210,6 +1246,7 @@ bool activate_image_game(const ImageGame& game, int cios_slot, void*& storage, s
     if (disc_device == ImageDevice::Sd) use_d2x_sd(true);
     g_sd_back = fatMountSimple("sd", sd_interface());
     if (g_sd_back && log_path) LogOpen(log_path, true);
+    log_release_heap(released);
     logf("%s: reloaded IOS%d rev %d for slot %d (%s)\n", device_name(game.device), running, revision, cios_slot,
          last_reload_detail().c_str());
     {
@@ -1232,7 +1269,11 @@ bool activate_image_game(const ImageGame& game, int cios_slot, void*& storage, s
         return post_reload_failure(log_path, error);
     }
     const std::uint32_t device = disc_device == ImageDevice::Usb ? 1 : 2;
-    mem::CheckHeap("after the cIOS reload");
+    if (!mem::CheckHeap("after the cIOS reload")) {
+        error = "RiftWii's memory was damaged during the reload into IOS" + std::to_string(cios_slot) +
+                " (the details are in boot.log)";
+        return post_reload_failure(log_path, error);
+    }
     if (disc_device == ImageDevice::Usb && !rvz) log_d2x_usb_view(game.fragments);
     logf("%s: d2x F9 config\n", device_name(game.device));
     if (!di::configure_frag(device,storage,static_cast<std::uint32_t>(bytes.size()),error)) { error = "d2x F9 fragment setup failed: " + error; return post_reload_failure(log_path, error); }

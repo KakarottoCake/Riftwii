@@ -25,7 +25,16 @@ struct ReportPart {
 // header line. When it all comes to more than `limit` bytes, the biggest
 // parts lose the middle (on line boundaries, the start and more of the
 // end kept, since a log's last lines say where it stopped) until it fits.
+// Every part and the summary go through printable_utf8 first.
 std::string assemble_report(const std::string& summary, const std::vector<ReportPart>& parts, std::size_t limit);
+
+// `text` as valid UTF-8 text: each byte that does not start or continue a
+// well-formed sequence (overlong forms, surrogates and code points past
+// U+10FFFF included), and each control character but tab, CR and LF,
+// becomes '?', one byte for one. The report goes up as UTF-8 text, and it
+// carries raw files (logs with disc titles in Shift-JIS or Latin-1, bytes
+// from a damaged card); paste.rs answered one such report with a 500.
+std::string printable_utf8(const std::string& text);
 
 // The game of the launch boot.log holds: the one its first line names
 // ("RiftWii 2.4.3-beta: launch SB4E01 with packages"), else, for a boot
