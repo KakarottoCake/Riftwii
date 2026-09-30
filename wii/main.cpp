@@ -157,6 +157,7 @@ void OpenSessionLog(bool sd_mounted) {
     const bool has_path = __system_argv != nullptr && __system_argv->argvMagic == ARGV_MAGIC &&
                           __system_argv->argc > 0 && __system_argv->argv != nullptr && __system_argv->argv[0] != nullptr;
     riftwii::wii::logf("Started from %s\n", has_path ? __system_argv->argv[0] : "(no path given)");
+    riftwii::wii::EnsureMetaAhbAccess();
     riftwii::wii::mem::LogLimits();
     riftwii::wii::mem::LogUsage("start");
 }

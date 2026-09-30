@@ -30,4 +30,9 @@ bool ChannelCanInstall(std::string& why);
 // if it cannot, with `error` saying why.
 bool StartChannelInstaller(std::string& error);
 
+// Starts a Homebrew Channel app (a DOL on the SD card, `path` with its
+// sd: prefix) as the Homebrew Channel does: the running IOS kept. Returns
+// only if it cannot, with `error` saying why.
+bool StartHomebrewApp(const std::string& path, std::string& error);
+
 }  // namespace riftwii::wii
