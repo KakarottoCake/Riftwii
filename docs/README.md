@@ -12,6 +12,7 @@ RiftWii. These pages are for people working on it.
 | [DEVELOPING.md](DEVELOPING.md) | Building, tests, Dolphin runs, test scripts, releasing, ground rules |
 | [HARNESS.md](HARNESS.md) | The isolated Dolphin setup in detail |
 | [USB_HARDWARE_TEST.md](USB_HARDWARE_TEST.md) | Checking SD and USB image boot on a Wii with d2x |
+| [CTGPR.md](CTGPR.md) | CTGP-R 1.03: how it is started, d2x's IOS reload block, what a console test must show |
 | [RIIFS.md](RIIFS.md) | The RiiFS network-pack protocol and how RiftWii uses it |
 | [HEADLESS.md](HEADLESS.md) | Starting a game through RiftWii from another loader |
 | [BLUETOOTH.md](BLUETOOTH.md) | Research: other Bluetooth controllers without a cIOS, and what exists toward it |
