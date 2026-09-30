@@ -48,6 +48,19 @@ bool any_on_usb(const std::vector<PackageChoices>& packages) {
     return false;
 }
 
+// After a launch with d2x's IOS reload block failed: without clearing it,
+// every later IOS reload (the menu's own) would land in the cIOS instead.
+void ClearIosReloadBlock(std::string& error) {
+    if (!di::ios_reload_block_active()) return;
+    std::string why;
+    if (di::set_ios_reload_block(false, 0, why)) {
+        logf("d2x: IOS reload block cleared\n");
+        return;
+    }
+    logf("d2x: IOS reload block could not be cleared (%s)\n", why.c_str());
+    error += "; restart the console before starting another game";
+}
+
 // Shared state for one session: the probe and, lazily, the layout.
 struct Session {
     LaunchSource source;
@@ -63,6 +76,9 @@ struct Session {
     bool usb_packs = false;
     // The disc's launch moved to a d2x cIOS for those packs: keep it.
     bool on_cios = false;
+    // A game image is kept as the disc for a program that reloads IOS
+    // itself (a Homebrew app stand-in): d2x blocks those reloads.
+    bool block_ios_reload = false;
 
     explicit Session(const LaunchSource& launch_source = LaunchSource(), const char* active_log = nullptr)
         : source(launch_source), log_path(active_log) {}
@@ -76,7 +92,8 @@ struct Session {
             bool active = false;
             for (int slot : slots) {
                 if (!slot) continue;
-                if (activate_image_game(source.game, slot, frag_storage, frag_storage_bytes, log_path, error)) { active=true; break; }
+                if (activate_image_game(source.game, slot, frag_storage, frag_storage_bytes, log_path, error,
+                                        block_ios_reload)) { active=true; break; }
                 if (reload_terminal_failure()) return false;
             }
             if (!active) return false;
@@ -377,16 +394,25 @@ bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error, 
                  "the Homebrew Channel starts it, not loaded as the game%s\n",
                  app.c_str(), dropped.empty() ? "" : ("; " + dropped + " does not apply to it").c_str());
             if (source.kind != LaunchSource::Kind::Disc) {
+                // The app reloads IOS itself (CTGP asks for IOS37), which
+                // would drop d2x and the game with it: d2x blocks that.
                 Session s(source, "sd:/riftwii/boot.log");
-                if (!s.ensure_probe(error)) return false;
+                s.block_ios_reload = true;
+                const bool probed = s.ensure_probe(error);
                 std::string ignored;
                 di::close_partition(ignored);
+                if (!probed) {
+                    ClearIosReloadBlock(error);
+                    return false;
+                }
                 di::close();
                 logf("Homebrew app: d2x serves %s as the disc for it\n", source.game.id.c_str());
             }
             logf("Homebrew app: IOS%d, hardware access %s\n", IOS_GetVersion(),
                  *reinterpret_cast<volatile u32*>(0xCD800064) == 0xFFFFFFFFu ? "on" : "off");
-            return StartHomebrewApp(app, error);
+            if (StartHomebrewApp(app, error)) return true;
+            ClearIosReloadBlock(error);
+            return false;
         }
     }
     // Keep one session across activation, DI probing, package compilation and
