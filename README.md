@@ -31,7 +31,7 @@
 
 - **Mods, no patching.** Riivolution-format packs (the same XML and folders) load into the game as it starts. Your game files are never changed.
 - **Play from anywhere.** The disc, a USB drive (FAT32 or NTFS) or the SD card, as WBFS, ISO or Dolphin's RVZ.
-- **Big mods work.** Pulsar and CT-CODE packs such as CTGP and other Mario Kart Wii distributions, plus packs over the network from a PC (RiiFS), and Gecko code builds like Project+ and REX without their launchers.
+- **Big mods work.** Pulsar and CT-CODE packs such as CTGP Revolution 1.02 and other Mario Kart Wii distributions (CTGP Revolution 1.03 does not work yet), plus packs over the network from a PC (RiiFS), and Gecko code builds like Project+ and REX without their launchers.
 - **Saves kept apart.** Modded saves can live on the SD card, away from your Wii saves.
 - **Per game settings.** Cheats (downloaded for you), picture width, deflicker, borders, video mode (480p, PAL 60), game language and cIOS.
 - **Online play.** Wiimmfi, WiiLink WFC, AltWFC or your own server.
