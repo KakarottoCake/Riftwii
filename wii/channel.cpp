@@ -89,4 +89,21 @@ bool StartChannelInstaller(std::string& error) {
     dolboot_run(dol, kInstaller);
 }
 
+bool StartHomebrewApp(const std::string& path, std::string& error) {
+    u32 size = 0;
+    u8* dol = dolboot_read(path.c_str(), &size, [](u32 n) -> void* { return memalign(32, n); });
+    if (!dol || !dolboot_valid(dol, size)) {
+        error = path + " is missing, damaged or does not fit next to RiftWii";
+        logf("Homebrew app: %s\n", error.c_str());
+        std::free(dol);
+        return false;
+    }
+    logf("Homebrew app: starting %s (%u bytes)\n", path.c_str(), static_cast<unsigned>(size));
+    LogClose();
+    fatUnmount("sd:");
+    fatUnmount("usb:");
+    AUDIO_StopDMA();
+    dolboot_run(dol, path.c_str());
+}
+
 }  // namespace riftwii::wii

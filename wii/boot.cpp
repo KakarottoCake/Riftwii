@@ -54,6 +54,7 @@
 #include "channel.hpp"
 #include "loadersettings.hpp"
 #include "riftwii/symsearch.hpp"
+#include "dolboot.h"
 
 namespace riftwii::wii {
 namespace {
@@ -704,31 +705,6 @@ namespace {
 
 // The part of the boot that runs after the SD card and the log are gone.
 // Returns only on failure.
-// The system call vector (0x80000C00) as the Wii's system software leaves
-// it for a game: `sc` returns at once, after toggling HID0's bit 28 around
-// a sync (the SDK's and older libogc's cache routines end with `sc` to
-// drain the write buffer this way). This loader's libogc leaves its own
-// exception stub there, which jumps into this loader's handler, gone once
-// the game is in memory: a program that runs `sc` before installing
-// handlers of its own (CTGP-R 1.03's launcher, which skips its libogc's
-// startup) then hangs on a black screen. Retail games put their own
-// handler there when they start, so this changes nothing for them.
-static void install_system_call_handler() {
-    static const std::uint32_t kHandler[] = {
-        0x7D30FAA6,  // mfspr r9, HID0
-        0x612A0008,  // ori   r10, r9, 8
-        0x7D50FBA6,  // mtspr HID0, r10
-        0x4C00012C,  // isync
-        0x7C0004AC,  // sync
-        0x7D30FBA6,  // mtspr HID0, r9
-        0x4C000064,  // rfi
-    };
-    std::uint32_t* const vector = reinterpret_cast<std::uint32_t*>(0x80000C00);
-    for (std::size_t i = 0; i < sizeof(kHandler) / sizeof(kHandler[0]); ++i) vector[i] = kHandler[i];
-    DCFlushRange(vector, sizeof(kHandler));
-    ICInvalidateRange(vector, sizeof(kHandler));
-}
-
 bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, const SavegameOptions& savegame,
                         const RvzResidentOptions& rvz, std::uint32_t required, std::string& error) {
     bool force_ios_fields = options.preserve_current_ios;
@@ -1474,7 +1450,7 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         ICInvalidateRange(reinterpret_cast<void*>(resident.data_base), resident.data_bytes);  // the code, when it is here
     }
     place_vsd_hook(vsd);  // to the bottom of the MEM2 arena, as the runtime's data above
-    install_system_call_handler();
+    dolboot_system_call_vector();  // what the system software leaves for a game (channel/common/dolboot.h)
     if (codes_first) {
         // As Gecko loaders do: the handler runs once before the game, so a
         // code build's writes to the game's tables (Project+ resizes its

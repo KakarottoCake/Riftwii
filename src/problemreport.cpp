@@ -43,7 +43,52 @@ std::string trim(const std::string& s) {
 
 }  // namespace
 
-std::string assemble_report(const std::string& summary, const std::vector<ReportPart>& parts, std::size_t limit) {
+std::string printable_utf8(const std::string& text) {
+    std::string out = text;
+    const std::size_t n = text.size();
+    std::size_t i = 0;
+    while (i < n) {
+        const unsigned char c = static_cast<unsigned char>(text[i]);
+        if (c < 0x80) {
+            if ((c < 0x20 && c != '\t' && c != '\n' && c != '\r') || c == 0x7F) out[i] = '?';
+            ++i;
+            continue;
+        }
+        // The sequence's length and the range its second byte must be in
+        // (which rules out overlong forms, surrogates and > U+10FFFF).
+        std::size_t len = 0;
+        unsigned char lo = 0x80, hi = 0xBF;
+        if (c >= 0xC2 && c <= 0xDF) len = 2;
+        else if (c == 0xE0) len = 3, lo = 0xA0;
+        else if (c >= 0xE1 && c <= 0xEC) len = 3;
+        else if (c == 0xED) len = 3, hi = 0x9F;
+        else if (c >= 0xEE && c <= 0xEF) len = 3;
+        else if (c == 0xF0) len = 4, lo = 0x90;
+        else if (c >= 0xF1 && c <= 0xF3) len = 4;
+        else if (c == 0xF4) len = 4, hi = 0x8F;
+        bool ok = len != 0 && i + len <= n;
+        for (std::size_t k = 1; ok && k < len; ++k) {
+            const unsigned char b = static_cast<unsigned char>(text[i + k]);
+            ok = k == 1 ? (b >= lo && b <= hi) : (b >= 0x80 && b <= 0xBF);
+        }
+        if (!ok) {
+            out[i] = '?';
+            ++i;
+            continue;
+        }
+        i += len;
+    }
+    return out;
+}
+
+std::string assemble_report(const std::string& raw_summary, const std::vector<ReportPart>& raw_parts,
+                            std::size_t limit) {
+    const std::string summary = printable_utf8(raw_summary);
+    std::vector<ReportPart> parts = raw_parts;
+    for (ReportPart& p : parts) {
+        p.name = printable_utf8(p.name);
+        p.text = printable_utf8(p.text);
+    }
     std::size_t fixed = summary.size() + 64;
     std::size_t largest = 0;
     for (const ReportPart& p : parts) {

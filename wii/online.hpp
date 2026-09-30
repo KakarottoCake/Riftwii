@@ -60,6 +60,12 @@ void LogDeclinedUpdate();
 
 // sd:/riftwii/cheats/<ID>.txt.
 std::string CheatPath(const std::string& game_id);
+
+// Adds <ahb_access/> to the meta.xml next to this boot.dol when it lacks
+// it (an update through the menu replaces only boot.dol): the Homebrew
+// Channel starts RiftWii with hardware access from the next start on, for
+// a pack's Homebrew Channel app to inherit. Best effort, logged.
+void EnsureMetaAhbAccess();
 // Fetches the game's cheats, replacing the file. The archive answers
 // with an empty page for a game it has no cheats for: `error` says so.
 bool DownloadCheats(const std::string& game_id, std::string& error);

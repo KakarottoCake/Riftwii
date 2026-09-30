@@ -251,6 +251,19 @@ std::string Sha256Hex(const std::vector<std::uint8_t>& bytes) {
     return out;
 }
 
+// <ahb_access/> before </app> when meta.xml lacks it: the Homebrew
+// Channel then starts RiftWii with hardware access, which a pack's
+// Homebrew Channel app (CTGP-R 1.03's) gets passed on. False when the
+// text already has it or has no </app>.
+bool AddAhbAccess(std::string& text) {
+    if (text.find("<ahb_access") != std::string::npos) return false;
+    const std::size_t end = text.rfind("</app>");
+    if (end == std::string::npos) return false;
+    const bool crlf = text.find("\r\n") != std::string::npos;
+    text.insert(end, std::string("  <ahb_access/>") + (crlf ? "\r\n" : "\n"));
+    return true;
+}
+
 // meta.xml's <version> next to the DOL, so the Homebrew Channel shows the
 // new one. Best effort: the DOL is what counts.
 void UpdateMetaVersion(const std::string& dol_path, const std::string& latest) {
@@ -273,6 +286,7 @@ void UpdateMetaVersion(const std::string& dol_path, const std::string& latest) {
         version[dash + 1] = static_cast<char>(std::toupper(static_cast<unsigned char>(version[dash + 1])));
     }
     text.replace(open + 9, close - open - 9, version);
+    AddAhbAccess(text);
     std::string error;
     if (!write_file(meta, std::vector<std::uint8_t>(text.begin(), text.end()), error)) logf("Update: meta.xml: %s\n", error.c_str());
 }
@@ -460,6 +474,25 @@ bool DownloadCheats(const std::string& game_id, std::string& error) {
     if (!write_file(CheatPath(game_id), body, error)) return false;
     logf("Cheats: %u for %s from the GeckoCodes archive\n", static_cast<unsigned>(file.cheats.size()), game_id.c_str());
     return true;
+}
+
+void EnsureMetaAhbAccess() {
+    const std::string dol = RunningDolPath();
+    if (dol.empty()) return;
+    const std::string meta = dol.substr(0, dol.rfind('/') + 1) + "meta.xml";
+    FILE* f = std::fopen(meta.c_str(), "rb");
+    if (!f) return;
+    std::string text;
+    char buf[1024];
+    std::size_t n;
+    while ((n = std::fread(buf, 1, sizeof(buf), f)) > 0) text.append(buf, n);
+    std::fclose(f);
+    if (!AddAhbAccess(text)) return;
+    std::string error;
+    if (write_file(meta, std::vector<std::uint8_t>(text.begin(), text.end()), error))
+        logf("meta.xml: hardware access asked of the Homebrew Channel from the next start (%s)\n", meta.c_str());
+    else
+        logf("meta.xml: %s\n", error.c_str());
 }
 
 }  // namespace riftwii::wii

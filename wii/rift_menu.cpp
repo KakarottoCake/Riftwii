@@ -66,6 +66,7 @@
 #include "menuios.hpp"
 #include "online.hpp"
 #include "reportsend.hpp"
+#include "modplan.hpp"
 #include "restart.hpp"
 #include "channel.hpp"
 #include "riftwii/settingsfile.hpp"
@@ -686,9 +687,27 @@ static bool PacksOnUsb(const FrontendState& state)
 // Shown once before a launch that uses what is still experimental: an
 // RVZ game (the catalog's note), packs on the USB drive. What cannot work
 // at all is refused instead (ModPlaceProblem).
+// A pack that swaps the game's executable for a Homebrew Channel app
+// (CTGP Revolution 1.03's CTGP-R Channel): started as the Homebrew Channel
+// starts it (wii/modplan.hpp), but it does not work from RiftWii yet (a
+// black screen from a disc, a green one from USB, on testers' consoles).
+static bool HomebrewAppPackOn(const FrontendState& state)
+{
+	if (state.game_id.empty()) return false;
+	std::string app, dropped;
+	return riftwii::wii::homebrew_app_stand_in(state.model.selections(), state.game_id, app, dropped);
+}
+
+static const char* const kHomebrewAppWarning =
+	"CTGP Revolution (a pack that starts a Homebrew Channel app) does not work from RiftWii yet: it stops on a black or green screen. Start CTGP from the Homebrew Channel instead.";
+
 static std::string LaunchNote(const FrontendState& state)
 {
 	std::string note = state.launch_warning;
+	if (HomebrewAppPackOn(state)) {
+		if (!note.empty()) note += " ";
+		note += tr(kHomebrewAppWarning);
+	}
 	if (PacksOnUsb(state)) {
 		if (!note.empty()) note += " ";
 		note += tr("Packs on USB are experimental; if it fails, copy them to SD.");
@@ -1255,6 +1274,9 @@ static void ScanDrives(FrontendState& state, GuiText& status)
 		if (riftwii::wii::MenuCiosSlot() != 0 && error.find("more than one") == std::string::npos) {
 			state.usb_catalog.status += " " + tr("(the menu runs under IOS {1}; USB drives need a base-58 cIOS for that, or set the menu IOS back to 58)",
 				{std::to_string(riftwii::wii::MenuCiosSlot())});
+		} else if (riftwii::wii::MenuIosLost() != 0 && error.find("more than one") == std::string::npos) {
+			state.usb_catalog.status += " " + tr("(after the failed launch RiftWii came back under IOS {1}, which cannot read the drive here; start RiftWii again from the Homebrew Channel)",
+				{std::to_string(riftwii::wii::MenuIosLost())});
 		}
 	}
 	// After the USB scan: packs on the drive count too.
@@ -2141,6 +2163,7 @@ static std::string ModsNote(const FrontendState& state, const std::string& scanS
 {
 	if (const std::string problem = riftwii::wii::ModPlaceProblem(state, true); !problem.empty())
 		return FlatCapped(problem, 90);
+	if (HomebrewAppPackOn(state)) return tr("CTGP Revolution does not work from RiftWii yet (see Start).");
 	std::size_t enabled = 0;
 	const std::size_t shown = ShownPacks(state, &enabled);
 	if (shown == 0) {
