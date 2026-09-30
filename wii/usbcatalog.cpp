@@ -1196,7 +1196,7 @@ void log_d2x_usb_view(const D2xFragmentList& list) {
 }  // namespace
 
 bool activate_image_game(const ImageGame& game, int cios_slot, void*& storage, std::size_t& storage_bytes,
-                         const char* log_path, std::string& error) {
+                         const char* log_path, std::string& error, bool block_ios_reload) {
     if (cios_slot < 3 || cios_slot > 255) { error = "cIOS slot must be 3..255"; return false; }
     // Vet the slot while IPC, SD and USB are still up: past the teardown
     // below a title that fails to start cannot be reported or recovered.
@@ -1213,6 +1213,11 @@ bool activate_image_game(const ImageGame& game, int cios_slot, void*& storage, s
     }
     if (!game.checked) { error = "internal: the game was not opened before launch"; return false; }
     const bool rvz = game.format == UsbImageFormat::Rvz;
+    if (block_ios_reload && rvz) {
+        // RiftWii's own resident code reads an RVZ; d2x only has its stub.
+        error = "an RVZ game can't be kept as the disc for another program: use an ISO or WBFS";
+        return false;
+    }
     D2xFragmentList rvz_fragments;
     if (rvz && !prepare_rvz_launch(game, rvz_fragments, error)) return false;
     std::vector<std::uint8_t> bytes; if (!(rvz ? rvz_fragments : game.fragments).encode(bytes,error)) return false;
@@ -1281,6 +1286,13 @@ bool activate_image_game(const ImageGame& game, int cios_slot, void*& storage, s
     // the following virtual probe cannot clear d2x's emulation state.
     logf("%s: d2x F6 reset-disable\n", device_name(game.device));
     if (!di::disable_reset(error)) { error = "d2x F6 reset-disable failed: " + error; return post_reload_failure(log_path, error); }
+    if (block_ios_reload) {
+        // Before the first partition probe: d2x hides its ES commands once
+        // ES has identified the disc's title.
+        if (!di::set_ios_reload_block(true, static_cast<std::uint32_t>(running), error))
+            return post_reload_failure(log_path, error);
+        logf("%s: d2x keeps IOS%d across the program's own IOS reloads\n", device_name(game.device), running);
+    }
     if (!g_sd_back) {
         error="d2x is configured but SD could not be remounted after IOS reload";
         return post_reload_failure(log_path, error);

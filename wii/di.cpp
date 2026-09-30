@@ -33,6 +33,7 @@ std::uint8_t g_bounce[32 * 1024] ATTRIBUTE_ALIGN(32);
 s32 g_fd = -1;
 int g_last_reply = 0;
 std::uint32_t g_frag_device = 0;
+std::uint32_t g_reload_block_slot = 0;
 
 bool aligned32(const void* p) { return (reinterpret_cast<std::uintptr_t>(p) & 31) == 0; }
 
@@ -173,10 +174,41 @@ bool configure_frag(std::uint32_t device, const void* list32, std::uint32_t byte
         return false;
     }
     g_frag_device = device;
+    g_reload_block_slot = 0;  // fragment activation follows a fresh cIOS reload
     error.clear(); return true;
 }
 
 std::uint32_t frag_device() { return g_frag_device; }
+bool ios_reload_block_active() { return g_reload_block_slot != 0; }
+
+bool set_ios_reload_block(bool enabled, std::uint32_t slot, std::string& error) {
+    if (enabled && (slot < 200 || slot > 255)) {
+        error = "launcher image needs a d2x cIOS slot (200-255)";
+        return false;
+    }
+    // Separate cache lines: IOS requires aligned IPC input buffers.
+    u32 mode[8] ATTRIBUTE_ALIGN(32) = {};
+    u32 ios[8] ATTRIBUTE_ALIGN(32) = {};
+    ioctlv vectors[2] ATTRIBUTE_ALIGN(32) = {};
+    mode[0] = enabled ? 2 : 0;
+    ios[0] = slot;
+    vectors[0].data = mode; vectors[0].len = sizeof(u32);
+    vectors[1].data = ios; vectors[1].len = sizeof(u32);
+    const s32 fd = IOS_Open("/dev/es", 0);
+    if (fd < 0) {
+        error = "d2x reload block: cannot open /dev/es: " + std::to_string(fd);
+        return false;
+    }
+    const s32 reply = IOS_Ioctlv(fd, 0xA0, enabled ? 2 : 1, 0, vectors);
+    IOS_Close(fd);
+    if (reply < 0) {
+        error = "d2x reload block rejected: IOS error " + std::to_string(reply);
+        return false;
+    }
+    g_reload_block_slot = enabled ? slot : 0;
+    error.clear();
+    return true;
+}
 
 bool inquiry(std::uint8_t out32[32], std::string& error) {
     std::memset(g_in, 0, sizeof(g_in));

@@ -126,8 +126,10 @@ bool slot_has_ticket(int slot);
 // The transition after the GUI has stopped. It leaves d2x owning the selected
 // image device and remounts SD, so XML and redirect files remain available. `storage` is
 // caller-owned memory that must outlive d2x configuration and the game boot.
+// `block_ios_reload`: d2x keeps its cIOS (and so the virtual disc) when the
+// program started next reloads IOS itself (see di::set_ios_reload_block).
 bool activate_image_game(const ImageGame& game, int cios_slot, void*& storage, std::size_t& storage_bytes,
-                         const char* log_path, std::string& error);
+                         const char* log_path, std::string& error, bool block_ios_reload = false);
 // For a disc whose packs are on the USB drive while the menu runs a non-d2x
 // IOS: reloads the cIOS (`cios_slot`, or 249, then 250, then 251) with the
 // same teardown as activate_image_game, and brings the SD card and the log
