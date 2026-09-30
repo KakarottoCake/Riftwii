@@ -76,6 +76,22 @@ static void set_argv(const DolHeader* h, const char* path) {
     DCFlushRange(args, sizeof(*args));
 }
 
+void dolboot_system_call_vector(void) {
+    static const u32 handler[] = {
+        0x7D30FAA6,  // mfspr r9, HID0
+        0x612A0008,  // ori   r10, r9, 8
+        0x7D50FBA6,  // mtspr HID0, r10
+        0x4C00012C,  // isync
+        0x7C0004AC,  // sync
+        0x7D30FBA6,  // mtspr HID0, r9
+        0x4C000064,  // rfi
+    };
+    u32* const vector = (u32*)0x80000C00;
+    for (unsigned i = 0; i < sizeof(handler) / sizeof(handler[0]); ++i) vector[i] = handler[i];
+    DCFlushRange(vector, sizeof(handler));
+    ICInvalidateRange(vector, sizeof(handler));
+}
+
 void dolboot_run(const u8* dol, const char* argv0) {
     static char path[256];
     strncpy(path, argv0, sizeof(path) - 1);
@@ -93,6 +109,7 @@ void dolboot_run(const u8* dol, const char* argv0) {
         DCFlushRange((void*)h.bss_address, h.bss_size);
     }
     set_argv(&h, path);
+    dolboot_system_call_vector();
     ((void (*)(void))h.entry)();
     for (;;) {
     }

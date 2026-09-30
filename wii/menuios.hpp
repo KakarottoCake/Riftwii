@@ -40,6 +40,11 @@ int BurnedDiscSlot();
 // The cIOS slot the menu is running under, or 0.
 int MenuCiosSlot();
 
+// The IOS a fresh restart could not get back to (58), after a retry: 0
+// when it did. The IOS that stayed (a cIOS a failed launch had reloaded
+// into) cannot read USB drives through libogc, so the USB status says so.
+int MenuIosLost();
+
 // Wii Remote pairings in SYSCONF (BT.DINF) and how many of them are
 // fakemote's "Fake Wiimote" entries, which fakemote writes when its IOS
 // starts. -1 when SYSCONF cannot be read.

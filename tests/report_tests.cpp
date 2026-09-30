@@ -122,6 +122,28 @@ int main() {
         EXPECT_FALSE(paste_link(201, "<html>x y</html>", link, partial, error));
     }
 
+    // The text as valid UTF-8: good sequences kept, anything else '?', one
+    // byte for one, control characters too (tab and line ends kept).
+    {
+        EXPECT_EQ(printable_utf8("plain\ttext\r\n"), "plain\ttext\r\n");
+        EXPECT_EQ(printable_utf8("Pok\xC3\xA9mon \xE3\x83\x9E \xF0\x9F\x8E\xAE"), "Pok\xC3\xA9mon \xE3\x83\x9E \xF0\x9F\x8E\xAE");
+        EXPECT_EQ(printable_utf8("Pok\xE9mon"), "Pok?mon");                 // Latin-1
+        EXPECT_EQ(printable_utf8("\x83\x7D\x83\x8A"), "?}??");            // Shift-JIS
+        EXPECT_EQ(printable_utf8("a\xC0\xAF" "b"), "a??b");                   // overlong '/'
+        EXPECT_EQ(printable_utf8("\xE0\x80\xAF"), "???");                  // overlong, 3 bytes
+        EXPECT_EQ(printable_utf8("\xF0\x80\x80\xAF"), "????");             // overlong, 4 bytes
+        EXPECT_EQ(printable_utf8("\xED\xA0\x80"), "???");                  // a surrogate
+        EXPECT_EQ(printable_utf8("\xF4\x90\x80\x80"), "????");            // past U+10FFFF
+        EXPECT_EQ(printable_utf8("cut \xE3\x83"), "cut ??");               // cut short
+        EXPECT_EQ(printable_utf8(std::string("nul\0bell\x07" "del\x7F", 13)), "nul?bell?del?");
+        const std::string raw = std::string("x\xFF\xFEy", 4);
+        EXPECT_EQ(printable_utf8(raw).size(), raw.size());
+        const std::vector<ReportPart> parts = {{"boot.log", std::string("Disc: \x83\x7D title\n")}};
+        const std::string r = assemble_report("s", parts, 10000);
+        EXPECT_TRUE(has(r, "Disc: ?} title"));
+        EXPECT_EQ(printable_utf8(r), r);
+    }
+
     if (g_failures == 0) {
         std::cout << "ALL REPORT TESTS PASSED" << std::endl;
         return 0;

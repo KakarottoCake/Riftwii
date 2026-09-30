@@ -124,20 +124,21 @@ extern "C" void __malloc_lock(struct _reent*);
 extern "C" void __malloc_unlock(struct _reent*);
 
 namespace {
-bool WalkHeap(const char* when);
+bool WalkHeap(const char* when, std::string* problem);
 }
 
 bool CheckHeap(const char* when) {
     logf("Heap check (%s)\n", when);
     // Other threads (the GUI's) allocate too: none while the walk runs.
     __malloc_lock(_REENT);
-    const bool ok = WalkHeap(when);
+    const bool ok = WalkHeap(when, nullptr);
     __malloc_unlock(_REENT);
     return ok;
 }
 
 namespace {
-bool WalkHeap(const char* when) {
+bool WalkHeap(const char* when, std::string* problem) {
+    char text[160];
     const u32 top = Address(__malloc_av_[2]);
     const u32 bins_lo = Address(__malloc_av_) - 8, bins_hi = Address(__malloc_av_) + 258 * 4;
     const auto link_ok = [&](u32 p) { return InHeap(p) || (p >= bins_lo && p < bins_hi); };
@@ -160,8 +161,13 @@ bool WalkHeap(const char* when) {
                 }
             }
             if (why) {
-                logf("Heap check (%s): BROKEN: %s at 0x%08x (size word 0x%08x, %u chunks in; the one before at 0x%08x)\n",
-                     when, why, p, word, static_cast<unsigned>(chunks), before);
+                std::snprintf(text, sizeof(text), "%s at 0x%08x (size word 0x%08x, %u chunks in; the one before at 0x%08x)",
+                              why, p, word, static_cast<unsigned>(chunks), before);
+                if (problem) {
+                    *problem = text;
+                    return false;
+                }
+                logf("Heap check (%s): BROKEN: %s\n", when, text);
                 Dump(p);
                 return false;
             }
@@ -170,12 +176,44 @@ bool WalkHeap(const char* when) {
             ++chunks;
         }
     }
+    // The free lists, as mallinfo walks them (each bin's back links until
+    // they come round to the bin): a link into memory that is not a chunk
+    // made mallinfo itself fault (a tester's Wii U, after an IOS249
+    // reload), so they are followed here first, each step checked.
+    for (u32 bin = bins_lo + 16; bin + 16 <= bins_hi; bin += 8) {
+        u32 p = *reinterpret_cast<const u32*>(bin + 12), steps = 0;
+        while (p != bin) {
+            const char* why = nullptr;
+            if (!InHeap(p) || (p & 7) != 0) why = "a free list that leaves the heap";
+            else if (++steps > chunks + 1) why = "a free list longer than the heap";
+            if (why) {
+                std::snprintf(text, sizeof(text), "%s: bin 0x%08x, link 0x%08x after %u step(s)", why, bin, p,
+                              static_cast<unsigned>(steps));
+                if (problem) {
+                    *problem = text;
+                    return false;
+                }
+                logf("Heap check (%s): BROKEN: %s\n", when, text);
+                if (InHeap(p)) Dump(p);
+                return false;
+            }
+            p = *reinterpret_cast<const u32*>(p + 12);
+        }
+    }
+    if (problem) return true;
     const struct mallinfo info = mallinfo();
     logf("Heap check (%s): OK, %u chunks, %u KiB free in the heap\n", when, static_cast<unsigned>(chunks),
          Kib(static_cast<u32>(info.fordblks)));
     return true;
 }
 }  // namespace
+
+bool HeapIntact(std::string& problem) {
+    __malloc_lock(_REENT);
+    const bool ok = WalkHeap("", &problem);
+    __malloc_unlock(_REENT);
+    return ok;
+}
 
 void PoisonReloadArea() {
     if (!g_dolphin || g_mem2_libogc_lo >= kMem2Floor) return;
