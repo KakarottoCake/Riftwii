@@ -310,6 +310,41 @@ static void test_fast_cycle_detection_and_fat_cache() {
     EXPECT_TRUE(reads <= 2);
 }
 
+// Chains all over the FAT, visited in turn, read each window of the FAT
+// once: a pack's thousands of files lie all over the card, and one window
+// re-read per file took 20 seconds on a Wii.
+static void test_fat_windows() {
+    Image img(512, 1, 0, 40000);  // 8192 clusters' FAT entries per window
+    img.chain({100, 101});
+    img.chain({9000});
+    img.chain({17000, 17001, 30000});  // crosses into a fourth window
+    int reads = 0;
+    const riftwii::BlockReader base = img.reader();
+    auto counted = [&base, &reads](std::uint64_t lba, std::uint32_t count, std::uint8_t* out) {
+        ++reads;
+        return base(lba, count, out);
+    };
+    riftwii::Fat32Volume v;
+    std::string err;
+    EXPECT_TRUE(riftwii::Fat32Volume::mount(counted, v, err));
+    std::vector<Fragment> fragments;
+    reads = 0;
+    for (int round = 0; round < 3; ++round) {
+        EXPECT_TRUE(v.chain(100, fragments, err));
+        EXPECT_EQ(fragments.size(), std::size_t(1));
+        EXPECT_TRUE(v.chain(9000, fragments, err));
+        EXPECT_EQ(fragments.size(), std::size_t(1));
+        EXPECT_TRUE(v.chain(17000, fragments, err));
+        EXPECT_EQ(fragments.size(), std::size_t(2));
+    }
+    EXPECT_EQ(reads, 4);
+    // forget_cached() drops them: the card may have been written since.
+    v.forget_cached();
+    reads = 0;
+    EXPECT_TRUE(v.chain(9000, fragments, err));
+    EXPECT_EQ(reads, 1);
+}
+
 // Folders are read once and then served from memory (a big mod looks up
 // thousands of files under the same folders); forget_cached() drops them
 // after the card was written behind the volume's back.
@@ -446,6 +481,7 @@ int main() {
     test_geometry_and_lookup(4096, 1, 63);
     test_listing_and_edge_entries();
     test_fast_cycle_detection_and_fat_cache();
+    test_fat_windows();
     test_directory_cache();
     test_mount_failures();
     if (g_failures == 0) {

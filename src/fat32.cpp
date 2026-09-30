@@ -289,22 +289,28 @@ bool Fat32Volume::next_cluster(std::uint32_t cluster, std::uint32_t& next, std::
     const std::uint64_t byte_in_volume = fat_start_sector * geo_.bytes_per_sector + byte_in_fat;
     const std::uint64_t lba = geo_.volume_lba + byte_in_volume / kFatBlockBytes;
     const std::uint32_t within = static_cast<std::uint32_t>(byte_in_volume % kFatBlockBytes);
-    if (fat_cache_count_ == 0 || lba < fat_cache_lba_ || lba - fat_cache_lba_ >= fat_cache_count_) {
-        // Read a window starting here, clipped to the end of the active FAT.
+    const std::uint64_t fat_lba = geo_.volume_lba + (fat_start_sector * geo_.bytes_per_sector) / kFatBlockBytes;
+    const std::uint64_t window = fat_lba + (lba - fat_lba) / kFatCacheBlocks * kFatCacheBlocks;
+    auto cached = fat_cache_.find(window);
+    if (cached == fat_cache_.end()) {
+        // Read the window, clipped to the end of the active FAT.
         const std::uint64_t fat_end = geo_.volume_lba +
             ((fat_start_sector + geo_.fat_sectors) * geo_.bytes_per_sector) / kFatBlockBytes;
         const std::uint32_t count =
-            static_cast<std::uint32_t>(std::max<std::uint64_t>(1, std::min<std::uint64_t>(kFatCacheBlocks, fat_end - lba)));
-        fat_cache_.resize(std::size_t(kFatCacheBlocks) * kFatBlockBytes);
-        fat_cache_count_ = 0;
-        if (!reader_(lba, count, fat_cache_.data())) {
+            static_cast<std::uint32_t>(std::max<std::uint64_t>(1, std::min<std::uint64_t>(kFatCacheBlocks, fat_end - window)));
+        if (fat_cache_.size() >= kFatCacheWindows) fat_cache_.clear();
+        std::vector<std::uint8_t> blocks(std::size_t(count) * kFatBlockBytes);
+        if (!reader_(window, count, blocks.data())) {
             error = "cannot read FAT block " + std::to_string(lba);
             return false;
         }
-        fat_cache_lba_ = lba;
-        fat_cache_count_ = count;
+        cached = fat_cache_.emplace(window, std::move(blocks)).first;
     }
-    next = le32(fat_cache_.data() + (lba - fat_cache_lba_) * kFatBlockBytes + within) & kFatMask;
+    if ((lba - window + 1) * kFatBlockBytes > cached->second.size()) {
+        error = "FAT block " + std::to_string(lba) + " past the FAT";
+        return false;
+    }
+    next = le32(cached->second.data() + (lba - window) * kFatBlockBytes + within) & kFatMask;
     return true;
 }
 
@@ -527,7 +533,7 @@ bool Fat32Volume::directory_entries(std::uint32_t directory_cluster, const std::
 }
 
 void Fat32Volume::forget_cached() const {
-    fat_cache_count_ = 0;
+    fat_cache_.clear();
     dir_cache_.clear();
     dir_cache_entries_ = 0;
 }
