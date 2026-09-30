@@ -60,6 +60,9 @@ msgstr "検索に失敗しました"
 msgid "(the menu runs under IOS {1}; USB drives need a base-58 cIOS for that, or set the menu IOS back to 58)"
 msgstr "(メニューはIOS {1}で動作中です。USBドライブにはベース58のcIOSが必要です。またはメニューIOSを58に戻してください)"
 
+msgid "(after the failed launch RiftWii came back under IOS {1}, which cannot read the drive here; start RiftWii again from the Homebrew Channel)"
+msgstr "(起動に失敗した後、RiftWiiはIOS {1}で戻りました。このIOSではドライブを読めません。Homebrew ChannelからRiftWiiを起動し直してください)"
+
 msgid "No disc in the drive"
 msgstr "ディスクが入っていません"
 
@@ -749,6 +752,12 @@ msgstr "Wii Uでは、前面のUSBポートだとゲーム中にゲームキュ�
 
 msgid "Packs on USB are experimental; if it fails, copy them to SD."
 msgstr "USBのパックは試験的な機能です。うまくいかない場合はSDにコピーしてください。"
+
+msgid "CTGP Revolution (a pack that starts a Homebrew Channel app) does not work from RiftWii yet: it stops on a black or green screen. Start CTGP from the Homebrew Channel instead."
+msgstr "CTGP Revolution（Homebrew Channelのアプリを起動するパック）はまだRiftWiiから動きません。黒または緑の画面で止まります。CTGPはHomebrew Channelから起動してください。"
+
+msgid "CTGP Revolution does not work from RiftWii yet (see Start)."
+msgstr "CTGP RevolutionはまだRiftWiiから動きません（「はじめる」を参照）。"
 
 msgid " (and {1} more)"
 msgstr " (ほか{1}件)"

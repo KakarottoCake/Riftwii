@@ -53,4 +53,16 @@ using PackageSelection = PackageChoices;
 bool compile_packages(const std::vector<PackageSelection>& packages, const DiscProbe& probe,
                       const OpenedPartition& partition, CompiledMod& out, std::string& error);
 
+// Whether the chosen packs only replace the game's executable with a
+// Homebrew Channel app on the SD card (a <file disc="main.dol"> whose
+// external is /apps/<folder>/<name>.dol), as CTGP Revolution 1.03's pack
+// does with its channel. Such an app is a launcher of its own, made to be
+// started by the Homebrew Channel (its IOS and hardware access kept), not
+// loaded as the game. Read from the packs alone, before the disc or an
+// IOS reload. `app` gets its sd: path; a save redirect in the same choice
+// cannot apply to it and is named in `dropped`. Other files, folders or
+// memory patches, packs on the USB drive or from a PC: no.
+bool homebrew_app_stand_in(const std::vector<PackageSelection>& packages, const std::string& game_id,
+                           std::string& app, std::string& dropped);
+
 }  // namespace riftwii::wii

@@ -24,6 +24,17 @@ bool dolboot_valid(const u8* dol, u32 size);
 // not return.
 void dolboot_run(const u8* dol, const char* argv0) __attribute__((noreturn));
 
+// Puts at the system call vector (0x80000C00) the handler the Wii's system
+// software leaves for a program it starts: `sc` returns at once, after
+// toggling HID0's bit 28 around a sync (the SDK's and older libogc's cache
+// routines end with `sc` to drain the write buffer this way). libogc
+// leaves its own exception stub there instead, which jumps into this
+// program's handler, gone once the next program is in memory: a program
+// that runs `sc` before installing handlers of its own (CTGP-R 1.03's
+// launcher, which skips its libogc's startup) would hang on a black
+// screen. Programs and games that install their own replace it.
+void dolboot_system_call_vector(void);
+
 #ifdef __cplusplus
 }
 #endif

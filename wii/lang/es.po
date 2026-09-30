@@ -60,6 +60,9 @@ msgstr "error al buscar"
 msgid "(the menu runs under IOS {1}; USB drives need a base-58 cIOS for that, or set the menu IOS back to 58)"
 msgstr "(el menú usa el IOS {1}; para eso las unidades USB necesitan un cIOS con base 58, o vuelve a poner el IOS del menú en 58)"
 
+msgid "(after the failed launch RiftWii came back under IOS {1}, which cannot read the drive here; start RiftWii again from the Homebrew Channel)"
+msgstr "(tras el inicio fallido RiftWii volvió con el IOS {1}, que aquí no puede leer la unidad; vuelve a iniciar RiftWii desde el Homebrew Channel)"
+
 msgid "No disc in the drive"
 msgstr "No hay disco en la unidad"
 
@@ -749,6 +752,12 @@ msgstr "En una Wii U, el adaptador de GameCube puede no funcionar en el juego de
 
 msgid "Packs on USB are experimental; if it fails, copy them to SD."
 msgstr "Los packs en USB son experimentales; si falla, cópialos a la SD."
+
+msgid "CTGP Revolution (a pack that starts a Homebrew Channel app) does not work from RiftWii yet: it stops on a black or green screen. Start CTGP from the Homebrew Channel instead."
+msgstr "CTGP Revolution (un pack que inicia una app del Homebrew Channel) todavía no funciona desde RiftWii: se queda en una pantalla negra o verde. Inicia CTGP desde el Homebrew Channel."
+
+msgid "CTGP Revolution does not work from RiftWii yet (see Start)."
+msgstr "CTGP Revolution todavía no funciona desde RiftWii (mira Jugar)."
 
 msgid " (and {1} more)"
 msgstr " (y {1} más)"

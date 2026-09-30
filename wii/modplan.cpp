@@ -2,6 +2,7 @@
 #include "modplan.hpp"
 
 #include <strings.h>
+#include <sys/stat.h>
 
 #include <algorithm>
 #include <cstdio>
@@ -500,6 +501,56 @@ static bool gather_package(const PackageSelection& selection, const DiscProbe& p
         error = describe_empty_plan(xml_sd_path, probe.header.game_id, plan, folder_notes);
         return false;
     }
+    return true;
+}
+
+bool homebrew_app_stand_in(const std::vector<PackageSelection>& packages, const std::string& game_id,
+                           std::string& app, std::string& dropped) {
+    app.clear();
+    dropped.clear();
+    DiscIdentity disc;
+    disc.id = game_id;
+    std::string found;
+    for (const PackageSelection& selection : packages) {
+        const std::string& xml_sd_path = selection.xml_sd_path;
+        if (OnUsb(xml_sd_path) || xml_sd_path.compare(0, 4, "sd:/") != 0 || !NetworkRootOf(xml_sd_path).empty())
+            return false;
+        std::ifstream xml(xml_sd_path, std::ios::binary);
+        if (!xml) return false;
+        std::stringstream all;
+        all << xml.rdbuf();
+        Package package;
+        std::string error;
+        if (!parse_package(all.str(), package, error, PackFolderOf(xml_sd_path))) return false;
+        for (const auto& c : selection.choices) {
+            if (!select_choice(package, c.first, c.second, error)) return false;
+        }
+        PlanOptions allowed;
+        allowed.allow_filename_targets = true;
+        allowed.allow_folders = true;
+        allowed.allow_memory = true;
+        allowed.allow_savegames = true;
+        Plan plan;
+        if (!plan_package(package, disc, allowed, plan, error)) return false;
+        if (!plan.folders.empty() || !plan.memory.empty() || !plan.shifts.empty()) return false;
+        if (!plan.savegames.empty() && dropped.empty()) dropped = "the save redirect";
+        for (const FilePatch& f : plan.files) {
+            const bool main_dol = f.is_filename && strcasecmp(f.disc.c_str(), "main.dol") == 0;
+            std::string external = OnUsb(f.external) ? std::string() : f.external;
+            if (!external.empty() && external[0] != '/') external = "/" + external;
+            const bool from_apps = external.size() > 10 && strncasecmp(external.c_str(), "/apps/", 6) == 0 &&
+                                   strcasecmp(external.c_str() + external.size() - 4, ".dol") == 0 &&
+                                   external.find('/', 6) != std::string::npos;
+            if (!main_dol || !from_apps || !found.empty() || f.offset != 0 || f.file_offset != 0 ||
+                f.length != 0)
+                return false;
+            found = external;
+        }
+    }
+    if (found.empty()) return false;
+    struct stat st;
+    if (stat(("sd:" + found).c_str(), &st) != 0 || !S_ISREG(st.st_mode)) return false;
+    app = "sd:" + found;
     return true;
 }
 
