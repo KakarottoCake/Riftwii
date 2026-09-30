@@ -396,7 +396,9 @@ int region_video_standard(char region) {
 }
 
 // What a chosen video mode means on this console, for a game of `region`.
-VideoTarget resolve_video_target(VideoMode mode, char region, bool progressive_ok) {
+// `progressive_ok`: 480p is on in the Wii's settings and a component
+// cable is in; `component`: the cable alone.
+VideoTarget resolve_video_target(VideoMode mode, char region, bool progressive_ok, bool component) {
     VideoTarget t;
     switch (mode) {
     case VideoMode::System:
@@ -412,8 +414,10 @@ VideoTarget resolve_video_target(VideoMode mode, char region, bool progressive_o
     case VideoMode::Pal50: t.format = kViPal; break;
     case VideoMode::Progressive:
         // 480p: EuRGB60's for PAL games (their 60 Hz mode), NTSC's otherwise.
+        // Only through a component cable: on the AV cable a 480p signal is
+        // a green or scrambled screen, so the same 60 Hz mode interlaced.
         t.format = region_video_standard(region) == VI_PAL ? kViEurgb60 : kViNtsc;
-        t.progressive = true;
+        t.progressive = component;
         break;
     default: break;
     }
@@ -424,9 +428,12 @@ VideoTarget resolve_video_target(VideoMode mode, char region, bool progressive_o
 // low-memory global the SDK reads (0x800000CC). A chosen video mode
 // decides it, and becomes the target the game's tables are converted to.
 void configure_video_for_game(char region) {
-    const bool progressive_ok = CONF_GetProgressiveScan() > 0 && VIDEO_HaveComponentCable();
-    g_extras.video.target = resolve_video_target(g_extras.video.mode, region, progressive_ok);
+    const bool component = VIDEO_HaveComponentCable();
+    const bool progressive_ok = CONF_GetProgressiveScan() > 0 && component;
+    g_extras.video.target = resolve_video_target(g_extras.video.mode, region, progressive_ok, component);
     const VideoTarget& target = g_extras.video.target;
+    if (g_extras.video.mode == VideoMode::Progressive && !component)
+        logf("Video: 480p needs a component cable and none is in; 480i instead\n");
     if (target.format >= 0) {
         GXRModeObj* forced = &TVNtsc480IntDf;
         if (target.progressive) forced = target.format == kViEurgb60 ? &TVEurgb60Hz480Prog : &TVNtsc480Prog;
