@@ -70,6 +70,11 @@ T = {
         "(メニューはIOS {1}で動作中です。USBドライブにはベース58のcIOSが必要です。またはメニューIOSを58に戻してください)",
         "(o menu usa o IOS {1}; para isso as unidades USB precisam de um cIOS com base 58, ou volte o IOS do menu para 58)",
         "(il menu usa l'IOS {1}; per questo le unità USB richiedono un cIOS con base 58, oppure riporta l'IOS del menu a 58)"),
+    "(after the failed launch RiftWii came back under IOS {1}, which cannot read the drive here; start RiftWii again from the Homebrew Channel)": (
+        "(tras el inicio fallido RiftWii volvió con el IOS {1}, que aquí no puede leer la unidad; vuelve a iniciar RiftWii desde el Homebrew Channel)",
+        "(起動に失敗した後、RiftWiiはIOS {1}で戻りました。このIOSではドライブを読めません。Homebrew ChannelからRiftWiiを起動し直してください)",
+        "(depois da falha ao iniciar, o RiftWii voltou com o IOS {1}, que aqui não lê a unidade; inicie o RiftWii de novo pelo Homebrew Channel)",
+        "(dopo l'avvio non riuscito RiftWii è tornato con l'IOS {1}, che qui non legge l'unità; riavvia RiftWii dall'Homebrew Channel)"),
     "No disc in the drive": ("No hay disco en la unidad", "ディスクが入っていません", "Nenhum disco na unidade",
                              "Nessun disco nell'unità"),
     "Disc drive": ("Lector de discos", "ディスクドライブ", "Leitor de discos", "Lettore di dischi"),

@@ -1274,6 +1274,9 @@ static void ScanDrives(FrontendState& state, GuiText& status)
 		if (riftwii::wii::MenuCiosSlot() != 0 && error.find("more than one") == std::string::npos) {
 			state.usb_catalog.status += " " + tr("(the menu runs under IOS {1}; USB drives need a base-58 cIOS for that, or set the menu IOS back to 58)",
 				{std::to_string(riftwii::wii::MenuCiosSlot())});
+		} else if (riftwii::wii::MenuIosLost() != 0 && error.find("more than one") == std::string::npos) {
+			state.usb_catalog.status += " " + tr("(after the failed launch RiftWii came back under IOS {1}, which cannot read the drive here; start RiftWii again from the Homebrew Channel)",
+				{std::to_string(riftwii::wii::MenuIosLost())});
 		}
 	}
 	// After the USB scan: packs on the drive count too.

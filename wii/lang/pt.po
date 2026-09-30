@@ -60,6 +60,9 @@ msgstr "falha na busca"
 msgid "(the menu runs under IOS {1}; USB drives need a base-58 cIOS for that, or set the menu IOS back to 58)"
 msgstr "(o menu usa o IOS {1}; para isso as unidades USB precisam de um cIOS com base 58, ou volte o IOS do menu para 58)"
 
+msgid "(after the failed launch RiftWii came back under IOS {1}, which cannot read the drive here; start RiftWii again from the Homebrew Channel)"
+msgstr "(depois da falha ao iniciar, o RiftWii voltou com o IOS {1}, que aqui não lê a unidade; inicie o RiftWii de novo pelo Homebrew Channel)"
+
 msgid "No disc in the drive"
 msgstr "Nenhum disco na unidade"
 
