@@ -417,61 +417,150 @@ bool Fst::add_directory(std::uint32_t directory, const std::string& name, std::u
 
 bool Fst::create_file(const std::string& absolute_path, std::uint64_t offset, std::uint32_t size,
                       std::uint32_t& index, std::string& error) {
-    if (entries_.empty() || absolute_path.size() < 2 || absolute_path[0] != '/' || absolute_path.back() == '/') {
-        error = "fst path '" + absolute_path + "' is not an absolute file path";
+    std::vector<FstNewFile> one(1);
+    one[0].path = absolute_path;
+    one[0].offset = offset;
+    one[0].size = size;
+    std::vector<std::uint32_t> indices;
+    if (!create_files(one, indices, error)) return false;
+    index = indices[0];
+    return true;
+}
+
+bool Fst::create_files(const std::vector<FstNewFile>& files, std::vector<std::uint32_t>& indices,
+                       std::string& error) {
+    if (entries_.empty()) {
+        error = "fst is empty";
         return false;
     }
-    // Every segment and the offset are checked before anything is
-    // inserted, so a bad request leaves the table untouched.
-    std::uint32_t encoded = 0;
-    if (!encode_offset(wii_offsets_, offset, encoded)) {
-        error = "fst file offset cannot be encoded";
-        return false;
-    }
-    std::vector<std::string> segments;
-    for (std::size_t pos = 1; pos <= absolute_path.size();) {
-        std::size_t end = absolute_path.find('/', pos);
-        if (end == std::string::npos) end = absolute_path.size();
-        segments.push_back(absolute_path.substr(pos, end - pos));
-        if (!valid_name(segments.back(), limits_.max_name)) {
-            error = "fst path '" + absolute_path + "' has an invalid name";
-            return false;
-        }
-        pos = end + 1;
-    }
-    std::uint32_t current = 0;
-    for (std::size_t i = 0; i < segments.size(); ++i) {
-        const std::string& segment = segments[i];
-        const bool last = i + 1 == segments.size();
-        std::vector<std::uint32_t> kids;
-        if (!children(current, kids)) {
-            error = "fst directory is corrupt";
-            return false;
-        }
-        std::uint32_t match = npos;
-        for (std::uint32_t k : kids) {
-            if (names_equal(entries_[k].name, segment, true)) {
-                match = k;
-                break;
-            }
-        }
-        if (last) {
-            if (match != npos) {
-                error = "fst path '" + absolute_path + "' already exists";
+    // The tree as lists of children (the table's entries, then the new ones
+    // after them), flattened back into a table once at the end. Inserting
+    // one entry at a time copies the table for every file: a pack that
+    // creates thousands (Retro Rewind, some 9600) took minutes on a Wii and
+    // fragmented its heap until an allocation failed.
+    const std::uint32_t old_count = static_cast<std::uint32_t>(entries_.size());
+    try {
+        std::vector<FstEntry> added;
+        std::vector<std::vector<std::uint32_t>> kids(old_count);
+        for (std::uint32_t i = 1; i < old_count; ++i) kids[entries_[i].parent].push_back(i);
+        const auto node = [&](std::uint32_t n) -> FstEntry& {
+            return n < old_count ? entries_[n] : added[n - old_count];
+        };
+        const auto add = [&](std::uint32_t directory, FstEntry entry) {
+            const std::uint32_t n = old_count + static_cast<std::uint32_t>(added.size());
+            entry.parent = directory;
+            added.push_back(std::move(entry));
+            kids.emplace_back();
+            kids[directory].push_back(n);
+            return n;
+        };
+        std::vector<std::uint32_t> created;
+        created.reserve(files.size());
+        std::vector<std::string> segments;
+        for (const FstNewFile& f : files) {
+            const std::string& path = f.path;
+            if (path.size() < 2 || path[0] != '/' || path.back() == '/') {
+                error = "fst path '" + path + "' is not an absolute file path";
                 return false;
             }
-            return add_file(current, segment, offset, size, index, error);
+            // Every segment and the offset are checked before anything is
+            // added; the table itself changes only once all files fit.
+            std::uint32_t encoded = 0;
+            if (!encode_offset(wii_offsets_, f.offset, encoded)) {
+                error = "fst file offset cannot be encoded";
+                return false;
+            }
+            segments.clear();
+            for (std::size_t pos = 1; pos <= path.size();) {
+                std::size_t end = path.find('/', pos);
+                if (end == std::string::npos) end = path.size();
+                segments.push_back(path.substr(pos, end - pos));
+                if (!valid_name(segments.back(), limits_.max_name)) {
+                    error = "fst path '" + path + "' has an invalid name";
+                    return false;
+                }
+                pos = end + 1;
+            }
+            std::uint32_t current = 0;
+            for (std::size_t i = 0; i < segments.size(); ++i) {
+                const bool last = i + 1 == segments.size();
+                std::uint32_t match = npos;
+                for (std::uint32_t k : kids[current]) {
+                    if (names_equal(node(k).name, segments[i], true)) {
+                        match = k;
+                        break;
+                    }
+                }
+                if (old_count + added.size() + 1 > limits_.max_entries && (last || match == npos)) {
+                    error = "fst entry count exceeds limit";
+                    return false;
+                }
+                FstEntry entry;
+                entry.name = segments[i];
+                if (last) {
+                    if (match != npos) {
+                        error = "fst path '" + path + "' already exists";
+                        return false;
+                    }
+                    entry.offset = f.offset;
+                    entry.size = f.size;
+                    created.push_back(add(current, std::move(entry)));
+                } else if (match == npos) {
+                    // `current` and the directories above it enclose the new one.
+                    if (i + 1 > limits_.max_depth) {
+                        error = "fst nesting depth exceeds limit";
+                        return false;
+                    }
+                    entry.is_directory = true;
+                    current = add(current, std::move(entry));
+                } else if (!node(match).is_directory) {
+                    error = "fst path '" + path + "' crosses a file";
+                    return false;
+                } else {
+                    current = match;
+                }
+            }
         }
-        if (match == npos) {
-            if (!add_directory(current, segment, match, error)) return false;
-        } else if (!entries_[match].is_directory) {
-            error = "fst path '" + absolute_path + "' crosses a file";
-            return false;
+
+        // Depth first, children in order: the table's entries keep their
+        // order, and new ones follow their directory's existing children,
+        // as add_file puts them. Nothing below allocates once the entries
+        // start moving.
+        const std::uint32_t total = old_count + static_cast<std::uint32_t>(added.size());
+        std::vector<FstEntry> out;
+        out.reserve(total);
+        std::vector<std::uint32_t> where(total, 0);
+        struct Frame {
+            std::uint32_t n;
+            std::size_t next_kid;
+        };
+        std::vector<Frame> stack;
+        stack.reserve(limits_.max_depth + 2);
+        out.push_back(std::move(entries_[0]));
+        stack.push_back({0, 0});
+        while (!stack.empty()) {
+            Frame& top = stack.back();
+            if (top.next_kid == kids[top.n].size()) {
+                out[where[top.n]].next = static_cast<std::uint32_t>(out.size());
+                stack.pop_back();
+                continue;
+            }
+            const std::uint32_t k = kids[top.n][top.next_kid++];
+            where[k] = static_cast<std::uint32_t>(out.size());
+            const std::uint32_t parent = where[top.n];
+            out.push_back(std::move(node(k)));
+            out.back().parent = parent;
+            if (out.back().is_directory) stack.push_back({k, 0});
         }
-        current = match;
+        for (std::uint32_t& n : created) n = where[n];
+        entries_ = std::move(out);
+        indices = std::move(created);
+    } catch (const std::bad_alloc&) {
+        error = "allocation failure";
+        return false;
     }
-    error = "fst path is empty";
-    return false;
+    error.clear();
+    return true;
 }
 
 }  // namespace riftwii
