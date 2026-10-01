@@ -23,6 +23,8 @@ struct ImageGame {
     std::string display;            // what the list shows (see riftwii/titles.hpp)
     std::uint8_t revision = 0;
     std::uint8_t disc_number = 0;
+    // The IOS its TMD asks for, read when it is opened (0: not known).
+    std::uint32_t required_ios = 0;
     UsbImageFormat format = UsbImageFormat::Iso;
     D2xFragmentList fragments;
     // Header read and fragment list built. An image whose name carries its
@@ -118,6 +120,12 @@ void ReloadTitles();
 void RenameGames(ImageCatalog& catalog);
 // Whether a cIOS slot holds a launchable (non-stub) title.
 bool slot_has_ticket(int slot);
+
+// The cIOS slots to try for an image game, in order. `chosen` (the
+// game's or the global setting) alone when set; on automatic, USB Loader
+// GX's choice first (riftwii/gxpatches.hpp's gx_pick_cios: the d2x slot
+// whose base is the IOS the game asks for), then 249, 250 and 251.
+std::vector<int> image_cios_order(const ImageGame& game, int chosen);
 
 // The transition after the GUI has stopped. It leaves d2x owning the selected
 // image device and remounts SD, so XML and redirect files remain available. `storage` is

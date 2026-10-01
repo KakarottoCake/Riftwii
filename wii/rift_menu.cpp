@@ -828,7 +828,10 @@ public:
 		w.Append(e);
 		bodyTxt.SetWrap(true, width, 7);
 	}
-	// Until a button is pressed: 0 the first, 1 the second.
+	// Until a button is pressed: 0 the first, 1 the second. A is the first
+	// button's hotkey, so A with the pointer on the second clicks both in
+	// one frame: the second is asked first, as only a deliberate press
+	// (the pointer, B or HOME) clicks it.
 	int Wait()
 	{
 		ResumeGui();
@@ -837,8 +840,8 @@ public:
 			usleep(20000);
 			HaltGui();
 			ClearStaleButtons({&okBtn.button, &cancelBtn.button});
-			if (hasOk && okBtn.Clicked()) choice = 0;
-			else if (hasCancel && cancelBtn.Clicked()) choice = 1;
+			if (hasCancel && cancelBtn.Clicked()) choice = 1;
+			else if (hasOk && okBtn.Clicked()) choice = 0;
 			if (choice < 0) ResumeGui();
 		}
 		return choice;
@@ -1520,6 +1523,7 @@ static int MenuSource(FrontendState& state)
 			if (entry.kind == HomeEntry::Kind::Disc) {
 				logf("DISC: probing\n");
 				ok = SelectDisc(state, error);
+				riftwii::wii::mem::WatchHeap("after the disc probe");
 				if (!ok && error.empty()) error = "No disc in the drive";
 				if (!ok && error.compare(0, 12, "read disc id") == 0) {
 					HaltGui();
@@ -2874,8 +2878,8 @@ static void CreditsPage()
 			readItAll = true;
 			logf("Credits: read to the end of the licence\n");
 			ShowPopup(tr("Achievement unlocked: Licence Enthusiast"),
-				tr("You read all 5,644 words of the GNU General Public License, version 3. Almost nobody does this. RiftWii is proud of you. Your reward: absolutely nothing, as the licence says (\"WITHOUT ANY WARRANTY\")."),
-				tr("Worth it"));
+				tr("You read all 5,644 words of the GNU General Public License, version 3. Your reward: absolutely nothing, as the licence says (\"WITHOUT ANY WARRANTY\"). Now go fuck yourself, GPL police."),
+				tr("Fair enough"));
 		}
 		ResumeGui();
 	}
@@ -3487,6 +3491,7 @@ int MainMenu(int menu, FrontendState& state)
 		currentMenu != MENU_CHANNEL)
 	{
 		logf("Screen: %s\n", ScreenName(currentMenu));
+		riftwii::wii::mem::WatchHeap((std::string("on the way to the ") + ScreenName(currentMenu) + " screen").c_str());
 		switch (currentMenu)
 		{
 			case MENU_OPTIONS:

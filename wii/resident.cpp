@@ -25,11 +25,12 @@ namespace {
 
 // The MEM1 arena end the SDK's OSInit takes, in this order of preference
 // (Kirby's Epic Yarn's OSInit, section 23): 0x80003110 when it is set,
-// else 0x80000034, else the FST address. The apploader has just set 0x34
-// and the FST fields; 0x3110 (wiibrew memory map: "MEM1 Arena End") is
-// whatever the previous program left and the loader overwrites it at the
-// handover, so it is not an input here. The BI2 sits right below the FST
-// when the apploader put it there, 0x2000 bytes at the pointer in 0xF4.
+// else 0x80000034, else the FST address. The apploader has just set the
+// FST fields (and 0x34, though not every one: see game_arena1_hi);
+// 0x3110 (wiibrew memory map: "MEM1 Arena End") is whatever the previous
+// program left and the loader overwrites it at the handover, so it is not
+// an input here. The BI2 sits right below the FST when the apploader put
+// it there, 0x2000 bytes at the pointer in 0xF4.
 constexpr std::uint32_t kMem1ArenaHiField = 0x80000034;
 constexpr std::uint32_t kFstAddressField = 0x80000038;
 constexpr std::uint32_t kFstSizeField = 0x8000003C;
@@ -77,7 +78,12 @@ bool unpack_blob(const std::uint8_t* packed, std::size_t size, std::vector<std::
 
 std::uint32_t game_arena1_hi() {
     std::uint32_t arena1_hi = read32(kMem1ArenaHiField);
-    if (arena1_hi == 0) arena1_hi = read32(kFstAddressField);
+    const std::uint32_t fst = read32(kFstAddressField);
+    if (arena1_hi == 0) arena1_hi = fst;
+    // The FST stays above the arena whatever 0x34 says: Mario Kart Wii's
+    // apploader leaves 0x34 at the top of MEM1 with its FST right below,
+    // and the crash blob placed at that top went over the FST's names.
+    if (fst > 0x80000000u && fst < arena1_hi) arena1_hi = fst & ~31u;
     const std::uint32_t bi2 = read32(kBi2Field);
     if (bi2 != 0 && bi2 < arena1_hi && arena1_hi - bi2 <= kBi2Bytes) arena1_hi = bi2;  // keep it whole
     return arena1_hi;

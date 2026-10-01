@@ -34,12 +34,18 @@ const char* const kCredits[] = {
     "",
     "USB Loader GX (github.com/wiidev/usbloadergx, GPL-3.0): the online server patches, the Wiimmfi "
     "patches, the Mario Kart Wii security fix, the return-to-channel patch, the language patch, the video "
-    "mode tables and RiftWii's copy of the Gecko code handler. With thanks to its developers and to those "
-    "whose work it carries: ToadKing (wiilauncher-nossl), Leseratte and the Wiimmfi team, giantpune, Nuke.",
+    "mode tables, its fixes for particular games (Kirby's Return to Dream Land, New Super Mario Bros. Wii, "
+    "Prince of Persia, Resident Evil 4, Excite Truck, the error #002 and 480p fixes), its automatic cIOS "
+    "choice and RiftWii's copy of the Gecko code handler. With thanks to its developers and to those whose "
+    "work it carries: ToadKing (wiilauncher-nossl), Leseratte and the Wiimmfi team, giantpune, Nuke, "
+    "crediar (Kirby's MetaFortress patch), dcx2, container12345, blackb0x and WiiPower.",
     "",
     "Gecko OS by Nuke, brkirch, Link and the Gecko authors: the cheat code handler (GPL-2.0-or-later).",
     "",
     "Brainslug by Alex Chadwick and Florian Bach (MIT): the boot sequence.",
+    "",
+    "libruntimeiospatch by Joseph Jordan, damysteryman, Christopher Bratusek, DarkMatterCore, megazig "
+    "and FIX94: how a reloaded IOS keeps hardware access (followed, not copied).",
     "",
     "wup-028-bslug by Alex Chadwick (MIT): the GameCube controller adapter.",
     "",

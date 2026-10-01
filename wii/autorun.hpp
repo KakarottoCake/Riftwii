@@ -25,7 +25,7 @@ bool ProbeInserted(std::string& game_id, std::string& title, std::string& error,
                    std::uint8_t* revision = nullptr, std::uint8_t* disc_number = nullptr);
 bool CompileSelection(const std::vector<PackageChoices>& packages, CompiledMod& out, std::string& error,
                       const LaunchSource& source = LaunchSource());
-bool BootCompiled(const CompiledMod& mod, std::string& error, const LaunchSource& source = LaunchSource(),
+bool BootCompiled(CompiledMod&& mod, std::string& error, const LaunchSource& source = LaunchSource(),
                     const std::string& save_mode = "nand", const std::string& game_id = "");
 bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error,
                const LaunchSource& source = LaunchSource(), const std::string& save_mode = "nand",

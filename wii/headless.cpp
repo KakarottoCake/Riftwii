@@ -12,6 +12,7 @@
 #include "gameextras.hpp"
 #include "ios_reload.hpp"
 #include "log.hpp"
+#include "memlimits.hpp"
 
 namespace riftwii::wii {
 namespace {
@@ -136,9 +137,11 @@ bool launch(const std::vector<std::string>& args, std::string& error) {
     RecordPlay(state.game_id);
     const LaunchSource source = SelectedSource(state);
     const std::vector<PackageChoices> selections = state.model.selections();
-    const bool booted = needs_launch_pipeline(!selections.empty(), state.model.save_mode)
-                            ? RunLaunch(selections, error, source, state.model.save_mode, state.game_id)
-                            : RunBoot(true, error, source);
+    const bool booted = mem::OutOfMemoryAsError(error, [&] {
+        return needs_launch_pipeline(!selections.empty(), state.model.save_mode)
+                   ? RunLaunch(selections, error, source, state.model.save_mode, state.game_id)
+                   : RunBoot(true, error, source);
+    });
     if (reload_terminal_failure()) halt_after_terminal_reload();
     LogOpen(kLogPath, true);  // the boot closed it and remounted the card
     return booted;

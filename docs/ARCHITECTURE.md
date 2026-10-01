@@ -27,6 +27,7 @@ below names the files that own it.
 | Cover art (GameTDB), stored as ready GX textures | `wii/covers.cpp`, `src/coverart.cpp`, `wii/gui_gamegrid.cpp` |
 | Game names (GameTDB), cheats (GeckoCodes archive) | `wii/online.cpp`, `src/titles.cpp`, `src/cheats.cpp`, `src/http.cpp`, `wii/netsock.cpp` |
 | Online servers (Wiimmfi, WiiLink WFC, AltWFC, custom) | `src/wfcpatch.cpp`, `wii/wfc.cpp`, `vendor-wwfc/` |
+| Per-game fixes (Kirby's MetaFortress, NSMBW, Prince of Persia, RE4, Excite Truck, error #002, 480p) and the automatic cIOS choice, as USB Loader GX makes them | `src/gxpatches.cpp`, `src/gxkirby.inc`, `wii/boot.cpp`, `wii/usbcatalog.cpp` |
 | Update check (GitHub over https: BearSSL, `Makefile.bearssl`) | `wii/online.cpp`, `src/update.cpp`, `wii/tls.cpp`, `wii/tlsroots.c` |
 | Network packs (RiiFS) | `wii/netpacks.cpp`, `src/riifs.cpp`, `src/riifs_sync.cpp`, `docs/RIIFS.md` |
 | Settings, play history, translations | `wii/loadersettings.cpp`, `src/settingsfile.cpp`, `src/playhistory.cpp`, `wii/i18n.cpp`, `tools/lang_source.py` |
@@ -171,7 +172,7 @@ resident runtime yet.
 | Top of the game's MEM1 arena | Resident runtime code, then the pad blob, the screenshot blob and the crash blob below it |
 | `0x90000000`–`0x90800000` | Left alone by the loader: an IOS reload stages its kernel here |
 | `0x90800000`–`0x90809000` | The restart snapshot and handoff (`wii/restart.hpp`) |
-| Bottom of the game's MEM2 arena | Resident runtime data (or the virtual SD card's code and state, about 49 KB), then the pad state, the screenshot state and frame (about 830 KB), then the crash blob's state (about 5 KB) |
+| Bottom of the game's MEM2 arena | Resident runtime data (or the virtual SD card's code and state, about 49 KB), then the pad state, the screenshot state (a few KB: its picture is written straight from the frame buffer), then the crash blob's state (about 5 KB) |
 | `0x933E0000` and up | IOS |
 
 `wii/memlimits.cpp` keeps the loader's heap between the end of its own

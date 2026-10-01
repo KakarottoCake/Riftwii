@@ -10,6 +10,7 @@
 #include <cstddef>
 #include <cstdlib>
 #include <cstring>
+#include <new>
 #include <string>
 #include <vector>
 
@@ -188,6 +189,7 @@ int main() {
     const riftwii::wii::RestartNote restart = riftwii::wii::TakeRestartNote();
     riftwii::wii::CrashInstall();
     const bool sd_mounted = MountStartupSd();
+    riftwii::wii::mem::TestBallast();  // test builds only
 
     // Another loader (USB Loader GX) starting a game through RiftWii:
     // no menu (docs/HEADLESS.md).
@@ -270,22 +272,34 @@ int main() {
     // left in flight for the game (or the next IOS) to answer.
     riftwii::wii::GcAdapterMenuEnd();
     riftwii::wii::mem::LogUsage("menu closed");
-    riftwii::wii::mem::CheckHeap("menu closed");
+    const bool heap_whole = riftwii::wii::mem::CheckHeap("menu closed");
     const riftwii::wii::LaunchSource source = riftwii::wii::SelectedSource(state);
 
     EnterConsolePhase();
     std::string error;
-    if (action == MENU_LAUNCH) {
+    if (!heap_whole && (action == MENU_LAUNCH || action == MENU_BOOT)) {
+        // Damaged while the menu ran: a launch would only fail later, at
+        // the cIOS reload, blaming that step (a tester's Wii U tried three
+        // slots this way). A fresh start of RiftWii has a whole heap.
+        riftwii::wii::LogOpen("sd:/riftwii/boot.log");
+        riftwii::wii::logf("RiftWii %s: %s %s\n", RIFTWII_VERSION, action == MENU_LAUNCH ? "launch" : "boot",
+                           state.game_id.c_str());
+        error = "RiftWii's memory was damaged while the menu was open (the details are in session.log); "
+                "start the game again once RiftWii has restarted";
+        riftwii::wii::logf("FAILED: %s\n", error.c_str());
+        OfferRestart(error);
+    } else if (action == MENU_LAUNCH) {
         riftwii::wii::LogOpen("sd:/riftwii/boot.log");
         riftwii::wii::logf("RiftWii %s: launch %s with packages\n", RIFTWII_VERSION, state.game_id.c_str());
         riftwii::wii::logf("Controllers: %s\n", controllers.c_str());
         riftwii::wii::LogDeclinedUpdate();
         if (riftwii::wii::GuiScriptFailLaunch()) error = "a test failure the guiscript asked for";
-        const bool booted = !error.empty() ? false : (source.kind == riftwii::wii::LaunchSource::Kind::Disc && state.has_compiled)
-                                ? riftwii::wii::BootCompiled(state.compiled, error, source, state.model.save_mode,
-                                                             state.game_id)
-                                : riftwii::wii::RunLaunch(state.model.selections(), error, source,
-                                                          state.model.save_mode, state.game_id);
+        const bool booted = !error.empty() ? false : riftwii::wii::mem::OutOfMemoryAsError(error, [&] {
+            return (source.kind == riftwii::wii::LaunchSource::Kind::Disc && state.has_compiled)
+                       ? riftwii::wii::BootCompiled(std::move(state.compiled), error, source, state.model.save_mode, state.game_id)
+                       : riftwii::wii::RunLaunch(state.model.selections(), error, source, state.model.save_mode,
+                                                 state.game_id);
+        });
         if (!booted) {
             if (riftwii::wii::reload_terminal_failure()) riftwii::wii::halt_after_terminal_reload();
             riftwii::wii::LogOpen("sd:/riftwii/boot.log", true);  // boot_game closed it and remounted the card
@@ -298,7 +312,7 @@ int main() {
         riftwii::wii::logf("Controllers: %s\n", controllers.c_str());
         riftwii::wii::LogDeclinedUpdate();
         if (riftwii::wii::GuiScriptFailLaunch()) error = "a test failure the guiscript asked for";
-        if (!error.empty() || !riftwii::wii::RunBoot(true, error, source)) {
+        if (!error.empty() || !riftwii::wii::mem::OutOfMemoryAsError(error, [&] { return riftwii::wii::RunBoot(true, error, source); })) {
             if (riftwii::wii::reload_terminal_failure()) riftwii::wii::halt_after_terminal_reload();
             riftwii::wii::LogOpen("sd:/riftwii/boot.log", true);  // boot_game closed it and remounted the card
             riftwii::wii::logf("FAILED: %s\n", error.c_str());

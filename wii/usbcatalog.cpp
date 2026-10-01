@@ -21,11 +21,13 @@
 #include "d2xsd.hpp"
 #include "loadersettings.hpp"
 #include "online.hpp"
+#include "boot.hpp"
 #include "di.hpp"
 #include "ios_reload.hpp"
 #include "log.hpp"
 #include "menuios.hpp"
 #include "riftwii/disc.hpp"
+#include "riftwii/gxpatches.hpp"
 #include "riftwii/launch.hpp"
 #include "riftwii/rvz.hpp"
 #include "riftwii/titles.hpp"
@@ -454,6 +456,19 @@ bool open_game(const ImageVolume& volume, const std::string& prefix, const std::
         return false;
     }
     if (!build_usb_fragments(image, game.fragments, error)) return false;
+    // The IOS the game asks for, for USB Loader GX's cIOS choice.
+    {
+        std::vector<PartitionEntry> table;
+        PartitionEntry partition;
+        PartitionHeader partition_header;
+        Tmd tmd;
+        std::string why;
+        if (read_partition_table(*disc, table, why) && find_game_partition(table, partition) &&
+            read_partition_header(*disc, partition.offset, partition_header, why) &&
+            read_tmd(*disc, partition_header, tmd, why)) {
+            game.required_ios = tmd.required_ios();
+        }
+    }
     game.id = header.game_id;
     game.title = header.title;
     game.revision = header.version;
@@ -749,8 +764,11 @@ std::vector<std::string> usb_mod_folders(const std::string& game_id) {
     if (!volume.list("/", top, error)) return out;
     for (const VolumeEntry& t : top) {
         if (!t.is_directory || t.name.empty() || t.name[0] == '.') continue;
-        std::vector<std::string> dirs{"/" + t.name};
-        if (lower(t.name) != "codes") dirs.push_back("/" + t.name + "/codes");
+        // usb:/codes is USB Loader GX's cheat folder (its downloaded
+        // RSBE01.gct and the like), not a code build: counted as one, it
+        // refused those games' launches, telling the player to move it.
+        if (lower(t.name) == "codes") continue;
+        std::vector<std::string> dirs{"/" + t.name, "/" + t.name + "/codes"};
         for (const std::string& dir : dirs) {
             std::vector<VolumeEntry> entries;
             if (!volume.list(dir, entries, error)) continue;
@@ -929,6 +947,67 @@ bool slot_has_ticket(int slot) {
     return slot_title_is_launchable(slot, why);
 }
 
+namespace {
+
+// USB Loader GX's IosLoader: every d2x cIOS (slots 200-255) and its base
+// IOS, from the information block at the start of its first content
+// (magic 0x1ee7c105, version 1, then the d2x version, the base IOS and the
+// name "d2x"). Read through ES with the slot's own ticket, not from NAND:
+// 2.7.0 RC5 opened IOS's NAND permission check for that and a tester's Wii
+// hung right after it. Read once; nothing found keeps 249, 250 and 251.
+const std::vector<D2xSlot>& d2x_slots() {
+    static std::vector<D2xSlot> slots;
+    static bool read = false;
+    if (read) return slots;
+    read = true;
+    logf("cIOS: looking for d2x in slots 200-255\n");
+    std::string found;
+    for (int ios = 200; ios <= 255; ++ios) {
+        const u64 title = 0x100000000ull | static_cast<u64>(ios);
+        u32 views = 0;
+        if (ES_GetNumTicketViews(title, &views) < 0 || views < 1) continue;
+        u32 size = 0;
+        if (ES_GetTMDViewSize(title, &size) < 0) continue;  // no title behind the ticket
+        static tikview view ATTRIBUTE_ALIGN(32);
+        if (ES_GetTicketViews(title, &view, 1) < 0) continue;
+        const s32 cfd = ES_OpenTitleContent(title, &view, 0);
+        if (cfd < 0) continue;
+        alignas(32) static u8 info[0x40];
+        const s32 got = ES_ReadContent(cfd, info, sizeof(info));
+        ES_CloseContent(cfd);
+        const auto be = [](const u8* q) { return (u32(q[0]) << 24) | (u32(q[1]) << 16) | (u32(q[2]) << 8) | q[3]; };
+        if (got < 0x30 || be(info) != 0x1ee7c105u || be(info + 4) != 1) continue;
+        if (strncasecmp(reinterpret_cast<const char*>(info + 16), "d2x", 3) != 0) continue;
+        slots.push_back(D2xSlot{ios, static_cast<int>(info[15])});
+        found += (found.empty() ? "" : ", ") + std::to_string(ios) + " (base " + std::to_string(info[15]) + ")";
+    }
+    logf("cIOS: d2x in %s\n", found.empty() ? "no slot that could be read" : found.c_str());
+    return slots;
+}
+
+}  // namespace
+
+std::vector<int> image_cios_order(const ImageGame& game, int chosen) {
+    if (chosen != 0) return {chosen};
+    std::vector<int> order;
+    if (!running_in_dolphin() && game.required_ios != 0) {
+        std::string why;
+        const int pick = gx_pick_cios(game.id, static_cast<int>(game.required_ios), d2x_slots(),
+                                      game.device == ImageDevice::Sd, why);
+        if (pick) {
+            logf("cIOS: %s asks for IOS%u; IOS%d first (USB Loader GX's choice%s%s)\n", game.id.c_str(),
+                 static_cast<unsigned>(game.required_ios), pick, why.empty() ? "" : ": ", why.c_str());
+            order.push_back(pick);
+        } else if (!why.empty()) {
+            logf("cIOS: %s\n", why.c_str());
+        }
+    }
+    for (int slot : {249, 250, 251}) {
+        if (std::find(order.begin(), order.end(), slot) == order.end()) order.push_back(slot);
+    }
+    return order;
+}
+
 bool scan_usb_games(ImageCatalog& out, std::string& error) {
     out = ImageCatalog{}; out.device = ImageDevice::Usb; if (!ensure_usb(error)) return false;
     if (g_usb_raw_disc) {
@@ -1003,6 +1082,12 @@ std::string release_for_reload() {
         std::string problem;
         if (note.empty() && !mem::HeapIntact(problem)) note = std::string("broken after ") + after + ": " + problem;
     };
+    // Already broken before any of it (in the menu): said so, not blamed
+    // on the first step.
+    {
+        std::string problem;
+        if (!mem::HeapIntact(problem)) note = "already broken before releasing anything: " + problem;
+    }
     release_wii_remotes();
     step("releasing the Wii Remotes");
     fatUnmount("sd:");
@@ -1153,6 +1238,10 @@ bool activate_image_game(const ImageGame& game, int cios_slot, void*& storage, s
     // d2x then owns the image device and SD is mounted again for XML/saves.
     logf("%s: reload IOS%d (fragment list %u bytes); releasing Wii Remotes, USB, SD and DI\n",
          device_name(game.device), cios_slot, static_cast<unsigned>(bytes.size()));
+    // A Homebrew Channel app run in place of the game (CTGP) may ask for
+    // hardware access, which an IOS reload ends: the running IOS's ES is
+    // told to leave it on for the cIOS.
+    if (block_ios_reload) keep_hardware_access(device_name(game.device));
     LogClose();
     const std::string released = release_for_reload();
     const PadPairings pads_before = ReadPadPairings();
@@ -1211,6 +1300,9 @@ bool activate_image_game(const ImageGame& game, int cios_slot, void*& storage, s
         if (!di::set_ios_reload_block(true, static_cast<std::uint32_t>(running), error))
             return post_reload_failure(log_path, error);
         logf("%s: d2x keeps IOS%d across the program's own IOS reloads\n", device_name(game.device), running);
+        // The app's own reloads (into this cIOS again, above) go through
+        // this IOS's ES: it is told the same.
+        keep_hardware_access(device_name(game.device));
     }
     if (!g_sd_back) {
         error="d2x is configured but SD could not be remounted after IOS reload";

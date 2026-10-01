@@ -302,6 +302,76 @@ static void test_patch_image() {
     EXPECT_FALSE(fst.patch_image(flipped, err));
 }
 
+static void test_create_files() {
+    // A batch builds the same table as the same files created one by one,
+    // and hands back each file's index in it.
+    const Bytes img = Fixture();
+    std::string err;
+    const std::vector<riftwii::FstNewFile> files = {
+        {"/Stage/new1.arc", 0x1000, 1}, {"/sys2.bin", 0x2000, 2},         {"/Stage/SUB/a/b/c.bin", 0x3000, 3},
+        {"/opening2.bnr", 0x4000, 4},   {"/stage/sub/A/d.bin", 0x5000, 5}, {"/Stage/new2.arc", 0x200000000ull, 6},
+    };
+    riftwii::Fst one_by_one;
+    EXPECT_TRUE(riftwii::Fst::parse(img.data(), img.size(), true, one_by_one, err));
+    for (const riftwii::FstNewFile& f : files) {
+        std::uint32_t idx = 0;
+        EXPECT_TRUE(one_by_one.create_file(f.path, f.offset, f.size, idx, err));
+    }
+    riftwii::Fst batch;
+    EXPECT_TRUE(riftwii::Fst::parse(img.data(), img.size(), true, batch, err));
+    std::vector<std::uint32_t> indices;
+    EXPECT_TRUE(batch.create_files(files, indices, err));
+    Bytes a, b;
+    EXPECT_TRUE(one_by_one.serialize(a, err));
+    EXPECT_TRUE(batch.serialize(b, err));
+    EXPECT_TRUE(a == b);
+    EXPECT_EQ(indices.size(), files.size());
+    for (std::size_t i = 0; i < files.size() && i < indices.size(); ++i) {
+        EXPECT_EQ(batch.find(files[i].path, true), indices[i]);
+        EXPECT_EQ(batch.entries()[indices[i]].size, files[i].size);
+    }
+    for (std::uint32_t i = 1; i < batch.count(); ++i) {
+        const riftwii::FstEntry& e = batch.entries()[i];
+        const riftwii::FstEntry& p = batch.entries()[e.parent];
+        EXPECT_TRUE(p.is_directory && e.parent < i && i < p.next);
+    }
+    riftwii::Fst reparsed;
+    EXPECT_TRUE(riftwii::Fst::parse(b.data(), b.size(), true, reparsed, err));
+    EXPECT_EQ(reparsed.count(), batch.count());
+
+    // All or nothing: one bad file leaves the table as it was.
+    const std::vector<std::vector<riftwii::FstNewFile>> bad = {
+        {{"/fresh/x.bin", 0, 1}, {"/FRESH/X.bin", 0, 1}},  // twice in the batch (any case)
+        {{"/fresh/x.bin", 0, 1}, {"/sys.bin/in.bin", 0, 1}},  // crosses a file
+        {{"/fresh/x.bin", 0, 1}, {"/Stage/01.arc", 0, 1}},    // exists
+        {{"/fresh/x.bin", 0, 1}, {"/fresh/y.bin", 2, 1}},     // unaligned
+        {{"/fresh/x.bin", 0, 1}, {"/fresh//y.bin", 0, 1}},    // empty segment
+    };
+    for (const auto& files_bad : bad) {
+        riftwii::Fst fst;
+        EXPECT_TRUE(riftwii::Fst::parse(img.data(), img.size(), true, fst, err));
+        EXPECT_FALSE(fst.create_files(files_bad, indices, err));
+        Bytes after;
+        EXPECT_TRUE(fst.serialize(after, err));
+        EXPECT_EQ(fst.count(), std::uint32_t(7));
+        EXPECT_EQ(fst.find("/fresh"), riftwii::Fst::npos);
+    }
+
+    // The entry and depth limits hold for the batch as a whole.
+    riftwii::FstLimits limits;
+    limits.max_entries = 9;
+    riftwii::Fst small;
+    EXPECT_TRUE(riftwii::Fst::parse(img.data(), img.size(), true, small, err, limits));
+    EXPECT_TRUE(small.create_files({{"/a.bin", 0, 1}, {"/b.bin", 0, 1}}, indices, err));
+    EXPECT_FALSE(small.create_files({{"/c.bin", 0, 1}}, indices, err));
+    limits = riftwii::FstLimits();
+    limits.max_depth = 2;
+    riftwii::Fst shallow;
+    EXPECT_TRUE(riftwii::Fst::parse(img.data(), img.size(), true, shallow, err, limits));
+    EXPECT_TRUE(shallow.create_files({{"/Stage/sub/ok.bin", 0, 1}, {"/Stage/fine/ok.bin", 0, 1}}, indices, err));
+    EXPECT_FALSE(shallow.create_files({{"/Stage/sub/toodeep/x.bin", 0, 1}}, indices, err));
+}
+
 static void test_malformed() {
     std::string err;
     riftwii::Fst fst;
@@ -375,6 +445,7 @@ int main() {
     test_round_trip();
     test_mutation();
     test_patch_image();
+    test_create_files();
     test_malformed();
     if (g_failures == 0) {
         std::cout << "ALL FST TESTS PASSED" << std::endl;

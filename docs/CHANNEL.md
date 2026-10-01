@@ -76,6 +76,14 @@ retail ones are.
 The installer reloads IOS 58 before it reads RiftWii back in: a reload
 overwrites the bottom of MEM2, where the file is read to.
 
+libogc closes every IOS handle from 0 to 31 as it starts (`SYS_PreMain`),
+for a program started by another under the same IOS. The forwarder skips
+that (`channel/forwarder/startup.c`, through the linker's `--wrap`): the
+system starts the channel under an IOS just loaded for it, and straight
+after a game left while it was still loading (Wii Sports, back to RiftWii
+from its HOME Menu at once) one of those closes could go unanswered, a
+black screen before `main`. Since version 8.
+
 ## The banner
 
 All of it is drawn for RiftWii; no Nintendo data is used.
