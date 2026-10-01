@@ -36,8 +36,10 @@ ART      := $(wildcard channel/art/*)
 
 CFLAGS   := -O2 -Wall -Wextra -Werror $(MACHDEP) -I$(OBJDIR) -Ichannel/common -I$(LIBOGC_INC)
 CXXFLAGS := $(CFLAGS) -std=gnu++17 -fno-exceptions -fno-rtti -Ivendor-bearssl/inc
-FWLD     := $(MACHDEP) -Wl,-Map,$(OUT)/forwarder.map -Wl,--section-start,.init=0x80100000
-FWWIILD  := $(MACHDEP) -Wl,-Map,$(OUT)/forwarder_wii.map
+# libogc's start-up IOS_Close calls go through channel/forwarder/startup.c.
+FWWRAP   := $(foreach f,IOS_Close SYS_PreMain __IOS_LoadStartupIOS,-Wl,--wrap=$(f))
+FWLD     := $(MACHDEP) -Wl,-Map,$(OUT)/forwarder.map -Wl,--section-start,.init=0x80100000 $(FWWRAP)
+FWWIILD  := $(MACHDEP) -Wl,-Map,$(OUT)/forwarder_wii.map $(FWWRAP)
 INSTLD   := $(MACHDEP) -Wl,-Map,$(OUT)/installer.map
 
 .PHONY: all clean bearssl
@@ -72,7 +74,11 @@ $(OBJDIR)/dolboot.o: channel/common/dolboot.c channel/common/dolboot.h | $(OBJDI
 	@echo $(notdir $<)
 	@$(CC) $(CFLAGS) -c $< -o $@
 
-$(FWELF): $(OBJDIR)/fw_main.o $(OBJDIR)/dolboot.o $(SPLASHO)
+$(OBJDIR)/fw_startup.o: channel/forwarder/startup.c | $(OBJDIR)
+	@echo $(notdir $<)
+	@$(CC) $(CFLAGS) -c $< -o $@
+
+$(FWELF): $(OBJDIR)/fw_main.o $(OBJDIR)/fw_startup.o $(OBJDIR)/dolboot.o $(SPLASHO)
 	@echo linking ... $(notdir $@)
 	@$(CC) $(FWLD) $^ -L$(LIBOGC_LIB) -lfat -logc -lm -o $@
 
@@ -80,7 +86,7 @@ $(FWDOL): $(FWELF)
 	@echo output ... $(notdir $@)
 	@elf2dol $< $@
 
-$(FWWIIELF): $(OBJDIR)/fw_main.o $(OBJDIR)/dolboot.o $(SPLASHO)
+$(FWWIIELF): $(OBJDIR)/fw_main.o $(OBJDIR)/fw_startup.o $(OBJDIR)/dolboot.o $(SPLASHO)
 	@echo linking ... $(notdir $@)
 	@$(CC) $(FWWIILD) $^ -L$(LIBOGC_LIB) -lfat -logc -lm -o $@
 
