@@ -2867,8 +2867,8 @@ static void CreditsPage()
 			readItAll = true;
 			logf("Credits: read to the end of the licence\n");
 			ShowPopup(tr("Achievement unlocked: Licence Enthusiast"),
-				tr("You read all 5,644 words of the GNU General Public License, version 3. Almost nobody does this. RiftWii is proud of you. Your reward: absolutely nothing, as the licence says (\"WITHOUT ANY WARRANTY\")."),
-				tr("Worth it"));
+				tr("You read all 5,644 words of the GNU General Public License, version 3. Your reward: absolutely nothing, as the licence says (\"WITHOUT ANY WARRANTY\"). Now go fuck yourself, GPL police."),
+				tr("Fair enough"));
 		}
 		ResumeGui();
 	}
