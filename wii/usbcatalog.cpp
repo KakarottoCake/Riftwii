@@ -27,7 +27,6 @@
 #include "menuios.hpp"
 #include "riftwii/disc.hpp"
 #include "riftwii/gxpatches.hpp"
-#include "boot.hpp"
 #include "riftwii/launch.hpp"
 #include "riftwii/rvz.hpp"
 #include "riftwii/titles.hpp"
@@ -952,40 +951,36 @@ namespace {
 // USB Loader GX's IosLoader: every d2x cIOS (slots 200-255) and its base
 // IOS, from the information block at the start of its first content
 // (magic 0x1ee7c105, version 1, then the d2x version, the base IOS and the
-// name "d2x"). Read once.
+// name "d2x"). Read through ES with the slot's own ticket, not from NAND:
+// 2.7.0 RC5 opened IOS's NAND permission check for that and a tester's Wii
+// hung right after it. Read once; nothing found keeps 249, 250 and 251.
 const std::vector<D2xSlot>& d2x_slots() {
     static std::vector<D2xSlot> slots;
     static bool read = false;
     if (read) return slots;
     read = true;
-    if (ISFS_Initialize() < 0) return slots;
-    bool opened = false;
+    logf("cIOS: looking for d2x in slots 200-255\n");
     std::string found;
     for (int ios = 200; ios <= 255; ++ios) {
         const u64 title = 0x100000000ull | static_cast<u64>(ios);
+        u32 views = 0;
+        if (ES_GetNumTicketViews(title, &views) < 0 || views < 1) continue;
         u32 size = 0;
-        if (ES_GetStoredTMDSize(title, &size) < 0 || size < 0x1E8 || size > 0x4000) continue;
-        static u8 tmd[0x4000] ATTRIBUTE_ALIGN(32);
-        if (ES_GetStoredTMD(title, reinterpret_cast<signed_blob*>(tmd), size) < 0) continue;
-        alignas(32) static char path[64];
-        std::snprintf(path, sizeof(path), "/title/00000001/%08x/content/%08x.app", static_cast<unsigned>(ios & 0xFF),
-                      static_cast<unsigned>(tmd[0x1E7]));
-        s32 fd = ISFS_Open(path, ISFS_OPEN_READ);
-        if (fd == -102 && !opened) {
-            opened = true;
-            if (open_nand_permissions("cIOS")) fd = ISFS_Open(path, ISFS_OPEN_READ);
-        }
-        if (fd < 0) continue;
-        alignas(32) static u8 info[0x30];
-        const s32 got = ISFS_Read(fd, info, sizeof(info));
-        ISFS_Close(fd);
-        const auto be = [](const u8* p) { return (u32(p[0]) << 24) | (u32(p[1]) << 16) | (u32(p[2]) << 8) | p[3]; };
-        if (got < static_cast<s32>(sizeof(info)) || be(info) != 0x1ee7c105u || be(info + 4) != 1) continue;
+        if (ES_GetTMDViewSize(title, &size) < 0) continue;  // no title behind the ticket
+        static tikview view ATTRIBUTE_ALIGN(32);
+        if (ES_GetTicketViews(title, &view, 1) < 0) continue;
+        const s32 cfd = ES_OpenTitleContent(title, &view, 0);
+        if (cfd < 0) continue;
+        alignas(32) static u8 info[0x40];
+        const s32 got = ES_ReadContent(cfd, info, sizeof(info));
+        ES_CloseContent(cfd);
+        const auto be = [](const u8* q) { return (u32(q[0]) << 24) | (u32(q[1]) << 16) | (u32(q[2]) << 8) | q[3]; };
+        if (got < 0x30 || be(info) != 0x1ee7c105u || be(info + 4) != 1) continue;
         if (strncasecmp(reinterpret_cast<const char*>(info + 16), "d2x", 3) != 0) continue;
         slots.push_back(D2xSlot{ios, static_cast<int>(info[15])});
         found += (found.empty() ? "" : ", ") + std::to_string(ios) + " (base " + std::to_string(info[15]) + ")";
     }
-    logf("cIOS: d2x in %s\n", found.empty() ? "no slot (its information block was not readable)" : found.c_str());
+    logf("cIOS: d2x in %s\n", found.empty() ? "no slot that could be read" : found.c_str());
     return slots;
 }
 
