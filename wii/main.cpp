@@ -258,12 +258,23 @@ int main() {
     // left in flight for the game (or the next IOS) to answer.
     riftwii::wii::GcAdapterMenuEnd();
     riftwii::wii::mem::LogUsage("menu closed");
-    riftwii::wii::mem::CheckHeap("menu closed");
+    const bool heap_whole = riftwii::wii::mem::CheckHeap("menu closed");
     const riftwii::wii::LaunchSource source = riftwii::wii::SelectedSource(state);
 
     EnterConsolePhase();
     std::string error;
-    if (action == MENU_LAUNCH) {
+    if (!heap_whole && (action == MENU_LAUNCH || action == MENU_BOOT)) {
+        // Damaged while the menu ran: a launch would only fail later, at
+        // the cIOS reload, blaming that step (a tester's Wii U tried three
+        // slots this way). A fresh start of RiftWii has a whole heap.
+        riftwii::wii::LogOpen("sd:/riftwii/boot.log");
+        riftwii::wii::logf("RiftWii %s: %s %s\n", RIFTWII_VERSION, action == MENU_LAUNCH ? "launch" : "boot",
+                           state.game_id.c_str());
+        error = "RiftWii's memory was damaged while the menu was open (the details are in session.log); "
+                "start the game again once RiftWii has restarted";
+        riftwii::wii::logf("FAILED: %s\n", error.c_str());
+        OfferRestart(error);
+    } else if (action == MENU_LAUNCH) {
         riftwii::wii::LogOpen("sd:/riftwii/boot.log");
         riftwii::wii::logf("RiftWii %s: launch %s with packages\n", RIFTWII_VERSION, state.game_id.c_str());
         riftwii::wii::logf("Controllers: %s\n", controllers.c_str());

@@ -1512,6 +1512,7 @@ static int MenuSource(FrontendState& state)
 			if (entry.kind == HomeEntry::Kind::Disc) {
 				logf("DISC: probing\n");
 				ok = SelectDisc(state, error);
+				riftwii::wii::mem::WatchHeap("after the disc probe");
 				if (!ok && error.empty()) error = "No disc in the drive";
 				if (!ok && error.compare(0, 12, "read disc id") == 0) {
 					HaltGui();
@@ -3479,6 +3480,7 @@ int MainMenu(int menu, FrontendState& state)
 		currentMenu != MENU_CHANNEL)
 	{
 		logf("Screen: %s\n", ScreenName(currentMenu));
+		riftwii::wii::mem::WatchHeap((std::string("on the way to the ") + ScreenName(currentMenu) + " screen").c_str());
 		switch (currentMenu)
 		{
 			case MENU_OPTIONS:

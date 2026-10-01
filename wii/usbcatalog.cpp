@@ -1003,6 +1003,12 @@ std::string release_for_reload() {
         std::string problem;
         if (note.empty() && !mem::HeapIntact(problem)) note = std::string("broken after ") + after + ": " + problem;
     };
+    // Already broken before any of it (in the menu): said so, not blamed
+    // on the first step.
+    {
+        std::string problem;
+        if (!mem::HeapIntact(problem)) note = "already broken before releasing anything: " + problem;
+    }
     release_wii_remotes();
     step("releasing the Wii Remotes");
     fatUnmount("sd:");

@@ -169,6 +169,12 @@ bool WalkHeap(const char* when, std::string* problem) {
                 }
                 logf("Heap check (%s): BROKEN: %s\n", when, text);
                 Dump(p);
+                // A chunk counts as free by the next one's header: an
+                // overrun from this chunk's data shows there.
+                if (size >= 16 && p + size + 8 <= end) {
+                    logf("  the chunk after it, at 0x%08x:\n", p + size);
+                    Dump(p + size);
+                }
                 return false;
             }
             before = p;
@@ -213,6 +219,17 @@ bool HeapIntact(std::string& problem) {
     const bool ok = WalkHeap("", &problem);
     __malloc_unlock(_REENT);
     return ok;
+}
+
+bool WatchHeap(const char* when) {
+    static bool reported = false;
+    std::string problem;
+    if (HeapIntact(problem)) return true;
+    if (!reported) {
+        reported = true;
+        CheckHeap(when);  // logs it, with the bytes around
+    }
+    return false;
 }
 
 void PoisonReloadArea() {

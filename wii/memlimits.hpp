@@ -51,6 +51,11 @@ bool CheckHeap(const char* when);
 // is damaged.
 bool HeapIntact(std::string& problem);
 
+// For the menu's own steps (a cover download, a disc probe, a screen
+// change): silent while the heap is whole; the first damage of the run is
+// logged as CheckHeap logs it, so a report names the step it followed.
+bool WatchHeap(const char* when);
+
 // In Dolphin only (a no-op on a Wii): fills MEM2 from where libogc left
 // arena 2's low end up to kMem2Floor with 0xDEADBEEF. Called by
 // reload_ios once the new IOS is launched.
