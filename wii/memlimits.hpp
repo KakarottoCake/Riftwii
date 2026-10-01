@@ -3,6 +3,7 @@
 
 #include <gctypes.h>
 
+#include <new>
 #include <string>
 
 // The Wii's memory as this loader may use it, in one place, and enforced.
@@ -62,6 +63,22 @@ bool HeapIntact(std::string& problem);
 // change): silent while the heap is whole; the first damage of the run is
 // logged as CheckHeap logs it, so a report names the step it followed.
 bool WatchHeap(const char* when);
+
+// A launch that runs out of memory (a big pack: RiiMajor's 5.9 MB main.dol
+// and its files) throws std::bad_alloc; uncaught, it aborted RiftWii straight
+// back to the Homebrew Channel with nothing said. Run through this, it is a
+// failed launch with `error` saying so. For every launch: the menu's,
+// autorun's and a headless one's.
+template <typename Run>
+bool OutOfMemoryAsError(std::string& error, Run run) {
+    try {
+        return run();
+    } catch (const std::bad_alloc&) {
+        error = "RiftWii ran out of memory while starting the game (a big pack?); "
+                "turn off menu music or other packs and try again";
+        return false;
+    }
+}
 
 // In Dolphin only (a no-op on a Wii): fills MEM2 from where libogc left
 // arena 2's low end up to kMem2Floor with 0xDEADBEEF. Called by
