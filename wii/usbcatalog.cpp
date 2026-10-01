@@ -749,8 +749,11 @@ std::vector<std::string> usb_mod_folders(const std::string& game_id) {
     if (!volume.list("/", top, error)) return out;
     for (const VolumeEntry& t : top) {
         if (!t.is_directory || t.name.empty() || t.name[0] == '.') continue;
-        std::vector<std::string> dirs{"/" + t.name};
-        if (lower(t.name) != "codes") dirs.push_back("/" + t.name + "/codes");
+        // usb:/codes is USB Loader GX's cheat folder (its downloaded
+        // RSBE01.gct and the like), not a code build: counted as one, it
+        // refused those games' launches, telling the player to move it.
+        if (lower(t.name) == "codes") continue;
+        std::vector<std::string> dirs{"/" + t.name, "/" + t.name + "/codes"};
         for (const std::string& dir : dirs) {
             std::vector<VolumeEntry> entries;
             if (!volume.list(dir, entries, error)) continue;
