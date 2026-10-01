@@ -33,6 +33,7 @@
 #include "ios_reload.hpp"
 #include "menuios.hpp"
 #include "log.hpp"
+#include "memlimits.hpp"
 #include "riftwii/mempatch.hpp"
 #include "padhook.hpp"
 #include "resident.hpp"
@@ -958,6 +959,7 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         logf("Code builds: game memory 0x%08x-0x%08x cleared\n", static_cast<unsigned>(kGameStart),
              static_cast<unsigned>(kLoaderStart));
     }
+    mem::LogUsage("before loading the game");  // the headroom a big pack leaves
     di::PartitionSource data;
     const std::uint64_t app_bytes = apploader.total_size();
     std::uint8_t* app = reinterpret_cast<std::uint8_t*>(kApploaderLoadAddress);

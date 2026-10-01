@@ -200,6 +200,7 @@ int main() {
     const riftwii::wii::RestartNote restart = riftwii::wii::TakeRestartNote();
     riftwii::wii::CrashInstall();
     const bool sd_mounted = MountStartupSd();
+    riftwii::wii::mem::TestBallast();  // test builds only
 
     // Another loader (USB Loader GX) starting a game through RiftWii:
     // no menu (docs/HEADLESS.md).

@@ -34,6 +34,13 @@ constexpr u32 kRestartBytes = 0x9000;
 // First thing in main: applies the limits above to libogc's arenas.
 void Init();
 
+// Test builds only (make WII_DEFINES=-DRIFTWII_TEST_LIMITS): once the SD
+// card is up, sd:/riftwii/test_limits.txt's "ballast_kib = N" holds N KiB
+// of the heap back for the whole run, in "chunk_kib = M" pieces (default
+// 256), so Dolphin can run as short of memory as a tester's Wii. A no-op
+// in other builds.
+void TestBallast();
+
 // session.log lines: the limits and the physical sizes (Dolphin's memory
 // size override shows here), then, with LogUsage, what is used and free.
 void LogLimits();

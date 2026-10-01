@@ -6,6 +6,9 @@
 #include <ogc/system.h>
 
 #include <cstddef>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <malloc.h>
 #include <reent.h>
 
@@ -39,6 +42,32 @@ void Init() {
     g_dolphin = running_in_dolphin();
 }
 
+namespace {
+unsigned g_ballast_kib = 0;
+}  // namespace
+
+void TestBallast() {
+#ifdef RIFTWII_TEST_LIMITS
+    FILE* f = std::fopen("sd:/riftwii/test_limits.txt", "r");
+    if (!f) return;
+    unsigned ballast = 0, chunk = 256;
+    char line[96];
+    while (std::fgets(line, sizeof(line), f)) {
+        unsigned v = 0;
+        if (std::sscanf(line, " ballast_kib = %u", &v) == 1) ballast = v;
+        else if (std::sscanf(line, " chunk_kib = %u", &v) == 1 && v > 0) chunk = v;
+    }
+    std::fclose(f);
+    // Never freed: the run (menu and launch) has that much less.
+    for (unsigned held = 0; held < ballast; held += chunk) {
+        void* p = std::malloc(std::size_t(chunk) << 10);
+        if (!p) break;
+        std::memset(p, 0xBA, std::size_t(chunk) << 10);
+        g_ballast_kib += chunk;
+    }
+#endif
+}
+
 void LogLimits() {
     const u32 mem1_size = *reinterpret_cast<volatile u32*>(0x80000028);
     const u32 mem2_size = *reinterpret_cast<volatile u32*>(0x80003118);
@@ -46,6 +75,7 @@ void LogLimits() {
          mem1_size == 24u << 20 && mem2_size == 64u << 20 ? "" : " (not a Wii's 24 and 64: an emulator override)");
     logf("Memory: limits MEM1 0x%08x-0x%08x, MEM2 0x%08x-0x%08x (below 0x%08x: IOS reloads%s)\n", g_mem1_floor,
          kMem1Ceiling, kMem2Floor, g_mem2_top, kMem2Floor, g_dolphin ? ", poisoned in Dolphin" : "");
+    if (g_ballast_kib) logf("Memory: TEST BUILD: %u KiB of the heap held back (test_limits.txt)\n", g_ballast_kib);
 }
 
 void LogUsage(const char* when) {
