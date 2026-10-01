@@ -16,11 +16,14 @@
 #include <string>
 #include <vector>
 
-// 64-bit seek and tell: fseeko/ftello are not declared on the Windows host build.
+// 64-bit seek and tell: fseeko/ftello are not declared on the Windows host builds
+// (MSVC/MinGW, or MSYS2's Cygwin-based compiler under strict -std=c++17).
 namespace {
 int seek64(std::FILE* f, std::uint64_t at) {
 #if defined(_WIN32)
     return _fseeki64(f, static_cast<__int64>(at), SEEK_SET);
+#elif defined(__CYGWIN__)
+    return std::fseek(f, static_cast<long>(at), SEEK_SET);  // long is 64-bit there
 #else
     return fseeko(f, static_cast<off_t>(at), SEEK_SET);
 #endif
@@ -28,6 +31,8 @@ int seek64(std::FILE* f, std::uint64_t at) {
 std::uint64_t tell64(std::FILE* f) {
 #if defined(_WIN32)
     return static_cast<std::uint64_t>(_ftelli64(f));
+#elif defined(__CYGWIN__)
+    return static_cast<std::uint64_t>(std::ftell(f));
 #else
     return static_cast<std::uint64_t>(ftello(f));
 #endif
