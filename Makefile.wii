@@ -69,6 +69,8 @@ PROJECT_ROOT ?= ..
 # bug reports can name the build (wii/main.cpp prints it).
 RIFTWII_VERSION := $(shell grep -o 'Riftwii VERSION [0-9.]*' "$(PROJECT_ROOT)/CMakeLists.txt" 2>/dev/null | cut -d' ' -f3)$(shell grep -o 'RIFTWII_VERSION_SUFFIX "[^"]*"' "$(PROJECT_ROOT)/CMakeLists.txt" 2>/dev/null | cut -d'"' -f2)
 CFLAGS		+=	-DRIFTWII_VERSION='"$(RIFTWII_VERSION)"'
+# Test builds: make WII_DEFINES=-DRIFTWII_TEST_LIMITS (wii/memlimits.hpp TestBallast).
+CFLAGS		+=	$(WII_DEFINES)
 
 ifneq ($(IN_BUILD),1)
 #---------------------------------------------------------------------------------

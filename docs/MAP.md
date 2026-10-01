@@ -48,6 +48,7 @@ and `vendor-*` is third-party code.
 | Online play (Wiimmfi, WiiLink WFC) | `src/wfcpatch.cpp`, `wii/wfc.cpp`, `vendor-wwfc/` |
 | Video mode, borders, deflicker | `src/videopatch.cpp` |
 | Game language | `src/gamelang.cpp` |
+| Fixes for particular games, automatic cIOS choice (from USB Loader GX) | `src/gxpatches.cpp`, `src/gxkirby.inc` (`tools/gx_kirby_table.py`), the GX lines in `wii/boot.cpp`, `image_cios_order` in `wii/usbcatalog.cpp` |
 | Downloads: game names, covers, cheats, updates | `wii/online.cpp`, `src/http.cpp`, `wii/netsock.cpp`, `wii/tls.cpp`, `src/titles.cpp`, `src/coverart.cpp`, `src/update.cpp` |
 | Packs served from a PC (RiiFS) | `wii/netpacks.cpp`, `src/riifs.cpp`, `src/riifs_sync.cpp`, `docs/RIIFS.md` |
 | Returning to RiftWii (or another title) when a game exits | `src/returnto.cpp`, `apply_return_to` in `wii/boot.cpp`, `wii/restart.cpp` |
@@ -162,6 +163,7 @@ implements `include/riftwii/x.hpp`, whose comments document it.
 | `wfcpatch` | Online server patches |
 | `videopatch` | Video settings for games |
 | `gamelang` | The game language |
+| `gxpatches` | USB Loader GX's per-game fixes and cIOS choice |
 | `settingsfile` | `settings.txt` |
 | `langfile` | Translation files |
 | `playhistory` | `history.txt` |

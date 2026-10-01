@@ -12,6 +12,7 @@
 
 #include "loadersettings.hpp"
 #include "log.hpp"
+#include "memlimits.hpp"
 #include "online.hpp"
 #include "riftwii/coverart.hpp"
 #include "riftwii/pngdecode.hpp"
@@ -102,7 +103,20 @@ bool CoverStored(const std::string& game_id) {
     return ValidId(game_id) && stat(CoverPath(game_id).c_str(), &st) == 0;
 }
 
+namespace {
+CoverFetch FetchCoverNow(const std::string& game_id, std::string& error);
+}  // namespace
+
+// Each download, decode and write checked: a tester's heap broke in a
+// menu session that downloaded 25 covers (wii/memlimits.hpp WatchHeap).
 CoverFetch FetchCover(const std::string& game_id, std::string& error) {
+    const CoverFetch got = FetchCoverNow(game_id, error);
+    mem::WatchHeap(("after the cover download of " + game_id).c_str());
+    return got;
+}
+
+namespace {
+CoverFetch FetchCoverNow(const std::string& game_id, std::string& error) {
     if (!ValidId(game_id)) return CoverFetch::NotFound;
     mkdir("sd:/riftwii", 0777);
     mkdir(kCoverDir, 0777);
@@ -135,6 +149,7 @@ CoverFetch FetchCover(const std::string& game_id, std::string& error) {
     logf("Covers: GameTDB has none for %s\n", game_id.c_str());
     return CoverFetch::NotFound;
 }
+}  // namespace
 
 const u8* CoverTexture(const std::string& game_id) {
     if (!ValidId(game_id) || g_absent.count(game_id)) return nullptr;

@@ -6,11 +6,15 @@
 #include <ogc/system.h>
 
 #include <cstddef>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <malloc.h>
 #include <reent.h>
 
 #include "ios_reload.hpp"
 #include "log.hpp"
+#include "skin.hpp"
 
 namespace riftwii::wii::mem {
 namespace {
@@ -39,6 +43,48 @@ void Init() {
     g_dolphin = running_in_dolphin();
 }
 
+namespace {
+unsigned g_ballast_kib = 0;
+#ifdef RIFTWII_TEST_LIMITS
+void* g_pieces[64];
+#endif
+}  // namespace
+
+void TestBallast() {
+#ifdef RIFTWII_TEST_LIMITS
+    FILE* f = std::fopen("sd:/riftwii/test_limits.txt", "r");
+    if (!f) return;
+    unsigned ballast = 0, chunk = 256, pieces = 0;
+    char line[96];
+    while (std::fgets(line, sizeof(line), f)) {
+        unsigned v = 0;
+        if (std::sscanf(line, " ballast_kib = %u", &v) == 1) ballast = v;
+        else if (std::sscanf(line, " chunk_kib = %u", &v) == 1 && v > 0) chunk = v;
+        else if (std::sscanf(line, " heap_pieces = %u", &v) == 1) pieces = v;
+    }
+    std::fclose(f);
+    // Never freed: the run (menu and launch) has that much less.
+    for (unsigned held = 0; held < ballast; held += chunk) {
+        void* p = std::malloc(std::size_t(chunk) << 10);
+        if (!p) break;
+        std::memset(p, 0xBA, std::size_t(chunk) << 10);
+        g_ballast_kib += chunk;
+    }
+    // "heap_pieces = N": the heap in N pieces, as the menu's covers leave it
+    // (each takes MEM2 with skin::Mem2Alloc between two growths of the
+    // heap), with every other block freed so the free lists run across them.
+    if (pieces > sizeof(g_pieces) / sizeof(g_pieces[0])) pieces = sizeof(g_pieces) / sizeof(g_pieces[0]);
+    for (unsigned i = 0; i < pieces; ++i) {
+        g_pieces[i] = std::malloc(256 << 10);
+        skin::Mem2Alloc(64);
+    }
+    for (unsigned i = 0; i < pieces; i += 2) {
+        std::free(g_pieces[i]);
+        g_pieces[i] = nullptr;
+    }
+#endif
+}
+
 void LogLimits() {
     const u32 mem1_size = *reinterpret_cast<volatile u32*>(0x80000028);
     const u32 mem2_size = *reinterpret_cast<volatile u32*>(0x80003118);
@@ -46,6 +92,7 @@ void LogLimits() {
          mem1_size == 24u << 20 && mem2_size == 64u << 20 ? "" : " (not a Wii's 24 and 64: an emulator override)");
     logf("Memory: limits MEM1 0x%08x-0x%08x, MEM2 0x%08x-0x%08x (below 0x%08x: IOS reloads%s)\n", g_mem1_floor,
          kMem1Ceiling, kMem2Floor, g_mem2_top, kMem2Floor, g_dolphin ? ", poisoned in Dolphin" : "");
+    if (g_ballast_kib) logf("Memory: TEST BUILD: %u KiB of the heap held back (test_limits.txt)\n", g_ballast_kib);
 }
 
 void LogUsage(const char* when) {
@@ -75,8 +122,13 @@ namespace {
 struct Segment {
     u32 start, end;
 };
-Segment g_segments[8];
+// The menu's covers and textures take MEM2 between the heap's growths, so
+// every cover can start a new piece (25 covers on a tester's Wii U). Past
+// the table's end the walk falls back to the heap's limits: 2.7.0 RC3's 8
+// pieces made links into the 9th look like damage and refused a launch.
+Segment g_segments[64];
 volatile u32 g_segment_count = 0;
+volatile bool g_segments_lost = false;
 
 void NoteGrowth(u32 start, s32 incr) {
     const u32 n = g_segment_count;
@@ -85,12 +137,16 @@ void NoteGrowth(u32 start, s32 incr) {
     } else if (incr > 0 && n < sizeof(g_segments) / sizeof(g_segments[0])) {
         g_segments[n] = Segment{start, start + static_cast<u32>(incr)};
         g_segment_count = n + 1;
+    } else if (incr > 0) {
+        g_segments_lost = true;
     }
 }
 
 bool InHeap(u32 address) {
     for (u32 i = 0; i < g_segment_count; ++i)
         if (address >= g_segments[i].start && address < g_segments[i].end) return true;
+    if (g_segments_lost)  // a piece past the table: anywhere the heap may grow
+        return (address >= g_mem1_floor && address < kMem1Ceiling) || (address >= kMem2Floor && address < g_mem2_top);
     return false;
 }
 
@@ -169,6 +225,12 @@ bool WalkHeap(const char* when, std::string* problem) {
                 }
                 logf("Heap check (%s): BROKEN: %s\n", when, text);
                 Dump(p);
+                // A chunk counts as free by the next one's header: an
+                // overrun from this chunk's data shows there.
+                if (size >= 16 && p + size + 8 <= end) {
+                    logf("  the chunk after it, at 0x%08x:\n", p + size);
+                    Dump(p + size);
+                }
                 return false;
             }
             before = p;
@@ -185,7 +247,7 @@ bool WalkHeap(const char* when, std::string* problem) {
         while (p != bin) {
             const char* why = nullptr;
             if (!InHeap(p) || (p & 7) != 0) why = "a free list that leaves the heap";
-            else if (++steps > chunks + 1) why = "a free list longer than the heap";
+            else if (++steps > (g_segments_lost ? 1u << 22 : chunks + 1)) why = "a free list longer than the heap";
             if (why) {
                 std::snprintf(text, sizeof(text), "%s: bin 0x%08x, link 0x%08x after %u step(s)", why, bin, p,
                               static_cast<unsigned>(steps));
@@ -202,7 +264,8 @@ bool WalkHeap(const char* when, std::string* problem) {
     }
     if (problem) return true;
     const struct mallinfo info = mallinfo();
-    logf("Heap check (%s): OK, %u chunks, %u KiB free in the heap\n", when, static_cast<unsigned>(chunks),
+    logf("Heap check (%s): OK, %u chunks in %u piece(s)%s, %u KiB free in the heap\n", when,
+         static_cast<unsigned>(chunks), static_cast<unsigned>(g_segment_count), g_segments_lost ? " and more" : "",
          Kib(static_cast<u32>(info.fordblks)));
     return true;
 }
@@ -213,6 +276,17 @@ bool HeapIntact(std::string& problem) {
     const bool ok = WalkHeap("", &problem);
     __malloc_unlock(_REENT);
     return ok;
+}
+
+bool WatchHeap(const char* when) {
+    static bool reported = false;
+    std::string problem;
+    if (HeapIntact(problem)) return true;
+    if (!reported) {
+        reported = true;
+        CheckHeap(when);  // logs it, with the bytes around
+    }
+    return false;
 }
 
 void PoisonReloadArea() {

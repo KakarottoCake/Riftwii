@@ -31,7 +31,7 @@ import zlib
 # 00010001-RFTW, in 4:3 on a vWii; the installer removes that one.)
 TITLE_ID = 0x0001000155465457  # 00010001-UFTW
 OLD_TITLE_ID = 0x0001000152465457  # 00010001-RFTW
-TITLE_VERSION = 7  # 5: boot program and forwarder (vWii); 6: UFTW; 7: a Wii and a vWii package
+TITLE_VERSION = 8  # 5: boot program and forwarder (vWii); 6: UFTW; 7: a Wii and a vWii package; 8: no start-up IOS_Close sweep
 IOS = 58
 CHANNEL_NAME = "RiftWii"
 

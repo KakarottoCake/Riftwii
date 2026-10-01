@@ -33,6 +33,7 @@
 #include "ios_reload.hpp"
 #include "menuios.hpp"
 #include "log.hpp"
+#include "memlimits.hpp"
 #include "riftwii/mempatch.hpp"
 #include "padhook.hpp"
 #include "resident.hpp"
@@ -48,6 +49,7 @@
 #include "riftwii/cardlog.hpp"
 #include "riftwii/codehook.hpp"
 #include "riftwii/gamelang.hpp"
+#include "riftwii/gxpatches.hpp"
 #include "riftwii/playhistory.hpp"
 #include "riftwii/returnto.hpp"
 #include "channel.hpp"
@@ -396,7 +398,9 @@ int region_video_standard(char region) {
 }
 
 // What a chosen video mode means on this console, for a game of `region`.
-VideoTarget resolve_video_target(VideoMode mode, char region, bool progressive_ok) {
+// `progressive_ok`: 480p is on in the Wii's settings and a component
+// cable is in; `component`: the cable alone.
+VideoTarget resolve_video_target(VideoMode mode, char region, bool progressive_ok, bool component) {
     VideoTarget t;
     switch (mode) {
     case VideoMode::System:
@@ -412,8 +416,10 @@ VideoTarget resolve_video_target(VideoMode mode, char region, bool progressive_o
     case VideoMode::Pal50: t.format = kViPal; break;
     case VideoMode::Progressive:
         // 480p: EuRGB60's for PAL games (their 60 Hz mode), NTSC's otherwise.
+        // Only through a component cable: on the AV cable a 480p signal is
+        // a green or scrambled screen, so the same 60 Hz mode interlaced.
         t.format = region_video_standard(region) == VI_PAL ? kViEurgb60 : kViNtsc;
-        t.progressive = true;
+        t.progressive = component;
         break;
     default: break;
     }
@@ -424,9 +430,12 @@ VideoTarget resolve_video_target(VideoMode mode, char region, bool progressive_o
 // low-memory global the SDK reads (0x800000CC). A chosen video mode
 // decides it, and becomes the target the game's tables are converted to.
 void configure_video_for_game(char region) {
-    const bool progressive_ok = CONF_GetProgressiveScan() > 0 && VIDEO_HaveComponentCable();
-    g_extras.video.target = resolve_video_target(g_extras.video.mode, region, progressive_ok);
+    const bool component = VIDEO_HaveComponentCable();
+    const bool progressive_ok = CONF_GetProgressiveScan() > 0 && component;
+    g_extras.video.target = resolve_video_target(g_extras.video.mode, region, progressive_ok, component);
     const VideoTarget& target = g_extras.video.target;
+    if (g_extras.video.mode == VideoMode::Progressive && !component)
+        logf("Video: 480p needs a component cable and none is in; 480i instead\n");
     if (target.format >= 0) {
         GXRModeObj* forced = &TVNtsc480IntDf;
         if (target.progressive) forced = target.format == kViEurgb60 ? &TVEurgb60Hz480Prog : &TVNtsc480Prog;
@@ -704,7 +713,7 @@ namespace {
 
 // The part of the boot that runs after the SD card and the log are gone.
 // Returns only on failure.
-bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, const SavegameOptions& savegame,
+bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const SavegameOptions& savegame,
                         const RvzResidentOptions& rvz, std::uint32_t required, std::string& error) {
     bool force_ios_fields = options.preserve_current_ios;
     if (!options.preserve_current_ios) ProgressStage("Starting the game's IOS", 62);
@@ -757,14 +766,31 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
     // E6: created files add entries, so the table is rebuilt and grows in
     // place; the partition data header the apploader reads first (its FST
     // size field) is overridden the same way.
+    // Moved, not copied: boot_game's options are this launch's own.
+    const bool file_replacements = !options.replacements.empty() || !options.sd_replacements.empty();
     PayloadPieces pieces;
-    pieces.mem = options.replacements;
-    pieces.sd = options.sd_replacements;
-    pieces.entries = options.table_entries;
+    pieces.mem = std::move(options.replacements);
+    pieces.sd = std::move(options.sd_replacements);
+    pieces.entries = std::move(options.table_entries);
     struct LoadOverride {
         std::uint64_t offset = 0;  // in the partition data
         std::vector<std::uint8_t> bytes;
         const char* what = "";
+        // A pack's main.dol is served from the options' own copy, not a
+        // fifth one (RiiMajor's is 5.9 MB): `length` bytes, zeros past it.
+        const std::vector<std::uint8_t>* borrowed = nullptr;
+        std::uint64_t length = 0;
+        std::uint64_t size() const { return borrowed ? length : bytes.size(); }
+        void copy(std::uint8_t* to, std::uint64_t from, std::size_t n) const {
+            if (!borrowed) {
+                std::memcpy(to, bytes.data() + from, n);
+                return;
+            }
+            const std::uint64_t have = from < borrowed->size() ? borrowed->size() - from : 0;
+            const std::size_t real = static_cast<std::size_t>(std::min<std::uint64_t>(n, have));
+            if (real) std::memcpy(to, borrowed->data() + from, real);
+            if (real < n) std::memset(to + real, 0, n - real);
+        }
     };
     std::vector<LoadOverride> overrides;
     // The data header the apploader reads: the FST's size and the DOL's
@@ -779,13 +805,24 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         }
         Fst fst = layout.fst;
         std::uint64_t window_cursor = kVirtualWindowStart;
-        unsigned created = 0;
+        // Created files first, all in one rebuild of the table (a pack can
+        // create thousands); the other relocations then find them too.
+        std::vector<FstNewFile> new_files;
         for (const FstRelocation& r : options.relocations) {
-            if (r.create) {
-                std::uint32_t index = 0;
-                if (!fst.create_file(r.disc_path, r.offset, r.size, index, error)) return false;
-                ++created;
-            } else {
+            if (!r.create) continue;
+            FstNewFile f;
+            f.path = r.disc_path;
+            f.offset = r.offset;
+            f.size = r.size;
+            new_files.push_back(std::move(f));
+        }
+        const unsigned created = static_cast<unsigned>(new_files.size());
+        if (created != 0) {
+            std::vector<std::uint32_t> indices;
+            if (!fst.create_files(new_files, indices, error)) return false;
+        }
+        for (const FstRelocation& r : options.relocations) {
+            if (!r.create) {
                 std::uint32_t index = fst.find(r.disc_path, false);
                 if (index == Fst::npos) index = fst.find(r.disc_path, true);
                 if (index == Fst::npos || fst.entries()[index].is_directory) {
@@ -886,8 +923,8 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         }
         LoadOverride dol;
         dol.offset = header.dol_offset;
-        dol.bytes = options.main_dol;
-        dol.bytes.resize(static_cast<std::size_t>(size), 0);
+        dol.borrowed = &options.main_dol;
+        dol.length = size;
         dol.what = "main.dol";
         logf("main.dol: the pack's executable (%u bytes) is loaded %s 0x%llx\n",
              static_cast<unsigned>(options.main_dol.size()), in_place ? "in place at" : "after the FST, at",
@@ -925,6 +962,7 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         logf("Code builds: game memory 0x%08x-0x%08x cleared\n", static_cast<unsigned>(kGameStart),
              static_cast<unsigned>(kLoaderStart));
     }
+    mem::LogUsage("before loading the game");  // the headroom a big pack leaves
     di::PartitionSource data;
     const std::uint64_t app_bytes = apploader.total_size();
     std::uint8_t* app = reinterpret_cast<std::uint8_t*>(kApploaderLoadAddress);
@@ -987,7 +1025,7 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         std::vector<std::pair<std::uint64_t, std::uint64_t>> covered;
         for (const LoadOverride& o : overrides) {
             const std::uint64_t from = std::max(load_start, o.offset);
-            const std::uint64_t to = std::min(load_end, o.offset + o.bytes.size());
+            const std::uint64_t to = std::min(load_end, o.offset + o.size());
             if (from < to) covered.emplace_back(from, to);
         }
         std::sort(covered.begin(), covered.end());
@@ -1018,12 +1056,12 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         for (const LoadOverride& o : overrides) {
             // Whatever part of an override this load covers comes from the
             // rewritten copy instead.
-            const std::uint64_t o_end = o.offset + o.bytes.size();
+            const std::uint64_t o_end = o.offset + o.size();
             const std::uint64_t from = std::max(load_start, o.offset);
             const std::uint64_t to = std::min(load_end, o_end);
             if (from < to) {
-                std::memcpy(static_cast<std::uint8_t*>(destination) + (from - load_start),
-                            o.bytes.data() + (from - o.offset), static_cast<std::size_t>(to - from));
+                o.copy(static_cast<std::uint8_t*>(destination) + (from - load_start), from - o.offset,
+                       static_cast<std::size_t>(to - from));
                 logf("  %s bytes 0x%llx-0x%llx replaced with the rewritten copy\n", o.what,
                      static_cast<unsigned long long>(from - o.offset), static_cast<unsigned long long>(to - o.offset));
             }
@@ -1044,12 +1082,22 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         return false;
     }
     logf("Game entry 0x%08x\n", reinterpret_cast<std::uint32_t>(game_entry));
+    // The apploader set the arena, FST and BI2 fields (0x34-0x3C, 0xF4)
+    // through the cache; the runtime and the hooks read them uncached
+    // (read32), which saw what was there before the apploader (0x34 at the
+    // top of MEM1, so a hook went over the FST): to memory with them first.
+    DCFlushRange(reinterpret_cast<void*>(kMem1Start), 0x100);
+    logf("Apploader: arena top 0x%08x, FST 0x%08x (%u bytes), BI2 0x%08x\n", load32(0x80000034),
+         load32(0x80000038), load32(0x8000003C), load32(0x800000F4));
 
 
     // The DOL header for the runtime's search, read now: an RVZ game's
     // partition reads go through the SD card, which is handed on below.
     std::uint8_t dol_bytes[kDolHeaderBytes];
-    bool gc_adapter = g_extras.gc_adapter != GcAdapterMode::Off;
+    // USB Loader GX's exclude_game list: games that check their own code
+    // (MetaFortress). RiftWii's hooks and code patches stay out of them.
+    const bool gx_protected = gx_protected_game(probe.header.game_id);
+    bool gc_adapter = g_extras.gc_adapter != GcAdapterMode::Off && !gx_protected;
     if (gc_adapter && g_extras.gc_adapter != GcAdapterMode::Demo && (rvz.usb_fd >= 0 || pieces.needs_usb())) {
         // The runtime reads the USB drive through d2x while the game runs.
         // On (not Automatic) tries anyway: an experiment the player chose.
@@ -1212,7 +1260,7 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
     }
     // In-game screenshots: below the adapter, the runtime, or alone.
     ShotHook shot;
-    if (g_extras.screenshots) {
+    if (g_extras.screenshots && !gx_protected) {
         std::string why;
         const std::uint32_t arena1_hi = pad.active                 ? pad.new_arena1_hi
                                                                    : base_arena1_hi();
@@ -1226,14 +1274,12 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
             known.ioctl_async = resident.originals[RT_IPC_ASYNC(6)];
             known.ioctlv_async = resident.ioctlv_async;
         }
-        // With packs on, no frame copy: mods tend to need all of the
-        // game's memory (Newer Super Mario Bros. Wii does). Any of the
-        // pack's contents counts: its compiled table, memory patches, a
-        // replaced executable.
-        const bool direct = !options.table_entries.empty() || !options.relocations.empty() ||
-                            !options.memory_patches.empty() || !options.main_dol.empty() ||
-                            !options.virtual_files.empty() || !options.replacements.empty() ||
-                            !options.sd_replacements.empty();
+        // Never a frame copy: its 0.8 MB of MEM2 is more than games spare.
+        // Newer Super Mario Bros. Wii crashed on its title screen, and
+        // HAL's Kirby games (Return to Dream Land, Dream Collection)
+        // without packs failed to make a heap and stayed black. Direct
+        // shots read the frame buffer itself.
+        const bool direct = true;
         if (!plan_shot_hook(dol, arena1_hi, mem1_floor, arena2_lo, known, pad.read, g_extras.screenshots_demo,
                             direct, options.memory_patches, shot, why)) {
             logf("Screenshots: off: %s\n", why.c_str());
@@ -1242,7 +1288,9 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
     // A crash in the game is saved for the next start: below all of the
     // above, always.
     FaultHook fault;
-    {
+    if (gx_protected) {
+        logf("Game crashes: not recorded: the game checks its own code (MetaFortress); RiftWii's hooks stay out\n");
+    } else {
         std::string why;
         const std::uint32_t arena1_hi = shot.active                ? shot.new_arena1_hi
                                         : pad.active               ? pad.new_arena1_hi
@@ -1295,6 +1343,13 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
     store32(0x80003198, static_cast<u32>(probe.partition.offset >> 2));
     ProgressStage("Starting the game", 100);
     configure_video_for_game(probe.header.game_id.size() > 3 ? probe.header.game_id[3] : 'E');
+    // A Japanese game: the VI configuration bit the System Menu sets on
+    // Japanese consoles (USB Loader GX's gamepatches()). Hollywood's
+    // registers need AHBPROT, as the Homebrew Channel leaves it.
+    if (probe.header.game_id.size() > 3 && probe.header.game_id[3] == 'J' && !running_in_dolphin() &&
+        read32(0x0D800064) == 0xFFFFFFFF) {
+        write32(0xCD800018, read32(0xCD800018) | (1u << 17));
+    }
     DCFlushRange(reinterpret_cast<void*>(kMem1Start), 0x3400);
     if (force_ios_fields) {
         // Claim to be the IOS the apploader asked for (0x3188), as Brainslug
@@ -1387,6 +1442,34 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         if (!apply_memory_patches(options.memory_patches, loaded, writable, wii_memory, notes, error)) return false;
         for (const std::string& n : notes) logf("  %s\n", n.c_str());
     }
+    // USB Loader GX's fixes for particular games (riftwii/gxpatches.hpp),
+    // over the game as loaded and patched, before the menu's extras.
+    std::vector<CodeSpan> loaded_spans;
+    for (const MemoryRegion& r : loaded) {
+        loaded_spans.push_back(CodeSpan{reinterpret_cast<std::uint8_t*>(r.address), r.length, r.address});
+    }
+    const auto sync_loaded = [&loaded]() {
+        for (const MemoryRegion& r : loaded) {
+            DCFlushRange(reinterpret_cast<void*>(r.address), r.length);
+            ICInvalidateRange(reinterpret_cast<void*>(r.address), r.length);
+        }
+    };
+    {
+        GxReport gx;
+        const bool own_executable = !options.main_dol.empty();
+        unsigned changed = gx_game_patches(probe.header.game_id, dol, loaded_spans, gx, own_executable);
+        if (di::frag_device() == 2 && !own_executable) changed += gx_sd_card_patches(probe.header.game_id, loaded_spans, gx);
+        for (const std::string& note : gx.notes) logf("Game fixes: %s\n", note.c_str());
+        if (changed) sync_loaded();
+    }
+    if (gx_protected && (g_extras.video.width != VideoWidth::Game || g_extras.video.deflicker != Deflicker::Game ||
+                         g_extras.video.remove_borders)) {
+        // GX leaves width and deflicker out of these games too.
+        logf("Video: width, deflicker and borders as the game has them: it checks its own code (MetaFortress)\n");
+        g_extras.video.width = VideoWidth::Game;
+        g_extras.video.deflicker = Deflicker::Game;
+        g_extras.video.remove_borders = false;
+    }
     // The menu's extras, over the game as loaded and patched.
     apply_video(loaded, card.fd < 0);  // not while the runtime's card handle is open
     bool codes_first = false;  // run the codes once before the game starts
@@ -1403,6 +1486,11 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         if (fault.active) keep_out.push_back(MemoryRegion{fault.code_base, fault.code_bytes});
         if (!install_cheats(loaded, options.memory_patches, keep_out, why)) logf("Codes are off: %s\n", why.c_str());
         else codes_first = !g_extras.code_builds.empty();
+    }
+    if (!gx_protected) {
+        GxReport gx;
+        if (gx_fix_480p(loaded_spans, gx)) sync_loaded();
+        for (const std::string& note : gx.notes) logf("Game fixes: %s\n", note.c_str());
     }
     if (vsd.active) {
         std::string why;
@@ -1428,7 +1516,7 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
     // setup (and may have replaced the code these patches expect).
     if (g_extras.server != WfcServer::Off) {
         const bool packs = !options.memory_patches.empty() || !options.virtual_files.empty() ||
-                           !options.replacements.empty() || !options.sd_replacements.empty();
+                           file_replacements;
         if (packs) logf("WFC: not patched; packs are on\n");
         else ApplyWfc(loaded, g_extras.server, g_extras.wfc_domain, g_extras.game_id, probe.header.version);
     }
@@ -1666,9 +1754,9 @@ void apply_return_to(const std::vector<MemoryRegion>& loaded, u64 title, std::ui
 // "movs r5, #0x66" becomes an unconditional branch past the refusal. IOS's
 // memory is written only there, and only after IOS refused. An IOS
 // reload (the game's) brings the check back.
-bool open_nand_permissions() {
+bool open_nand_permissions(const char* who) {
     if (read32(0x0D800064) != 0xFFFFFFFF) {
-        logf("Message Board: no AHBPROT access, IOS%d left as it is\n", IOS_GetVersion());
+        logf("%s: no AHBPROT access, IOS%d left as it is\n", who, IOS_GetVersion());
         return false;
     }
     static const u8 kCheck[] = {0x42, 0x8B, 0xD0, 0x01, 0x25, 0x66};
@@ -1685,8 +1773,38 @@ bool open_nand_permissions() {
         ++patched;
     }
     write16(0x0D8B420A, protection);
-    logf("Message Board: IOS%d's NAND permission check %s\n", IOS_GetVersion(),
-         patched ? "opened" : "not found");
+    logf("%s: IOS%d's NAND permission check %s\n", who, IOS_GetVersion(), patched ? "opened" : "not found");
+    return patched != 0;
+}
+
+// ES gives a title it starts hardware access only when the title's TMD asks
+// for it (the access rights at TMD offset 0x1D8, "movs r2, #0xEC; lsls r2,
+// r2, #1" in this sequence of ES's Thumb code), and an IOS's TMD does not.
+// Writing 1 to the byte 25 bytes into the sequence makes that test pass for
+// every title. This is the byte libruntimeiospatch's IosPatch_AHBPROT
+// writes (USB Loader GX, WiiFlow); the code here is RiftWii's own. Same
+// MEM2 handling as open_nand_permissions above.
+bool keep_hardware_access(const char* who) {
+    if (read32(0x0D800064) != 0xFFFFFFFF) {
+        logf("%s: no AHBPROT access, IOS%d's ES left as it is\n", who, IOS_GetVersion());
+        return false;
+    }
+    static const u8 kRights[] = {0x68, 0x5B, 0x22, 0xEC, 0x00, 0x52, 0x18, 0x9B,
+                                 0x68, 0x1B, 0x46, 0x98, 0x07, 0xDB};
+    const u16 protection = read16(0x0D8B420A);
+    write16(0x0D8B420A, 2);
+    int patched = 0;
+    for (u32 at = 0xD3400000; at + 26 <= 0xD4000000; at += 2) {
+        volatile u8* p = reinterpret_cast<volatile u8*>(at);
+        bool same = true;
+        for (std::size_t i = 0; same && i < sizeof kRights; ++i) same = p[i] == kRights[i];
+        if (!same) continue;
+        p[25] = 0x01;
+        ++patched;
+    }
+    write16(0x0D8B420A, protection);
+    logf("%s: IOS%d's ES %s\n", who, IOS_GetVersion(),
+         patched ? "keeps hardware access on for the next IOS" : "check for hardware access not found");
     return patched != 0;
 }
 
@@ -1719,7 +1837,7 @@ void write_play_log(const DiscProbe& probe) {
     std::memcpy(buffer, record.data(), sizeof buffer);
     s32 r = ISFS_Initialize();
     if (r >= 0) r = write_play_file(buffer, sizeof buffer);
-    if (r == -102 && open_nand_permissions()) r = write_play_file(buffer, sizeof buffer);
+    if (r == -102 && open_nand_permissions("Message Board")) r = write_play_file(buffer, sizeof buffer);
     if (r == static_cast<s32>(sizeof buffer)) {
         logf("Message Board: play log written (%s)\n", name.c_str());
     } else {
@@ -1728,7 +1846,7 @@ void write_play_log(const DiscProbe& probe) {
     ISFS_Deinitialize();  // not left open for the game's IOS reload
 }
 
-bool boot_game(const DiscProbe& probe, const BootOptions& options, std::string& error) {
+bool boot_game(const DiscProbe& probe, BootOptions options, std::string& error) {
     const std::uint32_t required = probe.tmd.required_ios();
     if (required == 0) {
         error = "the TMD does not name an IOS";
@@ -1736,7 +1854,7 @@ bool boot_game(const DiscProbe& probe, const BootOptions& options, std::string& 
     }
     logf("Booting %s with IOS%u\n", probe.header.game_id.c_str(), required);
     write_play_log(probe);
-    BootOptions effective = options;
+    BootOptions& effective = options;  // the caller's, moved in: no second copy
     const int running_ios = IOS_GetVersion();
     // A pack whose main.dol is another program, not the game: the CTGP-R
     // Channel's launcher (CTGP Revolution 1.03's Riivolution XML), which

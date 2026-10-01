@@ -23,6 +23,13 @@ struct FstEntry {
     std::uint32_t next = 0;      // directories: first index after the subtree
 };
 
+// A file for Fst::create_files.
+struct FstNewFile {
+    std::string path;          // absolute, as for create_file
+    std::uint64_t offset = 0;  // byte offset inside the partition data
+    std::uint32_t size = 0;
+};
+
 struct FstLimits {
     std::uint32_t max_entries = 65536;
     std::uint32_t max_depth = 64;
@@ -76,6 +83,11 @@ public:
     // the SDK resolves paths). Fails when the path already exists.
     bool create_file(const std::string& absolute_path, std::uint64_t offset, std::uint32_t size,
                      std::uint32_t& index, std::string& error);
+    // create_file for many files at once, with the table rebuilt only once;
+    // `indices` gets each file's index in the new table, in order. All or
+    // nothing: on failure the table is as it was.
+    bool create_files(const std::vector<FstNewFile>& files, std::vector<std::uint32_t>& indices,
+                      std::string& error);
 
 private:
     bool insert_entry(std::uint32_t directory, FstEntry entry, std::uint32_t& index, std::string& error);

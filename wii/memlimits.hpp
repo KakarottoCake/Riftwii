@@ -3,6 +3,7 @@
 
 #include <gctypes.h>
 
+#include <new>
 #include <string>
 
 // The Wii's memory as this loader may use it, in one place, and enforced.
@@ -34,6 +35,13 @@ constexpr u32 kRestartBytes = 0x9000;
 // First thing in main: applies the limits above to libogc's arenas.
 void Init();
 
+// Test builds only (make WII_DEFINES=-DRIFTWII_TEST_LIMITS): once the SD
+// card is up, sd:/riftwii/test_limits.txt's "ballast_kib = N" holds N KiB
+// of the heap back for the whole run, in "chunk_kib = M" pieces (default
+// 256), so Dolphin can run as short of memory as a tester's Wii. A no-op
+// in other builds.
+void TestBallast();
+
 // session.log lines: the limits and the physical sizes (Dolphin's memory
 // size override shows here), then, with LogUsage, what is used and free.
 void LogLimits();
@@ -50,6 +58,27 @@ bool CheckHeap(const char* when);
 // IOS reload): false, with `problem` saying what and where, when the heap
 // is damaged.
 bool HeapIntact(std::string& problem);
+
+// For the menu's own steps (a cover download, a disc probe, a screen
+// change): silent while the heap is whole; the first damage of the run is
+// logged as CheckHeap logs it, so a report names the step it followed.
+bool WatchHeap(const char* when);
+
+// A launch that runs out of memory (a big pack: RiiMajor's 5.9 MB main.dol
+// and its files) throws std::bad_alloc; uncaught, it aborted RiftWii straight
+// back to the Homebrew Channel with nothing said. Run through this, it is a
+// failed launch with `error` saying so. For every launch: the menu's,
+// autorun's and a headless one's.
+template <typename Run>
+bool OutOfMemoryAsError(std::string& error, Run run) {
+    try {
+        return run();
+    } catch (const std::bad_alloc&) {
+        error = "RiftWii ran out of memory while starting the game (a big pack?); "
+                "turn off menu music or other packs and try again";
+        return false;
+    }
+}
 
 // In Dolphin only (a no-op on a Wii): fills MEM2 from where libogc left
 // arena 2's low end up to kMem2Floor with 0xDEADBEEF. Called by

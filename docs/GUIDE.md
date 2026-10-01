@@ -115,7 +115,10 @@ these rows:
   language. Pick one the game has: a game missing it may stop (Super
   Mario Galaxy 2 from the US has no German, and freezes).
 - **cIOS** (SD and USB games) picks the d2x slot the game runs under,
-  248 to 252. *Automatic* uses the Menu IOS slot, else 249, 250, 251.
+  248 to 252. *Automatic* uses the Menu IOS slot. Else, as USB Loader GX
+  does, it first tries the d2x cIOS whose base is the IOS the game asks
+  for (Super Smash Bros. Brawl gets base 56, which its mods need; a game
+  on the SD card gets a base from 56 to 60), then 249, 250 and 251.
 - **Online server** lets the game play online again (below).
 
   *Default* follows Settings, where the same rows apply to every game.
@@ -148,12 +151,12 @@ the list explains the row you are on.
   `music.ogg` (Ogg Vorbis, up to 6 MB) from `sd:/riftwii/`, or else the one
   the release puts in `sd:/apps/riftwii/`, looped while the menu is open.
 - **In-game screenshots** (experimental, off at first): see Screenshots
-  below. Without packs it keeps a copy of the picture in about 0.8 MB of
-  the game's memory. With packs on (mods often need all of it: Newer
-  Super Mario Bros. Wii crashes otherwise) the picture is written
-  straight from the screen instead, using almost none, and a picture
-  taken during fast motion may shear slightly. Some games and mods may
-  still not work with it: turn it off for those.
+  below. The picture is written straight from the screen, using almost
+  none of the game's memory (games need it: keeping a copy of the
+  picture took 0.8 MB, and Newer Super Mario Bros. Wii and HAL's Kirby
+  games stopped on a black screen), so a picture taken during fast
+  motion may shear slightly. Some games and mods may still not work with
+  it: turn it off for those.
 - **Download names and cheats**, and **Get the latest game names**.
 - **GameCube adapter** (experimental), and **Check the GameCube adapter** (below).
 - **Menu IOS**: IOS 58, or a d2x cIOS slot (248 to 252). Pick the slot that has
@@ -463,6 +466,25 @@ a GameCube controller and press **Down**.
   pictures per session. The Wii Remote combo works with the Wii Remote
   alone, not with buttons on a Classic Controller. The GameCube combo
   works in games that support the GameCube controller.
+
+## Fixes for particular games
+
+RiftWii makes the same fixes USB Loader GX makes for some games, at every
+launch:
+
+- **Kirby's Return to Dream Land** checks its own code (MetaFortress) and
+  stops on a white screen when anything changed it. Its checks are patched
+  out, so screenshots, packs and games on USB work.
+- **Prince of Persia: The Forgotten Sands, Driver: San Francisco, The
+  Adventures of Tintin and We Dare** check their code too. RiftWii leaves
+  them alone: no in-game screenshots, GameCube adapter or crash recording,
+  and the video width, deflicker and borders stay as the game has them.
+- **New Super Mario Bros. Wii** (its disc check), **Resident Evil 4**
+  (GameCube controllers), **Excite Truck** and Kirby from the SD card.
+- Every game: the older error #002 check, and the wrong 480p setting some
+  games send the video encoder.
+
+Boot.log lists them under "Game fixes".
 
 ## Stable and beta versions
 

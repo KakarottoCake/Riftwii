@@ -23,6 +23,24 @@ dropped.
 * **RVZ:** refused. RiftWii's PPC resident code reads an RVZ; d2x only holds
   its stub, and nothing of RiftWii survives into CTGP's later stages.
 
+## Hardware access under the cIOS
+
+CTGP's `meta.xml` asks the Homebrew Channel for hardware access
+(`<ahb_access/>`), and an IOS reload ends it. On 2.7.0 RC6 a tester's
+Wii (USB, NTFS, RMCP01, IOS249) did everything up to the handoff:
+d2x accepted the reload block and served the disc, and the app started
+under IOS249 with "hardware access off". The CTGP channel then showed a
+green screen.
+
+Since 2.7.0 RC7, `keep_hardware_access` (`wii/boot.cpp`) changes the
+running IOS's ES right before the reload into the cIOS so the cIOS keeps
+hardware access, as USB Loader GX and WiiFlow do with libruntimeiospatch's
+`IosPatch_AHBPROT`. It does the same to the cIOS's ES once d2x is set up,
+for CTGP's own reloads. Only the Homebrew Channel app path does this, not
+ordinary game launches. `boot.log` shows `IOS<n>'s ES keeps hardware
+access on for the next IOS` for each, and `Homebrew app: IOS<n>, hardware
+access on` when it worked. Untested on a Wii.
+
 ## d2x IOS reload block
 
 ES ioctlv `0xA0` on `/dev/es`, two 4-byte inputs: mode 2 and the cIOS slot

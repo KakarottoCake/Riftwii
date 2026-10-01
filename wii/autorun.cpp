@@ -87,11 +87,8 @@ struct Session {
         if (probed) return true;
         ProgressStage(source.kind == LaunchSource::Kind::Disc ? "Reading the disc" : "Opening the game image", 3);
         if (source.kind != LaunchSource::Kind::Disc) {
-            const int slots[] = {source.cios_slot ? source.cios_slot : 249, source.cios_slot ? 0 : 250,
-                                 source.cios_slot ? 0 : 251};
             bool active = false;
-            for (int slot : slots) {
-                if (!slot) continue;
+            for (int slot : image_cios_order(source.game, source.cios_slot)) {
                 if (activate_image_game(source.game, slot, frag_storage, frag_storage_bytes, log_path, error,
                                         block_ios_reload)) { active=true; break; }
                 if (reload_terminal_failure()) return false;
@@ -285,7 +282,7 @@ bool RunBoot(bool allow_ios_fallback, std::string& error, const LaunchSource& so
     BootOptions options;
     options.allow_ios_fallback = allow_ios_fallback;
     options.preserve_current_ios = source.kind != LaunchSource::Kind::Disc || MenuCiosSlot() != 0;
-    return boot_game(s.probe, options, error);
+    return boot_game(s.probe, std::move(options), error);
 }
 
 bool ProbeInserted(std::string& game_id, std::string& title, std::string& error,
@@ -348,7 +345,7 @@ bool CompileSelection(const std::vector<PackageChoices>& packages, CompiledMod& 
     return true;
 }
 
-bool BootCompiled(const CompiledMod& mod, std::string& error, const LaunchSource& source,
+bool BootCompiled(CompiledMod&& mod, std::string& error, const LaunchSource& source,
                     const std::string& save_mode, const std::string& game_id) {
     Session s(source, "sd:/riftwii/boot.log");
     if (!s.ensure_probe(error)) return false;
@@ -366,15 +363,16 @@ bool BootCompiled(const CompiledMod& mod, std::string& error, const LaunchSource
     options.preserve_current_ios = source.kind != LaunchSource::Kind::Disc || MenuCiosSlot() != 0;
     options.install_resident = !mod.entries.empty() || !mod.mem.empty() || !mod.relocations.empty() || !dir.empty();
     options.resident_gecko = false;
-    options.table_entries = mod.entries;
-    options.replacements = mod.mem;
-    options.relocations = mod.relocations;
-    options.memory_patches = mod.memory;
-    options.main_dol = mod.main_dol;
+    // Moved, not copied: the menu's compiled mod is not needed again.
+    options.table_entries = std::move(mod.entries);
+    options.replacements = std::move(mod.mem);
+    options.relocations = std::move(mod.relocations);
+    options.memory_patches = std::move(mod.memory);
+    options.main_dol = std::move(mod.main_dol);
     options.savegame_dir = dir;
     options.savegame_clone = xml_saves ? mod.savegame_clone : saves.clone;
     if (!xml_saves && !saves.note.empty()) logf("Saves: %s\n", saves.note.c_str());
-    return boot_game(s.probe, options, error);
+    return boot_game(s.probe, std::move(options), error);
 }
 
 bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error, const LaunchSource& source,
@@ -431,11 +429,14 @@ bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error, 
     BootOptions options; options.allow_ios_fallback=true;
     options.preserve_current_ios = source.kind != LaunchSource::Kind::Disc || MenuCiosSlot() != 0 || s.on_cios;
     options.install_resident=!mod.entries.empty() || !mod.mem.empty() || !mod.relocations.empty() || !dir.empty();
-    options.table_entries=mod.entries; options.replacements=mod.mem; options.relocations=mod.relocations; options.memory_patches=mod.memory;
-    options.main_dol=mod.main_dol;
+    // Moved, not copied: the compiled mod is not needed again, and a pack's
+    // main.dol and replacements can be megabytes.
+    options.table_entries=std::move(mod.entries); options.replacements=std::move(mod.mem);
+    options.relocations=std::move(mod.relocations); options.memory_patches=std::move(mod.memory);
+    options.main_dol=std::move(mod.main_dol);
     options.savegame_dir=dir; options.savegame_clone=xml_saves ? mod.savegame_clone : saves.clone;
     if (!xml_saves && !saves.note.empty()) logf("Saves: %s\n", saves.note.c_str());
-    return boot_game(s.probe,options,error);
+    return boot_game(s.probe, std::move(options), error);
 }
 
 bool RunDump(const std::vector<std::string>& disc_paths, const std::string& sd_dir, std::string& error) {
@@ -709,13 +710,15 @@ void RunAutorun() {
                 error = "launch needs a disc";
             } else if (!needs_launch_pipeline(!selections.empty(), state.model.save_mode)) {
                 logf("  nothing enabled and NAND saves selected: booting as is\n");
-                ok = RunBoot(allow_fallback, error, source);
+                ok = mem::OutOfMemoryAsError(error, [&] { return RunBoot(allow_fallback, error, source); });
                 if (reload_terminal_failure()) halt_after_terminal_reload();
                 LogOpen(kAutorunLogPath, true);
             } else {
                 logf(selections.empty() ? "  no packages enabled: applying selected Save Mode\n"
                                         : "launch: handing over to the game\n");
-                ok = RunLaunch(selections, error, source, state.model.save_mode, state.game_id);
+                ok = mem::OutOfMemoryAsError(error, [&] {
+                    return RunLaunch(selections, error, source, state.model.save_mode, state.game_id);
+                });
                 if (reload_terminal_failure()) halt_after_terminal_reload();
                 LogOpen(kAutorunLogPath, true);
             }
@@ -740,7 +743,7 @@ void RunAutorun() {
                 ok = false;
             } else {
                 logf("boot: handing over to the game\n");
-                ok = boot_game(s.probe, options, error);  // returns only on failure, with the card remounted
+                ok = boot_game(s.probe, std::move(options), error);  // returns only on failure, with the card remounted
                 if (reload_terminal_failure()) halt_after_terminal_reload();
                 LogOpen(kAutorunLogPath, true);
             }

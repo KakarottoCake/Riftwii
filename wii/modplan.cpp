@@ -667,8 +667,14 @@ bool compile_packages(const std::vector<PackageSelection>& packages, const DiscP
         }
         mod.main_dol.resize(static_cast<std::size_t>(file->size()));
         DolHeader patched;
-        if (!file->read(0, mod.main_dol.data(), mod.main_dol.size()) ||
-            !parse_dol_header(mod.main_dol.data(), mod.main_dol.size(), patched, error)) {
+        // A read that fails says nothing itself (short of memory, or the
+        // card): not "not a valid DOL" with an empty reason, as 2.7.0 RC3 said.
+        if (!file->read(0, mod.main_dol.data(), mod.main_dol.size())) {
+            error = "main.dol: cannot read the patched executable (" + std::to_string(file->size()) +
+                    " bytes) from the pack's files; RiftWii may be short of memory";
+            return false;
+        }
+        if (!parse_dol_header(mod.main_dol.data(), mod.main_dol.size(), patched, error)) {
             error = "main.dol: the patched executable is not a valid DOL: " + error;
             return false;
         }

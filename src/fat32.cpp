@@ -14,6 +14,10 @@ constexpr std::uint32_t kLfnMaxParts = 20;
 constexpr std::uint32_t kFatMask = 0x0FFFFFFFu;
 constexpr std::uint32_t kFatBad = 0x0FFFFFF7u;
 constexpr std::uint32_t kFatEocMin = 0x0FFFFFF8u;
+// File reads go through a buffer of at most this many blocks (256 KiB): a
+// whole run at once took a second copy of the file (RiiMajor's 5.9 MB
+// main.dol, read when a pack is compiled on a Wii short of memory).
+constexpr std::uint32_t kReadChunkBlocks = 512;
 constexpr std::uint8_t kAttrReadOnly = 0x01, kAttrHidden = 0x02, kAttrSystem = 0x04, kAttrLabel = 0x08,
                        kAttrDirectory = 0x10;
 constexpr std::uint8_t kAttrLfn = kAttrReadOnly | kAttrHidden | kAttrSystem | kAttrLabel;
@@ -289,22 +293,28 @@ bool Fat32Volume::next_cluster(std::uint32_t cluster, std::uint32_t& next, std::
     const std::uint64_t byte_in_volume = fat_start_sector * geo_.bytes_per_sector + byte_in_fat;
     const std::uint64_t lba = geo_.volume_lba + byte_in_volume / kFatBlockBytes;
     const std::uint32_t within = static_cast<std::uint32_t>(byte_in_volume % kFatBlockBytes);
-    if (fat_cache_count_ == 0 || lba < fat_cache_lba_ || lba - fat_cache_lba_ >= fat_cache_count_) {
-        // Read a window starting here, clipped to the end of the active FAT.
+    const std::uint64_t fat_lba = geo_.volume_lba + (fat_start_sector * geo_.bytes_per_sector) / kFatBlockBytes;
+    const std::uint64_t window = fat_lba + (lba - fat_lba) / kFatCacheBlocks * kFatCacheBlocks;
+    auto cached = fat_cache_.find(window);
+    if (cached == fat_cache_.end()) {
+        // Read the window, clipped to the end of the active FAT.
         const std::uint64_t fat_end = geo_.volume_lba +
             ((fat_start_sector + geo_.fat_sectors) * geo_.bytes_per_sector) / kFatBlockBytes;
         const std::uint32_t count =
-            static_cast<std::uint32_t>(std::max<std::uint64_t>(1, std::min<std::uint64_t>(kFatCacheBlocks, fat_end - lba)));
-        fat_cache_.resize(std::size_t(kFatCacheBlocks) * kFatBlockBytes);
-        fat_cache_count_ = 0;
-        if (!reader_(lba, count, fat_cache_.data())) {
+            static_cast<std::uint32_t>(std::max<std::uint64_t>(1, std::min<std::uint64_t>(kFatCacheBlocks, fat_end - window)));
+        if (fat_cache_.size() >= kFatCacheWindows) fat_cache_.clear();
+        std::vector<std::uint8_t> blocks(std::size_t(count) * kFatBlockBytes);
+        if (!reader_(window, count, blocks.data())) {
             error = "cannot read FAT block " + std::to_string(lba);
             return false;
         }
-        fat_cache_lba_ = lba;
-        fat_cache_count_ = count;
+        cached = fat_cache_.emplace(window, std::move(blocks)).first;
     }
-    next = le32(fat_cache_.data() + (lba - fat_cache_lba_) * kFatBlockBytes + within) & kFatMask;
+    if ((lba - window + 1) * kFatBlockBytes > cached->second.size()) {
+        error = "FAT block " + std::to_string(lba) + " past the FAT";
+        return false;
+    }
+    next = le32(cached->second.data() + (lba - window) * kFatBlockBytes + within) & kFatMask;
     return true;
 }
 
@@ -527,7 +537,7 @@ bool Fat32Volume::directory_entries(std::uint32_t directory_cluster, const std::
 }
 
 void Fat32Volume::forget_cached() const {
-    fat_cache_count_ = 0;
+    fat_cache_.clear();
     dir_cache_.clear();
     dir_cache_entries_ = 0;
 }
@@ -641,13 +651,21 @@ bool Fat32Volume::read(const Fat32File& file, std::uint64_t offset, std::uint8_t
     std::vector<std::uint8_t> buffer;
     std::uint8_t* dst = out;
     for (const PlacedRun& r : runs) {
-        const std::uint64_t span = r.skip + r.length;
-        const std::uint64_t blocks = (span + kFatBlockBytes - 1) / kFatBlockBytes;
-        if (blocks > std::numeric_limits<std::uint32_t>::max()) return false;
-        buffer.resize(static_cast<std::size_t>(blocks * kFatBlockBytes));
-        if (!reader_(r.source, static_cast<std::uint32_t>(blocks), buffer.data())) return false;
-        std::memcpy(dst, buffer.data() + r.skip, static_cast<std::size_t>(r.length));
-        dst += r.length;
+        std::uint64_t block = r.source + r.skip / kFatBlockBytes;
+        std::size_t skip = r.skip % kFatBlockBytes;
+        std::uint64_t left = r.length;
+        while (left > 0) {
+            const std::uint64_t want = (skip + left + kFatBlockBytes - 1) / kFatBlockBytes;
+            const std::uint32_t blocks = static_cast<std::uint32_t>(std::min<std::uint64_t>(want, kReadChunkBlocks));
+            buffer.resize(static_cast<std::size_t>(blocks) * kFatBlockBytes);
+            if (!reader_(block, blocks, buffer.data())) return false;
+            const std::size_t take = static_cast<std::size_t>(std::min<std::uint64_t>(left, buffer.size() - skip));
+            std::memcpy(dst, buffer.data() + skip, take);
+            dst += take;
+            left -= take;
+            block += blocks;
+            skip = 0;
+        }
     }
     return true;
 }
