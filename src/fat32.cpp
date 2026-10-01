@@ -14,6 +14,10 @@ constexpr std::uint32_t kLfnMaxParts = 20;
 constexpr std::uint32_t kFatMask = 0x0FFFFFFFu;
 constexpr std::uint32_t kFatBad = 0x0FFFFFF7u;
 constexpr std::uint32_t kFatEocMin = 0x0FFFFFF8u;
+// File reads go through a buffer of at most this many blocks (256 KiB): a
+// whole run at once took a second copy of the file (RiiMajor's 5.9 MB
+// main.dol, read when a pack is compiled on a Wii short of memory).
+constexpr std::uint32_t kReadChunkBlocks = 512;
 constexpr std::uint8_t kAttrReadOnly = 0x01, kAttrHidden = 0x02, kAttrSystem = 0x04, kAttrLabel = 0x08,
                        kAttrDirectory = 0x10;
 constexpr std::uint8_t kAttrLfn = kAttrReadOnly | kAttrHidden | kAttrSystem | kAttrLabel;
@@ -647,13 +651,21 @@ bool Fat32Volume::read(const Fat32File& file, std::uint64_t offset, std::uint8_t
     std::vector<std::uint8_t> buffer;
     std::uint8_t* dst = out;
     for (const PlacedRun& r : runs) {
-        const std::uint64_t span = r.skip + r.length;
-        const std::uint64_t blocks = (span + kFatBlockBytes - 1) / kFatBlockBytes;
-        if (blocks > std::numeric_limits<std::uint32_t>::max()) return false;
-        buffer.resize(static_cast<std::size_t>(blocks * kFatBlockBytes));
-        if (!reader_(r.source, static_cast<std::uint32_t>(blocks), buffer.data())) return false;
-        std::memcpy(dst, buffer.data() + r.skip, static_cast<std::size_t>(r.length));
-        dst += r.length;
+        std::uint64_t block = r.source + r.skip / kFatBlockBytes;
+        std::size_t skip = r.skip % kFatBlockBytes;
+        std::uint64_t left = r.length;
+        while (left > 0) {
+            const std::uint64_t want = (skip + left + kFatBlockBytes - 1) / kFatBlockBytes;
+            const std::uint32_t blocks = static_cast<std::uint32_t>(std::min<std::uint64_t>(want, kReadChunkBlocks));
+            buffer.resize(static_cast<std::size_t>(blocks) * kFatBlockBytes);
+            if (!reader_(block, blocks, buffer.data())) return false;
+            const std::size_t take = static_cast<std::size_t>(std::min<std::uint64_t>(left, buffer.size() - skip));
+            std::memcpy(dst, buffer.data() + skip, take);
+            dst += take;
+            left -= take;
+            block += blocks;
+            skip = 0;
+        }
     }
     return true;
 }

@@ -712,7 +712,7 @@ namespace {
 
 // The part of the boot that runs after the SD card and the log are gone.
 // Returns only on failure.
-bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, const SavegameOptions& savegame,
+bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const SavegameOptions& savegame,
                         const RvzResidentOptions& rvz, std::uint32_t required, std::string& error) {
     bool force_ios_fields = options.preserve_current_ios;
     if (!options.preserve_current_ios) ProgressStage("Starting the game's IOS", 62);
@@ -765,10 +765,12 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
     // E6: created files add entries, so the table is rebuilt and grows in
     // place; the partition data header the apploader reads first (its FST
     // size field) is overridden the same way.
+    // Moved, not copied: boot_game's options are this launch's own.
+    const bool file_replacements = !options.replacements.empty() || !options.sd_replacements.empty();
     PayloadPieces pieces;
-    pieces.mem = options.replacements;
-    pieces.sd = options.sd_replacements;
-    pieces.entries = options.table_entries;
+    pieces.mem = std::move(options.replacements);
+    pieces.sd = std::move(options.sd_replacements);
+    pieces.entries = std::move(options.table_entries);
     struct LoadOverride {
         std::uint64_t offset = 0;  // in the partition data
         std::vector<std::uint8_t> bytes;
@@ -1468,7 +1470,7 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
     // setup (and may have replaced the code these patches expect).
     if (g_extras.server != WfcServer::Off) {
         const bool packs = !options.memory_patches.empty() || !options.virtual_files.empty() ||
-                           !options.replacements.empty() || !options.sd_replacements.empty();
+                           file_replacements;
         if (packs) logf("WFC: not patched; packs are on\n");
         else ApplyWfc(loaded, g_extras.server, g_extras.wfc_domain, g_extras.game_id, probe.header.version);
     }
@@ -1768,7 +1770,7 @@ void write_play_log(const DiscProbe& probe) {
     ISFS_Deinitialize();  // not left open for the game's IOS reload
 }
 
-bool boot_game(const DiscProbe& probe, const BootOptions& options, std::string& error) {
+bool boot_game(const DiscProbe& probe, BootOptions options, std::string& error) {
     const std::uint32_t required = probe.tmd.required_ios();
     if (required == 0) {
         error = "the TMD does not name an IOS";
@@ -1776,7 +1778,7 @@ bool boot_game(const DiscProbe& probe, const BootOptions& options, std::string& 
     }
     logf("Booting %s with IOS%u\n", probe.header.game_id.c_str(), required);
     write_play_log(probe);
-    BootOptions effective = options;
+    BootOptions& effective = options;  // the caller's, moved in: no second copy
     const int running_ios = IOS_GetVersion();
     // A pack whose main.dol is another program, not the game: the CTGP-R
     // Channel's launcher (CTGP Revolution 1.03's Riivolution XML), which

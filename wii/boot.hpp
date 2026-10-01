@@ -200,6 +200,8 @@ bool is_wii_u();
 // Reloads IOS, runs the apploader and jumps to the game. Only returns on
 // failure. The caller must have shut down its own GUI, audio and pads;
 // the SD card is unmounted here because the IOS reload kills its fd.
-bool boot_game(const DiscProbe& probe, const BootOptions& options, std::string& error);
+// `options` by value: callers move theirs in (a pack's main.dol and
+// replacements can be megabytes, and the launch needs them only once).
+bool boot_game(const DiscProbe& probe, BootOptions options, std::string& error);
 
 }  // namespace riftwii::wii

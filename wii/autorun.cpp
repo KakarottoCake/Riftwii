@@ -285,7 +285,7 @@ bool RunBoot(bool allow_ios_fallback, std::string& error, const LaunchSource& so
     BootOptions options;
     options.allow_ios_fallback = allow_ios_fallback;
     options.preserve_current_ios = source.kind != LaunchSource::Kind::Disc || MenuCiosSlot() != 0;
-    return boot_game(s.probe, options, error);
+    return boot_game(s.probe, std::move(options), error);
 }
 
 bool ProbeInserted(std::string& game_id, std::string& title, std::string& error,
@@ -348,7 +348,7 @@ bool CompileSelection(const std::vector<PackageChoices>& packages, CompiledMod& 
     return true;
 }
 
-bool BootCompiled(const CompiledMod& mod, std::string& error, const LaunchSource& source,
+bool BootCompiled(CompiledMod&& mod, std::string& error, const LaunchSource& source,
                     const std::string& save_mode, const std::string& game_id) {
     Session s(source, "sd:/riftwii/boot.log");
     if (!s.ensure_probe(error)) return false;
@@ -366,15 +366,16 @@ bool BootCompiled(const CompiledMod& mod, std::string& error, const LaunchSource
     options.preserve_current_ios = source.kind != LaunchSource::Kind::Disc || MenuCiosSlot() != 0;
     options.install_resident = !mod.entries.empty() || !mod.mem.empty() || !mod.relocations.empty() || !dir.empty();
     options.resident_gecko = false;
-    options.table_entries = mod.entries;
-    options.replacements = mod.mem;
-    options.relocations = mod.relocations;
-    options.memory_patches = mod.memory;
-    options.main_dol = mod.main_dol;
+    // Moved, not copied: the menu's compiled mod is not needed again.
+    options.table_entries = std::move(mod.entries);
+    options.replacements = std::move(mod.mem);
+    options.relocations = std::move(mod.relocations);
+    options.memory_patches = std::move(mod.memory);
+    options.main_dol = std::move(mod.main_dol);
     options.savegame_dir = dir;
     options.savegame_clone = xml_saves ? mod.savegame_clone : saves.clone;
     if (!xml_saves && !saves.note.empty()) logf("Saves: %s\n", saves.note.c_str());
-    return boot_game(s.probe, options, error);
+    return boot_game(s.probe, std::move(options), error);
 }
 
 bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error, const LaunchSource& source,
@@ -438,7 +439,7 @@ bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error, 
     options.main_dol=std::move(mod.main_dol);
     options.savegame_dir=dir; options.savegame_clone=xml_saves ? mod.savegame_clone : saves.clone;
     if (!xml_saves && !saves.note.empty()) logf("Saves: %s\n", saves.note.c_str());
-    return boot_game(s.probe,options,error);
+    return boot_game(s.probe, std::move(options), error);
 }
 
 bool RunDump(const std::vector<std::string>& disc_paths, const std::string& sd_dir, std::string& error) {
@@ -745,7 +746,7 @@ void RunAutorun() {
                 ok = false;
             } else {
                 logf("boot: handing over to the game\n");
-                ok = boot_game(s.probe, options, error);  // returns only on failure, with the card remounted
+                ok = boot_game(s.probe, std::move(options), error);  // returns only on failure, with the card remounted
                 if (reload_terminal_failure()) halt_after_terminal_reload();
                 LogOpen(kAutorunLogPath, true);
             }

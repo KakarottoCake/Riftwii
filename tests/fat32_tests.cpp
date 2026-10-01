@@ -474,6 +474,49 @@ static void test_mount_failures() {
     }
 }
 
+// A big file is read through a bounded buffer: no device read of more
+// than 512 blocks, whatever the run (RiiMajor's 5.9 MB main.dol was read
+// as one run, a second 5.9 MB on a Wii short of memory), and the bytes
+// still come out right across chunks, fragments and a start mid-block.
+static void test_big_reads_are_chunked() {
+    Fixture fx(512, 1, 0);
+    constexpr std::uint64_t kFar = 100000;  // past the image: patterned blocks
+    const auto pattern = [](std::uint64_t lba, std::uint32_t i) {
+        return static_cast<std::uint8_t>((lba * 7 + i * 13 + (lba >> 8)) & 0xFF);
+    };
+    std::uint32_t most = 0;
+    auto counted = [&](std::uint64_t lba, std::uint32_t count, std::uint8_t* out) {
+        if (lba < kFar) return fx.img.reader()(lba, count, out);
+        most = std::max(most, count);
+        for (std::uint32_t b = 0; b < count; ++b)
+            for (std::uint32_t i = 0; i < 512; ++i) out[b * 512 + i] = pattern(lba + b, i);
+        return true;
+    };
+    riftwii::Fat32Volume v;
+    std::string err;
+    EXPECT_TRUE(riftwii::Fat32Volume::mount(counted, v, err));
+    riftwii::Fat32File f;
+    f.fragments = {Fragment{kFar, 1500}, Fragment{kFar + 400000, 700}};
+    f.entry.size = (1500 + 700) * 512 - 100;
+    const auto expected = [&](std::uint64_t offset) {
+        const std::uint64_t block = offset / 512;
+        const std::uint64_t lba = block < 1500 ? kFar + block : kFar + 400000 + (block - 1500);
+        return pattern(lba, static_cast<std::uint32_t>(offset % 512));
+    };
+    Bytes data;
+    EXPECT_TRUE(ReadAll(v, f, data));
+    bool same = data.size() == f.entry.size;
+    for (std::uint64_t o = 0; same && o < data.size(); ++o) same = data[o] == expected(o);
+    EXPECT_TRUE(same);
+    Bytes part(600000);
+    const std::uint64_t from = 1500 * 512 - 300000 + 77;  // mid-block, across the fragment edge
+    EXPECT_TRUE(v.read(f, from, part.data(), part.size()));
+    same = true;
+    for (std::uint64_t o = 0; same && o < part.size(); ++o) same = part[o] == expected(from + o);
+    EXPECT_TRUE(same);
+    EXPECT_TRUE(most > 0 && most <= 512);
+}
+
 int main() {
     test_geometry_and_lookup(512, 1, 0);
     test_geometry_and_lookup(512, 8, 0);
@@ -484,6 +527,7 @@ int main() {
     test_fat_windows();
     test_directory_cache();
     test_mount_failures();
+    test_big_reads_are_chunked();
     if (g_failures == 0) {
         std::cout << "ALL FAT32 TESTS PASSED" << std::endl;
         return 0;

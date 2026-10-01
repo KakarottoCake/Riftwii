@@ -284,7 +284,7 @@ int main() {
         if (riftwii::wii::GuiScriptFailLaunch()) error = "a test failure the guiscript asked for";
         const bool booted = !error.empty() ? false : riftwii::wii::mem::OutOfMemoryAsError(error, [&] {
             return (source.kind == riftwii::wii::LaunchSource::Kind::Disc && state.has_compiled)
-                       ? riftwii::wii::BootCompiled(state.compiled, error, source, state.model.save_mode, state.game_id)
+                       ? riftwii::wii::BootCompiled(std::move(state.compiled), error, source, state.model.save_mode, state.game_id)
                        : riftwii::wii::RunLaunch(state.model.selections(), error, source, state.model.save_mode,
                                                  state.game_id);
         });
