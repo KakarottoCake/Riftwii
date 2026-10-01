@@ -44,6 +44,9 @@ const char* const kCredits[] = {
     "",
     "Brainslug by Alex Chadwick and Florian Bach (MIT): the boot sequence.",
     "",
+    "libruntimeiospatch by Joseph Jordan, damysteryman, Christopher Bratusek, DarkMatterCore, megazig "
+    "and FIX94: how a reloaded IOS keeps hardware access (followed, not copied).",
+    "",
     "wup-028-bslug by Alex Chadwick (MIT): the GameCube controller adapter.",
     "",
     "Nintendont by FIX94 and contributors: the USB HID driver, used with its developers' permission.",

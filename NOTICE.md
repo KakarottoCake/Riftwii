@@ -73,6 +73,13 @@ only (how its choices files and macros work), never copied. Behavioural referenc
   description in Dolphin's `docs/WiaAndRvz.md`; no Dolphin code was used.
   Its test images are built from scratch by `tools/rvz/make_test_disc.py`
   and converted with DolphinTool.
+- libruntimeiospatch (GPL-2.0; Joseph Jordan, damysteryman, Christopher
+  Bratusek, DarkMatterCore, megazig, FIX94), as shipped in USB Loader GX at
+  commit `e25c4f3501ed957b7db73f79c51fdf00715ab2e2`, read for behaviour
+  only: `IosPatch_AHBPROT`, which byte sequence in IOS's ES code to look for
+  and which byte to change so a reloaded IOS keeps hardware access
+  (`keep_hardware_access` in `wii/boot.cpp`). Those bytes are IOS's, not
+  the library's; RiftWii's code is its own.
 - Screenshots (`wii/screenshot.cpp`, `wii/shothook.cpp`, `runtime/shot/`,
   `runtime/rtshot.c`) follow wiibrew's pages on the Video Interface
   registers, `/dev/fs`, `/dev/usb/oh1` and the Wii Remote's HID reports,

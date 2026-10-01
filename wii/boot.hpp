@@ -203,6 +203,14 @@ bool is_wii_u();
 // the log. False without AHBPROT access or when the check was not found.
 bool open_nand_permissions(const char* who);
 
+// With AHBPROT off, makes the running IOS's ES leave hardware access on
+// for the next IOS it starts (as USB Loader GX and WiiFlow do before their
+// cIOS reloads), so a Homebrew Channel app that asks for it still has it
+// under the cIOS. Until the running IOS's next reload. `who` names the
+// caller in the log. False without AHBPROT access or when ES's check was
+// not found.
+bool keep_hardware_access(const char* who);
+
 // Reloads IOS, runs the apploader and jumps to the game. Only returns on
 // failure. The caller must have shut down its own GUI, audio and pads;
 // the SD card is unmounted here because the IOS reload kills its fd.

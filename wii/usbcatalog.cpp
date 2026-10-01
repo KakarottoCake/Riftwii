@@ -21,6 +21,7 @@
 #include "d2xsd.hpp"
 #include "loadersettings.hpp"
 #include "online.hpp"
+#include "boot.hpp"
 #include "di.hpp"
 #include "ios_reload.hpp"
 #include "log.hpp"
@@ -1237,6 +1238,10 @@ bool activate_image_game(const ImageGame& game, int cios_slot, void*& storage, s
     // d2x then owns the image device and SD is mounted again for XML/saves.
     logf("%s: reload IOS%d (fragment list %u bytes); releasing Wii Remotes, USB, SD and DI\n",
          device_name(game.device), cios_slot, static_cast<unsigned>(bytes.size()));
+    // A Homebrew Channel app run in place of the game (CTGP) may ask for
+    // hardware access, which an IOS reload ends: the running IOS's ES is
+    // told to leave it on for the cIOS.
+    if (block_ios_reload) keep_hardware_access(device_name(game.device));
     LogClose();
     const std::string released = release_for_reload();
     const PadPairings pads_before = ReadPadPairings();
@@ -1295,6 +1300,9 @@ bool activate_image_game(const ImageGame& game, int cios_slot, void*& storage, s
         if (!di::set_ios_reload_block(true, static_cast<std::uint32_t>(running), error))
             return post_reload_failure(log_path, error);
         logf("%s: d2x keeps IOS%d across the program's own IOS reloads\n", device_name(game.device), running);
+        // The app's own reloads (into this cIOS again, above) go through
+        // this IOS's ES: it is told the same.
+        keep_hardware_access(device_name(game.device));
     }
     if (!g_sd_back) {
         error="d2x is configured but SD could not be remounted after IOS reload";
