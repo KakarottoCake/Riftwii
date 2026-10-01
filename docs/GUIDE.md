@@ -144,12 +144,12 @@ the list explains the row you are on.
   `music.ogg` (Ogg Vorbis, up to 6 MB) from `sd:/riftwii/`, or else the one
   the release puts in `sd:/apps/riftwii/`, looped while the menu is open.
 - **In-game screenshots** (experimental, off at first): see Screenshots
-  below. Without packs it keeps a copy of the picture in about 0.8 MB of
-  the game's memory. With packs on (mods often need all of it: Newer
-  Super Mario Bros. Wii crashes otherwise) the picture is written
-  straight from the screen instead, using almost none, and a picture
-  taken during fast motion may shear slightly. Some games and mods may
-  still not work with it: turn it off for those.
+  below. The picture is written straight from the screen, using almost
+  none of the game's memory (games need it: keeping a copy of the
+  picture took 0.8 MB, and Newer Super Mario Bros. Wii and HAL's Kirby
+  games stopped on a black screen), so a picture taken during fast
+  motion may shear slightly. Some games and mods may still not work with
+  it: turn it off for those.
 - **Download names and cheats**, and **Get the latest game names**.
 - **GameCube adapter** (experimental), and **Check the GameCube adapter** (below).
 - **Menu IOS**: IOS 58, or a d2x cIOS slot (248 to 252). Pick the slot that has

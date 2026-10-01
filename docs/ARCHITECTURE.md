@@ -171,7 +171,7 @@ resident runtime yet.
 | Top of the game's MEM1 arena | Resident runtime code, then the pad blob, the screenshot blob and the crash blob below it |
 | `0x90000000`–`0x90800000` | Left alone by the loader: an IOS reload stages its kernel here |
 | `0x90800000`–`0x90809000` | The restart snapshot and handoff (`wii/restart.hpp`) |
-| Bottom of the game's MEM2 arena | Resident runtime data (or the virtual SD card's code and state, about 49 KB), then the pad state, the screenshot state and frame (about 830 KB), then the crash blob's state (about 5 KB) |
+| Bottom of the game's MEM2 arena | Resident runtime data (or the virtual SD card's code and state, about 49 KB), then the pad state, the screenshot state (a few KB: its picture is written straight from the frame buffer), then the crash blob's state (about 5 KB) |
 | `0x933E0000` and up | IOS |
 
 `wii/memlimits.cpp` keeps the loader's heap between the end of its own

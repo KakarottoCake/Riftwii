@@ -1251,14 +1251,12 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
             known.ioctl_async = resident.originals[RT_IPC_ASYNC(6)];
             known.ioctlv_async = resident.ioctlv_async;
         }
-        // With packs on, no frame copy: mods tend to need all of the
-        // game's memory (Newer Super Mario Bros. Wii does). Any of the
-        // pack's contents counts: its compiled table, memory patches, a
-        // replaced executable.
-        const bool direct = !options.table_entries.empty() || !options.relocations.empty() ||
-                            !options.memory_patches.empty() || !options.main_dol.empty() ||
-                            !options.virtual_files.empty() || !options.replacements.empty() ||
-                            !options.sd_replacements.empty();
+        // Never a frame copy: its 0.8 MB of MEM2 is more than games spare.
+        // Newer Super Mario Bros. Wii crashed on its title screen, and
+        // HAL's Kirby games (Return to Dream Land, Dream Collection)
+        // without packs failed to make a heap and stayed black. Direct
+        // shots read the frame buffer itself.
+        const bool direct = true;
         if (!plan_shot_hook(dol, arena1_hi, mem1_floor, arena2_lo, known, pad.read, g_extras.screenshots_demo,
                             direct, options.memory_patches, shot, why)) {
             logf("Screenshots: off: %s\n", why.c_str());
