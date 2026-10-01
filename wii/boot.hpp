@@ -197,6 +197,12 @@ void SetLaunchExtras(LaunchExtras extras);
 // has none. Asked once.
 bool is_wii_u();
 
+// With AHBPROT off (the Homebrew Channel's way), opens the running IOS's
+// NAND permission check until its next reload, so the Wii Menu's and the
+// cIOSes' own files can be read and written. `who` names the caller in
+// the log. False without AHBPROT access or when the check was not found.
+bool open_nand_permissions(const char* who);
+
 // Reloads IOS, runs the apploader and jumps to the game. Only returns on
 // failure. The caller must have shut down its own GUI, audio and pads;
 // the SD card is unmounted here because the IOS reload kills its fd.

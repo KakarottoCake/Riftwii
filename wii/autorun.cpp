@@ -87,11 +87,8 @@ struct Session {
         if (probed) return true;
         ProgressStage(source.kind == LaunchSource::Kind::Disc ? "Reading the disc" : "Opening the game image", 3);
         if (source.kind != LaunchSource::Kind::Disc) {
-            const int slots[] = {source.cios_slot ? source.cios_slot : 249, source.cios_slot ? 0 : 250,
-                                 source.cios_slot ? 0 : 251};
             bool active = false;
-            for (int slot : slots) {
-                if (!slot) continue;
+            for (int slot : image_cios_order(source.game, source.cios_slot)) {
                 if (activate_image_game(source.game, slot, frag_storage, frag_storage_bytes, log_path, error,
                                         block_ios_reload)) { active=true; break; }
                 if (reload_terminal_failure()) return false;

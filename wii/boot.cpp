@@ -49,6 +49,7 @@
 #include "riftwii/cardlog.hpp"
 #include "riftwii/codehook.hpp"
 #include "riftwii/gamelang.hpp"
+#include "riftwii/gxpatches.hpp"
 #include "riftwii/playhistory.hpp"
 #include "riftwii/returnto.hpp"
 #include "channel.hpp"
@@ -1093,7 +1094,10 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     // The DOL header for the runtime's search, read now: an RVZ game's
     // partition reads go through the SD card, which is handed on below.
     std::uint8_t dol_bytes[kDolHeaderBytes];
-    bool gc_adapter = g_extras.gc_adapter != GcAdapterMode::Off;
+    // USB Loader GX's exclude_game list: games that check their own code
+    // (MetaFortress). RiftWii's hooks and code patches stay out of them.
+    const bool gx_protected = gx_protected_game(probe.header.game_id);
+    bool gc_adapter = g_extras.gc_adapter != GcAdapterMode::Off && !gx_protected;
     if (gc_adapter && g_extras.gc_adapter != GcAdapterMode::Demo && (rvz.usb_fd >= 0 || pieces.needs_usb())) {
         // The runtime reads the USB drive through d2x while the game runs.
         // On (not Automatic) tries anyway: an experiment the player chose.
@@ -1256,7 +1260,7 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     }
     // In-game screenshots: below the adapter, the runtime, or alone.
     ShotHook shot;
-    if (g_extras.screenshots) {
+    if (g_extras.screenshots && !gx_protected) {
         std::string why;
         const std::uint32_t arena1_hi = pad.active                 ? pad.new_arena1_hi
                                                                    : base_arena1_hi();
@@ -1284,7 +1288,9 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     // A crash in the game is saved for the next start: below all of the
     // above, always.
     FaultHook fault;
-    {
+    if (gx_protected) {
+        logf("Game crashes: not recorded: the game checks its own code (MetaFortress); RiftWii's hooks stay out\n");
+    } else {
         std::string why;
         const std::uint32_t arena1_hi = shot.active                ? shot.new_arena1_hi
                                         : pad.active               ? pad.new_arena1_hi
@@ -1337,6 +1343,13 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     store32(0x80003198, static_cast<u32>(probe.partition.offset >> 2));
     ProgressStage("Starting the game", 100);
     configure_video_for_game(probe.header.game_id.size() > 3 ? probe.header.game_id[3] : 'E');
+    // A Japanese game: the VI configuration bit the System Menu sets on
+    // Japanese consoles (USB Loader GX's gamepatches()). Hollywood's
+    // registers need AHBPROT, as the Homebrew Channel leaves it.
+    if (probe.header.game_id.size() > 3 && probe.header.game_id[3] == 'J' && !running_in_dolphin() &&
+        read32(0x0D800064) == 0xFFFFFFFF) {
+        write32(0xCD800018, read32(0xCD800018) | (1u << 17));
+    }
     DCFlushRange(reinterpret_cast<void*>(kMem1Start), 0x3400);
     if (force_ios_fields) {
         // Claim to be the IOS the apploader asked for (0x3188), as Brainslug
@@ -1429,6 +1442,34 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         if (!apply_memory_patches(options.memory_patches, loaded, writable, wii_memory, notes, error)) return false;
         for (const std::string& n : notes) logf("  %s\n", n.c_str());
     }
+    // USB Loader GX's fixes for particular games (riftwii/gxpatches.hpp),
+    // over the game as loaded and patched, before the menu's extras.
+    std::vector<CodeSpan> loaded_spans;
+    for (const MemoryRegion& r : loaded) {
+        loaded_spans.push_back(CodeSpan{reinterpret_cast<std::uint8_t*>(r.address), r.length, r.address});
+    }
+    const auto sync_loaded = [&loaded]() {
+        for (const MemoryRegion& r : loaded) {
+            DCFlushRange(reinterpret_cast<void*>(r.address), r.length);
+            ICInvalidateRange(reinterpret_cast<void*>(r.address), r.length);
+        }
+    };
+    {
+        GxReport gx;
+        const bool own_executable = !options.main_dol.empty();
+        unsigned changed = gx_game_patches(probe.header.game_id, dol, loaded_spans, gx, own_executable);
+        if (di::frag_device() == 2 && !own_executable) changed += gx_sd_card_patches(probe.header.game_id, loaded_spans, gx);
+        for (const std::string& note : gx.notes) logf("Game fixes: %s\n", note.c_str());
+        if (changed) sync_loaded();
+    }
+    if (gx_protected && (g_extras.video.width != VideoWidth::Game || g_extras.video.deflicker != Deflicker::Game ||
+                         g_extras.video.remove_borders)) {
+        // GX leaves width and deflicker out of these games too.
+        logf("Video: width, deflicker and borders as the game has them: it checks its own code (MetaFortress)\n");
+        g_extras.video.width = VideoWidth::Game;
+        g_extras.video.deflicker = Deflicker::Game;
+        g_extras.video.remove_borders = false;
+    }
     // The menu's extras, over the game as loaded and patched.
     apply_video(loaded, card.fd < 0);  // not while the runtime's card handle is open
     bool codes_first = false;  // run the codes once before the game starts
@@ -1445,6 +1486,11 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         if (fault.active) keep_out.push_back(MemoryRegion{fault.code_base, fault.code_bytes});
         if (!install_cheats(loaded, options.memory_patches, keep_out, why)) logf("Codes are off: %s\n", why.c_str());
         else codes_first = !g_extras.code_builds.empty();
+    }
+    if (!gx_protected) {
+        GxReport gx;
+        if (gx_fix_480p(loaded_spans, gx)) sync_loaded();
+        for (const std::string& note : gx.notes) logf("Game fixes: %s\n", note.c_str());
     }
     if (vsd.active) {
         std::string why;
@@ -1708,9 +1754,9 @@ void apply_return_to(const std::vector<MemoryRegion>& loaded, u64 title, std::ui
 // "movs r5, #0x66" becomes an unconditional branch past the refusal. IOS's
 // memory is written only there, and only after IOS refused. An IOS
 // reload (the game's) brings the check back.
-bool open_nand_permissions() {
+bool open_nand_permissions(const char* who) {
     if (read32(0x0D800064) != 0xFFFFFFFF) {
-        logf("Message Board: no AHBPROT access, IOS%d left as it is\n", IOS_GetVersion());
+        logf("%s: no AHBPROT access, IOS%d left as it is\n", who, IOS_GetVersion());
         return false;
     }
     static const u8 kCheck[] = {0x42, 0x8B, 0xD0, 0x01, 0x25, 0x66};
@@ -1727,8 +1773,7 @@ bool open_nand_permissions() {
         ++patched;
     }
     write16(0x0D8B420A, protection);
-    logf("Message Board: IOS%d's NAND permission check %s\n", IOS_GetVersion(),
-         patched ? "opened" : "not found");
+    logf("%s: IOS%d's NAND permission check %s\n", who, IOS_GetVersion(), patched ? "opened" : "not found");
     return patched != 0;
 }
 
@@ -1761,7 +1806,7 @@ void write_play_log(const DiscProbe& probe) {
     std::memcpy(buffer, record.data(), sizeof buffer);
     s32 r = ISFS_Initialize();
     if (r >= 0) r = write_play_file(buffer, sizeof buffer);
-    if (r == -102 && open_nand_permissions()) r = write_play_file(buffer, sizeof buffer);
+    if (r == -102 && open_nand_permissions("Message Board")) r = write_play_file(buffer, sizeof buffer);
     if (r == static_cast<s32>(sizeof buffer)) {
         logf("Message Board: play log written (%s)\n", name.c_str());
     } else {

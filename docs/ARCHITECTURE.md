@@ -27,6 +27,7 @@ below names the files that own it.
 | Cover art (GameTDB), stored as ready GX textures | `wii/covers.cpp`, `src/coverart.cpp`, `wii/gui_gamegrid.cpp` |
 | Game names (GameTDB), cheats (GeckoCodes archive) | `wii/online.cpp`, `src/titles.cpp`, `src/cheats.cpp`, `src/http.cpp`, `wii/netsock.cpp` |
 | Online servers (Wiimmfi, WiiLink WFC, AltWFC, custom) | `src/wfcpatch.cpp`, `wii/wfc.cpp`, `vendor-wwfc/` |
+| Per-game fixes (Kirby's MetaFortress, NSMBW, Prince of Persia, RE4, Excite Truck, error #002, 480p) and the automatic cIOS choice, as USB Loader GX makes them | `src/gxpatches.cpp`, `src/gxkirby.inc`, `wii/boot.cpp`, `wii/usbcatalog.cpp` |
 | Update check (GitHub over https: BearSSL, `Makefile.bearssl`) | `wii/online.cpp`, `src/update.cpp`, `wii/tls.cpp`, `wii/tlsroots.c` |
 | Network packs (RiiFS) | `wii/netpacks.cpp`, `src/riifs.cpp`, `src/riifs_sync.cpp`, `docs/RIIFS.md` |
 | Settings, play history, translations | `wii/loadersettings.cpp`, `src/settingsfile.cpp`, `src/playhistory.cpp`, `wii/i18n.cpp`, `tools/lang_source.py` |
