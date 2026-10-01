@@ -772,6 +772,21 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         std::uint64_t offset = 0;  // in the partition data
         std::vector<std::uint8_t> bytes;
         const char* what = "";
+        // A pack's main.dol is served from the options' own copy, not a
+        // fifth one (RiiMajor's is 5.9 MB): `length` bytes, zeros past it.
+        const std::vector<std::uint8_t>* borrowed = nullptr;
+        std::uint64_t length = 0;
+        std::uint64_t size() const { return borrowed ? length : bytes.size(); }
+        void copy(std::uint8_t* to, std::uint64_t from, std::size_t n) const {
+            if (!borrowed) {
+                std::memcpy(to, bytes.data() + from, n);
+                return;
+            }
+            const std::uint64_t have = from < borrowed->size() ? borrowed->size() - from : 0;
+            const std::size_t real = static_cast<std::size_t>(std::min<std::uint64_t>(n, have));
+            if (real) std::memcpy(to, borrowed->data() + from, real);
+            if (real < n) std::memset(to + real, 0, n - real);
+        }
     };
     std::vector<LoadOverride> overrides;
     // The data header the apploader reads: the FST's size and the DOL's
@@ -904,8 +919,8 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         }
         LoadOverride dol;
         dol.offset = header.dol_offset;
-        dol.bytes = options.main_dol;
-        dol.bytes.resize(static_cast<std::size_t>(size), 0);
+        dol.borrowed = &options.main_dol;
+        dol.length = size;
         dol.what = "main.dol";
         logf("main.dol: the pack's executable (%u bytes) is loaded %s 0x%llx\n",
              static_cast<unsigned>(options.main_dol.size()), in_place ? "in place at" : "after the FST, at",
@@ -1005,7 +1020,7 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         std::vector<std::pair<std::uint64_t, std::uint64_t>> covered;
         for (const LoadOverride& o : overrides) {
             const std::uint64_t from = std::max(load_start, o.offset);
-            const std::uint64_t to = std::min(load_end, o.offset + o.bytes.size());
+            const std::uint64_t to = std::min(load_end, o.offset + o.size());
             if (from < to) covered.emplace_back(from, to);
         }
         std::sort(covered.begin(), covered.end());
@@ -1036,12 +1051,12 @@ bool boot_after_unmount(const DiscProbe& probe, const BootOptions& options, cons
         for (const LoadOverride& o : overrides) {
             // Whatever part of an override this load covers comes from the
             // rewritten copy instead.
-            const std::uint64_t o_end = o.offset + o.bytes.size();
+            const std::uint64_t o_end = o.offset + o.size();
             const std::uint64_t from = std::max(load_start, o.offset);
             const std::uint64_t to = std::min(load_end, o_end);
             if (from < to) {
-                std::memcpy(static_cast<std::uint8_t*>(destination) + (from - load_start),
-                            o.bytes.data() + (from - o.offset), static_cast<std::size_t>(to - from));
+                o.copy(static_cast<std::uint8_t*>(destination) + (from - load_start), from - o.offset,
+                       static_cast<std::size_t>(to - from));
                 logf("  %s bytes 0x%llx-0x%llx replaced with the rewritten copy\n", o.what,
                      static_cast<unsigned long long>(from - o.offset), static_cast<unsigned long long>(to - o.offset));
             }

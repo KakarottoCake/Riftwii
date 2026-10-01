@@ -10,6 +10,7 @@
 #include <cstddef>
 #include <cstdlib>
 #include <cstring>
+#include <new>
 #include <string>
 #include <vector>
 
@@ -106,6 +107,20 @@ void EnterConsolePhase() {
 // After a launch that failed: back to Home (a fresh start, see
 // wii/restart.hpp; also after two minutes untouched) or out to the
 // Homebrew Channel.
+// A launch that runs out of memory (a big pack: RiiMajor's 5.9 MB main.dol
+// and its files) throws std::bad_alloc; uncaught, it aborted RiftWii straight
+// back to the Homebrew Channel with nothing said. Now it is a failed launch.
+template <typename Run>
+bool OutOfMemoryAsError(std::string& error, Run run) {
+    try {
+        return run();
+    } catch (const std::bad_alloc&) {
+        error = "RiftWii ran out of memory while starting the game (a big pack?); "
+                "turn off menu music or other packs and try again";
+        return false;
+    }
+}
+
 void OfferRestart(const std::string& error) {
     // Players asking for help seldom know where the logs are: say it here,
     // where the failure is, in words a first-time user can follow.
@@ -280,11 +295,12 @@ int main() {
         riftwii::wii::logf("Controllers: %s\n", controllers.c_str());
         riftwii::wii::LogDeclinedUpdate();
         if (riftwii::wii::GuiScriptFailLaunch()) error = "a test failure the guiscript asked for";
-        const bool booted = !error.empty() ? false : (source.kind == riftwii::wii::LaunchSource::Kind::Disc && state.has_compiled)
-                                ? riftwii::wii::BootCompiled(state.compiled, error, source, state.model.save_mode,
-                                                             state.game_id)
-                                : riftwii::wii::RunLaunch(state.model.selections(), error, source,
-                                                          state.model.save_mode, state.game_id);
+        const bool booted = !error.empty() ? false : OutOfMemoryAsError(error, [&] {
+            return (source.kind == riftwii::wii::LaunchSource::Kind::Disc && state.has_compiled)
+                       ? riftwii::wii::BootCompiled(state.compiled, error, source, state.model.save_mode, state.game_id)
+                       : riftwii::wii::RunLaunch(state.model.selections(), error, source, state.model.save_mode,
+                                                 state.game_id);
+        });
         if (!booted) {
             if (riftwii::wii::reload_terminal_failure()) riftwii::wii::halt_after_terminal_reload();
             riftwii::wii::LogOpen("sd:/riftwii/boot.log", true);  // boot_game closed it and remounted the card
@@ -297,7 +313,7 @@ int main() {
         riftwii::wii::logf("Controllers: %s\n", controllers.c_str());
         riftwii::wii::LogDeclinedUpdate();
         if (riftwii::wii::GuiScriptFailLaunch()) error = "a test failure the guiscript asked for";
-        if (!error.empty() || !riftwii::wii::RunBoot(true, error, source)) {
+        if (!error.empty() || !OutOfMemoryAsError(error, [&] { return riftwii::wii::RunBoot(true, error, source); })) {
             if (riftwii::wii::reload_terminal_failure()) riftwii::wii::halt_after_terminal_reload();
             riftwii::wii::LogOpen("sd:/riftwii/boot.log", true);  // boot_game closed it and remounted the card
             riftwii::wii::logf("FAILED: %s\n", error.c_str());

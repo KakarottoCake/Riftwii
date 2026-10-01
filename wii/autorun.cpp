@@ -431,8 +431,11 @@ bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error, 
     BootOptions options; options.allow_ios_fallback=true;
     options.preserve_current_ios = source.kind != LaunchSource::Kind::Disc || MenuCiosSlot() != 0 || s.on_cios;
     options.install_resident=!mod.entries.empty() || !mod.mem.empty() || !mod.relocations.empty() || !dir.empty();
-    options.table_entries=mod.entries; options.replacements=mod.mem; options.relocations=mod.relocations; options.memory_patches=mod.memory;
-    options.main_dol=mod.main_dol;
+    // Moved, not copied: the compiled mod is not needed again, and a pack's
+    // main.dol and replacements can be megabytes.
+    options.table_entries=std::move(mod.entries); options.replacements=std::move(mod.mem);
+    options.relocations=std::move(mod.relocations); options.memory_patches=std::move(mod.memory);
+    options.main_dol=std::move(mod.main_dol);
     options.savegame_dir=dir; options.savegame_clone=xml_saves ? mod.savegame_clone : saves.clone;
     if (!xml_saves && !saves.note.empty()) logf("Saves: %s\n", saves.note.c_str());
     return boot_game(s.probe,options,error);
