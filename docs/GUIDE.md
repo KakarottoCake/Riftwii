@@ -107,6 +107,9 @@ these rows:
 - **Video mode** makes the game use another TV signal: *NTSC (480i)*,
   *PAL 60 Hz*, *PAL 50 Hz*, *480p* (needs a component cable) or *The
   console's* setting. *Game's own* leaves it to the game.
+- **Region video fix** (off unless you turn it on) is for a US or
+  Japanese game that shows no picture on a console from another region:
+  the game is told the video hardware matches its region.
 - **Game language** tells the game the console is set to another
   language. Pick one the game has: a game missing it may stop (Super
   Mario Galaxy 2 from the US has no German, and freezes).
@@ -479,6 +482,12 @@ launch:
   (GameCube controllers), **Excite Truck** and Kirby from the SD card.
 - Every game: the older error #002 check, and the wrong 480p setting some
   games send the video encoder.
+- Every game from the SD card or a USB drive: when the game reloads IOS
+  itself, it gets the same d2x cIOS again, so the game image stays
+  (boot.log: "d2x keeps IOS... across the program's own IOS reloads").
+- Cheats in games that start another executable, such as Metroid Prime
+  Trilogy's three games: the new one is hooked too, so the cheats keep
+  working after the switch.
 
 Boot.log lists them under "Game fixes".
 

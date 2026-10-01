@@ -106,6 +106,20 @@ void test_hooks() {
     EXPECT_EQ(find_code_hook(vr, CodeHook::AudioFrame), 0u);
 }
 
+void test_dol_jumps() {
+    Bytes text;
+    put(text, 0x60000000);
+    for (std::uint32_t w : {0x7C0004ACu, 0x4C00012Cu, 0x7FE903A6u, 0x4E800420u}) put(text, w);
+    for (std::uint32_t w : {0x7C0004ACu, 0x4C00012Cu, 0x7FE903A6u, 0x4E800421u}) put(text, w);  // bctrl: not it
+    std::vector<CodeRange> ranges{{0x80300000, text.data(), text.size()}};
+    const std::vector<std::uint32_t> jumps = find_dol_jumps(ranges);
+    EXPECT_EQ(jumps.size(), 1u);
+    if (!jumps.empty()) EXPECT_EQ(jumps[0], 0x80300010u);
+    EXPECT_EQ(encode_b(0x80300010, kDolSwitchStub), 0x48000000u | ((kDolSwitchStub - 0x80300010u) & 0x03FFFFFCu));
+    EXPECT_EQ(code_hook_pattern(CodeHook::Retrace)[0], 0x7CE33B78u);
+    EXPECT_EQ(code_hook_pattern(CodeHook::AudioFrame)[0], 0x3800000Eu);
+}
+
 void test_relocate() {
     Bytes handler(0x200, 0);
     handler[0x104] = 0x3D; handler[0x105] = 0xE0; handler[0x106] = 0x80; handler[0x107] = 0x00;
@@ -174,6 +188,7 @@ void test_model() {
 int main() {
     test_gameconfig();
     test_hooks();
+    test_dol_jumps();
     test_relocate();
     test_join();
     test_model();

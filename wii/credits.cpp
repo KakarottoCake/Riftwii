@@ -36,7 +36,8 @@ const char* const kCredits[] = {
     "patches, the Mario Kart Wii security fix, the return-to-channel patch, the language patch, the video "
     "mode tables, its fixes for particular games (Kirby's Return to Dream Land, New Super Mario Bros. Wii, "
     "Prince of Persia, Resident Evil 4, Excite Truck, the error #002 and 480p fixes), its automatic cIOS "
-    "choice and RiftWii's copy of the Gecko code handler. With thanks to its developers and to those whose "
+    "choice, the IOS reload block, the region video fix (WiiPower's VIDTV patch), the idea of hooking a game's second "
+    "executable and RiftWii's copy of the Gecko code handler. With thanks to its developers and to those whose "
     "work it carries: ToadKing (wiilauncher-nossl), Leseratte and the Wiimmfi team, giantpune, Nuke, "
     "crediar (Kirby's MetaFortress patch), dcx2, container12345, blackb0x and WiiPower.",
     "",

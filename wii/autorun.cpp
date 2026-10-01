@@ -80,8 +80,21 @@ struct Session {
     // itself (a Homebrew app stand-in): d2x blocks those reloads.
     bool block_ios_reload = false;
 
+    // Set when the session hands a Homebrew Channel app the d2x setup and
+    // its reload block, which must outlive this session.
+    bool keep_reload_block = false;
+
     explicit Session(const LaunchSource& launch_source = LaunchSource(), const char* active_log = nullptr)
         : source(launch_source), log_path(active_log) {}
+
+    // A launch that comes back failed: d2x's IOS reload block (set for
+    // every USB/SD game) would send the menu's later IOS reloads, and the
+    // next game's, into this cIOS.
+    ~Session() {
+        if (keep_reload_block) return;
+        std::string ignored;
+        ClearIosReloadBlock(ignored);
+    }
 
     bool ensure_probe(std::string& error) {
         if (probed) return true;
@@ -404,6 +417,7 @@ bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error, 
                     return false;
                 }
                 di::close();
+                s.keep_reload_block = true;
                 logf("Homebrew app: d2x serves %s as the disc for it\n", source.game.id.c_str());
             }
             logf("Homebrew app: IOS%d, hardware access %s\n", IOS_GetVersion(),

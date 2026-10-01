@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: 2026 RiftWii contributors
+// SPDX-FileCopyrightText: USB Loader GX contributors <https://github.com/wiidev/usbloadergx>
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/codehook.hpp"
 
@@ -44,6 +46,24 @@ std::uint32_t find_code_hook(const std::vector<CodeRange>& text, CodeHook hook) 
         }
     }
     return 0;
+}
+
+const std::uint32_t* code_hook_pattern(CodeHook hook) {
+    return hook == CodeHook::AudioFrame ? kAudioFrame : kRetrace;
+}
+
+std::vector<std::uint32_t> find_dol_jumps(const std::vector<CodeRange>& text) {
+    static const std::uint32_t kJump[4] = {0x7C0004AC, 0x4C00012C, 0x7FE903A6, 0x4E800420};
+    std::vector<std::uint32_t> found;
+    for (const CodeRange& r : text) {
+        if (r.bytes == nullptr || r.size < 16) continue;
+        for (std::size_t at = 0; at + 16 <= r.size; at += 4) {
+            bool match = true;
+            for (std::size_t i = 0; i < 4 && match; ++i) match = word(r.bytes + at + 4 * i) == kJump[i];
+            if (match) found.push_back(r.address + static_cast<std::uint32_t>(at + 12));
+        }
+    }
+    return found;
 }
 
 std::uint32_t encode_b(std::uint32_t from, std::uint32_t to) {

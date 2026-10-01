@@ -190,6 +190,7 @@ struct LaunchExtras {
     // In-game screenshots (wii/shothook.hpp); demo also shoots by itself.
     bool screenshots = false;
     bool screenshots_demo = false;
+    bool region_video = false;  // the Region video fix (riftwii/gxpatches.hpp)
 };
 void SetLaunchExtras(LaunchExtras extras);
 

@@ -1629,7 +1629,7 @@ static std::string SaveNote(const riftwii::LaunchModel& model)
 }
 
 struct RowRef {
-	enum class What { Mods, Saves, Cheats, Width, Deflicker, Borders, VideoMode, Language, Cios, Server, Favorite, Pack, Option, Note,
+	enum class What { Mods, Saves, Cheats, Width, Deflicker, Borders, VideoMode, RegionVideo, Language, Cios, Server, Favorite, Pack, Option, Note,
 		AddCodes, ForgetCodes, Cover } what = What::Note;
 	std::size_t pkg = 0, opt = 0;
 };
@@ -1811,6 +1811,12 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 	videoMode.value = GameValue(game.video_mode, global.video_mode, VideoModeName);
 	videoMode.on = game.video_mode != "global";
 	add(videoMode, {RowRef::What::VideoMode});
+	FlowRow regionVideo;
+	regionVideo.kind = FlowRow::Kind::Toggle;
+	regionVideo.label = tr("Region video fix");
+	regionVideo.on = game.region_video == "on";
+	regionVideo.value = regionVideo.on ? tr("On") : tr("Off");
+	add(regionVideo, {RowRef::What::RegionVideo});
 	FlowRow language;
 	language.kind = FlowRow::Kind::Option;
 	language.label = tr("Game language");
@@ -2524,6 +2530,8 @@ static int MenuHome(FrontendState& state)
 			}
 			else if (ref.what == RowRef::What::VideoMode)
 				say(tr("The TV signal the game sends. PAL 50 Hz needs a TV that takes it, 480p a component cable."));
+			else if (ref.what == RowRef::What::RegionVideo)
+				say(tr("For a US or Japanese game that shows no picture on a console from another region: the game is told the video hardware matches its region."));
 			else if (ref.what == RowRef::What::Language)
 				say(tr("The language the game is told the console uses. Pick one the game has: some games stop without it."));
 			else if (ref.what == RowRef::What::Favorite)
@@ -2574,6 +2582,9 @@ static int MenuHome(FrontendState& state)
 				changed = true;
 			} else if (ref.what == RowRef::What::VideoMode) {
 				state.model.game.video_mode = StepValue(kVideoModes, state.model.game.video_mode, direction);
+				changed = true;
+			} else if (ref.what == RowRef::What::RegionVideo) {
+				state.model.game.region_video = state.model.game.region_video == "on" ? "off" : "on";
 				changed = true;
 			} else if (ref.what == RowRef::What::Language) {
 				state.model.game.language = StepValue(kGameLanguages, state.model.game.language, direction);

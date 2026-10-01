@@ -97,6 +97,41 @@ bool g_card_live_for_log = false;
 // card is unmounted, served in-game when the image is usable.
 VsdImage g_vsd;
 
+extern "C" const std::uint8_t riftwii_dolswitch_stub[];
+extern "C" const std::uint8_t riftwii_dolswitch_stub_end[];
+
+// A game that starts another executable: wii/dolswitch_stub.S hooks the
+// code handler into it. Logged; the first executable's cheats work
+// without it.
+void install_dol_switch(const std::vector<CodeRange>& text, const std::uint32_t* pattern) {
+    const std::vector<std::uint32_t> jumps = find_dol_jumps(text);
+    if (jumps.empty()) return;
+    const std::size_t size = static_cast<std::size_t>(riftwii_dolswitch_stub_end - riftwii_dolswitch_stub);
+    if (size > kDolSwitchStubEnd - kDolSwitchStub) {
+        logf("Codes: the next executable's hook is too big (%u bytes); its cheats stay off\n",
+             static_cast<unsigned>(size));
+        return;
+    }
+    std::uint8_t* stub = reinterpret_cast<std::uint8_t*>(kDolSwitchStub);
+    std::memcpy(stub, riftwii_dolswitch_stub, size);
+    std::uint32_t* words = reinterpret_cast<std::uint32_t*>(stub);
+    words[1] = kCodeHandlerEntry;
+    for (int i = 0; i < 4; ++i) words[2 + i] = pattern[i];
+    words[6] = 0x80004000;
+    words[7] = kMem1End - 16;
+    DCFlushRange(stub, size);
+    ICInvalidateRange(stub, size);
+    for (std::uint32_t at : jumps) {
+        const std::uint32_t branch = encode_b(at, kDolSwitchStub);
+        if (branch == 0) continue;
+        *reinterpret_cast<volatile std::uint32_t*>(at) = branch;
+        DCFlushRange(reinterpret_cast<void*>(at & ~31u), 32);
+        ICInvalidateRange(reinterpret_cast<void*>(at & ~31u), 32);
+        logf("Codes: the jump to another executable at 0x%08x goes through 0x%08x, which hooks it too\n",
+             static_cast<unsigned>(at), kDolSwitchStub);
+    }
+}
+
 // The Gecko code handler and the cheats' GCT (vendor-gecko/), called at
 // the end of the game's video retrace handler. Leaves the game untouched
 // and says why when that cannot be done.
@@ -176,6 +211,7 @@ bool install_cheats(const std::vector<MemoryRegion>& loaded, const std::vector<M
     *reinterpret_cast<volatile std::uint32_t*>(hook) = branch;
     DCFlushRange(reinterpret_cast<void*>(hook & ~31u), 32);
     ICInvalidateRange(reinterpret_cast<void*>(hook & ~31u), 32);
+    install_dol_switch(text, code_hook_pattern(audio ? CodeHook::AudioFrame : CodeHook::Retrace));
     logf("Codes: %u cheat(s)%s%s, %u bytes at 0x%08x, handler at 0x%08x called from %s 0x%08x\n",
          static_cast<unsigned>(g_extras.cheat_count), g_extras.code_builds.empty() ? "" : " and ",
          g_extras.code_builds.c_str(), static_cast<unsigned>(gct.size()), static_cast<unsigned>(list),
@@ -1459,6 +1495,8 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         const bool own_executable = !options.main_dol.empty();
         unsigned changed = gx_game_patches(probe.header.game_id, dol, loaded_spans, gx, own_executable);
         if (di::frag_device() == 2 && !own_executable) changed += gx_sd_card_patches(probe.header.game_id, loaded_spans, gx);
+        if (g_extras.region_video && !gx_protected && probe.header.game_id.size() >= 4)
+            changed += gx_region_video_fix(probe.header.game_id[3], loaded_spans, gx);
         for (const std::string& note : gx.notes) logf("Game fixes: %s\n", note.c_str());
         if (changed) sync_loaded();
     }

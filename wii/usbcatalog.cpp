@@ -653,6 +653,12 @@ bool restore_sd_and_log(const char* log_path, std::string& error) {
 
 bool post_reload_failure(const char* log_path, std::string& error) {
     restore_sd_and_log(log_path, error);
+    // The next slot's reload would land in this cIOS otherwise.
+    if (di::ios_reload_block_active()) {
+        std::string why;
+        if (di::set_ios_reload_block(false, 0, why)) logf("d2x: IOS reload block cleared\n");
+        else logf("d2x: IOS reload block could not be cleared (%s)\n", why.c_str());
+    }
     return false;
 }
 
@@ -1294,15 +1300,27 @@ bool activate_image_game(const ImageGame& game, int cios_slot, void*& storage, s
     // the following virtual probe cannot clear d2x's emulation state.
     logf("%s: d2x F6 reset-disable\n", device_name(game.device));
     if (!di::disable_reset(error)) { error = "d2x F6 reset-disable failed: " + error; return post_reload_failure(log_path, error); }
-    if (block_ios_reload) {
+    {
         // Before the first partition probe: d2x hides its ES commands once
-        // ES has identified the disc's title.
-        if (!di::set_ios_reload_block(true, static_cast<std::uint32_t>(running), error))
+        // ES has identified the disc's title. For every game, as USB Loader
+        // GX does by default: an IOS reload the game asks for lands in this
+        // cIOS again instead of dropping d2x and the game image with it.
+        // Required for a Homebrew Channel app run in place of the game
+        // (CTGP reloads IOS itself); for a game, d2x without it still runs
+        // most games.
+        std::string why;
+        if (di::set_ios_reload_block(true, static_cast<std::uint32_t>(running), why)) {
+            logf("%s: d2x keeps IOS%d across the program's own IOS reloads\n", device_name(game.device), running);
+            // The app's own reloads (into this cIOS again) go through this
+            // IOS's ES: it is told the same.
+            if (block_ios_reload) keep_hardware_access(device_name(game.device));
+        } else if (block_ios_reload) {
+            error = why;
             return post_reload_failure(log_path, error);
-        logf("%s: d2x keeps IOS%d across the program's own IOS reloads\n", device_name(game.device), running);
-        // The app's own reloads (into this cIOS again, above) go through
-        // this IOS's ES: it is told the same.
-        keep_hardware_access(device_name(game.device));
+        } else {
+            logf("%s: d2x does not keep IOS%d across the game's IOS reloads (%s)\n", device_name(game.device),
+                 running, why.c_str());
+        }
     }
     if (!g_sd_back) {
         error="d2x is configured but SD could not be remounted after IOS reload";

@@ -1037,3 +1037,9 @@ msgstr "Inviare una segnalazione di problema?"
 
 msgid "Something went wrong? Sends what it takes to find out to paste.rs, and shows a link to pass on."
 msgstr "Qualcosa non va? Invia a paste.rs quello che serve per capirlo e mostra un link da condividere."
+
+msgid "Region video fix"
+msgstr "Correzione video per regione"
+
+msgid "For a US or Japanese game that shows no picture on a console from another region: the game is told the video hardware matches its region."
+msgstr "Per un gioco americano o giapponese che non mostra immagini su una console di un'altra regione: al gioco viene detto che l'hardware video corrisponde alla sua regione."
