@@ -70,6 +70,7 @@ constexpr std::uint32_t kApploaderLoadAddress = 0x81200000;
 constexpr std::uint32_t kLoaderStart = 0x80A00000;  // Makefile.wii: --section-start,.init
 constexpr std::uint32_t kGameStart = 0x80004000;    // where games' executables start
 constexpr std::uint32_t kCodeVeneers = 0x80002300;  // past the code handler (0x800022B0), before 0x80003000
+constexpr std::uint32_t kFaultVeneers = 0x80002F00;  // the crash blob's two, after the runtime's and the card's
 constexpr std::uint32_t kMem1Start = 0x80000000;
 constexpr std::uint32_t kMem1End = 0x81800000;
 constexpr std::uint32_t kMem2Start = 0x90000000;
@@ -1335,7 +1336,13 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
                                         : pad.active               ? pad.new_arena2_lo
                                                                    : base_arena2_lo();
         const bool answer_bca = options.retail_bca && !options.install_resident;
-        if (!plan_fault_hook(dol, arena1_hi, mem1_floor, arena2_lo, answer_bca, options.memory_patches, fault, why)) {
+        // A code build that moved its code list sizes its heaps to all of
+        // MEM1 (PMEX Remix wrote over the blob below the arena top): the
+        // blob goes to MEM2, past the veneers the others may use.
+        const std::uint32_t veneers =
+            g_extras.code_list_start != 0 && !g_extras.cheat_gct.empty() ? kFaultVeneers : 0;
+        if (!plan_fault_hook(dol, arena1_hi, mem1_floor, arena2_lo, veneers, answer_bca, options.memory_patches, fault,
+                             why)) {
             logf("Game crashes: not recorded%s: %s\n", answer_bca ? " and the BCA read not answered" : "",
                  why.c_str());
         }
@@ -1581,6 +1588,7 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         ICInvalidateRange(reinterpret_cast<void*>(resident.data_base), resident.data_bytes);  // the code, when it is here
     }
     place_vsd_hook(vsd);  // to the bottom of the MEM2 arena, as the runtime's data above
+    place_fault_hook(fault);  // the crash blob, when a code build pushed it to MEM2
     dolboot_system_call_vector();  // what the system software leaves for a game (channel/common/dolboot.h)
     if (codes_first) {
         // As Gecko loaders do: the handler runs once before the game, so a
