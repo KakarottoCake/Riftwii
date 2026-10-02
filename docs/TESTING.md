@@ -187,7 +187,9 @@ from (disc, SD, USB) is just as useful.
 - [ ] **CTGP-R 1.03** from a USB or SD game. The supported way is still
   the Homebrew Channel. If you try it from RiftWii, send the report:
   boot.log should end with "Homebrew app: IOS..., hardware access on"
-  (new in RC7).
+  (new in RC7). Since RC9 RiftWii also adds `disable_ios_exploit = yes`
+  to `sd:/ctgpr/config.ini` (boot.log: "CTGP: config.ini set to skip
+  CTGP's own IOS exploit"); check that online races still work.
 
 ## 12. Problem reports
 

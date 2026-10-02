@@ -41,6 +41,24 @@ ordinary game launches. `boot.log` shows `IOS<n>'s ES keeps hardware
 access on for the next IOS` for each, and `Homebrew app: IOS<n>, hardware
 access on` when it worked. Untested on a Wii.
 
+## CTGP's own IOS exploit
+
+At startup the CTGP channel patches the running IOS's ES itself when it has
+hardware access, then checks the patches with a fakesigned ES_Identify. When
+that check fails without hardware access, it runs its own IOS exploit
+through `/dev/sha` and then waits for hardware access with no time limit. A
+cIOS where the exploit does not take would hang there.
+
+The channel skips the exploit when `sd:/ctgpr/config.ini` says so in its
+`[exploit]` section (`disable_ios_exploit = yes`; booleans are `yes`/`no`,
+and CTGP only writes keys that differ from the default). Since 2.7.0 RC9,
+RiftWii adds that line before it starts `sd:/apps/ctgpr/boot.dol`
+(`SetCtgpDefaults`, `wii/autorun.cpp`; the INI merge is
+`riftwii/ctgpconfig.hpp`, tested in `tests/ctgpconfig_tests.cpp`). A value
+the player set is left alone. The key does not affect networking: online
+play comes from CTGP's patches to the game's code. `boot.log` shows
+`CTGP: config.ini set to skip CTGP's own IOS exploit`. Untested on a Wii.
+
 ## d2x IOS reload block
 
 ES ioctlv `0xA0` on `/dev/es`, two 4-byte inputs: mode 2 and the cIOS slot

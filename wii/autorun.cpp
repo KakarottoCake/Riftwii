@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "autorun.hpp"
 #include "progress.hpp"
+#include "riftwii/ctgpconfig.hpp"
 
 #include <fat.h>
 #include <gccore.h>
 #include <ogc/system.h>
+#include <strings.h>
 #include <sys/stat.h>
 
 #include <cstdio>
@@ -39,6 +41,39 @@ std::string trim(const std::string& s) {
 std::string basename_of(const std::string& disc_path) {
     const auto slash = disc_path.find_last_of('/');
     return slash == std::string::npos ? disc_path : disc_path.substr(slash + 1);
+}
+
+// CTGP Revolution's channel, started under a d2x cIOS: its own IOS exploit
+// can wait forever there for hardware access, so sd:/ctgpr/config.ini gets
+// "disable_ios_exploit = yes" in [exploit] unless the player set that key.
+// Before any IOS reload, while libfat has the card.
+void SetCtgpDefaults(const std::string& app) {
+    const std::string folder = "sd:/apps/ctgpr/";
+    if (app.size() <= folder.size() || strncasecmp(app.c_str(), folder.c_str(), folder.size()) != 0 ||
+        app.find('/', folder.size()) != std::string::npos)
+        return;
+    struct stat st;
+    if (stat("sd:/ctgpr", &st) != 0 || !S_ISDIR(st.st_mode)) return;
+    const char* path = "sd:/ctgpr/config.ini";
+    std::string text;
+    {
+        std::ifstream in(path, std::ios::binary);
+        if (in) text.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+    }
+    if (!riftwii::ctgp_config_defaults(text)) {
+        logf("CTGP: config.ini already has disable_ios_exploit, left as it is\n");
+        return;
+    }
+    {
+        std::ofstream out(path, std::ios::binary | std::ios::trunc);
+        out.write(text.data(), static_cast<std::streamsize>(text.size()));
+        if (!out) {
+            logf("CTGP: could not write %s\n", path);
+            return;
+        }
+    }
+    forget_sd_layout();
+    logf("CTGP: config.ini set to skip CTGP's own IOS exploit ([exploit] disable_ios_exploit = yes)\n");
 }
 
 bool any_on_usb(const std::vector<PackageChoices>& packages) {
@@ -404,6 +439,7 @@ bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error, 
             logf("Mods: the packs only replace the game's executable with %s, a Homebrew Channel app: started as "
                  "the Homebrew Channel starts it, not loaded as the game%s\n",
                  app.c_str(), dropped.empty() ? "" : ("; " + dropped + " does not apply to it").c_str());
+            SetCtgpDefaults(app);
             if (source.kind != LaunchSource::Kind::Disc) {
                 // The app reloads IOS itself (CTGP asks for IOS37), which
                 // would drop d2x and the game with it: d2x blocks that.
