@@ -262,6 +262,9 @@ int main() {
         riftwii::wii::logf("Menu closed: waiting for the update check to finish\n");
         riftwii::wii::NetWaitForBackground();
         riftwii::wii::logf("Menu closed: the update check is done\n");
+        // The launch frame said it was waiting; it is not any more.
+        if (action == MENU_LAUNCH || action == MENU_BOOT || action == MENU_DUMP || action == MENU_CHANNEL)
+            RefreshLaunchFrame(state, action);
     }
     // Before the adapter stops: what the player had plugged in, for the
     // launch's log.

@@ -3448,7 +3448,11 @@ static void ShowLaunchFrame(const FrontendState& state, int action)
 	Place(titleTxt, 40, 62);
 	titleTxt.SetWrap(true, 560, 2);
 	Panel card(skin::panelSettings, 34, 160);
-	GuiText footTxt(action == MENU_CHANNEL ? "RiftWii starts again when it is done."
+	// The launch waits for the start's update check first (wii/main.cpp):
+	// say so, as nothing else is on the screen yet. Said here, in the
+	// frame, not by the console: the check's thread is still running.
+	GuiText footTxt(riftwii::wii::NetBackgroundBusy() ? "Waiting for the update check to finish (up to 20 seconds)..."
+		: action == MENU_CHANNEL ? "RiftWii starts again when it is done."
 		: "The game takes over the screen when it is ready.", 15, skin::kInkDim);
 	Place(footTxt, 0, 444, true);
 
@@ -3464,6 +3468,11 @@ static void ShowLaunchFrame(const FrontendState& state, int action)
 	usleep(100000);  // a few frames, so both framebuffers show it
 	HaltGui();
 	mainWindow->Remove(&w);
+}
+
+void RefreshLaunchFrame(const FrontendState& state, int action)
+{
+	ShowLaunchFrame(state, action);
 }
 
 int MainMenu(int menu, FrontendState& state)
