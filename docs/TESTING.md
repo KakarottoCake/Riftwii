@@ -59,7 +59,11 @@ from (disc, SD, USB) is just as useful.
   flashes and a PNG appears in `sd:/riftwii/screenshots`.
 - [ ] **HOME Menu.** Press HOME and try each choice: Homebrew Channel,
   Wii Menu, Priiloader (its menu if you have it, else the Wii Menu) and
-  Power off.
+  Power off. Homebrew Channel should open the Homebrew Channel also when
+  RiftWii was started from its channel on the Wii Menu (fixed in RC8).
+- [ ] **Classic Controller in the menu.** The stick moves the pointer;
+  the D-pad hides it and moves the highlight; pushing the stick brings
+  the pointer back (RC8).
 - [ ] **Power button.** The console's button and a Wii Remote's both
   fade out and turn the Wii fully off (red light).
 - [ ] **Look for games again** (Settings) finds a game you just copied.
@@ -101,6 +105,8 @@ from (disc, SD, USB) is just as useful.
   USB game, then start another game.
 - [ ] **RVZ images** (experimental): one game, nothing on.
 - [ ] **A USB 3 hard drive on a Wii U.** It shouldn't stop at 3%.
+- [ ] **A USB drive bigger than 1 TB.** No 20 second wait with "did not
+  start through d2x" lines in boot.log before a USB game starts (RC8).
 
 ## 5. Mods
 
@@ -111,7 +117,9 @@ from (disc, SD, USB) is just as useful.
   The game should see the save you picked.
 - [ ] **Just Dance 2014 to 2020 mods** (Just Dance Mega, for instance).
 - [ ] **Very big packs** (Metroid: Other M Redux, with its large
-  movies).
+  movies). Other M Redux used to stop on a black screen right after the
+  launch; since RC8 it should reach the title screen, the opening movie
+  and the first room.
 - [ ] **A missing pack folder.** RiftWii should refuse with a message,
   not boot half a mod.
 - [ ] **Memory-heavy packs** (RiiMajor and other big ones). If one
@@ -168,7 +176,11 @@ from (disc, SD, USB) is just as useful.
 ## 11. Experimental
 
 - [ ] **GameCube controller adapter for Wii U** (Settings > GameCube
-  adapter, Check the GameCube adapter): in the menu and in games.
+  adapter, Check the GameCube adapter): in the menu and in games. If the
+  adapter is found but shows no controllers, send a report: boot.log now
+  has a "first report, port status" line (RC8). On a Wii U, **On** can
+  freeze games from the SD card or USB at 97%: RiftWii asks twice before
+  it turns On. Keep **Automatic** unless you are testing it.
 - [ ] **In-game screenshots** (Settings > In-game screenshots): take a
   few in two or three games, restart RiftWii, look in
   `sd:/riftwii/screenshots`. Say which games worked.
@@ -186,6 +198,8 @@ from (disc, SD, USB) is just as useful.
   `gamecrash.txt`.
 - [ ] **Offline.** With no network, the report is saved as
   `sd:/riftwii/report.txt` and the menu stays usable.
+- [ ] **When paste.rs can't be reached** (some networks block it), the
+  report goes to dpaste.com instead and the link shows as usual (RC8).
 
 ## 13. Games with their own fixes
 
