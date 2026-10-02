@@ -2652,7 +2652,9 @@ static int MenuHome(FrontendState& state)
 				say(FlatCapped(codes_error, 200));
 			} else if (!LaunchNote(state).empty() && !state.warning_shown) {
 				state.warning_shown = true;
-				say(FlatCapped(LaunchNote(state) + " " + tr("Press Start again to play."), 200));
+				// In a popup: the status line holds two rows, which cut
+				// the CTGP warning off before it said what to do.
+				ShowPopup(tr("Before you play"), LaunchNote(state) + " " + tr("Press Start again to play."), tr("OK"));
 			} else if (!saveOrSay()) {
 				// the status shows why
 			} else if (!riftwii::needs_launch_pipeline(!state.model.selections().empty(), state.model.save_mode)) {

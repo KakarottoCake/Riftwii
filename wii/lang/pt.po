@@ -864,6 +864,9 @@ msgstr "Problemas no cartão SD"
 msgid "The SD card had trouble while the last game was saving. The details are in sd:/riftwii/cardlog.txt; please send that file to the RiftWii developers."
 msgstr "O cartão SD teve problemas enquanto o último jogo salvava. Os detalhes estão em sd:/riftwii/cardlog.txt; envie esse arquivo aos desenvolvedores da RiftWii."
 
+msgid "Before you play"
+msgstr "Antes de jogar"
+
 msgid "Press Start again to play."
 msgstr "Aperte Jogar de novo para começar."
 

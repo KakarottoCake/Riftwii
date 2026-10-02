@@ -809,6 +809,7 @@ T = {
         "O cartão SD teve problemas enquanto o último jogo salvava. Os detalhes estão em sd:/riftwii/cardlog.txt; envie esse arquivo aos desenvolvedores da RiftWii.",
         "La scheda SD ha avuto problemi mentre l'ultimo gioco salvava. I dettagli sono in sd:/riftwii/cardlog.txt; invia quel file agli sviluppatori di RiftWii."),
     # Starting a game
+    "Before you play": ("Antes de jugar", "遊ぶ前に", "Antes de jogar", "Prima di giocare"),
     "Press Start again to play.": (
         "Pulsa Jugar otra vez para empezar.",
         "もう一度「はじめる」を押すと遊べます。",
