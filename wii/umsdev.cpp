@@ -64,14 +64,19 @@ bool Open(std::string& error) {
     const s32 sectors = IOS_Ioctlv(g_fd, kGetCapacity, 0, 1, g_vec);
     DCInvalidateRange(g_args, sizeof(g_args));
     const std::uint32_t sector_bytes = g_args[0];
-    logf("USB (d2x): fd %d, init %d, %d sectors of %u bytes\n", static_cast<int>(g_fd), static_cast<int>(init),
-         static_cast<int>(sectors), static_cast<unsigned>(sector_bytes));
+    // The count comes back as the ioctl's result: a drive past 2^31
+    // sectors (1 TiB of 512-byte sectors) reads as negative. IOS's own
+    // errors are small negative numbers.
+    const bool counted = sectors > 0 || sectors < -0x100000;
+    logf("USB (d2x): fd %d, init %d, %u sectors of %u bytes\n", static_cast<int>(g_fd), static_cast<int>(init),
+         static_cast<unsigned>(sectors), static_cast<unsigned>(sector_bytes));
     // 512 for a hard drive or stick, 2048 for a DVD drive.
     const bool size_ok = sector_bytes >= kFatSectorBytes && sector_bytes <= kBounceBytes &&
                          (sector_bytes & (sector_bytes - 1)) == 0;
-    if (init < 0 || sectors <= 0 || !size_ok) {
-        error = init < 0 || sectors <= 0 ? "the USB drive did not start through d2x (" + std::to_string(init) + ")"
-                                         : "the USB drive has " + std::to_string(sector_bytes) + "-byte sectors";
+    if (init < 0 || !counted || !size_ok) {
+        error = init < 0 || !counted ? "the USB drive did not start through d2x (" + std::to_string(init) + ", " +
+                                           std::to_string(sectors) + ")"
+                                     : "the USB drive has " + std::to_string(sector_bytes) + "-byte sectors";
         IOS_Close(g_fd);
         g_fd = -1;
         g_failed = true;
