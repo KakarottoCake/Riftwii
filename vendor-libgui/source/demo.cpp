@@ -6,6 +6,9 @@
  * Basic template/demonstration of libwiigui capabilities. For a
  * full-featured app using many more extensions, check out Snes9x GX.
  ***************************************************************************/
+/* Changed for RiftWii (September and October 2026), under
+ * GPL-3.0-or-later: the power button sets ExitRequested (now volatile) to turn the Wii off.
+ * Every change is in RiftWii's git history; NOTICE.md lists the origin. */
 
 #include <gccore.h>
 #include <stdio.h>

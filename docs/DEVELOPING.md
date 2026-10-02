@@ -95,6 +95,24 @@ Gecko lines and Dolphin's DI and SD logs), savegames, and heap placement
 - `sd:/riftwii/boot.log`: the last launch, up to the jump into the game.
 - The Wii model, the System Menu version and which cIOS is installed.
 
+## A game that only fails on a console
+
+`debug_off` in `sd:/riftwii/settings.txt` turns RiftWii's launch extras
+off one at a time (`wii/boot.cpp`, `debug_off`), so a tester can bisect
+what Dolphin cannot show:
+
+```
+debug_off = bca, fault, dolswitch, 480p, returnto, consoletype, prerun
+```
+
+`bca` the retail BCA answer, `fault` the crash recorder, `dolswitch` the
+cheats' hook on jumps to another executable, `480p` the 480p fix,
+`returnto` the return-to patch, `consoletype` the console type RiftWii
+writes at 0x8000002C on a Wii, `prerun` the code handler's run before the
+game's entry. `boot.log` names each one left out. Start with all of them,
+then halve the list. The PMEX Remix crash on a Wii (2.7.0 RC9.2) was found
+this way: it was the crash recorder.
+
 ## Releasing
 
 1. Bump the version in `CMakeLists.txt` and `hbc/meta.xml` (`version`,

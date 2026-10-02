@@ -5,6 +5,9 @@
  * input.cpp
  * Wii/GameCube controller management
  ***************************************************************************/
+/* Changed for RiftWii (September and October 2026), under
+ * GPL-3.0-or-later: Classic Controller stick as a pointer, the GameCube adapter's pads, the controller used last owns the pointer, the D-pad takes over from it, the Wii Remote's pointer kept on screen, steady repeat, and the Wii U GamePad scan (WiiDRC).
+ * Every change is in RiftWii's git history; NOTICE.md lists the origin. */
 
 #include <gccore.h>
 #include <stdio.h>

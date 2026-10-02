@@ -218,7 +218,9 @@ def splash(out):
     tear = (np.clip(rift(48, 300, 42), 0, 1) * 255 + 0.5).astype(np.uint8)
     open(os.path.join(out, "splash_rift.a"), "wb").write(tear.tobytes())
     with open(os.path.join(out, "splash.h"), "w") as f:
-        f.write("// Written by tools/make_channel_art.py.\n#pragma once\n")
+        f.write("// SPDX-FileCopyrightText: 2026 RiftWii contributors\n"
+                "// SPDX-License-Identifier: GPL-3.0-or-later\n"
+                "// Written by tools/make_channel_art.py.\n#pragma once\n")
         f.write("#define kBgWidth 320\n#define kBgHeight 240\n")
         f.write(f"#define kWordWidth {w2}\n#define kWordHeight {h2}\n#define kWordSeam {int(seam / k)}\n")
         f.write("#define kRiftWidth 48\n#define kRiftHeight 300\n")

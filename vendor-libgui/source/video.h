@@ -5,6 +5,9 @@
  * video.h
  * Video routines
  ***************************************************************************/
+/* Changed for RiftWii (September and October 2026), under
+ * GPL-3.0-or-later: StopGXKeepPicture and the frame buffer accessors.
+ * Every change is in RiftWii's git history; NOTICE.md lists the origin. */
 
 #ifndef _VIDEO_H_
 #define _VIDEO_H_

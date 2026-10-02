@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: 2026 RiftWii contributors
+// SPDX-License-Identifier: GPL-3.0-or-later
 // Written by tools/make_channel_art.py.
 #pragma once
 #define kBgWidth 320

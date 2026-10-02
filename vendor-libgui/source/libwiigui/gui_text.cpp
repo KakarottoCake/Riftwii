@@ -7,6 +7,9 @@
  *
  * GUI class definitions
  ***************************************************************************/
+/* Changed for RiftWii (September and October 2026), under
+ * GPL-3.0-or-later: wrapped text can stop after a number of lines, ending in "..."; UTF-8 and layout fixes.
+ * Every change is in RiftWii's git history; NOTICE.md lists the origin. */
 
 #include "gui.h"
 #include "../gettext.h"

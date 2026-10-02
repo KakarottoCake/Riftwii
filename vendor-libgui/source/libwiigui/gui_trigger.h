@@ -1,3 +1,6 @@
+/* Changed for RiftWii (September and October 2026), under
+ * GPL-3.0-or-later: steady stick and D-pad repeat; the Classic Controller's stick.
+ * Every change is in RiftWii's git history; NOTICE.md lists the origin. */
 #ifndef LIBWIIGUI_TRIGGER_H
 #define LIBWIIGUI_TRIGGER_H
 

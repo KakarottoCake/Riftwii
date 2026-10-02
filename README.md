@@ -100,8 +100,9 @@ contains theirs names them in its file header, and
 - **d2x cIOS**: the USB and SD game loading interface.
 - **devkitPro and libogc** (Michael Wiedenbauer, Dave Murphy, Hector
   Martin, Sven Peter and others): the toolchain and the Wii library.
-- **Dolphin**, **wiibrew** and the **Riivolution patch format wiki**:
-  how the Wii and the patch format behave (read as documentation).
+- **Dolphin**, **wiibrew**, the **Riivolution patch format wiki** and
+  **libruntimeiospatch**: how the Wii, IOS and the patch format behave
+  (read as documentation).
 - **pugixml** by Arseny Kapoulkine, **Zstandard** by Meta, **BearSSL**
   by Thomas Pornin, **FreeType**, **zlib**, **brotli**, **Tremor**.
 - **GameTDB** for game names and covers, **RiiConnect24** for the cheat

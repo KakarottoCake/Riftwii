@@ -1,4 +1,6 @@
 #!/bin/bash
+# SPDX-FileCopyrightText: 2026 RiftWii contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
 # Runs riftwii.dol in Dolphin with the project's isolated user directory
 # (build-dolphin/user), captures USB Gecko output to build-dolphin/gecko.log
 # and Dolphin's own log to build-dolphin/user/Logs/dolphin.log, then kills

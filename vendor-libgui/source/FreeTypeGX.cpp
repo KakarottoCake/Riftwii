@@ -19,6 +19,9 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with FreeTypeGX.  If not, see <http://www.gnu.org/licenses/>.
  */
+/* Changed for RiftWii (September and October 2026), under
+ * GPL-3.0-or-later: charToWideChar decodes UTF-8 (translations, game names); less memory for the menu.
+ * Every change is in RiftWii's git history; NOTICE.md lists the origin. */
 
 #include "FreeTypeGX.h"
 

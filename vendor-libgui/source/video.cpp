@@ -5,6 +5,9 @@
  * video.cpp
  * Video routines
  ***************************************************************************/
+/* Changed for RiftWii (September and October 2026), under
+ * GPL-3.0-or-later: no text console on the menu's frame buffer, StopGXKeepPicture, and the frame buffer accessors the launch screen and screenshots use.
+ * Every change is in RiftWii's git history; NOTICE.md lists the origin. */
 
 #include <gccore.h>
 #include <ogcsys.h>

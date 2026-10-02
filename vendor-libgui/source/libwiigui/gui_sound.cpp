@@ -7,6 +7,9 @@
  *
  * GUI class definitions
  ***************************************************************************/
+/* Changed for RiftWii (September and October 2026), under
+ * GPL-3.0-or-later: separate volumes for the hover sound and the others.
+ * Every change is in RiftWii's git history; NOTICE.md lists the origin. */
 
 #include "gui.h"
 #include "../filelist.h"

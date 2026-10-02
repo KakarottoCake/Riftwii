@@ -4,6 +4,9 @@
  *
  * demo.h
  ***************************************************************************/
+/* Changed for RiftWii (September and October 2026), under
+ * GPL-3.0-or-later: ExitRequested is volatile, set from the power button too; kExitPowerButton.
+ * Every change is in RiftWii's git history; NOTICE.md lists the origin. */
 
 #ifndef _DEMO_H_
 #define _DEMO_H_
