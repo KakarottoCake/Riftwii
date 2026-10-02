@@ -48,6 +48,9 @@ std::vector<std::string> enabled_pack_files(const std::string& choices);
 
 // paste.rs's answer to the upload: 201 and the link, or 206 and the link
 // to a paste cut short. False with `error` for anything else.
-bool paste_link(int status, const std::string& answer, std::string& link, bool& partial, std::string& error);
+// `site` names the paste site in the error (paste.rs, or dpaste.com, the
+// fallback; both answer 201 with the link as the whole body).
+bool paste_link(int status, const std::string& answer, std::string& link, bool& partial, std::string& error,
+                const std::string& site = "paste.rs");
 
 }  // namespace riftwii

@@ -209,6 +209,12 @@ T = {
     "Picture width": ("Ancho de imagen", "画面の幅", "Largura da imagem", "Larghezza immagine"),
     "Deflicker": ("Antiparpadeo", "ちらつき防止", "Antitremulação", "Antisfarfallio"),
     "Black borders": ("Bordes negros", "黒い枠", "Bordas pretas", "Bordi neri"),
+    "Region video fix": ("Corrección de vídeo por región", "地域ビデオ修正", "Correção de vídeo por região", "Correzione video per regione"),
+    "For a US or Japanese game that shows no picture on a console from another region: the game is told the video hardware matches its region.": (
+        "Para un juego de EE. UU. o de Japón que no muestra imagen en una consola de otra región: al juego se le dice que el hardware de vídeo coincide con su región.",
+        "他の地域の本体で映像が出ない北米版・日本版のゲーム向け：ビデオ機器がゲームの地域と同じだとゲームに伝えます。",
+        "Para um jogo dos EUA ou do Japão que não mostra imagem num console de outra região: o jogo é informado de que o hardware de vídeo corresponde à sua região.",
+        "Per un gioco americano o giapponese che non mostra immagini su una console di un'altra regione: al gioco viene detto che l'hardware video corrisponde alla sua regione."),
     "Framebuffer": ("Framebuffer", "フレームバッファ", "Framebuffer", "Framebuffer"),
     "704 pixels": ("704 píxeles", "704ピクセル", "704 pixels", "704 pixel"),
     "720 pixels (full)": ("720 píxeles (completo)", "720ピクセル (全体)", "720 pixels (total)", "720 pixel (pieno)"),
@@ -965,11 +971,11 @@ T = {
         "Apre il menu HOME, come il tasto HOME: Homebrew Channel, Menu Wii, Priiloader o spegnimento."),
     # Problem reports
     "Sending a report": ("Enviando un informe", "レポートを送信中", "Enviando um relatório", "Invio della segnalazione"),
-    "Gathering the logs and sending them to paste.rs. This can take half a minute...": (
-        "Reuniendo los registros y enviándolos a paste.rs. Puede tardar medio minuto...",
-        "ログを集めてpaste.rsに送信しています。30秒ほどかかることがあります...",
-        "Juntando os registros e enviando para o paste.rs. Pode levar meio minuto...",
-        "Raccolta dei log e invio a paste.rs. Può richiedere mezzo minuto..."),
+    "Gathering the logs and sending them. This can take half a minute...": (
+        "Reuniendo los registros y enviándolos. Puede tardar medio minuto...",
+        "ログを集めて送信しています。30秒ほどかかることがあります...",
+        "Juntando os registros e enviando. Pode levar meio minuto...",
+        "Raccolta dei log e invio. Può richiedere mezzo minuto..."),
     "Report not sent": ("Informe no enviado", "レポートを送信できませんでした", "Relatório não enviado", "Segnalazione non inviata"),
     "It could not be sent: {1}. It is saved on the SD card as sd:/riftwii/report.txt: send that file instead.": (
         "No se pudo enviar: {1}. Está guardado en la tarjeta SD como sd:/riftwii/report.txt: envía ese archivo.",
@@ -992,11 +998,11 @@ T = {
         "O relatório era grande demais, então só o começo foi mantido.",
         "La segnalazione era troppo grande, quindi ne è stato tenuto solo l'inizio."),
     "Report sent": ("Informe enviado", "レポートを送信しました", "Relatório enviado", "Segnalazione inviata"),
-    "It holds RiftWii's logs and settings, the game's choices and packs, and which console, IOS and controllers this is. It goes to paste.rs, where anyone with its link can read it.": (
-        "Incluye los registros y ajustes de RiftWii, las opciones y packs del juego, y qué consola, IOS y mandos son. Se envía a paste.rs, donde cualquiera con el enlace puede leerlo.",
-        "RiftWiiのログと設定、ゲームの選択とパック、本体・IOS・コントローラーの情報が入っています。paste.rsに送られ、リンクを知っている人なら誰でも読めます。",
-        "Ele traz os registros e as configurações do RiftWii, as escolhas e os packs do jogo, e qual console, IOS e controles são. Vai para o paste.rs, onde qualquer pessoa com o link pode lê-lo.",
-        "Contiene i log e le impostazioni di RiftWii, le scelte e i pack del gioco, e quali console, IOS e controller sono. Va su paste.rs, dove chiunque abbia il link può leggerla."),
+    "It holds RiftWii's logs and settings, the game's choices and packs, and which console, IOS and controllers this is. It goes to paste.rs, or dpaste.com when paste.rs can't be reached, where anyone with its link can read it.": (
+        "Incluye los registros y ajustes de RiftWii, las opciones y packs del juego, y qué consola, IOS y mandos son. Se envía a paste.rs, o a dpaste.com si no se puede llegar a paste.rs, donde cualquiera con el enlace puede leerlo.",
+        "RiftWiiのログと設定、ゲームの選択とパック、本体・IOS・コントローラーの情報が入っています。paste.rsに送られ（paste.rsにつながらないときはdpaste.com）、リンクを知っている人なら誰でも読めます。",
+        "Ele traz os registros e as configurações do RiftWii, as escolhas e os packs do jogo, e qual console, IOS e controles são. Vai para o paste.rs, ou para o dpaste.com se o paste.rs não puder ser alcançado, onde qualquer pessoa com o link pode lê-lo.",
+        "Contiene i log e le impostazioni di RiftWii, le scelte e i pack del gioco, e quali console, IOS e controller sono. Va su paste.rs, o su dpaste.com se paste.rs non è raggiungibile, dove chiunque abbia il link può leggerla."),
     "RiftWii crashed last time": ("RiftWii se bloqueó la última vez", "前回RiftWiiがクラッシュしました", "O RiftWii travou da última vez", "L'ultima volta RiftWii si è bloccato"),
     "The game crashed last time": ("El juego se bloqueó la última vez", "前回ゲームがクラッシュしました", "O jogo travou da última vez", "L'ultima volta il gioco si è bloccato"),
     "The last launch failed": ("El último inicio falló", "前回の起動に失敗しました", "A última inicialização falhou", "L'ultimo avvio non è riuscito"),
@@ -1008,11 +1014,11 @@ T = {
     "Send": ("Enviar", "送信", "Enviar", "Invia"),
     "Send a problem report": ("Enviar un informe de problema", "問題のレポートを送信", "Enviar um relatório de problema", "Invia una segnalazione di problema"),
     "Send a problem report?": ("¿Enviar un informe de problema?", "問題のレポートを送信しますか？", "Enviar um relatório de problema?", "Inviare una segnalazione di problema?"),
-    "Something went wrong? Sends what it takes to find out to paste.rs, and shows a link to pass on.": (
-        "¿Algo salió mal? Envía a paste.rs lo necesario para averiguarlo y muestra un enlace para compartir.",
-        "問題が起きましたか？原因を調べるのに必要な情報をpaste.rsに送り、共有用のリンクを表示します。",
-        "Algo deu errado? Envia ao paste.rs o necessário para descobrir e mostra um link para compartilhar.",
-        "Qualcosa non va? Invia a paste.rs quello che serve per capirlo e mostra un link da condividere."),
+    "Something went wrong? Sends what it takes to find out to a paste site, and shows a link to pass on.": (
+        "¿Algo salió mal? Envía a un sitio de pegado lo necesario para averiguarlo y muestra un enlace para compartir.",
+        "問題が起きましたか？原因を調べるのに必要な情報を共有サイトに送り、共有用のリンクを表示します。",
+        "Algo deu errado? Envia a um site de textos o necessário para descobrir e mostra um link para compartilhar.",
+        "Qualcosa non va? Invia a un sito di paste quello che serve per capirlo e mostra un link da condividere."),
 }
 
 

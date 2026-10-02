@@ -8,6 +8,7 @@
 #include <cstdio>
 #include <cstring>
 #include <ctime>
+#include <new>
 #include <vector>
 
 #include <gccore.h>
@@ -22,6 +23,7 @@
 #include "online.hpp"
 #include "restart.hpp"
 #include "riftwii/gamefault.hpp"
+#include "riftwii/http.hpp"
 #include "riftwii/problemreport.hpp"
 #include "wiidrc.h"
 
@@ -35,6 +37,9 @@ constexpr const char* kStateFile = "sd:/riftwii/report-state.txt";
 constexpr const char* kGameCrashFile = "sd:/riftwii/gamecrash.txt";
 constexpr const char* kGameCrashRecord = "/shared2/riftwii/crash.bin";  // runtime/rtfault.h
 constexpr const char* kPasteUrl = "https://paste.rs/";
+// When paste.rs cannot be reached (some networks block it) or fails:
+// dpaste.com, a form post with the text as "content".
+constexpr const char* kDpasteUrl = "https://dpaste.com/api/v2/";
 // More than this of one file is never read (the report keeps far less).
 constexpr std::size_t kReadCap = 2u << 20;
 
@@ -357,6 +362,28 @@ ReportOutcome SendProblemReport(const std::string& reason) {
         if (HttpPost(kPasteUrl, "text/plain; charset=utf-8", report, status, answer, out.error)) {
             out.sent = paste_link(status, answer, out.link, out.partial, out.error);
         }
+    }
+    if (!out.sent) {
+        logf("Problem report: paste.rs: %s; trying dpaste.com\n", out.error.c_str());
+        // Form-encoded, the text grows by up to three times: half the
+        // size, and out of memory is a failure, not a crash.
+        std::string why;
+        try {
+            std::string small = gather(reason, kReportLimit / 2 < report.size() ? kReportLimit / 2 : report.size());
+            std::string().swap(report);
+            const std::string body = "syntax=text&expiry_days=90&content=" + url_encode(small);
+            out.bytes = small.size();
+            std::string().swap(small);
+            status = 0;
+            answer.clear();
+            if (HttpPost(kDpasteUrl, "application/x-www-form-urlencoded", body, status, answer, why)) {
+                bool partial = false;
+                out.sent = paste_link(status, answer, out.link, partial, why, "dpaste.com");
+            }
+        } catch (const std::bad_alloc&) {
+            why = "not enough memory to send it";
+        }
+        if (!out.sent) out.error += "; dpaste.com: " + why;
     }
     if (out.sent) {
         logf("Problem report: sent, %s (%u bytes%s)\n", out.link.c_str(), static_cast<unsigned>(out.bytes),

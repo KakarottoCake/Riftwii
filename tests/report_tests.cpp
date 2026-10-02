@@ -120,6 +120,11 @@ int main() {
         EXPECT_FALSE(paste_link(500, "oops", link, partial, error));
         EXPECT_EQ(error, "paste.rs answered 500: oops");
         EXPECT_FALSE(paste_link(201, "<html>x y</html>", link, partial, error));
+        // dpaste.com, the fallback: the same shape of answer.
+        EXPECT_TRUE(paste_link(201, "https://dpaste.com/CSX5L2N8W\n", link, partial, error, "dpaste.com"));
+        EXPECT_EQ(link, "https://dpaste.com/CSX5L2N8W");
+        EXPECT_FALSE(paste_link(503, "down", link, partial, error, "dpaste.com"));
+        EXPECT_EQ(error, "dpaste.com answered 503: down");
     }
 
     // The text as valid UTF-8: good sequences kept, anything else '?', one

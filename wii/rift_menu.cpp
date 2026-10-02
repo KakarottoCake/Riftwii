@@ -1069,7 +1069,7 @@ static void SendReport(const std::string& reason)
 	riftwii::wii::ReportOutcome r;
 	{
 		PopupBox box(tr("Sending a report"),
-			tr("Gathering the logs and sending them to paste.rs. This can take half a minute..."));
+			tr("Gathering the logs and sending them. This can take half a minute..."));
 		ResumeGui();
 		r = riftwii::wii::SendProblemReport(reason);
 		HaltGui();
@@ -1099,7 +1099,7 @@ static void SendReport(const std::string& reason)
 
 // What a report holds and where it goes, said before anything is sent.
 static const char* const kReportWhat =
-	"It holds RiftWii's logs and settings, the game's choices and packs, and which console, IOS and controllers this is. It goes to paste.rs, where anyone with its link can read it.";
+	"It holds RiftWii's logs and settings, the game's choices and packs, and which console, IOS and controllers this is. It goes to paste.rs, or dpaste.com when paste.rs can't be reached, where anyone with its link can read it.";
 
 // After a crash or a failed launch, once: send a report?
 static void OfferReport()
@@ -3102,7 +3102,7 @@ static int MenuSettings(FrontendState& state)
 			case kRescan: return tr("Reads the SD card and the USB drive again.");
 			case kChannel: return ChannelNote(settings);
 			case kUpdate: return tr("This is RiftWii {1}. Looks on GitHub for a newer release.", {RIFTWII_VERSION});
-			case kReport: return tr("Something went wrong? Sends what it takes to find out to paste.rs, and shows a link to pass on.");
+			case kReport: return tr("Something went wrong? Sends what it takes to find out to a paste site, and shows a link to pass on.");
 			case kWiiChannel:
 				if (!channelCan) return std::string(tr(channelWhy.c_str())) + ".";
 				return tr("A Wii Menu channel that starts RiftWii from the SD card. It holds no copy of RiftWii, so updates keep working. Opens the channel installer, to add, update or remove it.");

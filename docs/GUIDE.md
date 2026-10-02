@@ -575,13 +575,14 @@ launch's `boot.log`, `crash.txt` and `gamecrash.txt`, `settings.txt`, the last g
 choices and the XMLs of the packs it had on, the list of files in
 `sd:/riivolution` and `sd:/riftwii`, and which console, System Menu,
 IOS and cIOS slots, and controllers this is. It is sent to
-[paste.rs](https://paste.rs), and RiftWii shows its link and a QR code
+[paste.rs](https://paste.rs), or to [dpaste.com](https://dpaste.com)
+when paste.rs can't be reached, and RiftWii shows its link and a QR code
 of it: send that link (on the Discord, or in a GitHub issue) with what
 you did and what the screen showed. Anyone who has the link can read
 the report, and nothing is sent unless you choose Send.
 
 The report is also saved as `sd:/riftwii/report.txt`. If it could not be
-sent (no internet, or paste.rs was busy), send that file instead.
+sent (no internet, or neither site answered), send that file instead.
 
 ## For developers
 

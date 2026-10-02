@@ -237,6 +237,12 @@ msgstr "Antitremulação"
 msgid "Black borders"
 msgstr "Bordas pretas"
 
+msgid "Region video fix"
+msgstr "Correção de vídeo por região"
+
+msgid "For a US or Japanese game that shows no picture on a console from another region: the game is told the video hardware matches its region."
+msgstr "Para um jogo dos EUA ou do Japão que não mostra imagem num console de outra região: o jogo é informado de que o hardware de vídeo corresponde à sua região."
+
 msgid "Framebuffer"
 msgstr "Framebuffer"
 
@@ -990,8 +996,8 @@ msgstr "Abre o menu HOME, como o botão HOME: Homebrew Channel, Menu Wii, Priilo
 msgid "Sending a report"
 msgstr "Enviando um relatório"
 
-msgid "Gathering the logs and sending them to paste.rs. This can take half a minute..."
-msgstr "Juntando os registros e enviando para o paste.rs. Pode levar meio minuto..."
+msgid "Gathering the logs and sending them. This can take half a minute..."
+msgstr "Juntando os registros e enviando. Pode levar meio minuto..."
 
 msgid "Report not sent"
 msgstr "Relatório não enviado"
@@ -1011,8 +1017,8 @@ msgstr "O relatório era grande demais, então só o começo foi mantido."
 msgid "Report sent"
 msgstr "Relatório enviado"
 
-msgid "It holds RiftWii's logs and settings, the game's choices and packs, and which console, IOS and controllers this is. It goes to paste.rs, where anyone with its link can read it."
-msgstr "Ele traz os registros e as configurações do RiftWii, as escolhas e os packs do jogo, e qual console, IOS e controles são. Vai para o paste.rs, onde qualquer pessoa com o link pode lê-lo."
+msgid "It holds RiftWii's logs and settings, the game's choices and packs, and which console, IOS and controllers this is. It goes to paste.rs, or dpaste.com when paste.rs can't be reached, where anyone with its link can read it."
+msgstr "Ele traz os registros e as configurações do RiftWii, as escolhas e os packs do jogo, e qual console, IOS e controles são. Vai para o paste.rs, ou para o dpaste.com se o paste.rs não puder ser alcançado, onde qualquer pessoa com o link pode lê-lo."
 
 msgid "RiftWii crashed last time"
 msgstr "O RiftWii travou da última vez"
@@ -1035,11 +1041,5 @@ msgstr "Enviar um relatório de problema"
 msgid "Send a problem report?"
 msgstr "Enviar um relatório de problema?"
 
-msgid "Something went wrong? Sends what it takes to find out to paste.rs, and shows a link to pass on."
-msgstr "Algo deu errado? Envia ao paste.rs o necessário para descobrir e mostra um link para compartilhar."
-
-msgid "Region video fix"
-msgstr "Correção de vídeo por região"
-
-msgid "For a US or Japanese game that shows no picture on a console from another region: the game is told the video hardware matches its region."
-msgstr "Para um jogo dos EUA ou do Japão que não mostra imagem num console de outra região: o jogo é informado de que o hardware de vídeo corresponde à sua região."
+msgid "Something went wrong? Sends what it takes to find out to a paste site, and shows a link to pass on."
+msgstr "Algo deu errado? Envia a um site de textos o necessário para descobrir e mostra um link para compartilhar."

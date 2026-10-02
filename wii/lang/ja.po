@@ -237,6 +237,12 @@ msgstr "ちらつき防止"
 msgid "Black borders"
 msgstr "黒い枠"
 
+msgid "Region video fix"
+msgstr "地域ビデオ修正"
+
+msgid "For a US or Japanese game that shows no picture on a console from another region: the game is told the video hardware matches its region."
+msgstr "他の地域の本体で映像が出ない北米版・日本版のゲーム向け：ビデオ機器がゲームの地域と同じだとゲームに伝えます。"
+
 msgid "Framebuffer"
 msgstr "フレームバッファ"
 
@@ -990,8 +996,8 @@ msgstr "HOMEボタンと同じく、HOMEメニューを開きます: Homebrew Ch
 msgid "Sending a report"
 msgstr "レポートを送信中"
 
-msgid "Gathering the logs and sending them to paste.rs. This can take half a minute..."
-msgstr "ログを集めてpaste.rsに送信しています。30秒ほどかかることがあります..."
+msgid "Gathering the logs and sending them. This can take half a minute..."
+msgstr "ログを集めて送信しています。30秒ほどかかることがあります..."
 
 msgid "Report not sent"
 msgstr "レポートを送信できませんでした"
@@ -1011,8 +1017,8 @@ msgstr "レポートが大きすぎたため、最初の部分だけが保存さ
 msgid "Report sent"
 msgstr "レポートを送信しました"
 
-msgid "It holds RiftWii's logs and settings, the game's choices and packs, and which console, IOS and controllers this is. It goes to paste.rs, where anyone with its link can read it."
-msgstr "RiftWiiのログと設定、ゲームの選択とパック、本体・IOS・コントローラーの情報が入っています。paste.rsに送られ、リンクを知っている人なら誰でも読めます。"
+msgid "It holds RiftWii's logs and settings, the game's choices and packs, and which console, IOS and controllers this is. It goes to paste.rs, or dpaste.com when paste.rs can't be reached, where anyone with its link can read it."
+msgstr "RiftWiiのログと設定、ゲームの選択とパック、本体・IOS・コントローラーの情報が入っています。paste.rsに送られ（paste.rsにつながらないときはdpaste.com）、リンクを知っている人なら誰でも読めます。"
 
 msgid "RiftWii crashed last time"
 msgstr "前回RiftWiiがクラッシュしました"
@@ -1035,11 +1041,5 @@ msgstr "問題のレポートを送信"
 msgid "Send a problem report?"
 msgstr "問題のレポートを送信しますか？"
 
-msgid "Something went wrong? Sends what it takes to find out to paste.rs, and shows a link to pass on."
-msgstr "問題が起きましたか？原因を調べるのに必要な情報をpaste.rsに送り、共有用のリンクを表示します。"
-
-msgid "Region video fix"
-msgstr "地域ビデオ修正"
-
-msgid "For a US or Japanese game that shows no picture on a console from another region: the game is told the video hardware matches its region."
-msgstr "他の地域の本体で映像が出ない北米版・日本版のゲーム向け：ビデオ機器がゲームの地域と同じだとゲームに伝えます。"
+msgid "Something went wrong? Sends what it takes to find out to a paste site, and shows a link to pass on."
+msgstr "問題が起きましたか？原因を調べるのに必要な情報を共有サイトに送り、共有用のリンクを表示します。"

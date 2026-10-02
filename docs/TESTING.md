@@ -25,7 +25,8 @@ Problem reports need no computer and you don't need to take out your
 SD card:
 
 1. In RiftWii, go to **Settings > Send a problem report**.
-2. Scan the QR code with your phone, or copy the paste.rs link it shows.
+2. Scan the QR code with your phone, or copy the link it shows
+   (paste.rs, or dpaste.com when paste.rs can't be reached).
 3. Post the link with a line on what you did and what happened.
 
 After a failed launch or a crash, RiftWii offers the report by itself
