@@ -447,7 +447,11 @@ bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error, 
                 s.block_ios_reload = true;
                 const bool probed = s.ensure_probe(error);
                 std::string ignored;
-                di::close_partition(ignored);
+                // closepart: the partition stays open, so ES still names the
+                // disc's title when the app reloads IOS (d2x keeps its
+                // virtual disc across a reload only for a disc game).
+                if (debug_off("closepart")) logf("Homebrew app: debug_off: the disc's partition stays open\n");
+                else di::close_partition(ignored);
                 if (!probed) {
                     ClearIosReloadBlock(error);
                     return false;

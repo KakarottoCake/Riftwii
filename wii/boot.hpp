@@ -211,6 +211,8 @@ bool open_nand_permissions(const char* who);
 // caller in the log. False without AHBPROT access or when ES's check was
 // not found.
 bool keep_hardware_access(const char* who);
+// Test switches from settings.txt (debug_off = a, b, ...; docs/DEVELOPING.md).
+bool debug_off(const char* what);
 
 // Reloads IOS, runs the apploader and jumps to the game. Only returns on
 // failure. The caller must have shut down its own GUI, audio and pads;

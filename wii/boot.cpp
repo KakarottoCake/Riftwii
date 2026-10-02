@@ -77,22 +77,6 @@ constexpr std::uint32_t kMem2End = 0x94000000;
 constexpr std::uint32_t kMaxFstBytes = 8 * 1024 * 1024;
 constexpr std::uint64_t kWiiEpochOffset = 946684800;  // 2000-01-01 in Unix seconds
 
-// Test switches for a game that only fails on a console: settings.txt
-// "debug_off = bca, fault, dolswitch, 480p, returnto, consoletype, prerun"
-// turns those extras off one by one (PMEX Remix's SD files fail under
-// RiftWii on a Wii but not under USB Loader GX with the same cIOS).
-bool debug_off(const char* what) {
-    const auto it = Settings().other.find("debug_off");
-    if (it == Settings().other.end()) return false;
-    const std::string& list = it->second;
-    const std::size_t n = std::strlen(what);
-    for (std::size_t at = 0; (at = list.find(what, at)) != std::string::npos; at += n) {
-        const bool start = at == 0 || list[at - 1] == ',' || list[at - 1] == ' ';
-        const bool end = at + n == list.size() || list[at + n] == ',' || list[at + n] == ' ';
-        if (start && end) return true;
-    }
-    return false;
-}
 
 std::uint8_t g_tmd[0x4A00] ATTRIBUTE_ALIGN(32);
 
@@ -1870,6 +1854,24 @@ bool open_nand_permissions(const char* who) {
 // every title. This is the byte libruntimeiospatch's IosPatch_AHBPROT
 // writes (USB Loader GX, WiiFlow); the code here is RiftWii's own. Same
 // MEM2 handling as open_nand_permissions above.
+// Test switches for a game that only fails on a console: settings.txt
+// "debug_off = bca, fault, dolswitch, 480p, returnto, consoletype, prerun,
+// closepart"
+// turns those extras off one by one (PMEX Remix's SD files fail under
+// RiftWii on a Wii but not under USB Loader GX with the same cIOS).
+bool debug_off(const char* what) {
+    const auto it = Settings().other.find("debug_off");
+    if (it == Settings().other.end()) return false;
+    const std::string& list = it->second;
+    const std::size_t n = std::strlen(what);
+    for (std::size_t at = 0; (at = list.find(what, at)) != std::string::npos; at += n) {
+        const bool start = at == 0 || list[at - 1] == ',' || list[at - 1] == ' ';
+        const bool end = at + n == list.size() || list[at + n] == ',' || list[at + n] == ' ';
+        if (start && end) return true;
+    }
+    return false;
+}
+
 bool keep_hardware_access(const char* who) {
     if (read32(0x0D800064) != 0xFFFFFFFF) {
         logf("%s: no AHBPROT access, IOS%d's ES left as it is\n", who, IOS_GetVersion());
