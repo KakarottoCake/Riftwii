@@ -41,6 +41,21 @@ ordinary game launches. `boot.log` shows `IOS<n>'s ES keeps hardware
 access on for the next IOS` for each, and `Homebrew app: IOS<n>, hardware
 access on` when it worked. Untested on a Wii.
 
+## Status after 2.7.0 RC9.2 (console test, USB image)
+
+On a Wii (USA, d2x in 249, game on a USB drive) RC9.2 stopped right after
+`IOS58's ES keeps hardware access on for the next IOS`: the reload into
+the cIOS never finished. `keep_hardware_access` wrote its byte through
+MEM2's uncached mirror; since 4b26958 it changes the byte inside its
+aligned 32-bit word. With that build the whole RiftWii side worked
+(d2x serves the image, hardware access on through both reloads, the app
+starts) and the CTGP channel opened, after a green, black, green start,
+but asked for the Mario Kart Wii disc. So CTGP's channel does not see
+d2x's virtual disc. Which of its disc steps fails (its own IOS reload,
+the drive's cover status, a drive reset) is not known yet; the console
+gives no log past the handover. Starting CTGP from the Homebrew Channel
+stays the supported way.
+
 ## CTGP's own IOS exploit
 
 At startup the CTGP channel patches the running IOS's ES itself when it has
