@@ -213,6 +213,15 @@ void Drain() {
                 logf("GameCube adapter: port %u %s\n", static_cast<unsigned>(e.a) + 1,
                      (e.b & 0x30) != 0 ? "plugged in" : "empty");
                 break;
+            case GCAD_EV_FIRST_REPORT: {
+                // Each port's status byte: 0x10 a wired controller, 0x20 a
+                // wireless one, 0x04 the power (grey) cable plugged in.
+                const std::uint32_t s = static_cast<std::uint32_t>(e.b);
+                logf("GameCube adapter: first report, port status %02x %02x %02x %02x\n",
+                     static_cast<unsigned>(s >> 24), static_cast<unsigned>((s >> 16) & 0xFF),
+                     static_cast<unsigned>((s >> 8) & 0xFF), static_cast<unsigned>(s & 0xFF));
+                break;
+            }
             case GCAD_EV_BAD_REPORT:
                 if (ErrorLine()) {
                     logf("GameCube adapter: odd report (first byte 0x%02x, result %d)\n", static_cast<unsigned>(e.a),
@@ -442,10 +451,18 @@ int32_t gcad_env_ioctlv(gcad* g, uint32_t tag, uint32_t cmd, void* msg, uint32_t
     if (riftwii::wii::g_ogc) {
         // The v5 interrupt transfer, as libogc sends it on its handle: the
         // device and the direction from the driver's message.
-        if (cmd != GCAD_V5_INTERRUPT) return -4;
         const uint8_t* m = static_cast<const uint8_t*>(msg);
         const s32 dev = static_cast<s32>(gcad_get32(m));
         void* t = reinterpret_cast<void*>(static_cast<std::uintptr_t>(tag));
+        if (cmd == GCAD_V5_CONTROL) {
+            // HID SET_PROTOCOL, which some third-party adapters need before
+            // they report their controllers: the request from the driver's
+            // message (bmRequestType, bRequest, then wValue and wIndex big-endian).
+            return USB_WriteCtrlMsgAsync(dev, m[8], m[9], static_cast<u16>((m[10] << 8) | m[11]),
+                                         static_cast<u16>((m[12] << 8) | m[13]), static_cast<u16>(data_len), data,
+                                         riftwii::wii::OnReply, t);
+        }
+        if (cmd != GCAD_V5_INTERRUPT) return -4;
         return gcad_get32(m + 8) != 0
                    ? USB_WriteIntrMsgAsync(dev, 0x02, static_cast<u16>(data_len), data, riftwii::wii::OnReply, t)
                    : USB_ReadIntrMsgAsync(dev, 0x81, static_cast<u16>(data_len), data, riftwii::wii::OnReply, t);

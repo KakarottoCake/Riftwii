@@ -96,6 +96,7 @@ extern "C" {
 #define GCAD_EV_LINKED 6u    /* a = device id: reports flowing */
 #define GCAD_EV_PORT 7u      /* a = port, b = status byte (connected or not) */
 #define GCAD_EV_BAD_REPORT 8u /* a = first byte, b = result */
+#define GCAD_EV_FIRST_REPORT 9u /* a = device id, b = the four ports' status bytes, port 1 highest */
 
 /* Steps inside the slots, for the log. */
 #define GCAD_STEP_CHANGE 0u

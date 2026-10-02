@@ -174,7 +174,8 @@ std::vector<std::string> enabled_pack_files(const std::string& choices) {
     return out;
 }
 
-bool paste_link(int status, const std::string& answer, std::string& link, bool& partial, std::string& error) {
+bool paste_link(int status, const std::string& answer, std::string& link, bool& partial, std::string& error,
+                const std::string& site) {
     partial = status == 206;
     const std::string text = trim(answer);
     if ((status == 201 || status == 206) && text.compare(0, 8, "https://") == 0 &&
@@ -183,9 +184,9 @@ bool paste_link(int status, const std::string& answer, std::string& link, bool& 
         return true;
     }
     if (status == 429) {
-        error = "paste.rs is busy (too many uploads); try again in a few minutes";
+        error = site + " is busy (too many uploads); try again in a few minutes";
     } else {
-        error = "paste.rs answered " + std::to_string(status);
+        error = site + " answered " + std::to_string(status);
         if (!text.empty()) error += ": " + text.substr(0, 120);
     }
     return false;

@@ -237,6 +237,12 @@ msgstr "Antisfarfallio"
 msgid "Black borders"
 msgstr "Bordi neri"
 
+msgid "Region video fix"
+msgstr "Correzione video per regione"
+
+msgid "For a US or Japanese game that shows no picture on a console from another region: the game is told the video hardware matches its region."
+msgstr "Per un gioco americano o giapponese che non mostra immagini su una console di un'altra regione: al gioco viene detto che l'hardware video corrisponde alla sua regione."
+
 msgid "Framebuffer"
 msgstr "Framebuffer"
 
@@ -990,8 +996,8 @@ msgstr "Apre il menu HOME, come il tasto HOME: Homebrew Channel, Menu Wii, Priil
 msgid "Sending a report"
 msgstr "Invio della segnalazione"
 
-msgid "Gathering the logs and sending them to paste.rs. This can take half a minute..."
-msgstr "Raccolta dei log e invio a paste.rs. Può richiedere mezzo minuto..."
+msgid "Gathering the logs and sending them. This can take half a minute..."
+msgstr "Raccolta dei log e invio. Può richiedere mezzo minuto..."
 
 msgid "Report not sent"
 msgstr "Segnalazione non inviata"
@@ -1011,8 +1017,8 @@ msgstr "La segnalazione era troppo grande, quindi ne è stato tenuto solo l'iniz
 msgid "Report sent"
 msgstr "Segnalazione inviata"
 
-msgid "It holds RiftWii's logs and settings, the game's choices and packs, and which console, IOS and controllers this is. It goes to paste.rs, where anyone with its link can read it."
-msgstr "Contiene i log e le impostazioni di RiftWii, le scelte e i pack del gioco, e quali console, IOS e controller sono. Va su paste.rs, dove chiunque abbia il link può leggerla."
+msgid "It holds RiftWii's logs and settings, the game's choices and packs, and which console, IOS and controllers this is. It goes to paste.rs, or dpaste.com when paste.rs can't be reached, where anyone with its link can read it."
+msgstr "Contiene i log e le impostazioni di RiftWii, le scelte e i pack del gioco, e quali console, IOS e controller sono. Va su paste.rs, o su dpaste.com se paste.rs non è raggiungibile, dove chiunque abbia il link può leggerla."
 
 msgid "RiftWii crashed last time"
 msgstr "L'ultima volta RiftWii si è bloccato"
@@ -1035,5 +1041,29 @@ msgstr "Invia una segnalazione di problema"
 msgid "Send a problem report?"
 msgstr "Inviare una segnalazione di problema?"
 
-msgid "Something went wrong? Sends what it takes to find out to paste.rs, and shows a link to pass on."
-msgstr "Qualcosa non va? Invia a paste.rs quello che serve per capirlo e mostra un link da condividere."
+msgid "Something went wrong? Sends what it takes to find out to a paste site, and shows a link to pass on."
+msgstr "Qualcosa non va? Invia a un sito di paste quello che serve per capirlo e mostra un link da condividere."
+
+msgid "WARNING: this can freeze your Wii U"
+msgstr "ATTENZIONE: può bloccare la tua Wii U"
+
+msgid "On a Wii U, the GameCube adapter in games can freeze the console at 97% while a game from the SD card or a USB drive starts. It works some times and freezes others, and RiftWii cannot tell beforehand. If it freezes, hold the power button to turn the console off. Automatic is safe: it leaves the adapter out of those games."
+msgstr "Su una Wii U, l'adattatore GameCube nei giochi può bloccare la console al 97% mentre parte un gioco dalla scheda SD o da un'unità USB. A volte funziona e altre si blocca, e RiftWii non può saperlo prima. Se si blocca, tieni premuto il tasto di accensione per spegnere la console. Automatico è sicuro: lascia l'adattatore fuori da quei giochi."
+
+msgid "Turn it on anyway"
+msgstr "Attivalo comunque"
+
+msgid "Some game launches WILL freeze and need the power button. Only turn this on to test the adapter, and send a problem report when it freezes. You can set it back to Automatic here at any time."
+msgstr "Alcuni avvii dei giochi SI bloccheranno e richiederanno il tasto di accensione. Attivalo solo per provare l'adattatore e invia una segnalazione di problema quando si blocca. Puoi tornare ad Automatico qui in qualsiasi momento."
+
+msgid "Yes, turn it on"
+msgstr "Sì, attivalo"
+
+msgid "Keep it as it is"
+msgstr "Lascialo com'è"
+
+msgid "WARNING: on this Wii U, games from the SD card or a USB drive can freeze at 97% with this on. Use Automatic unless you are testing the adapter."
+msgstr "ATTENZIONE: su questa Wii U, i giochi dalla scheda SD o da un'unità USB possono bloccarsi al 97% con questo attivo. Usa Automatico a meno che tu non stia provando l'adattatore."
+
+msgid "Left as it was."
+msgstr "Lasciato com'era."

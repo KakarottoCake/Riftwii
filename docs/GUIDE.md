@@ -111,6 +111,9 @@ these rows:
 - **Video mode** makes the game use another TV signal: *NTSC (480i)*,
   *PAL 60 Hz*, *PAL 50 Hz*, *480p* (needs a component cable) or *The
   console's* setting. *Game's own* leaves it to the game.
+- **Region video fix** (off unless you turn it on) is for a US or
+  Japanese game that shows no picture on a console from another region:
+  the game is told the video hardware matches its region.
 - **Game language** tells the game the console is set to another
   language. Pick one the game has: a game missing it may stop (Super
   Mario Galaxy 2 from the US has no German, and freezes).
@@ -390,6 +393,16 @@ ignore it, and so do mods that bring their own controller code (mkwcat's
 NSMBW project) or read the controller hardware directly (Gecko codes
 that add GameCube controls to NSMBW).
 
+> **Warning for Wii U owners: On can freeze the console.** With **On**,
+> a game from the SD card or a USB drive sometimes freezes at 97% while
+> it starts: the d2x cIOS never answers RiftWii's request for the
+> adapter, and the whole cIOS stops with it. The same launch can work
+> one time and freeze the next, and RiftWii cannot tell beforehand. Hold
+> the power button to turn the console off when it happens. RiftWii asks
+> twice before it turns **On** on a Wii U. Leave it on **Automatic**
+> unless you are testing the adapter, and send a problem report when it
+> freezes.
+
 ### For pack authors
 
 RiftWii reads the whole documented Riivolution patch format
@@ -483,6 +496,12 @@ launch:
   (GameCube controllers), **Excite Truck** and Kirby from the SD card.
 - Every game: the older error #002 check, and the wrong 480p setting some
   games send the video encoder.
+- Every game from the SD card or a USB drive: when the game reloads IOS
+  itself, it gets the same d2x cIOS again, so the game image stays
+  (boot.log: "d2x keeps IOS... across the program's own IOS reloads").
+- Cheats in games that start another executable, such as Metroid Prime
+  Trilogy's three games: the new one is hooked too, so the cheats keep
+  working after the switch.
 
 Boot.log lists them under "Game fixes".
 
@@ -570,13 +589,14 @@ launch's `boot.log`, `crash.txt` and `gamecrash.txt`, `settings.txt`, the last g
 choices and the XMLs of the packs it had on, the list of files in
 `sd:/riivolution` and `sd:/riftwii`, and which console, System Menu,
 IOS and cIOS slots, and controllers this is. It is sent to
-[paste.rs](https://paste.rs), and RiftWii shows its link and a QR code
+[paste.rs](https://paste.rs), or to [dpaste.com](https://dpaste.com)
+when paste.rs can't be reached, and RiftWii shows its link and a QR code
 of it: send that link (on the Discord, or in a GitHub issue) with what
 you did and what the screen showed. Anyone who has the link can read
 the report, and nothing is sent unless you choose Send.
 
 The report is also saved as `sd:/riftwii/report.txt`. If it could not be
-sent (no internet, or paste.rs was busy), send that file instead.
+sent (no internet, or neither site answered), send that file instead.
 
 ## For developers
 

@@ -20,6 +20,8 @@
 //  - anti_002_fix, the older error #002 check in a game's code;
 //  - patch_sdcard, for games read from an SD card;
 //  - PatchFix480p, a game's wrong 480p setting for the video encoder;
+//  - vidolpatcher (WiiPower's "VIDTV patch"), RiftWii's per-game Region
+//    video fix;
 //  - exclude_game: the games whose code its other extras stay out of.
 // `loaded` is what the apploader filled; nothing outside it is written.
 namespace riftwii {
@@ -55,6 +57,15 @@ unsigned gx_sd_card_patches(const std::string& game_id, const std::vector<CodeSp
 // where 480p needs 3, sent through two instructions placed in the game's
 // spare room (find_safe_space). False when the game has neither.
 bool gx_fix_480p(const std::vector<CodeSpan>& loaded, GxReport& report);
+
+// The Region video fix, after GX's vidolpatcher (its "VIDTV Patch", off
+// unless chosen): where the game's
+// video setup reads the NTSC-J bit of the VI's DTV status register (0x6E,
+// bit 1; "rlwinm r0, r0, 31, 31, 31" after a "beq; blt; b" switch), it
+// gets the value that matches the game's region instead: 0 for a US game
+// (region letter E), 1 for a Japanese one (J). Other regions are left
+// alone, as GX leaves them. Returns how many reads changed.
+unsigned gx_region_video_fix(char region, const std::vector<CodeSpan>& loaded, GxReport& report);
 
 // GameBooter.cpp's cIOS choice for a game whose cIOS is automatic: the d2x
 // slot whose base is the IOS the game asks for, else the next base up,

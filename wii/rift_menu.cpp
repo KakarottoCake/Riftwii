@@ -1069,7 +1069,7 @@ static void SendReport(const std::string& reason)
 	riftwii::wii::ReportOutcome r;
 	{
 		PopupBox box(tr("Sending a report"),
-			tr("Gathering the logs and sending them to paste.rs. This can take half a minute..."));
+			tr("Gathering the logs and sending them. This can take half a minute..."));
 		ResumeGui();
 		r = riftwii::wii::SendProblemReport(reason);
 		HaltGui();
@@ -1099,7 +1099,7 @@ static void SendReport(const std::string& reason)
 
 // What a report holds and where it goes, said before anything is sent.
 static const char* const kReportWhat =
-	"It holds RiftWii's logs and settings, the game's choices and packs, and which console, IOS and controllers this is. It goes to paste.rs, where anyone with its link can read it.";
+	"It holds RiftWii's logs and settings, the game's choices and packs, and which console, IOS and controllers this is. It goes to paste.rs, or dpaste.com when paste.rs can't be reached, where anyone with its link can read it.";
 
 // After a crash or a failed launch, once: send a report?
 static void OfferReport()
@@ -1629,7 +1629,7 @@ static std::string SaveNote(const riftwii::LaunchModel& model)
 }
 
 struct RowRef {
-	enum class What { Mods, Saves, Cheats, Width, Deflicker, Borders, VideoMode, Language, Cios, Server, Favorite, Pack, Option, Note,
+	enum class What { Mods, Saves, Cheats, Width, Deflicker, Borders, VideoMode, RegionVideo, Language, Cios, Server, Favorite, Pack, Option, Note,
 		AddCodes, ForgetCodes, Cover } what = What::Note;
 	std::size_t pkg = 0, opt = 0;
 };
@@ -1811,6 +1811,12 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 	videoMode.value = GameValue(game.video_mode, global.video_mode, VideoModeName);
 	videoMode.on = game.video_mode != "global";
 	add(videoMode, {RowRef::What::VideoMode});
+	FlowRow regionVideo;
+	regionVideo.kind = FlowRow::Kind::Toggle;
+	regionVideo.label = tr("Region video fix");
+	regionVideo.on = game.region_video == "on";
+	regionVideo.value = regionVideo.on ? tr("On") : tr("Off");
+	add(regionVideo, {RowRef::What::RegionVideo});
 	FlowRow language;
 	language.kind = FlowRow::Kind::Option;
 	language.label = tr("Game language");
@@ -2524,6 +2530,8 @@ static int MenuHome(FrontendState& state)
 			}
 			else if (ref.what == RowRef::What::VideoMode)
 				say(tr("The TV signal the game sends. PAL 50 Hz needs a TV that takes it, 480p a component cable."));
+			else if (ref.what == RowRef::What::RegionVideo)
+				say(tr("For a US or Japanese game that shows no picture on a console from another region: the game is told the video hardware matches its region."));
 			else if (ref.what == RowRef::What::Language)
 				say(tr("The language the game is told the console uses. Pick one the game has: some games stop without it."));
 			else if (ref.what == RowRef::What::Favorite)
@@ -2574,6 +2582,9 @@ static int MenuHome(FrontendState& state)
 				changed = true;
 			} else if (ref.what == RowRef::What::VideoMode) {
 				state.model.game.video_mode = StepValue(kVideoModes, state.model.game.video_mode, direction);
+				changed = true;
+			} else if (ref.what == RowRef::What::RegionVideo) {
+				state.model.game.region_video = state.model.game.region_video == "on" ? "off" : "on";
 				changed = true;
 			} else if (ref.what == RowRef::What::Language) {
 				state.model.game.language = StepValue(kGameLanguages, state.model.game.language, direction);
@@ -2732,6 +2743,8 @@ static std::string AdapterNote(const std::string& mode)
 {
 	// Experimental: confirmed in the menu on a Wii U, not yet in games.
 	if (mode == "off") return tr("Experimental. The adapter is left alone.");
+	if (mode == "on" && riftwii::wii::is_wii_u())
+		return tr("WARNING: on this Wii U, games from the SD card or a USB drive can freeze at 97% with this on. Use Automatic unless you are testing the adapter.");
 	if (mode == "on") return tr("Experimental. Always on, even with no adapter plugged in, so it can be plugged in during a game. It needs IOS 58 or a d2x cIOS.");
 	return tr("Experimental. When the adapter is plugged in as a game starts, its controllers fill the ports that have none plugged in, in games that support the GameCube controller. It needs IOS 58 or a d2x cIOS.");
 }
@@ -3091,7 +3104,7 @@ static int MenuSettings(FrontendState& state)
 			case kRescan: return tr("Reads the SD card and the USB drive again.");
 			case kChannel: return ChannelNote(settings);
 			case kUpdate: return tr("This is RiftWii {1}. Looks on GitHub for a newer release.", {RIFTWII_VERSION});
-			case kReport: return tr("Something went wrong? Sends what it takes to find out to paste.rs, and shows a link to pass on.");
+			case kReport: return tr("Something went wrong? Sends what it takes to find out to a paste site, and shows a link to pass on.");
 			case kWiiChannel:
 				if (!channelCan) return std::string(tr(channelWhy.c_str())) + ".";
 				return tr("A Wii Menu channel that starts RiftWii from the SD card. It holds no copy of RiftWii, so updates keep working. Opens the channel installer, to add, update or remove it.");
@@ -3234,12 +3247,28 @@ static int MenuSettings(FrontendState& state)
 					}
 					break;
 				}
-				case kGcAdapter:
-					// Automatic, On, Off, and round again.
-					settings.gc_adapter = settings.gc_adapter == "on" ? "off" : settings.gc_adapter == "off" ? "auto" : "on";
+				case kGcAdapter: {
+					// Right: Automatic, On, Off, and round again; left the other
+					// way (Automatic to Off without passing On).
+					static const char* const kAdapterChoices[] = {"auto", "on", "off"};
+					int at = 0;
+					while (at < 3 && settings.gc_adapter != kAdapterChoices[at]) ++at;
+					const std::string next = kAdapterChoices[((at % 3) + 3 + direction) % 3];
+					// On a Wii U, On can freeze a game's start (d2x's /dev/usb/hid
+					// sometimes never answers and takes the cIOS with it): two
+					// windows before it is set.
+					if (next == "on" && riftwii::wii::is_wii_u() &&
+						(ShowPopup(tr("WARNING: this can freeze your Wii U"), tr("On a Wii U, the GameCube adapter in games can freeze the console at 97% while a game from the SD card or a USB drive starts. It works some times and freezes others, and RiftWii cannot tell beforehand. If it freezes, hold the power button to turn the console off. Automatic is safe: it leaves the adapter out of those games."), tr("Turn it on anyway"), tr("Cancel")) != 0 ||
+						 ShowPopup(tr("Are you sure?"), tr("Some game launches WILL freeze and need the power button. Only turn this on to test the adapter, and send a problem report when it freezes. You can set it back to Automatic here at any time."), tr("Yes, turn it on"), tr("Keep it as it is")) != 0)) {
+						riftwii::wii::logf("GameCube adapter: On refused at the warnings\n");
+						note(tr("Left as it was."));
+						break;
+					}
+					settings.gc_adapter = next;
 					saveAndNote(AdapterNote(settings.gc_adapter));
 					rebuild();
 					break;
+				}
 				case kChannel:
 					// Stable and Beta; the setting stays explicit once changed.
 					settings.update_channel =

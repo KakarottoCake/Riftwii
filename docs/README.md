@@ -1,7 +1,8 @@
 # RiftWii documentation
 
 For players, [GUIDE.md](GUIDE.md) covers installing and using
-RiftWii. These pages are for people working on it.
+RiftWii, and [TESTING.md](TESTING.md) is the test plan for testers.
+The other pages are for people working on it.
 
 ## Current
 

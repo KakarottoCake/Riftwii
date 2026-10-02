@@ -295,6 +295,11 @@ static void pump_rumble(gcad* g) {
 
 static void take_report(gcad* g, uint32_t now) {
     uint32_t i, j;
+    if (g->reports == 0) {
+        uint32_t ports = 0;
+        for (i = 0; i < GCAD_PORTS; ++i) ports = (ports << 8) | g->in_data[1 + i * 9];
+        gcad_env_event(g, GCAD_EV_FIRST_REPORT, (uint32_t)g->dev_id, (int32_t)ports);
+    }
     for (i = 0; i < GCAD_PORTS; ++i) {
         const uint8_t* src = g->in_data + 1 + i * 9;
         const uint8_t was = g->raw[i][0] & 0x30, is = src[0] & 0x30;

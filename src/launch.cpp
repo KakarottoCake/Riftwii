@@ -305,6 +305,7 @@ std::string LaunchModel::save() const {
     if (game.language != "global") text += "*riftwii*\tgamelang\t" + clean(game.language) + "\n";
     if (game.cios != "global") text += "*riftwii*\tcios\t" + clean(game.cios) + "\n";
     if (game.server != "global") text += "*riftwii*\tserver\t" + clean(game.server) + "\n";
+    if (game.region_video == "on") text += "*riftwii*\tregionvideo\ton\n";
     for (const LaunchPackage& p : packages) {
         // Only this game's packs: the file is per game ID, and another
         // game's pack could not be turned on here anyway.
@@ -360,6 +361,8 @@ void LaunchModel::restore(const std::string& text) {
                 game.cios = value;
             } else if (key == "server" && !value.empty()) {
                 game.server = value;
+            } else if (key == "regionvideo") {
+                game.region_video = value == "on" ? "on" : "off";
             }
             continue;
         }

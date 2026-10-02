@@ -237,6 +237,12 @@ msgstr "ちらつき防止"
 msgid "Black borders"
 msgstr "黒い枠"
 
+msgid "Region video fix"
+msgstr "地域ビデオ修正"
+
+msgid "For a US or Japanese game that shows no picture on a console from another region: the game is told the video hardware matches its region."
+msgstr "他の地域の本体で映像が出ない北米版・日本版のゲーム向け：ビデオ機器がゲームの地域と同じだとゲームに伝えます。"
+
 msgid "Framebuffer"
 msgstr "フレームバッファ"
 
@@ -990,8 +996,8 @@ msgstr "HOMEボタンと同じく、HOMEメニューを開きます: Homebrew Ch
 msgid "Sending a report"
 msgstr "レポートを送信中"
 
-msgid "Gathering the logs and sending them to paste.rs. This can take half a minute..."
-msgstr "ログを集めてpaste.rsに送信しています。30秒ほどかかることがあります..."
+msgid "Gathering the logs and sending them. This can take half a minute..."
+msgstr "ログを集めて送信しています。30秒ほどかかることがあります..."
 
 msgid "Report not sent"
 msgstr "レポートを送信できませんでした"
@@ -1011,8 +1017,8 @@ msgstr "レポートが大きすぎたため、最初の部分だけが保存さ
 msgid "Report sent"
 msgstr "レポートを送信しました"
 
-msgid "It holds RiftWii's logs and settings, the game's choices and packs, and which console, IOS and controllers this is. It goes to paste.rs, where anyone with its link can read it."
-msgstr "RiftWiiのログと設定、ゲームの選択とパック、本体・IOS・コントローラーの情報が入っています。paste.rsに送られ、リンクを知っている人なら誰でも読めます。"
+msgid "It holds RiftWii's logs and settings, the game's choices and packs, and which console, IOS and controllers this is. It goes to paste.rs, or dpaste.com when paste.rs can't be reached, where anyone with its link can read it."
+msgstr "RiftWiiのログと設定、ゲームの選択とパック、本体・IOS・コントローラーの情報が入っています。paste.rsに送られ（paste.rsにつながらないときはdpaste.com）、リンクを知っている人なら誰でも読めます。"
 
 msgid "RiftWii crashed last time"
 msgstr "前回RiftWiiがクラッシュしました"
@@ -1035,5 +1041,29 @@ msgstr "問題のレポートを送信"
 msgid "Send a problem report?"
 msgstr "問題のレポートを送信しますか？"
 
-msgid "Something went wrong? Sends what it takes to find out to paste.rs, and shows a link to pass on."
-msgstr "問題が起きましたか？原因を調べるのに必要な情報をpaste.rsに送り、共有用のリンクを表示します。"
+msgid "Something went wrong? Sends what it takes to find out to a paste site, and shows a link to pass on."
+msgstr "問題が起きましたか？原因を調べるのに必要な情報を共有サイトに送り、共有用のリンクを表示します。"
+
+msgid "WARNING: this can freeze your Wii U"
+msgstr "警告：Wii Uがフリーズすることがあります"
+
+msgid "On a Wii U, the GameCube adapter in games can freeze the console at 97% while a game from the SD card or a USB drive starts. It works some times and freezes others, and RiftWii cannot tell beforehand. If it freezes, hold the power button to turn the console off. Automatic is safe: it leaves the adapter out of those games."
+msgstr "Wii Uでは、SDカードやUSBドライブのゲームを起動するとき、ゲーム中のゲームキューブ用アダプターが原因で97%で本体がフリーズすることがあります。動くときもフリーズするときもあり、RiftWiiには事前にわかりません。フリーズしたら電源ボタンを長押しして本体の電源を切ってください。「自動」なら安全です：それらのゲームではアダプターを使いません。"
+
+msgid "Turn it on anyway"
+msgstr "それでもオンにする"
+
+msgid "Some game launches WILL freeze and need the power button. Only turn this on to test the adapter, and send a problem report when it freezes. You can set it back to Automatic here at any time."
+msgstr "一部のゲームの起動は必ずフリーズし、電源ボタンが必要になります。アダプターを試すときだけオンにして、フリーズしたら問題のレポートを送ってください。ここでいつでも「自動」に戻せます。"
+
+msgid "Yes, turn it on"
+msgstr "はい、オンにする"
+
+msgid "Keep it as it is"
+msgstr "このままにする"
+
+msgid "WARNING: on this Wii U, games from the SD card or a USB drive can freeze at 97% with this on. Use Automatic unless you are testing the adapter."
+msgstr "警告：このWii Uでは、これがオンだとSDカードやUSBドライブのゲームが97%でフリーズすることがあります。アダプターを試すとき以外は「自動」にしてください。"
+
+msgid "Left as it was."
+msgstr "変更しませんでした。"

@@ -37,6 +37,8 @@
 #include "menuios.hpp"
 #include "online.hpp"
 #include "progress.hpp"
+#include <ogc/wiilaunch.h>
+
 #include "reportsend.hpp"
 #include "restart.hpp"
 #include "channel.hpp"
@@ -49,9 +51,36 @@ volatile int ExitRequested = 0;
 
 namespace {
 
+// The Homebrew Channel leaves its return stub at 0x80001800 ("STUBHAXX"
+// at 0x80001804), which std::exit goes back through. Started from the
+// RiftWii channel on the Wii Menu there is none, and std::exit would go
+// to the Wii Menu instead.
+bool StartedByHomebrewChannel() {
+    const volatile u32* stub = reinterpret_cast<const volatile u32*>(0x80001804);
+    return stub[0] == 0x53545542 && stub[1] == 0x48415858;
+}
+
+// The Homebrew Channel as a title: LULZ (1.1 and later, Wii and vWii),
+// OHBC (the Open Homebrew Channel), HAXX and JODI (older ones). The first
+// one installed is started; none installed, the caller goes on to exit.
+void StartHomebrewChannelTitle() {
+    static const u64 kTitles[] = {0x000100014C554C5Aull, 0x000100014F484243ull, 0x0001000148415858ull,
+                                  0x00010001AF1BF516ull};
+    fatUnmount("sd:");
+    fatUnmount("usb:");
+    if (WII_Initialize() < 0) return;
+    for (u64 title : kTitles) {
+        u32 views = 0;
+        if (ES_GetNumTicketViews(title, &views) < 0 || views == 0) continue;
+        WII_LaunchTitle(title);  // returns only when it could not
+    }
+}
+
 // Anywhere but the loader that started RiftWii, which std::exit returns to.
 void LeaveTo(int where) {
-    if (where == 4) {
+    if (where == 1 && !StartedByHomebrewChannel()) {
+        StartHomebrewChannelTitle();
+    } else if (where == 4) {
         // Standby or off, as the Wii's own power setting says.
         SYS_ResetSystem(SYS_POWEROFF, 0, 0);
     } else if (where == 5) {

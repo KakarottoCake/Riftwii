@@ -209,6 +209,12 @@ T = {
     "Picture width": ("Ancho de imagen", "画面の幅", "Largura da imagem", "Larghezza immagine"),
     "Deflicker": ("Antiparpadeo", "ちらつき防止", "Antitremulação", "Antisfarfallio"),
     "Black borders": ("Bordes negros", "黒い枠", "Bordas pretas", "Bordi neri"),
+    "Region video fix": ("Corrección de vídeo por región", "地域ビデオ修正", "Correção de vídeo por região", "Correzione video per regione"),
+    "For a US or Japanese game that shows no picture on a console from another region: the game is told the video hardware matches its region.": (
+        "Para un juego de EE. UU. o de Japón que no muestra imagen en una consola de otra región: al juego se le dice que el hardware de vídeo coincide con su región.",
+        "他の地域の本体で映像が出ない北米版・日本版のゲーム向け：ビデオ機器がゲームの地域と同じだとゲームに伝えます。",
+        "Para um jogo dos EUA ou do Japão que não mostra imagem num console de outra região: o jogo é informado de que o hardware de vídeo corresponde à sua região.",
+        "Per un gioco americano o giapponese che non mostra immagini su una console di un'altra regione: al gioco viene detto che l'hardware video corrisponde alla sua regione."),
     "Framebuffer": ("Framebuffer", "フレームバッファ", "Framebuffer", "Framebuffer"),
     "704 pixels": ("704 píxeles", "704ピクセル", "704 pixels", "704 pixel"),
     "720 pixels (full)": ("720 píxeles (completo)", "720ピクセル (全体)", "720 pixels (total)", "720 pixel (pieno)"),
@@ -965,11 +971,11 @@ T = {
         "Apre il menu HOME, come il tasto HOME: Homebrew Channel, Menu Wii, Priiloader o spegnimento."),
     # Problem reports
     "Sending a report": ("Enviando un informe", "レポートを送信中", "Enviando um relatório", "Invio della segnalazione"),
-    "Gathering the logs and sending them to paste.rs. This can take half a minute...": (
-        "Reuniendo los registros y enviándolos a paste.rs. Puede tardar medio minuto...",
-        "ログを集めてpaste.rsに送信しています。30秒ほどかかることがあります...",
-        "Juntando os registros e enviando para o paste.rs. Pode levar meio minuto...",
-        "Raccolta dei log e invio a paste.rs. Può richiedere mezzo minuto..."),
+    "Gathering the logs and sending them. This can take half a minute...": (
+        "Reuniendo los registros y enviándolos. Puede tardar medio minuto...",
+        "ログを集めて送信しています。30秒ほどかかることがあります...",
+        "Juntando os registros e enviando. Pode levar meio minuto...",
+        "Raccolta dei log e invio. Può richiedere mezzo minuto..."),
     "Report not sent": ("Informe no enviado", "レポートを送信できませんでした", "Relatório não enviado", "Segnalazione non inviata"),
     "It could not be sent: {1}. It is saved on the SD card as sd:/riftwii/report.txt: send that file instead.": (
         "No se pudo enviar: {1}. Está guardado en la tarjeta SD como sd:/riftwii/report.txt: envía ese archivo.",
@@ -992,11 +998,11 @@ T = {
         "O relatório era grande demais, então só o começo foi mantido.",
         "La segnalazione era troppo grande, quindi ne è stato tenuto solo l'inizio."),
     "Report sent": ("Informe enviado", "レポートを送信しました", "Relatório enviado", "Segnalazione inviata"),
-    "It holds RiftWii's logs and settings, the game's choices and packs, and which console, IOS and controllers this is. It goes to paste.rs, where anyone with its link can read it.": (
-        "Incluye los registros y ajustes de RiftWii, las opciones y packs del juego, y qué consola, IOS y mandos son. Se envía a paste.rs, donde cualquiera con el enlace puede leerlo.",
-        "RiftWiiのログと設定、ゲームの選択とパック、本体・IOS・コントローラーの情報が入っています。paste.rsに送られ、リンクを知っている人なら誰でも読めます。",
-        "Ele traz os registros e as configurações do RiftWii, as escolhas e os packs do jogo, e qual console, IOS e controles são. Vai para o paste.rs, onde qualquer pessoa com o link pode lê-lo.",
-        "Contiene i log e le impostazioni di RiftWii, le scelte e i pack del gioco, e quali console, IOS e controller sono. Va su paste.rs, dove chiunque abbia il link può leggerla."),
+    "It holds RiftWii's logs and settings, the game's choices and packs, and which console, IOS and controllers this is. It goes to paste.rs, or dpaste.com when paste.rs can't be reached, where anyone with its link can read it.": (
+        "Incluye los registros y ajustes de RiftWii, las opciones y packs del juego, y qué consola, IOS y mandos son. Se envía a paste.rs, o a dpaste.com si no se puede llegar a paste.rs, donde cualquiera con el enlace puede leerlo.",
+        "RiftWiiのログと設定、ゲームの選択とパック、本体・IOS・コントローラーの情報が入っています。paste.rsに送られ（paste.rsにつながらないときはdpaste.com）、リンクを知っている人なら誰でも読めます。",
+        "Ele traz os registros e as configurações do RiftWii, as escolhas e os packs do jogo, e qual console, IOS e controles são. Vai para o paste.rs, ou para o dpaste.com se o paste.rs não puder ser alcançado, onde qualquer pessoa com o link pode lê-lo.",
+        "Contiene i log e le impostazioni di RiftWii, le scelte e i pack del gioco, e quali console, IOS e controller sono. Va su paste.rs, o su dpaste.com se paste.rs non è raggiungibile, dove chiunque abbia il link può leggerla."),
     "RiftWii crashed last time": ("RiftWii se bloqueó la última vez", "前回RiftWiiがクラッシュしました", "O RiftWii travou da última vez", "L'ultima volta RiftWii si è bloccato"),
     "The game crashed last time": ("El juego se bloqueó la última vez", "前回ゲームがクラッシュしました", "O jogo travou da última vez", "L'ultima volta il gioco si è bloccato"),
     "The last launch failed": ("El último inicio falló", "前回の起動に失敗しました", "A última inicialização falhou", "L'ultimo avvio non è riuscito"),
@@ -1008,11 +1014,52 @@ T = {
     "Send": ("Enviar", "送信", "Enviar", "Invia"),
     "Send a problem report": ("Enviar un informe de problema", "問題のレポートを送信", "Enviar um relatório de problema", "Invia una segnalazione di problema"),
     "Send a problem report?": ("¿Enviar un informe de problema?", "問題のレポートを送信しますか？", "Enviar um relatório de problema?", "Inviare una segnalazione di problema?"),
-    "Something went wrong? Sends what it takes to find out to paste.rs, and shows a link to pass on.": (
-        "¿Algo salió mal? Envía a paste.rs lo necesario para averiguarlo y muestra un enlace para compartir.",
-        "問題が起きましたか？原因を調べるのに必要な情報をpaste.rsに送り、共有用のリンクを表示します。",
-        "Algo deu errado? Envia ao paste.rs o necessário para descobrir e mostra um link para compartilhar.",
-        "Qualcosa non va? Invia a paste.rs quello che serve per capirlo e mostra un link da condividere."),
+    "Something went wrong? Sends what it takes to find out to a paste site, and shows a link to pass on.": (
+        "¿Algo salió mal? Envía a un sitio de pegado lo necesario para averiguarlo y muestra un enlace para compartir.",
+        "問題が起きましたか？原因を調べるのに必要な情報を共有サイトに送り、共有用のリンクを表示します。",
+        "Algo deu errado? Envia a um site de textos o necessário para descobrir e mostra um link para compartilhar.",
+        "Qualcosa non va? Invia a un sito di paste quello che serve per capirlo e mostra un link da condividere."),
+    # GameCube adapter On, on a Wii U
+    "WARNING: this can freeze your Wii U": (
+        "AVISO: esto puede congelar tu Wii U",
+        "警告：Wii Uがフリーズすることがあります",
+        "AVISO: isto pode travar o seu Wii U",
+        "ATTENZIONE: può bloccare la tua Wii U"),
+    "On a Wii U, the GameCube adapter in games can freeze the console at 97% while a game from the SD card or a USB drive starts. It works some times and freezes others, and RiftWii cannot tell beforehand. If it freezes, hold the power button to turn the console off. Automatic is safe: it leaves the adapter out of those games.": (
+        "En una Wii U, el adaptador de GameCube en los juegos puede congelar la consola al 97% mientras arranca un juego de la tarjeta SD o de una unidad USB. A veces funciona y otras se congela, y RiftWii no puede saberlo antes. Si se congela, mantén pulsado el botón de encendido para apagar la consola. Automático es seguro: deja el adaptador fuera de esos juegos.",
+        "Wii Uでは、SDカードやUSBドライブのゲームを起動するとき、ゲーム中のゲームキューブ用アダプターが原因で97%で本体がフリーズすることがあります。動くときもフリーズするときもあり、RiftWiiには事前にわかりません。フリーズしたら電源ボタンを長押しして本体の電源を切ってください。「自動」なら安全です：それらのゲームではアダプターを使いません。",
+        "Num Wii U, o adaptador de GameCube nos jogos pode travar o console em 97% enquanto um jogo do cartão SD ou de uma unidade USB inicia. Às vezes funciona e às vezes trava, e o RiftWii não consegue saber antes. Se travar, segure o botão de energia para desligar o console. Automático é seguro: deixa o adaptador fora desses jogos.",
+        "Su una Wii U, l'adattatore GameCube nei giochi può bloccare la console al 97% mentre parte un gioco dalla scheda SD o da un'unità USB. A volte funziona e altre si blocca, e RiftWii non può saperlo prima. Se si blocca, tieni premuto il tasto di accensione per spegnere la console. Automatico è sicuro: lascia l'adattatore fuori da quei giochi."),
+    "Turn it on anyway": (
+        "Activarlo de todos modos",
+        "それでもオンにする",
+        "Ativar mesmo assim",
+        "Attivalo comunque"),
+    "Some game launches WILL freeze and need the power button. Only turn this on to test the adapter, and send a problem report when it freezes. You can set it back to Automatic here at any time.": (
+        "Algunos arranques de juegos SE congelarán y necesitarán el botón de encendido. Actívalo solo para probar el adaptador, y envía un informe de problema cuando se congele. Puedes volver a Automático aquí cuando quieras.",
+        "一部のゲームの起動は必ずフリーズし、電源ボタンが必要になります。アダプターを試すときだけオンにして、フリーズしたら問題のレポートを送ってください。ここでいつでも「自動」に戻せます。",
+        "Algumas inicializações de jogos VÃO travar e precisar do botão de energia. Só ative para testar o adaptador, e envie um relatório de problema quando travar. Você pode voltar para Automático aqui quando quiser.",
+        "Alcuni avvii dei giochi SI bloccheranno e richiederanno il tasto di accensione. Attivalo solo per provare l'adattatore e invia una segnalazione di problema quando si blocca. Puoi tornare ad Automatico qui in qualsiasi momento."),
+    "Yes, turn it on": (
+        "Sí, activarlo",
+        "はい、オンにする",
+        "Sim, ativar",
+        "Sì, attivalo"),
+    "Keep it as it is": (
+        "Dejarlo como está",
+        "このままにする",
+        "Deixar como está",
+        "Lascialo com'è"),
+    "WARNING: on this Wii U, games from the SD card or a USB drive can freeze at 97% with this on. Use Automatic unless you are testing the adapter.": (
+        "AVISO: en esta Wii U, los juegos de la tarjeta SD o de una unidad USB pueden congelarse al 97% con esto activado. Usa Automático salvo que estés probando el adaptador.",
+        "警告：このWii Uでは、これがオンだとSDカードやUSBドライブのゲームが97%でフリーズすることがあります。アダプターを試すとき以外は「自動」にしてください。",
+        "AVISO: neste Wii U, jogos do cartão SD ou de uma unidade USB podem travar em 97% com isto ativado. Use Automático a menos que esteja testando o adaptador.",
+        "ATTENZIONE: su questa Wii U, i giochi dalla scheda SD o da un'unità USB possono bloccarsi al 97% con questo attivo. Usa Automatico a meno che tu non stia provando l'adattatore."),
+    "Left as it was.": (
+        "Se dejó como estaba.",
+        "変更しませんでした。",
+        "Deixado como estava.",
+        "Lasciato com'era."),
 }
 
 

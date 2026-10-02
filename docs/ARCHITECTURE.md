@@ -36,7 +36,7 @@ below names the files that own it.
 | Memory limits: the heap never enters memory a launch overwrites | `wii/memlimits.cpp` |
 | Launches another loader asks for (`--launch` arguments, no menu; `docs/HEADLESS.md`) | `wii/headless.cpp`, `src/launchargs.cpp` |
 | Screenshots: the menu's, and importing the ones games left on the NAND as PNGs | `wii/screenshot.cpp`, `src/shotfile.cpp`, `src/pngencode.cpp` (a PNG writer with its own deflate) |
-| Problem reports: gathered, sent to paste.rs, shown as a link and a QR code; a game's crash record imported at start | `wii/reportsend.cpp`, `src/problemreport.cpp`, `src/qrcode.cpp`, `src/gamefault.cpp`, `src/http.cpp` (the POST) |
+| Problem reports: gathered, sent to paste.rs (dpaste.com when that fails), shown as a link and a QR code; a game's crash record imported at start | `wii/reportsend.cpp`, `src/problemreport.cpp`, `src/qrcode.cpp`, `src/gamefault.cpp`, `src/http.cpp` (the POST) |
 
 Everything the menu decides is plain data (`LaunchModel`, the per-game
 choices file) and host-tested; the screens only draw and read the pads.

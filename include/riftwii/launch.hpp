@@ -96,6 +96,7 @@ struct GameSettings {
     std::string language = "global";    // or a riftwii/gamelang.hpp name
     std::string cios = "global";        // or "auto", "248" ... "252"
     std::string server = "global";      // or a riftwii/wfcpatch.hpp name
+    std::string region_video = "off";   // "on": the Region video fix (gx_region_video_fix)
 };
 
 class LaunchModel {

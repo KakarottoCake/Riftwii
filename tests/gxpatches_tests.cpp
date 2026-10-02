@@ -193,6 +193,30 @@ void test_480p() {
     EXPECT_FALSE(gx_fix_480p(none.spans(), r));
 }
 
+void test_region_video_fix() {
+    Memory m(0x80004000, 0x1000);
+    const std::uint32_t at = 0x80004100;
+    m.set(at, 0x4182000C);
+    m.set(at + 4, 0x4180001C);
+    m.set(at + 8, 0x48000018);
+    m.set(at + 40, 0x5400FFFE);
+    m.set(at + 80, 0x5400FFFE);  // only the first read after the switch
+    GxReport r;
+    EXPECT_EQ(gx_region_video_fix('E', m.spans(), r), 1u);
+    EXPECT_EQ(m.get(at + 40), 0x38000000u);
+    EXPECT_EQ(m.get(at + 80), 0x5400FFFEu);
+    m.set(at + 40, 0x5400FFFE);
+    EXPECT_EQ(gx_region_video_fix('J', m.spans(), r), 1u);
+    EXPECT_EQ(m.get(at + 40), 0x38000001u);
+    m.set(at + 40, 0x5400FFFE);
+    EXPECT_EQ(gx_region_video_fix('P', m.spans(), r), 0u);  // PAL: left alone, as GX does
+    EXPECT_EQ(m.get(at + 40), 0x5400FFFEu);
+    Memory none(0x80004000, 0x100);
+    none.set(0x80004000 + 0x40, 0x5400FFFE);  // the read without the switch
+    EXPECT_EQ(gx_region_video_fix('E', none.spans(), r), 0u);
+    EXPECT_EQ(none.get(0x80004040), 0x5400FFFEu);
+}
+
 void test_pick_cios() {
     std::string why;
     const std::vector<D2xSlot> slots = {{249, 56}, {250, 57}, {251, 58}};
@@ -229,6 +253,7 @@ int main() {
     test_anti_002();
     test_sd_card();
     test_480p();
+    test_region_video_fix();
     test_pick_cios();
     if (g_failures == 0) {
         std::cout << "ALL GXPATCHES TESTS PASSED" << std::endl;

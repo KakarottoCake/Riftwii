@@ -231,6 +231,35 @@ unsigned gx_sd_card_patches(const std::string& id, const std::vector<CodeSpan>& 
     return done;
 }
 
+unsigned gx_region_video_fix(char region, const std::vector<CodeSpan>& loaded, GxReport& report) {
+    if (region != 'E' && region != 'J') {
+        report.notes.push_back("Region video fix: only for US and Japanese games, left out");
+        return 0;
+    }
+    static const std::uint32_t kSwitch[3] = {0x4182000C, 0x4180001C, 0x48000018};  // beq +12; blt +28; b +24
+    const std::uint32_t kReadBit = 0x5400FFFE;                                      // rlwinm r0, r0, 31, 31, 31
+    const std::uint32_t value = region == 'E' ? 0x38000000u : 0x38000001u;          // li r0, 0 / li r0, 1
+    unsigned done = 0;
+    for (const CodeSpan& s : loaded) {
+        for (std::size_t at = 0; at + 12 <= s.size; at += 4) {
+            if (be32(s.bytes + at) != kSwitch[0] || be32(s.bytes + at + 4) != kSwitch[1] ||
+                be32(s.bytes + at + 8) != kSwitch[2])
+                continue;
+            for (std::size_t read = at; read + 4 <= s.size; read += 4) {
+                if (be32(s.bytes + read) != kReadBit) continue;
+                put32(s.bytes + read, value);
+                report.notes.push_back("Region video fix: the NTSC-J bit read at " +
+                                       hex(s.address + static_cast<std::uint32_t>(read)) + " gives " +
+                                       (region == 'E' ? "0" : "1"));
+                ++done;
+                break;
+            }
+        }
+    }
+    if (done == 0) report.notes.push_back("Region video fix: the game does not read the NTSC-J bit that way");
+    return done;
+}
+
 bool gx_fix_480p(const std::vector<CodeSpan>& loaded, GxReport& report) {
     // Where the stb that stores the wrong value is (the word after it is
     // where the branch back lands), and the two instructions that store 3.

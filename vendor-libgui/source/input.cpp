@@ -127,6 +127,13 @@ void UpdatePads()
  * The dead zone is round, and the speed is taken from how far past it
  * the stick is, in the stick's own direction, so diagonals and full tilt
  * keep their full speed.
+ *
+ * The D-pad (a Wii Remote's, a Classic Controller's or a GameCube
+ * controller's) takes the channel from either pointer: the pointer hides
+ * and the D-pad moves the highlight, which a pointer resting over the
+ * screen used to take straight back. The pointer comes back when it is
+ * really used again: the stick pushed past kClaim, or the Remote's
+ * pointer moved kRemoteMove pixels from where it was.
  ***************************************************************************/
 static void UpdatePadPointers()
 {
@@ -135,6 +142,13 @@ static void UpdatePadPointers()
 	static bool padHas[4] = {false, false, false, false};
 	static bool anchored[4] = {false, false, false, false};
 	static float anchorX[4], anchorY[4];  // where the idle Remote pointed when the pad took over
+	static bool dpadHas[4] = {false, false, false, false};
+	static bool dpadAnchored[4] = {false, false, false, false};
+	static float dpadX[4], dpadY[4];  // where the Remote pointed when the D-pad took over
+	const u32 kRemoteDpad = WPAD_BUTTON_UP | WPAD_BUTTON_DOWN | WPAD_BUTTON_LEFT | WPAD_BUTTON_RIGHT |
+	                        WPAD_CLASSIC_BUTTON_UP | WPAD_CLASSIC_BUTTON_DOWN | WPAD_CLASSIC_BUTTON_LEFT |
+	                        WPAD_CLASSIC_BUTTON_RIGHT;
+	const u16 kPadDpad = PAD_BUTTON_UP | PAD_BUTTON_DOWN | PAD_BUTTON_LEFT | PAD_BUTTON_RIGHT;
 	const int kDeadZone = 20;       // of about +-100: worn sticks rest past the old 14
 	const int kClaim = 45;          // a push, not drift, takes the channel from the Remote
 	const float kRemoteMove = 40.0f;
@@ -162,6 +176,36 @@ static void UpdatePadPointers()
 		// Controller's are the high ones.
 		const bool remotePressed = remote && (w->btns_d & 0xFFFF);
 		const bool padPressed = userInput[i].pad.btns_d || (classic && (w->btns_d & ~0xFFFFu));
+
+		if ((remote && (w->btns_d & kRemoteDpad)) || (userInput[i].pad.btns_d & kPadDpad)) {
+			dpadHas[i] = true;
+			dpadAnchored[i] = false;
+		}
+		if (dpadHas[i]) {
+			bool back = r > kClaim;  // the stick, really pushed
+			if (remote && w->ir.valid) {
+				if (!dpadAnchored[i]) {
+					dpadX[i] = w->ir.x;
+					dpadY[i] = w->ir.y;
+					dpadAnchored[i] = true;
+				} else if (hypotf(w->ir.x - dpadX[i], w->ir.y - dpadY[i]) > kRemoteMove) {
+					back = true;
+					padHas[i] = false;  // the Remote's own pointer
+				}
+			}
+			if (!back) {
+				w->ir.valid = 0;
+				userInput[i].pad.stickX = 0;
+				userInput[i].pad.stickY = 0;
+				if (classic) w->exp.classic.ljs.pos = w->exp.classic.ljs.center;  // drift steps nothing
+				continue;
+			}
+			dpadHas[i] = false;
+			if (r > kClaim) {
+				padHas[i] = true;  // the pad's pointer, where it was
+				anchored[i] = false;
+			}
+		}
 
 		if (remotePressed) {
 			padHas[i] = false;
