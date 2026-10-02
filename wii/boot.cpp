@@ -1885,7 +1885,14 @@ bool keep_hardware_access(const char* who) {
         bool same = true;
         for (std::size_t i = 0; same && i < sizeof kRights; ++i) same = p[i] == kRights[i];
         if (!same) continue;
-        p[25] = 0x01;
+        // One aligned 32-bit store, not a byte: a lone byte store to MEM2
+        // through its uncached mirror may not keep the bytes around it,
+        // and these are IOS's own code (CTGP's launch on a Wii stopped
+        // right after this, in the reload into the cIOS).
+        const u32 word = (at + 25) & ~3u;
+        const unsigned shift = (3 - ((at + 25) & 3)) * 8;
+        volatile u32* w = reinterpret_cast<volatile u32*>(word);
+        *w = (*w & ~(0xFFu << shift)) | (0x01u << shift);
         ++patched;
     }
     write16(0x0D8B420A, protection);
