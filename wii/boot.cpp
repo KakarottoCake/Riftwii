@@ -1565,7 +1565,13 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     // The resident starts with the game; from here it needs the selected
     // raw-card fd for SD-backed reads and savegame writes.
     card_handed_to_runtime = true;
+    // libogc's shutdown clears the BI2 pointer (0x800000F4) with its own
+    // exception fields. The apploader set it, and a game's start-up code
+    // may read it: Other M Redux's finds the top of memory through it and
+    // jumped to 0 - its payload's size without it.
+    const std::uint32_t bi2 = load32(0x800000F4);
     SYS_ResetSystem(SYS_SHUTDOWN, 0, 0);
+    store32(0x800000F4, bi2);
     if (options.install_resident && resident.data_bytes != 0) {
         // The runtime's data to the bottom of the MEM2 arena, over what was
         // this loader's own memory (nothing below needs it any more).
