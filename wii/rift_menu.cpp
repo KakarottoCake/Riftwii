@@ -2743,6 +2743,8 @@ static std::string AdapterNote(const std::string& mode)
 {
 	// Experimental: confirmed in the menu on a Wii U, not yet in games.
 	if (mode == "off") return tr("Experimental. The adapter is left alone.");
+	if (mode == "on" && riftwii::wii::is_wii_u())
+		return tr("WARNING: on this Wii U, games from the SD card or a USB drive can freeze at 97% with this on. Use Automatic unless you are testing the adapter.");
 	if (mode == "on") return tr("Experimental. Always on, even with no adapter plugged in, so it can be plugged in during a game. It needs IOS 58 or a d2x cIOS.");
 	return tr("Experimental. When the adapter is plugged in as a game starts, its controllers fill the ports that have none plugged in, in games that support the GameCube controller. It needs IOS 58 or a d2x cIOS.");
 }
@@ -3245,12 +3247,25 @@ static int MenuSettings(FrontendState& state)
 					}
 					break;
 				}
-				case kGcAdapter:
+				case kGcAdapter: {
 					// Automatic, On, Off, and round again.
-					settings.gc_adapter = settings.gc_adapter == "on" ? "off" : settings.gc_adapter == "off" ? "auto" : "on";
+					const std::string next =
+						settings.gc_adapter == "on" ? "off" : settings.gc_adapter == "off" ? "auto" : "on";
+					// On a Wii U, On can freeze a game's start (d2x's /dev/usb/hid
+					// sometimes never answers and takes the cIOS with it): two
+					// windows before it is set.
+					if (next == "on" && riftwii::wii::is_wii_u() &&
+						(ShowPopup(tr("WARNING: this can freeze your Wii U"), tr("On a Wii U, the GameCube adapter in games can freeze the console at 97% while a game from the SD card or a USB drive starts. It works some times and freezes others, and RiftWii cannot tell beforehand. If it freezes, hold the power button to turn the console off. Automatic is safe: it leaves the adapter out of those games."), tr("Turn it on anyway"), tr("Cancel")) != 0 ||
+						 ShowPopup(tr("Are you sure?"), tr("Some game launches WILL freeze and need the power button. Only turn this on to test the adapter, and send a problem report when it freezes. You can set it back to Automatic here at any time."), tr("Yes, turn it on"), tr("Keep it as it is")) != 0)) {
+						riftwii::wii::logf("GameCube adapter: On refused at the warnings\n");
+						note(tr("Left as it was."));
+						break;
+					}
+					settings.gc_adapter = next;
 					saveAndNote(AdapterNote(settings.gc_adapter));
 					rebuild();
 					break;
+				}
 				case kChannel:
 					// Stable and Beta; the setting stays explicit once changed.
 					settings.update_channel =

@@ -1043,3 +1043,27 @@ msgstr "Enviar um relatório de problema?"
 
 msgid "Something went wrong? Sends what it takes to find out to a paste site, and shows a link to pass on."
 msgstr "Algo deu errado? Envia a um site de textos o necessário para descobrir e mostra um link para compartilhar."
+
+msgid "WARNING: this can freeze your Wii U"
+msgstr "AVISO: isto pode travar o seu Wii U"
+
+msgid "On a Wii U, the GameCube adapter in games can freeze the console at 97% while a game from the SD card or a USB drive starts. It works some times and freezes others, and RiftWii cannot tell beforehand. If it freezes, hold the power button to turn the console off. Automatic is safe: it leaves the adapter out of those games."
+msgstr "Num Wii U, o adaptador de GameCube nos jogos pode travar o console em 97% enquanto um jogo do cartão SD ou de uma unidade USB inicia. Às vezes funciona e às vezes trava, e o RiftWii não consegue saber antes. Se travar, segure o botão de energia para desligar o console. Automático é seguro: deixa o adaptador fora desses jogos."
+
+msgid "Turn it on anyway"
+msgstr "Ativar mesmo assim"
+
+msgid "Some game launches WILL freeze and need the power button. Only turn this on to test the adapter, and send a problem report when it freezes. You can set it back to Automatic here at any time."
+msgstr "Algumas inicializações de jogos VÃO travar e precisar do botão de energia. Só ative para testar o adaptador, e envie um relatório de problema quando travar. Você pode voltar para Automático aqui quando quiser."
+
+msgid "Yes, turn it on"
+msgstr "Sim, ativar"
+
+msgid "Keep it as it is"
+msgstr "Deixar como está"
+
+msgid "WARNING: on this Wii U, games from the SD card or a USB drive can freeze at 97% with this on. Use Automatic unless you are testing the adapter."
+msgstr "AVISO: neste Wii U, jogos do cartão SD ou de uma unidade USB podem travar em 97% com isto ativado. Use Automático a menos que esteja testando o adaptador."
+
+msgid "Left as it was."
+msgstr "Deixado como estava."

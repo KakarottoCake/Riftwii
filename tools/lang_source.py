@@ -1019,6 +1019,47 @@ T = {
         "問題が起きましたか？原因を調べるのに必要な情報を共有サイトに送り、共有用のリンクを表示します。",
         "Algo deu errado? Envia a um site de textos o necessário para descobrir e mostra um link para compartilhar.",
         "Qualcosa non va? Invia a un sito di paste quello che serve per capirlo e mostra un link da condividere."),
+    # GameCube adapter On, on a Wii U
+    "WARNING: this can freeze your Wii U": (
+        "AVISO: esto puede congelar tu Wii U",
+        "警告：Wii Uがフリーズすることがあります",
+        "AVISO: isto pode travar o seu Wii U",
+        "ATTENZIONE: può bloccare la tua Wii U"),
+    "On a Wii U, the GameCube adapter in games can freeze the console at 97% while a game from the SD card or a USB drive starts. It works some times and freezes others, and RiftWii cannot tell beforehand. If it freezes, hold the power button to turn the console off. Automatic is safe: it leaves the adapter out of those games.": (
+        "En una Wii U, el adaptador de GameCube en los juegos puede congelar la consola al 97% mientras arranca un juego de la tarjeta SD o de una unidad USB. A veces funciona y otras se congela, y RiftWii no puede saberlo antes. Si se congela, mantén pulsado el botón de encendido para apagar la consola. Automático es seguro: deja el adaptador fuera de esos juegos.",
+        "Wii Uでは、SDカードやUSBドライブのゲームを起動するとき、ゲーム中のゲームキューブ用アダプターが原因で97%で本体がフリーズすることがあります。動くときもフリーズするときもあり、RiftWiiには事前にわかりません。フリーズしたら電源ボタンを長押しして本体の電源を切ってください。「自動」なら安全です：それらのゲームではアダプターを使いません。",
+        "Num Wii U, o adaptador de GameCube nos jogos pode travar o console em 97% enquanto um jogo do cartão SD ou de uma unidade USB inicia. Às vezes funciona e às vezes trava, e o RiftWii não consegue saber antes. Se travar, segure o botão de energia para desligar o console. Automático é seguro: deixa o adaptador fora desses jogos.",
+        "Su una Wii U, l'adattatore GameCube nei giochi può bloccare la console al 97% mentre parte un gioco dalla scheda SD o da un'unità USB. A volte funziona e altre si blocca, e RiftWii non può saperlo prima. Se si blocca, tieni premuto il tasto di accensione per spegnere la console. Automatico è sicuro: lascia l'adattatore fuori da quei giochi."),
+    "Turn it on anyway": (
+        "Activarlo de todos modos",
+        "それでもオンにする",
+        "Ativar mesmo assim",
+        "Attivalo comunque"),
+    "Some game launches WILL freeze and need the power button. Only turn this on to test the adapter, and send a problem report when it freezes. You can set it back to Automatic here at any time.": (
+        "Algunos arranques de juegos SE congelarán y necesitarán el botón de encendido. Actívalo solo para probar el adaptador, y envía un informe de problema cuando se congele. Puedes volver a Automático aquí cuando quieras.",
+        "一部のゲームの起動は必ずフリーズし、電源ボタンが必要になります。アダプターを試すときだけオンにして、フリーズしたら問題のレポートを送ってください。ここでいつでも「自動」に戻せます。",
+        "Algumas inicializações de jogos VÃO travar e precisar do botão de energia. Só ative para testar o adaptador, e envie um relatório de problema quando travar. Você pode voltar para Automático aqui quando quiser.",
+        "Alcuni avvii dei giochi SI bloccheranno e richiederanno il tasto di accensione. Attivalo solo per provare l'adattatore e invia una segnalazione di problema quando si blocca. Puoi tornare ad Automatico qui in qualsiasi momento."),
+    "Yes, turn it on": (
+        "Sí, activarlo",
+        "はい、オンにする",
+        "Sim, ativar",
+        "Sì, attivalo"),
+    "Keep it as it is": (
+        "Dejarlo como está",
+        "このままにする",
+        "Deixar como está",
+        "Lascialo com'è"),
+    "WARNING: on this Wii U, games from the SD card or a USB drive can freeze at 97% with this on. Use Automatic unless you are testing the adapter.": (
+        "AVISO: en esta Wii U, los juegos de la tarjeta SD o de una unidad USB pueden congelarse al 97% con esto activado. Usa Automático salvo que estés probando el adaptador.",
+        "警告：このWii Uでは、これがオンだとSDカードやUSBドライブのゲームが97%でフリーズすることがあります。アダプターを試すとき以外は「自動」にしてください。",
+        "AVISO: neste Wii U, jogos do cartão SD ou de uma unidade USB podem travar em 97% com isto ativado. Use Automático a menos que esteja testando o adaptador.",
+        "ATTENZIONE: su questa Wii U, i giochi dalla scheda SD o da un'unità USB possono bloccarsi al 97% con questo attivo. Usa Automatico a meno che tu non stia provando l'adattatore."),
+    "Left as it was.": (
+        "Se dejó como estaba.",
+        "変更しませんでした。",
+        "Deixado como estava.",
+        "Lasciato com'era."),
 }
 
 

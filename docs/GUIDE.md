@@ -389,6 +389,16 @@ ignore it, and so do mods that bring their own controller code (mkwcat's
 NSMBW project) or read the controller hardware directly (Gecko codes
 that add GameCube controls to NSMBW).
 
+> **Warning for Wii U owners: On can freeze the console.** With **On**,
+> a game from the SD card or a USB drive sometimes freezes at 97% while
+> it starts: the d2x cIOS never answers RiftWii's request for the
+> adapter, and the whole cIOS stops with it. The same launch can work
+> one time and freeze the next, and RiftWii cannot tell beforehand. Hold
+> the power button to turn the console off when it happens. RiftWii asks
+> twice before it turns **On** on a Wii U. Leave it on **Automatic**
+> unless you are testing the adapter, and send a problem report when it
+> freezes.
+
 ### For pack authors
 
 RiftWii reads the whole documented Riivolution patch format

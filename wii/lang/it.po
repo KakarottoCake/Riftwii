@@ -1043,3 +1043,27 @@ msgstr "Inviare una segnalazione di problema?"
 
 msgid "Something went wrong? Sends what it takes to find out to a paste site, and shows a link to pass on."
 msgstr "Qualcosa non va? Invia a un sito di paste quello che serve per capirlo e mostra un link da condividere."
+
+msgid "WARNING: this can freeze your Wii U"
+msgstr "ATTENZIONE: può bloccare la tua Wii U"
+
+msgid "On a Wii U, the GameCube adapter in games can freeze the console at 97% while a game from the SD card or a USB drive starts. It works some times and freezes others, and RiftWii cannot tell beforehand. If it freezes, hold the power button to turn the console off. Automatic is safe: it leaves the adapter out of those games."
+msgstr "Su una Wii U, l'adattatore GameCube nei giochi può bloccare la console al 97% mentre parte un gioco dalla scheda SD o da un'unità USB. A volte funziona e altre si blocca, e RiftWii non può saperlo prima. Se si blocca, tieni premuto il tasto di accensione per spegnere la console. Automatico è sicuro: lascia l'adattatore fuori da quei giochi."
+
+msgid "Turn it on anyway"
+msgstr "Attivalo comunque"
+
+msgid "Some game launches WILL freeze and need the power button. Only turn this on to test the adapter, and send a problem report when it freezes. You can set it back to Automatic here at any time."
+msgstr "Alcuni avvii dei giochi SI bloccheranno e richiederanno il tasto di accensione. Attivalo solo per provare l'adattatore e invia una segnalazione di problema quando si blocca. Puoi tornare ad Automatico qui in qualsiasi momento."
+
+msgid "Yes, turn it on"
+msgstr "Sì, attivalo"
+
+msgid "Keep it as it is"
+msgstr "Lascialo com'è"
+
+msgid "WARNING: on this Wii U, games from the SD card or a USB drive can freeze at 97% with this on. Use Automatic unless you are testing the adapter."
+msgstr "ATTENZIONE: su questa Wii U, i giochi dalla scheda SD o da un'unità USB possono bloccarsi al 97% con questo attivo. Usa Automatico a meno che tu non stia provando l'adattatore."
+
+msgid "Left as it was."
+msgstr "Lasciato com'era."
