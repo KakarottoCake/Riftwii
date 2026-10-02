@@ -180,7 +180,9 @@ from (disc, SD, USB) is just as useful.
   adapter is found but shows no controllers, send a report: boot.log now
   has a "first report, port status" line (RC8). On a Wii U, **On** can
   freeze games from the SD card or USB at 97%: RiftWii asks twice before
-  it turns On. Keep **Automatic** unless you are testing it.
+  it turns On. Keep **Automatic** unless you are testing it. From
+  Automatic, left goes straight to Off without the warnings; right goes
+  to On (fixed after RC9).
 - [ ] **In-game screenshots** (Settings > In-game screenshots): take a
   few in two or three games, restart RiftWii, look in
   `sd:/riftwii/screenshots`. Say which games worked.

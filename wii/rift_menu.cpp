@@ -3248,9 +3248,12 @@ static int MenuSettings(FrontendState& state)
 					break;
 				}
 				case kGcAdapter: {
-					// Automatic, On, Off, and round again.
-					const std::string next =
-						settings.gc_adapter == "on" ? "off" : settings.gc_adapter == "off" ? "auto" : "on";
+					// Right: Automatic, On, Off, and round again; left the other
+					// way (Automatic to Off without passing On).
+					static const char* const kAdapterChoices[] = {"auto", "on", "off"};
+					int at = 0;
+					while (at < 3 && settings.gc_adapter != kAdapterChoices[at]) ++at;
+					const std::string next = kAdapterChoices[((at % 3) + 3 + direction) % 3];
 					// On a Wii U, On can freeze a game's start (d2x's /dev/usb/hid
 					// sometimes never answers and takes the cIOS with it): two
 					// windows before it is set.
