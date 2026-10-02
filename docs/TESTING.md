@@ -130,7 +130,7 @@ from (disc, SD, USB) is just as useful.
 - [ ] **Project+, PMEX Remix and REX** from the SD card, with their
   `gc.txt`. A cheat file in `usb:/codes` doesn't get in the way.
   With Brawl on a USB drive, PMEX Remix used to stop on Brawl's own
-  warning screen; since RC10 its REMIX logo should show (boot.log:
+  warning screen; since RC9.1 its REMIX logo should show (boot.log:
   "Game crashes: blob ... (MEM2: a code build uses all of MEM1)").
 - [ ] **The virtual SD card** (a build's `sd.raw` on the SD card or a
   USB drive): the build's own SD files load in game.
@@ -185,7 +185,7 @@ from (disc, SD, USB) is just as useful.
   freeze games from the SD card or USB at 97%: RiftWii asks twice before
   it turns On. Keep **Automatic** unless you are testing it. From
   Automatic, left goes straight to Off without the warnings; right goes
-  to On (fixed after RC9).
+  to On (fixed in RC9.1).
 - [ ] **In-game screenshots** (Settings > In-game screenshots): take a
   few in two or three games, restart RiftWii, look in
   `sd:/riftwii/screenshots`. Say which games worked.

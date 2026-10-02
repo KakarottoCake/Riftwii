@@ -105,6 +105,38 @@ bool release_asset_from_json(const std::string& json, const std::string& name, R
     return false;
 }
 
+namespace {
+
+// Suffixes in runs of digits and of other characters: the digits as
+// numbers ("rc10" after "rc9", "rc9.1" after "rc9"), the rest as text.
+int compare_suffixes(const std::string& a, const std::string& b) {
+    std::size_t i = 0, j = 0;
+    while (i < a.size() && j < b.size()) {
+        const bool da = std::isdigit(static_cast<unsigned char>(a[i])) != 0;
+        const bool db = std::isdigit(static_cast<unsigned char>(b[j])) != 0;
+        if (da && db) {
+            std::size_t ei = i, ej = j;
+            while (ei < a.size() && std::isdigit(static_cast<unsigned char>(a[ei]))) ++ei;
+            while (ej < b.size() && std::isdigit(static_cast<unsigned char>(b[ej]))) ++ej;
+            while (i + 1 < ei && a[i] == '0') ++i;  // leading zeros
+            while (j + 1 < ej && b[j] == '0') ++j;
+            if (ei - i != ej - j) return ei - i < ej - j ? -1 : 1;
+            const int c = a.compare(i, ei - i, b, j, ej - j);
+            if (c != 0) return c < 0 ? -1 : 1;
+            i = ei;
+            j = ej;
+            continue;
+        }
+        if (a[i] != b[j]) return static_cast<unsigned char>(a[i]) < static_cast<unsigned char>(b[j]) ? -1 : 1;
+        ++i;
+        ++j;
+    }
+    if (i == a.size() && j == b.size()) return 0;
+    return i == a.size() ? -1 : 1;
+}
+
+}  // namespace
+
 int compare_versions(const std::string& a, const std::string& b) {
     const Version x = parse(a), y = parse(b);
     const std::size_t n = std::max(x.numbers.size(), y.numbers.size());
@@ -116,7 +148,7 @@ int compare_versions(const std::string& a, const std::string& b) {
     if (x.suffix == y.suffix) return 0;
     if (x.suffix.empty()) return 1;  // the release after its betas
     if (y.suffix.empty()) return -1;
-    return x.suffix < y.suffix ? -1 : 1;
+    return compare_suffixes(x.suffix, y.suffix);
 }
 
 std::string effective_update_channel(const std::string& setting, const std::string& version) {

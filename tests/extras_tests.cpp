@@ -97,6 +97,13 @@ void TestHttp() {
     EXPECT_EQ(compare_versions("2.0.10", "2.0.9"), 1);
     EXPECT_EQ(compare_versions("1.0.5 Beta", "1.0.5-beta"), 0);
     EXPECT_EQ(compare_versions("2.1.0", "2.1.0-rc1"), 1);
+    // Numbers in the suffix count as numbers.
+    EXPECT_EQ(compare_versions("v2.7.0-rc10", "2.7.0-rc9"), 1);
+    EXPECT_EQ(compare_versions("v2.7.0-rc9.1", "2.7.0-rc9"), 1);
+    EXPECT_EQ(compare_versions("v2.7.0-rc10", "2.7.0-rc9.1"), 1);
+    EXPECT_EQ(compare_versions("v2.7.0-rc9", "2.7.0-rc9.1"), -1);
+    EXPECT_EQ(compare_versions("v2.7.0-rc09", "2.7.0-rc9"), 0);
+    EXPECT_EQ(compare_versions("2.7.0", "2.7.0-rc9.1"), 1);
     EXPECT_EQ(effective_update_channel("auto", "2.1.0"), "stable");
     EXPECT_EQ(effective_update_channel("auto", "2.1.0-rc1"), "beta");
     EXPECT_EQ(effective_update_channel("auto", "2.0.10-beta"), "beta");
