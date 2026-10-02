@@ -323,9 +323,18 @@ A few things to know:
 - If Start says the codes don't fit, `gameconfig.txt` (or `gc.txt`) is
   missing or is not the build's own. Copy the one that came with the
   build.
-- Tested in Dolphin with Project+ 3.2 and REX. Older builds that go in
-  `sd:/codes` with `gameconfig.txt` at the top of the card (Project M,
-  Brawl Minus, Legacy XP's setup for USB loaders) use the same files.
+- Code builds are **experimental**. Tested in Dolphin with Project+ 3.2,
+  REX and PMEX Remix, and on a Wii with PMEX Remix from a USB drive (it
+  reached a match). Older builds that go in `sd:/codes` with
+  `gameconfig.txt` at the top of the card (Project M, Brawl Minus,
+  Legacy XP's setup for USB loaders) use the same files.
+- These builds use all of the game's memory, so RiftWii leaves its own
+  extras out of them: no crash recorder, no in-game screenshots and no
+  GameCube controller adapter for Wii U (controllers in the Wii's own
+  GameCube ports work as usual). `boot.log` says so for each.
+- PMEX Remix is very heavy for a real Wii: it can lag (on the character
+  select screen, for one) and its own start screen recommends Dolphin.
+  That is the build, not RiftWii.
 - `boot.log` lists the codes, where they went and what `gameconfig.txt`
   changed, if something goes wrong.
 

@@ -1151,7 +1151,21 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     // USB Loader GX's exclude_game list: games that check their own code
     // (MetaFortress). RiftWii's hooks and code patches stay out of them.
     const bool gx_protected = gx_protected_game(probe.header.game_id);
+    // A code build that moved its code list (Project+, PMEX Remix) sizes
+    // its heaps to all of MEM1 and finds its MEM2 data at fixed
+    // addresses: RiftWii's blobs below the MEM1 arena's top were
+    // overwritten, and their state at the bottom of the MEM2 arena moved
+    // Brawl's MEM2 heap, so PMEX Remix's files from the SD card failed on a
+    // console and its fallback crashed. Such a build gets none of them (no
+    // crash recorder, GameCube adapter or screenshots), as under USB
+    // Loader GX.
+    const bool code_build = g_extras.code_list_start != 0 && !g_extras.cheat_gct.empty();
     bool gc_adapter = g_extras.gc_adapter != GcAdapterMode::Off && !gx_protected;
+    if (gc_adapter && code_build) {
+        logf("GameCube adapter: off: a code build uses all of the game's memory (the Wii's own GameCube ports "
+             "still work)\n");
+        gc_adapter = false;
+    }
     if (gc_adapter && g_extras.gc_adapter != GcAdapterMode::Demo && (rvz.usb_fd >= 0 || pieces.needs_usb())) {
         // The runtime reads the USB drive through d2x while the game runs.
         // On (not Automatic) tries anyway: an experiment the player chose.
@@ -1314,7 +1328,8 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     }
     // In-game screenshots: below the adapter, the runtime, or alone.
     ShotHook shot;
-    if (g_extras.screenshots && !gx_protected) {
+    if (g_extras.screenshots && code_build) logf("Screenshots: off: a code build uses all of the game's memory\n");
+    if (g_extras.screenshots && !gx_protected && !code_build) {
         std::string why;
         const std::uint32_t arena1_hi = pad.active                 ? pad.new_arena1_hi
                                                                    : base_arena1_hi();
@@ -1346,13 +1361,7 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         logf("Game crashes: not recorded: the game checks its own code (MetaFortress); RiftWii's hooks stay out\n");
     } else if (debug_off("fault")) {
         logf("Game crashes: not recorded: debug_off (and the BCA read not answered)\n");
-    } else if (g_extras.code_list_start != 0 && !g_extras.cheat_gct.empty()) {
-        // A code build that moved its code list (Project+, PMEX Remix)
-        // sizes its heaps to all of MEM1 and finds its MEM2 data at fixed
-        // addresses: the blob below the MEM1 arena's top was overwritten,
-        // and its state at the bottom of the MEM2 arena moved Brawl's MEM2
-        // heap, so PMEX Remix's files from the SD card failed on a console
-        // and its fallback crashed. USB Loader GX has no recorder either.
+    } else if (code_build) {
         logf("Game crashes: not recorded: a code build uses all of the game's memory%s\n",
              options.retail_bca && !options.install_resident ? " (and the BCA read not answered)" : "");
     } else {

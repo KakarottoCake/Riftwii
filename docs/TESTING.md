@@ -132,7 +132,9 @@ from (disc, SD, USB) is just as useful.
   With Brawl on a USB drive, PMEX Remix used to stop on Brawl's own
   warning screen, or crash after a black screen; since RC9.2 it should
   reach its REMIX logo and a match (boot.log: "Game crashes: not
-  recorded: a code build uses all of the game's memory").
+  recorded: a code build uses all of the game's memory"). The GameCube
+  adapter and in-game screenshots are off for code builds too (since
+  2.7.0), each with a boot.log line. PMEX Remix lags on a Wii by itself.
 - [ ] **The virtual SD card** (a build's `sd.raw` on the SD card or a
   USB drive): the build's own SD files load in game.
 - [ ] **Cheats.** On a game page, Cheats downloads the list, pick a
