@@ -78,6 +78,23 @@ constexpr std::uint32_t kMem2End = 0x94000000;
 constexpr std::uint32_t kMaxFstBytes = 8 * 1024 * 1024;
 constexpr std::uint64_t kWiiEpochOffset = 946684800;  // 2000-01-01 in Unix seconds
 
+// Test switches for a game that only fails on a console: settings.txt
+// "debug_off = bca, fault, dolswitch, 480p, returnto, consoletype, prerun"
+// turns those extras off one by one (PMEX Remix's SD files fail under
+// RiftWii on a Wii but not under USB Loader GX with the same cIOS).
+bool debug_off(const char* what) {
+    const auto it = Settings().other.find("debug_off");
+    if (it == Settings().other.end()) return false;
+    const std::string& list = it->second;
+    const std::size_t n = std::strlen(what);
+    for (std::size_t at = 0; (at = list.find(what, at)) != std::string::npos; at += n) {
+        const bool start = at == 0 || list[at - 1] == ',' || list[at - 1] == ' ';
+        const bool end = at + n == list.size() || list[at + n] == ',' || list[at + n] == ' ';
+        if (start && end) return true;
+    }
+    return false;
+}
+
 std::uint8_t g_tmd[0x4A00] ATTRIBUTE_ALIGN(32);
 
 void apploader_report(const char* format, ...) {
@@ -212,7 +229,8 @@ bool install_cheats(const std::vector<MemoryRegion>& loaded, const std::vector<M
     *reinterpret_cast<volatile std::uint32_t*>(hook) = branch;
     DCFlushRange(reinterpret_cast<void*>(hook & ~31u), 32);
     ICInvalidateRange(reinterpret_cast<void*>(hook & ~31u), 32);
-    install_dol_switch(text, code_hook_pattern(audio ? CodeHook::AudioFrame : CodeHook::Retrace));
+    if (!debug_off("dolswitch")) install_dol_switch(text, code_hook_pattern(audio ? CodeHook::AudioFrame : CodeHook::Retrace));
+    else logf("Codes: debug_off: no hook on jumps to another executable\n");
     logf("Codes: %u cheat(s)%s%s, %u bytes at 0x%08x, handler at 0x%08x called from %s 0x%08x\n",
          static_cast<unsigned>(g_extras.cheat_count), g_extras.code_builds.empty() ? "" : " and ",
          g_extras.code_builds.c_str(), static_cast<unsigned>(gct.size()), static_cast<unsigned>(list),
@@ -1327,6 +1345,8 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     FaultHook fault;
     if (gx_protected) {
         logf("Game crashes: not recorded: the game checks its own code (MetaFortress); RiftWii's hooks stay out\n");
+    } else if (debug_off("fault")) {
+        logf("Game crashes: not recorded: debug_off (and the BCA read not answered)\n");
     } else {
         std::string why;
         const std::uint32_t arena1_hi = shot.active                ? shot.new_arena1_hi
@@ -1335,7 +1355,8 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         const std::uint32_t arena2_lo = shot.active                ? shot.new_arena2_lo
                                         : pad.active               ? pad.new_arena2_lo
                                                                    : base_arena2_lo();
-        const bool answer_bca = options.retail_bca && !options.install_resident;
+        const bool answer_bca = options.retail_bca && !options.install_resident && !debug_off("bca");
+        if (options.retail_bca && debug_off("bca")) logf("BCA: debug_off: not answered\n");
         // A code build that moved its code list sizes its heaps to all of
         // MEM1 (PMEX Remix wrote over the blob below the arena top): the
         // blob goes to MEM2, past the veneers the others may use.
@@ -1357,7 +1378,8 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     store32(0x80000020, 0x0D15EA5E);            // boot magic
     store32(0x80000024, 1);                     // version
     store32(0x80000028, 0x01800000);            // MEM1 size
-    if (!running_in_dolphin()) store32(0x8000002C, 1 + (read32(0xCC00302C) >> 28));  // console type
+    if (!running_in_dolphin() && !debug_off("consoletype"))
+        store32(0x8000002C, 1 + (read32(0xCC00302C) >> 28));  // console type
     store32(0x800000EC, 0x81800000);            // debug monitor location
     store32(0x800000F0, 0x01800000);            // simulated memory size
     store32(0x800000F8, 0x0E7BE2C0);            // bus clock
@@ -1534,7 +1556,8 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     }
     if (!gx_protected) {
         GxReport gx;
-        if (gx_fix_480p(loaded_spans, gx)) sync_loaded();
+        if (debug_off("480p")) logf("Game fixes: debug_off: no 480p fix\n");
+        else if (gx_fix_480p(loaded_spans, gx)) sync_loaded();
         for (const std::string& note : gx.notes) logf("Game fixes: %s\n", note.c_str());
     }
     if (vsd.active) {
@@ -1565,7 +1588,8 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         if (packs) logf("WFC: not patched; packs are on\n");
         else ApplyWfc(loaded, g_extras.server, g_extras.wfc_domain, g_extras.game_id, probe.header.version);
     }
-    apply_return_to(loaded, return_to, return_stub);
+    if (debug_off("returnto")) logf("Return to: debug_off: the game is not patched\n");
+    else apply_return_to(loaded, return_to, return_stub);
     settime(secs_to_ticks(static_cast<u64>(std::time(nullptr)) - kWiiEpochOffset));
 
     release_card_and_log();
@@ -1590,7 +1614,7 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     place_vsd_hook(vsd);  // to the bottom of the MEM2 arena, as the runtime's data above
     place_fault_hook(fault);  // the crash blob, when a code build pushed it to MEM2
     dolboot_system_call_vector();  // what the system software leaves for a game (channel/common/dolboot.h)
-    if (codes_first) {
+    if (codes_first && !debug_off("prerun")) {
         // As Gecko loaders do: the handler runs once before the game, so a
         // code build's writes to the game's tables (Project+ resizes its
         // heaps) are in place before the game reads them at start. The
