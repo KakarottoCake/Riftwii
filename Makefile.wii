@@ -170,8 +170,11 @@ $(OUTPUT).dol: $(OUTPUT).elf
 $(OUTPUT).elf: $(OFILES)
 
 $(OFILES_SOURCES): $(HFILES)
-# A version bump must not leave the old number in the DOL.
-main.o: $(PROJECT_ROOT)/CMakeLists.txt
+# A version bump must not leave the old number in the DOL: every source
+# may use RIFTWII_VERSION (the updater compares it, the crash blob records
+# it), and make does not see a changed -D. 2.7.0 RC8 to RC10 shipped with
+# rc8 in online.cpp, so the updater kept offering an update to itself.
+$(OFILES_SOURCES): $(PROJECT_ROOT)/CMakeLists.txt
 #---------------------------------------------------------------------------------
 # This rule links in binary data with .ttf, .png, .ogg and .pcm extensions
 #---------------------------------------------------------------------------------
