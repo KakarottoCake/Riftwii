@@ -5,10 +5,7 @@
 #include <gccore.h>
 #include <ogc/cache.h>
 
-#include <malloc.h>
-
 #include <cstdio>
-#include <cstdlib>
 #include <cstring>
 
 #include "fault_hook.h"
@@ -56,9 +53,7 @@ bool overlaps(const MemoryPatch& p, std::uint32_t start, std::uint32_t bytes) {
 }  // namespace
 
 bool plan_fault_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t mem1_floor, std::uint32_t arena2_lo,
-                     std::uint32_t mem1_veneers, bool answer_bca, const std::vector<MemoryPatch>& patches,
-                     FaultHook& out, std::string& why) {
-    if (out.stage) std::free(out.stage);
+                     bool answer_bca, const std::vector<MemoryPatch>& patches, FaultHook& out, std::string& why) {
     out = FaultHook{};
     const rt_fault_header& h = header();
     if (riftwii_fault_bin_size < sizeof(rt_fault_header) || h.magic != RT_FAULT_MAGIC ||
@@ -95,18 +90,11 @@ bool plan_fault_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_
     // 2. Memory: the blob below the MEM1 arena's top, its state at the
     //    bottom of the MEM2 arena.
     out.code_bytes = align_up(h.size);
+    out.code_base = (arena1_hi - out.code_bytes) & ~31u;
     out.state_bytes = align_up(sizeof(rt_fault_state));
-    const bool in_mem2 = mem1_veneers != 0;
-    if (in_mem2) {
-        out.code_base = align_up(arena2_lo);
-        out.state_base = out.code_base + out.code_bytes;
-    } else {
-        out.code_base = (arena1_hi - out.code_bytes) & ~31u;
-        out.state_base = align_up(arena2_lo);
-    }
+    out.state_base = align_up(arena2_lo);
     const std::uint32_t arena2_end = *reinterpret_cast<volatile std::uint32_t*>(kMem2ArenaEndField);
-    if ((!in_mem2 && (arena1_hi < out.code_bytes || out.code_base < mem1_floor)) ||
-        out.state_base + out.state_bytes > arena2_end) {
+    if (arena1_hi < out.code_bytes || out.code_base < mem1_floor || out.state_base + out.state_bytes > arena2_end) {
         char buf[160];
         std::snprintf(buf, sizeof(buf), "no room (MEM1 arena top 0x%08x, floor 0x%08x; MEM2 arena 0x%08x-0x%08x)",
                       arena1_hi, mem1_floor, arena2_lo, arena2_end);
@@ -123,26 +111,15 @@ bool plan_fault_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_
             return false;
         }
     }
-    out.new_arena1_hi = in_mem2 ? arena1_hi : out.code_base;
+    out.new_arena1_hi = out.code_base;
     out.new_arena2_lo = out.state_base + out.state_bytes;
 
     // 3. The blob and its context; the hook comes last. The state needs
     //    nothing now (MEM2's bottom is still this loader's until the
-    //    jump): the blob fills what it uses when the game crashes. A blob
-    //    for MEM2 is built in a staging copy until then.
-    std::uint8_t* bytes = reinterpret_cast<std::uint8_t*>(out.code_base);
-    if (in_mem2) {
-        out.stage = static_cast<std::uint8_t*>(memalign(32, out.code_bytes));
-        if (!out.stage) {
-            why = "no memory to stage the blob for MEM2";
-            return false;
-        }
-        out.veneers = mem1_veneers;
-        bytes = out.stage;
-    }
-    std::memset(bytes, 0, out.code_bytes);
-    std::memcpy(bytes, riftwii_fault_bin, h.size);
-    rt_fault_context* ctx = reinterpret_cast<rt_fault_context*>(bytes + h.context_offset);
+    //    jump): the blob fills what it uses when the game crashes.
+    std::memset(reinterpret_cast<void*>(out.code_base), 0, out.code_bytes);
+    std::memcpy(reinterpret_cast<void*>(out.code_base), riftwii_fault_bin, h.size);
+    rt_fault_context* ctx = reinterpret_cast<rt_fault_context*>(out.code_base + h.context_offset);
     if (ctx->magic != RT_FAULT_CONTEXT_MAGIC) {
         why = "the crash blob's context is not where its header says";
         return false;
@@ -154,20 +131,15 @@ bool plan_fault_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_
     ctx->bca_sink = (out.code_base + h.sink + 31u) & ~31u;
     ctx->flags = out.ioctl != 0 ? RT_FAULT_FLAG_BCA : 0u;
     out.active = true;
-    logf("Game crashes: blob %u bytes at 0x%08x%s, state %u bytes at 0x%08x; __OSUnhandledException 0x%08x%s\n",
-         h.size, out.code_base, in_mem2 ? " (MEM2: a code build uses all of MEM1)" : "", out.state_bytes,
-         out.state_base, out.function, out.ioctl != 0 ? "; it also answers the BCA read" : "");
+    logf("Game crashes: blob %u bytes at 0x%08x, state %u bytes at 0x%08x; __OSUnhandledException 0x%08x%s\n",
+         h.size, out.code_base, out.state_bytes, out.state_base, out.function,
+         out.ioctl != 0 ? "; it also answers the BCA read" : "");
     return true;
 }
 
 bool install_fault_hook(FaultHook& hook, std::string& why) {
     if (!hook.active) return false;
     const rt_fault_header& h = header();
-    // Where a word of the blob is written now: its place, or the staging
-    // copy until the jump.
-    const auto now = [&](std::uint32_t address) {
-        return hook.stage ? reinterpret_cast<std::uint32_t>(hook.stage) + (address - hook.code_base) : address;
-    };
     struct Site {
         std::uint32_t& function;
         std::uint32_t hook, replay, resume;
@@ -183,12 +155,11 @@ bool install_fault_hook(FaultHook& hook, std::string& why) {
         std::uint32_t target = 0;
         std::string reason;
         if (is_plain_branch(first, s.function, target)) {
-            // Another hook already: the replay takes the same branch, or
-            // jumps there through r12 from MEM2 (free here, as for the
-            // jump back).
+            // Another hook already: the replay takes the same branch.
             if (!encode_branch(hook.code_base + s.replay, target, replay[0])) {
-                const auto jump = encode_absolute_jump(kScratchRegister, target);
-                std::copy(jump.begin(), jump.end(), replay);
+                logf("Game crashes: %s's hook at 0x%08x is out of reach; not hooked\n", s.name, target);
+                s.function = 0;
+                continue;
             }
         } else if (!displaceable(first, kScratchRegister, reason)) {
             logf("Game crashes: %s's first instruction (0x%08x) cannot be moved (%s); not hooked\n", s.name, first,
@@ -196,24 +167,16 @@ bool install_fault_hook(FaultHook& hook, std::string& why) {
             s.function = 0;
             continue;
         }
-        store_words(now(hook.code_base + s.replay), replay, 4);
+        store_words(hook.code_base + s.replay, replay, 4);
         const auto resume = encode_absolute_jump(kScratchRegister, s.function + 4);
-        store_words(now(hook.code_base + s.resume), resume.data(), 4);
+        store_words(hook.code_base + s.resume, resume.data(), 4);
     }
-    if (!hook.stage) sync_code(hook.code_base, hook.code_bytes);  // else at the jump
-    unsigned hooked = 0, veneers = 0;
+    sync_code(hook.code_base, hook.code_bytes);
+    unsigned hooked = 0;
     for (Site& s : sites) {
         if (s.function == 0) continue;
-        std::uint32_t target = hook.code_base + s.hook;
-        if (hook.veneers != 0) {
-            const std::uint32_t veneer = hook.veneers + veneers++ * 16;
-            const auto jump = encode_absolute_jump(kScratchRegister, target);
-            store_words(veneer, jump.data(), 4);
-            sync_code(veneer, 16);
-            target = veneer;
-        }
         std::uint32_t branch = 0;
-        if (!encode_branch(s.function, target, branch)) {
+        if (!encode_branch(s.function, hook.code_base + s.hook, branch)) {
             logf("Game crashes: %s is out of a branch's reach; not hooked\n", s.name);
             s.function = 0;
             continue;
@@ -230,16 +193,6 @@ bool install_fault_hook(FaultHook& hook, std::string& why) {
     logf("Game crashes: hooked%s%s\n", hook.function ? "; a crash is saved for the next start" : "",
          hook.ioctl ? "; the BCA read is answered as a retail disc's" : "");
     return true;
-}
-
-void place_fault_hook(FaultHook& hook) {
-    if (!hook.stage) return;
-    if (hook.active) {
-        std::memcpy(reinterpret_cast<void*>(hook.code_base), hook.stage, hook.code_bytes);
-        sync_code(hook.code_base, hook.code_bytes);
-    }
-    std::free(hook.stage);
-    hook.stage = nullptr;
 }
 
 }  // namespace riftwii::wii

@@ -130,8 +130,9 @@ from (disc, SD, USB) is just as useful.
 - [ ] **Project+, PMEX Remix and REX** from the SD card, with their
   `gc.txt`. A cheat file in `usb:/codes` doesn't get in the way.
   With Brawl on a USB drive, PMEX Remix used to stop on Brawl's own
-  warning screen; since RC9.1 its REMIX logo should show (boot.log:
-  "Game crashes: blob ... (MEM2: a code build uses all of MEM1)").
+  warning screen, or crash after a black screen; since RC9.2 it should
+  reach its REMIX logo and a match (boot.log: "Game crashes: not
+  recorded: a code build uses all of the game's memory").
 - [ ] **The virtual SD card** (a build's `sd.raw` on the SD card or a
   USB drive): the build's own SD files load in game.
 - [ ] **Cheats.** On a game page, Cheats downloads the list, pick a
