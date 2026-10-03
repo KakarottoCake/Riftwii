@@ -51,6 +51,9 @@ void test_protected() {
     EXPECT_TRUE(gx_kirby_game("SUKE01"));
     EXPECT_FALSE(gx_kirby_game("SUZE01"));
     EXPECT_FALSE(gx_protected_game("RMCE01"));
+    EXPECT_TRUE(game_clears_mem1_top("RB4E08"));
+    EXPECT_TRUE(game_clears_mem1_top("RB4P08"));
+    EXPECT_FALSE(game_clears_mem1_top("RMCE01"));
 }
 
 // Kirby: every word kirbypatch.c stores, read back from memory.

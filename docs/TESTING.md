@@ -229,9 +229,10 @@ From a USB drive or the SD card where you can:
 ## Known issues
 
 - The pink bar in the Kirby games with width 720 and borders removed
-  (issue 13), and Resident Evil 4 flashing (issue 15, one report):
-  both with the top and bottom removal, now *Remove all
-  (experimental)*; *Remove* only takes the side bars away.
+  (issue 13), and Resident Evil 4 (issue 15: memory damaged, the crash
+  at Start Game, in Dolphin too): both with the top and bottom removal,
+  now *Remove all (experimental)*; *Remove* only takes the side bars
+  away.
 - CTGP-R 1.03 started from RiftWii (use the Homebrew Channel).
 - Super Mario Galaxy can go black when it returns to the RiftWii
   channel.

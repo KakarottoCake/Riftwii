@@ -502,6 +502,10 @@ launch:
   Adventures of Tintin and We Dare** check their code too. RiftWii leaves
   them alone: no in-game screenshots, GameCube adapter or crash recording,
   and the video width, deflicker and borders stay as the game has them.
+- **Resident Evil 4** clears the top of the Wii's main memory at its
+  title screen, where RiftWii keeps the code for in-game screenshots,
+  the GameCube adapter and crash recording. It gets none of them, and
+  *Return to RiftWii* goes to the Wii Menu instead.
 - **New Super Mario Bros. Wii** (its disc check), **Resident Evil 4**
   (GameCube controllers), **Excite Truck** and Kirby from the SD card.
 - Every game: the older error #002 check, and the wrong 480p setting some

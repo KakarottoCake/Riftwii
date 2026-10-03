@@ -1145,10 +1145,16 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     // crash recorder, GameCube adapter or screenshots), as under USB
     // Loader GX.
     const bool code_build = g_extras.code_list_start != 0 && !g_extras.cheat_gct.empty();
+    // Resident Evil 4 clears MEM1 up to its FST at its title screen: the
+    // blobs there were wiped and the screenshot hook then wrote through a
+    // null state (the crash at Start Game on a console; in Dolphin too).
+    const bool clears_mem1_top = game_clears_mem1_top(probe.header.game_id);
+    const bool whole_mem1 = code_build || clears_mem1_top;
+    const char* const whole_mem1_why = code_build ? "a code build uses all of the game's memory"
+                                                  : "the game clears the memory they would use";
     bool gc_adapter = g_extras.gc_adapter != GcAdapterMode::Off && !gx_protected;
-    if (gc_adapter && code_build) {
-        logf("GameCube adapter: off: a code build uses all of the game's memory (the Wii's own GameCube ports "
-             "still work)\n");
+    if (gc_adapter && whole_mem1) {
+        logf("GameCube adapter: off: %s (the Wii's own GameCube ports still work)\n", whole_mem1_why);
         gc_adapter = false;
     }
     if (gc_adapter && g_extras.gc_adapter != GcAdapterMode::Demo && (rvz.usb_fd >= 0 || pieces.needs_usb())) {
@@ -1313,8 +1319,8 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     }
     // In-game screenshots: below the adapter, the runtime, or alone.
     ShotHook shot;
-    if (g_extras.screenshots && code_build) logf("Screenshots: off: a code build uses all of the game's memory\n");
-    if (g_extras.screenshots && !gx_protected && !code_build) {
+    if (g_extras.screenshots && whole_mem1) logf("Screenshots: off: %s\n", whole_mem1_why);
+    if (g_extras.screenshots && !gx_protected && !whole_mem1) {
         std::string why;
         const std::uint32_t arena1_hi = pad.active                 ? pad.new_arena1_hi
                                                                    : base_arena1_hi();
@@ -1346,8 +1352,8 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         logf("Game crashes: not recorded: the game checks its own code (MetaFortress); RiftWii's hooks stay out\n");
     } else if (debug_off("fault")) {
         logf("Game crashes: not recorded: debug_off (and the BCA read not answered)\n");
-    } else if (code_build) {
-        logf("Game crashes: not recorded: a code build uses all of the game's memory%s\n",
+    } else if (whole_mem1) {
+        logf("Game crashes: not recorded: %s%s\n", whole_mem1_why,
              options.retail_bca && !options.install_resident ? " (and the BCA read not answered)" : "");
     } else {
         std::string why;
@@ -1392,7 +1398,8 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
                                      : options.install_resident ? resident.new_arena1_hi
                                      : vsd.active && !vsd.code_in_mem2 ? vsd.new_arena1_hi
                                                                 : load32(0x80000038);
-    const u64 return_to = return_title();
+    // Below the FST too: wiped in a game that clears that memory.
+    const u64 return_to = clears_mem1_top ? 0 : return_title();
     const std::uint32_t return_stub = return_to != 0 ? (arena1_top - 32) & ~31u : 0;
     const std::uint32_t arena1_end = return_stub != 0 ? return_stub : arena1_top;
     if (options.install_resident || vsd.active || pad.active || shot.active || fault.active || return_stub != 0)

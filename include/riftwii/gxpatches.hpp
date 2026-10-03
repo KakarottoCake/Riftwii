@@ -39,6 +39,11 @@ bool gx_protected_game(const std::string& game_id);
 // checks out of it (gx_game_patches), so changing it is safe afterwards.
 bool gx_kirby_game(const std::string& game_id);
 
+// Games that clear MEM1 up to their FST, past the arena's end the loader
+// set: Resident Evil 4 Wii Edition does at its title screen. Whatever a
+// loader puts below the FST is wiped, so RiftWii's blobs stay out.
+bool game_clears_mem1_top(const std::string& game_id);
+
 // patch_nsmb, patch_pop, patch_kirby, patch_re4, then anti_002_fix over
 // each loaded part. `dol` is the game's executable as the apploader saw it
 // (for the WIP codes' file offsets). With `own_executable` (a pack's

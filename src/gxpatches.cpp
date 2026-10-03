@@ -193,6 +193,8 @@ bool gx_protected_game(const std::string& id) {
     return id_is(id, "RPW") || id_is(id, "SPX") || id_is(id, "SDV") || id_is(id, "STN") || id_is(id, "SLVP41");
 }
 
+bool game_clears_mem1_top(const std::string& id) { return id_is(id, "RB4"); }
+
 bool gx_kirby_game(const std::string& id) {
     return id_is(id, "SUKE01") || id_is(id, "SUKP01") || id_is(id, "SUKJ01") || id_is(id, "SUKK01");
 }
