@@ -106,7 +106,7 @@ these rows:
     *Remove all (experimental)* also stretches it over the bars at the
     top and bottom. That one changes the game's own frame sizes, and
     some games then show a shifted or broken picture, flash or crash
-    (Resident Evil 4, Mario Party 8, the Kirby games' pink bar): use
+    (the Kirby games' pink bar; Resident Evil 4 was reported): use
     *Remove* for those. After a game has run once, the page tells you
     which borders it left.
 - **Video mode** makes the game use another TV signal: *NTSC (480i)*,
