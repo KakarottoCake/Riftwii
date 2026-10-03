@@ -83,5 +83,8 @@ private:
 // GX_TF_RGBA8: 4x4 tiles of 64 bytes (the tile's AR pairs, then its GB
 // pairs). The canvas must be a multiple of 4 wide and high.
 std::vector<std::uint8_t> to_gx_rgba8(const Canvas& canvas);
+// The same from w x h RGBA rows (a theme's PNG) into `out` (w * h * 4
+// bytes). False when w or h is not a multiple of 4.
+bool to_gx_rgba8(const std::uint8_t* rgba, int w, int h, std::uint8_t* out);
 
 }  // namespace riftwii

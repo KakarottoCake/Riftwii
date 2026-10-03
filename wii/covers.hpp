@@ -4,7 +4,9 @@
 
 #include <gctypes.h>
 
+#include <cstdint>
 #include <string>
+#include <vector>
 
 // Box art (riftwii/coverart.hpp) on the Wii: fetched from GameTDB into
 // sd:/riftwii/covers/<ID>.rwc, and read back into a fixed pool of
@@ -30,5 +32,9 @@ CoverFetch FetchCover(const std::string& game_id, std::string& error);
 const u8* CoverTexture(const std::string& game_id);
 // Drops what the pool remembers about the game (after a new download).
 void ForgetCover(const std::string& game_id);
+
+// A PNG file's bytes to RGBA rows (a cover, a theme's picture).
+bool DecodePngRgba(const std::vector<std::uint8_t>& png, std::vector<std::uint8_t>& rgba, int& w, int& h,
+                   std::string& error);
 
 }  // namespace riftwii::wii

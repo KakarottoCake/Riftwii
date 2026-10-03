@@ -53,6 +53,7 @@
 #include "menu.h"
 #include "autorun.hpp"
 #include "menumusic.hpp"
+#include "menutheme.hpp"
 #include "screenshot.hpp"
 #include "boot.hpp"
 #include "demo.h"
@@ -874,7 +875,7 @@ static int g_leave = 1;
 class HomeBand : public GuiElement {
 public:
 	void Draw() override {
-		Menu_DrawRectangle(0, 0, screenwidth, 70, (GXColor){247, 247, 249, 255}, 1);
+		Menu_DrawRectangle(0, 0, screenwidth, 70, skin::kBar, 1);
 		Menu_DrawRectangle(0, 70, screenwidth, 3, skin::kAccent, 1);
 		Menu_DrawRectangle(0, 73, screenwidth, 4, (GXColor){0, 0, 0, 36}, 1);
 	}
@@ -1683,9 +1684,7 @@ static std::string DeflickerName(const std::string& v)
 	if (v == "high") return tr("High");
 	return tr("Game's own");
 }
-static const char* const kBordersNote =
-	"Remove stretches the picture over the bars at the sides. Remove all also stretches it over the bars at the top "
-	"and bottom: experimental, some games show a broken picture or crash with it.";
+static const char* const kBordersNote = "Remove stretches the picture over the bars at the sides. Remove all also stretches it over the bars at the top and bottom: experimental, some games show a broken picture or crash with it.";
 static std::string BordersName(const std::string& v)
 {
 	if (v == "remove_all") return tr("Remove all (experimental)");
@@ -2924,7 +2923,15 @@ static int MenuSettings(FrontendState& state)
 	const bool iosChoosable = iosChoices.size() > 1 || iosSlot != 0;
 
 	bool netOn = riftwii::wii::NetworkPacksEnabled();
-	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kGameLanguage, kGameCios, kServer, kHomeTiles, kSounds, kMusic, kReturnTo, kShots, kOnline, kNames, kGcAdapter, kGcTest, kIos, kNet, kResync,
+	// The themes on the card (wii/menutheme.hpp), read once per visit.
+	const std::vector<riftwii::wii::ThemeEntry> themes = riftwii::wii::ListMenuThemes();
+	const auto themeName = [&](const std::string& folder) -> std::string {
+		if (folder == "default") return tr("Default");
+		for (const riftwii::wii::ThemeEntry& t : themes)
+			if (t.folder == folder) return t.name;
+		return folder;
+	};
+	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kGameLanguage, kGameCios, kServer, kHomeTiles, kTheme, kSounds, kMusic, kReturnTo, kShots, kOnline, kNames, kGcAdapter, kGcTest, kIos, kNet, kResync,
 		kRescan, kChannel, kUpdate, kReport, kWiiChannel, kTutorial, kCredits, kExit, kNone };
 	// The RiftWii channel on the Wii Menu (wii/channel.hpp).
 	unsigned channelVersion = 0;
@@ -2957,6 +2964,7 @@ static int MenuSettings(FrontendState& state)
 		option(tr("Online server"), ServerName(settings.wfc_server), settings.wfc_server != "off", kServer);
 		option(tr("Home tiles"), settings.home_tiles == "names" ? tr("Names") : tr("Covers"),
 			settings.home_tiles != "names", kHomeTiles);
+		option(tr("Theme"), themeName(settings.theme), settings.theme != "default", kTheme);
 		option(tr("Menu sounds"), MenuSoundsName(settings.menu_sounds), settings.menu_sounds != "off", kSounds);
 		option(tr("Menu music"), settings.menu_music == "off" ? tr("Off") : tr("On"), settings.menu_music != "off",
 			kMusic, FlowRow::Kind::Toggle);
@@ -3107,6 +3115,7 @@ static int MenuSettings(FrontendState& state)
 			case kGameLanguage: return tr("The language the game is told the console uses. Pick one the game has: some games stop without it.");
 			case kGameCios: return tr("The d2x cIOS the game runs under. Automatic uses the menu's, else the first of 249, 250 and 251 that works.");
 			case kHomeTiles: return tr("Covers shows each game's box art from GameTDB, fetched while Home is open when downloads are on. Names shows the names only.");
+			case kTheme: return tr("The menu's colours and pictures. Themes are folders in sd:/riftwii/themes (docs/THEMES.md on GitHub).");
 			case kSounds: return tr("How loud the menu's clicks are. Quiet softens the tick the pointer makes moving onto something.");
 			case kReturnTo: return ReturnToNote();
 			case kShots: return tr("Experimental. In a game, hold 1 and press HOME (or hold L and R and press Down on a GameCube controller). The pictures go to sd:/riftwii/screenshots the next time RiftWii starts. Some games and mods may not work with it.");
@@ -3246,6 +3255,34 @@ static int MenuSettings(FrontendState& state)
 					saveAndNote(tr("Covers shows each game's box art from GameTDB, fetched while Home is open when downloads are on. Names shows the names only."));
 					rebuild();
 					break;
+				case kTheme: {
+					if (themes.empty()) {
+						note(tr("No themes in sd:/riftwii/themes. The zip's themes folder has one to copy there."));
+						break;
+					}
+					std::vector<std::string> folders{"default"};
+					for (const riftwii::wii::ThemeEntry& t : themes) folders.push_back(t.folder);
+					std::size_t at = 0;
+					while (at < folders.size() && folders[at] != settings.theme) ++at;
+					if (at == folders.size()) at = 0;
+					const int n = static_cast<int>(folders.size());
+					settings.theme = folders[static_cast<std::size_t>(((static_cast<int>(at) + direction) % n + n) % n)];
+					const std::string error = saveSettings();
+					rebuild();
+					if (!error.empty()) {
+						note(error);
+						break;
+					}
+					note(tr("The menu restarts to show a theme."));
+					if (ShowPopup(tr("Restart the menu?"),
+						    tr("RiftWii's menu restarts to show {1}. Your games and settings stay as they are.", {themeName(settings.theme)}),
+						    tr("Restart"), tr("Later")) == 0) {
+						logf("Settings: theme %s; restarting the menu\n", settings.theme.c_str());
+						riftwii::wii::WarmRestart(riftwii::wii::RestartKind::Theme, tr("Theme: {1}", {themeName(settings.theme)}));
+						note(tr("RiftWii could not restart. Start it again from the Homebrew Channel."));
+					}
+					break;
+				}
 				case kOnline:
 					settings.online = !settings.online;
 					saveAndNote(settings.online ? tr("Game names and cheats are downloaded when the Wii is online.")

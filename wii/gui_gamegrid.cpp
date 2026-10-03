@@ -70,7 +70,7 @@ GuiGameGrid::GuiGameGrid() {
         for (GuiText*& line : s.lines) line = MakeText(this, kTitleSize, skin::kInk);
         s.id = MakeText(this, 11, skin::kInkDim);
         s.badge = MakeText(this, 10, skin::kInkSoft);
-        s.mods = MakeText(this, 10, skin::kWhite);
+        s.mods = MakeText(this, 10, skin::kTextOnAccent);
     }
     measure = new GuiText(nullptr, kTitleSize, skin::kInk);
     caption = new GuiText(nullptr, kCaptionSize, skin::kInk);
@@ -274,7 +274,7 @@ void GuiGameGrid::DrawNameTile(int i, bool on, int alpha) {
     s.id->Draw();
     const int badgeW = s.badge->GetTextWidth() + 10;
     const int badgeX = static_cast<int>(x + tileW - kTextLeft - badgeW - dx);
-    Menu_DrawRectangle(badgeX, baseY - 1, badgeW, 15, skin::WithAlpha((GXColor){236, 236, 241, 255}, alpha), 1);
+    Menu_DrawRectangle(badgeX, baseY - 1, badgeW, 15, skin::WithAlpha(skin::kBadge, alpha), 1);
     s.badge->SetPosition(badgeX + 5, baseY);
     s.badge->Draw();
     if (item.mods) {
@@ -314,7 +314,7 @@ void GuiGameGrid::DrawCoverTile(int i, bool on, int alpha) {
     const int baseY = at_y(tileH - 22);
     const int badgeW = s.badge->GetTextWidth() + 10;
     const int badgeX = at_x(tileW - 5) - badgeW;
-    Menu_DrawRectangle(badgeX, baseY - 1, badgeW, 15, skin::WithAlpha((GXColor){236, 236, 241, 235}, alpha), 1);
+    Menu_DrawRectangle(badgeX, baseY - 1, badgeW, 15, skin::WithAlpha(skin::WithAlpha(skin::kBadge, 235), alpha), 1);
     s.badge->SetPosition(badgeX + 5, baseY);
     s.badge->Draw();
     if (item.mods) {

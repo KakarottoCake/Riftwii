@@ -270,17 +270,14 @@ msgstr "Alto"
 msgid "Remove"
 msgstr "Rimuovi"
 
+msgid "Keep"
+msgstr "Mantieni"
+
 msgid "Remove all (experimental)"
 msgstr "Rimuovi tutto (sperimentale)"
 
 msgid "Remove all"
 msgstr "Rimuovi tutto"
-
-msgid "Remove takes away the bars at the sides; Remove all also the top and bottom (experimental)."
-msgstr "Rimuovi toglie le bande ai lati; Rimuovi tutto anche quelle in alto e in basso (sperimentale)."
-
-msgid "Keep"
-msgstr "Mantieni"
 
 msgid "Default ({1})"
 msgstr "Predefinito ({1})"
@@ -302,6 +299,9 @@ msgstr "Un filtro che ammorbidisce l'immagine per nascondere lo sfarfallio. Con 
 
 msgid "Remove stretches the picture over the bars at the sides. Remove all also stretches it over the bars at the top and bottom: experimental, some games show a broken picture or crash with it."
 msgstr "Rimuovi allarga l'immagine sopra le bande ai lati. Rimuovi tutto la allarga anche sopra le bande in alto e in basso: è sperimentale, con questa opzione alcuni giochi mostrano un'immagine rovinata o si bloccano."
+
+msgid "Remove takes away the bars at the sides; Remove all also the top and bottom (experimental)."
+msgstr "Rimuovi toglie le bande ai lati; Rimuovi tutto anche quelle in alto e in basso (sperimentale)."
 
 msgid "Last time, this game left black borders on all sides."
 msgstr "L'ultima volta questo gioco ha lasciato bordi neri su tutti i lati."
@@ -1079,3 +1079,30 @@ msgstr "ATTENZIONE: su questa Wii U, i giochi dalla scheda SD o da un'unità USB
 
 msgid "Left as it was."
 msgstr "Lasciato com'era."
+
+msgid "Theme"
+msgstr "Tema"
+
+msgid "Default"
+msgstr "Predefinito"
+
+msgid "The menu's colours and pictures. Themes are folders in sd:/riftwii/themes (docs/THEMES.md on GitHub)."
+msgstr "I colori e le immagini del menu. I temi sono cartelle in sd:/riftwii/themes (docs/THEMES.md su GitHub)."
+
+msgid "No themes in sd:/riftwii/themes. The zip's themes folder has one to copy there."
+msgstr "Nessun tema in sd:/riftwii/themes. La cartella themes dello zip ne ha uno da copiare lì."
+
+msgid "The menu restarts to show a theme."
+msgstr "Il menu si riavvia per mostrare un tema."
+
+msgid "Restart the menu?"
+msgstr "Riavviare il menu?"
+
+msgid "RiftWii's menu restarts to show {1}. Your games and settings stay as they are."
+msgstr "Il menu di RiftWii si riavvia per mostrare {1}. I tuoi giochi e le impostazioni restano come sono."
+
+msgid "Restart"
+msgstr "Riavvia"
+
+msgid "Theme: {1}"
+msgstr "Tema: {1}"

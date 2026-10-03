@@ -29,6 +29,7 @@ struct LoaderSettings {
     std::string home_tiles = "covers";    // Home's tiles: covers or names
     std::string menu_sounds = "quiet";    // normal, quiet (a soft hover tick), off
     std::string menu_music = "on";        // on, off: music.ogg while the menu is open
+    std::string theme = "default";        // default, or a folder in sd:/riftwii/themes (docs/THEMES.md)
     std::string return_to = "riftwii";    // riftwii, menu: where a game's "Wii Menu" goes
     std::string screenshots = "off";      // in-game screenshots: on, off (demo: Dolphin tests)
     bool online = true;                   // download game names and cheats when the Wii is online

@@ -233,7 +233,7 @@ void GuiFlowList::Draw() {
         else if (index + 1 < Count() && !(index + 1 == lit) &&
                  !(r.kind == FlowRow::Kind::Info && (*rows)[index + 1].kind == FlowRow::Kind::Info))
             Menu_DrawRectangle(x0 + kPad, y + kRowHeight - 1, rowWidth - 2 * kPad, 1,
-                               skin::WithAlpha((GXColor){232, 232, 238, 255}, alpha), 1);
+                               skin::WithAlpha(skin::kDivider, alpha), 1);
 
         const int labelH = r.heading ? 20 : r.kind == FlowRow::Kind::Info ? 15 : 18;
         label[i]->SetPosition(x0 + kPad + (r.indent ? 22 : 0), y + (kRowHeight - labelH) / 2 - 2);
@@ -291,9 +291,9 @@ void GuiFlowList::Draw() {
         int thumb = trackH * boxH / total;
         if (thumb < 16) thumb = 16;
         const int thumbY = trackTop + static_cast<int>((trackH - thumb) * scroll / MaxScroll());
-        Menu_DrawRectangle(trackX, trackTop, kTrackW, trackH, skin::WithAlpha((GXColor){230, 230, 236, 255}, alpha), 1);
+        Menu_DrawRectangle(trackX, trackTop, kTrackW, trackH, skin::WithAlpha(skin::kScrollTrack, alpha), 1);
         Menu_DrawRectangle(trackX, thumbY, kTrackW, thumb,
-                           skin::WithAlpha(grabTrack ? skin::kAccent : (GXColor){168, 168, 180, 255}, alpha), 1);
+                           skin::WithAlpha(grabTrack ? skin::kAccent : skin::kScrollThumb, alpha), 1);
         // Each arrow shows while the list can still go its way.
         if (aim > 0) {
             const bool over = hoverArrow < 0 || grabArrow < 0;

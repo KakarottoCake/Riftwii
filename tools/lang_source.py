@@ -226,6 +226,9 @@ T = {
     "High": ("Alto", "強", "Alto", "Alto"),
     "Remove": ("Quitar", "なくす", "Remover", "Rimuovi"),
     "Keep": ("Dejar", "そのまま", "Manter", "Mantieni"),
+    "Remove all (experimental)": ("Quitar todo (experimental)", "すべてなくす（実験的）", "Remover tudo (experimental)",
+                                  "Rimuovi tutto (sperimentale)"),
+    "Remove all": ("Quitar todo", "すべてなくす", "Remover tudo", "Rimuovi tutto"),
     "Default ({1})": ("Predeterminado ({1})", "標準 ({1})", "Padrão ({1})", "Predefinito ({1})"),
     "On, none picked": ("Sí, ninguno elegido", "オン (未選択)", "Sim, nenhuma escolhida", "Sì, nessuno scelto"),
     "On, {1} picked": ("Sí, {1} elegidos", "オン ({1}個)", "Sim, {1} escolhidas", "Sì, {1} scelti"),
@@ -243,10 +246,16 @@ T = {
         "ちらつきを抑えるために画面をぼかすフィルターです。オフにすると一番くっきりします。",
         "Um filtro que suaviza a imagem para esconder a tremulação. Com Não ela fica mais nítida.",
         "Un filtro che ammorbidisce l'immagine per nascondere lo sfarfallio. Con No è più nitida."),
-    "Remove stretches the picture to fill the screen.": ("Quitar estira la imagen para llenar la pantalla.",
-                                                         "「なくす」にすると画面いっぱいに引き伸ばします。",
-                                                         "Remover estica a imagem para preencher a tela.",
-                                                         "Rimuovi allarga l'immagine per riempire lo schermo."),
+    "Remove stretches the picture over the bars at the sides. Remove all also stretches it over the bars at the top and bottom: experimental, some games show a broken picture or crash with it.": (
+        "Quitar estira la imagen sobre las barras de los lados. Quitar todo también la estira sobre las barras de arriba y abajo: es experimental, con ello algunos juegos muestran una imagen rota o se cuelgan.",
+        "「なくす」にすると左右の黒い帯の上まで画面を引き伸ばします。「すべてなくす」は上下の帯の上まで引き伸ばします。実験的な機能で、画面が崩れたり止まったりするゲームがあります。",
+        "Remover estica a imagem sobre as barras dos lados. Remover tudo também a estica sobre as barras de cima e de baixo: é experimental, com isso alguns jogos mostram a imagem quebrada ou travam.",
+        "Rimuovi allarga l'immagine sopra le bande ai lati. Rimuovi tutto la allarga anche sopra le bande in alto e in basso: è sperimentale, con questa opzione alcuni giochi mostrano un'immagine rovinata o si bloccano."),
+    "Remove takes away the bars at the sides; Remove all also the top and bottom (experimental).": (
+        "Quitar elimina las barras de los lados; Quitar todo también las de arriba y abajo (experimental).",
+        "「なくす」は左右の帯を、「すべてなくす」は上下の帯も消します（実験的）。",
+        "Remover tira as barras dos lados; Remover tudo também as de cima e de baixo (experimental).",
+        "Rimuovi toglie le bande ai lati; Rimuovi tutto anche quelle in alto e in basso (sperimentale)."),
     "Last time, this game left black borders on all sides.": ("La última vez, este juego dejó bordes negros por todos lados.",
                                                               "前回、このゲームは上下左右に黒い枠がありました。",
                                                               "Da última vez, este jogo deixou bordas pretas em todos os lados.",
@@ -1062,6 +1071,31 @@ T = {
         "変更しませんでした。",
         "Deixado como estava.",
         "Lasciato com'era."),
+    # Themes (wii/menutheme.cpp, docs/THEMES.md)
+    "Theme": ("Tema", "テーマ", "Tema", "Tema"),
+    "Default": ("Predeterminado", "標準", "Padrão", "Predefinito"),
+    "The menu's colours and pictures. Themes are folders in sd:/riftwii/themes (docs/THEMES.md on GitHub).": (
+        "Los colores y las imágenes del menú. Los temas son carpetas en sd:/riftwii/themes (docs/THEMES.md en GitHub).",
+        "メニューの色と画像です。テーマはsd:/riftwii/themesのフォルダーです（GitHubのdocs/THEMES.md）。",
+        "As cores e as imagens do menu. Os temas são pastas em sd:/riftwii/themes (docs/THEMES.md no GitHub).",
+        "I colori e le immagini del menu. I temi sono cartelle in sd:/riftwii/themes (docs/THEMES.md su GitHub)."),
+    "No themes in sd:/riftwii/themes. The zip's themes folder has one to copy there.": (
+        "No hay temas en sd:/riftwii/themes. La carpeta themes del zip tiene uno para copiar allí.",
+        "sd:/riftwii/themesにテーマがありません。zipのthemesフォルダーにコピーできるテーマがあります。",
+        "Não há temas em sd:/riftwii/themes. A pasta themes do zip tem um para copiar para lá.",
+        "Nessun tema in sd:/riftwii/themes. La cartella themes dello zip ne ha uno da copiare lì."),
+    "The menu restarts to show a theme.": ("El menú se reinicia para mostrar un tema.",
+                                           "テーマを表示するにはメニューを再起動します。",
+                                           "O menu reinicia para mostrar um tema.",
+                                           "Il menu si riavvia per mostrare un tema."),
+    "Restart the menu?": ("¿Reiniciar el menú?", "メニューを再起動しますか？", "Reiniciar o menu?", "Riavviare il menu?"),
+    "RiftWii's menu restarts to show {1}. Your games and settings stay as they are.": (
+        "El menú de RiftWii se reinicia para mostrar {1}. Tus juegos y ajustes se quedan como están.",
+        "{1}を表示するためにRiftWiiのメニューを再起動します。ゲームと設定はそのままです。",
+        "O menu do RiftWii reinicia para mostrar {1}. Seus jogos e configurações continuam como estão.",
+        "Il menu di RiftWii si riavvia per mostrare {1}. I tuoi giochi e le impostazioni restano come sono."),
+    "Restart": ("Reiniciar", "再起動", "Reiniciar", "Riavvia"),
+    "Theme: {1}": ("Tema: {1}", "テーマ: {1}", "Tema: {1}", "Tema: {1}"),
 }
 
 

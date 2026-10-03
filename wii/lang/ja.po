@@ -270,17 +270,14 @@ msgstr "強"
 msgid "Remove"
 msgstr "なくす"
 
+msgid "Keep"
+msgstr "そのまま"
+
 msgid "Remove all (experimental)"
 msgstr "すべてなくす（実験的）"
 
 msgid "Remove all"
 msgstr "すべてなくす"
-
-msgid "Remove takes away the bars at the sides; Remove all also the top and bottom (experimental)."
-msgstr "「なくす」は左右の帯を、「すべてなくす」は上下の帯も消します（実験的）。"
-
-msgid "Keep"
-msgstr "そのまま"
 
 msgid "Default ({1})"
 msgstr "標準 ({1})"
@@ -302,6 +299,9 @@ msgstr "ちらつきを抑えるために画面をぼかすフィルターです
 
 msgid "Remove stretches the picture over the bars at the sides. Remove all also stretches it over the bars at the top and bottom: experimental, some games show a broken picture or crash with it."
 msgstr "「なくす」にすると左右の黒い帯の上まで画面を引き伸ばします。「すべてなくす」は上下の帯の上まで引き伸ばします。実験的な機能で、画面が崩れたり止まったりするゲームがあります。"
+
+msgid "Remove takes away the bars at the sides; Remove all also the top and bottom (experimental)."
+msgstr "「なくす」は左右の帯を、「すべてなくす」は上下の帯も消します（実験的）。"
 
 msgid "Last time, this game left black borders on all sides."
 msgstr "前回、このゲームは上下左右に黒い枠がありました。"
@@ -1079,3 +1079,30 @@ msgstr "警告：このWii Uでは、これがオンだとSDカードやUSBド�
 
 msgid "Left as it was."
 msgstr "変更しませんでした。"
+
+msgid "Theme"
+msgstr "テーマ"
+
+msgid "Default"
+msgstr "標準"
+
+msgid "The menu's colours and pictures. Themes are folders in sd:/riftwii/themes (docs/THEMES.md on GitHub)."
+msgstr "メニューの色と画像です。テーマはsd:/riftwii/themesのフォルダーです（GitHubのdocs/THEMES.md）。"
+
+msgid "No themes in sd:/riftwii/themes. The zip's themes folder has one to copy there."
+msgstr "sd:/riftwii/themesにテーマがありません。zipのthemesフォルダーにコピーできるテーマがあります。"
+
+msgid "The menu restarts to show a theme."
+msgstr "テーマを表示するにはメニューを再起動します。"
+
+msgid "Restart the menu?"
+msgstr "メニューを再起動しますか？"
+
+msgid "RiftWii's menu restarts to show {1}. Your games and settings stay as they are."
+msgstr "{1}を表示するためにRiftWiiのメニューを再起動します。ゲームと設定はそのままです。"
+
+msgid "Restart"
+msgstr "再起動"
+
+msgid "Theme: {1}"
+msgstr "テーマ: {1}"

@@ -10,17 +10,17 @@
 // The menu's look: a light, Wii-Menu-like theme drawn by RiftWii itself.
 // Every panel, tile, button, icon and the pointer is painted once at start
 // on the software canvas (riftwii/canvas.hpp) into GX textures in MEM2, so
-// the menu ships no artwork files and the GPU only blits.
+// the menu ships no artwork files and the GPU only blits. A theme
+// (wii/menutheme.hpp, docs/THEMES.md) changes the colours below and may
+// replace any painted picture with its own PNG.
 namespace riftwii::wii::skin {
 
-constexpr GXColor kInk = {46, 46, 54, 255};
-constexpr GXColor kInkSoft = {74, 74, 84, 255};
-constexpr GXColor kInkDim = {106, 106, 116, 255};
-constexpr GXColor kClock = {116, 116, 126, 255};
-constexpr GXColor kAccent = {47, 182, 233, 255};
-constexpr GXColor kAccentInk = {14, 100, 136, 255};
+// The theme's colours: RiftWii's own until Init() reads the theme.
+extern GXColor kInk, kInkSoft, kInkDim, kClock, kAccent, kAccentInk, kWarn;
+extern GXColor kTextOnAccent;  // text on the accent or on a game's colour
+extern GXColor kBar, kDivider, kScrollTrack, kScrollThumb, kBadge;
+// Always white (a QR code's background).
 constexpr GXColor kWhite = {255, 255, 255, 255};
-constexpr GXColor kWarn = {176, 58, 46, 255};
 
 struct Tex {
     u8* data = nullptr;
@@ -46,11 +46,13 @@ extern Tex scrollUp, scrollUpOver, scrollDown, scrollDownOver;    // 34 list scr
 extern Tex iconDrives, iconGear;         // 28x28
 extern Tex iconDisc;                     // 40x40, the Disc drive tile's picture
 extern Tex hand[4];                      // 96x96 pointers, fingertip at the centre
+extern Tex background;                   // 640x480, a theme's (else none: GuiBackdrop paints)
 
 // Takes `bytes` of MEM2, 32-byte aligned, for the rest of the menu phase;
 // nullptr when MEM2 is full.
 u8* Mem2Alloc(std::size_t bytes);
 
+// Reads the theme (wii/menutheme.hpp), then paints or loads every picture.
 void Init();
 bool Ready();
 

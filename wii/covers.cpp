@@ -69,14 +69,11 @@ bool Inflate(const std::uint8_t* data, std::size_t size, std::uint8_t* out, std:
 // PNG to RGBA rows (src/pngdecode.cpp, in place of libpng: about 110 KiB
 // less of the DOL, which is MEM1 the menu's heap gets back).
 bool DecodePng(const std::vector<std::uint8_t>& png, std::vector<std::uint8_t>& rgba, int& w, int& h) {
-    std::uint32_t width = 0, height = 0;
     std::string error;
-    if (!decode_png(png.data(), png.size(), &Inflate, 1024, rgba, width, height, error)) {
+    if (!DecodePngRgba(png, rgba, w, h, error)) {
         logf("Covers: %s\n", error.c_str());
         return false;
     }
-    w = static_cast<int>(width);
-    h = static_cast<int>(height);
     return true;
 }
 
@@ -193,6 +190,15 @@ void ForgetCover(const std::string& game_id) {
     for (Slot& s : g_pool) {
         if (s.id == game_id) s.id.clear();
     }
+}
+
+bool DecodePngRgba(const std::vector<std::uint8_t>& png, std::vector<std::uint8_t>& rgba, int& w, int& h,
+                   std::string& error) {
+    std::uint32_t width = 0, height = 0;
+    if (!decode_png(png.data(), png.size(), &Inflate, 1024, rgba, width, height, error)) return false;
+    w = static_cast<int>(width);
+    h = static_cast<int>(height);
+    return true;
 }
 
 }  // namespace riftwii::wii

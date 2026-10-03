@@ -65,6 +65,11 @@ void LoaderSettings::parse(const std::string& text) {
             if (value == "riftwii" || value == "menu") return_to = value;
         } else if (key == "menu_music") {
             if (value == "on" || value == "off") menu_music = value;
+        } else if (key == "theme") {
+            // A folder in sd:/riftwii/themes: one name, no path.
+            if (!value.empty() && value.size() <= 64 && value.find_first_of("/\\:") == std::string::npos &&
+                value != "." && value != "..")
+                theme = value;
         } else if (key == "screenshots") {
             if (value == "on" || value == "off" || value == "demo") screenshots = value;
         } else if (key == "menu_sounds") {
@@ -120,6 +125,7 @@ std::string LoaderSettings::serialize() const {
     s += "home_tiles = " + home_tiles + "\n";
     s += "menu_sounds = " + menu_sounds + "\n";
     s += "menu_music = " + menu_music + "\n";
+    s += "theme = " + theme + "\n";
     s += "return_to = " + return_to + "\n";
     s += "screenshots = " + screenshots + "\n";
     s += std::string("online = ") + (online ? "on" : "off") + "\n";

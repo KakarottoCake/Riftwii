@@ -5,9 +5,12 @@
 #include <gccore.h>
 
 #include <cstdio>
+#include <string>
+#include <vector>
 
 #include "loadersettings.hpp"
 #include "log.hpp"
+#include "menutheme.hpp"
 #include "oggplayer.h"
 #include "skin.hpp"
 
@@ -29,7 +32,12 @@ bool g_playing = false;
 void Load() {
     if (g_tried) return;
     g_tried = true;
-    for (const char* path : kMusicFiles) {
+    // The theme's music.ogg first (docs/THEMES.md), then the card's, then RiftWii's.
+    const std::string theme_music = MenuThemeMusic();
+    std::vector<const char*> paths;
+    if (!theme_music.empty()) paths.push_back(theme_music.c_str());
+    for (const char* path : kMusicFiles) paths.push_back(path);
+    for (const char* path : paths) {
         FILE* f = std::fopen(path, "rb");
         if (!f) continue;
         std::fseek(f, 0, SEEK_END);

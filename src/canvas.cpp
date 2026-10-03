@@ -306,8 +306,12 @@ void Canvas::curve(const std::vector<float>& top, float thickness, Rgba color) {
 std::vector<std::uint8_t> to_gx_rgba8(const Canvas& canvas) {
     const int w = canvas.width(), h = canvas.height();
     std::vector<std::uint8_t> out(static_cast<std::size_t>(w) * h * 4, 0);
-    if (w % 4 != 0 || h % 4 != 0) return {};
-    const std::vector<std::uint8_t>& px = canvas.pixels();
+    if (!to_gx_rgba8(canvas.pixels().data(), w, h, out.data())) return {};
+    return out;
+}
+
+bool to_gx_rgba8(const std::uint8_t* px, int w, int h, std::uint8_t* out) {
+    if (w <= 0 || h <= 0 || w % 4 != 0 || h % 4 != 0) return false;
     std::size_t o = 0;
     for (int ty = 0; ty < h; ty += 4) {
         for (int tx = 0; tx < w; tx += 4) {
@@ -327,7 +331,7 @@ std::vector<std::uint8_t> to_gx_rgba8(const Canvas& canvas) {
             }
         }
     }
-    return out;
+    return true;
 }
 
 }  // namespace riftwii
