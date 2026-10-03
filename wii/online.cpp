@@ -291,12 +291,10 @@ void UpdateMetaVersion(const std::string& dol_path, const std::string& latest) {
     if (!write_file(meta, std::vector<std::uint8_t>(text.begin(), text.end()), error)) logf("Update: meta.xml: %s\n", error.c_str());
 }
 
-}  // namespace
-
-bool CheckForUpdate(bool force, std::string& latest, bool& newer, std::string& error) {
+// `channel` is read by the caller: the settings belong to the menu thread.
+bool CheckChannel(const std::string& channel, bool force, std::string& latest, bool& newer, std::string& error) {
     newer = false;
     UpdateNote note = ReadUpdateNote();
-    const std::string channel = effective_update_channel(Settings().update_channel, RIFTWII_VERSION);
     // The last answer stands in only for the same channel.
     if (note.channel != channel) note = UpdateNote{};
     latest = note.latest;
@@ -332,6 +330,49 @@ bool CheckForUpdate(bool force, std::string& latest, bool& newer, std::string& e
              note.dol.url.empty() ? " (it has no riftwii.dol)" : "");
     }
     newer = compare_versions(latest, RIFTWII_VERSION) > 0;
+    return true;
+}
+
+struct StartCheck {
+    std::string channel;
+    bool ok = false;
+    std::string latest, error;
+    bool newer = false;
+    bool taken = true;
+};
+StartCheck g_start_check;
+
+void RunStartCheck() {
+    StartCheck& c = g_start_check;
+    c.ok = CheckChannel(c.channel, false, c.latest, c.newer, c.error);
+}
+
+}  // namespace
+
+bool CheckForUpdate(bool force, std::string& latest, bool& newer, std::string& error) {
+    // This answer replaces the start's, which is not asked about again.
+    NetWaitForBackground();
+    g_start_check.taken = true;
+    return CheckChannel(effective_update_channel(Settings().update_channel, RIFTWII_VERSION), force, latest, newer,
+                        error);
+}
+
+void StartUpdateCheck() {
+    if (NetBackgroundBusy()) return;
+    g_start_check = StartCheck{};
+    g_start_check.channel = effective_update_channel(Settings().update_channel, RIFTWII_VERSION);
+    g_start_check.taken = false;
+    NetRunInBackground(RunStartCheck);
+}
+
+bool TakeUpdateCheck(bool& ok, std::string& latest, bool& newer, std::string& error) {
+    if (g_start_check.taken || NetBackgroundBusy()) return false;
+    NetWaitForBackground();
+    g_start_check.taken = true;
+    ok = g_start_check.ok;
+    latest = g_start_check.latest;
+    newer = g_start_check.newer;
+    error = g_start_check.error;
     return true;
 }
 

@@ -19,6 +19,15 @@ void NetStop();
 // The last NetStart failed (and the next would wait as long again).
 bool NetFailed();
 
+// One network job on a thread of its own, so the menu keeps answering
+// while the network comes up (seconds). Until it ends, NetStart and
+// NetStop from other threads wait for it, and so must anything that
+// leaves RiftWii or reloads IOS (NetWaitForBackground). Runs `job` here
+// and now when no thread can be made. False when a job is still running.
+bool NetRunInBackground(void (*job)());
+bool NetBackgroundBusy();
+void NetWaitForBackground();
+
 struct NetServer {
     std::uint32_t ip = 0;  // host order
     std::uint16_t port = 0;

@@ -34,6 +34,7 @@
 #include "menuios.hpp"
 #include "log.hpp"
 #include "memlimits.hpp"
+#include "netsock.hpp"
 #include "riftwii/mempatch.hpp"
 #include "padhook.hpp"
 #include "resident.hpp"
@@ -1958,6 +1959,8 @@ bool boot_game(const DiscProbe& probe, BootOptions options, std::string& error) 
     }
     logf("Booting %s with IOS%u\n", probe.header.game_id.c_str(), required);
     write_play_log(probe);
+    // A background network job (the start's update check) ends first.
+    NetWaitForBackground();
     BootOptions& effective = options;  // the caller's, moved in: no second copy
     const int running_ios = IOS_GetVersion();
     // A pack whose main.dol is another program, not the game: the CTGP-R

@@ -1286,24 +1286,32 @@ static void ScanDrives(FrontendState& state, GuiText& status)
 	LoadPackIndex();
 	riftwii::wii::mem::CheckHeap("after the pack index");
 	OfferReport();
-	// A newer release, asked at every start when downloads are on; the
-	// player is asked before it is installed.
+	// A newer release, asked at every start when downloads are on, in the
+	// background: the network takes seconds to come up, and the menu used
+	// to hold every press until it had (Home answers it, TakeUpdateCheck).
 	static bool updateChecked = false;
 	if (!updateChecked && riftwii::wii::Settings().online) {
 		updateChecked = true;
-		std::string latest, why;
-		bool newer = false;
-		ResumeGui();
-		const bool ok = riftwii::wii::CheckForUpdate(false, latest, newer, why);
-		HaltGui();
-		riftwii::wii::mem::CheckHeap("after the update check");
-		if (!ok) logf("Update check: %s\n", why.c_str());
-		else if (newer && riftwii::wii::UpdateInstalled(latest))
-			g_homeNotice = tr("RiftWii {1} is installed. Start RiftWii again to use it.", {latest});
-		else if (newer && AgreeToUpdate(latest))
-			RunUpdate(latest);
+		riftwii::wii::StartUpdateCheck();
 	}
 	g_scanned = true;
+}
+
+// The start's update check once it has finished: the player is asked
+// before a newer release is installed. On Home, with the GUI halted; true
+// when the status line may have changed.
+static bool TakeUpdateCheck()
+{
+	bool ok = false, newer = false;
+	std::string latest, why;
+	if (!riftwii::wii::TakeUpdateCheck(ok, latest, newer, why)) return false;
+	riftwii::wii::mem::CheckHeap("after the update check");
+	if (!ok) logf("Update check: %s\n", why.c_str());
+	else if (newer && riftwii::wii::UpdateInstalled(latest))
+		g_homeNotice = tr("RiftWii {1} is installed. Start RiftWii again to use it.", {latest});
+	else if (newer && AgreeToUpdate(latest))
+		RunUpdate(latest);
+	return true;
 }
 
 static void ClockText(std::string& clock, std::string& date)
@@ -1451,7 +1459,9 @@ static int MenuSource(FrontendState& state)
 		usleep(10000);
 		std::string arrived;
 		std::string coverNote;
-		if (!coverQueue.empty() && !g_coversOff && !riftwii::wii::NetFailed()) {
+		// Not while the update check has the network: FetchCover would wait
+		// for it and hold the menu.
+		if (!coverQueue.empty() && !g_coversOff && !riftwii::wii::NetBackgroundBusy() && !riftwii::wii::NetFailed()) {
 			std::size_t pick = 0;
 			bool onPage = false;
 			const std::size_t first = static_cast<std::size_t>(grid.Page()) * GuiGameGrid::kPerPage;
@@ -1486,6 +1496,7 @@ static int MenuSource(FrontendState& state)
 			coverNoteShown = false;
 		}
 		ClearStaleButtons({&filterBtn.button, &settingsBtn.button});
+		if (TakeUpdateCheck() && !coverNoteShown) statusTxt.SetText(HomeStatus(state, items.size()).c_str());
 		if (grid.Page() != shownPage || grid.Pages() != shownPages) {
 			shownPage = grid.Page();
 			shownPages = grid.Pages();
@@ -3478,7 +3489,11 @@ static void ShowLaunchFrame(const FrontendState& state, int action)
 	Place(titleTxt, 40, 62);
 	titleTxt.SetWrap(true, 560, 2);
 	Panel card(skin::panelSettings, 34, 160);
-	GuiText footTxt(action == MENU_CHANNEL ? "RiftWii starts again when it is done."
+	// The launch waits for the start's update check first (wii/main.cpp):
+	// say so, as nothing else is on the screen yet. Said here, in the
+	// frame, not by the console: the check's thread is still running.
+	GuiText footTxt(riftwii::wii::NetBackgroundBusy() ? "Waiting for the update check to finish (up to 20 seconds)..."
+		: action == MENU_CHANNEL ? "RiftWii starts again when it is done."
 		: "The game takes over the screen when it is ready.", 15, skin::kInkDim);
 	Place(footTxt, 0, 444, true);
 
@@ -3494,6 +3509,11 @@ static void ShowLaunchFrame(const FrontendState& state, int action)
 	usleep(100000);  // a few frames, so both framebuffers show it
 	HaltGui();
 	mainWindow->Remove(&w);
+}
+
+void RefreshLaunchFrame(const FrontendState& state, int action)
+{
+	ShowLaunchFrame(state, action);
 }
 
 int MainMenu(int menu, FrontendState& state)

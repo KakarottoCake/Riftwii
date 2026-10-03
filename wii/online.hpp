@@ -37,6 +37,11 @@ bool UpdateTitles(const std::string& lang, bool force, std::string& error);
 // stands in when GitHub cannot be reached (not with `force`). `newer`
 // says whether it is newer than this build.
 bool CheckForUpdate(bool force, std::string& latest, bool& newer, std::string& error);
+// The check at start, on a thread of its own (NetRunInBackground) so the
+// menu answers while the network comes up. TakeUpdateCheck is true once,
+// when it has finished, with what CheckForUpdate said.
+void StartUpdateCheck();
+bool TakeUpdateCheck(bool& ok, std::string& latest, bool& newer, std::string& error);
 constexpr const char* kReleasesPage = "github.com/KakarottoCake/Riftwii/releases";
 
 // Whether `latest` was already installed by InstallUpdate (it runs once
