@@ -65,7 +65,7 @@ OpenStatus list_sorted(ContentProvider& provider, const std::string& sd_dir, std
     }
     std::vector<ExternalEntry> kept;
     for (ExternalEntry& e : out) {
-        if (valid_entry_name(e.name)) kept.push_back(std::move(e));
+        if (valid_entry_name(e.name) && !is_mac_metadata(e.name)) kept.push_back(std::move(e));
     }
     std::sort(kept.begin(), kept.end(), name_less);
     out = std::move(kept);

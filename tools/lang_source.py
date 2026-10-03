@@ -1096,6 +1096,25 @@ T = {
         "Il menu di RiftWii si riavvia per mostrare {1}. I tuoi giochi e le impostazioni restano come sono."),
     "Restart": ("Reiniciar", "再起動", "Reiniciar", "Riavvia"),
     "Theme: {1}": ("Tema: {1}", "テーマ: {1}", "Tema: {1}", "Tema: {1}"),
+    "Files from a Mac on the SD card": ("Archivos de un Mac en la tarjeta SD", "SDカードにMacのファイルがあります",
+        "Arquivos de um Mac no cartão SD", "File di un Mac sulla scheda SD"),
+    'This SD card has hidden files that macOS makes when it copies (names that start with "._"). RiftWii skips them, but they fill the card and can confuse other homebrew. To remove them, put the card in your Mac, open Terminal and type: dot_clean -m /Volumes/ followed by the card\'s name. On Windows, delete the files whose names start with "._".': (
+        "Esta tarjeta SD tiene archivos ocultos que macOS crea al copiar (nombres que empiezan por \"._\"). "
+        "RiftWii los ignora, pero ocupan espacio y pueden confundir a otros homebrew. Para quitarlos, pon la tarjeta "
+        "en tu Mac, abre Terminal y escribe: dot_clean -m /Volumes/ seguido del nombre de la tarjeta. En Windows, "
+        "borra los archivos cuyo nombre empieza por \"._\".",
+        "このSDカードには、macOSがコピー時に作る隠しファイル（名前が「._」で始まるもの）があります。"
+        "RiftWiiは無視しますが、容量を使い、他のHomebrewを混乱させることがあります。削除するには、カードをMacに入れ、"
+        "ターミナルで dot_clean -m /Volumes/ に続けてカードの名前を入力してください。Windowsでは、名前が「._」で始まるファイルを削除してください。",
+        "Este cartão SD tem arquivos ocultos que o macOS cria ao copiar (nomes que começam com \"._\"). "
+        "O RiftWii os ignora, mas eles ocupam espaço e podem confundir outros homebrews. Para removê-los, coloque o cartão "
+        "no seu Mac, abra o Terminal e digite: dot_clean -m /Volumes/ seguido do nome do cartão. No Windows, "
+        "apague os arquivos cujos nomes começam com \"._\".",
+        "Questa scheda SD ha file nascosti che macOS crea quando copia (nomi che iniziano con \"._\"). "
+        "RiftWii li ignora, ma occupano spazio e possono confondere altri homebrew. Per rimuoverli, inserisci la scheda "
+        "nel tuo Mac, apri il Terminale e scrivi: dot_clean -m /Volumes/ seguito dal nome della scheda. Su Windows, "
+        "elimina i file il cui nome inizia con \"._\"."),
+    "Don't show again": ("No volver a mostrar", "今後表示しない", "Não mostrar de novo", "Non mostrare più"),
 }
 
 

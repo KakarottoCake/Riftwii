@@ -72,6 +72,12 @@ OpenStatus list_native_directory(const std::string& native_path, std::vector<Ext
     return OpenStatus::Ok;
 }
 
+bool is_mac_metadata(const std::string& name) {
+    if (name.size() > 2 && name[0] == '.' && name[1] == '_') return true;
+    return name == ".DS_Store" || name == ".Trashes" || name == ".Spotlight-V100" || name == ".fseventsd" ||
+           name == ".TemporaryItems";
+}
+
 DirectoryProvider::DirectoryProvider(std::string disc_root, std::string sd_root)
     : disc_root_(std::move(disc_root)), sd_root_(std::move(sd_root)) {}
 

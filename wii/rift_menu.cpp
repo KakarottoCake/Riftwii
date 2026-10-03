@@ -58,6 +58,7 @@
 #include "boot.hpp"
 #include "demo.h"
 #include "input.h"
+#include "riftwii/apply.hpp"
 #include "riftwii/patch.hpp"
 #include "codebuilds.hpp"
 #include "gameextras.hpp"
@@ -1225,6 +1226,42 @@ static void ShowTutorialOnce()
 	}
 }
 
+// Hidden files macOS writes on a FAT card ("._name" beside every copied
+// file): counted in the folders RiftWii reads. The game scan and the mod
+// folders skip them; this only suggests dot_clean. "Don't show again"
+// leaves sd:/riftwii/mac_files_noted.txt.
+static void SuggestDotClean()
+{
+	static const char* const kMarker = "sd:/riftwii/mac_files_noted.txt";
+	static bool asked = false;
+	struct stat st;
+	if (asked || stat(kMarker, &st) == 0) return;
+	asked = true;
+	static const char* const kDirs[] = {"sd:/", "sd:/riivolution", "sd:/wbfs", "sd:/games", "sd:/apps/riftwii"};
+	unsigned found = 0;
+	for (const char* dir : kDirs) {
+		DIR* d = opendir(dir);
+		if (!d) continue;
+		// Capped: a damaged directory chain can make readdir go round forever.
+		unsigned seen = 0;
+		while (dirent* e = readdir(d)) {
+			if (++seen > 2000) break;
+			if (riftwii::is_mac_metadata(e->d_name)) ++found;
+		}
+		closedir(d);
+	}
+	if (found == 0) return;
+	logf("SD: %u file(s) from macOS (._name, .DS_Store); skipped\n", found);
+	if (ShowPopup(tr("Files from a Mac on the SD card"),
+		tr("This SD card has hidden files that macOS makes when it copies (names that start with \"._\"). RiftWii skips them, but they fill the card and can confuse other homebrew. To remove them, put the card in your Mac, open Terminal and type: dot_clean -m /Volumes/ followed by the card's name. On Windows, delete the files whose names start with \"._\"."),
+		tr("OK"), tr("Don't show again")) == 0) return;
+	mkdir("sd:/riftwii", 0777);
+	if (FILE* f = std::fopen(kMarker, "w")) {
+		std::fprintf(f, "%u\n", found);
+		std::fclose(f);
+	}
+}
+
 // Asked once per SD card (sd:/riftwii/channel_offered.txt remembers the
 // answer): the channel can be added, and is not there yet. True to open
 // the installer.
@@ -1423,6 +1460,7 @@ static int MenuSource(FrontendState& state)
 		ScanDrives(state, statusTxt);
 		riftwii::wii::GcAdapterMenuAllowStart();
 		ShowTutorialOnce();
+		SuggestDotClean();
 		if (OfferChannelOnce()) menu = MENU_CHANNEL;
 		refresh(true);
 		// The first time Home shows, it opens on the last game played.

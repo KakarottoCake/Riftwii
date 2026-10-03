@@ -47,6 +47,11 @@ public:
 // share it.
 OpenStatus list_native_directory(const std::string& native_path, std::vector<ExternalEntry>& out, std::string& error);
 
+// A file macOS leaves on a FAT card: "._name" (AppleDouble, one beside
+// every copied file), .DS_Store, .Trashes, .Spotlight-V100, .fseventsd.
+// Never mod content or a game; the folder patches and the game scan skip them.
+bool is_mac_metadata(const std::string& name);
+
 // Maps absolute disc/sd paths onto two host (or sd:/) directory prefixes by
 // plain string concatenation. Resolved planner paths never contain "..",
 // so joining cannot escape the roots.

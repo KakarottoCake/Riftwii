@@ -1106,3 +1106,12 @@ msgstr "Riavvia"
 
 msgid "Theme: {1}"
 msgstr "Tema: {1}"
+
+msgid "Files from a Mac on the SD card"
+msgstr "File di un Mac sulla scheda SD"
+
+msgid "This SD card has hidden files that macOS makes when it copies (names that start with \"._\"). RiftWii skips them, but they fill the card and can confuse other homebrew. To remove them, put the card in your Mac, open Terminal and type: dot_clean -m /Volumes/ followed by the card's name. On Windows, delete the files whose names start with \"._\"."
+msgstr "Questa scheda SD ha file nascosti che macOS crea quando copia (nomi che iniziano con \"._\"). RiftWii li ignora, ma occupano spazio e possono confondere altri homebrew. Per rimuoverli, inserisci la scheda nel tuo Mac, apri il Terminale e scrivi: dot_clean -m /Volumes/ seguito dal nome della scheda. Su Windows, elimina i file il cui nome inizia con \"._\"."
+
+msgid "Don't show again"
+msgstr "Non mostrare più"

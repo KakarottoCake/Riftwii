@@ -27,6 +27,7 @@
 #include "ios_reload.hpp"
 #include "log.hpp"
 #include "menuios.hpp"
+#include "riftwii/apply.hpp"
 #include "riftwii/disc.hpp"
 #include "riftwii/gxpatches.hpp"
 #include "riftwii/launch.hpp"
@@ -531,6 +532,7 @@ bool add_game(const ImageVolume& volume, const std::string& prefix, ImageDevice 
 // `folder` is what the folder holds: Wbfs (wbfs and iso), Iso (iso and
 // rvz), or Rvz for a folder of the user's own, which may hold all three.
 bool image_format(const std::string& name, UsbImageFormat folder, UsbImageFormat& out) {
+    if (is_mac_metadata(name)) return false;  // "._ID.wbfs" from a Mac is not a game
     if (folder != UsbImageFormat::Iso && extension(name, ".wbfs")) { out = UsbImageFormat::Wbfs; return true; }
     if (extension(name, ".iso")) { out = UsbImageFormat::Iso; return true; }
     if (folder != UsbImageFormat::Wbfs && extension(name, ".rvz")) { out = UsbImageFormat::Rvz; return true; }

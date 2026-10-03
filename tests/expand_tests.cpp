@@ -75,6 +75,10 @@ static ListingProvider Card() {
     p.add("/mod/Stage", "new.arc", false);
     p.add("/mod/Stage", "B.ARC", false);
     p.add("/mod/Stage", "a.arc", false);
+    // macOS leftovers, never patched in.
+    p.add("/mod/Stage", "._a.arc", false);
+    p.add("/mod/Stage", ".DS_Store", false);
+    p.add("/mod/loose", "._SYS.BIN", false);
     p.add("/mod/Stage", "extra", true);
     p.add("/mod/Stage/sub", "d.bin", false);
     p.add("/mod/Stage/sub", "C.BIN", false);
@@ -297,6 +301,17 @@ static void test_order_and_files() {
     EXPECT_FALSE(riftwii::expand_plan(plan, fst, nolist, out, notes, err));
 }
 
+static void test_mac_metadata() {
+    EXPECT_TRUE(riftwii::is_mac_metadata("._SB4E01.wbfs"));
+    EXPECT_TRUE(riftwii::is_mac_metadata("._nmg.xml"));
+    EXPECT_TRUE(riftwii::is_mac_metadata(".DS_Store"));
+    EXPECT_TRUE(riftwii::is_mac_metadata(".Trashes"));
+    EXPECT_FALSE(riftwii::is_mac_metadata("._"));
+    EXPECT_FALSE(riftwii::is_mac_metadata("a._b"));
+    EXPECT_FALSE(riftwii::is_mac_metadata(".hidden"));
+    EXPECT_FALSE(riftwii::is_mac_metadata("SB4E01.wbfs"));
+}
+
 // The native listing through DirectoryProvider, on a directory made here.
 static void test_native_listing() {
     namespace fs = std::filesystem;
@@ -367,6 +382,7 @@ int main() {
     test_by_name();
     test_order_and_files();
     test_native_listing();
+    test_mac_metadata();
     test_empty_plan_message();
     if (g_failures == 0) {
         std::cout << "ALL EXPAND TESTS PASSED" << std::endl;
