@@ -16,8 +16,12 @@
 //   - Width: how wide the picture is drawn in the 720-pixel TV line. Many
 //     games draw 640 pixels and leave black bars at the sides, which old
 //     TVs hid (overscan) and modern ones show.
-//   - Borders: some games also leave bars at the top and bottom; removing
-//     them stretches the picture to the full height.
+//   - Borders: removing them stretches the picture over the bars at the
+//     sides (the VI's width, which the game never sees). "Remove all" also
+//     stretches it over the bars at the top and bottom: the VI cannot scale
+//     vertically, so the tables' frame buffer heights change and the game's
+//     copy to the frame buffer scales to them. Games that use those heights
+//     for anything else break (issue 15), so that one is experimental.
 //   - Deflicker: the filter that blends neighbouring lines to hide
 //     interlace flicker. It blurs; turning it off gives a sharp picture.
 //   - Mode: the TV format the game outputs (NTSC, PAL 50 Hz, PAL 60 Hz,
@@ -43,7 +47,8 @@ struct VideoTarget {
 struct VideoSettings {
     VideoWidth width = VideoWidth::Game;
     Deflicker deflicker = Deflicker::Game;
-    bool remove_borders = false;  // implies the full 720-pixel width
+    bool remove_borders = false;  // the side bars: implies the full 720-pixel width
+    bool remove_top_bottom = false;  // with remove_borders: the full height too (experimental)
     VideoMode mode = VideoMode::Game;
     VideoTarget target;           // what `mode` means on this console
     bool any() const {

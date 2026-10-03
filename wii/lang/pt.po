@@ -270,6 +270,9 @@ msgstr "Alto"
 msgid "Remove"
 msgstr "Remover"
 
+msgid "Remove all (experimental)"
+msgstr "Remover tudo (experimental)"
+
 msgid "Keep"
 msgstr "Manter"
 
@@ -291,8 +294,8 @@ msgstr "A largura da imagem. 720 preenche a tela de lado a lado."
 msgid "A filter that softens the picture to hide flicker. Off gives the sharpest picture."
 msgstr "Um filtro que suaviza a imagem para esconder a tremulação. Com Não ela fica mais nítida."
 
-msgid "Remove stretches the picture to fill the screen."
-msgstr "Remover estica a imagem para preencher a tela."
+msgid "Remove stretches the picture over the bars at the sides. Remove all also stretches it over the bars at the top and bottom: experimental, some games show a broken picture or crash with it."
+msgstr "Remover estica a imagem sobre as barras dos lados. Remover tudo também a estica sobre as barras de cima e de baixo: é experimental, com isso alguns jogos mostram a imagem quebrada ou travam."
 
 msgid "Last time, this game left black borders on all sides."
 msgstr "Da última vez, este jogo deixou bordas pretas em todos os lados."

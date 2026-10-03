@@ -253,7 +253,8 @@ void apply_video(const std::vector<MemoryRegion>& loaded, bool may_mount) {
     }
     logf("Video: %s (mode %s, width %s, deflicker %s, borders %s)\n", report.describe().c_str(),
          to_string(g_extras.video.mode), to_string(g_extras.video.width), to_string(g_extras.video.deflicker),
-         g_extras.video.remove_borders ? "removed" : "kept");
+         !g_extras.video.remove_borders ? "kept"
+         : g_extras.video.remove_top_bottom ? "all removed (experimental)" : "removed at the sides");
     if (g_extras.language >= 0) {
         logf("Language: %s, %u place(s) patched%s\n", game_language_name(g_extras.language), language_sites,
              language_sites == 0 ? " (the game reads it some other way: it keeps the console's)" : "");
@@ -1531,6 +1532,7 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         g_extras.video.width = VideoWidth::Game;
         g_extras.video.deflicker = Deflicker::Game;
         g_extras.video.remove_borders = false;
+        g_extras.video.remove_top_bottom = false;
     }
     // The menu's extras, over the game as loaded and patched.
     apply_video(loaded, card.fd < 0);  // not while the runtime's card handle is open

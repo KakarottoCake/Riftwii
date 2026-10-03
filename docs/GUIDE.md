@@ -102,7 +102,12 @@ these rows:
     flicker. *Off* gives the sharpest picture, especially over
     component or HDMI.
   - *Black borders*: *Remove* stretches the picture over the bars at
-    the top and bottom. After a game has run once, the page tells you
+    the sides; only the TV picture changes, never what the game draws.
+    *Remove all (experimental)* also stretches it over the bars at the
+    top and bottom. That one changes the game's own frame sizes, and
+    some games then show a shifted or broken picture, flash or crash
+    (Resident Evil 4, Mario Party 8, the Kirby games' pink bar): use
+    *Remove* for those. After a game has run once, the page tells you
     which borders it left.
 - **Video mode** makes the game use another TV signal: *NTSC (480i)*,
   *PAL 60 Hz*, *PAL 50 Hz*, *480p* (needs a component cable) or *The

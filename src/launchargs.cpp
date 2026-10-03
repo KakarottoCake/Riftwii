@@ -89,7 +89,7 @@ bool parse_headless_launch(const std::vector<std::string>& args, HeadlessLaunch&
             ok = parse_deflicker(value, deflicker);
             out.settings.deflicker = value;
         } else if (key == "borders") {
-            ok = value == "keep" || value == "remove";
+            ok = value == "keep" || value == "remove" || value == "remove_all";
             out.settings.borders = value;
         } else if (key == "language") {
             ok = parse_game_language(value, number);

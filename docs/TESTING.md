@@ -229,7 +229,9 @@ From a USB drive or the SD card where you can:
 ## Known issues
 
 - The pink bar in the Kirby games with width 720 and borders removed
-  (issue 13).
+  (issue 13), and Resident Evil 4 / Mario Party 8 breaking (issue 15):
+  both with the top and bottom removal, now *Remove all
+  (experimental)*; *Remove* only takes the side bars away.
 - CTGP-R 1.03 started from RiftWii (use the Homebrew Channel).
 - Super Mario Galaxy can go black when it returns to the RiftWii
   channel.

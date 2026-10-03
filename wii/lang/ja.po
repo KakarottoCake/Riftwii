@@ -270,6 +270,9 @@ msgstr "強"
 msgid "Remove"
 msgstr "なくす"
 
+msgid "Remove all (experimental)"
+msgstr "すべてなくす（実験的）"
+
 msgid "Keep"
 msgstr "そのまま"
 
@@ -291,8 +294,8 @@ msgstr "画面の横幅です。720にすると画面の端から端まで表示
 msgid "A filter that softens the picture to hide flicker. Off gives the sharpest picture."
 msgstr "ちらつきを抑えるために画面をぼかすフィルターです。オフにすると一番くっきりします。"
 
-msgid "Remove stretches the picture to fill the screen."
-msgstr "「なくす」にすると画面いっぱいに引き伸ばします。"
+msgid "Remove stretches the picture over the bars at the sides. Remove all also stretches it over the bars at the top and bottom: experimental, some games show a broken picture or crash with it."
+msgstr "「なくす」にすると左右の黒い帯の上まで画面を引き伸ばします。「すべてなくす」は上下の帯の上まで引き伸ばします。実験的な機能で、画面が崩れたり止まったりするゲームがあります。"
 
 msgid "Last time, this game left black borders on all sides."
 msgstr "前回、このゲームは上下左右に黒い枠がありました。"

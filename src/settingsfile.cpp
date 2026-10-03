@@ -43,7 +43,7 @@ void LoaderSettings::parse(const std::string& text) {
         } else if (key == "deflicker") {
             if (parse_deflicker(value, d)) deflicker = value;
         } else if (key == "borders") {
-            if (value == "keep" || value == "remove") borders = value;
+            if (value == "keep" || value == "remove" || value == "remove_all") borders = value;
         } else if (key == "video_mode") {
             VideoMode m;
             if (parse_video_mode(value, m)) video_mode = value;
@@ -168,7 +168,8 @@ VideoSettings effective_video(const GameSettings& game, const LoaderSettings& gl
     const std::string& borders = game.borders == "global" ? global.borders : game.borders;
     if (!parse_video_width(width, v.width)) v.width = VideoWidth::Game;
     if (!parse_deflicker(filter, v.deflicker)) v.deflicker = Deflicker::Game;
-    v.remove_borders = borders == "remove";
+    v.remove_borders = borders == "remove" || borders == "remove_all";
+    v.remove_top_bottom = borders == "remove_all";
     const std::string& mode = game.video_mode == "global" ? global.video_mode : game.video_mode;
     if (!parse_video_mode(mode, v.mode)) v.mode = VideoMode::Game;
     return v;

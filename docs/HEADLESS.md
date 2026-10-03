@@ -41,7 +41,7 @@ from its own menu (the game's saved choices, then RiftWii's Settings).
 | `video_mode` | `game`, `system`, `ntsc`, `pal60`, `pal50`, `480p` | The TV format. |
 | `video_width` | `game`, `framebuffer`, `704`, `720` | The picture width. |
 | `deflicker` | `game`, `off`, `low`, `medium`, `high` | |
-| `borders` | `keep`, `remove` | |
+| `borders` | `keep`, `remove`, `remove_all` | `remove`: the side bars; `remove_all` also the top and bottom (experimental). |
 | `language` | `console`, `ja`, `en`, `de`, `fr`, `es`, `it`, `nl`, `zh-hans`, `zh-hant`, `ko` | The language the game is told the console uses. |
 | `cios` | `auto`, `248` … `252` | The d2x cIOS for a USB or SD game. |
 | `server` | `off`, `wiimmfi`, `wiilink`, `altwfc`, `custom` | The online server; `custom` uses `wfc_domain`. |

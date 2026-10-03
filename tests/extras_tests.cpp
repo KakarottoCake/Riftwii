@@ -246,7 +246,18 @@ void TestVideo() {
     EXPECT_EQ(get16(copy, 614), 640u);  // not a table: untouched
 
     s = VideoSettings{};
-    s.remove_borders = true;
+    s.remove_borders = true;  // the sides only: the heights stay the game's
+    copy = data;
+    report = VideoPatchReport{};
+    patch_video_modes(copy.data(), copy.size(), s, report);
+    EXPECT_EQ(get16(copy, 114), 720u);
+    EXPECT_EQ(get16(copy, 110), 0u);
+    EXPECT_EQ(get16(copy, 116), get16(data, 116));
+    EXPECT_EQ(get16(copy, 108), get16(data, 108));
+    EXPECT_EQ(get16(copy, 112), get16(data, 112));
+    EXPECT_EQ(get16(copy, 416), get16(data, 416));
+
+    s.remove_top_bottom = true;  // "remove all"
     copy = data;
     report = VideoPatchReport{};
     patch_video_modes(copy.data(), copy.size(), s, report);
@@ -378,6 +389,11 @@ void TestSettings() {
     VideoSettings v = effective_video(g, s);
     EXPECT_TRUE(v.width == VideoWidth::W704);
     EXPECT_TRUE(v.remove_borders);
+    EXPECT_FALSE(v.remove_top_bottom);
+    g.borders = "remove_all";
+    v = effective_video(g, s);
+    EXPECT_TRUE(v.remove_borders);
+    EXPECT_TRUE(v.remove_top_bottom);
     g.video_width = "game";
     g.borders = "keep";
     g.deflicker = "off";

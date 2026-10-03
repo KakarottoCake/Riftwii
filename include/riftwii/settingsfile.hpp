@@ -19,7 +19,7 @@ struct LoaderSettings {
     std::string language = "auto";        // auto (the Wii's), en, es, ja, pt, it
     std::string video_width = "game";     // riftwii/videopatch.hpp names
     std::string deflicker = "game";
-    std::string borders = "keep";         // keep, remove
+    std::string borders = "keep";         // keep, remove (the sides), remove_all (experimental)
     std::string video_mode = "game";      // a VideoMode name
     std::string game_language = "console";  // riftwii/gamelang.hpp names
     std::string game_cios = "auto";       // auto (d2x in 249-251), 248 ... 252

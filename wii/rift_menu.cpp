@@ -1638,7 +1638,7 @@ struct RowRef {
 // riftwii/videopatch.hpp's names.
 static const char* const kWidths[] = {"global", "game", "framebuffer", "704", "720"};
 static const char* const kDeflickers[] = {"global", "game", "off", "low", "medium", "high"};
-static const char* const kBorderModes[] = {"global", "keep", "remove"};
+static const char* const kBorderModes[] = {"global", "keep", "remove", "remove_all"};
 static const char* const kVideoModes[] = {"global", "game", "system", "ntsc", "pal60", "pal50", "480p"};
 static const char* const kGameLanguages[] = {"global", "console", "ja", "en", "de", "fr", "es", "it", "nl", "zh-hans",
 	"zh-hant", "ko"};
@@ -1671,8 +1671,12 @@ static std::string DeflickerName(const std::string& v)
 	if (v == "high") return tr("High");
 	return tr("Game's own");
 }
+static const char* const kBordersNote =
+	"Remove stretches the picture over the bars at the sides. Remove all also stretches it over the bars at the top "
+	"and bottom: experimental, some games show a broken picture or crash with it.";
 static std::string BordersName(const std::string& v)
 {
+	if (v == "remove_all") return tr("Remove all (experimental)");
 	return v == "remove" ? tr("Remove") : tr("Keep");
 }
 static std::string VideoModeName(const std::string& v)
@@ -2927,7 +2931,7 @@ static int MenuSettings(FrontendState& state)
 		option(tr("Language"), LanguageName(settings.language), settings.language != "auto", kLanguage);
 		option(tr("Picture width"), WidthName(settings.video_width), settings.video_width != "game", kWidth);
 		option(tr("Deflicker"), DeflickerName(settings.deflicker), settings.deflicker != "game", kDeflicker);
-		option(tr("Black borders"), BordersName(settings.borders), settings.borders == "remove", kBorders);
+		option(tr("Black borders"), BordersName(settings.borders), settings.borders != "keep", kBorders);
 		option(tr("Video mode"), VideoModeName(settings.video_mode), settings.video_mode != "game", kVideoMode);
 		option(tr("Game language"), GameLanguageName(settings.game_language), settings.game_language != "console",
 			kGameLanguage);
@@ -3080,7 +3084,7 @@ static int MenuSettings(FrontendState& state)
 			case kLanguage: return tr("The menu's language. Wii follows the console's own setting.");
 			case kWidth: return tr("How wide the picture is drawn. 720 fills the screen from side to side.");
 			case kDeflicker: return tr("A filter that softens the picture to hide flicker. Off gives the sharpest picture.");
-			case kBorders: return tr("Remove stretches the picture to fill the screen.");
+			case kBorders: return tr(kBordersNote);
 			case kVideoMode: return tr("The TV signal the game sends. PAL 50 Hz needs a TV that takes it, 480p a component cable.");
 			case kGameLanguage: return tr("The language the game is told the console uses. Pick one the game has: some games stop without it.");
 			case kGameCios: return tr("The d2x cIOS the game runs under. Automatic uses the menu's, else the first of 249, 250 and 251 that works.");
@@ -3169,7 +3173,7 @@ static int MenuSettings(FrontendState& state)
 					break;
 				case kBorders:
 					settings.borders = StepValue(kBorderModes, settings.borders, direction, false);
-					saveAndNote(tr("Remove stretches the picture to fill the screen."));
+					saveAndNote(tr(kBordersNote));
 					rebuild();
 					break;
 				case kVideoMode:

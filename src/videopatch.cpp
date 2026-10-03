@@ -241,7 +241,7 @@ void patch_video_modes(std::uint8_t* bytes, std::size_t size, const VideoSetting
             put16(p + kViX, (kLine - new_w) / 2);
             changed = true;
         }
-        if (settings.remove_borders && h < full && !double_strike(tv)) {
+        if (settings.remove_borders && settings.remove_top_bottom && h < full && !double_strike(tv)) {
             // The whole height: the game's copy to the frame buffer then
             // scales its picture to it (the SDK sets that scale from the
             // table's heights).

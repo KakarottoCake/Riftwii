@@ -91,7 +91,7 @@ struct GameSettings {
     std::set<std::string> cheat_names;  // by name, as in the game's cheat file
     std::string video_width = "global"; // or a riftwii/videopatch.hpp name
     std::string deflicker = "global";
-    std::string borders = "global";     // or "keep", "remove"
+    std::string borders = "global";     // or "keep", "remove", "remove_all"
     std::string video_mode = "global";  // or a VideoMode name
     std::string language = "global";    // or a riftwii/gamelang.hpp name
     std::string cios = "global";        // or "auto", "248" ... "252"
@@ -158,7 +158,7 @@ public:
     //   *riftwii*\tsaves\t<nand|separate|fresh>
     //   *riftwii*\tcheats\t<on|off>
     //   *riftwii*\tcheat\t<name>          (one per cheat picked)
-    //   *riftwii*\tvideo\t<width>, deflicker\t<filter>, borders\t<keep|remove>
+    //   *riftwii*\tvideo\t<width>, deflicker\t<filter>, borders\t<keep|remove|remove_all>
     //   *riftwii*\tvideomode\t<mode>, gamelang\t<language>, cios\t<auto|slot>
     //   *riftwii*\tserver\t<off|wiimmfi|wiilink|altwfc|custom>
     //   <file>\t<on|off>
