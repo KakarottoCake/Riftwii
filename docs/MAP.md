@@ -28,6 +28,7 @@ and `vendor-*` is third-party code.
 | --- | --- |
 | A menu screen (Home, a game's page, Mods, Cheats, Settings) | `wii/rift_menu.cpp` |
 | How a list or the tile grid looks or scrolls | `wii/gui_flowlist.cpp`, `wii/gui_gamegrid.cpp`, `wii/skin.cpp` |
+| Menu themes (colours, pictures, music) | `src/theme.cpp` (theme.ini), `wii/menutheme.cpp`, `wii/skin.cpp`, `themes/`, [THEMES.md](THEMES.md) |
 | Menu text and its translations | `tools/lang_source.py` (the table), `wii/i18n.cpp`, `wii/lang/*.po` |
 | Settings and what they mean | `src/settingsfile.cpp`, `wii/loadersettings.cpp`, the Settings screen in `wii/rift_menu.cpp` |
 | Finding games on the SD card and USB drives | `wii/usbcatalog.cpp`, `src/usbgame.cpp`, `src/imagevolume.cpp`, `src/fat32.cpp`, `src/ntfs.cpp`, `src/wbfspart.cpp` |
@@ -82,7 +83,8 @@ it links libogc. Each `.cpp` has a `.hpp` that describes it.
 | `menu.h` | The menu's entry points for `main.cpp` |
 | `gui_flowlist.cpp` | The row lists (game page, Mods, Cheats, Settings) |
 | `gui_gamegrid.cpp` | The Home screen's tile grid and its cover textures |
-| `skin.cpp` | The menu's artwork, painted at start (no image files) |
+| `skin.cpp` | The menu's artwork, painted at start, or a theme's pictures |
+| `menutheme.cpp` | The chosen theme: its theme.ini, pictures and music on the SD card |
 | `menumusic.cpp` | The background music |
 | `i18n.cpp` | Translations (the built-in `.po` files, or one on the card) |
 | `lang/*.po` | The translations, written by `tools/lang_source.py` |
@@ -165,6 +167,7 @@ implements `include/riftwii/x.hpp`, whose comments document it.
 | `gamelang` | The game language |
 | `gxpatches` | USB Loader GX's per-game fixes and cIOS choice |
 | `settingsfile` | `settings.txt` |
+| `theme` | `theme.ini`: a theme's colours, corners and backdrop; the pictures a theme may replace |
 | `langfile` | Translation files |
 | `playhistory` | `history.txt` |
 | `returnto` | Returning to RiftWii from a game |
