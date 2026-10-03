@@ -269,6 +269,55 @@ std::string nearest_on_card(const std::string& sd_path) {
     return "";
 }
 
+// A pack's folder copied into the XML's own folder (sd:/riivolution/nmg
+// for root="/nmg"): each top-level folder the plan names that is not
+// on the drive but is beside the XML is read from there. `prefix` is
+// "usb:" for a pack on the drive, else empty.
+void use_misplaced_folders(Plan& plan, const std::string& xml_sd_path, const std::string& prefix,
+                           WiiProvider& provider, CompiledMod& mod) {
+    const std::string pack_dir = PackFolderOf(xml_sd_path);
+    if (pack_dir == "/" || !NetworkRootOf(xml_sd_path).empty()) return;
+    // "/nmg/LayoutData/x.arc" -> "nmg"; a file at the top has no folder.
+    const auto top_of = [&](const std::string& path) {
+        std::string p = path.compare(0, prefix.size(), prefix) == 0 ? path.substr(prefix.size()) : path;
+        const std::size_t from = !p.empty() && p[0] == '/' ? 1 : 0;
+        const std::size_t slash = p.find('/', from);
+        return slash == std::string::npos ? std::string() : p.substr(from, slash - from);
+    };
+    std::vector<std::string*> paths;
+    for (FilePatch& f : plan.files) paths.push_back(&f.external);
+    for (FolderPatch& f : plan.folders) paths.push_back(&f.external);
+    for (MemoryPatch& m : plan.memory) paths.push_back(&m.valuefile);
+    std::set<std::string> tops;
+    for (const std::string* p : paths) {
+        const std::string top = top_of(*p);
+        if (!top.empty()) tops.insert(top);
+    }
+    const std::string where = prefix.empty() ? "sd:" : prefix;
+    for (const std::string& top : tops) {
+        std::vector<ExternalEntry> listed;
+        std::string ignored;
+        if (provider.list_external(prefix + "/" + top, listed, ignored) != OpenStatus::NotFound) continue;
+        const std::string moved = pack_dir + "/" + top;
+        if (provider.list_external(prefix + moved, listed, ignored) != OpenStatus::Ok) continue;
+        for (std::string* p : paths) {
+            if (top_of(*p) != top) continue;
+            std::string rest = p->compare(0, prefix.size(), prefix) == 0 ? p->substr(prefix.size()) : *p;
+            if (rest.empty() || rest[0] != '/') rest = "/" + rest;
+            *p = prefix + pack_dir + rest;
+        }
+        // The save folder is always on the SD card, with no prefix.
+        for (SavegamePatch& s : plan.savegames) {
+            std::string rest = s.external;
+            if (rest.empty() || rest[0] != '/') rest = "/" + rest;
+            if (top_of(rest) == top) s.external = pack_dir + rest;
+        }
+        const std::string note = where + "/" + top + " is not there; using " + where + moved + " instead";
+        mod.notes.push_back(note);
+        logf("Mods: %s\n", note.c_str());
+    }
+}
+
 }  // namespace
 
 // One package: parse, plan with its default choices, expand folders and
@@ -383,6 +432,7 @@ static bool gather_package(const PackageSelection& selection, const DiscProbe& p
         for (FolderPatch& f : plan.folders) to_usb(f.external);
         for (MemoryPatch& m : plan.memory) to_usb(m.valuefile);
     }
+    use_misplaced_folders(plan, xml_sd_path, on_usb ? std::string(kUsbPrefix) : std::string(), provider, mod);
 
     // <savegame>: one folder per launch; a second, different one is an
     // error rather than a silent choice. `clone` (the default) copies the

@@ -29,13 +29,15 @@ namespace riftwii::wii {
 namespace {
 constexpr std::size_t kMaxPackages = 150;  // the option browser's limit
 
+// A folder that is already there is never created again: on a card with a
+// damaged FAT, mkdir of an existing folder can fail with EIO, not EEXIST.
 bool ensure_directory(const char* path, std::string& error) {
+    struct stat info {};
+    if (stat(path, &info) == 0 && S_ISDIR(info.st_mode)) return true;
     if (mkdir(path, 0777) == 0) return true;
-    if (errno == EEXIST) {
-        struct stat info {};
-        if (stat(path, &info) == 0 && S_ISDIR(info.st_mode)) return true;
-    }
-    error = std::string("cannot create choices directory ") + path + ": " + std::strerror(errno);
+    const int err = errno;
+    if (err == EEXIST && stat(path, &info) == 0 && S_ISDIR(info.st_mode)) return true;
+    error = std::string("cannot create directory ") + path + ": " + std::strerror(err);
     return false;
 }
 
