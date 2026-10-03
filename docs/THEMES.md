@@ -1,0 +1,154 @@
+# RiftWii themes
+
+Everything about creating and installing menu themes for RiftWii.
+
+## How themes work
+
+A theme is a folder in `sd:/riftwii/themes/`, for example
+`sd:/riftwii/themes/Midnight/`. It must hold `theme.ini`. Everything else
+is optional.
+
+Settings > **Theme** steps through *Default* (RiftWii's own light look, no
+files needed) and every folder in `sd:/riftwii/themes/` that has a
+`theme.ini`, shown by the theme's `name` (or the folder name if it has
+none). RiftWii offers to restart its menu to show the new theme. The choice
+is saved as `theme = <folder>` in `sd:/riftwii/settings.txt`
+(`theme = default` for the default).
+
+## The theme.ini file
+
+`theme.ini` is a plain text file split into sections. Comments start with
+`#` or `;`.
+
+Anything missing keeps the default value. Anything wrong is skipped and
+RiftWii keeps the default for it; it never stops the menu. Each skipped
+line is written to `sd:/riftwii/session.log` as a line starting `Theme:`.
+
+### [theme]
+
+Holds theme information:
+
+- `name`: the name shown in Settings > Theme. If omitted, the folder name
+  is shown.
+- `author`: the author of the theme.
+
+### [shape]
+
+Controls corner roundness:
+
+- `corners`: corner roundness multiplier, from `0` (square corners) to `2`
+  (twice as round). The default is `1`.
+
+### [backdrop]
+
+Controls backdrop stripes:
+
+- `stripes`: `yes` or `no`. Sets whether thin horizontal stripes are drawn
+  across the backdrop. The default is `yes`.
+
+### [colors]
+
+Colours are written as `#RRGGBB` or `#RRGGBBAA`, where `AA` is opacity
+(`00` transparent to `FF` solid). If `AA` is omitted, the colour is fully
+solid. Hex letters can be upper case or lower case.
+
+The table below lists every colour key, its default value, and where it
+shows:
+
+| Key | Default | Where it shows |
+| --- | --- | --- |
+| `ink` | `#2E2E36` | Titles and labels |
+| `ink_soft` | `#4A4A54` | Values, secondary text (lighter text level) |
+| `ink_dim` | `#6A6A74` | Hints, footers (lighter text level) |
+| `clock` | `#74747E` | Home's clock |
+| `accent` | `#2FB6E9` | Highlights, outlines, the bar's curve |
+| `accent_ink` | `#0E6488` | Text in the accent's colour (switched-on values) |
+| `text_on_accent` | `#FFFFFF` | Text drawn on the accent colour |
+| `warn` | `#B03A2E` | Warnings, errors |
+| `card` | `#FFFFFF` | Tiles, buttons, panels |
+| `card_edge` | `#CFCFD6` | Outline of tiles, buttons and panels |
+| `card_edge_strong` | `#C4C4CE` | Round buttons' rims |
+| `shadow` | `#28283C22` | Shadow under tiles and buttons |
+| `glow` | `#2FB6E950` | Glow around the highlighted part |
+| `glyph` | `#55555F` | Icons and arrows |
+| `chip_on` | `#E3F5FC` | An option's value box, changed from the default |
+| `chip_off` | `#F4F4F6` | An option's value box at its default |
+| `chip_off_edge` | `#D0D0D8` | Its outline |
+| `switch_off` | `#D4D4DB` | An On/Off switch when off |
+| `bar` | `#F7F7F9` | Home's bottom bar, the HOME Menu's top bar |
+| `backdrop` | `#ECECEF` | Behind every screen |
+| `backdrop_stripe` | `#E3E3E8` | The backdrop's thin stripes |
+| `banner_stripe` | `#FFFFFF14` | Stripes over a game page's banner |
+| `divider` | `#E8E8EE` | Between list rows |
+| `scroll_track` | `#E6E6EC` | A list's scroll track |
+| `scroll_thumb` | `#A8A8B4` | A list's scroll thumb |
+| `badge` | `#ECECF1` | A tile's DISC/USB/SD label |
+| `pointer1` | `#3B8FD6` | Outline of player 1's pointer hand |
+| `pointer2` | `#D64545` | Outline of player 2's pointer hand |
+| `pointer3` | `#3FA34D` | Outline of player 3's pointer hand |
+| `pointer4` | `#D9A21B` | Outline of player 4's pointer hand |
+
+## Pictures
+
+A theme may replace any of RiftWii's painted pictures with a PNG of the
+same name in its folder.
+
+The picture must be exactly the size listed, or it is skipped (and noted
+in `session.log`). Sizes include a transparent margin where RiftWii paints
+the shadow or glow, so keep the visible part inside it, centred.
+Pictures ending in `_over` are the highlighted versions. Transparency
+(PNG alpha) is used.
+
+`background.png` replaces the whole backdrop (and the stripes).
+
+| Picture | Size | What it is |
+| --- | --- | --- |
+| `background` | 640x480 | The whole screen behind the menu |
+| `tile` / `tile_over` | 140x100 | A game tile on Home (names view) |
+| `cover_tile` / `cover_tile_over` | 96x128 | A game tile with its cover (the cover is drawn on top) |
+| `round_button` / `round_button_over` | 80x80 | Home's two round buttons |
+| `pill` / `pill_over` | 252x60 | The wide buttons (Back, OK) |
+| `pill_primary` / `pill_primary_over` | 252x60 | The main wide button (Start) |
+| `home_button` / `home_button_over` | 264x88 | The HOME Menu's buttons |
+| `chip_off` / `chip_on` | 212x36 | An option's value box, at its default / changed |
+| `row_focus` | 548x44 | The highlighted row in a list |
+| `step_back` / `step_back_over`, `step_forward` / `step_forward_over` | 44x44 | The arrows either side of an option |
+| `switch_on` / `switch_off` | 68x40 | On/Off switches |
+| `panel_game` | 580x240 | The white panel behind a game page's list |
+| `panel_settings` | 580x284 | The white panel behind Settings |
+| `bar` | 640x124 | Home's bottom bar (its top edge is a curve) |
+| `banner_stripes` | 640x192 | Drawn over a game page's banner |
+| `arrow_left` / `arrow_left_over`, `arrow_right` / `arrow_right_over` | 48x48 | Home's page arrows |
+| `scroll_up` / `scroll_up_over`, `scroll_down` / `scroll_down_over` | 44x44 | A list's scroll arrows |
+| `icon_drives` | 28x28 | Drive icon |
+| `icon_gear` | 28x28 | Gear icon |
+| `icon_disc` | 40x40 | Disc icon |
+| `pointer1` to `pointer4` | 96x96 | Each player's pointer; the fingertip must be at the centre (48, 48) |
+
+## Music
+
+A `music.ogg` in the theme's folder plays in the menu instead of RiftWii's
+tune (and instead of `sd:/riftwii/music.ogg`). Settings > **Menu music**
+still turns music off.
+
+## Layout, fonts and sounds
+
+Layout (where things are on screen), fonts and sounds are not themeable yet.
+
+## Make your own
+
+To make your own theme:
+
+1. Copy `themes/Midnight/` to a new folder in `sd:/riftwii/themes/`, for
+   example `sd:/riftwii/themes/MyTheme/`.
+2. Open `theme.ini` in a text editor.
+3. Change `name` under `[theme]` to your theme's name, and `author` to your
+   name.
+4. Change a few colours under `[colors]`. Check contrast: text must be
+   readable on cards and on the backdrop.
+5. In RiftWii, open Settings > **Theme**, step to your theme, and accept
+   the restart.
+
+Picture sizes are exact. If you draw your own PNG pictures, an image
+editor's "canvas size" is the tool for adding margin around your artwork so
+it matches the required dimensions.

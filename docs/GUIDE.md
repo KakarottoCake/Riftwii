@@ -152,6 +152,12 @@ the list explains the row you are on.
   **Game language**, **Game cIOS**, **Online server**: the defaults for
   every game.
 - **Home tiles**: covers or names.
+- **Theme**: steps through *Default* (RiftWii's own light look, no files
+  needed) and every folder in `sd:/riftwii/themes/` that has a `theme.ini`,
+  shown by the theme's `name` (or the folder name if it has none).
+  RiftWii offers to restart its menu to show the new theme. The choice is
+  saved as `theme = <folder>` in `sd:/riftwii/settings.txt`
+  (`theme = default` for the default). More in [THEMES.md](THEMES.md).
 - **Wii Menu button**: *Back to RiftWii* makes the Wii Menu button of a
   game's HOME Menu start RiftWii again (it needs the RiftWii channel);
   *Wii Menu* leaves it as it was.
@@ -624,4 +630,6 @@ sent (no internet, or neither site answered), send that file instead.
   which file owns what.
 - [`docs/DEVELOPING.md`](DEVELOPING.md): building (CMake host tests,
   `make -f Makefile.wii` for the Wii app), testing in Dolphin, releasing.
+- [`docs/THEMES.md`](THEMES.md): making themes, colour keys, picture
+  sizes and music.
 - [`docs/README.md`](README.md): every other document.
