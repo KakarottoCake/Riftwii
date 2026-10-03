@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2026 RiftWii contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
 """The menu's translations, kept in one table and written out as the
 wii/lang/<lang>.po files the build embeds (wii/i18n.cpp).

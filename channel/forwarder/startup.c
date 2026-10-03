@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // libogc's start-up (SYS_PreMain, before main) closes every IOS handle

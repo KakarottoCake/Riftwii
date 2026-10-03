@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 RiftWii contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
 # Builds BearSSL (vendor-bearssl, https://bearssl.org, 0.6) for the Wii as
 # build-bearssl/libbearssl.a. Makefile.wii links it as an archive, so only
 # what RiftWii's TLS client uses ends up in the DOL.

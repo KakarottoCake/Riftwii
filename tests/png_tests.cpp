@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The cover art's PNG reader: every colour type and depth, the row
 // filters, Adam7, transparency and gamma, against images this file

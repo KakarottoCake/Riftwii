@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 // FreeType's sfnt module reads colour bitmap glyphs stored as PNGs
 // (CBDT/sbix strikes) through libpng. The menu font has no bitmap strikes

@@ -1,3 +1,4 @@
+/* SPDX-FileCopyrightText: 2026 RiftWii contributors */
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The screenshot blob's C side (shot_hook.h). */
 #include "shot_hook.h"

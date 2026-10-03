@@ -145,3 +145,13 @@ from 2006. It's not that serious.
 Developers and forks: start with [docs/MAP.md](docs/MAP.md) (every file, and
 where each feature lives), then [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 and [docs/DEVELOPING.md](docs/DEVELOPING.md).
+
+## Disclaimer
+
+I don't condone piracy. RiftWii doesn't come with any games and won't
+download them for you. Play your own games: discs you own, or backups you
+made from them yourself.
+
+RiftWii exists for preservation, and to move Wii development forward:
+out of the stone age of needing an aging disc in an aging drive every
+time you want to play.

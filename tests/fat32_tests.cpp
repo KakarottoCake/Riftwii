@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 // FAT32 resolver against a FAT32 image built in memory: boot sector, two
 // FATs, a root directory with a long-named subdirectory, one contiguous and

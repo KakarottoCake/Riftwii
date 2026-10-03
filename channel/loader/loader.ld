@@ -1,4 +1,5 @@
-/* SPDX-License-Identifier: GPL-3.0-or-later
+/* SPDX-FileCopyrightText: 2026 RiftWii contributors
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
  * The channel's boot program (channel/loader): the start at 0x80003400,
  * then the loader at 0x80004000, its data and a stack, all in the first

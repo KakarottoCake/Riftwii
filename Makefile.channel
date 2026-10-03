@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 RiftWii contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
 # Builds the RiftWii channel (docs/CHANNEL.md): its boot program
 # (channel/loader), the forwarder (channel/forwarder) that one starts, the
 # package tools/make_channel.py makes of them and the banner, and the

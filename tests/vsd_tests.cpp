@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The virtual SD card (runtime/rtvsd.c): the ioctls, the card commands a
 // game's SD driver sends (in the order Super Smash Bros. Brawl sends

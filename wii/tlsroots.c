@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The roots wii/tls.cpp trusts, for github.com and api.github.com (Sectigo,
 // cross-signed by USERTrust), from the Mozilla CA list as Git for Windows

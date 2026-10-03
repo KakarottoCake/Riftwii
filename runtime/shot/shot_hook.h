@@ -1,3 +1,4 @@
+/* SPDX-FileCopyrightText: 2026 RiftWii contributors */
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The in-game screenshot blob: the combo (runtime/rtshot.h) watched in
  * the game's Bluetooth reads (IOS_IoctlvAsync hooked) and in PADRead,

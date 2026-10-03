@@ -1,3 +1,4 @@
+/* SPDX-FileCopyrightText: 2026 RiftWii contributors */
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* In-game screenshots: combo, picture and file (rtshot.h). */
 #include "rtshot.h"

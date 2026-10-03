@@ -1,3 +1,4 @@
+/* SPDX-FileCopyrightText: 2026 RiftWii contributors */
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /*
  * Resumable FAT32 engine (see rtfat.h). Every state function below either

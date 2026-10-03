@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The launch extras: HTTP for the downloads, cheat files and their GCT,
 // the video mode patcher, and the settings file.

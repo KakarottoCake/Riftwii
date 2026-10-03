@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2026 RiftWii contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Plays the RiftWii channel's banner and icon off the Wii: renders the
 same panes and animations make_channel.py writes, to video. Needs Pillow,

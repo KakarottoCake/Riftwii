@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The report link's QR code: every version and mask against segno's
 // symbols (tests/qrcode_ref.inc), and the automatic choice.

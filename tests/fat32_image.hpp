@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 // A FAT32 image built in memory for the tests: boot sector, FATs, and
 // helpers to author directory entries (short, long-named) and chains.

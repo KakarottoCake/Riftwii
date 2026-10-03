@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Game display names: a GameTDB-style titles.txt, "Title [ID]" folder
 // names, and the internal disc name as the last resort.

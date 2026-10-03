@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 // USB Loader GX's game fixes (riftwii/gxpatches.hpp) on made-up memory: each
 // writes what GX writes, where GX writes it, and nothing outside the loaded

@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 RiftWii contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
 cmake_minimum_required(VERSION 3.20)
 project(Riftwii VERSION 2.7.0 LANGUAGES C CXX)
 # Shown after the version number (menu, logs): "" for a final release.

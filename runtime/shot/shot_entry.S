@@ -1,3 +1,4 @@
+/* SPDX-FileCopyrightText: 2026 RiftWii contributors */
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The screenshot blob's header and trampolines (shot_hook.h). */
     .section .text.shot_entry, "ax", @progbits

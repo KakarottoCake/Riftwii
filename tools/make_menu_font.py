@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2026 RiftWii contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Cuts M PLUS Rounded 1c Bold down to the characters RiftWii's menu shows.
 

@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The CTGP Revolution config.ini defaults RiftWii adds (riftwii/ctgpconfig.hpp).
 #include <iostream>

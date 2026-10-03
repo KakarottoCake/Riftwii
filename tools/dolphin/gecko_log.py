@@ -1,3 +1,4 @@
+# SPDX-FileCopyrightText: 2026 RiftWii contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Connects to Dolphin's emulated USB Gecko (TCP 55020) and appends what the
 DOL prints to a log file, echoing it to stdout. Retries until Dolphin is up."""

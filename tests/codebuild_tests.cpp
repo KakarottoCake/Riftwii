@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Code builds: gameconfig.txt, the code handler's hooks and relocated code
 // list, joined code lists, and code builds in the launch model.

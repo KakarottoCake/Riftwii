@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2026 RiftWii contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Relocation table for a resident runtime blob that is not position
 independent on its own (the RVZ blob: Zstandard's constant tables).

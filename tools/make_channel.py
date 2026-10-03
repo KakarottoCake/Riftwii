@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2026 RiftWii contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Builds the RiftWii channel (docs/CHANNEL.md) from our own art: the
 Wii Menu banner, icon and sound (content 0), the forwarder (content 1),

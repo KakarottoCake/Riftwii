@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 // NTFS walker against an NTFS volume built in memory: boot sector, an MFT
 // split over two runs, a root directory whose index spills into INDX

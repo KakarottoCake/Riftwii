@@ -1,3 +1,4 @@
+/* SPDX-FileCopyrightText: 2026 RiftWii contributors */
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The screenshot blob: header and trampolines first, then the C
  * code. Position independent: linked at two RT_BASE

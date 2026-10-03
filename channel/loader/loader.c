@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // The RiftWii channel's boot program: a few KiB, so the Wii and the vWii

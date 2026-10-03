@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Problem reports: the bundle, its size cap, and what is read from the
 // boot log, the choices file and paste.rs's answer.

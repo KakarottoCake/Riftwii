@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Format-compatibility suite: parses the self-authored fixtures under
 // tests/fixtures (every construct documented in the public patch-format

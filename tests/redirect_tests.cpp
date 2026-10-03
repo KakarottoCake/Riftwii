@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Redirect table: the freestanding walker (rt_validate/rt_lookup) against
 // hand-built tables, then the full loader-side pipeline (composed files ->

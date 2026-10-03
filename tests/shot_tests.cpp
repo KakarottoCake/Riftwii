@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Screenshots: the PNG writer (read back with the cover art's reader and
 // an inflater for the block types it writes), the YUYV conversion and

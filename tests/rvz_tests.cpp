@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 // RVZ reading and the guards on what RiftWii will play. The images in
 // tests/fixtures/rvz are made by tools/rvz/make_test_disc.py from a disc

@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Runs the structural IPC search on a game's main.dol (as dumped by the
 // autorun's `dol` command) and prints what it finds: a check of the

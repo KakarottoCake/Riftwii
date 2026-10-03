@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 // A game's crash record (runtime/rtfault.h): which exceptions count, its
 // NAND path, and the text the menu makes of it.

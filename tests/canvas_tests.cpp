@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The menu's software canvas: anti-aliased shapes, straight-alpha
 // blending and the GX RGBA8 tile layout the Wii textures use.

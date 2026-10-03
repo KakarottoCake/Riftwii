@@ -1,3 +1,4 @@
+# SPDX-FileCopyrightText: 2026 RiftWii contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Writes the menu's two sounds, made here from sine waves (no recordings):
 

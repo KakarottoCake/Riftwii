@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Host tool: prints what RiftWii makes of an RVZ and, given an output
 // path, writes the disc d2x would see for it (riftwii/rvz.hpp's stub at

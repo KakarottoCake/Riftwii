@@ -1,3 +1,4 @@
+/* SPDX-FileCopyrightText: 2026 RiftWii contributors */
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* Resident runtime blob: header + trampoline first, then the C code. The
  * blob must be position independent, so the build links it twice at

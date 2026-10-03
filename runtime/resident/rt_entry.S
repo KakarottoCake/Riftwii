@@ -1,3 +1,4 @@
+/* SPDX-FileCopyrightText: 2026 RiftWii contributors */
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* ABI v5: async commands 1..7 occupy entries 0..6; sync 1..7 are 7..13. */
     .section .text.rt_entry, "ax", @progbits

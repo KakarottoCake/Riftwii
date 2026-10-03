@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The WUP-028 driver (runtime/rtgcad.c) against a fake /dev/usb/hid that
 // follows the documented behaviour of both versions: v4 (wiibrew

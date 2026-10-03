@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 RiftWii contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
 # Builds the resident runtime blobs (runtime/resident) with devkitPPC:
 # freestanding, no libc, position independent. Produces
 # build-runtime/riftwii_rt.bin and, for RVZ games, riftwii_rt_rvz.bin with

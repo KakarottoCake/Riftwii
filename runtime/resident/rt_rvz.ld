@@ -1,3 +1,4 @@
+/* SPDX-FileCopyrightText: 2026 RiftWii contributors */
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The RVZ runtime blob (rt.ld plus Zstandard): its constant tables are
  * part of the blob, and the loader relocates the references to them

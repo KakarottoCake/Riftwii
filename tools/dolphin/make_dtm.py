@@ -1,3 +1,4 @@
+# SPDX-FileCopyrightText: 2026 RiftWii contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Builds a DTM movie for the Kirby save-creation run.
 Header is the confident 137-byte prefix (filetype through
