@@ -273,6 +273,12 @@ msgstr "なくす"
 msgid "Remove all (experimental)"
 msgstr "すべてなくす（実験的）"
 
+msgid "Remove all"
+msgstr "すべてなくす"
+
+msgid "Remove takes away the bars at the sides; Remove all also the top and bottom (experimental)."
+msgstr "「なくす」は左右の帯を、「すべてなくす」は上下の帯も消します（実験的）。"
+
 msgid "Keep"
 msgstr "そのまま"
 

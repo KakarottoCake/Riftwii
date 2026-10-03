@@ -273,6 +273,12 @@ msgstr "Remover"
 msgid "Remove all (experimental)"
 msgstr "Remover tudo (experimental)"
 
+msgid "Remove all"
+msgstr "Remover tudo"
+
+msgid "Remove takes away the bars at the sides; Remove all also the top and bottom (experimental)."
+msgstr "Remover tira as barras dos lados; Remover tudo também as de cima e de baixo (experimental)."
+
 msgid "Keep"
 msgstr "Manter"
 

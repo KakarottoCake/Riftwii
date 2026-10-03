@@ -1679,6 +1679,11 @@ static std::string BordersName(const std::string& v)
 	if (v == "remove_all") return tr("Remove all (experimental)");
 	return v == "remove" ? tr("Remove") : tr("Keep");
 }
+static std::string BordersShortName(const std::string& v)
+{
+	if (v == "remove_all") return tr("Remove all");
+	return BordersName(v);
+}
 static std::string VideoModeName(const std::string& v)
 {
 	if (v == "system") return tr("The console's");
@@ -1806,7 +1811,8 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 	FlowRow borders;
 	borders.kind = FlowRow::Kind::Option;
 	borders.label = tr("Black borders");
-	borders.value = GameValue(game.borders, global.borders, BordersName);
+	borders.value = game.borders == "global" ? tr("Default ({1})", {BordersShortName(global.borders)})
+	                                         : BordersName(game.borders);
 	borders.on = game.borders != "global";
 	add(borders, {RowRef::What::Borders});
 	FlowRow videoMode;
@@ -2529,7 +2535,7 @@ static int MenuHome(FrontendState& state)
 				say(tr("A filter that softens the picture to hide flicker. Off gives the sharpest picture."));
 			else if (ref.what == RowRef::What::Borders) {
 				const std::string seen = riftwii::wii::BorderNote(state.game_id);
-				const std::string how = tr("Remove stretches the picture to fill the screen.");
+				const std::string how = tr("Remove takes away the bars at the sides; Remove all also the top and bottom (experimental).");
 				say(seen.empty() ? how : seen + " " + how);
 			}
 			else if (ref.what == RowRef::What::VideoMode)

@@ -202,7 +202,12 @@ void GuiFlowList::Draw() {
             std::string text = r.value;
             if (r.kind == FlowRow::Kind::Action && !r.dim) text += "  \xE2\x80\xBA";
             value[i]->SetText(text.c_str());
-            value[i]->SetFontSize(15);
+            // A long value (a translation, "Remove all (experimental)")
+            // steps down to 13 points before the chip cuts it off.
+            for (int size = 15; size >= 13; --size) {
+                value[i]->SetFontSize(size);
+                if (value[i]->GetTextWidth() <= kChipW - 20) break;
+            }
             value[i]->SetColor(r.dim ? skin::kInkDim : r.on ? skin::kAccentInk : skin::kInkSoft);
             value[i]->SetMaxWidth(kChipW - 20);
         }
