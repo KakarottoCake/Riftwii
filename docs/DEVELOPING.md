@@ -41,7 +41,7 @@ Things that bite:
 
 `ctest` runs 22 suites, one per area (`tests/<area>_tests.cpp`): the XML
 parser and planner, the patch engine, FST and disc parsing, FAT32 and
-NTFS walkers, the WBFS mapper, the resident runtime's C code (compiled
+NTFS walkers, the WBFS mapper and WBFS drives, the resident runtime's C code (compiled
 for the host with fake IOS calls), the FAT32 and NTFS engines, the
 GameCube adapter driver and the PAD search, the titles, cheats and
 settings files. The in-game code is built for both the host (tests) and

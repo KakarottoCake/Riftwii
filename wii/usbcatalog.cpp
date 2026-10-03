@@ -31,6 +31,7 @@
 #include "riftwii/launch.hpp"
 #include "riftwii/rvz.hpp"
 #include "riftwii/titles.hpp"
+#include "riftwii/wbfspart.hpp"
 #include "memlimits.hpp"
 #include "umsdev.hpp"
 #include "gcadapter.hpp"
@@ -38,11 +39,14 @@
 
 namespace riftwii::wii {
 namespace {
-// USB drives may be FAT32 or NTFS (read through RiftWii's own walkers, the
-// same way d2x will read the image: raw 512-byte blocks); SD images stay
-// FAT32 or NTFS too. libfat is only asked to mount usb: to bring the
-// storage interface up; its answer does not matter.
+// USB drives may be FAT32 or NTFS, or formatted as WBFS (read through
+// RiftWii's own walkers, the same way d2x will read the image: raw 512-byte
+// blocks); SD images stay FAT32 or NTFS. libfat is only asked to mount usb:
+// to bring the storage interface up; its answer does not matter.
 std::unique_ptr<ImageVolume> g_usb_volume;
+// A USB drive formatted as WBFS, with no file system: read only through
+// wbfspart, its games in slots rather than files.
+std::unique_ptr<WbfsPartition> g_usb_wbfs;
 std::unique_ptr<ImageVolume> g_sd_volume;
 bool g_raw_mounted = false;
 bool g_libfat_mounted = false;
@@ -202,7 +206,7 @@ bool open_usb_raw_disc(std::string& error) {
 }
 
 bool ensure_usb(std::string& error) {
-    if (g_raw_mounted && (g_usb_volume || g_usb_raw_disc)) return true;
+    if (g_raw_mounted && (g_usb_volume || g_usb_raw_disc || g_usb_wbfs)) return true;
     // libogc's storage driver and d2x each pick one drive, not always the
     // same one when two are plugged in, and the games then go missing or
     // read the wrong disk. Say so instead of failing somewhere later.
@@ -259,6 +263,25 @@ bool ensure_usb(std::string& error) {
         return true;
     }
     if (!mount_image_volume(&usb_read, g_usb_volume, error, usb_wanted_folders())) {
+        // A drive formatted as WBFS by a USB loader's tools (libfat cannot
+        // mount it either, so nothing can write to it).
+        WbfsPartition wbfs;
+        std::string why;
+        if (find_wbfs_partition(&usb_read, wbfs, why)) {
+            logf("USB volume: WBFS at block %llu, %u of %u slots used, %u-MiB blocks\n",
+                 static_cast<unsigned long long>(wbfs.lba), static_cast<unsigned>(wbfs.layout.used.size()),
+                 static_cast<unsigned>(wbfs.layout.slots), static_cast<unsigned>(wbfs.layout.block_sectors / 2048));
+            g_usb_wbfs = std::make_unique<WbfsPartition>(std::move(wbfs));
+            g_raw_mounted = true;
+            error.clear();
+            return true;
+        }
+        // A WBFS it refuses is named; otherwise the drive is simply neither.
+        if (why.compare(0, 5, "WBFS ") == 0) {
+            error = "USB has a WBFS partition RiftWii cannot use: " + why;
+            unmount_usb_games();
+            return false;
+        }
         error = "USB has no readable FAT32 or NTFS volume: " + error;
         if (error.find("signature missing") != std::string::npos) {
             error += " (a Wii U-formatted drive cannot be read: format it FAT32 on a computer)";
@@ -439,15 +462,9 @@ bool prepare_rvz_launch(const ImageGame& game, D2xFragmentList& fragments, std::
     return true;
 }
 
-// Opens `game.path`: its pieces, the disc header and the d2x fragment list.
-bool open_game(const ImageVolume& volume, const std::string& prefix, const std::vector<std::string>& siblings,
-               ImageGame& game, unsigned& pieces, std::string& error) {
-    if (game.format == UsbImageFormat::Rvz) {
-        pieces = 1;
-        return open_rvz_game(volume, prefix, game, error);
-    }
-    UsbImage image;
-    if (!make_image(volume, prefix, game.path, siblings, game.format, image, error)) return false;
+// Reads an image's disc header and builds its d2x fragment list, the
+// same way for a file and for a slot of a WBFS drive.
+bool open_disc(const UsbImage& image, ImageGame& game, std::string& error) {
     std::unique_ptr<UsbDiscSource> disc;
     if (!UsbDiscSource::open(image, disc, error)) return false;
     DiscHeader header;
@@ -474,8 +491,19 @@ bool open_game(const ImageVolume& volume, const std::string& prefix, const std::
     game.revision = header.version;
     game.disc_number = header.disc_number;
     game.checked = true;
-    pieces = static_cast<unsigned>(image.pieces.size());
     return true;
+}
+// Opens `game.path`: its pieces, the disc header and the d2x fragment list.
+bool open_game(const ImageVolume& volume, const std::string& prefix, const std::vector<std::string>& siblings,
+               ImageGame& game, unsigned& pieces, std::string& error) {
+    if (game.format == UsbImageFormat::Rvz) {
+        pieces = 1;
+        return open_rvz_game(volume, prefix, game, error);
+    }
+    UsbImage image;
+    if (!make_image(volume, prefix, game.path, siblings, game.format, image, error)) return false;
+    pieces = static_cast<unsigned>(image.pieces.size());
+    return open_disc(image, game, error);
 }
 bool add_game(const ImageVolume& volume, const std::string& prefix, ImageDevice device, const std::string& path,
               const std::vector<std::string>& siblings, UsbImageFormat fmt, ImageCatalog& catalog, std::string& failure) {
@@ -562,6 +590,33 @@ void scan_dir(const ImageVolume& volume, const std::string& prefix, ImageDevice 
             UsbImageFormat f;
             if (image_format(e.name, fmt, f)) add_game(volume, prefix, device, path, siblings, f, c, failure);
         }
+    }
+}
+
+// A USB drive formatted as WBFS: one game per used slot, listed from the
+// slot's copy of the disc header and opened when picked, like a named
+// image file. Slots that are not Wii discs (a loader's own settings entry)
+// are logged and left out.
+void scan_wbfs(ImageCatalog& c, std::string& failure) {
+    std::vector<WbfsDisc> discs;
+    std::vector<std::string> skipped;
+    std::string error;
+    if (!list_wbfs_discs(&usb_read, *g_usb_wbfs, discs, skipped, error)) {
+        logf("USB scan: %s\n", error.c_str());
+        failure = error;
+        return;
+    }
+    for (const std::string& s : skipped) logf("USB scan: WBFS %s: skipped\n", s.c_str());
+    for (const WbfsDisc& disc : discs) {
+        if (c.games.size() >= kMaxGames) return;
+        ImageGame game;
+        game.device = ImageDevice::Usb;
+        game.path = "usb:/wbfs slot " + std::to_string(disc.slot);
+        game.id = disc.id;
+        game.title = disc.title;
+        game.format = UsbImageFormat::Wbfs;
+        game.wbfs_slot = static_cast<int>(disc.slot);
+        c.games.push_back(std::move(game));
     }
 }
 
@@ -715,6 +770,25 @@ bool slot_title_is_launchable(int slot, std::string& why) {
 // warning and the launch never disagree.
 bool check_image_game(ImageGame& game, std::string& error) {
     if (game.checked) return !rvz_refused(game, error);
+    if (game.wbfs_slot >= 0) {
+        if (game.device != ImageDevice::Usb || !g_usb_wbfs) { error = "USB drive is not mounted any more"; return false; }
+        logf("USB: opening WBFS slot %d\n", game.wbfs_slot);
+        const std::string named = game.id;
+        ImageGame opened = game;
+        if (!open_disc(wbfs_slot_image(&usb_read, *g_usb_wbfs, static_cast<std::uint32_t>(game.wbfs_slot)), opened, error)) {
+            logf("  cannot use it: %s\n", error.c_str());
+            return false;
+        }
+        if (opened.id != named) logf("  the WBFS table says %s, the disc is %s\n", named.c_str(), opened.id.c_str());
+        if (opened.display.empty() || opened.display == named) {
+            opened.display = display_title(nullptr, opened.id, opened.path, opened.title);
+        }
+        logf("  %s \"%s\", %u fragment(s)\n", opened.id.c_str(), opened.title.c_str(),
+             static_cast<unsigned>(opened.fragments.entries.size()));
+        game = std::move(opened);
+        error.clear();
+        return true;
+    }
     const ImageVolume* volume = game.device == ImageDevice::Usb ? g_usb_volume.get() : g_sd_volume.get();
     const std::string prefix = game.device == ImageDevice::Usb ? "usb:/" : "sd:/";
     const std::size_t slash = game.path.find_last_of('/');
@@ -1028,10 +1102,17 @@ bool scan_usb_games(ImageCatalog& out, std::string& error) {
         error.clear();
         return true;
     }
-    std::string failure; scan_dir(*g_usb_volume, "usb:/", ImageDevice::Usb, "usb:/wbfs", true, UsbImageFormat::Wbfs, out, failure); scan_dir(*g_usb_volume, "usb:/", ImageDevice::Usb, "usb:/games", false, UsbImageFormat::Iso, out, failure);
-    scan_own_folders(*g_usb_volume, "usb", ImageDevice::Usb, out, failure);
+    std::string failure;
+    if (g_usb_wbfs) {
+        scan_wbfs(out, failure);
+    } else {
+        scan_dir(*g_usb_volume, "usb:/", ImageDevice::Usb, "usb:/wbfs", true, UsbImageFormat::Wbfs, out, failure); scan_dir(*g_usb_volume, "usb:/", ImageDevice::Usb, "usb:/games", false, UsbImageFormat::Iso, out, failure);
+        scan_own_folders(*g_usb_volume, "usb", ImageDevice::Usb, out, failure);
+    }
     apply_titles(out);
-    out.status = out.games.empty() ? (failure.empty() ? std::string("No valid Wii images under usb:/wbfs or usb:/games on the ") + g_usb_volume->kind() + " drive" : "No valid USB images: " + failure) : "USB: " + std::to_string(out.games.size()) + " valid game(s)";
+    const std::string empty_drive = g_usb_wbfs ? std::string("No Wii games on the WBFS drive") : std::string("No valid Wii images under usb:/wbfs or usb:/games on the ") + g_usb_volume->kind() + " drive";
+    const std::string unreadable = (g_usb_wbfs ? "Cannot read the WBFS drive: " : "No valid USB images: ") + failure;
+    out.status = out.games.empty() ? (failure.empty() ? empty_drive : unreadable) : "USB: " + std::to_string(out.games.size()) + " valid game(s)";
     logf("%s\n", out.status.c_str());
     // Dolphin has no cIOS slots by design; warning there would be noise.
     if (!running_in_dolphin()) {
@@ -1068,7 +1149,7 @@ bool scan_sd_games(ImageCatalog& out, std::string& error) {
     }
     error.clear(); return true;
 }
-void unmount_usb_games() { if (g_libfat_mounted) fatUnmount("usb:"); g_libfat_mounted=false; g_raw_mounted=false; g_usb_volume.reset(); g_usb_raw_disc=false; }
+void unmount_usb_games() { if (g_libfat_mounted) fatUnmount("usb:"); g_libfat_mounted=false; g_raw_mounted=false; g_usb_volume.reset(); g_usb_wbfs.reset(); g_usb_raw_disc=false; }
 void release_usb_driver() {
     unmount_usb_games();
     if (g_usb_started) __io_usbstorage.shutdown();

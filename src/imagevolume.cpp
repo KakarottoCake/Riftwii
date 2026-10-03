@@ -82,14 +82,14 @@ bool mount_candidate(const BlockReader& reader, std::uint64_t lba, std::unique_p
 }
 
 // The logical partitions of an MBR extended partition, in chain order.
-void logical_partitions(const BlockReader& reader, std::uint64_t extended, std::vector<std::uint64_t>& out) {
+void logical_partitions(const BlockReader& reader, std::uint64_t extended, std::vector<DrivePartition>& out) {
     std::uint64_t ebr = extended;
     for (int n = 0; n < 32; ++n) {
         std::uint8_t b[512];
         if (!reader(ebr, 1, b) || b[510] != 0x55 || b[511] != 0xAA) return;
         const std::uint8_t* first = b + 0x1BE;
         const std::uint8_t* next = first + 16;
-        if (first[4] != 0 && le32(first + 8) != 0) out.push_back(ebr + le32(first + 8));
+        if (first[4] != 0 && le32(first + 8) != 0) out.push_back({ebr + le32(first + 8), le32(first + 12)});
         if ((next[4] != 0x05 && next[4] != 0x0F) || le32(next + 8) == 0) return;
         ebr = extended + le32(next + 8);  // relative to the extended partition
     }
@@ -128,7 +128,7 @@ std::size_t score_volume(const ImageVolume& volume, const std::vector<std::strin
 }
 
 // The partitions a GPT lists, in table order.
-void gpt_partitions(const BlockReader& reader, std::vector<std::uint64_t>& out) {
+void gpt_partitions(const BlockReader& reader, std::vector<DrivePartition>& out) {
     std::uint8_t header[512];
     if (!reader(1, 1, header) || std::memcmp(header, "EFI PART", 8) != 0) return;
     const std::uint64_t table = le64(header + 0x48);
@@ -144,11 +144,29 @@ void gpt_partitions(const BlockReader& reader, std::vector<std::uint64_t>& out) 
         bool used = false;
         for (int k = 0; k < 16; ++k) used = used || e[k] != 0;  // type GUID zero: unused
         const std::uint64_t first = le64(e + 0x20);
-        if (used && first != 0) out.push_back(first);
+        const std::uint64_t last = le64(e + 0x28);
+        if (used && first != 0) out.push_back({first, last >= first ? last - first + 1 : 0});
     }
 }
 
 }  // namespace
+
+std::vector<DrivePartition> drive_partitions(const BlockReader& reader, const std::uint8_t* mbr) {
+    std::vector<DrivePartition> out;
+    if (mbr[510] != 0x55 || mbr[511] != 0xAA) return out;
+    bool protective = false;
+    for (int i = 0; i < 4; ++i) {
+        const std::uint8_t* pe = mbr + 0x1BE + i * 16;
+        const std::uint8_t type = pe[4];
+        const std::uint32_t lba = le32(pe + 8);
+        if (type == 0xEE) protective = true;
+        if ((type == 0x05 || type == 0x0F) && lba != 0) logical_partitions(reader, lba, out);
+        if (type == 0 || type == 0xEE || type == 0x05 || type == 0x0F || lba == 0) continue;
+        out.push_back({lba, le32(pe + 12)});
+    }
+    if (protective) gpt_partitions(reader, out);
+    return out;
+}
 
 const std::vector<std::string>& default_wanted_folders() {
     static const std::vector<std::string> names = {"wbfs", "games", "riivolution"};
@@ -182,23 +200,11 @@ bool mount_image_volume(BlockReader reader, std::unique_ptr<ImageVolume>& out, s
         error = "no FAT32 or NTFS volume (" + tried + ")";
         return false;
     }
-    std::vector<std::uint64_t> starts;
-    bool protective = false;
-    for (int i = 0; i < 4; ++i) {
-        const std::uint8_t* pe = mbr + 0x1BE + i * 16;
-        const std::uint8_t type = pe[4];
-        const std::uint32_t lba = le32(pe + 8);
-        if (type == 0xEE) protective = true;
-        if ((type == 0x05 || type == 0x0F) && lba != 0) logical_partitions(reader, lba, starts);
-        if (type == 0 || type == 0xEE || type == 0x05 || type == 0x0F || lba == 0) continue;
-        starts.push_back(lba);
-    }
-    if (protective) gpt_partitions(reader, starts);
     // Every partition that mounts is scored; one volume is kept at a time.
     std::size_t best_score = 0;
-    for (std::uint64_t lba : starts) {
+    for (const DrivePartition& p : drive_partitions(reader, mbr)) {
         std::unique_ptr<ImageVolume> candidate;
-        if (!mount_candidate(reader, lba, candidate, e)) {
+        if (!mount_candidate(reader, p.lba, candidate, e)) {
             tried += "; " + e;
             continue;
         }

@@ -42,6 +42,17 @@ public:
     virtual bool read(const VolumeFile& file, std::uint64_t offset, std::uint8_t* out, std::size_t length) const = 0;
 };
 
+// A partition the drive's MBR (or the GPT behind a protective MBR) lists:
+// its first device block and how many blocks it holds.
+struct DrivePartition {
+    std::uint64_t lba = 0;
+    std::uint64_t blocks = 0;
+};
+// The partitions in `mbr` (the drive's block 0), in table order (an
+// extended partition's logical ones in its place), leaving out empty and
+// extended entries. Empty when block 0 is not an MBR.
+std::vector<DrivePartition> drive_partitions(const BlockReader& reader, const std::uint8_t* mbr);
+
 // Mounts whichever file system the drive holds: FAT32 or NTFS, at block 0
 // or in an MBR (primary or logical) or GPT partition. With several, the
 // one whose top folder holds the most of `wanted` wins (earlier names

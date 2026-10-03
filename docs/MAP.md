@@ -30,7 +30,7 @@ and `vendor-*` is third-party code.
 | How a list or the tile grid looks or scrolls | `wii/gui_flowlist.cpp`, `wii/gui_gamegrid.cpp`, `wii/skin.cpp` |
 | Menu text and its translations | `tools/lang_source.py` (the table), `wii/i18n.cpp`, `wii/lang/*.po` |
 | Settings and what they mean | `src/settingsfile.cpp`, `wii/loadersettings.cpp`, the Settings screen in `wii/rift_menu.cpp` |
-| Finding games on the SD card and USB drives | `wii/usbcatalog.cpp`, `src/usbgame.cpp`, `src/imagevolume.cpp`, `src/fat32.cpp`, `src/ntfs.cpp` |
+| Finding games on the SD card and USB drives | `wii/usbcatalog.cpp`, `src/usbgame.cpp`, `src/imagevolume.cpp`, `src/fat32.cpp`, `src/ntfs.cpp`, `src/wbfspart.cpp` |
 | Riivolution packs: reading the XML | `src/patch.cpp` |
 | Riivolution packs: what a launch does with them | `wii/modplan.cpp`, `src/apply.cpp`, `src/expand.cpp`, `src/redirect.cpp`, `src/mempatch.cpp` |
 | Starting a game (IOS, disc, apploader, patches) | `wii/boot.cpp` |
@@ -153,6 +153,7 @@ implements `include/riftwii/x.hpp`, whose comments document it.
 | `cheats` | Cheat files and GCT building |
 | `fat32`, `ntfs`, `imagevolume` | Read-only FAT32 and NTFS walkers, and a drive's volume |
 | `usbgame` | WBFS, split WBFS and ISO images; the d2x fragment list |
+| `wbfspart` | USB drives formatted as WBFS: finding the partition, its discs, their fragments |
 | `rvz`, `sha1` | RVZ images and their hashes |
 | `titles` | Game names |
 | `coverart`, `pngdecode`, `canvas` | Cover art, a PNG reader, the software canvas the artwork is painted on |

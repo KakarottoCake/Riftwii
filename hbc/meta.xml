@@ -11,7 +11,7 @@ Games that have mods show as tiles with their covers; 1 switches to all games. P
 
 Dolphin's .rvz images play too, and the GameCube controller adapter for Wii U works in the menu and in games that support the GameCube controller.
 
-USB and SD games need a d2x cIOS (slots 248 to 252). The SD card must be FAT32; a USB drive may be FAT32 or NTFS.
+USB and SD games need a d2x cIOS (slots 248 to 252). The SD card must be FAT32; a USB drive may be FAT32, NTFS or formatted as WBFS.
 
 Free software under the GPL, version 3 or later. It contains no Riivolution code.</long_description>
   <ahb_access/>

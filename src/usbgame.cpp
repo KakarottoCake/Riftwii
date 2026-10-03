@@ -113,33 +113,47 @@ constexpr std::uint64_t kWiiDiscSectors = 143432ull * 2;
 constexpr std::uint64_t kWiiDiscBytes = kWiiDiscSectors * 0x8000ull;
 constexpr std::uint64_t kSingleLayerBytes = 143432ull * 0x8000ull;  // d2x DVD5_LENGTH, in bytes
 
-bool read_wbfs_layout(const UsbContainerSource& c, std::uint32_t& hd_count, std::uint64_t& block_sectors,
-                      std::uint64_t& disc_blocks, std::vector<std::uint8_t>& table, std::string& error) {
-    std::uint8_t h[13] = {};
-    if (!read_exact(c, 0, h, sizeof(h), "WBFS header", error)) return false;
+bool read_wbfs_layout(const UsbContainerSource& c, std::uint32_t slot, std::uint32_t& hd_count,
+                      std::uint64_t& block_sectors, std::uint64_t& disc_blocks, std::vector<std::uint8_t>& table,
+                      std::string& error) {
+    // The header's first block ends in the slot table, one byte per slot;
+    // a .wbfs file holds one disc, in slot 0.
+    std::uint8_t h[512] = {};
+    const std::uint64_t header_bytes = std::min<std::uint64_t>(sizeof(h), c.size());
+    if (slot >= sizeof(h) - 12 || header_bytes < 13 + slot ||
+        !read_exact(c, 0, h, static_cast<std::size_t>(header_bytes), "WBFS header", error)) {
+        if (error.empty()) error = "cannot read WBFS header";
+        return false;
+    }
     if (std::memcmp(h, "WBFS", 4) != 0) { error = "WBFS magic is missing"; return false; }
     hd_count = be32(h + 4);
     const std::uint8_t hd_shift = h[8], wbfs_shift = h[9];
     if (hd_count == 0 || hd_shift != 9 || wbfs_shift < 15 || wbfs_shift >= 32) {
         error = "WBFS has unsupported or invalid sector-size shifts (requires 512-byte hard sectors)"; return false;
     }
-    if (h[0x0C] == 0) { error = "WBFS has no active first disc-info record"; return false; }
+    if (h[0x0C + slot] == 0) {
+        error = slot == 0 ? "WBFS has no active first disc-info record" : "WBFS slot " + std::to_string(slot) + " holds no disc";
+        return false;
+    }
     block_sectors = std::uint64_t(1) << (wbfs_shift - 9);
     disc_blocks = kWiiDiscSectors >> (wbfs_shift - 15);
     const std::uint64_t table_bytes = disc_blocks * 2;
-    constexpr std::uint64_t kDiscInfo = 512, kWlba = kDiscInfo + 0x100;
-    if (kWlba > c.size() || table_bytes > c.size() - kWlba) { error = "WBFS disc-info/WLBA table is truncated"; return false; }
+    // Each slot's disc info (the disc header's first 0x100 bytes, then the
+    // block table) fills whole 512-byte sectors, from the second one on.
+    const std::uint64_t info_bytes = (0x100 + table_bytes + 511) / 512 * 512;
+    const std::uint64_t info_at = 512 + std::uint64_t(slot) * info_bytes, wlba_at = info_at + 0x100;
+    if (wlba_at > c.size() || table_bytes > c.size() - wlba_at) { error = "WBFS disc-info/WLBA table is truncated"; return false; }
     std::uint8_t disc_header[0x100] = {};
-    if (!read_exact(c, kDiscInfo, disc_header, sizeof(disc_header), "WBFS disc header", error)) return false;
+    if (!read_exact(c, info_at, disc_header, sizeof(disc_header), "WBFS disc header", error)) return false;
     if (be32(disc_header + 0x18) != 0x5D1C9EA3u) { error = "WBFS active disc header has no Wii magic"; return false; }
     table.assign(static_cast<std::size_t>(table_bytes), 0);
-    return read_exact(c, kWlba, table.data(), table.size(), "WBFS WLBA table", error);
+    return read_exact(c, wlba_at, table.data(), table.size(), "WBFS WLBA table", error);
 }
 
 bool build_wbfs(const UsbImage& image, std::vector<D2xFragment>& map, std::uint64_t& sectors, std::string& error) {
     UsbContainerSource c(image.pieces); std::uint32_t hd_count = 0; std::uint64_t block_sectors = 0, disc_blocks = 0;
     std::vector<std::uint8_t> table;
-    if (!read_wbfs_layout(c, hd_count, block_sectors, disc_blocks, table, error)) return false;
+    if (!read_wbfs_layout(c, image.wbfs_slot, hd_count, block_sectors, disc_blocks, table, error)) return false;
     // The list's size is the disc's size to d2x: it zero-fills holes below
     // it and fails reads past it, and it calls a disc dual-layer when a read
     // at 4.76 GB succeeds. Games check that a read just past the
@@ -199,7 +213,7 @@ bool build_reader_map(const UsbImage& image, std::vector<D2xFragment>& map, std:
         return true;
     }
     std::uint32_t hd_count = 0; std::uint64_t block = 0, blocks = 0; std::vector<std::uint8_t> table;
-    if (!read_wbfs_layout(c, hd_count, block, blocks, table, error)) return false;
+    if (!read_wbfs_layout(c, image.wbfs_slot, hd_count, block, blocks, table, error)) return false;
     sectors = kWiiDiscBytes / kUsbSectorBytes;
     for (std::uint64_t i = 0; i < blocks; ++i) {
         const std::uint16_t w = be16(table.data() + 2 * i); if (!w) continue;

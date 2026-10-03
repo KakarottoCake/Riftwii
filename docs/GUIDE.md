@@ -10,8 +10,10 @@ Everything about installing and using RiftWii. The [README](../README.md) has th
   - the game disc (works on any Wii, nothing else needed);
   - `.wbfs` images (split `.wbf1`, `.wbf2`, ... too) or `.iso` images on
     the SD card or a USB drive. These need a **d2x cIOS** installed in
-    slot 249, 250 or 251. A USB drive may be FAT32 or NTFS. Both need
-    512-byte sectors;
+    slot 249, 250 or 251. A USB drive may be FAT32 or NTFS, or a drive
+    formatted as WBFS by a WBFS manager or USB loader (its games are
+    listed straight from the drive). The SD card and the USB drive both
+    need 512-byte sectors;
   - Dolphin's compressed `.rvz` images, from the same places (below).
 
 ## Installing
@@ -34,6 +36,8 @@ Everything about installing and using RiftWii. The [README](../README.md) has th
    for on both drives; `sd:/` or `usb:/` in front limits it to one). A
    drive with several partitions is read from the one holding those
    folders, `wbfs` or `games`.
+   A drive formatted as WBFS has no folders: RiftWii lists every
+   game on it, and only reads it.
 5. Start RiftWii from the Homebrew Channel. The first time, a short
    tour shows the basics (Settings > Tutorial shows it again).
 
@@ -543,7 +547,7 @@ them (a note before the launch, or "Experimental" in the Settings note):
 
 **My games don't show up.** Home first shows only games that have mod
 packs: press **1** for all games. Images must be in `wbfs` or `games` at
-the top of the SD card or USB drive. The status line at the bottom of
+the top of the SD card or USB drive, or on a drive formatted as WBFS. The status line at the bottom of
 Home says what went wrong with a drive.
 
 **"No d2x cIOS in 249-251: games cannot boot yet".** SD and USB images
