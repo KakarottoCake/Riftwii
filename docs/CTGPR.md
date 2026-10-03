@@ -56,6 +56,29 @@ the drive's cover status, a drive reset) is not known yet; the console
 gives no log past the handover. Starting CTGP from the Homebrew Channel
 stays the supported way.
 
+## Why CTGP asks for the disc (diagnostic, 2026-10-02)
+
+A stand-in app started in CTGP's place (same launch, USB image, d2x 249)
+logged the state at each step:
+
+- At the handover everything is right: IOS249, hardware access on, ES's
+  running title is the game (00010004-RMCE, a disc game), the drive says a
+  disc is in and reads `RMCE01`.
+- A first IOS reload is redirected by d2x into IOS249 and keeps the game,
+  even across a drive reset. After it ES has no running title (-1017).
+- A second IOS reload (IOS37) is not redirected: d2x only redirects a
+  reload while ES names a disc game as running, and that comes back only
+  once the program opens the disc's partition. The real IOS37 then reads
+  the real drive (another disc gave CTGP's "this isn't Mario Kart Wii").
+
+A game opens its partition between reloads; CTGP's loader chain reloads
+IOS more than once before its disc check, so the game is gone by then.
+`channel_installation_ios = 249` in CTGP's config.ini did not change it.
+The reloads are in CTGP's encrypted stages (its loader and the channel in
+blob.bin, which CTGP updates itself), so RiftWii does not patch them.
+CTGP from a USB/SD image stays experimental; start it from the
+Homebrew Channel instead.
+
 ## CTGP's own IOS exploit
 
 At startup the CTGP channel patches the running IOS's ES itself when it has
