@@ -171,8 +171,9 @@ void find_configs(const std::string& dir, int depth, std::vector<std::string>& o
 
 // Where the code list goes for `game_id`: a gameconfig.txt (or gc.txt, as
 // Project+ names it) in the code file's folder or a folder above it, up to
-// the top of the card; then anywhere in the mod's own folder; then the
-// card's codes folder, where USB loaders keep their codes.
+// the mod's folder at the top of the card, or anywhere inside that
+// folder; then the top of the card and its codes folder, where USB
+// loaders keep theirs.
 GameConfig load_config(const std::string& folder, const std::string& game_id, std::string& from) {
     std::vector<std::string> paths;
     const std::string drive = drive_of(folder);
@@ -183,8 +184,9 @@ GameConfig load_config(const std::string& folder, const std::string& game_id, st
         paths.push_back(dir + "/gc.txt");
         top = dir;
     }
-    paths.push_back(drive + "gameconfig.txt");
+    // The mod's own copy wins over one shared by every mod at the top.
     if (!top.empty()) find_configs(top, 3, paths);
+    paths.push_back(drive + "gameconfig.txt");
     paths.push_back(drive + "codes/gameconfig.txt");
     for (const std::string& path : paths) {
         const std::string text = read_text(path, 256 * 1024);
@@ -337,14 +339,24 @@ bool PrepareCodeBuilds(const LaunchModel& model, const std::string& game_id, con
         error = config_from + " gives codeliststart but no codelistend after it.";
         return false;
     }
+    // "sd:/wp-combined-mods": the first build's folder at the top of the
+    // card, where its own gameconfig.txt goes.
+    std::string mod_folder;
+    {
+        const std::string& gct = builds.front()->gct_path;
+        const std::string drive = drive_of(gct);
+        const std::string rest = gct.substr(drive.size());
+        const std::size_t slash = rest.find('/');
+        mod_folder = drive + (slash == std::string::npos ? std::string() : rest.substr(0, slash));
+    }
     const std::size_t room = out.list_start != 0 ? out.list_end - out.list_start : kCodeListEnd - kCodeListAddress;
     if (out.gct.size() > room) {
         // Said in a popup when Start is pressed (wii/rift_menu.cpp).
         error = out.list_start != 0
                     ? tr("The codes take {1}, but {2} only makes room for {3}. Turn off some cheats on this game's Cheats page, or turn off a code mod.",
                          {kb(out.gct.size()), config_from, kb(room)})
-                    : tr("{1} has more codes than the game has room for ({2}, room for {3}). It needs the file gameconfig.txt (or gc.txt) from the same download as the mod. Put it on the SD card in the same place as the apps folder (what you see right after opening the card on a computer). Not in the download? Ask whoever made the mod.",
-                         {out.names, kb(out.gct.size()), kb(room)});
+                    : tr("{1} has more codes than the game has room for ({2}, room for {3}). It needs the file gameconfig.txt (or gc.txt) from the same download as the mod. Copy it into the mod's own folder on the SD card, {4}, so it can't replace another mod's. Not in the download? Ask whoever made the mod.",
+                         {out.names, kb(out.gct.size()), kb(room), mod_folder});
         return false;
     }
     if (out.hooktype > 1 && out.hooktype != 7) {
