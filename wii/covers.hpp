@@ -25,6 +25,16 @@ enum class CoverFetch { Stored, NotFound, Failed };
 // not be written (`error`).
 CoverFetch FetchCover(const std::string& game_id, std::string& error);
 
+// FetchCover on the network's background thread (NetRunInBackground), so
+// the menu keeps answering while the network comes up and GameTDB answers
+// (seconds). One at a time: false while the network's thread is busy or
+// the last one's answer was not taken yet.
+bool StartCoverFetch(const std::string& game_id);
+// The game a started fetch is for, until its answer is taken ("" if none).
+const std::string& CoverFetchGame();
+// The answer of a started fetch once it has finished, once.
+bool TakeCoverFetch(std::string& game_id, CoverFetch& got, std::string& error);
+
 // The game's cover as an RGB5A3 texture of kCoverWidth x kCoverHeight,
 // or nullptr when there is none. Reads the card the first time it is
 // asked for a cover not in the pool. Only from the GUI thread (or with

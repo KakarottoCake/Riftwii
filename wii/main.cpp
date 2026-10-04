@@ -284,14 +284,14 @@ int main() {
     riftwii::wii::CrashSetPhase(riftwii::wii::CrashPhase::Menu);
     if (!sd_mounted) SetNoSdCard(StartedFromUsb());
     const int action = MainMenu(sd_mounted ? MENU_SOURCE : MENU_NEEDS_SD, state);
-    // The start's update check may still be running on its own thread, and
-    // it writes to the card and the log: every way out of the menu (a USB
-    // launch unmounts the card and reloads IOS before boot_game) waits for
-    // it here first. A USB launch seconds after start had its heap damaged.
+    // The start's update check or a cover download may still be running on
+    // the network's thread, and it writes to the card and the log: every way
+    // out of the menu (a USB launch unmounts the card and reloads IOS before
+    // boot_game) waits for it here first. A USB launch seconds after start had its heap damaged.
     if (riftwii::wii::NetBackgroundBusy()) {
-        riftwii::wii::logf("Menu closed: waiting for the update check to finish\n");
+        riftwii::wii::logf("Menu closed: waiting for the network's background job (update check or cover) to finish\n");
         riftwii::wii::NetWaitForBackground();
-        riftwii::wii::logf("Menu closed: the update check is done\n");
+        riftwii::wii::logf("Menu closed: the background job is done\n");
         // The launch frame said it was waiting; it is not any more.
         if (action == MENU_LAUNCH || action == MENU_BOOT || action == MENU_DUMP || action == MENU_CHANNEL)
             RefreshLaunchFrame(state, action);
