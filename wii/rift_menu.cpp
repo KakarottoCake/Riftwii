@@ -1485,7 +1485,9 @@ static int MenuSource(FrontendState& state)
 		coverQueue.clear();
 		if (g_coversOff || riftwii::wii::Settings().home_tiles == "names" || !riftwii::wii::Settings().online) return;
 		for (const GridItem& item : items) {
-			if (g_coversChecked.insert(item.id).second && riftwii::wii::CoverWanted(item.id)) coverQueue.push_back(item.id);
+			if (g_coversChecked.insert(item.id).second && item.id != riftwii::wii::CoverFetchGame() &&
+			    riftwii::wii::CoverWanted(item.id))
+				coverQueue.push_back(item.id);
 		}
 	};
 	queueCovers();
@@ -1497,11 +1499,23 @@ static int MenuSource(FrontendState& state)
 	while(menu == MENU_NONE)
 	{
 		usleep(10000);
-		std::string arrived;
 		std::string coverNote;
-		// Not while the update check has the network: FetchCover would wait
-		// for it and hold the menu.
-		if (!coverQueue.empty() && !g_coversOff && !riftwii::wii::NetBackgroundBusy() && !riftwii::wii::NetFailed()) {
+		// The covers download on the network's own thread, one at a time:
+		// done on the menu's, each held every press for seconds.
+		std::string arrived, coverError;
+		riftwii::wii::CoverFetch got = riftwii::wii::CoverFetch::NotFound;
+		if (riftwii::wii::TakeCoverFetch(arrived, got, coverError)) {
+			if (got == riftwii::wii::CoverFetch::Failed) {
+				logf("Covers: stopped: %s\n", coverError.c_str());
+				g_coversOff = true;
+				coverQueue.clear();
+				coverNote = tr("Covers could not be downloaded ({1}). To try again, use Settings > Look for games again.", {FlatCapped(coverError, 60)});
+			}
+			if (got != riftwii::wii::CoverFetch::Stored) arrived.clear();
+		}
+		// Not while the update check has the network.
+		if (!coverQueue.empty() && !g_coversOff && !riftwii::wii::NetBackgroundBusy() && !riftwii::wii::NetFailed() &&
+		    riftwii::wii::CoverFetchGame().empty()) {
 			std::size_t pick = 0;
 			bool onPage = false;
 			const std::size_t first = static_cast<std::size_t>(grid.Page()) * GuiGameGrid::kPerPage;
@@ -1511,27 +1525,17 @@ static int MenuSource(FrontendState& state)
 					if (onPage) pick = q;
 				}
 			}
-			const std::string id = coverQueue[pick];
-			coverQueue.erase(coverQueue.begin() + static_cast<std::ptrdiff_t>(pick));
-			std::string error;
-			const riftwii::wii::CoverFetch got = riftwii::wii::FetchCover(id, error);
-			if (got == riftwii::wii::CoverFetch::Stored) {
-				arrived = id;
-			} else if (got == riftwii::wii::CoverFetch::Failed) {
-				logf("Covers: stopped: %s\n", error.c_str());
-				g_coversOff = true;
-				coverQueue.clear();
-				coverNote = tr("Covers could not be downloaded ({1}). To try again, use Settings > Look for games again.", {FlatCapped(error, 60)});
+			if (riftwii::wii::StartCoverFetch(coverQueue[pick])) {
+				coverQueue.erase(coverQueue.begin() + static_cast<std::ptrdiff_t>(pick));
+				coverNote = tr("Getting covers from GameTDB: {1} left", {std::to_string(coverQueue.size() + 1)});
 			}
-			if (coverNote.empty() && !coverQueue.empty())
-				coverNote = tr("Getting covers from GameTDB: {1} left", {std::to_string(coverQueue.size())});
 		}
 		HaltGui();
 		if (!arrived.empty()) grid.CoverArrived(arrived);
 		if (!coverNote.empty()) {
 			statusTxt.SetText(coverNote.c_str());
 			coverNoteShown = !g_coversOff;  // a failure stays up
-		} else if (coverNoteShown) {
+		} else if (coverNoteShown && riftwii::wii::CoverFetchGame().empty()) {
 			statusTxt.SetText(HomeStatus(state, items.size()).c_str());
 			coverNoteShown = false;
 		}
@@ -2511,18 +2515,14 @@ static int MenuHome(FrontendState& state)
 	} catch (...) {
 		scanStatus = "Package scan failed; go back and try again";
 	}
-	// A disc's game (or one Home did not reach yet): its cover now.
-	if (riftwii::wii::Settings().online && riftwii::wii::Settings().home_tiles != "names" && !g_coversOff &&
-	    !riftwii::wii::NetFailed() && g_coversChecked.insert(state.game_id).second &&
-	    riftwii::wii::CoverWanted(state.game_id)) {
-		std::string error;
-		if (riftwii::wii::FetchCover(state.game_id, error) == riftwii::wii::CoverFetch::Stored) {
-			riftwii::wii::ForgetCover(state.game_id);
-		} else if (!error.empty()) {
-			logf("Covers: stopped: %s\n", error.c_str());
-			g_coversOff = true;
-		}
-	}
+	// A disc's game (or one Home did not reach yet): its cover, on the
+	// network's thread (the loop below starts it and takes the answer).
+	bool coverStart = riftwii::wii::Settings().online && riftwii::wii::Settings().home_tiles != "names" &&
+	                  !g_coversOff && !riftwii::wii::NetFailed() && g_coversChecked.insert(state.game_id).second &&
+	                  riftwii::wii::CoverWanted(state.game_id);
+	// The player asked with the Cover row: the answer is said, and it is
+	// asked even after downloads stopped.
+	bool coverAsked = false;
 	std::vector<FlowRow> rows;
 	std::vector<RowRef> refs;
 	BuildGameRows(state, rows, refs);
@@ -2595,6 +2595,45 @@ static int MenuHome(FrontendState& state)
 		usleep(10000);
 		HaltGui();
 		ClearStaleButtons({&backBtn.button, &startBtn.button});
+
+		if (coverStart && (coverAsked || (!g_coversOff && !riftwii::wii::NetFailed()))) {
+			if (riftwii::wii::CoverFetchGame() == state.game_id || riftwii::wii::StartCoverFetch(state.game_id))
+				coverStart = false;
+		} else if (coverStart) {
+			coverStart = false;
+		}
+		{
+			std::string id, error;
+			riftwii::wii::CoverFetch got = riftwii::wii::CoverFetch::NotFound;
+			if (riftwii::wii::TakeCoverFetch(id, got, error)) {
+				if (got == riftwii::wii::CoverFetch::Stored) riftwii::wii::ForgetCover(id);
+				if (id != state.game_id) {
+					// One Home started before this page opened.
+					if (got == riftwii::wii::CoverFetch::Failed) {
+						logf("Covers: stopped: %s\n", error.c_str());
+						g_coversOff = true;
+					}
+				} else {
+					if (got == riftwii::wii::CoverFetch::Stored) {
+						g_coversOff = false;
+						titleTxt.SetWrap(true, 460, 2);
+					} else if (got == riftwii::wii::CoverFetch::Failed && !coverAsked) {
+						logf("Covers: stopped: %s\n", error.c_str());
+						g_coversOff = true;
+					}
+					if (coverAsked) {
+						if (got == riftwii::wii::CoverFetch::Stored) say(tr("Cover downloaded."));
+						else if (got == riftwii::wii::CoverFetch::NotFound) say(tr("GameTDB has no cover for this game."));
+						else say(tr("Could not download the cover: {1}", {FlatCapped(error, 100)}));
+						coverAsked = false;
+					}
+					const int selected = list.Selected();
+					BuildGameRows(state, rows, refs);
+					list.Refresh();
+					list.Select(selected);
+				}
+			}
+		}
 
 		const int row = list.Selected();
 		if (row != shownRow && row >= 0 && static_cast<std::size_t>(row) < refs.size()) {
@@ -2701,24 +2740,11 @@ static int MenuHome(FrontendState& state)
 				state.model.game.server = StepValue(kServers, state.model.game.server, direction);
 				changed = true;
 			} else if (ref.what == RowRef::What::Cover && !state.game_id.empty()) {
+				// Started at the top of the loop, or as soon as the network's
+				// thread is free; the answer is said when it comes.
 				say(tr("Downloading the cover..."));
-				ResumeGui();
-				std::string error;
-				const riftwii::wii::CoverFetch got = riftwii::wii::FetchCover(state.game_id, error);
-				HaltGui();
-				riftwii::wii::ForgetCover(state.game_id);
-				if (got == riftwii::wii::CoverFetch::Stored) {
-					g_coversOff = false;
-					titleTxt.SetWrap(true, 460, 2);
-					say(tr("Cover downloaded."));
-				} else if (got == riftwii::wii::CoverFetch::NotFound) {
-					say(tr("GameTDB has no cover for this game."));
-				} else {
-					say(tr("Could not download the cover: {1}", {FlatCapped(error, 100)}));
-				}
-				BuildGameRows(state, rows, refs);
-				list.Refresh();
-				list.Select(acted);
+				coverStart = true;
+				coverAsked = true;
 			} else if (ref.what == RowRef::What::Favorite && !state.game_id.empty()) {
 				std::set<std::string>& favorites = riftwii::wii::Settings().favorites;
 				if (favorites.count(state.game_id) != 0) favorites.erase(state.game_id);
@@ -3612,10 +3638,12 @@ static void ShowLaunchFrame(const FrontendState& state, int action)
 	Place(titleTxt, 40, 62);
 	titleTxt.SetWrap(true, 560, 2);
 	Panel card(skin::panelSettings, 34, 160);
-	// The launch waits for the start's update check first (wii/main.cpp):
-	// say so, as nothing else is on the screen yet. Said here, in the
-	// frame, not by the console: the check's thread is still running.
-	GuiText footTxt(riftwii::wii::NetBackgroundBusy() ? "Waiting for the update check to finish (up to 20 seconds)..."
+	// The launch waits for the start's update check or a cover download
+	// first (wii/main.cpp): say so, as nothing else is on the screen yet.
+	// Said here, in the frame, not by the console: the job's thread is
+	// still running.
+	GuiText footTxt(riftwii::wii::NetBackgroundBusy() && !riftwii::wii::CoverFetchGame().empty() ? "Waiting for a cover download to finish..."
+		: riftwii::wii::NetBackgroundBusy() ? "Waiting for the update check to finish (up to 20 seconds)..."
 		: action == MENU_CHANNEL ? "RiftWii starts again when it is done."
 		: "The game takes over the screen when it is ready.", 15, skin::kInkDim);
 	Place(footTxt, 0, 444, true);

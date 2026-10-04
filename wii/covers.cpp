@@ -14,6 +14,7 @@
 #include "loadersettings.hpp"
 #include "log.hpp"
 #include "memlimits.hpp"
+#include "netsock.hpp"
 #include "online.hpp"
 #include "riftwii/coverart.hpp"
 #include "riftwii/pngdecode.hpp"
@@ -148,6 +149,41 @@ CoverFetch FetchCoverNow(const std::string& game_id, std::string& error) {
     return CoverFetch::NotFound;
 }
 }  // namespace
+
+namespace {
+// The background fetch: written by its thread only between Start and the
+// thread's end, read by Take only after it ended.
+struct Background {
+    std::string id;
+    CoverFetch got = CoverFetch::Failed;
+    std::string error;
+};
+Background g_background;
+
+void RunBackgroundFetch() { g_background.got = FetchCover(g_background.id, g_background.error); }
+}  // namespace
+
+bool StartCoverFetch(const std::string& game_id) {
+    if (!g_background.id.empty() || NetBackgroundBusy()) return false;
+    g_background = Background{};
+    g_background.id = game_id;
+    if (NetRunInBackground(RunBackgroundFetch)) return true;
+    g_background.id.clear();
+    return false;
+}
+
+const std::string& CoverFetchGame() { return g_background.id; }
+
+bool TakeCoverFetch(std::string& game_id, CoverFetch& got, std::string& error) {
+    // Only this fetch can hold the network's thread while one is started.
+    if (g_background.id.empty() || NetBackgroundBusy()) return false;
+    NetWaitForBackground();
+    game_id = g_background.id;
+    got = g_background.got;
+    error = g_background.error;
+    g_background.id.clear();
+    return true;
+}
 
 const u8* CoverTexture(const std::string& game_id) {
     if (!ValidId(game_id) || g_absent.count(game_id)) return nullptr;
