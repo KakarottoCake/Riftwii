@@ -1116,8 +1116,8 @@ msgstr "Questa scheda SD ha file nascosti che macOS crea quando copia (nomi che 
 msgid "This code mod can't start"
 msgstr "Questo mod di codici non può partire"
 
-msgid "{1} is a code mod, and its codes take {2}. A game only has about {3} free for codes, so they don't fit. Big mods like this come with a file named gameconfig.txt (or gc.txt) that says where else they can go. Copy it from the mod's download to the top of your SD card. No such file? Ask the mod's maker."
-msgstr "{1} è un mod di codici e i suoi codici occupano {2}. Un gioco ha solo circa {3} liberi per i codici, quindi non ci stanno. I mod grandi includono un file chiamato gameconfig.txt (o gc.txt) che dice dove altro possono andare. Copialo dal download del mod nella radice della scheda SD. Non c'è? Chiedi a chi ha fatto il mod."
+msgid "{1} has more codes than the game has room for ({2}, room for {3}). It needs the file gameconfig.txt (or gc.txt) from the same download as the mod. Put it on the SD card in the same place as the apps folder (what you see right after opening the card on a computer). Not in the download? Ask whoever made the mod."
+msgstr "{1} ha più codici di quanti ne entrino nel gioco ({2}, spazio per {3}). Serve il file gameconfig.txt (o gc.txt) dallo stesso download del mod. Mettilo sulla scheda SD nello stesso posto della cartella apps (quello che vedi appena apri la scheda sul computer). Non è nel download? Chiedi a chi ha fatto il mod."
 
 msgid "The codes take {1}, but {2} only makes room for {3}. Turn off some cheats on this game's Cheats page, or turn off a code mod."
 msgstr "I codici occupano {1}, ma {2} lascia spazio solo per {3}. Disattiva alcuni trucchi nella pagina Trucchi di questo gioco, o disattiva un mod di codici."

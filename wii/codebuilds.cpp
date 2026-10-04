@@ -154,18 +154,38 @@ bool write_picks(const std::vector<std::pair<std::string, std::string>>& picks, 
     return true;
 }
 
+// gameconfig.txt and gc.txt files anywhere under `dir`, a few folders
+// deep: a mod's download unzipped as it came may keep its gameconfig.txt
+// beside the codes folder rather than above it.
+void find_configs(const std::string& dir, int depth, std::vector<std::string>& out) {
+    for (const std::string& name : entries(dir)) {
+        if (out.size() >= 32) return;
+        const std::string path = dir + "/" + name;
+        if (is_dir(path)) {
+            if (depth > 0) find_configs(path, depth - 1, out);
+        } else if (lower(name) == "gameconfig.txt" || lower(name) == "gc.txt") {
+            out.push_back(path);
+        }
+    }
+}
+
 // Where the code list goes for `game_id`: a gameconfig.txt (or gc.txt, as
 // Project+ names it) in the code file's folder or a folder above it, up to
-// the top of the card.
+// the top of the card; then anywhere in the mod's own folder; then the
+// card's codes folder, where USB loaders keep their codes.
 GameConfig load_config(const std::string& folder, const std::string& game_id, std::string& from) {
     std::vector<std::string> paths;
     const std::string drive = drive_of(folder);
+    std::string top;  // the mod's folder at the top of the card
     for (std::string dir = folder; dir.size() > drive.size() && dir.compare(0, drive.size(), drive) == 0;
          dir = dir_of(dir)) {
         paths.push_back(dir + "/gameconfig.txt");
         paths.push_back(dir + "/gc.txt");
+        top = dir;
     }
     paths.push_back(drive + "gameconfig.txt");
+    if (!top.empty()) find_configs(top, 3, paths);
+    paths.push_back(drive + "codes/gameconfig.txt");
     for (const std::string& path : paths) {
         const std::string text = read_text(path, 256 * 1024);
         if (text.empty()) continue;
@@ -323,7 +343,7 @@ bool PrepareCodeBuilds(const LaunchModel& model, const std::string& game_id, con
         error = out.list_start != 0
                     ? tr("The codes take {1}, but {2} only makes room for {3}. Turn off some cheats on this game's Cheats page, or turn off a code mod.",
                          {kb(out.gct.size()), config_from, kb(room)})
-                    : tr("{1} is a code mod, and its codes take {2}. A game only has about {3} free for codes, so they don't fit. Big mods like this come with a file named gameconfig.txt (or gc.txt) that says where else they can go. Copy it from the mod's download to the top of your SD card. No such file? Ask the mod's maker.",
+                    : tr("{1} has more codes than the game has room for ({2}, room for {3}). It needs the file gameconfig.txt (or gc.txt) from the same download as the mod. Put it on the SD card in the same place as the apps folder (what you see right after opening the card on a computer). Not in the download? Ask whoever made the mod.",
                          {out.names, kb(out.gct.size()), kb(room)});
         return false;
     }

@@ -541,8 +541,8 @@ static bool gather_package(const PackageSelection& selection, const DiscProbe& p
         const std::string xml_name = xml_sd_path.substr(xml_sd_path.find_last_of('/') + 1);
         error = "This won't work: " + xml_name + " needs its files in " + top + ", and " +
                 (missing_value.empty() ? std::string("none of them are there") : device + path + " is missing") +
-                ". Copy the pack's whole folder to the top of the " + (usb ? "USB drive" : "SD card") +
-                ", next to the riivolution folder.";
+                ". Copy the pack's whole folder onto the " + (usb ? "USB drive" : "SD card") +
+                " in the same place as the riivolution folder, not inside it.";
         const std::string hint = nearest_on_card(what);
         if (!hint.empty()) error += " (" + hint + ")";
         return false;

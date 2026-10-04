@@ -1116,19 +1116,11 @@ T = {
         "elimina i file il cui nome inizia con \"._\"."),
     "This code mod can't start": ("Este mod de códigos no puede iniciarse", "このコードModは起動できません",
         "Este mod de códigos não pode iniciar", "Questo mod di codici non può partire"),
-    "{1} is a code mod, and its codes take {2}. A game only has about {3} free for codes, so they don't fit. Big mods like this come with a file named gameconfig.txt (or gc.txt) that says where else they can go. Copy it from the mod's download to the top of your SD card. No such file? Ask the mod's maker.": (
-        "{1} es un mod de códigos y sus códigos ocupan {2}. Un juego solo tiene unos {3} libres para códigos, así que "
-        "no caben. Los mods grandes traen un archivo llamado gameconfig.txt (o gc.txt) que dice dónde más pueden ir. "
-        "Cópialo de la descarga del mod a la raíz de tu tarjeta SD. ¿No lo trae? Pregunta a quien hizo el mod.",
-        "{1}はコードModで、コードが{2}あります。ゲームのコード用の空きは約{3}しかないため入りません。"
-        "大きなModには、ほかの置き場所を示すgameconfig.txt（またはgc.txt）が付いています。"
-        "Modのダウンロードから、SDカードの一番上にコピーしてください。ない場合はModの作者に聞いてください。",
-        "{1} é um mod de códigos e seus códigos ocupam {2}. Um jogo só tem cerca de {3} livres para códigos, então "
-        "eles não cabem. Mods grandes vêm com um arquivo chamado gameconfig.txt (ou gc.txt) que diz onde mais podem "
-        "ficar. Copie-o do download do mod para a raiz do cartão SD. Não veio? Pergunte a quem fez o mod.",
-        "{1} è un mod di codici e i suoi codici occupano {2}. Un gioco ha solo circa {3} liberi per i codici, quindi "
-        "non ci stanno. I mod grandi includono un file chiamato gameconfig.txt (o gc.txt) che dice dove altro possono "
-        "andare. Copialo dal download del mod nella radice della scheda SD. Non c'è? Chiedi a chi ha fatto il mod."),
+    '{1} has more codes than the game has room for ({2}, room for {3}). It needs the file gameconfig.txt (or gc.txt) from the same download as the mod. Put it on the SD card in the same place as the apps folder (what you see right after opening the card on a computer). Not in the download? Ask whoever made the mod.': (
+        '{1} tiene más códigos de los que caben en el juego ({2}, hay sitio para {3}). Necesita el archivo gameconfig.txt (o gc.txt) de la misma descarga que el mod. Ponlo en la tarjeta SD en el mismo sitio que la carpeta apps (lo que ves nada más abrir la tarjeta en un ordenador). ¿No está en la descarga? Pregunta a quien hizo el mod.',
+        '{1}のコードはゲームに入る量を超えています（{2}、空きは{3}）。Modと同じダウンロードに入っているgameconfig.txt（またはgc.txt）が必要です。SDカードのappsフォルダと同じ場所（パソコンでカードを開いてすぐ見える場所）に置いてください。ダウンロードにない場合は、Modの作者に聞いてください。',
+        '{1} tem mais códigos do que cabem no jogo ({2}, espaço para {3}). Ele precisa do arquivo gameconfig.txt (ou gc.txt) do mesmo download do mod. Coloque-o no cartão SD no mesmo lugar da pasta apps (o que você vê logo ao abrir o cartão no computador). Não está no download? Pergunte a quem fez o mod.',
+        '{1} ha più codici di quanti ne entrino nel gioco ({2}, spazio per {3}). Serve il file gameconfig.txt (o gc.txt) dallo stesso download del mod. Mettilo sulla scheda SD nello stesso posto della cartella apps (quello che vedi appena apri la scheda sul computer). Non è nel download? Chiedi a chi ha fatto il mod.'),
     "The codes take {1}, but {2} only makes room for {3}. Turn off some cheats on this game's Cheats page, or turn off a code mod.": (
         "Los códigos ocupan {1}, pero {2} solo deja sitio para {3}. Desactiva algunos trucos en la página de Trucos de "
         "este juego, o desactiva un mod de códigos.",
