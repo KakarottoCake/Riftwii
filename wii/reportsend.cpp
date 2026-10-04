@@ -60,6 +60,8 @@ ReportPart file_part(const std::string& path) {
     ReportPart part;
     part.name = path;
     part.found = read_text(path, part.text);
+    // The player's RiiTag key never goes into a report: it is posted publicly.
+    if (part.found && path == "sd:/riftwii/settings.txt") part.text = hide_settings_secrets(part.text);
     return part;
 }
 

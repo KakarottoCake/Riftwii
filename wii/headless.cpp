@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "headless.hpp"
+#include "riitagsend.hpp"
 
 #include <gccore.h>
 
@@ -136,6 +137,7 @@ bool launch(const std::vector<std::string>& args, std::string& error) {
     if (!CheckCodeBuilds(state, error)) return false;
     PrepareLaunchExtras(state, &h);
     RecordPlay(state.game_id);
+    TagGame(state.game_id, false);  // before the cIOS reload takes the network
     const LaunchSource source = SelectedSource(state);
     const std::vector<PackageChoices> selections = state.model.selections();
     const bool booted = mem::OutOfMemoryAsError(error, [&] {

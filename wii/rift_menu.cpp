@@ -72,6 +72,7 @@
 #include "reportsend.hpp"
 #include "modplan.hpp"
 #include "restart.hpp"
+#include "riitagsend.hpp"
 #include "channel.hpp"
 #include "riftwii/settingsfile.hpp"
 #include "netpacks.hpp"
@@ -2903,6 +2904,7 @@ static int MenuHome(FrontendState& state)
 	if (menu == MENU_LAUNCH || menu == MENU_BOOT) {
 		riftwii::wii::PrepareLaunchExtras(state);
 		riftwii::wii::RecordPlay(state.game_id);
+		riftwii::wii::TagGame(state.game_id, true);
 	}
 	return menu;
 }

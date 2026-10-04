@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/settingsfile.hpp"
+#include "riftwii/riitag.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -54,6 +55,8 @@ void LoaderSettings::parse(const std::string& text) {
         } else if (key == "wfc_server") {
             WfcServer server;
             if (parse_wfc_server(value, server)) wfc_server = value;
+        } else if (key == "riitag_key") {
+            if (value.empty() || valid_riitag_key(value)) riitag_key = value;
         } else if (key == "wfc_domain") {
             if (value.empty() || valid_wfc_domain(value)) wfc_domain = value;
         } else if (key == "game_cios") {
@@ -129,6 +132,7 @@ std::string LoaderSettings::serialize() const {
     s += "return_to = " + return_to + "\n";
     s += "screenshots = " + screenshots + "\n";
     s += std::string("online = ") + (online ? "on" : "off") + "\n";
+    if (!riitag_key.empty()) s += "riitag_key = " + riitag_key + "\n";
     s += "update_channel = " + update_channel + "\n";
     s += "gc_adapter = " + gc_adapter + "\n";
     if (!favorites.empty()) {

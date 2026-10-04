@@ -119,6 +119,28 @@ unknown. When it refuses, the error tells the player to restart the console.
 when armed and `IOS reload block cleared` / `could not be cleared` after a
 failure.
 
+## On hold (2026-10-04)
+
+A CTGP-R developer (who asked not to be named) offered help: they want
+CTGP to run from RiftWii as long as its anti-cheat keeps working. They
+sent a tool that decrypts `blob.bin`; it uses the same key and IV scheme
+the decompile in `D:/AI Projects/CTGPR DECOMP/` already found, so nothing
+new came from it, and none of it goes into RiftWii.
+
+The fix has to come from CTGP's side: its channel reloads IOS twice and d2x
+fakes only the first (above), and the reloads live in CTGP's encrypted,
+anti-cheat-protected code, which RiftWii must not change. Questions for the
+developer when this resumes:
+
+1. What the second reload (into IOS37) is for, and whether CTGP could
+   stay on a d2x cIOS that already emulates Mario Kart Wii's disc.
+2. A supported "started by a loader" mode (a `config.ini` key, or a value
+   RiftWii leaves in memory) that keeps the running cIOS and the disc, with
+   every anti-cheat check kept.
+3. What the anti-cheat needs from the environment (IOS, untouched ES, no
+   hooks in the game) so RiftWii can guarantee it.
+4. Whether the disc check needs anything d2x's emulation lacks.
+
 ## What a console test must show
 
 1. A USB or SD ISO/WBFS of Mario Kart Wii with CTGP's pack enabled reaches

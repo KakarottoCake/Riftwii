@@ -144,6 +144,28 @@ std::string game_id_at(const std::string& text) {
 
 }  // namespace
 
+std::string hide_settings_secrets(const std::string& settings) {
+    std::string out;
+    std::size_t at = 0;
+    while (at < settings.size()) {
+        std::size_t end = settings.find('\n', at);
+        if (end == std::string::npos) end = settings.size();
+        std::string line = settings.substr(at, end - at);
+        std::size_t key = line.find_first_not_of(" \t");
+        if (key != std::string::npos && line.compare(key, 10, "riitag_key") == 0) {
+            const std::size_t eq = line.find('=', key);
+            if (eq != std::string::npos) {
+                const bool cr = !line.empty() && line.back() == '\r';
+                line = line.substr(0, eq + 1) + " (hidden)" + (cr ? "\r" : "");
+            }
+        }
+        out += line;
+        if (end < settings.size()) out += '\n';
+        at = end + 1;
+    }
+    return out;
+}
+
 std::string launched_game_id(const std::string& boot_log) {
     const std::string first = boot_log.substr(0, boot_log.find('\n'));
     const std::size_t at = first.find(": launch ");

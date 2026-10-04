@@ -23,6 +23,11 @@ static std::string numbered_lines(int count, const char* tag) {
 }
 
 int main() {
+    // A RiiTag key is hidden; every other line stays as it was.
+    EXPECT_EQ(hide_settings_secrets("language = auto\nriitag_key = abc123\r\nonline = on\n"),
+              std::string("language = auto\nriitag_key = (hidden)\r\nonline = on\n"));
+    EXPECT_EQ(hide_settings_secrets("riitag_key=x"), std::string("riitag_key= (hidden)"));
+    EXPECT_EQ(hide_settings_secrets("theme = default"), std::string("theme = default"));
     // Small enough: every part whole, in order, the missing one named.
     {
         const std::vector<ReportPart> parts = {{"crash.txt", "PC 80001234\n"}, {"boot.log", "a\nb\n"},
