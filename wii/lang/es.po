@@ -531,6 +531,9 @@ msgstr "El breve recorrido por lo básico de RiftWii que aparece con una tarjeta
 msgid "Credits and licence"
 msgstr "Créditos y licencia"
 
+msgid "Filter"
+msgstr "Filtro"
+
 msgid "View"
 msgstr "Ver"
 

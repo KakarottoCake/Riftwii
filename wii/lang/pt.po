@@ -531,6 +531,9 @@ msgstr "O breve tour pelo básico do RiftWii que aparece com um cartão SD novo.
 msgid "Credits and licence"
 msgstr "Créditos e licença"
 
+msgid "Filter"
+msgstr "Filtro"
+
 msgid "View"
 msgstr "Ver"
 

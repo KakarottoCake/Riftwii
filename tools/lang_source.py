@@ -466,6 +466,7 @@ T = {
         "O breve tour pelo básico do RiftWii que aparece com um cartão SD novo.",
         "La breve guida alle basi di RiftWii che appare con una nuova scheda SD."),
     "Credits and licence": ("Créditos y licencia", "クレジットとライセンス", "Créditos e licença", "Riconoscimenti e licenza"),
+    "Filter": ("Filtro", "フィルター", "Filtro", "Filtro"),
     "View": ("Ver", "表示", "Ver", "Vedi"),
     "Who RiftWii's parts come from, its licence (the GNU GPL, version 3 or later) and where its source is.": (
         "De quién vienen las partes de RiftWii, su licencia (la GNU GPL, versión 3 o posterior) y dónde está su código fuente.",

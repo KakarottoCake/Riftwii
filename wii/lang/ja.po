@@ -531,6 +531,9 @@ msgstr "新しいSDカードで最初に表示される、RiftWiiの基本の短
 msgid "Credits and licence"
 msgstr "クレジットとライセンス"
 
+msgid "Filter"
+msgstr "フィルター"
+
 msgid "View"
 msgstr "表示"
 
