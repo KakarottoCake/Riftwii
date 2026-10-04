@@ -1130,6 +1130,30 @@ T = {
         "jogo, ou desligue um mod de códigos.",
         "I codici occupano {1}, ma {2} lascia spazio solo per {3}. Disattiva alcuni trucchi nella pagina Trucchi di "
         "questo gioco, o disattiva un mod di codici."),
+    "Aspect ratio": ("Relación de aspecto", "アスペクト比", "Proporção da tela", "Proporzioni"),
+    "Rumble": ("Vibración", "振動", "Vibração", "Vibrazione"),
+    "Wii Remote speaker": ("Altavoz del mando de Wii", "Wiiリモコンのスピーカー", "Alto-falante do Wii Remote",
+        "Altoparlante del telecomando Wii"),
+    "Region strings fix": ("Corrección de textos de región", "地域文字列の修正", "Correção de textos de região",
+        "Correzione testi della regione"),
+    "Makes the game use 4:3 or widescreen 16:9 whatever the Wii's TV setting says. Not every game can be changed.": (
+        "Hace que el juego use 4:3 o panorámico 16:9 diga lo que diga el ajuste de TV de la Wii. No todos los juegos se pueden cambiar.",
+        "Wiiのテレビ設定に関係なく、ゲームを4:3かワイドの16:9にします。変更できないゲームもあります。",
+        "Faz o jogo usar 4:3 ou widescreen 16:9, seja qual for o ajuste de TV do Wii. Nem todo jogo pode ser mudado.",
+        "Fa usare al gioco 4:3 o il panoramico 16:9, qualunque sia l'impostazione TV della Wii. Non tutti i giochi si possono cambiare."),
+    "Off: the Wii Remotes never rumble in this game.": (
+        "Desactivado: los mandos de Wii nunca vibran en este juego.", "オフ: このゲームではWiiリモコンが振動しません。",
+        "Desligado: os Wii Remotes nunca vibram neste jogo.", "Disattivato: i telecomandi Wii non vibrano mai in questo gioco."),
+    "Off: no sound from the Wii Remotes' speakers in this game.": (
+        "Desactivado: sin sonido de los altavoces de los mandos de Wii en este juego.",
+        "オフ: このゲームではWiiリモコンのスピーカーから音が出ません。",
+        "Desligado: sem som dos alto-falantes dos Wii Remotes neste jogo.",
+        "Disattivato: nessun suono dagli altoparlanti dei telecomandi Wii in questo gioco."),
+    "For a game from another region (an import): the game sees its own region's country names where it looks for the console's.": (
+        "Para un juego de otra región (importado): el juego ve los nombres de país de su región donde busca los de la consola.",
+        "ほかの地域のゲーム（輸入版）用: 本体の国名を探す場所で、ゲームは自分の地域の国名を見ます。",
+        "Para um jogo de outra região (importado): o jogo vê os nomes de país da sua região onde procura os do console.",
+        "Per un gioco di un'altra regione (d'importazione): il gioco vede i nomi dei paesi della sua regione dove cerca quelli della console."),
     "Don't show again": ("No volver a mostrar", "今後表示しない", "Não mostrar de novo", "Non mostrare più"),
 }
 

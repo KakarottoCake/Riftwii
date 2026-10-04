@@ -307,6 +307,10 @@ std::string LaunchModel::save() const {
     if (game.cios != "global") text += "*riftwii*\tcios\t" + clean(game.cios) + "\n";
     if (game.server != "global") text += "*riftwii*\tserver\t" + clean(game.server) + "\n";
     if (game.region_video == "on") text += "*riftwii*\tregionvideo\ton\n";
+    if (game.aspect != "game") text += "*riftwii*\taspect\t" + clean(game.aspect) + "\n";
+    if (game.rumble == "off") text += "*riftwii*\trumble\toff\n";
+    if (game.speaker == "off") text += "*riftwii*\tspeaker\toff\n";
+    if (game.region_strings == "on") text += "*riftwii*\tregionstrings\ton\n";
     for (const LaunchPackage& p : packages) {
         // Only this game's packs: the file is per game ID, and another
         // game's pack could not be turned on here anyway.
@@ -364,6 +368,14 @@ void LaunchModel::restore(const std::string& text) {
                 game.server = value;
             } else if (key == "regionvideo") {
                 game.region_video = value == "on" ? "on" : "off";
+            } else if (key == "aspect") {
+                game.aspect = value == "4:3" || value == "16:9" ? value : "game";
+            } else if (key == "rumble") {
+                game.rumble = value == "off" ? "off" : "on";
+            } else if (key == "speaker") {
+                game.speaker = value == "off" ? "off" : "on";
+            } else if (key == "regionstrings") {
+                game.region_strings = value == "on" ? "on" : "off";
             }
             continue;
         }

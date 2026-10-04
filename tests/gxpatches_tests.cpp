@@ -221,6 +221,60 @@ void test_region_video_fix() {
     EXPECT_EQ(none.get(0x80004040), 0x5400FFFEu);
 }
 
+// The four per-game preferences, each at the first match of its part.
+void test_preferences() {
+    Memory m(0x80004000, 0x1000);
+    const std::uint32_t speaker = 0x80004100;
+    const std::uint32_t kSpeaker[4] = {0x9421FA00, 0x7C0802A6, 0x90010604, 0x39610600};
+    for (int i = 0; i < 4; ++i) m.set(speaker + 4 * i, kSpeaker[i]);
+    for (int i = 0; i < 4; ++i) m.set(speaker + 0x40 + 4 * i, kSpeaker[i]);  // a second: GX stops at the first
+    GxReport r;
+    EXPECT_EQ(gx_speaker_off(m.spans(), r), 1u);
+    EXPECT_EQ(m.get(speaker), 0x4E800020u);
+    EXPECT_EQ(m.get(speaker + 0x40), 0x9421FA00u);
+
+    const std::uint32_t motor = 0x80004400;
+    m.set(motor, 0x9421FFF0);
+    m.set(motor + 4, 0x7C0802A6);
+    const std::uint32_t b[4] = {0x2C000000, 0x40820020, 0x2C1E0000, 0x40820010};
+    const std::uint32_t c[5] = {0x48000020, 0x7C9E00D0, 0x38000001, 0x7C84F378, 0x54840FFE};
+    for (int i = 0; i < 4; ++i) m.set(motor + 68 + 4 * i, b[i]);
+    EXPECT_EQ(gx_rumble_off(m.spans(), r), 0u);  // the third part is missing
+    for (int i = 0; i < 5; ++i) m.set(motor + 148 + 4 * i, c[i]);
+    EXPECT_EQ(gx_rumble_off(m.spans(), r), 1u);
+    EXPECT_EQ(m.get(motor), 0x4E800020u);
+
+    const std::uint32_t aspect = 0x80004800;
+    const std::uint32_t first[5] = {0x9421FFF0, 0x7C0802A6, 0x38800001, 0x90010014, 0x38610008};
+    const std::uint32_t second[15] = {0x2C030000, 0x40820010, 0x38000000, 0x98010008, 0x48000018,
+                                      0x88010008, 0x28000001, 0x4182000C, 0x38000000, 0x98010008,
+                                      0x80010014, 0x88610008, 0x7C0803A6, 0x38210010, 0x4E800020};
+    for (int i = 0; i < 5; ++i) m.set(aspect + 4 * i, first[i]);
+    m.set(aspect + 20, 0x4BFFFFFF);  // the call between them, any word
+    for (int i = 0; i < 15; ++i) m.set(aspect + 24 + 4 * i, second[i]);
+    EXPECT_EQ(gx_force_aspect(true, m.spans(), r), 1u);
+    EXPECT_EQ(m.get(aspect + 0x44), 0x38600001u);
+    EXPECT_EQ(gx_force_aspect(false, m.spans(), r), 0u);  // its pattern is changed now
+    m.set(aspect + 0x44, second[11]);
+    EXPECT_EQ(gx_force_aspect(false, m.spans(), r), 1u);
+    EXPECT_EQ(m.get(aspect + 0x44), 0x38600000u);
+
+    // Country strings: a US console, a European game.
+    Memory t(0x80008000, 0x40);
+    t.set(0x80008000, 0x01555300);  // "\1US\0": changed
+    t.set(0x80008008, 0x01555300);
+    t.set(0x80008010, 0x02555300);  // another number: left
+    EXPECT_EQ(gx_country_strings(1, 'P', t.spans(), r), 2u);
+    EXPECT_EQ(t.get(0x80008000), 0x01455500u);
+    EXPECT_EQ(t.get(0x80008008), 0x01455500u);
+    EXPECT_EQ(t.get(0x80008010), 0x02555300u);
+    EXPECT_EQ(gx_country_strings(2, 'D', t.spans(), r), 0u);  // a German game on a PAL Wii
+    Memory j(0x80008000, 0x10);
+    j.set(0x80008004, 0x004A5000);  // a Japanese console's "\0JP\0", a US game
+    EXPECT_EQ(gx_country_strings(0, 'E', j.spans(), r), 1u);
+    EXPECT_EQ(j.get(0x80008004), 0x00555300u);
+}
+
 void test_pick_cios() {
     std::string why;
     const std::vector<D2xSlot> slots = {{249, 56}, {250, 57}, {251, 58}};
@@ -258,6 +312,7 @@ int main() {
     test_sd_card();
     test_480p();
     test_region_video_fix();
+    test_preferences();
     test_pick_cios();
     if (g_failures == 0) {
         std::cout << "ALL GXPATCHES TESTS PASSED" << std::endl;

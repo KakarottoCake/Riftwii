@@ -1122,5 +1122,29 @@ msgstr "{1}のコードはゲームに入る量を超えています（{2}、空
 msgid "The codes take {1}, but {2} only makes room for {3}. Turn off some cheats on this game's Cheats page, or turn off a code mod."
 msgstr "コードは{1}ありますが、{2}が用意する場所は{3}だけです。このゲームのチートのページでチートをいくつかオフにするか、コードModをオフにしてください。"
 
+msgid "Aspect ratio"
+msgstr "アスペクト比"
+
+msgid "Rumble"
+msgstr "振動"
+
+msgid "Wii Remote speaker"
+msgstr "Wiiリモコンのスピーカー"
+
+msgid "Region strings fix"
+msgstr "地域文字列の修正"
+
+msgid "Makes the game use 4:3 or widescreen 16:9 whatever the Wii's TV setting says. Not every game can be changed."
+msgstr "Wiiのテレビ設定に関係なく、ゲームを4:3かワイドの16:9にします。変更できないゲームもあります。"
+
+msgid "Off: the Wii Remotes never rumble in this game."
+msgstr "オフ: このゲームではWiiリモコンが振動しません。"
+
+msgid "Off: no sound from the Wii Remotes' speakers in this game."
+msgstr "オフ: このゲームではWiiリモコンのスピーカーから音が出ません。"
+
+msgid "For a game from another region (an import): the game sees its own region's country names where it looks for the console's."
+msgstr "ほかの地域のゲーム（輸入版）用: 本体の国名を探す場所で、ゲームは自分の地域の国名を見ます。"
+
 msgid "Don't show again"
 msgstr "今後表示しない"

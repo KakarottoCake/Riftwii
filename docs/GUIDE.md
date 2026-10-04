@@ -119,6 +119,13 @@ these rows:
 - **Region video fix** (off unless you turn it on) is for a US or
   Japanese game that shows no picture on a console from another region:
   the game is told the video hardware matches its region.
+- **Aspect ratio** makes the game use *4:3* or widescreen *16:9*
+  whatever the Wii's TV setting says (*Game's own* leaves it). Not every
+  game reads the setting in a way that can be changed.
+- **Rumble** and **Wii Remote speaker**: turn either off for this game.
+- **Region strings fix** (off unless you turn it on) is for a game from
+  another region: where the game looks up the console's country names, it
+  finds its own region's.
 - **Game language** tells the game the console is set to another
   language. Pick one the game has: a game missing it may stop (Super
   Mario Galaxy 2 from the US has no German, and freezes).

@@ -22,7 +22,11 @@
 //  - PatchFix480p, a game's wrong 480p setting for the video encoder;
 //  - vidolpatcher (WiiPower's "VIDTV patch"), RiftWii's per-game Region
 //    video fix;
-//  - exclude_game: the games whose code its other extras stay out of.
+//  - exclude_game: the games whose code its other extras stay out of;
+//  - the per-game preferences: speaker_patch and motor_patch (the Wii
+//    Remote's speaker and rumble off), PatchAspectRatio (4:3 or 16:9 kept
+//    whatever the console says) and WiiPower's PatchCountryStrings
+//    (RiftWii's Region strings fix).
 // `loaded` is what the apploader filled; nothing outside it is written.
 namespace riftwii {
 
@@ -71,6 +75,23 @@ bool gx_fix_480p(const std::vector<CodeSpan>& loaded, GxReport& report);
 // (region letter E), 1 for a Japanese one (J). Other regions are left
 // alone, as GX leaves them. Returns how many reads changed.
 unsigned gx_region_video_fix(char region, const std::vector<CodeSpan>& loaded, GxReport& report);
+// speaker_patch: WPADControlSpeaker returns at once, so the Wii Remote's
+// speaker never turns on. The first match in each loaded part, as GX
+// patches each DOL section. Returns how many functions changed.
+unsigned gx_speaker_off(const std::vector<CodeSpan>& loaded, GxReport& report);
+// motor_patch: WPADControlMotor returns at once: no rumble.
+unsigned gx_rumble_off(const std::vector<CodeSpan>& loaded, GxReport& report);
+// PatchAspectRatio: the SDK's read of the console's widescreen setting
+// gives 16:9 (`widescreen`) or 4:3 instead.
+unsigned gx_force_aspect(bool widescreen, const std::vector<CodeSpan>& loaded, GxReport& report);
+// PatchCountryStrings (WiiPower's), the Region strings fix: the game's
+// country tables (a region number and two letters, "\1US\0") name the
+// console's region; each that names the console's region is changed to
+// the game's, so an import finds its own. `console_region` is CONF's:
+// 0 Japan, 1 USA, 2 Europe, 4 Korea, 5 China; `game_region` the game ID's
+// fourth letter. Returns how many strings changed.
+unsigned gx_country_strings(int console_region, char game_region, const std::vector<CodeSpan>& loaded,
+                            GxReport& report);
 
 // GameBooter.cpp's cIOS choice for a game whose cIOS is automatic: the d2x
 // slot whose base is the IOS the game asks for, else the next base up,

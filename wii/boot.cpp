@@ -1530,6 +1530,18 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         if (di::frag_device() == 2 && !own_executable) changed += gx_sd_card_patches(probe.header.game_id, loaded_spans, gx);
         if (g_extras.region_video && !gx_protected && probe.header.game_id.size() >= 4)
             changed += gx_region_video_fix(probe.header.game_id[3], loaded_spans, gx);
+        // The game page's preferences, as GX applies them. Its data only
+        // (the country strings) also in games that check their own code.
+        if (g_extras.region_strings && probe.header.game_id.size() >= 4)
+            changed += gx_country_strings(CONF_GetRegion(), probe.header.game_id[3], loaded_spans, gx);
+        const bool prefs = g_extras.rumble_off || g_extras.speaker_off || g_extras.aspect >= 0;
+        if (prefs && gx_protected) {
+            gx.notes.push_back("rumble, speaker and aspect ratio left as the game has them: it checks its own code");
+        } else {
+            if (g_extras.rumble_off) changed += gx_rumble_off(loaded_spans, gx);
+            if (g_extras.speaker_off) changed += gx_speaker_off(loaded_spans, gx);
+            if (g_extras.aspect >= 0) changed += gx_force_aspect(g_extras.aspect == 1, loaded_spans, gx);
+        }
         for (const std::string& note : gx.notes) logf("Game fixes: %s\n", note.c_str());
         if (changed) sync_loaded();
     }

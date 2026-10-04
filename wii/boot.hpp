@@ -192,6 +192,10 @@ struct LaunchExtras {
     bool screenshots = false;
     bool screenshots_demo = false;
     bool region_video = false;  // the Region video fix (riftwii/gxpatches.hpp)
+    int aspect = -1;              // -1 the game's own, 0 4:3, 1 16:9 (gx_force_aspect)
+    bool rumble_off = false;      // gx_rumble_off
+    bool speaker_off = false;     // gx_speaker_off
+    bool region_strings = false;  // the Region strings fix (gx_country_strings)
 };
 void SetLaunchExtras(LaunchExtras extras);
 

@@ -274,6 +274,21 @@ static void test_saves() {
     EXPECT_EQ(again.save_mode, std::string("fresh"));
     again.restore("*riftwii*\tsaves\tnand\n");
     EXPECT_EQ(again.save_mode, std::string("nand"));
+    // The game page's GX preferences round-trip; defaults write nothing.
+    EXPECT_TRUE(model.save().find("aspect") == std::string::npos);
+    model.game.aspect = "16:9";
+    model.game.rumble = "off";
+    model.game.speaker = "off";
+    model.game.region_strings = "on";
+    riftwii::LaunchModel prefs;
+    prefs.add("a.xml", "sd:/riivolution/a.xml", kModA, &disc);
+    prefs.restore(model.save());
+    EXPECT_EQ(prefs.game.aspect, std::string("16:9"));
+    EXPECT_EQ(prefs.game.rumble, std::string("off"));
+    EXPECT_EQ(prefs.game.speaker, std::string("off"));
+    EXPECT_EQ(prefs.game.region_strings, std::string("on"));
+    prefs.restore("*riftwii*\taspect\t21:9\n");
+    EXPECT_EQ(prefs.game.aspect, std::string("game"));
     // Old choice files without the settings line restore as nand.
     riftwii::LaunchModel legacy;
     legacy.add("a.xml", "sd:/riivolution/a.xml", kModA, &disc);

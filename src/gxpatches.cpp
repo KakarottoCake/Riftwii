@@ -262,6 +262,116 @@ unsigned gx_region_video_fix(char region, const std::vector<CodeSpan>& loaded, G
     return done;
 }
 
+namespace {
+
+bool words_at(const std::uint8_t* p, const std::uint32_t* words, std::size_t count) {
+    for (std::size_t i = 0; i < count; ++i)
+        if (be32(p + 4 * i) != words[i]) return false;
+    return true;
+}
+
+}  // namespace
+
+unsigned gx_speaker_off(const std::vector<CodeSpan>& loaded, GxReport& report) {
+    static const std::uint32_t kSpeaker[4] = {0x9421FA00, 0x7C0802A6, 0x90010604, 0x39610600};
+    unsigned done = 0;
+    for (const CodeSpan& s : loaded) {
+        for (std::size_t at = 0; at + sizeof(kSpeaker) <= s.size; at += 4) {
+            if (!words_at(s.bytes + at, kSpeaker, 4)) continue;
+            put32(s.bytes + at, 0x4E800020);  // blr
+            report.notes.push_back("Wii Remote speaker off: WPADControlSpeaker at " +
+                                   hex(s.address + static_cast<std::uint32_t>(at)) + " returns at once");
+            ++done;
+            break;
+        }
+    }
+    if (done == 0) report.notes.push_back("Wii Remote speaker off: the game has no WPADControlSpeaker GX knows");
+    return done;
+}
+
+unsigned gx_rumble_off(const std::vector<CodeSpan>& loaded, GxReport& report) {
+    static const std::uint32_t kStart[2] = {0x9421FFF0, 0x7C0802A6};
+    static const std::uint32_t kAt68[4] = {0x2C000000, 0x40820020, 0x2C1E0000, 0x40820010};
+    static const std::uint32_t kAt148[5] = {0x48000020, 0x7C9E00D0, 0x38000001, 0x7C84F378, 0x54840FFE};
+    unsigned done = 0;
+    for (const CodeSpan& s : loaded) {
+        for (std::size_t at = 0; at + 148 + sizeof(kAt148) <= s.size; at += 4) {
+            if (!words_at(s.bytes + at, kStart, 2) || !words_at(s.bytes + at + 68, kAt68, 4) ||
+                !words_at(s.bytes + at + 148, kAt148, 5))
+                continue;
+            put32(s.bytes + at, 0x4E800020);  // blr
+            report.notes.push_back("Rumble off: WPADControlMotor at " + hex(s.address + static_cast<std::uint32_t>(at)) +
+                                   " returns at once");
+            ++done;
+            break;
+        }
+    }
+    if (done == 0) report.notes.push_back("Rumble off: the game has no WPADControlMotor GX knows");
+    return done;
+}
+
+unsigned gx_force_aspect(bool widescreen, const std::vector<CodeSpan>& loaded, GxReport& report) {
+    static const std::uint32_t kFirst[5] = {0x9421FFF0, 0x7C0802A6, 0x38800001, 0x90010014, 0x38610008};
+    static const std::uint32_t kSecond[15] = {0x2C030000, 0x40820010, 0x38000000, 0x98010008, 0x48000018,
+                                              0x88010008, 0x28000001, 0x4182000C, 0x38000000, 0x98010008,
+                                              0x80010014, 0x88610008, 0x7C0803A6, 0x38210010, 0x4E800020};
+    unsigned done = 0;
+    for (const CodeSpan& s : loaded) {
+        for (std::size_t at = 0; at + 24 + sizeof(kSecond) <= s.size; at += 4) {
+            if (!words_at(s.bytes + at, kFirst, 5) || !words_at(s.bytes + at + 24, kSecond, 15)) continue;
+            put32(s.bytes + at + 0x44, widescreen ? 0x38600001u : 0x38600000u);  // li r3, 1 / 0
+            report.notes.push_back(std::string("Aspect ratio: ") + (widescreen ? "16:9" : "4:3") + ", the read at " +
+                                   hex(s.address + static_cast<std::uint32_t>(at)));
+            ++done;
+            break;
+        }
+    }
+    if (done == 0) report.notes.push_back("Aspect ratio: the game reads the setting a way GX does not know, left as it is");
+    return done;
+}
+
+unsigned gx_country_strings(int console_region, char game_region, const std::vector<CodeSpan>& loaded,
+                            GxReport& report) {
+    // The console's: what the game's tables name now.
+    std::uint8_t number = 1;
+    const char* from = "US";
+    switch (console_region) {
+        case 0: number = 0, from = "JP"; break;
+        case 2: number = 2, from = "EU"; break;
+        case 4: number = 4, from = "KR"; break;
+        case 5: number = 5, from = "CN"; break;
+        default: break;
+    }
+    // The game's, by its ID's region letter.
+    const char* to = "US";
+    switch (game_region) {
+        case 'J': to = "JP"; break;
+        case 'D': case 'F': case 'H': case 'I': case 'L': case 'M': case 'P': case 'R': case 'S': case 'U':
+        case 'V': case 'X': case 'Y': case 'Z': to = "EU"; break;
+        case 'K': case 'Q': case 'T': to = "KR"; break;
+        case 'W': to = "CN"; break;
+        default: break;
+    }
+    if (std::strcmp(from, to) == 0) {
+        report.notes.push_back(std::string("Region strings fix: the game is from the console's region (") + to +
+                               "), nothing to change");
+        return 0;
+    }
+    unsigned done = 0;
+    for (const CodeSpan& s : loaded) {
+        for (std::size_t at = 0; at + 4 <= s.size; at += 4) {
+            std::uint8_t* p = s.bytes + at;
+            if (p[0] != number || p[1] != std::uint8_t(from[0]) || p[2] != std::uint8_t(from[1]) || p[3] != 0) continue;
+            p[1] = std::uint8_t(to[0]);
+            p[2] = std::uint8_t(to[1]);
+            ++done;
+        }
+    }
+    report.notes.push_back(std::string("Region strings fix: ") + std::to_string(done) + " \"" + from + "\" string(s) now \"" +
+                           to + "\"");
+    return done;
+}
+
 bool gx_fix_480p(const std::vector<CodeSpan>& loaded, GxReport& report) {
     // Where the stb that stores the wrong value is (the word after it is
     // where the branch back lands), and the two instructions that store 3.

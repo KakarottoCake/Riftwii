@@ -1680,7 +1680,8 @@ static std::string SaveNote(const riftwii::LaunchModel& model)
 }
 
 struct RowRef {
-	enum class What { Mods, Saves, Cheats, Width, Deflicker, Borders, VideoMode, RegionVideo, Language, Cios, Server, Favorite, Pack, Option, Note,
+	enum class What { Mods, Saves, Cheats, Width, Deflicker, Borders, VideoMode, RegionVideo, Aspect, Rumble, Speaker,
+		RegionStrings, Language, Cios, Server, Favorite, Pack, Option, Note,
 		AddCodes, ForgetCodes, Cover } what = What::Note;
 	std::size_t pkg = 0, opt = 0;
 };
@@ -1691,6 +1692,7 @@ static const char* const kWidths[] = {"global", "game", "framebuffer", "704", "7
 static const char* const kDeflickers[] = {"global", "game", "off", "low", "medium", "high"};
 static const char* const kBorderModes[] = {"global", "keep", "remove", "remove_all"};
 static const char* const kVideoModes[] = {"global", "game", "system", "ntsc", "pal60", "pal50", "480p"};
+static const char* const kAspects[] = {"game", "4:3", "16:9"};
 static const char* const kGameLanguages[] = {"global", "console", "ja", "en", "de", "fr", "es", "it", "nl", "zh-hans",
 	"zh-hant", "ko"};
 static const char* const kCiosChoices[] = {"global", "auto", "248", "249", "250", "251", "252"};
@@ -1876,6 +1878,30 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 	regionVideo.on = game.region_video == "on";
 	regionVideo.value = regionVideo.on ? tr("On") : tr("Off");
 	add(regionVideo, {RowRef::What::RegionVideo});
+	FlowRow aspect;
+	aspect.kind = FlowRow::Kind::Option;
+	aspect.label = tr("Aspect ratio");
+	aspect.value = game.aspect == "4:3" || game.aspect == "16:9" ? game.aspect : tr("Game's own");
+	aspect.on = game.aspect != "game";
+	add(aspect, {RowRef::What::Aspect});
+	FlowRow rumble;
+	rumble.kind = FlowRow::Kind::Toggle;
+	rumble.label = tr("Rumble");
+	rumble.on = game.rumble != "off";
+	rumble.value = rumble.on ? tr("On") : tr("Off");
+	add(rumble, {RowRef::What::Rumble});
+	FlowRow speaker;
+	speaker.kind = FlowRow::Kind::Toggle;
+	speaker.label = tr("Wii Remote speaker");
+	speaker.on = game.speaker != "off";
+	speaker.value = speaker.on ? tr("On") : tr("Off");
+	add(speaker, {RowRef::What::Speaker});
+	FlowRow regionStrings;
+	regionStrings.kind = FlowRow::Kind::Toggle;
+	regionStrings.label = tr("Region strings fix");
+	regionStrings.on = game.region_strings == "on";
+	regionStrings.value = regionStrings.on ? tr("On") : tr("Off");
+	add(regionStrings, {RowRef::What::RegionStrings});
 	FlowRow language;
 	language.kind = FlowRow::Kind::Option;
 	language.label = tr("Game language");
@@ -2591,6 +2617,14 @@ static int MenuHome(FrontendState& state)
 				say(tr("The TV signal the game sends. PAL 50 Hz needs a TV that takes it, 480p a component cable."));
 			else if (ref.what == RowRef::What::RegionVideo)
 				say(tr("For a US or Japanese game that shows no picture on a console from another region: the game is told the video hardware matches its region."));
+			else if (ref.what == RowRef::What::Aspect)
+				say(tr("Makes the game use 4:3 or widescreen 16:9 whatever the Wii's TV setting says. Not every game can be changed."));
+			else if (ref.what == RowRef::What::Rumble)
+				say(tr("Off: the Wii Remotes never rumble in this game."));
+			else if (ref.what == RowRef::What::Speaker)
+				say(tr("Off: no sound from the Wii Remotes' speakers in this game."));
+			else if (ref.what == RowRef::What::RegionStrings)
+				say(tr("For a game from another region (an import): the game sees its own region's country names where it looks for the console's."));
 			else if (ref.what == RowRef::What::Language)
 				say(tr("The language the game is told the console uses. Pick one the game has: some games stop without it."));
 			else if (ref.what == RowRef::What::Favorite)
@@ -2644,6 +2678,18 @@ static int MenuHome(FrontendState& state)
 				changed = true;
 			} else if (ref.what == RowRef::What::RegionVideo) {
 				state.model.game.region_video = state.model.game.region_video == "on" ? "off" : "on";
+				changed = true;
+			} else if (ref.what == RowRef::What::Aspect) {
+				state.model.game.aspect = StepValue(kAspects, state.model.game.aspect, direction);
+				changed = true;
+			} else if (ref.what == RowRef::What::Rumble) {
+				state.model.game.rumble = state.model.game.rumble == "off" ? "on" : "off";
+				changed = true;
+			} else if (ref.what == RowRef::What::Speaker) {
+				state.model.game.speaker = state.model.game.speaker == "off" ? "on" : "off";
+				changed = true;
+			} else if (ref.what == RowRef::What::RegionStrings) {
+				state.model.game.region_strings = state.model.game.region_strings == "on" ? "off" : "on";
 				changed = true;
 			} else if (ref.what == RowRef::What::Language) {
 				state.model.game.language = StepValue(kGameLanguages, state.model.game.language, direction);

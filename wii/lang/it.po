@@ -1122,5 +1122,29 @@ msgstr "{1} ha più codici di quanti ne entrino nel gioco ({2}, spazio per {3}).
 msgid "The codes take {1}, but {2} only makes room for {3}. Turn off some cheats on this game's Cheats page, or turn off a code mod."
 msgstr "I codici occupano {1}, ma {2} lascia spazio solo per {3}. Disattiva alcuni trucchi nella pagina Trucchi di questo gioco, o disattiva un mod di codici."
 
+msgid "Aspect ratio"
+msgstr "Proporzioni"
+
+msgid "Rumble"
+msgstr "Vibrazione"
+
+msgid "Wii Remote speaker"
+msgstr "Altoparlante del telecomando Wii"
+
+msgid "Region strings fix"
+msgstr "Correzione testi della regione"
+
+msgid "Makes the game use 4:3 or widescreen 16:9 whatever the Wii's TV setting says. Not every game can be changed."
+msgstr "Fa usare al gioco 4:3 o il panoramico 16:9, qualunque sia l'impostazione TV della Wii. Non tutti i giochi si possono cambiare."
+
+msgid "Off: the Wii Remotes never rumble in this game."
+msgstr "Disattivato: i telecomandi Wii non vibrano mai in questo gioco."
+
+msgid "Off: no sound from the Wii Remotes' speakers in this game."
+msgstr "Disattivato: nessun suono dagli altoparlanti dei telecomandi Wii in questo gioco."
+
+msgid "For a game from another region (an import): the game sees its own region's country names where it looks for the console's."
+msgstr "Per un gioco di un'altra regione (d'importazione): il gioco vede i nomi dei paesi della sua regione dove cerca quelli della console."
+
 msgid "Don't show again"
 msgstr "Non mostrare più"
