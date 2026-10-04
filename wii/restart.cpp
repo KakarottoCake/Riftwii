@@ -11,6 +11,7 @@
 
 #include <cstring>
 
+#include "covers.hpp"
 #include "log.hpp"
 #include "netsock.hpp"
 #include "memlimits.hpp"
@@ -124,6 +125,7 @@ bool WarmRestart(RestartKind kind, const std::string& message, bool unmount) {
     h->magic = kHandoffMagic;
 
     NetWaitForBackground();
+    CoverLoaderHold();
     logf("Restarting RiftWii\n");
     LogClose();
     if (unmount) fatUnmount("sd:");

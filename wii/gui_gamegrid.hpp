@@ -69,6 +69,13 @@ private:
     int ArrowAt(int x, int y) const;  // -1 left, +1 right, 0 none
     void DrawNameTile(int i, bool on, int alpha);
     void DrawCoverTile(int i, bool on, int alpha);
+    void PrefetchCovers();
+    void ReadAllCovers();
+    // What ReadAllCovers last gave the loader.
+    const std::vector<GridItem>* readAllItems = nullptr;
+    int readAllCount = -1;
+    std::string readAllFirst, readAllLast;
+    int turning = 1;  // the way the pages last turned: +1 or -1
 
     const std::vector<GridItem>* items = nullptr;
     Slot slots[kPerPage];

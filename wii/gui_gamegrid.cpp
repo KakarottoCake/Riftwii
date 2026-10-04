@@ -232,6 +232,7 @@ void GuiGameGrid::TurnPage(int delta) {
     focus = page * kPerPage + slot;
     laidOut = false;
     slide = delta * kSlideFrom;
+    turning = delta;
     soundClick->Play();
 }
 
@@ -326,10 +327,42 @@ void GuiGameGrid::DrawCoverTile(int i, bool on, int alpha) {
     }
 }
 
+// The neighbouring pages' covers, read ahead in the background so turning
+// finds them in memory: the next two the way the pages last turned, then
+// the one behind.
+void GuiGameGrid::PrefetchCovers() {
+    int rank = 1;
+    for (const int p : {page + turning, page + 2 * turning, page - turning}) {
+        if (p >= 0 && p < Pages()) {
+            for (int i = p * kPerPage; i < (p + 1) * kPerPage && i < Count(); ++i)
+                riftwii::wii::CoverPrefetch((*items)[i].id, rank);
+        }
+        ++rank;
+    }
+}
+
+// Room for every game's cover, and the loader told to read them all, from
+// the page shown onwards: once read, no page waits for its covers. Again
+// when the list changes (a filter, a rescan).
+void GuiGameGrid::ReadAllCovers() {
+    const std::string first = Count() > 0 ? (*items)[0].id : "", last = Count() > 0 ? (*items)[Count() - 1].id : "";
+    if (items == readAllItems && Count() == readAllCount && first == readAllFirst && last == readAllLast) return;
+    readAllItems = items;
+    readAllCount = Count();
+    readAllFirst = first;
+    readAllLast = last;
+    riftwii::wii::CoverReserve(Count() + 1);  // and the game page's
+    std::vector<std::string> ids;
+    ids.reserve(Count());
+    for (int k = 0; k < Count(); ++k) ids.push_back((*items)[(page * kPerPage + k) % Count()].id);
+    riftwii::wii::CoverReadAll(ids);
+}
+
 void GuiGameGrid::Draw() {
     if (!IsVisible()) return;
     if (!laidOut) Layout();
     const int alpha = GetAlpha();
+    if (covers) ReadAllCovers();
     // A turned page eases in from the side, fading up as it comes.
     if (slide != 0.0f) {
         slide *= 0.75f;
@@ -366,6 +399,7 @@ void GuiGameGrid::Draw() {
             measure->SetFontSize(kCoverTitleSize);
         }
         caption->Draw();
+        PrefetchCovers();
     }
     if (page > 0) skin::Draw(arrowHover < 0 ? skin::arrowLeftOver : skin::arrowLeft, kArrowLeftX - 2, ArrowY() - 2, alpha);
     if (page + 1 < Pages())

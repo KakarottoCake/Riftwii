@@ -5,6 +5,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "ios_reload.hpp"
 
+#include "covers.hpp"
+
 #include <gccore.h>
 #include <ogc/es.h>
 #include <ogc/ios.h>
@@ -90,6 +92,7 @@ void release_wii_remotes() {
 }
 
 ReloadResult reload_ios(int version, std::string& error, bool force) {
+    CoverLoaderHold();  // no SD read in flight across the reload
     g_terminal_failure = false;
     g_reload_detail.clear();
     if (version < 3 || version > 0xFF) {

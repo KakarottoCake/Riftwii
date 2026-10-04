@@ -222,6 +222,9 @@ static bool AnyHeld()
 
 static void ResumeGui()
 {
+	// Whatever held the cover loader (an unmount, a raw read, an IOS
+	// reload) was the menu's own work, and it is done.
+	riftwii::wii::CoverLoaderRelease();
 	guiHalt = false;
 	LWP_ResumeThread(guithread);
 }

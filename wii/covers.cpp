@@ -3,11 +3,17 @@
 #include "covers.hpp"
 
 #include <ogc/cache.h>
+#include <ogc/gx.h>
+#include <ogc/mutex.h>  // before cond.h, which needs mutex_t
+#include <ogc/cond.h>
+#include <ogc/lwp.h>
+#include <ogc/lwp_watchdog.h>
 #include <sys/stat.h>
 #include <zlib.h>
 
 #include <cstdio>
 #include <ctime>
+#include <map>
 #include <set>
 #include <vector>
 
@@ -24,7 +30,11 @@ namespace {
 
 constexpr const char* kCoverDir = "sd:/riftwii/covers";
 constexpr std::time_t kRetryAfter = 7 * 24 * 60 * 60;
-constexpr int kPoolSize = 13;  // a page of tiles and the game page
+// Room for every game's cover (CoverReserve), up to this many: 7 MB of
+// MEM2, where 37 MB were free with 326 games. A bigger library shares it.
+constexpr int kPoolMax = 400;
+// Before the grid says how many: four pages and the game page.
+constexpr int kPoolMin = 49;
 
 std::string CoverPath(const std::string& id) { return std::string(kCoverDir) + "/" + id + ".rwc"; }
 // An empty file: GameTDB had no cover when it was written.
@@ -77,14 +87,216 @@ bool DecodePng(const std::vector<std::uint8_t>& png, std::vector<std::uint8_t>& 
     return true;
 }
 
+// The pool is filled by a loader thread, so the GUI thread never waits on
+// the card: it asks for covers (the page shown, then its neighbours) and
+// draws those that are ready. A cover read is a FAT lookup and an 18 KB
+// read, 26 ms on a tester's Wii, a dropped frame when the drawing did it.
+// With nothing asked for, the loader reads the rest of the games' covers
+// (CoverReadAll) while there is room, so fast paging cannot outrun it.
 struct Slot {
-    std::string id;
+    std::string id;        // the cover in it, or being read into it
     u8* data = nullptr;
-    unsigned used = 0;
+    bool ready = false;    // read and flushed: the GUI may draw it
+    u64 touched = 0;       // last drawn or read (gettime ticks)
 };
-Slot g_pool[kPoolSize];
-unsigned g_clock = 0;
-std::set<std::string> g_absent;  // asked for and not on the card
+struct Request {
+    std::string id;
+    int rank;              // 0 the page shown, then the read-ahead order
+    u64 at;                // last asked (gettime ticks)
+};
+Slot g_pool[kPoolMax];
+int g_slots = 0;                         // of g_pool, with MEM2
+std::map<std::string, Slot*> g_index;    // the slots by id
+std::set<std::string> g_absent;          // asked for and not on the card
+std::vector<Request> g_requests;
+std::vector<std::string> g_readAll;   // CoverReadAll's list
+std::size_t g_readAllNext = 0;
+mutex_t g_lock = LWP_MUTEX_NULL;
+cond_t g_wake = LWP_COND_NULL;   // a request, or the hold lifted
+cond_t g_idle = LWP_COND_NULL;   // a read finished
+lwp_t g_thread = LWP_THREAD_NULL;
+bool g_hold = false;      // CoverLoaderHold: no reads until CoverLoaderRelease
+bool g_reading = false;   // the loader is reading the card
+bool g_texDirty = false;  // a slot was refilled since the GUI invalidated
+unsigned g_forgets = 0;   // ForgetCover calls, so a read in flight is dropped
+alignas(32) u8 g_stack[16384];
+
+// A request not renewed for this long is dropped: the grid asks every frame.
+constexpr unsigned kRequestMs = 200;
+// A slot drawn this recently is not refilled: the GPU may still read it.
+constexpr unsigned kDrawnMs = 100;
+
+struct Lock {
+    Lock() { LWP_MutexLock(g_lock); }
+    ~Lock() { LWP_MutexUnlock(g_lock); }
+};
+
+Slot* Find(const std::string& game_id) {
+    const auto it = g_index.find(game_id);
+    return it == g_index.end() ? nullptr : it->second;
+}
+
+// A slot's cover, kept in the index. Locked.
+void SetId(Slot& s, const std::string& id) {
+    if (!s.id.empty()) g_index.erase(s.id);
+    s.id = id;
+    s.ready = false;
+    if (!id.empty()) g_index[id] = &s;
+}
+
+Slot* EmptySlot() {
+    for (int i = 0; i < g_slots; ++i) {
+        if (g_pool[i].id.empty()) return &g_pool[i];
+    }
+    return nullptr;
+}
+
+// The next cover to read, lowest rank first; stale requests dropped.
+// Locked.
+bool NextRequest(std::string& id) {
+    const u64 now = gettime();
+    for (std::size_t i = g_requests.size(); i-- > 0;) {
+        const Request& r = g_requests[i];
+        if (ticks_to_millisecs(now - r.at) > kRequestMs || g_absent.count(r.id) || Find(r.id))
+            g_requests.erase(g_requests.begin() + static_cast<std::ptrdiff_t>(i));
+    }
+    if (g_requests.empty()) return false;
+    std::size_t best = 0;
+    for (std::size_t i = 1; i < g_requests.size(); ++i) {
+        if (g_requests[i].rank < g_requests[best].rank) best = i;
+    }
+    id = g_requests[best].id;
+    g_requests.erase(g_requests.begin() + static_cast<std::ptrdiff_t>(best));
+    return true;
+}
+
+// The slot to read an asked-for cover into: an empty one, else the one
+// longest not drawn or asked for (CoverPrefetch renews a ready one).
+// Locked.
+Slot* Victim() {
+    if (Slot* s = EmptySlot()) return s;
+    const u64 now = gettime();
+    Slot* pick = nullptr;
+    for (int i = 0; i < g_slots; ++i) {
+        Slot& s = g_pool[i];
+        if (!s.ready || ticks_to_millisecs(now - s.touched) < kDrawnMs) continue;
+        if (!pick || s.touched < pick->touched) pick = &s;
+    }
+    return pick;
+}
+
+// With nothing asked for: the next of CoverReadAll's covers not in memory,
+// into an empty slot (it never pushes another cover out). Locked.
+bool NextReadAll(std::string& id, Slot*& slot) {
+    while (g_readAllNext < g_readAll.size()) {
+        const std::string& next = g_readAll[g_readAllNext];
+        if (!ValidId(next) || g_absent.count(next) || Find(next)) {
+            ++g_readAllNext;
+            continue;
+        }
+        slot = EmptySlot();
+        if (!slot) {
+            g_readAllNext = g_readAll.size();  // full: the rest on demand
+            return false;
+        }
+        id = next;
+        ++g_readAllNext;
+        return true;
+    }
+    return false;
+}
+
+void* LoaderMain(void*) {
+    LWP_MutexLock(g_lock);
+    for (;;) {
+        std::string id;
+        Slot* slot = nullptr;
+        const bool asked = !g_hold && NextRequest(id) && (slot = Victim());
+        if (!asked && (g_hold || !NextReadAll(id, slot))) {
+            LWP_CondWait(g_wake, g_lock);
+            continue;
+        }
+        SetId(*slot, id);
+        g_reading = true;
+        const unsigned forgets = g_forgets;
+        LWP_MutexUnlock(g_lock);
+
+        bool ok = false;
+        if (FILE* f = std::fopen(CoverPath(id).c_str(), "rb")) {
+            std::uint8_t header[kCoverHeaderSize];
+            ok = std::fread(header, 1, sizeof(header), f) == sizeof(header) && cover_header_valid(header) &&
+                 std::fread(slot->data, 1, kCoverPixelBytes, f) == kCoverPixelBytes;
+            std::fclose(f);
+        }
+        if (ok) DCFlushRange(slot->data, kCoverPixelBytes);
+
+        LWP_MutexLock(g_lock);
+        g_reading = false;
+        LWP_CondBroadcast(g_idle);
+        if (ok && forgets == g_forgets) {
+            slot->ready = true;
+            slot->touched = gettime();
+            g_texDirty = true;  // GX is the GUI thread's: it invalidates
+        } else {
+            if (slot->id == id) SetId(*slot, "");
+            if (forgets == g_forgets) g_absent.insert(id);
+        }
+    }
+    return nullptr;
+}
+
+// MEM2 for `covers` slots in all, in one piece (the heap grows into MEM2
+// too: many small pieces between its growths would split it), or as much
+// of that as there is. GUI thread.
+int g_reserveAsked = 0;  // the most asked for: no retry (and log) each frame
+void Reserve(int covers) {
+    if (covers > kPoolMax) covers = kPoolMax;
+    if (covers <= g_slots || covers <= g_reserveAsked) return;
+    g_reserveAsked = covers;
+    for (int more = covers - g_slots; more > 0; more /= 2) {
+        u8* block = skin::Mem2Alloc(static_cast<std::size_t>(more) * kCoverPixelBytes);
+        if (!block) continue;
+        Lock lock;
+        for (int i = 0; i < more; ++i) g_pool[g_slots + i].data = block + static_cast<std::size_t>(i) * kCoverPixelBytes;
+        g_slots += more;
+        break;
+    }
+    logf("Covers: room for %d covers (%d wanted); MEM2 arena left: %u KB\n", g_slots, covers,
+         static_cast<unsigned>((reinterpret_cast<u32>(SYS_GetArena2Hi()) - reinterpret_cast<u32>(SYS_GetArena2Lo())) >> 10));
+}
+
+// The lock and the loader thread, the first time a cover is asked for,
+// with kPoolMin slots unless CoverReserve gave some. GUI thread.
+bool Started() {
+    if (g_thread != LWP_THREAD_NULL) return true;
+    if (g_lock == LWP_MUTEX_NULL) {
+        LWP_MutexInit(&g_lock, false);
+        LWP_CondInit(&g_wake);
+        LWP_CondInit(&g_idle);
+    }
+    if (g_slots == 0) Reserve(kPoolMin);
+    // Below the GUI thread (70) and the menu's: it reads while they wait.
+    if (LWP_CreateThread(&g_thread, LoaderMain, nullptr, g_stack, sizeof(g_stack), 40) < 0) {
+        g_thread = LWP_THREAD_NULL;
+        return false;
+    }
+    return true;
+}
+
+// Every frame for every cover wanted and not ready. Wakes the loader each
+// time: one that found no free slot waits for the next ask.
+void Ask(const std::string& game_id, int rank) {
+    LWP_CondSignal(g_wake);
+    const u64 now = gettime();
+    for (Request& r : g_requests) {
+        if (r.id == game_id) {
+            r.rank = rank;
+            r.at = now;
+            return;
+        }
+    }
+    g_requests.push_back({game_id, rank, now});
+}
 
 }  // namespace
 
@@ -149,47 +361,72 @@ CoverFetch FetchCoverNow(const std::string& game_id, std::string& error) {
 }
 }  // namespace
 
-const u8* CoverTexture(const std::string& game_id) {
-    if (!ValidId(game_id) || g_absent.count(game_id)) return nullptr;
-    ++g_clock;
-    for (Slot& s : g_pool) {
-        if (s.data && s.id == game_id) {
-            s.used = g_clock;
-            return s.data;
+const u8* CoverTexture(const std::string& game_id, int rank) {
+    if (!ValidId(game_id) || !Started()) return nullptr;
+    Lock lock;
+    if (g_texDirty) {
+        // A refilled slot may still be in the texture cache as its old cover.
+        g_texDirty = false;
+        GX_InvalidateTexAll();
+    }
+    if (Slot* s = Find(game_id)) {
+        if (s->ready) {
+            s->touched = gettime();
+            return s->data;
         }
+        return nullptr;  // being read
     }
-    FILE* f = std::fopen(CoverPath(game_id).c_str(), "rb");
-    if (!f) {
-        g_absent.insert(game_id);
-        return nullptr;
+    if (!g_absent.count(game_id)) Ask(game_id, rank);
+    return nullptr;
+}
+
+void CoverPrefetch(const std::string& game_id, int rank) {
+    if (!ValidId(game_id) || !Started()) return;
+    Lock lock;
+    if (Slot* s = Find(game_id)) {
+        if (s->ready) s->touched = gettime();  // still wanted: kept over others
+    } else if (!g_absent.count(game_id)) {
+        Ask(game_id, rank);
     }
-    // The least recently drawn slot, allocated the first time.
-    Slot* slot = &g_pool[0];
-    for (Slot& s : g_pool) {
-        if (!s.data || s.used < slot->used) slot = &s;
-        if (!s.data) break;
-    }
-    if (!slot->data) slot->data = skin::Mem2Alloc(kCoverPixelBytes);
-    std::uint8_t header[kCoverHeaderSize];
-    const bool ok = slot->data && std::fread(header, 1, sizeof(header), f) == sizeof(header) && cover_header_valid(header) &&
-                    std::fread(slot->data, 1, kCoverPixelBytes, f) == kCoverPixelBytes;
-    std::fclose(f);
-    if (!ok) {
-        slot->id.clear();
-        g_absent.insert(game_id);
-        return nullptr;
-    }
-    DCFlushRange(slot->data, kCoverPixelBytes);
-    slot->id = game_id;
-    slot->used = g_clock;
-    return slot->data;
 }
 
 void ForgetCover(const std::string& game_id) {
+    if (g_lock == LWP_MUTEX_NULL) return;
+    Lock lock;
     g_absent.erase(game_id);
-    for (Slot& s : g_pool) {
-        if (s.id == game_id) s.id.clear();
+    ++g_forgets;
+    if (Slot* s = Find(game_id)) SetId(*s, "");
+}
+
+void CoverReserve(int covers) {
+    if (g_lock == LWP_MUTEX_NULL) {
+        LWP_MutexInit(&g_lock, false);
+        LWP_CondInit(&g_wake);
+        LWP_CondInit(&g_idle);
     }
+    Reserve(covers);
+}
+
+void CoverReadAll(const std::vector<std::string>& game_ids) {
+    if (!Started()) return;
+    Lock lock;
+    g_readAll = game_ids;
+    g_readAllNext = 0;
+    LWP_CondSignal(g_wake);
+}
+
+void CoverLoaderHold() {
+    if (g_lock == LWP_MUTEX_NULL) return;
+    Lock lock;
+    g_hold = true;
+    while (g_reading) LWP_CondWait(g_idle, g_lock);
+}
+
+void CoverLoaderRelease() {
+    if (g_lock == LWP_MUTEX_NULL) return;
+    Lock lock;
+    g_hold = false;
+    LWP_CondSignal(g_wake);
 }
 
 bool DecodePngRgba(const std::vector<std::uint8_t>& png, std::vector<std::uint8_t>& rgba, int& w, int& h,
@@ -202,3 +439,12 @@ bool DecodePngRgba(const std::vector<std::uint8_t>& png, std::vector<std::uint8_
 }
 
 }  // namespace riftwii::wii
+
+// Every unmount (fatUnmount is dvmUnmountVolume) first stops the cover
+// loader, so no read is left in flight on a card going away (Makefile.wii
+// links with --wrap=dvmUnmountVolume).
+extern "C" void __real_dvmUnmountVolume(const char* name);
+extern "C" void __wrap_dvmUnmountVolume(const char* name) {
+    riftwii::wii::CoverLoaderHold();
+    __real_dvmUnmountVolume(name);
+}
