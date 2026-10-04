@@ -7,6 +7,7 @@
 #include <sys/stat.h>
 
 #include <algorithm>
+#include <cctype>
 #include <cerrno>
 #include <cstring>
 #include <fstream>
@@ -217,9 +218,29 @@ std::string ScanPackages(FrontendState& state) {
         identity.number = state.game_disc_number;
         disc = &identity;
     }
-    for (const PackFile& pack : found) state.model.add(pack.file, pack.path, ReadPackText(pack.path), disc);
-    // Code builds (Project+ and the like) show beside the XML packs.
+    std::string pack_texts;  // lower case, to tell a pack's own folders
+    for (const PackFile& pack : found) {
+        const std::string text = ReadPackText(pack.path);
+        state.model.add(pack.file, pack.path, text, disc);
+        for (char c : text) pack_texts += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    }
+    // Code builds (Project+ and the like) show beside the XML packs. A
+    // <game ID>.gct found by its name inside a folder an XML pack reads
+    // from is that pack's own (Wii Party's Combined Mods ships its codes'
+    // source in wp-combined-mods/codes/SUPE01.gct and patches main.dol
+    // itself): not a build of its own. One picked by hand still shows.
     for (const CodeBuildFile& b : ListCodeBuilds()) {
+        std::string top = b.name;
+        for (char& c : top) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        const bool packs_folder = !b.picked && b.gct.compare(0, 4, "sd:/") == 0 && !top.empty() &&
+                                  (pack_texts.find("\"/" + top + "/") != std::string::npos ||
+                                   pack_texts.find("\"/" + top + "\"") != std::string::npos ||
+                                   pack_texts.find("\"" + top + "/") != std::string::npos);
+        if (packs_folder) {
+            logf("Code builds: %s is in a pack's folder (an XML reads sd:/%s), not listed\n", b.gct.c_str(),
+                 b.name.c_str());
+            continue;
+        }
         state.model.add_code_build(b.key, b.folder, b.gct, b.game_id, disc);
     }
     state.usb_mods = usb_mod_folders(state.game_id);
