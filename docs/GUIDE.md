@@ -54,7 +54,13 @@ once you have played something, **Recently played**, then
 **Plus** turn to the previous and next page of games (the arrows at the
 sides and the D-pad at a page's edge do too). **B** (L on a GameCube
 controller) jumps to the next game starting with another letter, A to
-Z. To look for new games on the drives, use Settings > Look for games
+Z. The magnifier button above the settings button (Z on a GameCube controller, ZL
+on a Classic Controller) opens a keyboard to search every game by name
+or game ID; point and press A on the keys, or use the D-pad, and Minus
+deletes a letter. A search looks through every game, whatever the view;
+press 1 (the view button), or search with nothing typed, to go back to
+the view.
+To look for new games on the drives, use Settings > Look for games
 again (or X on a GameCube controller). RiftWii remembers the view and opens on the last game
 you played. When the Wii is online,
 games show their real names from GameTDB (Super Mario Galaxy 2, not the

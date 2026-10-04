@@ -122,6 +122,7 @@ Pictures ending in `_over` are the highlighted versions. Transparency
 | `scroll_up` / `scroll_up_over`, `scroll_down` / `scroll_down_over` | 44x44 | A list's scroll arrows |
 | `icon_drives` | 28x28 | Drive icon |
 | `icon_gear` | 28x28 | Gear icon |
+| `icon_search` | 28x28 | Magnifier icon on the search button |
 | `icon_disc` | 40x40 | Disc icon |
 | `pointer1` to `pointer4` | 96x96 | Each player's pointer; the fingertip must be at the centre (48, 48) |
 
@@ -139,7 +140,7 @@ Layout (where things are on screen), fonts and sounds are not themeable yet.
 
 Each release has a `riftwii-theme-kit` zip next to RiftWii's. It holds a
 starter `theme.ini` with every setting at its default, the Midnight
-sample, and all 41 pictures as templates, exactly as RiftWii draws them
+sample, and all 42 pictures as templates, exactly as RiftWii draws them
 (in the default look and in Midnight's colours), at the right sizes.
 Edit a template, keep its size, and save it as PNG in your theme's folder.
 

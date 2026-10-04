@@ -19,6 +19,7 @@ namespace riftwii::wii::skin {
 extern GXColor kInk, kInkSoft, kInkDim, kClock, kAccent, kAccentInk, kWarn;
 extern GXColor kTextOnAccent;  // text on the accent or on a game's colour
 extern GXColor kBar, kDivider, kScrollTrack, kScrollThumb, kBadge;
+extern GXColor kChipOn, kChipOff, kChipOffEdge;  // the option chips' (and the search keys') fill and edge
 // Always white (a QR code's background).
 constexpr GXColor kWhite = {255, 255, 255, 255};
 
@@ -43,7 +44,7 @@ extern Tex bar;                          // 640x124 bottom bar
 extern Tex bannerStripes;                // 640x192 overlay for the game banner
 extern Tex arrowLeft, arrowLeftOver, arrowRight, arrowRightOver;  // 44 page arrows, drawn at -2,-2
 extern Tex scrollUp, scrollUpOver, scrollDown, scrollDownOver;    // 34 list scroll arrows, drawn at -4,-4
-extern Tex iconDrives, iconGear;         // 28x28
+extern Tex iconDrives, iconGear, iconSearch;  // 28x28
 extern Tex iconDisc;                     // 40x40, the Disc drive tile's picture
 extern Tex hand[4];                      // 96x96 pointers, fingertip at the centre
 extern Tex background;                   // 640x480, a theme's (else none: GuiBackdrop paints)

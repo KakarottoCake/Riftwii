@@ -363,6 +363,7 @@ const std::vector<ThemeImage>& theme_images() {
         {"scroll_down_over", 44, 44},
         {"icon_drives", 28, 28},
         {"icon_gear", 28, 28},
+        {"icon_search", 28, 28},
         {"icon_disc", 40, 40},
         {"pointer1", 96, 96},
         {"pointer2", 96, 96},

@@ -12,7 +12,7 @@ so the kit always matches the release it ships with. The zip holds:
     riftwii-theme-kit/THEMES.md           docs/THEMES.md
     riftwii-theme-kit/MyTheme/theme.ini   starter theme (theme_kit)
     riftwii-theme-kit/Midnight/theme.ini  themes/Midnight
-    riftwii-theme-kit/templates/Default/  41 pictures, default look
+    riftwii-theme-kit/templates/Default/  42 pictures, default look
     riftwii-theme-kit/templates/Midnight/ the same in Midnight's colours
 """
 import pathlib

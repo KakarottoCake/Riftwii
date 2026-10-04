@@ -18,7 +18,7 @@ Tex tile, tileOver, coverTile, coverTileOver, roundBtn, roundBtnOver, pill, pill
     stepBack, stepBackOver, stepForward, stepForwardOver, switchOn, switchOff,
     panelGame, panelSettings, bar, bannerStripes, arrowLeft, arrowLeftOver, arrowRight, arrowRightOver, iconDrives,
     scrollUp, scrollUpOver, scrollDown, scrollDownOver,
-    iconGear, iconDisc, hand[4];
+    iconGear, iconDisc, iconSearch, hand[4];
 
 // Textures and the menu font live below the MEM2 arena's low end, taken
 // once and never freed: the menu keeps them until the game replaces all of
@@ -44,6 +44,9 @@ GXColor kDivider = {232, 232, 238, 255};
 GXColor kScrollTrack = {230, 230, 236, 255};
 GXColor kScrollThumb = {168, 168, 180, 255};
 GXColor kBadge = {236, 236, 241, 255};
+GXColor kChipOn = {227, 245, 252, 255};
+GXColor kChipOff = {244, 244, 246, 255};
+GXColor kChipOffEdge = {208, 208, 216, 255};
 
 namespace {
 
@@ -70,6 +73,9 @@ void ApplyColors(const Theme& t) {
     kScrollTrack = ToGx(c.scroll_track);
     kScrollThumb = ToGx(c.scroll_thumb);
     kBadge = ToGx(c.badge);
+    kChipOn = ToGx(c.chip_on);
+    kChipOff = ToGx(c.chip_off);
+    kChipOffEdge = ToGx(c.chip_off_edge);
     g_backdrop = ToGx(c.backdrop);
     g_backdrop_stripe = ToGx(c.backdrop_stripe);
     g_stripes = t.stripes;
@@ -134,7 +140,7 @@ void Init() {
         {"arrow_left", &arrowLeft}, {"arrow_left_over", &arrowLeftOver}, {"arrow_right", &arrowRight},
         {"arrow_right_over", &arrowRightOver}, {"scroll_up", &scrollUp}, {"scroll_up_over", &scrollUpOver},
         {"scroll_down", &scrollDown}, {"scroll_down_over", &scrollDownOver}, {"icon_drives", &iconDrives},
-        {"icon_gear", &iconGear}, {"icon_disc", &iconDisc}, {"pointer1", &hand[0]}, {"pointer2", &hand[1]},
+        {"icon_gear", &iconGear}, {"icon_search", &iconSearch}, {"icon_disc", &iconDisc}, {"pointer1", &hand[0]}, {"pointer2", &hand[1]},
         {"pointer3", &hand[2]}, {"pointer4", &hand[3]},
     };
     for (const ThemeImage& im : theme_images()) {

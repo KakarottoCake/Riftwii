@@ -987,6 +987,30 @@ msgstr "1 jogo"
 msgid "{1} games"
 msgstr "{1} jogos"
 
+msgid "Search \"{1}\""
+msgstr "Busca \"{1}\""
+
+msgid "No game matches \"{1}\". Press 1 for all games."
+msgstr "Nenhum jogo corresponde a \"{1}\". Aperte 1 para ver todos."
+
+msgid "1: all games"
+msgstr "1: todos os jogos"
+
+msgid "Search games"
+msgstr "Buscar jogos"
+
+msgid "Search"
+msgstr "Buscar"
+
+msgid "Space"
+msgstr "Espaço"
+
+msgid "Clear"
+msgstr "Limpar"
+
+msgid "Del"
+msgstr "Apg"
+
 msgid "Homebrew Channel"
 msgstr "Homebrew Channel"
 

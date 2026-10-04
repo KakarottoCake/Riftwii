@@ -950,6 +950,20 @@ T = {
         "ゲーム{1}本",
         "{1} jogos",
         "{1} giochi"),
+    # Search ({1}: the words typed).
+    "Search \"{1}\"": ("Búsqueda \"{1}\"", "検索「{1}」", "Busca \"{1}\"", "Ricerca \"{1}\""),
+    "No game matches \"{1}\". Press 1 for all games.": (
+        "Ningún juego coincide con \"{1}\". Pulsa 1 para ver todos.",
+        "「{1}」に一致するゲームはありません。1ですべてのゲームを表示します。",
+        "Nenhum jogo corresponde a \"{1}\". Aperte 1 para ver todos.",
+        "Nessun gioco corrisponde a \"{1}\". Premi 1 per vederli tutti."),
+    "1: all games": ("1: todos los juegos", "1: すべてのゲーム", "1: todos os jogos", "1: tutti i giochi"),
+    "Search games": ("Buscar juegos", "ゲームを検索", "Buscar jogos", "Cerca giochi"),
+    "Search": ("Buscar", "検索", "Buscar", "Cerca"),
+    "Space": ("Espacio", "スペース", "Espaço", "Spazio"),
+    "Clear": ("Borrar", "全消去", "Limpar", "Cancella"),
+    # The key that deletes the last letter: keep it short (a 48-wide key).
+    "Del": ("Bor", "削除", "Apg", "Canc"),
     "Homebrew Channel": (
         "Homebrew Channel",
         "Homebrew Channel",
@@ -1166,7 +1180,7 @@ def check(repo):
     """Every msgid must appear as a literal in the menu's sources, or it
     would never be looked up."""
     sources = ["wii/rift_menu.cpp", "wii/gameextras.cpp", "wii/gui_gamegrid.cpp", "wii/channel.cpp", "wii/frontend.cpp",
-               "wii/codebuilds.cpp"]
+               "wii/codebuilds.cpp", "wii/gui_searchkeys.cpp"]
     text = "".join(open(os.path.join(repo, p), encoding="utf-8").read() for p in sources)
     missing = [k for k in T if '"%s"' % escape(k) not in text]
     for k in missing:

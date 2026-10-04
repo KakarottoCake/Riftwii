@@ -45,6 +45,7 @@
 #include "riftwii/qrcode.hpp"
 #include "riftwii/update.hpp"
 #include "gui_gamegrid.hpp"
+#include "gui_searchkeys.hpp"
 #include "guiscript.hpp"
 #include "credits.hpp"
 #include "gcadapter.hpp"
@@ -613,6 +614,21 @@ static void LoadPackIndex()
 	logf("Home: %u pack(s) indexed\n", static_cast<unsigned>(g_packs.size()));
 }
 
+// What the player typed into the search; empty when none. While it is set
+// it picks from every game on the drives, whatever the filter.
+static std::string g_search;
+
+static bool MatchesSearch(const std::string& name, const std::string& id)
+{
+	// Every word typed must be in the name or the game ID, in any order.
+	std::istringstream words(g_search);
+	std::string word;
+	while (words >> word) {
+		if (!strcasestr(name.c_str(), word.c_str()) && !strcasestr(id.c_str(), word.c_str())) return false;
+	}
+	return true;
+}
+
 struct HomeEntry {
 	enum class Kind { Disc, Usb, Sd } kind;
 	std::size_t index;
@@ -646,7 +662,8 @@ static void BuildHome(const FrontendState& state, std::vector<GridItem>& items, 
 	std::stable_sort(rows.begin(), rows.end(), [](const Row& a, const Row& b) {
 		return strcasecmp(a.name.c_str(), b.name.c_str()) < 0;
 	});
-	if (g_filter == Filter::Recent) {
+	const bool searching = !g_search.empty();
+	if (!searching && g_filter == Filter::Recent) {
 		// The games played from RiftWii, the latest first.
 		const riftwii::PlayHistory& history = riftwii::wii::History();
 		rows.erase(std::remove_if(rows.begin(), rows.end(),
@@ -657,8 +674,9 @@ static void BuildHome(const FrontendState& state, std::vector<GridItem>& items, 
 	}
 	for (const Row& r : rows) {
 		const bool mods = g_packs.has_packs(r.game->id);
-		if (g_filter == Filter::Mods && !mods) continue;
-		if (g_filter == Filter::Favorites && riftwii::wii::Settings().favorites.count(r.game->id) == 0) continue;
+		if (searching && !MatchesSearch(r.name, r.game->id)) continue;
+		if (!searching && g_filter == Filter::Mods && !mods) continue;
+		if (!searching && g_filter == Filter::Favorites && riftwii::wii::Settings().favorites.count(r.game->id) == 0) continue;
 		GridItem item;
 		item.title = r.name;
 		item.id = r.game->id;
@@ -673,7 +691,17 @@ static void BuildHome(const FrontendState& state, std::vector<GridItem>& items, 
 // The bottom bar with the clock's bump.
 class HomeBar : public GuiElement {
 public:
-	void Draw() override { skin::Draw(skin::bar, 0, 356); }
+	// Lifted by kLift so the round buttons (y 386) sit wholly inside the
+	// bar, under its line, instead of poking out over it. The strip the lift
+	// opens at the bottom is the bar's own flat body, drawn again from its
+	// lowest rows.
+	static constexpr int kLift = 18;
+	void Draw() override {
+		skin::Draw(skin::bar, 0, 356 - kLift);
+		GX_SetScissor(0, (480 - kLift) * Menu_EfbHeight() / 480, Menu_XfbWidth(), kLift * Menu_EfbHeight() / 480);
+		skin::Draw(skin::bar, 0, 356);
+		GX_SetScissor(0, 0, Menu_XfbWidth(), Menu_EfbHeight());
+	}
 };
 
 static std::string g_homeNotice;
@@ -741,6 +769,11 @@ static std::string HomeStatus(const FrontendState& state, std::size_t shown)
 	if (!state.usb_catalog.cios_note.empty() || !state.sd_catalog.cios_note.empty())
 		status += std::string(status.empty() ? "" : "   ") + "No d2x cIOS in 249-251: games cannot boot yet";
 	if (!status.empty()) return status;
+	if (!g_search.empty()) {
+		if (shown <= 1) return tr("No game matches \"{1}\". Press 1 for all games.", {g_search});
+		const std::string count = shown == 2 ? std::string(tr("1 game")) : tr("{1} games", {std::to_string(shown - 1)});
+		return tr("Search \"{1}\"", {g_search}) + ": " + count + "\n" + tr("1: all games");
+	}
 	if (g_filter == Filter::Mods && shown <= 1) return "No game here has packs in sd:/riivolution yet. Press 1 for all games.";
 	if (g_filter == Filter::Recent && shown <= 1) return "No game on these drives was played from RiftWii yet. Press 1 for all games.";
 	if (g_filter == Filter::Favorites && shown <= 1)
@@ -1393,6 +1426,25 @@ static int NextLetter(const std::vector<GridItem>& items, int focused)
 	return best >= 0 ? best : first;
 }
 
+// Asks for the words to look for on an on-screen keyboard. Returns false
+// when cancelled; `text` holds the entry. Called with the GUI halted and
+// returns with it halted, as ShowHomeMenu does: the caller rebuilds the
+// grid's items next, which the GUI thread must not be drawing.
+static bool AskSearch(std::string& text)
+{
+	GuiSearchKeys keys(text);
+	mainWindow->SetState(STATE::DISABLED);
+	mainWindow->Append(&keys);
+	keys.SetState(STATE::DEFAULT);
+	ResumeGui();
+	while (keys.Result() == 0) usleep(20000);
+	HaltGui();
+	mainWindow->Remove(&keys);
+	mainWindow->SetState(STATE::DEFAULT);
+	if (keys.Result() > 0) text = keys.Text();
+	return keys.Result() > 0;
+}
+
 static int MenuSource(FrontendState& state)
 {
 	int menu = MENU_NONE;
@@ -1412,17 +1464,22 @@ static int MenuSource(FrontendState& state)
 	std::string clock, date;
 	ClockText(clock, date);
 	GuiText clockTxt(clock.c_str(), 34, skin::kClock);
-	Place(clockTxt, 0, 310, true);
+	Place(clockTxt, 0, 296, true);
 	GuiText dateTxt(date.c_str(), 16, skin::kInkSoft);
-	Place(dateTxt, 0, 378, true);
+	Place(dateTxt, 0, 360, true);
 	GuiText statusTxt("", 15, skin::kInkSoft);
-	Place(statusTxt, 0, 408, true);
+	Place(statusTxt, 0, 390, true);
 	statusTxt.SetWrap(true, 400, 3);
 
 	SkinButton filterBtn(skin::roundBtn, skin::roundBtnOver, 2, 26, 386, nullptr,
 		WPAD_BUTTON_1 | WPAD_CLASSIC_BUTTON_Y, PAD_BUTTON_Y, WIIDRC_BUTTON_X, &skin::iconDrives);
 	SkinButton settingsBtn(skin::roundBtn, skin::roundBtnOver, 2, 538, 386, nullptr,
 		WPAD_BUTTON_2 | WPAD_CLASSIC_BUTTON_X, PAD_TRIGGER_R, WIIDRC_BUTTON_Y, &skin::iconGear);
+	// Search: Z on a GameCube controller, ZL on a Classic Controller (a
+	// Wii Remote has no button left; point and press A). Above the blue
+	// line, over the gear, clear of the status line (centred, 400 wide).
+	SkinButton searchBtn(skin::roundBtn, skin::roundBtnOver, 2, 538, 304, nullptr,
+		WPAD_CLASSIC_BUTTON_ZL, PAD_TRIGGER_Z, 0, &skin::iconSearch);
 	// Minus and Plus turn the grid's pages (in GuiGameGrid). Rescan is in
 	// Settings, and on X of a GameCube controller, which has neither. Its
 	// Wii Remote and Classic buttons are bits neither ever sends (a 0 would
@@ -1447,6 +1504,7 @@ static int MenuSource(FrontendState& state)
 	w.Append(&statusTxt);
 	w.Append(&filterBtn.button);
 	w.Append(&settingsBtn.button);
+	w.Append(&searchBtn.button);
 	w.Append(&rescanBtn);
 	w.Append(&exitBtn);
 	w.Append(&jumpBtn);
@@ -1542,7 +1600,7 @@ static int MenuSource(FrontendState& state)
 			statusTxt.SetText(HomeStatus(state, items.size()).c_str());
 			coverNoteShown = false;
 		}
-		ClearStaleButtons({&filterBtn.button, &settingsBtn.button});
+		ClearStaleButtons({&filterBtn.button, &settingsBtn.button, &searchBtn.button});
 		if (TakeUpdateCheck() && !coverNoteShown) statusTxt.SetText(HomeStatus(state, items.size()).c_str());
 		if (grid.Page() != shownPage || grid.Pages() != shownPages) {
 			shownPage = grid.Page();
@@ -1600,8 +1658,25 @@ static int MenuSource(FrontendState& state)
 		} else if (settingsBtn.Clicked()) {
 			g_homeFocus = grid.FocusedIndex();
 			menu = MENU_OPTIONS;
+		} else if (searchBtn.Clicked()) {
+			searchBtn.button.ResetState();
+			std::string typed = g_search;
+			if (AskSearch(typed)) {
+				// Trim, so a lone space clears the search.
+				const std::size_t from = typed.find_first_not_of(' ');
+				g_search = from == std::string::npos ? "" : typed.substr(from, typed.find_last_not_of(' ') - from + 1);
+				logf("Home: search \"%s\"\n", g_search.c_str());
+				refresh(false);
+			}
 		} else if (filterBtn.Clicked()) {
 			filterBtn.button.ResetState();
+			if (!g_search.empty()) {
+				// A search picks from every game: the first press ends it.
+				g_search.clear();
+				refresh(false);
+				ResumeGui();
+				continue;
+			}
 			// Recently played joins the cycle once a game was played, and
 			// Favourites once one is marked.
 			const bool anyPlayed = riftwii::wii::History().size() != 0;

@@ -148,6 +148,13 @@ struct Painter {
         return c;
     }
 
+    Canvas Search() const {
+        Canvas c(28, 28);
+        c.ring(12, 12, 7.5f, 2.8f, glyph);
+        c.line(17.5f, 17.5f, 24.0f, 24.0f, 3.6f, glyph);
+        return c;
+    }
+
     // A white pointing hand with the player's colour as its outline; the
     // fingertip is the picture's centre, so the Wii Remote's roll turns the
     // hand about the point it aims at.
@@ -256,6 +263,7 @@ bool paint_theme_image(const std::string& name, const Theme& theme, Canvas& out)
         {"scroll_down_over", [](const Painter& q) { return q.ScrollArrow(false, true); }},
         {"icon_drives", [](const Painter& q) { return q.Drives(); }},
         {"icon_gear", [](const Painter& q) { return q.Gear(); }},
+        {"icon_search", [](const Painter& q) { return q.Search(); }},
         {"icon_disc", [](const Painter& q) { return q.Disc(); }},
         {"pointer1", [](const Painter& q) { return Painter::Hand(q.pointer[0]); }},
         {"pointer2", [](const Painter& q) { return Painter::Hand(q.pointer[1]); }},
