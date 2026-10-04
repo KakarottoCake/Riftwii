@@ -1113,5 +1113,14 @@ msgstr "Archivos de un Mac en la tarjeta SD"
 msgid "This SD card has hidden files that macOS makes when it copies (names that start with \"._\"). RiftWii skips them, but they fill the card and can confuse other homebrew. To remove them, put the card in your Mac, open Terminal and type: dot_clean -m /Volumes/ followed by the card's name. On Windows, delete the files whose names start with \"._\"."
 msgstr "Esta tarjeta SD tiene archivos ocultos que macOS crea al copiar (nombres que empiezan por \"._\"). RiftWii los ignora, pero ocupan espacio y pueden confundir a otros homebrew. Para quitarlos, pon la tarjeta en tu Mac, abre Terminal y escribe: dot_clean -m /Volumes/ seguido del nombre de la tarjeta. En Windows, borra los archivos cuyo nombre empieza por \"._\"."
 
+msgid "This code mod can't start"
+msgstr "Este mod de códigos no puede iniciarse"
+
+msgid "{1} is a code mod, and its codes take {2}. A game only has about {3} free for codes, so they don't fit. Big mods like this come with a file named gameconfig.txt (or gc.txt) that says where else they can go. Copy it from the mod's download to the top of your SD card. No such file? Ask the mod's maker."
+msgstr "{1} es un mod de códigos y sus códigos ocupan {2}. Un juego solo tiene unos {3} libres para códigos, así que no caben. Los mods grandes traen un archivo llamado gameconfig.txt (o gc.txt) que dice dónde más pueden ir. Cópialo de la descarga del mod a la raíz de tu tarjeta SD. ¿No lo trae? Pregunta a quien hizo el mod."
+
+msgid "The codes take {1}, but {2} only makes room for {3}. Turn off some cheats on this game's Cheats page, or turn off a code mod."
+msgstr "Los códigos ocupan {1}, pero {2} solo deja sitio para {3}. Desactiva algunos trucos en la página de Trucos de este juego, o desactiva un mod de códigos."
+
 msgid "Don't show again"
 msgstr "No volver a mostrar"

@@ -2708,7 +2708,8 @@ static int MenuHome(FrontendState& state)
 				// Mods where they cannot work: not even tried.
 				say(FlatCapped(problem, 200));
 			} else if (std::string codes_error; !riftwii::wii::CheckCodeBuilds(state, codes_error)) {
-				say(FlatCapped(codes_error, 200));
+				// In a popup: what to do takes more than the status line's two rows.
+				ShowPopup(tr("This code mod can't start"), codes_error, tr("OK"));
 			} else if (!LaunchNote(state).empty() && !state.warning_shown) {
 				state.warning_shown = true;
 				// In a popup: the status line holds two rows, which cut

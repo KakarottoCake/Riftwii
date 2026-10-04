@@ -1114,6 +1114,30 @@ T = {
         "RiftWii li ignora, ma occupano spazio e possono confondere altri homebrew. Per rimuoverli, inserisci la scheda "
         "nel tuo Mac, apri il Terminale e scrivi: dot_clean -m /Volumes/ seguito dal nome della scheda. Su Windows, "
         "elimina i file il cui nome inizia con \"._\"."),
+    "This code mod can't start": ("Este mod de códigos no puede iniciarse", "このコードModは起動できません",
+        "Este mod de códigos não pode iniciar", "Questo mod di codici non può partire"),
+    "{1} is a code mod, and its codes take {2}. A game only has about {3} free for codes, so they don't fit. Big mods like this come with a file named gameconfig.txt (or gc.txt) that says where else they can go. Copy it from the mod's download to the top of your SD card. No such file? Ask the mod's maker.": (
+        "{1} es un mod de códigos y sus códigos ocupan {2}. Un juego solo tiene unos {3} libres para códigos, así que "
+        "no caben. Los mods grandes traen un archivo llamado gameconfig.txt (o gc.txt) que dice dónde más pueden ir. "
+        "Cópialo de la descarga del mod a la raíz de tu tarjeta SD. ¿No lo trae? Pregunta a quien hizo el mod.",
+        "{1}はコードModで、コードが{2}あります。ゲームのコード用の空きは約{3}しかないため入りません。"
+        "大きなModには、ほかの置き場所を示すgameconfig.txt（またはgc.txt）が付いています。"
+        "Modのダウンロードから、SDカードの一番上にコピーしてください。ない場合はModの作者に聞いてください。",
+        "{1} é um mod de códigos e seus códigos ocupam {2}. Um jogo só tem cerca de {3} livres para códigos, então "
+        "eles não cabem. Mods grandes vêm com um arquivo chamado gameconfig.txt (ou gc.txt) que diz onde mais podem "
+        "ficar. Copie-o do download do mod para a raiz do cartão SD. Não veio? Pergunte a quem fez o mod.",
+        "{1} è un mod di codici e i suoi codici occupano {2}. Un gioco ha solo circa {3} liberi per i codici, quindi "
+        "non ci stanno. I mod grandi includono un file chiamato gameconfig.txt (o gc.txt) che dice dove altro possono "
+        "andare. Copialo dal download del mod nella radice della scheda SD. Non c'è? Chiedi a chi ha fatto il mod."),
+    "The codes take {1}, but {2} only makes room for {3}. Turn off some cheats on this game's Cheats page, or turn off a code mod.": (
+        "Los códigos ocupan {1}, pero {2} solo deja sitio para {3}. Desactiva algunos trucos en la página de Trucos de "
+        "este juego, o desactiva un mod de códigos.",
+        "コードは{1}ありますが、{2}が用意する場所は{3}だけです。このゲームのチートのページでチートをいくつかオフにするか、"
+        "コードModをオフにしてください。",
+        "Os códigos ocupam {1}, mas {2} só reserva espaço para {3}. Desligue algumas trapaças na página de Trapaças deste "
+        "jogo, ou desligue um mod de códigos.",
+        "I codici occupano {1}, ma {2} lascia spazio solo per {3}. Disattiva alcuni trucchi nella pagina Trucchi di "
+        "questo gioco, o disattiva un mod di codici."),
     "Don't show again": ("No volver a mostrar", "今後表示しない", "Não mostrar de novo", "Non mostrare più"),
 }
 
@@ -1125,7 +1149,8 @@ def escape(s):
 def check(repo):
     """Every msgid must appear as a literal in the menu's sources, or it
     would never be looked up."""
-    sources = ["wii/rift_menu.cpp", "wii/gameextras.cpp", "wii/gui_gamegrid.cpp", "wii/channel.cpp", "wii/frontend.cpp"]
+    sources = ["wii/rift_menu.cpp", "wii/gameextras.cpp", "wii/gui_gamegrid.cpp", "wii/channel.cpp", "wii/frontend.cpp",
+               "wii/codebuilds.cpp"]
     text = "".join(open(os.path.join(repo, p), encoding="utf-8").read() for p in sources)
     missing = [k for k in T if '"%s"' % escape(k) not in text]
     for k in missing:

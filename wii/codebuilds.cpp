@@ -10,6 +10,7 @@
 #include <cstdio>
 #include <sstream>
 
+#include "i18n.hpp"
 #include "log.hpp"
 #include "vsdimage.hpp"
 #include "riftwii/cheats.hpp"
@@ -177,7 +178,12 @@ GameConfig load_config(const std::string& folder, const std::string& game_id, st
     return GameConfig();
 }
 
-std::string kb(std::size_t bytes) { return std::to_string((bytes + 1023) / 1024) + " KB"; }
+// "3.3 KB": one decimal, so a list just over the room never reads as
+// the same size as the room.
+std::string kb(std::size_t bytes) {
+    const std::size_t tenths = bytes * 10 / 1024;
+    return std::to_string(tenths / 10) + "." + std::to_string(tenths % 10) + " KB";
+}
 
 }  // namespace
 
@@ -313,11 +319,12 @@ bool PrepareCodeBuilds(const LaunchModel& model, const std::string& game_id, con
     }
     const std::size_t room = out.list_start != 0 ? out.list_end - out.list_start : kCodeListEnd - kCodeListAddress;
     if (out.gct.size() > room) {
+        // Said in a popup when Start is pressed (wii/rift_menu.cpp).
         error = out.list_start != 0
-                    ? "The codes need " + kb(out.gct.size()) + ", more than the " + kb(room) + " " + config_from +
-                          " makes room for. Turn off some cheats."
-                    : out.names + "'s codes need " + kb(out.gct.size()) +
-                          ": put the build's gameconfig.txt at the top of the SD card, which says where they go.";
+                    ? tr("The codes take {1}, but {2} only makes room for {3}. Turn off some cheats on this game's Cheats page, or turn off a code mod.",
+                         {kb(out.gct.size()), config_from, kb(room)})
+                    : tr("{1} is a code mod, and its codes take {2}. A game only has about {3} free for codes, so they don't fit. Big mods like this come with a file named gameconfig.txt (or gc.txt) that says where else they can go. Copy it from the mod's download to the top of your SD card. No such file? Ask the mod's maker.",
+                         {out.names, kb(out.gct.size()), kb(room)});
         return false;
     }
     if (out.hooktype > 1 && out.hooktype != 7) {
