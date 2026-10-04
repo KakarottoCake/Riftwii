@@ -23,12 +23,15 @@ public:
     // Writes the signature and the header at once. `work`: work_bytes()
     // of memory for the encoder's tables (8-byte aligned), which the menu
     // keeps in MEM2; nullptr takes them from the heap.
-    PngWriter(std::uint32_t width, std::uint32_t height, Sink sink, void* user, void* work = nullptr);
+    // `alpha`: RGBA rows (4 bytes a pixel, straight alpha) instead of RGB.
+    PngWriter(std::uint32_t width, std::uint32_t height, Sink sink, void* user, void* work = nullptr,
+              bool alpha = false);
     ~PngWriter();
     PngWriter(const PngWriter&) = delete;
     PngWriter& operator=(const PngWriter&) = delete;
 
-    // `rgb`: width * 3 bytes. False once anything failed, or past the last row.
+    // `rgb`: width * 3 bytes (width * 4 with alpha). False once anything
+    // failed, or past the last row.
     bool add_row(const std::uint8_t* rgb);
     // After the last row: the end of the image data and IEND.
     bool finish();
@@ -44,5 +47,8 @@ private:
 // The whole image (`rgb` rows of width * 3 bytes) into `out`.
 bool encode_png_rgb(const std::uint8_t* rgb, std::uint32_t width, std::uint32_t height,
                     std::vector<std::uint8_t>& out);
+// The same with `rgba` rows of width * 4 bytes, alpha kept.
+bool encode_png_rgba(const std::uint8_t* rgba, std::uint32_t width, std::uint32_t height,
+                     std::vector<std::uint8_t>& out);
 
 }  // namespace riftwii

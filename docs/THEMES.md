@@ -135,6 +135,14 @@ still turns music off.
 
 Layout (where things are on screen), fonts and sounds are not themeable yet.
 
+## The theme kit
+
+Each release has a `riftwii-theme-kit` zip next to RiftWii's. It holds a
+starter `theme.ini` with every setting at its default, the Midnight
+sample, and all 41 pictures as templates, exactly as RiftWii draws them
+(in the default look and in Midnight's colours), at the right sizes.
+Edit a template, keep its size, and save it as PNG in your theme's folder.
+
 ## Make your own
 
 To make your own theme:

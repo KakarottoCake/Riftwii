@@ -28,7 +28,8 @@ and `vendor-*` is third-party code.
 | --- | --- |
 | A menu screen (Home, a game's page, Mods, Cheats, Settings) | `wii/rift_menu.cpp` |
 | How a list or the tile grid looks or scrolls | `wii/gui_flowlist.cpp`, `wii/gui_gamegrid.cpp`, `wii/skin.cpp` |
-| Menu themes (colours, pictures, music) | `src/theme.cpp` (theme.ini), `wii/menutheme.cpp`, `wii/skin.cpp`, `themes/`, [THEMES.md](THEMES.md) |
+| Menu themes (colours, pictures, music) | `src/theme.cpp` (theme.ini), `src/skinpaint.cpp` (the painted pictures), `wii/menutheme.cpp`, `wii/skin.cpp`, `themes/`, [THEMES.md](THEMES.md) |
+| The theme kit download | `tools/theme_kit.cpp`, `tools/make_theme_kit.py`, `themes/kit/README.txt` |
 | Menu text and its translations | `tools/lang_source.py` (the table), `wii/i18n.cpp`, `wii/lang/*.po` |
 | Settings and what they mean | `src/settingsfile.cpp`, `wii/loadersettings.cpp`, the Settings screen in `wii/rift_menu.cpp` |
 | Finding games on the SD card and USB drives | `wii/usbcatalog.cpp`, `src/usbgame.cpp`, `src/imagevolume.cpp`, `src/fat32.cpp`, `src/ntfs.cpp`, `src/wbfspart.cpp` |
@@ -83,7 +84,7 @@ it links libogc. Each `.cpp` has a `.hpp` that describes it.
 | `menu.h` | The menu's entry points for `main.cpp` |
 | `gui_flowlist.cpp` | The row lists (game page, Mods, Cheats, Settings) |
 | `gui_gamegrid.cpp` | The Home screen's tile grid and its cover textures |
-| `skin.cpp` | The menu's artwork, painted at start, or a theme's pictures |
+| `skin.cpp` | The menu's artwork (painted by `src/skinpaint.cpp`) or a theme's pictures, as textures |
 | `menutheme.cpp` | The chosen theme: its theme.ini, pictures and music on the SD card |
 | `menumusic.cpp` | The background music |
 | `i18n.cpp` | Translations (the built-in `.po` files, or one on the card) |
@@ -168,6 +169,7 @@ implements `include/riftwii/x.hpp`, whose comments document it.
 | `gxpatches` | USB Loader GX's per-game fixes and cIOS choice |
 | `settingsfile` | `settings.txt` |
 | `theme` | `theme.ini`: a theme's colours, corners and backdrop; the pictures a theme may replace |
+| `skinpaint` | The menu's pictures painted in a theme's colours (the Wii menu and the theme kit) |
 | `langfile` | Translation files |
 | `playhistory` | `history.txt` |
 | `returnto` | Returning to RiftWii from a game |
@@ -220,6 +222,7 @@ card's at the Wii's own MEM1 and MEM2 addresses).
 | `make_channel.py`, `make_channel_art.py`, `preview_channel.py` | The Wii Menu channel's WAD and art |
 | `rtreloc.py` | Relocations for the RVZ runtime blob |
 | `ipcscan.cpp`, `rvzstub.cpp` | Host tools: the IPC search on a game's DOL; an RVZ's stub disc for Dolphin |
+| `theme_kit.cpp`, `make_theme_kit.py` | The theme kit zip: template pictures, a starter theme.ini, the guide |
 | `rvz/make_test_disc.py` | The RVZ test fixtures |
 | `dolphin/` | Dolphin test harness: `run.sh`, the USB Gecko log reader, a RiiFS test server, movie and screenshot helpers (see `docs/HARNESS.md`) |
 

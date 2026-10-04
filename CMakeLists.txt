@@ -31,7 +31,7 @@ set_target_properties(riftwii_runtime PROPERTIES C_STANDARD 99 C_STANDARD_REQUIR
 if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(riftwii_runtime PRIVATE -ffreestanding -fno-builtin -Wall -Wextra -Wpedantic -Werror)
 endif()
-add_library(riftwii STATIC src/patch.cpp src/overlay.cpp src/source.cpp src/apply.cpp src/expand.cpp src/mempatch.cpp src/launch.cpp src/fst.cpp src/disc.cpp src/redirect.cpp src/fat32.cpp src/ntfs.cpp src/imagevolume.cpp src/wbfspart.cpp src/usbgame.cpp src/titles.cpp src/canvas.cpp src/dol.cpp src/hook.cpp src/symsearch.cpp src/riifs.cpp src/riifs_sync.cpp src/http.cpp src/cheats.cpp src/videopatch.cpp src/gamelang.cpp src/riiconfig.cpp src/update.cpp src/wfcpatch.cpp src/sha1.cpp src/rvz.cpp src/coverart.cpp src/pngdecode.cpp src/settingsfile.cpp src/langfile.cpp src/playhistory.cpp src/returnto.cpp src/launchargs.cpp src/cardlog.cpp src/codehook.cpp src/gameconfig.cpp src/pngencode.cpp src/shotfile.cpp src/qrcode.cpp src/problemreport.cpp src/gamefault.cpp src/gxpatches.cpp src/ctgpconfig.cpp src/theme.cpp)
+add_library(riftwii STATIC src/patch.cpp src/overlay.cpp src/source.cpp src/apply.cpp src/expand.cpp src/mempatch.cpp src/launch.cpp src/fst.cpp src/disc.cpp src/redirect.cpp src/fat32.cpp src/ntfs.cpp src/imagevolume.cpp src/wbfspart.cpp src/usbgame.cpp src/titles.cpp src/canvas.cpp src/dol.cpp src/hook.cpp src/symsearch.cpp src/riifs.cpp src/riifs_sync.cpp src/http.cpp src/cheats.cpp src/videopatch.cpp src/gamelang.cpp src/riiconfig.cpp src/update.cpp src/wfcpatch.cpp src/sha1.cpp src/rvz.cpp src/coverart.cpp src/pngdecode.cpp src/settingsfile.cpp src/langfile.cpp src/playhistory.cpp src/returnto.cpp src/launchargs.cpp src/cardlog.cpp src/codehook.cpp src/gameconfig.cpp src/pngencode.cpp src/shotfile.cpp src/qrcode.cpp src/problemreport.cpp src/gamefault.cpp src/gxpatches.cpp src/ctgpconfig.cpp src/theme.cpp src/skinpaint.cpp)
 target_include_directories(riftwii PUBLIC include)
 target_link_libraries(riftwii PRIVATE pugixml zstddec PUBLIC riftwii_runtime)
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
@@ -43,6 +43,10 @@ target_link_libraries(ipcscan PRIVATE riftwii)
 # Host tool: an RVZ's verdict and the stub d2x would boot (tools/rvzstub.cpp).
 add_executable(rvzstub tools/rvzstub.cpp)
 target_link_libraries(rvzstub PRIVATE riftwii)
+# Host tool: the theme kit's template pictures and starter theme.ini
+# (tools/theme_kit.cpp, packed by tools/make_theme_kit.py).
+add_executable(theme_kit tools/theme_kit.cpp)
+target_link_libraries(theme_kit PRIVATE riftwii)
 include(CTest)
 if(BUILD_TESTING)
     # The Wii DI client itself, against a mocked IOS (tests/wii_mock).

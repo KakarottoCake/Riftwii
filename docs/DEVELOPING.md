@@ -135,8 +135,12 @@ this way: it was the crash recorder.
    credits. If `LICENSE` changed, `python tools/make_licence.py` first
    (`--check` tells), so Settings > Credits and licence shows the same
    text.
-4. `gh release create vX.Y.Z-beta --prerelease` with the zip and
-   `riftwii.dol`, the notes giving what changed and the DOL's SHA-256,
+   The theme kit goes beside it: `cmake --build build-host --target
+   theme_kit`, then `py -3.13 tools/make_theme_kit.py
+   build-host/theme_kit.exe riftwii-theme-kit-vX.Y.Z.zip` (templates
+   painted by the menu's own code, so they match the release).
+4. `gh release create vX.Y.Z-beta --prerelease` with the zip, the theme
+   kit and `riftwii.dol`, the notes giving what changed and the DOL's SHA-256,
    and ending with a "Licence and source" line: GPL-3.0-or-later, the
    source at the tag, the credits in `NOTICE.md`.
 5. When a third-party piece is added: a row in `NOTICE.md` (what, where

@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 
+#include "riftwii/skinpaint.hpp"
 #include "riftwii/theme.hpp"
 
 static int g_failures = 0;
@@ -424,6 +425,42 @@ static void test_case_insensitivity_and_boolean_formats() {
     }
 }
 
+// Every picture a theme may replace is painted at the size theme_images()
+// lists, in the theme's colours; nothing else is.
+static void test_painted_images() {
+    const Theme def = default_theme();
+    for (const ThemeImage& im : theme_images()) {
+        Canvas c(0, 0);
+        EXPECT_TRUE(paint_theme_image(im.name, def, c));
+        EXPECT_EQ(c.width(), im.w);
+        EXPECT_EQ(c.height(), im.h);
+    }
+    Canvas none(0, 0);
+    EXPECT_FALSE(paint_theme_image("tile2", def, none));
+    EXPECT_FALSE(paint_theme_image("", def, none));
+
+    Theme red = def;
+    red.colors.chip_on = ThemeColor{200, 10, 20, 255};
+    red.colors.backdrop = ThemeColor{1, 2, 3, 255};
+    red.stripes = false;
+    Canvas chip(0, 0), back(0, 0);
+    EXPECT_TRUE(paint_theme_image("chip_on", red, chip));
+    EXPECT_EQ(int(chip.at(106, 18).r), 200);
+    EXPECT_EQ(int(chip.at(106, 18).g), 10);
+    EXPECT_TRUE(paint_theme_image("background", red, back));
+    EXPECT_EQ(int(back.at(5, 2).r), 1);
+    EXPECT_EQ(int(back.at(5, 2).b), 3);
+
+    // Square corners fill the tile's corner; the default rounds it off.
+    Theme square = def;
+    square.corners = 0.0f;
+    Canvas round_tile(0, 0), square_tile(0, 0);
+    EXPECT_TRUE(paint_theme_image("tile", def, round_tile));
+    EXPECT_TRUE(paint_theme_image("tile", square, square_tile));
+    EXPECT_TRUE(square_tile.at(8, 8).a == 255);
+    EXPECT_TRUE(round_tile.at(8, 8).a < square_tile.at(8, 8).a);
+}
+
 int main() {
     test_default_theme();
     test_parse_theme_color();
@@ -432,6 +469,7 @@ int main() {
     test_skipped_cases();
     test_theme_color_keys();
     test_theme_images();
+    test_painted_images();
     test_case_insensitivity_and_boolean_formats();
 
     if (g_failures == 0) {

@@ -52,6 +52,7 @@ struct PngWriter::Impl {
     std::uint32_t width, height, rows = 0;
     bool ok = true;
     std::size_t row_bytes;
+    std::size_t bpp;  // bytes a pixel: 3, or 4 with alpha
     std::uint8_t* prev;       // the previous row, unfiltered (zeros before the first)
     std::uint8_t* cand[4];    // the row under None, Sub, Up and Paeth
 
@@ -189,7 +190,7 @@ struct PngWriter::Impl {
 
 std::size_t PngWriter::work_bytes() { return sizeof(Impl); }
 
-PngWriter::PngWriter(std::uint32_t width, std::uint32_t height, Sink sink, void* user, void* work)
+PngWriter::PngWriter(std::uint32_t width, std::uint32_t height, Sink sink, void* user, void* work, bool alpha)
     : impl_(work ? new (work) Impl : new (std::nothrow) Impl), own_(work == nullptr) {
     if (!impl_) return;
     Impl& m = *impl_;
@@ -197,7 +198,8 @@ PngWriter::PngWriter(std::uint32_t width, std::uint32_t height, Sink sink, void*
     m.user = user;
     m.width = width;
     m.height = height;
-    m.row_bytes = static_cast<std::size_t>(width) * 3;
+    m.bpp = alpha ? 4 : 3;
+    m.row_bytes = static_cast<std::size_t>(width) * m.bpp;
     m.prev = static_cast<std::uint8_t*>(std::calloc(m.row_bytes ? m.row_bytes : 1, 1));
     for (auto& c : m.cand) c = static_cast<std::uint8_t*>(std::malloc(m.row_bytes ? m.row_bytes : 1));
     std::memset(m.head, 0, sizeof(m.head));
@@ -222,7 +224,7 @@ PngWriter::PngWriter(std::uint32_t width, std::uint32_t height, Sink sink, void*
     Be32(ihdr, width);
     Be32(ihdr + 4, height);
     ihdr[8] = 8;  // bits a sample
-    ihdr[9] = 2;  // RGB
+    ihdr[9] = alpha ? 6 : 2;  // RGBA or RGB
     if (!m.Put(kSignature, 8) || !m.Chunk("IHDR", ihdr, sizeof(ihdr))) return;
     m.Byte(0x78);  // zlib: deflate, 32 KiB window
     m.Byte(0x01);
@@ -245,7 +247,8 @@ bool PngWriter::add_row(const std::uint8_t* rgb) {
     const std::size_t n = m.row_bytes;
     std::uint32_t sum[4] = {};
     for (std::size_t i = 0; i < n; ++i) {
-        const int x = rgb[i], a = i >= 3 ? rgb[i - 3] : 0, b = m.prev[i], c = i >= 3 ? m.prev[i - 3] : 0;
+        const std::size_t k = m.bpp;
+        const int x = rgb[i], a = i >= k ? rgb[i - k] : 0, b = m.prev[i], c = i >= k ? m.prev[i - k] : 0;
         const int p = a + b - c, pa = std::abs(p - a), pb = std::abs(p - b), pc = std::abs(p - c);
         const int paeth = (pa <= pb && pa <= pc) ? a : pb <= pc ? b : c;
         const std::uint8_t v[4] = {std::uint8_t(x), std::uint8_t(x - a), std::uint8_t(x - b), std::uint8_t(x - paeth)};
@@ -294,6 +297,15 @@ bool encode_png_rgb(const std::uint8_t* rgb, std::uint32_t width, std::uint32_t 
     PngWriter w(width, height, AppendSink, &out);
     for (std::uint32_t y = 0; y < height; ++y)
         if (!w.add_row(rgb + static_cast<std::size_t>(y) * width * 3)) return false;
+    return w.finish();
+}
+
+bool encode_png_rgba(const std::uint8_t* rgba, std::uint32_t width, std::uint32_t height,
+                     std::vector<std::uint8_t>& out) {
+    out.clear();
+    PngWriter w(width, height, AppendSink, &out, nullptr, true);
+    for (std::uint32_t y = 0; y < height; ++y)
+        if (!w.add_row(rgba + static_cast<std::size_t>(y) * width * 4)) return false;
     return w.finish();
 }
 

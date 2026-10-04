@@ -172,6 +172,27 @@ void test_png_round_trip() {
     EXPECT_TRUE(size < 2000);
 }
 
+// RGBA rows keep their alpha, through every filter's pixel offset.
+void test_png_alpha() {
+    const std::uint32_t w = 23, h = 17;
+    Bytes rgba(std::size_t(w) * h * 4);
+    for (std::uint32_t y = 0; y < h; ++y)
+        for (std::uint32_t x = 0; x < w; ++x) {
+            std::uint8_t* p = &rgba[(std::size_t(y) * w + x) * 4];
+            p[0] = std::uint8_t(x * 11), p[1] = std::uint8_t(y * 13), p[2] = Random();
+            p[3] = (x + y) % 3 == 0 ? 0 : std::uint8_t(x * y);
+        }
+    Bytes png;
+    EXPECT_TRUE(riftwii::encode_png_rgba(rgba.data(), w, h, png));
+    Bytes back;
+    std::uint32_t dw = 0, dh = 0;
+    std::string error;
+    EXPECT_TRUE(riftwii::decode_png(png.data(), png.size(), TestInflate, 64, back, dw, dh, error));
+    EXPECT_EQ(dw, w);
+    EXPECT_EQ(dh, h);
+    EXPECT_TRUE(back == rgba);
+}
+
 void test_png_refusals() {
     Bytes out;
     std::uint8_t px[3] = {};
@@ -461,6 +482,7 @@ void test_shot_file() {
 
 int main() {
     test_png_round_trip();
+    test_png_alpha();
     test_png_refusals();
     test_yuyv();
     test_header();
