@@ -169,7 +169,6 @@ void DrawRgb5a3(const u8* data, int w, int h, float x, float y, int alpha, float
     GX_InitTexObj(&tex, const_cast<u8*>(data), static_cast<u16>(w), static_cast<u16>(h), GX_TF_RGB5A3, GX_CLAMP, GX_CLAMP,
                   GX_FALSE);
     GX_LoadTexObj(&tex, GX_TEXMAP0);
-    GX_InvalidateTexAll();
     GX_SetTevOp(GX_TEVSTAGE0, GX_MODULATE);
     GX_SetVtxDesc(GX_VA_TEX0, GX_DIRECT);
     // Scaled about the centre, as Menu_DrawImg does, in libgui's 2D view

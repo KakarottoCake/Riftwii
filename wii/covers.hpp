@@ -10,7 +10,7 @@
 
 // Box art (riftwii/coverart.hpp) on the Wii: fetched from GameTDB into
 // sd:/riftwii/covers/<ID>.rwc, and read back into a fixed pool of
-// textures in MEM2 (13 covers, 233 KB, taken once) for drawing.
+// textures in MEM2 (room for every game's cover, up to 400) for drawing.
 namespace riftwii::wii {
 
 // True when the game has no stored cover and GameTDB was not found
@@ -36,12 +36,28 @@ const std::string& CoverFetchGame();
 bool TakeCoverFetch(std::string& game_id, CoverFetch& got, std::string& error);
 
 // The game's cover as an RGB5A3 texture of kCoverWidth x kCoverHeight,
-// or nullptr when there is none. Reads the card the first time it is
-// asked for a cover not in the pool. Only from the GUI thread (or with
-// it halted).
-const u8* CoverTexture(const std::string& game_id);
+// or nullptr while there is none in memory. Never reads the card: a cover
+// not in the pool is asked of a loader thread (a few frames), so draw
+// without it and ask again next frame; asks not renewed for a moment are
+// dropped. `rank` orders the asks, lowest first. GUI thread only.
+const u8* CoverTexture(const std::string& game_id, int rank = 0);
+// Asks for a cover to be read ahead (a page next to the one shown), and
+// keeps it in memory while asked for every frame.
+void CoverPrefetch(const std::string& game_id, int rank);
+// Room in MEM2 for this many covers (the games in the grid and the game
+// page), taken once in one piece; never less. GUI thread, before the
+// first CoverTexture.
+void CoverReserve(int covers);
+// Covers for the loader to read when nothing is asked for, in this order,
+// while there is room: then no page has to wait for its covers.
+void CoverReadAll(const std::vector<std::string>& game_ids);
 // Drops what the pool remembers about the game (after a new download).
 void ForgetCover(const std::string& game_id);
+// Stops the loader reading the card, waiting for a read in flight: before
+// the card is unmounted, read raw or IOS reloaded. Lifted by
+// CoverLoaderRelease (the menu's ResumeGui).
+void CoverLoaderHold();
+void CoverLoaderRelease();
 
 // A PNG file's bytes to RGBA rows (a cover, a theme's picture).
 bool DecodePngRgba(const std::vector<std::uint8_t>& png, std::vector<std::uint8_t>& rgba, int& w, int& h,
