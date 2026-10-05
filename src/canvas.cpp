@@ -72,6 +72,15 @@ Rgba Canvas::at(int x, int y) const {
     return Rgba{p[0], p[1], p[2], p[3]};
 }
 
+void Canvas::put(int x, int y, Rgba color) {
+    if (x < 0 || y < 0 || x >= width_ || y >= height_) return;
+    std::uint8_t* p = &px_[(static_cast<std::size_t>(y) * width_ + x) * 4];
+    p[0] = color.r;
+    p[1] = color.g;
+    p[2] = color.b;
+    p[3] = color.a;
+}
+
 void Canvas::blend(int x, int y, Rgba color, float coverage) {
     const float sa = clamp01(coverage) * (color.a / 255.0f);
     if (sa <= 0.0f) return;

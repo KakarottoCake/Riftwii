@@ -34,10 +34,12 @@ Holds theme information:
 
 ### [shape]
 
-Controls corner roundness:
+Controls the painted parts' shape:
 
 - `corners`: corner roundness multiplier, from `0` (square corners) to `2`
   (twice as round). The default is `1`.
+- `gloss`: `yes` or `no`. A shine across the top half of buttons, tiles
+  and option boxes. The default is `no`.
 
 ### [backdrop]
 
@@ -83,6 +85,8 @@ shows:
 | `scroll_track` | `#E6E6EC` | A list's scroll track |
 | `scroll_thumb` | `#A8A8B4` | A list's scroll thumb |
 | `badge` | `#ECECF1` | A tile's DISC/USB/SD label |
+| `shelf` | `#C4A078` | The top of Home's shelf |
+| `shelf_edge` | `#96704C` | The front edge of Home's shelf |
 | `pointer1` | `#3B8FD6` | Outline of player 1's pointer hand |
 | `pointer2` | `#D64545` | Outline of player 2's pointer hand |
 | `pointer3` | `#3FA34D` | Outline of player 3's pointer hand |
@@ -125,6 +129,7 @@ Pictures ending in `_over` are the highlighted versions. Transparency
 | `icon_search` | 28x28 | Magnifier icon on the search button |
 | `icon_disc` | 40x40 | Disc icon |
 | `pointer1` to `pointer4` | 96x96 | Each player's pointer; the fingertip must be at the centre (48, 48) |
+| `shelf` | 256x64 | Home's shelf: rows 0-47 are its top (the far edge first), rows 48-63 its front edge. It repeats along the shelf, so make the left and right edges meet |
 
 ## Music
 
@@ -140,7 +145,7 @@ Layout (where things are on screen), fonts and sounds are not themeable yet.
 
 Each release has a `riftwii-theme-kit` zip next to RiftWii's. It holds a
 starter `theme.ini` with every setting at its default, the Midnight
-sample, and all 42 pictures as templates, exactly as RiftWii draws them
+sample, and all 43 pictures as templates, exactly as RiftWii draws them
 (in the default look and in Midnight's colours), at the right sizes.
 Edit a template, keep its size, and save it as PNG in your theme's folder.
 

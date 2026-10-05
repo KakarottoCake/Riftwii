@@ -15,6 +15,7 @@ constexpr int kTitleSize = 15;       // names: the tile's two lines
 constexpr int kCoverTitleSize = 13;  // covers: a tile without a cover
 constexpr int kCaptionSize = 18;     // covers: the lit game's name
 constexpr int kCaptionY = 266;
+constexpr int kShelfCaptionY = 266;  // under the shelf (wii/gui_shelf.cpp)
 constexpr int kTextLeft = 11;
 constexpr int kCoverTextLeft = 6;
 // The page arrows (36 across in a 48 canvas) sit 14 in from the screen's
@@ -77,6 +78,8 @@ GuiGameGrid::GuiGameGrid() {
     caption->SetParent(this);
     caption->SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
     caption->SetPosition(0, kCaptionY);
+    spineText = new GuiText(nullptr, 13, GXColor{40, 40, 48, 255});
+    spineText->SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
     soundOver = new GuiSound(button_over_pcm, button_over_pcm_size, SOUND::PCM);
     soundClick = new GuiSound(button_click_pcm, button_click_pcm_size, SOUND::PCM);
 }
@@ -90,6 +93,7 @@ GuiGameGrid::~GuiGameGrid() {
     }
     delete measure;
     delete caption;
+    delete spineText;
     delete soundOver;
     delete soundClick;
 }
@@ -129,6 +133,16 @@ void GuiGameGrid::SetCovers(bool on) {
 }
 
 void GuiGameGrid::CoverArrived(const std::string& id) { riftwii::wii::ForgetCover(id); }
+
+void GuiGameGrid::SetShelf(bool on) {
+    if (shelf == on) return;
+    shelf = on;
+    poses.clear();
+    spineFit.clear();
+    captionFor = -1;
+    caption->SetPosition(0, shelf ? kShelfCaptionY : kCaptionY);
+    if (shelf) SetCovers(true);
+}
 
 void GuiGameGrid::Focus(int index) {
     if (index < 0 || index >= Count()) index = 0;
@@ -363,6 +377,11 @@ void GuiGameGrid::Draw() {
     if (!laidOut) Layout();
     const int alpha = GetAlpha();
     if (covers) ReadAllCovers();
+    if (shelf) {
+        DrawShelf(alpha);
+        UpdateEffects();
+        return;
+    }
     // A turned page eases in from the side, fading up as it comes.
     if (slide != 0.0f) {
         slide *= 0.75f;
@@ -409,6 +428,10 @@ void GuiGameGrid::Draw() {
 
 void GuiGameGrid::Update(GuiTrigger* t) {
     if (state == STATE::DISABLED || !t || Count() == 0) return;
+    if (shelf) {
+        UpdateShelf(t);
+        return;
+    }
     // Minus and Plus: the previous and the next page, pointing or not.
     if (PressedPage(t, -1) || PressedPage(t, 1)) {
         TurnPage(PressedPage(t, -1) ? -1 : 1);

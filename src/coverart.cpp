@@ -122,6 +122,81 @@ std::vector<std::uint8_t> make_cover_file(const std::uint8_t* rgba, int w, int h
     return out;
 }
 
+std::string coverfull_url(const std::string& region, const std::string& game_id) {
+    return "http://art.gametdb.com/wii/coverfull/" + region + "/" + game_id + ".png";
+}
+
+bool spine_strip(int w, int h, int& x0, int& x1) {
+    // Wider than tall, and not by more than three faces' worth.
+    if (w <= h || h < 64 || w > 3 * h) return false;
+    const int face = h * 135 / 190;
+    const int spine = w - 2 * face;
+    const int expected = h * 14 / 190;
+    if (spine >= expected / 2 && spine <= expected * 2) {
+        x0 = face;
+        x1 = w - face;
+    } else {
+        x0 = (w - expected) / 2;
+        x1 = x0 + expected;
+    }
+    return x1 > x0;
+}
+
+namespace {
+// `px` (w x h RGBA rows) as RGB5A3 tiles, after the 8-byte header.
+std::vector<std::uint8_t> rgb5a3_file(const char* magic, const std::vector<std::uint8_t>& px, int w, int h) {
+    std::vector<std::uint8_t> out = {static_cast<std::uint8_t>(magic[0]), static_cast<std::uint8_t>(magic[1]),
+                                     static_cast<std::uint8_t>(magic[2]), static_cast<std::uint8_t>(magic[3]),
+                                     static_cast<std::uint8_t>(w >> 8), static_cast<std::uint8_t>(w),
+                                     static_cast<std::uint8_t>(h >> 8), static_cast<std::uint8_t>(h)};
+    out.reserve(8 + static_cast<std::size_t>(w) * h * 2);
+    for (int ty = 0; ty < h; ty += 4)
+        for (int tx = 0; tx < w; tx += 4)
+            for (int y = ty; y < ty + 4; ++y)
+                for (int x = tx; x < tx + 4; ++x) {
+                    const std::uint16_t v = rgb5a3(&px[(static_cast<std::size_t>(y) * w + x) * 4]);
+                    out.push_back(static_cast<std::uint8_t>(v >> 8));
+                    out.push_back(static_cast<std::uint8_t>(v));
+                }
+    return out;
+}
+
+// Columns [x0, x1) of `rgba` (w wide, h tall), as their own picture.
+std::vector<std::uint8_t> columns(const std::uint8_t* rgba, int w, int h, int x0, int x1) {
+    std::vector<std::uint8_t> out(static_cast<std::size_t>(x1 - x0) * h * 4);
+    for (int y = 0; y < h; ++y)
+        std::copy(rgba + (static_cast<std::size_t>(y) * w + x0) * 4, rgba + (static_cast<std::size_t>(y) * w + x1) * 4,
+                  out.begin() + static_cast<std::ptrdiff_t>(y) * (x1 - x0) * 4);
+    return out;
+}
+}  // namespace
+
+std::vector<std::uint8_t> make_box_file(const std::uint8_t* rgba, int w, int h) {
+    int x0 = 0, x1 = 0;
+    if (!rgba || w > 4096 || h > 4096 || !spine_strip(w, h, x0, x1)) return {};
+    const std::vector<std::uint8_t> spine_src = columns(rgba, w, h, x0, x1);
+    const std::vector<std::uint8_t> front_src = columns(rgba, w, h, x1, w);
+    const std::vector<std::uint8_t> spine = scale_rgba(spine_src.data(), x1 - x0, h, kBoxSpineWidth, kBoxHeight);
+    const std::vector<std::uint8_t> front = scale_rgba(front_src.data(), w - x1, h, kBoxFrontWidth, kBoxHeight);
+    std::vector<std::uint8_t> px(static_cast<std::size_t>(kBoxWidth) * kBoxHeight * 4);
+    for (int y = 0; y < kBoxHeight; ++y) {
+        std::copy(spine.begin() + static_cast<std::ptrdiff_t>(y) * kBoxSpineWidth * 4,
+                  spine.begin() + static_cast<std::ptrdiff_t>(y + 1) * kBoxSpineWidth * 4,
+                  px.begin() + static_cast<std::ptrdiff_t>(y) * kBoxWidth * 4);
+        std::copy(front.begin() + static_cast<std::ptrdiff_t>(y) * kBoxFrontWidth * 4,
+                  front.begin() + static_cast<std::ptrdiff_t>(y + 1) * kBoxFrontWidth * 4,
+                  px.begin() + (static_cast<std::ptrdiff_t>(y) * kBoxWidth + kBoxSpineWidth) * 4);
+    }
+    // A box is solid: no see-through edges from the scan.
+    for (std::size_t i = 3; i < px.size(); i += 4) px[i] = 255;
+    return rgb5a3_file("RWB1", px, kBoxWidth, kBoxHeight);
+}
+
+bool box_header_valid(const std::uint8_t* h) {
+    return h && h[0] == 'R' && h[1] == 'W' && h[2] == 'B' && h[3] == '1' && ((h[4] << 8) | h[5]) == kBoxWidth &&
+           ((h[6] << 8) | h[7]) == kBoxHeight;
+}
+
 bool cover_header_valid(const std::uint8_t* h) {
     return h && h[0] == 'R' && h[1] == 'W' && h[2] == 'C' && h[3] == '1' && ((h[4] << 8) | h[5]) == kCoverWidth &&
            ((h[6] << 8) | h[7]) == kCoverHeight;

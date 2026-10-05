@@ -690,8 +690,11 @@ msgstr "Copertine"
 msgid "Names"
 msgstr "Nomi"
 
-msgid "Covers shows each game's box art from GameTDB, fetched while Home is open when downloads are on. Names shows the names only."
-msgstr "Copertine mostra la copertina di ogni gioco da GameTDB, scaricata con la home aperta se i download sono attivi. Nomi mostra solo i nomi."
+msgid "Shelf"
+msgstr "Scaffale"
+
+msgid "Covers shows each game's box art from GameTDB, fetched while Home is open when downloads are on. Shelf stands the games' boxes on a shelf. Names shows the names only."
+msgstr "Copertine mostra la copertina di ogni gioco da GameTDB, scaricata con la home aperta se i download sono attivi. Scaffale mette le custodie dei giochi su uno scaffale. Nomi mostra solo i nomi."
 
 msgid "Custom (no wfc_domain set)"
 msgstr "Personalizzato (wfc_domain non impostato)"

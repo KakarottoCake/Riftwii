@@ -326,7 +326,7 @@ static void test_skipped_cases() {
 
 static void test_theme_color_keys() {
     const auto& keys = theme_color_keys();
-    EXPECT_EQ(keys.size(), 30U);
+    EXPECT_EQ(keys.size(), 32U);
 
     // Unique keys.
     for (std::size_t i = 0; i < keys.size(); ++i) {
@@ -359,7 +359,7 @@ static void test_theme_color_keys() {
 
 static void test_theme_images() {
     const auto& images = theme_images();
-    EXPECT_EQ(images.size(), 42U);
+    EXPECT_EQ(images.size(), 43U);
 
     // Unique names.
     for (std::size_t i = 0; i < images.size(); ++i) {

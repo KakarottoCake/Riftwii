@@ -28,6 +28,7 @@ public:
     int height() const { return height_; }
     Rgba at(int x, int y) const;
     const std::vector<std::uint8_t>& pixels() const { return px_; }  // RGBA rows
+    void put(int x, int y, Rgba color);  // replaces the pixel (no blending)
 
     // Every shape blends over what is there (source-over, straight alpha).
     void fill(Rgba color);

@@ -19,6 +19,7 @@ namespace riftwii::wii::skin {
 extern GXColor kInk, kInkSoft, kInkDim, kClock, kAccent, kAccentInk, kWarn;
 extern GXColor kTextOnAccent;  // text on the accent or on a game's colour
 extern GXColor kBar, kDivider, kScrollTrack, kScrollThumb, kBadge;
+extern GXColor kShelfWood, kShelfEdge;  // Home's shelf: the plank's top and front
 extern GXColor kChipOn, kChipOff, kChipOffEdge;  // the option chips' (and the search keys') fill and edge
 // Always white (a QR code's background).
 constexpr GXColor kWhite = {255, 255, 255, 255};
@@ -31,6 +32,7 @@ struct Tex {
 // Built by Init(); each has a transparent margin for its shadow or glow.
 extern Tex tile, tileOver;               // 134x84 game tiles, drawn at -7,-7
 extern Tex coverTile, coverTileOver;     // 80x112 cover tiles, drawn at -7,-7
+extern Tex shelfPlank;                   // 256x64 RGBA8: the plank's top, then its front edge
 extern Tex roundBtn, roundBtnOver;       // 76 round buttons, drawn at -2,-2
 extern Tex pill, pillOver;               // 244x52 buttons, drawn at -4,-4
 extern Tex pillPrimary, pillPrimaryOver;

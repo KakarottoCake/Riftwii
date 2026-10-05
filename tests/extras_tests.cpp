@@ -553,6 +553,34 @@ void TestCoverArt() {
     EXPECT_EQ(file[8 + tile], 0xFF);
     EXPECT_EQ(file[8 + tile + 1], 0xFF);
     EXPECT_TRUE(make_cover_file(white.data(), 4, 4).empty());
+    // The shelf's box from a full cover: the spine between back and front.
+    EXPECT_EQ(coverfull_url("US", "RMCE01"), "http://art.gametdb.com/wii/coverfull/US/RMCE01.png");
+    int sx0 = 0, sx1 = 0;
+    EXPECT_TRUE(spine_strip(1024, 680, sx0, sx1));
+    EXPECT_EQ(sx0, 483);
+    EXPECT_EQ(sx1, 541);
+    // A picture with no room for a spine where it should be: 14 mm in the middle.
+    EXPECT_TRUE(spine_strip(1200, 680, sx0, sx1));
+    EXPECT_EQ(sx1 - sx0, 50);
+    EXPECT_FALSE(spine_strip(160, 224, sx0, sx1));
+    {
+        // Back red, spine green, front blue: the box's columns follow.
+        std::vector<std::uint8_t> full(1024 * 680 * 4, 0);
+        for (int y = 0; y < 680; ++y)
+            for (int x = 0; x < 1024; ++x) {
+                std::uint8_t* p = &full[(static_cast<std::size_t>(y) * 1024 + x) * 4];
+                p[x < 483 ? 0 : x < 541 ? 1 : 2] = 255;
+                p[3] = 255;
+            }
+        const std::vector<std::uint8_t> box = make_box_file(full.data(), 1024, 680);
+        EXPECT_EQ(box.size(), kBoxFileSize);
+        EXPECT_TRUE(box_header_valid(box.data()));
+        // First tile (spine, top left): green, opaque (RGB5A3 0x83E0).
+        EXPECT_EQ((box[8] << 8) | box[9], 0x83E0);
+        // The tile at column 16 (the front): blue (0x801F).
+        EXPECT_EQ((box[8 + 4 * 32] << 8) | box[8 + 4 * 32 + 1], 0x801F);
+        EXPECT_TRUE(make_box_file(full.data(), 160, 224).empty());
+    }
     std::uint8_t bad[8] = {'R', 'W', 'C', '1', 0, 40, 0, 112};
     EXPECT_FALSE(cover_header_valid(bad));
 
@@ -562,6 +590,8 @@ void TestCoverArt() {
     EXPECT_EQ(s.home_tiles, "names");
     s.parse("home_tiles = huge\n");
     EXPECT_EQ(s.home_tiles, "names");
+    s.parse("home_tiles = shelf\n");
+    EXPECT_EQ(s.home_tiles, "shelf");
     EXPECT_EQ(s.menu_sounds, "quiet");
     s.parse("menu_sounds = off\n");
     EXPECT_EQ(s.menu_sounds, "off");

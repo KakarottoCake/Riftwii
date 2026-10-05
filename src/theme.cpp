@@ -266,6 +266,15 @@ Theme parse_theme(const std::string& text, std::vector<std::string>& notes) {
                 } else {
                     theme.corners = corners_val;
                 }
+            } else if (key == "gloss") {
+                const std::string lower_val = to_lower(val);
+                if (lower_val == "yes" || lower_val == "true" || lower_val == "on" || lower_val == "1") {
+                    theme.gloss = true;
+                } else if (lower_val == "no" || lower_val == "false" || lower_val == "off" || lower_val == "0") {
+                    theme.gloss = false;
+                } else {
+                    add_note(notes, line_num, "gloss: \"" + val + "\" is not a boolean (yes/no/true/false/on/off/1/0); the default stays");
+                }
             } else {
                 add_note(notes, line_num, "unknown key '" + key + "' in [shape]; ignored");
             }
@@ -317,6 +326,8 @@ const std::vector<ThemeColorKey>& theme_color_keys() {
         {"scroll_track", &ThemeColors::scroll_track},
         {"scroll_thumb", &ThemeColors::scroll_thumb},
         {"badge", &ThemeColors::badge},
+        {"shelf", &ThemeColors::shelf},
+        {"shelf_edge", &ThemeColors::shelf_edge},
         {"pointer1", &ThemeColors::pointer1},
         {"pointer2", &ThemeColors::pointer2},
         {"pointer3", &ThemeColors::pointer3},
@@ -369,6 +380,7 @@ const std::vector<ThemeImage>& theme_images() {
         {"pointer2", 96, 96},
         {"pointer3", 96, 96},
         {"pointer4", 96, 96},
+        {"shelf", 256, 64},
     };
     return images;
 }

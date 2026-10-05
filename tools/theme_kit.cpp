@@ -56,6 +56,8 @@ const char* Where(const std::string& key) {
         {"scroll_track", "a list's scroll track"},
         {"scroll_thumb", "a list's scroll thumb"},
         {"badge", "a tile's DISC/USB/SD label"},
+        {"shelf", "the top of Home's shelf"},
+        {"shelf_edge", "the front edge of Home's shelf"},
         {"pointer1", "outline of player 1's pointer hand"},
         {"pointer2", "outline of player 2's pointer hand"},
         {"pointer3", "outline of player 3's pointer hand"},
@@ -82,6 +84,8 @@ std::string StarterIni() {
          "[shape]\n"
          "# Corner roundness, 0 (square) to 2 (twice as round).\n"
          "corners = 1\n"
+         "# A shine across the top of buttons and tiles: yes or no.\n"
+         "gloss = no\n"
          "\n"
          "[backdrop]\n"
          "# Thin horizontal stripes across the backdrop: yes or no.\n"

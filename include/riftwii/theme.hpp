@@ -58,6 +58,8 @@ struct ThemeColors {
     ThemeColor scroll_track{230, 230, 236, 255};
     ThemeColor scroll_thumb{168, 168, 180, 255};
     ThemeColor badge{236, 236, 241, 255};       // a tile's DISC/USB/SD label
+    ThemeColor shelf{196, 160, 120, 255};       // Home's shelf: the plank's top
+    ThemeColor shelf_edge{150, 112, 76, 255};   // and its front edge
     // The four players' pointers (outline colours).
     ThemeColor pointer1{59, 143, 214, 255};
     ThemeColor pointer2{214, 69, 69, 255};
@@ -71,6 +73,7 @@ struct Theme {
     ThemeColors colors;
     float corners = 1.0f;  // [shape] corners: radii are multiplied by it, 0 to 2
     bool stripes = true;   // [backdrop] stripes
+    bool gloss = false;    // [shape] gloss: a shine across the top of buttons and tiles
 };
 
 // The default look (no theme), as theme.ini would give it.

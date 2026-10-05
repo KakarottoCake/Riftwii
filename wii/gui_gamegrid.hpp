@@ -9,7 +9,9 @@
 
 // The home screen's games: a page of 12 tiles like the Wii Menu's
 // channels, either names (4x3 wide tiles) or box art (6x2 covers, the
-// lit game's name under them; a game without a cover shows its name).
+// lit game's name under them; a game without a cover shows its name), or
+// a shelf of game boxes standing spine out, the focused one pulled out
+// and turned to show its cover (wii/gui_shelf.cpp).
 // Point and press A, or move the focus with the D-pad; stepping past the
 // left or right column, or the arrows at the sides, turns the page. The
 // widget covers the whole screen and lays tiles out itself.
@@ -30,6 +32,13 @@ public:
     void SetItems(const std::vector<GridItem>* items);  // must outlive the grid
     // Covers (6x2) or names (4x3).
     void SetCovers(bool on);
+    // The shelf instead of either (covers drawn on its boxes' fronts).
+    void SetShelf(bool on);
+    bool Shelf() const { return shelf; }
+    // The shelf's games near the focus, nearest first: whose boxes to fetch.
+    std::vector<int> ShelfWanted() const;
+    // A box was stored for `id`: draw it from now on.
+    void BoxArrived(const std::string& id);
     // A cover was stored for `id`: draw it from now on.
     void CoverArrived(const std::string& id);
     // Keeps the focus on `index` (and its page).
@@ -71,6 +80,26 @@ private:
     void DrawCoverTile(int i, bool on, int alpha);
     void PrefetchCovers();
     void ReadAllCovers();
+    // The shelf (wii/gui_shelf.cpp).
+    struct BoxPose {
+        float x = 320.0f, z = 0.0f, turn = 0.0f, lift = 0.0f;
+        bool placed = false;
+    };
+    struct SpineRect {
+        int index;
+        float x0, y0, x1, y1;
+    };
+    void DrawShelf(int alpha);
+    void UpdateShelf(GuiTrigger* t);
+    void ShelfStep(int delta);
+    int ShelfHit(int x, int y) const;
+    std::vector<BoxPose> poses;
+    std::vector<SpineRect> spineRects;  // the boxes as last drawn, nearest last
+    GuiText* spineText = nullptr;       // a box without its art: the name up its spine
+    // Each spine's name as fitted, with the title it was fitted from.
+    std::vector<std::pair<std::string, std::string>> spineFit;
+    bool shelf = false;
+    int shelfHover = -1;                // the box a pointer is on
     // What ReadAllCovers last gave the loader.
     const std::vector<GridItem>* readAllItems = nullptr;
     int readAllCount = -1;

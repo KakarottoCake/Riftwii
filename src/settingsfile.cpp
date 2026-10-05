@@ -63,7 +63,7 @@ void LoaderSettings::parse(const std::string& text) {
             int slot;
             if (parse_cios_choice(value, slot)) game_cios = value;
         } else if (key == "home_tiles") {
-            if (value == "covers" || value == "names") home_tiles = value;
+            if (value == "covers" || value == "names" || value == "shelf") home_tiles = value;
         } else if (key == "return_to") {
             if (value == "riftwii" || value == "menu") return_to = value;
         } else if (key == "menu_music") {

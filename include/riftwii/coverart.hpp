@@ -38,4 +38,29 @@ std::vector<std::uint8_t> make_cover_file(const std::uint8_t* rgba, int w, int h
 // True when `header` (kCoverHeaderSize bytes) starts a stored cover.
 bool cover_header_valid(const std::uint8_t* header);
 
+// The box for the Home shelf, from GameTDB's full cover (back, spine and
+// front in one picture, e.g. 1024x680): the spine and the front, side by
+// side in one stored texture, so a game on the shelf is one read.
+constexpr int kBoxSpineWidth = 16;
+constexpr int kBoxFrontWidth = 128;
+constexpr int kBoxWidth = kBoxSpineWidth + kBoxFrontWidth;
+constexpr int kBoxHeight = 176;
+// "RWB1", the width and the height (big-endian 16-bit), then the pixels:
+// GX RGB5A3 in 4x4 tiles, the spine in the first kBoxSpineWidth columns.
+constexpr std::size_t kBoxHeaderSize = 8;
+constexpr std::size_t kBoxPixelBytes = static_cast<std::size_t>(kBoxWidth) * kBoxHeight * 2;
+constexpr std::size_t kBoxFileSize = kBoxHeaderSize + kBoxPixelBytes;
+
+std::string coverfull_url(const std::string& region, const std::string& game_id);
+
+// Where the spine is across a full cover `w` x `h`: [x0, x1). A Wii case's
+// front and back are 135 mm wide and 190 mm tall, the spine between them
+// about 14 mm; a picture whose middle strip is far off that gets a 14 mm
+// strip in its centre. False when the picture can't be a full cover.
+bool spine_strip(int w, int h, int& x0, int& x1);
+
+// The stored box for a full cover; empty when it can't be one.
+std::vector<std::uint8_t> make_box_file(const std::uint8_t* rgba, int w, int h);
+bool box_header_valid(const std::uint8_t* header);
+
 }  // namespace riftwii

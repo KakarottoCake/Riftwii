@@ -3,6 +3,7 @@
 #include "riftwii/skinpaint.hpp"
 
 #include <cmath>
+#include <algorithm>
 #include <cstring>
 #include <vector>
 
@@ -20,15 +21,23 @@ struct Painter {
           chip_off_edge(ToRgba(t.colors.chip_off_edge)), switch_off(ToRgba(t.colors.switch_off)),
           bar(ToRgba(t.colors.bar)), banner_stripe(ToRgba(t.colors.banner_stripe)),
           backdrop(ToRgba(t.colors.backdrop)), backdrop_stripe(ToRgba(t.colors.backdrop_stripe)),
-          corners(t.corners), stripes(t.stripes) {
+          shelf(ToRgba(t.colors.shelf)), shelf_edge(ToRgba(t.colors.shelf_edge)), corners(t.corners),
+          stripes(t.stripes), gloss(t.gloss) {
         const ThemeColor* p[4] = {&t.colors.pointer1, &t.colors.pointer2, &t.colors.pointer3, &t.colors.pointer4};
         for (int i = 0; i < 4; ++i) pointer[i] = ToRgba(*p[i]);
     }
 
     Rgba card, edge, edge_strong, shadow, accent, glow, glyph, chip_on, chip_off, chip_off_edge, switch_off, bar,
-        banner_stripe, backdrop, backdrop_stripe, pointer[4];
+        banner_stripe, backdrop, backdrop_stripe, pointer[4], shelf, shelf_edge;
     float corners;
-    bool stripes;
+    bool stripes, gloss;
+
+    // A glossy theme's shine: the top half of a shape, white fading down.
+    void Shine(Canvas& c, float x, float y, float w, float h, float radius) const {
+        if (!gloss || w < 4 || h < 4) return;
+        c.rounded_gradient(x + 1, y + 1, w - 2, h / 2, std::max(0.0f, radius - 1), Rgba{255, 255, 255, 120},
+                           Rgba{255, 255, 255, 30});
+    }
 
     // A corner radius as the theme rounds it.
     float R(float radius) const { return radius * corners; }
@@ -43,6 +52,7 @@ struct Painter {
         if (over) c.shadow(x - 1, y - 1, w + 2.0f, h + 2.0f, radius + 1, margin - 1.0f, glow, 2.0f);
         c.shadow(x, y + 2, static_cast<float>(w), static_cast<float>(h), radius, 4, shadow, 3.0f);
         c.rounded_rect(x, y, static_cast<float>(w), static_cast<float>(h), radius, card);
+        Shine(c, x, y, static_cast<float>(w), static_cast<float>(h), radius);
         if (over || primary) {
             c.rounded_border(x, y, static_cast<float>(w), static_cast<float>(h), radius, primary ? 3.0f : 2.5f, accent);
         } else {
@@ -56,6 +66,7 @@ struct Painter {
         if (over) c.circle(40, 40, 39, glow);
         c.circle(40, 41.5f, 38, shadow);
         c.circle(40, 40, 37, card);
+        Shine(c, 7, 3, 66, 74, 33);
         c.ring(40, 40, 37, over ? 2.5f : 2.0f, over ? accent : edge_strong);
         return c;
     }
@@ -63,6 +74,7 @@ struct Painter {
     Canvas Chip(bool on) const {
         Canvas c(212, 36);
         c.rounded_rect(2, 3, 208, 30, R(15), on ? chip_on : chip_off);
+        Shine(c, 2, 3, 208, 30, R(15));
         c.rounded_border(2, 3, 208, 30, R(15), 2, on ? accent : chip_off_edge);
         return c;
     }
@@ -206,6 +218,30 @@ struct Painter {
         return c;
     }
 
+    // Home's shelf: its top (rows 0-47, the far edge first) and its front
+    // edge (48-63), wood grain running along it; repeats across.
+    Canvas Shelf() const {
+        Canvas c(256, 64);
+        for (int y = 0; y < 64; ++y) {
+            const bool edgeRow = y >= 48;
+            const Rgba base = edgeRow ? shelf_edge : shelf;
+            for (int x = 0; x < 256; ++x) {
+                // Waving grain; its period divides 256, so the picture tiles.
+                const float fx = x * (2.0f * 3.14159265f / 256.0f);
+                const float wave = std::sin(y * 1.3f + 1.8f * std::sin(fx * 2.0f + y * 0.15f) + 0.9f * std::sin(fx * 5.0f));
+                float k = 0.93f + 0.07f * wave;
+                if (!edgeRow && y < 3) k *= 0.85f + 0.05f * y;  // the far edge in shade
+                if (y == 48) k = 1.18f;                         // the edge's lit lip
+                const auto ch = [&](std::uint8_t v) {
+                    const float f = v * k;
+                    return static_cast<std::uint8_t>(f > 255.0f ? 255.0f : f);
+                };
+                c.put(x, y, Rgba{ch(base.r), ch(base.g), ch(base.b), 255});
+            }
+        }
+        return c;
+    }
+
     // What the menu draws behind every screen without a background.png:
     // the backdrop colour, with a 2-pixel stripe every 4 rows.
     Canvas Background() const {
@@ -277,6 +313,7 @@ bool paint_theme_image(const std::string& name, const Theme& theme, Canvas& out)
         {"pointer2", [](const Painter& q) { return Painter::Hand(q.pointer[1]); }},
         {"pointer3", [](const Painter& q) { return Painter::Hand(q.pointer[2]); }},
         {"pointer4", [](const Painter& q) { return Painter::Hand(q.pointer[3]); }},
+        {"shelf", [](const Painter& q) { return q.Shelf(); }},
     };
     for (const Entry& e : kEntries) {
         if (name != e.name) continue;

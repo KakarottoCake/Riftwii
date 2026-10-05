@@ -75,7 +75,16 @@ The tiles show each game's cover, the name of the one you point at
 under them. Covers come from GameTDB while Home is open (about a second
 each, the page on screen first) and are kept in `sd:/riftwii/covers`;
 a game GameTDB has no cover for shows its name. **Home tiles** in
-Settings switches to name tiles.
+Settings switches to name tiles, or to the shelf.
+
+On the **shelf**, your games stand as boxes, spine out. The one you're
+on slides out and turns to show its front; Left and Right move along the
+shelf, Minus and Plus jump 12 games, and A opens the game. With the
+pointer, point at a spine (it lifts), press A to pull that box out, and
+A again to open it. Each box's spine and front come from GameTDB's full
+cover scan, fetched after the covers while Home is open and kept in
+`sd:/riftwii/boxes`. A game GameTDB has no scan for gets a white spine
+with its name and its cover on the front.
 
 ### A game's page
 
@@ -164,13 +173,15 @@ the list explains the row you are on.
 - **Picture width**, **Deflicker**, **Black borders**, **Video mode**,
   **Game language**, **Game cIOS**, **Online server**: the defaults for
   every game.
-- **Home tiles**: covers or names.
+- **Home tiles**: covers, shelf or names.
 - **Theme**: steps through *Default* (RiftWii's own light look, no files
   needed) and every folder in `sd:/riftwii/themes/` that has a `theme.ini`,
   shown by the theme's `name` (or the folder name if it has none).
   RiftWii offers to restart its menu to show the new theme. The choice is
   saved as `theme = <folder>` in `sd:/riftwii/settings.txt`
-  (`theme = default` for the default). More in [THEMES.md](THEMES.md).
+  (`theme = default` for the default). The zip comes with two:
+  *Midnight* (dark) and *Linen* (woven cloth, glossy buttons and a warm
+  wood shelf). More in [THEMES.md](THEMES.md).
 - **Menu font**: *RiftWii* (its own) or *Wii Menu*, the font the Wii Menu
   writes with, read from your Wii's own memory (nothing is downloaded, and
   it covers Japanese too). RiftWii offers to restart its menu to switch.

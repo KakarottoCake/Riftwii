@@ -610,11 +610,12 @@ T = {
     "Home tiles": ("Casillas de inicio", "ホームの表示", "Blocos do início", "Riquadri della home"),
     "Covers": ("Portadas", "パッケージ", "Capas", "Copertine"),
     "Names": ("Nombres", "名前", "Nomes", "Nomi"),
-    "Covers shows each game's box art from GameTDB, fetched while Home is open when downloads are on. Names shows the names only.": (
-        "Portadas muestra la carátula de cada juego de GameTDB, que se descarga con el inicio abierto si las descargas están activadas. Nombres muestra solo los nombres.",
-        "パッケージではGameTDBの各ゲームのパッケージ画像を表示します。ダウンロードがオンなら、ホームを開いている間に取得します。名前では名前だけを表示します。",
-        "Capas mostra a capa de cada jogo do GameTDB, baixada com o início aberto quando os downloads estão ligados. Nomes mostra só os nomes.",
-        "Copertine mostra la copertina di ogni gioco da GameTDB, scaricata con la home aperta se i download sono attivi. Nomi mostra solo i nomi."),
+    "Shelf": ("Estante", "棚", "Estante", "Scaffale"),
+    "Covers shows each game's box art from GameTDB, fetched while Home is open when downloads are on. Shelf stands the games' boxes on a shelf. Names shows the names only.": (
+        "Portadas muestra la carátula de cada juego de GameTDB, que se descarga con el inicio abierto si las descargas están activadas. Estante pone las cajas de los juegos en un estante. Nombres muestra solo los nombres.",
+        "パッケージではGameTDBの各ゲームのパッケージ画像を表示します。ダウンロードがオンなら、ホームを開いている間に取得します。棚ではゲームのケースを棚に並べます。名前では名前だけを表示します。",
+        "Capas mostra a capa de cada jogo do GameTDB, baixada com o início aberto quando os downloads estão ligados. Estante põe as caixas dos jogos numa estante. Nomes mostra só os nomes.",
+        "Copertine mostra la copertina di ogni gioco da GameTDB, scaricata con la home aperta se i download sono attivi. Scaffale mette le custodie dei giochi su uno scaffale. Nomi mostra solo i nomi."),
     "Custom (no wfc_domain set)": (
         "Personalizado (sin wfc_domain)", "カスタム（wfc_domain未設定）", "Personalizado (sem wfc_domain)",
         "Personalizzato (wfc_domain non impostato)"),

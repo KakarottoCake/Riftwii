@@ -43,6 +43,7 @@
 #include "memlimits.hpp"
 #include "modpicture.hpp"
 #include "vsdimage.hpp"
+#include "boxart.hpp"
 #include "covers.hpp"
 #include "riftwii/coverart.hpp"
 #include "riftwii/qrcode.hpp"
@@ -718,6 +719,9 @@ static std::string g_homeNotice;
 // Covers: the games looked at this session; off after a network failure.
 static std::set<std::string> g_coversChecked;
 static bool g_coversOff = false;
+// The shelf's boxes (wii/boxart.cpp), asked for as the shelf comes near them.
+static std::set<std::string> g_boxesChecked;
+static bool g_boxesOff = false;
 
 void SetHomeNotice(const std::string& text) { g_homeNotice = text; }
 
@@ -1489,6 +1493,7 @@ static int MenuSource(FrontendState& state)
 
 	GuiGameGrid grid;
 	grid.SetCovers(riftwii::wii::Settings().home_tiles != "names");
+	grid.SetShelf(riftwii::wii::Settings().home_tiles == "shelf");
 	grid.SetItems(&items);
 	grid.Focus(g_homeFocus);
 	HomeBar bar;
@@ -1646,6 +1651,15 @@ static int MenuSource(FrontendState& state)
 			}
 			if (got != riftwii::wii::CoverFetch::Stored) arrived.clear();
 		}
+		std::string boxArrived, boxError;
+		riftwii::wii::CoverFetch boxGot = riftwii::wii::CoverFetch::NotFound;
+		if (riftwii::wii::TakeBoxFetch(boxArrived, boxGot, boxError)) {
+			if (boxGot == riftwii::wii::CoverFetch::Failed) {
+				logf("Shelf: box downloads stopped: %s\n", boxError.c_str());
+				g_boxesOff = true;
+			}
+			if (boxGot != riftwii::wii::CoverFetch::Stored) boxArrived.clear();
+		}
 		// Not while the update check has the network.
 		if (!coverQueue.empty() && !g_coversOff && !riftwii::wii::NetBackgroundBusy() && !riftwii::wii::NetFailed() &&
 		    riftwii::wii::CoverFetchGame().empty()) {
@@ -1663,8 +1677,20 @@ static int MenuSource(FrontendState& state)
 				coverNote = tr("Getting covers from GameTDB: {1} left", {std::to_string(coverQueue.size() + 1)});
 			}
 		}
+		// The shelf's boxes once the covers are in: the ones near the focus first.
+		if (coverQueue.empty() && grid.Shelf() && !g_boxesOff && !g_coversOff && riftwii::wii::Settings().online &&
+		    !riftwii::wii::NetBackgroundBusy() && !riftwii::wii::NetFailed() && riftwii::wii::CoverFetchGame().empty() &&
+		    riftwii::wii::BoxFetchGame().empty()) {
+			for (const int i : grid.ShelfWanted()) {
+				const std::string& id = items[static_cast<std::size_t>(i)].id;
+				if (!g_boxesChecked.insert(id).second || !riftwii::wii::BoxWanted(id)) continue;
+				riftwii::wii::StartBoxFetch(id);
+				break;
+			}
+		}
 		HaltGui();
 		if (!arrived.empty()) grid.CoverArrived(arrived);
+		if (!boxArrived.empty()) grid.BoxArrived(boxArrived);
 		if (!coverNote.empty()) {
 			statusTxt.SetText(coverNote.c_str());
 			coverNoteShown = !g_coversOff;  // a failure stays up
@@ -1686,7 +1712,8 @@ static int MenuSource(FrontendState& state)
 		if (grid.Page() != shownPage || grid.Pages() != shownPages) {
 			shownPage = grid.Page();
 			shownPages = grid.Pages();
-			const std::string page = shownPages > 1 ? tr("Page {1} of {2}", {std::to_string(shownPage + 1), std::to_string(shownPages)}) : "";
+			// The shelf has no pages: Minus and Plus move it by 12 games.
+			const std::string page = shownPages > 1 && !grid.Shelf() ? tr("Page {1} of {2}", {std::to_string(shownPage + 1), std::to_string(shownPages)}) : "";
 			pageTxt.SetText(page.c_str());
 		}
 		std::string nowClock, nowDate;
@@ -3344,7 +3371,7 @@ static int MenuSettings(FrontendState& state)
 			kGameLanguage);
 		option(tr("Game cIOS"), CiosName(settings.game_cios), settings.game_cios != "auto", kGameCios);
 		option(tr("Online server"), ServerName(settings.wfc_server), settings.wfc_server != "off", kServer);
-		option(tr("Home tiles"), settings.home_tiles == "names" ? tr("Names") : tr("Covers"),
+		option(tr("Home tiles"), settings.home_tiles == "names" ? tr("Names") : settings.home_tiles == "shelf" ? tr("Shelf") : tr("Covers"),
 			settings.home_tiles != "names", kHomeTiles);
 		option(tr("Theme"), themeName(settings.theme), settings.theme != "default", kTheme);
 		option(tr("Menu font"), settings.menu_font == "wii" ? tr("Wii Menu") : "RiftWii", settings.menu_font == "wii", kFont);
@@ -3497,7 +3524,7 @@ static int MenuSettings(FrontendState& state)
 			case kVideoMode: return tr("The TV signal the game sends. PAL 50 Hz needs a TV that takes it, 480p a component cable.");
 			case kGameLanguage: return tr("The language the game is told the console uses. Pick one the game has: some games stop without it.");
 			case kGameCios: return tr("The d2x cIOS the game runs under. Automatic uses the menu's, else the first of 249, 250 and 251 that works.");
-			case kHomeTiles: return tr("Covers shows each game's box art from GameTDB, fetched while Home is open when downloads are on. Names shows the names only.");
+			case kHomeTiles: return tr("Covers shows each game's box art from GameTDB, fetched while Home is open when downloads are on. Shelf stands the games' boxes on a shelf. Names shows the names only.");
 			case kTheme: return tr("The menu's colours and pictures. Themes are folders in sd:/riftwii/themes (docs/THEMES.md on GitHub).");
 			case kFont: return tr("The letters the menu is written in: RiftWii's own, or the Wii Menu's, read from this Wii.");
 			case kSounds: return tr("How loud the menu's clicks are. Quiet softens the tick the pointer makes moving onto something.");
@@ -3635,8 +3662,8 @@ static int MenuSettings(FrontendState& state)
 					rebuild();
 					break;
 				case kHomeTiles:
-					settings.home_tiles = settings.home_tiles == "names" ? "covers" : "names";
-					saveAndNote(tr("Covers shows each game's box art from GameTDB, fetched while Home is open when downloads are on. Names shows the names only."));
+					settings.home_tiles = settings.home_tiles == "covers" ? "shelf" : settings.home_tiles == "shelf" ? "names" : "covers";
+					saveAndNote(tr("Covers shows each game's box art from GameTDB, fetched while Home is open when downloads are on. Shelf stands the games' boxes on a shelf. Names shows the names only."));
 					rebuild();
 					break;
 				case kTheme: {
