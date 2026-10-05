@@ -120,6 +120,22 @@ Tex Pick(const ThemeImage& im) {
 
 Tex background;
 
+Tex HintBox(int w, int h) {
+    struct Kept {
+        int w, h;
+        Tex tex;
+    };
+    // A few at most (one per hover name and language): MEM2 is never given back.
+    static std::vector<Kept> kept;
+    for (const Kept& k : kept)
+        if (k.w == w && k.h == h) return k.tex;
+    if (kept.size() >= 8) return Tex();
+    Canvas c(0, 0);
+    paint_hint_box(MenuTheme(), w, h, c);
+    kept.push_back(Kept{w, h, Upload(c)});
+    return kept.back().tex;
+}
+
 void Init() {
     if (g_ready) return;
     LoadMenuTheme();

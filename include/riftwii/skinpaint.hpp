@@ -16,4 +16,10 @@ namespace riftwii {
 // a name theme_images() does not list.
 bool paint_theme_image(const std::string& name, const Theme& theme, Canvas& out);
 
+// The rounded box behind a hover name, `w` x `h` with a margin of
+// kHintBoxMargin all round for its shadow. Sized to the text, so it is
+// painted on the Wii as needed rather than listed for themes.
+constexpr int kHintBoxMargin = 6;
+void paint_hint_box(const Theme& theme, int w, int h, Canvas& out);
+
 }  // namespace riftwii

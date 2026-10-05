@@ -50,6 +50,7 @@
 #include "credits.hpp"
 #include "gcadapter.hpp"
 #include "skin.hpp"
+#include "riftwii/skinpaint.hpp"
 #include "wiidrc.h"
 #include "menu.h"
 #include "autorun.hpp"
@@ -807,19 +808,22 @@ public:
 	void Draw() override { Menu_DrawRectangle(0, 0, screenwidth, screenheight, (GXColor){0, 0, 0, 150}, 1); }
 };
 
-// The box behind a hover name, so it reads over covers: the search keys'
-// fill and edge, sized to the text. `anchorX` is the text's centre
-// (centred) or its right end, `top` the text's top, both on screen.
+// The box behind a hover name, so it reads over covers: a rounded card
+// with a soft shadow in the theme's colours (skin::HintBox), sized to the
+// text and fading with it. `anchorX` is the text's centre (centred) or
+// its right end, `top` the text's top, both on screen.
 class HintChip : public GuiElement {
 public:
 	HintChip(GuiText& text, int anchorX, int top, bool centred)
 		: text_(text), anchorX_(anchorX), top_(top), centred_(centred) {}
 	void Draw() override {
-		if (!text_.IsVisible()) return;
-		const int w = text_.GetTextWidth() + 16;
-		const int x = centred_ ? anchorX_ - w / 2 : anchorX_ - w + 8;
-		Menu_DrawRectangle(x - 1, top_ - 5, w + 2, 28, skin::kChipOffEdge, 1);
-		Menu_DrawRectangle(x, top_ - 4, w, 26, skin::kChipOff, 1);
+		if (!text_.IsVisible() || text_.GetAlpha() <= 0) return;
+		const int w = (text_.GetTextWidth() + 24 + 3) & ~3, h = 28;
+		const skin::Tex box = skin::HintBox(w, h);
+		if (box.data == nullptr) return;
+		const int x = centred_ ? anchorX_ - w / 2 : anchorX_ - w + 12;
+		Menu_DrawImg(x - riftwii::kHintBoxMargin, top_ - 5 - riftwii::kHintBoxMargin, box.w, box.h, box.data, 0, 1, 1,
+			static_cast<u8>(text_.GetAlpha()));
 	}
 
 private:
@@ -1506,9 +1510,11 @@ static int MenuSource(FrontendState& state)
 	// Each on a box of its own: the search's sits over the covers.
 	HintChip filterChip(filterHint, 64, 354, true), settingsChip(settingsHint, 576, 354, true),
 		searchChip(searchHint, 568, 21, false);
-	filterHint.SetVisible(false);
-	settingsHint.SetVisible(false);
-	searchHint.SetVisible(false);
+	int hintAlpha[3] = {0, 0, 0};  // the hover names' fades
+	for (GuiText* hint : {&filterHint, &settingsHint, &searchHint}) {
+		hint->SetAlpha(0);
+		hint->SetVisible(false);
+	}
 	std::string clock, date;
 	ClockText(clock, date);
 	GuiText clockTxt(clock.c_str(), 34, skin::kClock);
@@ -1664,9 +1670,15 @@ static int MenuSource(FrontendState& state)
 			coverNoteShown = false;
 		}
 		ClearStaleButtons({&filterBtn.button, &settingsBtn.button, &searchBtn.button});
-		filterHint.SetVisible(filterBtn.button.GetState() == STATE::SELECTED);
-		settingsHint.SetVisible(settingsBtn.button.GetState() == STATE::SELECTED);
-		searchHint.SetVisible(searchBtn.button.GetState() == STATE::SELECTED);
+		// A hover name fades in while the pointer rests on its button, and out after.
+		const auto fade = [](GuiText& hint, int& a, bool on) {
+			a = std::max(0, std::min(255, a + (on ? 40 : -40)));
+			hint.SetAlpha(a);
+			hint.SetVisible(a > 0);
+		};
+		fade(filterHint, hintAlpha[0], filterBtn.button.GetState() == STATE::SELECTED);
+		fade(settingsHint, hintAlpha[1], settingsBtn.button.GetState() == STATE::SELECTED);
+		fade(searchHint, hintAlpha[2], searchBtn.button.GetState() == STATE::SELECTED);
 		if (TakeUpdateCheck() && !coverNoteShown) statusTxt.SetText(HomeStatus(state, items.size()).c_str());
 		if (grid.Page() != shownPage || grid.Pages() != shownPages) {
 			shownPage = grid.Page();

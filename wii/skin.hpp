@@ -53,6 +53,10 @@ extern Tex background;                   // 640x480, a theme's (else none: GuiBa
 // nullptr when MEM2 is full.
 u8* Mem2Alloc(std::size_t bytes);
 
+// A hover name's rounded box (riftwii/skinpaint.hpp), `w` x `h` plus
+// its shadow's margin; painted once per size and kept.
+Tex HintBox(int w, int h);
+
 // Reads the theme (wii/menutheme.hpp), then paints or loads every picture.
 void Init();
 bool Ready();
