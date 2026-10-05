@@ -30,7 +30,8 @@ maintainer's direction (see "About AI assistance" in the main README).
 attempt to add Riivolution support to a fork of USB Loader GX; these
 documents are the rules that kept its code out of RiftWii. Credit for
 the parts of USB Loader GX that RiftWii does follow is in
-[NOTICE.md](../NOTICE.md).
+[NOTICE.md](../NOTICE.md), checked against the code by
+[ATTRIBUTION_AUDIT.md](ATTRIBUTION_AUDIT.md) (`tools/attribution_audit.py`).
 
 | Page | What it was |
 | --- | --- |

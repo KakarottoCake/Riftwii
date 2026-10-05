@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
+// SPDX-FileCopyrightText: 2009 Tantric (libwiigui template) <https://github.com/dborth/libwiigui>
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "skin.hpp"
 
