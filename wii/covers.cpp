@@ -287,16 +287,18 @@ bool Started() {
 // Every frame for every cover wanted and not ready. Wakes the loader each
 // time: one that found no free slot waits for the next ask.
 void Ask(const std::string& game_id, int rank) {
-    LWP_CondSignal(g_wake);
     const u64 now = gettime();
     for (Request& r : g_requests) {
         if (r.id == game_id) {
+            // Renewed every frame: the loader is woken only when it matters more.
+            if (rank < r.rank) LWP_CondSignal(g_wake);
             r.rank = rank;
             r.at = now;
             return;
         }
     }
     g_requests.push_back({game_id, rank, now});
+    LWP_CondSignal(g_wake);
 }
 
 }  // namespace

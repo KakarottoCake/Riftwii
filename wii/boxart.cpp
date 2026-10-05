@@ -9,6 +9,7 @@
 #include <ctime>
 #include <new>
 #include <set>
+#include <unordered_map>
 #include <vector>
 
 #include "loadersettings.hpp"
@@ -120,6 +121,7 @@ struct Slot {
     unsigned used = 0;
 };
 Slot g_slots[kSlots];
+std::unordered_map<std::string, Slot*> g_index;  // the filled slots by game
 unsigned g_clock = 0;
 u32 g_readFrame = ~0u;          // the frame a box was last read in
 std::set<std::string> g_absent;  // not on the card (or unreadable)
@@ -157,15 +159,18 @@ bool TakeBoxFetch(std::string& game_id, CoverFetch& got, std::string& error) {
 
 const u8* BoxTexture(const std::string& game_id) {
     if (game_id.empty()) return nullptr;
-    Slot* victim = &g_slots[0];
-    for (Slot& s : g_slots) {
-        if (s.data && s.id == game_id) {
-            s.used = ++g_clock;
-            return s.data;
-        }
-        if (s.used < victim->used) victim = &s;
+    const auto found = g_index.find(game_id);
+    if (found != g_index.end()) {
+        found->second->used = ++g_clock;
+        return found->second->data;
     }
-    if (g_absent.count(game_id) || g_readFrame == FrameTimer) return nullptr;
+    if (g_readFrame == FrameTimer || g_absent.count(game_id)) return nullptr;
+    // A read: the slot drawn longest ago makes room.
+    Slot* victim = &g_slots[0];
+    for (Slot& s : g_slots)
+        if (s.used < victim->used) victim = &s;
+    if (!victim->id.empty()) g_index.erase(victim->id);
+    victim->id.clear();
     g_readFrame = FrameTimer;
     FILE* f = std::fopen(BoxPath(game_id).c_str(), "rb");
     if (!f) {
@@ -187,16 +192,17 @@ const u8* BoxTexture(const std::string& game_id) {
     GX_InvalidateTexAll();
     victim->id = game_id;
     victim->used = ++g_clock;
+    g_index[game_id] = victim;
     return victim->data;
 }
 
 void ForgetBox(const std::string& game_id) {
     g_absent.erase(game_id);
-    for (Slot& s : g_slots)
-        if (s.id == game_id) {
-            s.id.clear();
-            s.used = 0;
-        }
+    const auto found = g_index.find(game_id);
+    if (found == g_index.end()) return;
+    found->second->id.clear();
+    found->second->used = 0;
+    g_index.erase(found);
 }
 
 }  // namespace riftwii::wii

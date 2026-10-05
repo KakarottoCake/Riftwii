@@ -34,6 +34,7 @@
 #include <fstream>
 #include <initializer_list>
 #include <set>
+#include <unordered_map>
 #include <sstream>
 #include <wiiuse/wpad.h>
 #include <ogc/lwp_watchdog.h>
@@ -734,6 +735,7 @@ struct IconSlot {
 	u32 used = 0;
 };
 static IconSlot g_icons[16];
+static std::unordered_map<std::string, IconSlot*> g_iconIndex;  // the filled slots by game
 static u32 g_iconClock = 0;
 static u32 g_iconLoadFrame = ~0u;
 static std::set<std::string> g_bannersTried;   // read from the image this session (or tried)
@@ -742,16 +744,16 @@ static std::set<std::string> g_bannerAbsent;   // not on the card when last look
 static riftwii::wii::BannerPlayer* IconFor(const std::string& id)
 {
 	if (id.empty()) return nullptr;
-	IconSlot* victim = &g_icons[0];
-	for (IconSlot& s : g_icons) {
-		if (s.player && s.id == id) {
-			s.used = ++g_iconClock;
-			return s.player.get();
-		}
-		if (s.used < victim->used) victim = &s;
+	const auto found = g_iconIndex.find(id);
+	if (found != g_iconIndex.end()) {
+		found->second->used = ++g_iconClock;
+		return found->second->player.get();
 	}
-	if (g_bannerAbsent.count(id) || g_iconLoadFrame == FrameTimer) return nullptr;
+	if (g_iconLoadFrame == FrameTimer || g_bannerAbsent.count(id)) return nullptr;
 	g_iconLoadFrame = FrameTimer;
+	IconSlot* victim = &g_icons[0];
+	for (IconSlot& s : g_icons)
+		if (s.used < victim->used) victim = &s;
 	std::vector<std::uint8_t> bytes;
 	std::string error;
 	std::unique_ptr<riftwii::wii::BannerPlayer> player(new riftwii::wii::BannerPlayer());
@@ -764,9 +766,11 @@ static riftwii::wii::BannerPlayer* IconFor(const std::string& id)
 		g_bannerAbsent.insert(id);
 		return nullptr;
 	}
+	if (!victim->id.empty()) g_iconIndex.erase(victim->id);
 	victim->id = id;
 	victim->player = std::move(player);
 	victim->used = ++g_iconClock;
+	g_iconIndex[id] = victim;
 	return victim->player.get();
 }
 
@@ -1752,6 +1756,7 @@ static int MenuSource(FrontendState& state)
 	queueCovers();
 
 	int shownPage = -1, shownPages = -1;
+	int bannerPageDone = -1;  // Channels: the page whose banners were all looked at
 	// The status line says covers are coming while they are, and why they
 	// stopped when a download failed.
 	bool coverNoteShown = false;
@@ -1800,8 +1805,10 @@ static int MenuSource(FrontendState& state)
 		}
 		// Channels: the banners of the page shown, read from the games' images
 		// (a moment each, once: they are kept on the card).
-		if (grid.Channels()) {
+		// Once a page's games have all been looked at, it is not looked at again.
+		if (grid.Channels() && grid.PageFirst() != bannerPageDone) {
 			const std::size_t first = static_cast<std::size_t>(grid.PageFirst());
+			bool read = false;
 			for (std::size_t k = first; k < first + GuiGameGrid::kPerPage && k < items.size(); ++k) {
 				const HomeEntry& e = entries[k];
 				if (e.kind == HomeEntry::Kind::Disc || !g_bannersTried.insert(items[k].id).second) continue;
@@ -1810,8 +1817,10 @@ static int MenuSource(FrontendState& state)
 					: state.sd_catalog.games[e.index];
 				std::string why;
 				if (riftwii::wii::StoreBanner(game, why)) g_bannerAbsent.erase(items[k].id);
+				read = true;
 				break;
 			}
+			if (!read) bannerPageDone = grid.PageFirst();
 		}
 		// The shelf's boxes once the covers are in: the ones near the focus first.
 		if (coverQueue.empty() && grid.Shelf() && !g_boxesOff && !g_coversOff && riftwii::wii::Settings().online &&
