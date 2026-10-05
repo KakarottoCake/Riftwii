@@ -20,8 +20,9 @@
 // On the USB drive it is read through d2x's /dev/usb2, which the loader
 // opens for a game on the USB drive only.
 //
-// The blob's code and state go to the bottom of the MEM2 arena, built
-// at its top and copied down at the jump (the resident runtime's way);
+// The blob's code and state go to the top of the MEM2 arena, whose end
+// comes down (the start stays: Project M 3.6 reads fixed addresses in
+// Brawl's MEM2 heaps);
 // the game's functions reach the code through veneers in the code
 // handler's list room, which a code build's own list leaves free. Without
 // that room the code goes below the MEM1 arena's top instead.
@@ -55,12 +56,13 @@ struct VsdHook {
     std::uint32_t state_base = 0;
     std::uint32_t state_bytes = 0;
     bool code_in_mem2 = false;
-    std::uint32_t data_base = 0;                // the MEM2 block (code when in MEM2, then the state)
+    std::uint32_t data_base = 0;                // the MEM2 block (code when in MEM2, then the state), at the arena's top
     std::uint32_t data_bytes = 0;
-    std::uint32_t stage_base = 0;               // where it is built; copied to data_base at the jump
+    std::uint32_t stage_base = 0;               // where it is built: data_base itself
     std::uint32_t veneers = 0;                  // MEM1 veneers' address (code in MEM2)
     std::uint32_t new_arena1_hi = 0;
-    std::uint32_t new_arena2_lo = 0;
+    std::uint32_t new_arena2_lo = 0;           // unchanged: the game's MEM2 heaps stay where they always are
+    std::uint32_t new_arena2_hi = 0;           // the MEM2 arena's new end (0x80003128): data_base
 };
 
 // Before the <memory> patches. `mem1_veneers`: the MEM1 room for the

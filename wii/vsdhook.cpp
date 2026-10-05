@@ -179,15 +179,20 @@ bool plan_vsd_hook(const DolHeader& dol, const VsdImage& image, const VsdDevice&
          out.functions[VSD_CLOSE], out.functions[VSD_IOCTL_ASYNC], out.functions[VSD_IOCTL],
          out.functions[VSD_IOCTLV_ASYNC], out.functions[VSD_IOCTLV]);
 
-    // 2. Memory: code and state at the bottom of the MEM2 arena (the code
-    //    below the MEM1 arena's top instead when there is no veneer room),
-    //    built at the top of the arena, above this loader's own memory.
+    // 2. Memory: code and state at the top of the MEM2 arena, its end
+    //    lowered (the code below the MEM1 arena's top instead when there
+    //    is no veneer room), built in place, above this loader's own
+    //    memory. Not at the bottom: the arena's start stays where it is,
+    //    as Project M 3.6's codes read fixed addresses in Brawl's MEM2
+    //    heaps (0x90e60f10, its sound loader) and crashed when they moved.
     out.code_bytes = align_up(h.size);
     out.state_bytes = align_up(sizeof(vsd_state));
     out.code_in_mem2 = mem1_veneers != 0;
     out.veneers = mem1_veneers;
-    out.data_base = align_up(arena2_lo);
     out.data_bytes = out.state_bytes + (out.code_in_mem2 ? out.code_bytes : 0);
+    const std::uint32_t arena2_end = *reinterpret_cast<volatile std::uint32_t*>(kMem2ArenaEndField);
+    const std::uint32_t loader_top = reinterpret_cast<std::uint32_t>(SYS_GetArena2Hi());
+    out.data_base = (arena2_end - out.data_bytes) & ~31u;
     if (out.code_in_mem2) {
         out.code_base = out.data_base;
         out.state_base = out.data_base + out.code_bytes;
@@ -201,11 +206,10 @@ bool plan_vsd_hook(const DolHeader& dol, const VsdImage& image, const VsdDevice&
             return false;
         }
     }
-    out.new_arena2_lo = out.data_base + out.data_bytes;
-    const std::uint32_t arena2_end = *reinterpret_cast<volatile std::uint32_t*>(kMem2ArenaEndField);
-    const std::uint32_t loader_top = reinterpret_cast<std::uint32_t>(SYS_GetArena2Hi());
-    out.stage_base = (arena2_end - out.data_bytes) & ~31u;
-    if (arena2_end < out.data_bytes || out.stage_base < loader_top || out.stage_base < out.new_arena2_lo) {
+    out.new_arena2_lo = arena2_lo;
+    out.new_arena2_hi = out.data_base;
+    out.stage_base = out.data_base;
+    if (arena2_end < out.data_bytes || out.data_base < loader_top || out.data_base < align_up(arena2_lo)) {
         char buf[160];
         std::snprintf(buf, sizeof(buf), "no room in the MEM2 arena (0x%08x-0x%08x, this loader's memory ends at 0x%08x)",
                       arena2_lo, arena2_end, loader_top);
@@ -337,8 +341,9 @@ bool install_vsd_hook(VsdHook& hook, std::string& why) {
 
 void place_vsd_hook(const VsdHook& hook) {
     if (!hook.active) return;
-    std::memcpy(reinterpret_cast<void*>(hook.data_base), reinterpret_cast<const void*>(hook.stage_base),
-                hook.data_bytes);
+    if (hook.data_base != hook.stage_base)
+        std::memmove(reinterpret_cast<void*>(hook.data_base), reinterpret_cast<const void*>(hook.stage_base),
+                     hook.data_bytes);
     DCFlushRange(reinterpret_cast<void*>(hook.data_base), hook.data_bytes);
     ICInvalidateRange(reinterpret_cast<void*>(hook.data_base), hook.data_bytes);
 }

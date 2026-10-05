@@ -1299,6 +1299,10 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
             error = "the virtual SD card: " + why;
             return false;
         }
+        // The arena's end comes down now, so what is planned after it (the
+        // adapter's hook, a crash's blob) is built below the card's block.
+        store32(0x80003128, vsd.new_arena2_hi);
+        DCFlushRange(reinterpret_cast<void*>(0x80003120), 32);
     }
     const auto base_arena1_hi = [&]() {
         return vsd.active ? vsd.new_arena1_hi : options.install_resident ? resident.new_arena1_hi : game_arena1_hi();
@@ -1439,9 +1443,10 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         write32(0x80003124, pad.new_arena2_lo);
     } else if (options.install_resident && resident.new_arena2_lo != resident.old_arena2_lo) {
         write32(0x80003124, resident.new_arena2_lo);
-    } else if (vsd.active) {
-        write32(0x80003124, vsd.new_arena2_lo);
     }
+    // The virtual SD card's MEM2 block is the arena's top: its end comes
+    // down instead, the start (and the game's heaps) staying put.
+    if (vsd.active) write32(0x80003128, vsd.new_arena2_hi);
 
     // <memory> patches, last of all so they win over the globals above (as
     // in Dolphin, which writes low memory before its patches). Writes may
