@@ -89,3 +89,14 @@ only (how its choices files and macros work), never copied. Behavioural referenc
   with BT.601 for the YUV to RGB conversion. The PNG writer
   (`src/pngencode.cpp`) follows the PNG specification and RFC 1951
   (Deflate). No code was used from any of them.
+- Game banners and channel icons (`src/bnr.cpp`, `src/tpl.cpp`,
+  `src/brlyt.cpp`, `src/brlan.cpp`, `src/wiicrypt.cpp`, `wii/banners.*`,
+  `wii/bannerplay.*`, `wii/otpkey.*`) follow the public format pages:
+  WiiBrew's Opening.bnr, U8 archive, LZ77, Wii disc, Ticket and
+  Hardware/OTP pages, and the Custom Mario Kart wiki's (mkwiiki.org) TPL,
+  BRLYT, BRLAN and BRLAN Targets pages. AES-128 follows FIPS-197. Which of
+  a material's colours a texel's black and white become, the language
+  groups and the second texture as an alpha mask were worked out from
+  games' own banners. No banner tool's or loader's code was read or used,
+  and no key ships with RiftWii: the common key is read from the
+  player's own Wii at run time and kept in memory only.

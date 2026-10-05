@@ -43,6 +43,8 @@
 #include "memlimits.hpp"
 #include "modpicture.hpp"
 #include "vsdimage.hpp"
+#include "bannerplay.hpp"
+#include "banners.hpp"
 #include "boxart.hpp"
 #include "covers.hpp"
 #include "riftwii/coverart.hpp"
@@ -722,6 +724,106 @@ static bool g_coversOff = false;
 // The shelf's boxes (wii/boxart.cpp), asked for as the shelf comes near them.
 static std::set<std::string> g_boxesChecked;
 static bool g_boxesOff = false;
+
+// The Channels view: each game's own icon from its banner (wii/banners.cpp),
+// read from its image once and kept on the card. A few icons are kept
+// playing, the ones drawn last; one is loaded from the card a frame.
+struct IconSlot {
+	std::string id;
+	std::unique_ptr<riftwii::wii::BannerPlayer> player;
+	u32 used = 0;
+};
+static IconSlot g_icons[16];
+static u32 g_iconClock = 0;
+static u32 g_iconLoadFrame = ~0u;
+static std::set<std::string> g_bannersTried;   // read from the image this session (or tried)
+static std::set<std::string> g_bannerAbsent;   // not on the card when last looked for
+
+static riftwii::wii::BannerPlayer* IconFor(const std::string& id)
+{
+	if (id.empty()) return nullptr;
+	IconSlot* victim = &g_icons[0];
+	for (IconSlot& s : g_icons) {
+		if (s.player && s.id == id) {
+			s.used = ++g_iconClock;
+			return s.player.get();
+		}
+		if (s.used < victim->used) victim = &s;
+	}
+	if (g_bannerAbsent.count(id) || g_iconLoadFrame == FrameTimer) return nullptr;
+	g_iconLoadFrame = FrameTimer;
+	std::vector<std::uint8_t> bytes;
+	std::string error;
+	std::unique_ptr<riftwii::wii::BannerPlayer> player(new riftwii::wii::BannerPlayer());
+	if (!riftwii::wii::LoadBanner(id, bytes)) {
+		g_bannerAbsent.insert(id);
+		return nullptr;
+	}
+	if (!player->Load(bytes, true, error)) {
+		logf("Icon of %s: %s\n", id.c_str(), error.c_str());
+		g_bannerAbsent.insert(id);
+		return nullptr;
+	}
+	victim->id = id;
+	victim->player = std::move(player);
+	victim->used = ++g_iconClock;
+	return victim->player.get();
+}
+
+// The full banner, as the Wii Menu shows a channel before it starts:
+// Back, or Continue to the game's page.
+class ChannelView : public GuiElement {
+public:
+	riftwii::wii::BannerPlayer player;
+	void Draw() override {
+		Menu_DrawRectangle(0, 0, screenwidth, screenheight, (GXColor){0, 0, 0, 255}, 1);
+		player.Step();
+		player.Draw(0, 0, 640, 480, 255);
+		// The bar the buttons sit on, over the banner's lowest part.
+		Menu_DrawRectangle(0, 384, screenwidth, 96, skin::WithAlpha(skin::kBar, 235), 1);
+		Menu_DrawRectangle(0, 384, screenwidth, 2, skin::kAccent, 1);
+	}
+};
+
+// True for Continue. Built and closed with the GUI halted.
+static bool ShowChannel(const std::string& id)
+{
+	std::vector<std::uint8_t> bytes;
+	if (!riftwii::wii::LoadBanner(id, bytes)) return true;
+	ChannelView view;
+	std::string error;
+	if (!view.player.Load(bytes, false, error)) {
+		logf("Banner of %s: %s\n", id.c_str(), error.c_str());
+		return true;
+	}
+	std::vector<std::uint8_t>().swap(bytes);
+	SkinButton backBtn(skin::pill, skin::pillOver, 4, 70, 404, tr("Back"),
+		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B | WPAD_BUTTON_HOME | WPAD_CLASSIC_BUTTON_HOME, PAD_BUTTON_B,
+		WIIDRC_BUTTON_B | WIIDRC_BUTTON_HOME);
+	SkinButton goBtn(skin::pillPrimary, skin::pillPrimaryOver, 4, 326, 404, tr("Continue"),
+		WPAD_BUTTON_A | WPAD_CLASSIC_BUTTON_A, PAD_BUTTON_A, WIIDRC_BUTTON_A);
+	GuiWindow w(screenwidth, screenheight);
+	w.Append(&view);
+	w.Append(&backBtn.button);
+	w.Append(&goBtn.button);
+	mainWindow->SetState(STATE::DISABLED);
+	mainWindow->Append(&w);
+	w.SetState(STATE::DEFAULT);
+	logf("Screen: channel %s\n", id.c_str());
+	ResumeGui();
+	int choice = -1;
+	while (choice < 0) {
+		usleep(20000);
+		HaltGui();
+		ClearStaleButtons({&backBtn.button, &goBtn.button});
+		if (backBtn.Clicked()) choice = 1;
+		else if (goBtn.Clicked()) choice = 0;
+		if (choice < 0) ResumeGui();
+	}
+	mainWindow->Remove(&w);
+	mainWindow->SetState(STATE::DEFAULT);
+	return choice == 0;
+}
 
 void SetHomeNotice(const std::string& text) { g_homeNotice = text; }
 
@@ -1494,6 +1596,15 @@ static int MenuSource(FrontendState& state)
 	GuiGameGrid grid;
 	grid.SetCovers(riftwii::wii::Settings().home_tiles != "names");
 	grid.SetShelf(riftwii::wii::Settings().home_tiles == "shelf");
+	grid.SetChannels(riftwii::wii::Settings().home_tiles == "channels",
+		[&items](int index, float x, float y, float w, float h, int alpha) {
+			if (index < 0 || static_cast<std::size_t>(index) >= items.size()) return false;
+			riftwii::wii::BannerPlayer* icon = IconFor(items[static_cast<std::size_t>(index)].id);
+			if (!icon) return false;
+			icon->Step();
+			icon->Draw(x, y, w, h, alpha);
+			return true;
+		});
 	grid.SetItems(&items);
 	grid.Focus(g_homeFocus);
 	HomeBar bar;
@@ -1677,6 +1788,21 @@ static int MenuSource(FrontendState& state)
 				coverNote = tr("Getting covers from GameTDB: {1} left", {std::to_string(coverQueue.size() + 1)});
 			}
 		}
+		// Channels: the banners of the page shown, read from the games' images
+		// (a moment each, once: they are kept on the card).
+		if (grid.Channels()) {
+			const std::size_t first = static_cast<std::size_t>(grid.PageFirst());
+			for (std::size_t k = first; k < first + GuiGameGrid::kPerPage && k < items.size(); ++k) {
+				const HomeEntry& e = entries[k];
+				if (e.kind == HomeEntry::Kind::Disc || !g_bannersTried.insert(items[k].id).second) continue;
+				if (!riftwii::wii::BannerWanted(items[k].id)) continue;
+				const riftwii::wii::ImageGame& game = e.kind == HomeEntry::Kind::Usb ? state.usb_catalog.games[e.index]
+					: state.sd_catalog.games[e.index];
+				std::string why;
+				if (riftwii::wii::StoreBanner(game, why)) g_bannerAbsent.erase(items[k].id);
+				break;
+			}
+		}
 		// The shelf's boxes once the covers are in: the ones near the focus first.
 		if (coverQueue.empty() && grid.Shelf() && !g_boxesOff && !g_coversOff && riftwii::wii::Settings().online &&
 		    !riftwii::wii::NetBackgroundBusy() && !riftwii::wii::NetFailed() && riftwii::wii::CoverFetchGame().empty() &&
@@ -1729,6 +1855,13 @@ static int MenuSource(FrontendState& state)
 		if (clicked >= 0 && static_cast<std::size_t>(clicked) < entries.size()) {
 			g_homeFocus = clicked;
 			const HomeEntry entry = entries[static_cast<std::size_t>(clicked)];
+			// Channels: the game's banner first, as the Wii Menu opens a channel.
+			if (grid.Channels() && entry.kind != HomeEntry::Kind::Disc &&
+				!g_bannerAbsent.count(items[static_cast<std::size_t>(clicked)].id) &&
+				!ShowChannel(items[static_cast<std::size_t>(clicked)].id)) {
+				ResumeGui();
+				continue;
+			}
 			std::string error;
 			statusTxt.SetText(entry.kind == HomeEntry::Kind::Disc ? "Reading the disc..." : "Opening the game...");
 			ResumeGui();
@@ -3371,7 +3504,8 @@ static int MenuSettings(FrontendState& state)
 			kGameLanguage);
 		option(tr("Game cIOS"), CiosName(settings.game_cios), settings.game_cios != "auto", kGameCios);
 		option(tr("Online server"), ServerName(settings.wfc_server), settings.wfc_server != "off", kServer);
-		option(tr("Home tiles"), settings.home_tiles == "names" ? tr("Names") : settings.home_tiles == "shelf" ? tr("Shelf") : tr("Covers"),
+		option(tr("Home tiles"), settings.home_tiles == "names" ? tr("Names") : settings.home_tiles == "shelf" ? tr("Shelf")
+			: settings.home_tiles == "channels" ? tr("Channels") : tr("Covers"),
 			settings.home_tiles != "names", kHomeTiles);
 		option(tr("Theme"), themeName(settings.theme), settings.theme != "default", kTheme);
 		option(tr("Menu font"), settings.menu_font == "wii" ? tr("Wii Menu") : "RiftWii", settings.menu_font == "wii", kFont);
@@ -3524,7 +3658,7 @@ static int MenuSettings(FrontendState& state)
 			case kVideoMode: return tr("The TV signal the game sends. PAL 50 Hz needs a TV that takes it, 480p a component cable.");
 			case kGameLanguage: return tr("The language the game is told the console uses. Pick one the game has: some games stop without it.");
 			case kGameCios: return tr("The d2x cIOS the game runs under. Automatic uses the menu's, else the first of 249, 250 and 251 that works.");
-			case kHomeTiles: return tr("Covers shows each game's box art from GameTDB, fetched while Home is open when downloads are on. Shelf stands the games' boxes on a shelf. Names shows the names only.");
+			case kHomeTiles: return tr("Covers shows each game's box art from GameTDB, fetched while Home is open when downloads are on. Shelf stands the games' boxes on a shelf. Channels shows each game's own animated icon, as the Wii Menu does, and its banner when you pick it. Names shows the names only.");
 			case kTheme: return tr("The menu's colours and pictures. Themes are folders in sd:/riftwii/themes (docs/THEMES.md on GitHub).");
 			case kFont: return tr("The letters the menu is written in: RiftWii's own, or the Wii Menu's, read from this Wii.");
 			case kSounds: return tr("How loud the menu's clicks are. Quiet softens the tick the pointer makes moving onto something.");
@@ -3662,8 +3796,9 @@ static int MenuSettings(FrontendState& state)
 					rebuild();
 					break;
 				case kHomeTiles:
-					settings.home_tiles = settings.home_tiles == "covers" ? "shelf" : settings.home_tiles == "shelf" ? "names" : "covers";
-					saveAndNote(tr("Covers shows each game's box art from GameTDB, fetched while Home is open when downloads are on. Shelf stands the games' boxes on a shelf. Names shows the names only."));
+					settings.home_tiles = settings.home_tiles == "covers" ? "shelf" : settings.home_tiles == "shelf" ? "channels"
+						: settings.home_tiles == "channels" ? "names" : "covers";
+					saveAndNote(tr("Covers shows each game's box art from GameTDB, fetched while Home is open when downloads are on. Shelf stands the games' boxes on a shelf. Channels shows each game's own animated icon, as the Wii Menu does, and its banner when you pick it. Names shows the names only."));
 					rebuild();
 					break;
 				case kTheme: {

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -39,6 +40,14 @@ public:
     std::vector<int> ShelfWanted() const;
     // A box was stored for `id`: draw it from now on.
     void BoxArrived(const std::string& id);
+    // Channels: the names' 4x3 tiles, each showing the game's own animated
+    // icon from its banner when `icon` draws one (item index, the box to
+    // fill in screen pixels, alpha); a game without one shows its name.
+    using IconDrawer = std::function<bool(int index, float x, float y, float w, float h, int alpha)>;
+    void SetChannels(bool on, IconDrawer icon);
+    bool Channels() const { return channels; }
+    // The items on the page shown: whose icons to have ready.
+    int PageFirst() const { return page * kPerPage; }
     // A cover was stored for `id`: draw it from now on.
     void CoverArrived(const std::string& id);
     // Keeps the focus on `index` (and its page).
@@ -100,6 +109,10 @@ private:
     std::vector<std::pair<std::string, std::string>> spineFit;
     bool shelf = false;
     int shelfHover = -1;                // the box a pointer is on
+    bool channels = false;
+    IconDrawer iconDrawer;
+    bool iconShown[kPerPage] = {};  // channels: the tile drew its icon this frame
+    void DrawChannelLabel(int slot, int alpha);
     // What ReadAllCovers last gave the loader.
     const std::vector<GridItem>* readAllItems = nullptr;
     int readAllCount = -1;

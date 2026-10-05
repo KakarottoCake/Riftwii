@@ -26,7 +26,7 @@ struct LoaderSettings {
     std::string game_cios = "auto";       // auto (d2x in 249-251), 248 ... 252
     std::string wfc_server = "off";       // online play: riftwii/wfcpatch.hpp names
     std::string wfc_domain;               // the "custom" server's domain
-    std::string home_tiles = "covers";    // Home's tiles: covers, names or shelf
+    std::string home_tiles = "covers";    // Home's tiles: covers, names, shelf or channels
     std::string menu_sounds = "quiet";    // normal, quiet (a soft hover tick), off
     std::string menu_music = "on";        // on, off: music.ogg while the menu is open
     std::string theme = "default";        // default, or a folder in sd:/riftwii/themes (docs/THEMES.md)

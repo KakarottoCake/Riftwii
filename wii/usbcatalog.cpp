@@ -34,6 +34,9 @@
 #include "riftwii/rvz.hpp"
 #include "riftwii/titles.hpp"
 #include "riftwii/wbfspart.hpp"
+#include "riftwii/bnr.hpp"
+#include "riftwii/wiicrypt.hpp"
+#include "otpkey.hpp"
 #include "memlimits.hpp"
 #include "umsdev.hpp"
 #include "gcadapter.hpp"
@@ -825,6 +828,61 @@ bool check_image_game(ImageGame& game, std::string& error) {
     game = std::move(opened);
     error.clear();
     return !rvz_refused(game, error);
+}
+
+bool read_image_disc_file(const ImageGame& game, const std::string& disc_path, std::vector<std::uint8_t>& out,
+                          std::string& error) {
+    UsbImage image;
+    if (game.wbfs_slot >= 0) {
+        if (game.device != ImageDevice::Usb || !g_usb_wbfs) { error = "USB drive is not mounted any more"; return false; }
+        image = wbfs_slot_image(&usb_read, *g_usb_wbfs, static_cast<std::uint32_t>(game.wbfs_slot));
+    } else {
+        const ImageVolume* volume = game.device == ImageDevice::Usb ? g_usb_volume.get() : g_sd_volume.get();
+        const std::string prefix = game.device == ImageDevice::Usb ? "usb:/" : "sd:/";
+        const std::size_t slash = game.path.find_last_of('/');
+        if (!volume || game.path.compare(0, prefix.size(), prefix) != 0 || slash == std::string::npos ||
+            slash < prefix.size() - 1) {
+            error = std::string(device_name(game.device)) + " drive is not mounted any more";
+            return false;
+        }
+        if (game.format == UsbImageFormat::Rvz) {
+            // An RVZ keeps its partitions decrypted: no key needed.
+            if (!add_piece(*volume, prefix, game.path, image, error)) return false;
+            std::unique_ptr<RvzImage> rvz;
+            if (!RvzImage::open(image.pieces[0].source, rvz, error)) return false;
+            RvzRawSource raw(*rvz);
+            std::vector<PartitionEntry> table;
+            PartitionEntry partition;
+            PartitionHeader header;
+            if (!read_partition_table(raw, table, error)) return false;
+            if (!find_game_partition(table, partition)) { error = "the disc has no game partition"; return false; }
+            if (!read_partition_header(raw, partition.offset, header, error)) return false;
+            const std::size_t index = rvz->partition_at(header.data_offset);
+            if (index == SIZE_MAX) { error = "the RVZ has no data for its game partition"; return false; }
+            const RvzPartitionSource data(*rvz, index);
+            return read_partition_file(data, disc_path, out, error);
+        }
+        std::vector<VolumeEntry> entries;
+        std::vector<std::string> siblings;
+        if (!volume->list(game.path.substr(prefix.size() - 1, slash - (prefix.size() - 1)), entries, error)) {
+            error = "cannot list the game's folder: " + error;
+            return false;
+        }
+        for (const VolumeEntry& e : entries) siblings.push_back(e.name);
+        if (!make_image(*volume, prefix, game.path, siblings, game.format, image, error)) return false;
+    }
+    std::unique_ptr<UsbDiscSource> disc;
+    if (!UsbDiscSource::open(image, disc, error)) return false;
+    std::uint8_t key[16];
+    if (!ConsoleCommonKey(key)) {
+        error = "this Wii's key cannot be read (no hardware access)";
+        return false;
+    }
+    std::unique_ptr<WiiPartitionSource> data;
+    const bool opened = open_game_partition(*disc, key, data, error);
+    std::memset(key, 0, sizeof key);
+    if (!opened) return false;
+    return read_partition_file(*data, disc_path, out, error);
 }
 
 std::vector<std::string> usb_mod_folders(const std::string& game_id) {

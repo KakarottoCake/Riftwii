@@ -86,6 +86,16 @@ cover scan, fetched after the covers while Home is open and kept in
 `sd:/riftwii/boxes`. A game GameTDB has no scan for gets a white spine
 with its name and its cover on the front.
 
+With **Channels**, each tile plays the game's own animated icon, the one
+the Wii Menu shows for a disc channel, and the tile you're on shows the
+game's name. Pick a game and its full banner plays, as the Wii Menu opens
+a channel: **Back** returns to Home, **Continue** goes on to the game's
+page. Each game's banner is read from its image the first time its page
+of tiles is shown (a moment per game) and kept in `sd:/riftwii/banners`.
+For ISO and WBFS games RiftWii decrypts it with your Wii's own key, read
+from the console while it runs; nothing like it ships with RiftWii or is
+written to the card. A game without a banner shows its name tile.
+
 ### A game's page
 
 Games you start show on the Wii Message Board with how long you
@@ -173,7 +183,7 @@ the list explains the row you are on.
 - **Picture width**, **Deflicker**, **Black borders**, **Video mode**,
   **Game language**, **Game cIOS**, **Online server**: the defaults for
   every game.
-- **Home tiles**: covers, shelf or names.
+- **Home tiles**: covers, shelf, channels or names.
 - **Theme**: steps through *Default* (RiftWii's own light look, no files
   needed) and every folder in `sd:/riftwii/themes/` that has a `theme.ini`,
   shown by the theme's `name` (or the folder name if it has none).

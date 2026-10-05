@@ -16,6 +16,7 @@ constexpr int kCoverTitleSize = 13;  // covers: a tile without a cover
 constexpr int kCaptionSize = 18;     // covers: the lit game's name
 constexpr int kCaptionY = 266;
 constexpr int kShelfCaptionY = 266;  // under the shelf (wii/gui_shelf.cpp)
+constexpr int kChannelLabelSize = 15;  // channels: the lit icon's name
 constexpr int kTextLeft = 11;
 constexpr int kCoverTextLeft = 6;
 // The page arrows (36 across in a 48 canvas) sit 14 in from the screen's
@@ -133,6 +134,13 @@ void GuiGameGrid::SetCovers(bool on) {
 }
 
 void GuiGameGrid::CoverArrived(const std::string& id) { riftwii::wii::ForgetCover(id); }
+
+void GuiGameGrid::SetChannels(bool on, IconDrawer icon) {
+    channels = on;
+    iconDrawer = on ? std::move(icon) : IconDrawer();
+    captionFor = -1;
+    if (channels) SetCovers(false);
+}
 
 void GuiGameGrid::SetShelf(bool on) {
     if (shelf == on) return;
@@ -341,6 +349,28 @@ void GuiGameGrid::DrawCoverTile(int i, bool on, int alpha) {
     }
 }
 
+void GuiGameGrid::DrawChannelLabel(int slot, int alpha) {
+    const int shown = page * kPerPage + slot;
+    if (shown != captionFor) {
+        captionFor = shown;
+        measure->SetFontSize(kChannelLabelSize);
+        caption->SetFontSize(kChannelLabelSize);
+        caption->SetText(Fit((*items)[shown].title, 220).c_str());
+        measure->SetFontSize(kTitleSize);
+    }
+    const int textW = caption->GetTextWidth();
+    const int boxW = textW + 18, boxH = kChannelLabelSize + 10;
+    int x = TileX(slot) + Geo().tileW / 2 - boxW / 2;
+    x = x < 8 ? 8 : x + boxW > 632 ? 632 - boxW : x;
+    const int y = TileY(slot) + Geo().tileH - 6;
+    Menu_DrawRectangle(x - 1, y - 1, boxW + 2, boxH + 2, skin::WithAlpha(skin::kAccent, alpha), 1);
+    Menu_DrawRectangle(x, y, boxW, boxH, skin::WithAlpha(skin::kBar, alpha), 1);
+    // The caption is centred on the screen's middle: move it to the box's.
+    caption->SetPosition(x + boxW / 2 - screenwidth / 2, y + 4);
+    caption->SetAlpha(alpha);
+    caption->Draw();
+}
+
 // The neighbouring pages' covers, read ahead in the background so turning
 // finds them in memory: the next two the way the pages last turned, then
 // the one behind.
@@ -400,6 +430,19 @@ void GuiGameGrid::Draw() {
         Slot& s = slots[i];
         const bool on = i == lit;
         s.scale += ((on ? 1.06f : 1.0f) - s.scale) * 0.35f;
+        iconShown[i] = false;
+        if (channels && iconDrawer) {
+            // The icon inside the tile's frame at 4:3, like a screen in its
+            // bezel, scaled about the tile's centre.
+            const float tileW = Geo().tileW, tileH = Geo().tileH;
+            const float h = (tileH - 8) * s.scale, w = h * 4.0f / 3.0f;
+            const float cx = TileX(i) + tileW / 2.0f, cy = TileY(i) + tileH / 2.0f;
+            skin::Draw(on ? skin::tileOver : skin::tile, TileX(i) - 7, TileY(i) - 7, tileAlpha, s.scale);
+            if (iconDrawer(page * kPerPage + i, cx - w / 2, cy - h / 2, w, h, tileAlpha)) {
+                iconShown[i] = true;
+                return;
+            }
+        }
         if (covers) DrawCoverTile(i, on, tileAlpha);
         else DrawNameTile(i, on, tileAlpha);
     };
@@ -408,6 +451,9 @@ void GuiGameGrid::Draw() {
         draw_tile(i);
     }
     if (lit >= 0 && page * kPerPage + lit < Count()) draw_tile(lit);
+    // Channels: the lit icon's name on a label across its tile's foot.
+    if (channels && lit >= 0 && lit < kPerPage && iconShown[lit] && page * kPerPage + lit < Count())
+        DrawChannelLabel(lit, tileAlpha);
     if (covers) {
         // The lit game's name (the focused one's while nothing is lit).
         const int shown = lit >= 0 ? page * kPerPage + lit : focus;

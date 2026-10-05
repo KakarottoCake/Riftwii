@@ -693,8 +693,14 @@ msgstr "Nombres"
 msgid "Shelf"
 msgstr "Estante"
 
-msgid "Covers shows each game's box art from GameTDB, fetched while Home is open when downloads are on. Shelf stands the games' boxes on a shelf. Names shows the names only."
-msgstr "Portadas muestra la carátula de cada juego de GameTDB, que se descarga con el inicio abierto si las descargas están activadas. Estante pone las cajas de los juegos en un estante. Nombres muestra solo los nombres."
+msgid "Channels"
+msgstr "Canales"
+
+msgid "Continue"
+msgstr "Continuar"
+
+msgid "Covers shows each game's box art from GameTDB, fetched while Home is open when downloads are on. Shelf stands the games' boxes on a shelf. Channels shows each game's own animated icon, as the Wii Menu does, and its banner when you pick it. Names shows the names only."
+msgstr "Portadas muestra la carátula de cada juego de GameTDB, que se descarga con el inicio abierto si las descargas están activadas. Estante pone las cajas de los juegos en un estante. Canales muestra el icono animado de cada juego, como el menú de Wii, y su banner al elegirlo. Nombres muestra solo los nombres."
 
 msgid "Custom (no wfc_domain set)"
 msgstr "Personalizado (sin wfc_domain)"

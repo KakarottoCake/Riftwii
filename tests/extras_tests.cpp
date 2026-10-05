@@ -592,6 +592,8 @@ void TestCoverArt() {
     EXPECT_EQ(s.home_tiles, "names");
     s.parse("home_tiles = shelf\n");
     EXPECT_EQ(s.home_tiles, "shelf");
+    s.parse("home_tiles = channels\n");
+    EXPECT_EQ(s.home_tiles, "channels");
     EXPECT_EQ(s.menu_sounds, "quiet");
     s.parse("menu_sounds = off\n");
     EXPECT_EQ(s.menu_sounds, "off");

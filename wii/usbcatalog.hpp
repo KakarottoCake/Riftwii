@@ -81,6 +81,10 @@ void release_usb_driver();
 // d2x fragment list, filling title, revision and disc number (and the ID
 // from the header). Needs the catalog's drive still mounted.
 bool check_image_game(ImageGame& game, std::string& error);
+// A file from the game's partition ("/opening.bnr"): an RVZ's as stored,
+// an ISO's or WBFS's decrypted with the console's own key (wii/otpkey.hpp).
+bool read_image_disc_file(const ImageGame& game, const std::string& disc_path, std::vector<std::uint8_t>& out,
+                          std::string& error);
 // For an RVZ game that plays at the player's own risk: the warning to show
 // before it starts. Empty otherwise.
 std::string rvz_warning(const ImageGame& game);
