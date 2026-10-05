@@ -56,6 +56,8 @@ u8* Mem2Alloc(std::size_t bytes);
 // A hover name's rounded box (riftwii/skinpaint.hpp), `w` x `h` plus
 // its shadow's margin; painted once per size and kept.
 Tex HintBox(int w, int h);
+// The Mods page's picture popup's card, `w` x `h` plus the same margin.
+Tex ArtFrame(int w, int h);
 
 // Reads the theme (wii/menutheme.hpp), then paints or loads every picture.
 void Init();

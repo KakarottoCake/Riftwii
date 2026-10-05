@@ -40,6 +40,7 @@
 #include "libwiigui/gui.h"
 #include "gui_flowlist.hpp"
 #include "memlimits.hpp"
+#include "modpicture.hpp"
 #include "vsdimage.hpp"
 #include "covers.hpp"
 #include "riftwii/coverart.hpp"
@@ -2551,6 +2552,81 @@ static bool MenuPickCodes(const FrontendState& state, std::string& key)
 // ---------------------------------------------------------------------------
 // Mods: the packs made for the game, opened from the game page.
 
+// A mod's picture beside its row while it is pointed at (or focused): the
+// PNG next to the mod (wii/modpicture.hpp), else the game's own cover,
+// else the disc; with no picture of its own, the file name to add. Fades
+// in and out like the hover names.
+class ModPicturePopup : public GuiElement {
+public:
+	static constexpr int kInset = 4;
+	static constexpr int kCaption = 38;
+	static constexpr int kW = riftwii::wii::kModPictureW + 2 * kInset;
+	static constexpr int kH = riftwii::wii::kModPictureH + 2 * kInset + kCaption;
+
+	explicit ModPicturePopup(std::string gameId)
+		: gameId(std::move(gameId)), caption(tr("Add a picture:"), 13, skin::kInkDim), name("", 14, skin::kInkSoft) {
+		// Without a parent a text's position is the screen's: centred on x.
+		caption.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
+		name.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
+		caption.SetMaxWidth(kW - 8);
+	}
+	// What to show, beside a row whose top is at `rowTop`: below it, else
+	// above it (beside the Back button there is room down to the bottom).
+	void Show(const u8* picture, const std::string& hint, int rowTop) {
+		tex = picture;
+		hinted = !picture && !hint.empty();
+		name.SetText(hint.c_str());
+		for (int size = 14; size >= 10; --size) {
+			name.SetFontSize(size);
+			if (name.GetTextWidth() <= kW - 8) break;
+		}
+		name.SetMaxWidth(kW - 8);
+		const int h = hinted ? kH : kH - kCaption;
+		x = 590 - kW;
+		y = rowTop + GuiFlowList::kRowHeight + 6;
+		if (y + h > 472) y = rowTop - 6 - h;
+		if (y < 8) y = 8;
+		wanted = true;
+	}
+	void Hide() { wanted = false; }
+	// Once a loop pass: the fade.
+	void Step() { alpha = std::max(0, std::min(255, alpha + (wanted ? 40 : -40))); }
+	void Draw() override {
+		if (alpha <= 0) return;
+		// The hint's lines only when there is a hint.
+		const skin::Tex frame = skin::ArtFrame(kW, hinted ? kH : kH - kCaption);
+		skin::Draw(frame, x - riftwii::kHintBoxMargin, y - riftwii::kHintBoxMargin, alpha);
+		const int px = x + kInset, py = y + kInset;
+		if (tex) {
+			Menu_DrawImg(px, py, riftwii::wii::kModPictureW, riftwii::wii::kModPictureH, const_cast<u8*>(tex), 0, 1, 1,
+				static_cast<u8>(alpha));
+		} else if (const u8* cover = riftwii::wii::CoverTexture(gameId)) {
+			// 80x112 at 1.5 fills the 120x168 box; it scales about its centre.
+			skin::DrawRgb5a3(cover, riftwii::kCoverWidth, riftwii::kCoverHeight,
+				px + (riftwii::wii::kModPictureW - riftwii::kCoverWidth) / 2.0f,
+				py + (riftwii::wii::kModPictureH - riftwii::kCoverHeight) / 2.0f, alpha, 1.5f);
+		} else {
+			skin::Draw(skin::iconDisc, px + (riftwii::wii::kModPictureW - skin::iconDisc.w) / 2,
+				py + (riftwii::wii::kModPictureH - skin::iconDisc.h) / 2, alpha);
+		}
+		if (!hinted) return;
+		const int ty = py + riftwii::wii::kModPictureH + 4;
+		caption.SetPosition(x + kW / 2, ty);
+		name.SetPosition(x + kW / 2, ty + 16);
+		caption.SetAlpha(alpha);
+		name.SetAlpha(alpha);
+		caption.Draw();
+		name.Draw();
+	}
+
+private:
+	std::string gameId;
+	GuiText caption, name;
+	const u8* tex = nullptr;
+	int x = 0, y = 0, alpha = 0;
+	bool wanted = false, hinted = false;
+};
+
 static void MenuMods(FrontendState& state, std::string& scanStatus)
 {
 	std::vector<FlowRow> rows;
@@ -2572,6 +2648,7 @@ static void MenuMods(FrontendState& state, std::string& scanStatus)
 	noteTxt.SetWrap(true, 536, 4);
 	SkinButton backBtn(skin::pill, skin::pillOver, 4, 198, 406, "Back",
 		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
+	ModPicturePopup picture(state.game_id);
 
 	HaltGui();
 	GuiWindow w(screenwidth, screenheight);
@@ -2581,11 +2658,14 @@ static void MenuMods(FrontendState& state, std::string& scanStatus)
 	w.Append(&list);
 	w.Append(&noteTxt);
 	w.Append(&backBtn.button);
+	w.Append(&picture);
 	mainWindow->Append(&w);
 	ResumeGui();
 
 	const auto say = [&](const std::string& text) { noteTxt.SetText(text.c_str()); };
 	int shownRow = -1;
+	// The picture comes up once the pointer rests on a mod's row a moment.
+	int pictureRow = -1, pictureRest = 0;
 	bool done = false;
 	while (!done)
 	{
@@ -2594,6 +2674,20 @@ static void MenuMods(FrontendState& state, std::string& scanStatus)
 		ClearStaleButtons({&backBtn.button});
 
 		const int row = list.Selected();
+		{
+			const bool modRow = row >= 0 && static_cast<std::size_t>(row) < refs.size() &&
+					    refs[static_cast<std::size_t>(row)].what == RowRef::What::Pack &&
+					    state.model.packages[refs[static_cast<std::size_t>(row)].pkg].valid;
+			if (row != pictureRow) {
+				pictureRow = row;
+				pictureRest = 0;
+				picture.Hide();
+			} else if (modRow && ++pictureRest == 20) {
+				const riftwii::LaunchPackage& p = state.model.packages[refs[static_cast<std::size_t>(row)].pkg];
+				picture.Show(riftwii::wii::ModPicture(p), riftwii::wii::ModPictureName(p), list.RowTop(row));
+			}
+			picture.Step();
+		}
 		if (row != shownRow && row >= 0 && static_cast<std::size_t>(row) < refs.size()) {
 			shownRow = row;
 			const RowRef& ref = refs[static_cast<std::size_t>(row)];
@@ -2677,6 +2771,7 @@ static void MenuMods(FrontendState& state, std::string& scanStatus)
 
 	HaltGui();
 	mainWindow->Remove(&w);
+	riftwii::wii::ForgetModPictures();
 }
 
 static int MenuHome(FrontendState& state)

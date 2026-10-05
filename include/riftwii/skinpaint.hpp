@@ -21,5 +21,7 @@ bool paint_theme_image(const std::string& name, const Theme& theme, Canvas& out)
 // painted on the Wii as needed rather than listed for themes.
 constexpr int kHintBoxMargin = 6;
 void paint_hint_box(const Theme& theme, int w, int h, Canvas& out);
+// The Mods page's picture popup: a card `w` x `h`, the same margin.
+void paint_art_frame(const Theme& theme, int w, int h, Canvas& out);
 
 }  // namespace riftwii

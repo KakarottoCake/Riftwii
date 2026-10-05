@@ -41,6 +41,8 @@ public:
     void Refresh();                                  // after the rows changed
     void Select(int index);
     int Selected() const { return focus; }
+    // Where row `index` is on screen now (its top), scrolled.
+    int RowTop(int index) const { return y0 + index * kRowHeight - static_cast<int>(scroll); }
     // Scrolled to the bottom (a list that fits is always there).
     bool AtEnd() const { return scroll >= static_cast<float>(MaxScroll()) - 1.0f; }
     // The row acted on (A, or stepped forward), or stepped back (-, the

@@ -120,6 +120,21 @@ Tex Pick(const ThemeImage& im) {
 
 Tex background;
 
+Tex ArtFrame(int w, int h) {
+    // Two sizes at most (with and without the popup's hint line), each painted once.
+    static Tex kept[2];
+    for (Tex& t : kept)
+        if (t.data && t.w == ((w + 2 * kHintBoxMargin + 3) & ~3) && t.h == ((h + 2 * kHintBoxMargin + 3) & ~3)) return t;
+    for (Tex& t : kept)
+        if (!t.data) {
+            Canvas c(0, 0);
+            paint_art_frame(MenuTheme(), w, h, c);
+            t = Upload(c);
+            return t;
+        }
+    return Tex();
+}
+
 Tex HintBox(int w, int h) {
     struct Kept {
         int w, h;

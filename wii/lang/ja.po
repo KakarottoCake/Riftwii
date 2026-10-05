@@ -1143,6 +1143,9 @@ msgstr "テーマ: {1}"
 msgid "Menu font"
 msgstr "メニューのフォント"
 
+msgid "Add a picture:"
+msgstr "画像を追加:"
+
 msgid "The letters the menu is written in: RiftWii's own, or the Wii Menu's, read from this Wii."
 msgstr "メニューの文字のフォントです。RiftWii独自のものか、このWiiから読み込むWiiメニューのものを使います。"
 

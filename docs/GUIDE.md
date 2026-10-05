@@ -388,6 +388,21 @@ A few things to know:
 - `boot.log` lists the codes, where they went and what `gameconfig.txt`
   changed, if something goes wrong.
 
+#### Pictures for your mods
+
+Point at a mod on the **Mods** page and its picture pops up beside it.
+To give a mod a picture, put a PNG next to it, named after it:
+
+| The mod | Its picture |
+| --- | --- |
+| `riivolution/Newer.xml` | `riivolution/Newer.png` |
+| `riftwii/pm.raw` (or `pm.raw.001`...) | `riftwii/pm.png` |
+| A code build in `Project+` | `Project+/cover.png` |
+
+Any size works (up to 1024 pixels a side and 2 MB); it is shrunk to fit.
+Box art from GameTDB or anywhere else is fine. A mod without a picture
+shows the game's own cover, and the popup says what file to add.
+
 #### Code builds on a virtual SD card (.raw images)
 
 A build can also live inside a card image instead of on the SD card

@@ -1122,6 +1122,8 @@ T = {
     "Restart": ("Reiniciar", "再起動", "Reiniciar", "Riavvia"),
     "Theme: {1}": ("Tema: {1}", "テーマ: {1}", "Tema: {1}", "Tema: {1}"),
     "Menu font": ("Fuente del menú", "メニューのフォント", "Fonte do menu", "Carattere del menu"),
+    # The Mods page's picture popup, above the file name, for a mod without a picture.
+    "Add a picture:": ("Añade una imagen:", "画像を追加:", "Adicione uma imagem:", "Aggiungi un'immagine:"),
     "The letters the menu is written in: RiftWii's own, or the Wii Menu's, read from this Wii.": (
         "Las letras con las que se escribe el menú: las de RiftWii, o las del Menú de Wii, leídas de esta Wii.",
         "メニューの文字のフォントです。RiftWii独自のものか、このWiiから読み込むWiiメニューのものを使います。",

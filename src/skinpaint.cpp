@@ -224,6 +224,10 @@ void paint_hint_box(const Theme& theme, int w, int h, Canvas& out) {
     out = Painter(theme).Card(w, h, kHintBoxMargin, h / 2.0f, false);
 }
 
+void paint_art_frame(const Theme& theme, int w, int h, Canvas& out) {
+    out = Painter(theme).Card(w, h, kHintBoxMargin, 10, false);
+}
+
 bool paint_theme_image(const std::string& name, const Theme& theme, Canvas& out) {
     const Painter p(theme);
     struct Entry {

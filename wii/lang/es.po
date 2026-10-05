@@ -1143,6 +1143,9 @@ msgstr "Tema: {1}"
 msgid "Menu font"
 msgstr "Fuente del menú"
 
+msgid "Add a picture:"
+msgstr "Añade una imagen:"
+
 msgid "The letters the menu is written in: RiftWii's own, or the Wii Menu's, read from this Wii."
 msgstr "Las letras con las que se escribe el menú: las de RiftWii, o las del Menú de Wii, leídas de esta Wii."
 
