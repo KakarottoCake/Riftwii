@@ -20,8 +20,6 @@
 namespace riftwii::wii {
 namespace {
 
-constexpr const char* kImagePath = "sd:/riftwii/sd.raw";
-constexpr const char* kUsbImagePath = "usb:/riftwii/sd.raw";
 constexpr std::uint32_t kMem2ArenaEndField = 0x80003128;
 constexpr unsigned kScratchRegister = 12;  // vsd_entry.S's jump back and the veneers
 constexpr std::uint32_t kNop = 0x60000000;
@@ -69,35 +67,40 @@ std::uint32_t now(const VsdHook& h, std::uint32_t address) {
 
 }  // namespace
 
-bool find_vsd_image(VsdImage& out, std::string& why) {
+bool find_vsd_image(const std::string& name, VsdImage& out, std::string& why) {
     out = VsdImage{};
     std::uint64_t size = 0;
     std::vector<Fragment> pieces;
     struct stat st;
-    if (stat(kImagePath, &st) == 0) {
-        out.path = kImagePath;
-        if (!sd_file_pieces(kImagePath, size, pieces, why)) return false;
+    const std::string sd_path = "sd:/riftwii/" + name, usb_path = "usb:/riftwii/" + name;
+    if (name.empty() || name.find('/') != std::string::npos) {
+        why = "no image is named";
+        return false;
+    }
+    if (stat(sd_path.c_str(), &st) == 0) {
+        out.path = sd_path;
+        if (!sd_file_pieces(sd_path, size, pieces, why)) return false;
     } else {
         // On the USB drive, through d2x's device: open for a game on it.
         const ImageVolume* volume = nullptr;
         VolumeFile file;
         if (ums::Fd() < 0) {
-            why = "sd.raw is not on the SD card, and the USB drive is read in-game only for a game on the USB drive";
+            why = name + " is on the USB drive, which is read during a game only when the game is on the USB drive too";
             return false;
         }
         if (ums::SectorBytes() != RTVSD_SECTOR_BYTES) {
             why = "the USB drive does not have 512-byte sectors";
             return false;
         }
-        if (!ums::Volume(volume, why) || !volume->lookup(std::string(kUsbImagePath).substr(4), file, why)) {
-            why = "sd.raw is on neither the SD card nor the USB drive (" + why + ")";
+        if (!ums::Volume(volume, why) || !volume->lookup(usb_path.substr(4), file, why)) {
+            why = name + " is on neither the SD card nor the USB drive (" + why + ")";
             return false;
         }
         if (file.entry.is_directory || !file.inline_bytes.empty()) {
-            why = "usb:/riftwii/sd.raw is not an image file";
+            why = usb_path + " is not an image file";
             return false;
         }
-        out.path = kUsbImagePath;
+        out.path = usb_path;
         out.on_usb = true;
         size = file.entry.size;
         pieces = file.fragments;

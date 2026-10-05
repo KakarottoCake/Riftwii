@@ -738,6 +738,16 @@ T = {
         "このままでは動きません。Project+などのコードビルドはプレイ中にSDカードを読むので、ゲームをSDカードに置くことはできません。USBドライブに入れるか、ディスクを使ってください。",
         "Assim não vai funcionar: builds de códigos como o Project+ leem o SD enquanto você joga, então o jogo não pode estar no SD também. Coloque-o num USB ou use o disco.",
         "Così non funziona: le build di codici come Project+ leggono la SD mentre giochi, quindi il gioco non può stare anche sulla SD. Mettilo su un'unità USB o usa il disco."),
+    "{1} is on the USB drive: the game has to be there too.": (
+        "{1} está en el USB: el juego también tiene que estar ahí.",
+        "{1}はUSBドライブにあります。ゲームもUSBドライブに置いてください。",
+        "{1} está no USB: o jogo também precisa estar lá.",
+        "{1} è sull'unità USB: anche il gioco deve stare lì."),
+    "This won't work: {1} is on the USB drive, and RiftWii reads the USB drive during a game only when the game is on it too. Put the game on the USB drive, or put {1} in the riftwii folder on your SD card.": (
+        "Así no va a funcionar: {1} está en el USB, y RiftWii solo lee el USB durante una partida cuando el juego también está en él. Pon el juego en el USB, o pon {1} en la carpeta riftwii de tu SD.",
+        "このままでは動きません。{1}はUSBドライブにありますが、RiftWiiがゲーム中にUSBドライブを読むのは、ゲームもUSBドライブにあるときだけです。ゲームをUSBドライブに置くか、{1}をSDカードのriftwiiフォルダーに入れてください。",
+        "Assim não vai funcionar: {1} está no USB, e a RiftWii só lê o USB durante o jogo quando o jogo também está nele. Coloque o jogo no USB, ou coloque {1} na pasta riftwii do seu SD.",
+        "Così non funziona: {1} è sull'unità USB, e RiftWii legge l'unità USB durante una partita solo se anche il gioco è lì. Metti il gioco sull'unità USB, oppure metti {1} nella cartella riftwii della SD."),
     # Updates (the pop-ups at start, and the Settings row)
     "Updating RiftWii": ("Actualizando RiftWii", "RiftWiiを更新しています", "Atualizando a RiftWii", "Aggiornamento di RiftWii"),
     "RiftWii {1} is out. Downloading and installing it now; this takes a minute...": (

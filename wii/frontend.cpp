@@ -17,6 +17,7 @@
 
 #include "autorun.hpp"
 #include "di.hpp"
+#include "vsdimage.hpp"
 #include "i18n.hpp"
 #include "riftwii/riiconfig.hpp"
 #include "loadersettings.hpp"
@@ -280,9 +281,20 @@ std::string ModPlaceProblem(const FrontendState& state, bool brief) {
         return tr("This won't work: code builds like Project+ have to be on the SD card, not the USB drive. Move {1} to the same spot on your SD card and try again. Your games can stay on USB.",
                   {where});
     }
-    // A build inside sd.raw reads the image, not the card: the game may be on the card.
+    // A build inside an image reads the image, not the card: the game may
+    // be on the card. An image on the USB drive is read during the game
+    // only for a game on the USB drive (d2x's device is open then).
     bool on_card = false;
-    for (const LaunchPackage* b : state.model.code_builds()) on_card = on_card || b->gct_path.compare(0, 5, "vsd:/") != 0;
+    std::string image;
+    for (const LaunchPackage* b : state.model.code_builds()) {
+        if (b->gct_path.compare(0, 5, "vsd:/") != 0) on_card = true;
+        else if (image.empty()) image = VsdImageOfKey(b->file);
+    }
+    if (!image.empty() && !state.use_usb && VsdImageLocation(image).compare(0, 5, "usb:/") == 0) {
+        if (brief) return tr("{1} is on the USB drive: the game has to be there too.", {image});
+        return tr("This won't work: {1} is on the USB drive, and RiftWii reads the USB drive during a game only when the game is on it too. Put the game on the USB drive, or put {1} in the riftwii folder on your SD card.",
+                  {image});
+    }
     if (state.use_sd && on_card) {
         if (brief) return tr("Code builds need the game on USB or disc, not the SD card.");
         return tr("This won't work: code builds like Project+ read the SD card while you play, so the game can't be on the SD card too. Put it on a USB drive or use the disc.");

@@ -178,7 +178,8 @@ struct LaunchExtras {
     // (7: the audio frame, else the video retrace) and the words written
     // before the game starts.
     std::string code_builds;
-    bool code_build_in_image = false;  // the builds are inside sd.raw: served as the game's SD card
+    bool code_build_in_image = false;  // the builds are inside a .raw image: served as the game's SD card
+    std::string code_build_image;      // its name: "pm.raw"
     std::uint32_t code_list_start = 0;
     std::uint32_t code_list_end = 0;
     int code_hooktype = 0;

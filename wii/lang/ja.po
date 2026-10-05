@@ -792,6 +792,12 @@ msgstr "コードビルドはSDカードではなく、USBかディスクのゲ�
 msgid "This won't work: code builds like Project+ read the SD card while you play, so the game can't be on the SD card too. Put it on a USB drive or use the disc."
 msgstr "このままでは動きません。Project+などのコードビルドはプレイ中にSDカードを読むので、ゲームをSDカードに置くことはできません。USBドライブに入れるか、ディスクを使ってください。"
 
+msgid "{1} is on the USB drive: the game has to be there too."
+msgstr "{1}はUSBドライブにあります。ゲームもUSBドライブに置いてください。"
+
+msgid "This won't work: {1} is on the USB drive, and RiftWii reads the USB drive during a game only when the game is on it too. Put the game on the USB drive, or put {1} in the riftwii folder on your SD card."
+msgstr "このままでは動きません。{1}はUSBドライブにありますが、RiftWiiがゲーム中にUSBドライブを読むのは、ゲームもUSBドライブにあるときだけです。ゲームをUSBドライブに置くか、{1}をSDカードのriftwiiフォルダーに入れてください。"
+
 msgid "Updating RiftWii"
 msgstr "RiftWiiを更新しています"
 

@@ -792,6 +792,12 @@ msgstr "Builds de códigos precisam do jogo no USB ou no disco, não no SD."
 msgid "This won't work: code builds like Project+ read the SD card while you play, so the game can't be on the SD card too. Put it on a USB drive or use the disc."
 msgstr "Assim não vai funcionar: builds de códigos como o Project+ leem o SD enquanto você joga, então o jogo não pode estar no SD também. Coloque-o num USB ou use o disco."
 
+msgid "{1} is on the USB drive: the game has to be there too."
+msgstr "{1} está no USB: o jogo também precisa estar lá."
+
+msgid "This won't work: {1} is on the USB drive, and RiftWii reads the USB drive during a game only when the game is on it too. Put the game on the USB drive, or put {1} in the riftwii folder on your SD card."
+msgstr "Assim não vai funcionar: {1} está no USB, e a RiftWii só lê o USB durante o jogo quando o jogo também está nele. Coloque o jogo no USB, ou coloque {1} na pasta riftwii do seu SD."
+
 msgid "Updating RiftWii"
 msgstr "Atualizando a RiftWii"
 

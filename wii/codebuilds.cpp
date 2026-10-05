@@ -89,17 +89,17 @@ bool exists(const std::string& path) {
 }
 
 // "sd:/Brawl Minus/codes/RSBE01.gct": "Brawl Minus/codes/RSBE01.gct",
-// shown as "Brawl Minus"; "vsd:/Project+/RSBE01.GCT" (in the image):
-// "sd.raw/Project+/RSBE01.GCT", shown as "Project+".
+// shown as "Brawl Minus"; "vsd:/Project+/RSBE01.GCT" in the image
+// pm.raw: "pm.raw/Project+/RSBE01.GCT", shown as "Project+".
 bool in_image(const std::string& path) { return path.compare(0, 5, kVsdDrive) == 0; }
-std::string key_of(const std::string& gct) {
+std::string key_of(const std::string& gct, const std::string& image = "") {
     if (gct.compare(0, 4, "sd:/") == 0) return gct.substr(4);
-    if (in_image(gct)) return kVsdKeyPrefix + gct.substr(5);
+    if (in_image(gct) && !image.empty()) return image + "/" + gct.substr(5);
     return gct;
 }
 std::string top_of(std::string key) {
-    const std::string prefix = kVsdKeyPrefix;
-    if (key.compare(0, prefix.size(), prefix) == 0) key = key.substr(prefix.size());
+    const std::string image = VsdImageOfKey(key);
+    if (!image.empty()) key = key.substr(image.size() + 1);
     return key.substr(0, key.find('/'));
 }
 std::string dir_of(const std::string& path) { return path.substr(0, path.rfind('/')); }
@@ -112,13 +112,14 @@ bool listed(const std::vector<CodeBuildFile>& out, const std::string& gct) {
     return false;
 }
 
-// The code files in `folder` named after a game.
-void add_codes(const std::string& folder, std::vector<CodeBuildFile>& out) {
+// The code files in `folder` named after a game; `image` the virtual SD
+// card's image `folder` is in ("" for the SD card itself).
+void add_codes(const std::string& folder, std::vector<CodeBuildFile>& out, const std::string& image) {
     for (const std::string& file : entries(folder)) {
         const std::string id = gct_game(file);
         if (id.empty() || out.size() >= kMaxBuilds) continue;
         const std::string gct = folder + "/" + file;
-        const std::string key = key_of(gct);
+        const std::string key = key_of(gct, image);
         out.push_back({key, top_of(key), folder, gct, id});
     }
 }
@@ -211,18 +212,20 @@ std::string kb(std::size_t bytes) {
 
 std::vector<CodeBuildFile> ListCodeBuilds() {
     std::vector<CodeBuildFile> out;
-    const auto scan = [&](const std::string& drive) {
+    const auto scan = [&](const std::string& drive, const std::string& image) {
         for (const std::string& name : entries(drive)) {
             const std::string folder = drive + name;
             if (lower(name) == "riftwii" || !is_dir(folder)) continue;
-            add_codes(folder, out);
-            if (lower(name) != "codes") add_codes(folder + "/codes", out);
+            add_codes(folder, out, image);
+            if (lower(name) != "codes") add_codes(folder + "/codes", out, image);
         }
     };
-    scan("sd:/");
-    {
-        VsdMount image;
-        if (image.ok()) scan(kVsdDrive);
+    scan("sd:/", "");
+    // Every virtual SD card, one mounted at a time.
+    for (const VsdImageFile& f : ListVsdImages()) {
+        if (out.size() >= kMaxBuilds) break;
+        VsdMount image(f.name);
+        if (image.ok()) scan(kVsdDrive, f.name);
     }
     for (const auto& pick : read_picks()) {
         if (out.size() >= kMaxBuilds || listed(out, pick.second) || !exists(pick.second)) continue;
@@ -294,17 +297,27 @@ bool PrepareCodeBuilds(const LaunchModel& model, const std::string& game_id, con
     std::string config_from;
     GameConfig config;
     // The image's builds read their files from the image, the others from
-    // the SD card: the game sees one or the other.
+    // the SD card: the game sees one card, so one image or the SD card.
     std::size_t from_image = 0;
-    for (const LaunchPackage* b : builds) from_image += in_image(b->gct_path) ? 1 : 0;
+    for (const LaunchPackage* b : builds) {
+        if (!in_image(b->gct_path)) continue;
+        ++from_image;
+        const std::string image = VsdImageOfKey(b->file);
+        if (out.image.empty()) out.image = image;
+        if (lower(image) != lower(out.image)) {
+            error = "Code builds from two virtual SD cards (" + out.image + " and " + image +
+                    ") can't be on together. Turn one of them off.";
+            return false;
+        }
+    }
     if (from_image != 0 && from_image != builds.size()) {
-        error = "Code builds inside sd.raw can't be turned on together with ones on the SD card.";
+        error = "Code builds inside " + out.image + " can't be turned on together with ones on the SD card.";
         return false;
     }
     out.in_image = from_image != 0;
-    VsdMount image;  // mounted only for the image's builds
+    VsdMount image(out.in_image ? out.image : std::string());  // mounted only for the image's builds
     if (out.in_image && !image.ok()) {
-        error = "Cannot read sd.raw, the virtual SD card these code builds are in.";
+        error = "Cannot read " + out.image + ", the virtual SD card these code builds are in.";
         return false;
     }
     for (const LaunchPackage* b : builds) {

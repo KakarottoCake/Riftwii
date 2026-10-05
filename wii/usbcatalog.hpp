@@ -95,6 +95,8 @@ std::vector<std::string> usb_mod_folders(const std::string& game_id);
 // out; and a whole XML by "usb:/..." path (1 MiB at most). Nothing with no
 // drive mounted.
 std::vector<std::string> usb_xml_names(const std::string& folder);
+// The same for any extension (".raw"): file names directly in `folder`.
+std::vector<std::string> usb_file_names(const std::string& folder, const char* ext);
 bool read_usb_text(const std::string& usb_path, std::string& out);
 // Bytes of a file on the USB drive (the menu's view), by "usb:/..." path;
 // `size` gets the file's size. False past its end or when there is no

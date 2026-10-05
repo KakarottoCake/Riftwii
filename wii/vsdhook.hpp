@@ -30,15 +30,15 @@ namespace riftwii::wii {
 
 struct VsdImage {
     bool enabled = false;
-    std::string path;                      // "sd:/riftwii/sd.raw" or "usb:/riftwii/sd.raw"
+    std::string path;                      // "sd:/riftwii/pm.raw" or "usb:/riftwii/pm.raw"
     bool on_usb = false;                   // extents are the USB drive's sectors
     std::uint32_t sectors = 0;             // the image's size
     std::vector<rtvsd_extent> extents;     // its pieces on the card
 };
 
-// Where the image is, before the card is unmounted: false with `why`
-// when there is none or it cannot be used.
-bool find_vsd_image(VsdImage& out, std::string& why);
+// Where the image `name` ("pm.raw") is, before the card is unmounted:
+// false with `why` when there is none or it cannot be used.
+bool find_vsd_image(const std::string& name, VsdImage& out, std::string& why);
 
 // The device holding the image, as the loader left it for the game.
 struct VsdDevice {

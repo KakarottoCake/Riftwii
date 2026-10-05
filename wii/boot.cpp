@@ -2150,10 +2150,10 @@ bool boot_game(const DiscProbe& probe, BootOptions options, std::string& error) 
     if (g_extras.code_build_in_image) {
         std::string why;
         if (effective.install_resident) {
-            error = "code builds inside sd.raw don't work together with Riivolution packs yet";
+            error = "code builds inside " + g_extras.code_build_image + " don't work together with Riivolution packs yet";
             return false;
         }
-        if (!find_vsd_image(g_vsd, why)) {
+        if (!find_vsd_image(g_extras.code_build_image, g_vsd, why)) {
             error = "the virtual SD card: " + why;
             return false;
         } else {

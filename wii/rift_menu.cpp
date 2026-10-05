@@ -40,6 +40,7 @@
 #include "libwiigui/gui.h"
 #include "gui_flowlist.hpp"
 #include "memlimits.hpp"
+#include "vsdimage.hpp"
 #include "covers.hpp"
 #include "riftwii/coverart.hpp"
 #include "riftwii/qrcode.hpp"
@@ -522,13 +523,13 @@ static std::string MenuIosNote(int slot)
 }
 
 // The pack's name without ".xml", for display; a code build's is its
-// folder's ("rex_/RSBE01.GCT": "rex_ (codes)"; one inside the virtual SD
-// card, "sd.raw/Project+/RSBE01.GCT": "Project+ (in sd.raw)").
+// folder's ("rex_/RSBE01.GCT": "rex_ (codes)"; one inside a virtual SD
+// card, "pm.raw/Project+/RSBE01.GCT": "Project+ (in pm.raw)").
 static std::string PackName(const std::string& file)
 {
-	if (file.compare(0, 7, "sd.raw/") == 0) {
-		const std::string rest = file.substr(7);
-		return rest.substr(0, rest.find('/')) + " (in sd.raw)";
+	if (const std::string image = riftwii::wii::VsdImageOfKey(file); !image.empty()) {
+		const std::string rest = file.substr(image.size() + 1);
+		return rest.substr(0, rest.find('/')) + " (in " + image + ")";
 	}
 	if (file.size() > 4) {
 		const std::string ext = file.substr(file.size() - 4);
@@ -546,10 +547,10 @@ static std::string PackName(const std::string& file)
 static std::string PackSummary(const riftwii::LaunchPackage& p)
 {
 	if (p.code_build()) {
-		const bool image = p.gct_path.compare(0, 5, "vsd:/") == 0;
-		const std::string where = image ? "sd.raw/" + p.gct_path.substr(5) : p.gct_path;
-		if (image)
-			return p.enabled ? "On. Runs the codes in " + where + "; the game gets sd.raw as its SD card."
+		const std::string image = p.gct_path.compare(0, 5, "vsd:/") == 0 ? riftwii::wii::VsdImageOfKey(p.file) : "";
+		const std::string where = !image.empty() ? p.file : p.gct_path;
+		if (!image.empty())
+			return p.enabled ? "On. Runs the codes in " + where + "; the game gets " + image + " as its SD card."
 					 : "Off. A turns on the codes in " + where + ".";
 		return p.enabled ? "On. Runs the codes in " + where + "; they load the build's files from the SD card."
 				 : "Off. A turns on the codes in " + where + ".";
@@ -2621,6 +2622,23 @@ static void MenuMods(FrontendState& state, std::string& scanStatus)
 				if (!p.valid) say("This XML cannot be read; fix it on the card and come back.");
 				else changed = state.model.set_enabled(ref.pkg, !p.enabled);
 				if (!changed && p.valid) say("This pack cannot be turned on.");
+				// The game gets one SD card: a code build turned on turns off
+				// the ones on another card (another .raw image, or the SD card).
+				if (changed && p.enabled && p.code_build()) {
+					const auto card = [](const riftwii::LaunchPackage& b) {
+						return b.gct_path.compare(0, 5, "vsd:/") == 0 ? riftwii::wii::VsdImageOfKey(b.file) : std::string();
+					};
+					const std::string mine = card(p);
+					bool others = false;
+					for (std::size_t i = 0; i < state.model.packages.size(); ++i) {
+						const riftwii::LaunchPackage& o = state.model.packages[i];
+						if (i == ref.pkg || !o.enabled || !o.code_build() || strcasecmp(card(o).c_str(), mine.c_str()) == 0) continue;
+						state.model.set_enabled(i, false);
+						others = true;
+					}
+					if (others) say(mine.empty() ? "Turned off the code builds in .raw images: the game gets the SD card."
+								      : "Turned off the other code builds: the game gets " + mine + " as its SD card.");
+				}
 			} else if (ref.what == RowRef::What::Option) {
 				changed = state.model.cycle(ref.pkg, ref.opt, direction);
 			} else if (ref.what == RowRef::What::AddCodes || ref.what == RowRef::What::ForgetCodes) {

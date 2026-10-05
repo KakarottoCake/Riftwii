@@ -864,17 +864,19 @@ std::vector<std::string> usb_mod_folders(const std::string& game_id) {
     return out;
 }
 
-std::vector<std::string> usb_xml_names(const std::string& folder) {
+std::vector<std::string> usb_file_names(const std::string& folder, const char* ext) {
     std::vector<std::string> out;
     std::vector<VolumeEntry> entries;
     std::string error;
     if (!g_usb_volume || !g_usb_volume->list(folder, entries, error)) return out;
     for (const VolumeEntry& e : entries) {
-        if (!e.is_directory && !e.name.empty() && e.name[0] != '.' && extension(e.name, ".xml")) out.push_back(e.name);
+        if (!e.is_directory && !e.name.empty() && e.name[0] != '.' && extension(e.name, ext)) out.push_back(e.name);
     }
     std::sort(out.begin(), out.end());
     return out;
 }
+
+std::vector<std::string> usb_xml_names(const std::string& folder) { return usb_file_names(folder, ".xml"); }
 
 bool read_usb_text(const std::string& usb_path, std::string& out) {
     out.clear();

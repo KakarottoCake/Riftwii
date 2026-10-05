@@ -388,36 +388,42 @@ A few things to know:
 - `boot.log` lists the codes, where they went and what `gameconfig.txt`
   changed, if something goes wrong.
 
-#### Code builds on a virtual SD card (sd.raw)
+#### Code builds on a virtual SD card (.raw images)
 
 A build can also live inside a card image instead of on the SD card
-itself: one file, `sd.raw`, holding a whole FAT32 SD card with the
+itself: one file, like `sd.raw`, holding a whole FAT32 SD card with the
 build's folder inside, like the `sd.raw` Dolphin and Project+'s netplay
 builds use. The game then gets the image as its SD card. This helps when
 the build can't read your real card (an SDXC card, a card formatted
 with big clusters), or when you'd rather keep the build on the USB drive.
 
-1. Put the image at `riftwii/sd.raw` on the SD card, or on the USB drive
-   (the SD card's is used when both have one). An image from Dolphin
-   works as it is: its build folder (`Project+`, `rex_`) goes at the top
-   of the image, as on a real card.
-2. Open the game's page, then **Mods**. The build inside shows up as
-   **Project+ (in sd.raw)**. Turn it on and press Start.
+1. Put the image in the `riftwii` folder on the SD card or the USB drive.
+   Any name ending in `.raw` works, so you can keep several builds side
+   by side: `riftwii/pm.raw`, `riftwii/rex.raw`, `riftwii/sd.raw`. (When
+   both drives have one with the same name, the SD card's is used.) An
+   image from Dolphin works as it is: its build folder (`Project+`,
+   `rex_`) goes at the top of the image, as on a real card.
+2. Open the game's page, then **Mods**. Each build inside shows up with
+   its image's name, like **Project+ (in pm.raw)**. Turn one on and press
+   Start. The game gets one SD card, so turning on a build in one image
+   turns off the builds in the others (and the ones on the SD card).
 
 A few things to know:
 
-- The image on the USB drive works with the game on the USB drive too
-  (it's read through d2x while you play). With the game on a disc,
-  keep the image on the SD card.
+- Keep the image on the same drive as the game. An image on the USB
+  drive is read through d2x while you play, which only happens when the
+  game is on the USB drive too; Start says so otherwise. With the game on
+  the SD card or a disc, keep the image on the SD card.
 - The image should be in one piece or a few: copy it to a freshly
   formatted drive if Start says it is in too many pieces. FAT32 drives
   hold files up to 4 GB, so use an image of 4 GB or less there.
 - What the game writes (replays, custom stages, settings) goes into the
   image.
-- Builds inside `sd.raw` can't be turned on together with builds on the
-  SD card, or with Riivolution packs, yet.
-- Tested in Dolphin with Project+ 3.2 in a 3 GB image on the SD card.
-  The USB drive is untested so far.
+- Builds inside an image can't be turned on together with builds on the
+  SD card or in another image, or with Riivolution packs, yet.
+- Tested in Dolphin with Project+ 3.2 (3 GB image) and Project M 3.6
+  (1 GB image) on the SD card. Players run Project M and REX this way
+  on real Wiis, with the game and the image on the same drive.
 
 ### GameCube controller adapter for Wii U
 
