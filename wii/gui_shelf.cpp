@@ -42,8 +42,9 @@ constexpr float kEase = 0.25f;
 constexpr int kSpineTextSize = 13;
 constexpr int kSpineTextRoom = 140;  // the length of a spine's name
 
-// The texture's spine and front, across its kBoxWidth.
+// The texture's spine, front and back, across its kBoxWidth.
 constexpr float kSpineU = static_cast<float>(riftwii::kBoxSpineWidth) / riftwii::kBoxWidth;
+constexpr float kBackU = static_cast<float>(riftwii::kBoxSpineWidth + riftwii::kBoxFrontWidth) / riftwii::kBoxWidth;
 
 struct V3 {
     float x, y, z;
@@ -331,15 +332,22 @@ void GuiGameGrid::DrawShelf(int alpha) {
             faces[1].texW = riftwii::kBoxWidth;
             faces[1].texH = riftwii::kBoxHeight;
             faces[1].u0 = kSpineU;
-            faces[1].u1 = 1;
+            faces[1].u1 = kBackU;
+            // The back cover, its spine edge (+z) on the right as you face it.
+            faces[2].tex = art;
+            faces[2].texW = riftwii::kBoxWidth;
+            faces[2].texH = riftwii::kBoxHeight;
+            faces[2].u0 = kBackU;
+            faces[2].u1 = 1;
         } else if (cover) {
             faces[1].tex = cover;
             faces[1].texW = riftwii::kCoverWidth;
             faces[1].texH = riftwii::kCoverHeight;
         }
-        // The back cover: the game's colour, as a case's back is never white.
-        faces[2].color = {static_cast<u8>(item.hue.r / 2 + 70), static_cast<u8>(item.hue.g / 2 + 70),
-                          static_cast<u8>(item.hue.b / 2 + 70), 255};
+        // No scan: the back in the game's colour, as a case's back is never white.
+        if (!art)
+            faces[2].color = {static_cast<u8>(item.hue.r / 2 + 70), static_cast<u8>(item.hue.g / 2 + 70),
+                              static_cast<u8>(item.hue.b / 2 + 70), 255};
         float x0 = 1e9f, y0 = 1e9f, x1 = -1e9f, y1 = -1e9f;
         bool spineShown = false;
         for (const Face& f : faces) {

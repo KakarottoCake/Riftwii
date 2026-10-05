@@ -772,6 +772,8 @@ static riftwii::wii::BannerPlayer* IconFor(const std::string& id)
 
 // The full banner, as the Wii Menu shows a channel before it starts:
 // Back, or Continue to the game's page.
+static constexpr int kChannelBarTop = 342;
+
 class ChannelView : public GuiElement {
 public:
 	riftwii::wii::BannerPlayer player;
@@ -779,9 +781,11 @@ public:
 		Menu_DrawRectangle(0, 0, screenwidth, screenheight, (GXColor){0, 0, 0, 255}, 1);
 		player.Step();
 		player.Draw(0, 0, 640, 480, 255);
-		// The bar the buttons sit on, over the banner's lowest part.
-		Menu_DrawRectangle(0, 384, screenwidth, 96, skin::WithAlpha(skin::kBar, 235), 1);
-		Menu_DrawRectangle(0, 384, screenwidth, 2, skin::kAccent, 1);
+		// The bar the buttons sit on, over the banner's lowest quarter: the
+		// part the Wii Menu covers too, where banners leave their seams.
+		Menu_DrawRectangle(0, kChannelBarTop, screenwidth, screenheight - kChannelBarTop, skin::kBar, 1);
+		Menu_DrawRectangle(0, kChannelBarTop, screenwidth, 3, skin::kAccent, 1);
+		Menu_DrawRectangle(0, kChannelBarTop + 3, screenwidth, 4, (GXColor){0, 0, 0, 30}, 1);
 	}
 };
 
@@ -797,10 +801,10 @@ static bool ShowChannel(const std::string& id)
 		return true;
 	}
 	std::vector<std::uint8_t>().swap(bytes);
-	SkinButton backBtn(skin::pill, skin::pillOver, 4, 70, 404, tr("Back"),
+	SkinButton backBtn(skin::pill, skin::pillOver, 4, 70, 384, tr("Back"),
 		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B | WPAD_BUTTON_HOME | WPAD_CLASSIC_BUTTON_HOME, PAD_BUTTON_B,
 		WIIDRC_BUTTON_B | WIIDRC_BUTTON_HOME);
-	SkinButton goBtn(skin::pillPrimary, skin::pillPrimaryOver, 4, 326, 404, tr("Continue"),
+	SkinButton goBtn(skin::pillPrimary, skin::pillPrimaryOver, 4, 326, 384, tr("Continue"),
 		WPAD_BUTTON_A | WPAD_CLASSIC_BUTTON_A, PAD_BUTTON_A, WIIDRC_BUTTON_A);
 	GuiWindow w(screenwidth, screenheight);
 	w.Append(&view);
@@ -1597,12 +1601,18 @@ static int MenuSource(FrontendState& state)
 	grid.SetCovers(riftwii::wii::Settings().home_tiles != "names");
 	grid.SetShelf(riftwii::wii::Settings().home_tiles == "shelf");
 	grid.SetChannels(riftwii::wii::Settings().home_tiles == "channels",
-		[&items](int index, float x, float y, float w, float h, int alpha) {
+		[&items](int index, const GuiGameGrid::IconBox& b) {
 			if (index < 0 || static_cast<std::size_t>(index) >= items.size()) return false;
 			riftwii::wii::BannerPlayer* icon = IconFor(items[static_cast<std::size_t>(index)].id);
 			if (!icon) return false;
 			icon->Step();
-			icon->Draw(x, y, w, h, alpha);
+			riftwii::wii::RoundClip clip;
+			clip.x = b.clipX;
+			clip.y = b.clipY;
+			clip.w = b.clipW;
+			clip.h = b.clipH;
+			clip.radius = b.radius;
+			icon->Draw(b.x, b.y, b.w, b.h, b.alpha, &clip);
 			return true;
 		});
 	grid.SetItems(&items);

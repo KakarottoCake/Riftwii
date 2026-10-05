@@ -10,7 +10,7 @@
 
 // The boxes on the Home shelf (riftwii/coverart.hpp): each game's spine
 // and front from GameTDB's full cover, fetched into
-// sd:/riftwii/boxes/<ID>.rwb and read back into a small pool in MEM2.
+// sd:/riftwii/boxes/<ID>.rw2 and read back into a small pool in MEM2.
 namespace riftwii::wii {
 
 // True when the game has no stored box and GameTDB was not found without

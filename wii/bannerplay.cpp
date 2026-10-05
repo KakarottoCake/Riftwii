@@ -4,6 +4,7 @@
 
 #include <malloc.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstring>
 
@@ -31,6 +32,41 @@ u8 Wrap(std::uint8_t w) { return w == 1 ? GX_REPEAT : w == 2 ? GX_MIRROR : GX_CL
 
 GXColorS10 S10(const std::int16_t c[4]) {
     return GXColorS10{c[0], c[1], c[2], c[3]};
+}
+
+// GX has no stencil: a rounded clip is drawn into the depth buffer
+// instead. The shape is written nearer than libgui's 2D (which all lies at
+// one depth), the banner drawn where the depth equals it, and the shape
+// written back at libgui's depth so nothing drawn later is hidden.
+constexpr float kClipZ = 20.0f;
+
+void RoundShape(const RoundClip& c, float z) {
+    constexpr int kSteps = 8;  // per corner
+    const float r = std::min(c.radius, std::min(c.w, c.h) / 2);
+    const float cx[4] = {c.x + c.w - r, c.x + r, c.x + r, c.x + c.w - r};
+    const float cy[4] = {c.y + r, c.y + r, c.y + c.h - r, c.y + c.h - r};
+    GX_SetTevOp(GX_TEVSTAGE0, GX_PASSCLR);
+    GX_SetNumTevStages(1);
+    GX_SetVtxDesc(GX_VA_TEX0, GX_NONE);
+    GX_Begin(GX_TRIANGLEFAN, GX_VTXFMT0, 2 + 4 * (kSteps + 1));
+    GX_Position3f32(c.x + c.w / 2, c.y + c.h / 2, z);
+    GX_Color4u8(0, 0, 0, 0);
+    // Corners from the top right, anticlockwise on screen.
+    for (int k = 0; k < 4; ++k) {
+        for (int s = 0; s <= kSteps; ++s) {
+            const float a = (k * 90.0f + s * 90.0f / kSteps) * 3.14159265f / 180.0f;
+            GX_Position3f32(cx[k] + r * std::cos(a), cy[k] - r * std::sin(a), z);
+            GX_Color4u8(0, 0, 0, 0);
+        }
+    }
+    GX_Position3f32(cx[0] + r, cy[0], z);
+    GX_Color4u8(0, 0, 0, 0);
+    GX_End();
+}
+
+void DepthOnly(bool on) {
+    GX_SetColorUpdate(on ? GX_FALSE : GX_TRUE);
+    GX_SetAlphaUpdate(on ? GX_FALSE : GX_TRUE);
 }
 
 // The TEV back to libgui's single pass-colour stage.
@@ -166,15 +202,29 @@ BannerPlayer::Texture* BannerPlayer::TextureOf(std::size_t index) {
     return &t;
 }
 
-void BannerPlayer::Draw(float x, float y, float w, float h, int alpha) {
+void BannerPlayer::Draw(float x, float y, float w, float h, int alpha, const RoundClip* clip) {
     if (!loaded_ || alpha <= 0) return;
+    float z = 0;
+    if (clip) {
+        Mtx flat;
+        guMtxIdentity(flat);
+        guMtxTransApply(flat, flat, 0.0f, 0.0f, -50.0f);
+        GX_LoadPosMtxImm(flat, GX_PNMTX0);
+        DepthOnly(true);
+        GX_SetZMode(GX_TRUE, GX_ALWAYS, GX_TRUE);
+        RoundShape(*clip, kClipZ);
+        DepthOnly(false);
+        GX_SetZMode(GX_TRUE, GX_EQUAL, GX_FALSE);
+        z = kClipZ;
+    }
     // The shown area in layout units (y up, the layout's centre at 0, 0).
     const float rw = icon_ ? kIconW : work_.width, rh = icon_ ? kIconH : work_.height;
     const float sx = w / rw, sy = h / rh;
     const float left = -rw / 2, top = rh / 2;
     const float efb_x = Menu_XfbWidth() / 640.0f, efb_y = Menu_EfbHeight() / 480.0f;
-    GX_SetScissor(static_cast<u32>(std::max(0.0f, x) * efb_x), static_cast<u32>(std::max(0.0f, y) * efb_y),
-                  static_cast<u32>(w * efb_x + 0.5f), static_cast<u32>(h * efb_y + 0.5f));
+    const float bx = clip ? clip->x : x, by = clip ? clip->y : y, bw = clip ? clip->w : w, bh = clip ? clip->h : h;
+    GX_SetScissor(static_cast<u32>(std::max(0.0f, bx) * efb_x), static_cast<u32>(std::max(0.0f, by) * efb_y),
+                  static_cast<u32>(bw * efb_x + 0.5f), static_cast<u32>(bh * efb_y + 0.5f));
     Mtx view;
     guMtxIdentity(view);
     guMtxTransApply(view, view, 0.0f, 0.0f, -50.0f);
@@ -260,7 +310,7 @@ void BannerPlayer::Draw(float x, float y, float w, float h, int alpha) {
                 }
                 if (m->alpha_source == 0) c.a = static_cast<std::uint8_t>(mc.a * c.a / 255);
             }
-            GX_Position3f32(x + (q.x[k] - left) * sx, y + (top - q.y[k]) * sy, 0);
+            GX_Position3f32(x + (q.x[k] - left) * sx, y + (top - q.y[k]) * sy, z);
             GX_Color4u8(c.r, c.g, c.b, static_cast<u8>(c.a * alpha / 255));
             if (tex) {
                 const float u = uv ? (*uv)[2 * k] : (k & 1 ? 1.0f : 0.0f);
@@ -272,6 +322,14 @@ void BannerPlayer::Draw(float x, float y, float w, float h, int alpha) {
         GX_End();
     }
     PlainTev();
+    if (clip) {
+        // The clip's depth back to libgui's, so later drawing is not hidden.
+        DepthOnly(true);
+        GX_SetZMode(GX_TRUE, GX_ALWAYS, GX_TRUE);
+        RoundShape(*clip, 0);
+        DepthOnly(false);
+        GX_SetZMode(GX_TRUE, GX_LEQUAL, GX_TRUE);
+    }
     GX_SetScissor(0, 0, Menu_XfbWidth(), Menu_EfbHeight());
 }
 

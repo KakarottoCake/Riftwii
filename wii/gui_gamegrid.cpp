@@ -2,7 +2,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "gui_gamegrid.hpp"
 
+#include <algorithm>
+
 #include "covers.hpp"
+#include "menutheme.hpp"
 #include "riftwii/coverart.hpp"
 #include "skin.hpp"
 #include "wiidrc.h"
@@ -432,13 +435,25 @@ void GuiGameGrid::Draw() {
         s.scale += ((on ? 1.06f : 1.0f) - s.scale) * 0.35f;
         iconShown[i] = false;
         if (channels && iconDrawer) {
-            // The icon inside the tile's frame at 4:3, like a screen in its
-            // bezel, scaled about the tile's centre.
-            const float tileW = Geo().tileW, tileH = Geo().tileH;
-            const float h = (tileH - 8) * s.scale, w = h * 4.0f / 3.0f;
-            const float cx = TileX(i) + tileW / 2.0f, cy = TileY(i) + tileH / 2.0f;
+            // The icon fills the tile inside its border, 4:3 across the
+            // tile's width (its top and bottom cut off), with the tile's
+            // round corners; scaled about the tile's centre.
+            const float tileW = Geo().tileW * s.scale, tileH = Geo().tileH * s.scale;
+            const float cx = TileX(i) + Geo().tileW / 2.0f, cy = TileY(i) + Geo().tileH / 2.0f;
+            const float border = (on ? 2.5f : 1.5f) * s.scale;
             skin::Draw(on ? skin::tileOver : skin::tile, TileX(i) - 7, TileY(i) - 7, tileAlpha, s.scale);
-            if (iconDrawer(page * kPerPage + i, cx - w / 2, cy - h / 2, w, h, tileAlpha)) {
+            IconBox box;
+            box.clipW = tileW - 2 * border;
+            box.clipH = tileH - 2 * border;
+            box.clipX = cx - box.clipW / 2;
+            box.clipY = cy - box.clipH / 2;
+            box.radius = std::max(0.0f, 14.0f * riftwii::wii::MenuTheme().corners * s.scale - border);
+            box.w = box.clipW;
+            box.h = box.w * 3.0f / 4.0f;
+            box.x = box.clipX;
+            box.y = cy - box.h / 2;
+            box.alpha = tileAlpha;
+            if (iconDrawer(page * kPerPage + i, box)) {
                 iconShown[i] = true;
                 return;
             }

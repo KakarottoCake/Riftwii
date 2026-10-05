@@ -43,10 +43,12 @@ bool cover_header_valid(const std::uint8_t* header);
 // side in one stored texture, so a game on the shelf is one read.
 constexpr int kBoxSpineWidth = 16;
 constexpr int kBoxFrontWidth = 128;
-constexpr int kBoxWidth = kBoxSpineWidth + kBoxFrontWidth;
+constexpr int kBoxBackWidth = 128;
+constexpr int kBoxWidth = kBoxSpineWidth + kBoxFrontWidth + kBoxBackWidth;
 constexpr int kBoxHeight = 176;
-// "RWB1", the width and the height (big-endian 16-bit), then the pixels:
-// GX RGB5A3 in 4x4 tiles, the spine in the first kBoxSpineWidth columns.
+// "RWB2", the width and the height (big-endian 16-bit), then the pixels:
+// GX RGB5A3 in 4x4 tiles: the spine in the first kBoxSpineWidth columns,
+// then the front, then the back.
 constexpr std::size_t kBoxHeaderSize = 8;
 constexpr std::size_t kBoxPixelBytes = static_cast<std::size_t>(kBoxWidth) * kBoxHeight * 2;
 constexpr std::size_t kBoxFileSize = kBoxHeaderSize + kBoxPixelBytes;

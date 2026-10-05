@@ -579,6 +579,8 @@ void TestCoverArt() {
         EXPECT_EQ((box[8] << 8) | box[9], 0x83E0);
         // The tile at column 16 (the front): blue (0x801F).
         EXPECT_EQ((box[8 + 4 * 32] << 8) | box[8 + 4 * 32 + 1], 0x801F);
+        // The tile at column 144 (the back): red (0xFC00).
+        EXPECT_EQ((box[8 + 36 * 32] << 8) | box[8 + 36 * 32 + 1], 0xFC00);
         EXPECT_TRUE(make_box_file(full.data(), 160, 224).empty());
     }
     std::uint8_t bad[8] = {'R', 'W', 'C', '1', 0, 40, 0, 112};

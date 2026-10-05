@@ -190,8 +190,8 @@ the list explains the row you are on.
   RiftWii offers to restart its menu to show the new theme. The choice is
   saved as `theme = <folder>` in `sd:/riftwii/settings.txt`
   (`theme = default` for the default). The zip comes with two:
-  *Midnight* (dark) and *Linen* (woven cloth, glossy buttons and a warm
-  wood shelf). More in [THEMES.md](THEMES.md).
+  *Midnight* (dark) and *Bookshelf* (a light wooden bookcase: your covers
+  stand on its shelves, with paper panels). More in [THEMES.md](THEMES.md).
 - **Menu font**: *RiftWii* (its own) or *Wii Menu*, the font the Wii Menu
   writes with, read from your Wii's own memory (nothing is downloaded, and
   it covers Japanese too). RiftWii offers to restart its menu to switch.

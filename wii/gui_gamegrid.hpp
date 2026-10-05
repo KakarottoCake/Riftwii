@@ -43,7 +43,12 @@ public:
     // Channels: the names' 4x3 tiles, each showing the game's own animated
     // icon from its banner when `icon` draws one (item index, the box to
     // fill in screen pixels, alpha); a game without one shows its name.
-    using IconDrawer = std::function<bool(int index, float x, float y, float w, float h, int alpha)>;
+    struct IconBox {
+        float x, y, w, h;                         // where the icon goes (may stick out of the tile)
+        float clipX, clipY, clipW, clipH, radius;  // the tile's inside, with its round corners
+        int alpha;
+    };
+    using IconDrawer = std::function<bool(int index, const IconBox& box)>;
     void SetChannels(bool on, IconDrawer icon);
     bool Channels() const { return channels; }
     // The items on the page shown: whose icons to have ready.

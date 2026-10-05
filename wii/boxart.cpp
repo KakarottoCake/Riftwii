@@ -7,6 +7,7 @@
 
 #include <cstdio>
 #include <ctime>
+#include <new>
 #include <set>
 #include <vector>
 
@@ -24,11 +25,12 @@ namespace {
 
 constexpr const char* kBoxDir = "sd:/riftwii/boxes";
 constexpr std::time_t kRetryAfter = 7 * 24 * 60 * 60;
-// A shelf shows about 25 boxes; room for twice that, so scrolling back
-// finds them: 2.4 MB of MEM2, taken once when the shelf is first drawn.
-constexpr int kSlots = 48;
+// A shelf shows about 25 boxes; room for a few more, so scrolling back
+// finds them: 3 MB of MEM2, taken once when the shelf is first drawn.
+constexpr int kSlots = 32;
 
-std::string BoxPath(const std::string& id) { return std::string(kBoxDir) + "/" + id + ".rwb"; }
+// .rw2: the box with its back (version 1's .rwb files had no back and are left alone).
+std::string BoxPath(const std::string& id) { return std::string(kBoxDir) + "/" + id + ".rw2"; }
 std::string MissPath(const std::string& id) { return std::string(kBoxDir) + "/" + id + ".none"; }
 
 bool ValidId(const std::string& id) {
@@ -100,7 +102,15 @@ struct Background {
 Background g_background;
 
 void RunBackgroundFetch() {
-    g_background.got = FetchBoxNow(g_background.id, g_background.error);
+    // A full scan unpacks to a few MB: without the room, give up on this box
+    // rather than end the thread.
+    try {
+        g_background.got = FetchBoxNow(g_background.id, g_background.error);
+    } catch (const std::bad_alloc&) {
+        g_background.got = CoverFetch::NotFound;
+        g_background.error = "out of memory";
+        logf("Shelf: no room to cut the box of %s\n", g_background.id.c_str());
+    }
     mem::WatchHeap(("after the box download of " + g_background.id).c_str());
 }
 

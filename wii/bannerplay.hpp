@@ -20,6 +20,11 @@
 // vertex colours, in two TEV stages.
 namespace riftwii::wii {
 
+// A rounded box (screen pixels) a banner is cut to, as a tile's corners.
+struct RoundClip {
+    float x = 0, y = 0, w = 0, h = 0, radius = 0;
+};
+
 class BannerPlayer {
 public:
     BannerPlayer() = default;
@@ -36,8 +41,9 @@ public:
     void Step();
     void Restart();
     // The shown area (the icon's middle 128x96, or the whole banner) fitted
-    // into w x h at (x, y) in screen pixels, clipped to that box.
-    void Draw(float x, float y, float w, float h, int alpha);
+    // into w x h at (x, y) in screen pixels, clipped to that box, or to
+    // `clip` with its round corners when given.
+    void Draw(float x, float y, float w, float h, int alpha, const RoundClip* clip = nullptr);
     // Memory held (the unpacked archive).
     std::size_t Bytes() const { return arc_size_; }
 
