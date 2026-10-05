@@ -183,17 +183,34 @@ float track_value(const AnimTrack& track, float frame) {
     return h00 * a.value + h10 * span * a.slope + h01 * b.value + h11 * span * b.slope;
 }
 
-void apply_animation(const Animation& anim, float frame, Layout& layout) {
+AnimBinding bind_animation(const Animation& anim, const Layout& layout) {
+    AnimBinding b;
     for (const AnimTarget& t : anim.targets) {
         // A material's tracks name the material, or a pane whose material it is.
         const int pi = t.material ? -1 : layout.find_pane(t.name);
-        LytMaterial* m = nullptr;
+        int mi = -1;
         if (t.material) {
-            for (LytMaterial& c : layout.materials)
-                if (c.name == t.name) m = &c;
-        } else if (pi >= 0 && layout.panes[pi].material >= 0) {
-            m = &layout.materials[layout.panes[pi].material];
+            for (std::size_t i = 0; i < layout.materials.size(); ++i)
+                if (layout.materials[i].name == t.name) mi = static_cast<int>(i);
+        } else if (pi >= 0) {
+            mi = layout.panes[pi].material;
         }
+        b.pane.push_back(pi);
+        b.material.push_back(mi);
+    }
+    return b;
+}
+
+void apply_animation(const Animation& anim, float frame, Layout& layout) {
+    apply_animation(anim, frame, layout, bind_animation(anim, layout));
+}
+
+void apply_animation(const Animation& anim, float frame, Layout& layout, const AnimBinding& binding) {
+    for (std::size_t ti = 0; ti < anim.targets.size() && ti < binding.pane.size(); ++ti) {
+        const AnimTarget& t = anim.targets[ti];
+        const int pi = binding.pane[ti];
+        const int mi = binding.material[ti];
+        LytMaterial* m = mi >= 0 && static_cast<std::size_t>(mi) < layout.materials.size() ? &layout.materials[mi] : nullptr;
         if (m) {
             for (const AnimTrack& tr : t.tracks) {
                 const float v = track_value(tr, frame);
@@ -229,7 +246,7 @@ void apply_animation(const Animation& anim, float frame, Layout& layout) {
                 }
             }
         }
-        if (pi < 0) continue;
+        if (pi < 0 || static_cast<std::size_t>(pi) >= layout.panes.size()) continue;
         LytPane& p = layout.panes[pi];
         for (const AnimTrack& tr : t.tracks) {
             const float v = track_value(tr, frame);

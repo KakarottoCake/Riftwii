@@ -86,6 +86,8 @@ BannerPlayer::~BannerPlayer() { Free(); }
 void BannerPlayer::Free() {
     for (auto& t : textures_) free(t.second.own);
     textures_.clear();
+    by_index_.clear();
+    looked_up_.clear();
     free(arc_);
     arc_ = nullptr;
     arc_size_ = 0;
@@ -124,7 +126,8 @@ bool BannerPlayer::Load(const std::vector<std::uint8_t>& opening_bnr, bool icon,
         Free();
         return false;
     }
-    show_language(base_, BannerLanguageCode());
+    language_ = language_panes(base_, BannerLanguageCode());
+    apply_language(base_, language_);
     has_start_ = has_loop_ = false;
     for (const std::string& path : u8_.files_in("/arc/anim", ".brlan")) {
         if (!u8_.find(path, d, n)) continue;
@@ -142,6 +145,10 @@ bool BannerPlayer::Load(const std::vector<std::uint8_t>& opening_bnr, bool icon,
     DCFlushRange(arc_, (arc_size_ + 31) & ~std::size_t(31));
     GX_InvalidateTexAll();
     work_ = base_;
+    if (has_start_) start_binding_ = bind_animation(start_, base_);
+    if (has_loop_) loop_binding_ = bind_animation(loop_, base_);
+    by_index_.clear();
+    looked_up_.clear();
     loaded_ = true;
     Restart();
     return true;
@@ -157,18 +164,30 @@ void BannerPlayer::Step() {
     ++frame_;
     reset_animated(base_, work_);
     const int start_frames = has_start_ ? start_.frames : 0;
-    if (has_start_) apply_animation(start_, static_cast<float>(frame_ < start_frames ? frame_ : start_frames), work_);
+    if (has_start_)
+        apply_animation(start_, static_cast<float>(frame_ < start_frames ? frame_ : start_frames), work_, start_binding_);
     if (has_loop_ && frame_ >= start_frames) {
         const int length = loop_.frames > 0 ? loop_.frames : 1;
-        apply_animation(loop_, static_cast<float>((frame_ - start_frames) % length), work_);
+        apply_animation(loop_, static_cast<float>((frame_ - start_frames) % length), work_, loop_binding_);
     }
     // Language groups again: an animation may have shown a hidden one.
-    show_language(work_, BannerLanguageCode());
+    apply_language(work_, language_);
 }
 
 BannerPlayer::Texture* BannerPlayer::TextureOf(std::size_t index) {
     if (index >= work_.textures.size()) return nullptr;
-    const std::string& name = work_.textures[index];
+    // By index after the first time (a texture-pattern track may add names).
+    if (index < looked_up_.size() && looked_up_[index]) return by_index_[index];
+    if (looked_up_.size() < work_.textures.size()) {
+        looked_up_.resize(work_.textures.size(), false);
+        by_index_.resize(work_.textures.size(), nullptr);
+    }
+    looked_up_[index] = true;
+    by_index_[index] = TextureByName(work_.textures[index]);
+    return by_index_[index];
+}
+
+BannerPlayer::Texture* BannerPlayer::TextureByName(const std::string& name) {
     auto it = textures_.find(name);
     if (it != textures_.end()) return it->second.ok ? &it->second : nullptr;
     Texture& t = textures_[name];
@@ -233,7 +252,8 @@ void BannerPlayer::Draw(float x, float y, float w, float h, int alpha, const Rou
     GX_SetTexCoordGen(GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY);
     GX_SetNumChans(1);
     GX_SetChanCtrl(GX_COLOR0A0, GX_DISABLE, GX_SRC_REG, GX_SRC_VTX, GX_LIGHTNULL, GX_DF_NONE, GX_AF_NONE);
-    for (const LytQuad& q : layout_quads(work_)) {
+    layout_quads(work_, quads_, scratch_);
+    for (const LytQuad& q : quads_) {
         const LytMaterial* m = q.material >= 0 ? &work_.materials[q.material] : nullptr;
         Texture* tex = nullptr;
         LytTexSrt srt;

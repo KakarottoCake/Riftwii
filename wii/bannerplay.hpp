@@ -56,6 +56,7 @@ private:
         std::uint8_t* own = nullptr;  // a copy, when the archive's was not 32-byte aligned
     };
     Texture* TextureOf(std::size_t index);
+    Texture* TextureByName(const std::string& name);
     void Free();
 
     bool loaded_ = false;
@@ -69,6 +70,15 @@ private:
     bool has_start_ = false, has_loop_ = false;
     int frame_ = 0;
     std::map<std::string, Texture> textures_;
+    // Worked out once at load, so a frame neither searches nor allocates:
+    // the animations' panes and materials, the language's panes, the
+    // textures by index, and the quads' buffers.
+    AnimBinding start_binding_, loop_binding_;
+    LanguagePanes language_;
+    std::vector<Texture*> by_index_;
+    std::vector<bool> looked_up_;
+    std::vector<LytQuad> quads_;
+    LytScratch scratch_;
 };
 
 }  // namespace riftwii::wii

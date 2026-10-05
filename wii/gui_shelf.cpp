@@ -242,7 +242,8 @@ void GuiGameGrid::DrawShelf(int alpha) {
         if (i < first || i > last) poses[i].placed = false;
 
     // Back to front: the farthest from the middle first, the focused one last.
-    std::vector<int> order;
+    std::vector<int>& order = shelfOrder;
+    order.clear();
     for (int i = first; i <= last; ++i) order.push_back(i);
     std::sort(order.begin(), order.end(), [&](int a, int b) {
         const float da = std::fabs(poses[a].x - 320.0f) - poses[a].z, db = std::fabs(poses[b].x - 320.0f) - poses[b].z;
@@ -289,11 +290,8 @@ void GuiGameGrid::DrawShelf(int alpha) {
     }
 
     spineRects.clear();
-    struct Label {
-        int index;
-        float x, y0, y1;
-    };
-    std::vector<Label> labels;
+    std::vector<SpineLabel>& labels = spineLabels;
+    labels.clear();
     for (const int i : order) {
         const GridItem& item = (*items)[i];
         const BoxPose& p = poses[i];
@@ -382,7 +380,7 @@ void GuiGameGrid::DrawShelf(int alpha) {
             Project(tl, sx, sy0);
             Project(tr, sxr, dummy);
             Project(along(tl, bl, 0.78f), dummy, sy1);
-            labels.push_back({i, (sx + sxr) / 2, sy0, sy1});
+            labels.push_back(SpineLabel{i, (sx + sxr) / 2, sy0, sy1});
         }
         if (x1 > x0) spineRects.push_back({i, x0, y0, x1, y1});
     }
@@ -390,7 +388,7 @@ void GuiGameGrid::DrawShelf(int alpha) {
 
     // The names up the plain spines, read bottom to top as on a case.
     if (static_cast<int>(spineFit.size()) != Count()) spineFit.assign(Count(), {});
-    for (const Label& l : labels) {
+    for (const SpineLabel& l : labels) {
         auto& fit = spineFit[l.index];
         const std::string& title = (*items)[l.index].title;
         if (fit.first != title || fit.second.empty()) fit = {title, Fit(title, kSpineTextRoom)};

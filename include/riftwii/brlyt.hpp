@@ -102,6 +102,14 @@ bool parse_brlyt(const std::uint8_t* data, std::size_t size, Layout& out, std::s
 // groups are left as they are.
 void show_language(Layout& layout, const std::string& language);
 
+// The same choice worked out once, for a layout drawn every frame: the
+// panes to show and to hide (indices), applied without searching again.
+struct LanguagePanes {
+    std::vector<int> show, hide;
+};
+LanguagePanes language_panes(const Layout& layout, const std::string& language);
+void apply_language(Layout& layout, const LanguagePanes& panes);
+
 // One picture to draw: its corners in layout units (x right, y up, the
 // layout's centre at 0, 0), their colours with every alpha applied, and
 // its material and UV sets.
@@ -114,6 +122,15 @@ struct LytQuad {
 };
 
 std::vector<LytQuad> layout_quads(const Layout& layout);
+
+// The same into `out`, reusing it and `scratch` from frame to frame, so a
+// layout drawn every frame allocates nothing once they have grown.
+struct LytScratch {
+    std::vector<std::array<float, 12>> world;
+    std::vector<float> alpha;
+    std::vector<std::uint8_t> shown;
+};
+void layout_quads(const Layout& layout, std::vector<LytQuad>& out, LytScratch& scratch);
 
 // A material's colour for one texel (straight alpha, 0..255 each) and the
 // colour the quad brings at that point (its vertex colour), the way

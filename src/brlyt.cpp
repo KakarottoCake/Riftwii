@@ -218,11 +218,17 @@ M34 local(const LytPane& p) {
     M34 s = identity();
     s.m[0][0] = p.sx;
     s.m[1][1] = p.sy;
+    if (p.rx == 0 && p.ry == 0 && p.rz == 0) {
+        // Most panes are not turned: move and scale only.
+        t.m[0][0] = p.sx;
+        t.m[1][1] = p.sy;
+        return t;
+    }
     M34 r = identity();
     if (p.rx != 0) r = mul(r, rotation(0, p.rx));
     if (p.ry != 0) r = mul(r, rotation(1, p.ry));
     if (p.rz != 0) r = mul(r, rotation(2, p.rz));
-    return mul(mul(t, mul(identity(), r)), s);
+    return mul(mul(t, r), s);
 }
 
 std::uint8_t clamp8(int v) { return static_cast<std::uint8_t>(v < 0 ? 0 : v > 255 ? 255 : v); }
@@ -349,13 +355,14 @@ bool parse_brlyt(const std::uint8_t* data, std::size_t size, Layout& out, std::s
     return true;
 }
 
-void show_language(Layout& layout, const std::string& language) {
+LanguagePanes language_panes(const Layout& layout, const std::string& language) {
     static const char* const kCodes[] = {"JPN", "ENG", "GER", "FRA", "SPA", "ITA", "NED", "CHN", "KOR", "USA", "EUR"};
+    LanguagePanes out;
     std::vector<const LytGroup*> langs;
     for (const LytGroup& g : layout.groups)
         for (const char* c : kCodes)
             if (g.name == c) langs.push_back(&g);
-    if (langs.empty()) return;
+    if (langs.empty()) return out;
     const LytGroup* pick = nullptr;
     for (const std::string& want : {language, std::string("ENG")})
         for (const LytGroup* g : langs)
@@ -364,18 +371,38 @@ void show_language(Layout& layout, const std::string& language) {
     for (const LytGroup* g : langs) {
         for (const std::string& name : g->panes) {
             const int i = layout.find_pane(name);
-            if (i < 0) continue;
-            LytPane& p = layout.panes[i];
-            p.flags = static_cast<std::uint8_t>(g == pick ? (p.flags | 1) : (p.flags & ~1));
+            if (i >= 0) (g == pick ? out.show : out.hide).push_back(i);
         }
     }
+    return out;
+}
+
+void apply_language(Layout& layout, const LanguagePanes& panes) {
+    // Hidden first: a pane in two groups is shown if its language's has it.
+    for (const int i : panes.hide) layout.panes[i].flags = static_cast<std::uint8_t>(layout.panes[i].flags & ~1);
+    for (const int i : panes.show) layout.panes[i].flags = static_cast<std::uint8_t>(layout.panes[i].flags | 1);
+}
+
+void show_language(Layout& layout, const std::string& language) {
+    apply_language(layout, language_panes(layout, language));
 }
 
 std::vector<LytQuad> layout_quads(const Layout& layout) {
     std::vector<LytQuad> quads;
-    std::vector<M34> world(layout.panes.size(), identity());
-    std::vector<float> alpha(layout.panes.size(), 1.0f);
-    std::vector<bool> shown(layout.panes.size(), true);
+    LytScratch scratch;
+    layout_quads(layout, quads, scratch);
+    return quads;
+}
+
+void layout_quads(const Layout& layout, std::vector<LytQuad>& quads, LytScratch& scratch) {
+    static_assert(sizeof(M34) == sizeof(std::array<float, 12>), "M34 is twelve floats");
+    quads.clear();
+    scratch.world.resize(layout.panes.size());
+    scratch.alpha.assign(layout.panes.size(), 1.0f);
+    scratch.shown.assign(layout.panes.size(), 1);
+    M34* world = reinterpret_cast<M34*>(scratch.world.data());
+    float* alpha = scratch.alpha.data();
+    std::uint8_t* shown = scratch.shown.data();
     // Parents come before their children in file order.
     for (std::size_t i = 0; i < layout.panes.size(); ++i) {
         const LytPane& p = layout.panes[i];
@@ -388,9 +415,9 @@ std::vector<LytQuad> layout_quads(const Layout& layout) {
             visible = visible && shown[p.parent];
             if (up.flags & 2) a *= alpha[p.parent];
         }
-        world[i] = mul(parent, local(p));
+        world[i] = p.parent >= 0 ? mul(parent, local(p)) : local(p);
         alpha[i] = a;
-        shown[i] = visible;
+        shown[i] = visible ? 1 : 0;
         if (!visible || (p.kind != PaneKind::Picture && p.kind != PaneKind::Window) || a <= 0.0f) continue;
         const int ox = p.origin % 3, oy = p.origin / 3;
         const float left = -p.width * ox / 2.0f, top = p.height * oy / 2.0f;
@@ -409,7 +436,6 @@ std::vector<LytQuad> layout_quads(const Layout& layout) {
         }
         quads.push_back(q);
     }
-    return quads;
 }
 
 LytColor shade_texel(const LytMaterial& m, const LytColor* texel, LytColor raster, const LytColor* mask) {

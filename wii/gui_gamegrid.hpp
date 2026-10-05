@@ -109,6 +109,14 @@ private:
     int ShelfHit(int x, int y) const;
     std::vector<BoxPose> poses;
     std::vector<SpineRect> spineRects;  // the boxes as last drawn, nearest last
+    // A box without its art: where its name goes up its spine.
+    struct SpineLabel {
+        int index;
+        float x, y0, y1;
+    };
+    // Reused every frame: the boxes in drawing order, the names to write.
+    std::vector<int> shelfOrder;
+    std::vector<SpineLabel> spineLabels;
     GuiText* spineText = nullptr;       // a box without its art: the name up its spine
     // Each spine's name as fitted, with the title it was fitted from.
     std::vector<std::pair<std::string, std::string>> spineFit;

@@ -55,6 +55,14 @@ float track_value(const AnimTrack& track, float frame);
 // the layout's texture list (and added when missing, so the caller loads it).
 void apply_animation(const Animation& anim, float frame, Layout& layout);
 
+// Which pane and material each of `anim`'s targets names in `layout`
+// (-1: none), worked out once for an animation played every frame.
+struct AnimBinding {
+    std::vector<int> pane, material;
+};
+AnimBinding bind_animation(const Animation& anim, const Layout& layout);
+void apply_animation(const Animation& anim, float frame, Layout& layout, const AnimBinding& binding);
+
 // Puts back in `work` (a copy of `base`, maybe animated since) every value
 // an animation can change, without allocating: what a frame starts from.
 void reset_animated(const Layout& base, Layout& work);
