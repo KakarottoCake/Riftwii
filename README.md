@@ -72,7 +72,7 @@ against USB loading. RiftWii exists to finally get past that.
 RiftWii stands on a lot of other people's work. Code that follows or
 contains theirs names them in its file header, and
 [NOTICE.md](NOTICE.md) lists each piece: what it is, where it came from
-(with the commit), and its licence.
+(with the commit), and its license.
 
 - **USB Loader GX** (https://github.com/wiidev/usbloadergx, GPL-3.0):
   the online server patches (`PrivateServerPatcher`, `domainpatcher`),
@@ -109,16 +109,16 @@ contains theirs names them in its file header, and
   archive, **M+ Fonts** for the menu font, **Zane Little** for the menu
   music.
 
-## Licence
+## License
 
 GPL-3.0-or-later ([LICENSE](LICENSE)). RiftWii contains no Riivolution
-code. Its third-party components, their origins and licences are in
+code. Its third-party components, their origins and licenses are in
 [NOTICE.md](NOTICE.md). Each release zip carries `LICENSE.txt`,
 `NOTICE.md` and `SOURCE.txt` (which commit of this repository it was
-built from), and RiftWii shows its licence and credits in Settings >
-Credits and licence.
+built from), and RiftWii shows its license and credits in Settings >
+Credits and license.
 
-### A note for the licence enthusiasts
+### A note for the license enthusiasts
 
 Good news: RiftWii follows the GPL to the letter, and then some. For
 anyone who needs it spelled out:
@@ -126,13 +126,13 @@ anyone who needs it spelled out:
 - Every file that follows someone else's work says so at the top, with
   the project, the file and the functions.
 - [NOTICE.md](NOTICE.md) lists every component, where it came from (down
-  to the commit) and its licence.
-- Every release zip carries the full licence, the notices and the exact
+  to the commit) and its license.
+- Every release zip carries the full license, the notices and the exact
   commit it was built from.
 - The Gecko code handler ships with its assembly source, which rebuilds
   it byte for byte. That's more than most Wii loaders bother with.
 - RiftWii itself will show you all ~840 lines of the GPL, in Settings >
-  Credits and licence. Scrolling to the end is left as an exercise for
+  Credits and license. Scrolling to the end is left as an exercise for
   the reader.
 
 If you still think something is missing a credit, open an

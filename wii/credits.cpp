@@ -29,7 +29,7 @@ const char* const kCredits[] = {
     "CREDITS",
     "",
     "RiftWii contains or follows the work below. NOTICE.md, in the source and in each release, lists "
-    "every piece with its origin and licence, and each file that follows someone's work names them in "
+    "every piece with its origin and license, and each file that follows someone's work names them in "
     "its header.",
     "",
     "USB Loader GX (github.com/wiidev/usbloadergx, GPL-3.0): the online server patches, the Wiimmfi "
@@ -106,8 +106,8 @@ void Wrap(const std::string& text, std::size_t width, std::vector<std::string>& 
     }
 }
 
-// The licence's paragraphs, rewrapped: a paragraph starts after a blank
-// line or at an indented line (the licence indents each paragraph's
+// The license's paragraphs, rewrapped: a paragraph starts after a blank
+// line or at an indented line (the license indents each paragraph's
 // first line, and every line of its title block and sample notice).
 void AddLicence(std::size_t width, std::vector<std::string>& out) {
     if (licence_bin_size < 4) return;
@@ -118,7 +118,7 @@ void AddLicence(std::size_t width, std::vector<std::string>& out) {
     if (BrotliDecoderDecompress(licence_bin_size - 4, licence_bin + 4, &got,
                                 reinterpret_cast<std::uint8_t*>(&text[0])) != BROTLI_DECODER_RESULT_SUCCESS ||
         got != size) {
-        out.push_back("The licence could not be unpacked. It is at https://www.gnu.org/licenses/gpl-3.0.txt");
+        out.push_back("The license could not be unpacked. It is at https://www.gnu.org/licenses/gpl-3.0.txt");
         return;
     }
     std::string paragraph;

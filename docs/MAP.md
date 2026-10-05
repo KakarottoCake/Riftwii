@@ -63,7 +63,7 @@ and `vendor-*` is third-party code.
 | File | What |
 | --- | --- |
 | `README.md` | The project page: what it is, installing, credits |
-| `NOTICE.md` | Every third-party piece RiftWii contains or follows: origin, licence, what was used |
+| `NOTICE.md` | Every third-party piece RiftWii contains or follows: origin, license, what was used |
 | `LICENSE` | GNU GPL version 3 |
 | `CMakeLists.txt` | The host build: the portable library, the runtime's C code and the test suites (`ctest`) |
 | `Makefile.wii` | The Wii app (`riftwii.dol`); builds the runtime blobs and BearSSL first and embeds them |
@@ -95,7 +95,7 @@ it links libogc. Each `.cpp` has a `.hpp` that describes it.
 | `console.cpp` | libogc's text console, for the launch screen and errors |
 | `progress.cpp` | The launch screen's progress line |
 | `crash.cpp` | RiftWii's crash screen and `crash.txt` |
-| `credits.cpp` | Settings > Credits and licence |
+| `credits.cpp` | Settings > Credits and license |
 | `log.cpp` | The log (`session.log`, `boot.log`) |
 | `loadersettings.cpp` | Settings as the app reads and writes them |
 | `memlimits.cpp` | Keeps the app's heap out of memory a launch overwrites |
@@ -249,7 +249,7 @@ code comments cite.
 | `vendor-gecko/` | The Gecko code handler, with its source |
 | `vendor-wwfc/` | WiiLink WFC's patcher pieces |
 
-Licences and what RiftWii changed are in [NOTICE.md](../NOTICE.md).
+Licenses and what RiftWii changed are in [NOTICE.md](../NOTICE.md).
 
 ## Not in the repository
 

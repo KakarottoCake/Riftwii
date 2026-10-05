@@ -201,7 +201,7 @@ the list explains the row you are on.
 - **Send a problem report**: see Reporting a problem below.
 - **Tutorial** shows the short tour of the basics again: a new SD card
   starts with it, once.
-- **Credits and licence**: RiftWii's licence (the GNU GPL, version 3 or
+- **Credits and license**: RiftWii's license (the GNU GPL, version 3 or
   later, in full), where its source is, and who its parts come from.
 
 ### HOME Menu

@@ -69,7 +69,7 @@ from (disc, SD, USB) is just as useful.
 - [ ] **Look for games again** (Settings) finds a game you just copied.
 - [ ] **Extra game folders.** Put `game_folders = /Wii Games` in
   `sd:/riftwii/settings.txt` and a game in that folder: it shows up.
-- [ ] **Credits and licence** (Settings) opens and scrolls.
+- [ ] **Credits and license** (Settings) opens and scrolls.
 
 ## 2. Updates
 

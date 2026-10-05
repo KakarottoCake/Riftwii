@@ -3237,11 +3237,11 @@ static void GcAdapterTestPage()
 	ResumeGui();
 }
 
-// Settings > Credits and licence: RiftWii's licence notice, who its
+// Settings > Credits and license: RiftWii's license notice, who its
 // parts come from and the GNU GPL in full (wii/credits.hpp).
 static void CreditsPage()
 {
-	GuiText titleTxt(tr("Credits and licence"), 30, skin::kInk);
+	GuiText titleTxt(tr("Credits and license"), 30, skin::kInk);
 	Place(titleTxt, 40, 28);
 	GuiText versionTxt("GPL-3.0-or-later", 15, skin::kInkDim);
 	versionTxt.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
@@ -3269,7 +3269,7 @@ static void CreditsPage()
 	w.Append(&backBtn.button);
 	mainWindow->Append(&w);
 	ResumeGui();
-	// For whoever reads all the way to the end of the licence.
+	// For whoever reads all the way to the end of the license.
 	static bool readItAll = false;
 	bool done = false;
 	while (!done)
@@ -3282,9 +3282,9 @@ static void CreditsPage()
 		if (backBtn.Clicked()) done = true;
 		if (!done && !readItAll && list.AtEnd()) {
 			readItAll = true;
-			logf("Credits: read to the end of the licence\n");
-			ShowPopup(tr("Achievement unlocked: Licence Enthusiast"),
-				tr("You read all 5,644 words of the GNU General Public License, version 3. Respect to the developers whose work RiftWii builds on: every one of you is credited above. The GPL is there to protect people who share their code, not to be waved around only when it's handy for picking a fight. Your reward: absolutely nothing, as the licence says (\"WITHOUT ANY WARRANTY\")."),
+			logf("Credits: read to the end of the license\n");
+			ShowPopup(tr("Achievement unlocked: License Enthusiast"),
+				tr("You read all 5,644 words of the GNU General Public License, version 3. Respect to the developers whose work RiftWii builds on: every one of you is credited above. The GPL is there to protect people who share their code, not to be waved around only when it's handy for picking a fight. Your reward: absolutely nothing, as the license says (\"WITHOUT ANY WARRANTY\")."),
 				tr("Fair enough"));
 		}
 		ResumeGui();
@@ -3434,7 +3434,7 @@ static int MenuSettings(FrontendState& state)
 		actions.push_back(kTutorial);
 		FlowRow credits;
 		credits.kind = FlowRow::Kind::Action;
-		credits.label = tr("Credits and licence");
+		credits.label = tr("Credits and license");
 		credits.value = tr("View");
 		rows.push_back(credits);
 		actions.push_back(kCredits);
@@ -3511,7 +3511,7 @@ static int MenuSettings(FrontendState& state)
 			case kGcAdapter: return AdapterNote(settings.gc_adapter);
 			case kGcTest: return tr("Shows live what the controllers in the adapter are pressing.");
 			case kTutorial: return tr("The short tour of RiftWii's basics that a new SD card starts with.");
-			case kCredits: return tr("Who RiftWii's parts come from, its licence (the GNU GPL, version 3 or later) and where its source is.");
+			case kCredits: return tr("Who RiftWii's parts come from, its license (the GNU GPL, version 3 or later) and where its source is.");
 			case kIos: return MenuIosNote(iosSlot);
 			case kNet:
 				return netOn ? "Looks for a PC running a RiiFS server when the games are read. Rescan to look now."

@@ -528,7 +528,7 @@ msgstr "表示"
 msgid "The short tour of RiftWii's basics that a new SD card starts with."
 msgstr "新しいSDカードで最初に表示される、RiftWiiの基本の短いガイドです。"
 
-msgid "Credits and licence"
+msgid "Credits and license"
 msgstr "クレジットとライセンス"
 
 msgid "Filter"
@@ -537,7 +537,7 @@ msgstr "フィルター"
 msgid "View"
 msgstr "表示"
 
-msgid "Who RiftWii's parts come from, its licence (the GNU GPL, version 3 or later) and where its source is."
+msgid "Who RiftWii's parts come from, its license (the GNU GPL, version 3 or later) and where its source is."
 msgstr "RiftWiiの各部分の作者、ライセンス (GNU GPL バージョン3以降) とソースコードの場所。"
 
 msgid "Experimental. When the adapter is plugged in as a game starts, its controllers fill the ports that have none plugged in, in games that support the GameCube controller. It needs IOS 58 or a d2x cIOS."

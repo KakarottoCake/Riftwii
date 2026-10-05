@@ -133,7 +133,7 @@ this way: it was the crash recorder.
    tag and commit the zip was built from and the repository URL. The
    README's last section says the same in a few lines and lists the
    credits. If `LICENSE` changed, `python tools/make_licence.py` first
-   (`--check` tells), so Settings > Credits and licence shows the same
+   (`--check` tells), so Settings > Credits and license shows the same
    text.
    The theme kit goes beside it: `cmake --build build-host --target
    theme_kit`, then `py -3.13 tools/make_theme_kit.py
@@ -141,11 +141,11 @@ this way: it was the crash recorder.
    painted by the menu's own code, so they match the release).
 4. `gh release create vX.Y.Z-beta --prerelease` with the zip, the theme
    kit and `riftwii.dol`, the notes giving what changed and the DOL's SHA-256,
-   and ending with a "Licence and source" line: GPL-3.0-or-later, the
+   and ending with a "License and source" line: GPL-3.0-or-later, the
    source at the tag, the credits in `NOTICE.md`.
 5. When a third-party piece is added: a row in `NOTICE.md` (what, where
-   from with the commit, licence), `SPDX-FileCopyrightText` lines (one per
-   holder, above the licence line) in each file that follows it, and a
+   from with the commit, license), `SPDX-FileCopyrightText` lines (one per
+   holder, above the license line) in each file that follows it, and a
    line in the README's Credits and in
    `wii/credits.cpp`. Binaries built from someone else's source ship
    with that source, as `vendor-gecko/` does.
