@@ -1,4 +1,8 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
+// SPDX-FileCopyrightText: 2012-2025 Dimok
+// SPDX-FileCopyrightText: 2012-2025 giantpune
+// SPDX-FileCopyrightText: 2012-2025 blackb0x
+// SPDX-FileCopyrightText: USB Loader GX contributors <https://github.com/wiidev/usbloadergx>
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "wiifont.hpp"
 

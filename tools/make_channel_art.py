@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2026 RiftWii contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Draws the RiftWii channel's art into channel/art/ (committed, so the
 build itself needs only the standard library). Needs Pillow and numpy.

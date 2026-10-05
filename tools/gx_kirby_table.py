@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2026 RiftWii contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Writes src/gxkirby.inc: USB Loader GX's MetaFortress patch for Kirby's
 Return to Dream Land (source/patches/kirbypatch.c, "Patch by crediar", ported

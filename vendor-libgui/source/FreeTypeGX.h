@@ -19,6 +19,9 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with FreeTypeGX.  If not, see <http://www.gnu.org/licenses/>.
  */
+/* Changed for RiftWii (October 2026), under GPL-3.0-or-later: InitFreeType
+ * takes a font collection's face and returns whether FreeType could read it.
+ * Every change is in RiftWii's git history; NOTICE.md lists the origin. */
 
 #ifndef FREETYPEGX_H_
 #define FREETYPEGX_H_
