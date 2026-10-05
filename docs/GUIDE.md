@@ -171,6 +171,11 @@ the list explains the row you are on.
   RiftWii offers to restart its menu to show the new theme. The choice is
   saved as `theme = <folder>` in `sd:/riftwii/settings.txt`
   (`theme = default` for the default). More in [THEMES.md](THEMES.md).
+- **Menu font**: *RiftWii* (its own) or *Wii Menu*, the font the Wii Menu
+  writes with, read from your Wii's own memory (nothing is downloaded, and
+  it covers Japanese too). RiftWii offers to restart its menu to switch.
+  If the Wii's font can't be read, RiftWii uses its own and says so on
+  Home. Saved as `menu_font = riftwii` or `menu_font = wii`.
 - **Wii Menu button**: *Back to RiftWii* makes the Wii Menu button of a
   game's HOME Menu start RiftWii again (it needs the RiftWii channel);
   *Wii Menu* leaves it as it was.

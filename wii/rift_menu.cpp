@@ -3160,7 +3160,7 @@ static int MenuSettings(FrontendState& state)
 			if (t.folder == folder) return t.name;
 		return folder;
 	};
-	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kGameLanguage, kGameCios, kServer, kHomeTiles, kTheme, kSounds, kMusic, kReturnTo, kShots, kOnline, kNames, kGcAdapter, kGcTest, kIos, kNet, kResync,
+	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kGameLanguage, kGameCios, kServer, kHomeTiles, kTheme, kFont, kSounds, kMusic, kReturnTo, kShots, kOnline, kNames, kGcAdapter, kGcTest, kIos, kNet, kResync,
 		kRescan, kChannel, kUpdate, kReport, kWiiChannel, kTutorial, kCredits, kExit, kNone };
 	// The RiftWii channel on the Wii Menu (wii/channel.hpp).
 	unsigned channelVersion = 0;
@@ -3194,6 +3194,7 @@ static int MenuSettings(FrontendState& state)
 		option(tr("Home tiles"), settings.home_tiles == "names" ? tr("Names") : tr("Covers"),
 			settings.home_tiles != "names", kHomeTiles);
 		option(tr("Theme"), themeName(settings.theme), settings.theme != "default", kTheme);
+		option(tr("Menu font"), settings.menu_font == "wii" ? tr("Wii Menu") : "RiftWii", settings.menu_font == "wii", kFont);
 		option(tr("Menu sounds"), MenuSoundsName(settings.menu_sounds), settings.menu_sounds != "off", kSounds);
 		option(tr("Menu music"), settings.menu_music == "off" ? tr("Off") : tr("On"), settings.menu_music != "off",
 			kMusic, FlowRow::Kind::Toggle);
@@ -3345,6 +3346,7 @@ static int MenuSettings(FrontendState& state)
 			case kGameCios: return tr("The d2x cIOS the game runs under. Automatic uses the menu's, else the first of 249, 250 and 251 that works.");
 			case kHomeTiles: return tr("Covers shows each game's box art from GameTDB, fetched while Home is open when downloads are on. Names shows the names only.");
 			case kTheme: return tr("The menu's colours and pictures. Themes are folders in sd:/riftwii/themes (docs/THEMES.md on GitHub).");
+			case kFont: return tr("The letters the menu is written in: RiftWii's own, or the Wii Menu's, read from this Wii.");
 			case kSounds: return tr("How loud the menu's clicks are. Quiet softens the tick the pointer makes moving onto something.");
 			case kReturnTo: return ReturnToNote();
 			case kShots: return tr("Experimental. In a game, hold 1 and press HOME (or hold L and R and press Down on a GameCube controller). The pictures go to sd:/riftwii/screenshots the next time RiftWii starts. Some games and mods may not work with it.");
@@ -3508,6 +3510,26 @@ static int MenuSettings(FrontendState& state)
 						    tr("Restart"), tr("Later")) == 0) {
 						logf("Settings: theme %s; restarting the menu\n", settings.theme.c_str());
 						riftwii::wii::WarmRestart(riftwii::wii::RestartKind::Theme, tr("Theme: {1}", {themeName(settings.theme)}));
+						note(tr("RiftWii could not restart. Start it again from the Homebrew Channel."));
+					}
+					break;
+				}
+				case kFont: {
+					settings.menu_font = settings.menu_font == "wii" ? "riftwii" : "wii";
+					const std::string error = saveSettings();
+					rebuild();
+					if (!error.empty()) {
+						note(error);
+						break;
+					}
+					const std::string fontName = settings.menu_font == "wii" ? tr("the Wii Menu's font") : tr("RiftWii's font");
+					note(tr("The menu restarts to change its font."));
+					if (ShowPopup(tr("Restart the menu?"),
+						    tr("RiftWii's menu restarts to show {1}. Your games and settings stay as they are.", {fontName}),
+						    tr("Restart"), tr("Later")) == 0) {
+						logf("Settings: menu font %s; restarting the menu\n", settings.menu_font.c_str());
+						riftwii::wii::WarmRestart(riftwii::wii::RestartKind::MenuFont,
+							tr("Menu font: {1}", {settings.menu_font == "wii" ? tr("Wii Menu") : std::string("RiftWii")}));
 						note(tr("RiftWii could not restart. Start it again from the Homebrew Channel."));
 					}
 					break;

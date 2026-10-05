@@ -1134,6 +1134,27 @@ msgstr "Riavvia"
 msgid "Theme: {1}"
 msgstr "Tema: {1}"
 
+msgid "Menu font"
+msgstr "Carattere del menu"
+
+msgid "The letters the menu is written in: RiftWii's own, or the Wii Menu's, read from this Wii."
+msgstr "Le lettere con cui è scritto il menu: quelle di RiftWii, o quelle del Menu Wii, lette da questa Wii."
+
+msgid "the Wii Menu's font"
+msgstr "il carattere del Menu Wii"
+
+msgid "RiftWii's font"
+msgstr "il carattere di RiftWii"
+
+msgid "The menu restarts to change its font."
+msgstr "Il menu si riavvia per cambiare carattere."
+
+msgid "Menu font: {1}"
+msgstr "Carattere del menu: {1}"
+
+msgid "The Wii Menu's font could not be read, so RiftWii's is used."
+msgstr "Non è stato possibile leggere il carattere del Menu Wii, quindi si usa quello di RiftWii."
+
 msgid "Files from a Mac on the SD card"
 msgstr "File di un Mac sulla scheda SD"
 

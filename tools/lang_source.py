@@ -1111,6 +1111,25 @@ T = {
         "Il menu di RiftWii si riavvia per mostrare {1}. I tuoi giochi e le impostazioni restano come sono."),
     "Restart": ("Reiniciar", "再起動", "Reiniciar", "Riavvia"),
     "Theme: {1}": ("Tema: {1}", "テーマ: {1}", "Tema: {1}", "Tema: {1}"),
+    "Menu font": ("Fuente del menú", "メニューのフォント", "Fonte do menu", "Carattere del menu"),
+    "The letters the menu is written in: RiftWii's own, or the Wii Menu's, read from this Wii.": (
+        "Las letras con las que se escribe el menú: las de RiftWii, o las del Menú de Wii, leídas de esta Wii.",
+        "メニューの文字のフォントです。RiftWii独自のものか、このWiiから読み込むWiiメニューのものを使います。",
+        "As letras em que o menu é escrito: as do RiftWii, ou as do Menu do Wii, lidas deste Wii.",
+        "Le lettere con cui è scritto il menu: quelle di RiftWii, o quelle del Menu Wii, lette da questa Wii."),
+    "the Wii Menu's font": ("la fuente del Menú de Wii", "Wiiメニューのフォント", "a fonte do Menu do Wii",
+                            "il carattere del Menu Wii"),
+    "RiftWii's font": ("la fuente de RiftWii", "RiftWiiのフォント", "a fonte do RiftWii", "il carattere di RiftWii"),
+    "The menu restarts to change its font.": ("El menú se reinicia para cambiar la fuente.",
+                                              "フォントを変えるにはメニューを再起動します。",
+                                              "O menu reinicia para trocar a fonte.",
+                                              "Il menu si riavvia per cambiare carattere."),
+    "Menu font: {1}": ("Fuente del menú: {1}", "メニューのフォント: {1}", "Fonte do menu: {1}", "Carattere del menu: {1}"),
+    "The Wii Menu's font could not be read, so RiftWii's is used.": (
+        "No se pudo leer la fuente del Menú de Wii, así que se usa la de RiftWii.",
+        "Wiiメニューのフォントを読み込めなかったため、RiftWiiのフォントを使います。",
+        "Não foi possível ler a fonte do Menu do Wii, então a do RiftWii é usada.",
+        "Non è stato possibile leggere il carattere del Menu Wii, quindi si usa quello di RiftWii."),
     "Files from a Mac on the SD card": ("Archivos de un Mac en la tarjeta SD", "SDカードにMacのファイルがあります",
         "Arquivos de um Mac no cartão SD", "File di un Mac sulla scheda SD"),
     'This SD card has hidden files that macOS makes when it copies (names that start with "._"). RiftWii skips them, but they fill the card and can confuse other homebrew. To remove them, put the card in your Mac, open Terminal and type: dot_clean -m /Volumes/ followed by the card\'s name. On Windows, delete the files whose names start with "._".': (
@@ -1181,7 +1200,7 @@ def check(repo):
     """Every msgid must appear as a literal in the menu's sources, or it
     would never be looked up."""
     sources = ["wii/rift_menu.cpp", "wii/gameextras.cpp", "wii/gui_gamegrid.cpp", "wii/channel.cpp", "wii/frontend.cpp",
-               "wii/codebuilds.cpp", "wii/gui_searchkeys.cpp"]
+               "wii/codebuilds.cpp", "wii/gui_searchkeys.cpp", "wii/main.cpp"]
     text = "".join(open(os.path.join(repo, p), encoding="utf-8").read() for p in sources)
     missing = [k for k in T if '"%s"' % escape(k) not in text]
     for k in missing:

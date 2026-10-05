@@ -1134,6 +1134,27 @@ msgstr "再起動"
 msgid "Theme: {1}"
 msgstr "テーマ: {1}"
 
+msgid "Menu font"
+msgstr "メニューのフォント"
+
+msgid "The letters the menu is written in: RiftWii's own, or the Wii Menu's, read from this Wii."
+msgstr "メニューの文字のフォントです。RiftWii独自のものか、このWiiから読み込むWiiメニューのものを使います。"
+
+msgid "the Wii Menu's font"
+msgstr "Wiiメニューのフォント"
+
+msgid "RiftWii's font"
+msgstr "RiftWiiのフォント"
+
+msgid "The menu restarts to change its font."
+msgstr "フォントを変えるにはメニューを再起動します。"
+
+msgid "Menu font: {1}"
+msgstr "メニューのフォント: {1}"
+
+msgid "The Wii Menu's font could not be read, so RiftWii's is used."
+msgstr "Wiiメニューのフォントを読み込めなかったため、RiftWiiのフォントを使います。"
+
 msgid "Files from a Mac on the SD card"
 msgstr "SDカードにMacのファイルがあります"
 

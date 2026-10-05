@@ -43,6 +43,7 @@
 
 #include "reportsend.hpp"
 #include "restart.hpp"
+#include "wiifont.hpp"
 #include "channel.hpp"
 #include "skin.hpp"
 
@@ -271,13 +272,34 @@ int main() {
     timed("video, pads and audio");
     u8* font = nullptr;
     std::size_t font_size = 0;
-    if (!UnpackMenuFont(font, font_size)) {
-        // Only if MEM2 were already full: FreeType can't run without a face.
-        riftwii::wii::logf("Menu font: unpacking failed\n");
-        ExitApp();
+    // Settings > Menu font: the Wii Menu's, read from the NAND, else ours.
+    bool font_ready = false;
+    if (riftwii::wii::Settings().menu_font == "wii") {
+        std::string why;
+        font = riftwii::wii::LoadWiiMenuFont(font_size, why);
+        if (font != nullptr && !InitFreeType(font, font_size, riftwii::wii::kWiiMenuFontFace)) {
+            DeinitFreeType();
+            why = "FreeType could not read it";
+            font = nullptr;
+        }
+        font_ready = font != nullptr;
+        if (font_ready) {
+            riftwii::wii::logf("Menu font: the Wii Menu's (%u bytes)\n", static_cast<unsigned>(font_size));
+        } else {
+            riftwii::wii::logf("Menu font: the Wii Menu's could not be used (%s); RiftWii's instead\n", why.c_str());
+            SetHomeNotice(riftwii::wii::tr("The Wii Menu's font could not be read, so RiftWii's is used."));
+        }
+        timed("Wii Menu font read");
     }
-    timed("font unpacked");
-    InitFreeType(font, font_size);
+    if (!font_ready) {
+        if (!UnpackMenuFont(font, font_size)) {
+            // Only if MEM2 were already full: FreeType can't run without a face.
+            riftwii::wii::logf("Menu font: unpacking failed\n");
+            ExitApp();
+        }
+        timed("font unpacked");
+        InitFreeType(font, font_size);
+    }
     InitGUIThreads();
     timed("FreeType and the GUI thread");
     riftwii::wii::ScreenshotsStart();

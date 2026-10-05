@@ -52,7 +52,9 @@ static FT_GlyphSlot ftSlot;		/**< FreeType reusable FT_GlyphSlot glyph container
 
 FreeTypeGX *fontSystem[MAX_FONT_SIZE+1];
 
-void InitFreeType(uint8_t* fontBuffer, FT_Long bufferSize)
+// RiftWii: the face can be one of a collection's (the Wii Menu's font is a
+// .ttc), and false says FreeType could not read it.
+bool InitFreeType(uint8_t* fontBuffer, FT_Long bufferSize, FT_Long faceIndex)
 {
 	ftMemory = FT_New_Memory();
 	FT_New_Library(ftMemory, &ftLibrary);
@@ -60,11 +62,13 @@ void InitFreeType(uint8_t* fontBuffer, FT_Long bufferSize)
 	FT_Add_Module(ftLibrary, &tt_driver_class);
 	FT_Add_Module(ftLibrary, &autofit_module_class);
 	FT_Add_Module(ftLibrary, &ft_smooth_renderer_class);
-	FT_New_Memory_Face(ftLibrary, (FT_Byte *)fontBuffer, bufferSize, 0, &ftFace);
-	ftSlot = ftFace->glyph;
-
 	for(int i=0; i<50; i++)
 		fontSystem[i] = nullptr;
+	ftFace = nullptr;
+	if (FT_New_Memory_Face(ftLibrary, (FT_Byte *)fontBuffer, bufferSize, faceIndex, &ftFace) != 0 || !ftFace)
+		return false;
+	ftSlot = ftFace->glyph;
+	return true;
 }
 
 void DeinitFreeType()

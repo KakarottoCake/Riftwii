@@ -572,6 +572,11 @@ void TestCoverArt() {
     EXPECT_EQ(s.menu_music, "off");
     s.parse("menu_music = loud\n");
     EXPECT_EQ(s.menu_music, "off");
+    EXPECT_EQ(s.menu_font, "riftwii");
+    s.parse("menu_font = wii\n");
+    EXPECT_EQ(s.menu_font, "wii");
+    s.parse("menu_font = comic\n");
+    EXPECT_EQ(s.menu_font, "wii");
     EXPECT_EQ(s.return_to, "riftwii");
     s.parse("return_to = menu\n");
     EXPECT_EQ(s.return_to, "menu");

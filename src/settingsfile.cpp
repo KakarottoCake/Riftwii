@@ -73,6 +73,8 @@ void LoaderSettings::parse(const std::string& text) {
             if (!value.empty() && value.size() <= 64 && value.find_first_of("/\\:") == std::string::npos &&
                 value != "." && value != "..")
                 theme = value;
+        } else if (key == "menu_font") {
+            if (value == "riftwii" || value == "wii") menu_font = value;
         } else if (key == "screenshots") {
             if (value == "on" || value == "off" || value == "demo") screenshots = value;
         } else if (key == "menu_sounds") {
@@ -129,6 +131,7 @@ std::string LoaderSettings::serialize() const {
     s += "menu_sounds = " + menu_sounds + "\n";
     s += "menu_music = " + menu_music + "\n";
     s += "theme = " + theme + "\n";
+    s += "menu_font = " + menu_font + "\n";
     s += "return_to = " + return_to + "\n";
     s += "screenshots = " + screenshots + "\n";
     s += std::string("online = ") + (online ? "on" : "off") + "\n";
