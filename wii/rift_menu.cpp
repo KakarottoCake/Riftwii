@@ -807,6 +807,27 @@ public:
 	void Draw() override { Menu_DrawRectangle(0, 0, screenwidth, screenheight, (GXColor){0, 0, 0, 150}, 1); }
 };
 
+// The box behind a hover name, so it reads over covers: the search keys'
+// fill and edge, sized to the text. `anchorX` is the text's centre
+// (centred) or its right end, `top` the text's top, both on screen.
+class HintChip : public GuiElement {
+public:
+	HintChip(GuiText& text, int anchorX, int top, bool centred)
+		: text_(text), anchorX_(anchorX), top_(top), centred_(centred) {}
+	void Draw() override {
+		if (!text_.IsVisible()) return;
+		const int w = text_.GetTextWidth() + 16;
+		const int x = centred_ ? anchorX_ - w / 2 : anchorX_ - w + 8;
+		Menu_DrawRectangle(x - 1, top_ - 5, w + 2, 28, skin::kChipOffEdge, 1);
+		Menu_DrawRectangle(x, top_ - 4, w, 26, skin::kChipOff, 1);
+	}
+
+private:
+	GuiText& text_;
+	int anchorX_, top_;
+	bool centred_;
+};
+
 // A QR code on screen: a white quiet zone of two modules, then the dark
 // modules, a run of them on a row as one rectangle.
 class QrImage : public GuiElement {
@@ -1477,11 +1498,14 @@ static int MenuSource(FrontendState& state)
 	// centred on each; the small search button's to its left, level with it
 	// (the pointer's hand covers what is below or right of the button).
 	filterHint.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
-	filterHint.SetPosition(64 - 320, 362);
+	filterHint.SetPosition(64 - 320, 354);
 	settingsHint.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
-	settingsHint.SetPosition(576 - 320, 362);
+	settingsHint.SetPosition(576 - 320, 354);
 	searchHint.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
-	searchHint.SetPosition(-56, 21);  // ends at x 584, the button starting at 588
+	searchHint.SetPosition(-72, 21);  // ends at x 568; its box at 576, clear of the button at 588
+	// Each on a box of its own: the search's sits over the covers.
+	HintChip filterChip(filterHint, 64, 354, true), settingsChip(settingsHint, 576, 354, true),
+		searchChip(searchHint, 568, 21, false);
 	filterHint.SetVisible(false);
 	settingsHint.SetVisible(false);
 	searchHint.SetVisible(false);
@@ -1525,6 +1549,9 @@ static int MenuSource(FrontendState& state)
 	w.Append(&bar);
 	w.Append(&pageTxt);
 	w.Append(&viewTxt);
+	w.Append(&filterChip);
+	w.Append(&settingsChip);
+	w.Append(&searchChip);
 	w.Append(&filterHint);
 	w.Append(&settingsHint);
 	w.Append(&searchHint);
