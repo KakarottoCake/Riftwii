@@ -13,6 +13,7 @@
 #include "log.hpp"
 #include "riftwii/hook.hpp"
 #include "riftwii/symsearch.hpp"
+#include "riftwii/vsdparts.hpp"
 #include "riftwii_vsd_bin.h"
 #include "umsdev.hpp"
 #include "usbcatalog.hpp"
@@ -71,19 +72,31 @@ bool find_vsd_image(const std::string& name, VsdImage& out, std::string& why) {
     out = VsdImage{};
     std::uint64_t size = 0;
     std::vector<Fragment> pieces;
+    std::vector<VsdPart> parts;
     struct stat st;
     const std::string sd_path = "sd:/riftwii/" + name, usb_path = "usb:/riftwii/" + name;
     if (name.empty() || name.find('/') != std::string::npos) {
         why = "no image is named";
         return false;
     }
-    if (stat(sd_path.c_str(), &st) == 0) {
+    // The image itself, else its parts .001, .002... (split for FAT32).
+    const auto sd_part = [&](const std::string& path) {
+        VsdPart part;
+        if (!sd_file_pieces(path, part.size, part.fragments, why)) return false;
+        parts.push_back(part);
+        return true;
+    };
+    if (stat(sd_path.c_str(), &st) == 0 || stat(vsd_part_name(sd_path, 1).c_str(), &st) == 0) {
         out.path = sd_path;
-        if (!sd_file_pieces(sd_path, size, pieces, why)) return false;
+        if (stat(sd_path.c_str(), &st) == 0) {
+            if (!sd_part(sd_path)) return false;
+        } else {
+            for (unsigned n = 1; n <= kMaxVsdParts && stat(vsd_part_name(sd_path, n).c_str(), &st) == 0; ++n)
+                if (!sd_part(vsd_part_name(sd_path, n))) return false;
+        }
     } else {
         // On the USB drive, through d2x's device: open for a game on it.
         const ImageVolume* volume = nullptr;
-        VolumeFile file;
         if (ums::Fd() < 0) {
             why = name + " is on the USB drive, which is read during a game only when the game is on the USB drive too";
             return false;
@@ -92,19 +105,36 @@ bool find_vsd_image(const std::string& name, VsdImage& out, std::string& why) {
             why = "the USB drive does not have 512-byte sectors";
             return false;
         }
-        if (!ums::Volume(volume, why) || !volume->lookup(usb_path.substr(4), file, why)) {
+        if (!ums::Volume(volume, why)) {
             why = name + " is on neither the SD card nor the USB drive (" + why + ")";
             return false;
         }
-        if (file.entry.is_directory || !file.inline_bytes.empty()) {
-            why = usb_path + " is not an image file";
+        const auto usb_part = [&](const std::string& path, std::string& error) {
+            VolumeFile file;
+            if (!volume->lookup(path.substr(4), file, error)) return false;
+            if (file.entry.is_directory || !file.inline_bytes.empty()) {
+                error = path + " is not an image file";
+                return false;
+            }
+            parts.push_back(VsdPart{file.entry.size, file.fragments});
+            return true;
+        };
+        std::string error;
+        if (!usb_part(usb_path, error)) {
+            for (unsigned n = 1; n <= kMaxVsdParts; ++n) {
+                std::string missing;
+                if (!usb_part(vsd_part_name(usb_path, n), missing)) break;
+            }
+        }
+        if (parts.empty()) {
+            why = name + " is on neither the SD card nor the USB drive (" + error + ")";
             return false;
         }
         out.path = usb_path;
         out.on_usb = true;
-        size = file.entry.size;
-        pieces = file.fragments;
     }
+    if (!join_vsd_parts(parts, pieces, size, why)) return false;
+    if (parts.size() > 1) logf("Virtual SD card: %s is in %u parts\n", name.c_str(), static_cast<unsigned>(parts.size()));
     if (size % RTVSD_SECTOR_BYTES != 0 || size / RTVSD_SECTOR_BYTES < kMinSectors ||
         size / RTVSD_SECTOR_BYTES > 0xFFFFFFFFull) {
         why = "its size (" + std::to_string(size) + " bytes) is not a card's";

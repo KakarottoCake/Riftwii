@@ -23,7 +23,9 @@ struct VsdImageFile {
 };
 
 // The SD card's images, then the USB drive's (only while the menu's USB
-// view is up) but for a name the SD card already has, sorted by name.
+// view is up) but for a name the SD card already has, sorted by name. An
+// image split in parts (rex.raw.001, rex.raw.002...: riftwii/vsdparts.hpp)
+// is listed once, by its own name (rex.raw).
 std::vector<VsdImageFile> ListVsdImages();
 
 // Where the image `name` is, the SD card's first; "" when it is nowhere.

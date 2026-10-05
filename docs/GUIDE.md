@@ -415,8 +415,13 @@ A few things to know:
   game is on the USB drive too; Start says so otherwise. With the game on
   the SD card or a disc, keep the image on the SD card.
 - The image should be in one piece or a few: copy it to a freshly
-  formatted drive if Start says it is in too many pieces. FAT32 drives
-  hold files up to 4 GB, so use an image of 4 GB or less there.
+  formatted drive if Start says it is in too many pieces.
+- FAT32 drives hold files up to 4 GB. A bigger image (REX's is about
+  12 GB) can be split: in 7-Zip, right-click the image, **7-Zip > Split
+  file...**, and pick a size of `4000M`. That makes `rex.raw.001`,
+  `rex.raw.002` and so on; put them all in `riftwii`, and RiftWii reads
+  them as one image, listed as `rex.raw`. Keep the parts together on one
+  drive and don't rename them.
 - What the game writes (replays, custom stages, settings) goes into the
   image.
 - Builds inside an image can't be turned on together with builds on the
