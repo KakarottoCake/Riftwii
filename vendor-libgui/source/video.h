@@ -28,6 +28,7 @@ void Menu_ScaleProjection(Mtx44 p);
 void Menu_LoadOrtho();
 f32 Menu_ScreenToMenuX(f32 x);
 f32 Menu_ScreenToMenuY(f32 y);
+void Menu_MenuToXfb(f32 x, f32 y, int* px, int* py);  // a menu point as a frame-buffer pixel
 void Menu_VisibleArea(f32* x, f32* y, f32* w, f32* h);  // the whole screen, in menu units
 void Menu_FillScreen(f32 y, f32 height, GXColor color);  // a band across the whole screen
 void Menu_FillWholeScreen(GXColor color);

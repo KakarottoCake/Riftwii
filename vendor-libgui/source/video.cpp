@@ -238,6 +238,14 @@ void Menu_SetDisplayScale(f32 sx, f32 sy)
 	displayChanged = true;
 }
 
+// A point in menu units, as a pixel of the frame buffer (RiftWii: the
+// launch screen's console and bar, which print into the frame itself).
+void Menu_MenuToXfb(f32 x, f32 y, int* px, int* py)
+{
+	*px = (int)((320.0f + (x - 320.0f) * displayX) * Menu_XfbWidth() / 640.0f + 0.5f);
+	*py = (int)((240.0f + (y - 240.0f) * displayY) * Menu_XfbHeight() / 480.0f + 0.5f);
+}
+
 f32 Menu_ScreenToMenuX(f32 x) { return 320.0f + (x - 320.0f) / displayX; }
 f32 Menu_ScreenToMenuY(f32 y) { return 240.0f + (y - 240.0f) / displayY; }
 

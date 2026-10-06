@@ -133,10 +133,19 @@ void EnterConsolePhase() {
     ShutoffRumble();
     ShutdownAudio();
     StopGXKeepPicture();
-    riftwii::wii::ConsoleStartInFrame(Menu_CurrentXfb(), Menu_XfbWidth(), Menu_XfbHeight(), 48, 176, 544, 208);  // whole 8x16 cells
+    // The card's inside (menu units 48,176 to 592,384, and the bar's row at
+    // 388) as frame-buffer pixels: a widescreen menu or a smaller screen
+    // size draws the card narrower or smaller than 640x480 would.
+    int left, top, right, bottom, barTop;
+    Menu_MenuToXfb(48, 176, &left, &top);
+    Menu_MenuToXfb(592, 384, &right, &bottom);
+    Menu_MenuToXfb(48, 388, &left, &barTop);
+    left = (left + 1) & ~1;
+    const int width = (right - left) & ~7, height = (bottom - top) & ~15;  // whole 8x16 cells
+    riftwii::wii::ConsoleStartInFrame(Menu_CurrentXfb(), Menu_XfbWidth(), Menu_XfbHeight(), left, top, width, height);
     riftwii::wii::CrashSetPhase(riftwii::wii::CrashPhase::Console);
     // Under the log, still on the white card: the stage and the bar.
-    riftwii::wii::ProgressAttach(Menu_CurrentXfb(), Menu_XfbWidth(), Menu_XfbHeight(), 48, 388, 544);
+    riftwii::wii::ProgressAttach(Menu_CurrentXfb(), Menu_XfbWidth(), Menu_XfbHeight(), left, barTop, width);
 }
 
 // After a launch that failed: back to Home (a fresh start, see
