@@ -8,7 +8,6 @@
 #include <sdcard/wiisd_io.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include <brotli/decode.h>
 #include <cstddef>
 #include <cstdlib>
 #include <cstring>
@@ -23,7 +22,8 @@
 #include "input.h"
 #include "menu.h"
 #include "video.h"
-#include "menufont_bin.h"
+#include "menufont_zst.h"
+#include "zstd.h"
 
 #include "autorun.hpp"
 #include "headless.hpp"
@@ -198,18 +198,16 @@ void OpenSessionLog(bool sd_mounted) {
     riftwii::wii::mem::LogUsage("start");
 }
 
-// The menu font ships brotli-compressed (tools/make_menu_font.py): a
-// big-endian u32 of the TTF's size, then the stream. Unpacked into MEM2,
-// where FreeType reads it for the whole menu phase, so neither the DOL nor
-// the MEM1 heap carries the 1.7 MB TTF.
+// The menu font (wii/font/rounded.ttf) ships zstd-compressed (Makefile.wii).
+// Unpacked into MEM2, where FreeType reads it for the whole menu phase, so
+// neither the DOL nor the MEM1 heap carries the 1.7 MB TTF.
 bool UnpackMenuFont(u8*& font, std::size_t& size) {
-    if (menufont_bin_size < 4) return false;
-    size = (std::size_t(menufont_bin[0]) << 24) | (menufont_bin[1] << 16) | (menufont_bin[2] << 8) | menufont_bin[3];
+    const unsigned long long full = ZSTD_getFrameContentSize(menufont_zst, menufont_zst_size);
+    if (full == ZSTD_CONTENTSIZE_UNKNOWN || full == ZSTD_CONTENTSIZE_ERROR || full == 0) return false;
+    size = static_cast<std::size_t>(full);
     font = riftwii::wii::skin::Mem2Alloc(size);
     if (font == nullptr) return false;
-    std::size_t out = size;
-    return BrotliDecoderDecompress(menufont_bin_size - 4, menufont_bin + 4, &out, font) == BROTLI_DECODER_RESULT_SUCCESS &&
-           out == size;
+    return ZSTD_decompress(font, size, menufont_zst, menufont_zst_size) == size;
 }
 
 }  // namespace

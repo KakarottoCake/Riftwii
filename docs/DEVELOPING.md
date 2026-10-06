@@ -20,8 +20,9 @@ make -f Makefile.wii
 ```
 
 The Wii build needs devkitPPC, libogc, libfat and the portlibs `Makefile.wii`
-lists (FreeType, zlib, brotli, libogg/tremor), and the `zstd` command-line
-tool (devkitPro's MSYS2 has it), which packs the runtime blobs. It first builds the
+lists (FreeType, zlib, libogg/tremor), and the `zstd` command-line
+tool (devkitPro's MSYS2 has it), which packs the runtime blobs, the menu
+font, the translations and the GPL text. It first builds the
 two in-game blobs with `Makefile.runtime` (`build-runtime/riftwii_rt.bin`,
 the resident runtime, and `riftwii_pad.bin`, the pad hook), checking that
 each is position-independent, then embeds them with the font, the
@@ -132,9 +133,8 @@ this way: it was the crash recorder.
    repository's `LICENSE`), `NOTICE.md`, and `SOURCE.txt` naming the
    tag and commit the zip was built from and the repository URL. The
    README's last section says the same in a few lines and lists the
-   credits. If `LICENSE` changed, `python tools/make_licence.py` first
-   (`--check` tells), so Settings > Credits and license shows the same
-   text.
+   credits. Settings > Credits and license shows `LICENSE` itself (the
+   build packs it).
    The theme kit goes beside it: `cmake --build build-host --target
    theme_kit`, then `py -3.13 tools/make_theme_kit.py
    build-host/theme_kit.exe riftwii-theme-kit-vX.Y.Z.zip` (templates

@@ -90,7 +90,7 @@ it links libogc. Each `.cpp` has a `.hpp` that describes it.
 | `i18n.cpp` | Translations (the built-in `.po` files, or one on the card) |
 | `lang/*.po` | The translations, written by `tools/lang_source.py` |
 | `font/` | The menu font's source (`rounded.ttf`, OFL) |
-| `assets/` | Built-in binaries: the cut-down menu font and the GPL text (`tools/make_menu_font.py`, `tools/make_licence.py`) |
+| `font/` | The cut-down menu font (`tools/make_menu_font.py`), packed by the build |
 | `ftnopng.c` | Keeps FreeType from pulling in libpng |
 | `console.cpp` | libogc's text console, for the launch screen and errors |
 | `progress.cpp` | The launch screen's progress line |
@@ -218,7 +218,7 @@ card's at the Wii's own MEM1 and MEM2 addresses).
 | File | What |
 | --- | --- |
 | `lang_source.py` | The translation table: writes `wii/lang/*.po` and checks every string still appears in the code |
-| `make_menu_font.py`, `make_licence.py`, `make_sounds.py` | Build-time assets |
+| `make_menu_font.py`, `make_sounds.py` | Build-time assets |
 | `make_channel.py`, `make_channel_art.py`, `preview_channel.py` | The Wii Menu channel's WAD and art |
 | `rtreloc.py` | Relocations for the RVZ runtime blob |
 | `ipcscan.cpp`, `rvzstub.cpp` | Host tools: the IPC search on a game's DOL; an RVZ's stub disc for Dolphin |

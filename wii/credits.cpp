@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "credits.hpp"
 
-#include <brotli/decode.h>
 
 #include <cstdint>
 
-#include "licence_bin.h"
+#include "licence_zst.h"
+#include "zstd.h"
 
 namespace riftwii::wii {
 namespace {
@@ -72,7 +72,7 @@ const char* const kCredits[] = {
     "read as documentation.",
     "",
     "pugixml by Arseny Kapoulkine (MIT), Zstandard by Meta (BSD-3-Clause), BearSSL by Thomas Pornin "
-    "(MIT), FreeType (FreeType License), zlib, brotli (MIT), Tremor and libogg (BSD-3-Clause).",
+    "(MIT), FreeType (FreeType License), zlib, Tremor and libogg (BSD-3-Clause).",
     "",
     "Menu font: M PLUS Rounded 1c by the M+ Fonts Project (SIL Open Font License 1.1).",
     "",
@@ -113,14 +113,14 @@ void Wrap(const std::string& text, std::size_t width, std::vector<std::string>& 
 // line or at an indented line (the license indents each paragraph's
 // first line, and every line of its title block and sample notice).
 void AddLicence(std::size_t width, std::vector<std::string>& out) {
-    if (licence_bin_size < 4) return;
-    const std::size_t size = (std::size_t(licence_bin[0]) << 24) | (licence_bin[1] << 16) | (licence_bin[2] << 8) |
-                             licence_bin[3];
-    std::string text(size, '\0');
-    std::size_t got = size;
-    if (BrotliDecoderDecompress(licence_bin_size - 4, licence_bin + 4, &got,
-                                reinterpret_cast<std::uint8_t*>(&text[0])) != BROTLI_DECODER_RESULT_SUCCESS ||
-        got != size) {
+    // LICENSE, zstd-compressed (Makefile.wii).
+    const unsigned long long size = ZSTD_getFrameContentSize(licence_zst, licence_zst_size);
+    std::string text;
+    if (size != ZSTD_CONTENTSIZE_UNKNOWN && size != ZSTD_CONTENTSIZE_ERROR && size > 0 && size < (1u << 20)) {
+        text.resize(static_cast<std::size_t>(size));
+        if (ZSTD_decompress(&text[0], text.size(), licence_zst, licence_zst_size) != text.size()) text.clear();
+    }
+    if (text.empty()) {
         out.push_back("The license could not be unpacked. It is at https://www.gnu.org/licenses/gpl-3.0.txt");
         return;
     }

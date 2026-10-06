@@ -108,7 +108,7 @@ contains theirs names them in its file header, and
   **libruntimeiospatch**: how the Wii, IOS and the patch format behave
   (read as documentation).
 - **pugixml** by Arseny Kapoulkine, **Zstandard** by Meta, **BearSSL**
-  by Thomas Pornin, **FreeType**, **zlib**, **brotli**, **Tremor**.
+  by Thomas Pornin, **FreeType**, **zlib**, **Tremor**.
 - **GameTDB** for game names and covers, **RiiConnect24** for the cheat
   archive, **M+ Fonts** for the menu font, **Zane Little** for the menu
   music.

@@ -185,9 +185,9 @@ the list explains the row you are on.
   every game.
 - **Home tiles**: covers, shelf, channels or names.
 - **Widescreen menu**: on a 16:9 TV the menu is drawn narrower, so covers
-  and pictures keep their shape instead of looking stretched. *Automatic*
-  follows the Wii's own TV setting (Wii Settings > Screen > Widescreen);
-  *16:9* or *4:3* picks one.
+  and pictures keep their shape instead of looking stretched. It starts
+  at *4:3*; *16:9* turns it on, and *Automatic* follows the Wii's own TV
+  setting (Wii Settings > Screen > Widescreen).
 - **Screen size**: 100% down to 80%. If your TV cuts off the edges of the
   menu (overscan, common with HDMI adapters), lower it until the whole menu
   shows. Setting the TV's picture size to "Just scan", "Direct" or "Fit"

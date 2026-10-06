@@ -596,7 +596,7 @@ void TestCoverArt() {
     EXPECT_EQ(s.home_tiles, "shelf");
     s.parse("home_tiles = channels\n");
     EXPECT_EQ(s.home_tiles, "channels");
-    EXPECT_EQ(s.menu_widescreen, "auto");
+    EXPECT_EQ(s.menu_widescreen, "off");
     EXPECT_EQ(s.screen_size, 100);
     s.parse("menu_widescreen = on\nscreen_size = 90\n");
     EXPECT_EQ(s.menu_widescreen, "on");
