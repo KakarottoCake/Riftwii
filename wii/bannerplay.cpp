@@ -237,7 +237,13 @@ void BannerPlayer::Draw(float x, float y, float w, float h, int alpha, const Rou
         z = kClipZ;
     }
     // The shown area in layout units (y up, the layout's centre at 0, 0).
-    const float rw = icon_ ? kIconW : work_.width, rh = icon_ ? kIconH : work_.height;
+    // A banner shows its full height and as much of its width as the box's
+    // shape takes (menu units are square on the TV, widescreen or not):
+    // 608 of a 4:3 box, about 810 of a 16:9 one. Banners are laid out 832
+    // wide for that, the 4:3 picture in the middle, as the Wii Menu shows
+    // them on a 16:9 TV.
+    const float rh = icon_ ? kIconH : work_.height;
+    const float rw = icon_ ? kIconW : (h > 0 ? rh * w / h : work_.width);
     const float sx = w / rw, sy = h / rh;
     const float left = -rw / 2, top = rh / 2;
     const float bx = clip ? clip->x : x, by = clip ? clip->y : y, bw = clip ? clip->w : w, bh = clip ? clip->h : h;
