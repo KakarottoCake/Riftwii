@@ -253,7 +253,14 @@ void Menu_FillScreen(f32 y, f32 height, GXColor color)
 {
 	f32 vx, vy, vw, vh;
 	Menu_VisibleArea(&vx, &vy, &vw, &vh);
-	Menu_DrawRectangle(vx, y, vw, height, color, 1);
+	// Cut to the screen: callers pass "from here down" as a band running
+	// far past it, and a polygon that far outside the picture is not
+	// always rasterised right on a console (Dolphin draws it fine).
+	f32 top = y, bottom = y + height;
+	if (top < vy) top = vy;
+	if (bottom > vy + vh) bottom = vy + vh;
+	if (bottom <= top) return;
+	Menu_DrawRectangle(vx, top, vw, bottom - top, color, 1);
 }
 
 void Menu_FillWholeScreen(GXColor color)
