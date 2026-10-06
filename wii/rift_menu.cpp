@@ -70,6 +70,7 @@
 #include "riftwii/apply.hpp"
 #include "riftwii/patch.hpp"
 #include "codebuilds.hpp"
+#include "vsdmake.hpp"
 #include "gameextras.hpp"
 #include "i18n.hpp"
 #include "loadersettings.hpp"
@@ -1022,6 +1023,13 @@ public:
 		mainWindow->SetState(STATE::DEFAULT);
 	}
 	void SetBody(const std::string& body) { bodyTxt.SetText(body.c_str()); }
+	// While work goes on with the box up (the GUI halted): whether its
+	// last button was pressed.
+	bool Pressed()
+	{
+		ClearStaleButtons({&okBtn.button, &cancelBtn.button});
+		return hasCancel ? cancelBtn.Clicked() : hasOk && okBtn.Clicked();
+	}
 	// Something more drawn in the box (it must outlive the box), with the
 	// text kept to `width` beside it.
 	void Add(GuiElement* e, int width)
@@ -1064,6 +1072,22 @@ static int ShowPopup(const std::string& title, const std::string& body, const st
 	PopupBox box(title, body, ok, cancel);
 	return box.Wait();
 }
+
+// How far a long job is, as a bar in a popup.
+class ProgressBar : public GuiElement {
+public:
+	ProgressBar(int x, int y, int width) : x(x), y(y), width(width) {}
+	void Set(double done) { fraction = done < 0 ? 0 : done > 1 ? 1 : done; }
+	void Draw() override
+	{
+		Menu_DrawRectangle(x, y, width, 14, (GXColor){0, 0, 0, 40}, 1);
+		const int filled = static_cast<int>(fraction * width);
+		if (filled > 0) Menu_DrawRectangle(x, y, filled, 14, skin::kAccent, 1);
+	}
+private:
+	int x, y, width;
+	double fraction = 0;
+};
 
 // Where the player leaves to, for wii/main.cpp's ExitApp: 1 the loader
 // that started RiftWii (the Homebrew Channel), 2 the Wii Menu,
@@ -2044,7 +2068,7 @@ static std::string SaveNote(const riftwii::LaunchModel& model)
 struct RowRef {
 	enum class What { Mods, Saves, Cheats, Width, Deflicker, Borders, VideoMode, RegionVideo, Aspect, Rumble, Speaker,
 		RegionStrings, Language, Cios, Server, Favorite, Pack, Option, Note,
-		AddCodes, ForgetCodes, Cover } what = What::Note;
+		AddCodes, ForgetCodes, MakeImage, Cover } what = What::Note;
 	std::size_t pkg = 0, opt = 0;
 };
 
@@ -2300,6 +2324,86 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 	}
 }
 
+// "1.2 GB", "640 MB".
+static std::string SizeText(std::uint64_t bytes)
+{
+	const std::uint64_t mb = (bytes + (1 << 20) - 1) >> 20;
+	if (mb < 1024) return std::to_string(mb) + " MB";
+	const std::uint64_t tenths = mb * 10 / 1024;
+	return std::to_string(tenths / 10) + "." + std::to_string(tenths % 10) + " GB";
+}
+
+// Makes an image of the code build `p` on the SD card (wii/vsdmake.hpp),
+// asking first. True when it is made, with `key` the build's key in it.
+static bool MakeSdImage(const FrontendState& state, const riftwii::LaunchPackage& p, std::string& key)
+{
+	riftwii::wii::VsdMakePlan plan;
+	std::string error;
+	bool ok;
+	{
+		PopupBox box(tr("SD image"), tr("Looking at the build's files..."));
+		ResumeGui();
+		ok = riftwii::wii::PlanVsdMake(p.file, state.game_id, plan, error);
+		HaltGui();
+	}
+	if (!ok) {
+		ShowPopup(tr("No SD image made"), error, tr("OK"));
+		return false;
+	}
+	std::string what;
+	for (std::size_t i = 0; i < plan.tops.size(); ++i)
+		what += (i == 0 ? std::string() : i + 1 == plan.tops.size() ? std::string(tr(" and ")) : std::string(", ")) + plan.tops[i];
+	// About 3 MB a second, reading and writing the same card.
+	const unsigned minutes = static_cast<unsigned>(plan.plan.image_bytes / (3ull << 20) / 60) + 1;
+	std::string body = tr("RiftWii copies {1} into sd:/riftwii/{2} ({3}). The game then gets the image as its SD card, so it can be on the SD card too. This takes about {4} minutes.",
+		{what, plan.image, SizeText(plan.plan.image_bytes), std::to_string(minutes)});
+	if (plan.parts) body += std::string(" ") + tr("It is saved in {1} parts, as a FAT32 card holds no file of 4 GB.", {std::to_string(plan.parts)});
+	if (plan.replaces) body += std::string(" ") + tr("It replaces the {1} there now.", {plan.image});
+	if (ShowPopup(tr("Make an SD image?"), body, tr("Make it"), tr("Cancel")) != 0) return false;
+
+	logf("Image: making %s from %s\n", plan.image.c_str(), p.file.c_str());
+	{
+		PopupBox box(tr("Making {1}", {plan.image}), "", "", tr("Stop"));
+		ProgressBar bar(56, 280, 528);
+		box.Add(&bar, 528);
+		const u64 start = gettime();
+		std::string shown;
+		ResumeGui();
+		ok = riftwii::wii::MakeVsdImage(plan, [&](std::uint64_t written, const std::string& path) {
+			if (!path.empty()) shown = path;
+			const u64 ms = diff_msec(start, gettime());
+			std::string text = SizeText(written) + " / " + SizeText(plan.plan.image_bytes);
+			// What is left at the rate so far, once there is a rate.
+			if (ms > 10000 && written > (16u << 20)) {
+				const std::uint64_t left = (plan.plan.image_bytes - std::min(written, plan.plan.image_bytes)) * ms / written / 1000;
+				text += "  -  " + std::string(left >= 90 ? tr("{1} minutes left", {std::to_string((left + 59) / 60)})
+						: tr("{1} seconds left", {std::to_string(left)}));
+			}
+			text += "\n" + FlatCapped(shown.empty() ? std::string(tr("Free space")) : shown, 60);
+			HaltGui();
+			bar.Set(static_cast<double>(written) / static_cast<double>(plan.plan.image_bytes));
+			box.SetBody(text);
+			const bool stop = box.Pressed();
+			ResumeGui();
+			return !stop;
+		}, error);
+		HaltGui();
+	}
+	if (!ok) {
+		ShowPopup(tr("No SD image made"),
+			error == "stopped" ? std::string(tr("Stopped. Nothing was kept."))
+				: tr("{1} could not be made: {2}. Nothing was kept.", {plan.image, FlatCapped(error, 140)}),
+			tr("OK"));
+		return false;
+	}
+	key = plan.image_key();
+	ShowPopup(tr("SD image made"),
+		tr("{1} is in sd:/riftwii, and the build in it is turned on: the game gets the image as its SD card.",
+			{plan.image}),
+		tr("OK"));
+	return true;
+}
+
 // The Mods page: each pack made for the game as a switch, its options
 // under it once it is on.
 static void BuildModRows(const FrontendState& state, const std::string& scanStatus,
@@ -2339,6 +2443,14 @@ static void BuildModRows(const FrontendState& state, const std::string& scanStat
 			forget.indent = true;
 			forget.label = "Remove from the list";
 			add(forget, {RowRef::What::ForgetCodes, i});
+		}
+		// A build on the SD card itself can go into an image of its own.
+		if (p.code_build() && p.gct_path.compare(0, 4, "sd:/") == 0 && !riftwii::wii::IsPickedCodeBuild(p.file)) {
+			FlowRow image;
+			image.kind = FlowRow::Kind::Action;
+			image.indent = true;
+			image.label = "Make an SD image...";
+			add(image, {RowRef::What::MakeImage, i});
 		}
 		if (!p.enabled) continue;
 		for (std::size_t o = 0; o < p.package.options.size(); ++o) {
@@ -2899,6 +3011,8 @@ static void MenuMods(FrontendState& state, std::string& scanStatus)
 				say("For mods made of Gecko codes, like Project+ builds: pick the build's code file on the SD card.");
 			} else if (ref.what == RowRef::What::ForgetCodes) {
 				say("Takes this build off the list. Its files stay on the SD card.");
+			} else if (ref.what == RowRef::What::MakeImage) {
+				say("Copies this build into an image in sd:/riftwii, a card of its own for the game, so the game can be on the SD card too.");
 			} else say("");
 		}
 
@@ -2935,13 +3049,16 @@ static void MenuMods(FrontendState& state, std::string& scanStatus)
 				}
 			} else if (ref.what == RowRef::What::Option) {
 				changed = state.model.cycle(ref.pkg, ref.opt, direction);
-			} else if (ref.what == RowRef::What::AddCodes || ref.what == RowRef::What::ForgetCodes) {
+			} else if (ref.what == RowRef::What::AddCodes || ref.what == RowRef::What::ForgetCodes ||
+				   ref.what == RowRef::What::MakeImage) {
 				std::string key, error;
 				bool listChanged = false;
 				if (ref.what == RowRef::What::AddCodes) {
 					mainWindow->Remove(&w);
 					listChanged = MenuPickCodes(state, key);
 					mainWindow->Append(&w);
+				} else if (ref.what == RowRef::What::MakeImage) {
+					listChanged = MakeSdImage(state, state.model.packages[ref.pkg], key);
 				} else if (riftwii::wii::ForgetCodeBuild(state.model.packages[ref.pkg].file, error)) {
 					listChanged = true;
 				} else {
@@ -2949,10 +3066,20 @@ static void MenuMods(FrontendState& state, std::string& scanStatus)
 				}
 				if (listChanged) {
 					scanStatus = riftwii::wii::ScanPackages(state);
-					// A new pick is turned on at once.
+					// A new pick, or the build in its new image, is turned on
+					// at once; the game gets one card, so a build in an image
+					// turns off the ones on the SD card.
 					for (std::size_t i = 0; i < state.model.packages.size(); ++i)
 						if (!key.empty() && state.model.packages[i].file == key && !state.model.packages[i].enabled)
 							state.model.set_enabled(i, true);
+					if (ref.what == RowRef::What::MakeImage && !key.empty()) {
+						for (std::size_t i = 0; i < state.model.packages.size(); ++i) {
+							const riftwii::LaunchPackage& o = state.model.packages[i];
+							if (o.enabled && o.code_build() && o.file != key &&
+							    riftwii::wii::VsdImageOfKey(o.file) != riftwii::wii::VsdImageOfKey(key))
+								state.model.set_enabled(i, false);
+						}
+					}
 					changed = true;
 				}
 			}

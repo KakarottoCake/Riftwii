@@ -452,6 +452,25 @@ with big clusters), or when you'd rather keep the build on the USB drive.
    Start. The game gets one SD card, so turning on a build in one image
    turns off the builds in the others (and the ones on the SD card).
 
+RiftWii can make the image for you, from a build already on the SD card,
+with no PC: on the game's **Mods** page, pick **Make an SD image...**
+under the build. It copies the build's folder, the other folders its
+codes load files from (like `projectm` for a build in `sd:/codes`),
+`gameconfig.txt` or `gc.txt` from the top of the card, and the game's
+folder in `private/wii/app` (custom stages) into `riftwii/<build>.raw`,
+then turns the build in the image on. An image over 4 GB is saved in
+parts of 4000 MB (`.raw.001`, `.raw.002`...). A few things about it:
+
+- The SD card needs room for a second copy of the build plus some free
+  space for the game (5% of the build, between 128 and 512 MB). The
+  popup says how much before it starts.
+- It takes a while: about a minute for every 150-200 MB on a typical
+  card. **Stop** gives up and deletes what was written.
+- Once the image works, you can delete the build's own folders from the
+  SD card if you want the room back (keep `riftwii`).
+- New and experimental: tested in Dolphin with Project M 3.6 (a 1 GB
+  image that then started the game), not yet on a real Wii.
+
 A few things to know:
 
 - Keep the image on the same drive as the game. An image on the USB

@@ -297,7 +297,7 @@ std::string ModPlaceProblem(const FrontendState& state, bool brief) {
     }
     if (state.use_sd && on_card) {
         if (brief) return tr("Code builds need the game on USB or disc, not the SD card.");
-        return tr("This won't work: code builds like Project+ read the SD card while you play, so the game can't be on the SD card too. Put it on a USB drive or use the disc.");
+        return tr("This won't work: code builds like Project+ read the SD card while you play, so the game can't be on the SD card too. Put it on a USB drive, use the disc, or pick \"Make an SD image...\" under the build on the Mods page.");
     }
     return "";
 }

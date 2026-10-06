@@ -234,6 +234,9 @@ licence.zst : $(PROJECT_ROOT)/LICENSE
 # built for size, like the runtime's: it decodes a few MB per launch.
 zstddeclib.o: CFLAGS += -Os
 
+# The SD image maker waits on the card, not the CPU: built for size too.
+vsdbuild.o vsdmake.o: CXXFLAGS += -Os
+
 -include $(DEPENDS)
 
 #---------------------------------------------------------------------------------
