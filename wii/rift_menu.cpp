@@ -788,7 +788,11 @@ class ChannelView : public GuiElement {
 public:
 	riftwii::wii::BannerPlayer player;
 	void Draw() override {
+		// Black over Home, and its depth too: whatever Home's icons left
+		// in the depth buffer cannot hide any of the banner.
+		GX_SetZMode(GX_TRUE, GX_ALWAYS, GX_TRUE);
 		Menu_FillWholeScreen((GXColor){0, 0, 0, 255});
+		GX_SetZMode(GX_TRUE, GX_LEQUAL, GX_TRUE);
 		player.Step();
 		// The whole screen, as the Wii Menu shows a channel: wider than the
 		// menu's 640 on a widescreen menu, taller at a smaller screen size.

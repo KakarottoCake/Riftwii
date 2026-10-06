@@ -207,6 +207,12 @@ bool dump_archive(const std::vector<std::uint8_t>& arc, const std::string& kind,
                       << " maps " << m.maps.size() << " (tex " << (m.maps.empty() ? -1 : m.maps[0].texture) << ") tev "
                       << m.tev.size() << " chan " << m.has_channel << " matcol " << m.has_material_color << " "
                       << int(m.material_color.r) << "," << int(m.material_color.a) << " blend " << m.has_blend << "\n";
+            for (const LytTexMap& t : m.maps) {
+                std::cout << "    map tex " << t.texture << " wrap " << int(t.wrap_s) << "," << int(t.wrap_t) << " filter min "
+                          << int(t.min_filter) << " mag " << int(t.mag_filter) << "\n";
+            }
+            for (const LytTexSrt& s : m.srts)
+                std::cout << "    srt t " << s.tx << "," << s.ty << " r " << s.rotate << " s " << s.sx << "," << s.sy << "\n";
             for (const auto& s : m.tev) {
                 std::cout << "    tev";
                 for (std::uint8_t b : s) std::cout << " " << std::hex << int(b) << std::dec;
@@ -248,6 +254,17 @@ bool dump_archive(const std::vector<std::uint8_t>& arc, const std::string& kind,
         }
         std::cout << "  " << a << ": " << anim.frames << " frames" << (anim.loop ? ", loops" : "") << ", "
                   << anim.targets.size() << " targets\n";
+        if (std::getenv("BANNER_TRACKS")) {
+            for (const AnimTarget& tg : anim.targets) {
+                for (const AnimTrack& tr : tg.tracks) {
+                    std::cout << "    " << tg.name << (tg.material ? " (material)" : "") << " kind "
+                              << int(tr.kind) << " index " << int(tr.index) << " target " << int(tr.target)
+                              << (tr.step ? " step" : "") << ":";
+                    for (const AnimKey& k : tr.keys) std::cout << " " << k.frame << "=" << k.value << "/" << k.slope;
+                    std::cout << "\n";
+                }
+            }
+        }
         const bool is_start = a.find("_Start") != std::string::npos || a.find("_start") != std::string::npos;
         if (is_start) {
             start = std::move(anim);

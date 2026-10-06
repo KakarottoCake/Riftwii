@@ -340,6 +340,12 @@ void BannerPlayer::Draw(float x, float y, float w, float h, int alpha, const Rou
         GX_End();
     }
     PlainTev();
+    // The whole screen again before the clip's depth is put back: under
+    // the box set above, the edges of the shape the clip wrote (drawn
+    // before it) stayed at its depth, and later drawing at libgui's depth
+    // failed there: a pixel-wide line along each tile's right and bottom
+    // edges, seen through the next screen (Channels' banner).
+    GX_SetScissor(0, 0, Menu_XfbWidth(), Menu_EfbHeight());
     if (clip) {
         // The clip's depth back to libgui's, so later drawing is not hidden.
         DepthOnly(true);
@@ -348,7 +354,6 @@ void BannerPlayer::Draw(float x, float y, float w, float h, int alpha, const Rou
         DepthOnly(false);
         GX_SetZMode(GX_TRUE, GX_LEQUAL, GX_TRUE);
     }
-    GX_SetScissor(0, 0, Menu_XfbWidth(), Menu_EfbHeight());
 }
 
 }  // namespace riftwii::wii
