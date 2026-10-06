@@ -258,12 +258,16 @@ GuiBackdrop::GuiBackdrop() {
 
 void GuiBackdrop::Draw() {
     // The whole screen, also past the menu's 640x480 when it is drawn
-    // smaller (widescreen, screen size): the theme's picture stretched over it.
+    // smaller (widescreen, screen size). The theme's picture keeps its rows
+    // where the menu's are (Bookshelf paints shelves under Home's rows of
+    // covers): stretched only across, at its own height, with a copy
+    // stretched both ways behind it for the margins above and below.
     f32 vx, vy, vw, vh;
     Menu_VisibleArea(&vx, &vy, &vw, &vh);
     if (background.data) {
-        Menu_DrawImg(0, 0, static_cast<u16>(background.w), static_cast<u16>(background.h), background.data, 0,
-                     vw / background.w, vh / background.h, 255);
+        const u16 w = static_cast<u16>(background.w), h = static_cast<u16>(background.h);
+        if (vh > h + 0.5f) Menu_DrawImg(0, 0, w, h, background.data, 0, vw / w, vh / h, 255);
+        Menu_DrawImg(0, 0, w, h, background.data, 0, vw / w, 1.0f, 255);
         return;
     }
     Menu_FillWholeScreen(g_backdrop);

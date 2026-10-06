@@ -32,7 +32,10 @@ constexpr float kFovY = 43.6028f;  // 2 * atan(240 / kEye), in degrees
 constexpr float kBoxH = 164.0f;
 constexpr float kBoxW = 125.0f;  // spine to front edge, along z
 constexpr float kBoxT = 18.0f;   // the spine's width
-constexpr float kShelfY = 236.0f;
+// The plank lands on the lower shelf a theme paints under Home's second
+// row of covers (themes/Bookshelf): its top seen from 247 to 250, its front
+// edge down to 268.
+constexpr float kShelfY = 248.0f;
 constexpr float kPitch = kBoxT + 2.0f;          // spine to spine on the shelf
 constexpr float kOpen = kBoxW / 2.0f + 19.0f;   // the focused box's room each side
 constexpr float kPullZ = 70.0f;                 // how far the focused box comes out
