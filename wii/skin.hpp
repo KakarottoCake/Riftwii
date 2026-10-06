@@ -50,6 +50,9 @@ extern Tex iconDrives, iconGear, iconSearch;  // 28x28
 extern Tex iconDisc;                     // 40x40, the Disc drive tile's picture
 extern Tex hand[4];                      // 96x96 pointers, fingertip at the centre
 extern Tex background;                   // 640x480, a theme's (else none: GuiBackdrop paints)
+// 856 across, a theme's for a widescreen menu (else none: the 640 ones are
+// mirrored outward, DrawExtended).
+extern Tex backgroundWide, barWide;
 
 // Takes `bytes` of MEM2, 32-byte aligned, for the rest of the menu phase;
 // nullptr when MEM2 is full.
@@ -73,6 +76,17 @@ void Draw(const Tex& t, float x, float y, int alpha = 255, float scale = 1.0f);
 GXColor WithAlpha(GXColor c, int alpha);
 // A w x h RGB5A3 texture (a cover, wii/covers.hpp), like Draw.
 void DrawRgb5a3(const u8* data, int w, int h, float x, float y, int alpha = 255, float scale = 1.0f);
+
+// Whether the menu is drawn for a 16:9 TV (Menu_SafeArea wider than 640).
+bool WideMenu();
+
+// `t` at x, y, 1:1, and the rectangle [left, right) x [top, bottom) around
+// it filled with mirror images of its edges: its first and last `bandX`
+// columns going outward, back and forth, then its first and last `bandY`
+// rows the same way. Mirrored, an edge meets its own copy, so no seam
+// shows and nothing is stretched. A band of 0 leaves that side empty.
+void DrawExtended(const Tex& t, float x, float y, float left, float top, float right, float bottom, int bandX,
+                  int bandY);
 
 // The striped light background, drawn under every screen.
 class GuiBackdrop : public GuiElement {

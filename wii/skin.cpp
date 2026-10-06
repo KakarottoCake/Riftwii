@@ -115,7 +115,11 @@ Tex Pick(const ThemeImage& im) {
             return t;
         }
     }
-    if (std::strcmp(im.name, "background") == 0) return Tex();
+    // Only a theme's own: without them the menu paints the backdrop
+    // (GuiBackdrop) and mirrors the 640 bar outward.
+    if (std::strcmp(im.name, "background") == 0 || std::strcmp(im.name, "background_wide") == 0 ||
+        std::strcmp(im.name, "bar_wide") == 0)
+        return Tex();
     Canvas c(0, 0);
     if (!paint_theme_image(im.name, MenuTheme(), c)) return Tex();
     return Upload(c);
@@ -124,6 +128,7 @@ Tex Pick(const ThemeImage& im) {
 }  // namespace
 
 Tex background;
+Tex backgroundWide, barWide;
 Tex shelfPlank;
 
 Tex ArtFrame(int w, int h) {
@@ -179,6 +184,7 @@ void Init() {
         {"scroll_down", &scrollDown}, {"scroll_down_over", &scrollDownOver}, {"icon_drives", &iconDrives},
         {"icon_gear", &iconGear}, {"icon_search", &iconSearch}, {"icon_disc", &iconDisc}, {"pointer1", &hand[0]}, {"pointer2", &hand[1]},
         {"pointer3", &hand[2]}, {"pointer4", &hand[3]}, {"shelf", &shelfPlank},
+        {"background_wide", &backgroundWide}, {"bar_wide", &barWide},
     };
     for (const ThemeImage& im : theme_images()) {
         for (const Slot& s : slots) {
@@ -256,18 +262,76 @@ GuiBackdrop::GuiBackdrop() {
     height = screenheight;
 }
 
+bool WideMenu() {
+    f32 x, w;
+    Menu_SafeArea(&x, &w);
+    return w > 700.0f;
+}
+
+namespace {
+
+// Along one axis: screen [d0, d1) shows texels [s0, s1); s1 < s0 runs
+// backwards, a mirror image.
+struct Run {
+    float d0, d1, s0, s1;
+};
+
+// A picture `size` texels long at `pos`, then mirror images of its `band`
+// texels at each end, going outward back and forth; all cut to [lo, hi).
+int Runs(float pos, int size, int band, float lo, float hi, Run* out, int max) {
+    int n = 0;
+    const auto add = [&](float d0, float d1, float s0, float s1) {
+        const float c0 = d0 < lo ? lo : d0, c1 = d1 > hi ? hi : d1;
+        if (c1 <= c0 || n == max) return;
+        const float k = (s1 - s0) / (d1 - d0);
+        out[n++] = Run{c0, c1, s0 + (c0 - d0) * k, s0 + (c1 - d0) * k};
+    };
+    if (band > size) band = size;
+    for (int j = 0; band > 0 && pos - j * band > lo && n < max; ++j) {
+        const float d1 = pos - j * band;
+        if (j % 2 == 0) add(d1 - band, d1, band, 0);
+        else add(d1 - band, d1, 0, band);
+    }
+    add(pos, pos + size, 0, size);
+    for (int j = 0; band > 0 && pos + size + j * band < hi && n < max; ++j) {
+        const float d0 = pos + size + j * band;
+        if (j % 2 == 0) add(d0, d0 + band, size, size - band);
+        else add(d0, d0 + band, size - band, size);
+    }
+    return n;
+}
+
+}  // namespace
+
+void DrawExtended(const Tex& t, float x, float y, float left, float top, float right, float bottom, int bandX,
+                  int bandY) {
+    if (!t.data) return;
+    constexpr int kMax = 12;
+    Run xs[kMax], ys[kMax];
+    const int nx = Runs(x, t.w, bandX, left, right, xs, kMax);
+    const int ny = Runs(y, t.h, bandY, top, bottom, ys, kMax);
+    const float w = static_cast<float>(t.w), h = static_cast<float>(t.h);
+    for (int j = 0; j < ny; ++j) {
+        for (int i = 0; i < nx; ++i) {
+            Menu_DrawImgPart(xs[i].d0, ys[j].d0, xs[i].d1 - xs[i].d0, ys[j].d1 - ys[j].d0, static_cast<u16>(t.w),
+                             static_cast<u16>(t.h), t.data, xs[i].s0 / w, ys[j].s0 / h, xs[i].s1 / w, ys[j].s1 / h,
+                             255);
+        }
+    }
+}
+
 void GuiBackdrop::Draw() {
     // The whole screen, also past the menu's 640x480 when it is drawn
-    // smaller (widescreen, screen size). The theme's picture keeps its rows
-    // where the menu's are (Bookshelf paints shelves under Home's rows of
-    // covers): stretched only across, at its own height, with a copy
-    // stretched both ways behind it for the margins above and below.
+    // smaller (widescreen, screen size). The theme's picture is never
+    // stretched: it stays where the menu's rows are (Bookshelf paints
+    // shelves under Home's rows of covers) and its edges are mirrored out
+    // to the screen's. A widescreen menu takes the theme's wide picture
+    // when it has one.
     f32 vx, vy, vw, vh;
     Menu_VisibleArea(&vx, &vy, &vw, &vh);
-    if (background.data) {
-        const u16 w = static_cast<u16>(background.w), h = static_cast<u16>(background.h);
-        if (vh > h + 0.5f) Menu_DrawImg(0, 0, w, h, background.data, 0, vw / w, vh / h, 255);
-        Menu_DrawImg(0, 0, w, h, background.data, 0, vw / w, 1.0f, 255);
+    const Tex& picture = WideMenu() && backgroundWide.data ? backgroundWide : background;
+    if (picture.data) {
+        DrawExtended(picture, 320.0f - picture.w / 2.0f, 0, vx, vy, vx + vw, vy + vh, picture.w, picture.h);
         return;
     }
     Menu_FillWholeScreen(g_backdrop);

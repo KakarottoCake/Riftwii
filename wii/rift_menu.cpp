@@ -706,34 +706,22 @@ static void BuildHome(const FrontendState& state, std::vector<GridItem>& items, 
 class HomeBar : public GuiElement {
 public:
 	// Lifted by kLift so the round buttons (y 386) sit wholly inside the
-	// bar, under its line, instead of poking out over it. The strip the lift
-	// opens at the bottom is the bar's own flat body, drawn again from its
-	// lowest rows.
+	// bar, under its line, instead of poking out over it.
 	static constexpr int kLift = 18;
 	void Draw() override {
 		f32 vx, vy, vw, vh;
 		Menu_VisibleArea(&vx, &vy, &vw, &vh);
-		// Below the menu's 480 (a smaller screen size): the bar's colour.
-		if (vy + vh > 480) Menu_FillScreen(480, vy + vh - 480, skin::kBar);
-		Strip(356 - kLift, -1000, 2000, vx, vw);
-		Strip(356, 480 - kLift, kLift, vx, vw);
-		GX_SetScissor(0, 0, Menu_XfbWidth(), Menu_EfbHeight());
+		// A widescreen menu takes the theme's wide bar when it has one. Past
+		// the picture's sides, its flat ends (kFlat columns, clear of the
+		// bump) are mirrored out to the screen's; below it, down to the
+		// screen's bottom, its lowest kBody rows.
+		const skin::Tex& picture = skin::WideMenu() && skin::barWide.data ? skin::barWide : skin::bar;
+		const f32 top = 356 - kLift;
+		skin::DrawExtended(picture, 320.0f - picture.w / 2.0f, top, vx, top, vx + vw, vy + vh, kFlat, kBody);
 	}
 private:
-	// The bar picture at `y`, drawn only in rows [clipY, clipY + clipH).
-	// Past its sides (a widescreen menu) the picture's flat ends repeat: its
-	// first kFlat columns to the left, its last ones to the right, never
-	// its bump.
 	static constexpr int kFlat = 176;
-	static void Strip(int y, f32 clipY, f32 clipH, f32 vx, f32 vw) {
-		Menu_Scissor(0, clipY, 640, clipH);
-		skin::Draw(skin::bar, 0, y);
-		if (vx >= 0) return;
-		Menu_Scissor(vx, clipY, -vx, clipH);
-		for (int x = -kFlat; x + kFlat > vx; x -= kFlat) skin::Draw(skin::bar, x, y);
-		Menu_Scissor(640, clipY, vx + vw - 640, clipH);
-		for (int x = kFlat; x + 640 - kFlat < vx + vw; x += kFlat) skin::Draw(skin::bar, x, y);
-	}
+	static constexpr int kBody = 40;
 };
 
 static std::string g_homeNotice;
@@ -1641,11 +1629,17 @@ static int MenuSource(FrontendState& state)
 	grid.Focus(g_homeFocus);
 	HomeBar bar;
 
+	// On a widescreen menu the corners' buttons and words move out by
+	// `wide` to the TV's sides, as far in from them as on a 4:3 one; the
+	// covers, clock and date stay in the middle.
+	f32 safeX, safeW;
+	Menu_SafeArea(&safeX, &safeW);
+	const int wide = safeX < 0 ? static_cast<int>(-safeX) : 0;
 	GuiText pageTxt("", 15, skin::kInkDim);
-	Place(pageTxt, 40, 300);
+	Place(pageTxt, 40 - wide, 300);
 	// The view in use, always on screen (the status line below gives way to notices).
 	GuiText viewTxt("", 17, skin::kAccent);
-	Place(viewTxt, 40, 324);
+	Place(viewTxt, 40 - wide, 324);
 	// A name over a round button while the pointer rests on it.
 	GuiText filterHint(tr("Filter"), 17, skin::kInk), settingsHint(tr("Settings"), 17, skin::kInk),
 		searchHint(tr("Search"), 17, skin::kInk);
@@ -1653,14 +1647,14 @@ static int MenuSource(FrontendState& state)
 	// centred on each; the small search button's to its left, level with it
 	// (the pointer's hand covers what is below or right of the button).
 	filterHint.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
-	filterHint.SetPosition(64 - 320, 354);
+	filterHint.SetPosition(64 - 320 - wide, 354);
 	settingsHint.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
-	settingsHint.SetPosition(576 - 320, 354);
+	settingsHint.SetPosition(576 - 320 + wide, 354);
 	searchHint.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
-	searchHint.SetPosition(-72, 21);  // ends at x 568; its box at 576, clear of the button at 588
+	searchHint.SetPosition(-72 + wide, 21);  // ends at x 568; its box at 576, clear of the button at 588
 	// Each on a box of its own: the search's sits over the covers.
-	HintChip filterChip(filterHint, 64, 354, true), settingsChip(settingsHint, 576, 354, true),
-		searchChip(searchHint, 568, 21, false);
+	HintChip filterChip(filterHint, 64 - wide, 354, true), settingsChip(settingsHint, 576 + wide, 354, true),
+		searchChip(searchHint, 568 + wide, 21, false);
 	int hintAlpha[3] = {0, 0, 0};  // the hover names' fades
 	for (GuiText* hint : {&filterHint, &settingsHint, &searchHint}) {
 		hint->SetAlpha(0);
@@ -1676,15 +1670,15 @@ static int MenuSource(FrontendState& state)
 	Place(statusTxt, 0, 390, true);
 	statusTxt.SetWrap(true, 400, 3);
 
-	SkinButton filterBtn(skin::roundBtn, skin::roundBtnOver, 2, 26, 386, nullptr,
+	SkinButton filterBtn(skin::roundBtn, skin::roundBtnOver, 2, 26 - wide, 386, nullptr,
 		WPAD_BUTTON_1 | WPAD_CLASSIC_BUTTON_Y, PAD_BUTTON_Y, WIIDRC_BUTTON_X, &skin::iconDrives);
-	SkinButton settingsBtn(skin::roundBtn, skin::roundBtnOver, 2, 538, 386, nullptr,
+	SkinButton settingsBtn(skin::roundBtn, skin::roundBtnOver, 2, 538 + wide, 386, nullptr,
 		WPAD_BUTTON_2 | WPAD_CLASSIC_BUTTON_X, PAD_TRIGGER_R, WIIDRC_BUTTON_Y, &skin::iconGear);
 	// Search: Z on a GameCube controller, ZL on a Classic Controller (a
 	// Wii Remote has no button left; point and press A). Small, in the top
 	// right corner above the tiles' last column and the page arrow (they
 	// end at x 626, 14 in from the edge), so the gear's name has room.
-	SkinButton searchBtn(skin::roundBtn, skin::roundBtnOver, 2, 588, 12, nullptr,
+	SkinButton searchBtn(skin::roundBtn, skin::roundBtnOver, 2, 588 + wide, 12, nullptr,
 		WPAD_CLASSIC_BUTTON_ZL, PAD_TRIGGER_Z, 0, &skin::iconSearch, 0.5f);
 	// Minus and Plus turn the grid's pages (in GuiGameGrid). Rescan is in
 	// Settings, and on X of a GameCube controller, which has neither. Its

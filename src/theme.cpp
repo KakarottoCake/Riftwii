@@ -381,6 +381,9 @@ const std::vector<ThemeImage>& theme_images() {
         {"pointer3", 96, 96},
         {"pointer4", 96, 96},
         {"shelf", 256, 64},
+        // A widescreen menu's: 856 across is 640 on a 16:9 TV's 4:3 middle.
+        {"background_wide", 856, 480},
+        {"bar_wide", 856, 124},
     };
     return images;
 }

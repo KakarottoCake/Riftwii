@@ -277,6 +277,45 @@ void Menu_Scissor(f32 x, f32 y, f32 w, f32 h)
 	GX_SetScissor((u32)x0, (u32)y0, (u32)(x1 - x0 + 0.5f), (u32)(y1 - y0 + 0.5f));
 }
 
+// The menu's 480 rows high and, across, as wide as that is on the TV: 640
+// on a 4:3 menu, about 853 on a widescreen one. Never past what the
+// screen size keeps on screen.
+void Menu_SafeArea(f32* x, f32* w)
+{
+	*w = 640.0f * displayY / displayX;
+	*x = 320.0f - *w / 2;
+}
+
+void Menu_DrawImgPart(f32 x, f32 y, f32 w, f32 h, u16 texW, u16 texH, u8 data[], f32 u0, f32 v0, f32 u1, f32 v1,
+	u8 alpha)
+{
+	if (data == nullptr || w <= 0 || h <= 0)
+		return;
+	GXTexObj texObj;
+	GX_InitTexObj(&texObj, data, texW, texH, GX_TF_RGBA8, GX_CLAMP, GX_CLAMP, GX_FALSE);
+	GX_LoadTexObj(&texObj, GX_TEXMAP0);
+	GX_InvalidateTexAll();
+	GX_SetTevOp(GX_TEVSTAGE0, GX_MODULATE);
+	GX_SetVtxDesc(GX_VA_TEX0, GX_DIRECT);
+	GX_LoadPosMtxImm(GXmodelView2D, GX_PNMTX0);
+	GX_Begin(GX_QUADS, GX_VTXFMT0, 4);
+	GX_Position3f32(x, y, 0);
+	GX_Color4u8(0xFF, 0xFF, 0xFF, alpha);
+	GX_TexCoord2f32(u0, v0);
+	GX_Position3f32(x + w, y, 0);
+	GX_Color4u8(0xFF, 0xFF, 0xFF, alpha);
+	GX_TexCoord2f32(u1, v0);
+	GX_Position3f32(x + w, y + h, 0);
+	GX_Color4u8(0xFF, 0xFF, 0xFF, alpha);
+	GX_TexCoord2f32(u1, v1);
+	GX_Position3f32(x, y + h, 0);
+	GX_Color4u8(0xFF, 0xFF, 0xFF, alpha);
+	GX_TexCoord2f32(u0, v1);
+	GX_End();
+	GX_SetTevOp(GX_TEVSTAGE0, GX_PASSCLR);
+	GX_SetVtxDesc(GX_VA_TEX0, GX_NONE);
+}
+
 /****************************************************************************
  * Menu_Render
  *

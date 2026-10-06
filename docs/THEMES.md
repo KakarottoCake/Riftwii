@@ -130,6 +130,26 @@ Pictures ending in `_over` are the highlighted versions. Transparency
 | `icon_disc` | 40x40 | Disc icon |
 | `pointer1` to `pointer4` | 96x96 | Each player's pointer; the fingertip must be at the centre (48, 48) |
 | `shelf` | 256x64 | Home's shelf: rows 0-47 are its top (the far edge first), rows 48-63 its front edge. It repeats along the shelf, so make the left and right edges meet |
+| `background_wide` | 856x480 | `background` for a widescreen menu (optional) |
+| `bar_wide` | 856x124 | `bar` for a widescreen menu, its bump in the middle (optional) |
+
+### Widescreen and screen size
+
+With Settings > **Widescreen menu** on 16:9 the menu is 856 wide instead of
+640, its middle 640 where a 4:3 menu's is. A smaller **Screen size**
+leaves room around the menu, too. Pictures are never stretched to fill
+it:
+
+- `background_wide` and `bar_wide` are used on a widescreen menu when the
+  theme has them. Without them, `background` and `bar` are drawn in the
+  middle at their own size.
+- Past a picture's edges, its edges are mirrored outward, back and forth:
+  the whole background, the bar's first and last 176 columns at its
+  sides and its lowest 40 rows below it. Keep those parts plain (no
+  words or shapes) so the mirror images look like more of the same.
+- Rows stay where they are: Home's covers are at the same height on any
+  screen, so a background drawn to go with them (shelves under the
+  covers, as in Bookshelf) still lines up.
 
 ## Music
 
@@ -145,7 +165,7 @@ Layout (where things are on screen), fonts and sounds are not themeable yet.
 
 Each release has a `riftwii-theme-kit` zip next to RiftWii's. It holds a
 starter `theme.ini` with every setting at its default, the Midnight
-sample, and all 43 pictures as templates, exactly as RiftWii draws them
+sample, and all 45 pictures as templates, exactly as RiftWii draws them
 (in the default look and in Midnight's colours), at the right sizes.
 Edit a template, keep its size, and save it as PNG in your theme's folder.
 

@@ -359,7 +359,7 @@ static void test_theme_color_keys() {
 
 static void test_theme_images() {
     const auto& images = theme_images();
-    EXPECT_EQ(images.size(), 43U);
+    EXPECT_EQ(images.size(), 45U);
 
     // Unique names.
     for (std::size_t i = 0; i < images.size(); ++i) {

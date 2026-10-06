@@ -189,11 +189,13 @@ struct Painter {
         return c;
     }
 
-    Canvas Bar() const {
-        Canvas c(640, 124);
-        std::vector<float> top(640);
-        for (int x = 0; x < 640; ++x) {
-            const float t = (x + 0.5f - 176.0f) / 288.0f;
+    // `w` across, the clock's bump (288 wide) in the middle.
+    Canvas Bar(int w = 640) const {
+        Canvas c(w, 124);
+        std::vector<float> top(static_cast<std::size_t>(w));
+        const float bumpLeft = w / 2.0f - 144.0f;
+        for (int x = 0; x < w; ++x) {
+            const float t = (x + 0.5f - bumpLeft) / 288.0f;
             const float bump = (t > 0.0f && t < 1.0f) ? (1.0f - std::cos(t * 2.0f * 3.14159265f)) * 0.5f : 0.0f;
             top[x] = 46.0f - 32.0f * bump;
         }
@@ -244,11 +246,11 @@ struct Painter {
 
     // What the menu draws behind every screen without a background.png:
     // the backdrop colour, with a 2-pixel stripe every 4 rows.
-    Canvas Background() const {
-        Canvas c(640, 480);
+    Canvas Background(int w = 640) const {
+        Canvas c(w, 480);
         c.fill(backdrop);
         if (stripes) {
-            for (int y = 2; y < 480; y += 4) c.rect(0, static_cast<float>(y), 640, 2, backdrop_stripe);
+            for (int y = 2; y < 480; y += 4) c.rect(0, static_cast<float>(y), static_cast<float>(w), 2, backdrop_stripe);
         }
         return c;
     }
@@ -296,6 +298,8 @@ bool paint_theme_image(const std::string& name, const Theme& theme, Canvas& out)
         {"panel_game", [](const Painter& q) { return q.Card(572, 232, 4, 16, false); }},
         {"panel_settings", [](const Painter& q) { return q.Card(572, 276, 4, 16, false); }},
         {"bar", [](const Painter& q) { return q.Bar(); }},
+        {"background_wide", [](const Painter& q) { return q.Background(856); }},
+        {"bar_wide", [](const Painter& q) { return q.Bar(856); }},
         {"banner_stripes", [](const Painter& q) { return q.Stripes(); }},
         {"arrow_left", [](const Painter& q) { return q.Arrow(true, false); }},
         {"arrow_left_over", [](const Painter& q) { return q.Arrow(true, true); }},

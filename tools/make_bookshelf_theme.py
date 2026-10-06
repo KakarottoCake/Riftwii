@@ -12,6 +12,8 @@ picture from anywhere else):
 - bar.png: Home's bottom bar as the bookcase's base, its curve edged in
   brass;
 - shelf.png: the wood for the shelf view's plank;
+- background_wide.png / bar_wide.png: the same, 856 across, for a
+  widescreen menu;
 - theme.ini: cream paper panels and dark brown ink.
 
     python tools/make_bookshelf_theme.py      (needs numpy and Pillow)
@@ -120,8 +122,8 @@ def shade(img, y0, y1, top, bottom):
     img[y0:y1] *= f
 
 
-def background():
-    W, H = 640, 480
+def background(W=640):
+    H = 480
     img = np.zeros((H, W, 3))
     # The wall: planks 60 high, each its own cut of the wood.
     y = 0
@@ -196,12 +198,12 @@ def cover_tile(over):
     return rgba.clip(0, 255).astype(np.uint8)
 
 
-def bar():
-    """640x124: Home's bottom bar, the same curve RiftWii paints (src/skinpaint.cpp)."""
-    W, H = 640, 124
+def bar(W=640):
+    """W x 124: Home's bottom bar, the same curve RiftWii paints (src/skinpaint.cpp)."""
+    H = 124
     top = np.zeros(W)
     for x in range(W):
-        t = (x + 0.5 - 176.0) / 288.0
+        t = (x + 0.5 - (W / 2 - 144.0)) / 288.0
         bump = (1 - math.cos(t * 2 * math.pi)) * 0.5 if 0 < t < 1 else 0.0
         top[x] = 46.0 - 32.0 * bump
     body = wood(W, H, (190, 142, 90), (158, 112, 66), phase=2.0, wave=4)
@@ -242,6 +244,9 @@ def main():
     Image.fromarray(cover_tile(True)).save(OUT / "cover_tile_over.png", optimize=True)
     Image.fromarray(bar()).save(OUT / "bar.png", optimize=True)
     Image.fromarray(shelf_picture()).save(OUT / "shelf.png", optimize=True)
+    # Last, so the pictures above come out as before.
+    Image.fromarray(background(856)).save(OUT / "background_wide.png", optimize=True)
+    Image.fromarray(bar(856)).save(OUT / "bar_wide.png", optimize=True)
     print("wrote", OUT)
 
 

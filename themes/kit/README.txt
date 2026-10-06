@@ -9,7 +9,7 @@ What's in here
   MyTheme/theme.ini      A starter theme. Every setting is listed with
                          RiftWii's default value and what it changes.
   Midnight/theme.ini     The dark sample theme, to look at or start from.
-  templates/Default/     All 43 pictures a theme can replace, exactly as
+  templates/Default/     All 45 pictures a theme can replace, exactly as
                          RiftWii draws them in its default look.
   templates/Midnight/    The same pictures in Midnight's colours.
   THEMES.md              The full reference: every setting, every picture,

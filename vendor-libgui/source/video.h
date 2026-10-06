@@ -32,6 +32,11 @@ void Menu_VisibleArea(f32* x, f32* y, f32* w, f32* h);  // the whole screen, in 
 void Menu_FillScreen(f32 y, f32 height, GXColor color);  // a band across the whole screen
 void Menu_FillWholeScreen(GXColor color);
 void Menu_Scissor(f32 x, f32 y, f32 w, f32 h);  // a scissor box in menu units
+void Menu_SafeArea(f32* x, f32* w);  // where the menu's corners go across: wider on a widescreen menu
+// Texels [u0, u1) x [v0, v1) (0-1; reversed for a mirror image) of a w x h
+// RGBA8 picture, on the rectangle at x, y, w by h.
+void Menu_DrawImgPart(f32 x, f32 y, f32 w, f32 h, u16 texW, u16 texH, u8 data[], f32 u0, f32 v0, f32 u1, f32 v1,
+	u8 alpha);
 void ResetVideo_Menu();
 void Menu_Render();
 void Menu_DrawImg(f32 xpos, f32 ypos, u16 width, u16 height, u8 data[], f32 degrees, f32 scaleX, f32 scaleY, u8 alphaF );
