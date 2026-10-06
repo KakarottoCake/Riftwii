@@ -155,6 +155,10 @@ static void UpdatePadPointers()
 	const int kDeadZone = 20;       // of about +-100: worn sticks rest past the old 14
 	const int kClaim = 45;          // a push, not drift, takes the channel from the Remote
 	const float kRemoteMove = 40.0f;
+	// The whole screen in menu units (wider than 640 on a widescreen menu).
+	f32 vx, vy, vw, vh;
+	Menu_VisibleArea(&vx, &vy, &vw, &vh);
+	const float minX = vx, minY = vy, maxX = vx + vw - 1, maxY = vy + vh - 1;
 
 	for (int i = 0; i < 4; i++)
 	{
@@ -242,11 +246,13 @@ static void UpdatePadPointers()
 			}
 			// Pointing just past an edge keeps the pointer on it, as
 			// the pad's does, instead of letting it slide off screen.
+			// The edge is the TV's, in menu units: past 0 and 640 on a
+			// widescreen or smaller menu, where the corners' buttons sit.
 			if (remote && w->ir.valid) {
-				if (w->ir.x < 0) w->ir.x = 0;
-				if (w->ir.y < 0) w->ir.y = 0;
-				if (w->ir.x > screenwidth - 1) w->ir.x = screenwidth - 1;
-				if (w->ir.y > screenheight - 1) w->ir.y = screenheight - 1;
+				if (w->ir.x < minX) w->ir.x = minX;
+				if (w->ir.y < minY) w->ir.y = minY;
+				if (w->ir.x > maxX) w->ir.x = maxX;
+				if (w->ir.y > maxY) w->ir.y = maxY;
 			}
 			continue;
 		}
@@ -264,10 +270,10 @@ static void UpdatePadPointers()
 			x[i] += speed * sx / r;
 			y[i] -= speed * sy / r;  // stick up is positive, screen y grows downward
 		}
-		if (x[i] < 0) x[i] = 0;
-		if (y[i] < 0) y[i] = 0;
-		if (x[i] > screenwidth - 1) x[i] = screenwidth - 1;
-		if (y[i] > screenheight - 1) y[i] = screenheight - 1;
+		if (x[i] < minX) x[i] = minX;
+		if (y[i] < minY) y[i] = minY;
+		if (x[i] > maxX) x[i] = maxX;
+		if (y[i] > maxY) y[i] = maxY;
 		w->ir.valid = 1;
 		w->ir.x = x[i];
 		w->ir.y = y[i];
