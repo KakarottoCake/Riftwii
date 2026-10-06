@@ -257,13 +257,18 @@ GuiBackdrop::GuiBackdrop() {
 }
 
 void GuiBackdrop::Draw() {
+    // The whole screen, also past the menu's 640x480 when it is drawn
+    // smaller (widescreen, screen size): the theme's picture stretched over it.
+    f32 vx, vy, vw, vh;
+    Menu_VisibleArea(&vx, &vy, &vw, &vh);
     if (background.data) {
-        skin::Draw(background, 0, 0);
+        Menu_DrawImg(0, 0, static_cast<u16>(background.w), static_cast<u16>(background.h), background.data, 0,
+                     vw / background.w, vh / background.h, 255);
         return;
     }
-    Menu_DrawRectangle(0, 0, screenwidth, screenheight, g_backdrop, 1);
+    Menu_FillWholeScreen(g_backdrop);
     if (!g_stripes) return;
-    for (int y = 2; y < screenheight; y += 4) Menu_DrawRectangle(0, y, screenwidth, 2, g_backdrop_stripe, 1);
+    for (int y = static_cast<int>(vy) / 4 * 4 + 2; y < vy + vh; y += 4) Menu_FillScreen(y, 2, g_backdrop_stripe);
 }
 
 }  // namespace riftwii::wii::skin

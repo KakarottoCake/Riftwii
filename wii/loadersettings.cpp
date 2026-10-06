@@ -3,6 +3,7 @@
 #include "loadersettings.hpp"
 
 #include <ogc/conf.h>
+#include "video.h"
 #include <sys/stat.h>
 
 #include <cstdio>
@@ -50,6 +51,19 @@ std::string MenuLanguage() {
         case CONF_LANG_ITALIAN: return "it";
         default: return "en";  // the Wii has no Portuguese; pick it in Settings
     }
+}
+
+bool MenuWidescreen() {
+    const std::string& w = Settings().menu_widescreen;
+    if (w != "auto") return w == "on";
+    return CONF_GetAspectRatio() == CONF_ASPECT_16_9;
+}
+
+void ApplyMenuDisplay() {
+    // 16:9: the 4:3 menu drawn 3/4 as wide, so it keeps its shape; then
+    // smaller both ways by the screen size.
+    const float size = Settings().screen_size / 100.0f;
+    Menu_SetDisplayScale((MenuWidescreen() ? 0.75f : 1.0f) * size, size);
 }
 
 }  // namespace riftwii::wii

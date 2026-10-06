@@ -596,6 +596,15 @@ void TestCoverArt() {
     EXPECT_EQ(s.home_tiles, "shelf");
     s.parse("home_tiles = channels\n");
     EXPECT_EQ(s.home_tiles, "channels");
+    EXPECT_EQ(s.menu_widescreen, "auto");
+    EXPECT_EQ(s.screen_size, 100);
+    s.parse("menu_widescreen = on\nscreen_size = 90\n");
+    EXPECT_EQ(s.menu_widescreen, "on");
+    EXPECT_EQ(s.screen_size, 90);
+    s.parse("menu_widescreen = sideways\nscreen_size = 50\n");
+    EXPECT_EQ(s.menu_widescreen, "on");
+    EXPECT_EQ(s.screen_size, 90);
+    EXPECT_TRUE(s.serialize().find("screen_size = 90\n") != std::string::npos);
     EXPECT_EQ(s.menu_sounds, "quiet");
     s.parse("menu_sounds = off\n");
     EXPECT_EQ(s.menu_sounds, "off");

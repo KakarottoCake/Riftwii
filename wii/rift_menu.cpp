@@ -300,9 +300,9 @@ UpdateGUI(void *arg)
 				DoRumble(i);
 			}
 			if (dimAlpha > 0)
-				Menu_DrawRectangle(0, 0, screenwidth, screenheight, (GXColor){0, 0, 0, static_cast<u8>(dimAlpha)}, 1);
+				Menu_FillWholeScreen((GXColor){0, 0, 0, static_cast<u8>(dimAlpha)});
 			if (const int flash = riftwii::wii::ScreenshotFlash())
-				Menu_DrawRectangle(0, 0, screenwidth, screenheight, (GXColor){255, 255, 255, static_cast<u8>(flash)}, 1);
+				Menu_FillWholeScreen((GXColor){255, 255, 255, static_cast<u8>(flash)});
 
 			Menu_Render();
 			riftwii::wii::GuiScriptAfterFrame(Menu_CurrentXfb(), Menu_XfbWidth(), Menu_XfbHeight());
@@ -320,7 +320,7 @@ UpdateGUI(void *arg)
 				for(i = 0; i <= 255; i += step)
 				{
 					mainWindow->Draw();
-					Menu_DrawRectangle(0,0,screenwidth,screenheight,(GXColor){0, 0, 0, (u8)i},1);
+					Menu_FillWholeScreen((GXColor){0, 0, 0, (u8)i});
 					Menu_Render();
 				}
 				ExitApp();
@@ -711,10 +711,28 @@ public:
 	// lowest rows.
 	static constexpr int kLift = 18;
 	void Draw() override {
-		skin::Draw(skin::bar, 0, 356 - kLift);
-		GX_SetScissor(0, (480 - kLift) * Menu_EfbHeight() / 480, Menu_XfbWidth(), kLift * Menu_EfbHeight() / 480);
-		skin::Draw(skin::bar, 0, 356);
+		f32 vx, vy, vw, vh;
+		Menu_VisibleArea(&vx, &vy, &vw, &vh);
+		// Below the menu's 480 (a smaller screen size): the bar's colour.
+		if (vy + vh > 480) Menu_FillScreen(480, vy + vh - 480, skin::kBar);
+		Strip(356 - kLift, -1000, 2000, vx, vw);
+		Strip(356, 480 - kLift, kLift, vx, vw);
 		GX_SetScissor(0, 0, Menu_XfbWidth(), Menu_EfbHeight());
+	}
+private:
+	// The bar picture at `y`, drawn only in rows [clipY, clipY + clipH).
+	// Past its sides (a widescreen menu) the picture's flat ends repeat: its
+	// first kFlat columns to the left, its last ones to the right, never
+	// its bump.
+	static constexpr int kFlat = 176;
+	static void Strip(int y, f32 clipY, f32 clipH, f32 vx, f32 vw) {
+		Menu_Scissor(0, clipY, 640, clipH);
+		skin::Draw(skin::bar, 0, y);
+		if (vx >= 0) return;
+		Menu_Scissor(vx, clipY, -vx, clipH);
+		for (int x = -kFlat; x + kFlat > vx; x -= kFlat) skin::Draw(skin::bar, x, y);
+		Menu_Scissor(640, clipY, vx + vw - 640, clipH);
+		for (int x = kFlat; x + 640 - kFlat < vx + vw; x += kFlat) skin::Draw(skin::bar, x, y);
 	}
 };
 
@@ -782,14 +800,14 @@ class ChannelView : public GuiElement {
 public:
 	riftwii::wii::BannerPlayer player;
 	void Draw() override {
-		Menu_DrawRectangle(0, 0, screenwidth, screenheight, (GXColor){0, 0, 0, 255}, 1);
+		Menu_FillWholeScreen((GXColor){0, 0, 0, 255});
 		player.Step();
 		player.Draw(0, 0, 640, 480, 255);
 		// The bar the buttons sit on, over the banner's lowest quarter: the
 		// part the Wii Menu covers too, where banners leave their seams.
-		Menu_DrawRectangle(0, kChannelBarTop, screenwidth, screenheight - kChannelBarTop, skin::kBar, 1);
-		Menu_DrawRectangle(0, kChannelBarTop, screenwidth, 3, skin::kAccent, 1);
-		Menu_DrawRectangle(0, kChannelBarTop + 3, screenwidth, 4, (GXColor){0, 0, 0, 30}, 1);
+		Menu_FillScreen(kChannelBarTop, 1000, skin::kBar);
+		Menu_FillScreen(kChannelBarTop, 3, skin::kAccent);
+		Menu_FillScreen(kChannelBarTop + 3, 4, (GXColor){0, 0, 0, 30});
 	}
 };
 
@@ -922,7 +940,7 @@ private:
 // no input while it is up. Built and closed with the GUI halted.
 class Dim : public GuiElement {
 public:
-	void Draw() override { Menu_DrawRectangle(0, 0, screenwidth, screenheight, (GXColor){0, 0, 0, 150}, 1); }
+	void Draw() override { Menu_FillWholeScreen((GXColor){0, 0, 0, 150}); }
 };
 
 // The box behind a hover name, so it reads over covers: a rounded card
@@ -1060,9 +1078,9 @@ static int g_leave = 1;
 class HomeBand : public GuiElement {
 public:
 	void Draw() override {
-		Menu_DrawRectangle(0, 0, screenwidth, 70, skin::kBar, 1);
-		Menu_DrawRectangle(0, 70, screenwidth, 3, skin::kAccent, 1);
-		Menu_DrawRectangle(0, 73, screenwidth, 4, (GXColor){0, 0, 0, 36}, 1);
+		Menu_FillScreen(-1000, 1070, skin::kBar);  // from the screen's top, whatever its size
+		Menu_FillScreen(70, 3, skin::kAccent);
+		Menu_FillScreen(73, 4, (GXColor){0, 0, 0, 36});
 	}
 };
 
@@ -1994,8 +2012,8 @@ public:
 	static constexpr int kHeight = 120;
 	explicit GameBanner(GXColor hue) : hue(hue) {}
 	void Draw() override {
-		Menu_DrawRectangle(0, 0, screenwidth, kHeight, hue, 1);
-		GX_SetScissor(0, 0, Menu_XfbWidth(), kHeight * Menu_EfbHeight() / 480);
+		Menu_FillScreen(-1000, 1000 + kHeight, hue);
+		Menu_Scissor(-1000, -1000, 3000, 1000 + kHeight);
 		skin::Draw(skin::bannerStripes, 0, -8);
 		GX_SetScissor(0, 0, Menu_XfbWidth(), Menu_EfbHeight());
 	}
@@ -3492,7 +3510,7 @@ static int MenuSettings(FrontendState& state)
 			if (t.folder == folder) return t.name;
 		return folder;
 	};
-	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kGameLanguage, kGameCios, kServer, kHomeTiles, kTheme, kFont, kSounds, kMusic, kReturnTo, kShots, kOnline, kNames, kGcAdapter, kGcTest, kIos, kNet, kResync,
+	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kGameLanguage, kGameCios, kServer, kHomeTiles, kWidescreen, kScreenSize, kTheme, kFont, kSounds, kMusic, kReturnTo, kShots, kOnline, kNames, kGcAdapter, kGcTest, kIos, kNet, kResync,
 		kRescan, kChannel, kUpdate, kReport, kWiiChannel, kTutorial, kCredits, kExit, kNone };
 	// The RiftWii channel on the Wii Menu (wii/channel.hpp).
 	unsigned channelVersion = 0;
@@ -3526,6 +3544,11 @@ static int MenuSettings(FrontendState& state)
 		option(tr("Home tiles"), settings.home_tiles == "names" ? tr("Names") : settings.home_tiles == "shelf" ? tr("Shelf")
 			: settings.home_tiles == "channels" ? tr("Channels") : tr("Covers"),
 			settings.home_tiles != "names", kHomeTiles);
+		option(tr("Widescreen menu"), settings.menu_widescreen == "on" ? std::string("16:9")
+			: settings.menu_widescreen == "off" ? std::string("4:3")
+			: std::string(tr("Automatic")) + (riftwii::wii::MenuWidescreen() ? " (16:9)" : " (4:3)"),
+			settings.menu_widescreen != "auto", kWidescreen);
+		option(tr("Screen size"), std::to_string(settings.screen_size) + "%", settings.screen_size != 100, kScreenSize);
 		option(tr("Theme"), themeName(settings.theme), settings.theme != "default", kTheme);
 		option(tr("Menu font"), settings.menu_font == "wii" ? tr("Wii Menu") : "RiftWii", settings.menu_font == "wii", kFont);
 		option(tr("Menu sounds"), MenuSoundsName(settings.menu_sounds), settings.menu_sounds != "off", kSounds);
@@ -3678,6 +3701,8 @@ static int MenuSettings(FrontendState& state)
 			case kGameLanguage: return tr("The language the game is told the console uses. Pick one the game has: some games stop without it.");
 			case kGameCios: return tr("The d2x cIOS the game runs under. Automatic uses the menu's, else the first of 249, 250 and 251 that works.");
 			case kHomeTiles: return tr("Covers shows each game's box art from GameTDB, fetched while Home is open when downloads are on. Shelf stands the games' boxes on a shelf. Channels shows each game's own animated icon, as the Wii Menu does, and its banner when you pick it. Names shows the names only.");
+			case kWidescreen: return tr("On a 16:9 TV the menu is drawn narrower, so covers and pictures keep their shape. Automatic follows the Wii's own TV setting.");
+			case kScreenSize: return tr("Makes the menu smaller on screen, so nothing is cut off at the TV's edges. Lower it until the whole menu shows.");
 			case kTheme: return tr("The menu's colours and pictures. Themes are folders in sd:/riftwii/themes (docs/THEMES.md on GitHub).");
 			case kFont: return tr("The letters the menu is written in: RiftWii's own, or the Wii Menu's, read from this Wii.");
 			case kSounds: return tr("How loud the menu's clicks are. Quiet softens the tick the pointer makes moving onto something.");
@@ -3818,6 +3843,25 @@ static int MenuSettings(FrontendState& state)
 					settings.home_tiles = settings.home_tiles == "covers" ? "shelf" : settings.home_tiles == "shelf" ? "channels"
 						: settings.home_tiles == "channels" ? "names" : "covers";
 					saveAndNote(tr("Covers shows each game's box art from GameTDB, fetched while Home is open when downloads are on. Shelf stands the games' boxes on a shelf. Channels shows each game's own animated icon, as the Wii Menu does, and its banner when you pick it. Names shows the names only."));
+					rebuild();
+					break;
+				case kWidescreen: {
+					static const char* const kWide[] = {"auto", "on", "off"};
+					int at = 0;
+					while (at < 3 && settings.menu_widescreen != kWide[at]) ++at;
+					settings.menu_widescreen = kWide[((at % 3) + 3 + direction) % 3];
+					riftwii::wii::ApplyMenuDisplay();
+					saveAndNote(tr("On a 16:9 TV the menu is drawn narrower, so covers and pictures keep their shape. Automatic follows the Wii's own TV setting."));
+					rebuild();
+					break;
+				}
+				case kScreenSize:
+					// 100% down to 80%, 5 at a time, round and round.
+					settings.screen_size += direction < 0 ? -5 : 5;
+					if (settings.screen_size > 100) settings.screen_size = 80;
+					if (settings.screen_size < 80) settings.screen_size = 100;
+					riftwii::wii::ApplyMenuDisplay();
+					saveAndNote(tr("Makes the menu smaller on screen, so nothing is cut off at the TV's edges. Lower it until the whole menu shows."));
 					rebuild();
 					break;
 				case kTheme: {
@@ -4149,6 +4193,7 @@ int MainMenu(int menu, FrontendState& state)
 	skin::Init();
 	logf("Startup: menu art drawn in %u ms\n", static_cast<unsigned>(diff_msec(skinStart, gettime())));
 	ApplyMenuSounds();
+	riftwii::wii::ApplyMenuDisplay();
 	const u64 musicStart = gettime();
 	riftwii::wii::MenuMusicStart();
 	logf("Startup: music started in %u ms\n", static_cast<unsigned>(diff_msec(musicStart, gettime())));

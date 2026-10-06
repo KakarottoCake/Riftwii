@@ -157,6 +157,7 @@ V3 Normal(const Box& b, V3 a, V3 c) {
 void LoadPerspective() {
     Mtx44 p;
     guPerspective(p, kFovY, 640.0f / 480.0f, 10.0f, 3000.0f);
+    Menu_ScaleProjection(p);  // widescreen and screen size, as the 2D view
     GX_LoadProjectionMtx(p, GX_PERSPECTIVE);
     // The world (y down, the eye at z = kEye) into GX's camera space.
     Mtx view = {{1, 0, 0, -320.0f}, {0, -1, 0, 240.0f}, {0, 0, 1, -kEye}};
@@ -166,9 +167,7 @@ void LoadPerspective() {
 
 // Back to libgui's 2D view (vendor-libgui video.cpp).
 void LoadFlat() {
-    Mtx44 p;
-    guOrtho(p, 0, 479, 0, 639, 0, 300);
-    GX_LoadProjectionMtx(p, GX_ORTHOGRAPHIC);
+    Menu_LoadOrtho();
     Mtx view;
     guMtxIdentity(view);
     guMtxTransApply(view, view, 0.0f, 0.0f, -50.0f);

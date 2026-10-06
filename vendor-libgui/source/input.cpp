@@ -6,7 +6,7 @@
  * Wii/GameCube controller management
  ***************************************************************************/
 /* Changed for RiftWii (September and October 2026), under
- * GPL-3.0-or-later: Classic Controller stick as a pointer, the GameCube adapter's pads, the controller used last owns the pointer, the D-pad takes over from it, the Wii Remote's pointer kept on screen, steady repeat, and the Wii U GamePad scan (WiiDRC).
+ * GPL-3.0-or-later: Classic Controller stick as a pointer, the GameCube adapter's pads, the controller used last owns the pointer, the D-pad takes over from it, the Wii Remote's pointer kept on screen and in menu units under a display scale, steady repeat, and the Wii U GamePad scan (WiiDRC).
  * Every change is in RiftWii's git history; NOTICE.md lists the origin. */
 
 #include <gccore.h>
@@ -165,6 +165,12 @@ static void UpdatePadPointers()
 		u32 type = 0;
 		const bool remote = WPAD_Probe(i, &type) == WPAD_ERR_NONE;
 		if (!remote) w->ir.valid = 0;
+		// RiftWii: the menu may be drawn smaller than the screen
+		// (widescreen, screen size): where the Remote points, in its units.
+		if (remote && w->ir.valid) {
+			w->ir.x = Menu_ScreenToMenuX(w->ir.x);
+			w->ir.y = Menu_ScreenToMenuY(w->ir.y);
+		}
 		// A Classic Controller's left stick (scaled to the GameCube
 		// stick's range, about +-100) when the GameCube stick is idle.
 		const bool classic = remote && w->exp.type == WPAD_EXP_CLASSIC;

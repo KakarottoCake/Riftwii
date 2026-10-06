@@ -216,9 +216,7 @@ void GuiFlowList::Draw() {
 
     // Rows are clipped to the list's box while they scroll past its edges.
     const int boxH = visible * kRowHeight;
-    const float sy = Menu_EfbHeight() / 480.0f, sx = Menu_XfbWidth() / static_cast<float>(screenwidth);
-    GX_SetScissor(static_cast<u32>(x0 * sx), static_cast<u32>(y0 * sy), static_cast<u32>((rowWidth + 1) * sx),
-                  static_cast<u32>(boxH * sy));
+    Menu_Scissor(x0, y0, rowWidth + 1, boxH);
 
     const int lit = dragging ? -1 : hover >= 0 ? hover : (AnyPointer() ? -1 : focus);
     const int right = x0 + rowWidth - kPad;

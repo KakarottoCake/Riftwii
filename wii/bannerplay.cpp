@@ -240,10 +240,8 @@ void BannerPlayer::Draw(float x, float y, float w, float h, int alpha, const Rou
     const float rw = icon_ ? kIconW : work_.width, rh = icon_ ? kIconH : work_.height;
     const float sx = w / rw, sy = h / rh;
     const float left = -rw / 2, top = rh / 2;
-    const float efb_x = Menu_XfbWidth() / 640.0f, efb_y = Menu_EfbHeight() / 480.0f;
     const float bx = clip ? clip->x : x, by = clip ? clip->y : y, bw = clip ? clip->w : w, bh = clip ? clip->h : h;
-    GX_SetScissor(static_cast<u32>(std::max(0.0f, bx) * efb_x), static_cast<u32>(std::max(0.0f, by) * efb_y),
-                  static_cast<u32>(bw * efb_x + 0.5f), static_cast<u32>(bh * efb_y + 0.5f));
+    Menu_Scissor(bx, by, bw, bh);
     Mtx view;
     guMtxIdentity(view);
     guMtxTransApply(view, view, 0.0f, 0.0f, -50.0f);

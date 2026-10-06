@@ -612,6 +612,18 @@ T = {
     "Names": ("Nombres", "名前", "Nomes", "Nomi"),
     "Shelf": ("Estante", "棚", "Estante", "Scaffale"),
     "Channels": ("Canales", "チャンネル", "Canais", "Canali"),
+    "Widescreen menu": ("Menú panorámico", "ワイド画面メニュー", "Menu widescreen", "Menu panoramico"),
+    "Screen size": ("Tamaño en pantalla", "画面の大きさ", "Tamanho na tela", "Dimensione sullo schermo"),
+    "On a 16:9 TV the menu is drawn narrower, so covers and pictures keep their shape. Automatic follows the Wii's own TV setting.": (
+        "En una TV 16:9 el menú se dibuja más estrecho, para que las portadas e imágenes conserven su forma. Automático sigue el ajuste de TV de la propia Wii.",
+        "16:9のテレビではメニューを細く描き、パッケージや画像の形を保ちます。自動ではWii本体のテレビ設定に従います。",
+        "Numa TV 16:9 o menu é desenhado mais estreito, para que as capas e imagens mantenham a forma. Automático segue o ajuste de TV do próprio Wii.",
+        "Su una TV 16:9 il menu viene disegnato più stretto, così copertine e immagini mantengono la loro forma. Automatico segue l'impostazione TV della Wii."),
+    "Makes the menu smaller on screen, so nothing is cut off at the TV's edges. Lower it until the whole menu shows.": (
+        "Hace el menú más pequeño en pantalla, para que nada quede cortado en los bordes de la TV. Bájalo hasta que se vea todo el menú.",
+        "画面上のメニューを小さくして、テレビの端で切れないようにします。メニュー全体が見えるまで下げてください。",
+        "Deixa o menu menor na tela, para que nada seja cortado nas bordas da TV. Diminua até o menu inteiro aparecer.",
+        "Rende il menu più piccolo sullo schermo, così niente viene tagliato ai bordi della TV. Abbassalo finché non vedi tutto il menu."),
     "Continue": ("Continuar", "つづける", "Continuar", "Continua"),
     "Covers shows each game's box art from GameTDB, fetched while Home is open when downloads are on. Shelf stands the games' boxes on a shelf. Channels shows each game's own animated icon, as the Wii Menu does, and its banner when you pick it. Names shows the names only.": (
         "Portadas muestra la carátula de cada juego de GameTDB, que se descarga con el inicio abierto si las descargas están activadas. Estante pone las cajas de los juegos en un estante. Canales muestra el icono animado de cada juego, como el menú de Wii, y su banner al elegirlo. Nombres muestra solo los nombres.",

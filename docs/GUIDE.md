@@ -184,6 +184,14 @@ the list explains the row you are on.
   **Game language**, **Game cIOS**, **Online server**: the defaults for
   every game.
 - **Home tiles**: covers, shelf, channels or names.
+- **Widescreen menu**: on a 16:9 TV the menu is drawn narrower, so covers
+  and pictures keep their shape instead of looking stretched. *Automatic*
+  follows the Wii's own TV setting (Wii Settings > Screen > Widescreen);
+  *16:9* or *4:3* picks one.
+- **Screen size**: 100% down to 80%. If your TV cuts off the edges of the
+  menu (overscan, common with HDMI adapters), lower it until the whole menu
+  shows. Setting the TV's picture size to "Just scan", "Direct" or "Fit"
+  does the same from the TV's side.
 - **Theme**: steps through *Default* (RiftWii's own light look, no files
   needed) and every folder in `sd:/riftwii/themes/` that has a `theme.ini`,
   shown by the theme's `name` (or the folder name if it has none).

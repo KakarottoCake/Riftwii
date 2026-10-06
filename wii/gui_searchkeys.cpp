@@ -180,7 +180,7 @@ void GuiSearchKeys::Update(GuiTrigger* t) {
 }
 
 void GuiSearchKeys::Draw() {
-    Menu_DrawRectangle(0, 0, screenwidth, screenheight, (GXColor){0, 0, 0, 150}, 1);
+    Menu_FillWholeScreen((GXColor){0, 0, 0, 150});
     skin::Draw(skin::panelSettings, kPanelX - 4, kPanelY - 4);
     title->Draw();
     // The text field, with a caret that blinks. Every colour is the theme's

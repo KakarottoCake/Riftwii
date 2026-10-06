@@ -6,7 +6,7 @@
  * Video routines
  ***************************************************************************/
 /* Changed for RiftWii (September and October 2026), under
- * GPL-3.0-or-later: no text console on the menu's frame buffer, StopGXKeepPicture, and the frame buffer accessors the launch screen and screenshots use.
+ * GPL-3.0-or-later: no text console on the menu's frame buffer, StopGXKeepPicture, the frame buffer accessors the launch screen and screenshots use, and the display scale (widescreen and screen size).
  * Every change is in RiftWii's git history; NOTICE.md lists the origin. */
 
 #include <gccore.h>
@@ -93,8 +93,7 @@ ResetVideo_Menu()
 	guMtxTransApply (GXmodelView2D, GXmodelView2D, 0.0F, 0.0F, -50.0F);
 	GX_LoadPosMtxImm(GXmodelView2D,GX_PNMTX0);
 
-	guOrtho(p,0,479,0,639,0,300);
-	GX_LoadProjectionMtx(p, GX_ORTHOGRAPHIC);
+	Menu_LoadOrtho();
 
 	GX_SetViewport(0,0,vmode->fbWidth,vmode->efbHeight,0,1);
 	GX_SetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_CLEAR);
@@ -204,6 +203,81 @@ int Menu_EfbHeight()
 }
 
 /****************************************************************************
+ * The display scale (RiftWii). The menu is laid out in 640x480 units;
+ * these draw it smaller than the screen about the centre: across by
+ * `sx` (3/4 on a 16:9 TV, so a 4:3 menu keeps its shape) and both ways by
+ * the screen-size setting, inside what a TV's overscan crops. Everything
+ * drawn goes through the projection, so only the projection, the scissor
+ * boxes and the Wii Remote's pointer need to know.
+ ***************************************************************************/
+static f32 displayX = 1.0f, displayY = 1.0f;
+static volatile bool displayChanged = false;  // the projection to load again, on the GUI thread
+
+void Menu_ScaleProjection(Mtx44 p)
+{
+	for (int c = 0; c < 4; ++c)
+	{
+		p[0][c] *= displayX;
+		p[1][c] *= displayY;
+	}
+}
+
+void Menu_LoadOrtho()
+{
+	Mtx44 p;
+	guOrtho(p,0,479,0,639,0,300);
+	Menu_ScaleProjection(p);
+	GX_LoadProjectionMtx(p, GX_ORTHOGRAPHIC);
+}
+
+// Any thread: the next frame (Menu_Render, on the GUI thread) loads it.
+void Menu_SetDisplayScale(f32 sx, f32 sy)
+{
+	displayX = sx;
+	displayY = sy;
+	displayChanged = true;
+}
+
+f32 Menu_ScreenToMenuX(f32 x) { return 320.0f + (x - 320.0f) / displayX; }
+f32 Menu_ScreenToMenuY(f32 y) { return 240.0f + (y - 240.0f) / displayY; }
+
+void Menu_VisibleArea(f32* x, f32* y, f32* w, f32* h)
+{
+	*x = 320.0f - 320.0f / displayX;
+	*y = 240.0f - 240.0f / displayY;
+	*w = 640.0f / displayX;
+	*h = 480.0f / displayY;
+}
+
+void Menu_FillScreen(f32 y, f32 height, GXColor color)
+{
+	f32 vx, vy, vw, vh;
+	Menu_VisibleArea(&vx, &vy, &vw, &vh);
+	Menu_DrawRectangle(vx, y, vw, height, color, 1);
+}
+
+void Menu_FillWholeScreen(GXColor color)
+{
+	f32 vx, vy, vw, vh;
+	Menu_VisibleArea(&vx, &vy, &vw, &vh);
+	Menu_DrawRectangle(vx, vy, vw, vh, color, 1);
+}
+
+void Menu_Scissor(f32 x, f32 y, f32 w, f32 h)
+{
+	const f32 ex = Menu_XfbWidth() / 640.0f, ey = Menu_EfbHeight() / 480.0f;
+	f32 x0 = (320.0f + (x - 320.0f) * displayX) * ex, x1 = (320.0f + (x + w - 320.0f) * displayX) * ex;
+	f32 y0 = (240.0f + (y - 240.0f) * displayY) * ey, y1 = (240.0f + (y + h - 240.0f) * displayY) * ey;
+	if (x0 < 0) x0 = 0;
+	if (y0 < 0) y0 = 0;
+	if (x1 > Menu_XfbWidth()) x1 = Menu_XfbWidth();
+	if (y1 > Menu_EfbHeight()) y1 = Menu_EfbHeight();
+	if (x1 < x0) x1 = x0;
+	if (y1 < y0) y1 = y0;
+	GX_SetScissor((u32)x0, (u32)y0, (u32)(x1 - x0 + 0.5f), (u32)(y1 - y0 + 0.5f));
+}
+
+/****************************************************************************
  * Menu_Render
  *
  * Renders everything current sent to GX, and flushes video
@@ -212,6 +286,11 @@ void Menu_Render()
 {
 	whichfb ^= 1; // flip framebuffer
 	GX_SetZMode(GX_TRUE, GX_LEQUAL, GX_TRUE);
+	if (displayChanged)
+	{
+		displayChanged = false;
+		Menu_LoadOrtho();
+	}
 	GX_SetColorUpdate(GX_TRUE);
 	GX_CopyDisp(xfb[whichfb],GX_TRUE);
 	GX_DrawDone();

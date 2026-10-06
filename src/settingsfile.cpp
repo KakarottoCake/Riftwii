@@ -64,6 +64,16 @@ void LoaderSettings::parse(const std::string& text) {
             if (parse_cios_choice(value, slot)) game_cios = value;
         } else if (key == "home_tiles") {
             if (value == "covers" || value == "names" || value == "shelf" || value == "channels") home_tiles = value;
+        } else if (key == "menu_widescreen") {
+            if (value == "auto" || value == "on" || value == "off") menu_widescreen = value;
+        } else if (key == "screen_size") {
+            int n = 0;
+            bool digits = !value.empty() && value.size() <= 3;
+            for (char c : value) {
+                if (c < '0' || c > '9') digits = false;
+                else n = n * 10 + (c - '0');
+            }
+            if (digits && n >= 80 && n <= 100) screen_size = n;
         } else if (key == "return_to") {
             if (value == "riftwii" || value == "menu") return_to = value;
         } else if (key == "menu_music") {
@@ -128,6 +138,8 @@ std::string LoaderSettings::serialize() const {
     s += "wfc_server = " + wfc_server + "\n";
     s += "wfc_domain = " + wfc_domain + "\n";
     s += "home_tiles = " + home_tiles + "\n";
+    s += "menu_widescreen = " + menu_widescreen + "\n";
+    s += "screen_size = " + std::to_string(screen_size) + "\n";
     s += "menu_sounds = " + menu_sounds + "\n";
     s += "menu_music = " + menu_music + "\n";
     s += "theme = " + theme + "\n";

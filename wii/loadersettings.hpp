@@ -17,4 +17,11 @@ bool SaveSettings();
 // RiftWii has it (English otherwise). "en", "es", "ja", "pt" or "it".
 std::string MenuLanguage();
 
+// Whether the menu draws for a 16:9 TV: the setting, or with "auto" the
+// Wii's own widescreen setting.
+bool MenuWidescreen();
+// The menu's display scale from the widescreen and screen size settings
+// (vendor-libgui video.cpp's Menu_SetDisplayScale); again after a change.
+void ApplyMenuDisplay();
+
 }  // namespace riftwii::wii

@@ -696,6 +696,18 @@ msgstr "Scaffale"
 msgid "Channels"
 msgstr "Canali"
 
+msgid "Widescreen menu"
+msgstr "Menu panoramico"
+
+msgid "Screen size"
+msgstr "Dimensione sullo schermo"
+
+msgid "On a 16:9 TV the menu is drawn narrower, so covers and pictures keep their shape. Automatic follows the Wii's own TV setting."
+msgstr "Su una TV 16:9 il menu viene disegnato più stretto, così copertine e immagini mantengono la loro forma. Automatico segue l'impostazione TV della Wii."
+
+msgid "Makes the menu smaller on screen, so nothing is cut off at the TV's edges. Lower it until the whole menu shows."
+msgstr "Rende il menu più piccolo sullo schermo, così niente viene tagliato ai bordi della TV. Abbassalo finché non vedi tutto il menu."
+
 msgid "Continue"
 msgstr "Continua"
 

@@ -696,6 +696,18 @@ msgstr "棚"
 msgid "Channels"
 msgstr "チャンネル"
 
+msgid "Widescreen menu"
+msgstr "ワイド画面メニュー"
+
+msgid "Screen size"
+msgstr "画面の大きさ"
+
+msgid "On a 16:9 TV the menu is drawn narrower, so covers and pictures keep their shape. Automatic follows the Wii's own TV setting."
+msgstr "16:9のテレビではメニューを細く描き、パッケージや画像の形を保ちます。自動ではWii本体のテレビ設定に従います。"
+
+msgid "Makes the menu smaller on screen, so nothing is cut off at the TV's edges. Lower it until the whole menu shows."
+msgstr "画面上のメニューを小さくして、テレビの端で切れないようにします。メニュー全体が見えるまで下げてください。"
+
 msgid "Continue"
 msgstr "つづける"
 
