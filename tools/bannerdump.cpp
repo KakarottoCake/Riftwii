@@ -206,7 +206,11 @@ bool dump_archive(const std::vector<std::uint8_t>& arc, const std::string& kind,
                       << m.black[3] << " white " << m.white[0] << "," << m.white[1] << "," << m.white[2] << "," << m.white[3]
                       << " maps " << m.maps.size() << " (tex " << (m.maps.empty() ? -1 : m.maps[0].texture) << ") tev "
                       << m.tev.size() << " chan " << m.has_channel << " matcol " << m.has_material_color << " "
-                      << int(m.material_color.r) << "," << int(m.material_color.a) << " blend " << m.has_blend << "\n";
+                      << int(m.material_color.r) << "," << int(m.material_color.a) << " blend " << m.has_blend
+                      << " swap " << (m.has_swap ? std::to_string(m.swap[0]) + "," + std::to_string(m.swap[1]) + "," +
+                                                       std::to_string(m.swap[2]) + "," + std::to_string(m.swap[3])
+                                                 : std::string("-"))
+                      << " ind " << int(m.ind_stages) << "\n";
             for (const LytTexMap& t : m.maps) {
                 std::cout << "    map tex " << t.texture << " wrap " << int(t.wrap_s) << "," << int(t.wrap_t) << " filter min "
                           << int(t.min_filter) << " mag " << int(t.mag_filter) << "\n";

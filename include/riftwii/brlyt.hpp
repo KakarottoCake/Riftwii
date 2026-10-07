@@ -49,7 +49,10 @@ struct LytMaterial {
     std::uint8_t color_source = 1, alpha_source = 1;  // 0 the material colour, 1 the vertex colours
     bool has_material_color = false;
     LytColor material_color;
-    std::vector<std::array<std::uint8_t, 16>> tev;  // as stored; not interpreted yet
+    std::vector<std::array<std::uint8_t, 16>> tev;  // as stored (drawn by wii/bannerplay.cpp)
+    bool has_swap = false;
+    std::array<std::uint8_t, 4> swap{};  // the four swap tables, a byte each: a|b|g|r, two bits each
+    std::uint8_t ind_stages = 0;  // indirect texture stages (not drawn)
     bool has_alpha_compare = false;
     std::array<std::uint8_t, 4> alpha_compare{};
     bool has_blend = false;

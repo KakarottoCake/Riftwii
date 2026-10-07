@@ -94,6 +94,14 @@ void MaterialTev(const std::vector<std::array<std::uint8_t, 16>>& stages) {
     }
 }
 
+// GX's own swap tables: as is, then red, green and blue for every channel.
+void DefaultSwapTables() {
+    GX_SetTevSwapModeTable(GX_TEV_SWAP0, GX_CH_RED, GX_CH_GREEN, GX_CH_BLUE, GX_CH_ALPHA);
+    GX_SetTevSwapModeTable(GX_TEV_SWAP1, GX_CH_RED, GX_CH_RED, GX_CH_RED, GX_CH_ALPHA);
+    GX_SetTevSwapModeTable(GX_TEV_SWAP2, GX_CH_GREEN, GX_CH_GREEN, GX_CH_GREEN, GX_CH_ALPHA);
+    GX_SetTevSwapModeTable(GX_TEV_SWAP3, GX_CH_BLUE, GX_CH_BLUE, GX_CH_BLUE, GX_CH_ALPHA);
+}
+
 // The TEV back to libgui's single pass-colour stage.
 void PlainTev() {
     GX_SetNumTevStages(1);
@@ -358,6 +366,14 @@ void BannerPlayer::Draw(float x, float y, float w, float h, int alpha, const Rou
                 const LytColor& k = m->tev_k[i];
                 GX_SetTevKColor(static_cast<u8>(GX_KCOLOR0 + i), (GXColor){k.r, k.g, k.b, k.a});
             }
+            // Its swap tables: which channel each of a texel's or the
+            // raster colour's channels is taken from (a stage picks one).
+            if (m->has_swap) {
+                for (int i = 0; i < 4; ++i) {
+                    const std::uint8_t t = m->swap[static_cast<std::size_t>(i)];
+                    GX_SetTevSwapModeTable(static_cast<u8>(GX_TEV_SWAP0 + i), t & 3, (t >> 2) & 3, (t >> 4) & 3, t >> 6);
+                }
+            }
             MaterialTev(m->tev);
             if (m->has_blend) GX_SetBlendMode(m->blend[0], m->blend[1], m->blend[2], m->blend[3]);
             else GX_SetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_CLEAR);
@@ -388,6 +404,7 @@ void BannerPlayer::Draw(float x, float y, float w, float h, int alpha, const Rou
                 }
             }
             GX_End();
+            if (m->has_swap) DefaultSwapTables();
             for (std::size_t i = 1; i < 8; ++i) GX_SetVtxDesc(static_cast<u8>(GX_VA_TEX0 + i), GX_NONE);
             GX_SetNumTexGens(1);
             GX_SetTexCoordGen(GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY);
