@@ -57,7 +57,8 @@ GuiSearchKeys::GuiSearchKeys(const std::string& start) : text(start.substr(0, kM
         k.caption->SetParent(this);
         k.caption->SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
     }
-    focus = static_cast<int>(keys.size()) - 1;  // Search: A straight after the text is typed
+    // Search when there is text (A straight away), else Q, the first letter.
+    focus = text.empty() ? 10 : static_cast<int>(keys.size()) - 1;
     title = new GuiText(tr("Search games"), 24, skin::kInk);
     title->SetParent(this);
     title->SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);

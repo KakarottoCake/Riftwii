@@ -1677,7 +1677,7 @@ static int MenuSource(FrontendState& state)
 	Place(viewTxt, 40 - wide, 324);
 	viewTxt.SetMaxWidth(190 + wide);  // ends by x 230, clear of the clock; a longer one ends in "..."
 	// A name over a round button while the pointer rests on it.
-	GuiText filterHint(tr("Filter"), 17, skin::kInk), settingsHint(tr("Settings"), 17, skin::kInk),
+	GuiText filterHint(tr("View"), 17, skin::kInk), settingsHint(tr("Settings"), 17, skin::kInk),
 		searchHint(tr("Search"), 17, skin::kInk);
 	// The filter's and the gear's names go above them (80 square, y 384-464),
 	// centred on each; the small search button's to its left, level with it
@@ -2668,7 +2668,7 @@ static void MenuCheats(FrontendState& state)
 				std::string note;
 				for (const std::string& n : c.notes) note += (note.empty() ? "" : " ") + n;
 				if (c.needs_values) note = tr("This cheat has values to fill in (the X's). Edit the file first.") + (note.empty() ? "" : " " + note);
-				say(note.empty() ? c.name : FlatCapped(note, 200));
+				say(FlatCapped(note.empty() ? c.name : c.name + ": " + note, 200));
 			} else if (ref.act == Act::Use) {
 				say(tr("Cheats are only applied when this is On."));
 			} else if (ref.act == Act::Download) {
