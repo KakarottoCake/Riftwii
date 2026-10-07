@@ -196,6 +196,14 @@ $(OFILES_SOURCES): $(PROJECT_ROOT)/CMakeLists.txt
 	@echo $(notdir $@)
 	@zstd -q -19 -f -o $@ $<
 
+# bin2o names es.po.zst's header es_po_zst.h, which the %.zst rule below
+# cannot name (its stem is es.po), so make never waited for it: a
+# parallel build could compile i18n.cpp with a catalog's old size, and
+# every translation then failed to unpack (the menu stayed in English).
+%.po.zst.o %_po_zst.h : %.po.zst
+	@echo $(notdir $<)
+	$(bin2o)
+
 menufont.zst : $(PROJECT_ROOT)/wii/font/rounded.ttf
 	@echo $(notdir $@)
 	@zstd -q -19 -f -o $@ $<
