@@ -956,7 +956,16 @@ public:
 		const int w = (text_.GetTextWidth() + 24 + 3) & ~3, h = 28;
 		const skin::Tex box = skin::HintBox(w, h);
 		if (box.data == nullptr) return;
-		const int x = centred_ ? anchorX_ - w / 2 : anchorX_ - w + 12;
+		int x = centred_ ? anchorX_ - w / 2 : anchorX_ - w + 12;
+		if (centred_) {
+			// A long name by a corner button stays on the screen (8 in from
+			// its edges, a widescreen menu's too), and its text with it.
+			f32 safeX, safeW;
+			Menu_SafeArea(&safeX, &safeW);
+			const int left = static_cast<int>(safeX) + 8, right = static_cast<int>(safeX + safeW) - 8;
+			x = std::max(left, std::min(x, right - w));
+			text_.SetPosition(x + w / 2 - 320, top_);
+		}
 		Menu_DrawImg(x - riftwii::kHintBoxMargin, top_ - 5 - riftwii::kHintBoxMargin, box.w, box.h, box.data, 0, 1, 1,
 			static_cast<u8>(text_.GetAlpha()));
 	}
@@ -965,6 +974,30 @@ private:
 	GuiText& text_;
 	int anchorX_, top_;
 	bool centred_;
+};
+
+// Home with no games on either drive: where to put them, on a card over
+// the empty tiles of the second row.
+class EmptyHomeNote : public GuiElement {
+public:
+	static constexpr int kW = 440, kH = 108, kTop = 150;
+	EmptyHomeNote() : text(tr("No games found yet. Put your games (WBFS, ISO or RVZ) in a folder named wbfs or games at the top of the SD card or USB drive, then pick Look for games again in Settings."), 16, skin::kInk) {
+		// Without a parent, x is where the centre goes on the screen.
+		text.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
+		text.SetWrap(true, kW - 40, 4);
+	}
+	void Draw() override {
+		if (!IsVisible()) return;
+		const skin::Tex box = skin::HintBox(kW, kH);
+		if (box.data)
+			Menu_DrawImg(320 - kW / 2 - riftwii::kHintBoxMargin, kTop - riftwii::kHintBoxMargin, box.w, box.h, box.data, 0, 1,
+				1, 255);
+		text.SetPosition(320, kTop + 12);
+		text.Draw();
+	}
+
+private:
+	GuiText text;
 };
 
 // A QR code on screen: a white quiet zone of two modules, then the dark
@@ -1705,6 +1738,8 @@ static int MenuSource(FrontendState& state)
 	GuiText statusTxt("", 15, skin::kInkSoft);
 	Place(statusTxt, 0, 390, true);
 	statusTxt.SetWrap(true, 400, 3);
+	EmptyHomeNote emptyNote;
+	emptyNote.SetVisible(false);
 
 	SkinButton filterBtn(skin::roundBtn, skin::roundBtnOver, 2, 26 - wide, 386, nullptr,
 		WPAD_BUTTON_1 | WPAD_CLASSIC_BUTTON_Y, PAD_BUTTON_Y, WIIDRC_BUTTON_X, &skin::iconDrives);
@@ -1733,6 +1768,7 @@ static int MenuSource(FrontendState& state)
 	HaltGui();
 	GuiWindow w(screenwidth, screenheight);
 	w.Append(&grid);
+	w.Append(&emptyNote);
 	w.Append(&bar);
 	w.Append(&pageTxt);
 	w.Append(&viewTxt);
@@ -1757,6 +1793,8 @@ static int MenuSource(FrontendState& state)
 		// A search lists every game whatever the filter, so it is the view.
 		viewTxt.SetText((std::string(tr("View")) + ": " +
 			(g_search.empty() ? std::string(tr(FilterLabel(g_filter))) : tr("Search \"{1}\"", {g_search}))).c_str());
+		// While a search is on, the round button's first press ends it.
+		filterHint.SetText(g_search.empty() ? tr("View") : tr("Clear search"));
 	};
 	showView();
 	const auto refresh = [&](bool keepFocus) {
@@ -1766,6 +1804,7 @@ static int MenuSource(FrontendState& state)
 		grid.SetItems(&items);
 		grid.Focus(std::min(focus, std::max(0, static_cast<int>(items.size()) - 1)));
 		statusTxt.SetText(HomeStatus(state, items.size()).c_str());
+		emptyNote.SetVisible(state.sd_catalog.games.empty() && state.usb_catalog.games.empty());
 	};
 	if (!g_scanned) {
 		ScanDrives(state, statusTxt);
@@ -2210,7 +2249,7 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 	FlowRow mods;
 	mods.kind = FlowRow::Kind::Action;
 	mods.label = tr("Mods");
-	mods.value = shown == 0 ? tr("None") : enabled == 0 ? tr("Off") : tr("{1} on", {std::to_string(enabled)});
+	mods.value = shown == 0 ? tr("None") : enabled == 0 ? tr("Off") : tr("{1} switched on", {std::to_string(enabled)});
 	mods.on = enabled != 0;
 	add(mods, {RowRef::What::Mods});
 

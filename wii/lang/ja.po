@@ -156,7 +156,7 @@ msgstr "MOD"
 msgid "None"
 msgstr "なし"
 
-msgid "{1} on"
+msgid "{1} switched on"
 msgstr "{1}個オン"
 
 msgid "On: {1}"
@@ -531,11 +531,14 @@ msgstr "新しいSDカードで最初に表示される、RiftWiiの基本の短
 msgid "Credits and license"
 msgstr "クレジットとライセンス"
 
-msgid "Filter"
-msgstr "フィルター"
-
 msgid "View"
 msgstr "表示"
+
+msgid "Clear search"
+msgstr "検索をやめる"
+
+msgid "No games found yet. Put your games (WBFS, ISO or RVZ) in a folder named wbfs or games at the top of the SD card or USB drive, then pick Look for games again in Settings."
+msgstr "ゲームがまだありません。ゲーム(WBFS、ISO、RVZ)をSDカードかUSBドライブの一番上のwbfsまたはgamesフォルダに入れて、設定の「ゲームをもう一度探す」を選んでください。"
 
 msgid "Who RiftWii's parts come from, its license (the GNU GPL, version 3 or later) and where its source is."
 msgstr "RiftWiiの各部分の作者、ライセンス (GNU GPL バージョン3以降) とソースコードの場所。"
@@ -810,8 +813,11 @@ msgstr "このままでは動きません。Project+などのコードビルド�
 msgid "Code builds need the game on USB or disc, not the SD card."
 msgstr "コードビルドはSDカードではなく、USBかディスクのゲームで遊んでください。"
 
-msgid "This won't work: code builds like Project+ read the SD card while you play, so the game can't be on the SD card too. Put it on a USB drive or use the disc."
-msgstr "このままでは動きません。Project+などのコードビルドはプレイ中にSDカードを読むので、ゲームをSDカードに置くことはできません。USBドライブに入れるか、ディスクを使ってください。"
+msgid "This won't work: code builds like Project+ read the SD card while you play, so the game can't be on the SD card too. Put it on a USB drive, use the disc, or pick \"Make an SD image...\" under the build on the Mods page."
+msgstr "このままでは動きません。Project+などのコードビルドはプレイ中にSDカードを読むので、ゲームをSDカードに置くことはできません。USBドライブに入れるか、ディスクを使うか、MODページでビルドの下の「SDイメージを作る...」を選んでください。"
+
+msgid "Make an SD image..."
+msgstr "SDイメージを作る..."
 
 msgid "{1} is on the USB drive: the game has to be there too."
 msgstr "{1}はUSBドライブにあります。ゲームもUSBドライブに置いてください。"

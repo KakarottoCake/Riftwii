@@ -156,7 +156,7 @@ msgstr "Mods"
 msgid "None"
 msgstr "Nenhum"
 
-msgid "{1} on"
+msgid "{1} switched on"
 msgstr "{1} ativados"
 
 msgid "On: {1}"
@@ -531,11 +531,14 @@ msgstr "O breve tour pelo básico do RiftWii que aparece com um cartão SD novo.
 msgid "Credits and license"
 msgstr "Créditos e licença"
 
-msgid "Filter"
-msgstr "Filtro"
-
 msgid "View"
 msgstr "Ver"
+
+msgid "Clear search"
+msgstr "Limpar busca"
+
+msgid "No games found yet. Put your games (WBFS, ISO or RVZ) in a folder named wbfs or games at the top of the SD card or USB drive, then pick Look for games again in Settings."
+msgstr "Nenhum jogo ainda. Coloque seus jogos (WBFS, ISO ou RVZ) numa pasta chamada wbfs ou games na raiz do SD ou do USB e depois escolha Procurar jogos de novo em Configurações."
 
 msgid "Who RiftWii's parts come from, its license (the GNU GPL, version 3 or later) and where its source is."
 msgstr "De quem vêm as partes do RiftWii, sua licença (a GNU GPL, versão 3 ou posterior) e onde está seu código-fonte."
@@ -810,8 +813,11 @@ msgstr "Assim não vai funcionar: builds de códigos como o Project+ precisam es
 msgid "Code builds need the game on USB or disc, not the SD card."
 msgstr "Builds de códigos precisam do jogo no USB ou no disco, não no SD."
 
-msgid "This won't work: code builds like Project+ read the SD card while you play, so the game can't be on the SD card too. Put it on a USB drive or use the disc."
-msgstr "Assim não vai funcionar: builds de códigos como o Project+ leem o SD enquanto você joga, então o jogo não pode estar no SD também. Coloque-o num USB ou use o disco."
+msgid "This won't work: code builds like Project+ read the SD card while you play, so the game can't be on the SD card too. Put it on a USB drive, use the disc, or pick \"Make an SD image...\" under the build on the Mods page."
+msgstr "Assim não vai funcionar: builds de códigos como o Project+ leem o SD enquanto você joga, então o jogo não pode estar no SD também. Coloque-o num USB, use o disco ou escolha \"Criar uma imagem SD...\" sob a build na página de Mods."
+
+msgid "Make an SD image..."
+msgstr "Criar uma imagem SD..."
 
 msgid "{1} is on the USB drive: the game has to be there too."
 msgstr "{1} está no USB: o jogo também precisa estar lá."

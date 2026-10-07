@@ -237,7 +237,10 @@ void GuiGameGrid::Layout() {
         const int index = page * kPerPage + i;
         if (index >= Count()) continue;
         const GridItem& item = (*items)[index];
-        const std::vector<std::string> lines = Wrap(item.title, textWidth, lineCount);
+        // A name tile's disc (top right, from tileW - 46) keeps its name short of it.
+        const bool disc = !covers && item.badge == "DISC";
+        const std::vector<std::string> lines =
+            Wrap(item.title, disc ? Geo().tileW - 46 - kTextLeft - 4 : textWidth, lineCount);
         for (int l = 0; l < 3; ++l) s.lines[l]->SetText(l < static_cast<int>(lines.size()) ? lines[l].c_str() : "");
         s.id->SetText(item.id.c_str());
         s.badge->SetText(item.badge.c_str());

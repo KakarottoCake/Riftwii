@@ -23,6 +23,7 @@ constexpr int kDragStart = 8;  // pixels the pointer moves before a press become
 constexpr int kTrackW = 6;
 constexpr int kArrow = 34;       // skin::scrollUp/scrollDown
 constexpr int kArrowRepeat = 8;  // frames between rows while an arrow is held
+constexpr int kArrowRoom = 12;   // controls move in this far while the scroll arrows show
 constexpr u32 kWpadA = WPAD_BUTTON_A | WPAD_CLASSIC_BUTTON_A;
 
 bool AnyPointer() {
@@ -128,7 +129,7 @@ GuiFlowList::Part GuiFlowList::PartAt(int row, int x) const {
     const FlowRow& r = (*rows)[row];
     if (r.kind == FlowRow::Kind::Option && !r.dim) {
         // The arrows' hit areas reach a little past the buttons.
-        const int right = x0 + rowWidth - kPad;
+        const int right = ControlsRight();
         if (x >= right - kStep - 4) return Part::Forward;
         if (x >= right - kStepperW - 4 && x < right - kStepperW + kStep + 4) return Part::Back;
     }
@@ -138,6 +139,10 @@ GuiFlowList::Part GuiFlowList::PartAt(int row, int x) const {
 bool GuiFlowList::Actionable(int row) const {
     return row >= 0 && row < Count() && (*rows)[row].kind != FlowRow::Kind::Info;
 }
+
+// Where the rows' controls end: in from the right edge, further while the
+// list scrolls, so the arrows on that edge do not touch a switch or chip.
+int GuiFlowList::ControlsRight() const { return x0 + rowWidth - kPad - (Count() > visible ? kArrowRoom : 0); }
 
 // The arrows sit on the list's right edge, at the ends of its track.
 int GuiFlowList::ArrowX() const { return x0 + rowWidth + 5 - kArrow / 2; }
@@ -199,7 +204,7 @@ void GuiFlowList::Draw() {
             label[i]->SetFontSize(r.heading ? 20 : r.kind == FlowRow::Kind::Info ? 15 : 18);
             label[i]->SetColor(r.dim ? skin::kInkDim : r.indent ? skin::kInkSoft : skin::kInk);
             const int control = ControlWidth(r);
-            label[i]->SetMaxWidth(rowWidth - 2 * kPad - (r.indent ? 22 : 0) - (control ? control + kPad : 0));
+            label[i]->SetMaxWidth(ControlsRight() - x0 - kPad - (r.indent ? 22 : 0) - (control ? control + kPad : 0));
             std::string text = r.value;
             if (r.kind == FlowRow::Kind::Action && !r.dim) text += "  \xE2\x80\xBA";
             value[i]->SetText(text.c_str());
@@ -219,7 +224,7 @@ void GuiFlowList::Draw() {
     Menu_Scissor(x0, y0, rowWidth + 1, boxH);
 
     const int lit = dragging ? -1 : hover >= 0 ? hover : (AnyPointer() ? -1 : focus);
-    const int right = x0 + rowWidth - kPad;
+    const int right = ControlsRight();
     for (int i = 0; i <= visible; ++i) {
         const int index = first + i;
         if (index >= Count()) break;

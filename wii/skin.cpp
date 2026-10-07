@@ -155,7 +155,7 @@ Tex HintBox(int w, int h) {
     static std::vector<Kept> kept;
     for (const Kept& k : kept)
         if (k.w == w && k.h == h) return k.tex;
-    if (kept.size() >= 8) return Tex();
+    if (kept.size() >= 12) return Tex();
     Canvas c(0, 0);
     paint_hint_box(MenuTheme(), w, h, c);
     kept.push_back(Kept{w, h, Upload(c)});

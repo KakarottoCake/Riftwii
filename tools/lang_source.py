@@ -126,7 +126,7 @@ T = {
     "Off": ("No", "オフ", "Não", "No"),
     "Mods": ("Mods", "MOD", "Mods", "Mod"),
     "None": ("Ninguno", "なし", "Nenhum", "Nessuno"),
-    "{1} on": ("{1} activados", "{1}個オン", "{1} ativados", "{1} attivi"),
+    "{1} switched on": ("{1} activados", "{1}個オン", "{1} ativados", "{1} attivi"),
     "On: {1}": ("Activados: {1}", "オン: {1}", "Ativados: {1}", "Attivi: {1}"),
     "No mods for this game.": ("No hay mods para este juego.", "このゲームのMODはありません。", "Nenhum mod para este jogo.",
                                "Nessuna mod per questo gioco."),
@@ -466,8 +466,13 @@ T = {
         "O breve tour pelo básico do RiftWii que aparece com um cartão SD novo.",
         "La breve guida alle basi di RiftWii che appare con una nuova scheda SD."),
     "Credits and license": ("Créditos y licencia", "クレジットとライセンス", "Créditos e licença", "Riconoscimenti e licenza"),
-    "Filter": ("Filtro", "フィルター", "Filtro", "Filtro"),
     "View": ("Ver", "表示", "Ver", "Vedi"),
+    "Clear search": ("Borrar búsqueda", "検索をやめる", "Limpar busca", "Annulla ricerca"),
+    "No games found yet. Put your games (WBFS, ISO or RVZ) in a folder named wbfs or games at the top of the SD card or USB drive, then pick Look for games again in Settings.": (
+        "Aún no hay juegos. Pon tus juegos (WBFS, ISO o RVZ) en una carpeta llamada wbfs o games en la raíz de la SD o del USB y luego elige Buscar juegos de nuevo en Ajustes.",
+        "ゲームがまだありません。ゲーム(WBFS、ISO、RVZ)をSDカードかUSBドライブの一番上のwbfsまたはgamesフォルダに入れて、設定の「ゲームをもう一度探す」を選んでください。",
+        "Nenhum jogo ainda. Coloque seus jogos (WBFS, ISO ou RVZ) numa pasta chamada wbfs ou games na raiz do SD ou do USB e depois escolha Procurar jogos de novo em Configurações.",
+        "Ancora nessun gioco. Metti i tuoi giochi (WBFS, ISO o RVZ) in una cartella chiamata wbfs o games nella radice della SD o dell'unità USB, poi scegli Cerca di nuovo i giochi in Impostazioni."),
     "Who RiftWii's parts come from, its license (the GNU GPL, version 3 or later) and where its source is.": (
         "De quién vienen las partes de RiftWii, su licencia (la GNU GPL, versión 3 o posterior) y dónde está su código fuente.",
         "RiftWiiの各部分の作者、ライセンス (GNU GPL バージョン3以降) とソースコードの場所。",
@@ -748,11 +753,12 @@ T = {
         "コードビルドはSDカードではなく、USBかディスクのゲームで遊んでください。",
         "Builds de códigos precisam do jogo no USB ou no disco, não no SD.",
         "Le build di codici vogliono il gioco su USB o su disco, non sulla SD."),
-    "This won't work: code builds like Project+ read the SD card while you play, so the game can't be on the SD card too. Put it on a USB drive or use the disc.": (
-        "Así no va a funcionar: las builds de códigos como Project+ leen la SD mientras juegas, así que el juego no puede estar también en la SD. Ponlo en un USB o usa el disco.",
-        "このままでは動きません。Project+などのコードビルドはプレイ中にSDカードを読むので、ゲームをSDカードに置くことはできません。USBドライブに入れるか、ディスクを使ってください。",
-        "Assim não vai funcionar: builds de códigos como o Project+ leem o SD enquanto você joga, então o jogo não pode estar no SD também. Coloque-o num USB ou use o disco.",
-        "Così non funziona: le build di codici come Project+ leggono la SD mentre giochi, quindi il gioco non può stare anche sulla SD. Mettilo su un'unità USB o usa il disco."),
+    "This won't work: code builds like Project+ read the SD card while you play, so the game can't be on the SD card too. Put it on a USB drive, use the disc, or pick \"Make an SD image...\" under the build on the Mods page.": (
+        "Así no va a funcionar: las builds de códigos como Project+ leen la SD mientras juegas, así que el juego no puede estar también en la SD. Ponlo en un USB, usa el disco o elige \"Crear una imagen SD...\" bajo la build en la página de Mods.",
+        "このままでは動きません。Project+などのコードビルドはプレイ中にSDカードを読むので、ゲームをSDカードに置くことはできません。USBドライブに入れるか、ディスクを使うか、MODページでビルドの下の「SDイメージを作る...」を選んでください。",
+        "Assim não vai funcionar: builds de códigos como o Project+ leem o SD enquanto você joga, então o jogo não pode estar no SD também. Coloque-o num USB, use o disco ou escolha \"Criar uma imagem SD...\" sob a build na página de Mods.",
+        "Così non funziona: le build di codici come Project+ leggono la SD mentre giochi, quindi il gioco non può stare anche sulla SD. Mettilo su un'unità USB, usa il disco o scegli \"Crea un'immagine SD...\" sotto la build nella pagina Mod."),
+    "Make an SD image...": ("Crear una imagen SD...", "SDイメージを作る...", "Criar uma imagem SD...", "Crea un'immagine SD..."),
     "{1} is on the USB drive: the game has to be there too.": (
         "{1} está en el USB: el juego también tiene que estar ahí.",
         "{1}はUSBドライブにあります。ゲームもUSBドライブに置いてください。",

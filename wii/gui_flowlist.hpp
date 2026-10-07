@@ -65,6 +65,7 @@ private:
     // -1 on the up arrow, 1 on the down arrow (while shown), else 0.
     int ArrowAt(int x, int y) const;
     int ArrowX() const;
+    int ControlsRight() const;
     int ArrowY(int dir) const;
     void ScrollFromTrack(int y);
 
