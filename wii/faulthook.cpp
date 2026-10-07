@@ -53,7 +53,8 @@ bool overlaps(const MemoryPatch& p, std::uint32_t start, std::uint32_t bytes) {
 }  // namespace
 
 bool plan_fault_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t mem1_floor, std::uint32_t arena2_lo,
-                     bool answer_bca, const std::vector<MemoryPatch>& patches, FaultHook& out, std::string& why) {
+                     bool answer_bca, const std::vector<MemoryPatch>& patches, FaultHook& out, std::string& why,
+                     std::uint32_t mem1_veneer) {
     out = FaultHook{};
     const rt_fault_header& h = header();
     if (riftwii_fault_bin_size < sizeof(rt_fault_header) || h.magic != RT_FAULT_MAGIC ||
@@ -88,13 +89,34 @@ bool plan_fault_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_
     }
 
     // 2. Memory: the blob below the MEM1 arena's top, its state at the
-    //    bottom of the MEM2 arena.
+    //    bottom of the MEM2 arena. For a code build, which uses all of
+    //    MEM1, both at the MEM2 arena's top instead, its end lowered (as
+    //    the virtual SD card does: the start stays, Project M's codes read
+    //    fixed addresses in Brawl's MEM2 heaps).
     out.code_bytes = align_up(h.size);
-    out.code_base = (arena1_hi - out.code_bytes) & ~31u;
     out.state_bytes = align_up(sizeof(rt_fault_state));
-    out.state_base = align_up(arena2_lo);
     const std::uint32_t arena2_end = *reinterpret_cast<volatile std::uint32_t*>(kMem2ArenaEndField);
-    if (arena1_hi < out.code_bytes || out.code_base < mem1_floor || out.state_base + out.state_bytes > arena2_end) {
+    if (mem1_veneer != 0) {
+        const std::uint32_t bytes = out.code_bytes + out.state_bytes;
+        const std::uint32_t base = (arena2_end - bytes) & ~31u;
+        const std::uint32_t loader_top = reinterpret_cast<std::uint32_t>(SYS_GetArena2Hi());
+        if (arena2_end < bytes || base < loader_top || base < align_up(arena2_lo)) {
+            char buf[160];
+            std::snprintf(buf, sizeof(buf), "no room in the MEM2 arena (0x%08x-0x%08x, this loader's memory ends at 0x%08x)",
+                          arena2_lo, arena2_end, loader_top);
+            why = buf;
+            return false;
+        }
+        out.code_base = base;
+        out.state_base = base + out.code_bytes;
+        out.veneer = mem1_veneer;
+        out.new_arena2_hi = base;
+    } else {
+        out.code_base = (arena1_hi - out.code_bytes) & ~31u;
+        out.state_base = align_up(arena2_lo);
+    }
+    if (mem1_veneer == 0 &&
+        (arena1_hi < out.code_bytes || out.code_base < mem1_floor || out.state_base + out.state_bytes > arena2_end)) {
         char buf[160];
         std::snprintf(buf, sizeof(buf), "no room (MEM1 arena top 0x%08x, floor 0x%08x; MEM2 arena 0x%08x-0x%08x)",
                       arena1_hi, mem1_floor, arena2_lo, arena2_end);
@@ -111,8 +133,8 @@ bool plan_fault_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_
             return false;
         }
     }
-    out.new_arena1_hi = out.code_base;
-    out.new_arena2_lo = out.state_base + out.state_bytes;
+    out.new_arena1_hi = mem1_veneer != 0 ? arena1_hi : out.code_base;
+    out.new_arena2_lo = mem1_veneer != 0 ? arena2_lo : out.state_base + out.state_bytes;
 
     // 3. The blob and its context; the hook comes last. The state needs
     //    nothing now (MEM2's bottom is still this loader's until the
@@ -131,9 +153,10 @@ bool plan_fault_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_
     ctx->bca_sink = (out.code_base + h.sink + 31u) & ~31u;
     ctx->flags = out.ioctl != 0 ? RT_FAULT_FLAG_BCA : 0u;
     out.active = true;
-    logf("Game crashes: blob %u bytes at 0x%08x, state %u bytes at 0x%08x; __OSUnhandledException 0x%08x%s\n",
+    logf("Game crashes: blob %u bytes at 0x%08x, state %u bytes at 0x%08x; __OSUnhandledException 0x%08x%s%s\n",
          h.size, out.code_base, out.state_bytes, out.state_base, out.function,
-         out.ioctl != 0 ? "; it also answers the BCA read" : "");
+         out.ioctl != 0 ? "; it also answers the BCA read" : "",
+         mem1_veneer != 0 ? "; in MEM2, through a veneer" : "");
     return true;
 }
 
@@ -173,10 +196,20 @@ bool install_fault_hook(FaultHook& hook, std::string& why) {
     }
     sync_code(hook.code_base, hook.code_bytes);
     unsigned hooked = 0;
+    unsigned veneers = 0;
     for (Site& s : sites) {
         if (s.function == 0) continue;
+        std::uint32_t target = hook.code_base + s.hook;
+        if (hook.veneer != 0) {
+            // MEM2 is out of a branch's reach: an absolute jump in low MEM1.
+            const std::uint32_t at = hook.veneer + veneers++ * 16;
+            const auto jump = encode_absolute_jump(kScratchRegister, target);
+            store_words(at, jump.data(), 4);
+            sync_code(at, 16);
+            target = at;
+        }
         std::uint32_t branch = 0;
-        if (!encode_branch(s.function, hook.code_base + s.hook, branch)) {
+        if (!encode_branch(s.function, target, branch)) {
             logf("Game crashes: %s is out of a branch's reach; not hooked\n", s.name);
             s.function = 0;
             continue;

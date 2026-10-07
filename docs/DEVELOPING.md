@@ -115,6 +115,14 @@ app (CTGP) starts. `boot.log` names each one left out. Start with all of them,
 then halve the list. The PMEX Remix crash on a Wii (2.7.0 RC9.2) was found
 this way: it was the crash recorder.
 
+`debug_crash` in the same file breaks the game on purpose, to try the
+crash recorder: `debug_crash = pad` puts a read from address 0x28 at the
+start of the game's PADRead (its main thread, every frame), or give a
+hex address. In Dolphin, turn on MMU emulation (`FELK_MMU=1` for
+`build-dolphin/felk-run.sh`), or the bad read is only a warning and the
+game crashes a few steps later instead. The next RiftWii start writes
+`sd:/riftwii/gamecrash.txt`. Never leave it in a tester's settings.
+
 ## Releasing
 
 1. Bump the version in `CMakeLists.txt` and `hbc/meta.xml` (`version`,

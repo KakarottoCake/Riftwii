@@ -71,6 +71,8 @@ constexpr std::uint32_t kApploaderLoadAddress = 0x81200000;
 constexpr std::uint32_t kLoaderStart = 0x80A00000;  // Makefile.wii: --section-start,.init
 constexpr std::uint32_t kGameStart = 0x80004000;    // where games' executables start
 constexpr std::uint32_t kCodeVeneers = 0x80002300;  // past the code handler (0x800022B0), before 0x80003000
+// The crash blob's veneers, after the virtual SD card's (16 bytes each).
+constexpr std::uint32_t kFaultVeneers = kCodeVeneers + VSD_ENTRIES * 16;
 constexpr std::uint32_t kMem1Start = 0x80000000;
 constexpr std::uint32_t kMem1End = 0x81800000;
 constexpr std::uint32_t kMem2Start = 0x90000000;
@@ -1357,6 +1359,16 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         logf("Game crashes: not recorded: the game checks its own code (MetaFortress); RiftWii's hooks stay out\n");
     } else if (debug_off("fault")) {
         logf("Game crashes: not recorded: debug_off (and the BCA read not answered)\n");
+    } else if (whole_mem1 && code_build && !clears_mem1_top && g_extras.code_list_start != 0) {
+        // A code build uses all of MEM1: the blob at the MEM2 arena's top,
+        // reached through a veneer past the code handler (a tester's
+        // Project+ crash on opening the HOME menu left no record). The BCA
+        // read stays unanswered, as before.
+        std::string why;
+        if (!plan_fault_hook(dol, base_arena1_hi(), mem1_floor, base_arena2_lo(), false, options.memory_patches, fault,
+                             why, kFaultVeneers)) {
+            logf("Game crashes: not recorded: %s\n", why.c_str());
+        }
     } else if (whole_mem1) {
         logf("Game crashes: not recorded: %s%s\n", whole_mem1_why,
              options.retail_bca && !options.install_resident ? " (and the BCA read not answered)" : "");
@@ -1447,6 +1459,8 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     // The virtual SD card's MEM2 block is the arena's top: its end comes
     // down instead, the start (and the game's heaps) staying put.
     if (vsd.active) write32(0x80003128, vsd.new_arena2_hi);
+    // The crash blob of a code build is below that (or alone at the top).
+    if (fault.active && fault.veneer != 0) write32(0x80003128, fault.new_arena2_hi);
 
     // <memory> patches, last of all so they win over the globals above (as
     // in Dolphin, which writes low memory before its patches). Writes may
@@ -1600,6 +1614,32 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     if (fault.active) {
         std::string why;
         if (!install_fault_hook(fault, why)) logf("Game crashes: not recorded: %s\n", why.c_str());
+    }
+    // Test switch: settings.txt "debug_crash = <hex address>", or "pad" for
+    // the game's PADRead (its main thread, every frame), puts a read from
+    // 0x28 there before the game starts (a tester's Project+ crash read
+    // there), so the crash blob can be tried on a game. Dolphin's JIT
+    // ignores a write once the code has run, and the Gecko codes rewrite
+    // the places they patch every frame.
+    if (const auto it = Settings().other.find("debug_crash"); it != Settings().other.end()) {
+        std::uint32_t at = static_cast<std::uint32_t>(std::strtoul(it->second.c_str(), nullptr, 16)) & ~3u;
+        if (it->second == "pad") {
+            std::vector<CodeRange> text;
+            for (std::size_t i = 0; i < kDolTextSections; ++i) {
+                const DolSection& s = dol.sections[i];
+                if (s.used()) text.push_back({s.address, reinterpret_cast<const std::uint8_t*>(s.address), s.size});
+            }
+            PadSymbols pad;
+            std::string error;
+            at = find_pad_symbols(text, pad, error) ? pad.read : 0;
+        }
+        if (at >= kCodeHandlerAddress && at < 0x81800000) {
+            const std::uint32_t load_from_0x28 = 0x80000028;  // lwz r0, 0x28(0)
+            std::memcpy(reinterpret_cast<void*>(at), &load_from_0x28, 4);
+            DCFlushRange(reinterpret_cast<void*>(at & ~31u), 32);
+            ICInvalidateRange(reinterpret_cast<void*>(at & ~31u), 32);
+            logf("debug_crash: a read from 0x28 at 0x%08x\n", at);
+        }
     }
     // Last, in gamepatches.c's order: Wiimmfi's Mario Kart Wii patch goes
     // below everything else in the MEM1 arena. Packs bring their own online

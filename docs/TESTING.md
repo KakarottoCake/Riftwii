@@ -131,8 +131,11 @@ from (disc, SD, USB) is just as useful.
   `gc.txt`. A cheat file in `usb:/codes` doesn't get in the way.
   With Brawl on a USB drive, PMEX Remix used to stop on Brawl's own
   warning screen, or crash after a black screen; since RC9.2 it should
-  reach its REMIX logo and a match (boot.log: "Game crashes: not
-  recorded: a code build uses all of the game's memory"). The GameCube
+  reach its REMIX logo and a match. Since the beta after 3.3.2 the crash recorder
+  is back for code builds, at the top of the MEM2 arena (the RC9.2
+  crash came from its state at the arena's bottom, which moved Brawl's
+  MEM2 heap): if PMEX Remix crashes again, try `debug_off = fault`.
+  The GameCube
   adapter and in-game screenshots are off for code builds too (since
   2.7.0), each with a boot.log line. PMEX Remix lags on a Wii by itself.
 - [ ] **The virtual SD card** (a build's `sd.raw` on the SD card or a

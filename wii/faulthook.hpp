@@ -30,18 +30,25 @@ struct FaultHook {
     bool active = false;
     std::uint32_t function = 0;    // __OSUnhandledException (0: not hooked)
     std::uint32_t ioctl = 0;       // IOS_IoctlAsync, for the BCA (0: not hooked)
-    std::uint32_t code_base = 0;   // the blob (MEM1)
+    std::uint32_t code_base = 0;   // the blob (MEM1, or MEM2 with `veneer`)
     std::uint32_t code_bytes = 0;
     std::uint32_t state_base = 0;  // state (MEM2)
     std::uint32_t state_bytes = 0;
     std::uint32_t new_arena1_hi = 0;
     std::uint32_t new_arena2_lo = 0;
+    // A code build uses all of MEM1: the blob and its state go to the top
+    // of the MEM2 arena instead (its end, new_arena2_hi, comes down), the
+    // game's function reaching them through a 16-byte veneer in low MEM1.
+    std::uint32_t veneer = 0;  // 0: the blob is in MEM1
+    std::uint32_t new_arena2_hi = 0;
 };
 
 // Before the <memory> patches; `arena1_hi` and `arena2_lo` are the arena
-// ends the other blobs left.
+// ends the other blobs left. With `mem1_veneer`, the MEM2 placement above
+// (the MEM2 arena's end as the other blobs left it, at 0x80003128).
 bool plan_fault_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t mem1_floor, std::uint32_t arena2_lo,
-                     bool answer_bca, const std::vector<MemoryPatch>& patches, FaultHook& out, std::string& why);
+                     bool answer_bca, const std::vector<MemoryPatch>& patches, FaultHook& out, std::string& why,
+                     std::uint32_t mem1_veneer = 0);
 
 // After the patches, the cheats and the other blobs' hooks.
 bool install_fault_hook(FaultHook& hook, std::string& why);
