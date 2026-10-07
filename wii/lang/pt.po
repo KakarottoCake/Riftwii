@@ -372,6 +372,21 @@ msgstr "O arquivo de trapaças está vazio: {1}"
 msgid "Settings"
 msgstr "Configurações"
 
+msgid "Games"
+msgstr "Jogos"
+
+msgid "Menu"
+msgstr "Menu"
+
+msgid "Finding games"
+msgstr "Procurar jogos"
+
+msgid "Online"
+msgstr "Online"
+
+msgid "More"
+msgstr "Mais"
+
 msgid "Language"
 msgstr "Idioma"
 
@@ -1232,3 +1247,108 @@ msgstr "Para um jogo de outra região (importado): o jogo vê os nomes de país 
 
 msgid "Don't show again"
 msgstr "Não mostrar de novo"
+
+msgid "Report sent: {1}"
+msgstr "Relatório enviado: {1}"
+
+msgid "SD image"
+msgstr "Imagem SD"
+
+msgid "Looking at the build's files..."
+msgstr "Verificando os arquivos da build..."
+
+msgid "No SD image made"
+msgstr "Nenhuma imagem SD criada"
+
+msgid " and "
+msgstr " e "
+
+msgid "RiftWii copies {1} into sd:/riftwii/{2} ({3}). The game then gets the image as its SD card, so it can be on the SD card too. This takes about {4} minutes."
+msgstr "O RiftWii copia {1} em sd:/riftwii/{2} ({3}). O jogo então usa a imagem como seu cartão SD, assim ele também pode ficar no cartão SD. Isso leva cerca de {4} minutos."
+
+msgid "It is saved in {1} parts, as a FAT32 card holds no file of 4 GB."
+msgstr "É salva em {1} partes, já que um cartão em FAT32 não suporta arquivos de 4 GB."
+
+msgid "It replaces the {1} there now."
+msgstr "Substitui o {1} que está lá agora."
+
+msgid "Make an SD image?"
+msgstr "Criar uma imagem SD?"
+
+msgid "Make it"
+msgstr "Criar"
+
+msgid "Making {1}"
+msgstr "Criando {1}"
+
+msgid "Stop"
+msgstr "Parar"
+
+msgid "{1} minutes left"
+msgstr "Faltam {1} minutos"
+
+msgid "{1} seconds left"
+msgstr "Faltam {1} segundos"
+
+msgid "Free space"
+msgstr "Espaço livre"
+
+msgid "Stopped. Nothing was kept."
+msgstr "Interrompido. Nada foi guardado."
+
+msgid "{1} could not be made: {2}. Nothing was kept."
+msgstr "Não foi possível criar {1}: {2}. Nada foi guardado."
+
+msgid "SD image made"
+msgstr "Imagem SD criada"
+
+msgid "{1} is in sd:/riftwii, and the build in it is turned on: the game gets the image as its SD card."
+msgstr "{1} está em sd:/riftwii e a build dentro dela está ativada: o jogo usa a imagem como seu cartão SD."
+
+msgid "Remove from the list"
+msgstr "Remover da lista"
+
+msgid "Add a code build..."
+msgstr "Adicionar uma build de códigos..."
+
+msgid "..  (up a folder)"
+msgstr "..  (subir uma pasta)"
+
+msgid "Pick"
+msgstr "Escolher"
+
+msgid "Nothing here"
+msgstr "Nada aqui"
+
+msgid "Add a code build"
+msgstr "Adicionar uma build de códigos"
+
+msgid "Achievement unlocked: License Enthusiast"
+msgstr "Conquista desbloqueada: Entusiasta de licenças"
+
+msgid "Congratulations! You read all 5,644 words of the GNU GPL, version 3. Are you really that bored? Respect to the developers whose work RiftWii builds on: every one of you is credited above. The GPL is there to protect people who share their code, not to be waved around only when it's handy for picking a fight. Your reward: absolutely nothing, as the license says (\"WITHOUT ANY WARRANTY\")."
+msgstr "Parabéns! Você leu todas as 5.644 palavras da GNU GPL, versão 3. Está tão entediado assim? Nosso respeito aos desenvolvedores em cujo trabalho o RiftWii se baseia: cada um de vocês está creditado acima. A GPL existe para proteger quem compartilha seu código, não para ser brandida só quando convém para arrumar briga. Sua recompensa: absolutamente nada, como diz a licença (\"WITHOUT ANY WARRANTY\")."
+
+msgid "Fair enough"
+msgstr "Justo"
+
+msgid "Only a build in a folder can go into an image."
+msgstr "Só uma build em uma pasta pode ir para uma imagem."
+
+msgid "The build cannot go into an image: {1}."
+msgstr "A build não pode ir para uma imagem: {1}."
+
+msgid "The image needs {1} on the SD card and {2} is free. Make room (or use a bigger card) and try again."
+msgstr "A imagem precisa de {1} no cartão SD e há {2} livres. Libere espaço (ou use um cartão maior) e tente de novo."
+
+msgid "Cannot replace {1}."
+msgstr "Não é possível substituir {1}."
+
+msgid "{1} has folders too deep to copy."
+msgstr "{1} tem pastas profundas demais para copiar."
+
+msgid "Cannot read sd:{1}."
+msgstr "Não é possível ler sd:{1}."
+
+msgid "The build has more than {1} files."
+msgstr "A build tem mais de {1} arquivos."

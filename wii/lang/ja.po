@@ -372,6 +372,21 @@ msgstr "チートファイルにチートがありません: {1}"
 msgid "Settings"
 msgstr "設定"
 
+msgid "Games"
+msgstr "ゲーム"
+
+msgid "Menu"
+msgstr "メニュー"
+
+msgid "Finding games"
+msgstr "ゲームを探す"
+
+msgid "Online"
+msgstr "オンライン"
+
+msgid "More"
+msgstr "その他"
+
 msgid "Language"
 msgstr "言語"
 
@@ -1232,3 +1247,108 @@ msgstr "ほかの地域のゲーム（輸入版）用: 本体の国名を探す�
 
 msgid "Don't show again"
 msgstr "今後表示しない"
+
+msgid "Report sent: {1}"
+msgstr "レポートを送信しました: {1}"
+
+msgid "SD image"
+msgstr "SDイメージ"
+
+msgid "Looking at the build's files..."
+msgstr "ビルドのファイルを調べています..."
+
+msgid "No SD image made"
+msgstr "SDイメージは作られませんでした"
+
+msgid " and "
+msgstr "と"
+
+msgid "RiftWii copies {1} into sd:/riftwii/{2} ({3}). The game then gets the image as its SD card, so it can be on the SD card too. This takes about {4} minutes."
+msgstr "RiftWiiは{1}をsd:/riftwii/{2} ({3})にコピーします。ゲームはこのイメージをSDカードとして使うので、ゲームもSDカードに置けます。{4}分ほどかかります。"
+
+msgid "It is saved in {1} parts, as a FAT32 card holds no file of 4 GB."
+msgstr "FAT32のカードは4 GBのファイルを保存できないため、{1}個に分けて保存されます。"
+
+msgid "It replaces the {1} there now."
+msgstr "今ある{1}を置き換えます。"
+
+msgid "Make an SD image?"
+msgstr "SDイメージを作りますか?"
+
+msgid "Make it"
+msgstr "作成"
+
+msgid "Making {1}"
+msgstr "{1}を作成中"
+
+msgid "Stop"
+msgstr "中止"
+
+msgid "{1} minutes left"
+msgstr "残り{1}分"
+
+msgid "{1} seconds left"
+msgstr "残り{1}秒"
+
+msgid "Free space"
+msgstr "空き容量"
+
+msgid "Stopped. Nothing was kept."
+msgstr "中止しました。何も保存されませんでした。"
+
+msgid "{1} could not be made: {2}. Nothing was kept."
+msgstr "{1}を作成できませんでした: {2}。何も保存されませんでした。"
+
+msgid "SD image made"
+msgstr "SDイメージを作成しました"
+
+msgid "{1} is in sd:/riftwii, and the build in it is turned on: the game gets the image as its SD card."
+msgstr "{1}はsd:/riftwiiにあり、中のビルドはオンになっています: ゲームはこのイメージをSDカードとして使います。"
+
+msgid "Remove from the list"
+msgstr "一覧から削除"
+
+msgid "Add a code build..."
+msgstr "コードビルドを追加..."
+
+msgid "..  (up a folder)"
+msgstr "..  (上のフォルダへ)"
+
+msgid "Pick"
+msgstr "選択"
+
+msgid "Nothing here"
+msgstr "ここには何もありません"
+
+msgid "Add a code build"
+msgstr "コードビルドを追加"
+
+msgid "Achievement unlocked: License Enthusiast"
+msgstr "実績解除: ライセンスマニア"
+
+msgid "Congratulations! You read all 5,644 words of the GNU GPL, version 3. Are you really that bored? Respect to the developers whose work RiftWii builds on: every one of you is credited above. The GPL is there to protect people who share their code, not to be waved around only when it's handy for picking a fight. Your reward: absolutely nothing, as the license says (\"WITHOUT ANY WARRANTY\")."
+msgstr "おめでとうございます! GNU GPL バージョン3の全5,644語を読みましたね。そんなに暇だったんですか? RiftWiiが基盤としている開発者の皆さんに敬意を: 上に全員の名前がクレジットされています。GPLはコードを共有する人々を守るためのものであり、喧嘩を売るのに都合がいいときだけ振りかざすものではありません。ご褒美: ライセンスにある通り、まったく何もありません (\"WITHOUT ANY WARRANTY\")。"
+
+msgid "Fair enough"
+msgstr "ごもっとも"
+
+msgid "Only a build in a folder can go into an image."
+msgstr "イメージに入れられるのは、フォルダ内のビルドだけです。"
+
+msgid "The build cannot go into an image: {1}."
+msgstr "ビルドをイメージに入れられません: {1}。"
+
+msgid "The image needs {1} on the SD card and {2} is free. Make room (or use a bigger card) and try again."
+msgstr "イメージにはSDカードに{1}が必要ですが、空きは{2}です。空きを作るか、大きいカードを使って、もう一度試してください。"
+
+msgid "Cannot replace {1}."
+msgstr "{1}を置き換えられません。"
+
+msgid "{1} has folders too deep to copy."
+msgstr "{1}には深すぎてコピーできないフォルダがあります。"
+
+msgid "Cannot read sd:{1}."
+msgstr "sd:{1} を読み込めません。"
+
+msgid "The build has more than {1} files."
+msgstr "ビルドのファイル数が{1}個を超えています。"

@@ -174,8 +174,9 @@ A to keep going. Each arrow goes away at its end of the list.
 
 ### Settings
 
-The gear at the bottom right (or **2**) opens Settings. The note under
-the list explains the row you are on.
+The gear at the bottom right (or **2**) opens Settings. Its rows come in
+groups: *Games* (the defaults for every game), *Menu*, *Finding games*,
+*Online* and *More*. The note under the list explains the row you are on.
 
 - **Language**: English, Español, 日本語, Português, Italiano, or *Wii* to
   follow the console. A translation can be corrected by putting a copy of

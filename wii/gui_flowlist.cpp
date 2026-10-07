@@ -418,6 +418,14 @@ void GuiFlowList::Update(GuiTrigger* t) {
     int target = focus;
     if (t->Down()) target = focus + 1;
     else if (t->Up()) target = focus - 1;
+    // A group's name is passed over; past the first, the list shows its top.
+    const int dir = target - focus;
+    const auto isHeading = [&](int i) { return (*rows)[i].kind == FlowRow::Kind::Info && (*rows)[i].heading; };
+    while (dir != 0 && target >= 0 && target < Count() && isHeading(target)) target += dir;
+    if (dir != 0 && (target < 0 || target >= Count())) {
+        if (dir < 0) ScrollTo(0);
+        target = focus;
+    }
     if (target >= Count()) target = Count() - 1;
     if (target < 0) target = 0;
     if (target != focus) {

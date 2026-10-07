@@ -3717,7 +3717,16 @@ static int MenuSettings(FrontendState& state)
 			rows.push_back(row);
 			actions.push_back(action);
 		};
-		option(tr("Language"), LanguageName(settings.language), settings.language != "auto", kLanguage);
+		// A group's name: a larger row the focus passes over.
+		const auto heading = [&](const char* name) {
+			FlowRow row;
+			row.kind = FlowRow::Kind::Info;
+			row.heading = true;
+			row.label = name;
+			rows.push_back(row);
+			actions.push_back(kNone);
+		};
+		heading(tr("Games"));
 		option(tr("Picture width"), WidthName(settings.video_width), settings.video_width != "game", kWidth);
 		option(tr("Deflicker"), DeflickerName(settings.deflicker), settings.deflicker != "game", kDeflicker);
 		option(tr("Black borders"), BordersName(settings.borders), settings.borders != "keep", kBorders);
@@ -3726,6 +3735,22 @@ static int MenuSettings(FrontendState& state)
 			kGameLanguage);
 		option(tr("Game cIOS"), CiosName(settings.game_cios), settings.game_cios != "auto", kGameCios);
 		option(tr("Online server"), ServerName(settings.wfc_server), settings.wfc_server != "off", kServer);
+		option(tr("Wii Menu button"), settings.return_to == "menu" ? tr("Wii Menu") : tr("Back to RiftWii"),
+			settings.return_to != "menu", kReturnTo);
+		option(tr("In-game screenshots"), settings.screenshots == "demo" ? std::string("Demo")
+			: settings.screenshots == "on" ? tr("On") : tr("Off"), settings.screenshots != "off", kShots,
+			FlowRow::Kind::Toggle);
+		option(tr("GameCube adapter"), settings.gc_adapter == "demo" ? std::string("Demo")
+			: settings.gc_adapter == "on" ? tr("On") : settings.gc_adapter == "off" ? tr("Off") : tr("Automatic"),
+			settings.gc_adapter != "off", kGcAdapter);
+		FlowRow gcTest;
+		gcTest.kind = FlowRow::Kind::Action;
+		gcTest.label = tr("Check the GameCube adapter");
+		gcTest.value = tr("Test");
+		rows.push_back(gcTest);
+		actions.push_back(kGcTest);
+		heading(tr("Menu"));
+		option(tr("Language"), LanguageName(settings.language), settings.language != "auto", kLanguage);
 		option(tr("Home tiles"), settings.home_tiles == "names" ? tr("Names") : settings.home_tiles == "shelf" ? tr("Shelf")
 			: settings.home_tiles == "channels" ? tr("Channels") : tr("Covers"),
 			settings.home_tiles != "names", kHomeTiles);
@@ -3739,29 +3764,6 @@ static int MenuSettings(FrontendState& state)
 		option(tr("Menu sounds"), MenuSoundsName(settings.menu_sounds), settings.menu_sounds != "off", kSounds);
 		option(tr("Menu music"), settings.menu_music == "off" ? tr("Off") : tr("On"), settings.menu_music != "off",
 			kMusic, FlowRow::Kind::Toggle);
-		option(tr("Wii Menu button"), settings.return_to == "menu" ? tr("Wii Menu") : tr("Back to RiftWii"),
-			settings.return_to != "menu", kReturnTo);
-		option(tr("In-game screenshots"), settings.screenshots == "demo" ? std::string("Demo")
-			: settings.screenshots == "on" ? tr("On") : tr("Off"), settings.screenshots != "off", kShots,
-			FlowRow::Kind::Toggle);
-		option(tr("Download names and cheats"), settings.online ? tr("On") : tr("Off"), settings.online, kOnline,
-			FlowRow::Kind::Toggle);
-		FlowRow names;
-		names.kind = FlowRow::Kind::Action;
-		names.label = tr("Get the latest game names");
-		names.value = tr("Update");
-		names.dim = !settings.online;
-		rows.push_back(names);
-		actions.push_back(kNames);
-		option(tr("GameCube adapter"), settings.gc_adapter == "demo" ? std::string("Demo")
-			: settings.gc_adapter == "on" ? tr("On") : settings.gc_adapter == "off" ? tr("Off") : tr("Automatic"),
-			settings.gc_adapter != "off", kGcAdapter);
-		FlowRow gcTest;
-		gcTest.kind = FlowRow::Kind::Action;
-		gcTest.label = tr("Check the GameCube adapter");
-		gcTest.value = tr("Test");
-		rows.push_back(gcTest);
-		actions.push_back(kGcTest);
 		FlowRow ios;
 		ios.kind = iosChoosable ? FlowRow::Kind::Option : FlowRow::Kind::Info;
 		ios.label = iosChoosable ? "Menu IOS" : "Menu IOS: IOS 58 (no d2x cIOS found)";
@@ -3772,6 +3774,13 @@ static int MenuSettings(FrontendState& state)
 		ios.dim = !iosChoosable;
 		rows.push_back(ios);
 		actions.push_back(iosChoosable ? kIos : kNone);
+		heading(tr("Finding games"));
+		FlowRow rescan;
+		rescan.kind = FlowRow::Kind::Action;
+		rescan.label = "Look for games again";
+		rescan.value = "Rescan";
+		rows.push_back(rescan);
+		actions.push_back(kRescan);
 		FlowRow net;
 		net.kind = FlowRow::Kind::Toggle;
 		net.label = "Find network packs (RiiFS)";
@@ -3785,12 +3794,16 @@ static int MenuSettings(FrontendState& state)
 		resync.value = "Resync";
 		rows.push_back(resync);
 		actions.push_back(kResync);
-		FlowRow rescan;
-		rescan.kind = FlowRow::Kind::Action;
-		rescan.label = "Look for games again";
-		rescan.value = "Rescan";
-		rows.push_back(rescan);
-		actions.push_back(kRescan);
+		heading(tr("Online"));
+		option(tr("Download names and cheats"), settings.online ? tr("On") : tr("Off"), settings.online, kOnline,
+			FlowRow::Kind::Toggle);
+		FlowRow names;
+		names.kind = FlowRow::Kind::Action;
+		names.label = tr("Get the latest game names");
+		names.value = tr("Update");
+		names.dim = !settings.online;
+		rows.push_back(names);
+		actions.push_back(kNames);
 		{
 			const bool beta = riftwii::effective_update_channel(settings.update_channel, RIFTWII_VERSION) == "beta";
 			option(tr("Updates"), beta ? tr("Beta") : tr("Stable"), beta, kChannel);
@@ -3802,12 +3815,19 @@ static int MenuSettings(FrontendState& state)
 		update.dim = !settings.online;
 		rows.push_back(update);
 		actions.push_back(kUpdate);
+		heading(tr("More"));
 		FlowRow report;
 		report.kind = FlowRow::Kind::Action;
 		report.label = tr("Send a problem report");
 		report.value = tr("Send");
 		rows.push_back(report);
 		actions.push_back(kReport);
+		FlowRow tutorial;
+		tutorial.kind = FlowRow::Kind::Action;
+		tutorial.label = tr("Tutorial");
+		tutorial.value = tr("Show");
+		rows.push_back(tutorial);
+		actions.push_back(kTutorial);
 		FlowRow wiiChannel;
 		wiiChannel.kind = FlowRow::Kind::Action;
 		wiiChannel.label = tr("RiftWii channel on the Wii Menu");
@@ -3815,12 +3835,6 @@ static int MenuSettings(FrontendState& state)
 		wiiChannel.dim = !channelCan;
 		rows.push_back(wiiChannel);
 		actions.push_back(kWiiChannel);
-		FlowRow tutorial;
-		tutorial.kind = FlowRow::Kind::Action;
-		tutorial.label = tr("Tutorial");
-		tutorial.value = tr("Show");
-		rows.push_back(tutorial);
-		actions.push_back(kTutorial);
 		FlowRow credits;
 		credits.kind = FlowRow::Kind::Action;
 		credits.label = tr("Credits and license");
@@ -3855,7 +3869,7 @@ static int MenuSettings(FrontendState& state)
 	Panel panel(skin::panelGame, 34, 76);
 	GuiFlowList list(46, 82, 548, 5);
 	list.SetRows(&rows);
-	list.Select(0);
+	list.Select(1);  // row 0 is the first group's name
 	GuiText noteTxt(tr("These apply to every game. A game's own page can change them for that game."), 16, skin::kInkSoft);
 	Place(noteTxt, 52, 312);
 	noteTxt.SetWrap(true, 536, 4);

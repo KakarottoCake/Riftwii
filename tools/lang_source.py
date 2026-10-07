@@ -327,6 +327,11 @@ T = {
 
     # Settings
     "Settings": ("Ajustes", "設定", "Configurações", "Impostazioni"),
+    "Games": ("Juegos", "ゲーム", "Jogos", "Giochi"),
+    "Menu": ("Menú", "メニュー", "Menu", "Menu"),
+    "Finding games": ("Buscar juegos", "ゲームを探す", "Procurar jogos", "Trovare i giochi"),
+    "Online": ("En línea", "オンライン", "Online", "Online"),
+    "More": ("Más", "その他", "Mais", "Altro"),
     "Language": ("Idioma", "言語", "Idioma", "Lingua"),
     "Wii: {1}": ("Wii: {1}", "Wii: {1}", "Wii: {1}", "Wii: {1}"),
     "Download names and cheats": ("Descargar nombres y trucos", "ゲーム名とチートをダウンロード", "Baixar nomes e trapaças",
@@ -1222,6 +1227,42 @@ T = {
         "Para um jogo de outra região (importado): o jogo vê os nomes de país da sua região onde procura os do console.",
         "Per un gioco di un'altra regione (d'importazione): il gioco vede i nomi dei paesi della sua regione dove cerca quelli della console."),
     "Don't show again": ("No volver a mostrar", "今後表示しない", "Não mostrar de novo", "Non mostrare più"),
+    # Make an SD image and the code build picker (3.3)
+    "Report sent: {1}": ("Informe enviado: {1}", "レポートを送信しました: {1}", "Relatório enviado: {1}", "Segnalazione inviata: {1}"),
+    "SD image": ("Imagen SD", "SDイメージ", "Imagem SD", "Immagine SD"),
+    "Looking at the build's files...": ("Revisando los archivos de la build...", "ビルドのファイルを調べています...", "Verificando os arquivos da build...", "Controllo dei file della build..."),
+    "No SD image made": ("No se creó ninguna imagen SD", "SDイメージは作られませんでした", "Nenhuma imagem SD criada", "Nessuna immagine SD creata"),
+    " and ": (" y ", "と", " e ", " e "),
+    "RiftWii copies {1} into sd:/riftwii/{2} ({3}). The game then gets the image as its SD card, so it can be on the SD card too. This takes about {4} minutes.": ("RiftWii copia {1} en sd:/riftwii/{2} ({3}). El juego usa la imagen como su tarjeta SD, así que también puede estar en la tarjeta SD. Esto tarda unos {4} minutos.", "RiftWiiは{1}をsd:/riftwii/{2} ({3})にコピーします。ゲームはこのイメージをSDカードとして使うので、ゲームもSDカードに置けます。{4}分ほどかかります。", "O RiftWii copia {1} em sd:/riftwii/{2} ({3}). O jogo então usa a imagem como seu cartão SD, assim ele também pode ficar no cartão SD. Isso leva cerca de {4} minutos.", "RiftWii copia {1} in sd:/riftwii/{2} ({3}). Il gioco usa l'immagine come sua scheda SD, così può stare anche sulla scheda SD. Ci vogliono circa {4} minuti."),
+    "It is saved in {1} parts, as a FAT32 card holds no file of 4 GB.": ("Se guarda en {1} partes, ya que una tarjeta en FAT32 no admite archivos de 4 GB.", "FAT32のカードは4 GBのファイルを保存できないため、{1}個に分けて保存されます。", "É salva em {1} partes, já que um cartão em FAT32 não suporta arquivos de 4 GB.", "È salvata in {1} parti, dato che una scheda in FAT32 non supporta file da 4 GB."),
+    "It replaces the {1} there now.": ("Reemplaza el {1} que hay ahora.", "今ある{1}を置き換えます。", "Substitui o {1} que está lá agora.", "Sostituisce il {1} che c'è ora."),
+    "Make an SD image?": ("¿Crear una imagen SD?", "SDイメージを作りますか?", "Criar uma imagem SD?", "Creare un'immagine SD?"),
+    "Make it": ("Crearla", "作成", "Criar", "Creala"),
+    "Making {1}": ("Creando {1}", "{1}を作成中", "Criando {1}", "Creazione di {1}"),
+    "Stop": ("Detener", "中止", "Parar", "Interrompi"),
+    "{1} minutes left": ("Faltan {1} minutos", "残り{1}分", "Faltam {1} minutos", "Mancano {1} minuti"),
+    "{1} seconds left": ("Faltan {1} segundos", "残り{1}秒", "Faltam {1} segundos", "Mancano {1} secondi"),
+    "Free space": ("Espacio libre", "空き容量", "Espaço livre", "Spazio libero"),
+    "Stopped. Nothing was kept.": ("Detenido. No se guardó nada.", "中止しました。何も保存されませんでした。", "Interrompido. Nada foi guardado.", "Interrotto. Non è stato salvato nulla."),
+    "{1} could not be made: {2}. Nothing was kept.": ("No se pudo crear {1}: {2}. No se guardó nada.", "{1}を作成できませんでした: {2}。何も保存されませんでした。", "Não foi possível criar {1}: {2}. Nada foi guardado.", "Impossibile creare {1}: {2}. Non è stato salvato nulla."),
+    "SD image made": ("Imagen SD creada", "SDイメージを作成しました", "Imagem SD criada", "Immagine SD creata"),
+    "{1} is in sd:/riftwii, and the build in it is turned on: the game gets the image as its SD card.": ("{1} está en sd:/riftwii y la build que contiene está activada: el juego usa la imagen como su tarjeta SD.", "{1}はsd:/riftwiiにあり、中のビルドはオンになっています: ゲームはこのイメージをSDカードとして使います。", "{1} está em sd:/riftwii e a build dentro dela está ativada: o jogo usa a imagem como seu cartão SD.", "{1} è in sd:/riftwii e la build al suo interno è attivata: il gioco usa l'immagine come sua scheda SD."),
+    "Remove from the list": ("Quitar de la lista", "一覧から削除", "Remover da lista", "Rimuovi dall'elenco"),
+    "Add a code build...": ("Añadir una build de códigos...", "コードビルドを追加...", "Adicionar uma build de códigos...", "Aggiungi una build di codici..."),
+    "..  (up a folder)": ("..  (subir una carpeta)", "..  (上のフォルダへ)", "..  (subir uma pasta)", "..  (sali di una cartella)"),
+    "Pick": ("Elegir", "選択", "Escolher", "Scegli"),
+    "Nothing here": ("No hay nada aquí", "ここには何もありません", "Nada aqui", "Non c'è niente qui"),
+    "Add a code build": ("Añadir una build de códigos", "コードビルドを追加", "Adicionar uma build de códigos", "Aggiungi una build di codici"),
+    "Achievement unlocked: License Enthusiast": ("Logro desbloqueado: Entusiasta de las licencias", "実績解除: ライセンスマニア", "Conquista desbloqueada: Entusiasta de licenças", "Obiettivo sbloccato: Appassionato di licenze"),
+    "Congratulations! You read all 5,644 words of the GNU GPL, version 3. Are you really that bored? Respect to the developers whose work RiftWii builds on: every one of you is credited above. The GPL is there to protect people who share their code, not to be waved around only when it's handy for picking a fight. Your reward: absolutely nothing, as the license says (\"WITHOUT ANY WARRANTY\").": ("¡Enhorabuena! Has leído las 5644 palabras de la GNU GPL, versión 3. ¿De verdad estás tan aburrido? Respeto a los desarrolladores en cuyo trabajo se basa RiftWii: cada uno de vosotros aparece en los créditos de arriba. La GPL está para proteger a quienes comparten su código, no para blandirla solo cuando conviene para buscar pelea. Tu recompensa: absolutamente nada, como dice la licencia (\"WITHOUT ANY WARRANTY\").", "おめでとうございます! GNU GPL バージョン3の全5,644語を読みましたね。そんなに暇だったんですか? RiftWiiが基盤としている開発者の皆さんに敬意を: 上に全員の名前がクレジットされています。GPLはコードを共有する人々を守るためのものであり、喧嘩を売るのに都合がいいときだけ振りかざすものではありません。ご褒美: ライセンスにある通り、まったく何もありません (\"WITHOUT ANY WARRANTY\")。", "Parabéns! Você leu todas as 5.644 palavras da GNU GPL, versão 3. Está tão entediado assim? Nosso respeito aos desenvolvedores em cujo trabalho o RiftWii se baseia: cada um de vocês está creditado acima. A GPL existe para proteger quem compartilha seu código, não para ser brandida só quando convém para arrumar briga. Sua recompensa: absolutamente nada, como diz a licença (\"WITHOUT ANY WARRANTY\").", "Congratulazioni! Hai letto tutte le 5.644 parole della GNU GPL, versione 3. Ti annoi davvero così tanto? Rispetto agli sviluppatori sul cui lavoro si basa RiftWii: ognuno di voi è accreditato sopra. La GPL serve a proteggere chi condivide il proprio codice, non a essere sbandierata solo quando fa comodo per attaccare briga. La tua ricompensa: assolutamente nulla, come dice la licenza (\"WITHOUT ANY WARRANTY\")."),
+    "Fair enough": ("Me parece justo", "ごもっとも", "Justo", "Ci sta"),
+    "Only a build in a folder can go into an image.": ("Solo una build en una carpeta puede ir en una imagen.", "イメージに入れられるのは、フォルダ内のビルドだけです。", "Só uma build em uma pasta pode ir para uma imagem.", "Solo una build in una cartella può andare in un'immagine."),
+    "The build cannot go into an image: {1}.": ("La build no puede ir en una imagen: {1}.", "ビルドをイメージに入れられません: {1}。", "A build não pode ir para uma imagem: {1}.", "La build non può andare in un'immagine: {1}."),
+    "The image needs {1} on the SD card and {2} is free. Make room (or use a bigger card) and try again.": ("La imagen necesita {1} en la tarjeta SD y hay {2} libres. Haz espacio (o usa una tarjeta más grande) y vuelve a intentarlo.", "イメージにはSDカードに{1}が必要ですが、空きは{2}です。空きを作るか、大きいカードを使って、もう一度試してください。", "A imagem precisa de {1} no cartão SD e há {2} livres. Libere espaço (ou use um cartão maior) e tente de novo.", "L'immagine richiede {1} sulla scheda SD e ci sono {2} liberi. Fai spazio (o usa una scheda più grande) e riprova."),
+    "Cannot replace {1}.": ("No se puede reemplazar {1}.", "{1}を置き換えられません。", "Não é possível substituir {1}.", "Impossibile sostituire {1}."),
+    "{1} has folders too deep to copy.": ("{1} tiene carpetas demasiado profundas para copiarlas.", "{1}には深すぎてコピーできないフォルダがあります。", "{1} tem pastas profundas demais para copiar.", "{1} ha cartelle troppo profonde da copiare."),
+    "Cannot read sd:{1}.": ("No se puede leer sd:{1}.", "sd:{1} を読み込めません。", "Não é possível ler sd:{1}.", "Impossibile leggere sd:{1}."),
+    "The build has more than {1} files.": ("La build tiene más de {1} archivos.", "ビルドのファイル数が{1}個を超えています。", "A build tem mais de {1} arquivos.", "La build ha più di {1} file."),
 }
 
 
@@ -1233,7 +1274,7 @@ def check(repo):
     """Every msgid must appear as a literal in the menu's sources, or it
     would never be looked up."""
     sources = ["wii/rift_menu.cpp", "wii/gameextras.cpp", "wii/gui_gamegrid.cpp", "wii/channel.cpp", "wii/frontend.cpp",
-               "wii/codebuilds.cpp", "wii/gui_searchkeys.cpp", "wii/main.cpp"]
+               "wii/codebuilds.cpp", "wii/gui_searchkeys.cpp", "wii/main.cpp", "wii/vsdmake.cpp"]
     text = "".join(open(os.path.join(repo, p), encoding="utf-8").read() for p in sources)
     missing = [k for k in T if '"%s"' % escape(k) not in text]
     for k in missing:
