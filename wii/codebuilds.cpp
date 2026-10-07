@@ -176,6 +176,18 @@ void find_configs(const std::string& dir, int depth, std::vector<std::string>& o
 // folder; then the top of the card and its codes folder, where USB
 // loaders keep theirs.
 GameConfig load_config(const std::string& folder, const std::string& game_id, std::string& from) {
+    const auto first_found = [&](const std::vector<std::string>& paths, GameConfig& out) {
+        for (const std::string& path : paths) {
+            const std::string text = read_text(path, 256 * 1024);
+            if (text.empty()) continue;
+            GameConfig c = parse_gameconfig(text, game_id);
+            if (!c.found) continue;
+            from = path;
+            out = c;
+            return true;
+        }
+        return false;
+    };
     std::vector<std::string> paths;
     const std::string drive = drive_of(folder);
     std::string top;  // the mod's folder at the top of the card
@@ -185,18 +197,17 @@ GameConfig load_config(const std::string& folder, const std::string& game_id, st
         paths.push_back(dir + "/gc.txt");
         top = dir;
     }
-    // The mod's own copy wins over one shared by every mod at the top.
+    GameConfig c;
+    if (first_found(paths, c)) return c;
+    // The mod's own copy deeper in its folder wins over one shared by every
+    // mod at the top. Only searched when the folders above the code file
+    // have none: inside an image every directory read seeks through the
+    // image file, and a whole Project+ folder took minutes on a Wii.
+    paths.clear();
     if (!top.empty()) find_configs(top, 3, paths);
     paths.push_back(drive + "gameconfig.txt");
     paths.push_back(drive + "codes/gameconfig.txt");
-    for (const std::string& path : paths) {
-        const std::string text = read_text(path, 256 * 1024);
-        if (text.empty()) continue;
-        GameConfig c = parse_gameconfig(text, game_id);
-        if (!c.found) continue;
-        from = path;
-        return c;
-    }
+    if (first_found(paths, c)) return c;
     from.clear();
     return GameConfig();
 }
