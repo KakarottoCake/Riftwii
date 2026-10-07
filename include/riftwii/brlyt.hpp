@@ -61,7 +61,7 @@ enum class PaneKind : std::uint8_t { Null, Picture, Text, Window, Bound };
 struct LytPane {
     PaneKind kind = PaneKind::Null;
     std::string name;
-    std::uint8_t flags = 1;  // bit 0 visible, bit 1 children take its alpha
+    std::uint8_t flags = 1;  // bit 0 visible, bit 1 children take its alpha, bit 2 keeps its shape on 16:9
     std::uint8_t origin = 4;  // 0..8: left/centre/right across, top/centre/bottom down
     std::uint8_t alpha = 255;
     float tx = 0, ty = 0, tz = 0;
@@ -123,14 +123,20 @@ struct LytQuad {
 
 std::vector<LytQuad> layout_quads(const Layout& layout);
 
+// On a 16:9 TV the Wii Menu stretches a layout across the wider screen,
+// and a pane with flag bit 2 (and everything under it) is narrowed back so
+// it keeps its shape: logos, characters, rings. `wide_x` is that narrowing
+// (3/4 for 16:9), 1 for a 4:3 picture.
+
 // The same into `out`, reusing it and `scratch` from frame to frame, so a
 // layout drawn every frame allocates nothing once they have grown.
 struct LytScratch {
     std::vector<std::array<float, 12>> world;
     std::vector<float> alpha;
     std::vector<std::uint8_t> shown;
+    std::vector<std::uint8_t> narrowed;  // under a pane narrowed for 16:9 already
 };
-void layout_quads(const Layout& layout, std::vector<LytQuad>& out, LytScratch& scratch);
+void layout_quads(const Layout& layout, std::vector<LytQuad>& out, LytScratch& scratch, float wide_x = 1.0f);
 
 // A material's colour for one texel (straight alpha, 0..255 each) and the
 // colour the quad brings at that point (its vertex colour), the way

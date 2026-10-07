@@ -16,6 +16,7 @@ namespace riftwii::wii {
 namespace {
 
 constexpr float kIconW = 128.0f, kIconH = 96.0f;
+constexpr float kBannerW = 608.0f, kBannerH = 456.0f;  // a banner's view, in layout units
 
 bool EndsWith(const std::string& s, const char* tail) {
     const std::size_t n = std::strlen(tail);
@@ -69,12 +70,39 @@ void DepthOnly(bool on) {
     GX_SetAlphaUpdate(on ? GX_FALSE : GX_TRUE);
 }
 
+// A material's own TEV stages, as its 16-byte records give them: the
+// texture coordinate, colour channel and texture map (0xFF none), the
+// swap selections, then the colour and the alpha combiners, each as
+// inputs b|a, d|c, then scale (2 bits), bias (2) and operation (4), then
+// the constant selection (5), output register (2) and clamp (1).
+// (Field order as USB Loader GX's banner code reads them, for insight.)
+void MaterialTev(const std::vector<std::array<std::uint8_t, 16>>& stages) {
+    GX_SetNumTevStages(static_cast<u8>(stages.size()));
+    for (std::size_t i = 0; i < stages.size(); ++i) {
+        const std::uint8_t* t = stages[i].data();
+        const u8 stage = static_cast<u8>(GX_TEVSTAGE0 + i);
+        GX_SetTevOrder(stage, t[0] == 0xFF ? GX_TEXCOORDNULL : t[0], t[2] == 0xFF ? GX_TEXMAP_NULL : t[2],
+                       t[1] == 0xFF ? GX_COLORNULL : t[1]);
+        GX_SetTevSwapMode(stage, (t[3] >> 1) & 3, (t[3] >> 3) & 3);
+        GX_SetTevColorIn(stage, t[4] & 15, t[4] >> 4, t[5] & 15, t[5] >> 4);
+        GX_SetTevColorOp(stage, t[6] & 15, (t[6] >> 4) & 3, t[6] >> 6, t[7] & 1, (t[7] >> 1) & 3);
+        GX_SetTevKColorSel(stage, t[7] >> 3);
+        GX_SetTevAlphaIn(stage, t[8] & 15, t[8] >> 4, t[9] & 15, t[9] >> 4);
+        GX_SetTevAlphaOp(stage, t[10] & 15, (t[10] >> 4) & 3, t[10] >> 6, t[11] & 1, (t[11] >> 1) & 3);
+        GX_SetTevKAlphaSel(stage, t[11] >> 3);
+        GX_SetTevDirect(stage);
+    }
+}
+
 // The TEV back to libgui's single pass-colour stage.
 void PlainTev() {
     GX_SetNumTevStages(1);
     GX_SetTevOrder(GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLOR0A0);
     GX_SetTevOp(GX_TEVSTAGE0, GX_PASSCLR);
     GX_SetVtxDesc(GX_VA_TEX0, GX_NONE);
+    for (int i = 1; i < 8; ++i) GX_SetVtxDesc(static_cast<u8>(GX_VA_TEX0 + i), GX_NONE);
+    for (int i = 0; i < 16; ++i) GX_SetTevSwapMode(static_cast<u8>(GX_TEVSTAGE0 + i), GX_TEV_SWAP0, GX_TEV_SWAP0);
+    GX_SetNumTexGens(1);
     GX_SetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_CLEAR);
     GX_SetAlphaCompare(GX_ALWAYS, 0, GX_AOP_AND, GX_ALWAYS, 0);
 }
@@ -237,13 +265,13 @@ void BannerPlayer::Draw(float x, float y, float w, float h, int alpha, const Rou
         z = kClipZ;
     }
     // The shown area in layout units (y up, the layout's centre at 0, 0).
-    // A banner shows its full height and as much of its width as the box's
-    // shape takes (menu units are square on the TV, widescreen or not):
-    // 608 of a 4:3 box, about 810 of a 16:9 one. Banners are laid out 832
-    // wide for that, the 4:3 picture in the middle, as the Wii Menu shows
-    // them on a 16:9 TV.
-    const float rh = icon_ ? kIconH : work_.height;
-    const float rw = icon_ ? kIconW : (h > 0 ? rh * w / h : work_.width);
+    // A banner shows 608 x 456 of its layout, whatever its own size or the
+    // box's shape: on a 16:9 menu the Wii Menu stretches those 608 over the
+    // whole screen and narrows back the panes flagged to keep their shape
+    // (measured against its Disc Channel in Dolphin, Wii Party and Mario
+    // Party 8).
+    const float rh = icon_ ? kIconH : kBannerH;
+    const float rw = icon_ ? kIconW : kBannerW;
     const float sx = w / rw, sy = h / rh;
     const float left = -rw / 2, top = rh / 2;
     const float bx = clip ? clip->x : x, by = clip ? clip->y : y, bw = clip ? clip->w : w, bh = clip ? clip->h : h;
@@ -254,11 +282,117 @@ void BannerPlayer::Draw(float x, float y, float w, float h, int alpha, const Rou
     GX_LoadPosMtxImm(view, GX_PNMTX0);
     GX_SetNumTexGens(1);
     GX_SetTexCoordGen(GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY);
+    for (int i = 1; i < 8; ++i) GX_SetVtxAttrFmt(GX_VTXFMT0, static_cast<u8>(GX_VA_TEX0 + i), GX_TEX_ST, GX_F32, 0);
     GX_SetNumChans(1);
     GX_SetChanCtrl(GX_COLOR0A0, GX_DISABLE, GX_SRC_REG, GX_SRC_VTX, GX_LIGHTNULL, GX_DF_NONE, GX_AF_NONE);
-    layout_quads(work_, quads_, scratch_);
+    // The narrowing that keeps a flagged pane's shape in that stretch.
+    layout_quads(work_, quads_, scratch_, wide_ && !icon_ && sx > 0 ? sy / sx : 1.0f);
+    // A vertex's colour: the quad's, or the material's by its channel
+    // control, times the banner's own fade.
+    const auto vertex_color = [alpha](const LytQuad& q, const LytMaterial* m, int k) {
+        LytColor c = q.color[k];
+        if (m && m->has_channel) {
+            const LytColor mc = m->has_material_color ? m->material_color : LytColor{};
+            if (m->color_source == 0) {
+                c.r = mc.r;
+                c.g = mc.g;
+                c.b = mc.b;
+            }
+            if (m->alpha_source == 0) c.a = static_cast<std::uint8_t>(mc.a * c.a / 255);
+        }
+        c.a = static_cast<u8>(c.a * alpha / 255);
+        return c;
+    };
+    // TL, TR, BR, BL around the quad.
+    static const int kOrder[4] = {0, 1, 3, 2};
     for (const LytQuad& q : quads_) {
         const LytMaterial* m = q.material >= 0 ? &work_.materials[q.material] : nullptr;
+        // A material with its own TEV stages: its textures in their maps,
+        // a coordinate for each of its texture coordinate generators (its
+        // UV set through its SRT), its colours in the registers, its
+        // stages as given.
+        if (m && !m->tev.empty() && m->tev.size() <= 16 && m->maps.size() <= 8) {
+            bool ok = true;
+            for (std::size_t i = 0; i < m->maps.size() && ok; ++i) {
+                Texture* t = TextureOf(m->maps[i].texture);
+                if (!t) {
+                    ok = false;
+                    break;
+                }
+                GX_InitTexObjWrapMode(&t->obj, Wrap(m->maps[i].wrap_s), Wrap(m->maps[i].wrap_t));
+                if (t->ci) {
+                    GX_InitTexObjTlut(&t->obj, static_cast<u32>(GX_TLUT0 + i));
+                    GX_LoadTlut(&t->tlut, static_cast<u32>(GX_TLUT0 + i));
+                }
+                GX_LoadTexObj(&t->obj, static_cast<u8>(GX_TEXMAP0 + i));
+            }
+            if (!ok) continue;
+            // Each generator: its UV set (source GX_TG_TEX0 on) and its SRT
+            // (matrix GX_TEXMTX0 on, three apart); none listed, one per map.
+            struct Gen {
+                int uv = 0;
+                int srt = -1;
+            } gens[8];
+            std::size_t ngen = m->texgens.empty() ? m->maps.size() : std::min<std::size_t>(m->texgens.size(), 8);
+            for (std::size_t i = 0; i < ngen; ++i) {
+                if (m->texgens.empty()) {
+                    gens[i].uv = 0;
+                    gens[i].srt = i < m->srts.size() ? static_cast<int>(i) : -1;
+                } else {
+                    const std::array<std::uint8_t, 4>& g = m->texgens[i];
+                    gens[i].uv = g[1] >= GX_TG_TEX0 && g[1] <= GX_TG_TEX7 ? g[1] - GX_TG_TEX0 : 0;
+                    gens[i].srt = g[2] >= GX_TEXMTX0 && g[2] < GX_IDENTITY ? (g[2] - GX_TEXMTX0) / 3 : -1;
+                    if (gens[i].srt >= static_cast<int>(m->srts.size())) gens[i].srt = -1;
+                }
+            }
+            GX_SetNumTexGens(static_cast<u32>(ngen));
+            for (std::size_t i = 0; i < 8; ++i) {
+                if (i < ngen)
+                    GX_SetTexCoordGen(static_cast<u16>(GX_TEXCOORD0 + i), GX_TG_MTX2x4, static_cast<u32>(GX_TG_TEX0 + i), GX_IDENTITY);
+                GX_SetVtxDesc(static_cast<u8>(GX_VA_TEX0 + i), i < ngen ? GX_DIRECT : GX_NONE);
+            }
+            GX_SetTevColorS10(GX_TEVREG0, S10(m->black));
+            GX_SetTevColorS10(GX_TEVREG1, S10(m->white));
+            GX_SetTevColorS10(GX_TEVREG2, S10(m->color3));
+            for (int i = 0; i < 4; ++i) {
+                const LytColor& k = m->tev_k[i];
+                GX_SetTevKColor(static_cast<u8>(GX_KCOLOR0 + i), (GXColor){k.r, k.g, k.b, k.a});
+            }
+            MaterialTev(m->tev);
+            if (m->has_blend) GX_SetBlendMode(m->blend[0], m->blend[1], m->blend[2], m->blend[3]);
+            else GX_SetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_CLEAR);
+            if (m->has_alpha_compare) {
+                const std::array<std::uint8_t, 4>& a = m->alpha_compare;
+                GX_SetAlphaCompare(a[0] & 7, a[2], a[1], (a[0] >> 4) & 7, a[3]);
+            } else {
+                GX_SetAlphaCompare(GX_ALWAYS, 0, GX_AOP_AND, GX_ALWAYS, 0);
+            }
+            GX_Begin(GX_QUADS, GX_VTXFMT0, 4);
+            for (const int k : kOrder) {
+                const LytColor c = vertex_color(q, m, k);
+                GX_Position3f32(x + (q.x[k] - left) * sx, y + (top - q.y[k]) * sy, z);
+                GX_Color4u8(c.r, c.g, c.b, c.a);
+                for (std::size_t i = 0; i < ngen; ++i) {
+                    const std::array<float, 8>* uv =
+                        (q.uvs && static_cast<std::size_t>(gens[i].uv) < q.uvs->size()) ? &(*q.uvs)[gens[i].uv] : nullptr;
+                    const float u = uv ? (*uv)[2 * k] : (k & 1 ? 1.0f : 0.0f);
+                    const float v = uv ? (*uv)[2 * k + 1] : (k & 2 ? 1.0f : 0.0f);
+                    if (gens[i].srt < 0) {
+                        GX_TexCoord2f32(u, v);
+                        continue;
+                    }
+                    const LytTexSrt& t = m->srts[static_cast<std::size_t>(gens[i].srt)];
+                    const float rr = t.rotate * 3.14159265f / 180.0f, c2 = std::cos(rr), s2 = std::sin(rr);
+                    const float du = (u - 0.5f) * t.sx, dv = (v - 0.5f) * t.sy;
+                    GX_TexCoord2f32(du * c2 - dv * s2 + 0.5f + t.tx, du * s2 + dv * c2 + 0.5f + t.ty);
+                }
+            }
+            GX_End();
+            for (std::size_t i = 1; i < 8; ++i) GX_SetVtxDesc(static_cast<u8>(GX_VA_TEX0 + i), GX_NONE);
+            GX_SetNumTexGens(1);
+            GX_SetTexCoordGen(GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY);
+            continue;
+        }
         Texture* tex = nullptr;
         LytTexSrt srt;
         if (m && !m->maps.empty()) {
@@ -320,22 +454,11 @@ void BannerPlayer::Draw(float x, float y, float w, float h, int alpha, const Rou
         GX_SetVtxDesc(GX_VA_TEX0, tex ? GX_DIRECT : GX_NONE);
         const std::array<float, 8>* uv = (q.uvs && !q.uvs->empty()) ? &(*q.uvs)[0] : nullptr;
         const float r = srt.rotate * 3.14159265f / 180.0f, cr = std::cos(r), sr = std::sin(r);
-        // TL, TR, BR, BL around the quad.
-        static const int kOrder[4] = {0, 1, 3, 2};
         GX_Begin(GX_QUADS, GX_VTXFMT0, 4);
         for (const int k : kOrder) {
-            LytColor c = q.color[k];
-            if (m && m->has_channel) {
-                const LytColor mc = m->has_material_color ? m->material_color : LytColor{};
-                if (m->color_source == 0) {
-                    c.r = mc.r;
-                    c.g = mc.g;
-                    c.b = mc.b;
-                }
-                if (m->alpha_source == 0) c.a = static_cast<std::uint8_t>(mc.a * c.a / 255);
-            }
+            const LytColor c = vertex_color(q, m, k);
             GX_Position3f32(x + (q.x[k] - left) * sx, y + (top - q.y[k]) * sy, z);
-            GX_Color4u8(c.r, c.g, c.b, static_cast<u8>(c.a * alpha / 255));
+            GX_Color4u8(c.r, c.g, c.b, c.a);
             if (tex) {
                 const float u = uv ? (*uv)[2 * k] : (k & 1 ? 1.0f : 0.0f);
                 const float v = uv ? (*uv)[2 * k + 1] : (k & 2 ? 1.0f : 0.0f);

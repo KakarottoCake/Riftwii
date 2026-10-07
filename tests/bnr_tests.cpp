@@ -380,6 +380,26 @@ static void test_layout() {
         EXPECT_EQ(q[0].y[0], 5.0f);
         EXPECT_EQ(q[0].y[2], -5.0f);
     }
+    // 16:9: a pane flagged to keep its shape is narrowed, once, even when
+    // its parent is flagged too.
+    {
+        Layout wide = lyt;
+        wide.panes[1].flags = static_cast<std::uint8_t>(wide.panes[1].flags | 4);
+        std::vector<LytQuad> n;
+        LytScratch scratch;
+        layout_quads(wide, n, scratch, 0.5f);
+        EXPECT_EQ(n.size(), std::size_t(1));
+        if (!n.empty()) {
+            EXPECT_EQ(n[0].x[0], 5.0f);  // about the pane's place (x 10)
+            EXPECT_EQ(n[0].x[1], 15.0f);
+            EXPECT_EQ(n[0].y[0], 5.0f);
+        }
+        wide.panes[0].flags = static_cast<std::uint8_t>(wide.panes[0].flags | 4);
+        layout_quads(wide, n, scratch, 0.5f);
+        if (!n.empty()) EXPECT_EQ(n[0].x[1], 10.0f);  // about the root's place, once
+        layout_quads(wide, n, scratch);  // 4:3: as laid out
+        if (!n.empty()) EXPECT_EQ(n[0].x[1], 20.0f);
+    }
     // A texel through the material: grey stays grey, halved by the vertex alpha.
     const LytColor grey{128, 128, 128, 255};
     const LytColor half{255, 255, 255, 128};

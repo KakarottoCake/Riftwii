@@ -44,6 +44,9 @@ public:
     // into w x h at (x, y) in screen pixels, clipped to that box, or to
     // `clip` with its round corners when given.
     void Draw(float x, float y, float w, float h, int alpha, const RoundClip* clip = nullptr);
+    // A banner on a 16:9 menu: stretched across, its shape-keeping panes
+    // narrowed (riftwii/brlyt.hpp). Icons stay as they are.
+    void SetWidescreen(bool wide) { wide_ = wide; }
     // Memory held (the unpacked archive).
     std::size_t Bytes() const { return arc_size_; }
 
@@ -55,6 +58,7 @@ private:
         bool ok = false;
         std::uint8_t* own = nullptr;  // a copy, when the archive's was not 32-byte aligned
     };
+    bool wide_ = false;
     Texture* TextureOf(std::size_t index);
     Texture* TextureByName(const std::string& name);
     void Free();

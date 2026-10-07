@@ -209,18 +209,18 @@ M34 rotation(int axis, float degrees) {
     return m;
 }
 
-// The pane's own move, turn and scale.
-M34 local(const LytPane& p) {
+// The pane's own move, turn and scale; `wide` narrows it across (16:9).
+M34 local(const LytPane& p, float wide = 1.0f) {
     M34 t = identity();
     t.m[0][3] = p.tx;
     t.m[1][3] = p.ty;
     t.m[2][3] = p.tz;
     M34 s = identity();
-    s.m[0][0] = p.sx;
+    s.m[0][0] = p.sx * wide;
     s.m[1][1] = p.sy;
     if (p.rx == 0 && p.ry == 0 && p.rz == 0) {
         // Most panes are not turned: move and scale only.
-        t.m[0][0] = p.sx;
+        t.m[0][0] = p.sx * wide;
         t.m[1][1] = p.sy;
         return t;
     }
@@ -394,12 +394,13 @@ std::vector<LytQuad> layout_quads(const Layout& layout) {
     return quads;
 }
 
-void layout_quads(const Layout& layout, std::vector<LytQuad>& quads, LytScratch& scratch) {
+void layout_quads(const Layout& layout, std::vector<LytQuad>& quads, LytScratch& scratch, float wide_x) {
     static_assert(sizeof(M34) == sizeof(std::array<float, 12>), "M34 is twelve floats");
     quads.clear();
     scratch.world.resize(layout.panes.size());
     scratch.alpha.assign(layout.panes.size(), 1.0f);
     scratch.shown.assign(layout.panes.size(), 1);
+    scratch.narrowed.assign(layout.panes.size(), 0);
     M34* world = reinterpret_cast<M34*>(scratch.world.data());
     float* alpha = scratch.alpha.data();
     std::uint8_t* shown = scratch.shown.data();
@@ -415,7 +416,13 @@ void layout_quads(const Layout& layout, std::vector<LytQuad>& quads, LytScratch&
             visible = visible && shown[p.parent];
             if (up.flags & 2) a *= alpha[p.parent];
         }
-        world[i] = p.parent >= 0 ? mul(parent, local(p)) : local(p);
+        // Narrowed once, at the topmost flagged pane: its children follow
+        // through its matrix.
+        const bool above = p.parent >= 0 && scratch.narrowed[p.parent];
+        const bool narrow = wide_x != 1.0f && (p.flags & 4) && !above;
+        scratch.narrowed[i] = above || narrow;
+        const M34 own = local(p, narrow ? wide_x : 1.0f);
+        world[i] = p.parent >= 0 ? mul(parent, own) : own;
         alpha[i] = a;
         shown[i] = visible ? 1 : 0;
         if (!visible || (p.kind != PaneKind::Picture && p.kind != PaneKind::Window) || a <= 0.0f) continue;

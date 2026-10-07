@@ -97,7 +97,13 @@ only (how its choices files and macros work), never copied. Behavioural referenc
   Hardware/OTP pages, and the Custom Mario Kart wiki's (mkwiiki.org) TPL,
   BRLYT, BRLAN and BRLAN Targets pages. AES-128 follows FIPS-197. Which of
   a material's colours a texel's black and white become, the language
-  groups and the second texture as an alpha mask were worked out from
-  games' own banners. No banner tool's or loader's code was read or used,
-  and no key ships with RiftWii: the common key is read from the
-  player's own Wii at run time and kept in memory only.
+  groups and the second texture as an alpha mask (for materials without
+  TEV stages of their own) were worked out from games' own banners. The
+  order of the fields in a material's TEV stage record, the widescreen
+  flag that keeps a pane's shape and the 608-unit view were learned by
+  reading USB Loader GX's banner code (`source/banner`, from the Wii
+  Banner Player Project and Dimok, zlib; https://github.com/wiidev/usbloadergx
+  at commit `e25c4f3501ed957b7db73f79c51fdf00715ab2e2`), and the view's
+  placement measured against the Wii Menu's Disc Channel in Dolphin; no
+  code was copied. No key ships with RiftWii: the common key is read
+  from the player's own Wii at run time and kept in memory only.

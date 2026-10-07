@@ -782,8 +782,10 @@ static riftwii::wii::BannerPlayer* IconFor(const std::string& id)
 }
 
 // The full banner, as the Wii Menu shows a channel before it starts:
-// Back, or Continue to the game's page.
-static constexpr int kChannelBarTop = 370;
+// Back, or Continue to the game's page. The bar starts where the Wii
+// Menu's Disc Channel starts its own (measured in Dolphin), just under
+// the frames banners draw along their bottom edge.
+static constexpr int kChannelBarTop = 354;
 
 class ChannelView : public GuiElement {
 public:
@@ -820,10 +822,11 @@ static bool ShowChannel(const std::string& id)
 		return true;
 	}
 	std::vector<std::uint8_t>().swap(bytes);
-	SkinButton backBtn(skin::pill, skin::pillOver, 4, 70, 392, tr("Back"),
+	view.player.SetWidescreen(riftwii::wii::MenuWidescreen());
+	SkinButton backBtn(skin::pill, skin::pillOver, 4, 70, 384, tr("Back"),
 		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B | WPAD_BUTTON_HOME | WPAD_CLASSIC_BUTTON_HOME, PAD_BUTTON_B,
 		WIIDRC_BUTTON_B | WIIDRC_BUTTON_HOME);
-	SkinButton goBtn(skin::pillPrimary, skin::pillPrimaryOver, 4, 326, 392, tr("Continue"),
+	SkinButton goBtn(skin::pillPrimary, skin::pillPrimaryOver, 4, 326, 384, tr("Continue"),
 		WPAD_BUTTON_A | WPAD_CLASSIC_BUTTON_A, PAD_BUTTON_A, WIIDRC_BUTTON_A);
 	GuiWindow w(screenwidth, screenheight);
 	w.Append(&view);
