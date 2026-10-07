@@ -22,6 +22,11 @@ namespace riftwii::wii::ums {
 // Opens and starts the device once; false with `error` when this IOS has
 // no d2x USB device or the drive is unusable.
 bool Open(std::string& error);
+// Open, asking again once a second for up to `seconds` while the device is
+// there but the drive has not started: right after the reload into the
+// cIOS some drives take a while (a tester's NTFS drive answered -100 at
+// once; the WBFS path already waited, in usbcatalog.cpp).
+bool OpenWaiting(std::string& error, int seconds);
 // Before an IOS reload: the fd and a failed open belong to the IOS that is
 // going away (a disc's packs failing under IOS 58 must be tried again
 // once Settings has loaded the d2x slot).

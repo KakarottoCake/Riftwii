@@ -178,7 +178,7 @@ struct Session {
     void open_usb_for_packs() {
         if (!usb_packs) return;
         std::string why;
-        if (ums::Open(why)) logf("USB: d2x's /dev/usb2 opened for the packs, before the game partition\n");
+        if (ums::OpenWaiting(why, 20)) logf("USB: d2x's /dev/usb2 opened for the packs, before the game partition\n");
         else logf("USB: d2x's /dev/usb2 for the packs: %s\n", why.c_str());
         mem::CheckHeap("after d2x's USB device");
     }

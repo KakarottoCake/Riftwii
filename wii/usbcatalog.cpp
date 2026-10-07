@@ -1473,7 +1473,8 @@ bool activate_image_game(const ImageGame& game, int cios_slot, void*& storage, s
     if (rvz && game.device == ImageDevice::Usb) {
         // The RVZ itself, through d2x's USB device from now on.
         logf("USB: d2x's /dev/usb2 for the RVZ\n");
-        if (!ums::Open(error) || !mount_image_volume(&d2x_usb_block_read, g_rvz_usb_volume, error, usb_wanted_folders())) {
+        if (!ums::OpenWaiting(error, 20) ||
+            !mount_image_volume(&d2x_usb_block_read, g_rvz_usb_volume, error, usb_wanted_folders())) {
             error = "USB drive after the cIOS reload: " + error;
             return post_reload_failure(log_path, error);
         }

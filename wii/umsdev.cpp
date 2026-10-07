@@ -4,6 +4,7 @@
 
 #include <gccore.h>
 #include <ogc/ipc.h>
+#include <unistd.h>
 
 #include <algorithm>
 #include <cstring>
@@ -29,6 +30,9 @@ std::uint32_t g_sector_bytes = kFatSectorBytes;
 // for the later callers. An IOS reload clears both (Forget).
 bool g_failed = false;
 std::string g_failure;
+// The device opened but the drive did not start (not there yet, or slow
+// to come up after the reload): worth asking again (OpenWaiting).
+bool g_not_ready = false;
 std::uint8_t* g_bounce = nullptr;
 std::uint32_t g_args[8] ATTRIBUTE_ALIGN(32);
 ioctlv g_vec[3] ATTRIBUTE_ALIGN(32);
@@ -44,6 +48,7 @@ bool Open(std::string& error) {
         error = g_failure;
         return false;
     }
+    g_not_ready = false;
     static char path[] ATTRIBUTE_ALIGN(32) = "/dev/usb2";
     g_fd = IOS_Open(path, 0);
     if (g_fd < 0) {
@@ -82,6 +87,7 @@ bool Open(std::string& error) {
         g_fd = -1;
         g_failed = true;
         g_failure = error;
+        g_not_ready = init < 0 || !counted;
         return false;
     }
     g_sector_bytes = sector_bytes;
@@ -93,6 +99,18 @@ bool Open(std::string& error) {
         return false;
     }
     return true;
+}
+
+bool OpenWaiting(std::string& error, int seconds) {
+    for (int waited = 0;; ++waited) {
+        if (Open(error)) {
+            if (waited > 0) logf("USB (d2x): the drive started after %d s\n", waited);
+            return true;
+        }
+        if (!g_not_ready || waited >= seconds) return false;
+        Forget();  // asked again from scratch
+        usleep(1000000);
+    }
 }
 
 void Forget() {
