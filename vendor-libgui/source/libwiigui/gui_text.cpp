@@ -469,11 +469,28 @@ void GuiText::Draw()
 		if(textDynNum == 0)
 		{
 			textDynNum = 1;
-			textDyn[0] = wcsdup(text);
-			int len = wcslen(textDyn[0]);
-
-			while(fontSystem[currentSize]->getWidth(textDyn[0]) > maxWidth)
-				textDyn[0][--len] = 0;
+			int len = wcslen(text);
+			if(textScroll != SCROLL::HORIZONTAL && fontSystem[currentSize]->getWidth(text) > maxWidth)
+			{
+				// RiftWii: a line too long for its width ends in "..."
+				// (it was cut off mid-word with no sign of it).
+				textDyn[0] = new wchar_t[len + 4];
+				wcscpy(textDyn[0], text);
+				wcscat(textDyn[0], L"...");
+				while(len > 0 && fontSystem[currentSize]->getWidth(textDyn[0]) > maxWidth)
+				{
+					textDyn[0][--len] = 0;
+					while(len > 0 && textDyn[0][len-1] == L' ')
+						textDyn[0][--len] = 0;
+					wcscat(textDyn[0], L"...");
+				}
+			}
+			else
+			{
+				textDyn[0] = wcsdup(text);
+				while(fontSystem[currentSize]->getWidth(textDyn[0]) > maxWidth)
+					textDyn[0][--len] = 0;
+			}
 		}
 
 		if(textScroll == SCROLL::HORIZONTAL)

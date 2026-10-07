@@ -1673,8 +1673,9 @@ static int MenuSource(FrontendState& state)
 	GuiText pageTxt("", 15, skin::kInkDim);
 	Place(pageTxt, 40 - wide, 300);
 	// The view in use, always on screen (the status line below gives way to notices).
-	GuiText viewTxt("", 17, skin::kAccent);
+	GuiText viewTxt("", 16, skin::kAccent);
 	Place(viewTxt, 40 - wide, 324);
+	viewTxt.SetMaxWidth(190 + wide);  // ends by x 230, clear of the clock; a longer one ends in "..."
 	// A name over a round button while the pointer rests on it.
 	GuiText filterHint(tr("Filter"), 17, skin::kInk), settingsHint(tr("Settings"), 17, skin::kInk),
 		searchHint(tr("Search"), 17, skin::kInk);
@@ -2904,6 +2905,12 @@ public:
 		wanted = true;
 	}
 	void Hide() { wanted = false; }
+	// Whether it is up (or coming up) across screen rows `top` to `bottom`,
+	// and its frame's left edge: text below the list keeps clear of it.
+	bool Covers(int top, int bottom) const {
+		return wanted && y - riftwii::kHintBoxMargin < bottom && y + (hinted ? kH : kH - kCaption) + riftwii::kHintBoxMargin > top;
+	}
+	int Left() const { return x - riftwii::kHintBoxMargin; }
 	// Once a loop pass: the fade.
 	void Step() { alpha = std::max(0, std::min(255, alpha + (wanted ? 40 : -40))); }
 	void Draw() override {
@@ -2961,6 +2968,7 @@ static void MenuMods(FrontendState& state, std::string& scanStatus)
 	GuiText noteTxt("", 16, skin::kInkSoft);
 	Place(noteTxt, 52, 312);
 	noteTxt.SetWrap(true, 536, 4);
+	int noteWidth = 536;  // narrower while the picture is beside it
 	SkinButton backBtn(skin::pill, skin::pillOver, 4, 198, 406, "Back",
 		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
 	ModPicturePopup picture(state.game_id);
@@ -3002,6 +3010,12 @@ static void MenuMods(FrontendState& state, std::string& scanStatus)
 				picture.Show(riftwii::wii::ModPicture(p), riftwii::wii::ModPictureName(p), list.RowTop(row));
 			}
 			picture.Step();
+			// The note's four lines (y 312 down) wrap short of the picture.
+			const int width = picture.Covers(312, 312 + 4 * 22) ? picture.Left() - 8 - 52 : 536;
+			if (width != noteWidth) {
+				noteWidth = width;
+				noteTxt.SetWrap(true, width, 4);
+			}
 		}
 		if (row != shownRow && row >= 0 && static_cast<std::size_t>(row) < refs.size()) {
 			shownRow = row;

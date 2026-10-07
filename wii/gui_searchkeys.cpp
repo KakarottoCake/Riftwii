@@ -61,7 +61,7 @@ GuiSearchKeys::GuiSearchKeys(const std::string& start) : text(start.substr(0, kM
     title = new GuiText(tr("Search games"), 24, skin::kInk);
     title->SetParent(this);
     title->SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
-    title->SetPosition(56, 120);
+    title->SetPosition(56, 112);  // clear of the text field at y 148, descenders included
     shown = new GuiText(text.c_str(), 22, skin::kInk);
     shown->SetParent(this);
     shown->SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
