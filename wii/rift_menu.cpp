@@ -3557,7 +3557,7 @@ static std::string AdapterNote(const std::string& mode)
 	if (mode == "on" && riftwii::wii::is_wii_u())
 		return tr("WARNING: on this Wii U, games from the SD card or a USB drive can freeze at 97% with this on. Use Automatic unless you are testing the adapter.");
 	if (mode == "on") return tr("Experimental. Always on, even with no adapter plugged in, so it can be plugged in during a game. It needs IOS 58 or a d2x cIOS.");
-	return tr("Experimental. When the adapter is plugged in as a game starts, its controllers fill the ports that have none plugged in, in games that support the GameCube controller. It needs IOS 58 or a d2x cIOS.");
+	return tr("Experimental. With the adapter plugged in when a game starts, its controllers fill the empty ports in games that take a GameCube controller. Needs IOS 58 or a d2x cIOS.");
 }
 
 static std::string AdapterStatus(const riftwii::wii::GcAdapterView& v)
@@ -3923,14 +3923,14 @@ static int MenuSettings(FrontendState& state)
 			case kVideoMode: return tr("The TV signal the game sends. PAL 50 Hz needs a TV that takes it, 480p a component cable.");
 			case kGameLanguage: return tr("The language the game is told the console uses. Pick one the game has: some games stop without it.");
 			case kGameCios: return tr("The d2x cIOS the game runs under. Automatic uses the menu's, else the first of 249, 250 and 251 that works.");
-			case kHomeTiles: return tr("Covers shows each game's box art from GameTDB, fetched while Home is open when downloads are on. Shelf stands the games' boxes on a shelf. Channels shows each game's own animated icon, as the Wii Menu does, and its banner when you pick it. Names shows the names only.");
+			case kHomeTiles: return tr("Covers: each game's box art from GameTDB (fetched when downloads are on). Shelf: the boxes on a shelf. Channels: each game's animated icon, and its banner when you pick it, as on the Wii Menu. Names: the names only.");
 			case kWidescreen: return tr("On a 16:9 TV the menu is drawn narrower, so covers and pictures keep their shape. Automatic follows the Wii's own TV setting.");
 			case kScreenSize: return tr("Makes the menu smaller on screen, so nothing is cut off at the TV's edges. Lower it until the whole menu shows.");
 			case kTheme: return tr("The menu's colours and pictures. Themes are folders in sd:/riftwii/themes (docs/THEMES.md on GitHub).");
 			case kFont: return tr("The letters the menu is written in: RiftWii's own, or the Wii Menu's, read from this Wii.");
 			case kSounds: return tr("How loud the menu's clicks are. Quiet softens the tick the pointer makes moving onto something.");
 			case kReturnTo: return ReturnToNote();
-			case kShots: return tr("Experimental. In a game, hold 1 and press HOME (or hold L and R and press Down on a GameCube controller). The pictures go to sd:/riftwii/screenshots the next time RiftWii starts. Some games and mods may not work with it.");
+			case kShots: return tr("Experimental. In a game, hold 1 and press HOME (GameCube controller: hold L and R, press Down). Pictures go to sd:/riftwii/screenshots when RiftWii next starts. Some games and mods don't work with it.");
 			case kMusic: return riftwii::wii::MenuMusicFound() ? tr("Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder.") : tr("No music.ogg found in sd:/riftwii or in RiftWii's own folder.");
 			case kServer: return tr("The online server the game uses in place of Nintendo's, which closed. Custom uses wfc_domain in settings.txt.");
 			case kOnline:
@@ -4052,7 +4052,7 @@ static int MenuSettings(FrontendState& state)
 					break;
 				case kShots:
 					settings.screenshots = settings.screenshots == "off" ? "on" : "off";
-					saveAndNote(tr("Experimental. In a game, hold 1 and press HOME (or hold L and R and press Down on a GameCube controller). The pictures go to sd:/riftwii/screenshots the next time RiftWii starts. Some games and mods may not work with it."));
+					saveAndNote(tr("Experimental. In a game, hold 1 and press HOME (GameCube controller: hold L and R, press Down). Pictures go to sd:/riftwii/screenshots when RiftWii next starts. Some games and mods don't work with it."));
 					rebuild();
 					break;
 				case kMusic:
@@ -4065,7 +4065,7 @@ static int MenuSettings(FrontendState& state)
 				case kHomeTiles:
 					settings.home_tiles = settings.home_tiles == "covers" ? "shelf" : settings.home_tiles == "shelf" ? "channels"
 						: settings.home_tiles == "channels" ? "names" : "covers";
-					saveAndNote(tr("Covers shows each game's box art from GameTDB, fetched while Home is open when downloads are on. Shelf stands the games' boxes on a shelf. Channels shows each game's own animated icon, as the Wii Menu does, and its banner when you pick it. Names shows the names only."));
+					saveAndNote(tr("Covers: each game's box art from GameTDB (fetched when downloads are on). Shelf: the boxes on a shelf. Channels: each game's animated icon, and its banner when you pick it, as on the Wii Menu. Names: the names only."));
 					rebuild();
 					break;
 				case kWidescreen: {

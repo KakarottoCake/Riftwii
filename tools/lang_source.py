@@ -485,11 +485,11 @@ T = {
         "RiftWiiの各部分の作者、ライセンス (GNU GPL バージョン3以降) とソースコードの場所。",
         "De quem vêm as partes do RiftWii, sua licença (a GNU GPL, versão 3 ou posterior) e onde está seu código-fonte.",
         "Da chi provengono le parti di RiftWii, la sua licenza (la GNU GPL, versione 3 o successiva) e dove si trova il suo codice sorgente."),
-    "Experimental. When the adapter is plugged in as a game starts, its controllers fill the ports that have none plugged in, in games that support the GameCube controller. It needs IOS 58 or a d2x cIOS.": (
-        "Experimental. Si el adaptador está conectado al iniciar un juego, sus mandos ocupan los puertos que no tienen ninguno conectado, en los juegos compatibles con el mando de GameCube. Necesita IOS 58 o un cIOS d2x.",
-        "試験的な機能です。ゲーム開始時に接続タップがつながっていれば、ゲームキューブコントローラに対応したゲームで、何もつながっていないポートに接続タップのコントローラが入ります。IOS 58かd2x cIOSが必要です。",
-        "Experimental. Se o adaptador estiver conectado quando um jogo começa, os controles dele ocupam as portas sem nenhum conectado, nos jogos compatíveis com o controle de GameCube. Precisa do IOS 58 ou de um cIOS d2x.",
-        "Sperimentale. Se l'adattatore è collegato quando parte un gioco, i suoi controller occupano le porte senza nulla collegato, nei giochi che supportano il controller GameCube. Serve l'IOS 58 o un cIOS d2x."),
+    "Experimental. With the adapter plugged in when a game starts, its controllers fill the empty ports in games that take a GameCube controller. Needs IOS 58 or a d2x cIOS.": (
+        "Experimental. Si el adaptador está conectado al iniciar un juego, sus mandos ocupan los puertos libres en los juegos que aceptan el mando de GameCube. Necesita IOS 58 o un cIOS d2x.",
+        "試験的な機能です。ゲーム開始時に接続タップがつながっていれば、ゲームキューブコントローラ対応のゲームで、空いているポートに入ります。IOS 58かd2x cIOSが必要です。",
+        "Experimental. Com o adaptador conectado quando um jogo começa, os controles dele ocupam as portas livres nos jogos que aceitam o controle de GameCube. Precisa do IOS 58 ou de um cIOS d2x.",
+        "Sperimentale. Con l'adattatore collegato all'avvio di un gioco, i suoi controller occupano le porte libere nei giochi che accettano il controller GameCube. Serve l'IOS 58 o un cIOS d2x."),
     "Experimental. Always on, even with no adapter plugged in, so it can be plugged in during a game. It needs IOS 58 or a d2x cIOS.": (
         "Experimental. Siempre activo, aunque no haya adaptador, para poder conectarlo durante el juego. Necesita IOS 58 o un cIOS d2x.",
         "試験的な機能です。接続タップがなくても常に有効なので、ゲーム中につなぐこともできます。IOS 58かd2x cIOSが必要です。",
@@ -637,11 +637,11 @@ T = {
         "Deixa o menu menor na tela, para que nada seja cortado nas bordas da TV. Diminua até o menu inteiro aparecer.",
         "Rende il menu più piccolo sullo schermo, così niente viene tagliato ai bordi della TV. Abbassalo finché non vedi tutto il menu."),
     "Continue": ("Continuar", "つづける", "Continuar", "Continua"),
-    "Covers shows each game's box art from GameTDB, fetched while Home is open when downloads are on. Shelf stands the games' boxes on a shelf. Channels shows each game's own animated icon, as the Wii Menu does, and its banner when you pick it. Names shows the names only.": (
-        "Portadas muestra la carátula de cada juego de GameTDB, que se descarga con el inicio abierto si las descargas están activadas. Estante pone las cajas de los juegos en un estante. Canales muestra el icono animado de cada juego, como el menú de Wii, y su banner al elegirlo. Nombres muestra solo los nombres.",
-        "パッケージではGameTDBの各ゲームのパッケージ画像を表示します。ダウンロードがオンなら、ホームを開いている間に取得します。棚ではゲームのケースを棚に並べます。チャンネルではWiiメニューのように各ゲームの動くアイコンを表示し、選ぶとバナーを表示します。名前では名前だけを表示します。",
-        "Capas mostra a capa de cada jogo do GameTDB, baixada com o início aberto quando os downloads estão ligados. Estante põe as caixas dos jogos numa estante. Canais mostra o ícone animado de cada jogo, como o Menu Wii, e o seu banner ao escolhê-lo. Nomes mostra só os nomes.",
-        "Copertine mostra la copertina di ogni gioco da GameTDB, scaricata con la home aperta se i download sono attivi. Scaffale mette le custodie dei giochi su uno scaffale. Canali mostra l'icona animata di ogni gioco, come il Menu Wii, e il suo banner quando lo scegli. Nomi mostra solo i nomi."),
+    "Covers: each game's box art from GameTDB (fetched when downloads are on). Shelf: the boxes on a shelf. Channels: each game's animated icon, and its banner when you pick it, as on the Wii Menu. Names: the names only.": (
+        "Portadas: la carátula de cada juego de GameTDB (se descarga si las descargas están activadas). Estante: las cajas en un estante. Canales: el icono animado de cada juego, y su banner al elegirlo, como en el menú de Wii. Nombres: solo los nombres.",
+        "パッケージ: GameTDBの各ゲームのパッケージ画像(ダウンロードがオンのとき取得)。棚: ケースを棚に並べます。チャンネル: Wiiメニューのように各ゲームの動くアイコンと、選んだときのバナー。名前: 名前だけ。",
+        "Capas: a capa de cada jogo do GameTDB (baixada quando os downloads estão ligados). Estante: as caixas numa estante. Canais: o ícone animado de cada jogo, e o banner ao escolhê-lo, como no Menu Wii. Nomes: só os nomes.",
+        "Copertine: la copertina di ogni gioco da GameTDB (scaricata se i download sono attivi). Scaffale: le custodie su uno scaffale. Canali: l'icona animata di ogni gioco, e il banner quando lo scegli, come nel Menu Wii. Nomi: solo i nomi."),
     "Custom (no wfc_domain set)": (
         "Personalizado (sin wfc_domain)", "カスタム（wfc_domain未設定）", "Personalizado (sem wfc_domain)",
         "Personalizzato (wfc_domain non impostato)"),
@@ -705,11 +705,11 @@ T = {
     # Menu music (Settings)
     "Menu music": ("Música del menú", "メニューの音楽", "Música do menu", "Musica del menu"),
     "In-game screenshots": ("Capturas en el juego", "ゲーム中のスクリーンショット", "Capturas no jogo", "Screenshot nel gioco"),
-    "Experimental. In a game, hold 1 and press HOME (or hold L and R and press Down on a GameCube controller). The pictures go to sd:/riftwii/screenshots the next time RiftWii starts. Some games and mods may not work with it.": (
-        "Experimental. En un juego, mantén 1 y pulsa HOME (o mantén L y R y pulsa Abajo en un mando de GameCube). Las imágenes van a sd:/riftwii/screenshots la próxima vez que se inicie RiftWii. Puede que algunos juegos y mods no funcionen con esto.",
-        "試験的な機能です。ゲーム中に1を押したままHOMEを押します(ゲームキューブコントローラーならLとRを押したまま下)。画像は次にRiftWiiを起動したときにsd:/riftwii/screenshotsに保存されます。一部のゲームやMODでは使えないことがあります。",
-        "Experimental. Em um jogo, segure 1 e aperte HOME (ou segure L e R e aperte Baixo num controle de GameCube). As imagens vão para sd:/riftwii/screenshots na próxima vez que o RiftWii abrir. Alguns jogos e mods podem não funcionar com isso.",
-        "Sperimentale. In un gioco, tieni premuto 1 e premi HOME (o tieni premuti L e R e premi Giù su un controller GameCube). Le immagini vanno in sd:/riftwii/screenshots al prossimo avvio di RiftWii. Alcuni giochi e mod potrebbero non funzionare."),
+    "Experimental. In a game, hold 1 and press HOME (GameCube controller: hold L and R, press Down). Pictures go to sd:/riftwii/screenshots when RiftWii next starts. Some games and mods don't work with it.": (
+        "Experimental. En un juego, mantén 1 y pulsa HOME (mando de GameCube: mantén L y R y pulsa Abajo). Las imágenes van a sd:/riftwii/screenshots al iniciar RiftWii. Algunos juegos y mods no funcionan con esto.",
+        "試験的な機能です。ゲーム中に1を押したままHOME(ゲームキューブコントローラーはLとRを押したまま下)。画像は次の起動時にsd:/riftwii/screenshotsに保存されます。使えないゲームやMODもあります。",
+        "Experimental. Num jogo, segure 1 e aperte HOME (controle de GameCube: segure L e R e aperte Baixo). As imagens vão para sd:/riftwii/screenshots quando o RiftWii abrir de novo. Alguns jogos e mods não funcionam com isso.",
+        "Sperimentale. In un gioco, tieni premuto 1 e premi HOME (controller GameCube: tieni L e R e premi Giù). Le immagini vanno in sd:/riftwii/screenshots al prossimo avvio di RiftWii. Alcuni giochi e mod non funzionano."),
     "Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder.": (
         "Música mientras el menú está abierto: music.ogg de sd:/riftwii, o la de la carpeta de RiftWii.",
         "メニューを開いている間の音楽です: sd:/riftwiiのmusic.ogg、なければRiftWiiのフォルダのものを流します。",

@@ -564,8 +564,8 @@ msgstr "Ancora nessun gioco. Metti i tuoi giochi (WBFS, ISO o RVZ) in una cartel
 msgid "Who RiftWii's parts come from, its license (the GNU GPL, version 3 or later) and where its source is."
 msgstr "Da chi provengono le parti di RiftWii, la sua licenza (la GNU GPL, versione 3 o successiva) e dove si trova il suo codice sorgente."
 
-msgid "Experimental. When the adapter is plugged in as a game starts, its controllers fill the ports that have none plugged in, in games that support the GameCube controller. It needs IOS 58 or a d2x cIOS."
-msgstr "Sperimentale. Se l'adattatore è collegato quando parte un gioco, i suoi controller occupano le porte senza nulla collegato, nei giochi che supportano il controller GameCube. Serve l'IOS 58 o un cIOS d2x."
+msgid "Experimental. With the adapter plugged in when a game starts, its controllers fill the empty ports in games that take a GameCube controller. Needs IOS 58 or a d2x cIOS."
+msgstr "Sperimentale. Con l'adattatore collegato all'avvio di un gioco, i suoi controller occupano le porte libere nei giochi che accettano il controller GameCube. Serve l'IOS 58 o un cIOS d2x."
 
 msgid "Experimental. Always on, even with no adapter plugged in, so it can be plugged in during a game. It needs IOS 58 or a d2x cIOS."
 msgstr "Sperimentale. Sempre attivo, anche senza adattatore, così lo si può collegare durante il gioco. Serve l'IOS 58 o un cIOS d2x."
@@ -735,8 +735,8 @@ msgstr "Rende il menu più piccolo sullo schermo, così niente viene tagliato ai
 msgid "Continue"
 msgstr "Continua"
 
-msgid "Covers shows each game's box art from GameTDB, fetched while Home is open when downloads are on. Shelf stands the games' boxes on a shelf. Channels shows each game's own animated icon, as the Wii Menu does, and its banner when you pick it. Names shows the names only."
-msgstr "Copertine mostra la copertina di ogni gioco da GameTDB, scaricata con la home aperta se i download sono attivi. Scaffale mette le custodie dei giochi su uno scaffale. Canali mostra l'icona animata di ogni gioco, come il Menu Wii, e il suo banner quando lo scegli. Nomi mostra solo i nomi."
+msgid "Covers: each game's box art from GameTDB (fetched when downloads are on). Shelf: the boxes on a shelf. Channels: each game's animated icon, and its banner when you pick it, as on the Wii Menu. Names: the names only."
+msgstr "Copertine: la copertina di ogni gioco da GameTDB (scaricata se i download sono attivi). Scaffale: le custodie su uno scaffale. Canali: l'icona animata di ogni gioco, e il banner quando lo scegli, come nel Menu Wii. Nomi: solo i nomi."
 
 msgid "Custom (no wfc_domain set)"
 msgstr "Personalizzato (wfc_domain non impostato)"
@@ -801,8 +801,8 @@ msgstr "Musica del menu"
 msgid "In-game screenshots"
 msgstr "Screenshot nel gioco"
 
-msgid "Experimental. In a game, hold 1 and press HOME (or hold L and R and press Down on a GameCube controller). The pictures go to sd:/riftwii/screenshots the next time RiftWii starts. Some games and mods may not work with it."
-msgstr "Sperimentale. In un gioco, tieni premuto 1 e premi HOME (o tieni premuti L e R e premi Giù su un controller GameCube). Le immagini vanno in sd:/riftwii/screenshots al prossimo avvio di RiftWii. Alcuni giochi e mod potrebbero non funzionare."
+msgid "Experimental. In a game, hold 1 and press HOME (GameCube controller: hold L and R, press Down). Pictures go to sd:/riftwii/screenshots when RiftWii next starts. Some games and mods don't work with it."
+msgstr "Sperimentale. In un gioco, tieni premuto 1 e premi HOME (controller GameCube: tieni L e R e premi Giù). Le immagini vanno in sd:/riftwii/screenshots al prossimo avvio di RiftWii. Alcuni giochi e mod non funzionano."
 
 msgid "Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder."
 msgstr "Musica mentre il menu è aperto: music.ogg da sd:/riftwii, o quella nella cartella di RiftWii."

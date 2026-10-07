@@ -564,8 +564,8 @@ msgstr "Aún no hay juegos. Pon tus juegos (WBFS, ISO o RVZ) en una carpeta llam
 msgid "Who RiftWii's parts come from, its license (the GNU GPL, version 3 or later) and where its source is."
 msgstr "De quién vienen las partes de RiftWii, su licencia (la GNU GPL, versión 3 o posterior) y dónde está su código fuente."
 
-msgid "Experimental. When the adapter is plugged in as a game starts, its controllers fill the ports that have none plugged in, in games that support the GameCube controller. It needs IOS 58 or a d2x cIOS."
-msgstr "Experimental. Si el adaptador está conectado al iniciar un juego, sus mandos ocupan los puertos que no tienen ninguno conectado, en los juegos compatibles con el mando de GameCube. Necesita IOS 58 o un cIOS d2x."
+msgid "Experimental. With the adapter plugged in when a game starts, its controllers fill the empty ports in games that take a GameCube controller. Needs IOS 58 or a d2x cIOS."
+msgstr "Experimental. Si el adaptador está conectado al iniciar un juego, sus mandos ocupan los puertos libres en los juegos que aceptan el mando de GameCube. Necesita IOS 58 o un cIOS d2x."
 
 msgid "Experimental. Always on, even with no adapter plugged in, so it can be plugged in during a game. It needs IOS 58 or a d2x cIOS."
 msgstr "Experimental. Siempre activo, aunque no haya adaptador, para poder conectarlo durante el juego. Necesita IOS 58 o un cIOS d2x."
@@ -735,8 +735,8 @@ msgstr "Hace el menú más pequeño en pantalla, para que nada quede cortado en 
 msgid "Continue"
 msgstr "Continuar"
 
-msgid "Covers shows each game's box art from GameTDB, fetched while Home is open when downloads are on. Shelf stands the games' boxes on a shelf. Channels shows each game's own animated icon, as the Wii Menu does, and its banner when you pick it. Names shows the names only."
-msgstr "Portadas muestra la carátula de cada juego de GameTDB, que se descarga con el inicio abierto si las descargas están activadas. Estante pone las cajas de los juegos en un estante. Canales muestra el icono animado de cada juego, como el menú de Wii, y su banner al elegirlo. Nombres muestra solo los nombres."
+msgid "Covers: each game's box art from GameTDB (fetched when downloads are on). Shelf: the boxes on a shelf. Channels: each game's animated icon, and its banner when you pick it, as on the Wii Menu. Names: the names only."
+msgstr "Portadas: la carátula de cada juego de GameTDB (se descarga si las descargas están activadas). Estante: las cajas en un estante. Canales: el icono animado de cada juego, y su banner al elegirlo, como en el menú de Wii. Nombres: solo los nombres."
 
 msgid "Custom (no wfc_domain set)"
 msgstr "Personalizado (sin wfc_domain)"
@@ -801,8 +801,8 @@ msgstr "Música del menú"
 msgid "In-game screenshots"
 msgstr "Capturas en el juego"
 
-msgid "Experimental. In a game, hold 1 and press HOME (or hold L and R and press Down on a GameCube controller). The pictures go to sd:/riftwii/screenshots the next time RiftWii starts. Some games and mods may not work with it."
-msgstr "Experimental. En un juego, mantén 1 y pulsa HOME (o mantén L y R y pulsa Abajo en un mando de GameCube). Las imágenes van a sd:/riftwii/screenshots la próxima vez que se inicie RiftWii. Puede que algunos juegos y mods no funcionen con esto."
+msgid "Experimental. In a game, hold 1 and press HOME (GameCube controller: hold L and R, press Down). Pictures go to sd:/riftwii/screenshots when RiftWii next starts. Some games and mods don't work with it."
+msgstr "Experimental. En un juego, mantén 1 y pulsa HOME (mando de GameCube: mantén L y R y pulsa Abajo). Las imágenes van a sd:/riftwii/screenshots al iniciar RiftWii. Algunos juegos y mods no funcionan con esto."
 
 msgid "Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder."
 msgstr "Música mientras el menú está abierto: music.ogg de sd:/riftwii, o la de la carpeta de RiftWii."

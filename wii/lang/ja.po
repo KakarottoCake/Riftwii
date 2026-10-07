@@ -564,8 +564,8 @@ msgstr "ゲームがまだありません。ゲーム(WBFS、ISO、RVZ)をSDカ�
 msgid "Who RiftWii's parts come from, its license (the GNU GPL, version 3 or later) and where its source is."
 msgstr "RiftWiiの各部分の作者、ライセンス (GNU GPL バージョン3以降) とソースコードの場所。"
 
-msgid "Experimental. When the adapter is plugged in as a game starts, its controllers fill the ports that have none plugged in, in games that support the GameCube controller. It needs IOS 58 or a d2x cIOS."
-msgstr "試験的な機能です。ゲーム開始時に接続タップがつながっていれば、ゲームキューブコントローラに対応したゲームで、何もつながっていないポートに接続タップのコントローラが入ります。IOS 58かd2x cIOSが必要です。"
+msgid "Experimental. With the adapter plugged in when a game starts, its controllers fill the empty ports in games that take a GameCube controller. Needs IOS 58 or a d2x cIOS."
+msgstr "試験的な機能です。ゲーム開始時に接続タップがつながっていれば、ゲームキューブコントローラ対応のゲームで、空いているポートに入ります。IOS 58かd2x cIOSが必要です。"
 
 msgid "Experimental. Always on, even with no adapter plugged in, so it can be plugged in during a game. It needs IOS 58 or a d2x cIOS."
 msgstr "試験的な機能です。接続タップがなくても常に有効なので、ゲーム中につなぐこともできます。IOS 58かd2x cIOSが必要です。"
@@ -735,8 +735,8 @@ msgstr "画面上のメニューを小さくして、テレビの端で切れな
 msgid "Continue"
 msgstr "つづける"
 
-msgid "Covers shows each game's box art from GameTDB, fetched while Home is open when downloads are on. Shelf stands the games' boxes on a shelf. Channels shows each game's own animated icon, as the Wii Menu does, and its banner when you pick it. Names shows the names only."
-msgstr "パッケージではGameTDBの各ゲームのパッケージ画像を表示します。ダウンロードがオンなら、ホームを開いている間に取得します。棚ではゲームのケースを棚に並べます。チャンネルではWiiメニューのように各ゲームの動くアイコンを表示し、選ぶとバナーを表示します。名前では名前だけを表示します。"
+msgid "Covers: each game's box art from GameTDB (fetched when downloads are on). Shelf: the boxes on a shelf. Channels: each game's animated icon, and its banner when you pick it, as on the Wii Menu. Names: the names only."
+msgstr "パッケージ: GameTDBの各ゲームのパッケージ画像(ダウンロードがオンのとき取得)。棚: ケースを棚に並べます。チャンネル: Wiiメニューのように各ゲームの動くアイコンと、選んだときのバナー。名前: 名前だけ。"
 
 msgid "Custom (no wfc_domain set)"
 msgstr "カスタム（wfc_domain未設定）"
@@ -801,8 +801,8 @@ msgstr "メニューの音楽"
 msgid "In-game screenshots"
 msgstr "ゲーム中のスクリーンショット"
 
-msgid "Experimental. In a game, hold 1 and press HOME (or hold L and R and press Down on a GameCube controller). The pictures go to sd:/riftwii/screenshots the next time RiftWii starts. Some games and mods may not work with it."
-msgstr "試験的な機能です。ゲーム中に1を押したままHOMEを押します(ゲームキューブコントローラーならLとRを押したまま下)。画像は次にRiftWiiを起動したときにsd:/riftwii/screenshotsに保存されます。一部のゲームやMODでは使えないことがあります。"
+msgid "Experimental. In a game, hold 1 and press HOME (GameCube controller: hold L and R, press Down). Pictures go to sd:/riftwii/screenshots when RiftWii next starts. Some games and mods don't work with it."
+msgstr "試験的な機能です。ゲーム中に1を押したままHOME(ゲームキューブコントローラーはLとRを押したまま下)。画像は次の起動時にsd:/riftwii/screenshotsに保存されます。使えないゲームやMODもあります。"
 
 msgid "Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder."
 msgstr "メニューを開いている間の音楽です: sd:/riftwiiのmusic.ogg、なければRiftWiiのフォルダのものを流します。"
