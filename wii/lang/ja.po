@@ -1215,6 +1215,9 @@ msgstr "フォントを変えるにはメニューを再起動します。"
 msgid "Menu font: {1}"
 msgstr "メニューのフォント: {1}"
 
+msgid "RiftWii stopped while reading the Wii Menu's font last time, so it uses its own. Send a problem report so this can be fixed."
+msgstr "前回、Wiiメニューのフォントを読み込んでいる間にRiftWiiが止まったため、RiftWiiのフォントを使います。直せるように、問題レポートを送ってください。"
+
 msgid "The Wii Menu's font could not be read, so RiftWii's is used."
 msgstr "Wiiメニューのフォントを読み込めなかったため、RiftWiiのフォントを使います。"
 

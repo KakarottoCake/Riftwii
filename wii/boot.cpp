@@ -1866,7 +1866,15 @@ bool open_nand_permissions(const char* who) {
         bool same = true;
         for (std::size_t i = 0; same && i < sizeof kCheck; ++i) same = p[i] == kCheck[i];
         if (!same) continue;
-        *reinterpret_cast<volatile u16*>(at + 2) = 0xE001;  // beq +2 -> b +2
+        // beq +2 -> b +2, as one aligned 32-bit store: a 16-bit store
+        // through MEM2's uncached mirror may not keep the bytes around it
+        // (see keep_hardware_access). The 16-bit store hung both consoles
+        // that ran this (the log stopped right after "opened": 2.7.0 RC5
+        // on a Wii, 3.3.2's Menu font on a vWii).
+        const u32 word = (at + 2) & ~3u;
+        const unsigned shift = ((at + 2) & 3) == 0 ? 16 : 0;
+        volatile u32* w = reinterpret_cast<volatile u32*>(word);
+        *w = (*w & ~(0xFFFFu << shift)) | (0xE001u << shift);
         ++patched;
     }
     write16(0x0D8B420A, protection);

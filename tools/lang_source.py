@@ -1175,6 +1175,11 @@ T = {
                                               "O menu reinicia para trocar a fonte.",
                                               "Il menu si riavvia per cambiare carattere."),
     "Menu font: {1}": ("Fuente del menú: {1}", "メニューのフォント: {1}", "Fonte do menu: {1}", "Carattere del menu: {1}"),
+    "RiftWii stopped while reading the Wii Menu's font last time, so it uses its own. Send a problem report so this can be fixed.": (
+        "RiftWii se detuvo al leer la fuente del Menú de Wii la última vez, así que usa la suya. Envía un informe de problemas para que se pueda arreglar.",
+        "前回、Wiiメニューのフォントを読み込んでいる間にRiftWiiが止まったため、RiftWiiのフォントを使います。直せるように、問題レポートを送ってください。",
+        "O RiftWii parou ao ler a fonte do Menu Wii da última vez, então usa a própria. Envie um relatório de problema para que isso seja corrigido.",
+        "L'ultima volta RiftWii si è fermato leggendo il font del Menu Wii, quindi usa il suo. Invia una segnalazione così si può correggere."),
     "The Wii Menu's font could not be read, so RiftWii's is used.": (
         "No se pudo leer la fuente del Menú de Wii, así que se usa la de RiftWii.",
         "Wiiメニューのフォントを読み込めなかったため、RiftWiiのフォントを使います。",

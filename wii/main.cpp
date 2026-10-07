@@ -28,6 +28,8 @@
 #include "autorun.hpp"
 #include "headless.hpp"
 #include "console.hpp"
+#include <cstdio>
+
 #include "crash.hpp"
 #include "gcadapter.hpp"
 #include "guiscript.hpp"
@@ -282,9 +284,33 @@ int main() {
     std::size_t font_size = 0;
     // Settings > Menu font: the Wii Menu's, read from the NAND, else ours.
     bool font_ready = false;
-    if (riftwii::wii::Settings().menu_font == "wii") {
+    // A marker on the card while the Wii Menu's font is read: reading it
+    // may open IOS's NAND permission check, which hung consoles before
+    // 3.3.3. Found at the next start, the font is skipped, so a console it
+    // stops is not stopped at every start.
+    constexpr const char* kFontTry = "sd:/riftwii/menu_font_try.txt";
+    bool font_tried_before = false;
+    if (riftwii::wii::Settings().menu_font == "wii" && sd_mounted) {
+        if (FILE* f = std::fopen(kFontTry, "rb")) {
+            std::fclose(f);
+            font_tried_before = true;
+        }
+    }
+    if (font_tried_before) {
+        riftwii::wii::logf("Menu font: the Wii Menu's stopped RiftWii last time (%s was left); RiftWii's instead\n",
+                           kFontTry);
+        std::remove(kFontTry);
+        SetHomeNotice(riftwii::wii::tr("RiftWii stopped while reading the Wii Menu's font last time, so it uses its own. Send a problem report so this can be fixed."));
+    } else if (riftwii::wii::Settings().menu_font == "wii") {
         std::string why;
+        if (sd_mounted) {
+            if (FILE* f = std::fopen(kFontTry, "wb")) {
+                std::fputs("RiftWii is reading the Wii Menu's font\n", f);
+                std::fclose(f);
+            }
+        }
         font = riftwii::wii::LoadWiiMenuFont(font_size, why);
+        if (sd_mounted) std::remove(kFontTry);
         if (font != nullptr && !InitFreeType(font, font_size, riftwii::wii::kWiiMenuFontFace)) {
             DeinitFreeType();
             why = "FreeType could not read it";

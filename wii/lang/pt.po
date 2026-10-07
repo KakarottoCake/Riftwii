@@ -1215,6 +1215,9 @@ msgstr "O menu reinicia para trocar a fonte."
 msgid "Menu font: {1}"
 msgstr "Fonte do menu: {1}"
 
+msgid "RiftWii stopped while reading the Wii Menu's font last time, so it uses its own. Send a problem report so this can be fixed."
+msgstr "O RiftWii parou ao ler a fonte do Menu Wii da última vez, então usa a própria. Envie um relatório de problema para que isso seja corrigido."
+
 msgid "The Wii Menu's font could not be read, so RiftWii's is used."
 msgstr "Não foi possível ler a fonte do Menu do Wii, então a do RiftWii é usada."
 
