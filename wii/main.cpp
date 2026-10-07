@@ -29,6 +29,7 @@
 #include "headless.hpp"
 #include "console.hpp"
 #include <cstdio>
+#include <ogc/machine/processor.h>
 
 #include "crash.hpp"
 #include "gcadapter.hpp"
@@ -204,6 +205,9 @@ void OpenSessionLog(bool sd_mounted) {
     const bool has_path = __system_argv != nullptr && __system_argv->argvMagic == ARGV_MAGIC &&
                           __system_argv->argc > 0 && __system_argv->argv != nullptr && __system_argv->argv[0] != nullptr;
     riftwii::wii::logf("Started from %s\n", has_path ? __system_argv->argv[0] : "(no path given)");
+    // AHBPROT off (the Homebrew Channel, the channel since version 9): what
+    // needs the hardware (IOS patches, the GameCube adapter) can work.
+    riftwii::wii::logf("Hardware access: %s\n", read32(0x0D800064) == 0xFFFFFFFF ? "yes" : "no (AHBPROT on)");
     riftwii::wii::EnsureMetaAhbAccess();
     riftwii::wii::mem::LogLimits();
     riftwii::wii::mem::LogUsage("start");

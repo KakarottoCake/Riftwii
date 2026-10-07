@@ -84,6 +84,13 @@ after a game left while it was still loading (Wii Sports, back to RiftWii
 from its HOME Menu at once) one of those closes could go unanswered, a
 black screen before `main`. Since version 8.
 
+The title asks ES for hardware access (its TMD's access rights, bit 0), as
+the Homebrew Channel's does: RiftWii started from the channel then has
+AHBPROT off, as from the Homebrew Channel, for what needs the hardware (the
+Wii Menu's font behind IOS's NAND permission check, the GameCube adapter).
+Before version 9 it asked for none, and those were off when started from
+the channel.
+
 ## The banner
 
 All of it is drawn for RiftWii; no Nintendo data is used.
