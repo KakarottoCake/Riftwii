@@ -387,6 +387,12 @@ msgstr "オンライン"
 msgid "More"
 msgstr "その他"
 
+msgid "Picture"
+msgstr "画面"
+
+msgid "Other"
+msgstr "その他"
+
 msgid "Language"
 msgstr "言語"
 

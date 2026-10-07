@@ -2239,10 +2239,9 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 {
 	rows.clear();
 	refs.clear();
-	const auto add = [&](FlowRow row, RowRef ref) {
-		rows.push_back(std::move(row));
-		refs.push_back(ref);
-	};
+	// Made in any order, shown in groups (below).
+	std::vector<std::pair<FlowRow, RowRef>> made;
+	const auto add = [&](FlowRow row, RowRef ref) { made.emplace_back(std::move(row), ref); };
 	// Mods first: the reason most games are opened here.
 	std::size_t enabled = 0;
 	const std::size_t shown = ShownPacks(state, &enabled);
@@ -2365,6 +2364,31 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 		cover.value = riftwii::wii::CoverStored(state.game_id) ? tr("Download again") : tr("Download");
 		add(cover, {RowRef::What::Cover});
 	}
+
+	// The game's own rows first, then the picture's and the rest under
+	// their names (rows the focus passes over).
+	using W = RowRef::What;
+	const auto show = [&](std::initializer_list<W> whats) {
+		for (W what : whats)
+			for (const auto& m : made)
+				if (m.second.what == what) {
+					rows.push_back(m.first);
+					refs.push_back(m.second);
+				}
+	};
+	const auto heading = [&](const char* name) {
+		FlowRow row;
+		row.kind = FlowRow::Kind::Info;
+		row.heading = true;
+		row.label = name;
+		rows.push_back(row);
+		refs.push_back({W::Note});
+	};
+	show({W::Mods, W::Saves, W::Cheats, W::Favorite, W::Cover});
+	heading(tr("Picture"));
+	show({W::Width, W::Deflicker, W::Borders, W::VideoMode, W::RegionVideo, W::Aspect});
+	heading(tr("Other"));
+	show({W::Language, W::RegionStrings, W::Cios, W::Server, W::Rumble, W::Speaker});
 }
 
 // "1.2 GB", "640 MB".

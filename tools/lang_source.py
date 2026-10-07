@@ -332,6 +332,8 @@ T = {
     "Finding games": ("Buscar juegos", "ゲームを探す", "Procurar jogos", "Trovare i giochi"),
     "Online": ("En línea", "オンライン", "Online", "Online"),
     "More": ("Más", "その他", "Mais", "Altro"),
+    "Picture": ("Imagen", "画面", "Imagem", "Immagine"),
+    "Other": ("Otros", "その他", "Outros", "Altro"),
     "Language": ("Idioma", "言語", "Idioma", "Lingua"),
     "Wii: {1}": ("Wii: {1}", "Wii: {1}", "Wii: {1}", "Wii: {1}"),
     "Download names and cheats": ("Descargar nombres y trucos", "ゲーム名とチートをダウンロード", "Baixar nomes e trapaças",

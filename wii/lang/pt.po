@@ -387,6 +387,12 @@ msgstr "Online"
 msgid "More"
 msgstr "Mais"
 
+msgid "Picture"
+msgstr "Imagem"
+
+msgid "Other"
+msgstr "Outros"
+
 msgid "Language"
 msgstr "Idioma"
 
