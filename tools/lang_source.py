@@ -755,6 +755,16 @@ T = {
         "このままでは動きません。Project+などのコードビルドはUSBドライブではなくSDカードに置く必要があります。{1}をSDカードの同じ場所に移して、もう一度試してください。ゲームはUSBのままで大丈夫です。",
         "Assim não vai funcionar: builds de códigos como o Project+ precisam estar no SD, não no USB. Mova {1} para o mesmo lugar no seu SD e tente de novo. Os jogos podem ficar no USB.",
         "Così non funziona: le build di codici come Project+ devono stare sulla SD, non sull'unità USB. Sposta {1} nello stesso punto della SD e riprova. I giochi possono restare su USB."),
+    "This SD card ({1} GB) is too big for code builds. Make an SD image.": (
+        "Esta SD ({1} GB) es demasiado grande para las builds de códigos. Crea una imagen SD.",
+        "このSDカード({1} GB)はコードビルドには大きすぎます。SDイメージを作ってください。",
+        "Este SD ({1} GB) é grande demais para builds de códigos. Crie uma imagem SD.",
+        "Questa SD ({1} GB) è troppo grande per le build di codici. Crea un'immagine SD."),
+    "This won't work: this SD card is bigger than 32 GB ({1} GB, SDXC), and Brawl only reads SD cards up to 32 GB, so the build's files never load. Pick \"Make an SD image...\" under the build on the Mods page: the game then reads a small card inside a file on this one. Or copy the build to a 32 GB or smaller card.": (
+        "Así no va a funcionar: esta SD tiene más de 32 GB ({1} GB, SDXC) y Brawl solo lee tarjetas SD de hasta 32 GB, así que los archivos de la build nunca se cargan. Elige \"Crear una imagen SD...\" bajo la build en la página de Mods: el juego leerá entonces una tarjeta pequeña dentro de un archivo de esta. O copia la build a una tarjeta de 32 GB o menos.",
+        "このままでは動きません。このSDカードは32 GBより大きく({1} GB、SDXC)、ブロールは32 GBまでのSDカードしか読めないため、ビルドのファイルが読み込まれません。MODページでビルドの下の「SDイメージを作る...」を選ぶと、ゲームはこのカードの中のファイルにある小さなカードを読みます。または32 GB以下のカードにビルドをコピーしてください。",
+        "Assim não vai funcionar: este SD tem mais de 32 GB ({1} GB, SDXC) e o Brawl só lê cartões SD de até 32 GB, então os arquivos da build nunca carregam. Escolha \"Criar uma imagem SD...\" sob a build na página de Mods: o jogo passa a ler um cartão pequeno dentro de um arquivo deste. Ou copie a build para um cartão de 32 GB ou menos.",
+        "Così non funziona: questa SD supera i 32 GB ({1} GB, SDXC) e Brawl legge solo schede SD fino a 32 GB, quindi i file della build non vengono mai caricati. Scegli \"Crea un'immagine SD...\" sotto la build nella pagina Mod: il gioco leggerà una piccola scheda dentro un file di questa. Oppure copia la build su una scheda da 32 GB o meno."),
     "Code builds need the game on USB or disc, not the SD card.": (
         "Las builds de códigos necesitan el juego en USB o en disco, no en la SD.",
         "コードビルドはSDカードではなく、USBかディスクのゲームで遊んでください。",

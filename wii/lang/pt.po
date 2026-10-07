@@ -831,6 +831,12 @@ msgstr "Builds de códigos no USB não funcionam. Mova {1} para o SD."
 msgid "This won't work: code builds like Project+ have to be on the SD card, not the USB drive. Move {1} to the same spot on your SD card and try again. Your games can stay on USB."
 msgstr "Assim não vai funcionar: builds de códigos como o Project+ precisam estar no SD, não no USB. Mova {1} para o mesmo lugar no seu SD e tente de novo. Os jogos podem ficar no USB."
 
+msgid "This SD card ({1} GB) is too big for code builds. Make an SD image."
+msgstr "Este SD ({1} GB) é grande demais para builds de códigos. Crie uma imagem SD."
+
+msgid "This won't work: this SD card is bigger than 32 GB ({1} GB, SDXC), and Brawl only reads SD cards up to 32 GB, so the build's files never load. Pick \"Make an SD image...\" under the build on the Mods page: the game then reads a small card inside a file on this one. Or copy the build to a 32 GB or smaller card."
+msgstr "Assim não vai funcionar: este SD tem mais de 32 GB ({1} GB, SDXC) e o Brawl só lê cartões SD de até 32 GB, então os arquivos da build nunca carregam. Escolha \"Criar uma imagem SD...\" sob a build na página de Mods: o jogo passa a ler um cartão pequeno dentro de um arquivo deste. Ou copie a build para um cartão de 32 GB ou menos."
+
 msgid "Code builds need the game on USB or disc, not the SD card."
 msgstr "Builds de códigos precisam do jogo no USB ou no disco, não no SD."
 

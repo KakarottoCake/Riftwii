@@ -25,6 +25,7 @@
 #include "menuios.hpp"
 #include "codebuilds.hpp"
 #include "netpacks.hpp"
+#include "sdfile.hpp"
 
 namespace riftwii::wii {
 
@@ -294,6 +295,17 @@ std::string ModPlaceProblem(const FrontendState& state, bool brief) {
         if (brief) return tr("{1} is on the USB drive: the game has to be there too.", {image});
         return tr("This won't work: {1} is on the USB drive, and RiftWii reads the USB drive during a game only when the game is on it too. Put the game on the USB drive, or put {1} in the riftwii folder on your SD card.",
                   {image});
+    }
+    // Brawl reads SD cards up to 32 GB (SDHC); a build's files on a bigger
+    // (SDXC) card never load, whatever the game is on. An image is a small
+    // card inside a file, which the game can read.
+    std::uint64_t card_bytes = 0;
+    std::string card_error;
+    if (on_card && sd_volume_end_bytes(card_bytes, card_error) && card_bytes > (32ull << 30)) {
+        const std::string gb = std::to_string((card_bytes + (500ull << 20)) / 1000000000ull);
+        if (brief) return tr("This SD card ({1} GB) is too big for code builds. Make an SD image.", {gb});
+        return tr("This won't work: this SD card is bigger than 32 GB ({1} GB, SDXC), and Brawl only reads SD cards up to 32 GB, so the build's files never load. Pick \"Make an SD image...\" under the build on the Mods page: the game then reads a small card inside a file on this one. Or copy the build to a 32 GB or smaller card.",
+                  {gb});
     }
     if (state.use_sd && on_card) {
         if (brief) return tr("Code builds need the game on USB or disc, not the SD card.");

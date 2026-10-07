@@ -467,6 +467,10 @@ parts of 4000 MB (`.raw.001`, `.raw.002`...). A few things about it:
   popup says how much before it starts.
 - It takes a while: about a minute for every 150-200 MB on a typical
   card. **Stop** gives up and deletes what was written.
+- An SD card bigger than 32 GB (SDXC) needs the image: Brawl only reads
+  cards up to 32 GB (SDHC), so a build straight on an SDXC card never
+  loads, and RiftWii says so when you press Start. The image is a small
+  card inside a file, which Brawl reads fine from the big one.
 - Once the image works, you can delete the build's own folders from the
   SD card if you want the room back (keep `riftwii`).
 - New and experimental: tested in Dolphin with Project M 3.6 (a 1 GB

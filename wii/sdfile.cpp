@@ -33,6 +33,13 @@ bool ensure_mounted(std::string& error) {
 
 }  // namespace
 
+bool sd_volume_end_bytes(std::uint64_t& out, std::string& error) {
+    if (!ensure_mounted(error)) return false;
+    const Fat32Geometry& g = g_volume.geometry();
+    out = g.volume_lba * kFatBlockBytes + std::uint64_t(g.total_sectors) * g.bytes_per_sector;
+    return true;
+}
+
 bool resolve_sd_directory(const std::string& sd_path, rtfat_volume& out, std::string& error) {
     if (sd_path.compare(0, 4, "sd:/") != 0) {
         error = "'" + sd_path + "' is not an sd:/ folder path";

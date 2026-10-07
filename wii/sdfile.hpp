@@ -25,6 +25,10 @@ bool list_sd_directory(const std::string& sd_path, std::vector<Fat32Entry>& out,
                        std::string& error);
 // Bytes of a file found above, read raw from the card.
 bool read_sd_file(const Fat32File& file, std::uint64_t offset, std::uint8_t* out, std::size_t length);
+// How far the card's FAT32 volume reaches, in bytes: its start plus its
+// size (one boot sector read, kept). Past 32 GiB the card is an SDXC one
+// (an SDHC card holds 32 GB at most).
+bool sd_volume_end_bytes(std::uint64_t& out, std::string& error);
 // Drops the folder listings and FAT blocks remembered by the lookups, for
 // after libfat has written the card (a save folder created, say).
 void forget_sd_layout();

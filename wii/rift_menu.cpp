@@ -3453,8 +3453,9 @@ static int MenuHome(FrontendState& state)
 			} else if (state.use_sd && !state.sd_catalog.cios_note.empty()) {
 				say(FlatCapped(state.sd_catalog.cios_note, 150));
 			} else if (const std::string problem = riftwii::wii::ModPlaceProblem(state); !problem.empty()) {
-				// Mods where they cannot work: not even tried.
-				say(FlatCapped(problem, 200));
+				// Mods where they cannot work: not even tried. In a popup: the
+				// remedy takes more than the status line's two rows.
+				ShowPopup(tr("This code mod can't start"), problem, tr("OK"));
 			} else if (std::string codes_error; !riftwii::wii::CheckCodeBuilds(state, codes_error)) {
 				// In a popup: what to do takes more than the status line's two rows.
 				ShowPopup(tr("This code mod can't start"), codes_error, tr("OK"));
