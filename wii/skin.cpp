@@ -208,10 +208,13 @@ void Init() {
         {"background_channels", &backgroundChannels}, {"background_channels_wide", &backgroundChannelsWide},
     };
     for (const ThemeImage& im : theme_images()) {
+        // The walls: only the set the menu shows (EnsureBackgrounds).
+        if (std::strncmp(im.name, "background", 10) == 0) continue;
         for (const Slot& s : slots) {
             if (std::strcmp(s.name, im.name) == 0) *s.tex = Pick(im);
         }
     }
+    EnsureBackgrounds();
     {
         Canvas c(0, 0);
         paint_clock_digits(MenuTheme(), c);
@@ -242,6 +245,41 @@ void Init() {
         }
     }
     g_ready = true;
+}
+
+// A theme's walls are 1.2 MB (640x480) or 1.6 MB (856x480) each, and the
+// menu's MEM2 is never given back: each is read the first time the menu
+// can show it. On a widescreen menu a wall's _wide picture when the theme
+// has one, else its 640 one; on a 4:3 menu the 640 one. Switching the
+// menu's shape (Settings) reads the other set then.
+void EnsureBackgrounds() {
+    struct Wall {
+        const char* name;
+        const char* wide_name;
+        Tex* tex;
+        Tex* wide_tex;
+        bool tried, tried_wide;
+    };
+    static Wall walls[] = {
+        {"background", "background_wide", &background, &backgroundWide, false, false},
+        {"background_shelf", "background_shelf_wide", &backgroundShelf, &backgroundShelfWide, false, false},
+        {"background_plain", "background_plain_wide", &backgroundPlain, &backgroundPlainWide, false, false},
+        {"background_channels", "background_channels_wide", &backgroundChannels, &backgroundChannelsWide, false, false},
+    };
+    const bool wide = WideMenu();
+    const auto load = [](const char* name, Tex* tex) {
+        for (const ThemeImage& im : theme_images())
+            if (std::strcmp(im.name, name) == 0) *tex = Pick(im);
+    };
+    for (Wall& w : walls) {
+        if (wide && ThemeImageExists(w.wide_name)) {
+            if (!w.tried_wide) load(w.wide_name, w.wide_tex);
+            w.tried_wide = true;
+        } else {
+            if (!w.tried) load(w.name, w.tex);
+            w.tried = true;
+        }
+    }
 }
 
 bool BarBump() { return MenuTheme().bar_bump; }

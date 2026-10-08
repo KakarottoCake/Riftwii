@@ -40,6 +40,9 @@ extern Tex homeBtnDanger, homeBtnDangerOver;  // 264x88, as homeBtn
 extern Tex iosClose, iosCloseOver;            // 128x48: a 120x40 button at 4,4
 extern Tex linen;                             // 64x64, repeating
 bool HomeIos6();
+// Reads the theme's walls for the menu's shape now (16:9 or 4:3), the
+// first time each is needed; after the shape changes.
+void EnsureBackgrounds();
 // Home is shown (the theme's background), or another screen (its
 // background_plain, when it has one).
 void SetOnHome(bool home);

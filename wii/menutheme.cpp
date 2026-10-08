@@ -85,6 +85,8 @@ std::vector<ThemeEntry> ListMenuThemes() {
     return out;
 }
 
+bool ThemeImageExists(const char* name) { return !g_dir.empty() && Exists(g_dir + name + ".png"); }
+
 bool LoadThemeImage(const char* name, int w, int h, std::vector<std::uint8_t>& rgba) {
     if (g_dir.empty()) return false;
     const std::string path = g_dir + name + ".png";

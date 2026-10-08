@@ -972,7 +972,13 @@ static bool ShowChannel(int& index, int count, const std::string& firstId, const
 		std::string error;
 		riftwii::OpeningBanner parts;
 		std::vector<std::uint8_t> sound;
-		if (riftwii::parse_opening_bnr(bytes.data(), bytes.size(), parts, error, false)) sound.swap(parts.sound);
+		// Checked before the banner showing is let go: a broken one is
+		// skipped and the one up stays.
+		if (!riftwii::parse_opening_bnr(bytes.data(), bytes.size(), parts, error, false)) {
+			logf("Banner of %s: %s\n", idOf(i).c_str(), error.c_str());
+			return false;
+		}
+		sound.swap(parts.sound);
 		parts = riftwii::OpeningBanner();
 		if (!view.player.Load(bytes, false, error)) {
 			logf("Banner of %s: %s\n", idOf(i).c_str(), error.c_str());
@@ -4663,6 +4669,7 @@ static int MenuSettings(FrontendState& state)
 					while (at < 3 && settings.menu_widescreen != kWide[at]) ++at;
 					settings.menu_widescreen = kWide[((at % 3) + 3 + direction) % 3];
 					riftwii::wii::ApplyMenuDisplay();
+					skin::EnsureBackgrounds();
 					saveAndNote(tr("On a 16:9 TV the menu is drawn narrower, so covers and pictures keep their shape. Automatic follows the Wii's own TV setting."));
 					rebuild();
 					break;

@@ -30,6 +30,8 @@ std::vector<ThemeEntry> ListMenuThemes();
 // The theme's <name>.png as RGBA rows, when it has one of exactly w x h
 // pixels. Anything else (none, unreadable, another size) is false; all
 // but "none" are logged.
+// Whether the theme in use has `name`.png (not read or checked).
+bool ThemeImageExists(const char* name);
 bool LoadThemeImage(const char* name, int w, int h, std::vector<std::uint8_t>& rgba);
 
 // The theme's music.ogg path, or "" when the theme has none.

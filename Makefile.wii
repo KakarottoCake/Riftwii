@@ -249,6 +249,10 @@ vsdbuild.o vsdmake.o: CXXFLAGS += -Os
 # leaves room for the transitions (keep the DOL's end below 0x81041980).
 rift_menu.o: CXXFLAGS += -Os
 
+# What waits on the network or the card, or runs once a launch: for size
+# as well (the room the DOL keeps under 0x81041980 is the menu's margin).
+online.o reportsend.o netpacks.o codebuilds.o autorun.o modplan.o: CXXFLAGS += -Os
+
 -include $(DEPENDS)
 
 #---------------------------------------------------------------------------------
