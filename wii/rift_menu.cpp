@@ -1026,12 +1026,13 @@ static bool ShowChannel(int& index, int count, const std::string& firstId, const
 		riftwii::wii::BannerSoundUpdate();
 		HaltGui();
 		ClearStaleButtons({&backBtn.button, &goBtn.button, &prevBtn.button, &nextBtn.button});
-		if (backBtn.Clicked()) choice = 1;
-		else if (goBtn.Clicked()) choice = 0;
-		else if (prevBtn.Clicked() || nextBtn.Clicked()) {
+		// The arrows first: A pointed at one also fires Continue (its
+		// trigger is A anywhere), which must not open the game then.
+		if (prevBtn.Clicked() || nextBtn.Clicked()) {
 			const int dir = nextBtn.Clicked() ? 1 : -1;
 			prevBtn.button.ResetState();
 			nextBtn.button.ResetState();
+			goBtn.button.ResetState();
 			// The next game round that has a banner; the banner slides to it
 			// (Home's page turn, inside the banner only), the buttons stay.
 			riftwii::wii::BannerSoundStop();
@@ -1042,6 +1043,17 @@ static bool ShowChannel(int& index, int count, const std::string& firstId, const
 			for (int step = 1; step < count; ++step) {
 				if (open(((index + dir * step) % count + count) % count)) break;
 			}
+		} else if (backBtn.Clicked()) choice = 1;
+		else if (goBtn.Clicked()) {
+			// While pointing, A starts the game only on Continue itself, as
+			// on the Wii Menu: A that misses an arrow does nothing.
+			bool on = !AnyPointerLive();
+			for (int i = 0; i < 4 && !on; ++i) {
+				const WPADData* p = userInput[i].wpad;
+				on = p->ir.valid && goBtn.button.IsInside(static_cast<int>(p->ir.x), static_cast<int>(p->ir.y));
+			}
+			if (on) choice = 0;
+			else goBtn.button.ResetState();
 		}
 		if (choice < 0) ResumeGui();
 	}
