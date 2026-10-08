@@ -3841,7 +3841,7 @@ static int MenuSettings(FrontendState& state)
 		return folder;
 	};
 	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kGameLanguage, kGameCios, kServer, kHomeTiles, kWidescreen, kScreenSize, kTheme, kFont, kSounds, kMusic, kReturnTo, kShots, kOnline, kNames, kGcAdapter, kGcTest, kIos, kNet, kResync,
-		kRescan, kChannel, kUpdate, kReport, kWiiChannel, kTutorial, kCredits, kExit, kNone };
+		kRescan, kChannel, kUpdate, kReport, kWiiChannel, kTutorial, kCredits, kExit, kNone, kHeading };
 	// The RiftWii channel on the Wii Menu (wii/channel.hpp).
 	unsigned channelVersion = 0;
 	const bool channelThere = riftwii::wii::ChannelInstalled(channelVersion);
@@ -3869,7 +3869,9 @@ static int MenuSettings(FrontendState& state)
 			row.heading = true;
 			row.label = name;
 			rows.push_back(row);
-			actions.push_back(kNone);
+			// Its own: kNone's note is the Menu IOS row's ("No d2x cIOS was
+			// found"), which a heading under the pointer showed.
+			actions.push_back(kHeading);
 		};
 		heading(tr("Games"));
 		option(tr("Picture width"), WidthName(settings.video_width), settings.video_width != "game", kWidth);
@@ -4075,6 +4077,7 @@ static int MenuSettings(FrontendState& state)
 				if (!channelCan) return std::string(tr(channelWhy.c_str())) + ".";
 				return tr("A Wii Menu channel that starts RiftWii from the SD card. It holds no copy of RiftWii, so updates keep working. Opens the channel installer, to add, update or remove it.");
 			case kExit: return tr("Opens the HOME Menu, as HOME does: the Homebrew Channel, the Wii Menu, Priiloader or power off.");
+			case kHeading: return "";
 			case kNone:  // the Menu IOS row when there is nothing to choose
 				return tr("No d2x cIOS was found in slots 248 to 252, so the menu runs under IOS 58. Install d2x to play games from SD or USB.");
 			default: return "";
