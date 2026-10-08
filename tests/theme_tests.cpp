@@ -54,6 +54,13 @@ static void test_default_theme() {
     const Theme parsed_bom = parse_theme("\xEF\xBB\xBF# comment\r\n; another\r\n\r\n", notes);
     EXPECT_EQ(notes.size(), 0U);
     EXPECT_TRUE(themes_equal(def, parsed_bom));
+
+    // The games' colours are left alone unless a theme tints them.
+    EXPECT_EQ(def.colors.banner_tint.a, 0);
+    notes.clear();
+    const Theme tinted = parse_theme("[colors]\nbanner_tint = #8A5A2E73\n", notes);
+    EXPECT_EQ(notes.size(), 0U);
+    EXPECT_TRUE(tinted.colors.banner_tint == (ThemeColor{0x8A, 0x5A, 0x2E, 0x73}));
 }
 
 static void test_parse_theme_color() {
@@ -326,7 +333,7 @@ static void test_skipped_cases() {
 
 static void test_theme_color_keys() {
     const auto& keys = theme_color_keys();
-    EXPECT_EQ(keys.size(), 32U);
+    EXPECT_EQ(keys.size(), 33U);
 
     // Unique keys.
     for (std::size_t i = 0; i < keys.size(); ++i) {
@@ -359,7 +366,7 @@ static void test_theme_color_keys() {
 
 static void test_theme_images() {
     const auto& images = theme_images();
-    EXPECT_EQ(images.size(), 45U);
+    EXPECT_EQ(images.size(), 47U);
 
     // Unique names.
     for (std::size_t i = 0; i < images.size(); ++i) {

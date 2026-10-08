@@ -54,6 +54,9 @@ struct ThemeColors {
     ThemeColor backdrop{236, 236, 239, 255};    // behind every screen
     ThemeColor backdrop_stripe{227, 227, 232, 255};
     ThemeColor banner_stripe{255, 255, 255, 20};  // over a game page's banner
+    // Mixed into each game's own colour (a game page's banner, plain spines
+    // on the shelf) by its alpha: 00 leaves the games' colours as they are.
+    ThemeColor banner_tint{0, 0, 0, 0};
     ThemeColor divider{232, 232, 238, 255};     // between list rows
     ThemeColor scroll_track{230, 230, 236, 255};
     ThemeColor scroll_thumb{168, 168, 180, 255};

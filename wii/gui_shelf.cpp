@@ -384,6 +384,43 @@ void GuiGameGrid::DrawShelf(int alpha) {
             Project(along(tl, bl, 0.78f), dummy, sy1);
             labels.push_back(SpineLabel{i, (sx + sxr) / 2, sy0, sy1});
         }
+        if (item.badge == "DISC" && !art && !cover && FacesEye(faces[1]) && skin::iconDisc.data) {
+            // The disc drive has no box art: the Disc drive tile's disc
+            // (as on the grid), square in the middle of the front.
+            const Face& fr = faces[1];
+            const auto at = [&](float u, float v) {
+                const V3 t{fr.c[0].x + (fr.c[1].x - fr.c[0].x) * u, fr.c[0].y + (fr.c[1].y - fr.c[0].y) * u,
+                           fr.c[0].z + (fr.c[1].z - fr.c[0].z) * u};
+                const V3 b{fr.c[3].x + (fr.c[2].x - fr.c[3].x) * u, fr.c[3].y + (fr.c[2].y - fr.c[3].y) * u,
+                           fr.c[3].z + (fr.c[2].z - fr.c[3].z) * u};
+                return V3{t.x + (b.x - t.x) * v, t.y + (b.y - t.y) * v, t.z + (b.z - t.z) * v};
+            };
+            const auto len = [](V3 a, V3 b) {
+                return std::sqrt((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y) + (a.z - b.z) * (a.z - b.z));
+            };
+            const float wide = len(fr.c[0], fr.c[1]), tall = len(fr.c[0], fr.c[3]);
+            const float su = 0.6f, sv = tall > 0 ? su * wide / tall : su;
+            const float v0 = 0.42f - sv / 2;
+            Face disc = fr;
+            disc.c[0] = at(0.2f, v0);
+            disc.c[1] = at(0.8f, v0);
+            disc.c[2] = at(0.8f, v0 + sv);
+            disc.c[3] = at(0.2f, v0 + sv);
+            // A little in front of the cover, so the depth test keeps it.
+            for (V3& c : disc.c) {
+                c.x += fr.normal.x * 0.6f;
+                c.y += fr.normal.y * 0.6f;
+                c.z += fr.normal.z * 0.6f;
+            }
+            disc.tex = skin::iconDisc.data;
+            disc.texW = skin::iconDisc.w;
+            disc.texH = skin::iconDisc.h;
+            disc.rgba8 = true;
+            disc.u0 = disc.v0 = 0;
+            disc.u1 = disc.v1 = 1;
+            disc.color = {255, 255, 255, 255};
+            DrawFace(disc, alpha);
+        }
         if (x1 > x0) spineRects.push_back({i, x0, y0, x1, y1});
     }
     LoadFlat();

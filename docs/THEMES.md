@@ -81,6 +81,7 @@ shows:
 | `backdrop` | `#ECECEF` | Behind every screen |
 | `backdrop_stripe` | `#E3E3E8` | The backdrop's thin stripes |
 | `banner_stripe` | `#FFFFFF14` | Stripes over a game page's banner |
+| `banner_tint` | `#00000000` | Mixed into each game's own colour (a game page's banner, plain spines and backs on the shelf) by its alpha: `00` keeps the games' colours, `FF` gives every game this colour |
 | `divider` | `#E8E8EE` | Between list rows |
 | `scroll_track` | `#E6E6EC` | A list's scroll track |
 | `scroll_thumb` | `#A8A8B4` | A list's scroll thumb |
@@ -132,6 +133,7 @@ Pictures ending in `_over` are the highlighted versions. Transparency
 | `shelf` | 256x64 | Home's shelf: rows 0-47 are its top (the far edge first), rows 48-63 its front edge. It repeats along the shelf, so make the left and right edges meet |
 | `background_wide` | 856x480 | `background` for a widescreen menu (optional) |
 | `bar_wide` | 856x124 | `bar` for a widescreen menu, its bump in the middle (optional) |
+| `background_shelf` / `background_shelf_wide` | 640x480 / 856x480 | `background` / `background_wide` while Home shows the shelf (Settings > Home tiles > Shelf), for a background drawn to go with Home's rows of covers (optional) |
 
 ### Widescreen and screen size
 

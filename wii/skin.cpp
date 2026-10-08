@@ -8,6 +8,7 @@
 #include <cstring>
 #include <vector>
 
+#include "loadersettings.hpp"
 #include "menutheme.hpp"
 #include "riftwii/canvas.hpp"
 #include "riftwii/skinpaint.hpp"
@@ -58,6 +59,7 @@ bool g_ready = false;
 GXColor g_backdrop = {236, 236, 239, 255};
 GXColor g_backdrop_stripe = {227, 227, 232, 255};
 bool g_stripes = true;
+GXColor g_banner_tint = {0, 0, 0, 0};
 
 GXColor ToGx(const ThemeColor& c) { return GXColor{c.r, c.g, c.b, c.a}; }
 
@@ -84,6 +86,7 @@ void ApplyColors(const Theme& t) {
     g_backdrop = ToGx(c.backdrop);
     g_backdrop_stripe = ToGx(c.backdrop_stripe);
     g_stripes = t.stripes;
+    g_banner_tint = ToGx(c.banner_tint);
 }
 
 Tex Upload(const Canvas& c) {
@@ -118,7 +121,7 @@ Tex Pick(const ThemeImage& im) {
     // Only a theme's own: without them the menu paints the backdrop
     // (GuiBackdrop) and mirrors the 640 bar outward.
     if (std::strcmp(im.name, "background") == 0 || std::strcmp(im.name, "background_wide") == 0 ||
-        std::strcmp(im.name, "bar_wide") == 0)
+        std::strcmp(im.name, "bar_wide") == 0 || std::strncmp(im.name, "background_shelf", 16) == 0)
         return Tex();
     Canvas c(0, 0);
     if (!paint_theme_image(im.name, MenuTheme(), c)) return Tex();
@@ -129,6 +132,7 @@ Tex Pick(const ThemeImage& im) {
 
 Tex background;
 Tex backgroundWide, barWide;
+Tex backgroundShelf, backgroundShelfWide;
 Tex shelfPlank;
 
 Tex ArtFrame(int w, int h) {
@@ -185,6 +189,7 @@ void Init() {
         {"icon_gear", &iconGear}, {"icon_search", &iconSearch}, {"icon_disc", &iconDisc}, {"pointer1", &hand[0]}, {"pointer2", &hand[1]},
         {"pointer3", &hand[2]}, {"pointer4", &hand[3]}, {"shelf", &shelfPlank},
         {"background_wide", &backgroundWide}, {"bar_wide", &barWide},
+        {"background_shelf", &backgroundShelf}, {"background_shelf_wide", &backgroundShelfWide},
     };
     for (const ThemeImage& im : theme_images()) {
         for (const Slot& s : slots) {
@@ -203,7 +208,11 @@ GXColor HueFor(const std::string& id) {
     };
     std::uint32_t h = 2166136261u;
     for (char ch : id.substr(0, 4)) h = (h ^ static_cast<unsigned char>(ch)) * 16777619u;
-    return palette[h % (sizeof(palette) / sizeof(palette[0]))];
+    const GXColor hue = palette[h % (sizeof(palette) / sizeof(palette[0]))];
+    // The theme's tint, mixed in by its alpha (Bookshelf: warm wood).
+    const unsigned a = g_banner_tint.a;
+    const auto mix = [a](u8 own, u8 tint) { return static_cast<u8>((own * (255 - a) + tint * a + 127) / 255); };
+    return {mix(hue.r, g_banner_tint.r), mix(hue.g, g_banner_tint.g), mix(hue.b, g_banner_tint.b), 255};
 }
 
 void Draw(const Tex& t, float x, float y, int alpha, float scale) {
@@ -329,7 +338,15 @@ void GuiBackdrop::Draw() {
     // when it has one.
     f32 vx, vy, vw, vh;
     Menu_VisibleArea(&vx, &vy, &vw, &vh);
-    const Tex& picture = WideMenu() && backgroundWide.data ? backgroundWide : background;
+    const bool wide = WideMenu();
+    const Tex* pick = wide && backgroundWide.data ? &backgroundWide : &background;
+    // The shelf view's own wall when the theme has one (Bookshelf: no
+    // shelf through the boxes, where Home's upper row of covers stands).
+    if (riftwii::wii::Settings().home_tiles == "shelf") {
+        if (wide && backgroundShelfWide.data) pick = &backgroundShelfWide;
+        else if (backgroundShelf.data && !(wide && backgroundWide.data)) pick = &backgroundShelf;
+    }
+    const Tex& picture = *pick;
     if (picture.data) {
         DrawExtended(picture, 320.0f - picture.w / 2.0f, 0, vx, vy, vx + vw, vy + vh, picture.w, picture.h);
         return;

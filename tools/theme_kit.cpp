@@ -52,6 +52,7 @@ const char* Where(const std::string& key) {
         {"backdrop", "behind every screen"},
         {"backdrop_stripe", "the backdrop's thin stripes"},
         {"banner_stripe", "stripes over a game page's banner"},
+        {"banner_tint", "mixed into each game's colour (banner, plain spines) by its alpha"},
         {"divider", "between list rows"},
         {"scroll_track", "a list's scroll track"},
         {"scroll_thumb", "a list's scroll thumb"},

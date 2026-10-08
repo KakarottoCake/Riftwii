@@ -322,6 +322,7 @@ const std::vector<ThemeColorKey>& theme_color_keys() {
         {"backdrop", &ThemeColors::backdrop},
         {"backdrop_stripe", &ThemeColors::backdrop_stripe},
         {"banner_stripe", &ThemeColors::banner_stripe},
+        {"banner_tint", &ThemeColors::banner_tint},
         {"divider", &ThemeColors::divider},
         {"scroll_track", &ThemeColors::scroll_track},
         {"scroll_thumb", &ThemeColors::scroll_thumb},
@@ -384,6 +385,9 @@ const std::vector<ThemeImage>& theme_images() {
         // A widescreen menu's: 856 across is 640 on a 16:9 TV's 4:3 middle.
         {"background_wide", 856, 480},
         {"bar_wide", 856, 124},
+        // Instead of background(_wide) while Home shows the shelf.
+        {"background_shelf", 640, 480},
+        {"background_shelf_wide", 856, 480},
     };
     return images;
 }

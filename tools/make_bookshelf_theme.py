@@ -12,9 +12,12 @@ picture from anywhere else):
 - bar.png: Home's bottom bar as the bookcase's base, its curve edged in
   brass;
 - shelf.png: the wood for the shelf view's plank;
-- background_wide.png / bar_wide.png: the same, 856 across, for a
-  widescreen menu;
-- theme.ini: cream paper panels and dark brown ink.
+- background_shelf.png: the same wall for the shelf view, with only the
+  lower shelf (the boxes stand on it; the upper one would cross them);
+- background_wide.png / bar_wide.png / background_shelf_wide.png: the
+  same, 856 across, for a widescreen menu;
+- theme.ini: cream paper panels, dark brown ink, and the games' own
+  colours mixed with walnut (their banners and plain spines).
 
     python tools/make_bookshelf_theme.py      (needs numpy and Pillow)
 """
@@ -26,6 +29,10 @@ from PIL import Image, ImageFilter
 
 OUT = pathlib.Path(__file__).resolve().parent.parent / "themes" / "Bookshelf"
 RNG = np.random.default_rng(1206)
+
+# Where the random numbers stood before each wall (background()), so the
+# shelf view's walls get the same planks.
+WALL_STATE = {}
 
 # Home's cover rows (wii/gui_gamegrid.cpp: covers 80x112, top 16, 14 apart).
 COVER_ROW_BOTTOMS = (16 + 112, 16 + 112 + 14 + 112)
@@ -71,6 +78,8 @@ bar = #B88D5A
 backdrop = #C9A06A
 backdrop_stripe = #C9A06A
 banner_stripe = #FFF4E014
+# The games' own colours, half walnut: cloth bindings on the shelf
+banner_tint = #8A5A2E73
 
 # Lists and badges
 divider = #E6DCCB
@@ -122,7 +131,7 @@ def shade(img, y0, y1, top, bottom):
     img[y0:y1] *= f
 
 
-def background(W=640):
+def background(W=640, shelves=COVER_ROW_BOTTOMS):
     H = 480
     img = np.zeros((H, W, 3))
     # The wall: planks 60 high, each its own cut of the wood.
@@ -144,7 +153,7 @@ def background(W=640):
     img *= vign[..., None]
     # The shelves: a top the covers stand on, seen from a little above,
     # a front edge filling the gap to the next row, and a deep shadow.
-    for bottom in COVER_ROW_BOTTOMS:
+    for bottom in shelves:
         top_face, lip = 8, 10
         y0 = bottom - top_face + 4
         img[y0:y0 + top_face] = wood(W, top_face, (232, 196, 142), (204, 162, 108), phase=bottom * 0.1, wave=2)
@@ -223,30 +232,40 @@ def bar(W=640):
 
 def shelf_picture():
     """256x64 for the shelf view: the top (rows 0-47), then the front edge."""
-    top = wood(256, 48, (226, 188, 132), (196, 152, 98), phase=1.0, wave=3)
+    # 32 more across than kept: the extra wood is faded in over the first 32
+    # columns, so column 0 carries on from column 255 and the copies along
+    # the plank join with no seam.
+    top = wood(288, 48, (226, 188, 132), (196, 152, 98), phase=1.0, wave=3)
     shade_rows = np.linspace(0.8, 1.0, 48)[:, None, None]
     top *= shade_rows
-    edge = wood(256, 16, (186, 140, 88), (150, 104, 60), phase=2.5, wave=2)
+    edge = wood(288, 16, (186, 140, 88), (150, 104, 60), phase=2.5, wave=2)
     edge[0] *= 1.18
     edge *= np.linspace(1.0, 0.8, 16)[:, None, None]
     img = np.concatenate([top, edge], axis=0)
-    # The picture repeats along the plank: fade its right end into its left.
-    blend = np.clip((np.arange(256) - 224) / 32.0, 0, 1)[None, :, None]
-    img = img * (1 - blend) + img[:, ::-1] * 0 + img[:, 0:1] * blend
-    return np.clip(img, 0, 255).astype(np.uint8)
+    ramp = (np.arange(32) / 32.0)[None, :, None]
+    out = img[:, :256].copy()
+    out[:, :32] = img[:, :32] * ramp + img[:, 256:288] * (1 - ramp)
+    return np.clip(out, 0, 255).astype(np.uint8)
 
 
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     (OUT / "theme.ini").write_bytes(INI.replace("\n", "\r\n").encode("utf-8"))
+    WALL_STATE[640] = RNG.bit_generator.state
     Image.fromarray(background()).save(OUT / "background.png", optimize=True)
     Image.fromarray(cover_tile(False)).save(OUT / "cover_tile.png", optimize=True)
     Image.fromarray(cover_tile(True)).save(OUT / "cover_tile_over.png", optimize=True)
     Image.fromarray(bar()).save(OUT / "bar.png", optimize=True)
     Image.fromarray(shelf_picture()).save(OUT / "shelf.png", optimize=True)
     # Last, so the pictures above come out as before.
+    WALL_STATE[856] = RNG.bit_generator.state
     Image.fromarray(background(856)).save(OUT / "background_wide.png", optimize=True)
     Image.fromarray(bar(856)).save(OUT / "bar_wide.png", optimize=True)
+    # The shelf view's walls: the same planks (the generator back where it
+    # was for each wall), only the lower shelf.
+    for name, w in (("background_shelf.png", 640), ("background_shelf_wide.png", 856)):
+        RNG.bit_generator.state = WALL_STATE[w]
+        Image.fromarray(background(w, shelves=COVER_ROW_BOTTOMS[1:])).save(OUT / name, optimize=True)
     print("wrote", OUT)
 
 

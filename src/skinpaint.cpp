@@ -300,6 +300,8 @@ bool paint_theme_image(const std::string& name, const Theme& theme, Canvas& out)
         {"bar", [](const Painter& q) { return q.Bar(); }},
         {"background_wide", [](const Painter& q) { return q.Background(856); }},
         {"bar_wide", [](const Painter& q) { return q.Bar(856); }},
+        {"background_shelf", [](const Painter& q) { return q.Background(640); }},
+        {"background_shelf_wide", [](const Painter& q) { return q.Background(856); }},
         {"banner_stripes", [](const Painter& q) { return q.Stripes(); }},
         {"arrow_left", [](const Painter& q) { return q.Arrow(true, false); }},
         {"arrow_left_over", [](const Painter& q) { return q.Arrow(true, true); }},
