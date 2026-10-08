@@ -33,9 +33,13 @@ Things that bite:
 - `Makefile.wii` compiles every source into one flat folder, so two
   sources may not share a base name (`redirect.cpp` and `rtable.c`, not
   two `redirect`s).
-- The version lives in `CMakeLists.txt` (`project(Riftwii VERSION ...)`
-  and `RIFTWII_VERSION_SUFFIX`). It reaches the code as a `-D` flag with
-  no dependency tracking: after changing it, `make -f Makefile.wii clean`.
+- Versions follow Dolphin's numbering: a release is its year and month
+  (`2610`), and every build after it is that plus the commits since the
+  release's tag (`2610-123`). `CMakeLists.txt` holds the YYMM
+  (`project(Riftwii VERSION ...)`) and the tag (`RIFTWII_BASE_TAG`);
+  `Makefile.wii` counts the commits with git at every build and rebuilds
+  only the sources that print the version. A release is tagged with
+  `v` and the DOL's version (`v2610-123`), built from that commit.
 - The pugixml `-Wmaybe-uninitialized` warning is expected.
 
 ## Tests

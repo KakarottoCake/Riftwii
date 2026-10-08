@@ -1,9 +1,13 @@
 # SPDX-FileCopyrightText: 2026 RiftWii contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
 cmake_minimum_required(VERSION 3.20)
-project(Riftwii VERSION 3.3.9 LANGUAGES C CXX)
-# Shown after the version number (menu, logs): "" for a final release.
-set(RIFTWII_VERSION_SUFFIX "-beta")
+# Versions as Dolphin numbers its own: a release is the year and month it
+# came out (2610: October 2026, the 2.7.0 stable release), and every build
+# after it adds the number of commits since that release (2610-123 is 123
+# commits on). Makefile.wii counts them from RIFTWII_BASE_TAG, the release's
+# git tag. A new release: its YYMM here and its tag there (then -0 builds).
+project(Riftwii VERSION 2610 LANGUAGES C CXX)
+set(RIFTWII_BASE_TAG "v2.7.0")
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)

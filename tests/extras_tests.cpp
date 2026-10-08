@@ -105,6 +105,16 @@ void TestHttp() {
     EXPECT_EQ(compare_versions("v2.7.0-rc9", "2.7.0-rc9.1"), -1);
     EXPECT_EQ(compare_versions("v2.7.0-rc09", "2.7.0-rc9"), 0);
     EXPECT_EQ(compare_versions("2.7.0", "2.7.0-rc9.1"), 1);
+    // Year and month, then the commits since that release.
+    EXPECT_EQ(compare_versions("2610-123", "2610"), 1);
+    EXPECT_EQ(compare_versions("v2610", "2610-1"), -1);
+    EXPECT_EQ(compare_versions("2610-123", "v2610-99"), 1);
+    EXPECT_EQ(compare_versions("2610-10", "2610-9"), 1);
+    EXPECT_EQ(compare_versions("2611", "2610-500"), 1);
+    EXPECT_EQ(compare_versions("2610-123", "3.3.9-beta"), 1);
+    EXPECT_EQ(compare_versions("v2610-5", "2.7.0"), 1);
+    EXPECT_EQ(effective_update_channel("auto", "2610-123"), "beta");
+    EXPECT_EQ(effective_update_channel("auto", "2610"), "stable");
     EXPECT_EQ(effective_update_channel("auto", "2.1.0"), "stable");
     EXPECT_EQ(effective_update_channel("auto", "2.1.0-rc1"), "beta");
     EXPECT_EQ(effective_update_channel("auto", "2.0.10-beta"), "beta");

@@ -31,10 +31,13 @@ TOP = "riftwii-theme-kit"
 
 
 def version():
+    # As Makefile.wii: the release's YYMM, then the commits since its tag.
     text = (ROOT / "CMakeLists.txt").read_text(encoding="utf-8")
-    number = re.search(r"project\(Riftwii VERSION ([0-9.]+)[ )]", text).group(1)
-    suffix = re.search(r'set\(RIFTWII_VERSION_SUFFIX "([^"]*)"\)', text)
-    return number + (suffix.group(1) if suffix else "")
+    base = re.search(r"project\(Riftwii VERSION ([0-9]+)[ )]", text).group(1)
+    tag = re.search(r'set\(RIFTWII_BASE_TAG "([^"]*)"\)', text).group(1)
+    count = subprocess.run(["git", "-C", str(ROOT), "rev-list", "--count", tag + "..HEAD"], check=True,
+                           capture_output=True, text=True).stdout.strip()
+    return base if count == "0" else base + "-" + count
 
 
 def main():

@@ -651,12 +651,16 @@ Boot.log lists them under "Game fixes".
 
 ## Stable and beta versions
 
-Stable versions (2.1.0, 2.1.1, ...) are the ones testers have checked on
-real Wiis. Beta versions (2.1.1-beta, 2.2.0-rc1, ...) come more often and
+Versions are numbered the way Dolphin numbers its own. A stable version
+is named after the year and month it came out (2610 is October 2026; it
+was called 2.7.0), and testers have checked it on real Wiis. A beta
+version is that stable version plus the number of changes made since
+(2610-123), so a higher number is always newer. Betas come more often and
 carry new fixes and features that are not checked yet. **Settings >
 Updates** picks which ones RiftWii offers: **Stable** only stable
 versions, **Beta** every new version. A stable version starts on Stable
-and a beta on Beta.
+and a beta on Beta. (Versions before October 2026 were numbered like
+2.7.0 and 3.3.9-beta.)
 
 An update from inside RiftWii also brings the themes that come with it
 (Bookshelf, Midnight) up to date, the first time the new version starts

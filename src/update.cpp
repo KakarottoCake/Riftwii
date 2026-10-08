@@ -147,8 +147,14 @@ int compare_versions(const std::string& a, const std::string& b) {
         if (p != q) return p < q ? -1 : 1;
     }
     if (x.suffix == y.suffix) return 0;
-    if (x.suffix.empty()) return 1;  // the release after its betas
-    if (y.suffix.empty()) return -1;
+    // A suffix of digits alone is a build that many commits after its
+    // release (Dolphin's numbering: 2610-123 after 2610); a word (beta,
+    // rc1) marks a build before its release (2.0.0-beta before 2.0.0).
+    const auto count = [](const std::string& s) {
+        return !s.empty() && s.find_first_not_of("0123456789") == std::string::npos;
+    };
+    if (x.suffix.empty()) return count(y.suffix) ? -1 : 1;
+    if (y.suffix.empty()) return count(x.suffix) ? 1 : -1;
     return compare_suffixes(x.suffix, y.suffix);
 }
 

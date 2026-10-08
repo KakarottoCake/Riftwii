@@ -285,10 +285,12 @@ void UpdateMetaVersion(const std::string& dol_path, const std::string& latest) {
     const std::size_t open = text.find("<version>");
     const std::size_t close = text.find("</version>");
     if (open == std::string::npos || close == std::string::npos || close < open) return;
-    // The releases' own spelling: "v2.0.3-beta" becomes "2.0.3 Beta".
+    // The releases' own spelling: "v2610-123" becomes "2610-123" (and an
+    // older "v2.0.3-beta", "2.0.3 Beta").
     std::string version = !latest.empty() && (latest[0] == 'v' || latest[0] == 'V') ? latest.substr(1) : latest;
     const std::size_t dash = version.find('-');
-    if (dash != std::string::npos && dash + 1 < version.size()) {
+    if (dash != std::string::npos && dash + 1 < version.size() &&
+        !std::isdigit(static_cast<unsigned char>(version[dash + 1]))) {
         version[dash] = ' ';
         version[dash + 1] = static_cast<char>(std::toupper(static_cast<unsigned char>(version[dash + 1])));
     }
@@ -625,12 +627,19 @@ void EnsureMetaAhbAccess() {
     std::size_t n;
     while ((n = std::fread(buf, 1, sizeof(buf), f)) > 0) text.append(buf, n);
     std::fclose(f);
-    if (!AddAhbAccess(text)) return;
+    bool changed = AddAhbAccess(text);
+    if (changed) logf("meta.xml: hardware access asked of the Homebrew Channel from the next start (%s)\n", meta.c_str());
+    // The Homebrew Channel shows <version>: this build's (an older RiftWii's
+    // update wrote "2610 123" for 2610-123).
+    const std::size_t open = text.find("<version>"), close = text.find("</version>");
+    if (open != std::string::npos && close != std::string::npos && close > open &&
+        text.compare(open + 9, close - open - 9, RIFTWII_VERSION) != 0) {
+        text.replace(open + 9, close - open - 9, RIFTWII_VERSION);
+        changed = true;
+    }
+    if (!changed) return;
     std::string error;
-    if (write_file(meta, std::vector<std::uint8_t>(text.begin(), text.end()), error))
-        logf("meta.xml: hardware access asked of the Homebrew Channel from the next start (%s)\n", meta.c_str());
-    else
-        logf("meta.xml: %s\n", error.c_str());
+    if (!write_file(meta, std::vector<std::uint8_t>(text.begin(), text.end()), error)) logf("meta.xml: %s\n", error.c_str());
 }
 
 }  // namespace riftwii::wii

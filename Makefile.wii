@@ -67,9 +67,16 @@ LIBDIRS	:= $(PORTLIBS)
 #---------------------------------------------------------------------------------
 PROJECT_ROOT ?= ..
 
-# The release version, read from the one place it is bumped, so logs and
-# bug reports can name the build (wii/main.cpp prints it).
-RIFTWII_VERSION := $(shell grep -o 'Riftwii VERSION [0-9.]*' "$(PROJECT_ROOT)/CMakeLists.txt" 2>/dev/null | cut -d' ' -f3)$(shell grep -o 'RIFTWII_VERSION_SUFFIX "[^"]*"' "$(PROJECT_ROOT)/CMakeLists.txt" 2>/dev/null | cut -d'"' -f2)
+# The version, so logs and bug reports can name the build: the release's
+# YYMM from CMakeLists.txt and, past it, "-" and the commits since its tag
+# (2610-123), counted by git at every build (CMakeLists.txt says more).
+RIFTWII_BASE := $(shell grep -o 'Riftwii VERSION [0-9]*' "$(PROJECT_ROOT)/CMakeLists.txt" 2>/dev/null | cut -d' ' -f3)
+RIFTWII_BASE_TAG := $(shell grep -o 'RIFTWII_BASE_TAG "[^"]*"' "$(PROJECT_ROOT)/CMakeLists.txt" 2>/dev/null | cut -d'"' -f2)
+RIFTWII_COMMITS := $(shell git -C "$(PROJECT_ROOT)" rev-list --count $(RIFTWII_BASE_TAG)..HEAD 2>/dev/null)
+ifeq ($(IN_BUILD)$(strip $(RIFTWII_COMMITS)),1)
+$(error cannot count the commits since $(RIFTWII_BASE_TAG): git and the tag are needed for the version)
+endif
+RIFTWII_VERSION := $(RIFTWII_BASE)$(if $(filter-out 0,$(RIFTWII_COMMITS)),-$(RIFTWII_COMMITS))
 CFLAGS		+=	-DRIFTWII_VERSION='"$(RIFTWII_VERSION)"'
 # Test builds: make WII_DEFINES=-DRIFTWII_TEST_LIMITS (wii/memlimits.hpp TestBallast).
 CFLAGS		+=	$(WII_DEFINES)
@@ -173,11 +180,16 @@ $(OUTPUT).dol: $(OUTPUT).elf
 $(OUTPUT).elf: $(OFILES)
 
 $(OFILES_SOURCES): $(HFILES)
-# A version bump must not leave the old number in the DOL: every source
-# may use RIFTWII_VERSION (the updater compares it, the crash blob records
-# it), and make does not see a changed -D. 2.7.0 RC8 to RC10 shipped with
-# rc8 in online.cpp, so the updater kept offering an update to itself.
+# A new version must not leave the old number in the DOL (2.7.0 RC8 to
+# RC10 shipped with rc8 in online.cpp, so the updater kept offering an
+# update to itself), and make does not see a changed -D. The version
+# changes with every commit, so only the sources that use it are rebuilt:
+# they depend on a stamp rewritten when the version differs.
 $(OFILES_SOURCES): $(PROJECT_ROOT)/CMakeLists.txt
+VERSION_STAMP := riftwii_version.stamp
+VERSION_USERS := $(patsubst %.cpp,%.o,$(patsubst %.c,%.o,$(notdir $(shell grep -l RIFTWII_VERSION $(foreach dir,wii src runtime,$(PROJECT_ROOT)/$(dir)/*.c $(PROJECT_ROOT)/$(dir)/*.cpp) 2>/dev/null))))
+$(shell [ "$$(cat $(VERSION_STAMP) 2>/dev/null)" = "$(RIFTWII_VERSION)" ] || echo "$(RIFTWII_VERSION)" > $(VERSION_STAMP))
+$(VERSION_USERS): $(VERSION_STAMP)
 #---------------------------------------------------------------------------------
 # This rule links in binary data with .ttf, .png, .ogg and .pcm extensions
 #---------------------------------------------------------------------------------
