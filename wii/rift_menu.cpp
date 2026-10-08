@@ -1653,28 +1653,6 @@ static void ClockText(std::string& clock, std::string& date)
 	date = tr("{1} {2}/{3}", {tr(days[local.tm_wday % 7]), std::to_string(local.tm_mon + 1), std::to_string(local.tm_mday)});
 }
 
-// A to Z: the first game (in the view's order) whose name starts with
-// the next letter after the focused one's, wrapping round. Names that
-// start with anything else come before A.
-static int NextLetter(const std::vector<GridItem>& items, int focused)
-{
-	const auto letter = [&](std::size_t i) -> int {
-		const char c = items[i].title.empty() ? 0 : items[i].title[0];
-		if (c >= 'a' && c <= 'z') return c - 'a' + 'A';
-		return c >= 'A' && c <= 'Z' ? c : '#';
-	};
-	// The disc tile (0) has no letter: from it, the first letter comes next.
-	const int from = focused > 0 && static_cast<std::size_t>(focused) < items.size()
-		? letter(static_cast<std::size_t>(focused)) : 0;
-	int best = -1, first = -1;
-	for (std::size_t i = 1; i < items.size(); ++i) {
-		const int l = letter(i);
-		if (l > from && (best < 0 || l < letter(static_cast<std::size_t>(best)))) best = static_cast<int>(i);
-		if (first < 0 || l < letter(static_cast<std::size_t>(first))) first = static_cast<int>(i);
-	}
-	return best >= 0 ? best : first;
-}
-
 // Asks for the words to look for on an on-screen keyboard. Returns false
 // when cancelled; `text` holds the entry. Called with the GUI halted and
 // returns with it halted, as ShowHomeMenu does: the caller rebuilds the
@@ -1783,14 +1761,14 @@ static int MenuSource(FrontendState& state)
 	// Wii Remote and Classic buttons are bits neither ever sends (a 0 would
 	// match any press that leaves that half empty).
 	constexpr u32 kNoWpadButton = 0x0020 | (0x0100u << 16);
-	GuiTrigger trigRescan, trigExit, trigJump;
+	// B (L on a GameCube controller) and the letters are the grid's own
+	// (GuiGameGrid::LetterKeys).
+	GuiTrigger trigRescan, trigExit;
 	trigRescan.SetButtonOnlyTrigger(-1, kNoWpadButton, PAD_BUTTON_X, 0);
 	trigExit.SetButtonOnlyTrigger(-1, WPAD_BUTTON_HOME | WPAD_CLASSIC_BUTTON_HOME, PAD_BUTTON_START, WIIDRC_BUTTON_HOME);
-	trigJump.SetButtonOnlyTrigger(-1, WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_TRIGGER_L, WIIDRC_BUTTON_B);
-	GuiButton rescanBtn(0, 0), exitBtn(0, 0), jumpBtn(0, 0);  // hotkeys only
+	GuiButton rescanBtn(0, 0), exitBtn(0, 0);  // hotkeys only
 	rescanBtn.SetTrigger(&trigRescan);
 	exitBtn.SetTrigger(&trigExit);
-	jumpBtn.SetTrigger(&trigJump);
 
 	HaltGui();
 	GuiWindow w(screenwidth, screenheight);
@@ -1813,7 +1791,6 @@ static int MenuSource(FrontendState& state)
 	w.Append(&searchBtn.button);
 	w.Append(&rescanBtn);
 	w.Append(&exitBtn);
-	w.Append(&jumpBtn);
 	mainWindow->Append(&w);
 
 	const auto showView = [&] {
@@ -2071,10 +2048,6 @@ static int MenuSource(FrontendState& state)
 			g_coversOff = false;
 			g_coversChecked.clear();
 			queueCovers();
-		} else if (jumpBtn.GetState() == STATE::CLICKED) {
-			jumpBtn.ResetState();
-			const int to = NextLetter(items, grid.FocusedIndex());
-			if (to >= 0) grid.Focus(to);
 		}
 		ResumeGui();
 	}

@@ -490,8 +490,77 @@ void GuiGameGrid::Draw() {
     UpdateEffects();
 }
 
+// The first game (in the view's order) whose name starts with the letter
+// after (dir 1) or before (-1) the focused one's, wrapping round. Names that
+// start with anything else come before A; the disc tile (0) has no letter.
+int GuiGameGrid::LetterTarget(int dir) const {
+    const auto letter = [&](int i) -> int {
+        const std::string& title = (*items)[static_cast<std::size_t>(i)].title;
+        const char c = title.empty() ? 0 : title[0];
+        if (c >= 'a' && c <= 'z') return c - 'a' + 'A';
+        return c >= 'A' && c <= 'Z' ? c : '#';
+    };
+    const int n = Count();
+    if (n <= 1) return focus;
+    // From the disc tile, forward is the first letter and back the last.
+    const int from = focus > 0 && focus < n ? letter(focus) : (dir > 0 ? 0 : 0x7F);
+    int want = -1;  // the letter to go to
+    int lowest = 0x7F, highest = -1;
+    for (int i = 1; i < n; ++i) {
+        const int l = letter(i);
+        lowest = std::min(lowest, l);
+        highest = std::max(highest, l);
+        if (dir > 0 && l > from && (want < 0 || l < want)) want = l;
+        if (dir < 0 && l < from && l > want) want = l;
+    }
+    if (want < 0) want = dir > 0 ? lowest : highest;
+    for (int i = 1; i < n; ++i)
+        if (letter(i) == want) return i;
+    return focus;
+}
+
+bool GuiGameGrid::LetterKeys(GuiTrigger* t) {
+    if (t->chan < 0 || t->chan > 3) return false;
+    const int ch = t->chan;
+    const bool held = (t->wpad && (t->wpad->btns_h & (WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B))) ||
+                      (t->pad.btns_h & PAD_TRIGGER_L) || (t->wiidrcdata.btns_h & WIIDRC_BUTTON_B);
+    const auto go = [&](int target) {
+        if (target == focus) return;
+        Focus(target);
+        shelfHover = -1;
+        hover = -1;
+        soundOver->Play();
+    };
+    if (!held) {
+        if (letterHeld[ch] && !letterUsed[ch]) go(LetterTarget(1));
+        letterHeld[ch] = false;
+        return false;
+    }
+    if (!letterHeld[ch]) {
+        letterHeld[ch] = true;
+        letterUsed[ch] = false;
+    }
+    // L and R together are the screenshot combo (with Down): not letters,
+    // and letting go of L afterwards is no letter either.
+    if (t->pad.btns_h & PAD_TRIGGER_R) {
+        letterUsed[ch] = true;
+        return true;
+    }
+    if (t->Right() || t->Left()) {
+        go(LetterTarget(t->Right() ? 1 : -1));
+        letterUsed[ch] = true;
+    } else if (t->Down() || t->Up()) {
+        const int delta = t->Down() ? 1 : -1;
+        if (shelf) ShelfStep(delta * kPerPage);
+        else TurnPage(delta);
+        letterUsed[ch] = true;
+    }
+    return true;
+}
+
 void GuiGameGrid::Update(GuiTrigger* t) {
     if (state == STATE::DISABLED || !t || Count() == 0) return;
+    if (LetterKeys(t)) return;
     if (shelf) {
         UpdateShelf(t);
         return;

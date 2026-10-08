@@ -88,6 +88,15 @@ private:
     std::string Fit(const std::string& text, int width);
     void Layout();  // fits the visible titles
     void TurnPage(int delta);
+    // Letters, as WiiFlow does: B held (L on a GameCube controller) with
+    // right or left goes to the first game of the next or the previous
+    // letter, wrapping round; with down or up, a page. B pressed alone goes
+    // to the next letter when it is let go. True while B is held: the
+    // directions are the letters', not the focus's.
+    bool LetterKeys(GuiTrigger* t);
+    int LetterTarget(int dir) const;
+    bool letterHeld[4] = {};
+    bool letterUsed[4] = {};
     int SlotAt(int x, int y) const;
     int ArrowAt(int x, int y) const;  // -1 left, +1 right, 0 none
     void DrawNameTile(int i, bool on, int alpha);

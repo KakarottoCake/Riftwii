@@ -35,7 +35,7 @@
 - **Saves kept apart.** Modded saves can live on the SD card, away from your Wii saves.
 - **Per game settings.** Cheats (downloaded for you), picture width, deflicker, borders, video mode (480p, PAL 60), game language and cIOS.
 - **Online play.** Wiimmfi, WiiLink WFC, AltWFC or your own server.
-- **Feels like a Wii.** Covers and names from GameTDB, favourites, recently played, an A to Z jump, a HOME Menu and five languages.
+- **Feels like a Wii.** Covers and names from GameTDB, favourites, recently played, letter jumps (hold B and press a direction), a HOME Menu and five languages.
 - **Any controller.** Wii Remote, Classic Controller, GameCube controller, the GameCube adapter for Wii U, and USB pads through fakemote.
 - **A Wii Menu channel**, on a Wii or a Wii U, and **updates** from inside RiftWii (Stable or Beta).
 - **Experimental:** burned Wii discs, in the Wii's drive or a USB DVD drive.
