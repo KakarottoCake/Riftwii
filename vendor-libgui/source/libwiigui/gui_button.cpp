@@ -7,8 +7,13 @@
  *
  * GUI class definitions
  ***************************************************************************/
+/* Changed for RiftWii (October 2026), under GPL-3.0-or-later: a button
+ * lit by the pointer or the D-pad grows a little and its lit picture
+ * fades in, both eased, instead of switching at once.
+ * Every change is in RiftWii's git history; NOTICE.md lists the origin. */
 
 #include "gui.h"
+#include "video.h"
 /**
  * Constructor for the GuiButton class.
  */
@@ -137,6 +142,41 @@ void GuiButton::Draw()
 	if(!this->IsVisible())
 		return;
 
+	// Lit: eased in and out over a few frames.
+	const bool lit = state == STATE::SELECTED || state == STATE::HELD;
+	litAmount += ((lit ? 1.0f : 0.0f) - litAmount) * 0.3f;
+	if (litAmount < 0.01f) litAmount = 0.0f;
+	if (litAmount > 0.99f) litAmount = 1.0f;
+	if (litAmount > 0.0f && litAmount < 1.0f)
+	{
+		// Grown about its middle (image, icon and text together), and the
+		// lit picture over the plain one as it fades in.
+		const f32 k = 1.0f + 0.035f * litAmount;
+		Menu_PushCamera(k, this->GetLeft() + this->GetWidth() / 2.0f, this->GetTop() + this->GetHeight() / 2.0f);
+		if (image)
+			image->Draw();
+		if (imageOver)
+		{
+			const int a = imageOver->GetAlpha();
+			imageOver->SetAlpha((int)(a * litAmount));
+			imageOver->Draw();
+			imageOver->SetAlpha(a);
+		}
+		if (icon)
+			icon->Draw();
+		for (int i = 0; i < 3; ++i)
+		{
+			GuiText* t = lit && labelOver[i] ? labelOver[i] : label[i];
+			if (t)
+				t->Draw();
+		}
+		Menu_PopCamera();
+		this->UpdateEffects();
+		return;
+	}
+	if (litAmount >= 1.0f)
+		Menu_PushCamera(1.035f, this->GetLeft() + this->GetWidth() / 2.0f, this->GetTop() + this->GetHeight() / 2.0f);
+
 	if(state == STATE::SELECTED || state == STATE::HELD)
 	{
 		if(imageOver)
@@ -181,6 +221,8 @@ void GuiButton::Draw()
 			label[2]->Draw();
 	}
 
+	if (litAmount >= 1.0f)
+		Menu_PopCamera();
 	this->UpdateEffects();
 }
 

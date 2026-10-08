@@ -72,6 +72,7 @@ public:
 	//!\param t Pointer to a GuiTrigger, containing the current input data from PAD/WPAD
 	void Update(GuiTrigger * t);
 protected:
+		float litAmount = 0.0f;  //!< RiftWii: how lit, eased (Draw)
 	GuiImage * image; //!< Button image (default)
 	GuiImage * imageOver; //!< Button image for STATE_SELECTED
 	GuiImage * imageHold; //!< Button image for STATE_HELD

@@ -72,6 +72,10 @@ private:
     const std::vector<FlowRow>* rows = nullptr;
     int x0, y0, rowWidth, visible;
     float scroll = 0, aim = 0, fling = 0;  // pixels from the top
+    float litPos = 0, litFade = 0;          // the highlight: at which row (eased), how shown
+    std::vector<float> switchPos;           // each switch, 0 off to 1 on (eased; -1 not drawn yet)
+    std::vector<std::string> shownValue;    // each row's value as last drawn
+    std::vector<float> valueIn;             // and how far a new one has come in
     int focus = 0, hover = -1;
     Part hoverPart = Part::None;
     int clicked = -1, clickedBack = -1;

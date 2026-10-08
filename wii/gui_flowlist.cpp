@@ -225,6 +225,23 @@ void GuiFlowList::Draw() {
 
     const int lit = dragging ? -1 : hover >= 0 ? hover : (AnyPointer() ? -1 : focus);
     const int right = ControlsRight();
+    // The highlight glides to the lit row, and fades in or out when there
+    // is none (the pointer off the list).
+    const bool litShown = lit >= 0 && lit < Count() && (*rows)[lit].kind != FlowRow::Kind::Info;
+    if (litShown) {
+        if (litFade <= 0.0f) litPos = static_cast<float>(lit);
+        litPos += (lit - litPos) * 0.35f;
+        if (std::fabs(lit - litPos) < 0.01f) litPos = static_cast<float>(lit);
+    }
+    litFade += ((litShown ? 1.0f : 0.0f) - litFade) * 0.3f;
+    if (litFade < 0.02f) litFade = 0.0f;
+    if (litFade > 0.0f)
+        skin::Draw(skin::rowFocus, x0, y0 + litPos * kRowHeight - scroll, static_cast<int>(alpha * litFade));
+    if (static_cast<int>(switchPos.size()) != Count()) {
+        switchPos.assign(Count(), -1.0f);
+        shownValue.assign(Count(), std::string());
+        valueIn.assign(Count(), 1.0f);
+    }
     for (int i = 0; i <= visible; ++i) {
         const int index = first + i;
         if (index >= Count()) break;
@@ -232,8 +249,9 @@ void GuiFlowList::Draw() {
         const int y = y0 + index * kRowHeight - static_cast<int>(scroll + 0.5f);
         if (y >= y0 + boxH) break;
         const bool isLit = index == lit && r.kind != FlowRow::Kind::Info;
-        if (isLit) skin::Draw(skin::rowFocus, x0, y, alpha);
-        else if (index + 1 < Count() && !(index + 1 == lit) &&
+        if (isLit) {
+            // (the highlight, drawn above)
+        } else if (index + 1 < Count() && !(index + 1 == lit) &&
                  !(r.kind == FlowRow::Kind::Info && (*rows)[index + 1].kind == FlowRow::Kind::Info))
             Menu_DrawRectangle(x0 + kPad, y + kRowHeight - 1, rowWidth - 2 * kPad, 1,
                                skin::WithAlpha(skin::kDivider, alpha), 1);
@@ -244,11 +262,20 @@ void GuiFlowList::Draw() {
 
         const int cy = y + (kRowHeight - kChipH) / 2;  // controls' top
         const int textY = y + (kRowHeight - 15) / 2 - 2;
+        // A value that just changed comes in from the side, fading up.
+        if (shownValue[index] != r.value) {
+            if (!shownValue[index].empty() || valueIn[index] < 1.0f) valueIn[index] = 0.0f;
+            shownValue[index] = r.value;
+        }
+        valueIn[index] += (1.0f - valueIn[index]) * 0.25f;
+        if (valueIn[index] > 0.98f) valueIn[index] = 1.0f;
         const auto chipText = [&](int cx) {
             const int tw = value[i]->GetTextWidth();
             const int shown = tw > kChipW - 20 ? kChipW - 20 : tw;
-            value[i]->SetPosition(cx + (kChipW - shown) / 2, textY);
+            value[i]->SetPosition(cx + (kChipW - shown) / 2 + static_cast<int>(10.0f * (1.0f - valueIn[index])), textY);
+            value[i]->SetAlpha(static_cast<int>(255 * valueIn[index]));
             value[i]->Draw();
+            value[i]->SetAlpha(255);
         };
         switch (r.kind) {
             case FlowRow::Kind::Option:
@@ -268,7 +295,14 @@ void GuiFlowList::Draw() {
                 break;
             case FlowRow::Kind::Toggle: {
                 const int swX = right - kSwitchW;
-                skin::Draw(r.on ? skin::switchOn : skin::switchOff, swX - 3, cy - 4, r.dim ? alpha / 2 : alpha);
+                // Switched: one picture fades into the other.
+                float& sw = switchPos[index];
+                if (sw < 0.0f) sw = r.on ? 1.0f : 0.0f;
+                sw += ((r.on ? 1.0f : 0.0f) - sw) * 0.3f;
+                if (std::fabs((r.on ? 1.0f : 0.0f) - sw) < 0.02f) sw = r.on ? 1.0f : 0.0f;
+                const int swAlpha = r.dim ? alpha / 2 : alpha;
+                if (sw < 1.0f) skin::Draw(skin::switchOff, swX - 3, cy - 4, swAlpha);
+                if (sw > 0.0f) skin::Draw(skin::switchOn, swX - 3, cy - 4, static_cast<int>(swAlpha * sw));
                 const int tw = value[i]->GetTextWidth();
                 value[i]->SetPosition(swX - 12 - tw, textY);
                 value[i]->Draw();
