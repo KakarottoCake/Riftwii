@@ -656,6 +656,10 @@ Updates** picks which ones RiftWii offers: **Stable** only stable
 versions, **Beta** every new version. A stable version starts on Stable
 and a beta on Beta.
 
+An update from inside RiftWii also brings the themes that come with it
+(Bookshelf, Midnight) up to date, the first time the new version starts
+online. Themes you made or downloaded are left alone.
+
 **Experimental** features are in stable versions too, but they are not
 yet confirmed on real Wiis and may not work on yours. The menu marks
 them (a note before the launch, or "Experimental" in the Settings note):

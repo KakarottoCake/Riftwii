@@ -12,6 +12,7 @@
 #include <cerrno>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <ctime>
 
 #include <gccore.h>
@@ -24,6 +25,7 @@
 #include "riftwii/cheats.hpp"
 #include "riftwii/dol.hpp"
 #include "riftwii/http.hpp"
+#include "riftwii/themepack.hpp"
 #include "riftwii/update.hpp"
 
 namespace riftwii::wii {
@@ -35,6 +37,10 @@ constexpr std::time_t kWeek = 7 * 24 * 60 * 60;
 constexpr const char* kReleasesApi = "https://api.github.com/repos/KakarottoCake/Riftwii/releases?per_page=1";
 constexpr const char* kLatestApi = "https://api.github.com/repos/KakarottoCake/Riftwii/releases/latest";
 constexpr const char* kUpdateNote = "sd:/riftwii/update.txt";
+constexpr const char* kReleaseByTagApi = "https://api.github.com/repos/KakarottoCake/Riftwii/releases/tags/";
+constexpr const char* kThemePackAsset = "riftwii-themes.pack";
+// The version whose themes are on the card (ApplyThemePack).
+constexpr const char* kThemesDone = "sd:/riftwii/themes_updated.txt";
 
 // Hosts that could not be connected to this session: asked again, they
 // fail at once, so a server the network cannot reach (GameTDB, for one
@@ -343,9 +349,139 @@ struct StartCheck {
 };
 StartCheck g_start_check;
 
+// The themes this release comes with, for a RiftWii the in-app update
+// installed (a zip brings its own): fetched with the start's check, on its
+// thread; written on Home's (ApplyThemePack), once per version.
+std::vector<std::uint8_t> g_theme_pack;
+bool g_theme_pack_none = false;  // the release has no pack: nothing to wait for
+
+std::string FirstLine(const char* path) {
+    std::string text;
+    if (FILE* f = std::fopen(path, "rb")) {
+        char line[128];
+        if (std::fgets(line, sizeof(line), f)) text = line;
+        std::fclose(f);
+    }
+    while (!text.empty() && (text.back() == '\n' || text.back() == '\r')) text.pop_back();
+    return text;
+}
+
+void FetchThemePack() {
+    g_theme_pack.clear();
+    g_theme_pack_none = false;
+    const UpdateNote note = ReadUpdateNote();
+    if (note.installed.empty() || compare_versions(note.installed, RIFTWII_VERSION) != 0) return;
+    if (FirstLine(kThemesDone) == RIFTWII_VERSION) return;
+    std::vector<std::uint8_t> body;
+    std::string error;
+    if (!HttpGet(kReleaseByTagApi + note.installed, body, error, 256u << 10)) {
+        logf("Themes: cannot ask GitHub about %s: %s\n", note.installed.c_str(), error.c_str());
+        return;
+    }
+    ReleaseAsset pack;
+    if (!release_asset_from_json(std::string(body.begin(), body.end()), kThemePackAsset, pack) || pack.url.empty()) {
+        logf("Themes: %s has no %s\n", note.installed.c_str(), kThemePackAsset);
+        g_theme_pack_none = true;
+        return;
+    }
+    std::vector<std::uint8_t>().swap(body);
+    if (!HttpGet(pack.url, body, error, 16u << 20, 30000)) {
+        logf("Themes: %s: %s\n", kThemePackAsset, error.c_str());
+        return;
+    }
+    if ((pack.size != 0 && body.size() != pack.size) || (!pack.sha256.empty() && Sha256Hex(body) != pack.sha256)) {
+        logf("Themes: %s did not arrive whole (%u bytes)\n", kThemePackAsset, static_cast<unsigned>(body.size()));
+        return;
+    }
+    g_theme_pack.swap(body);
+}
+
+// Whether `path` holds exactly these bytes.
+bool SameFile(const std::string& path, const std::uint8_t* data, std::size_t size) {
+    struct stat st;
+    if (stat(path.c_str(), &st) != 0 || static_cast<std::size_t>(st.st_size) != size) return false;
+    FILE* f = std::fopen(path.c_str(), "rb");
+    if (!f) return false;
+    std::uint8_t chunk[4096];
+    std::size_t at = 0;
+    bool same = true;
+    while (same && at < size) {
+        const std::size_t want = std::min(sizeof(chunk), size - at);
+        same = std::fread(chunk, 1, want, f) == want && std::memcmp(chunk, data + at, want) == 0;
+        at += want;
+    }
+    std::fclose(f);
+    return same;
+}
+
+void MarkThemesDone() {
+    if (FILE* f = std::fopen(kThemesDone, "wb")) {
+        std::fprintf(f, "%s\n", RIFTWII_VERSION);
+        std::fclose(f);
+    }
+}
+
+// sd:/riftwii/themes brought up to the pack: its themes' files written
+// where they differ (a player's own themes are not touched), retired
+// themes' files removed. On Home's thread, the GUI halted.
+void ApplyThemePack() {
+    if (g_theme_pack_none) {
+        g_theme_pack_none = false;
+        MarkThemesDone();
+    }
+    if (g_theme_pack.empty()) return;
+    std::vector<std::uint8_t> bytes;
+    bytes.swap(g_theme_pack);
+    ThemePack pack;
+    std::string error;
+    if (!parse_theme_pack(bytes.data(), bytes.size(), pack, error)) {
+        logf("Themes: %s: %s\n", kThemePackAsset, error.c_str());
+        MarkThemesDone();
+        return;
+    }
+    const std::string root = "sd:/riftwii/themes/";
+    mkdir("sd:/riftwii", 0777);
+    mkdir("sd:/riftwii/themes", 0777);
+    unsigned written = 0, same = 0, failed = 0;
+    for (const ThemePackFile& f : pack.files) {
+        const std::string path = root + f.path;
+        mkdir((root + f.path.substr(0, f.path.find('/'))).c_str(), 0777);
+        if (SameFile(path, bytes.data() + f.offset, f.size)) {
+            ++same;
+            continue;
+        }
+        const std::vector<std::uint8_t> data(bytes.begin() + static_cast<std::ptrdiff_t>(f.offset),
+                                             bytes.begin() + static_cast<std::ptrdiff_t>(f.offset + f.size));
+        if (write_file(path, data, error)) {
+            ++written;
+        } else {
+            ++failed;
+            logf("Themes: %s\n", error.c_str());
+        }
+    }
+    for (const RetiredTheme& r : pack.retired) {
+        const std::string dir = root + r.name;
+        unsigned removed = 0;
+        for (const std::string& name : r.files) removed += std::remove((dir + "/" + name).c_str()) == 0;
+        rmdir(dir.c_str());  // only when nothing of the player's is left in it
+        if (removed) logf("Themes: %s retired (%u file(s) removed)\n", r.name.c_str(), removed);
+        if (Settings().theme == r.name) {
+            struct stat st;
+            const bool there = !r.replacement.empty() && stat((root + r.replacement).c_str(), &st) == 0;
+            Settings().theme = there ? r.replacement : "default";
+            SaveSettings();
+            logf("Themes: the theme in use is now %s\n", Settings().theme.c_str());
+        }
+    }
+    logf("Themes: %u file(s) brought up to %s's, %u already were%s\n", written, RIFTWII_VERSION, same,
+         failed ? " (some could not be written; tried again next start)" : "");
+    if (!failed) MarkThemesDone();
+}
+
 void RunStartCheck() {
     StartCheck& c = g_start_check;
     c.ok = CheckChannel(c.channel, false, c.latest, c.newer, c.error);
+    FetchThemePack();
 }
 
 }  // namespace
@@ -370,6 +506,7 @@ bool TakeUpdateCheck(bool& ok, std::string& latest, bool& newer, std::string& er
     if (g_start_check.taken || NetBackgroundBusy()) return false;
     NetWaitForBackground();
     g_start_check.taken = true;
+    ApplyThemePack();
     ok = g_start_check.ok;
     latest = g_start_check.latest;
     newer = g_start_check.newer;
