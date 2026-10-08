@@ -32,6 +32,7 @@
 #include <atomic>
 #include <ctime>
 #include <fstream>
+#include <functional>
 #include <initializer_list>
 #include <set>
 #include <unordered_map>
@@ -47,6 +48,8 @@
 #include "vsdimage.hpp"
 #include "bannerplay.hpp"
 #include "banners.hpp"
+#include "bannersound.hpp"
+#include "riftwii/bnr.hpp"
 #include "boxart.hpp"
 #include "covers.hpp"
 #include "riftwii/coverart.hpp"
@@ -941,48 +944,105 @@ static void FlightBack(float t)
 }
 static void FlightLanded() { SetShelfFlying(""); }
 
-static bool ShowChannel(const std::string& id)
+// The game `index` of `count` shown as the Wii Menu shows a channel: its
+// banner, playing, with its sound; Back, or Continue to start it. The
+// arrows at the sides (or the D-pad's left and right) go to the games
+// before and after it that have a banner, as the Wii Menu goes from
+// channel to channel; `load` reads a game's opening.bnr (false: none).
+// True for Continue, with `index` the game shown last. Built and closed
+// with the GUI halted.
+using BannerLoader = std::function<bool(int index, std::vector<std::uint8_t>& bytes)>;
+static bool ShowChannel(int& index, int count, const std::string& firstId, const BannerLoader& load,
+	const std::function<std::string(int)>& idOf)
 {
-	std::vector<std::uint8_t> bytes;
-	if (!riftwii::wii::LoadBanner(id, bytes)) return true;
 	ChannelView view;
-	std::string error;
-	if (!view.player.Load(bytes, false, error)) {
-		logf("Banner of %s: %s\n", id.c_str(), error.c_str());
+	std::string shownId;
+	const auto logShown = [&] {
+		if (view.frames == 0) return;
+		logf("Banner of %s: %u frames; the CPU drew each in %.1f ms on average, %.1f ms at most; %u frame(s) late "
+		     "(more than 20 ms after the one before)\n",
+		     shownId.c_str(), view.frames, view.drawTotalUs / 1000.0 / view.frames, view.drawMaxUs / 1000.0, view.late);
+		view.frames = view.late = 0;
+		view.drawTotalUs = view.drawMaxUs = view.lastDraw = 0;
+	};
+	// Puts game `i`'s banner up (and its sound on). False when it has none.
+	const auto open = [&](int i) {
+		std::vector<std::uint8_t> bytes;
+		if (!load(i, bytes)) return false;
+		std::string error;
+		riftwii::OpeningBanner parts;
+		std::vector<std::uint8_t> sound;
+		if (riftwii::parse_opening_bnr(bytes.data(), bytes.size(), parts, error, false)) sound.swap(parts.sound);
+		parts = riftwii::OpeningBanner();
+		if (!view.player.Load(bytes, false, error)) {
+			logf("Banner of %s: %s\n", idOf(i).c_str(), error.c_str());
+			return false;
+		}
+		logShown();
+		shownId = idOf(i);
+		index = i;
+		std::vector<std::uint8_t>().swap(bytes);
+		riftwii::wii::BannerSoundStart(sound);
+		logf("Screen: channel %s\n", shownId.c_str());
 		return true;
-	}
-	std::vector<std::uint8_t>().swap(bytes);
+	};
+	if (!open(index)) return true;
+	(void)firstId;
 	view.player.SetWidescreen(riftwii::wii::MenuWidescreen());
 	SkinButton backBtn(skin::pill, skin::pillOver, 4, 70, 384, tr("Back"),
 		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B | WPAD_BUTTON_HOME | WPAD_CLASSIC_BUTTON_HOME, PAD_BUTTON_B,
 		WIIDRC_BUTTON_B | WIIDRC_BUTTON_HOME);
 	SkinButton goBtn(skin::pillPrimary, skin::pillPrimaryOver, 4, 326, 384, tr("Continue"),
 		WPAD_BUTTON_A | WPAD_CLASSIC_BUTTON_A, PAD_BUTTON_A, WIIDRC_BUTTON_A);
+	// The arrows at the screen's sides, level with the banner's middle.
+	f32 safeX, safeW;
+	Menu_SafeArea(&safeX, &safeW);
+	const int wide = safeX < 0 ? static_cast<int>(-safeX) : 0;
+	SkinButton prevBtn(skin::arrowLeft, skin::arrowLeftOver, 2, 10 - wide, 155, nullptr,
+		WPAD_BUTTON_LEFT | WPAD_CLASSIC_BUTTON_LEFT, PAD_BUTTON_LEFT, WIIDRC_BUTTON_LEFT);
+	SkinButton nextBtn(skin::arrowRight, skin::arrowRightOver, 2, 586 + wide, 155, nullptr,
+		WPAD_BUTTON_RIGHT | WPAD_CLASSIC_BUTTON_RIGHT, PAD_BUTTON_RIGHT, WIIDRC_BUTTON_RIGHT);
 	GuiWindow w(screenwidth, screenheight);
 	w.Append(&view);
+	if (count > 1) {
+		w.Append(&prevBtn.button);
+		w.Append(&nextBtn.button);
+	}
 	w.Append(&backBtn.button);
 	w.Append(&goBtn.button);
 	mainWindow->SetState(STATE::DISABLED);
 	mainWindow->Append(&w);
 	w.SetState(STATE::DEFAULT);
-	logf("Screen: channel %s\n", id.c_str());
 	ResumeGui();
 	int choice = -1;
 	while (choice < 0) {
 		usleep(20000);
+		riftwii::wii::BannerSoundUpdate();
 		HaltGui();
-		ClearStaleButtons({&backBtn.button, &goBtn.button});
+		ClearStaleButtons({&backBtn.button, &goBtn.button, &prevBtn.button, &nextBtn.button});
 		if (backBtn.Clicked()) choice = 1;
 		else if (goBtn.Clicked()) choice = 0;
+		else if (prevBtn.Clicked() || nextBtn.Clicked()) {
+			const int dir = nextBtn.Clicked() ? 1 : -1;
+			prevBtn.button.ResetState();
+			nextBtn.button.ResetState();
+			// The next game round that has a banner; the banner slides to it
+			// (Home's page turn, inside the banner only), the buttons stay.
+			riftwii::wii::BannerSoundStop();
+			f32 vx, vy, vw, vh;
+			Menu_VisibleArea(&vx, &vy, &vw, &vh);
+			transition::Begin(dir > 0 ? transition::Kind::PageForward : transition::Kind::PageBack,
+				transition::Rect{vx, vy, vw, kChannelBarTop - vy});
+			for (int step = 1; step < count; ++step) {
+				if (open(((index + dir * step) % count + count) % count)) break;
+			}
+		}
 		if (choice < 0) ResumeGui();
 	}
+	riftwii::wii::BannerSoundStop();
 	mainWindow->Remove(&w);
 	mainWindow->SetState(STATE::DEFAULT);
-	if (view.frames > 0) {
-		logf("Banner of %s: %u frames; the CPU drew each in %.1f ms on average, %.1f ms at most; %u frame(s) late "
-		     "(more than 20 ms after the one before)\n",
-		     id.c_str(), view.frames, view.drawTotalUs / 1000.0 / view.frames, view.drawMaxUs / 1000.0, view.late);
-	}
+	logShown();
 	return choice == 0;
 }
 
@@ -2389,10 +2449,10 @@ static int MenuSource(FrontendState& state)
 			dateTxt.SetText(date.c_str());
 		}
 
-		const int clicked = grid.GetClicked();
+		int clicked = grid.GetClicked();
 		if (clicked >= 0 && static_cast<std::size_t>(clicked) < entries.size()) {
 			g_homeFocus = clicked;
-			const HomeEntry entry = entries[static_cast<std::size_t>(clicked)];
+			HomeEntry entry = entries[static_cast<std::size_t>(clicked)];
 			transition::Rect tile;
 			if (!grid.TileRect(clicked, tile.x, tile.y, tile.w, tile.h)) tile = transition::Rect{};
 			g_openRect = tile;
@@ -2402,7 +2462,36 @@ static int MenuSource(FrontendState& state)
 			if (grid.Channels() && entry.kind != HomeEntry::Kind::Disc &&
 				!g_bannerAbsent.count(items[static_cast<std::size_t>(clicked)].id)) {
 				transition::Begin(transition::Kind::ZoomIn, tile);
-				if (!ShowChannel(items[static_cast<std::size_t>(clicked)].id)) {
+				// Another game's banner, from the arrows: read from its image
+				// first when it is not on the card yet.
+				const BannerLoader loadBanner = [&](int i, std::vector<std::uint8_t>& bytes) {
+					if (i < 0 || static_cast<std::size_t>(i) >= entries.size()) return false;
+					const HomeEntry& e = entries[static_cast<std::size_t>(i)];
+					if (e.kind == HomeEntry::Kind::Disc) return false;
+					const std::string& id = items[static_cast<std::size_t>(i)].id;
+					if (riftwii::wii::LoadBanner(id, bytes)) return true;
+					if (!riftwii::wii::BannerWanted(id)) return false;
+					const riftwii::wii::ImageGame& game = e.kind == HomeEntry::Kind::Usb ? state.usb_catalog.games[e.index]
+						: state.sd_catalog.games[e.index];
+					std::string why;
+					g_bannersTried.insert(id);
+					if (!riftwii::wii::StoreBanner(game, why)) return false;
+					g_bannerAbsent.erase(id);
+					return riftwii::wii::LoadBanner(id, bytes);
+				};
+				int shown = clicked;
+				const bool go = ShowChannel(shown, static_cast<int>(entries.size()), items[static_cast<std::size_t>(clicked)].id,
+					loadBanner, [&](int i) { return items[static_cast<std::size_t>(i)].id; });
+				if (shown != clicked) {
+					// Home follows to the game shown last: its tile lit, its page up.
+					clicked = shown;
+					g_homeFocus = clicked;
+					entry = entries[static_cast<std::size_t>(clicked)];
+					grid.Focus(clicked);
+					if (!grid.TileRect(clicked, tile.x, tile.y, tile.w, tile.h)) tile = transition::Rect{};
+					g_openRect = tile;
+				}
+				if (!go) {
 					transition::Begin(transition::Kind::ZoomOut, tile);
 					ResumeGui();
 					continue;
