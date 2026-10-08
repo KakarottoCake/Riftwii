@@ -290,20 +290,21 @@ int main() {
     if (restart.kind != riftwii::wii::RestartKind::None) {
         riftwii::wii::logf("Restarted: %s\n", restart.message.c_str());
     }
-    int session_slot = restart.kind == riftwii::wii::RestartKind::BurnedDisc ? riftwii::wii::BurnedDiscSlot() : 0;
-    const char* session_why = "to read a burned disc";
+    riftwii::wii::StartMenuIos(sd_mounted, restart.kind != riftwii::wii::RestartKind::None,
+                               restart.kind == riftwii::wii::RestartKind::BurnedDisc ? riftwii::wii::BurnedDiscSlot() : 0);
     // The Wii Menu's font is behind IOS's NAND permission check, which
     // RiftWii can only open with hardware access (open_nand_permissions).
-    // Started without it (an older Homebrew Channel, or a Wii that did not
-    // honour the channel's request), the menu runs on a d2x cIOS for this
-    // session instead, as it does for a burned disc: d2x leaves the check
-    // out. Not when a menu IOS is chosen in Settings (that one stays).
-    if (session_slot == 0 && sd_mounted && riftwii::wii::Settings().menu_font == "wii" &&
-        read32(0x0D800064) != 0xFFFFFFFF && !riftwii::wii::running_in_dolphin() && riftwii::wii::LoadMenuIos() == 0) {
-        session_slot = riftwii::wii::BurnedDiscSlot();
-        session_why = "to read the Wii Menu's font (no hardware access)";
+    // Without it (an older Homebrew Channel, a Wii that did not honour the
+    // channel's request, or a restart's fresh IOS58, which takes it away)
+    // the menu moves onto a d2x cIOS for this session, as it does for a
+    // burned disc: d2x leaves the check out. Asked after the IOS above is
+    // up, since a restart's reload changes what the menu has. Not when a
+    // menu IOS is chosen in Settings (that one stays).
+    if (sd_mounted && riftwii::wii::Settings().menu_font == "wii" && read32(0x0D800064) != 0xFFFFFFFF &&
+        !riftwii::wii::running_in_dolphin() && riftwii::wii::MenuCiosSlot() == 0 && riftwii::wii::LoadMenuIos() == 0) {
+        if (const int slot = riftwii::wii::BurnedDiscSlot())
+            riftwii::wii::StartMenuIos(sd_mounted, false, slot, "to read the Wii Menu's font (no hardware access)");
     }
-    riftwii::wii::StartMenuIos(sd_mounted, restart.kind != riftwii::wii::RestartKind::None, session_slot, session_why);
     SetHomeNotice(restart.message);
     if (sd_mounted) riftwii::wii::ImportGameCrash();
     FrontendState state;
