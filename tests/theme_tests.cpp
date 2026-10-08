@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
+#include <cstdlib>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -458,9 +459,25 @@ static void test_painted_images() {
     red.stripes = false;
     Canvas chip(0, 0), back(0, 0);
     EXPECT_TRUE(paint_theme_image("chip_on", red, chip));
-    EXPECT_EQ(int(chip.at(106, 18).r), 200);
-    EXPECT_EQ(int(chip.at(106, 18).g), 10);
+    // Shaded top to bottom about the theme's colour: its middle is (nearly) the colour.
+    EXPECT_TRUE(std::abs(int(chip.at(106, 18).r) - 200) <= 4);
+    EXPECT_TRUE(std::abs(int(chip.at(106, 18).g) - 10) <= 1);
     EXPECT_TRUE(paint_theme_image("background", red, back));
+    // The pieces painted on the Wii as needed: their sizes.
+    Canvas piece(0, 0);
+    for (int k = 0; k < 4; ++k) {
+        paint_key(def, k, piece);
+        EXPECT_EQ(piece.width(), 40);
+        EXPECT_EQ(piece.height(), 40);
+    }
+    paint_card9(def, piece);
+    EXPECT_EQ(piece.width(), 64);
+    paint_capsule9(piece);
+    EXPECT_EQ(piece.width(), 48);
+    paint_notice_icon(def, true, piece);
+    EXPECT_EQ(piece.width(), 28);
+    EXPECT_TRUE(paint_theme_image("home_button_over", def, piece));
+    EXPECT_EQ(piece.width(), 264);
     EXPECT_EQ(int(back.at(5, 2).r), 1);
     EXPECT_EQ(int(back.at(5, 2).b), 3);
 

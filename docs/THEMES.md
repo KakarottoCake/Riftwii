@@ -81,7 +81,7 @@ shows:
 | `chip_off` | `#F4F4F6` | An option's value box at its default |
 | `chip_off_edge` | `#D0D0D8` | Its outline |
 | `switch_off` | `#D4D4DB` | An On/Off switch when off |
-| `bar` | `#F7F7F9` | Home's bottom bar, the HOME Menu's top bar |
+| `bar` | `#DEDEE4` | Home's bottom bar, the banner screen's and the title bands (a shade under the backdrop) |
 | `backdrop` | `#ECECEF` | Behind every screen |
 | `backdrop_stripe` | `#E3E3E8` | The backdrop's thin stripes |
 | `banner_stripe` | `#FFFFFF14` | Stripes over a game page's banner |

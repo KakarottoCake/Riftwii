@@ -711,6 +711,41 @@ static void BuildHome(const FrontendState& state, std::vector<GridItem>& items, 
 }
 
 // The bottom bar with the clock's bump.
+// A flat band in the bar's colours from `top` down to the screen's
+// bottom: a shadow over what is above it, the accent's line with a lit
+// edge under it, faint lines across the body, a little darker lower down
+// (the Wii Menu's bottom panels).
+static void DrawBand(int top)
+{
+	Menu_FillScreen(top - 5, 5, (GXColor){0, 0, 0, 14});
+	Menu_FillScreen(top - 2, 2, (GXColor){0, 0, 0, 18});
+	Menu_FillScreen(top, 1000, skin::kBar);
+	const auto darker = [](GXColor c, float k) {
+		return (GXColor){static_cast<u8>(c.r * k), static_cast<u8>(c.g * k), static_cast<u8>(c.b * k), c.a};
+	};
+	// Shaded in steps down to the screen's bottom (480 at the most).
+	for (int y = top + 40; y < 480; y += 20) Menu_FillScreen(y, 20, darker(skin::kBar, 1.0f - 0.08f * (y - top) / 130.0f));
+	for (int y = top + 7; y < 480; y += 4) Menu_FillScreen(y, 2, (GXColor){0, 0, 0, 7});
+	Menu_FillScreen(top + 3, 2, (GXColor){255, 255, 255, 150});
+	Menu_FillScreen(top, 3, skin::kAccent);
+}
+
+// A page's title band (Settings and the pages under it), as Wii Settings'
+// own: the bar's colours from the screen's top down to kTitleBand, the
+// accent's line along its foot, a soft shadow under that.
+static constexpr int kTitleBand = 70;
+class TitleBand : public GuiElement {
+public:
+	void Draw() override {
+		Menu_FillScreen(-1000, 1000 + kTitleBand, skin::kBar);
+		for (int y = 3; y < kTitleBand - 4; y += 4) Menu_FillScreen(y, 2, (GXColor){0, 0, 0, 7});
+		Menu_FillScreen(kTitleBand - 5, 2, (GXColor){255, 255, 255, 150});
+		Menu_FillScreen(kTitleBand - 3, 3, skin::kAccent);
+		Menu_FillScreen(kTitleBand, 2, (GXColor){0, 0, 0, 26});
+		Menu_FillScreen(kTitleBand + 2, 3, (GXColor){0, 0, 0, 12});
+	}
+};
+
 class HomeBar : public GuiElement {
 public:
 	// Lifted by kLift so the round buttons (y 386) sit wholly inside the
@@ -733,6 +768,55 @@ private:
 };
 
 static std::string g_homeNotice;
+
+// A notice that slides down at Home's top and goes again: an error (the
+// warning colour's "!") or news (the accent's "i") on a card, the text
+// wrapped to three lines at most.
+class Toast : public GuiElement {
+public:
+	Toast() : text("", 17, skin::kInk) {
+		text.SetParent(this);
+		text.SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
+	}
+	void Show(const std::string& what, bool error) {
+		if (what.empty()) return;
+		text.SetWrap(false);
+		text.SetText(what.c_str());
+		const int one = text.GetTextWidth();
+		lines = one <= kMaxText ? 1 : std::min(3, (one * 108 / 100 + kMaxText - 1) / kMaxText);
+		textW = lines == 1 ? one : kMaxText;
+		if (lines > 1) text.SetWrap(true, kMaxText, 3);
+		isError = error;
+		start = gettime();
+		on = true;
+	}
+	void Draw() override {
+		if (!on) return;
+		const float ms = ticks_to_microsecs(gettime() - start) / 1000.0f / transition::SlowMotion();
+		const float stay = isError ? 9000.0f : 6000.0f;
+		float k = 1;
+		if (ms < 360) k = transition::EaseBack(ms / 360);
+		else if (ms > stay + 300) {
+			on = false;
+			return;
+		} else if (ms > stay) {
+			const float t = (ms - stay) / 300;
+			k = 1 - t * t;
+		}
+		const int boxW = textW + 70, boxH = lines * 21 + 24;
+		const float x = 320 - boxW / 2.0f, y = -boxH - 12 + (boxH + 24) * k;
+		skin::DrawNine(skin::card9, x - 8, y - 8, boxW + 16, boxH + 16, riftwii::kCardCorner);
+		skin::Draw(skin::noticeIcon[isError ? 1 : 0], x + 14, y + boxH / 2.0f - 14);
+		text.SetPosition(static_cast<int>(x) + 54, static_cast<int>(y) + 12);
+		text.Draw();
+	}
+private:
+	static constexpr int kMaxText = 470;
+	GuiText text;
+	int lines = 1, textW = 0;
+	bool isError = false, on = false;
+	u64 start = 0;
+};
 // Covers: the games looked at this session; off after a network failure.
 static std::set<std::string> g_coversChecked;
 static bool g_coversOff = false;
@@ -829,9 +913,7 @@ public:
 		++frames;
 		// The bar the buttons sit on, over the banner's bottom edge: the
 		// part the Wii Menu covers too, where banners leave their seams.
-		Menu_FillScreen(kChannelBarTop, 1000, skin::kBar);
-		Menu_FillScreen(kChannelBarTop, 3, skin::kAccent);
-		Menu_FillScreen(kChannelBarTop + 3, 4, (GXColor){0, 0, 0, 30});
+		DrawBand(kChannelBarTop);
 	}
 };
 
@@ -1242,24 +1324,44 @@ private:
 // 3 Priiloader, 4 power off.
 static int g_leave = 1;
 
-// The HOME Menu's band across the top.
+// The HOME Menu, as the Wii's: black bands across the top (its name and
+// Close) and the bottom (the Remotes' batteries), each edged with a fine
+// light line towards the middle, and the screen between them darkened
+// with fine lines across it.
+static constexpr int kHomeBandTop = 76, kHomeBandBottom = 392;
 class HomeBand : public GuiElement {
 public:
+	explicit HomeBand(bool bottom) : bottom(bottom) {}
 	void Draw() override {
-		Menu_FillScreen(-1000, 1070, skin::kBar);  // from the screen's top, whatever its size
-		Menu_FillScreen(70, 3, skin::kAccent);
-		Menu_FillScreen(73, 4, (GXColor){0, 0, 0, 36});
+		const GXColor body = {0, 0, 0, 255}, edge = {200, 200, 200, 255};
+		if (bottom) {
+			Menu_FillScreen(kHomeBandBottom, 1000, body);
+			Menu_FillScreen(kHomeBandBottom, 2, edge);
+		} else {
+			Menu_FillScreen(-1000, 1000 + kHomeBandTop, body);  // from the screen's top, whatever its size
+			Menu_FillScreen(kHomeBandTop - 2, 2, edge);
+		}
+	}
+private:
+	bool bottom;
+};
+class HomeDim : public GuiElement {
+public:
+	void Draw() override {
+		Menu_FillWholeScreen((GXColor){0, 0, 0, 200});
+		for (int y = kHomeBandTop; y < kHomeBandBottom; y += 5) Menu_FillScreen(y, 2, (GXColor){255, 255, 255, 14});
 	}
 };
 
-// Each connected Wii Remote's battery, as the Wii's own HOME Menu shows
-// it: P1 to P4, four bars each.
+// The Wii Remotes' batteries, as the Wii's own HOME Menu shows them: P1
+// to P4 in a capsule across the bottom band's edge, each with a battery
+// that fills in four bars (empty and dim for a Remote not connected).
 class HomeBatteries : public GuiElement {
 public:
 	HomeBatteries() {
 		for (int i = 0; i < 4; ++i) {
 			const std::string name = "P" + std::to_string(i + 1);
-			label[i] = new GuiText(name.c_str(), 18, skin::kInkSoft);
+			label[i] = new GuiText(name.c_str(), 22, skin::kWhite);
 			label[i]->SetParent(this);
 			label[i]->SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
 		}
@@ -1268,22 +1370,30 @@ public:
 		for (GuiText* l : label) delete l;
 	}
 	void Draw() override {
+		const int segW = 130, h = 36, left = 320 - 2 * segW, top = kHomeBandBottom - h / 2;
+		skin::DrawNine(skin::capsule9, left - 4, top - 4, 4 * segW + 8, h + 8, riftwii::kCapsuleCorner);
 		for (int i = 0; i < 4; ++i) {
 			u32 type = 0;
-			if (WPAD_Probe(i, &type) != WPAD_ERR_NONE) continue;
-			const int x = 118 + i * 110, y = 428;
-			label[i]->SetPosition(x, y - 1);
+			const bool on = WPAD_Probe(i, &type) == WPAD_ERR_NONE;
+			const int x = left + i * segW;
+			if (i > 0) Menu_DrawRectangle(x, top + 2, 2, h - 4, (GXColor){200, 200, 200, 255}, 1);
+			label[i]->SetColor(on ? skin::kWhite : (GXColor){120, 120, 120, 255});
+			label[i]->SetPosition(x + 22, top + 5);
 			label[i]->Draw();
-			// The status report's level follows the batteries' voltage: the
+			// The battery: an outline and its nub, filled bar by bar. The
+			// status report's level follows the batteries' voltage: the
 			// Wii Menu's bars step at about 14, 40, 66 and 92 (Dolphin's fit
 			// of it, charge = level * 2.46 / 255 - 0.013).
+			const int bx = x + 62, by = top + 10;
+			const GXColor line = on ? (GXColor){220, 220, 220, 255} : (GXColor){110, 110, 110, 255};
+			Menu_DrawRectangle(bx, by, 44, 16, line, 0);
+			Menu_DrawRectangle(bx + 1, by + 1, 42, 14, line, 0);
+			Menu_DrawRectangle(bx + 44, by + 4, 4, 8, line, 1);
+			if (!on) continue;
 			const int level = WPAD_BatteryLevel(i);
 			const int bars = level >= 92 ? 4 : level >= 66 ? 3 : level >= 40 ? 2 : level >= 14 ? 1 : 0;
-			for (int b = 0; b < 4; ++b) {
-				const GXColor c = b >= bars ? (GXColor){214, 214, 222, 255}
-					: bars == 1 ? (GXColor){222, 72, 72, 255} : skin::kAccent;
-				Menu_DrawRectangle(x + 30 + b * 11, y + 1, 8, 16, c, 1);
-			}
+			for (int k = 0; k < bars; ++k)
+				Menu_DrawRectangle(bx + 4 + k * 10, by + 4, 8, 8, bars == 1 ? (GXColor){222, 72, 72, 255} : skin::kAccent, 1);
 		}
 	}
 private:
@@ -1291,7 +1401,8 @@ private:
 };
 
 // Without a pointer, the D-pad moves between the HOME Menu's buttons
-// (two columns, Close under them) and A presses the one lit.
+// (two columns, Close above them in the top band) and A presses the one
+// lit.
 class HomeFocus : public GuiElement {
 public:
 	HomeFocus(GuiButton* const (&b)[5]) {
@@ -1304,8 +1415,8 @@ public:
 			return;
 		}
 		int to = focus;
-		if (t->Up()) to = focus == 4 ? 2 : focus >= 2 ? focus - 2 : focus;
-		else if (t->Down()) to = focus < 2 ? focus + 2 : 4;
+		if (t->Up()) to = focus == 4 ? 4 : focus >= 2 ? focus - 2 : 4;
+		else if (t->Down()) to = focus == 4 ? 1 : focus < 2 ? focus + 2 : focus;
 		else if (t->Left() && focus < 4) to = focus & ~1;
 		else if (t->Right() && focus < 4) to = focus | 1;
 		if (to != focus && soundOver) soundOver->Play();
@@ -1326,19 +1437,31 @@ private:
 // the GUI halted.
 static int ShowHomeMenu()
 {
-	Dim dim;
-	HomeBand band;
-	GuiText titleTxt(tr("HOME Menu"), 26, skin::kInk);
-	Place(titleTxt, 0, 20, true);
-	HomeBar bar;
+	HomeDim dim;
+	HomeBand band(false), lowBand(true);
+	// The name and Close at the band's ends, out to the TV's sides on a widescreen menu.
+	f32 safeX, safeW;
+	Menu_SafeArea(&safeX, &safeW);
+	const int wide = safeX < 0 ? static_cast<int>(-safeX) : 0;
+	GuiText titleTxt(tr("HOME Menu"), 32, skin::kWhite);
+	Place(titleTxt, 34 - wide, 18);
 	HomeBatteries batteries;
-	SkinButton hbcBtn(skin::homeBtn, skin::homeBtnOver, 8, 60, 104, tr("Homebrew Channel"), 0, 0, 0);
-	SkinButton menuBtn(skin::homeBtn, skin::homeBtnOver, 8, 332, 104, tr("Wii Menu"), 0, 0, 0);
-	SkinButton priiBtn(skin::homeBtn, skin::homeBtnOver, 8, 60, 196, "Priiloader", 0, 0, 0);
-	SkinButton offBtn(skin::homeBtn, skin::homeBtnOver, 8, 332, 196, tr("Power off"), 0, 0, 0);
-	SkinButton closeBtn(skin::pill, skin::pillOver, 4, 198, 292, tr("Close"),
+	// The four in the middle, between the bands.
+	const int row1 = (kHomeBandTop + kHomeBandBottom) / 2 - 85, row2 = row1 + 98;
+	SkinButton hbcBtn(skin::homeBtn, skin::homeBtnOver, 8, 60, row1, tr("Homebrew Channel"), 0, 0, 0);
+	SkinButton menuBtn(skin::homeBtn, skin::homeBtnOver, 8, 332, row1, tr("Wii Menu"), 0, 0, 0);
+	SkinButton priiBtn(skin::homeBtn, skin::homeBtnOver, 8, 60, row2, "Priiloader", 0, 0, 0);
+	SkinButton offBtn(skin::homeBtn, skin::homeBtnOver, 8, 332, row2, tr("Power off"), 0, 0, 0);
+	for (SkinButton* b : {&hbcBtn, &menuBtn, &priiBtn, &offBtn}) {
+		b->text.SetColor(skin::kAccentInk);
+		b->text.SetFontSize(24);
+	}
+	const float closeScale = 0.62f;
+	SkinButton closeBtn(skin::pill, skin::pillOver, 4, 606 + wide - static_cast<int>(244 * closeScale), 22, tr("Close"),
 		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B | WPAD_BUTTON_HOME | WPAD_CLASSIC_BUTTON_HOME, PAD_BUTTON_B | PAD_BUTTON_START,
-		WIIDRC_BUTTON_B | WIIDRC_BUTTON_HOME);
+		WIIDRC_BUTTON_B | WIIDRC_BUTTON_HOME, nullptr, closeScale);
+	closeBtn.text.SetFontSize(20);
+	closeBtn.text.SetColor(skin::kInkSoft);
 	GuiButton* const buttons[5] = {&hbcBtn.button, &menuBtn.button, &priiBtn.button, &offBtn.button, &closeBtn.button};
 	HomeFocus focus(buttons);
 
@@ -1347,10 +1470,11 @@ static int ShowHomeMenu()
 	w.Append(&dim);
 	top.Append(&band);
 	top.Append(&titleTxt);
-	bottom.Append(&bar);
+	top.Append(&closeBtn.button);
+	bottom.Append(&lowBand);
 	bottom.Append(&batteries);
 	middle.Append(&focus);
-	for (GuiButton* b : buttons) middle.Append(b);
+	for (int i = 0; i < 4; ++i) middle.Append(buttons[i]);
 	w.Append(&top);
 	w.Append(&bottom);
 	w.Append(&middle);
@@ -1749,7 +1873,7 @@ public:
 	}
 	void Draw() override {
 		const skin::Tex& t = skin::clockDigits;
-		if (!t.data || figures.empty()) return;
+		if (!IsVisible() || !t.data || figures.empty()) return;
 		const float s = static_cast<float>(h) / 44.0f;
 		const float digitW = 28 * s, colonW = 14 * s, gap = 10 * s;
 		float width = 0;
@@ -1860,10 +1984,10 @@ static int MenuSource(FrontendState& state)
 	if (dip) {
 		// Clear of the dip (58% of the bar, which is 856 wide on a widescreen menu).
 		const int dipLeft = 320 - static_cast<int>(0.29f * (wide > 0 ? 856 : 640));
-		Place(viewTxt, 16 - wide, 357);
-		viewTxt.SetMaxWidth(dipLeft - 10 - (16 - wide));
+		Place(viewTxt, 16 - wide, 354);
+		viewTxt.SetWrap(true, dipLeft - 10 - (16 - wide), 2);
 		pageTxt.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
-		pageTxt.SetPosition(-(16 - wide), 357);
+		pageTxt.SetPosition(-(16 - wide), 354);
 		pageTxt.SetMaxWidth(dipLeft - 10 - (16 - wide));
 	} else {
 		Place(pageTxt, 40 - wide, 300);
@@ -1956,12 +2080,17 @@ static int MenuSource(FrontendState& state)
 	w.Append(&searchBtn.button);
 	w.Append(&rescanBtn);
 	w.Append(&exitBtn);
+	Toast toast;
+	w.Append(&toast);
 	mainWindow->Append(&w);
+	// News left for Home (a report sent, a new version): a notice as well.
+	if (!g_homeNotice.empty()) toast.Show(g_homeNotice, false);
 
 	const auto showView = [&] {
 		// A search lists every game whatever the filter, so it is the view.
-		viewTxt.SetText((std::string(tr("View")) + ": " +
-			(g_search.empty() ? std::string(tr(FilterLabel(g_filter))) : tr("Search \"{1}\"", {g_search}))).c_str());
+		// Over the view's own round button on a bar that dips: its name is enough.
+		const std::string name = g_search.empty() ? std::string(tr(FilterLabel(g_filter))) : tr("Search \"{1}\"", {g_search});
+		viewTxt.SetText((dip ? name : std::string(tr("View")) + ": " + name).c_str());
 		// While a search is on, the round button's first press ends it.
 		filterHint.SetText(g_search.empty() ? tr("View") : tr("Clear search"));
 	};
@@ -2213,7 +2342,9 @@ static int MenuSource(FrontendState& state)
 				logf("Home: %s\n", error.c_str());
 				std::string shown = FlatCapped(error, 150);
 				if (!shown.empty() && shown[0] >= 'a' && shown[0] <= 'z') shown[0] = static_cast<char>(shown[0] - 'a' + 'A');
-				statusTxt.SetText(shown.c_str());
+				// The error on a notice of its own; the status line goes back to what it says.
+				toast.Show(shown, true);
+				statusTxt.SetText(HomeStatus(state, items.size()).c_str());
 			}
 		}
 		if (menu != MENU_NONE) {
@@ -2307,6 +2438,10 @@ public:
 		for (int x = 0; x > safeX - w; x -= w) Stripes(x);
 		for (int x = w; x < safeX + safeW; x += w) Stripes(x);
 		GX_SetScissor(0, 0, Menu_XfbWidth(), Menu_EfbHeight());
+		for (int i = 0; i < 4; ++i) Menu_FillScreen(kHeight - 19 + 4 * i, 4, (GXColor){0, 0, 0, static_cast<u8>(10 + 10 * i)});
+		Menu_FillScreen(kHeight - 3, 3, skin::kAccent);
+		Menu_FillScreen(kHeight, 2, (GXColor){0, 0, 0, 30});
+		Menu_FillScreen(kHeight + 2, 3, (GXColor){0, 0, 0, 12});
 	}
 private:
 	// One copy of the stripes at x, cut to the screen and the band first:
@@ -2894,6 +3029,7 @@ static void MenuCheats(FrontendState& state)
 
 	GuiText titleTxt(tr("Cheats"), 30, skin::kInk);
 	Place(titleTxt, 40, 28);
+	TitleBand titleBand;
 	const std::string gameName = FlatCapped(GameTitle(state), 40);
 	GuiText gameTxt(gameName.c_str(), 16, skin::kInkDim);
 	gameTxt.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
@@ -2910,6 +3046,7 @@ static void MenuCheats(FrontendState& state)
 
 	HaltGui();
 	GuiWindow w(screenwidth, screenheight);
+	w.Append(&titleBand);
 	w.Append(&titleTxt);
 	w.Append(&gameTxt);
 	w.Append(&panel);
@@ -3088,6 +3225,7 @@ static bool MenuPickCodes(const FrontendState& state, std::string& key)
 
 	GuiText titleTxt("Add a code build", 30, skin::kInk);
 	Place(titleTxt, 40, 28);
+	TitleBand titleBand;
 	std::string whereText = folder + "/";
 	GuiText whereTxt(whereText.c_str(), 16, skin::kInkDim);
 	whereTxt.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
@@ -3110,6 +3248,7 @@ static bool MenuPickCodes(const FrontendState& state, std::string& key)
 
 	HaltGui();
 	GuiWindow w(screenwidth, screenheight);
+	w.Append(&titleBand);
 	w.Append(&titleTxt);
 	w.Append(&whereTxt);
 	w.Append(&panel);
@@ -3259,6 +3398,7 @@ static void MenuMods(FrontendState& state, std::string& scanStatus)
 
 	GuiText titleTxt(tr("Mods"), 30, skin::kInk);
 	Place(titleTxt, 40, 28);
+	TitleBand titleBand;
 	const std::string gameName = FlatCapped(GameTitle(state), 40);
 	GuiText gameTxt(gameName.c_str(), 16, skin::kInkDim);
 	gameTxt.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
@@ -3277,6 +3417,7 @@ static void MenuMods(FrontendState& state, std::string& scanStatus)
 
 	HaltGui();
 	GuiWindow w(screenwidth, screenheight);
+	w.Append(&titleBand);
 	w.Append(&titleTxt);
 	w.Append(&gameTxt);
 	w.Append(&panel);
@@ -3822,6 +3963,7 @@ static void GcAdapterTestPage()
 {
 	GuiText titleTxt(tr("GameCube adapter"), 30, skin::kInk);
 	Place(titleTxt, 40, 28);
+	TitleBand titleBand;
 	Panel panel(skin::panelSettings, 34, 76);
 	GuiText statusTxt("", 18, skin::kInk);
 	Place(statusTxt, 56, 96);
@@ -3839,6 +3981,7 @@ static void GcAdapterTestPage()
 
 	HaltGui();
 	GuiWindow w(screenwidth, screenheight);
+	w.Append(&titleBand);
 	w.Append(&titleTxt);
 	w.Append(&panel);
 	w.Append(&statusTxt);
@@ -3894,6 +4037,7 @@ static void CreditsPage()
 {
 	GuiText titleTxt(tr("Credits and license"), 30, skin::kInk);
 	Place(titleTxt, 40, 28);
+	TitleBand titleBand;
 	GuiText versionTxt("GPL-3.0-or-later", 15, skin::kInkDim);
 	versionTxt.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
 	versionTxt.SetPosition(-40, 40);
@@ -3913,6 +4057,7 @@ static void CreditsPage()
 
 	HaltGui();
 	GuiWindow w(screenwidth, screenheight);
+	w.Append(&titleBand);
 	w.Append(&titleTxt);
 	w.Append(&versionTxt);
 	w.Append(&panel);
@@ -4122,6 +4267,7 @@ static int MenuSettings(FrontendState& state)
 
 	GuiText titleTxt("Settings", 30, skin::kInk);
 	Place(titleTxt, 40, 28);
+	TitleBand titleBand;
 	GuiText versionTxt("RiftWii " RIFTWII_VERSION, 15, skin::kInkDim);
 	const auto saveSettings = [&]() {
 		if (!riftwii::wii::SaveSettings()) return std::string(tr("Cannot write sd:/riftwii/settings.txt"));
@@ -4149,6 +4295,7 @@ static int MenuSettings(FrontendState& state)
 
 	HaltGui();
 	GuiWindow w(screenwidth, screenheight);
+	w.Append(&titleBand);
 	w.Append(&titleTxt);
 	w.Append(&versionTxt);
 	w.Append(&panel);
@@ -4624,10 +4771,12 @@ static void ShowLaunchFrame(const FrontendState& state, int action)
 	const std::string title = action == MENU_CHANNEL ? std::string(tr("The RiftWii channel")) : GameTitle(state);
 	const char* doing = action == MENU_DUMP ? "Dumping files from"
 		: action == MENU_CHANNEL ? "Opening the installer for" : "Starting";
-	GuiText doingTxt(doing, 16, skin::kInkDim);
-	Place(doingTxt, 40, 40);
-	GuiText titleTxt(title.c_str(), 28, skin::kInk);
-	Place(titleTxt, 40, 62);
+	// The game page's band in the game's colour, as the page it starts from.
+	GameBanner banner(skin::HueFor(action == MENU_CHANNEL ? std::string("RIFTWII") : state.game_id));
+	GuiText doingTxt(doing, 16, skin::WithAlpha(skin::kWhite, 200));
+	Place(doingTxt, 40, 10);
+	GuiText titleTxt(title.c_str(), 28, skin::kWhite);
+	Place(titleTxt, 40, 30);
 	titleTxt.SetWrap(true, 560, 2);
 	// As wide as a popup on a widescreen menu: the log printed into it
 	// (wii/main.cpp, EnterConsolePhase) gets the same room.
@@ -4645,6 +4794,7 @@ static void ShowLaunchFrame(const FrontendState& state, int action)
 	HaltGui();
 	hidePointers = true;
 	GuiWindow w(screenwidth, screenheight);
+	w.Append(&banner);
 	w.Append(&doingTxt);
 	w.Append(&titleTxt);
 	w.Append(&card);

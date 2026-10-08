@@ -3,6 +3,7 @@
 #include "gui_searchkeys.hpp"
 
 #include "i18n.hpp"
+#include "riftwii/skinpaint.hpp"
 #include "skin.hpp"
 #include "wiidrc.h"
 
@@ -199,16 +200,10 @@ void GuiSearchKeys::Draw() {
         const Key& k = keys[i];
         const bool on = static_cast<int>(i) == focus && (hover >= 0 || !AnyPointer());
         const int ky = Y(k.row), kh = k.row == kRows - 1 ? kActionH : kKeyH;
-        // Search is filled with the accent; a lit key has the accent's edge
-        // (lit Search, a ring around it as well).
+        // Keys as the Wii's: shaded and glossy; Search filled with the
+        // accent; a lit key ringed in the accent, with its glow.
         const bool primary = k.act == Key::Act::Search;
-        if (on && primary) {
-            Menu_DrawRectangle(k.x - 4, ky - 4, k.w + 8, kh + 8, skin::kAccent, 0);
-            Menu_DrawRectangle(k.x - 3, ky - 3, k.w + 6, kh + 6, skin::kAccent, 0);
-        }
-        const GXColor fill = primary ? skin::kAccent : on ? skin::kChipOn : skin::kChipOff;
-        Menu_DrawRectangle(k.x, ky, k.w, kh, on || primary ? skin::kAccent : skin::kChipOffEdge, 1);
-        Menu_DrawRectangle(k.x + 2, ky + 2, k.w - 4, kh - 4, fill, 1);
+        skin::DrawNine(skin::keys[(primary ? 2 : 0) + (on ? 1 : 0)], k.x - 4, ky - 4, k.w + 8, kh + 8, riftwii::kKeyCorner);
         k.caption->SetColor(primary ? skin::kTextOnAccent : skin::kInk);
         k.caption->SetPosition(k.x + (k.w - k.caption->GetTextWidth()) / 2, ky + (kh - 18) / 2 - 1);
         k.caption->Draw();

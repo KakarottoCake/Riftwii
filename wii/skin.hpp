@@ -20,6 +20,7 @@ extern GXColor kInk, kInkSoft, kInkDim, kClock, kAccent, kAccentInk, kWarn;
 extern GXColor kTextOnAccent;  // text on the accent or on a game's colour
 extern GXColor kBar, kDivider, kScrollTrack, kScrollThumb, kBadge;
 extern GXColor kShelfWood, kShelfEdge;  // Home's shelf: the plank's top and front
+extern GXColor kCard;  // tiles', buttons' and panels' colour
 extern GXColor kChipOn, kChipOff, kChipOffEdge;  // the option chips' (and the search keys') fill and edge
 // Always white (a QR code's background).
 constexpr GXColor kWhite = {255, 255, 255, 255};
@@ -30,6 +31,10 @@ struct Tex {
 };
 
 // Built by Init(); each has a transparent margin for its shadow or glow.
+extern Tex keys[4];                      // 40x40 search keys (riftwii::paint_key), nine-sliced
+extern Tex card9;                        // 64x64 card (riftwii::paint_card9), nine-sliced
+extern Tex capsule9;                     // 48x48 outlined black capsule, nine-sliced
+extern Tex noticeIcon[2];                // 28x28 Home's notice signs: news, error
 extern Tex clockDigits;                  // 308x44: Home's clock figures 0-9 and the colon, 28 apart
 bool BarBump();                          // the theme's bar rises in the middle (the clock above it)
 extern Tex tile, tileOver;
@@ -76,6 +81,8 @@ GXColor HueFor(const std::string& id);
 
 // `alpha` 0-255; `scale` about the texture's centre.
 void Draw(const Tex& t, float x, float y, int alpha = 255, float scale = 1.0f);
+// `t` stretched to w x h at (x, y), its `corner`-wide edges kept as they are.
+void DrawNine(const Tex& t, float x, float y, float w, float h, float corner, int alpha = 255);
 GXColor WithAlpha(GXColor c, int alpha);
 // A w x h RGB5A3 texture (a cover, wii/covers.hpp), like Draw.
 void DrawRgb5a3(const u8* data, int w, int h, float x, float y, int alpha = 255, float scale = 1.0f);

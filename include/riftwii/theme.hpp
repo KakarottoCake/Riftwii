@@ -50,7 +50,7 @@ struct ThemeColors {
     ThemeColor chip_off{244, 244, 246, 255};
     ThemeColor chip_off_edge{208, 208, 216, 255};
     ThemeColor switch_off{212, 212, 219, 255};
-    ThemeColor bar{247, 247, 249, 255};         // Home's bottom bar, the HOME Menu's top bar
+    ThemeColor bar{222, 222, 228, 255};         // Home's bottom bar (a shade under the backdrop, as the Wii Menu's)
     ThemeColor backdrop{236, 236, 239, 255};    // behind every screen
     ThemeColor backdrop_stripe{227, 227, 232, 255};
     ThemeColor banner_stripe{255, 255, 255, 20};  // over a game page's banner

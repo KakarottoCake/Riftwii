@@ -43,6 +43,76 @@ struct Painter {
     // A corner radius as the theme rounds it.
     float R(float radius) const { return radius * corners; }
 
+    // `v` lightened (k > 1) or darkened (k < 1), with alpha `a`.
+    static Rgba Shade(Rgba v, float k, int a = -1) {
+        const auto ch = [k](std::uint8_t q) { return static_cast<std::uint8_t>(std::min(255.0f, q * k)); };
+        return Rgba{ch(v.r), ch(v.g), ch(v.b), a < 0 ? v.a : static_cast<std::uint8_t>(a)};
+    }
+
+    // A button, as the Wii Menu's: the card's colour shaded down, a gloss
+    // over its top half, a fine edge with a lit line inside it; lit, the
+    // accent's ring and glow. A primary one keeps a thinner ring.
+    Canvas Button(int w, int h, int margin, float radius, bool over, bool primary = false) const {
+        return Button(w, h, margin, radius, over, primary, card);
+    }
+    Canvas Button(int w, int h, int margin, float radius, bool over, bool primary, Rgba fill) const {
+        Canvas c((w + 2 * margin + 3) & ~3, (h + 2 * margin + 3) & ~3);
+        const float x = static_cast<float>(margin), y = static_cast<float>(margin);
+        const float fw = static_cast<float>(w), fh = static_cast<float>(h);
+        radius = R(radius);
+        if (over) c.shadow(x - 1, y - 1, fw + 2, fh + 2, radius + 1, margin - 1.0f, glow, 2.0f);
+        c.shadow(x, y + 2, fw, fh, radius, 4, shadow, 3.0f);
+        c.rounded_gradient(x, y, fw, fh, radius, Shade(fill, 1.0f), Shade(fill, 0.89f));
+        // The gloss: light at the top, gone by the middle.
+        c.rounded_gradient(x + 3, y + 2, fw - 6, fh * 0.48f, std::max(0.0f, radius - 3), Rgba{255, 255, 255, 150},
+                           Rgba{255, 255, 255, 10});
+        if (over) {
+            c.rounded_border(x, y, fw, fh, radius, 3.0f, accent);
+        } else if (primary) {
+            c.rounded_border(x, y, fw, fh, radius, 2.5f, accent);
+        } else {
+            c.rounded_border(x, y, fw, fh, radius, 1.5f, edge_strong);
+            c.rounded_border(x + 1.5f, y + 1.5f, fw - 3, fh - 3, std::max(0.0f, radius - 1.5f), 1.0f,
+                             Rgba{255, 255, 255, 170});
+        }
+        return c;
+    }
+
+    // The HOME Menu's buttons, as the Wii's: round ends, a pale tint of the
+    // accent, a broad gloss, a darker tint for the edge.
+    Canvas HomeButton(bool over) const {
+        const auto mix = [](Rgba a, Rgba b, float k) {
+            const auto m = [k](std::uint8_t x, std::uint8_t y) { return static_cast<std::uint8_t>(x + (y - x) * k); };
+            return Rgba{m(a.r, b.r), m(a.g, b.g), m(a.b, b.b), 255};
+        };
+        const int w = 248, h = 72, margin = 8;
+        Canvas c((w + 2 * margin + 3) & ~3, (h + 2 * margin + 3) & ~3);
+        const float x = margin, y = margin, r = h / 2.0f;
+        const Rgba fill = mix(card, accent, over ? 0.32f : 0.22f);
+        if (over) c.shadow(x - 1, y - 1, w + 2.0f, h + 2.0f, r + 1, margin - 1.0f, glow, 2.0f);
+        c.shadow(x + 2, y + 4, static_cast<float>(w), static_cast<float>(h), r, 5, Rgba{0, 0, 0, 120}, 3.0f);
+        c.rounded_gradient(x, y, static_cast<float>(w), static_cast<float>(h), r, Shade(fill, 1.04f), Shade(fill, 0.90f));
+        c.rounded_gradient(x + 10, y + 4, w - 20.0f, h * 0.42f, r - 8, Rgba{255, 255, 255, 170}, Rgba{255, 255, 255, 30});
+        c.rounded_border(x, y, static_cast<float>(w), static_cast<float>(h), r, over ? 3.0f : 1.5f,
+                         over ? accent : mix(accent, Rgba{0, 0, 0, 255}, 0.25f));
+        return c;
+    }
+
+    // A panel (popups, Settings, a game's page): a wide soft shadow, the
+    // card shaded a touch down, a fine edge and a lit line inside it.
+    Canvas Sheet(int w, int h, int margin, float radius) const {
+        Canvas c((w + 2 * margin + 3) & ~3, (h + 2 * margin + 3) & ~3);
+        const float x = static_cast<float>(margin), y = static_cast<float>(margin);
+        const float fw = static_cast<float>(w), fh = static_cast<float>(h);
+        radius = R(radius);
+        c.shadow(x, y + 2, fw, fh, radius, static_cast<float>(margin), shadow, 3.0f);
+        c.rounded_gradient(x, y, fw, fh, radius, Shade(card, 1.0f), Shade(card, 0.965f));
+        c.rounded_border(x, y, fw, fh, radius, 1.5f, edge);
+        c.rounded_border(x + 1.5f, y + 1.5f, fw - 3, fh - 3, std::max(0.0f, radius - 1.5f), 1.0f,
+                         Rgba{255, 255, 255, 160});
+        return c;
+    }
+
     // A channel's frame, as the Wii Menu's: a shadow, the card, a fine grey
     // edge with a light line inside it; lit, the accent's border and glow.
     Canvas Tile(int w, int h, int margin, float radius, bool over) const {
@@ -120,7 +190,8 @@ struct Painter {
 
     Canvas Chip(bool on) const {
         Canvas c(212, 36);
-        c.rounded_rect(2, 3, 208, 30, R(15), on ? chip_on : chip_off);
+        const Rgba fill = on ? chip_on : chip_off;
+        c.rounded_gradient(2, 3, 208, 30, R(15), Shade(fill, 1.04f), Shade(fill, 0.96f));
         Shine(c, 2, 3, 208, 30, R(15));
         c.rounded_border(2, 3, 208, 30, R(15), 2, on ? accent : chip_off_edge);
         return c;
@@ -149,7 +220,7 @@ struct Painter {
         Canvas c(44, 44);
         if (over) c.circle(21, 21, 20.5f, glow);
         c.circle(21, 22.5f, 17.5f, shadow);
-        c.circle(21, 21, 17, over ? chip_on : card);
+        c.rounded_gradient(4, 4, 34, 34, 17, Shade(over ? chip_on : card, 1.0f), Shade(over ? chip_on : card, 0.89f));
         c.ring(21, 21, 17, 2, over ? accent : edge_strong);
         const float s = up ? -1.0f : 1.0f;
         c.line(14, 21 - 2.5f * s, 21, 21 + 3.5f * s, 3.2f, over ? accent : glyph);
@@ -162,7 +233,7 @@ struct Painter {
         Canvas c(44, 44);
         if (over) c.circle(21, 21, 20.5f, glow);
         c.circle(21, 22.5f, 17.5f, shadow);
-        c.circle(21, 21, 17, over ? chip_on : card);
+        c.rounded_gradient(4, 4, 34, 34, 17, Shade(over ? chip_on : card, 1.0f), Shade(over ? chip_on : card, 0.89f));
         c.ring(21, 21, 17, 2, over ? accent : edge_strong);
         const float s = back ? -1.0f : 1.0f;
         c.line(21 - 2.5f * s, 14, 21 + 3.5f * s, 21, 3.2f, over ? accent : glyph);
@@ -393,6 +464,36 @@ void paint_hint_box(const Theme& theme, int w, int h, Canvas& out) {
 
 void paint_clock_digits(const Theme& theme, Canvas& out) { out = Painter(theme).ClockDigits(); }
 
+void paint_key(const Theme& theme, int kind, Canvas& out) {
+    const Painter p(theme);
+    const bool primary = kind >= 2, over = (kind & 1) != 0;
+    out = p.Button(32, 32, 4, 7, over, false, primary ? p.accent : p.card);
+}
+
+void paint_card9(const Theme& theme, Canvas& out) { out = Painter(theme).Sheet(48, 48, 8, 14); }
+
+void paint_capsule9(Canvas& out) {
+    out = Canvas(48, 48);
+    out.rounded_rect(4, 4, 40, 40, 18, rgba(0x000000));
+    out.rounded_border(4, 4, 40, 40, 18, 2.0f, rgba(0xC8C8C8));
+}
+
+void paint_notice_icon(const Theme& theme, bool error, Canvas& out) {
+    const Painter p(theme);
+    const Rgba ring = error ? ToRgba(theme.colors.warn) : p.accent, ink = rgba(0xFFFFFF);
+    out = Canvas(28, 28);
+    out.circle(14, 15, 13, Rgba{0, 0, 0, 40});
+    out.circle(14, 14, 13, ring);
+    out.rounded_gradient(4, 2, 20, 11, 5.5f, Rgba{255, 255, 255, 90}, Rgba{255, 255, 255, 0});
+    if (error) {
+        out.line(14, 7, 14, 16, 3.4f, ink);
+        out.circle(14, 21, 2.0f, ink);
+    } else {
+        out.circle(14, 7.5f, 2.0f, ink);
+        out.line(14, 12, 14, 21, 3.4f, ink);
+    }
+}
+
 void paint_art_frame(const Theme& theme, int w, int h, Canvas& out) {
     out = Painter(theme).Card(w, h, kHintBoxMargin, 10, false);
 }
@@ -412,12 +513,12 @@ bool paint_theme_image(const std::string& name, const Theme& theme, Canvas& out)
         {"cover_tile_over", [](const Painter& q) { return q.Card(80, 112, 7, 8, true); }},
         {"round_button", [](const Painter& q) { return q.Round(false); }},
         {"round_button_over", [](const Painter& q) { return q.Round(true); }},
-        {"pill", [](const Painter& q) { return q.Card(244, 52, 4, 26, false); }},
-        {"pill_over", [](const Painter& q) { return q.Card(244, 52, 4, 26, true); }},
-        {"pill_primary", [](const Painter& q) { return q.Card(244, 52, 4, 26, false, true); }},
-        {"pill_primary_over", [](const Painter& q) { return q.Card(244, 52, 4, 26, true, true); }},
-        {"home_button", [](const Painter& q) { return q.Card(248, 72, 8, 20, false); }},
-        {"home_button_over", [](const Painter& q) { return q.Card(248, 72, 8, 20, true); }},
+        {"pill", [](const Painter& q) { return q.Button(244, 52, 4, 26, false); }},
+        {"pill_over", [](const Painter& q) { return q.Button(244, 52, 4, 26, true); }},
+        {"pill_primary", [](const Painter& q) { return q.Button(244, 52, 4, 26, false, true); }},
+        {"pill_primary_over", [](const Painter& q) { return q.Button(244, 52, 4, 26, true, true); }},
+        {"home_button", [](const Painter& q) { return q.HomeButton(false); }},
+        {"home_button_over", [](const Painter& q) { return q.HomeButton(true); }},
         {"chip_off", [](const Painter& q) { return q.Chip(false); }},
         {"chip_on", [](const Painter& q) { return q.Chip(true); }},
         {"row_focus", [](const Painter& q) { return q.RowFocus(); }},
@@ -427,8 +528,8 @@ bool paint_theme_image(const std::string& name, const Theme& theme, Canvas& out)
         {"step_forward_over", [](const Painter& q) { return q.Step(false, true); }},
         {"switch_on", [](const Painter& q) { return q.Switch(true); }},
         {"switch_off", [](const Painter& q) { return q.Switch(false); }},
-        {"panel_game", [](const Painter& q) { return q.Card(572, 232, 4, 16, false); }},
-        {"panel_settings", [](const Painter& q) { return q.Card(572, 276, 4, 16, false); }},
+        {"panel_game", [](const Painter& q) { return q.Sheet(572, 232, 4, 18); }},
+        {"panel_settings", [](const Painter& q) { return q.Sheet(572, 276, 4, 18); }},
         {"bar", [](const Painter& q) { return q.Bar(); }},
         {"background_wide", [](const Painter& q) { return q.Background(856); }},
         {"bar_wide", [](const Painter& q) { return q.Bar(856); }},

@@ -443,7 +443,7 @@ void GuiGameGrid::DrawChannelLabel(int slot, int alpha) {
     x = x < 8 ? 8 : x + boxW > 632 ? 632 - boxW : x;
     const int y = TileY(slot) + Geo().tileH - 6;
     Menu_DrawRectangle(x - 1, y - 1, boxW + 2, boxH + 2, skin::WithAlpha(skin::kAccent, alpha), 1);
-    Menu_DrawRectangle(x, y, boxW, boxH, skin::WithAlpha(skin::kBar, alpha), 1);
+    Menu_DrawRectangle(x, y, boxW, boxH, skin::WithAlpha(skin::kCard, alpha), 1);
     // The caption is centred on the screen's middle: move it to the box's.
     caption->SetPosition(x + boxW / 2 - screenwidth / 2, y + 4);
     caption->SetAlpha(alpha);

@@ -5,6 +5,7 @@
 
 #include <gccore.h>
 
+#include <algorithm>
 #include <cstring>
 #include <vector>
 
@@ -41,7 +42,7 @@ GXColor kAccent = {47, 182, 233, 255};
 GXColor kAccentInk = {14, 100, 136, 255};
 GXColor kWarn = {176, 58, 46, 255};
 GXColor kTextOnAccent = {255, 255, 255, 255};
-GXColor kBar = {247, 247, 249, 255};
+GXColor kBar = {222, 222, 228, 255};
 GXColor kDivider = {232, 232, 238, 255};
 GXColor kScrollTrack = {230, 230, 236, 255};
 GXColor kScrollThumb = {168, 168, 180, 255};
@@ -50,6 +51,7 @@ GXColor kShelfWood = {196, 160, 120, 255};
 GXColor kShelfEdge = {150, 112, 76, 255};
 GXColor kChipOn = {227, 245, 252, 255};
 GXColor kChipOff = {244, 244, 246, 255};
+GXColor kCard = {255, 255, 255, 255};
 GXColor kChipOffEdge = {208, 208, 216, 255};
 
 namespace {
@@ -82,6 +84,7 @@ void ApplyColors(const Theme& t) {
     kShelfEdge = ToGx(c.shelf_edge);
     kChipOn = ToGx(c.chip_on);
     kChipOff = ToGx(c.chip_off);
+    kCard = ToGx(c.card);
     kChipOffEdge = ToGx(c.chip_off_edge);
     g_backdrop = ToGx(c.backdrop);
     g_backdrop_stripe = ToGx(c.backdrop_stripe);
@@ -138,6 +141,10 @@ Tex background;
 Tex backgroundWide, barWide;
 Tex backgroundShelf, backgroundShelfWide;
 Tex clockDigits;
+Tex keys[4];
+Tex card9;
+Tex capsule9;
+Tex noticeIcon[2];
 Tex tileEmpty;
 Tex shelfPlank;
 
@@ -206,6 +213,18 @@ void Init() {
         Canvas c(0, 0);
         paint_clock_digits(MenuTheme(), c);
         clockDigits = Upload(c);
+        for (int k = 0; k < 4; ++k) {
+            paint_key(MenuTheme(), k, c);
+            keys[k] = Upload(c);
+        }
+        paint_card9(MenuTheme(), c);
+        card9 = Upload(c);
+        paint_capsule9(c);
+        capsule9 = Upload(c);
+        for (int k = 0; k < 2; ++k) {
+            paint_notice_icon(MenuTheme(), k == 1, c);
+            noticeIcon[k] = Upload(c);
+        }
     }
     g_ready = true;
 }
@@ -232,6 +251,21 @@ void Draw(const Tex& t, float x, float y, int alpha, float scale) {
     if (!t.data || alpha <= 0) return;
     Menu_DrawImg(x, y, static_cast<u16>(t.w), static_cast<u16>(t.h), t.data, 0, scale, scale,
                  static_cast<u8>(alpha > 255 ? 255 : alpha));
+}
+
+void DrawNine(const Tex& t, float x, float y, float w, float h, float corner, int alpha) {
+    if (!t.data || alpha <= 0) return;
+    const float cx = std::min(corner, w / 2), cy = std::min(corner, h / 2);
+    const float xs[4] = {x, x + cx, x + w - cx, x + w}, ys[4] = {y, y + cy, y + h - cy, y + h};
+    const float us[4] = {0, corner / t.w, 1 - corner / t.w, 1}, vs[4] = {0, corner / t.h, 1 - corner / t.h, 1};
+    const u8 a = static_cast<u8>(alpha > 255 ? 255 : alpha);
+    for (int r = 0; r < 3; ++r) {
+        for (int k = 0; k < 3; ++k) {
+            if (xs[k + 1] <= xs[k] || ys[r + 1] <= ys[r]) continue;
+            Menu_DrawImgPart(xs[k], ys[r], xs[k + 1] - xs[k], ys[r + 1] - ys[r], static_cast<u16>(t.w), static_cast<u16>(t.h),
+                             t.data, us[k], vs[r], us[k + 1], vs[r + 1], a);
+        }
+    }
 }
 
 void DrawRgb5a3(const u8* data, int w, int h, float x, float y, int alpha, float scale) {
