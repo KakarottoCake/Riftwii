@@ -1241,6 +1241,7 @@ const std::vector<D2xSlot>& d2x_slots() {
         found += (found.empty() ? "" : ", ") + std::to_string(ios) + " (base " + std::to_string(info[15]) + ")";
     }
     logf("cIOS: d2x in %s\n", found.empty() ? "no slot that could be read" : found.c_str());
+    mem::CheckHeap("after the cIOS search");
     return slots;
 }
 

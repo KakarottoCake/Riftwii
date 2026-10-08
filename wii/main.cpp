@@ -411,6 +411,10 @@ int main() {
     const riftwii::wii::LaunchSource source = riftwii::wii::SelectedSource(state);
 
     EnterConsolePhase();
+    // A tester's heap broke between "menu closed" and the first reload
+    // (once; the same launch worked when tried again): checked at the steps
+    // between too (the cIOS search checks after itself), to name the one.
+    riftwii::wii::mem::CheckHeap("console phase");
     std::string error;
     if (!heap_whole && (action == MENU_LAUNCH || action == MENU_BOOT)) {
         // Damaged while the menu ran: a launch would only fail later, at

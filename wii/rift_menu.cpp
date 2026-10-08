@@ -516,6 +516,9 @@ static void ApplyMenuSounds()
 }
 static std::string ReturnToNote()
 {
+	// A test switch in settings.txt turns it off whatever this says.
+	if (riftwii::wii::debug_off("returnto"))
+		return tr("Off for testing: settings.txt has \"debug_off = returnto\", so games go back to the Wii Menu. Delete that line to use this setting.");
 	unsigned version = 0;
 	return riftwii::wii::ChannelInstalled(version) ? tr("The Wii Menu button in a game's HOME Menu brings you back to RiftWii. It needs the RiftWii channel installed.") : tr("The Wii Menu button in a game's HOME Menu can bring you back to RiftWii once the RiftWii channel is installed (Settings).");
 }
