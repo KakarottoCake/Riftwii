@@ -928,12 +928,37 @@ static std::string HomeStatus(const FrontendState& state, std::size_t shown)
 
 class Panel : public GuiElement {
 public:
-	Panel(const skin::Tex& tex, int x, int y) : tex(tex), x(x), y(y) {}
-	void Draw() override { skin::Draw(tex, x - 4.0f, y - 4.0f); }
+	// `extra` widens it that much on each side: its ends drawn as they
+	// are, the middle stretched (a widescreen popup).
+	Panel(const skin::Tex& tex, int x, int y, int extra = 0) : tex(tex), x(x), y(y), extra(extra) {}
+	void Draw() override
+	{
+		if (extra <= 0 || !tex.data) {
+			skin::Draw(tex, x - 4.0f, y - 4.0f);
+			return;
+		}
+		const f32 end = 48;  // the corner, its shadow and a little more
+		const f32 left = x - 4.0f - extra, w = tex.w + 2.0f * extra, h = tex.h, top = y - 4.0f;
+		const f32 u = end / tex.w;
+		const u16 tw = static_cast<u16>(tex.w), th = static_cast<u16>(tex.h);
+		Menu_DrawImgPart(left, top, end, h, tw, th, tex.data, 0, 0, u, 1, 255);
+		Menu_DrawImgPart(left + end, top, w - 2 * end, h, tw, th, tex.data, u, 0, 1 - u, 1, 255);
+		Menu_DrawImgPart(left + w - end, top, end, h, tw, th, tex.data, 1 - u, 0, 1, 1, 255);
+	}
 private:
 	const skin::Tex& tex;
-	int x, y;
+	int x, y, extra;
 };
+
+// How much wider a popup is on each side: on a widescreen menu, up to 80
+// of the room the TV has past the 4:3 middle; none on a 4:3 one.
+static int PopupExtra()
+{
+	f32 safeX, safeW;
+	Menu_SafeArea(&safeX, &safeW);
+	const int room = safeX < 0 ? static_cast<int>(-safeX) - 24 : 0;
+	return room <= 0 ? 0 : room < 80 ? room : 80;
+}
 
 // A box over the current page: a title, some text and up to two buttons
 // (A for the first, B or HOME for the second). The page underneath takes
@@ -1031,7 +1056,7 @@ class PopupBox {
 public:
 	PopupBox(const std::string& title, const std::string& body, const std::string& ok = "",
 		 const std::string& cancel = "")
-		: panel(skin::panelSettings, 34, 102), titleTxt(title.c_str(), 24, skin::kInk),
+		: extra(PopupExtra()), panel(skin::panelSettings, 34, 102, extra), titleTxt(title.c_str(), 24, skin::kInk),
 		  bodyTxt(body.c_str(), 16, skin::kInkSoft),
 		  okBtn(skin::pill, skin::pillOver, 4, cancel.empty() ? 198 : 70, 314, ok.c_str(),
 			WPAD_BUTTON_A | WPAD_CLASSIC_BUTTON_A, PAD_BUTTON_A, WIIDRC_BUTTON_A),
@@ -1040,9 +1065,10 @@ public:
 			WIIDRC_BUTTON_B | WIIDRC_BUTTON_HOME),
 		  hasOk(!ok.empty()), hasCancel(!cancel.empty()), w(screenwidth, screenheight)
 	{
-		Place(titleTxt, 56, 120);
-		Place(bodyTxt, 56, 160);
-		bodyTxt.SetWrap(true, 528, 7);
+		Place(titleTxt, 56 - extra, 120);
+		Place(bodyTxt, 56 - extra, 160);
+		titleTxt.SetMaxWidth(528 + 2 * extra);
+		bodyTxt.SetWrap(true, 528 + 2 * extra, 7);
 		w.Append(&dim);
 		w.Append(&panel);
 		w.Append(&titleTxt);
@@ -1071,7 +1097,7 @@ public:
 	void Add(GuiElement* e, int width)
 	{
 		w.Append(e);
-		bodyTxt.SetWrap(true, width, 7);
+		bodyTxt.SetWrap(true, width + extra, 7);  // the box's right part stays where it was
 	}
 	// Until a button is pressed: 0 the first, 1 the second. A is the first
 	// button's hotkey, so A with the pointer on the second clicks both in
@@ -1092,6 +1118,7 @@ public:
 		return choice;
 	}
 private:
+	int extra;  // first: the panel and the texts use it
 	Dim dim;
 	Panel panel;
 	GuiText titleTxt;
@@ -1405,8 +1432,8 @@ static void WarnAboutDrives(const std::string& sdError, const std::string& usbEr
 	static std::string shown;
 	std::string text;
 	const auto missing = [](const std::string& e) { return e.find("is inserted") != std::string::npos; };
-	if (!sdError.empty() && !missing(sdError)) text += tr("SD card: {1}", {FlatCapped(sdError, 160)}) + "\n";
-	if (!usbError.empty() && !missing(usbError)) text += tr("USB drive: {1}", {FlatCapped(usbError, 160)}) + "\n";
+	if (!sdError.empty() && !missing(sdError)) text += tr("SD card: {1}", {FlatCapped(sdError, 260)}) + "\n";
+	if (!usbError.empty() && !missing(usbError)) text += tr("USB drive: {1}", {FlatCapped(usbError, 260)}) + "\n";
 	if (text.empty() || text == shown) return;
 	shown = text;
 	ShowPopup(tr("Drive problem"),
@@ -1733,11 +1760,11 @@ static int MenuSource(FrontendState& state)
 	ClockText(clock, date);
 	GuiText clockTxt(clock.c_str(), 34, skin::kClock);
 	Place(clockTxt, 0, 296, true);
-	GuiText dateTxt(date.c_str(), 16, skin::kInkSoft);
-	Place(dateTxt, 0, 360, true);
-	GuiText statusTxt("", 15, skin::kInkSoft);
-	Place(statusTxt, 0, 390, true);
-	statusTxt.SetWrap(true, 400, 3);
+	GuiText dateTxt(date.c_str(), 18, skin::kInkSoft);
+	Place(dateTxt, 0, 359, true);
+	GuiText statusTxt("", 17, skin::kInkSoft);
+	Place(statusTxt, 0, 396, true);
+	statusTxt.SetWrap(true, 400 + 2 * wide, 3);  // between the round buttons (x 106 and 534 on 4:3)
 	EmptyHomeNote emptyNote;
 	emptyNote.SetVisible(false);
 

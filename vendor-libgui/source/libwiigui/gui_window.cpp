@@ -7,6 +7,9 @@
  *
  * GUI class definitions
  ***************************************************************************/
+/* Changed for RiftWii (October 2026), under GPL-3.0-or-later: a disabled
+ * window's tint covers the whole screen, a widescreen one too.
+ * Every change is in RiftWii's git history; NOTICE.md lists the origin. */
 
 #include "gui.h"
 
@@ -108,7 +111,7 @@ void GuiWindow::Draw()
 	this->UpdateEffects();
 
 	if(parentElement && state == STATE::DISABLED)
-		Menu_DrawRectangle(0,0,screenwidth,screenheight,(GXColor){0xbe, 0xca, 0xd5, 0x70},1);
+		Menu_FillWholeScreen((GXColor){0xbe, 0xca, 0xd5, 0x70});  // the whole screen, 16:9 too
 }
 
 void GuiWindow::DrawTooltip()
