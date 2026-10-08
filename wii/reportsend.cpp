@@ -213,6 +213,7 @@ std::string gather(const std::string& reason, std::size_t limit) {
     parts.push_back(file_part("sd:/riftwii/settings.txt"));
     parts.push_back(file_part("sd:/riftwii/menu_ios.txt"));
     parts.push_back(file_part("sd:/riftwii/update.txt"));
+    parts.push_back(file_part("sd:/riftwii/channel.log"));
     // The game and packs of the last launch.
     const std::string id = launched_game_id(boot.text);
     if (!id.empty()) {

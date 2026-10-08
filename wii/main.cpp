@@ -34,6 +34,7 @@
 #include "crash.hpp"
 #include "gcadapter.hpp"
 #include "guiscript.hpp"
+#include "channel.hpp"
 #include "i18n.hpp"
 #include "ios_reload.hpp"
 #include "loadersettings.hpp"
@@ -212,6 +213,28 @@ void OpenSessionLog(bool sd_mounted) {
     // AHBPROT off (the Homebrew Channel, the channel since version 9): what
     // needs the hardware (IOS patches, the GameCube adapter) can work.
     riftwii::wii::logf("Hardware access: %s\n", read32(0x0D800064) == 0xFFFFFFFF ? "yes" : "no (AHBPROT on)");
+    // Which title the system is running: the RiftWii channel or the
+    // Homebrew Channel (both pass the same path), and the channel installed.
+    {
+        u64 title = 0;
+        std::string who = "unknown";
+        if (ES_GetTitleID(&title) >= 0) {
+            char id[5] = {};
+            for (int i = 0; i < 4; ++i) {
+                const char c = static_cast<char>(title >> (24 - 8 * i));
+                id[i] = c >= 0x20 && c < 0x7F ? c : '?';
+            }
+            char text[64];
+            std::snprintf(text, sizeof(text), "%08X-%08X (%s)", static_cast<unsigned>(title >> 32),
+                          static_cast<unsigned>(title), id);
+            who = text;
+            if (title == riftwii::wii::ChannelTitle()) who += ", the RiftWii channel";
+        }
+        unsigned version = 0;
+        const bool channel = riftwii::wii::ChannelInstalled(version);
+        riftwii::wii::logf("Running title: %s; RiftWii channel %s\n", who.c_str(),
+                           channel ? ("version " + std::to_string(version) + " installed").c_str() : "not installed");
+    }
     riftwii::wii::EnsureMetaAhbAccess();
     riftwii::wii::mem::LogLimits();
     riftwii::wii::mem::LogUsage("start");
@@ -330,7 +353,9 @@ int main() {
             riftwii::wii::logf("Menu font: the Wii Menu's (%u bytes)\n", static_cast<unsigned>(font_size));
         } else {
             riftwii::wii::logf("Menu font: the Wii Menu's could not be used (%s); RiftWii's instead\n", why.c_str());
-            SetHomeNotice(riftwii::wii::tr("The Wii Menu's font could not be read, so RiftWii's is used."));
+            SetHomeNotice(read32(0x0D800064) != 0xFFFFFFFF
+                ? riftwii::wii::tr("The Wii Menu's font needs hardware access, which RiftWii did not get this time, so RiftWii's font is used. Start RiftWii from an up to date Homebrew Channel or the RiftWii channel (version 9).")
+                : riftwii::wii::tr("The Wii Menu's font could not be read, so RiftWii's is used."));
         }
         timed("Wii Menu font read");
     }
