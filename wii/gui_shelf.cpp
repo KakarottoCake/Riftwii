@@ -388,7 +388,8 @@ void GuiGameGrid::DrawShelf(int alpha) {
     }
     LoadFlat();
 
-    // The names up the plain spines, read bottom to top as on a case.
+    // The names down the plain spines, read top to bottom as on a Wii case
+    // (Nintendo's spines in America and Europe).
     if (static_cast<int>(spineFit.size()) != Count()) spineFit.assign(Count(), {});
     for (const SpineLabel& l : labels) {
         auto& fit = spineFit[l.index];
@@ -398,14 +399,16 @@ void GuiGameGrid::DrawShelf(int alpha) {
         spineText->SetFontSize(kSpineTextSize);
         spineText->SetAlpha(alpha);
         const float w = static_cast<float>(spineText->GetTextWidth());
-        // Turned a quarter left about the label's own start.
-        const float px = l.x - kSpineTextSize / 2.0f - 1, py = l.y1 - 4;
+        // Turned a quarter right about the label's own start, at the top:
+        // the line runs down and the letters' tops face right, so the
+        // text's height lies left of px.
+        const float px = l.x + kSpineTextSize / 2.0f + 1, py = l.y0 + 4;
         Mtx view, rot, m, mv;
         guMtxIdentity(view);
         guMtxTransApply(view, view, 0.0f, 0.0f, -50.0f);
         guMtxIdentity(m);
         guMtxTransApply(m, m, -px, -py, 0);
-        guMtxRotDeg(rot, 'z', -90.0f);
+        guMtxRotDeg(rot, 'z', 90.0f);
         guMtxConcat(rot, m, m);
         guMtxTransApply(m, m, px, py, 0);
         guMtxConcat(view, m, mv);
