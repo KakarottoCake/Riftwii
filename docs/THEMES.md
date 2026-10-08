@@ -137,7 +137,7 @@ Pictures ending in `_over` are the highlighted versions. Transparency
 | `pointer1` to `pointer4` | 96x96 | Each player's pointer; the fingertip must be at the centre (48, 48) |
 | `shelf` | 256x64 | Home's shelf: rows 0-47 are its top (the far edge first), rows 48-63 its front edge. It repeats along the shelf, so make the left and right edges meet |
 | `background_wide` | 856x480 | `background` for a widescreen menu (optional) |
-| `bar_wide` | 856x124 | `bar` for a widescreen menu, its bump in the middle (optional) |
+| `bar_wide` | 856x124 | `bar` for a widescreen menu, its dip (or bump) in the middle (optional) |
 | `background_shelf` / `background_shelf_wide` | 640x480 / 856x480 | `background` / `background_wide` while Home shows the shelf (Settings > Home tiles > Shelf), for a background drawn to go with Home's rows of covers (optional) |
 
 ### Widescreen and screen size

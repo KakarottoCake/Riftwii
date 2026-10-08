@@ -9,8 +9,8 @@ picture from anywhere else):
   row of covers on Home, so the covers stand on them;
 - cover_tile.png / cover_tile_over.png: a plain paper book standing on
   the shelf, hidden by the cover drawn over it (and a warm glow when lit);
-- bar.png: Home's bottom bar as the bookcase's base, its curve edged in
-  brass;
+- bar.png: Home's bottom bar as the bookcase's base, dipping under the
+  clock as the Wii Menu's does, its curve edged in brass;
 - shelf.png: the wood for the shelf view's plank;
 - background_shelf.png: the same wall for the shelf view, with only the
   lower shelf (the boxes stand on it; the upper one would cross them);
@@ -44,7 +44,6 @@ author = RiftWii
 [shape]
 corners = 1
 gloss = yes
-bar = bump
 
 [backdrop]
 stripes = no
@@ -209,13 +208,21 @@ def cover_tile(over):
 
 
 def bar(W=640):
-    """W x 124: Home's bottom bar, the same curve RiftWii paints (src/skinpaint.cpp)."""
+    """W x 124: Home's bottom bar, the same curve RiftWii paints (src/skinpaint.cpp):
+    high at the sides, dipping over the middle 58% where the clock sits."""
     H = 124
     top = np.zeros(W)
+    dip = W * 0.58
+    dip_left = W / 2 - dip / 2
+
+    def ease(v):
+        v = min(max(v, 0.0), 1.0)
+        return v * v * (3 - 2 * v)
+
     for x in range(W):
-        t = (x + 0.5 - (W / 2 - 144.0)) / 288.0
-        bump = (1 - math.cos(t * 2 * math.pi)) * 0.5 if 0 < t < 1 else 0.0
-        top[x] = 46.0 - 32.0 * bump
+        t = (x + 0.5 - dip_left) / dip
+        d = min(ease(t / 0.3), ease((1 - t) / 0.3)) if 0 < t < 1 else 0.0
+        top[x] = 11.0 + 51.0 * d
     body = wood(W, H, (190, 142, 90), (158, 112, 66), phase=2.0, wave=4)
     yy = np.arange(H)[:, None].astype(np.float64)
     inside = np.clip(yy - top[None, :] + 0.5, 0, 1)            # anti-aliased curve
