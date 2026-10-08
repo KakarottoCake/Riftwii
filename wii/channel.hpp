@@ -13,6 +13,10 @@ namespace riftwii::wii {
 
 // Whether the channel is on this Wii, and its version (0 when it is not).
 bool ChannelInstalled(unsigned& version);
+// The channel version the installer in this release puts on
+// (tools/make_channel.py's TITLE_VERSION): an installed one older than
+// that is offered for reinstalling.
+constexpr unsigned kChannelVersion = 9;
 // The installed channel's title ID (00010001-UFTW, or the old RFTW), 0
 // when it is not installed.
 unsigned long long ChannelTitle();

@@ -89,7 +89,8 @@ struct Painter {
         const int w = 248, h = 72, margin = 8;
         Canvas c((w + 2 * margin + 3) & ~3, (h + 2 * margin + 3) & ~3);
         const float x = margin, y = margin, r = h / 2.0f;
-        const Rgba fill = mix(card, accent, over ? 0.32f : 0.22f);
+        // Pale whatever the theme, as the Wii's (its bars are black on every theme).
+        const Rgba fill = mix(Rgba{255, 255, 255, 255}, accent, over ? 0.32f : 0.22f);
         if (over) c.shadow(x - 1, y - 1, w + 2.0f, h + 2.0f, r + 1, margin - 1.0f, glow, 2.0f);
         c.shadow(x + 2, y + 4, static_cast<float>(w), static_cast<float>(h), r, 5, Rgba{0, 0, 0, 120}, 3.0f);
         c.rounded_gradient(x, y, static_cast<float>(w), static_cast<float>(h), r, Shade(fill, 1.04f), Shade(fill, 0.90f));

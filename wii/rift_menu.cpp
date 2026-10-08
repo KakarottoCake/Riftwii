@@ -1516,7 +1516,7 @@ static int ShowHomeMenu()
 	SkinButton offBtn(ios ? skin::homeBtnDanger : skin::homeBtn, ios ? skin::homeBtnDangerOver : skin::homeBtnOver, 8, 332,
 		row2, tr("Power off"), 0, 0, 0);
 	for (SkinButton* b : {&hbcBtn, &menuBtn, &priiBtn, &offBtn}) {
-		b->text.SetColor(ios ? skin::kInk : skin::kAccentInk);
+		b->text.SetColor(ios ? skin::kInk : ScaledColor(skin::kAccent, 0.42f));  // dark on the pale buttons, any theme
 		b->text.SetFontSize(24);
 	}
 	if (ios) offBtn.text.SetColor(skin::kWhite);
@@ -1854,6 +1854,44 @@ static bool OfferChannelOnce()
 	return add;
 }
 
+// An older channel than this release's installer puts on (the old one
+// starts RiftWii without full access to the Wii's hardware, which some
+// features need): offered for reinstalling, once per channel version
+// (sd:/riftwii/channel_update_offered.txt keeps the version asked about).
+// True to open the installer.
+static bool OfferChannelUpdateOnce()
+{
+	static const char* const kMarker = "sd:/riftwii/channel_update_offered.txt";
+	if (riftwii::wii::CurrentRestartNote().kind == riftwii::wii::RestartKind::ChannelDone) return false;
+	unsigned version = 0;
+	std::string why;
+	if (!riftwii::wii::ChannelInstalled(version) || version >= riftwii::wii::kChannelVersion) return false;
+	unsigned asked = 0;
+	if (FILE* f = std::fopen(kMarker, "r")) {
+		if (std::fscanf(f, "%u", &asked) != 1) asked = 0;
+		std::fclose(f);
+	}
+	if (asked >= riftwii::wii::kChannelVersion) return false;
+	if (!riftwii::wii::ChannelCanInstall(why)) {
+		logf("Channel: version %u installed, %u available, cannot offer it: %s\n", version, riftwii::wii::kChannelVersion,
+			why.c_str());
+		return false;
+	}
+	const bool update = ShowPopup(tr("Update the RiftWii channel?"),
+		tr("The RiftWii channel on your Wii Menu is an older version ({1}). The new one ({2}) starts RiftWii with full access to the Wii's hardware, which some features need. Reinstall it with the channel installer: it opens, then brings you back here. Settings > RiftWii channel on the Wii Menu can open it later too.",
+			{std::to_string(version), std::to_string(riftwii::wii::kChannelVersion)}),
+		tr("Open installer"), tr("Not now")) == 0;
+	mkdir("sd:/riftwii", 0777);
+	FILE* f = std::fopen(kMarker, "w");
+	if (f) {
+		std::fprintf(f, "%u\n", riftwii::wii::kChannelVersion);
+		std::fclose(f);
+	}
+	logf("Channel: version %u installed, update to %u offered, %s\n", version, riftwii::wii::kChannelVersion,
+		update ? "accepted" : "declined");
+	return update;
+}
+
 static void ScanDrives(FrontendState& state, GuiText& status)
 {
 	std::string error;
@@ -2180,7 +2218,7 @@ static int MenuSource(FrontendState& state)
 		riftwii::wii::GcAdapterMenuAllowStart();
 		ShowTutorialOnce();
 		SuggestDotClean();
-		if (OfferChannelOnce()) menu = MENU_CHANNEL;
+		if (OfferChannelOnce() || OfferChannelUpdateOnce()) menu = MENU_CHANNEL;
 		refresh(true);
 		// The first time Home shows, it opens on the last game played.
 		const std::vector<std::string> recent = riftwii::wii::History().recent(1);
