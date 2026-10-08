@@ -597,6 +597,13 @@ void TestCoverArt() {
     s.parse("home_tiles = channels\n");
     EXPECT_EQ(s.home_tiles, "channels");
     EXPECT_EQ(s.menu_widescreen, "off");
+    EXPECT_EQ(s.home_disc, "on");
+    s.parse("home_disc = off\n");
+    EXPECT_EQ(s.home_disc, "off");
+    EXPECT_TRUE(s.serialize().find("home_disc = off\n") != std::string::npos);
+    s.parse("home_disc = maybe\n");
+    EXPECT_EQ(s.home_disc, "off");
+    s.home_disc = "on";
     EXPECT_EQ(s.screen_size, 100);
     s.parse("menu_widescreen = on\nscreen_size = 90\n");
     EXPECT_EQ(s.menu_widescreen, "on");

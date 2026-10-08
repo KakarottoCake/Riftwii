@@ -569,9 +569,11 @@ void GuiGameGrid::Draw() {
 
 // The first game (in the view's order) whose name starts with the letter
 // after (dir 1) or before (-1) the focused one's, wrapping round. Names that
-// start with anything else come before A; the disc tile (0) has no letter.
+// start with anything else come before A; the disc tile (when Home has it)
+// has no letter.
 int GuiGameGrid::LetterTarget(int dir) const {
     const auto letter = [&](int i) -> int {
+        if ((*items)[static_cast<std::size_t>(i)].badge == "DISC") return -1;
         const std::string& title = (*items)[static_cast<std::size_t>(i)].title;
         const char c = title.empty() ? 0 : title[0];
         if (c >= 'a' && c <= 'z') return c - 'a' + 'A';
@@ -580,18 +582,20 @@ int GuiGameGrid::LetterTarget(int dir) const {
     const int n = Count();
     if (n <= 1) return focus;
     // From the disc tile, forward is the first letter and back the last.
-    const int from = focus > 0 && focus < n ? letter(focus) : (dir > 0 ? 0 : 0x7F);
+    const int at = focus >= 0 && focus < n ? letter(focus) : -1;
+    const int from = at >= 0 ? at : (dir > 0 ? 0 : 0x7F);
     int want = -1;  // the letter to go to
     int lowest = 0x7F, highest = -1;
-    for (int i = 1; i < n; ++i) {
+    for (int i = 0; i < n; ++i) {
         const int l = letter(i);
+        if (l < 0) continue;
         lowest = std::min(lowest, l);
         highest = std::max(highest, l);
         if (dir > 0 && l > from && (want < 0 || l < want)) want = l;
         if (dir < 0 && l < from && l > want) want = l;
     }
     if (want < 0) want = dir > 0 ? lowest : highest;
-    for (int i = 1; i < n; ++i)
+    for (int i = 0; i < n; ++i)
         if (letter(i) == want) return i;
     return focus;
 }

@@ -78,6 +78,8 @@ void LoaderSettings::parse(const std::string& text) {
             if (value == "riftwii" || value == "menu") return_to = value;
         } else if (key == "menu_music") {
             if (value == "on" || value == "off") menu_music = value;
+        } else if (key == "home_disc") {
+            if (value == "on" || value == "off") home_disc = value;
         } else if (key == "theme") {
             // A folder in sd:/riftwii/themes: one name, no path.
             if (!value.empty() && value.size() <= 64 && value.find_first_of("/\\:") == std::string::npos &&
@@ -142,6 +144,7 @@ std::string LoaderSettings::serialize() const {
     s += "screen_size = " + std::to_string(screen_size) + "\n";
     s += "menu_sounds = " + menu_sounds + "\n";
     s += "menu_music = " + menu_music + "\n";
+    s += "home_disc = " + home_disc + "\n";
     s += "theme = " + theme + "\n";
     s += "menu_font = " + menu_font + "\n";
     s += "return_to = " + return_to + "\n";

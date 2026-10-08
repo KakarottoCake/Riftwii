@@ -711,6 +711,12 @@ static void BuildHome(const FrontendState& state, std::vector<GridItem>& items, 
 		items.push_back(std::move(item));
 		entries.push_back(r.entry);
 	}
+	// Settings > Disc Channel off: the tile goes (an empty view keeps its
+	// note under the clock: Press 1 for all games).
+	if (riftwii::wii::Settings().home_disc == "off") {
+		items.erase(items.begin());
+		entries.erase(entries.begin());
+	}
 }
 
 // The bottom bar with the clock's bump.
@@ -1113,9 +1119,12 @@ static std::string LaunchNote(const FrontendState& state)
 	return note;
 }
 
-static std::string HomeStatus(const FrontendState& state, std::size_t shown)
+static std::string HomeStatus(const FrontendState& state, const std::vector<GridItem>& items)
 {
 	if (!g_homeNotice.empty()) return g_homeNotice;
+	// The games shown: the disc drive's tile, when it is there, is not one.
+	std::size_t games = 0;
+	for (const GridItem& item : items) games += item.badge != "DISC";
 	std::string status;
 	for (const std::string& p : {ShortSourceProblem("SD", state.sd_catalog), ShortSourceProblem("USB", state.usb_catalog)}) {
 		if (p.empty()) continue;
@@ -1125,19 +1134,18 @@ static std::string HomeStatus(const FrontendState& state, std::size_t shown)
 		status += std::string(status.empty() ? "" : "   ") + "No d2x cIOS in 249-251: games cannot boot yet";
 	if (!status.empty()) return status;
 	if (!g_search.empty()) {
-		if (shown <= 1) return tr("No game matches \"{1}\". Press 1 for all games.", {g_search});
-		const std::string count = shown == 2 ? std::string(tr("1 game")) : tr("{1} games", {std::to_string(shown - 1)});
+		if (games == 0) return tr("No game matches \"{1}\". Press 1 for all games.", {g_search});
+		const std::string count = games == 1 ? std::string(tr("1 game")) : tr("{1} games", {std::to_string(games)});
 		return tr("Search \"{1}\"", {g_search}) + ": " + count + "\n" + tr("1: all games");
 	}
-	if (g_filter == Filter::Mods && shown <= 1) return "No game here has packs in sd:/riivolution yet. Press 1 for all games.";
-	if (g_filter == Filter::Recent && shown <= 1) return "No game on these drives was played from RiftWii yet. Press 1 for all games.";
-	if (g_filter == Filter::Favorites && shown <= 1)
+	if (g_filter == Filter::Mods && games == 0) return "No game here has packs in sd:/riivolution yet. Press 1 for all games.";
+	if (g_filter == Filter::Recent && games == 0) return "No game on these drives was played from RiftWii yet. Press 1 for all games.";
+	if (g_filter == Filter::Favorites && games == 0)
 		return tr("No favourite is on these drives. Mark games on their page. Press 1 for all games.");
-	if (shown <= 1) return "No games found (usb:/wbfs, usb:/games, sd:/wbfs, sd:/games)";
-	// The disc drive's tile is not a game.
+	if (games == 0) return "No games found (usb:/wbfs, usb:/games, sd:/wbfs, sd:/games)";
 	// The Wii Menu's bar holds the date and nothing more.
 	if (!skin::BarBump()) return "";
-	const std::string count = shown == 2 ? std::string(tr("1 game")) : tr("{1} games", {std::to_string(shown - 1)});
+	const std::string count = games == 1 ? std::string(tr("1 game")) : tr("{1} games", {std::to_string(games)});
 	return std::string(tr(FilterLabel(g_filter))) + ": " + count + "\n" + tr("1: view   2: settings   -/+: pages   B: A to Z");
 }
 
@@ -1853,6 +1861,11 @@ static void ShowTutorial()
 	logf("Tutorial: %s\n", page >= kCount ? "finished" : "skipped");
 }
 
+static std::string DiscTileNote()
+{
+	return tr("The Disc drive's tile on Home, for playing from a disc. A disc still plays from it when it is off: switch it back on here.");
+}
+
 // The tour, once per SD card (sd:/riftwii/tutorial_done.txt remembers).
 // A card that has been used before (settings, play history, covers, the
 // channel offer answered) counts as seen: an update does not show it.
@@ -1864,7 +1877,17 @@ static void ShowTutorialOnce()
 	if (stat("sd:/", &st) != 0 || stat(kMarker, &st) == 0) return;
 	const bool used = stat("sd:/riftwii/settings.txt", &st) == 0 || stat("sd:/riftwii/history.txt", &st) == 0 ||
 			  stat("sd:/riftwii/covers", &st) == 0 || stat("sd:/riftwii/channel_offered.txt", &st) == 0;
-	if (!used) ShowTutorial();
+	if (!used) {
+		ShowTutorial();
+		// Plenty never play from a disc: the Disc drive's tile is asked for.
+		const bool disc = ShowPopup(tr("Disc Channel"), tr("Would you like the Disc Channel to appear on the home screen?"),
+			tr("Yes"), tr("No")) == 0;
+		riftwii::wii::Settings().home_disc = disc ? "on" : "off";
+		riftwii::wii::SaveSettings();
+		logf("Disc Channel on Home: %s\n", disc ? "yes" : "no");
+		if (!disc)
+			ShowPopup(tr("Disc Channel"), tr("You can bring it back any time in Settings > Disc Channel."), tr("OK"));
+	}
 	mkdir("sd:/riftwii", 0777);
 	if (FILE* f = std::fopen(kMarker, "w")) {
 		std::fprintf(f, "%s\n", used ? "used before" : "shown");
@@ -2288,7 +2311,7 @@ static int MenuSource(FrontendState& state)
 		BuildHome(state, items, entries);
 		grid.SetItems(&items);
 		grid.Focus(std::min(focus, std::max(0, static_cast<int>(items.size()) - 1)));
-		statusTxt.SetText(HomeStatus(state, items.size()).c_str());
+		statusTxt.SetText(HomeStatus(state, items).c_str());
 		emptyNote.SetVisible(state.sd_catalog.games.empty() && state.usb_catalog.games.empty());
 	};
 	if (!g_scanned) {
@@ -2309,7 +2332,7 @@ static int MenuSource(FrontendState& state)
 		}
 		g_focusRestored = true;
 	} else {
-		statusTxt.SetText(HomeStatus(state, items.size()).c_str());
+		statusTxt.SetText(HomeStatus(state, items).c_str());
 	}
 	ResumeGui();
 
@@ -2436,7 +2459,7 @@ static int MenuSource(FrontendState& state)
 			statusTxt.SetText(coverNote.c_str());
 			coverNoteShown = !g_coversOff;  // a failure stays up
 		} else if (coverNoteShown && riftwii::wii::CoverFetchGame().empty()) {
-			statusTxt.SetText(HomeStatus(state, items.size()).c_str());
+			statusTxt.SetText(HomeStatus(state, items).c_str());
 			coverNoteShown = false;
 		}
 		ClearStaleButtons({&filterBtn.button, &settingsBtn.button, &searchBtn.button});
@@ -2449,7 +2472,7 @@ static int MenuSource(FrontendState& state)
 		fade(filterHint, hintAlpha[0], filterBtn.button.GetState() == STATE::SELECTED);
 		fade(settingsHint, hintAlpha[1], settingsBtn.button.GetState() == STATE::SELECTED);
 		fade(searchHint, hintAlpha[2], searchBtn.button.GetState() == STATE::SELECTED);
-		if (TakeUpdateCheck() && !coverNoteShown) statusTxt.SetText(HomeStatus(state, items.size()).c_str());
+		if (TakeUpdateCheck() && !coverNoteShown) statusTxt.SetText(HomeStatus(state, items).c_str());
 		if (grid.Page() != shownPage || grid.Pages() != shownPages) {
 			shownPage = grid.Page();
 			shownPages = grid.Pages();
@@ -2557,7 +2580,7 @@ static int MenuSource(FrontendState& state)
 				if (!shown.empty() && shown[0] >= 'a' && shown[0] <= 'z') shown[0] = static_cast<char>(shown[0] - 'a' + 'A');
 				// The error on a notice of its own; the status line goes back to what it says.
 				toast.Show(shown, true);
-				statusTxt.SetText(HomeStatus(state, items.size()).c_str());
+				statusTxt.SetText(HomeStatus(state, items).c_str());
 			}
 		}
 		if (menu != MENU_NONE) {
@@ -4321,7 +4344,7 @@ static int MenuSettings(FrontendState& state)
 			if (t.folder == folder) return t.name;
 		return folder;
 	};
-	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kGameLanguage, kGameCios, kServer, kHomeTiles, kWidescreen, kScreenSize, kTheme, kFont, kSounds, kMusic, kReturnTo, kShots, kOnline, kNames, kGcAdapter, kGcTest, kIos, kNet, kResync,
+	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kGameLanguage, kGameCios, kServer, kHomeTiles, kDiscTile, kWidescreen, kScreenSize, kTheme, kFont, kSounds, kMusic, kReturnTo, kShots, kOnline, kNames, kGcAdapter, kGcTest, kIos, kNet, kResync,
 		kRescan, kChannel, kUpdate, kReport, kWiiChannel, kTutorial, kCredits, kExit, kNone, kHeading };
 	// The RiftWii channel on the Wii Menu (wii/channel.hpp).
 	unsigned channelVersion = 0;
@@ -4382,6 +4405,8 @@ static int MenuSettings(FrontendState& state)
 		option(tr("Home tiles"), settings.home_tiles == "names" ? tr("Names") : settings.home_tiles == "shelf" ? tr("Shelf")
 			: settings.home_tiles == "channels" ? tr("Channels") : tr("Covers"),
 			settings.home_tiles != "names", kHomeTiles);
+		option(tr("Disc Channel"), settings.home_disc == "off" ? tr("Off") : tr("On"), settings.home_disc != "off",
+			kDiscTile, FlowRow::Kind::Toggle);
 		option(tr("Widescreen menu"), settings.menu_widescreen == "on" ? std::string("16:9")
 			: settings.menu_widescreen == "off" ? std::string("4:3")
 			: std::string(tr("Automatic")) + (riftwii::wii::MenuWidescreen() ? " (16:9)" : " (4:3)"),
@@ -4537,6 +4562,7 @@ static int MenuSettings(FrontendState& state)
 			case kSounds: return tr("How loud the menu's clicks are. Quiet softens the tick the pointer makes moving onto something.");
 			case kReturnTo: return ReturnToNote();
 			case kShots: return tr("Experimental. In a game, hold 1 and press HOME (GameCube controller: hold L and R, press Down). Pictures go to sd:/riftwii/screenshots when RiftWii next starts. Some games and mods don't work with it.");
+			case kDiscTile: return DiscTileNote();
 			case kMusic: return riftwii::wii::MenuMusicFound() ? tr("Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder.") : tr("No music.ogg found in sd:/riftwii or in RiftWii's own folder.");
 			case kServer: return tr("The online server the game uses in place of Nintendo's, which closed. Custom uses wfc_domain in settings.txt.");
 			case kOnline:
@@ -4660,6 +4686,11 @@ static int MenuSettings(FrontendState& state)
 				case kShots:
 					settings.screenshots = settings.screenshots == "off" ? "on" : "off";
 					saveAndNote(tr("Experimental. In a game, hold 1 and press HOME (GameCube controller: hold L and R, press Down). Pictures go to sd:/riftwii/screenshots when RiftWii next starts. Some games and mods don't work with it."));
+					rebuild();
+					break;
+				case kDiscTile:
+					settings.home_disc = settings.home_disc == "off" ? "on" : "off";
+					saveAndNote(DiscTileNote());
 					rebuild();
 					break;
 				case kMusic:
