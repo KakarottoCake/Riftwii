@@ -69,6 +69,15 @@ std::string id_from_image_path(const std::string& path) {
     return bracketed(stem);
 }
 
+std::size_t sort_name_start(const std::string& title) {
+    if (title.size() <= 4) return 0;
+    const auto low = [](char c) { return static_cast<char>(c >= 'A' && c <= 'Z' ? c - 'A' + 'a' : c); };
+    if (low(title[0]) != 't' || low(title[1]) != 'h' || low(title[2]) != 'e' || title[3] != ' ') return 0;
+    std::size_t at = 4;
+    while (at < title.size() && title[at] == ' ') ++at;
+    return at < title.size() ? at : 0;
+}
+
 std::string folder_title(const std::string& path, const std::string& id) {
     const std::size_t file_slash = path.find_last_of('/');
     if (file_slash == std::string::npos || file_slash == 0) return "";

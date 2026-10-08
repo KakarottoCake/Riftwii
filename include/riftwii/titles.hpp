@@ -4,6 +4,7 @@
 
 #include <map>
 #include <set>
+#include <cstddef>
 #include <string>
 
 namespace riftwii {
@@ -29,6 +30,11 @@ public:
 private:
     std::map<std::string, std::string> titles_;
 };
+
+// Where a game's name is sorted from: past a leading "The " (any case), so
+// "The Legend of Zelda: Twilight Princess" goes under L, as game lists do.
+// 0 when the name has no such word (or is only it).
+std::size_t sort_name_start(const std::string& title);
 
 // "Super Mario Galaxy 2" from ".../wbfs/Super Mario Galaxy 2 [SB4E01]/SB4E01.wbfs";
 // empty when the image is not in a "Title [ID]" folder.

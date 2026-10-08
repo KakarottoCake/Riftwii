@@ -8,6 +8,7 @@
 #include "covers.hpp"
 #include "menutheme.hpp"
 #include "riftwii/coverart.hpp"
+#include "riftwii/titles.hpp"
 #include "skin.hpp"
 #include "wiidrc.h"
 
@@ -575,7 +576,9 @@ int GuiGameGrid::LetterTarget(int dir) const {
     const auto letter = [&](int i) -> int {
         if ((*items)[static_cast<std::size_t>(i)].badge == "DISC") return -1;
         const std::string& title = (*items)[static_cast<std::size_t>(i)].title;
-        const char c = title.empty() ? 0 : title[0];
+        // As Home sorts them: a leading "The" is skipped.
+        const std::size_t at = riftwii::sort_name_start(title);
+        const char c = at < title.size() ? title[at] : 0;
         if (c >= 'a' && c <= 'z') return c - 'a' + 'A';
         return c >= 'A' && c <= 'Z' ? c : '#';
     };

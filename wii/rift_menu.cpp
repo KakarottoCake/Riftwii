@@ -49,6 +49,7 @@
 #include "bannerplay.hpp"
 #include "banners.hpp"
 #include "bannersound.hpp"
+#include "riftwii/titles.hpp"
 #include "riftwii/bnr.hpp"
 #include "boxart.hpp"
 #include "covers.hpp"
@@ -685,7 +686,10 @@ static void BuildHome(const FrontendState& state, std::vector<GridItem>& items, 
 	for (std::size_t i = 0; i < state.sd_catalog.games.size(); ++i)
 		rows.push_back({GameName(state.sd_catalog.games[i]), {HomeEntry::Kind::Sd, i}, &state.sd_catalog.games[i]});
 	std::stable_sort(rows.begin(), rows.end(), [](const Row& a, const Row& b) {
-		return strcasecmp(a.name.c_str(), b.name.c_str()) < 0;
+		// A leading "The" is not sorted on (The Legend of Zelda under L).
+		const int by = strcasecmp(a.name.c_str() + riftwii::sort_name_start(a.name),
+			b.name.c_str() + riftwii::sort_name_start(b.name));
+		return by != 0 ? by < 0 : strcasecmp(a.name.c_str(), b.name.c_str()) < 0;
 	});
 	const bool searching = !g_search.empty();
 	if (!searching && g_filter == Filter::Recent) {

@@ -73,7 +73,20 @@ static void test_id_from_path() {
     EXPECT_EQ(id_from_image_path("RMCE01"), std::string("RMCE01"));
 }
 
+static void test_sort_name() {
+    using riftwii::sort_name_start;
+    EXPECT_EQ(sort_name_start("The Legend of Zelda"), std::size_t(4));
+    EXPECT_EQ(sort_name_start("THE LAST STORY"), std::size_t(4));
+    EXPECT_EQ(sort_name_start("the  Conduit"), std::size_t(5));
+    EXPECT_EQ(sort_name_start("Theatrhythm"), std::size_t(0));
+    EXPECT_EQ(sort_name_start("The "), std::size_t(0));
+    EXPECT_EQ(sort_name_start("The"), std::size_t(0));
+    EXPECT_EQ(sort_name_start("Super Mario Galaxy"), std::size_t(0));
+    EXPECT_EQ(sort_name_start(""), std::size_t(0));
+}
+
 int main() {
+    test_sort_name();
     test_table();
     test_id_from_path();
     test_folder_and_choice();
