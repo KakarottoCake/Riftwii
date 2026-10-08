@@ -40,6 +40,10 @@ Controls the painted parts' shape:
   (twice as round). The default is `1`.
 - `gloss`: `yes` or `no`. A shine across the top half of buttons, tiles
   and option boxes. The default is `no`.
+- `bar`: `dip` or `bump`. Home's bottom bar sinks in the middle with the
+  clock in the dip and the date under it, as the Wii Menu's (`dip`, the
+  default), or rises there with the clock above it (`bump`). A theme's own
+  `bar.png` should have the same shape.
 
 ### [backdrop]
 
@@ -110,6 +114,7 @@ Pictures ending in `_over` are the highlighted versions. Transparency
 | --- | --- | --- |
 | `background` | 640x480 | The whole screen behind the menu |
 | `tile` / `tile_over` | 140x100 | A game tile on Home (names view) |
+| `tile_empty` | 140x100 | An empty place on Home (Names and Channels) |
 | `cover_tile` / `cover_tile_over` | 96x128 | A game tile with its cover (the cover is drawn on top) |
 | `round_button` / `round_button_over` | 80x80 | Home's two round buttons |
 | `pill` / `pill_over` | 252x60 | The wide buttons (Back, OK) |
@@ -121,7 +126,7 @@ Pictures ending in `_over` are the highlighted versions. Transparency
 | `switch_on` / `switch_off` | 68x40 | On/Off switches |
 | `panel_game` | 580x240 | The white panel behind a game page's list |
 | `panel_settings` | 580x284 | The white panel behind Settings |
-| `bar` | 640x124 | Home's bottom bar (its top edge is a curve) |
+| `bar` | 640x124 | Home's bottom bar (its top edge is a curve; see `bar` under [shape]) |
 | `banner_stripes` | 640x192 | Drawn over a game page's banner |
 | `arrow_left` / `arrow_left_over`, `arrow_right` / `arrow_right_over` | 48x48 | Home's page arrows |
 | `scroll_up` / `scroll_up_over`, `scroll_down` / `scroll_down_over` | 44x44 | A list's scroll arrows |

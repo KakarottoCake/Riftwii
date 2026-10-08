@@ -22,7 +22,7 @@ struct Painter {
           bar(ToRgba(t.colors.bar)), banner_stripe(ToRgba(t.colors.banner_stripe)),
           backdrop(ToRgba(t.colors.backdrop)), backdrop_stripe(ToRgba(t.colors.backdrop_stripe)),
           shelf(ToRgba(t.colors.shelf)), shelf_edge(ToRgba(t.colors.shelf_edge)), corners(t.corners),
-          stripes(t.stripes), gloss(t.gloss) {
+          stripes(t.stripes), gloss(t.gloss), bump(t.bar_bump), clock(ToRgba(t.colors.clock)) {
         const ThemeColor* p[4] = {&t.colors.pointer1, &t.colors.pointer2, &t.colors.pointer3, &t.colors.pointer4};
         for (int i = 0; i < 4; ++i) pointer[i] = ToRgba(*p[i]);
     }
@@ -30,7 +30,8 @@ struct Painter {
     Rgba card, edge, edge_strong, shadow, accent, glow, glyph, chip_on, chip_off, chip_off_edge, switch_off, bar,
         banner_stripe, backdrop, backdrop_stripe, pointer[4], shelf, shelf_edge;
     float corners;
-    bool stripes, gloss;
+    bool stripes, gloss, bump;
+    Rgba clock;
 
     // A glossy theme's shine: the top half of a shape, white fading down.
     void Shine(Canvas& c, float x, float y, float w, float h, float radius) const {
@@ -41,6 +42,44 @@ struct Painter {
 
     // A corner radius as the theme rounds it.
     float R(float radius) const { return radius * corners; }
+
+    // A channel's frame, as the Wii Menu's: a shadow, the card, a fine grey
+    // edge with a light line inside it; lit, the accent's border and glow.
+    Canvas Tile(int w, int h, int margin, float radius, bool over) const {
+        Canvas c((w + 2 * margin + 3) & ~3, (h + 2 * margin + 3) & ~3);
+        const float x = static_cast<float>(margin), y = static_cast<float>(margin);
+        radius = R(radius);
+        if (over) c.shadow(x - 1, y - 1, w + 2.0f, h + 2.0f, radius + 1, margin - 1.0f, glow, 2.0f);
+        c.shadow(x, y + 2, static_cast<float>(w), static_cast<float>(h), radius, 3, shadow, 3.0f);
+        c.rounded_rect(x, y, static_cast<float>(w), static_cast<float>(h), radius, card);
+        Shine(c, x, y, static_cast<float>(w), static_cast<float>(h), radius);
+        if (over) {
+            c.rounded_border(x, y, static_cast<float>(w), static_cast<float>(h), radius, 3.0f, accent);
+        } else {
+            c.rounded_border(x, y, static_cast<float>(w), static_cast<float>(h), radius, 2.0f, edge);
+            c.rounded_border(x + 2, y + 2, w - 4.0f, h - 4.0f, std::max(0.0f, radius - 2), 1.0f, Rgba{255, 255, 255, 140});
+        }
+        return c;
+    }
+
+    // An empty channel, as the Wii Menu shows one: sunk in, the backdrop's
+    // colour a shade darker, fine lines across it.
+    Canvas TileEmpty(int w, int h, int margin, float radius) const {
+        Canvas c((w + 2 * margin + 3) & ~3, (h + 2 * margin + 3) & ~3);
+        const float x = static_cast<float>(margin), y = static_cast<float>(margin);
+        radius = R(radius);
+        const auto shade = [](Rgba v, float k, std::uint8_t a) {
+            const auto ch = [k](std::uint8_t q) { return static_cast<std::uint8_t>(std::min(255.0f, q * k)); };
+            return Rgba{ch(v.r), ch(v.g), ch(v.b), a};
+        };
+        c.rounded_gradient(x, y, static_cast<float>(w), static_cast<float>(h), radius, shade(backdrop, 0.97f, 255),
+                           shade(backdrop, 1.02f, 255));
+        for (int yy = margin + 3; yy < margin + h - 3; yy += 3)
+            c.rect(x + 3, static_cast<float>(yy), w - 6.0f, 1, shade(backdrop, 0.90f, 70));
+        c.rounded_border(x, y, static_cast<float>(w), static_cast<float>(h), radius, 1.5f, shade(edge, 1.0f, 200));
+        c.rounded_border(x + 1.5f, y + 1.5f, w - 3.0f, h - 3.0f, std::max(0.0f, radius - 1.5f), 1.5f, Rgba{0, 0, 0, 18});
+        return c;
+    }
 
     // A card: shadow, body, border; `over` adds the accent outline and glow.
     Canvas Card(int w, int h, int margin, float radius, bool over, bool primary = false) const {
@@ -63,11 +102,19 @@ struct Painter {
 
     Canvas Round(bool over) const {
         Canvas c(80, 80);
+        const auto shade = [](Rgba v, float k) {
+            const auto ch = [k](std::uint8_t x) { return static_cast<std::uint8_t>(std::min(255.0f, x * k)); };
+            return Rgba{ch(v.r), ch(v.g), ch(v.b), v.a};
+        };
         if (over) c.circle(40, 40, 39, glow);
         c.circle(40, 41.5f, 38, shadow);
-        c.circle(40, 40, 37, card);
-        Shine(c, 7, 3, 66, 74, 33);
-        c.ring(40, 40, 37, over ? 2.5f : 2.0f, over ? accent : edge_strong);
+        // The rim: the card's colour shaded top to bottom, a fine edge round it.
+        c.rounded_gradient(3, 3, 74, 74, 37, shade(card, 1.0f), shade(card, 0.86f));
+        c.ring(40, 40, 37, 1.2f, edge_strong);
+        // The accent's ring, and the face inside it, light at the top.
+        c.ring(40, 40, 31.5f, over ? 4.0f : 3.2f, accent);
+        c.rounded_gradient(11.5f, 11.5f, 57, 57, 28.5f, shade(card, 1.04f), shade(card, 0.90f));
+        c.rounded_gradient(15, 13, 50, 24, 12, Rgba{255, 255, 255, 110}, Rgba{255, 255, 255, 0});
         return c;
     }
 
@@ -81,13 +128,19 @@ struct Painter {
 
     Canvas Arrow(bool left, bool over) const {
         Canvas c(48, 48);
-        if (over) c.circle(24, 24, 20.5f, glow);
-        c.circle(24, 25, 18.5f, shadow);
-        c.circle(24, 24, 18, card);
-        c.ring(24, 24, 18, 2, over ? accent : edge_strong);
         const float s = left ? -1.0f : 1.0f;
-        c.line(24 - 3 * s, 17, 24 + 4 * s, 24, 3.5f, glyph);
-        c.line(24 + 4 * s, 24, 24 - 3 * s, 31, 3.5f, glyph);
+        const float tipX = 24 + 11 * s, backX = 24 - 9 * s;
+        // Filled by lines from the back edge to the tip, then edged.
+        const Rgba fill = over ? Rgba{accent.r, accent.g, accent.b, 150} : Rgba{255, 255, 255, 220};
+        for (float yy = 9.5f; yy <= 38.5f; yy += 1.0f) c.line(backX, yy, tipX, 24, 1.6f, fill);
+        if (over) {
+            c.line(backX, 7, tipX, 24, 7.0f, glow);
+            c.line(tipX, 24, backX, 41, 7.0f, glow);
+            c.line(backX, 7, backX, 41, 7.0f, glow);
+        }
+        c.line(backX, 8, tipX, 24, 3.2f, accent);
+        c.line(tipX, 24, backX, 40, 3.2f, accent);
+        c.line(backX, 8, backX, 40, 3.2f, accent);
         return c;
     }
 
@@ -189,8 +242,51 @@ struct Painter {
         return c;
     }
 
-    // `w` across, the clock's bump (288 wide) in the middle.
+    // `w` across. The Wii Menu's: high at the sides, sinking in the middle
+    // (58% of the width) where the clock sits; a body shaded down from the
+    // line, faint lines across it, the accent's line along the top with a
+    // light edge under it. A bump theme's: rising in the middle instead.
     Canvas Bar(int w = 640) const {
+        if (bump) return BumpBar(w);
+        Canvas c(w, 124);
+        std::vector<float> top(static_cast<std::size_t>(w));
+        const float dip = w * 0.58f, dipLeft = w / 2.0f - dip / 2.0f;
+        for (int x = 0; x < w; ++x) {
+            const float t = (x + 0.5f - dipLeft) / dip;
+            // Sloping in over a fifth of it each side, flat between (the clock's room).
+            const auto ease = [](float v) { v = v < 0 ? 0 : v > 1 ? 1 : v; return v * v * (3 - 2 * v); };
+            const float d = (t > 0.0f && t < 1.0f) ? std::min(ease(t / 0.3f), ease((1.0f - t) / 0.3f)) : 0.0f;
+            top[x] = 11.0f + 51.0f * d;
+        }
+        std::vector<float> shade(top);
+        for (float& v : shade) v -= 4.0f;
+        c.area_below(shade, rgba(0x000000, 22), 6.0f);
+        // The body: the bar's colour at the line, a little darker lower down.
+        c.area_below(top, bar);
+        for (int y = 0; y < 124; ++y) {
+            const float k = 1.0f - 0.10f * (y / 123.0f);
+            const auto ch = [k](std::uint8_t v) { return static_cast<std::uint8_t>(v * k); };
+            const Rgba row = {ch(bar.r), ch(bar.g), ch(bar.b), 255};
+            for (int x = 0; x < w; ++x) {
+                if (y < top[x] + 1.0f) continue;
+                Rgba p = row;
+                if (stripes && (y & 3) >= 2) {  // the Wii's faint lines
+                    p.r = static_cast<std::uint8_t>(p.r * 0.97f);
+                    p.g = static_cast<std::uint8_t>(p.g * 0.97f);
+                    p.b = static_cast<std::uint8_t>(p.b * 0.97f);
+                }
+                c.put(x, y, p);
+            }
+        }
+        // A light edge under the line, then the line.
+        std::vector<float> under(top);
+        for (float& v : under) v += 3.0f;
+        c.curve(under, 2.0f, rgba(0xFFFFFF, 150));
+        c.curve(top, 3.5f, accent);
+        return c;
+    }
+
+    Canvas BumpBar(int w) const {
         Canvas c(w, 124);
         std::vector<float> top(static_cast<std::size_t>(w));
         const float bumpLeft = w / 2.0f - 144.0f;
@@ -204,6 +300,39 @@ struct Painter {
         c.area_below(shade, rgba(0x000000, 18), 5.0f);  // the bar covers the rest
         c.area_below(top, bar);
         c.curve(top, 2.5f, accent);
+        return c;
+    }
+
+    // The clock's figures, as the Wii Menu's: seven segments each, 0 to 9
+    // then the colon, in 28 x 44 cells side by side.
+    Canvas ClockDigits() const {
+        Canvas c(308, 44);
+        static const unsigned char kSegments[10] = {0x3F, 0x06, 0x5B, 0x4F, 0x66, 0x6D, 0x7D, 0x07, 0x7F, 0x6F};
+        // a b c d e f g: top, top right, bottom right, bottom, bottom left, top left, middle.
+        struct Seg { float x0, y0, x1, y1; };
+        const Seg segs[7] = {{8, 4, 20, 4},  {24, 8, 24, 18}, {24, 26, 24, 36}, {8, 40, 20, 40},
+                             {4, 26, 4, 36}, {4, 8, 4, 18},   {8, 22, 20, 22}};
+        const Rgba shade = Rgba{0, 0, 0, 28}, light = Rgba{255, 255, 255, 110};
+        for (int d = 0; d < 10; ++d) {
+            const float ox = d * 28.0f;
+            for (int s = 0; s < 7; ++s) {
+                if (!(kSegments[d] & (1 << s))) continue;
+                const Seg& g = segs[s];
+                c.line(ox + g.x0 + 0.5f, g.y0 + 1.5f, ox + g.x1 + 0.5f, g.y1 + 1.5f, 5.5f, shade);
+            }
+            for (int s = 0; s < 7; ++s) {
+                if (!(kSegments[d] & (1 << s))) continue;
+                const Seg& g = segs[s];
+                c.line(ox + g.x0, g.y0, ox + g.x1, g.y1, 5.0f, clock);
+                // A lit edge along each segment, as the Wii's are.
+                c.line(ox + g.x0, g.y0 - 0.8f, ox + g.x1, g.y1 - 0.8f, 1.2f, light);
+            }
+        }
+        const float cx = 10 * 28.0f + 14.0f;
+        c.circle(cx + 0.5f, 16.5f, 3.2f, shade);
+        c.circle(cx + 0.5f, 30.5f, 3.2f, shade);
+        c.circle(cx, 15, 3.0f, clock);
+        c.circle(cx, 29, 3.0f, clock);
         return c;
     }
 
@@ -262,6 +391,8 @@ void paint_hint_box(const Theme& theme, int w, int h, Canvas& out) {
     out = Painter(theme).Card(w, h, kHintBoxMargin, h / 2.0f, false);
 }
 
+void paint_clock_digits(const Theme& theme, Canvas& out) { out = Painter(theme).ClockDigits(); }
+
 void paint_art_frame(const Theme& theme, int w, int h, Canvas& out) {
     out = Painter(theme).Card(w, h, kHintBoxMargin, 10, false);
 }
@@ -274,8 +405,9 @@ bool paint_theme_image(const std::string& name, const Theme& theme, Canvas& out)
     };
     static const Entry kEntries[] = {
         {"background", [](const Painter& q) { return q.Background(); }},
-        {"tile", [](const Painter& q) { return q.Card(124, 84, 7, 14, false); }},
-        {"tile_over", [](const Painter& q) { return q.Card(124, 84, 7, 14, true); }},
+        {"tile", [](const Painter& q) { return q.Tile(124, 84, 7, 14, false); }},
+        {"tile_over", [](const Painter& q) { return q.Tile(124, 84, 7, 14, true); }},
+        {"tile_empty", [](const Painter& q) { return q.TileEmpty(124, 84, 7, 14); }},
         {"cover_tile", [](const Painter& q) { return q.Card(80, 112, 7, 8, false); }},
         {"cover_tile_over", [](const Painter& q) { return q.Card(80, 112, 7, 8, true); }},
         {"round_button", [](const Painter& q) { return q.Round(false); }},

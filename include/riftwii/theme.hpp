@@ -77,6 +77,9 @@ struct Theme {
     float corners = 1.0f;  // [shape] corners: radii are multiplied by it, 0 to 2
     bool stripes = true;   // [backdrop] stripes
     bool gloss = false;    // [shape] gloss: a shine across the top of buttons and tiles
+    // [shape] bar: "dip" (the Wii Menu's: the bar sinks in the middle and
+    // the clock sits in the dip) or "bump" (it rises there, the clock above).
+    bool bar_bump = false;
 };
 
 // The default look (no theme), as theme.ini would give it.

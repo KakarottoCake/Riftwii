@@ -103,10 +103,47 @@ GuiGameGrid::~GuiGameGrid() {
     delete soundClick;
 }
 
+// Channels on a widescreen menu: the Wii Menu stretches its 4:3 menu
+// across a 16:9 screen, its channels with it; so does the grid (its
+// tiles, their pictures, the page arrows), about the middle; the icons
+// keep their shape.
+float GuiGameGrid::Stretch() const {
+    if (!channels || shelf || !skin::WideMenu()) return 1.0f;
+    f32 safeX, safeW;
+    Menu_SafeArea(&safeX, &safeW);
+    return safeW > 640.0f ? safeW / 640.0f : 1.0f;
+}
+
 const GuiGameGrid::Geometry& GuiGameGrid::Geo() const {
-    static const Geometry names = {kNameCols, 124, 84, 57, 20, 10, 12};
+    static const Geometry names = {kNameCols, 124, 84, 57, 24, 10, 12};
     static const Geometry coverGrid = {kCoverCols, riftwii::kCoverWidth, riftwii::kCoverHeight, 58, 16, 9, 14};
-    return covers ? coverGrid : names;
+    const float k = Stretch();
+    if (covers || k == 1.0f) return covers ? coverGrid : names;
+    stretched = names;
+    stretched.left = static_cast<int>(320 + (names.left - 320) * k + 0.5f);
+    stretched.tileW = static_cast<int>(names.tileW * k + 0.5f);
+    stretched.gapX = static_cast<int>(names.gapX * k + 0.5f);
+    return stretched;
+}
+
+int GuiGameGrid::ArrowX(int dir) const {
+    const int base = dir < 0 ? kArrowLeftX : kArrowRightX;
+    return static_cast<int>(320 + (base + 22 - 320) * Stretch() + 0.5f) - 22;
+}
+
+// A tile's picture (`t` has the tile's 7-unit margin), stretched with
+// the grid and scaled about the tile's middle.
+void GuiGameGrid::DrawTilePicture(const skin::Tex& t, int slot, int alpha, float scale) const {
+    const float k = Stretch();
+    if (k == 1.0f) {
+        skin::Draw(t, TileX(slot) - 7, TileY(slot) - 7, alpha, scale);
+        return;
+    }
+    if (!t.data || alpha <= 0) return;
+    const float cx = TileX(slot) + Geo().tileW / 2.0f, cy = TileY(slot) + Geo().tileH / 2.0f;
+    // Menu_DrawImg scales about the picture's middle: put it on the tile's.
+    Menu_DrawImg(cx - t.w / 2.0f, cy - t.h / 2.0f, static_cast<u16>(t.w), static_cast<u16>(t.h), t.data, 0, scale * k,
+                 scale, static_cast<u8>(alpha > 255 ? 255 : alpha));
 }
 
 int GuiGameGrid::TileX(int slot) const {
@@ -310,8 +347,8 @@ int GuiGameGrid::SlotAt(int x, int y) const {
 
 int GuiGameGrid::ArrowAt(int x, int y) const {
     if (y < ArrowY() || y >= ArrowY() + 44) return 0;
-    if (page > 0 && x >= kArrowLeftX && x < kArrowLeftX + 44) return -1;
-    if (page + 1 < Pages() && x >= kArrowRightX && x < kArrowRightX + 44) return 1;
+    if (page > 0 && x >= ArrowX(-1) && x < ArrowX(-1) + 44) return -1;
+    if (page + 1 < Pages() && x >= ArrowX(1) && x < ArrowX(1) + 44) return 1;
     return 0;
 }
 
@@ -320,7 +357,7 @@ void GuiGameGrid::DrawNameTile(int i, bool on, int alpha) {
     const GridItem& item = (*items)[page * kPerPage + i];
     Slot& s = slots[i];
     const float x = TileX(i), y = TileY(i);
-    skin::Draw(on ? skin::tileOver : skin::tile, x - 7, y - 7, alpha, s.scale);
+    DrawTilePicture(on ? skin::tileOver : skin::tile, i, alpha, s.scale);
     // The game's colour along the bottom, inset from the round corners.
     const float grow = (s.scale - 1.0f);
     const float bx = x + 12 - grow * tileW / 2, bw = tileW - 24 + grow * tileW;
@@ -466,7 +503,8 @@ void GuiGameGrid::Draw() {
     // Empty places first, then tiles, the lit one last so it sits on top.
     for (int i = 0; i < kPerPage; ++i) {
         if (page * kPerPage + i < Count()) continue;
-        skin::Draw(covers ? skin::coverTile : skin::tile, TileX(i) - 7, TileY(i) - 7, tileAlpha * 70 / 255);
+        if (covers) skin::Draw(skin::coverTile, TileX(i) - 7, TileY(i) - 7, tileAlpha * 70 / 255);
+        else DrawTilePicture(skin::tileEmpty.data ? skin::tileEmpty : skin::tile, i, skin::tileEmpty.data ? tileAlpha : tileAlpha * 70 / 255, 1.0f);
     }
     const auto draw_tile = [&](int i) {
         Slot& s = slots[i];
@@ -476,20 +514,23 @@ void GuiGameGrid::Draw() {
         if (channels && iconDrawer) {
             // The icon fills the tile inside its border, 4:3 across the
             // tile's width (its top and bottom cut off), with the tile's
-            // round corners; scaled about the tile's centre.
+            // round corners; scaled about the tile's centre. A widescreen
+            // menu's wider tile keeps the icon's size and shape (menu
+            // units are square on the TV): what the icon has past its
+            // frame shows at the sides, as on the Wii Menu.
             const float tileW = Geo().tileW * s.scale, tileH = Geo().tileH * s.scale;
             const float cx = TileX(i) + Geo().tileW / 2.0f, cy = TileY(i) + Geo().tileH / 2.0f;
             const float border = (on ? 2.5f : 1.5f) * s.scale;
-            skin::Draw(on ? skin::tileOver : skin::tile, TileX(i) - 7, TileY(i) - 7, tileAlpha, s.scale);
+            DrawTilePicture(on ? skin::tileOver : skin::tile, i, tileAlpha, s.scale);
             IconBox box;
             box.clipW = tileW - 2 * border;
             box.clipH = tileH - 2 * border;
             box.clipX = cx - box.clipW / 2;
             box.clipY = cy - box.clipH / 2;
             box.radius = std::max(0.0f, 14.0f * riftwii::wii::MenuTheme().corners * s.scale - border);
-            box.w = box.clipW;
+            box.w = box.clipW / Stretch();
             box.h = box.w * 3.0f / 4.0f;
-            box.x = box.clipX;
+            box.x = cx - box.w / 2;
             box.y = cy - box.h / 2;
             box.alpha = tileAlpha;
             if (iconDrawer(page * kPerPage + i, box)) {
@@ -520,9 +561,9 @@ void GuiGameGrid::Draw() {
         caption->Draw();
         PrefetchCovers();
     }
-    if (page > 0) skin::Draw(arrowHover < 0 ? skin::arrowLeftOver : skin::arrowLeft, kArrowLeftX - 2, ArrowY() - 2, alpha);
+    if (page > 0) skin::Draw(arrowHover < 0 ? skin::arrowLeftOver : skin::arrowLeft, ArrowX(-1) - 2, ArrowY() - 2, alpha);
     if (page + 1 < Pages())
-        skin::Draw(arrowHover > 0 ? skin::arrowRightOver : skin::arrowRight, kArrowRightX - 2, ArrowY() - 2, alpha);
+        skin::Draw(arrowHover > 0 ? skin::arrowRightOver : skin::arrowRight, ArrowX(1) - 2, ArrowY() - 2, alpha);
     UpdateEffects();
 }
 

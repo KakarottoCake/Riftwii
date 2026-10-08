@@ -275,6 +275,11 @@ Theme parse_theme(const std::string& text, std::vector<std::string>& notes) {
                 } else {
                     add_note(notes, line_num, "gloss: \"" + val + "\" is not a boolean (yes/no/true/false/on/off/1/0); the default stays");
                 }
+            } else if (key == "bar") {
+                const std::string lower_val = to_lower(val);
+                if (lower_val == "bump") theme.bar_bump = true;
+                else if (lower_val == "dip") theme.bar_bump = false;
+                else add_note(notes, line_num, "bar: \"" + val + "\" is not dip or bump; the default stays");
             } else {
                 add_note(notes, line_num, "unknown key '" + key + "' in [shape]; ignored");
             }
@@ -342,6 +347,7 @@ const std::vector<ThemeImage>& theme_images() {
         {"background", 640, 480},
         {"tile", 140, 100},
         {"tile_over", 140, 100},
+        {"tile_empty", 140, 100},
         {"cover_tile", 96, 128},
         {"cover_tile_over", 96, 128},
         {"round_button", 80, 80},

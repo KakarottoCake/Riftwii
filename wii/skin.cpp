@@ -120,8 +120,12 @@ Tex Pick(const ThemeImage& im) {
     }
     // Only a theme's own: without them the menu paints the backdrop
     // (GuiBackdrop) and mirrors the 640 bar outward.
+    if (std::strcmp(im.name, "bar_wide") == 0) {
+        std::vector<std::uint8_t> own;
+        if (LoadThemeImage("bar", 640, 124, own)) return Tex();
+    }
     if (std::strcmp(im.name, "background") == 0 || std::strcmp(im.name, "background_wide") == 0 ||
-        std::strcmp(im.name, "bar_wide") == 0 || std::strncmp(im.name, "background_shelf", 16) == 0)
+        std::strncmp(im.name, "background_shelf", 16) == 0)
         return Tex();
     Canvas c(0, 0);
     if (!paint_theme_image(im.name, MenuTheme(), c)) return Tex();
@@ -133,6 +137,8 @@ Tex Pick(const ThemeImage& im) {
 Tex background;
 Tex backgroundWide, barWide;
 Tex backgroundShelf, backgroundShelfWide;
+Tex clockDigits;
+Tex tileEmpty;
 Tex shelfPlank;
 
 Tex ArtFrame(int w, int h) {
@@ -175,7 +181,7 @@ void Init() {
         Tex* tex;
     };
     const Slot slots[] = {
-        {"background", &background}, {"tile", &tile}, {"tile_over", &tileOver}, {"cover_tile", &coverTile},
+        {"background", &background}, {"tile", &tile}, {"tile_over", &tileOver}, {"tile_empty", &tileEmpty}, {"cover_tile", &coverTile},
         {"cover_tile_over", &coverTileOver}, {"round_button", &roundBtn}, {"round_button_over", &roundBtnOver},
         {"pill", &pill}, {"pill_over", &pillOver}, {"pill_primary", &pillPrimary},
         {"pill_primary_over", &pillPrimaryOver}, {"home_button", &homeBtn}, {"home_button_over", &homeBtnOver},
@@ -196,8 +202,15 @@ void Init() {
             if (std::strcmp(s.name, im.name) == 0) *s.tex = Pick(im);
         }
     }
+    {
+        Canvas c(0, 0);
+        paint_clock_digits(MenuTheme(), c);
+        clockDigits = Upload(c);
+    }
     g_ready = true;
 }
+
+bool BarBump() { return MenuTheme().bar_bump; }
 
 bool Ready() { return g_ready; }
 

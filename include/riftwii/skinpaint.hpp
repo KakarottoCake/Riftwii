@@ -23,5 +23,7 @@ constexpr int kHintBoxMargin = 6;
 void paint_hint_box(const Theme& theme, int w, int h, Canvas& out);
 // The Mods page's picture popup: a card `w` x `h`, the same margin.
 void paint_art_frame(const Theme& theme, int w, int h, Canvas& out);
+// Home's clock figures: 0 to 9 then the colon, each 28 x 44, side by side.
+void paint_clock_digits(const Theme& theme, Canvas& out);
 
 }  // namespace riftwii

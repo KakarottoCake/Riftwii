@@ -87,6 +87,8 @@ std::string StarterIni() {
          "corners = 1\n"
          "# A shine across the top of buttons and tiles: yes or no.\n"
          "gloss = no\n"
+         "# Home's bottom bar: dip (sinks under the clock, as the Wii Menu's) or bump.\n"
+         "bar = dip\n"
          "\n"
          "[backdrop]\n"
          "# Thin horizontal stripes across the backdrop: yes or no.\n"

@@ -728,7 +728,7 @@ public:
 		skin::DrawExtended(picture, 320.0f - picture.w / 2.0f, top, vx, top, vx + vw, vy + vh, kFlat, kBody);
 	}
 private:
-	static constexpr int kFlat = 176;
+	static constexpr int kFlat = 140;  // clear of the dip (53% of 640) and of a bump (288)
 	static constexpr int kBody = 40;
 };
 
@@ -741,17 +741,18 @@ static std::set<std::string> g_boxesChecked;
 static bool g_boxesOff = false;
 
 // The Channels view: each game's own icon from its banner (wii/banners.cpp),
-// read from its image once and kept on the card. A few icons are kept
-// playing, the ones drawn last; one is loaded from the card a frame.
+// read from its image once and kept on the card. The icons of the page
+// shown and of the pages either side are kept playing (the ones drawn
+// last stay); the menu's loop loads them from the card, one a turn, so
+// drawing never waits on the card, nor a page turn on its icons.
 struct IconSlot {
 	std::string id;
 	std::unique_ptr<riftwii::wii::BannerPlayer> player;
 	u32 used = 0;
 };
-static IconSlot g_icons[16];
+static IconSlot g_icons[40];  // the page shown (and the next one's peeking column), and a page either side
 static std::unordered_map<std::string, IconSlot*> g_iconIndex;  // the filled slots by game
 static u32 g_iconClock = 0;
-static u32 g_iconLoadFrame = ~0u;
 static std::set<std::string> g_bannersTried;   // read from the image this session (or tried)
 static std::set<std::string> g_bannerAbsent;   // not on the card when last looked for
 
@@ -759,33 +760,37 @@ static riftwii::wii::BannerPlayer* IconFor(const std::string& id)
 {
 	if (id.empty()) return nullptr;
 	const auto found = g_iconIndex.find(id);
-	if (found != g_iconIndex.end()) {
-		found->second->used = ++g_iconClock;
-		return found->second->player.get();
-	}
-	if (g_iconLoadFrame == FrameTimer || g_bannerAbsent.count(id)) return nullptr;
-	g_iconLoadFrame = FrameTimer;
-	IconSlot* victim = &g_icons[0];
-	for (IconSlot& s : g_icons)
-		if (s.used < victim->used) victim = &s;
+	if (found == g_iconIndex.end()) return nullptr;
+	found->second->used = ++g_iconClock;
+	return found->second->player.get();
+}
+
+// The menu's loop: reads `id`'s icon from the card (the GUI drawing on
+// meanwhile). False when it has none.
+static std::unique_ptr<riftwii::wii::BannerPlayer> LoadIcon(const std::string& id)
+{
 	std::vector<std::uint8_t> bytes;
 	std::string error;
 	std::unique_ptr<riftwii::wii::BannerPlayer> player(new riftwii::wii::BannerPlayer());
-	if (!riftwii::wii::LoadBanner(id, bytes)) {
-		g_bannerAbsent.insert(id);
-		return nullptr;
-	}
+	if (!riftwii::wii::LoadBannerIcon(id, bytes)) return nullptr;
 	if (!player->Load(bytes, true, error)) {
 		logf("Icon of %s: %s\n", id.c_str(), error.c_str());
-		g_bannerAbsent.insert(id);
 		return nullptr;
 	}
+	return player;
+}
+
+// With the GUI halted: the loaded icon in the slot drawn longest ago.
+static void KeepIcon(const std::string& id, std::unique_ptr<riftwii::wii::BannerPlayer> player)
+{
+	IconSlot* victim = &g_icons[0];
+	for (IconSlot& s : g_icons)
+		if (s.used < victim->used) victim = &s;
 	if (!victim->id.empty()) g_iconIndex.erase(victim->id);
 	victim->id = id;
 	victim->player = std::move(player);
 	victim->used = ++g_iconClock;
 	g_iconIndex[id] = victim;
-	return victim->player.get();
 }
 
 // The full banner, as the Wii Menu shows a channel before it starts:
@@ -970,6 +975,8 @@ static std::string HomeStatus(const FrontendState& state, std::size_t shown)
 		return tr("No favourite is on these drives. Mark games on their page. Press 1 for all games.");
 	if (shown <= 1) return "No games found (usb:/wbfs, usb:/games, sd:/wbfs, sd:/games)";
 	// The disc drive's tile is not a game.
+	// The Wii Menu's bar holds the date and nothing more.
+	if (!skin::BarBump()) return "";
 	const std::string count = shown == 2 ? std::string(tr("1 game")) : tr("{1} games", {std::to_string(shown - 1)});
 	return std::string(tr(FilterLabel(g_filter))) + ": " + count + "\n" + tr("1: view   2: settings   -/+: pages   B: A to Z");
 }
@@ -1722,6 +1729,59 @@ static bool TakeUpdateCheck()
 	return true;
 }
 
+// Home's clock as the Wii Menu's: its figures in seven segments (from
+// skin::clockDigits), the colon blinking each second, and what follows
+// them ("AM", "PM") in the menu's font. A clock text that does not start
+// with figures is shown as it is.
+class LcdClock : public GuiElement {
+public:
+	LcdClock(int centreX, int top, int height) : cx(centreX), top(top), h(height), rest("", height / 2 + 2, skin::kClock) {
+		rest.SetParent(this);
+		rest.SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
+	}
+	void SetClock(const std::string& text) {
+		std::size_t n = 0;
+		while (n < text.size() && ((text[n] >= '0' && text[n] <= '9') || text[n] == ':')) ++n;
+		figures = text.substr(0, n);
+		std::string after = text.substr(n);
+		while (!after.empty() && after[0] == ' ') after.erase(0, 1);
+		rest.SetText(after.c_str());
+	}
+	void Draw() override {
+		const skin::Tex& t = skin::clockDigits;
+		if (!t.data || figures.empty()) return;
+		const float s = static_cast<float>(h) / 44.0f;
+		const float digitW = 28 * s, colonW = 14 * s, gap = 10 * s;
+		float width = 0;
+		for (char c : figures) width += c == ':' ? colonW : digitW;
+		const int restW = rest.GetTextWidth();
+		if (restW > 0) width += gap + restW;
+		float x = cx - width / 2;
+		const bool colonOn = (time(nullptr) & 1) == 0;  // blinks, as the Wii Menu's
+		for (char c : figures) {
+			if (c == ':') {
+				if (colonOn)
+					Menu_DrawImgPart(x, top, colonW, h, static_cast<u16>(t.w), static_cast<u16>(t.h), t.data,
+						(10 * 28 + 7) / 308.0f, 0, (10 * 28 + 21) / 308.0f, 1, 255);
+				x += colonW;
+				continue;
+			}
+			const int d = c - '0';
+			Menu_DrawImgPart(x, top, digitW, h, static_cast<u16>(t.w), static_cast<u16>(t.h), t.data,
+				d * 28 / 308.0f, 0, (d + 1) * 28 / 308.0f, 1, 255);
+			x += digitW;
+		}
+		if (restW > 0) {
+			rest.SetPosition(static_cast<int>(x + gap), top + h - (h / 2 + 2) - 2);
+			rest.Draw();
+		}
+	}
+private:
+	int cx, top, h;
+	std::string figures;
+	GuiText rest;
+};
+
 static void ClockText(std::string& clock, std::string& date)
 {
 	const time_t now = time(nullptr);
@@ -1792,12 +1852,25 @@ static int MenuSource(FrontendState& state)
 	f32 safeX, safeW;
 	Menu_SafeArea(&safeX, &safeW);
 	const int wide = safeX < 0 ? static_cast<int>(-safeX) : 0;
-	GuiText pageTxt("", 15, skin::kInkDim);
-	Place(pageTxt, 40 - wide, 300);
-	// The view in use, always on screen (the status line below gives way to notices).
-	GuiText viewTxt("", 16, skin::kAccent);
-	Place(viewTxt, 40 - wide, 324);
-	viewTxt.SetMaxWidth(190 + wide);  // ends by x 230, clear of the clock; a longer one ends in "..."
+	// The Wii Menu's bar (it dips under the clock): the view and the page
+	// on its high sides, under its line; a bar that bumps: above it.
+	const bool dip = !skin::BarBump();
+	GuiText pageTxt("", dip ? 14 : 15, skin::kInkDim);
+	GuiText viewTxt("", dip ? 14 : 16, skin::kAccent);
+	if (dip) {
+		// Clear of the dip (58% of the bar, which is 856 wide on a widescreen menu).
+		const int dipLeft = 320 - static_cast<int>(0.29f * (wide > 0 ? 856 : 640));
+		Place(viewTxt, 16 - wide, 357);
+		viewTxt.SetMaxWidth(dipLeft - 10 - (16 - wide));
+		pageTxt.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
+		pageTxt.SetPosition(-(16 - wide), 357);
+		pageTxt.SetMaxWidth(dipLeft - 10 - (16 - wide));
+	} else {
+		Place(pageTxt, 40 - wide, 300);
+		// The view in use, always on screen (the status line below gives way to notices).
+		Place(viewTxt, 40 - wide, 324);
+		viewTxt.SetMaxWidth(190 + wide);  // ends by x 230, clear of the clock; a longer one ends in "..."
+	}
 	// A name over a round button while the pointer rests on it.
 	GuiText filterHint(tr("View"), 17, skin::kInk), settingsHint(tr("Settings"), 17, skin::kInk),
 		searchHint(tr("Search"), 17, skin::kInk);
@@ -1820,13 +1893,20 @@ static int MenuSource(FrontendState& state)
 	}
 	std::string clock, date;
 	ClockText(clock, date);
+	// The Wii Menu's way (a bar that dips): the clock in the dip, the date
+	// under it on the bar, notices under that. A bar that bumps: the clock
+	// above the bump, the date in it.
 	GuiText clockTxt(clock.c_str(), 34, skin::kClock);
 	Place(clockTxt, 0, 296, true);
-	GuiText dateTxt(date.c_str(), 18, skin::kInkSoft);
-	Place(dateTxt, 0, 359, true);
-	GuiText statusTxt("", 17, skin::kInkSoft);
-	Place(statusTxt, 0, 396, true);
-	statusTxt.SetWrap(true, 400 + 2 * wide, 3);  // between the round buttons (x 106 and 534 on 4:3)
+	LcdClock lcd(320, 351, 40);
+	lcd.SetClock(clock);
+	if (dip) clockTxt.SetVisible(false);
+	else lcd.SetVisible(false);
+	GuiText dateTxt(date.c_str(), dip ? 22 : 18, skin::kInkSoft);
+	Place(dateTxt, 0, dip ? 407 : 359, true);
+	GuiText statusTxt("", dip ? 15 : 17, skin::kInkSoft);
+	Place(statusTxt, 0, dip ? 438 : 396, true);
+	statusTxt.SetWrap(true, 400 + 2 * wide, dip ? 2 : 3);  // between the round buttons (x 106 and 534 on 4:3)
 	EmptyHomeNote emptyNote;
 	emptyNote.SetVisible(false);
 
@@ -1868,6 +1948,7 @@ static int MenuSource(FrontendState& state)
 	w.Append(&settingsHint);
 	w.Append(&searchHint);
 	w.Append(&clockTxt);
+	w.Append(&lcd);
 	w.Append(&dateTxt);
 	w.Append(&statusTxt);
 	w.Append(&filterBtn.button);
@@ -2000,6 +2081,29 @@ static int MenuSource(FrontendState& state)
 			}
 			if (!read) bannerPageDone = grid.PageFirst();
 		}
+		// Channels: one icon a turn, the page shown's first (with the next
+		// page's column peeking in), then the next page's, then the last's.
+		std::string iconId;
+		std::unique_ptr<riftwii::wii::BannerPlayer> iconLoaded;
+		if (grid.Channels()) {
+			const int first = grid.PageFirst(), per = GuiGameGrid::kPerPage;
+			const int from[3] = {first, first + per, first - per};
+			const int count[3] = {per + 4, per, per};
+			for (int r = 0; r < 3 && iconId.empty(); ++r) {
+				for (int k = std::max(0, from[r]); k < from[r] + count[r] && k < static_cast<int>(items.size()); ++k) {
+					const std::string& id = items[static_cast<std::size_t>(k)].id;
+					if (id.empty() || entries[static_cast<std::size_t>(k)].kind == HomeEntry::Kind::Disc ||
+					    g_iconIndex.count(id) || g_bannerAbsent.count(id))
+						continue;
+					iconId = id;
+					break;
+				}
+			}
+			if (!iconId.empty()) {
+				iconLoaded = LoadIcon(iconId);
+				if (!iconLoaded) g_bannerAbsent.insert(iconId);
+			}
+		}
 		// The shelf's boxes once the covers are in: the ones near the focus first.
 		if (coverQueue.empty() && grid.Shelf() && !g_boxesOff && !g_coversOff && riftwii::wii::Settings().online &&
 		    !riftwii::wii::NetBackgroundBusy() && !riftwii::wii::NetFailed() && riftwii::wii::CoverFetchGame().empty() &&
@@ -2012,6 +2116,7 @@ static int MenuSource(FrontendState& state)
 			}
 		}
 		HaltGui();
+		if (iconLoaded) KeepIcon(iconId, std::move(iconLoaded));
 		if (!arrived.empty()) grid.CoverArrived(arrived);
 		if (!boxArrived.empty()) grid.BoxArrived(boxArrived);
 		if (!coverNote.empty()) {
@@ -2045,6 +2150,7 @@ static int MenuSource(FrontendState& state)
 			clock = nowClock;
 			date = nowDate;
 			clockTxt.SetText(clock.c_str());
+			lcd.SetClock(clock);
 			dateTxt.SetText(date.c_str());
 		}
 

@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "libwiigui/gui.h"
+#include "skin.hpp"
 
 // The home screen's games: a page of 12 tiles like the Wii Menu's
 // channels, either names (4x3 wide tiles) or box art (6x2 covers, the
@@ -98,6 +99,10 @@ private:
         int cols, tileW, tileH, left, top, gapX, gapY;
     };
     const Geometry& Geo() const;
+    float Stretch() const;          // how much wider Channels is drawn on a widescreen menu (1 otherwise)
+    mutable Geometry stretched{};   // Geo()'s, when stretched
+    int ArrowX(int dir) const;      // a page arrow's left edge (-1 left, +1 right)
+    void DrawTilePicture(const riftwii::wii::skin::Tex& t, int slot, int alpha, float scale) const;
     int Cols() const { return Geo().cols; }
     int TileX(int slot) const;
     int TileY(int slot) const;

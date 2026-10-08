@@ -30,7 +30,10 @@ struct Tex {
 };
 
 // Built by Init(); each has a transparent margin for its shadow or glow.
-extern Tex tile, tileOver;               // 134x84 game tiles, drawn at -7,-7
+extern Tex clockDigits;                  // 308x44: Home's clock figures 0-9 and the colon, 28 apart
+bool BarBump();                          // the theme's bar rises in the middle (the clock above it)
+extern Tex tile, tileOver;
+extern Tex tileEmpty;                    // 134x84 an empty place, drawn at -7,-7               // 134x84 game tiles, drawn at -7,-7
 extern Tex coverTile, coverTileOver;     // 80x112 cover tiles, drawn at -7,-7
 extern Tex shelfPlank;                   // 256x64 RGBA8: the plank's top, then its front edge
 extern Tex roundBtn, roundBtnOver;       // 76 round buttons, drawn at -2,-2
