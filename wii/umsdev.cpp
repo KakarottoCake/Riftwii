@@ -1,4 +1,7 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
+// SPDX-FileCopyrightText: 2011 Dimok
+// SPDX-FileCopyrightText: 2011 Rodries
+// SPDX-FileCopyrightText: 2009 Kwiirk
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "umsdev.hpp"
 
@@ -21,6 +24,9 @@ constexpr s32 kUmsBase = ('U' << 24) | ('M' << 16) | ('S' << 8);
 constexpr s32 kInit = kUmsBase + 0x1;
 constexpr s32 kGetCapacity = kUmsBase + 0x2;
 constexpr s32 kReadSectors = kUmsBase + 0x3;
+// Which of the Wii's two USB ports d2x drives (0 unless told; set before
+// the init, as USB Loader GX does). A d2x without it answers an error.
+constexpr s32 kSetPort = kUmsBase + 0x83;
 constexpr std::uint32_t kFatSectorBytes = 512;  // packs and RVZ games
 constexpr std::uint32_t kBounceBytes = 32 * 1024;  // per request, as d2x reads
 
@@ -37,6 +43,46 @@ std::uint8_t* g_bounce = nullptr;
 std::uint32_t g_args[8] ATTRIBUTE_ALIGN(32);
 ioctlv g_vec[3] ATTRIBUTE_ALIGN(32);
 std::unique_ptr<ImageVolume> g_volume;
+// The port the drive was last found on, tried first (it outlives Forget:
+// the drive stays where it is plugged in).
+std::uint32_t g_port = 0;
+
+struct Started {
+    s32 init = -1;
+    s32 sectors = 0;
+    std::uint32_t sector_bytes = 0;
+    bool counted = false;
+    bool size_ok = false;
+    bool ok() const { return init >= 0 && counted && size_ok; }
+};
+
+// d2x's drive on `port`: false when this d2x cannot switch ports.
+bool set_port(std::uint32_t port) {
+    g_args[0] = port;
+    g_vec[0].data = &g_args[0];
+    g_vec[0].len = 4;
+    DCFlushRange(g_args, sizeof(g_args));
+    return IOS_Ioctlv(g_fd, kSetPort, 1, 0, g_vec) >= 0;
+}
+
+Started start_drive() {
+    Started s;
+    s.init = IOS_Ioctlv(g_fd, kInit, 0, 0, nullptr);
+    g_vec[0].data = &g_args[0];
+    g_vec[0].len = 4;
+    DCFlushRange(g_args, sizeof(g_args));
+    s.sectors = IOS_Ioctlv(g_fd, kGetCapacity, 0, 1, g_vec);
+    DCInvalidateRange(g_args, sizeof(g_args));
+    s.sector_bytes = g_args[0];
+    // The count comes back as the ioctl's result: a drive past 2^31
+    // sectors (1 TiB of 512-byte sectors) reads as negative. IOS's own
+    // errors are small negative numbers.
+    s.counted = s.sectors > 0 || s.sectors < -0x100000;
+    // 512 for a hard drive or stick, 2048 for a DVD drive.
+    s.size_ok = s.sector_bytes >= kFatSectorBytes && s.sector_bytes <= kBounceBytes &&
+                (s.sector_bytes & (s.sector_bytes - 1)) == 0;
+    return s;
+}
 
 bool ReadBlocks(std::uint64_t lba, std::uint32_t count, std::uint8_t* out) { return Read(lba, count, out); }
 
@@ -63,23 +109,28 @@ bool Open(std::string& error) {
     }
     // One driver for the drive: libogc's lets go before d2x's starts.
     release_usb_driver();
-    const s32 init = IOS_Ioctlv(g_fd, kInit, 0, 0, nullptr);
-    g_vec[0].data = &g_args[0];
-    g_vec[0].len = 4;
-    DCFlushRange(g_args, sizeof(g_args));
-    const s32 sectors = IOS_Ioctlv(g_fd, kGetCapacity, 0, 1, g_vec);
-    DCInvalidateRange(g_args, sizeof(g_args));
-    const std::uint32_t sector_bytes = g_args[0];
-    // The count comes back as the ioctl's result: a drive past 2^31
-    // sectors (1 TiB of 512-byte sectors) reads as negative. IOS's own
-    // errors are small negative numbers.
-    const bool counted = sectors > 0 || sectors < -0x100000;
-    logf("USB (d2x): fd %d, init %d, %u sectors of %u bytes\n", static_cast<int>(g_fd), static_cast<int>(init),
-         static_cast<unsigned>(sectors), static_cast<unsigned>(sector_bytes));
-    // 512 for a hard drive or stick, 2048 for a DVD drive.
-    const bool size_ok = sector_bytes >= kFatSectorBytes && sector_bytes <= kBounceBytes &&
-                         (sector_bytes & (sector_bytes - 1)) == 0;
-    if (init < 0 || !counted || !size_ok) {
+    // The port it was last found on first, then the other: d2x only looks
+    // at port 0 unless told, and a drive in the other port never started
+    // (a tester's: init -100 for as long as RiftWii waited).
+    Started s;
+    for (int attempt = 0; attempt < 2; ++attempt) {
+        const std::uint32_t port = attempt == 0 ? g_port : 1u - g_port;
+        const bool switched = set_port(port);
+        if (!switched && port != 0) continue;  // no port switch in this d2x: port 0 only
+        s = start_drive();
+        logf("USB (d2x): fd %d, port %u, init %d, %u sectors of %u bytes\n", static_cast<int>(g_fd),
+             static_cast<unsigned>(port), static_cast<int>(s.init), static_cast<unsigned>(s.sectors),
+             static_cast<unsigned>(s.sector_bytes));
+        if (s.init >= 0 && s.counted) {  // found (a bad sector size is reported below)
+            g_port = port;
+            break;
+        }
+    }
+    const s32 init = s.init;
+    const s32 sectors = s.sectors;
+    const std::uint32_t sector_bytes = s.sector_bytes;
+    const bool counted = s.counted;
+    if (!s.ok()) {
         error = init < 0 || !counted ? "the USB drive did not start through d2x (" + std::to_string(init) + ", " +
                                            std::to_string(sectors) + ")"
                                      : "the USB drive has " + std::to_string(sector_bytes) + "-byte sectors";
