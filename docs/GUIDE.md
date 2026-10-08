@@ -336,9 +336,10 @@ copy your key, then either:
 
 - put `riitag_key = <your key>` in `sd:/riftwii/settings.txt`, or
 - use a `Wiinnertag.xml` you already have for USB Loader GX: RiftWii reads
-  `sd:/apps/usbloader_gx/Wiinnertag.xml` as it is, and also
-  `sd:/riftwii/Wiinnertag.xml` (same format, one `<Tag URL="..."
-  Key="..."/>` per server, `{ID6}` and `{KEY}` in the URL).
+  `apps/usbloader_gx/Wiinnertag.xml` as it is, on the SD card or the USB
+  drive, and also `riftwii/Wiinnertag.xml` on either (same format, one
+  `<Tag URL="..." Key="..."/>` per server, `{ID6}` and `{KEY}` in the
+  URL).
 
 When you press Start, RiftWii tells each server the game's ID, while the
 Wii is still online (not with Settings > Online off). `session.log` says

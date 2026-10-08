@@ -12,14 +12,17 @@
 #include "netsock.hpp"
 #include "online.hpp"
 #include "riftwii/riitag.hpp"
+#include "usbcatalog.hpp"
 
 namespace riftwii::wii {
 namespace {
 
 // Where a Wiinnertag.xml may already be: RiftWii's folder, then USB
-// Loader GX's (its default WiinnertagPath), so a tag set up for GX works
-// here as it is.
-const char* const kTagFiles[] = {"sd:/riftwii/Wiinnertag.xml", "sd:/apps/usbloader_gx/Wiinnertag.xml"};
+// Loader GX's (its default WiinnertagPath, in GX's own folder), so a tag
+// set up for GX works here as it is: on the SD card, then on the USB drive
+// (a tester's GX lives there).
+const char* const kTagFiles[] = {"sd:/riftwii/Wiinnertag.xml", "sd:/apps/usbloader_gx/Wiinnertag.xml",
+                                 "usb:/riftwii/Wiinnertag.xml", "usb:/apps/usbloader_gx/Wiinnertag.xml"};
 
 std::vector<std::string> g_urls;  // for Send, on the network's thread
 
@@ -60,7 +63,10 @@ void TagGame(const std::string& game_id, bool background) {
     std::vector<RiiTagEntry> entries;
     for (const char* path : kTagFiles) {
         std::string text;
-        if (!ReadSmall(path, text)) continue;
+        // The USB drive as libfat mounts it (FAT32), else as the menu reads
+        // it (NTFS too).
+        const bool usb = std::string(path).compare(0, 5, "usb:/") == 0;
+        if (!ReadSmall(path, text) && !(usb && read_usb_text(path, text))) continue;
         const std::vector<RiiTagEntry> found = parse_wiinnertag(text);
         if (found.empty()) logf("RiiTag: %s has no <Tag URL=... Key=...>\n", path);
         entries.insert(entries.end(), found.begin(), found.end());
