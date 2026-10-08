@@ -134,9 +134,10 @@ void UpdatePads()
  * The Wii Remote's pointer is steadied: the sensor's shake of a pixel or
  * two (larger on a widescreen menu, which spreads the Remote's 640 across
  * more of the menu) is filtered out while it rests, and the faster it
- * moves the less it is held back. Its tilt is steadied first, and the
- * pointer turned by the steady tilt: the tilt's shake swung the pointer
- * more the further it was from the screen's middle.
+ * moves the less it is held back. Its tilt is steadied first, and this
+ * frame's point turned by the steady tilt: the tilt's shake swung the
+ * pointer more the further it was from the screen's middle. Then the
+ * point hangs on a short rope, which the shake never pulls.
  *
  * The D-pad (a Wii Remote's, a Classic Controller's or a GameCube
  * controller's) takes the channel from either pointer: the pointer hides
@@ -176,6 +177,8 @@ static void UpdatePadPointers()
 	// cut to kRestHz, which holds the shake still; moving, it opens up by
 	// kSpeedGain Hz per unit a second, so a real move is not held back.
 	const float kRestHz = 1.0f;
+	static float holdX[4], holdY[4];  // the pointer on its rope (below), in menu units
+	const float kHold = 3.0f;
 	const float kSpeedGain = 0.03f;
 	const float kSpeedHz = 1.0f;  // how quickly the speed itself is followed
 	const auto Follow = [](float hz) {  // the share of a 60 Hz step to take
@@ -224,28 +227,50 @@ static void UpdatePadPointers()
 				if (off < -180.0f) off += 360.0f;
 				steadyA[i] += off * Follow(kTiltRestHz + kTiltGain * fabsf(tiltRate[i]));
 			}
-			if (w->ir.state == kIrBothDots) {
-				float turn = (steadyA[i] - w->ir.angle) * 3.14159265f / 180.0f;
-				if (turn > 3.14159265f) turn -= 2.0f * 3.14159265f;
-				if (turn < -3.14159265f) turn += 2.0f * 3.14159265f;
-				const float s = sinf(turn), c = cosf(turn);
-				// The pointer around the camera's centre, in its pixels (ir.sx,
-				// ir.sy is what ir.x, ir.y were scaled from).
-				const float px = w->ir.sx - 512.0f, py = w->ir.sy - 384.0f;
+			if (w->ir.raw_valid) {
+				// This frame's own point (ir.ax, ir.ay: the dots' middle in the
+				// camera's pixels), not libogc's smoothed one (ir.sx, ir.sy),
+				// which only moves past a dead zone and so is not turned by
+				// this frame's tilt: turning it by the tilt's change put the
+				// shake back in. RiftWii's own filter (below) smooths instead.
+				float px = w->ir.ax - 512.0f, py = w->ir.ay - 384.0f;
+				if (w->ir.state == kIrBothDots) {
+					float turn = (steadyA[i] - w->ir.angle) * 3.14159265f / 180.0f;
+					if (turn > 3.14159265f) turn -= 2.0f * 3.14159265f;
+					if (turn < -3.14159265f) turn += 2.0f * 3.14159265f;
+					const float s = sinf(turn), c = cosf(turn);
+					const float tx = c * px - s * py, ty = s * px + c * py;
+					px = tx;
+					py = ty;
+				}
+				// To the screen as libogc does it (wiiuse/ir.c: the bounds
+				// box of the aspect's size, its offset, then the resolution).
 				const bool wide = w->ir.aspect == WIIUSE_ASPECT_16_9;
-				w->ir.x += (c * px - s * py - px) * w->ir.vres[0] / (wide ? 660.0f : 560.0f);
-				w->ir.y += (s * px + c * py - py) * w->ir.vres[1] / (wide ? 370.0f : 420.0f);
+				const int boxW = wide ? 660 : 560, boxH = wide ? 370 : 420;
+				w->ir.x = (px + 512.0f - w->ir.offset[0] - (1024 - boxW) / 2) / boxW * w->ir.vres[0];
+				w->ir.y = (py + 384.0f - w->ir.offset[1] - (768 - boxH) / 2) / boxH * w->ir.vres[1];
 			}
 			w->ir.angle = steadyA[i];
 			w->ir.x = Menu_ScreenToMenuX(w->ir.x);
 			w->ir.y = Menu_ScreenToMenuY(w->ir.y);
 			if (!steadyOn[i]) {
-				steadyX[i] = w->ir.x;
-				steadyY[i] = w->ir.y;
+				steadyX[i] = holdX[i] = w->ir.x;
+				steadyY[i] = holdY[i] = w->ir.y;
 				steadySpeed[i] = 0.0f;
 				steadyOn[i] = true;
 			} else {
-				const float dx = w->ir.x - steadyX[i], dy = w->ir.y - steadyY[i];
+				// A point on a short rope (kHold menu units): it stays where
+				// it is while the Remote's point wanders inside the rope's
+				// reach, and is pulled along by only what goes past it. The
+				// camera's few-pixel shake never gets past; a real move
+				// does, at once.
+				const float hx = w->ir.x - holdX[i], hy = w->ir.y - holdY[i];
+				const float reach = sqrtf(hx * hx + hy * hy);
+				if (reach > kHold) {
+					holdX[i] += hx * (reach - kHold) / reach;
+					holdY[i] += hy * (reach - kHold) / reach;
+				}
+				const float dx = holdX[i] - steadyX[i], dy = holdY[i] - steadyY[i];
 				// How fast the pointer goes (menu units a second), itself
 				// smoothed, sets how much of this frame's move goes through.
 				steadySpeed[i] += (sqrtf(dx * dx + dy * dy) * 60.0f - steadySpeed[i]) * Follow(kSpeedHz);
