@@ -134,7 +134,9 @@ void UpdatePads()
  * The Wii Remote's pointer is steadied: the sensor's shake of a pixel or
  * two (larger on a widescreen menu, which spreads the Remote's 640 across
  * more of the menu) is filtered out while it rests, and the faster it
- * moves the less it is held back. Its roll the same way.
+ * moves the less it is held back. Its tilt is steadied first, and the
+ * pointer turned by the steady tilt: the tilt's shake swung the pointer
+ * more the further it was from the screen's middle.
  *
  * The D-pad (a Wii Remote's, a Classic Controller's or a GameCube
  * controller's) takes the channel from either pointer: the pointer hides
@@ -161,8 +163,14 @@ static void UpdatePadPointers()
 	const int kClaim = 45;          // a push, not drift, takes the channel from the Remote
 	const float kRemoteMove = 40.0f;
 	static float steadyX[4], steadyY[4], steadyA[4];  // the steadied Remote pointer, in menu units
-	static float steadySpeed[4], steadyRollSpeed[4];
+	static float steadySpeed[4];
+	static float prevTilt[4], tiltRate[4];  // the Remote's tilt last frame, and how fast it turns
 	static bool steadyOn[4] = {false, false, false, false};
+	// The tilt: held stiller than the pointer (its shake swings the
+	// pointer most at the screen's sides), let go as the Remote turns.
+	const float kTiltRestHz = 0.3f;
+	const float kTiltGain = 0.05f;  // Hz per degree a second
+	const int kIrBothDots = 1;      // libogc's IR_STATE_GOOD (wiiuse/ir.c): the sensor bar's two dots seen
 	// A low-pass filter whose cut-off rises with the pointer's speed (the
 	// "1 euro filter", Casiez, Roussel and Vogel, CHI 2012): at rest it is
 	// cut to kRestHz, which holds the shake still; moving, it opens up by
@@ -191,13 +199,50 @@ static void UpdatePadPointers()
 		// RiftWii: the menu may be drawn smaller than the screen
 		// (widescreen, screen size): where the Remote points, in its units.
 		if (remote && w->ir.valid) {
+			// The tilt first. libogc turns the sensor bar's two dots by
+			// the tilt it reads from them (ir.angle) before it takes their
+			// middle as the pointer, so the tilt's shake of a fraction of a
+			// degree swings the pointer round the camera's centre: hardly
+			// at the screen's middle, more and more towards its sides.
+			// The tilt is steadied, and the pointer turned by the steadied
+			// tilt instead of this frame's (with both dots seen, the state
+			// libogc turned them in).
+			float da = w->ir.angle - (steadyOn[i] ? prevTilt[i] : w->ir.angle);
+			if (da > 180.0f) da -= 360.0f;
+			if (da < -180.0f) da += 360.0f;
+			prevTilt[i] = w->ir.angle;
+			if (!steadyOn[i]) {
+				steadyA[i] = w->ir.angle;
+				tiltRate[i] = 0.0f;
+			} else {
+				// How fast the Remote really turns (degrees a second): the
+				// change from frame to frame, smoothed with its sign, so the
+				// shake averages out of it.
+				tiltRate[i] += (da * 60.0f - tiltRate[i]) * Follow(kSpeedHz);
+				float off = w->ir.angle - steadyA[i];
+				if (off > 180.0f) off -= 360.0f;
+				if (off < -180.0f) off += 360.0f;
+				steadyA[i] += off * Follow(kTiltRestHz + kTiltGain * fabsf(tiltRate[i]));
+			}
+			if (w->ir.state == kIrBothDots) {
+				float turn = (steadyA[i] - w->ir.angle) * 3.14159265f / 180.0f;
+				if (turn > 3.14159265f) turn -= 2.0f * 3.14159265f;
+				if (turn < -3.14159265f) turn += 2.0f * 3.14159265f;
+				const float s = sinf(turn), c = cosf(turn);
+				// The pointer around the camera's centre, in its pixels (ir.sx,
+				// ir.sy is what ir.x, ir.y were scaled from).
+				const float px = w->ir.sx - 512.0f, py = w->ir.sy - 384.0f;
+				const bool wide = w->ir.aspect == WIIUSE_ASPECT_16_9;
+				w->ir.x += (c * px - s * py - px) * w->ir.vres[0] / (wide ? 660.0f : 560.0f);
+				w->ir.y += (s * px + c * py - py) * w->ir.vres[1] / (wide ? 370.0f : 420.0f);
+			}
+			w->ir.angle = steadyA[i];
 			w->ir.x = Menu_ScreenToMenuX(w->ir.x);
 			w->ir.y = Menu_ScreenToMenuY(w->ir.y);
 			if (!steadyOn[i]) {
 				steadyX[i] = w->ir.x;
 				steadyY[i] = w->ir.y;
-				steadyA[i] = w->ir.angle;
-				steadySpeed[i] = steadyRollSpeed[i] = 0.0f;
+				steadySpeed[i] = 0.0f;
 				steadyOn[i] = true;
 			} else {
 				const float dx = w->ir.x - steadyX[i], dy = w->ir.y - steadyY[i];
@@ -207,14 +252,8 @@ static void UpdatePadPointers()
 				const float k = Follow(kRestHz + kSpeedGain * steadySpeed[i]);
 				steadyX[i] += dx * k;
 				steadyY[i] += dy * k;
-				float da = w->ir.angle - steadyA[i];
-				if (da > 180.0f) da -= 360.0f;
-				if (da < -180.0f) da += 360.0f;
-				steadyRollSpeed[i] += (fabsf(da) * 60.0f - steadyRollSpeed[i]) * Follow(kSpeedHz);
-				steadyA[i] += da * Follow(kRestHz + kSpeedGain * steadyRollSpeed[i]);
 				w->ir.x = steadyX[i];
 				w->ir.y = steadyY[i];
-				w->ir.angle = steadyA[i];
 			}
 		} else {
 			steadyOn[i] = false;
