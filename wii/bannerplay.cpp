@@ -380,8 +380,9 @@ void BannerPlayer::Draw(float x, float y, float w, float h, int alpha, const Rou
     for (int i = 1; i < 8; ++i) GX_SetVtxAttrFmt(GX_VTXFMT0, static_cast<u8>(GX_VA_TEX0 + i), GX_TEX_ST, GX_F32, 0);
     GX_SetNumChans(1);
     GX_SetChanCtrl(GX_COLOR0A0, GX_DISABLE, GX_SRC_REG, GX_SRC_VTX, GX_LIGHTNULL, GX_DF_NONE, GX_AF_NONE);
-    // The narrowing that keeps a flagged pane's shape in that stretch.
-    layout_quads(work_, quads_, scratch_, wide_ && !icon_ && sx > 0 ? sy / sx : 1.0f);
+    // The narrowing that keeps a flagged pane's shape in that stretch; an
+    // icon's in a box wider than 4:3 (a widescreen menu's channel tile).
+    layout_quads(work_, quads_, scratch_, (wide_ || icon_) && sx > 0 ? sy / sx : 1.0f);
     // A vertex's colour: the quad's, or the material's by its channel
     // control, times the banner's own fade.
     const auto vertex_color = [alpha](const LytQuad& q, const LytMaterial* m, int k) {

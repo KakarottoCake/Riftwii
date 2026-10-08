@@ -105,8 +105,8 @@ GuiGameGrid::~GuiGameGrid() {
 
 // Channels on a widescreen menu: the Wii Menu stretches its 4:3 menu
 // across a 16:9 screen, its channels with it; so does the grid (its
-// tiles, their pictures, the page arrows), about the middle; the icons
-// keep their shape.
+// tiles, their pictures and icons, the page arrows), about the middle;
+// the icons' logos keep their shape.
 float GuiGameGrid::Stretch() const {
     if (!channels || shelf || !skin::WideMenu()) return 1.0f;
     f32 safeX, safeW;
@@ -515,9 +515,9 @@ void GuiGameGrid::Draw() {
             // The icon fills the tile inside its border, 4:3 across the
             // tile's width (its top and bottom cut off), with the tile's
             // round corners; scaled about the tile's centre. A widescreen
-            // menu's wider tile keeps the icon's size and shape (menu
-            // units are square on the TV): what the icon has past its
-            // frame shows at the sides, as on the Wii Menu.
+            // menu's wider tile stretches the icon across it, as the Wii
+            // Menu does, and the player narrows back the panes the icon
+            // flags to keep their shape (its logo).
             const float tileW = Geo().tileW * s.scale, tileH = Geo().tileH * s.scale;
             const float cx = TileX(i) + Geo().tileW / 2.0f, cy = TileY(i) + Geo().tileH / 2.0f;
             const float border = (on ? 2.5f : 1.5f) * s.scale;
@@ -528,9 +528,9 @@ void GuiGameGrid::Draw() {
             box.clipX = cx - box.clipW / 2;
             box.clipY = cy - box.clipH / 2;
             box.radius = std::max(0.0f, 14.0f * riftwii::wii::MenuTheme().corners * s.scale - border);
-            box.w = box.clipW / Stretch();
-            box.h = box.w * 3.0f / 4.0f;
-            box.x = cx - box.w / 2;
+            box.w = box.clipW;
+            box.h = box.w * 3.0f / 4.0f / Stretch();  // stretched with the grid, not cut more
+            box.x = box.clipX;
             box.y = cy - box.h / 2;
             box.alpha = tileAlpha;
             if (iconDrawer(page * kPerPage + i, box)) {
