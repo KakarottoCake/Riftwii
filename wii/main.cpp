@@ -34,7 +34,6 @@
 #include "crash.hpp"
 #include "gcadapter.hpp"
 #include "guiscript.hpp"
-#include "channel.hpp"
 #include "i18n.hpp"
 #include "ios_reload.hpp"
 #include "loadersettings.hpp"
@@ -291,8 +290,20 @@ int main() {
     if (restart.kind != riftwii::wii::RestartKind::None) {
         riftwii::wii::logf("Restarted: %s\n", restart.message.c_str());
     }
-    riftwii::wii::StartMenuIos(sd_mounted, restart.kind != riftwii::wii::RestartKind::None,
-                               restart.kind == riftwii::wii::RestartKind::BurnedDisc ? riftwii::wii::BurnedDiscSlot() : 0);
+    int session_slot = restart.kind == riftwii::wii::RestartKind::BurnedDisc ? riftwii::wii::BurnedDiscSlot() : 0;
+    const char* session_why = "to read a burned disc";
+    // The Wii Menu's font is behind IOS's NAND permission check, which
+    // RiftWii can only open with hardware access (open_nand_permissions).
+    // Started without it (an older Homebrew Channel, or a Wii that did not
+    // honour the channel's request), the menu runs on a d2x cIOS for this
+    // session instead, as it does for a burned disc: d2x leaves the check
+    // out. Not when a menu IOS is chosen in Settings (that one stays).
+    if (session_slot == 0 && sd_mounted && riftwii::wii::Settings().menu_font == "wii" &&
+        read32(0x0D800064) != 0xFFFFFFFF && !riftwii::wii::running_in_dolphin() && riftwii::wii::LoadMenuIos() == 0) {
+        session_slot = riftwii::wii::BurnedDiscSlot();
+        session_why = "to read the Wii Menu's font (no hardware access)";
+    }
+    riftwii::wii::StartMenuIos(sd_mounted, restart.kind != riftwii::wii::RestartKind::None, session_slot, session_why);
     SetHomeNotice(restart.message);
     if (sd_mounted) riftwii::wii::ImportGameCrash();
     FrontendState state;
@@ -354,7 +365,7 @@ int main() {
         } else {
             riftwii::wii::logf("Menu font: the Wii Menu's could not be used (%s); RiftWii's instead\n", why.c_str());
             SetHomeNotice(read32(0x0D800064) != 0xFFFFFFFF
-                ? riftwii::wii::tr("The Wii Menu's font needs hardware access, which RiftWii did not get this time, so RiftWii's font is used. Start RiftWii from an up to date Homebrew Channel or the RiftWii channel (version 9).")
+                ? riftwii::wii::tr("The Wii Menu's font needs hardware access or a d2x cIOS, and neither worked this time, so RiftWii's font is used. Start RiftWii from an up to date Homebrew Channel or the RiftWii channel (version 9).")
                 : riftwii::wii::tr("The Wii Menu's font could not be read, so RiftWii's is used."));
         }
         timed("Wii Menu font read");

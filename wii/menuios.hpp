@@ -28,8 +28,10 @@ std::vector<int> MenuIosChoices();
 // `fresh` (after a restart, wii/restart.hpp) reloads even into the IOS
 // already running, IOS 58 when no slot is saved, so nothing the old run
 // left open survives. `session_slot`, when no slot is saved, is a cIOS
-// for this session only (a burned disc, BurnedDiscSlot).
-bool StartMenuIos(bool sd_mounted, bool fresh = false, int session_slot = 0);
+// for this session only (a burned disc, BurnedDiscSlot; the Wii Menu's
+// font without hardware access), `session_why` saying what for.
+bool StartMenuIos(bool sd_mounted, bool fresh = false, int session_slot = 0,
+                  const char* session_why = "to read a burned disc");
 
 // Burned discs: the Wii's own IOS refuses a disc that is not a pressed
 // Nintendo one, while d2x switches to reading it as a plain DVD (its

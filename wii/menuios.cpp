@@ -80,14 +80,14 @@ int BurnedDiscSlot() {
     return 0;
 }
 
-bool StartMenuIos(bool sd_mounted, bool fresh, int session_slot) {
+bool StartMenuIos(bool sd_mounted, bool fresh, int session_slot, const char* session_why) {
     int slot = sd_mounted ? LoadMenuIos() : 0;
     if (slot != 0 && !slot_has_ticket(slot)) {
         logf("Menu IOS: IOS%d is not installed; staying on IOS%d\n", slot, IOS_GetVersion());
         slot = 0;
     }
     if (slot == 0 && session_slot != 0) {
-        logf("Menu IOS: IOS%d for this session, to read a burned disc\n", session_slot);
+        logf("Menu IOS: IOS%d for this session, %s\n", session_slot, session_why);
         slot = session_slot;
     }
     if (slot == 0) {
