@@ -168,6 +168,63 @@ void LoadPerspective() {
     GX_SetZMode(GX_FALSE, GX_LEQUAL, GX_FALSE);
 }
 
+// A box's five faces you can see (not its bottom), covered with its scan,
+// its cover or plain plastic in the game's colour. Spine, front, back,
+// top, open edge.
+void BoxFaces(const Box& b, const u8* art, const u8* cover, GXColor hue, Face (&faces)[5]) {
+    const GXColor plastic = {238, 238, 236, 255};
+    // Corners by bits: x (1) y (2) z (4).
+    const auto face = [&](int a, int bb, int c, int d) {
+        Face f;
+        f.c[0] = b.p[a];
+        f.c[1] = b.p[bb];
+        f.c[2] = b.p[c];
+        f.c[3] = b.p[d];
+        f.normal = Normal(b, b.p[a], b.p[c]);
+        f.color = plastic;
+        return f;
+    };
+    // The spine (+z): left edge at -x as you face it.
+    faces[0] = face(4, 5, 7, 6);
+    // The front cover (+x): seen from +x, the spine's edge (+z) on the left.
+    faces[1] = face(5, 1, 3, 7);
+    // The back cover (-x): the spine on the right.
+    faces[2] = face(0, 4, 6, 2);
+    // The top (-y) and the open edge (-z).
+    faces[3] = face(0, 1, 5, 4);
+    faces[4] = face(1, 0, 2, 3);
+    if (art) {
+        faces[0].tex = art;
+        faces[0].texW = riftwii::kBoxWidth;
+        faces[0].texH = riftwii::kBoxHeight;
+        faces[0].u0 = 0;
+        faces[0].u1 = kSpineU;
+        faces[1].tex = art;
+        faces[1].texW = riftwii::kBoxWidth;
+        faces[1].texH = riftwii::kBoxHeight;
+        faces[1].u0 = kSpineU;
+        faces[1].u1 = kBackU;
+        // The back cover, its spine edge (+z) on the right as you face it.
+        faces[2].tex = art;
+        faces[2].texW = riftwii::kBoxWidth;
+        faces[2].texH = riftwii::kBoxHeight;
+        faces[2].u0 = kBackU;
+        faces[2].u1 = 1;
+    } else if (cover) {
+        faces[1].tex = cover;
+        faces[1].texW = riftwii::kCoverWidth;
+        faces[1].texH = riftwii::kCoverHeight;
+    }
+    // No scan: the back in the game's colour, as a case's back is never white.
+    if (!art)
+        faces[2].color = {static_cast<u8>(hue.r / 2 + 70), static_cast<u8>(hue.g / 2 + 70),
+                          static_cast<u8>(hue.b / 2 + 70), 255};
+}
+
+// The game whose box is flying (DrawShelfFlight): the shelf leaves its
+// place empty until it lands.
+std::string g_flying;
+
 // Back to libgui's 2D view (vendor-libgui video.cpp).
 void LoadFlat() {
     Menu_LoadOrtho();
@@ -300,54 +357,10 @@ void GuiGameGrid::DrawShelf(int alpha) {
         const Box b = MakeBox(p.x, p.z, p.turn, p.lift);
         const u8* art = riftwii::wii::BoxTexture(item.id);
         const u8* cover = art ? nullptr : riftwii::wii::CoverTexture(item.id);
-        const GXColor plastic = {238, 238, 236, 255};
-        // Corners by bits: x (1) y (2) z (4).
-        const auto face = [&](int a, int bb, int c, int d) {
-            Face f;
-            f.c[0] = b.p[a];
-            f.c[1] = b.p[bb];
-            f.c[2] = b.p[c];
-            f.c[3] = b.p[d];
-            f.normal = Normal(b, b.p[a], b.p[c]);
-            f.color = plastic;
-            return f;
-        };
+        // In flight to or from a game's page: drawn by DrawShelfFlight.
+        if (!g_flying.empty() && item.id == g_flying) continue;
         Face faces[5];
-        // The spine (+z): left edge at -x as you face it.
-        faces[0] = face(4, 5, 7, 6);
-        // The front cover (+x): seen from +x, the spine's edge (+z) on the left.
-        faces[1] = face(5, 1, 3, 7);
-        // The back cover (-x): the spine on the right.
-        faces[2] = face(0, 4, 6, 2);
-        // The top (-y) and the open edge (-z).
-        faces[3] = face(0, 1, 5, 4);
-        faces[4] = face(1, 0, 2, 3);
-        if (art) {
-            faces[0].tex = art;
-            faces[0].texW = riftwii::kBoxWidth;
-            faces[0].texH = riftwii::kBoxHeight;
-            faces[0].u0 = 0;
-            faces[0].u1 = kSpineU;
-            faces[1].tex = art;
-            faces[1].texW = riftwii::kBoxWidth;
-            faces[1].texH = riftwii::kBoxHeight;
-            faces[1].u0 = kSpineU;
-            faces[1].u1 = kBackU;
-            // The back cover, its spine edge (+z) on the right as you face it.
-            faces[2].tex = art;
-            faces[2].texW = riftwii::kBoxWidth;
-            faces[2].texH = riftwii::kBoxHeight;
-            faces[2].u0 = kBackU;
-            faces[2].u1 = 1;
-        } else if (cover) {
-            faces[1].tex = cover;
-            faces[1].texW = riftwii::kCoverWidth;
-            faces[1].texH = riftwii::kCoverHeight;
-        }
-        // No scan: the back in the game's colour, as a case's back is never white.
-        if (!art)
-            faces[2].color = {static_cast<u8>(item.hue.r / 2 + 70), static_cast<u8>(item.hue.g / 2 + 70),
-                              static_cast<u8>(item.hue.b / 2 + 70), 255};
+        BoxFaces(b, art, cover, item.hue, faces);
         float x0 = 1e9f, y0 = 1e9f, x1 = -1e9f, y1 = -1e9f;
         bool spineShown = false;
         for (const Face& f : faces) {
@@ -465,6 +478,68 @@ void GuiGameGrid::DrawShelf(int alpha) {
     }
     caption->Draw();
 }
+
+bool GuiGameGrid::ShelfFlightFrom(int index, ShelfFlight& out) const {
+    if (!shelf || index < 0 || index >= Count() || index >= static_cast<int>(poses.size()) || !poses[index].placed)
+        return false;
+    // The disc drive's box is a plain one, and its page shows the disc's
+    // game: it zooms instead.
+    if ((*items)[index].badge == "DISC") return false;
+    const BoxPose& p = poses[index];
+    out.id = (*items)[index].id;
+    out.hue = (*items)[index].hue;
+    out.x = p.x;
+    out.z = p.z;
+    out.turn = p.turn;
+    out.lift = p.lift;
+    return true;
+}
+
+ShelfFlight ShelfFocusedPose(const std::string& id, GXColor hue) {
+    ShelfFlight f;
+    f.id = id;
+    f.hue = hue;
+    f.x = 320.0f;
+    f.z = kPullZ;
+    f.turn = static_cast<float>(M_PI) / 2;
+    return f;
+}
+
+void DrawShelfFlight(const ShelfFlight& from, float toX, float toY, float toW, float toH, float e, int alpha,
+                     bool reverse) {
+    // Where the box's front, facing you, lands on (toX, toY, toW x toH):
+    // as tall as that on screen at its depth, its middle on the spot's.
+    const float k = toH / kBoxH;
+    const float zFront = kEye - kEye / k;
+    ShelfFlight to = from;
+    to.turn = static_cast<float>(M_PI) / 2;
+    to.z = zFront - kBoxT / 2;
+    to.x = 320.0f + (toX + toW / 2 - 320.0f) / k;
+    to.lift = kShelfY - kBoxH / 2 - (240.0f + (toY + toH / 2 - 240.0f) / k);
+    const ShelfFlight& a = reverse ? to : from;
+    const ShelfFlight& b = reverse ? from : to;
+    // An arc: up and back out of the shelf, then down onto the spot.
+    const float arc = std::sin(e * static_cast<float>(M_PI)) * 40.0f;
+    const Box box = MakeBox(a.x + (b.x - a.x) * e, a.z + (b.z - a.z) * e, a.turn + (b.turn - a.turn) * e,
+                            a.lift + (b.lift - a.lift) * e + arc);
+    const u8* art = riftwii::wii::BoxTexture(from.id);
+    const u8* cover = art ? nullptr : riftwii::wii::CoverTexture(from.id);
+    Face faces[5];
+    BoxFaces(box, art, cover, from.hue, faces);
+    LoadPerspective();
+    // Back to front by distance from the eye: the faces of one box.
+    int order[5] = {0, 1, 2, 3, 4};
+    const auto depth = [&](int i) {
+        const Face& f = faces[i];
+        return (f.c[0].z + f.c[2].z) / 2;
+    };
+    std::sort(order, order + 5, [&](int x, int y) { return depth(x) < depth(y); });
+    for (const int i : order)
+        if (FacesEye(faces[i])) DrawFace(faces[i], alpha);
+    LoadFlat();
+}
+
+void SetShelfFlying(const std::string& id) { g_flying = id; }
 
 void GuiGameGrid::UpdateShelf(GuiTrigger* t) {
     if (PressedPage(t, -1) || PressedPage(t, 1)) {

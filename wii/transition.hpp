@@ -41,6 +41,10 @@ void BeginAuto();  // a crossfade, unless one was asked for already
 // it. For a screen that goes before the next one is ready (a sub-page
 // built with the GUI running, a game opening behind its banner).
 void Hold(Kind next, Rect from = {});
+// Drawn over the screen (menu units, no camera) at each frame of the next
+// transition, with how far it is (0 to 1); dropped when it ends, then
+// `done` is called (on the GUI thread).
+void SetActor(void (*draw)(float t), void (*done)() = nullptr);
 
 // GUI thread, each frame: before drawing the menu (the camera for the new
 // screen), then after it (the old screen over it, then the picture kept).

@@ -40,7 +40,13 @@ Rect g_holdFrom;
 
 float g_slow = 1;  // the GUI script's slow motion, for frame-by-frame shots
 
+// For the next transition, and the running one's.
+void (*g_pendingActor)(float) = nullptr;
+void (*g_pendingDone)() = nullptr;
+
 struct Running {
+    void (*actor)(float) = nullptr;
+    void (*done)() = nullptr;
     bool on = false;
     Kind kind = Kind::Fade;
     Rect from;
@@ -314,6 +320,10 @@ void FrameStart() {
             g_run.start = now;
             g_run.ms = Duration(g_run.kind) * g_slow;
             g_run.t = 0;
+            g_run.actor = g_pendingActor;
+            g_run.done = g_pendingDone;
+            g_pendingActor = nullptr;
+            g_pendingDone = nullptr;
         }
     }
     if (g_run.on) {
@@ -338,9 +348,20 @@ void FrameEnd() {
         const bool page = g_run.kind == Kind::PageForward || g_run.kind == Kind::PageBack;
         if (g_run.kind != Kind::FromBlack) DrawPicture(g_snap, old, oldAlpha, page ? &g_run.from : nullptr);
         if (black > 0) Menu_FillWholeScreen((GXColor){0, 0, 0, static_cast<u8>(std::lround(black * 255))});
-        if (g_run.t >= 1) g_run.on = false;
+        if (g_run.actor) g_run.actor(g_run.t);
+        if (g_run.t >= 1) {
+            g_run.on = false;
+            g_run.actor = nullptr;
+            if (g_run.done) g_run.done();
+            g_run.done = nullptr;
+        }
     }
     Keep(1 - g_snap);
+}
+
+void SetActor(void (*draw)(float t), void (*done)()) {
+    g_pendingActor = draw;
+    g_pendingDone = done;
 }
 
 void SetSlowMotion(float factor) { g_slow = factor < 1 ? 1 : factor; }

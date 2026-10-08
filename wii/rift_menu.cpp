@@ -835,6 +835,25 @@ public:
 // it and back into it.
 static transition::Rect g_openRect;
 
+// From the shelf: the game's box flies off it onto the page's cover, and
+// back. Where the page shows the cover (CoverArt, MenuHome).
+static ShelfFlight g_flight;
+static bool g_flightOn = false;
+constexpr float kPageCoverX = 528, kPageCoverY = 4;
+static void FlightOut(float t)
+{
+	// Settling on the cover, then gone into it.
+	const float fade = t < 0.8f ? 1.0f : 1.0f - (t - 0.8f) / 0.2f;
+	DrawShelfFlight(g_flight, kPageCoverX, kPageCoverY, riftwii::kCoverWidth, riftwii::kCoverHeight,
+		transition::Ease(t), static_cast<int>(255 * fade), false);
+}
+static void FlightBack(float t)
+{
+	DrawShelfFlight(g_flight, kPageCoverX, kPageCoverY, riftwii::kCoverWidth, riftwii::kCoverHeight,
+		transition::Ease(t), 255, true);
+}
+static void FlightLanded() { SetShelfFlying(""); }
+
 static bool ShowChannel(const std::string& id)
 {
 	std::vector<std::uint8_t> bytes;
@@ -2073,7 +2092,16 @@ static int MenuSource(FrontendState& state)
 			HaltGui();
 			if (ok) {
 				menu = MENU_HOME;
-				if (!fromChannel) transition::Begin(transition::Kind::ZoomIn, tile);
+				g_flightOn = grid.Shelf() && grid.ShelfFlightFrom(clicked, g_flight);
+				if (g_flightOn) {
+					// Off the shelf and onto the page's cover, the screens
+					// crossfading under it.
+					SetShelfFlying(g_flight.id);
+					transition::SetActor(FlightOut, FlightLanded);
+					transition::Begin(transition::Kind::Fade);
+				} else if (!fromChannel) {
+					transition::Begin(transition::Kind::ZoomIn, tile);
+				}
 			} else {
 				if (fromChannel) transition::Begin(transition::Kind::Fade);
 				logf("Home: %s\n", error.c_str());
@@ -4547,7 +4575,14 @@ int MainMenu(int menu, FrontendState& state)
 		if (previousMenu != MENU_NONE) {
 			if (currentMenu == MENU_OPTIONS) transition::Begin(transition::Kind::SlideForward);
 			else if (previousMenu == MENU_OPTIONS) transition::Begin(transition::Kind::SlideBack);
-			else if (previousMenu == MENU_HOME && currentMenu == MENU_SOURCE)
+			else if (previousMenu == MENU_HOME && currentMenu == MENU_SOURCE && g_flightOn) {
+				// From the page's cover back onto the shelf, where the game
+				// stands lit; its place stays empty until it lands.
+				g_flight = ShelfFocusedPose(g_flight.id, g_flight.hue);
+				SetShelfFlying(g_flight.id);
+				transition::SetActor(FlightBack, FlightLanded);
+				transition::Begin(transition::Kind::Fade);
+			} else if (previousMenu == MENU_HOME && currentMenu == MENU_SOURCE)
 				transition::Begin(transition::Kind::ZoomOut, g_openRect);
 		}
 		previousMenu = currentMenu;

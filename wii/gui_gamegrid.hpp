@@ -16,6 +16,23 @@
 // Point and press A, or move the focus with the D-pad; stepping past the
 // left or right column, or the arrows at the sides, turns the page. The
 // widget covers the whole screen and lays tiles out itself.
+// A game's box on the shelf, in the shelf's own terms: where it stands
+// (x along the shelf, z out of it), how far it is turned and lifted.
+struct ShelfFlight {
+    std::string id;
+    GXColor hue = {0, 0, 0, 255};
+    float x = 0, z = 0, turn = 0, lift = 0;
+};
+// The box flying between the shelf and a spot on screen (the game page's
+// cover, toX..toH in menu units), `e` of the way (0 to 1; `reverse`: from
+// the spot back to `from`). Drawn over everything, then the 2D view back.
+void DrawShelfFlight(const ShelfFlight& from, float toX, float toY, float toW, float toH, float e, int alpha,
+                     bool reverse);
+// The focused box's place (where a game coming back from its page lands).
+ShelfFlight ShelfFocusedPose(const std::string& id, GXColor hue);
+// The shelf leaves this game's place empty while its box flies ("" none).
+void SetShelfFlying(const std::string& id);
+
 struct GridItem {
     std::string title;  // the display name, fitted to the tile
     std::string id;     // shown small under the title; the cover's game
@@ -61,6 +78,7 @@ public:
     // Where a game's tile (or box, on the shelf) is on screen, when it is
     // shown: what a transition zooms from.
     bool TileRect(int index, float& x, float& y, float& w, float& h) const;
+    bool ShelfFlightFrom(int index, ShelfFlight& out) const;  // the box as last drawn
     int Page() const { return page; }
     int Pages() const;
     // The item A was pressed on since the last call, or -1.
