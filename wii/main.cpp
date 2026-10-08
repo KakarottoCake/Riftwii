@@ -321,6 +321,7 @@ int main() {
             font = nullptr;
         }
         font_ready = font != nullptr;
+        if (!font_ready) SetBitmapGlyphSource(nullptr);  // RiftWii's font alone
         if (font_ready) {
             riftwii::wii::logf("Menu font: the Wii Menu's (%u bytes)\n", static_cast<unsigned>(font_size));
         } else {

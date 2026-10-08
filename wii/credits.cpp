@@ -39,7 +39,7 @@ const char* const kCredits[] = {
     "Prince of Persia, Resident Evil 4, Excite Truck, the error #002 and 480p fixes), its automatic cIOS "
     "choice, the IOS reload block, the region video fix (WiiPower's VIDTV patch), the region strings fix, the "
     "aspect ratio, rumble and speaker options, the Wiinnertag file RiftWii's RiiTag support reads, how to find "
-    "the Wii Menu's font for the Menu font setting, how to use d2x's USB device on either USB port, the "
+    "the Wii Menu's fonts (its TrueType and bitmap ones) for the Menu font setting, how to use d2x's USB device on either USB port, the "
     "idea of hooking a game's second "
     "executable and RiftWii's copy of the Gecko code handler. With thanks to its developers and to those whose "
     "work it carries: ToadKing (wiilauncher-nossl), Leseratte and the Wiimmfi team, giantpune, Nuke, "

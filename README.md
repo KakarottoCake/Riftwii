@@ -83,8 +83,9 @@ contains theirs names them in its file header, and
   Evil 4, Excite Truck, the error #002 and 480p fixes), its automatic
   cIOS choice, the region strings fix and the aspect ratio, rumble and
   speaker options, the Wiinnertag file the RiiTag support reads (Dimok,
-  zlib), how to find the Wii Menu's font for Settings > Menu font
-  (Dimok, giantpune, blackb0x), how to drive d2x's USB device on
+  zlib), how to find the Wii Menu's fonts for Settings > Menu font
+  (Dimok, giantpune, blackb0x) and read its bitmap font (giantpune and
+  Dimok, zlib), how to drive d2x's USB device on
   either USB port (Dimok, Rodries, Kwiirk, zlib), and RiftWii's copy of
   the Gecko code handler. Thanks to
   its developers and everyone whose work it carries: ToadKing

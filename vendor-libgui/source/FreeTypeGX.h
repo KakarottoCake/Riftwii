@@ -20,7 +20,8 @@
  * along with FreeTypeGX.  If not, see <http://www.gnu.org/licenses/>.
  */
 /* Changed for RiftWii (October 2026), under GPL-3.0-or-later: InitFreeType
- * takes a font collection's face and returns whether FreeType could read it.
+ * takes a font collection's face and returns whether FreeType could read it;
+ * glyphs can come from a bitmap font (SetBitmapGlyphSource).
  * Every change is in RiftWii's git history; NOTICE.md lists the origin. */
 
 #ifndef FREETYPEGX_H_
@@ -111,6 +112,12 @@ const GXColor ftgxWhite = (GXColor){0xff, 0xff, 0xff, 0xff}; /**< Constant color
 
 bool InitFreeType(uint8_t* fontBuffer, FT_Long bufferSize, FT_Long faceIndex = 0);
 void DeinitFreeType();
+// RiftWii: glyphs from a bitmap font (the Wii Menu's) in place of FreeType's,
+// placed as FreeType places its bitmaps: 8-bit coverage, `width` by `rows`.
+// The source answers false for a character it lacks, which FreeType draws.
+struct FtgxBitmapGlyph { const uint8_t* pixels; int width, rows, left, top, advance; };
+typedef bool (*FtgxBitmapGlyphSource)(wchar_t charCode, int pixelSize, FtgxBitmapGlyph* out);
+void SetBitmapGlyphSource(FtgxBitmapGlyphSource source);
 void ChangeFontSize(FT_UInt pixelSize);
 wchar_t* charToWideChar(const char* p);
 void ClearFontData();

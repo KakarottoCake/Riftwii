@@ -53,6 +53,13 @@ static FT_GlyphSlot ftSlot;		/**< FreeType reusable FT_GlyphSlot glyph container
 
 FreeTypeGX *fontSystem[MAX_FONT_SIZE+1];
 
+static FtgxBitmapGlyphSource bitmapGlyphSource = nullptr;  // RiftWii: SetBitmapGlyphSource
+
+void SetBitmapGlyphSource(FtgxBitmapGlyphSource source)
+{
+	bitmapGlyphSource = source;
+}
+
 // RiftWii: the face can be one of a collection's (the Wii Menu's font is a
 // .ttc), and false says FreeType could not read it.
 bool InitFreeType(uint8_t* fontBuffer, FT_Long bufferSize, FT_Long faceIndex)
@@ -280,6 +287,31 @@ ftgxCharData *FreeTypeGX::cacheGlyphData(wchar_t charCode)
 {
 	FT_UInt gIndex;
 	uint16_t textureWidth = 0, textureHeight = 0;
+
+	// RiftWii: the bitmap font's glyph when it has one (glyph index 0: no
+	// FreeType kerning against it).
+	FtgxBitmapGlyph bitmap;
+	if (bitmapGlyphSource && bitmapGlyphSource(charCode, this->ftPointSize, &bitmap))
+	{
+		FT_Bitmap bmp;
+		memset(&bmp, 0, sizeof(bmp));
+		bmp.width = bitmap.width;
+		bmp.rows = bitmap.rows;
+		bmp.pitch = bitmap.width;
+		bmp.buffer = const_cast<unsigned char*>(bitmap.pixels);
+		ftgxCharData& data = this->fontData[charCode];
+		data.renderOffsetX = (int16_t) bitmap.left;
+		data.glyphAdvanceX = (uint16_t) bitmap.advance;
+		data.glyphIndex = 0;
+		data.textureWidth = (uint16_t) (bitmap.width > 0 ? ALIGN8(bitmap.width) : 8);
+		data.textureHeight = (uint16_t) (bitmap.rows > 0 ? ALIGN8(bitmap.rows) : 8);
+		data.renderOffsetY = (int16_t) bitmap.top;
+		data.renderOffsetMax = (int16_t) bitmap.top;
+		data.renderOffsetMin = (int16_t) (bitmap.rows - bitmap.top);
+		data.glyphDataTexture = nullptr;
+		this->loadGlyphData(&bmp, &data);
+		return &data;
+	}
 
 	gIndex = FT_Get_Char_Index(ftFace, (FT_ULong) charCode);
 	if (gIndex != 0 && FT_Load_Glyph(ftFace, gIndex, FT_LOAD_DEFAULT | FT_LOAD_RENDER) == 0)

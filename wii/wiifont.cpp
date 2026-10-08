@@ -12,7 +12,10 @@
 #include <cstdio>
 #include <cstdlib>
 
+#include "FreeTypeGX.h"
 #include "boot.hpp"
+#include "log.hpp"
+#include "riftwii/brfnt.hpp"
 #include "riftwii/sysfont.hpp"
 #include "skin.hpp"
 
@@ -55,6 +58,49 @@ u8* read_nand(const char* path, bool keep, std::size_t& size, std::string& why) 
     return buffer;
 }
 
+// The Wii Menu's bitmap font, once read: FreeTypeGX takes its glyphs from it.
+BitmapFont g_bitmap;
+BitmapFont::Glyph g_glyph;  // the last one, until FreeTypeGX has copied it
+constexpr unsigned kSheetSlots = 8;  // unpacked sheets kept (64 KiB each in the Wii Menu's)
+
+bool bitmap_glyph(wchar_t ch, int pixel_size, FtgxBitmapGlyph* out) {
+    if (!g_bitmap.render(static_cast<std::uint32_t>(ch), pixel_size, g_glyph)) return false;
+    *out = FtgxBitmapGlyph{g_glyph.pixels.data(), g_glyph.width, g_glyph.rows, g_glyph.left, g_glyph.top,
+                           g_glyph.advance};
+    return true;
+}
+
+// wbf1.brfna, from the shared content `name` lists: the Wii Menu's text.
+void load_bitmap_font(const std::uint8_t* map, std::size_t map_size) {
+    const std::string name = shared_content_name(map, map_size, kWiiBitmapFontHash);
+    if (name.empty()) {
+        logf("Menu font: content.map lists no bitmap font; the TrueType one alone\n");
+        return;
+    }
+    char path[32];
+    std::snprintf(path, sizeof path, "/shared1/%s.app", name.c_str());
+    std::size_t size = 0, at = 0, length = 0, sheet = 0;
+    std::string why;
+    u8* app = read_nand(path, true, size, why);
+    if (!app) {
+        logf("Menu font: the bitmap font was not read (%s)\n", why.c_str());
+        return;
+    }
+    if (!u8_find_file(app, size, "wbf1.brfna", at, length) || !BitmapFont::sheet_size(app + at, length, sheet) ||
+        sheet > 1024 * 1024) {
+        logf("Menu font: %s holds no wbf1.brfna we can read\n", path);
+        return;
+    }
+    u8* slots = skin::Mem2Alloc(sheet * kSheetSlots);
+    if (!slots || !g_bitmap.load(app + at, length, slots, sheet, kSheetSlots, why)) {
+        logf("Menu font: the bitmap font was not used (%s)\n", slots ? why.c_str() : "no MEM2 for its sheets");
+        return;
+    }
+    SetBitmapGlyphSource(&bitmap_glyph);
+    logf("Menu font: the Wii Menu's bitmap font (wbf1, %u characters), the TrueType one for the rest\n",
+         static_cast<unsigned>(g_bitmap.characters()));
+}
+
 }  // namespace
 
 u8* LoadWiiMenuFont(std::size_t& size, std::string& why) {
@@ -69,6 +115,9 @@ u8* LoadWiiMenuFont(std::size_t& size, std::string& why) {
         const bool korean = CONF_GetLanguage() == CONF_LANG_KOREAN;
         std::string name = shared_content_name(map, map_size, korean ? kWiiKoreanFontHash : kWiiFontHash);
         if (name.empty()) name = shared_content_name(map, map_size, korean ? kWiiFontHash : kWiiKoreanFontHash);
+        // The Wii Menu writes with its bitmap font: Korean is not in it, the
+        // TrueType font has it (the bitmap one's missing characters go there).
+        if (!name.empty()) load_bitmap_font(map, map_size);
         std::free(map);
         if (name.empty()) {
             why = "content.map lists no Wii Menu font";
