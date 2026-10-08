@@ -41,6 +41,7 @@
 #include "umsdev.hpp"
 #include "gcadapter.hpp"
 #include "netsock.hpp"
+#include "skin.hpp"
 
 namespace riftwii::wii {
 namespace {
@@ -71,12 +72,66 @@ constexpr const char* kRvzStubDir = "sd:/riftwii/rvz";
 constexpr std::size_t kMaxGames = 4000, kMaxPath = 240;
 constexpr u8 kUsbClassMassStorage = 0x08;
 
+// With more than one drive plugged in (a Wii U's own drive beside the one
+// with the games), libogc's storage driver takes whichever answers first.
+// RiftWii opens the one it can read instead (pick_drive) and reads it
+// through this, as libogc's driver would.
+struct PickedDrive {
+    bool open = false;
+    usbstorage_handle handle{};
+    u8 lun = 0;
+    u32 sector_bytes = 0;
+    u8* bounce = nullptr;  // MEM2, 32-byte aligned, as the driver wants
+};
+PickedDrive g_picked;
+constexpr u32 kPickedBounce = 32 * 1024;
+
+bool picked_read(sec_t sector, sec_t count, void* out) {
+    if (!g_picked.open || g_picked.sector_bytes == 0) return false;
+    auto* dst = static_cast<std::uint8_t*>(out);
+    const u32 per = kPickedBounce / g_picked.sector_bytes;
+    while (count > 0) {
+        const u32 n = std::min<u32>(count, per);
+        if (USBStorage_Read(&g_picked.handle, g_picked.lun, sector, static_cast<u16>(n), g_picked.bounce) < 0)
+            return false;
+        std::memcpy(dst, g_picked.bounce, n * g_picked.sector_bytes);
+        dst += n * g_picked.sector_bytes;
+        sector += n;
+        count -= n;
+    }
+    return true;
+}
+bool picked_write(sec_t sector, sec_t count, const void* in) {
+    if (!g_picked.open || g_picked.sector_bytes == 0) return false;
+    const auto* src = static_cast<const std::uint8_t*>(in);
+    const u32 per = kPickedBounce / g_picked.sector_bytes;
+    while (count > 0) {
+        const u32 n = std::min<u32>(count, per);
+        std::memcpy(g_picked.bounce, src, n * g_picked.sector_bytes);
+        if (USBStorage_Write(&g_picked.handle, g_picked.lun, sector, static_cast<u16>(n), g_picked.bounce) < 0)
+            return false;
+        src += n * g_picked.sector_bytes;
+        sector += n;
+        count -= n;
+    }
+    return true;
+}
+bool picked_yes() { return g_picked.open; }
+bool picked_shutdown() {
+    if (g_picked.open) USBStorage_Close(&g_picked.handle);
+    g_picked.open = false;
+    return true;
+}
+const DISC_INTERFACE kPickedIo = {DEVICE_TYPE_WII_USB, FEATURE_MEDIUM_CANREAD | FEATURE_MEDIUM_CANWRITE | FEATURE_WII_USB,
+                                  picked_yes, picked_yes, picked_read, picked_write, picked_yes, picked_shutdown};
+
 // libogc's storage driver takes a USB device change reported by IOS as
 // the drive's removal and fails every read from then on: bringing up the
 // network of a USB LAN adapter does that on IOS 58. isInserted() finds
 // the drive again (opened under its new device id), so a failed read does
 // that once and is tried again.
 bool usb_read_sectors(sec_t sector, sec_t count, void* out) {
+    if (g_picked.open) return picked_read(sector, count, out);
     if (__io_usbstorage.readSectors(sector, count, out)) return true;
     const bool back = __io_usbstorage.isInserted();
     logf("USB: a read of sector %lu failed; the drive %s\n", static_cast<unsigned long>(sector),
@@ -143,6 +198,64 @@ bool is_mass_storage(const usb_device_entry& entry) {
     USB_CloseDevice(&fd);
     if (!storage) logf("USB: %04x:%04x is not a drive (a network adapter or hub?), not counted\n", entry.vid, entry.pid);
     return storage;
+}
+
+// Of several drives, the first RiftWii can read: a partition table or a
+// FAT32, NTFS or exFAT volume (the 0x55AA that ends sector 0), a drive a
+// USB loader formatted as WBFS, or a DVD drive (2048-byte sectors). A Wii
+// U's own drive has none of them. False when none is (each drive and what
+// it holds go to the log).
+bool pick_drive(const usb_device_entry* devices, u8 listed, std::string& error) {
+    if (!g_picked.bounce) g_picked.bounce = skin::Mem2Alloc(kPickedBounce);
+    if (!g_picked.bounce) {
+        error = "no MEM2 left for the USB buffer";
+        return false;
+    }
+    USBStorage_Initialize();
+    for (u8 i = 0; i < listed && i < 8; ++i) {
+        const usb_device_entry& d = devices[i];
+        if (!is_mass_storage(d)) continue;
+        usbstorage_handle h{};
+        if (USBStorage_Open(&h, d.device_id, d.vid, d.pid) < 0) {
+            logf("USB: drive %04x:%04x did not open\n", d.vid, d.pid);
+            continue;
+        }
+        const s32 luns = std::max<s32>(1, USBStorage_GetMaxLUN(&h));
+        for (s32 lun = 0; lun < luns && lun < 8; ++lun) {
+            u32 bytes = 0, sectors = 0;
+            if (USBStorage_MountLUN(&h, static_cast<u8>(lun)) < 0 ||
+                USBStorage_ReadCapacity(&h, static_cast<u8>(lun), &bytes, &sectors) < 0) {
+                continue;
+            }
+            bool readable = bytes == 2048;
+            const char* what = readable ? "a DVD drive" : "nothing RiftWii reads (a Wii U's own drive?)";
+            if (bytes == 512 && USBStorage_Read(&h, static_cast<u8>(lun), 0, 1, g_picked.bounce) >= 0) {
+                const u8* b = g_picked.bounce;
+                if (b[510] == 0x55 && b[511] == 0xAA) {
+                    readable = true;
+                    what = "a partition table or a FAT32/NTFS volume";
+                } else if (std::memcmp(b, "WBFS", 4) == 0) {
+                    readable = true;
+                    what = "a WBFS drive";
+                }
+            }
+            logf("USB: drive %04x:%04x LUN %d: %u sectors of %u bytes, %s\n", d.vid, d.pid, static_cast<int>(lun),
+                 static_cast<unsigned>(sectors), static_cast<unsigned>(bytes), what);
+            if (readable) {
+                g_picked.handle = h;
+                g_picked.lun = static_cast<u8>(lun);
+                g_picked.sector_bytes = bytes;
+                g_picked.open = true;
+                __io_usbstorage_sector_size = bytes;  // as libogc's driver sets it: the rest reads it
+                logf("USB: using drive %04x:%04x\n", d.vid, d.pid);
+                return true;
+            }
+        }
+        USBStorage_Close(&h);
+    }
+    error = "none of the USB drives plugged in has a FAT32 or NTFS volume RiftWii can read (a Wii U-formatted "
+            "drive cannot be read: the games need a drive formatted FAT32 or NTFS on a computer)";
+    return false;
 }
 
 // A USB DVD drive (2048-byte sectors) holding a Wii disc burned as-is:
@@ -213,8 +326,8 @@ bool open_usb_raw_disc(std::string& error) {
 bool ensure_usb(std::string& error) {
     if (g_raw_mounted && (g_usb_volume || g_usb_raw_disc || g_usb_wbfs)) return true;
     // libogc's storage driver and d2x each pick one drive, not always the
-    // same one when two are plugged in, and the games then go missing or
-    // read the wrong disk. Say so instead of failing somewhere later.
+    // same one when two are plugged in (a Wii U's own drive and the games'),
+    // so with more than one RiftWii picks the drive it can read itself.
     USB_Initialize();
     static usb_device_entry devices[8] ATTRIBUTE_ALIGN(32);
     u8 listed = 0;
@@ -223,16 +336,19 @@ bool ensure_usb(std::string& error) {
         for (u8 i = 0; i < listed && i < 8; ++i) drives += is_mass_storage(devices[i]) ? 1 : 0;
     }
     if (drives > 1) {
-        logf("USB: %u drives plugged in\n", static_cast<unsigned>(drives));
-        error = std::to_string(drives) + " USB drives are plugged in. RiftWii and d2x can use only one: "
-                "unplug the others (keep the one with your games) and try again";
-        return false;
+        // libogc's driver and d2x would each take whichever drive answers
+        // first: the one with a volume RiftWii reads is opened by hand (d2x
+        // finds it the same way at launch, umsdev.cpp).
+        logf("USB: %u drives plugged in; looking for the one with the games\n", static_cast<unsigned>(drives));
+        if (!g_picked.open && !pick_drive(devices, listed, error)) return false;
+        g_usb_started = true;
+    } else {
+        logf("USB: starting storage\n");
+        if (!__io_usbstorage.startup()) { error = "USB storage did not start (use a powered USB drive)"; return false; }
+        g_usb_started = true;
+        logf("USB: checking for a device\n");
     }
-    logf("USB: starting storage\n");
-    if (!__io_usbstorage.startup()) { error = "USB storage did not start (use a powered USB drive)"; return false; }
-    g_usb_started = true;
-    logf("USB: checking for a device\n");
-    if (!__io_usbstorage.isInserted()) {
+    if (!g_picked.open && !__io_usbstorage.isInserted()) {
         // A DVD drive answers only once its disc has spun up.
         // A LAN adapter lists as storage on IOS 58: only a real drive waits.
         u8 any = 0;
@@ -253,7 +369,7 @@ bool ensure_usb(std::string& error) {
     // the drive is read raw below.
     if (!g_libfat_mounted) {
         logf("USB: mounting\n");
-        g_usb_io = __io_usbstorage;
+        g_usb_io = g_picked.open ? kPickedIo : __io_usbstorage;
         g_usb_io.readSectors = usb_read_sectors;
         g_libfat_mounted = fatMountSimple("usb", &g_usb_io);
         if (!g_libfat_mounted) logf("USB: libfat cannot mount it (not FAT32); reading it raw\n");
@@ -1215,7 +1331,8 @@ bool scan_sd_games(ImageCatalog& out, std::string& error) {
 void unmount_usb_games() { if (g_libfat_mounted) fatUnmount("usb:"); g_libfat_mounted=false; g_raw_mounted=false; g_usb_volume.reset(); g_usb_wbfs.reset(); g_usb_raw_disc=false; }
 void release_usb_driver() {
     unmount_usb_games();
-    if (g_usb_started) __io_usbstorage.shutdown();
+    if (g_picked.open) picked_shutdown();
+    else if (g_usb_started) __io_usbstorage.shutdown();
     g_usb_started = false;
 }
 

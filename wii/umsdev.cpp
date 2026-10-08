@@ -65,6 +65,18 @@ bool set_port(std::uint32_t port) {
     return IOS_Ioctlv(g_fd, kSetPort, 1, 0, g_vec) >= 0;
 }
 
+// Whether the started drive's sector 0 ends in 0x55AA (a partition table,
+// a FAT32, NTFS or exFAT volume) or starts "WBFS"; a DVD drive (2048-byte
+// sectors) counts too. A Wii U's own drive has neither.
+bool HasVolume(std::uint32_t sector_bytes) {
+    if (sector_bytes == 2048) return true;
+    if (sector_bytes != 512 || !g_bounce) return false;
+    g_sector_bytes = sector_bytes;
+    std::uint8_t first[512];
+    if (!Read(0, 1, first)) return false;
+    return (first[510] == 0x55 && first[511] == 0xAA) || std::memcmp(first, "WBFS", 4) == 0;
+}
+
 Started start_drive() {
     Started s;
     s.init = IOS_Ioctlv(g_fd, kInit, 0, 0, nullptr);
@@ -111,20 +123,40 @@ bool Open(std::string& error) {
     release_usb_driver();
     // The port it was last found on first, then the other: d2x only looks
     // at port 0 unless told, and a drive in the other port never started
-    // (a tester's: init -100 for as long as RiftWii waited).
-    Started s;
-    for (int attempt = 0; attempt < 2; ++attempt) {
+    // (a tester's: init -100 for as long as RiftWii waited). A drive that
+    // starts but holds nothing RiftWii reads (a Wii U's own drive, beside
+    // the games' in the other port) gives way to one that does.
+    if (!g_bounce) g_bounce = skin::Mem2Alloc(kBounceBytes);
+    Started s, any;
+    int found = -1, readable = -1;
+    std::uint32_t last = 0;
+    for (int attempt = 0; attempt < 2 && readable < 0; ++attempt) {
         const std::uint32_t port = attempt == 0 ? g_port : 1u - g_port;
         const bool switched = set_port(port);
         if (!switched && port != 0) continue;  // no port switch in this d2x: port 0 only
         s = start_drive();
+        last = port;
         logf("USB (d2x): fd %d, port %u, init %d, %u sectors of %u bytes\n", static_cast<int>(g_fd),
              static_cast<unsigned>(port), static_cast<int>(s.init), static_cast<unsigned>(s.sectors),
              static_cast<unsigned>(s.sector_bytes));
-        if (s.init >= 0 && s.counted) {  // found (a bad sector size is reported below)
-            g_port = port;
-            break;
+        if (s.init < 0 || !s.counted) continue;
+        if (found < 0) {
+            found = static_cast<int>(port);
+            any = s;
         }
+        if (s.ok() && HasVolume(s.sector_bytes)) readable = static_cast<int>(port);
+        else logf("USB (d2x): port %u: no volume RiftWii reads on that drive\n", static_cast<unsigned>(port));
+    }
+    const int chosen = readable >= 0 ? readable : found;
+    if (chosen >= 0) {
+        if (readable < 0) s = any;
+        // d2x drives the last port it was told: the chosen one again.
+        if (static_cast<std::uint32_t>(chosen) != last) {
+            set_port(static_cast<std::uint32_t>(chosen));
+            s = start_drive();
+            logf("USB (d2x): back to port %d (init %d)\n", chosen, static_cast<int>(s.init));
+        }
+        g_port = static_cast<std::uint32_t>(chosen);
     }
     const s32 init = s.init;
     const s32 sectors = s.sectors;
