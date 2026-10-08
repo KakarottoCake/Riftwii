@@ -179,6 +179,7 @@ static void UpdatePadPointers()
 	const float kRestHz = 1.0f;
 	static float holdX[4], holdY[4];  // the pointer on its rope (below), in menu units
 	const float kHold = 3.0f;
+	const float kPastEdge = 0.15f;  // the pointer kept this far past libogc's box (a share of its size)
 	const float kSpeedGain = 0.03f;
 	const float kSpeedHz = 1.0f;  // how quickly the speed itself is followed
 	const auto Follow = [](float hz) {  // the share of a 60 Hz step to take
@@ -199,6 +200,19 @@ static void UpdatePadPointers()
 		u32 type = 0;
 		const bool remote = WPAD_Probe(i, &type) == WPAD_ERR_NONE;
 		if (!remote) w->ir.valid = 0;
+		// libogc calls the pointer gone the moment the Remote points past
+		// its box, which is the screen's own edges: on a TV that crops them
+		// it went before the corner buttons and the page arrows were
+		// reached. A little past the box (kPastEdge of its size each way)
+		// it stays, at the screen's edge (kept on screen below).
+		if (remote && !w->ir.valid && w->ir.raw_valid && w->ir.smooth_valid) {
+			const bool wide = w->ir.aspect == WIIUSE_ASPECT_16_9;
+			const float boxW = wide ? 660.0f : 560.0f, boxH = wide ? 370.0f : 420.0f;
+			const float left = (1024.0f - boxW) / 2 + w->ir.offset[0], top = (768.0f - boxH) / 2 + w->ir.offset[1];
+			if (w->ir.ax > left - kPastEdge * boxW && w->ir.ax < left + boxW * (1 + kPastEdge) &&
+			    w->ir.ay > top - kPastEdge * boxH && w->ir.ay < top + boxH * (1 + kPastEdge))
+				w->ir.valid = 1;  // x and y follow from ax and ay below
+		}
 		// RiftWii: the menu may be drawn smaller than the screen
 		// (widescreen, screen size): where the Remote points, in its units.
 		if (remote && w->ir.valid) {
