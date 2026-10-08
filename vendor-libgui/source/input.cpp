@@ -6,7 +6,7 @@
  * Wii/GameCube controller management
  ***************************************************************************/
 /* Changed for RiftWii (September and October 2026), under
- * GPL-3.0-or-later: Classic Controller stick as a pointer, the GameCube adapter's pads, the controller used last owns the pointer, the D-pad takes over from it, the Wii Remote's pointer kept on screen and in menu units under a display scale, steady repeat, and the Wii U GamePad scan (WiiDRC).
+ * GPL-3.0-or-later: Classic Controller stick as a pointer, the GameCube adapter's pads, the controller used last owns the pointer, the D-pad takes over from it, the Wii Remote's pointer kept on screen and in menu units under a display scale and steadied, steady repeat, and the Wii U GamePad scan (WiiDRC).
  * Every change is in RiftWii's git history; NOTICE.md lists the origin. */
 
 #include <gccore.h>
@@ -131,6 +131,11 @@ void UpdatePads()
  * the stick is, in the stick's own direction, so diagonals and full tilt
  * keep their full speed.
  *
+ * The Wii Remote's pointer is steadied: the sensor's shake of a pixel or
+ * two (larger on a widescreen menu, which spreads the Remote's 640 across
+ * more of the menu) is damped, and a real move goes straight through, the
+ * further it goes the less it is held back. Its roll the same way.
+ *
  * The D-pad (a Wii Remote's, a Classic Controller's or a GameCube
  * controller's) takes the channel from either pointer: the pointer hides
  * and the D-pad moves the highlight, which a pointer resting over the
@@ -155,6 +160,10 @@ static void UpdatePadPointers()
 	const int kDeadZone = 20;       // of about +-100: worn sticks rest past the old 14
 	const int kClaim = 45;          // a push, not drift, takes the channel from the Remote
 	const float kRemoteMove = 40.0f;
+	static float steadyX[4], steadyY[4], steadyA[4];  // the steadied Remote pointer, in menu units
+	static bool steadyOn[4] = {false, false, false, false};
+	const float kSteady = 10.0f;     // a move this far (menu pixels) goes through as it is
+	const float kSteadyRoll = 6.0f;  // degrees
 	// The whole screen in menu units (wider than 640 on a widescreen menu).
 	f32 vx, vy, vw, vh;
 	Menu_VisibleArea(&vx, &vy, &vw, &vh);
@@ -174,6 +183,28 @@ static void UpdatePadPointers()
 		if (remote && w->ir.valid) {
 			w->ir.x = Menu_ScreenToMenuX(w->ir.x);
 			w->ir.y = Menu_ScreenToMenuY(w->ir.y);
+			if (!steadyOn[i]) {
+				steadyX[i] = w->ir.x;
+				steadyY[i] = w->ir.y;
+				steadyA[i] = w->ir.angle;
+				steadyOn[i] = true;
+			} else {
+				const float dx = w->ir.x - steadyX[i], dy = w->ir.y - steadyY[i];
+				const float d = sqrtf(dx * dx + dy * dy);
+				const float k = d >= kSteady ? 1.0f : 0.15f + 0.85f * d / kSteady;
+				steadyX[i] += dx * k;
+				steadyY[i] += dy * k;
+				float da = w->ir.angle - steadyA[i];
+				if (da > 180.0f) da -= 360.0f;
+				if (da < -180.0f) da += 360.0f;
+				const float ad = fabsf(da);
+				steadyA[i] += da * (ad >= kSteadyRoll ? 1.0f : 0.15f + 0.85f * ad / kSteadyRoll);
+				w->ir.x = steadyX[i];
+				w->ir.y = steadyY[i];
+				w->ir.angle = steadyA[i];
+			}
+		} else {
+			steadyOn[i] = false;
 		}
 		// A Classic Controller's left stick (scaled to the GameCube
 		// stick's range, about +-100) when the GameCube stick is idle.
