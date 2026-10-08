@@ -91,7 +91,7 @@ With **Channels**, each tile plays the game's own animated icon, the one
 the Wii Menu shows for a disc channel, and the tile you're on shows the
 game's name. Pick a game and its full banner plays, as the Wii Menu opens
 a channel: **Start** (or A, or +) plays the game with the mods and
-settings already chosen for it, the round **gear** button (or 2) opens
+settings already chosen for it, **Settings** (or 2) opens
 the game's page to change them, the arrows (or Left and Right) go to the
 game before or after, and B or HOME return to Home. Each game's banner is read from its image the first time its page
 of tiles is shown (a moment per game) and kept in `sd:/riftwii/banners`.

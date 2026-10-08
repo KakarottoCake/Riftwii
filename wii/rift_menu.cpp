@@ -891,7 +891,7 @@ static void KeepIcon(const std::string& id, std::unique_ptr<riftwii::wii::Banner
 }
 
 // The full banner, as the Wii Menu shows a channel before it starts:
-// Start, or the gear for the game's page. The bar starts where the Wii
+// Start, or Settings for the game's page. The bar starts where the Wii
 // Menu's Disc Channel starts its own (measured in Dolphin), just under
 // the frames banners draw along their bottom edge.
 static constexpr int kChannelBarTop = 354;
@@ -954,7 +954,7 @@ static void FlightBack(float t)
 static void FlightLanded() { SetShelfFlying(""); }
 
 // The game `index` of `count` shown as the Wii Menu shows a channel: its
-// banner, playing, with its sound; Start plays it, the gear opens its page. The
+// banner, playing, with its sound; Start plays it, Settings opens its page. The
 // arrows at the sides (or the D-pad's left and right) go to the games
 // before and after it that have a banner, as the Wii Menu goes from
 // channel to channel; `load` reads a game's opening.bnr (false: none).
@@ -1010,7 +1010,7 @@ static ChannelChoice ShowChannel(int& index, int count, const std::string& first
 	if (!open(index)) return ChannelChoice::Page;
 	(void)firstId;
 	view.player.SetWidescreen(riftwii::wii::MenuWidescreen());
-	// As the Wii Menu's channel screen: Start plays the game. The gear,
+	// As the Wii Menu's channel screen: Start plays the game. Settings,
 	// where the Wii Menu has its own button, opens the game's page (mods,
 	// settings); B or HOME go back to Home (no button of its own: off
 	// screen and hidden, for its hotkeys only).
@@ -1022,11 +1022,9 @@ static ChannelChoice ShowChannel(int& index, int count, const std::string& first
 		WPAD_BUTTON_A | WPAD_CLASSIC_BUTTON_A | WPAD_BUTTON_PLUS | WPAD_CLASSIC_BUTTON_PLUS, PAD_BUTTON_A | PAD_BUTTON_START,
 		WIIDRC_BUTTON_A | WIIDRC_BUTTON_PLUS);
 	goBtn.text.SetColor(skin::kAccentInk);
-	// The gear in the middle of where a pill on the left would be.
-	const int gearX = 70 + ((skin::pill.w - 8) - (skin::roundBtn.w - 4)) / 2;
-	const int gearY = 384 + ((skin::pill.h - 8) - (skin::roundBtn.h - 4)) / 2;
-	SkinButton pageBtn(skin::roundBtn, skin::roundBtnOver, 2, gearX, gearY, nullptr,
-		WPAD_BUTTON_2 | WPAD_CLASSIC_BUTTON_X, PAD_TRIGGER_R, WIIDRC_BUTTON_Y, &skin::iconGear);
+	// A pill like Start's, where the Wii Menu has its "Wii Menu" one.
+	SkinButton pageBtn(skin::pill, skin::pillOver, 4, 70, 384, tr("Settings"),
+		WPAD_BUTTON_2 | WPAD_CLASSIC_BUTTON_X, PAD_TRIGGER_R, WIIDRC_BUTTON_Y);
 	// The arrows at the screen's sides, level with the banner's middle.
 	f32 safeX, safeW;
 	Menu_SafeArea(&safeX, &safeW);
@@ -1073,7 +1071,7 @@ static ChannelChoice ShowChannel(int& index, int count, const std::string& first
 			}
 		} else if (backBtn.Clicked()) choice = 1;
 		else if (pageBtn.Clicked()) {
-			goBtn.button.ResetState();  // A on the gear fires Start too
+			goBtn.button.ResetState();  // A on Settings fires Start too
 			choice = 2;
 		} else if (goBtn.Clicked()) {
 			// While pointing, A starts the game only on Start itself, as
@@ -2565,7 +2563,7 @@ static int MenuSource(FrontendState& state)
 					ResumeGui();
 					continue;
 				}
-				// Start or the gear: the banner stays up while the game opens.
+				// Start or Settings: the banner stays up while the game opens.
 				transition::Hold(transition::Kind::Fade);
 				fromChannel = true;
 			}
