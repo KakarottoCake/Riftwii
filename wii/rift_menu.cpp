@@ -790,7 +790,14 @@ static constexpr int kChannelBarTop = 354;
 class ChannelView : public GuiElement {
 public:
 	riftwii::wii::BannerPlayer player;
+	// How long the banner took on this console, for the log when it closes:
+	// a banner that flashes on a Wii plays smoothly in Dolphin.
+	u64 lastDraw = 0, drawTotalUs = 0, drawMaxUs = 0;
+	unsigned frames = 0, late = 0;
 	void Draw() override {
+		const u64 start = gettime();
+		if (lastDraw != 0 && ticks_to_microsecs(start - lastDraw) > 20000) ++late;  // a frame missed
+		lastDraw = start;
 		// Black over Home, and its depth too: whatever Home's icons left
 		// in the depth buffer cannot hide any of the banner.
 		GX_SetZMode(GX_TRUE, GX_ALWAYS, GX_TRUE);
@@ -802,6 +809,10 @@ public:
 		f32 vx, vy, vw, vh;
 		Menu_VisibleArea(&vx, &vy, &vw, &vh);
 		player.Draw(vx, vy, vw, vh, 255);
+		const u64 took = ticks_to_microsecs(gettime() - start);
+		drawTotalUs += took;
+		drawMaxUs = std::max(drawMaxUs, took);
+		++frames;
 		// The bar the buttons sit on, over the banner's bottom edge: the
 		// part the Wii Menu covers too, where banners leave their seams.
 		Menu_FillScreen(kChannelBarTop, 1000, skin::kBar);
@@ -848,6 +859,11 @@ static bool ShowChannel(const std::string& id)
 	}
 	mainWindow->Remove(&w);
 	mainWindow->SetState(STATE::DEFAULT);
+	if (view.frames > 0) {
+		logf("Banner of %s: %u frames; the CPU drew each in %.1f ms on average, %.1f ms at most; %u frame(s) late "
+		     "(more than 20 ms after the one before)\n",
+		     id.c_str(), view.frames, view.drawTotalUs / 1000.0 / view.frames, view.drawMaxUs / 1000.0, view.late);
+	}
 	return choice == 0;
 }
 

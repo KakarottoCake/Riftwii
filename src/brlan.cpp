@@ -3,6 +3,8 @@
 #include "riftwii/brlan.hpp"
 
 #include <cmath>
+#include <algorithm>
+#include <cstdio>
 #include <cstring>
 
 namespace riftwii {
@@ -119,7 +121,11 @@ bool parse_brlan(const std::uint8_t* data, std::size_t size, Animation& out, std
                 const std::size_t troom = aroom - to;
                 AnimKind kind;
                 const std::uint8_t nentries = tag[4];
-                if (!kind_of(tag, kind)) continue;  // a newer kind: nothing RiftWii draws
+                if (!kind_of(tag, kind)) {  // a newer kind: nothing RiftWii draws
+                    const std::string name(reinterpret_cast<const char*>(tag), 4);
+                    if (std::find(a.skipped.begin(), a.skipped.end(), name) == a.skipped.end()) a.skipped.push_back(name);
+                    continue;
+                }
                 if (8 + static_cast<std::size_t>(nentries) * 4 > troom) {
                     error = "animation " + t.name + " tag runs past it";
                     return false;
@@ -199,6 +205,56 @@ AnimBinding bind_animation(const Animation& anim, const Layout& layout) {
         b.material.push_back(mi);
     }
     return b;
+}
+
+std::string describe_banner(const Layout& layout, const Animation* start, const Animation* loop) {
+    // snprintf into one buffer: string concatenation here cost the Wii DOL 12 KB.
+    unsigned tev = 0, max_stages = 0, indirect = 0, blend = 0, alpha = 0;
+    for (const LytMaterial& m : layout.materials) {
+        if (!m.tev.empty()) ++tev;
+        max_stages = std::max(max_stages, static_cast<unsigned>(m.tev.size()));
+        if (m.ind_stages) ++indirect;
+        if (m.has_blend) ++blend;
+        if (m.has_alpha_compare) ++alpha;
+    }
+    char buf[640];
+    std::size_t n = 0;
+    auto add = [&](const char* fmt, auto... args) {
+        if (n < sizeof buf) n += static_cast<std::size_t>(std::snprintf(buf + n, sizeof buf - n, fmt, args...));
+    };
+    add("%dx%d, %u panes, %u materials (%u with TEV stages, up to %u; %u with indirect stages (their warp skipped); "
+        "%u blend; %u alpha compare), %u textures",
+        static_cast<int>(layout.width), static_cast<int>(layout.height), static_cast<unsigned>(layout.panes.size()),
+        static_cast<unsigned>(layout.materials.size()), tev, max_stages, indirect, blend, alpha,
+        static_cast<unsigned>(layout.textures.size()));
+    static const char* const kNames[] = {"pane", "texture SRT", "visibility", "vertex colour", "material colour",
+                                         "texture pattern"};
+    std::vector<std::string> skipped;
+    const char* const labels[] = {"start", "loop"};
+    const Animation* const anims[] = {start, loop};
+    for (int a = 0; a < 2; ++a) {
+        const Animation* anim = anims[a];
+        if (!anim) {
+            add("; no %s", labels[a]);
+            continue;
+        }
+        unsigned count[6] = {};
+        for (const AnimTarget& t : anim->targets)
+            for (const AnimTrack& tr : t.tracks) ++count[static_cast<std::size_t>(tr.kind)];
+        add("; %s %u frames (", labels[a], static_cast<unsigned>(anim->frames));
+        const char* sep = "";
+        for (std::size_t k = 0; k < 6; ++k) {
+            if (!count[k]) continue;
+            add("%s%s %u", sep, kNames[k], count[k]);
+            sep = ", ";
+        }
+        add(")");
+        for (const std::string& k : anim->skipped)
+            if (std::find(skipped.begin(), skipped.end(), k) == skipped.end()) skipped.push_back(k);
+    }
+    if (!skipped.empty()) add("; skipped kinds:");
+    for (const std::string& k : skipped) add(" %s", k.c_str());
+    return std::string(buf, std::min(n, sizeof buf - 1));
 }
 
 void apply_animation(const Animation& anim, float frame, Layout& layout) {

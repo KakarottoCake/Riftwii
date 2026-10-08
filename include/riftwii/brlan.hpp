@@ -41,9 +41,15 @@ struct Animation {
     bool loop = false;
     std::vector<std::string> textures;  // what texture-pattern tracks pick from
     std::vector<AnimTarget> targets;
+    std::vector<std::string> skipped;   // kinds RiftWii does not apply ("RLIM"), each once
 };
 
 bool parse_brlan(const std::uint8_t* data, std::size_t size, Animation& out, std::string& error);
+
+// One line for the log about a banner: what its layout and animations use,
+// what RiftWii only approximates (indirect stages) and what it skips (kinds
+// of animation it does not apply). Either animation may be null.
+std::string describe_banner(const Layout& layout, const Animation* start, const Animation* loop);
 
 // A track's value at `frame`: held before the first key and after the
 // last, Hermite between keys (each key's slope is per frame), or the last

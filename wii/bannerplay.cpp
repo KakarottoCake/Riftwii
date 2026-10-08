@@ -9,6 +9,7 @@
 #include <cstring>
 
 #include "banners.hpp"
+#include "log.hpp"
 #include "riftwii/tpl.hpp"
 #include "video.h"
 
@@ -169,14 +170,24 @@ bool BannerPlayer::Load(const std::vector<std::uint8_t>& opening_bnr, bool icon,
         if (!u8_.find(path, d, n)) continue;
         Animation a;
         std::string why;
-        if (!parse_brlan(d, n, a, why)) continue;
+        if (!parse_brlan(d, n, a, why)) {
+            if (!icon) logf("Banner: %s not played: %s\n", path.c_str(), why.c_str());
+            continue;
+        }
         if (EndsWith(path, "_start.brlan")) {
             start_ = std::move(a);
             has_start_ = true;
         } else if (!has_loop_) {
             loop_ = std::move(a);
             has_loop_ = true;
+        } else if (!icon) {
+            logf("Banner: %s not played (one loop is)\n", path.c_str());
         }
+    }
+    // What it uses, for a problem report (banners that look wrong on a
+    // console look right in Dolphin).
+    if (!icon) {
+        logf("Banner: %s\n", describe_banner(base_, has_start_ ? &start_ : nullptr, has_loop_ ? &loop_ : nullptr).c_str());
     }
     DCFlushRange(arc_, (arc_size_ + 31) & ~std::size_t(31));
     GX_InvalidateTexAll();
@@ -231,12 +242,18 @@ BannerPlayer::Texture* BannerPlayer::TextureByName(const std::string& name) {
     std::size_t n = 0;
     std::vector<TplImage> images;
     std::string error;
-    if (!u8_.find("/arc/timg/" + name, d, n) || !parse_tpl(d, n, images, error)) return nullptr;
+    if (!u8_.find("/arc/timg/" + name, d, n) || !parse_tpl(d, n, images, error)) {
+        logf("Banner: texture %s: %s; what uses it is left out\n", name.c_str(), error.empty() ? "not in it" : error.c_str());
+        return nullptr;
+    }
     const TplImage& im = images[0];
     const std::uint8_t* data = d + im.data_offset;
     if (reinterpret_cast<std::uintptr_t>(data) & 31) {
         t.own = static_cast<std::uint8_t*>(memalign(32, (im.data_size + 31) & ~std::size_t(31)));
-        if (!t.own) return nullptr;
+        if (!t.own) {
+            logf("Banner: texture %s: out of memory; what uses it is left out\n", name.c_str());
+            return nullptr;
+        }
         std::memcpy(t.own, data, im.data_size);
         DCFlushRange(t.own, (im.data_size + 31) & ~std::size_t(31));
         data = t.own;
@@ -245,7 +262,10 @@ BannerPlayer::Texture* BannerPlayer::TextureByName(const std::string& name) {
     if (t.ci) {
         // Palettes must be 32-byte aligned as well; the archive's are in practice.
         const std::uint8_t* pal = d + im.palette_offset;
-        if (reinterpret_cast<std::uintptr_t>(pal) & 31) return nullptr;
+        if (reinterpret_cast<std::uintptr_t>(pal) & 31) {
+            logf("Banner: texture %s: its palette is not 32-byte aligned; what uses it is left out\n", name.c_str());
+            return nullptr;
+        }
         GX_InitTlutObj(&t.tlut, const_cast<std::uint8_t*>(pal), static_cast<u8>(im.palette_format), im.palette_count);
         GX_InitTexObjCI(&t.obj, const_cast<std::uint8_t*>(data), im.width, im.height, static_cast<u8>(im.format), GX_CLAMP,
                         GX_CLAMP, GX_FALSE, GX_TLUT0);

@@ -455,6 +455,19 @@ static void test_layout() {
     EXPECT_EQ(lyt.panes[1].tx, 100.0f);
     reset_animated(base, lyt);
     EXPECT_EQ(lyt.panes[1].tx, 10.0f);
+
+    // A kind RiftWii does not apply (indirect matrices): parsed, skipped and named.
+    Bytes other = a;
+    for (std::size_t i = 0; i + 4 <= other.size(); ++i)
+        if (std::memcmp(other.data() + i, "RLPA", 4) == 0) std::memcpy(other.data() + i, "RLIM", 4);
+    Animation skipping;
+    EXPECT_TRUE(parse_brlan(other.data(), other.size(), skipping, error));
+    EXPECT_EQ(skipping.skipped.size(), std::size_t(1));
+    if (!skipping.skipped.empty()) EXPECT_EQ(skipping.skipped[0], std::string("RLIM"));
+    const std::string said = describe_banner(lyt, nullptr, &anim);
+    EXPECT_TRUE(said.find("no start") != std::string::npos);
+    EXPECT_TRUE(said.find("loop 10 frames (pane 1)") != std::string::npos);
+    EXPECT_TRUE(describe_banner(lyt, &skipping, nullptr).find("skipped kinds: RLIM") != std::string::npos);
 }
 
 int main() {
