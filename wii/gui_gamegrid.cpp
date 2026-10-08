@@ -322,7 +322,10 @@ void GuiGameGrid::TurnPage(int delta) {
         f32 vx, vy, vw, vh;
         Menu_VisibleArea(&vx, &vy, &vw, &vh);
         const float top = static_cast<float>(TileY(0) - 16);
-        const float bottom = static_cast<float>(TileY(kPerPage - 1) + Geo().tileH + 30);
+        // Down past the lit game's name under the covers, all of it: an
+        // edge across it showed the old name's top over the new one's foot.
+        const float bottom = static_cast<float>(
+            std::max(TileY(kPerPage - 1) + Geo().tileH + 30, covers ? kCaptionY + kCaptionSize + 14 : 0));
         riftwii::wii::transition::Begin(delta > 0 ? riftwii::wii::transition::Kind::PageForward
                                                   : riftwii::wii::transition::Kind::PageBack,
                                         riftwii::wii::transition::Rect{vx, top, vw, bottom - top});
@@ -679,12 +682,23 @@ void GuiGameGrid::Update(GuiTrigger* t) {
     const int cols = Cols();
     const int slot = focus % kPerPage, column = slot % cols;
     int target = focus;
+    // A page turned here moves the focus onto the new page itself: the
+    // target follows it (it was the old page's, which kept the focus there
+    // while the new page showed, nothing lit and the D-pad lost).
     if (t->Right()) {
-        if (column == cols - 1 || focus + 1 >= Count()) TurnPage(1);
-        else target = focus + 1;
+        if (column == cols - 1 || focus + 1 >= Count()) {
+            TurnPage(1);
+            target = focus;
+        } else {
+            target = focus + 1;
+        }
     } else if (t->Left()) {
-        if (column == 0) TurnPage(-1);
-        else target = focus - 1;
+        if (column == 0) {
+            TurnPage(-1);
+            target = focus;
+        } else {
+            target = focus - 1;
+        }
     } else if (t->Down()) {
         if (slot + cols < kPerPage && focus + cols < Count()) target = focus + cols;
     } else if (t->Up()) {
