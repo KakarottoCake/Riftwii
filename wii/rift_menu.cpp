@@ -891,7 +891,7 @@ static void KeepIcon(const std::string& id, std::unique_ptr<riftwii::wii::Banner
 }
 
 // The full banner, as the Wii Menu shows a channel before it starts:
-// Back, or Continue to the game's page. The bar starts where the Wii
+// Start, or the gear for the game's page. The bar starts where the Wii
 // Menu's Disc Channel starts its own (measured in Dolphin), just under
 // the frames banners draw along their bottom edge.
 static constexpr int kChannelBarTop = 354;
@@ -930,7 +930,6 @@ public:
 	}
 };
 
-// True for Continue. Built and closed with the GUI halted.
 // The tile of the game last opened from Home: the game page zooms out of
 // it and back into it.
 static transition::Rect g_openRect;
@@ -955,14 +954,20 @@ static void FlightBack(float t)
 static void FlightLanded() { SetShelfFlying(""); }
 
 // The game `index` of `count` shown as the Wii Menu shows a channel: its
-// banner, playing, with its sound; Back, or Continue to start it. The
+// banner, playing, with its sound; Start plays it, the gear opens its page. The
 // arrows at the sides (or the D-pad's left and right) go to the games
 // before and after it that have a banner, as the Wii Menu goes from
 // channel to channel; `load` reads a game's opening.bnr (false: none).
-// True for Continue, with `index` the game shown last. Built and closed
+// What was chosen, with `index` the game shown last. Built and closed
 // with the GUI halted.
 using BannerLoader = std::function<bool(int index, std::vector<std::uint8_t>& bytes)>;
-static bool ShowChannel(int& index, int count, const std::string& firstId, const BannerLoader& load,
+// What the banner screen was left with.
+enum class ChannelChoice { Back, Start, Page };
+// Set by the banner screen's Start: the game's page presses its own Start
+// as it opens (its checks and warnings, then the launch).
+static bool g_startOnOpen = false;
+
+static ChannelChoice ShowChannel(int& index, int count, const std::string& firstId, const BannerLoader& load,
 	const std::function<std::string(int)>& idOf)
 {
 	ChannelView view;
@@ -1002,14 +1007,26 @@ static bool ShowChannel(int& index, int count, const std::string& firstId, const
 		logf("Screen: channel %s\n", shownId.c_str());
 		return true;
 	};
-	if (!open(index)) return true;
+	if (!open(index)) return ChannelChoice::Page;
 	(void)firstId;
 	view.player.SetWidescreen(riftwii::wii::MenuWidescreen());
-	SkinButton backBtn(skin::pill, skin::pillOver, 4, 70, 384, tr("Back"),
+	// As the Wii Menu's channel screen: Start plays the game. The gear,
+	// where the Wii Menu has its own button, opens the game's page (mods,
+	// settings); B or HOME go back to Home (no button of its own: off
+	// screen and hidden, for its hotkeys only).
+	SkinButton backBtn(skin::pill, skin::pillOver, 4, -2000, -2000, nullptr,
 		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B | WPAD_BUTTON_HOME | WPAD_CLASSIC_BUTTON_HOME, PAD_BUTTON_B,
 		WIIDRC_BUTTON_B | WIIDRC_BUTTON_HOME);
-	SkinButton goBtn(skin::pillPrimary, skin::pillPrimaryOver, 4, 326, 384, tr("Continue"),
-		WPAD_BUTTON_A | WPAD_CLASSIC_BUTTON_A, PAD_BUTTON_A, WIIDRC_BUTTON_A);
+	backBtn.button.SetVisible(false);
+	SkinButton goBtn(skin::pillPrimary, skin::pillPrimaryOver, 4, 326, 384, tr("Start"),
+		WPAD_BUTTON_A | WPAD_CLASSIC_BUTTON_A | WPAD_BUTTON_PLUS | WPAD_CLASSIC_BUTTON_PLUS, PAD_BUTTON_A | PAD_BUTTON_START,
+		WIIDRC_BUTTON_A | WIIDRC_BUTTON_PLUS);
+	goBtn.text.SetColor(skin::kAccentInk);
+	// The gear in the middle of where a pill on the left would be.
+	const int gearX = 70 + ((skin::pill.w - 8) - (skin::roundBtn.w - 4)) / 2;
+	const int gearY = 384 + ((skin::pill.h - 8) - (skin::roundBtn.h - 4)) / 2;
+	SkinButton pageBtn(skin::roundBtn, skin::roundBtnOver, 2, gearX, gearY, nullptr,
+		WPAD_BUTTON_2 | WPAD_CLASSIC_BUTTON_X, PAD_TRIGGER_R, WIIDRC_BUTTON_Y, &skin::iconGear);
 	// The arrows at the screen's sides, level with the banner's middle.
 	f32 safeX, safeW;
 	Menu_SafeArea(&safeX, &safeW);
@@ -1025,18 +1042,19 @@ static bool ShowChannel(int& index, int count, const std::string& firstId, const
 		w.Append(&nextBtn.button);
 	}
 	w.Append(&backBtn.button);
+	w.Append(&pageBtn.button);
 	w.Append(&goBtn.button);
 	mainWindow->SetState(STATE::DISABLED);
 	mainWindow->Append(&w);
 	w.SetState(STATE::DEFAULT);
 	ResumeGui();
-	int choice = -1;
+	int choice = -1;  // 0 Start, 1 back, 2 the game's page
 	while (choice < 0) {
 		usleep(20000);
 		riftwii::wii::BannerSoundUpdate();
 		HaltGui();
-		ClearStaleButtons({&backBtn.button, &goBtn.button, &prevBtn.button, &nextBtn.button});
-		// The arrows first: A pointed at one also fires Continue (its
+		ClearStaleButtons({&backBtn.button, &goBtn.button, &pageBtn.button, &prevBtn.button, &nextBtn.button});
+		// The arrows first: A pointed at one also fires Start (its
 		// trigger is A anywhere), which must not open the game then.
 		if (prevBtn.Clicked() || nextBtn.Clicked()) {
 			const int dir = nextBtn.Clicked() ? 1 : -1;
@@ -1054,8 +1072,11 @@ static bool ShowChannel(int& index, int count, const std::string& firstId, const
 				if (open(((index + dir * step) % count + count) % count)) break;
 			}
 		} else if (backBtn.Clicked()) choice = 1;
-		else if (goBtn.Clicked()) {
-			// While pointing, A starts the game only on Continue itself, as
+		else if (pageBtn.Clicked()) {
+			goBtn.button.ResetState();  // A on the gear fires Start too
+			choice = 2;
+		} else if (goBtn.Clicked()) {
+			// While pointing, A starts the game only on Start itself, as
 			// on the Wii Menu: A that misses an arrow does nothing.
 			bool on = !AnyPointerLive();
 			for (int i = 0; i < 4 && !on; ++i) {
@@ -1071,7 +1092,7 @@ static bool ShowChannel(int& index, int count, const std::string& firstId, const
 	mainWindow->Remove(&w);
 	mainWindow->SetState(STATE::DEFAULT);
 	logShown();
-	return choice == 0;
+	return choice == 0 ? ChannelChoice::Start : choice == 2 ? ChannelChoice::Page : ChannelChoice::Back;
 }
 
 void SetHomeNotice(const std::string& text) { g_homeNotice = text; }
@@ -2525,8 +2546,11 @@ static int MenuSource(FrontendState& state)
 					return riftwii::wii::LoadBanner(id, bytes);
 				};
 				int shown = clicked;
-				const bool go = ShowChannel(shown, static_cast<int>(entries.size()), items[static_cast<std::size_t>(clicked)].id,
-					loadBanner, [&](int i) { return items[static_cast<std::size_t>(i)].id; });
+				const ChannelChoice choice = ShowChannel(shown, static_cast<int>(entries.size()),
+					items[static_cast<std::size_t>(clicked)].id, loadBanner,
+					[&](int i) { return items[static_cast<std::size_t>(i)].id; });
+				const bool go = choice != ChannelChoice::Back;
+				g_startOnOpen = choice == ChannelChoice::Start;
 				if (shown != clicked) {
 					// Home follows to the game shown last: its tile lit, its page up.
 					clicked = shown;
@@ -2541,7 +2565,7 @@ static int MenuSource(FrontendState& state)
 					ResumeGui();
 					continue;
 				}
-				// Continue: the banner stays up while the game opens.
+				// Start or the gear: the banner stays up while the game opens.
 				transition::Hold(transition::Kind::Fade);
 				fromChannel = true;
 			}
@@ -2579,6 +2603,7 @@ static int MenuSource(FrontendState& state)
 				}
 			} else {
 				if (fromChannel) transition::Begin(transition::Kind::Fade);
+				g_startOnOpen = false;
 				logf("Home: %s\n", error.c_str());
 				std::string shown = FlatCapped(error, 150);
 				if (!shown.empty() && shown[0] >= 'a' && shown[0] <= 'z') shown[0] = static_cast<char>(shown[0] - 'a' + 'A');
@@ -3878,6 +3903,15 @@ static int MenuHome(FrontendState& state)
 	w.Append(&startBtn.button);
 	w.Append(&dumpBtn);
 	mainWindow->Append(&w);
+	// Start on the banner screen: this page's Start, pressed for the player,
+	// so its checks and warnings still stand (the page stays when one does).
+	bool fromBanner = false;
+	if (g_startOnOpen) {
+		g_startOnOpen = false;
+		fromBanner = true;
+		logf("Game page: Start from the banner screen\n");
+		startBtn.button.SetState(STATE::CLICKED);
+	}
 	ResumeGui();
 
 	const auto say = [&](const std::string& text) { statusTxt.SetText(text.c_str()); };
@@ -4087,7 +4121,13 @@ static int MenuHome(FrontendState& state)
 				state.warning_shown = true;
 				// In a popup: the status line holds two rows, which cut
 				// the CTGP warning off before it said what to do.
-				ShowPopup(tr("Before you play"), LaunchNote(state) + " " + tr("Press Start again to play."), tr("OK"));
+				if (fromBanner) {
+					// Start on the banner screen: Play goes on with it.
+					if (ShowPopup(tr("Before you play"), LaunchNote(state), tr("Play"), tr("Not now")) == 0)
+						startBtn.button.SetState(STATE::CLICKED);
+				} else {
+					ShowPopup(tr("Before you play"), LaunchNote(state) + " " + tr("Press Start again to play."), tr("OK"));
+				}
 			} else if (!saveOrSay()) {
 				// the status shows why
 			} else if (!riftwii::needs_launch_pipeline(!state.model.selections().empty(), state.model.save_mode)) {
