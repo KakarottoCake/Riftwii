@@ -595,9 +595,9 @@ like a Wii Remote's; the D-pad moves the highlight. With no pointer on
 screen, only the highlighted tile or row answers to A.
 
 The power button, on the Wii or on a Wii Remote, turns the Wii off from
-the menu: the screen fades out and the Wii goes fully off (red light).
-The HOME Menu's power off follows the Wii's own setting instead (yellow
-with WiiConnect24 on).
+the menu: the screen fades out, then the Wii goes to standby or fully
+off as its own setting says (yellow light with WiiConnect24 or standby
+on, red without), as the Wii Menu does. So does the HOME Menu's power off.
 
 ### Screenshots
 

@@ -53,7 +53,7 @@
 
 // Where the player leaves to (the HOME Menu, wii/rift_menu.cpp): 1 back
 // to the loader that started RiftWii (the Homebrew Channel), 2 the Wii
-// Menu, 3 Priiloader, 4 power off, 5 the power button (off, red light).
+// Menu, 3 Priiloader, 4 power off, 5 the power button.
 volatile int ExitRequested = 0;
 
 namespace {
@@ -91,11 +91,13 @@ void LeaveTo(int where) {
         // Standby or off, as the Wii's own power setting says.
         SYS_ResetSystem(SYS_POWEROFF, 0, 0);
     } else if (where == 5) {
-        // The power button: the drives finish their writes, then the Wii
-        // turns fully off (red light), whatever WiiConnect24 is set to.
+        // The power button: the drives finish their writes, then standby
+        // or off as the Wii's own setting says, as the Wii Menu's power
+        // button does (a tester's Wii, set to standby, went fully off).
+        // SYS_POWEROFF_STANDBY would always mean off, with the red light.
         fatUnmount("sd:");
         fatUnmount("usb:");
-        SYS_ResetSystem(SYS_POWEROFF_STANDBY, 0, 0);
+        SYS_ResetSystem(SYS_POWEROFF, 0, 0);
     } else if (where == 2 || where == 3) {
         if (where == 3) {
             // Priiloader looks for "Daco" at 0x8132FFFB when the Wii Menu
