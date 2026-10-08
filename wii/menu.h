@@ -22,6 +22,9 @@ void MenuHaltForCrash();
 // A line Home shows in its status bar until a game is picked: why
 // RiftWii restarted (wii/restart.hpp). Empty for none.
 void SetHomeNotice(const std::string& text);
+// How much wider than on a 4:3 menu a popup and the launch screen's card
+// are on each side (menu units; 0 on a 4:3 menu).
+int PopupExtra();
 
 // No SD card could be read at start: MainMenu(MENU_NEEDS_SD) says so,
 // and whether RiftWii was started from a USB drive.

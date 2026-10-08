@@ -950,9 +950,10 @@ private:
 	int x, y, extra;
 };
 
-// How much wider a popup is on each side: on a widescreen menu, up to 80
-// of the room the TV has past the 4:3 middle; none on a 4:3 one.
-static int PopupExtra()
+// How much wider a popup (and the launch screen's card) is on each side:
+// on a widescreen menu, up to 80 of the room the TV has past the 4:3
+// middle; none on a 4:3 one.
+int PopupExtra()
 {
 	f32 safeX, safeW;
 	Menu_SafeArea(&safeX, &safeW);
@@ -2083,7 +2084,14 @@ public:
 	void Draw() override {
 		Menu_FillScreen(-1000, 1000 + kHeight, hue);
 		Menu_Scissor(-1000, -1000, 3000, 1000 + kHeight);
-		skin::Draw(skin::bannerStripes, 0, -8);
+		// Across the whole screen: a widescreen menu is wider than the
+		// stripes' 640 (drawn once, the band's sides were bare). Copies side
+		// by side, a whole period apart, so they join.
+		f32 safeX, safeW;
+		Menu_SafeArea(&safeX, &safeW);
+		const int w = skin::bannerStripes.w > 0 ? skin::bannerStripes.w : 640;
+		for (int x = 0; x > safeX - w; x -= w) skin::Draw(skin::bannerStripes, x, -8);
+		for (int x = w; x < safeX + safeW; x += w) skin::Draw(skin::bannerStripes, x, -8);
 		GX_SetScissor(0, 0, Menu_XfbWidth(), Menu_EfbHeight());
 	}
 private:
@@ -4379,7 +4387,9 @@ static void ShowLaunchFrame(const FrontendState& state, int action)
 	GuiText titleTxt(title.c_str(), 28, skin::kInk);
 	Place(titleTxt, 40, 62);
 	titleTxt.SetWrap(true, 560, 2);
-	Panel card(skin::panelSettings, 34, 160);
+	// As wide as a popup on a widescreen menu: the log printed into it
+	// (wii/main.cpp, EnterConsolePhase) gets the same room.
+	Panel card(skin::panelSettings, 34, 160, PopupExtra());
 	// The launch waits for the start's update check or a cover download
 	// first (wii/main.cpp): say so, as nothing else is on the screen yet.
 	// Said here, in the frame, not by the console: the job's thread is
