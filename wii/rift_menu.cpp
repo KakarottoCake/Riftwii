@@ -2198,9 +2198,26 @@ public:
 		f32 safeX, safeW;
 		Menu_SafeArea(&safeX, &safeW);
 		const int w = skin::bannerStripes.w > 0 ? skin::bannerStripes.w : 640;
-		for (int x = 0; x > safeX - w; x -= w) skin::Draw(skin::bannerStripes, x, -8);
-		for (int x = w; x < safeX + safeW; x += w) skin::Draw(skin::bannerStripes, x, -8);
+		for (int x = 0; x > safeX - w; x -= w) Stripes(x);
+		for (int x = w; x < safeX + safeW; x += w) Stripes(x);
 		GX_SetScissor(0, 0, Menu_XfbWidth(), Menu_EfbHeight());
+	}
+private:
+	// One copy of the stripes at x, cut to the screen and the band first:
+	// the copies at the sides of a widescreen menu ran some 530 units past
+	// the screen, and a console draws a polygon that runs far past it
+	// wrongly at times (7f1ad1d); a tester's 16:9 TV showed a bright bar
+	// where two copies meet. Dolphin draws either way the same.
+	void Stripes(int x) {
+		const skin::Tex& t = skin::bannerStripes;
+		if (!t.data) return;
+		f32 vx, vy, vw, vh;
+		Menu_VisibleArea(&vx, &vy, &vw, &vh);
+		const float top = -8, x0 = std::max<float>(x, vx), x1 = std::min<float>(x + t.w, vx + vw);
+		const float y0 = std::max(top, vy), y1 = std::min<float>(top + t.h, kHeight);
+		if (x1 <= x0 || y1 <= y0) return;
+		Menu_DrawImgPart(x0, y0, x1 - x0, y1 - y0, static_cast<u16>(t.w), static_cast<u16>(t.h), t.data,
+			(x0 - x) / t.w, (y0 - top) / t.h, (x1 - x) / t.w, (y1 - top) / t.h, 255);
 	}
 private:
 	GXColor hue;
