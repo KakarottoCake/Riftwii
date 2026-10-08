@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "guiscript.hpp"
+#include "transition.hpp"
 
 #include <gccore.h>
 #include <wiiuse/wpad.h>
@@ -141,6 +142,10 @@ void Advance(const void* xfb, int width, int height) {
             if (g_glide_frames < 1) g_glide_frames = 1;
             g_glide = 0;
             g_wait = g_glide_frames;
+        } else if (cmd == "slowmo") {
+            float factor = 1;
+            words >> factor;
+            transition::SetSlowMotion(factor);
         } else if (cmd == "launchshots") {
             g_launch_shots = true;
         } else if (cmd == "failnext") {

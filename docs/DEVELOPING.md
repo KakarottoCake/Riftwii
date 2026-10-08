@@ -78,8 +78,9 @@ Two scripts on the card drive a run without hands on a controller:
   `launch`.
 - `sd:/riftwii/guiscript.txt` plays input into the menu and saves
   screenshots (`wait`, `point`, `nopoint`, `press`, `hold`, `release`,
-  `glide`, `shot`, `finalshot`, and `failnext` and `crash` to test the
-  way back from a failed launch and the crash screen; see
+  `glide`, `shot`, `finalshot`, `slowmo <factor>` to stretch every
+  transition for frame-by-frame screenshots, and `failnext` and `crash`
+  to test the way back from a failed launch and the crash screen; see
   `wii/guiscript.hpp`). After a restart the menu reads
   `guiscript-restart.txt` instead. Pull the screenshots (and
   `crashscreen.bmp`) out of the SD image afterwards.

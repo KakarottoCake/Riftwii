@@ -6,8 +6,8 @@
  * Video routines
  ***************************************************************************/
 /* Changed for RiftWii (September and October 2026), under
- * GPL-3.0-or-later: StopGXKeepPicture, the frame buffer accessors and
- * the display scale.
+ * GPL-3.0-or-later: StopGXKeepPicture, the frame buffer accessors,
+ * the display scale and the camera.
  * Every change is in RiftWii's git history; NOTICE.md lists the origin. */
 
 #ifndef _VIDEO_H_
@@ -26,6 +26,14 @@ int Menu_EfbHeight();  // RiftWii: for scissor boxes (scrolling lists)
 void Menu_SetDisplayScale(f32 sx, f32 sy);
 void Menu_ScaleProjection(Mtx44 p);
 void Menu_LoadOrtho();
+// RiftWii: the camera (video.cpp). Set: everything drawn goes to
+// k * p + (tx, ty), in menu units. Push: scaled by k about (cx, cy) and
+// moved by (dx, dy) inside the current one; PushNoCamera: none, for what stays put (the backdrop,
+// a popup's dimming). GUI thread only, while drawing.
+void Menu_SetCamera(f32 k, f32 tx, f32 ty);
+void Menu_PushCamera(f32 k, f32 cx, f32 cy, f32 dx = 0, f32 dy = 0);
+void Menu_PushNoCamera();
+void Menu_PopCamera();
 f32 Menu_ScreenToMenuX(f32 x);
 f32 Menu_ScreenToMenuY(f32 y);
 void Menu_MenuToXfb(f32 x, f32 y, int* px, int* py);  // a menu point as a frame-buffer pixel

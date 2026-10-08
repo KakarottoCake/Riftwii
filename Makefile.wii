@@ -245,6 +245,10 @@ zstddeclib.o: CFLAGS += -Os
 # The SD image maker waits on the card, not the CPU: built for size too.
 vsdbuild.o vsdmake.o: CXXFLAGS += -Os
 
+# The menu's screens wait on the player: built for size too, which
+# leaves room for the transitions (keep the DOL's end below 0x81041980).
+rift_menu.o: CXXFLAGS += -Os
+
 -include $(DEPENDS)
 
 #---------------------------------------------------------------------------------

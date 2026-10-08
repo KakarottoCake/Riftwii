@@ -93,6 +93,9 @@ class GuiBackdrop : public GuiElement {
 public:
     GuiBackdrop();
     void Draw() override;
+
+private:
+    void DrawBackdrop();
 };
 
 }  // namespace riftwii::wii::skin

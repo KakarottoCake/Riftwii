@@ -8,7 +8,8 @@
  * GUI class definitions
  ***************************************************************************/
 /* Changed for RiftWii (October 2026), under GPL-3.0-or-later: a disabled
- * window's tint covers the whole screen, a widescreen one too.
+ * window's tint covers the whole screen, a widescreen one too; a hook
+ * when a window's elements change (the menu's transitions).
  * Every change is in RiftWii's git history; NOTICE.md lists the origin. */
 
 #include "gui.h"
@@ -31,6 +32,8 @@ GuiWindow::~GuiWindow()
 {
 }
 
+void (*GuiWindow::changed)(GuiWindow* window, GuiElement* e) = nullptr;
+
 void GuiWindow::Append(GuiElement* e)
 {
 	if (e == nullptr)
@@ -39,6 +42,8 @@ void GuiWindow::Append(GuiElement* e)
 	Remove(e);
 	_elements.push_back(e);
 	e->SetParent(this);
+	if (changed)
+		changed(this, e);
 }
 
 void GuiWindow::Insert(GuiElement* e, u32 index)
@@ -49,6 +54,8 @@ void GuiWindow::Insert(GuiElement* e, u32 index)
 	Remove(e);
 	_elements.insert(_elements.begin()+index, e);
 	e->SetParent(this);
+	if (changed)
+		changed(this, e);
 }
 
 void GuiWindow::Remove(GuiElement* e)
@@ -62,6 +69,8 @@ void GuiWindow::Remove(GuiElement* e)
 		if(e == _elements.at(i))
 		{
 			_elements.erase(_elements.begin()+i);
+			if (changed)
+				changed(this, e);
 			break;
 		}
 	}

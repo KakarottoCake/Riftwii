@@ -58,6 +58,9 @@ public:
     // Keeps the focus on `index` (and its page).
     void Focus(int index);
     int FocusedIndex() const { return focus; }
+    // Where a game's tile (or box, on the shelf) is on screen, when it is
+    // shown: what a transition zooms from.
+    bool TileRect(int index, float& x, float& y, float& w, float& h) const;
     int Page() const { return page; }
     int Pages() const;
     // The item A was pressed on since the last call, or -1.

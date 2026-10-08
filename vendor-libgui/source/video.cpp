@@ -6,7 +6,8 @@
  * Video routines
  ***************************************************************************/
 /* Changed for RiftWii (September and October 2026), under
- * GPL-3.0-or-later: no text console on the menu's frame buffer, StopGXKeepPicture, the frame buffer accessors the launch screen and screenshots use, and the display scale (widescreen and screen size).
+ * GPL-3.0-or-later: no text console on the menu's frame buffer, StopGXKeepPicture, the frame buffer accessors the launch screen and screenshots use, the display scale (widescreen and screen size), and a camera
+ * that moves and scales everything drawn (the menu's transitions).
  * Every change is in RiftWii's git history; NOTICE.md lists the origin. */
 
 #include <gccore.h>
@@ -213,13 +214,79 @@ int Menu_EfbHeight()
 static f32 displayX = 1.0f, displayY = 1.0f;
 static volatile bool displayChanged = false;  // the projection to load again, on the GUI thread
 
+/****************************************************************************
+ * The camera (RiftWii): every point drawn, in menu units, goes to
+ * k * p + (tx, ty) before the display scale. A transition zooms or slides
+ * the whole screen with it; a popup scales its own window. Pushed and
+ * popped on the GUI thread while drawing; each change loads the 2D
+ * projection again (a 3D view, the shelf, takes it in Menu_ScaleProjection).
+ ***************************************************************************/
+struct MenuCamera { f32 k, tx, ty; };
+static MenuCamera cameraStack[8] = {{1.0f, 0.0f, 0.0f}};
+static int cameraDepth = 0;
+
+static void ApplyCamera(Mtx44 p)
+{
+	const MenuCamera& c = cameraStack[cameraDepth];
+	if (c.k == 1.0f && c.tx == 0.0f && c.ty == 0.0f) return;
+	// In the projection's terms (x across -1 to 1 from 0 to 640, y down
+	// from 1 to -1 from 0 to 480): x' = k x + bx, y' = k y + by, as rows.
+	const f32 bx = (320.0f * (c.k - 1.0f) + c.tx) / 320.0f;
+	const f32 by = -(240.0f * (c.k - 1.0f) + c.ty) / 240.0f;
+	for (int col = 0; col < 4; ++col)
+	{
+		p[0][col] = c.k * p[0][col] + bx * p[3][col];
+		p[1][col] = c.k * p[1][col] + by * p[3][col];
+	}
+}
+
 void Menu_ScaleProjection(Mtx44 p)
 {
+	ApplyCamera(p);
 	for (int c = 0; c < 4; ++c)
 	{
 		p[0][c] *= displayX;
 		p[1][c] *= displayY;
 	}
+}
+
+void Menu_SetCamera(f32 k, f32 tx, f32 ty)
+{
+	cameraDepth = 0;
+	cameraStack[0] = MenuCamera{k, tx, ty};
+	Menu_LoadOrtho();
+}
+
+void Menu_PushCamera(f32 k, f32 cx, f32 cy, f32 dx, f32 dy)
+{
+	// Scaled by k about (cx, cy) and moved by (dx, dy), inside whatever
+	// camera is on.
+	const MenuCamera& o = cameraStack[cameraDepth];
+	const f32 tx = cx * (1.0f - k) + dx, ty = cy * (1.0f - k) + dy;
+	if (cameraDepth < 7) ++cameraDepth;
+	cameraStack[cameraDepth] = MenuCamera{o.k * k, o.k * tx + o.tx, o.k * ty + o.ty};
+	Menu_LoadOrtho();
+}
+
+void Menu_PushNoCamera()
+{
+	if (cameraDepth < 7) ++cameraDepth;
+	cameraStack[cameraDepth] = MenuCamera{1.0f, 0.0f, 0.0f};
+	Menu_LoadOrtho();
+}
+
+void Menu_PopCamera()
+{
+	if (cameraDepth > 0) --cameraDepth;
+	Menu_LoadOrtho();
+}
+
+// A point in menu units, through the camera.
+static void CameraPoint(f32& x, f32& y)
+{
+	const MenuCamera& c = cameraStack[cameraDepth];
+	x = c.k * x + c.tx;
+	y = c.k * y + c.ty;
 }
 
 void Menu_LoadOrtho()
@@ -273,13 +340,22 @@ void Menu_FillScreen(f32 y, f32 height, GXColor color)
 
 void Menu_FillWholeScreen(GXColor color)
 {
+	// The whole screen whatever the camera (a popup's dimming while it
+	// pops, a fade).
+	Menu_PushNoCamera();
 	f32 vx, vy, vw, vh;
 	Menu_VisibleArea(&vx, &vy, &vw, &vh);
 	Menu_DrawRectangle(vx, vy, vw, vh, color, 1);
+	Menu_PopCamera();
 }
 
 void Menu_Scissor(f32 x, f32 y, f32 w, f32 h)
 {
+	// Where the camera puts the box.
+	const f32 k = cameraStack[cameraDepth].k;
+	CameraPoint(x, y);
+	w *= k;
+	h *= k;
 	const f32 ex = Menu_XfbWidth() / 640.0f, ey = Menu_EfbHeight() / 480.0f;
 	f32 x0 = (320.0f + (x - 320.0f) * displayX) * ex, x1 = (320.0f + (x + w - 320.0f) * displayX) * ex;
 	f32 y0 = (240.0f + (y - 240.0f) * displayY) * ey, y1 = (240.0f + (y + h - 240.0f) * displayY) * ey;

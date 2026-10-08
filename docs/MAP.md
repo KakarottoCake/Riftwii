@@ -28,6 +28,7 @@ and `vendor-*` is third-party code.
 | --- | --- |
 | A menu screen (Home, a game's page, Mods, Cheats, Settings) | `wii/rift_menu.cpp` |
 | How a list or the tile grid looks or scrolls | `wii/gui_flowlist.cpp`, `wii/gui_gamegrid.cpp`, `wii/skin.cpp` |
+| How screens, pages and popups come and go (fades, zooms, slides) | `wii/transition.cpp`, the camera in `vendor-libgui/source/video.cpp` |
 | Menu themes (colours, pictures, music) | `src/theme.cpp` (theme.ini), `src/skinpaint.cpp` (the painted pictures), `wii/menutheme.cpp`, `wii/skin.cpp`, `themes/`, [THEMES.md](THEMES.md) |
 | The theme kit download | `tools/theme_kit.cpp`, `tools/make_theme_kit.py`, `themes/kit/README.txt` |
 | Menu text and its translations | `tools/lang_source.py` (the table), `wii/i18n.cpp`, `wii/lang/*.po` |

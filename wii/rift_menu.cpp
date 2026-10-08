@@ -40,6 +40,7 @@
 #include <ogc/lwp_watchdog.h>
 
 #include "libwiigui/gui.h"
+#include "transition.hpp"
 #include "gui_flowlist.hpp"
 #include "memlimits.hpp"
 #include "modpicture.hpp"
@@ -87,6 +88,8 @@
 #include "netpacks.hpp"
 #include "netsock.hpp"
 #include "video.h"
+
+namespace transition = riftwii::wii::transition;
 
 #define THREAD_SLEEP 100
 
@@ -291,7 +294,11 @@ UpdateGUI(void *arg)
 			}
 			dimAlpha = idle ? std::min(dimAlpha + 4, 150) : std::max(dimAlpha - 30, 0);
 			if (swallowInput && !AnyHeld()) swallowInput = false;
+			riftwii::wii::transition::FrameStart();
 			mainWindow->Draw();
+			// The old screen over the new one while it comes in, and this
+			// frame kept for the next change (before the pointers).
+			riftwii::wii::transition::FrameEnd();
 
 			for(i = 3; i >= 0; i--)
 			{
@@ -309,7 +316,7 @@ UpdateGUI(void *arg)
 			riftwii::wii::GuiScriptAfterFrame(Menu_CurrentXfb(), Menu_XfbWidth(), Menu_XfbHeight());
 			riftwii::wii::ScreenshotAfterFrame(Menu_CurrentXfb(), Menu_XfbWidth(), Menu_XfbHeight());
 
-			if (!idle && !swallowInput)
+			if (!idle && !swallowInput && !riftwii::wii::transition::Busy())
 				for(i = 0; i < 4; i++)
 					mainWindow->Update(&userInput[i]);
 
@@ -801,7 +808,9 @@ public:
 		// Black over Home, and its depth too: whatever Home's icons left
 		// in the depth buffer cannot hide any of the banner.
 		GX_SetZMode(GX_TRUE, GX_ALWAYS, GX_TRUE);
-		Menu_FillWholeScreen((GXColor){0, 0, 0, 255});
+		// A band, not Menu_FillWholeScreen: it zooms with the channel as it
+		// opens out of its tile.
+		Menu_FillScreen(-1000, 3000, (GXColor){0, 0, 0, 255});
 		GX_SetZMode(GX_TRUE, GX_LEQUAL, GX_TRUE);
 		player.Step();
 		// The whole screen, as the Wii Menu shows a channel: wider than the
@@ -822,6 +831,10 @@ public:
 };
 
 // True for Continue. Built and closed with the GUI halted.
+// The tile of the game last opened from Home: the game page zooms out of
+// it and back into it.
+static transition::Rect g_openRect;
+
 static bool ShowChannel(const std::string& id)
 {
 	std::vector<std::uint8_t> bytes;
@@ -985,6 +998,33 @@ public:
 	void Draw() override { Menu_FillWholeScreen((GXColor){0, 0, 0, 150}); }
 };
 
+// A window that comes in from a little smaller (or from above or below)
+// the first time it is drawn: a popup pops, the HOME Menu's bands slide
+// in. What it holds keeps its own places; only the camera moves.
+class ShiftWindow : public GuiWindow {
+public:
+	ShiftWindow(float fromScale, float fromY, bool overshoot, float ms = 260)
+		: GuiWindow(screenwidth, screenheight), fromScale(fromScale), fromY(fromY), overshoot(overshoot), ms(ms) {}
+	void Draw() override
+	{
+		if (start == 0) start = gettime();
+		const float t = ticks_to_microsecs(gettime() - start) / 1000.0f / (ms * transition::SlowMotion());
+		if (t >= 1) {
+			GuiWindow::Draw();
+			return;
+		}
+		const float e = overshoot ? transition::EaseBack(t) : transition::EaseOut(t);
+		Menu_PushCamera(fromScale + (1 - fromScale) * e, 320, 240, 0, fromY * (1 - e));
+		GuiWindow::Draw();
+		Menu_PopCamera();
+	}
+private:
+	float fromScale, fromY;
+	bool overshoot;
+	float ms;
+	u64 start = 0;
+};
+
 // The box behind a hover name, so it reads over covers: a rounded card
 // with a soft shadow in the theme's colours (skin::HintBox), sized to the
 // text and fading with it. `anchorX` is the text's centre (centred) or
@@ -1080,7 +1120,7 @@ public:
 		  cancelBtn(skin::pill, skin::pillOver, 4, 326, 314, cancel.c_str(),
 			WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B | WPAD_BUTTON_HOME | WPAD_CLASSIC_BUTTON_HOME, PAD_BUTTON_B,
 			WIIDRC_BUTTON_B | WIIDRC_BUTTON_HOME),
-		  hasOk(!ok.empty()), hasCancel(!cancel.empty()), w(screenwidth, screenheight)
+		  hasOk(!ok.empty()), hasCancel(!cancel.empty()), w(0.86f, 0, true)
 	{
 		Place(titleTxt, 56 - extra, 120);
 		Place(bodyTxt, 56 - extra, 160);
@@ -1093,11 +1133,13 @@ public:
 		if (hasOk) w.Append(&okBtn.button);
 		if (hasCancel) w.Append(&cancelBtn.button);
 		mainWindow->SetState(STATE::DISABLED);
+		transition::Begin(transition::Kind::PopOpen);
 		mainWindow->Append(&w);
 		w.SetState(STATE::DEFAULT);
 	}
 	~PopupBox()
 	{
+		transition::Begin(transition::Kind::PopClose);
 		mainWindow->Remove(&w);
 		mainWindow->SetState(STATE::DEFAULT);
 	}
@@ -1143,7 +1185,7 @@ private:
 	SkinButton okBtn;
 	SkinButton cancelBtn;
 	bool hasOk, hasCancel;
-	GuiWindow w;
+	ShiftWindow w;
 };
 
 static int ShowPopup(const std::string& title, const std::string& body, const std::string& ok,
@@ -1275,14 +1317,19 @@ static int ShowHomeMenu()
 	HomeFocus focus(buttons);
 
 	GuiWindow w(screenwidth, screenheight);
+	ShiftWindow top(1.0f, -90, false, 300), bottom(1.0f, 130, false, 300), middle(0.9f, 0, true, 300);
 	w.Append(&dim);
-	w.Append(&band);
-	w.Append(&titleTxt);
-	w.Append(&bar);
-	w.Append(&batteries);
-	w.Append(&focus);
-	for (GuiButton* b : buttons) w.Append(b);
+	top.Append(&band);
+	top.Append(&titleTxt);
+	bottom.Append(&bar);
+	bottom.Append(&batteries);
+	middle.Append(&focus);
+	for (GuiButton* b : buttons) middle.Append(b);
+	w.Append(&top);
+	w.Append(&bottom);
+	w.Append(&middle);
 	mainWindow->SetState(STATE::DISABLED);
+	transition::Begin(transition::Kind::PopOpen);
 	mainWindow->Append(&w);
 	w.SetState(STATE::DEFAULT);
 	logf("HOME Menu: open\n");
@@ -1300,6 +1347,7 @@ static int ShowHomeMenu()
 	}
 	static const char* const kWhere[] = {"closed", "Homebrew Channel", "Wii Menu", "Priiloader", "power off"};
 	logf("HOME Menu: %s\n", kWhere[choice]);
+	transition::Begin(transition::Kind::PopClose);
 	mainWindow->Remove(&w);
 	mainWindow->SetState(STATE::DEFAULT);
 	if (choice > 0) g_leave = choice;
@@ -1819,6 +1867,9 @@ static int MenuSource(FrontendState& state)
 	};
 	showView();
 	const auto refresh = [&](bool keepFocus) {
+		// Another view, search or order: crossfaded (unless the screen is
+		// already changing some other way).
+		transition::BeginAuto();
 		showView();
 		const int focus = keepFocus ? grid.FocusedIndex() : 0;
 		BuildHome(state, items, entries);
@@ -1982,12 +2033,23 @@ static int MenuSource(FrontendState& state)
 		if (clicked >= 0 && static_cast<std::size_t>(clicked) < entries.size()) {
 			g_homeFocus = clicked;
 			const HomeEntry entry = entries[static_cast<std::size_t>(clicked)];
-			// Channels: the game's banner first, as the Wii Menu opens a channel.
+			transition::Rect tile;
+			if (!grid.TileRect(clicked, tile.x, tile.y, tile.w, tile.h)) tile = transition::Rect{};
+			g_openRect = tile;
+			// Channels: the game's banner first, as the Wii Menu opens a
+			// channel: out of its tile, and back into it.
+			bool fromChannel = false;
 			if (grid.Channels() && entry.kind != HomeEntry::Kind::Disc &&
-				!g_bannerAbsent.count(items[static_cast<std::size_t>(clicked)].id) &&
-				!ShowChannel(items[static_cast<std::size_t>(clicked)].id)) {
-				ResumeGui();
-				continue;
+				!g_bannerAbsent.count(items[static_cast<std::size_t>(clicked)].id)) {
+				transition::Begin(transition::Kind::ZoomIn, tile);
+				if (!ShowChannel(items[static_cast<std::size_t>(clicked)].id)) {
+					transition::Begin(transition::Kind::ZoomOut, tile);
+					ResumeGui();
+					continue;
+				}
+				// Continue: the banner stays up while the game opens.
+				transition::Hold(transition::Kind::Fade);
+				fromChannel = true;
 			}
 			std::string error;
 			statusTxt.SetText(entry.kind == HomeEntry::Kind::Disc ? "Reading the disc..." : "Opening the game...");
@@ -2011,7 +2073,9 @@ static int MenuSource(FrontendState& state)
 			HaltGui();
 			if (ok) {
 				menu = MENU_HOME;
+				if (!fromChannel) transition::Begin(transition::Kind::ZoomIn, tile);
 			} else {
+				if (fromChannel) transition::Begin(transition::Kind::Fade);
 				logf("Home: %s\n", error.c_str());
 				std::string shown = FlatCapped(error, 150);
 				if (!shown.empty() && shown[0] >= 'a' && shown[0] <= 'z') shown[0] = static_cast<char>(shown[0] - 'a' + 'A');
@@ -3158,8 +3222,10 @@ static void MenuMods(FrontendState& state, std::string& scanStatus)
 				std::string key, error;
 				bool listChanged = false;
 				if (ref.what == RowRef::What::AddCodes) {
+					transition::Hold(transition::Kind::SlideForward);
 					mainWindow->Remove(&w);
 					listChanged = MenuPickCodes(state, key);
+					transition::Hold(transition::Kind::SlideBack);
 					mainWindow->Append(&w);
 				} else if (ref.what == RowRef::What::MakeImage) {
 					listChanged = MakeSdImage(state, state.model.packages[ref.pkg], key);
@@ -3395,9 +3461,11 @@ static int MenuHome(FrontendState& state)
 				state.model.save_mode = modes[((at % 3) + 3 + direction) % 3];
 				changed = true;
 			} else if (ref.what == RowRef::What::Mods || ref.what == RowRef::What::Cheats) {
+				transition::Hold(transition::Kind::SlideForward);
 				mainWindow->Remove(&w);
 				if (ref.what == RowRef::What::Mods) MenuMods(state, scanStatus);
 				else MenuCheats(state);
+				transition::Hold(transition::Kind::SlideBack);
 				mainWindow->Append(&w);
 				BuildGameRows(state, rows, refs);
 				list.Refresh();
@@ -4215,20 +4283,24 @@ static int MenuSettings(FrontendState& state)
 					rebuild();
 					break;
 				case kGcTest:
+					transition::Hold(transition::Kind::SlideForward);
 					mainWindow->Remove(&w);
 					ResumeGui();
 					GcAdapterTestPage();
 					HaltGui();
+					transition::Hold(transition::Kind::SlideBack);
 					mainWindow->Append(&w);
 					break;
 				case kTutorial:
 					ShowTutorial();
 					break;
 				case kCredits:
+					transition::Hold(transition::Kind::SlideForward);
 					mainWindow->Remove(&w);
 					ResumeGui();
 					CreditsPage();
 					HaltGui();
+					transition::Hold(transition::Kind::SlideBack);
 					mainWindow->Append(&w);
 					break;
 				case kIos: {
@@ -4425,6 +4497,8 @@ static void ShowLaunchFrame(const FrontendState& state, int action)
 	w.Append(&footTxt);
 	mainWindow->Append(&w);
 	ResumeGui();
+	// Faded in all the way first: this frame stays on screen.
+	transition::Settle();
 	usleep(100000);  // a few frames, so both framebuffers show it
 	HaltGui();
 	mainWindow->Remove(&w);
@@ -4451,6 +4525,13 @@ int MainMenu(int menu, FrontendState& state)
 	mainWindow = new GuiWindow(screenwidth, screenheight);
 	backdrop = new skin::GuiBackdrop();
 	mainWindow->Append(backdrop);
+	// No cuts: a screen or popup that comes or goes crossfades, unless
+	// it asked for more (riftwii::wii::transition::Begin).
+	riftwii::wii::transition::Init();
+	GuiWindow::changed = [](GuiWindow* window, GuiElement*) {
+		if (window == mainWindow) riftwii::wii::transition::BeginAuto();
+	};
+	riftwii::wii::transition::Begin(riftwii::wii::transition::Kind::FromBlack);
 	riftwii::wii::GuiScriptLoad(riftwii::wii::CurrentRestartNote().kind == riftwii::wii::RestartKind::None
 	                                ? "sd:/riftwii/guiscript.txt"
 	                                : "sd:/riftwii/guiscript-restart.txt");
@@ -4462,6 +4543,14 @@ int MainMenu(int menu, FrontendState& state)
 	{
 		logf("Screen: %s\n", ScreenName(currentMenu));
 		riftwii::wii::mem::WatchHeap((std::string("on the way to the ") + ScreenName(currentMenu) + " screen").c_str());
+		static int previousMenu = MENU_NONE;
+		if (previousMenu != MENU_NONE) {
+			if (currentMenu == MENU_OPTIONS) transition::Begin(transition::Kind::SlideForward);
+			else if (previousMenu == MENU_OPTIONS) transition::Begin(transition::Kind::SlideBack);
+			else if (previousMenu == MENU_HOME && currentMenu == MENU_SOURCE)
+				transition::Begin(transition::Kind::ZoomOut, g_openRect);
+		}
+		previousMenu = currentMenu;
 		switch (currentMenu)
 		{
 			case MENU_OPTIONS:

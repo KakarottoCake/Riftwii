@@ -336,6 +336,13 @@ void GuiBackdrop::Draw() {
     // shelves under Home's rows of covers) and its edges are mirrored out
     // to the screen's. A widescreen menu takes the theme's wide picture
     // when it has one.
+    // It stays put while a transition zooms or slides the screen on it.
+    Menu_PushNoCamera();
+    DrawBackdrop();
+    Menu_PopCamera();
+}
+
+void GuiBackdrop::DrawBackdrop() {
     f32 vx, vy, vw, vh;
     Menu_VisibleArea(&vx, &vy, &vw, &vh);
     const bool wide = WideMenu();

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "gui_gamegrid.hpp"
+#include "transition.hpp"
 
 #include <algorithm>
 
@@ -159,9 +160,33 @@ void GuiGameGrid::Focus(int index) {
     if (index < 0 || index >= Count()) index = 0;
     focus = index;
     if (page != focus / kPerPage) {
+        // Another page at once (a letter, a search): crossfaded.
+        riftwii::wii::transition::BeginAuto();
         page = focus / kPerPage;
         laidOut = false;
     }
+}
+
+bool GuiGameGrid::TileRect(int index, float& x, float& y, float& w, float& h) const {
+    if (shelf) {
+        // Nearest last: the box in front.
+        for (auto r = spineRects.rbegin(); r != spineRects.rend(); ++r) {
+            if (r->index != index) continue;
+            x = r->x0;
+            y = r->y0;
+            w = r->x1 - r->x0;
+            h = r->y1 - r->y0;
+            return w > 0 && h > 0;
+        }
+        return false;
+    }
+    if (index < 0 || index / kPerPage != page) return false;
+    const int slot = index % kPerPage;
+    x = static_cast<float>(TileX(slot));
+    y = static_cast<float>(TileY(slot));
+    w = static_cast<float>(Geo().tileW);
+    h = static_cast<float>(Geo().tileH);
+    return true;
 }
 
 int GuiGameGrid::Pages() const { return Count() == 0 ? 1 : (Count() + kPerPage - 1) / kPerPage; }
@@ -253,6 +278,17 @@ void GuiGameGrid::TurnPage(int delta) {
     if (target < 0 || target >= Pages()) return;
     const int cols = Cols();
     const int row = (focus % kPerPage) / cols;
+    // The old page slides out the other way inside the rows' band, while
+    // this one slides in (Draw).
+    {
+        f32 vx, vy, vw, vh;
+        Menu_VisibleArea(&vx, &vy, &vw, &vh);
+        const float top = static_cast<float>(TileY(0) - 16);
+        const float bottom = static_cast<float>(TileY(kPerPage - 1) + Geo().tileH + 30);
+        riftwii::wii::transition::Begin(delta > 0 ? riftwii::wii::transition::Kind::PageForward
+                                                  : riftwii::wii::transition::Kind::PageBack,
+                                        riftwii::wii::transition::Rect{vx, top, vw, bottom - top});
+    }
     page = target;
     // Enter the new page at the facing column of the same row.
     int slot = row * cols + (delta > 0 ? 0 : cols - 1);

@@ -22,6 +22,9 @@ public:
 	//!Removes the specified GuiElement from the GuiWindow
 	//!\param e GuiElement to be removed
 	void Remove(GuiElement* e);
+	//!RiftWii: called after an element is appended, inserted or removed
+	//!(the menu starts a transition when its root window changes)
+	static void (*changed)(GuiWindow* window, GuiElement* e);
 	//!Removes all GuiElements
 	void RemoveAll();
 	//!Looks for the specified GuiElement
