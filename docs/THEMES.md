@@ -44,6 +44,10 @@ Controls the painted parts' shape:
   clock in the dip and the date under it, as the Wii Menu's (`dip`, the
   default), or rises there with the clock above it (`bump`). A theme's own
   `bar.png` should have the same shape.
+- `home_menu`: `wii` or `ios6`. The HOME Menu as the Wii's own (`wii`, the
+  default: black bars, round pale buttons) or as iOS 6 drew things
+  (`ios6`: glossy bars in the `bar` colour, dark linen between them,
+  shaded buttons with a red Power off). Bookshelf uses `ios6`.
 
 ### [backdrop]
 
@@ -139,6 +143,8 @@ Pictures ending in `_over` are the highlighted versions. Transparency
 | `background_wide` | 856x480 | `background` for a widescreen menu (optional) |
 | `bar_wide` | 856x124 | `bar` for a widescreen menu, its dip (or bump) in the middle (optional) |
 | `background_shelf` / `background_shelf_wide` | 640x480 / 856x480 | `background` / `background_wide` while Home shows the shelf (Settings > Home tiles > Shelf), for a background drawn to go with Home's rows of covers (optional) |
+| `background_plain` / `background_plain_wide` | 640x480 / 856x480 | `background` / `background_wide` on every screen but Home, for a background drawn around Home (Bookshelf: its wall without the shelves) (optional) |
+| `background_channels` / `background_channels_wide` | 640x480 / 856x480 | `background` / `background_wide` while Home shows Channels, for a background drawn to go with its three rows (Bookshelf: a shelf under each) (optional) |
 
 ### Widescreen and screen size
 

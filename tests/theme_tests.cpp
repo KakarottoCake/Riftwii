@@ -61,6 +61,13 @@ static void test_default_theme() {
     notes.clear();
     EXPECT_TRUE(parse_theme("[shape]\nbar = bump\n", notes).bar_bump);
     EXPECT_EQ(notes.size(), 0U);
+    // The HOME Menu is the Wii's unless a theme says ios6.
+    EXPECT_TRUE(!def.home_ios6);
+    EXPECT_TRUE(parse_theme("[shape]\nhome_menu = iOS6\n", notes).home_ios6);
+    EXPECT_EQ(notes.size(), 0U);
+    EXPECT_TRUE(!parse_theme("[shape]\nhome_menu = mac\n", notes).home_ios6);
+    EXPECT_EQ(notes.size(), 1U);
+    notes.clear();
 
     // The games' colours are left alone unless a theme tints them.
     EXPECT_EQ(def.colors.banner_tint.a, 0);
@@ -373,7 +380,7 @@ static void test_theme_color_keys() {
 
 static void test_theme_images() {
     const auto& images = theme_images();
-    EXPECT_EQ(images.size(), 48U);
+    EXPECT_EQ(images.size(), 52U);
 
     // Unique names.
     for (std::size_t i = 0; i < images.size(); ++i) {
@@ -476,6 +483,12 @@ static void test_painted_images() {
     EXPECT_EQ(piece.width(), 48);
     paint_notice_icon(def, true, piece);
     EXPECT_EQ(piece.width(), 28);
+    paint_home_danger(def, false, piece);
+    EXPECT_EQ(piece.width(), 264);
+    paint_ios_bar_button(def, true, piece);
+    EXPECT_EQ(piece.width(), 128);
+    paint_linen(piece);
+    EXPECT_EQ(piece.width(), 64);
     EXPECT_TRUE(paint_theme_image("home_button_over", def, piece));
     EXPECT_EQ(piece.width(), 264);
     EXPECT_EQ(int(back.at(5, 2).r), 1);

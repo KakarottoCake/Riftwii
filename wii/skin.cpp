@@ -127,9 +127,7 @@ Tex Pick(const ThemeImage& im) {
         std::vector<std::uint8_t> own;
         if (LoadThemeImage("bar", 640, 124, own)) return Tex();
     }
-    if (std::strcmp(im.name, "background") == 0 || std::strcmp(im.name, "background_wide") == 0 ||
-        std::strncmp(im.name, "background_shelf", 16) == 0)
-        return Tex();
+    if (std::strncmp(im.name, "background", 10) == 0) return Tex();
     Canvas c(0, 0);
     if (!paint_theme_image(im.name, MenuTheme(), c)) return Tex();
     return Upload(c);
@@ -144,6 +142,9 @@ Tex clockDigits;
 Tex keys[4];
 Tex card9;
 Tex capsule9;
+Tex homeBtnDanger, homeBtnDangerOver, iosClose, iosCloseOver, linen;
+Tex backgroundPlain, backgroundPlainWide, backgroundChannels, backgroundChannelsWide;
+static bool g_onHome = true;
 Tex noticeIcon[2];
 Tex tileEmpty;
 Tex shelfPlank;
@@ -203,6 +204,8 @@ void Init() {
         {"pointer3", &hand[2]}, {"pointer4", &hand[3]}, {"shelf", &shelfPlank},
         {"background_wide", &backgroundWide}, {"bar_wide", &barWide},
         {"background_shelf", &backgroundShelf}, {"background_shelf_wide", &backgroundShelfWide},
+        {"background_plain", &backgroundPlain}, {"background_plain_wide", &backgroundPlainWide},
+        {"background_channels", &backgroundChannels}, {"background_channels_wide", &backgroundChannelsWide},
     };
     for (const ThemeImage& im : theme_images()) {
         for (const Slot& s : slots) {
@@ -221,6 +224,18 @@ void Init() {
         card9 = Upload(c);
         paint_capsule9(c);
         capsule9 = Upload(c);
+        if (MenuTheme().home_ios6) {
+            paint_home_danger(MenuTheme(), false, c);
+            homeBtnDanger = Upload(c);
+            paint_home_danger(MenuTheme(), true, c);
+            homeBtnDangerOver = Upload(c);
+            paint_ios_bar_button(MenuTheme(), false, c);
+            iosClose = Upload(c);
+            paint_ios_bar_button(MenuTheme(), true, c);
+            iosCloseOver = Upload(c);
+            paint_linen(c);
+            linen = Upload(c);
+        }
         for (int k = 0; k < 2; ++k) {
             paint_notice_icon(MenuTheme(), k == 1, c);
             noticeIcon[k] = Upload(c);
@@ -230,6 +245,10 @@ void Init() {
 }
 
 bool BarBump() { return MenuTheme().bar_bump; }
+
+bool HomeIos6() { return MenuTheme().home_ios6; }
+
+void SetOnHome(bool home) { g_onHome = home; }
 
 bool Ready() { return g_ready; }
 
@@ -396,9 +415,18 @@ void GuiBackdrop::DrawBackdrop() {
     const Tex* pick = wide && backgroundWide.data ? &backgroundWide : &background;
     // The shelf view's own wall when the theme has one (Bookshelf: no
     // shelf through the boxes, where Home's upper row of covers stands).
-    if (riftwii::wii::Settings().home_tiles == "shelf") {
+    if (!g_onHome) {
+        // Every other screen: the theme's plain wall when it has one
+        // (Bookshelf: no shelves behind Settings' panels).
+        if (wide && backgroundPlainWide.data) pick = &backgroundPlainWide;
+        else if (backgroundPlain.data && !(wide && backgroundWide.data)) pick = &backgroundPlain;
+    } else if (riftwii::wii::Settings().home_tiles == "shelf") {
         if (wide && backgroundShelfWide.data) pick = &backgroundShelfWide;
         else if (backgroundShelf.data && !(wide && backgroundWide.data)) pick = &backgroundShelf;
+    } else if (riftwii::wii::Settings().home_tiles == "channels") {
+        // Channels' own wall (Bookshelf: a shelf under each row of channels).
+        if (wide && backgroundChannelsWide.data) pick = &backgroundChannelsWide;
+        else if (backgroundChannels.data && !(wide && backgroundWide.data)) pick = &backgroundChannels;
     }
     const Tex& picture = *pick;
     if (picture.data) {

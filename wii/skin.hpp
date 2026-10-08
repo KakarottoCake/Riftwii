@@ -34,6 +34,15 @@ struct Tex {
 extern Tex keys[4];                      // 40x40 search keys (riftwii::paint_key), nine-sliced
 extern Tex card9;                        // 64x64 card (riftwii::paint_card9), nine-sliced
 extern Tex capsule9;                     // 48x48 outlined black capsule, nine-sliced
+// A theme with home_menu = ios6 (HomeIos6): the HOME Menu's red button,
+// its Close and the linen behind it.
+extern Tex homeBtnDanger, homeBtnDangerOver;  // 264x88, as homeBtn
+extern Tex iosClose, iosCloseOver;            // 128x48: a 120x40 button at 4,4
+extern Tex linen;                             // 64x64, repeating
+bool HomeIos6();
+// Home is shown (the theme's background), or another screen (its
+// background_plain, when it has one).
+void SetOnHome(bool home);
 extern Tex noticeIcon[2];                // 28x28 Home's notice signs: news, error
 extern Tex clockDigits;                  // 308x44: Home's clock figures 0-9 and the colon, 28 apart
 bool BarBump();                          // the theme's bar rises in the middle (the clock above it)

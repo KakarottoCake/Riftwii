@@ -22,7 +22,7 @@ struct Painter {
           bar(ToRgba(t.colors.bar)), banner_stripe(ToRgba(t.colors.banner_stripe)),
           backdrop(ToRgba(t.colors.backdrop)), backdrop_stripe(ToRgba(t.colors.backdrop_stripe)),
           shelf(ToRgba(t.colors.shelf)), shelf_edge(ToRgba(t.colors.shelf_edge)), corners(t.corners),
-          stripes(t.stripes), gloss(t.gloss), bump(t.bar_bump), clock(ToRgba(t.colors.clock)) {
+          stripes(t.stripes), gloss(t.gloss), bump(t.bar_bump), ios6(t.home_ios6), clock(ToRgba(t.colors.clock)) {
         const ThemeColor* p[4] = {&t.colors.pointer1, &t.colors.pointer2, &t.colors.pointer3, &t.colors.pointer4};
         for (int i = 0; i < 4; ++i) pointer[i] = ToRgba(*p[i]);
     }
@@ -30,7 +30,7 @@ struct Painter {
     Rgba card, edge, edge_strong, shadow, accent, glow, glyph, chip_on, chip_off, chip_off_edge, switch_off, bar,
         banner_stripe, backdrop, backdrop_stripe, pointer[4], shelf, shelf_edge;
     float corners;
-    bool stripes, gloss, bump;
+    bool stripes, gloss, bump, ios6;
     Rgba clock;
 
     // A glossy theme's shine: the top half of a shape, white fading down.
@@ -81,6 +81,7 @@ struct Painter {
     // The HOME Menu's buttons, as the Wii's: round ends, a pale tint of the
     // accent, a broad gloss, a darker tint for the edge.
     Canvas HomeButton(bool over) const {
+        if (ios6) return IosButton(over, false);
         const auto mix = [](Rgba a, Rgba b, float k) {
             const auto m = [k](std::uint8_t x, std::uint8_t y) { return static_cast<std::uint8_t>(x + (y - x) * k); };
             return Rgba{m(a.r, b.r), m(a.g, b.g), m(a.b, b.b), 255};
@@ -95,6 +96,39 @@ struct Painter {
         c.rounded_gradient(x + 10, y + 4, w - 20.0f, h * 0.42f, r - 8, Rgba{255, 255, 255, 170}, Rgba{255, 255, 255, 30});
         c.rounded_border(x, y, static_cast<float>(w), static_cast<float>(h), r, over ? 3.0f : 1.5f,
                          over ? accent : mix(accent, Rgba{0, 0, 0, 255}, 0.25f));
+        return c;
+    }
+
+    // An iOS 6 action sheet's button, 248 x 72 with an 8 margin: a rounded
+    // body shaded down, the glossy top half lighter with a hard edge at
+    // the middle, a dark rim with a light line inside it. `danger` is the
+    // red one (Power off). Lit: the theme's glow and accent.
+    Canvas IosButton(bool over, bool danger) const {
+        const int w = 248, h = 72, margin = 8;
+        Canvas c((w + 2 * margin + 3) & ~3, (h + 2 * margin + 3) & ~3);
+        const float x = margin, y = margin, fw = w, fh = h, r = R(11);
+        const Rgba top = danger ? Rgba{232, 98, 90, 255} : Shade(card, 1.0f);
+        const Rgba bottom = danger ? Rgba{168, 24, 30, 255} : Shade(card, 0.80f);
+        if (over) c.shadow(x - 1, y - 1, fw + 2, fh + 2, r + 1, margin - 1.0f, glow, 2.0f);
+        c.shadow(x, y + 2, fw, fh, r, 4, Rgba{0, 0, 0, 130}, 3.0f);
+        c.rounded_gradient(x, y, fw, fh, r, top, bottom);
+        c.rounded_gradient(x + 1, y + 1, fw - 2, fh * 0.5f, std::max(0.0f, r - 1), Rgba{255, 255, 255, 120},
+                           Rgba{255, 255, 255, 50});
+        c.rounded_border(x + 1, y + 1, fw - 2, fh - 2, std::max(0.0f, r - 1), 1.0f, Rgba{255, 255, 255, 90});
+        c.rounded_border(x, y, fw, fh, r, over ? 2.5f : 1.2f, over ? accent : Rgba{0, 0, 0, 150});
+        return c;
+    }
+
+    // An iOS 6 bar button ("Done"), 120 x 40 with a 4 margin: the accent
+    // shaded down, glossy, a dark rim; lit, lighter with the glow.
+    Canvas IosBarButton(bool over) const {
+        Canvas c(128, 48);
+        const float x = 4, y = 4, w = 120, h = 40, r = 6;
+        if (over) c.shadow(x - 1, y - 1, w + 2, h + 2, r + 1, 3, glow, 2.0f);
+        c.shadow(x, y + 1, w, h, r, 2, Rgba{255, 255, 255, 60}, 3.0f);
+        c.rounded_gradient(x, y, w, h, r, Shade(accent, over ? 1.6f : 1.35f), Shade(accent, over ? 1.05f : 0.85f));
+        c.rounded_gradient(x + 1, y + 1, w - 2, h * 0.5f, r - 1, Rgba{255, 255, 255, 80}, Rgba{255, 255, 255, 25});
+        c.rounded_border(x, y, w, h, r, 1.2f, Rgba{0, 0, 0, 170});
         return c;
     }
 
@@ -472,6 +506,35 @@ void paint_key(const Theme& theme, int kind, Canvas& out) {
 
 void paint_card9(const Theme& theme, Canvas& out) { out = Painter(theme).Sheet(48, 48, 8, 14); }
 
+void paint_home_danger(const Theme& theme, bool over, Canvas& out) { out = Painter(theme).IosButton(over, true); }
+
+void paint_ios_bar_button(const Theme& theme, bool over, Canvas& out) { out = Painter(theme).IosBarButton(over); }
+
+void paint_linen(Canvas& out) {
+    // Dark linen, as iOS 6 laid behind its Notification Center: threads
+    // across and down, each a shade apart, and a fine weave. Every row's
+    // and column's shade comes round again after 64, so the copies join.
+    const auto hash = [](std::uint32_t v) {
+        v ^= v >> 16;
+        v *= 0x7feb352du;
+        v ^= v >> 15;
+        v *= 0x846ca68bu;
+        v ^= v >> 16;
+        return v;
+    };
+    const auto unit = [&](std::uint32_t v) { return static_cast<float>(hash(v) % 1000u) / 1000.0f - 0.5f; };
+    out = Canvas(64, 64);
+    for (int y = 0; y < 64; ++y) {
+        for (int x = 0; x < 64; ++x) {
+            float v = 48 + unit(static_cast<std::uint32_t>(y * 7 + 1)) * 16 + unit(static_cast<std::uint32_t>(x * 13 + 500)) * 10 +
+                      unit(static_cast<std::uint32_t>(x * 131 + y * 977 + 3)) * 8 + (((x + y) & 1) ? 2.0f : -2.0f);
+            v = std::max(0.0f, std::min(255.0f, v));
+            const auto g = static_cast<std::uint8_t>(v);
+            out.put(x, y, Rgba{g, g, static_cast<std::uint8_t>(std::min(255, g + 3)), 238});
+        }
+    }
+}
+
 void paint_capsule9(Canvas& out) {
     out = Canvas(48, 48);
     out.rounded_rect(4, 4, 40, 40, 18, rgba(0x000000));
@@ -535,6 +598,10 @@ bool paint_theme_image(const std::string& name, const Theme& theme, Canvas& out)
         {"bar_wide", [](const Painter& q) { return q.Bar(856); }},
         {"background_shelf", [](const Painter& q) { return q.Background(640); }},
         {"background_shelf_wide", [](const Painter& q) { return q.Background(856); }},
+        {"background_plain", [](const Painter& q) { return q.Background(640); }},
+        {"background_plain_wide", [](const Painter& q) { return q.Background(856); }},
+        {"background_channels", [](const Painter& q) { return q.Background(640); }},
+        {"background_channels_wide", [](const Painter& q) { return q.Background(856); }},
         {"banner_stripes", [](const Painter& q) { return q.Stripes(); }},
         {"arrow_left", [](const Painter& q) { return q.Arrow(true, false); }},
         {"arrow_left_over", [](const Painter& q) { return q.Arrow(true, true); }},

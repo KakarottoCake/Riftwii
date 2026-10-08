@@ -1329,10 +1329,45 @@ static int g_leave = 1;
 // light line towards the middle, and the screen between them darkened
 // with fine lines across it.
 static constexpr int kHomeBandTop = 76, kHomeBandBottom = 392;
+// A theme with home_menu = ios6 (Bookshelf): glossy bars in the bar's
+// colour, light at the top and shaded down, as iOS 6's navigation bar
+// and toolbar; dark linen between them.
+static GXColor ScaledColor(GXColor c, float k)
+{
+	const auto ch = [k](u8 v) { return static_cast<u8>(std::min(255.0f, v * k)); };
+	return (GXColor){ch(c.r), ch(c.g), ch(c.b), c.a};
+}
+static void DrawIosBar(int y0, int y1)
+{
+	const GXColor light = ScaledColor(skin::kBar, 1.04f), dark = ScaledColor(skin::kBar, 0.66f);
+	for (int y = y0; y < y1; y += 2) {
+		const float k = static_cast<float>(y - y0) / std::max(1, y1 - y0);
+		// The top half lighter, with a hard step at the middle (the gloss).
+		const float g = k < 0.5f ? k * 0.6f : 0.45f + (k - 0.5f) * 1.1f;
+		const GXColor c = {static_cast<u8>(light.r + (dark.r - light.r) * g), static_cast<u8>(light.g + (dark.g - light.g) * g),
+			static_cast<u8>(light.b + (dark.b - light.b) * g), 255};
+		Menu_FillScreen(y, std::min(2, y1 - y), c);
+	}
+	Menu_FillScreen(y0, 1, (GXColor){255, 255, 255, 110});
+}
 class HomeBand : public GuiElement {
 public:
 	explicit HomeBand(bool bottom) : bottom(bottom) {}
 	void Draw() override {
+		if (skin::HomeIos6()) {
+			if (bottom) {
+				Menu_FillScreen(kHomeBandBottom - 4, 4, (GXColor){0, 0, 0, 50});
+				Menu_FillScreen(kHomeBandBottom - 1, 1, (GXColor){0, 0, 0, 200});
+				DrawIosBar(kHomeBandBottom, 480);
+				Menu_FillScreen(480, 1000, ScaledColor(skin::kBar, 0.66f));
+			} else {
+				Menu_FillScreen(-1000, 1000, ScaledColor(skin::kBar, 1.04f));
+				DrawIosBar(0, kHomeBandTop);
+				Menu_FillScreen(kHomeBandTop - 1, 1, (GXColor){0, 0, 0, 200});
+				Menu_FillScreen(kHomeBandTop, 5, (GXColor){0, 0, 0, 60});
+			}
+			return;
+		}
 		const GXColor body = {0, 0, 0, 255}, edge = {200, 200, 200, 255};
 		if (bottom) {
 			Menu_FillScreen(kHomeBandBottom, 1000, body);
@@ -1348,6 +1383,24 @@ private:
 class HomeDim : public GuiElement {
 public:
 	void Draw() override {
+		if (skin::HomeIos6() && skin::linen.data) {
+			Menu_FillWholeScreen((GXColor){0, 0, 0, 110});
+			f32 vx, vy, vw, vh;
+			Menu_VisibleArea(&vx, &vy, &vw, &vh);
+			const skin::Tex& t = skin::linen;
+			for (int y = kHomeBandTop; y < kHomeBandBottom; y += t.h) {
+				const int h = std::min(t.h, kHomeBandBottom - y);
+				for (float x = vx; x < vx + vw; x += t.w)
+					Menu_DrawImgPart(x, y, t.w, h, static_cast<u16>(t.w), static_cast<u16>(t.h), t.data, 0, 0, 1,
+						static_cast<float>(h) / t.h, 255);
+			}
+			// The bars' shade falling on it.
+			for (int i = 0; i < 6; ++i) {
+				Menu_FillScreen(kHomeBandTop + i * 2, 2, (GXColor){0, 0, 0, static_cast<u8>(70 - i * 11)});
+				Menu_FillScreen(kHomeBandBottom - 2 - i * 2, 2, (GXColor){0, 0, 0, static_cast<u8>(60 - i * 9)});
+			}
+			return;
+		}
 		Menu_FillWholeScreen((GXColor){0, 0, 0, 200});
 		for (int y = kHomeBandTop; y < kHomeBandBottom; y += 5) Menu_FillScreen(y, 2, (GXColor){255, 255, 255, 14});
 	}
@@ -1443,25 +1496,39 @@ static int ShowHomeMenu()
 	f32 safeX, safeW;
 	Menu_SafeArea(&safeX, &safeW);
 	const int wide = safeX < 0 ? static_cast<int>(-safeX) : 0;
+	const bool ios = skin::HomeIos6();
 	GuiText titleTxt(tr("HOME Menu"), 32, skin::kWhite);
-	Place(titleTxt, 34 - wide, 18);
+	// iOS 6's bar: the title in the middle, embossed (a dark edge above it).
+	GuiText titleShade(tr("HOME Menu"), 32, (GXColor){0, 0, 0, 120});
+	if (ios) {
+		Place(titleTxt, 0, 21, true);
+		Place(titleShade, 0, 19, true);
+	} else {
+		Place(titleTxt, 34 - wide, 18);
+	}
 	HomeBatteries batteries;
 	// The four in the middle, between the bands.
 	const int row1 = (kHomeBandTop + kHomeBandBottom) / 2 - 85, row2 = row1 + 98;
 	SkinButton hbcBtn(skin::homeBtn, skin::homeBtnOver, 8, 60, row1, tr("Homebrew Channel"), 0, 0, 0);
 	SkinButton menuBtn(skin::homeBtn, skin::homeBtnOver, 8, 332, row1, tr("Wii Menu"), 0, 0, 0);
 	SkinButton priiBtn(skin::homeBtn, skin::homeBtnOver, 8, 60, row2, "Priiloader", 0, 0, 0);
-	SkinButton offBtn(skin::homeBtn, skin::homeBtnOver, 8, 332, row2, tr("Power off"), 0, 0, 0);
+	// iOS 6: Power off is the red one, as an action sheet's destructive button.
+	SkinButton offBtn(ios ? skin::homeBtnDanger : skin::homeBtn, ios ? skin::homeBtnDangerOver : skin::homeBtnOver, 8, 332,
+		row2, tr("Power off"), 0, 0, 0);
 	for (SkinButton* b : {&hbcBtn, &menuBtn, &priiBtn, &offBtn}) {
-		b->text.SetColor(skin::kAccentInk);
+		b->text.SetColor(ios ? skin::kInk : skin::kAccentInk);
 		b->text.SetFontSize(24);
 	}
-	const float closeScale = 0.62f;
-	SkinButton closeBtn(skin::pill, skin::pillOver, 4, 606 + wide - static_cast<int>(244 * closeScale), 22, tr("Close"),
+	if (ios) offBtn.text.SetColor(skin::kWhite);
+	// The Wii's: a small pill; iOS 6's: a bar button.
+	const float closeScale = ios ? 1.0f : 0.62f;
+	const int closeW = ios ? 120 : static_cast<int>(244 * closeScale);
+	SkinButton closeBtn(ios ? skin::iosClose : skin::pill, ios ? skin::iosCloseOver : skin::pillOver, 4,
+		606 + wide - closeW, ios ? 18 : 22, tr("Close"),
 		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B | WPAD_BUTTON_HOME | WPAD_CLASSIC_BUTTON_HOME, PAD_BUTTON_B | PAD_BUTTON_START,
 		WIIDRC_BUTTON_B | WIIDRC_BUTTON_HOME, nullptr, closeScale);
 	closeBtn.text.SetFontSize(20);
-	closeBtn.text.SetColor(skin::kInkSoft);
+	closeBtn.text.SetColor(ios ? skin::kWhite : skin::kInkSoft);
 	GuiButton* const buttons[5] = {&hbcBtn.button, &menuBtn.button, &priiBtn.button, &offBtn.button, &closeBtn.button};
 	HomeFocus focus(buttons);
 
@@ -1469,6 +1536,7 @@ static int ShowHomeMenu()
 	ShiftWindow top(1.0f, -90, false, 300), bottom(1.0f, 130, false, 300), middle(0.9f, 0, true, 300);
 	w.Append(&dim);
 	top.Append(&band);
+	if (ios) top.Append(&titleShade);
 	top.Append(&titleTxt);
 	top.Append(&closeBtn.button);
 	bottom.Append(&lowBand);
@@ -4793,6 +4861,7 @@ static void ShowLaunchFrame(const FrontendState& state, int action)
 
 	HaltGui();
 	hidePointers = true;
+	skin::SetOnHome(false);
 	GuiWindow w(screenwidth, screenheight);
 	w.Append(&banner);
 	w.Append(&doingTxt);
@@ -4846,6 +4915,7 @@ int MainMenu(int menu, FrontendState& state)
 		currentMenu != MENU_CHANNEL)
 	{
 		logf("Screen: %s\n", ScreenName(currentMenu));
+		skin::SetOnHome(currentMenu == MENU_SOURCE);
 		riftwii::wii::mem::WatchHeap((std::string("on the way to the ") + ScreenName(currentMenu) + " screen").c_str());
 		static int previousMenu = MENU_NONE;
 		if (previousMenu != MENU_NONE) {

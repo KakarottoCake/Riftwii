@@ -14,8 +14,13 @@ picture from anywhere else):
 - shelf.png: the wood for the shelf view's plank;
 - background_shelf.png: the same wall for the shelf view, with only the
   lower shelf (the boxes stand on it; the upper one would cross them);
-- background_wide.png / bar_wide.png / background_shelf_wide.png: the
-  same, 856 across, for a widescreen menu;
+- background_plain.png: the same wall with no shelves, behind every
+  screen but Home (Settings' panels with nothing to stand on);
+- background_channels.png: the same wall with a shelf under each of the
+  Channels view's three rows, its animated channels standing on them;
+- background_wide.png / bar_wide.png / background_shelf_wide.png /
+  background_plain_wide.png / background_channels_wide.png: the same,
+  856 across, for a widescreen menu;
 - theme.ini: cream paper panels, dark brown ink, and the games' own
   colours mixed with walnut (their banners and plain spines).
 
@@ -36,6 +41,8 @@ WALL_STATE = {}
 
 # Home's cover rows (wii/gui_gamegrid.cpp: covers 80x112, top 16, 14 apart).
 COVER_ROW_BOTTOMS = (16 + 112, 16 + 112 + 14 + 112)
+# Home's channels: three rows of 84 from y 24, 12 apart (wii/gui_gamegrid.cpp).
+CHANNEL_ROW_BOTTOMS = (24 + 84, 24 + 84 + 12 + 84, 24 + 3 * 84 + 2 * 12)
 
 INI = """[theme]
 name = Bookshelf
@@ -44,6 +51,8 @@ author = RiftWii
 [shape]
 corners = 1
 gloss = yes
+# The HOME Menu as iOS 6 drew things (iBooks kept its books on a wooden shelf).
+home_menu = ios6
 
 [backdrop]
 stripes = no
@@ -274,6 +283,13 @@ def main():
     for name, w in (("background_shelf.png", 640), ("background_shelf_wide.png", 856)):
         RNG.bit_generator.state = WALL_STATE[w]
         Image.fromarray(background(w, shelves=COVER_ROW_BOTTOMS[1:])).save(OUT / name, optimize=True)
+    # And with none, for the other screens.
+    for name, w in (("background_plain.png", 640), ("background_plain_wide.png", 856)):
+        RNG.bit_generator.state = WALL_STATE[w]
+        Image.fromarray(background(w, shelves=())).save(OUT / name, optimize=True)
+    for name, w in (("background_channels.png", 640), ("background_channels_wide.png", 856)):
+        RNG.bit_generator.state = WALL_STATE[w]
+        Image.fromarray(background(w, shelves=CHANNEL_ROW_BOTTOMS)).save(OUT / name, optimize=True)
     print("wrote", OUT)
 
 

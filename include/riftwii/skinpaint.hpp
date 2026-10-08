@@ -37,6 +37,12 @@ void paint_card9(const Theme& theme, Canvas& out);
 // margin), nine-sliced: the HOME Menu's batteries.
 constexpr int kCapsuleCorner = 24;
 void paint_capsule9(Canvas& out);
+// A theme with home_menu = ios6: the HOME Menu's red button (Power off),
+// 264 x 88 as home_button; its Close (an iOS bar button, 128 x 48, a 4
+// margin); and the dark linen between its bars, 64 x 64, repeating.
+void paint_home_danger(const Theme& theme, bool over, Canvas& out);
+void paint_ios_bar_button(const Theme& theme, bool over, Canvas& out);
+void paint_linen(Canvas& out);
 // A notice's sign, 28 x 28: news ("i" on the accent) or an error ("!" on
 // the warning colour).
 void paint_notice_icon(const Theme& theme, bool error, Canvas& out);

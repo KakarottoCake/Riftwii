@@ -280,6 +280,11 @@ Theme parse_theme(const std::string& text, std::vector<std::string>& notes) {
                 if (lower_val == "bump") theme.bar_bump = true;
                 else if (lower_val == "dip") theme.bar_bump = false;
                 else add_note(notes, line_num, "bar: \"" + val + "\" is not dip or bump; the default stays");
+            } else if (key == "home_menu") {
+                const std::string lower_val = to_lower(val);
+                if (lower_val == "ios6") theme.home_ios6 = true;
+                else if (lower_val == "wii") theme.home_ios6 = false;
+                else add_note(notes, line_num, "home_menu: \"" + val + "\" is not wii or ios6; the default stays");
             } else {
                 add_note(notes, line_num, "unknown key '" + key + "' in [shape]; ignored");
             }
@@ -394,6 +399,12 @@ const std::vector<ThemeImage>& theme_images() {
         // Instead of background(_wide) while Home shows the shelf.
         {"background_shelf", 640, 480},
         {"background_shelf_wide", 856, 480},
+        // Instead of background(_wide) on every screen but Home.
+        {"background_plain", 640, 480},
+        {"background_plain_wide", 856, 480},
+        // Instead of background(_wide) while Home shows Channels.
+        {"background_channels", 640, 480},
+        {"background_channels_wide", 856, 480},
     };
     return images;
 }

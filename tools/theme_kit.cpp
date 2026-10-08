@@ -89,6 +89,8 @@ std::string StarterIni() {
          "gloss = no\n"
          "# Home's bottom bar: dip (sinks under the clock, as the Wii Menu's) or bump.\n"
          "bar = dip\n"
+         "# The HOME Menu: wii (the Wii's own) or ios6 (glossy bars and linen).\n"
+         "home_menu = wii\n"
          "\n"
          "[backdrop]\n"
          "# Thin horizontal stripes across the backdrop: yes or no.\n"
