@@ -42,6 +42,72 @@ GXColorS10 S10(const std::int16_t c[4]) {
 // written back at libgui's depth so nothing drawn later is hidden.
 constexpr float kClipZ = 20.0f;
 
+// A corner of a quad on its way to the GPU: where, its colour, and each
+// texture coordinate it carries.
+struct ClipVert {
+    float x, y;
+    float c[4];
+    float uv[8][2];
+};
+
+ClipVert Lerp(const ClipVert& a, const ClipVert& b, float t, int ngen) {
+    ClipVert o;
+    o.x = a.x + (b.x - a.x) * t;
+    o.y = a.y + (b.y - a.y) * t;
+    for (int i = 0; i < 4; ++i) o.c[i] = a.c[i] + (b.c[i] - a.c[i]) * t;
+    for (int g = 0; g < ngen; ++g) {
+        o.uv[g][0] = a.uv[g][0] + (b.uv[g][0] - a.uv[g][0]) * t;
+        o.uv[g][1] = a.uv[g][1] + (b.uv[g][1] - a.uv[g][1]) * t;
+    }
+    return o;
+}
+
+// A quad (TL, TR, BR, BL) cut to the box before it is drawn, its colours
+// and texture coordinates cut with it, then drawn as a fan. A console
+// draws a polygon that runs far past the screen wrongly at times (Dolphin
+// draws it right; the menu's bands had it, 7f1ad1d): banner panes run past
+// the screen (a background wider than it, a pane scaled up), and their
+// textures flashed on testers' consoles only.
+void DrawClipped(const ClipVert (&quad)[4], int ngen, float z, float x0, float y0, float x1, float y1) {
+    ClipVert a[12], b[12];
+    int n = 4;
+    for (int i = 0; i < 4; ++i) a[i] = quad[i];
+    // Each edge of the box in turn (Sutherland-Hodgman): what is inside
+    // stays, and where an edge of the polygon crosses, a corner is added.
+    for (int edge = 0; edge < 4 && n > 0; ++edge) {
+        const auto inside = [&](const ClipVert& v) {
+            return edge == 0 ? v.x >= x0 : edge == 1 ? v.x <= x1 : edge == 2 ? v.y >= y0 : v.y <= y1;
+        };
+        const auto cross = [&](const ClipVert& p, const ClipVert& q) {
+            const float t = edge == 0 ? (x0 - p.x) / (q.x - p.x)
+                            : edge == 1 ? (x1 - p.x) / (q.x - p.x)
+                            : edge == 2 ? (y0 - p.y) / (q.y - p.y)
+                                        : (y1 - p.y) / (q.y - p.y);
+            return Lerp(p, q, t, ngen);
+        };
+        int m = 0;
+        for (int i = 0; i < n && m < 11; ++i) {
+            const ClipVert& p = a[i];
+            const ClipVert& q = a[(i + 1) % n];
+            const bool pin = inside(p), qin = inside(q);
+            if (pin) b[m++] = p;
+            if (pin != qin && m < 12) b[m++] = cross(p, q);
+        }
+        n = m;
+        for (int i = 0; i < n; ++i) a[i] = b[i];
+    }
+    if (n < 3) return;
+    GX_Begin(GX_TRIANGLEFAN, GX_VTXFMT0, static_cast<u16>(n));
+    for (int i = 0; i < n; ++i) {
+        const ClipVert& v = a[i];
+        GX_Position3f32(v.x, v.y, z);
+        const auto u8c = [](float f) { return static_cast<u8>(f < 0 ? 0 : f > 255 ? 255 : f + 0.5f); };
+        GX_Color4u8(u8c(v.c[0]), u8c(v.c[1]), u8c(v.c[2]), u8c(v.c[3]));
+        for (int g = 0; g < ngen; ++g) GX_TexCoord2f32(v.uv[g][0], v.uv[g][1]);
+    }
+    GX_End();
+}
+
 void RoundShape(const RoundClip& c, float z) {
     constexpr int kSteps = 8;  // per corner
     const float r = std::min(c.radius, std::min(c.w, c.h) / 2);
@@ -304,6 +370,7 @@ void BannerPlayer::Draw(float x, float y, float w, float h, int alpha, const Rou
     const float left = -rw / 2, top = rh / 2;
     const float bx = clip ? clip->x : x, by = clip ? clip->y : y, bw = clip ? clip->w : w, bh = clip ? clip->h : h;
     Menu_Scissor(bx, by, bw, bh);
+    const float boxX0 = bx - 1, boxY0 = by - 1, boxX1 = bx + bw + 1, boxY1 = by + bh + 1;
     Mtx view;
     guMtxIdentity(view);
     guMtxTransApply(view, view, 0.0f, 0.0f, -50.0f);
@@ -403,27 +470,35 @@ void BannerPlayer::Draw(float x, float y, float w, float h, int alpha, const Rou
             } else {
                 GX_SetAlphaCompare(GX_ALWAYS, 0, GX_AOP_AND, GX_ALWAYS, 0);
             }
-            GX_Begin(GX_QUADS, GX_VTXFMT0, 4);
-            for (const int k : kOrder) {
+            ClipVert corners[4];
+            for (int n = 0; n < 4; ++n) {
+                const int k = kOrder[n];
+                ClipVert& cv = corners[n];
                 const LytColor c = vertex_color(q, m, k);
-                GX_Position3f32(x + (q.x[k] - left) * sx, y + (top - q.y[k]) * sy, z);
-                GX_Color4u8(c.r, c.g, c.b, c.a);
+                cv.x = x + (q.x[k] - left) * sx;
+                cv.y = y + (top - q.y[k]) * sy;
+                cv.c[0] = c.r;
+                cv.c[1] = c.g;
+                cv.c[2] = c.b;
+                cv.c[3] = c.a;
                 for (std::size_t i = 0; i < ngen; ++i) {
                     const std::array<float, 8>* uv =
                         (q.uvs && static_cast<std::size_t>(gens[i].uv) < q.uvs->size()) ? &(*q.uvs)[gens[i].uv] : nullptr;
                     const float u = uv ? (*uv)[2 * k] : (k & 1 ? 1.0f : 0.0f);
                     const float v = uv ? (*uv)[2 * k + 1] : (k & 2 ? 1.0f : 0.0f);
                     if (gens[i].srt < 0) {
-                        GX_TexCoord2f32(u, v);
+                        cv.uv[i][0] = u;
+                        cv.uv[i][1] = v;
                         continue;
                     }
                     const LytTexSrt& t = m->srts[static_cast<std::size_t>(gens[i].srt)];
                     const float rr = t.rotate * 3.14159265f / 180.0f, c2 = std::cos(rr), s2 = std::sin(rr);
                     const float du = (u - 0.5f) * t.sx, dv = (v - 0.5f) * t.sy;
-                    GX_TexCoord2f32(du * c2 - dv * s2 + 0.5f + t.tx, du * s2 + dv * c2 + 0.5f + t.ty);
+                    cv.uv[i][0] = du * c2 - dv * s2 + 0.5f + t.tx;
+                    cv.uv[i][1] = du * s2 + dv * c2 + 0.5f + t.ty;
                 }
             }
-            GX_End();
+            DrawClipped(corners, static_cast<int>(ngen), z, boxX0, boxY0, boxX1, boxY1);
             if (m->has_swap) DefaultSwapTables();
             for (std::size_t i = 1; i < 8; ++i) GX_SetVtxDesc(static_cast<u8>(GX_VA_TEX0 + i), GX_NONE);
             GX_SetNumTexGens(1);
@@ -491,19 +566,26 @@ void BannerPlayer::Draw(float x, float y, float w, float h, int alpha, const Rou
         GX_SetVtxDesc(GX_VA_TEX0, tex ? GX_DIRECT : GX_NONE);
         const std::array<float, 8>* uv = (q.uvs && !q.uvs->empty()) ? &(*q.uvs)[0] : nullptr;
         const float r = srt.rotate * 3.14159265f / 180.0f, cr = std::cos(r), sr = std::sin(r);
-        GX_Begin(GX_QUADS, GX_VTXFMT0, 4);
-        for (const int k : kOrder) {
+        ClipVert corners[4];
+        for (int n = 0; n < 4; ++n) {
+            const int k = kOrder[n];
+            ClipVert& cv = corners[n];
             const LytColor c = vertex_color(q, m, k);
-            GX_Position3f32(x + (q.x[k] - left) * sx, y + (top - q.y[k]) * sy, z);
-            GX_Color4u8(c.r, c.g, c.b, c.a);
+            cv.x = x + (q.x[k] - left) * sx;
+            cv.y = y + (top - q.y[k]) * sy;
+            cv.c[0] = c.r;
+            cv.c[1] = c.g;
+            cv.c[2] = c.b;
+            cv.c[3] = c.a;
             if (tex) {
                 const float u = uv ? (*uv)[2 * k] : (k & 1 ? 1.0f : 0.0f);
                 const float v = uv ? (*uv)[2 * k + 1] : (k & 2 ? 1.0f : 0.0f);
                 const float du = (u - 0.5f) * srt.sx, dv = (v - 0.5f) * srt.sy;
-                GX_TexCoord2f32(du * cr - dv * sr + 0.5f + srt.tx, du * sr + dv * cr + 0.5f + srt.ty);
+                cv.uv[0][0] = du * cr - dv * sr + 0.5f + srt.tx;
+                cv.uv[0][1] = du * sr + dv * cr + 0.5f + srt.ty;
             }
         }
-        GX_End();
+        DrawClipped(corners, tex ? 1 : 0, z, boxX0, boxY0, boxX1, boxY1);
     }
     PlainTev();
     // The whole screen again before the clip's depth is put back: under
