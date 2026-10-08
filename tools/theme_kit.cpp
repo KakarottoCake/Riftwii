@@ -48,7 +48,7 @@ const char* Where(const std::string& key) {
         {"chip_off", "an option's value box at its default"},
         {"chip_off_edge", "its outline"},
         {"switch_off", "an On/Off switch when off"},
-        {"bar", "Home's bottom bar, the HOME Menu's top bar"},
+        {"bar", "Home's bottom bar, the banner screen's and the pages' title bands"},
         {"backdrop", "behind every screen"},
         {"backdrop_stripe", "the backdrop's thin stripes"},
         {"banner_stripe", "stripes over a game page's banner"},
