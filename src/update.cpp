@@ -78,6 +78,18 @@ bool release_tag_from_json(const std::string& json, std::string& tag) {
     return true;
 }
 
+bool newest_release_tag(const std::string& json, std::string& tag) {
+    std::string best, text, bare;
+    for (std::size_t at = find_key(json, "tag_name", 0, json.size()); at != std::string::npos;
+         at = find_key(json, "tag_name", at + 10, json.size())) {
+        if (!value_after(json, at + 10, text, bare) || text.empty() || text.size() > 64) continue;
+        if (best.empty() || compare_versions(text, best) > 0) best = text;
+    }
+    if (best.empty()) return false;
+    tag = best;
+    return true;
+}
+
 bool release_asset_from_json(const std::string& json, const std::string& name, ReleaseAsset& out) {
     // GitHub lists an asset's "name" before its "size", "digest" and
     // "browser_download_url"; nothing of another asset comes between.

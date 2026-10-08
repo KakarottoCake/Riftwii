@@ -34,7 +34,9 @@ namespace {
 constexpr const char* kTitlesUrl = "http://www.gametdb.com/wiitdb.txt?LANG=";
 constexpr const char* kCheatsUrl = "http://codes.rc24.xyz/txt.php?txt=";
 constexpr std::time_t kWeek = 7 * 24 * 60 * 60;
-constexpr const char* kReleasesApi = "https://api.github.com/repos/KakarottoCake/Riftwii/releases?per_page=1";
+// The newest few: GitHub lists them by day, then by the tag's name as text,
+// so the newest version is picked from them (newest_release_tag).
+constexpr const char* kReleasesApi = "https://api.github.com/repos/KakarottoCake/Riftwii/releases?per_page=10";
 constexpr const char* kLatestApi = "https://api.github.com/repos/KakarottoCake/Riftwii/releases/latest";
 constexpr const char* kUpdateNote = "sd:/riftwii/update.txt";
 constexpr const char* kReleaseByTagApi = "https://api.github.com/repos/KakarottoCake/Riftwii/releases/tags/";
@@ -311,8 +313,15 @@ bool CheckChannel(const std::string& channel, bool force, std::string& latest, b
     // answer hid them until the next day (testers had to look in Settings).
     std::vector<std::uint8_t> body;
     std::string tag;
-    const bool asked = HttpGet(channel == "stable" ? kLatestApi : kReleasesApi, body, error, 256u << 10) &&
-                       release_tag_from_json(std::string(body.begin(), body.end()), tag);
+    bool asked = HttpGet(channel == "stable" ? kLatestApi : kReleasesApi, body, error, 512u << 10) &&
+                 (channel == "stable" ? release_tag_from_json(std::string(body.begin(), body.end()), tag)
+                                      : newest_release_tag(std::string(body.begin(), body.end()), tag));
+    // Beta: that release's own answer, for its riftwii.dol (the list's
+    // first riftwii.dol is another release's).
+    if (asked && channel != "stable") {
+        std::vector<std::uint8_t>().swap(body);
+        asked = HttpGet(kReleaseByTagApi + tag, body, error, 256u << 10);
+    }
     if (!asked && channel == "stable" && error.find("answered 404") != std::string::npos) {
         // GitHub has no latest release while every release is a
         // pre-release: nothing to offer on Stable yet.

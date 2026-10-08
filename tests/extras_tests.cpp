@@ -63,6 +63,13 @@ void TestHttp() {
     EXPECT_TRUE(release_tag_from_json("[{\"url\":\"x\",\"tag_name\" : \"v2.0.1-beta\",\"tag_name\":\"old\"}]", tag));
     EXPECT_EQ(tag, "v2.0.1-beta");
     EXPECT_FALSE(release_tag_from_json("[]", tag));
+    // GitHub's order (the day, then the name as text) is not the versions'.
+    EXPECT_TRUE(newest_release_tag("[{\"tag_name\":\"v3.3.9-beta\"},{\"tag_name\":\"v3.3.4-beta\"},"
+                                   "{\"tag_name\":\"v2610-125\"},{\"tag_name\":\"v3.3.3-beta\"}]", tag));
+    EXPECT_EQ(tag, std::string("v2610-125"));
+    EXPECT_TRUE(newest_release_tag("[{\"tag_name\":\"v3.3.9\"},{\"tag_name\":\"v3.3.10\"}]", tag));
+    EXPECT_EQ(tag, std::string("v3.3.10"));
+    EXPECT_FALSE(newest_release_tag("[]", tag));
     EXPECT_FALSE(release_tag_from_json("{\"tag_name\":3}", tag));
     {
         // The shape of GitHub's answer: the release's own "name", then the

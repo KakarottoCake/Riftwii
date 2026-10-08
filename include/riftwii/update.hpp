@@ -12,6 +12,10 @@ namespace riftwii {
 
 // The first "tag_name" in a GitHub API answer.
 bool release_tag_from_json(const std::string& json, std::string& tag);
+// The newest of the releases a GitHub API answer lists, by compare_versions:
+// GitHub's own order is by day, then by the tag's name as text, so on one
+// day "v3.3.9-beta" came before "v2610-125" (and "3.3.9" before "3.3.10").
+bool newest_release_tag(const std::string& json, std::string& tag);
 
 // A file attached to a release: where to download it, its SHA-256 (lowercase
 // hex, empty when GitHub gave none) and its size in bytes (0: unknown).
