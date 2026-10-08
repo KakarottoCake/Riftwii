@@ -17,6 +17,7 @@
 #include "gui_gamegrid.hpp"
 #include "riftwii/coverart.hpp"
 #include "skin.hpp"
+#include "video.h"
 #include "wiidrc.h"
 
 namespace skin = riftwii::wii::skin;
@@ -268,10 +269,22 @@ int GuiGameGrid::ShelfHit(int x, int y) const {
 
 void GuiGameGrid::DrawShelf(int alpha) {
     if (static_cast<int>(poses.size()) != Count()) poses.assign(Count(), BoxPose{});
-    const int first = std::max(0, focus - kReach), last = std::min(Count() - 1, focus + kReach);
+    // Enough boxes each side to reach past the screen's edges (a widescreen
+    // menu's are further out), so they come and go off screen: at kReach
+    // they appeared and vanished in view on a 16:9 menu.
+    f32 vx, vy, vw, vh;
+    Menu_VisibleArea(&vx, &vy, &vw, &vh);
+    const int reach = std::max(kReach, static_cast<int>((320.0f - vx + 60.0f - kOpen - kBoxT / 2) / kPitch) + 2);
+    const int first = std::max(0, focus - reach), last = std::min(Count() - 1, focus + reach);
 
     // Where each box near the focus wants to be, and a step towards it.
-    for (int i = first; i <= last; ++i) {
+    // From the focus outwards, so a box's neighbour nearer the focus has
+    // its place for this frame already.
+    std::vector<int>& outward = shelfOutward;
+    outward.clear();
+    for (int i = focus; i <= last; ++i) outward.push_back(i);
+    for (int i = focus - 1; i >= first; --i) outward.push_back(i);
+    for (const int i : outward) {
         const int d = i - focus;
         const int ad = d < 0 ? -d : d;
         BoxPose want;
@@ -286,9 +299,17 @@ void GuiGameGrid::DrawShelf(int alpha) {
         want.lift = i == shelfHover && d != 0 ? kLift : 0.0f;
         BoxPose& p = poses[i];
         if (!p.placed) {
-            p = want;
+            // Coming into reach: a spine beside its neighbour nearer the
+            // focus, wherever that one is now, so the row moves as one (put
+            // straight at its place it overlapped the boxes still sliding).
+            const int n = d < 0 ? i + 1 : i - 1;
+            if (d != 0 && n != focus && n >= first && n <= last && poses[n].placed) {
+                p = BoxPose{};
+                p.x = poses[n].x + (d < 0 ? -kPitch : kPitch);
+            } else {
+                p = want;
+            }
             p.placed = true;
-            // Coming in from the side when far away: start just off the edge.
             continue;
         }
         p.x += (want.x - p.x) * kEase;
@@ -395,7 +416,9 @@ void GuiGameGrid::DrawShelf(int alpha) {
             Project(tl, sx, sy0);
             Project(tr, sxr, dummy);
             Project(along(tl, bl, 0.78f), dummy, sy1);
-            labels.push_back(SpineLabel{i, (sx + sxr) / 2, sy0, sy1});
+            // Not while the box still turns (to or from the focus): its name
+            // lay across the next spine's.
+            if (p.turn < 0.12f) labels.push_back(SpineLabel{i, (sx + sxr) / 2, sy0, sy1});
         }
         if (item.badge == "DISC" && !art && !cover && FacesEye(faces[1]) && skin::iconDisc.data) {
             // The disc drive has no box art: the Disc drive tile's disc

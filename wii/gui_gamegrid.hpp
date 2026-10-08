@@ -151,6 +151,7 @@ private:
     };
     // Reused every frame: the boxes in drawing order, the names to write.
     std::vector<int> shelfOrder;
+    std::vector<int> shelfOutward;  // the boxes in reach, from the focus outwards (DrawShelf)
     std::vector<SpineLabel> spineLabels;
     GuiText* spineText = nullptr;       // a box without its art: the name up its spine
     // Each spine's name as fitted, with the title it was fitted from.
