@@ -133,8 +133,8 @@ void UpdatePads()
  *
  * The Wii Remote's pointer is steadied: the sensor's shake of a pixel or
  * two (larger on a widescreen menu, which spreads the Remote's 640 across
- * more of the menu) is damped, and a real move goes straight through, the
- * further it goes the less it is held back. Its roll the same way.
+ * more of the menu) is filtered out while it rests, and the faster it
+ * moves the less it is held back. Its roll the same way.
  *
  * The D-pad (a Wii Remote's, a Classic Controller's or a GameCube
  * controller's) takes the channel from either pointer: the pointer hides
@@ -161,9 +161,19 @@ static void UpdatePadPointers()
 	const int kClaim = 45;          // a push, not drift, takes the channel from the Remote
 	const float kRemoteMove = 40.0f;
 	static float steadyX[4], steadyY[4], steadyA[4];  // the steadied Remote pointer, in menu units
+	static float steadySpeed[4], steadyRollSpeed[4];
 	static bool steadyOn[4] = {false, false, false, false};
-	const float kSteady = 10.0f;     // a move this far (menu pixels) goes through as it is
-	const float kSteadyRoll = 6.0f;  // degrees
+	// A low-pass filter whose cut-off rises with the pointer's speed (the
+	// "1 euro filter", Casiez, Roussel and Vogel, CHI 2012): at rest it is
+	// cut to kRestHz, which holds the shake still; moving, it opens up by
+	// kSpeedGain Hz per unit a second, so a real move is not held back.
+	const float kRestHz = 1.0f;
+	const float kSpeedGain = 0.03f;
+	const float kSpeedHz = 1.0f;  // how quickly the speed itself is followed
+	const auto Follow = [](float hz) {  // the share of a 60 Hz step to take
+		const float tau = 1.0f / (2.0f * 3.14159265f * hz);
+		return 1.0f / (1.0f + tau * 60.0f);
+	};
 	// The whole screen in menu units (wider than 640 on a widescreen menu).
 	f32 vx, vy, vw, vh;
 	Menu_VisibleArea(&vx, &vy, &vw, &vh);
@@ -187,18 +197,21 @@ static void UpdatePadPointers()
 				steadyX[i] = w->ir.x;
 				steadyY[i] = w->ir.y;
 				steadyA[i] = w->ir.angle;
+				steadySpeed[i] = steadyRollSpeed[i] = 0.0f;
 				steadyOn[i] = true;
 			} else {
 				const float dx = w->ir.x - steadyX[i], dy = w->ir.y - steadyY[i];
-				const float d = sqrtf(dx * dx + dy * dy);
-				const float k = d >= kSteady ? 1.0f : 0.15f + 0.85f * d / kSteady;
+				// How fast the pointer goes (menu units a second), itself
+				// smoothed, sets how much of this frame's move goes through.
+				steadySpeed[i] += (sqrtf(dx * dx + dy * dy) * 60.0f - steadySpeed[i]) * Follow(kSpeedHz);
+				const float k = Follow(kRestHz + kSpeedGain * steadySpeed[i]);
 				steadyX[i] += dx * k;
 				steadyY[i] += dy * k;
 				float da = w->ir.angle - steadyA[i];
 				if (da > 180.0f) da -= 360.0f;
 				if (da < -180.0f) da += 360.0f;
-				const float ad = fabsf(da);
-				steadyA[i] += da * (ad >= kSteadyRoll ? 1.0f : 0.15f + 0.85f * ad / kSteadyRoll);
+				steadyRollSpeed[i] += (fabsf(da) * 60.0f - steadyRollSpeed[i]) * Follow(kSpeedHz);
+				steadyA[i] += da * Follow(kRestHz + kSpeedGain * steadyRollSpeed[i]);
 				w->ir.x = steadyX[i];
 				w->ir.y = steadyY[i];
 				w->ir.angle = steadyA[i];
