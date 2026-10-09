@@ -459,9 +459,12 @@ int32_t gcad_env_ioctlv(gcad* g, uint32_t tag, uint32_t cmd, void* msg, uint32_t
             // HID SET_PROTOCOL, which some third-party adapters need before
             // they report their controllers: the request from the driver's
             // message (bmRequestType, bRequest, then wValue and wIndex big-endian).
+            // No data with no length: libogc refuses a buffer with length 0
+            // (IPC_EINVAL, the -4 two testers' third-party adapters got,
+            // whose ports then stayed empty).
             return USB_WriteCtrlMsgAsync(dev, m[8], m[9], static_cast<u16>((m[10] << 8) | m[11]),
-                                         static_cast<u16>((m[12] << 8) | m[13]), static_cast<u16>(data_len), data,
-                                         riftwii::wii::OnReply, t);
+                                         static_cast<u16>((m[12] << 8) | m[13]), static_cast<u16>(data_len),
+                                         data_len ? data : nullptr, riftwii::wii::OnReply, t);
         }
         if (cmd != GCAD_V5_INTERRUPT) return -4;
         return gcad_get32(m + 8) != 0
