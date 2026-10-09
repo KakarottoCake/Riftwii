@@ -2009,9 +2009,11 @@ static std::string DiscTileNote()
 // holds seven lines), for the release script to keep up to date. Shown
 // once when they change; Settings > What's new shows them again.
 static const char* const kWhatsNew[] = {
-	"GameCube adapter: third-party adapters show their controllers",
-	"Wii U: SD games use slot 251 when no cIOS base can be read",
-	"Tell us if it works, with a problem report",
+	"Banner: + and - change games; B from Settings comes back",
+	"Settings: Games from (SD or USB), Play history, GameCube rumble",
+	"Theme and font: one restart, when you leave Settings",
+	"Sharper Channels icons; mod pictures stay out of the way",
+	"Wii U: the GameCube adapter in SD games, please test",
 };
 
 static std::string WhatsNewText()
