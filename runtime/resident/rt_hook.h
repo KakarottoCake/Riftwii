@@ -273,15 +273,20 @@ typedef void (*rt_game_callback_fn)(int32_t result, uint32_t user_data);
 #define RT_FS_QUEUE 4u
 /* A save transfer is sent this many times at most before its error
  * reaches the game: a single refused or failed command on the card
- * otherwise fails the game's save call, or leaves a save half-written. */
-#define RT_SD_TRANSFER_TRIES 4u
+ * otherwise fails the game's save call, or leaves a save half-written.
+ * Four tries within 35 ms were not enough on a Wii U: a read right after
+ * a save write failed, then the controller refused (-4) the next tries,
+ * and City Folk said it could not access the Wii's memory (a tester's
+ * card log, 2610-178). Eight, with the pauses growing to half a second,
+ * give the controller about two seconds to come back. */
+#define RT_SD_TRANSFER_TRIES 8u
 /* /dev/sdio/slot0 takes one card command at a time: a savegame command
  * sent while a read of the mod's files was in flight failed on hardware,
  * and every command after it for a while (the card log of 2.0.4). The
  * savegame engine and the mod reads therefore wait for each other, and a
  * failed command waits before the next one goes out. */
 #define RT_SD_CARD_WAITS 65536u        /* null round trips a command waits for the card at most */
-#define RT_SD_BACKOFF_TICKS 121500u    /* 2 ms of time base: the pause after a failure (then 8, then 32 ms) */
+#define RT_SD_BACKOFF_TICKS 121500u    /* 2 ms of time base: the pause after a failure (then 8, 32, 128, 512 ms) */
 #define RT_FS_GATE_TRANSFER 1u         /* rt_fs_state.gate: the transfer goes out after the wait */
 #define RT_FS_GATE_STATUS 2u           /* the wait's CMD13 goes out after the wait */
 

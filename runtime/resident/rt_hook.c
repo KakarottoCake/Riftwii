@@ -959,12 +959,13 @@ static int rt_fs_backing_off(struct rt_fs_state* st) {
 }
 
 /* Starts the pause after a failed command: the next command waits 2 ms
- * after a first failure, 8 ms after a second, 32 ms after a third. A
- * command sent into the controller's error state at once fails too (the
- * card log of 2.0.4: four tries within a millisecond, all failed). */
+ * after a first failure, 8 ms after a second, 32 ms after a third, 128
+ * after a fourth and 512 ms after every one after that. A command sent
+ * into the controller's error state at once fails too (the card log of
+ * 2.0.4: four tries within a millisecond, all failed). */
 static void rt_fs_back_off(struct rt_fs_state* st) {
     uint32_t shift = st->io_tries > 0u ? 2u * (st->io_tries - 1u) : 0u;
-    if (shift > 4u) shift = 4u;
+    if (shift > 8u) shift = 8u;
     st->not_before = rt_fs_ticks() + (RT_SD_BACKOFF_TICKS << shift);
     st->backing_off = 1;
 }
