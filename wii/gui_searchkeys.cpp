@@ -36,31 +36,64 @@ bool AnyPointer() {
 int GuiSearchKeys::Y(int row) const { return row == kRows - 1 ? kActionRowY : kFirstRowY + row * kRowPitch; }
 
 GuiSearchKeys::GuiSearchKeys(const std::string& start) : text(start.substr(0, kMaxLength)) {
+    Build(tr("Search games"), "", false);
+}
+
+GuiSearchKeys::GuiSearchKeys(const std::string& start, const std::string& titleText, const std::string& noteText,
+                             std::size_t maxLength)
+    : text(start.substr(0, maxLength)), maxLength(maxLength) {
+    Build(titleText, noteText, true);
+}
+
+void GuiSearchKeys::Build(const std::string& titleText, const std::string& noteText, bool hexKeys) {
+    hex = hexKeys;
     width = screenwidth;
     height = screenheight;
     selectable = true;
-    const char* const rows[4] = {"1234567890", "QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM-'."};
-    for (int r = 0; r < 4; ++r) {
-        int col = 0;
-        for (const char* p = rows[r]; *p; ++p, ++col)
-            keys.push_back({std::string(1, *p), *p, Key::Act::Type, r, kKeyLeft + col * kKeyPitch, kKeyW, nullptr});
-    }
-    // The third row is one short: the delete key takes the last place.
-    keys.push_back({tr("Del"), 0, Key::Act::Back, 2, kKeyLeft + 9 * kKeyPitch, kKeyW, nullptr});
-    // Actions: Space, Clear, Cancel and Search across the card's width.
     const int wide = 4 * kKeyPitch - 4, mid = 2 * kKeyPitch - 4;
-    keys.push_back({tr("Space"), ' ', Key::Act::Space, 4, kKeyLeft, wide, nullptr});
-    keys.push_back({tr("Clear"), 0, Key::Act::Clear, 4, kKeyLeft + 4 * kKeyPitch, mid, nullptr});
-    keys.push_back({tr("Cancel"), 0, Key::Act::Cancel, 4, kKeyLeft + 6 * kKeyPitch, mid, nullptr});
-    keys.push_back({tr("Search"), 0, Key::Act::Search, 4, kKeyLeft + 8 * kKeyPitch, mid, nullptr});
+    if (hex) {
+        // Two rows of digits; the action row two rows down, as the letters'.
+        const char* const rows[2] = {"0123456789", "ABCDEF"};
+        for (int r = 0; r < 2; ++r) {
+            int col = 0;
+            for (const char* p = rows[r]; *p; ++p, ++col)
+                keys.push_back({std::string(1, *p), *p, Key::Act::Type, r, kKeyLeft + col * kKeyPitch, kKeyW, nullptr});
+        }
+        keys.push_back({tr("Del"), 0, Key::Act::Back, 1, kKeyLeft + 9 * kKeyPitch, kKeyW, nullptr});
+        keys.push_back({tr("Clear"), 0, Key::Act::Clear, 4, kKeyLeft + 2 * kKeyPitch, mid, nullptr});
+        keys.push_back({tr("Cancel"), 0, Key::Act::Cancel, 4, kKeyLeft + 4 * kKeyPitch, mid, nullptr});
+        keys.push_back({tr("OK"), 0, Key::Act::Search, 4, kKeyLeft + 6 * kKeyPitch, wide, nullptr});
+    } else {
+        const char* const rows[4] = {"1234567890", "QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM-'."};
+        for (int r = 0; r < 4; ++r) {
+            int col = 0;
+            for (const char* p = rows[r]; *p; ++p, ++col)
+                keys.push_back({std::string(1, *p), *p, Key::Act::Type, r, kKeyLeft + col * kKeyPitch, kKeyW, nullptr});
+        }
+        // The third row is one short: the delete key takes the last place.
+        keys.push_back({tr("Del"), 0, Key::Act::Back, 2, kKeyLeft + 9 * kKeyPitch, kKeyW, nullptr});
+        // Actions: Space, Clear, Cancel and Search across the card's width.
+        keys.push_back({tr("Space"), ' ', Key::Act::Space, 4, kKeyLeft, wide, nullptr});
+        keys.push_back({tr("Clear"), 0, Key::Act::Clear, 4, kKeyLeft + 4 * kKeyPitch, mid, nullptr});
+        keys.push_back({tr("Cancel"), 0, Key::Act::Cancel, 4, kKeyLeft + 6 * kKeyPitch, mid, nullptr});
+        keys.push_back({tr("Search"), 0, Key::Act::Search, 4, kKeyLeft + 8 * kKeyPitch, mid, nullptr});
+    }
     for (Key& k : keys) {
         k.caption = new GuiText(k.label.c_str(), 18, skin::kInk);
         k.caption->SetParent(this);
         k.caption->SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
     }
-    // Search when there is text (A straight away), else Q, the first letter.
-    focus = text.empty() ? 10 : static_cast<int>(keys.size()) - 1;
-    title = new GuiText(tr("Search games"), 24, skin::kInk);
+    // Search (or OK) when there is text (A straight away), else Q, the
+    // first letter (0 in hex).
+    focus = text.empty() ? (hex ? 0 : 10) : static_cast<int>(keys.size()) - 1;
+    if (!noteText.empty()) {
+        note = new GuiText(noteText.c_str(), 16, skin::kInk);
+        note->SetParent(this);
+        note->SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
+        note->SetPosition(kPanelX + 10, 20);
+        note->SetWrap(true, 572 - 20, 3);
+    }
+    title = new GuiText(titleText.c_str(), 24, skin::kInk);
     title->SetParent(this);
     title->SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
     title->SetPosition(56, 112);  // clear of the text field at y 148, descenders included
@@ -74,6 +107,7 @@ GuiSearchKeys::GuiSearchKeys(const std::string& start) : text(start.substr(0, kM
 
 GuiSearchKeys::~GuiSearchKeys() {
     for (Key& k : keys) delete k.caption;
+    delete note;
     delete title;
     delete shown;
     delete soundOver;
@@ -92,7 +126,14 @@ int GuiSearchKeys::KeyAt(int x, int y) const {
 // The key in the row above or below whose middle is nearest this one's.
 int GuiSearchKeys::Neighbour(int from, int dRow) const {
     const Key& f = keys[static_cast<std::size_t>(from)];
-    const int row = f.row + dRow;
+    int row = f.row + dRow;
+    // Rows with no keys (the hex keypad's) are passed over.
+    const auto empty = [&](int r) {
+        for (const Key& k : keys)
+            if (k.row == r) return false;
+        return true;
+    };
+    while (row >= 0 && row < kRows && empty(row)) row += dRow;
     if (row < 0 || row >= kRows) return from;
     int best = from, gap = 1 << 30;
     for (std::size_t i = 0; i < keys.size(); ++i) {
@@ -110,7 +151,7 @@ void GuiSearchKeys::Press(const Key& k) {
     switch (k.act) {
     case Key::Act::Type:
     case Key::Act::Space:
-        if (text.size() < kMaxLength) text += k.ch;
+        if (text.size() < maxLength) text += k.ch;
         break;
     case Key::Act::Back:
         if (!text.empty()) text.pop_back();
@@ -122,6 +163,7 @@ void GuiSearchKeys::Press(const Key& k) {
         result = -1;
         break;
     case Key::Act::Search:
+        if (hex && text.empty()) break;  // a value needs a digit
         result = 1;
         break;
     }
@@ -134,6 +176,12 @@ void GuiSearchKeys::Update(GuiTrigger* t) {
                 WIIDRC_BUTTON_B | WIIDRC_BUTTON_HOME) ||
         (t->pad.btns_d & PAD_BUTTON_B)) {
         result = -1;
+        return;
+    }
+    // Plus (Start on a GameCube controller) as the Search or OK key.
+    if (Pressed(t, WPAD_BUTTON_PLUS | WPAD_CLASSIC_BUTTON_PLUS, WIIDRC_BUTTON_PLUS) || (t->pad.btns_d & PAD_BUTTON_START)) {
+        for (const Key& k : keys)
+            if (k.act == Key::Act::Search) Press(k);
         return;
     }
     if (Pressed(t, WPAD_BUTTON_MINUS | WPAD_CLASSIC_BUTTON_MINUS, WIIDRC_BUTTON_MINUS)) {
@@ -183,6 +231,11 @@ void GuiSearchKeys::Update(GuiTrigger* t) {
 
 void GuiSearchKeys::Draw() {
     Menu_FillWholeScreen((GXColor){0, 0, 0, 150});
+    if (note) {
+        // On a box of its own: what is behind is dimmed, any colour.
+        Menu_DrawRectangle(kPanelX, 12, 572, 76, skin::kBadge, 1);
+        note->Draw();
+    }
     skin::Draw(skin::panelSettings, kPanelX - 4, kPanelY - 4);
     title->Draw();
     // The text field, with a caret that blinks. Every colour is the theme's

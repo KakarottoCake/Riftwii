@@ -123,11 +123,14 @@ these rows:
   saves is on, the row reads *Kept by the pack*.
 - **Cheats** opens the game's cheat list. When the Wii is online, the
   first visit downloads the latest cheats from the GeckoCodes archive
-  (**Download** gets them again later). Tick the ones you want; **Use
-  cheats** turns them all on or off. The list is a plain text file,
+  (**Download** gets them again later; cheats you added yourself and
+  values you filled in stay). Tick the ones you want; **Use cheats**
+  turns them all on or off. The list is a plain text file,
   `sd:/riftwii/cheats/<ID>.txt`, in the format other loaders use, so you
   can add your own on a computer. Codes with values to fill in (`XXXX`)
-  show *Edit first* until you do.
+  show **Set values**: A asks for each value on a keypad (0-9, A-F; +
+  is OK), with the cheat's notes above it, and turns the cheat on.
+  **Its values** under it changes them later.
 - **Picture width**, **Deflicker** and **Black borders** change how the
   game draws its picture, like USB Loader GX's video settings:
   - *Picture width*: 720 fills the TV from side to side; many games

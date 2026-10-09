@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/cheats.hpp"
 
+#include <algorithm>
 #include <cctype>
 #include <sstream>
 
@@ -102,7 +103,159 @@ bool has_placeholders(const std::vector<std::string>& block) {
     return false;
 }
 
+std::string join_blocks(const CheatBlocks& file) {
+    std::string out;
+    for (const std::string& line : file.header) out += line + "\n";
+    for (const std::vector<std::string>& block : file.blocks) {
+        if (!out.empty()) out += "\n";
+        for (const std::string& line : block) out += line + "\n";
+    }
+    return out;
+}
+
+bool is_template(const std::string& line) {
+    const std::size_t n = std::char_traits<char>::length(kCheatTemplateNote);
+    return line.compare(0, n, kCheatTemplateNote) == 0;
+}
+
+// The block of cheat `name`, named as parse_cheat_text names cheats
+// ("Name (2)" for a second one of the same name); nullptr when none.
+std::vector<std::string>* find_cheat(CheatBlocks& file, const std::string& name) {
+    std::vector<std::string> seen;
+    for (std::vector<std::string>& block : file.blocks) {
+        if (!is_cheat(block)) continue;
+        int n = 1;
+        for (const std::string& s : seen) {
+            if (s == block[0]) ++n;
+        }
+        seen.push_back(block[0]);
+        if ((n > 1 ? block[0] + " (" + std::to_string(n) + ")" : block[0]) == name) return &block;
+    }
+    return nullptr;
+}
+
+bool is_placeholder(char c) {
+    const char u = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+    return u >= 'G' && u <= 'Z';
+}
+
+// The codes with their placeholders: the template lines when RiftWii
+// filled them in, else the code lines themselves.
+std::vector<std::string> template_of(const std::vector<std::string>& block) {
+    std::vector<std::string> codes, kept;
+    const std::size_t n = std::char_traits<char>::length(kCheatTemplateNote);
+    std::uint32_t a, b;
+    for (std::size_t k = 1; k < block.size(); ++k) {
+        if (is_template(block[k])) kept.push_back(trim(block[k].substr(n)));
+        else if (code_line(block[k], a, b) != 0) codes.push_back(block[k]);
+    }
+    return kept.empty() ? codes : kept;
+}
+
+std::vector<std::string> codes_of(const std::vector<std::string>& block) {
+    std::vector<std::string> codes;
+    std::uint32_t a, b;
+    for (std::size_t k = 1; k < block.size(); ++k) {
+        if (!is_template(block[k]) && code_line(block[k], a, b) != 0) codes.push_back(block[k]);
+    }
+    return codes;
+}
+
 }  // namespace
+
+std::vector<CheatField> cheat_fields(const std::string& text, const std::string& name) {
+    std::vector<CheatField> fields;
+    CheatBlocks file = split_blocks(text);
+    const std::vector<std::string>* block = find_cheat(file, name);
+    if (!block) return fields;
+    const std::vector<std::string> tmpl = template_of(*block);
+    const std::vector<std::string> codes = codes_of(*block);
+    // Values now: read where the placeholders are, once they are filled.
+    const bool filled = codes.size() == tmpl.size() && !has_placeholders(codes);
+    for (std::size_t l = 0; l < tmpl.size(); ++l) {
+        const std::string& line = tmpl[l];
+        for (std::size_t i = 0; i < line.size();) {
+            if (!is_placeholder(line[i])) {
+                ++i;
+                continue;
+            }
+            const char letter = static_cast<char>(std::toupper(static_cast<unsigned char>(line[i])));
+            std::size_t j = i;
+            while (j < line.size() && std::toupper(static_cast<unsigned char>(line[j])) == letter) ++j;
+            CheatField* field = nullptr;
+            for (CheatField& f : fields) {
+                if (f.letter == letter) field = &f;
+            }
+            if (!field) {
+                fields.push_back(CheatField{letter, 0, ""});
+                field = &fields.back();
+                if (filled && codes[l].size() >= j) field->value = codes[l].substr(i, j - i);
+            }
+            field->digits = std::max(field->digits, j - i);
+            i = j;
+        }
+    }
+    return fields;
+}
+
+bool fill_cheat_values(std::string& text, const std::string& name, const std::vector<CheatField>& fields,
+                       std::string& error) {
+    CheatBlocks file = split_blocks(text);
+    std::vector<std::string>* block = find_cheat(file, name);
+    if (!block) {
+        error = "no cheat called " + name;
+        return false;
+    }
+    const std::vector<std::string> tmpl = template_of(*block);
+    // Each letter's value, as many digits as its longest run.
+    std::vector<CheatField> want = cheat_fields(text, name);
+    for (CheatField& w : want) {
+        w.value.clear();
+        for (const CheatField& f : fields) {
+            if (f.letter == w.letter) w.value = f.value;
+        }
+        if (w.value.empty() || w.value.size() > w.digits) {
+            error = std::string("a value for ") + w.letter + " of 1 to " + std::to_string(w.digits) + " digits";
+            return false;
+        }
+        for (char& c : w.value) {
+            c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+            if (!std::isxdigit(static_cast<unsigned char>(c))) {
+                error = std::string("the value for ") + w.letter + " is not hex";
+                return false;
+            }
+        }
+        w.value = std::string(w.digits - w.value.size(), '0') + w.value;
+    }
+    std::vector<std::string> out{(*block)[0]};
+    for (const std::string& line : tmpl) {
+        std::string code = line;
+        for (std::size_t i = 0; i < code.size();) {
+            if (!is_placeholder(code[i])) {
+                ++i;
+                continue;
+            }
+            const char letter = static_cast<char>(std::toupper(static_cast<unsigned char>(code[i])));
+            std::size_t j = i;
+            while (j < code.size() && std::toupper(static_cast<unsigned char>(code[j])) == letter) ++j;
+            for (const CheatField& w : want) {
+                // A shorter run of a letter takes the value's last digits.
+                if (w.letter == letter) code.replace(i, j - i, w.value.substr(w.value.size() - (j - i)));
+            }
+            i = j;
+        }
+        out.push_back(code);
+    }
+    std::uint32_t a, b;
+    for (std::size_t k = 1; k < block->size(); ++k) {
+        const std::string& line = (*block)[k];
+        if (!is_template(line) && code_line(line, a, b) == 0) out.push_back(line);  // its notes
+    }
+    for (const std::string& line : tmpl) out.push_back(kCheatTemplateNote + line);
+    *block = out;
+    text = join_blocks(file);
+    return true;
+}
 
 std::string merge_cheat_text(const std::string& fresh, const std::string& old, std::size_t& kept) {
     kept = 0;
@@ -128,13 +281,7 @@ std::string merge_cheat_text(const std::string& fresh, const std::string& old, s
         }
     }
     for (std::vector<std::string>& block : added) merged.blocks.push_back(std::move(block));
-    std::string out;
-    for (const std::string& line : merged.header) out += line + "\n";
-    for (const std::vector<std::string>& block : merged.blocks) {
-        if (!out.empty()) out += "\n";
-        for (const std::string& line : block) out += line + "\n";
-    }
-    return out;
+    return join_blocks(merged);
 }
 
 bool parse_cheat_text(const std::string& text, CheatFile& out, std::string& error) {
@@ -178,6 +325,8 @@ bool parse_cheat_text(const std::string& text, CheatFile& out, std::string& erro
             current.words.push_back(b);
         } else if (kind == 2) {
             current.needs_values = true;
+        } else if (is_template(line)) {
+            current.has_template = true;
         } else {
             current.notes.push_back(line);
         }

@@ -682,6 +682,41 @@ bool InstallUpdate(const std::string& latest, std::string& where, std::string& e
 
 std::string CheatPath(const std::string& game_id) { return std::string(kCheatDir) + "/" + game_id + ".txt"; }
 
+namespace {
+
+std::string read_cheat_file(const std::string& game_id) {
+    std::string text;
+    if (FILE* f = std::fopen(CheatPath(game_id).c_str(), "rb")) {
+        char buf[4096];
+        std::size_t n;
+        while ((n = std::fread(buf, 1, sizeof(buf), f)) > 0) text.append(buf, n);
+        std::fclose(f);
+    }
+    return text;
+}
+
+}  // namespace
+
+std::vector<CheatField> CheatFields(const std::string& game_id, const std::string& name) {
+    return cheat_fields(read_cheat_file(game_id), name);
+}
+
+bool FillCheatValues(const std::string& game_id, const std::string& name, const std::vector<CheatField>& fields,
+                     std::string& error) {
+    std::string text = read_cheat_file(game_id);
+    if (text.empty()) {
+        error = "cannot read " + CheatPath(game_id);
+        return false;
+    }
+    if (!fill_cheat_values(text, name, fields, error)) return false;
+    const std::vector<std::uint8_t> bytes(text.begin(), text.end());
+    if (!write_file(CheatPath(game_id), bytes, error)) return false;
+    std::string values;
+    for (const CheatField& f : fields) values += std::string(values.empty() ? "" : ", ") + f.letter + "=" + f.value;
+    logf("Cheats: values for \"%s\" (%s): %s\n", name.c_str(), game_id.c_str(), values.c_str());
+    return true;
+}
+
 bool DownloadCheats(const std::string& game_id, std::string& error) {
     std::vector<std::uint8_t> body;
     if (!HttpGet(kCheatsUrl + url_encode(game_id), body, error, 1u << 20)) return false;
@@ -695,13 +730,7 @@ bool DownloadCheats(const std::string& game_id, std::string& error) {
     mkdir(kCheatDir, 0777);
     // Cheats added by hand and values filled in survive the download (a
     // tester lost theirs to one).
-    std::string old;
-    if (FILE* f = std::fopen(CheatPath(game_id).c_str(), "rb")) {
-        char buf[4096];
-        std::size_t n;
-        while ((n = std::fread(buf, 1, sizeof(buf), f)) > 0) old.append(buf, n);
-        std::fclose(f);
-    }
+    std::string old = read_cheat_file(game_id);
     std::size_t kept = 0;
     if (!old.empty()) {
         const std::string merged = merge_cheat_text(std::string(body.begin(), body.end()), old, kept);

@@ -3485,6 +3485,44 @@ static std::string GameTitle(const FrontendState& state)
 // page. The file is plain text (riftwii/cheats.hpp); when the Wii is
 // online a missing one is fetched from the GeckoCodes archive.
 
+// A cheat's values (its X's, Y's...) asked one by one on a hex keypad,
+// its notes above it (they say what the values are), then written into
+// the cheat file. False when cancelled or not written (`error` then says
+// why, empty for a cancel). Called and returns with the GUI halted.
+static bool AskCheatValues(const FrontendState& state, const riftwii::Cheat& c, std::string& values,
+	std::string& error)
+{
+	error.clear();
+	std::vector<riftwii::CheatField> fields = riftwii::wii::CheatFields(state.game_id, c.name);
+	if (fields.empty()) {
+		error = tr("Its values could not be found in the file.");
+		return false;
+	}
+	std::string notes;
+	for (const std::string& n : c.notes) notes += (notes.empty() ? "" : " ") + n;
+	if (notes.empty()) notes = tr("The cheat has no notes about its values: its author's page may say what they are.");
+	for (riftwii::CheatField& f : fields) {
+		const std::string title = tr("{1}: {2} ({3} digits)",
+			{FlatCapped(c.name, 22), std::string(1, f.letter), std::to_string(f.digits)});
+		GuiSearchKeys keys(f.value, title, FlatCapped(notes, 220), f.digits);
+		mainWindow->SetState(STATE::DISABLED);
+		mainWindow->Append(&keys);
+		keys.SetState(STATE::DEFAULT);
+		ResumeGui();
+		while (keys.Result() == 0) usleep(20000);
+		HaltGui();
+		mainWindow->Remove(&keys);
+		mainWindow->SetState(STATE::DEFAULT);
+		if (keys.Result() < 0) return false;
+		f.value = keys.Text();
+	}
+	if (!riftwii::wii::FillCheatValues(state.game_id, c.name, fields, error)) return false;
+	values.clear();
+	for (const riftwii::CheatField& f : riftwii::wii::CheatFields(state.game_id, c.name))
+		values += std::string(values.empty() ? "" : ", ") + f.letter + " = " + f.value;
+	return true;
+}
+
 static void MenuCheats(FrontendState& state)
 {
 	riftwii::GameSettings& game = state.model.game;
@@ -3494,7 +3532,7 @@ static void MenuCheats(FrontendState& state)
 	const std::string fileNote = tr("The cheats are in {1}. Edit it on a computer to add your own.",
 		{CheatFileShown(state.game_id)});
 
-	enum class Act { Use, Download, Cheat, None };
+	enum class Act { Use, Download, Cheat, Values, None };
 	struct Ref {
 		Act act;
 		std::size_t cheat;
@@ -3534,14 +3572,26 @@ static void MenuCheats(FrontendState& state)
 			row.kind = FlowRow::Kind::Toggle;
 			row.label = FlatCapped(c.name, 48);
 			if (c.needs_values) {
-				row.value = tr("Edit first");
-				row.dim = true;
+				// Its X's are filled in here (a tester: "Edit first" meant
+				// a computer).
+				row.kind = FlowRow::Kind::Action;
+				row.value = tr("Set values");
 			} else {
 				row.on = game.cheat_names.count(c.name) != 0;
 				row.value = row.on ? tr("On") : tr("Off");
 			}
 			rows.push_back(row);
 			refs.push_back({Act::Cheat, i});
+			if (c.has_template) {
+				// Values filled in here: they can be changed again.
+				FlowRow values;
+				values.kind = FlowRow::Kind::Action;
+				values.label = tr("Its values");
+				values.value = tr("Change");
+				values.indent = true;
+				rows.push_back(values);
+				refs.push_back({Act::Values, i});
+			}
 		}
 	};
 	// Picks of cheats the file no longer has are dropped, so the game page
@@ -3652,12 +3702,17 @@ static void MenuCheats(FrontendState& state)
 				const riftwii::Cheat& c = file.cheats[ref.cheat];
 				std::string note;
 				for (const std::string& n : c.notes) note += (note.empty() ? "" : " ") + n;
-				if (c.needs_values) note = tr("This cheat has values to fill in (the X's). Edit the file first.") + (note.empty() ? "" : " " + note);
+				if (c.needs_values) note = tr("This cheat has values to fill in (the X's): press A to set them.") + (note.empty() ? "" : " " + note);
 				say(FlatCapped(note.empty() ? c.name : c.name + ": " + note, 200));
+			} else if (ref.act == Act::Values) {
+				std::string values;
+				for (const riftwii::CheatField& f : riftwii::wii::CheatFields(state.game_id, file.cheats[ref.cheat].name))
+					values += std::string(values.empty() ? "" : ", ") + f.letter + " = " + f.value;
+				say(tr("Values of {1}: {2}. Press A to change them.", {FlatCapped(file.cheats[ref.cheat].name, 60), values}));
 			} else if (ref.act == Act::Use) {
 				say(tr("Cheats are only applied when this is On."));
 			} else if (ref.act == Act::Download) {
-				say(riftwii::wii::Settings().online ? tr("Replaces the file with the latest cheats from the GeckoCodes archive.")
+				say(riftwii::wii::Settings().online ? tr("Gets the latest cheats from the GeckoCodes archive. Your own cheats and values stay.")
 						      : tr("Downloads are off in Settings."));
 			} else {
 				say(fileNote);
@@ -3675,11 +3730,27 @@ static void MenuCheats(FrontendState& state)
 			} else if (ref.act == Act::Download) {
 				if (!riftwii::wii::Settings().online) say(tr("Downloads are off in Settings."));
 				else fetch();
+			} else if (ref.act == Act::Values || (ref.act == Act::Cheat && file.cheats[ref.cheat].needs_values)) {
+				const riftwii::Cheat c = file.cheats[ref.cheat];
+				std::string values, error;
+				if (AskCheatValues(state, c, values, error)) {
+					load(false);
+					// Set means wanted: it is turned on.
+					game.cheat_names.insert(c.name);
+					game.cheats = true;
+					std::string saveError;
+					if (!SaveChoices(state, saveError)) logf("Cheats: %s\n", saveError.c_str());
+					build();
+					list.Refresh();
+					list.Select(acted);
+					shownRow = acted;
+					say(tr("{1}: {2}. It is on.", {FlatCapped(c.name, 60), values}));
+				} else if (!error.empty()) {
+					say(tr("The values were not saved: {1}", {FlatCapped(error, 120)}));
+				}
 			} else if (ref.act == Act::Cheat) {
 				const riftwii::Cheat& c = file.cheats[ref.cheat];
-				if (c.needs_values) {
-					say(tr("This cheat has values to fill in (the X's). Edit the file first."));
-				} else {
+				{
 					if (game.cheat_names.count(c.name)) game.cheat_names.erase(c.name);
 					else {
 						game.cheat_names.insert(c.name);

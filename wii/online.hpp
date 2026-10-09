@@ -7,6 +7,8 @@
 #include <string>
 #include <vector>
 
+#include "riftwii/cheats.hpp"
+
 // What RiftWii fetches from the internet when the Wii is online and the
 // "Download names and cheats" setting is on, over plain HTTP
 // (riftwii/http.hpp):
@@ -78,8 +80,15 @@ std::string CheatPath(const std::string& game_id);
 // Channel starts RiftWii with hardware access from the next start on, for
 // a pack's Homebrew Channel app to inherit. Best effort, logged.
 void EnsureMetaAhbAccess();
-// Fetches the game's cheats, replacing the file. The archive answers
-// with an empty page for a game it has no cheats for: `error` says so.
+// Fetches the game's cheats into the file, keeping the player's own (cheats
+// added by hand, values filled in). The archive answers with an empty
+// page for a game it has no cheats for: `error` says so.
 bool DownloadCheats(const std::string& game_id, std::string& error);
+// The placeholders (X, Y...) of cheat `name` in the game's cheat file,
+// with their values when they are filled in. Empty when none.
+std::vector<CheatField> CheatFields(const std::string& game_id, const std::string& name);
+// Fills them in, in the file (riftwii/cheats.hpp fill_cheat_values).
+bool FillCheatValues(const std::string& game_id, const std::string& name, const std::vector<CheatField>& fields,
+                     std::string& error);
 
 }  // namespace riftwii::wii

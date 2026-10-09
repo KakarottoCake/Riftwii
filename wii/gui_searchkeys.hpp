@@ -9,13 +9,18 @@
 
 // The search box: a card with the text typed so far and an on-screen
 // keyboard under it. Point and press A on a key, or move with the D-pad and
-// press A. Minus deletes the last letter; B or HOME cancels. The widget
+// press A. Minus deletes the last letter, Plus searches; B or HOME cancels. The widget
 // covers the whole screen and dims what is behind it.
+//
+// The hex mode is the same card with 0-9 and A-F only, for a cheat's
+// values: its own title, at most `maxLength` digits, and a note above the
+// card (what the value is, from the cheat's notes).
 class GuiSearchKeys : public GuiElement {
 public:
     static constexpr std::size_t kMaxLength = 32;
 
     explicit GuiSearchKeys(const std::string& start);
+    GuiSearchKeys(const std::string& start, const std::string& title, const std::string& note, std::size_t maxLength);
     ~GuiSearchKeys() override;
     const std::string& Text() const { return text; }
     // Search was chosen (1), cancelled (-1), or neither yet (0).
@@ -36,10 +41,15 @@ private:
     int Neighbour(int from, int dRow) const;
     int Y(int row) const;
 
+    void Build(const std::string& titleText, const std::string& noteText, bool hex);
+
     std::vector<Key> keys;
     std::string text;
+    std::size_t maxLength = kMaxLength;
+    bool hex = false;
     GuiText* shown;
     GuiText* title;
+    GuiText* note = nullptr;
     GuiSound* soundOver;
     GuiSound* soundClick;
     int focus = 0;

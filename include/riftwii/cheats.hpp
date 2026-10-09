@@ -20,7 +20,9 @@
 //
 // Codes that must be edited before use carry placeholders (X, Y, Z...)
 // in place of hex digits; they are listed but cannot be turned on until
-// the file is edited. The code handler reads the enabled codes as a GCT:
+// their values are filled in (on a computer, or in RiftWii, which keeps
+// the codes as they were in "Template: 28XXXXXX YYYY0000" lines, so the
+// values can be changed again). The code handler reads the enabled codes as a GCT:
 // 00D0C0DE 00D0C0DE, the codes, F0000000 00000000.
 namespace riftwii {
 
@@ -29,7 +31,18 @@ struct Cheat {
     std::vector<std::uint32_t> words;  // two per code line
     std::vector<std::string> notes;
     bool needs_values = false;         // placeholders left in: edit the file first
+    bool has_template = false;         // values filled in by RiftWii: they can be changed
 };
+
+// A placeholder of a cheat's codes: its letter, how many hex digits it
+// takes, and its value now (empty while it is still a placeholder).
+struct CheatField {
+    char letter = 0;
+    std::size_t digits = 0;
+    std::string value;
+};
+
+constexpr const char* kCheatTemplateNote = "Template: ";
 
 struct CheatFile {
     std::string game_id;
@@ -52,6 +65,18 @@ std::vector<std::uint8_t> build_gct(const CheatFile& file, const std::set<std::s
 // filled in. Everything else is the download's. `kept` is how many of
 // `old`'s cheats were kept. Text in, text out ("\n" lines).
 std::string merge_cheat_text(const std::string& fresh, const std::string& old, std::size_t& kept);
+
+// The placeholders of cheat `name` (as parse_cheat_text names it) in
+// `text`, in the order they first come. Empty when it has none (or no
+// such cheat).
+std::vector<CheatField> cheat_fields(const std::string& text, const std::string& name);
+
+// Puts `fields`' values (hex, at most each one's digits; padded with
+// zeros in front) in place of cheat `name`'s placeholders, keeping its
+// codes as they were in template lines. False, with `error`, when a value
+// is missing or not hex, or there is no such cheat.
+bool fill_cheat_values(std::string& text, const std::string& name, const std::vector<CheatField>& fields,
+                       std::string& error);
 
 // Whether `gct` is a code list: the 00D0C0DE header, whole codes (8 bytes
 // each) and the F0000000 00000000 end.

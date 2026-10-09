@@ -225,6 +225,55 @@ void TestCheats() {
         EXPECT_EQ(file.cheats[3].name, "My own cheat");
         EXPECT_EQ(file.cheats[3].notes.size(), 1u);
     }
+    // Values filled in on the Wii: the template stays, so they can change.
+    std::string valued =
+        "SB4E01\nSuper Mario Galaxy 2\n\n"
+        "Moon jump [someone]\n28XXXXXX YYYY0000\nC2000000 0000XXXX\nX is the button, Y the height\n";
+    std::vector<CheatField> fields = cheat_fields(valued, "Moon jump [someone]");
+    EXPECT_EQ(fields.size(), 2u);
+    if (fields.size() == 2) {
+        EXPECT_EQ(fields[0].letter, 'X');
+        EXPECT_EQ(fields[0].digits, 6u);
+        EXPECT_TRUE(fields[0].value.empty());
+        EXPECT_EQ(fields[1].digits, 4u);
+        fields[0].value = "1a2b";
+        fields[1].value = "ff";
+        EXPECT_TRUE(fill_cheat_values(valued, "Moon jump [someone]", fields, error));
+        EXPECT_TRUE(parse_cheat_text(valued, file, error));
+        EXPECT_EQ(file.cheats.size(), 1u);
+        EXPECT_FALSE(file.cheats[0].needs_values);
+        EXPECT_TRUE(file.cheats[0].has_template);
+        EXPECT_EQ(file.cheats[0].notes.size(), 1u);
+        EXPECT_EQ(file.cheats[0].words.size(), 4u);
+        if (file.cheats[0].words.size() == 4) {
+            EXPECT_EQ(file.cheats[0].words[0], 0x28001A2Bu);
+            EXPECT_EQ(file.cheats[0].words[1], 0x00FF0000u);
+            EXPECT_EQ(file.cheats[0].words[3], 0x00001A2Bu);  // X's last 4 digits
+        }
+        // Read back, and changed again from the template.
+        fields = cheat_fields(valued, "Moon jump [someone]");
+        EXPECT_EQ(fields.size(), 2u);
+        if (fields.size() == 2) {
+            EXPECT_EQ(fields[0].value, "001A2B");
+            EXPECT_EQ(fields[1].value, "00FF");
+            fields[1].value = "10";
+            EXPECT_TRUE(fill_cheat_values(valued, "Moon jump [someone]", fields, error));
+            EXPECT_TRUE(parse_cheat_text(valued, file, error));
+            EXPECT_EQ(file.cheats[0].words[1], 0x00100000u);
+            fields[1].value = "12345";  // too long
+            EXPECT_FALSE(fill_cheat_values(valued, "Moon jump [someone]", fields, error));
+            fields[1].value = "zz";
+            EXPECT_FALSE(fill_cheat_values(valued, "Moon jump [someone]", fields, error));
+        }
+        // A download later keeps the filled-in values.
+        const std::string again = merge_cheat_text(
+            "SB4E01\nSuper Mario Galaxy 2\n\nMoon jump [someone]\n28XXXXXX YYYY0000\nC2000000 0000XXXX\n", valued, kept);
+        EXPECT_TRUE(parse_cheat_text(again, file, error));
+        EXPECT_FALSE(file.cheats[0].needs_values);
+        EXPECT_TRUE(file.cheats[0].has_template);
+    }
+    EXPECT_TRUE(cheat_fields(old_text, "infinite health [wiiztec]").empty());
+
     // Nothing before: the download as it came.
     EXPECT_TRUE(parse_cheat_text(merge_cheat_text(fresh_text, "", kept), file, error));
     EXPECT_EQ(kept, 0u);
