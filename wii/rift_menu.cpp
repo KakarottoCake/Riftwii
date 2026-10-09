@@ -2091,11 +2091,9 @@ static std::string DiscTileNote()
 // holds seven lines), for the release script to keep up to date. Shown
 // once when they change; Settings > What's new shows them again.
 static const char* const kWhatsNew[] = {
-	"Wii U: the GameCube adapter works in SD and RVZ games",
-	"Disc games with the adapter: a fix, please test",
-	"Korean menu language (needs the Wii Menu font)",
-	"Starts quicker without Internet; Cheats never stall",
-	"Settings > Aspect ratio, a default for every game",
+	"Balance Board: no crash when it is on as RiftWii starts",
+	"Shelf view: quick scrolling, the boxes keep their art",
+	"Crash screen: the report is saved whole, no hang",
 };
 
 static std::string WhatsNewText()
