@@ -2113,9 +2113,9 @@ static std::string DiscTileNote()
 // holds seven lines), for the release script to keep up to date. Shown
 // once when they change; Settings > What's new shows them again.
 static const char* const kWhatsNew[] = {
+	"SD saves for SD and USB games: kept by d2x, as in GX",
+	"Mods on the SD card with a USB game: the right cIOS",
 	"SD and USB games need d2x v11 (beta3 is the latest)",
-	"Saves on the SD card: more patience with a slow card",
-	"Balance Board crash and shelf scrolling fixed (2610-184)",
 };
 
 static std::string WhatsNewText()
