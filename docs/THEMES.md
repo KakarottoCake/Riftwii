@@ -177,7 +177,8 @@ Layout (where things are on screen), fonts and sounds are not themeable yet.
 
 ## The theme kit
 
-Each release has a `riftwii-theme-kit` zip next to RiftWii's. It holds a
+[Download the theme kit](https://github.com/KakarottoCake/Riftwii/releases/download/v2610-142/riftwii-theme-kit-v2610-142.zip) (from RiftWii 2610-142; a
+new one comes out when the pictures change). It holds a
 starter `theme.ini` with every setting at its default, the Midnight
 sample, and all 45 pictures as templates, exactly as RiftWii draws them
 (in the default look and in Midnight's colours), at the right sizes.

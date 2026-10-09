@@ -61,6 +61,15 @@ int main() {
         EXPECT_EQ(pack.files[0].path, "riftwii_channel/boot.dol");
         EXPECT_TRUE(!parse(apps, pack, error));
     }
+    // riftwii-update.pack: the themes part, then the apps part.
+    {
+        const std::string both = "RIFTWII THEMES 1\nfile A/b.png 1\nx\nend\nRIFTWII APPS 1\nend\n";
+        const auto* bytes = reinterpret_cast<const std::uint8_t*>(both.data());
+        std::size_t end = 0;
+        EXPECT_TRUE(riftwii::parse_theme_pack(bytes, both.size(), pack, error, riftwii::kThemePackHeader, &end));
+        EXPECT_EQ(both.substr(end), "RIFTWII APPS 1\nend\n");
+        EXPECT_TRUE(riftwii::parse_theme_pack(bytes + end, both.size() - end, pack, error, riftwii::kAppsPackHeader));
+    }
     // An empty pack is a pack.
     EXPECT_TRUE(parse("RIFTWII THEMES 1\nend\n", pack, error));
     EXPECT_TRUE(pack.files.empty());

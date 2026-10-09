@@ -148,14 +148,23 @@ game crashes a few steps later instead. The next RiftWii start writes
    README's last section says the same in a few lines and lists the
    credits. Settings > Credits and license shows `LICENSE` itself (the
    build packs it).
-   The theme kit goes beside it: `cmake --build build-host --target
-   theme_kit`, then `py -3.13 tools/make_theme_kit.py
-   build-host/theme_kit.exe riftwii-theme-kit-vX.Y.Z.zip` (templates
-   painted by the menu's own code, so they match the release).
-4. `gh release create vX.Y.Z-beta --prerelease` with the zip, the theme
-   kit and `riftwii.dol`, the notes giving what changed and the DOL's SHA-256,
-   and ending with a "License and source" line: GPL-3.0-or-later, the
-   source at the tag, the credits in `NOTICE.md`.
+   The in-app update's pack: `py -3.13 tools/make_update_pack.py
+   riftwii-vYYMM-N.zip riftwii-update.pack` (the themes, then the
+   zip's channel installer and icon).
+   The theme kit only when the pictures change (a new one in
+   `src/theme.cpp`'s list, or a new look): `cmake --build build-host
+   --target theme_kit`, then `py -3.13 tools/make_theme_kit.py
+   build-host/theme_kit.exe riftwii-theme-kit-vYYMM-N.zip` (templates
+   painted by the menu's own code), attached to that release, and the
+   link in `docs/THEMES.md` moved to it.
+4. Screenshots for the notes go in `docs/screenshots/` and are committed
+   before the tag; the notes load them from
+   `raw.githubusercontent.com/KakarottoCake/Riftwii/<tag>/docs/screenshots/`.
+   `gh release create vYYMM-N --prerelease` with three files: the zip,
+   `riftwii.dol` (what the in-app update downloads) and
+   `riftwii-update.pack`. The notes give what changed and the DOL's
+   SHA-256, and end with a "License and source" line: GPL-3.0-or-later,
+   the source at the tag, the credits in `NOTICE.md`.
 5. When a third-party piece is added: a row in `NOTICE.md` (what, where
    from with the commit, license), `SPDX-FileCopyrightText` lines (one per
    holder, above the license line) in each file that follows it, and a

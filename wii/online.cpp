@@ -40,11 +40,11 @@ constexpr const char* kReleasesApi = "https://api.github.com/repos/KakarottoCake
 constexpr const char* kLatestApi = "https://api.github.com/repos/KakarottoCake/Riftwii/releases/latest";
 constexpr const char* kUpdateNote = "sd:/riftwii/update.txt";
 constexpr const char* kReleaseByTagApi = "https://api.github.com/repos/KakarottoCake/Riftwii/releases/tags/";
-constexpr const char* kThemePackAsset = "riftwii-themes.pack";
+// The release's themes and channel installer, for the in-app update.
+constexpr const char* kUpdatePackAsset = "riftwii-update.pack";
 // The version whose themes are on the card (ApplyThemePack).
 constexpr const char* kThemesDone = "sd:/riftwii/themes_updated.txt";
 // The rest of the zip's sd:/apps (the channel installer), the same way.
-constexpr const char* kAppsPackAsset = "riftwii-apps.pack";
 constexpr const char* kAppsDone = "sd:/riftwii/apps_updated.txt";
 
 // Hosts that could not be connected to this session: asked again, they
@@ -363,20 +363,21 @@ struct StartCheck {
 };
 StartCheck g_start_check;
 
-// The themes this release comes with, for a RiftWii the in-app update
-// installed (a zip brings its own): fetched with the start's check, on its
-// thread; written on Home's (ApplyThemePack), once per version.
-// The release zip's other files come the same way (riftwii-apps.pack).
+// The themes this release comes with and the rest of its sd:/apps (the
+// channel installer), for a RiftWii the in-app update installed (a zip
+// brings its own): riftwii-update.pack, fetched with the start's check,
+// on its thread; each part written on Home's (ApplyPack), once per
+// version.
+std::vector<std::uint8_t> g_update;  // the whole pack, until both parts are written
 struct PackKind {
-    const char* asset;
     const char* header;
     const char* done;  // holds the version the card has
     const char* label;  // for the log
-    std::vector<std::uint8_t> bytes;
-    bool none = false;  // the release has no such pack: nothing to wait for
+    std::size_t from = 0, to = 0;  // its part of g_update (empty: nothing to write)
+    bool none = false;  // the release has no pack: nothing to wait for
 };
-PackKind g_themes{kThemePackAsset, kThemePackHeader, kThemesDone, "Themes", {}, false};
-PackKind g_apps{kAppsPackAsset, kAppsPackHeader, kAppsDone, "Apps", {}, false};
+PackKind g_themes{kThemePackHeader, kThemesDone, "Themes", 0, 0, false};
+PackKind g_apps{kAppsPackHeader, kAppsDone, "Apps", 0, 0, false};
 
 std::string FirstLine(const char* path) {
     std::string text;
@@ -390,8 +391,9 @@ std::string FirstLine(const char* path) {
 }
 
 void FetchPacks() {
+    std::vector<std::uint8_t>().swap(g_update);
     for (PackKind* k : {&g_themes, &g_apps}) {
-        k->bytes.clear();
+        k->from = k->to = 0;
         k->none = false;
     }
     const UpdateNote note = ReadUpdateNote();
@@ -409,25 +411,38 @@ void FetchPacks() {
         }
         json.assign(body.begin(), body.end());
     }
-    for (PackKind* k : {&g_themes, &g_apps}) {
-        if (FirstLine(k->done) == RIFTWII_VERSION) continue;
-        ReleaseAsset pack;
-        if (!release_asset_from_json(json, k->asset, pack) || pack.url.empty()) {
-            logf("%s: %s has no %s\n", k->label, note.installed.c_str(), k->asset);
-            k->none = true;
-            continue;
-        }
-        std::vector<std::uint8_t> body;
-        std::string error;
-        if (!HttpGet(pack.url, body, error, 16u << 20, 30000)) {
-            logf("%s: %s: %s\n", k->label, k->asset, error.c_str());
-            continue;
-        }
-        if ((pack.size != 0 && body.size() != pack.size) || (!pack.sha256.empty() && Sha256Hex(body) != pack.sha256)) {
-            logf("%s: %s did not arrive whole (%u bytes)\n", k->label, k->asset, static_cast<unsigned>(body.size()));
-            continue;
-        }
-        k->bytes.swap(body);
+    ReleaseAsset pack;
+    if (!release_asset_from_json(json, kUpdatePackAsset, pack) || pack.url.empty()) {
+        logf("Packs: %s has no %s\n", note.installed.c_str(), kUpdatePackAsset);
+        g_themes.none = g_apps.none = true;
+        return;
+    }
+    std::vector<std::uint8_t> body;
+    std::string error;
+    if (!HttpGet(pack.url, body, error, 16u << 20, 30000)) {
+        logf("Packs: %s: %s\n", kUpdatePackAsset, error.c_str());
+        return;
+    }
+    if ((pack.size != 0 && body.size() != pack.size) || (!pack.sha256.empty() && Sha256Hex(body) != pack.sha256)) {
+        logf("Packs: %s did not arrive whole (%u bytes)\n", kUpdatePackAsset, static_cast<unsigned>(body.size()));
+        return;
+    }
+    // The themes part ends where the apps part starts.
+    ThemePack first;
+    std::size_t split = 0;
+    if (!parse_theme_pack(body.data(), body.size(), first, error, kThemePackHeader, &split)) {
+        logf("Packs: %s: %s\n", kUpdatePackAsset, error.c_str());
+        g_themes.none = g_apps.none = true;
+        return;
+    }
+    g_update.swap(body);
+    if (themes) {
+        g_themes.from = 0;
+        g_themes.to = split;
+    }
+    if (apps) {
+        g_apps.from = split;
+        g_apps.to = g_update.size();
     }
 }
 
@@ -473,13 +488,14 @@ void ApplyPack(PackKind& k) {
         k.none = false;
         MarkDone(k.done);
     }
-    if (k.bytes.empty()) return;
-    std::vector<std::uint8_t> bytes;
-    bytes.swap(k.bytes);
+    if (k.to <= k.from || k.to > g_update.size()) return;
+    const std::uint8_t* const bytes = g_update.data() + k.from;
+    const std::size_t size = k.to - k.from;
+    k.from = k.to = 0;
     ThemePack pack;
     std::string error;
-    if (!parse_theme_pack(bytes.data(), bytes.size(), pack, error, k.header)) {
-        logf("%s: %s: %s\n", k.label, k.asset, error.c_str());
+    if (!parse_theme_pack(bytes, size, pack, error, k.header)) {
+        logf("%s: %s: %s\n", k.label, kUpdatePackAsset, error.c_str());
         MarkDone(k.done);
         return;
     }
@@ -494,12 +510,11 @@ void ApplyPack(PackKind& k) {
         }
         const std::string path = root + f.path;
         mkdir((root + f.path.substr(0, f.path.find('/'))).c_str(), 0777);
-        if (SameFile(path, bytes.data() + f.offset, f.size)) {
+        if (SameFile(path, bytes + f.offset, f.size)) {
             ++same;
             continue;
         }
-        const std::vector<std::uint8_t> data(bytes.begin() + static_cast<std::ptrdiff_t>(f.offset),
-                                             bytes.begin() + static_cast<std::ptrdiff_t>(f.offset + f.size));
+        const std::vector<std::uint8_t> data(bytes + f.offset, bytes + f.offset + f.size);
         if (write_file(path, data, error)) {
             ++written;
         } else {
@@ -556,6 +571,7 @@ bool TakeUpdateCheck(bool& ok, std::string& latest, bool& newer, std::string& er
     g_start_check.taken = true;
     ApplyPack(g_themes);
     ApplyPack(g_apps);
+    std::vector<std::uint8_t>().swap(g_update);
     ok = g_start_check.ok;
     latest = g_start_check.latest;
     newer = g_start_check.newer;

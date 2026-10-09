@@ -27,7 +27,7 @@ bool path_ok(const std::string& path) {
 }  // namespace
 
 bool parse_theme_pack(const std::uint8_t* data, std::size_t size, ThemePack& out, std::string& error,
-                      const char* header) {
+                      const char* header, std::size_t* end) {
     out = ThemePack{};
     std::size_t at = 0;
     // One text line from `at`, without its newline; false at the end.
@@ -45,7 +45,10 @@ bool parse_theme_pack(const std::uint8_t* data, std::size_t size, ThemePack& out
         return false;
     }
     while (line(text)) {
-        if (text == "end") return true;
+        if (text == "end") {
+            if (end) *end = at;
+            return true;
+        }
         if (text.compare(0, 7, "retire ") == 0) {
             std::istringstream in(text.substr(7));
             RetiredTheme r;

@@ -24,9 +24,10 @@
 // files it came with: only those are removed, so what a player added to
 // its folder stays.
 //
-// riftwii-apps.pack has the same layout under "RIFTWII APPS 1": the files
+// The apps part has the same layout under "RIFTWII APPS 1": the files
 // of sd:/apps the release zip has besides RiftWii's own boot.dol (the
-// channel installer), made by tools/make_apps_pack.py.
+// channel installer). A release carries both in riftwii-update.pack, the
+// themes part, then the apps part (tools/make_update_pack.py).
 namespace riftwii {
 
 constexpr const char* kThemePackHeader = "RIFTWII THEMES 1";
@@ -51,8 +52,10 @@ struct ThemePack {
 
 // False (and `error` says why) for anything that is not a whole pack, or
 // that names a path outside one theme's folder.
+// `end`, when given, is where the bytes after the pack's end line start
+// (the next part of riftwii-update.pack).
 bool parse_theme_pack(const std::uint8_t* data, std::size_t size, ThemePack& out, std::string& error,
-                      const char* header = kThemePackHeader);
+                      const char* header = kThemePackHeader, std::size_t* end = nullptr);
 
 // A theme's folder name or a file's name as a pack may use them: letters,
 // digits, space, '_', '-' and (files only) '.', not starting with a dot.
