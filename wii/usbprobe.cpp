@@ -45,20 +45,12 @@ bool Reload(int ios, bool sd_mounted, std::string& error) {
 // not) and how /dev/usb/hid answers. True when the adapter is listed.
 bool LookHere(std::string& line) {
     std::string how;
+    // As a launch does: our own /dev/usb/hid first (look_for_gc_adapter),
+    // then closed without a Shutdown.
     const AdapterSeen seen = look_for_gc_adapter(how);  // waits for devices just after the reload
+    close_adapter_session();
     USB_Deinitialize();
-    usleep(50000);  // as a launch does: /dev/usb/hid refused a second handle while libogc's was closing
-    std::int32_t fd = -1;
-    std::uint32_t version = 0;
-    std::string why;
-    std::string hid;
-    if (open_usb_hid(fd, version, why)) {
-        hid = "/dev/usb/hid v" + std::to_string(version);
-        IOS_Close(fd);
-    } else {
-        hid = why;
-    }
-    line = "adapter " + how + "; " + hid;
+    line = "adapter " + how;
     return seen == AdapterSeen::Found;
 }
 

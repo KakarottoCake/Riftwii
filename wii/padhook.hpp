@@ -62,6 +62,9 @@ bool usb_hid_present();
 // was listed. Unknown when this IOS cannot tell (v5), taken as plugged in.
 enum class AdapterSeen { Found, Missing, Unknown };
 AdapterSeen look_for_gc_adapter(std::string& how);
+// Closes the handle look_for_gc_adapter opened (without v5's Shutdown),
+// when no game takes it.
+void close_adapter_session();
 // One look at libogc's USB device list (starting libogc's USB if need
 // be): the adapter's v5 device id when it has one, and every VID:PID.
 AdapterSeen ogc_adapter(std::int32_t& dev_id, std::string& devices);

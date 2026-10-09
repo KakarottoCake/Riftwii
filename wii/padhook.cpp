@@ -68,6 +68,30 @@ bool await_async(s32 submitted, s32& result) {
 }
 std::uint32_t align_up(std::uint32_t v) { return (v + 31) & ~31u; }
 
+// The launch's own /dev/usb/hid, opened before libogc's USB touches it:
+// libogc's USB_Deinitialize sends v5 a Shutdown, after which a Wii U's
+// IOS 58 and d2x 251 answered -4 to every handle opened (a tester's two
+// reports: the menu, on libogc's handle, had the adapter; the game's
+// open was refused). Kept open for the game (find_pad_functions).
+std::int32_t g_own_fd = -1;
+std::uint32_t g_own_version = 0;
+std::int32_t g_own_dev = -1;  // the adapter's v5 device id, -1: not listed
+std::uint32_t g_own_list[0x180 / 4] ATTRIBUTE_ALIGN(32);
+
+// v5's first device-change request on a handle answers at once with the
+// devices there (its result is their number). True with the list.
+bool own_list(std::int32_t fd, s32& count) {
+    std::memset(g_own_list, 0, sizeof(g_own_list));
+    DCFlushRange(g_own_list, sizeof(g_own_list));
+    g_async_done = false;
+    if (!await_async(IOS_IoctlAsync(fd, GCAD_V5_GET_DEVICE_CHANGE, nullptr, 0, g_own_list, sizeof(g_own_list),
+                                    on_async, nullptr),
+                     count))
+        return false;
+    DCInvalidateRange(g_own_list, sizeof(g_own_list));
+    return count >= 0;
+}
+
 const rt_pad_header& header() { return *reinterpret_cast<const rt_pad_header*>(riftwii_pad_bin); }
 
 void store_words(std::uint32_t address, const std::uint32_t* words, std::size_t count) {
@@ -190,6 +214,7 @@ AdapterSeen ogc_adapter(std::int32_t& dev_id, std::string& devices) {
 void forget_usb_hid_stuck() { g_hid_stuck = false; }
 
 bool usb_hid_present() {
+    if (g_own_fd >= 0) return true;
     std::int32_t fd = -1;
     std::uint32_t version = 0;
     std::string why;
@@ -198,7 +223,68 @@ bool usb_hid_present() {
     return true;
 }
 
+void close_adapter_session() {
+    if (g_own_fd >= 0) IOS_Close(g_own_fd);  // no Shutdown (see g_own_fd)
+    g_own_fd = -1;
+    g_own_version = 0;
+    g_own_dev = -1;
+}
+
+// v5 through our own handle: the list from a fresh handle, once more
+// after the devices of a fresh IOS have had 2.5 s to show up.
+AdapterSeen own_adapter_list(std::string& how) {
+    std::string why;
+    for (int attempt = 0; attempt < 2; ++attempt) {
+        if (g_own_fd < 0 && !open_usb_hid(g_own_fd, g_own_version, why)) {
+            how = "unknown, taken as plugged in (" + why + ")";
+            g_own_fd = -1;
+            return AdapterSeen::Unknown;
+        }
+        if (g_own_version != 5) return AdapterSeen::Unknown;  // v4: libogc's oh0 list (the caller)
+        s32 count = 0;
+        if (!own_list(g_own_fd, count)) {
+            // No answer (Dolphin with nothing plugged in) or an error: the
+            // handle goes, with the request still in flight, so no reply can
+            // reach the game; the caller takes libogc's list instead.
+            const bool timed_out = g_hid_stuck;
+            close_adapter_session();
+            if (timed_out) forget_usb_hid_stuck();  // the close answered: the module is alive
+            logf("GameCube adapter: our own /dev/usb/hid v5 gave no device list (%s); libogc's instead\n",
+                 timed_out ? "no answer" : std::to_string(count).c_str());
+            return AdapterSeen::Unknown;
+        }
+        std::string devices;
+        const auto* list = reinterpret_cast<const std::uint8_t*>(g_own_list);
+        for (s32 i = 0; i < count && i < 32; ++i) {
+            char one[16];
+            std::snprintf(one, sizeof(one), "%s%04x:%04x", i ? ", " : "",
+                          static_cast<unsigned>(gcad_get32(list + i * 12 + 4) >> 16),
+                          static_cast<unsigned>(gcad_get32(list + i * 12 + 4) & 0xFFFF));
+            devices += one;
+        }
+        g_own_dev = gcad_find_v5(list, static_cast<std::uint32_t>(count));
+        // As libogc does after each device change.
+        s32 finish = 0;
+        g_async_done = false;
+        await_async(IOS_IoctlAsync(g_own_fd, GCAD_V5_ATTACH_FINISH, nullptr, 0, nullptr, 0, on_async, nullptr), finish);
+        if (g_own_dev >= 0 || attempt == 1 || ms_since_ios_reload() >= 2500) {
+            how = std::string(g_own_dev >= 0 ? "plugged in" : "not plugged in") + " (our own /dev/usb/hid v5 lists " +
+                  (devices.empty() ? std::string("no devices") : devices) + ")";
+            return g_own_dev >= 0 ? AdapterSeen::Found : AdapterSeen::Missing;
+        }
+        // Just after an IOS reload: a fresh handle once more, later.
+        close_adapter_session();
+        while (ms_since_ios_reload() < 2500) usleep(100000);
+    }
+    return AdapterSeen::Unknown;
+}
+
 AdapterSeen look_for_gc_adapter(std::string& how) {
+    if (!g_hid_stuck) {
+        const AdapterSeen seen = own_adapter_list(how);
+        if (g_own_version == 5) return seen;
+        close_adapter_session();  // v4 (or none): libogc's list as before
+    }
     // The USB device list only: /dev/usb/hid is opened later, once, with
     // a timeout (a Wii U's d2x cIOS never answered the open).
     // v5 lists devices once per change, to whoever asks first: the menu's
@@ -258,6 +344,16 @@ bool find_pad_functions(const DolHeader& dol, bool demo, PadHook& out, std::stri
     // one at a time (Dolphin refuses a second), and their answers would
     // reach the game. libogc cancels its own; the Shutdown on ours clears
     // one it re-armed while going.
+    if (g_own_fd >= 0 && g_own_version == 5) {
+        // The launch's own handle (look_for_gc_adapter), never shut down.
+        out.fd = g_own_fd;
+        out.version = 5;
+        out.known_dev = g_own_dev;
+        g_own_fd = -1;  // the game's now
+        logf("GameCube adapter: /dev/usb/hid v5 fd %d (opened before libogc's USB), adapter device %d\n",
+             static_cast<int>(out.fd), static_cast<int>(out.known_dev));
+        return true;
+    }
     std::string devices;
     ogc_adapter(out.known_dev, devices);  // v5's list goes with libogc's USB
     USB_Deinitialize();

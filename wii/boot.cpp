@@ -1190,6 +1190,9 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
             gc_adapter = false;
         }
     }
+    // Not taken by the game: the launch check's /dev/usb/hid is let go, so
+    // the game's own USB gets it.
+    if (!gc_adapter) close_adapter_session();
 
     // E4: the SD card again, with our own fd this time, left open and
     // selected for the runtime.
@@ -2100,6 +2103,8 @@ bool boot_game(const DiscProbe& probe, BootOptions options, std::string& error) 
         if (g_extras.gc_adapter == GcAdapterMode::Auto) {
             g_extras.gc_adapter = seen == AdapterSeen::Missing ? GcAdapterMode::Off : GcAdapterMode::On;
         }
+        // The handle the check opened is the game's only with the adapter on.
+        if (g_extras.gc_adapter == GcAdapterMode::Off) close_adapter_session();
     }
     // Games on IOS57 start under it even when the runtime needs the card:
     // Just Dance 2014 goes black under IOS58 (on a tester's Wii U, with a
