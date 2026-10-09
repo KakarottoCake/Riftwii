@@ -32,7 +32,7 @@ import zlib
 # 00010001-RFTW, in 4:3 on a vWii; the installer removes that one.)
 TITLE_ID = 0x0001000155465457  # 00010001-UFTW
 OLD_TITLE_ID = 0x0001000152465457  # 00010001-RFTW
-TITLE_VERSION = 9  # wii/channel.hpp kChannelVersion says the same; 5: boot program and forwarder (vWii); 6: UFTW; 7: a Wii and a vWii package; 8: no start-up IOS_Close sweep; 9: hardware access
+TITLE_VERSION = 10  # wii/channel.hpp kChannelVersion says the same; 5: boot program and forwarder (vWii); 6: UFTW; 7: a Wii and a vWii package; 8: no start-up IOS_Close sweep; 9: hardware access; 10: full width on 16:9
 # The TMD's access rights (0x1D8): bit 0 asks ES for hardware access (AHBPROT
 # off), as the Homebrew Channel's own title does. Without it RiftWii started
 # from the channel could not open IOS's NAND permission check (the Wii Menu's

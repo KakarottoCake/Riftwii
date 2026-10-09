@@ -38,6 +38,10 @@ static const char* const kPaths[] = {
 
 static GXRModeObj* g_mode;
 static u32* g_xfb;
+// How wide the name and the rift are drawn, in 256ths: 192 on a 16:9 TV,
+// where the picture is stretched to the screen's full width (as the
+// menu's) and each pixel is wider by 4:3.
+static int g_squeeze = 256;
 
 // The screen in the Wii's own pixel format: two pixels share one Cb/Cr.
 static u32 yuv_pair(const int* c0, const int* c1) {
@@ -71,8 +75,9 @@ static void blend(int* c, int r, int g, int b, int a) {
 
 static void draw(const Frame* f) {
     const int w = g_mode->fbWidth, h = g_mode->xfbHeight;
-    const int word_x = (w - kWordWidth) / 2, word_y = (h - kWordHeight) / 2 - 6;
-    const int rift_x = word_x + kWordSeam - kRiftWidth / 2;
+    const int sq = g_squeeze;
+    const int word_x = (w - kWordWidth * sq / 256) / 2, word_y = (h - kWordHeight) / 2 - 6;
+    const int seam_x = word_x + kWordSeam * sq / 256;  // where the rift is, on screen
     const int cy = h / 2 - 6;
     const int half = kRiftHeight * f->tear / 512;  // the rift's half height now
     for (int y = 0; y < h; ++y) {
@@ -90,16 +95,17 @@ static void draw(const Frame* f) {
                 c[i][0] = bg[0] * f->sky >> 8;
                 c[i][1] = bg[1] * f->sky >> 8;
                 c[i][2] = bg[2] * f->sky >> 8;
-                const int rx = px - rift_x;
+                const int rx = (px - seam_x) * 256 / sq + kRiftWidth / 2;
                 if (in_rift && rx >= 0 && rx < kRiftWidth) {
                     const int a = splash_rift_a[ry * kRiftWidth + rx] * f->glow >> 8;
                     blend(c[i], 205, 238, 255, a);
                 }
                 if (in_word) {
                     // "Rift" is drawn nearer the rift by `apart`, "Wii" too
-                    int wx = px - word_x;
+                    const int art_x = px < word_x ? -1 : (px - word_x) * 256 / sq;
+                    int wx = art_x;
                     wx += wx < kWordSeam ? -f->apart : f->apart;
-                    const int side = px - word_x < kWordSeam;
+                    const int side = art_x < kWordSeam;
                     if (wx >= 0 && wx < kWordWidth && (wx < kWordSeam) == side) {
                         const u8* p = splash_word_rgba + (wy * kWordWidth + wx) * 4;
                         blend(c[i], p[0], p[1], p[2], p[3] * f->word >> 8);
@@ -124,6 +130,14 @@ static int ease_out(int t, int span) {  // 0..256 over span frames, slowing down
 static void video_init(void) {
     VIDEO_Init();
     g_mode = VIDEO_GetPreferredMode(NULL);
+    // A 16:9 TV: the picture across the whole screen, as RiftWii's menu
+    // has it (a tester saw black bars at the sides), the art narrowed to
+    // keep its shape.
+    CONF_Init();
+    if (CONF_GetAspectRatio() == CONF_ASPECT_16_9) {
+        g_mode->viWidth = VI_MAX_WIDTH_PAL;
+        g_squeeze = 192;
+    }
     g_xfb = (u32*)MEM_K0_TO_K1(SYS_AllocateFramebuffer(g_mode));
     VIDEO_Configure(g_mode);
     VIDEO_SetNextFramebuffer(g_xfb);
