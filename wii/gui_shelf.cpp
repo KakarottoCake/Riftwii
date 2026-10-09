@@ -476,17 +476,24 @@ void GuiGameGrid::DrawShelf(int alpha) {
         // the line runs down and the letters' tops face right, so the
         // text's height lies left of px.
         const float px = l.x + kSpineTextSize / 2.0f + 1, py = l.y0 + 4;
+        // The text sits at whole pixels (GuiText) and is turned about a
+        // whole pixel, then moved by what is left after the turn: rounded
+        // before it, a sliding spine's fraction of a pixel went into the
+        // text's place along the spine, and the names bobbed up and down
+        // as the row moved.
+        const float along = std::max(0.0f, (l.y1 - l.y0 - 8 - w) / 2);
+        const int ix = static_cast<int>(std::floor(px)), iy = static_cast<int>(std::floor(py));
         Mtx view, rot, m, mv;
         guMtxIdentity(view);
         guMtxTransApply(view, view, 0.0f, 0.0f, -50.0f);
         guMtxIdentity(m);
-        guMtxTransApply(m, m, -px, -py, 0);
+        guMtxTransApply(m, m, static_cast<float>(-ix), static_cast<float>(-iy), 0);
         guMtxRotDeg(rot, 'z', 90.0f);
         guMtxConcat(rot, m, m);
-        guMtxTransApply(m, m, px, py, 0);
+        guMtxTransApply(m, m, px, py + along, 0);
         guMtxConcat(view, m, mv);
         GX_LoadPosMtxImm(mv, GX_PNMTX0);
-        spineText->SetPosition(static_cast<int>(px + std::max(0.0f, (l.y1 - l.y0 - 8 - w) / 2)), static_cast<int>(py));
+        spineText->SetPosition(ix, iy);
         spineText->Draw();
         GX_LoadPosMtxImm(view, GX_PNMTX0);
     }
