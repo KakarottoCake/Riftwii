@@ -91,11 +91,12 @@ with its name and its cover on the front.
 With **Channels**, each tile plays the game's own animated icon, the one
 the Wii Menu shows for a disc channel, and the tile you're on shows the
 game's name. Pick a game and its full banner plays, as the Wii Menu opens
-a channel: **Start** (or A, or +) plays the game with the mods and
-settings already chosen for it, **Settings** (or 2) opens
-the game's page to change them, the star in the top right corner (or 1)
-makes it a favourite, the arrows (or Left and Right) go to the
-game before or after, and B or HOME return to Home. Each game's banner is read from its image the first time its page
+a channel: **Start** (A on it, or Start on a GameCube controller) plays
+the game with the mods and settings already chosen for it, **Settings**
+(or 2) opens the game's page to change them (B there comes back to the
+banner), the star in the top right corner (or 1) makes it a favourite,
+the arrows (or + and -, or Left and Right) go to the game after or
+before, and B or HOME return to Home. Each game's banner is read from its image the first time its page
 of tiles is shown (a moment per game) and kept in `sd:/riftwii/banners`.
 For ISO and WBFS games RiftWii decrypts it with your Wii's own key, read
 from the console while it runs; nothing like it ships with RiftWii or is
@@ -190,6 +191,10 @@ groups: *Games* (the defaults for every game), *Menu*, *Finding games*,
   **Game language**, **Game cIOS**, **Online server**: the defaults for
   every game.
 - **Home tiles**: covers, shelf, channels or names.
+- **Games from**: *SD and USB*, *SD card* or *USB drive*: which drive's
+  games Home lists.
+- **Play history**: *Off* stops counting the games you start (Recently
+  played, Home order and a game's page use the counts) and hides them.
 - **Home order**: *A to Z* (a leading "The" is skipped), *Last played* or
   *Most played*. The last two put the games you played from RiftWii
   first, the rest after them A to Z.
@@ -206,14 +211,15 @@ groups: *Games* (the defaults for every game), *Menu*, *Finding games*,
 - **Theme**: steps through *Default* (RiftWii's own light look, no files
   needed) and every folder in `sd:/riftwii/themes/` that has a `theme.ini`,
   shown by the theme's `name` (or the folder name if it has none).
-  RiftWii offers to restart its menu to show the new theme. The choice is
+  Leaving Settings, RiftWii offers to restart its menu to show it (once,
+  for the theme and the font together). The choice is
   saved as `theme = <folder>` in `sd:/riftwii/settings.txt`
   (`theme = default` for the default). The zip comes with two:
   *Midnight* (dark) and *Bookshelf* (a light wooden bookcase: your covers
   stand on its shelves, with paper panels). More in [THEMES.md](THEMES.md).
 - **Menu font**: *RiftWii* (its own) or *Wii Menu*, the font the Wii Menu
   writes with, read from your Wii's own memory (nothing is downloaded, and
-  it covers Japanese too). RiftWii offers to restart its menu to switch.
+  it covers Japanese too). Leaving Settings, RiftWii offers to restart its menu to switch.
   If the Wii's font can't be read, RiftWii uses its own and says so on
   Home. Saved as `menu_font = riftwii` or `menu_font = wii`. The first
   read copies the font to `sd:/riftwii/fontcache/`, and later starts read
@@ -234,6 +240,9 @@ groups: *Games* (the defaults for every game), *Menu*, *Finding games*,
   it: turn it off for those.
 - **Download names and cheats**, and **Get the latest game names**.
 - **GameCube adapter** (experimental), and **Check the GameCube adapter** (below).
+- **GameCube rumble**: *Off* stops GameCube controllers rumbling in games,
+  in the adapter and in the Wii's own ports. Wii Remote rumble is not
+  covered yet.
 - **Menu IOS**: IOS 58, or a d2x cIOS slot (248 to 252). Pick the slot that has
   fakemote to use USB DS3/DS4 pads as Wii Remotes.
 - **Find network packs (RiiFS)** and **Copy network packs again** (below).
@@ -441,7 +450,7 @@ A few things to know:
 
 #### Pictures for your mods
 
-Point at a mod on the **Mods** page and its picture pops up beside it.
+Point at a mod on the **Mods** page and its picture shows below the list.
 To give a mod a picture, put a PNG next to it, named after it:
 
 | The mod | Its picture |
@@ -452,7 +461,7 @@ To give a mod a picture, put a PNG next to it, named after it:
 
 Any size works (up to 1024 pixels a side and 2 MB); it is shrunk to fit.
 Box art from GameTDB or anywhere else is fine. A mod without a picture
-shows the game's own cover, and the popup says what file to add.
+shows none.
 
 #### Code builds on a virtual SD card (.raw images)
 
