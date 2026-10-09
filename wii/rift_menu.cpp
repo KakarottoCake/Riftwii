@@ -518,7 +518,7 @@ static std::string ReturnToNote()
 {
 	// A test switch in settings.txt turns it off whatever this says.
 	if (riftwii::wii::debug_off("returnto"))
-		return tr("Off for testing: settings.txt has \"debug_off = returnto\", so games go back to the Wii Menu. Delete that line to use this setting.");
+		return tr("Off for testing: settings.txt has \"debug_off = returnto\", so games go back to the Wii Menu. Press A here to take that switch out.");
 	unsigned version = 0;
 	return riftwii::wii::ChannelInstalled(version) ? tr("The Wii Menu button in a game's HOME Menu brings you back to RiftWii. It needs the RiftWii channel installed.") : tr("The Wii Menu button in a game's HOME Menu can bring you back to RiftWii once the RiftWii channel is installed (Settings).");
 }
@@ -4724,7 +4724,25 @@ static int MenuSettings(FrontendState& state)
 					break;
 				}
 				case kReturnTo:
-					settings.return_to = settings.return_to == "menu" ? "riftwii" : "menu";
+					if (riftwii::wii::debug_off("returnto")) {
+						// The test switch first, which a tester had left in
+						// settings.txt for days: taken out of debug_off (the
+						// line goes when nothing is left in it).
+						auto it = settings.other.find("debug_off");
+						std::string kept;
+						std::size_t at = 0;
+						while (it != settings.other.end() && at < it->second.size()) {
+							const std::size_t end = std::min(it->second.find_first_of(", ", at), it->second.size());
+							const std::string word = it->second.substr(at, end - at);
+							if (!word.empty() && word != "returnto") kept += (kept.empty() ? "" : ", ") + word;
+							at = end + 1;
+						}
+						if (kept.empty()) settings.other.erase(it);
+						else it->second = kept;
+						logf("Settings: debug_off returnto taken out (%s left)\n", kept.empty() ? "nothing" : kept.c_str());
+					} else {
+						settings.return_to = settings.return_to == "menu" ? "riftwii" : "menu";
+					}
 					saveAndNote(ReturnToNote());
 					rebuild();
 					break;
