@@ -142,17 +142,12 @@ bool open_usb_hid(std::int32_t& fd, std::uint32_t& version, std::string& why) {
             continue;
         }
         fd = ret;
-        s32 v4 = 0;
-        g_async_done = false;
-        if (!await_async(IOS_IoctlAsync(fd, GCAD_V4_GET_VERSION, nullptr, 0, nullptr, 0, on_async, nullptr), v4)) {
-            why = "/dev/usb/hid did not answer its v4 GetVersion";
-            fd = -1;  // left open: closing it could wait too
-            return false;
-        }
-        if (v4 == static_cast<s32>(GCAD_V4_VERSION)) {
-            version = 4;
-            return true;
-        }
+        // v5's GetVersion first, as libogc asks: v4's (request 6) is v5's
+        // AttachFinish, and after it a Wii U's IOS 58 and d2x 251 answered
+        // -4 to GetVersion and to everything else (every tester's report:
+        // "v4 GetVersion 0", AttachFinish done; Dolphin does not mind).
+        // On v4, request 0 is GetDeviceChange, which answers at once the
+        // first time; the handle is then opened again for v4's question.
         std::memset(g_version_out, 0, sizeof(g_version_out));
         DCFlushRange(g_version_out, sizeof(g_version_out));
         s32 v5 = 0;
@@ -161,7 +156,7 @@ bool open_usb_hid(std::int32_t& fd, std::uint32_t& version, std::string& why) {
                                         on_async, nullptr),
                          v5)) {
             why = "/dev/usb/hid did not answer its v5 GetVersion";
-            fd = -1;
+            fd = -1;  // left open: closing it could wait too
             return false;
         }
         DCInvalidateRange(g_version_out, sizeof(g_version_out));
@@ -171,9 +166,32 @@ bool open_usb_hid(std::int32_t& fd, std::uint32_t& version, std::string& why) {
         }
         IOS_Close(fd);
         fd = -1;
+        s32 v4 = 0;
+        g_async_done = false;
+        if (!await_async(IOS_OpenAsync(g_hid_path, handle, on_async, nullptr), ret)) {
+            why = "/dev/usb/hid did not answer when opened again for v4";
+            return false;
+        }
+        if (ret >= 0) {
+            fd = ret;
+            g_async_done = false;
+            if (!await_async(IOS_IoctlAsync(fd, GCAD_V4_GET_VERSION, nullptr, 0, nullptr, 0, on_async, nullptr), v4)) {
+                why = "/dev/usb/hid did not answer its v4 GetVersion";
+                fd = -1;
+                return false;
+            }
+            if (v4 == static_cast<s32>(GCAD_V4_VERSION)) {
+                version = 4;
+                return true;
+            }
+            IOS_Close(fd);
+            fd = -1;
+        } else {
+            v4 = ret;
+        }
         char buf[96];
-        std::snprintf(buf, sizeof(buf), "handle %d: v4 GetVersion %d, v5 GetVersion %d (%08x)", handle,
-                      static_cast<int>(v4), static_cast<int>(v5), static_cast<unsigned>(g_version_out[0]));
+        std::snprintf(buf, sizeof(buf), "handle %d: v5 GetVersion %d (%08x), v4 GetVersion %d", handle,
+                      static_cast<int>(v5), static_cast<unsigned>(g_version_out[0]), static_cast<int>(v4));
         tried += (tried.empty() ? "" : "; ") + std::string(buf);
     }
     // libogc's way when /dev/usb/hid has no version: /dev/usb/ven, v5 only.
