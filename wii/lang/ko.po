@@ -1,0 +1,1228 @@
+# RiftWii menu: Korean. Written by tools/lang_source.py; edit the table there.
+# A copy at sd:/riftwii/lang/ko.po overrides these entries on the Wii.
+msgid ""
+msgstr "Content-Type: text/plain; charset=UTF-8\n"
+
+msgid "Games with mods"
+msgstr "MOD 지원 게임"
+
+msgid "All games"
+msgstr "모든 게임"
+
+msgid "Recently played"
+msgstr "최근 플레이"
+
+msgid "No game on these drives was played from RiftWii yet. Press 1 for all games."
+msgstr "이 드라이브에 있는 게임 중 RiftWii를 통해 실행된 게임은 아직 없습니다. 모든 게임을 보려면 1번을 누르세요."
+
+msgid "{1}/{2}"
+msgstr "{1}/{2}"
+
+msgid "Played once, on {1}"
+msgstr "{1}에 1회 플레이"
+
+msgid "Played {1} times, last on {2}"
+msgstr "{1} 회 플레이, {2} 마지막 플레이"
+
+msgid "1: view   2: settings   -/+: pages   B: A to Z"
+msgstr "1: 보기   2: 설정   -/+: 페이지   B: A〜Z"
+
+msgid "Page {1} of {2}"
+msgstr "{1} / {2} 페이지"
+
+msgid "{1}: no games in /wbfs or /games"
+msgstr "{1}: /wbfs 또는 /games 폴더에 게임이 없음"
+
+msgid "SD: no card"
+msgstr "SD: 카드 없음"
+
+msgid "No d2x cIOS in 249-251: games cannot boot yet"
+msgstr "슬롯 249~251에 d2x cIOS가 설치되어 있지 않음: 아직 게임을 실행할 수 없음"
+
+msgid "No game here has packs in sd:/riivolution yet. Press 1 for all games."
+msgstr "아직 sd:/riivolution에 팩이 포함된 게임이 없습니다. 모든 게임을 보려면 1번을 누르세요."
+
+msgid "No games found (usb:/wbfs, usb:/games, sd:/wbfs, sd:/games)"
+msgstr "게임을 찾을 수 없음 (usb:/wbfs, usb:/games, sd:/wbfs, sd:/games)"
+
+msgid "Reading the SD card..."
+msgstr "SD 카드 읽는 중..."
+
+msgid "Reading the USB drive... (a big drive takes a moment)"
+msgstr "USB 드라이브를 읽는 중... (용량이 큰 드라이브는 시간이 다소 걸릴 수 있음)"
+
+msgid "Reading the disc..."
+msgstr "디스크 읽는 중..."
+
+msgid "scan failed"
+msgstr "스캔 실패"
+
+msgid "(the menu runs under IOS {1}; USB drives need a base-58 cIOS for that, or set the menu IOS back to 58)"
+msgstr "(메뉴는 iOS {1}에서 실행됩니다. USB 드라이브를 사용하려면 base-58 cIOS가 필요하거나, 메뉴 iOS를 58로 다시 설정해야 합니다.)"
+
+msgid "(after the failed launch RiftWii came back under IOS {1}, which cannot read the drive here; start RiftWii again from the Homebrew Channel)"
+msgstr "(출시 실패 후 RiftWii가 드라이브를 인식할 수 없는 IOS {1} 상태로 돌아갔습니다. 홈브류 채널l에서 RiftWii를 다시 실행하세요.)"
+
+msgid "No disc in the drive"
+msgstr "드라이브에 디스크 없음"
+
+msgid "Disc drive"
+msgstr "디스크 드라이브"
+
+msgid "USB drive"
+msgstr "USB 드라이브"
+
+msgid "SD card"
+msgstr "SD 카드"
+
+msgid "Sun"
+msgstr "일"
+
+msgid "Mon"
+msgstr "월"
+
+msgid "Tue"
+msgstr "화"
+
+msgid "Wed"
+msgstr "수"
+
+msgid "Thu"
+msgstr "목"
+
+msgid "Fri"
+msgstr "금"
+
+msgid "Sat"
+msgstr "토"
+
+msgid "{1}:{2} AM"
+msgstr "오전 {1}:{2}"
+
+msgid "{1}:{2} PM"
+msgstr "오후 {1}:{2}"
+
+msgid "{1} {2}/{3}"
+msgstr "{2}/{3} ({1})"
+
+msgid "MODS"
+msgstr "MOD"
+
+msgid "Back"
+msgstr "뒤로"
+
+msgid "Start"
+msgstr "시작"
+
+msgid "Saves"
+msgstr "저장"
+
+msgid "On the Wii"
+msgstr "Wii 본체"
+
+msgid "SD, from Wii save"
+msgstr "SD, Wii 세이브에서"
+
+msgid "SD, fresh start"
+msgstr "SD, 처음부터"
+
+msgid "Kept by the pack"
+msgstr "팩이 관리"
+
+msgid "This pack keeps its own saves. Turn it off to choose here."
+msgstr "이 팩은 자체 세이브 데이터를 사용합니다. 여기서 선택하려면 이 기능을 끄세요."
+
+msgid "Saves go to the SD card, starting from the Wii's save."
+msgstr "세이브 데이터는 Wii의 세이브 데이터를 시작으로 SD 카드로 저장됩니다."
+
+msgid "Saves go to the SD card, starting fresh."
+msgstr "저장 데이터는 SD 카드에 저장되며, 처음부터 새로 시작하게 됩니다."
+
+msgid "Saves stay on the Wii, as usual."
+msgstr "세이브는 평소와 마찬가지로 Wii 본체에 저장됩니다."
+
+msgid "Broken"
+msgstr "오류"
+
+msgid "On"
+msgstr "켬"
+
+msgid "Off"
+msgstr "끔"
+
+msgid "Mods"
+msgstr "MOD"
+
+msgid "None"
+msgstr "없음"
+
+msgid "{1} on"
+msgstr "{1} 개 켬"
+
+msgid "On: {1}"
+msgstr "켬: {1}"
+
+msgid "No mods for this game."
+msgstr "이 게임에는 MOD가 없습니다."
+
+msgid "No mods on the SD card. Put Riivolution XML in sd:/riivolution."
+msgstr "SD 카드에 MOD는 없습니다. Riivolution XML 파일을 sd:/riivolution 경로에 넣으세요."
+
+msgid "1 mod pack for this game. Press A to turn it on."
+msgstr "이 게임용 MOD 팩이 1개 있습니다. A를 눌러 활성화하세요."
+
+msgid "{1} mod packs for this game. Press A to turn them on."
+msgstr "{1} 이 게임용 MOD 팩입니다. A를 눌러 활성화하세요."
+
+msgid "No mods on the SD card"
+msgstr "SD 카드에 MOD 없음"
+
+msgid "No mods for this game"
+msgstr "이 게임에는 모드가 없음"
+
+msgid "Put Riivolution XML in sd:/riivolution"
+msgstr "Riivolution XML 파일을 sd:/riivolution에 넣기"
+
+msgid "1 XML file is for another game"
+msgstr "1 XML 파일은 다른 게임용"
+
+msgid "{1} XML files are for other games"
+msgstr "{1} XML 파일은 다른 게임용"
+
+msgid "Package scan failed; go back and try again"
+msgstr "패키지 검색에 실패했습니다. 이전 단계로 돌아가 다시 시도하기"
+
+msgid "This XML cannot be read; the error is listed under it."
+msgstr "이 XML을 읽을 수 없습니다. 오류는 그 아래에 나열되어 있습니다."
+
+msgid "This XML cannot be read; fix it on the card and come back."
+msgstr "이 XML을 읽을 수 없습니다. 카드에서 수정 후 다시 시도해 주세요."
+
+msgid "This pack cannot be turned on."
+msgstr "이 팩은 켤 수 없습니다."
+
+msgid "Off. A turns it on."
+msgstr "끔. A를 누르면 켜집니다."
+
+msgid "Off. A turns it on and shows its setting."
+msgstr "끔. A가 전원을 켜고 설정을 보여줍니다."
+
+msgid "Off. A turns it on and shows its {1} settings."
+msgstr "끔. A가 전원을 켜고 {1} 설정을 표시합니다."
+
+msgid "On. It applies as a whole."
+msgstr "켬, 전체적으로 적용됩니다."
+
+msgid "On, but nothing chosen yet: pick its settings below."
+msgstr "켬, 하지만 아직 설정이 선택되지 않았습니다. 아래에서 설정을 선택하세요."
+
+msgid "On, {1} of {2} settings chosen."
+msgstr "켬, {2}개 설정 중 {1}개 선택됩니다."
+
+msgid "No game is selected; go back and pick one."
+msgstr "선택된 게임이 없습니다; 돌아가서 게임을 선택하세요."
+
+msgid "Preparing the mods..."
+msgstr "MOD 준비 중..."
+
+msgid "Cheats"
+msgstr "치트"
+
+msgid "Picture width"
+msgstr "사진 너비"
+
+msgid "Deflicker"
+msgstr "디플리커"
+
+msgid "Black borders"
+msgstr "검은 테두리"
+
+msgid "Region video fix"
+msgstr "지역 비디오 수정"
+
+msgid "For a US or Japanese game that shows no picture on a console from another region: the game is told the video hardware matches its region."
+msgstr "다른 지역의 콘솔에서 화면이 표시되지 않는 미국 또는 일본 게임의 경우, 해당 게임은 비디오 하드웨어가 자신의 지역과 일치한다고 인식하게 됩니다."
+
+msgid "Framebuffer"
+msgstr "프레임버퍼"
+
+msgid "704 pixels"
+msgstr "704 픽셀"
+
+msgid "720 pixels (full)"
+msgstr "720 픽셀 (전체)"
+
+msgid "Game's own"
+msgstr "게임 자체"
+
+msgid "Off (sharp)"
+msgstr "끔 (선명함)"
+
+msgid "Low"
+msgstr "낮음"
+
+msgid "Medium"
+msgstr "중간"
+
+msgid "High"
+msgstr "높음"
+
+msgid "Remove"
+msgstr "제거"
+
+msgid "Keep"
+msgstr "유지하기"
+
+msgid "Remove all (experimental)"
+msgstr "모두 제거 (실험적)"
+
+msgid "Remove all"
+msgstr "모두 제거"
+
+msgid "Default ({1})"
+msgstr "기본 ({1})"
+
+msgid "On, none picked"
+msgstr "켬, 선택된 항목 없음"
+
+msgid "On, {1} picked"
+msgstr "켬, {1} 개 선택됨"
+
+msgid "Cheat codes for this game. Press A to choose them."
+msgstr "이 게임의 치트 코드입니다. A를 눌러 선택하세요."
+
+msgid "How wide the picture is drawn. 720 fills the screen from side to side."
+msgstr "화면이 얼마나 넓게 그려지는지를 나타냅니다. 720은 화면의 양쪽 끝을 가득 채웁니다."
+
+msgid "A filter that softens the picture to hide flicker. Off gives the sharpest picture."
+msgstr "화면 깜빡임을 감추기 위해 이미지를 부드럽게 만드는 필터입니다. 끄면 가장 선명한 화면이 나옵니다."
+
+msgid "Remove stretches the picture over the bars at the sides. Remove all also stretches it over the bars at the top and bottom: experimental, some games show a broken picture or crash with it."
+msgstr "'제거'는 사진을 좌우 여백(바)까지 확장합니다. '모두 제거'은 상하 여백까지 포함해 사진을 확장하는데, 이는 실험적인 기능이므로 일부 게임에서는 화면이 깨지거나 충돌이 발생할 수 있습니다."
+
+msgid "Remove takes away the bars at the sides; Remove all also the top and bottom (experimental)."
+msgstr "'제거'는 측면의 막대를 제거; '모두 제거'는 상단과 하단의 막대까지 모두 제거합니다. (실험적 기능)"
+
+msgid "Last time, this game left black borders on all sides."
+msgstr "지난번에 이 게임을 했을 때는 사방에 검은 테두리가 생겼습니다."
+
+msgid "Last time, this game left black borders at the sides."
+msgstr "지난번에 이 게임을 했을 때는 양옆에 검은 테두리가 생겼습니다."
+
+msgid "Last time, this game left black borders at the top and bottom."
+msgstr "지난번에 이 게임은 위아래에 검은색 테두리가 생겼습니다."
+
+msgid "Last time, this game filled the whole screen."
+msgstr "지난번에는 이 게임이 화면 전체를 가득 채웠습니다."
+
+msgid "Use cheats"
+msgstr "치트 사용"
+
+msgid "Get the latest cheats"
+msgstr "최신 치트 정보 확인"
+
+msgid "Download cheats"
+msgstr "치트 다운로드"
+
+msgid "Download"
+msgstr "다운로드"
+
+msgid "Edit first"
+msgstr "먼저 편집"
+
+msgid "The cheats are in {1}. Edit it on a computer to add your own."
+msgstr "치트가 {1}에 있습니다. 컴퓨터에서 편집하여 직접 추가할 수 있습니다."
+
+msgid "Downloading cheats..."
+msgstr "치트 다운로드..."
+
+msgid "{1} cheats. Turn on the ones you want."
+msgstr "{1} 치트입니다. 원하는 항목을 켜세요."
+
+msgid "Could not download cheats: {1}"
+msgstr "치트를 다운로드할 수 없음: {1}"
+
+msgid "No cheats found online for this game."
+msgstr "이 게임에 대한 치트 정보는 온라인에서 찾을 수 없습니다."
+
+msgid "This cheat has values to fill in (the X's). Edit the file first."
+msgstr "이 치트에는 값을 채워 넣어야 할 부분(X로 표시된 곳)이 있습니다. 먼저 파일을 편집하세요."
+
+msgid "Cheats are only applied when this is On."
+msgstr "이 기능이 켜져 있을 때만 치트가 적용됩니다."
+
+msgid "Replaces the file with the latest cheats from the GeckoCodes archive."
+msgstr "GeckoCodes 아카이브의 최신 치트 파일로 교체합니다."
+
+msgid "Downloads are off in Settings."
+msgstr "설정에서 다운로드 기능이 꺼져 있습니다."
+
+msgid "No game is selected."
+msgstr "선택된 게임이 없습니다."
+
+msgid "No cheat file yet. Choose Download to get one."
+msgstr "아직 치트 파일이 없습니다. 다운로드를 선택하여 파일을 받으세요."
+
+msgid "No cheat file at {1}"
+msgstr "{1}에 치트 파일이 없"
+
+msgid "The cheat file has no cheats in it: {1}"
+msgstr "치트 파일에 치트 없음: {1}"
+
+msgid "Settings"
+msgstr "설정"
+
+msgid "Language"
+msgstr "언어"
+
+msgid "Wii: {1}"
+msgstr "Wii: {1}"
+
+msgid "Download names and cheats"
+msgstr "이름 및 치트 다운로드"
+
+msgid "Get the latest game names"
+msgstr "최신 게임 이름 확인"
+
+msgid "Update"
+msgstr "업데이트"
+
+msgid "Menu IOS"
+msgstr "메뉴 IOS"
+
+msgid "Menu IOS: IOS 58 (no d2x cIOS found)"
+msgstr "메뉴 IOS: IOS 58 (d2x cIOS를 찾을 수 없음)"
+
+msgid "Find network packs (RiiFS)"
+msgstr "네트워크 팩 (RiiFS) 찾기"
+
+msgid "Copy network packs again"
+msgstr "네트워크 팩을 다시 복사"
+
+msgid "Resync"
+msgstr "재동기화"
+
+msgid "Look for games again"
+msgstr "다시 게임을 찾아보기"
+
+msgid "Rescan"
+msgstr "재검색"
+
+msgid "Leave RiftWii"
+msgstr "RiftWii 나가기"
+
+msgid "Exit"
+msgstr "나가기"
+
+msgid "These apply to every game. A game's own page can change them for that game."
+msgstr "이 내용은 모든 게임에 적용됩니다. 개별 게임 페이지에서 해당 게임에 맞춰 이를 변경할 수 있습니다."
+
+msgid "Game names follow the language when they are downloaded."
+msgstr "게임 이름은 다운로드 시 해당 언어를 따릅니다."
+
+msgid "Game names and cheats are downloaded when the Wii is online."
+msgstr "Wii가 온라인 상태일 때 게임 이름과 치트가 다운로드됩니다."
+
+msgid "Nothing is downloaded. Names and cheats already on the card are still used."
+msgstr "아무것도 다운로드되지 않습니다. 카드에 이미 들어 있는 이름과 치트가 그대로 사용됩니다."
+
+msgid "Downloads are off. Turn on Download names and cheats first."
+msgstr "다운로드 기능이 꺼져 있습니다. 먼저 이름 및 치트 다운로드 기능을 켜세요."
+
+msgid "Downloading game names..."
+msgstr "게임 이름 다운로드 중..."
+
+msgid "Game names updated."
+msgstr "게임 이름이 업데이트되었습니다."
+
+msgid "Could not download game names: {1}"
+msgstr "게임 이름을 다운로드할 수 없음: {1}"
+
+msgid "Cannot write sd:/riftwii/settings.txt"
+msgstr "sd:/riftwii/settings.txt 파일을 기록할 수 없음"
+
+msgid "Cannot write sd:/riftwii/menu_ios.txt"
+msgstr "sd:/riftwii/menu_ios.txt 파일을 기록할 수 없음"
+
+msgid "The menu runs under the Homebrew Channel's IOS (the default)."
+msgstr "메뉴는 홈브류 채널의 IOS (기본값)에서 실행됩니다."
+
+msgid "The menu and every game run under cIOS {1}, so a cIOS with fakemote makes USB DS3/DS4 pads work as Wii Remotes. USB drives in the menu need a base-58 cIOS."
+msgstr "메뉴와 모든 게임은 cIOS {1} 환경에서 구동되므로, 'fakemote' 기능이 포함된 cIOS를 사용하면 USB로 연결된 DS3/DS4 패드를 Wii 리모컨처럼 사용할 수 있습니다. 메뉴에서 USB 드라이브를 사용하려면 base-58 cIOS가 필요합니다."
+
+msgid "Takes effect the next time RiftWii starts."
+msgstr "다음에 RiftWii가 시작될 때 적용됩니다."
+
+msgid "Looks for a PC running a RiiFS server when the games are read. Rescan to look now."
+msgstr "게임을 불러올 때 RiiFS 서버가 실행 중인 PC를 찾습니다. 지금 바로 다시 검색하려면 재검색을 수행하세요."
+
+msgid "Only servers named by <network> in an XML on the card are used."
+msgstr "카드 내 XML의 <network>에 지정된 서버만 사용됩니다."
+
+msgid "The next launch copies every file of its network packs again."
+msgstr "다음 실행 시 네트워크 팩의 모든 파일이 다시 복사됩니다."
+
+msgid "Starting"
+msgstr "시작중"
+
+msgid "Dumping files from"
+msgstr "파일 덤프하기"
+
+msgid "The game takes over the screen when it is ready."
+msgstr "게임이 준비되면 화면을 가득 채웁니다."
+
+msgid "Opening the game..."
+msgstr "게임을 시작하는 중..."
+
+msgid "GameCube adapter"
+msgstr "게임큐브 어댑터"
+
+msgid "Check the GameCube adapter"
+msgstr "게임큐브 어댑터 확인"
+
+msgid "Test"
+msgstr "테스트"
+
+msgid "Welcome to RiftWii"
+msgstr "RiftWii에 오신 것을 환영합니다"
+
+msgid "RiftWii starts your Wii games with Riivolution-format mods, from the disc, a USB drive or the SD card. Your game files are never changed. This short tour shows the basics."
+msgstr "RiftWii는 디스크, USB 드라이브 또는 SD 카드에 있는 Wii 게임을 Riivolution 형식의 MOD와 함께 실행해 줍니다. 이때 원본 게임 파일은 전혀 변경되지 않습니다. 이 짧은 소개를 통해 기본적인 사용법을 확인해 보세요."
+
+msgid "Your games"
+msgstr "게임"
+
+msgid "Put games in the wbfs or games folder at the top of the SD card or the USB drive (WBFS, ISO or RVZ). A disc in the drive shows up too. Home lists games that have mods first: press 1, or the round button at the bottom left, to see all your games."
+msgstr "SD 카드나 USB 드라이브의 최상위 경로에 있는 `wbfs` 또는 `games` 폴더에 게임 파일(WBFS, ISO 또는 RVZ 형식)을 넣으세요. 드라이브에 삽입된 디스크도 함께 표시됩니다. 홈 화면에는 모드가 적용된 게임이 우선적으로 표시되지만, '1'번 버튼 (또는 왼쪽 하단의 원형 버튼)을 누르면 전체 게임 목록을 확인할 수 있습니다."
+
+msgid "Put mod packs (the XML file and the folders that come with it) in sd:/riivolution or usb:/riivolution. Pick a game, open Mods, switch a pack on and choose its options. Start (or +) plays the game with them."
+msgstr "MOD 팩(XML 파일 및 관련 폴더)을 sd:/riivolution 또는 usb:/riivolution 경로에 넣으세요. 게임을 선택하고 'Mods'로 들어가 모드 팩을 활성화한 뒤 옵션을 설정하세요. 시작 (또는 +) 버튼을 누르면 해당 모드가 적용된 상태로 게임이 시작됩니다."
+
+msgid "Buttons"
+msgstr "버튼"
+
+msgid "Point with the Wii Remote and press A, or move with the D-pad; in the games list, - and + turn the pages. B goes back, 2 opens Settings and HOME opens the HOME Menu. The Classic Controller and GameCube controllers work too, with the same buttons."
+msgstr "위모컨으로 화면을 가리키고 A 버튼을 누르거나 십자 버튼으로 조작할 수 있으며, 게임 목록에서는 - 및 + 버튼으로 페이지를 넘길 수 있습니다. B 버튼은 이전 화면으로 돌아가고, 2 버튼은 설정 메뉴를, 홈 버튼은 홈 메뉴를 엽니다. 클래식 컨트롤러나 게임큐브 컨트롤러도 사용할 수 있으며, 버튼 기능은 동일합니다."
+
+msgid "You're all set"
+msgstr "준비 완료"
+
+msgid "Settings has the video, language, online and update options. For more help, see the guide on RiftWii's GitHub page or join the Discord. Settings > Tutorial shows this tour again."
+msgstr "설정 메뉴에는 비디오, 언어, 온라인, 업데이트 관련 옵션이 있습니다. 더 자세한 내용은 RiftWii GitHub 페이지의 가이드를 참조하거나 Discord에 참여해 확인하세요. '설정 > 자습서'를 선택하면 이 안내를 다시 볼 수 있습니다."
+
+msgid "Next"
+msgstr "다음"
+
+msgid "Skip"
+msgstr "건너뛰기"
+
+msgid "Let's go"
+msgstr "시작하기"
+
+msgid "Tutorial"
+msgstr "자습서"
+
+msgid "Show"
+msgstr "표시"
+
+msgid "The short tour of RiftWii's basics that a new SD card starts with."
+msgstr "새 SD 카드로 시작할 때 진행되는 RiftWii의 기본 기능에 대한 간략한 안내입니다."
+
+msgid "Credits and license"
+msgstr "크레딧 및 라이선스"
+
+msgid "Filter"
+msgstr "필터"
+
+msgid "View"
+msgstr "보기"
+
+msgid "Who RiftWii's parts come from, its license (the GNU GPL, version 3 or later) and where its source is."
+msgstr "RiftWii의 구성 요소 출처, 라이선스(GNU GPL 버전 3 이상), 소스 코드 위치."
+
+msgid "Experimental. When the adapter is plugged in as a game starts, its controllers fill the ports that have none plugged in, in games that support the GameCube controller. It needs IOS 58 or a d2x cIOS."
+msgstr "실험적 기능입니다. 게임을 시작할 때 어댑터를 연결하면, 게임큐브 컨트롤러를 지원하는 게임에서 컨트롤러가 연결되지 않은 포트를 해당 어댑터의 컨트롤러가 채우게 됩니다. 이 기능을 사용하려면 IOS 58 또는 d2x cIOS가 필요합니다."
+
+msgid "Experimental. Always on, even with no adapter plugged in, so it can be plugged in during a game. It needs IOS 58 or a d2x cIOS."
+msgstr "실험적인 기능입니다. 어댑터가 연결되어 있지 않아도 항상 활성화된 상태로 유지되므로 게임 도중에도 어댑터를 연결할 수 있습니다. IOS 58 또는 d2x cIOS가 필요합니다."
+
+msgid "Experimental. The adapter is left alone."
+msgstr "실험적 기능입니다. 어댑터는 그대로 유지됩니다."
+
+msgid "Adapter: working"
+msgstr "어답터：작업중"
+
+msgid "Adapter: starting..."
+msgstr "어답터：시작중..."
+
+msgid "Adapter: another program is using it, waiting"
+msgstr "어답터：다른 프로그램에서 사용 중이고, 대기 중"
+
+msgid "Adapter: it did not answer ({1}), trying again"
+msgstr "어답터：({1})에 응답하지 않음, 다시 시도"
+
+msgid "Adapter: not found. Plug in its black USB plug."
+msgstr "어댑터: 찾을 수 없습니다. 검은색 USB 플러그를 연결하세요."
+
+msgid "Press buttons on a controller in the adapter to see them here. In a game that supports the GameCube controller, the adapter's controllers fill the ports that have none plugged in."
+msgstr "어댑터에 연결된 컨트롤러의 버튼을 누르면 이곳에 표시됩니다. 게임큐브 컨트롤러를 지원하는 게임에서는 어댑터에 연결된 컨트롤러가 비어 있는 포트를 채우게 됩니다."
+
+msgid "This IOS has no USB HID (IOS{1}). Choose IOS 58 or a d2x cIOS as the Menu IOS."
+msgstr "이 IOS에는 USB HID (IOS{1}) 기능이 없습니다. 메뉴 IOS로 IOS 58 또는 d2x cIOS를 선택하세요."
+
+msgid "Port {1}"
+msgstr "포트 {1}"
+
+msgid "nothing plugged in"
+msgstr "연결되지 않음"
+
+msgid "The menu's language. Wii follows the console's own setting."
+msgstr "메뉴 언어입니다. Wii는 본체 자체 설정을 따릅니다."
+
+msgid "Downloads the newest game names from GameTDB."
+msgstr "GameTDB에서 최신 게임 이름을 다운로드합니다."
+
+msgid "Shows live what the controllers in the adapter are pressing."
+msgstr "어댑터에 연결된 컨트롤러의 입력 상태를 실시간으로 보여줍니다."
+
+msgid "Reads the SD card and the USB drive again."
+msgstr "SD 카드와 USB 드라이브를 다시 읽습니다."
+
+msgid "No d2x cIOS was found in slots 248 to 252, so the menu runs under IOS 58. Install d2x to play games from SD or USB."
+msgstr "슬롯 248~252에서 d2x cIOS가 발견되지 않아 메뉴가 IOS 58로 실행됩니다. SD 카드나 USB로 게임을 플레이하려면 d2x를 설치하세요."
+
+msgid "Check for a new version"
+msgstr "새 버전 확인"
+
+msgid "Check"
+msgstr "확인"
+
+msgid "This is RiftWii {1}. Looks on GitHub for a newer release."
+msgstr "이것은 RiftWii {1}입니다. GitHub에서 더 최신 릴리스를 확인해 보세요."
+
+msgid "Asking GitHub..."
+msgstr "GitHub에 요청 중..."
+
+msgid "RiftWii {1} is out: {2}"
+msgstr "RiftWii {1} 출시: {2}"
+
+msgid "RiftWii {1} is the newest version."
+msgstr "RiftWii {1}이(가) 최신 버전입니다."
+
+msgid "Could not check: {1}"
+msgstr "확인할 수 없음: {1}"
+
+msgid "Favourites"
+msgstr "즐겨찾기"
+
+msgid "Favourite"
+msgstr "즐겨찾기"
+
+msgid "Favourites have their own view on Home: press 1 there until it shows."
+msgstr "홈 화면에서 즐겨찾기에 대한 별도의 보기가 제공됩니다. 해당 화면이 나타날 때까지 '1'번을 길게 누르세요."
+
+msgid "No favourite is on these drives. Mark games on their page. Press 1 for all games."
+msgstr "이 드라이브에는 즐겨찾기가 없습니다. 각 게임 페이지에서 게임을 즐겨찾기로 표시하세요. 모든 게임을 보려면 1번을 누르세요."
+
+msgid "Could not save the settings to the SD card."
+msgstr "SD 카드에 설정을 저장할 수 없었습니다."
+
+msgid "Video mode"
+msgstr "비디오 모드"
+
+msgid "Game language"
+msgstr "게임 언어"
+
+msgid "The console's"
+msgstr "본체 설정"
+
+msgid "Automatic"
+msgstr "자동"
+
+msgid "Japanese"
+msgstr "일본어"
+
+msgid "English"
+msgstr "영어"
+
+msgid "German"
+msgstr "독일어"
+
+msgid "French"
+msgstr "프랑스어"
+
+msgid "Spanish"
+msgstr "스페인어"
+
+msgid "Italian"
+msgstr "이탈리아어"
+
+msgid "Dutch"
+msgstr "네덜란드어"
+
+msgid "Chinese (simplified)"
+msgstr "중국어 (간체)"
+
+msgid "Chinese (traditional)"
+msgstr "중국어 (번체)"
+
+msgid "Korean"
+msgstr "한국어"
+
+msgid "The TV signal the game sends. PAL 50 Hz needs a TV that takes it, 480p a component cable."
+msgstr "게임이 출력하는 TV 신호입니다. PAL 50Hz 방식은 이를 지원하는 TV가 필요하며, 480p는 컴포넌트 케이블이 필요합니다."
+
+msgid "The language the game is told the console uses. Pick one the game has: some games stop without it."
+msgstr "게임이 콘솔에서 사용한다고 인식하는 언어입니다. 게임이 지원하는 언어 중 하나를 선택하세요. 일부 게임은 이를 설정하지 않으면 실행이 중단될 수 있습니다."
+
+msgid "The d2x cIOS the game runs under. Automatic uses the menu's, else the first of 249, 250 and 251 that works."
+msgstr "게임이 실행될 d2x cIOS입니다. '자동'으로 설정하면 메뉴의 설정을 따르며, 그렇지 않은 경우 249, 250, 251번 중 정상적으로 작동하는 첫 번째 cIOS가 사용됩니다."
+
+msgid "Online server"
+msgstr "온라인 서버"
+
+msgid "Home tiles"
+msgstr "홈 타이트"
+
+msgid "Covers"
+msgstr "커버"
+
+msgid "Names"
+msgstr "이름"
+
+msgid "Shelf"
+msgstr "선반"
+
+msgid "Channels"
+msgstr "채널"
+
+msgid "Widescreen menu"
+msgstr "와이드화면 메뉴"
+
+msgid "Screen size"
+msgstr "화면 크기"
+
+msgid "On a 16:9 TV the menu is drawn narrower, so covers and pictures keep their shape. Automatic follows the Wii's own TV setting."
+msgstr "16:9 비율의 TV에서는 메뉴가 더 좁게 표시되므로 표지와 사진의 형태가 유지됩니다. '자동' 설정은 Wii 본체의 TV 설정 방식을 따릅니다."
+
+msgid "Makes the menu smaller on screen, so nothing is cut off at the TV's edges. Lower it until the whole menu shows."
+msgstr "화면상의 메뉴 크기를 줄여 TV 가장자리에서 메뉴가 잘리지 않도록 합니다. 메뉴 전체가 보일 때까지 크기를 낮추세요."
+
+msgid "Continue"
+msgstr "계속하기"
+
+msgid "Covers shows each game's box art from GameTDB, fetched while Home is open when downloads are on. Shelf stands the games' boxes on a shelf. Channels shows each game's own animated icon, as the Wii Menu does, and its banner when you pick it. Names shows the names only."
+msgstr "'커버'는 다운로드 기능이 켜진 상태에서 홈 메뉴가 열려 있을 때 GameTDB에서 가져온 각 게임의 패키지 이미지를 표시합니다. '선반'은 게임 패키지를 선반 위에 세워진 형태로 보여줍니다. '채널'은 Wii 메뉴와 마찬가지로 각 게임의 고유한 애니메이션 아이콘을 표시하며, 게임을 선택하면 배너가 나타납니다. '이름'는 게임 이름만 표시합니다."
+
+msgid "Custom (no wfc_domain set)"
+msgstr "커스텀 (wfc_domain 설정되지 않음)"
+
+msgid "The online server the game uses in place of Nintendo's, which closed. Custom uses wfc_domain in settings.txt."
+msgstr "서비스가 종료된 닌텐도 서버 대신 이 게임이 사용하는 온라인 서버입니다. 설정 파일(settings.txt)에서 wfc_domain을 사용합니다."
+
+msgid "Getting covers from GameTDB: {1} left"
+msgstr "GameTDB에서 커버 가져오는 중: {1} 개 남음"
+
+msgid "Covers could not be downloaded ({1}). To try again, use Settings > Look for games again."
+msgstr "커버 이미지를 ({1})에서 다운로드할 수 없습니다. 다시 시도하려면 설정 > 게임 다시 찾기를 이용하세요."
+
+msgid "Cover"
+msgstr "커버"
+
+msgid "Download again"
+msgstr "다시 다운로드"
+
+msgid "Downloads this game's box art from GameTDB now."
+msgstr "지금 GameTDB에서 이 게임의 박스 아트를 다운로드하세요."
+
+msgid "Downloading the cover..."
+msgstr "커버 다운로드 중..."
+
+msgid "Cover downloaded."
+msgstr "커버가 다운로드되었습니다."
+
+msgid "GameTDB has no cover for this game."
+msgstr "GameTDB에 이 게임의 표지 이미지가 없습니다."
+
+msgid "Could not download the cover: {1}"
+msgstr "커버를 다운로드할 수 없음: {1}"
+
+msgid "Menu sounds"
+msgstr "메뉴 사운드"
+
+msgid "Normal"
+msgstr "보통"
+
+msgid "Quiet"
+msgstr "조용함"
+
+msgid "How loud the menu's clicks are. Quiet softens the tick the pointer makes moving onto something."
+msgstr "메뉴를 클릭할 때 나는 소리의 크기입니다. '조용함' 설정은 포인터가 항목 위로 이동할 때 발생하는 '틱' 소리를 부드럽게 만들어 줍니다."
+
+msgid "Wii Menu button"
+msgstr "Wii 메뉴 버튼"
+
+msgid "Back to RiftWii"
+msgstr "RiftWii로 돌아가기"
+
+msgid "The Wii Menu button in a game's HOME Menu brings you back to RiftWii. It needs the RiftWii channel installed."
+msgstr "게임 내 홈 메뉴의 'Wii 메뉴' 버튼을 누르면 RiftWii로 돌아갑니다. 이를 위해서는 RiftWii 채널이 설치되어 있어야 합니다."
+
+msgid "The Wii Menu button in a game's HOME Menu can bring you back to RiftWii once the RiftWii channel is installed (Settings)."
+msgstr "게임 내 홈 메뉴에 있는 'Wii 메뉴' 버튼을 사용하면, Rift Wii 채널이 설치된 경우(설정에서 확인 가능) Rift Wii로 돌아갈 수 있습니다."
+
+msgid "Menu music"
+msgstr "메뉴 음악"
+
+msgid "In-game screenshots"
+msgstr "게임 내 스크린샷"
+
+msgid "Experimental. In a game, hold 1 and press HOME (or hold L and R and press Down on a GameCube controller). The pictures go to sd:/riftwii/screenshots the next time RiftWii starts. Some games and mods may not work with it."
+msgstr "실험적 기능입니다. 게임 중 1번 버튼을 누른 상태에서 홈 버튼을 누르세요 (또는 게임큐브 컨트롤러의 L과 R 버튼을 누른 상태에서 아래 방향키를 누르세요). 다음에 RiftWii를 실행하면 스크린샷이 sd:/riftwii/screenshots 경로에 저장됩니다. 일부 게임이나 모드에서는 이 기능이 작동하지 않을 수 있습니다."
+
+msgid "Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder."
+msgstr "메뉴가 열려 있을 때 재생되는 음악: sd:/riftwii 경로의 music.ogg 또는 RiftWii 폴더 내의 음악 파일입니다."
+
+msgid "No music.ogg found in sd:/riftwii or in RiftWii's own folder."
+msgstr "sd:/riftwii 또는 RiftWii 자체 폴더에서 music.ogg 파일을 찾을 수 없습니다."
+
+msgid "On a Wii U the GameCube adapter may not work in game from the front USB ports; the rear ones work."
+msgstr "Wii U에서 게임큐브 어댑터를 전면 USB 포트에 연결하면 게임 중에 작동하지 않을 수 있으나, 후면 포트에서는 정상적으로 작동합니다."
+
+msgid "Packs on USB are experimental; if it fails, copy them to SD."
+msgstr "USB의 팩은 실험적인 기능입니다. 실패할 경우 SD 카드로 복사하세요."
+
+msgid "CTGP Revolution (a pack that starts a Homebrew Channel app) does not work from RiftWii yet: it stops on a black or green screen. Start CTGP from the Homebrew Channel instead."
+msgstr "CTGP Revolution(홈브류 채널 앱을 통해 실행하는 팩)은 아직 RiftWii에서 정상적으로 작동하지 않으며, 검은색 또는 녹색 화면에서 멈춥니다. 대신 홈브류 채널에서 CTGP를 실행하세요."
+
+msgid "CTGP Revolution does not work from RiftWii yet (see Start)."
+msgstr "CTGP Revolution은 아직 RiftWii에서 작동하지 않습니다. (시작 항목 참조)"
+
+msgid " (and {1} more)"
+msgstr " (그리고 {1} 개 더)"
+
+msgid "Code builds on the USB drive won't work. Move {1} to the SD card."
+msgstr "USB 드라이브에서 빌드된 코드는 작동하지 않습니다. {1}을(를) SD 카드로 이동하세요."
+
+msgid "This won't work: code builds like Project+ have to be on the SD card, not the USB drive. Move {1} to the same spot on your SD card and try again. Your games can stay on USB."
+msgstr "이 방법으로는 작동하지 않습니다. 프로젝트+와 같은 커스텀 빌드는 USB 드라이브가 아닌 SD 카드에 있어야 합니다. {1}을(를) SD 카드의 동일한 위치로 옮긴 후 다시 시도해 보세요. 게임 파일은 USB에 그대로 두어도 됩니다."
+
+msgid "Code builds need the game on USB or disc, not the SD card."
+msgstr "코드 빌드를 실행하려면 게임이 SD 카드가 아닌 USB나 디스크에 있어야 합니다."
+
+msgid "This won't work: code builds like Project+ read the SD card while you play, so the game can't be on the SD card too. Put it on a USB drive or use the disc."
+msgstr "이 방법은 작동하지 않습니다. 프로젝트+와 같은 개조 버전은 게임을 플레이하는 동안 SD 카드를 읽어 들이기 때문에, 게임 파일 자체를 SD 카드에 넣어둘 수 없습니다. USB 드라이브에 담거나 디스크를 사용하세요."
+
+msgid "{1} is on the USB drive: the game has to be there too."
+msgstr "{1}이(가) USB 드라이브에 있습니다: 게임도 그곳에 있어야 합니다."
+
+msgid "This won't work: {1} is on the USB drive, and RiftWii reads the USB drive during a game only when the game is on it too. Put the game on the USB drive, or put {1} in the riftwii folder on your SD card."
+msgstr "이 방법은 작동하지 않습니다: {1} 파일이 USB 드라이브에 있는데, RiftWii는 게임 파일도 해당 USB 드라이브에 있을 때만 게임 실행 중 USB 드라이브를 읽어오기 때문입니다. 게임을 USB 드라이브로 옮기거나, SD 카드의 riftwii 폴더에 {1} 파일을 넣으세요."
+
+msgid "Updating RiftWii"
+msgstr "RiftWii 업데이트"
+
+msgid "RiftWii {1} is out. Downloading and installing it now; this takes a minute..."
+msgstr "RiftWii {1}이(가) 출시되었습니다. 지금 다운로드 및 설치 중이고, 시간이 조금 걸리는 중..."
+
+msgid "Update failed"
+msgstr "업데이트 실패"
+
+msgid "RiftWii {1} could not be installed: {2}. This version keeps working; the new one is at {3}"
+msgstr "RiftWii {1}을(를) 설치할 수 없습니다: {2}. 현재 버전은 계속 작동하며, 새 버전은 {3}에 있습니다."
+
+msgid "OK"
+msgstr "확인"
+
+msgid "RiftWii updated"
+msgstr "RiftWii 업데이트됨"
+
+msgid "RiftWii {1} is installed ({2}). It runs the next time RiftWii starts. Leave to the Homebrew Channel now and start it again?"
+msgstr "RiftWii {1}이(가) ({2})에 설치되었습니다. RiftWii는 다음에 실행될 때 작동합니다. 지금 홈브류 채널로 나가서 다시 실행할까요?"
+
+msgid "Leave"
+msgstr "종료"
+
+msgid "Later"
+msgstr "나중에"
+
+msgid "RiftWii {1} is installed. Start RiftWii again to use it."
+msgstr "RiftWii {1}이(가) 설치되었습니다. 사용하려면 RiftWii를 다시 시작하세요."
+
+msgid "Update available"
+msgstr "업데이트 가능"
+
+msgid "RiftWii {1} is out (this is {2}). Update now? It takes a minute."
+msgstr "RiftWii {1} 버전이 출시되었습니다. (현재 버전은 {2}) 지금 업데이트할까요? 1분 정도 소요됩니다."
+
+msgid "Not now"
+msgstr "지금 안 함"
+
+msgid "Are you sure?"
+msgstr "정말 확실한가요?"
+
+msgid "Are you sure you don't want to update? If you had an issue, it could have been fixed in the latest update!"
+msgstr "정말 업데이트하지 않나요? 혹시 문제가 있었다면 최신 업데이트에서 해결되었을 수도 있습니다!"
+
+msgid "RiftWii {1} is out. Settings > Check for a new version installs it."
+msgstr "RiftWii {1}이(가) 출시되었습니다. 설정 > 새 버전 확인을 통해 설치할 수 있습니다."
+
+msgid "Updates"
+msgstr "업데이트"
+
+msgid "Beta"
+msgstr "베타"
+
+msgid "Stable"
+msgstr "안정화"
+
+msgid "Beta: every new version, including test builds that may have new bugs. For testers."
+msgstr "베타: 새로운 버그가 포함될 수 있는 테스트 빌드를 포함한 모든 새 버전입니다. 테스터용입니다."
+
+msgid "Stable: only versions marked stable, which testers have checked."
+msgstr "안정 버전: 테스터가 확인을 마친, '안정'으로 표시된 버전만 해당합니다."
+
+msgid "No stable version is out yet. This is RiftWii {1}."
+msgstr "아직 안정 버전은 출시되지 않았습니다. 이것은 RiftWii {1}입니다."
+
+msgid "SD card: {1}"
+msgstr "SD 카드: {1}"
+
+msgid "USB drive: {1}"
+msgstr "USB 드라이브: {1}"
+
+msgid "Drive problem"
+msgstr "드라이브 문제"
+
+msgid "Games on that drive are not listed. Check the drive on a computer; details are in sd:/riftwii/session.log."
+msgstr "해당 드라이브의 게임이 목록에 표시되지 않습니다. 컴퓨터에서 드라이브를 확인해 보세요오. 자세한 내용은 sd:/riftwii/session.log 파일에서 확인할 수 있습니다."
+
+msgid "SD card problems"
+msgstr "SD 카드 문제"
+
+msgid "The SD card had trouble while the last game was saving. The details are in sd:/riftwii/cardlog.txt; please send that file to the RiftWii developers."
+msgstr "마지막 게임을 저장하는 도중 SD 카드에 문제가 발생했습니다. 자세한 내용은 sd:/riftwii/cardlog.txt 파일에 기록되어 있으니, 해당 파일을 RiftWii 개발자에게 보내주세요."
+
+msgid "Before you play"
+msgstr "플레이하기 전"
+
+msgid "Press Start again to play."
+msgstr "게임을 시작하려면 시작을 다시 누르세요."
+
+msgid "Game cIOS"
+msgstr "게임 cIOS"
+
+msgid "Add RiftWii to the Wii Menu?"
+msgstr "Wii 메뉴에 RiftWii를 추가할까요?"
+
+msgid "RiftWii can have a channel on the Wii Menu, so it starts without the Homebrew Channel. The channel only starts RiftWii from your SD card: RiftWii's updates keep working and the channel never needs reinstalling. The channel installer opens, then brings you back here. Settings can open it again later."
+msgstr "RiftWii는 Wii 메뉴에 채널을 생성할 수 있어 홈브류 채널을 거치지 않고도 바로 실행할 수 있습니다. 이 채널은 SD 카드의 RiftWii를 실행하는 방식이므로, RiftWii를 업데이트해도 채널을 재설치할 필요가 없습니다. 채널 설치 프로그램을 실행하면 다시 이 화면으로 돌아오게 되며, 나중에 설정 메뉴를 통해 다시 실행할 수도 있습니다."
+
+msgid "Open installer"
+msgstr "설치 프로그램 열기"
+
+msgid "No thanks"
+msgstr "아니요"
+
+msgid "RiftWii channel on the Wii Menu"
+msgstr "Wii 메뉴의 RiftWii 채널"
+
+msgid "Installed"
+msgstr "설치됨"
+
+msgid "Add"
+msgstr "추가"
+
+msgid "Open the channel installer?"
+msgstr "채널 설치 프로그램을 열까요?"
+
+msgid "RiftWii closes and the channel installer opens. It adds, updates or removes the RiftWii channel, then brings you back here."
+msgstr "RiftWii가 종료되고 채널 설치 프로그램이 실행됩니다. 이 프로그램은 RiftWii 채널을 추가, 업데이트 또는 삭제한 다음 다시 이 화면으로 돌아옵니다."
+
+msgid "Open"
+msgstr "열기"
+
+msgid "Cancel"
+msgstr "취소"
+
+msgid "The RiftWii channel"
+msgstr "RiftWii 채널"
+
+msgid "Opening the installer for"
+msgstr "설치 프로그램 열기"
+
+msgid "RiftWii starts again when it is done."
+msgstr "RiftWii는 작업이 완료되면 다시 시작됩니다."
+
+msgid "A Wii Menu channel that starts RiftWii from the SD card. It holds no copy of RiftWii, so updates keep working. Opens the channel installer, to add, update or remove it."
+msgstr "SD 카드에서 RiftWii를 실행하는 Wii 메뉴 채널입니다. RiftWii 본체를 포함하고 있지 않으므로 업데이트가 정상적으로 작동합니다. 채널 설치 프로그램을 실행하여 채널을 추가, 업데이트 또는 삭제할 수 있습니다."
+
+msgid "Copy apps/riftwii_channel from the RiftWii zip to the SD card first"
+msgstr "먼저 RiftWii zip 파일에서 apps/riftwii_channel을 SD 카드로 복사"
+
+msgid "Dolphin checks real signatures, so the channel can only be installed on a Wii"
+msgstr "돌핀은 실제 서명을 확인하므로, 해당 채널은 Wii에서만 설치할 수 있음"
+
+msgid "Installing the channel needs a d2x cIOS in slot 249, 250 or 251"
+msgstr "채널을 설치하려면 슬롯 249, 250 또는 251에 d2x cIOS가 필요함"
+
+msgid "(Log: sd:/riftwii/session.log)"
+msgstr "(로그: sd:/riftwii/session.log)"
+
+msgid "RiftWii needs an SD card"
+msgstr "RiftWii에는 SD 카드 필요"
+
+msgid "USB mode is not supported yet"
+msgstr "USB 모드는 아직 미지원"
+
+msgid "No SD card was found"
+msgstr "SD 카드를 찾을 수 없음"
+
+msgid "RiftWii was started from a USB drive. It keeps its settings, logs and saves on the SD card, so for now it needs one to run. Copy the sd-card folder from the RiftWii zip to a FAT32 SD card, put the card in the Wii and start RiftWii from it."
+msgstr "RiftWii는 USB 드라이브에서 실행됩니다. 설정, 로그, 저장 데이터는 SD 카드에 기록되므로 현재 실행을 위해서는 SD 카드가 필요합니다. RiftWii 압축 파일에 포함된 'sd-card' 폴더를 FAT32 형식의 SD 카드에 복사한 뒤, 해당 카드를 Wii에 연결하고 RiftWii를 실행하세요."
+
+msgid "RiftWii keeps its settings, logs and saves on the SD card and could not read one. Put a FAT32 SD card in the Wii with the sd-card folder from the RiftWii zip on it, then start RiftWii again."
+msgstr "RiftWii는 설정, 로그, 세이브 파일을 SD 카드에 저장하는데, 현재 SD 카드를 읽을 수 없는 상태입니다. RiftWii 압축 파일에 포함된 'sd-card' 폴더를 FAT32 형식의 SD 카드에 담아 Wii에 삽입한 후, RiftWii를 다시 실행해 보세요."
+
+msgid "Need a card? Scan this."
+msgstr "카드가 필요한가요? 이것을 스캔하세요."
+
+msgid "Is this a burned disc?"
+msgstr "이것은 구운 디스크인가요?"
+
+msgid "The drive could not read this disc. If it is a burned disc, RiftWii can read it through d2x on older Wiis (later Wii drives read only Nintendo discs). Burned discs can wear out the disc drive sooner: use them at your own risk. The menu then restarts under IOS{1} for this session."
+msgstr "드라이브가 이 디스크를 읽을 수 없습니다. (신형 Wii 드라이브는 정품 Nintendo 디스크만 인식하지만) 구형 Wii의 경우 d2x를 통해 RiftWii로 구운 디스크를 읽을 수 있습니다. 구운 디스크는 드라이브의 수명을 단축시킬 수 있으므로 사용 시 주의가 필요합니다. 이후 해당 세션 동안 메뉴가 IOS{1} 기반으로 재시작됩니다."
+
+msgid "Burned disc: it wears the Wii's disc drive more than a pressed disc does. Play at your own risk."
+msgstr "복사한 디스크는 정품 디스크보다 Wii의 디스크 드라이브에 더 많은 무리를 줍니다. 사용 시 발생하는 문제는 전적으로 사용자의 책임입니다."
+
+msgid "Try with d2x"
+msgstr "d2x로 시도"
+
+msgid "The menu runs under IOS{1} for this session, to read burned discs. Pick the disc."
+msgstr "이번 세션에서는 구워진 디스크를 읽기 위해 IOS{1}로 메뉴가 실행됩니다. 디스크를 선택하세요."
+
+msgid "The drive cannot read this disc, even through d2x. Later Wii drives read only Nintendo discs, never burned ones; on an older Wii, the burn may be bad."
+msgstr "d2x를 사용하더라도 드라이브가 이 디스크를 읽을 수 없습니다. 이후에 출시된 Wii 드라이브는 닌텐도 정품 디스크만 읽을 수 있고 구운 디스크는 인식하지 못하며, 구형 Wii의 경우 디스크가 제대로 구워지지 않았을 수도 있습니다."
+
+msgid "The drive cannot read this disc. If it is a burned disc, RiftWii needs a d2x cIOS to read it."
+msgstr "드라이브가 이 디스크를 읽을 수 없습니다. 구운 디스크인 경우, RiftWii에서 이를 읽으려면 d2x cIOS가 필요합니다."
+
+msgid "RiftWii could not restart. Start it again from the Homebrew Channel."
+msgstr "RiftWii를 다시 시작할 수 없습니다. 홈브류 채널에서 다시 시작해 주세요."
+
+msgid "1 game"
+msgstr "게임 1 개"
+
+msgid "{1} games"
+msgstr "{1} 개 게임"
+
+msgid "Search \"{1}\""
+msgstr "\"{1}\" 검색"
+
+msgid "No game matches \"{1}\". Press 1 for all games."
+msgstr "\"{1}\"에 일치하는 게임이 없습니다. 모든 게임을 보려면 1을 누르세요."
+
+msgid "1: all games"
+msgstr "1: 모든 게임"
+
+msgid "Search games"
+msgstr "게임 검색"
+
+msgid "Search"
+msgstr "검색"
+
+msgid "Space"
+msgstr "공간"
+
+msgid "Clear"
+msgstr "지우기"
+
+msgid "Del"
+msgstr "삭제"
+
+msgid "Homebrew Channel"
+msgstr "홈브류 채널"
+
+msgid "Wii Menu"
+msgstr "Wii 메뉴"
+
+msgid "Power off"
+msgstr "전원 종료"
+
+msgid "HOME Menu"
+msgstr "홈 메뉴"
+
+msgid "Close"
+msgstr "닫기"
+
+msgid "Opens the HOME Menu, as HOME does: the Homebrew Channel, the Wii Menu, Priiloader or power off."
+msgstr "홈 버튼과 마찬가지로 홈 메뉴(홈브류 채널, Wii 메뉴, Priiloader 또는 전원 끄기)를 엽니다."
+
+msgid "Sending a report"
+msgstr "보고서 전송"
+
+msgid "Gathering the logs and sending them. This can take half a minute..."
+msgstr "로그를 수집하여 전송합니다. 이 작업은 30초 정도 걸릴 수 있습니다..."
+
+msgid "Report not sent"
+msgstr "보고서가 전송되지 않았음"
+
+msgid "It could not be sent: {1}. It is saved on the SD card as sd:/riftwii/report.txt: send that file instead."
+msgstr "전송할 수 없었습니다: {1}. 해당 파일은 SD 카드에 sd:/riftwii/report.txt로 저장되었으니, 대신 이 파일을 보내주세요."
+
+msgid "It could not be sent or saved: {1}"
+msgstr "전송하거나 저장할 수 없음: {1}"
+
+msgid "Send this link to whoever is helping you, or scan the code with a phone:"
+msgstr "도움을 주고 있는 분께 이 링크를 보내거나, 휴대폰으로 코드 스캔:"
+
+msgid "The report was too big, so only its start was kept."
+msgstr "보고서가 너무 커서 앞부분만 남겼습니다."
+
+msgid "Report sent"
+msgstr "보고서 보내기"
+
+msgid "It holds RiftWii's logs and settings, the game's choices and packs, and which console, IOS and controllers this is. It goes to paste.rs, or dpaste.com when paste.rs can't be reached, where anyone with its link can read it."
+msgstr "이곳에는 RiftWii의 로그와 설정, 게임 내 선택 사항 및 팩 정보, 그리고 사용 중인 콘솔, IOS, 컨트롤러 정보가 담겨 있습니다. 이 정보는 paste.rs(접속 불가 시 dpaste.com)로 전송되며, 링크를 가진 사람이라면 누구나 내용을 확인할 수 있습니다."
+
+msgid "RiftWii crashed last time"
+msgstr "지난번에 RiftWii가 충돌했음"
+
+msgid "The game crashed last time"
+msgstr "지난번에 게임이 튕겼음"
+
+msgid "The last launch failed"
+msgstr "마지막 실행에 실패했음"
+
+msgid "Send a report of what happened?"
+msgstr "무슨 일이 있었는지에 대한 보고서를 보낼까요?"
+
+msgid "Send"
+msgstr "보내기"
+
+msgid "Send a problem report"
+msgstr "문제 보고서 보내기"
+
+msgid "Send a problem report?"
+msgstr "문제 보고서를 보낼까요?"
+
+msgid "Something went wrong? Sends what it takes to find out to a paste site, and shows a link to pass on."
+msgstr "문제가 발생했나요? 원인을 파악하는 데 필요한 정보를 Paste Site로 전송하고, 공유할 수 있는 링크를 표시합니다."
+
+msgid "WARNING: this can freeze your Wii U"
+msgstr "경고: 이로 인해 Wii U가 멈출 수 있음"
+
+msgid "On a Wii U, the GameCube adapter in games can freeze the console at 97% while a game from the SD card or a USB drive starts. It works some times and freezes others, and RiftWii cannot tell beforehand. If it freezes, hold the power button to turn the console off. Automatic is safe: it leaves the adapter out of those games."
+msgstr "Wii U에서 SD 카드나 USB 드라이브에 있는 게임을 실행할 때 게임큐브 어댑터가 연결되어 있으면, 게임 로딩이 97% 지점에서 멈추는 현상이 발생할 수 있습니다. 어댑터가 정상적으로 작동할 때도 있고 멈출 때도 있는데, RiftWii는 이를 사전에 감지할 수 없습니다. 만약 화면이 멈춘다면 전원 버튼을 길게 눌러 본체 전원을 끄십시오. '자동' 설정을 사용하면 해당 게임 실행 시 어댑터가 활성화되지 않으므로 안전합니다."
+
+msgid "Turn it on anyway"
+msgstr "강제로 켜기"
+
+msgid "Some game launches WILL freeze and need the power button. Only turn this on to test the adapter, and send a problem report when it freezes. You can set it back to Automatic here at any time."
+msgstr "일부 게임을 실행할 때 화면이 멈춰 전원 버튼을 사용해야 할 수도 있습니다. 어댑터 테스트 용도로만 이 기능을 켜고, 멈춤 현상이 발생하면 문제 보고서를 보내주세요. 언제든지 다시 '자동'으로 설정할 수 있습니다."
+
+msgid "Yes, turn it on"
+msgstr "예, 켜기"
+
+msgid "Keep it as it is"
+msgstr "그대로 두기"
+
+msgid "WARNING: on this Wii U, games from the SD card or a USB drive can freeze at 97% with this on. Use Automatic unless you are testing the adapter."
+msgstr "경고: 이 Wii U에서 이 기능을 켠 상태로 SD 카드나 USB 드라이브의 게임을 실행하면 97% 지점에서 멈출 수 있습니다. 어댑터를 테스트하는 경우가 아니라면 '자동' 설정을 사용하세요."
+
+msgid "Left as it was."
+msgstr "변경하지 않았습니다."
+
+msgid "Theme"
+msgstr "테마"
+
+msgid "Default"
+msgstr "기본"
+
+msgid "The menu's colours and pictures. Themes are folders in sd:/riftwii/themes (docs/THEMES.md on GitHub)."
+msgstr "메뉴의 색상과 이미지입니다. 테마는 sd:/riftwii/themes 폴더에 위치합니다. (GitHub의 docs/THEMES.md 참조)"
+
+msgid "No themes in sd:/riftwii/themes. The zip's themes folder has one to copy there."
+msgstr "sd:/riftwii/themes 경로에 테마가 없습니다. 압축 파일 내의 themes 폴더에 해당 경로로 복사할 수 있는 테마가 하나 들어 있습니다."
+
+msgid "The menu restarts to show a theme."
+msgstr "메뉴가 다시 시작되어 테마를 보여줍니다."
+
+msgid "Restart the menu?"
+msgstr "메뉴를 다시 시작할까요?"
+
+msgid "RiftWii's menu restarts to show {1}. Your games and settings stay as they are."
+msgstr "RiftWii 메뉴가 재시작되어 {1}을(를) 표시합니다. 게임과 설정은 그대로 유지됩니다."
+
+msgid "Restart"
+msgstr "재시작"
+
+msgid "Theme: {1}"
+msgstr "테마: {1}"
+
+msgid "Menu font"
+msgstr "메뉴 글꼴"
+
+msgid "Add a picture:"
+msgstr "사진 추가:"
+
+msgid "The letters the menu is written in: RiftWii's own, or the Wii Menu's, read from this Wii."
+msgstr "메뉴에 사용된 글꼴: RiftWii 자체 글꼴, 또는 해당 Wii의 Wii 메뉴 글꼴입니다."
+
+msgid "the Wii Menu's font"
+msgstr "Wii 메뉴 글꼴"
+
+msgid "RiftWii's font"
+msgstr "RiftWii 글꼴"
+
+msgid "The menu restarts to change its font."
+msgstr "글꼴을 변경하기 위해 메뉴가 다시 시작됩니다."
+
+msgid "Menu font: {1}"
+msgstr "메뉴 글꼴: {1}"
+
+msgid "The Wii Menu's font could not be read, so RiftWii's is used."
+msgstr "Wii 메뉴의 글꼴을 읽을 수 없어 RiftWii의 글꼴이 사용되었습니다."
+
+msgid "Files from a Mac on the SD card"
+msgstr "SD 카드에 있는 Mac의 파일"
+
+msgid "This SD card has hidden files that macOS makes when it copies (names that start with \"._\"). RiftWii skips them, but they fill the card and can confuse other homebrew. To remove them, put the card in your Mac, open Terminal and type: dot_clean -m /Volumes/ followed by the card's name. On Windows, delete the files whose names start with \"._\"."
+msgstr "이 SD 카드에는 macOS가 파일을 복사할 때 생성하는 숨김 파일(이름이 \"._\"로 시작하는 파일)이 포함되어 있습니다. RiftWii는 이 파일들을 무시하고 넘어가지만, 카드 용량을 차지할 뿐만 아니라 다른 홈브류 프로그램에 혼란을 줄 수 있습니다. 이를 제거하려면 카드를 Mac에 연결한 뒤 터미널을 열고 `dot_clean -m /Volumes/`를 입력한 다음 카드 이름을 이어서 입력하십시오. 윈도우의 경우, 이름이 \"._\"로 시작하는 파일을 삭제하면 됩니다."
+
+msgid "This code mod can't start"
+msgstr "이 코드 모드는 시작되지 않음"
+
+msgid "{1} has more codes than the game has room for ({2}, room for {3}). It needs the file gameconfig.txt (or gc.txt) from the same download as the mod. Copy it into the mod's own folder on the SD card, {4}, so it can't replace another mod's. Not in the download? Ask whoever made the mod."
+msgstr "{1}에 포함된 코드의 수가 게임이 수용할 수 있는 한도({2}, 수용 한도: {3})를 초과합니다. 이 모드와 함께 제공된 gameconfig.txt (또는 gc.txt) 파일이 필요합니다. 다른 모드의 파일을 덮어쓰지 않도록, 해당 파일을 SD 카드 내 모드 전용 폴더인 {4}에 복사해 넣으세요. 만약 다운로드 파일에 해당 파일이 없다면 모드 제작자에게 문의하세요."
+
+msgid "The codes take {1}, but {2} only makes room for {3}. Turn off some cheats on this game's Cheats page, or turn off a code mod."
+msgstr "해당 코드는 {1}을(를) 필요로 하지만, {2}은(는) {3}을(를) 위한 공간만 확보합니다. 이 게임의 치트 페이지에서 일부 치트를 끄거나 코드 모드를 비활성화하세요."
+
+msgid "Aspect ratio"
+msgstr "화면비"
+
+msgid "Rumble"
+msgstr "진동"
+
+msgid "Wii Remote speaker"
+msgstr "Wii 리모컨 스피커"
+
+msgid "Region strings fix"
+msgstr "지역 문자열 수정"
+
+msgid "Makes the game use 4:3 or widescreen 16:9 whatever the Wii's TV setting says. Not every game can be changed."
+msgstr "Wii의 TV 설정에 맞춰 게임 화면을 4:3 또는 와이드스크린 16:9 비율로 표시하게 합니다. 단, 모든 게임에 적용할 수 있는 것은 아닙니다."
+
+msgid "Off: the Wii Remotes never rumble in this game."
+msgstr "끔: 이 게임에서는 Wii 리모컨이 절대 진동하지 않습니다."
+
+msgid "Off: no sound from the Wii Remotes' speakers in this game."
+msgstr "끔: 이 게임에서는 Wii 리모컨 스피커에서 소리가 나지 않습니다."
+
+msgid "For a game from another region (an import): the game sees its own region's country names where it looks for the console's."
+msgstr "타 지역 게임(수입판)의 경우: 해당 게임은 콘솔의 지역 정보를 확인해야 할 위치에서 자사 지역의 국가명을 인식합니다."
+
+msgid "Don't show again"
+msgstr "다시 표시하지 않음"
