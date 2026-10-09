@@ -1976,12 +1976,65 @@ static std::string DiscTileNote()
 // The tour, once per SD card (sd:/riftwii/tutorial_done.txt remembers).
 // A card that has been used before (settings, play history, covers, the
 // channel offer answered) counts as seen: an update does not show it.
-static void ShowTutorialOnce()
+// What's new: this release's main changes, one short line each (the box
+// holds seven lines), for the release script to keep up to date. Shown
+// once when they change; Settings > What's new shows them again.
+static const char* const kWhatsNew[] = {
+	"Star a game on its banner to make it a favourite (or press 1)",
+	"Settings > Home order: A to Z, Last played or Most played",
+	"Settings > USB drive help: a drive's setup, step by step",
+	"The Wii Menu font is kept on the SD card: quicker starts",
+	"In-app updates bring the new channel installer too",
+};
+
+static std::string WhatsNewText()
+{
+	std::string text;
+	for (const char* line : kWhatsNew) text += std::string("\u2022 ") + tr(line) + "\n";
+	if (!text.empty()) text.pop_back();
+	return text;
+}
+
+static void ShowWhatsNew()
+{
+	ShowPopup(tr("What's new in RiftWii {1}", {RIFTWII_VERSION}), WhatsNewText(), tr("OK"));
+}
+
+// Once per list (sd:/riftwii/whatsnew_seen.txt keeps a number made from
+// it), not on a card that was just set up (it had the tour).
+static void ShowWhatsNewOnce(bool newCard)
+{
+	static const char* const kMarker = "sd:/riftwii/whatsnew_seen.txt";
+	struct stat st;
+	if (stat("sd:/", &st) != 0) return;
+	std::string list;
+	for (const char* line : kWhatsNew) list += std::string(line) + "\n";
+	unsigned key = 2166136261u;  // FNV-1a
+	for (unsigned char c : list) key = (key ^ c) * 16777619u;
+	unsigned seen = 0;
+	if (FILE* f = std::fopen(kMarker, "r")) {
+		if (std::fscanf(f, "%u", &seen) != 1) seen = 0;
+		std::fclose(f);
+	}
+	if (seen == key) return;
+	if (!newCard) {
+		logf("What's new: shown\n");
+		ShowWhatsNew();
+	}
+	mkdir("sd:/riftwii", 0777);
+	if (FILE* f = std::fopen(kMarker, "w")) {
+		std::fprintf(f, "%u\n", key);
+		std::fclose(f);
+	}
+}
+
+// True when the tour was shown now (a new card).
+static bool ShowTutorialOnce()
 {
 	static const char* const kMarker = "sd:/riftwii/tutorial_done.txt";
 	struct stat st;
 	// Without a card nothing could remember it: it would show every start.
-	if (stat("sd:/", &st) != 0 || stat(kMarker, &st) == 0) return;
+	if (stat("sd:/", &st) != 0 || stat(kMarker, &st) == 0) return false;
 	const bool used = stat("sd:/riftwii/settings.txt", &st) == 0 || stat("sd:/riftwii/history.txt", &st) == 0 ||
 			  stat("sd:/riftwii/covers", &st) == 0 || stat("sd:/riftwii/channel_offered.txt", &st) == 0;
 	if (!used) {
@@ -2000,6 +2053,7 @@ static void ShowTutorialOnce()
 		std::fprintf(f, "%s\n", used ? "used before" : "shown");
 		std::fclose(f);
 	}
+	return !used;
 }
 
 // Hidden files macOS writes on a FAT card ("._name" beside every copied
@@ -2203,7 +2257,8 @@ public:
 		float width = 0;
 		for (char c : figures) width += c == ':' ? colonW : digitW;
 		const int restW = rest.GetTextWidth();
-		if (restW > 0) width += gap + restW;
+		// The figures are centred, as on the Wii Menu: AM or PM hangs
+		// off to their right.
 		float x = cx - width / 2;
 		const bool colonOn = (time(nullptr) & 1) == 0;  // blinks, as the Wii Menu's
 		for (char c : figures) {
@@ -2434,7 +2489,7 @@ static int MenuSource(FrontendState& state)
 	if (!g_scanned) {
 		ScanDrives(state, statusTxt);
 		riftwii::wii::GcAdapterMenuAllowStart();
-		ShowTutorialOnce();
+		ShowWhatsNewOnce(ShowTutorialOnce());
 		SuggestDotClean();
 		if (OfferChannelOnce() || OfferChannelUpdateOnce()) menu = MENU_CHANNEL;
 		refresh(true);
@@ -4483,7 +4538,7 @@ static int MenuSettings(FrontendState& state)
 		return folder;
 	};
 	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kGameLanguage, kGameCios, kServer, kHomeTiles, kHomeSort, kDiscTile, kWidescreen, kScreenSize, kTheme, kFont, kSounds, kMusic, kReturnTo, kShots, kOnline, kNames, kGcAdapter, kGcTest, kIos, kNet, kResync,
-		kRescan, kChannel, kUpdate, kReport, kTests, kWiiChannel, kUsbHelp, kTutorial, kCredits, kExit, kNone, kHeading };
+		kRescan, kChannel, kUpdate, kReport, kTests, kWiiChannel, kUsbHelp, kWhatsNew, kTutorial, kCredits, kExit, kNone, kHeading };
 	// The RiftWii channel on the Wii Menu (wii/channel.hpp).
 	unsigned channelVersion = 0;
 	const bool channelThere = riftwii::wii::ChannelInstalled(channelVersion);
@@ -4625,6 +4680,12 @@ static int MenuSettings(FrontendState& state)
 		report.value = tr("Send");
 		rows.push_back(report);
 		actions.push_back(kReport);
+		FlowRow whatsNew;
+		whatsNew.kind = FlowRow::Kind::Action;
+		whatsNew.label = tr("What's new");
+		whatsNew.value = tr("Show");
+		rows.push_back(whatsNew);
+		actions.push_back(kWhatsNew);
 		FlowRow usbHelp;
 		usbHelp.kind = FlowRow::Kind::Action;
 		usbHelp.label = tr("USB drive help");
@@ -4730,6 +4791,7 @@ static int MenuSettings(FrontendState& state)
 			case kGcTest: return tr("Shows live what the controllers in the adapter are pressing.");
 			case kTutorial: return tr("The short tour of RiftWii's basics that a new SD card starts with.");
 			case kUsbHelp: return tr("What a USB drive needs to work with RiftWii, step by step.");
+			case kWhatsNew: return tr("This version's main changes. The release notes on GitHub have all of them.");
 			case kTests: {
 				const auto tests = settings.other.find("debug_off");
 				return tr("settings.txt turns parts of RiftWii off for testing (debug_off = {1}). Clear them unless the RiftWii developers asked you to keep them.",
@@ -5032,6 +5094,9 @@ static int MenuSettings(FrontendState& state)
 					break;
 				case kUsbHelp:
 					ShowUsbHelp(false);
+					break;
+				case kWhatsNew:
+					ShowWhatsNew();
 					break;
 				case kTests:
 					logf("Settings: test switches cleared (debug_off = %s)\n", settings.other["debug_off"].c_str());
