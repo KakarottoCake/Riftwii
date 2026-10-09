@@ -228,6 +228,10 @@ void GuiFlowList::Draw() {
     // The highlight glides to the lit row, and fades in or out when there
     // is none (the pointer off the list).
     const bool litShown = lit >= 0 && lit < Count() && (*rows)[lit].kind != FlowRow::Kind::Info;
+    // The lit row's name scrolls when it does not fit (a cheat's long
+    // name; the others end in "..."), as Friivolution's lists do.
+    for (int i = 0; i <= visible; ++i)
+        label[i]->SetScroll(textFirst + i == lit && litShown ? SCROLL::HORIZONTAL : SCROLL::NONE);
     if (litShown) {
         if (litFade <= 0.0f) litPos = static_cast<float>(lit);
         litPos += (lit - litPos) * 0.35f;

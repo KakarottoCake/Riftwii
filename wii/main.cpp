@@ -402,6 +402,7 @@ int main() {
     riftwii::wii::CrashSetPhase(riftwii::wii::CrashPhase::Menu);
     if (!sd_mounted) SetNoSdCard(StartedFromUsb());
     const int action = MainMenu(sd_mounted ? MENU_SOURCE : MENU_NEEDS_SD, state);
+    MenuWatchdogStop();
     // The start's update check or a cover download may still be running on
     // the network's thread, and it writes to the card and the log: every way
     // out of the menu (a USB launch unmounts the card and reloads IOS before

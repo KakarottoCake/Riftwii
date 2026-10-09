@@ -7,6 +7,9 @@
 using riftwii::wii::FrontendState;
 
 void InitGUIThreads();
+// The menu has closed (a launch, or leaving): the stuck-menu way out
+// (rift_menu.cpp's watchdog) stops.
+void MenuWatchdogStop();
 
 // Returns MENU_LAUNCH, MENU_BOOT, MENU_DUMP or MENU_CHANNEL with the GUI
 // torn down; exits on MENU_EXIT. With MENU_LAUNCH the model holds the

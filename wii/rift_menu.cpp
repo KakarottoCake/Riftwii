@@ -239,8 +239,12 @@ static bool AnyHeld()
 	return false;
 }
 
+// The menu's own loops tick here (HaltGui and ResumeGui, every frame).
+static volatile u64 g_menuTick = 0;
+
 static void ResumeGui()
 {
+	g_menuTick = gettime();
 	// Whatever held the cover loader (an unmount, a raw read, an IOS
 	// reload) was the menu's own work, and it is done.
 	riftwii::wii::CoverLoaderRelease();
@@ -250,6 +254,7 @@ static void ResumeGui()
 
 static void HaltGui()
 {
+	g_menuTick = gettime();
 	guiHalt = true;
 	while(!LWP_ThreadIsSuspended(guithread))
 		usleep(THREAD_SLEEP);
@@ -356,14 +361,61 @@ static void RemotePowerPressed(s32)
 	PowerPressed();
 }
 
+// A way out of a stuck menu: a tester took the SD card out and nothing
+// answered any more, HOME included (the menu waits on the card with the
+// GUI thread halted). A thread of its own, never halted: once the menu
+// has not ticked for 4 s, HOME on a Wii Remote, RESET or POWER on the
+// console leaves RiftWii (POWER turns the Wii off) without touching the
+// card. Stopped when the menu closes for a launch.
+static lwp_t g_watchdog = LWP_THREAD_NULL;
+static volatile bool g_watchdogOn = false;
+static volatile bool g_resetPressed = false;
+
+static void ResetPressed(u32, void*)
+{
+	g_resetPressed = true;
+}
+
+static void* MenuWatchdog(void*)
+{
+	while (g_watchdogOn) {
+		usleep(200000);
+		const u64 tick = g_menuTick;
+		if (!g_watchdogOn) break;
+		if (tick == 0 || diff_msec(tick, gettime()) < 4000) {
+			g_resetPressed = false;  // RESET in a menu that answers is its own
+			continue;
+		}
+		bool home = false;
+		if (LWP_ThreadIsSuspended(guithread)) {
+			// Nobody else reads the Remotes now.
+			WPAD_ScanPads();
+			for (int c = 0; c < 4; ++c) home = home || (WPAD_ButtonsDown(c) & WPAD_BUTTON_HOME);
+		} else {
+			for (int c = 0; c < 4; ++c) home = home || (userInput[c].wpad && (userInput[c].wpad->btns_h & WPAD_BUTTON_HOME));
+		}
+		if (ExitRequested == kExitPowerButton) SYS_ResetSystem(SYS_POWEROFF, 0, 0);
+		if (home || g_resetPressed) SYS_ResetSystem(SYS_RETURNTOMENU, 0, 0);
+	}
+	return nullptr;
+}
+
+void MenuWatchdogStop()
+{
+	g_watchdogOn = false;
+}
+
 void InitGUIThreads()
 {
 	dimAllowed = CONF_Init() >= 0 && CONF_GetScreenSaverMode() == 1;
 	SYS_SetPowerCallback(PowerPressed);
+	SYS_SetResetCallback(ResetPressed);
 	WPAD_SetPowerButtonCallback(RemotePowerPressed);
 	if (LWP_CreateThread(&guithread, UpdateGUI, nullptr, nullptr, 24576, 70) < 0)
 		ExitApp();
 	HaltGui();
+	g_watchdogOn = true;
+	LWP_CreateThread(&g_watchdog, MenuWatchdog, nullptr, nullptr, 8192, 80);
 }
 
 // A text at a fixed spot, left-aligned or centred on the screen.
