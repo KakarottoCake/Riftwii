@@ -2418,6 +2418,7 @@ private:
 
 static void ClockText(std::string& clock, std::string& date)
 {
+	const bool clock_24h = riftwii::wii::Settings().clock_24h == "on";
 	const time_t now = time(nullptr);
 	struct tm local;
 	localtime_r(&now, &local);
@@ -2426,8 +2427,12 @@ static void ClockText(std::string& clock, std::string& date)
 	char buf[32];
 	// {1} the 12-hour hour, {2} the minutes, {3} the 24-hour hour.
 	snprintf(buf, sizeof(buf), "%02d", local.tm_min);
-	clock = tr(local.tm_hour < 12 ? "{1}:{2} AM" : "{1}:{2} PM",
-		   {std::to_string(h), buf, std::to_string(local.tm_hour)});
+	if (clock_24h) {
+		clock = tr("{1}:{2}", {std::to_string(local.tm_hour), buf});
+	} else {
+		clock = tr(local.tm_hour < 12 ? "{1}:{2} AM" : "{1}:{2} PM",
+			   {std::to_string(h), buf, std::to_string(local.tm_hour)});
+	}
 	date = tr("{1} {2}/{3}", {tr(days[local.tm_wday % 7]), std::to_string(local.tm_mon + 1), std::to_string(local.tm_mday)});
 }
 
@@ -4815,7 +4820,7 @@ static int MenuSettings(FrontendState& state)
 			if (t.folder == folder) return t.name;
 		return folder;
 	};
-	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kServer, kHomeTiles, kHomeSource, kHomeSort, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kFont, kSounds, kMusic, kReturnTo, kShots, kOnline, kNames, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kIos, kNet, kResync,
+	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kServer, kHomeTiles, kHomeSource, kHomeSort, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kClockFormat, kFont, kSounds, kMusic, kReturnTo, kShots, kOnline, kNames, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kIos, kNet, kResync,
 		kRescan, kChannel, kUpdate, kReport, kTests, kWiiChannel, kUsbHelp, kWhatsNew, kTutorial, kCredits, kExit, kNone, kHeading };
 	// The RiftWii channel on the Wii Menu (wii/channel.hpp).
 	unsigned channelVersion = 0;
@@ -4893,6 +4898,7 @@ static int MenuSettings(FrontendState& state)
 			settings.menu_widescreen != "off", kWidescreen);
 		option(tr("Screen size"), std::to_string(settings.screen_size) + "%", settings.screen_size != 100, kScreenSize);
 		option(tr("Theme"), themeName(settings.theme), settings.theme != "default", kTheme);
+		option(tr("Menu font"), settings.clock_24h == "off" ? tr("12-hour") : tr("24-hour"), settings.clock_24h == "off", kClockFormat);
 		option(tr("Menu font"), settings.menu_font == "wii" ? tr("Wii Menu") : "RiftWii", settings.menu_font == "wii", kFont);
 		option(tr("Menu sounds"), MenuSoundsName(settings.menu_sounds), settings.menu_sounds != "off", kSounds);
 		option(tr("Menu music"), settings.menu_music == "off" ? tr("Off") : tr("On"), settings.menu_music != "off",
@@ -5062,6 +5068,7 @@ static int MenuSettings(FrontendState& state)
 			case kWidescreen: return tr("On a 16:9 TV the menu is drawn narrower, so covers and pictures keep their shape. Automatic follows the Wii's own TV setting.");
 			case kScreenSize: return tr("Makes the menu smaller on screen, so nothing is cut off at the TV's edges. Lower it until the whole menu shows.");
 			case kTheme: return tr("The menu's colours and pictures. Themes are folders in sd:/riftwii/themes (docs/THEMES.md on GitHub).");
+			case kClockFormat: return tr("The format of the clock in the menu. 12-hour shows AM or PM, 24-hour does not.");
 			case kFont: return tr("The letters the menu is written in: RiftWii's own, or the Wii Menu's, read from this Wii.");
 			case kSounds: return tr("How loud the menu's clicks are. Quiet softens the tick the pointer makes moving onto something.");
 			case kReturnTo: return ReturnToNote();
@@ -5317,6 +5324,11 @@ static int MenuSettings(FrontendState& state)
 						: tr("The menu restarts to show it when you leave Settings."));
 					break;
 				}
+				case kClockFormat:
+					settings.clock_24h = settings.clock_24h == "off" ? "on" : "off";
+					saveAndNote(tr("Clock: 12-hour or 24-hour format."));
+					rebuild();
+					break;
 				case kFont: {
 					settings.menu_font = settings.menu_font == "wii" ? "riftwii" : "wii";
 					const std::string error = saveSettings();
