@@ -79,11 +79,24 @@ void test_current() {
     EXPECT_EQ(d2x_name(parse(block(10, 56, "beta53-alt"))), std::string("d2x v10 beta53-alt"));
 }
 
+void test_allowed() {
+    // v11's earlier betas start games (with a reminder); older d2x and
+    // anything that is not d2x do not.
+    EXPECT_TRUE(d2x_allowed(parse(block(11, 56, "beta1"))));
+    EXPECT_TRUE(d2x_allowed(parse(block(11, 56, "beta2"))));
+    EXPECT_TRUE(d2x_allowed(parse(block(11, 56, "beta3"))));
+    EXPECT_TRUE(d2x_allowed(parse(block(12, 56, ""))));
+    EXPECT_FALSE(d2x_allowed(parse(block(10, 56, "beta53-alt"))));
+    EXPECT_FALSE(d2x_allowed(parse(block(11, 56, "beta3", "cios"))));
+    EXPECT_FALSE(d2x_allowed(D2xInfo{}));
+}
+
 }  // namespace
 
 int main() {
     test_parse();
     test_current();
+    test_allowed();
     if (g_failures == 0) std::cout << "d2xversion: all passed" << std::endl;
     return g_failures == 0 ? 0 : 1;
 }

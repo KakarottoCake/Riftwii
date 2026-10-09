@@ -1300,15 +1300,17 @@ const std::vector<SlotInfo>& slot_infos() {
         else if (!info.info.d2x) logf("cIOS: IOS%d: not d2x\n", ios);
         else
             logf("cIOS: IOS%d: %s, base %d%s\n", ios, d2x_name(info.info).c_str(), info.info.base,
-                 d2x_current(info.info) ? "" : " (too old: RiftWii needs d2x v11 beta3 or newer)");
+                 d2x_current(info.info)   ? ""
+                 : d2x_allowed(info.info) ? " (out of date: d2x v11 beta3 is the latest)"
+                                          : " (too old: RiftWii needs d2x v11 beta3)");
         infos.push_back(info);
     }
     return infos;
 }
 
 // USB Loader GX's IosLoader: every d2x cIOS and its base IOS, the ones
-// RiftWii runs games on (d2x v11 beta3 or newer). Nothing found keeps 249,
-// 250 and 251.
+// RiftWii runs games on (d2x v11 or newer). Nothing found keeps 249, 250
+// and 251.
 const std::vector<D2xSlot>& d2x_slots() {
     static std::vector<D2xSlot> slots;
     static bool read = false;
@@ -1316,7 +1318,7 @@ const std::vector<D2xSlot>& d2x_slots() {
     read = true;
     std::string found;
     for (const SlotInfo& s : slot_infos()) {
-        if (!s.read || !d2x_current(s.info)) continue;
+        if (!s.read || !d2x_allowed(s.info)) continue;
         slots.push_back(D2xSlot{s.slot, s.info.base});
         found += (found.empty() ? "" : ", ") + std::to_string(s.slot) + " (base " + std::to_string(s.info.base) + ")";
     }
@@ -1327,23 +1329,52 @@ const std::vector<D2xSlot>& d2x_slots() {
 
 }  // namespace
 
+// The slot's information block, null when it was not read.
+const D2xInfo* slot_info(int slot) {
+    for (const SlotInfo& s : slot_infos())
+        if (s.slot == slot && s.read) return &s.info;
+    return nullptr;
+}
+
 bool d2x_slot_allowed(int slot, std::string& why) {
-    for (const SlotInfo& s : slot_infos()) {
-        if (s.slot != slot || !s.read) continue;
-        if (!s.info.d2x) {
-            why = "IOS" + std::to_string(slot) + " is not a d2x cIOS. RiftWii runs games from the SD card and USB "
-                  "drives on d2x only, " + std::string(kD2xWantedName) + " or newer: install it with the d2x cIOS "
-                  "installer (wii.hacks.guide/cios)";
-            return false;
-        }
-        if (!d2x_current(s.info)) {
-            why = "IOS" + std::to_string(slot) + " is " + d2x_name(s.info) + ", too old. RiftWii needs " +
-                  kD2xWantedName + " or newer: install it with the d2x cIOS installer (wii.hacks.guide/cios)";
-            return false;
-        }
-        return true;
+    const D2xInfo* info = slot_info(slot);
+    if (info == nullptr || d2x_allowed(*info)) return true;  // not read: the check cannot tell
+    if (!info->d2x) {
+        why = "IOS" + std::to_string(slot) + " is not a d2x cIOS, and RiftWii only starts games from the SD card or "
+              "a USB drive on d2x. The other loaders moved on to d2x years ago; your Wii can too, in a few "
+              "minutes: install " + std::string(kD2xWantedName) + " (wii.hacks.guide/cios)";
+    } else {
+        why = "IOS" + std::to_string(slot) + " is " + d2x_name(*info) + ", from before d2x v11, and RiftWii only "
+              "starts games from the SD card or a USB drive on v11 or newer. It's been a while: install " +
+              std::string(kD2xWantedName) + " (wii.hacks.guide/cios)";
     }
-    return true;  // not read: the check cannot tell
+    return false;
+}
+
+CiosCheck image_cios_check(const ImageGame& game, int chosen) {
+    CiosCheck check;
+    if (running_in_dolphin()) return check;
+    for (int slot : image_cios_order(game, chosen)) {
+        if (!slot_has_ticket(slot)) continue;
+        std::string why;
+        if (!d2x_slot_allowed(slot, why)) {
+            if (check.why.empty()) check.why = why;
+            continue;
+        }
+        // The slot the launch will take (activate_image_game's order).
+        check.slot = slot;
+        check.why.clear();
+        const D2xInfo* info = slot_info(slot);
+        if (info != nullptr && !d2x_current(*info)) {
+            check.verdict = CiosCheck::Verdict::OutOfDate;
+            check.name = d2x_name(*info);
+        }
+        return check;
+    }
+    // No slot to start on: refused when one was turned down; otherwise
+    // the launch says what is missing, as before.
+    if (!check.why.empty()) check.verdict = CiosCheck::Verdict::Refused;
+    return check;
 }
 
 int d2x_base(int slot) {

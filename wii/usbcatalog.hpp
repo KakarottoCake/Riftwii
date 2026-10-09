@@ -149,9 +149,22 @@ int d2x_base(int slot);
 
 // Whether games from the SD card or a USB drive may start on `slot`: false,
 // with `why` saying what to install, when its information block shows a
-// cIOS that is not d2x or a d2x older than v11 beta3 (riftwii/
-// d2xversion.hpp). True when the block could not be read.
+// cIOS that is not d2x or a d2x older than v11 (riftwii/d2xversion.hpp).
+// True when the block could not be read.
 bool d2x_slot_allowed(int slot, std::string& why);
+
+// The cIOS check for starting `game` (its cIOS `chosen`, 0 automatic), in
+// the menu before it closes: the slot the launch will take and whether it
+// is out of date (d2x v11 before beta3: started, after a reminder), or why
+// every slot was turned down. Always Ok in Dolphin.
+struct CiosCheck {
+    enum class Verdict { Ok, OutOfDate, Refused };
+    Verdict verdict = Verdict::Ok;
+    int slot = 0;
+    std::string name;  // "d2x v11 beta2" when out of date
+    std::string why;   // when refused
+};
+CiosCheck image_cios_check(const ImageGame& game, int chosen);
 
 // On a Wii U, the d2x slot that reaches the GameCube adapter in any USB
 // port, 0 when none is known: the one on base 58; when no slot's base

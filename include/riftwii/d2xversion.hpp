@@ -23,9 +23,10 @@ struct D2xInfo {
 // The block from the content's first bytes (at least 0x30 of them).
 D2xInfo parse_d2x_info(const std::uint8_t* data, std::size_t size);
 
-// The oldest d2x RiftWii runs SD and USB games on: d2x-v11-beta3
-// (2025-03-22, the latest at https://github.com/wiidev/d2x-cios/releases).
-// Older ones are not supported, nor are cIOSes that are not d2x.
+// The d2x RiftWii wants for SD and USB games: d2x-v11-beta3 (2025-03-22,
+// the latest at https://github.com/wiidev/d2x-cios/releases). v11's
+// earlier betas still run them, after a reminder to update; d2x older than
+// v11 and cIOSes that are not d2x do not.
 constexpr int kD2xMajorWanted = 11;
 constexpr int kD2xBetaWanted = 3;
 constexpr const char* kD2xWantedName = "d2x v11 beta3";
@@ -34,6 +35,9 @@ constexpr const char* kD2xWantedName = "d2x v11 beta3";
 // with beta 3 or later (a release that is not a beta or an alpha, such as
 // a final one, counts as newer than every beta).
 bool d2x_current(const D2xInfo& info);
+
+// Whether games may start on it at all: d2x v11 or newer, any release.
+bool d2x_allowed(const D2xInfo& info);
 
 // "d2x v10 beta52", "d2x v11" (no release given).
 std::string d2x_name(const D2xInfo& info);

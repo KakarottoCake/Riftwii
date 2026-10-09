@@ -1937,6 +1937,8 @@ static void SendReport(const std::string& reason)
 	g_homeNotice = tr("Report sent: {1}", {r.link});
 }
 
+static bool g_oldCiosReminded = false;  // ShowOldCiosReminder, once a session
+
 // What a report holds and where it goes, said before anything is sent.
 static const char* const kReportWhat =
 	"It holds RiftWii's logs and settings, the game's choices and packs, and which console, IOS and controllers this is. It goes to paste.rs, or dpaste.com when paste.rs can't be reached, where anyone with its link can read it.";
@@ -1975,6 +1977,26 @@ static bool AgreeToUpdate(const std::string& latest)
 	riftwii::wii::NoteUpdateDeclined(latest);
 	g_homeNotice = tr("RiftWii {1} is out. Settings > Check for a new version installs it.", {latest});
 	return false;
+}
+
+// d2x v11 before beta3, once a session before a game from the SD card or a
+// USB drive: the game still starts. Reports from out-of-date cIOSes are
+// harder to tell apart, so it asks for the latest, the guide as a code.
+static void ShowOldCiosReminder(int slot, const std::string& name)
+{
+	static const char* const kGuide = "https://wii.hacks.guide/cios";
+	riftwii::QrCode code;
+	riftwii::make_qr(kGuide, code);
+	constexpr int kModule = 4;
+	const int side = QrImage::Side(code, kModule);
+	QrImage qr(code, 588 - 16 - side, 150, kModule);
+	logf("cIOS: IOS%d is %s, out of date; reminded to update\n", slot, name.c_str());
+	PopupBox box(tr("Your cIOS is out of date"),
+		tr("IOS{1} is {2}. You're on an out-of-date cIOS, and this makes it harder to find out which bugs are causing what, so please update to the latest cIOS (d2x v11 beta3). Follow this guide: {3}",
+			{std::to_string(slot), name, kGuide}),
+		tr("OK"));
+	if (code.size != 0) box.Add(&qr, 588 - 16 - side - 56 - 16);
+	box.Wait();
 }
 
 // A drive that is there but cannot be read gets a box; one that is simply
@@ -4475,6 +4497,20 @@ static int MenuHome(FrontendState& state)
 				say(FlatCapped(state.usb_catalog.cios_note, 150));
 			} else if (state.use_sd && !state.sd_catalog.cios_note.empty()) {
 				say(FlatCapped(state.sd_catalog.cios_note, 150));
+			} else if (riftwii::wii::CiosCheck cios; (state.use_usb || state.use_sd) &&
+				   (cios = riftwii::wii::image_cios_check(riftwii::wii::SelectedSource(state).game,
+					    riftwii::wii::SelectedSource(state).cios_slot)).verdict != riftwii::wii::CiosCheck::Verdict::Ok &&
+				   (cios.verdict == riftwii::wii::CiosCheck::Verdict::Refused || !g_oldCiosReminded)) {
+				// The cIOS the game would start on: refused while the menu is
+				// up, or d2x v11's earlier betas reminded once, then started.
+				if (cios.verdict == riftwii::wii::CiosCheck::Verdict::Refused) {
+					logf("cIOS: refused: %s\n", cios.why.c_str());
+					ShowPopup(tr("This cIOS can't start games"), cios.why, tr("OK"));
+				} else {
+					g_oldCiosReminded = true;
+					ShowOldCiosReminder(cios.slot, cios.name);
+					startBtn.button.SetState(STATE::CLICKED);
+				}
 			} else if (const std::string problem = riftwii::wii::ModPlaceProblem(state); !problem.empty()) {
 				// Mods where they cannot work: not even tried. In a popup: the
 				// remedy takes more than the status line's two rows.

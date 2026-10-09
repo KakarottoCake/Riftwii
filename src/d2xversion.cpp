@@ -61,6 +61,8 @@ bool d2x_current(const D2xInfo& info) {
     return true;
 }
 
+bool d2x_allowed(const D2xInfo& info) { return info.d2x && info.major >= kD2xMajorWanted; }
+
 std::string d2x_name(const D2xInfo& info) {
     std::string name = "d2x v" + std::to_string(info.major);
     if (!info.release.empty()) name += " " + info.release;
