@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include <network.h>
 #include <ogc/lwp.h>
+#include <ogc/lwp_watchdog.h>
 #include <poll.h>
 #include <unistd.h>
 
@@ -19,6 +20,12 @@ namespace {
 
 bool g_up = false;
 volatile bool g_failed = false;
+// A start that failed is not tried again for a minute: each try takes 20 s
+// or more (and a tester's menu sat for minutes on one, opening Cheats with
+// the network down); every download in between gets the same answer.
+constexpr unsigned kRetryMs = 60 * 1000;
+u64 g_failed_at = 0;
+std::string g_failed_error;
 
 lwp_t g_job_thread = LWP_THREAD_NULL;
 void (*g_job)() = nullptr;
@@ -78,6 +85,10 @@ bool wait_for(std::int32_t socket, std::uint32_t events, int timeout_ms) {
 bool NetStart(std::string& error) {
     NetWaitForBackground();
     if (g_up) return true;
+    if (g_failed && diff_msec(g_failed_at, gettime()) < kRetryMs) {
+        error = g_failed_error;
+        return false;
+    }
     // IOS answers -EAGAIN while the interface comes up.
     s32 rc = -EAGAIN;
     for (int tries = 0; tries < 200 && rc == -EAGAIN; ++tries) {
@@ -88,6 +99,8 @@ bool NetStart(std::string& error) {
         g_failed = true;
         error = "the network did not start (" + std::to_string(rc) +
                 "); check the connection in the Wii's Internet settings";
+        g_failed_at = gettime();
+        g_failed_error = error;
         return false;
     }
     g_up = true;

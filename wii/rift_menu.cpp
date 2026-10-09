@@ -3670,18 +3670,18 @@ static void MenuCheats(FrontendState& state)
 		build();
 		list.Refresh();
 	};
-	// A game opened for the first time gets its cheats straight away.
+	// A game opened for the first time gets its cheats straight away, with
+	// the page drawn and saying so (it was blank and still while the
+	// download waited: a tester's menu sat for minutes with the network
+	// down). Not when the network already failed this session.
 	if (!loaded && riftwii::wii::Settings().online && !state.game_id.empty()) {
-		std::string error;
-		if (riftwii::wii::DownloadCheats(state.game_id, error)) {
-			load(false);
+		if (riftwii::wii::NetFailed()) {
+			status = tr("No cheat file yet, and the network is not up. Check the Wii's Internet settings, then choose Download.");
+			logf("Cheats: none for %s yet; not downloaded, the network failed earlier\n", state.game_id.c_str());
 			build();
 			list.Refresh();
 		} else {
-			status = tr("No cheats found online for this game.");
-			build();
-			list.Refresh();
-			logf("Cheats: none downloaded for %s: %s\n", state.game_id.c_str(), error.c_str());
+			fetch();
 		}
 	}
 	ResumeGui();
