@@ -288,7 +288,11 @@ static void test_saves() {
     EXPECT_EQ(prefs.game.speaker, std::string("off"));
     EXPECT_EQ(prefs.game.region_strings, std::string("on"));
     prefs.restore("*riftwii*\taspect\t21:9\n");
+    EXPECT_EQ(prefs.game.aspect, std::string("global"));  // unknown: Settings' choice
+    // "Game's own" picked on the page is kept, over Settings' choice.
+    prefs.restore("*riftwii*\taspect\tgame\n");
     EXPECT_EQ(prefs.game.aspect, std::string("game"));
+    EXPECT_TRUE(prefs.save().find("*riftwii*\taspect\tgame\n") != std::string::npos);
     // Old choice files without the settings line restore as nand.
     riftwii::LaunchModel legacy;
     legacy.add("a.xml", "sd:/riivolution/a.xml", kModA, &disc);

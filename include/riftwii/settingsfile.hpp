@@ -22,6 +22,7 @@ struct LoaderSettings {
     std::string deflicker = "game";
     std::string borders = "keep";         // keep, remove (the sides), remove_all (experimental)
     std::string video_mode = "game";      // a VideoMode name
+    std::string aspect = "game";          // game, 4:3, 16:9: every game's, unless its own page says otherwise
     std::string game_language = "console";  // riftwii/gamelang.hpp names
     std::string game_cios = "auto";       // auto (d2x in 249-251), 248 ... 252
     std::string wfc_server = "off";       // online play: riftwii/wfcpatch.hpp names

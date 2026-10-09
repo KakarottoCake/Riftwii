@@ -3033,7 +3033,11 @@ static const char* const kWidths[] = {"global", "game", "framebuffer", "704", "7
 static const char* const kDeflickers[] = {"global", "game", "off", "low", "medium", "high"};
 static const char* const kBorderModes[] = {"global", "keep", "remove", "remove_all"};
 static const char* const kVideoModes[] = {"global", "game", "system", "ntsc", "pal60", "pal50", "480p"};
-static const char* const kAspects[] = {"game", "4:3", "16:9"};
+static const char* const kAspects[] = {"global", "game", "4:3", "16:9"};
+static std::string AspectName(const std::string& v)
+{
+	return v == "4:3" || v == "16:9" ? v : std::string(tr("Game's own"));
+}
 static const char* const kGameLanguages[] = {"global", "console", "ja", "en", "de", "fr", "es", "it", "nl", "zh-hans",
 	"zh-hant", "ko"};
 static const char* const kCiosChoices[] = {"global", "auto", "248", "249", "250", "251", "252"};
@@ -3221,8 +3225,8 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 	FlowRow aspect;
 	aspect.kind = FlowRow::Kind::Option;
 	aspect.label = tr("Aspect ratio");
-	aspect.value = game.aspect == "4:3" || game.aspect == "16:9" ? game.aspect : tr("Game's own");
-	aspect.on = game.aspect != "game";
+	aspect.value = GameValue(game.aspect, global.aspect, AspectName);
+	aspect.on = game.aspect != "global";
 	add(aspect, {RowRef::What::Aspect});
 	FlowRow rumble;
 	rumble.kind = FlowRow::Kind::Toggle;
@@ -4777,7 +4781,7 @@ static int MenuSettings(FrontendState& state)
 			if (t.folder == folder) return t.name;
 		return folder;
 	};
-	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kGameLanguage, kGameCios, kServer, kHomeTiles, kHomeSource, kHomeSort, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kFont, kSounds, kMusic, kReturnTo, kShots, kOnline, kNames, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kIos, kNet, kResync,
+	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kServer, kHomeTiles, kHomeSource, kHomeSort, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kFont, kSounds, kMusic, kReturnTo, kShots, kOnline, kNames, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kIos, kNet, kResync,
 		kRescan, kChannel, kUpdate, kReport, kTests, kWiiChannel, kUsbHelp, kWhatsNew, kTutorial, kCredits, kExit, kNone, kHeading };
 	// The RiftWii channel on the Wii Menu (wii/channel.hpp).
 	unsigned channelVersion = 0;
@@ -4815,6 +4819,7 @@ static int MenuSettings(FrontendState& state)
 		option(tr("Deflicker"), DeflickerName(settings.deflicker), settings.deflicker != "game", kDeflicker);
 		option(tr("Black borders"), BordersName(settings.borders), settings.borders != "keep", kBorders);
 		option(tr("Video mode"), VideoModeName(settings.video_mode), settings.video_mode != "game", kVideoMode);
+		option(tr("Aspect ratio"), AspectName(settings.aspect), settings.aspect != "game", kAspect);
 		option(tr("Game language"), GameLanguageName(settings.game_language), settings.game_language != "console",
 			kGameLanguage);
 		option(tr("Game cIOS"), CiosName(settings.game_cios), settings.game_cios != "auto", kGameCios);
@@ -5016,6 +5021,7 @@ static int MenuSettings(FrontendState& state)
 			case kDeflicker: return tr("A filter that softens the picture to hide flicker. Off gives the sharpest picture.");
 			case kBorders: return tr(kBordersNote);
 			case kVideoMode: return tr("The TV signal the game sends. PAL 50 Hz needs a TV that takes it, 480p a component cable.");
+			case kAspect: return tr("Makes the game use 4:3 or widescreen 16:9 whatever the Wii's TV setting says. Not every game can be changed.");
 			case kGameLanguage: return tr("The language the game is told the console uses. Pick one the game has: some games stop without it.");
 			case kGameCios: return tr("The d2x cIOS the game runs under. Automatic uses the menu's, else the first of 249, 250 and 251 that works.");
 			case kHomeTiles: return tr("Covers: each game's box art from GameTDB (fetched when downloads are on). Shelf: the boxes on a shelf. Channels: each game's animated icon, and its banner when you pick it, as on the Wii Menu. Names: the names only.");
@@ -5134,6 +5140,11 @@ static int MenuSettings(FrontendState& state)
 				case kVideoMode:
 					settings.video_mode = StepValue(kVideoModes, settings.video_mode, direction, false);
 					saveAndNote(tr("The TV signal the game sends. PAL 50 Hz needs a TV that takes it, 480p a component cable."));
+					rebuild();
+					break;
+				case kAspect:
+					settings.aspect = StepValue(kAspects, settings.aspect, direction, false);
+					saveAndNote(tr("Makes the game use 4:3 or widescreen 16:9 whatever the Wii's TV setting says. Not every game can be changed."));
 					rebuild();
 					break;
 				case kGameLanguage:

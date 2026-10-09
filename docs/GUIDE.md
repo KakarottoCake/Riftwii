@@ -154,8 +154,9 @@ these rows:
   Japanese game that shows no picture on a console from another region:
   the game is told the video hardware matches its region.
 - **Aspect ratio** makes the game use *4:3* or widescreen *16:9*
-  whatever the Wii's TV setting says (*Game's own* leaves it). Not every
-  game reads the setting in a way that can be changed.
+  whatever the Wii's TV setting says (*Game's own* leaves it; *Default*
+  follows Settings > Aspect ratio). Not every game reads the setting in a
+  way that can be changed.
 - **Rumble** and **Wii Remote speaker**: turn either off for this game.
 - **Region strings fix** (off unless you turn it on) is for a game from
   another region: where the game looks up the console's country names, it
@@ -194,8 +195,8 @@ groups: *Games* (the defaults for every game), *Menu*, *Finding games*,
   translation can be corrected by putting a copy of `wii/lang/<lang>.po` at
   `sd:/riftwii/lang/<lang>.po`.
 - **Picture width**, **Deflicker**, **Black borders**, **Video mode**,
-  **Game language**, **Game cIOS**, **Online server**: the defaults for
-  every game.
+  **Aspect ratio**, **Game language**, **Game cIOS**, **Online server**:
+  the defaults for every game.
 - **Home tiles**: covers, shelf, channels or names.
 - **Games from**: *SD and USB*, *SD card* or *USB drive*: which drive's
   games Home lists.

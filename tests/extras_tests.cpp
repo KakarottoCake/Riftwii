@@ -473,6 +473,12 @@ void TestSettings() {
     EXPECT_EQ(again.language, "ja");
     again.parse("language = ko\n");
     EXPECT_EQ(again.language, "ko");
+    EXPECT_EQ(again.aspect, "game");
+    again.parse("aspect = 16:9\n");
+    EXPECT_EQ(again.aspect, "16:9");
+    EXPECT_TRUE(again.serialize().find("aspect = 16:9\n") != std::string::npos);
+    again.parse("aspect = wide\n");
+    EXPECT_EQ(again.aspect, "16:9");
     EXPECT_EQ(again.other["future"], "1");
     EXPECT_EQ(again.gc_adapter, "auto");  // the default
     LoaderSettings adapter;

@@ -98,7 +98,7 @@ struct GameSettings {
     std::string cios = "global";        // or "auto", "248" ... "252"
     std::string server = "global";      // or a riftwii/wfcpatch.hpp name
     std::string region_video = "off";   // "on": the Region video fix (gx_region_video_fix)
-    std::string aspect = "game";        // or "4:3", "16:9" (gx_force_aspect)
+    std::string aspect = "global";      // Settings' (LoaderSettings::aspect), or "game", "4:3", "16:9" (gx_force_aspect)
     std::string rumble = "on";          // "off": gx_rumble_off
     std::string speaker = "on";         // "off": gx_speaker_off
     std::string region_strings = "off"; // "on": the Region strings fix (gx_country_strings)

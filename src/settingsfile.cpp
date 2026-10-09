@@ -47,6 +47,8 @@ void LoaderSettings::parse(const std::string& text) {
             if (parse_deflicker(value, d)) deflicker = value;
         } else if (key == "borders") {
             if (value == "keep" || value == "remove" || value == "remove_all") borders = value;
+        } else if (key == "aspect") {
+            if (value == "game" || value == "4:3" || value == "16:9") aspect = value;
         } else if (key == "video_mode") {
             VideoMode m;
             if (parse_video_mode(value, m)) video_mode = value;
@@ -146,6 +148,7 @@ std::string LoaderSettings::serialize() const {
     s += "deflicker = " + deflicker + "\n";
     s += "borders = " + borders + "\n";
     s += "video_mode = " + video_mode + "\n";
+    s += "aspect = " + aspect + "\n";
     s += "game_language = " + game_language + "\n";
     s += "game_cios = " + game_cios + "\n";
     s += "wfc_server = " + wfc_server + "\n";
