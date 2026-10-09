@@ -50,7 +50,8 @@ tiles, with the disc drive first. At first it shows only games that
 have mod packs (they carry a **MODS** tag). The round button at the
 bottom left (or **1**) switches between games with mods, all games and,
 once you have played something, **Recently played**, then
-**Favourites** once you mark a game as one on its page. **Minus** and
+**Favourites** once you mark a game as one (the star on its banner, or
+**Favourite** on its page). **Minus** and
 **Plus** turn to the previous and next page of games (the arrows at the
 sides and the D-pad at a page's edge do too). Hold **B** (L on a
 GameCube controller) and press **Right** or **Left** to jump to the first
@@ -92,7 +93,8 @@ the Wii Menu shows for a disc channel, and the tile you're on shows the
 game's name. Pick a game and its full banner plays, as the Wii Menu opens
 a channel: **Start** (or A, or +) plays the game with the mods and
 settings already chosen for it, **Settings** (or 2) opens
-the game's page to change them, the arrows (or Left and Right) go to the
+the game's page to change them, the star in the top right corner (or 1)
+makes it a favourite, the arrows (or Left and Right) go to the
 game before or after, and B or HOME return to Home. Each game's banner is read from its image the first time its page
 of tiles is shown (a moment per game) and kept in `sd:/riftwii/banners`.
 For ISO and WBFS games RiftWii decrypts it with your Wii's own key, read
@@ -188,6 +190,9 @@ groups: *Games* (the defaults for every game), *Menu*, *Finding games*,
   **Game language**, **Game cIOS**, **Online server**: the defaults for
   every game.
 - **Home tiles**: covers, shelf, channels or names.
+- **Home order**: *A to Z* (a leading "The" is skipped), *Last played* or
+  *Most played*. The last two put the games you played from RiftWii
+  first, the rest after them A to Z.
 - **Disc Channel**: the Disc drive's tile on Home, for playing from a
   disc. A new SD card asks whether you want it after the tour.
 - **Widescreen menu**: on a 16:9 TV the menu is drawn narrower, so covers
@@ -210,7 +215,10 @@ groups: *Games* (the defaults for every game), *Menu*, *Finding games*,
   writes with, read from your Wii's own memory (nothing is downloaded, and
   it covers Japanese too). RiftWii offers to restart its menu to switch.
   If the Wii's font can't be read, RiftWii uses its own and says so on
-  Home. Saved as `menu_font = riftwii` or `menu_font = wii`.
+  Home. Saved as `menu_font = riftwii` or `menu_font = wii`. The first
+  read copies the font to `sd:/riftwii/fontcache/`, and later starts read
+  that copy (quicker, and it needs no hardware access or cIOS). Delete
+  the folder to read it from the Wii again.
 - **Wii Menu button**: *Back to RiftWii* makes the Wii Menu button of a
   game's HOME Menu start RiftWii again (it needs the RiftWii channel);
   *Wii Menu* leaves it as it was.
@@ -234,8 +242,15 @@ groups: *Games* (the defaults for every game), *Menu*, *Finding games*,
   looks at every start and asks before it updates), and **Leave RiftWii**,
   which opens the HOME Menu (below).
 - **Send a problem report**: see Reporting a problem below.
+- **What's new** shows this version's main changes again (RiftWii shows
+  them once after an update).
+- **USB drive help**: what a USB drive needs, step by step, with a code
+  for the guide. RiftWii also offers it when a USB drive can't be read.
 - **Tutorial** shows the short tour of the basics again: a new SD card
   starts with it, once.
+- **Test switches are on** shows up only when `sd:/riftwii/settings.txt`
+  has a `debug_off =` line, which turns parts of RiftWii off for
+  testing. Clear it unless the RiftWii developers asked you to keep it.
 - **Credits and license**: RiftWii's license (the GNU GPL, version 3 or
   later, in full), where its source is, and who its parts come from.
 
@@ -663,8 +678,9 @@ and a beta on Beta. (Versions before October 2026 were numbered like
 2.7.0 and 3.3.9-beta.)
 
 An update from inside RiftWii also brings the themes that come with it
-(Bookshelf, Midnight) up to date, the first time the new version starts
-online. Themes you made or downloaded are left alone.
+(Bookshelf, Midnight) and the channel installer (`apps/riftwii_channel`)
+up to date, the first time the new version starts online. Themes you
+made or downloaded and your `music.ogg` are left alone.
 
 **Experimental** features are in stable versions too, but they are not
 yet confirmed on real Wiis and may not work on yours. The menu marks
@@ -687,7 +703,8 @@ Home says what went wrong with a drive.
 **"No d2x cIOS in 249-251: games cannot boot yet".** SD and USB images
 need a d2x cIOS. The disc drive works without one.
 
-**The USB drive isn't found.** Try a drive with its own power supply.
+**The USB drive isn't found.** Settings > USB drive help has the
+checklist. Try a drive with its own power supply.
 If the menu IOS is set to a cIOS, it must be based on IOS 58 for USB
 drives to work in the menu; otherwise set **Menu IOS** back to IOS 58.
 
