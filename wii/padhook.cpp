@@ -21,6 +21,7 @@
 #include "riftwii/symsearch.hpp"
 #include "riftwii_pad_bin.h"
 #include "rtgcad.h"
+#include "skin.hpp"
 
 namespace riftwii::wii {
 namespace {
@@ -46,7 +47,15 @@ char g_hid_path[] ATTRIBUTE_ALIGN(32) = "/dev/usb/hid";
 // while the menu, on libogc's handles, had the adapter.
 char g_ven_path[] ATTRIBUTE_ALIGN(32) = "/dev/usb/ven";
 const char* g_usb_path_used = "/dev/usb/hid";
-std::uint32_t g_version_out[8] ATTRIBUTE_ALIGN(32);
+// The buffers of our own USB requests, in MEM2 as libogc's (its IPC heap):
+// with them in MEM1 a Wii U's IOS answered -4 to every request that has
+// one (GetVersion, the device list, on hid and ven alike), while the
+// ones without a buffer went through, and libogc's own USB worked a
+// moment later on the same IOS. Taken once (usb_buffers).
+constexpr std::size_t kVersionBytes = 32;
+constexpr std::size_t kOwnListBytes = 0x180;
+std::uint32_t* g_version_out = nullptr;
+std::uint32_t* g_own_list = nullptr;
 volatile bool g_async_done = false;
 volatile s32 g_async_result = 0;
 bool g_hid_stuck = false;  // a request timed out: /dev/usb/hid is left alone from then on
@@ -82,19 +91,27 @@ std::uint32_t align_up(std::uint32_t v) { return (v + 31) & ~31u; }
 std::int32_t g_own_fd = -1;
 std::uint32_t g_own_version = 0;
 std::int32_t g_own_dev = -1;  // the adapter's v5 device id, -1: not listed
-std::uint32_t g_own_list[0x180 / 4] ATTRIBUTE_ALIGN(32);
+
+bool usb_buffers() {
+    if (g_version_out) return true;
+    u8* p = skin::Mem2Alloc(kVersionBytes + kOwnListBytes);
+    if (!p) return false;
+    g_version_out = reinterpret_cast<std::uint32_t*>(p);
+    g_own_list = reinterpret_cast<std::uint32_t*>(p + kVersionBytes);
+    return true;
+}
 
 // v5's first device-change request on a handle answers at once with the
 // devices there (its result is their number). True with the list.
 bool own_list(std::int32_t fd, s32& count) {
-    std::memset(g_own_list, 0, sizeof(g_own_list));
-    DCFlushRange(g_own_list, sizeof(g_own_list));
+    std::memset(g_own_list, 0, kOwnListBytes);
+    DCFlushRange(g_own_list, kOwnListBytes);
     g_async_done = false;
-    if (!await_async(IOS_IoctlAsync(fd, GCAD_V5_GET_DEVICE_CHANGE, nullptr, 0, g_own_list, sizeof(g_own_list),
+    if (!await_async(IOS_IoctlAsync(fd, GCAD_V5_GET_DEVICE_CHANGE, nullptr, 0, g_own_list, kOwnListBytes,
                                     on_async, nullptr),
                      count))
         return false;
-    DCInvalidateRange(g_own_list, sizeof(g_own_list));
+    DCInvalidateRange(g_own_list, kOwnListBytes);
     return count >= 0;
 }
 
@@ -118,11 +135,15 @@ bool overlaps(const MemoryPatch& p, std::uint32_t start, std::uint32_t bytes) {
 }  // namespace
 
 // v4's GetVersion answers 0x40001 itself, v5's writes 0x50001 into its
-// output; v4 is asked first, as libogc does (v5's number is
-// GetDeviceChange on v4). Every call is asynchronous with a timeout.
+// output; v5 is asked first, as libogc does (v4's number is v5's
+// AttachFinish). Every call is asynchronous with a timeout.
 bool open_usb_hid(std::int32_t& fd, std::uint32_t& version, std::string& why) {
     fd = -1;
     g_usb_path_used = "/dev/usb/hid";
+    if (!usb_buffers()) {
+        why = "no MEM2 for the USB requests";
+        return false;
+    }
     if (g_hid_stuck) {
         why = "/dev/usb/hid did not answer earlier; left alone";
         return false;
@@ -148,18 +169,18 @@ bool open_usb_hid(std::int32_t& fd, std::uint32_t& version, std::string& why) {
         // "v4 GetVersion 0", AttachFinish done; Dolphin does not mind).
         // On v4, request 0 is GetDeviceChange, which answers at once the
         // first time; the handle is then opened again for v4's question.
-        std::memset(g_version_out, 0, sizeof(g_version_out));
-        DCFlushRange(g_version_out, sizeof(g_version_out));
+        std::memset(g_version_out, 0, kVersionBytes);
+        DCFlushRange(g_version_out, kVersionBytes);
         s32 v5 = 0;
         g_async_done = false;
-        if (!await_async(IOS_IoctlAsync(fd, GCAD_V5_GET_VERSION, nullptr, 0, g_version_out, sizeof(g_version_out),
+        if (!await_async(IOS_IoctlAsync(fd, GCAD_V5_GET_VERSION, nullptr, 0, g_version_out, kVersionBytes,
                                         on_async, nullptr),
                          v5)) {
             why = "/dev/usb/hid did not answer its v5 GetVersion";
             fd = -1;  // left open: closing it could wait too
             return false;
         }
-        DCInvalidateRange(g_version_out, sizeof(g_version_out));
+        DCInvalidateRange(g_version_out, kVersionBytes);
         if (v5 == 0 && g_version_out[0] == GCAD_V5_VERSION) {
             version = 5;
             return true;
@@ -204,18 +225,18 @@ bool open_usb_hid(std::int32_t& fd, std::uint32_t& version, std::string& why) {
         }
         if (ret >= 0) {
             fd = ret;
-            std::memset(g_version_out, 0, sizeof(g_version_out));
-            DCFlushRange(g_version_out, sizeof(g_version_out));
+            std::memset(g_version_out, 0, kVersionBytes);
+            DCFlushRange(g_version_out, kVersionBytes);
             s32 v5 = 0;
             g_async_done = false;
-            if (!await_async(IOS_IoctlAsync(fd, GCAD_V5_GET_VERSION, nullptr, 0, g_version_out, sizeof(g_version_out),
+            if (!await_async(IOS_IoctlAsync(fd, GCAD_V5_GET_VERSION, nullptr, 0, g_version_out, kVersionBytes,
                                             on_async, nullptr),
                              v5)) {
                 why = "/dev/usb/ven did not answer its v5 GetVersion";
                 fd = -1;
                 return false;
             }
-            DCInvalidateRange(g_version_out, sizeof(g_version_out));
+            DCInvalidateRange(g_version_out, kVersionBytes);
             if (v5 == 0 && g_version_out[0] == GCAD_V5_VERSION) {
                 version = 5;
                 g_usb_path_used = "/dev/usb/ven";
