@@ -2091,11 +2091,11 @@ static std::string DiscTileNote()
 // holds seven lines), for the release script to keep up to date. Shown
 // once when they change; Settings > What's new shows them again.
 static const char* const kWhatsNew[] = {
-	"Wii U: GameCube adapter in games, the likely cause found",
-	"Please test it in an SD game and send a report",
+	"Wii U: another GameCube adapter fix, and full diagnostics",
+	"1. Settings > Check the GameCube adapter > Check each cIOS",
+	"2. Start an SD game with the adapter plugged in",
+	"3. Settings > Send a problem report",
 	"Cheats with X values: Set values, right here on the Wii",
-	"Settings: Wii Remote rumble; update download progress bar",
-	"Banner + and -: smoother, no music in between",
 };
 
 static std::string WhatsNewText()
