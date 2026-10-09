@@ -522,6 +522,11 @@ static std::string ReturnToNote()
 	unsigned version = 0;
 	return riftwii::wii::ChannelInstalled(version) ? tr("The Wii Menu button in a game's HOME Menu brings you back to RiftWii. It needs the RiftWii channel installed.") : tr("The Wii Menu button in a game's HOME Menu can bring you back to RiftWii once the RiftWii channel is installed (Settings).");
 }
+static const char* HomeSortName(const std::string& v)
+{
+	return v == "recent" ? tr("Last played") : v == "most" ? tr("Most played") : tr("A to Z");
+}
+
 static const char* MenuSoundsName(const std::string& v)
 {
 	return v == "off" ? tr("Off") : v == "normal" ? tr("Normal") : tr("Quiet");
@@ -695,6 +700,20 @@ static void BuildHome(const FrontendState& state, std::vector<GridItem>& items, 
 		return by != 0 ? by < 0 : strcasecmp(a.name.c_str(), b.name.c_str()) < 0;
 	});
 	const bool searching = !g_search.empty();
+	const std::string& order = riftwii::wii::Settings().home_sort;
+	if (!searching && g_filter != Filter::Recent && order != "az") {
+		// Settings > Home order: the played games first (latest or most
+		// played), the rest after them A to Z.
+		const riftwii::PlayHistory& history = riftwii::wii::History();
+		const bool most = order == "most";
+		std::stable_sort(rows.begin(), rows.end(), [&](const Row& a, const Row& b) {
+			const auto* pa = history.find(a.game->id);
+			const auto* pb = history.find(b.game->id);
+			if (!pa || !pb) return pa && !pb;
+			if (most && pa->count != pb->count) return pa->count > pb->count;
+			return pa->last > pb->last;
+		});
+	}
 	if (!searching && g_filter == Filter::Recent) {
 		// The games played from RiftWii, the latest first.
 		const riftwii::PlayHistory& history = riftwii::wii::History();
@@ -1822,18 +1841,51 @@ static bool AgreeToUpdate(const std::string& latest)
 
 // A drive that is there but cannot be read gets a box; one that is simply
 // not inserted does not. Each problem is shown once until it changes.
+// What makes a USB drive work, as a checklist with the guide's link as a
+// code for a phone. From a drive problem it can also be turned off.
+// Returns true when the player chose Don't show again.
+static bool ShowUsbHelp(bool offerOff)
+{
+	static const char* const kGuide = "https://github.com/KakarottoCake/Riftwii/blob/main/docs/GUIDE.md#troubleshooting";
+	riftwii::QrCode code;
+	riftwii::make_qr(kGuide, code);
+	constexpr int kModule = 3;
+	const int side = QrImage::Side(code, kModule);
+	QrImage qr(code, 588 - 16 - side, 150, kModule);
+	PopupBox box(tr("Getting a USB drive working"),
+		std::string(tr("1. Plug it into the Wii's USB port nearest the edge.")) + "\n" +
+			tr("2. A hard drive may need more power: use a Y-cable in both ports, or a drive with its own power supply.") + "\n" +
+			tr("3. Format it FAT32 or NTFS on a computer (or WBFS with a WBFS manager).") + "\n" +
+			tr("4. Put the games in a wbfs or games folder at the top of the drive.") + "\n" +
+			tr("5. Install a d2x cIOS in slot 249, 250 or 251, and keep Settings > Menu IOS on IOS 58.") + "\n\n" +
+			tr("Scan the code for the guide's troubleshooting page."),
+		tr("OK"), offerOff ? std::string(tr("Don't show again")) : std::string());
+	if (code.size != 0) box.Add(&qr, 588 - 16 - side - 56 - 16);
+	return box.Wait() == 1;
+}
+
 static void WarnAboutDrives(const std::string& sdError, const std::string& usbError)
 {
 	static std::string shown;
 	std::string text;
 	const auto missing = [](const std::string& e) { return e.find("is inserted") != std::string::npos; };
+	const bool usbProblem = !usbError.empty() && !missing(usbError);
 	if (!sdError.empty() && !missing(sdError)) text += tr("SD card: {1}", {FlatCapped(sdError, 260)}) + "\n";
-	if (!usbError.empty() && !missing(usbError)) text += tr("USB drive: {1}", {FlatCapped(usbError, 260)}) + "\n";
+	if (usbProblem) text += tr("USB drive: {1}", {FlatCapped(usbError, 260)}) + "\n";
 	if (text.empty() || text == shown) return;
 	shown = text;
-	ShowPopup(tr("Drive problem"),
+	// A USB problem offers the checklist, unless it was turned off.
+	auto& other = riftwii::wii::Settings().other;
+	const auto off = other.find("usb_help");
+	const bool help = usbProblem && (off == other.end() || off->second != "off");
+	const int choice = ShowPopup(tr("Drive problem"),
 		text + tr("Games on that drive are not listed. Check the drive on a computer; details are in sd:/riftwii/session.log."),
-		tr("OK"));
+		tr("OK"), help ? std::string(tr("Help")) : std::string());
+	if (choice == 1 && ShowUsbHelp(true)) {
+		other["usb_help"] = "off";
+		riftwii::wii::SaveSettings();
+		logf("USB help: turned off\n");
+	}
 }
 
 // What the last game's card log noted (wii/boot.hpp TakeCardLog): into
@@ -4389,8 +4441,8 @@ static int MenuSettings(FrontendState& state)
 			if (t.folder == folder) return t.name;
 		return folder;
 	};
-	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kGameLanguage, kGameCios, kServer, kHomeTiles, kDiscTile, kWidescreen, kScreenSize, kTheme, kFont, kSounds, kMusic, kReturnTo, kShots, kOnline, kNames, kGcAdapter, kGcTest, kIos, kNet, kResync,
-		kRescan, kChannel, kUpdate, kReport, kWiiChannel, kTutorial, kCredits, kExit, kNone, kHeading };
+	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kGameLanguage, kGameCios, kServer, kHomeTiles, kHomeSort, kDiscTile, kWidescreen, kScreenSize, kTheme, kFont, kSounds, kMusic, kReturnTo, kShots, kOnline, kNames, kGcAdapter, kGcTest, kIos, kNet, kResync,
+		kRescan, kChannel, kUpdate, kReport, kTests, kWiiChannel, kUsbHelp, kTutorial, kCredits, kExit, kNone, kHeading };
 	// The RiftWii channel on the Wii Menu (wii/channel.hpp).
 	unsigned channelVersion = 0;
 	const bool channelThere = riftwii::wii::ChannelInstalled(channelVersion);
@@ -4450,6 +4502,7 @@ static int MenuSettings(FrontendState& state)
 		option(tr("Home tiles"), settings.home_tiles == "names" ? tr("Names") : settings.home_tiles == "shelf" ? tr("Shelf")
 			: settings.home_tiles == "channels" ? tr("Channels") : tr("Covers"),
 			settings.home_tiles != "names", kHomeTiles);
+		option(tr("Home order"), HomeSortName(settings.home_sort), settings.home_sort != "az", kHomeSort);
 		option(tr("Disc Channel"), settings.home_disc == "off" ? tr("Off") : tr("On"), settings.home_disc != "off",
 			kDiscTile, FlowRow::Kind::Toggle);
 		option(tr("Widescreen menu"), settings.menu_widescreen == "on" ? std::string("16:9")
@@ -4514,12 +4567,29 @@ static int MenuSettings(FrontendState& state)
 		rows.push_back(update);
 		actions.push_back(kUpdate);
 		heading(tr("More"));
+		// Only while settings.txt has test switches (debug_off), which turn
+		// parts of RiftWii off and were left in for days by a tester.
+		const auto tests = settings.other.find("debug_off");
+		if (tests != settings.other.end() && !tests->second.empty()) {
+			FlowRow testRow;
+			testRow.kind = FlowRow::Kind::Action;
+			testRow.label = tr("Test switches are on");
+			testRow.value = tr("Clear");
+			rows.push_back(testRow);
+			actions.push_back(kTests);
+		}
 		FlowRow report;
 		report.kind = FlowRow::Kind::Action;
 		report.label = tr("Send a problem report");
 		report.value = tr("Send");
 		rows.push_back(report);
 		actions.push_back(kReport);
+		FlowRow usbHelp;
+		usbHelp.kind = FlowRow::Kind::Action;
+		usbHelp.label = tr("USB drive help");
+		usbHelp.value = tr("Show");
+		rows.push_back(usbHelp);
+		actions.push_back(kUsbHelp);
 		FlowRow tutorial;
 		tutorial.kind = FlowRow::Kind::Action;
 		tutorial.label = tr("Tutorial");
@@ -4608,6 +4678,7 @@ static int MenuSettings(FrontendState& state)
 			case kReturnTo: return ReturnToNote();
 			case kShots: return tr("Experimental. In a game, hold 1 and press HOME (GameCube controller: hold L and R, press Down). Pictures go to sd:/riftwii/screenshots when RiftWii next starts. Some games and mods don't work with it.");
 			case kDiscTile: return DiscTileNote();
+			case kHomeSort: return tr("The order of the games on Home. Last played and Most played put the games you played from RiftWii first, the rest after them A to Z.");
 			case kMusic: return riftwii::wii::MenuMusicFound() ? tr("Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder.") : tr("No music.ogg found in sd:/riftwii or in RiftWii's own folder.");
 			case kServer: return tr("The online server the game uses in place of Nintendo's, which closed. Custom uses wfc_domain in settings.txt.");
 			case kOnline:
@@ -4617,6 +4688,12 @@ static int MenuSettings(FrontendState& state)
 			case kGcAdapter: return AdapterNote(settings.gc_adapter);
 			case kGcTest: return tr("Shows live what the controllers in the adapter are pressing.");
 			case kTutorial: return tr("The short tour of RiftWii's basics that a new SD card starts with.");
+			case kUsbHelp: return tr("What a USB drive needs to work with RiftWii, step by step.");
+			case kTests: {
+				const auto tests = settings.other.find("debug_off");
+				return tr("settings.txt turns parts of RiftWii off for testing (debug_off = {1}). Clear them unless the RiftWii developers asked you to keep them.",
+					{tests != settings.other.end() ? tests->second : std::string()});
+			}
 			case kCredits: return tr("Who RiftWii's parts come from, its license (the GNU GPL, version 3 or later) and where its source is.");
 			case kIos: return MenuIosNote(iosSlot);
 			case kNet:
@@ -4713,6 +4790,15 @@ static int MenuSettings(FrontendState& state)
 					saveAndNote(tr("The online server the game uses in place of Nintendo's, which closed. Custom uses wfc_domain in settings.txt."));
 					rebuild();
 					break;
+				case kHomeSort: {
+					static const char* const kSortChoices[] = {"az", "recent", "most"};
+					int at = 0;
+					while (at < 3 && settings.home_sort != kSortChoices[at]) ++at;
+					settings.home_sort = kSortChoices[((at % 3) + 3 + direction) % 3];
+					saveAndNote(tr("The order of the games on Home. Last played and Most played put the games you played from RiftWii first, the rest after them A to Z."));
+					rebuild();
+					break;
+				}
 				case kSounds: {
 					static const char* const kSoundChoices[] = {"normal", "quiet", "off"};
 					int at = 0;
@@ -4902,6 +4988,15 @@ static int MenuSettings(FrontendState& state)
 					break;
 				case kTutorial:
 					ShowTutorial();
+					break;
+				case kUsbHelp:
+					ShowUsbHelp(false);
+					break;
+				case kTests:
+					logf("Settings: test switches cleared (debug_off = %s)\n", settings.other["debug_off"].c_str());
+					settings.other.erase("debug_off");
+					saveAndNote(tr("Test switches cleared: games start with all of RiftWii's fixes again."));
+					rebuild();
 					break;
 				case kCredits:
 					transition::Hold(transition::Kind::SlideForward);

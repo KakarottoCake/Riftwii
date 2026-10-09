@@ -31,6 +31,7 @@ struct LoaderSettings {
     int screen_size = 100;                // the menu's size on screen, 80-100 (%), inside what a TV's overscan crops
     std::string menu_sounds = "quiet";    // normal, quiet (a soft hover tick), off
     std::string menu_music = "on";        // on, off: music.ogg while the menu is open
+    std::string home_sort = "az";         // az, recent (last played first), most (most played first)
     std::string home_disc = "on";         // on, off: the Disc drive's tile on Home (asked on a new card)
     std::string theme = "default";        // default, or a folder in sd:/riftwii/themes (docs/THEMES.md)
     std::string menu_font = "riftwii";    // riftwii, wii: the Wii Menu's own font, read from the NAND (riftwii/sysfont.hpp)

@@ -18,6 +18,7 @@
 #include "boot.hpp"
 #include "gcadapter.hpp"
 #include "ios_reload.hpp"
+#include "loadersettings.hpp"
 #include "log.hpp"
 #include "menuios.hpp"
 #include "online.hpp"
@@ -147,6 +148,11 @@ std::string describe_system(const std::string& reason) {
     s += "Controllers now: " + DescribeControllers() + "\n";
     const RestartNote& note = CurrentRestartNote();
     if (note.kind != RestartKind::None) s += "This run started after: " + note.message + "\n";
+    // Test switches turn parts of RiftWii off: named up front, so a report
+    // does not read like a bug when one was left in settings.txt.
+    const auto tests = Settings().other.find("debug_off");
+    if (tests != Settings().other.end() && !tests->second.empty())
+        s += "Test switches ON in settings.txt: debug_off = " + tests->second + "\n";
     return s;
 }
 

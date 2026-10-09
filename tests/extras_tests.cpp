@@ -614,6 +614,13 @@ void TestCoverArt() {
     s.parse("home_tiles = channels\n");
     EXPECT_EQ(s.home_tiles, "channels");
     EXPECT_EQ(s.menu_widescreen, "off");
+    EXPECT_EQ(s.home_sort, "az");
+    s.parse("home_sort = most\n");
+    EXPECT_EQ(s.home_sort, "most");
+    s.parse("home_sort = shuffle\n");
+    EXPECT_EQ(s.home_sort, "most");
+    EXPECT_TRUE(s.serialize().find("home_sort = most\n") != std::string::npos);
+    s.home_sort = "az";
     EXPECT_EQ(s.home_disc, "on");
     s.parse("home_disc = off\n");
     EXPECT_EQ(s.home_disc, "off");
