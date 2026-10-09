@@ -2071,10 +2071,817 @@ KO = {
         "다시 표시하지 않음",
 }
 
+#French, a table of its own (msgid: text), by MidyGamy
+FR = {
+    "Games with mods":
+        "Jeux avec mods",
+    "All games":
+        "Tous les jeux",
+    "Recently played":
+        "Joués récemment",
+    "No game on these drives was played from RiftWii yet. Press 1 for all games.":
+        "Aucun jeu sur ces stockages n'a encore été lancé depuis RiftWii. Appuyez sur 1 pour voir tous les jeux.",
+    "{1}/{2}":
+        "{2}/{1}",
+    "Played once, on {1}":
+        "Joué 1 fois, le {1}",
+    "Played {1} times, last on {2}":
+        "Joué {1} fois, la dernière fois le {2}",
+    "1: view   2: settings   -/+: pages   B: A to Z":
+        "1 : vue   2 : paramètres   -/+ : pages   B : A à Z",
+    "Page {1} of {2}":
+        "Page {1} sur {2}",
+    "{1}: no games in /wbfs or /games":
+        "{1} : aucun jeu dans /wbfs ou /games",
+    "SD: no card":
+        "SD : aucune carte",
+    "No d2x cIOS in 249-251: games cannot boot yet":
+        "Aucun cIOS d2x dans 249-251 : les jeux ne peuvent pas encore démarrer",
+    "No game here has packs in sd:/riivolution yet. Press 1 for all games.":
+        "Aucun jeu ici n'a de pack dans sd:/riivolution. Appuyez sur 1 pour voir tous les jeux.",
+    "No games found (usb:/wbfs, usb:/games, sd:/wbfs, sd:/games)":
+        "Aucun jeu trouvé (usb:/wbfs, usb:/games, sd:/wbfs, sd:/games)",
+    "Reading the SD card...":
+        "Lecture de la carte SD...",
+    "Reading the USB drive... (a big drive takes a moment)":
+        "Lecture du stockage USB... (un grand stockage peut prendre un moment)",
+    "Reading the disc...":
+        "Lecture du disque...",
+    "scan failed":
+        "échec de l'analyse",
+    "(the menu runs under IOS {1}; USB drives need a base-58 cIOS for that, or set the menu IOS back to 58)":
+        "(le menu fonctionne sous l'IOS {1}; les stockage USB nécessitent un cIOS base-58 pour cela, ou remettez l'IOS du menu sur 58)",
+    "(after the failed launch RiftWii came back under IOS {1}, which cannot read the drive here; start RiftWii again from the Homebrew Channel)":
+        "(après l'échec du lancement, RiftWii est revenu sous l'IOS {1}, qui ne peut pas lire le stockage ici; relancez RiftWii depuis la Chaîne Homebrew)",
+    "No disc in the drive":
+        "Aucun disque dans le lecteur",
+    "Disc drive":
+        "Lecteur de disque",
+    "USB drive":
+        "Stockage USB",
+    "SD card":
+        "Carte SD",
+    "Sun":
+        "Dim",
+    "Mon":
+        "Lun",
+    "Tue":
+        "Mar",
+    "Wed":
+        "Mer",
+    "Thu":
+        "Jeu",
+    "Fri":
+        "Ven",
+    "Sat":
+        "Sam",
+    "{1}:{2} AM":
+        "{1}:{2}",
+    "{1}:{2} PM":
+        "{1}:{2}",
+    "{1} {2}/{3}":
+        "{1} {2}/{3}",
+    "MODS":
+        "MODS",
+    "Back":
+        "Retour",
+    "Start":
+        "Démarrer",
+    "Saves":
+        "Sauvegardes",
+    "On the Wii":
+        "Sur la Wii",
+    "SD, from Wii save":
+        "SD, depuis sauvegarde Wii",
+    "SD, fresh start":
+        "SD, sauvegarde vierge",
+    "Kept by the pack":
+        "Géré par le pack",
+    "This pack keeps its own saves. Turn it off to choose here.":
+        "Ce pack gère ses propres sauvegardes. Désactivez-le pour choisir ici.",
+    "Saves go to the SD card, starting from the Wii's save.":
+        "Les sauvegardes vont sur la carte SD, en partant de la sauvegarde Wii.",
+    "Saves go to the SD card, starting fresh.":
+        "Les sauvegardes vont sur la carte SD, auvegarde vierge.",
+    "Saves stay on the Wii, as usual.":
+        "Les sauvegardes restent sur la Wii, comme d'habitude.",
+    "Broken":
+        "Endommagé",
+    "On":
+        "Activé",
+    "Off":
+        "Désactivé",
+    "Mods":
+        "Mods",
+    "None":
+        "Aucun",
+    "{1} switched on":
+        "{1} activé(s)",
+    "On: {1}":
+        "Activé : {1}",
+    "No mods for this game.":
+        "Aucun mod pour ce jeu.",
+    "No mods on the SD card. Put Riivolution XML in sd:/riivolution.":
+        "Aucun mod sur la carte SD. Placez le fichier XML Riivolution dans sd:/riivolution.",
+    "1 mod pack for this game. Press A to turn it on.":
+        "1 pack de mod pour ce jeu. Appuyez sur A pour l'activer.",
+    "{1} mod packs for this game. Press A to turn them on.":
+        "{1} packs de mods pour ce jeu. Appuyez sur A pour les activer.",
+    "No mods on the SD card":
+        "Aucun mod sur la carte SD",
+    "No mods for this game":
+        "Aucun mod pour ce jeu",
+    "Put Riivolution XML in sd:/riivolution":
+        "Placez le fichier XML Riivolution dans sd:/riivolution",
+    "1 XML file is for another game":
+        "1 fichier XML est destiné à un autre jeu",
+    "{1} XML files are for other games":
+        "{1} fichiers XML sont destinés à d'autres jeux",
+    "Package scan failed; go back and try again":
+        "Échec de l'analyse des fichiers; revenez en arrière et réessayez",
+    "This XML cannot be read; the error is listed under it.":
+        "Ce fichier XML ne peut pas être lu; l'erreur est indiquée ci-dessous.",
+    "This XML cannot be read; fix it on the card and come back.":
+        "Ce fichier XML ne peut pas être lu; corrigez-le sur la carte et réessayez.",
+    "This pack cannot be turned on.":
+        "Ce pack ne peut pas être activé.",
+    "Off. A turns it on.":
+        "Désactivé. A permet de l'activer.",
+    "Off. A turns it on and shows its setting.":
+        "Désactivé. Le bouton A l'active et affiche son paramètre.",
+    "Off. A turns it on and shows its {1} settings.":
+        "Désactivé. Le bouton A l'active et affiche ses {1} paramètres.",
+    "On. It applies as a whole.":
+        "Activé. S'applique dans son ensemble.",
+    "On, but nothing chosen yet: pick its settings below.":
+        "Activé, mais rien n'est choisi : sélectionnez ses paramètres ci-dessous.",
+    "On, {1} of {2} settings chosen.":
+        "Activé, {1} sur {2} paramètres choisis.",
+    "No game is selected; go back and pick one.":
+        "Aucun jeu n'est sélectionné; revenez en arrière et choisissez-en un.",
+    "Preparing the mods...":
+        "Préparation des mods...",
+    "Cheats":
+        "Codes de triche",
+    "Picture width":
+        "Largeur d'image",
+    "Deflicker":
+        "Anti-scintillement",
+    "Black borders":
+        "Bandes noires",
+    "Region video fix":
+        "Correction de la région vidéo",
+    "For a US or Japanese game that shows no picture on a console from another region: the game is told the video hardware matches its region.":
+        "Pour un jeu américain ou japonais qui n'affiche pas d'image sur une console d'une autre région : le jeu interprète que le matériel vidéo correspond à sa région.",
+    "Framebuffer":
+        "Tampon d'image",
+    "704 pixels":
+        "704 pixels",
+    "720 pixels (full)":
+        "720 pixels (complet)",
+    "Game's own":
+        "Par défaut du jeu",
+    "Off (sharp)":
+        "Désactivé (net)",
+    "Low":
+        "Faible",
+    "Medium":
+        "Moyen",
+    "High":
+        "Élevé",
+    "Remove":
+        "Supprimer",
+    "Keep":
+        "Conserver",
+    "Remove all (experimental)":
+        "Tout supprimer (expérimental)",
+    "Remove all":
+        "Tout supprimer",
+    "Default ({1})":
+        "Par défaut ({1})",
+    "On, none picked":
+        "Activé, aucun sélectionné",
+    "On, {1} picked":
+        "Activé, {1} sélectionné(s)",
+    "Cheat codes for this game. Press A to choose them.":
+        "Codes de triche pour ce jeu. Appuyez sur A pour les choisir.",
+    "How wide the picture is drawn. 720 fills the screen from side to side.":
+        "Largeur d'affichage de l'image. 720 remplit l'écran d'un côté à l'autre.",
+    "A filter that softens the picture to hide flicker. Off gives the sharpest picture.":
+        "Un filtre qui adoucit l'image pour masquer le scintillement. Désactivé donne l'image la plus nette.",
+    "Remove stretches the picture over the bars at the sides. Remove all also stretches it over the bars at the top and bottom: experimental, some games show a broken picture or crash with it.":
+        "\"Supprimer\" étire l'image sur les bandes latérales. \"Tout supprimer\" l'étire aussi en haut et en bas : expérimental, certains jeux peuvent afficher une image déformée ou planter.",
+    "Remove takes away the bars at the sides; Remove all also the top and bottom (experimental).":
+        "\"Supprimer\" retire les bandes latérales; \"Tout supprimer\" retire aussi le haut et le bas (expérimental).",
+    "Last time, this game left black borders on all sides.":
+        "La dernière fois, ce jeu a laissé des bandes noires de tous les côtés.",
+    "Last time, this game left black borders at the sides.":
+        "La dernière fois, ce jeu a laissé des bandes noires sur les côtés.",
+    "Last time, this game left black borders at the top and bottom.":
+        "La dernière fois, ce jeu a laissé des bandes noires en haut et en bas.",
+    "Last time, this game filled the whole screen.":
+        "La dernière fois, ce jeu a rempli tout l'écran.",
+    "Use cheats":
+        "Utiliser les codes de triche",
+    "Get the latest cheats":
+        "Obtenir les derniers codes de triche",
+    "Download cheats":
+        "Télécharger les codes de triche",
+    "Download":
+        "Télécharger",
+    "Edit first":
+        "Éditer d'abord",
+    "The cheats are in {1}. Edit it on a computer to add your own.":
+        "Les codes sont dans {1}. Modifiez ce fichier sur un ordinateur pour ajouter les vôtres.",
+    "Downloading cheats...":
+        "Téléchargement des codes de triche...",
+    "{1} cheats. Turn on the ones you want.":
+        "{1} codes de triche. Activez ceux que vous souhaitez.",
+    "Could not download cheats: {1}":
+        "Impossible de télécharger les codes de triche : {1}",
+    "No cheats found online for this game.":
+        "Aucun code de triche trouvé en ligne pour ce jeu.",
+    "Cheats are only applied when this is On.":
+        "Les codes de triche ne s'appliquent que si cette option est activée.",
+    "Downloads are off in Settings.":
+        "Les téléchargements sont désactivés dans les paramètres.",
+    "No game is selected.":
+        "Aucun jeu sélectionné.",
+    "No cheat file yet. Choose Download to get one.":
+        "Aucun fichier de triche. Choisissez Télécharger pour en obtenir un.",
+    "No cheat file at {1}":
+        "Aucun fichier de triche dans {1}",
+    "The cheat file has no cheats in it: {1}":
+        "Le fichier ne contient aucun code de triche : {1}",
+    "Settings":
+        "Paramètres",
+    "Language":
+        "Langue",
+    "Wii: {1}":
+        "Wii : {1}",
+    "Download names and cheats":
+        "Télécharger noms et codes de triche",
+    "Get the latest game names":
+        "Obtenir les derniers noms de jeux",
+    "Update":
+        "Mettre à jour",
+    "Menu IOS":
+        "IOS du menu",
+    "Menu IOS: IOS 58 (no d2x cIOS found)":
+        "IOS du menu : IOS 58 (aucun cIOS d2x trouvé)",
+    "Find network packs (RiiFS)":
+        "Trouver les packs réseau (RiiFS)",
+    "Copy network packs again":
+        "Recopier les packs réseau",
+    "Resync":
+        "Ressynchroniser",
+    "Look for games again":
+        "Rechercher à nouveau les jeux",
+    "Rescan":
+        "Réanalyser",
+    "Leave RiftWii":
+        "Quitter RiftWii",
+    "Exit":
+        "Quitter",
+    "These apply to every game. A game's own page can change them for that game.":
+        "S'applique à tous les jeux. La page propre à chaque jeu permet de les modifier.",
+    "Game names follow the language when they are downloaded.":
+        "Les noms des jeux suivent la langue sélectionnée lors de leur téléchargement.",
+    "Game names and cheats are downloaded when the Wii is online.":
+        "Les noms de jeux et les codes sont téléchargés lorsque la Wii est en ligne.",
+    "Nothing is downloaded. Names and cheats already on the card are still used.":
+        "Rien n'est téléchargé. Les noms et codes déjà présents sur la carte restent utilisés.",
+    "Downloads are off. Turn on Download names and cheats first.":
+        "Téléchargements désactivés. Activez d'abord le téléchargement des noms et codes.",
+    "Downloading game names...":
+        "Téléchargement des noms de jeux...",
+    "Game names updated.":
+        "Noms de jeux mis à jour.",
+    "Could not download game names: {1}":
+        "Impossible de télécharger les noms de jeux : {1}",
+    "Cannot write sd:/riftwii/settings.txt":
+        "Écriture impossible dans sd:/riftwii/settings.txt",
+    "Cannot write sd:/riftwii/menu_ios.txt":
+        "Écriture impossible dans sd:/riftwii/menu_ios.txt",
+    "The menu runs under the Homebrew Channel's IOS (the default).":
+        "Le menu s'exécute sous l'IOS de la Chaîne Homebrew (par défaut).",
+    "The menu and every game run under cIOS {1}, so a cIOS with fakemote makes USB DS3/DS4 pads work as Wii Remotes. USB drives in the menu need a base-58 cIOS.":
+        "Le menu et chaque jeu tournent sous le cIOS {1}. Un cIOS avec fakemote permet d'utiliser des manettes DS3/DS4 USB comme Wiimotes. Les stockages USB nécessitent un cIOS base-58.",
+    "Takes effect the next time RiftWii starts.":
+        "Prendra effet au prochain démarrage de RiftWii.",
+    "Looks for a PC running a RiiFS server when the games are read. Rescan to look now.":
+        "Cherche un PC exécutant un serveur RiiFS lors de la lecture des jeux. Réanalysez pour chercher maintenant.",
+    "Only servers named by <network> in an XML on the card are used.":
+        "Seuls les serveurs désignés par <network> dans un fichier XML sur la carte sont utilisés.",
+    "The next launch copies every file of its network packs again.":
+        "Le prochain lancement recopiera tous les fichiers des packs réseau.",
+    "Starting":
+        "Démarrage",
+    "Dumping files from":
+        "Extraction des fichiers depuis",
+    "The game takes over the screen when it is ready.":
+        "Le jeu prend le contrôle de l'écran lorsqu'il est prêt.",
+    "Opening the game...":
+        "Ouverture du jeu...",
+    "GameCube adapter":
+        "Adaptateur GameCube",
+    "Check the GameCube adapter":
+        "Vérifier l'adaptateur GameCube",
+    "Test":
+        "Tester",
+    "Welcome to RiftWii":
+        "Bienvenue dans RiftWii",
+    "RiftWii starts your Wii games with Riivolution-format mods, from the disc, a USB drive or the SD card. Your game files are never changed. This short tour shows the basics.":
+        "RiftWii lance vos jeux Wii avec des mods au format Riivolution, depuis le disque, un stockage USB ou la carte SD. Vos jeux ne sont jamais modifiés. Ce court guide présente les bases.",
+    "Your games":
+        "Vos jeux",
+    "Put games in the wbfs or games folder at the top of the SD card or the USB drive (WBFS, ISO or RVZ). A disc in the drive shows up too. Home lists games that have mods first: press 1, or the round button at the bottom left, to see all your games.":
+        "Placez vos jeux dans le dossier wbfs ou games à la racine de la carte SD ou du stockage USB (format WBFS, ISO ou RVZ). Les disques insérés apparaissent aussi. L'accueil liste en premier les jeux moddés : appuyez sur 1 pour tout voir.",
+    "Put mod packs (the XML file and the folders that come with it) in sd:/riivolution or usb:/riivolution. Pick a game, open Mods, switch a pack on and choose its options. Start (or +) plays the game with them.":
+        "Placez les packs de mods (fichier XML et dossiers associés) dans sd:/riivolution ou usb:/riivolution. Choisissez un jeu, ouvrez Mods, activez un pack et ajustez ses options. Démarrer (ou +) lance le jeu.",
+    "Buttons":
+        "Boutons",
+    "Point with the Wii Remote and press A, or move with the D-pad; in the games list, - and + turn the pages. B goes back, 2 opens Settings and HOME opens the HOME Menu. The Classic Controller and GameCube controllers work too, with the same buttons.":
+        "Pointez avec la Wiimote et appuyez sur A, ou déplacez-vous avec la croix directionnelle. - et + tournent les pages. B revient en arrière, 2 ouvre les paramètres et HOME ouvre le menu HOME. Les manettes Classique et GameCube sont aussi compatibles.",
+    "You're all set":
+        "Vous êtes prêt",
+    "Settings has the video, language, online and update options. For more help, see the guide on RiftWii's GitHub page or join the Discord. Settings > Tutorial shows this tour again.":
+        "Les paramètres contiennent les options vidéo, de langue, en ligne et de mise à jour. Pour plus d'aide, consultez le guide GitHub de RiftWii ou le Discord. Paramètres > Tutoriel réaffiche ce guide.",
+    "Next":
+        "Suivant",
+    "Skip":
+        "Passer",
+    "Let's go":
+        "C'est parti",
+    "Tutorial":
+        "Tutoriel",
+    "Show":
+        "Afficher",
+    "The short tour of RiftWii's basics that a new SD card starts with.":
+        "Le court tutoriel de présentation des fonctionnalités de base de RiftWii.",
+    "Credits and license":
+        "Crédits et licence",
+    "View":
+        "Voir",
+    "Who RiftWii's parts come from, its license (the GNU GPL, version 3 or later) and where its source is.":
+        "L'origine des composants de RiftWii, sa licence (GNU GPL v3 ou ultérieure) et l'emplacement du code source.",
+    "Experimental. With the adapter plugged in when a game starts, its controllers fill the empty ports in games that take a GameCube controller. Needs IOS 58 or a d2x cIOS.":
+        "Expérimental. Si l'adaptateur est branché au lancement, ses manettes occupent les ports libres pour les jeux GameCube. Nécessite l'IOS 58 ou un cIOS d2x.",
+    "Experimental. Always on, even with no adapter plugged in, so it can be plugged in during a game. It needs IOS 58 or a d2x cIOS.":
+        "Expérimental. Toujours actif pour pouvoir brancher l'adaptateur en cours de jeu. Nécessite l'IOS 58 ou un cIOS d2x.",
+    "Experimental. The adapter is left alone.":
+        "Expérimental. L'adaptateur n'est pas utilisé.",
+    "Adapter: working":
+        "Adaptateur : fonctionnel",
+    "Adapter: starting...":
+        "Adaptateur : démarrage...",
+    "Adapter: another program is using it, waiting":
+        "Adaptateur : utilisé par un autre programme, en attente",
+    "Adapter: it did not answer ({1}), trying again":
+        "Adaptateur : pas de réponse ({1}), nouvel essai",
+    "Adapter: not found. Plug in its black USB plug.":
+        "Adaptateur : introuvable. Branchez sa prise USB noire.",
+    "Press buttons on a controller in the adapter to see them here. In a game that supports the GameCube controller, the adapter's controllers fill the ports that have none plugged in.":
+        "Appuyez sur les boutons d'une manette reliée à l'adaptateur pour les tester ici. Dans un jeu compatible GameCube, ses manettes occupent les ports vides.",
+    "This IOS has no USB HID (IOS{1}). Choose IOS 58 or a d2x cIOS as the Menu IOS.":
+        "Cet IOS ne gère pas le USB HID (IOS{1}). Choisissez l'IOS 58 ou un cIOS d2x comme IOS du menu.",
+    "Port {1}":
+        "Port {1}",
+    "nothing plugged in":
+        "rien de branché",
+    "The menu's language. Wii follows the console's own setting.":
+        "Langue du menu. \"Wii\" utilise le paramètre de la console.",
+    "Downloads the newest game names from GameTDB.":
+        "Télécharge les derniers noms de jeux depuis GameTDB.",
+    "Shows live what the controllers in the adapter are pressing.":
+        "Affiche en direct les entrées des manettes branchées sur l'adaptateur.",
+    "Reads the SD card and the USB drive again.":
+        "Relaance la lecture de la carte SD et du stockage USB.",
+    "No d2x cIOS was found in slots 248 to 252, so the menu runs under IOS 58. Install d2x to play games from SD or USB.":
+        "Aucun cIOS d2x trouvé dans les slots 248 à 252, le menu tourne sous l'IOS 58. Installez d2x pour jouer depuis la SD ou l'USB.",
+    "Check for a new version":
+        "Vérifier les mises à jour",
+    "Check":
+        "Vérifier",
+    "This is RiftWii {1}. Looks on GitHub for a newer release.":
+        "Vous utilisez RiftWii {1}. Recherche une version plus récente sur GitHub.",
+    "Asking GitHub...":
+        "Interrogation de GitHub...",
+    "RiftWii {1} is out: {2}":
+        "RiftWii {1} est disponible : {2}",
+    "RiftWii {1} is the newest version.":
+        "RiftWii {1} est la version la plus récente.",
+    "Could not check: {1}":
+        "Vérification impossible : {1}",
+    "Favourites":
+        "Favoris",
+    "Favourite":
+        "Favori",
+    "Favourites have their own view on Home: press 1 there until it shows.":
+        "Les favoris ont leur propre vue à l'accueil : appuyez sur 1 jusqu'à la faire apparaître.",
+    "No favourite is on these drives. Mark games on their page. Press 1 for all games.":
+        "Aucun favori sur ces stockages. Marquez des jeux depuis leur page. Appuyez sur 1 pour tous les jeux.",
+    "Could not save the settings to the SD card.":
+        "Impossible d'enregistrer les paramètres sur la carte SD.",
+    "Video mode":
+        "Mode vidéo",
+    "Game language":
+        "Langue du jeu",
+    "The console's":
+        "Celle de la console",
+    "Automatic":
+        "Automatique",
+    "Japanese":
+        "Japonais",
+    "English":
+        "Anglais",
+    "German":
+        "Allemand",
+    "French":
+        "Français",
+    "Spanish":
+        "Espagnol",
+    "Italian":
+        "Italien",
+    "Dutch":
+        "Néerlandais",
+    "Chinese (simplified)":
+        "Chinois (simplifié)",
+    "Chinese (traditional)":
+        "Chinois (traditionnel)",
+    "Korean":
+        "Coréen",
+    "The TV signal the game sends. PAL 50 Hz needs a TV that takes it, 480p a component cable.":
+        "Signal TV émis par le jeu. Le PAL 50 Hz exige un téléviseur compatible, le 480p un câble YUV (Composante).",
+    "The language the game is told the console uses. Pick one the game has: some games stop without it.":
+        "Langue de console transmise au jeu. Choisissez une langue gérée par le jeu pour éviter tout blocage.",
+    "The d2x cIOS the game runs under. Automatic uses the menu's, else the first of 249, 250 and 251 that works.":
+        "cIOS d2x utilisé pour lancer le jeu. \"Automatique\" utilise celui du menu, ou le premier fonctionnel parmi 249, 250 et 251.",
+    "Online server":
+        "Serveur en ligne",
+    "Home tiles":
+        "Tuiles de l'accueil",
+    "Covers":
+        "Jacquettes",
+    "Names":
+        "Noms",
+    "Shelf":
+        "Étagère",
+    "Channels":
+        "Chaînes",
+    "Widescreen menu":
+        "Menu 16:9",
+    "Screen size":
+        "Taille de l'écran",
+    "On a 16:9 TV the menu is drawn narrower, so covers and pictures keep their shape. Automatic follows the Wii's own TV setting.":
+        "Sur une TV 16:9, le menu est ajusté pour conserver le ratio des images. \"Automatique\" suit le réglage TV de la Wii.",
+    "Makes the menu smaller on screen, so nothing is cut off at the TV's edges. Lower it until the whole menu shows.":
+        "Réduit l'affichage pour éviter que les bords ne soient coupés sur l'écran. Réduisez la valeur jusqu'à tout voir.",
+    "Covers: each game's box art from GameTDB (fetched when downloads are on). Shelf: the boxes on a shelf. Channels: each game's animated icon, and its banner when you pick it, as on the Wii Menu. Names: the names only.":
+        "Jacquettes : affiche la boîte GameTDB. Étagère : boîtes alignées sur une étagère. Chaînes : icônes et bannières animées comme sur le menu Wii. Noms : liste textuelle.",
+    "Custom (no wfc_domain set)":
+        "Personnalisé (wfc_domain non défini)",
+    "The online server the game uses in place of Nintendo's, which closed. Custom uses wfc_domain in settings.txt.":
+        "Serveur de remplacement pour le jeu en ligne officiel désormais fermé. L'option personnalisée utilise wfc_domain dans settings.txt.",
+    "Getting covers from GameTDB: {1} left":
+        "Récupération des jacquettes GameTDB : {1} restante(s)",
+    "Covers could not be downloaded ({1}). To try again, use Settings > Look for games again.":
+        "Impossible de télécharger les jacquettes ({1}). Pour réessayer : Paramètres > Rechercher à nouveau les jeux.",
+    "Cover":
+        "Jacquette",
+    "Download again":
+        "Re-télécharger",
+    "Downloads this game's box art from GameTDB now.":
+        "Télécharge la jacquette de ce jeu depuis GameTDB.",
+    "Downloading the cover...":
+        "Téléchargement de la jacquette...",
+    "Cover downloaded.":
+        "Jacquette téléchargée.",
+    "GameTDB has no cover for this game.":
+        "GameTDB ne possède aucune jacquette pour ce jeu.",
+    "Could not download the cover: {1}":
+        "Impossible de télécharger la jacquette : {1}",
+    "Menu sounds":
+        "Sons du menu",
+    "Normal":
+        "Normal",
+    "Quiet":
+        "Discret",
+    "How loud the menu's clicks are. Quiet softens the tick the pointer makes moving onto something.":
+        "Volume des clics du menu. \"Discret\" adoucit le bruit lors du survol des éléments.",
+    "Wii Menu button":
+        "Bouton Menu Wii",
+    "Back to RiftWii":
+        "Retour à RiftWii",
+    "The Wii Menu button in a game's HOME Menu brings you back to RiftWii. It needs the RiftWii channel installed.":
+        "Le bouton \"Menu Wii\" dans le menu HOME d'un jeu vous ramène à RiftWii. Nécessite l'installation de la chaîne RiftWii.",
+    "The Wii Menu button in a game's HOME Menu can bring you back to RiftWii once the RiftWii channel is installed (Settings).":
+        "Le bouton \"Menu Wii\" du menu HOME permet de retourner à RiftWii si la chaîne RiftWii est installée (voir Paramètres).",
+    "Menu music":
+        "Musique du menu",
+    "In-game screenshots":
+        "Captures d'écran en jeu",
+    "Experimental. In a game, hold 1 and press HOME (GameCube controller: hold L and R, press Down). Pictures go to sd:/riftwii/screenshots when RiftWii next starts. Some games and mods don't work with it.":
+        "Expérimental. En jeu, maintenez 1 et appuyez sur HOME (Manette GC : L + R + Bas). Les images vont dans sd:/riftwii/screenshots au relancement de RiftWii. Incompatible avec certains jeux/mods.",
+    "Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder.":
+        "Musique du menu : fichier music.ogg situé dans sd:/riftwii ou dans le dossier propre de RiftWii.",
+    "No music.ogg found in sd:/riftwii or in RiftWii's own folder.":
+        "Aucun fichier music.ogg trouvé dans sd:/riftwii ou dans le dossier de RiftWii.",
+    "On a Wii U the GameCube adapter may not work in game from the front USB ports; the rear ones work.":
+        "Sur Wii U, l'adaptateur GameCube peut ne pas fonctionner sur les ports USB avant; utilisez les ports arrière.",
+    "Packs on USB are experimental; if it fails, copy them to SD.":
+        "Les packs sur USB sont expérimentaux; en cas de problème, copiez-les sur la carte SD.",
+    "CTGP Revolution (a pack that starts a Homebrew Channel app) does not work from RiftWii yet: it stops on a black or green screen. Start CTGP from the Homebrew Channel instead.":
+        "CTGP Revolution ne fonctionne pas encore depuis RiftWii (blocage sur écran noir ou vert). Lancez-le directement depuis la Chaîne Homebrew.",
+    "CTGP Revolution does not work from RiftWii yet (see Start).":
+        "CTGP Revolution ne fonctionne pas encore depuis RiftWii (voir Démarrer).",
+    " (and {1} more)":
+        " (et {1} autre(s))",
+    "Code builds on the USB drive won't work. Move {1} to the SD card.":
+        "Les builds de code sur USB ne fonctionnent pas. Déplacez {1} sur la carte SD.",
+    "This won't work: code builds like Project+ have to be on the SD card, not the USB drive. Move {1} to the same spot on your SD card and try again. Your games can stay on USB.":
+        "Impossible : les mods de type Project+ doivent figurer sur la carte SD. Déplacez {1} au même emplacement sur la SD. Vos jeux peuvent rester sur l'USB.",
+    "Code builds need the game on USB or disc, not the SD card.":
+        "Les builds de code nécessitent le jeu sur USB ou disque, pas sur la SD.",
+    "{1} is on the USB drive: the game has to be there too.":
+        "{1} est sur le stockage USB : le jeu doit s'y trouver également.",
+    "This won't work: {1} is on the USB drive, and RiftWii reads the USB drive during a game only when the game is on it too. Put the game on the USB drive, or put {1} in the riftwii folder on your SD card.":
+        "Échec : {1} est sur le stockage USB. RiftWii n'accède au stockage USB en jeu que si le jeu y est aussi stocké. Mettez le jeu sur l'USB, ou placez {1} dans le dossier riftwii de votre SD.",
+    "Updating RiftWii":
+        "Mise à jour de RiftWii",
+    "RiftWii {1} is out. Downloading and installing it now; this takes a minute...":
+        "RiftWii {1} est disponible. Téléchargement et installation en cours...",
+    "Update failed":
+        "Échec de la mise à jour",
+    "RiftWii {1} could not be installed: {2}. This version keeps working; the new one is at {3}":
+        "RiftWii {1} n'a pas pu être installé : {2}. La version actuelle reste fonctionnelle; la nouvelle est à {3}",
+    "OK":
+        "OK",
+    "RiftWii updated":
+        "RiftWii mis à jour",
+    "RiftWii {1} is installed ({2}). It runs the next time RiftWii starts. Leave to the Homebrew Channel now and start it again?":
+        "RiftWii {1} est installé ({2}). Il sera actif au prochain démarrage. Revenir à la Chaîne Homebrew dès maintenant ?",
+    "Leave":
+        "Quitter",
+    "Later":
+        "Plus tard",
+    "RiftWii {1} is installed. Start RiftWii again to use it.":
+        "RiftWii {1} est installé. Relancez RiftWii pour l'utiliser.",
+    "Update available":
+        "Mise à jour disponible",
+    "RiftWii {1} is out (this is {2}). Update now? It takes a minute.":
+        "RiftWii {1} est disponible (version actuelle : {2}). Mettre à jour maintenant ?",
+    "Not now":
+        "Pas maintenant",
+    "Are you sure?":
+        "Êtes-vous sûr ?",
+    "Are you sure you don't want to update? If you had an issue, it could have been fixed in the latest update!":
+        "Êtes-vous sûr de ne pas vouloir mettre à jour ? Un bug rencontré a peut-être été corrigé !",
+    "RiftWii {1} is out. Settings > Check for a new version installs it.":
+        "RiftWii {1} est disponible. Rendez-vous dans Paramètres > Vérifier les mises à jour.",
+    "Updates":
+        "Mises à jour",
+    "Beta":
+        "Bêta",
+    "Stable":
+        "Stable",
+    "Beta: every new version, including test builds that may have new bugs. For testers.":
+        "Bêta : inclut les versions de test pouvant contenir des bugs. Pour les testeurs.",
+    "Stable: only versions marked stable, which testers have checked.":
+        "Stable : uniquement les versions validées et certifiées stables.",
+    "No stable version is out yet. This is RiftWii {1}.":
+        "Aucune version stable disponible pour le moment. Version actuelle : RiftWii {1}.",
+    "SD card: {1}":
+        "Carte SD : {1}",
+    "USB drive: {1}":
+        "Stockage USB : {1}",
+    "Drive problem":
+        "Problème de stockage",
+    "Games on that drive are not listed. Check the drive on a computer; details are in sd:/riftwii/session.log.":
+        "Les jeux de ce stockage ne sont pas listés. Vérifiez le stockage sur PC; détails dans sd:/riftwii/session.log.",
+    "SD card problems":
+        "Problème de carte SD",
+    "The SD card had trouble while the last game was saving. The details are in sd:/riftwii/cardlog.txt; please send that file to the RiftWii developers.":
+        "La carte SD a rencontré une erreur durant la dernière sauvegarde. Consultez sd:/riftwii/cardlog.txt et transmettez-le aux développeurs.",
+    "Before you play":
+        "Avant de jouer",
+    "Press Start again to play.":
+        "Appuyez à nouveau sur Démarrer pour jouer.",
+    "Game cIOS":
+        "cIOS du jeu",
+    "Add RiftWii to the Wii Menu?":
+        "Ajouter RiftWii au menu Wii ?",
+    "RiftWii can have a channel on the Wii Menu, so it starts without the Homebrew Channel. The channel only starts RiftWii from your SD card: RiftWii's updates keep working and the channel never needs reinstalling. The channel installer opens, then brings you back here. Settings can open it again later.":
+        "RiftWii peut créer une chaîne sur le menu Wii pour se lancer directement. La chaîne lance la version sur carte SD : les mises à jour fonctionnent sans réinstallation. L'installeur va s'ouvrir puis revenir ici.",
+    "Open installer":
+        "Ouvrir l'installeur",
+    "No thanks":
+        "Non merci",
+    "RiftWii channel on the Wii Menu":
+        "Chaîne RiftWii sur le menu Wii",
+    "Installed":
+        "Installée",
+    "Add":
+        "Ajouter",
+    "Open the channel installer?":
+        "Ouvrir l'installeur de chaîne ?",
+    "RiftWii closes and the channel installer opens. It adds, updates or removes the RiftWii channel, then brings you back here.":
+        "RiftWii va se fermer pour ouvrir l'installeur. Il permet d'ajouter, mettre à jour ou supprimer la chaîne.",
+    "Open":
+        "Ouvrir",
+    "Cancel":
+        "Annuler",
+    "The RiftWii channel":
+        "La chaîne RiftWii",
+    "Opening the installer for":
+        "Ouverture de l'installeur pour",
+    "RiftWii starts again when it is done.":
+        "RiftWii redémarrera une fois l'opération terminée.",
+    "A Wii Menu channel that starts RiftWii from the SD card. It holds no copy of RiftWii, so updates keep working. Opens the channel installer, to add, update or remove it.":
+        "Une chaîne du menu Wii qui lance RiftWii depuis la carte SD. Ne contient aucun fichier propre, préservant la gestion des mises à jour. Ouvre l'installeur de chaîne.",
+    "Copy apps/riftwii_channel from the RiftWii zip to the SD card first":
+        "Copiez d'abord apps/riftwii_channel depuis le zip de RiftWii vers la carte SD",
+    "Dolphin checks real signatures, so the channel can only be installed on a Wii":
+        "Dolphin vérifiant les signatures officielles, cette chaîne s'installe uniquement sur une vraie Wii",
+    "Installing the channel needs a d2x cIOS in slot 249, 250 or 251":
+        "L'installation nécessite un cIOS d2x dans les slots 249, 250 ou 251",
+    "(Log: sd:/riftwii/session.log)":
+        "(Journal : sd:/riftwii/session.log)",
+    "RiftWii needs an SD card":
+        "RiftWii nécessite une carte SD",
+    "USB mode is not supported yet":
+        "Le mode 100% USB n'est pas encore pris en charge",
+    "No SD card was found":
+        "Aucune carte SD trouvée",
+    "RiftWii was started from a USB drive. It keeps its settings, logs and saves on the SD card, so for now it needs one to run. Copy the sd-card folder from the RiftWii zip to a FAT32 SD card, put the card in the Wii and start RiftWii from it.":
+        "RiftWii a été démarré depuis un stockage USB. Il nécessite une carte SD pour ses paramètres et sauvegardes. Copiez le dossier sd-card du fichier zip sur une carte SD au format FAT32 puis insérez-la.",
+    "RiftWii keeps its settings, logs and saves on the SD card and could not read one. Put a FAT32 SD card in the Wii with the sd-card folder from the RiftWii zip on it, then start RiftWii again.":
+        "Impossible de lire la carte SD contenant vos configurations et sauvegardes. Veuillez insérer une carte SD FAT32 munie du dossier sd-card extrait de l'archive zip.",
+    "Need a card? Scan this.":
+        "Besoin d'une carte ? Scannez ceci.",
+    "Is this a burned disc?":
+        "S'agit-il d'un disque gravé ?",
+    "The drive could not read this disc. If it is a burned disc, RiftWii can read it through d2x on older Wiis (later Wii drives read only Nintendo discs). Burned discs can wear out the disc drive sooner: use them at your own risk. The menu then restarts under IOS{1} for this session.":
+        "Le lecteur n'a pas pu lire ce disque. S'il est gravé, RiftWii peut le lire via d2x sur les anciennes Wii (les modèles récents lisent uniquement les disques originaux). Les disques gravés usent la lentille plus rapidement. Le menu redémarrera sous l'IOS{1}.",
+    "Burned disc: it wears the Wii's disc drive more than a pressed disc does. Play at your own risk.":
+        "Disque gravé : usure prématurée de la lentille par rapport à un disque officiel. À utiliser à vos risques.",
+    "Try with d2x":
+        "Essayer avec d2x",
+    "The menu runs under IOS{1} for this session, to read burned discs. Pick the disc.":
+        "Le menu s'exécute sous l'IOS{1} pour cette session afin de lire les disques gravés. Sélectionnez le disque.",
+    "The drive cannot read this disc, even through d2x. Later Wii drives read only Nintendo discs, never burned ones; on an older Wii, the burn may be bad.":
+        "Lecture impossible même via d2x. Les lecteurs Wii récents refusent les disques gravés; sur une ancienne Wii, la gravure est peut-être défectueuse.",
+    "The drive cannot read this disc. If it is a burned disc, RiftWii needs a d2x cIOS to read it.":
+        "Le lecteur ne peut pas lire ce disque. Si c'est un disque gravé, un cIOS d2x est indispensable.",
+    "RiftWii could not restart. Start it again from the Homebrew Channel.":
+        "Redémarrage de RiftWii impossible. Relancez-le depuis la Chaîne Homebrew.",
+    "1 game":
+        "1 jeu",
+    "{1} games":
+        "{1} jeux",
+    "Search \"{1}\"":
+        "Rechercher \"{1}\"",
+    "No game matches \"{1}\". Press 1 for all games.":
+        "Aucun jeu ne correspond à \"{1}\". Appuyez sur 1 pour tous les afficher.",
+    "1: all games":
+        "1 : tous les jeux",
+    "Search games":
+        "Rechercher un jeu",
+    "Search":
+        "Rechercher",
+    "Space":
+        "Espace",
+    "Clear":
+        "Effacer",
+    "Del":
+        "Suppr",
+    "Homebrew Channel":
+        "Chaîne Homebrew",
+    "Wii Menu":
+        "Menu Wii",
+    "Power off":
+        "Éteindre",
+    "HOME Menu":
+        "Menu HOME",
+    "Close":
+        "Fermer",
+    "Opens the HOME Menu, as HOME does: the Homebrew Channel, the Wii Menu, Priiloader or power off.":
+        "Ouvre le menu HOME : Chaîne Homebrew, Menu Wii, Priiloader ou extinction.",
+    "Sending a report":
+        "Envoi du rapport",
+    "Gathering the logs and sending them. This can take half a minute...":
+        "Collecte et envoi des journaux d'erreurs en cours (environ 30 secondes)...",
+    "Report not sent":
+        "Rapport non envoyé",
+    "It could not be sent: {1}. It is saved on the SD card as sd:/riftwii/report.txt: send that file instead.":
+        "Échec de l'envoi : {1}. Le fichier est sauvegardé sous sd:/riftwii/report.txt pour transmission manuelle.",
+    "It could not be sent or saved: {1}":
+        "Impossible d'envoyer ou de sauvegarder le rapport : {1}",
+    "Send this link to whoever is helping you, or scan the code with a phone:":
+        "Transmettez ce lien à votre assistant ou scannez ce QR code :",
+    "The report was too big, so only its start was kept.":
+        "Rapport trop volumineux : seul le début a été conservé.",
+    "Report sent":
+        "Rapport envoyé",
+    "It holds RiftWii's logs and settings, the game's choices and packs, and which console, IOS and controllers this is. It goes to paste.rs, or dpaste.com when paste.rs can't be reached, where anyone with its link can read it.":
+        "Contient la configuration, l'IOS, les manettes et les journaux de RiftWii. Hébergé publiquement sur paste.rs ou dpaste.com pour être partagé via le lien.",
+    "RiftWii crashed last time":
+        "RiftWii a planté la dernière fois",
+    "The game crashed last time":
+        "Le jeu a planté la dernière fois",
+    "The last launch failed":
+        "Le dernier lancement a échoué",
+    "Send a report of what happened?":
+        "Envoyer un rapport d'incident ?",
+    "Send":
+        "Envoyer",
+    "Send a problem report":
+        "Envoyer un rapport de problème",
+    "Send a problem report?":
+        "Transmettre un rapport de dysfonctionnement ?",
+    "Something went wrong? Sends what it takes to find out to a paste site, and shows a link to pass on.":
+        "Un problème ? Envoie les informations nécessaires sur un serveur d'analyse et vous fournit un lien de partage.",
+    "WARNING: this can freeze your Wii U":
+        "ATTENTION : risque de blocage de votre Wii U",
+    "On a Wii U, the GameCube adapter in games can freeze the console at 97% while a game from the SD card or a USB drive starts. It works some times and freezes others, and RiftWii cannot tell beforehand. If it freezes, hold the power button to turn the console off. Automatic is safe: it leaves the adapter out of those games.":
+        "Sur Wii U, l'adaptateur GameCube peut figer le chargement à 97% lors du lancement d'un jeu SD/USB. En cas de blocage, maintenez le bouton Power enfoncé. Le mode \"Automatique\" évite ce risque.",
+    "Turn it on anyway":
+        "Activer malgré tout",
+    "Some game launches WILL freeze and need the power button. Only turn this on to test the adapter, and send a problem report when it freezes. You can set it back to Automatic here at any time.":
+        "Certains jeux vont FIGER la console et nécessiter une extinction forcée. N'activez cette option que pour effectuer des tests.",
+    "Yes, turn it on":
+        "Oui, activer",
+    "Keep it as it is":
+        "Conserver l'état actuel",
+    "WARNING: on this Wii U, games from the SD card or a USB drive can freeze at 97% with this on. Use Automatic unless you are testing the adapter.":
+        "ATTENTION : sur cette Wii U, le chargement peut bloquer à 97%. Privilégiez le mode Automatique.",
+    "Left as it was.":
+        "Aucune modification effectuée.",
+    "Theme":
+        "Thème",
+    "Default":
+        "Par défaut",
+    "The menu's colours and pictures. Themes are folders in sd:/riftwii/themes (docs/THEMES.md on GitHub).":
+        "Apparence visuelle du menu. Les thèmes sont stockés dans sd:/riftwii/themes.",
+    "No themes in sd:/riftwii/themes. The zip's themes folder has one to copy there.":
+        "Aucun thème trouvé dans sd:/riftwii/themes. L'archive zip d'origine en propose à installer.",
+    "Restart the menu?":
+        "Redémarrer le menu ?",
+    "RiftWii's menu restarts to show {1}. Your games and settings stay as they are.":
+        "Le menu RiftWii redémarre pour appliquer {1}. Vos jeux et paramètres sont conservés.",
+    "Restart":
+        "Redémarrer",
+    "Theme: {1}":
+        "Thème : {1}",
+    "Menu font":
+        "Police du menu",
+    "Add a picture:":
+        "Ajouter une image :",
+    "The letters the menu is written in: RiftWii's own, or the Wii Menu's, read from this Wii.":
+        "Style typographique : police personnalisée de RiftWii ou police officielle extraite du menu Wii.",
+    "the Wii Menu's font":
+        "police du menu Wii",
+    "RiftWii's font":
+        "police de RiftWii",
+    "Menu font: {1}":
+        "Police du menu : {1}",
+    "The Wii Menu's font could not be read, so RiftWii's is used.":
+        "Police originale du menu Wii introuvable, utilisation de la police native de RiftWii.",
+    "Files from a Mac on the SD card":
+        "Fichiers cachés macOS sur la carte SD",
+    "This SD card has hidden files that macOS makes when it copies (names that start with \"._\"). RiftWii skips them, but they fill the card and can confuse other homebrew. To remove them, put the card in your Mac, open Terminal and type: dot_clean -m /Volumes/ followed by the card's name. On Windows, delete the files whose names start with \"._\".":
+        "Cette carte contient des fichiers système macOS commençant par \"._\". RiftWii les ignore mais ils prennent de la place. Pour les supprimer sur Mac, utilisez la commande Terminal `dot_clean -m /Volumes/[NomCarte]`. Sur Windows, supprimez manuellement les fichiers \"._\".",
+    "This code mod can't start":
+        "Ce mod de code ne peut pas démarrer",
+    "{1} has more codes than the game has room for ({2}, room for {3}). It needs the file gameconfig.txt (or gc.txt) from the same download as the mod. Copy it into the mod's own folder on the SD card, {4}, so it can't replace another mod's. Not in the download? Ask whoever made the mod.":
+        "{1} contient plus de codes que la mémoire disponible ({2}, limite à {3}). Le fichier gameconfig.txt (ou gc.txt) inclus avec le mod est requis dans {4}.",
+    "The codes take {1}, but {2} only makes room for {3}. Turn off some cheats on this game's Cheats page, or turn off a code mod.":
+        "Les codes requièrent {1}, mais {2} n'alloue que {3}. Désactivez certains codes de triche ou mods de code pour libérer de la mémoire.",
+    "Aspect ratio":
+        "Rapport d'aspect",
+    "Rumble":
+        "Vibrations",
+    "Wii Remote speaker":
+        "Haut-parleur de la Wiimote",
+    "Region strings fix":
+        "Correction des chaînes régionales",
+    "Makes the game use 4:3 or widescreen 16:9 whatever the Wii's TV setting says. Not every game can be changed.":
+        "Force l'affichage en 4:3 ou 16:9 indépendamment de la configuration système. Non compatible avec tous les jeux.",
+    "Off: the Wii Remotes never rumble in this game.":
+        "Désactivé : désactive totalement les vibrations de la Wiimote sur ce jeu.",
+    "Off: no sound from the Wii Remotes' speakers in this game.":
+        "Désactivé : coupe le haut-parleur intégré des Wiimotes pour ce jeu.",
+    "For a game from another region (an import): the game sees its own region's country names where it looks for the console's.":
+        "Pour les jeux importés d'une autre région : transmet au jeu les identifiants de pays correspondant à sa zone d'origine.",
+    "Don't show again":
+        "Ne plus afficher",
+}
+
 # Languages kept in tables of their own: written after LANGS, every msgid
 # of T with its text here (an empty msgstr, English on screen, when none).
-MORE = {"ko": KO}
+MORE = {"ko": KO, "fr": FR}
 NAMES["ko"] = "Korean"
+NAMES["fr"] = "French"
 
 
 def escape(s):

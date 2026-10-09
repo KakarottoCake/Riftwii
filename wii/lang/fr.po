@@ -1,0 +1,1354 @@
+# RiftWii menu: French. Written by tools/lang_source.py; edit the table there.
+# A copy at sd:/riftwii/lang/fr.po overrides these entries on the Wii.
+msgid ""
+msgstr "Content-Type: text/plain; charset=UTF-8\n"
+
+msgid "Games with mods"
+msgstr "Jeux avec mods"
+
+msgid "All games"
+msgstr "Tous les jeux"
+
+msgid "Recently played"
+msgstr "Joués récemment"
+
+msgid "No game on these drives was played from RiftWii yet. Press 1 for all games."
+msgstr "Aucun jeu sur ces stockages n'a encore été lancé depuis RiftWii. Appuyez sur 1 pour voir tous les jeux."
+
+msgid "{1}/{2}"
+msgstr "{2}/{1}"
+
+msgid "Played once, on {1}"
+msgstr "Joué 1 fois, le {1}"
+
+msgid "Played {1} times, last on {2}"
+msgstr "Joué {1} fois, la dernière fois le {2}"
+
+msgid "1: view   2: settings   -/+: pages   B: A to Z"
+msgstr "1 : vue   2 : paramètres   -/+ : pages   B : A à Z"
+
+msgid "Page {1} of {2}"
+msgstr "Page {1} sur {2}"
+
+msgid "{1}: no games in /wbfs or /games"
+msgstr "{1} : aucun jeu dans /wbfs ou /games"
+
+msgid "SD: no card"
+msgstr "SD : aucune carte"
+
+msgid "No d2x cIOS in 249-251: games cannot boot yet"
+msgstr "Aucun cIOS d2x dans 249-251 : les jeux ne peuvent pas encore démarrer"
+
+msgid "No game here has packs in sd:/riivolution yet. Press 1 for all games."
+msgstr "Aucun jeu ici n'a de pack dans sd:/riivolution. Appuyez sur 1 pour voir tous les jeux."
+
+msgid "No games found (usb:/wbfs, usb:/games, sd:/wbfs, sd:/games)"
+msgstr "Aucun jeu trouvé (usb:/wbfs, usb:/games, sd:/wbfs, sd:/games)"
+
+msgid "Reading the SD card..."
+msgstr "Lecture de la carte SD..."
+
+msgid "Reading the USB drive... (a big drive takes a moment)"
+msgstr "Lecture du stockage USB... (un grand stockage peut prendre un moment)"
+
+msgid "Reading the disc..."
+msgstr "Lecture du disque..."
+
+msgid "scan failed"
+msgstr "échec de l'analyse"
+
+msgid "(the menu runs under IOS {1}; USB drives need a base-58 cIOS for that, or set the menu IOS back to 58)"
+msgstr "(le menu fonctionne sous l'IOS {1}; les stockage USB nécessitent un cIOS base-58 pour cela, ou remettez l'IOS du menu sur 58)"
+
+msgid "(after the failed launch RiftWii came back under IOS {1}, which cannot read the drive here; start RiftWii again from the Homebrew Channel)"
+msgstr "(après l'échec du lancement, RiftWii est revenu sous l'IOS {1}, qui ne peut pas lire le stockage ici; relancez RiftWii depuis la Chaîne Homebrew)"
+
+msgid "No disc in the drive"
+msgstr "Aucun disque dans le lecteur"
+
+msgid "Disc drive"
+msgstr "Lecteur de disque"
+
+msgid "USB drive"
+msgstr "Stockage USB"
+
+msgid "SD card"
+msgstr "Carte SD"
+
+msgid "Sun"
+msgstr "Dim"
+
+msgid "Mon"
+msgstr "Lun"
+
+msgid "Tue"
+msgstr "Mar"
+
+msgid "Wed"
+msgstr "Mer"
+
+msgid "Thu"
+msgstr "Jeu"
+
+msgid "Fri"
+msgstr "Ven"
+
+msgid "Sat"
+msgstr "Sam"
+
+msgid "{1}:{2} AM"
+msgstr "{1}:{2}"
+
+msgid "{1}:{2} PM"
+msgstr "{1}:{2}"
+
+msgid "{1} {2}/{3}"
+msgstr "{1} {2}/{3}"
+
+msgid "MODS"
+msgstr "MODS"
+
+msgid "Back"
+msgstr "Retour"
+
+msgid "Start"
+msgstr "Démarrer"
+
+msgid "Saves"
+msgstr "Sauvegardes"
+
+msgid "On the Wii"
+msgstr "Sur la Wii"
+
+msgid "SD, from Wii save"
+msgstr "SD, depuis sauvegarde Wii"
+
+msgid "SD, fresh start"
+msgstr "SD, sauvegarde vierge"
+
+msgid "Kept by the pack"
+msgstr "Géré par le pack"
+
+msgid "This pack keeps its own saves. Turn it off to choose here."
+msgstr "Ce pack gère ses propres sauvegardes. Désactivez-le pour choisir ici."
+
+msgid "Saves go to the SD card, starting from the Wii's save."
+msgstr "Les sauvegardes vont sur la carte SD, en partant de la sauvegarde Wii."
+
+msgid "Saves go to the SD card, starting fresh."
+msgstr "Les sauvegardes vont sur la carte SD, auvegarde vierge."
+
+msgid "Saves stay on the Wii, as usual."
+msgstr "Les sauvegardes restent sur la Wii, comme d'habitude."
+
+msgid "Broken"
+msgstr "Endommagé"
+
+msgid "On"
+msgstr "Activé"
+
+msgid "Off"
+msgstr "Désactivé"
+
+msgid "Mods"
+msgstr "Mods"
+
+msgid "None"
+msgstr "Aucun"
+
+msgid "{1} switched on"
+msgstr "{1} activé(s)"
+
+msgid "On: {1}"
+msgstr "Activé : {1}"
+
+msgid "No mods for this game."
+msgstr "Aucun mod pour ce jeu."
+
+msgid "No mods on the SD card. Put Riivolution XML in sd:/riivolution."
+msgstr "Aucun mod sur la carte SD. Placez le fichier XML Riivolution dans sd:/riivolution."
+
+msgid "1 mod pack for this game. Press A to turn it on."
+msgstr "1 pack de mod pour ce jeu. Appuyez sur A pour l'activer."
+
+msgid "{1} mod packs for this game. Press A to turn them on."
+msgstr "{1} packs de mods pour ce jeu. Appuyez sur A pour les activer."
+
+msgid "No mods on the SD card"
+msgstr "Aucun mod sur la carte SD"
+
+msgid "No mods for this game"
+msgstr "Aucun mod pour ce jeu"
+
+msgid "Put Riivolution XML in sd:/riivolution"
+msgstr "Placez le fichier XML Riivolution dans sd:/riivolution"
+
+msgid "1 XML file is for another game"
+msgstr "1 fichier XML est destiné à un autre jeu"
+
+msgid "{1} XML files are for other games"
+msgstr "{1} fichiers XML sont destinés à d'autres jeux"
+
+msgid "Package scan failed; go back and try again"
+msgstr "Échec de l'analyse des fichiers; revenez en arrière et réessayez"
+
+msgid "This XML cannot be read; the error is listed under it."
+msgstr "Ce fichier XML ne peut pas être lu; l'erreur est indiquée ci-dessous."
+
+msgid "This XML cannot be read; fix it on the card and come back."
+msgstr "Ce fichier XML ne peut pas être lu; corrigez-le sur la carte et réessayez."
+
+msgid "This pack cannot be turned on."
+msgstr "Ce pack ne peut pas être activé."
+
+msgid "Off. A turns it on."
+msgstr "Désactivé. A permet de l'activer."
+
+msgid "Off. A turns it on and shows its setting."
+msgstr "Désactivé. Le bouton A l'active et affiche son paramètre."
+
+msgid "Off. A turns it on and shows its {1} settings."
+msgstr "Désactivé. Le bouton A l'active et affiche ses {1} paramètres."
+
+msgid "On. It applies as a whole."
+msgstr "Activé. S'applique dans son ensemble."
+
+msgid "On, but nothing chosen yet: pick its settings below."
+msgstr "Activé, mais rien n'est choisi : sélectionnez ses paramètres ci-dessous."
+
+msgid "On, {1} of {2} settings chosen."
+msgstr "Activé, {1} sur {2} paramètres choisis."
+
+msgid "No game is selected; go back and pick one."
+msgstr "Aucun jeu n'est sélectionné; revenez en arrière et choisissez-en un."
+
+msgid "Preparing the mods..."
+msgstr "Préparation des mods..."
+
+msgid "Cheats"
+msgstr "Codes de triche"
+
+msgid "Picture width"
+msgstr "Largeur d'image"
+
+msgid "Deflicker"
+msgstr "Anti-scintillement"
+
+msgid "Black borders"
+msgstr "Bandes noires"
+
+msgid "Region video fix"
+msgstr "Correction de la région vidéo"
+
+msgid "For a US or Japanese game that shows no picture on a console from another region: the game is told the video hardware matches its region."
+msgstr "Pour un jeu américain ou japonais qui n'affiche pas d'image sur une console d'une autre région : le jeu interprète que le matériel vidéo correspond à sa région."
+
+msgid "Framebuffer"
+msgstr "Tampon d'image"
+
+msgid "704 pixels"
+msgstr "704 pixels"
+
+msgid "720 pixels (full)"
+msgstr "720 pixels (complet)"
+
+msgid "Game's own"
+msgstr "Par défaut du jeu"
+
+msgid "Off (sharp)"
+msgstr "Désactivé (net)"
+
+msgid "Low"
+msgstr "Faible"
+
+msgid "Medium"
+msgstr "Moyen"
+
+msgid "High"
+msgstr "Élevé"
+
+msgid "Remove"
+msgstr "Supprimer"
+
+msgid "Keep"
+msgstr "Conserver"
+
+msgid "Remove all (experimental)"
+msgstr "Tout supprimer (expérimental)"
+
+msgid "Remove all"
+msgstr "Tout supprimer"
+
+msgid "Default ({1})"
+msgstr "Par défaut ({1})"
+
+msgid "On, none picked"
+msgstr "Activé, aucun sélectionné"
+
+msgid "On, {1} picked"
+msgstr "Activé, {1} sélectionné(s)"
+
+msgid "Cheat codes for this game. Press A to choose them."
+msgstr "Codes de triche pour ce jeu. Appuyez sur A pour les choisir."
+
+msgid "How wide the picture is drawn. 720 fills the screen from side to side."
+msgstr "Largeur d'affichage de l'image. 720 remplit l'écran d'un côté à l'autre."
+
+msgid "A filter that softens the picture to hide flicker. Off gives the sharpest picture."
+msgstr "Un filtre qui adoucit l'image pour masquer le scintillement. Désactivé donne l'image la plus nette."
+
+msgid "Remove stretches the picture over the bars at the sides. Remove all also stretches it over the bars at the top and bottom: experimental, some games show a broken picture or crash with it."
+msgstr "\"Supprimer\" étire l'image sur les bandes latérales. \"Tout supprimer\" l'étire aussi en haut et en bas : expérimental, certains jeux peuvent afficher une image déformée ou planter."
+
+msgid "Remove takes away the bars at the sides; Remove all also the top and bottom (experimental)."
+msgstr "\"Supprimer\" retire les bandes latérales; \"Tout supprimer\" retire aussi le haut et le bas (expérimental)."
+
+msgid "Last time, this game left black borders on all sides."
+msgstr "La dernière fois, ce jeu a laissé des bandes noires de tous les côtés."
+
+msgid "Last time, this game left black borders at the sides."
+msgstr "La dernière fois, ce jeu a laissé des bandes noires sur les côtés."
+
+msgid "Last time, this game left black borders at the top and bottom."
+msgstr "La dernière fois, ce jeu a laissé des bandes noires en haut et en bas."
+
+msgid "Last time, this game filled the whole screen."
+msgstr "La dernière fois, ce jeu a rempli tout l'écran."
+
+msgid "Use cheats"
+msgstr "Utiliser les codes de triche"
+
+msgid "Get the latest cheats"
+msgstr "Obtenir les derniers codes de triche"
+
+msgid "Download cheats"
+msgstr "Télécharger les codes de triche"
+
+msgid "Download"
+msgstr "Télécharger"
+
+msgid "Edit first"
+msgstr "Éditer d'abord"
+
+msgid "The cheats are in {1}. Edit it on a computer to add your own."
+msgstr "Les codes sont dans {1}. Modifiez ce fichier sur un ordinateur pour ajouter les vôtres."
+
+msgid "Downloading cheats..."
+msgstr "Téléchargement des codes de triche..."
+
+msgid "{1} cheats. Turn on the ones you want."
+msgstr "{1} codes de triche. Activez ceux que vous souhaitez."
+
+msgid "Could not download cheats: {1}"
+msgstr "Impossible de télécharger les codes de triche : {1}"
+
+msgid "No cheats found online for this game."
+msgstr "Aucun code de triche trouvé en ligne pour ce jeu."
+
+msgid "Cheats are only applied when this is On."
+msgstr "Les codes de triche ne s'appliquent que si cette option est activée."
+
+msgid "Downloads are off in Settings."
+msgstr "Les téléchargements sont désactivés dans les paramètres."
+
+msgid "No game is selected."
+msgstr "Aucun jeu sélectionné."
+
+msgid "No cheat file yet. Choose Download to get one."
+msgstr "Aucun fichier de triche. Choisissez Télécharger pour en obtenir un."
+
+msgid "No cheat file at {1}"
+msgstr "Aucun fichier de triche dans {1}"
+
+msgid "The cheat file has no cheats in it: {1}"
+msgstr "Le fichier ne contient aucun code de triche : {1}"
+
+msgid "Settings"
+msgstr "Paramètres"
+
+msgid "Games"
+msgstr ""
+
+msgid "Menu"
+msgstr ""
+
+msgid "Finding games"
+msgstr ""
+
+msgid "Online"
+msgstr ""
+
+msgid "More"
+msgstr ""
+
+msgid "Picture"
+msgstr ""
+
+msgid "Other"
+msgstr ""
+
+msgid "Language"
+msgstr "Langue"
+
+msgid "Wii: {1}"
+msgstr "Wii : {1}"
+
+msgid "Download names and cheats"
+msgstr "Télécharger noms et codes de triche"
+
+msgid "Get the latest game names"
+msgstr "Obtenir les derniers noms de jeux"
+
+msgid "Update"
+msgstr "Mettre à jour"
+
+msgid "Menu IOS"
+msgstr "IOS du menu"
+
+msgid "Menu IOS: IOS 58 (no d2x cIOS found)"
+msgstr "IOS du menu : IOS 58 (aucun cIOS d2x trouvé)"
+
+msgid "Find network packs (RiiFS)"
+msgstr "Trouver les packs réseau (RiiFS)"
+
+msgid "Copy network packs again"
+msgstr "Recopier les packs réseau"
+
+msgid "Resync"
+msgstr "Ressynchroniser"
+
+msgid "Look for games again"
+msgstr "Rechercher à nouveau les jeux"
+
+msgid "Rescan"
+msgstr "Réanalyser"
+
+msgid "Leave RiftWii"
+msgstr "Quitter RiftWii"
+
+msgid "Exit"
+msgstr "Quitter"
+
+msgid "These apply to every game. A game's own page can change them for that game."
+msgstr "S'applique à tous les jeux. La page propre à chaque jeu permet de les modifier."
+
+msgid "Game names follow the language when they are downloaded."
+msgstr "Les noms des jeux suivent la langue sélectionnée lors de leur téléchargement."
+
+msgid "Game names and cheats are downloaded when the Wii is online."
+msgstr "Les noms de jeux et les codes sont téléchargés lorsque la Wii est en ligne."
+
+msgid "Nothing is downloaded. Names and cheats already on the card are still used."
+msgstr "Rien n'est téléchargé. Les noms et codes déjà présents sur la carte restent utilisés."
+
+msgid "Downloads are off. Turn on Download names and cheats first."
+msgstr "Téléchargements désactivés. Activez d'abord le téléchargement des noms et codes."
+
+msgid "Downloading game names..."
+msgstr "Téléchargement des noms de jeux..."
+
+msgid "Game names updated."
+msgstr "Noms de jeux mis à jour."
+
+msgid "Could not download game names: {1}"
+msgstr "Impossible de télécharger les noms de jeux : {1}"
+
+msgid "Cannot write sd:/riftwii/settings.txt"
+msgstr "Écriture impossible dans sd:/riftwii/settings.txt"
+
+msgid "Cannot write sd:/riftwii/menu_ios.txt"
+msgstr "Écriture impossible dans sd:/riftwii/menu_ios.txt"
+
+msgid "The menu runs under the Homebrew Channel's IOS (the default)."
+msgstr "Le menu s'exécute sous l'IOS de la Chaîne Homebrew (par défaut)."
+
+msgid "The menu and every game run under cIOS {1}, so a cIOS with fakemote makes USB DS3/DS4 pads work as Wii Remotes. USB drives in the menu need a base-58 cIOS."
+msgstr "Le menu et chaque jeu tournent sous le cIOS {1}. Un cIOS avec fakemote permet d'utiliser des manettes DS3/DS4 USB comme Wiimotes. Les stockages USB nécessitent un cIOS base-58."
+
+msgid "Takes effect the next time RiftWii starts."
+msgstr "Prendra effet au prochain démarrage de RiftWii."
+
+msgid "Looks for a PC running a RiiFS server when the games are read. Rescan to look now."
+msgstr "Cherche un PC exécutant un serveur RiiFS lors de la lecture des jeux. Réanalysez pour chercher maintenant."
+
+msgid "Only servers named by <network> in an XML on the card are used."
+msgstr "Seuls les serveurs désignés par <network> dans un fichier XML sur la carte sont utilisés."
+
+msgid "The next launch copies every file of its network packs again."
+msgstr "Le prochain lancement recopiera tous les fichiers des packs réseau."
+
+msgid "Starting"
+msgstr "Démarrage"
+
+msgid "Dumping files from"
+msgstr "Extraction des fichiers depuis"
+
+msgid "The game takes over the screen when it is ready."
+msgstr "Le jeu prend le contrôle de l'écran lorsqu'il est prêt."
+
+msgid "Opening the game..."
+msgstr "Ouverture du jeu..."
+
+msgid "GameCube adapter"
+msgstr "Adaptateur GameCube"
+
+msgid "Check the GameCube adapter"
+msgstr "Vérifier l'adaptateur GameCube"
+
+msgid "Test"
+msgstr "Tester"
+
+msgid "Welcome to RiftWii"
+msgstr "Bienvenue dans RiftWii"
+
+msgid "RiftWii starts your Wii games with Riivolution-format mods, from the disc, a USB drive or the SD card. Your game files are never changed. This short tour shows the basics."
+msgstr "RiftWii lance vos jeux Wii avec des mods au format Riivolution, depuis le disque, un stockage USB ou la carte SD. Vos jeux ne sont jamais modifiés. Ce court guide présente les bases."
+
+msgid "Your games"
+msgstr "Vos jeux"
+
+msgid "Put games in the wbfs or games folder at the top of the SD card or the USB drive (WBFS, ISO or RVZ). A disc in the drive shows up too. Home lists games that have mods first: press 1, or the round button at the bottom left, to see all your games."
+msgstr "Placez vos jeux dans le dossier wbfs ou games à la racine de la carte SD ou du stockage USB (format WBFS, ISO ou RVZ). Les disques insérés apparaissent aussi. L'accueil liste en premier les jeux moddés : appuyez sur 1 pour tout voir."
+
+msgid "Put mod packs (the XML file and the folders that come with it) in sd:/riivolution or usb:/riivolution. Pick a game, open Mods, switch a pack on and choose its options. Start (or +) plays the game with them."
+msgstr "Placez les packs de mods (fichier XML et dossiers associés) dans sd:/riivolution ou usb:/riivolution. Choisissez un jeu, ouvrez Mods, activez un pack et ajustez ses options. Démarrer (ou +) lance le jeu."
+
+msgid "Buttons"
+msgstr "Boutons"
+
+msgid "Point with the Wii Remote and press A, or move with the D-pad; in the games list, - and + turn the pages. B goes back, 2 opens Settings and HOME opens the HOME Menu. The Classic Controller and GameCube controllers work too, with the same buttons."
+msgstr "Pointez avec la Wiimote et appuyez sur A, ou déplacez-vous avec la croix directionnelle. - et + tournent les pages. B revient en arrière, 2 ouvre les paramètres et HOME ouvre le menu HOME. Les manettes Classique et GameCube sont aussi compatibles."
+
+msgid "You're all set"
+msgstr "Vous êtes prêt"
+
+msgid "Settings has the video, language, online and update options. For more help, see the guide on RiftWii's GitHub page or join the Discord. Settings > Tutorial shows this tour again."
+msgstr "Les paramètres contiennent les options vidéo, de langue, en ligne et de mise à jour. Pour plus d'aide, consultez le guide GitHub de RiftWii ou le Discord. Paramètres > Tutoriel réaffiche ce guide."
+
+msgid "Next"
+msgstr "Suivant"
+
+msgid "Skip"
+msgstr "Passer"
+
+msgid "Let's go"
+msgstr "C'est parti"
+
+msgid "Tutorial"
+msgstr "Tutoriel"
+
+msgid "Show"
+msgstr "Afficher"
+
+msgid "The short tour of RiftWii's basics that a new SD card starts with."
+msgstr "Le court tutoriel de présentation des fonctionnalités de base de RiftWii."
+
+msgid "Credits and license"
+msgstr "Crédits et licence"
+
+msgid "View"
+msgstr "Voir"
+
+msgid "Clear search"
+msgstr ""
+
+msgid "No games found yet. Put your games (WBFS, ISO or RVZ) in a folder named wbfs or games at the top of the SD card or USB drive, then pick Look for games again in Settings."
+msgstr ""
+
+msgid "Who RiftWii's parts come from, its license (the GNU GPL, version 3 or later) and where its source is."
+msgstr "L'origine des composants de RiftWii, sa licence (GNU GPL v3 ou ultérieure) et l'emplacement du code source."
+
+msgid "Experimental. With the adapter plugged in when a game starts, its controllers fill the empty ports in games that take a GameCube controller. Needs IOS 58 or a d2x cIOS."
+msgstr "Expérimental. Si l'adaptateur est branché au lancement, ses manettes occupent les ports libres pour les jeux GameCube. Nécessite l'IOS 58 ou un cIOS d2x."
+
+msgid "Experimental. Always on, even with no adapter plugged in, so it can be plugged in during a game. It needs IOS 58 or a d2x cIOS."
+msgstr "Expérimental. Toujours actif pour pouvoir brancher l'adaptateur en cours de jeu. Nécessite l'IOS 58 ou un cIOS d2x."
+
+msgid "Experimental. The adapter is left alone."
+msgstr "Expérimental. L'adaptateur n'est pas utilisé."
+
+msgid "Adapter: working"
+msgstr "Adaptateur : fonctionnel"
+
+msgid "Adapter: starting..."
+msgstr "Adaptateur : démarrage..."
+
+msgid "Adapter: another program is using it, waiting"
+msgstr "Adaptateur : utilisé par un autre programme, en attente"
+
+msgid "Adapter: it did not answer ({1}), trying again"
+msgstr "Adaptateur : pas de réponse ({1}), nouvel essai"
+
+msgid "Adapter: not found. Plug in its black USB plug."
+msgstr "Adaptateur : introuvable. Branchez sa prise USB noire."
+
+msgid "Press buttons on a controller in the adapter to see them here. In a game that supports the GameCube controller, the adapter's controllers fill the ports that have none plugged in."
+msgstr "Appuyez sur les boutons d'une manette reliée à l'adaptateur pour les tester ici. Dans un jeu compatible GameCube, ses manettes occupent les ports vides."
+
+msgid "This IOS has no USB HID (IOS{1}). Choose IOS 58 or a d2x cIOS as the Menu IOS."
+msgstr "Cet IOS ne gère pas le USB HID (IOS{1}). Choisissez l'IOS 58 ou un cIOS d2x comme IOS du menu."
+
+msgid "Port {1}"
+msgstr "Port {1}"
+
+msgid "nothing plugged in"
+msgstr "rien de branché"
+
+msgid "The menu's language. Wii follows the console's own setting."
+msgstr "Langue du menu. \"Wii\" utilise le paramètre de la console."
+
+msgid "Downloads the newest game names from GameTDB."
+msgstr "Télécharge les derniers noms de jeux depuis GameTDB."
+
+msgid "Shows live what the controllers in the adapter are pressing."
+msgstr "Affiche en direct les entrées des manettes branchées sur l'adaptateur."
+
+msgid "Reads the SD card and the USB drive again."
+msgstr "Relaance la lecture de la carte SD et du stockage USB."
+
+msgid "No d2x cIOS was found in slots 248 to 252, so the menu runs under IOS 58. Install d2x to play games from SD or USB."
+msgstr "Aucun cIOS d2x trouvé dans les slots 248 à 252, le menu tourne sous l'IOS 58. Installez d2x pour jouer depuis la SD ou l'USB."
+
+msgid "Check for a new version"
+msgstr "Vérifier les mises à jour"
+
+msgid "Check"
+msgstr "Vérifier"
+
+msgid "This is RiftWii {1}. Looks on GitHub for a newer release."
+msgstr "Vous utilisez RiftWii {1}. Recherche une version plus récente sur GitHub."
+
+msgid "Asking GitHub..."
+msgstr "Interrogation de GitHub..."
+
+msgid "RiftWii {1} is out: {2}"
+msgstr "RiftWii {1} est disponible : {2}"
+
+msgid "RiftWii {1} is the newest version."
+msgstr "RiftWii {1} est la version la plus récente."
+
+msgid "Could not check: {1}"
+msgstr "Vérification impossible : {1}"
+
+msgid "Favourites"
+msgstr "Favoris"
+
+msgid "Favourite"
+msgstr "Favori"
+
+msgid "Favourites have their own view on Home: press 1 there until it shows."
+msgstr "Les favoris ont leur propre vue à l'accueil : appuyez sur 1 jusqu'à la faire apparaître."
+
+msgid "No favourite is on these drives. Mark games on their page. Press 1 for all games."
+msgstr "Aucun favori sur ces stockages. Marquez des jeux depuis leur page. Appuyez sur 1 pour tous les jeux."
+
+msgid "Could not save the settings to the SD card."
+msgstr "Impossible d'enregistrer les paramètres sur la carte SD."
+
+msgid "Video mode"
+msgstr "Mode vidéo"
+
+msgid "Game language"
+msgstr "Langue du jeu"
+
+msgid "The console's"
+msgstr "Celle de la console"
+
+msgid "Automatic"
+msgstr "Automatique"
+
+msgid "Japanese"
+msgstr "Japonais"
+
+msgid "English"
+msgstr "Anglais"
+
+msgid "German"
+msgstr "Allemand"
+
+msgid "French"
+msgstr "Français"
+
+msgid "Spanish"
+msgstr "Espagnol"
+
+msgid "Italian"
+msgstr "Italien"
+
+msgid "Dutch"
+msgstr "Néerlandais"
+
+msgid "Chinese (simplified)"
+msgstr "Chinois (simplifié)"
+
+msgid "Chinese (traditional)"
+msgstr "Chinois (traditionnel)"
+
+msgid "Korean"
+msgstr "Coréen"
+
+msgid "The TV signal the game sends. PAL 50 Hz needs a TV that takes it, 480p a component cable."
+msgstr "Signal TV émis par le jeu. Le PAL 50 Hz exige un téléviseur compatible, le 480p un câble YUV (Composante)."
+
+msgid "The language the game is told the console uses. Pick one the game has: some games stop without it."
+msgstr "Langue de console transmise au jeu. Choisissez une langue gérée par le jeu pour éviter tout blocage."
+
+msgid "The d2x cIOS the game runs under. Automatic uses the menu's, else the first of 249, 250 and 251 that works."
+msgstr "cIOS d2x utilisé pour lancer le jeu. \"Automatique\" utilise celui du menu, ou le premier fonctionnel parmi 249, 250 et 251."
+
+msgid "Online server"
+msgstr "Serveur en ligne"
+
+msgid "Home tiles"
+msgstr "Tuiles de l'accueil"
+
+msgid "Covers"
+msgstr "Jacquettes"
+
+msgid "Names"
+msgstr "Noms"
+
+msgid "Shelf"
+msgstr "Étagère"
+
+msgid "Channels"
+msgstr "Chaînes"
+
+msgid "Widescreen menu"
+msgstr "Menu 16:9"
+
+msgid "Screen size"
+msgstr "Taille de l'écran"
+
+msgid "On a 16:9 TV the menu is drawn narrower, so covers and pictures keep their shape. Automatic follows the Wii's own TV setting."
+msgstr "Sur une TV 16:9, le menu est ajusté pour conserver le ratio des images. \"Automatique\" suit le réglage TV de la Wii."
+
+msgid "Makes the menu smaller on screen, so nothing is cut off at the TV's edges. Lower it until the whole menu shows."
+msgstr "Réduit l'affichage pour éviter que les bords ne soient coupés sur l'écran. Réduisez la valeur jusqu'à tout voir."
+
+msgid "Covers: each game's box art from GameTDB (fetched when downloads are on). Shelf: the boxes on a shelf. Channels: each game's animated icon, and its banner when you pick it, as on the Wii Menu. Names: the names only."
+msgstr "Jacquettes : affiche la boîte GameTDB. Étagère : boîtes alignées sur une étagère. Chaînes : icônes et bannières animées comme sur le menu Wii. Noms : liste textuelle."
+
+msgid "Custom (no wfc_domain set)"
+msgstr "Personnalisé (wfc_domain non défini)"
+
+msgid "The online server the game uses in place of Nintendo's, which closed. Custom uses wfc_domain in settings.txt."
+msgstr "Serveur de remplacement pour le jeu en ligne officiel désormais fermé. L'option personnalisée utilise wfc_domain dans settings.txt."
+
+msgid "Getting covers from GameTDB: {1} left"
+msgstr "Récupération des jacquettes GameTDB : {1} restante(s)"
+
+msgid "Covers could not be downloaded ({1}). To try again, use Settings > Look for games again."
+msgstr "Impossible de télécharger les jacquettes ({1}). Pour réessayer : Paramètres > Rechercher à nouveau les jeux."
+
+msgid "Cover"
+msgstr "Jacquette"
+
+msgid "Download again"
+msgstr "Re-télécharger"
+
+msgid "Downloads this game's box art from GameTDB now."
+msgstr "Télécharge la jacquette de ce jeu depuis GameTDB."
+
+msgid "Downloading the cover..."
+msgstr "Téléchargement de la jacquette..."
+
+msgid "Cover downloaded."
+msgstr "Jacquette téléchargée."
+
+msgid "GameTDB has no cover for this game."
+msgstr "GameTDB ne possède aucune jacquette pour ce jeu."
+
+msgid "Could not download the cover: {1}"
+msgstr "Impossible de télécharger la jacquette : {1}"
+
+msgid "Menu sounds"
+msgstr "Sons du menu"
+
+msgid "Normal"
+msgstr "Normal"
+
+msgid "Quiet"
+msgstr "Discret"
+
+msgid "How loud the menu's clicks are. Quiet softens the tick the pointer makes moving onto something."
+msgstr "Volume des clics du menu. \"Discret\" adoucit le bruit lors du survol des éléments."
+
+msgid "Wii Menu button"
+msgstr "Bouton Menu Wii"
+
+msgid "Back to RiftWii"
+msgstr "Retour à RiftWii"
+
+msgid "The Wii Menu button in a game's HOME Menu brings you back to RiftWii. It needs the RiftWii channel installed."
+msgstr "Le bouton \"Menu Wii\" dans le menu HOME d'un jeu vous ramène à RiftWii. Nécessite l'installation de la chaîne RiftWii."
+
+msgid "The Wii Menu button in a game's HOME Menu can bring you back to RiftWii once the RiftWii channel is installed (Settings)."
+msgstr "Le bouton \"Menu Wii\" du menu HOME permet de retourner à RiftWii si la chaîne RiftWii est installée (voir Paramètres)."
+
+msgid "Menu music"
+msgstr "Musique du menu"
+
+msgid "In-game screenshots"
+msgstr "Captures d'écran en jeu"
+
+msgid "Experimental. In a game, hold 1 and press HOME (GameCube controller: hold L and R, press Down). Pictures go to sd:/riftwii/screenshots when RiftWii next starts. Some games and mods don't work with it."
+msgstr "Expérimental. En jeu, maintenez 1 et appuyez sur HOME (Manette GC : L + R + Bas). Les images vont dans sd:/riftwii/screenshots au relancement de RiftWii. Incompatible avec certains jeux/mods."
+
+msgid "Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder."
+msgstr "Musique du menu : fichier music.ogg situé dans sd:/riftwii ou dans le dossier propre de RiftWii."
+
+msgid "No music.ogg found in sd:/riftwii or in RiftWii's own folder."
+msgstr "Aucun fichier music.ogg trouvé dans sd:/riftwii ou dans le dossier de RiftWii."
+
+msgid "On a Wii U the GameCube adapter may not work in game from the front USB ports; the rear ones work."
+msgstr "Sur Wii U, l'adaptateur GameCube peut ne pas fonctionner sur les ports USB avant; utilisez les ports arrière."
+
+msgid "Packs on USB are experimental; if it fails, copy them to SD."
+msgstr "Les packs sur USB sont expérimentaux; en cas de problème, copiez-les sur la carte SD."
+
+msgid "CTGP Revolution (a pack that starts a Homebrew Channel app) does not work from RiftWii yet: it stops on a black or green screen. Start CTGP from the Homebrew Channel instead."
+msgstr "CTGP Revolution ne fonctionne pas encore depuis RiftWii (blocage sur écran noir ou vert). Lancez-le directement depuis la Chaîne Homebrew."
+
+msgid "CTGP Revolution does not work from RiftWii yet (see Start)."
+msgstr "CTGP Revolution ne fonctionne pas encore depuis RiftWii (voir Démarrer)."
+
+msgid " (and {1} more)"
+msgstr " (et {1} autre(s))"
+
+msgid "Code builds on the USB drive won't work. Move {1} to the SD card."
+msgstr "Les builds de code sur USB ne fonctionnent pas. Déplacez {1} sur la carte SD."
+
+msgid "This won't work: code builds like Project+ have to be on the SD card, not the USB drive. Move {1} to the same spot on your SD card and try again. Your games can stay on USB."
+msgstr "Impossible : les mods de type Project+ doivent figurer sur la carte SD. Déplacez {1} au même emplacement sur la SD. Vos jeux peuvent rester sur l'USB."
+
+msgid "This SD card ({1} GB) is too big for code builds. Make an SD image."
+msgstr ""
+
+msgid "This won't work: this SD card is bigger than 32 GB ({1} GB, SDXC), and Brawl only reads SD cards up to 32 GB, so the build's files never load. Pick \"Make an SD image...\" under the build on the Mods page: the game then reads a small card inside a file on this one. Or copy the build to a 32 GB or smaller card."
+msgstr ""
+
+msgid "Code builds need the game on USB or disc, not the SD card."
+msgstr "Les builds de code nécessitent le jeu sur USB ou disque, pas sur la SD."
+
+msgid "This won't work: code builds like Project+ read the SD card while you play, so the game can't be on the SD card too. Put it on a USB drive, use the disc, or pick \"Make an SD image...\" under the build on the Mods page."
+msgstr ""
+
+msgid "Make an SD image..."
+msgstr ""
+
+msgid "{1} is on the USB drive: the game has to be there too."
+msgstr "{1} est sur le stockage USB : le jeu doit s'y trouver également."
+
+msgid "This won't work: {1} is on the USB drive, and RiftWii reads the USB drive during a game only when the game is on it too. Put the game on the USB drive, or put {1} in the riftwii folder on your SD card."
+msgstr "Échec : {1} est sur le stockage USB. RiftWii n'accède au stockage USB en jeu que si le jeu y est aussi stocké. Mettez le jeu sur l'USB, ou placez {1} dans le dossier riftwii de votre SD."
+
+msgid "Updating RiftWii"
+msgstr "Mise à jour de RiftWii"
+
+msgid "RiftWii {1} is out. Downloading and installing it now; this takes a minute..."
+msgstr "RiftWii {1} est disponible. Téléchargement et installation en cours..."
+
+msgid "Update failed"
+msgstr "Échec de la mise à jour"
+
+msgid "RiftWii {1} could not be installed: {2}. This version keeps working; the new one is at {3}"
+msgstr "RiftWii {1} n'a pas pu être installé : {2}. La version actuelle reste fonctionnelle; la nouvelle est à {3}"
+
+msgid "OK"
+msgstr "OK"
+
+msgid "RiftWii updated"
+msgstr "RiftWii mis à jour"
+
+msgid "RiftWii {1} is installed ({2}). It runs the next time RiftWii starts. Leave to the Homebrew Channel now and start it again?"
+msgstr "RiftWii {1} est installé ({2}). Il sera actif au prochain démarrage. Revenir à la Chaîne Homebrew dès maintenant ?"
+
+msgid "Leave"
+msgstr "Quitter"
+
+msgid "Later"
+msgstr "Plus tard"
+
+msgid "RiftWii {1} is installed. Start RiftWii again to use it."
+msgstr "RiftWii {1} est installé. Relancez RiftWii pour l'utiliser."
+
+msgid "Update available"
+msgstr "Mise à jour disponible"
+
+msgid "RiftWii {1} is out (this is {2}). Update now? It takes a minute."
+msgstr "RiftWii {1} est disponible (version actuelle : {2}). Mettre à jour maintenant ?"
+
+msgid "Not now"
+msgstr "Pas maintenant"
+
+msgid "Are you sure?"
+msgstr "Êtes-vous sûr ?"
+
+msgid "Are you sure you don't want to update? If you had an issue, it could have been fixed in the latest update!"
+msgstr "Êtes-vous sûr de ne pas vouloir mettre à jour ? Un bug rencontré a peut-être été corrigé !"
+
+msgid "RiftWii {1} is out. Settings > Check for a new version installs it."
+msgstr "RiftWii {1} est disponible. Rendez-vous dans Paramètres > Vérifier les mises à jour."
+
+msgid "Updates"
+msgstr "Mises à jour"
+
+msgid "Beta"
+msgstr "Bêta"
+
+msgid "Stable"
+msgstr "Stable"
+
+msgid "Beta: every new version, including test builds that may have new bugs. For testers."
+msgstr "Bêta : inclut les versions de test pouvant contenir des bugs. Pour les testeurs."
+
+msgid "Stable: only versions marked stable, which testers have checked."
+msgstr "Stable : uniquement les versions validées et certifiées stables."
+
+msgid "No stable version is out yet. This is RiftWii {1}."
+msgstr "Aucune version stable disponible pour le moment. Version actuelle : RiftWii {1}."
+
+msgid "SD card: {1}"
+msgstr "Carte SD : {1}"
+
+msgid "USB drive: {1}"
+msgstr "Stockage USB : {1}"
+
+msgid "Drive problem"
+msgstr "Problème de stockage"
+
+msgid "Games on that drive are not listed. Check the drive on a computer; details are in sd:/riftwii/session.log."
+msgstr "Les jeux de ce stockage ne sont pas listés. Vérifiez le stockage sur PC; détails dans sd:/riftwii/session.log."
+
+msgid "SD card problems"
+msgstr "Problème de carte SD"
+
+msgid "The SD card had trouble while the last game was saving. The details are in sd:/riftwii/cardlog.txt; please send that file to the RiftWii developers."
+msgstr "La carte SD a rencontré une erreur durant la dernière sauvegarde. Consultez sd:/riftwii/cardlog.txt et transmettez-le aux développeurs."
+
+msgid "Before you play"
+msgstr "Avant de jouer"
+
+msgid "Press Start again to play."
+msgstr "Appuyez à nouveau sur Démarrer pour jouer."
+
+msgid "Game cIOS"
+msgstr "cIOS du jeu"
+
+msgid "Add RiftWii to the Wii Menu?"
+msgstr "Ajouter RiftWii au menu Wii ?"
+
+msgid "RiftWii can have a channel on the Wii Menu, so it starts without the Homebrew Channel. The channel only starts RiftWii from your SD card: RiftWii's updates keep working and the channel never needs reinstalling. The channel installer opens, then brings you back here. Settings can open it again later."
+msgstr "RiftWii peut créer une chaîne sur le menu Wii pour se lancer directement. La chaîne lance la version sur carte SD : les mises à jour fonctionnent sans réinstallation. L'installeur va s'ouvrir puis revenir ici."
+
+msgid "Open installer"
+msgstr "Ouvrir l'installeur"
+
+msgid "No thanks"
+msgstr "Non merci"
+
+msgid "RiftWii channel on the Wii Menu"
+msgstr "Chaîne RiftWii sur le menu Wii"
+
+msgid "Installed"
+msgstr "Installée"
+
+msgid "Add"
+msgstr "Ajouter"
+
+msgid "Open the channel installer?"
+msgstr "Ouvrir l'installeur de chaîne ?"
+
+msgid "RiftWii closes and the channel installer opens. It adds, updates or removes the RiftWii channel, then brings you back here."
+msgstr "RiftWii va se fermer pour ouvrir l'installeur. Il permet d'ajouter, mettre à jour ou supprimer la chaîne."
+
+msgid "Open"
+msgstr "Ouvrir"
+
+msgid "Cancel"
+msgstr "Annuler"
+
+msgid "The RiftWii channel"
+msgstr "La chaîne RiftWii"
+
+msgid "Opening the installer for"
+msgstr "Ouverture de l'installeur pour"
+
+msgid "RiftWii starts again when it is done."
+msgstr "RiftWii redémarrera une fois l'opération terminée."
+
+msgid "A Wii Menu channel that starts RiftWii from the SD card. It holds no copy of RiftWii, so updates keep working. Opens the channel installer, to add, update or remove it."
+msgstr "Une chaîne du menu Wii qui lance RiftWii depuis la carte SD. Ne contient aucun fichier propre, préservant la gestion des mises à jour. Ouvre l'installeur de chaîne."
+
+msgid "Copy apps/riftwii_channel from the RiftWii zip to the SD card first"
+msgstr "Copiez d'abord apps/riftwii_channel depuis le zip de RiftWii vers la carte SD"
+
+msgid "Dolphin checks real signatures, so the channel can only be installed on a Wii"
+msgstr "Dolphin vérifiant les signatures officielles, cette chaîne s'installe uniquement sur une vraie Wii"
+
+msgid "Installing the channel needs a d2x cIOS in slot 249, 250 or 251"
+msgstr "L'installation nécessite un cIOS d2x dans les slots 249, 250 ou 251"
+
+msgid "(Log: sd:/riftwii/session.log)"
+msgstr "(Journal : sd:/riftwii/session.log)"
+
+msgid "RiftWii needs an SD card"
+msgstr "RiftWii nécessite une carte SD"
+
+msgid "USB mode is not supported yet"
+msgstr "Le mode 100% USB n'est pas encore pris en charge"
+
+msgid "No SD card was found"
+msgstr "Aucune carte SD trouvée"
+
+msgid "RiftWii was started from a USB drive. It keeps its settings, logs and saves on the SD card, so for now it needs one to run. Copy the sd-card folder from the RiftWii zip to a FAT32 SD card, put the card in the Wii and start RiftWii from it."
+msgstr "RiftWii a été démarré depuis un stockage USB. Il nécessite une carte SD pour ses paramètres et sauvegardes. Copiez le dossier sd-card du fichier zip sur une carte SD au format FAT32 puis insérez-la."
+
+msgid "RiftWii keeps its settings, logs and saves on the SD card and could not read one. Put a FAT32 SD card in the Wii with the sd-card folder from the RiftWii zip on it, then start RiftWii again."
+msgstr "Impossible de lire la carte SD contenant vos configurations et sauvegardes. Veuillez insérer une carte SD FAT32 munie du dossier sd-card extrait de l'archive zip."
+
+msgid "Need a card? Scan this."
+msgstr "Besoin d'une carte ? Scannez ceci."
+
+msgid "Is this a burned disc?"
+msgstr "S'agit-il d'un disque gravé ?"
+
+msgid "The drive could not read this disc. If it is a burned disc, RiftWii can read it through d2x on older Wiis (later Wii drives read only Nintendo discs). Burned discs can wear out the disc drive sooner: use them at your own risk. The menu then restarts under IOS{1} for this session."
+msgstr "Le lecteur n'a pas pu lire ce disque. S'il est gravé, RiftWii peut le lire via d2x sur les anciennes Wii (les modèles récents lisent uniquement les disques originaux). Les disques gravés usent la lentille plus rapidement. Le menu redémarrera sous l'IOS{1}."
+
+msgid "Burned disc: it wears the Wii's disc drive more than a pressed disc does. Play at your own risk."
+msgstr "Disque gravé : usure prématurée de la lentille par rapport à un disque officiel. À utiliser à vos risques."
+
+msgid "Try with d2x"
+msgstr "Essayer avec d2x"
+
+msgid "The menu runs under IOS{1} for this session, to read burned discs. Pick the disc."
+msgstr "Le menu s'exécute sous l'IOS{1} pour cette session afin de lire les disques gravés. Sélectionnez le disque."
+
+msgid "The drive cannot read this disc, even through d2x. Later Wii drives read only Nintendo discs, never burned ones; on an older Wii, the burn may be bad."
+msgstr "Lecture impossible même via d2x. Les lecteurs Wii récents refusent les disques gravés; sur une ancienne Wii, la gravure est peut-être défectueuse."
+
+msgid "The drive cannot read this disc. If it is a burned disc, RiftWii needs a d2x cIOS to read it."
+msgstr "Le lecteur ne peut pas lire ce disque. Si c'est un disque gravé, un cIOS d2x est indispensable."
+
+msgid "RiftWii could not restart. Start it again from the Homebrew Channel."
+msgstr "Redémarrage de RiftWii impossible. Relancez-le depuis la Chaîne Homebrew."
+
+msgid "1 game"
+msgstr "1 jeu"
+
+msgid "{1} games"
+msgstr "{1} jeux"
+
+msgid "Search \"{1}\""
+msgstr "Rechercher \"{1}\""
+
+msgid "No game matches \"{1}\". Press 1 for all games."
+msgstr "Aucun jeu ne correspond à \"{1}\". Appuyez sur 1 pour tous les afficher."
+
+msgid "1: all games"
+msgstr "1 : tous les jeux"
+
+msgid "Search games"
+msgstr "Rechercher un jeu"
+
+msgid "Search"
+msgstr "Rechercher"
+
+msgid "Space"
+msgstr "Espace"
+
+msgid "Clear"
+msgstr "Effacer"
+
+msgid "Del"
+msgstr "Suppr"
+
+msgid "Homebrew Channel"
+msgstr "Chaîne Homebrew"
+
+msgid "Wii Menu"
+msgstr "Menu Wii"
+
+msgid "Power off"
+msgstr "Éteindre"
+
+msgid "HOME Menu"
+msgstr "Menu HOME"
+
+msgid "Close"
+msgstr "Fermer"
+
+msgid "Opens the HOME Menu, as HOME does: the Homebrew Channel, the Wii Menu, Priiloader or power off."
+msgstr "Ouvre le menu HOME : Chaîne Homebrew, Menu Wii, Priiloader ou extinction."
+
+msgid "Sending a report"
+msgstr "Envoi du rapport"
+
+msgid "Gathering the logs and sending them. This can take half a minute..."
+msgstr "Collecte et envoi des journaux d'erreurs en cours (environ 30 secondes)..."
+
+msgid "Report not sent"
+msgstr "Rapport non envoyé"
+
+msgid "It could not be sent: {1}. It is saved on the SD card as sd:/riftwii/report.txt: send that file instead."
+msgstr "Échec de l'envoi : {1}. Le fichier est sauvegardé sous sd:/riftwii/report.txt pour transmission manuelle."
+
+msgid "It could not be sent or saved: {1}"
+msgstr "Impossible d'envoyer ou de sauvegarder le rapport : {1}"
+
+msgid "Send this link to whoever is helping you, or scan the code with a phone:"
+msgstr "Transmettez ce lien à votre assistant ou scannez ce QR code :"
+
+msgid "The report was too big, so only its start was kept."
+msgstr "Rapport trop volumineux : seul le début a été conservé."
+
+msgid "Report sent"
+msgstr "Rapport envoyé"
+
+msgid "It holds RiftWii's logs and settings, the game's choices and packs, and which console, IOS and controllers this is. It goes to paste.rs, or dpaste.com when paste.rs can't be reached, where anyone with its link can read it."
+msgstr "Contient la configuration, l'IOS, les manettes et les journaux de RiftWii. Hébergé publiquement sur paste.rs ou dpaste.com pour être partagé via le lien."
+
+msgid "RiftWii crashed last time"
+msgstr "RiftWii a planté la dernière fois"
+
+msgid "The game crashed last time"
+msgstr "Le jeu a planté la dernière fois"
+
+msgid "The last launch failed"
+msgstr "Le dernier lancement a échoué"
+
+msgid "Send a report of what happened?"
+msgstr "Envoyer un rapport d'incident ?"
+
+msgid "Send"
+msgstr "Envoyer"
+
+msgid "Send a problem report"
+msgstr "Envoyer un rapport de problème"
+
+msgid "Send a problem report?"
+msgstr "Transmettre un rapport de dysfonctionnement ?"
+
+msgid "Something went wrong? Sends what it takes to find out to a paste site, and shows a link to pass on."
+msgstr "Un problème ? Envoie les informations nécessaires sur un serveur d'analyse et vous fournit un lien de partage."
+
+msgid "WARNING: this can freeze your Wii U"
+msgstr "ATTENTION : risque de blocage de votre Wii U"
+
+msgid "On a Wii U, the GameCube adapter in games can freeze the console at 97% while a game from the SD card or a USB drive starts. It works some times and freezes others, and RiftWii cannot tell beforehand. If it freezes, hold the power button to turn the console off. Automatic is safe: it leaves the adapter out of those games."
+msgstr "Sur Wii U, l'adaptateur GameCube peut figer le chargement à 97% lors du lancement d'un jeu SD/USB. En cas de blocage, maintenez le bouton Power enfoncé. Le mode \"Automatique\" évite ce risque."
+
+msgid "Turn it on anyway"
+msgstr "Activer malgré tout"
+
+msgid "Some game launches WILL freeze and need the power button. Only turn this on to test the adapter, and send a problem report when it freezes. You can set it back to Automatic here at any time."
+msgstr "Certains jeux vont FIGER la console et nécessiter une extinction forcée. N'activez cette option que pour effectuer des tests."
+
+msgid "Yes, turn it on"
+msgstr "Oui, activer"
+
+msgid "Keep it as it is"
+msgstr "Conserver l'état actuel"
+
+msgid "WARNING: on this Wii U, games from the SD card or a USB drive can freeze at 97% with this on. Use Automatic unless you are testing the adapter."
+msgstr "ATTENTION : sur cette Wii U, le chargement peut bloquer à 97%. Privilégiez le mode Automatique."
+
+msgid "Left as it was."
+msgstr "Aucune modification effectuée."
+
+msgid "Theme"
+msgstr "Thème"
+
+msgid "Default"
+msgstr "Par défaut"
+
+msgid "The menu's colours and pictures. Themes are folders in sd:/riftwii/themes (docs/THEMES.md on GitHub)."
+msgstr "Apparence visuelle du menu. Les thèmes sont stockés dans sd:/riftwii/themes."
+
+msgid "No themes in sd:/riftwii/themes. The zip's themes folder has one to copy there."
+msgstr "Aucun thème trouvé dans sd:/riftwii/themes. L'archive zip d'origine en propose à installer."
+
+msgid "Restart the menu?"
+msgstr "Redémarrer le menu ?"
+
+msgid "RiftWii's menu restarts to show {1}. Your games and settings stay as they are."
+msgstr "Le menu RiftWii redémarre pour appliquer {1}. Vos jeux et paramètres sont conservés."
+
+msgid "Restart"
+msgstr "Redémarrer"
+
+msgid "Theme: {1}"
+msgstr "Thème : {1}"
+
+msgid "Menu font"
+msgstr "Police du menu"
+
+msgid "Add a picture:"
+msgstr "Ajouter une image :"
+
+msgid "The letters the menu is written in: RiftWii's own, or the Wii Menu's, read from this Wii."
+msgstr "Style typographique : police personnalisée de RiftWii ou police officielle extraite du menu Wii."
+
+msgid "the Wii Menu's font"
+msgstr "police du menu Wii"
+
+msgid "RiftWii's font"
+msgstr "police de RiftWii"
+
+msgid "Menu font: {1}"
+msgstr "Police du menu : {1}"
+
+msgid "RiftWii stopped while reading the Wii Menu's font last time, so it uses its own. Send a problem report so this can be fixed."
+msgstr ""
+
+msgid "The Wii Menu's font could not be read, so RiftWii's is used."
+msgstr "Police originale du menu Wii introuvable, utilisation de la police native de RiftWii."
+
+msgid "Files from a Mac on the SD card"
+msgstr "Fichiers cachés macOS sur la carte SD"
+
+msgid "This SD card has hidden files that macOS makes when it copies (names that start with \"._\"). RiftWii skips them, but they fill the card and can confuse other homebrew. To remove them, put the card in your Mac, open Terminal and type: dot_clean -m /Volumes/ followed by the card's name. On Windows, delete the files whose names start with \"._\"."
+msgstr "Cette carte contient des fichiers système macOS commençant par \"._\". RiftWii les ignore mais ils prennent de la place. Pour les supprimer sur Mac, utilisez la commande Terminal `dot_clean -m /Volumes/[NomCarte]`. Sur Windows, supprimez manuellement les fichiers \"._\"."
+
+msgid "This code mod can't start"
+msgstr "Ce mod de code ne peut pas démarrer"
+
+msgid "{1} has more codes than the game has room for ({2}, room for {3}). It needs the file gameconfig.txt (or gc.txt) from the same download as the mod. Copy it into the mod's own folder on the SD card, {4}, so it can't replace another mod's. Not in the download? Ask whoever made the mod."
+msgstr "{1} contient plus de codes que la mémoire disponible ({2}, limite à {3}). Le fichier gameconfig.txt (ou gc.txt) inclus avec le mod est requis dans {4}."
+
+msgid "The codes take {1}, but {2} only makes room for {3}. Turn off some cheats on this game's Cheats page, or turn off a code mod."
+msgstr "Les codes requièrent {1}, mais {2} n'alloue que {3}. Désactivez certains codes de triche ou mods de code pour libérer de la mémoire."
+
+msgid "Aspect ratio"
+msgstr "Rapport d'aspect"
+
+msgid "Rumble"
+msgstr "Vibrations"
+
+msgid "Wii Remote speaker"
+msgstr "Haut-parleur de la Wiimote"
+
+msgid "Region strings fix"
+msgstr "Correction des chaînes régionales"
+
+msgid "Makes the game use 4:3 or widescreen 16:9 whatever the Wii's TV setting says. Not every game can be changed."
+msgstr "Force l'affichage en 4:3 ou 16:9 indépendamment de la configuration système. Non compatible avec tous les jeux."
+
+msgid "Off: the Wii Remotes never rumble in this game."
+msgstr "Désactivé : désactive totalement les vibrations de la Wiimote sur ce jeu."
+
+msgid "Off: no sound from the Wii Remotes' speakers in this game."
+msgstr "Désactivé : coupe le haut-parleur intégré des Wiimotes pour ce jeu."
+
+msgid "For a game from another region (an import): the game sees its own region's country names where it looks for the console's."
+msgstr "Pour les jeux importés d'une autre région : transmet au jeu les identifiants de pays correspondant à sa zone d'origine."
+
+msgid "Don't show again"
+msgstr "Ne plus afficher"
+
+msgid "Report sent: {1}"
+msgstr ""
+
+msgid "SD image"
+msgstr ""
+
+msgid "Looking at the build's files..."
+msgstr ""
+
+msgid "No SD image made"
+msgstr ""
+
+msgid " and "
+msgstr ""
+
+msgid "RiftWii copies {1} into sd:/riftwii/{2} ({3}). The game then gets the image as its SD card, so it can be on the SD card too. This takes about {4} minutes."
+msgstr ""
+
+msgid "It is saved in {1} parts, as a FAT32 card holds no file of 4 GB."
+msgstr ""
+
+msgid "It replaces the {1} there now."
+msgstr ""
+
+msgid "Make an SD image?"
+msgstr ""
+
+msgid "Make it"
+msgstr ""
+
+msgid "Making {1}"
+msgstr ""
+
+msgid "Stop"
+msgstr ""
+
+msgid "{1} minutes left"
+msgstr ""
+
+msgid "{1} seconds left"
+msgstr ""
+
+msgid "Free space"
+msgstr ""
+
+msgid "Stopped. Nothing was kept."
+msgstr ""
+
+msgid "{1} could not be made: {2}. Nothing was kept."
+msgstr ""
+
+msgid "SD image made"
+msgstr ""
+
+msgid "{1} is in sd:/riftwii, and the build in it is turned on: the game gets the image as its SD card."
+msgstr ""
+
+msgid "Remove from the list"
+msgstr ""
+
+msgid "Add a code build..."
+msgstr ""
+
+msgid "..  (up a folder)"
+msgstr ""
+
+msgid "Pick"
+msgstr ""
+
+msgid "Nothing here"
+msgstr ""
+
+msgid "Add a code build"
+msgstr ""
+
+msgid "Achievement unlocked: License Enthusiast"
+msgstr ""
+
+msgid "Congratulations! You read all 5,644 words of the GNU GPL, version 3. Are you really that bored? Respect to the developers whose work RiftWii builds on: every one of you is credited above. The GPL is there to protect people who share their code, not to be waved around only when it's handy for picking a fight. Your reward: absolutely nothing, as the license says (\"WITHOUT ANY WARRANTY\")."
+msgstr ""
+
+msgid "Fair enough"
+msgstr ""
+
+msgid "Only a build in a folder can go into an image."
+msgstr ""
+
+msgid "The build cannot go into an image: {1}."
+msgstr ""
+
+msgid "The image needs {1} on the SD card and {2} is free. Make room (or use a bigger card) and try again."
+msgstr ""
+
+msgid "Cannot replace {1}."
+msgstr ""
+
+msgid "{1} has folders too deep to copy."
+msgstr ""
+
+msgid "Cannot read sd:{1}."
+msgstr ""
+
+msgid "The build has more than {1} files."
+msgstr ""
