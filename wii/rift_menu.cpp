@@ -4499,7 +4499,9 @@ static int MenuHome(FrontendState& state)
 				say(FlatCapped(state.sd_catalog.cios_note, 150));
 			} else if (riftwii::wii::CiosCheck cios; (state.use_usb || state.use_sd) &&
 				   (cios = riftwii::wii::image_cios_check(riftwii::wii::SelectedSource(state).game,
-					    riftwii::wii::SelectedSource(state).cios_slot)).verdict != riftwii::wii::CiosCheck::Verdict::Ok &&
+					    riftwii::wii::SelectedSource(state).cios_slot,
+					    !state.model.selections().empty() || state.model.save_mode != "nand")).verdict !=
+					   riftwii::wii::CiosCheck::Verdict::Ok &&
 				   (cios.verdict == riftwii::wii::CiosCheck::Verdict::Refused || !g_oldCiosReminded)) {
 				// The cIOS the game would start on: refused while the menu is
 				// up, or d2x v11's earlier betas reminded once, then started.

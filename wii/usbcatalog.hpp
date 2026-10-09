@@ -145,7 +145,12 @@ bool slot_has_ticket(int slot);
 // setting On) gets a d2x slot on base 58 first: a tester's Wii U showed
 // that only base 58 reaches the adapter in a front USB port (IOS 58 and
 // d2x 251 base 58 did; 248, 249 base 56 and 250 base 57 did not).
-std::vector<int> image_cios_order(const ImageGame& game, int chosen);
+//
+// `uses_sd`: the launch reads the SD card while the game runs (mod packs
+// or saves there) though the game itself is on the USB drive: GX's rule
+// for the SD card applies as for a game on it (d2x bases 56-60 only; a
+// tester's Retro Rewind on base 38 failed the card's reset at the start).
+std::vector<int> image_cios_order(const ImageGame& game, int chosen, bool uses_sd = false);
 
 // The base IOS of the d2x cIOS in `slot` (its information block), 0 when
 // it is not a d2x that could be read, or one older than d2x v11 beta3.
@@ -168,7 +173,7 @@ struct CiosCheck {
     std::string name;  // "d2x v11 beta2" when out of date
     std::string why;   // when refused
 };
-CiosCheck image_cios_check(const ImageGame& game, int chosen);
+CiosCheck image_cios_check(const ImageGame& game, int chosen, bool uses_sd = false);
 
 // On a Wii U, the d2x slot that reaches the GameCube adapter in any USB
 // port, 0 when none is known: the one on base 58; when no slot's base

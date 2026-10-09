@@ -1354,10 +1354,10 @@ bool d2x_slot_allowed(int slot, std::string& why) {
     return false;
 }
 
-CiosCheck image_cios_check(const ImageGame& game, int chosen) {
+CiosCheck image_cios_check(const ImageGame& game, int chosen, bool uses_sd) {
     CiosCheck check;
     if (running_in_dolphin()) return check;
-    for (int slot : image_cios_order(game, chosen)) {
+    for (int slot : image_cios_order(game, chosen, uses_sd)) {
         if (!slot_has_ticket(slot)) continue;
         std::string why;
         if (!d2x_slot_allowed(slot, why)) {
@@ -1416,7 +1416,7 @@ int wii_u_adapter_slot(std::string* why) {
     return 0;
 }
 
-std::vector<int> image_cios_order(const ImageGame& game, int chosen) {
+std::vector<int> image_cios_order(const ImageGame& game, int chosen, bool uses_sd) {
     if (chosen != 0) return {chosen};
     std::vector<int> order;
     // The GameCube adapter on a Wii U: a base-58 d2x first, the only d2x
@@ -1440,7 +1440,7 @@ std::vector<int> image_cios_order(const ImageGame& game, int chosen) {
     if (!running_in_dolphin() && game.required_ios != 0) {
         std::string why;
         const int pick = gx_pick_cios(game.id, static_cast<int>(game.required_ios), d2x_slots(),
-                                      game.device == ImageDevice::Sd, why);
+                                      game.device == ImageDevice::Sd || uses_sd, why);
         if (pick && std::find(order.begin(), order.end(), pick) == order.end()) {
             logf("cIOS: %s asks for IOS%u; IOS%d %s (USB Loader GX's choice%s%s)\n", game.id.c_str(),
                  static_cast<unsigned>(game.required_ios), pick, order.empty() ? "first" : "next", why.empty() ? "" : ": ",

@@ -140,6 +140,9 @@ struct Session {
     std::string own_saves_dir;
     bool own_saves_clone = false;
     bool d2x_saves = false;
+    // The game reads the SD card as it runs (packs, saves): the cIOS
+    // choice keeps to the bases that reach it (image_cios_order).
+    bool sd_in_use = false;
 
     bool ensure_probe(std::string& error) {
         if (probed) return true;
@@ -163,7 +166,7 @@ struct Session {
             // show (249: "not a d2x cIOS", not "251 is not installed").
             std::string first_error;
             int used_slot = 0;
-            for (int slot : image_cios_order(source.game, source.cios_slot)) {
+            for (int slot : image_cios_order(source.game, source.cios_slot, sd_in_use)) {
                 if (activate_image_game(source.game, slot, frag_storage, frag_storage_bytes, log_path, error,
                                         block_ios_reload)) { active=true; used_slot=slot; break; }
                 if (reload_terminal_failure()) return false;
@@ -466,6 +469,7 @@ bool BootCompiled(CompiledMod&& mod, std::string& error, const LaunchSource& sou
                     const std::string& save_mode, const std::string& game_id) {
     Session s(source, "sd:/riftwii/boot.log");
     SetOwnSaves(s, save_mode, game_id);
+    s.sd_in_use = !mod.entries.empty() || !mod.savegame_dir.empty() || !s.own_saves_dir.empty();
     if (!s.ensure_probe(error)) return false;
     if (mod.has_source_identity && !same_disc_identity(mod.source_identity, s.probe.header.identity())) {
         error = "disc changed since preflight; recompile the selected packages";
@@ -543,6 +547,7 @@ bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error, 
     Session s(source, "sd:/riftwii/boot.log");
     s.usb_packs = any_on_usb(packages);
     SetOwnSaves(s, save_mode, game_id);
+    s.sd_in_use = !packages.empty() || !s.own_saves_dir.empty();
     if (!s.ensure_layout(error)) return false;
     CompiledMod mod; if (!compile_packages(packages, s.probe, s.partition, mod, error)) return false;
     LogCompileNotes(mod);
