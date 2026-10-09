@@ -20,7 +20,14 @@ namespace riftwii::wii {
 // (riftwii/brfnt.hpp), when it reads too, draws the characters it has
 // (FreeTypeGX's SetBitmapGlyphSource): clear that if the TrueType one is
 // not used after all.
+//
+// The first read from the NAND is copied to sd:/riftwii/fontcache/ (the
+// shared contents as they are), and later starts read that copy: no
+// hardware access or cIOS is needed for it again.
 u8* LoadWiiMenuFont(std::size_t& size, std::string& why);
+
+// Whether the SD card holds that copy (for the console's language).
+bool WiiMenuFontCached();
 
 // Which face of the collection the menu draws with: the proportional one
 // (Wii NTLG PGothic), as the Wii Menu does.

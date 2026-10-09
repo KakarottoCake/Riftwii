@@ -43,6 +43,12 @@ int BurnedDiscSlot();
 // The cIOS slot the menu is running under, or 0.
 int MenuCiosSlot();
 
+// Back to IOS58 from the session's cIOS (StartMenuIos), before the pads
+// and the drives are brought up: for a cIOS that was only needed for a
+// moment (copying the Wii Menu's font), since a d2x on another base than
+// 58 cannot read USB drives in the menu. True when IOS58 is running.
+bool LeaveSessionCios(bool sd_mounted, const char* why);
+
 // The IOS a fresh restart could not get back to (58), after a retry: 0
 // when it did. The IOS that stayed (a cIOS a failed launch had reloaded
 // into) cannot read USB drives through libogc, so the USB status says so.

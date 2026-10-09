@@ -292,18 +292,52 @@ int main() {
     }
     riftwii::wii::StartMenuIos(sd_mounted, restart.kind != riftwii::wii::RestartKind::None,
                                restart.kind == riftwii::wii::RestartKind::BurnedDisc ? riftwii::wii::BurnedDiscSlot() : 0);
+    // A marker on the card while the Wii Menu's font is read: reading it
+    // may open IOS's NAND permission check, which hung consoles before
+    // 3.3.3. Found at the next start, the font is skipped, so a console it
+    // stops is not stopped at every start.
+    constexpr const char* kFontTry = "sd:/riftwii/menu_font_try.txt";
+    bool font_tried_before = false;
+    if (riftwii::wii::Settings().menu_font == "wii" && sd_mounted) {
+        if (FILE* f = std::fopen(kFontTry, "rb")) {
+            std::fclose(f);
+            font_tried_before = true;
+        }
+    }
+    u8* font = nullptr;
+    std::size_t font_size = 0;
+    std::string font_why;
+    bool font_read = false;
+    const auto read_wii_font = [&] {
+        if (sd_mounted) {
+            if (FILE* f = std::fopen(kFontTry, "wb")) {
+                std::fputs("RiftWii is reading the Wii Menu's font\n", f);
+                std::fclose(f);
+            }
+        }
+        font = riftwii::wii::LoadWiiMenuFont(font_size, font_why);
+        if (sd_mounted) std::remove(kFontTry);
+        font_read = true;
+    };
     // The Wii Menu's font is behind IOS's NAND permission check, which
     // RiftWii can only open with hardware access (open_nand_permissions).
-    // Without it (an older Homebrew Channel, a Wii that did not honour the
-    // channel's request, or a restart's fresh IOS58, which takes it away)
-    // the menu moves onto a d2x cIOS for this session, as it does for a
-    // burned disc: d2x leaves the check out. Asked after the IOS above is
-    // up, since a restart's reload changes what the menu has. Not when a
-    // menu IOS is chosen in Settings (that one stays).
-    if (sd_mounted && riftwii::wii::Settings().menu_font == "wii" && read32(0x0D800064) != 0xFFFFFFFF &&
-        !riftwii::wii::running_in_dolphin() && riftwii::wii::MenuCiosSlot() == 0 && riftwii::wii::LoadMenuIos() == 0) {
-        if (const int slot = riftwii::wii::BurnedDiscSlot())
-            riftwii::wii::StartMenuIos(sd_mounted, false, slot, "to read the Wii Menu's font (no hardware access)");
+    // Without it (an older Homebrew Channel, the RiftWii channel before
+    // version 9, or a restart's fresh IOS58, which takes it away) the menu
+    // moves onto a d2x cIOS for a moment, as it does for a burned disc (d2x
+    // leaves the check out), reads the font, which copies it to the SD card,
+    // and goes back to IOS58: a d2x on another base cannot read USB drives
+    // in the menu (a tester's drive went missing). Later starts read the
+    // copy. Asked after the IOS above is up, since a restart's reload
+    // changes what the menu has. Not when a menu IOS is chosen in Settings.
+    if (sd_mounted && riftwii::wii::Settings().menu_font == "wii" && !font_tried_before &&
+        read32(0x0D800064) != 0xFFFFFFFF && !riftwii::wii::running_in_dolphin() &&
+        riftwii::wii::MenuCiosSlot() == 0 && riftwii::wii::LoadMenuIos() == 0 && !riftwii::wii::WiiMenuFontCached()) {
+        const int slot = riftwii::wii::BurnedDiscSlot();
+        if (slot != 0 && riftwii::wii::StartMenuIos(sd_mounted, false, slot,
+                                                    "to copy the Wii Menu's font to the SD card (no hardware access)")) {
+            read_wii_font();
+            riftwii::wii::LeaveSessionCios(sd_mounted, "the font is read");
+        }
     }
     SetHomeNotice(restart.message);
     if (sd_mounted) riftwii::wii::ImportGameCrash();
@@ -323,37 +357,16 @@ int main() {
     SetupPads();
     InitAudio();
     timed("video, pads and audio");
-    u8* font = nullptr;
-    std::size_t font_size = 0;
     // Settings > Menu font: the Wii Menu's, read from the NAND, else ours.
     bool font_ready = false;
-    // A marker on the card while the Wii Menu's font is read: reading it
-    // may open IOS's NAND permission check, which hung consoles before
-    // 3.3.3. Found at the next start, the font is skipped, so a console it
-    // stops is not stopped at every start.
-    constexpr const char* kFontTry = "sd:/riftwii/menu_font_try.txt";
-    bool font_tried_before = false;
-    if (riftwii::wii::Settings().menu_font == "wii" && sd_mounted) {
-        if (FILE* f = std::fopen(kFontTry, "rb")) {
-            std::fclose(f);
-            font_tried_before = true;
-        }
-    }
     if (font_tried_before) {
         riftwii::wii::logf("Menu font: the Wii Menu's stopped RiftWii last time (%s was left); RiftWii's instead\n",
                            kFontTry);
         std::remove(kFontTry);
         SetHomeNotice(riftwii::wii::tr("RiftWii stopped while reading the Wii Menu's font last time, so it uses its own. Send a problem report so this can be fixed."));
     } else if (riftwii::wii::Settings().menu_font == "wii") {
-        std::string why;
-        if (sd_mounted) {
-            if (FILE* f = std::fopen(kFontTry, "wb")) {
-                std::fputs("RiftWii is reading the Wii Menu's font\n", f);
-                std::fclose(f);
-            }
-        }
-        font = riftwii::wii::LoadWiiMenuFont(font_size, why);
-        if (sd_mounted) std::remove(kFontTry);
+        if (!font_read) read_wii_font();
+        std::string& why = font_why;
         if (font != nullptr && !InitFreeType(font, font_size, riftwii::wii::kWiiMenuFontFace)) {
             DeinitFreeType();
             why = "FreeType could not read it";

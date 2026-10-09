@@ -73,6 +73,32 @@ int MenuCiosSlot() { return g_menu_cios; }
 
 int MenuIosLost() { return g_menu_ios_lost; }
 
+bool LeaveSessionCios(bool sd_mounted, const char* why) {
+    if (g_menu_cios == 0) return IOS_GetVersion() == 58;
+    logf("Menu IOS: back to IOS58 from IOS%d (%s)\n", g_menu_cios, why);
+    if (sd_mounted) {
+        LogClose();
+        fatUnmount("sd:");
+        __io_wiisd.shutdown();
+    }
+    std::string error;
+    ReloadResult r = reload_ios(58, error, true);
+    if (r == ReloadResult::Terminal) halt_after_terminal_reload();
+    if (IOS_GetVersion() != 58) {  // once more, as after a restart
+        r = reload_ios(58, error, true);
+        if (r == ReloadResult::Terminal) halt_after_terminal_reload();
+    }
+    if (sd_mounted && __io_wiisd.startup() && __io_wiisd.isInserted() && fatMountSimple("sd", &__io_wiisd)) LogReopen();
+    if (IOS_GetVersion() != 58) {
+        g_menu_cios = IOS_GetVersion() == g_menu_cios ? g_menu_cios : 0;
+        logf("Menu IOS: still on IOS%d (%s)\n", IOS_GetVersion(), error.c_str());
+        return false;
+    }
+    g_menu_cios = 0;
+    logf("Menu IOS: IOS58 rev %d again\n", IOS_GetRevision());
+    return true;
+}
+
 int BurnedDiscSlot() {
     for (int slot : {249, 250, 251, 248, 252}) {
         if (slot_has_ticket(slot)) return slot;
