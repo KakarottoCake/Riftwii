@@ -1983,11 +1983,9 @@ static std::string DiscTileNote()
 // holds seven lines), for the release script to keep up to date. Shown
 // once when they change; Settings > What's new shows them again.
 static const char* const kWhatsNew[] = {
-	"Star a game on its banner to make it a favourite (or press 1)",
-	"Settings > Home order: A to Z, Last played or Most played",
-	"Settings > USB drive help: a drive's setup, step by step",
-	"The Wii Menu font is kept on the SD card: quicker starts",
-	"In-app updates bring the new channel installer too",
+	"GameCube adapter page: a new Check each cIOS button",
+	"It shows which IOS sees the adapter (Wii U front ports)",
+	"Wii U testers: run it, then send a problem report",
 };
 
 static std::string WhatsNewText()
