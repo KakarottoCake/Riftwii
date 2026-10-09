@@ -2123,6 +2123,11 @@ bool boot_game(const DiscProbe& probe, BootOptions options, std::string& error) 
         // USB input of their own (and games with their own adapter code)
         // are left alone otherwise.
         std::string how;
+        // libogc's USB lets go first: its handle 0 and the adapter the
+        // menu's driver had through it. A disc game keeps the menu's IOS,
+        // and its handle found the adapter still taken (a tester: SD and
+        // RVZ games, after an IOS reload, worked; the disc did not).
+        if (di::frag_device() != 1) USB_Deinitialize();
         // What this IOS's USB answers, for a report (the Wii U's adapter).
         logf("GameCube adapter diag: %s\n", usb_open_matrix().c_str());
         const AdapterSeen seen = look_for_gc_adapter(how);

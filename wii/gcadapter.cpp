@@ -53,6 +53,10 @@ bool g_shared = false;
 // well: the ones below that libogc makes synchronously wait in g_ops
 // for ServeShared, and the interrupt transfers are libogc's.
 bool g_ogc = false;
+// The adapter as libogc opened it (USB_OpenDevice), closed when the driver
+// stops: left open, libogc's handle kept the adapter, and a disc game
+// (the menu's IOS kept, nothing reloaded) could not take it.
+s32 g_ogc_dev_fd = -1;
 volatile bool g_list_wanted = false;   // the driver's device list waits
 volatile bool g_ogc_changed = false;   // libogc has a list not yet given
 bool g_notify_armed = false;
@@ -144,6 +148,10 @@ void ServeShared() {
             // any transfer (libogc's USB_OpenDevice).
             s32 fd = -1;
             result = USB_OpenDevice(ops[i].dev, GCAD_VID_PID >> 16, GCAD_VID_PID & 0xFFFF, &fd);
+            if (result >= 0 && fd >= 0) {
+                if (g_ogc_dev_fd >= 0 && g_ogc_dev_fd != fd) USB_CloseDevice(&g_ogc_dev_fd);
+                g_ogc_dev_fd = fd;
+            }
         } else {
             result = USB_ClearHalt(ops[i].dev, 0);  // v5: cancels its control and interrupt transfers
         }
@@ -370,6 +378,10 @@ void GcAdapterStop() {
     ServeShared();
     const bool idle = gcad_idle(g_state);
     gcad_release(g_state);
+    if (g_ogc_dev_fd >= 0) {
+        USB_CloseDevice(&g_ogc_dev_fd);
+        g_ogc_dev_fd = -1;
+    }
     if (g_fd >= 0) IOS_Close(g_fd);
     g_fd = -1;
     g_running = false;
