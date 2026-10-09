@@ -147,6 +147,13 @@ std::vector<int> image_cios_order(const ImageGame& game, int chosen);
 // it is not a d2x that could be read.
 int d2x_base(int slot);
 
+// On a Wii U, the d2x slot that reaches the GameCube adapter in any USB
+// port, 0 when none is known: the one on base 58; when no slot's base
+// can be read (a tester's console, its d2x at revision 65535), a slot
+// that sd:/riftwii/usbcheck.txt (Check each cIOS) saw the adapter with;
+// else 251, where the vWii d2x installer puts base 58. `why` says which.
+int wii_u_adapter_slot(std::string* why = nullptr);
+
 // The transition after the GUI has stopped. It leaves d2x owning the selected
 // image device and remounts SD, so XML and redirect files remain available. `storage` is
 // caller-owned memory that must outlive d2x configuration and the game boot.

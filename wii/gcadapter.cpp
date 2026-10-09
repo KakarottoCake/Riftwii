@@ -260,7 +260,7 @@ const char* MenuOff() {
     if (Settings().gc_adapter == "off") return "the setting is Off";
     // A Wii U's d2x cIOS never answered /dev/usb/hid with an adapter in
     // (On tries anyway; every call at the start has a time limit).
-    if (Settings().gc_adapter != "on" && IOS_GetVersion() != 58 && is_wii_u() && d2x_base(IOS_GetVersion()) != 58) {
+    if (Settings().gc_adapter != "on" && IOS_GetVersion() != 58 && is_wii_u() && IOS_GetVersion() != wii_u_adapter_slot()) {
         return "on a Wii U it needs IOS 58 as the Menu IOS (or the setting On)";
     }
     return nullptr;

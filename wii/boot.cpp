@@ -2075,7 +2075,7 @@ bool boot_game(const DiscProbe& probe, BootOptions options, std::string& error) 
         // the game's is opened after libogc's USB is shut down.
         // On a Wii U only IOS 58 and a d2x on base 58 reach the adapter
         // in every USB port (a tester's check of each cIOS).
-        const char* off = is_wii_u() && running_ios != 58 && d2x_base(running_ios) != 58
+        const char* off = is_wii_u() && running_ios != 58 && running_ios != wii_u_adapter_slot()
                               ? "on a Wii U it needs IOS 58 or a d2x cIOS on base 58"
                           : di::frag_device() == 1          ? "the game is read from the USB drive, which the adapter breaks"
                                                             : nullptr;

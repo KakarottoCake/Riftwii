@@ -1253,6 +1253,36 @@ int d2x_base(int slot) {
     return 0;
 }
 
+int wii_u_adapter_slot(std::string* why) {
+    for (const D2xSlot& s : d2x_slots()) {
+        if (s.base != 58) continue;
+        if (why) *why = "d2x base 58";
+        return s.slot;
+    }
+    if (!d2x_slots().empty()) return 0;  // bases read, none is 58
+    // "IOS251 rev ...: adapter plugged in (...)" in the check's results.
+    if (FILE* f = std::fopen("sd:/riftwii/usbcheck.txt", "rb")) {
+        char line[256];
+        int found = 0;
+        while (!found && std::fgets(line, sizeof(line), f)) {
+            int ios = 0;
+            if (std::sscanf(line, "IOS%d", &ios) == 1 && ios >= 200 && ios <= 255 &&
+                std::strstr(line, ": adapter plugged in") && slot_has_ticket(ios))
+                found = ios;
+        }
+        std::fclose(f);
+        if (found) {
+            if (why) *why = "its base could not be read; Check each cIOS saw the adapter with it";
+            return found;
+        }
+    }
+    if (slot_has_ticket(251)) {
+        if (why) *why = "no d2x base could be read; the vWii d2x installer puts base 58 there";
+        return 251;
+    }
+    return 0;
+}
+
 std::vector<int> image_cios_order(const ImageGame& game, int chosen) {
     if (chosen != 0) return {chosen};
     std::vector<int> order;
@@ -1264,14 +1294,14 @@ std::vector<int> image_cios_order(const ImageGame& game, int chosen) {
         GcAdapterView seen;
         const bool adapter = mode == "on" ||
                              (mode == "auto" && GcAdapterMenuLastView(seen) && game.device == ImageDevice::Sd);
-        if (adapter) {
-            for (const D2xSlot& s : d2x_slots()) {
-                if (s.base != 58) continue;
-                logf("cIOS: the GameCube adapter on a Wii U: IOS%d (d2x base 58) first, which reaches every USB port\n",
-                     s.slot);
-                order.push_back(s.slot);
-                break;
-            }
+        std::string why;
+        const int slot = adapter ? wii_u_adapter_slot(&why) : 0;
+        if (slot) {
+            logf("cIOS: the GameCube adapter on a Wii U: IOS%d first (%s), which reaches every USB port\n", slot,
+                 why.c_str());
+            order.push_back(slot);
+        } else if (adapter) {
+            logf("cIOS: the GameCube adapter on a Wii U: no d2x on base 58 found\n");
         }
     }
     if (!running_in_dolphin() && game.required_ios != 0) {
