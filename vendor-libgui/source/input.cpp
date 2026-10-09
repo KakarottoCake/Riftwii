@@ -423,10 +423,8 @@ void SetupPads()
 	WiiDRC_Init();
 
 	// read wiimote accelerometer and IR data, on the four Wii Remote
-	// channels only. WPAD_CHAN_ALL includes libogc's Balance Board slot:
-	// a board still on from a game (Wii Fit Plus) reconnects as RiftWii
-	// starts, and setting its format then, mid-handshake, crashed in
-	// libogc (a tester; only with the board on). The menu never reads it.
+	// channels only: the menu never reads the Balance Board's slot. (The
+	// crash with a board on was its missing command queue: wpadqueue.cpp.)
 	for (int chan = WPAD_CHAN_0; chan <= WPAD_CHAN_3; ++chan)
 	{
 		WPAD_SetDataFormat(chan, WPAD_FMT_BTNS_ACC_IR);
