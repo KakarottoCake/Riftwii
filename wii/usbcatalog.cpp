@@ -13,6 +13,8 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <fstream>
 #include <memory>
@@ -37,6 +39,7 @@
 #include "riftwii/titles.hpp"
 #include "riftwii/wbfspart.hpp"
 #include "riftwii/bnr.hpp"
+#include "riftwii/d2xversion.hpp"
 #include "riftwii/wiicrypt.hpp"
 #include "otpkey.hpp"
 #include "memlimits.hpp"
@@ -1230,37 +1233,92 @@ bool slot_has_ticket(int slot) {
 
 namespace {
 
-// USB Loader GX's IosLoader: every d2x cIOS (slots 200-255) and its base
-// IOS, from the information block at the start of its first content
-// (magic 0x1ee7c105, version 1, then the d2x version, the base IOS and the
-// name "d2x"). Read through ES with the slot's own ticket, not from NAND:
-// 2.7.0 RC5 opened IOS's NAND permission check for that and a tester's Wii
-// hung right after it. Read once; nothing found keeps 249, 250 and 251.
+// Each cIOS slot's d2x information block (riftwii/d2xversion.hpp), read
+// once: slots with no title behind them are not listed.
+struct SlotInfo {
+    int slot = 0;
+    bool read = false;  // the block was read (d2x or not)
+    D2xInfo info;
+    std::string why;    // why it could not be read
+};
+
+// The first 0x40 bytes of the slot's first content, from the NAND as USB
+// Loader GX's IosLoader reads them (/title/00000001/<slot>/content/<id of
+// the TMD's first content>.app). Through ES (ES_OpenTitleContent with the
+// slot's ticket) every console refused it: up to 2610-184 the log always
+// said "d2x in no slot that could be read", d2x v11 too. The Homebrew
+// Channel's IOS refuses the file (-102) until its permission check is
+// opened, as for the menu font (fixed in 3.3.3: the hang of 2.7.0 RC5).
+bool read_slot_info(int slot, SlotInfo& out) {
+    const u64 title = 0x100000000ull | static_cast<u64>(slot);
+    u32 tmd_size = 0;
+    if (ES_GetStoredTMDSize(title, &tmd_size) < 0 || tmd_size < 0x1E4 + 36 || tmd_size > 0x10000) return false;
+    out.slot = slot;
+    std::unique_ptr<u8, decltype(&std::free)> tmd(static_cast<u8*>(memalign(32, (tmd_size + 31) & ~31u)), &std::free);
+    if (!tmd || ES_GetStoredTMD(title, reinterpret_cast<signed_blob*>(tmd.get()), tmd_size) < 0) {
+        out.why = "its TMD could not be read";
+        return true;
+    }
+    const u8* c = tmd.get() + 0x1E4;  // the first content record: its ID first
+    const u32 content = (u32(c[0]) << 24) | (u32(c[1]) << 16) | (u32(c[2]) << 8) | c[3];
+    static char path[64] ATTRIBUTE_ALIGN(32);
+    std::snprintf(path, sizeof(path), "/title/00000001/%08x/content/%08x.app", static_cast<unsigned>(slot),
+                  static_cast<unsigned>(content));
+    static bool isfs = false, opened = false;
+    if (!isfs) isfs = ISFS_Initialize() >= 0;
+    s32 fd = ISFS_Open(path, ISFS_OPEN_READ);
+    if (fd == -102 && !opened) {
+        opened = true;
+        if (open_nand_permissions("cIOS check")) fd = ISFS_Open(path, ISFS_OPEN_READ);
+    }
+    if (fd < 0) {
+        out.why = std::string(path) + " could not be opened (" + std::to_string(fd) + ")";
+        return true;
+    }
+    alignas(32) static u8 head[0x40];
+    const s32 got = ISFS_Read(fd, head, sizeof(head));
+    ISFS_Close(fd);
+    if (got < 0x30) {
+        out.why = std::string(path) + " gave " + std::to_string(got) + " bytes";
+        return true;
+    }
+    out.read = true;
+    out.info = parse_d2x_info(head, static_cast<std::size_t>(got));
+    return true;
+}
+
+const std::vector<SlotInfo>& slot_infos() {
+    static std::vector<SlotInfo> infos;
+    static bool done = false;
+    if (done) return infos;
+    done = true;
+    logf("cIOS: reading the cIOS slots 200-255\n");
+    for (int ios = 200; ios <= 255; ++ios) {
+        SlotInfo info;
+        if (!read_slot_info(ios, info)) continue;
+        if (!info.read) logf("cIOS: IOS%d: %s\n", ios, info.why.c_str());
+        else if (!info.info.d2x) logf("cIOS: IOS%d: not d2x\n", ios);
+        else
+            logf("cIOS: IOS%d: %s, base %d%s\n", ios, d2x_name(info.info).c_str(), info.info.base,
+                 d2x_current(info.info) ? "" : " (too old: RiftWii needs d2x v11 beta3 or newer)");
+        infos.push_back(info);
+    }
+    return infos;
+}
+
+// USB Loader GX's IosLoader: every d2x cIOS and its base IOS, the ones
+// RiftWii runs games on (d2x v11 beta3 or newer). Nothing found keeps 249,
+// 250 and 251.
 const std::vector<D2xSlot>& d2x_slots() {
     static std::vector<D2xSlot> slots;
     static bool read = false;
     if (read) return slots;
     read = true;
-    logf("cIOS: looking for d2x in slots 200-255\n");
     std::string found;
-    for (int ios = 200; ios <= 255; ++ios) {
-        const u64 title = 0x100000000ull | static_cast<u64>(ios);
-        u32 views = 0;
-        if (ES_GetNumTicketViews(title, &views) < 0 || views < 1) continue;
-        u32 size = 0;
-        if (ES_GetTMDViewSize(title, &size) < 0) continue;  // no title behind the ticket
-        static tikview view ATTRIBUTE_ALIGN(32);
-        if (ES_GetTicketViews(title, &view, 1) < 0) continue;
-        const s32 cfd = ES_OpenTitleContent(title, &view, 0);
-        if (cfd < 0) continue;
-        alignas(32) static u8 info[0x40];
-        const s32 got = ES_ReadContent(cfd, info, sizeof(info));
-        ES_CloseContent(cfd);
-        const auto be = [](const u8* q) { return (u32(q[0]) << 24) | (u32(q[1]) << 16) | (u32(q[2]) << 8) | q[3]; };
-        if (got < 0x30 || be(info) != 0x1ee7c105u || be(info + 4) != 1) continue;
-        if (strncasecmp(reinterpret_cast<const char*>(info + 16), "d2x", 3) != 0) continue;
-        slots.push_back(D2xSlot{ios, static_cast<int>(info[15])});
-        found += (found.empty() ? "" : ", ") + std::to_string(ios) + " (base " + std::to_string(info[15]) + ")";
+    for (const SlotInfo& s : slot_infos()) {
+        if (!s.read || !d2x_current(s.info)) continue;
+        slots.push_back(D2xSlot{s.slot, s.info.base});
+        found += (found.empty() ? "" : ", ") + std::to_string(s.slot) + " (base " + std::to_string(s.info.base) + ")";
     }
     logf("cIOS: d2x in %s\n", found.empty() ? "no slot that could be read" : found.c_str());
     mem::CheckHeap("after the cIOS search");
@@ -1268,6 +1326,25 @@ const std::vector<D2xSlot>& d2x_slots() {
 }
 
 }  // namespace
+
+bool d2x_slot_allowed(int slot, std::string& why) {
+    for (const SlotInfo& s : slot_infos()) {
+        if (s.slot != slot || !s.read) continue;
+        if (!s.info.d2x) {
+            why = "IOS" + std::to_string(slot) + " is not a d2x cIOS. RiftWii runs games from the SD card and USB "
+                  "drives on d2x only, " + std::string(kD2xWantedName) + " or newer: install it with the d2x cIOS "
+                  "installer (wii.hacks.guide/cios)";
+            return false;
+        }
+        if (!d2x_current(s.info)) {
+            why = "IOS" + std::to_string(slot) + " is " + d2x_name(s.info) + ", too old. RiftWii needs " +
+                  kD2xWantedName + " or newer: install it with the d2x cIOS installer (wii.hacks.guide/cios)";
+            return false;
+        }
+        return true;
+    }
+    return true;  // not read: the check cannot tell
+}
 
 int d2x_base(int slot) {
     for (const D2xSlot& s : d2x_slots())
@@ -1556,6 +1633,11 @@ bool activate_image_game(const ImageGame& game, int cios_slot, void*& storage, s
             error = "IOS slot " + std::to_string(cios_slot) + ": " + why +
                     "; " + std::string(device_name(game.device)) +
                     " boot needs d2x (v11 beta3 is the latest) in 249, 250 or 251";
+            logf("%s: skipping IOS%d (%s)\n", device_name(game.device), cios_slot, why.c_str());
+            return false;
+        }
+        if (!d2x_slot_allowed(cios_slot, why)) {
+            error = why;
             logf("%s: skipping IOS%d (%s)\n", device_name(game.device), cios_slot, why.c_str());
             return false;
         }

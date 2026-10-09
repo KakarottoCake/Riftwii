@@ -138,12 +138,19 @@ struct Session {
         ProgressStage(source.kind == LaunchSource::Kind::Disc ? "Reading the disc" : "Opening the game image", 3);
         if (source.kind != LaunchSource::Kind::Disc) {
             bool active = false;
+            // When every slot fails, the first one's reason is the one to
+            // show (249: "not a d2x cIOS", not "251 is not installed").
+            std::string first_error;
             for (int slot : image_cios_order(source.game, source.cios_slot)) {
                 if (activate_image_game(source.game, slot, frag_storage, frag_storage_bytes, log_path, error,
                                         block_ios_reload)) { active=true; break; }
                 if (reload_terminal_failure()) return false;
+                if (first_error.empty()) first_error = error;
             }
-            if (!active) return false;
+            if (!active) {
+                if (!first_error.empty()) error = first_error;
+                return false;
+            }
             open_usb_for_packs();
             logf("%s: virtual-disc probe\n", source.kind == LaunchSource::Kind::Usb ? "USB" : "SD");
             ProbeOptions virtual_disc;

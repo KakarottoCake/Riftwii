@@ -144,8 +144,14 @@ bool slot_has_ticket(int slot);
 std::vector<int> image_cios_order(const ImageGame& game, int chosen);
 
 // The base IOS of the d2x cIOS in `slot` (its information block), 0 when
-// it is not a d2x that could be read.
+// it is not a d2x that could be read, or one older than d2x v11 beta3.
 int d2x_base(int slot);
+
+// Whether games from the SD card or a USB drive may start on `slot`: false,
+// with `why` saying what to install, when its information block shows a
+// cIOS that is not d2x or a d2x older than v11 beta3 (riftwii/
+// d2xversion.hpp). True when the block could not be read.
+bool d2x_slot_allowed(int slot, std::string& why);
 
 // On a Wii U, the d2x slot that reaches the GameCube adapter in any USB
 // port, 0 when none is known: the one on base 58; when no slot's base

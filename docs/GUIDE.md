@@ -9,8 +9,10 @@ Everything about installing and using RiftWii. The [README](../README.md) has th
 - Your games, any of:
   - the game disc (works on any Wii, nothing else needed);
   - `.wbfs` images (split `.wbf1`, `.wbf2`, ... too) or `.iso` images on
-    the SD card or a USB drive. These need a **d2x cIOS** installed in
-    slot 249, 250 or 251. A USB drive may be FAT32 or NTFS, or a drive
+    the SD card or a USB drive. These need a **d2x cIOS, v11 beta3 or
+    newer** ([wii.hacks.guide/cios](https://wii.hacks.guide/cios)),
+    installed in slot 249, 250 or 251: RiftWii does not start them on an
+    older d2x or on a cIOS that is not d2x. A USB drive may be FAT32 or NTFS, or a drive
     formatted as WBFS by a WBFS manager or USB loader (its games are
     listed straight from the drive). The SD card and the USB drive both
     need 512-byte sectors;
