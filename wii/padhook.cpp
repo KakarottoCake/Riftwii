@@ -187,6 +187,8 @@ AdapterSeen ogc_adapter(std::int32_t& dev_id, std::string& devices) {
     return found ? AdapterSeen::Found : AdapterSeen::Missing;
 }
 
+void forget_usb_hid_stuck() { g_hid_stuck = false; }
+
 bool usb_hid_present() {
     std::int32_t fd = -1;
     std::uint32_t version = 0;

@@ -82,6 +82,7 @@
 #include "log.hpp"
 #include "ios_reload.hpp"
 #include "menuios.hpp"
+#include "usbprobe.hpp"
 #include "online.hpp"
 #include "reportsend.hpp"
 #include "modplan.hpp"
@@ -4407,8 +4408,12 @@ static void GcAdapterTestPage()
 		15, skin::kInkDim);
 	Place(noteTxt, 56, 288);
 	noteTxt.SetWrap(true, 528, 3);
-	SkinButton backBtn(skin::pill, skin::pillOver, 4, 198, 406, "Back",
+	SkinButton backBtn(skin::pill, skin::pillOver, 4, 326, 406, "Back",
 		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
+	// Which IOS reaches the adapter: games run on a d2x cIOS, the menu on
+	// IOS 58 (a Wii U's front ports work in the menu only).
+	SkinButton checkBtn(skin::pill, skin::pillOver, 4, 70, 406, tr("Check each cIOS"),
+		WPAD_BUTTON_1 | WPAD_CLASSIC_BUTTON_Y, PAD_BUTTON_Y, WIIDRC_BUTTON_X);
 
 	HaltGui();
 	GuiWindow w(screenwidth, screenheight);
@@ -4420,6 +4425,7 @@ static void GcAdapterTestPage()
 	for (auto& t : portTxt) w.Append(&t);
 	w.Append(&noteTxt);
 	w.Append(&backBtn.button);
+	w.Append(&checkBtn.button);
 	mainWindow->Append(&w);
 	std::string why;
 	// The menu may already run it (its controllers work the menu); then
@@ -4437,7 +4443,21 @@ static void GcAdapterTestPage()
 	{
 		usleep(20000);
 		HaltGui();
-		ClearStaleButtons({&backBtn.button});
+		ClearStaleButtons({&backBtn.button, &checkBtn.button});
+		if (checkBtn.Clicked()) {
+			checkBtn.button.ResetState();
+			if (ShowPopup(tr("Check each cIOS?"),
+				    tr("Games from the SD card or a USB drive run on a d2x cIOS, not on the menu's IOS 58. RiftWii restarts, asks each IOS whether it sees the adapter where it is plugged in now, and shows the answer on Home. Then send a problem report."),
+				    tr("Check"), tr("Cancel")) == 0) {
+				const bool front = riftwii::wii::is_wii_u() &&
+					ShowPopup(tr("Which port?"), tr("Which USB port is the adapter plugged into?"), tr("Front"), tr("Back")) == 0;
+				riftwii::wii::SaveUsbCheckPort(front ? "front" : "back");
+				if (started && !was_running) riftwii::wii::GcAdapterStop();
+				logf("Settings: USB check for the adapter (%s port); restarting\n", front ? "front" : "back");
+				riftwii::wii::WarmRestart(riftwii::wii::RestartKind::UsbCheck, tr("Checking the USB ports"));
+				statusTxt.SetText(tr("RiftWii could not restart. Start it again from the Homebrew Channel."));
+			}
+		}
 		if (started) {
 			riftwii::wii::GcAdapterView v;
 			riftwii::wii::GcAdapterPoll(v);

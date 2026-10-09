@@ -40,6 +40,7 @@
 #include "log.hpp"
 #include "memlimits.hpp"
 #include "menuios.hpp"
+#include "usbprobe.hpp"
 #include "netsock.hpp"
 #include "online.hpp"
 #include "progress.hpp"
@@ -340,6 +341,8 @@ int main() {
         }
     }
     SetHomeNotice(restart.message);
+    // Settings > Check the GameCube adapter > Check each cIOS.
+    if (restart.kind == riftwii::wii::RestartKind::UsbCheck) SetHomeNotice(riftwii::wii::RunUsbCheck(sd_mounted));
     if (sd_mounted) riftwii::wii::ImportGameCrash();
     FrontendState state;
     // Where the start's time goes (the log's own clock does the rest).

@@ -531,6 +531,13 @@ menu too, like a GameCube controller in the Wii's own ports.
 **Check the GameCube adapter** shows what each port reports before you
 start a game.
 
+**Check each cIOS** on that page restarts RiftWii and asks IOS 58 and
+every installed d2x cIOS whether it sees the adapter where it is plugged
+in (on a Wii U it asks whether that is a front or a back port). Home
+shows the answer and `sd:/riftwii/usbcheck.txt` has the details, which
+a problem report carries. Games from the SD card or a USB drive run on
+a d2x cIOS, so this shows whether the adapter can work in them.
+
 **GameCube adapter** in Settings is **Automatic** at first: the adapter
 is used when it is plugged in as the game starts, and the game is left
 alone when it is not. **On** always sets it up, so it can be plugged in

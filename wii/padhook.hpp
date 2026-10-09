@@ -49,6 +49,9 @@ struct PadHook {
 
 // Opens /dev/usb/hid on RiftWii's own handle and tells v4 from v5.
 bool open_usb_hid(std::int32_t& fd, std::uint32_t& version, std::string& why);
+// After an IOS reload: a /dev/usb/hid request that timed out went with
+// the old IOS, so the new one may be asked again.
+void forget_usb_hid_stuck();
 
 // Whether the running IOS has /dev/usb/hid (IOS36, which many games
 // ask for, has none: with the adapter on, the running IOS is kept).
