@@ -1875,19 +1875,21 @@ static bool AgreeToUpdate(const std::string& latest)
 // Returns true when the player chose Don't show again.
 static bool ShowUsbHelp(bool offerOff)
 {
-	static const char* const kGuide = "https://github.com/KakarottoCake/Riftwii/blob/main/docs/GUIDE.md#troubleshooting";
+	// The guide itself: with #troubleshooting the link is longer than a
+	// QR code here holds (78 bytes).
+	static const char* const kGuide = "https://github.com/KakarottoCake/Riftwii/blob/main/docs/GUIDE.md";
 	riftwii::QrCode code;
 	riftwii::make_qr(kGuide, code);
 	constexpr int kModule = 3;
 	const int side = QrImage::Side(code, kModule);
 	QrImage qr(code, 588 - 16 - side, 150, kModule);
 	PopupBox box(tr("Getting a USB drive working"),
-		std::string(tr("1. Plug it into the Wii's USB port nearest the edge.")) + "\n" +
-			tr("2. A hard drive may need more power: use a Y-cable in both ports, or a drive with its own power supply.") + "\n" +
-			tr("3. Format it FAT32 or NTFS on a computer (or WBFS with a WBFS manager).") + "\n" +
-			tr("4. Put the games in a wbfs or games folder at the top of the drive.") + "\n" +
-			tr("5. Install a d2x cIOS in slot 249, 250 or 251, and keep Settings > Menu IOS on IOS 58.") + "\n\n" +
-			tr("Scan the code for the guide's troubleshooting page."),
+		std::string(tr("1. Use the USB port nearest the edge.")) + "\n" +
+			tr("2. Big drives: a Y-cable or their own power.") + "\n" +
+			tr("3. FAT32 or NTFS (or a WBFS drive).") + "\n" +
+			tr("4. Games in a wbfs or games folder.") + "\n" +
+			tr("5. A d2x cIOS in slot 249, 250 or 251.") + "\n" +
+			tr("Scan the code for the guide."),
 		tr("OK"), offerOff ? std::string(tr("Don't show again")) : std::string());
 	if (code.size != 0) box.Add(&qr, 588 - 16 - side - 56 - 16);
 	return box.Wait() == 1;
