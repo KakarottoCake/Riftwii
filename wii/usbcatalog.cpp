@@ -5,6 +5,7 @@
 #include <fat.h>
 #include <gccore.h>
 #include <ogc/es.h>
+#include <ogc/lwp_watchdog.h>
 #include <ogc/usbstorage.h>
 #include <malloc.h>
 #include <unistd.h>
@@ -27,6 +28,7 @@
 #include "ios_reload.hpp"
 #include "log.hpp"
 #include "menuios.hpp"
+#include "netsock.hpp"
 #include "riftwii/apply.hpp"
 #include "riftwii/disc.hpp"
 #include "riftwii/gxpatches.hpp"
@@ -778,13 +780,33 @@ TitleTable g_titles;
 bool g_titles_loaded = false;
 std::string g_titles_from;
 
+// The download, on the network's thread: with no Internet the network
+// takes 20 s or more to give up, and the first scan waited for it at
+// every start (a tester: "takes stupidly long to realize the Wii isn't
+// connected"). The scan waits this long, then names the games after their
+// folders; a list that arrives later is used from the next scan on.
+constexpr unsigned kTitlesWaitMs = 4000;
+std::string g_titles_lang;
+void FetchTitles() {
+    std::string error;
+    if (!UpdateTitles(g_titles_lang, false, error)) logf("Titles: not downloaded: %s\n", error.c_str());
+}
+
 const TitleTable* titles() {
     if (g_titles_loaded) return g_titles_from.empty() ? nullptr : &g_titles;
     g_titles_loaded = true;
     const std::string lang = MenuLanguage();
     if (Settings().online) {
-        std::string error;
-        if (!UpdateTitles(lang, false, error)) logf("Titles: not downloaded: %s\n", error.c_str());
+        g_titles_lang = lang;
+        if (NetRunInBackground(FetchTitles)) {
+            const u64 start = gettime();
+            while (NetBackgroundBusy() && diff_msec(start, gettime()) < kTitlesWaitMs) usleep(50000);
+            if (NetBackgroundBusy())
+                logf("Titles: still downloading after %u s; folder names for now (the list is used once it is here)\n",
+                     kTitlesWaitMs / 1000);
+        } else {
+            logf("Titles: not downloaded now: the network is busy\n");
+        }
     }
     std::vector<std::string> paths = {TitlesPath(lang)};
     if (lang != "en") paths.push_back(TitlesPath("en"));
