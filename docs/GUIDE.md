@@ -244,8 +244,9 @@ groups: *Games* (the defaults for every game), *Menu*, *Finding games*,
 - **Download names and cheats**, and **Get the latest game names**.
 - **GameCube adapter** (experimental), and **Check the GameCube adapter** (below).
 - **GameCube rumble**: *Off* stops GameCube controllers rumbling in games,
-  in the adapter and in the Wii's own ports. Wii Remote rumble is not
-  covered yet.
+  in the adapter and in the Wii's own ports.
+- **Wii Remote rumble**: *Off* stops the Wii Remotes rumbling in every game
+  (a game's own page has **Rumble** for that game alone).
 - **Menu IOS**: IOS 58, or a d2x cIOS slot (248 to 252). Pick the slot that has
   fakemote to use USB DS3/DS4 pads as Wii Remotes.
 - **Find network packs (RiiFS)** and **Copy network packs again** (below).

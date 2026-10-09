@@ -713,6 +713,11 @@ void TestCoverArt() {
     s.parse("gc_rumble = loud\n");
     EXPECT_EQ(s.gc_rumble, "off");
     s.gc_rumble = "on";
+    EXPECT_EQ(s.wiimote_rumble, "on");
+    s.parse("wiimote_rumble = off\n");
+    EXPECT_EQ(s.wiimote_rumble, "off");
+    EXPECT_TRUE(s.serialize().find("wiimote_rumble = off\n") != std::string::npos);
+    s.wiimote_rumble = "on";
     EXPECT_EQ(s.home_sort, "az");
     s.parse("home_sort = most\n");
     EXPECT_EQ(s.home_sort, "most");

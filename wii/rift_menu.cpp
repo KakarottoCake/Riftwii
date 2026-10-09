@@ -4775,7 +4775,7 @@ static int MenuSettings(FrontendState& state)
 			if (t.folder == folder) return t.name;
 		return folder;
 	};
-	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kGameLanguage, kGameCios, kServer, kHomeTiles, kHomeSource, kHomeSort, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kFont, kSounds, kMusic, kReturnTo, kShots, kOnline, kNames, kGcAdapter, kGcRumble, kGcTest, kIos, kNet, kResync,
+	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kGameLanguage, kGameCios, kServer, kHomeTiles, kHomeSource, kHomeSort, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kFont, kSounds, kMusic, kReturnTo, kShots, kOnline, kNames, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kIos, kNet, kResync,
 		kRescan, kChannel, kUpdate, kReport, kTests, kWiiChannel, kUsbHelp, kWhatsNew, kTutorial, kCredits, kExit, kNone, kHeading };
 	// The RiftWii channel on the Wii Menu (wii/channel.hpp).
 	unsigned channelVersion = 0;
@@ -4827,6 +4827,8 @@ static int MenuSettings(FrontendState& state)
 			settings.gc_adapter != "off", kGcAdapter);
 		option(tr("GameCube rumble"), settings.gc_rumble == "off" ? tr("Off") : tr("On"), settings.gc_rumble != "off",
 			kGcRumble, FlowRow::Kind::Toggle);
+		option(tr("Wii Remote rumble"), settings.wiimote_rumble == "off" ? tr("Off") : tr("On"),
+			settings.wiimote_rumble != "off", kWiiRumble, FlowRow::Kind::Toggle);
 		FlowRow gcTest;
 		gcTest.kind = FlowRow::Kind::Action;
 		gcTest.label = tr("Check the GameCube adapter");
@@ -5033,7 +5035,8 @@ static int MenuSettings(FrontendState& state)
 					: tr("Nothing is downloaded. Names and cheats already on the card are still used.");
 			case kNames: return tr("Downloads the newest game names from GameTDB.");
 			case kGcAdapter: return AdapterNote(settings.gc_adapter);
-			case kGcRumble: return tr("Off: GameCube controllers don't rumble in games, in the adapter or the Wii's own ports. Wii Remote rumble is not covered yet.");
+			case kGcRumble: return tr("Off: GameCube controllers don't rumble in games, in the adapter or the Wii's own ports.");
+			case kWiiRumble: return tr("Off: Wii Remotes don't rumble in any game. A game's own page also has Rumble, for that game only.");
 			case kGcTest: return tr("Shows live what the controllers in the adapter are pressing.");
 			case kTutorial: return tr("The short tour of RiftWii's basics that a new SD card starts with.");
 			case kUsbHelp: return tr("What a USB drive needs to work with RiftWii, step by step.");
@@ -5299,7 +5302,12 @@ static int MenuSettings(FrontendState& state)
 				}
 				case kGcRumble:
 					settings.gc_rumble = settings.gc_rumble == "off" ? "on" : "off";
-					saveAndNote(tr("Off: GameCube controllers don't rumble in games, in the adapter or the Wii's own ports. Wii Remote rumble is not covered yet."));
+					saveAndNote(tr("Off: GameCube controllers don't rumble in games, in the adapter or the Wii's own ports."));
+					rebuild();
+					break;
+				case kWiiRumble:
+					settings.wiimote_rumble = settings.wiimote_rumble == "off" ? "on" : "off";
+					saveAndNote(tr("Off: Wii Remotes don't rumble in any game. A game's own page also has Rumble, for that game only."));
 					rebuild();
 					break;
 				case kGcAdapter: {

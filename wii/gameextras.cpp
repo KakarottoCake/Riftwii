@@ -148,7 +148,8 @@ void PrepareLaunchExtras(const FrontendState& state, const HeadlessLaunch* headl
     extras.server = effective_wfc_server(state.model.game, Settings());
     extras.region_video = state.model.game.region_video == "on";
     extras.aspect = state.model.game.aspect == "4:3" ? 0 : state.model.game.aspect == "16:9" ? 1 : -1;
-    extras.rumble_off = state.model.game.rumble == "off";
+    // The game's own Rumble, or Settings > Wii Remote rumble for every game.
+    extras.rumble_off = state.model.game.rumble == "off" || Settings().wiimote_rumble == "off";
     extras.speaker_off = state.model.game.speaker == "off";
     extras.region_strings = state.model.game.region_strings == "on";
     extras.wfc_domain = wfc_domain(extras.server, Settings().wfc_domain);
