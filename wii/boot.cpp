@@ -53,6 +53,7 @@
 #include "riftwii/gxpatches.hpp"
 #include "riftwii/playhistory.hpp"
 #include "riftwii/returnto.hpp"
+#include "d2xsave.hpp"
 #include "channel.hpp"
 #include "loadersettings.hpp"
 #include "riftwii/symsearch.hpp"
@@ -1758,10 +1759,17 @@ bool prepare_savegame(const DiscProbe& probe, const BootOptions& options, Savega
     char prefix[64];
     std::snprintf(prefix, sizeof(prefix), "/title/%08x/%08x/data",
                   static_cast<unsigned>(probe.tmd.title_id >> 32), static_cast<unsigned>(probe.tmd.title_id & 0xFFFFFFFFu));
+    // RiftWii's own folder holds an emulated NAND (wii/d2xsave.hpp): the
+    // runtime serves its title/<type>/<id>/data, d2x the whole of it.
+    std::string dir = options.savegame_dir;
+    if (options.savegame_own) {
+        dir = own_save_data_dir(options.savegame_dir, probe.tmd.title_id);
+        if (!move_flat_saves(options.savegame_dir, dir, error)) return false;
+    }
     struct stat existing;
-    const bool existed = stat(options.savegame_dir.c_str(), &existing) == 0 && S_ISDIR(existing.st_mode);
-    if (!existed && !make_directories(options.savegame_dir + "/.")) {
-        error = "cannot create the save folder " + options.savegame_dir;
+    const bool existed = stat(dir.c_str(), &existing) == 0 && S_ISDIR(existing.st_mode);
+    if (!existed && !make_directories(dir + "/.")) {
+        error = "cannot create the save folder " + dir;
         return false;
     }
     // The clone marker: a hidden file inside the folder, created when a
@@ -1769,7 +1777,7 @@ bool prepare_savegame(const DiscProbe& probe, const BootOptions& options, Savega
     // did not run to its end) and deleted by the runtime when the clone
     // is complete. The game never sees hidden entries (rtfat skips
     // them). Without clone, a stale marker goes.
-    const std::string marker = options.savegame_dir + "/riftwii.cln";
+    const std::string marker = dir + "/riftwii.cln";
     const bool marked = stat(marker.c_str(), &existing) == 0 && !S_ISDIR(existing.st_mode);
     out.clone = options.savegame_clone && (!existed || marked);
     if (out.clone) {
@@ -1814,7 +1822,7 @@ bool prepare_savegame(const DiscProbe& probe, const BootOptions& options, Savega
         error = "cannot mount the SD card again after creating the save folder";
         return false;
     }
-    if (!resolve_sd_directory(options.savegame_dir, out.volume, error)) return false;
+    if (!resolve_sd_directory(dir, out.volume, error)) return false;
     if (cardlog) {
         forget_sd_layout();
         Fat32File file;
@@ -1828,13 +1836,15 @@ bool prepare_savegame(const DiscProbe& probe, const BootOptions& options, Savega
     }
     out.prefix = prefix;
     out.enabled = true;
-    logf("Savegame: %s served from %s%s\n", prefix, options.savegame_dir.c_str(),
+    logf("Savegame: %s served from %s%s\n", prefix, dir.c_str(),
          out.clone ? (existed ? " (marked folder: the NAND save is cloned in again)" : " (new folder: the NAND save is cloned in)")
                    : existed ? " (existing folder)" : " (new folder)");
     return true;
 }
 
 void SetLaunchExtras(LaunchExtras extras) { g_extras = std::move(extras); }
+
+bool LaunchPackKeepsSaves() { return g_extras.pack_keeps_saves; }
 
 std::vector<std::string> TakeCardLog() {
     std::uint8_t bytes[riftwii::kCardLogBytes] = {};

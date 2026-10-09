@@ -610,6 +610,9 @@ bool open_disc(const UsbImage& image, ImageGame& game, std::string& error) {
             read_partition_header(*disc, partition.offset, partition_header, why) &&
             read_tmd(*disc, partition_header, tmd, why)) {
             game.required_ios = tmd.required_ios();
+            game.title_id = tmd.title_id;
+            game.tmd.assign(partition_header.tmd_size, 0);
+            if (!disc->read(partition_header.tmd_offset, game.tmd.data(), game.tmd.size())) game.tmd.clear();
         }
     }
     game.id = header.game_id;

@@ -26,6 +26,10 @@ struct ImageGame {
     std::uint8_t disc_number = 0;
     // The IOS its TMD asks for, read when it is opened (0: not known).
     std::uint32_t required_ios = 0;
+    // Its title ID and the TMD itself, read then too (wii/d2xsave.hpp: the
+    // emulated NAND's title.tmd). 0 and empty when not known (RVZ).
+    std::uint64_t title_id = 0;
+    std::vector<std::uint8_t> tmd;
     UsbImageFormat format = UsbImageFormat::Iso;
     // A disc of a USB drive formatted as WBFS (riftwii/wbfspart.hpp): its
     // slot there. -1 for image files.

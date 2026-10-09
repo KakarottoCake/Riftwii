@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "autorun.hpp"
+#include "d2xsave.hpp"
 #include "progress.hpp"
 #include "riftwii/ctgpconfig.hpp"
 
@@ -133,23 +134,57 @@ struct Session {
         ClearIosReloadBlock(ignored);
     }
 
+    // Saves on the game's page (RiftWii's own folder, not a pack's): the
+    // folder, whether the Wii's save is copied in, and whether d2x's NAND
+    // emulation keeps them (set by ensure_probe).
+    std::string own_saves_dir;
+    bool own_saves_clone = false;
+    bool d2x_saves = false;
+
     bool ensure_probe(std::string& error) {
         if (probed) return true;
         ProgressStage(source.kind == LaunchSource::Kind::Disc ? "Reading the disc" : "Opening the game image", 3);
         if (source.kind != LaunchSource::Kind::Disc) {
             bool active = false;
+            // Saves on the SD card kept by d2x (wii/d2xsave.hpp): the
+            // folders and the Wii's save first, under the menu's IOS. Not
+            // for an RVZ on the card (RiftWii reads it from the card while
+            // the game runs) or a game whose title ID is not known.
+            bool d2x_ready = false;
+            if (!own_saves_dir.empty() && !running_in_dolphin()) {
+                std::string why;
+                if (source.game.title_id == 0) why = "the game's title ID is not known";
+                else if (source.game.device == ImageDevice::Sd && source.game.format == UsbImageFormat::Rvz)
+                    why = "an RVZ game on the SD card";
+                else d2x_ready = prepare_d2x_saves(source.game, own_saves_dir, own_saves_clone, why);
+                if (!d2x_ready) logf("Saves: RiftWii's own save code, not d2x's NAND emulation (%s)\n", why.c_str());
+            }
             // When every slot fails, the first one's reason is the one to
             // show (249: "not a d2x cIOS", not "251 is not installed").
             std::string first_error;
+            int used_slot = 0;
             for (int slot : image_cios_order(source.game, source.cios_slot)) {
                 if (activate_image_game(source.game, slot, frag_storage, frag_storage_bytes, log_path, error,
-                                        block_ios_reload)) { active=true; break; }
+                                        block_ios_reload)) { active=true; used_slot=slot; break; }
                 if (reload_terminal_failure()) return false;
                 if (first_error.empty()) first_error = error;
             }
             if (!active) {
                 if (!first_error.empty()) error = first_error;
                 return false;
+            }
+            // Before the partition is opened: d2x turns its NAND
+            // emulation on only while no title runs. A game on the SD card
+            // itself only with d2x on base 56 or 57 (USB Loader GX's rule:
+            // the others cannot read the game and keep the save on one card).
+            if (d2x_ready) {
+                const int base = d2x_base(used_slot);
+                std::string why;
+                if (source.game.device == ImageDevice::Sd && base != 56 && base != 57)
+                    logf("Saves: RiftWii's own save code, not d2x's NAND emulation (a game on the SD card with d2x "
+                         "base %d; d2x keeps both on one card on base 56 or 57)\n", base);
+                else if (!(d2x_saves = enable_d2x_saves(own_saves_dir, why)))
+                    logf("Saves: RiftWii's own save code, not d2x's NAND emulation (%s)\n", why.c_str());
             }
             open_usb_for_packs();
             logf("%s: virtual-disc probe\n", source.kind == LaunchSource::Kind::Usb ? "USB" : "SD");
@@ -402,9 +437,35 @@ bool CompileSelection(const std::vector<PackageChoices>& packages, CompiledMod& 
     return true;
 }
 
+// The game page's Saves for a launch (a pack's own <savegame> wins: then
+// none). Headless runs pass "nand".
+void SetOwnSaves(Session& s, const std::string& save_mode, const std::string& game_id) {
+    if (LaunchPackKeepsSaves()) return;
+    const SaveOverride own = resolve_save_override(save_mode, "", game_id);
+    s.own_saves_dir = own.dir;
+    s.own_saves_clone = own.clone;
+}
+
+// d2x keeps the save (the runtime leaves it alone), else the runtime
+// serves the folder's title/<type>/<id>/data. A pack's <savegame> as
+// before.
+void KeepOwnSaves(const Session& s, bool xml_saves, BootOptions& options) {
+    if (xml_saves || options.savegame_dir.empty()) return;
+    if (s.d2x_saves) {
+        logf("Saves: kept by d2x's NAND emulation in %s\n", options.savegame_dir.c_str());
+        options.savegame_dir.clear();
+        options.savegame_clone = false;
+        options.install_resident = !options.table_entries.empty() || !options.replacements.empty() ||
+                                   !options.relocations.empty();
+        return;
+    }
+    options.savegame_own = true;
+}
+
 bool BootCompiled(CompiledMod&& mod, std::string& error, const LaunchSource& source,
                     const std::string& save_mode, const std::string& game_id) {
     Session s(source, "sd:/riftwii/boot.log");
+    SetOwnSaves(s, save_mode, game_id);
     if (!s.ensure_probe(error)) return false;
     if (mod.has_source_identity && !same_disc_identity(mod.source_identity, s.probe.header.identity())) {
         error = "disc changed since preflight; recompile the selected packages";
@@ -429,6 +490,7 @@ bool BootCompiled(CompiledMod&& mod, std::string& error, const LaunchSource& sou
     options.savegame_dir = dir;
     options.savegame_clone = xml_saves ? mod.savegame_clone : saves.clone;
     if (!xml_saves && !saves.note.empty()) logf("Saves: %s\n", saves.note.c_str());
+    KeepOwnSaves(s, xml_saves, options);
     return boot_game(s.probe, std::move(options), error);
 }
 
@@ -480,6 +542,7 @@ bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error, 
     // boot. In particular, a USB fragment list must survive the cIOS reload.
     Session s(source, "sd:/riftwii/boot.log");
     s.usb_packs = any_on_usb(packages);
+    SetOwnSaves(s, save_mode, game_id);
     if (!s.ensure_layout(error)) return false;
     CompiledMod mod; if (!compile_packages(packages, s.probe, s.partition, mod, error)) return false;
     LogCompileNotes(mod);
@@ -499,6 +562,7 @@ bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error, 
     options.main_dol=std::move(mod.main_dol);
     options.savegame_dir=dir; options.savegame_clone=xml_saves ? mod.savegame_clone : saves.clone;
     if (!xml_saves && !saves.note.empty()) logf("Saves: %s\n", saves.note.c_str());
+    KeepOwnSaves(s, xml_saves, options);
     return boot_game(s.probe, std::move(options), error);
 }
 

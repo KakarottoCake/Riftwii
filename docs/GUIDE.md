@@ -122,7 +122,10 @@ these rows:
   game's saves on the SD card, starting from a copy of the Wii's save
   (`sd:/riftwii/saves/<ID>/clone`); *SD, fresh start* starts a new one
   (`sd:/riftwii/saves/<ID>/fresh`). While a pack that brings its own
-  saves is on, the row reads *Kept by the pack*.
+  saves is on, the row reads *Kept by the pack*. For a game from the SD
+  card or a USB drive, d2x itself keeps the save on the card (its NAND
+  emulation, as in USB Loader GX); a disc game's is kept by RiftWii. The
+  save is in the folder's `title/<type>/<ID in hex>/data`.
 - **Cheats** opens the game's cheat list. When the Wii is online, the
   first visit downloads the latest cheats from the GeckoCodes archive
   (**Download** gets them again later; cheats you added yourself and

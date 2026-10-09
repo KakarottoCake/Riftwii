@@ -146,6 +146,10 @@ struct BootOptions {
     // the runtime copies the title's NAND save into it before the game's
     // first request. Any other existing folder is used as it is.
     bool savegame_clone = false;
+    // The folder is RiftWii's own (Saves on the game's page, not a pack's
+    // <savegame>): an emulated NAND (wii/d2xsave.hpp) whose
+    // title/<type>/<id>/data is served; flat files from before move in.
+    bool savegame_own = false;
     // Riivolution's "file" device for the game (Pulsar's settings and
     // ghosts on the card): served by the resident runtime from the card's
     // root whenever the runtime is installed and the card is up after the
@@ -198,8 +202,11 @@ struct LaunchExtras {
     bool rumble_off = false;      // gx_rumble_off
     bool speaker_off = false;     // gx_speaker_off
     bool region_strings = false;  // the Region strings fix (gx_country_strings)
+    bool pack_keeps_saves = false;  // a pack's <savegame> decides where the saves go
 };
 void SetLaunchExtras(LaunchExtras extras);
+// The menu's word on the next launch: a pack keeps its own saves.
+bool LaunchPackKeepsSaves();
 
 // A Wii U: its Wii mode has the BC-NAND title (00000001-00000200), a Wii
 // has none. Asked once.
