@@ -369,6 +369,14 @@ void GuiGameGrid::DrawShelf(int alpha) {
         DrawFace(edge, alpha);
     }
 
+    // The card gives one box a frame: the ones nearest the focus first
+    // (drawn back to front, the farthest would have it), the rest of this
+    // frame's boxes then come from the slots.
+    for (int d = 0; d <= reach; ++d) {
+        if (focus + d <= last) riftwii::wii::BoxTexture((*items)[focus + d].id);
+        if (d > 0 && focus - d >= first) riftwii::wii::BoxTexture((*items)[focus - d].id);
+    }
+
     spineRects.clear();
     std::vector<SpineLabel>& labels = spineLabels;
     labels.clear();

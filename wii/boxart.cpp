@@ -26,9 +26,12 @@ namespace {
 
 constexpr const char* kBoxDir = "sd:/riftwii/boxes";
 constexpr std::time_t kRetryAfter = 7 * 24 * 60 * 60;
-// A shelf shows about 25 boxes; room for a few more, so scrolling back
-// finds them: 3 MB of MEM2, taken once when the shelf is first drawn.
-constexpr int kSlots = 32;
+// A 4:3 shelf draws 27 boxes, a 16:9 one 43 (wii/gui_shelf.cpp): room for
+// all of those, about 4 MB of MEM2, taken slot by slot as the shelf first
+// needs them. With 32 a 16:9 shelf never fit: every frame read a box from
+// the card and pushed out one still on screen, so the spines kept turning
+// back into names and scrolling crawled (a tester's video, 2610-178).
+constexpr int kSlots = 44;
 
 // .rw2: the box with its back (version 1's .rwb files had no back and are left alone).
 std::string BoxPath(const std::string& id) { return std::string(kBoxDir) + "/" + id + ".rw2"; }
@@ -119,6 +122,7 @@ struct Slot {
     std::string id;
     u8* data = nullptr;
     unsigned used = 0;
+    u32 frame = 0;  // the frame it was last drawn in
 };
 Slot g_slots[kSlots];
 std::unordered_map<std::string, Slot*> g_index;  // the filled slots by game
@@ -162,13 +166,20 @@ const u8* BoxTexture(const std::string& game_id) {
     const auto found = g_index.find(game_id);
     if (found != g_index.end()) {
         found->second->used = ++g_clock;
+        found->second->frame = FrameTimer;
         return found->second->data;
     }
     if (g_readFrame == FrameTimer || g_absent.count(game_id)) return nullptr;
-    // A read: the slot drawn longest ago makes room.
-    Slot* victim = &g_slots[0];
-    for (Slot& s : g_slots)
-        if (s.used < victim->used) victim = &s;
+    // A read: the slot drawn longest ago makes room, but never one drawn in
+    // this frame or the last (still on screen). With none free the box
+    // stays a named spine until one is: a screen with more boxes than slots
+    // (a smaller display scale) settles instead of reading for ever.
+    Slot* victim = nullptr;
+    for (Slot& s : g_slots) {
+        if (!s.id.empty() && s.frame + 1 >= FrameTimer) continue;
+        if (!victim || s.used < victim->used) victim = &s;
+    }
+    if (!victim) return nullptr;
     if (!victim->id.empty()) g_index.erase(victim->id);
     victim->id.clear();
     g_readFrame = FrameTimer;
@@ -192,6 +203,7 @@ const u8* BoxTexture(const std::string& game_id) {
     GX_InvalidateTexAll();
     victim->id = game_id;
     victim->used = ++g_clock;
+    victim->frame = FrameTimer;
     g_index[game_id] = victim;
     return victim->data;
 }
