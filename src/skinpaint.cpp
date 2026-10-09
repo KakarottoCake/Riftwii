@@ -326,7 +326,9 @@ struct Painter {
         for (int i = 0; i < 10; ++i) {
             const float a = -3.14159265f / 2 + i * 3.14159265f / 5;
             const float r = i % 2 == 0 ? 12.0f : 5.0f;
-            points.emplace_back(14 + r * std::cos(a), 15 + r * std::sin(a));
+            // A little right of and below the middle: so it sits in the
+            // middle of a round button (a tester saw it high and left).
+            points.emplace_back(15 + r * std::cos(a), 16.5f + r * std::sin(a));
         }
         if (on) c.polygon(points, rgba(0xF2B705));
         for (std::size_t i = 0; i < points.size(); ++i) {
