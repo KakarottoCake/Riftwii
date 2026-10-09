@@ -40,6 +40,12 @@ constexpr int kHidHandles[2] = {0, 1};
 constexpr unsigned kHidTimeoutMs = 1500;
 
 char g_hid_path[] ATTRIBUTE_ALIGN(32) = "/dev/usb/hid";
+// libogc's other v5 USB device: when /dev/usb/hid answers no version, it
+// uses this one (the same v5 requests), and so does the adapter here. Two
+// testers' Wii Us: /dev/usb/hid gave GetVersion -4 on IOS 58 and d2x 251,
+// while the menu, on libogc's handles, had the adapter.
+char g_ven_path[] ATTRIBUTE_ALIGN(32) = "/dev/usb/ven";
+const char* g_usb_path_used = "/dev/usb/hid";
 std::uint32_t g_version_out[8] ATTRIBUTE_ALIGN(32);
 volatile bool g_async_done = false;
 volatile s32 g_async_result = 0;
@@ -116,6 +122,7 @@ bool overlaps(const MemoryPatch& p, std::uint32_t start, std::uint32_t bytes) {
 // GetDeviceChange on v4). Every call is asynchronous with a timeout.
 bool open_usb_hid(std::int32_t& fd, std::uint32_t& version, std::string& why) {
     fd = -1;
+    g_usb_path_used = "/dev/usb/hid";
     if (g_hid_stuck) {
         why = "/dev/usb/hid did not answer earlier; left alone";
         return false;
@@ -168,6 +175,44 @@ bool open_usb_hid(std::int32_t& fd, std::uint32_t& version, std::string& why) {
         std::snprintf(buf, sizeof(buf), "handle %d: v4 GetVersion %d, v5 GetVersion %d (%08x)", handle,
                       static_cast<int>(v4), static_cast<int>(v5), static_cast<unsigned>(g_version_out[0]));
         tried += (tried.empty() ? "" : "; ") + std::string(buf);
+    }
+    // libogc's way when /dev/usb/hid has no version: /dev/usb/ven, v5 only.
+    {
+        s32 ret = 0;
+        g_async_done = false;
+        if (!await_async(IOS_OpenAsync(g_ven_path, 0, on_async, nullptr), ret)) {
+            why = "/dev/usb/hid answers neither as v4 nor as v5 (" + tried + "); /dev/usb/ven did not answer when opened";
+            return false;
+        }
+        if (ret >= 0) {
+            fd = ret;
+            std::memset(g_version_out, 0, sizeof(g_version_out));
+            DCFlushRange(g_version_out, sizeof(g_version_out));
+            s32 v5 = 0;
+            g_async_done = false;
+            if (!await_async(IOS_IoctlAsync(fd, GCAD_V5_GET_VERSION, nullptr, 0, g_version_out, sizeof(g_version_out),
+                                            on_async, nullptr),
+                             v5)) {
+                why = "/dev/usb/ven did not answer its v5 GetVersion";
+                fd = -1;
+                return false;
+            }
+            DCInvalidateRange(g_version_out, sizeof(g_version_out));
+            if (v5 == 0 && g_version_out[0] == GCAD_V5_VERSION) {
+                version = 5;
+                g_usb_path_used = "/dev/usb/ven";
+                logf("GameCube adapter: /dev/usb/hid has no version here (%s); /dev/usb/ven v5 instead\n", tried.c_str());
+                return true;
+            }
+            IOS_Close(fd);
+            fd = -1;
+            char buf[64];
+            std::snprintf(buf, sizeof(buf), "/dev/usb/ven: v5 GetVersion %d (%08x)", static_cast<int>(v5),
+                          static_cast<unsigned>(g_version_out[0]));
+            tried += "; " + std::string(buf);
+        } else {
+            tried += "; /dev/usb/ven: open " + std::to_string(ret);
+        }
     }
     why = "/dev/usb/hid answers neither as v4 nor as v5 (" + tried + ")";
     return false;
@@ -268,7 +313,7 @@ AdapterSeen own_adapter_list(std::string& how) {
         g_async_done = false;
         await_async(IOS_IoctlAsync(g_own_fd, GCAD_V5_ATTACH_FINISH, nullptr, 0, nullptr, 0, on_async, nullptr), finish);
         if (g_own_dev >= 0 || attempt == 1 || ms_since_ios_reload() >= 2500) {
-            how = std::string(g_own_dev >= 0 ? "plugged in" : "not plugged in") + " (our own /dev/usb/hid v5 lists " +
+            how = std::string(g_own_dev >= 0 ? "plugged in" : "not plugged in") + " (our own " + g_usb_path_used + " v5 lists " +
                   (devices.empty() ? std::string("no devices") : devices) + ")";
             return g_own_dev >= 0 ? AdapterSeen::Found : AdapterSeen::Missing;
         }
@@ -350,7 +395,7 @@ bool find_pad_functions(const DolHeader& dol, bool demo, PadHook& out, std::stri
         out.version = 5;
         out.known_dev = g_own_dev;
         g_own_fd = -1;  // the game's now
-        logf("GameCube adapter: /dev/usb/hid v5 fd %d (opened before libogc's USB), adapter device %d\n",
+        logf("GameCube adapter: %s v5 fd %d (opened before libogc's USB), adapter device %d\n", g_usb_path_used,
              static_cast<int>(out.fd), static_cast<int>(out.known_dev));
         return true;
     }
@@ -363,10 +408,10 @@ bool find_pad_functions(const DolHeader& dol, bool demo, PadHook& out, std::stri
         logf("GameCube adapter: %s; demo mode goes on without it\n", why.c_str());
         out.fd = -1;
         out.version = 5;
-    } else if (out.version == 5) {
-        IOS_Ioctl(out.fd, GCAD_V5_SHUTDOWN, nullptr, 0, nullptr, 0);  // an error when nothing was pending
     }
-    logf("GameCube adapter: /dev/usb/hid v%u fd %d, adapter device %d\n", out.version, static_cast<int>(out.fd),
+    // No v5 Shutdown on the game's handle: after one, a Wii U's IOS
+    // answered -4 to everything on it (libogc's USB closed before this).
+    logf("GameCube adapter: %s v%u fd %d, adapter device %d\n", g_usb_path_used, out.version, static_cast<int>(out.fd),
          static_cast<int>(out.known_dev));
     return true;
 }
