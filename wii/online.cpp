@@ -43,6 +43,9 @@ constexpr const char* kReleaseByTagApi = "https://api.github.com/repos/Kakarotto
 constexpr const char* kThemePackAsset = "riftwii-themes.pack";
 // The version whose themes are on the card (ApplyThemePack).
 constexpr const char* kThemesDone = "sd:/riftwii/themes_updated.txt";
+// The rest of the zip's sd:/apps (the channel installer), the same way.
+constexpr const char* kAppsPackAsset = "riftwii-apps.pack";
+constexpr const char* kAppsDone = "sd:/riftwii/apps_updated.txt";
 
 // Hosts that could not be connected to this session: asked again, they
 // fail at once, so a server the network cannot reach (GameTDB, for one
@@ -363,8 +366,17 @@ StartCheck g_start_check;
 // The themes this release comes with, for a RiftWii the in-app update
 // installed (a zip brings its own): fetched with the start's check, on its
 // thread; written on Home's (ApplyThemePack), once per version.
-std::vector<std::uint8_t> g_theme_pack;
-bool g_theme_pack_none = false;  // the release has no pack: nothing to wait for
+// The release zip's other files come the same way (riftwii-apps.pack).
+struct PackKind {
+    const char* asset;
+    const char* header;
+    const char* done;  // holds the version the card has
+    const char* label;  // for the log
+    std::vector<std::uint8_t> bytes;
+    bool none = false;  // the release has no such pack: nothing to wait for
+};
+PackKind g_themes{kThemePackAsset, kThemePackHeader, kThemesDone, "Themes", {}, false};
+PackKind g_apps{kAppsPackAsset, kAppsPackHeader, kAppsDone, "Apps", {}, false};
 
 std::string FirstLine(const char* path) {
     std::string text;
@@ -377,34 +389,46 @@ std::string FirstLine(const char* path) {
     return text;
 }
 
-void FetchThemePack() {
-    g_theme_pack.clear();
-    g_theme_pack_none = false;
+void FetchPacks() {
+    for (PackKind* k : {&g_themes, &g_apps}) {
+        k->bytes.clear();
+        k->none = false;
+    }
     const UpdateNote note = ReadUpdateNote();
     if (note.installed.empty() || compare_versions(note.installed, RIFTWII_VERSION) != 0) return;
-    if (FirstLine(kThemesDone) == RIFTWII_VERSION) return;
-    std::vector<std::uint8_t> body;
-    std::string error;
-    if (!HttpGet(kReleaseByTagApi + note.installed, body, error, 256u << 10)) {
-        logf("Themes: cannot ask GitHub about %s: %s\n", note.installed.c_str(), error.c_str());
-        return;
+    const bool themes = FirstLine(kThemesDone) != RIFTWII_VERSION;
+    const bool apps = FirstLine(kAppsDone) != RIFTWII_VERSION;
+    if (!themes && !apps) return;
+    std::string json;
+    {
+        std::vector<std::uint8_t> body;
+        std::string error;
+        if (!HttpGet(kReleaseByTagApi + note.installed, body, error, 512u << 10)) {
+            logf("Packs: cannot ask GitHub about %s: %s\n", note.installed.c_str(), error.c_str());
+            return;
+        }
+        json.assign(body.begin(), body.end());
     }
-    ReleaseAsset pack;
-    if (!release_asset_from_json(std::string(body.begin(), body.end()), kThemePackAsset, pack) || pack.url.empty()) {
-        logf("Themes: %s has no %s\n", note.installed.c_str(), kThemePackAsset);
-        g_theme_pack_none = true;
-        return;
+    for (PackKind* k : {&g_themes, &g_apps}) {
+        if (FirstLine(k->done) == RIFTWII_VERSION) continue;
+        ReleaseAsset pack;
+        if (!release_asset_from_json(json, k->asset, pack) || pack.url.empty()) {
+            logf("%s: %s has no %s\n", k->label, note.installed.c_str(), k->asset);
+            k->none = true;
+            continue;
+        }
+        std::vector<std::uint8_t> body;
+        std::string error;
+        if (!HttpGet(pack.url, body, error, 16u << 20, 30000)) {
+            logf("%s: %s: %s\n", k->label, k->asset, error.c_str());
+            continue;
+        }
+        if ((pack.size != 0 && body.size() != pack.size) || (!pack.sha256.empty() && Sha256Hex(body) != pack.sha256)) {
+            logf("%s: %s did not arrive whole (%u bytes)\n", k->label, k->asset, static_cast<unsigned>(body.size()));
+            continue;
+        }
+        k->bytes.swap(body);
     }
-    std::vector<std::uint8_t>().swap(body);
-    if (!HttpGet(pack.url, body, error, 16u << 20, 30000)) {
-        logf("Themes: %s: %s\n", kThemePackAsset, error.c_str());
-        return;
-    }
-    if ((pack.size != 0 && body.size() != pack.size) || (!pack.sha256.empty() && Sha256Hex(body) != pack.sha256)) {
-        logf("Themes: %s did not arrive whole (%u bytes)\n", kThemePackAsset, static_cast<unsigned>(body.size()));
-        return;
-    }
-    g_theme_pack.swap(body);
 }
 
 // Whether `path` holds exactly these bytes.
@@ -425,36 +449,49 @@ bool SameFile(const std::string& path, const std::uint8_t* data, std::size_t siz
     return same;
 }
 
-void MarkThemesDone() {
-    if (FILE* f = std::fopen(kThemesDone, "wb")) {
+void MarkDone(const char* path) {
+    if (FILE* f = std::fopen(path, "wb")) {
         std::fprintf(f, "%s\n", RIFTWII_VERSION);
         std::fclose(f);
     }
 }
 
-// sd:/riftwii/themes brought up to the pack: its themes' files written
-// where they differ (a player's own themes are not touched), retired
-// themes' files removed. On Home's thread, the GUI halted.
-void ApplyThemePack() {
-    if (g_theme_pack_none) {
-        g_theme_pack_none = false;
-        MarkThemesDone();
+// What the apps pack may write: the channel installer's folder and
+// RiftWii's icon. RiftWii's boot.dol and meta.xml are the update's own,
+// and a player's music.ogg stays.
+bool AppsFileAllowed(const std::string& path) {
+    return path.compare(0, 16, "riftwii_channel/") == 0 || path == "riftwii/icon.png";
+}
+
+// The card brought up to a pack: sd:/riftwii/themes (its themes' files
+// written where they differ, a player's own themes are not touched,
+// retired themes' files removed) or sd:/apps. On Home's thread, the GUI
+// halted.
+void ApplyPack(PackKind& k) {
+    const bool themes = &k == &g_themes;
+    if (k.none) {
+        k.none = false;
+        MarkDone(k.done);
     }
-    if (g_theme_pack.empty()) return;
+    if (k.bytes.empty()) return;
     std::vector<std::uint8_t> bytes;
-    bytes.swap(g_theme_pack);
+    bytes.swap(k.bytes);
     ThemePack pack;
     std::string error;
-    if (!parse_theme_pack(bytes.data(), bytes.size(), pack, error)) {
-        logf("Themes: %s: %s\n", kThemePackAsset, error.c_str());
-        MarkThemesDone();
+    if (!parse_theme_pack(bytes.data(), bytes.size(), pack, error, k.header)) {
+        logf("%s: %s: %s\n", k.label, k.asset, error.c_str());
+        MarkDone(k.done);
         return;
     }
-    const std::string root = "sd:/riftwii/themes/";
+    const std::string root = themes ? "sd:/riftwii/themes/" : "sd:/apps/";
     mkdir("sd:/riftwii", 0777);
-    mkdir("sd:/riftwii/themes", 0777);
+    mkdir(themes ? "sd:/riftwii/themes" : "sd:/apps", 0777);
     unsigned written = 0, same = 0, failed = 0;
     for (const ThemePackFile& f : pack.files) {
+        if (!themes && !AppsFileAllowed(f.path)) {
+            logf("%s: %s skipped\n", k.label, f.path.c_str());
+            continue;
+        }
         const std::string path = root + f.path;
         mkdir((root + f.path.substr(0, f.path.find('/'))).c_str(), 0777);
         if (SameFile(path, bytes.data() + f.offset, f.size)) {
@@ -467,10 +504,10 @@ void ApplyThemePack() {
             ++written;
         } else {
             ++failed;
-            logf("Themes: %s\n", error.c_str());
+            logf("%s: %s\n", k.label, error.c_str());
         }
     }
-    for (const RetiredTheme& r : pack.retired) {
+    for (const RetiredTheme& r : themes ? pack.retired : std::vector<RetiredTheme>()) {
         const std::string dir = root + r.name;
         unsigned removed = 0;
         for (const std::string& name : r.files) removed += std::remove((dir + "/" + name).c_str()) == 0;
@@ -484,15 +521,15 @@ void ApplyThemePack() {
             logf("Themes: the theme in use is now %s\n", Settings().theme.c_str());
         }
     }
-    logf("Themes: %u file(s) brought up to %s's, %u already were%s\n", written, RIFTWII_VERSION, same,
+    logf("%s: %u file(s) brought up to %s's, %u already were%s\n", k.label, written, RIFTWII_VERSION, same,
          failed ? " (some could not be written; tried again next start)" : "");
-    if (!failed) MarkThemesDone();
+    if (!failed) MarkDone(k.done);
 }
 
 void RunStartCheck() {
     StartCheck& c = g_start_check;
     c.ok = CheckChannel(c.channel, false, c.latest, c.newer, c.error);
-    FetchThemePack();
+    FetchPacks();
 }
 
 }  // namespace
@@ -517,12 +554,19 @@ bool TakeUpdateCheck(bool& ok, std::string& latest, bool& newer, std::string& er
     if (g_start_check.taken || NetBackgroundBusy()) return false;
     NetWaitForBackground();
     g_start_check.taken = true;
-    ApplyThemePack();
+    ApplyPack(g_themes);
+    ApplyPack(g_apps);
     ok = g_start_check.ok;
     latest = g_start_check.latest;
     newer = g_start_check.newer;
     error = g_start_check.error;
     return true;
+}
+
+bool AppsPackPending() {
+    const UpdateNote note = ReadUpdateNote();
+    return Settings().online && !note.installed.empty() &&
+           compare_versions(note.installed, RIFTWII_VERSION) == 0 && FirstLine(kAppsDone) != RIFTWII_VERSION;
 }
 
 namespace {

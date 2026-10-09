@@ -43,6 +43,11 @@ bool CheckForUpdate(bool force, std::string& latest, bool& newer, std::string& e
 // when it has finished, with what CheckForUpdate said.
 void StartUpdateCheck();
 bool TakeUpdateCheck(bool& ok, std::string& latest, bool& newer, std::string& error);
+
+// After an in-app update, until this version's riftwii-apps.pack has
+// been written (the channel installer in sd:/apps/riftwii_channel): the
+// installer there is still the old version's.
+bool AppsPackPending();
 constexpr const char* kReleasesPage = "github.com/KakarottoCake/Riftwii/releases";
 
 // Whether `latest` was already installed by InstallUpdate (it runs once

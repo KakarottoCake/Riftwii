@@ -2041,10 +2041,20 @@ static bool OfferChannelOnce()
 static bool OfferChannelUpdateOnce()
 {
 	static const char* const kMarker = "sd:/riftwii/channel_update_offered.txt";
-	if (riftwii::wii::CurrentRestartNote().kind == riftwii::wii::RestartKind::ChannelDone) return false;
 	unsigned version = 0;
 	std::string why;
 	if (!riftwii::wii::ChannelInstalled(version) || version >= riftwii::wii::kChannelVersion) return false;
+	if (riftwii::wii::CurrentRestartNote().kind == riftwii::wii::RestartKind::ChannelDone) {
+		// Back from the installer with the channel still old: the
+		// installer on the card is an old one (a tester's put version 8
+		// on again).
+		logf("Channel: still version %u after the installer\n", version);
+		g_homeNotice = tr("The RiftWii channel is still version {1}. If you just installed it, the installer on the SD card is an old one: copy apps/riftwii_channel from the newest RiftWii zip onto the card.",
+			{std::to_string(version)});
+		return false;
+	}
+	// Not before an in-app update has brought the new installer.
+	if (riftwii::wii::AppsPackPending()) return false;
 	unsigned asked = 0;
 	if (FILE* f = std::fopen(kMarker, "r")) {
 		if (std::fscanf(f, "%u", &asked) != 1) asked = 0;

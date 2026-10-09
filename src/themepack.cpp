@@ -26,7 +26,8 @@ bool path_ok(const std::string& path) {
 
 }  // namespace
 
-bool parse_theme_pack(const std::uint8_t* data, std::size_t size, ThemePack& out, std::string& error) {
+bool parse_theme_pack(const std::uint8_t* data, std::size_t size, ThemePack& out, std::string& error,
+                      const char* header) {
     out = ThemePack{};
     std::size_t at = 0;
     // One text line from `at`, without its newline; false at the end.
@@ -39,8 +40,8 @@ bool parse_theme_pack(const std::uint8_t* data, std::size_t size, ThemePack& out
         return true;
     };
     std::string text;
-    if (!line(text) || text != "RIFTWII THEMES 1") {
-        error = "not a RiftWii themes pack";
+    if (!line(text) || text != header) {
+        error = std::string("not a RiftWii pack (") + header + ")";
         return false;
     }
     while (line(text)) {
