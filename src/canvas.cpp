@@ -216,6 +216,33 @@ void Canvas::ring(float cx, float cy, float radius, float thickness, Rgba color)
     });
 }
 
+void Canvas::polygon(const std::vector<std::pair<float, float>>& points, Rgba color) {
+    if (points.size() < 3) return;
+    float bx0 = points[0].first, bx1 = bx0, by0 = points[0].second, by1 = by0;
+    for (const auto& p : points) {
+        bx0 = std::min(bx0, p.first);
+        bx1 = std::max(bx1, p.first);
+        by0 = std::min(by0, p.second);
+        by1 = std::max(by1, p.second);
+    }
+    const auto inside = [&](float x, float y) {
+        bool in = false;
+        for (std::size_t i = 0, j = points.size() - 1; i < points.size(); j = i++) {
+            const float xi = points[i].first, yi = points[i].second;
+            const float xj = points[j].first, yj = points[j].second;
+            if ((yi > y) != (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) in = !in;
+        }
+        return in;
+    };
+    const auto coverage = [&](float px, float py) {
+        int hits = 0;
+        for (int sy = 0; sy < 4; ++sy)
+            for (int sx = 0; sx < 4; ++sx) hits += inside(px - 0.375f + sx * 0.25f, py - 0.375f + sy * 0.25f);
+        return hits / 16.0f;
+    };
+    paint(bx0 - 1, by0 - 1, bx1 + 1, by1 + 1, color, coverage);
+}
+
 void Canvas::line(float x0, float y0, float x1, float y1, float thickness, Rgba color) {
     const float r = thickness * 0.5f;
     const float dx = x1 - x0, dy = y1 - y0;

@@ -3,6 +3,7 @@
 #pragma once
 
 #include <cstdint>
+#include <utility>
 #include <vector>
 
 // A small software canvas for the menu's artwork. The Wii draws its panels,
@@ -45,6 +46,8 @@ public:
     void rounded_gradient(float x, float y, float w, float h, float radius, Rgba top, Rgba bottom);
     void circle(float cx, float cy, float radius, Rgba color);
     void ring(float cx, float cy, float radius, float thickness, Rgba color);
+    // A filled polygon (even-odd), its edges smoothed by 4x4 samples a pixel.
+    void polygon(const std::vector<std::pair<float, float>>& points, Rgba color);
     // A line with round caps.
     void line(float x0, float y0, float x1, float y1, float thickness, Rgba color);
     // Lines `thickness` wide rising to the right across the whole canvas,

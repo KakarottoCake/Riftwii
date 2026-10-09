@@ -989,6 +989,10 @@ enum class ChannelChoice { Back, Start, Page };
 // as it opens (its checks and warnings, then the launch).
 static bool g_startOnOpen = false;
 
+// Set when the banner screen's star changed a favourite: Home's
+// Favourites list is built again.
+static bool g_favoritesChanged = false;
+
 static ChannelChoice ShowChannel(int& index, int count, const std::string& firstId, const BannerLoader& load,
 	const std::function<std::string(int)>& idOf)
 {
@@ -1055,6 +1059,18 @@ static ChannelChoice ShowChannel(int& index, int count, const std::string& first
 		WPAD_BUTTON_LEFT | WPAD_CLASSIC_BUTTON_LEFT, PAD_BUTTON_LEFT, WIIDRC_BUTTON_LEFT);
 	SkinButton nextBtn(skin::arrowRight, skin::arrowRightOver, 2, 586 + wide, 155, nullptr,
 		WPAD_BUTTON_RIGHT | WPAD_CLASSIC_BUTTON_RIGHT, PAD_BUTTON_RIGHT, WIIDRC_BUTTON_RIGHT);
+	// Favourite: a small round button in the top right corner (or 1), its
+	// star filled while the game shown is one.
+	SkinButton starBtn(skin::roundBtn, skin::roundBtnOver, 2, 582 + wide, 12, nullptr,
+		WPAD_BUTTON_1 | WPAD_CLASSIC_BUTTON_Y, PAD_BUTTON_Y, WIIDRC_BUTTON_X, &skin::iconStar, 0.6f);
+	GuiImage starOn(skin::iconStarOn.data, skin::iconStarOn.w, skin::iconStarOn.h);
+	starOn.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::MIDDLE);
+	starOn.SetScale(0.8f);
+	const auto showStar = [&] {
+		const bool on = riftwii::wii::Settings().favorites.count(shownId) != 0;
+		starBtn.button.SetIcon(on ? &starOn : &starBtn.icon);
+	};
+	showStar();
 	GuiWindow w(screenwidth, screenheight);
 	w.Append(&view);
 	if (count > 1) {
@@ -1064,6 +1080,7 @@ static ChannelChoice ShowChannel(int& index, int count, const std::string& first
 	w.Append(&backBtn.button);
 	w.Append(&pageBtn.button);
 	w.Append(&goBtn.button);
+	if (!shownId.empty()) w.Append(&starBtn.button);
 	mainWindow->SetState(STATE::DISABLED);
 	mainWindow->Append(&w);
 	w.SetState(STATE::DEFAULT);
@@ -1073,7 +1090,7 @@ static ChannelChoice ShowChannel(int& index, int count, const std::string& first
 		usleep(20000);
 		riftwii::wii::BannerSoundUpdate();
 		HaltGui();
-		ClearStaleButtons({&backBtn.button, &goBtn.button, &pageBtn.button, &prevBtn.button, &nextBtn.button});
+		ClearStaleButtons({&backBtn.button, &goBtn.button, &pageBtn.button, &prevBtn.button, &nextBtn.button, &starBtn.button});
 		// The arrows first: A pointed at one also fires Start (its
 		// trigger is A anywhere), which must not open the game then.
 		if (prevBtn.Clicked() || nextBtn.Clicked()) {
@@ -1091,6 +1108,18 @@ static ChannelChoice ShowChannel(int& index, int count, const std::string& first
 			for (int step = 1; step < count; ++step) {
 				if (open(((index + dir * step) % count + count) % count)) break;
 			}
+			showStar();
+		} else if (starBtn.Clicked()) {
+			starBtn.button.ResetState();
+			goBtn.button.ResetState();  // A on the star fires Start too
+			std::set<std::string>& favorites = riftwii::wii::Settings().favorites;
+			const bool on = favorites.count(shownId) == 0;
+			if (on) favorites.insert(shownId);
+			else favorites.erase(shownId);
+			riftwii::wii::SaveSettings();
+			g_favoritesChanged = true;
+			logf("Favourite %s: %s\n", shownId.c_str(), on ? "on" : "off");
+			showStar();
 		} else if (backBtn.Clicked()) choice = 1;
 		else if (pageBtn.Clicked()) {
 			goBtn.button.ResetState();  // A on Settings fires Start too
@@ -2624,6 +2653,8 @@ static int MenuSource(FrontendState& state)
 					g_openRect = tile;
 				}
 				if (!go) {
+					if (g_favoritesChanged && g_filter == Filter::Favorites) refresh(true);
+					g_favoritesChanged = false;
 					transition::Begin(transition::Kind::ZoomOut, tile);
 					ResumeGui();
 					continue;

@@ -137,6 +137,7 @@ Pictures ending in `_over` are the highlighted versions. Transparency
 | `icon_drives` | 28x28 | Drive icon |
 | `icon_gear` | 28x28 | Gear icon |
 | `icon_search` | 28x28 | Magnifier icon on the search button |
+| `icon_star`, `icon_star_on` | 28x28 | Favourite button on a game's banner: not a favourite, a favourite |
 | `icon_disc` | 40x40 | Disc icon |
 | `pointer1` to `pointer4` | 96x96 | Each player's pointer; the fingertip must be at the centre (48, 48) |
 | `shelf` | 256x64 | Home's shelf: rows 0-47 are its top (the far edge first), rows 48-63 its front edge. It repeats along the shelf, so make the left and right edges meet |

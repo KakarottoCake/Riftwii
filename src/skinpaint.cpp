@@ -319,6 +319,24 @@ struct Painter {
         return c;
     }
 
+    // A five-pointed star: its outline, or filled gold for a favourite.
+    Canvas Star(bool on) const {
+        Canvas c(28, 28);
+        std::vector<std::pair<float, float>> points;
+        for (int i = 0; i < 10; ++i) {
+            const float a = -3.14159265f / 2 + i * 3.14159265f / 5;
+            const float r = i % 2 == 0 ? 12.0f : 5.0f;
+            points.emplace_back(14 + r * std::cos(a), 15 + r * std::sin(a));
+        }
+        if (on) c.polygon(points, rgba(0xF2B705));
+        for (std::size_t i = 0; i < points.size(); ++i) {
+            const auto& a = points[i];
+            const auto& b = points[(i + 1) % points.size()];
+            c.line(a.first, a.second, b.first, b.second, on ? 1.6f : 2.2f, glyph);
+        }
+        return c;
+    }
+
     Canvas Search() const {
         Canvas c(28, 28);
         c.ring(12, 12, 7.5f, 2.8f, glyph);
@@ -615,6 +633,8 @@ bool paint_theme_image(const std::string& name, const Theme& theme, Canvas& out)
         {"icon_drives", [](const Painter& q) { return q.Drives(); }},
         {"icon_gear", [](const Painter& q) { return q.Gear(); }},
         {"icon_search", [](const Painter& q) { return q.Search(); }},
+        {"icon_star", [](const Painter& q) { return q.Star(false); }},
+        {"icon_star_on", [](const Painter& q) { return q.Star(true); }},
         {"icon_disc", [](const Painter& q) { return q.Disc(); }},
         {"pointer1", [](const Painter& q) { return Painter::Hand(q.pointer[0]); }},
         {"pointer2", [](const Painter& q) { return Painter::Hand(q.pointer[1]); }},
