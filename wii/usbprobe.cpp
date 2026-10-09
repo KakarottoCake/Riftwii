@@ -8,6 +8,8 @@
 #include <sdcard/wiisd_io.h>
 #include <sys/stat.h>
 
+#include <unistd.h>
+
 #include <cstdio>
 #include <vector>
 
@@ -16,6 +18,7 @@
 #include "log.hpp"
 #include "menuios.hpp"
 #include "padhook.hpp"
+#include "usbcatalog.hpp"
 
 namespace riftwii::wii {
 namespace {
@@ -44,6 +47,7 @@ bool LookHere(std::string& line) {
     std::string how;
     const AdapterSeen seen = look_for_gc_adapter(how);  // waits for devices just after the reload
     USB_Deinitialize();
+    usleep(50000);  // as a launch does: /dev/usb/hid refused a second handle while libogc's was closing
     std::int32_t fd = -1;
     std::uint32_t version = 0;
     std::string why;
@@ -96,7 +100,9 @@ std::string RunUsbCheck(bool sd_mounted) {
             line = "could not be loaded (" + error + "), running IOS" + std::to_string(IOS_GetVersion());
         } else {
             found = LookHere(line);
-            line = "rev " + std::to_string(IOS_GetRevision()) + ": " + line;
+            const int base = ios == 58 ? 0 : d2x_base(ios);
+            line = "rev " + std::to_string(IOS_GetRevision()) + (base ? " (d2x base " + std::to_string(base) + ")" : "") +
+                   ": " + line;
         }
         const std::string name = "IOS" + std::to_string(ios);
         logf("USB check: %s %s\n", name.c_str(), line.c_str());

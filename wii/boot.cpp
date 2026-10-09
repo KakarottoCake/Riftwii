@@ -2073,7 +2073,10 @@ bool boot_game(const DiscProbe& probe, BootOptions options, std::string& error) 
         // d2x, the game's disc reads failed. A Wii U's IOS 58 refused
         // RiftWii's handle only while the menu's USB held /dev/usb/hid;
         // the game's is opened after libogc's USB is shut down.
-        const char* off = is_wii_u() && running_ios != 58 ? "on a Wii U it needs IOS 58 (the Menu IOS)"
+        // On a Wii U only IOS 58 and a d2x on base 58 reach the adapter
+        // in every USB port (a tester's check of each cIOS).
+        const char* off = is_wii_u() && running_ios != 58 && d2x_base(running_ios) != 58
+                              ? "on a Wii U it needs IOS 58 or a d2x cIOS on base 58"
                           : di::frag_device() == 1          ? "the game is read from the USB drive, which the adapter breaks"
                                                             : nullptr;
         // On (not Automatic) tries anyway: an experiment the player chose.

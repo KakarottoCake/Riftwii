@@ -1247,16 +1247,41 @@ const std::vector<D2xSlot>& d2x_slots() {
 
 }  // namespace
 
+int d2x_base(int slot) {
+    for (const D2xSlot& s : d2x_slots())
+        if (s.slot == slot) return s.base;
+    return 0;
+}
+
 std::vector<int> image_cios_order(const ImageGame& game, int chosen) {
     if (chosen != 0) return {chosen};
     std::vector<int> order;
+    // The GameCube adapter on a Wii U: a base-58 d2x first, the only d2x
+    // that reaches the front USB ports. A game read from the USB drive
+    // keeps the adapter off unless the setting is On.
+    if (!running_in_dolphin() && is_wii_u()) {
+        const std::string& mode = Settings().gc_adapter;
+        GcAdapterView seen;
+        const bool adapter = mode == "on" ||
+                             (mode == "auto" && GcAdapterMenuLastView(seen) && game.device == ImageDevice::Sd);
+        if (adapter) {
+            for (const D2xSlot& s : d2x_slots()) {
+                if (s.base != 58) continue;
+                logf("cIOS: the GameCube adapter on a Wii U: IOS%d (d2x base 58) first, which reaches every USB port\n",
+                     s.slot);
+                order.push_back(s.slot);
+                break;
+            }
+        }
+    }
     if (!running_in_dolphin() && game.required_ios != 0) {
         std::string why;
         const int pick = gx_pick_cios(game.id, static_cast<int>(game.required_ios), d2x_slots(),
                                       game.device == ImageDevice::Sd, why);
-        if (pick) {
-            logf("cIOS: %s asks for IOS%u; IOS%d first (USB Loader GX's choice%s%s)\n", game.id.c_str(),
-                 static_cast<unsigned>(game.required_ios), pick, why.empty() ? "" : ": ", why.c_str());
+        if (pick && std::find(order.begin(), order.end(), pick) == order.end()) {
+            logf("cIOS: %s asks for IOS%u; IOS%d %s (USB Loader GX's choice%s%s)\n", game.id.c_str(),
+                 static_cast<unsigned>(game.required_ios), pick, order.empty() ? "first" : "next", why.empty() ? "" : ": ",
+                 why.c_str());
             order.push_back(pick);
         } else if (!why.empty()) {
             logf("cIOS: %s\n", why.c_str());

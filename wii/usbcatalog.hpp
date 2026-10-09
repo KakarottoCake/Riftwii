@@ -136,7 +136,16 @@ bool slot_has_ticket(int slot);
 // game's or the global setting) alone when set; on automatic, USB Loader
 // GX's choice first (riftwii/gxpatches.hpp's gx_pick_cios: the d2x slot
 // whose base is the IOS the game asks for), then 249, 250 and 251.
+//
+// A Wii U with the GameCube adapter in use (seen in the menu, or the
+// setting On) gets a d2x slot on base 58 first: a tester's Wii U showed
+// that only base 58 reaches the adapter in a front USB port (IOS 58 and
+// d2x 251 base 58 did; 248, 249 base 56 and 250 base 57 did not).
 std::vector<int> image_cios_order(const ImageGame& game, int chosen);
+
+// The base IOS of the d2x cIOS in `slot` (its information block), 0 when
+// it is not a d2x that could be read.
+int d2x_base(int slot);
 
 // The transition after the GUI has stopped. It leaves d2x owning the selected
 // image device and remounts SD, so XML and redirect files remain available. `storage` is
