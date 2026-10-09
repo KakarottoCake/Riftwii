@@ -523,6 +523,11 @@ static std::string ReturnToNote()
 	unsigned version = 0;
 	return riftwii::wii::ChannelInstalled(version) ? tr("The Wii Menu button in a game's HOME Menu brings you back to RiftWii. It needs the RiftWii channel installed.") : tr("The Wii Menu button in a game's HOME Menu can bring you back to RiftWii once the RiftWii channel is installed (Settings).");
 }
+static const char* HomeSourceName(const std::string& v)
+{
+	return v == "sd" ? tr("SD card") : v == "usb" ? tr("USB drive") : tr("SD and USB");
+}
+
 static const char* HomeSortName(const std::string& v)
 {
 	return v == "recent" ? tr("Last played") : v == "most" ? tr("Most played") : tr("A to Z");
@@ -619,6 +624,17 @@ static const char* FilterLabel(Filter f)
 		default: return "All games";
 	}
 }
+// For the Wii Menu's bar, whose corner left of the dip holds one short
+// line ("Recently played" wrapped onto the round button below).
+static const char* FilterShortLabel(Filter f)
+{
+	switch (f) {
+		case Filter::Mods: return "Mods";
+		case Filter::Recent: return "Recent";
+		case Filter::Favorites: return "Favourites";
+		default: return "All games";
+	}
+}
 static const char* FilterKey(Filter f)
 {
 	return f == Filter::Mods ? "mods" : f == Filter::Recent ? "recent" : f == Filter::Favorites ? "favorites" : "all";
@@ -690,10 +706,14 @@ static void BuildHome(const FrontendState& state, std::vector<GridItem>& items, 
 	}
 	struct Row { std::string name; HomeEntry entry; const riftwii::wii::ImageGame* game; };
 	std::vector<Row> rows;
-	for (std::size_t i = 0; i < state.usb_catalog.games.size(); ++i)
-		rows.push_back({GameName(state.usb_catalog.games[i]), {HomeEntry::Kind::Usb, i}, &state.usb_catalog.games[i]});
-	for (std::size_t i = 0; i < state.sd_catalog.games.size(); ++i)
-		rows.push_back({GameName(state.sd_catalog.games[i]), {HomeEntry::Kind::Sd, i}, &state.sd_catalog.games[i]});
+	// Settings > Games from: one drive's games only.
+	const std::string& source = riftwii::wii::Settings().home_source;
+	if (source != "sd")
+		for (std::size_t i = 0; i < state.usb_catalog.games.size(); ++i)
+			rows.push_back({GameName(state.usb_catalog.games[i]), {HomeEntry::Kind::Usb, i}, &state.usb_catalog.games[i]});
+	if (source != "usb")
+		for (std::size_t i = 0; i < state.sd_catalog.games.size(); ++i)
+			rows.push_back({GameName(state.sd_catalog.games[i]), {HomeEntry::Kind::Sd, i}, &state.sd_catalog.games[i]});
 	std::stable_sort(rows.begin(), rows.end(), [](const Row& a, const Row& b) {
 		// A leading "The" is not sorted on (The Legend of Zelda under L).
 		const int by = strcasecmp(a.name.c_str() + riftwii::sort_name_start(a.name),
@@ -989,6 +1009,9 @@ enum class ChannelChoice { Back, Start, Page };
 // Set by the banner screen's Start: the game's page presses its own Start
 // as it opens (its checks and warnings, then the launch).
 static bool g_startOnOpen = false;
+// The game whose page the banner screen's Settings opened: back from the
+// page, Home opens its banner again (as the Wii Menu's channel screen).
+static std::string g_reopenBanner;
 
 // Set when the banner screen's star changed a favourite: Home's
 // Favourites list is built again.
@@ -2365,7 +2388,7 @@ static int MenuSource(FrontendState& state)
 		// Clear of the dip (58% of the bar, which is 856 wide on a widescreen menu).
 		const int dipLeft = 320 - static_cast<int>(0.29f * (wide > 0 ? 856 : 640));
 		Place(viewTxt, 16 - wide, 354);
-		viewTxt.SetWrap(true, dipLeft - 10 - (16 - wide), 2);
+		viewTxt.SetMaxWidth(dipLeft - 10 - (16 - wide));  // one line, clear of the round button below
 		pageTxt.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
 		pageTxt.SetPosition(-(16 - wide), 354);
 		pageTxt.SetMaxWidth(dipLeft - 10 - (16 - wide));
@@ -2469,7 +2492,8 @@ static int MenuSource(FrontendState& state)
 	const auto showView = [&] {
 		// A search lists every game whatever the filter, so it is the view.
 		// Over the view's own round button on a bar that dips: its name is enough.
-		const std::string name = g_search.empty() ? std::string(tr(FilterLabel(g_filter))) : tr("Search \"{1}\"", {g_search});
+		const std::string name = g_search.empty() ? std::string(tr(dip ? FilterShortLabel(g_filter) : FilterLabel(g_filter)))
+			: tr("Search \"{1}\"", {g_search});
 		viewTxt.SetText((dip ? name : std::string(tr("View")) + ": " + name).c_str());
 		// While a search is on, the round button's first press ends it.
 		filterHint.SetText(g_search.empty() ? tr("View") : tr("Clear search"));
@@ -2664,6 +2688,16 @@ static int MenuSource(FrontendState& state)
 		}
 
 		int clicked = grid.GetClicked();
+		bool reopening = false;
+		if (!g_reopenBanner.empty()) {
+			// Only while Home still shows channels (else it would open the page).
+			if (clicked < 0 && grid.Channels()) {
+				for (std::size_t i = 0; i < items.size(); ++i)
+					if (items[i].id == g_reopenBanner) clicked = static_cast<int>(i);
+				reopening = clicked >= 0;
+			}
+			g_reopenBanner.clear();
+		}
 		if (clicked >= 0 && static_cast<std::size_t>(clicked) < entries.size()) {
 			g_homeFocus = clicked;
 			HomeEntry entry = entries[static_cast<std::size_t>(clicked)];
@@ -2675,7 +2709,7 @@ static int MenuSource(FrontendState& state)
 			bool fromChannel = false;
 			if (grid.Channels() && entry.kind != HomeEntry::Kind::Disc &&
 				!g_bannerAbsent.count(items[static_cast<std::size_t>(clicked)].id)) {
-				transition::Begin(transition::Kind::ZoomIn, tile);
+				transition::Begin(reopening ? transition::Kind::Fade : transition::Kind::ZoomIn, tile);
 				// Another game's banner, from the arrows: read from its image
 				// first when it is not on the card yet.
 				const BannerLoader loadBanner = [&](int i, std::vector<std::uint8_t>& bytes) {
@@ -2699,6 +2733,7 @@ static int MenuSource(FrontendState& state)
 					[&](int i) { return items[static_cast<std::size_t>(i)].id; });
 				const bool go = choice != ChannelChoice::Back;
 				g_startOnOpen = choice == ChannelChoice::Start;
+				if (choice == ChannelChoice::Page) g_reopenBanner = items[static_cast<std::size_t>(shown)].id;
 				if (shown != clicked) {
 					// Home follows to the game shown last: its tile lit, its page up.
 					clicked = shown;
@@ -2754,6 +2789,7 @@ static int MenuSource(FrontendState& state)
 			} else {
 				if (fromChannel) transition::Begin(transition::Kind::Fade);
 				g_startOnOpen = false;
+				g_reopenBanner.clear();
 				logf("Home: %s\n", error.c_str());
 				std::string shown = FlatCapped(error, 150);
 				if (!shown.empty() && shown[0] >= 'a' && shown[0] <= 'z') shown[0] = static_cast<char>(shown[0] - 'a' + 'A');
@@ -4543,6 +4579,11 @@ static int MenuSettings(FrontendState& state)
 {
 	int menu = MENU_NONE;
 	riftwii::LoaderSettings& settings = riftwii::wii::Settings();
+	// The theme and font this run of the menu shows (read at the first
+	// visit, before anything here changes them): stepping through them
+	// only saves; leaving Settings asks for the one restart.
+	static const std::string runningTheme = settings.theme;
+	static const std::string runningFont = settings.menu_font;
 
 	const std::vector<int> iosChoices = riftwii::wii::MenuIosChoices();
 	int iosSlot = riftwii::wii::LoadMenuIos();
@@ -4557,7 +4598,7 @@ static int MenuSettings(FrontendState& state)
 			if (t.folder == folder) return t.name;
 		return folder;
 	};
-	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kGameLanguage, kGameCios, kServer, kHomeTiles, kHomeSort, kDiscTile, kWidescreen, kScreenSize, kTheme, kFont, kSounds, kMusic, kReturnTo, kShots, kOnline, kNames, kGcAdapter, kGcTest, kIos, kNet, kResync,
+	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kGameLanguage, kGameCios, kServer, kHomeTiles, kHomeSource, kHomeSort, kDiscTile, kWidescreen, kScreenSize, kTheme, kFont, kSounds, kMusic, kReturnTo, kShots, kOnline, kNames, kGcAdapter, kGcRumble, kGcTest, kIos, kNet, kResync,
 		kRescan, kChannel, kUpdate, kReport, kTests, kWiiChannel, kUsbHelp, kWhatsNew, kTutorial, kCredits, kExit, kNone, kHeading };
 	// The RiftWii channel on the Wii Menu (wii/channel.hpp).
 	unsigned channelVersion = 0;
@@ -4607,6 +4648,8 @@ static int MenuSettings(FrontendState& state)
 		option(tr("GameCube adapter"), settings.gc_adapter == "demo" ? std::string("Demo")
 			: settings.gc_adapter == "on" ? tr("On") : settings.gc_adapter == "off" ? tr("Off") : tr("Automatic"),
 			settings.gc_adapter != "off", kGcAdapter);
+		option(tr("GameCube rumble"), settings.gc_rumble == "off" ? tr("Off") : tr("On"), settings.gc_rumble != "off",
+			kGcRumble, FlowRow::Kind::Toggle);
 		FlowRow gcTest;
 		gcTest.kind = FlowRow::Kind::Action;
 		gcTest.label = tr("Check the GameCube adapter");
@@ -4618,6 +4661,7 @@ static int MenuSettings(FrontendState& state)
 		option(tr("Home tiles"), settings.home_tiles == "names" ? tr("Names") : settings.home_tiles == "shelf" ? tr("Shelf")
 			: settings.home_tiles == "channels" ? tr("Channels") : tr("Covers"),
 			settings.home_tiles != "names", kHomeTiles);
+		option(tr("Games from"), HomeSourceName(settings.home_source), settings.home_source != "all", kHomeSource);
 		option(tr("Home order"), HomeSortName(settings.home_sort), settings.home_sort != "az", kHomeSort);
 		option(tr("Disc Channel"), settings.home_disc == "off" ? tr("Off") : tr("On"), settings.home_disc != "off",
 			kDiscTile, FlowRow::Kind::Toggle);
@@ -4800,6 +4844,7 @@ static int MenuSettings(FrontendState& state)
 			case kReturnTo: return ReturnToNote();
 			case kShots: return tr("Experimental. In a game, hold 1 and press HOME (GameCube controller: hold L and R, press Down). Pictures go to sd:/riftwii/screenshots when RiftWii next starts. Some games and mods don't work with it.");
 			case kDiscTile: return DiscTileNote();
+			case kHomeSource: return tr("Which drive's games Home lists. With a game on both, one drive's copy is enough.");
 			case kHomeSort: return tr("The order of the games on Home. Last played and Most played put the games you played from RiftWii first, the rest after them A to Z.");
 			case kMusic: return riftwii::wii::MenuMusicFound() ? tr("Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder.") : tr("No music.ogg found in sd:/riftwii or in RiftWii's own folder.");
 			case kServer: return tr("The online server the game uses in place of Nintendo's, which closed. Custom uses wfc_domain in settings.txt.");
@@ -4808,6 +4853,7 @@ static int MenuSettings(FrontendState& state)
 					: tr("Nothing is downloaded. Names and cheats already on the card are still used.");
 			case kNames: return tr("Downloads the newest game names from GameTDB.");
 			case kGcAdapter: return AdapterNote(settings.gc_adapter);
+			case kGcRumble: return tr("Off: GameCube controllers don't rumble in games, in the adapter or the Wii's own ports. Wii Remote rumble is not covered yet.");
 			case kGcTest: return tr("Shows live what the controllers in the adapter are pressing.");
 			case kTutorial: return tr("The short tour of RiftWii's basics that a new SD card starts with.");
 			case kUsbHelp: return tr("What a USB drive needs to work with RiftWii, step by step.");
@@ -4913,6 +4959,15 @@ static int MenuSettings(FrontendState& state)
 					saveAndNote(tr("The online server the game uses in place of Nintendo's, which closed. Custom uses wfc_domain in settings.txt."));
 					rebuild();
 					break;
+				case kHomeSource: {
+					static const char* const kSourceChoices[] = {"all", "sd", "usb"};
+					int at = 0;
+					while (at < 3 && settings.home_source != kSourceChoices[at]) ++at;
+					settings.home_source = kSourceChoices[((at % 3) + 3 + direction) % 3];
+					saveAndNote(tr("Which drive's games Home lists. With a game on both, one drive's copy is enough."));
+					rebuild();
+					break;
+				}
 				case kHomeSort: {
 					static const char* const kSortChoices[] = {"az", "recent", "most"};
 					int at = 0;
@@ -5016,14 +5071,8 @@ static int MenuSettings(FrontendState& state)
 						note(error);
 						break;
 					}
-					note(tr("The menu restarts to show a theme."));
-					if (ShowPopup(tr("Restart the menu?"),
-						    tr("RiftWii's menu restarts to show {1}. Your games and settings stay as they are.", {themeName(settings.theme)}),
-						    tr("Restart"), tr("Later")) == 0) {
-						logf("Settings: theme %s; restarting the menu\n", settings.theme.c_str());
-						riftwii::wii::WarmRestart(riftwii::wii::RestartKind::Theme, tr("Theme: {1}", {themeName(settings.theme)}));
-						note(tr("RiftWii could not restart. Start it again from the Homebrew Channel."));
-					}
+					note(settings.theme == runningTheme ? tr("This is the theme on screen now.")
+						: tr("The menu restarts to show it when you leave Settings."));
 					break;
 				}
 				case kFont: {
@@ -5034,16 +5083,8 @@ static int MenuSettings(FrontendState& state)
 						note(error);
 						break;
 					}
-					const std::string fontName = settings.menu_font == "wii" ? tr("the Wii Menu's font") : tr("RiftWii's font");
-					note(tr("The menu restarts to change its font."));
-					if (ShowPopup(tr("Restart the menu?"),
-						    tr("RiftWii's menu restarts to show {1}. Your games and settings stay as they are.", {fontName}),
-						    tr("Restart"), tr("Later")) == 0) {
-						logf("Settings: menu font %s; restarting the menu\n", settings.menu_font.c_str());
-						riftwii::wii::WarmRestart(riftwii::wii::RestartKind::MenuFont,
-							tr("Menu font: {1}", {settings.menu_font == "wii" ? tr("Wii Menu") : std::string("RiftWii")}));
-						note(tr("RiftWii could not restart. Start it again from the Homebrew Channel."));
-					}
+					note(settings.menu_font == runningFont ? tr("This is the font on screen now.")
+						: tr("The menu restarts to show it when you leave Settings."));
 					break;
 				}
 				case kOnline:
@@ -5071,6 +5112,11 @@ static int MenuSettings(FrontendState& state)
 					}
 					break;
 				}
+				case kGcRumble:
+					settings.gc_rumble = settings.gc_rumble == "off" ? "on" : "off";
+					saveAndNote(tr("Off: GameCube controllers don't rumble in games, in the adapter or the Wii's own ports. Wii Remote rumble is not covered yet."));
+					rebuild();
+					break;
 				case kGcAdapter: {
 					// Right: Automatic, On, Off, and round again; left the other
 					// way (Automatic to Off without passing On).
@@ -5219,6 +5265,26 @@ static int MenuSettings(FrontendState& state)
 		}
 		if (menu == MENU_NONE && backBtn.Clicked())
 			menu = MENU_SOURCE;
+		// Leaving with another theme or font than the one on screen: one
+		// restart for both (Later leaves them for the next start).
+		if (menu == MENU_SOURCE && (settings.theme != runningTheme || settings.menu_font != runningFont)) {
+			const bool theme = settings.theme != runningTheme;
+			const bool font = settings.menu_font != runningFont;
+			const std::string what = theme && font ? tr("{1} and the new font", {themeName(settings.theme)})
+				: theme ? themeName(settings.theme)
+				: settings.menu_font == "wii" ? tr("the Wii Menu's font") : tr("RiftWii's font");
+			if (ShowPopup(tr("Restart the menu?"),
+				    tr("RiftWii's menu restarts to show {1}. Your games and settings stay as they are.", {what}),
+				    tr("Restart"), tr("Later")) == 0) {
+				logf("Settings: theme %s, menu font %s; restarting the menu\n", settings.theme.c_str(),
+					settings.menu_font.c_str());
+				riftwii::wii::WarmRestart(theme ? riftwii::wii::RestartKind::Theme : riftwii::wii::RestartKind::MenuFont,
+					theme ? tr("Theme: {1}", {themeName(settings.theme)})
+						: tr("Menu font: {1}", {settings.menu_font == "wii" ? tr("Wii Menu") : std::string("RiftWii")}));
+				noteTxt.SetText(tr("RiftWii could not restart. Start it again from the Homebrew Channel."));
+				menu = MENU_NONE;
+			}
+		}
 		if (menu != MENU_NONE && menu != MENU_EXIT && namesStale) {
 			// The game names in the new language (downloaded if the
 			// Wii is online and the list is not on the card yet).

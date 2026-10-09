@@ -78,6 +78,8 @@ void LoaderSettings::parse(const std::string& text) {
             if (value == "riftwii" || value == "menu") return_to = value;
         } else if (key == "menu_music") {
             if (value == "on" || value == "off") menu_music = value;
+        } else if (key == "home_source") {
+            if (value == "all" || value == "sd" || value == "usb") home_source = value;
         } else if (key == "home_sort") {
             if (value == "az" || value == "recent" || value == "most") home_sort = value;
         } else if (key == "home_disc") {
@@ -122,6 +124,8 @@ void LoaderSettings::parse(const std::string& text) {
             }
         } else if (key == "update_channel") {
             if (value == "auto" || value == "stable" || value == "beta") update_channel = value;
+        } else if (key == "gc_rumble") {
+            if (value == "on" || value == "off") gc_rumble = value;
         } else if (key == "gc_adapter") {
             if (value == "auto" || value == "off" || value == "on" || value == "demo") gc_adapter = value;
         } else {
@@ -146,6 +150,7 @@ std::string LoaderSettings::serialize() const {
     s += "screen_size = " + std::to_string(screen_size) + "\n";
     s += "menu_sounds = " + menu_sounds + "\n";
     s += "menu_music = " + menu_music + "\n";
+    s += "home_source = " + home_source + "\n";
     s += "home_sort = " + home_sort + "\n";
     s += "home_disc = " + home_disc + "\n";
     s += "theme = " + theme + "\n";
@@ -155,6 +160,7 @@ std::string LoaderSettings::serialize() const {
     s += std::string("online = ") + (online ? "on" : "off") + "\n";
     if (!riitag_key.empty()) s += "riitag_key = " + riitag_key + "\n";
     s += "update_channel = " + update_channel + "\n";
+    s += "gc_rumble = " + gc_rumble + "\n";
     s += "gc_adapter = " + gc_adapter + "\n";
     if (!favorites.empty()) {
         std::string list;

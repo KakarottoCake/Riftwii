@@ -346,7 +346,16 @@ void FrameEnd() {
         float oldAlpha, black;
         Pose(g_run, live, old, oldAlpha, black);
         const bool page = g_run.kind == Kind::PageForward || g_run.kind == Kind::PageBack;
-        if (g_run.kind != Kind::FromBlack) DrawPicture(g_snap, old, oldAlpha, page ? &g_run.from : nullptr);
+        // A page's old picture only within the rows' band, and only what
+        // was inside it before the move: what lay beside it (the search
+        // button, the page arrow) was carried in as a ghost.
+        Rect band = g_run.from;
+        if (page) {
+            band.x += old.tx > 0 ? old.tx : 0;
+            band.w -= old.tx > 0 ? old.tx : -old.tx;
+            if (band.w < 0) band.w = 0;
+        }
+        if (g_run.kind != Kind::FromBlack) DrawPicture(g_snap, old, oldAlpha, page ? &band : nullptr);
         if (black > 0) Menu_FillWholeScreen((GXColor){0, 0, 0, static_cast<u8>(std::lround(black * 255))});
         if (g_run.actor) g_run.actor(g_run.t);
         if (g_run.t >= 1) {

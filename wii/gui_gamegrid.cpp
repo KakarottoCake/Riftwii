@@ -326,9 +326,17 @@ void GuiGameGrid::TurnPage(int delta) {
         // edge across it showed the old name's top over the new one's foot.
         const float bottom = static_cast<float>(
             std::max(TileY(kPerPage - 1) + Geo().tileH + 30, covers ? kCaptionY + kCaptionSize + 14 : 0));
+        // Across the tiles' columns only (their lit edge included): the
+        // search button above the last column and the page arrows stay
+        // out, or the sliding picture took a copy of them along (a
+        // tester saw the magnifier's ghost).
+        const Geometry& g = Geo();
+        const float left = std::max({vx, static_cast<float>(g.left - 12), static_cast<float>(ArrowX(-1) + 44)});
+        const float right = std::min({vx + vw, static_cast<float>(g.left + cols * g.tileW + (cols - 1) * g.gapX + 12),
+                                      static_cast<float>(ArrowX(1))});  // the right arrow and the search button start here
         riftwii::wii::transition::Begin(delta > 0 ? riftwii::wii::transition::Kind::PageForward
                                                   : riftwii::wii::transition::Kind::PageBack,
-                                        riftwii::wii::transition::Rect{vx, top, vw, bottom - top});
+                                        riftwii::wii::transition::Rect{left, top, right - left, bottom - top});
     }
     page = target;
     // Enter the new page at the facing column of the same row.
@@ -532,9 +540,13 @@ void GuiGameGrid::Draw() {
             box.clipX = cx - box.clipW / 2;
             box.clipY = cy - box.clipH / 2;
             box.radius = std::max(0.0f, 14.0f * riftwii::wii::MenuTheme().corners * s.scale - border);
-            box.w = box.clipW;
-            box.h = box.w * 3.0f / 4.0f / Stretch();  // stretched with the grid, not cut more
-            box.x = box.clipX;
+            // The icon's own 128 x 96 (stretched with the grid on a
+            // widescreen menu), not shrunk into the tile: scaled by 0.94 it
+            // looked blurry on a tester's HDMI Wii. The tile's inside clips
+            // the few pixels at its sides.
+            box.w = 128.0f * Stretch() * s.scale;
+            box.h = 96.0f * s.scale;
+            box.x = cx - box.w / 2;
             box.y = cy - box.h / 2;
             box.alpha = tileAlpha;
             if (iconDrawer(page * kPerPage + i, box)) {

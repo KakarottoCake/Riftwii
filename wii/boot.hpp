@@ -190,6 +190,7 @@ struct LaunchExtras {
     std::uint64_t return_to = 0;
     bool return_to_menu = false;
     // In-game screenshots (wii/shothook.hpp); demo also shoots by itself.
+    bool gc_rumble_off = false;  // Settings > GameCube rumble Off: PADControlMotor does nothing
     bool screenshots = false;
     bool screenshots_demo = false;
     bool region_video = false;  // the Region video fix (riftwii/gxpatches.hpp)

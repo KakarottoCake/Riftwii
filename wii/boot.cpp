@@ -1193,6 +1193,31 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     // Not taken by the game: the launch check's /dev/usb/hid is let go, so
     // the game's own USB gets it.
     if (!gc_adapter) close_adapter_session();
+    // Settings > GameCube rumble Off: the SDK's PADControlMotor returns at
+    // once, for the Wii's own ports and the adapter alike (the adapter's
+    // hook is not put on it then).
+    if (g_extras.gc_rumble_off && !gx_protected) {
+        std::uint32_t motor = gc_adapter ? pad.motor : 0;
+        if (motor == 0) {
+            std::vector<CodeRange> text;
+            for (std::size_t i = 0; i < kDolTextSections; ++i) {
+                const DolSection& s = dol.sections[i];
+                if (s.used()) text.push_back({s.address, reinterpret_cast<const std::uint8_t*>(s.address), s.size});
+            }
+            PadSymbols found;
+            std::string error;
+            if (find_pad_symbols(text, found, error)) motor = found.control_motor;
+        }
+        if (motor != 0) {
+            *reinterpret_cast<volatile std::uint32_t*>(motor) = 0x4E800020;  // blr
+            DCFlushRange(reinterpret_cast<void*>(motor), 32);
+            ICInvalidateRange(reinterpret_cast<void*>(motor), 32);
+            pad.motor = 0;
+            logf("GameCube rumble: off (PADControlMotor at 0x%08x returns at once)\n", motor);
+        } else {
+            logf("GameCube rumble: off, but this game's PADControlMotor was not found\n");
+        }
+    }
 
     // E4: the SD card again, with our own fd this time, left open and
     // selected for the runtime.

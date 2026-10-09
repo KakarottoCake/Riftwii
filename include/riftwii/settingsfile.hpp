@@ -31,6 +31,7 @@ struct LoaderSettings {
     int screen_size = 100;                // the menu's size on screen, 80-100 (%), inside what a TV's overscan crops
     std::string menu_sounds = "quiet";    // normal, quiet (a soft hover tick), off
     std::string menu_music = "on";        // on, off: music.ogg while the menu is open
+    std::string home_source = "all";      // all, sd, usb: which drive's games Home lists
     std::string home_sort = "az";         // az, recent (last played first), most (most played first)
     std::string home_disc = "on";         // on, off: the Disc drive's tile on Home (asked on a new card)
     std::string theme = "default";        // default, or a folder in sd:/riftwii/themes (docs/THEMES.md)
@@ -40,6 +41,7 @@ struct LoaderSettings {
     bool online = true;                   // download game names and cheats when the Wii is online
     std::string riitag_key;               // RiiTag (riftwii/riitag.hpp): the player's key, empty for none
     std::string update_channel = "auto";  // stable, beta, or auto (the build's own: beta for a -suffix version)
+    std::string gc_rumble = "on";         // on, off: GameCube controllers' rumble in games (PADControlMotor)
     std::string gc_adapter = "auto";      // GameCube controller adapter for Wii U: auto (when plugged in at launch), on, off (demo: Dolphin tests)
     std::set<std::string> favorites;      // game IDs, written "favorites = ID,ID"
     // More folders to look for games in, besides wbfs and games:
