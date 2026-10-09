@@ -19,6 +19,7 @@
 #include "log.hpp"
 #include "menu.h"
 #include "restart.hpp"
+#include "skin.hpp"
 #include "video.h"
 
 namespace riftwii::wii {
@@ -40,7 +41,16 @@ CrashInfo g_info;
 volatile int g_crashing = 0;
 CrashPhase g_phase = CrashPhase::Early;
 u64 g_started = 0;
-alignas(16) u8 g_stack[0x8000];
+// The stack the crashed thread goes on with (CrashContinue): 64 KB in MEM2,
+// taken at CrashInstall. It was 32 KB in MEM1 right above g_report, and
+// the crash screen's printing, logging and controllers ran past it, over
+// the end of the report (crash.txt garbled from R19 on, no stack line;
+// a tester's crash screen hung at "Saving..."). The MEM1 one is only a
+// fallback for a MEM2 that was full.
+constexpr std::size_t kCrashStackBytes = 65536;
+alignas(16) u8 g_fallback_stack[0x4000];
+u8* g_stack = nullptr;
+std::size_t g_stack_bytes = 0;
 char g_report[3072];
 
 const char* ExceptionName(unsigned exid) {
@@ -128,6 +138,36 @@ void ShowOnScreen() {
     if (g_phase == CrashPhase::Menu) GuiScriptCrashShot(Menu_CurrentXfb(), Menu_XfbWidth(), Menu_XfbHeight());
 }
 
+// The log and crash.txt, on a thread of their own: a crash in libogc's
+// Bluetooth thread (a Balance Board connecting at start) left the card or
+// the log locked, and the crash screen sat at "Saving..." for good, with
+// nothing saved (a tester's photo was all there was).
+volatile bool g_save_done = false;
+bool g_saved = false;
+// libfat and the log's formatting take more than 16 KB: a smaller stack ran
+// over the report itself (just below it in memory). In MEM2, taken when
+// the handler is installed (MEM1 has no 64 KB to spare).
+constexpr std::size_t kSaveStackBytes = 65536;
+u8* g_save_stack = nullptr;
+constexpr unsigned kSaveWaitMs = 3000;
+
+void* SaveReport(void*) {
+    // The open log gets it line by line (logf takes 1 KB at a time).
+    const char* line = g_report;
+    while (*line != '\0') {
+        const char* end = std::strchr(line, '\n');
+        const std::size_t n = end ? static_cast<std::size_t>(end - line) : std::strlen(line);
+        logf("%.*s\n", static_cast<int>(n), line);
+        line += n + (end ? 1 : 0);
+    }
+    if (FILE* f = std::fopen("sd:/riftwii/crash.txt", "w")) {
+        g_saved = std::fputs(g_report, f) >= 0;
+        g_saved = std::fclose(f) == 0 && g_saved;
+    }
+    g_save_done = true;
+    return nullptr;
+}
+
 [[noreturn]] void CrashContinue() {
     LogEchoToScreen(false);
     BuildReport();
@@ -137,22 +177,29 @@ void ShowOnScreen() {
     if (g_phase != CrashPhase::Early) {
         PrintIndented("\nSaving this to sd:/riftwii/crash.txt...");
     }
-    // The open log gets it line by line (logf takes 1 KB at a time).
-    const char* line = g_report;
-    while (*line != '\0') {
-        const char* end = std::strchr(line, '\n');
-        const std::size_t n = end ? static_cast<std::size_t>(end - line) : std::strlen(line);
-        logf("%.*s\n", static_cast<int>(n), line);
-        line += n + (end ? 1 : 0);
+    // The restart note carries the registers too (no card needed): the
+    // next start logs them, so a report has them even when saving hung.
+    // Its first line is Home's notice.
+    char summary[640];
+    int len = std::snprintf(summary, sizeof(summary),
+                            "RiftWii restarted after a crash (%s at %08X). Details: sd:/riftwii/crash.txt\n"
+                            "%s PC %08X LR %08X DAR %08X ",
+                            ExceptionName(g_info.exid), g_info.pc, RIFTWII_VERSION, g_info.pc, g_info.lr, g_info.dar);
+    if (const char* stack = std::strstr(g_report, "Stack:")) {
+        const char* end = std::strchr(stack, '\n');
+        const int n = end ? static_cast<int>(end - stack) : static_cast<int>(std::strlen(stack));
+        if (len > 0 && len < static_cast<int>(sizeof(summary)))
+            std::snprintf(summary + len, sizeof(summary) - static_cast<std::size_t>(len), "%.*s", n, stack);
     }
-    bool saved = false;
-    if (FILE* f = std::fopen("sd:/riftwii/crash.txt", "w")) {
-        saved = std::fputs(g_report, f) >= 0;
-        saved = std::fclose(f) == 0 && saved;
+    lwp_t saver = LWP_THREAD_NULL;
+    if (g_save_stack == nullptr ||
+        LWP_CreateThread(&saver, SaveReport, nullptr, g_save_stack, kSaveStackBytes, 60) < 0) {
+        SaveReport(nullptr);
+    } else {
+        const u64 start = gettime();
+        while (!g_save_done && diff_msec(start, gettime()) < kSaveWaitMs) usleep(20000);
     }
-    char summary[160];
-    std::snprintf(summary, sizeof(summary), "RiftWii restarted after a crash (%s at %08X). Details: sd:/riftwii/crash.txt",
-                  ExceptionName(g_info.exid), g_info.pc);
+    const bool saved = g_save_done && g_saved;
     if (g_phase != CrashPhase::Early) {
         if (saved) {
             PrintIndented("Saved. To get help, send crash.txt and session.log from the\n"
@@ -190,7 +237,9 @@ void RiftPanic(unsigned exid, PPCContext* ctx) {
     u32 sda2, sda;
     asm volatile("mr %0, 2" : "=r"(sda2));
     asm volatile("mr %0, 13" : "=r"(sda));
-    u32* top = reinterpret_cast<u32*>(g_stack + sizeof(g_stack) - 16);
+    u8* stack = g_stack ? g_stack : g_fallback_stack;
+    const std::size_t bytes = g_stack ? g_stack_bytes : sizeof(g_fallback_stack);
+    u32* top = reinterpret_cast<u32*>(stack + bytes - 16);
     top[0] = 0;  // the back chain ends here
     ctx->gpr[1] = reinterpret_cast<u32>(top);
     ctx->gpr[2] = sda2;
@@ -204,6 +253,11 @@ void RiftPanic(unsigned exid, PPCContext* ctx) {
 
 void CrashInstall() {
     g_started = gettime();
+    if (g_save_stack == nullptr) g_save_stack = skin::Mem2Alloc(kSaveStackBytes);
+    if (g_stack == nullptr) {
+        g_stack = skin::Mem2Alloc(kCrashStackBytes);
+        g_stack_bytes = g_stack ? kCrashStackBytes : 0;
+    }
     PPCExcptCurPanicFn = RiftPanic;
 }
 

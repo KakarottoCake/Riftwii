@@ -340,7 +340,17 @@ int main() {
             riftwii::wii::LeaveSessionCios(sd_mounted, "the font is read");
         }
     }
-    SetHomeNotice(restart.message);
+    {
+        // After a crash the note's second line holds the registers: logged
+        // (a crash that could not save crash.txt still reaches a report),
+        // its first line shown on Home.
+        std::string notice = restart.message;
+        if (restart.kind == riftwii::wii::RestartKind::Crashed) {
+            riftwii::wii::logf("Restarted after a crash: %s\n", notice.c_str());
+            notice = notice.substr(0, notice.find('\n'));
+        }
+        SetHomeNotice(notice);
+    }
     // Settings > Check the GameCube adapter > Check each cIOS.
     if (restart.kind == riftwii::wii::RestartKind::UsbCheck) SetHomeNotice(riftwii::wii::RunUsbCheck(sd_mounted));
     if (sd_mounted) riftwii::wii::ImportGameCrash();
