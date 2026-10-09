@@ -3,6 +3,7 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -17,10 +18,13 @@ namespace riftwii::wii {
 
 constexpr const char* kCheatDir = "sd:/riftwii/cheats";
 
+// Bytes received so far (headers included), called as they come in.
+using HttpProgress = std::function<void(std::size_t received)>;
+
 // One GET (http:// or https://), following up to three redirects. `body` holds at most
 // `max_bytes`.
 bool HttpGet(const std::string& url, std::vector<std::uint8_t>& body, std::string& error,
-             std::size_t max_bytes = 8u << 20, int timeout_ms = 15000);
+             std::size_t max_bytes = 8u << 20, int timeout_ms = 15000, const HttpProgress& progress = nullptr);
 
 // One POST of `body`, no redirects. True when the server answered at
 // all: `status` and `answer` (its body, at most 64 KiB) are what it said.
@@ -57,7 +61,9 @@ bool UpdateInstalled(const std::string& latest);
 // checks it (size, SHA-256 when GitHub gives one, a valid DOL header) and
 // puts it in place of the running boot.dol, keeping the old one as
 // boot.dol.old; meta.xml's version follows. `where` is the file replaced.
-bool InstallUpdate(const std::string& latest, std::string& where, std::string& error);
+// `progress` gets the share of the download done, 0 to 1.
+bool InstallUpdate(const std::string& latest, std::string& where, std::string& error,
+                   const std::function<void(double done)>& progress = nullptr);
 // The player turned down `latest` at start (Not now, twice). Logged to the
 // session now, and to boot.log by LogDeclinedUpdate at a launch, so a bug
 // report shows the version that might already fix it was declined.

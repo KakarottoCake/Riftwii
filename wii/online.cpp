@@ -53,7 +53,7 @@ constexpr const char* kAppsDone = "sd:/riftwii/apps_updated.txt";
 std::vector<std::string> g_unreachable;
 
 bool exchange(const HttpUrl& url, const std::string& request, HttpResponse& response, std::string& error,
-              std::size_t max_bytes, int timeout_ms) {
+              std::size_t max_bytes, int timeout_ms, const HttpProgress& progress = nullptr) {
     NetServer server;
     if (!ResolveServer(url.host, url.port, server, error)) return false;
     // By address: GameTDB's names and covers come from one server under
@@ -88,6 +88,7 @@ bool exchange(const HttpUrl& url, const std::string& request, HttpResponse& resp
         }
         if (got == 0) break;  // closed
         raw.insert(raw.end(), chunk, chunk + got);
+        if (progress) progress(raw.size());
         if (raw.size() > max_bytes + 4096) {
             error = url.host + " sent more than " + std::to_string(max_bytes) + " bytes";
             return false;
@@ -121,14 +122,14 @@ bool write_file(const std::string& path, const std::vector<std::uint8_t>& bytes,
 }  // namespace
 
 bool HttpGet(const std::string& url, std::vector<std::uint8_t>& body, std::string& error, std::size_t max_bytes,
-             int timeout_ms) {
+             int timeout_ms, const HttpProgress& progress) {
     if (!NetStart(error)) return false;
     std::string where = url;
     for (int hop = 0; hop < 4; ++hop) {
         HttpUrl parsed;
         if (!parse_http_url(where, parsed, error)) return false;
         HttpResponse response;
-        if (!exchange(parsed, http_get_request(parsed), response, error, max_bytes, timeout_ms)) return false;
+        if (!exchange(parsed, http_get_request(parsed), response, error, max_bytes, timeout_ms, progress)) return false;
         if (response.status >= 300 && response.status < 400 && response.headers.count("location")) {
             where = response.headers["location"];
             continue;
@@ -606,7 +607,8 @@ bool UpdateInstalled(const std::string& latest) {
     return !note.installed.empty() && note.installed == latest;
 }
 
-bool InstallUpdate(const std::string& latest, std::string& where, std::string& error) {
+bool InstallUpdate(const std::string& latest, std::string& where, std::string& error,
+                   const std::function<void(double done)>& progress) {
     UpdateNote note = ReadUpdateNote();
     if (note.latest != latest || note.dol.url.empty()) {
         error = "release " + latest + " has no riftwii.dol attached";
@@ -619,7 +621,18 @@ bool InstallUpdate(const std::string& latest, std::string& where, std::string& e
     }
     logf("Update: downloading %s for %s\n", latest.c_str(), where.c_str());
     std::vector<std::uint8_t> body;
-    if (!HttpGet(note.dol.url, body, error, 16u << 20, 30000)) return false;
+    // GitHub's redirect answers are small; the DOL is the bulk. Its size
+    // is known from the release, so the share is the bytes against it
+    // (headers make it a hair early, capped below 1 until it is whole).
+    HttpProgress got;
+    if (progress && note.dol.size != 0) {
+        const double total = static_cast<double>(note.dol.size);
+        got = [&progress, total](std::size_t received) {
+            progress(std::min(0.99, static_cast<double>(received) / total));
+        };
+    }
+    if (!HttpGet(note.dol.url, body, error, 16u << 20, 30000, got)) return false;
+    if (progress) progress(1.0);
     if (note.dol.size != 0 && body.size() != note.dol.size) {
         error = "the download has " + std::to_string(body.size()) + " bytes, GitHub says " +
                 std::to_string(note.dol.size);

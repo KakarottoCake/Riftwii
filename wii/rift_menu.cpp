@@ -1849,8 +1849,19 @@ static void RunUpdate(const std::string& latest)
 	{
 		PopupBox box(tr("Updating RiftWii"),
 			tr("RiftWii {1} is out. Downloading and installing it now; this takes a minute...", {latest}));
+		ProgressBar bar(56, 280, 528);
+		box.Add(&bar, 528);
 		ResumeGui();
-		ok = riftwii::wii::InstallUpdate(latest, where, error);
+		int shown = -1;
+		ok = riftwii::wii::InstallUpdate(latest, where, error, [&](double done) {
+			// Only whole percents, so the GUI is not halted for every chunk.
+			const int percent = static_cast<int>(done * 100);
+			if (percent == shown) return;
+			shown = percent;
+			HaltGui();
+			bar.Set(done);
+			ResumeGui();
+		});
 		HaltGui();
 	}
 	if (!ok) {
