@@ -1983,9 +1983,9 @@ static std::string DiscTileNote()
 // holds seven lines), for the release script to keep up to date. Shown
 // once when they change; Settings > What's new shows them again.
 static const char* const kWhatsNew[] = {
-	"GameCube adapter page: a new Check each cIOS button",
-	"It shows which IOS sees the adapter (Wii U front ports)",
-	"Wii U testers: run it, then send a problem report",
+	"Wii U: the GameCube adapter in a front port, in SD games",
+	"Needs a d2x cIOS on base 58 (often slot 251)",
+	"Tell us if it works, with a problem report",
 };
 
 static std::string WhatsNewText()
