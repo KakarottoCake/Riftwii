@@ -50,7 +50,92 @@ void put32(std::vector<std::uint8_t>& out, std::uint32_t v) {
     out.push_back(static_cast<std::uint8_t>(v));
 }
 
+// A cheat file as text: its header lines, then its blocks (one cheat or
+// note each, as the lines between blank lines), trimmed.
+struct CheatBlocks {
+    std::vector<std::string> header;
+    std::vector<std::vector<std::string>> blocks;
+};
+
+CheatBlocks split_blocks(const std::string& text) {
+    CheatBlocks out;
+    std::istringstream in(text);
+    std::string raw;
+    std::vector<std::string> lines;
+    while (std::getline(in, raw)) lines.push_back(trim(raw));
+    if (!lines.empty() && lines[0].compare(0, 3, "\xEF\xBB\xBF") == 0) lines[0] = lines[0].substr(3);
+    std::size_t i = 0;
+    // As parse_cheat_text reads the header.
+    if (i < lines.size() && (lines[i].size() == 6 || lines[i].size() == 4)) {
+        std::uint32_t a, b;
+        if (code_line(lines[i], a, b) == 0) out.header.push_back(lines[i++]);
+    }
+    if (!out.header.empty() && i < lines.size() && !lines[i].empty()) out.header.push_back(lines[i++]);
+    std::vector<std::string> block;
+    for (; i <= lines.size(); ++i) {
+        if (i == lines.size() || lines[i].empty()) {
+            if (!block.empty()) out.blocks.push_back(block);
+            block.clear();
+        } else {
+            block.push_back(lines[i]);
+        }
+    }
+    return out;
+}
+
+// A block that is a cheat: a name, then at least one code line.
+bool is_cheat(const std::vector<std::string>& block) {
+    if (block.size() < 2) return false;
+    std::uint32_t a, b;
+    if (code_line(block[0], a, b) != 0) return false;
+    for (std::size_t k = 1; k < block.size(); ++k) {
+        if (code_line(block[k], a, b) != 0) return true;
+    }
+    return false;
+}
+
+bool has_placeholders(const std::vector<std::string>& block) {
+    std::uint32_t a, b;
+    for (const std::string& line : block) {
+        if (code_line(line, a, b) == 2) return true;
+    }
+    return false;
+}
+
 }  // namespace
+
+std::string merge_cheat_text(const std::string& fresh, const std::string& old, std::size_t& kept) {
+    kept = 0;
+    CheatBlocks merged = split_blocks(fresh);
+    const CheatBlocks before = split_blocks(old);
+    std::vector<std::vector<std::string>> added;
+    for (const std::vector<std::string>& mine : before.blocks) {
+        if (!is_cheat(mine)) continue;
+        bool found = false;
+        for (std::vector<std::string>& theirs : merged.blocks) {
+            if (!is_cheat(theirs) || theirs[0] != mine[0]) continue;
+            found = true;
+            // Values filled in by hand stay filled in.
+            if (has_placeholders(theirs) && !has_placeholders(mine)) {
+                theirs = mine;
+                ++kept;
+            }
+            break;
+        }
+        if (!found) {
+            added.push_back(mine);
+            ++kept;
+        }
+    }
+    for (std::vector<std::string>& block : added) merged.blocks.push_back(std::move(block));
+    std::string out;
+    for (const std::string& line : merged.header) out += line + "\n";
+    for (const std::vector<std::string>& block : merged.blocks) {
+        if (!out.empty()) out += "\n";
+        for (const std::string& line : block) out += line + "\n";
+    }
+    return out;
+}
 
 bool parse_cheat_text(const std::string& text, CheatFile& out, std::string& error) {
     out = CheatFile{};

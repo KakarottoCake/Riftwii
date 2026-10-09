@@ -45,6 +45,14 @@ bool parse_cheat_text(const std::string& text, CheatFile& out, std::string& erro
 // skipped). `count` is how many went in.
 std::vector<std::uint8_t> build_gct(const CheatFile& file, const std::set<std::string>& enabled, std::size_t& count);
 
+// A fresh download (`fresh`) put together with the file it replaces
+// (`old`), so a download never loses the player's own work: cheats in
+// `old` that the download does not have (added by hand) go at the end,
+// and a cheat whose placeholders were filled in by hand in `old` stays
+// filled in. Everything else is the download's. `kept` is how many of
+// `old`'s cheats were kept. Text in, text out ("\n" lines).
+std::string merge_cheat_text(const std::string& fresh, const std::string& old, std::size_t& kept);
+
 // Whether `gct` is a code list: the 00D0C0DE header, whole codes (8 bytes
 // each) and the F0000000 00000000 end.
 bool valid_gct(const std::vector<std::uint8_t>& gct);

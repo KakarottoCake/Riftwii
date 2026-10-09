@@ -199,6 +199,37 @@ void TestCheats() {
     EXPECT_EQ(gct[8], 0x04);
     EXPECT_EQ(gct[gct.size() - 8], 0xF0);
 
+    // A download over a file with the player's own work in it: a cheat
+    // added by hand and values filled in stay; the rest is the download's.
+    const std::string old_text =
+        "SB4E01\r\nSuper Mario Galaxy 2\r\n\r\n"
+        "infinite health [wiiztec]\r\n043CA24C 60000000\r\n\r\n"
+        "Moon jump [someone]\r\n28123456 00010000\r\n\r\n"
+        "My own cheat\r\n04000000 00000001\r\nMade by me\r\n";
+    const std::string fresh_text =
+        "SB4E01\nSuper Mario Galaxy 2\n\n"
+        "infinite health [wiiztec]\n043CA24C 60000001\n\n"
+        "Moon jump [someone]\n28XXXXXX YYYY0000\n\n"
+        "New one\n04000004 00000002\n";
+    std::size_t kept = 0;
+    const std::string merged = merge_cheat_text(fresh_text, old_text, kept);
+    EXPECT_EQ(kept, 2u);
+    EXPECT_TRUE(parse_cheat_text(merged, file, error));
+    EXPECT_EQ(file.game_id, "SB4E01");
+    EXPECT_EQ(file.cheats.size(), 4u);
+    if (file.cheats.size() == 4) {
+        EXPECT_EQ(file.cheats[0].words[1], 0x60000001u);  // the download's update
+        EXPECT_FALSE(file.cheats[1].needs_values);         // filled in by hand, kept
+        EXPECT_EQ(file.cheats[1].words[0], 0x28123456u);
+        EXPECT_EQ(file.cheats[2].name, "New one");
+        EXPECT_EQ(file.cheats[3].name, "My own cheat");
+        EXPECT_EQ(file.cheats[3].notes.size(), 1u);
+    }
+    // Nothing before: the download as it came.
+    EXPECT_TRUE(parse_cheat_text(merge_cheat_text(fresh_text, "", kept), file, error));
+    EXPECT_EQ(kept, 0u);
+    EXPECT_EQ(file.cheats.size(), 3u);
+
     EXPECT_FALSE(parse_cheat_text("SB4E01\nSuper Mario Galaxy 2\n\n", file, error));
     // No header: the file is only cheats.
     EXPECT_TRUE(parse_cheat_text("Cheat\n04000000 00000001\n", file, error));

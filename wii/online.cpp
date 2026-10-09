@@ -693,8 +693,23 @@ bool DownloadCheats(const std::string& game_id, std::string& error) {
     }
     mkdir("sd:/riftwii", 0777);
     mkdir(kCheatDir, 0777);
+    // Cheats added by hand and values filled in survive the download (a
+    // tester lost theirs to one).
+    std::string old;
+    if (FILE* f = std::fopen(CheatPath(game_id).c_str(), "rb")) {
+        char buf[4096];
+        std::size_t n;
+        while ((n = std::fread(buf, 1, sizeof(buf), f)) > 0) old.append(buf, n);
+        std::fclose(f);
+    }
+    std::size_t kept = 0;
+    if (!old.empty()) {
+        const std::string merged = merge_cheat_text(std::string(body.begin(), body.end()), old, kept);
+        body.assign(merged.begin(), merged.end());
+    }
     if (!write_file(CheatPath(game_id), body, error)) return false;
-    logf("Cheats: %u for %s from the GeckoCodes archive\n", static_cast<unsigned>(file.cheats.size()), game_id.c_str());
+    logf("Cheats: %u for %s from the GeckoCodes archive, %u of the player's own kept\n",
+         static_cast<unsigned>(file.cheats.size()), game_id.c_str(), static_cast<unsigned>(kept));
     return true;
 }
 
