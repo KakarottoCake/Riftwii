@@ -4537,7 +4537,7 @@ static int MenuHome(FrontendState& state)
 // ---------------------------------------------------------------------------
 // Settings
 
-static const char* const kLanguages[] = {"auto", "en", "es", "ja", "pt", "it"};
+static const char* const kLanguages[] = {"auto", "en", "es", "ja", "pt", "it", "ko"};
 
 // Each language by its own name, as players look for it.
 static std::string LanguageName(const std::string& lang)
@@ -4547,6 +4547,8 @@ static std::string LanguageName(const std::string& lang)
 	if (lang == "ja") return "日本語";
 	if (lang == "pt") return "Português";
 	if (lang == "it") return "Italiano";
+	// With its English name too: RiftWii's own font has no Hangul.
+	if (lang == "ko") return "한국어 (Korean)";
 	return tr("Wii: {1}", {LanguageName(riftwii::wii::MenuLanguage())});
 }
 
@@ -5099,11 +5101,18 @@ static int MenuSettings(FrontendState& state)
 				case kLanguage: {
 					settings.language = StepValue(kLanguages, settings.language, direction);
 					const std::string error = saveSettings();
-					riftwii::wii::SetMenuLanguage(riftwii::wii::MenuLanguage());
+					const std::string lang = riftwii::wii::MenuLanguage();
+					const bool drawable = riftwii::wii::MenuLanguageDrawable(lang);
+					riftwii::wii::SetMenuLanguage(drawable ? lang : "en");
 					namesStale = true;  // fetched once, on the way out
 					titleTxt.SetText("Settings");
 					backBtn.text.SetText("Back");
-					note(error.empty() ? tr("Game names follow the language when they are downloaded.") : error);
+					// Korean is drawn only by the Wii Menu's font of a Korean
+					// Wii: said in English, which every font has.
+					if (error.empty() && !drawable)
+						note(riftwii::wii::kKoreanNeedsFont);
+					else
+						note(error.empty() ? tr("Game names follow the language when they are downloaded.") : error);
 					rebuild();
 					break;
 				}

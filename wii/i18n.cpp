@@ -6,10 +6,12 @@
 #include <sstream>
 #include <vector>
 
+#include "FreeTypeGX.h"
 #include "es_po_zst.h"
 #include "gettext.h"
 #include "it_po_zst.h"
 #include "ja_po_zst.h"
+#include "ko_po_zst.h"
 #include "log.hpp"
 #include "pt_po_zst.h"
 #include "riftwii/langfile.hpp"
@@ -33,6 +35,7 @@ const BuiltIn kBuiltIn[] = {
     {"ja", ja_po_zst, ja_po_zst_size},
     {"pt", pt_po_zst, pt_po_zst_size},
     {"it", it_po_zst, it_po_zst_size},
+    {"ko", ko_po_zst, ko_po_zst_size},
 };
 
 std::string Unpack(const BuiltIn& b) {
@@ -61,6 +64,10 @@ void SetMenuLanguage(const std::string& lang) {
     }
     logf("Language: %s, %u built-in and %u from the card\n", lang.c_str(), static_cast<unsigned>(built_in),
          static_cast<unsigned>(from_card));
+}
+
+bool MenuLanguageDrawable(const std::string& lang) {
+    return lang != "ko" || FontHasChar(0xD55C);  // 한
 }
 
 const char* tr(const char* english) {

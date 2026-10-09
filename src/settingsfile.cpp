@@ -37,7 +37,8 @@ void LoaderSettings::parse(const std::string& text) {
         VideoWidth w;
         Deflicker d;
         if (key == "language") {
-            if (value == "auto" || value == "en" || value == "es" || value == "ja" || value == "pt" || value == "it") {
+            if (value == "auto" || value == "en" || value == "es" || value == "ja" || value == "pt" || value == "it" ||
+                value == "ko") {
                 language = value;
             }
         } else if (key == "video_width") {

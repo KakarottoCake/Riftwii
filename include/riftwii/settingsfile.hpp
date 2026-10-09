@@ -17,7 +17,7 @@ namespace riftwii {
 // "#" comments. Unknown keys are kept, so an older RiftWii does not drop
 // what a newer one wrote.
 struct LoaderSettings {
-    std::string language = "auto";        // auto (the Wii's), en, es, ja, pt, it
+    std::string language = "auto";        // auto (the Wii's), en, es, ja, pt, it, ko
     std::string video_width = "game";     // riftwii/videopatch.hpp names
     std::string deflicker = "game";
     std::string borders = "keep";         // keep, remove (the sides), remove_all (experimental)

@@ -16,6 +16,7 @@
 
 #include "FreeTypeGX.h"
 #include "boot.hpp"
+#include "loadersettings.hpp"
 #include "log.hpp"
 #include "riftwii/brfnt.hpp"
 #include "riftwii/sysfont.hpp"
@@ -186,7 +187,10 @@ bool WiiMenuFontCached() {
 }
 
 u8* LoadWiiMenuFont(std::size_t& size, std::string& why) {
-    if (u8* cached = load_cached(CONF_GetLanguage() == CONF_LANG_KOREAN, size)) return cached;
+    // Korean, the console's or the menu's own: the font with Hangul first
+    // (RiftWii's own font has none).
+    const bool korean = CONF_GetLanguage() == CONF_LANG_KOREAN || MenuLanguage() == "ko";
+    if (u8* cached = load_cached(korean, size)) return cached;
     if (ISFS_Initialize() < 0) {
         why = "the NAND could not be opened";
         return nullptr;
@@ -194,8 +198,8 @@ u8* LoadWiiMenuFont(std::size_t& size, std::string& why) {
     u8* font = nullptr;
     std::size_t map_size = 0;
     if (u8* map = read_nand("/shared1/content.map", false, map_size, why)) {
-        // A Korean Wii has its own font; a Wii set to Korean looks for it first.
-        const bool korean = CONF_GetLanguage() == CONF_LANG_KOREAN;
+        // A Korean Wii has its own font; a Wii (or a menu) set to Korean
+        // looks for it first.
         bool korean_font = korean;
         std::string name = shared_content_name(map, map_size, korean ? kWiiKoreanFontHash : kWiiFontHash);
         if (name.empty()) {

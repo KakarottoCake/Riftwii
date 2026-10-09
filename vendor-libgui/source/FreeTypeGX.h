@@ -112,6 +112,8 @@ const GXColor ftgxWhite = (GXColor){0xff, 0xff, 0xff, 0xff}; /**< Constant color
 
 bool InitFreeType(uint8_t* fontBuffer, FT_Long bufferSize, FT_Long faceIndex = 0);
 void DeinitFreeType();
+// RiftWii: whether the font in use draws `charCode` (Hangul for Korean).
+bool FontHasChar(wchar_t charCode);
 // RiftWii: glyphs from a bitmap font (the Wii Menu's) in place of FreeType's,
 // placed as FreeType places its bitmaps: 8-bit coverage, `width` by `rows`.
 // The source answers false for a character it lacks, which FreeType draws.

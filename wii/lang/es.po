@@ -345,14 +345,8 @@ msgstr "No se pudieron descargar los trucos: {1}"
 msgid "No cheats found online for this game."
 msgstr "No se encontraron trucos en línea para este juego."
 
-msgid "This cheat has values to fill in (the X's). Edit the file first."
-msgstr "Este truco tiene valores por rellenar (las X). Edita el archivo antes."
-
 msgid "Cheats are only applied when this is On."
 msgstr "Los trucos solo se aplican si esto está en Sí."
-
-msgid "Replaces the file with the latest cheats from the GeckoCodes archive."
-msgstr "Reemplaza el archivo con los últimos trucos del archivo de GeckoCodes."
 
 msgid "Downloads are off in Settings."
 msgstr "Las descargas están desactivadas en Ajustes."
@@ -731,9 +725,6 @@ msgstr "En una TV 16:9 el menú se dibuja más estrecho, para que las portadas e
 
 msgid "Makes the menu smaller on screen, so nothing is cut off at the TV's edges. Lower it until the whole menu shows."
 msgstr "Hace el menú más pequeño en pantalla, para que nada quede cortado en los bordes de la TV. Bájalo hasta que se vea todo el menú."
-
-msgid "Continue"
-msgstr "Continuar"
 
 msgid "Covers: each game's box art from GameTDB (fetched when downloads are on). Shelf: the boxes on a shelf. Channels: each game's animated icon, and its banner when you pick it, as on the Wii Menu. Names: the names only."
 msgstr "Portadas: la carátula de cada juego de GameTDB (se descarga si las descargas están activadas). Estante: las cajas en un estante. Canales: el icono animado de cada juego, y su banner al elegirlo, como en el menú de Wii. Nombres: solo los nombres."
@@ -1179,9 +1170,6 @@ msgstr "Los colores y las imágenes del menú. Los temas son carpetas en sd:/rif
 msgid "No themes in sd:/riftwii/themes. The zip's themes folder has one to copy there."
 msgstr "No hay temas en sd:/riftwii/themes. La carpeta themes del zip tiene uno para copiar allí."
 
-msgid "The menu restarts to show a theme."
-msgstr "El menú se reinicia para mostrar un tema."
-
 msgid "Restart the menu?"
 msgstr "¿Reiniciar el menú?"
 
@@ -1208,9 +1196,6 @@ msgstr "la fuente del Menú de Wii"
 
 msgid "RiftWii's font"
 msgstr "la fuente de RiftWii"
-
-msgid "The menu restarts to change its font."
-msgstr "El menú se reinicia para cambiar la fuente."
 
 msgid "Menu font: {1}"
 msgstr "Fuente del menú: {1}"

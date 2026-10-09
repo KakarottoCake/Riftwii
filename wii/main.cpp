@@ -396,6 +396,12 @@ int main() {
         timed("font unpacked");
         InitFreeType(font, font_size);
     }
+    if (!riftwii::wii::MenuLanguageDrawable(riftwii::wii::MenuLanguage())) {
+        riftwii::wii::SetMenuLanguage("en");
+        riftwii::wii::logf("Language: %s cannot be drawn with this font; English instead\n",
+                           riftwii::wii::MenuLanguage().c_str());
+        SetHomeNotice(riftwii::wii::kKoreanNeedsFont);
+    }
     InitGUIThreads();
     timed("FreeType and the GUI thread");
     riftwii::wii::ScreenshotsStart();

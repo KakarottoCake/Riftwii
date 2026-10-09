@@ -156,7 +156,7 @@ msgstr "MOD"
 msgid "None"
 msgstr "없음"
 
-msgid "{1} on"
+msgid "{1} switched on"
 msgstr "{1} 개 켬"
 
 msgid "On: {1}"
@@ -345,14 +345,8 @@ msgstr "치트를 다운로드할 수 없음: {1}"
 msgid "No cheats found online for this game."
 msgstr "이 게임에 대한 치트 정보는 온라인에서 찾을 수 없습니다."
 
-msgid "This cheat has values to fill in (the X's). Edit the file first."
-msgstr "이 치트에는 값을 채워 넣어야 할 부분(X로 표시된 곳)이 있습니다. 먼저 파일을 편집하세요."
-
 msgid "Cheats are only applied when this is On."
 msgstr "이 기능이 켜져 있을 때만 치트가 적용됩니다."
-
-msgid "Replaces the file with the latest cheats from the GeckoCodes archive."
-msgstr "GeckoCodes 아카이브의 최신 치트 파일로 교체합니다."
 
 msgid "Downloads are off in Settings."
 msgstr "설정에서 다운로드 기능이 꺼져 있습니다."
@@ -371,6 +365,27 @@ msgstr "치트 파일에 치트 없음: {1}"
 
 msgid "Settings"
 msgstr "설정"
+
+msgid "Games"
+msgstr ""
+
+msgid "Menu"
+msgstr ""
+
+msgid "Finding games"
+msgstr ""
+
+msgid "Online"
+msgstr ""
+
+msgid "More"
+msgstr ""
+
+msgid "Picture"
+msgstr ""
+
+msgid "Other"
+msgstr ""
 
 msgid "Language"
 msgstr "언어"
@@ -531,16 +546,19 @@ msgstr "새 SD 카드로 시작할 때 진행되는 RiftWii의 기본 기능에 
 msgid "Credits and license"
 msgstr "크레딧 및 라이선스"
 
-msgid "Filter"
-msgstr "필터"
-
 msgid "View"
 msgstr "보기"
+
+msgid "Clear search"
+msgstr ""
+
+msgid "No games found yet. Put your games (WBFS, ISO or RVZ) in a folder named wbfs or games at the top of the SD card or USB drive, then pick Look for games again in Settings."
+msgstr ""
 
 msgid "Who RiftWii's parts come from, its license (the GNU GPL, version 3 or later) and where its source is."
 msgstr "RiftWii의 구성 요소 출처, 라이선스(GNU GPL 버전 3 이상), 소스 코드 위치."
 
-msgid "Experimental. When the adapter is plugged in as a game starts, its controllers fill the ports that have none plugged in, in games that support the GameCube controller. It needs IOS 58 or a d2x cIOS."
+msgid "Experimental. With the adapter plugged in when a game starts, its controllers fill the empty ports in games that take a GameCube controller. Needs IOS 58 or a d2x cIOS."
 msgstr "실험적 기능입니다. 게임을 시작할 때 어댑터를 연결하면, 게임큐브 컨트롤러를 지원하는 게임에서 컨트롤러가 연결되지 않은 포트를 해당 어댑터의 컨트롤러가 채우게 됩니다. 이 기능을 사용하려면 IOS 58 또는 d2x cIOS가 필요합니다."
 
 msgid "Experimental. Always on, even with no adapter plugged in, so it can be plugged in during a game. It needs IOS 58 or a d2x cIOS."
@@ -708,10 +726,7 @@ msgstr "16:9 비율의 TV에서는 메뉴가 더 좁게 표시되므로 표지�
 msgid "Makes the menu smaller on screen, so nothing is cut off at the TV's edges. Lower it until the whole menu shows."
 msgstr "화면상의 메뉴 크기를 줄여 TV 가장자리에서 메뉴가 잘리지 않도록 합니다. 메뉴 전체가 보일 때까지 크기를 낮추세요."
 
-msgid "Continue"
-msgstr "계속하기"
-
-msgid "Covers shows each game's box art from GameTDB, fetched while Home is open when downloads are on. Shelf stands the games' boxes on a shelf. Channels shows each game's own animated icon, as the Wii Menu does, and its banner when you pick it. Names shows the names only."
+msgid "Covers: each game's box art from GameTDB (fetched when downloads are on). Shelf: the boxes on a shelf. Channels: each game's animated icon, and its banner when you pick it, as on the Wii Menu. Names: the names only."
 msgstr "'커버'는 다운로드 기능이 켜진 상태에서 홈 메뉴가 열려 있을 때 GameTDB에서 가져온 각 게임의 패키지 이미지를 표시합니다. '선반'은 게임 패키지를 선반 위에 세워진 형태로 보여줍니다. '채널'은 Wii 메뉴와 마찬가지로 각 게임의 고유한 애니메이션 아이콘을 표시하며, 게임을 선택하면 배너가 나타납니다. '이름'는 게임 이름만 표시합니다."
 
 msgid "Custom (no wfc_domain set)"
@@ -777,7 +792,7 @@ msgstr "메뉴 음악"
 msgid "In-game screenshots"
 msgstr "게임 내 스크린샷"
 
-msgid "Experimental. In a game, hold 1 and press HOME (or hold L and R and press Down on a GameCube controller). The pictures go to sd:/riftwii/screenshots the next time RiftWii starts. Some games and mods may not work with it."
+msgid "Experimental. In a game, hold 1 and press HOME (GameCube controller: hold L and R, press Down). Pictures go to sd:/riftwii/screenshots when RiftWii next starts. Some games and mods don't work with it."
 msgstr "실험적 기능입니다. 게임 중 1번 버튼을 누른 상태에서 홈 버튼을 누르세요 (또는 게임큐브 컨트롤러의 L과 R 버튼을 누른 상태에서 아래 방향키를 누르세요). 다음에 RiftWii를 실행하면 스크린샷이 sd:/riftwii/screenshots 경로에 저장됩니다. 일부 게임이나 모드에서는 이 기능이 작동하지 않을 수 있습니다."
 
 msgid "Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder."
@@ -807,11 +822,20 @@ msgstr "USB 드라이브에서 빌드된 코드는 작동하지 않습니다. {1
 msgid "This won't work: code builds like Project+ have to be on the SD card, not the USB drive. Move {1} to the same spot on your SD card and try again. Your games can stay on USB."
 msgstr "이 방법으로는 작동하지 않습니다. 프로젝트+와 같은 커스텀 빌드는 USB 드라이브가 아닌 SD 카드에 있어야 합니다. {1}을(를) SD 카드의 동일한 위치로 옮긴 후 다시 시도해 보세요. 게임 파일은 USB에 그대로 두어도 됩니다."
 
+msgid "This SD card ({1} GB) is too big for code builds. Make an SD image."
+msgstr ""
+
+msgid "This won't work: this SD card is bigger than 32 GB ({1} GB, SDXC), and Brawl only reads SD cards up to 32 GB, so the build's files never load. Pick \"Make an SD image...\" under the build on the Mods page: the game then reads a small card inside a file on this one. Or copy the build to a 32 GB or smaller card."
+msgstr ""
+
 msgid "Code builds need the game on USB or disc, not the SD card."
 msgstr "코드 빌드를 실행하려면 게임이 SD 카드가 아닌 USB나 디스크에 있어야 합니다."
 
-msgid "This won't work: code builds like Project+ read the SD card while you play, so the game can't be on the SD card too. Put it on a USB drive or use the disc."
-msgstr "이 방법은 작동하지 않습니다. 프로젝트+와 같은 개조 버전은 게임을 플레이하는 동안 SD 카드를 읽어 들이기 때문에, 게임 파일 자체를 SD 카드에 넣어둘 수 없습니다. USB 드라이브에 담거나 디스크를 사용하세요."
+msgid "This won't work: code builds like Project+ read the SD card while you play, so the game can't be on the SD card too. Put it on a USB drive, use the disc, or pick \"Make an SD image...\" under the build on the Mods page."
+msgstr ""
+
+msgid "Make an SD image..."
+msgstr ""
 
 msgid "{1} is on the USB drive: the game has to be there too."
 msgstr "{1}이(가) USB 드라이브에 있습니다: 게임도 그곳에 있어야 합니다."
@@ -1146,9 +1170,6 @@ msgstr "메뉴의 색상과 이미지입니다. 테마는 sd:/riftwii/themes 폴
 msgid "No themes in sd:/riftwii/themes. The zip's themes folder has one to copy there."
 msgstr "sd:/riftwii/themes 경로에 테마가 없습니다. 압축 파일 내의 themes 폴더에 해당 경로로 복사할 수 있는 테마가 하나 들어 있습니다."
 
-msgid "The menu restarts to show a theme."
-msgstr "메뉴가 다시 시작되어 테마를 보여줍니다."
-
 msgid "Restart the menu?"
 msgstr "메뉴를 다시 시작할까요?"
 
@@ -1176,11 +1197,11 @@ msgstr "Wii 메뉴 글꼴"
 msgid "RiftWii's font"
 msgstr "RiftWii 글꼴"
 
-msgid "The menu restarts to change its font."
-msgstr "글꼴을 변경하기 위해 메뉴가 다시 시작됩니다."
-
 msgid "Menu font: {1}"
 msgstr "메뉴 글꼴: {1}"
+
+msgid "RiftWii stopped while reading the Wii Menu's font last time, so it uses its own. Send a problem report so this can be fixed."
+msgstr ""
 
 msgid "The Wii Menu's font could not be read, so RiftWii's is used."
 msgstr "Wii 메뉴의 글꼴을 읽을 수 없어 RiftWii의 글꼴이 사용되었습니다."
@@ -1226,3 +1247,108 @@ msgstr "타 지역 게임(수입판)의 경우: 해당 게임은 콘솔의 지�
 
 msgid "Don't show again"
 msgstr "다시 표시하지 않음"
+
+msgid "Report sent: {1}"
+msgstr ""
+
+msgid "SD image"
+msgstr ""
+
+msgid "Looking at the build's files..."
+msgstr ""
+
+msgid "No SD image made"
+msgstr ""
+
+msgid " and "
+msgstr ""
+
+msgid "RiftWii copies {1} into sd:/riftwii/{2} ({3}). The game then gets the image as its SD card, so it can be on the SD card too. This takes about {4} minutes."
+msgstr ""
+
+msgid "It is saved in {1} parts, as a FAT32 card holds no file of 4 GB."
+msgstr ""
+
+msgid "It replaces the {1} there now."
+msgstr ""
+
+msgid "Make an SD image?"
+msgstr ""
+
+msgid "Make it"
+msgstr ""
+
+msgid "Making {1}"
+msgstr ""
+
+msgid "Stop"
+msgstr ""
+
+msgid "{1} minutes left"
+msgstr ""
+
+msgid "{1} seconds left"
+msgstr ""
+
+msgid "Free space"
+msgstr ""
+
+msgid "Stopped. Nothing was kept."
+msgstr ""
+
+msgid "{1} could not be made: {2}. Nothing was kept."
+msgstr ""
+
+msgid "SD image made"
+msgstr ""
+
+msgid "{1} is in sd:/riftwii, and the build in it is turned on: the game gets the image as its SD card."
+msgstr ""
+
+msgid "Remove from the list"
+msgstr ""
+
+msgid "Add a code build..."
+msgstr ""
+
+msgid "..  (up a folder)"
+msgstr ""
+
+msgid "Pick"
+msgstr ""
+
+msgid "Nothing here"
+msgstr ""
+
+msgid "Add a code build"
+msgstr ""
+
+msgid "Achievement unlocked: License Enthusiast"
+msgstr ""
+
+msgid "Congratulations! You read all 5,644 words of the GNU GPL, version 3. Are you really that bored? Respect to the developers whose work RiftWii builds on: every one of you is credited above. The GPL is there to protect people who share their code, not to be waved around only when it's handy for picking a fight. Your reward: absolutely nothing, as the license says (\"WITHOUT ANY WARRANTY\")."
+msgstr ""
+
+msgid "Fair enough"
+msgstr ""
+
+msgid "Only a build in a folder can go into an image."
+msgstr ""
+
+msgid "The build cannot go into an image: {1}."
+msgstr ""
+
+msgid "The image needs {1} on the SD card and {2} is free. Make room (or use a bigger card) and try again."
+msgstr ""
+
+msgid "Cannot replace {1}."
+msgstr ""
+
+msgid "{1} has folders too deep to copy."
+msgstr ""
+
+msgid "Cannot read sd:{1}."
+msgstr ""
+
+msgid "The build has more than {1} files."
+msgstr ""

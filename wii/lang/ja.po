@@ -345,14 +345,8 @@ msgstr "チートをダウンロードできませんでした: {1}"
 msgid "No cheats found online for this game."
 msgstr "このゲームのチートはオンラインで見つかりませんでした。"
 
-msgid "This cheat has values to fill in (the X's). Edit the file first."
-msgstr "このチートには入力する値(X の部分)があります。先にファイルを編集してください。"
-
 msgid "Cheats are only applied when this is On."
 msgstr "これがオンのときだけチートが使われます。"
-
-msgid "Replaces the file with the latest cheats from the GeckoCodes archive."
-msgstr "GeckoCodesアーカイブの最新のチートでファイルを置き換えます。"
 
 msgid "Downloads are off in Settings."
 msgstr "設定でダウンロードがオフになっています。"
@@ -731,9 +725,6 @@ msgstr "16:9のテレビではメニューを細く描き、パッケージや�
 
 msgid "Makes the menu smaller on screen, so nothing is cut off at the TV's edges. Lower it until the whole menu shows."
 msgstr "画面上のメニューを小さくして、テレビの端で切れないようにします。メニュー全体が見えるまで下げてください。"
-
-msgid "Continue"
-msgstr "つづける"
 
 msgid "Covers: each game's box art from GameTDB (fetched when downloads are on). Shelf: the boxes on a shelf. Channels: each game's animated icon, and its banner when you pick it, as on the Wii Menu. Names: the names only."
 msgstr "パッケージ: GameTDBの各ゲームのパッケージ画像(ダウンロードがオンのとき取得)。棚: ケースを棚に並べます。チャンネル: Wiiメニューのように各ゲームの動くアイコンと、選んだときのバナー。名前: 名前だけ。"
@@ -1179,9 +1170,6 @@ msgstr "メニューの色と画像です。テーマはsd:/riftwii/themesのフ
 msgid "No themes in sd:/riftwii/themes. The zip's themes folder has one to copy there."
 msgstr "sd:/riftwii/themesにテーマがありません。zipのthemesフォルダーにコピーできるテーマがあります。"
 
-msgid "The menu restarts to show a theme."
-msgstr "テーマを表示するにはメニューを再起動します。"
-
 msgid "Restart the menu?"
 msgstr "メニューを再起動しますか？"
 
@@ -1208,9 +1196,6 @@ msgstr "Wiiメニューのフォント"
 
 msgid "RiftWii's font"
 msgstr "RiftWiiのフォント"
-
-msgid "The menu restarts to change its font."
-msgstr "フォントを変えるにはメニューを再起動します。"
 
 msgid "Menu font: {1}"
 msgstr "メニューのフォント: {1}"

@@ -471,6 +471,8 @@ void TestSettings() {
     LoaderSettings again;
     again.parse(s.serialize());
     EXPECT_EQ(again.language, "ja");
+    again.parse("language = ko\n");
+    EXPECT_EQ(again.language, "ko");
     EXPECT_EQ(again.other["future"], "1");
     EXPECT_EQ(again.gc_adapter, "auto");  // the default
     LoaderSettings adapter;

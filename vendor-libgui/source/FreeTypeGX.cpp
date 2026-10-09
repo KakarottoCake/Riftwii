@@ -21,7 +21,8 @@
  */
 /* Changed for RiftWii (September and October 2026), under
  * GPL-3.0-or-later: charToWideChar decodes UTF-8 (translations, game names); less memory for the menu;
- * InitFreeType takes a font collection's face and says when it can't read it (the Menu font setting).
+ * InitFreeType takes a font collection's face and says when it can't read it (the Menu font setting);
+ * FontHasChar (the Korean menu needs a font with Hangul).
  * Every change is in RiftWii's git history; NOTICE.md lists the origin. */
 
 #include "FreeTypeGX.h"
@@ -77,6 +78,11 @@ bool InitFreeType(uint8_t* fontBuffer, FT_Long bufferSize, FT_Long faceIndex)
 		return false;
 	ftSlot = ftFace->glyph;
 	return true;
+}
+
+bool FontHasChar(wchar_t charCode)
+{
+	return ftFace && FT_Get_Char_Index(ftFace, static_cast<FT_ULong>(charCode)) != 0;
 }
 
 void DeinitFreeType()
