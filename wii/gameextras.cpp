@@ -88,6 +88,7 @@ const PlayHistory& History() {
 }
 
 void RecordPlay(const std::string& game_id) {
+    if (Settings().play_history == "off") return;  // Settings > Play history
     History();
     g_history.record(game_id, static_cast<std::int64_t>(std::time(nullptr)));
     mkdir("sd:/riftwii", 0777);
@@ -99,6 +100,7 @@ void RecordPlay(const std::string& game_id) {
 }
 
 std::string PlayNote(const std::string& game_id) {
+    if (Settings().play_history == "off") return "";
     const PlayRecord* r = History().find(game_id);
     if (!r || r->count == 0) return "";
     const std::time_t when = static_cast<std::time_t>(r->last);

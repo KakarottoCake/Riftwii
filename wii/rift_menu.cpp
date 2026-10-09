@@ -1068,9 +1068,10 @@ static ChannelChoice ShowChannel(int& index, int count, const std::string& first
 		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B | WPAD_BUTTON_HOME | WPAD_CLASSIC_BUTTON_HOME, PAD_BUTTON_B,
 		WIIDRC_BUTTON_B | WIIDRC_BUTTON_HOME);
 	backBtn.button.SetVisible(false);
+	// + and - go to the next and previous game, as on the Wii Menu's
+	// channel screen (a tester's muscle memory); Start is A on it.
 	SkinButton goBtn(skin::pillPrimary, skin::pillPrimaryOver, 4, 326, 384, tr("Start"),
-		WPAD_BUTTON_A | WPAD_CLASSIC_BUTTON_A | WPAD_BUTTON_PLUS | WPAD_CLASSIC_BUTTON_PLUS, PAD_BUTTON_A | PAD_BUTTON_START,
-		WIIDRC_BUTTON_A | WIIDRC_BUTTON_PLUS);
+		WPAD_BUTTON_A | WPAD_CLASSIC_BUTTON_A, PAD_BUTTON_A | PAD_BUTTON_START, WIIDRC_BUTTON_A);
 	goBtn.text.SetColor(skin::kAccentInk);
 	// A pill like Start's, where the Wii Menu has its "Wii Menu" one.
 	SkinButton pageBtn(skin::pill, skin::pillOver, 4, 70, 384, tr("Settings"),
@@ -1080,9 +1081,11 @@ static ChannelChoice ShowChannel(int& index, int count, const std::string& first
 	Menu_SafeArea(&safeX, &safeW);
 	const int wide = safeX < 0 ? static_cast<int>(-safeX) : 0;
 	SkinButton prevBtn(skin::arrowLeft, skin::arrowLeftOver, 2, 10 - wide, 155, nullptr,
-		WPAD_BUTTON_LEFT | WPAD_CLASSIC_BUTTON_LEFT, PAD_BUTTON_LEFT, WIIDRC_BUTTON_LEFT);
+		WPAD_BUTTON_LEFT | WPAD_CLASSIC_BUTTON_LEFT | WPAD_BUTTON_MINUS | WPAD_CLASSIC_BUTTON_MINUS, PAD_BUTTON_LEFT,
+		WIIDRC_BUTTON_LEFT | WIIDRC_BUTTON_MINUS);
 	SkinButton nextBtn(skin::arrowRight, skin::arrowRightOver, 2, 586 + wide, 155, nullptr,
-		WPAD_BUTTON_RIGHT | WPAD_CLASSIC_BUTTON_RIGHT, PAD_BUTTON_RIGHT, WIIDRC_BUTTON_RIGHT);
+		WPAD_BUTTON_RIGHT | WPAD_CLASSIC_BUTTON_RIGHT | WPAD_BUTTON_PLUS | WPAD_CLASSIC_BUTTON_PLUS, PAD_BUTTON_RIGHT,
+		WIIDRC_BUTTON_RIGHT | WIIDRC_BUTTON_PLUS);
 	// Favourite: a small round button in the top right corner (or 1), its
 	// star filled while the game shown is one.
 	SkinButton starBtn(skin::roundBtn, skin::roundBtnOver, 2, 582 + wide, 12, nullptr,
@@ -3513,11 +3516,19 @@ static void MenuCheats(FrontendState& state)
 		say(text);
 		ResumeGui();
 		std::string error;
+		const std::size_t before = loaded ? file.cheats.size() : 0;
+		const bool hadFile = loaded;
 		const bool ok = riftwii::wii::DownloadCheats(state.game_id, error);
 		HaltGui();
 		if (ok) {
 			load(false);
-			say(loaded ? tr("{1} cheats. Turn on the ones you want.", {std::to_string(file.cheats.size())}) : status);
+			// Said plainly either way: the same list again looked like
+			// nothing had happened (a tester).
+			const std::size_t now = loaded ? file.cheats.size() : 0;
+			say(!loaded ? status
+				: hadFile && now == before ? tr("Downloaded: still {1} cheats, the list was already the latest.", {std::to_string(now)})
+				: hadFile ? tr("Downloaded: {1} cheats now ({2} before).", {std::to_string(now), std::to_string(before)})
+				: tr("{1} cheats. Turn on the ones you want.", {std::to_string(now)}));
 		} else {
 			logf("Cheats: download failed: %s\n", error.c_str());
 			say(tr("Could not download cheats: {1}", {FlatCapped(error, 90)}));
@@ -3764,12 +3775,18 @@ static bool MenuPickCodes(const FrontendState& state, std::string& key)
 // PNG next to the mod (wii/modpicture.hpp), else the game's own cover,
 // else the disc; with no picture of its own, the file name to add. Fades
 // in and out like the hover names.
+// A mod's own picture, small, below the list beside Back: never over a
+// row or its switch (a tester's pointer kept landing on it), and only
+// for a mod that has one (the "Add a picture" stand-in confused).
 class ModPicturePopup : public GuiElement {
 public:
 	static constexpr int kInset = 4;
 	static constexpr int kCaption = 38;
-	static constexpr int kW = riftwii::wii::kModPictureW + 2 * kInset;
-	static constexpr int kH = riftwii::wii::kModPictureH + 2 * kInset + kCaption;
+	static constexpr float kScale = 0.55f;
+	static constexpr int kPicW = static_cast<int>(riftwii::wii::kModPictureW * kScale);
+	static constexpr int kPicH = static_cast<int>(riftwii::wii::kModPictureH * kScale);
+	static constexpr int kW = kPicW + 2 * kInset;
+	static constexpr int kH = kPicH + 2 * kInset + kCaption;
 
 	explicit ModPicturePopup(std::string gameId)
 		: gameId(std::move(gameId)), caption(tr("Add a picture:"), 13, skin::kInkDim), name("", 14, skin::kInkSoft) {
@@ -3781,19 +3798,16 @@ public:
 	// What to show, beside a row whose top is at `rowTop`: below it, else
 	// above it (beside the Back button there is room down to the bottom).
 	void Show(const u8* picture, const std::string& hint, int rowTop) {
+		(void)hint;
+		(void)rowTop;
 		tex = picture;
-		hinted = !picture && !hint.empty();
-		name.SetText(hint.c_str());
-		for (int size = 14; size >= 10; --size) {
-			name.SetFontSize(size);
-			if (name.GetTextWidth() <= kW - 8) break;
+		hinted = false;
+		if (!picture) {
+			wanted = false;
+			return;
 		}
-		name.SetMaxWidth(kW - 8);
-		const int h = hinted ? kH : kH - kCaption;
 		x = 590 - kW;
-		y = rowTop + GuiFlowList::kRowHeight + 6;
-		if (y + h > 472) y = rowTop - 6 - h;
-		if (y < 8) y = 8;
+		y = 312;
 		wanted = true;
 	}
 	void Hide() { wanted = false; }
@@ -3812,8 +3826,10 @@ public:
 		skin::Draw(frame, x - riftwii::kHintBoxMargin, y - riftwii::kHintBoxMargin, alpha);
 		const int px = x + kInset, py = y + kInset;
 		if (tex) {
-			Menu_DrawImg(px, py, riftwii::wii::kModPictureW, riftwii::wii::kModPictureH, const_cast<u8*>(tex), 0, 1, 1,
-				static_cast<u8>(alpha));
+			// Menu_DrawImg scales about the picture's middle: put it on the box's.
+			Menu_DrawImg(px + kPicW / 2.0f - riftwii::wii::kModPictureW / 2.0f,
+				py + kPicH / 2.0f - riftwii::wii::kModPictureH / 2.0f, riftwii::wii::kModPictureW,
+				riftwii::wii::kModPictureH, const_cast<u8*>(tex), 0, kScale, kScale, static_cast<u8>(alpha));
 		} else if (const u8* cover = riftwii::wii::CoverTexture(gameId)) {
 			// 80x112 at 1.5 fills the 120x168 box; it scales about its centre.
 			skin::DrawRgb5a3(cover, riftwii::kCoverWidth, riftwii::kCoverHeight,
@@ -3895,7 +3911,13 @@ static void MenuMods(FrontendState& state, std::string& scanStatus)
 			const bool modRow = row >= 0 && static_cast<std::size_t>(row) < refs.size() &&
 					    refs[static_cast<std::size_t>(row)].what == RowRef::What::Pack &&
 					    state.model.packages[refs[static_cast<std::size_t>(row)].pkg].valid;
-			if (row != pictureRow) {
+			// The pointer off the list (moved away fast): no picture.
+			bool pointerOff = false;
+			for (int i = 0; i < 4; ++i) {
+				const WPADData* p = userInput[i].wpad;
+				if (p->ir.valid && (p->ir.y < 82 || p->ir.y > 82 + 5 * GuiFlowList::kRowHeight)) pointerOff = true;
+			}
+			if (row != pictureRow || pointerOff) {
 				pictureRow = row;
 				pictureRest = 0;
 				picture.Hide();
@@ -4598,7 +4620,7 @@ static int MenuSettings(FrontendState& state)
 			if (t.folder == folder) return t.name;
 		return folder;
 	};
-	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kGameLanguage, kGameCios, kServer, kHomeTiles, kHomeSource, kHomeSort, kDiscTile, kWidescreen, kScreenSize, kTheme, kFont, kSounds, kMusic, kReturnTo, kShots, kOnline, kNames, kGcAdapter, kGcRumble, kGcTest, kIos, kNet, kResync,
+	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kGameLanguage, kGameCios, kServer, kHomeTiles, kHomeSource, kHomeSort, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kFont, kSounds, kMusic, kReturnTo, kShots, kOnline, kNames, kGcAdapter, kGcRumble, kGcTest, kIos, kNet, kResync,
 		kRescan, kChannel, kUpdate, kReport, kTests, kWiiChannel, kUsbHelp, kWhatsNew, kTutorial, kCredits, kExit, kNone, kHeading };
 	// The RiftWii channel on the Wii Menu (wii/channel.hpp).
 	unsigned channelVersion = 0;
@@ -4663,6 +4685,8 @@ static int MenuSettings(FrontendState& state)
 			settings.home_tiles != "names", kHomeTiles);
 		option(tr("Games from"), HomeSourceName(settings.home_source), settings.home_source != "all", kHomeSource);
 		option(tr("Home order"), HomeSortName(settings.home_sort), settings.home_sort != "az", kHomeSort);
+		option(tr("Play history"), settings.play_history == "off" ? tr("Off") : tr("On"), settings.play_history != "off",
+			kPlayHistory, FlowRow::Kind::Toggle);
 		option(tr("Disc Channel"), settings.home_disc == "off" ? tr("Off") : tr("On"), settings.home_disc != "off",
 			kDiscTile, FlowRow::Kind::Toggle);
 		option(tr("Widescreen menu"), settings.menu_widescreen == "on" ? std::string("16:9")
@@ -4844,6 +4868,7 @@ static int MenuSettings(FrontendState& state)
 			case kReturnTo: return ReturnToNote();
 			case kShots: return tr("Experimental. In a game, hold 1 and press HOME (GameCube controller: hold L and R, press Down). Pictures go to sd:/riftwii/screenshots when RiftWii next starts. Some games and mods don't work with it.");
 			case kDiscTile: return DiscTileNote();
+			case kPlayHistory: return tr("Counts the games you start from RiftWii, for Recently played, Home order and a game's page. Off: nothing more is counted, and the counts are not shown.");
 			case kHomeSource: return tr("Which drive's games Home lists. With a game on both, one drive's copy is enough.");
 			case kHomeSort: return tr("The order of the games on Home. Last played and Most played put the games you played from RiftWii first, the rest after them A to Z.");
 			case kMusic: return riftwii::wii::MenuMusicFound() ? tr("Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder.") : tr("No music.ogg found in sd:/riftwii or in RiftWii's own folder.");
@@ -4957,6 +4982,11 @@ static int MenuSettings(FrontendState& state)
 				case kServer:
 					settings.wfc_server = StepValue(kServers, settings.wfc_server, direction, false);
 					saveAndNote(tr("The online server the game uses in place of Nintendo's, which closed. Custom uses wfc_domain in settings.txt."));
+					rebuild();
+					break;
+				case kPlayHistory:
+					settings.play_history = settings.play_history == "off" ? "on" : "off";
+					saveAndNote(tr("Counts the games you start from RiftWii, for Recently played, Home order and a game's page. Off: nothing more is counted, and the counts are not shown."));
 					rebuild();
 					break;
 				case kHomeSource: {

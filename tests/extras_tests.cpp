@@ -614,6 +614,11 @@ void TestCoverArt() {
     s.parse("home_tiles = channels\n");
     EXPECT_EQ(s.home_tiles, "channels");
     EXPECT_EQ(s.menu_widescreen, "off");
+    EXPECT_EQ(s.play_history, "on");
+    s.parse("play_history = off\n");
+    EXPECT_EQ(s.play_history, "off");
+    EXPECT_TRUE(s.serialize().find("play_history = off\n") != std::string::npos);
+    s.play_history = "on";
     EXPECT_EQ(s.home_source, "all");
     s.parse("home_source = usb\n");
     EXPECT_EQ(s.home_source, "usb");

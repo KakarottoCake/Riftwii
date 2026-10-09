@@ -78,6 +78,8 @@ void LoaderSettings::parse(const std::string& text) {
             if (value == "riftwii" || value == "menu") return_to = value;
         } else if (key == "menu_music") {
             if (value == "on" || value == "off") menu_music = value;
+        } else if (key == "play_history") {
+            if (value == "on" || value == "off") play_history = value;
         } else if (key == "home_source") {
             if (value == "all" || value == "sd" || value == "usb") home_source = value;
         } else if (key == "home_sort") {
@@ -150,6 +152,7 @@ std::string LoaderSettings::serialize() const {
     s += "screen_size = " + std::to_string(screen_size) + "\n";
     s += "menu_sounds = " + menu_sounds + "\n";
     s += "menu_music = " + menu_music + "\n";
+    s += "play_history = " + play_history + "\n";
     s += "home_source = " + home_source + "\n";
     s += "home_sort = " + home_sort + "\n";
     s += "home_disc = " + home_disc + "\n";
