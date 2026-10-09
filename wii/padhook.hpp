@@ -65,6 +65,12 @@ AdapterSeen look_for_gc_adapter(std::string& how);
 // Closes the handle look_for_gc_adapter opened (without v5's Shutdown),
 // when no game takes it.
 void close_adapter_session();
+// Diagnostics for a problem report (the GameCube adapter on a Wii U):
+// opens /dev/usb/hid and /dev/usb/ven in several open modes and asks
+// each for its v5 version, with the answer's buffer in MEM2 and in MEM1,
+// then closes them (no Shutdown). One line: the IOS, the time since its
+// reload, and each try's open and GetVersion results.
+std::string usb_open_matrix();
 // One look at libogc's USB device list (starting libogc's USB if need
 // be): the adapter's v5 device id when it has one, and every VID:PID.
 AdapterSeen ogc_adapter(std::int32_t& dev_id, std::string& devices);

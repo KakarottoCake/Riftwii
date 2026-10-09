@@ -92,6 +92,9 @@ std::int32_t g_own_fd = -1;
 std::uint32_t g_own_version = 0;
 std::int32_t g_own_dev = -1;  // the adapter's v5 device id, -1: not listed
 
+// For usb_open_matrix only: the same request with its buffer in MEM1.
+std::uint32_t g_mem1_probe[8] ATTRIBUTE_ALIGN(32);
+
 bool usb_buffers() {
     if (g_version_out) return true;
     u8* p = skin::Mem2Alloc(kVersionBytes + kOwnListBytes);
@@ -257,6 +260,62 @@ bool open_usb_hid(std::int32_t& fd, std::uint32_t& version, std::string& why) {
     return false;
 }
 
+std::string usb_open_matrix() {
+    char head[160], since[40] = "not reloaded this run";
+    const unsigned ms = ms_since_ios_reload();
+    if (ms != 0xFFFFFFFFu) std::snprintf(since, sizeof(since), "%u ms after its reload", ms);
+    std::snprintf(head, sizeof(head), "IOS%d rev %d, %s, MEM2 buffer 0x%08x, MEM1 buffer 0x%08x;", IOS_GetVersion(),
+                  IOS_GetRevision(), since,
+                  usb_buffers() ? static_cast<unsigned>(reinterpret_cast<std::uintptr_t>(g_version_out)) : 0u,
+                  static_cast<unsigned>(reinterpret_cast<std::uintptr_t>(g_mem1_probe)));
+    std::string out = head;
+    if (!usb_buffers()) return out + " no MEM2";
+    if (g_hid_stuck) return out + " /dev/usb/hid stuck earlier, not tried";
+    struct Try {
+        char* path;
+        const char* name;
+        int mode;
+        bool mem2;
+    };
+    const Try tries[] = {{g_hid_path, "hid", 0, true}, {g_hid_path, "hid", 0, false}, {g_hid_path, "hid", 1, true},
+                         {g_hid_path, "hid", 2, true}, {g_ven_path, "ven", 0, true}, {g_ven_path, "ven", 0, false},
+                         {g_ven_path, "ven", 1, true}};
+    for (const Try& t : tries) {
+        char one[96];
+        s32 fd = 0;
+        g_async_done = false;
+        if (!await_async(IOS_OpenAsync(t.path, t.mode, on_async, nullptr), fd)) {
+            std::snprintf(one, sizeof(one), " %s/%d: open did not answer; stopped", t.name, t.mode);
+            out += one;
+            break;
+        }
+        if (fd < 0) {
+            std::snprintf(one, sizeof(one), " %s/%d: open %d;", t.name, t.mode, static_cast<int>(fd));
+            out += one;
+            continue;
+        }
+        std::uint32_t* buf = t.mem2 ? g_version_out : g_mem1_probe;
+        std::memset(buf, 0, kVersionBytes);
+        DCFlushRange(buf, kVersionBytes);
+        s32 v5 = 0;
+        g_async_done = false;
+        if (!await_async(IOS_IoctlAsync(fd, GCAD_V5_GET_VERSION, nullptr, 0, buf, kVersionBytes, on_async, nullptr),
+                         v5)) {
+            std::snprintf(one, sizeof(one), " %s/%d %s: GetVersion did not answer; stopped", t.name, t.mode,
+                          t.mem2 ? "MEM2" : "MEM1");
+            out += one;
+            break;
+        }
+        DCInvalidateRange(buf, kVersionBytes);
+        std::snprintf(one, sizeof(one), " %s/%d %s: fd %d, GetVersion %d %08x;", t.name, t.mode,
+                      t.mem2 ? "MEM2" : "MEM1", static_cast<int>(fd), static_cast<int>(v5),
+                      static_cast<unsigned>(buf[0]));
+        out += one;
+        IOS_Close(fd);
+    }
+    return out;
+}
+
 // The adapter in libogc's HID list, which it keeps from IOS's device
 // changes when /dev/usb/hid is v5 (its device ids are v5's); on v4,
 // /dev/usb/oh0's list, with no ids, which leaves /dev/usb/hid's first
@@ -321,6 +380,7 @@ AdapterSeen own_adapter_list(std::string& how) {
     for (int attempt = 0; attempt < 2; ++attempt) {
         if (g_own_fd < 0 && !open_usb_hid(g_own_fd, g_own_version, why)) {
             how = "unknown, taken as plugged in (" + why + ")";
+            logf("GameCube adapter: our own USB handle failed: %s\n", why.c_str());
             g_own_fd = -1;
             return AdapterSeen::Unknown;
         }
@@ -440,9 +500,11 @@ bool find_pad_functions(const DolHeader& dol, bool demo, PadHook& out, std::stri
     }
     std::string devices;
     ogc_adapter(out.known_dev, devices);  // v5's list goes with libogc's USB
+    logf("GameCube adapter: libogc lists %s (adapter device %d)\n", devices.c_str(), static_cast<int>(out.known_dev));
     USB_Deinitialize();
     usleep(50000);
     if (!open_usb_hid(out.fd, out.version, why)) {
+        logf("GameCube adapter diag: %s\n", usb_open_matrix().c_str());
         if (!demo) return false;
         logf("GameCube adapter: %s; demo mode goes on without it\n", why.c_str());
         out.fd = -1;

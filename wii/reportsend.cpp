@@ -210,6 +210,8 @@ std::string gather(const std::string& reason, std::size_t limit) {
     parts.push_back(file_part(kGameCrashFile));
     const ReportPart boot = file_part("sd:/riftwii/boot.log");
     parts.push_back(boot);
+    // Check each cIOS's results, early: a long report is cut at its end.
+    parts.push_back(file_part("sd:/riftwii/usbcheck.txt"));
     parts.push_back(file_part(kPreviousLog));
     // The open session log is closed while it is read.
     LogClose();
@@ -220,7 +222,6 @@ std::string gather(const std::string& reason, std::size_t limit) {
     parts.push_back(file_part("sd:/riftwii/menu_ios.txt"));
     parts.push_back(file_part("sd:/riftwii/update.txt"));
     parts.push_back(file_part("sd:/riftwii/channel.log"));
-    parts.push_back(file_part("sd:/riftwii/usbcheck.txt"));
     // The game and packs of the last launch.
     const std::string id = launched_game_id(boot.text);
     if (!id.empty()) {

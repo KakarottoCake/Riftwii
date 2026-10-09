@@ -268,7 +268,7 @@ const char* MenuOff() {
 
 }  // namespace
 
-bool GcAdapterStart(std::string& why) {
+bool GcAdapterStart(std::string& why, bool own_handle) {
     if (g_running) return true;
     if (g_state == nullptr) {
         g_state = reinterpret_cast<gcad*>(skin::Mem2Alloc(sizeof(gcad)));
@@ -284,7 +284,7 @@ bool GcAdapterStart(std::string& why) {
     std::int32_t dev = -1;
     std::uint32_t version = 5;
     std::string devices;
-    if (ogc_adapter(dev, devices) == AdapterSeen::Found && dev >= 0) {
+    if (!own_handle && ogc_adapter(dev, devices) == AdapterSeen::Found && dev >= 0) {
         // libogc's USB owns v5's handle: its device-change notices, its
         // list and its transfers stand in for ours.
         g_fd = -1;
@@ -312,6 +312,29 @@ bool GcAdapterStart(std::string& why) {
 }
 
 bool GcAdapterRunning() { return g_running; }
+
+std::string GcAdapterDiag() {
+    if (g_state == nullptr) return "not started";
+    static const char* const kLinks[] = {"no adapter listed", "setting up", "init sent", "reports flowing",
+                                         "failed, trying again", "busy (another handle)", "SET_PROTOCOL sent",
+                                         "settling"};
+    u32 level;
+    _CPU_ISR_Disable(level);
+    const gcad g = *g_state;
+    _CPU_ISR_Restore(level);
+    char buf[400];
+    std::snprintf(buf, sizeof(buf),
+                  "v%u fd %d, link %s, device %08x, %u listed, %u changes, %u links, %u reports (%u bad), "
+                  "%u errors (last %d at %s), SET_PROTOCOL %d, resume %d, info %d, init %d, ports %02x %02x %02x %02x",
+                  static_cast<unsigned>(g.version), static_cast<int>(g.fd),
+                  g.link < sizeof(kLinks) / sizeof(kLinks[0]) ? kLinks[g.link] : "?", static_cast<unsigned>(g.dev_id),
+                  static_cast<unsigned>(g.listed), static_cast<unsigned>(g.changes), static_cast<unsigned>(g.links),
+                  static_cast<unsigned>(g.reports), static_cast<unsigned>(g.bad_reports),
+                  static_cast<unsigned>(g.errors), static_cast<int>(g.last_error), StepName(g.last_error_step),
+                  static_cast<int>(g.ctrl_result), static_cast<int>(g.resume_result), static_cast<int>(g.info_result),
+                  static_cast<int>(g.init_result), g.raw[0][0], g.raw[1][0], g.raw[2][0], g.raw[3][0]);
+    return buf;
+}
 
 void GcAdapterPoll(GcAdapterView& out) {
     out = GcAdapterView{};

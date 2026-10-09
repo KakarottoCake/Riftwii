@@ -28,6 +28,7 @@
 #include "netpacks.hpp"
 #include "sdfile.hpp"
 #include "umsdev.hpp"
+#include "usbprobe.hpp"
 
 namespace riftwii::wii {
 namespace {
@@ -589,6 +590,10 @@ void RunAutorun() {
             logf("  %s\n", line.empty() ? "no RiiFS server configured" : line.c_str());
         } else if (cmd == "resync") {
             ForceNextSync();
+        } else if (cmd == "usbcheck") {
+            // Settings > Check the GameCube adapter > Check each cIOS,
+            // straight away (its results in sd:/riftwii/usbcheck.txt).
+            logf("  %s\n", RunUsbCheck(true).c_str());
         } else if (cmd == "probe") {
             ok = s.ensure_probe(error);
         } else if (cmd == "layout") {

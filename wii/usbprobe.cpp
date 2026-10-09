@@ -4,6 +4,7 @@
 
 #include <fat.h>
 #include <gccore.h>
+#include <ogc/lwp_watchdog.h>
 #include <ogc/usb.h>
 #include <sdcard/wiisd_io.h>
 #include <sys/stat.h>
@@ -14,6 +15,7 @@
 #include <vector>
 
 #include "boot.hpp"
+#include "gcadapter.hpp"
 #include "ios_reload.hpp"
 #include "log.hpp"
 #include "menuios.hpp"
@@ -51,6 +53,31 @@ bool LookHere(std::string& line) {
     close_adapter_session();
     USB_Deinitialize();
     line = "adapter " + how;
+    // With libogc's USB shut, as at a launch: how this IOS's USB answers
+    // our own requests, then the game's driver on our own handle for up
+    // to 3 s (each step it takes lands in session.log).
+    line += "\n    open matrix: " + usb_open_matrix();
+    std::string why;
+    if (!GcAdapterStart(why, true)) {
+        line += "\n    as a game: did not start: " + why;
+    } else {
+        GcAdapterView view;
+        const u64 start = gettime();
+        while (diff_msec(start, gettime()) < 3000) {
+            GcAdapterPoll(view);
+            if (view.link == GCAD_LINK_POLL && view.reports >= 30) break;
+            usleep(20000);
+        }
+        unsigned ports = 0;
+        for (unsigned p = 0; p < GCAD_PORTS; ++p)
+            if (view.present[p]) ++ports;
+        line += "\n    as a game: " + std::string(view.link == GCAD_LINK_POLL && view.reports > 0 ? "WORKS" : "FAILS") +
+                " after " + std::to_string(diff_msec(start, gettime())) + " ms, " + std::to_string(ports) +
+                " controller(s) seen; " + GcAdapterDiag();
+        GcAdapterStop();
+    }
+    close_adapter_session();
+    forget_usb_hid_stuck();
     return seen == AdapterSeen::Found;
 }
 

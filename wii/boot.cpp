@@ -2123,6 +2123,8 @@ bool boot_game(const DiscProbe& probe, BootOptions options, std::string& error) 
         // USB input of their own (and games with their own adapter code)
         // are left alone otherwise.
         std::string how;
+        // What this IOS's USB answers, for a report (the Wii U's adapter).
+        logf("GameCube adapter diag: %s\n", usb_open_matrix().c_str());
         const AdapterSeen seen = look_for_gc_adapter(how);
         logf("GameCube adapter (%s): %s\n", g_extras.gc_adapter == GcAdapterMode::Auto ? "auto" : "on", how.c_str());
         if (g_extras.gc_adapter == GcAdapterMode::Auto) {

@@ -34,8 +34,11 @@ struct GcAdapterView {
 };
 
 // Starts the driver (true when it already runs); false with `why` when
-// this IOS has no USB HID.
-bool GcAdapterStart(std::string& why);
+// this IOS has no USB HID. `own_handle`: on RiftWii's own /dev/usb/hid,
+// never libogc's, as a game gets it (Check each cIOS rehearses a game).
+bool GcAdapterStart(std::string& why, bool own_handle = false);
+// Everything the driver counted, on one line (for a problem report).
+std::string GcAdapterDiag();
 bool GcAdapterRunning();
 // Drives it (call it every frame or so) and reads what it knows. Only
 // ever from one thread at a time (the GUI thread, or with it halted).
