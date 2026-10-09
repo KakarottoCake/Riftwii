@@ -6,7 +6,7 @@
  * Wii/GameCube controller management
  ***************************************************************************/
 /* Changed for RiftWii (September and October 2026), under
- * GPL-3.0-or-later: Classic Controller stick as a pointer, the GameCube adapter's pads, the controller used last owns the pointer, the D-pad takes over from it, the Wii Remote's pointer kept on screen and in menu units under a display scale and steadied, steady repeat, and the Wii U GamePad scan (WiiDRC).
+ * GPL-3.0-or-later: the data format set on the four Wii Remote channels only (not the Balance Board's), Classic Controller stick as a pointer, the GameCube adapter's pads, the controller used last owns the pointer, the D-pad takes over from it, the Wii Remote's pointer kept on screen and in menu units under a display scale and steadied, steady repeat, and the Wii U GamePad scan (WiiDRC).
  * Every change is in RiftWii's git history; NOTICE.md lists the origin. */
 
 #include <gccore.h>
@@ -422,9 +422,16 @@ void SetupPads()
 	// GamePad read below stays zeroed by the Connected() gate.
 	WiiDRC_Init();
 
-	// read wiimote accelerometer and IR data
-	WPAD_SetDataFormat(WPAD_CHAN_ALL,WPAD_FMT_BTNS_ACC_IR);
-	WPAD_SetVRes(WPAD_CHAN_ALL, screenwidth, screenheight);
+	// read wiimote accelerometer and IR data, on the four Wii Remote
+	// channels only. WPAD_CHAN_ALL includes libogc's Balance Board slot:
+	// a board still on from a game (Wii Fit Plus) reconnects as RiftWii
+	// starts, and setting its format then, mid-handshake, crashed in
+	// libogc (a tester; only with the board on). The menu never reads it.
+	for (int chan = WPAD_CHAN_0; chan <= WPAD_CHAN_3; ++chan)
+	{
+		WPAD_SetDataFormat(chan, WPAD_FMT_BTNS_ACC_IR);
+		WPAD_SetVRes(chan, screenwidth, screenheight);
+	}
 
 	for(int i=0; i < 4; i++)
 	{
