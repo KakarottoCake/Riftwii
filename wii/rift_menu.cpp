@@ -1074,6 +1074,11 @@ static ChannelChoice ShowChannel(int& index, int count, const std::string& first
 {
 	ChannelView view;
 	std::string shownId;
+	// The banner's sound starts a few frames after its banner, with the
+	// menu drawing: decoding it took the longest part of a + or - (and
+	// the screen stood still meanwhile).
+	std::vector<std::uint8_t> pendingSound;
+	int soundIn = -1;  // frames until it starts; -1 none due
 	const auto logShown = [&] {
 		if (view.frames == 0) return;
 		logf("Banner of %s: %u frames; the CPU drew each in %.1f ms on average, %.1f ms at most; %u frame(s) late "
@@ -1084,8 +1089,10 @@ static ChannelChoice ShowChannel(int& index, int count, const std::string& first
 	};
 	// Puts game `i`'s banner up (and its sound on). False when it has none.
 	const auto open = [&](int i) {
+		const u64 t0 = gettime();
 		std::vector<std::uint8_t> bytes;
 		if (!load(i, bytes)) return false;
+		const u64 t1 = gettime();
 		std::string error;
 		riftwii::OpeningBanner parts;
 		std::vector<std::uint8_t> sound;
@@ -1097,16 +1104,21 @@ static ChannelChoice ShowChannel(int& index, int count, const std::string& first
 		}
 		sound.swap(parts.sound);
 		parts = riftwii::OpeningBanner();
+		const u64 t2 = gettime();
 		if (!view.player.Load(bytes, false, error)) {
 			logf("Banner of %s: %s\n", idOf(i).c_str(), error.c_str());
 			return false;
 		}
+		const u64 t3 = gettime();
 		logShown();
 		shownId = idOf(i);
 		index = i;
 		std::vector<std::uint8_t>().swap(bytes);
-		riftwii::wii::BannerSoundStart(sound);
-		logf("Screen: channel %s\n", shownId.c_str());
+		pendingSound.swap(sound);
+		soundIn = 12;
+		// Where a switch's wait goes (a tester: + and - lag).
+		logf("Screen: channel %s (read %u ms, checked %u ms, banner %u ms)\n", shownId.c_str(),
+			diff_msec(t0, t1), diff_msec(t1, t2), diff_msec(t2, t3));
 		return true;
 	};
 	if (!open(index)) return ChannelChoice::Page;
@@ -1167,6 +1179,11 @@ static ChannelChoice ShowChannel(int& index, int count, const std::string& first
 	int choice = -1;  // 0 Start, 1 back, 2 the game's page
 	while (choice < 0) {
 		usleep(20000);
+		if (soundIn >= 0 && soundIn-- == 0) {
+			// No sound of its own: the menu's music comes back.
+			riftwii::wii::BannerSoundStart(pendingSound);
+			std::vector<std::uint8_t>().swap(pendingSound);
+		}
 		riftwii::wii::BannerSoundUpdate();
 		HaltGui();
 		ClearStaleButtons({&backBtn.button, &goBtn.button, &pageBtn.button, &prevBtn.button, &nextBtn.button, &starBtn.button});
@@ -1179,7 +1196,9 @@ static ChannelChoice ShowChannel(int& index, int count, const std::string& first
 			goBtn.button.ResetState();
 			// The next game round that has a banner; the banner slides to it
 			// (Home's page turn, inside the banner only), the buttons stay.
-			riftwii::wii::BannerSoundStop();
+			// The menu's music stays paused in between: it came back for
+			// the moment the next banner took to load (a tester).
+			riftwii::wii::BannerSoundStop(false);
 			f32 vx, vy, vw, vh;
 			Menu_VisibleArea(&vx, &vy, &vw, &vh);
 			transition::Begin(dir > 0 ? transition::Kind::PageForward : transition::Kind::PageBack,

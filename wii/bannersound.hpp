@@ -16,7 +16,8 @@ namespace riftwii::wii {
 bool BannerSoundStart(const std::vector<std::uint8_t>& sound_bin);
 // Once a frame or so: starts the loop when the first time through ends.
 void BannerSoundUpdate();
-// Stops it and lets the music play on.
-void BannerSoundStop();
+// Stops it and lets the music play on (`resume_music` false: the music
+// stays paused, for a switch to the next banner, whose start decides).
+void BannerSoundStop(bool resume_music = true);
 
 }  // namespace riftwii::wii

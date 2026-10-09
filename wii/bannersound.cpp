@@ -25,14 +25,20 @@ bool g_loop = false, g_looping = false, g_music_paused = false;
 }  // namespace
 
 bool BannerSoundStart(const std::vector<std::uint8_t>& sound_bin) {
-    BannerSoundStop();
-    if (sound_bin.empty()) return false;
+    BannerSoundStop(false);
+    // A banner with no sound of its own: the menu's music plays on.
+    const auto silent = [] {
+        if (g_music_paused) PauseOgg(0);
+        g_music_paused = false;
+        return false;
+    };
+    if (sound_bin.empty()) return silent();
     std::string error;
     {
         BannerSound s;
         if (!decode_banner_sound(sound_bin.data(), sound_bin.size(), s, error)) {
             logf("Banner sound: %s\n", error.c_str());
-            return false;
+            return silent();
         }
         // The DSP reads it from memory: 32-byte aligned, a whole number
         // of 32-byte blocks, flushed from the cache.
@@ -40,7 +46,7 @@ bool BannerSoundStart(const std::vector<std::uint8_t>& sound_bin) {
         g_buf = static_cast<u8*>(memalign(32, g_bytes));
         if (!g_buf) {
             logf("Banner sound: no memory for %u bytes\n", static_cast<unsigned>(g_bytes));
-            return false;
+            return silent();
         }
         std::memset(g_buf, 0, g_bytes);
         std::memcpy(g_buf, s.pcm.data(), s.pcm.size() * 2);
@@ -55,7 +61,7 @@ bool BannerSoundStart(const std::vector<std::uint8_t>& sound_bin) {
         logf("Banner sound: no free voice\n");
         free(g_buf);
         g_buf = nullptr;
-        return false;
+        return silent();
     }
     PauseOgg(1);
     g_music_paused = true;
@@ -74,13 +80,14 @@ void BannerSoundUpdate() {
     g_looping = true;
 }
 
-void BannerSoundStop() {
+void BannerSoundStop(bool resume_music) {
     if (g_voice >= 0) ASND_StopVoice(g_voice);
     g_voice = -1;
     if (g_buf) free(g_buf);
     g_buf = nullptr;
     g_bytes = 0;
     g_loop = g_looping = false;
+    if (!resume_music) return;
     if (g_music_paused) PauseOgg(0);
     g_music_paused = false;
 }
