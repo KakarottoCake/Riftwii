@@ -70,8 +70,20 @@ bool exchange(const HttpUrl& url, const std::string& request, HttpResponse& resp
         g_unreachable.push_back(where);
         return false;
     }
+    // Each read waits at most the socket's timeout; the whole answer gets
+    // four times this call's timeout, or longer for a large download at
+    // 16 KiB/s, so a server sending a trickle cannot hold the menu forever.
+    // The TLS handshake counts, and so does each TLS record as it arrives.
+    const std::uint64_t budget_ms =
+        std::max<std::uint64_t>(4ull * static_cast<std::uint64_t>(timeout_ms), max_bytes / 16u);
+    const u64 started = gettime();
+    const auto too_slow = [&] {
+        error = url.host + " is answering too slowly; given up after " + std::to_string(budget_ms / 1000) + " s";
+        return false;
+    };
     TlsStream tls;
-    if (url.tls && !tls.open(socket, url.host, error)) return false;
+    tls.set_deadline(started + millisecs_to_ticks(budget_ms));
+    if (url.tls && !tls.open(socket, url.host, error)) return tls.timed_out() ? too_slow() : false;
     const bool sent = url.tls ? tls.send(request.data(), request.size()) : socket.send(request.data(), request.size());
     if (!sent) {
         error = "cannot send the request to " + url.host;
@@ -80,21 +92,13 @@ bool exchange(const HttpUrl& url, const std::string& request, HttpResponse& resp
     std::vector<std::uint8_t> raw;
     std::uint8_t chunk[4096];
     HttpReadState reading;
-    // Each read waits at most the socket's timeout; the whole answer gets
-    // four times this call's timeout, or longer for a large download at
-    // 16 KiB/s, so a server sending a trickle cannot hold the menu forever.
-    const std::uint64_t budget_ms =
-        std::max<std::uint64_t>(4ull * static_cast<std::uint64_t>(timeout_ms), max_bytes / 16u);
-    const u64 started = gettime();
     // Read until the response is whole or the server closes.
     while (!http_response_complete(raw, reading)) {
-        if (ticks_to_millisecs(diff_ticks(started, gettime())) > budget_ms) {
-            error = url.host + " is answering too slowly; given up after " + std::to_string(budget_ms / 1000) + " s";
-            return false;
-        }
+        if (ticks_to_millisecs(diff_ticks(started, gettime())) > budget_ms) return too_slow();
         std::size_t got = 0;
         const bool ok = url.tls ? tls.receive_some(chunk, sizeof(chunk), got) : socket.receive_some(chunk, sizeof(chunk), got);
         if (!ok) {
+            if (url.tls && tls.timed_out()) return too_slow();
             error = "no answer from " + url.host;
             if (url.tls && tls.last_error() != 0) error += " (TLS error " + std::to_string(tls.last_error()) + ")";
             return false;

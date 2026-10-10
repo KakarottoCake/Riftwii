@@ -3,6 +3,7 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <string>
 
@@ -21,6 +22,12 @@ public:
     // The handshake with `host` over `socket`, which stays owned by the
     // caller and must outlive this stream.
     bool open(SocketTransport& socket, const std::string& host, std::string& error);
+    // Reads (the handshake's too) fail once the time base reaches
+    // `deadline` (gettime() ticks; 0 for none). Set before open() to
+    // count the handshake.
+    void set_deadline(std::uint64_t deadline);
+    // Whether a read failed for the deadline.
+    bool timed_out() const;
     bool send(const void* data, std::size_t length);
     // Like SocketTransport::receive_some: `got` is 0 once the server has
     // closed the connection.
@@ -28,9 +35,11 @@ public:
     // BearSSL's error code of the last failure (0 for none).
     int last_error() const;
 
-private:
     struct State;
+
+private:
     std::unique_ptr<State> state_;
+    std::uint64_t deadline_ = 0;
 };
 
 }  // namespace riftwii::wii
