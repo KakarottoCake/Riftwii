@@ -732,6 +732,13 @@ static void LoadPackIndex()
 // it picks from every game on the drives, whatever the filter.
 static std::string g_search;
 
+// Trimmed, so a lone space clears the search.
+static std::string TrimSearch(const std::string& typed)
+{
+	const std::size_t from = typed.find_first_not_of(' ');
+	return from == std::string::npos ? "" : typed.substr(from, typed.find_last_not_of(' ') - from + 1);
+}
+
 static bool MatchesSearch(const std::string& name, const std::string& id)
 {
 	// Every word typed must be in the name or the game ID, in any order.
@@ -2503,15 +2510,27 @@ static void ClockText(std::string& clock, std::string& date)
 // Asks for the words to look for on an on-screen keyboard. Returns false
 // when cancelled; `text` holds the entry. Called with the GUI halted and
 // returns with it halted, as ShowHomeMenu does: the caller rebuilds the
-// grid's items next, which the GUI thread must not be drawing.
-static bool AskSearch(std::string& text)
+// grid's items next, which the GUI thread must not be drawing. `typed`
+// runs, with the GUI halted, each time the entry changes (Home filters
+// its games as the player types, a tester's wish) and returns the line
+// shown beside the title.
+static bool AskSearch(std::string& text, const std::function<std::string(const std::string&)>& typed)
 {
 	GuiSearchKeys keys(text);
+	keys.SetCount(typed(text));
 	mainWindow->SetState(STATE::DISABLED);
 	mainWindow->Append(&keys);
 	keys.SetState(STATE::DEFAULT);
 	ResumeGui();
-	while (keys.Result() == 0) usleep(20000);
+	std::string last = text;
+	while (keys.Result() == 0) {
+		usleep(20000);
+		if (keys.Text() == last) continue;
+		HaltGui();
+		last = keys.Text();
+		keys.SetCount(typed(last));
+		ResumeGui();
+	}
 	HaltGui();
 	mainWindow->Remove(&keys);
 	mainWindow->SetState(STATE::DEFAULT);
@@ -2990,14 +3009,26 @@ static int MenuSource(FrontendState& state)
 			menu = MENU_OPTIONS;
 		} else if (searchBtn.Clicked()) {
 			searchBtn.button.ResetState();
+			const std::string before = g_search;
 			std::string typed = g_search;
-			if (AskSearch(typed)) {
-				// Trim, so a lone space clears the search.
-				const std::size_t from = typed.find_first_not_of(' ');
-				g_search = from == std::string::npos ? "" : typed.substr(from, typed.find_last_not_of(' ') - from + 1);
+			// The games behind the keyboard follow what is typed.
+			const auto live = [&](const std::string& words) -> std::string {
+				g_search = TrimSearch(words);
+				BuildHome(state, items, entries);
+				grid.SetItems(&items);
+				grid.Focus(0);
+				if (g_search.empty()) return "";
+				std::size_t games = 0;
+				for (const GridItem& item : items) games += item.badge != "DISC";
+				return games == 1 ? std::string(tr("1 game")) : tr("{1} games", {std::to_string(games)});
+			};
+			if (AskSearch(typed, live)) {
+				g_search = TrimSearch(typed);
 				logf("Home: search \"%s\"\n", g_search.c_str());
-				refresh(false);
+			} else {
+				g_search = before;
 			}
+			refresh(false);
 		} else if (filterBtn.Clicked()) {
 			filterBtn.button.ResetState();
 			if (!g_search.empty()) {

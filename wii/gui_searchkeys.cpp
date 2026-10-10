@@ -97,6 +97,10 @@ void GuiSearchKeys::Build(const std::string& titleText, const std::string& noteT
     title->SetParent(this);
     title->SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
     title->SetPosition(56, 112);  // clear of the text field at y 148, descenders included
+    count = new GuiText("", 18, skin::kInkSoft);
+    count->SetParent(this);
+    count->SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
+    count->SetPosition(-(screenwidth - (kKeyLeft + 10 * kKeyPitch - 4)), 118);
     shown = new GuiText(text.c_str(), 22, skin::kInk);
     shown->SetParent(this);
     shown->SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
@@ -109,10 +113,13 @@ GuiSearchKeys::~GuiSearchKeys() {
     for (Key& k : keys) delete k.caption;
     delete note;
     delete title;
+    delete count;
     delete shown;
     delete soundOver;
     delete soundClick;
 }
+
+void GuiSearchKeys::SetCount(const std::string& line) { count->SetText(line.c_str()); }
 
 int GuiSearchKeys::KeyAt(int x, int y) const {
     for (std::size_t i = 0; i < keys.size(); ++i) {
@@ -238,6 +245,7 @@ void GuiSearchKeys::Draw() {
     }
     skin::Draw(skin::panelSettings, kPanelX - 4, kPanelY - 4);
     title->Draw();
+    count->Draw();
     // The text field, with a caret that blinks. Every colour is the theme's
     // (a dark one has light ink), as in the rest of the menu.
     const int fx = kKeyLeft, fy = 148, fw = 10 * kKeyPitch - 4, fh = 34;

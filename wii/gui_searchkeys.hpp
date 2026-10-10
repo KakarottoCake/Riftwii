@@ -23,6 +23,9 @@ public:
     GuiSearchKeys(const std::string& start, const std::string& title, const std::string& note, std::size_t maxLength);
     ~GuiSearchKeys() override;
     const std::string& Text() const { return text; }
+    // A short line at the right of the title (Home's live search: how many
+    // games match what is typed so far). Called with the GUI halted.
+    void SetCount(const std::string& line);
     // Search was chosen (1), cancelled (-1), or neither yet (0).
     int Result() const { return result; }
     void Draw() override;
@@ -50,6 +53,7 @@ private:
     GuiText* shown;
     GuiText* title;
     GuiText* note = nullptr;
+    GuiText* count = nullptr;
     GuiSound* soundOver;
     GuiSound* soundClick;
     int focus = 0;
