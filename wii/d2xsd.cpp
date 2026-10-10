@@ -4,6 +4,7 @@
 
 #include <gccore.h>
 #include <ogc/ipc.h>
+#include <ogc/mutex.h>
 #include <sdcard/wiisd_io.h>
 
 #include <algorithm>
@@ -96,6 +97,40 @@ const DISC_INTERFACE g_io = {
     io_shutdown,
 };
 
+// Every use of the card, libfat's and the raw readers' (the image scan,
+// sd: files), one at a time: libogc's SD driver keeps its request in
+// static memory. The menu's screenshot thread wrote a PNG while the menu
+// thread scanned the card for images: a read failed until its retry and
+// the PNG came out broken (a tester's Mario Kart Wii shots).
+mutex_t g_lock = LWP_MUTEX_NULL;
+struct Locked {
+    Locked() {
+        if (g_lock == LWP_MUTEX_NULL) LWP_MutexInit(&g_lock, true);
+        LWP_MutexLock(g_lock);
+    }
+    ~Locked() { LWP_MutexUnlock(g_lock); }
+};
+template <const DISC_INTERFACE* D>
+struct Serial {
+    static bool startup() { Locked l; return D->startup(); }
+    static bool inserted() { Locked l; return D->isInserted(); }
+    static bool read(sec_t sector, sec_t count, void* buffer) { Locked l; return D->readSectors(sector, count, buffer); }
+    static bool write(sec_t sector, sec_t count, const void* buffer) {
+        Locked l;
+        return D->writeSectors(sector, count, buffer);
+    }
+    static bool clear() { Locked l; return D->clearStatus(); }
+    static bool shutdown() { Locked l; return D->shutdown(); }
+    static const DISC_INTERFACE io;
+};
+template <const DISC_INTERFACE* D>
+const DISC_INTERFACE Serial<D>::io = {
+    DEVICE_TYPE_WII_SD,         FEATURE_MEDIUM_CANREAD | FEATURE_MEDIUM_CANWRITE | FEATURE_WII_SD,
+    Serial<D>::startup,         Serial<D>::inserted,
+    Serial<D>::read,            Serial<D>::write,
+    Serial<D>::clear,           Serial<D>::shutdown,
+};
+
 }  // namespace
 
 bool d2x_sd_open(std::string& error) {
@@ -127,6 +162,6 @@ bool d2x_sd_write(std::uint32_t sector, std::uint32_t count, const void* buffer)
 
 void use_d2x_sd(bool on) { g_active = on; }
 bool using_d2x_sd() { return g_active; }
-const DISC_INTERFACE* sd_interface() { return g_active ? &g_io : &__io_wiisd; }
+const DISC_INTERFACE* sd_interface() { return g_active ? &Serial<&g_io>::io : &Serial<&__io_wiisd>::io; }
 
 }  // namespace riftwii::wii

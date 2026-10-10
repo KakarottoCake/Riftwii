@@ -12,6 +12,7 @@
 #include <cstring>
 
 #include "ios_reload.hpp"
+#include "d2xsd.hpp"
 #include "log.hpp"
 #include "usbcatalog.hpp"
 
@@ -88,7 +89,7 @@ bool LeaveSessionCios(bool sd_mounted, const char* why) {
         r = reload_ios(58, error, true);
         if (r == ReloadResult::Terminal) halt_after_terminal_reload();
     }
-    if (sd_mounted && __io_wiisd.startup() && __io_wiisd.isInserted() && fatMountSimple("sd", &__io_wiisd)) LogReopen();
+    if (sd_mounted && __io_wiisd.startup() && __io_wiisd.isInserted() && fatMountSimple("sd", sd_interface())) LogReopen();
     if (IOS_GetVersion() != 58) {
         g_menu_cios = IOS_GetVersion() == g_menu_cios ? g_menu_cios : 0;
         logf("Menu IOS: still on IOS%d (%s)\n", IOS_GetVersion(), error.c_str());
@@ -136,7 +137,7 @@ bool StartMenuIos(bool sd_mounted, bool fresh, int session_slot, const char* ses
             if (r == ReloadResult::Terminal) halt_after_terminal_reload();
         }
         g_menu_ios_lost = IOS_GetVersion() != 58 ? IOS_GetVersion() : 0;
-        if (sd_mounted && __io_wiisd.startup() && __io_wiisd.isInserted() && fatMountSimple("sd", &__io_wiisd)) {
+        if (sd_mounted && __io_wiisd.startup() && __io_wiisd.isInserted() && fatMountSimple("sd", sd_interface())) {
             LogReopen();
         }
         if (!first_error.empty()) logf("Menu IOS: the reload into IOS58 after a restart failed once (%s)\n", first_error.c_str());
@@ -152,7 +153,7 @@ bool StartMenuIos(bool sd_mounted, bool fresh, int session_slot, const char* ses
     std::string error;
     const ReloadResult r = reload_ios(slot, error, fresh);
     if (r == ReloadResult::Terminal) halt_after_terminal_reload();
-    const bool mounted = __io_wiisd.startup() && __io_wiisd.isInserted() && fatMountSimple("sd", &__io_wiisd);
+    const bool mounted = __io_wiisd.startup() && __io_wiisd.isInserted() && fatMountSimple("sd", sd_interface());
     if (mounted) LogReopen();
     if (r == ReloadResult::NotInstalled || r == ReloadResult::Failed) {
         logf("Menu IOS: reload into IOS%d failed (%s); staying on IOS%d\n", slot, error.c_str(), IOS_GetVersion());

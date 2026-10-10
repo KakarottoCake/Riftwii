@@ -17,6 +17,7 @@
 #include "boot.hpp"
 #include "gcadapter.hpp"
 #include "ios_reload.hpp"
+#include "d2xsd.hpp"
 #include "log.hpp"
 #include "menuios.hpp"
 #include "padhook.hpp"
@@ -38,7 +39,7 @@ bool Reload(int ios, bool sd_mounted, std::string& error) {
     }
     const ReloadResult r = reload_ios(ios, error, true);
     if (r == ReloadResult::Terminal) halt_after_terminal_reload();
-    if (sd_mounted && __io_wiisd.startup() && __io_wiisd.isInserted() && fatMountSimple("sd", &__io_wiisd)) LogReopen();
+    if (sd_mounted && __io_wiisd.startup() && __io_wiisd.isInserted() && fatMountSimple("sd", sd_interface())) LogReopen();
     forget_usb_hid_stuck();  // a request left unanswered went with the old IOS
     return (r == ReloadResult::Ok || r == ReloadResult::AlreadyRunning) && IOS_GetVersion() == ios;
 }

@@ -86,10 +86,12 @@ bool SavePng(const std::string& prefix, const u8* yuyv, std::uint32_t width, std
         return false;
     }
     const u64 start = gettime();
-    const bool ok = write_yuyv_png(yuyv, width, lines, std::size_t(width) * 2, double_lines, FileSink, f, g_work);
-    std::fflush(f);
-    fsync(fileno(f));
-    std::fclose(f);
+    // The file's end counts too: a write the card refused while the PNG was
+    // buffered came out as a broken PNG that stayed (a tester).
+    bool ok = write_yuyv_png(yuyv, width, lines, std::size_t(width) * 2, double_lines, FileSink, f, g_work);
+    ok = std::fflush(f) == 0 && ok;
+    ok = fsync(fileno(f)) == 0 && ok;
+    ok = std::fclose(f) == 0 && ok;
     if (!ok) {
         unlink(path.c_str());
         logf("Screenshot: writing %s failed\n", path.c_str());

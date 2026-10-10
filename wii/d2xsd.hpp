@@ -31,6 +31,7 @@ bool d2x_sd_write(std::uint32_t sector, std::uint32_t count, const void* buffer)
 // game is being launched, else libogc's __io_wiisd.
 void use_d2x_sd(bool on);
 bool using_d2x_sd();
+// Each call goes through one lock, so threads never use the card at once.
 const DISC_INTERFACE* sd_interface();
 
 }  // namespace riftwii::wii

@@ -37,6 +37,7 @@
 #include "i18n.hpp"
 #include "ios_reload.hpp"
 #include "loadersettings.hpp"
+#include "d2xsd.hpp"
 #include "log.hpp"
 #include "memlimits.hpp"
 #include "menuios.hpp"
@@ -187,7 +188,7 @@ bool MountStartupSd() {
             __io_wiisd.shutdown();
             usleep(250000);
         }
-        if (__io_wiisd.startup() && __io_wiisd.isInserted() && fatMountSimple("sd", &__io_wiisd)) return true;
+        if (__io_wiisd.startup() && __io_wiisd.isInserted() && fatMountSimple("sd", riftwii::wii::sd_interface())) return true;
     }
     return false;
 }
