@@ -80,6 +80,12 @@ bool parse_headless_launch(const std::vector<std::string>& args, HeadlessLaunch&
                      (!value.empty() && value.find_first_of(":/\\") == std::string::npos);
                 out.xmls.push_back(value);
             }
+        } else if (key == "code_build") {
+            // Code builds are read from the SD card: a path there, or a
+            // folder name at its top.
+            out.packs_given = true;
+            ok = value.compare(0, 4, "sd:/") == 0 || (!value.empty() && value.find_first_of(":/\\") == std::string::npos);
+            out.code_builds.push_back(value);
         } else if (key == "video_mode") {
             ok = parse_video_mode(value, mode);
             out.settings.video_mode = value;

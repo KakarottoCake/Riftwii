@@ -105,6 +105,26 @@ bool apply_choices(const HeadlessLaunch& h, FrontendState& state, std::string& e
                 return false;
             }
         }
+        // A code build by its folder (its path, or its name) or its code file.
+        for (const std::string& build : h.code_builds) {
+            bool found = false;
+            for (std::size_t i = 0; i < model.packages.size() && !found; ++i) {
+                const LaunchPackage& p = model.packages[i];
+                if (!p.code_build()) continue;
+                const std::size_t slash = p.path.find_last_of('/');
+                const std::string name = slash == std::string::npos ? p.path : p.path.substr(slash + 1);
+                if (!same_path(p.path, build) && !same_path(p.gct_path, build) && !same_path(name, build)) continue;
+                found = true;
+                if (!model.set_enabled(i, true)) {
+                    error = build + ": this code build is not for " + state.game_id;
+                    return false;
+                }
+            }
+            if (!found) {
+                error = build + " was not found among " + state.game_id + "'s code builds on the SD card";
+                return false;
+            }
+        }
     }
     const GameSettings& g = h.settings;
     GameSettings& to = model.game;

@@ -911,6 +911,17 @@ void TestHeadlessArguments() {
     EXPECT_TRUE(h.return_to_menu);
     EXPECT_FALSE(parse_headless_launch({"--launch", "from=usb"}, h, error));
     EXPECT_TRUE(error.find("game=") != std::string::npos);
+    // A code build by its folder, its name or its code file; never from USB.
+    h = HeadlessLaunch{};
+    EXPECT_TRUE(parse_headless_launch({"--launch", "game=RSBE01", "code_build=sd:/projectplus"}, h, error));
+    EXPECT_TRUE(h.packs_given);
+    EXPECT_EQ(h.code_builds.size(), static_cast<std::size_t>(1));
+    EXPECT_EQ(h.code_builds[0], std::string("sd:/projectplus"));
+    h = HeadlessLaunch{};
+    EXPECT_TRUE(parse_headless_launch({"--launch", "game=RSBE01", "code_build=projectplus"}, h, error));
+    EXPECT_TRUE(parse_headless_launch({"--launch", "game=RSBE01", "code_build=sd:/projectplus/codes/RSBE01.gct"}, h, error));
+    EXPECT_FALSE(parse_headless_launch({"--launch", "game=RSBE01", "code_build=usb:/projectplus"}, h, error));
+    EXPECT_FALSE(parse_headless_launch({"--launch", "game=RSBE01", "code_build="}, h, error));
     EXPECT_FALSE(parse_headless_launch({"--launch", "game=RMCE01", "video_mode=pal70"}, h, error));
     EXPECT_TRUE(error.find("video_mode") != std::string::npos);
     EXPECT_FALSE(parse_headless_launch({"--launch", "game=RMCE01", "speed=fast"}, h, error));

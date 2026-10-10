@@ -46,6 +46,7 @@ from its own menu (the game's saved choices, then RiftWii's Settings).
 | `cios` | `auto`, `248` … `252` | The d2x cIOS for a USB or SD game. |
 | `server` | `off`, `wiimmfi`, `wiilink`, `altwfc`, `custom` | The online server; `custom` uses `wfc_domain`. |
 | `wfc_domain` | `example.net` | The custom server's domain (4 to 16 characters). |
+| `code_build` | `sd:/projectplus`, `projectplus` or `sd:/projectplus/codes/RSBE01.gct` | A code build to turn on (Project+, REX and the like), by its folder on the SD card, the folder's name, or its code file; repeat it for several. As with `xml`, every pack not named is off, and the two can be given together. Code builds are read from the SD card only. |
 | `gct` | `sd:/codes/RMCE01.gct`, or `none` | Gecko codes to run. `none`: no codes. Code builds (Project+) keep their own. |
 | `return_to` | `0001000147584c44` (or `00010001-47584c44`), or `menu` | The channel a game's HOME Menu "Wii Menu" button starts, such as the loader's own forwarder; `menu` leaves the Wii Menu. Without it RiftWii's own setting is used (the RiftWii channel, when installed). |
 

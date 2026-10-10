@@ -17,6 +17,7 @@
 //   --launch game=RMCE01 from=usb xml=sd:/riivolution/ctgp.xml
 //            video_mode=pal60 language=en cios=249 server=wiimmfi
 //            gct=sd:/codes/RMCE01.gct return_to=0001000147584c44
+//   --launch game=RSBE01 code_build=sd:/projectplus
 namespace riftwii {
 
 struct HeadlessLaunch {
@@ -26,6 +27,10 @@ struct HeadlessLaunch {
     std::vector<std::string> xmls;   // packs to turn on (the others off): paths, or file names
     bool packs_given = false;        // an xml= was passed (xml=none: every pack off)
     bool all_packs = false;          // xml=all: every pack for the game on
+    // Code builds to turn on (Project+ and the like, SD card only): the
+    // build's folder ("sd:/projectplus" or "projectplus") or its code file.
+    // Like xml=, any given turns every pack not named off.
+    std::vector<std::string> code_builds;
     GameSettings settings;           // "global" where not given: RiftWii's own
     std::string wfc_domain;          // for server=custom
     std::string gct;                 // cheat codes file; "none": no cheats; empty: RiftWii's own
