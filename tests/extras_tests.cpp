@@ -153,6 +153,82 @@ void TestHttp() {
     EXPECT_TRUE(parse_http_response(bytes("HTTP/1.0 200 OK\r\n\r\nall of it"), r, error));
     EXPECT_EQ(r.body.size(), 9u);
     EXPECT_EQ(url_encode("Mario Kart/Wii"), "Mario%20Kart%2FWii");
+
+    // A response read 4 KiB at a time with HttpReadState: complete only at
+    // the end, and parsed to the same body (the reader resumes rather
+    // than re-reading every chunk on each piece).
+    {
+        std::string big = "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n";
+        std::string want;
+        for (int i = 0; i < 3000; ++i) {
+            const std::string data(200 + i % 50, static_cast<char>('a' + i % 26));
+            char size[16];
+            std::snprintf(size, sizeof(size), "%x;ext=1\r\n", static_cast<unsigned>(data.size()));
+            big += size + data + "\r\n";
+            want += data;
+        }
+        big += "0\r\n\r\n";
+        std::vector<std::uint8_t> raw;
+        HttpReadState reading;
+        int complete_at = -1, pieces = 0;
+        for (std::size_t at = 0; at < big.size(); at += 4096, ++pieces) {
+            raw.insert(raw.end(), big.begin() + static_cast<std::ptrdiff_t>(at),
+                       big.begin() + static_cast<std::ptrdiff_t>(std::min(big.size(), at + 4096)));
+            if (http_response_complete(raw, reading) && complete_at < 0) complete_at = pieces;
+        }
+        EXPECT_EQ(complete_at, pieces - 1);
+        EXPECT_TRUE(parse_http_response(raw, r, error));
+        EXPECT_TRUE(std::string(r.body.begin(), r.body.end()) == want);
+        // The same with a Content-Length, the blank line split across reads.
+        const std::string sized = "HTTP/1.1 200 OK\r\nContent-Length: 5\r\n\r\nhello";
+        HttpReadState p2;
+        std::vector<std::uint8_t> part = bytes(sized.substr(0, 36));
+        EXPECT_FALSE(http_response_complete(part, p2));
+        part = bytes(sized.substr(0, 40));
+        EXPECT_FALSE(http_response_complete(part, p2));
+        part = bytes(sized);
+        EXPECT_TRUE(http_response_complete(part, p2));
+    }
+    // A length that is not a number, or a chunk size that is not hex, is an
+    // error rather than an empty body.
+    EXPECT_TRUE(http_response_complete(bytes("HTTP/1.1 200 OK\r\nContent-Length: abc\r\n\r\nxyz")));
+    EXPECT_FALSE(parse_http_response(bytes("HTTP/1.1 200 OK\r\nContent-Length: abc\r\n\r\nxyz"), r, error));
+    EXPECT_FALSE(parse_http_response(bytes("HTTP/1.1 200 OK\r\nContent-Length: -1\r\n\r\nxyz"), r, error));
+    EXPECT_TRUE(http_response_complete(bytes("HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\nzz\r\nab\r\n")));
+    EXPECT_FALSE(parse_http_response(bytes("HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\nzz\r\nab\r\n0\r\n\r\n"), r, error));
+
+    // Addresses: no user info, a numeric port, the query kept as the path,
+    // the fragment left out, and never a key in a message.
+    EXPECT_FALSE(parse_http_url("http://user@evil@example.org/", url, error));
+    EXPECT_FALSE(parse_http_url("http://example.org:80abc/", url, error));
+    EXPECT_TRUE(parse_http_url("http://example.org?x=1#top", url, error));
+    EXPECT_EQ(url.host, "example.org");
+    EXPECT_EQ(url.path, "/?x=1");
+    EXPECT_FALSE(parse_http_url("ftp://riitag.example/wii?game=RMCP01&key=SECRET", url, error));
+    EXPECT_TRUE(error.find("SECRET") == std::string::npos);
+    EXPECT_EQ(http_url_for_messages("https://a.b/wii?key=SECRET"), "https://a.b/wii?...");
+
+    // Redirects stay on https; paths stay on the same server.
+    HttpUrl from, to;
+    EXPECT_TRUE(parse_http_url("https://github.com/x/y/file.dol?raw=1", from, error));
+    EXPECT_FALSE(http_redirect(from, "http://evil.example/file.dol", to, error));
+    EXPECT_TRUE(http_redirect(from, "https://objects.githubusercontent.com/z", to, error));
+    EXPECT_EQ(to.host, "objects.githubusercontent.com");
+    EXPECT_TRUE(to.tls);
+    EXPECT_TRUE(http_redirect(from, "/a/b", to, error));
+    EXPECT_EQ(to.host, "github.com");
+    EXPECT_EQ(to.path, "/a/b");
+    EXPECT_TRUE(to.tls);
+    EXPECT_TRUE(http_redirect(from, "other.dol", to, error));
+    EXPECT_EQ(to.path, "/x/y/other.dol");
+    EXPECT_TRUE(http_redirect(from, "//cdn.example/f", to, error));
+    EXPECT_TRUE(to.tls);
+    EXPECT_EQ(to.host, "cdn.example");
+    EXPECT_FALSE(http_redirect(from, "ftp://cdn.example/f", to, error));
+    HttpUrl plain_from;
+    EXPECT_TRUE(parse_http_url("http://www.gametdb.com/x", plain_from, error));
+    EXPECT_TRUE(http_redirect(plain_from, "https://www.gametdb.com/x", to, error));  // up to https is fine
+    EXPECT_TRUE(http_redirect(plain_from, "http://art.gametdb.com/x", to, error));
 }
 
 void TestCheats() {

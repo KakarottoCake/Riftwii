@@ -47,6 +47,11 @@ std::string launched_game_id(const std::string& boot_log);
 // where anyone can read it.
 std::string hide_settings_secrets(const std::string& settings);
 
+// Every "key=" value in a URL's query ("?key=..." or "&key=...", any case)
+// replaced by "(hidden)": a RiiTag key logged with an address. Reports are
+// posted publicly, so assemble_report applies this to everything.
+std::string hide_url_keys(const std::string& text);
+
 // The packs a choices file (sd:/riftwii/choices/<ID>.txt) has turned on,
 // as it names them ("RetroRewind6.xml", "mod.xml @ 192.168.1.20:1137").
 std::vector<std::string> enabled_pack_files(const std::string& choices);

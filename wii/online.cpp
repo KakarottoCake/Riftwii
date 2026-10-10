@@ -16,6 +16,7 @@
 #include <ctime>
 
 #include <gccore.h>
+#include <ogc/lwp_watchdog.h>
 
 #include "bearssl.h"
 #include "loadersettings.hpp"
@@ -77,8 +78,19 @@ bool exchange(const HttpUrl& url, const std::string& request, HttpResponse& resp
     }
     std::vector<std::uint8_t> raw;
     std::uint8_t chunk[4096];
+    HttpReadState reading;
+    // Each read waits at most the socket's timeout; the whole answer gets
+    // four times this call's timeout, or longer for a large download at
+    // 16 KiB/s, so a server sending a trickle cannot hold the menu forever.
+    const std::uint64_t budget_ms =
+        std::max<std::uint64_t>(4ull * static_cast<std::uint64_t>(timeout_ms), max_bytes / 16u);
+    const u64 started = gettime();
     // Read until the response is whole or the server closes.
-    while (!http_response_complete(raw)) {
+    while (!http_response_complete(raw, reading)) {
+        if (ticks_to_millisecs(diff_ticks(started, gettime())) > budget_ms) {
+            error = url.host + " is answering too slowly; given up after " + std::to_string(budget_ms / 1000) + " s";
+            return false;
+        }
         std::size_t got = 0;
         const bool ok = url.tls ? tls.receive_some(chunk, sizeof(chunk), got) : socket.receive_some(chunk, sizeof(chunk), got);
         if (!ok) {
@@ -124,14 +136,17 @@ bool write_file(const std::string& path, const std::vector<std::uint8_t>& bytes,
 bool HttpGet(const std::string& url, std::vector<std::uint8_t>& body, std::string& error, std::size_t max_bytes,
              int timeout_ms, const HttpProgress& progress) {
     if (!NetStart(error)) return false;
-    std::string where = url;
+    HttpUrl parsed;
+    if (!parse_http_url(url, parsed, error)) return false;
     for (int hop = 0; hop < 4; ++hop) {
-        HttpUrl parsed;
-        if (!parse_http_url(where, parsed, error)) return false;
         HttpResponse response;
         if (!exchange(parsed, http_get_request(parsed), response, error, max_bytes, timeout_ms, progress)) return false;
         if (response.status >= 300 && response.status < 400 && response.headers.count("location")) {
-            where = response.headers["location"];
+            // Never from https to plain http: an update's DOL or update
+            // pack would then come over a connection anyone can change.
+            HttpUrl next;
+            if (!http_redirect(parsed, response.headers["location"], next, error)) return false;
+            parsed = next;
             continue;
         }
         if (response.status != 200) {
@@ -141,7 +156,7 @@ bool HttpGet(const std::string& url, std::vector<std::uint8_t>& body, std::strin
         body = std::move(response.body);
         return true;
     }
-    error = "too many redirects for " + url;
+    error = "too many redirects for " + http_url_for_messages(url);
     return false;
 }
 

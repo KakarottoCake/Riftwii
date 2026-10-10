@@ -81,13 +81,33 @@ std::string printable_utf8(const std::string& text) {
     return out;
 }
 
+std::string hide_url_keys(const std::string& text) {
+    std::string out;
+    std::size_t at = 0;
+    for (std::size_t i = 0; i + 5 <= text.size(); ++i) {
+        if (text[i] != '?' && text[i] != '&') continue;
+        const char k = text[i + 1], e = text[i + 2], y = text[i + 3];
+        if ((k != 'k' && k != 'K') || (e != 'e' && e != 'E') || (y != 'y' && y != 'Y') || text[i + 4] != '=') continue;
+        std::size_t end = i + 5;
+        while (end < text.size() && text[end] != '&' && text[end] != '#' && text[end] != '"' && text[end] != '\'' &&
+               text[end] != '<' && text[end] != '>' && static_cast<unsigned char>(text[end]) > ' ')
+            ++end;
+        out.append(text, at, i + 5 - at);
+        out += "(hidden)";
+        at = end;
+        i = end - 1;
+    }
+    out.append(text, at, std::string::npos);
+    return out;
+}
+
 std::string assemble_report(const std::string& raw_summary, const std::vector<ReportPart>& raw_parts,
                             std::size_t limit) {
-    const std::string summary = printable_utf8(raw_summary);
+    const std::string summary = hide_url_keys(printable_utf8(raw_summary));
     std::vector<ReportPart> parts = raw_parts;
     for (ReportPart& p : parts) {
         p.name = printable_utf8(p.name);
-        p.text = printable_utf8(p.text);
+        p.text = hide_url_keys(printable_utf8(p.text));
     }
     std::size_t fixed = summary.size() + 64;
     std::size_t largest = 0;

@@ -268,6 +268,8 @@ void SocketTransport::close() {
 bool SocketTransport::send(const void* data, std::size_t length) {
     const auto* p = static_cast<const std::uint8_t*>(data);
     while (length > 0 && socket_ >= 0) {
+        // A server that stops reading must not hold the send for ever.
+        if (!wait_for(socket_, POLLOUT, timeout_ms_)) return false;
         const s32 n = net_send(socket_, p, static_cast<s32>(length > 0x8000 ? 0x8000 : length), 0);
         if (n == -EAGAIN) continue;
         if (n <= 0) return false;

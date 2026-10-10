@@ -28,6 +28,18 @@ int main() {
               std::string("language = auto\nriitag_key = (hidden)\r\nonline = on\n"));
     EXPECT_EQ(hide_settings_secrets("riitag_key=x"), std::string("riitag_key= (hidden)"));
     EXPECT_EQ(hide_settings_secrets("theme = default"), std::string("theme = default"));
+    // A key in a logged address is hidden too, wherever it appears.
+    EXPECT_EQ(hide_url_keys("RiiTag: https://riitag.example/wii?game=RMCP01&key=abc123 failed"),
+              std::string("RiiTag: https://riitag.example/wii?game=RMCP01&key=(hidden) failed"));
+    EXPECT_EQ(hide_url_keys("x?KEY=a&b=c"), std::string("x?KEY=(hidden)&b=c"));
+    EXPECT_EQ(hide_url_keys("monkey=1 &keys=2 key=3"), std::string("monkey=1 &keys=2 key=3"));
+    EXPECT_EQ(hide_url_keys("end?key="), std::string("end?key=(hidden)"));
+    {
+        const std::vector<ReportPart> parts = {{"session.log", "GET /wii?game=X&key=topsecret\n"}};
+        const std::string r = assemble_report("summary ?key=alsosecret", parts, 10000);
+        EXPECT_FALSE(has(r, "topsecret"));
+        EXPECT_FALSE(has(r, "alsosecret"));
+    }
     // Small enough: every part whole, in order, the missing one named.
     {
         const std::vector<ReportPart> parts = {{"crash.txt", "PC 80001234\n"}, {"boot.log", "a\nb\n"},

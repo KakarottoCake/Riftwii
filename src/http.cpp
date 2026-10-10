@@ -22,9 +22,10 @@ std::string trim(const std::string& s) {
     return s.substr(a, b - a);
 }
 
-// Where the headers end (the index after the blank line), or npos.
-std::size_t header_end(const std::vector<std::uint8_t>& raw) {
-    for (std::size_t i = 0; i + 3 < raw.size(); ++i) {
+// Where the headers end (the index after the blank line), or npos. The
+// search starts at `from`.
+std::size_t header_end(const std::vector<std::uint8_t>& raw, std::size_t from = 0) {
+    for (std::size_t i = from; i + 3 < raw.size(); ++i) {
         if (raw[i] == '\r' && raw[i + 1] == '\n' && raw[i + 2] == '\r' && raw[i + 3] == '\n') return i + 4;
     }
     return std::string::npos;
@@ -56,66 +57,131 @@ bool chunked(const HttpResponse& r) {
     return it != r.headers.end() && lower(it->second).find("chunked") != std::string::npos;
 }
 
-// De-chunks from `at`. `done` says whether the last chunk was seen.
-bool dechunk(const std::vector<std::uint8_t>& raw, std::size_t at, std::vector<std::uint8_t>& out, bool& done) {
-    done = false;
-    while (at < raw.size()) {
-        std::size_t line = at;
-        while (line + 1 < raw.size() && !(raw[line] == '\r' && raw[line + 1] == '\n')) ++line;
-        if (line + 1 >= raw.size()) return true;  // the size line is not all here yet
-        const std::string size_text(raw.begin() + static_cast<std::ptrdiff_t>(at),
-                                    raw.begin() + static_cast<std::ptrdiff_t>(line));
-        char* end = nullptr;
-        const unsigned long size = std::strtoul(size_text.c_str(), &end, 16);
-        if (end == size_text.c_str()) return false;
-        at = line + 2;
-        if (size == 0) {
-            done = true;
-            return true;
-        }
-        if (raw.size() - at < size) {
-            out.insert(out.end(), raw.begin() + static_cast<std::ptrdiff_t>(at), raw.end());
-            return true;
-        }
-        out.insert(out.end(), raw.begin() + static_cast<std::ptrdiff_t>(at),
-                   raw.begin() + static_cast<std::ptrdiff_t>(at + size));
-        at += size + 2;  // the chunk's CRLF
+// A Content-Length: decimal digits only ("abc" or "-1" is no length).
+bool parse_length(const std::string& text, std::uint64_t& out) {
+    if (text.empty() || text.size() > 18) return false;
+    out = 0;
+    for (char c : text) {
+        if (c < '0' || c > '9') return false;
+        out = out * 10 + static_cast<std::uint64_t>(c - '0');
     }
     return true;
 }
 
+int hex_digit(std::uint8_t c) {
+    if (c >= '0' && c <= '9') return c - '0';
+    if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+    if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+    return -1;
+}
+
+constexpr std::size_t kMaxChunkLine = 1024;
+
+// Walks a chunked body from the size line at `at`, appending the data to
+// `out` when given: 1 when the last chunk was reached, 0 when more must
+// arrive first (`at` then names the chunk to continue from), -1 when
+// the body is malformed.
+int walk_chunks(const std::vector<std::uint8_t>& raw, std::size_t& at, std::vector<std::uint8_t>* out) {
+    for (;;) {
+        std::size_t line = at;
+        while (line + 1 < raw.size() && !(raw[line] == '\r' && raw[line + 1] == '\n')) {
+            if (++line - at > kMaxChunkLine) return -1;
+        }
+        if (line + 1 >= raw.size()) return 0;  // the size line is not all here yet
+        // Hex digits, then perhaps an extension (";name=value") to ignore.
+        std::uint64_t size = 0;
+        std::size_t i = at;
+        for (; i < line && hex_digit(raw[i]) >= 0; ++i) {
+            if (i - at >= 15) return -1;  // no chunk is that large
+            size = size * 16 + static_cast<std::uint64_t>(hex_digit(raw[i]));
+        }
+        if (i == at || (i < line && raw[i] != ';' && raw[i] != ' ' && raw[i] != '\t')) return -1;
+        const std::size_t data = line + 2;
+        if (size == 0) {
+            at = data;
+            return 1;
+        }
+        if (raw.size() - data < size + 2) return 0;  // the chunk and its CRLF are not all here yet
+        if (out) {
+            out->insert(out->end(), raw.begin() + static_cast<std::ptrdiff_t>(data),
+                        raw.begin() + static_cast<std::ptrdiff_t>(data + size));
+        }
+        at = data + static_cast<std::size_t>(size) + 2;
+    }
+}
+
 }  // namespace
+
+std::string http_url_for_messages(const std::string& url) {
+    const std::size_t cut = url.find_first_of("?#");
+    return cut == std::string::npos ? url : url.substr(0, cut) + "?...";
+}
 
 bool parse_http_url(const std::string& url, HttpUrl& out, std::string& error) {
     out = HttpUrl{};
+    const std::string shown = http_url_for_messages(url);
     std::string scheme = "http://";
     if (lower(url.substr(0, 8)) == "https://") {
         scheme = "https://";
         out.tls = true;
         out.port = 443;
     } else if (lower(url.substr(0, scheme.size())) != scheme) {
-        error = "only http:// and https:// addresses can be fetched: " + url;
+        error = "only http:// and https:// addresses can be fetched: " + shown;
         return false;
     }
-    const std::string rest = url.substr(scheme.size());
-    const std::size_t slash = rest.find('/');
+    std::string rest = url.substr(scheme.size());
+    rest = rest.substr(0, rest.find('#'));
+    const std::size_t slash = rest.find_first_of("/?");
     std::string authority = rest.substr(0, slash);
-    if (slash != std::string::npos) out.path = rest.substr(slash);
+    if (slash != std::string::npos) out.path = (rest[slash] == '?' ? "/" : "") + rest.substr(slash);
+    // User info is never needed, and "user@evil@host" reads differently
+    // to different parsers.
+    if (authority.find('@') != std::string::npos) {
+        error = "an address with a user name cannot be fetched: " + shown;
+        return false;
+    }
     const std::size_t colon = authority.find(':');
     if (colon != std::string::npos) {
-        const int port = std::atoi(authority.c_str() + colon + 1);
-        if (port <= 0 || port > 65535) {
-            error = "bad port in " + url;
+        std::uint64_t port = 0;
+        if (!parse_length(authority.substr(colon + 1), port) || port == 0 || port > 65535) {
+            error = "bad port in " + shown;
             return false;
         }
         out.port = static_cast<std::uint16_t>(port);
         authority = authority.substr(0, colon);
     }
     if (authority.empty()) {
-        error = "no host in " + url;
+        error = "no host in " + shown;
         return false;
     }
     out.host = authority;
+    return true;
+}
+
+bool http_redirect(const HttpUrl& from, const std::string& location, HttpUrl& to, std::string& error) {
+    const std::string where = trim(location);
+    const std::string head = lower(where.substr(0, 8));
+    if (head.compare(0, 7, "http://") == 0 || head == "https://") {
+        if (!parse_http_url(where, to, error)) return false;
+    } else if (where.compare(0, 2, "//") == 0) {
+        if (!parse_http_url((from.tls ? "https:" : "http:") + where, to, error)) return false;
+    } else if (!where.empty() && (where[0] == '/' || where.find(':') == std::string::npos)) {
+        // A path on the same server: from its root, or beside this one.
+        to = from;
+        std::string path = where.substr(0, where.find('#'));
+        if (path[0] != '/') {
+            const std::string base = from.path.substr(0, from.path.find('?'));
+            path = base.substr(0, base.rfind('/') + 1) + path;
+        }
+        to.path = path;
+    } else {
+        error = "a redirect to an address that cannot be fetched: " + http_url_for_messages(where);
+        return false;
+    }
+    if (from.tls && !to.tls) {
+        error = from.host + " redirects from https to plain http (" + to.host + "); not followed";
+        return false;
+    }
     return true;
 }
 
@@ -137,20 +203,43 @@ std::string http_post_request(const HttpUrl& url, const std::string& content_typ
            "\r\nContent-Length: " + std::to_string(body.size()) + "\r\n\r\n" + body;
 }
 
-bool http_response_complete(const std::vector<std::uint8_t>& raw) {
-    const std::size_t end = header_end(raw);
-    if (end == std::string::npos) return false;
-    HttpResponse r;
-    std::string error;
-    if (!parse_headers(raw, end, r, error)) return true;  // garbage: nothing more will help
-    if (chunked(r)) {
-        std::vector<std::uint8_t> body;
-        bool done = false;
-        return !dechunk(raw, end, body, done) || done;
+bool http_response_complete(const std::vector<std::uint8_t>& raw, HttpReadState& reading) {
+    if (reading.done) return true;
+    if (!reading.decided) {
+        // Resume the search a little before where the last one stopped, in
+        // case the blank line straddles the two reads.
+        const std::size_t end = header_end(raw, reading.scanned > 3 ? reading.scanned - 3 : 0);
+        reading.scanned = raw.size();
+        if (end == std::string::npos) return false;
+        reading.decided = true;
+        reading.body_at = end;
+        HttpResponse r;
+        std::string error;
+        if (!parse_headers(raw, end, r, error)) return reading.done = true;  // garbage: nothing more will help
+        reading.is_chunked = chunked(r);
+        reading.chunk_at = end;
+        const auto length = r.headers.find("content-length");
+        if (!reading.is_chunked && length != r.headers.end()) {
+            // A length that is not a number: parse_http_response says so.
+            if (!parse_length(length->second, reading.length)) return reading.done = true;
+            reading.has_length = true;
+        } else if (!reading.is_chunked) {
+            // Without either, the body runs to the close.
+            if (r.status == 204 || r.status == 304 || (r.status >= 100 && r.status < 200)) return reading.done = true;
+            return false;
+        }
     }
-    const auto length = r.headers.find("content-length");
-    if (length == r.headers.end()) return r.status == 204 || r.status == 304 || (r.status >= 100 && r.status < 200);
-    return raw.size() - end >= std::strtoull(length->second.c_str(), nullptr, 10);
+    if (reading.is_chunked) {
+        const int walked = walk_chunks(raw, reading.chunk_at, nullptr);
+        return reading.done = walked != 0;
+    }
+    if (reading.has_length) return reading.done = raw.size() - reading.body_at >= reading.length;
+    return false;
+}
+
+bool http_response_complete(const std::vector<std::uint8_t>& raw) {
+    HttpReadState reading;
+    return http_response_complete(raw, reading);
 }
 
 bool parse_http_response(const std::vector<std::uint8_t>& raw, HttpResponse& out, std::string& error) {
@@ -162,9 +251,10 @@ bool parse_http_response(const std::vector<std::uint8_t>& raw, HttpResponse& out
     }
     if (!parse_headers(raw, end, out, error)) return false;
     if (chunked(out)) {
-        bool done = false;
-        if (!dechunk(raw, end, out.body, done) || !done) {
-            error = "the response's chunked body is cut short";
+        std::size_t at = end;
+        const int walked = walk_chunks(raw, at, &out.body);
+        if (walked != 1) {
+            error = walked < 0 ? "the response's chunked body is malformed" : "the response's chunked body is cut short";
             return false;
         }
         return true;
@@ -172,7 +262,11 @@ bool parse_http_response(const std::vector<std::uint8_t>& raw, HttpResponse& out
     out.body.assign(raw.begin() + static_cast<std::ptrdiff_t>(end), raw.end());
     const auto length = out.headers.find("content-length");
     if (length != out.headers.end()) {
-        const unsigned long long want = std::strtoull(length->second.c_str(), nullptr, 10);
+        std::uint64_t want = 0;
+        if (!parse_length(length->second, want)) {
+            error = "the response's Content-Length is not a number";
+            return false;
+        }
         if (out.body.size() < want) {
             error = "the response is cut short (" + std::to_string(out.body.size()) + " of " +
                     std::to_string(want) + " bytes)";
