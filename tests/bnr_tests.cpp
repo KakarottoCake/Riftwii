@@ -456,6 +456,38 @@ static void test_layout() {
     reset_animated(base, lyt);
     EXPECT_EQ(lyt.panes[1].tx, 10.0f);
 
+    // Texture swaps: the textures they pick from are added to the layout
+    // once, and the binding finds each by name, so no frame looks one up.
+    if (lyt.textures.size() == 1 && lyt.materials[0].maps.size() == 1) {
+        Animation swap;
+        swap.textures = {"new.tpl", lyt.textures[0]};
+        AnimTarget t;
+        t.name = lyt.materials[0].name;
+        t.material = true;
+        AnimTrack tr;
+        tr.kind = AnimKind::TexturePattern;
+        tr.step = true;
+        tr.keys = {AnimKey{0, 0, 0}, AnimKey{5, 1, 0}};
+        t.tracks.push_back(tr);
+        swap.targets.push_back(t);
+        Layout with = lyt;
+        const std::size_t before = with.textures.size();
+        add_animation_textures(swap, with);
+        add_animation_textures(swap, with);  // once only
+        EXPECT_EQ(with.textures.size(), before + 1);
+        const AnimBinding binding = bind_animation(swap, with);
+        EXPECT_EQ(binding.texture.size(), std::size_t(2));
+        if (binding.texture.size() == 2) {
+            EXPECT_EQ(binding.texture[0], static_cast<int>(before));
+            EXPECT_EQ(binding.texture[1], 0);
+        }
+        apply_animation(swap, 0, with, binding);
+        EXPECT_EQ(with.materials[0].maps[0].texture, before);
+        apply_animation(swap, 6, with, binding);
+        EXPECT_EQ(with.materials[0].maps[0].texture, 0);
+        EXPECT_EQ(with.textures.size(), before + 1);  // nothing added per frame
+    }
+
     // A kind RiftWii does not apply (indirect matrices): parsed, skipped and named.
     Bytes other = a;
     for (std::size_t i = 0; i + 4 <= other.size(); ++i)
@@ -470,6 +502,39 @@ static void test_layout() {
     EXPECT_TRUE(describe_banner(lyt, &skipping, nullptr).find("skipped kinds: RLIM") != std::string::npos);
 }
 
+// An animation of one pane whose one tag has `entries` track records, all
+// pointing at the same record of `keys` keys (records may overlap).
+static Bytes overlapping_brlan(std::uint8_t entries, std::uint16_t keys) {
+    Bytes a(0x10, 0);
+    puts_(a, 0, "RLAN");
+    put16(a, 4, 0xFEFF);
+    put16(a, 0xC, 0x10);
+    Bytes pai(0x18, 0);
+    puts_(pai, 0, "pai1");
+    put16(pai, 8, 10);
+    put16(pai, 0xE, 1);
+    put32(pai, 0x10, 0x14);
+    put32(pai, 0x14, 0x18);
+    Bytes an(0x1C, 0);
+    puts_(an, 0, "P_pic");
+    an[0x14] = 1;
+    put32(an, 0x18, 0x1C);
+    const std::size_t record = 8 + std::size_t(entries) * 4;
+    Bytes tag(record + 0xC + std::size_t(keys) * 12, 0);
+    puts_(tag, 0, "RLPA");
+    tag[4] = entries;
+    for (std::uint8_t e = 0; e < entries; ++e) put32(tag, 8 + e * 4, static_cast<std::uint32_t>(record));
+    tag[record + 2] = 2;
+    put16(tag, record + 4, keys);
+    put32(tag, record + 8, 0xC);
+    for (std::uint16_t k = 0; k < keys; ++k) putf(tag, record + 0xC + k * 12, static_cast<float>(k));
+    an.insert(an.end(), tag.begin(), tag.end());
+    pai.insert(pai.end(), an.begin(), an.end());
+    put32(pai, 4, static_cast<std::uint32_t>(pai.size()));
+    a.insert(a.end(), pai.begin(), pai.end());
+    return a;
+}
+
 // What a crafted banner can ask for. Each case failed open (a crash, a
 // read or allocation past the file, or undefined behaviour) before.
 static void test_hostile() {
@@ -480,6 +545,17 @@ static void test_hostile() {
         AnimTrack nan;
         nan.keys = {AnimKey{std::nanf(""), 7, 0}};
         EXPECT_EQ(track_value(nan, 3), 7.0f);
+    }
+    // Overlapping track records: a 7 KB file naming 255 tracks of 600 keys,
+    // every one applied every frame, is refused; a few are fine.
+    {
+        Animation anim;
+        const Bytes many = overlapping_brlan(255, 600);
+        EXPECT_TRUE(!parse_brlan(many.data(), many.size(), anim, error));
+        const Bytes few = overlapping_brlan(4, 600);
+        EXPECT_TRUE(parse_brlan(few.data(), few.size(), anim, error));
+        EXPECT_EQ(anim.targets.size(), std::size_t(1));
+        if (!anim.targets.empty()) EXPECT_EQ(anim.targets[0].tracks.size(), std::size_t(4));
     }
     U8Archive a;
     // A name past 255 bytes.

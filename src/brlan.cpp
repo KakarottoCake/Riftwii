@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
+#include <unordered_map>
 
 namespace riftwii {
 namespace {
@@ -79,6 +80,7 @@ bool parse_brlan(const std::uint8_t* data, std::size_t size, Animation& out, std
             return false;
         }
         Animation a;
+        std::size_t tracks = 0, keys = 0;
         a.frames = be16(s + 8);
         a.loop = s[0xA] != 0;
         const std::uint16_t ntex = be16(s + 0xC), nanim = be16(s + 0xE);
@@ -149,6 +151,12 @@ bool parse_brlan(const std::uint8_t* data, std::size_t size, Animation& out, std
                         error = "animation " + t.name + " keys run past it";
                         return false;
                     }
+                    keys += nkeys;
+                    if (++tracks > kMaxAnimTracks || keys > kMaxAnimKeys) {
+                        error = "more than " + std::to_string(kMaxAnimTracks) + " tracks or " +
+                                std::to_string(kMaxAnimKeys) + " keys";
+                        return false;
+                    }
                     for (std::uint16_t k = 0; k < nkeys; ++k) {
                         const std::uint8_t* key = en + ko + k * key_size;
                         AnimKey kv;
@@ -195,8 +203,27 @@ float track_value(const AnimTrack& track, float frame) {
     return h00 * a.value + h10 * span * a.slope + h01 * b.value + h11 * span * b.slope;
 }
 
+void add_animation_textures(const Animation& anim, Layout& layout) {
+    bool patterns = false;
+    for (const AnimTarget& t : anim.targets)
+        for (const AnimTrack& tr : t.tracks) patterns = patterns || tr.kind == AnimKind::TexturePattern;
+    if (!patterns) return;
+    std::unordered_map<std::string, int> have;
+    for (const std::string& name : layout.textures) have.emplace(name, 0);
+    for (const std::string& name : anim.textures) {
+        if (have.emplace(name, 0).second) layout.textures.push_back(name);
+    }
+}
+
 AnimBinding bind_animation(const Animation& anim, const Layout& layout) {
     AnimBinding b;
+    // By name, as apply_animation looked them up: the last of equal names.
+    std::unordered_map<std::string, int> textures;
+    for (std::size_t i = 0; i < layout.textures.size(); ++i) textures[layout.textures[i]] = static_cast<int>(i);
+    for (const std::string& name : anim.textures) {
+        const auto it = textures.find(name);
+        b.texture.push_back(it == textures.end() ? -1 : it->second);
+    }
     for (const AnimTarget& t : anim.targets) {
         // A material's tracks name the material, or a pane whose material it is.
         const int pi = t.material ? -1 : layout.find_pane(t.name);
@@ -309,11 +336,15 @@ void apply_animation(const Animation& anim, float frame, Layout& layout, const A
                     // those to an index is undefined).
                     if (!(v >= 0.0f) || v >= static_cast<float>(anim.textures.size())) continue;
                     const std::size_t pick = static_cast<std::size_t>(v);
-                    const std::string& name = anim.textures[pick];
                     std::size_t found = layout.textures.size();
-                    for (std::size_t i = 0; i < layout.textures.size(); ++i)
-                        if (layout.textures[i] == name) found = i;
-                    if (found == layout.textures.size()) layout.textures.push_back(name);
+                    if (pick < binding.texture.size() && binding.texture[pick] >= 0) {
+                        found = static_cast<std::size_t>(binding.texture[pick]);  // worked out once
+                    } else {
+                        const std::string& name = anim.textures[pick];
+                        for (std::size_t i = 0; i < layout.textures.size(); ++i)
+                            if (layout.textures[i] == name) found = i;
+                        if (found == layout.textures.size()) layout.textures.push_back(name);
+                    }
                     m->maps[tr.index].texture = static_cast<std::uint16_t>(found);
                 }
             }
