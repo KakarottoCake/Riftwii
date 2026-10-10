@@ -24,7 +24,9 @@ std::uint32_t le32(const std::uint8_t* p) {
 }
 
 constexpr std::uint32_t kRfnt = 0x52464E54, kRfna = 0x52464E41, kVersion = 0xFEFF0104;
-constexpr std::uint32_t kFinf = 0x46494E46, kTglp = 0x54474C50, kCwdh = 0x43574448, kCmap = 0x434D4150;
+// The sections read. "FINF", the font's own header, is walked past:
+// nothing in it is needed.
+constexpr std::uint32_t kTglp = 0x54474C50, kCwdh = 0x43574448, kCmap = 0x434D4150;
 // The font's 32 pixels make a line as wide as the TrueType font's at this size.
 constexpr float kAsFreeType = 32.5f;
 

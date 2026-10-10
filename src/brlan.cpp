@@ -219,8 +219,16 @@ std::string describe_banner(const Layout& layout, const Animation* start, const 
     }
     char buf[640];
     std::size_t n = 0;
+    // Text with nothing to fill in goes through "%s": GCC's
+    // -Wformat-security (on by default on Ubuntu, an error with -Werror)
+    // refuses a format that is not a literal and has no arguments.
     auto add = [&](const char* fmt, auto... args) {
-        if (n < sizeof buf) n += static_cast<std::size_t>(std::snprintf(buf + n, sizeof buf - n, fmt, args...));
+        if (n >= sizeof buf) return;
+        if constexpr (sizeof...(args) == 0) {
+            n += static_cast<std::size_t>(std::snprintf(buf + n, sizeof buf - n, "%s", fmt));
+        } else {
+            n += static_cast<std::size_t>(std::snprintf(buf + n, sizeof buf - n, fmt, args...));
+        }
     };
     add("%dx%d, %u panes, %u materials (%u with TEV stages, up to %u; %u with indirect stages (their warp skipped); "
         "%u blend; %u alpha compare), %u textures",
