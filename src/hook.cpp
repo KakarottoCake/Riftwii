@@ -218,8 +218,12 @@ bool displaceable(std::uint32_t instruction, unsigned scratch_reg, std::string& 
 
 bool plan_resident_placement(std::uint32_t arena1_hi, std::uint32_t mem1_floor, std::uint32_t arena2_lo,
                              std::uint32_t arena2_end, std::uint32_t blob_size, std::uint32_t extra_bytes,
-                             ResidentPlacement& out, std::string& error, bool code_in_mem2) {
+                             ResidentPlacement& out, std::string& error, bool code_in_mem2, bool mem2_top) {
     ResidentPlacement p;
+    if (mem2_top && !code_in_mem2) {
+        error = "the top of MEM2 takes the code too";
+        return false;
+    }
     // Code: right below the MEM1 arena top, on a 32-byte line (the blob's
     // context and DMA buffers are laid out for one).
     if (arena1_hi <= kMem1Low || arena1_hi > kMem1End || (arena1_hi & 31) != 0) {
@@ -261,14 +265,20 @@ bool plan_resident_placement(std::uint32_t arena1_hi, std::uint32_t mem1_floor, 
             return false;
         }
         const std::uint32_t stage = static_cast<std::uint32_t>(arena2_end - bytes) & ~31u;
-        if (stage < kMem2ArenaFloor || stage < end) {
+        if (stage < kMem2ArenaFloor || (!mem2_top && stage < end)) {
             error = "resident data does not fit in the MEM2 arena";
             return false;
         }
-        p.data_base = arena2_lo;
         p.data_bytes = static_cast<std::uint32_t>(bytes);
-        p.new_arena2_lo = static_cast<std::uint32_t>(end);
         p.stage_base = stage;
+        if (mem2_top) {
+            p.data_base = stage;
+            p.new_arena2_hi = stage;
+        } else {
+            p.data_base = arena2_lo;
+            p.new_arena2_lo = static_cast<std::uint32_t>(end);
+        }
+        if (code_in_mem2) p.code_base = p.data_base;
     }
     out = p;
     error.clear();

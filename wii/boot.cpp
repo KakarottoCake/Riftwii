@@ -1306,6 +1306,14 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         // its list is placed elsewhere, so the handler's own list room is
         // free for the veneers and the runtime's code goes to MEM2.
         if (g_extras.code_list_start != 0 && !g_extras.cheat_gct.empty()) ro.mem1_veneers = kCodeVeneers;
+        // Resident Evil 4 clears MEM1 up to its FST and keeps its audio RAM
+        // at the bottom of MEM2 (0x90004000): an RVZ of it, whose reads the
+        // runtime serves, stayed black (the runtime's code and data both
+        // overwritten). Both go to the top of MEM2 instead.
+        if (clears_mem1_top) {
+            ro.mem1_veneers = kCodeVeneers;
+            ro.mem2_top = true;
+        }
         if (!install_resident(dol, ro, resident, error)) return false;
     }
     // The virtual SD card: in the resident runtime's place (never with it).
@@ -1487,6 +1495,7 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     }
     // The virtual SD card's MEM2 block is the arena's top: its end comes
     // down instead, the start (and the game's heaps) staying put.
+    if (options.install_resident && resident.new_arena2_hi != 0) write32(0x80003128, resident.new_arena2_hi);
     if (vsd.active) write32(0x80003128, vsd.new_arena2_hi);
     // The crash blob of a code build is below that (or alone at the top).
     if (fault.active && fault.veneer != 0) write32(0x80003128, fault.new_arena2_hi);
@@ -1701,7 +1710,7 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     const std::uint32_t bi2 = load32(0x800000F4);
     SYS_ResetSystem(SYS_SHUTDOWN, 0, 0);
     store32(0x800000F4, bi2);
-    if (options.install_resident && resident.data_bytes != 0) {
+    if (options.install_resident && resident.data_bytes != 0 && resident.data_base != resident.stage_base) {
         // The runtime's data to the bottom of the MEM2 arena, over what was
         // this loader's own memory (nothing below needs it any more).
         std::memcpy(reinterpret_cast<void*>(resident.data_base), reinterpret_cast<const void*>(resident.stage_base),

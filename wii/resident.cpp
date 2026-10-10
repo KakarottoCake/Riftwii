@@ -320,7 +320,7 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
     const bool code_in_mem2 = options.mem1_veneers != 0;
     if (!plan_resident_placement(arena1_hi, options.mem1_floor, arena2_lo, arena2_end, blob.size,
                                  static_cast<std::uint32_t>(payload.size()) + bounce_bytes + fs_bytes + rvz_bytes,
-                                 place, error, code_in_mem2)) {
+                                 place, error, code_in_mem2, options.mem2_top)) {
         return false;
     }
     const std::uint32_t payload_address = place.data_base + (code_in_mem2 ? blob.size : 0);
@@ -480,6 +480,7 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
     out.stage_base = place.stage_base;
     out.old_arena2_lo = arena2_lo;
     out.new_arena2_lo = place.new_arena2_lo;
+    out.new_arena2_hi = place.new_arena2_hi;
     out.ioctl_async = symbols.ioctl_async;
     out.ioctlv_async = symbols.ioctlv_async;
     out.ioctl_async_original = original(RT_IPC_ASYNC_IOCTL);
@@ -501,6 +502,10 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
     if (code_in_mem2) {
         logf("Resident: code in MEM2 with the data, the MEM1 arena kept whole; %u veneer(s) at 0x%08x\n", veneers,
              options.mem1_veneers);
+    }
+    if (place.new_arena2_hi != 0) {
+        logf("Resident: at the top of MEM2, 0x%08x, the MEM2 arena end 0x%08x -> 0x%08x (the game clears MEM1's top "
+             "and uses MEM2's bottom)\n", place.data_base, arena2_end, place.new_arena2_hi);
     }
     if (place.data_bytes != 0) {
         logf("Resident: %u bytes of data at 0x%08x (staged at 0x%08x), MEM2 arena start 0x%08x -> 0x%08x, end 0x%08x kept\n",

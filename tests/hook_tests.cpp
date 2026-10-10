@@ -283,6 +283,19 @@ static void TestPlacement() {
     EXPECT_EQ(p.data_base, 0x90000800u);
     EXPECT_EQ(p.new_arena1_hi, 0x817E9E60u);
     EXPECT_TRUE(p.data_bytes >= 7840u + 32u);
+    EXPECT_EQ(p.new_arena2_hi, 0u);
+    // At the top of MEM2: built where it runs, the arena's end lowered.
+    EXPECT_TRUE(riftwii::plan_resident_placement(0x817E9E60, 0x81240000, 0x90000800, 0x935E0000, 7840, 32, p, error, true,
+                                                 true));
+    EXPECT_EQ(p.data_bytes, 7840u + 32u);
+    EXPECT_EQ(p.data_base, 0x935E0000u - (7840u + 32u));
+    EXPECT_EQ(p.code_base, p.data_base);
+    EXPECT_EQ(p.stage_base, p.data_base);
+    EXPECT_EQ(p.new_arena2_hi, p.data_base);
+    EXPECT_EQ(p.new_arena2_lo, 0x90000800u);
+    EXPECT_EQ(p.new_arena1_hi, 0x817E9E60u);
+    EXPECT_FALSE(riftwii::plan_resident_placement(0x817E9E60, 0x81240000, 0x90000800, 0x935E0000, 7840, 32, p, error,
+                                                  false, true));  // the code would stay in MEM1
     EXPECT_TRUE(riftwii::plan_resident_placement(0x81241EA0, 0x81240000, 0x90000800, 0x935E0000, 7840, 0, p, error));
     EXPECT_EQ(p.code_base, 0x81240000u);
     EXPECT_FALSE(riftwii::plan_resident_placement(0x81241E80, 0x81240000, 0x90000800, 0x935E0000, 7840, 0, p, error));

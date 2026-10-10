@@ -88,6 +88,9 @@ struct ResidentOptions {
     // jumps there through a 16-byte veneer written from this MEM1 address
     // (RT_IPC_ENTRIES of them at most), so the MEM1 arena stays whole.
     std::uint32_t mem1_veneers = 0;
+    // With mem1_veneers: code and data at the top of MEM2, its end lowered
+    // (riftwii/hook.hpp plan_resident_placement mem2_top).
+    bool mem2_top = false;
     SavegameOptions savegame;
     RvzResidentOptions rvz;
     // The game is an image without a retail BCA: the runtime answers
@@ -105,6 +108,7 @@ struct ResidentInstall {
     std::uint32_t stage_base = 0;       // where they are built; copied to data_base last of all
     std::uint32_t old_arena2_lo = 0;
     std::uint32_t new_arena2_lo = 0;    // to be written to 0x80003124 after the low-memory flush
+    std::uint32_t new_arena2_hi = 0;    // to be written to 0x80003128, 0 when it stays (mem2_top)
     std::uint32_t ioctl_async = 0;    // hooked function
     std::uint32_t ioctlv_async = 0;   // found, not hooked (0 if unknown)
     // What calls into the game's IOS without passing the runtime: the

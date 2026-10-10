@@ -170,12 +170,19 @@ struct ResidentPlacement {
     std::uint32_t data_bytes = 0;       // from data_base to the new arena lo
     std::uint32_t new_arena2_lo = 0;    // what 0x80003124 becomes (unchanged when data_bytes == 0)
     std::uint32_t stage_base = 0;       // where the loader builds the data (data_bytes, ending at or below arena2_end)
+    std::uint32_t new_arena2_hi = 0;    // what 0x80003128 becomes, 0 when the end stays (mem2_top)
 };
 // code_in_mem2: the code goes first in the MEM2 reservation (data_base ==
 // code_base, the data after it) and the MEM1 arena stays whole, for games
 // that size their heaps to all of MEM1 (Project+).
+// mem2_top (with code_in_mem2): code and data at the top of the MEM2 arena,
+// where they are built (data_base == stage_base), and the arena's end comes
+// down to them; MEM1's arena top and MEM2's start stay. For games that
+// clear the top of MEM1 and use the bottom of MEM2 as they like (Resident
+// Evil 4: its audio RAM from 0x90004000).
 bool plan_resident_placement(std::uint32_t arena1_hi, std::uint32_t mem1_floor, std::uint32_t arena2_lo,
                              std::uint32_t arena2_end, std::uint32_t blob_size, std::uint32_t extra_bytes,
-                             ResidentPlacement& out, std::string& error, bool code_in_mem2 = false);
+                             ResidentPlacement& out, std::string& error, bool code_in_mem2 = false,
+                             bool mem2_top = false);
 
 }  // namespace riftwii
