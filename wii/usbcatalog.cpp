@@ -1568,6 +1568,22 @@ std::vector<int> image_cios_order(const ImageGame& game, int chosen, bool uses_s
     return order;
 }
 
+bool wait_for_usb_drive(int seconds) {
+    USB_Initialize();
+    static usb_device_entry devices[8] ATTRIBUTE_ALIGN(32);
+    for (int tick = 0; tick <= seconds * 4; ++tick) {
+        u8 listed = 0;
+        if (USB_GetDeviceList(devices, 8, kUsbClassMassStorage, &listed) >= 0 && listed > 0) {
+            if (tick > 0) logf("USB: a drive is listed after %d.%02d s\n", tick / 4, (tick % 4) * 25);
+            return true;
+        }
+        if (tick == 0) logf("USB: no drive listed yet; waiting up to %d s\n", seconds);
+        usleep(250000);
+    }
+    logf("USB: still no drive listed after %d s\n", seconds);
+    return false;
+}
+
 bool scan_usb_games(ImageCatalog& out, std::string& error) {
     out = ImageCatalog{}; out.device = ImageDevice::Usb; if (!ensure_usb(error)) return false;
     if (g_usb_raw_disc) {

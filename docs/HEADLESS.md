@@ -35,7 +35,7 @@ from its own menu (the game's saved choices, then RiftWii's Settings).
 | Key | Values | Meaning |
 | --- | --- | --- |
 | `game` | `RMCE01`, or `RMCE` | The game ID, all six characters or the first four. |
-| `from` | `usb`, `sd`, `disc` | Where the game is. Without it RiftWii looks on the USB drive, the SD card, then the disc. Images are found by ID in `wbfs/`, `games/` and the user's `game_folders`. |
+| `from` | `usb`, `sd`, `disc` | Where the game is. Without it RiftWii looks on the USB drive, the SD card, then the disc. When it looks on the USB drive, it first waits up to 10 seconds for a drive to be listed (a loader that has just let go of the drive), so give `sd` or `disc` when the game is there. Images are found by ID in `wbfs/`, `games/` and the user's `game_folders`. |
 | `path` | `usb:/wbfs/Mario Kart Wii [RMCE01]/RMCE01.wbfs` | The image itself, for a loader that knows it (the first part of a split image). It sets `from`. With `game` too, the image must have that ID. |
 | `xml` | `sd:/riivolution/ctgp.xml`, `ctgp.xml`, `all` or `none` | A pack to turn on, by its path or by its file name in a `riivolution` folder; repeat it for several. Every pack not named is off; `all` turns on every pack for the game, `none` turns them all off. Without any `xml`, the packs RiftWii has saved for the game are used. Each pack's options are the ones saved for it in RiftWii, else in Riivolution's `sd:/riivolution/config/<ID4>.xml`, else the pack's defaults. |
 | `video_mode` | `game`, `system`, `ntsc`, `pal60`, `pal50`, `480p` | The TV format. |

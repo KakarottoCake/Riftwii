@@ -41,8 +41,13 @@ bool wanted(const HeadlessLaunch& h, const ImageGame& g) {
 // card and the disc, in that order.
 bool select_game(const HeadlessLaunch& h, FrontendState& state, std::string& error) {
     const std::string what = h.path.empty() ? h.game : h.path;
+    std::string usb_error;
     if (h.from.empty() || h.from == "usb") {
-        std::string scan_error;
+        std::string& scan_error = usb_error;
+        // Started straight from another loader, the drive it used may not
+        // be listed again yet (a tester's WiiFlow plugin: "checking for a
+        // device", then nothing, 5 ms in).
+        wait_for_usb_drive(10);
         if (scan_usb_games(state.usb_catalog, scan_error)) {
             for (std::size_t i = 0; i < state.usb_catalog.games.size(); ++i) {
                 if (wanted(h, state.usb_catalog.games[i])) return SelectUsbGame(state, i, error);
@@ -68,7 +73,9 @@ bool select_game(const HeadlessLaunch& h, FrontendState& state, std::string& err
     IdentifyDisc(state);
     if (state.game_id.empty() || state.game_id.compare(0, h.game.size(), h.game) != 0) {
         error = h.game.empty() ? std::string("there is no game in the disc drive")
-                               : h.game + " was not found on the USB drive, the SD card or in the disc drive";
+                               : h.game + " was not found on the USB drive" +
+                                     (usb_error.empty() ? std::string() : " (" + usb_error + ")") +
+                                     ", the SD card or in the disc drive";
         return false;
     }
     return true;
@@ -214,6 +221,7 @@ void RunHeadless(const std::vector<std::string>& args) {
     std::string line;
     for (const std::string& a : args) line += " " + a;
     logf("RiftWii %s: headless launch:%s\n", RIFTWII_VERSION, line.c_str());
+    logf("Running IOS%d rev %d\n", IOS_GetVersion(), IOS_GetRevision());
     std::string error;
     if (!launch(args, error)) logf("FAILED: %s\n", error.c_str());
     LogClose();
