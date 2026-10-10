@@ -313,6 +313,20 @@ void TestStatsRenameDeleteAndFailure(Low& low) {
         // Put banner.bin back for the failure case below.
         CopyPath(low.data, fx.prefix + "/other.dat"); CopyPath(low.data + RTFS_PATH_BYTES, fx.prefix + "/banner.bin");
         EXPECT_EQ(Run(fx, low, rename), RTFAT_OK);
+        // Renamed onto itself (the same name, or in another case, which
+        // to FAT is one file): kept, not deleted as a destination being
+        // replaced.
+        for (const char* self : {"/banner.bin", "/BANNER.BIN", "/Banner.Bin"}) {
+            CopyPath(low.data, fx.prefix + "/banner.bin"); CopyPath(low.data + RTFS_PATH_BYTES, fx.prefix + self);
+            EXPECT_EQ(Run(fx, low, rename), RTFAT_OK);
+            CopyPath(low.data, fx.prefix + "/banner.bin");
+            const int kept = Run(fx, low, Open(Addr(low.data), 1));
+            EXPECT_TRUE(kept >= static_cast<int>(RTFS_FD_BASE));
+            rtfs_ipc st{}; st.command = RTFS_CMD_IOCTL; st.fd = kept; st.args.ioctl.request = RTFS_IOCTL_GETFILESTATS; st.args.ioctl.out = Addr(size); st.args.ioctl.out_len = 8;
+            EXPECT_EQ(Run(fx, low, st), RTFAT_OK); EXPECT_EQ(size[0], 1061u);
+            close.fd = kept;
+            EXPECT_EQ(Run(fx, low, close), RTFAT_OK);
+        }
     }
     // The public classifier.
     {
