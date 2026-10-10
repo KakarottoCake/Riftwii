@@ -137,6 +137,12 @@ static void test_plain() {
     std::vector<std::string> notes;
     std::string err;
     EXPECT_TRUE(riftwii::apply_memory_patches(patches, {}, kWritable, mem, notes, err));
+    // Uncached addresses land on the same RAM through the cached alias.
+    std::vector<std::string> uncached_notes;
+    EXPECT_TRUE(riftwii::apply_memory_patches({Plain(0xC0001200, "uncached"), Plain(0xD0000020, "mem2")}, {},
+                                              kWritable, mem, uncached_notes, err));
+    EXPECT_EQ(mem.str(0x80001200, 8), std::string("uncached"));
+    EXPECT_EQ(mem.str(0x90000020, 4), std::string("mem2"));
     EXPECT_EQ(mem.str(0x80001000, 12), std::string("Kernel BUILT"));
     EXPECT_EQ(mem.str(0x80001100, 12), std::string("Console Type"));
     EXPECT_EQ(mem.word(0x90000010), std::uint32_t(0x01020304));
@@ -224,11 +230,17 @@ static void test_search() {
     EXPECT_TRUE(riftwii::apply_memory_patches({p}, loaded, kWritable, mem, notes, err));
     p.align = 4;
 
-    // Malformed: lengths differ, no original, no value, both modes.
+    // The value may be shorter than what was matched, as in Dolphin.
+    FakeMemory shorter;
+    shorter.put(0x80008010, "abcdefgh");
+    riftwii::MemoryPatch part = p;
+    part.original = Bytes("abcdefgh");
+    part.value = Bytes("XY");
+    EXPECT_TRUE(riftwii::apply_memory_patches({part}, loaded, kWritable, shorter, notes, err));
+    EXPECT_EQ(shorter.str(0x80008010, 8), std::string("XYcdefgh"));
+
+    // Malformed: no original, no value, both modes.
     riftwii::MemoryPatch bad = p;
-    bad.value = Bytes("short");
-    EXPECT_FALSE(riftwii::apply_memory_patches({bad}, loaded, kWritable, mem, notes, err));
-    bad = p;
     bad.original.clear();
     EXPECT_FALSE(riftwii::apply_memory_patches({bad}, loaded, kWritable, mem, notes, err));
     bad = p;

@@ -25,8 +25,12 @@ bool inside(const std::vector<MemoryRegion>& regions, std::uint32_t address, std
     return false;
 }
 
+// Cached and uncached views of the same RAM are one place: an uncached
+// 0xC…/0xD… address is patched through its cached 0x8…/0x9… alias.
 std::uint32_t target_of(const MemoryPatch& p) {
-    return static_cast<std::uint32_t>(p.offset) | 0x80000000u;
+    std::uint32_t address = static_cast<std::uint32_t>(p.offset);
+    if ((address & 0xE0000000u) == 0xC0000000u) address -= 0x40000000u;
+    return address | 0x80000000u;
 }
 
 bool write_checked(const std::vector<MemoryRegion>& writable, MemoryAccess& memory, std::uint32_t address,
@@ -127,10 +131,6 @@ bool apply_search(const MemoryPatch& p, const std::vector<MemoryRegion>& loaded,
     }
     if (p.value.empty()) {
         error = "memory search patch without value";
-        return false;
-    }
-    if (p.value.size() != p.original.size()) {
-        error = "memory search value and original differ in length";
         return false;
     }
     std::uint32_t at = 0;

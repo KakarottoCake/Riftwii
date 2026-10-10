@@ -599,24 +599,20 @@ bool ParseMemoryNode(pugi::xml_node n, Patch& patch, Ctx& ctx, int depth, std::s
     if (!ReadBool(n, "ocarina", "memory", m.ocarina, ctx, error)) return false;
     if (!ReadBool(n, "search", "memory", m.search, ctx, error)) return false;
     if (!ReadU64(n, "align", "memory", m.align, error)) return false;
-    const bool has_value = !m.value.empty();
-    const bool has_file = !m.valuefile.empty();
-    if (has_value == has_file) {
-        error = has_value ? "memory has both value and valuefile" : "memory needs value or valuefile";
-        return false;
-    }
+    // The rules follow Dolphin's: a valuefile wins over a value, a search
+    // may write more or fewer bytes than it matched, and an ocarina patch
+    // may take its pattern from a valuefile.
+    if (m.value.empty() && m.valuefile.empty()) { error = "memory needs value or valuefile"; return false; }
+    if (!m.valuefile.empty()) m.value.clear();
     if (m.ocarina && m.search) { error = "memory cannot be both ocarina and search"; return false; }
     if (m.search) {
         if (m.original.empty()) { error = "memory search needs original"; return false; }
-        if (has_value && m.value.size() != m.original.size()) {
-            error = "memory search value and original differ in length";
-            return false;
-        }
     } else if (!m.has_offset) {
         error = "memory missing offset";
         return false;
     }
-    if (m.ocarina && !has_value) { error = "memory ocarina needs value"; return false; }
+    // Addresses are 32-bit; one cut down to fit would patch somewhere else.
+    if (m.offset > 0xFFFFFFFFu) { error = "memory offset is above 32 bits"; return false; }
     if (m.value.size() > kMaxMemoryValueBytes || m.original.size() > kMaxMemoryValueBytes) {
         error = "memory value too large";
         return false;
@@ -748,13 +744,25 @@ bool ParseParam(pugi::xml_node n, std::vector<Param>& out, Ctx& ctx, int depth, 
 bool ParsePatchRef(pugi::xml_node n, Choice& ch, Ctx& ctx, int depth, std::string& error) {
     static const char* const allowed[] = {"id", nullptr};
     if (!EnterElement(n, ctx, depth, allowed, "patch reference", error)) return false;
-    for (auto c : n.children()) {
-        if (c.type() == pugi::node_element) WarnUnknownChild(ctx, "patch reference", c);
-    }
     if (!AttrPresent(n, "id")) { error = "patch reference missing id"; return false; }
     std::string id = AttrValue(n, "id");
     if (id.empty()) { error = "patch reference id empty"; return false; }
+    // As in Dolphin, <param>s here fill the referenced patch's {$name}s.
+    std::vector<Param> params;
+    for (auto c : n.children()) {
+        if (c.type() != pugi::node_element) continue;
+        if (std::string(c.name()) == "param") {
+            if (!ParseParam(c, params, ctx, depth + 1, error) &&
+                !Recover(ctx, "a param in patch reference '" + id + "'", error)) {
+                return false;
+            }
+        } else {
+            WarnUnknownChild(ctx, "patch reference", c);
+        }
+    }
+    ch.patch_params.resize(ch.patches.size());
     ch.patches.push_back(id);
+    ch.patch_params.push_back(std::move(params));
     return true;
 }
 bool ParseChoice(pugi::xml_node n, Option& opt, Ctx& ctx, int depth, std::string& error) {
@@ -1326,12 +1334,16 @@ bool parse_package(const std::string& input, Package& output, std::string& error
         for (auto& o : tmp.options) {
             for (auto& ch : o.choices) {
                 std::vector<std::string> resolved;
-                for (const auto& pid : ch.patches) {
+                std::vector<std::vector<Param>> resolved_params;
+                for (std::size_t r = 0; r < ch.patches.size(); ++r) {
+                    const std::string& pid = ch.patches[r];
                     if (tmp.patches.find(pid) == tmp.patches.end()) {
                         Warn(ctx, "choice '" + ch.name + "' of option '" + o.name + "' references undefined patch '" +
                                       pid + "'; ignored");
                         continue;
                     }
+                    const std::vector<Param> params =
+                        r < ch.patch_params.size() ? ch.patch_params[r] : std::vector<Param>();
                     const auto more = ctx.aliases.find(pid);
                     // A repeated id names all its definitions, in every
                     // choice that names it: counted against the same budget.
@@ -1341,11 +1353,14 @@ bool parse_package(const std::string& input, Package& output, std::string& error
                         return false;
                     }
                     resolved.push_back(pid);
+                    resolved_params.push_back(params);
                     if (more != ctx.aliases.end()) {
                         resolved.insert(resolved.end(), more->second.begin(), more->second.end());
+                        resolved_params.insert(resolved_params.end(), more->second.size(), params);
                     }
                 }
                 ch.patches = std::move(resolved);
+                ch.patch_params = std::move(resolved_params);
             }
         }
         output = tmp;
@@ -1529,7 +1544,8 @@ bool plan_package(const Package& package, const DiscIdentity& disc, const PlanOp
             }
             if (o.selected == 0) continue;
             const Choice& ch = o.choices[o.selected - 1];
-            for (const auto& pid : ch.patches) {
+            for (std::size_t r = 0; r < ch.patches.size(); ++r) {
+                const std::string& pid = ch.patches[r];
                 auto it = package.patches.find(pid);
                 if (it == package.patches.end()) {
                     error = "unresolved patch reference '" + pid + "'";
@@ -1541,9 +1557,13 @@ bool plan_package(const Package& package, const DiscIdentity& disc, const PlanOp
                 s.patch = &it->second;
                 s.patch_id = pid;
                 // Riivolution lets an option's params win over its
-                // choice's: later entries win here.
+                // choice's, and the reference's own win over both:
+                // later entries win here.
                 s.params = ch.params;
                 s.params.insert(s.params.end(), o.params.begin(), o.params.end());
+                if (r < ch.patch_params.size()) {
+                    s.params.insert(s.params.end(), ch.patch_params[r].begin(), ch.patch_params[r].end());
+                }
                 selected.push_back(s);
             }
         }

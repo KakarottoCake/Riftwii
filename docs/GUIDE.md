@@ -620,7 +620,12 @@ works here:
 - Only `yes` and `true` (any case) mean yes; any other value means no.
 - A hex value with an odd number of digits loses its last digit.
 - A `{$name}` no param sets becomes empty. An option's params win over
-  its choice's, and over a macro's.
+  its choice's, and over a macro's; params inside a choice's
+  `<patch id>` win over all of them, for that patch only.
+- A memory patch with both `value` and `valuefile` uses the file. A
+  `search` may write more or fewer bytes than its `original`. An
+  uncached address (`0xC…`, `0xD…`) patches the same RAM as its `0x8…`,
+  `0x9…` twin; an offset above 32 bits is dropped with a warning.
 - An option that `<macro>`s copy is a template: the copies take its
   place in the list and it is not shown itself.
 - Anything after the last `>` in the file is ignored.

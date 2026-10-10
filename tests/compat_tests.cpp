@@ -342,7 +342,7 @@ static void test_rejections() {
     }
     // Malformed elements in otherwise valid documents are dropped with a
     // warning, as Riivolution skips what it cannot read; the rest loads.
-    const char* dropped[] = {"bad_hex.xml", "bad_memory_both.xml", "bad_macro_ref.xml",
+    const char* dropped[] = {"bad_hex.xml", "bad_memory_offset.xml", "bad_macro_ref.xml",
                              "bad_disc_relative_dir.xml", "bad_traversal.xml"};
     for (const char* name : dropped) {
         riftwii::Package out;

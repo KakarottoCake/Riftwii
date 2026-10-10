@@ -521,10 +521,6 @@ static bool gather_package(const PackageSelection& selection, const DiscProbe& p
                 error = "cannot read memory patch valuefile '" + m.valuefile + "'";
                 return false;
             }
-            if (m.search && m.value.size() != m.original.size()) {
-                error = "memory patch valuefile '" + m.valuefile + "' differs in length from its original";
-                return false;
-            }
         }
         mod.memory.push_back(std::move(m));
     }

@@ -37,11 +37,12 @@ public:
 // game, in document order. `value` must already hold the bytes (a
 // `valuefile` is read by the caller). Semantics, from the public
 // patch-format documentation and Dolphin's independent implementation:
-//   - plain: `value` is written at offset | 0x80000000; when `original` is
+//   - plain: `value` is written at offset | 0x80000000 (an uncached
+//     0xC…/0xD… offset at its cached 0x8…/0x9… alias); when `original` is
 //     given and the bytes there differ, nothing is written.
 //   - search: the first place in `loaded` (the regions the apploader
 //     filled, in load order) at an `align` stride where `original` matches
-//     gets `value`.
+//     gets `value`, which may be longer or shorter than `original`.
 //   - ocarina: the first occurrence of `value` in `loaded` (at 4-byte
 //     steps, as code), then the next blr at or after it (4-byte steps)
 //     becomes an unconditional branch to offset | 0x80000000.

@@ -28,7 +28,8 @@ struct DiscFilter {
 };
 
 // A name/value pair used for {$name} substitution in paths. Params attach to
-// options, choices and macro clones; later entries override earlier ones.
+// options, choices, patch references and macro clones; later entries
+// override earlier ones.
 struct Param {
     std::string name;
     std::string value;
@@ -109,6 +110,9 @@ struct Choice {
     std::string name;
     std::vector<std::string> patches;
     std::vector<Param> params;
+    // The <param>s inside each <patch id> reference, by the same index as
+    // `patches` (it may be shorter: a missing entry has none).
+    std::vector<std::vector<Param>> patch_params;
 };
 
 struct Option {

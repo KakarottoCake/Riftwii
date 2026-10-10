@@ -664,8 +664,73 @@ static void test_expansion_budget() {
     EXPECT_TRUE(std::chrono::steady_clock::now() - start < std::chrono::seconds(2));
 }
 
+// The places the parser used to part from Riivolution and Dolphin: params
+// inside a <patch id> reference, a value with a valuefile, a search that
+// writes a different length, an ocarina pattern from a file, and offsets.
+static void test_dolphin_compat() {
+    riftwii::Package pkg;
+    std::string err;
+    const riftwii::DiscIdentity disc{"RSBE01", 0, 0};
+    std::vector<riftwii::FilePatch> files;
+    // A reference's params fill the patch's {$name}s and win over the
+    // option's; the same patch can be used twice with different ones.
+    const std::string refs =
+        "<wiidisc version=\"1\" root=\"/m\"><options><section name=\"s\"><option name=\"o\" default=\"1\">"
+        "<param name=\"v\" value=\"opt\"/><choice name=\"c\">"
+        "<patch id=\"p\"><param name=\"v\" value=\"one\"/></patch>"
+        "<patch id=\"p\"><param name=\"v\" value=\"two\"/></patch>"
+        "<patch id=\"p\"/></choice></option></section></options>"
+        "<patch id=\"p\"><file disc=\"/{$v}\" external=\"{$v}.bin\"/></patch></wiidisc>";
+    EXPECT_TRUE(riftwii::parse_package(refs, pkg, err));
+    EXPECT_TRUE(pkg.warnings.empty());
+    EXPECT_TRUE(PlanFiles(pkg, disc, files, err));
+    EXPECT_EQ(files.size(), std::size_t(3));
+    if (files.size() == 3) {
+        EXPECT_EQ(files[0].external, std::string("/m/one.bin"));
+        EXPECT_EQ(files[0].disc, std::string("/one"));
+        EXPECT_EQ(files[1].external, std::string("/m/two.bin"));
+        EXPECT_EQ(files[2].external, std::string("/m/opt.bin"));
+    }
+    // A repeated patch id: each definition gets the reference's params.
+    const std::string twice =
+        "<wiidisc version=\"1\" root=\"/m\"><options><section name=\"s\"><option name=\"o\" default=\"1\">"
+        "<choice name=\"c\"><patch id=\"p\"><param name=\"v\" value=\"x\"/></patch></choice>"
+        "</option></section></options>"
+        "<patch id=\"p\"><file disc=\"/a\" external=\"{$v}/a\"/></patch>"
+        "<patch id=\"p\"><file disc=\"/b\" external=\"{$v}/b\"/></patch></wiidisc>";
+    EXPECT_TRUE(riftwii::parse_package(twice, pkg, err));
+    EXPECT_TRUE(PlanFiles(pkg, disc, files, err));
+    EXPECT_EQ(files.size(), std::size_t(2));
+    if (files.size() == 2) {
+        EXPECT_EQ(files[0].external, std::string("/m/x/a"));
+        EXPECT_EQ(files[1].external, std::string("/m/x/b"));
+    }
+    // value and valuefile together: the file wins.
+    EXPECT_TRUE(riftwii::parse_package("<wiidisc version=\"1\"><patch id=\"m\"><memory offset=\"0x80001000\" "
+                                       "value=\"1234\" valuefile=\"v.bin\"/></patch></wiidisc>", pkg, err));
+    EXPECT_EQ(pkg.patches.at("m").memory.size(), std::size_t(1));
+    if (pkg.patches.at("m").memory.size() == 1) {
+        EXPECT_TRUE(pkg.patches.at("m").memory[0].value.empty());
+        EXPECT_FALSE(pkg.patches.at("m").memory[0].valuefile.empty());
+    }
+    // A search may write more or fewer bytes than it matches.
+    EXPECT_TRUE(riftwii::parse_package("<wiidisc version=\"1\"><patch id=\"m\"><memory search=\"true\" "
+                                       "original=\"11223344\" value=\"55\"/></patch></wiidisc>", pkg, err));
+    EXPECT_EQ(pkg.patches.at("m").memory.size(), std::size_t(1));
+    // An ocarina pattern from a file.
+    EXPECT_TRUE(riftwii::parse_package("<wiidisc version=\"1\"><patch id=\"m\"><memory ocarina=\"true\" "
+                                       "offset=\"0x80001000\" valuefile=\"c.bin\"/></patch></wiidisc>", pkg, err));
+    EXPECT_EQ(pkg.patches.at("m").memory.size(), std::size_t(1));
+    // An uncached address parses; one above 32 bits is dropped.
+    EXPECT_TRUE(riftwii::parse_package("<wiidisc version=\"1\"><patch id=\"m\"><memory offset=\"0xC0001000\" "
+                                       "value=\"12\"/></patch></wiidisc>", pkg, err));
+    EXPECT_EQ(pkg.patches.at("m").memory.size(), std::size_t(1));
+    EXPECT_DROPPED("<wiidisc version=\"1\"><patch id=\"m\"><memory offset=\"0x180001000\" value=\"12\"/></patch></wiidisc>");
+}
+
 int main() {
     test_successful();
+    test_dolphin_compat();
     test_network();
     test_hex_overflow();
     test_unsupported();
