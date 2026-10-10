@@ -25,14 +25,6 @@ bool inside(const std::vector<MemoryRegion>& regions, std::uint32_t address, std
     return false;
 }
 
-// Cached and uncached views of the same RAM are one place: an uncached
-// 0xC…/0xD… address is patched through its cached 0x8…/0x9… alias.
-std::uint32_t target_of(const MemoryPatch& p) {
-    std::uint32_t address = static_cast<std::uint32_t>(p.offset);
-    if ((address & 0xE0000000u) == 0xC0000000u) address -= 0x40000000u;
-    return address | 0x80000000u;
-}
-
 bool write_checked(const std::vector<MemoryRegion>& writable, MemoryAccess& memory, std::uint32_t address,
                    const std::vector<std::uint8_t>& bytes, std::string& error) {
     if (!inside(writable, address, bytes.size())) {
@@ -102,7 +94,7 @@ bool apply_plain(const MemoryPatch& p, const std::vector<MemoryRegion>& writable
         error = "memory patch without value";
         return false;
     }
-    const std::uint32_t address = target_of(p);
+    const std::uint32_t address = memory_patch_target(p);
     if (!p.original.empty()) {
         if (!inside(writable, address, p.original.size())) {
             error = "memory patch reads outside RAM at " + hex32(address);
@@ -179,7 +171,7 @@ bool apply_ocarina(const MemoryPatch& p, const std::vector<MemoryRegion>& loaded
                                 (std::uint32_t(word[2]) << 8) | std::uint32_t(word[3]);
         if (v != kBlr) continue;
         const std::uint32_t blr = static_cast<std::uint32_t>(scan);
-        const std::uint32_t target = target_of(p);
+        const std::uint32_t target = memory_patch_target(p);
         const std::int64_t displacement = static_cast<std::int64_t>(target) - static_cast<std::int64_t>(blr);
         if ((target & 3) != 0 || displacement < -0x2000000 || displacement > 0x1FFFFFC) {
             error = "ocarina target " + hex32(target) + " is out of branch range from " + hex32(blr);
@@ -197,6 +189,12 @@ bool apply_ocarina(const MemoryPatch& p, const std::vector<MemoryRegion>& loaded
 }
 
 }  // namespace
+
+std::uint32_t memory_patch_target(const MemoryPatch& p) {
+    std::uint32_t address = static_cast<std::uint32_t>(p.offset);
+    if ((address & 0xE0000000u) == 0xC0000000u) address -= 0x40000000u;
+    return address | 0x80000000u;
+}
 
 std::vector<MemoryRegion> subtract_memory_regions(const std::vector<MemoryRegion>& regions,
                                                    const std::vector<MemoryRegion>& exclusions) {

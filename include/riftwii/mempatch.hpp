@@ -53,6 +53,11 @@ bool apply_memory_patches(const std::vector<MemoryPatch>& patches, const std::ve
                           const std::vector<MemoryRegion>& writable, MemoryAccess& memory,
                           std::vector<std::string>& notes, std::string& error);
 
+// Where a plain or ocarina patch's offset points in RAM: offset | 0x80000000,
+// an uncached 0xC…/0xD… offset at its cached 0x8…/0x9… alias (cached and
+// uncached views of the same RAM are one place).
+std::uint32_t memory_patch_target(const MemoryPatch& p);
+
 // Largest `valuefile` a caller should read into `value`.
 constexpr std::size_t kMaxMemoryValueBytes = 1u << 20;
 

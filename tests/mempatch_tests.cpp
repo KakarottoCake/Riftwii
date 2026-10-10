@@ -322,8 +322,25 @@ static void test_ocarina() {
     EXPECT_EQ(mem.word(0x8000400C), std::uint32_t(0x4E800020));
 }
 
+// Where a patch lands, as the loader's overlap checks must see it: the
+// same address however the offset was written.
+static void test_target() {
+    riftwii::MemoryPatch p;
+    p.offset = 0x1900;
+    EXPECT_EQ(riftwii::memory_patch_target(p), 0x80001900u);
+    p.offset = 0x80001900;
+    EXPECT_EQ(riftwii::memory_patch_target(p), 0x80001900u);
+    p.offset = 0xC0001900;
+    EXPECT_EQ(riftwii::memory_patch_target(p), 0x80001900u);
+    p.offset = 0xD0001000;
+    EXPECT_EQ(riftwii::memory_patch_target(p), 0x90001000u);
+    p.offset = 0x10001000;
+    EXPECT_EQ(riftwii::memory_patch_target(p), 0x90001000u);
+}
+
 int main() {
     test_subtract_regions();
+    test_target();
     test_plain();
     test_search();
     test_ocarina();
