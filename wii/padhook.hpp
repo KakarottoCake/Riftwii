@@ -52,6 +52,10 @@ bool open_usb_hid(std::int32_t& fd, std::uint32_t& version, std::string& why);
 // After an IOS reload: a /dev/usb/hid request that timed out went with
 // the old IOS, so the new one may be asked again.
 void forget_usb_hid_stuck();
+// The running IOS's /dev/usb/hid is v4 (a d2x cIOS on base 56 or older):
+// it is asked only v4's GetVersion. v5's (request 0) is v4's
+// GetDeviceChange, which waits for the next plug or unplug.
+void usb_hid_is_v4();
 
 // Whether the running IOS has /dev/usb/hid (IOS36, which many games
 // ask for, has none: with the adapter on, the running IOS is kept).

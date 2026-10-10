@@ -2138,8 +2138,20 @@ bool boot_game(const DiscProbe& probe, BootOptions options, std::string& error) 
         // and its handle found the adapter still taken (a tester: SD and
         // RVZ games, after an IOS reload, worked; the disc did not).
         if (di::frag_device() != 1) USB_Deinitialize();
-        // What this IOS's USB answers, for a report (the Wii U's adapter).
-        logf("GameCube adapter diag: %s\n", usb_open_matrix().c_str());
+        // A d2x on base 56 or older has v4's /dev/usb/hid (57's and 58's
+        // are v5, as IOS 58's).
+        const int base = d2x_base(running_ios);
+        if (base != 0 && base < 57) {
+            usb_hid_is_v4();
+            logf("GameCube adapter: IOS%d is d2x on base %d, whose /dev/usb/hid is v4\n", running_ios, base);
+        }
+        // What this IOS's USB answers, for a report, only when the player
+        // set the adapter to On: on a Wii's d2x 249, with a New Super Mario
+        // Bros. Wii image on the SD card and no adapter, its /dev/usb/hid
+        // GetVersion never answered and every disc command after it failed
+        // (BCA -4, then opening the partition). Automatic finds the adapter
+        // in the USB device list, without asking /dev/usb/hid.
+        if (g_extras.gc_adapter_forced) logf("GameCube adapter diag: %s\n", usb_open_matrix().c_str());
         const AdapterSeen seen = look_for_gc_adapter(how);
         logf("GameCube adapter (%s): %s\n", g_extras.gc_adapter == GcAdapterMode::Auto ? "auto" : "on", how.c_str());
         if (g_extras.gc_adapter == GcAdapterMode::Auto) {

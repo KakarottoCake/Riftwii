@@ -59,6 +59,7 @@ std::uint32_t* g_own_list = nullptr;
 volatile bool g_async_done = false;
 volatile s32 g_async_result = 0;
 bool g_hid_stuck = false;  // a request timed out: /dev/usb/hid is left alone from then on
+bool g_hid_v4 = false;     // usb_hid_is_v4: v5's GetVersion is not asked
 
 s32 on_async(s32 result, void*) {
     g_async_result = result;
@@ -172,21 +173,25 @@ bool open_usb_hid(std::int32_t& fd, std::uint32_t& version, std::string& why) {
         // "v4 GetVersion 0", AttachFinish done; Dolphin does not mind).
         // On v4, request 0 is GetDeviceChange, which answers at once the
         // first time; the handle is then opened again for v4's question.
-        std::memset(g_version_out, 0, kVersionBytes);
-        DCFlushRange(g_version_out, kVersionBytes);
-        s32 v5 = 0;
-        g_async_done = false;
-        if (!await_async(IOS_IoctlAsync(fd, GCAD_V5_GET_VERSION, nullptr, 0, g_version_out, kVersionBytes,
-                                        on_async, nullptr),
-                         v5)) {
-            why = "/dev/usb/hid did not answer its v5 GetVersion";
-            fd = -1;  // left open: closing it could wait too
-            return false;
-        }
-        DCInvalidateRange(g_version_out, kVersionBytes);
-        if (v5 == 0 && g_version_out[0] == GCAD_V5_VERSION) {
-            version = 5;
-            return true;
+        // Not the first time, though: on a Wii's d2x 249 (base 56) it never
+        // answered at launch, and the game's disc reads failed after it.
+        s32 v5 = 0;  // not asked on v4
+        if (!g_hid_v4) {
+            std::memset(g_version_out, 0, kVersionBytes);
+            DCFlushRange(g_version_out, kVersionBytes);
+            g_async_done = false;
+            if (!await_async(IOS_IoctlAsync(fd, GCAD_V5_GET_VERSION, nullptr, 0, g_version_out, kVersionBytes,
+                                            on_async, nullptr),
+                             v5)) {
+                why = "/dev/usb/hid did not answer its v5 GetVersion";
+                fd = -1;  // left open: closing it could wait too
+                return false;
+            }
+            DCInvalidateRange(g_version_out, kVersionBytes);
+            if (v5 == 0 && g_version_out[0] == GCAD_V5_VERSION) {
+                version = 5;
+                return true;
+            }
         }
         IOS_Close(fd);
         fd = -1;
@@ -355,6 +360,8 @@ AdapterSeen ogc_adapter(std::int32_t& dev_id, std::string& devices) {
 }
 
 void forget_usb_hid_stuck() { g_hid_stuck = false; }
+
+void usb_hid_is_v4() { g_hid_v4 = true; }
 
 bool usb_hid_present() {
     if (g_own_fd >= 0) return true;
