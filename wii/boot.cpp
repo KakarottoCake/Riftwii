@@ -2113,10 +2113,19 @@ bool boot_game(const DiscProbe& probe, BootOptions options, std::string& error) 
         // the game's is opened after libogc's USB is shut down.
         // On a Wii U only IOS 58 and a d2x on base 58 reach the adapter
         // in every USB port (a tester's check of each cIOS).
+        // The same on a Wii's d2x on base 56 or older (v4 USB) with the
+        // game read from the SD card: after the launch's USB check (libogc's
+        // USB shut down, the device list asked) every disc command failed
+        // (a tester's New Super Mario Bros. Wii image on 249: BCA -4, then
+        // "open partition failed: DI reply 128"), with or without asking
+        // /dev/usb/hid anything.
+        const int adapter_base = d2x_base(running_ios);
         const char* off = is_wii_u() && running_ios != 58 && running_ios != wii_u_adapter_slot()
                               ? "on a Wii U it needs IOS 58 or a d2x cIOS on base 58"
                           : di::frag_device() == 1          ? "the game is read from the USB drive, which the adapter breaks"
-                                                            : nullptr;
+                          : di::frag_device() != 0 && adapter_base != 0 && adapter_base < 57
+                              ? "the game is read through d2x on base 56 or older, whose USB the adapter check breaks"
+                              : nullptr;
         // On (not Automatic) tries anyway: an experiment the player chose.
         // Every /dev/usb/hid call at launch has a time limit, so a module
         // that never answers turns the adapter off rather than hang.
