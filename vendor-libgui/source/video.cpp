@@ -250,9 +250,14 @@ void Menu_ScaleProjection(Mtx44 p)
 	}
 }
 
+// Pushes past the stack's top keep the top camera; their pops are counted
+// off first, so every pop matches its push.
+static int cameraOver = 0;
+
 void Menu_SetCamera(f32 k, f32 tx, f32 ty)
 {
 	cameraDepth = 0;
+	cameraOver = 0;
 	cameraStack[0] = MenuCamera{k, tx, ty};
 	Menu_LoadOrtho();
 }
@@ -263,20 +268,32 @@ void Menu_PushCamera(f32 k, f32 cx, f32 cy, f32 dx, f32 dy)
 	// camera is on.
 	const MenuCamera& o = cameraStack[cameraDepth];
 	const f32 tx = cx * (1.0f - k) + dx, ty = cy * (1.0f - k) + dy;
-	if (cameraDepth < 7) ++cameraDepth;
+	if (cameraDepth >= 7) {
+		++cameraOver;
+		return;
+	}
+	++cameraDepth;
 	cameraStack[cameraDepth] = MenuCamera{o.k * k, o.k * tx + o.tx, o.k * ty + o.ty};
 	Menu_LoadOrtho();
 }
 
 void Menu_PushNoCamera()
 {
-	if (cameraDepth < 7) ++cameraDepth;
+	if (cameraDepth >= 7) {
+		++cameraOver;
+		return;
+	}
+	++cameraDepth;
 	cameraStack[cameraDepth] = MenuCamera{1.0f, 0.0f, 0.0f};
 	Menu_LoadOrtho();
 }
 
 void Menu_PopCamera()
 {
+	if (cameraOver > 0) {
+		--cameraOver;
+		return;
+	}
 	if (cameraDepth > 0) --cameraDepth;
 	Menu_LoadOrtho();
 }

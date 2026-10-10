@@ -324,6 +324,14 @@ void FrameStart() {
             g_run.done = g_pendingDone;
             g_pendingActor = nullptr;
             g_pendingDone = nullptr;
+        } else {
+            // No transition can play (no memory for the frame pictures, or
+            // none kept yet): what waits for its end (a shelf box landing)
+            // is told at once, or it would wait all session.
+            void (*done)() = g_pendingDone;
+            g_pendingActor = nullptr;
+            g_pendingDone = nullptr;
+            if (done) done();
         }
     }
     if (g_run.on) {

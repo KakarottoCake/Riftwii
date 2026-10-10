@@ -289,6 +289,10 @@ void ApplyWfc(const std::vector<MemoryRegion>& loaded, WfcServer server, const s
     const char region = game_id[3];
     logf("WFC: %s for %s\n", to_string(server), game_id.c_str());
     if (server == WfcServer::WiiLink) {
+        // WiiLink's hook takes the game online as it is: Mario Kart Wii's
+        // remote-code hole is closed here first, as for every server but
+        // Wiimmfi (whose own update closes it).
+        if (mkw) MkwRceFix(region);
         WiiLink(game_id, disc_version);
         return;
     }
