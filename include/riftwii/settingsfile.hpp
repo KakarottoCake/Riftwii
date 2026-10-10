@@ -37,6 +37,7 @@ struct LoaderSettings {
     std::string home_sort = "az";         // az, recent (last played first), most (most played first)
     std::string home_disc = "on";         // on, off: the Disc drive's tile on Home (asked on a new card)
     std::string theme = "default";        // default, or a folder in sd:/riftwii/themes (docs/THEMES.md)
+    std::string clock = "auto";           // auto (as the menu's language writes it), 12, 24: Home's clock
     std::string menu_font = "riftwii";    // riftwii, wii: the Wii Menu's own font, read from the NAND (riftwii/sysfont.hpp)
     std::string return_to = "riftwii";    // riftwii, menu: where a game's "Wii Menu" goes
     std::string screenshots = "off";      // in-game screenshots: on, off (demo: Dolphin tests)

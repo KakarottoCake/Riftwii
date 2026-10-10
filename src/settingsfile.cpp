@@ -37,7 +37,7 @@ void LoaderSettings::parse(const std::string& text) {
         VideoWidth w;
         Deflicker d;
         if (key == "language") {
-            if (value == "auto" || value == "en" || value == "es" || value == "ja" || value == "pt" || value == "it" ||
+            if (value == "auto" || value == "en" || value == "es" || value == "ja" || value == "pt" || value == "it" || value == "fr" ||
                 value == "ko") {
                 language = value;
             }
@@ -94,6 +94,8 @@ void LoaderSettings::parse(const std::string& text) {
             if (!value.empty() && value.size() <= 64 && value.find_first_of("/\\:") == std::string::npos &&
                 value != "." && value != "..")
                 theme = value;
+        } else if (key == "clock") {
+            if (value == "auto" || value == "12" || value == "24") clock = value;
         } else if (key == "menu_font") {
             if (value == "riftwii" || value == "wii") menu_font = value;
         } else if (key == "screenshots") {
@@ -163,6 +165,7 @@ std::string LoaderSettings::serialize() const {
     s += "home_sort = " + home_sort + "\n";
     s += "home_disc = " + home_disc + "\n";
     s += "theme = " + theme + "\n";
+    s += "clock = " + clock + "\n";
     s += "menu_font = " + menu_font + "\n";
     s += "return_to = " + return_to + "\n";
     s += "screenshots = " + screenshots + "\n";

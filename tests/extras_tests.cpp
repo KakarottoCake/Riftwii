@@ -473,6 +473,8 @@ void TestSettings() {
     EXPECT_EQ(again.language, "ja");
     again.parse("language = ko\n");
     EXPECT_EQ(again.language, "ko");
+    again.parse("language = fr\n");
+    EXPECT_EQ(again.language, "fr");
     EXPECT_EQ(again.aspect, "game");
     again.parse("aspect = 16:9\n");
     EXPECT_EQ(again.aspect, "16:9");
@@ -760,6 +762,11 @@ void TestCoverArt() {
     s.parse("menu_music = loud\n");
     EXPECT_EQ(s.menu_music, "off");
     EXPECT_EQ(s.menu_font, "riftwii");
+    EXPECT_EQ(s.clock, "auto");
+    s.parse("clock = 24\n");
+    EXPECT_EQ(s.clock, "24");
+    s.parse("clock = 25\n");
+    EXPECT_EQ(s.clock, "24");
     s.parse("menu_font = wii\n");
     EXPECT_EQ(s.menu_font, "wii");
     s.parse("menu_font = comic\n");

@@ -77,7 +77,7 @@ const char* const kCredits[] = {
     "",
     "Menu font: M PLUS Rounded 1c by the M+ Fonts Project (SIL Open Font License 1.1).",
     "",
-    "Korean translation: DDinghoya.",
+    "Korean translation: DDinghoya. French translation: MidyGamy.",
     "",
     "Menu music: \"Insect Factory (Wii-style music)\" by Zane Little (CC0).",
     "",

@@ -193,8 +193,8 @@ The gear at the bottom right (or **2**) opens Settings. Its rows come in
 groups: *Games* (the defaults for every game), *Menu*, *Finding games*,
 *Online* and *More*. The note under the list explains the row you are on.
 
-- **Language**: English, Español, 日本語, Português, Italiano, 한국어
-  (Korean), French or *Wii* to follow the console. Korean needs **Menu font** set
+- **Language**: English, Español, 日本語, Português, Italiano, Français,
+  한국어 (Korean) or *Wii* to follow the console. Korean needs **Menu font** set
   to *Wii Menu* on a Korean Wii, whose font has Hangul (RiftWii's own font
   has none); otherwise the menu stays in English and says so. A
   translation can be corrected by putting a copy of `wii/lang/<lang>.po` at
@@ -229,6 +229,9 @@ groups: *Games* (the defaults for every game), *Menu*, *Finding games*,
   (`theme = default` for the default). The zip comes with two:
   *Midnight* (dark) and *Bookshelf* (a light wooden bookcase: your covers
   stand on its shelves, with paper panels). More in [THEMES.md](THEMES.md).
+- **Clock**: how Home's clock writes the time: *12-hour* (with AM and
+  PM), *24-hour*, or *Automatic*, as the menu's language writes it. Saved
+  as `clock = auto`, `12` or `24`.
 - **Menu font**: *RiftWii* (its own) or *Wii Menu*, the font the Wii Menu
   writes with, read from your Wii's own memory (nothing is downloaded, and
   it covers Japanese too). Leaving Settings, RiftWii offers to restart its menu to switch.

@@ -13,7 +13,7 @@
 // is read over the built-in one, so a player can fix or finish one.
 namespace riftwii::wii {
 
-// Loads the catalog of `lang` ("en", "es", "ja", "pt", "it", "ko", "fr").
+// Loads the catalog of `lang` ("en", "es", "ja", "pt", "it", "fr", "ko").
 void SetMenuLanguage(const std::string& lang);
 // Whether the font on screen can write `lang`: Korean needs Hangul, which
 // only the Wii Menu's font of a Korean Wii has (RiftWii's own has none).

@@ -8,6 +8,7 @@
 
 #include "FreeTypeGX.h"
 #include "es_po_zst.h"
+#include "fr_po_zst.h"
 #include "gettext.h"
 #include "it_po_zst.h"
 #include "ja_po_zst.h"
@@ -35,6 +36,7 @@ const BuiltIn kBuiltIn[] = {
     {"ja", ja_po_zst, ja_po_zst_size},
     {"pt", pt_po_zst, pt_po_zst_size},
     {"it", it_po_zst, it_po_zst_size},
+    {"fr", fr_po_zst, fr_po_zst_size},
     {"ko", ko_po_zst, ko_po_zst_size},
 };
 

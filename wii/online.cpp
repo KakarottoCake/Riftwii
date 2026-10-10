@@ -168,7 +168,7 @@ bool UpdateTitles(const std::string& lang, bool force, std::string& error) {
         return true;
     }
     std::vector<std::uint8_t> body;
-    const std::string gametdb_lang = lang == "ja" ? "JA" : lang == "es" ? "ES" : lang == "pt" ? "PT" : lang == "it" ? "IT" : lang == "ko" ? "KO" : "EN";
+    const std::string gametdb_lang = lang == "ja" ? "JA" : lang == "es" ? "ES" : lang == "pt" ? "PT" : lang == "it" ? "IT" : lang == "fr" ? "FR" : lang == "ko" ? "KO" : "EN";
     if (!HttpGet(kTitlesUrl + gametdb_lang, body, error)) return false;
     const std::string head(body.begin(), body.begin() + static_cast<std::ptrdiff_t>(std::min<std::size_t>(body.size(), 64)));
     if (body.size() < 1024 || head.find(" = ") == std::string::npos) {

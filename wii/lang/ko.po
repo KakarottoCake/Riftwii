@@ -379,10 +379,10 @@ msgid "Online"
 msgstr "온라인"
 
 msgid "More"
-msgstr "더 많은 정보"
+msgstr "더 보기"
 
 msgid "Picture"
-msgstr "사진"
+msgstr "화면"
 
 msgid "Other"
 msgstr "기타"
@@ -1182,6 +1182,18 @@ msgstr "재시작"
 msgid "Theme: {1}"
 msgstr "테마: {1}"
 
+msgid "Clock"
+msgstr "시계"
+
+msgid "12-hour"
+msgstr "12시간"
+
+msgid "24-hour"
+msgstr "24시간"
+
+msgid "How Home's clock writes the time: 12-hour (with AM and PM) or 24-hour. Automatic writes it as the menu's language does."
+msgstr "홈 화면 시계의 시간 표시 방식: 12시간(오전/오후 표시) 또는 24시간. 자동은 메뉴 언어의 방식을 따릅니다."
+
 msgid "Menu font"
 msgstr "메뉴 글꼴"
 
@@ -1261,7 +1273,7 @@ msgid "No SD image made"
 msgstr "SD 이미지가 생성되지 않았음"
 
 msgid " and "
-msgstr "그리고"
+msgstr " 그리고 "
 
 msgid "RiftWii copies {1} into sd:/riftwii/{2} ({3}). The game then gets the image as its SD card, so it can be on the SD card too. This takes about {4} minutes."
 msgstr "RiftWii는 {1}을(를) sd:/riftwii/{2} ({3}) 경로로 복사합니다. 그러면 게임이 해당 이미지를 SD 카드로 인식하므로, 게임 파일 또한 SD 카드에 저장할 수 있게 됩니다. 이 과정은 약 {4}분 정도 소요됩니다."
@@ -1276,7 +1288,7 @@ msgid "Make an SD image?"
 msgstr "SD 이미지를 만들까요?"
 
 msgid "Make it"
-msgstr "작성"
+msgstr "만들기"
 
 msgid "Making {1}"
 msgstr "{1} 만들기"

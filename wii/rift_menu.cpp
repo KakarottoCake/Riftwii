@@ -2418,7 +2418,7 @@ private:
 
 static void ClockText(std::string& clock, std::string& date)
 {
-	const bool clock_24h = riftwii::wii::Settings().clock_24h == "on";
+	const std::string& mode = riftwii::wii::Settings().clock;
 	const time_t now = time(nullptr);
 	struct tm local;
 	localtime_r(&now, &local);
@@ -2427,11 +2427,17 @@ static void ClockText(std::string& clock, std::string& date)
 	char buf[32];
 	// {1} the 12-hour hour, {2} the minutes, {3} the 24-hour hour.
 	snprintf(buf, sizeof(buf), "%02d", local.tm_min);
-	if (clock_24h) {
-		clock = tr("{1}:{2}", {std::to_string(local.tm_hour), buf});
+	const char* const ampm = local.tm_hour < 12 ? "{1}:{2} AM" : "{1}:{2} PM";
+	if (mode == "24") {
+		clock = std::to_string(local.tm_hour) + ":" + buf;
+	} else if (mode == "12") {
+		// The language's own 12-hour way, unless it writes the 24-hour hour
+		// ({3}): then the English one, which has AM and PM.
+		const std::string own = tr(ampm);
+		clock = own.find("{1}") != std::string::npos ? tr(ampm, {std::to_string(h), buf, std::to_string(h)})
+			: std::to_string(h) + ":" + buf + (local.tm_hour < 12 ? " AM" : " PM");
 	} else {
-		clock = tr(local.tm_hour < 12 ? "{1}:{2} AM" : "{1}:{2} PM",
-			   {std::to_string(h), buf, std::to_string(local.tm_hour)});
+		clock = tr(ampm, {std::to_string(h), buf, std::to_string(local.tm_hour)});
 	}
 	date = tr("{1} {2}/{3}", {tr(days[local.tm_wday % 7]), std::to_string(local.tm_mon + 1), std::to_string(local.tm_mday)});
 }
@@ -4582,7 +4588,7 @@ static int MenuHome(FrontendState& state)
 // ---------------------------------------------------------------------------
 // Settings
 
-static const char* const kLanguages[] = {"auto", "en", "es", "ja", "pt", "it", "ko"};
+static const char* const kLanguages[] = {"auto", "en", "es", "ja", "pt", "it", "fr", "ko"};
 
 // Each language by its own name, as players look for it.
 static std::string LanguageName(const std::string& lang)
@@ -4592,6 +4598,7 @@ static std::string LanguageName(const std::string& lang)
 	if (lang == "ja") return "日本語";
 	if (lang == "pt") return "Português";
 	if (lang == "it") return "Italiano";
+	if (lang == "fr") return "Français";
 	// With its English name too: RiftWii's own font has no Hangul.
 	if (lang == "ko") return "한국어 (Korean)";
 	return tr("Wii: {1}", {LanguageName(riftwii::wii::MenuLanguage())});
@@ -4900,7 +4907,8 @@ static int MenuSettings(FrontendState& state)
 			settings.menu_widescreen != "off", kWidescreen);
 		option(tr("Screen size"), std::to_string(settings.screen_size) + "%", settings.screen_size != 100, kScreenSize);
 		option(tr("Theme"), themeName(settings.theme), settings.theme != "default", kTheme);
-		option(tr("Menu font"), settings.clock_24h == "off" ? tr("12-hour") : tr("24-hour"), settings.clock_24h == "off", kClockFormat);
+		option(tr("Clock"), settings.clock == "12" ? tr("12-hour") : settings.clock == "24" ? tr("24-hour") : tr("Automatic"),
+			settings.clock != "auto", kClockFormat);
 		option(tr("Menu font"), settings.menu_font == "wii" ? tr("Wii Menu") : "RiftWii", settings.menu_font == "wii", kFont);
 		option(tr("Menu sounds"), MenuSoundsName(settings.menu_sounds), settings.menu_sounds != "off", kSounds);
 		option(tr("Menu music"), settings.menu_music == "off" ? tr("Off") : tr("On"), settings.menu_music != "off",
@@ -5070,7 +5078,7 @@ static int MenuSettings(FrontendState& state)
 			case kWidescreen: return tr("On a 16:9 TV the menu is drawn narrower, so covers and pictures keep their shape. Automatic follows the Wii's own TV setting.");
 			case kScreenSize: return tr("Makes the menu smaller on screen, so nothing is cut off at the TV's edges. Lower it until the whole menu shows.");
 			case kTheme: return tr("The menu's colours and pictures. Themes are folders in sd:/riftwii/themes (docs/THEMES.md on GitHub).");
-			case kClockFormat: return tr("The format of the clock in the menu. 12-hour shows AM or PM, 24-hour does not.");
+			case kClockFormat: return tr("How Home's clock writes the time: 12-hour (with AM and PM) or 24-hour. Automatic writes it as the menu's language does.");
 			case kFont: return tr("The letters the menu is written in: RiftWii's own, or the Wii Menu's, read from this Wii.");
 			case kSounds: return tr("How loud the menu's clicks are. Quiet softens the tick the pointer makes moving onto something.");
 			case kReturnTo: return ReturnToNote();
@@ -5326,11 +5334,15 @@ static int MenuSettings(FrontendState& state)
 						: tr("The menu restarts to show it when you leave Settings."));
 					break;
 				}
-				case kClockFormat:
-					settings.clock_24h = settings.clock_24h == "off" ? "on" : "off";
-					saveAndNote(tr("Clock: 12-hour or 24-hour format."));
+				case kClockFormat: {
+					static const char* const kClocks[] = {"auto", "12", "24"};
+					int at = 0;
+					while (at < 3 && settings.clock != kClocks[at]) ++at;
+					settings.clock = kClocks[((at % 3) + 3 + direction) % 3];
+					saveAndNote(tr("How Home's clock writes the time: 12-hour (with AM and PM) or 24-hour. Automatic writes it as the menu's language does."));
 					rebuild();
 					break;
+				}
 				case kFont: {
 					settings.menu_font = settings.menu_font == "wii" ? "riftwii" : "wii";
 					const std::string error = saveSettings();

@@ -1182,6 +1182,18 @@ msgstr "Reiniciar"
 msgid "Theme: {1}"
 msgstr "Tema: {1}"
 
+msgid "Clock"
+msgstr "Reloj"
+
+msgid "12-hour"
+msgstr "12 horas"
+
+msgid "24-hour"
+msgstr "24 horas"
+
+msgid "How Home's clock writes the time: 12-hour (with AM and PM) or 24-hour. Automatic writes it as the menu's language does."
+msgstr "Cómo escribe la hora el reloj de Inicio: 12 horas (con a. m. y p. m.) o 24 horas. Automático la escribe como el idioma del menú."
+
 msgid "Menu font"
 msgstr "Fuente del menú"
 

@@ -1182,6 +1182,18 @@ msgstr "再起動"
 msgid "Theme: {1}"
 msgstr "テーマ: {1}"
 
+msgid "Clock"
+msgstr "時計"
+
+msgid "12-hour"
+msgstr "12時間"
+
+msgid "24-hour"
+msgstr "24時間"
+
+msgid "How Home's clock writes the time: 12-hour (with AM and PM) or 24-hour. Automatic writes it as the menu's language does."
+msgstr "ホームの時計の表示: 12時間（午前・午後つき）か24時間。自動ではメニューの言語に合わせます。"
+
 msgid "Menu font"
 msgstr "メニューのフォント"
 

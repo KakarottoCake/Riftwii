@@ -97,13 +97,13 @@ msgid "Sat"
 msgstr "Sam"
 
 msgid "{1}:{2} AM"
-msgstr "{1}:{2}"
+msgstr "{3}:{2}"
 
 msgid "{1}:{2} PM"
-msgstr "{1}:{2}"
+msgstr "{3}:{2}"
 
 msgid "{1} {2}/{3}"
-msgstr "{1} {2}/{3}"
+msgstr "{1} {3}/{2}"
 
 msgid "MODS"
 msgstr "MODS"
@@ -136,7 +136,7 @@ msgid "Saves go to the SD card, starting from the Wii's save."
 msgstr "Les sauvegardes vont sur la carte SD, en partant de la sauvegarde Wii."
 
 msgid "Saves go to the SD card, starting fresh."
-msgstr "Les sauvegardes vont sur la carte SD, auvegarde vierge."
+msgstr "Les sauvegardes vont sur la carte SD, sauvegarde vierge."
 
 msgid "Saves stay on the Wii, as usual."
 msgstr "Les sauvegardes restent sur la Wii, comme d'habitude."
@@ -1181,6 +1181,18 @@ msgstr "Redémarrer"
 
 msgid "Theme: {1}"
 msgstr "Thème : {1}"
+
+msgid "Clock"
+msgstr "Horloge"
+
+msgid "12-hour"
+msgstr "12 heures"
+
+msgid "24-hour"
+msgstr "24 heures"
+
+msgid "How Home's clock writes the time: 12-hour (with AM and PM) or 24-hour. Automatic writes it as the menu's language does."
+msgstr "Comment l'horloge de l'accueil affiche l'heure : 12 heures (avec AM et PM) ou 24 heures. Automatique l'affiche comme la langue du menu."
 
 msgid "Menu font"
 msgstr "Police du menu"

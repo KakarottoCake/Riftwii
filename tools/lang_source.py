@@ -1144,6 +1144,10 @@ T = {
         "Il menu di RiftWii si riavvia per mostrare {1}. I tuoi giochi e le impostazioni restano come sono."),
     "Restart": ("Reiniciar", "再起動", "Reiniciar", "Riavvia"),
     "Theme: {1}": ("Tema: {1}", "テーマ: {1}", "Tema: {1}", "Tema: {1}"),
+    "Clock": ("Reloj", "時計", "Relógio", "Orologio"),
+    "12-hour": ("12 horas", "12時間", "12 horas", "12 ore"),
+    "24-hour": ("24 horas", "24時間", "24 horas", "24 ore"),
+    "How Home's clock writes the time: 12-hour (with AM and PM) or 24-hour. Automatic writes it as the menu's language does.": ("Cómo escribe la hora el reloj de Inicio: 12 horas (con a. m. y p. m.) o 24 horas. Automático la escribe como el idioma del menú.", "ホームの時計の表示: 12時間（午前・午後つき）か24時間。自動ではメニューの言語に合わせます。", "Como o relógio do Início mostra a hora: 12 horas (com AM e PM) ou 24 horas. Automático mostra como o idioma do menu.", "Come l'orologio della Home scrive l'ora: 12 ore (con AM e PM) o 24 ore. Automatico la scrive come la lingua del menu."),
     "Menu font": ("Fuente del menú", "メニューのフォント", "Fonte do menu", "Carattere del menu"),
     # The Mods page's picture popup, above the file name, for a mod without a picture.
     "Add a picture:": ("Añade una imagen:", "画像を追加:", "Adicione uma imagem:", "Aggiungi un'immagine:"),
@@ -2027,6 +2031,14 @@ KO = {
         "재시작",
     "Theme: {1}":
         "테마: {1}",
+    "Clock":
+        "시계",
+    "12-hour":
+        "12시간",
+    "24-hour":
+        "24시간",
+    "How Home's clock writes the time: 12-hour (with AM and PM) or 24-hour. Automatic writes it as the menu's language does.":
+        "홈 화면 시계의 시간 표시 방식: 12시간(오전/오후 표시) 또는 24시간. 자동은 메뉴 언어의 방식을 따릅니다.",
     "Menu font":
         "메뉴 글꼴",
     "Add a picture:":
@@ -2069,9 +2081,108 @@ KO = {
         "타 지역 게임(수입판)의 경우: 해당 게임은 콘솔의 지역 정보를 확인해야 할 위치에서 자사 지역의 국가명을 인식합니다.",
     "Don't show again":
         "다시 표시하지 않음",
+    "Games":
+        "게임",
+    "Menu":
+        "메뉴",
+    "Finding games":
+        "게임 찾기",
+    "Online":
+        "온라인",
+    "More":
+        "더 보기",
+    "Picture":
+        "화면",
+    "Other":
+        "기타",
+    "Clear search":
+        "검색 지우기",
+    "No games found yet. Put your games (WBFS, ISO or RVZ) in a folder named wbfs or games at the top of the SD card or USB drive, then pick Look for games again in Settings.":
+        "아직 게임을 찾지 못했습니다. SD 카드나 USB 드라이브 최상위 경로에 있는 'wbfs' 또는 'games' 폴더에 게임 파일(WBFS, ISO 또는 RVZ)을 넣은 다음, 설정에서 '게임 다시 찾기'를 선택하세요.",
+    "This SD card ({1} GB) is too big for code builds. Make an SD image.":
+        "이 SD 카드({1} GB)는 코드 빌드용으로는 용량이 너무 큽니다. SD 이미지를 생성하세요.",
+    "This won't work: this SD card is bigger than 32 GB ({1} GB, SDXC), and Brawl only reads SD cards up to 32 GB, so the build's files never load. Pick \"Make an SD image...\" under the build on the Mods page: the game then reads a small card inside a file on this one. Or copy the build to a 32 GB or smaller card.":
+        "이 방법은 작동하지 않습니다. 해당 SD 카드는 32GB를 초과하는 용량({1}GB, SDXC)인 반면, 'Brawl'은 최대 32GB 용량의 SD 카드만 인식하므로 빌드 파일이 로드되지 않습니다. MOD 페이지의 빌드 항목에서 \"SD 이미지 만들기...\"를 선택하세요. 그러면 게임이 실제 SD 카드 대신 해당 파일 내의 가상 SD 카드를 인식하게 됩니다. 또는 빌드 파일을 32GB 이하 용량의 SD 카드에 복사해서 사용하세요.",
+    "This won't work: code builds like Project+ read the SD card while you play, so the game can't be on the SD card too. Put it on a USB drive, use the disc, or pick \"Make an SD image...\" under the build on the Mods page.":
+        "이 방법은 작동하지 않습니다. 프로젝트+와 같은 빌드는 게임을 플레이하는 동안 SD 카드를 읽어 들이기 때문에, 게임 파일 자체를 SD 카드에 함께 둘 수 없습니다. 대신 USB 드라이브를 사용하거나, 디스크를 사용하거나, 또는 MOD 페이지의 해당 빌드 항목 아래에 있는 \"SD 이미지 생성...\" 기능을 선택하세요.",
+    "Make an SD image...":
+        "SD 이미지 만들기...",
+    "RiftWii stopped while reading the Wii Menu's font last time, so it uses its own. Send a problem report so this can be fixed.":
+        "지난번 RiftWii가 Wii 메뉴의 글꼴을 읽어오는 도중 멈춘 적이 있어, 현재는 자체 글꼴을 사용하고 있습니다. 이 문제가 해결될 수 있도록 오류 보고서를 보내주세요.",
+    "Report sent: {1}":
+        "보고서 전송됨: {1}",
+    "SD image":
+        "SD 이미지",
+    "Looking at the build's files...":
+        "빌드 파일을 살펴보는 중...",
+    "No SD image made":
+        "SD 이미지가 생성되지 않았음",
+    " and ":
+        " 그리고 ",
+    "RiftWii copies {1} into sd:/riftwii/{2} ({3}). The game then gets the image as its SD card, so it can be on the SD card too. This takes about {4} minutes.":
+        "RiftWii는 {1}을(를) sd:/riftwii/{2} ({3}) 경로로 복사합니다. 그러면 게임이 해당 이미지를 SD 카드로 인식하므로, 게임 파일 또한 SD 카드에 저장할 수 있게 됩니다. 이 과정은 약 {4}분 정도 소요됩니다.",
+    "It is saved in {1} parts, as a FAT32 card holds no file of 4 GB.":
+        "FAT32 카드는 4GB 이상의 파일을 저장할 수 없으므로 {1}개의 파일로 나누어 저장됩니다.",
+    "It replaces the {1} there now.":
+        "그것은 현재 그곳에 있는 {1}을(를) 대체합니다.",
+    "Make an SD image?":
+        "SD 이미지를 만들까요?",
+    "Make it":
+        "만들기",
+    "Making {1}":
+        "{1} 만들기",
+    "Stop":
+        "정지",
+    "{1} minutes left":
+        "{1} 분 남음",
+    "{1} seconds left":
+        "{1} 초 남음",
+    "Free space":
+        "여유 공간",
+    "Stopped. Nothing was kept.":
+        "중단되었습니다. 아무것도 보관되지 않았습니다.",
+    "{1} could not be made: {2}. Nothing was kept.":
+        "{1}을(를) 생성할 수 없습니다: {2}. 아무것도 보존되지 않았습니다.",
+    "SD image made":
+        "SD 이미지 생성됨",
+    "{1} is in sd:/riftwii, and the build in it is turned on: the game gets the image as its SD card.":
+        "{1}은(는) sd:/riftwii에 위치하며 해당 빌드가 활성화되어 있습니다. 따라서 게임은 이를 SD 카드로 인식하여 이미지를 불러옵니다.",
+    "Remove from the list":
+        "목록에서 제거",
+    "Add a code build...":
+        "코드 빌드 추가...",
+    "..  (up a folder)":
+        ".. (상위 폴더로)",
+    "Pick":
+        "선택",
+    "Nothing here":
+        "여기에 아무것도 없음",
+    "Add a code build":
+        "코드 빌드 추가",
+    "Achievement unlocked: License Enthusiast":
+        "업적 달성: 라이선스 열광적인 팬",
+    "Congratulations! You read all 5,644 words of the GNU GPL, version 3. Are you really that bored? Respect to the developers whose work RiftWii builds on: every one of you is credited above. The GPL is there to protect people who share their code, not to be waved around only when it's handy for picking a fight. Your reward: absolutely nothing, as the license says (\"WITHOUT ANY WARRANTY\").":
+        "축하합니다! GNU GPL 버전 3의 5,644개 단어를 모두 읽으셨군요. 정말 그렇게 할 일이 없으셨나요? RiftWii의 기반이 된 소프트웨어를 개발한 분들께 경의를 표합니다. 모든 개발자의 이름은 위에 명시되어 있습니다. GPL은 코드를 공유하는 사람들을 보호하기 위해 존재하는 것이지, 단지 누군가와 시비를 걸기 편할 때만 내세우라고 있는 것이 아닙니다. 당신이 받을 보상은? 라이선스에 명시된 대로 '전혀 없습니다' (\"어떠한 보증도 없음\").",
+    "Fair enough":
+        "알겠음",
+    "Only a build in a folder can go into an image.":
+        "폴더 내의 빌드만 이미지에 포함될 수 있습니다.",
+    "The build cannot go into an image: {1}.":
+        "빌드를 이미지로 만들 수 없습니다: {1}.",
+    "The image needs {1} on the SD card and {2} is free. Make room (or use a bigger card) and try again.":
+        "이미지를 저장하려면 SD 카드에 {1}의 공간이 필요하지만, 현재 {2}만 비어 있습니다. 공간을 확보하거나 더 큰 용량의 카드를 사용하여 다시 시도해 주세요.",
+    "Cannot replace {1}.":
+        "{1}을(를) 대체할 수 없습니다.",
+    "{1} has folders too deep to copy.":
+        "{1}에는 복사하기에는 경로가 너무 깊은 폴더가 포함되어 있습니다.",
+    "Cannot read sd:{1}.":
+        "sd:{1}을 읽을 수 없습니다.",
+    "The build has more than {1} files.":
+        "해당 빌드에는 {1}개 이상의 파일이 포함되어 있습니다.",
 }
 
-#French, a table of its own (msgid: text), by MidyGamy
+# French, a table of its own (msgid: text), from MidyGamy's translation
+# (pull request 22). A msgid missing here shows in English.
 FR = {
     "Games with mods":
         "Jeux avec mods",
@@ -2136,11 +2247,11 @@ FR = {
     "Sat":
         "Sam",
     "{1}:{2} AM":
-        "{1}:{2}",
+        "{3}:{2}",
     "{1}:{2} PM":
-        "{1}:{2}",
+        "{3}:{2}",
     "{1} {2}/{3}":
-        "{1} {2}/{3}",
+        "{1} {3}/{2}",
     "MODS":
         "MODS",
     "Back":
@@ -2162,7 +2273,7 @@ FR = {
     "Saves go to the SD card, starting from the Wii's save.":
         "Les sauvegardes vont sur la carte SD, en partant de la sauvegarde Wii.",
     "Saves go to the SD card, starting fresh.":
-        "Les sauvegardes vont sur la carte SD, auvegarde vierge.",
+        "Les sauvegardes vont sur la carte SD, sauvegarde vierge.",
     "Saves stay on the Wii, as usual.":
         "Les sauvegardes restent sur la Wii, comme d'habitude.",
     "Broken":
@@ -2833,6 +2944,14 @@ FR = {
         "Redémarrer",
     "Theme: {1}":
         "Thème : {1}",
+    "Clock":
+        "Horloge",
+    "12-hour":
+        "12 heures",
+    "24-hour":
+        "24 heures",
+    "How Home's clock writes the time: 12-hour (with AM and PM) or 24-hour. Automatic writes it as the menu's language does.":
+        "Comment l'horloge de l'accueil affiche l'heure : 12 heures (avec AM et PM) ou 24 heures. Automatique l'affiche comme la langue du menu.",
     "Menu font":
         "Police du menu",
     "Add a picture:":
