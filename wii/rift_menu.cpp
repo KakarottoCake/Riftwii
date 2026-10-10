@@ -4795,7 +4795,7 @@ static std::string PadButtons(const gcad_pad& pad)
 
 static std::string ChannelNote(const riftwii::LoaderSettings& settings)
 {
-	if (riftwii::effective_update_channel(settings.update_channel, RIFTWII_VERSION) == "beta")
+	if (riftwii::effective_update_channel(settings.update_channel, RIFTWII_VERSION, riftwii::kStableBuild) == "beta")
 		return tr("Beta: every new version, including test builds that may have new bugs. For testers.");
 	return tr("Stable: only versions marked stable, which testers have checked.");
 }
@@ -5122,7 +5122,7 @@ static int MenuSettings(FrontendState& state)
 		rows.push_back(names);
 		actions.push_back(kNames);
 		{
-			const bool beta = riftwii::effective_update_channel(settings.update_channel, RIFTWII_VERSION) == "beta";
+			const bool beta = riftwii::effective_update_channel(settings.update_channel, RIFTWII_VERSION, riftwii::kStableBuild) == "beta";
 			option(tr("Updates"), beta ? tr("Beta") : tr("Stable"), beta, kChannel);
 		}
 		FlowRow update;
@@ -5583,7 +5583,7 @@ static int MenuSettings(FrontendState& state)
 				case kChannel:
 					// Stable and Beta; the setting stays explicit once changed.
 					settings.update_channel =
-						riftwii::effective_update_channel(settings.update_channel, RIFTWII_VERSION) == "beta" ? "stable" : "beta";
+						riftwii::effective_update_channel(settings.update_channel, RIFTWII_VERSION, riftwii::kStableBuild) == "beta" ? "stable" : "beta";
 					saveAndNote(ChannelNote(settings));
 					rebuild();
 					break;

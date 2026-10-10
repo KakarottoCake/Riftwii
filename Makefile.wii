@@ -78,6 +78,11 @@ $(error cannot count the commits since $(RIFTWII_BASE_TAG): git and the tag are 
 endif
 RIFTWII_VERSION := $(RIFTWII_BASE)$(if $(filter-out 0,$(RIFTWII_COMMITS)),-$(RIFTWII_COMMITS))
 CFLAGS		+=	-DRIFTWII_VERSION='"$(RIFTWII_VERSION)"'
+# A stable release: the same build, told so (Automatic updates then follow
+# Stable). The stamp below names it, so switching rebuilds what reads it.
+ifeq ($(RIFTWII_STABLE),1)
+CFLAGS		+=	-DRIFTWII_STABLE
+endif
 # Test builds: make WII_DEFINES=-DRIFTWII_TEST_LIMITS (wii/memlimits.hpp TestBallast).
 CFLAGS		+=	$(WII_DEFINES)
 
@@ -189,7 +194,9 @@ $(OFILES_SOURCES): $(PROJECT_ROOT)/CMakeLists.txt
 VERSION_STAMP := riftwii_version.stamp
 VERSION_USERS := $(patsubst %.cpp,%.o,$(patsubst %.c,%.o,$(notdir $(shell grep -l RIFTWII_VERSION $(foreach dir,wii src runtime,$(PROJECT_ROOT)/$(dir)/*.c $(PROJECT_ROOT)/$(dir)/*.cpp) 2>/dev/null))))
 $(shell [ "$$(cat $(VERSION_STAMP) 2>/dev/null)" = "$(RIFTWII_VERSION)" ] || echo "$(RIFTWII_VERSION)" > $(VERSION_STAMP))
-$(VERSION_USERS): $(VERSION_STAMP)
+STABLE_STAMP := riftwii_stable.stamp
+$(shell [ "$$(cat $(STABLE_STAMP) 2>/dev/null)" = "$(RIFTWII_STABLE)" ] || echo "$(RIFTWII_STABLE)" > $(STABLE_STAMP))
+$(VERSION_USERS): $(VERSION_STAMP) $(STABLE_STAMP)
 #---------------------------------------------------------------------------------
 # This rule links in binary data with .ttf, .png, .ogg and .pcm extensions
 #---------------------------------------------------------------------------------

@@ -36,7 +36,17 @@ int compare_versions(const std::string& a, const std::string& b);
 
 // The update channel a setting means for this build: "stable" or "beta"
 // as set, and "auto" follows the version: one with a "-suffix" (beta,
-// rc1) is a pre-release build and follows Beta.
-std::string effective_update_channel(const std::string& setting, const std::string& version);
+// rc1, a build number) is a pre-release build and follows Beta, unless the
+// build is a stable release (`stable_build`): a stable release is a tested
+// build published as the latest release, its build number and all.
+std::string effective_update_channel(const std::string& setting, const std::string& version,
+                                     bool stable_build = false);
+
+// Built for a stable release (make -f Makefile.wii RIFTWII_STABLE=1).
+#ifdef RIFTWII_STABLE
+constexpr bool kStableBuild = true;
+#else
+constexpr bool kStableBuild = false;
+#endif
 
 }  // namespace riftwii

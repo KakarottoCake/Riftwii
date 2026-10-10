@@ -170,8 +170,9 @@ int compare_versions(const std::string& a, const std::string& b) {
     return compare_suffixes(x.suffix, y.suffix);
 }
 
-std::string effective_update_channel(const std::string& setting, const std::string& version) {
+std::string effective_update_channel(const std::string& setting, const std::string& version, bool stable_build) {
     if (setting == "stable" || setting == "beta") return setting;
+    if (stable_build) return "stable";
     return version.find('-') != std::string::npos ? "beta" : "stable";
 }
 

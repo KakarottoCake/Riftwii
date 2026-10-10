@@ -127,6 +127,9 @@ void TestHttp() {
     EXPECT_EQ(effective_update_channel("auto", "2.0.10-beta"), "beta");
     EXPECT_EQ(effective_update_channel("stable", "2.1.1-beta"), "stable");
     EXPECT_EQ(effective_update_channel("beta", "2.1.0"), "beta");
+    // A stable release named by its build number stays on Stable.
+    EXPECT_EQ(effective_update_channel("auto", "2610-258", true), "stable");
+    EXPECT_EQ(effective_update_channel("beta", "2610-258", true), "beta");
 
     const std::string plain = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 5\r\n\r\nhello";
     EXPECT_FALSE(http_response_complete(bytes(plain.substr(0, plain.size() - 1))));

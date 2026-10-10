@@ -581,14 +581,14 @@ bool CheckForUpdate(bool force, std::string& latest, bool& newer, std::string& e
     // This answer replaces the start's, which is not asked about again.
     NetWaitForBackground();
     g_start_check.taken = true;
-    return CheckChannel(effective_update_channel(Settings().update_channel, RIFTWII_VERSION), force, latest, newer,
+    return CheckChannel(effective_update_channel(Settings().update_channel, RIFTWII_VERSION, kStableBuild), force, latest, newer,
                         error);
 }
 
 void StartUpdateCheck() {
     if (NetBackgroundBusy()) return;
     g_start_check = StartCheck{};
-    g_start_check.channel = effective_update_channel(Settings().update_channel, RIFTWII_VERSION);
+    g_start_check.channel = effective_update_channel(Settings().update_channel, RIFTWII_VERSION, kStableBuild);
     g_start_check.taken = false;
     NetRunInBackground(RunStartCheck);
 }
