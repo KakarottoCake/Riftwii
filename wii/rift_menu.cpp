@@ -2208,9 +2208,11 @@ static std::string DiscTileNote()
 // holds seven lines), for the release script to keep up to date. Shown
 // once when they change; Settings > What's new shows them again.
 static const char* const kWhatsNew[] = {
-	"Resident Evil 4 from an RVZ starts again",
-	"Classic Controller A no longer moves the pointer",
-	"Mario Super Sluggers keeps its own picture size",
+	"Search shows the matching games as you type",
+	"Mod packs show the names their authors gave them",
+	"USB games with SD saves start again on d2x 249",
+	"A mod with nothing picked can be turned off at Start",
+	"Safer SD images, and many crash and freeze fixes",
 };
 
 static std::string WhatsNewText()
