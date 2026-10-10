@@ -292,6 +292,12 @@ bool Install(std::string& error) {
         ok = tmd && ticket;
         if (!ok) error = "out of memory";
     }
+    // A failed first install must not leave its ticket: the channel would
+    // then look installed (a ticket and no TMD). A failed update keeps the
+    // ticket, which the channel already on the Wii still needs.
+    unsigned version_before = 0;
+    const bool had_title = ok && installed_as(pkg.title, version_before);
+    bool ticket_added = false;
     if (ok) {
         std::memcpy(ticket.get() + kTicketTitleKey, enc_key, 16);
         fakesign(ticket.get(), kTicketSize, kTicketCounter);
@@ -301,6 +307,8 @@ bool Install(std::string& error) {
         if (r < 0) {
             error = "ES_AddTicket: " + std::to_string(r);
             ok = false;
+        } else {
+            ticket_added = true;
         }
     }
     if (ok) {
@@ -323,6 +331,11 @@ bool Install(std::string& error) {
         std::string why;
         if (remove_title(RIFTWII_CHANNEL_OLD_TITLE, why)) Log("Removed the old channel (00010001-RFTW, version %u)\n", old_version);
         else Log("Could not remove the old channel: %s\n", why.c_str());
+    }
+    if (!ok && ticket_added && !had_title) {
+        std::string why;
+        if (delete_tickets(pkg.title, why)) Log("Removed the ticket of the failed install\n");
+        else Log("Could not remove the ticket of the failed install: %s\n", why.c_str());
     }
     if (ok) Log("Installed (IOS%d)\n", IOS_GetVersion());
     else Log("Install failed: %s\n", error.c_str());

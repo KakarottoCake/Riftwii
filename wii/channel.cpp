@@ -28,27 +28,33 @@ bool installer_on_card() {
     return stat(kInstaller, &st) == 0;
 }
 
+// A ticket and a TMD: a ticket alone is what a failed install leaves, and
+// launching that title fails.
+bool title_installed(u64 title, unsigned& version) {
+    version = 0;
+    u32 tickets = 0;
+    if (ES_GetNumTicketViews(title, &tickets) < 0 || tickets == 0) return false;
+    u32 size = 0;
+    if (ES_GetTMDViewSize(title, &size) < 0 || size < sizeof(tmd_view) || size > 0x400) return false;
+    static u8 view[0x400] ATTRIBUTE_ALIGN(32);
+    if (ES_GetTMDView(title, reinterpret_cast<tmd_view*>(view), size) < 0) return false;
+    version = reinterpret_cast<const tmd_view*>(view)->title_version;
+    return true;
+}
+
 }  // namespace
 
 unsigned long long ChannelTitle() {
+    unsigned version = 0;
     for (u64 title : kChannelTitles) {
-        u32 tickets = 0;
-        if (ES_GetNumTicketViews(title, &tickets) >= 0 && tickets != 0) return title;
+        if (title_installed(title, version)) return title;
     }
     return 0;
 }
 
 bool ChannelInstalled(unsigned& version) {
-    version = 0;
     for (u64 title : kChannelTitles) {
-        u32 tickets = 0;
-        if (ES_GetNumTicketViews(title, &tickets) < 0 || tickets == 0) continue;
-        u32 size = 0;
-        if (ES_GetTMDViewSize(title, &size) < 0 || size < sizeof(tmd_view) || size > 0x400) continue;
-        static u8 view[0x400] ATTRIBUTE_ALIGN(32);
-        if (ES_GetTMDView(title, reinterpret_cast<tmd_view*>(view), size) < 0) continue;
-        version = reinterpret_cast<const tmd_view*>(view)->title_version;
-        return true;
+        if (title_installed(title, version)) return true;
     }
     return false;
 }
