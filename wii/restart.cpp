@@ -124,6 +124,7 @@ bool WarmRestart(RestartKind kind, const std::string& message, bool unmount) {
     }
     h->magic = kHandoffMagic;
 
+    NetCancelBackground();  // a theme download: fetched again after the restart
     NetWaitForBackground();
     CoverLoaderHold();
     logf("Restarting RiftWii\n");

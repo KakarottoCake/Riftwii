@@ -416,6 +416,19 @@ T = {
                                                          "O jogo aparece na tela quando estiver pronto.",
                                                          "Il gioco apparirà sullo schermo quando è pronto."),
     "Opening the game...": ("Abriendo el juego...", "ゲームを開いています...", "Abrindo o jogo...", "Apertura del gioco..."),
+    # What the launch waits for first (a background download).
+    "Waiting for a cover download to finish...": (
+        "Esperando a que termine la descarga de una portada...", "パッケージ画像のダウンロードが終わるのを待っています...",
+        "Esperando o download de uma capa terminar...", "In attesa che finisca il download di una copertina..."),
+    "Waiting for a box art download to finish...": (
+        "Esperando a que termine la descarga de una caja...", "ケースの画像のダウンロードが終わるのを待っています...",
+        "Esperando o download de uma caixa terminar...", "In attesa che finisca il download di una custodia..."),
+    "Stopping the theme download...": (
+        "Deteniendo la descarga de los temas...", "テーマのダウンロードを止めています...",
+        "Parando o download dos temas...", "Interruzione del download dei temi..."),
+    "Waiting for the update check to finish...": (
+        "Esperando a que termine la búsqueda de actualizaciones...", "アップデートの確認が終わるのを待っています...",
+        "Esperando a verificação de atualizações terminar...", "In attesa che finisca il controllo degli aggiornamenti..."),
     # The GameCube adapter (Settings). "Tap" is its name in Japan.
     "GameCube adapter": ("Adaptador de GameCube", "GCコントローラ接続タップ", "Adaptador de GameCube",
                          "Adattatore GameCube"),
@@ -2179,6 +2192,14 @@ KO = {
         "sd:{1}을 읽을 수 없습니다.",
     "The build has more than {1} files.":
         "해당 빌드에는 {1}개 이상의 파일이 포함되어 있습니다.",
+    "Waiting for a cover download to finish...":
+        "커버 다운로드가 끝나기를 기다리는 중...",
+    "Waiting for a box art download to finish...":
+        "박스 아트 다운로드가 끝나기를 기다리는 중...",
+    "Stopping the theme download...":
+        "테마 다운로드를 중지하는 중...",
+    "Waiting for the update check to finish...":
+        "업데이트 확인이 끝나기를 기다리는 중...",
 }
 
 # French, a table of its own (msgid: text), from MidyGamy's translation
@@ -2994,6 +3015,14 @@ FR = {
         "Pour les jeux importés d'une autre région : transmet au jeu les identifiants de pays correspondant à sa zone d'origine.",
     "Don't show again":
         "Ne plus afficher",
+    "Waiting for a cover download to finish...":
+        "Attente de la fin d'un téléchargement de jacquette...",
+    "Waiting for a box art download to finish...":
+        "Attente de la fin d'un téléchargement de jacquette...",
+    "Stopping the theme download...":
+        "Arrêt du téléchargement des thèmes...",
+    "Waiting for the update check to finish...":
+        "Attente de la fin de la recherche de mise à jour...",
 }
 
 # Languages kept in tables of their own: written after LANGS, every msgid

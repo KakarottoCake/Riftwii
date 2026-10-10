@@ -489,6 +489,18 @@ msgstr "Il gioco apparirà sullo schermo quando è pronto."
 msgid "Opening the game..."
 msgstr "Apertura del gioco..."
 
+msgid "Waiting for a cover download to finish..."
+msgstr "In attesa che finisca il download di una copertina..."
+
+msgid "Waiting for a box art download to finish..."
+msgstr "In attesa che finisca il download di una custodia..."
+
+msgid "Stopping the theme download..."
+msgstr "Interruzione del download dei temi..."
+
+msgid "Waiting for the update check to finish..."
+msgstr "In attesa che finisca il controllo degli aggiornamenti..."
+
 msgid "GameCube adapter"
 msgstr "Adattatore GameCube"
 

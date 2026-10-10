@@ -88,6 +88,7 @@ bool StartChannelInstaller(std::string& error) {
         std::free(dol);
         return false;
     }
+    NetCancelBackground();  // a theme download: fetched again next start
     NetWaitForBackground();
     LogClose();
     fatUnmount("sd:");

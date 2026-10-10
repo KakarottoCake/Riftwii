@@ -381,10 +381,16 @@ StartCheck g_start_check;
 
 // The themes this release comes with and the rest of its sd:/apps (the
 // channel installer), for a RiftWii the in-app update installed (a zip
-// brings its own): riftwii-update.pack, fetched with the start's check,
-// on its thread; each part written on Home's (ApplyPack), once per
-// version.
+// brings its own): riftwii-update.pack, fetched and written by a job of
+// its own once Home has taken the start's check (RunUpdatePacks), once per
+// version, with the screen drawing on. A game launch stops the download.
 std::vector<std::uint8_t> g_update;  // the whole pack, until both parts are written
+volatile bool g_packs_job = false;   // RunUpdatePacks is running
+// Themes the pack retired, with what replaces each: the player's choice is
+// moved off them on Home's thread (TakeUpdatePacks), which owns the
+// settings.
+std::vector<std::pair<std::string, std::string>> g_retired_themes;
+volatile bool g_retired_ready = false;
 struct PackKind {
     const char* header;
     const char* done;  // holds the version the card has
@@ -502,8 +508,7 @@ bool AppsFileAllowed(const std::string& path) {
 
 // The card brought up to a pack: sd:/riftwii/themes (its themes' files
 // written where they differ, a player's own themes are not touched,
-// retired themes' files removed) or sd:/apps. On Home's thread, the GUI
-// halted.
+// retired themes' files removed) or sd:/apps. On the packs job's thread.
 void ApplyPack(PackKind& k) {
     const bool themes = &k == &g_themes;
     if (k.none) {
@@ -550,13 +555,9 @@ void ApplyPack(PackKind& k) {
         for (const std::string& name : r.files) removed += std::remove((dir + "/" + name).c_str()) == 0;
         rmdir(dir.c_str());  // only when nothing of the player's is left in it
         if (removed) logf("Themes: %s retired (%u file(s) removed)\n", r.name.c_str(), removed);
-        if (Settings().theme == r.name) {
-            struct stat st;
-            const bool there = !r.replacement.empty() && stat((root + r.replacement).c_str(), &st) == 0;
-            Settings().theme = there ? r.replacement : "default";
-            SaveSettings();
-            logf("Themes: the theme in use is now %s\n", Settings().theme.c_str());
-        }
+        struct stat st;
+        const bool there = !r.replacement.empty() && stat((root + r.replacement).c_str(), &st) == 0;
+        g_retired_themes.emplace_back(r.name, there ? r.replacement : "default");
     }
     logf("%s: %u file(s) brought up to %s's, %u already were%s\n", k.label, written, RIFTWII_VERSION, same,
          failed ? " (some could not be written; tried again next start)" : "");
@@ -566,7 +567,16 @@ void ApplyPack(PackKind& k) {
 void RunStartCheck() {
     StartCheck& c = g_start_check;
     c.ok = CheckChannel(c.channel, false, c.latest, c.newer, c.error);
+}
+
+void RunUpdatePacks() {
+    g_retired_themes.clear();
     FetchPacks();
+    ApplyPack(g_themes);
+    ApplyPack(g_apps);
+    std::vector<std::uint8_t>().swap(g_update);
+    g_retired_ready = true;
+    g_packs_job = false;
 }
 
 }  // namespace
@@ -591,14 +601,33 @@ bool TakeUpdateCheck(bool& ok, std::string& latest, bool& newer, std::string& er
     if (g_start_check.taken || NetBackgroundBusy()) return false;
     NetWaitForBackground();
     g_start_check.taken = true;
-    ApplyPack(g_themes);
-    ApplyPack(g_apps);
-    std::vector<std::uint8_t>().swap(g_update);
     ok = g_start_check.ok;
     latest = g_start_check.latest;
     newer = g_start_check.newer;
     error = g_start_check.error;
+    // The themes and apps of the version just installed, unless a newer one
+    // is offered now (its own update brings them).
+    const UpdateNote note = ReadUpdateNote();
+    if (!(ok && newer) && !note.installed.empty() && compare_versions(note.installed, RIFTWII_VERSION) == 0 &&
+        (FirstLine(kThemesDone) != RIFTWII_VERSION || FirstLine(kAppsDone) != RIFTWII_VERSION)) {
+        g_packs_job = true;
+        if (!NetRunInBackground(RunUpdatePacks, true)) g_packs_job = false;
+    }
     return true;
+}
+
+bool UpdatePacksBusy() { return g_packs_job; }
+
+void TakeUpdatePacks() {
+    if (!g_retired_ready || g_packs_job) return;
+    g_retired_ready = false;
+    for (const auto& r : g_retired_themes) {
+        if (Settings().theme != r.first) continue;
+        Settings().theme = r.second;
+        SaveSettings();
+        logf("Themes: the theme in use is now %s\n", Settings().theme.c_str());
+    }
+    g_retired_themes.clear();
 }
 
 bool AppsPackPending() {

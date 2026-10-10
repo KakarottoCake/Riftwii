@@ -489,6 +489,18 @@ msgstr "Le jeu prend le contrôle de l'écran lorsqu'il est prêt."
 msgid "Opening the game..."
 msgstr "Ouverture du jeu..."
 
+msgid "Waiting for a cover download to finish..."
+msgstr "Attente de la fin d'un téléchargement de jacquette..."
+
+msgid "Waiting for a box art download to finish..."
+msgstr "Attente de la fin d'un téléchargement de jacquette..."
+
+msgid "Stopping the theme download..."
+msgstr "Arrêt du téléchargement des thèmes..."
+
+msgid "Waiting for the update check to finish..."
+msgstr "Attente de la fin de la recherche de mise à jour..."
+
 msgid "GameCube adapter"
 msgstr "Adaptateur GameCube"
 

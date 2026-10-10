@@ -1098,12 +1098,9 @@ static ChannelChoice ShowChannel(int& index, int count, const std::string& first
 		view.frames = view.late = 0;
 		view.drawTotalUs = view.drawMaxUs = view.lastDraw = 0;
 	};
-	// Puts game `i`'s banner up (and its sound on). False when it has none.
-	const auto open = [&](int i) {
-		const u64 t0 = gettime();
-		std::vector<std::uint8_t> bytes;
-		if (!load(i, bytes)) return false;
-		const u64 t1 = gettime();
+	// Puts game `i`'s banner, read into `bytes` (from t0 to t1), up (and
+	// its sound on), with the GUI halted. False when it is broken.
+	const auto show = [&](int i, std::vector<std::uint8_t>& bytes, u64 t0, u64 t1) {
 		std::string error;
 		riftwii::OpeningBanner parts;
 		std::vector<std::uint8_t> sound;
@@ -1137,6 +1134,13 @@ static ChannelChoice ShowChannel(int& index, int count, const std::string& first
 		logf("Screen: channel %s (read %u ms, checked %u ms, banner %u ms)\n", shownId.c_str(),
 			diff_msec(t0, t1), diff_msec(t1, t2), diff_msec(t2, t3));
 		return true;
+	};
+	// Reads game `i`'s banner and puts it up. False when it has none.
+	const auto open = [&](int i) {
+		const u64 t0 = gettime();
+		std::vector<std::uint8_t> bytes;
+		if (!load(i, bytes)) return false;
+		return show(i, bytes, t0, gettime());
 	};
 	if (!open(index)) return ChannelChoice::Page;
 	(void)firstId;
@@ -1218,11 +1222,23 @@ static ChannelChoice ShowChannel(int& index, int count, const std::string& first
 			riftwii::wii::BannerSoundStop(false);
 			f32 vx, vy, vw, vh;
 			Menu_VisibleArea(&vx, &vy, &vw, &vh);
-			transition::Begin(dir > 0 ? transition::Kind::PageForward : transition::Kind::PageBack,
-				transition::Rect{vx, vy, vw, kChannelBarTop - vy});
+			const transition::Kind turn = dir > 0 ? transition::Kind::PageForward : transition::Kind::PageBack;
+			const transition::Rect area{vx, vy, vw, kChannelBarTop - vy};
+			// A banner not on the card yet is read from the game's image,
+			// seconds on USB or RVZ: the GUI keeps running meanwhile (the
+			// pointer moving, this banner held), and the page turns once
+			// the next one is up.
+			transition::Hold(turn, area);
 			for (int step = 1; step < count; ++step) {
-				if (open(((index + dir * step) % count + count) % count)) break;
+				const int i = ((index + dir * step) % count + count) % count;
+				std::vector<std::uint8_t> bytes;
+				const u64 t0 = gettime();
+				ResumeGui();
+				const bool read = load(i, bytes);
+				HaltGui();
+				if (read && show(i, bytes, t0, gettime())) break;
 			}
+			transition::Begin(turn, area);
 			showStar();
 		} else if (starBtn.Clicked()) {
 			starBtn.button.ResetState();
@@ -2815,6 +2831,7 @@ static int MenuSource(FrontendState& state)
 		fade(settingsHint, hintAlpha[1], settingsBtn.button.GetState() == STATE::SELECTED);
 		fade(searchHint, hintAlpha[2], searchBtn.button.GetState() == STATE::SELECTED);
 		if (TakeUpdateCheck() && !coverNoteShown) statusTxt.SetText(HomeStatus(state, items).c_str());
+		riftwii::wii::TakeUpdatePacks();
 		if (grid.Page() != shownPage || grid.Pages() != shownPages) {
 			shownPage = grid.Page();
 			shownPages = grid.Pages();
@@ -5680,10 +5697,12 @@ static void ShowLaunchFrame(const FrontendState& state, int action)
 	// first (wii/main.cpp): say so, as nothing else is on the screen yet.
 	// Said here, in the frame, not by the console: the job's thread is
 	// still running.
-	GuiText footTxt(riftwii::wii::NetBackgroundBusy() && !riftwii::wii::CoverFetchGame().empty() ? "Waiting for a cover download to finish..."
-		: riftwii::wii::NetBackgroundBusy() ? "Waiting for the update check to finish (up to 20 seconds)..."
-		: action == MENU_CHANNEL ? "RiftWii starts again when it is done."
-		: "The game takes over the screen when it is ready.", 15, skin::kInkDim);
+	GuiText footTxt(riftwii::wii::NetBackgroundBusy() && !riftwii::wii::CoverFetchGame().empty() ? tr("Waiting for a cover download to finish...")
+		: riftwii::wii::NetBackgroundBusy() && !riftwii::wii::BoxFetchGame().empty() ? tr("Waiting for a box art download to finish...")
+		: riftwii::wii::UpdatePacksBusy() ? tr("Stopping the theme download...")
+		: riftwii::wii::NetBackgroundBusy() ? tr("Waiting for the update check to finish...")
+		: action == MENU_CHANNEL ? tr("RiftWii starts again when it is done.")
+		: tr("The game takes over the screen when it is ready."), 15, skin::kInkDim);
 	Place(footTxt, 0, 444, true);
 
 	HaltGui();

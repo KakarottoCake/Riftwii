@@ -30,6 +30,11 @@ std::string g_failed_error;
 lwp_t g_job_thread = LWP_THREAD_NULL;
 void (*g_job)() = nullptr;
 volatile bool g_job_done = true;
+volatile bool g_job_cancellable = false;
+volatile bool g_job_cancel = false;
+
+// The background job was told to stop (only its own calls see this).
+bool cancelled() { return g_job_cancel && g_job_thread != LWP_THREAD_NULL && LWP_GetSelf() == g_job_thread; }
 
 void* run_job(void*) {
     g_job();
@@ -63,6 +68,7 @@ s32 poll_for(std::int32_t socket, std::uint32_t events, int timeout_ms, std::uin
     constexpr int kSlice = 100;
     s32 polled = 0;
     for (int waited = 0;; waited += kSlice) {
+        if (cancelled()) return 0;
         pollsd p;
         p.socket = socket;
         p.events = events;
@@ -119,10 +125,12 @@ void NetStop() {
     g_up = false;
 }
 
-bool NetRunInBackground(void (*job)()) {
+bool NetRunInBackground(void (*job)(), bool cancellable) {
     if (!g_job_done) return false;
     NetWaitForBackground();  // a finished one's thread
     g_job = job;
+    g_job_cancel = false;
+    g_job_cancellable = cancellable;
     g_job_done = false;
     // TLS keeps its state on the heap; 32 KiB covers its RSA and EC math.
     if (LWP_CreateThread(&g_job_thread, run_job, nullptr, nullptr, 32768, 40) < 0) {
@@ -134,6 +142,10 @@ bool NetRunInBackground(void (*job)()) {
 }
 
 bool NetBackgroundBusy() { return !g_job_done; }
+
+void NetCancelBackground() {
+    if (!g_job_done && g_job_cancellable) g_job_cancel = true;
+}
 
 void NetWaitForBackground() {
     // The job's own NetStart and NetStop go straight through.
@@ -240,7 +252,7 @@ bool SocketTransport::connect(const NetServer& server, int timeout_ms, std::stri
     sockaddr_in to = address_of(server);
     s32 rc = -EINPROGRESS;
     const int limit = timeout_ms < kConnectTimeoutMs ? timeout_ms : kConnectTimeoutMs;
-    for (int waited = 0; waited <= limit; waited += 50) {
+    for (int waited = 0; waited <= limit && !cancelled(); waited += 50) {
         rc = net_connect(socket_, reinterpret_cast<sockaddr*>(&to), sizeof(to));
         if (rc == 0 || rc == -EISCONN) {
             rc = 0;

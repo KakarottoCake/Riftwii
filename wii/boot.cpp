@@ -2089,7 +2089,10 @@ bool boot_game(const DiscProbe& probe, BootOptions options, std::string& error) 
     }
     logf("Booting %s with IOS%u\n", probe.header.game_id.c_str(), required);
     write_play_log(probe);
-    // A background network job (the start's update check) ends first.
+    // A background network job (the start's update check) ends first; the
+    // theme download is stopped rather than waited for (the next start
+    // fetches it again).
+    NetCancelBackground();
     NetWaitForBackground();
     BootOptions& effective = options;  // the caller's, moved in: no second copy
     const int running_ios = IOS_GetVersion();

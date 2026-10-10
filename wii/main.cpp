@@ -121,7 +121,9 @@ void LeaveTo(int where) {
 }  // namespace
 
 void ExitApp() {
-    // A background network job (the start's update check) ends first.
+    // A background network job (the start's update check) ends first; a
+    // theme download is stopped (the next start fetches it again).
+    riftwii::wii::NetCancelBackground();
     riftwii::wii::NetWaitForBackground();
     riftwii::wii::MenuMusicStop();
     riftwii::wii::ScreenshotsStop();
@@ -428,6 +430,7 @@ int main() {
     // boot_game) waits for it here first. A USB launch seconds after start had its heap damaged.
     if (riftwii::wii::NetBackgroundBusy()) {
         riftwii::wii::logf("Menu closed: waiting for the network's background job (update check or cover) to finish\n");
+        riftwii::wii::NetCancelBackground();  // a theme download stops; the next start fetches it again
         riftwii::wii::NetWaitForBackground();
         riftwii::wii::logf("Menu closed: the background job is done\n");
         // The launch frame said it was waiting; it is not any more.

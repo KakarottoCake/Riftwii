@@ -49,6 +49,12 @@ bool CheckForUpdate(bool force, std::string& latest, bool& newer, std::string& e
 // when it has finished, with what CheckForUpdate said.
 void StartUpdateCheck();
 bool TakeUpdateCheck(bool& ok, std::string& latest, bool& newer, std::string& error);
+// The download of the update pack (themes, channel installer) that
+// follows the first start after an in-app update: running (a launch then
+// stops it, NetCancelBackground), and, on Home's thread, the player's theme
+// moved off one the pack retired.
+bool UpdatePacksBusy();
+void TakeUpdatePacks();
 
 // After an in-app update, until this version's riftwii-apps.pack has
 // been written (the channel installer in sd:/apps/riftwii_channel): the

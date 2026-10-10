@@ -489,6 +489,18 @@ msgstr "準備ができるとゲームの画面に切り替わります。"
 msgid "Opening the game..."
 msgstr "ゲームを開いています..."
 
+msgid "Waiting for a cover download to finish..."
+msgstr "パッケージ画像のダウンロードが終わるのを待っています..."
+
+msgid "Waiting for a box art download to finish..."
+msgstr "ケースの画像のダウンロードが終わるのを待っています..."
+
+msgid "Stopping the theme download..."
+msgstr "テーマのダウンロードを止めています..."
+
+msgid "Waiting for the update check to finish..."
+msgstr "アップデートの確認が終わるのを待っています..."
+
 msgid "GameCube adapter"
 msgstr "GCコントローラ接続タップ"
 
