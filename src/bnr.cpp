@@ -157,6 +157,11 @@ bool U8Archive::parse(const std::uint8_t* data, std::size_t size, U8Archive& out
     };
     U8Archive a;
     a.base_ = data;
+    // Every file keeps its whole path, so names and depth are bounded: a
+    // crafted archive with 20,000 entries under a 50 KB name used about
+    // 1 GB. A real banner has a few dozen short paths.
+    constexpr std::size_t kMaxName = 255, kMaxDepth = 16, kMaxPathBytes = 1u << 20;
+    std::size_t path_bytes = 0;
     // The open directories: where each ends and its path.
     struct Dir {
         std::uint32_t end;
@@ -171,10 +176,18 @@ bool U8Archive::parse(const std::uint8_t* data, std::size_t size, U8Archive& out
             error = "U8 name points outside the string table";
             return false;
         }
+        if (name.size() > kMaxName) {
+            error = "U8 name is too long";
+            return false;
+        }
         const std::uint32_t off = be32(e + 4), len = be32(e + 8);
         if (e[0] == 1) {
             if (len <= n || len > count) {
                 error = "U8 directory ends in the wrong place";
+                return false;
+            }
+            if (dirs.size() > kMaxDepth) {
+                error = "U8 folders are nested too deep";
                 return false;
             }
             dirs.push_back({len, dirs.back().path + "/" + name});
@@ -183,11 +196,54 @@ bool U8Archive::parse(const std::uint8_t* data, std::size_t size, U8Archive& out
                 error = "U8 file lies outside the archive";
                 return false;
             }
+            path_bytes += dirs.back().path.size() + 1 + name.size();
+            if (path_bytes > kMaxPathBytes) {
+                error = "U8 archive names too many files";
+                return false;
+            }
             a.files_.push_back({normal_path(dirs.back().path + "/" + name), off, len});
         }
     }
     out = std::move(a);
     return true;
+}
+
+bool locate_banner_icon(std::vector<std::uint8_t>& buf, const std::function<bool(std::size_t, std::size_t)>& read_at,
+                        std::size_t& offset, std::size_t& length) {
+    const auto be = [&](std::size_t at) {
+        return (std::uint32_t(buf[at]) << 24) | (std::uint32_t(buf[at + 1]) << 16) | (std::uint32_t(buf[at + 2]) << 8) |
+               buf[at + 3];
+    };
+    if (buf.size() < 0x84 || !read_at(0, 0x84)) return false;
+    // IMET at 0x40 (a disc's) or 0x80 (a channel's); the archive after its 0x600 bytes.
+    std::size_t imet = 0;
+    if (std::memcmp(buf.data() + 0x40, "IMET", 4) == 0) imet = 0x40;
+    else if (std::memcmp(buf.data() + 0x80, "IMET", 4) == 0) imet = 0x80;
+    const std::size_t archive = imet + 0x5C0;
+    if (imet == 0 || !read_at(0, archive + 0x20) || be(archive) != 0x55AA382Du) return false;
+    const std::size_t root = be(archive + 4), header = be(archive + 8);
+    // Each sum is checked against what is left of the file, so nothing
+    // wraps round on the Wii's 32-bit sizes.
+    if (root < 0x20 || header < 12 || root > buf.size() - archive || header > buf.size() - archive - root ||
+        !read_at(archive + root, header)) {
+        return false;
+    }
+    const std::size_t nodes = archive + root, count = be(nodes + 8);
+    if (count < 1 || count > header / 12) return false;
+    const std::size_t strings = nodes + count * 12, strings_end = nodes + header;
+    for (std::size_t n = 1; n < count; ++n) {
+        const std::size_t e = nodes + n * 12, name_at = be(e) & 0xFFFFFF;
+        if (buf[e] != 0 || name_at > strings_end - strings || strings_end - strings - name_at < 9 ||
+            std::memcmp(buf.data() + strings + name_at, "icon.bin", 9) != 0) {
+            continue;
+        }
+        const std::size_t off = be(e + 4), len = be(e + 8);
+        if (off > buf.size() - archive || len > buf.size() - archive - off) return false;
+        offset = archive + off;
+        length = len;
+        return true;
+    }
+    return false;
 }
 
 bool U8Archive::find(const std::string& path, const std::uint8_t*& data, std::size_t& size) const {

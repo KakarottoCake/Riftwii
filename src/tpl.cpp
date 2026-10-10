@@ -55,9 +55,11 @@ Px from_palette(std::uint32_t format, std::uint16_t v) {
 
 std::size_t gx_texture_size(std::uint32_t format, int width, int height) {
     int bw, bh, bpp;
-    if (!block_of(format, bw, bh, bpp) || width <= 0 || height <= 0) return 0;
-    const std::size_t bx = static_cast<std::size_t>((width + bw - 1) / bw), by = static_cast<std::size_t>((height + bh - 1) / bh);
-    return bx * by * static_cast<std::size_t>(bw * bh * bpp / 8);
+    // GX textures are at most 1024 x 1024; past that the size could wrap
+    // round on the Wii's 32-bit size_t and pass the bounds checks.
+    if (!block_of(format, bw, bh, bpp) || width <= 0 || height <= 0 || width > 1024 || height > 1024) return 0;
+    const std::uint64_t bx = static_cast<std::uint64_t>((width + bw - 1) / bw), by = static_cast<std::uint64_t>((height + bh - 1) / bh);
+    return static_cast<std::size_t>(bx * by * static_cast<std::uint64_t>(bw * bh * bpp / 8));
 }
 
 bool parse_tpl(const std::uint8_t* data, std::size_t size, std::vector<TplImage>& out, std::string& error) {

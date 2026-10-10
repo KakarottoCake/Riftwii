@@ -284,7 +284,7 @@ static void test_tpl() {
 
 // A layout: a root pane, under it a 20x10 picture centred at (10, 0) and
 // two language groups.
-static Bytes make_layout() {
+static Bytes make_layout(unsigned tev_stages = 0) {
     Bytes b(0x10, 0);
     puts_(b, 0, "RLYT");
     put16(b, 4, 0xFEFF);
@@ -312,10 +312,10 @@ static Bytes make_layout() {
     Bytes mat(8, 0);
     put16(mat, 0, 1);
     put32(mat, 4, 0x10);  // counted from the section start
-    Bytes m(0x44, 0);
+    Bytes m(0x44 + 16 * tev_stages, 0);
     puts_(m, 0, "M_pic");
     for (int i = 0; i < 4; ++i) put16(m, 0x1C + 2 * i, 255);
-    put32(m, 0x3C, 1);
+    put32(m, 0x3C, 1 | (tev_stages << 18));
     put16(m, 0x40, 0);
     mat.insert(mat.end(), m.begin(), m.end());
     section("mat1", mat);
@@ -470,6 +470,114 @@ static void test_layout() {
     EXPECT_TRUE(describe_banner(lyt, &skipping, nullptr).find("skipped kinds: RLIM") != std::string::npos);
 }
 
+// What a crafted banner can ask for. Each case failed open (a crash, a
+// read or allocation past the file, or undefined behaviour) before.
+static void test_hostile() {
+    std::string error;
+    U8Archive a;
+    // A name past 255 bytes.
+    {
+        const Bytes ok = make_u8({{"arc/" + std::string(255, 'n'), {1}}});
+        EXPECT_TRUE(U8Archive::parse(ok.data(), ok.size(), a, error));
+        const Bytes bad = make_u8({{"arc/" + std::string(256, 'n'), {1}}});
+        EXPECT_TRUE(!U8Archive::parse(bad.data(), bad.size(), a, error));
+    }
+    // Every file keeps its whole path: 5000 files under a 255-byte folder
+    // name would hold 1.3 MB of paths (a 50 KB name, 1 GB).
+    {
+        std::vector<std::pair<std::string, Bytes>> files;
+        for (int i = 0; i < 5000; ++i) files.push_back({std::string(255, 'd') + "/f" + std::to_string(i), {}});
+        const Bytes many = make_u8(files);
+        EXPECT_TRUE(!U8Archive::parse(many.data(), many.size(), a, error));
+        files.resize(1000);
+        const Bytes fine = make_u8(files);
+        EXPECT_TRUE(U8Archive::parse(fine.data(), fine.size(), a, error));
+    }
+    // Folders 20 deep.
+    {
+        const std::uint32_t count = 22;
+        Bytes u8(0x20 + count * 12 + 4, 0);
+        put32(u8, 0, 0x55AA382D);
+        put32(u8, 4, 0x20);
+        put32(u8, 8, count * 12 + 4);
+        put32(u8, 0x20, 0x01000000);
+        put32(u8, 0x28, count);
+        for (std::uint32_t n = 1; n < count; ++n) {
+            put32(u8, 0x20 + n * 12, (n + 1 < count ? 0x01000000u : 0) | 1);
+            put32(u8, 0x20 + n * 12 + 8, n + 1 < count ? count : 0);
+        }
+        puts_(u8, 0x20 + count * 12, std::string("\0d\0", 3));
+        EXPECT_TRUE(!U8Archive::parse(u8.data(), u8.size(), a, error));
+    }
+    // The menu's icon lookup reads only the headers; its sums must not
+    // wrap (on the Wii, count * 12 did for count 0x15555556).
+    {
+        Bytes bnr(0x600, 0);
+        puts_(bnr, 0x40, "IMET");
+        const Bytes outer = make_u8({{"meta/banner.bin", {9, 9}}, {"meta/icon.bin", {1, 2, 3, 4}}});
+        bnr.insert(bnr.end(), outer.begin(), outer.end());
+        std::size_t reads = 0;
+        const auto read_at = [&](std::size_t off, std::size_t n) {
+            ++reads;
+            return off <= bnr.size() && n <= bnr.size() - off;
+        };
+        std::size_t off = 0, len = 0;
+        EXPECT_TRUE(locate_banner_icon(bnr, read_at, off, len));
+        EXPECT_EQ(len, std::size_t(4));
+        if (len == 4) EXPECT_EQ(static_cast<int>(bnr[off + 3]), 4);
+        Bytes wrap = bnr;
+        put32(wrap, 0x600 + 0x20 + 8, 0x15555556);  // the root node's count
+        EXPECT_TRUE(!locate_banner_icon(wrap, read_at, off, len));
+        Bytes far = bnr;
+        put32(far, 0x600 + 0x20 + 3 * 12 + 4, 0xFFFFFFF0);  // icon.bin's offset
+        EXPECT_TRUE(!locate_banner_icon(far, read_at, off, len));
+        Bytes header = bnr;
+        put32(header, 0x600 + 8, 0xFFFFFFF0);  // the U8 header's size
+        EXPECT_TRUE(!locate_banner_icon(header, read_at, off, len));
+        Bytes none = bnr;
+        puts_(none, 0x40, "NOPE");
+        EXPECT_TRUE(!locate_banner_icon(none, read_at, off, len));
+    }
+    // A texture past GX's 1024 x 1024 (its size wrapped on the Wii).
+    {
+        EXPECT_EQ(gx_texture_size(kTplRGB5A3, 1024, 1024), std::size_t(1024 * 1024 * 2));
+        EXPECT_EQ(gx_texture_size(kTplRGB5A3, 1025, 4), std::size_t(0));
+        EXPECT_EQ(gx_texture_size(kTplRGBA8, 65535, 65535), std::size_t(0));
+    }
+    // More TEV stages than GX has.
+    {
+        Layout lyt;
+        const Bytes ok = make_layout(16);
+        EXPECT_TRUE(parse_brlyt(ok.data(), ok.size(), lyt, error));
+        if (!lyt.materials.empty()) EXPECT_EQ(lyt.materials[0].tev.size(), std::size_t(16));
+        const Bytes bad = make_layout(17);
+        EXPECT_TRUE(!parse_brlyt(bad.data(), bad.size(), lyt, error));
+    }
+    // A texture-pattern value that is NaN, negative or huge picks nothing.
+    {
+        Layout lyt;
+        const Bytes b = make_layout();
+        EXPECT_TRUE(parse_brlyt(b.data(), b.size(), lyt, error));
+        for (float v : {std::nanf(""), -1.0f, 1e30f, 3.0f}) {
+            Animation anim;
+            anim.textures = {"a.tpl"};
+            AnimTarget t;
+            t.name = "M_pic";
+            t.material = true;
+            AnimTrack tr;
+            tr.kind = AnimKind::TexturePattern;
+            tr.keys.push_back(AnimKey{0, v, 0});
+            t.tracks.push_back(tr);
+            anim.targets.push_back(t);
+            Layout copy = lyt;
+            apply_animation(anim, 0, copy);
+            if (!copy.materials.empty() && !copy.materials[0].maps.empty()) {
+                EXPECT_EQ(copy.materials[0].maps[0].texture, lyt.materials[0].maps[0].texture);
+            }
+        }
+    }
+}
+
 int main() {
     test_aes();
     test_partition();
@@ -477,6 +585,7 @@ int main() {
     test_opening();
     test_tpl();
     test_layout();
+    test_hostile();
     if (g_failures == 0) {
         std::cout << "ALL BNR TESTS PASSED" << std::endl;
         return 0;

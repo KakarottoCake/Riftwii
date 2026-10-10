@@ -117,6 +117,7 @@ bool parse_material(const std::uint8_t* m, std::size_t room, LytMaterial& out, s
     if (!need(ind_mtx * 20 + ind_stages * 4)) return false;
     p += ind_mtx * 20 + ind_stages * 4;
     mat.ind_stages = static_cast<std::uint8_t>(ind_stages);
+    if (stages > 16) return false;  // GX has 16 TEV stages
     if (!need(stages * 16)) return false;
     for (unsigned i = 0; i < stages; ++i, p += 16) {
         std::array<std::uint8_t, 16> s;

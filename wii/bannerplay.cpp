@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <new>
 
 #include "banners.hpp"
 #include "log.hpp"
@@ -144,12 +145,15 @@ void DepthOnly(bool on) {
 // the constant selection (5), output register (2) and clamp (1).
 // (Field order as USB Loader GX's banner code reads them, for insight.)
 void MaterialTev(const std::vector<std::array<std::uint8_t, 16>>& stages) {
-    GX_SetNumTevStages(static_cast<u8>(stages.size()));
-    for (std::size_t i = 0; i < stages.size(); ++i) {
+    const std::size_t count = std::min<std::size_t>(stages.size(), 16);
+    GX_SetNumTevStages(static_cast<u8>(count));
+    for (std::size_t i = 0; i < count; ++i) {
         const std::uint8_t* t = stages[i].data();
         const u8 stage = static_cast<u8>(GX_TEVSTAGE0 + i);
+        // libogc looks the colour channel up in a 9-entry table
+        // (_gxtevcolid): a byte past GX_ALPHA_BUMPN would read beyond it.
         GX_SetTevOrder(stage, t[0] == 0xFF ? GX_TEXCOORDNULL : t[0], t[2] == 0xFF ? GX_TEXMAP_NULL : t[2],
-                       t[1] == 0xFF ? GX_COLORNULL : t[1]);
+                       t[1] <= GX_ALPHA_BUMPN ? t[1] : GX_COLORNULL);
         GX_SetTevSwapMode(stage, (t[3] >> 1) & 3, (t[3] >> 3) & 3);
         GX_SetTevColorIn(stage, t[4] & 15, t[4] >> 4, t[5] & 15, t[5] >> 4);
         GX_SetTevColorOp(stage, t[6] & 15, (t[6] >> 4) & 3, t[6] >> 6, t[7] & 1, (t[7] >> 1) & 3);
@@ -198,6 +202,18 @@ void BannerPlayer::Free() {
 }
 
 bool BannerPlayer::Load(const std::vector<std::uint8_t>& opening_bnr, bool icon, std::string& error) {
+    // A banner that asks for more memory than is free shows as a name tile
+    // instead of ending the menu.
+    try {
+        return LoadParts(opening_bnr, icon, error);
+    } catch (const std::bad_alloc&) {
+        Free();
+        error = "out of memory for the banner";
+        return false;
+    }
+}
+
+bool BannerPlayer::LoadParts(const std::vector<std::uint8_t>& opening_bnr, bool icon, std::string& error) {
     Free();
     icon_ = icon;
     OpeningBanner b;

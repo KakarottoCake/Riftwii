@@ -7,6 +7,7 @@
 
 #include <cstdio>
 #include <cstring>
+#include <new>
 #include <set>
 
 #include "log.hpp"
@@ -44,8 +45,14 @@ bool StoreBanner(const ImageGame& game, std::string& error) {
     }
     std::vector<std::uint8_t> bnr;
     OpeningBanner check;
-    if (!read_image_disc_file(game, "/opening.bnr", bnr, error) ||
-        !parse_opening_bnr(bnr.data(), bnr.size(), check, error, false)) {
+    bool parsed = false;
+    try {
+        parsed = read_image_disc_file(game, "/opening.bnr", bnr, error) &&
+                 parse_opening_bnr(bnr.data(), bnr.size(), check, error, false);
+    } catch (const std::bad_alloc&) {
+        error = "out of memory for the banner";
+    }
+    if (!parsed) {
         g_failed.insert(game.id);
         logf("Banner of %s: %s\n", game.id.c_str(), error.c_str());
         return false;
@@ -95,33 +102,8 @@ bool LoadBannerIcon(const std::string& game_id, std::vector<std::uint8_t>& out) 
             return off <= out.size() && n <= out.size() - off && std::fseek(f, static_cast<long>(off), SEEK_SET) == 0 &&
                    std::fread(out.data() + off, 1, n, f) == n;
         };
-        const auto be32 = [&](std::size_t at) {
-            return (std::uint32_t(out[at]) << 24) | (std::uint32_t(out[at + 1]) << 16) |
-                   (std::uint32_t(out[at + 2]) << 8) | out[at + 3];
-        };
-        // IMET at 0x40 (a disc's) or 0x80 (a channel's); the archive after its 0x600 bytes.
-        std::size_t imet = 0;
-        if (read_at(0, 0x84)) {
-            if (std::memcmp(out.data() + 0x40, "IMET", 4) == 0) imet = 0x40;
-            else if (std::memcmp(out.data() + 0x80, "IMET", 4) == 0) imet = 0x80;
-        }
-        const std::size_t archive = imet + 0x5C0;
-        if (imet != 0 && read_at(0, archive + 0x20) && be32(archive) == 0x55AA382Du) {
-            const std::size_t root = be32(archive + 4), header = be32(archive + 8);
-            if (root >= 0x20 && header >= 12 && read_at(archive + root, header)) {
-                const std::size_t nodes = archive + root, count = be32(nodes + 8);
-                if (count >= 1 && count * 12 <= header) {
-                    const std::size_t strings = nodes + count * 12, strings_end = nodes + header;
-                    for (std::size_t n = 1; n < count && !found; ++n) {
-                        const std::size_t e = nodes + n * 12, name = strings + (be32(e) & 0xFFFFFF);
-                        if (out[e] != 0 || name + 9 > strings_end || std::memcmp(out.data() + name, "icon.bin", 9) != 0)
-                            continue;
-                        found = read_at(archive + be32(e + 4), be32(e + 8));
-                        if (!found) break;
-                    }
-                }
-            }
-        }
+        std::size_t icon = 0, icon_bytes = 0;
+        found = locate_banner_icon(out, read_at, icon, icon_bytes) && read_at(icon, icon_bytes);
     }
     std::fclose(f);
     return found || LoadBanner(game_id, out);

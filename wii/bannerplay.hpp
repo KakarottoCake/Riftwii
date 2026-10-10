@@ -51,6 +51,7 @@ public:
     std::size_t Bytes() const { return arc_size_; }
 
 private:
+    bool LoadParts(const std::vector<std::uint8_t>& opening_bnr, bool icon, std::string& error);
     struct Texture {
         GXTexObj obj;
         GXTlutObj tlut;

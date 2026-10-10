@@ -34,6 +34,7 @@
 #include <fstream>
 #include <functional>
 #include <initializer_list>
+#include <new>
 #include <set>
 #include <unordered_map>
 #include <sstream>
@@ -1098,7 +1099,13 @@ static ChannelChoice ShowChannel(int& index, int count, const std::string& first
 		std::vector<std::uint8_t> sound;
 		// Checked before the banner showing is let go: a broken one is
 		// skipped and the one up stays.
-		if (!riftwii::parse_opening_bnr(bytes.data(), bytes.size(), parts, error, false)) {
+		bool parsed = false;
+		try {
+			parsed = riftwii::parse_opening_bnr(bytes.data(), bytes.size(), parts, error, false);
+		} catch (const std::bad_alloc&) {
+			error = "out of memory for the banner";
+		}
+		if (!parsed) {
 			logf("Banner of %s: %s\n", idOf(i).c_str(), error.c_str());
 			return false;
 		}

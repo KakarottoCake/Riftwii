@@ -291,8 +291,10 @@ void apply_animation(const Animation& anim, float frame, Layout& layout, const A
                     if (tr.target < 5) *f[tr.target] = v;
                 } else if (tr.kind == AnimKind::TexturePattern) {
                     if (tr.index >= m->maps.size()) continue;
+                    // NaN, negative or past the list: no texture (casting
+                    // those to an index is undefined).
+                    if (!(v >= 0.0f) || v >= static_cast<float>(anim.textures.size())) continue;
                     const std::size_t pick = static_cast<std::size_t>(v);
-                    if (pick >= anim.textures.size()) continue;
                     const std::string& name = anim.textures[pick];
                     std::size_t found = layout.textures.size();
                     for (std::size_t i = 0; i < layout.textures.size(); ++i)

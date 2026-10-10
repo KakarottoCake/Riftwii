@@ -5,6 +5,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -52,6 +53,13 @@ private:
     const std::uint8_t* base_ = nullptr;
     std::vector<File> files_;
 };
+
+// Where icon.bin lies in a banner file (an IMET header at 0x40 or 0x80,
+// then its U8 archive), reading only the headers: `buf` is as large as the
+// file and `read_at(offset, length)` makes those bytes of it valid. For the
+// menu's icon cache, which must not read whole banners.
+bool locate_banner_icon(std::vector<std::uint8_t>& buf, const std::function<bool(std::size_t, std::size_t)>& read_at,
+                        std::size_t& offset, std::size_t& length);
 
 // icon.bin or banner.bin: the U8 archive inside its IMD5 header,
 // unpacked when it is LZ77.
