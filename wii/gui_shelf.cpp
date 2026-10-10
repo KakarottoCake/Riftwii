@@ -90,7 +90,11 @@ struct Face {
     int texW = 0, texH = 0;
     float u0 = 0, u1 = 1;
     float v0 = 0, v1 = 1;
-    bool rgba8 = false;  // and repeating across
+    bool rgba8 = false;
+    // Repeats across (the plank's wood). Only for power-of-two sizes: GX
+    // wraps with a power-of-two mask, so the 40x40 disc icon drawn with
+    // GX_REPEAT came out as broken arcs on a Wii (Dolphin drew it whole).
+    bool repeat = false;
     GXColor color;
 };
 
@@ -103,7 +107,7 @@ void DrawFace(const Face& f, int alpha) {
     if (f.tex) {
         GXTexObj tex;
         GX_InitTexObj(&tex, const_cast<u8*>(f.tex), static_cast<u16>(f.texW), static_cast<u16>(f.texH),
-                      f.rgba8 ? GX_TF_RGBA8 : GX_TF_RGB5A3, f.rgba8 ? GX_REPEAT : GX_CLAMP, GX_CLAMP, GX_FALSE);
+                      f.rgba8 ? GX_TF_RGBA8 : GX_TF_RGB5A3, f.repeat ? GX_REPEAT : GX_CLAMP, GX_CLAMP, GX_FALSE);
         GX_InitTexObjLOD(&tex, GX_LINEAR, GX_LINEAR, 0, 0, 0, GX_FALSE, GX_FALSE, GX_ANISO_1);
         GX_LoadTexObj(&tex, GX_TEXMAP0);
         GX_SetTevOp(GX_TEVSTAGE0, GX_MODULATE);
@@ -342,6 +346,7 @@ void GuiGameGrid::DrawShelf(int alpha) {
             f.texW = skin::shelfPlank.w;
             f.texH = skin::shelfPlank.h;
             f.rgba8 = true;
+            f.repeat = true;  // 256x64 (src/theme.cpp)
             // The picture's width covers 256 units of the plank.
             f.u0 = -400.0f / 256.0f;
             f.u1 = 1040.0f / 256.0f;
