@@ -25,7 +25,15 @@
  *  - YAGCD and libogc's video.c: the VI registers (VTR's active lines,
  *    the picture configuration's stride and width in 16-pixel units, the
  *    top field base with its page-offset bit).
- *  - wiibrew, "/dev/fs": CreateDir, CreateFile and the attribute block. */
+ *  - wiibrew, "/dev/fs": CreateDir, CreateFile and the attribute block,
+ *    Delete and Rename.
+ *  - Saying a shot was taken and saved: the Remote that pressed the combo
+ *    rumbles (wiibrew, "Wiimote": output report 0x10, its first byte's
+ *    lowest bit). The blob sends that report itself, on the HID channel
+ *    the game's own output reports use (learnt from them), and takes its
+ *    own packets out of the controller's Number Of Completed Packets
+ *    events (the Bluetooth core specification), so the game's count of
+ *    packets in flight stays its own. */
 #ifndef RIFTWII_RTSHOT_H
 #define RIFTWII_RTSHOT_H
 
@@ -45,9 +53,14 @@ extern "C" {
 #define RTSHOT_DOUBLE_LINES 1u     /* each line was shown twice */
 #define RTSHOT_FRAME_BYTES (RTSHOT_HEADER_BYTES + RTSHOT_MAX_WIDTH * 2u * RTSHOT_MAX_LINES)
 
-/* The Bluetooth dongle's ACL input endpoint and the USBV0 bulk ioctlv. */
+/* The Bluetooth dongle's endpoints: ACL in and out, HCI events; the
+ * USBV0 bulk and interrupt ioctlvs. */
 #define RTSHOT_ACL_IN 0x82u
+#define RTSHOT_ACL_OUT 0x02u
+#define RTSHOT_EVENT_IN 0x81u
 #define RTSHOT_USBV0_BLKMSG 1u
+#define RTSHOT_USBV0_INTRMSG 2u
+#define RTSHOT_RUMBLE_BYTES 11u   /* the ACL packet rtshot_rumble builds */
 
 /* Wii Remote core buttons, the report's second button byte. */
 #define RTSHOT_REMOTE_ONE 0x02u
@@ -63,7 +76,10 @@ struct rtshot_remote {
     uint8_t used;
     uint8_t buttons;   /* the second button byte of its last report, as sent */
     uint8_t masking;   /* HOME is hidden until it is let go */
-    uint8_t pad[3];
+    uint8_t out_flags; /* the ACL flags of the game's output packets */
+    uint16_t out_cid;  /* the Remote's end of the HID channel, 0: not seen yet */
+    uint16_t injected; /* our packets the controller has not said are done */
+    uint8_t pad[2];
 };
 
 struct rtshot_input {
@@ -72,11 +88,26 @@ struct rtshot_input {
     uint8_t pad_down[RTSHOT_PADS];     /* Down in the last PADRead */
     uint8_t pad_masking[RTSHOT_PADS];
     uint32_t reports;              /* Wii Remote reports seen */
+    uint32_t fired_remote;         /* the remote slot + 1 that completed the combo last, 0: a pad */
 };
 
 /* One ACL packet of `size` bytes from the Bluetooth bulk-in endpoint.
  * Returns 1 when it completed the combo. */
 int rtshot_acl(struct rtshot_input* in, uint8_t* acl, uint32_t size);
+
+/* One ACL packet the game sends (bulk out): its HID output reports name
+ * the Remote's end of the channel. Returns 1 when it was one. */
+int rtshot_acl_out(struct rtshot_input* in, const uint8_t* acl, uint32_t size);
+
+/* The rumble report for remote slot `slot` (on or off) into `out`
+ * (RTSHOT_RUMBLE_BYTES), counted as ours for rtshot_event. Returns its
+ * size, 0 when the game has not shown that remote's channel yet. */
+uint32_t rtshot_rumble(struct rtshot_input* in, uint32_t slot, int on, uint8_t* out);
+
+/* One HCI event the game is about to see (interrupt in): a Number Of
+ * Completed Packets event has the packets rtshot_rumble made taken out
+ * of it. */
+void rtshot_event(struct rtshot_input* in, uint8_t* event, uint32_t size);
 
 /* PADRead's four 12-byte PADStatus records. Returns 1 when one completed
  * the combo. */
@@ -100,10 +131,15 @@ int rtshot_frame(uint16_t vtr, uint16_t picture, uint32_t top_base, struct rtsho
 void rtshot_header(uint8_t* out, const struct rtshot_frame* f, const uint8_t* game_id, uint32_t index,
                    uint32_t time);
 
-/* "/shared2/riftwii/shotNNNN.raw" (NNNN = number % 10000) into 32 bytes. */
+/* "/shared2/riftwii/shotNNNN.raw" (NNNN = number % 10000) into 64 bytes;
+ * rtshot_temp_path "/shared2/riftwii/part/shotNNNN.raw", where it is
+ * written until it is whole (IOS's Rename moves a file to another folder
+ * but never changes its name). */
 void rtshot_path(char* out, uint32_t number);
-/* "/shared2/riftwii". */
+void rtshot_temp_path(char* out, uint32_t number);
+/* "/shared2/riftwii", and its "part" folder. */
 void rtshot_dir(char* out);
+void rtshot_part_dir(char* out);
 
 /* The /dev/fs attribute block (0x4C bytes) for CreateDir and CreateFile
  * of `path`: read and write for everyone, so the menu, which runs under

@@ -102,9 +102,30 @@ bool SavePng(const std::string& prefix, const u8* yuyv, std::uint32_t width, std
     return true;
 }
 
+// Shots still being written when their game ended (the blob writes in
+// part/ and moves a file out once it is whole): never whole, deleted.
+void DropUnfinishedShots() {
+    static char names[64 * 13] ATTRIBUTE_ALIGN(32);
+    char dir[48];
+    std::snprintf(dir, sizeof(dir), "%s/part", kGameShotDir);
+    u32 count = 0;
+    if (ISFS_ReadDir(dir, nullptr, &count) < 0 || count == 0) return;
+    if (count > 64) count = 64;
+    std::memset(names, 0, sizeof(names));
+    if (ISFS_ReadDir(dir, names, &count) < 0) return;
+    const char* name = names;
+    for (u32 i = 0; i < count; ++i, name += std::strlen(name) + 1) {
+        char path[80];
+        std::snprintf(path, sizeof(path), "%s/%s", dir, name);
+        ISFS_Delete(path);
+        logf("Screenshot: %s was not finished when its game ended; deleted\n", path);
+    }
+}
+
 // The in-game captures on the NAND, each to a PNG, then deleted there.
 void ImportGameShots() {
     if (ISFS_Initialize() < 0) return;
+    DropUnfinishedShots();
     u32 count = 0;
     if (ISFS_ReadDir(kGameShotDir, nullptr, &count) < 0 || count == 0) return;
     static char names[64 * 13] ATTRIBUTE_ALIGN(32);

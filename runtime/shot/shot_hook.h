@@ -6,10 +6,18 @@
  * or, in direct mode, written straight from the game's frame buffer
  * (no copy, so no 0.8 MB of the game's MEM2; a moving picture may shear
  * a little, as the game redraws it while the write runs),
- * and the copy written to the NAND (/shared2/riftwii/shotNNNN.raw)
- * through the game's own asynchronous IOS calls, one request after the
- * other from their completions, so the game never waits for it. The
- * menu turns the files into PNGs at its next start (wii/screenshot.hpp).
+ * and the copy written to the NAND through the game's own asynchronous
+ * IOS calls, one request after the other from their completions, so the
+ * game never waits for it: in /shared2/riftwii/part, moved to
+ * /shared2/riftwii once it is whole and closed (a file cut short by the
+ * game ending stays in part/, which the menu empties; a tester's console
+ * gave back half its shots unreadable). The name it gets is checked free
+ * first: a move replaces a file of that name. The menu turns the files
+ * into PNGs at its next start (wii/screenshot.hpp).
+ *
+ * The Remote that pressed the combo rumbles once, briefly, when the
+ * picture is taken, twice when its file is saved, and once for longer
+ * when saving failed (rtshot.h has how).
  *
  * Layout (shot_entry.S): the header below, the trampolines with their
  * loader-filled replay slots, the IPC completion entries, the C code,
@@ -52,6 +60,16 @@
 #define RT_SHOT_CLOSE_FILE 6u
 #define RT_SHOT_CLOSE_FS 7u
 #define RT_SHOT_WRITE_PIXELS 8u  /* direct mode: the picture, after the header */
+#define RT_SHOT_RENAME 9u        /* part/shotNNNN.raw to shotNNNN.raw, once closed */
+#define RT_SHOT_DELETE 10u       /* the part file of a job that failed */
+#define RT_SHOT_MKDIR_PART 11u   /* /shared2/riftwii/part */
+#define RT_SHOT_PROBE 12u        /* GetAttr of the final name: free? */
+
+/* rt_shot_watch.kind */
+#define RT_SHOT_WATCH_ACL 0u     /* a Wii Remote's input */
+#define RT_SHOT_WATCH_EVENT 1u   /* an HCI event */
+
+#define RT_SHOT_BUZZ_STEPS 4u
 
 /* Big-endian words at the start of the blob. */
 struct rt_shot_header {
@@ -87,6 +105,7 @@ struct rt_shot_context {
     int32_t last_error;
     uint32_t demo_start;       /* time base at the first Wii Remote report, 0: none yet */
     uint32_t inited;           /* the state is set up (at the first hooked call) */
+    uint32_t ioctlv_async;     /* the game's IOS_IoctlvAsync (through the hooks), for the rumble */
 };
 
 struct rt_shot_watch {
@@ -95,6 +114,17 @@ struct rt_shot_watch {
     uint32_t user;
     uint32_t data;             /* the transfer's buffer */
     uint32_t length;
+    uint32_t kind;             /* RT_SHOT_WATCH_* */
+};
+
+/* One rumble report's USBV0 bulk message: IOS reads each part, so each
+ * starts a 32-byte line. Two of them, on and off, so the one in flight
+ * is never written over (its answer is not waited for). */
+struct rt_shot_rumble {
+    uint8_t packet[32] __attribute__((aligned(32)));
+    uint32_t vectors[6] __attribute__((aligned(32)));  /* endpoint, length, packet: address and size each */
+    uint8_t endpoint __attribute__((aligned(32)));
+    uint16_t length __attribute__((aligned(32)));
 };
 
 /* In MEM2. The buffers IOS reads each start a 32-byte line. */
@@ -109,7 +139,18 @@ struct rt_shot_state {
     int32_t error;             /* the job's first failure */
     uint32_t pixels;           /* direct mode: the frame buffer on screen (cached address) */
     uint32_t pixel_bytes;
+    uint32_t created;          /* the part file exists */
+    uint32_t renamed;          /* it became the .raw */
+    uint32_t deleted;          /* it was removed after a failure */
+    int32_t bt_fd;             /* the game's /dev/usb/oh1/57e/305, -1: not seen yet */
+    uint32_t buzz_slot;        /* the remote slot that rumbles */
+    uint32_t buzz_steps;       /* steps in the pattern, 0: none running */
+    uint32_t buzz_next;        /* the step sent next (even: on, odd: off) */
+    uint32_t buzz_due;         /* time base when it is due */
+    uint32_t buzz_ms[RT_SHOT_BUZZ_STEPS];  /* how long each step lasts */
     char path[64] __attribute__((aligned(32)));
+    char names[128] __attribute__((aligned(32)));  /* Rename: the part file, then the final name */
+    struct rt_shot_rumble rumble[2];
     char device[32] __attribute__((aligned(32)));
     uint8_t attr[96] __attribute__((aligned(32)));
     uint8_t header[RTSHOT_HEADER_BYTES] __attribute__((aligned(32)));  /* direct mode */

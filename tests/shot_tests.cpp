@@ -315,6 +315,50 @@ Bytes Report(std::uint16_t handle, std::uint8_t id, std::uint8_t b0, std::uint8_
 
 int Feed(rtshot_input& in, Bytes& acl) { return rtshot_acl(&in, acl.data(), std::uint32_t(acl.size())); }
 
+// The rumble report goes to the Remote whose output channel the game's
+// own packets showed, and the controller's "done" for it is not passed on.
+void test_rumble() {
+    rtshot_input in{};
+    std::uint8_t packet[RTSHOT_RUMBLE_BYTES];
+    Bytes r = Report(0x0C, 0x30, 0, 0x02);
+    Feed(in, r);
+    r = Report(0x0C, 0x30, 0, 0x82);
+    EXPECT_EQ(Feed(in, r), 1);
+    EXPECT_EQ(in.fired_remote, 1u);
+    EXPECT_EQ(rtshot_rumble(&in, 0, 1, packet), 0u);  // no output channel seen yet
+    // The game's own LED report on the Remote's channel 0x0047.
+    const Bytes led = {0x0C, 0x20, 6, 0, 2, 0, 0x47, 0x00, 0xA2, 0x11, 0x10};
+    EXPECT_EQ(rtshot_acl_out(&in, led.data(), std::uint32_t(led.size())), 1);
+    const Bytes control = {0x0C, 0x20, 6, 0, 2, 0, 0x01, 0x00, 0xA2, 0x11};  // the signalling channel
+    EXPECT_EQ(rtshot_acl_out(&in, control.data(), std::uint32_t(control.size())), 0);
+    EXPECT_EQ(rtshot_rumble(&in, 0, 1, packet), std::uint32_t(RTSHOT_RUMBLE_BYTES));
+    const Bytes want = {0x0C, 0x20, 7, 0, 3, 0, 0x47, 0x00, 0xA2, 0x10, 0x01};
+    EXPECT_TRUE(Bytes(packet, packet + sizeof(packet)) == want);
+    EXPECT_EQ(rtshot_rumble(&in, 0, 0, packet), std::uint32_t(RTSHOT_RUMBLE_BYTES));
+    EXPECT_EQ(packet[10], 0);
+    EXPECT_EQ(rtshot_rumble(&in, 3, 1, packet), 0u);  // a slot with no remote
+    // Number Of Completed Packets: 3 for handle 0x0C (2 of them ours), 1 for 0x0D.
+    Bytes event = {0x13, 9, 2, 0x0C, 0x00, 3, 0, 0x0D, 0x00, 1, 0};
+    rtshot_event(&in, event.data(), std::uint32_t(event.size()));
+    EXPECT_EQ(event[5], 1);
+    EXPECT_EQ(event[9], 1);
+    EXPECT_EQ(in.remotes[0].injected, 0u);
+    // More of ours than the event counts: the rest waits for the next one.
+    rtshot_rumble(&in, 0, 1, packet);
+    rtshot_rumble(&in, 0, 0, packet);
+    Bytes one = {0x13, 5, 1, 0x0C, 0x00, 1, 0};
+    rtshot_event(&in, one.data(), std::uint32_t(one.size()));
+    EXPECT_EQ(one[5], 0);
+    EXPECT_EQ(in.remotes[0].injected, 1u);
+    // Other events, and short ones, are left alone.
+    Bytes other = {0x0E, 4, 1, 0x05, 0x0C, 0x00};
+    rtshot_event(&in, other.data(), std::uint32_t(other.size()));
+    EXPECT_TRUE(other == (Bytes{0x0E, 4, 1, 0x05, 0x0C, 0x00}));
+    Bytes cut = {0x13, 5, 2, 0x0C, 0x00, 1, 0};
+    rtshot_event(&in, cut.data(), std::uint32_t(cut.size()));
+    EXPECT_EQ(cut[5], 1);
+}
+
 void test_remote_combo() {
     rtshot_input in{};
     Bytes r = Report(1, 0x30, 0, 0x02);  // 1 held
@@ -448,11 +492,15 @@ void test_vi_frame() {
 }
 
 void test_shot_file() {
-    char path[32];
+    char path[64];
     rtshot_path(path, 7);
     EXPECT_TRUE(std::string(path) == "/shared2/riftwii/shot0007.raw");
     rtshot_path(path, 12345);
     EXPECT_TRUE(std::string(path) == "/shared2/riftwii/shot2345.raw");
+    rtshot_temp_path(path, 7);
+    EXPECT_TRUE(std::string(path) == "/shared2/riftwii/part/shot0007.raw");
+    rtshot_part_dir(path);
+    EXPECT_TRUE(std::string(path) == "/shared2/riftwii/part");
     rtshot_dir(path);
     EXPECT_TRUE(std::string(path) == "/shared2/riftwii");
     std::uint8_t attr[RTSHOT_FS_ATTR_BYTES];
@@ -487,6 +535,7 @@ int main() {
     test_yuyv();
     test_header();
     test_remote_combo();
+    test_rumble();
     test_pad_combo();
     test_vi_frame();
     test_shot_file();

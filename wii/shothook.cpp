@@ -149,6 +149,7 @@ bool plan_shot_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t
     ctx->close_async = ipc.close_async;
     ctx->write_async = ipc.write_async;
     ctx->ioctl_async = ipc.ioctl_async;
+    ctx->ioctlv_async = out.ioctlv;  // the rumble goes out through the game's own (hooked) call
     ctx->complete_bt = out.code_base + h.complete_bt;
     ctx->complete_nand = out.code_base + h.complete_nand;
     ctx->flags = (demo ? RT_SHOT_FLAG_DEMO : 0u) | (direct ? RT_SHOT_FLAG_DIRECT : 0u);

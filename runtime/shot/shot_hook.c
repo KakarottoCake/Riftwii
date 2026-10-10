@@ -11,8 +11,12 @@ void shot_on_nand(struct rt_shot_context* c, int32_t result);
 
 /* /dev/fs (wiibrew). */
 #define FS_CREATE_DIR 3u
+#define FS_GET_ATTR 6u
+#define FS_DELETE 7u
+#define FS_RENAME 8u
 #define FS_CREATE_FILE 9u
 #define FS_EXISTS (-105)
+#define FS_NOT_FOUND (-106)
 #define FS_OPEN_WRITE 2u
 
 typedef int32_t (*shot_open_fn)(const char* path, uint32_t mode, uint32_t callback, uint32_t user);
@@ -21,6 +25,8 @@ typedef int32_t (*shot_write_fn)(int32_t fd, const void* data, uint32_t length, 
 typedef int32_t (*shot_ioctl_fn)(int32_t fd, uint32_t ioctl, void* in, uint32_t in_len, void* out, uint32_t out_len,
                                  uint32_t callback, uint32_t user);
 typedef int32_t (*shot_callback_fn)(int32_t result, uint32_t user);
+typedef int32_t (*shot_ioctlv_fn)(int32_t fd, uint32_t ioctl, uint32_t in_count, uint32_t io_count, void* vectors,
+                                  uint32_t callback, uint32_t user);
 
 static uint32_t interrupts_off(void) {
     uint32_t msr;
@@ -63,11 +69,75 @@ static struct rt_shot_state* state_of(struct rt_shot_context* c) {
             for (i = 0; i < sizeof(*st) / 4u; ++i) w[i] = 0;
             st->fs_fd = -1;
             st->file_fd = -1;
+            st->bt_fd = -1;
             c->inited = 1;
         }
         interrupts_restore(msr);
     }
     return st;
+}
+
+/* The rumble ---------------------------------------------------------- */
+
+static void copy(void* to, const void* from, uint32_t n) {
+    uint8_t* d = (uint8_t*)to;
+    const uint8_t* s = (const uint8_t*)from;
+    while (n--) *d++ = *s++;
+}
+
+/* One report to the Remote, on or off. 0 when it could not go. */
+static int send_rumble(struct rt_shot_context* c, struct rt_shot_state* st, int on) {
+    struct rt_shot_rumble* m = &st->rumble[on ? 0 : 1];
+    uint32_t bytes;
+    int32_t sent;
+    if (st->bt_fd < 0 || c->ioctlv_async == 0) return 0;
+    bytes = rtshot_rumble(&st->input, st->buzz_slot, on, m->packet);
+    if (bytes == 0) return 0;
+    m->endpoint = RTSHOT_ACL_OUT;
+    m->length = (uint16_t)bytes;
+    m->vectors[0] = (uint32_t)(uintptr_t)&m->endpoint;
+    m->vectors[1] = 1u;
+    m->vectors[2] = (uint32_t)(uintptr_t)&m->length;
+    m->vectors[3] = 2u;
+    m->vectors[4] = (uint32_t)(uintptr_t)m->packet;
+    m->vectors[5] = bytes;
+    flush(m, sizeof(*m));
+    /* No callback: nothing waits for the answer, and the other buffer is
+     * the one the next step writes. */
+    sent = ((shot_ioctlv_fn)(uintptr_t)c->ioctlv_async)(st->bt_fd, RTSHOT_USBV0_BLKMSG, 2u, 1u, m->vectors, 0, 0);
+    if (sent < 0) {
+        --st->input.remotes[st->buzz_slot].injected;  /* never sent: the controller will not count it */
+        return 0;
+    }
+    return 1;
+}
+
+/* Sends the pattern's next step once it is due. Interrupts are off. */
+static void buzz_tick(struct rt_shot_context* c, struct rt_shot_state* st) {
+    const uint32_t step = st->buzz_next;
+    if (st->buzz_steps == 0 || (int32_t)(now() - st->buzz_due) < 0) return;
+    if (!send_rumble(c, st, (step & 1u) == 0)) {
+        if ((step & 1u) == 0) st->buzz_steps = 0;  /* no Remote to tell: stop */
+        return;                                    /* an off that failed: tried again */
+    }
+    st->buzz_due = now() + st->buzz_ms[step] * (c->ticks_per_second / 1000u);
+    if (++st->buzz_next >= st->buzz_steps) st->buzz_steps = 0;
+}
+
+/* `on`, `off`, `on2` milliseconds (0: not there): the Remote that pressed
+ * the combo rumbles. Interrupts are off. */
+static void buzz(struct rt_shot_context* c, struct rt_shot_state* st, uint32_t on, uint32_t off, uint32_t on2) {
+    if (st->input.fired_remote == 0) return;  /* a GameCube controller's combo */
+    if (st->buzz_steps != 0 && (st->buzz_next & 1u) != 0) send_rumble(c, st, 0);  /* one still on: off first */
+    st->buzz_slot = st->input.fired_remote - 1u;
+    st->buzz_ms[0] = on;
+    st->buzz_ms[1] = off;
+    st->buzz_ms[2] = on2;
+    st->buzz_ms[3] = 0;
+    st->buzz_steps = on2 ? 4u : 2u;
+    st->buzz_next = 0;
+    st->buzz_due = now();
+    buzz_tick(c, st);
 }
 
 /* The NAND job ------------------------------------------------------- */
@@ -86,8 +156,35 @@ static int32_t send_create(struct rt_shot_context* c, struct rt_shot_state* st, 
 
 #define NOTHING_OPEN 0x7FFFFFFF
 
-/* Closes what is open, one request at a time; NOTHING_OPEN when nothing
- * was left. */
+/* Whether the final name is taken (a shot the menu has not imported). */
+static int32_t send_probe(struct rt_shot_context* c, struct rt_shot_state* st) {
+    rtshot_path(st->names + 64, c->number);
+    flush(st->names, sizeof(st->names));
+    st->phase = RT_SHOT_PROBE;
+    return ((shot_ioctl_fn)(uintptr_t)c->ioctl_async)(st->fs_fd, FS_GET_ATTR, st->names + 64, 64u, st->attr,
+                                                      RTSHOT_FS_ATTR_BYTES, c->complete_nand, 0);
+}
+
+static int32_t send_rename(struct rt_shot_context* c, struct rt_shot_state* st) {
+    copy(st->names, st->path, 64u);
+    rtshot_path(st->names + 64, c->number);
+    flush(st->names, sizeof(st->names));
+    st->phase = RT_SHOT_RENAME;
+    return ((shot_ioctl_fn)(uintptr_t)c->ioctl_async)(st->fs_fd, FS_RENAME, st->names, sizeof(st->names), 0, 0,
+                                                      c->complete_nand, 0);
+}
+
+static int32_t send_delete(struct rt_shot_context* c, struct rt_shot_state* st) {
+    st->deleted = 1;
+    flush(st->path, sizeof(st->path));
+    st->phase = RT_SHOT_DELETE;
+    return ((shot_ioctl_fn)(uintptr_t)c->ioctl_async)(st->fs_fd, FS_DELETE, st->path, sizeof(st->path), 0, 0,
+                                                      c->complete_nand, 0);
+}
+
+/* Ends the job, one request at a time: the file closed, then renamed
+ * (or, after a failure, deleted), then /dev/fs closed; NOTHING_OPEN when
+ * nothing was left. */
 static int32_t send_next_close(struct rt_shot_context* c, struct rt_shot_state* st) {
     int32_t fd;
     if (st->file_fd >= 0) {
@@ -95,6 +192,10 @@ static int32_t send_next_close(struct rt_shot_context* c, struct rt_shot_state* 
         st->file_fd = -1;
         st->phase = RT_SHOT_CLOSE_FILE;
         return send_close(c, fd);
+    }
+    if (st->created && st->fs_fd >= 0) {
+        if (st->error == 0 && !st->renamed) return send_rename(c, st);
+        if (st->error != 0 && !st->deleted) return send_delete(c, st);
     }
     if (st->fs_fd >= 0) {
         fd = st->fs_fd;
@@ -106,11 +207,13 @@ static int32_t send_next_close(struct rt_shot_context* c, struct rt_shot_state* 
 }
 
 static void finish(struct rt_shot_context* c, struct rt_shot_state* st) {
-    if (st->error == 0) {
+    if (st->error == 0 && st->renamed) {
         ++c->shots;
+        buzz(c, st, 100u, 120u, 100u);  /* saved: twice */
     } else {
         ++c->failures;
-        c->last_error = st->error;
+        c->last_error = st->error ? st->error : -1;
+        buzz(c, st, 500u, 0u, 0u);      /* not saved: once, long */
     }
     ++c->number;
     st->phase = RT_SHOT_IDLE;
@@ -141,17 +244,40 @@ static void job_step(struct rt_shot_context* c, struct rt_shot_state* st, int32_
                 sent = send_next_close(c, st);
                 break;
             }
+            rtshot_part_dir(st->path);
+            st->phase = RT_SHOT_MKDIR_PART;
+            sent = send_create(c, st, FS_CREATE_DIR);
+            break;
+        case RT_SHOT_MKDIR_PART:
+            if (result < 0 && result != FS_EXISTS) {
+                st->error = result;
+                sent = send_next_close(c, st);
+                break;
+            }
             st->tries = 0;
-            rtshot_path(st->path, c->number);
+            sent = send_probe(c, st);
+            break;
+        case RT_SHOT_PROBE:
+            if (result != FS_NOT_FOUND) {
+                /* Taken (or not known to be free): the next number. */
+                if (++st->tries >= 100u) {
+                    st->error = result < 0 ? result : FS_EXISTS;
+                    sent = send_next_close(c, st);
+                    break;
+                }
+                ++c->number;
+                sent = send_probe(c, st);
+                break;
+            }
+            rtshot_temp_path(st->path, c->number);
             st->phase = RT_SHOT_CREATE;
             sent = send_create(c, st, FS_CREATE_FILE);
             break;
         case RT_SHOT_CREATE:
             if (result == FS_EXISTS && ++st->tries < 100u) {
-                /* The menu has not taken that one yet. */
+                /* A part file left by a game that ended mid-write: the next free number. */
                 ++c->number;
-                rtshot_path(st->path, c->number);
-                sent = send_create(c, st, FS_CREATE_FILE);
+                sent = send_probe(c, st);
                 break;
             }
             if (result < 0) {
@@ -159,6 +285,7 @@ static void job_step(struct rt_shot_context* c, struct rt_shot_state* st, int32_
                 sent = send_next_close(c, st);
                 break;
             }
+            st->created = 1;
             st->phase = RT_SHOT_OPEN_FILE;
             sent = ((shot_open_fn)(uintptr_t)c->open_async)(st->path, FS_OPEN_WRITE, c->complete_nand, 0);
             break;
@@ -190,7 +317,17 @@ static void job_step(struct rt_shot_context* c, struct rt_shot_state* st, int32_
             if (result != (int32_t)st->pixel_bytes) st->error = result < 0 ? result : -1;
             sent = send_next_close(c, st);
             break;
+        case RT_SHOT_RENAME:
+            if (result < 0) st->error = result;
+            else st->renamed = 1;
+            sent = send_next_close(c, st);
+            break;
         case RT_SHOT_CLOSE_FILE:
+            /* Written but not closed whole: no rename. */
+            if (result < 0 && st->error == 0) st->error = result;
+            sent = send_next_close(c, st);
+            break;
+        case RT_SHOT_DELETE:
         case RT_SHOT_CLOSE_FS:
             sent = send_next_close(c, st);
             break;
@@ -208,18 +345,18 @@ static void job_step(struct rt_shot_context* c, struct rt_shot_state* st, int32_
 
 /* The picture on screen into the frame buffer, then the job starts.
  * Interrupts are off. */
-static void capture(struct rt_shot_context* c, struct rt_shot_state* st) {
+static int capture(struct rt_shot_context* c, struct rt_shot_state* st) {
     struct rtshot_frame f;
     const uint16_t vtr = *(volatile uint16_t*)0xCC002000u;
     const uint16_t picture = *(volatile uint16_t*)0xCC002048u;
     const uint32_t top = ((uint32_t) * (volatile uint16_t*)0xCC00201Cu << 16) | *(volatile uint16_t*)0xCC00201Eu;
     uint32_t y, x;
     uint8_t* out = (uint8_t*)(uintptr_t)c->frame;
-    if (st->phase != RT_SHOT_IDLE || c->shots + c->failures >= RT_SHOT_MAX) return;
+    if (st->phase != RT_SHOT_IDLE || c->shots + c->failures >= RT_SHOT_MAX) return 0;
     if (!rtshot_frame(vtr, picture, top, &f)) {
         ++c->failures;
         c->last_error = -1000;
-        return;
+        return 0;
     }
     if (c->flags & RT_SHOT_FLAG_DIRECT) {
         /* No copy: the header here, the picture read by IOS from the
@@ -266,6 +403,7 @@ start_job:
     st->error = 0;
     st->fs_fd = -1;
     st->file_fd = -1;
+    st->created = st->renamed = st->deleted = 0;
     /* "/dev/fs", one character at a time (no constant data). */
     st->device[0] = '/'; st->device[1] = 'd'; st->device[2] = 'e'; st->device[3] = 'v';
     st->device[4] = '/'; st->device[5] = 'f'; st->device[6] = 's'; st->device[7] = 0;
@@ -275,6 +413,7 @@ start_job:
         const int32_t sent = ((shot_open_fn)(uintptr_t)c->open_async)(st->device, 0, c->complete_nand, 0);
         if (sent < 0) job_step(c, st, sent);
     }
+    return 1;
 }
 
 /* The hooks ---------------------------------------------------------- */
@@ -283,12 +422,27 @@ uint32_t shot_on_ioctlv(struct rt_shot_context* c, uint32_t* a) {
     struct rt_shot_state* st = state_of(c);
     const uint32_t* vec;
     uint32_t i, msr;
+    uint32_t endpoint, kind;
     /* a: fd, ioctl, in count, io count, vectors, callback, user data. */
-    if (a[1] != RTSHOT_USBV0_BLKMSG || a[2] != 2u || a[3] != 1u || !in_ram(a[4], 24u)) return 0;
+    if ((a[1] != RTSHOT_USBV0_BLKMSG && a[1] != RTSHOT_USBV0_INTRMSG) || a[2] != 2u || a[3] != 1u ||
+        !in_ram(a[4], 24u))
+        return 0;
     vec = (const uint32_t*)(uintptr_t)a[4];
-    if (!in_ram(vec[0], 1u) || vec[1] < 1u || !in_ram(vec[4], vec[5]) || vec[5] < 12u) return 0;
-    if (*(const uint8_t*)(uintptr_t)vec[0] != RTSHOT_ACL_IN) return 0;
+    if (!in_ram(vec[0], 1u) || vec[1] < 1u || !in_ram(vec[4], vec[5])) return 0;
+    endpoint = *(const uint8_t*)(uintptr_t)vec[0];
+    if (a[1] == RTSHOT_USBV0_BLKMSG && endpoint == RTSHOT_ACL_OUT) {
+        /* The game's own output: the Remote's end of the HID channel. */
+        msr = interrupts_off();
+        st->bt_fd = (int32_t)a[0];
+        rtshot_acl_out(&st->input, (const uint8_t*)(uintptr_t)vec[4], vec[5]);
+        interrupts_restore(msr);
+        return 0;
+    }
+    if (a[1] == RTSHOT_USBV0_BLKMSG && endpoint == RTSHOT_ACL_IN && vec[5] >= 12u) kind = RT_SHOT_WATCH_ACL;
+    else if (a[1] == RTSHOT_USBV0_INTRMSG && endpoint == RTSHOT_EVENT_IN && vec[5] >= 3u) kind = RT_SHOT_WATCH_EVENT;
+    else return 0;
     msr = interrupts_off();
+    st->bt_fd = (int32_t)a[0];
     for (i = 0; i < RT_SHOT_WATCHES; ++i) {
         struct rt_shot_watch* w = &st->watch[i];
         if (w->in_use) continue;
@@ -297,6 +451,7 @@ uint32_t shot_on_ioctlv(struct rt_shot_context* c, uint32_t* a) {
         w->user = a[6];
         w->data = vec[4];
         w->length = vec[5];
+        w->kind = kind;
         a[5] = c->complete_bt;
         a[6] = (uint32_t)(uintptr_t)w;
         interrupts_restore(msr);
@@ -317,7 +472,11 @@ int32_t shot_after_ioctlv(struct rt_shot_context* c, uint32_t slot, int32_t resu
 void shot_on_pad(struct rt_shot_context* c, uint8_t* status) {
     struct rt_shot_state* st = state_of(c);
     const uint32_t msr = interrupts_off();
-    if (rtshot_pads(&st->input, status)) capture(c, st);
+    if (rtshot_pads(&st->input, status)) {
+        st->input.fired_remote = 0;  /* a pad's combo: no Remote to rumble */
+        capture(c, st);
+    }
+    buzz_tick(c, st);
     interrupts_restore(msr);
 }
 
@@ -331,10 +490,15 @@ int32_t shot_on_bt(struct rt_shot_context* c, int32_t result, uint32_t tag) {
     w = (struct rt_shot_watch*)(uintptr_t)tag;
     callback = w->callback;
     user = w->user;
-    if (result > 0) {
+    if (result > 0 && w->kind == RT_SHOT_WATCH_EVENT) {
+        const uint32_t size = (uint32_t)result < w->length ? (uint32_t)result : w->length;
+        rtshot_event(&st->input, (uint8_t*)(uintptr_t)w->data, size);
+        flush((const void*)(uintptr_t)w->data, size);
+    } else if (result > 0) {
         const uint32_t size = (uint32_t)result < w->length ? (uint32_t)result : w->length;
         const uint32_t reports = st->input.reports;
-        if (rtshot_acl(&st->input, (uint8_t*)(uintptr_t)w->data, size)) capture(c, st);
+        if (rtshot_acl(&st->input, (uint8_t*)(uintptr_t)w->data, size) && capture(c, st))
+            buzz(c, st, 120u, 0u, 0u);  /* taken: once, briefly */
         if ((c->flags & RT_SHOT_FLAG_DEMO) && st->input.reports != reports) {
             const uint32_t t = now();
             if (c->demo_start == 0) c->demo_start = t | 1u;
@@ -343,6 +507,7 @@ int32_t shot_on_bt(struct rt_shot_context* c, int32_t result, uint32_t tag) {
                 capture(c, st);
         }
     }
+    buzz_tick(c, st);
     w->in_use = 0;
     if (callback == 0) return 0;
     return ((shot_callback_fn)(uintptr_t)callback)(result, user);

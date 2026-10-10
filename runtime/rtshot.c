@@ -15,6 +15,9 @@ static struct rtshot_remote* remote_for(struct rtshot_input* in, uint16_t handle
     r->used = 1;
     r->buttons = 0;
     r->masking = 0;
+    r->out_flags = 0;
+    r->out_cid = 0;
+    r->injected = 0;
     return r;
 }
 
@@ -50,8 +53,66 @@ int rtshot_acl(struct rtshot_input* in, uint8_t* acl, uint32_t size) {
         r->masking = 1;
         hid[3] = (uint8_t)(buttons & ~RTSHOT_REMOTE_HOME);
         fired = 1;
+        in->fired_remote = (uint32_t)(r - in->remotes) + 1u;
     }
     return fired;
+}
+
+int rtshot_acl_out(struct rtshot_input* in, const uint8_t* acl, uint32_t size) {
+    uint32_t l2cap_len, cid;
+    struct rtshot_remote* r;
+    if (size < 10u) return 0;
+    l2cap_len = (uint32_t)acl[4] | ((uint32_t)acl[5] << 8);
+    if (((uint32_t)acl[2] | ((uint32_t)acl[3] << 8)) != l2cap_len + 4u || l2cap_len + 8u > size || l2cap_len < 2u)
+        return 0;
+    cid = (uint32_t)acl[6] | ((uint32_t)acl[7] << 8);
+    if (cid < 0x40u || acl[8] != 0xA2u) return 0;  /* HID output reports on a data channel only */
+    r = remote_for(in, (uint16_t)(((uint32_t)acl[0] | ((uint32_t)acl[1] << 8)) & 0x0FFFu));
+    r->out_cid = (uint16_t)cid;
+    r->out_flags = (uint8_t)(acl[1] & 0xF0u);
+    return 1;
+}
+
+uint32_t rtshot_rumble(struct rtshot_input* in, uint32_t slot, int on, uint8_t* out) {
+    struct rtshot_remote* r;
+    if (slot >= RTSHOT_REMOTES) return 0;
+    r = &in->remotes[slot];
+    if (!r->used || r->out_cid == 0) return 0;
+    out[0] = (uint8_t)r->handle;
+    out[1] = (uint8_t)(((r->handle >> 8) & 0x0Fu) | r->out_flags);
+    out[2] = 7;  /* the L2CAP header and the report */
+    out[3] = 0;
+    out[4] = 3;  /* the report */
+    out[5] = 0;
+    out[6] = (uint8_t)r->out_cid;
+    out[7] = (uint8_t)(r->out_cid >> 8);
+    out[8] = 0xA2u;
+    out[9] = 0x10u;
+    out[10] = on ? 1u : 0u;
+    ++r->injected;
+    return RTSHOT_RUMBLE_BYTES;
+}
+
+void rtshot_event(struct rtshot_input* in, uint8_t* event, uint32_t size) {
+    uint32_t n, i, k;
+    if (size < 3u || event[0] != 0x13u) return;  /* Number Of Completed Packets */
+    n = event[2];
+    if (3u + 4u * n > size || (uint32_t)event[1] < 1u + 4u * n) return;
+    for (i = 0; i < n; ++i) {
+        uint8_t* pair = event + 3u + 4u * i;
+        const uint16_t handle = (uint16_t)(((uint32_t)pair[0] | ((uint32_t)pair[1] << 8)) & 0x0FFFu);
+        uint32_t count = (uint32_t)pair[2] | ((uint32_t)pair[3] << 8);
+        for (k = 0; k < RTSHOT_REMOTES; ++k) {
+            struct rtshot_remote* r = &in->remotes[k];
+            uint32_t ours;
+            if (!r->used || r->handle != handle || r->injected == 0) continue;
+            ours = r->injected < count ? r->injected : count;
+            r->injected = (uint16_t)(r->injected - ours);
+            count -= ours;
+        }
+        pair[2] = (uint8_t)count;
+        pair[3] = (uint8_t)(count >> 8);
+    }
 }
 
 int rtshot_pads(struct rtshot_input* in, uint8_t* status) {
@@ -135,12 +196,22 @@ static char* put_dir(char* p) {
     return p;
 }
 
+static char* put_part(char* p) {
+    *p++ = '/'; *p++ = 'p'; *p++ = 'a'; *p++ = 'r'; *p++ = 't';
+    return p;
+}
+
 void rtshot_dir(char* out) {
     *put_dir(out) = 0;
 }
 
-void rtshot_path(char* out, uint32_t number) {
+void rtshot_part_dir(char* out) {
+    *put_part(put_dir(out)) = 0;
+}
+
+static void shot_name(char* out, uint32_t number, int temp) {
     char* p = put_dir(out);
+    if (temp) p = put_part(p);
     uint32_t n = number % 10000u, place;
     *p++ = '/'; *p++ = 's'; *p++ = 'h'; *p++ = 'o'; *p++ = 't';
     for (place = 1000u; place != 0; place /= 10u) {
@@ -150,6 +221,10 @@ void rtshot_path(char* out, uint32_t number) {
     *p++ = '.'; *p++ = 'r'; *p++ = 'a'; *p++ = 'w';
     *p = 0;
 }
+
+void rtshot_path(char* out, uint32_t number) { shot_name(out, number, 0); }
+
+void rtshot_temp_path(char* out, uint32_t number) { shot_name(out, number, 1); }
 
 void rtshot_fs_attr(uint8_t* out, const char* path) {
     uint32_t i;
