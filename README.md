@@ -14,12 +14,20 @@
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/images/home.png" alt="Home"><br><p align="center">Your games, with covers</p></td>
-    <td width="50%"><img src="docs/images/game.png" alt="A game's page"><br><p align="center">Each game's own settings</p></td>
+    <td width="50%"><img src="docs/images/home.png" alt="Home"><br><p align="center">Your games, with covers from GameTDB</p></td>
+    <td width="50%"><img src="docs/images/shelf.png" alt="Shelf view"><br><p align="center">Or on a shelf, as boxes (the Bookshelf theme)</p></td>
   </tr>
   <tr>
+    <td><img src="docs/images/channels.png" alt="Channels view"><br><p align="center">Or as channels, with each game's own icon</p></td>
+    <td><img src="docs/images/channel-banner.png" alt="A game's banner"><br><p align="center">and its banner, as on the Wii Menu</p></td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/game.png" alt="A game's page"><br><p align="center">Each game's own page and settings</p></td>
     <td><img src="docs/images/mods.png" alt="Mods"><br><p align="center">Turn mod packs on and pick their options</p></td>
+  </tr>
+  <tr>
     <td><img src="docs/images/cheats.png" alt="Cheats"><br><p align="center">Cheats, downloaded for you</p></td>
+    <td><img src="docs/images/midnight.png" alt="The Midnight theme"><br><p align="center">Themes (Midnight)</p></td>
   </tr>
   <tr>
     <td><img src="docs/images/settings.png" alt="Settings"><br><p align="center">Settings</p></td>
@@ -35,7 +43,7 @@
 - **Saves kept apart.** Modded saves can live on the SD card, away from your Wii saves.
 - **Per game settings.** Cheats (downloaded for you), picture width, deflicker, borders, video mode (480p, PAL 60), game language and cIOS.
 - **Online play.** Wiimmfi, WiiLink WFC, AltWFC or your own server.
-- **Feels like a Wii.** Covers and names from GameTDB, favourites, recently played, letter jumps (hold B and press a direction), a HOME Menu and five languages.
+- **Feels like a Wii.** Covers and names from GameTDB, three ways to show your games (covers, a shelf of boxes, or channels with each game's animated icon and banner), themes, favourites, recently played, letter jumps (hold B and press a direction), a HOME Menu and seven languages (English, Spanish, Japanese, Portuguese, Italian, French and Korean).
 - **Any controller.** Wii Remote, Classic Controller, GameCube controller, the GameCube adapter for Wii U, and USB pads through fakemote.
 - **A Wii Menu channel**, on a Wii or a Wii U, and **updates** from inside RiftWii (Stable or Beta).
 - **Experimental:** burned Wii discs, in the Wii's drive or a USB DVD drive.
