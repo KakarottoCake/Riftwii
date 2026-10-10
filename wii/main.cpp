@@ -89,7 +89,10 @@ void LeaveTo(int where) {
     if (where == 1 && !StartedByHomebrewChannel()) {
         StartHomebrewChannelTitle();
     } else if (where == 4) {
-        // Standby or off, as the Wii's own power setting says.
+        // Standby or off, as the Wii's own power setting says; the drives
+        // finish their writes first, as for the power button.
+        fatUnmount("sd:");
+        fatUnmount("usb:");
         SYS_ResetSystem(SYS_POWEROFF, 0, 0);
     } else if (where == 5) {
         // The power button: the drives finish their writes, then standby

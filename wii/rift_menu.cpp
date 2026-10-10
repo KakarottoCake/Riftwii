@@ -331,7 +331,14 @@ UpdateGUI(void *arg)
 				for(i = 0; i < 4; i++)
 					mainWindow->Update(&userInput[i]);
 
-			if(ExitRequested)
+			// An exit waits while the update's files are being swapped on
+			// the card: the menu keeps drawing until they are.
+			static bool toldWaiting = false;
+			if (ExitRequested && riftwii::wii::CardWritesBusy() && !toldWaiting) {
+				logf("Exit: waiting for the card writes to finish\n");
+				toldWaiting = true;
+			}
+			if(ExitRequested && !riftwii::wii::CardWritesBusy())
 			{
 				// The power button fades out more slowly, as the Wii Menu does.
 				const int step = ExitRequested == kExitPowerButton ? 6 : 15;
@@ -387,6 +394,9 @@ static void* MenuWatchdog(void*)
 			g_resetPressed = false;  // RESET in a menu that answers is its own
 			continue;
 		}
+		// An update being put in place is busy, not stuck: nothing cuts it
+		// short (the power button waits for it, as the GUI's exit does).
+		if (riftwii::wii::CardWritesBusy()) continue;
 		bool home = false;
 		if (LWP_ThreadIsSuspended(guithread)) {
 			// Nobody else reads the Remotes now.

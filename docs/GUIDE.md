@@ -712,7 +712,14 @@ and a beta on Beta. (Versions before October 2026 were numbered like
 An update from inside RiftWii also brings the themes that come with it
 (Bookshelf, Midnight) and the channel installer (`apps/riftwii_channel`)
 up to date, the first time the new version starts online. Themes you
-made or downloaded and your `music.ogg` are left alone.
+made or downloaded and your `music.ogg` are left alone; changes you made
+to Bookshelf or Midnight themselves are replaced, so copy such a theme
+to a folder of its own name first.
+
+An update is installed only when its download matches the SHA-256
+GitHub gives for it. While the new RiftWii is being put in place, the
+power button waits until it is: the screen stays on for a moment, then
+the Wii turns off.
 
 **Experimental** features are in stable versions too, but they are not
 yet confirmed on real Wiis and may not work on yours. The menu marks

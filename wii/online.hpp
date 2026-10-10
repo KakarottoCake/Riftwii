@@ -60,12 +60,25 @@ constexpr const char* kReleasesPage = "github.com/KakarottoCake/Riftwii/releases
 // RiftWii is started again).
 bool UpdateInstalled(const std::string& latest);
 // Downloads the riftwii.dol the last CheckForUpdate found for `latest`,
-// checks it (size, SHA-256 when GitHub gives one, a valid DOL header) and
-// puts it in place of the running boot.dol, keeping the old one as
-// boot.dol.old; meta.xml's version follows. `where` is the file replaced.
-// `progress` gets the share of the download done, 0 to 1.
+// checks it (size, GitHub's SHA-256, a valid DOL header) and puts it in
+// place of the running boot.dol, keeping the old one as boot.dol.old;
+// meta.xml's version follows. A release without a SHA-256 is refused.
+// `where` is the file replaced. `progress` gets the share of the download
+// done, 0 to 1.
 bool InstallUpdate(const std::string& latest, std::string& where, std::string& error,
                    const std::function<void(double done)>& progress = nullptr);
+
+// Card writes RiftWii must not be stopped in the middle of (the update's
+// swap): while one runs, the GUI thread holds back the power button and
+// any exit until it has finished. Taken on the menu thread.
+class CardWriteHold {
+public:
+    CardWriteHold();
+    ~CardWriteHold();
+    CardWriteHold(const CardWriteHold&) = delete;
+    CardWriteHold& operator=(const CardWriteHold&) = delete;
+};
+bool CardWritesBusy();
 // The player turned down `latest` at start (Not now, twice). Logged to the
 // session now, and to boot.log by LogDeclinedUpdate at a launch, so a bug
 // report shows the version that might already fix it was declined.

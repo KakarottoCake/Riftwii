@@ -418,13 +418,19 @@ void FetchPacks() {
         g_themes.none = g_apps.none = true;
         return;
     }
+    if (pack.sha256.empty()) {
+        // As for the DOL: a download that cannot be checked is not used.
+        logf("Packs: GitHub gives no SHA-256 for %s; not used\n", kUpdatePackAsset);
+        g_themes.none = g_apps.none = true;
+        return;
+    }
     std::vector<std::uint8_t> body;
     std::string error;
     if (!HttpGet(pack.url, body, error, 16u << 20, 30000)) {
         logf("Packs: %s: %s\n", kUpdatePackAsset, error.c_str());
         return;
     }
-    if ((pack.size != 0 && body.size() != pack.size) || (!pack.sha256.empty() && Sha256Hex(body) != pack.sha256)) {
+    if ((pack.size != 0 && body.size() != pack.size) || Sha256Hex(body) != pack.sha256) {
         logf("Packs: %s did not arrive whole (%u bytes)\n", kUpdatePackAsset, static_cast<unsigned>(body.size()));
         return;
     }
@@ -607,6 +613,14 @@ bool UpdateInstalled(const std::string& latest) {
     return !note.installed.empty() && note.installed == latest;
 }
 
+namespace {
+volatile int g_card_writes = 0;
+}  // namespace
+
+CardWriteHold::CardWriteHold() { ++g_card_writes; }
+CardWriteHold::~CardWriteHold() { --g_card_writes; }
+bool CardWritesBusy() { return g_card_writes > 0; }
+
 bool InstallUpdate(const std::string& latest, std::string& where, std::string& error,
                    const std::function<void(double done)>& progress) {
     UpdateNote note = ReadUpdateNote();
@@ -638,7 +652,14 @@ bool InstallUpdate(const std::string& latest, std::string& where, std::string& e
                 std::to_string(note.dol.size);
         return false;
     }
-    if (!note.dol.sha256.empty() && Sha256Hex(body) != note.dol.sha256) {
+    // GitHub gives every asset a SHA-256; without one the download cannot
+    // be told from a damaged or swapped one, so it is not installed.
+    if (note.dol.sha256.empty()) {
+        error = "GitHub gives no SHA-256 for this release's riftwii.dol, so it cannot be checked. Download it from " +
+                std::string(kReleasesPage) + " instead";
+        return false;
+    }
+    if (Sha256Hex(body) != note.dol.sha256) {
         error = "the download does not match GitHub's SHA-256";
         return false;
     }
@@ -652,6 +673,8 @@ bool InstallUpdate(const std::string& latest, std::string& where, std::string& e
         return false;
     }
     // New file first, then the swap; the old one stays as boot.dol.old.
+    // Nothing may stop it half way (the power button waits for it).
+    const CardWriteHold hold;
     const std::string fresh = where + ".new";
     const std::string old = where + ".old";
     if (!write_file(fresh, body, error)) return false;
@@ -675,8 +698,8 @@ bool InstallUpdate(const std::string& latest, std::string& where, std::string& e
     UpdateMetaVersion(where, latest);
     note.installed = latest;
     WriteUpdateNote(note);
-    logf("Update: %s installed in %s (%u bytes%s)\n", latest.c_str(), where.c_str(),
-         static_cast<unsigned>(body.size()), note.dol.sha256.empty() ? "" : ", SHA-256 checked");
+    logf("Update: %s installed in %s (%u bytes, SHA-256 checked)\n", latest.c_str(), where.c_str(),
+         static_cast<unsigned>(body.size()));
     return true;
 }
 
