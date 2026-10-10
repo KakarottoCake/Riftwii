@@ -142,7 +142,12 @@ void ImportGameShots() {
         std::string error;
         if (got < 0 || !parse_shot_header(g_frame, static_cast<std::size_t>(got), info, error)) {
             // Cut short by a power-off, or not ours: it would only fill the NAND.
-            logf("Screenshot: %s: %s; deleted\n", path, got < 0 ? "unreadable" : error.c_str());
+            // The NAND's own answer: a size it could not give (-1), or a read it refused.
+            if (got < 0)
+                logf("Screenshot: %s: unreadable (size %d, read %d); deleted\n", path, static_cast<int>(size),
+                     static_cast<int>(got));
+            else
+                logf("Screenshot: %s: %s; deleted\n", path, error.c_str());
             ISFS_Delete(path);
             ++dropped;
             continue;
