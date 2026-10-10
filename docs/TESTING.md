@@ -209,8 +209,10 @@ For things that worked, a short "works" with the game, where it ran from
 - [ ] **Wii GameCube ports** in the menu and in games.
 - [ ] **Wii U GameCube adapter** (Settings > GameCube adapter, Check the
   GameCube adapter, Check each cIOS): in the menu and in SD and USB games,
-  front and back ports. On Automatic, games that the adapter breaks keep
-  it off with a boot.log line.
+  front and back ports. On Automatic, a USB game on a Wii U now starts on
+  the base-58 d2x (usually 251) with the adapter on: try a few games
+  besides Brawl. Games the adapter breaks keep it off with a boot.log
+  line.
 
 ## 12. Problem reports and crashes
 

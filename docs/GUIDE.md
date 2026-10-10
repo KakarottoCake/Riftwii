@@ -569,8 +569,10 @@ alone when it is not. **On** always sets it up, so it can be plugged in
 during the game; **Off** never does. `boot.log` says what was found.
 
 It needs a menu IOS with USB HID: IOS 58 (the default) or a d2x cIOS;
-the game then keeps that IOS. On a Wii U it needs IOS 58. It stays off
-for games read from the USB drive (and RVZ games or packs read from it),
+the game then keeps that IOS. On a Wii U it needs IOS 58 or a d2x cIOS
+on base 58 (usually 251), which RiftWii picks for games on the SD card or
+a USB drive while the adapter is plugged in. On a Wii it stays off for
+games read from the USB drive (and RVZ games or packs read from it),
 where it broke the game's disc reads. **On** tries it there anyway (an
 experiment: if the game then fails to read its disc, go back to
 **Automatic**). RVZ games are the exception: the adapter stays off for

@@ -2216,7 +2216,11 @@ bool boot_game(const DiscProbe& probe, BootOptions options, std::string& error) 
         const int adapter_base = d2x_base(running_ios);
         const char* off = is_wii_u() && running_ios != 58 && running_ios != wii_u_adapter_slot()
                               ? "on a Wii U it needs IOS 58 or a d2x cIOS on base 58"
-                          : di::frag_device() == 1          ? "the game is read from the USB drive, which the adapter breaks"
+                          // A Wii U's d2x on base 58 reads the USB drive and
+                          // the adapter together (a tester's Brawl from USB on
+                          // IOS251); elsewhere a USB game's reads failed.
+                          : di::frag_device() == 1 && !(is_wii_u() && adapter_base == 58)
+                              ? "the game is read from the USB drive, which the adapter breaks"
                           : di::frag_device() != 0 && adapter_base != 0 && adapter_base < 57
                               ? "the game is read through d2x on base 56 or older, whose USB the adapter check breaks"
                               : nullptr;

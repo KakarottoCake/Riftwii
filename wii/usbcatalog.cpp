@@ -1532,13 +1532,12 @@ std::vector<int> image_cios_order(const ImageGame& game, int chosen, bool uses_s
     if (chosen != 0) return {chosen};
     std::vector<int> order;
     // The GameCube adapter on a Wii U: a base-58 d2x first, the only d2x
-    // that reaches the front USB ports. A game read from the USB drive
-    // keeps the adapter off unless the setting is On.
+    // that reaches the front USB ports, for games on the SD card and on a
+    // USB drive (a tester's Brawl from USB on IOS251 played with it).
     if (!running_in_dolphin() && is_wii_u()) {
         const std::string& mode = Settings().gc_adapter;
         GcAdapterView seen;
-        const bool adapter = mode == "on" ||
-                             (mode == "auto" && GcAdapterMenuLastView(seen) && game.device == ImageDevice::Sd);
+        const bool adapter = mode == "on" || (mode == "auto" && GcAdapterMenuLastView(seen));
         std::string why;
         const int slot = adapter ? wii_u_adapter_slot(&why) : 0;
         if (slot) {
