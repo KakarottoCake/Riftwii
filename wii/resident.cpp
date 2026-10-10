@@ -449,6 +449,27 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
     // 5. Divert the game's functions to their trampolines: directly, or
     //    through a MEM1 veneer (r12 is free there, as for the jump back:
     //    no displaced instruction uses it) when the code is in MEM2.
+    //    Every branch is checked before the first is written: one out of
+    //    b's reach (a function outside MEM1) leaves that function unhooked,
+    //    said in the log, and IOS_IoctlAsync, which every redirect needs,
+    //    stops the launch rather than let it run unmodded.
+    for (std::uint32_t e = 0, v = 0; e < RT_IPC_ENTRIES; ++e) {
+        if (!hooked[e]) continue;
+        const std::uint32_t target =
+            code_in_mem2 ? options.mem1_veneers + v++ * 16 : place.code_base + blob.hook_offsets[e];
+        std::uint32_t branch = 0;
+        if (encode_branch(hook_site[e], target, branch)) continue;
+        char buf[128];
+        std::snprintf(buf, sizeof(buf), "%s at 0x%08x is out of a branch's reach of 0x%08x", ipc_entry_name(e),
+                      hook_site[e], target);
+        if (e == RT_IPC_ASYNC_IOCTL) {
+            error = buf;
+            return false;
+        }
+        logf("Resident: %s; not hooked\n", buf);
+        hooked[e] = false;
+        --hooked_count;
+    }
     unsigned veneers = 0;
     for (std::uint32_t e = 0; e < RT_IPC_ENTRIES; ++e) {
         if (!hooked[e]) continue;
@@ -462,7 +483,8 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
         }
         std::uint32_t branch = 0;
         if (!encode_branch(hook_site[e], target, branch)) {
-            // Out of b's reach (not in MEM1): the function stays unhooked.
+            // Checked above; kept so nothing is ever written out of reach.
+            logf("Resident: %s is out of a branch's reach; not hooked\n", ipc_entry_name(e));
             hooked[e] = false;
             --hooked_count;
             continue;

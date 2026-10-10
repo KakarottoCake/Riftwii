@@ -57,6 +57,7 @@
  * (runtime/rtrvz.h) straight into the game's buffer.
  */
 
+#include <stddef.h>
 #include <stdint.h>
 
 #include "rtable.h"
@@ -187,7 +188,7 @@ struct rt_pending {
     uint32_t covered;      /* bytes of the request the current runs reach: less than `length`
                             * when the read splits into more than RT_MAX_RUNS pieces, which are
                             * then served RT_MAX_RUNS at a time (windows) */
-    struct rt_sdio_request request;  /* offset 0x40 */
+    struct rt_sdio_request request __attribute__((aligned(32)));  /* offset 0x40; aligns the record */
     uint32_t pad_request[7];         /* [0]: waits for the card (RT_PHASE_SD_WAIT); [1]: a read of the card
                                       * on /dev/sdio/slot0 in flight (savegame commands wait for it) */
     uint32_t response[4];            /* offset 0x80 */
@@ -687,6 +688,9 @@ struct rt_context {
 };
 
 typedef char rt_context_layout[(sizeof(struct rt_context) <= 2048u) ? 1 : -1];
+/* IOS flushes and invalidates the records' blocks by 32-byte line: each
+ * record starts on a line of its own (the context does, see rt_entry.S). */
+typedef char rt_pending_layout[(offsetof(struct rt_context, pending) % 32u == 0 && sizeof(struct rt_pending) % 32u == 0) ? 1 : -1];
 
 /*
  * Called by the trampoline with the eight IOS_IoctlAsync arguments

@@ -2664,6 +2664,23 @@ static void TestSdChain(std::uint8_t* low_table, std::uint8_t* low_out) {
     ours.insert(ours.end(), m.bytes.begin(), m.bytes.end());
     EXPECT_EQ(ctx.last_checksum, rt_checksum(ours.data(), static_cast<std::uint32_t>(ours.size())));
 
+    // The same read into a buffer half its length is left to IOS: nothing
+    // claimed, the game's callback kept, nothing written past the buffer.
+    {
+        const std::uint32_t redirected = ctx.redirected_reads;
+        std::memset(out, 0xEE, 0x800);
+        args[5] = 0x400;
+        args[6] = 0x80005000;
+        args[7] = 0x80006000;
+        EXPECT_EQ(rt_on_ioctl_async(&ctx, args, &result), 0);
+        EXPECT_EQ(args[6], 0x80005000u);
+        EXPECT_EQ(args[7], 0x80006000u);
+        EXPECT_EQ(ctx.redirected_reads, redirected);
+        for (const auto& p : ctx.pending) EXPECT_EQ(p.in_use, 0u);
+        EXPECT_EQ(out[0x400], 0xEE);
+        args[5] = 0x800;
+    }
+
     // A run longer than the bounce buffer is fetched in RT_BOUNCE_BYTES chunks.
     std::vector<riftwii::Fragment> big = {{0, 100}};  // 51200 bytes
     riftwii::SdReplacement sdb;

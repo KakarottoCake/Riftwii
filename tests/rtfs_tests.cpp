@@ -670,6 +670,15 @@ void TestFileDeviceRead(Low& low) {
     EXPECT_EQ(CloseR(fx, low, fd), RTFAT_OK);
     EXPECT_EQ(OpenR(fx, low, b, "file/pulsar/missing.pul", 2), RTFS_RIIVO_NOT_OPENED);
     EXPECT_EQ(OpenR(fx, low, b, "file/pulsar", 0), RTFS_RIIVO_NOT_OPENED);  // a folder
+    // An open path longer than IOS's 64 bytes is refused, not cut short to
+    // the file its first 64 bytes name; one ending at byte 63 is fine.
+    const std::string sixty_four = "file/pulsar" + std::string(41, '/') + "settings.pul";
+    EXPECT_EQ(sixty_four.size(), std::size_t(64));
+    EXPECT_EQ(OpenR(fx, low, b, sixty_four + "XYZ", 0), RTFS_RIIVO_NOT_OPENED);
+    EXPECT_EQ(OpenR(fx, low, b, sixty_four, 0), RTFS_RIIVO_NOT_OPENED);  // no room for the NUL
+    const int short_fd = OpenR(fx, low, b, "file/pulsar" + std::string(40, '/') + "settings.pul", 0);
+    EXPECT_TRUE(short_fd >= static_cast<int>(RTFS_FD_BASE));
+    if (short_fd >= static_cast<int>(RTFS_FD_BASE)) EXPECT_EQ(CloseR(fx, low, short_fd), RTFAT_OK);
     // Unserved device calls fail rather than pass to IOS.
     EXPECT_EQ(RunR(fx, low, DeviceIoctl(b, 0x31, "")), RTFS_RIIVO_ERROR);
     rtfs_ipc device_read = read; device_read.fd = RTFS_RIIVO_FD;

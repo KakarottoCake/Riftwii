@@ -138,14 +138,16 @@ static int32_t riivo_failure(const struct rtfs_request* r) {
             r->final_action == RTFS_ACTION_R_OPENDIR) ? RTFS_RIIVO_NOT_OPENED : RTFS_RIIVO_ERROR;
 }
 
-/* Copies the game's path (at most `limit` bytes, NUL-terminated or not).
- * 0 when it does not fit. */
-static int take_path(struct rtfs_request* r, const char* src, uint32_t limit) {
+/* Copies the game's path: an ioctl's buffer of `limit` bytes, which the
+ * path may fill without a NUL, or (`terminated`) an open's path, whose NUL
+ * must lie within `limit` as IOS requires; a longer one is refused, not
+ * cut short. 0 when it does not fit. */
+static int take_path(struct rtfs_request* r, const char* src, uint32_t limit, int terminated) {
     uint32_t n;
     if (src == 0) return 0;
     if (limit > RTFS_RIIVO_PATH_BYTES) limit = RTFS_RIIVO_PATH_BYTES;
     for (n = 0; n < limit && src[n] != 0; ++n) r->path[n] = src[n];
-    if (n == RTFS_RIIVO_PATH_BYTES) return 0;
+    if (n == RTFS_RIIVO_PATH_BYTES || (terminated && n == limit)) return 0;
     r->path[n] = 0;
     return 1;
 }
@@ -251,7 +253,8 @@ static void riivo_start(struct rtfs_context* ctx, struct rtfs_request* r, uint32
 static void riivo_open(struct rtfs_context* ctx, struct rtfs_request* r, const char* path, uint32_t flags) {
     const uint32_t access = flags & RTFS_RIIVO_ACCMODE;
     r->final_action = RTFS_ACTION_R_OPEN;
-    if (!take_path(r, path, RTFS_PATH_BYTES)) { finish(ctx, r, RTFS_RIIVO_NOT_OPENED); return; }
+    /* `path` follows the device's name, "file": IOS's 64 bytes hold both. */
+    if (!take_path(r, path, RTFS_PATH_BYTES - 4, 1)) { finish(ctx, r, RTFS_RIIVO_NOT_OPENED); return; }
     r->flags = flags;
     r->fat.length = access == 0 ? RTFS_MODE_READ : access == 1 ? RTFS_MODE_WRITE : RTFS_MODE_READ | RTFS_MODE_WRITE;
     riivo_start(ctx, r, RTFS_ACTION_R_OPEN);
@@ -283,7 +286,7 @@ static void riivo_ioctl(struct rtfs_context* ctx, struct rtfs_request* r, const 
         default: finish(ctx, r, RTFS_RIIVO_ERROR); return; /* mounts, renames, logs: not served */
     }
     r->final_action = action;
-    if (!take_path(r, in, ipc->args.ioctl.in_len)) { finish(ctx, r, riivo_failure(r)); return; }
+    if (!take_path(r, in, ipc->args.ioctl.in_len, 0)) { finish(ctx, r, riivo_failure(r)); return; }
     if (action == RTFS_ACTION_R_STAT) {
         if (ipc->args.ioctl.out == 0 || ipc->args.ioctl.out_len < RTFS_RIIVO_STATS_BYTES) {
             finish(ctx, r, RTFS_RIIVO_ERROR);

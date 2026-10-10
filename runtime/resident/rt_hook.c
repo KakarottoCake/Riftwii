@@ -627,6 +627,10 @@ int rt_on_ioctl_async(struct rt_context* ctx, uintptr_t* args, uint32_t* result)
             rt_gecko_putc(ctx, '\n');
             rt_interrupts_restore(msr);
         }
+        /* What we serve is written `length` bytes long into the game's
+         * buffer: a buffer shorter than the read is left to IOS, which
+         * refuses it, rather than written past. */
+        if ((uint32_t)args[5] < length) return 0;
 #ifdef RT_RVZ
         {
             struct rt_rvz_state* st = rt_rvz_of(ctx);
