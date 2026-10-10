@@ -511,7 +511,7 @@ struct SkinButton {
 // pointer is live; hotkeys (BUTTON_ONLY) and fresh hovers are unaffected.
 static bool AnyPointerLive() {
 	for (int i = 0; i < 4; ++i)
-		if (userInput[i].wpad->ir.valid) return true;
+		if (userInput[i].wpad && userInput[i].wpad->ir.valid) return true;
 	return false;
 }
 static void ClearStaleButtons(std::initializer_list<GuiButton*> buttons) {
@@ -1256,12 +1256,32 @@ static ChannelChoice ShowChannel(int& index, int count, const std::string& first
 			goBtn.button.ResetState();  // A on Settings fires Start too
 			choice = 2;
 		} else if (goBtn.Clicked()) {
-			// While pointing, A starts the game only on Start itself, as
-			// on the Wii Menu: A that misses an arrow does nothing.
-			bool on = !AnyPointerLive();
-			for (int i = 0; i < 4 && !on; ++i) {
+			// While pointing, a Remote's A starts the game only on Start
+			// itself, as on the Wii Menu: A that misses an arrow does
+			// nothing. A (or Start) on a Classic Controller, a GameCube
+			// controller or the GamePad points at nothing, so it always does.
+			bool on = false, known = false;
+			for (int i = 0; i < 4; ++i) {
 				const WPADData* p = userInput[i].wpad;
-				on = p->ir.valid && goBtn.button.IsInside(static_cast<int>(p->ir.x), static_cast<int>(p->ir.y));
+				const u32 wii = p ? (p->btns_d | p->btns_h) : 0;
+				const bool otherA = (wii & WPAD_CLASSIC_BUTTON_A) ||
+					((userInput[i].pad.btns_d | userInput[i].pad.btns_h) & (PAD_BUTTON_A | PAD_BUTTON_START)) ||
+					((userInput[i].wiidrcdata.btns_d | userInput[i].wiidrcdata.btns_h) & WIIDRC_BUTTON_A);
+				if (otherA) {
+					known = on = true;
+				} else if (wii & WPAD_BUTTON_A) {
+					known = true;
+					on = on || !p->ir.valid ||
+						goBtn.button.IsInside(static_cast<int>(p->ir.x), static_cast<int>(p->ir.y));
+				}
+			}
+			// The press already let go: as before, any pointer on Start.
+			if (!known) {
+				on = !AnyPointerLive();
+				for (int i = 0; i < 4 && !on; ++i) {
+					const WPADData* p = userInput[i].wpad;
+					on = p && p->ir.valid && goBtn.button.IsInside(static_cast<int>(p->ir.x), static_cast<int>(p->ir.y));
+				}
 			}
 			if (on) choice = 0;
 			else goBtn.button.ResetState();

@@ -167,6 +167,14 @@ static void UpdatePadPointers()
 	static float steadySpeed[4];
 	static float prevTilt[4], tiltRate[4];  // the Remote's tilt last frame, and how fast it turns
 	static bool steadyOn[4] = {false, false, false, false};
+	// libogc refreshes a Remote's data only when the Remote has sent a new
+	// report, and this function writes its results into that data. On a
+	// frame without a report the data still holds them: libogc's own
+	// values (kept here) go back first, so nothing is converted twice and
+	// the steadied tilt never comes back as the Remote's.
+	static float wroteX[4], wroteY[4], wroteA[4];   // what this function left
+	static float givenX[4], givenY[4], givenA[4];   // what libogc had given
+	static bool wrote[4] = {false, false, false, false};
 	// The tilt: held stiller than the pointer (its shake swings the
 	// pointer most at the screen's sides), let go as the Remote turns.
 	const float kTiltRestHz = 0.3f;
@@ -200,6 +208,12 @@ static void UpdatePadPointers()
 		u32 type = 0;
 		const bool remote = WPAD_Probe(i, &type) == WPAD_ERR_NONE;
 		if (!remote) w->ir.valid = 0;
+		if (wrote[i] && w->ir.x == wroteX[i] && w->ir.y == wroteY[i] && w->ir.angle == wroteA[i]) {
+			w->ir.x = givenX[i];
+			w->ir.y = givenY[i];
+			w->ir.angle = givenA[i];
+		}
+		wrote[i] = false;
 		// libogc calls the pointer gone the moment the Remote points past
 		// its box, which is the screen's own edges: on a TV that crops them
 		// it went before the corner buttons and the page arrows were
@@ -216,6 +230,9 @@ static void UpdatePadPointers()
 		// RiftWii: the menu may be drawn smaller than the screen
 		// (widescreen, screen size): where the Remote points, in its units.
 		if (remote && w->ir.valid) {
+			givenX[i] = w->ir.x;
+			givenY[i] = w->ir.y;
+			givenA[i] = w->ir.angle;
 			// The tilt first. libogc turns the sensor bar's two dots by
 			// the tilt it reads from them (ir.angle) before it takes their
 			// middle as the pointer, so the tilt's shake of a fraction of a
@@ -294,6 +311,10 @@ static void UpdatePadPointers()
 				w->ir.x = steadyX[i];
 				w->ir.y = steadyY[i];
 			}
+			wroteX[i] = w->ir.x;
+			wroteY[i] = w->ir.y;
+			wroteA[i] = w->ir.angle;
+			wrote[i] = true;
 		} else {
 			steadyOn[i] = false;
 		}
@@ -384,6 +405,10 @@ static void UpdatePadPointers()
 				if (w->ir.y < minY) w->ir.y = minY;
 				if (w->ir.x > maxX) w->ir.x = maxX;
 				if (w->ir.y > maxY) w->ir.y = maxY;
+				if (wrote[i]) {
+					wroteX[i] = w->ir.x;
+					wroteY[i] = w->ir.y;
+				}
 			}
 			continue;
 		}
