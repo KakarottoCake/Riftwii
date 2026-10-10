@@ -74,7 +74,9 @@ bool map_container_range(const UsbImage& image, std::uint64_t container_sector, 
         if ((at_bytes & (kUsbSectorBytes - 1)) != 0) { error = "container mapping is not sector aligned"; return false; }
         const std::uint64_t available = (piece_bytes - at_bytes) / kUsbSectorBytes;
         const std::uint64_t take = std::min(remaining, available);
-        if (take == 0) continue;
+        // Only the piece's last partial sector left: what follows is not
+        // where this mapping would put it (the next piece starts mid-sector).
+        if (take == 0) { error = "container mapping is not sector aligned"; return false; }
         std::uint64_t file_sector = at_bytes / kUsbSectorBytes;
         std::uint64_t need = take;
         for (const Fragment& f : piece.file.fragments) {

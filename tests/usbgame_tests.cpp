@@ -190,6 +190,20 @@ void test_basic() {
     EXPECT_FALSE(build_usb_fragments(wbfs_image(false), list, error));
     EXPECT_FALSE(build_usb_fragments(wbfs_image(true, 20, false, true), list, error));
     EXPECT_FALSE(build_usb_fragments(wbfs_image(true, 40), list, error));
+    // A split .wbfs whose first piece ends 100 bytes into a block: d2x
+    // cannot be pointed at that block, which reads 100 bytes from one piece
+    // and the rest from the next. Refused, not mapped to the wrong sectors.
+    {
+        const UsbImage whole = wbfs_image(true, 20, false);
+        std::vector<std::uint8_t> all(static_cast<std::size_t>(whole.pieces[0].source->size()));
+        EXPECT_TRUE(whole.pieces[0].source->read(0, all.data(), all.size()));
+        const std::size_t cut = 20 * kWbfsBlock + 100;
+        UsbImage ragged; ragged.format = UsbImageFormat::Wbfs;
+        ragged.pieces.push_back(piece(std::vector<std::uint8_t>(all.begin(), all.begin() + cut), 1000));
+        ragged.pieces.push_back(piece(std::vector<std::uint8_t>(all.begin() + cut, all.end()), 5000));
+        EXPECT_FALSE(build_usb_fragments(ragged, list, error));
+        EXPECT_TRUE(error.find("not sector aligned") != std::string::npos);
+    }
     EXPECT_FALSE(build_usb_fragments(wbfs_image(true, 20, false, false, 14), list, error));
 
     D2xFragmentList bad; bad.size = 4; bad.num = 2; bad.entries = {{0, 1, 3}, {2, 5, 1}};
