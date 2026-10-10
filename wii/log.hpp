@@ -16,5 +16,11 @@ void logf(const char* format, ...) __attribute__((format(printf, 1, 2)));
 // Whether logf also prints to the text console. ConsoleStart turns it on;
 // it is off during the GUI, where lines go to the SD log only.
 void LogEchoToScreen(bool on);
+// The launch screen without its log (a tester: "we don't need to see the
+// code"): lines are kept, their last few KB, instead of printed, until
+// LogShowHeld clears the console's window, prints them and goes back to
+// echoing (a failed launch shows what happened).
+void LogHoldScreen();
+void LogShowHeld();
 
 }  // namespace riftwii::wii

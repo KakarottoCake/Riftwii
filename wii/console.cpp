@@ -34,7 +34,7 @@ void ConsoleStart(bool video_initialised) {
     std::printf("\x1b[2;0H");
 }
 
-void ConsoleStartInFrame(void* xfb, int fb_width, int fb_height, int x, int y, int width, int height) {
+void ConsoleStartInFrame(void* xfb, int fb_width, int fb_height, int x, int y, int width, int height, bool quiet) {
     // CON_Init may blank more than its window: keep a copy of the frame and
     // put back everything around the window afterwards.
     const std::size_t stride = static_cast<std::size_t>(fb_width) * VI_DISPLAY_PIX_SZ;
@@ -50,7 +50,7 @@ void ConsoleStartInFrame(void* xfb, int fb_width, int fb_height, int x, int y, i
         for (int row = 0; row < fb_height; ++row) {
             u8* dst = out + stride * row;
             const u8* src = keep + stride * row;
-            if (row < y || row >= y + height) {
+            if (quiet || row < y || row >= y + height) {
                 std::memcpy(dst, src, stride);
             } else {
                 std::memcpy(dst, src, left);
@@ -60,9 +60,14 @@ void ConsoleStartInFrame(void* xfb, int fb_width, int fb_height, int x, int y, i
         std::free(keep);
     }
     CON_EnableGecko(1, false);
-    LogEchoToScreen(true);
     // Truecolour: the menu's ink on the card's white.
-    std::printf("\x1b[38;2;46;46;54m\x1b[48;2;255;255;255m\x1b[2J\x1b[0;0H");
+    std::printf("\x1b[38;2;46;46;54m\x1b[48;2;255;255;255m");
+    if (quiet) {
+        LogHoldScreen();
+        return;
+    }
+    LogEchoToScreen(true);
+    std::printf("\x1b[2J\x1b[0;0H");
 }
 
 void WaitForExit() {

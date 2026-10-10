@@ -140,7 +140,7 @@ namespace {
 // Leaves the libwiigui renderer for the disc phase (the GUI thread is
 // already halted by MainMenu): its last frame, the launch screen, stays
 // up and the log prints into the white card on it.
-void EnterConsolePhase() {
+void EnterConsolePhase(bool quiet) {
     ShutoffRumble();
     ShutdownAudio();
     StopGXKeepPicture();
@@ -155,7 +155,8 @@ void EnterConsolePhase() {
     Menu_MenuToXfb(48 - extra, 388, &left, &barTop);
     left = (left + 1) & ~1;
     const int width = (right - left) & ~7, height = (bottom - top) & ~15;  // whole 8x16 cells
-    riftwii::wii::ConsoleStartInFrame(Menu_CurrentXfb(), Menu_XfbWidth(), Menu_XfbHeight(), left, top, width, height);
+    riftwii::wii::ConsoleStartInFrame(Menu_CurrentXfb(), Menu_XfbWidth(), Menu_XfbHeight(), left, top, width, height,
+                                      quiet);
     riftwii::wii::CrashSetPhase(riftwii::wii::CrashPhase::Console);
     // Under the log, still on the white card: the stage and the bar.
     riftwii::wii::ProgressAttach(Menu_CurrentXfb(), Menu_XfbWidth(), Menu_XfbHeight(), left, barTop, width);
@@ -165,6 +166,8 @@ void EnterConsolePhase() {
 // wii/restart.hpp; also after two minutes untouched) or out to the
 // Homebrew Channel.
 void OfferRestart(const std::string& error) {
+    // The log kept back on a quiet launch screen: what happened, now.
+    riftwii::wii::LogShowHeld();
     // Players asking for help seldom know where the logs are: say it here,
     // where the failure is, in words a first-time user can follow.
     riftwii::wii::logf("\nTo get help, press A: RiftWii offers to send a problem report\n"
@@ -463,7 +466,7 @@ int main() {
     const bool heap_whole = riftwii::wii::mem::CheckHeap("menu closed");
     const riftwii::wii::LaunchSource source = riftwii::wii::SelectedSource(state);
 
-    EnterConsolePhase();
+    EnterConsolePhase(QuietLaunchScreen(action));
     // A tester's heap broke between "menu closed" and the first reload
     // (once; the same launch worked when tried again): checked at the steps
     // between too (the cIOS search checks after itself), to name the one.
@@ -531,6 +534,7 @@ int main() {
         }
     }
     riftwii::wii::LogClose();
+    riftwii::wii::LogShowHeld();
     riftwii::wii::logf("Press HOME, Start or RESET to exit.\n");
     riftwii::wii::WaitForExit();
     std::exit(0);

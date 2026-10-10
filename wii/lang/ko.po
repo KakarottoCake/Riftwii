@@ -996,6 +996,9 @@ msgstr "이 모드에서 선택한 항목 없음"
 msgid "{1} is switched on, but none of its options are picked, so it would change nothing. Turn it off and start the game?"
 msgstr "{1}이(가) 켜져 있지만 선택한 옵션이 없어 아무것도 바뀌지 않습니다. 끄고 게임을 시작할까요?"
 
+msgid "If something goes wrong, what happened shows here."
+msgstr "문제가 생기면 무슨 일이 있었는지 여기에 표시됩니다."
+
 msgid "The RiftWii channel"
 msgstr "RiftWii 채널"
 

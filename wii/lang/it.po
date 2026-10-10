@@ -996,6 +996,9 @@ msgstr "Niente di scelto in questa mod"
 msgid "{1} is switched on, but none of its options are picked, so it would change nothing. Turn it off and start the game?"
 msgstr "{1} è attiva, ma nessuna delle sue opzioni è scelta, quindi non cambierebbe nulla. Disattivarla e avviare il gioco?"
 
+msgid "If something goes wrong, what happened shows here."
+msgstr "Se qualcosa va storto, qui compare cosa è successo."
+
 msgid "The RiftWii channel"
 msgstr "Il canale RiftWii"
 

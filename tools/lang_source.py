@@ -921,6 +921,10 @@ T = {
         "{1}はオンですが、オプションが1つも選ばれていないので何も変わりません。オフにしてゲームを始めますか?",
         "{1} está ligado, mas nenhuma opção dele foi escolhida, então não mudaria nada. Desligar e iniciar o jogo?",
         "{1} è attiva, ma nessuna delle sue opzioni è scelta, quindi non cambierebbe nulla. Disattivarla e avviare il gioco?"),
+    # The launch screen, while its log is kept back.
+    "If something goes wrong, what happened shows here.": (
+        "Si algo sale mal, aquí se mostrará lo que pasó.", "うまくいかなかったときは、ここに何が起きたかが表示されます。",
+        "Se algo der errado, o que aconteceu aparece aqui.", "Se qualcosa va storto, qui compare cosa è successo."),
     # The screen shown while the installer starts: the line above the title.
     "The RiftWii channel": ("El canal de RiftWii", "RiftWiiチャンネル", "O canal da RiftWii", "Il canale RiftWii"),
     "Opening the installer for": ("Abriendo el instalador de", "インストーラーを開いています", "Abrindo o instalador de",
@@ -2268,6 +2272,8 @@ KO = {
         "이 모드에서 선택한 항목 없음",
     "{1} is switched on, but none of its options are picked, so it would change nothing. Turn it off and start the game?":
         "{1}이(가) 켜져 있지만 선택한 옵션이 없어 아무것도 바뀌지 않습니다. 끄고 게임을 시작할까요?",
+    "If something goes wrong, what happened shows here.":
+        "문제가 생기면 무슨 일이 있었는지 여기에 표시됩니다.",
     "The RiftWii channel":
         "RiftWii 채널",
     "Opening the installer for":
@@ -3349,6 +3355,8 @@ FR = {
         "Rien de choisi dans ce mod",
     "{1} is switched on, but none of its options are picked, so it would change nothing. Turn it off and start the game?":
         "{1} est activé, mais aucune de ses options n'est choisie : il ne changerait rien. Le désactiver et lancer le jeu ?",
+    "If something goes wrong, what happened shows here.":
+        "En cas de problème, ce qui s'est passé s'affiche ici.",
     "The RiftWii channel":
         "La chaîne RiftWii",
     "Opening the installer for":

@@ -179,8 +179,10 @@ these rows:
   *Default* follows Settings, where the same rows apply to every game.
 
 **Start** (or Plus) boots the game with what you chose; with nothing on,
-the game starts as it is. While it starts, its progress prints on
-screen. Your choices are saved for each game.
+the game starts as it is. While it starts, a bar shows how far it is;
+if it fails, what happened prints on screen (`launch_details = show` in
+`sd:/riftwii/settings.txt` prints it every time). Your choices are
+saved for each game.
 
 In every list, hold A and move the Wii Remote to drag it (a quick flick
 keeps it going); the D-pad works too. A longer list has up and down

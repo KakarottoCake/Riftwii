@@ -5821,6 +5821,13 @@ static int MenuNeedsSd()
 // ---------------------------------------------------------------------------
 // Launch frame: stays on screen while the boot log prints into its card.
 
+bool QuietLaunchScreen(int action)
+{
+	if (action != MENU_LAUNCH && action != MENU_BOOT) return false;
+	const auto it = riftwii::wii::Settings().other.find("launch_details");
+	return it == riftwii::wii::Settings().other.end() || it->second != "show";
+}
+
 static void ShowLaunchFrame(const FrontendState& state, int action)
 {
 	const std::string title = action == MENU_CHANNEL ? std::string(tr("The RiftWii channel")) : GameTitle(state);
@@ -5847,6 +5854,14 @@ static void ShowLaunchFrame(const FrontendState& state, int action)
 		: action == MENU_CHANNEL ? tr("RiftWii starts again when it is done.")
 		: tr("The game takes over the screen when it is ready."), 15, skin::kInkDim);
 	Place(footTxt, 0, 444, true);
+	// The card's inside while the log is kept back (wii/main.cpp): the
+	// stage and the bar under it say what is going on; a failure prints
+	// the log over this.
+	const bool quiet = QuietLaunchScreen(action);
+	GuiText waitNote(tr("If something goes wrong, what happened shows here."), 18, skin::kInkDim);
+	waitNote.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
+	waitNote.SetPosition(0, 262);
+	waitNote.SetWrap(true, 480, 2);
 
 	HaltGui();
 	hidePointers = true;
@@ -5856,6 +5871,7 @@ static void ShowLaunchFrame(const FrontendState& state, int action)
 	w.Append(&doingTxt);
 	w.Append(&titleTxt);
 	w.Append(&card);
+	if (quiet) w.Append(&waitNote);
 	w.Append(&footTxt);
 	mainWindow->Append(&w);
 	ResumeGui();

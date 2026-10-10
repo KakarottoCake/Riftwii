@@ -18,6 +18,10 @@ int MainMenu(int menuitem, FrontendState& state);
 // Draws the launch frame again, once the update check has finished and its
 // "waiting" footer is no longer true (main, after the wait).
 void RefreshLaunchFrame(const FrontendState& state, int action);
+// Whether the launch screen keeps its log back until something fails (a
+// game's launch or boot; settings.txt's launch_details = show prints it
+// as before).
+bool QuietLaunchScreen(int action);
 
 // Stops the GUI thread drawing, for the crash screen (wii/crash.cpp).
 void MenuHaltForCrash();
