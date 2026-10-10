@@ -2113,9 +2113,9 @@ static std::string DiscTileNote()
 // holds seven lines), for the release script to keep up to date. Shown
 // once when they change; Settings > What's new shows them again.
 static const char* const kWhatsNew[] = {
-	"French menu (thanks MidyGamy) and Korean finished",
-	"Settings > Clock: 12-hour, 24-hour or Automatic",
-	"SD games on a Wii's d2x 249 (base 56) start again",
+	"Resident Evil 4 from an RVZ starts again",
+	"Classic Controller A no longer moves the pointer",
+	"Mario Super Sluggers keeps its own picture size",
 };
 
 static std::string WhatsNewText()
