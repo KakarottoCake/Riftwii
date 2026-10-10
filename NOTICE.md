@@ -47,10 +47,12 @@ cheats" is on: game names and cover art from GameTDB
 art.gametdb.com's covers, stored shrunk on the SD card), cheat files from the GeckoCodes archive kept by
 RiiConnect24 (https://codes.rc24.xyz), and the newest release's tag from
 GitHub's API (the update check). Neither is shipped with RiftWii, except
-for one list derived from GameTDB's database (https://www.gametdb.com,
+for two lists derived from GameTDB's database (https://www.gametdb.com,
 `wiitdb.xml`): the codes of the games it lists with no online play,
 `src/offlinegames.inc`, made by `tools/make_offline_games.py` for the game
-page's Online server row.
+page's Online server row, and the games whose case is not white,
+`src/casecolours.inc`, made by `tools/make_case_colours.py` for the Home
+shelf's boxes.
 RiftWii contains no Nintendo keys or assets.
 
 Build-time dependencies that are not vendored: devkitPPC/libogc, libfat,

@@ -15,6 +15,7 @@
 #include "boxart.hpp"
 #include "covers.hpp"
 #include "gui_gamegrid.hpp"
+#include "riftwii/casecolour.hpp"
 #include "riftwii/coverart.hpp"
 #include "skin.hpp"
 #include "video.h"
@@ -173,11 +174,24 @@ void LoadPerspective() {
     GX_SetZMode(GX_FALSE, GX_LEQUAL, GX_FALSE);
 }
 
+// The case's plastic: white, unless GameTDB knows it another colour (New
+// Super Mario Bros. Wii's red); a black one is lifted a little so its
+// edges show.
+GXColor CasePlastic(const std::string& id) {
+    std::uint8_t rgb[3];
+    if (!riftwii::game_case_colour(id, rgb)) return {238, 238, 236, 255};
+    return {static_cast<u8>(28 + rgb[0] * 210 / 255), static_cast<u8>(28 + rgb[1] * 210 / 255),
+            static_cast<u8>(28 + rgb[2] * 210 / 255), 255};
+}
+
+// Whether a name written on that plastic wants light letters.
+bool DarkPlastic(GXColor c) { return c.r * 299 + c.g * 587 + c.b * 114 < 140 * 1000; }
+
 // A box's five faces you can see (not its bottom), covered with its scan,
-// its cover or plain plastic in the game's colour. Spine, front, back,
+// its cover or plain plastic in its case's colour. Spine, front, back,
 // top, open edge.
-void BoxFaces(const Box& b, const u8* art, const u8* cover, GXColor hue, Face (&faces)[5]) {
-    const GXColor plastic = {238, 238, 236, 255};
+void BoxFaces(const std::string& id, const Box& b, const u8* art, const u8* cover, GXColor hue, Face (&faces)[5]) {
+    const GXColor plastic = CasePlastic(id);
     // Corners by bits: x (1) y (2) z (4).
     const auto face = [&](int a, int bb, int c, int d) {
         Face f;
@@ -394,7 +408,7 @@ void GuiGameGrid::DrawShelf(int alpha) {
         // In flight to or from a game's page: drawn by DrawShelfFlight.
         if (!g_flying.empty() && item.id == g_flying) continue;
         Face faces[5];
-        BoxFaces(b, art, cover, item.hue, faces);
+        BoxFaces(item.id, b, art, cover, item.hue, faces);
         float x0 = 1e9f, y0 = 1e9f, x1 = -1e9f, y1 = -1e9f;
         bool spineShown = false;
         for (const Face& f : faces) {
@@ -431,7 +445,7 @@ void GuiGameGrid::DrawShelf(int alpha) {
             Project(along(tl, bl, 0.78f), dummy, sy1);
             // Not while the box still turns (to or from the focus): its name
             // lay across the next spine's.
-            if (p.turn < 0.12f) labels.push_back(SpineLabel{i, (sx + sxr) / 2, sy0, sy1});
+            if (p.turn < 0.12f) labels.push_back(SpineLabel{i, (sx + sxr) / 2, sy0, sy1, DarkPlastic(CasePlastic(item.id))});
         }
         if (item.badge == "DISC" && !art && !cover && FacesEye(faces[1]) && skin::iconDisc.data) {
             // The disc drive has no box art: the Disc drive tile's disc
@@ -483,6 +497,7 @@ void GuiGameGrid::DrawShelf(int alpha) {
         if (fit.first != title || fit.second.empty()) fit = {title, Fit(title, kSpineTextRoom)};
         spineText->SetText(fit.second.c_str());
         spineText->SetFontSize(kSpineTextSize);
+        spineText->SetColor(l.light ? GXColor{236, 236, 240, 255} : GXColor{40, 40, 48, 255});
         spineText->SetAlpha(alpha);
         const float w = static_cast<float>(spineText->GetTextWidth());
         // Turned a quarter right about the label's own start, at the top:
@@ -568,7 +583,7 @@ void DrawShelfFlight(const ShelfFlight& from, float toX, float toY, float toW, f
     const u8* art = riftwii::wii::BoxTexture(from.id);
     const u8* cover = art ? nullptr : riftwii::wii::CoverTexture(from.id);
     Face faces[5];
-    BoxFaces(box, art, cover, from.hue, faces);
+    BoxFaces(from.id, box, art, cover, from.hue, faces);
     LoadPerspective();
     // Back to front by distance from the eye: the faces of one box.
     int order[5] = {0, 1, 2, 3, 4};
