@@ -57,15 +57,15 @@ bool write_file(const std::string& path, const std::uint8_t* data, std::size_t s
 }
 
 // A NAND file into `out`, under the menu's IOS (its permission check
-// opened once for a game's save, as for the menu font).
-bool read_nand_file(const std::string& path, std::vector<std::uint8_t>& out, std::string& why) {
+// opened for a game's save, as for the menu font, and closed once the save
+// is copied; `refused` stops asking again after it could not be opened).
+bool read_nand_file(const std::string& path, std::vector<std::uint8_t>& out, bool& refused, std::string& why) {
     static char name[ISFS_MAXPATH] ATTRIBUTE_ALIGN(32);
     std::snprintf(name, sizeof(name), "%s", path.c_str());
     s32 fd = ISFS_Open(name, ISFS_OPEN_READ);
-    static bool opened = false;
-    if (fd == -102 && !opened) {
-        opened = true;
+    if (fd == -102 && !refused) {
         if (open_nand_permissions("Save copy")) fd = ISFS_Open(name, ISFS_OPEN_READ);
+        else refused = true;
     }
     if (fd < 0) {
         why = path + " could not be opened (" + std::to_string(fd) + ")";
@@ -121,7 +121,7 @@ bool list_nand(const std::string& path, std::vector<std::string>& names) {
 }
 
 // The Wii's save folder into the card's, its subfolders too.
-bool copy_nand_tree(const std::string& nand, const std::string& sd, unsigned& files, std::string& why) {
+bool copy_nand_tree(const std::string& nand, const std::string& sd, unsigned& files, bool& refused, std::string& why) {
     std::vector<std::string> names;
     if (!list_nand(nand, names)) return true;  // no save on the Wii: a new one starts
     if (!make_dirs(sd)) {
@@ -132,11 +132,11 @@ bool copy_nand_tree(const std::string& nand, const std::string& sd, unsigned& fi
         const std::string from = nand + "/" + n, to = sd + "/" + n;
         std::vector<std::string> inner;
         if (list_nand(from, inner)) {
-            if (!copy_nand_tree(from, to, files, why)) return false;
+            if (!copy_nand_tree(from, to, files, refused, why)) return false;
             continue;
         }
         std::vector<std::uint8_t> bytes;
-        if (!read_nand_file(from, bytes, why)) return false;
+        if (!read_nand_file(from, bytes, refused, why)) return false;
         if (!write_file(to, bytes.data(), bytes.size())) {
             why = "cannot write " + to;
             return false;
@@ -245,7 +245,10 @@ bool prepare_d2x_saves(const ImageGame& game, const std::string& dir, bool clone
                                      hex8(static_cast<std::uint32_t>(game.title_id)) + "/data";
             unsigned files = 0;
             std::string why;
-            if (!copy_nand_tree(nand, data, files, why)) {
+            bool refused = false;
+            const bool copied = copy_nand_tree(nand, data, files, refused, why);
+            close_nand_permissions("Save copy");
+            if (!copied) {
                 remove_tree(data);
                 make_dirs(data);
                 error = "the Wii's save could not be copied: " + why;
