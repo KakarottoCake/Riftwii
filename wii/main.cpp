@@ -265,7 +265,7 @@ int main() {
     riftwii::wii::mem::Init();
     const riftwii::wii::RestartNote restart = riftwii::wii::TakeRestartNote();
     riftwii::wii::CrashInstall();
-    const bool sd_mounted = MountStartupSd();
+    bool sd_mounted = MountStartupSd();
     riftwii::wii::mem::TestBallast();  // test builds only
 
     // Another loader (USB Loader GX) starting a game through RiftWii:
@@ -298,6 +298,20 @@ int main() {
     }
     riftwii::wii::StartMenuIos(sd_mounted, restart.kind != riftwii::wii::RestartKind::None,
                                restart.kind == riftwii::wii::RestartKind::BurnedDisc ? riftwii::wii::BurnedDiscSlot() : 0);
+    // A restart mounts the card before the fresh IOS above, under whatever
+    // the last run left (a tester got "RiftWii needs an SD card" right
+    // after a game failed to start, with the card in). The fresh IOS has
+    // let go of it, so once more before saying there is no card.
+    if (!sd_mounted && restart.kind != riftwii::wii::RestartKind::None) {
+        sd_mounted = MountStartupSd();
+        if (sd_mounted) {
+            OpenSessionLog(true);
+            riftwii::wii::logf("Restarted: %s\n", restart.message.c_str());
+            riftwii::wii::logf("SD card: read only after the restart's fresh IOS%d\n", IOS_GetVersion());
+            // The menu's saved cIOS (menu_ios.txt) could not be read before.
+            riftwii::wii::StartMenuIos(true);
+        }
+    }
     // A marker on the card while the Wii Menu's font is read: reading it
     // may open IOS's NAND permission check, which hung consoles before
     // 3.3.3. Found at the next start, the font is skipped, so a console it

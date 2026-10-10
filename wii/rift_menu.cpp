@@ -5641,7 +5641,8 @@ static int MenuSettings(FrontendState& state)
 // ---------------------------------------------------------------------------
 // No SD card: RiftWii keeps its settings, logs and saves there, so it
 // does not run without one (USB mode is not supported yet). A QR code
-// leads to SD cards to buy.
+// leads to SD cards to buy. Try again restarts RiftWii (wii/restart.hpp):
+// the restart's fresh IOS lets go of a card the last run left held.
 
 static bool g_noSdFromUsb = false;
 
@@ -5649,14 +5650,22 @@ void SetNoSdCard(bool fromUsb) { g_noSdFromUsb = fromUsb; }
 
 static int MenuNeedsSd()
 {
+	// Started again after a failed launch, a crash or Try again: a card is
+	// most likely in the slot, just not answering.
+	const bool restarted = riftwii::wii::CurrentRestartNote().kind != riftwii::wii::RestartKind::None;
+	const bool canRetry = !g_noSdFromUsb && riftwii::wii::CanRestart();
 	GuiText titleTxt(tr("RiftWii needs an SD card"), 28, skin::kInk);
 	Place(titleTxt, 40, 36);
-	GuiText subTxt(g_noSdFromUsb ? tr("USB mode is not supported yet") : tr("No SD card was found"), 18,
-		skin::kAccentInk);
+	GuiText subTxt(g_noSdFromUsb ? tr("USB mode is not supported yet")
+		: restarted          ? tr("The SD card could not be read")
+				     : tr("No SD card was found"),
+		18, skin::kAccentInk);
 	Place(subTxt, 40, 74);
 	Panel card(skin::panelSettings, 34, 120);
 	GuiText bodyTxt(g_noSdFromUsb
 			? tr("RiftWii was started from a USB drive. It keeps its settings, logs and saves on the SD card, so for now it needs one to run. Copy the sd-card folder from the RiftWii zip to a FAT32 SD card, put the card in the Wii and start RiftWii from it.")
+			: restarted
+			? tr("RiftWii started again and could not read the SD card this time. Press Try again. If that doesn't help, turn the Wii off, push the card in firmly and start RiftWii again.")
 			: tr("RiftWii keeps its settings, logs and saves on the SD card and could not read one. Put a FAT32 SD card in the Wii with the sd-card folder from the RiftWii zip on it, then start RiftWii again."),
 		16, skin::kInkSoft);
 	Place(bodyTxt, 56, 142);
@@ -5669,9 +5678,12 @@ static int MenuNeedsSd()
 	GuiText scanTxt(tr("Need a card? Scan this."), 14, skin::kInkDim);
 	scanTxt.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
 	scanTxt.SetPosition(588 - 16 - kQrSide / 2 - screenwidth / 2, 138 + kQrSide + 8);
-	SkinButton exitBtn(skin::pill, skin::pillOver, 4, 198, 412, tr("Exit"),
+	SkinButton exitBtn(skin::pill, skin::pillOver, 4, canRetry ? 70 : 198, 412, tr("Exit"),
 		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B | WPAD_BUTTON_HOME | WPAD_CLASSIC_BUTTON_HOME, PAD_BUTTON_B | PAD_BUTTON_START,
 		WIIDRC_BUTTON_B | WIIDRC_BUTTON_HOME);
+	SkinButton retryBtn(skin::pillPrimary, skin::pillPrimaryOver, 4, 326, 412, tr("Try again"),
+		WPAD_BUTTON_A | WPAD_CLASSIC_BUTTON_A, PAD_BUTTON_A, WIIDRC_BUTTON_A);
+	retryBtn.text.SetColor(skin::kAccentInk);
 
 	HaltGui();
 	GuiWindow w(screenwidth, screenheight);
@@ -5682,11 +5694,18 @@ static int MenuNeedsSd()
 	w.Append(&qr);
 	w.Append(&scanTxt);
 	w.Append(&exitBtn.button);
+	if (canRetry) w.Append(&retryBtn.button);
 	mainWindow->Append(&w);
 	ResumeGui();
 	for (;;) {
 		usleep(THREAD_SLEEP);
 		HaltGui();
+		ClearStaleButtons({&exitBtn.button, &retryBtn.button});
+		if (canRetry && retryBtn.Clicked()) {
+			// Returns only if it cannot restart (checked above).
+			riftwii::wii::WarmRestart(riftwii::wii::RestartKind::SdRetry, tr("The SD card was read."), false);
+			retryBtn.button.ResetState();
+		}
 		const bool done = exitBtn.Clicked();
 		if (done) break;
 		ResumeGui();

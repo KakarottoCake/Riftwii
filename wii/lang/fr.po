@@ -1023,6 +1023,18 @@ msgstr "Impossible de lire la carte SD contenant vos configurations et sauvegard
 msgid "Need a card? Scan this."
 msgstr "Besoin d'une carte ? Scannez ceci."
 
+msgid "The SD card could not be read"
+msgstr "Impossible de lire la carte SD"
+
+msgid "RiftWii started again and could not read the SD card this time. Press Try again. If that doesn't help, turn the Wii off, push the card in firmly and start RiftWii again."
+msgstr "RiftWii a redémarré et n'a pas pu lire la carte SD cette fois. Appuyez sur Réessayer. Si cela ne suffit pas, éteignez la Wii, enfoncez bien la carte et relancez RiftWii."
+
+msgid "Try again"
+msgstr "Réessayer"
+
+msgid "The SD card was read."
+msgstr "La carte SD a été lue."
+
 msgid "Is this a burned disc?"
 msgstr "S'agit-il d'un disque gravé ?"
 

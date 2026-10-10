@@ -1023,6 +1023,18 @@ msgstr "RiftWii tiene impostazioni, log e salvataggi sulla scheda SD e non è ri
 msgid "Need a card? Scan this."
 msgstr "Ti serve una scheda? Scansiona qui."
 
+msgid "The SD card could not be read"
+msgstr "Impossibile leggere la scheda SD"
+
+msgid "RiftWii started again and could not read the SD card this time. Press Try again. If that doesn't help, turn the Wii off, push the card in firmly and start RiftWii again."
+msgstr "RiftWii si è riavviata e questa volta non è riuscita a leggere la scheda SD. Premi Riprova. Se non basta, spegni la Wii, inserisci bene la scheda e riavvia RiftWii."
+
+msgid "Try again"
+msgstr "Riprova"
+
+msgid "The SD card was read."
+msgstr "La scheda SD è stata letta."
+
 msgid "Is this a burned disc?"
 msgstr "È un disco masterizzato?"
 

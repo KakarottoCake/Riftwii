@@ -957,6 +957,17 @@ T = {
     "Need a card? Scan this.": (
         "¿Necesitas una? Escanea esto.", "カードが必要ならこれをスキャン", "Precisa de um? Escaneie isto.",
         "Ti serve una scheda? Scansiona qui."),
+    "The SD card could not be read": (
+        "No se pudo leer la tarjeta SD", "SDカードを読み込めませんでした", "Não foi possível ler o cartão SD",
+        "Impossibile leggere la scheda SD"),
+    "RiftWii started again and could not read the SD card this time. Press Try again. If that doesn't help, turn the Wii off, push the card in firmly and start RiftWii again.": (
+        "RiftWii se volvió a iniciar y esta vez no pudo leer la tarjeta SD. Pulsa Reintentar. Si no sirve, apaga la Wii, empuja bien la tarjeta y vuelve a iniciar RiftWii.",
+        "RiftWiiを再起動しましたが、今回はSDカードを読み込めませんでした。「もう一度」を押してください。だめな場合は、Wiiの電源を切り、カードをしっかり差し込んでから、もう一度RiftWiiを起動してください。",
+        "A RiftWii foi reiniciada e desta vez não conseguiu ler o cartão SD. Aperte Tentar de novo. Se não resolver, desligue o Wii, empurre bem o cartão e inicie a RiftWii de novo.",
+        "RiftWii si è riavviata e questa volta non è riuscita a leggere la scheda SD. Premi Riprova. Se non basta, spegni la Wii, inserisci bene la scheda e riavvia RiftWii."),
+    "Try again": ("Reintentar", "もう一度", "Tentar de novo", "Riprova"),
+    "The SD card was read.": (
+        "Se leyó la tarjeta SD.", "SDカードを読み込みました。", "O cartão SD foi lido.", "La scheda SD è stata letta."),
     # Burned discs (a d2x cIOS reads them on older Wiis); {1} a cIOS slot.
     "Is this a burned disc?": (
         "¿Es un disco grabado?", "焼いたディスクですか?", "É um disco gravado?", "È un disco masterizzato?"),
@@ -1930,6 +1941,14 @@ KO = {
         "RiftWii는 설정, 로그, 세이브 파일을 SD 카드에 저장하는데, 현재 SD 카드를 읽을 수 없는 상태입니다. RiftWii 압축 파일에 포함된 'sd-card' 폴더를 FAT32 형식의 SD 카드에 담아 Wii에 삽입한 후, RiftWii를 다시 실행해 보세요.",
     "Need a card? Scan this.":
         "카드가 필요한가요? 이것을 스캔하세요.",
+    "The SD card could not be read":
+        "SD 카드를 읽을 수 없음",
+    "RiftWii started again and could not read the SD card this time. Press Try again. If that doesn't help, turn the Wii off, push the card in firmly and start RiftWii again.":
+        "RiftWii가 다시 시작되었지만 이번에는 SD 카드를 읽을 수 없었습니다. '다시 시도'를 누르세요. 그래도 안 되면 Wii를 끄고 카드를 끝까지 밀어 넣은 뒤 RiftWii를 다시 실행하세요.",
+    "Try again":
+        "다시 시도",
+    "The SD card was read.":
+        "SD 카드를 읽었습니다.",
     "Is this a burned disc?":
         "이것은 구운 디스크인가요?",
     "The drive could not read this disc. If it is a burned disc, RiftWii can read it through d2x on older Wiis (later Wii drives read only Nintendo discs). Burned discs can wear out the disc drive sooner: use them at your own risk. The menu then restarts under IOS{1} for this session.":
@@ -2851,6 +2870,14 @@ FR = {
         "Impossible de lire la carte SD contenant vos configurations et sauvegardes. Veuillez insérer une carte SD FAT32 munie du dossier sd-card extrait de l'archive zip.",
     "Need a card? Scan this.":
         "Besoin d'une carte ? Scannez ceci.",
+    "The SD card could not be read":
+        "Impossible de lire la carte SD",
+    "RiftWii started again and could not read the SD card this time. Press Try again. If that doesn't help, turn the Wii off, push the card in firmly and start RiftWii again.":
+        "RiftWii a redémarré et n'a pas pu lire la carte SD cette fois. Appuyez sur Réessayer. Si cela ne suffit pas, éteignez la Wii, enfoncez bien la carte et relancez RiftWii.",
+    "Try again":
+        "Réessayer",
+    "The SD card was read.":
+        "La carte SD a été lue.",
     "Is this a burned disc?":
         "S'agit-il d'un disque gravé ?",
     "The drive could not read this disc. If it is a burned disc, RiftWii can read it through d2x on older Wiis (later Wii drives read only Nintendo discs). Burned discs can wear out the disc drive sooner: use them at your own risk. The menu then restarts under IOS{1} for this session.":

@@ -1023,6 +1023,18 @@ msgstr "RiftWii는 설정, 로그, 세이브 파일을 SD 카드에 저장하는
 msgid "Need a card? Scan this."
 msgstr "카드가 필요한가요? 이것을 스캔하세요."
 
+msgid "The SD card could not be read"
+msgstr "SD 카드를 읽을 수 없음"
+
+msgid "RiftWii started again and could not read the SD card this time. Press Try again. If that doesn't help, turn the Wii off, push the card in firmly and start RiftWii again."
+msgstr "RiftWii가 다시 시작되었지만 이번에는 SD 카드를 읽을 수 없었습니다. '다시 시도'를 누르세요. 그래도 안 되면 Wii를 끄고 카드를 끝까지 밀어 넣은 뒤 RiftWii를 다시 실행하세요."
+
+msgid "Try again"
+msgstr "다시 시도"
+
+msgid "The SD card was read."
+msgstr "SD 카드를 읽었습니다."
+
 msgid "Is this a burned disc?"
 msgstr "이것은 구운 디스크인가요?"
 
