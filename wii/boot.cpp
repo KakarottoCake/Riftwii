@@ -80,6 +80,11 @@ constexpr std::uint32_t kCodeVeneers = 0x80002300;  // past the code handler (0x
 constexpr std::uint32_t kFaultVeneers = kCodeVeneers + VSD_ENTRIES * 16;
 static_assert(kFaultVeneers + 2 * 16 <= 0x80003000, "the crash blob's veneers must end before 0x80003000");
 static_assert(kCodeVeneers + VSD_ENTRIES * 16 <= kFaultVeneers, "the crash blob's veneers must follow the SD card's");
+// A code build's Return to RiftWii stub (20 bytes): the end of the same
+// room, far past every veneer. Below the MEM1 arena's top it was in the
+// build's heaps (PMEX Remix wrote over it, and leaving to RiftWii crashed).
+constexpr std::uint32_t kCodeReturnStub = 0x80002FE0;
+static_assert(kCodeVeneers + (RT_IPC_ENTRIES + VSD_ENTRIES + 2) * 16 <= kCodeReturnStub, "every veneer must end before the stub");
 constexpr std::uint32_t kMem1Start = 0x80000000;
 constexpr std::uint32_t kMem1End = 0x81800000;
 constexpr std::uint32_t kMem2Start = 0x90000000;
@@ -1468,8 +1473,8 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
                                                                 : load32(0x80000038);
     // Below the FST too: wiped in a game that clears that memory.
     const u64 return_to = clears_mem1_top ? 0 : return_title();
-    const std::uint32_t return_stub = return_to != 0 ? (arena1_top - 32) & ~31u : 0;
-    const std::uint32_t arena1_end = return_stub != 0 ? return_stub : arena1_top;
+    const std::uint32_t return_stub = return_to == 0 ? 0 : code_build ? kCodeReturnStub : (arena1_top - 32) & ~31u;
+    const std::uint32_t arena1_end = return_stub != 0 && !code_build ? return_stub : arena1_top;
     if (options.install_resident || vsd.active || pad.active || shot.active || fault.active || return_stub != 0)
         store32(0x80000034, arena1_end);
     store32(0x80003110, arena1_end);
