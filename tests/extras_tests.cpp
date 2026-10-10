@@ -922,6 +922,26 @@ void TestHeadlessArguments() {
     EXPECT_TRUE(parse_headless_launch({"--launch", "game=RSBE01", "code_build=sd:/projectplus/codes/RSBE01.gct"}, h, error));
     EXPECT_FALSE(parse_headless_launch({"--launch", "game=RSBE01", "code_build=usb:/projectplus"}, h, error));
     EXPECT_FALSE(parse_headless_launch({"--launch", "game=RSBE01", "code_build="}, h, error));
+    // Every value USB Loader GX's hand-off sends (its RiftWii.cpp tables):
+    // a value it sends that RiftWii no longer takes stops every GX launch.
+    for (const char* v : {"system", "game", "pal50", "pal60", "ntsc", "480p"})
+        EXPECT_TRUE(parse_headless_launch({"--launch", "game=RMCE01", std::string("video_mode=") + v}, h, error));
+    for (const char* v : {"game", "off", "low", "medium", "high"})
+        EXPECT_TRUE(parse_headless_launch({"--launch", "game=RMCE01", std::string("deflicker=") + v}, h, error));
+    for (const char* v : {"game", "framebuffer"})
+        EXPECT_TRUE(parse_headless_launch({"--launch", "game=RMCE01", std::string("video_width=") + v}, h, error));
+    for (const char* v : {"ja", "en", "de", "fr", "es", "it", "nl", "zh-hans", "zh-hant", "ko", "console"})
+        EXPECT_TRUE(parse_headless_launch({"--launch", "game=RMCE01", std::string("language=") + v}, h, error));
+    for (const char* v : {"off", "wiimmfi", "altwfc", "custom"})
+        EXPECT_TRUE(parse_headless_launch({"--launch", "game=RMCE01", std::string("server=") + v}, h, error));
+    for (const char* v : {"auto", "248", "249", "250", "251", "252"})
+        EXPECT_TRUE(parse_headless_launch({"--launch", "game=RMCE01", std::string("cios=") + v}, h, error));
+    EXPECT_TRUE(parse_headless_launch({"--launch", "game=RMCE01", "from=usb", "path=usb:/wbfs/Mario Kart Wii [RMCE01]/RMCE01.wbfs",
+                                       "xml=sd:/riivolution/RetroRewind6.xml", "wfc_domain=wiimmfi.de", "gct=none",
+                                       "return_to=menu"},
+                                      h, error));
+    EXPECT_TRUE(parse_headless_launch({"--launch", "game=RMCE01", "gct=sd:/codes/RMCE01.gct", "return_to=0001000147584c44"}, h,
+                                      error));
     EXPECT_FALSE(parse_headless_launch({"--launch", "game=RMCE01", "video_mode=pal70"}, h, error));
     EXPECT_TRUE(error.find("video_mode") != std::string::npos);
     EXPECT_FALSE(parse_headless_launch({"--launch", "game=RMCE01", "speed=fast"}, h, error));
