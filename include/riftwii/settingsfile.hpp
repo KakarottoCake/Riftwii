@@ -31,6 +31,7 @@ struct LoaderSettings {
     std::string menu_widescreen = "off";  // auto (the Wii's own 16:9 setting), on, off: the menu kept in shape on a 16:9 TV
     int screen_size = 100;                // the menu's size on screen, 80-100 (%), inside what a TV's overscan crops
     std::string menu_sounds = "quiet";    // normal, quiet (a soft hover tick), off
+    std::string autolaunch = "off"; // autolaunch code
     std::string menu_music = "on";        // on, off: music.ogg while the menu is open
     std::string play_history = "on";      // on, off: count the games played from RiftWii (history.txt)
     std::string home_source = "all";      // all, sd, usb: which drive's games Home lists

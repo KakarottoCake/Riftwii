@@ -2651,6 +2651,66 @@ static int MenuSource(FrontendState& state)
 	}
 	ResumeGui();
 
+	// autolaunch code
+	static bool autolaunch_checked = false;
+	if (!autolaunch_checked && menu == MENU_NONE && riftwii::wii::Settings().autolaunch == "on") {
+		autolaunch_checked = true;
+		std::ifstream input("sd:/riftwii/autolaunch.txt");
+		std::string game_id;
+		if (input) std::getline(input, game_id);
+		game_id.erase(std::remove_if(game_id.begin(), game_id.end(), [](unsigned char c) {
+			return c == ' ' || c == '\t' || c == '\r' || c == '\n';
+		}), game_id.end());
+		const bool valid_id = game_id.size() == 6 && std::all_of(game_id.begin(), game_id.end(), [](unsigned char c) {
+			return (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9');
+		});
+		if (!valid_id) {
+			logf("Autolaunch: no valid game ID in sd:/riftwii/autolaunch.txt\n");
+		} else {
+			const u64 started = gettime();
+			int shown = -1;
+			bool cancelled = false;
+			while (ticks_to_millisecs(gettime() - started) < 5000) {
+				const int seconds = 5 - static_cast<int>(ticks_to_millisecs(gettime() - started) / 1000);
+				if (seconds != shown) {
+					shown = seconds;
+					statusTxt.SetText((std::string("Autolaunch ") + game_id + " in " + std::to_string(seconds) +
+					                   "s - press A to cancel").c_str());
+				}
+				PAD_ScanPads();
+				WPAD_ScanPads();
+				for (int port = 0; port < 4; ++port) {
+					if ((PAD_ButtonsDown(port) & PAD_BUTTON_A) ||
+					    (WPAD_ButtonsDown(port) & (WPAD_BUTTON_A | WPAD_CLASSIC_BUTTON_A))) {
+						cancelled = true;
+						break;
+					}
+				}
+				if (cancelled) break;
+				usleep(10000);
+			}
+			if (!cancelled) {
+				std::string error;
+				bool selected = false;
+				for (std::size_t i = 0; i < state.sd_catalog.games.size() && !selected; ++i)
+					if (state.sd_catalog.games[i].id == game_id)
+						selected = SelectSdGame(state, i, error);
+				for (std::size_t i = 0; i < state.usb_catalog.games.size() && !selected; ++i)
+					if (state.usb_catalog.games[i].id == game_id)
+						selected = SelectUsbGame(state, i, error);
+				if (selected) {
+					g_startOnOpen = true;
+					logf("Autolaunch: opening %s through the game menu\n", game_id.c_str());
+					HaltGui();
+					mainWindow->Remove(&w);
+					return MENU_HOME;
+				}
+				logf("Autolaunch: game %s not available (%s)\n", game_id.c_str(), error.c_str());
+			}
+			statusTxt.SetText(HomeStatus(state, items).c_str());
+		}
+	}
+
 	// Covers still to fetch, one per turn of the loop while the GUI
 	// thread keeps drawing: the page on screen first.
 	std::vector<std::string> coverQueue;
@@ -4829,8 +4889,9 @@ static int MenuSettings(FrontendState& state)
 			if (t.folder == folder) return t.name;
 		return folder;
 	};
-	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kServer, kHomeTiles, kHomeSource, kHomeSort, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kClockFormat, kFont, kSounds, kMusic, kReturnTo, kShots, kOnline, kNames, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kIos, kNet, kResync,
+	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kServer, kHomeTiles, kHomeSource, kHomeSort, kPlayHistory, kAutolaunch, kDiscTile, kWidescreen, kScreenSize, kTheme, kClockFormat, kFont, kSounds, kMusic, kReturnTo, kShots, kOnline, kNames, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kIos, kNet, kResync,
 		kRescan, kChannel, kUpdate, kReport, kTests, kWiiChannel, kUsbHelp, kWhatsNew, kTutorial, kCredits, kExit, kNone, kHeading };
+	// autolaunch code
 	// The RiftWii channel on the Wii Menu (wii/channel.hpp).
 	unsigned channelVersion = 0;
 	const bool channelThere = riftwii::wii::ChannelInstalled(channelVersion);
@@ -4897,6 +4958,7 @@ static int MenuSettings(FrontendState& state)
 			settings.home_tiles != "names", kHomeTiles);
 		option(tr("Games from"), HomeSourceName(settings.home_source), settings.home_source != "all", kHomeSource);
 		option(tr("Home order"), HomeSortName(settings.home_sort), settings.home_sort != "az", kHomeSort);
+		option("Autolaunch", settings.autolaunch == "on" ? tr("On") : tr("Off"), settings.autolaunch == "on", kAutolaunch, FlowRow::Kind::Toggle); // autolaunch code
 		option(tr("Play history"), settings.play_history == "off" ? tr("Off") : tr("On"), settings.play_history != "off",
 			kPlayHistory, FlowRow::Kind::Toggle);
 		option(tr("Disc Channel"), settings.home_disc == "off" ? tr("Off") : tr("On"), settings.home_disc != "off",
@@ -5277,6 +5339,11 @@ static int MenuSettings(FrontendState& state)
 				case kDiscTile:
 					settings.home_disc = settings.home_disc == "off" ? "on" : "off";
 					saveAndNote(DiscTileNote());
+					rebuild();
+					break;
+				case kAutolaunch: // autolaunch code
+					settings.autolaunch = settings.autolaunch == "on" ? "off" : "on";
+					saveAndNote("When enabled, launch the game ID from sd:/riftwii/autolaunch.txt after a five-second A-button cancellation window.");
 					rebuild();
 					break;
 				case kMusic:

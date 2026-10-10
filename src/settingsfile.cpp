@@ -79,6 +79,8 @@ void LoaderSettings::parse(const std::string& text) {
             if (digits && n >= 80 && n <= 100) screen_size = n;
         } else if (key == "return_to") {
             if (value == "riftwii" || value == "menu") return_to = value;
+        } else if (key == "autolaunch") { // autolaunch code
+            if (value == "on" || value == "off") autolaunch = value;
         } else if (key == "menu_music") {
             if (value == "on" || value == "off") menu_music = value;
         } else if (key == "play_history") {
@@ -159,6 +161,7 @@ std::string LoaderSettings::serialize() const {
     s += "menu_widescreen = " + menu_widescreen + "\n";
     s += "screen_size = " + std::to_string(screen_size) + "\n";
     s += "menu_sounds = " + menu_sounds + "\n";
+    s += "autolaunch = " + autolaunch + "\n"; // autolaunch code
     s += "menu_music = " + menu_music + "\n";
     s += "play_history = " + play_history + "\n";
     s += "home_source = " + home_source + "\n";
