@@ -98,7 +98,9 @@ bool BitmapFont::sheet_size(const std::uint8_t* data, std::size_t size, std::siz
             bytes = be32(data + at + 12);
             return bytes != 0;
         }
-        if (len < 8) return false;
+        // As load() checks it: a length near 4 GiB would wrap `at` on the
+        // Wii's 32-bit size_t and read before the buffer.
+        if (len < 8 || len > size - at) return false;
         at += len;
     }
     return false;
