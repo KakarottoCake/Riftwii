@@ -68,12 +68,16 @@ bool set_port(std::uint32_t port) {
 // Whether the started drive's sector 0 ends in 0x55AA (a partition table,
 // a FAT32, NTFS or exFAT volume) or starts "WBFS"; a DVD drive (2048-byte
 // sectors) counts too. A Wii U's own drive has neither.
-bool HasVolume(std::uint32_t sector_bytes) {
-    if (sector_bytes == 2048) return true;
-    if (sector_bytes != 512 || !g_bounce) return false;
+// `hash` is usb_sector0_hash of its sector 0, to tell it from another
+// drive (0 when it could not be read).
+bool HasVolume(std::uint32_t sector_bytes, std::uint64_t& hash) {
+    hash = 0;
+    if ((sector_bytes != 512 && sector_bytes != 2048) || !g_bounce) return false;
     g_sector_bytes = sector_bytes;
-    std::uint8_t first[512];
-    if (!Read(0, 1, first)) return false;
+    std::uint8_t first[2048];
+    if (!Read(0, 1, first)) return sector_bytes == 2048;
+    hash = usb_sector0_hash(first, sector_bytes);
+    if (sector_bytes == 2048) return true;
     return (first[510] == 0x55 && first[511] == 0xAA) || std::memcmp(first, "WBFS", 4) == 0;
 }
 
@@ -127,10 +131,16 @@ bool Open(std::string& error) {
     // starts but holds nothing RiftWii reads (a Wii U's own drive, beside
     // the games' in the other port) gives way to one that does.
     if (!g_bounce) g_bounce = skin::Mem2Alloc(kBounceBytes);
+    // With several drives plugged in, the menu chose the one with the
+    // games (usbcatalog.cpp): d2x must read that one, not merely the first
+    // it can read, or the game's sectors come from the other drive.
+    std::uint32_t menu_bytes = 0;
+    std::uint64_t menu_hash = 0;
+    const bool match = usb_picked_drive(menu_bytes, menu_hash);
     Started s, any;
-    int found = -1, readable = -1;
+    int found = -1, readable = -1, matched = -1;
     std::uint32_t last = 0;
-    for (int attempt = 0; attempt < 2 && readable < 0; ++attempt) {
+    for (int attempt = 0; attempt < 2 && (match ? matched < 0 : readable < 0); ++attempt) {
         const std::uint32_t port = attempt == 0 ? g_port : 1u - g_port;
         const bool switched = set_port(port);
         if (!switched && port != 0) continue;  // no port switch in this d2x: port 0 only
@@ -144,12 +154,31 @@ bool Open(std::string& error) {
             found = static_cast<int>(port);
             any = s;
         }
-        if (s.ok() && HasVolume(s.sector_bytes)) readable = static_cast<int>(port);
-        else logf("USB (d2x): port %u: no volume RiftWii reads on that drive\n", static_cast<unsigned>(port));
+        std::uint64_t hash = 0;
+        if (s.ok() && HasVolume(s.sector_bytes, hash)) {
+            if (readable < 0) readable = static_cast<int>(port);
+            if (match && s.sector_bytes == menu_bytes && hash == menu_hash) {
+                matched = static_cast<int>(port);
+                logf("USB (d2x): port %u holds the drive the menu read\n", static_cast<unsigned>(port));
+            }
+        } else {
+            logf("USB (d2x): port %u: no volume RiftWii reads on that drive\n", static_cast<unsigned>(port));
+        }
     }
-    const int chosen = readable >= 0 ? readable : found;
+    if (match && matched < 0 && readable >= 0) {
+        // Another drive than the menu's: reading it would give the game
+        // the wrong sectors. Say so instead (as before two-drive support).
+        error = "d2x cannot find the USB drive the games were listed from (it sees only the other one); plug the "
+                "games' drive into the Wii's other USB port, or leave only that drive plugged in";
+        IOS_Close(g_fd);
+        g_fd = -1;
+        g_failed = true;
+        g_failure = error;
+        return false;
+    }
+    const int chosen = matched >= 0 ? matched : readable >= 0 ? readable : found;
     if (chosen >= 0) {
-        if (readable < 0) s = any;
+        if (chosen != matched && chosen != readable) s = any;
         // d2x drives the last port it was told: the chosen one again.
         if (static_cast<std::uint32_t>(chosen) != last) {
             set_port(static_cast<std::uint32_t>(chosen));

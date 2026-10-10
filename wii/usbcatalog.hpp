@@ -81,6 +81,13 @@ void unmount_usb_games();
 // Unmounts and stops libogc's USB driver when it was started in this IOS
 // (before an IOS reload, and before d2x's own USB device takes the drive).
 void release_usb_driver();
+// The drive the menu listed the games from when several are plugged in:
+// its sector size and a hash of its sector 0 (partition table or volume
+// header, which carry the drive's own serial numbers). False when the
+// menu did not have to choose. The launch's d2x drive is matched to it
+// (umsdev.cpp), so both read the same drive.
+bool usb_picked_drive(std::uint32_t& sector_bytes, std::uint64_t& sector0_hash);
+std::uint64_t usb_sector0_hash(const std::uint8_t* sector, std::size_t bytes);
 // Opens a listed game that is not checked yet: its pieces, disc header and
 // d2x fragment list, filling title, revision and disc number (and the ID
 // from the header). Needs the catalog's drive still mounted.

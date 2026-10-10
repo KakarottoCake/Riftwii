@@ -87,11 +87,19 @@ struct PickedDrive {
     u8 lun = 0;
     u32 sector_bytes = 0;
     u8* bounce = nullptr;  // MEM2, 32-byte aligned, as the driver wants
+    // What it is, to find it again (a USB device change gives it a new
+    // device id) and for d2x to pick the same drive at launch.
+    u16 vid = 0, pid = 0;
+    u32 sectors = 0;
+    std::uint64_t sector0_hash = 0;
+    bool known = false;
 };
 PickedDrive g_picked;
 constexpr u32 kPickedBounce = 32 * 1024;
 
-bool picked_read(sec_t sector, sec_t count, void* out) {
+bool reopen_picked();
+
+bool picked_read_once(sec_t sector, sec_t count, void* out) {
     if (!g_picked.open || g_picked.sector_bytes == 0) return false;
     auto* dst = static_cast<std::uint8_t*>(out);
     const u32 per = kPickedBounce / g_picked.sector_bytes;
@@ -120,6 +128,16 @@ bool picked_write(sec_t sector, sec_t count, const void* in) {
         count -= n;
     }
     return true;
+}
+// As for libogc's driver (usb_read_sectors): a failed read finds the drive
+// again once, under its new device id after a USB device change (a USB
+// LAN adapter starting), and is tried again.
+bool picked_read(sec_t sector, sec_t count, void* out) {
+    if (picked_read_once(sector, count, out)) return true;
+    const bool back = reopen_picked();
+    logf("USB: a read of sector %lu failed; the drive %s\n", static_cast<unsigned long>(sector),
+         back ? "was opened again (a USB device change, such as a network adapter starting?)" : "is gone");
+    return back && picked_read_once(sector, count, out);
 }
 bool picked_yes() { return g_picked.open; }
 bool picked_shutdown() {
@@ -205,11 +223,41 @@ bool is_mass_storage(const usb_device_entry& entry) {
     return storage;
 }
 
-// Of several drives, the first RiftWii can read: a partition table or a
-// FAT32, NTFS or exFAT volume (the 0x55AA that ends sector 0), a drive a
-// USB loader formatted as WBFS, or a DVD drive (2048-byte sectors). A Wii
-// U's own drive has none of them. False when none is (each drive and what
-// it holds go to the log).
+// Reopens the picked drive by what it is, after it went away.
+bool reopen_picked() {
+    if (!g_picked.known) return false;
+    if (g_picked.open) USBStorage_Close(&g_picked.handle);
+    g_picked.open = false;
+    static usb_device_entry devices[8] ATTRIBUTE_ALIGN(32);
+    u8 listed = 0;
+    if (USB_GetDeviceList(devices, 8, kUsbClassMassStorage, &listed) < 0) return false;
+    for (u8 i = 0; i < listed && i < 8; ++i) {
+        const usb_device_entry& d = devices[i];
+        if (d.vid != g_picked.vid || d.pid != g_picked.pid) continue;
+        usbstorage_handle h{};
+        if (USBStorage_Open(&h, d.device_id, d.vid, d.pid) < 0) continue;
+        u32 bytes = 0, sectors = 0;
+        if (USBStorage_MountLUN(&h, g_picked.lun) >= 0 && USBStorage_ReadCapacity(&h, g_picked.lun, &bytes, &sectors) >= 0 &&
+            bytes == g_picked.sector_bytes && sectors == g_picked.sectors &&
+            USBStorage_Read(&h, g_picked.lun, 0, 1, g_picked.bounce) >= 0 &&
+            usb_sector0_hash(g_picked.bounce, bytes) == g_picked.sector0_hash) {
+            g_picked.handle = h;
+            g_picked.open = true;
+            return true;
+        }
+        USBStorage_Close(&h);
+    }
+    return false;
+}
+
+// Of several drives, the one with the games: a drive a USB loader
+// formatted as WBFS, a DVD drive (2048-byte sectors, a disc), or one whose
+// volume holds a game folder (usb_wanted_folders). Failing that, the first
+// RiftWii can read at all (a partition table or a FAT32, NTFS or exFAT
+// volume: the 0x55AA that ends sector 0). A Wii U's own drive has none of
+// them. False when none is (each drive and what it holds go to the log).
+// With a FAT32 stick and a games drive both plugged in, the first readable
+// one used to win, and d2x could then read the other at launch.
 bool pick_drive(const usb_device_entry* devices, u8 listed, std::string& error) {
     if (!g_picked.bounce) g_picked.bounce = skin::Mem2Alloc(kPickedBounce);
     if (!g_picked.bounce) {
@@ -217,6 +265,16 @@ bool pick_drive(const usb_device_entry* devices, u8 listed, std::string& error) 
         return false;
     }
     USBStorage_Initialize();
+    const std::vector<std::string> wanted = usb_wanted_folders();
+    struct Candidate {
+        usbstorage_handle handle{};
+        u8 lun = 0;
+        u32 bytes = 0, sectors = 0;
+        u16 vid = 0, pid = 0;
+        std::uint64_t hash = 0;
+        bool games = false;
+    };
+    std::vector<Candidate> readable;
     for (u8 i = 0; i < listed && i < 8; ++i) {
         const usb_device_entry& d = devices[i];
         if (!is_mass_storage(d)) continue;
@@ -225,6 +283,7 @@ bool pick_drive(const usb_device_entry* devices, u8 listed, std::string& error) 
             logf("USB: drive %04x:%04x did not open\n", d.vid, d.pid);
             continue;
         }
+        bool kept = false;
         const s32 luns = std::max<s32>(1, USBStorage_GetMaxLUN(&h));
         for (s32 lun = 0; lun < luns && lun < 8; ++lun) {
             u32 bytes = 0, sectors = 0;
@@ -232,35 +291,88 @@ bool pick_drive(const usb_device_entry* devices, u8 listed, std::string& error) 
                 USBStorage_ReadCapacity(&h, static_cast<u8>(lun), &bytes, &sectors) < 0) {
                 continue;
             }
-            bool readable = bytes == 2048;
-            const char* what = readable ? "a DVD drive" : "nothing RiftWii reads (a Wii U's own drive?)";
-            if (bytes == 512 && USBStorage_Read(&h, static_cast<u8>(lun), 0, 1, g_picked.bounce) >= 0) {
+            bool ok = bytes == 2048, games = ok;
+            const char* what = ok ? "a DVD drive" : "nothing RiftWii reads (a Wii U's own drive?)";
+            std::uint64_t hash = 0;
+            if ((bytes == 512 || bytes == 2048) && USBStorage_Read(&h, static_cast<u8>(lun), 0, 1, g_picked.bounce) >= 0) {
                 const u8* b = g_picked.bounce;
-                if (b[510] == 0x55 && b[511] == 0xAA) {
-                    readable = true;
+                hash = usb_sector0_hash(b, bytes);
+                if (bytes == 512 && b[510] == 0x55 && b[511] == 0xAA) {
+                    ok = true;
                     what = "a partition table or a FAT32/NTFS volume";
-                } else if (std::memcmp(b, "WBFS", 4) == 0) {
-                    readable = true;
+                    // Whether its volume holds a game folder, read through
+                    // this drive's own handle.
+                    const u8 l = static_cast<u8>(lun);
+                    const BlockReader read = [&h, l](std::uint64_t sector, std::uint32_t count, std::uint8_t* out) {
+                        while (count > 0) {
+                            const u32 n = std::min<u32>(count, kPickedBounce / 512);
+                            if (sector > 0xFFFFFFFFull ||
+                                USBStorage_Read(&h, l, static_cast<u32>(sector), static_cast<u16>(n), g_picked.bounce) < 0)
+                                return false;
+                            std::memcpy(out, g_picked.bounce, n * 512);
+                            out += n * 512;
+                            sector += n;
+                            count -= n;
+                        }
+                        return true;
+                    };
+                    std::unique_ptr<ImageVolume> volume;
+                    std::string why;
+                    if (mount_image_volume(read, volume, why, wanted)) {
+                        for (const std::string& folder : wanted) {
+                            if (folder == "riivolution") continue;  // packs, not games
+                            std::vector<VolumeEntry> entries;
+                            const std::string path = folder[0] == '/' ? folder : "/" + folder;
+                            if (volume->list(path, entries, why)) {
+                                games = true;
+                                what = "a volume with a game folder";
+                                break;
+                            }
+                        }
+                    }
+                } else if (bytes == 512 && std::memcmp(b, "WBFS", 4) == 0) {
+                    ok = games = true;
                     what = "a WBFS drive";
                 }
             }
             logf("USB: drive %04x:%04x LUN %d: %u sectors of %u bytes, %s\n", d.vid, d.pid, static_cast<int>(lun),
                  static_cast<unsigned>(sectors), static_cast<unsigned>(bytes), what);
-            if (readable) {
-                g_picked.handle = h;
-                g_picked.lun = static_cast<u8>(lun);
-                g_picked.sector_bytes = bytes;
-                g_picked.open = true;
-                __io_usbstorage_sector_size = bytes;  // as libogc's driver sets it: the rest reads it
-                logf("USB: using drive %04x:%04x\n", d.vid, d.pid);
-                return true;
+            if (ok) {
+                readable.push_back(Candidate{h, static_cast<u8>(lun), bytes, sectors, d.vid, d.pid, hash, games});
+                kept = true;
+                break;  // one LUN per drive
             }
         }
-        USBStorage_Close(&h);
+        if (!kept) USBStorage_Close(&h);
     }
-    error = "none of the USB drives plugged in has a FAT32 or NTFS volume RiftWii can read (a Wii U-formatted "
-            "drive cannot be read: the games need a drive formatted FAT32 or NTFS on a computer)";
-    return false;
+    if (readable.empty()) {
+        error = "none of the USB drives plugged in has a FAT32 or NTFS volume RiftWii can read (a Wii U-formatted "
+                "drive cannot be read: the games need a drive formatted FAT32 or NTFS on a computer)";
+        return false;
+    }
+    std::size_t pick = 0;
+    for (std::size_t i = 0; i < readable.size(); ++i) {
+        if (readable[i].games) {
+            pick = i;
+            break;
+        }
+    }
+    for (std::size_t i = 0; i < readable.size(); ++i) {
+        if (i != pick) USBStorage_Close(&readable[i].handle);
+    }
+    const Candidate& c = readable[pick];
+    g_picked.handle = c.handle;
+    g_picked.lun = c.lun;
+    g_picked.sector_bytes = c.bytes;
+    g_picked.vid = c.vid;
+    g_picked.pid = c.pid;
+    g_picked.sectors = c.sectors;
+    g_picked.sector0_hash = c.hash;
+    g_picked.known = true;
+    g_picked.open = true;
+    __io_usbstorage_sector_size = c.bytes;  // as libogc's driver sets it: the rest reads it
+    logf("USB: using drive %04x:%04x%s\n", c.vid, c.pid, c.games ? "" : " (no game folder found on any drive)");
+    return true;
 }
 
 // A USB DVD drive (2048-byte sectors) holding a Wii disc burned as-is:
@@ -1490,6 +1602,19 @@ bool scan_usb_games(ImageCatalog& out, std::string& error) {
         if (!out.cios_note.empty()) logf("USB: %s\n", out.cios_note.c_str());
     }
     error.clear(); return true;
+}
+
+std::uint64_t usb_sector0_hash(const std::uint8_t* sector, std::size_t bytes) {
+    std::uint64_t h = 1469598103934665603ull;  // FNV-1a
+    for (std::size_t i = 0; i < bytes && i < 512; ++i) h = (h ^ sector[i]) * 1099511628211ull;
+    return h;
+}
+
+bool usb_picked_drive(std::uint32_t& sector_bytes, std::uint64_t& sector0_hash) {
+    if (!g_picked.known) return false;
+    sector_bytes = g_picked.sector_bytes;
+    sector0_hash = g_picked.sector0_hash;
+    return true;
 }
 
 std::vector<std::string> usb_wanted_folders() {
