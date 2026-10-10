@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <chrono>
 #include <sstream>
 static int g_failures = 0;
 #define EXPECT_TRUE(cond) do { if (!(cond)) { std::cerr << "FAILED: " #cond " at line " << __LINE__ << std::endl; g_failures++; } } while (0)
@@ -629,6 +630,40 @@ static void test_riivolution_rules() {
     EXPECT_DROPPED("<wiidisc version=\"1\"><patch id=\"m\"><memory offset=\"0x80001000\" value=\"12g\"/></patch></wiidisc>");
 }
 
+// A package must not grow without bound once its macros are cloned and a
+// repeated patch id names all its definitions: a 200 KB XML used 2.4 GB.
+static void test_expansion_budget() {
+    const auto pack = [](int choices, int macros, int definitions, int attributes) {
+        std::string x = "<wiidisc version=\"1\"><id game=\"RFT\"/><options><section name=\"S\"><option name=\"O\" id=\"o\">";
+        for (int c = 0; c < choices; ++c) x += "<choice name=\"c" + std::to_string(c) + "\"><patch id=\"p\"/></choice>";
+        x += "</option>";
+        for (int m = 0; m < macros; ++m) x += "<macro name=\"m" + std::to_string(m) + "\" id=\"o\"/>";
+        x += "</section></options>";
+        for (int d = 0; d < definitions; ++d) x += "<patch id=\"p\"><file disc=\"/a\" external=\"/b\"/></patch>";
+        x += "<patch id=\"q\"";
+        for (int a = 0; a < attributes; ++a) x += " a" + std::to_string(a) + "=\"1\"";
+        x += "/></wiidisc>";
+        return x;
+    };
+    riftwii::Package pkg;
+    std::string err;
+    // Track-slot sized: 32 slot macros over 300 tracks.
+    EXPECT_TRUE(riftwii::parse_package(pack(300, 32, 1, 1), pkg, err));
+    EXPECT_EQ(pkg.options.size(), std::size_t(32));
+    // 4000 macros over 2000 choices: 8 million copied choices before.
+    EXPECT_FALSE(riftwii::parse_package(pack(2000, 4000, 1, 1), pkg, err));
+    EXPECT_TRUE(err.find("too many") != std::string::npos);
+    // 100 choices naming an id defined 3000 times: 300,000 references.
+    EXPECT_FALSE(riftwii::parse_package(pack(100, 0, 3000, 1), pkg, err));
+    EXPECT_TRUE(err.find("too many") != std::string::npos);
+    EXPECT_TRUE(riftwii::parse_package(pack(100, 0, 30, 1), pkg, err));
+    // 50,000 attributes on one element: compared against the first 64
+    // only (5 s and more before, quadratic).
+    const auto start = std::chrono::steady_clock::now();
+    riftwii::parse_package(pack(1, 0, 1, 50000), pkg, err);
+    EXPECT_TRUE(std::chrono::steady_clock::now() - start < std::chrono::seconds(2));
+}
+
 int main() {
     test_successful();
     test_network();
@@ -654,6 +689,7 @@ int main() {
     test_select_choice();
     test_read_package();
     test_riivolution_rules();
+    test_expansion_budget();
     if (g_failures == 0) {
         std::cout << "ALL PATCH TESTS PASSED" << std::endl;
         return 0;

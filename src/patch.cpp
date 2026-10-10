@@ -22,6 +22,16 @@ constexpr std::size_t kMaxString = 4096;
 // kMaxString: only these two attributes are exempted in CheckAttrLengths.
 constexpr std::size_t kMaxHexChars = kMaxMemoryValueBytes * 2;
 constexpr std::size_t kMaxNodes = 8192;
+// What a package may grow to once its macros are cloned and a repeated
+// patch id names all its definitions: patch references across all choices.
+// A track-slot pack (32 slots of a few hundred tracks) needs about 10,000;
+// a crafted 200 KB XML used to reach 2.4 GB.
+constexpr std::size_t kMaxReferences = 100000;
+// The duplicate-attribute check compares each attribute with the ones
+// before it on its element: with the first 64 only (real elements have a
+// dozen at most), so 50,000 attributes on one element cost no more than
+// 64 comparisons each instead of 50,000.
+constexpr std::size_t kMaxAttributes = 64;
 constexpr std::size_t kMaxWarnings = 64;
 constexpr int kMaxDepth = 16;
 bool IsControl(unsigned char c) {
@@ -311,7 +321,7 @@ bool CheckDuplicateAttrs(const std::string& xml, std::string& error) {
                     return false;
                 }
             }
-            names.push_back(aname);
+            if (names.size() < kMaxAttributes) names.push_back(aname);
         }
     }
     return true;
@@ -900,11 +910,26 @@ bool ExpandMacros(Ctx& ctx, std::string& error) {
         for (const auto& o : ctx.pkg.options) found = found || (!o.id.empty() && o.id == m.id);
         if (!found) Warn(ctx, "ignoring macro '" + m.name + "': it references unknown option id '" + m.id + "'");
     }
+    // Each clone copies the option's choices and their references: counted
+    // before copying, so a few thousand macros over an option of thousands
+    // of choices stop here instead of filling memory.
+    const auto references = [](const Option& o) {
+        std::size_t n = 0;
+        for (const auto& ch : o.choices) n += 1 + ch.patches.size();
+        return n;
+    };
+    std::size_t total = 0;
     std::vector<Option> expanded;
     for (const Option& source : ctx.pkg.options) {
         bool cloned = false;
+        const std::size_t size = references(source);
         for (const auto& m : ctx.macros) {
             if (source.id.empty() || source.id != m.id) continue;
+            total += size;
+            if (total > kMaxReferences) {
+                error = "the package's macros expand to too many choices";
+                return false;
+            }
             Option clone = source;
             clone.name = m.name;
             clone.id = source.id + m.name;
@@ -916,7 +941,14 @@ bool ExpandMacros(Ctx& ctx, std::string& error) {
             cloned = true;
             if (expanded.size() > kMaxNodes) { error = "too many options"; return false; }
         }
-        if (!cloned) expanded.push_back(source);
+        if (!cloned) {
+            total += size;
+            if (total > kMaxReferences) {
+                error = "the package's macros expand to too many choices";
+                return false;
+            }
+            expanded.push_back(source);
+        }
     }
     ctx.pkg.options = std::move(expanded);
     return true;
@@ -1290,6 +1322,7 @@ bool parse_package(const std::string& input, Package& output, std::string& error
         if (ctx.nodes > kMaxNodes) { error = "too many nodes"; return false; }
         // References: every definition of a repeated id, and none for an id
         // no <patch> defines (a warning, as Riivolution just skips it).
+        std::size_t references = 0;
         for (auto& o : tmp.options) {
             for (auto& ch : o.choices) {
                 std::vector<std::string> resolved;
@@ -1299,8 +1332,15 @@ bool parse_package(const std::string& input, Package& output, std::string& error
                                       pid + "'; ignored");
                         continue;
                     }
-                    resolved.push_back(pid);
                     const auto more = ctx.aliases.find(pid);
+                    // A repeated id names all its definitions, in every
+                    // choice that names it: counted against the same budget.
+                    references += 1 + (more != ctx.aliases.end() ? more->second.size() : 0);
+                    if (references > kMaxReferences) {
+                        error = "the package's choices name too many patches";
+                        return false;
+                    }
+                    resolved.push_back(pid);
                     if (more != ctx.aliases.end()) {
                         resolved.insert(resolved.end(), more->second.begin(), more->second.end());
                     }
