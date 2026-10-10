@@ -903,6 +903,13 @@ T = {
         "RiftWii si chiude e si apre l'installer del canale. Aggiunge, aggiorna o rimuove il canale RiftWii, poi ti riporta qui."),
     "Open": ("Abrir", "開く", "Abrir", "Apri"),
     "Cancel": ("Cancelar", "キャンセル", "Cancelar", "Annulla"),
+    # The game page's Online server row, for a game GameTDB lists as never online.
+    "No online play": ("Sin juego en línea", "オンラインプレイなし", "Sem jogo online", "Nessun gioco online"),
+    "This game has no online play, so it needs no server.": (
+        "Este juego no tiene juego en línea, así que no necesita servidor.",
+        "このゲームにはオンラインプレイがないので、サーバーはいりません。",
+        "Este jogo não tem jogo online, então não precisa de servidor.",
+        "Questo gioco non ha il gioco online, quindi non serve un server."),
     # The screen shown while the installer starts: the line above the title.
     "The RiftWii channel": ("El canal de RiftWii", "RiftWiiチャンネル", "O canal da RiftWii", "Il canale RiftWii"),
     "Opening the installer for": ("Abriendo el instalador de", "インストーラーを開いています", "Abrindo o instalador de",
@@ -2235,6 +2242,10 @@ KO = {
         "열기",
     "Cancel":
         "취소",
+    "No online play":
+        "온라인 플레이 없음",
+    "This game has no online play, so it needs no server.":
+        "이 게임은 온라인 플레이가 없어 서버가 필요하지 않습니다.",
     "The RiftWii channel":
         "RiftWii 채널",
     "Opening the installer for":
@@ -3304,6 +3315,10 @@ FR = {
         "Ouvrir",
     "Cancel":
         "Annuler",
+    "No online play":
+        "Pas de jeu en ligne",
+    "This game has no online play, so it needs no server.":
+        "Ce jeu n'a pas de jeu en ligne : il n'a besoin d'aucun serveur.",
     "The RiftWii channel":
         "La chaîne RiftWii",
     "Opening the installer for":

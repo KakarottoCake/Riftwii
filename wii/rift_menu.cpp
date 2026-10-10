@@ -50,6 +50,7 @@
 #include "bannerplay.hpp"
 #include "banners.hpp"
 #include "bannersound.hpp"
+#include "riftwii/offlinegames.hpp"
 #include "riftwii/titles.hpp"
 #include "riftwii/bnr.hpp"
 #include "boxart.hpp"
@@ -3390,8 +3391,15 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 	FlowRow server;
 	server.kind = FlowRow::Kind::Option;
 	server.label = tr("Online server");
-	server.value = GameValue(game.server, global.wfc_server, ServerName);
-	server.on = game.server != "global";
+	if (riftwii::game_has_no_online(state.game_id)) {
+		// GameTDB says the game never went online (a tester: Wii Sports
+		// Resort showed a server to pick): shown, not offered.
+		server.value = tr("No online play");
+		server.dim = true;
+	} else {
+		server.value = GameValue(game.server, global.wfc_server, ServerName);
+		server.on = game.server != "global";
+	}
 	add(server, {RowRef::What::Server});
 	FlowRow favorite;
 	favorite.kind = FlowRow::Kind::Toggle;
@@ -4497,6 +4505,8 @@ static int MenuHome(FrontendState& state)
 				say(tr("Downloads this game's box art from GameTDB now."));
 			else if (ref.what == RowRef::What::Cios)
 				say(tr("The d2x cIOS the game runs under. Automatic uses the menu's, else the first of 249, 250 and 251 that works."));
+			else if (ref.what == RowRef::What::Server && riftwii::game_has_no_online(state.game_id))
+				say(tr("This game has no online play, so it needs no server."));
 			else if (ref.what == RowRef::What::Server)
 				say(tr("The online server the game uses in place of Nintendo's, which closed. Custom uses wfc_domain in settings.txt."));
 			else say("");
@@ -4563,6 +4573,8 @@ static int MenuHome(FrontendState& state)
 			} else if (ref.what == RowRef::What::Cios) {
 				state.model.game.cios = StepValue(kCiosChoices, state.model.game.cios, direction);
 				changed = true;
+			} else if (ref.what == RowRef::What::Server && riftwii::game_has_no_online(state.game_id)) {
+				say(tr("This game has no online play, so it needs no server."));
 			} else if (ref.what == RowRef::What::Server) {
 				state.model.game.server = StepValue(kServers, state.model.game.server, direction);
 				changed = true;

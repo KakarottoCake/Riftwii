@@ -981,6 +981,12 @@ msgstr "Ouvrir"
 msgid "Cancel"
 msgstr "Annuler"
 
+msgid "No online play"
+msgstr "Pas de jeu en ligne"
+
+msgid "This game has no online play, so it needs no server."
+msgstr "Ce jeu n'a pas de jeu en ligne : il n'a besoin d'aucun serveur."
+
 msgid "The RiftWii channel"
 msgstr "La chaîne RiftWii"
 

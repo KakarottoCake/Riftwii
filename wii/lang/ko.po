@@ -981,6 +981,12 @@ msgstr "열기"
 msgid "Cancel"
 msgstr "취소"
 
+msgid "No online play"
+msgstr "온라인 플레이 없음"
+
+msgid "This game has no online play, so it needs no server."
+msgstr "이 게임은 온라인 플레이가 없어 서버가 필요하지 않습니다."
+
 msgid "The RiftWii channel"
 msgstr "RiftWii 채널"
 
