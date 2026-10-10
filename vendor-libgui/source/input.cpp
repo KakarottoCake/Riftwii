@@ -358,6 +358,15 @@ static void UpdatePadPointers()
 		if (!padHas[i] && (padPressed || r > kClaim || (!remote && r > kDeadZone))) {
 			padHas[i] = true;
 			anchored[i] = false;
+			// The pad's pointer starts where the Remote's is: pointing at a
+			// game, then pressing a Classic Controller's (or a GameCube
+			// controller's) A, put the pointer back in the screen's middle,
+			// or where the pad last left it, before the press landed.
+			if (remote && w->ir.valid) {
+				x[i] = w->ir.x;
+				y[i] = w->ir.y;
+				placed[i] = true;
+			}
 		}
 		if (!padHas[i]) {
 			// The Remote has the channel: a stick short of a real push is
