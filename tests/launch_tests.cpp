@@ -195,6 +195,11 @@ static void test_pack_index() {
     index.add(kModOther);
     index.add("<wiidisc version=\"1\"><id game=\"SB4\"/><broken");  // fails to parse, names SB4
     index.add("<not xml at all");                                  // names nothing: ignored
+    // Riivolution's Ocarina XML: no <id>, so for every game; not indexed.
+    index.add("<wiidisc version=\"1\"><options><section name=\"Ocarina\"><option name=\"Ocarina Codes\">"
+              "<choice name=\"Enabled\"><patch id=\"codes\"/></choice></option></section></options>"
+              "<patch id=\"codes\"><memory ocarina=\"true\" valuefile=\"/codes/{$__gameid}{$__region}{$__maker}.gct\"/>"
+              "</patch></wiidisc>");
     EXPECT_EQ(index.size(), std::size_t(3));
     EXPECT_TRUE(index.has_packs("RMCE01"));
     EXPECT_FALSE(index.has_packs("RMCP01"));  // the pack says RMCE

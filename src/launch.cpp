@@ -73,6 +73,10 @@ void PackIndex::add(const std::string& xml) {
     if (is_foreign_xml(xml)) return;
     if (parse_package(xml, package, error)) {
         filter = package.filter;
+        // A pack for every game (Riivolution's Ocarina XML, codes.xml, has
+        // no <id>) would tag every game as modded and leave the "games
+        // with mods" filter nothing to filter: a tester's showed all.
+        if (filter.game.empty()) return;
     } else {
         filter.game = sniff_game(xml);
         if (filter.game.empty()) return;  // no game named: not listed under any

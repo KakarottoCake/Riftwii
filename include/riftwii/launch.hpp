@@ -73,7 +73,9 @@ SaveOverride resolve_save_override(const std::string& save_mode, const std::stri
 // grid's MODS tag and its "games with mods" filter. A listed image's
 // revision and disc number are unknown until it is opened, so only the
 // ID is matched here; the mods screen still applies the full filter. A
-// pack that fails to parse counts for the game its <id> names, if any.
+// pack that fails to parse counts for the game its <id> names, if any. A
+// pack with no game ID (one for every game, like Riivolution's Ocarina
+// XML) counts for none: it still shows on each game's Mods page.
 class PackIndex {
 public:
     void add(const std::string& xml);
