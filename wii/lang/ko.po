@@ -987,6 +987,12 @@ msgstr "온라인 플레이 없음"
 msgid "This game has no online play, so it needs no server."
 msgstr "이 게임은 온라인 플레이가 없어 서버가 필요하지 않습니다."
 
+msgid "Nothing picked in this mod"
+msgstr "이 모드에서 선택한 항목 없음"
+
+msgid "{1} is switched on, but none of its options are picked, so it would change nothing. Turn it off and start the game?"
+msgstr "{1}이(가) 켜져 있지만 선택한 옵션이 없어 아무것도 바뀌지 않습니다. 끄고 게임을 시작할까요?"
+
 msgid "The RiftWii channel"
 msgstr "RiftWii 채널"
 

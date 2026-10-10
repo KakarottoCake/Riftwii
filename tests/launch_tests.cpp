@@ -237,6 +237,26 @@ static void test_persistence() {
     // An empty choice turns an option off.
     again.restore("a.xml\tTracks/Pack\t\n");
     EXPECT_EQ(again.choice_name(0, 0), std::string("Off"));
+    // A pack on with an option picked is not empty; with every option
+    // off it is, and off packs are never listed.
+    EXPECT_TRUE(again.packs_with_nothing_picked().empty());
+    again.restore("a.xml\tTracks/Music\t\n");
+    EXPECT_EQ(again.packs_with_nothing_picked().size(), static_cast<std::size_t>(1));
+    EXPECT_EQ(again.packs_with_nothing_picked()[0], static_cast<std::size_t>(0));
+    again.set_enabled(0, false);
+    EXPECT_TRUE(again.packs_with_nothing_picked().empty());
+    again.set_enabled(0, true);
+    // A pack with no options applies as a whole: switched on, it is never
+    // listed (Start must not offer to turn a working mod off).
+    riftwii::LaunchModel whole;
+    whole.add("whole.xml", "sd:/riivolution/whole.xml",
+              "<wiidisc version=\"1\"><id game=\"RMCE\"/>"
+              "<patch id=\"all\"><memory offset=\"0x80001800\" value=\"60000000\"/></patch></wiidisc>",
+              &disc);
+    EXPECT_TRUE(whole.packages[0].valid);
+    EXPECT_TRUE(whole.packages[0].package.options.empty());
+    EXPECT_TRUE(whole.set_enabled(0, true));
+    EXPECT_TRUE(whole.packs_with_nothing_picked().empty());
 
     // No disc known: everything valid is for the disc.
     riftwii::LaunchModel nodisc;

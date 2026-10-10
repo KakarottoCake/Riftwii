@@ -1622,6 +1622,26 @@ static int ShowPopup(const std::string& title, const std::string& body, const st
 	return box.Wait();
 }
 
+// Packs switched on with every option off change nothing, and the launch
+// refuses them ("no patches selected"): asks to turn them off and play
+// (a tester expected the game to start as it is). False: stay here.
+static bool TurnOffEmptyPacks(FrontendState& state)
+{
+	const std::vector<std::size_t> empty = state.model.packs_with_nothing_picked();
+	if (empty.empty()) return true;
+	std::string names;
+	for (std::size_t i : empty)
+		names += (names.empty() ? "" : ", ") + PackName(state.model.packages[i].file);
+	if (ShowPopup(tr("Nothing picked in this mod"),
+		    tr("{1} is switched on, but none of its options are picked, so it would change nothing. Turn it off and start the game?",
+			    {FlatCapped(names, 80)}),
+		    tr("Play"), tr("Cancel")) != 0)
+		return false;
+	for (std::size_t i : empty) state.model.set_enabled(i, false);
+	logf("Start: %s switched off (nothing picked)\n", names.c_str());
+	return true;
+}
+
 // How far a long job is, as a bar in a popup.
 class ProgressBar : public GuiElement {
 public:
@@ -4609,6 +4629,8 @@ static int MenuHome(FrontendState& state)
 			startBtn.button.ResetState();
 			if (state.game_id.empty()) {
 				say("No game is selected; go back and pick one.");
+			} else if (!TurnOffEmptyPacks(state)) {
+				// stays on the page, the pack as it was
 			} else if (state.use_usb && !state.usb_catalog.cios_note.empty()) {
 				// No cIOS in any candidate slot: refuse while the remedy is
 				// still readable on screen.
