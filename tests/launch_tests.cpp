@@ -265,6 +265,41 @@ static void test_persistence() {
     EXPECT_TRUE(nodisc.set_enabled(0, true));
 }
 
+// The game page's Online server row: the launch patches no server while a
+// pack patches the game, so the row is the pack's then.
+static void test_packs_patch_game() {
+    riftwii::DiscIdentity disc{"RMCE01", 0, 0};
+    riftwii::LaunchModel model;
+    model.add("a.xml", "sd:/riivolution/a.xml", kModA, &disc);
+    model.add("other.xml", "sd:/riivolution/other.xml", kModOther, &disc);
+    model.add_code_build("rex_/RMCE01.GCT", "sd:/rex_", "sd:/rex_/RMCE01.GCT", "RMCE01", &disc);
+    // Nothing on: the server is the player's.
+    EXPECT_FALSE(model.packs_patch_game());
+    // On with every option off: it patches nothing.
+    EXPECT_TRUE(model.set_enabled(0, true));
+    model.restore("a.xml\tTracks/Pack\t\na.xml\tTracks/Music\t\n");
+    EXPECT_FALSE(model.packs_patch_game());
+    // A choice picked: the pack's.
+    model.cycle(0, 0, +1);
+    EXPECT_TRUE(model.packs_patch_game());
+    model.set_enabled(0, false);
+    EXPECT_FALSE(model.packs_patch_game());
+    // A pack for another disc can't be on; a code build is not a pack.
+    EXPECT_FALSE(model.set_enabled(1, true));
+    EXPECT_TRUE(model.set_enabled(2, true));
+    EXPECT_EQ(model.code_builds().size(), static_cast<std::size_t>(1));
+    EXPECT_FALSE(model.packs_patch_game());
+    // A pack with no options applies as a whole.
+    riftwii::LaunchModel whole;
+    whole.add("whole.xml", "sd:/riivolution/whole.xml",
+              "<wiidisc version=\"1\"><id game=\"RMCE\"/>"
+              "<patch id=\"all\"><memory offset=\"0x80001800\" value=\"60000000\"/></patch></wiidisc>",
+              &disc);
+    EXPECT_FALSE(whole.packs_patch_game());
+    EXPECT_TRUE(whole.set_enabled(0, true));
+    EXPECT_TRUE(whole.packs_patch_game());
+}
+
 // A pack's name: the one section its options sit in, else none (the
 // menu then shows the file's name).
 static void test_pack_title() {
@@ -564,6 +599,7 @@ int main() {
     test_saves();
     test_pack_title();
     test_pack_saves();
+    test_packs_patch_game();
     if (g_failures == 0) {
         std::cout << "ALL LAUNCH TESTS PASSED" << std::endl;
         return 0;
