@@ -148,7 +148,6 @@ private:
     struct SpineLabel {
         int index;
         float x, y0, y1;
-        bool light;  // on a dark case: light letters
     };
     // Reused every frame: the boxes in drawing order, the names to write.
     std::vector<int> shelfOrder;

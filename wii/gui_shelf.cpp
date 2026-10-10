@@ -184,14 +184,12 @@ GXColor CasePlastic(const std::string& id) {
             static_cast<u8>(28 + rgb[2] * 210 / 255), 255};
 }
 
-// Whether a name written on that plastic wants light letters.
-bool DarkPlastic(GXColor c) { return c.r * 299 + c.g * 587 + c.b * 114 < 140 * 1000; }
-
 // A box's five faces you can see (not its bottom), covered with its scan,
-// its cover or plain plastic in its case's colour. Spine, front, back,
-// top, open edge.
+// its cover or plain white. Spine, front, back, top, open edge; the top
+// and the open edge are the case's own plastic, in its colour (a scan is
+// drawn through its face's colour, so the paper faces stay white).
 void BoxFaces(const std::string& id, const Box& b, const u8* art, const u8* cover, GXColor hue, Face (&faces)[5]) {
-    const GXColor plastic = CasePlastic(id);
+    const GXColor plastic = {238, 238, 236, 255};
     // Corners by bits: x (1) y (2) z (4).
     const auto face = [&](int a, int bb, int c, int d) {
         Face f;
@@ -212,6 +210,7 @@ void BoxFaces(const std::string& id, const Box& b, const u8* art, const u8* cove
     // The top (-y) and the open edge (-z).
     faces[3] = face(0, 1, 5, 4);
     faces[4] = face(1, 0, 2, 3);
+    faces[3].color = faces[4].color = CasePlastic(id);
     if (art) {
         faces[0].tex = art;
         faces[0].texW = riftwii::kBoxWidth;
@@ -445,7 +444,7 @@ void GuiGameGrid::DrawShelf(int alpha) {
             Project(along(tl, bl, 0.78f), dummy, sy1);
             // Not while the box still turns (to or from the focus): its name
             // lay across the next spine's.
-            if (p.turn < 0.12f) labels.push_back(SpineLabel{i, (sx + sxr) / 2, sy0, sy1, DarkPlastic(CasePlastic(item.id))});
+            if (p.turn < 0.12f) labels.push_back(SpineLabel{i, (sx + sxr) / 2, sy0, sy1});
         }
         if (item.badge == "DISC" && !art && !cover && FacesEye(faces[1]) && skin::iconDisc.data) {
             // The disc drive has no box art: the Disc drive tile's disc
@@ -497,7 +496,6 @@ void GuiGameGrid::DrawShelf(int alpha) {
         if (fit.first != title || fit.second.empty()) fit = {title, Fit(title, kSpineTextRoom)};
         spineText->SetText(fit.second.c_str());
         spineText->SetFontSize(kSpineTextSize);
-        spineText->SetColor(l.light ? GXColor{236, 236, 240, 255} : GXColor{40, 40, 48, 255});
         spineText->SetAlpha(alpha);
         const float w = static_cast<float>(spineText->GetTextWidth());
         // Turned a quarter right about the label's own start, at the top:
