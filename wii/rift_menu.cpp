@@ -2115,7 +2115,7 @@ static std::string DiscTileNote()
 static const char* const kWhatsNew[] = {
 	"French menu (thanks MidyGamy) and Korean finished",
 	"Settings > Clock: 12-hour, 24-hour or Automatic",
-	"SD games on d2x base 56: the adapter check no longer stalls",
+	"SD games on a Wii's d2x 249 (base 56) start again",
 };
 
 static std::string WhatsNewText()
