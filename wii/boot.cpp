@@ -72,8 +72,13 @@ constexpr std::uint32_t kApploaderLoadAddress = 0x81200000;
 constexpr std::uint32_t kLoaderStart = 0x80A00000;  // Makefile.wii: --section-start,.init
 constexpr std::uint32_t kGameStart = 0x80004000;    // where games' executables start
 constexpr std::uint32_t kCodeVeneers = 0x80002300;  // past the code handler (0x800022B0), before 0x80003000
-// The crash blob's veneers, after the virtual SD card's (16 bytes each).
+// The crash blob's veneers, after the virtual SD card's (16 bytes each; it
+// has two). The game-time runtime's own veneers (RT_IPC_ENTRIES) run past
+// this point, which is why a code build with the runtime records no
+// crashes (see the fault hook below).
 constexpr std::uint32_t kFaultVeneers = kCodeVeneers + VSD_ENTRIES * 16;
+static_assert(kFaultVeneers + 2 * 16 <= 0x80003000, "the crash blob's veneers must end before 0x80003000");
+static_assert(kCodeVeneers + VSD_ENTRIES * 16 <= kFaultVeneers, "the crash blob's veneers must follow the SD card's");
 constexpr std::uint32_t kMem1Start = 0x80000000;
 constexpr std::uint32_t kMem1End = 0x81800000;
 constexpr std::uint32_t kMem2Start = 0x90000000;
@@ -1396,6 +1401,12 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         logf("Game crashes: not recorded: the game checks its own code (MetaFortress); RiftWii's hooks stay out\n");
     } else if (debug_off("fault")) {
         logf("Game crashes: not recorded: debug_off (and the BCA read not answered)\n");
+    } else if (whole_mem1 && code_build && options.install_resident) {
+        // The game-time runtime (a pack's files, saves or an RVZ) takes the
+        // same two places: its veneers run from kCodeVeneers past
+        // kFaultVeneers, and its code and state are staged at the top of
+        // the MEM2 arena after this hook would have been written there.
+        logf("Game crashes: not recorded: a code build with the game-time runtime (both need the same memory)\n");
     } else if (whole_mem1 && code_build && !clears_mem1_top && g_extras.code_list_start != 0) {
         // A code build uses all of MEM1: the blob at the MEM2 arena's top,
         // reached through a veneer past the code handler (a tester's
