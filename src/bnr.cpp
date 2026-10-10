@@ -89,7 +89,10 @@ bool lz77_decompress(const std::uint8_t* data, std::size_t size, std::vector<std
         return false;
     }
     const std::size_t want = word >> 8;
-    if (want > max_out) {
+    // One flag byte covers eight two-byte references of up to 18 bytes
+    // each, so 17 bytes unpack to at most 144: a size past nine times the
+    // input is a lie, and would reserve megabytes for a tiny file.
+    if (want > max_out || want / 9 > size) {
         error = "LZ77 data unpacks too large";
         return false;
     }

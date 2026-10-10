@@ -63,11 +63,18 @@ bool BannerSoundStart(const std::vector<std::uint8_t>& sound_bin) {
         g_buf = nullptr;
         return silent();
     }
+    g_looping = false;
+    // The menu's music is paused only once the voice is really playing.
+    if (ASND_SetVoice(g_voice, VOICE_STEREO_16BIT, static_cast<s32>(g_rate), 0, g_buf, static_cast<s32>(g_bytes), 255,
+                      255, nullptr) != SND_OK) {
+        logf("Banner sound: the mixer refused %u Hz\n", g_rate);
+        free(g_buf);
+        g_buf = nullptr;
+        g_voice = -1;
+        return false;
+    }
     PauseOgg(1);
     g_music_paused = true;
-    g_looping = false;
-    ASND_SetVoice(g_voice, VOICE_STEREO_16BIT, static_cast<s32>(g_rate), 0, g_buf, static_cast<s32>(g_bytes), 255, 255,
-                  nullptr);
     logf("Banner sound: %u Hz, %.1f s%s\n", g_rate, g_bytes / 4.0 / g_rate, g_loop ? ", looping" : "");
     return true;
 }

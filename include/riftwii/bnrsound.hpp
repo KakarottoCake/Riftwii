@@ -22,8 +22,9 @@ struct BannerSound {
     std::size_t frames() const { return pcm.size() / 2; }
 };
 
-// False (and `error` says why) for anything else, or past `max_frames`
-// (a long sound is cut there, not refused: banners' run some seconds).
+// False (and `error` says why) for anything else, or a rate outside
+// 4000-48000 Hz. A sound longer than `max_frames` is cut there, not
+// refused (banners' run some seconds), and never longer than its data.
 bool decode_banner_sound(const std::uint8_t* data, std::size_t size, BannerSound& out, std::string& error,
                          std::size_t max_frames = 48000 * 40);
 

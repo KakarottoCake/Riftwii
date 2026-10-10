@@ -68,33 +68,45 @@ bool decode_bns(const std::uint8_t* d, std::size_t size, BannerSound& out, std::
     out.rate = be16(info + 4);
     out.loop = info[1] != 0;
     out.loop_start = be32(info + 8);
-    const std::size_t frames = std::min<std::size_t>(be32(info + 12), max_frames);
+    // Each channel's place, checked first: the frame count is then capped
+    // at what every channel's data can hold (8 bytes per 14 samples), so a
+    // tiny file cannot ask for millions of frames. The sums use the
+    // "x > n || k > n - x" form, which cannot wrap on 32 bits.
     const std::size_t list = be32(info + 16);
-    std::vector<std::vector<std::int16_t>> ch(channels, std::vector<std::int16_t>(frames, 0));
+    std::size_t at[2] = {}, dsp[2] = {};
+    std::size_t frames = std::min<std::size_t>(be32(info + 12), max_frames);
     for (unsigned c = 0; c < channels; ++c) {
-        if (list + 4 * (c + 1) > info_size) {
+        if (list > info_size || 4 * (c + 1) > info_size - list) {
             error = "BNS channel list out of range";
             return false;
         }
         const std::size_t entry = be32(info + list + 4 * c);
-        if (entry + 12 > info_size) {
+        if (entry > info_size || 12 > info_size - entry) {
             error = "BNS channel out of range";
             return false;
         }
-        const std::size_t at = be32(info + entry), dsp = be32(info + entry + 4);
-        if (dsp + 0x30 > info_size || at > data_size) {
+        at[c] = be32(info + entry);
+        dsp[c] = be32(info + entry + 4);
+        if (dsp[c] > info_size || 0x30 > info_size - dsp[c] || at[c] > data_size) {
             error = "BNS channel data out of range";
             return false;
         }
+        frames = std::min(frames, (data_size - at[c]) / 8 * 14);
+    }
+    // Decoded straight into the stereo buffer: no copy per channel.
+    out.pcm.assign(frames * 2, 0);
+    for (unsigned c = 0; c < channels; ++c) {
         // The DSP's ADPCM info: 16 coefficients, the gain, the first
         // frame's header, then the two samples before it.
         std::int16_t coef[16];
-        for (int k = 0; k < 16; ++k) coef[k] = static_cast<std::int16_t>(be16(info + dsp + 2 * k));
-        const auto h1 = static_cast<std::int16_t>(be16(info + dsp + 0x24));
-        const auto h2 = static_cast<std::int16_t>(be16(info + dsp + 0x26));
-        decode_dsp_adpcm(data + at, data_size - at, frames, coef, h1, h2, ch[c].data(), 1);
+        for (int k = 0; k < 16; ++k) coef[k] = static_cast<std::int16_t>(be16(info + dsp[c] + 2 * k));
+        const auto h1 = static_cast<std::int16_t>(be16(info + dsp[c] + 0x24));
+        const auto h2 = static_cast<std::int16_t>(be16(info + dsp[c] + 0x26));
+        decode_dsp_adpcm(data + at[c], data_size - at[c], frames, coef, h1, h2, out.pcm.data() + c, 2);
     }
-    interleave(ch, frames, out);
+    if (channels == 1) {
+        for (std::size_t i = 0; i < frames; ++i) out.pcm[2 * i + 1] = out.pcm[2 * i];
+    }
     if (out.loop_start >= frames) out.loop = false, out.loop_start = 0;
     return true;
 }
@@ -203,7 +215,7 @@ void decode_dsp_adpcm(const std::uint8_t* data, std::size_t bytes, std::size_t c
         for (int k = 0; k < 14 && i < count; ++k, ++i) {
             int step = (k & 1) ? (f[1 + k / 2] & 0xF) : (f[1 + k / 2] >> 4);
             if (step >= 8) step -= 16;
-            std::int64_t s = (static_cast<std::int64_t>(step) * scale << 11) + 1024 + c1 * h1 + c2 * h2;
+            std::int64_t s = static_cast<std::int64_t>(step) * scale * 2048 + 1024 + c1 * h1 + c2 * h2;
             s >>= 11;
             s = std::max<std::int64_t>(-32768, std::min<std::int64_t>(32767, s));
             out[i * stride] = static_cast<std::int16_t>(s);
@@ -235,8 +247,14 @@ bool decode_banner_sound(const std::uint8_t* data, std::size_t size, BannerSound
     else if (std::memcmp(data, "RIFF", 4) == 0) ok = decode_wav(data, size, out, error, max_frames);
     else if (std::memcmp(data, "FORM", 4) == 0) ok = decode_aiff(data, size, out, error, max_frames);
     else error = "a sound in an unknown format";
-    if (ok && (out.rate == 0 || out.pcm.empty())) {
+    if (ok && out.pcm.empty()) {
         error = "an empty sound";
+        ok = false;
+    }
+    // What the DSP's mixer can play; anything else is a damaged header (a
+    // rate of 0xFFFFFFFF turned negative on its way to ASND).
+    if (ok && (out.rate < 4000 || out.rate > 48000)) {
+        error = "a sound at " + std::to_string(out.rate) + " Hz";
         ok = false;
     }
     if (!ok) out = BannerSound();

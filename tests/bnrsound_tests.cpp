@@ -233,6 +233,52 @@ void test_aiff() {
     EXPECT_TRUE(!decode_banner_sound(junk.data(), junk.size(), s, error));
 }
 
+// What a crafted sound.bin can ask for. Before the fix, a 264-byte BNS
+// decoded to 3.84 million samples (about 23 MB at peak) and a few bytes
+// of LZ77 reserved 16 MB, both on the menu's thread.
+void test_hostile() {
+    BannerSound s;
+    std::string error;
+    const auto set32 = [](Bytes& b, std::size_t at, std::uint32_t v) {
+        for (int i = 0; i < 4; ++i) b[at + i] = static_cast<std::uint8_t>(v >> (24 - 8 * i));
+    };
+    const std::size_t info = 0x28;  // INFO's body in make_bns
+    {
+        // A frame count far past the data: cut to what the data holds.
+        Bytes bns = make_bns();
+        set32(bns, info + 12, 1920000);
+        EXPECT_TRUE(decode_banner_sound(bns.data(), bns.size(), s, error));
+        EXPECT_EQ(s.frames(), 14u);
+    }
+    {
+        // Offsets near 4 GB, which wrapped round on 32 bits.
+        for (std::size_t field : {std::size_t(16), std::size_t(0x18), std::size_t(0x20), std::size_t(0x24)}) {
+            Bytes bns = make_bns();
+            set32(bns, info + field, 0xFFFFFFF8u);
+            EXPECT_TRUE(!decode_banner_sound(bns.data(), bns.size(), s, error) || s.frames() <= 14);
+        }
+    }
+    {
+        // A rate the mixer cannot play.
+        Bytes wav = make_wav(false);
+        for (std::uint32_t rate : {0u, 3999u, 48001u, 0xFFFFFFFFu}) {
+            for (int i = 0; i < 4; ++i) wav[24 + i] = static_cast<std::uint8_t>(rate >> (8 * i));
+            EXPECT_TRUE(!decode_banner_sound(wav.data(), wav.size(), s, error));
+        }
+        for (int i = 0; i < 4; ++i) wav[24 + i] = static_cast<std::uint8_t>(48000u >> (8 * i));
+        EXPECT_TRUE(decode_banner_sound(wav.data(), wav.size(), s, error));
+    }
+    {
+        // LZ77 claiming 16 MB from 16 bytes.
+        Bytes lz;
+        tag(lz, "LZ77");
+        le32(lz, 0x10 | (0xFFFFFFu << 8));
+        lz.resize(16, 0);
+        EXPECT_TRUE(!decode_banner_sound(lz.data(), lz.size(), s, error));
+        EXPECT_TRUE(error.find("too large") != std::string::npos);
+    }
+}
+
 }  // namespace
 
 int main() {
@@ -240,6 +286,7 @@ int main() {
     test_bns();
     test_wav();
     test_aiff();
+    test_hostile();
     if (g_failures) {
         std::cerr << g_failures << " TEST CHECKS FAILED" << std::endl;
         return 1;
