@@ -44,6 +44,11 @@ struct Animation {
     std::vector<std::string> skipped;   // kinds RiftWii does not apply ("RLIM"), each once
 };
 
+// Records may overlap, so a small file can name very many tracks and keys,
+// all applied every frame: past these, the animation is refused.
+constexpr std::size_t kMaxAnimTracks = 8192;
+constexpr std::size_t kMaxAnimKeys = 131072;
+
 bool parse_brlan(const std::uint8_t* data, std::size_t size, Animation& out, std::string& error);
 
 // One line for the log about a banner: what its layout and animations use,
@@ -61,10 +66,16 @@ float track_value(const AnimTrack& track, float frame);
 // the layout's texture list (and added when missing, so the caller loads it).
 void apply_animation(const Animation& anim, float frame, Layout& layout);
 
+// Adds to `layout`'s texture list each texture `anim`'s texture-pattern
+// tracks pick from that it lacks, so the caller loads them, and a binding
+// made after it finds them all.
+void add_animation_textures(const Animation& anim, Layout& layout);
+
 // Which pane and material each of `anim`'s targets names in `layout`
-// (-1: none), worked out once for an animation played every frame.
+// (-1: none), and where each of `anim`'s textures is in its texture list
+// (-1: not there), worked out once for an animation played every frame.
 struct AnimBinding {
-    std::vector<int> pane, material;
+    std::vector<int> pane, material, texture;
 };
 AnimBinding bind_animation(const Animation& anim, const Layout& layout);
 void apply_animation(const Animation& anim, float frame, Layout& layout, const AnimBinding& binding);

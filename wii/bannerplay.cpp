@@ -273,6 +273,10 @@ bool BannerPlayer::LoadParts(const std::vector<std::uint8_t>& opening_bnr, bool 
     }
     DCFlushRange(arc_, (arc_size_ + 31) & ~std::size_t(31));
     GX_InvalidateTexAll();
+    // Every texture the animations swap in, named in the layout once: the
+    // bindings then find them all, and no frame looks a name up.
+    if (has_start_) add_animation_textures(start_, base_);
+    if (has_loop_) add_animation_textures(loop_, base_);
     work_ = base_;
     if (has_start_) start_binding_ = bind_animation(start_, base_);
     if (has_loop_) loop_binding_ = bind_animation(loop_, base_);
