@@ -25,6 +25,14 @@ constexpr std::uint32_t kRvzGroupEntry = 12;
 // recorded in its frame: Dolphin's own limit, enough for every hash and
 // all padding in 2 MiB.
 constexpr std::uint32_t kMaxExceptions = 52 * 64;
+// Guards on what an image may ask for. A Wii disc is at most 8.5 GB, so a
+// larger one is not a disc; chunks past 32 MiB are allowed by the format
+// but no writer makes them, and they would cost a group buffer that size.
+// A packed group (RVZ's junk-aware packing) is never much larger than the
+// data it holds: a few size words and seeds per group.
+constexpr std::uint64_t kMaxIsoSize = std::uint64_t(1) << 34;
+constexpr std::uint32_t kMaxOpenChunk = 32u << 20;
+constexpr std::uint32_t kZstdSlack = 4096;
 
 std::uint32_t be32(const std::uint8_t* p) {
     return (std::uint32_t(p[0]) << 24) | (std::uint32_t(p[1]) << 16) | (std::uint32_t(p[2]) << 8) | p[3];
@@ -256,8 +264,12 @@ bool RvzImage::open(std::shared_ptr<const ByteSource> file, std::unique_ptr<RvzI
         error = std::string("cannot decompress ") + to_string(method);
         return false;
     }
-    if (!chunk_size_valid(head.chunk_size, false)) {
+    if (!chunk_size_valid(head.chunk_size, false) || head.chunk_size > kMaxOpenChunk) {
         error = "invalid chunk size " + std::to_string(head.chunk_size);
+        return false;
+    }
+    if (head.iso_size == 0 || head.iso_size > kMaxIsoSize) {
+        error = "the image claims an impossible disc size";
         return false;
     }
     image->file_ = std::move(file);
@@ -269,7 +281,13 @@ bool RvzImage::open(std::shared_ptr<const ByteSource> file, std::unique_ptr<RvzI
         }
     }
     const bool compressed = method == RvzMethod::Zstd;
-    if (head.raw_count > 0x10000 || head.group_count > 0x1000000) {
+    // Every group holds at most one chunk of the disc, for one raw entry or
+    // one partition segment: twice the disc's chunks plus one per table
+    // entry is more than any writer needs, and keeps a damaged count from
+    // asking for hundreds of MB of table.
+    const std::uint64_t max_groups =
+        2 * (head.iso_size / head.chunk_size + 1) + head.raw_count + 2 * head.partitions.size();
+    if (head.raw_count > 0x10000 || head.group_count > max_groups) {
         error = "the image's tables have impossible sizes";
         return false;
     }
@@ -290,7 +308,8 @@ bool RvzImage::open(std::shared_ptr<const ByteSource> file, std::unique_ptr<RvzI
         r.end = offset + size;
         r.group_index = be32(e + 16);
         r.group_count = be32(e + 20);
-        if (r.end < offset || r.group_index > head.group_count || r.group_count > head.group_count - r.group_index ||
+        if (r.end < offset || r.end > head.iso_size || r.group_index > head.group_count ||
+            r.group_count > head.group_count - r.group_index ||
             (r.end - r.start + head.chunk_size - 1) / head.chunk_size > r.group_count) {
             error = "raw data entry " + std::to_string(i) + " is out of range";
             return false;
@@ -305,16 +324,22 @@ bool RvzImage::open(std::shared_ptr<const ByteSource> file, std::unique_ptr<RvzI
     }
     for (std::uint32_t i = 0; i < head.group_count; ++i) {
         const std::uint8_t* e = table.data() + std::size_t(i) * kRvzGroupEntry;
-        image->groups_.push_back(Group{be32(e), be32(e + 4), be32(e + 8)});
+        const Group g{be32(e), be32(e + 4), be32(e + 8)};
+        if (g.packed > 2 * head.chunk_size) {
+            error = "group " + std::to_string(i) + " claims an impossible size";
+            return false;
+        }
+        image->groups_.push_back(g);
     }
     const std::uint32_t per_group = head.chunk_size / kSector;
     for (std::size_t p = 0; p < head.partitions.size(); ++p) {
         const RvzPartition& part = head.partitions[p];
         for (const RvzPartData& pd : part.data) {
             if (pd.sector_count == 0) continue;
-            if (pd.first_sector < part.data[0].first_sector || pd.group_index > head.group_count ||
-                pd.group_count > head.group_count - pd.group_index ||
-                (pd.sector_count + per_group - 1) / per_group > pd.group_count) {
+            if (pd.first_sector < part.data[0].first_sector ||
+                (std::uint64_t(pd.first_sector) + pd.sector_count) * kSector > head.iso_size ||
+                pd.group_index > head.group_count || pd.group_count > head.group_count - pd.group_index ||
+                (std::uint64_t(pd.sector_count) + per_group - 1) / per_group > pd.group_count) {
                 error = "partition " + std::to_string(p) + "'s data is out of range";
                 return false;
             }
@@ -340,7 +365,7 @@ bool RvzImage::decode(std::uint64_t file_offset, std::uint32_t stored, bool comp
     const unsigned long long known = ZSTD_getFrameContentSize(stored_.data(), stored_.size());
     if (known == ZSTD_CONTENTSIZE_ERROR) return fail("not Zstandard data");
     if (known != ZSTD_CONTENTSIZE_UNKNOWN) {
-        if (known > std::size_t(expected) + 64 * 1024 * 1024) return fail("a group claims an impossible size");
+        if (known > std::uint64_t(expected) + kZstdSlack) return fail("a group claims an impossible size");
         capacity = static_cast<std::size_t>(known);
     }
     out.resize(capacity);
@@ -353,7 +378,13 @@ bool RvzImage::decode(std::uint64_t file_offset, std::uint32_t stored, bool comp
 
 bool RvzImage::load_group(std::uint32_t index, std::uint32_t payload, std::uint64_t data_offset,
                           std::uint32_t lists) const {
-    if (cached_ == index) return true;
+    // A group is decoded for one size, place and kind of read. The same
+    // group asked for differently (a damaged table, or one naming it from
+    // both a raw entry and a partition) is decoded again: reusing it would
+    // copy past the end of the smaller decode.
+    if (cached_ == index && cached_payload_ == payload && cached_offset_ == data_offset && cached_lists_ == lists) {
+        return true;
+    }
     cached_ = UINT32_MAX;
     if (index >= groups_.size()) return fail("group " + std::to_string(index) + " does not exist");
     const Group& g = groups_[index];
@@ -361,12 +392,14 @@ bool RvzImage::load_group(std::uint32_t index, std::uint32_t payload, std::uint6
     cache_.resize(payload);
     if (stored == 0) {
         std::fill(cache_.begin(), cache_.end(), 0);
-        cached_ = index;
+        remember(index, payload, data_offset, lists);
         return true;
     }
     const bool compressed = (g.size & 0x80000000u) != 0 && static_cast<RvzMethod>(head_.method) == RvzMethod::Zstd;
     const std::uint32_t body = g.packed != 0 ? g.packed : payload;
-    const std::uint32_t expected = body + lists * (2 + 22 * kMaxExceptions);
+    const std::uint64_t expected64 = std::uint64_t(body) + std::uint64_t(lists) * (2 + 22 * kMaxExceptions);
+    if (expected64 > 0xFFFFFFFFu) return fail("group " + std::to_string(index) + " claims an impossible size");
+    const auto expected = static_cast<std::uint32_t>(expected64);
     if (!decode(std::uint64_t(g.offset4) * 4, stored, compressed, expected, unpacked_)) {
         return fail("group " + std::to_string(index) + ": " + error_);
     }
@@ -384,8 +417,15 @@ bool RvzImage::load_group(std::uint32_t index, std::uint32_t payload, std::uint6
     } else {
         std::memcpy(cache_.data(), unpacked_.data() + at, payload);
     }
-    cached_ = index;
+    remember(index, payload, data_offset, lists);
     return true;
+}
+
+void RvzImage::remember(std::uint32_t index, std::uint32_t payload, std::uint64_t data_offset, std::uint32_t lists) const {
+    cached_ = index;
+    cached_payload_ = payload;
+    cached_offset_ = data_offset;
+    cached_lists_ = lists;
 }
 
 bool RvzImage::read_raw(std::uint64_t disc_offset, std::uint8_t* destination, std::size_t length) const {
@@ -514,8 +554,8 @@ std::uint64_t RvzImage::partition_data_size(std::size_t index) const {
     std::uint64_t end = 0;
     for (const RvzPartData& pd : part.data) {
         if (pd.sector_count == 0) continue;
-        end = std::max<std::uint64_t>(end, std::uint64_t(pd.first_sector - part.data[0].first_sector + pd.sector_count) *
-                                               kSectorData);
+        end = std::max<std::uint64_t>(
+            end, (std::uint64_t(pd.first_sector - part.data[0].first_sector) + pd.sector_count) * kSectorData);
     }
     return end;
 }

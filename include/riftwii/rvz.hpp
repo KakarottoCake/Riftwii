@@ -173,6 +173,7 @@ private:
     // `payload` is its size decoded, `data_offset` where its first byte
     // sits for the padding generator, `lists` its exception lists.
     bool load_group(std::uint32_t index, std::uint32_t payload, std::uint64_t data_offset, std::uint32_t lists) const;
+    void remember(std::uint32_t index, std::uint32_t payload, std::uint64_t data_offset, std::uint32_t lists) const;
     bool decode(std::uint64_t file_offset, std::uint32_t stored, bool compressed, std::uint32_t expected,
                 std::vector<std::uint8_t>& out) const;
     bool fail(std::string message) const;
@@ -182,7 +183,10 @@ private:
     std::vector<Raw> raw_;
     std::vector<Group> groups_;
     void* dctx_ = nullptr;
-    mutable std::uint32_t cached_ = UINT32_MAX;
+    mutable std::uint32_t cached_ = UINT32_MAX;  // what cache_ holds: the group, and the read it was decoded for
+    mutable std::uint32_t cached_payload_ = 0;
+    mutable std::uint64_t cached_offset_ = 0;
+    mutable std::uint32_t cached_lists_ = 0;
     mutable std::vector<std::uint8_t> cache_;
     mutable std::vector<std::uint8_t> stored_;
     mutable std::vector<std::uint8_t> unpacked_;

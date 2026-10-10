@@ -399,6 +399,93 @@ void TestDamage() {
     EXPECT_TRUE(any_failed);
 }
 
+// Big-endian fields of an RVZ, and its three SHA-1s brought back in line
+// after an edit, so a test can craft what a damaged or hostile image says.
+std::uint32_t Be32(const std::vector<std::uint8_t>& b, std::size_t at) {
+    return std::uint32_t(b[at]) << 24 | std::uint32_t(b[at + 1]) << 16 | std::uint32_t(b[at + 2]) << 8 | b[at + 3];
+}
+std::uint64_t Be64(const std::vector<std::uint8_t>& b, std::size_t at) {
+    return std::uint64_t(Be32(b, at)) << 32 | Be32(b, at + 4);
+}
+void SetBe32(std::vector<std::uint8_t>& b, std::size_t at, std::uint32_t v) {
+    for (int i = 0; i < 4; ++i) b[at + i] = static_cast<std::uint8_t>(v >> (24 - 8 * i));
+}
+void Reseal(std::vector<std::uint8_t>& b) {
+    constexpr std::size_t kHead = 0x48;
+    const std::size_t disc_bytes = Be32(b, 0x0C);
+    const std::size_t d = kHead;
+    const std::size_t parts = static_cast<std::size_t>(Be64(b, d + 0x98));
+    const std::size_t part_bytes = std::size_t(Be32(b, d + 0x90)) * Be32(b, d + 0x94);
+    const Sha1Digest pt = sha1(b.data() + parts, part_bytes);
+    std::memcpy(b.data() + d + 0xA0, pt.data(), pt.size());
+    const Sha1Digest ds = sha1(b.data() + d, disc_bytes);
+    std::memcpy(b.data() + 0x10, ds.data(), ds.size());
+    const Sha1Digest fh = sha1(b.data(), 0x34);
+    std::memcpy(b.data() + 0x34, fh.data(), fh.size());
+}
+
+// A crafted image must fail cleanly, never read or allocate past what it
+// holds. Run under AddressSanitizer, the first case overflowed the group
+// cache before the fix.
+void TestHostile() {
+    const auto good = load("none-128k.rvz");  // tables stored as they are
+    const std::size_t d = 0x48;
+    std::string error;
+    std::unique_ptr<RvzImage> image;
+    {
+        // Raw entry 0 names the partition's first group. Read through the
+        // partition first (a group of 0x1F000 bytes), then through the raw
+        // entry (0x20000): the cached group was reused at the larger size.
+        auto bytes = good;
+        RvzHead head;
+        EXPECT_TRUE(read_rvz_head(MemorySource(bytes), head, error));
+        const std::size_t raw0 = static_cast<std::size_t>(head.raw_table_offset);
+        SetBe32(bytes, raw0 + 16, head.partitions[0].data[0].group_index);
+        EXPECT_TRUE(RvzImage::open(source(bytes), image, error));
+        if (image) {
+            std::vector<std::uint8_t> out(0x20000);
+            image->read_partition(0, 0, out.data(), 1);
+            image->read_raw(0, out.data(), out.size());
+            image->read_partition(0, 0, out.data(), 0x1F000);
+        }
+    }
+    {
+        // A group count far beyond what the disc could need.
+        auto bytes = good;
+        SetBe32(bytes, d + 0xC4, 0x00FFFFFF);
+        Reseal(bytes);
+        EXPECT_FALSE(RvzImage::open(source(bytes), image, error));
+        EXPECT_TRUE(error.find("impossible") != std::string::npos);
+    }
+    {
+        // A partition segment so long its sector count wrapped in 32 bits.
+        auto bytes = good;
+        const std::size_t parts = static_cast<std::size_t>(Be64(bytes, d + 0x98));
+        SetBe32(bytes, parts + 16 + 16 + 4, 0xFFFFFFF0);  // data[1].sector_count
+        Reseal(bytes);
+        EXPECT_FALSE(RvzImage::open(source(bytes), image, error));
+        EXPECT_TRUE(error.find("out of range") != std::string::npos);
+    }
+    {
+        // A disc size no Wii disc has.
+        auto bytes = good;
+        SetBe32(bytes, 0x24, 0x10);  // iso_size's high word: 2^36 and more
+        Reseal(bytes);
+        EXPECT_FALSE(RvzImage::open(source(bytes), image, error));
+    }
+    {
+        // A packed group claiming 4 GB.
+        auto bytes = good;
+        RvzHead head;
+        EXPECT_TRUE(read_rvz_head(MemorySource(bytes), head, error));
+        const std::size_t g = static_cast<std::size_t>(head.group_table_offset) +
+                              std::size_t(head.partitions[0].data[0].group_index) * 12;
+        SetBe32(bytes, g + 8, 0xFFFFFFF0);
+        EXPECT_FALSE(RvzImage::open(source(bytes), image, error));
+        EXPECT_TRUE(error.find("impossible") != std::string::npos);
+    }
+}
+
 // ---- The in-game runtime serving an RVZ game (rt_hook.c, RT_RVZ) --------
 
 // The runtime addresses memory with 32-bit fields, so on a 64-bit host its
@@ -869,6 +956,7 @@ int main(int argc, char** argv) {
     TestStub();
     TestVerdicts();
     TestDamage();
+    TestHostile();
     TestRuntime();
     if (g_failures != 0) {
         std::cerr << g_failures << " failure(s)" << std::endl;
