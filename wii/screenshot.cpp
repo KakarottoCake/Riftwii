@@ -205,7 +205,13 @@ bool Modifier(Chord& c, u32& down, u32 held, u32 bit) {
 void ScreenshotsStart() {
     if (g_thread != LWP_THREAD_NULL) return;
     g_stop = false;
-    if (LWP_CreateThread(&g_thread, Worker, nullptr, nullptr, 16384, 30) < 0) g_thread = LWP_THREAD_NULL;
+    // Busy from now: the import uses g_frame, and the GUI thread must not
+    // copy a frame into it before the worker has even started.
+    g_busy = true;
+    if (LWP_CreateThread(&g_thread, Worker, nullptr, nullptr, 16384, 30) < 0) {
+        g_thread = LWP_THREAD_NULL;
+        g_busy = false;
+    }
 }
 
 void ScreenshotsStop() {

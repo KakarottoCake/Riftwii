@@ -44,7 +44,9 @@ bool HomeIos6();
 // first time each is needed; after the shape changes.
 void EnsureBackgrounds();
 // Home is shown (the theme's background), or another screen (its
-// background_plain, when it has one).
+// background_plain, when it has one). Also takes Home's view (Settings()'
+// home_tiles) for its wall: called on the menu thread whenever either
+// changes, so the GUI thread never reads the settings.
 void SetOnHome(bool home);
 extern Tex noticeIcon[2];                // 28x28 Home's notice signs: news, error
 extern Tex clockDigits;                  // 308x44: Home's clock figures 0-9 and the colon, 28 apart

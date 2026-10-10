@@ -2308,7 +2308,12 @@ static void ScanDrives(FrontendState& state, GuiText& status)
 	status.SetText("Reading the SD card...");
 	ResumeGui();
 	const bool sd = scan_sd_games(state.sd_catalog, error);
-	const std::string net = riftwii::wii::RefreshNetworkPacks([&](const char* line) { status.SetText(line); });
+	// The GUI thread is drawing: the text changes only while it is halted.
+	const std::string net = riftwii::wii::RefreshNetworkPacks([&](const char* line) {
+		HaltGui();
+		status.SetText(line);
+		ResumeGui();
+	});
 	if (!net.empty()) logf("%s\n", net.c_str());
 	HaltGui();
 	riftwii::wii::mem::CheckHeap("after the SD scan");
@@ -2479,6 +2484,7 @@ static int MenuSource(FrontendState& state)
 	GuiGameGrid grid;
 	grid.SetCovers(riftwii::wii::Settings().home_tiles != "names");
 	grid.SetShelf(riftwii::wii::Settings().home_tiles == "shelf");
+	skin::SetOnHome(true);  // the wall for the view now set
 	grid.SetChannels(riftwii::wii::Settings().home_tiles == "channels",
 		[&items](int index, const GuiGameGrid::IconBox& b) {
 			if (index < 0 || static_cast<std::size_t>(index) >= items.size()) return false;

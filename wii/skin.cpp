@@ -4,6 +4,7 @@
 #include "skin.hpp"
 
 #include <gccore.h>
+#include <ogc/machine/processor.h>
 
 #include <algorithm>
 #include <cstring>
@@ -26,12 +27,23 @@ Tex tile, tileOver, coverTile, coverTileOver, roundBtn, roundBtnOver, pill, pill
 // Textures and the menu font live below the MEM2 arena's low end, taken
 // once and never freed: the menu keeps them until the game replaces all of
 // memory, and the MEM1 heap stays for scans, packs and fragment lists.
+// The menu thread and the GUI thread both take memory here (the USB drive
+// pick against box art and cover slots), so reading the arena's low end
+// and moving it is one step with interrupts off: two callers could
+// otherwise be handed the same block.
 u8* Mem2Alloc(std::size_t bytes) {
-    u32 lo = (reinterpret_cast<u32>(SYS_GetArena2Lo()) + 31) & ~31u;
-    const u32 end = lo + ((bytes + 31) & ~std::size_t(31));
-    if (end > reinterpret_cast<u32>(SYS_GetArena2Hi())) return nullptr;
-    SYS_SetArena2Lo(reinterpret_cast<void*>(end));
-    return reinterpret_cast<u8*>(lo);
+    u32 level;
+    _CPU_ISR_Disable(level);
+    const u32 lo = (reinterpret_cast<u32>(SYS_GetArena2Lo()) + 31) & ~31u;
+    const u32 size = (bytes + 31) & ~std::size_t(31);
+    const u32 hi = reinterpret_cast<u32>(SYS_GetArena2Hi());
+    u8* out = nullptr;
+    if (lo <= hi && size <= hi - lo) {
+        SYS_SetArena2Lo(reinterpret_cast<void*>(lo + size));
+        out = reinterpret_cast<u8*>(lo);
+    }
+    _CPU_ISR_Restore(level);
+    return out;
 }
 
 GXColor kInk = {46, 46, 54, 255};
@@ -145,6 +157,11 @@ Tex capsule9;
 Tex homeBtnDanger, homeBtnDangerOver, iosClose, iosCloseOver, linen;
 Tex backgroundPlain, backgroundPlainWide, backgroundChannels, backgroundChannelsWide;
 static bool g_onHome = true;
+// Home's view for its wall, set by the menu thread: the GUI thread draws
+// the backdrop every frame and must not read Settings()' strings while
+// the menu thread may be changing them.
+enum class HomeWall { Plain, Shelf, Channels };
+static volatile HomeWall g_homeWall = HomeWall::Plain;
 Tex noticeIcon[2];
 Tex tileEmpty;
 Tex shelfPlank;
@@ -286,7 +303,11 @@ bool BarBump() { return MenuTheme().bar_bump; }
 
 bool HomeIos6() { return MenuTheme().home_ios6; }
 
-void SetOnHome(bool home) { g_onHome = home; }
+void SetOnHome(bool home) {
+    const std::string& tiles = riftwii::wii::Settings().home_tiles;
+    g_homeWall = tiles == "shelf" ? HomeWall::Shelf : tiles == "channels" ? HomeWall::Channels : HomeWall::Plain;
+    g_onHome = home;
+}
 
 bool Ready() { return g_ready; }
 
@@ -458,10 +479,10 @@ void GuiBackdrop::DrawBackdrop() {
         // (Bookshelf: no shelves behind Settings' panels).
         if (wide && backgroundPlainWide.data) pick = &backgroundPlainWide;
         else if (backgroundPlain.data && !(wide && backgroundWide.data)) pick = &backgroundPlain;
-    } else if (riftwii::wii::Settings().home_tiles == "shelf") {
+    } else if (g_homeWall == HomeWall::Shelf) {
         if (wide && backgroundShelfWide.data) pick = &backgroundShelfWide;
         else if (backgroundShelf.data && !(wide && backgroundWide.data)) pick = &backgroundShelf;
-    } else if (riftwii::wii::Settings().home_tiles == "channels") {
+    } else if (g_homeWall == HomeWall::Channels) {
         // Channels' own wall (Bookshelf: a shelf under each row of channels).
         if (wide && backgroundChannelsWide.data) pick = &backgroundChannelsWide;
         else if (backgroundChannels.data && !(wide && backgroundWide.data)) pick = &backgroundChannels;
