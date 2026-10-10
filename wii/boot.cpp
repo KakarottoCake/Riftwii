@@ -236,12 +236,13 @@ bool install_cheats(const std::vector<MemoryRegion>& loaded, const std::vector<M
     // gameconfig.txt's words, last: they may turn off what would undo the
     // codes (a Project+ build stops the game clearing the memory its list is in).
     for (const GamePoke& p : g_extras.pokes) {
-        if (p.address < kMem1Start || p.address + 4 > kLoaderStart || (p.address & 3) != 0) {
+        // As "> limit - 4": address + 4 wraps to 0 for 0xFFFFFFFC.
+        if (p.address < kMem1Start || p.address > kLoaderStart - 4 || (p.address & 3) != 0) {
             logf("  poke 0x%08x skipped: outside the game's memory\n", static_cast<unsigned>(p.address));
             continue;
         }
         if (p.conditional) {
-            if (p.check_address < kMem1Start || p.check_address + 4 > kMem1End || (p.check_address & 3) != 0 ||
+            if (p.check_address < kMem1Start || p.check_address > kMem1End - 4 || (p.check_address & 3) != 0 ||
                 *reinterpret_cast<volatile std::uint32_t*>(p.check_address) != p.check_value) {
                 continue;
             }
