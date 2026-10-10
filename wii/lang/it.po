@@ -1610,3 +1610,6 @@ msgstr "Nessun file di trucchi e la rete non è attiva. Controlla le impostazion
 
 msgid "This cIOS can't start games"
 msgstr "Questo cIOS non può avviare giochi"
+
+msgid "The build has too many files to make an image of here (out of memory)."
+msgstr "La build ha troppi file per crearne un'immagine qui (memoria esaurita)."

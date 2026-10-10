@@ -81,6 +81,12 @@ std::uint64_t ceil_div(std::uint64_t a, std::uint64_t b) { return (a + b - 1) / 
 }  // namespace
 
 std::string vsd_short_name(const std::string& name, const std::vector<std::string>& taken, bool& needs_long) {
+    VsdShortNames names;
+    for (const std::string& t : taken) names.take(t);
+    return names.add(name, needs_long);
+}
+
+std::string VsdShortNames::add(const std::string& name, bool& needs_long) {
     // Base and extension at the last dot (a leading dot starts no extension).
     std::string stem = name, ext;
     const std::size_t dot = name.rfind('.');
@@ -115,20 +121,28 @@ std::string vsd_short_name(const std::string& name, const std::vector<std::strin
         x.resize(3, ' ');
         return s + x;
     };
-    const auto is_taken = [&taken](const std::string& s) {
-        return std::find(taken.begin(), taken.end(), s) != taken.end();
-    };
+    const auto is_taken = [this](const std::string& s) { return taken_.count(s) != 0; };
     const std::string shown = base + (extension.empty() ? "" : "." + extension);
     needs_long = lossy || base.size() > 8 || extension.size() > 3 || shown != name;
     if (!lossy && base.size() <= 8 && extension.size() <= 3) {
         const std::string plain = stored(base, extension);
-        if (!is_taken(plain)) return plain;
+        if (!is_taken(plain)) {
+            taken_.insert(plain);
+            return plain;
+        }
         needs_long = true;  // a case-only clash: the long name tells them apart
     }
-    for (std::uint32_t n = 1;; ++n) {
+    // Every "~n" below the one last given for this stem is taken already.
+    std::uint32_t& n = next_[base.substr(0, 8) + "|" + extension.substr(0, 3)];
+    if (n == 0) n = 1;
+    for (;; ++n) {
         const std::string tail = "~" + std::to_string(n);
-        const std::string s = stored(base.substr(0, 8 - tail.size()) + tail, extension);
-        if (!is_taken(s)) return s;
+        const std::string s = stored(base.substr(0, tail.size() < 8 ? 8 - tail.size() : 0) + tail, extension);
+        if (!is_taken(s)) {
+            taken_.insert(s);
+            ++n;
+            return s;
+        }
     }
 }
 
@@ -238,13 +252,16 @@ bool plan_vsd_image(const std::vector<VsdItem>& items, std::uint64_t spare_bytes
         std::sort(dir.children.begin(), dir.children.end(), [&tree](int a, int b) {
             return upper(tree[static_cast<std::size_t>(a)].name) < upper(tree[static_cast<std::size_t>(b)].name);
         });
-        std::vector<std::string> taken;
+        VsdShortNames names;
         std::uint64_t entries = dir.parent < 0 ? 1 : 2;  // the volume label, or "." and ".."
         for (int c : dir.children) {
             VsdPlan::Node& child = tree[static_cast<std::size_t>(c)];
-            child.short_name = vsd_short_name(child.name, taken, child.long_name);
-            taken.push_back(child.short_name);
+            child.short_name = names.add(child.name, child.long_name);
             entries += 1 + long_entries(child);
+        }
+        if (entries > kVsdMaxFolderEntries) {
+            error = "a folder holds more names than FAT32 allows: " + (dir.path.empty() ? std::string("/") : dir.path);
+            return false;
         }
         dir.size = entries * 32;
     }
@@ -390,7 +407,8 @@ void fsinfo_sector(const VsdPlan& p, std::uint8_t* s) {
     put32(s, 0x41615252);
     put32(s + 484, 0x61417272);
     put32(s + 488, p.cluster_count - p.used_clusters);
-    put32(s + 492, p.used_clusters + 2);
+    // The first free cluster, or "unknown" on a full card (there is none).
+    put32(s + 492, p.used_clusters < p.cluster_count ? p.used_clusters + 2 : 0xFFFFFFFFu);
     put32(s + 508, 0xAA550000);
 }
 

@@ -1627,6 +1627,11 @@ T = {
     "IOS{1} is {2}. You're on an out-of-date cIOS, and this makes it harder to find out which bugs are causing what, so please update to the latest cIOS (d2x v11 beta3). Follow this guide: {3}": ("IOS{1} es {2}. Usas un cIOS desactualizado, y eso hace más difícil saber qué causa cada error, así que actualiza al cIOS más reciente (d2x v11 beta3). Sigue esta guía: {3}", "IOS{1}は{2}です。古いcIOSでは、どの不具合が何によって起きているのか調べにくくなります。最新のcIOS (d2x v11 beta3) に更新してください。手順はこのガイドを見てください: {3}", "IOS{1} é {2}. Você está num cIOS desatualizado, o que dificulta descobrir a causa de cada erro; atualize para o cIOS mais recente (d2x v11 beta3). Siga este guia: {3}", "IOS{1} è {2}. Stai usando un cIOS non aggiornato, e questo rende più difficile capire quale bug causa cosa: aggiorna al cIOS più recente (d2x v11 beta3). Segui questa guida: {3}"),
     "No cheat file yet, and the network is not up. Check the Wii's Internet settings, then choose Download.": ("Aún no hay archivo de trucos y la red no está activa. Revisa la configuración de Internet de la Wii y luego elige Descargar.", "チートファイルがまだなく、ネットワークもつながっていません。Wiiのインターネット設定を確認してから「ダウンロード」を選んでください。", "Ainda não há arquivo de trapaças e a rede não está ativa. Verifique as configurações de Internet do Wii e depois escolha Baixar.", "Nessun file di trucchi e la rete non è attiva. Controlla le impostazioni Internet della Wii, poi scegli Scarica."),
     "This cIOS can't start games": ("Este cIOS no puede iniciar juegos", "このcIOSではゲームを起動できません", "Este cIOS não pode iniciar jogos", "Questo cIOS non può avviare giochi"),
+    "The build has too many files to make an image of here (out of memory).": (
+        "La build tiene demasiados archivos para crear una imagen aquí (sin memoria).",
+        "ビルドのファイルが多すぎて、ここではイメージを作れません (メモリ不足)。",
+        "A build tem arquivos demais para criar uma imagem aqui (sem memória).",
+        "La build ha troppi file per crearne un'immagine qui (memoria esaurita)."),
 }
 
 
@@ -2705,6 +2710,8 @@ KO = {
         "아직 치트 파일이 없고 네트워크도 연결되지 않았습니다. Wii의 인터넷 설정을 확인한 뒤 다운로드를 선택하세요.",
     "This cIOS can't start games":
         "이 cIOS로는 게임을 실행할 수 없습니다",
+    "The build has too many files to make an image of here (out of memory).":
+        "빌드의 파일이 너무 많아 여기서 이미지를 만들 수 없습니다(메모리 부족).",
 }
 
 # French, a table of its own (msgid: text), from MidyGamy's translation
@@ -3684,6 +3691,8 @@ FR = {
         "Aucun fichier de triche, et le réseau n'est pas actif. Vérifiez les paramètres Internet de la Wii, puis choisissez Télécharger.",
     "This cIOS can't start games":
         "Ce cIOS ne peut pas lancer de jeux",
+    "The build has too many files to make an image of here (out of memory).":
+        "La build a trop de fichiers pour en faire une image ici (mémoire insuffisante).",
 }
 
 # Languages kept in tables of their own: written after LANGS, every msgid

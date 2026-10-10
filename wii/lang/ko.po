@@ -1610,3 +1610,6 @@ msgstr "아직 치트 파일이 없고 네트워크도 연결되지 않았습니
 
 msgid "This cIOS can't start games"
 msgstr "이 cIOS로는 게임을 실행할 수 없습니다"
+
+msgid "The build has too many files to make an image of here (out of memory)."
+msgstr "빌드의 파일이 너무 많아 여기서 이미지를 만들 수 없습니다(메모리 부족)."

@@ -1610,3 +1610,6 @@ msgstr "Aucun fichier de triche, et le réseau n'est pas actif. Vérifiez les pa
 
 msgid "This cIOS can't start games"
 msgstr "Ce cIOS ne peut pas lancer de jeux"
+
+msgid "The build has too many files to make an image of here (out of memory)."
+msgstr "La build a trop de fichiers pour en faire une image ici (mémoire insuffisante)."

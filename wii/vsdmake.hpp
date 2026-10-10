@@ -26,6 +26,7 @@ struct VsdMakePlan {
     std::uint64_t free_bytes = 0;    // on the SD card, counting an image replaced
     bool replaces = false;           // an image of that name is there already
     unsigned parts = 0;              // 0: one file
+    bool beside = false;             // room to write it beside the image it replaces
     // The key the build will have in the image: "Project+.raw/Project+/codes/RSBE01.gct".
     std::string image_key() const { return image + "/" + key; }
 };
@@ -37,7 +38,8 @@ bool PlanVsdMake(const std::string& key, const std::string& game_id, VsdMakePlan
 
 // Writes the image planned. `progress` (bytes written, the file being
 // copied) is called every few megabytes; false from it stops. A stopped
-// or failed image is deleted, and an image it replaces is gone already.
+// or failed image is deleted. An image it replaces is kept until the new
+// one is whole when the card has room for both, else deleted first.
 bool MakeVsdImage(const VsdMakePlan& plan,
                   const std::function<bool(std::uint64_t written, const std::string& path)>& progress,
                   std::string& error);

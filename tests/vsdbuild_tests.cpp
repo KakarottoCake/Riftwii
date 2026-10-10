@@ -1,9 +1,11 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
+#include <chrono>
 #include <cstring>
 #include <iostream>
 #include <map>
 #include <memory>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -187,6 +189,41 @@ static void test_big_folder() {
     EXPECT_TRUE(same_file(b, "/rex_/pf/fighter/costume_2999.pac", 3099));
 }
 
+// Thousands of long names with one stem: every "~n" is unique, and the
+// plan takes well under a second (it was cubic: 4000 took 40 s on a PC).
+static void test_similar_names() {
+    std::vector<VsdItem> items;
+    for (int i = 0; i < 4000; ++i)
+        items.push_back({"/rex_/Costume Long Name " + std::to_string(i) + ".pac", false, 10});
+    VsdPlan p;
+    std::string error;
+    const auto t0 = std::chrono::steady_clock::now();
+    EXPECT_TRUE(plan_vsd_image(items, 0, p, error));
+    const double s = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
+    EXPECT_TRUE(s < 2.0);
+    std::set<std::string> shorts;
+    for (const VsdPlan::Node& n : p.nodes)
+        if (n.parent >= 0 && !n.directory) shorts.insert(n.short_name);
+    EXPECT_EQ(shorts.size(), std::size_t(4000));
+    EXPECT_TRUE(shorts.count("COSTU~10PAC") == 1);
+    EXPECT_TRUE(shorts.count("COST~100PAC") == 1);
+    // The incremental picker gives what the one-off one does.
+    VsdShortNames names;
+    std::vector<std::string> taken;
+    bool a = false, b = false;
+    for (const char* n : {"gameconfig.txt", "GameConfig.txt", "gameconfig.tx", "A", "a", "gameconfig.txt"}) {
+        const std::string one = vsd_short_name(n, taken, a);
+        EXPECT_EQ(names.add(n, b), one);
+        EXPECT_EQ(a, b);
+        taken.push_back(one);
+    }
+    // A folder past FAT32's 65,536 entries (each name here takes three).
+    std::vector<VsdItem> crowded;
+    for (int i = 0; i < 22000; ++i) crowded.push_back({"/f/long file name " + std::to_string(i), false, 1});
+    EXPECT_FALSE(plan_vsd_image(crowded, 0, p, error));
+    EXPECT_TRUE(error.find("more names") != std::string::npos);
+}
+
 static void test_plans() {
     VsdPlan p;
     std::string error;
@@ -246,6 +283,7 @@ int main() {
     test_short_names();
     test_small_card();
     test_big_folder();
+    test_similar_names();
     test_plans();
     test_progress_stops();
     if (g_failures) {

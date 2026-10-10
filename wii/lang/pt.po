@@ -1610,3 +1610,6 @@ msgstr "Ainda não há arquivo de trapaças e a rede não está ativa. Verifique
 
 msgid "This cIOS can't start games"
 msgstr "Este cIOS não pode iniciar jogos"
+
+msgid "The build has too many files to make an image of here (out of memory)."
+msgstr "A build tem arquivos demais para criar uma imagem aqui (sem memória)."

@@ -6,6 +6,8 @@
 #include <cstdint>
 #include <functional>
 #include <string>
+#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 // A virtual SD card's image made from files on the menu's side: the menu
@@ -91,5 +93,24 @@ std::vector<std::string> vsd_gct_folders(const std::vector<std::uint8_t>& gct);
 // `taken` (each 11 bytes, as stored), and whether long-name entries are
 // needed. For tests and the planner.
 std::string vsd_short_name(const std::string& name, const std::vector<std::string>& taken, bool& needs_long);
+
+// The same for a whole folder, name after name: the names taken are kept
+// in a hash set and each "~n" search goes on from where the last one for
+// the same stem stopped, so thousands of similar long names take time in
+// their number, not its cube.
+class VsdShortNames {
+public:
+    std::string add(const std::string& name, bool& needs_long);
+    // A name already in the folder (11 bytes, as stored).
+    void take(const std::string& stored) { taken_.insert(stored); }
+
+private:
+    std::unordered_set<std::string> taken_;
+    std::unordered_map<std::string, std::uint32_t> next_;  // stem|extension -> next n to try
+};
+
+// FAT32 folders hold at most this many 32-byte entries (long-name parts
+// included).
+constexpr std::uint64_t kVsdMaxFolderEntries = 65536;
 
 }  // namespace riftwii

@@ -13,6 +13,7 @@
 #include <cstdio>
 #include <cstring>
 #include <ctime>
+#include <new>
 
 #include "i18n.hpp"
 #include "log.hpp"
@@ -211,7 +212,9 @@ private:
 
 }  // namespace
 
-bool PlanVsdMake(const std::string& key, const std::string& game_id, VsdMakePlan& out, std::string& error) {
+namespace {
+
+bool plan_make(const std::string& key, const std::string& game_id, VsdMakePlan& out, std::string& error) {
     out = VsdMakePlan();
     out.key = key;
     const std::string top = key.substr(0, key.find('/'));
@@ -286,11 +289,21 @@ bool PlanVsdMake(const std::string& key, const std::string& game_id, VsdMakePlan
     out.parts = out.plan.image_bytes > riftwii::kVsdMaxFileBytes
                     ? static_cast<unsigned>((out.plan.image_bytes + kPartBytes - 1) / kPartBytes)
                     : 0;
+    if (out.parts > riftwii::kMaxVsdParts) {
+        error = tr("The build cannot go into an image: {1}.", {"it would need more than " +
+                                                                std::to_string(riftwii::kMaxVsdParts) + " parts"});
+        return false;
+    }
     std::uint64_t replaced = 0;
     for (const std::string& f : image_files(out.image)) replaced += file_size(f);
     out.replaces = !image_files(out.image).empty();
     struct statvfs vfs;
-    if (statvfs("sd:/", &vfs) == 0) out.free_bytes = std::uint64_t(vfs.f_bavail) * vfs.f_frsize + replaced;
+    if (statvfs("sd:/", &vfs) == 0) {
+        out.free_bytes = std::uint64_t(vfs.f_bavail) * vfs.f_frsize + replaced;
+        // Room for the new image beside the old one: the old one is only
+        // let go once the new one is whole (MakeVsdImage).
+        out.beside = out.free_bytes - replaced >= out.plan.image_bytes + (8ull << 20);
+    }
     logf("Image: %s from %s: %u file(s), %u folder(s), %llu MiB, cluster %u, %llu MiB free\n", out.image.c_str(),
          key.c_str(), out.plan.files, out.plan.folders, static_cast<unsigned long long>(out.plan.image_bytes >> 20),
          out.plan.cluster_bytes, static_cast<unsigned long long>(out.free_bytes >> 20));
@@ -304,17 +317,39 @@ bool PlanVsdMake(const std::string& key, const std::string& game_id, VsdMakePlan
     return true;
 }
 
+}  // namespace
+
+// The list of a big build (tens of thousands of files) and its plan take
+// megabytes: running out is a message, not a crash.
+bool PlanVsdMake(const std::string& key, const std::string& game_id, VsdMakePlan& out, std::string& error) {
+    try {
+        return plan_make(key, game_id, out, error);
+    } catch (const std::bad_alloc&) {
+        out = VsdMakePlan();
+        error = tr("The build has too many files to make an image of here (out of memory).");
+        logf("Image: out of memory planning %s\n", key.c_str());
+        return false;
+    }
+}
+
 bool MakeVsdImage(const VsdMakePlan& plan,
                   const std::function<bool(std::uint64_t written, const std::string& path)>& progress,
                   std::string& error) {
     mkdir("sd:/riftwii", 0777);
-    for (const std::string& f : image_files(plan.image)) {
-        if (std::remove(f.c_str()) != 0) {
-            error = tr("Cannot replace {1}.", {f});
-            return false;
+    // Written under a name of its own when the card has room for both, and
+    // swapped in once whole: a power cut or a full card then leaves the
+    // old image as it was. Without that room the old one goes first.
+    const std::string fresh = plan.image + ".new";
+    for (const std::string& f : image_files(fresh)) std::remove(f.c_str());  // a cut-short earlier try
+    if (!plan.beside) {
+        for (const std::string& f : image_files(plan.image)) {
+            if (std::remove(f.c_str()) != 0) {
+                error = tr("Cannot replace {1}.", {f});
+                return false;
+            }
         }
     }
-    CardSink sink(plan.image, plan.parts != 0);
+    CardSink sink(plan.beside ? fresh : plan.image, plan.parts != 0);
     CardReader reader;
     std::vector<std::uint8_t> buffer(1 << 20);
     std::string why;
@@ -334,6 +369,25 @@ bool MakeVsdImage(const VsdMakePlan& plan,
         logf("Image: %s not made: %s\n", plan.image.c_str(), why.c_str());
         error = why;
         return false;
+    }
+    if (plan.beside) {
+        for (const std::string& f : image_files(plan.image)) {
+            if (std::remove(f.c_str()) != 0) {
+                for (const std::string& w : sink.written()) std::remove(w.c_str());
+                error = tr("Cannot replace {1}.", {f});
+                return false;
+            }
+        }
+        for (const std::string& w : sink.written()) {
+            // "X.raw.new" -> "X.raw", "X.raw.new.001" -> "X.raw.001".
+            std::string to = w;
+            to.erase(std::strlen(kFolder) + plan.image.size(), 4);
+            if (std::rename(w.c_str(), to.c_str()) != 0) {
+                error = tr("Cannot replace {1}.", {to});
+                logf("Image: cannot rename %s to %s\n", w.c_str(), to.c_str());
+                return false;
+            }
+        }
     }
     logf("Image: %s made (%u file(s))\n", plan.image.c_str(), static_cast<unsigned>(sink.written().size()));
     return true;
