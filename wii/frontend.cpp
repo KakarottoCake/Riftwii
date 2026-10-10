@@ -203,9 +203,9 @@ LaunchSource SelectedSource(const FrontendState& state) {
 
 std::string ScanPackages(FrontendState& state) {
     state.model.packages.clear();
-    // A reused frontend state must not carry game A's saved mode into game B
-    // when B has no choices file. restore() below may replace this default.
-    state.model.save_mode = "nand";
+    // A reused frontend state must not carry game A's saved mode, cheats or
+    // settings into game B. restore() below may replace these defaults.
+    state.model.forget_game_choices();
     // sd:/riivolution, then the packs cached from RiiFS servers. Hidden
     // files are never packs: macOS leaves a binary "._name.xml"
     // (AppleDouble) beside every file it copies to FAT.

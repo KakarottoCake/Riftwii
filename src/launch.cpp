@@ -324,6 +324,11 @@ std::string LaunchModel::save() const {
     return text;
 }
 
+void LaunchModel::forget_game_choices() {
+    save_mode = "nand";
+    game = GameSettings{};
+}
+
 void LaunchModel::restore(const std::string& text) {
     // Apply choices before package on/off state.  A legacy enabled simple
     // package may have an explicitly saved empty choice from before the

@@ -174,6 +174,12 @@ public:
     // files that stored an empty choice before this convenience existed.
     std::string save() const;
     void restore(const std::string& text);
+    // Back to what a game with no choices file has: saves on the Wii and
+    // every GameSettings default. restore() only sets what the file names,
+    // so a model reused for another game must start here, or the last
+    // game's cheats, cIOS and server carry over (a tester's game page said
+    // "On, 2 picked" for one cheat).
+    void forget_game_choices();
 };
 
 }  // namespace riftwii

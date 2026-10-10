@@ -293,6 +293,19 @@ static void test_saves() {
     prefs.restore("*riftwii*\taspect\tgame\n");
     EXPECT_EQ(prefs.game.aspect, std::string("game"));
     EXPECT_TRUE(prefs.save().find("*riftwii*\taspect\tgame\n") != std::string::npos);
+    // A model reused for another game starts from the defaults: game A's
+    // cheats and settings do not join game B's.
+    riftwii::LaunchModel reused;
+    reused.restore("*riftwii*\tsaves\tfresh\n*riftwii*\tcheats\ton\n*riftwii*\tcheat\tA's cheat\n"
+                   "*riftwii*\tserver\twiimmfi\n*riftwii*\tcios\t249\n");
+    reused.forget_game_choices();
+    reused.restore("*riftwii*\tcheat\tB's cheat\n");
+    EXPECT_EQ(reused.save_mode, std::string("nand"));
+    EXPECT_FALSE(reused.game.cheats);
+    EXPECT_EQ(reused.game.cheat_names.size(), static_cast<std::size_t>(1));
+    EXPECT_EQ(reused.game.cheat_names.count("B's cheat"), static_cast<std::size_t>(1));
+    EXPECT_EQ(reused.game.server, std::string("global"));
+    EXPECT_EQ(reused.game.cios, std::string("global"));
     // Old choice files without the settings line restore as nand.
     riftwii::LaunchModel legacy;
     legacy.add("a.xml", "sd:/riivolution/a.xml", kModA, &disc);
