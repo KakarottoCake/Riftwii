@@ -493,6 +493,41 @@ void test_corruption() {
         EXPECT_FALSE(NtfsVolume::mount_at(v.reader(), 0, vol, error));
     }
     {
+        // A run longer than the volume: its length times the cluster size
+        // wraps to 0 (2^52 * 4096 = 2^64), which left the read making no
+        // progress for ever. It is cut to the volume and the read works.
+        Volume v(0);
+        Record root(3);
+        root.resident(0x90, index_root({{19, "mid.bin", false, 1000, 1, 0}, {0, "", false, 0, 1, 1, true}}, true), u"$I30");
+        root.non_resident(0xA0, runs({{kRootIndx, std::uint64_t(1) << 52}}), 0, 1, 2 * kCluster, 0, u"$I30");
+        v.record(5, root.finish());
+        NtfsVolume vol;
+        EXPECT_TRUE(NtfsVolume::mount_at(v.reader(), 0, vol, error));
+        std::vector<VolumeEntry> es;
+        EXPECT_TRUE(vol.list("/", es, error));
+        EXPECT_EQ(joined(names(es)), "games/,mid.bin,wbfs/,zz.txt");
+    }
+    {
+        // The same for $MFT's own run list, read while mounting: the
+        // mount comes back (the root's record is in the first run).
+        Volume v(0);
+        Record mft(1);
+        mft.non_resident(0x80, runs({{kMftA, std::uint64_t(1) << 52}}), 0, 7, 32 * kRecord);
+        v.record(0, mft.finish());
+        NtfsVolume vol;
+        EXPECT_TRUE(NtfsVolume::mount_at(v.reader(), 0, vol, error));
+    }
+    {
+        // A volume (or its place on the drive) too big for 64-bit offsets.
+        Volume v(0);
+        put64(v.at(0x28), std::uint64_t(1) << 60);
+        NtfsVolume vol;
+        EXPECT_FALSE(NtfsVolume::mount_at(v.reader(), 0, vol, error));
+        EXPECT_CONTAINS(error, "size");
+        Volume w(0);
+        EXPECT_FALSE(NtfsVolume::mount_at(w.reader(), std::uint64_t(1) << 50, vol, error));
+    }
+    {
         Volume v(0);
         v.record(5, Record(1).finish());  // root not a directory
         NtfsVolume vol;

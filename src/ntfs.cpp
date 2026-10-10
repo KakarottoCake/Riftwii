@@ -37,6 +37,7 @@ constexpr std::size_t kMaxIndexBlocks = 1u << 16;
 constexpr std::size_t kMaxDirectoryEntries = 100000;
 constexpr std::size_t kMaxPathDepth = 64;
 constexpr std::uint32_t kReadChunkBlocks = 128;
+constexpr std::uint64_t kMaxSectors = std::uint64_t(1) << 48;
 
 std::uint16_t le16(const std::uint8_t* p) { return static_cast<std::uint16_t>(p[0] | (p[1] << 8)); }
 std::uint32_t le32(const std::uint8_t* p) {
@@ -276,7 +277,15 @@ bool NtfsVolume::mount_at(BlockReader reader, std::uint64_t volume_lba, NtfsVolu
         error = "NTFS record or index block size is invalid";
         return false;
     }
-    g.total_clusters = le64(b + 0x28) / g.sectors_per_cluster;
+    // Bounded so every byte offset on the volume (and the volume's own
+    // place on the drive) fits in 64 bits: 2^48 sectors is far beyond any
+    // drive, and keeps cluster arithmetic from wrapping.
+    const std::uint64_t sectors = le64(b + 0x28);
+    if (sectors > kMaxSectors || volume_lba > kMaxSectors) {
+        error = "NTFS volume size is out of range";
+        return false;
+    }
+    g.total_clusters = sectors / g.sectors_per_cluster;
     g.mft_lcn = le64(b + 0x30);
     if (g.total_clusters == 0 || g.mft_lcn >= g.total_clusters) {
         error = "NTFS MFT location is outside the volume";
@@ -373,8 +382,17 @@ bool NtfsVolume::read_runs(const std::vector<NtfsRun>& runs, std::uint64_t byte_
             error = "NTFS run points past the end of the volume";
             return false;
         }
-        const std::uint64_t avail = (run->vcn + run->length - vcn) * cb - within;
+        // What is left of this run, and of the volume after it. A run
+        // longer than the volume (a damaged or crafted run list) is cut to
+        // the volume, so its length times the cluster size cannot wrap
+        // round to nothing and leave this loop reading 0 bytes for ever.
+        const std::uint64_t clusters = std::min(run->length - (vcn - run->vcn), geo_.total_clusters - lcn);
+        const std::uint64_t avail = clusters * cb - within;
         const std::size_t take = static_cast<std::size_t>(std::min<std::uint64_t>(length, avail));
+        if (take == 0) {
+            error = "NTFS read made no progress";
+            return false;
+        }
         if (!read_device(geo_.volume_lba * kBlock + lcn * cb + within, take, out)) {
             error = "NTFS device read failed";
             return false;
