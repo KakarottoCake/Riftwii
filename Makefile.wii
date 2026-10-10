@@ -195,7 +195,7 @@ VERSION_STAMP := riftwii_version.stamp
 VERSION_USERS := $(patsubst %.cpp,%.o,$(patsubst %.c,%.o,$(notdir $(shell grep -l RIFTWII_VERSION $(foreach dir,wii src runtime,$(PROJECT_ROOT)/$(dir)/*.c $(PROJECT_ROOT)/$(dir)/*.cpp) 2>/dev/null))))
 $(shell [ "$$(cat $(VERSION_STAMP) 2>/dev/null)" = "$(RIFTWII_VERSION)" ] || echo "$(RIFTWII_VERSION)" > $(VERSION_STAMP))
 STABLE_STAMP := riftwii_stable.stamp
-$(shell [ "$$(cat $(STABLE_STAMP) 2>/dev/null)" = "$(RIFTWII_STABLE)" ] || echo "$(RIFTWII_STABLE)" > $(STABLE_STAMP))
+$(shell [ -f $(STABLE_STAMP) ] && [ "$$(cat $(STABLE_STAMP))" = "$(RIFTWII_STABLE)" ] || echo "$(RIFTWII_STABLE)" > $(STABLE_STAMP))
 $(VERSION_USERS): $(VERSION_STAMP) $(STABLE_STAMP)
 #---------------------------------------------------------------------------------
 # This rule links in binary data with .ttf, .png, .ogg and .pcm extensions
