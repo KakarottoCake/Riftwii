@@ -2212,12 +2212,12 @@ static std::string DiscTileNote()
 // holds seven lines), for the release script to keep up to date. Shown
 // once when they change; Settings > What's new shows them again.
 static const char* const kWhatsNew[] = {
-	"Search shows the matching games as you type",
-	"Mod packs show the names their authors gave them",
-	"USB games with SD saves start again on d2x 249",
-	"A mod with nothing picked can be turned off at Start",
-	"Safer SD images, and many crash and freeze fixes",
-	"WiiFlow plugins can start games through RiftWii",
+	"In-game screenshots buzz the Wii Remote when saved",
+	"The GameCube adapter works with USB games on Wii U",
+	"Project+ and PMEX return to RiftWii without crashing",
+	"A missing mod folder now says how to fix it",
+	"Shelf boxes in their case's colour",
+	"Banner sounds start at once; GameCube pointer fixed",
 };
 
 static std::string WhatsNewText()
