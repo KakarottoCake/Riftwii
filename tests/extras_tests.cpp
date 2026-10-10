@@ -374,6 +374,29 @@ void TestCheats() {
     EXPECT_TRUE(parse_cheat_text("RMCP01\nMario Kart Wii\n\nSpeed\n04000000 00000001\n", file, error));
     EXPECT_EQ(file.game_id, "RMCP01");
     EXPECT_EQ(file.title, "Mario Kart Wii");
+    // The merge and the value filling read the header the same way: a
+    // player's own file starting with "Speed2" keeps that cheat through a
+    // download, and "MoonJp" can have its values filled in.
+    const std::string own = "Speed2\n04000000 00000001\n\nMoon Jump\n04000004 00000002\n";
+    const std::string merged_own = merge_cheat_text(
+        "RMCE01\nMario Kart Wii\n\nItem Hack\n04000008 00000003\n", own, kept);
+    EXPECT_EQ(kept, 2u);
+    EXPECT_TRUE(parse_cheat_text(merged_own, file, error));
+    EXPECT_EQ(file.game_id, "RMCE01");
+    EXPECT_EQ(file.cheats.size(), 3u);
+    bool speed2 = false;
+    for (const auto& c : file.cheats) speed2 = speed2 || c.name == "Speed2";
+    EXPECT_TRUE(speed2);
+    std::string moon = "MoonJp\n28XXXXXX 00000000\n";
+    fields = cheat_fields(moon, "MoonJp");
+    EXPECT_EQ(fields.size(), 1u);
+    if (fields.size() == 1) {
+        fields[0].value = "1";
+        EXPECT_TRUE(fill_cheat_values(moon, "MoonJp", fields, error));
+        EXPECT_TRUE(parse_cheat_text(moon, file, error));
+        EXPECT_EQ(file.cheats.size(), 1u);
+        if (file.cheats.size() == 1) EXPECT_EQ(file.cheats[0].words[0], 0x28000001u);
+    }
 }
 
 // A render mode table as the SDK lays it out (GXRModeObj, 60 bytes).
