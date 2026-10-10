@@ -1490,14 +1490,19 @@ bool select_choice(Package& package, const std::string& option, const std::strin
         return false;
     }
     Option& o = package.options[oi];
-    if (choice.empty() || choice == "0" || SameFolded(choice, "disabled")) {
+    const auto off = [&] {
         o.selected = 0;
         error.clear();
         return true;
-    }
+    };
+    if (choice.empty()) return off();
+    // A choice of that name first: a pack's own "Disabled" (or "0") choice,
+    // with patches of its own, was taken for the option being off, and the
+    // mod launched without them (a review).
     std::size_t ci = PickOne(o.choices.size(), [&](std::size_t i, bool folded) {
         return folded ? SameFolded(o.choices[i].name, choice) : o.choices[i].name == choice;
     });
+    if (ci == std::string::npos && (choice == "0" || SameFolded(choice, "disabled"))) return off();
     if (ci == std::string::npos) {
         // A 1-based number.
         std::size_t n = 0;

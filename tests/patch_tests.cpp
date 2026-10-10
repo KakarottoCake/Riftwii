@@ -487,6 +487,24 @@ static void test_select_choice() {
     EXPECT_TRUE(PlanFiles(pkg, disc, out, err));
     EXPECT_EQ(out.size(), std::size_t(1));
     if (!out.empty()) EXPECT_EQ(out[0].disc, std::string("/b.bin"));
+    // A choice really named "Disabled" is that choice, not the option off.
+    {
+        riftwii::Package named;
+        EXPECT_TRUE(riftwii::parse_package(
+            "<wiidisc version=\"1\"><id game=\"RSBE\"/><options><section name=\"Mod\"><option name=\"Music\">"
+            "<choice name=\"Enabled\"><patch id=\"e\"/></choice><choice name=\"Disabled\"><patch id=\"d\"/></choice>"
+            "</option></section></options><patch id=\"e\"><file disc=\"/e.bin\" external=\"e.bin\"/></patch>"
+            "<patch id=\"d\"><file disc=\"/d.bin\" external=\"d.bin\"/></patch></wiidisc>",
+            named, err));
+        EXPECT_TRUE(riftwii::select_choice(named, "Mod/Music", "Disabled", err));
+        EXPECT_EQ(named.options[0].selected, std::size_t(2));
+        EXPECT_TRUE(riftwii::select_choice(named, "Music", "disabled", err));
+        EXPECT_EQ(named.options[0].selected, std::size_t(2));
+        EXPECT_TRUE(riftwii::select_choice(named, "Music", "", err));
+        EXPECT_EQ(named.options[0].selected, std::size_t(0));
+        EXPECT_TRUE(riftwii::select_choice(named, "Music", "0", err));
+        EXPECT_EQ(named.options[0].selected, std::size_t(0));
+    }
     // Two options with the same name in different sections need the section.
     riftwii::Option twin = pkg.options[0];
     twin.section = "Other";
