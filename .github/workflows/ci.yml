@@ -1,0 +1,123 @@
+# SPDX-FileCopyrightText: 2026 RiftWii contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# The checks docs/DEVELOPING.md asks of every change, run on each pull
+# request and every push: the host tests, the Wii build (DOL and channel)
+# and the translations. Nothing is published: no release, no downloadable
+# build.
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  # Every branch, not only main: commits made without a PR are checked
+  # too, and a contributor sees the result on their fork before opening
+  # one. Tags don't start a run.
+  push:
+    branches: ['**']
+  workflow_dispatch:
+
+# Read-only: a PR from a fork can't write anything with this token.
+permissions:
+  contents: read
+
+# A new push to a PR or branch cancels its run still in progress. On main
+# every commit keeps its own run, so each one shows whether it built.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  host-tests:
+    name: Host tests (Linux)
+    # x86-64 Linux: the low-memory suites (rtfs, rtfat, hook, rvz) need
+    # buffers below 4 GiB (MAP_32BIT), which macOS and ARM don't give.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install Ninja
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ninja-build
+      # As docs/DEVELOPING.md builds it: no build type. With -O2, GCC 13
+      # warns about a memmove in src/wfcpatch.cpp it can't prove safe.
+      - name: Configure
+        run: cmake -S . -B build-host -G Ninja
+      - name: Build
+        run: cmake --build build-host
+      - name: Test
+        run: |
+          set -o pipefail
+          ctest --test-dir build-host --output-on-failure -j4 -V 2>&1 | tee ctest.log
+      # The runtime code is 32-bit like the Wii: rtfs, rtfat and hook need
+      # buffers below 4 GiB, and without one they skip and still pass.
+      # Here they must really run.
+      - name: Low-memory tests ran
+        run: |
+          if grep -E "below 4 GiB|no 32-bit addressable buffer" ctest.log; then
+            echo "::error::A test found no memory below 4 GiB and skipped. The low-memory tests did not run."
+            exit 1
+          fi
+
+  wii-build:
+    name: Wii build (devkitPPC)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    # devkitPro's own image, pinned so a new devkitPPC or libogc can't turn
+    # a PR red by itself. Moving the pin is its own PR. This one is
+    # devkitPPC 16.1.0 (October 2026).
+    container: devkitpro/devkitppc@sha256:44cb1a920e1ec3ec7c06767493c3b85f8d643d6137cc4661f0201895ac6e4967
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # Makefile.wii numbers the build by the commits since the
+          # release's tag, so it needs the history and the tags.
+          fetch-depth: 0
+      - name: Install zstd
+        run: apt-get update -qq && apt-get install -y -qq zstd
+      # A fork has none of RiftWii's tags (GitHub doesn't copy them), so
+      # a push to a fork takes them from the main repository.
+      - name: Fetch the release tags
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git fetch --quiet --no-tags https://github.com/KakarottoCake/Riftwii.git 'refs/tags/*:refs/tags/*'
+      - name: Build the DOL
+        run: |
+          make -f Makefile.wii -j"$(nproc)"
+          test -s riftwii.dol
+      - name: Build the channel
+        run: make -f Makefile.channel -j"$(nproc)"
+
+  translations:
+    name: Translations
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      # A key twice in the table: Python keeps the last one without a word.
+      - name: No duplicate keys
+        run: |
+          python3 - <<'EOF'
+          import ast, sys
+          tree = ast.parse(open("tools/lang_source.py", encoding="utf-8").read())
+          bad = False
+          for node in ast.walk(tree):
+              if isinstance(node, ast.Assign) and isinstance(node.value, ast.Dict):
+                  name = getattr(node.targets[0], "id", "?")
+                  seen = set()
+                  for key in node.value.keys:
+                      if isinstance(key, ast.Constant):
+                          if key.value in seen:
+                              print(f"::error file=tools/lang_source.py,line={key.lineno}::{name}: key twice: {key.value!r}")
+                              bad = True
+                          seen.add(key.value)
+          sys.exit(1 if bad else 0)
+          EOF
+      # Every msgid is in the menu's sources, and the .po files are what
+      # the table writes (they are never edited by hand).
+      - name: Table and .po files agree
+        run: |
+          python3 tools/lang_source.py
+          git diff --exit-code -- wii/lang || {
+            echo "::error::wii/lang/*.po differ from tools/lang_source.py. Run python3 tools/lang_source.py and commit the result."
+            exit 1
+          }
