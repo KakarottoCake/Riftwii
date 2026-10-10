@@ -319,7 +319,8 @@ bool Fat32Volume::next_cluster(std::uint32_t cluster, std::uint32_t& next, std::
     return true;
 }
 
-bool Fat32Volume::chain(std::uint32_t first_cluster, std::vector<Fragment>& out, std::string& error) const {
+bool Fat32Volume::chain(std::uint32_t first_cluster, std::vector<Fragment>& out, std::string& error,
+                        std::uint64_t max_clusters) const {
     if (!reader_) {
         error = "volume not mounted";
         return false;
@@ -336,7 +337,7 @@ bool Fat32Volume::chain(std::uint32_t first_cluster, std::vector<Fragment>& out,
     // self/short cycle after O(prefix + cycle) FAT steps, rather than after
     // the volume's advertised cluster count.
     std::uint32_t tortoise = first_cluster;
-    std::uint64_t power = 1, steps_since_reset = 0;
+    std::uint64_t power = 1, steps_since_reset = 0, taken = 0;
     for (;;) {
         if (cluster < 2 || cluster > geo_.cluster_count + 1) {
             error = "cluster chain leaves the volume at cluster " + std::to_string(cluster);
@@ -361,6 +362,14 @@ bool Fat32Volume::chain(std::uint32_t first_cluster, std::vector<Fragment>& out,
         if (next == 0) {
             error = "cluster chain hits a free cluster after " + std::to_string(cluster);
             return false;
+        }
+        // Enough for the file: what follows is not part of its data.
+        if (++taken >= max_clusters) {
+            if (next < 2 || next > geo_.cluster_count + 1) {
+                error = "cluster chain leaves the volume at cluster " + std::to_string(next);
+                return false;
+            }
+            break;
         }
         if (power == steps_since_reset) {
             tortoise = cluster;
@@ -611,7 +620,13 @@ bool Fat32Volume::lookup(const std::string& path, Fat32File& out, bool& missing,
         missing = true;
         return false;
     }
-    if (!chain(file.entry.first_cluster, file.fragments, error)) {
+    // A file follows as many clusters as its size needs, no more.
+    const std::uint64_t cluster_bytes =
+        std::uint64_t(geo_.sectors_per_cluster) * geo_.blocks_per_sector() * kFatBlockBytes;
+    const std::uint64_t needed = file.entry.is_directory
+                                     ? UINT64_MAX
+                                     : std::max<std::uint64_t>(1, (file.entry.size + cluster_bytes - 1) / cluster_bytes);
+    if (!chain(file.entry.first_cluster, file.fragments, error, needed)) {
         error = "'" + path + "': " + error;
         return false;
     }

@@ -86,8 +86,12 @@ public:
     bool list(const std::string& path, std::vector<Fat32Entry>& out, std::string& error) const;
     bool list(const std::string& path, std::vector<Fat32Entry>& out, bool& missing, std::string& error) const;
     // Follows a cluster chain into coalesced fragments. Rejects free, bad
-    // and out-of-range entries and any chain longer than the volume.
-    bool chain(std::uint32_t first_cluster, std::vector<Fragment>& out, std::string& error) const;
+    // and out-of-range entries and any chain longer than the volume. With
+    // `max_clusters`, stops after that many (a file needs no more than its
+    // size: a crafted 1-byte file could otherwise name two million
+    // fragments); the entry after the last is still checked.
+    bool chain(std::uint32_t first_cluster, std::vector<Fragment>& out, std::string& error,
+               std::uint64_t max_clusters = UINT64_MAX) const;
     // Reads file bytes through the fragment list (a test oracle and the
     // basis of an SD-backed ByteSource). Fails past the end of the file.
     bool read(const Fat32File& file, std::uint64_t offset, std::uint8_t* out, std::size_t length) const;

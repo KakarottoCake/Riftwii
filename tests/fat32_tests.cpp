@@ -68,8 +68,9 @@ struct Fixture {
         cat(root, short_entry("SHORT   TXT", 0x20, 4, static_cast<std::uint32_t>(short_txt.size()), 0x18));
         cat(root, short_entry("\xE5LETED  TXT", 0x20, 7, cb));
         cat(root, lfn_entries(ucs(u"orphan long name.txt"), "ORPHAN  TXT", 0x20, 40, 10, true));
-        cat(root, short_entry("LOOP    BIN", 0x20, 30, 100));
-        cat(root, short_entry("BAD     BIN", 0x20, 41, 100));
+        // Long enough that the broken links lie inside the files' data.
+        cat(root, short_entry("LOOP    BIN", 0x20, 30, 10 * cb));
+        cat(root, short_entry("BAD     BIN", 0x20, 41, 3 * cb));
         cat(root, short_entry("FREE    BIN", 0x20, 43, 100));
         cat(root, short_entry("RANGE   BIN", 0x20, 44, 100));
         cat(root, short_entry("OVERSIZEBIN", 0x20, 45, 100000));
@@ -311,6 +312,36 @@ static void test_fast_cycle_detection_and_fat_cache() {
     EXPECT_TRUE(reads <= 2);
 }
 
+// A file's chain is followed only as far as its size: a 1-byte file whose
+// chain names fifty scattered clusters (or loops after its data) is
+// one fragment, not fifty.
+static void test_chain_capped_by_size() {
+    Fixture fx(512, 1, 0);
+    std::vector<std::uint32_t> scattered;
+    for (std::uint32_t c = 150; c < 250; c += 2) scattered.push_back(c);
+    fx.img.write_data({150}, {'x'});
+    fx.img.chain(scattered);  // after the write, which ends its chain at 150
+    Bytes root;
+    cat(root, short_entry("TINY    BIN", 0x20, 150, 1));
+    cat(root, short_entry("WHOLE   BIN", 0x20, 150, static_cast<std::uint32_t>(scattered.size() * fx.img.cluster_bytes())));
+    fx.img.write_dir({2}, root);
+    riftwii::Fat32Volume v;
+    std::string err;
+    EXPECT_TRUE(riftwii::Fat32Volume::mount(fx.img.reader(), v, err));
+    riftwii::Fat32File f;
+    EXPECT_TRUE(v.lookup("/tiny.bin", f, err));
+    EXPECT_EQ(f.fragments.size(), std::size_t(1));
+    Bytes data;
+    EXPECT_TRUE(ReadAll(v, f, data));
+    EXPECT_EQ(data.size(), std::size_t(1));
+    EXPECT_TRUE(v.lookup("/whole.bin", f, err));
+    EXPECT_EQ(f.fragments.size(), scattered.size());
+    // The whole chain is still there for a caller that asks for it.
+    std::vector<Fragment> all;
+    EXPECT_TRUE(v.chain(150, all, err));
+    EXPECT_EQ(all.size(), scattered.size());
+}
+
 // Chains all over the FAT, visited in turn, read each window of the FAT
 // once: a pack's thousands of files lie all over the card, and one window
 // re-read per file took 20 seconds on a Wii.
@@ -519,6 +550,7 @@ static void test_big_reads_are_chunked() {
 }
 
 int main() {
+    test_chain_capped_by_size();
     test_geometry_and_lookup(512, 1, 0);
     test_geometry_and_lookup(512, 8, 0);
     test_geometry_and_lookup(1024, 4, 2048);
