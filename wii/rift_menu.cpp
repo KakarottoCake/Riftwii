@@ -2213,6 +2213,7 @@ static const char* const kWhatsNew[] = {
 	"USB games with SD saves start again on d2x 249",
 	"A mod with nothing picked can be turned off at Start",
 	"Safer SD images, and many crash and freeze fixes",
+	"Launches from other loaders wait for the USB drive",
 };
 
 static std::string WhatsNewText()
