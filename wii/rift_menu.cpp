@@ -895,6 +895,7 @@ private:
 };
 
 static std::string g_homeNotice;
+static bool g_homeNoticeShown = false;  // its toast, once
 
 // A notice that slides down at Home's top and goes again: an error (the
 // warning colour's "!") or news (the accent's "i") on a card, the text
@@ -1303,7 +1304,11 @@ static ChannelChoice ShowChannel(int& index, int count, const std::string& first
 	return choice == 0 ? ChannelChoice::Start : choice == 2 ? ChannelChoice::Page : ChannelChoice::Back;
 }
 
-void SetHomeNotice(const std::string& text) { g_homeNotice = text; }
+void SetHomeNotice(const std::string& text)
+{
+	g_homeNotice = text;
+	g_homeNoticeShown = false;
+}
 
 static bool PacksOnUsb(const FrontendState& state)
 {
@@ -1980,7 +1985,7 @@ static void RunUpdate(const std::string& latest)
 		ResumeGui();
 		while (1) usleep(THREAD_SLEEP);
 	}
-	g_homeNotice = tr("RiftWii {1} is installed. Start RiftWii again to use it.", {latest});
+	SetHomeNotice(tr("RiftWii {1} is installed. Start RiftWii again to use it.", {latest}));
 }
 
 // Sends a problem report (wii/reportsend.hpp) and shows its link, with a
@@ -2015,7 +2020,7 @@ static void SendReport(const std::string& reason)
 	if (code.size != 0) box.Add(&qr, 588 - 16 - side - 56 - 16);
 	box.Wait();
 	// Home's status line said what went wrong; now it says it was sent.
-	g_homeNotice = tr("Report sent: {1}", {r.link});
+	SetHomeNotice(tr("Report sent: {1}", {r.link}));
 }
 
 static bool g_oldCiosReminded = false;  // ShowOldCiosReminder, once a session
@@ -2056,7 +2061,7 @@ static bool AgreeToUpdate(const std::string& latest)
 		    tr("Update"), tr("Not now")) == 0)
 		return true;
 	riftwii::wii::NoteUpdateDeclined(latest);
-	g_homeNotice = tr("RiftWii {1} is out. Settings > Check for a new version installs it.", {latest});
+	SetHomeNotice(tr("RiftWii {1} is out. Settings > Check for a new version installs it.", {latest}));
 	return false;
 }
 
@@ -2344,8 +2349,8 @@ static bool OfferChannelUpdateOnce()
 		// installer on the card is an old one (a tester's put version 8
 		// on again).
 		logf("Channel: still version %u after the installer\n", version);
-		g_homeNotice = tr("The RiftWii channel is still version {1}. If you just installed it, the installer on the SD card is an old one: copy apps/riftwii_channel from the newest RiftWii zip onto the card.",
-			{std::to_string(version)});
+		SetHomeNotice(tr("The RiftWii channel is still version {1}. If you just installed it, the installer on the SD card is an old one: copy apps/riftwii_channel from the newest RiftWii zip onto the card.",
+			{std::to_string(version)}));
 		return false;
 	}
 	// Not before an in-app update has brought the new installer.
@@ -2442,7 +2447,7 @@ static bool TakeUpdateCheck()
 	riftwii::wii::mem::CheckHeap("after the update check");
 	if (!ok) logf("Update check: %s\n", why.c_str());
 	else if (newer && riftwii::wii::UpdateInstalled(latest))
-		g_homeNotice = tr("RiftWii {1} is installed. Start RiftWii again to use it.", {latest});
+		SetHomeNotice(tr("RiftWii {1} is installed. Start RiftWii again to use it.", {latest}));
 	else if (newer && AgreeToUpdate(latest))
 		RunUpdate(latest);
 	return true;
@@ -2703,8 +2708,14 @@ static int MenuSource(FrontendState& state)
 	Toast toast;
 	w.Append(&toast);
 	mainWindow->Append(&w);
-	// News left for Home (a report sent, a new version): a notice as well.
-	if (!g_homeNotice.empty()) toast.Show(g_homeNotice, false);
+	// News left for Home (a report sent, a new version): a notice as well,
+	// once. Home is built again each time Settings or a game's page is
+	// left, and a tester saw "Menu font: Wii Menu" pop up every time; the
+	// status line keeps the news until a game is opened.
+	if (!g_homeNotice.empty() && !g_homeNoticeShown) {
+		toast.Show(g_homeNotice, false);
+		g_homeNoticeShown = true;
+	}
 
 	const auto showView = [&] {
 		// A search lists every game whatever the filter, so it is the view.
