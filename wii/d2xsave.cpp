@@ -280,7 +280,12 @@ bool enable_d2x_saves(const std::string& dir, std::string& error) {
         mounted = IOS_Ioctlv(fat, kFatMountSd, 0, 0, nullptr);
         IOS_Close(fat);
     }
-    const s32 fs = IOS_Open("/dev/fs", 0);
+    // Only with the card mounted in d2x: emulation turned on over a card
+    // d2x could not mount left ES unable to open the game (a tester's
+    // Wii Sports Resort from USB on IOS249: "mount -101, set 0", then
+    // "open partition failed: DI reply 64 (ES -101)"). RiftWii's own save
+    // code keeps the save instead.
+    const s32 fs = mounted >= 0 ? IOS_Open("/dev/fs", 0) : -1;
     if (fs >= 0) {
         static ioctlv vectors[2] ATTRIBUTE_ALIGN(32);
         mode = kModeSd;
@@ -296,8 +301,13 @@ bool enable_d2x_saves(const std::string& dir, std::string& error) {
     LogReopen();
     logf("Saves: d2x NAND emulation from %s: FAT module %d, mount %d, set %d%s\n", dir.c_str(), fat, mounted, set,
          remounted ? "" : "; the SD card did not mount again");
-    if (fat < 0 || set < 0) {
-        error = "d2x refused the NAND emulation (FAT module " + std::to_string(fat) + ", set " + std::to_string(set) + ")";
+    if (fat < 0 || mounted < 0) {
+        error = "d2x could not mount the SD card (FAT module " + std::to_string(fat) + ", mount " +
+                std::to_string(mounted) + ")";
+        return false;
+    }
+    if (set < 0) {
+        error = "d2x refused the NAND emulation (set " + std::to_string(set) + ")";
         return false;
     }
     if (!remounted) {
