@@ -321,8 +321,15 @@ void UpdateMetaVersion(const std::string& dol_path, const std::string& latest) {
 bool CheckChannel(const std::string& channel, bool force, std::string& latest, bool& newer, std::string& error) {
     newer = false;
     UpdateNote note = ReadUpdateNote();
-    // The last answer stands in only for the same channel.
-    if (note.channel != channel) note = UpdateNote{};
+    // The last answer stands in only for the same channel. What the
+    // in-app update installed stays: its themes and channel installer are
+    // fetched once it has started, whichever channel it came from (a
+    // Beta player moving to a stable release lost them).
+    if (note.channel != channel) {
+        const std::string installed = note.installed;
+        note = UpdateNote{};
+        note.installed = installed;
+    }
     latest = note.latest;
     // Asked at every start: releases can come hours apart, and a day-old
     // answer hid them until the next day (testers had to look in Settings).

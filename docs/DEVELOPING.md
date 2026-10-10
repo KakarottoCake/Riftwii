@@ -165,7 +165,18 @@ game crashes a few steps later instead. The next RiftWii start writes
    `riftwii-update.pack`. The notes give what changed and the DOL's
    SHA-256, and end with a "License and source" line: GPL-3.0-or-later,
    the source at the tag, the credits in `NOTICE.md`.
-5. When a third-party piece is added: a row in `NOTICE.md` (what, where
+5. Release candidates and stable releases. A release candidate is a beta
+   build like any other (`--prerelease`, titled "RiftWii YYMM-N RC1") that
+   testers go through with `docs/TESTING.md`. A stable release is that
+   same commit, rebuilt with `make -f Makefile.wii RIFTWII_STABLE=1` and
+   published without `--prerelease` (so it is GitHub's latest release),
+   titled "RiftWii Stable YYMM-N". The flag is the only difference from
+   the tested build: with it, Settings > Updates on Automatic follows
+   Stable although the version has a dash. Leave it out and every player
+   on Automatic ends up on Beta. Players on the release candidate are not
+   offered the stable build (it has the same version), and need not be:
+   it is the same code.
+6. When a third-party piece is added: a row in `NOTICE.md` (what, where
    from with the commit, license), `SPDX-FileCopyrightText` lines (one per
    holder, above the license line) in each file that follows it, and a
    line in the README's Credits and in
