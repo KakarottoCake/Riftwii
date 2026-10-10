@@ -62,6 +62,20 @@ bool same_disc_identity(const DiscIdentity& left, const DiscIdentity& right) {
     return left.id == right.id && left.revision == right.revision && left.number == right.number;
 }
 
+std::string pack_title(const LaunchPackage& p) {
+    if (!p.valid || p.code_build()) return "";
+    std::string title;
+    for (const Option& o : p.package.options) {
+        const std::size_t from = o.section.find_first_not_of(" \t");
+        const std::string section = from == std::string::npos
+                                        ? ""
+                                        : o.section.substr(from, o.section.find_last_not_of(" \t") - from + 1);
+        if (section.empty() || (!title.empty() && section != title)) return "";
+        title = section;
+    }
+    return title;
+}
+
 bool needs_launch_pipeline(bool has_selected_packages, const std::string& save_mode) {
     return has_selected_packages || save_mode == "separate" || save_mode == "fresh";
 }

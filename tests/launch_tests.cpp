@@ -265,6 +265,35 @@ static void test_persistence() {
     EXPECT_TRUE(nodisc.set_enabled(0, true));
 }
 
+// A pack's name: the one section its options sit in, else none (the
+// menu then shows the file's name).
+static void test_pack_title() {
+    riftwii::DiscIdentity disc{"RMCE01", 0, 0};
+    riftwii::LaunchModel model;
+    model.add("a.xml", "sd:/riivolution/a.xml", kModA, &disc);
+    model.add("two.xml", "sd:/riivolution/two.xml",
+              "<wiidisc version=\"1\"><id game=\"RMCE\"/><options>"
+              "<section name=\"One\"><option name=\"A\"><choice name=\"On\"><patch id=\"p\"/></choice></option></section>"
+              "<section name=\"Two\"><option name=\"B\"><choice name=\"On\"><patch id=\"p\"/></choice></option></section>"
+              "</options><patch id=\"p\"><file disc=\"/x.bin\" external=\"x.bin\"/></patch></wiidisc>",
+              &disc);
+    model.add("padded.xml", "sd:/riivolution/padded.xml",
+              "<wiidisc version=\"1\"><id game=\"RMCE\"/><options><section name=\" RiiPlay Expansion Pack \">"
+              "<option name=\"A\"><choice name=\"On\"><patch id=\"p\"/></choice></option></section></options>"
+              "<patch id=\"p\"><file disc=\"/x.bin\" external=\"x.bin\"/></patch></wiidisc>",
+              &disc);
+    model.add("bare.xml", "sd:/riivolution/bare.xml",
+              "<wiidisc version=\"1\"><id game=\"RMCE\"/>"
+              "<patch id=\"all\"><memory offset=\"0x80001800\" value=\"60000000\"/></patch></wiidisc>",
+              &disc);
+    model.add("broken.xml", "sd:/riivolution/broken.xml", "<wiidisc", &disc);
+    EXPECT_EQ(riftwii::pack_title(model.packages[0]), std::string("Tracks"));
+    EXPECT_EQ(riftwii::pack_title(model.packages[1]), std::string(""));  // two sections
+    EXPECT_EQ(riftwii::pack_title(model.packages[2]), std::string("RiiPlay Expansion Pack"));
+    EXPECT_EQ(riftwii::pack_title(model.packages[3]), std::string(""));  // no options
+    EXPECT_EQ(riftwii::pack_title(model.packages[4]), std::string(""));  // cannot be read
+}
+
 static void test_saves() {
     riftwii::DiscIdentity disc{"RMCE01", 0, 0};
     riftwii::LaunchModel model;
@@ -533,6 +562,7 @@ int main() {
     test_pack_index();
     test_merged_options();
     test_saves();
+    test_pack_title();
     test_pack_saves();
     if (g_failures == 0) {
         std::cout << "ALL LAUNCH TESTS PASSED" << std::endl;

@@ -63,6 +63,13 @@ struct SaveOverride {
     std::string note;  // one log line when dir is set
 };
 
+// The name a pack's author gave it: the section all its options sit in
+// (Riivolution's menu shows the same), e.g. "RiiPlay Expansion Pack" for
+// WiiPlay.xml. Empty when its options sit in more than one section or in
+// none, for code builds and for packs that cannot be read: the menu then
+// shows the file's name.
+std::string pack_title(const LaunchPackage& p);
+
 // Folder the title's saves are served from when the UI asks for separation
 // and no <savegame external> patch claimed one (XML wins): an empty dir
 // means no override. An empty game_id means no override.
