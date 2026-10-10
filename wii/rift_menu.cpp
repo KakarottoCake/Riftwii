@@ -1108,6 +1108,9 @@ static ChannelChoice ShowChannel(int& index, int count, const std::string& first
 	// the screen stood still meanwhile).
 	std::vector<std::uint8_t> pendingSound;
 	int soundIn = -1;  // frames until it starts; -1 none due
+	// After + or -, once the slide is over; a banner just opened starts
+	// its sound at once, as on the Wii Menu (a tester heard it late).
+	int soundDelay = 0;
 	const auto logShown = [&] {
 		if (view.frames == 0) return;
 		logf("Banner of %s: %u frames; the CPU drew each in %.1f ms on average, %.1f ms at most; %u frame(s) late "
@@ -1147,7 +1150,7 @@ static ChannelChoice ShowChannel(int& index, int count, const std::string& first
 		index = i;
 		std::vector<std::uint8_t>().swap(bytes);
 		pendingSound.swap(sound);
-		soundIn = 12;
+		soundIn = soundDelay;
 		// Where a switch's wait goes (a tester: + and - lag).
 		logf("Screen: channel %s (read %u ms, checked %u ms, banner %u ms)\n", shownId.c_str(),
 			diff_msec(t0, t1), diff_msec(t1, t2), diff_msec(t2, t3));
@@ -1254,6 +1257,7 @@ static ChannelChoice ShowChannel(int& index, int count, const std::string& first
 				ResumeGui();
 				const bool read = load(i, bytes);
 				HaltGui();
+				soundDelay = 12;
 				if (read && show(i, bytes, t0, gettime())) break;
 			}
 			transition::Begin(turn, area);
