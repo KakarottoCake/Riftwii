@@ -145,6 +145,16 @@ void UpdatePads()
  * screen used to take straight back. The pointer comes back when it is
  * really used again: the stick pushed past kClaim, or the Remote's
  * pointer moved kRemoteMove pixels from where it was.
+ *
+ * A Remote facing away from the sensor bar still sees a stray light now
+ * and then, and libogc reports a valid pointer somewhere for a frame or
+ * two: that took the channel from a GameCube controller's pointer, which
+ * jumped about the screen (a tester). The Remote's pointer only counts
+ * once it has been valid kSteadyFrames frames in a row (it takes over, a
+ * pad's pointer starts at it, it comes back from the D-pad), where it
+ * moved from is forgotten whenever it goes, and while a pad is in use its
+ * pointer can't take the channel for kPadHold frames after the pad was
+ * last used. The Remote's buttons still take it at once.
  ***************************************************************************/
 static void UpdatePadPointers()
 {
@@ -163,6 +173,10 @@ static void UpdatePadPointers()
 	const int kDeadZone = 20;       // of about +-100: worn sticks rest past the old 14
 	const int kClaim = 45;          // a push, not drift, takes the channel from the Remote
 	const float kRemoteMove = 40.0f;
+	const int kSteadyFrames = 10;   // about a sixth of a second: a stray light never lasts that long
+	const int kPadHold = 90;        // a second and a half
+	static int irSteady[4] = {0, 0, 0, 0};  // frames in a row with the Remote's own pointer valid
+	static int padQuiet[4] = {kPadHold, kPadHold, kPadHold, kPadHold};  // frames since the pad was last used
 	static float steadyX[4], steadyY[4], steadyA[4];  // the steadied Remote pointer, in menu units
 	static float steadySpeed[4];
 	static float prevTilt[4], tiltRate[4];  // the Remote's tilt last frame, and how fast it turns
@@ -318,6 +332,12 @@ static void UpdatePadPointers()
 		} else {
 			steadyOn[i] = false;
 		}
+		irSteady[i] = remote && w->ir.valid ? (irSteady[i] < kSteadyFrames ? irSteady[i] + 1 : kSteadyFrames) : 0;
+		const bool pointing = irSteady[i] >= kSteadyFrames;  // the Remote's pointer, for real
+		if (!pointing) {
+			anchored[i] = false;
+			dpadAnchored[i] = false;
+		}
 		// A Classic Controller's left stick (scaled to the GameCube
 		// stick's range, about +-100) when the GameCube stick is idle.
 		const bool classic = remote && w->exp.type == WPAD_EXP_CLASSIC;
@@ -332,6 +352,8 @@ static void UpdatePadPointers()
 		// Controller's are the high ones.
 		const bool remotePressed = remote && (w->btns_d & 0xFFFF);
 		const bool padPressed = userInput[i].pad.btns_d || (classic && (w->btns_d & ~0xFFFFu));
+		if (padPressed || r > kDeadZone) padQuiet[i] = 0;
+		else if (padQuiet[i] < kPadHold) ++padQuiet[i];
 
 		if ((remote && (w->btns_d & kRemoteDpad)) || (userInput[i].pad.btns_d & kPadDpad)) {
 			dpadHas[i] = true;
@@ -339,7 +361,7 @@ static void UpdatePadPointers()
 		}
 		if (dpadHas[i]) {
 			bool back = r > kClaim;  // the stick, really pushed
-			if (remote && w->ir.valid) {
+			if (pointing) {
 				if (!dpadAnchored[i]) {
 					dpadX[i] = w->ir.x;
 					dpadY[i] = w->ir.y;
@@ -365,9 +387,10 @@ static void UpdatePadPointers()
 
 		if (remotePressed) {
 			padHas[i] = false;
-		} else if (padHas[i] && remote && w->ir.valid) {
+		} else if (padHas[i] && pointing && padQuiet[i] >= kPadHold) {
 			// The Remote's own pointer (the scan refreshed it): it takes
-			// back over once it really moves.
+			// back over once it really moves, a while after the pad was
+			// last used.
 			if (!anchored[i]) {
 				anchorX[i] = w->ir.x;
 				anchorY[i] = w->ir.y;
@@ -383,7 +406,7 @@ static void UpdatePadPointers()
 			// game, then pressing a Classic Controller's (or a GameCube
 			// controller's) A, put the pointer back in the screen's middle,
 			// or where the pad last left it, before the press landed.
-			if (remote && w->ir.valid) {
+			if (pointing) {
 				x[i] = w->ir.x;
 				y[i] = w->ir.y;
 				placed[i] = true;
