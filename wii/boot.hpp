@@ -213,10 +213,13 @@ bool LaunchPackKeepsSaves();
 bool is_wii_u();
 
 // With AHBPROT off (the Homebrew Channel's way), opens the running IOS's
-// NAND permission check until its next reload, so the Wii Menu's and the
+// NAND permission check until close_nand_permissions, so the Wii Menu's and the
 // cIOSes' own files can be read and written. `who` names the caller in
 // the log. False without AHBPROT access or when the check was not found.
 bool open_nand_permissions(const char* who);
+// Puts it back, when the IOS patched is still the one running. Every
+// open_nand_permissions is followed by this once its files are read.
+void close_nand_permissions(const char* who);
 
 // With AHBPROT off, makes the running IOS's ES leave hardware access on
 // for the next IOS it starts (as USB Loader GX and WiiFlow do before their

@@ -36,6 +36,7 @@
 #include "memlimits.hpp"
 #include "netsock.hpp"
 #include "riftwii/mempatch.hpp"
+#include "riftwii/nandcheck.hpp"
 #include "padhook.hpp"
 #include "resident.hpp"
 #include "faulthook.hpp"
@@ -1435,6 +1436,8 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
                  why.c_str());
         }
     }
+    // Never left open for the game (it may keep this IOS).
+    close_nand_permissions("Launch");
     logf("Handing over\n");
 
     // Low-memory globals the SDK expects from the System Menu (wiibrew
@@ -1951,40 +1954,86 @@ void apply_return_to(const std::vector<MemoryRegion>& loaded, u64 title, std::ui
 
 // IOS's file system keeps the Wii Menu's files to the Wii Menu. With
 // AHBPROT off (the Homebrew Channel starts apps that way) the PPC can
-// write IOS's memory in MEM2, so the permission check can be opened for
-// the rest of this IOS's life: in its Thumb code, "cmp r3, r1; beq" before
-// "movs r5, #0x66" becomes an unconditional branch past the refusal. IOS's
-// memory is written only there, and only after IOS refused. An IOS
-// reload (the game's) brings the check back.
+// write IOS's memory in MEM2, so the permission check can be opened: in
+// its Thumb code, "cmp r3, r1; beq" before "movs r5, #0x66" becomes an
+// unconditional branch past the refusal (riftwii/nandcheck.hpp). Only the
+// first match is written (IOS's heaps may hold copies of the bytes), only
+// after IOS refused, and it is read back. It is closed again after each
+// use (close_nand_permissions): an IOS reload would undo it, but a game
+// started on the running IOS (game-time SD, the GameCube adapter) has none.
+namespace {
+u32 g_nand_open = 0;        // the word written, 0 when the check is closed
+u32 g_nand_before = 0;      // what it held
+u32 g_nand_match = 0;       // where the pattern starts
+unsigned g_nand_shift = 0;
+}  // namespace
+
 bool open_nand_permissions(const char* who) {
+    if (g_nand_open) return true;
     if (read32(0x0D800064) != 0xFFFFFFFF) {
         logf("%s: no AHBPROT access, IOS%d left as it is\n", who, IOS_GetVersion());
         return false;
     }
-    static const u8 kCheck[] = {0x42, 0x8B, 0xD0, 0x01, 0x25, 0x66};
+    // IOS lives at the top of MEM2; read and written uncached, with MEM2's
+    // protection off meanwhile.
+    constexpr u32 kFrom = 0xD3400000, kTo = 0xD4000000;
     const u16 protection = read16(0x0D8B420A);
-    write16(0x0D8B420A, 2);  // MEM2 protection off while IOS's code is written
-    int patched = 0;
-    // IOS lives at the top of MEM2; read and written uncached.
-    for (u32 at = 0xD3400000; at + sizeof kCheck <= 0xD4000000; at += 2) {
-        volatile u8* p = reinterpret_cast<volatile u8*>(at);
-        bool same = true;
-        for (std::size_t i = 0; same && i < sizeof kCheck; ++i) same = p[i] == kCheck[i];
-        if (!same) continue;
-        // beq +2 -> b +2, as one aligned 32-bit store: a 16-bit store
-        // through MEM2's uncached mirror may not keep the bytes around it
-        // (see keep_hardware_access). The 16-bit store hung both consoles
-        // that ran this (the log stopped right after "opened": 2.7.0 RC5
-        // on a Wii, 3.3.2's Menu font on a vWii).
-        const u32 word = (at + 2) & ~3u;
-        const unsigned shift = ((at + 2) & 3) == 0 ? 16 : 0;
-        volatile u32* w = reinterpret_cast<volatile u32*>(word);
-        *w = (*w & ~(0xFFFFu << shift)) | (0xE001u << shift);
-        ++patched;
+    write16(0x0D8B420A, 2);
+    std::size_t at = 0;
+    if (!riftwii::find_nand_check(reinterpret_cast<const u8*>(kFrom), kTo - kFrom, at)) {
+        write16(0x0D8B420A, protection);
+        logf("%s: IOS%d's NAND permission check not found\n", who, IOS_GetVersion());
+        return false;
     }
+    const u32 match = kFrom + static_cast<u32>(at);
+    // beq +2 -> b +2, as one aligned 32-bit store: a 16-bit store through
+    // MEM2's uncached mirror may not keep the bytes around it (see
+    // keep_hardware_access). The 16-bit store hung both consoles that ran
+    // this (2.7.0 RC5 on a Wii, 3.3.2's Menu font on a vWii).
+    const riftwii::NandCheckStore store = riftwii::nand_check_store(match);
+    volatile u32* w = reinterpret_cast<volatile u32*>(store.word);
+    const u32 before = *w;
+    const u32 after = riftwii::nand_check_opened(before, store.shift);
+    *w = after;
+    const u32 read_back = *w;
+    if (read_back != after) *w = before;
     write16(0x0D8B420A, protection);
-    logf("%s: IOS%d's NAND permission check %s\n", who, IOS_GetVersion(), patched ? "opened" : "not found");
-    return patched != 0;
+    if (read_back != after) {
+        logf("%s: IOS%d's NAND permission check at 0x%08x did not take the write (read 0x%08x)\n", who,
+             IOS_GetVersion(), match, read_back);
+        return false;
+    }
+    g_nand_open = store.word;
+    g_nand_before = before;
+    g_nand_match = match;
+    g_nand_shift = store.shift;
+    logf("%s: IOS%d's NAND permission check opened at 0x%08x\n", who, IOS_GetVersion(), match);
+    return true;
+}
+
+void close_nand_permissions(const char* who) {
+    if (!g_nand_open) return;
+    const u32 word = g_nand_open;
+    g_nand_open = 0;
+    // Only the IOS that was patched is put back: after a reload the bytes
+    // there are the new IOS's (or no longer the pattern with our branch).
+    const u16 protection = read16(0x0D8B420A);
+    write16(0x0D8B420A, 2);
+    volatile u8* p = reinterpret_cast<volatile u8*>(g_nand_match);
+    bool ours = riftwii::nand_check_half(*reinterpret_cast<volatile u32*>(word), g_nand_shift) == 0xE001u;
+    for (std::size_t i = 0; ours && i < sizeof riftwii::kNandCheck; ++i) {
+        if (i == 2 || i == 3) continue;
+        ours = p[i] == riftwii::kNandCheck[i];
+    }
+    if (!ours) {
+        write16(0x0D8B420A, protection);
+        logf("%s: IOS%d's NAND permission check already closed (IOS reloaded)\n", who, IOS_GetVersion());
+        return;
+    }
+    *reinterpret_cast<volatile u32*>(word) = g_nand_before;
+    const bool back = *reinterpret_cast<volatile u32*>(word) == g_nand_before;
+    write16(0x0D8B420A, protection);
+    logf("%s: IOS%d's NAND permission check %s\n", who, IOS_GetVersion(), back ? "closed" : "could not be closed");
 }
 
 // ES gives a title it starts hardware access only when the title's TMD asks
@@ -2072,7 +2121,22 @@ void write_play_log(const DiscProbe& probe) {
     std::memcpy(buffer, record.data(), sizeof buffer);
     s32 r = ISFS_Initialize();
     if (r >= 0) r = write_play_file(buffer, sizeof buffer);
-    if (r == -102 && open_nand_permissions("Message Board")) r = write_play_file(buffer, sizeof buffer);
+    if (r == -102) {
+        // As for the Menu font (wii/main.cpp): a marker on the card while
+        // IOS is patched, so a console the patch stops is not stopped at
+        // every launch. Found at the next launch, the entry is skipped.
+        constexpr const char* kTry = "sd:/riftwii/message_board_try.txt";
+        if (FILE* f = std::fopen(kTry, "rb")) {
+            std::fclose(f);
+            std::remove(kTry);
+            logf("Message Board: stopped RiftWii last time (%s was left); not written this time\n", kTry);
+        } else {
+            if (FILE* m = std::fopen(kTry, "wb")) std::fclose(m);
+            if (open_nand_permissions("Message Board")) r = write_play_file(buffer, sizeof buffer);
+            close_nand_permissions("Message Board");
+            std::remove(kTry);
+        }
+    }
     if (r == static_cast<s32>(sizeof buffer)) {
         logf("Message Board: play log written (%s)\n", name.c_str());
     } else {

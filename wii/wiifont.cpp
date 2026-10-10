@@ -32,8 +32,18 @@ u8* read_nand(const char* path, bool keep, std::size_t& size, std::string& why) 
     s32 fd = ISFS_Open(path, ISFS_OPEN_READ);
     // The shared contents are the Wii Menu's: the Homebrew Channel's IOS
     // refuses them to an app (-102) until its permission check is opened
-    // (boot.hpp; Dolphin never checks, a Wii and a vWii do).
-    if (fd == -102 && open_nand_permissions("Menu font")) fd = ISFS_Open(path, ISFS_OPEN_READ);
+    // (boot.hpp; Dolphin never checks, a Wii and a vWii do). Closed again
+    // once the file is read, whichever way this returns.
+    struct Closer {
+        bool opened = false;
+        ~Closer() {
+            if (opened) close_nand_permissions("Menu font");
+        }
+    } closer;
+    if (fd == -102 && open_nand_permissions("Menu font")) {
+        closer.opened = true;
+        fd = ISFS_Open(path, ISFS_OPEN_READ);
+    }
     if (fd < 0) {
         why = std::string(path) + " could not be opened (" + std::to_string(fd) + ")";
         return nullptr;
