@@ -1388,3 +1388,213 @@ msgstr "No se puede leer sd:{1}."
 
 msgid "The build has more than {1} files."
 msgstr "La build tiene más de {1} archivos."
+
+msgid "Disc Channel"
+msgstr "Canal Disco"
+
+msgid "Would you like the Disc Channel to appear on the home screen?"
+msgstr "¿Quieres que el Canal Disco aparezca en la pantalla de Inicio?"
+
+msgid "Yes"
+msgstr "Sí"
+
+msgid "No"
+msgstr "No"
+
+msgid "You can bring it back any time in Settings > Disc Channel."
+msgstr "Puedes volver a mostrarlo cuando quieras en Ajustes > Canal Disco."
+
+msgid "The Disc drive's tile on Home, for playing from a disc. A disc still plays from it when it is off: switch it back on here."
+msgstr "La casilla del lector de discos en Inicio, para jugar desde un disco. Si está desactivada y quieres jugar desde un disco, vuelve a activarla aquí."
+
+msgid "Update the RiftWii channel?"
+msgstr "¿Actualizar el canal de RiftWii?"
+
+msgid "The RiftWii channel on your Wii Menu is an older version ({1}). The new one ({2}) starts RiftWii with full access to the Wii's hardware, which some features need. Reinstall it with the channel installer: it opens, then brings you back here. Settings > RiftWii channel on the Wii Menu can open it later too."
+msgstr "El canal de RiftWii de tu Menú Wii es una versión anterior ({1}). El nuevo ({2}) inicia RiftWii con acceso completo al hardware de la Wii, que algunas funciones necesitan. Reinstálalo con el instalador del canal: se abre y luego te trae de vuelta aquí. También puedes abrirlo más tarde en Ajustes > Canal de RiftWii en el Menú Wii."
+
+msgid "The Wii Menu's font needs hardware access or a d2x cIOS, and neither worked this time, so RiftWii's font is used. Start RiftWii from an up to date Homebrew Channel or the RiftWii channel (version 9)."
+msgstr "La fuente del Menú de Wii necesita acceso al hardware o un cIOS d2x, y esta vez no funcionó ninguno, así que se usa la fuente de RiftWii. Inicia RiftWii desde un Homebrew Channel actualizado o desde el canal de RiftWii (versión 9)."
+
+msgid "1. Use the USB port nearest the edge."
+msgstr "1. Usa el puerto USB más cercano al borde."
+
+msgid "2. Big drives: a Y-cable or their own power."
+msgstr "2. Unidades grandes: un cable en Y o su propia alimentación."
+
+msgid "3. FAT32 or NTFS (or a WBFS drive)."
+msgstr "3. FAT32 o NTFS (o una unidad WBFS)."
+
+msgid "4. Games in a wbfs or games folder."
+msgstr "4. Juegos en una carpeta wbfs o games."
+
+msgid "5. A d2x cIOS in slot 249, 250 or 251."
+msgstr "5. Un cIOS d2x en el slot 249, 250 o 251."
+
+msgid "A to Z"
+msgstr "De la A a la Z"
+
+msgid "Change"
+msgstr "Cambiar"
+
+msgid "Check each cIOS"
+msgstr "Probar cada cIOS"
+
+msgid "Check each cIOS?"
+msgstr "¿Probar cada cIOS?"
+
+msgid "Checking the USB ports"
+msgstr "Comprobando los puertos USB"
+
+msgid "Counts the games you start from RiftWii, for Recently played, Home order and a game's page. Off: nothing more is counted, and the counts are not shown."
+msgstr "Cuenta los juegos que inicias desde RiftWii, para Jugados hace poco, el orden de Inicio y la página de cada juego. Desactivado: no se cuenta nada más y no se muestran los recuentos."
+
+msgid "Downloaded: still {1} cheats, the list was already the latest."
+msgstr "Descargado: siguen siendo {1} trucos, la lista ya era la más reciente."
+
+msgid "Downloaded: {1} cheats now ({2} before)."
+msgstr "Descargado: ahora {1} trucos (antes {2})."
+
+msgid "Front"
+msgstr "Delante"
+
+msgid "GameCube rumble"
+msgstr "Vibración de GameCube"
+
+msgid "Games from"
+msgstr "Juegos de"
+
+msgid "Games from the SD card or a USB drive run on a d2x cIOS, not on the menu's IOS 58. RiftWii restarts, asks each IOS whether it sees the adapter where it is plugged in now, and shows the answer on Home. Then send a problem report."
+msgstr "Los juegos de la tarjeta SD o de una unidad USB se ejecutan con un cIOS d2x, no con el IOS 58 del menú. RiftWii se reinicia, pregunta a cada IOS si ve el adaptador donde está conectado ahora y muestra la respuesta en Inicio. Después, envía un informe de problemas."
+
+msgid "Gets the latest cheats from the GeckoCodes archive. Your own cheats and values stay."
+msgstr "Obtiene los trucos más recientes del archivo de GeckoCodes. Tus propios trucos y valores se mantienen."
+
+msgid "Getting a USB drive working"
+msgstr "Hacer funcionar una unidad USB"
+
+msgid "Help"
+msgstr "Ayuda"
+
+msgid "Home order"
+msgstr "Orden de Inicio"
+
+msgid "Its values"
+msgstr "Sus valores"
+
+msgid "Its values could not be found in the file."
+msgstr "No se encontraron sus valores en el archivo."
+
+msgid "Last played"
+msgstr "Último jugado"
+
+msgid "Most played"
+msgstr "Más jugados"
+
+msgid "Off for testing: settings.txt has \"debug_off = returnto\", so games go back to the Wii Menu. Press A here to take that switch out."
+msgstr "Desactivado para pruebas: settings.txt tiene \"debug_off = returnto\", así que los juegos vuelven al Menú Wii. Pulsa A aquí para quitar ese ajuste."
+
+msgid "Off: GameCube controllers don't rumble in games, in the adapter or the Wii's own ports."
+msgstr "Desactivado: los mandos de GameCube no vibran en los juegos, ni en el adaptador ni en los puertos de la Wii."
+
+msgid "Off: Wii Remotes don't rumble in any game. A game's own page also has Rumble, for that game only."
+msgstr "Desactivado: los Wii Remote no vibran en ningún juego. La página de cada juego también tiene Vibración, solo para ese juego."
+
+msgid "Play"
+msgstr "Jugar"
+
+msgid "Play history"
+msgstr "Historial de juego"
+
+msgid "SD and USB"
+msgstr "SD y USB"
+
+msgid "Scan the code for the guide."
+msgstr "Escanea el código para ver la guía."
+
+msgid "Set values"
+msgstr "Elegir valores"
+
+msgid "Test switches are on"
+msgstr "Hay ajustes de prueba activos"
+
+msgid "Test switches cleared: games start with all of RiftWii's fixes again."
+msgstr "Ajustes de prueba quitados: los juegos vuelven a iniciarse con todas las correcciones de RiftWii."
+
+msgid "The RiftWii channel is still version {1}. If you just installed it, the installer on the SD card is an old one: copy apps/riftwii_channel from the newest RiftWii zip onto the card."
+msgstr "El canal de RiftWii sigue en la versión {1}. Si acabas de instalarlo, el instalador de la tarjeta SD es antiguo: copia apps/riftwii_channel del zip más reciente de RiftWii a la tarjeta."
+
+msgid "The cheat has no notes about its values: its author's page may say what they are."
+msgstr "El truco no tiene notas sobre sus valores: la página de su autor puede decir cuáles son."
+
+msgid "The menu restarts to show it when you leave Settings."
+msgstr "El menú se reinicia para mostrarlo al salir de Ajustes."
+
+msgid "The order of the games on Home. Last played and Most played put the games you played from RiftWii first, the rest after them A to Z."
+msgstr "El orden de los juegos en Inicio. Último jugado y Más jugados ponen primero los juegos que jugaste desde RiftWii, y el resto después, de la A a la Z."
+
+msgid "The values were not saved: {1}"
+msgstr "Los valores no se guardaron: {1}"
+
+msgid "This cheat has values to fill in (the X's): press A to set them."
+msgstr "Este truco tiene valores por rellenar (las X): pulsa A para elegirlos."
+
+msgid "This is the font on screen now."
+msgstr "Esta es la fuente que se ve ahora."
+
+msgid "This is the theme on screen now."
+msgstr "Este es el tema que se ve ahora."
+
+msgid "This version's main changes. The release notes on GitHub have all of them."
+msgstr "Los cambios principales de esta versión. Las notas de la versión en GitHub los tienen todos."
+
+msgid "USB drive help"
+msgstr "Ayuda con la unidad USB"
+
+msgid "Values of {1}: {2}. Press A to change them."
+msgstr "Valores de {1}: {2}. Pulsa A para cambiarlos."
+
+msgid "What a USB drive needs to work with RiftWii, step by step."
+msgstr "Lo que necesita una unidad USB para funcionar con RiftWii, paso a paso."
+
+msgid "What's new"
+msgstr "Novedades"
+
+msgid "What's new in RiftWii {1}"
+msgstr "Novedades de RiftWii {1}"
+
+msgid "Which USB port is the adapter plugged into?"
+msgstr "¿En qué puerto USB está conectado el adaptador?"
+
+msgid "Which drive's games Home lists. With a game on both, one drive's copy is enough."
+msgstr "De qué unidad muestra Inicio los juegos. Si un juego está en ambas, basta con la copia de una."
+
+msgid "Which port?"
+msgstr "¿Qué puerto?"
+
+msgid "Wii Remote rumble"
+msgstr "Vibración del Wii Remote"
+
+msgid "settings.txt turns parts of RiftWii off for testing (debug_off = {1}). Clear them unless the RiftWii developers asked you to keep them."
+msgstr "settings.txt desactiva partes de RiftWii para pruebas (debug_off = {1}). Quítalas salvo que los desarrolladores de RiftWii te pidieran mantenerlas."
+
+msgid "{1} and the new font"
+msgstr "{1} y la nueva fuente"
+
+msgid "{1}: {2} ({3} digits)"
+msgstr "{1}: {2} ({3} dígitos)"
+
+msgid "{1}: {2}. It is on."
+msgstr "{1}: {2}. Está activado."
+
+msgid "Your cIOS is out of date"
+msgstr "Tu cIOS está desactualizado"
+
+msgid "IOS{1} is {2}. You're on an out-of-date cIOS, and this makes it harder to find out which bugs are causing what, so please update to the latest cIOS (d2x v11 beta3). Follow this guide: {3}"
+msgstr "IOS{1} es {2}. Usas un cIOS desactualizado, y eso hace más difícil saber qué causa cada error, así que actualiza al cIOS más reciente (d2x v11 beta3). Sigue esta guía: {3}"
+
+msgid "No cheat file yet, and the network is not up. Check the Wii's Internet settings, then choose Download."
+msgstr "Aún no hay archivo de trucos y la red no está activa. Revisa la configuración de Internet de la Wii y luego elige Descargar."
+
+msgid "This cIOS can't start games"
+msgstr "Este cIOS no puede iniciar juegos"

@@ -1388,3 +1388,213 @@ msgstr "sd:{1}을 읽을 수 없습니다."
 
 msgid "The build has more than {1} files."
 msgstr "해당 빌드에는 {1}개 이상의 파일이 포함되어 있습니다."
+
+msgid "Disc Channel"
+msgstr "디스크 채널"
+
+msgid "Would you like the Disc Channel to appear on the home screen?"
+msgstr "홈 화면에 디스크 채널을 표시할까요?"
+
+msgid "Yes"
+msgstr "예"
+
+msgid "No"
+msgstr "아니요"
+
+msgid "You can bring it back any time in Settings > Disc Channel."
+msgstr "언제든지 설정 > 디스크 채널에서 다시 표시할 수 있습니다."
+
+msgid "The Disc drive's tile on Home, for playing from a disc. A disc still plays from it when it is off: switch it back on here."
+msgstr "디스크로 플레이하기 위한 홈의 디스크 드라이브 타일입니다. 꺼져 있어도 디스크는 계속 실행됩니다. 여기에서 다시 켤 수 있습니다."
+
+msgid "Update the RiftWii channel?"
+msgstr "RiftWii 채널을 업데이트할까요?"
+
+msgid "The RiftWii channel on your Wii Menu is an older version ({1}). The new one ({2}) starts RiftWii with full access to the Wii's hardware, which some features need. Reinstall it with the channel installer: it opens, then brings you back here. Settings > RiftWii channel on the Wii Menu can open it later too."
+msgstr "Wii 메뉴의 RiftWii 채널이 이전 버전({1})입니다. 새 버전({2})은 일부 기능에 필요한 Wii 하드웨어 전체 접근 권한으로 RiftWii를 실행합니다. 채널 설치 프로그램으로 다시 설치하세요. 설치 프로그램이 열린 뒤 이곳으로 돌아옵니다. 나중에 설정 > Wii 메뉴의 RiftWii 채널에서도 열 수 있습니다."
+
+msgid "The Wii Menu's font needs hardware access or a d2x cIOS, and neither worked this time, so RiftWii's font is used. Start RiftWii from an up to date Homebrew Channel or the RiftWii channel (version 9)."
+msgstr "Wii 메뉴 글꼴을 쓰려면 하드웨어 접근 권한이나 d2x cIOS가 필요한데, 이번에는 둘 다 작동하지 않아 RiftWii 글꼴을 사용합니다. 최신 홈브류 채널이나 RiftWii 채널(버전 9)에서 RiftWii를 실행하세요."
+
+msgid "1. Use the USB port nearest the edge."
+msgstr "1. 가장자리에 가장 가까운 USB 포트를 사용하세요."
+
+msgid "2. Big drives: a Y-cable or their own power."
+msgstr "2. 대용량 드라이브: Y자 케이블이나 별도 전원을 사용하세요."
+
+msgid "3. FAT32 or NTFS (or a WBFS drive)."
+msgstr "3. FAT32 또는 NTFS (또는 WBFS 드라이브)."
+
+msgid "4. Games in a wbfs or games folder."
+msgstr "4. 게임은 wbfs 또는 games 폴더에 넣으세요."
+
+msgid "5. A d2x cIOS in slot 249, 250 or 251."
+msgstr "5. 슬롯 249, 250 또는 251에 d2x cIOS."
+
+msgid "A to Z"
+msgstr "가나다순"
+
+msgid "Change"
+msgstr "변경"
+
+msgid "Check each cIOS"
+msgstr "각 cIOS 확인"
+
+msgid "Check each cIOS?"
+msgstr "각 cIOS를 확인할까요?"
+
+msgid "Checking the USB ports"
+msgstr "USB 포트 확인 중"
+
+msgid "Counts the games you start from RiftWii, for Recently played, Home order and a game's page. Off: nothing more is counted, and the counts are not shown."
+msgstr "RiftWii에서 실행한 게임을 기록해 최근 플레이, 홈 정렬 순서, 게임 페이지에 사용합니다. 끔: 더 이상 기록하지 않으며 기록도 표시하지 않습니다."
+
+msgid "Downloaded: still {1} cheats, the list was already the latest."
+msgstr "다운로드 완료: 치트는 그대로 {1}개입니다. 이미 최신 목록이었습니다."
+
+msgid "Downloaded: {1} cheats now ({2} before)."
+msgstr "다운로드 완료: 이제 치트 {1}개 (이전 {2}개)."
+
+msgid "Front"
+msgstr "앞쪽"
+
+msgid "GameCube rumble"
+msgstr "게임큐브 진동"
+
+msgid "Games from"
+msgstr "게임 위치"
+
+msgid "Games from the SD card or a USB drive run on a d2x cIOS, not on the menu's IOS 58. RiftWii restarts, asks each IOS whether it sees the adapter where it is plugged in now, and shows the answer on Home. Then send a problem report."
+msgstr "SD 카드나 USB 드라이브의 게임은 메뉴의 IOS 58이 아닌 d2x cIOS에서 실행됩니다. RiftWii가 다시 시작되어 각 IOS가 지금 꽂힌 위치의 어댑터를 인식하는지 확인하고, 결과를 홈에 표시합니다. 그런 다음 문제 보고서를 보내세요."
+
+msgid "Gets the latest cheats from the GeckoCodes archive. Your own cheats and values stay."
+msgstr "GeckoCodes 보관소에서 최신 치트를 가져옵니다. 직접 추가한 치트와 값은 그대로 유지됩니다."
+
+msgid "Getting a USB drive working"
+msgstr "USB 드라이브 사용 준비"
+
+msgid "Help"
+msgstr "도움말"
+
+msgid "Home order"
+msgstr "홈 정렬 순서"
+
+msgid "Its values"
+msgstr "값"
+
+msgid "Its values could not be found in the file."
+msgstr "파일에서 값을 찾을 수 없습니다."
+
+msgid "Last played"
+msgstr "최근 플레이순"
+
+msgid "Most played"
+msgstr "많이 플레이한 순"
+
+msgid "Off for testing: settings.txt has \"debug_off = returnto\", so games go back to the Wii Menu. Press A here to take that switch out."
+msgstr "테스트용으로 꺼짐: settings.txt에 \"debug_off = returnto\"가 있어 게임이 Wii 메뉴로 돌아갑니다. 이 설정을 없애려면 여기서 A를 누르세요."
+
+msgid "Off: GameCube controllers don't rumble in games, in the adapter or the Wii's own ports."
+msgstr "끔: 어댑터나 Wii 본체 포트에 연결된 게임큐브 컨트롤러가 게임에서 진동하지 않습니다."
+
+msgid "Off: Wii Remotes don't rumble in any game. A game's own page also has Rumble, for that game only."
+msgstr "끔: 모든 게임에서 Wii 리모컨이 진동하지 않습니다. 게임 페이지에도 그 게임에만 적용되는 진동 설정이 있습니다."
+
+msgid "Play"
+msgstr "플레이"
+
+msgid "Play history"
+msgstr "플레이 기록"
+
+msgid "SD and USB"
+msgstr "SD 및 USB"
+
+msgid "Scan the code for the guide."
+msgstr "코드를 스캔하면 가이드를 볼 수 있습니다."
+
+msgid "Set values"
+msgstr "값 설정"
+
+msgid "Test switches are on"
+msgstr "테스트 스위치가 켜져 있음"
+
+msgid "Test switches cleared: games start with all of RiftWii's fixes again."
+msgstr "테스트 스위치를 지웠습니다. 게임이 다시 RiftWii의 모든 수정 사항과 함께 실행됩니다."
+
+msgid "The RiftWii channel is still version {1}. If you just installed it, the installer on the SD card is an old one: copy apps/riftwii_channel from the newest RiftWii zip onto the card."
+msgstr "RiftWii 채널이 아직 버전 {1}입니다. 방금 설치했다면 SD 카드의 설치 프로그램이 오래된 것입니다. 최신 RiftWii zip의 apps/riftwii_channel을 카드에 복사하세요."
+
+msgid "The cheat has no notes about its values: its author's page may say what they are."
+msgstr "이 치트에는 값에 대한 설명이 없습니다. 제작자의 페이지에 설명이 있을 수 있습니다."
+
+msgid "The menu restarts to show it when you leave Settings."
+msgstr "설정을 나가면 메뉴가 다시 시작되어 적용됩니다."
+
+msgid "The order of the games on Home. Last played and Most played put the games you played from RiftWii first, the rest after them A to Z."
+msgstr "홈의 게임 순서입니다. 최근 플레이순과 많이 플레이한 순은 RiftWii에서 플레이한 게임을 먼저, 나머지는 그 뒤에 가나다순으로 표시합니다."
+
+msgid "The values were not saved: {1}"
+msgstr "값이 저장되지 않았습니다: {1}"
+
+msgid "This cheat has values to fill in (the X's): press A to set them."
+msgstr "이 치트에는 입력할 값(X 부분)이 있습니다. A를 눌러 설정하세요."
+
+msgid "This is the font on screen now."
+msgstr "현재 화면에 표시된 글꼴입니다."
+
+msgid "This is the theme on screen now."
+msgstr "현재 화면에 적용된 테마입니다."
+
+msgid "This version's main changes. The release notes on GitHub have all of them."
+msgstr "이번 버전의 주요 변경 사항입니다. 전체 내용은 GitHub의 릴리스 노트에 있습니다."
+
+msgid "USB drive help"
+msgstr "USB 드라이브 도움말"
+
+msgid "Values of {1}: {2}. Press A to change them."
+msgstr "{1}의 값: {2}. A를 눌러 변경하세요."
+
+msgid "What a USB drive needs to work with RiftWii, step by step."
+msgstr "RiftWii에서 USB 드라이브를 쓰는 데 필요한 것을 단계별로 안내합니다."
+
+msgid "What's new"
+msgstr "새로운 기능"
+
+msgid "What's new in RiftWii {1}"
+msgstr "RiftWii {1}의 새로운 기능"
+
+msgid "Which USB port is the adapter plugged into?"
+msgstr "어댑터가 어느 USB 포트에 꽂혀 있나요?"
+
+msgid "Which drive's games Home lists. With a game on both, one drive's copy is enough."
+msgstr "홈에 표시할 게임의 드라이브입니다. 두 드라이브에 같은 게임이 있으면 한쪽의 사본으로 충분합니다."
+
+msgid "Which port?"
+msgstr "어느 포트인가요?"
+
+msgid "Wii Remote rumble"
+msgstr "Wii 리모컨 진동"
+
+msgid "settings.txt turns parts of RiftWii off for testing (debug_off = {1}). Clear them unless the RiftWii developers asked you to keep them."
+msgstr "settings.txt가 테스트용으로 RiftWii의 일부 기능을 끄고 있습니다(debug_off = {1}). RiftWii 개발자가 유지하라고 하지 않았다면 지우세요."
+
+msgid "{1} and the new font"
+msgstr "{1} 및 새 글꼴"
+
+msgid "{1}: {2} ({3} digits)"
+msgstr "{1}: {2} ({3}자리)"
+
+msgid "{1}: {2}. It is on."
+msgstr "{1}: {2}. 켜져 있습니다."
+
+msgid "Your cIOS is out of date"
+msgstr "cIOS가 오래되었습니다"
+
+msgid "IOS{1} is {2}. You're on an out-of-date cIOS, and this makes it harder to find out which bugs are causing what, so please update to the latest cIOS (d2x v11 beta3). Follow this guide: {3}"
+msgstr "IOS{1}은(는) {2}입니다. 오래된 cIOS를 쓰면 어떤 버그가 무엇 때문에 생기는지 알아내기 어려우므로 최신 cIOS(d2x v11 beta3)로 업데이트하세요. 이 가이드를 따르세요: {3}"
+
+msgid "No cheat file yet, and the network is not up. Check the Wii's Internet settings, then choose Download."
+msgstr "아직 치트 파일이 없고 네트워크도 연결되지 않았습니다. Wii의 인터넷 설정을 확인한 뒤 다운로드를 선택하세요."
+
+msgid "This cIOS can't start games"
+msgstr "이 cIOS로는 게임을 실행할 수 없습니다"

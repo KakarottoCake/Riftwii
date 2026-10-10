@@ -1388,3 +1388,213 @@ msgstr "sd:{1} を読み込めません。"
 
 msgid "The build has more than {1} files."
 msgstr "ビルドのファイル数が{1}個を超えています。"
+
+msgid "Disc Channel"
+msgstr "ディスクドライブチャンネル"
+
+msgid "Would you like the Disc Channel to appear on the home screen?"
+msgstr "ディスクドライブチャンネルをホームに表示しますか?"
+
+msgid "Yes"
+msgstr "はい"
+
+msgid "No"
+msgstr "いいえ"
+
+msgid "You can bring it back any time in Settings > Disc Channel."
+msgstr "設定 > ディスクドライブチャンネル でいつでも戻せます。"
+
+msgid "The Disc drive's tile on Home, for playing from a disc. A disc still plays from it when it is off: switch it back on here."
+msgstr "ホームのディスクドライブのタイルです。ディスクから遊ぶときに使います。オフのときにディスクで遊ぶには、ここでオンに戻してください。"
+
+msgid "Update the RiftWii channel?"
+msgstr "RiftWiiチャンネルを更新しますか?"
+
+msgid "The RiftWii channel on your Wii Menu is an older version ({1}). The new one ({2}) starts RiftWii with full access to the Wii's hardware, which some features need. Reinstall it with the channel installer: it opens, then brings you back here. Settings > RiftWii channel on the Wii Menu can open it later too."
+msgstr "WiiメニューのRiftWiiチャンネルは古いバージョン ({1}) です。新しいバージョン ({2}) は、一部の機能に必要なWiiのハードウェアへのフルアクセスでRiftWiiを起動します。チャンネルのインストーラーで入れ直してください。インストーラーが開き、終わるとここに戻ります。あとで 設定 > WiiメニューのRiftWiiチャンネル から開くこともできます。"
+
+msgid "The Wii Menu's font needs hardware access or a d2x cIOS, and neither worked this time, so RiftWii's font is used. Start RiftWii from an up to date Homebrew Channel or the RiftWii channel (version 9)."
+msgstr "Wiiメニューのフォントにはハードウェアへのアクセスかd2x cIOSが必要ですが、今回はどちらも使えなかったため、RiftWiiのフォントを使います。最新のHomebrew ChannelかRiftWiiチャンネル (バージョン9) からRiftWiiを起動してください。"
+
+msgid "1. Use the USB port nearest the edge."
+msgstr "1. 本体の端に近いUSBポートを使ってください。"
+
+msgid "2. Big drives: a Y-cable or their own power."
+msgstr "2. 大きなドライブ: Y字ケーブルか専用の電源を。"
+
+msgid "3. FAT32 or NTFS (or a WBFS drive)."
+msgstr "3. FAT32かNTFS (またはWBFSドライブ)。"
+
+msgid "4. Games in a wbfs or games folder."
+msgstr "4. ゲームはwbfsかgamesフォルダに。"
+
+msgid "5. A d2x cIOS in slot 249, 250 or 251."
+msgstr "5. スロット249、250、251のいずれかにd2x cIOS。"
+
+msgid "A to Z"
+msgstr "A〜Z"
+
+msgid "Change"
+msgstr "変更"
+
+msgid "Check each cIOS"
+msgstr "cIOSを1つずつ確認"
+
+msgid "Check each cIOS?"
+msgstr "cIOSを1つずつ確認しますか?"
+
+msgid "Checking the USB ports"
+msgstr "USBポートを確認しています"
+
+msgid "Counts the games you start from RiftWii, for Recently played, Home order and a game's page. Off: nothing more is counted, and the counts are not shown."
+msgstr "RiftWiiから起動したゲームを数えます。最近遊んだゲーム、ホームの並び順、ゲームのページに使います。オフ: これ以上数えず、回数も表示しません。"
+
+msgid "Downloaded: still {1} cheats, the list was already the latest."
+msgstr "ダウンロード完了: チートは{1}個のまま。リストは最新でした。"
+
+msgid "Downloaded: {1} cheats now ({2} before)."
+msgstr "ダウンロード完了: チートは{1}個になりました (前は{2}個)。"
+
+msgid "Front"
+msgstr "前"
+
+msgid "GameCube rumble"
+msgstr "ゲームキューブの振動"
+
+msgid "Games from"
+msgstr "ゲームの場所"
+
+msgid "Games from the SD card or a USB drive run on a d2x cIOS, not on the menu's IOS 58. RiftWii restarts, asks each IOS whether it sees the adapter where it is plugged in now, and shows the answer on Home. Then send a problem report."
+msgstr "SDカードやUSBドライブのゲームは、メニューのIOS 58ではなくd2x cIOSで動きます。RiftWiiが再起動し、今つないでいる場所のアダプターが見えるかを各IOSに確かめ、結果をホームに表示します。そのあと問題の報告を送ってください。"
+
+msgid "Gets the latest cheats from the GeckoCodes archive. Your own cheats and values stay."
+msgstr "GeckoCodesのアーカイブから最新のチートを取得します。自分で追加したチートと値はそのままです。"
+
+msgid "Getting a USB drive working"
+msgstr "USBドライブを使えるようにする"
+
+msgid "Help"
+msgstr "ヘルプ"
+
+msgid "Home order"
+msgstr "ホームの並び順"
+
+msgid "Its values"
+msgstr "値"
+
+msgid "Its values could not be found in the file."
+msgstr "ファイルに値が見つかりませんでした。"
+
+msgid "Last played"
+msgstr "最後に遊んだ順"
+
+msgid "Most played"
+msgstr "よく遊ぶ順"
+
+msgid "Off for testing: settings.txt has \"debug_off = returnto\", so games go back to the Wii Menu. Press A here to take that switch out."
+msgstr "テスト用にオフ: settings.txtに\"debug_off = returnto\"があるので、ゲームはWiiメニューに戻ります。ここでAを押すとその設定を外します。"
+
+msgid "Off: GameCube controllers don't rumble in games, in the adapter or the Wii's own ports."
+msgstr "オフ: ゲーム中、ゲームキューブコントローラは振動しません (アダプターでもWii本体のポートでも)。"
+
+msgid "Off: Wii Remotes don't rumble in any game. A game's own page also has Rumble, for that game only."
+msgstr "オフ: どのゲームでもWiiリモコンは振動しません。ゲームのページにも、そのゲームだけの振動の設定があります。"
+
+msgid "Play"
+msgstr "遊ぶ"
+
+msgid "Play history"
+msgstr "プレイ履歴"
+
+msgid "SD and USB"
+msgstr "SDとUSB"
+
+msgid "Scan the code for the guide."
+msgstr "コードを読み取るとガイドが見られます。"
+
+msgid "Set values"
+msgstr "値を設定"
+
+msgid "Test switches are on"
+msgstr "テスト用の設定がオンです"
+
+msgid "Test switches cleared: games start with all of RiftWii's fixes again."
+msgstr "テスト用の設定を外しました: ゲームはまたRiftWiiのすべての修正つきで起動します。"
+
+msgid "The RiftWii channel is still version {1}. If you just installed it, the installer on the SD card is an old one: copy apps/riftwii_channel from the newest RiftWii zip onto the card."
+msgstr "RiftWiiチャンネルはまだバージョン{1}です。今インストールしたばかりなら、SDカードのインストーラーが古いものです。最新のRiftWiiのzipからapps/riftwii_channelをカードにコピーしてください。"
+
+msgid "The cheat has no notes about its values: its author's page may say what they are."
+msgstr "このチートには値についての説明がありません。作者のページに書いてあるかもしれません。"
+
+msgid "The menu restarts to show it when you leave Settings."
+msgstr "設定を出るとメニューが再起動して反映されます。"
+
+msgid "The order of the games on Home. Last played and Most played put the games you played from RiftWii first, the rest after them A to Z."
+msgstr "ホームのゲームの並び順です。最後に遊んだ順とよく遊ぶ順では、RiftWiiで遊んだゲームが先に、ほかはそのあとにA〜Z順で並びます。"
+
+msgid "The values were not saved: {1}"
+msgstr "値は保存されませんでした: {1}"
+
+msgid "This cheat has values to fill in (the X's): press A to set them."
+msgstr "このチートには入れる値があります (Xの部分)。Aを押して設定してください。"
+
+msgid "This is the font on screen now."
+msgstr "今表示されているフォントです。"
+
+msgid "This is the theme on screen now."
+msgstr "今表示されているテーマです。"
+
+msgid "This version's main changes. The release notes on GitHub have all of them."
+msgstr "このバージョンのおもな変更点です。すべての変更はGitHubのリリースノートにあります。"
+
+msgid "USB drive help"
+msgstr "USBドライブのヘルプ"
+
+msgid "Values of {1}: {2}. Press A to change them."
+msgstr "{1}の値: {2}。Aを押すと変更できます。"
+
+msgid "What a USB drive needs to work with RiftWii, step by step."
+msgstr "USBドライブをRiftWiiで使うのに必要なことを、順番に説明します。"
+
+msgid "What's new"
+msgstr "新しくなったこと"
+
+msgid "What's new in RiftWii {1}"
+msgstr "RiftWii {1}の新しくなったこと"
+
+msgid "Which USB port is the adapter plugged into?"
+msgstr "アダプターはどのUSBポートにつないでいますか?"
+
+msgid "Which drive's games Home lists. With a game on both, one drive's copy is enough."
+msgstr "ホームにどのドライブのゲームを表示するかです。両方にあるゲームは片方のコピーで足ります。"
+
+msgid "Which port?"
+msgstr "どのポート?"
+
+msgid "Wii Remote rumble"
+msgstr "Wiiリモコンの振動"
+
+msgid "settings.txt turns parts of RiftWii off for testing (debug_off = {1}). Clear them unless the RiftWii developers asked you to keep them."
+msgstr "settings.txtがテスト用にRiftWiiの一部をオフにしています (debug_off = {1})。RiftWiiの開発者に残すよう言われていなければ外してください。"
+
+msgid "{1} and the new font"
+msgstr "{1}と新しいフォント"
+
+msgid "{1}: {2} ({3} digits)"
+msgstr "{1}: {2} ({3}桁)"
+
+msgid "{1}: {2}. It is on."
+msgstr "{1}: {2}。オンになっています。"
+
+msgid "Your cIOS is out of date"
+msgstr "cIOSが古くなっています"
+
+msgid "IOS{1} is {2}. You're on an out-of-date cIOS, and this makes it harder to find out which bugs are causing what, so please update to the latest cIOS (d2x v11 beta3). Follow this guide: {3}"
+msgstr "IOS{1}は{2}です。古いcIOSでは、どの不具合が何によって起きているのか調べにくくなります。最新のcIOS (d2x v11 beta3) に更新してください。手順はこのガイドを見てください: {3}"
+
+msgid "No cheat file yet, and the network is not up. Check the Wii's Internet settings, then choose Download."
+msgstr "チートファイルがまだなく、ネットワークもつながっていません。Wiiのインターネット設定を確認してから「ダウンロード」を選んでください。"
+
+msgid "This cIOS can't start games"
+msgstr "このcIOSではゲームを起動できません"

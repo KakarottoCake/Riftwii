@@ -1289,6 +1289,328 @@ T = {
     "{1} has folders too deep to copy.": ("{1} tiene carpetas demasiado profundas para copiarlas.", "{1}には深すぎてコピーできないフォルダがあります。", "{1} tem pastas profundas demais para copiar.", "{1} ha cartelle troppo profonde da copiare."),
     "Cannot read sd:{1}.": ("No se puede leer sd:{1}.", "sd:{1} を読み込めません。", "Não é possível ler sd:{1}.", "Impossibile leggere sd:{1}."),
     "The build has more than {1} files.": ("La build tiene más de {1} archivos.", "ビルドのファイル数が{1}個を超えています。", "A build tem mais de {1} arquivos.", "La build ha più di {1} file."),
+    # The Disc Channel tile (3.3.7), the channel update (3.3.8), the menu font fallback (3.3.9)
+    "Disc Channel": ("Canal Disco", "ディスクドライブチャンネル", "Canal Disco", "Canale Disco"),
+    "Would you like the Disc Channel to appear on the home screen?": (
+        "¿Quieres que el Canal Disco aparezca en la pantalla de Inicio?",
+        "ディスクドライブチャンネルをホームに表示しますか?",
+        "Quer que o Canal Disco apareça na tela de Início?",
+        "Vuoi che il Canale Disco compaia nella Home?"),
+    "Yes": ("Sí", "はい", "Sim", "Sì"),
+    "No": ("No", "いいえ", "Não", "No"),
+    "You can bring it back any time in Settings > Disc Channel.": (
+        "Puedes volver a mostrarlo cuando quieras en Ajustes > Canal Disco.",
+        "設定 > ディスクドライブチャンネル でいつでも戻せます。",
+        "Você pode trazê-lo de volta quando quiser em Configurações > Canal Disco.",
+        "Puoi riaverlo quando vuoi in Impostazioni > Canale Disco."),
+    "The Disc drive's tile on Home, for playing from a disc. A disc still plays from it when it is off: switch it back on here.": (
+        "La casilla del lector de discos en Inicio, para jugar desde un disco. Si está desactivada y quieres jugar desde un disco, vuelve a activarla aquí.",
+        "ホームのディスクドライブのタイルです。ディスクから遊ぶときに使います。オフのときにディスクで遊ぶには、ここでオンに戻してください。",
+        "O bloco do leitor de discos no Início, para jogar a partir de um disco. Se estiver desligado e quiser jogar um disco, ligue-o de novo aqui.",
+        "Il riquadro del lettore di dischi nella Home, per giocare da un disco. Se è spento e vuoi giocare da un disco, riattivalo qui."),
+    "Update the RiftWii channel?": (
+        "¿Actualizar el canal de RiftWii?", "RiftWiiチャンネルを更新しますか?", "Atualizar o canal da RiftWii?",
+        "Aggiornare il canale RiftWii?"),
+    "The RiftWii channel on your Wii Menu is an older version ({1}). The new one ({2}) starts RiftWii with full access to the Wii's hardware, which some features need. Reinstall it with the channel installer: it opens, then brings you back here. Settings > RiftWii channel on the Wii Menu can open it later too.": (
+        "El canal de RiftWii de tu Menú Wii es una versión anterior ({1}). El nuevo ({2}) inicia RiftWii con acceso completo al hardware de la Wii, que algunas funciones necesitan. Reinstálalo con el instalador del canal: se abre y luego te trae de vuelta aquí. También puedes abrirlo más tarde en Ajustes > Canal de RiftWii en el Menú Wii.",
+        "WiiメニューのRiftWiiチャンネルは古いバージョン ({1}) です。新しいバージョン ({2}) は、一部の機能に必要なWiiのハードウェアへのフルアクセスでRiftWiiを起動します。チャンネルのインストーラーで入れ直してください。インストーラーが開き、終わるとここに戻ります。あとで 設定 > WiiメニューのRiftWiiチャンネル から開くこともできます。",
+        "O canal da RiftWii no seu Menu Wii é uma versão antiga ({1}). O novo ({2}) inicia a RiftWii com acesso total ao hardware do Wii, que alguns recursos precisam. Reinstale-o com o instalador do canal: ele abre e depois traz você de volta aqui. Você também pode abri-lo mais tarde em Configurações > Canal da RiftWii no Menu Wii.",
+        "Il canale RiftWii nel tuo Menu Wii è una versione precedente ({1}). Quello nuovo ({2}) avvia RiftWii con pieno accesso all'hardware della Wii, che serve ad alcune funzioni. Reinstallalo con l'installer del canale: si apre e poi ti riporta qui. Puoi aprirlo anche più tardi da Impostazioni > Canale RiftWii nel Menu Wii."),
+    "The Wii Menu's font needs hardware access or a d2x cIOS, and neither worked this time, so RiftWii's font is used. Start RiftWii from an up to date Homebrew Channel or the RiftWii channel (version 9).": (
+        "La fuente del Menú de Wii necesita acceso al hardware o un cIOS d2x, y esta vez no funcionó ninguno, así que se usa la fuente de RiftWii. Inicia RiftWii desde un Homebrew Channel actualizado o desde el canal de RiftWii (versión 9).",
+        "Wiiメニューのフォントにはハードウェアへのアクセスかd2x cIOSが必要ですが、今回はどちらも使えなかったため、RiftWiiのフォントを使います。最新のHomebrew ChannelかRiftWiiチャンネル (バージョン9) からRiftWiiを起動してください。",
+        "A fonte do Menu do Wii precisa de acesso ao hardware ou de um cIOS d2x, e nenhum funcionou desta vez, então a fonte da RiftWii é usada. Inicie a RiftWii por um Homebrew Channel atualizado ou pelo canal da RiftWii (versão 9).",
+        "Il carattere del Menu Wii richiede l'accesso all'hardware o un cIOS d2x, e questa volta nessuno dei due ha funzionato, quindi si usa il carattere di RiftWii. Avvia RiftWii da un Homebrew Channel aggiornato o dal canale RiftWii (versione 9)."),
+    # Menu text added in 2610-151 to 2610-168
+    "1. Use the USB port nearest the edge.": (
+        "1. Usa el puerto USB más cercano al borde.",
+        "1. 本体の端に近いUSBポートを使ってください。",
+        "1. Use a porta USB mais perto da borda.",
+        "1. Usa la porta USB più vicina al bordo."),
+    "2. Big drives: a Y-cable or their own power.": (
+        "2. Unidades grandes: un cable en Y o su propia alimentación.",
+        "2. 大きなドライブ: Y字ケーブルか専用の電源を。",
+        "2. Unidades grandes: um cabo Y ou alimentação própria.",
+        "2. Unità grandi: un cavo a Y o un'alimentazione propria."),
+    "3. FAT32 or NTFS (or a WBFS drive).": (
+        "3. FAT32 o NTFS (o una unidad WBFS).",
+        "3. FAT32かNTFS (またはWBFSドライブ)。",
+        "3. FAT32 ou NTFS (ou uma unidade WBFS).",
+        "3. FAT32 o NTFS (o un'unità WBFS)."),
+    "4. Games in a wbfs or games folder.": (
+        "4. Juegos en una carpeta wbfs o games.",
+        "4. ゲームはwbfsかgamesフォルダに。",
+        "4. Jogos numa pasta wbfs ou games.",
+        "4. Giochi in una cartella wbfs o games."),
+    "5. A d2x cIOS in slot 249, 250 or 251.": (
+        "5. Un cIOS d2x en el slot 249, 250 o 251.",
+        "5. スロット249、250、251のいずれかにd2x cIOS。",
+        "5. Um cIOS d2x no slot 249, 250 ou 251.",
+        "5. Un cIOS d2x nello slot 249, 250 o 251."),
+    "A to Z": (
+        "De la A a la Z",
+        "A〜Z",
+        "De A a Z",
+        "Dalla A alla Z"),
+    "Change": (
+        "Cambiar",
+        "変更",
+        "Mudar",
+        "Cambia"),
+    "Check each cIOS": (
+        "Probar cada cIOS",
+        "cIOSを1つずつ確認",
+        "Testar cada cIOS",
+        "Prova ogni cIOS"),
+    "Check each cIOS?": (
+        "¿Probar cada cIOS?",
+        "cIOSを1つずつ確認しますか?",
+        "Testar cada cIOS?",
+        "Provare ogni cIOS?"),
+    "Checking the USB ports": (
+        "Comprobando los puertos USB",
+        "USBポートを確認しています",
+        "Verificando as portas USB",
+        "Controllo delle porte USB"),
+    "Counts the games you start from RiftWii, for Recently played, Home order and a game's page. Off: nothing more is counted, and the counts are not shown.": (
+        "Cuenta los juegos que inicias desde RiftWii, para Jugados hace poco, el orden de Inicio y la página de cada juego. Desactivado: no se cuenta nada más y no se muestran los recuentos.",
+        "RiftWiiから起動したゲームを数えます。最近遊んだゲーム、ホームの並び順、ゲームのページに使います。オフ: これ以上数えず、回数も表示しません。",
+        "Conta os jogos que você inicia pelo RiftWii, para Jogados recentemente, a ordem do Início e a página de cada jogo. Desligado: nada mais é contado e as contagens não aparecem.",
+        "Conta i giochi che avvii da RiftWii, per Giocati di recente, l'ordine della Home e la pagina di ogni gioco. Spento: non si conta più nulla e i conteggi non vengono mostrati."),
+    "Downloaded: still {1} cheats, the list was already the latest.": (
+        "Descargado: siguen siendo {1} trucos, la lista ya era la más reciente.",
+        "ダウンロード完了: チートは{1}個のまま。リストは最新でした。",
+        "Baixado: continuam {1} trapaças, a lista já era a mais recente.",
+        "Scaricato: ancora {1} trucchi, l'elenco era già il più recente."),
+    "Downloaded: {1} cheats now ({2} before).": (
+        "Descargado: ahora {1} trucos (antes {2}).",
+        "ダウンロード完了: チートは{1}個になりました (前は{2}個)。",
+        "Baixado: agora {1} trapaças (antes {2}).",
+        "Scaricato: ora {1} trucchi (prima {2})."),
+    "Front": (
+        "Delante",
+        "前",
+        "Frente",
+        "Davanti"),
+    "GameCube rumble": (
+        "Vibración de GameCube",
+        "ゲームキューブの振動",
+        "Vibração do GameCube",
+        "Vibrazione GameCube"),
+    "Games from": (
+        "Juegos de",
+        "ゲームの場所",
+        "Jogos de",
+        "Giochi da"),
+    "Games from the SD card or a USB drive run on a d2x cIOS, not on the menu's IOS 58. RiftWii restarts, asks each IOS whether it sees the adapter where it is plugged in now, and shows the answer on Home. Then send a problem report.": (
+        "Los juegos de la tarjeta SD o de una unidad USB se ejecutan con un cIOS d2x, no con el IOS 58 del menú. RiftWii se reinicia, pregunta a cada IOS si ve el adaptador donde está conectado ahora y muestra la respuesta en Inicio. Después, envía un informe de problemas.",
+        "SDカードやUSBドライブのゲームは、メニューのIOS 58ではなくd2x cIOSで動きます。RiftWiiが再起動し、今つないでいる場所のアダプターが見えるかを各IOSに確かめ、結果をホームに表示します。そのあと問題の報告を送ってください。",
+        "Jogos do cartão SD ou de uma unidade USB rodam num cIOS d2x, não no IOS 58 do menu. O RiftWii reinicia, pergunta a cada IOS se ele vê o adaptador onde está ligado agora e mostra a resposta no Início. Depois, envie um relatório de problema.",
+        "I giochi dalla scheda SD o da un'unità USB girano su un cIOS d2x, non sull'IOS 58 del menu. RiftWii si riavvia, chiede a ogni IOS se vede l'adattatore dove è collegato ora e mostra la risposta nella Home. Poi invia una segnalazione del problema."),
+    "Gets the latest cheats from the GeckoCodes archive. Your own cheats and values stay.": (
+        "Obtiene los trucos más recientes del archivo de GeckoCodes. Tus propios trucos y valores se mantienen.",
+        "GeckoCodesのアーカイブから最新のチートを取得します。自分で追加したチートと値はそのままです。",
+        "Baixa as trapaças mais recentes do arquivo do GeckoCodes. Suas trapaças e valores continuam.",
+        "Prende i trucchi più recenti dall'archivio GeckoCodes. I tuoi trucchi e valori restano."),
+    "Getting a USB drive working": (
+        "Hacer funcionar una unidad USB",
+        "USBドライブを使えるようにする",
+        "Fazer uma unidade USB funcionar",
+        "Far funzionare un'unità USB"),
+    "Help": (
+        "Ayuda",
+        "ヘルプ",
+        "Ajuda",
+        "Aiuto"),
+    "Home order": (
+        "Orden de Inicio",
+        "ホームの並び順",
+        "Ordem do Início",
+        "Ordine della Home"),
+    "Its values": (
+        "Sus valores",
+        "値",
+        "Seus valores",
+        "I suoi valori"),
+    "Its values could not be found in the file.": (
+        "No se encontraron sus valores en el archivo.",
+        "ファイルに値が見つかりませんでした。",
+        "Os valores dela não foram encontrados no arquivo.",
+        "I suoi valori non sono stati trovati nel file."),
+    "Last played": (
+        "Último jugado",
+        "最後に遊んだ順",
+        "Último jogado",
+        "Ultimo giocato"),
+    "Most played": (
+        "Más jugados",
+        "よく遊ぶ順",
+        "Mais jogados",
+        "Più giocati"),
+    "Off for testing: settings.txt has \"debug_off = returnto\", so games go back to the Wii Menu. Press A here to take that switch out.": (
+        "Desactivado para pruebas: settings.txt tiene \"debug_off = returnto\", así que los juegos vuelven al Menú Wii. Pulsa A aquí para quitar ese ajuste.",
+        "テスト用にオフ: settings.txtに\"debug_off = returnto\"があるので、ゲームはWiiメニューに戻ります。ここでAを押すとその設定を外します。",
+        "Desligado para testes: o settings.txt tem \"debug_off = returnto\", então os jogos voltam ao Menu Wii. Aperte A aqui para tirar essa opção.",
+        "Spento per i test: settings.txt contiene \"debug_off = returnto\", quindi i giochi tornano al Menu Wii. Premi A qui per togliere questa opzione."),
+    "Off: GameCube controllers don't rumble in games, in the adapter or the Wii's own ports.": (
+        "Desactivado: los mandos de GameCube no vibran en los juegos, ni en el adaptador ni en los puertos de la Wii.",
+        "オフ: ゲーム中、ゲームキューブコントローラは振動しません (アダプターでもWii本体のポートでも)。",
+        "Desligado: os controles de GameCube não vibram nos jogos, nem no adaptador nem nas portas do Wii.",
+        "Spento: i controller GameCube non vibrano nei giochi, né nell'adattatore né nelle porte della Wii."),
+    "Off: Wii Remotes don't rumble in any game. A game's own page also has Rumble, for that game only.": (
+        "Desactivado: los Wii Remote no vibran en ningún juego. La página de cada juego también tiene Vibración, solo para ese juego.",
+        "オフ: どのゲームでもWiiリモコンは振動しません。ゲームのページにも、そのゲームだけの振動の設定があります。",
+        "Desligado: os Wii Remotes não vibram em nenhum jogo. A página de cada jogo também tem Vibração, só para aquele jogo.",
+        "Spento: i Wii Remote non vibrano in nessun gioco. Anche la pagina di ogni gioco ha Vibrazione, solo per quel gioco."),
+    "Play": (
+        "Jugar",
+        "遊ぶ",
+        "Jogar",
+        "Gioca"),
+    "Play history": (
+        "Historial de juego",
+        "プレイ履歴",
+        "Histórico de jogo",
+        "Cronologia di gioco"),
+    "SD and USB": (
+        "SD y USB",
+        "SDとUSB",
+        "SD e USB",
+        "SD e USB"),
+    "Scan the code for the guide.": (
+        "Escanea el código para ver la guía.",
+        "コードを読み取るとガイドが見られます。",
+        "Escaneie o código para ver o guia.",
+        "Inquadra il codice per la guida."),
+    "Set values": (
+        "Elegir valores",
+        "値を設定",
+        "Definir valores",
+        "Imposta i valori"),
+    "Test switches are on": (
+        "Hay ajustes de prueba activos",
+        "テスト用の設定がオンです",
+        "Há opções de teste ligadas",
+        "Ci sono opzioni di prova attive"),
+    "Test switches cleared: games start with all of RiftWii's fixes again.": (
+        "Ajustes de prueba quitados: los juegos vuelven a iniciarse con todas las correcciones de RiftWii.",
+        "テスト用の設定を外しました: ゲームはまたRiftWiiのすべての修正つきで起動します。",
+        "Opções de teste removidas: os jogos voltam a iniciar com todas as correções do RiftWii.",
+        "Opzioni di prova tolte: i giochi si avviano di nuovo con tutte le correzioni di RiftWii."),
+    "The RiftWii channel is still version {1}. If you just installed it, the installer on the SD card is an old one: copy apps/riftwii_channel from the newest RiftWii zip onto the card.": (
+        "El canal de RiftWii sigue en la versión {1}. Si acabas de instalarlo, el instalador de la tarjeta SD es antiguo: copia apps/riftwii_channel del zip más reciente de RiftWii a la tarjeta.",
+        "RiftWiiチャンネルはまだバージョン{1}です。今インストールしたばかりなら、SDカードのインストーラーが古いものです。最新のRiftWiiのzipからapps/riftwii_channelをカードにコピーしてください。",
+        "O canal da RiftWii ainda está na versão {1}. Se você acabou de instalá-lo, o instalador no cartão SD é antigo: copie apps/riftwii_channel do zip mais recente da RiftWii para o cartão.",
+        "Il canale RiftWii è ancora alla versione {1}. Se l'hai appena installato, l'installer sulla scheda SD è vecchio: copia apps/riftwii_channel dallo zip più recente di RiftWii sulla scheda."),
+    "The cheat has no notes about its values: its author's page may say what they are.": (
+        "El truco no tiene notas sobre sus valores: la página de su autor puede decir cuáles son.",
+        "このチートには値についての説明がありません。作者のページに書いてあるかもしれません。",
+        "A trapaça não tem notas sobre seus valores: a página do autor pode dizer quais são.",
+        "Il trucco non ha note sui suoi valori: la pagina del suo autore potrebbe dire quali sono."),
+    "The menu restarts to show it when you leave Settings.": (
+        "El menú se reinicia para mostrarlo al salir de Ajustes.",
+        "設定を出るとメニューが再起動して反映されます。",
+        "O menu reinicia para mostrá-lo quando você sair das Configurações.",
+        "Il menu si riavvia per mostrarlo quando esci dalle Impostazioni."),
+    "The order of the games on Home. Last played and Most played put the games you played from RiftWii first, the rest after them A to Z.": (
+        "El orden de los juegos en Inicio. Último jugado y Más jugados ponen primero los juegos que jugaste desde RiftWii, y el resto después, de la A a la Z.",
+        "ホームのゲームの並び順です。最後に遊んだ順とよく遊ぶ順では、RiftWiiで遊んだゲームが先に、ほかはそのあとにA〜Z順で並びます。",
+        "A ordem dos jogos no Início. Último jogado e Mais jogados põem primeiro os jogos que você jogou pelo RiftWii, e o resto depois, de A a Z.",
+        "L'ordine dei giochi nella Home. Ultimo giocato e Più giocati mettono prima i giochi che hai giocato da RiftWii, e il resto dopo, dalla A alla Z."),
+    "The values were not saved: {1}": (
+        "Los valores no se guardaron: {1}",
+        "値は保存されませんでした: {1}",
+        "Os valores não foram salvos: {1}",
+        "I valori non sono stati salvati: {1}"),
+    "This cheat has values to fill in (the X's): press A to set them.": (
+        "Este truco tiene valores por rellenar (las X): pulsa A para elegirlos.",
+        "このチートには入れる値があります (Xの部分)。Aを押して設定してください。",
+        "Esta trapaça tem valores a preencher (os X): aperte A para defini-los.",
+        "Questo trucco ha valori da inserire (le X): premi A per impostarli."),
+    "This is the font on screen now.": (
+        "Esta es la fuente que se ve ahora.",
+        "今表示されているフォントです。",
+        "Esta é a fonte na tela agora.",
+        "Questo è il carattere sullo schermo ora."),
+    "This is the theme on screen now.": (
+        "Este es el tema que se ve ahora.",
+        "今表示されているテーマです。",
+        "Este é o tema na tela agora.",
+        "Questo è il tema sullo schermo ora."),
+    "This version's main changes. The release notes on GitHub have all of them.": (
+        "Los cambios principales de esta versión. Las notas de la versión en GitHub los tienen todos.",
+        "このバージョンのおもな変更点です。すべての変更はGitHubのリリースノートにあります。",
+        "As principais mudanças desta versão. As notas da versão no GitHub têm todas.",
+        "Le modifiche principali di questa versione. Le note di rilascio su GitHub le hanno tutte."),
+    "USB drive help": (
+        "Ayuda con la unidad USB",
+        "USBドライブのヘルプ",
+        "Ajuda com a unidade USB",
+        "Aiuto per l'unità USB"),
+    "Values of {1}: {2}. Press A to change them.": (
+        "Valores de {1}: {2}. Pulsa A para cambiarlos.",
+        "{1}の値: {2}。Aを押すと変更できます。",
+        "Valores de {1}: {2}. Aperte A para mudá-los.",
+        "Valori di {1}: {2}. Premi A per cambiarli."),
+    "What a USB drive needs to work with RiftWii, step by step.": (
+        "Lo que necesita una unidad USB para funcionar con RiftWii, paso a paso.",
+        "USBドライブをRiftWiiで使うのに必要なことを、順番に説明します。",
+        "O que uma unidade USB precisa para funcionar com o RiftWii, passo a passo.",
+        "Ciò che serve a un'unità USB per funzionare con RiftWii, passo per passo."),
+    "What's new": (
+        "Novedades",
+        "新しくなったこと",
+        "Novidades",
+        "Novità"),
+    "What's new in RiftWii {1}": (
+        "Novedades de RiftWii {1}",
+        "RiftWii {1}の新しくなったこと",
+        "Novidades do RiftWii {1}",
+        "Novità di RiftWii {1}"),
+    "Which USB port is the adapter plugged into?": (
+        "¿En qué puerto USB está conectado el adaptador?",
+        "アダプターはどのUSBポートにつないでいますか?",
+        "Em qual porta USB o adaptador está ligado?",
+        "In quale porta USB è collegato l'adattatore?"),
+    "Which drive's games Home lists. With a game on both, one drive's copy is enough.": (
+        "De qué unidad muestra Inicio los juegos. Si un juego está en ambas, basta con la copia de una.",
+        "ホームにどのドライブのゲームを表示するかです。両方にあるゲームは片方のコピーで足ります。",
+        "De qual unidade o Início mostra os jogos. Com um jogo nas duas, a cópia de uma basta.",
+        "Di quale unità la Home elenca i giochi. Con un gioco su entrambe, basta la copia di una."),
+    "Which port?": (
+        "¿Qué puerto?",
+        "どのポート?",
+        "Qual porta?",
+        "Quale porta?"),
+    "Wii Remote rumble": (
+        "Vibración del Wii Remote",
+        "Wiiリモコンの振動",
+        "Vibração do Wii Remote",
+        "Vibrazione del Wii Remote"),
+    "settings.txt turns parts of RiftWii off for testing (debug_off = {1}). Clear them unless the RiftWii developers asked you to keep them.": (
+        "settings.txt desactiva partes de RiftWii para pruebas (debug_off = {1}). Quítalas salvo que los desarrolladores de RiftWii te pidieran mantenerlas.",
+        "settings.txtがテスト用にRiftWiiの一部をオフにしています (debug_off = {1})。RiftWiiの開発者に残すよう言われていなければ外してください。",
+        "O settings.txt desliga partes do RiftWii para testes (debug_off = {1}). Tire-as, a não ser que os desenvolvedores do RiftWii tenham pedido para mantê-las.",
+        "settings.txt spegne parti di RiftWii per i test (debug_off = {1}). Toglile, a meno che gli sviluppatori di RiftWii non ti abbiano chiesto di tenerle."),
+    "{1} and the new font": (
+        "{1} y la nueva fuente",
+        "{1}と新しいフォント",
+        "{1} e a nova fonte",
+        "{1} e il nuovo carattere"),
+    "{1}: {2} ({3} digits)": (
+        "{1}: {2} ({3} dígitos)",
+        "{1}: {2} ({3}桁)",
+        "{1}: {2} ({3} dígitos)",
+        "{1}: {2} ({3} cifre)"),
+    "{1}: {2}. It is on.": (
+        "{1}: {2}. Está activado.",
+        "{1}: {2}。オンになっています。",
+        "{1}: {2}. Está ligado.",
+        "{1}: {2}. È attivo."),
+    "Your cIOS is out of date": ("Tu cIOS está desactualizado", "cIOSが古くなっています", "Seu cIOS está desatualizado", "Il tuo cIOS non è aggiornato"),
+    "IOS{1} is {2}. You're on an out-of-date cIOS, and this makes it harder to find out which bugs are causing what, so please update to the latest cIOS (d2x v11 beta3). Follow this guide: {3}": ("IOS{1} es {2}. Usas un cIOS desactualizado, y eso hace más difícil saber qué causa cada error, así que actualiza al cIOS más reciente (d2x v11 beta3). Sigue esta guía: {3}", "IOS{1}は{2}です。古いcIOSでは、どの不具合が何によって起きているのか調べにくくなります。最新のcIOS (d2x v11 beta3) に更新してください。手順はこのガイドを見てください: {3}", "IOS{1} é {2}. Você está num cIOS desatualizado, o que dificulta descobrir a causa de cada erro; atualize para o cIOS mais recente (d2x v11 beta3). Siga este guia: {3}", "IOS{1} è {2}. Stai usando un cIOS non aggiornato, e questo rende più difficile capire quale bug causa cosa: aggiorna al cIOS più recente (d2x v11 beta3). Segui questa guida: {3}"),
+    "No cheat file yet, and the network is not up. Check the Wii's Internet settings, then choose Download.": ("Aún no hay archivo de trucos y la red no está activa. Revisa la configuración de Internet de la Wii y luego elige Descargar.", "チートファイルがまだなく、ネットワークもつながっていません。Wiiのインターネット設定を確認してから「ダウンロード」を選んでください。", "Ainda não há arquivo de trapaças e a rede não está ativa. Verifique as configurações de Internet do Wii e depois escolha Baixar.", "Nessun file di trucchi e la rete non è attiva. Controlla le impostazioni Internet della Wii, poi scegli Scarica."),
+    "This cIOS can't start games": ("Este cIOS no puede iniciar juegos", "このcIOSではゲームを起動できません", "Este cIOS não pode iniciar jogos", "Questo cIOS non può avviare giochi"),
 }
 
 
@@ -2219,6 +2541,146 @@ KO = {
         "테마 다운로드를 중지하는 중...",
     "Waiting for the update check to finish...":
         "업데이트 확인이 끝나기를 기다리는 중...",
+    "Disc Channel":
+        "디스크 채널",
+    "Would you like the Disc Channel to appear on the home screen?":
+        "홈 화면에 디스크 채널을 표시할까요?",
+    "Yes":
+        "예",
+    "No":
+        "아니요",
+    "You can bring it back any time in Settings > Disc Channel.":
+        "언제든지 설정 > 디스크 채널에서 다시 표시할 수 있습니다.",
+    "The Disc drive's tile on Home, for playing from a disc. A disc still plays from it when it is off: switch it back on here.":
+        "디스크로 플레이하기 위한 홈의 디스크 드라이브 타일입니다. 꺼져 있어도 디스크는 계속 실행됩니다. 여기에서 다시 켤 수 있습니다.",
+    "Update the RiftWii channel?":
+        "RiftWii 채널을 업데이트할까요?",
+    "The RiftWii channel on your Wii Menu is an older version ({1}). The new one ({2}) starts RiftWii with full access to the Wii's hardware, which some features need. Reinstall it with the channel installer: it opens, then brings you back here. Settings > RiftWii channel on the Wii Menu can open it later too.":
+        "Wii 메뉴의 RiftWii 채널이 이전 버전({1})입니다. 새 버전({2})은 일부 기능에 필요한 Wii 하드웨어 전체 접근 권한으로 RiftWii를 실행합니다. 채널 설치 프로그램으로 다시 설치하세요. 설치 프로그램이 열린 뒤 이곳으로 돌아옵니다. 나중에 설정 > Wii 메뉴의 RiftWii 채널에서도 열 수 있습니다.",
+    "The Wii Menu's font needs hardware access or a d2x cIOS, and neither worked this time, so RiftWii's font is used. Start RiftWii from an up to date Homebrew Channel or the RiftWii channel (version 9).":
+        "Wii 메뉴 글꼴을 쓰려면 하드웨어 접근 권한이나 d2x cIOS가 필요한데, 이번에는 둘 다 작동하지 않아 RiftWii 글꼴을 사용합니다. 최신 홈브류 채널이나 RiftWii 채널(버전 9)에서 RiftWii를 실행하세요.",
+    "1. Use the USB port nearest the edge.":
+        "1. 가장자리에 가장 가까운 USB 포트를 사용하세요.",
+    "2. Big drives: a Y-cable or their own power.":
+        "2. 대용량 드라이브: Y자 케이블이나 별도 전원을 사용하세요.",
+    "3. FAT32 or NTFS (or a WBFS drive).":
+        "3. FAT32 또는 NTFS (또는 WBFS 드라이브).",
+    "4. Games in a wbfs or games folder.":
+        "4. 게임은 wbfs 또는 games 폴더에 넣으세요.",
+    "5. A d2x cIOS in slot 249, 250 or 251.":
+        "5. 슬롯 249, 250 또는 251에 d2x cIOS.",
+    "A to Z":
+        "가나다순",
+    "Change":
+        "변경",
+    "Check each cIOS":
+        "각 cIOS 확인",
+    "Check each cIOS?":
+        "각 cIOS를 확인할까요?",
+    "Checking the USB ports":
+        "USB 포트 확인 중",
+    "Counts the games you start from RiftWii, for Recently played, Home order and a game's page. Off: nothing more is counted, and the counts are not shown.":
+        "RiftWii에서 실행한 게임을 기록해 최근 플레이, 홈 정렬 순서, 게임 페이지에 사용합니다. 끔: 더 이상 기록하지 않으며 기록도 표시하지 않습니다.",
+    "Downloaded: still {1} cheats, the list was already the latest.":
+        "다운로드 완료: 치트는 그대로 {1}개입니다. 이미 최신 목록이었습니다.",
+    "Downloaded: {1} cheats now ({2} before).":
+        "다운로드 완료: 이제 치트 {1}개 (이전 {2}개).",
+    "Front":
+        "앞쪽",
+    "GameCube rumble":
+        "게임큐브 진동",
+    "Games from":
+        "게임 위치",
+    "Games from the SD card or a USB drive run on a d2x cIOS, not on the menu's IOS 58. RiftWii restarts, asks each IOS whether it sees the adapter where it is plugged in now, and shows the answer on Home. Then send a problem report.":
+        "SD 카드나 USB 드라이브의 게임은 메뉴의 IOS 58이 아닌 d2x cIOS에서 실행됩니다. RiftWii가 다시 시작되어 각 IOS가 지금 꽂힌 위치의 어댑터를 인식하는지 확인하고, 결과를 홈에 표시합니다. 그런 다음 문제 보고서를 보내세요.",
+    "Gets the latest cheats from the GeckoCodes archive. Your own cheats and values stay.":
+        "GeckoCodes 보관소에서 최신 치트를 가져옵니다. 직접 추가한 치트와 값은 그대로 유지됩니다.",
+    "Getting a USB drive working":
+        "USB 드라이브 사용 준비",
+    "Help":
+        "도움말",
+    "Home order":
+        "홈 정렬 순서",
+    "Its values":
+        "값",
+    "Its values could not be found in the file.":
+        "파일에서 값을 찾을 수 없습니다.",
+    "Last played":
+        "최근 플레이순",
+    "Most played":
+        "많이 플레이한 순",
+    "Off for testing: settings.txt has \"debug_off = returnto\", so games go back to the Wii Menu. Press A here to take that switch out.":
+        "테스트용으로 꺼짐: settings.txt에 \"debug_off = returnto\"가 있어 게임이 Wii 메뉴로 돌아갑니다. 이 설정을 없애려면 여기서 A를 누르세요.",
+    "Off: GameCube controllers don't rumble in games, in the adapter or the Wii's own ports.":
+        "끔: 어댑터나 Wii 본체 포트에 연결된 게임큐브 컨트롤러가 게임에서 진동하지 않습니다.",
+    "Off: Wii Remotes don't rumble in any game. A game's own page also has Rumble, for that game only.":
+        "끔: 모든 게임에서 Wii 리모컨이 진동하지 않습니다. 게임 페이지에도 그 게임에만 적용되는 진동 설정이 있습니다.",
+    "Play":
+        "플레이",
+    "Play history":
+        "플레이 기록",
+    "SD and USB":
+        "SD 및 USB",
+    "Scan the code for the guide.":
+        "코드를 스캔하면 가이드를 볼 수 있습니다.",
+    "Set values":
+        "값 설정",
+    "Test switches are on":
+        "테스트 스위치가 켜져 있음",
+    "Test switches cleared: games start with all of RiftWii's fixes again.":
+        "테스트 스위치를 지웠습니다. 게임이 다시 RiftWii의 모든 수정 사항과 함께 실행됩니다.",
+    "The RiftWii channel is still version {1}. If you just installed it, the installer on the SD card is an old one: copy apps/riftwii_channel from the newest RiftWii zip onto the card.":
+        "RiftWii 채널이 아직 버전 {1}입니다. 방금 설치했다면 SD 카드의 설치 프로그램이 오래된 것입니다. 최신 RiftWii zip의 apps/riftwii_channel을 카드에 복사하세요.",
+    "The cheat has no notes about its values: its author's page may say what they are.":
+        "이 치트에는 값에 대한 설명이 없습니다. 제작자의 페이지에 설명이 있을 수 있습니다.",
+    "The menu restarts to show it when you leave Settings.":
+        "설정을 나가면 메뉴가 다시 시작되어 적용됩니다.",
+    "The order of the games on Home. Last played and Most played put the games you played from RiftWii first, the rest after them A to Z.":
+        "홈의 게임 순서입니다. 최근 플레이순과 많이 플레이한 순은 RiftWii에서 플레이한 게임을 먼저, 나머지는 그 뒤에 가나다순으로 표시합니다.",
+    "The values were not saved: {1}":
+        "값이 저장되지 않았습니다: {1}",
+    "This cheat has values to fill in (the X's): press A to set them.":
+        "이 치트에는 입력할 값(X 부분)이 있습니다. A를 눌러 설정하세요.",
+    "This is the font on screen now.":
+        "현재 화면에 표시된 글꼴입니다.",
+    "This is the theme on screen now.":
+        "현재 화면에 적용된 테마입니다.",
+    "This version's main changes. The release notes on GitHub have all of them.":
+        "이번 버전의 주요 변경 사항입니다. 전체 내용은 GitHub의 릴리스 노트에 있습니다.",
+    "USB drive help":
+        "USB 드라이브 도움말",
+    "Values of {1}: {2}. Press A to change them.":
+        "{1}의 값: {2}. A를 눌러 변경하세요.",
+    "What a USB drive needs to work with RiftWii, step by step.":
+        "RiftWii에서 USB 드라이브를 쓰는 데 필요한 것을 단계별로 안내합니다.",
+    "What's new":
+        "새로운 기능",
+    "What's new in RiftWii {1}":
+        "RiftWii {1}의 새로운 기능",
+    "Which USB port is the adapter plugged into?":
+        "어댑터가 어느 USB 포트에 꽂혀 있나요?",
+    "Which drive's games Home lists. With a game on both, one drive's copy is enough.":
+        "홈에 표시할 게임의 드라이브입니다. 두 드라이브에 같은 게임이 있으면 한쪽의 사본으로 충분합니다.",
+    "Which port?":
+        "어느 포트인가요?",
+    "Wii Remote rumble":
+        "Wii 리모컨 진동",
+    "settings.txt turns parts of RiftWii off for testing (debug_off = {1}). Clear them unless the RiftWii developers asked you to keep them.":
+        "settings.txt가 테스트용으로 RiftWii의 일부 기능을 끄고 있습니다(debug_off = {1}). RiftWii 개발자가 유지하라고 하지 않았다면 지우세요.",
+    "{1} and the new font":
+        "{1} 및 새 글꼴",
+    "{1}: {2} ({3} digits)":
+        "{1}: {2} ({3}자리)",
+    "{1}: {2}. It is on.":
+        "{1}: {2}. 켜져 있습니다.",
+    "Your cIOS is out of date":
+        "cIOS가 오래되었습니다",
+    "IOS{1} is {2}. You're on an out-of-date cIOS, and this makes it harder to find out which bugs are causing what, so please update to the latest cIOS (d2x v11 beta3). Follow this guide: {3}":
+        "IOS{1}은(는) {2}입니다. 오래된 cIOS를 쓰면 어떤 버그가 무엇 때문에 생기는지 알아내기 어려우므로 최신 cIOS(d2x v11 beta3)로 업데이트하세요. 이 가이드를 따르세요: {3}",
+    "No cheat file yet, and the network is not up. Check the Wii's Internet settings, then choose Download.":
+        "아직 치트 파일이 없고 네트워크도 연결되지 않았습니다. Wii의 인터넷 설정을 확인한 뒤 다운로드를 선택하세요.",
+    "This cIOS can't start games":
+        "이 cIOS로는 게임을 실행할 수 없습니다",
 }
 
 # French, a table of its own (msgid: text), from MidyGamy's translation
@@ -3050,6 +3512,146 @@ FR = {
         "Arrêt du téléchargement des thèmes...",
     "Waiting for the update check to finish...":
         "Attente de la fin de la recherche de mise à jour...",
+    "Disc Channel":
+        "Chaîne disques",
+    "Would you like the Disc Channel to appear on the home screen?":
+        "Voulez-vous afficher la Chaîne disques sur l'écran d'accueil ?",
+    "Yes":
+        "Oui",
+    "No":
+        "Non",
+    "You can bring it back any time in Settings > Disc Channel.":
+        "Vous pouvez la réafficher à tout moment dans Paramètres > Chaîne disques.",
+    "The Disc drive's tile on Home, for playing from a disc. A disc still plays from it when it is off: switch it back on here.":
+        "La tuile du lecteur de disque sur l'accueil, pour jouer depuis un disque. Même désactivée, un disque se lance toujours : réactivez-la ici.",
+    "Update the RiftWii channel?":
+        "Mettre à jour la chaîne RiftWii ?",
+    "The RiftWii channel on your Wii Menu is an older version ({1}). The new one ({2}) starts RiftWii with full access to the Wii's hardware, which some features need. Reinstall it with the channel installer: it opens, then brings you back here. Settings > RiftWii channel on the Wii Menu can open it later too.":
+        "La chaîne RiftWii du menu Wii est une ancienne version ({1}). La nouvelle ({2}) lance RiftWii avec un accès complet au matériel de la Wii, nécessaire à certaines fonctions. Réinstallez-la avec l'installeur de la chaîne : il s'ouvre, puis vous ramène ici. Paramètres > Chaîne RiftWii sur le menu Wii permet aussi de l'ouvrir plus tard.",
+    "The Wii Menu's font needs hardware access or a d2x cIOS, and neither worked this time, so RiftWii's font is used. Start RiftWii from an up to date Homebrew Channel or the RiftWii channel (version 9).":
+        "La police du menu Wii nécessite un accès au matériel ou un cIOS d2x, et aucun des deux n'a fonctionné cette fois : la police de RiftWii est utilisée. Lancez RiftWii depuis une Chaîne Homebrew à jour ou la chaîne RiftWii (version 9).",
+    "1. Use the USB port nearest the edge.":
+        "1. Utilisez le port USB le plus proche du bord.",
+    "2. Big drives: a Y-cable or their own power.":
+        "2. Grands stockages : un câble en Y ou leur propre alimentation.",
+    "3. FAT32 or NTFS (or a WBFS drive).":
+        "3. FAT32 ou NTFS (ou un stockage WBFS).",
+    "4. Games in a wbfs or games folder.":
+        "4. Les jeux dans un dossier wbfs ou games.",
+    "5. A d2x cIOS in slot 249, 250 or 251.":
+        "5. Un cIOS d2x dans le slot 249, 250 ou 251.",
+    "A to Z":
+        "De A à Z",
+    "Change":
+        "Modifier",
+    "Check each cIOS":
+        "Vérifier chaque cIOS",
+    "Check each cIOS?":
+        "Vérifier chaque cIOS ?",
+    "Checking the USB ports":
+        "Vérification des ports USB",
+    "Counts the games you start from RiftWii, for Recently played, Home order and a game's page. Off: nothing more is counted, and the counts are not shown.":
+        "Compte les jeux lancés depuis RiftWii, pour Joués récemment, l'ordre de l'accueil et la page d'un jeu. Désactivé : plus rien n'est compté et les compteurs ne sont pas affichés.",
+    "Downloaded: still {1} cheats, the list was already the latest.":
+        "Téléchargé : toujours {1} codes, la liste était déjà à jour.",
+    "Downloaded: {1} cheats now ({2} before).":
+        "Téléchargé : {1} codes maintenant ({2} avant).",
+    "Front":
+        "Avant",
+    "GameCube rumble":
+        "Vibrations GameCube",
+    "Games from":
+        "Jeux depuis",
+    "Games from the SD card or a USB drive run on a d2x cIOS, not on the menu's IOS 58. RiftWii restarts, asks each IOS whether it sees the adapter where it is plugged in now, and shows the answer on Home. Then send a problem report.":
+        "Les jeux de la carte SD ou d'un stockage USB tournent sur un cIOS d2x, pas sur l'IOS 58 du menu. RiftWii redémarre, demande à chaque IOS s'il voit l'adaptateur là où il est branché, et affiche la réponse sur l'accueil. Envoyez ensuite un rapport de problème.",
+    "Gets the latest cheats from the GeckoCodes archive. Your own cheats and values stay.":
+        "Récupère les derniers codes de l'archive GeckoCodes. Vos propres codes et valeurs sont conservés.",
+    "Getting a USB drive working":
+        "Faire fonctionner un stockage USB",
+    "Help":
+        "Aide",
+    "Home order":
+        "Ordre de l'accueil",
+    "Its values":
+        "Ses valeurs",
+    "Its values could not be found in the file.":
+        "Ses valeurs sont introuvables dans le fichier.",
+    "Last played":
+        "Dernier joué",
+    "Most played":
+        "Plus joués",
+    "Off for testing: settings.txt has \"debug_off = returnto\", so games go back to the Wii Menu. Press A here to take that switch out.":
+        "Désactivé pour les tests : settings.txt contient \"debug_off = returnto\", les jeux reviennent donc au menu Wii. Appuyez sur A ici pour retirer ce réglage.",
+    "Off: GameCube controllers don't rumble in games, in the adapter or the Wii's own ports.":
+        "Désactivé : les manettes GameCube ne vibrent pas en jeu, sur l'adaptateur ou les ports de la Wii.",
+    "Off: Wii Remotes don't rumble in any game. A game's own page also has Rumble, for that game only.":
+        "Désactivé : les Wiimotes ne vibrent dans aucun jeu. La page d'un jeu a aussi Vibrations, pour ce jeu seulement.",
+    "Play":
+        "Jouer",
+    "Play history":
+        "Historique de jeu",
+    "SD and USB":
+        "SD et USB",
+    "Scan the code for the guide.":
+        "Scannez le code pour le guide.",
+    "Set values":
+        "Définir les valeurs",
+    "Test switches are on":
+        "Des réglages de test sont actifs",
+    "Test switches cleared: games start with all of RiftWii's fixes again.":
+        "Réglages de test effacés : les jeux démarrent de nouveau avec tous les correctifs de RiftWii.",
+    "The RiftWii channel is still version {1}. If you just installed it, the installer on the SD card is an old one: copy apps/riftwii_channel from the newest RiftWii zip onto the card.":
+        "La chaîne RiftWii est toujours en version {1}. Si vous venez de l'installer, l'installeur sur la carte SD est ancien : copiez apps/riftwii_channel du zip RiftWii le plus récent sur la carte.",
+    "The cheat has no notes about its values: its author's page may say what they are.":
+        "Ce code n'a pas de notes sur ses valeurs : la page de son auteur les indique peut-être.",
+    "The menu restarts to show it when you leave Settings.":
+        "Le menu redémarre pour l'afficher quand vous quittez les paramètres.",
+    "The order of the games on Home. Last played and Most played put the games you played from RiftWii first, the rest after them A to Z.":
+        "L'ordre des jeux sur l'accueil. Dernier joué et Plus joués placent d'abord les jeux joués depuis RiftWii, puis les autres de A à Z.",
+    "The values were not saved: {1}":
+        "Les valeurs n'ont pas été enregistrées : {1}",
+    "This cheat has values to fill in (the X's): press A to set them.":
+        "Ce code a des valeurs à remplir (les X) : appuyez sur A pour les définir.",
+    "This is the font on screen now.":
+        "C'est la police affichée actuellement.",
+    "This is the theme on screen now.":
+        "C'est le thème affiché actuellement.",
+    "This version's main changes. The release notes on GitHub have all of them.":
+        "Les principaux changements de cette version. Les notes de version sur GitHub les listent tous.",
+    "USB drive help":
+        "Aide stockage USB",
+    "Values of {1}: {2}. Press A to change them.":
+        "Valeurs de {1} : {2}. Appuyez sur A pour les modifier.",
+    "What a USB drive needs to work with RiftWii, step by step.":
+        "Ce qu'il faut à un stockage USB pour fonctionner avec RiftWii, étape par étape.",
+    "What's new":
+        "Nouveautés",
+    "What's new in RiftWii {1}":
+        "Nouveautés de RiftWii {1}",
+    "Which USB port is the adapter plugged into?":
+        "Sur quel port USB l'adaptateur est-il branché ?",
+    "Which drive's games Home lists. With a game on both, one drive's copy is enough.":
+        "Le stockage dont l'accueil liste les jeux. Pour un jeu présent sur les deux, une seule copie suffit.",
+    "Which port?":
+        "Quel port ?",
+    "Wii Remote rumble":
+        "Vibrations Wiimote",
+    "settings.txt turns parts of RiftWii off for testing (debug_off = {1}). Clear them unless the RiftWii developers asked you to keep them.":
+        "settings.txt désactive des parties de RiftWii pour les tests (debug_off = {1}). Effacez-les sauf si les développeurs de RiftWii vous ont demandé de les garder.",
+    "{1} and the new font":
+        "{1} et la nouvelle police",
+    "{1}: {2} ({3} digits)":
+        "{1} : {2} ({3} chiffres)",
+    "{1}: {2}. It is on.":
+        "{1} : {2}. Activé.",
+    "Your cIOS is out of date":
+        "Votre cIOS n'est pas à jour",
+    "IOS{1} is {2}. You're on an out-of-date cIOS, and this makes it harder to find out which bugs are causing what, so please update to the latest cIOS (d2x v11 beta3). Follow this guide: {3}":
+        "L'IOS{1} est {2}. Votre cIOS n'est pas à jour, ce qui complique la recherche de la cause des bugs : mettez à jour vers le dernier cIOS (d2x v11 beta3). Suivez ce guide : {3}",
+    "No cheat file yet, and the network is not up. Check the Wii's Internet settings, then choose Download.":
+        "Aucun fichier de triche, et le réseau n'est pas actif. Vérifiez les paramètres Internet de la Wii, puis choisissez Télécharger.",
+    "This cIOS can't start games":
+        "Ce cIOS ne peut pas lancer de jeux",
 }
 
 # Languages kept in tables of their own: written after LANGS, every msgid
@@ -3072,6 +3674,20 @@ def check(repo):
     missing = [k for k in T if '"%s"' % escape(k) not in text]
     for k in missing:
         print("not in the sources:", k)
+    # And which tr("...") in the menu's code has no entry yet, so new text
+    # is not left in English unnoticed.
+    import glob
+    import re
+    untranslated = set()
+    for path in sorted(glob.glob(os.path.join(repo, "wii", "*.cpp"))):
+        code = open(path, encoding="utf-8").read()
+        for m in re.finditer(r'\btr\(\s*"((?:[^"\\]|\\.)*)"', code):
+            literal = m.group(1)
+            if not any(escape(k) == literal for k in T):
+                untranslated.add(literal)
+    # A warning, not a failure: new text may land before its translation.
+    for k in sorted(untranslated):
+        print("warning: no translation yet:", k)
     return not missing
 
 

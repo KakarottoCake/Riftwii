@@ -3590,7 +3590,7 @@ static void BuildModRows(const FrontendState& state, const std::string& scanStat
 	}
 	FlowRow pick;
 	pick.kind = FlowRow::Kind::Action;
-	pick.label = "Add a code build...";
+	pick.label = tr("Add a code build...");
 	add(pick, {RowRef::What::AddCodes});
 }
 
@@ -3970,7 +3970,7 @@ static bool MenuPickCodes(const FrontendState& state, std::string& key)
 	};
 	fill();
 
-	GuiText titleTxt("Add a code build", 30, skin::kInk);
+	GuiText titleTxt(tr("Add a code build"), 30, skin::kInk);
 	Place(titleTxt, 40, 28);
 	TitleBand titleBand;
 	std::string whereText = folder + "/";
@@ -5751,8 +5751,8 @@ static int MenuNeedsSd()
 static void ShowLaunchFrame(const FrontendState& state, int action)
 {
 	const std::string title = action == MENU_CHANNEL ? std::string(tr("The RiftWii channel")) : GameTitle(state);
-	const char* doing = action == MENU_DUMP ? "Dumping files from"
-		: action == MENU_CHANNEL ? "Opening the installer for" : "Starting";
+	const char* doing = action == MENU_DUMP ? tr("Dumping files from")
+		: action == MENU_CHANNEL ? tr("Opening the installer for") : tr("Starting");
 	// The game page's band in the game's colour, as the page it starts from.
 	GameBanner banner(skin::HueFor(action == MENU_CHANNEL ? std::string("RIFTWII") : state.game_id));
 	GuiText doingTxt(doing, 16, skin::WithAlpha(skin::kWhite, 200));
