@@ -215,6 +215,10 @@ std::string VideoPatchReport::describe() const {
     return s;
 }
 
+bool game_keeps_picture_width(const std::string& game_id) {
+    return game_id.compare(0, 3, "RMB") == 0;
+}
+
 void patch_video_modes(std::uint8_t* bytes, std::size_t size, const VideoSettings& settings, VideoPatchReport& report) {
     for (std::size_t at = 0; at + kModeBytes <= size; at += 4) {
         std::uint8_t* p = bytes + at;

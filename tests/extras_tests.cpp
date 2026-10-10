@@ -377,6 +377,13 @@ void TestVideo() {
     EXPECT_EQ(report.patched, 1u);
 }
 
+void TestKeepsPictureWidth() {
+    EXPECT_TRUE(game_keeps_picture_width("RMBE01"));
+    EXPECT_TRUE(game_keeps_picture_width("RMBP01"));
+    EXPECT_FALSE(game_keeps_picture_width("RMCE01"));
+    EXPECT_FALSE(game_keeps_picture_width(""));
+}
+
 void TestVideoModes() {
     const std::uint8_t deflicker[7] = {7, 7, 12, 12, 12, 7, 7};
     const std::uint8_t sharp[7] = {0, 0, 21, 22, 21, 0, 0};
@@ -1075,6 +1082,7 @@ int main() {
     TestCheats();
     TestVideo();
     TestVideoModes();
+    TestKeepsPictureWidth();
     TestSettings();
     TestGameLanguage();
     TestWfc();

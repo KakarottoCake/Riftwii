@@ -75,6 +75,13 @@ struct VideoPatchReport {
     std::string describe() const;
 };
 
+// Games whose picture breaks when the VI width of their render mode tables
+// changes (Picture width, or Black borders: Remove, which widens it to 720):
+// they keep their own width and borders. Mario Super Sluggers (RMB): a
+// tester's screen went black but for a strip of one colour and a green
+// square, the game running underneath; either setting alone did it.
+bool game_keeps_picture_width(const std::string& game_id);
+
 // Finds the render mode tables in `bytes` (a loaded DOL section, 4-byte
 // aligned) and applies `settings` to them, adding to `report`.
 void patch_video_modes(std::uint8_t* bytes, std::size_t size, const VideoSettings& settings, VideoPatchReport& report);

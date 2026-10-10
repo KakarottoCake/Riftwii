@@ -1602,6 +1602,13 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         g_extras.video.remove_borders = false;
         g_extras.video.remove_top_bottom = false;
     }
+    if (game_keeps_picture_width(probe.header.game_id) &&
+        (g_extras.video.width != VideoWidth::Game || g_extras.video.remove_borders)) {
+        logf("Video: width and borders as the game has them: its picture breaks when they change\n");
+        g_extras.video.width = VideoWidth::Game;
+        g_extras.video.remove_borders = false;
+        g_extras.video.remove_top_bottom = false;
+    }
     // The menu's extras, over the game as loaded and patched.
     apply_video(loaded, card.fd < 0);  // not while the runtime's card handle is open
     bool codes_first = false;  // run the codes once before the game starts
