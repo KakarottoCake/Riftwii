@@ -23,6 +23,16 @@ A loader that cannot pass arguments can write the same lines, `--launch`
 first, to `sd:/riftwii/launch.txt` and start RiftWii without any. RiftWii
 deletes the file as it reads it.
 
+A loader that passes one file path can name a launch file of its own on
+the SD card: `argv[1]` is the file's path (`sd:/...`), and the file holds the
+same lines, `--launch` first. RiftWii only reads it, so the file starts the
+same game every time. This is how a WiiFlow plugin starts RiftWii (below).
+
+A loader that mounted the USB drive itself must let go of it before it
+starts RiftWii (unmount it and shut its driver down, as it does the SD
+card). If RiftWii lists no drive after 4 seconds, it reloads the IOS, which
+lets go of a drive left open, and waits 10 seconds more.
+
 A loader that already starts Friivolution can start RiftWii the same way,
 unchanged: see "Friivolution's argument" below.
 
@@ -46,7 +56,7 @@ from its own menu (the game's saved choices, then RiftWii's Settings).
 | `cios` | `auto`, `248` … `252` | The d2x cIOS for a USB or SD game. |
 | `server` | `off`, `wiimmfi`, `wiilink`, `altwfc`, `custom` | The online server; `custom` uses `wfc_domain`. |
 | `wfc_domain` | `example.net` | The custom server's domain (4 to 16 characters). |
-| `code_build` | `sd:/projectplus`, `projectplus` or `sd:/projectplus/codes/RSBE01.gct` | A code build to turn on (Project+, REX and the like), by its folder on the SD card, the folder's name, or its code file; repeat it for several. As with `xml`, every pack not named is off, and the two can be given together. Code builds are read from the SD card only. |
+| `code_build` | `sd:/projectplus`, `projectplus` or `sd:/projectplus/codes/RSBE01.gct` | A code build to turn on (Project+, REX and the like), by its folder on the SD card, the folder's name, or its code file; repeat it for several. As with `xml`, every pack not named is off, and the two can be given together. A build inside an SD image is named the way RiftWii keeps it: `pplus.raw/Project+/RSBE01.gct`. Code builds are read from the SD card only. |
 | `gct` | `sd:/codes/RMCE01.gct`, or `none` | Gecko codes to run. `none`: no codes. Code builds (Project+) keep their own. |
 | `return_to` | `0001000147584c44` (or `00010001-47584c44`), or `menu` | The channel a game's HOME Menu "Wii Menu" button starts, such as the loader's own forwarder; `menu` leaves the Wii Menu. Without it RiftWii's own setting is used (the RiftWii channel, when installed). |
 
@@ -70,6 +80,35 @@ cios=249
 gct=sd:/codes/RMCE01.gct
 return_to=00010001-554c4e52
 ```
+
+## A WiiFlow plugin
+
+A WiiFlow plugin lists one launch file per entry and starts RiftWii with
+the picked file's path. Put `boot.dol` where WiiFlow looks for the
+plugin's DOL. A plugin ini such as `wiiflow/plugins/riftwii.ini`:
+
+```
+[PLUGIN]
+magic=52494657
+dolfile=boot.dol
+arguments={device}:/{path}/{name}
+romdir=riftmods
+rompartition=0
+filetypes=.txt
+displayname=RiftWii
+returnloader=yes
+```
+
+And one file per game or mod setup, e.g. `sd:/riftmods/Project+.txt`:
+
+```
+--launch
+game=RSBE01
+code_build=Project+
+```
+
+The files must be on the SD card. With the game on a USB drive, add
+`from=usb`.
 
 ## Friivolution's argument
 

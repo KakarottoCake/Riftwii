@@ -15,6 +15,7 @@
 #include "ios_reload.hpp"
 #include "log.hpp"
 #include "memlimits.hpp"
+#include "menuios.hpp"
 
 namespace riftwii::wii {
 namespace {
@@ -46,8 +47,16 @@ bool select_game(const HeadlessLaunch& h, FrontendState& state, std::string& err
         std::string& scan_error = usb_error;
         // Started straight from another loader, the drive it used may not
         // be listed again yet (a tester's WiiFlow plugin: "checking for a
-        // device", then nothing, 5 ms in).
-        wait_for_usb_drive(10);
+        // device", then nothing, 5 ms in). A loader that mounted the drive
+        // and handed over without letting go of it (libfat's
+        // fatInitDefault, then only sd: unmounted) leaves IOS's USB stack
+        // showing no drive at all: a fresh IOS lets go of it.
+        if (!wait_for_usb_drive(4)) {
+            logf("USB: reloading the IOS, which lets go of a drive the program before left open\n");
+            USB_Deinitialize();
+            StartMenuIos(true, true);
+            wait_for_usb_drive(10);
+        }
         if (scan_usb_games(state.usb_catalog, scan_error)) {
             for (std::size_t i = 0; i < state.usb_catalog.games.size(); ++i) {
                 if (wanted(h, state.usb_catalog.games[i])) return SelectUsbGame(state, i, error);
@@ -112,7 +121,9 @@ bool apply_choices(const HeadlessLaunch& h, FrontendState& state, std::string& e
                 return false;
             }
         }
-        // A code build by its folder (its path, or its name) or its code file.
+        // A code build by its folder (its path, or its name), its code file,
+        // or the name RiftWii keeps it by ("pm.raw/Project+/RSBE01.gct" for
+        // one inside an SD image).
         for (const std::string& build : h.code_builds) {
             bool found = false;
             for (std::size_t i = 0; i < model.packages.size() && !found; ++i) {
@@ -120,7 +131,9 @@ bool apply_choices(const HeadlessLaunch& h, FrontendState& state, std::string& e
                 if (!p.code_build()) continue;
                 const std::size_t slash = p.path.find_last_of('/');
                 const std::string name = slash == std::string::npos ? p.path : p.path.substr(slash + 1);
-                if (!same_path(p.path, build) && !same_path(p.gct_path, build) && !same_path(name, build)) continue;
+                if (!same_path(p.path, build) && !same_path(p.gct_path, build) && !same_path(name, build) &&
+                    !same_path(p.file, build))
+                    continue;
                 found = true;
                 if (!model.set_enabled(i, true)) {
                     error = build + ": this code build is not for " + state.game_id;
@@ -143,6 +156,19 @@ bool apply_choices(const HeadlessLaunch& h, FrontendState& state, std::string& e
     if (g.cios != "global") to.cios = g.cios;
     if (g.server != "global") to.server = g.server;
     return true;
+}
+
+// A launch file: the arguments one per line, "--launch" first.
+bool read_launch_lines(const std::string& path, std::vector<std::string>& args) {
+    args.clear();
+    std::ifstream file(path);
+    if (!file) return false;
+    std::string line;
+    while (std::getline(file, line) && args.size() < 64) {
+        while (!line.empty() && (line.back() == '\r' || line.back() == ' ')) line.pop_back();
+        if (!line.empty()) args.push_back(line);
+    }
+    return is_headless_launch(args);
 }
 
 bool launch(const std::vector<std::string>& args, std::string& error) {
@@ -200,20 +226,21 @@ bool HeadlessArguments(std::vector<std::string>& args) {
         }
     }
     if (is_headless_launch(args)) return true;
+    // One argument naming a launch file on the SD card: a WiiFlow plugin
+    // passes the file picked in its list (sd:/riftmods/Project+.txt). The
+    // file is only read, so it starts the same game every time.
+    if (args.size() == 1 && args[0].compare(0, 4, "sd:/") == 0) {
+        const std::string path = args[0];
+        if (read_launch_lines(path, args)) return true;
+        args.clear();
+    }
     // A loader that cannot pass arguments (and Dolphin, which starts a DOL
     // without any) writes them to a file instead, one per line. It is
     // read once: deleted before the launch, so a failed one never repeats.
     args.clear();
-    std::ifstream file(kLaunchFile);
-    if (!file) return false;
-    std::string line;
-    while (std::getline(file, line)) {
-        while (!line.empty() && (line.back() == '\r' || line.back() == ' ')) line.pop_back();
-        if (!line.empty()) args.push_back(line);
-    }
-    file.close();
+    if (!read_launch_lines(kLaunchFile, args)) return false;
     std::remove(kLaunchFile);
-    return is_headless_launch(args);
+    return true;
 }
 
 void RunHeadless(const std::vector<std::string>& args) {

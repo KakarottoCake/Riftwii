@@ -28,7 +28,8 @@ struct HeadlessLaunch {
     bool packs_given = false;        // an xml= was passed (xml=none: every pack off)
     bool all_packs = false;          // xml=all: every pack for the game on
     // Code builds to turn on (Project+ and the like, SD card only): the
-    // build's folder ("sd:/projectplus" or "projectplus") or its code file.
+    // build's folder ("sd:/projectplus" or "projectplus"), its code file, or
+    // its path without the drive ("pm.raw/Project+/RSBE01.gct" in an SD image).
     // Like xml=, any given turns every pack not named off.
     std::vector<std::string> code_builds;
     GameSettings settings;           // "global" where not given: RiftWii's own

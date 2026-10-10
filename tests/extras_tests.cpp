@@ -922,6 +922,9 @@ void TestHeadlessArguments() {
     EXPECT_TRUE(parse_headless_launch({"--launch", "game=RSBE01", "code_build=sd:/projectplus/codes/RSBE01.gct"}, h, error));
     EXPECT_FALSE(parse_headless_launch({"--launch", "game=RSBE01", "code_build=usb:/projectplus"}, h, error));
     EXPECT_FALSE(parse_headless_launch({"--launch", "game=RSBE01", "code_build="}, h, error));
+    // One inside an SD image, as RiftWii keeps it; never an absolute path elsewhere.
+    EXPECT_TRUE(parse_headless_launch({"--launch", "game=RSBE01", "code_build=Project+.raw/Project+/RSBE01.gct"}, h, error));
+    EXPECT_FALSE(parse_headless_launch({"--launch", "game=RSBE01", "code_build=/Project+"}, h, error));
     // Every value USB Loader GX's hand-off sends (its RiftWii.cpp tables):
     // a value it sends that RiftWii no longer takes stops every GX launch.
     for (const char* v : {"system", "game", "pal50", "pal60", "ntsc", "480p"})

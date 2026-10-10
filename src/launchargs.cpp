@@ -81,10 +81,12 @@ bool parse_headless_launch(const std::vector<std::string>& args, HeadlessLaunch&
                 out.xmls.push_back(value);
             }
         } else if (key == "code_build") {
-            // Code builds are read from the SD card: a path there, or a
-            // folder name at its top.
+            // Code builds are read from the SD card: a path there, a
+            // folder name at its top, or a path from the top without the
+            // drive ("pm.raw/Project+/RSBE01.gct" inside an SD image).
             out.packs_given = true;
-            ok = value.compare(0, 4, "sd:/") == 0 || (!value.empty() && value.find_first_of(":/\\") == std::string::npos);
+            ok = value.compare(0, 4, "sd:/") == 0 ||
+                 (!value.empty() && value.find_first_of(":\\") == std::string::npos && value[0] != '/');
             out.code_builds.push_back(value);
         } else if (key == "video_mode") {
             ok = parse_video_mode(value, mode);
