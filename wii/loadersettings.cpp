@@ -50,6 +50,7 @@ std::string MenuLanguage() {
         case CONF_LANG_SPANISH: return "es";
         case CONF_LANG_ITALIAN: return "it";
         case CONF_LANG_KOREAN: return "ko";
+        case CONF_LANG_FRENCH: return "fr";
         default: return "en";  // the Wii has no Portuguese; pick it in Settings
     }
 }

@@ -33,6 +33,7 @@ std::string region_for(char code, const std::string& lang) {
             if (lang == "es") return "ES";
             if (lang == "it") return "IT";
             if (lang == "pt") return "PT";
+            if (lang == "fr") return "FR";
             return "EN";
     }
 }

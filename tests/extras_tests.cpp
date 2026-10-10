@@ -631,6 +631,7 @@ void TestCoverArt() {
     EXPECT_EQ(us[0], "US");
     EXPECT_EQ(us[1], "EN");
     EXPECT_EQ(cover_regions("RMCP01", "es")[0], "ES");
+    EXPECT_EQ(cover_regions("RMCP01", "fr")[0], "FR");
     EXPECT_EQ(cover_regions("RMCP01", "ja")[0], "EN");
     EXPECT_EQ(cover_regions("RMCJ01", "en")[0], "JA");
     EXPECT_EQ(cover_regions("RMCJ01", "en").size(), 3u);  // JA once

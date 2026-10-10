@@ -194,7 +194,7 @@ groups: *Games* (the defaults for every game), *Menu*, *Finding games*,
 *Online* and *More*. The note under the list explains the row you are on.
 
 - **Language**: English, Español, 日本語, Português, Italiano, 한국어
-  (Korean), or *Wii* to follow the console. Korean needs **Menu font** set
+  (Korean), French or *Wii* to follow the console. Korean needs **Menu font** set
   to *Wii Menu* on a Korean Wii, whose font has Hangul (RiftWii's own font
   has none); otherwise the menu stays in English and says so. A
   translation can be corrected by putting a copy of `wii/lang/<lang>.po` at
