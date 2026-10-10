@@ -176,7 +176,16 @@ void test_basic() {
     EXPECT_EQ(list.entries[1].count, std::uint32_t(48));
     EXPECT_TRUE(UsbDiscSource::open(wbfs, disc, error));
     EXPECT_TRUE(disc->read(0, out, 2) && out[0] == 0xAA && out[1] == 0);
-    EXPECT_FALSE(disc->read(kWbfsBlock, out, 1));  // sparse virtual Wii block
+    // A block the WBFS never stored reads as zeros, as on the disc; a read
+    // from the stored block into it gets both.
+    out[0] = 0x55;
+    EXPECT_TRUE(disc->read(kWbfsBlock, out, 1) && out[0] == 0);
+    {
+        std::vector<std::uint8_t> span(4, 0x55);
+        EXPECT_TRUE(disc->read(kWbfsBlock - 2, span.data(), span.size()));
+        EXPECT_TRUE(span[2] == 0 && span[3] == 0);
+    }
+    EXPECT_FALSE(disc->read(disc->size(), out, 1));  // past the end
 
     EXPECT_FALSE(build_usb_fragments(wbfs_image(false), list, error));
     EXPECT_FALSE(build_usb_fragments(wbfs_image(true, 20, false, true), list, error));

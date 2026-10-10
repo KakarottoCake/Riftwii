@@ -23,6 +23,7 @@
 #include "log.hpp"
 #include "netsock.hpp"
 #include "tls.hpp"
+#include "textfile.hpp"
 #include "riftwii/cheats.hpp"
 #include "riftwii/dol.hpp"
 #include "riftwii/http.hpp"
@@ -296,13 +297,8 @@ bool AddAhbAccess(std::string& text) {
 // new one. Best effort: the DOL is what counts.
 void UpdateMetaVersion(const std::string& dol_path, const std::string& latest) {
     const std::string meta = dol_path.substr(0, dol_path.rfind('/') + 1) + "meta.xml";
-    FILE* f = std::fopen(meta.c_str(), "rb");
-    if (!f) return;
     std::string text;
-    char buf[1024];
-    std::size_t n;
-    while ((n = std::fread(buf, 1, sizeof(buf), f)) > 0) text.append(buf, n);
-    std::fclose(f);
+    if (!ReadTextFile(meta, text, 64u << 10)) return;
     const std::size_t open = text.find("<version>");
     const std::size_t close = text.find("</version>");
     if (open == std::string::npos || close == std::string::npos || close < open) return;
@@ -751,14 +747,10 @@ std::string CheatPath(const std::string& game_id) { return std::string(kCheatDir
 
 namespace {
 
+// Capped as downloads are (DownloadCheats takes at most 1 MB).
 std::string read_cheat_file(const std::string& game_id) {
     std::string text;
-    if (FILE* f = std::fopen(CheatPath(game_id).c_str(), "rb")) {
-        char buf[4096];
-        std::size_t n;
-        while ((n = std::fread(buf, 1, sizeof(buf), f)) > 0) text.append(buf, n);
-        std::fclose(f);
-    }
+    ReadTextFile(CheatPath(game_id), text, 1u << 20);
     return text;
 }
 
@@ -818,13 +810,8 @@ void EnsureMetaAhbAccess() {
     const std::string dol = RunningDolPath();
     if (dol.empty()) return;
     const std::string meta = dol.substr(0, dol.rfind('/') + 1) + "meta.xml";
-    FILE* f = std::fopen(meta.c_str(), "rb");
-    if (!f) return;
     std::string text;
-    char buf[1024];
-    std::size_t n;
-    while ((n = std::fread(buf, 1, sizeof(buf), f)) > 0) text.append(buf, n);
-    std::fclose(f);
+    if (!ReadTextFile(meta, text, 64u << 10)) return;
     bool changed = AddAhbAccess(text);
     if (changed) logf("meta.xml: hardware access asked of the Homebrew Channel from the next start (%s)\n", meta.c_str());
     // The Homebrew Channel shows <version>: this build's (an older RiftWii's

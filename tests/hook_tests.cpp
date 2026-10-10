@@ -3447,9 +3447,18 @@ static void TestVirtualWindow() {
     EXPECT_FALSE(riftwii::plan_virtual_window(fst, {bad}, reps, sd_reps, disc_reps, end, error));
     bad.disc_path = "/hbm";
     EXPECT_FALSE(riftwii::plan_virtual_window(fst, {bad}, reps, sd_reps, disc_reps, end, error));
+    // A 0-byte file is an entry of size 0 with nothing to serve, and takes
+    // no room in the window.
     bad.disc_path = "/hbm/config.txt";
     bad.bytes.clear();
-    EXPECT_FALSE(riftwii::plan_virtual_window(fst, {bad}, reps, sd_reps, disc_reps, end, error));  // no content
+    {
+        const std::size_t before = reps.size();
+        const std::uint64_t at = end;
+        EXPECT_TRUE(riftwii::plan_virtual_window(fst, {bad}, reps, sd_reps, disc_reps, end, error));
+        EXPECT_EQ(reps.size(), before);
+        EXPECT_EQ(end, at);
+        EXPECT_EQ(fst.entries()[fst.find("/hbm/config.txt")].size, 0u);
+    }
 
     // An SD-backed file takes a slot the same way; its size is the runs' total.
     riftwii::VirtualFile card;

@@ -26,6 +26,7 @@
 #include "codebuilds.hpp"
 #include "netpacks.hpp"
 #include "sdfile.hpp"
+#include "textfile.hpp"
 
 namespace riftwii::wii {
 
@@ -46,11 +47,9 @@ bool ensure_directory(const char* path, std::string& error) {
 
 bool ReadRiivolutionConfig(const std::string& game_id, RiivolutionConfig& out) {
     const std::string path = std::string(kPackageDir) + "/config/" + riivolution_config_name(game_id) + ".xml";
-    std::ifstream in(path, std::ios::binary);
-    if (!in) return false;
-    std::stringstream text;
-    text << in.rdbuf();
-    if (parse_riivolution_config(text.str(), out)) return true;
+    std::string text;
+    if (!ReadTextFile(path, text)) return false;
+    if (parse_riivolution_config(text, out)) return true;
     logf("Riivolution config %s: not a version 2 config, ignored\n", path.c_str());
     return false;
 }
@@ -247,11 +246,9 @@ std::string ScanPackages(FrontendState& state) {
     }
     state.usb_mods = usb_mod_folders(state.game_id);
     if (!state.choices_path.empty()) {
-        std::ifstream saved(state.choices_path, std::ios::binary);
-        if (saved) {
-            std::stringstream text;
-            text << saved.rdbuf();
-            state.model.restore(text.str());
+        std::string text;
+        if (ReadTextFile(state.choices_path, text)) {
+            state.model.restore(text);
         } else if (!state.game_id.empty()) {
             // A game RiftWii has never saved: start from what Riivolution
             // last used for it.

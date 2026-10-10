@@ -347,7 +347,11 @@ void test_slot_fragments() {
         EXPECT_EQ(int(b[0]), 0xA7);
         EXPECT_TRUE(disc->read(2 * 0x200000 - 1, b, 1));
         EXPECT_EQ(int(b[0]), 0xB9);
-        EXPECT_FALSE(disc->read(2 * 0x200000, b, 1));  // block 2 is absent, never zeros
+        // Block 2 was never stored (scrubbed): it reads as zeros, as
+        // Dolphin's WBFS reader gives it, not as a failed read.
+        b[0] = 0x55;
+        EXPECT_TRUE(disc->read(2 * 0x200000, b, 1));
+        EXPECT_EQ(int(b[0]), 0);
     }
     // Unused slots and slots past the table are refused.
     D2xFragmentList none;

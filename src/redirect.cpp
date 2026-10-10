@@ -164,7 +164,9 @@ bool build_redirect_table(const std::vector<VirtualFileLayout>& files, const Ext
                     error = "redirect entries overlap at virtual offset " + std::to_string(e.vstart);
                     return false;
                 }
+                // Merged only while the length still fits its 32 bits.
                 const bool contiguous = pend == e.vstart && p.kind == e.kind &&
+                                        std::uint64_t(p.length) + e.length <= std::numeric_limits<std::uint32_t>::max() &&
                                         (p.kind == RT_KIND_ZERO || linear_source(p) + p.length == linear_source(e));
                 if (contiguous) {
                     p.length += e.length;

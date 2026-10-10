@@ -488,8 +488,10 @@ bool plan_virtual_window(Fst& fst, const std::vector<VirtualFile>& files, std::v
             return false;
         }
         if (padded == 0) {
-            error = "'" + f.disc_path + "' has no content";
-            return false;
+            // A 0-byte file (resized to nothing, or an empty file on the
+            // card): its entry says so, and no read ever reaches it.
+            if (!fst.set_file_extent(index, next, 0, error)) return false;
+            continue;
         }
         if (next + padded > kWindowEnd) {
             error = "virtual window is full";

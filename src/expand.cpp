@@ -164,19 +164,29 @@ bool walk_rooted(const FolderPatch& folder, const Fst& fst, ContentProvider& pro
     return true;
 }
 
-// Filename search: each external file replaces every disc file of its name.
+// Filename search: each external file replaces every disc file of its name;
+// with `recursive`, the files in the external folder's subfolders too.
 bool search_by_name(const FolderPatch& folder, const Fst& fst, ContentProvider& provider, const std::string& sd_dir,
-                    Expansion& x, std::string& error) {
+                    unsigned depth, Expansion& x, std::string& error) {
+    if (depth > kMaxFolderDepth) {
+        error = "'" + sd_dir + "' is nested too deeply";
+        return false;
+    }
     std::vector<ExternalEntry> entries;
     const OpenStatus listed = list_sorted(provider, sd_dir, entries, error);
-    if (listed == OpenStatus::NotFound) {
+    if (listed == OpenStatus::NotFound && depth == 0) {
         x.missing = true;  // skipped, as for a rooted folder
         error.clear();
         return true;
     }
     if (listed != OpenStatus::Ok) return false;
     for (const ExternalEntry& e : entries) {
-        if (e.is_directory) continue;
+        if (e.is_directory) {
+            if (folder.recursive &&
+                !search_by_name(folder, fst, provider, join(sd_dir, e.name), depth + 1, x, error))
+                return false;
+            continue;
+        }
         if (e.name.size() == 8 && std::equal(e.name.begin(), e.name.end(), "main.dol", [](char a, char b) {
                 return (a >= 'A' && a <= 'Z' ? a - 'A' + 'a' : a) == b;
             })) {
@@ -212,7 +222,7 @@ bool expand_folder(const FolderPatch& folder, const Fst& fst, ContentProvider& p
     const std::string sd_dir = without_trailing_slash(folder.external);
     const std::string disc = without_trailing_slash(folder.disc);
     const bool rooted = !disc.empty() && disc[0] == '/';
-    if (!rooted) return search_by_name(folder, fst, provider, sd_dir, x, error);
+    if (!rooted) return search_by_name(folder, fst, provider, sd_dir, 0, x, error);
     std::string disc_dir = disc;
     const std::uint32_t index = fst.find(disc, true);
     if (index != Fst::npos) {

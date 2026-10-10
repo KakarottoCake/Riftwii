@@ -79,6 +79,12 @@ static void TestRejections() {
     EXPECT_FALSE(riftwii::parse_dol_header(h.data(), h.size(), d, error));
 
     h = MakeHeader();
+    Put32(h, 0x64, 0x80005F00);  // data0 loads over text0's last 0x100 bytes
+    EXPECT_FALSE(riftwii::parse_dol_header(h.data(), h.size(), d, error));
+    Put32(h, 0x64, 0x80006000);  // right after it: fine
+    EXPECT_TRUE(riftwii::parse_dol_header(h.data(), h.size(), d, error));
+
+    h = MakeHeader();
     Put32(h, 0xD8, 0x70000000);  // bss outside RAM
     EXPECT_FALSE(riftwii::parse_dol_header(h.data(), h.size(), d, error));
 

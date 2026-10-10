@@ -207,14 +207,16 @@ bool BitmapFont::load(const std::uint8_t* data, std::size_t size, std::uint8_t* 
     sheet_at_.clear();
     std::size_t p = data_at;
     for (unsigned i = 0; i < sheets; ++i) {
+        // Compared without adding to `p`: on the Wii's 32-bit size_t an
+        // offset near 4 GiB would wrap past the check.
         if (packed_) {
-            if (p + 4 > size) break;
+            if (p > size || 4 > size - p) break;
             const std::size_t packed = be32(data + p);
             if (packed > size - p - 4) break;
             sheet_at_.push_back(p + 4);
             p += packed + 4;
         } else {
-            if (p + sheet_bytes_ > size) break;
+            if (p > size || sheet_bytes_ > size - p) break;
             sheet_at_.push_back(p);
             p += sheet_bytes_;
         }

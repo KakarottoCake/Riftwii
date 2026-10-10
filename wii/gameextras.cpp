@@ -16,6 +16,7 @@
 #include "loadersettings.hpp"
 #include "log.hpp"
 #include "online.hpp"
+#include "textfile.hpp"
 #include "riftwii/settingsfile.hpp"
 
 namespace riftwii::wii {
@@ -26,12 +27,7 @@ PlayHistory g_history;
 bool g_history_loaded = false;
 
 bool read_text(const std::string& path, std::string& text) {
-    std::ifstream in(path, std::ios::binary);
-    if (!in) return false;
-    std::stringstream s;
-    s << in.rdbuf();
-    text = s.str();
-    return true;
+    return ReadTextFile(path, text);
 }
 
 }  // namespace

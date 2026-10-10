@@ -7,8 +7,8 @@
 #include <sys/stat.h>
 
 #include <cstdio>
-#include <fstream>
-#include <sstream>
+
+#include "textfile.hpp"
 
 namespace riftwii::wii {
 namespace {
@@ -22,12 +22,8 @@ LoaderSettings g_settings;
 LoaderSettings& Settings() {
     if (!g_loaded) {
         g_loaded = true;
-        std::ifstream in(kPath, std::ios::binary);
-        if (in) {
-            std::stringstream text;
-            text << in.rdbuf();
-            g_settings.parse(text.str());
-        }
+        std::string text;
+        if (ReadTextFile(kPath, text)) g_settings.parse(text);
     }
     return g_settings;
 }

@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "i18n.hpp"
 
-#include <fstream>
-#include <sstream>
 #include <vector>
 
 #include "FreeTypeGX.h"
@@ -16,6 +14,7 @@
 #include "log.hpp"
 #include "pt_po_zst.h"
 #include "riftwii/langfile.hpp"
+#include "textfile.hpp"
 #include "zstd.h"
 
 namespace riftwii::wii {
@@ -58,12 +57,8 @@ void SetMenuLanguage(const std::string& lang) {
     }
     std::size_t from_card = 0;
     const std::string path = "sd:/riftwii/lang/" + lang + ".po";
-    std::ifstream in(path, std::ios::binary);
-    if (in) {
-        std::stringstream text;
-        text << in.rdbuf();
-        from_card = parse_po(text.str(), g_catalog);
-    }
+    std::string text;
+    if (ReadTextFile(path, text)) from_card = parse_po(text, g_catalog);
     logf("Language: %s, %u built-in and %u from the card\n", lang.c_str(), static_cast<unsigned>(built_in),
          static_cast<unsigned>(from_card));
 }

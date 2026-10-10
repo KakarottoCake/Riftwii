@@ -49,6 +49,21 @@ bool parse_dol_header(const std::uint8_t* bytes, std::size_t length, DolHeader& 
             return false;
         }
     }
+    // No two sections load over each other: the loader would keep only
+    // whichever it copied last.
+    for (std::size_t i = 0; i < kDolSections; ++i) {
+        const DolSection& a = h.sections[i];
+        if (!a.used()) continue;
+        for (std::size_t j = i + 1; j < kDolSections; ++j) {
+            const DolSection& b = h.sections[j];
+            if (!b.used()) continue;
+            if (std::uint64_t(a.address) < std::uint64_t(b.address) + b.size &&
+                std::uint64_t(b.address) < std::uint64_t(a.address) + a.size) {
+                error = "DOL sections " + std::to_string(i) + " and " + std::to_string(j) + " load over each other";
+                return false;
+            }
+        }
+    }
     h.bss_address = be32(bytes + 0xD8);
     h.bss_size = be32(bytes + 0xDC);
     h.entry = be32(bytes + 0xE0);

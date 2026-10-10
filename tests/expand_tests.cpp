@@ -221,21 +221,29 @@ static void test_by_name() {
     std::vector<std::string> notes;
     std::string err;
     EXPECT_TRUE(riftwii::expand_plan(plan, fst, card, out, notes, err));
-    // a.arc matches two disc files; other.txt none; nested/ is not entered
-    // and create does not apply to a search.
-    EXPECT_EQ(out.size(), std::size_t(3));
-    if (out.size() == 3) {
+    // a.arc matches two disc files; other.txt none; recursive, so nested/
+    // is searched too (its x.bin replaces /Boot/x.bin); create does not
+    // apply to a search.
+    EXPECT_EQ(out.size(), std::size_t(4));
+    if (out.size() == 4) {
         EXPECT_EQ(Describe(out[0]), std::string("/Stage/a.arc<-/mod/loose/a.arc"));
         EXPECT_EQ(Describe(out[1]), std::string("/Boot/a.arc<-/mod/loose/a.arc"));
-        EXPECT_EQ(Describe(out[2]), std::string("/sys.bin<-/mod/loose/SYS.BIN"));
+        EXPECT_EQ(Describe(out[2]), std::string("/Boot/x.bin<-/mod/loose/nested/x.bin"));
+        EXPECT_EQ(Describe(out[3]), std::string("/sys.bin<-/mod/loose/SYS.BIN"));
     }
-    if (!notes.empty()) EXPECT_EQ(notes[0], std::string("<folder /mod/loose -> by name>: 3 replaced, 0 created, 1 skipped"));
+    if (!notes.empty()) EXPECT_EQ(notes[0], std::string("<folder /mod/loose -> by name>: 4 replaced, 0 created, 1 skipped"));
+
+    // Not recursive: nested/ is left alone.
+    plan.folders[0].recursive = false;
+    EXPECT_TRUE(riftwii::expand_plan(plan, fst, card, out, notes, err));
+    EXPECT_EQ(out.size(), std::size_t(3));
+    plan.folders[0].recursive = true;
 
     // A bare name is a search too.
     plan.folders[0].disc = "loose";
     plan.folders[0].is_name = true;
     EXPECT_TRUE(riftwii::expand_plan(plan, fst, card, out, notes, err));
-    EXPECT_EQ(out.size(), std::size_t(3));
+    EXPECT_EQ(out.size(), std::size_t(4));
 
     // main.dol is the executable, not an FST name: it stays a bare-name
     // patch for the compiler (CT-CODE packs ship it in such a folder).
@@ -243,7 +251,7 @@ static void test_by_name() {
     with_dol.add("/mod/loose", "MAIN.DOL", false);
     plan.folders[0] = Folder("", "/mod/loose", true, true);
     EXPECT_TRUE(riftwii::expand_plan(plan, fst, with_dol, out, notes, err));
-    EXPECT_EQ(out.size(), std::size_t(4));
+    EXPECT_EQ(out.size(), std::size_t(5));  // the four above and main.dol
     bool dol = false;
     for (const riftwii::FilePatch& f : out) {
         if (f.disc == "main.dol") dol = f.is_filename && f.external == "/mod/loose/MAIN.DOL";

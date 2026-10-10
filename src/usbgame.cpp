@@ -406,9 +406,17 @@ bool UsbDiscSource::read(std::uint64_t offset, std::uint8_t* destination, std::s
     while (length) {
         const std::uint64_t sector = offset / kUsbSectorBytes, skip = offset % kUsbSectorBytes;
         const auto it = std::upper_bound(map_.begin(), map_.end(), sector, [](std::uint64_t v, const D2xFragment& f) { return v < f.offset; });
-        if (it == map_.begin()) return false;
+        // A hole (a WBFS block the image never stored, as for the unused
+        // parts of a disc) reads as zeros up to the next stored piece.
+        if (it == map_.begin() || sector >= std::uint64_t(std::prev(it)->offset) + std::prev(it)->count) {
+            const std::uint64_t hole_end = it == map_.end() ? bytes_ : std::uint64_t(it->offset) * kUsbSectorBytes;
+            const std::size_t zeros = static_cast<std::size_t>(std::min<std::uint64_t>(length, hole_end - offset));
+            if (zeros == 0) return false;
+            std::memset(destination, 0, zeros);
+            offset += zeros; destination += zeros; length -= zeros;
+            continue;
+        }
         const D2xFragment& f = *std::prev(it);
-        if (sector < f.offset || sector >= std::uint64_t(f.offset) + f.count) return false;
         const std::uint64_t available = (std::uint64_t(f.offset) + f.count - sector) * kUsbSectorBytes - skip;
         const std::size_t take = static_cast<std::size_t>(std::min<std::uint64_t>(length, available));
         const std::uint64_t container_sector = std::uint64_t(f.sector) + (sector - f.offset);

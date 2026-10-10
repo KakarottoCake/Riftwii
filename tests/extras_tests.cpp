@@ -359,6 +359,18 @@ void TestCheats() {
     // No header: the file is only cheats.
     EXPECT_TRUE(parse_cheat_text("Cheat\n04000000 00000001\n", file, error));
     EXPECT_EQ(file.cheats.size(), 1u);
+    // No header, and the first cheat's name has an ID's length: it is a
+    // cheat, not the game's ID (its code line was taken as the title).
+    EXPECT_TRUE(parse_cheat_text("Speed2\n04000000 00000001\n\nMoon\n04000004 00000002\n", file, error));
+    EXPECT_EQ(file.cheats.size(), 2u);
+    EXPECT_TRUE(file.game_id.empty());
+    if (file.cheats.size() == 2) EXPECT_EQ(file.cheats[0].name, "Speed2");
+    EXPECT_TRUE(parse_cheat_text("SPEED2\n04000000 00000001\n", file, error));
+    EXPECT_EQ(file.cheats.size(), 1u);
+    // A real header still reads as one.
+    EXPECT_TRUE(parse_cheat_text("RMCP01\nMario Kart Wii\n\nSpeed\n04000000 00000001\n", file, error));
+    EXPECT_EQ(file.game_id, "RMCP01");
+    EXPECT_EQ(file.title, "Mario Kart Wii");
 }
 
 // A render mode table as the SDK lays it out (GXRModeObj, 60 bytes).
@@ -971,6 +983,16 @@ void TestFriivolutionArguments() {
     cfg = FriivConfig(1, "RMCE", longPath.c_str(), "");
     EXPECT_TRUE(friiv_launch_args(cfg.data(), cfg.size(), args));
     EXPECT_EQ(args[1].size(), std::string("path=sd:").size() + 255);
+    // A path that names its device already keeps it, once.
+    cfg = FriivConfig(1 | 2, "SB4E", "usb:/wbfs/SB4E01.wbfs", "");
+    EXPECT_TRUE(friiv_launch_args(cfg.data(), cfg.size(), args));
+    EXPECT_EQ(args[1], "path=usb:/wbfs/SB4E01.wbfs");
+    cfg = FriivConfig(1, "SB4E", "SD:/games/x.iso", "");
+    EXPECT_TRUE(friiv_launch_args(cfg.data(), cfg.size(), args));
+    EXPECT_EQ(args[1], "path=sd:/games/x.iso");
+    cfg = FriivConfig(1, "SB4E", "usb:wbfs/x.wbfs", "");
+    EXPECT_TRUE(friiv_launch_args(cfg.data(), cfg.size(), args));
+    EXPECT_EQ(args[1], "path=usb:/wbfs/x.wbfs");
 }
 
 void TestReturnTo() {

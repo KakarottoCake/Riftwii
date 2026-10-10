@@ -160,8 +160,20 @@ bool friiv_launch_args(const std::uint8_t* data, std::size_t size, std::vector<s
     if (path.empty()) {
         args.push_back("from=disc");
     } else {
-        if (path[0] != '/') path.insert(0, "/");
-        args.push_back(std::string("path=") + ((flags & kGameUsb) ? "usb:" : "sd:") + path);
+        // A path may name its device already ("usb:/wbfs/..."): it is
+        // kept, not given a second one ("sd:/usb:/...").
+        std::string device = (flags & kGameUsb) ? "usb:" : "sd:";
+        std::string lower;
+        for (char c : path.substr(0, 4)) lower += static_cast<char>(c >= 'A' && c <= 'Z' ? c - 'A' + 'a' : c);
+        if (lower.compare(0, 4, "usb:") == 0) {
+            device = "usb:";
+            path.erase(0, 4);
+        } else if (lower.compare(0, 3, "sd:") == 0) {
+            device = "sd:";
+            path.erase(0, 3);
+        }
+        if (path.empty() || path[0] != '/') path.insert(0, "/");
+        args.push_back("path=" + device + path);
     }
     const std::string id = field(data + 12, 4);
     if (id.size() == 4) args.push_back("game=" + id);
