@@ -241,6 +241,57 @@ private:
     std::map<const ByteSource*, Placed> sources_;
 };
 
+// A Mac's or Windows' own bookkeeping (._name, .Trashes, System Volume
+// Information), not anything a player copied: left out of what is listed.
+bool HiddenName(const std::string& name) { return name.empty() || name[0] == '.' || name == "System Volume Information"; }
+
+// "Wah Sports", "wahsports" and "Wah_Sports" alike.
+std::string Squashed(const std::string& name) {
+    std::string out;
+    for (const char c : name) {
+        if (c == ' ' || c == '_' || c == '-') continue;
+        out += static_cast<char>(c >= 'A' && c <= 'Z' ? c - 'A' + 'a' : c);
+    }
+    return out;
+}
+
+// A folder named like `name` but not where the pack looks: at the card's
+// top under another spelling ("Wah Sports" for WahSports), beside the XML,
+// in a riivolution folder, inside one of the top's folders, or inside
+// itself one level too deep. "sd:/apps/riivolution/WahSports", or empty.
+std::string similar_folder(const std::string& name, const std::string& xml_dir) {
+    const std::string want = Squashed(name);
+    if (want.empty()) return "";
+    const auto look = [&](const std::string& dir) -> std::string {
+        std::vector<Fat32Entry> entries;
+        bool missing = false;
+        std::string ignored;
+        if (!list_sd_directory("sd:" + dir, entries, missing, ignored)) return "";
+        for (const Fat32Entry& e : entries) {
+            if (!e.is_directory || HiddenName(e.name) || Squashed(e.name) != want) continue;
+            const std::string path = (dir == "/" ? std::string() : dir) + "/" + e.name;
+            if (path != "/" + name) return "sd:" + path;
+        }
+        return "";
+    };
+    std::vector<std::string> dirs = {"/", xml_dir, "/riivolution", "/apps/riivolution", "/" + name};
+    std::vector<Fat32Entry> top;
+    bool missing = false;
+    std::string ignored;
+    if (list_sd_directory("sd:/", top, missing, ignored)) {
+        std::size_t added = 0;
+        for (const Fat32Entry& e : top)
+            if (e.is_directory && !HiddenName(e.name) && added++ < 64) dirs.push_back("/" + e.name);
+    }
+    std::set<std::string> seen;
+    for (const std::string& dir : dirs) {
+        if (dir.empty() || !seen.insert(dir).second) continue;
+        const std::string found = look(dir);
+        if (!found.empty()) return found;
+    }
+    return "";
+}
+
 // "sd:/projectm/pf holds: menu2, sound, system": the deepest folder of
 // `sd_path` that exists and its first names. Empty when nothing is found.
 std::string nearest_on_card(const std::string& sd_path) {
@@ -257,11 +308,14 @@ std::string nearest_on_card(const std::string& sd_path) {
         if (list_sd_directory("sd:" + dir, entries, missing, ignored)) {
             std::string names;
             std::size_t shown = 0;
+            std::size_t listed = 0;
             for (const Fat32Entry& e : entries) {
-                if (shown == 12) break;
+                if (HiddenName(e.name)) continue;
+                ++listed;
+                if (shown == 12) continue;
                 names += (shown++ ? ", " : "") + e.name + (e.is_directory ? "/" : "");
             }
-            if (entries.size() > shown) names += ", +" + std::to_string(entries.size() - shown) + " more";
+            if (listed > shown) names += ", +" + std::to_string(listed - shown) + " more";
             return "sd:" + dir + " holds: " + (names.empty() ? std::string("nothing") : names);
         }
         if (!missing || dir == "/") return "";
@@ -533,14 +587,33 @@ static bool gather_package(const PackageSelection& selection, const DiscProbe& p
         std::string path = usb ? what.substr(4) : what;
         if (path.empty() || path[0] != '/') path = "/" + path;
         const std::string device = usb ? "usb:" : "sd:";
-        const std::string top = device + path.substr(0, path.find('/', 1));
+        const std::string folder = path.substr(1, path.find('/', 1) == std::string::npos ? std::string::npos
+                                                                                       : path.find('/', 1) - 1);
+        const std::string top = device + "/" + folder;
+        const std::string drive = usb ? "USB drive" : "SD card";
         const std::string xml_name = xml_sd_path.substr(xml_sd_path.find_last_of('/') + 1);
-        error = "This won't work: " + xml_name + " needs its files in " + top + ", and " +
-                (missing_value.empty() ? std::string("none of them are there") : device + path + " is missing") +
-                ". Copy the pack's whole folder onto the " + (usb ? "USB drive" : "SD card") +
-                " in the same place as the riivolution folder, not inside it.";
-        const std::string hint = nearest_on_card(what);
-        if (!hint.empty()) error += " (" + hint + ")";
+        // In words a player follows: which folder, where it goes, and where
+        // a copy that looks like it is (a tester's pack had no folder at all
+        // and the message read as a riddle).
+        error = "This mod's files aren't where it looks for them. " + xml_name + " needs a folder called " + folder +
+                " at the top of the " + drive + " (" + top + "), next to the riivolution folder";
+        if (!missing_value.empty()) error += ", with " + device + path + " in it";
+        error += ".";
+        const std::string pack_dir = PackFolderOf(xml_sd_path);
+        const std::string found = usb ? std::string() : similar_folder(folder, pack_dir);
+        if (!found.empty() && found.compare(0, top.size() + 1, top + "/") == 0) {
+            error += " Its files are one folder too deep, in " + found + ": move what is inside that folder up into " +
+                     top + ".";
+        } else if (!found.empty() && found.find('/', 4) == std::string::npos) {
+            error += " There is one at " + found + ": rename it to exactly " + folder + ".";
+        } else if (!found.empty()) {
+            error += " There is one at " + found + ": move it to the top of the SD card and name it exactly " +
+                     folder + ".";
+        } else {
+            error += " Copy the " + folder + " folder from the mod's download there.";
+            const std::string hint = nearest_on_card(what);
+            if (!hint.empty()) error += " (" + hint + ")";
+        }
         return false;
     }
     if (expanded.empty() && plan.memory.empty() && plan.savegames.empty() && plan.shifts.empty()) {
