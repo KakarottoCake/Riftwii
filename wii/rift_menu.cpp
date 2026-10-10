@@ -2617,6 +2617,10 @@ static int MenuSource(FrontendState& state)
 		filterHint.SetText(g_search.empty() ? tr("View") : tr("Clear search"));
 	};
 	showView();
+	// Channels: the page whose banners were all looked at, by its first
+	// tile. Other games take those tiles after a refresh (a search, another
+	// view): their banners are looked for again.
+	int bannerPageDone = -1;
 	const auto refresh = [&](bool keepFocus) {
 		// Another view, search or order: crossfaded (unless the screen is
 		// already changing some other way).
@@ -2624,6 +2628,7 @@ static int MenuSource(FrontendState& state)
 		showView();
 		const int focus = keepFocus ? grid.FocusedIndex() : 0;
 		BuildHome(state, items, entries);
+		bannerPageDone = -1;
 		grid.SetItems(&items);
 		grid.Focus(std::min(focus, std::max(0, static_cast<int>(items.size()) - 1)));
 		statusTxt.SetText(HomeStatus(state, items).c_str());
@@ -2666,7 +2671,6 @@ static int MenuSource(FrontendState& state)
 	queueCovers();
 
 	int shownPage = -1, shownPages = -1;
-	int bannerPageDone = -1;  // Channels: the page whose banners were all looked at
 	// The status line says covers are coming while they are, and why they
 	// stopped when a download failed.
 	bool coverNoteShown = false;
