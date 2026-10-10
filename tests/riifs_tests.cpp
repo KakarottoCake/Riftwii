@@ -44,6 +44,13 @@ class FakeServer final : public riftwii::riifs::Transport {
 public:
     std::map<std::string, std::vector<std::uint8_t>> files;
     std::set<std::string> extra_dirs;  // empty folders
+    // A hostile server: names listed in a folder as they are, files of one
+    // byte, whatever they hold.
+    std::map<std::string, std::vector<std::string>> rogue_names;
+    // Every folder under this one lists a folder of its own, as a symlink
+    // to a parent does on a PC.
+    std::string loop;
+    std::size_t listing_extra = 0;  // this many more files in "/big"
     std::int32_t version = 4;
     bool broken = false;  // drop the connection
     std::uint32_t reads = 0;
@@ -58,15 +65,14 @@ public:
     }
     bool receive(void* data, std::size_t length) override {
         if (broken || out_.size() < length) return false;
-        auto* p = static_cast<std::uint8_t*>(data);
-        for (std::size_t i = 0; i < length; ++i) {
-            p[i] = out_.front();
-            out_.pop_front();
-        }
+        std::copy(out_.begin(), out_.begin() + static_cast<std::ptrdiff_t>(length), static_cast<std::uint8_t*>(data));
+        out_.erase(out_.begin(), out_.begin() + static_cast<std::ptrdiff_t>(length));
         return true;
     }
     bool is_dir(const std::string& path) const {
         if (path == "/" || extra_dirs.count(path)) return true;
+        if (!loop.empty() && path.compare(0, loop.size(), loop) == 0) return true;
+        if (listing_extra && path == "/big") return true;
         const std::string prefix = path + "/";
         for (const auto& f : files) {
             if (f.first.compare(0, prefix.size(), prefix) == 0) return true;
@@ -189,6 +195,13 @@ private:
             };
             for (const auto& f : files) add_child(f.first);
             for (const auto& d : extra_dirs) add_child(d);
+            if (rogue_names.count(path)) {
+                for (const std::string& n : rogue_names[path]) list.push_back({n, {1, 0x8000}});
+            }
+            if (!loop.empty() && path.compare(0, loop.size(), loop) == 0) list.push_back({"again", {0, 0xC000}});
+            if (listing_extra && path == "/big") {
+                for (std::size_t i = 0; i < listing_extra; ++i) list.push_back({"f" + std::to_string(i), {0, 0x8000}});
+            }
             dirs_[next_fd_] = {list, 0};
             result(next_fd_++);
             break;
@@ -514,9 +527,107 @@ static void TestSync() {
     EXPECT_FALSE(riftwii::riifs::sync(client, card, root, items, options, stats, error));
 }
 
+// A server on the network must not reach outside the cache folder, nor
+// crash the Wii with folders that never end.
+static void TestHostileServer() {
+    using riftwii::riifs::SyncItem;
+    const std::string root = "sd:/riftwii/riifs/pc_1137";
+    auto outside = [&](const FakeCard& card) {
+        for (const auto& f : card.files) {
+            if (f.first.find("..") != std::string::npos || f.first.compare(0, root.size(), FakeCard::fold(root)) != 0) return true;
+        }
+        return false;
+    };
+    std::vector<SyncItem> stage(1);
+    stage[0].path = "/riivolution/Pack/Stage";
+    stage[0].folder = true;
+    for (const std::string& bad : std::vector<std::string>{"../../../apps/riftwii/boot.dol", "a/b.arc", "a\\b.arc", "sd:boot.dol",
+                                  std::string(256, 'x')}) {
+        FakeServer server;
+        server.files["/riivolution/Pack/Stage/A.arc"] = bytes("AAAA");
+        server.rogue_names["/riivolution/Pack/Stage"].push_back(bad);
+        Client client(server);
+        std::string error;
+        EXPECT_TRUE(client.handshake(error));
+        FakeCard card;
+        riftwii::riifs::SyncStats stats;
+        EXPECT_FALSE(riftwii::riifs::sync(client, card, root, stage, {}, stats, error));
+        EXPECT_FALSE(outside(card));
+        EXPECT_TRUE(error.find("cannot take") != std::string::npos);
+    }
+    EXPECT_TRUE(riftwii::riifs::name_ok(std::string(255, 'x')));
+    EXPECT_TRUE(riftwii::riifs::name_ok("..hidden"));
+    EXPECT_FALSE(riftwii::riifs::name_ok(""));
+    EXPECT_FALSE(riftwii::riifs::name_ok(std::string("a\0b", 3)));
+
+    // A pack's own path: ".." is worked out inside the server's root, and
+    // one that climbs above it is refused.
+    {
+        FakeServer server;
+        server.files["/riivolution/Pack/single.bin"] = bytes("S");
+        server.files["/apps/riftwii/boot.dol"] = bytes("DOL");
+        Client client(server);
+        std::string error;
+        EXPECT_TRUE(client.handshake(error));
+        FakeCard card;
+        riftwii::riifs::SyncStats stats;
+        std::vector<SyncItem> items(1);
+        items[0].path = "/riivolution/Pack/./Stage/../single.bin";
+        EXPECT_TRUE(riftwii::riifs::sync(client, card, root, items, {}, stats, error));
+        EXPECT_EQ(card.text(root + "/riivolution/Pack/single.bin"), "S");
+        items[0].path = "/riivolution/../../../apps/riftwii/boot.dol";
+        EXPECT_FALSE(riftwii::riifs::sync(client, card, root, items, {}, stats, error));
+        items[0].path = "/riivolution/a:b.bin";
+        EXPECT_FALSE(riftwii::riifs::sync(client, card, root, items, {}, stats, error));
+        EXPECT_FALSE(outside(card));
+    }
+
+    // A folder that contains itself stops at the depth limit, cleanly.
+    {
+        FakeServer server;
+        server.loop = "/riivolution/Loop";
+        Client client(server);
+        std::string error;
+        EXPECT_TRUE(client.handshake(error));
+        FakeCard card;
+        riftwii::riifs::SyncStats stats;
+        std::vector<SyncItem> items(1);
+        items[0].path = "/riivolution/Loop";
+        items[0].folder = true;
+        EXPECT_FALSE(riftwii::riifs::sync(client, card, root, items, {}, stats, error));
+        EXPECT_TRUE(error.find("too deep") != std::string::npos);
+        // The connection is still in step after it.
+        riftwii::riifs::Stat st;
+        bool missing = false;
+        EXPECT_TRUE(client.stat("/riivolution/Loop", st, missing, error));
+    }
+
+    // A listing longer than a FAT folder can hold is refused, and the
+    // folder is closed so the connection stays usable.
+    {
+        FakeServer server;
+        server.listing_extra = 65537;
+        Client client(server);
+        std::string error;
+        EXPECT_TRUE(client.handshake(error));
+        std::vector<riftwii::riifs::DirEntry> list;
+        bool missing = false;
+        EXPECT_FALSE(client.list("/big", list, missing, error));
+        EXPECT_FALSE(missing);
+        EXPECT_TRUE(list.empty());
+        server.files["/x.bin"] = bytes("x");
+        riftwii::riifs::Stat st;
+        EXPECT_TRUE(client.stat("/x.bin", st, missing, error));
+        server.listing_extra = 65536;
+        EXPECT_TRUE(client.list("/big", list, missing, error));
+        EXPECT_EQ(list.size(), 65536u);
+    }
+}
+
 int main() {
     TestClient();
     TestSync();
+    TestHostileServer();
     if (g_failures) {
         std::cerr << g_failures << " failure(s)" << std::endl;
         return 1;

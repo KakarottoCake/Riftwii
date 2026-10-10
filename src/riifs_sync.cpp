@@ -15,12 +15,47 @@ std::string folded(const std::string& s) {
     return out;
 }
 
+// Limits on what a server may make the card hold. A name is one FAT name;
+// a path stays well inside what libfat takes. The depth and folder counts
+// stop a server whose folders loop (a symlink to a parent) from recursing
+// until the Wii runs out of stack, or for ever.
+constexpr std::size_t kMaxPath = 768;
+constexpr unsigned kMaxDepth = 32;
+constexpr unsigned kMaxFolders = 16384;
+
 std::string normal(const std::string& path) {
     std::string out;
     for (char c : path) out += c == '\\' ? '/' : c;
     if (out.empty() || out[0] != '/') out = "/" + out;
     while (out.size() > 1 && out.back() == '/') out.pop_back();
     return out;
+}
+
+// A pack's path as the server's: "." and ".." worked out, so the copy
+// cannot land outside the cache. False for a path that climbs above the
+// server's root or holds a name the card cannot take.
+bool clean_path(const std::string& path, std::string& out) {
+    std::vector<std::string> parts;
+    std::string part;
+    const std::string norm = normal(path) + "/";
+    for (std::size_t i = 1; i < norm.size(); ++i) {
+        if (norm[i] != '/') {
+            part += norm[i];
+            continue;
+        }
+        if (part == "..") {
+            if (parts.empty()) return false;
+            parts.pop_back();
+        } else if (!part.empty() && part != ".") {
+            if (!name_ok(part)) return false;
+            parts.push_back(part);
+        }
+        part.clear();
+    }
+    out.clear();
+    for (const std::string& p : parts) out += "/" + p;
+    if (out.empty()) out = "/";
+    return out.size() <= kMaxPath;
 }
 
 std::string parent_of(const std::string& path) {
@@ -45,6 +80,10 @@ public:
     }
 
     bool file(const std::string& path, const Stat* known) {
+        if (path.size() > kMaxPath) {
+            error_ = "RiiFS: the path is too long: " + path.substr(0, 80) + "...";
+            return false;
+        }
         if ((!seeding_ && kept(path)) || !done_.insert(folded(path)).second) return true;
         Stat st;
         if (known) {
@@ -108,6 +147,14 @@ public:
             }
             return ok;
         }
+        if (path.size() > kMaxPath || depth_ >= kMaxDepth) {
+            error_ = "RiiFS: folders nested too deep at " + path.substr(0, 80);
+            return false;
+        }
+        if (++folders_ > kMaxFolders) {
+            error_ = "RiiFS: more than " + std::to_string(kMaxFolders) + " folders to copy; does the PC's folder link back to itself?";
+            return false;
+        }
         std::vector<DirEntry> remote;
         bool missing = false;
         if (!client_.list(path, remote, missing, error_)) {
@@ -118,10 +165,21 @@ public:
         }
         std::set<std::string> present;
         for (const DirEntry& e : remote) {
+            // A name is one name: "../x" or "a/b" would land outside this
+            // folder, or outside the cache.
+            if (!name_ok(e.name)) {
+                error_ = "RiiFS: the PC listed a name the card cannot take in " + path;
+                return false;
+            }
             present.insert(folded(e.name));
             const std::string child = join_path(path == "/" ? std::string() : path, e.name);
             if (e.stat.is_directory()) {
-                if (recursive && !folder(child, true, suffix)) return false;
+                if (recursive) {
+                    ++depth_;
+                    const bool ok = folder(child, true, suffix);
+                    --depth_;
+                    if (!ok) return false;
+                }
             } else if (ends_with(e.name, suffix)) {
                 if (!file(child, &e.stat)) return false;
             }
@@ -183,6 +241,8 @@ private:
     std::vector<std::string> keep_;
     std::set<std::string> done_;
     bool seeding_ = false;
+    unsigned depth_ = 0;
+    unsigned folders_ = 0;
 };
 
 }  // namespace
@@ -193,7 +253,11 @@ bool sync(Client& client, LocalStore& local, const std::string& local_root, cons
     while (!root.empty() && root.back() == '/') root.pop_back();
     Syncer syncer(client, local, root, options, stats, error);
     for (const SyncItem& item : items) {
-        const std::string path = normal(item.path);
+        std::string path;
+        if (!clean_path(item.path, path)) {
+            error = "RiiFS: a pack names a path outside the PC's shared folder: " + item.path.substr(0, 80);
+            return false;
+        }
         const bool ok = item.folder ? syncer.folder(path, item.recursive, item.suffix) : syncer.file(path, nullptr);
         if (!ok) return false;
     }

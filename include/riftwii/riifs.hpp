@@ -72,6 +72,12 @@ private:
     Transport& transport_;
 };
 
+// A name from a listing that can be stored as one file or folder on the
+// card: not empty, at most kMaxNameBytes, not "." or "..", and no '/', '\\',
+// ':' or NUL (which would reach outside its folder).
+constexpr std::size_t kMaxNameBytes = 255;
+bool name_ok(const std::string& name);
+
 // Server paths are absolute ("/riivolution/mod.xml"); names from a listing
 // are joined onto them. Any "\\" is a separator too (Windows servers).
 std::string join_path(const std::string& directory, const std::string& name);

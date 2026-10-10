@@ -34,6 +34,9 @@ constexpr std::int32_t kMinServerVersion = 3;
 constexpr std::size_t kNameBytes = 1024;  // a listing's name comes in a fixed field
 constexpr std::size_t kStatBytes = 24;
 constexpr std::size_t kMaxChunk = 0x100000;
+// FAT's own limit on one folder: a listing longer than that is not a pack
+// the card could hold, and would only fill the Wii's memory.
+constexpr std::size_t kMaxListing = 65536;
 
 void put32(std::uint8_t* p, std::uint32_t v) {
     p[0] = static_cast<std::uint8_t>(v >> 24);
@@ -137,6 +140,7 @@ bool Client::list(const std::string& path, std::vector<DirEntry>& out, bool& mis
     }
     std::vector<DirEntry> entries;
     std::vector<char> name(kNameBytes + 1, 0);
+    bool too_many = false;
     for (;;) {
         std::int32_t length = -1;
         if (!set_word(kOptFile, static_cast<std::uint32_t>(dir)) || !command(kCmdNextName) ||
@@ -155,11 +159,19 @@ bool Client::list(const std::string& path, std::vector<DirEntry>& out, bool& mis
         const std::size_t n = std::min<std::size_t>(static_cast<std::size_t>(length), std::strlen(name.data()));
         e.name.assign(name.data(), n);
         if (e.name.empty() || e.name == "." || e.name == "..") continue;
+        if (entries.size() >= kMaxListing) {
+            too_many = true;
+            break;
+        }
         entries.push_back(std::move(e));
     }
     std::int32_t ignored = 0;
     if (!set_word(kOptFile, static_cast<std::uint32_t>(dir)) || !command(kCmdCloseDir) || !result(ignored)) {
         error = "RiiFS: connection lost while listing " + path;
+        return false;
+    }
+    if (too_many) {
+        error = "RiiFS: " + path + " lists more than " + std::to_string(kMaxListing) + " entries";
         return false;
     }
     out = std::move(entries);
@@ -237,6 +249,14 @@ bool Client::fetch(const std::string& path, std::uint64_t expected,
 void Client::goodbye() {
     std::int32_t ignored = 0;
     if (command(kCmdGoodbye)) result(ignored);
+}
+
+bool name_ok(const std::string& name) {
+    if (name.empty() || name.size() > kMaxNameBytes || name == "." || name == "..") return false;
+    for (char c : name) {
+        if (c == '/' || c == '\\' || c == ':' || c == '\0') return false;
+    }
+    return true;
 }
 
 std::string join_path(const std::string& directory, const std::string& name) {

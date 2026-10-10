@@ -44,6 +44,16 @@ Saves: a pack's `<savegame>` folder is copied from the PC once, when the
 cache has none, and lives on the card after that; nothing is written
 back to the PC.
 
+Limits: anything on the network can answer as a server, so nothing it
+sends may reach outside the cache. A name in a listing must be one name
+the card can store (no `/`, `\`, `:` or NUL, not `.` or `..`, at most
+255 bytes), and a pack's own paths have their `.` and `..` worked out
+and may not climb above the server's root; anything else stops the copy
+with an error. Folders are followed at most 32 deep and 16384 in all,
+and one listing holds at most 65536 entries (FAT's own limit), so a
+folder that links back to itself on the PC stops with an error instead
+of copying for ever.
+
 ## The protocol
 
 TCP, port 1137 by default. Every number is a big-endian 32-bit word
