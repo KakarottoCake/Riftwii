@@ -981,6 +981,9 @@ msgstr "Apri"
 msgid "Cancel"
 msgstr "Annulla"
 
+msgid "and {1} more"
+msgstr "e altri {1}"
+
 msgid "No online play"
 msgstr "Nessun gioco online"
 

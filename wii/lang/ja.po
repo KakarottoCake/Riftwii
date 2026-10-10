@@ -981,6 +981,9 @@ msgstr "開く"
 msgid "Cancel"
 msgstr "キャンセル"
 
+msgid "and {1} more"
+msgstr "ほか{1}本"
+
 msgid "No online play"
 msgstr "オンラインプレイなし"
 

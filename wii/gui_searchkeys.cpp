@@ -97,6 +97,11 @@ void GuiSearchKeys::Build(const std::string& titleText, const std::string& noteT
     title->SetParent(this);
     title->SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
     title->SetPosition(56, 112);  // clear of the text field at y 148, descenders included
+    matches = new GuiText("", 16, skin::kInk);
+    matches->SetParent(this);
+    matches->SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
+    matches->SetPosition(kPanelX + 10, 20);
+    matches->SetWrap(true, 572 - 20, 3);
     count = new GuiText("", 18, skin::kInkSoft);
     count->SetParent(this);
     count->SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
@@ -114,12 +119,18 @@ GuiSearchKeys::~GuiSearchKeys() {
     delete note;
     delete title;
     delete count;
+    delete matches;
     delete shown;
     delete soundOver;
     delete soundClick;
 }
 
 void GuiSearchKeys::SetCount(const std::string& line) { count->SetText(line.c_str()); }
+
+void GuiSearchKeys::SetMatches(const std::string& text) {
+    matches->SetText(text.c_str());
+    showMatches = !text.empty();
+}
 
 int GuiSearchKeys::KeyAt(int x, int y) const {
     for (std::size_t i = 0; i < keys.size(); ++i) {
@@ -242,6 +253,9 @@ void GuiSearchKeys::Draw() {
         // On a box of its own: what is behind is dimmed, any colour.
         Menu_DrawRectangle(kPanelX, 12, 572, 76, skin::kBadge, 1);
         note->Draw();
+    } else if (showMatches) {
+        Menu_DrawRectangle(kPanelX, 12, 572, 76, skin::kBadge, 1);
+        matches->Draw();
     }
     skin::Draw(skin::panelSettings, kPanelX - 4, kPanelY - 4);
     title->Draw();

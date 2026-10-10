@@ -26,6 +26,9 @@ public:
     // A short line at the right of the title (Home's live search: how many
     // games match what is typed so far). Called with the GUI halted.
     void SetCount(const std::string& line);
+    // The games that match so far, on a box above the card (the keyboard
+    // hides the grid behind it); empty hides the box. GUI halted.
+    void SetMatches(const std::string& text);
     // Search was chosen (1), cancelled (-1), or neither yet (0).
     int Result() const { return result; }
     void Draw() override;
@@ -54,6 +57,8 @@ private:
     GuiText* title;
     GuiText* note = nullptr;
     GuiText* count = nullptr;
+    GuiText* matches = nullptr;
+    bool showMatches = false;
     GuiSound* soundOver;
     GuiSound* soundClick;
     int focus = 0;

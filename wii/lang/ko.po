@@ -981,6 +981,9 @@ msgstr "열기"
 msgid "Cancel"
 msgstr "취소"
 
+msgid "and {1} more"
+msgstr "외 {1}개"
+
 msgid "No online play"
 msgstr "온라인 플레이 없음"
 

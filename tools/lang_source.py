@@ -903,6 +903,8 @@ T = {
         "RiftWii si chiude e si apre l'installer del canale. Aggiunge, aggiorna o rimuove il canale RiftWii, poi ti riporta qui."),
     "Open": ("Abrir", "開く", "Abrir", "Apri"),
     "Cancel": ("Cancelar", "キャンセル", "Cancelar", "Annulla"),
+    # Home's search: after the first matching games' names, {1} how many others.
+    "and {1} more": ("y {1} más", "ほか{1}本", "e mais {1}", "e altri {1}"),
     # The game page's Online server row, for a game GameTDB lists as never online.
     "No online play": ("Sin juego en línea", "オンラインプレイなし", "Sem jogo online", "Nessun gioco online"),
     "This game has no online play, so it needs no server.": (
@@ -2256,6 +2258,8 @@ KO = {
         "열기",
     "Cancel":
         "취소",
+    "and {1} more":
+        "외 {1}개",
     "No online play":
         "온라인 플레이 없음",
     "This game has no online play, so it needs no server.":
@@ -3335,6 +3339,8 @@ FR = {
         "Ouvrir",
     "Cancel":
         "Annuler",
+    "and {1} more":
+        "et {1} de plus",
     "No online play":
         "Pas de jeu en ligne",
     "This game has no online play, so it needs no server.":

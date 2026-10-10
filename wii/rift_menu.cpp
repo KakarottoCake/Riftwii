@@ -2548,11 +2548,14 @@ static void ClockText(std::string& clock, std::string& date)
 // grid's items next, which the GUI thread must not be drawing. `typed`
 // runs, with the GUI halted, each time the entry changes (Home filters
 // its games as the player types, a tester's wish) and returns the line
-// shown beside the title.
-static bool AskSearch(std::string& text, const std::function<std::string(const std::string&)>& typed)
+// shown beside the title, `matches` the games named above the card.
+static bool AskSearch(std::string& text,
+	const std::function<std::string(const std::string&, std::string& matches)>& typed)
 {
 	GuiSearchKeys keys(text);
-	keys.SetCount(typed(text));
+	std::string matches;
+	keys.SetCount(typed(text, matches));
+	keys.SetMatches(matches);
 	mainWindow->SetState(STATE::DISABLED);
 	mainWindow->Append(&keys);
 	keys.SetState(STATE::DEFAULT);
@@ -2563,7 +2566,8 @@ static bool AskSearch(std::string& text, const std::function<std::string(const s
 		if (keys.Text() == last) continue;
 		HaltGui();
 		last = keys.Text();
-		keys.SetCount(typed(last));
+		keys.SetCount(typed(last, matches));
+		keys.SetMatches(matches);
 		ResumeGui();
 	}
 	HaltGui();
@@ -3053,14 +3057,22 @@ static int MenuSource(FrontendState& state)
 			const std::string before = g_search;
 			std::string typed = g_search;
 			// The games behind the keyboard follow what is typed.
-			const auto live = [&](const std::string& words) -> std::string {
+			const auto live = [&](const std::string& words, std::string& matches) -> std::string {
 				g_search = TrimSearch(words);
 				BuildHome(state, items, entries);
 				grid.SetItems(&items);
 				grid.Focus(0);
+				matches.clear();
 				if (g_search.empty()) return "";
+				// The keyboard hides the grid: the first few by name
+				// (a tester saw only the count until Search).
+				constexpr std::size_t kNamed = 5;
 				std::size_t games = 0;
-				for (const GridItem& item : items) games += item.badge != "DISC";
+				for (const GridItem& item : items) {
+					if (item.badge == "DISC") continue;
+					if (games++ < kNamed) matches += (matches.empty() ? "" : ", ") + item.title;
+				}
+				if (games > kNamed) matches += " " + tr("and {1} more", {std::to_string(games - kNamed)});
 				return games == 1 ? std::string(tr("1 game")) : tr("{1} games", {std::to_string(games)});
 			};
 			if (AskSearch(typed, live)) {
