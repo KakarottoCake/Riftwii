@@ -176,6 +176,19 @@ bool Open(std::string& error) {
         g_failure = error;
         return false;
     }
+    if (match && matched < 0 && found >= 0 && any.sector_bytes != menu_bytes) {
+        // The only drive that started has other sectors than the menu's:
+        // not the games' drive (that one may still be starting). Asked
+        // again instead of reading the other drive.
+        error = "d2x sees only a USB drive other than the games' (" + std::to_string(any.sector_bytes) +
+                "-byte sectors)";
+        IOS_Close(g_fd);
+        g_fd = -1;
+        g_failed = true;
+        g_failure = error;
+        g_not_ready = true;
+        return false;
+    }
     const int chosen = matched >= 0 ? matched : readable >= 0 ? readable : found;
     if (chosen >= 0) {
         if (chosen != matched && chosen != readable) s = any;
