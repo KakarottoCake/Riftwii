@@ -63,11 +63,15 @@ sockaddr_in address_of(const NetServer& server) {
 
 // Polls `socket` for `events` until one comes or `timeout_ms` passes, in
 // short slices: a poll can return early with nothing (Dolphin's does), so
-// one long poll is not a wait. The revents seen are left in `revents`.
+// one long poll is not a wait, and the time waited is measured, not
+// counted in slices (early returns ran a 10 s timeout out in 0.2 s). The
+// revents seen are left in `revents`.
 s32 poll_for(std::int32_t socket, std::uint32_t events, int timeout_ms, std::uint32_t& revents) {
     constexpr int kSlice = 100;
     s32 polled = 0;
-    for (int waited = 0;; waited += kSlice) {
+    const u64 started = gettime();
+    for (;;) {
+        const u64 waited = diff_msec(started, gettime());
         if (cancelled()) return 0;
         pollsd p;
         p.socket = socket;
@@ -75,7 +79,7 @@ s32 poll_for(std::int32_t socket, std::uint32_t events, int timeout_ms, std::uin
         p.revents = 0;
         polled = net_poll(&p, 1, kSlice);
         revents = p.revents;
-        if (polled != 0 || waited >= timeout_ms) return polled;
+        if (polled != 0 || timeout_ms <= 0 || waited >= static_cast<u64>(timeout_ms)) return polled;
         usleep(1000);  // in case the poll returned at once
     }
 }
