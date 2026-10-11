@@ -816,18 +816,21 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     OpenedPartition layout;
     if (!read_partition_layout(layout, error)) return false;
     const ApploaderHeader& apploader = layout.apploader;
-    // A game whose main.dol only starts another executable: the apploader
-    // loads that one in its place (the data header's DOL offset points at
-    // it), so RiftWii's hooks and the RVZ runtime go into the code that
-    // runs. A pack's own main.dol wins.
-    bool start_file = false;
+    // A game whose main.dol only starts another executable: that one is
+    // loaded over the game after the apploader has run (with main.dol, as
+    // on a disc: Madden NFL 08's apploader refuses a DOL past 0x80700000,
+    // and the real one is bigger), and started instead, so RiftWii's hooks
+    // and the RVZ runtime go into the code that runs. A pack's own main.dol
+    // wins.
+    std::uint64_t start_file_offset = 0;
+    DolHeader start_dol;
     if (const std::uint32_t index = game_start_file(probe.header.game_id);
         index != 0 && options.main_dol.empty() && !debug_off("startfile")) {
         const FstEntry* e = index < layout.fst.count() ? &layout.fst.entries()[index] : nullptr;
         std::string name = e ? e->name : std::string();
         for (char& c : name) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
         std::uint8_t dol_header[kDolHeaderBytes];
-        DolHeader dol;
+        DolHeader& dol = start_dol;
         std::string why;
         if (!e || e->is_directory || name.size() < 4 || name.compare(name.size() - 4, 4, ".dol") != 0) {
             logf("Start file: FST entry %u is not a DOL here; main.dol starts\n", static_cast<unsigned>(index));
@@ -836,11 +839,10 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
             logf("Start file: %s (FST entry %u) has no readable DOL header%s%s; main.dol starts\n", e->name.c_str(),
                  static_cast<unsigned>(index), why.empty() ? "" : ": ", why.c_str());
         } else {
-            logf("Start file: %s (FST entry %u, 0x%llx, %u bytes) in main.dol's place, entry 0x%08x\n", e->name.c_str(),
-                 static_cast<unsigned>(index), static_cast<unsigned long long>(e->offset),
+            logf("Start file: %s (FST entry %u, 0x%llx, %u bytes) started after the apploader, entry 0x%08x\n",
+                 e->name.c_str(), static_cast<unsigned>(index), static_cast<unsigned long long>(e->offset),
                  static_cast<unsigned>(e->size), dol.entry);
-            layout.data_header.dol_offset = e->offset;
-            start_file = true;
+            start_file_offset = e->offset;
         }
     }
 
@@ -881,7 +883,7 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     // The data header the apploader reads: the FST's size and the DOL's
     // offset may change below.
     PartitionDataHeader header = layout.data_header;
-    bool header_changed = start_file;
+    bool header_changed = false;
     const bool relocates = !options.virtual_files.empty() || !options.relocations.empty();
     if (relocates) {
         if (!options.install_resident) {
@@ -1167,6 +1169,47 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         return false;
     }
     logf("Game entry 0x%08x\n", reinterpret_cast<std::uint32_t>(game_entry));
+    if (start_file_offset != 0) {
+        // The start file's sections over what main.dol put there; the
+        // patches and hooks below go into these.
+        for (const DolSection& sec : start_dol.sections) {
+            if (!sec.used()) continue;
+            if (!in_ram(sec.address, sec.size) || overlaps_loader(sec.address, sec.size)) {
+                char where[96];
+                std::snprintf(where, sizeof(where), "0x%08x-0x%08x", sec.address, sec.address + sec.size);
+                error = std::string("the start file's section ") + where + " is not where a game can go";
+                return false;
+            }
+        }
+        if (start_dol.bss_size != 0 &&
+            (!in_ram(start_dol.bss_address, start_dol.bss_size) || overlaps_loader(start_dol.bss_address, start_dol.bss_size))) {
+            error = "the start file's BSS is not where a game can go";
+            return false;
+        }
+        // Its BSS first: data sections inside it keep their bytes.
+        if (start_dol.bss_size != 0) {
+            std::memset(reinterpret_cast<void*>(start_dol.bss_address), 0, start_dol.bss_size);
+            DCFlushRange(reinterpret_cast<void*>(start_dol.bss_address), start_dol.bss_size);
+        }
+        loaded.clear();
+        for (const DolSection& sec : start_dol.sections) {
+            if (!sec.used()) continue;
+            std::uint8_t* at = reinterpret_cast<std::uint8_t*>(sec.address);
+            if (!data.read(start_file_offset + sec.offset, at, sec.size)) {
+                char where[32];
+                std::snprintf(where, sizeof(where), "0x%08x", sec.address);
+                error = std::string("cannot read the start file's section at ") + where;
+                return false;
+            }
+            DCFlushRange(at, sec.size);
+            ICInvalidateRange(at, sec.size);
+            loaded.push_back(MemoryRegion{sec.address, sec.size});
+            logf("  start file: 0x%08x <- %u bytes from 0x%llx\n", sec.address, static_cast<unsigned>(sec.size),
+                 static_cast<unsigned long long>(start_file_offset + sec.offset));
+        }
+        game_entry = reinterpret_cast<void (*)(void)>(start_dol.entry);
+        logf("Game entry 0x%08x (the start file's)\n", start_dol.entry);
+    }
     // The apploader set the arena, FST and BI2 fields (0x34-0x3C, 0xF4)
     // through the cache; the runtime and the hooks read them uncached
     // (read32), which saw what was there before the apploader (0x34 at the
@@ -1217,7 +1260,8 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     {
         if (!options.main_dol.empty()) {
             std::memcpy(dol_bytes, options.main_dol.data(), sizeof(dol_bytes));  // the executable that ran
-        } else if (!data.read(layout.data_header.dol_offset, dol_bytes, sizeof(dol_bytes))) {
+        } else if (!data.read(start_file_offset != 0 ? start_file_offset : layout.data_header.dol_offset, dol_bytes,
+                              sizeof(dol_bytes))) {
             error = "cannot read the DOL header";
             return false;
         }
