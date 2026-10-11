@@ -937,6 +937,48 @@ static void TestDeleteFolder(Low& low) {
     EXPECT_FALSE(fx.host_lookup("dir", hf));
 }
 
+// Every long name gets its own 8.3 alias: past ~9 the number grows to two
+// digits on a five-character base (~10..~99), and a name's own "~" stays
+// out of the alias, whose only "~" is the one before its number.
+static void TestAliases(Low& low) {
+    Fixture fx;
+    rtfat_op& op = *low.op;
+    std::memset(&op, 0, sizeof(op));
+    std::vector<std::string> names;
+    for (int i = 0; i < 12; ++i) {
+        char n[32];
+        std::snprintf(n, sizeof n, "ghostfile%02d.rkg", i);
+        names.push_back(n);
+    }
+    names.push_back("a~b~longname1.bin");
+    names.push_back("a~b~longname2.bin");
+    std::vector<std::string> aliases;
+    for (const std::string& name : names) {
+        SetName(op.name, name.c_str());
+        EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_CREATE), RTFAT_OK);
+        riftwii::Fat32File hf;
+        EXPECT_TRUE(fx.host_lookup(name, hf));
+        aliases.push_back(hf.entry.short_name);
+    }
+    for (std::size_t i = 0; i < aliases.size(); ++i) {
+        for (std::size_t j = i + 1; j < aliases.size(); ++j) {
+            if (aliases[i] == aliases[j]) {
+                std::cerr << "FAILED: " << names[i] << " and " << names[j] << " share " << aliases[i] << std::endl;
+                g_failures++;
+            }
+        }
+    }
+    EXPECT_EQ(aliases[0], std::string("GHOSTF~1.RKG"));
+    EXPECT_EQ(aliases[8], std::string("GHOSTF~9.RKG"));
+    EXPECT_EQ(aliases[9], std::string("GHOST~10.RKG"));
+    EXPECT_EQ(aliases[11], std::string("GHOST~12.RKG"));
+    EXPECT_EQ(aliases[12], std::string("ABLONG~1.BIN"));
+    EXPECT_EQ(aliases[13], std::string("ABLONG~2.BIN"));
+    // Each opens by its alias too.
+    SetName(op.name, "GHOST~11.RKG");
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_LOOKUP), RTFAT_OK);
+}
+
 // ---- names longer than NAND allows ----------------------------------------------
 
 // Riivolution keeps saves on the card under any name that fits a path;
@@ -1413,6 +1455,7 @@ int main() {
     TestCreate(low);
     TestDeleteRename(low);
     TestDeleteFolder(low);
+    TestAliases(low);
     TestCommitGhost(low);
     TestCommitOverExisting(low);
     TestStraddle(low);

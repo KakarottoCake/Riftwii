@@ -193,7 +193,7 @@ struct rtfat_op {
     uint8_t use_lfn;
     uint8_t need_entries;
     uint8_t new_attr;
-    uint32_t short_mask;         /* ~1..~9 aliases already taken for the base (bit n-1) */
+    uint32_t short_taken[4];     /* ~1..~99 aliases already taken for the base (bit n) */
     uint32_t free_lba;           /* first sector holding need_entries free entries in a row */
     uint32_t free_index;
     uint32_t free_run;           /* consecutive free entries seen at the scan position */

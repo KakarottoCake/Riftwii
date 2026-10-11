@@ -282,11 +282,12 @@ int rtfat_fits_short(const char* name, uint8_t* out11, uint8_t* nt_flags) {
         return 1;
     }
     /* The alias: up to six clean characters of the base, "~1", up to
-     * three clean characters of the extension. */
+     * three clean characters of the extension. A "~" of the name's own is
+     * left out: the alias's only "~" is the one before its number. */
     k = 0;
     for (i = 0; i < base_len && k < 6; ++i) {
         const int c = (unsigned char)name[i];
-        if (short_char_ok(c)) out11[k++] = (uint8_t)to_upper(c);
+        if (short_char_ok(c) && c != '~') out11[k++] = (uint8_t)to_upper(c);
     }
     if (k == 0) out11[k++] = '_';
     out11[k++] = '~';
@@ -461,23 +462,44 @@ static void take_lfn(struct rtfat_op* op, const uint8_t* e, uint32_t lba, uint32
     }
 }
 
-/* Whether the short entry `e` is the alias pattern base~N.ext of op->short11 (which holds ~1). */
-static int alias_digit(const struct rtfat_op* op, const uint8_t* e) {
-    uint32_t tilde = 0;
-    uint32_t i;
+/* The alias number N (1..99) when the short entry `e` is an alias of
+ * op->short11's base (which holds ~1): base~N.ext for one digit, the base's
+ * first five characters for two (base~NN fills the eight), else 0. */
+static int alias_number(const struct rtfat_op* op, const uint8_t* e) {
+    uint32_t tilde = 0, base, i;
+    int n;
     while (tilde < 8 && op->short11[tilde] != '~') ++tilde;
     if (tilde >= 7) return 0;
-    for (i = 0; i < tilde; ++i) {
-        if (e[i] != op->short11[i]) return 0;
-    }
-    if (e[tilde] != '~' || e[tilde + 1] < '1' || e[tilde + 1] > '9') return 0;
-    for (i = tilde + 2; i < 8; ++i) {
-        if (e[i] != ' ') return 0;
-    }
     for (i = 8; i < 11; ++i) {
         if (e[i] != op->short11[i]) return 0;
     }
-    return e[tilde + 1] - '0';
+    for (base = 0; base < 8 && e[base] != '~'; ++base) {}
+    if (base >= 7 || e[base + 1] < '1' || e[base + 1] > '9') return 0;
+    n = e[base + 1] - '0';
+    i = base + 2;
+    if (i < 8 && e[i] >= '0' && e[i] <= '9') {
+        n = n * 10 + (e[i] - '0');
+        ++i;
+        if (base != (tilde < 5 ? tilde : 5)) return 0;
+    } else if (base != tilde) {
+        return 0;
+    }
+    for (; i < 8; ++i) {
+        if (e[i] != ' ') return 0;
+    }
+    for (i = 0; i < base; ++i) {
+        if (e[i] != op->short11[i]) return 0;
+    }
+    return n;
+}
+
+/* The lowest alias number nobody uses for the base, 0 when all 99 are. */
+static uint32_t free_alias_number(const struct rtfat_op* op) {
+    uint32_t n;
+    for (n = 1; n <= 99; ++n) {
+        if (!(op->short_taken[n >> 5] & (1u << (n & 31)))) return n;
+    }
+    return 0;
 }
 
 /* One in-use short entry during the scan: 0 to go on, 1 to stop (the
@@ -535,8 +557,8 @@ static int on_short_entry(struct rtfat_op* op, const uint8_t* e, uint32_t lba, u
                 return 1;
             }
             if (op->use_lfn) {
-                const int digit = alias_digit(op, e);
-                if (digit) op->short_mask |= 1u << (digit - 1);
+                const int n = alias_number(op, e);
+                if (n) op->short_taken[n >> 5] |= 1u << (n & 31);
             }
             return 0;
         }
@@ -650,7 +672,7 @@ static void scan_begin_in(const struct rtfat_volume* vol, struct rtfat_op* op, u
     op->free_lba = 0;
     op->free_index = 0;
     op->free_run = 0;
-    op->short_mask = 0;
+    op->short_taken[0] = op->short_taken[1] = op->short_taken[2] = op->short_taken[3] = 0;
     op->count = 0;
     op->list_bytes = 0;
     op->usage_blocks = 0;
@@ -676,6 +698,7 @@ static int scan_ended(const struct rtfat_volume* vol, struct rtfat_op* op) {
         case SCAN_NEXT:
             return finish(op, RTFAT_ENOENT);
         case SCAN_CREATE:
+            if (op->use_lfn && free_alias_number(op) == 0) return finish(op, RTFAT_ENOINODES);
             if (op->free_lba == 0) {
                 op->grow_next = op->next_state;
                 if (op->scan_end) {
@@ -750,13 +773,21 @@ static void fill_entries(struct rtfat_op* op) {
     uint32_t k;
     uint8_t* e;
     if (op->use_lfn) {
-        /* The alias digit: the lowest ~N nobody uses (all nine taken is a
-         * refusal a real volume answers with a longer alias; ISFS never
-         * holds that many collisions, so ~9 is reused). */
-        uint32_t digit = 1, tilde = 0;
-        while (digit < 9 && (op->short_mask & (1u << (digit - 1)))) ++digit;
+        /* The alias number: the lowest ~N nobody uses (scan_ended has
+         * refused the name when there is none); from ~10 on, the base
+         * gives up characters past its fifth, as Windows does. */
+        const uint32_t n = free_alias_number(op);
+        uint32_t tilde = 0;
         while (op->short11[tilde] != '~') ++tilde;
-        op->short11[tilde + 1] = (uint8_t)('0' + digit);
+        if (n < 10) {
+            op->short11[tilde + 1] = (uint8_t)('0' + n);
+        } else {
+            if (tilde > 5) tilde = 5;
+            op->short11[tilde] = '~';
+            op->short11[tilde + 1] = (uint8_t)('0' + n / 10);
+            op->short11[tilde + 2] = (uint8_t)('0' + n % 10);
+            for (k = tilde + 3; k < 8; ++k) op->short11[k] = ' ';
+        }
     }
     for (k = 0; k < parts; ++k) {
         e = op->sector + (op->free_index + k) * ENTRY_BYTES;
