@@ -5,7 +5,9 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
+#include <new>
 #include <iostream>
 #include <limits>
 #include <memory>
@@ -14,6 +16,25 @@
 #include <vector>
 
 static int g_failures = 0;
+
+// Heap use, for the stacked-patch test: bytes held now and the most since
+// the last reset.
+static std::size_t g_heap_now = 0, g_heap_peak = 0;
+void* operator new(std::size_t n) {
+    void* p = std::malloc(n + 16);
+    if (!p) throw std::bad_alloc();
+    *static_cast<std::size_t*>(p) = n;
+    g_heap_now += n;
+    if (g_heap_now > g_heap_peak) g_heap_peak = g_heap_now;
+    return static_cast<char*>(p) + 16;
+}
+void operator delete(void* p) noexcept {
+    if (!p) return;
+    char* base = static_cast<char*>(p) - 16;
+    g_heap_now -= *reinterpret_cast<std::size_t*>(base);
+    std::free(base);
+}
+void operator delete(void* p, std::size_t) noexcept { operator delete(p); }
 
 #define EXPECT_TRUE(cond) \
     do { \
@@ -254,8 +275,36 @@ static void test_random_deterministic_oracle() {
     }
 }
 
+// Twenty patches on one 4 MiB file, each a layer over the one before (as
+// apply composes them), read whole: one buffer for the read, not one per
+// layer (that was 86 MB at 20 layers, more than the Wii's heap).
+static void test_stacked_layers_one_buffer() {
+    const std::size_t kSize = 4u << 20;
+    std::vector<std::uint8_t> base(kSize, 0x11);
+    MemorySource original(base);
+    std::vector<std::uint8_t> patch(16, 0x77);
+    MemorySource patch_source(patch);
+    std::vector<std::unique_ptr<riftwii::ReadOverlay>> layers;
+    std::string err;
+    const riftwii::ByteSource* below = &original;
+    for (int i = 0; i < 20; ++i) {
+        layers.emplace_back(new riftwii::ReadOverlay(*below, kSize));
+        EXPECT_TRUE(layers.back()->append({std::uint64_t(i) * 4096, 0, patch.size(), &patch_source}, err));
+        below = layers.back().get();
+    }
+    std::vector<std::uint8_t> out(kSize);
+    g_heap_peak = g_heap_now;
+    const std::size_t before = g_heap_now;
+    EXPECT_TRUE(below->read(0, out.data(), out.size()));
+    EXPECT_TRUE(g_heap_peak - before < kSize + (1u << 20));
+    EXPECT_EQ(out[0], 0x77);
+    EXPECT_EQ(out[19 * 4096 + 15], 0x77);
+    EXPECT_EQ(out[19 * 4096 + 16], 0x11);
+}
+
 int main() {
     test_overlap();
+    test_stacked_layers_one_buffer();
     test_zero_gaps();
     test_grown_shrunk();
     test_boundary_overflow();

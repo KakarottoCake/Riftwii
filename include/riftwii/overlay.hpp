@@ -34,7 +34,13 @@ public:
     const ByteSource& original() const { return original_; }
 
 private:
+    // read() without its scratch buffer: `destination` may be partly
+    // written on failure. Layers below a ReadOverlay are read this way, so
+    // a stack of patches on one file costs one buffer, not one per layer.
+    bool read_into(std::uint64_t offset, std::uint8_t* destination, std::size_t length) const;
+
     const ByteSource& original_;
+    const ReadOverlay* below_ = nullptr;  // original_, when it is a ReadOverlay too
     std::uint64_t size_;
     std::vector<OverlayExtent> extents_;
 };

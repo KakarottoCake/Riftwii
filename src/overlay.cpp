@@ -14,7 +14,7 @@
 namespace riftwii {
 
 ReadOverlay::ReadOverlay(const ByteSource& original, std::uint64_t virtual_size)
-    : original_(original), size_(virtual_size) {}
+    : original_(original), below_(dynamic_cast<const ReadOverlay*>(&original)), size_(virtual_size) {}
 
 bool ReadOverlay::append(OverlayExtent extent, std::string& error) {
     if (extents_.size() >= 4096) {
@@ -69,13 +69,20 @@ bool ReadOverlay::read(std::uint64_t offset, std::uint8_t* destination, std::siz
         return false;
     }
 
+    // Into a scratch buffer first, so `destination` is left as it was when
+    // a read fails; the layers below write into that buffer directly.
     std::vector<std::uint8_t> scratch;
     try {
         scratch.resize(length);
     } catch (...) {
         return false;
     }
+    if (!read_into(offset, scratch.data(), length)) return false;
+    std::memcpy(destination, scratch.data(), length);
+    return true;
+}
 
+bool ReadOverlay::read_into(std::uint64_t offset, std::uint8_t* destination, std::size_t length) const {
     std::vector<std::uint64_t> boundaries;
     try {
         boundaries.push_back(offset);
@@ -104,7 +111,7 @@ bool ReadOverlay::read(std::uint64_t offset, std::uint8_t* destination, std::siz
         std::uint64_t seg_start = boundaries[i];
         std::uint64_t seg_end = boundaries[i + 1];
         std::size_t seg_len = static_cast<std::size_t>(seg_end - seg_start);
-        std::size_t seg_scratch_offset = static_cast<std::size_t>(seg_start - offset);
+        std::uint8_t* const seg_out = destination + static_cast<std::size_t>(seg_start - offset);
 
         const OverlayExtent* winner = nullptr;
         for (std::size_t k = extents_.size(); k > 0; --k) {
@@ -119,22 +126,23 @@ bool ReadOverlay::read(std::uint64_t offset, std::uint8_t* destination, std::siz
 
         if (winner != nullptr) {
             std::uint64_t src_off = winner->source_offset + (seg_start - winner->destination);
-            if (!winner->source->read(src_off, scratch.data() + seg_scratch_offset, seg_len)) {
+            if (!winner->source->read(src_off, seg_out, seg_len)) {
                 return false;
             }
         } else {
             std::uint64_t orig_size = original_.size();
             if (seg_start < orig_size) {
-                if (!original_.read(seg_start, scratch.data() + seg_scratch_offset, seg_len)) {
+                const bool read = below_ != nullptr ? below_->read_into(seg_start, seg_out, seg_len)
+                                                    : original_.read(seg_start, seg_out, seg_len);
+                if (!read) {
                     return false;
                 }
             } else {
-                std::memset(scratch.data() + seg_scratch_offset, 0, seg_len);
+                std::memset(seg_out, 0, seg_len);
             }
         }
     }
 
-    std::memcpy(destination, scratch.data(), length);
     return true;
 }
 
