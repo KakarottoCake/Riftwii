@@ -5509,12 +5509,17 @@ static int MenuSettings(FrontendState& state)
 					rebuild();
 					break;
 				case kTheme: {
-					if (themes.empty()) {
+					// The theme in use is always one of the choices, and so is
+					// Default: Disable clock puts on the Time theme, built in,
+					// with no themes on the card, and there was no way back.
+					if (themes.empty() && settings.theme == "default") {
 						note(tr("No themes in sd:/riftwii/themes. The zip's themes folder has one to copy there."));
 						break;
 					}
 					std::vector<std::string> folders{"default"};
 					for (const riftwii::wii::ThemeEntry& t : themes) folders.push_back(t.folder);
+					if (std::find(folders.begin(), folders.end(), settings.theme) == folders.end())
+						folders.push_back(settings.theme);
 					std::size_t at = 0;
 					while (at < folders.size() && folders[at] != settings.theme) ++at;
 					if (at == folders.size()) at = 0;
