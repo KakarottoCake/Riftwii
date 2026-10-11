@@ -10,8 +10,8 @@ import numpy as np
 from scipy.signal import lfilter
 
 SR = 44100
-BPM = 104
-TRANSPOSE = 2               # F# minor: the "sped up" pitch the tempo gives
+BPM = 112
+TRANSPOSE = 1               # F minor, the meme's key
 S16 = 60.0 / BPM / 4          # one sixteenth, seconds
 BARS = 32
 N = int(round(BARS * 16 * S16 * SR))
@@ -117,7 +117,14 @@ def kick_at(step, gain):
     duck[s0:e0] = np.minimum(duck[s0:e0], pump[: e0 - s0])
 
 
+ride_n = int(0.35 * SR)
+rn_ = rng.uniform(-1, 1, ride_n)
+ride = (rn_ - lowpass(rn_, 5200)) * np.exp(-np.arange(ride_n) / SR * 9)
 for bar in range(BARS):
+    if bar in full:
+        add(crash, bar * 16, 0.35, 0.22)
+        for k in range(0, 16, 2):
+            add(ride, bar * 16 + k, 0.4, 0.12 if k % 4 else 0.16)
     if bar in CRASHES:
         add(crash, bar * 16, 0.3, 0.32)
         add(crash, bar * 16 + 0.02, -0.3, 0.25)
@@ -227,6 +234,23 @@ for bar in range(BARS):
             x = 0.8 * saw(f / 2, n, 0.002) + saw(f, n, 0.0) + saw(f * 1.4983, n, 0.003)
             y = lowpass(np.tanh(lowpass(x, 1400) * 10.0), 1800) * env(n, 0.002, 0.055)
             add(y, bar * 16 + k, -0.75 if k % 2 else 0.75, 0.085 if k % 4 == 0 else 0.065)
+
+# --- intro: the band's opening hit, a power chord ringing, toms down into bar 2 --
+for bar in intro:
+    root, _ = chords[bar]
+    f = hz(root + 12)
+    n = at(16) + int(0.2 * SR)
+    x = 0.8 * saw(f / 2, n, 0.002) + saw(f, n) + saw(f * 1.4983, n, 0.003) + 0.7 * saw(f * 2, n, -0.004)
+    y = lowpass(np.tanh(lowpass(x, 3000) * 12.0), 4500)
+    y = (y - lowpass(y, 90)) * env(n, 0.004, 3.0, 0.5, 0.2)
+    add(y, bar * 16, -0.8, 0.09)
+    add(y, bar * 16 + 0.08, 0.8, 0.085)
+tom_n = int(0.3 * SR)
+for k, (step, f0) in enumerate([(24, 200), (26, 170), (27, 150), (28, 130), (29, 115), (30, 100), (31, 90)]):
+    t = np.arange(tom_n) / SR
+    tom = np.sin(2 * np.pi * np.cumsum(f0 * (1 + 0.5 * np.exp(-t * 30))) / SR) * np.exp(-t * 11)
+    add(tom, step, -0.3 + 0.1 * k, 0.5)
+add(crash, 0, 0.3, 0.35)
 
 # --- lead: the hook, an original line over i - VI - III - VII -------------------
 # (sixteenth in the 8-bar phrase, length in sixteenths, MIDI note)
