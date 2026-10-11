@@ -1,5 +1,7 @@
+# SPDX-FileCopyrightText: 2026 RiftWii contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
 # Screenshot the Dolphin window region from the screen to a PNG.
-param([string]$Out = "D:\AI Projects\Riftwii\build-dolphin\shot.png")
+param([string]$Out = "$PSScriptRoot\..\..\build-dolphin\shot.png")
 Add-Type @"
 using System;
 using System.Runtime.InteropServices;

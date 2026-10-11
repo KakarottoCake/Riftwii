@@ -7,10 +7,10 @@
 #include <string>
 #include <vector>
 
-// The themes that come with a release (riftwii-themes.pack, one of its
+// The themes that come with a release (riftwii-update.pack, one of its
 // GitHub assets), for the in-app update: RiftWii fetches its own
 // version's pack once and brings sd:/riftwii/themes up to date with it.
-// Made by tools/make_theme_pack.py. Text lines, each file's bytes right
+// Made by tools/make_update_pack.py. Text lines, each file's bytes right
 // after its line:
 //
 //     RIFTWII THEMES 1

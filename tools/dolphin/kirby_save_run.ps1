@@ -1,13 +1,18 @@
+# SPDX-FileCopyrightText: 2026 RiftWii contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
 # Adaptive Kirby save-creation run.
 # Phase A (no input): wait until the Gecko log shows the boot probes
 # (>= 30 C:ffffff96 async deletes) meaning the game sits at its first
 # screen. Phase B: hold `2` until save imports land (>= 8 C:00000000
 # completions past the usage check), release, linger, kill.
 # Fails loudly on leaks, missing probe phase, or no imports.
-param([int]$MaxSecs = 600)
+# -Dolphin (or the DOLPHIN_EXE environment variable) is Dolphin.exe;
+# the repository is the one this script is in.
+param([int]$MaxSecs = 600, [string]$Dolphin = $env:DOLPHIN_EXE)
 $ErrorActionPreference = "Stop"
-$root = "D:\AI Projects\Riftwii"
-$dolphin = "C:\Users\bryan.MRREJECT\Downloads\dolphin-master-5.0-18995-x64\Dolphin-x64\Dolphin.exe"
+$root = (Resolve-Path "$PSScriptRoot\..\..").Path
+if (-not $Dolphin) { throw "Pass -Dolphin <path to Dolphin.exe> or set DOLPHIN_EXE" }
+$dolphin = $Dolphin
 $userDir = "$root\build-dolphin\user"
 $dol = "$root\riftwii.dol"
 $geckoLog = "$root\build-dolphin\gecko.log"
