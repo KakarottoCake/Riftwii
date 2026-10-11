@@ -2497,7 +2497,11 @@ public:
 		const int restW = rest.GetTextWidth();
 		// The figures are centred, as on the Wii Menu: AM or PM, small,
 		// at their top right (clear of the bar's edge below).
-		float x = cx - width / 2;
+		// Centred on what is lit, not on the cells: a 1 lights only the
+		// right of its cell (x 21.5-26.5 of 28, the others from 1.5), so
+		// "11:37" sat 9 pixels right of the middle.
+		const float inkLeft = (figures[0] == '1' ? 21.5f : 1.5f) * s, inkRight = width - 1.5f * s;
+		float x = cx - (inkLeft + inkRight) / 2;
 		const bool colonOn = (time(nullptr) & 1) == 0;  // blinks, as the Wii Menu's
 		for (char c : figures) {
 			if (c == ':') {
