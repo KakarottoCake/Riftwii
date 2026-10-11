@@ -91,20 +91,22 @@ Wii Menu's font behind IOS's NAND permission check, the GameCube adapter).
 Before version 9 it asked for none, and those were off when started from
 the channel.
 
-Both boot programs empty the CPU's L2 cache before libogc starts
-(`channel/forwarder/start.S`, `channel/loader/start.S`), with HID4's L2CFI
-off so nothing in it is written back. A launch turns the L2 off but keeps
-what it holds, and libogc 3.1.0's start-up turns it back on without the
-invalidate it means to do (`PPCEarlyInit` sets L2CE where it means L2I;
-libogc 3.2.0 fixed the bit, and writes the lines back first). After
-leaving some games for the channel (Wii Fit Plus, among others) the
-channel ran on the game's cached data and stopped on a black screen, at a
-different point each time, while the Wii Menu, the Homebrew Channel and
-the Everybody Votes Channel, whose start-ups empty the L2, came up.
-`tools/make_channel.py` refuses a boot program without that clear
-(`L2_CLEAR`). Since version 11. Version 12 skips it on a Wii U's CPU
-(Espresso, PVR 0x7001xxxx): channel 11 never started on a vWii, and a
-vWii needs 12 (`ChannelVersionNeeded`), a Wii 11.
+The Wii boot program empties the CPU's L2 cache before libogc starts
+(`channel/forwarder/start.S`), with HID4's L2CFI off so nothing in it is
+written back. A launch turns the L2 off but keeps what it holds, and
+libogc 3.1.0's start-up turns it back on without the invalidate it means
+to do (`PPCEarlyInit` sets L2CE where it means L2I; libogc 3.2.0 fixed the
+bit, and writes the lines back first). After leaving some games for the
+channel (Wii Fit Plus, among others) the channel ran on the game's cached
+data and stopped on a black screen, at a different point each time, while
+the Wii Menu, the Homebrew Channel and the Everybody Votes Channel, whose
+start-ups empty the L2, came up. `tools/make_channel.py` refuses a Wii
+boot program without that clear (`L2_CLEAR`). Since version 11.
+
+The vWii loader (`channel/loader/start.S`) has no such clear: channels 11
+and 12 had it and never started on a vWii (12 skipped it by the CPU's PVR,
+which did not help). Since 13 the vWii loader is the one of 10 again, byte
+for byte. A vWii needs channel 13 (`ChannelVersionNeeded`), a Wii 11.
 
 ## The banner
 
