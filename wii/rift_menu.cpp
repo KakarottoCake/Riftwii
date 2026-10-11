@@ -3079,6 +3079,7 @@ static int MenuSource(FrontendState& state)
 				}
 			} else {
 				if (fromChannel) transition::Begin(transition::Kind::Fade);
+				DropLingerBanner();  // Start on a banner: Home comes back from under it
 				g_startOnOpen = false;
 				g_reopenBanner.clear();
 				logf("Home: %s\n", error.c_str());
@@ -4444,6 +4445,12 @@ static int MenuHome(FrontendState& state)
 {
 	int menu = MENU_NONE;
 
+	// Start on a banner, which plays on meanwhile: the packs are read from
+	// the card and the rows worked out with the GUI going (none of it is
+	// on screen), which stopped the banner otherwise. The widgets are made
+	// with it halted, as ever.
+	const bool buildBehindBanner = g_startOnOpen && g_lingerBanner;
+	if (buildBehindBanner) ResumeGui();
 	std::string scanStatus;
 	try {
 		scanStatus = ScanPackages(state);
@@ -4461,6 +4468,7 @@ static int MenuHome(FrontendState& state)
 	std::vector<FlowRow> rows;
 	std::vector<RowRef> refs;
 	BuildGameRows(state, rows, refs);
+	if (buildBehindBanner) HaltGui();
 
 	GameBanner banner(skin::HueFor(state.game_id));
 	const std::string where = SourceWhere(state);
@@ -4550,6 +4558,16 @@ static int MenuHome(FrontendState& state)
 		HaltGui();
 		if (!saved) say(error);
 		return saved;
+	};
+	// Start's cIOS check reads the slots from the NAND: with a banner
+	// playing on screen, with the GUI running (it stopped for 0.2 s).
+	const auto ciosCheck = [&]() {
+		if (bannerHeld) ResumeGui();
+		const riftwii::wii::CiosCheck check = riftwii::wii::image_cios_check(riftwii::wii::SelectedSource(state).game,
+			riftwii::wii::SelectedSource(state).cios_slot,
+			!state.model.selections().empty() || state.model.save_mode != "nand");
+		if (bannerHeld) HaltGui();
+		return check;
 	};
 	int shownRow = -1;
 	while(menu == MENU_NONE)
@@ -4753,10 +4771,7 @@ static int MenuHome(FrontendState& state)
 			} else if (state.use_sd && !state.sd_catalog.cios_note.empty()) {
 				say(FlatCapped(state.sd_catalog.cios_note, 150));
 			} else if (riftwii::wii::CiosCheck cios; (state.use_usb || state.use_sd) &&
-				   (cios = riftwii::wii::image_cios_check(riftwii::wii::SelectedSource(state).game,
-					    riftwii::wii::SelectedSource(state).cios_slot,
-					    !state.model.selections().empty() || state.model.save_mode != "nand")).verdict !=
-					   riftwii::wii::CiosCheck::Verdict::Ok &&
+				   (cios = ciosCheck()).verdict != riftwii::wii::CiosCheck::Verdict::Ok &&
 				   (cios.verdict == riftwii::wii::CiosCheck::Verdict::Refused || !g_oldCiosReminded)) {
 				// The cIOS the game would start on: refused while the menu is
 				// up, or d2x v11's earlier betas reminded once, then started.
