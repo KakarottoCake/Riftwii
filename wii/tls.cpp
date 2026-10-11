@@ -22,21 +22,31 @@ struct TlsStream::State {
     br_x509_minimal_context x509;
     br_sslio_context io;
     SocketTransport* socket = nullptr;
+    // The time base at which reads give up (0: none), and whether one did.
+    u64 deadline = 0;
+    bool timed_out = false;
     unsigned char buffer[BR_SSL_BUFSIZE_MONO];
 };
 
 namespace {
 
+// BearSSL reads until it has a whole record (up to 16 KB), however long
+// that takes: past the deadline, a read fails instead, so a server sending
+// a byte at a time cannot hold a handshake or a record for hours.
 int LowRead(void* ctx, unsigned char* data, std::size_t length) {
-    auto* socket = static_cast<SocketTransport*>(ctx);
+    auto* s = static_cast<TlsStream::State*>(ctx);
+    if (s->deadline != 0 && gettime() >= s->deadline) {
+        s->timed_out = true;
+        return -1;
+    }
     std::size_t got = 0;
-    if (!socket->receive_some(data, length, got) || got == 0) return -1;
+    if (!s->socket->receive_some(data, length, got) || got == 0) return -1;
     return static_cast<int>(got);
 }
 
 int LowWrite(void* ctx, const unsigned char* data, std::size_t length) {
-    auto* socket = static_cast<SocketTransport*>(ctx);
-    return socket->send(data, length) ? static_cast<int>(length) : -1;
+    auto* s = static_cast<TlsStream::State*>(ctx);
+    return s->socket->send(data, length) ? static_cast<int>(length) : -1;
 }
 
 // Seeds BearSSL's generator. The Wii has no entropy source libogc exposes,
@@ -87,6 +97,13 @@ void Configure(br_ssl_client_context& cc, br_x509_minimal_context& xc) {
 TlsStream::TlsStream() = default;
 TlsStream::~TlsStream() = default;
 
+void TlsStream::set_deadline(std::uint64_t deadline) {
+    deadline_ = deadline;
+    if (state_) state_->deadline = deadline;
+}
+
+bool TlsStream::timed_out() const { return state_ && state_->timed_out; }
+
 bool TlsStream::open(SocketTransport& socket, const std::string& host, std::string& error) {
     state_.reset(new (std::nothrow) State());
     if (!state_) {
@@ -95,6 +112,7 @@ bool TlsStream::open(SocketTransport& socket, const std::string& host, std::stri
     }
     State& s = *state_;
     s.socket = &socket;
+    s.deadline = deadline_;
     Configure(s.client, s.x509);
     // Certificates are checked against the Wii's clock.
     const std::time_t now = std::time(nullptr);
@@ -106,10 +124,14 @@ bool TlsStream::open(SocketTransport& socket, const std::string& host, std::stri
         error = "TLS setup failed (" + std::to_string(br_ssl_engine_last_error(&s.client.eng)) + ")";
         return false;
     }
-    br_sslio_init(&s.io, &s.client.eng, LowRead, &socket, LowWrite, &socket);
+    br_sslio_init(&s.io, &s.client.eng, LowRead, &s, LowWrite, &s);
     // The handshake runs with the first write; flushing an empty one
     // forces it now, so a failure is reported as a TLS one.
     if (br_sslio_flush(&s.io) != 0) {
+        if (s.timed_out) {
+            error = host + " is answering too slowly (TLS handshake)";
+            return false;
+        }
         const int code = br_ssl_engine_last_error(&s.client.eng);
         error = "TLS handshake with " + host + " failed (BearSSL error " + std::to_string(code) +
                 (code >= BR_ERR_X509_OK ? ": the certificate was not accepted; check the Wii's clock)" : ")");
