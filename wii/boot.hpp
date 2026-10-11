@@ -33,6 +33,9 @@ struct DiscProbe {
     std::vector<std::uint8_t> tmd_bytes;  // the raw reply, for dumps
     std::int32_t es_result = 0;         // ES verification result reported by DI
     int running_ios = 0;                // IOS at probe time
+    // The disc's region setting (disc offset 0x4E000): 0 Japan, 1 USA,
+    // 2 Europe, 4 Korea; -1 when it could not be read.
+    std::int32_t disc_region = -1;
 };
 
 // The card log (riftwii/cardlog.hpp): created blank before a game with

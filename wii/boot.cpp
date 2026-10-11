@@ -455,6 +455,27 @@ int region_video_standard(char region) {
     }
 }
 
+// The region letter the game's video follows: the disc's own region
+// setting when it has one, else the game ID's fourth letter. The Toys "R"
+// Us edition of The Smurfs Dance Party is SDUX41, a USA disc whose X read
+// as Europe: PAL 50 on an NTSC CRT, black and white and rolling.
+char video_region_letter(const DiscProbe& probe) {
+    const char id_letter = probe.header.game_id.size() > 3 ? probe.header.game_id[3] : 'E';
+    char disc_letter = 0;
+    switch (probe.disc_region) {
+    case 0: disc_letter = 'J'; break;
+    case 1: disc_letter = 'E'; break;
+    case 2: disc_letter = 'P'; break;
+    case 4: disc_letter = 'K'; break;
+    default: return id_letter;
+    }
+    if (region_video_standard(disc_letter) != region_video_standard(id_letter)) {
+        logf("Video: the disc's region setting is %d; its video follows that, not the ID's '%c'\n",
+             static_cast<int>(probe.disc_region), id_letter);
+    }
+    return disc_letter;
+}
+
 // What a chosen video mode means on this console, for a game of `region`.
 // `progressive_ok`: 480p is on in the Wii's settings and a component
 // cable is in; `component`: the cable alone.
@@ -589,6 +610,13 @@ bool probe_disc(DiscProbe& out, std::string& error, const ProbeOptions& options)
     }
     logf("Partitions: %u listed, game partition at 0x%08llx\n", static_cast<unsigned>(table.size()),
          static_cast<unsigned long long>(out.partition.offset));
+    {
+        std::uint8_t region[4] = {};
+        if (system_area.read(0x4E000, region, sizeof(region))) {
+            out.disc_region = static_cast<std::int32_t>((std::uint32_t(region[0]) << 24) | (std::uint32_t(region[1]) << 16) |
+                                                        (std::uint32_t(region[2]) << 8) | region[3]);
+        }
+    }
     if (options.header_only) {
         error.clear();
         return true;
@@ -1558,7 +1586,7 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     store32(0x80003194, probe.partition.type);
     store32(0x80003198, static_cast<u32>(probe.partition.offset >> 2));
     ProgressStage("Starting the game", 100);
-    configure_video_for_game(probe.header.game_id.size() > 3 ? probe.header.game_id[3] : 'E');
+    configure_video_for_game(video_region_letter(probe));
     // A Japanese game: the VI configuration bit the System Menu sets on
     // Japanese consoles (USB Loader GX's gamepatches()). Hollywood's
     // registers need AHBPROT, as the Homebrew Channel leaves it.
