@@ -67,16 +67,20 @@ PROG_A = [(40, [64, 67, 71]), (36, [60, 64, 67]), (43, [62, 67, 71]), (38, [62, 
 PROG_B = [(45, [64, 69, 72]), (36, [60, 64, 67]), (40, [64, 67, 71]), (38, [62, 66, 69])]   # Am C Em D
 chords = []
 for bar in range(BARS):
-    prog = PROG_B if 24 <= bar < 32 else PROG_A
+    prog = PROG_B if 22 <= bar < 30 else PROG_A
     chords.append(prog[bar % 4])
 
-intro = range(0, 4)
-verse = range(4, 12)
-chorus1 = range(12, 20)
-breakdown = range(20, 24)
-chorus2 = range(24, 32)
-drums_on = set(verse) | set(chorus1) | set(chorus2)
-full = set(chorus1) | set(chorus2)
+# Gets going fast: two bars in, the beat's there.
+intro = range(0, 2)
+verse = range(2, 8)
+chorus1 = range(8, 16)
+verse2 = range(16, 20)
+breakdown = range(20, 22)    # the build: a riser and a snare roll
+chorus2 = range(22, 30)
+tag = range(30, 32)
+drums_on = set(verse) | set(chorus1) | set(verse2) | set(chorus2) | set(tag)
+full = set(chorus1) | set(chorus2) | set(tag)
+CRASHES = (2, 8, 16, 22, 30)
 
 # --- drums --------------------------------------------------------------
 kick_n = int(0.32 * SR)
@@ -98,36 +102,70 @@ ohat_n = int(0.2 * SR)
 on = rng.uniform(-1, 1, ohat_n)
 ohat = (on - lowpass(on, 6000)) * np.exp(-np.arange(ohat_n) / SR * 14)
 
-pump = 1 - 0.55 * np.exp(-np.arange(at(4)) / SR * 9)
+crash_n = int(1.6 * SR)
+cn = rng.uniform(-1, 1, crash_n)
+crash = (cn - lowpass(cn, 4500)) * np.exp(-np.arange(crash_n) / SR * 2.6)
+
+pump = 1 - 0.6 * np.exp(-np.arange(at(4)) / SR * 10)
+
+
+def kick_at(step, gain):
+    add(kick, step, 0, gain)
+    s0 = at(step)
+    e0 = min(N, s0 + len(pump))
+    duck[s0:e0] = np.minimum(duck[s0:e0], pump[: e0 - s0])
+
+
 for bar in range(BARS):
+    if bar in CRASHES:
+        add(crash, bar * 16, 0.3, 0.32)
+        add(crash, bar * 16 + 0.02, -0.3, 0.25)
     for beat in range(4):
         step = bar * 16 + beat * 4
         if bar in drums_on:
-            add(kick, step, 0, 0.95)
-            s = at(step)
-            e = min(N, s + len(pump))
-            duck[s:e] = np.minimum(duck[s:e], pump[: e - s])
+            kick_at(step, 1.0)
             if beat in (1, 3):
-                add(clap, step, 0.05, 0.5 if bar in full else 0.35)
-            add(ohat, step + 2, 0.2, 0.16 if bar in full else 0.1)
-            for k in (0, 1, 3) if bar in full else (0,):
-                add(hat, step + k, -0.25, 0.14 if k else 0.18)
-        if bar == 23 and beat >= 2:  # a fill into the second chorus
+                add(clap, step, 0.05, 0.7 if bar in full else 0.55)
+                add(clap, step + 0.03, -0.1, 0.25)
+            add(ohat, step + 2, 0.2, 0.2 if bar in full else 0.14)
+            # Sixteenth hats all the way, the off ones lighter.
             for k in range(4):
-                add(clap, step + k, 0, 0.18 + 0.08 * k)
+                add(hat, step + k, -0.25, (0.2 if k % 2 == 0 else 0.12) * (1.0 if bar in full else 0.8))
+        # The pickup kick into the next bar.
+        if bar in drums_on and beat == 3 and (bar + 1) % 2 == 0:
+            kick_at(step + 3, 0.7)
+    # The build: snare in eighths, then sixteenths, louder; a rising noise.
+    if bar in breakdown:
+        first = bar == breakdown[0]
+        for k in range(0, 16, 2 if first else 1):
+            add(clap, bar * 16 + k, 0, 0.18 + 0.4 * ((bar - breakdown[0]) * 16 + k) / 32)
+riser_s, riser_e = at(breakdown[0] * 16), at(chorus2[0] * 16)
+rn = rng.uniform(-1, 1, riser_e - riser_s)
+tr_ = np.linspace(0, 1, len(rn))
+riser = np.zeros_like(rn)
+step_len = 2048
+for i in range(0, len(rn), step_len):  # a high-pass that climbs
+    seg = rn[i:i + step_len]
+    cut = 400 + 7000 * tr_[i] ** 2
+    riser[i:i + step_len] = seg - lowpass(seg, cut)
+riser *= tr_ ** 1.5 * 0.35
+L[riser_s:riser_e] += riser
+R[riser_s:riser_e] += riser
 
-# --- bass: eighths that pump, octave up on the off-beats ---------------------
+# --- bass: galloping sixteenths, the octave on every third ---------------------
+GALLOP = [0, 0, 12, 0, 0, 12, 0, 12, 0, 0, 12, 0, 0, 12, 7, 12]
 for bar in range(BARS):
-    if bar in intro:
+    if bar in intro or bar in breakdown:
         continue
     root, _ = chords[bar]
-    for e8 in range(8):
-        n = at(2) - 200
-        f = hz(root + (12 if e8 % 2 else 0))
-        x = saw(f, n) + 0.6 * saw(f, n, 0.006)
-        cut = 380 + (900 if bar in full else 450) * np.exp(-np.arange(n) / SR * 18)
-        y = lowpass(lowpass(x, 600 if bar in full else 420), 1600)
-        add(y * env(n, 0.004, 0.18, 0.35, 0.02), bar * 16 + e8 * 2, 0, 0.32 if bar not in breakdown else 0.0)
+    for k in range(16):
+        n = at(1) - 120
+        f = hz(root + GALLOP[k])
+        x = saw(f, n) + 0.7 * saw(f, n, 0.007) + 0.5 * np.sign(np.sin(2 * np.pi * f / 2 * np.arange(n) / SR))
+        y = lowpass(lowpass(x, 900 if bar in full else 650), 2200)
+        y = np.tanh(y * 1.6)
+        acc = 1.0 if k % 4 == 0 else 0.8
+        add(y * env(n, 0.002, 0.09, 0.4, 0.012), bar * 16 + k, 0, 0.3 * acc)
 
 # --- pad: detuned saws, filtered, ducked ---------------------------------------
 pad = np.zeros(N)
@@ -150,7 +188,7 @@ R += np.roll(pad, int(0.011 * SR)) * 0.95
 for bar in range(BARS):
     _, notes = chords[bar]
     tones = [notes[0] + 12, notes[1] + 12, notes[2] + 12, notes[1] + 12, notes[0] + 24, notes[2] + 12, notes[1] + 12, notes[2]]
-    lvl = 0.0 if bar in breakdown else (0.06 if bar in intro else 0.085)
+    lvl = 0.07 if bar in breakdown else (0.08 if bar in intro else 0.095)
     for k in range(16):
         n = at(1) + 600
         f = hz(tones[k % len(tones)])
@@ -158,20 +196,27 @@ for bar in range(BARS):
         y = lowpass(sq, 2600 if bar in full else 1700) * env(n, 0.002, 0.07)
         add(y, bar * 16 + k, -0.45 if k % 2 == 0 else 0.45, lvl)
 
-# --- guitar: distorted power chords in the choruses, chugging eighths ------------
+# --- guitar: palm-muted sixteenths in the verses, open power chords in the
+# choruses, doubled hard left and right ------------------------------------------
 for bar in range(BARS):
-    if bar not in full:
+    if bar in intro or bar in breakdown:
         continue
     root, _ = chords[bar]
-    for e8 in range(8):
-        n = at(2) - 120
-        f = hz(root + 12)
-        x = saw(f, n, 0.0) + saw(f * 1.4983, n, 0.003) + 0.7 * saw(f * 2, n, -0.004)
-        mute = 0.55 if e8 % 2 else 1.0
-        y = np.tanh(lowpass(x, 2200) * 4.0) * env(n, 0.003, 0.25 if e8 % 2 else 0.5, 0.4, 0.02) * mute
-        y = lowpass(y, 3400)
-        add(y, bar * 16 + e8 * 2, -0.6, 0.055)
-        add(y, bar * 16 + e8 * 2 + 0.07, 0.6, 0.05)
+    f = hz(root + 12)
+    if bar in full:
+        for e8 in range(8):
+            n = at(2) - 80
+            x = saw(f, n, 0.0) + saw(f * 1.4983, n, 0.003) + 0.8 * saw(f * 2, n, -0.004)
+            y = np.tanh(lowpass(x, 2600) * 6.0) * env(n, 0.003, 0.6, 0.6, 0.02)
+            y = lowpass(y, 4200)
+            add(y, bar * 16 + e8 * 2, -0.75, 0.075)
+            add(y, bar * 16 + e8 * 2 + 0.08, 0.75, 0.07)
+    else:
+        for k in range(16):
+            n = at(1) - 60
+            x = saw(f, n, 0.0) + saw(f * 1.4983, n, 0.003)
+            y = lowpass(np.tanh(lowpass(x, 1400) * 6.0), 1800) * env(n, 0.002, 0.05)
+            add(y, bar * 16 + k, -0.7 if k % 2 else 0.7, 0.07 if k % 4 == 0 else 0.05)
 
 # --- lead: the hook, an original line over i - VI - III - VII -------------------
 # (sixteenth in the 8-bar phrase, length in sixteenths, MIDI note)
@@ -195,21 +240,24 @@ def play_lead(start_bar, transpose=0, gain=1.0):
         f = hz(m + transpose) * (1 + 0.004 * np.sin(2 * np.pi * 5.5 * t) * np.clip(t * 4 - 0.4, 0, 1))
         ph = np.cumsum(f) / SR
         x = (2 * (ph % 1) - 1) * 0.5 + (2 * ((ph * 1.004) % 1) - 1) * 0.5 + 0.35 * np.sign(np.sin(2 * np.pi * ph * 0.5))
-        y = lowpass(x, 3200) * env(n, 0.006, 0.6, 0.55, 0.05)
+        y = lowpass(x, 5200) * env(n, 0.004, 0.6, 0.65, 0.05)
+        # Doubled an octave up, a little quieter: brighter, bigger.
+        ph2 = ph * 2
+        x2 = (2 * (ph2 % 1) - 1) * 0.5 + (2 * ((ph2 * 1.003) % 1) - 1) * 0.5
+        y += 0.45 * lowpass(x2, 6000) * env(n, 0.004, 0.5, 0.5, 0.05)
         s = at(start_bar * 16 + s16)
         e = min(N, s + n)
-        lead[s:e] += y[: e - s] * 0.11 * gain
+        lead[s:e] += y[: e - s] * 0.12 * gain
 
 
-play_lead(12)
-play_lead(24)
-play_lead(20, 0, 0.0)  # (the breakdown keeps only its echo)
-# A quieter, octave-down hint of the hook in the breakdown.
+play_lead(8)
+play_lead(22)
+# A quieter, octave-down hint of the hook in the second verse.
 for s16, l16, m in HOOK[:20]:
     n = at(l16) + int(0.06 * SR)
     t = np.arange(n) / SR
     x = np.sin(2 * np.pi * hz(m - 12) * t) + 0.3 * np.sin(4 * np.pi * hz(m - 12) * t)
-    s = at(20 * 16 + s16)
+    s = at(16 * 16 + s16)
     e = min(N, s + n)
     lead[s:e] += (x * env(n, 0.01, 0.5, 0.4, 0.05))[: e - s] * 0.08
 
@@ -244,7 +292,7 @@ L, R = L + 0.35 * wetL, R + 0.35 * wetR
 tail = at(4)
 mix = np.stack([L, R], axis=1)
 peak = np.max(np.abs(mix))
-mix = np.tanh(mix / peak * 1.4) / np.tanh(1.4) * 0.89
+mix = np.tanh(mix / peak * 2.3) / np.tanh(2.3) * 0.9
 import wave
 with wave.open(sys.argv[1], 'wb') as w:
     w.setnchannels(2)
