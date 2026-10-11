@@ -527,7 +527,11 @@ static int on_short_entry(struct rtfat_op* op, const uint8_t* e, uint32_t lba, u
                 if (e[i] != op->short11[i]) same_short = 0;
             }
             if (names_equal(d.name, op->new_name) || (same_short && !op->use_lfn)) {
-                finish(op, RTFAT_EEXIST);
+                /* A rename onto the file's own entry (its name in another
+                 * case, or its 8.3 alias) leaves it as it is. */
+                const int self = op->kind == RTFAT_OP_RENAME && lba == op->source.entry_lba &&
+                                 index == op->source.entry_index;
+                finish(op, self ? RTFAT_OK : RTFAT_EEXIST);
                 return 1;
             }
             if (op->use_lfn) {
@@ -1272,6 +1276,7 @@ static int run_state(struct rtfat_volume* vol, struct rtfat_op* op) {
         /* ---- RENAME ---- */
         case S_RENAME_FOUND:
             op->source = op->found;
+            if (names_equal(op->name, op->name2)) return finish(op, RTFAT_OK); /* the same name to FAT */
             if (!prepare_new_entry(op, op->name2, op->source.first_cluster, op->source.size,
                                    hidden_attribute(op, op->source.attributes))) {
                 return finish(op, RTFAT_EINVAL);
@@ -1397,7 +1402,6 @@ int rtfat_step(struct rtfat_volume* vol, struct rtfat_op* op) {
                 if (!rtfat_valid_name(op->name) || !rtfat_valid_name(op->name2)) {
                     return done_now(op, RTFAT_EINVAL);
                 }
-                if (names_equal(op->name, op->name2)) return done_now(op, RTFAT_EEXIST);
                 op->new_name = op->name;
                 scan_begin(vol, op, SCAN_FIND, S_RENAME_FOUND);
                 break;

@@ -831,9 +831,21 @@ static void TestDeleteRename(Low& low) {
     SetName(op.name, "nothere.bin");
     SetName(op.name2, "x.bin");
     EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_RENAME), RTFAT_ENOENT);
+    // Onto itself (the same name to FAT, or its own 8.3 alias): nothing
+    // changes, and the file is still there.
     SetName(op.name, "Banner1.bin");
     SetName(op.name2, "banner1.bin");
-    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_RENAME), RTFAT_EEXIST);  // the same name to FAT
+    fx.dev.reset();
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_RENAME), RTFAT_OK);
+    EXPECT_EQ(fx.dev.writes, 0u);
+    SetName(op.name2, "BANNER~1.BIN");
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_RENAME), RTFAT_OK);
+    EXPECT_EQ(fx.dev.writes, 0u);
+    EXPECT_TRUE(fx.host_lookup("Banner1.bin", hf));
+    EXPECT_TRUE(fx.host_read("Banner1.bin") == fx.banner);
+    SetName(op.name, "nothere.bin");
+    SetName(op.name2, "NOTHERE.BIN");
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_RENAME), RTFAT_ENOENT);
 
     // And back to a short one.
     SetName(op.name, "Banner1.bin");
