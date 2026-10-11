@@ -162,6 +162,11 @@ public:
     // folder and it wins over save_mode (resolve_save_override), so the
     // frontend shows the save setting as the pack's instead of offering it.
     std::string pack_save_owner() const;
+    // Whether an enabled pack patches the game: one with a choice picked,
+    // or one with no options (it applies as a whole). Code builds do not
+    // count. The launch then leaves online play to the packs (wii/boot.cpp
+    // patches no server), so the frontend shows the server as the pack's.
+    bool packs_patch_game() const;
 
     // What to compile: every enabled package with every option stated
     // explicitly, so a package's defaults never leak past the frontend.

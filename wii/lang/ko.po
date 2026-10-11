@@ -990,6 +990,12 @@ msgstr "온라인 플레이 없음"
 msgid "This game has no online play, so it needs no server."
 msgstr "이 게임은 온라인 플레이가 없어 서버가 필요하지 않습니다."
 
+msgid "Left to the pack"
+msgstr "팩에 맡김"
+
+msgid "With a pack on, the game keeps the pack's own online setup. Turn the packs off to choose here."
+msgstr "팩이 켜져 있으면 게임은 팩 자체의 온라인 설정을 사용합니다. 여기서 선택하려면 팩을 끄세요."
+
 msgid "Nothing picked in this mod"
 msgstr "이 모드에서 선택한 항목 없음"
 

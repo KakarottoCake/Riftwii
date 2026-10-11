@@ -990,6 +990,12 @@ msgstr "オンラインプレイなし"
 msgid "This game has no online play, so it needs no server."
 msgstr "このゲームにはオンラインプレイがないので、サーバーはいりません。"
 
+msgid "Left to the pack"
+msgstr "パックにおまかせ"
+
+msgid "With a pack on, the game keeps the pack's own online setup. Turn the packs off to choose here."
+msgstr "パックがオンのときは、パック独自のオンライン設定を使います。ここで選ぶにはパックをオフにしてください。"
+
 msgid "Nothing picked in this mod"
 msgstr "このMODは何も選ばれていません"
 

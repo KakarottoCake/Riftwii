@@ -990,6 +990,12 @@ msgstr "Pas de jeu en ligne"
 msgid "This game has no online play, so it needs no server."
 msgstr "Ce jeu n'a pas de jeu en ligne : il n'a besoin d'aucun serveur."
 
+msgid "Left to the pack"
+msgstr "Laissé au pack"
+
+msgid "With a pack on, the game keeps the pack's own online setup. Turn the packs off to choose here."
+msgstr "Avec un pack activé, le jeu garde la configuration en ligne du pack. Désactivez les packs pour choisir ici."
+
 msgid "Nothing picked in this mod"
 msgstr "Rien de choisi dans ce mod"
 

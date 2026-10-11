@@ -256,6 +256,16 @@ std::string LaunchModel::pack_save_owner() const {
     return "";
 }
 
+bool LaunchModel::packs_patch_game() const {
+    for (const LaunchPackage& p : packages) {
+        if (!p.enabled || !p.valid || !p.for_disc || p.code_build()) continue;
+        if (p.package.options.empty()) return true;
+        for (const Option& o : p.package.options)
+            if (o.selected != 0 && o.selected <= o.choices.size()) return true;
+    }
+    return false;
+}
+
 std::string LaunchModel::choice_name(std::size_t package, std::size_t option) const {
     if (package >= packages.size()) return "";
     const LaunchPackage& p = packages[package];

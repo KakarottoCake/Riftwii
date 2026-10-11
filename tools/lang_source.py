@@ -912,6 +912,13 @@ T = {
         "このゲームにはオンラインプレイがないので、サーバーはいりません。",
         "Este jogo não tem jogo online, então não precisa de servidor.",
         "Questo gioco non ha il gioco online, quindi non serve un server."),
+    # The same row while a pack is on: the launch leaves the server to the pack.
+    "Left to the pack": ("Lo decide el pack", "パックにおまかせ", "Fica com o pack", "Lo decide il pacchetto"),
+    "With a pack on, the game keeps the pack's own online setup. Turn the packs off to choose here.": (
+        "Con un pack activado, el juego usa la configuración en línea del pack. Desactiva los packs para elegir aquí.",
+        "パックがオンのときは、パック独自のオンライン設定を使います。ここで選ぶにはパックをオフにしてください。",
+        "Com um pack ativado, o jogo usa a configuração online do próprio pack. Desative os packs para escolher aqui.",
+        "Con un pacchetto attivo, il gioco usa la configurazione online del pacchetto. Disattiva i pacchetti per scegliere qui."),
     "Nothing picked in this mod": (
         "No hay nada elegido en este mod", "このMODは何も選ばれていません", "Nada escolhido neste mod",
         "Niente di scelto in questa mod"),
@@ -2283,6 +2290,10 @@ KO = {
         "온라인 플레이 없음",
     "This game has no online play, so it needs no server.":
         "이 게임은 온라인 플레이가 없어 서버가 필요하지 않습니다.",
+    "Left to the pack":
+        "팩에 맡김",
+    "With a pack on, the game keeps the pack's own online setup. Turn the packs off to choose here.":
+        "팩이 켜져 있으면 게임은 팩 자체의 온라인 설정을 사용합니다. 여기서 선택하려면 팩을 끄세요.",
     "Nothing picked in this mod":
         "이 모드에서 선택한 항목 없음",
     "{1} is switched on, but none of its options are picked, so it would change nothing. Turn it off and start the game?":
@@ -3400,6 +3411,10 @@ FR = {
         "Pas de jeu en ligne",
     "This game has no online play, so it needs no server.":
         "Ce jeu n'a pas de jeu en ligne : il n'a besoin d'aucun serveur.",
+    "Left to the pack":
+        "Laissé au pack",
+    "With a pack on, the game keeps the pack's own online setup. Turn the packs off to choose here.":
+        "Avec un pack activé, le jeu garde la configuration en ligne du pack. Désactivez les packs pour choisir ici.",
     "Nothing picked in this mod":
         "Rien de choisi dans ce mod",
     "{1} is switched on, but none of its options are picked, so it would change nothing. Turn it off and start the game?":

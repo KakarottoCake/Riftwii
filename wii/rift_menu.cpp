@@ -3462,6 +3462,11 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 		// Resort showed a server to pick): shown, not offered.
 		server.value = tr("No online play");
 		server.dim = true;
+	} else if (state.model.packs_patch_game()) {
+		// The launch patches no server while a pack is on (a tester:
+		// Retro Rewind and MKW-DX bring their own): shown as the pack's.
+		server.value = tr("Left to the pack");
+		server.dim = true;
 	} else {
 		server.value = GameValue(game.server, global.wfc_server, ServerName);
 		server.on = game.server != "global";
@@ -4582,6 +4587,8 @@ static int MenuHome(FrontendState& state)
 				say(tr("The d2x cIOS the game runs under. Automatic uses the menu's, else the first of 249, 250 and 251 that works."));
 			else if (ref.what == RowRef::What::Server && riftwii::game_has_no_online(state.game_id))
 				say(tr("This game has no online play, so it needs no server."));
+			else if (ref.what == RowRef::What::Server && state.model.packs_patch_game())
+				say(tr("With a pack on, the game keeps the pack's own online setup. Turn the packs off to choose here."));
 			else if (ref.what == RowRef::What::Server)
 				say(tr("The online server the game uses in place of Nintendo's, which closed. Custom uses wfc_domain in settings.txt."));
 			else say("");
@@ -4650,6 +4657,8 @@ static int MenuHome(FrontendState& state)
 				changed = true;
 			} else if (ref.what == RowRef::What::Server && riftwii::game_has_no_online(state.game_id)) {
 				say(tr("This game has no online play, so it needs no server."));
+			} else if (ref.what == RowRef::What::Server && state.model.packs_patch_game()) {
+				say(tr("With a pack on, the game keeps the pack's own online setup. Turn the packs off to choose here."));
 			} else if (ref.what == RowRef::What::Server) {
 				state.model.game.server = StepValue(kServers, state.model.game.server, direction);
 				changed = true;
