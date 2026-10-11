@@ -22,7 +22,7 @@ struct Painter {
           bar(ToRgba(t.colors.bar)), banner_stripe(ToRgba(t.colors.banner_stripe)),
           backdrop(ToRgba(t.colors.backdrop)), backdrop_stripe(ToRgba(t.colors.backdrop_stripe)),
           shelf(ToRgba(t.colors.shelf)), shelf_edge(ToRgba(t.colors.shelf_edge)), corners(t.corners),
-          stripes(t.stripes), gloss(t.gloss), bump(t.bar_bump), ios6(t.home_ios6), clock(ToRgba(t.colors.clock)) {
+          stripes(t.stripes), grain(t.shelf_grain), gloss(t.gloss), bump(t.bar_bump), ios6(t.home_ios6), clock(ToRgba(t.colors.clock)) {
         const ThemeColor* p[4] = {&t.colors.pointer1, &t.colors.pointer2, &t.colors.pointer3, &t.colors.pointer4};
         for (int i = 0; i < 4; ++i) pointer[i] = ToRgba(*p[i]);
     }
@@ -30,7 +30,7 @@ struct Painter {
     Rgba card, edge, edge_strong, shadow, accent, glow, glyph, chip_on, chip_off, chip_off_edge, switch_off, bar,
         banner_stripe, backdrop, backdrop_stripe, pointer[4], shelf, shelf_edge;
     float corners;
-    bool stripes, gloss, bump, ios6;
+    bool stripes, grain, gloss, bump, ios6;
     Rgba clock;
 
     // A glossy theme's shine: the top half of a shape, white fading down.
@@ -548,9 +548,31 @@ struct Painter {
     }
 
     // Home's shelf: its top (rows 0-47, the far edge first) and its front
-    // edge (48-63), wood grain running along it; repeats across.
+    // edge (48-63); repeats across. With grain, wood; without, smooth
+    // plastic like the Wii's own: the top brightening towards the front,
+    // a lit lip, the edge with a thin accent line along it.
     Canvas Shelf() const {
         Canvas c(256, 64);
+        if (!grain) {
+            for (int y = 0; y < 64; ++y) {
+                Rgba px;
+                if (y < 48) {
+                    const float k = 0.90f + 0.10f * (y / 47.0f);
+                    px = Rgba{static_cast<std::uint8_t>(shelf.r * k), static_cast<std::uint8_t>(shelf.g * k),
+                              static_cast<std::uint8_t>(shelf.b * k), 255};
+                } else if (y == 48) {
+                    px = Rgba{255, 255, 255, 255};
+                } else if (y >= 52 && y <= 53) {
+                    px = Rgba{accent.r, accent.g, accent.b, 255};
+                } else {
+                    const float k = 1.0f - 0.10f * ((y - 49) / 14.0f);
+                    px = Rgba{static_cast<std::uint8_t>(shelf_edge.r * k), static_cast<std::uint8_t>(shelf_edge.g * k),
+                              static_cast<std::uint8_t>(shelf_edge.b * k), 255};
+                }
+                for (int x = 0; x < 256; ++x) c.put(x, y, px);
+            }
+            return c;
+        }
         for (int y = 0; y < 64; ++y) {
             const bool edgeRow = y >= 48;
             const Rgba base = edgeRow ? shelf_edge : shelf;

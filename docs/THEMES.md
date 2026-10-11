@@ -48,6 +48,9 @@ Controls the painted parts' shape:
   default: black bars, round pale buttons) or as iOS 6 drew things
   (`ios6`: glossy bars in the `bar` colour, dark linen between them,
   shaded buttons with a red Power off). Bookshelf uses `ios6`.
+- `shelf_grain`: `yes` or `no`. Wood grain along Home's shelf (`yes`, as
+  Bookshelf and Midnight), or a smooth shelf with a thin `accent` line along
+  its front edge (`no`, the default). A theme's own `shelf.png` wins.
 
 ### [backdrop]
 
@@ -94,8 +97,8 @@ shows:
 | `scroll_track` | `#E6E6EC` | A list's scroll track |
 | `scroll_thumb` | `#A8A8B4` | A list's scroll thumb |
 | `badge` | `#ECECF1` | A tile's DISC/USB/SD label |
-| `shelf` | `#C4A078` | The top of Home's shelf |
-| `shelf_edge` | `#96704C` | The front edge of Home's shelf |
+| `shelf` | `#F4F6F9` | The top of Home's shelf |
+| `shelf_edge` | `#D6DDE6` | The front edge of Home's shelf |
 | `pointer1` | `#3B8FD6` | Outline of player 1's pointer hand |
 | `pointer2` | `#D64545` | Outline of player 2's pointer hand |
 | `pointer3` | `#3FA34D` | Outline of player 3's pointer hand |

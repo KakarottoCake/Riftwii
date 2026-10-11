@@ -280,6 +280,15 @@ Theme parse_theme(const std::string& text, std::vector<std::string>& notes) {
                 if (lower_val == "bump") theme.bar_bump = true;
                 else if (lower_val == "dip") theme.bar_bump = false;
                 else add_note(notes, line_num, "bar: \"" + val + "\" is not dip or bump; the default stays");
+            } else if (key == "shelf_grain") {
+                const std::string lower_val = to_lower(val);
+                if (lower_val == "yes" || lower_val == "true" || lower_val == "on" || lower_val == "1") {
+                    theme.shelf_grain = true;
+                } else if (lower_val == "no" || lower_val == "false" || lower_val == "off" || lower_val == "0") {
+                    theme.shelf_grain = false;
+                } else {
+                    add_note(notes, line_num, "shelf_grain: \"" + val + "\" is not a boolean (yes/no/true/false/on/off/1/0); the default stays");
+                }
             } else if (key == "home_menu") {
                 const std::string lower_val = to_lower(val);
                 if (lower_val == "ios6") theme.home_ios6 = true;

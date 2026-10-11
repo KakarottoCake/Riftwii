@@ -17,6 +17,7 @@
 //             ThemeColors field below, by its name)
 //   [shape]   corners = 1.0            (0 square .. 2 twice as round)
 //   [backdrop] stripes = yes           (yes/no)
+//   [shape]   shelf_grain = yes        (yes/no)
 //
 // Anything missing keeps the default (RiftWii's own light look). Anything
 // wrong is skipped with a note, never an error: a broken theme still
@@ -61,8 +62,8 @@ struct ThemeColors {
     ThemeColor scroll_track{230, 230, 236, 255};
     ThemeColor scroll_thumb{168, 168, 180, 255};
     ThemeColor badge{236, 236, 241, 255};       // a tile's DISC/USB/SD label
-    ThemeColor shelf{196, 160, 120, 255};       // Home's shelf: the plank's top
-    ThemeColor shelf_edge{150, 112, 76, 255};   // and its front edge
+    ThemeColor shelf{244, 246, 249, 255};       // Home's shelf: the plank's top
+    ThemeColor shelf_edge{214, 221, 230, 255};  // and its front edge
     // The four players' pointers (outline colours).
     ThemeColor pointer1{59, 143, 214, 255};
     ThemeColor pointer2{214, 69, 69, 255};
@@ -76,6 +77,9 @@ struct Theme {
     ThemeColors colors;
     float corners = 1.0f;  // [shape] corners: radii are multiplied by it, 0 to 2
     bool stripes = true;   // [backdrop] stripes
+    // [shape] shelf_grain: wood grain along Home's shelf; without it the
+    // shelf is smooth with an accent-coloured line along its front edge.
+    bool shelf_grain = false;
     bool gloss = false;    // [shape] gloss: a shine across the top of buttons and tiles
     // [shape] bar: "dip" (the Wii Menu's: the bar sinks in the middle and
     // the clock sits in the dip) or "bump" (it rises there, the clock above).

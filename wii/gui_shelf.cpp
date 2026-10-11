@@ -411,6 +411,9 @@ void DrawBackdrop(int alpha) {
     // At z = -kEye a world unit is half a screen pixel.
     const float z = -kEye, k = 0.5f;
     const float sx0 = vx - 8, sx1 = vx + vw + 8, sy0 = vy - 8, sy1 = vy + vh + 8;
+    // It stops above the bottom bar, fading out over its last stretch, so
+    // the clock in the bar's dip stays crisp.
+    const float fadeTop = 300, fadeEnd = 348;
     const auto wx = [&](float sx) { return 320.0f + (sx - 320.0f) / k; };
     const auto wy = [&](float sy) { return 240.0f + (sy - 240.0f) / k; };
     // The picture's whole width across the screen; as much of its height
@@ -418,21 +421,27 @@ void DrawBackdrop(int alpha) {
     const float aspect = (sx1 - sx0) / (sy1 - sy0);
     const float span = std::min(1.0f, (static_cast<float>(riftwii::kBackdropWidth) / riftwii::kBackdropHeight) / aspect);
     const float v0 = std::min(0.12f, 1.0f - span);
+    const auto vAt = [&](float sy) { return v0 + span * (sy - sy0) / (sy1 - sy0); };
     for (const int which : {1 - g_backCur, g_backCur}) {
         if (g_backShown[which] < 0.01f || g_backId[which].empty()) continue;
-        Face f;
-        f.c[0] = {wx(sx0), wy(sy0), z};
-        f.c[1] = {wx(sx1), wy(sy0), z};
-        f.c[2] = {wx(sx1), wy(sy1), z};
-        f.c[3] = {wx(sx0), wy(sy1), z};
-        f.normal = {0, 0, 1};
-        f.tex = g_backPx[which];
-        f.texW = riftwii::kBackdropWidth;
-        f.texH = riftwii::kBackdropHeight;
-        f.v0 = v0;
-        f.v1 = v0 + span;
-        f.color = {150, 150, 156, static_cast<u8>(150 * g_backShown[which])};
-        DrawFace(f, alpha);
+        // Two bands: whole down to fadeTop, then fading to nothing at fadeEnd.
+        for (const int band : {0, 1}) {
+            const float ya = band == 0 ? sy0 : fadeTop, yb = band == 0 ? fadeTop : fadeEnd;
+            Face f;
+            f.c[0] = {wx(sx0), wy(ya), z};
+            f.c[1] = {wx(sx1), wy(ya), z};
+            f.c[2] = {wx(sx1), wy(yb), z};
+            f.c[3] = {wx(sx0), wy(yb), z};
+            f.normal = {0, 0, 1};
+            f.tex = g_backPx[which];
+            f.texW = riftwii::kBackdropWidth;
+            f.texH = riftwii::kBackdropHeight;
+            f.v0 = vAt(ya);
+            f.v1 = vAt(yb);
+            f.color = {150, 150, 156, static_cast<u8>(150 * g_backShown[which])};
+            if (band == 1) f.fade[2] = f.fade[3] = 0;
+            DrawFace(f, alpha);
+        }
     }
 }
 
