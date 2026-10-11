@@ -70,6 +70,7 @@ extern Tex arrowLeft, arrowLeftOver, arrowRight, arrowRightOver;  // 44 page arr
 extern Tex scrollUp, scrollUpOver, scrollDown, scrollDownOver;    // 34 list scroll arrows, drawn at -4,-4
 extern Tex iconDrives, iconGear, iconSearch;  // 28x28
 extern Tex iconStar, iconStarOn;         // 28x28 the banner screen's favourite button: off, on
+extern Tex discCase;                    // 128x176 RGBA8: the disc drive's box (covers, shelf)
 extern Tex iconDisc;                     // 40x40, the Disc drive tile's picture
 extern Tex hand[4];                      // 96x96 pointers, fingertip at the centre
 extern Tex background;                   // 640x480, a theme's (else none: GuiBackdrop paints)

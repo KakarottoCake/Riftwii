@@ -418,6 +418,11 @@ void GuiGameGrid::DrawCoverTile(int i, bool on, int alpha) {
     const u8* cover = riftwii::wii::CoverTexture(item.id);
     if (cover) {
         skin::DrawRgb5a3(cover, tileW, tileH, x, y, alpha, s.scale);
+    } else if (item.badge == "DISC" && skin::discCase.data) {
+        // The disc drive's own box, at a cover's size.
+        const float k = static_cast<float>(tileH) / skin::discCase.h;
+        skin::Draw(skin::discCase, x + tileW / 2.0f - skin::discCase.w / 2.0f, y + tileH / 2.0f - skin::discCase.h / 2.0f,
+                   alpha, s.scale * k);
     } else {
         // No cover: the name, the ID and the game's colour, as a name tile.
         for (int l = 0; l < 3; ++l) {
@@ -430,7 +435,9 @@ void GuiGameGrid::DrawCoverTile(int i, bool on, int alpha) {
         if (item.badge == "DISC") skin::Draw(skin::iconDisc, at_x(20), at_y(44), alpha, s.scale);
         Menu_DrawRectangle(at_x(8), at_y(tileH - 6), (tileW - 16) * s.scale, 3, skin::WithAlpha(item.hue, alpha), 1);
     }
-    // Source badge and MODS tag along the bottom, over the cover.
+    // Source badge and MODS tag along the bottom, over the cover. The disc
+    // drive's box says what it is: no DISC badge over its disc.
+    if (item.badge == "DISC" && !cover && skin::discCase.data) return;
     const int baseY = at_y(tileH - 22);
     const int badgeW = s.badge->GetTextWidth() + 10;
     const int badgeX = at_x(tileW - 5) - badgeW;

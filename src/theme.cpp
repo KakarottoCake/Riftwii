@@ -390,6 +390,7 @@ const std::vector<ThemeImage>& theme_images() {
         {"icon_star", 28, 28},
         {"icon_star_on", 28, 28},
         {"icon_disc", 40, 40},
+        {"disc_case", 128, 176},
         {"pointer1", 96, 96},
         {"pointer2", 96, 96},
         {"pointer3", 96, 96},

@@ -295,15 +295,87 @@ struct Painter {
         return c;
     }
 
-    // A disc seen from above: silver, a track ring, the clear hub and its hole.
-    Canvas Disc() const {
-        Canvas c(40, 40);
-        c.circle(20, 20, 18.5f, rgba(0xDCDCE4));
-        c.ring(20, 20, 18.5f, 1.6f, glyph);
-        c.ring(20, 20, 12.5f, 1.0f, rgba(0xB4B4C0));
-        c.circle(20, 20, 6.5f, rgba(0xFFFFFF));
-        c.ring(20, 20, 6.5f, 1.4f, glyph);
-        c.ring(20, 20, 2.6f, 1.2f, glyph);
+    // A disc seen from above, `size` across: silver with a faint rainbow
+    // that turns with the angle, two bright sweeps where the light catches
+    // it, fine tracks, a darker rim, the clear hub and its hole.
+    static Canvas GlossyDisc(int size) {
+        Canvas c(size, size);
+        const float mid = (size - 1) / 2.0f, rim = size / 2.0f - 0.8f;
+        for (int y = 0; y < size; ++y)
+            for (int x = 0; x < size; ++x) {
+                const float dx = x - mid, dy = y - mid, r = std::sqrt(dx * dx + dy * dy);
+                const float t = r / rim;
+                // Coverage at the outer edge and at the hole's.
+                const float cover = std::clamp(rim + 0.5f - r, 0.0f, 1.0f) * std::clamp(r - rim * 0.075f + 0.5f, 0.0f, 1.0f);
+                if (cover <= 0.0f) continue;
+                float rr, gg, bb, a = 255;
+                const float angle = std::atan2(dy, dx);
+                if (t < 0.31f) {
+                    // The clear hub: pale, see-through, a ring round the hole.
+                    rr = 236, gg = 240, bb = 246;
+                    a = 150;
+                    if (t > 0.10f && t < 0.135f) rr = gg = bb = 190, a = 210;
+                    if (t > 0.285f) rr = gg = 205, bb = 214, a = 230;
+                } else {
+                    float base = 196 + 34 * (1 - t) + 4 * std::sin(t * 140.0f);
+                    const float sheen = std::pow(std::fabs(std::cos(angle + 0.785f)), 12.0f);
+                    // The rainbow: a hue from the angle (twice round) and the radius.
+                    const float h = std::fmod(angle / 3.14159265f + t * 0.6f + 2.0f, 1.0f) * 6.0f;
+                    const float f = h - std::floor(h);
+                    float hr = 0, hg = 0, hb = 0;
+                    switch (static_cast<int>(h) % 6) {
+                        case 0: hr = 1, hg = f, hb = 0; break;
+                        case 1: hr = 1 - f, hg = 1, hb = 0; break;
+                        case 2: hr = 0, hg = 1, hb = f; break;
+                        case 3: hr = 0, hg = 1 - f, hb = 1; break;
+                        case 4: hr = f, hg = 0, hb = 1; break;
+                        default: hr = 1, hg = 0, hb = 1 - f; break;
+                    }
+                    const float tint = 0.16f + 0.30f * sheen;
+                    base += 50 * sheen;
+                    rr = base * (1 - tint) + 255 * hr * tint;
+                    gg = base * (1 - tint) + 255 * hg * tint;
+                    bb = base * (1 - tint) + 255 * hb * tint + 6;
+                    if (t < 0.345f) rr = gg = bb = 248;            // the hub's edge, lit
+                    if (t > 0.965f) rr *= 0.72f, gg *= 0.72f, bb *= 0.76f;  // the rim
+                }
+                c.put(x, y, Rgba{static_cast<std::uint8_t>(std::clamp(rr, 0.0f, 255.0f)),
+                                 static_cast<std::uint8_t>(std::clamp(gg, 0.0f, 255.0f)),
+                                 static_cast<std::uint8_t>(std::clamp(bb, 0.0f, 255.0f)),
+                                 static_cast<std::uint8_t>(a * cover)});
+            }
+        return c;
+    }
+
+    Canvas Disc() const { return GlossyDisc(40); }
+
+    // The disc drive's box: a pale blue case like a drive's front, the
+    // slot across its top, the disc behind the clear sleeve, the sleeve
+    // catching the light from the top left.
+    Canvas DiscCase() const {
+        Canvas c(128, 176);
+        c.rounded_gradient(0, 0, 128, 176, 7, rgba(0xEEF4FB), rgba(0xB7CCE6));
+        c.rounded_border(0, 0, 128, 176, 7, 2, rgba(0x8EA8C8));
+        // The drive: a blue band with its slot.
+        c.rounded_gradient(7, 8, 114, 30, 5, rgba(0x4C8FE0), rgba(0x2C63B0));
+        c.rounded_rect(18, 21, 92, 5, 2.5f, rgba(0x163A6E));
+        c.rect(22, 22, 84, 1, rgba(0xFFFFFF, 70));
+        // The disc, half out of the slot's way.
+        const Canvas disc = GlossyDisc(108);
+        const int ox = 10, oy = 56;
+        for (int y = 0; y < disc.height(); ++y)
+            for (int x = 0; x < disc.width(); ++x) {
+                const Rgba s = disc.at(x, y);
+                if (s.a == 0) continue;
+                const Rgba d = c.at(ox + x, oy + y);
+                const int a = s.a;
+                c.put(ox + x, oy + y,
+                      Rgba{static_cast<std::uint8_t>((s.r * a + d.r * (255 - a)) / 255),
+                           static_cast<std::uint8_t>((s.g * a + d.g * (255 - a)) / 255),
+                           static_cast<std::uint8_t>((s.b * a + d.b * (255 - a)) / 255), d.a});
+            }
+        // The sleeve's sheen: a soft band from the top left.
+        c.polygon({{2, 40}, {64, 2}, {104, 2}, {2, 74}}, rgba(0xFFFFFF, 34));
         return c;
     }
 
@@ -638,6 +710,7 @@ bool paint_theme_image(const std::string& name, const Theme& theme, Canvas& out)
         {"icon_star", [](const Painter& q) { return q.Star(false); }},
         {"icon_star_on", [](const Painter& q) { return q.Star(true); }},
         {"icon_disc", [](const Painter& q) { return q.Disc(); }},
+        {"disc_case", [](const Painter& q) { return q.DiscCase(); }},
         {"pointer1", [](const Painter& q) { return Painter::Hand(q.pointer[0]); }},
         {"pointer2", [](const Painter& q) { return Painter::Hand(q.pointer[1]); }},
         {"pointer3", [](const Painter& q) { return Painter::Hand(q.pointer[2]); }},

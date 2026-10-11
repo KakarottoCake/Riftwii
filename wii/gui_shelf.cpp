@@ -198,6 +198,7 @@ void LoadPerspective() {
 // Super Mario Bros. Wii's red); a black one is lifted a little so its
 // edges show.
 GXColor CasePlastic(const std::string& id) {
+    if (id.empty()) return {184, 205, 230, 255};  // the disc drive's box: pale blue, as its picture
     std::uint8_t rgb[3];
     if (!riftwii::game_case_colour(id, rgb)) return {238, 238, 236, 255};
     return {static_cast<u8>(28 + rgb[0] * 210 / 255), static_cast<u8>(28 + rgb[1] * 210 / 255),
@@ -252,6 +253,17 @@ void BoxFaces(const std::string& id, const Box& b, const u8* art, const u8* cove
         faces[1].tex = cover;
         faces[1].texW = riftwii::kCoverWidth;
         faces[1].texH = riftwii::kCoverHeight;
+    } else if (id.empty() && skin::discCase.data) {
+        // The disc drive: its own box on the front and the back, the spine
+        // in its pale blue.
+        for (const int k : {1, 2}) {
+            faces[k].tex = skin::discCase.data;
+            faces[k].texW = skin::discCase.w;
+            faces[k].texH = skin::discCase.h;
+            faces[k].rgba8 = true;
+        }
+        faces[0].color = {214, 228, 244, 255};
+        return;
     }
     // No scan: the back in the game's colour, as a case's back is never white.
     if (!art)
@@ -680,7 +692,7 @@ void GuiGameGrid::DrawShelf(int alpha) {
             band.c[1] = along(tr, br, 0.80f);
             band.c[2] = along(tr, br, 0.93f);
             band.c[3] = along(tl, bl, 0.93f);
-            band.color = item.hue;
+            band.color = item.badge == "DISC" ? GXColor{52, 108, 196, 255} : item.hue;
             band.color.a = 255;
             band.tex = nullptr;
             DrawFace(band, alpha);
@@ -692,7 +704,7 @@ void GuiGameGrid::DrawShelf(int alpha) {
             // lay across the next spine's.
             if (p.turn < 0.12f) labels.push_back(SpineLabel{i, (sx + sxr) / 2, sy0, sy1});
         }
-        if (item.badge == "DISC" && !art && !cover && FacesEye(faces[1]) && skin::iconDisc.data) {
+        if (item.badge == "DISC" && !art && !cover && !skin::discCase.data && FacesEye(faces[1]) && skin::iconDisc.data) {
             // The disc drive has no box art: the Disc drive tile's disc
             // (as on the grid), square in the middle of the front.
             const Face& fr = faces[1];
@@ -729,7 +741,7 @@ void GuiGameGrid::DrawShelf(int alpha) {
             disc.color = {255, 255, 255, 255};
             DrawFace(disc, alpha);
         }
-        if (i == focus && (art || cover)) {
+        if (i == focus && (art || cover || (item.badge == "DISC" && skin::discCase.data))) {
             DrawSheen(faces[1], swing * settle, alpha);
             if (art) DrawSheen(faces[2], swing * settle, alpha);
         }

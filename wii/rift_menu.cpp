@@ -4187,6 +4187,11 @@ public:
 			skin::DrawRgb5a3(cover, riftwii::kCoverWidth, riftwii::kCoverHeight,
 				px + (riftwii::wii::kModPictureW - riftwii::kCoverWidth) / 2.0f,
 				py + (riftwii::wii::kModPictureH - riftwii::kCoverHeight) / 2.0f, alpha, 1.5f);
+		} else if (skin::discCase.data) {
+			// No cover (the disc's game not read yet): the disc drive's box, the box's height.
+			const float k = static_cast<float>(riftwii::wii::kModPictureH) / skin::discCase.h;
+			skin::Draw(skin::discCase, px + (riftwii::wii::kModPictureW - skin::discCase.w) / 2.0f,
+				py + (riftwii::wii::kModPictureH - skin::discCase.h) / 2.0f, alpha, k);
 		} else {
 			skin::Draw(skin::iconDisc, px + (riftwii::wii::kModPictureW - skin::iconDisc.w) / 2,
 				py + (riftwii::wii::kModPictureH - skin::iconDisc.h) / 2, alpha);
