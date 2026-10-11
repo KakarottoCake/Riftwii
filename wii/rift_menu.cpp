@@ -2456,6 +2456,10 @@ static void ScanDrives(FrontendState& state, GuiText& status)
 	const bool usb = scan_usb_games(state.usb_catalog, error);
 	HaltGui();
 	riftwii::wii::mem::CheckHeap("after the USB scan");
+	// The scan's reads are over: the GameCube adapter may start now, so its
+	// pads can answer the drive popup below (a Wii U has no GameCube ports:
+	// with only an adapter pad, OK could not be pressed).
+	riftwii::wii::GcAdapterMenuAllowStart();
 	WarnAboutDrives(sdError, usb ? std::string() : error.empty() ? std::string("scan failed") : error);
 	if (sd) ReportCardLog();
 	if (!usb) {
@@ -2804,8 +2808,10 @@ static int MenuSource(FrontendState& state)
 		emptyNote.SetVisible(state.sd_catalog.games.empty() && state.usb_catalog.games.empty());
 	};
 	if (!g_scanned) {
+		ScanDrives(state, statusTxt);  // the GameCube adapter may start from here on
 		// An old channel: nothing of Home until it is updated (the popup
 		// returns with the GUI halted, as this function's end has it).
+		// After the scan, so an adapter's pads can answer it too.
 		w.SetVisible(false);
 		menu = RequireChannelUpdate();
 		w.SetVisible(true);
@@ -2813,8 +2819,6 @@ static int MenuSource(FrontendState& state)
 			mainWindow->Remove(&w);
 			return menu;
 		}
-		ScanDrives(state, statusTxt);
-		riftwii::wii::GcAdapterMenuAllowStart();
 		ShowWhatsNewOnce(ShowTutorialOnce());
 		SuggestDotClean();
 		if (OfferChannelOnce()) menu = MENU_CHANNEL;
