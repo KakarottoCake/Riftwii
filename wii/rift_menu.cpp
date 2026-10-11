@@ -2426,7 +2426,7 @@ static bool OfferChannelOnce()
 static int RequireChannelUpdate()
 {
 	unsigned version = 0;
-	if (!riftwii::wii::ChannelInstalled(version) || version >= riftwii::wii::kChannelVersion) return MENU_NONE;
+	if (!riftwii::wii::ChannelInstalled(version) || version >= riftwii::wii::ChannelVersionNeeded()) return MENU_NONE;
 	if (riftwii::wii::running_in_dolphin()) {
 		logf("Channel: version %u installed, %u needed; not asked in Dolphin\n", version, riftwii::wii::kChannelVersion);
 		return MENU_NONE;
@@ -2438,7 +2438,7 @@ static int RequireChannelUpdate()
 		return MENU_NONE;
 	}
 	const bool stillOld = riftwii::wii::CurrentRestartNote().kind == riftwii::wii::RestartKind::ChannelDone;
-	const std::string have = std::to_string(version), need = std::to_string(riftwii::wii::kChannelVersion);
+	const std::string have = std::to_string(version), need = std::to_string(riftwii::wii::ChannelVersionNeeded());
 	for (;;) {
 		std::string why;
 		const bool can = riftwii::wii::ChannelCanInstall(why);
@@ -2462,7 +2462,7 @@ static int RequireChannelUpdate()
 			return MENU_CHANNEL;
 		}
 		// Check again: the card may have been fixed meanwhile.
-		if (!riftwii::wii::ChannelInstalled(version) || version >= riftwii::wii::kChannelVersion) return MENU_NONE;
+		if (!riftwii::wii::ChannelInstalled(version) || version >= riftwii::wii::ChannelVersionNeeded()) return MENU_NONE;
 	}
 }
 

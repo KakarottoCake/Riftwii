@@ -56,6 +56,12 @@ setup:
 	# this program's and IOS's after leaving some games for the channel:
 	# a black screen at random points of the start. L2CFI off, so the
 	# invalidate drops the lines, as libogc 1.8 and the Nintendo start do.
+	# Not on a Wii U's CPU (Espresso, PVR 0x7001xxxx): channel 11 never
+	# started on a vWii with this clear, so a vWii goes on as before 11.
+	mfpvr	3
+	srwi	3, 3, 16
+	cmplwi	3, 0x7001
+	beq	9f
 	mfspr	3, HID4
 	rlwinm	3, 3, 0, 12, 10		# HID4 without L2CFI (bit 11)
 	mtspr	HID4, 3
@@ -72,6 +78,7 @@ setup:
 	li	3, 0
 	mtspr	L2CR, 3			# L2I off again; libogc turns the L2 on
 	sync
+9:
 
 	# No BATs, then every segment invalid
 	li	0, 0

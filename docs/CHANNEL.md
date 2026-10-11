@@ -102,7 +102,9 @@ channel ran on the game's cached data and stopped on a black screen, at a
 different point each time, while the Wii Menu, the Homebrew Channel and
 the Everybody Votes Channel, whose start-ups empty the L2, came up.
 `tools/make_channel.py` refuses a boot program without that clear
-(`L2_CLEAR`). Since version 11.
+(`L2_CLEAR`). Since version 11. Version 12 skips it on a Wii U's CPU
+(Espresso, PVR 0x7001xxxx): channel 11 never started on a vWii, and a
+vWii needs 12 (`ChannelVersionNeeded`), a Wii 11.
 
 ## The banner
 

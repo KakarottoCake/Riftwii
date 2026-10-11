@@ -9,6 +9,7 @@
 
 #include <sys/stat.h>
 
+#include "boot.hpp"
 #include "dolboot.h"
 #include "ios_reload.hpp"
 #include "log.hpp"
@@ -57,6 +58,10 @@ bool ChannelInstalled(unsigned& version) {
         if (title_installed(title, version)) return true;
     }
     return false;
+}
+
+unsigned ChannelVersionNeeded() {
+    return is_wii_u() ? kChannelVersion : 11;
 }
 
 bool ChannelInstallerPresent(std::string& why) {
