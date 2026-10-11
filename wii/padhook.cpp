@@ -510,8 +510,9 @@ bool find_pad_functions(const DolHeader& dol, bool demo, PadHook& out, std::stri
     logf("GameCube adapter: libogc lists %s (adapter device %d)\n", devices.c_str(), static_cast<int>(out.known_dev));
     USB_Deinitialize();
     usleep(50000);
+    // No usb_open_matrix() when this fails: its probes broke the disc's
+    // emulation on d2x (wii/boot.cpp), and the game still reads its disc.
     if (!open_usb_hid(out.fd, out.version, why)) {
-        logf("GameCube adapter diag: %s\n", usb_open_matrix().c_str());
         if (!demo) return false;
         logf("GameCube adapter: %s; demo mode goes on without it\n", why.c_str());
         out.fd = -1;

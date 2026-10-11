@@ -2257,13 +2257,12 @@ bool boot_game(const DiscProbe& probe, BootOptions options, std::string& error) 
             usb_hid_is_v4();
             logf("GameCube adapter: IOS%d is d2x on base %d, whose /dev/usb/hid is v4\n", running_ios, base);
         }
-        // What this IOS's USB answers, for a report, only when the player
-        // set the adapter to On: on a Wii's d2x 249, with a New Super Mario
-        // Bros. Wii image on the SD card and no adapter, its /dev/usb/hid
-        // GetVersion never answered and every disc command after it failed
-        // (BCA -4, then opening the partition). Automatic finds the adapter
-        // in the USB device list, without asking /dev/usb/hid.
-        if (g_extras.gc_adapter_forced) logf("GameCube adapter diag: %s\n", usb_open_matrix().c_str());
+        // No probe of /dev/usb/hid and /dev/usb/ven here, not even with the
+        // setting On: on a Wii's d2x 249 (a New Super Mario Bros. Wii image
+        // on the SD card, no adapter), and on a Wii U's d2x v11 beta3 on
+        // base 58 (Mario Kart Wii on the SD card, adapter On), every disc
+        // command after it failed (BCA -4, then opening the partition).
+        // The adapter is found in the USB device list instead.
         const AdapterSeen seen = look_for_gc_adapter(how);
         logf("GameCube adapter (%s): %s\n", g_extras.gc_adapter == GcAdapterMode::Auto ? "auto" : "on", how.c_str());
         if (g_extras.gc_adapter == GcAdapterMode::Auto) {
