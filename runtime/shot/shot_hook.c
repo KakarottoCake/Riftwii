@@ -25,8 +25,6 @@ typedef int32_t (*shot_write_fn)(int32_t fd, const void* data, uint32_t length, 
 typedef int32_t (*shot_ioctl_fn)(int32_t fd, uint32_t ioctl, void* in, uint32_t in_len, void* out, uint32_t out_len,
                                  uint32_t callback, uint32_t user);
 typedef int32_t (*shot_callback_fn)(int32_t result, uint32_t user);
-typedef int32_t (*shot_ioctlv_fn)(int32_t fd, uint32_t ioctl, uint32_t in_count, uint32_t io_count, void* vectors,
-                                  uint32_t callback, uint32_t user);
 
 static uint32_t interrupts_off(void) {
     uint32_t msr;
@@ -69,7 +67,6 @@ static struct rt_shot_state* state_of(struct rt_shot_context* c) {
             for (i = 0; i < sizeof(*st) / 4u; ++i) w[i] = 0;
             st->fs_fd = -1;
             st->file_fd = -1;
-            st->bt_fd = -1;
             c->inited = 1;
         }
         interrupts_restore(msr);
@@ -77,67 +74,10 @@ static struct rt_shot_state* state_of(struct rt_shot_context* c) {
     return st;
 }
 
-/* The rumble ---------------------------------------------------------- */
-
 static void copy(void* to, const void* from, uint32_t n) {
     uint8_t* d = (uint8_t*)to;
     const uint8_t* s = (const uint8_t*)from;
     while (n--) *d++ = *s++;
-}
-
-/* One report to the Remote, on or off. 0 when it could not go. */
-static int send_rumble(struct rt_shot_context* c, struct rt_shot_state* st, int on) {
-    struct rt_shot_rumble* m = &st->rumble[on ? 0 : 1];
-    uint32_t bytes;
-    int32_t sent;
-    if (st->bt_fd < 0 || c->ioctlv_async == 0) return 0;
-    bytes = rtshot_rumble(&st->input, st->buzz_slot, on, m->packet);
-    if (bytes == 0) return 0;
-    m->endpoint = RTSHOT_ACL_OUT;
-    m->length = (uint16_t)bytes;
-    m->vectors[0] = (uint32_t)(uintptr_t)&m->endpoint;
-    m->vectors[1] = 1u;
-    m->vectors[2] = (uint32_t)(uintptr_t)&m->length;
-    m->vectors[3] = 2u;
-    m->vectors[4] = (uint32_t)(uintptr_t)m->packet;
-    m->vectors[5] = bytes;
-    flush(m, sizeof(*m));
-    /* No callback: nothing waits for the answer, and the other buffer is
-     * the one the next step writes. */
-    sent = ((shot_ioctlv_fn)(uintptr_t)c->ioctlv_async)(st->bt_fd, RTSHOT_USBV0_BLKMSG, 2u, 1u, m->vectors, 0, 0);
-    if (sent < 0) {
-        --st->input.remotes[st->buzz_slot].injected;  /* never sent: the controller will not count it */
-        return 0;
-    }
-    return 1;
-}
-
-/* Sends the pattern's next step once it is due. Interrupts are off. */
-static void buzz_tick(struct rt_shot_context* c, struct rt_shot_state* st) {
-    const uint32_t step = st->buzz_next;
-    if (st->buzz_steps == 0 || (int32_t)(now() - st->buzz_due) < 0) return;
-    if (!send_rumble(c, st, (step & 1u) == 0)) {
-        if ((step & 1u) == 0) st->buzz_steps = 0;  /* no Remote to tell: stop */
-        return;                                    /* an off that failed: tried again */
-    }
-    st->buzz_due = now() + st->buzz_ms[step] * (c->ticks_per_second / 1000u);
-    if (++st->buzz_next >= st->buzz_steps) st->buzz_steps = 0;
-}
-
-/* `on`, `off`, `on2` milliseconds (0: not there): the Remote that pressed
- * the combo rumbles. Interrupts are off. */
-static void buzz(struct rt_shot_context* c, struct rt_shot_state* st, uint32_t on, uint32_t off, uint32_t on2) {
-    if (st->input.fired_remote == 0) return;  /* a GameCube controller's combo */
-    if (st->buzz_steps != 0 && (st->buzz_next & 1u) != 0) send_rumble(c, st, 0);  /* one still on: off first */
-    st->buzz_slot = st->input.fired_remote - 1u;
-    st->buzz_ms[0] = on;
-    st->buzz_ms[1] = off;
-    st->buzz_ms[2] = on2;
-    st->buzz_ms[3] = 0;
-    st->buzz_steps = on2 ? 4u : 2u;
-    st->buzz_next = 0;
-    st->buzz_due = now();
-    buzz_tick(c, st);
 }
 
 /* The NAND job ------------------------------------------------------- */
@@ -209,11 +149,9 @@ static int32_t send_next_close(struct rt_shot_context* c, struct rt_shot_state* 
 static void finish(struct rt_shot_context* c, struct rt_shot_state* st) {
     if (st->error == 0 && st->renamed) {
         ++c->shots;
-        buzz(c, st, 100u, 120u, 100u);  /* saved: twice */
     } else {
         ++c->failures;
         c->last_error = st->error ? st->error : -1;
-        buzz(c, st, 500u, 0u, 0u);      /* not saved: once, long */
     }
     ++c->number;
     st->phase = RT_SHOT_IDLE;
@@ -422,27 +360,12 @@ uint32_t shot_on_ioctlv(struct rt_shot_context* c, uint32_t* a) {
     struct rt_shot_state* st = state_of(c);
     const uint32_t* vec;
     uint32_t i, msr;
-    uint32_t endpoint, kind;
     /* a: fd, ioctl, in count, io count, vectors, callback, user data. */
-    if ((a[1] != RTSHOT_USBV0_BLKMSG && a[1] != RTSHOT_USBV0_INTRMSG) || a[2] != 2u || a[3] != 1u ||
-        !in_ram(a[4], 24u))
-        return 0;
+    if (a[1] != RTSHOT_USBV0_BLKMSG || a[2] != 2u || a[3] != 1u || !in_ram(a[4], 24u)) return 0;
     vec = (const uint32_t*)(uintptr_t)a[4];
-    if (!in_ram(vec[0], 1u) || vec[1] < 1u || !in_ram(vec[4], vec[5])) return 0;
-    endpoint = *(const uint8_t*)(uintptr_t)vec[0];
-    if (a[1] == RTSHOT_USBV0_BLKMSG && endpoint == RTSHOT_ACL_OUT) {
-        /* The game's own output: the Remote's end of the HID channel. */
-        msr = interrupts_off();
-        st->bt_fd = (int32_t)a[0];
-        rtshot_acl_out(&st->input, (const uint8_t*)(uintptr_t)vec[4], vec[5]);
-        interrupts_restore(msr);
-        return 0;
-    }
-    if (a[1] == RTSHOT_USBV0_BLKMSG && endpoint == RTSHOT_ACL_IN && vec[5] >= 12u) kind = RT_SHOT_WATCH_ACL;
-    else if (a[1] == RTSHOT_USBV0_INTRMSG && endpoint == RTSHOT_EVENT_IN && vec[5] >= 3u) kind = RT_SHOT_WATCH_EVENT;
-    else return 0;
+    if (!in_ram(vec[0], 1u) || vec[1] < 1u || !in_ram(vec[4], vec[5]) || vec[5] < 12u) return 0;
+    if (*(const uint8_t*)(uintptr_t)vec[0] != RTSHOT_ACL_IN) return 0;
     msr = interrupts_off();
-    st->bt_fd = (int32_t)a[0];
     for (i = 0; i < RT_SHOT_WATCHES; ++i) {
         struct rt_shot_watch* w = &st->watch[i];
         if (w->in_use) continue;
@@ -451,7 +374,6 @@ uint32_t shot_on_ioctlv(struct rt_shot_context* c, uint32_t* a) {
         w->user = a[6];
         w->data = vec[4];
         w->length = vec[5];
-        w->kind = kind;
         a[5] = c->complete_bt;
         a[6] = (uint32_t)(uintptr_t)w;
         interrupts_restore(msr);
@@ -472,11 +394,7 @@ int32_t shot_after_ioctlv(struct rt_shot_context* c, uint32_t slot, int32_t resu
 void shot_on_pad(struct rt_shot_context* c, uint8_t* status) {
     struct rt_shot_state* st = state_of(c);
     const uint32_t msr = interrupts_off();
-    if (rtshot_pads(&st->input, status)) {
-        st->input.fired_remote = 0;  /* a pad's combo: no Remote to rumble */
-        capture(c, st);
-    }
-    buzz_tick(c, st);
+    if (rtshot_pads(&st->input, status)) capture(c, st);
     interrupts_restore(msr);
 }
 
@@ -490,15 +408,10 @@ int32_t shot_on_bt(struct rt_shot_context* c, int32_t result, uint32_t tag) {
     w = (struct rt_shot_watch*)(uintptr_t)tag;
     callback = w->callback;
     user = w->user;
-    if (result > 0 && w->kind == RT_SHOT_WATCH_EVENT) {
-        const uint32_t size = (uint32_t)result < w->length ? (uint32_t)result : w->length;
-        rtshot_event(&st->input, (uint8_t*)(uintptr_t)w->data, size);
-        flush((const void*)(uintptr_t)w->data, size);
-    } else if (result > 0) {
+    if (result > 0) {
         const uint32_t size = (uint32_t)result < w->length ? (uint32_t)result : w->length;
         const uint32_t reports = st->input.reports;
-        if (rtshot_acl(&st->input, (uint8_t*)(uintptr_t)w->data, size) && capture(c, st))
-            buzz(c, st, 120u, 0u, 0u);  /* taken: once, briefly */
+        if (rtshot_acl(&st->input, (uint8_t*)(uintptr_t)w->data, size)) capture(c, st);
         if ((c->flags & RT_SHOT_FLAG_DEMO) && st->input.reports != reports) {
             const uint32_t t = now();
             if (c->demo_start == 0) c->demo_start = t | 1u;
@@ -507,7 +420,6 @@ int32_t shot_on_bt(struct rt_shot_context* c, int32_t result, uint32_t tag) {
                 capture(c, st);
         }
     }
-    buzz_tick(c, st);
     w->in_use = 0;
     if (callback == 0) return 0;
     return ((shot_callback_fn)(uintptr_t)callback)(result, user);

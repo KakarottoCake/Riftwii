@@ -149,7 +149,6 @@ bool plan_shot_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t
     ctx->close_async = ipc.close_async;
     ctx->write_async = ipc.write_async;
     ctx->ioctl_async = ipc.ioctl_async;
-    ctx->ioctlv_async = out.ioctlv;  // the rumble goes out through the game's own (hooked) call
     ctx->complete_bt = out.code_base + h.complete_bt;
     ctx->complete_nand = out.code_base + h.complete_nand;
     ctx->flags = (demo ? RT_SHOT_FLAG_DEMO : 0u) | (direct ? RT_SHOT_FLAG_DIRECT : 0u);
@@ -166,9 +165,6 @@ bool plan_shot_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t
 bool install_shot_hook(ShotHook& hook, std::string& why) {
     if (!hook.active) return false;
     const rt_shot_header& h = header();
-    // Wii Remote rumble Off: the blob sends no rumble report (it has no
-    // IOS_IoctlvAsync to send one with).
-    if (!hook.rumble) reinterpret_cast<rt_shot_context*>(hook.code_base + h.context_offset)->ioctlv_async = 0;
     struct Site {
         std::uint32_t function, hook, replay, resume;
         const char* name;

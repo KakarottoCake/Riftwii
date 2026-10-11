@@ -30,7 +30,6 @@ namespace riftwii::wii {
 struct ShotHook {
     bool active = false;
     bool demo = false;             // also shoots 20 and 40 s into the game (Dolphin tests)
-    bool rumble = true;            // the Remote buzzes for a shot (Settings > Wii Remote rumble)
     std::uint32_t ioctlv = 0;      // IOS_IoctlvAsync (0: no Wii Remote combo)
     std::uint32_t pad_read = 0;    // PADRead (0: no GameCube controller combo)
     std::uint32_t code_base = 0;   // the blob (MEM1)

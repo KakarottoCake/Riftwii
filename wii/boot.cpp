@@ -1399,7 +1399,6 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
                             direct, options.memory_patches, shot, why)) {
             logf("Screenshots: off: %s\n", why.c_str());
         }
-        shot.rumble = !g_extras.rumble_off;
     }
     // A crash in the game is saved for the next start: below all of the
     // above, always.
