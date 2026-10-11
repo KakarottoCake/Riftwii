@@ -51,6 +51,21 @@ void put32(std::vector<std::uint8_t>& out, std::uint32_t v) {
     out.push_back(static_cast<std::uint8_t>(v));
 }
 
+// Whether lines[i] is a cheat file's game ID line: 4 or 6 capitals and
+// digits, and a code line never follows it. A file without a header may
+// start with a cheat named "Speed2", whose first code line would otherwise
+// be taken as the game's name.
+bool is_id_line(const std::vector<std::string>& lines, std::size_t i) {
+    if (i >= lines.size() || (lines[i].size() != 6 && lines[i].size() != 4)) return false;
+    for (char c : lines[i]) {
+        if (!((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9'))) return false;
+    }
+    std::uint32_t a, b;
+    std::size_t next = i + 1;
+    while (next < lines.size() && lines[next].empty()) ++next;
+    return !(next < lines.size() && code_line(lines[next], a, b) != 0);
+}
+
 // A cheat file as text: its header lines, then its blocks (one cheat or
 // note each, as the lines between blank lines), trimmed.
 struct CheatBlocks {
@@ -67,10 +82,7 @@ CheatBlocks split_blocks(const std::string& text) {
     if (!lines.empty() && lines[0].compare(0, 3, "\xEF\xBB\xBF") == 0) lines[0] = lines[0].substr(3);
     std::size_t i = 0;
     // As parse_cheat_text reads the header.
-    if (i < lines.size() && (lines[i].size() == 6 || lines[i].size() == 4)) {
-        std::uint32_t a, b;
-        if (code_line(lines[i], a, b) == 0) out.header.push_back(lines[i++]);
-    }
+    if (is_id_line(lines, i)) out.header.push_back(lines[i++]);
     if (!out.header.empty() && i < lines.size() && !lines[i].empty()) out.header.push_back(lines[i++]);
     std::vector<std::string> block;
     for (; i <= lines.size(); ++i) {
@@ -294,17 +306,7 @@ bool parse_cheat_text(const std::string& text, CheatFile& out, std::string& erro
     if (!lines.empty() && lines[0].compare(0, 3, "\xEF\xBB\xBF") == 0) lines[0] = lines[0].substr(3);
     std::size_t i = 0;
     // The header: the ID line and the name line, when the file has them.
-    // An ID is 4 or 6 capitals and digits, and a code line never follows
-    // it: a file without a header may start with a cheat named "Speed2",
-    // whose first code line would otherwise be taken as the game's name.
-    if (i < lines.size() && (lines[i].size() == 6 || lines[i].size() == 4)) {
-        bool id = true;
-        for (char c : lines[i]) id = id && ((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9'));
-        std::uint32_t a, b;
-        std::size_t next = i + 1;
-        while (next < lines.size() && lines[next].empty()) ++next;
-        if (id && !(next < lines.size() && code_line(lines[next], a, b) != 0)) out.game_id = lines[i++];
-    }
+    if (is_id_line(lines, i)) out.game_id = lines[i++];
     if (!out.game_id.empty() && i < lines.size() && !lines[i].empty()) out.title = lines[i++];
     Cheat current;
     bool open = false;
