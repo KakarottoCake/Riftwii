@@ -116,6 +116,8 @@ VsdImage g_vsd;
 
 extern "C" const std::uint8_t riftwii_dolswitch_stub[];
 extern "C" const std::uint8_t riftwii_dolswitch_stub_end[];
+extern "C" const std::uint8_t riftwii_startfile_stub[];
+extern "C" const std::uint8_t riftwii_startfile_stub_end[];
 
 // A game that starts another executable: wii/dolswitch_stub.S hooks the
 // code handler into it. Logged; the first executable's cheats work
@@ -1197,31 +1199,64 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         return false;
     }
     logf("Game entry 0x%08x\n", reinterpret_cast<std::uint32_t>(game_entry));
+    // Parts of the start file over this loader's own memory: written by
+    // wii/startfile_stub.S at the very end, after the loader's last work.
+    struct LatePiece {
+        std::uint32_t address = 0;
+        std::vector<std::uint8_t> bytes;  // empty: `zeros` zero bytes
+        std::uint32_t zeros = 0;
+    };
+    std::vector<LatePiece> late;
     if (start_file_offset != 0) {
         // The start file's sections over what main.dol put there; the
         // patches and hooks below go into these.
+        const std::uint32_t loader_end = reinterpret_cast<std::uint32_t>(SYS_GetArena1Hi());
         for (const DolSection& sec : start_dol.sections) {
-            if (!sec.used()) continue;
-            if (!in_ram(sec.address, sec.size) || overlaps_loader(sec.address, sec.size)) {
+            if (sec.used() && !in_ram(sec.address, sec.size)) {
                 char where[96];
                 std::snprintf(where, sizeof(where), "0x%08x-0x%08x", sec.address, sec.address + sec.size);
-                error = std::string("the start file's section ") + where + " is not where a game can go";
+                error = std::string("the start file's section ") + where + " is not in RAM";
                 return false;
             }
         }
-        if (start_dol.bss_size != 0 &&
-            (!in_ram(start_dol.bss_address, start_dol.bss_size) || overlaps_loader(start_dol.bss_address, start_dol.bss_size))) {
-            error = "the start file's BSS is not where a game can go";
+        if (start_dol.bss_size != 0 && !in_ram(start_dol.bss_address, start_dol.bss_size)) {
+            error = "the start file's BSS is not in RAM";
             return false;
         }
-        // Its BSS first: data sections inside it keep their bytes.
+        // Its BSS first (data sections inside it keep their bytes); the
+        // part over the loader is zeroed at the end.
         if (start_dol.bss_size != 0) {
-            std::memset(reinterpret_cast<void*>(start_dol.bss_address), 0, start_dol.bss_size);
-            DCFlushRange(reinterpret_cast<void*>(start_dol.bss_address), start_dol.bss_size);
+            const std::uint32_t lo = start_dol.bss_address, hi = lo + start_dol.bss_size;
+            const std::uint32_t mid_lo = std::max(lo, kLoaderStart), mid_hi = std::min(hi, loader_end);
+            if (mid_lo < mid_hi) {
+                if (lo < mid_lo) std::memset(reinterpret_cast<void*>(lo), 0, mid_lo - lo);
+                if (mid_hi < hi) std::memset(reinterpret_cast<void*>(mid_hi), 0, hi - mid_hi);
+                LatePiece zeros;
+                zeros.address = mid_lo;
+                zeros.zeros = mid_hi - mid_lo;
+                late.push_back(std::move(zeros));
+            } else {
+                std::memset(reinterpret_cast<void*>(lo), 0, hi - lo);
+            }
+            DCFlushRange(reinterpret_cast<void*>(lo), hi - lo);
         }
         loaded.clear();
         for (const DolSection& sec : start_dol.sections) {
             if (!sec.used()) continue;
+            if (overlaps_loader(sec.address, sec.size)) {
+                // Read now, written last: no patch or hook goes into it.
+                LatePiece piece;
+                piece.address = sec.address;
+                piece.bytes.resize(sec.size);
+                if (!data.read(start_file_offset + sec.offset, piece.bytes.data(), sec.size)) {
+                    error = "cannot read the start file's section over the loader";
+                    return false;
+                }
+                logf("  start file: 0x%08x <- %u bytes from 0x%llx, at the very end (over this loader)\n", sec.address,
+                     static_cast<unsigned>(sec.size), static_cast<unsigned long long>(start_file_offset + sec.offset));
+                late.push_back(std::move(piece));
+                continue;
+            }
             std::uint8_t* at = reinterpret_cast<std::uint8_t*>(sec.address);
             if (!data.read(start_file_offset + sec.offset, at, sec.size)) {
                 char where[32];
@@ -1237,6 +1272,11 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         }
         game_entry = reinterpret_cast<void (*)(void)>(start_dol.entry);
         logf("Game entry 0x%08x (the start file's)\n", start_dol.entry);
+        if (!late.empty() && start_dol.entry >= kLoaderStart && start_dol.entry < loader_end) {
+            // The entry's own code would be among the late pieces: still
+            // fine, the stub jumps there after writing them.
+            logf("Start file: its entry is in a part written at the very end\n");
+        }
     }
     // The apploader set the arena, FST and BI2 fields (0x34-0x3C, 0xF4)
     // through the cache; the runtime and the hooks read them uncached
@@ -1855,6 +1895,51 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         // heaps) are in place before the game reads them at start. The
         // handler returns to its caller like the hooked function would.
         reinterpret_cast<void (*)()>(kCodeHandlerEntry)();
+    }
+    if (!late.empty()) {
+        // The start file's parts over this loader: the stub, its table and
+        // their bytes go just below the game's arena top (the game's heap,
+        // unused until it starts), and the stub writes them and starts the
+        // game. Checked clear of the game's sections and of the loader.
+        const std::uint32_t stub_bytes = static_cast<std::uint32_t>(riftwii_startfile_stub_end - riftwii_startfile_stub);
+        std::uint32_t total = ((stub_bytes + 31) & ~31u) + ((8 + 12 * static_cast<std::uint32_t>(late.size()) + 31) & ~31u);
+        for (const LatePiece& piece : late) total += (static_cast<std::uint32_t>(piece.bytes.size()) + 31) & ~31u;
+        const std::uint32_t top = load32(0x80000034) & ~31u;
+        const std::uint32_t base = (top - total) & ~31u;
+        std::uint32_t game_end = 0;
+        for (const DolSection& sec : start_dol.sections) {
+            if (sec.used() && sec.address < kMem2Start) game_end = std::max(game_end, sec.address + sec.size);
+        }
+        if (start_dol.bss_size != 0) game_end = std::max(game_end, start_dol.bss_address + start_dol.bss_size);
+        const std::uint32_t loader_end = reinterpret_cast<std::uint32_t>(SYS_GetArena1Hi());
+        if (top < kMem1Start || base < game_end || (base < loader_end && top > kLoaderStart)) {
+            // Too late to say so on screen: the card is the runtime's.
+            // The game would start incomplete, so stop here.
+            std::printf("Start file: no room to finish the game's executable (0x%08x-0x%08x)\n", base, top);
+            for (;;) VIDEO_WaitVSync();
+        }
+        std::uint8_t* stub = reinterpret_cast<std::uint8_t*>(base);
+        std::memcpy(stub, riftwii_startfile_stub, stub_bytes);
+        std::uint32_t* table = reinterpret_cast<std::uint32_t*>(base + ((stub_bytes + 31) & ~31u));
+        std::uint32_t data_at = reinterpret_cast<std::uint32_t>(table) + ((8 + 12 * static_cast<std::uint32_t>(late.size()) + 31) & ~31u);
+        table[0] = static_cast<std::uint32_t>(late.size());
+        table[1] = start_dol.entry;
+        for (std::size_t i = 0; i < late.size(); ++i) {
+            const LatePiece& piece = late[i];
+            table[2 + 3 * i] = piece.address;
+            if (piece.bytes.empty()) {
+                table[3 + 3 * i] = 0;
+                table[4 + 3 * i] = piece.zeros;
+            } else {
+                std::memcpy(reinterpret_cast<void*>(data_at), piece.bytes.data(), piece.bytes.size());
+                table[3 + 3 * i] = data_at;
+                table[4 + 3 * i] = static_cast<std::uint32_t>(piece.bytes.size());
+                data_at += (static_cast<std::uint32_t>(piece.bytes.size()) + 31) & ~31u;
+            }
+        }
+        DCFlushRange(stub, total);
+        ICInvalidateRange(stub, total);
+        reinterpret_cast<void (*)(std::uint32_t*)>(stub)(table);
     }
     game_entry();
     // A game entry must never return, but release the card if it does.
