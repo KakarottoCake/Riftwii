@@ -48,6 +48,12 @@ bool gx_kirby_game(const std::string& game_id);
 // loader puts below the FST is wiped, so RiftWii's blobs stay out.
 bool game_clears_mem1_top(const std::string& game_id);
 
+// Games whose main.dol only starts another executable on the disc (EA's
+// 2007 games among them): the FST index of the one to start in its place,
+// 0 for none. Started through main.dol, Madden NFL 08 from an RVZ stopped
+// on a disc error. The indexes are USB Loader GX's (defaultAltDol).
+std::uint32_t game_start_file(const std::string& game_id);
+
 // patch_nsmb, patch_pop, patch_kirby, patch_re4, then anti_002_fix over
 // each loaded part. `dol` is the game's executable as the apploader saw it
 // (for the WIP codes' file offsets). With `own_executable` (a pack's

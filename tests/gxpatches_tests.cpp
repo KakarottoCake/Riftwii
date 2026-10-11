@@ -62,6 +62,12 @@ void test_protected() {
     EXPECT_FALSE(game_clears_mem1_top("RLIL78"));  // Guitar Hero 2nd Custom
     EXPECT_FALSE(game_clears_mem1_top("SC4E64"));  // LEGO Star Wars III starts
     EXPECT_FALSE(game_clears_mem1_top("R25EWR"));  // LEGO Harry Potter starts
+    EXPECT_EQ(game_start_file("RNFE69"), 1079u);
+    EXPECT_EQ(game_start_file("RNFP69"), 1079u);
+    EXPECT_EQ(game_start_file("REDE41"), 1957u);
+    EXPECT_EQ(game_start_file("RF8X69"), 464u);
+    EXPECT_EQ(game_start_file("RMCE01"), 0u);
+    EXPECT_EQ(game_start_file("RNF"), 0u);  // a short ID matches nothing
 }
 
 // Kirby: every word kirbypatch.c stores, read back from memory.

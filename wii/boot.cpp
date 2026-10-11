@@ -20,6 +20,7 @@
 #include <wiiuse/wpad.h>
 
 #include <algorithm>
+#include <cctype>
 #include <cstdarg>
 #include <cstdio>
 #include <cstring>
@@ -815,6 +816,33 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     OpenedPartition layout;
     if (!read_partition_layout(layout, error)) return false;
     const ApploaderHeader& apploader = layout.apploader;
+    // A game whose main.dol only starts another executable: the apploader
+    // loads that one in its place (the data header's DOL offset points at
+    // it), so RiftWii's hooks and the RVZ runtime go into the code that
+    // runs. A pack's own main.dol wins.
+    bool start_file = false;
+    if (const std::uint32_t index = game_start_file(probe.header.game_id);
+        index != 0 && options.main_dol.empty() && !debug_off("startfile")) {
+        const FstEntry* e = index < layout.fst.count() ? &layout.fst.entries()[index] : nullptr;
+        std::string name = e ? e->name : std::string();
+        for (char& c : name) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        std::uint8_t dol_header[kDolHeaderBytes];
+        DolHeader dol;
+        std::string why;
+        if (!e || e->is_directory || name.size() < 4 || name.compare(name.size() - 4, 4, ".dol") != 0) {
+            logf("Start file: FST entry %u is not a DOL here; main.dol starts\n", static_cast<unsigned>(index));
+        } else if (!di::PartitionSource().read(e->offset, dol_header, sizeof(dol_header)) ||
+                   !parse_dol_header(dol_header, sizeof(dol_header), dol, why)) {
+            logf("Start file: %s (FST entry %u) has no readable DOL header%s%s; main.dol starts\n", e->name.c_str(),
+                 static_cast<unsigned>(index), why.empty() ? "" : ": ", why.c_str());
+        } else {
+            logf("Start file: %s (FST entry %u, 0x%llx, %u bytes) in main.dol's place, entry 0x%08x\n", e->name.c_str(),
+                 static_cast<unsigned>(index), static_cast<unsigned long long>(e->offset),
+                 static_cast<unsigned>(e->size), dol.entry);
+            layout.data_header.dol_offset = e->offset;
+            start_file = true;
+        }
+    }
 
     // E5: files with new sizes move into the virtual window. The FST the
     // apploader loads is patched from an override while it goes by, and
@@ -853,7 +881,7 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     // The data header the apploader reads: the FST's size and the DOL's
     // offset may change below.
     PartitionDataHeader header = layout.data_header;
-    bool header_changed = false;
+    bool header_changed = start_file;
     const bool relocates = !options.virtual_files.empty() || !options.relocations.empty();
     if (relocates) {
         if (!options.install_resident) {

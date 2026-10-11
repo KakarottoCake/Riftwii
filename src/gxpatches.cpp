@@ -204,6 +204,29 @@ bool game_clears_mem1_top(const std::string& id) {
            (by_publisher && id_is(id, "RLB") && id.compare(4, 2, "WR") == 0);
 }
 
+std::uint32_t game_start_file(const std::string& id) {
+    // Game ID, FST index of the executable to start.
+    static const struct {
+        const char* id;
+        std::uint32_t index;
+    } kStartFiles[] = {
+        {"RBOE69", 675},   {"RBOP69", 675},    // Boogie
+        {"RF8E69", 439},   {"RF8P69", 463},    {"RF8X69", 464},  // FIFA 08
+        {"RMDE69", 39},    {"RMDP69", 39},     // Madden NFL 07
+        {"RNFE69", 1079},  {"RNFP69", 1079},   // Madden NFL 08
+        {"RM2E69", 492},   {"RM2P69", 517},    {"RM2X69", 601},  // Medal of Honor: Heroes 2
+        {"RKME5D", 290},   {"RKMP5D", 290},    // Mortal Kombat: Armageddon
+        {"RNBE69", 936},   {"RNBX69", 964},    // NBA Live 08
+        {"RPYE9B", 10617}, {"RPYP9B", 12490},  // Super Swing Golf / Pangya!
+        {"RSXE69", 377},   {"RSXP69", 377},    // SSX Blur
+        {"RED", 1957},                         // Red Steel, every region
+    };
+    for (const auto& f : kStartFiles) {
+        if (id_is(id, f.id)) return f.index;
+    }
+    return 0;
+}
+
 bool gx_kirby_game(const std::string& id) {
     return id_is(id, "SUKE01") || id_is(id, "SUKP01") || id_is(id, "SUKJ01") || id_is(id, "SUKK01");
 }
