@@ -4,17 +4,22 @@
 # An original, driving minor-key synth-pop loop for the "Would You Look
 # at the Time" easter-egg theme. Everything here (chords, bass, arp, lead
 # melody, drums) is written for RiftWii; nothing is sampled or transcribed.
-# Writes a 44.1 kHz stereo WAV; ffmpeg turns it into music.ogg.
+# Writes a 44.1 kHz stereo WAV; ffmpeg turns it into music.ogg. What is
+# written is the loop from the first chorus to the end, nightcored: sped
+# up and pitched up four semitones together, as the meme plays its song.
 import sys
 import numpy as np
-from scipy.signal import lfilter
+from scipy.signal import lfilter, resample_poly
 
 SR = 44100
 BPM = 104
 TRANSPOSE = 2               # F# minor: the "sped up" pitch the tempo gives
 S16 = 60.0 / BPM / 4          # one sixteenth, seconds
 BARS = 32
-N = int(round(BARS * 16 * S16 * SR))
+PAD = 2                       # bars rendered past the end: the last notes' tails
+N = int(round((BARS + PAD) * 16 * S16 * SR))
+LOOP_FROM = 8                 # the loop: the first chorus to the end
+NIGHTCORE = (63, 50)          # 1.26 times as fast: four semitones up, 104 -> 131 BPM
 rng = np.random.default_rng(2610)
 
 L = np.zeros(N)
@@ -303,15 +308,26 @@ def room(x, delays=(0.029, 0.037, 0.041, 0.053), fb=0.45):
 
 wetL, wetR = room(L), room(R, (0.031, 0.043, 0.047, 0.059))
 L, R = L + 0.35 * wetL, R + 0.35 * wetR
-# The loop: fade the last beat's tails into the first.
-tail = at(4)
 mix = np.stack([L, R], axis=1)
-peak = np.max(np.abs(mix))
-mix = np.tanh(mix / peak * 2.3) / np.tanh(2.3) * 0.9
+# The loop: the first chorus to the end, the last notes' tails (rendered
+# past the end) laid over its start, so it goes round without a seam.
+a, b = at(LOOP_FROM * 16), at(BARS * 16)
+loop = mix[a:b].copy()
+spill = mix[b:]
+loop[: len(spill)] += spill
+# Nightcore: the whole thing faster and higher together.
+loop = resample_poly(loop, NIGHTCORE[1], NIGHTCORE[0], axis=0)
+peak = np.max(np.abs(loop))
+mix = np.tanh(loop / peak * 2.3) / np.tanh(2.3) * 0.9
+# No click where it wraps: 2 ms out at the end and in at the start (the
+# downbeat's crash and kick cover the dip).
+k = int(0.002 * SR)
+mix[:k] *= np.linspace(0, 1, k)[:, None]
+mix[-k:] *= np.linspace(1, 0, k)[:, None]
 import wave
 with wave.open(sys.argv[1], 'wb') as w:
     w.setnchannels(2)
     w.setsampwidth(2)
     w.setframerate(SR)
     w.writeframes((mix * 32767).astype('<i2').tobytes())
-print('seconds', N / SR)
+print('seconds', len(mix) / SR)
