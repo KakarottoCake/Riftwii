@@ -4532,6 +4532,17 @@ static int MenuHome(FrontendState& state)
 		say(error);
 		return false;
 	};
+	// Start's save: with a banner playing on screen, written with the GUI
+	// running, so the banner does not stop (the page is out of sight).
+	const auto saveForStart = [&]() {
+		if (!bannerHeld) return saveOrSay();
+		std::string error;
+		ResumeGui();
+		const bool saved = SaveChoices(state, error);
+		HaltGui();
+		if (!saved) say(error);
+		return saved;
+	};
 	int shownRow = -1;
 	while(menu == MENU_NONE)
 	{
@@ -4767,7 +4778,7 @@ static int MenuHome(FrontendState& state)
 				} else {
 					ShowPopup(tr("Before you play"), LaunchNote(state) + " " + tr("Press Start again to play."), tr("OK"));
 				}
-			} else if (!saveOrSay()) {
+			} else if (!saveForStart()) {
 				// the status shows why
 			} else if (!riftwii::needs_launch_pipeline(!state.model.selections().empty(), state.model.save_mode)) {
 				menu = MENU_BOOT;  // no resident work: boot the game as it is
@@ -4816,9 +4827,14 @@ static int MenuHome(FrontendState& state)
 	if (menu != MENU_LAUNCH && menu != MENU_BOOT) DropLingerBanner();  // the launch screen drops it otherwise
 	// Cheats and video settings go with every launch, mods or not.
 	if (menu == MENU_LAUNCH || menu == MENU_BOOT) {
+		// The page is gone: a banner still on screen plays on meanwhile
+		// (cheats and settings read, the play recorded, all on the card).
+		const bool playing = g_lingerBanner != nullptr;
+		if (playing) ResumeGui();
 		riftwii::wii::PrepareLaunchExtras(state);
 		riftwii::wii::RecordPlay(state.game_id);
 		riftwii::wii::TagGame(state.game_id, true);
+		if (playing) HaltGui();
 	}
 	return menu;
 }
