@@ -654,7 +654,7 @@ int main() {
     g_mem2 = FixedBuffer(kMem2, kArena);
     if (!g_mem1 || !g_mem2) {
         std::cout << "vsdblob tests skipped: no memory at the Wii's addresses on this host" << std::endl;
-        return 0;
+        return 77;  // ctest: skipped, not passed
     }
     vsd_host_ioctl = HostIoctl;
     vsd_host_ioctlv = HostIoctlv;

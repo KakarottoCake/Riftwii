@@ -272,6 +272,11 @@ rift_menu.o: CXXFLAGS += -Os
 # as well (the room the DOL keeps under 0x81041980 is the menu's margin).
 online.o reportsend.o netpacks.o codebuilds.o autorun.o modplan.o: CXXFLAGS += -Os
 
+# RiftWii's own sources build with -Werror, as the runtime and channel do;
+# the vendored ones (pugixml's known warning, libgui, zstd) do not.
+FIRST_PARTY_OBJS := $(patsubst %.cpp,%.o,$(patsubst %.c,%.o,$(notdir $(foreach dir,wii src runtime channel/common,$(wildcard $(PROJECT_ROOT)/$(dir)/*.c $(PROJECT_ROOT)/$(dir)/*.cpp)))))
+$(FIRST_PARTY_OBJS): CFLAGS += -Werror
+
 -include $(DEPENDS)
 
 #---------------------------------------------------------------------------------

@@ -44,7 +44,7 @@ Things that bite:
 
 ## Tests
 
-`ctest` runs 22 suites, one per area (`tests/<area>_tests.cpp`): the XML
+`ctest` runs 49 suites, one per area (`tests/<area>_tests.cpp`): the XML
 parser and planner, the patch engine, FST and disc parsing, FAT32 and
 NTFS walkers, the WBFS mapper and WBFS drives, the resident runtime's C code (compiled
 for the host with fake IOS calls), the FAT32 and NTFS engines, the
