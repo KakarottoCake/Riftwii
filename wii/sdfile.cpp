@@ -68,6 +68,13 @@ bool resolve_sd_directory(const std::string& sd_path, rtfat_volume& out, std::st
     out.sectors_per_cluster = g.sectors_per_cluster;
     out.fat_lba = static_cast<std::uint32_t>(g.volume_lba + g.reserved_sectors);
     out.fat_count = g.fat_count;
+    if (g.active_fat != 0) {
+        // Mirroring off, and a FAT other than the first in use (as the
+        // loader reads it): the runtime reads and writes that one alone;
+        // FAT 0 is stale and would hand out clusters already taken.
+        out.fat_lba += g.active_fat * g.fat_sectors;
+        out.fat_count = 1;
+    }
     out.fat_sectors = g.fat_sectors;
     out.data_lba = static_cast<std::uint32_t>(g.volume_lba + g.data_start_sector);
     out.cluster_count = g.cluster_count;
