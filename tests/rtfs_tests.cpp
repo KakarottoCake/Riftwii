@@ -810,7 +810,7 @@ void TestFileDeviceOff(Low& low) {
 
 int main() {
     Low low;
-    if (!low.base) { std::cerr << "no memory below 4 GiB; skipping rtfs tests" << std::endl; return 0; }
+    if (!low.base) { std::cerr << "no memory below 4 GiB; skipping rtfs tests" << std::endl; return 77; }
     TestOpenReadSeekAndPass(low);
     TestModesStaleAndBusy(low);
     TestWritePersists(low);

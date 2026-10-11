@@ -1310,7 +1310,7 @@ int main() {
     if (!low.op) {
         std::cerr << "no memory below 4 GiB on this host; skipping the engine tests" << std::endl;
         TestNames();
-        return g_failures == 0 ? 0 : 1;
+        return g_failures == 0 ? 77 : 1;  // 77: ctest counts the run skipped, not passed
     }
     TestNames();
     TestLookup(low);

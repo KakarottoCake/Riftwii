@@ -75,5 +75,8 @@ if(BUILD_TESTING)
         else()
             add_test(NAME ${suite} COMMAND ${suite}_tests)
         endif()
+        # A suite that cannot run here (no memory at the Wii's addresses)
+        # exits 77: shown as skipped, not passed.
+        set_tests_properties(${suite} PROPERTIES SKIP_RETURN_CODE 77)
     endforeach()
 endif()

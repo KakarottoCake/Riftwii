@@ -16,6 +16,9 @@
 #include <vector>
 
 static int g_failures = 0;
+// A drive left out for want of low memory: the run is reported as skipped
+// (ctest's SKIP_RETURN_CODE), not passed, though the rest ran.
+static bool g_skipped = false;
 #define EXPECT_TRUE(cond) do { if (!(cond)) { std::cerr << "FAILED: " #cond " at line " << __LINE__ << std::endl; g_failures++; } } while (0)
 #define EXPECT_FALSE(cond) do { if (cond) { std::cerr << "FAILED: false expected for " #cond " at line " << __LINE__ << std::endl; g_failures++; } } while (0)
 #define EXPECT_EQ(a, b) do { if ((a) != (b)) { std::cerr << "FAILED: " #a " == " #b " (" << (a) << " != " << (b) << ") at line " << __LINE__ << std::endl; g_failures++; } } while (0)
@@ -897,6 +900,7 @@ static void TestFsSyncIntercept() {
     FsMemory mem;
     if (!mem.ok) {
         std::cerr << "note: no 32-bit addressable buffer on this host, skipping the FS intercept drive" << std::endl;
+        g_skipped = true;
         return;
     }
     FsCard card;
@@ -1114,6 +1118,7 @@ static void TestFsAsyncIntercept() {
     FsMemory mem;
     if (!mem.ok) {
         std::cerr << "note: no 32-bit addressable buffer on this host, skipping the async FS drive" << std::endl;
+        g_skipped = true;
         return;
     }
     FsCard card;
@@ -1733,6 +1738,7 @@ static void TestFsRenameImport() {
     FsMemory mem;
     if (!mem.ok) {
         std::cerr << "note: no 32-bit addressable buffer on this host, skipping the FS import drive" << std::endl;
+        g_skipped = true;
         return;
     }
     FsCard card;
@@ -2109,6 +2115,7 @@ static void TestFsJobKirby() {
     FsMemory mem;
     if (!mem.ok) {
         std::cerr << "note: no 32-bit addressable buffer on this host, skipping the FS Kirby drive" << std::endl;
+        g_skipped = true;
         return;
     }
     FsCard card(1, 9000);
@@ -2243,6 +2250,7 @@ static void TestFsClone() {
     FsMemory mem;
     if (!mem.ok) {
         std::cerr << "note: no 32-bit addressable buffer on this host, skipping the FS clone drive" << std::endl;
+        g_skipped = true;
         return;
     }
     FsCard card;
@@ -3160,6 +3168,7 @@ static void TestPayloadAndRedirect() {
     std::uint8_t* low = LowBuffer(0x30000);
     if (!low) {
         std::cerr << "note: no 32-bit addressable buffer on this host, skipping the redirect drive" << std::endl;
+        g_skipped = true;
         return;
     }
     std::uint8_t* out = low;                 // the game's 0x20-byte destination
@@ -3546,6 +3555,7 @@ static void TestWindowedRead() {
     std::uint8_t* low = LowBuffer(0x10000);
     if (!low) {
         std::cerr << "note: no 32-bit addressable buffer on this host, skipping the windowed read" << std::endl;
+        g_skipped = true;
         return;
     }
     // 12 replacements of 4 bytes, 8 bytes apart from 0x1000: 23 runs.
@@ -3668,6 +3678,10 @@ int main() {
     if (g_failures) {
         std::cerr << g_failures << " failure(s)" << std::endl;
         return 1;
+    }
+    if (g_skipped) {
+        std::cout << "hook tests passed, some drives skipped" << std::endl;
+        return 77;
     }
     std::cout << "hook tests passed" << std::endl;
     return 0;
