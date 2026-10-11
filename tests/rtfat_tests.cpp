@@ -844,6 +844,87 @@ static void TestDeleteRename(Low& low) {
     EXPECT_FALSE(fx.host_lookup("Banner1.bin", hf));
 }
 
+// A folder is deleted only when empty: deleting one with files in it would
+// free the folder's own cluster and leave its files' chains taken with
+// nothing pointing at them (lost clusters). Hidden files count too.
+static void TestDeleteFolder(Low& low) {
+    Fixture fx;
+    rtfat_op& op = *low.op;
+    std::memset(&op, 0, sizeof(op));
+    SetName(op.name, "dir");
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_MKDIR), RTFAT_OK);
+    SetName(op.name, "dir");
+    op.want_dirs = 1;
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_LOOKUP), RTFAT_OK);
+    const std::uint32_t dir = op.found.first_cluster;
+    EXPECT_TRUE(dir >= 2);
+
+    // A file in it, with a cluster of data.
+    op.dir_cluster = dir;
+    op.want_dirs = 0;
+    SetName(op.name, "x.bin");
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_CREATE), RTFAT_OK);
+    rtfat_file file{};
+    file.first_cluster = op.found.first_cluster;
+    file.size = op.found.size;
+    file.entry_lba = op.found.entry_lba;
+    file.entry_index = op.found.entry_index;
+    const Bytes data = pattern(600, 0x42);
+    std::memcpy(low.data, data.data(), data.size());
+    op.file = &file;
+    op.buffer = Addr(low.data);
+    op.length = std::uint32_t(data.size());
+    op.bounce = Addr(low.bounce);
+    op.bounce_bytes = Low::kBounce;
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_WRITE), std::int32_t(data.size()));
+    const std::uint32_t xc = file.first_cluster;
+    EXPECT_TRUE(xc >= 2);
+    EXPECT_EQ(fx.fat(xc), 0x0FFFFFFFu);
+
+    // Not empty: refused, nothing changed.
+    op.dir_cluster = 0;
+    op.want_dirs = 1;
+    SetName(op.name, "dir");
+    fx.dev.reset();
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_DELETE), RTFAT_EACCESS);
+    EXPECT_EQ(fx.dev.writes, 0u);
+    EXPECT_EQ(fx.fat(dir), 0x0FFFFFFFu);
+    EXPECT_EQ(fx.fat(xc), 0x0FFFFFFFu);
+    riftwii::Fat32File hf;
+    EXPECT_TRUE(fx.host_lookup("dir/x.bin", hf));
+
+    // A hidden file keeps it from going too.
+    op.dir_cluster = dir;
+    op.want_dirs = 0;
+    SetName(op.name, "x.bin");
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_DELETE), RTFAT_OK);
+    EXPECT_EQ(fx.fat(xc), 0u);
+    op.want_hidden = 1;
+    SetName(op.name, "h.bin");
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_CREATE), RTFAT_OK);
+    op.want_hidden = 0;
+    op.dir_cluster = 0;
+    op.want_dirs = 1;
+    SetName(op.name, "dir");
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_DELETE), RTFAT_EACCESS);
+    op.dir_cluster = dir;
+    op.want_dirs = 0;
+    op.want_hidden = 1;
+    SetName(op.name, "h.bin");
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_DELETE), RTFAT_OK);
+    op.want_hidden = 0;
+
+    // Empty ("." and ".." only, deleted entries ignored): it goes, and its
+    // cluster is released in both FATs.
+    op.dir_cluster = 0;
+    op.want_dirs = 1;
+    SetName(op.name, "dir");
+    EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_DELETE), RTFAT_OK);
+    EXPECT_EQ(fx.fat(dir), 0u);
+    EXPECT_TRUE(FatCopiesAgree(fx));
+    EXPECT_FALSE(fx.host_lookup("dir", hf));
+}
+
 // ---- names longer than NAND allows ----------------------------------------------
 
 // Riivolution keeps saves on the card under any name that fits a path;
@@ -1319,6 +1400,7 @@ int main() {
     TestOrdinaryFatMutationPoison(low);
     TestCreate(low);
     TestDeleteRename(low);
+    TestDeleteFolder(low);
     TestCommitGhost(low);
     TestCommitOverExisting(low);
     TestStraddle(low);

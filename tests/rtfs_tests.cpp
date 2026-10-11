@@ -746,6 +746,15 @@ void TestFileDeviceWrite(Low& low) {
     EXPECT_EQ(RunR(fx, low, DeviceIoctl(b, RTFS_RIIVO_DELETE, "/pulsar/new.bin")), RTFAT_OK);
     EXPECT_EQ(RunR(fx, low, DeviceIoctl(b, RTFS_RIIVO_DELETE, "/pulsar/new.bin")), RTFS_RIIVO_ERROR);
     EXPECT_EQ(OpenR(fx, low, b, "file/pulsar/new.bin", 0), RTFS_RIIVO_NOT_OPENED);
+    // A folder with a file in it stays (its file's clusters would be lost);
+    // once empty it goes.
+    EXPECT_EQ(RunR(fx, low, DeviceIoctl(b, RTFS_RIIVO_DELETE, "/pulsar/Ghosts")), RTFS_RIIVO_ERROR);
+    fd = OpenR(fx, low, b, "file/pulsar/Ghosts/1m23s456.rkg", 2);
+    EXPECT_TRUE(fd >= static_cast<int>(RTFS_FD_BASE));
+    if (fd >= static_cast<int>(RTFS_FD_BASE)) EXPECT_EQ(CloseR(fx, low, fd), RTFAT_OK);
+    EXPECT_EQ(RunR(fx, low, DeviceIoctl(b, RTFS_RIIVO_DELETE, "/pulsar/Ghosts/1m23s456.rkg")), RTFAT_OK);
+    EXPECT_EQ(RunR(fx, low, DeviceIoctl(b, RTFS_RIIVO_DELETE, "/pulsar/Ghosts")), RTFAT_OK);
+    EXPECT_EQ(RunR(fx, low, DeviceIoctl(b, RTFS_RIIVO_STAT, "/pulsar/Ghosts")), RTFS_RIIVO_ERROR);
 }
 
 // A listing that runs over sectors and clusters (the folder grows as

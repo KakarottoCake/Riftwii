@@ -115,7 +115,7 @@ struct rtfat_dirent {
 #define RTFAT_OP_READ 2     /* file, buffer, length: at file->position, advances it; result = bytes */
 #define RTFAT_OP_WRITE 3    /* file, buffer, length: at file->position, grows the file; result = bytes */
 #define RTFAT_OP_CREATE 4   /* name: an empty file (EEXIST when present); found = its entry */
-#define RTFAT_OP_DELETE 5   /* name: entries freed, chain released */
+#define RTFAT_OP_DELETE 5   /* name: entries freed, chain released; a folder only when empty (else EACCESS) */
 #define RTFAT_OP_RENAME 6   /* name -> name2 (EEXIST when name2 is present) */
 #define RTFAT_OP_LIST 7     /* file names into `buffer` as 13-byte slots, up to `length` of them; result = count */
 #define RTFAT_OP_COUNT 8    /* result = number of files */

@@ -80,6 +80,7 @@ enum {
     S_CREATE_SCANNED,
     S_CREATE_WRITTEN,
     S_DELETE_FOUND,
+    S_DELETE_EMPTY,
     S_DELETE_MARKED,
     S_RENAME_FOUND,
     S_RENAME_SCANNED,
@@ -111,6 +112,7 @@ enum {
 #define SCAN_CREATE 2 /* collisions with op->new_name / short11, first free run; end -> continue */
 #define SCAN_LIST 3   /* count files (and list them) */
 #define SCAN_NEXT 4   /* the first entry from the cursor -> op->found; end -> ENOENT */
+#define SCAN_EMPTY 5  /* any entry but "." and ".." -> EACCESS; end -> continue */
 
 /* --- small helpers -------------------------------------------------------- */
 
@@ -486,7 +488,8 @@ static int on_short_entry(struct rtfat_op* op, const uint8_t* e, uint32_t lba, u
     const int long_valid = op->lfn_count > 0 && op->lfn_expect == 0 && op->lfn_ok &&
                            rtfat_short_checksum(e) == op->lfn_sum && op->lfn[0] != 0;
     uint32_t i;
-    if ((attr & ATTR_LABEL) || ((attr & ATTR_HIDDEN) && !op->want_hidden && op->scan_mode != SCAN_CREATE)) {
+    if ((attr & ATTR_LABEL) || ((attr & ATTR_HIDDEN) && !op->want_hidden && op->scan_mode != SCAN_CREATE &&
+                                op->scan_mode != SCAN_EMPTY)) {
         reset_lfn(op);
         return 0;
     }
@@ -533,6 +536,13 @@ static int on_short_entry(struct rtfat_op* op, const uint8_t* e, uint32_t lba, u
             }
             return 0;
         }
+        case SCAN_EMPTY:
+            if ((attr & ATTR_DIRECTORY) && d.name[0] == '.' &&
+                (d.name[1] == 0 || (d.name[1] == '.' && d.name[2] == 0))) {
+                return 0;
+            }
+            finish(op, RTFAT_EACCESS);
+            return 1;
         case SCAN_NEXT:
             if ((attr & ATTR_DIRECTORY) && d.name[0] == '.' &&
                 (d.name[1] == 0 || (d.name[1] == '.' && d.name[2] == 0))) {
@@ -608,8 +618,9 @@ static uint32_t op_dir(const struct rtfat_volume* vol, const struct rtfat_op* op
     return op->dir_cluster != 0 ? op->dir_cluster : vol->dir_cluster;
 }
 
-static void scan_begin(const struct rtfat_volume* vol, struct rtfat_op* op, uint32_t mode, uint32_t next_state) {
-    const uint32_t dir = op_dir(vol, op);
+/* A scan of the directory starting at cluster `dir`. */
+static void scan_begin_in(const struct rtfat_volume* vol, struct rtfat_op* op, uint32_t dir, uint32_t mode,
+                          uint32_t next_state) {
     op->scan_mode = mode;
     op->next_state = next_state;
     op->scan_cluster = dir;
@@ -641,6 +652,10 @@ static void scan_begin(const struct rtfat_volume* vol, struct rtfat_op* op, uint
     op->usage_blocks = 0;
     reset_lfn(op);
     op->state = S_SCAN_READ;
+}
+
+static void scan_begin(const struct rtfat_volume* vol, struct rtfat_op* op, uint32_t mode, uint32_t next_state) {
+    scan_begin_in(vol, op, op_dir(vol, op), mode, next_state);
 }
 
 /* What a scan does when the directory is exhausted. A creation that
@@ -1233,8 +1248,17 @@ static int run_state(struct rtfat_volume* vol, struct rtfat_op* op) {
             return RT_CONT;
 
         /* ---- DELETE ---- */
+        /* A folder goes only when empty, as libfat's unlink has it: its
+         * files' chains would stay taken with nothing pointing at them. */
         case S_DELETE_FOUND:
             op->source = op->found;
+            if (op->source.attributes & ATTR_DIRECTORY) {
+                scan_begin_in(vol, op, op->source.first_cluster, SCAN_EMPTY, S_DELETE_EMPTY);
+                return RT_CONT;
+            }
+            op->state = S_DELETE_EMPTY;
+            return RT_CONT;
+        case S_DELETE_EMPTY:
             op->next_state = S_DELETE_MARKED;
             op->state = S_MARK_READ1;
             return RT_CONT;
