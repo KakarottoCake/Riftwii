@@ -32,7 +32,7 @@ import zlib
 # 00010001-RFTW, in 4:3 on a vWii; the installer removes that one.)
 TITLE_ID = 0x0001000155465457  # 00010001-UFTW
 OLD_TITLE_ID = 0x0001000152465457  # 00010001-RFTW
-TITLE_VERSION = 10  # wii/channel.hpp kChannelVersion says the same; 5: boot program and forwarder (vWii); 6: UFTW; 7: a Wii and a vWii package; 8: no start-up IOS_Close sweep; 9: hardware access; 10: full width on 16:9
+TITLE_VERSION = 11  # wii/channel.hpp kChannelVersion says the same; 5: boot program and forwarder (vWii); 6: UFTW; 7: a Wii and a vWii package; 8: no start-up IOS_Close sweep; 9: hardware access; 10: full width on 16:9; 11: L2 emptied at the start
 # The TMD's access rights (0x1D8): bit 0 asks ES for hardware access (AHBPROT
 # off), as the Homebrew Channel's own title does. Without it RiftWii started
 # from the channel could not open IOS's NAND permission check (the Wii Menu's
@@ -845,6 +845,19 @@ def opening(banner, icon, sound):
 #   content 2 (check_loader). On a Wii that one did not start.
 WII_START_AT = 0x80003400
 
+# start.S's L2 clear (both boot programs): HID4 without L2CFI, then L2I.
+# libogc 3.1.0 turns the L2 on without invalidating it, so without these
+# a game's cached lines outlive the launch (docs/CHANNEL.md).
+L2_CLEAR = (
+    bytes.fromhex("7c73faa6 54630314 7c73fba6".replace(" ", "")),  # mfspr r3,HID4; clear L2CFI; mtspr HID4,r3
+    bytes.fromhex("3c600020 7c79fba6".replace(" ", "")),  # lis r3,0x0020 (L2I); mtspr L2CR,r3
+)
+
+
+def check_l2_clear(code, what):
+    if not all(seq in code for seq in L2_CLEAR):
+        sys.exit(f"{what}: start.S does not empty the L2 cache (L2_CLEAR)")
+
 
 def wii_forwarder(dol, start):
     """The forwarder's DOL as a Wii channel's boot program: `start`
@@ -854,6 +867,7 @@ def wii_forwarder(dol, start):
     at +8 and which the entry field keeps."""
     if len(start) < 12 or start[4:8] != b"RFTW" or start[8:12] != bytes(4):
         sys.exit("forwarder: start.bin is not channel/forwarder/start.S")
+    check_l2_clear(bytes(start), "forwarder")
     d = bytearray(dol)
     offsets = list(struct.unpack_from(">18I", d, 0x00))
     starts = list(struct.unpack_from(">18I", d, 0x48))
@@ -901,6 +915,7 @@ def check_loader(dol):
     bss, bss_size, entry = struct.unpack_from(">III", dol, 0xD8)
     if starts[0] != LOADER_AT or dol[offsets[0] + 4:offsets[0] + 8] != b"RFTW":
         sys.exit(f"loader: the first text section is not start.S at {LOADER_AT:08x}")
+    check_l2_clear(bytes(dol[offsets[0]:offsets[0] + sizes[0]]), "loader")
     if entry != LOADER_AT + 8:
         sys.exit(f"loader: entry {entry:08x}, not vwii_entry ({LOADER_AT + 8:08x})")
     for i in range(18):
