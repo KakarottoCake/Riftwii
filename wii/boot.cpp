@@ -190,8 +190,10 @@ bool install_cheats(const std::vector<MemoryRegion>& loaded, const std::vector<M
     }
     for (const MemoryPatch& p : patches) {
         if (!p.has_offset) continue;
-        const std::uint32_t end = p.offset + static_cast<std::uint32_t>(p.value.size());
-        if (overlap(p.offset, end, kCodeHandlerAddress, kCodeListEnd) || (moved && overlap(p.offset, end, list, list_end))) {
+        // Where it is written: "0x1900" and "0xC0001900" are 0x80001900.
+        const std::uint32_t at = memory_patch_target(p);
+        const std::uint32_t end = at + static_cast<std::uint32_t>(p.value.size());
+        if (overlap(at, end, kCodeHandlerAddress, kCodeListEnd) || (moved && overlap(at, end, list, list_end))) {
             why = "a pack's memory patch uses the code handler's memory or " + std::string(where);
             return false;
         }
