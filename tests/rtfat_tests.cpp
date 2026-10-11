@@ -979,6 +979,32 @@ static void TestAliases(Low& low) {
     EXPECT_EQ(Run(fx.vol, op, fx.dev, RTFAT_OP_LOOKUP), RTFAT_OK);
 }
 
+// A folder whose chain loops is corrupt once it passes FAT's limit of
+// 65,536 entries (2 MiB), not after as many clusters as the volume has:
+// on a card that scan held the game for minutes.
+static void TestLoopingFolder(Low& low) {
+    Image img(512, 1, 0, 8192);  // 4 MiB of one-sector clusters
+    Device dev(img);
+    Bytes deleted(2 * 512, 0);  // entries that do not end the folder
+    for (std::size_t i = 0; i < deleted.size(); i += 32) deleted[i] = 0xE5;
+    img.write_data({2, 3}, deleted);
+    img.set_fat(3, 2);
+    rtfat_volume vol{};
+    vol.sectors_per_cluster = 1;
+    vol.fat_lba = img.reserved;
+    vol.fat_count = img.fats;
+    vol.fat_sectors = img.fat_sectors;
+    vol.data_lba = static_cast<std::uint32_t>(img.data_start_sector());
+    vol.cluster_count = img.clusters;
+    vol.dir_cluster = 2;
+    vol.alloc_hint = 4;
+    rtfat_op& op = *low.op;
+    std::memset(&op, 0, sizeof(op));
+    SetName(op.name, "nothere.bin");
+    EXPECT_EQ(Run(vol, op, dev, RTFAT_OP_LOOKUP), RTFAT_ECORRUPT);
+    EXPECT_TRUE(dev.reads <= 4096u + 2u * img.fat_sectors);  // 2 MiB of entries, and the FAT
+}
+
 // ---- names longer than NAND allows ----------------------------------------------
 
 // Riivolution keeps saves on the card under any name that fits a path;
@@ -1456,6 +1482,7 @@ int main() {
     TestDeleteRename(low);
     TestDeleteFolder(low);
     TestAliases(low);
+    TestLoopingFolder(low);
     TestCommitGhost(low);
     TestCommitOverExisting(low);
     TestStraddle(low);

@@ -32,6 +32,7 @@
 #define ATTR_LFN 0x0Fu
 #define NT_LOWER_BASE 0x08u
 #define NT_LOWER_EXT 0x10u
+#define DIR_MAX_BYTES (65536u * ENTRY_BYTES) /* FAT's limit on a folder */
 #define USAGE_BLOCK 16384u /* the NAND's cluster, what ISFS GetUsage counts */
 
 /* States. */
@@ -869,7 +870,14 @@ static int run_state(struct rtfat_volume* vol, struct rtfat_op* op) {
         case S_SCAN_NEXT_CLUSTER:
             if (!fat_get(vol, op, op->scan_cluster, &v)) return RT_IO;
             if (v >= 0x0FFFFFF8u) return scan_ended(vol, op);
-            if (!cluster_valid(vol, v) || ++op->scan_clusters > vol->cluster_count) return finish(op, RTFAT_ECORRUPT);
+            /* FAT's own limit on a folder: 65,536 entries, 2 MiB. A chain
+             * that loops is corrupt long before the volume's size says so
+             * (that took minutes on a card, and the runtime was then dead). */
+            if (!cluster_valid(vol, v) || ++op->scan_clusters > vol->cluster_count ||
+                op->scan_clusters > (DIR_MAX_BYTES / RTFAT_SECTOR_BYTES + vol->sectors_per_cluster - 1) /
+                                        vol->sectors_per_cluster) {
+                return finish(op, RTFAT_ECORRUPT);
+            }
             op->scan_cluster = v;
             op->scan_sector = 0;
             op->scan_lba = rtfat_cluster_lba(vol, v);
