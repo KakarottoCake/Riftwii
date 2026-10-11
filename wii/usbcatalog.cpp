@@ -1235,6 +1235,12 @@ bool usb_volume_ready() { return g_usb_volume != nullptr; }
 
 std::string rvz_warning(const ImageGame& game) {
     if (game.format != UsbImageFormat::Rvz) return std::string();
+    if (gx_protected_game(game.id)) {
+        // Serving an RVZ's reads means hooking the game's code, which these
+        // games check: MetaFortress stops them.
+        return "This game checks its own code (MetaFortress), and RiftWii has to change it to play it from an RVZ: "
+               "it will likely stop with \"MetaFortress response\". Use a WBFS or ISO copy.";
+    }
     std::string text = "RVZ is experimental; if it fails, use a WBFS or ISO copy.";
     if (game.rvz_support != RvzSupport::AtOwnRisk) return text;
     text += " Play at your own risk:";

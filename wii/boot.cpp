@@ -804,6 +804,19 @@ namespace {
 bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const SavegameOptions& savegame,
                         const RvzResidentOptions& rvz, std::uint32_t required, std::string& error) {
     bool force_ios_fields = options.preserve_current_ios;
+    // The installed IOS's own revision, for the version field the game is
+    // shown (a cIOS's own, d2x's 65535, is not one IOS56 ever had; The
+    // Smurfs: Dance Party's MetaFortress stops on an IOS it does not expect).
+    std::uint32_t required_revision = 0;
+    {
+        static u8 view[512] ATTRIBUTE_ALIGN(32);
+        u32 size = 0;
+        const u64 title = 0x100000000ull | required;
+        if (ES_GetTMDViewSize(title, &size) >= 0 && size >= sizeof(tmd_view) && size <= sizeof(view) &&
+            ES_GetTMDView(title, reinterpret_cast<tmd_view*>(view), size) >= 0) {
+            required_revision = reinterpret_cast<const tmd_view*>(view)->title_version;
+        }
+    }
     if (!options.preserve_current_ios) ProgressStage("Starting the game's IOS", 62);
     if (options.preserve_current_ios) {
         logf("Keeping IOS%d for the launch; reporting IOS%u to the game\n", IOS_GetVersion(), required);
@@ -1641,6 +1654,7 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         // never goes through this CPU's cache.
         u32 pretended = read32(0x80003188);
         if ((pretended >> 16) != required) pretended = (required << 16) | (read32(0x80003140) & 0xFFFF);
+        if (required_revision != 0) pretended = (required << 16) | (required_revision & 0xFFFF);
         write32(0x80003140, pretended);
         write32(0x80003188, pretended);
     }

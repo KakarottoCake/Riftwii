@@ -190,7 +190,8 @@ unsigned anti_002(const std::vector<CodeSpan>& loaded, GxReport& report) {
 }  // namespace
 
 bool gx_protected_game(const std::string& id) {
-    return id_is(id, "RPW") || id_is(id, "SPX") || id_is(id, "SDV") || id_is(id, "STN") || id_is(id, "SLVP41");
+    return id_is(id, "RPW") || id_is(id, "SPX") || id_is(id, "SDV") || id_is(id, "STN") || id_is(id, "SLVP41") ||
+           (id_is(id, "SDU") && id.size() >= 6 && id.compare(4, 2, "41") == 0);
 }
 
 // Resident Evil 4, and (a guess from a tester's RVZ black screens, 2610-329)

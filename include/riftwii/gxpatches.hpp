@@ -37,6 +37,8 @@ struct GxReport {
 // exclude_game(id, false): Prince of Persia: The Forgotten Sands, Driver:
 // San Francisco, The Adventures of Tintin, We Dare. They check their own
 // code (MetaFortress), so GX leaves its code-changing extras out of them.
+// RiftWii adds The Smurfs: Dance Party (SDU?41), MetaFortress's best known
+// victim ("MetaFortress response!" on a tester's Wii).
 bool gx_protected_game(const std::string& game_id);
 
 // Kirby's Return to Dream Land checks its code too, but GX patches the

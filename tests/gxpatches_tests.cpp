@@ -62,6 +62,8 @@ void test_protected() {
     EXPECT_FALSE(game_clears_mem1_top("RLIL78"));  // Guitar Hero 2nd Custom
     EXPECT_FALSE(game_clears_mem1_top("SC4E64"));  // LEGO Star Wars III starts
     EXPECT_FALSE(game_clears_mem1_top("R25EWR"));  // LEGO Harry Potter starts
+    EXPECT_TRUE(gx_protected_game("SDUX41"));   // The Smurfs: Dance Party
+    EXPECT_FALSE(gx_protected_game("SDUEO1"));  // a Super Mario Bros. hack
     EXPECT_EQ(game_start_file("RNFE69"), 1079u);
     EXPECT_EQ(game_start_file("RNFP69"), 1079u);
     EXPECT_EQ(game_start_file("REDE41"), 1957u);
