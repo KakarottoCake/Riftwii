@@ -167,8 +167,10 @@ DISC_INTERFACE g_usb_io;
 bool usb_read(std::uint64_t sector, std::uint32_t count, std::uint8_t* out) {
     return sector <= 0xFFFFFFFFull && usb_read_sectors(static_cast<sec_t>(sector), count, out);
 }
+// The volume code reads 512-byte blocks: a drive with bigger sectors would
+// overrun its buffers.
 bool d2x_usb_block_read(std::uint64_t sector, std::uint32_t count, std::uint8_t* out) {
-    return ums::Read(sector, count, out);
+    return ums::SectorBytes() == 512 && ums::Read(sector, count, out);
 }
 // A read of the card can fail for a moment (it did as the menu's GameCube
 // adapter started): tried again before the card counts as unreadable.
@@ -1924,8 +1926,12 @@ bool activate_image_game(const ImageGame& game, int cios_slot, void*& storage, s
     if (rvz && game.device == ImageDevice::Usb) {
         // The RVZ itself, through d2x's USB device from now on.
         logf("USB: d2x's /dev/usb2 for the RVZ\n");
-        if (!ums::OpenWaiting(error, 20) ||
-            !mount_image_volume(&d2x_usb_block_read, g_rvz_usb_volume, error, usb_wanted_folders())) {
+        bool ok = ums::OpenWaiting(error, 20);
+        if (ok && ums::SectorBytes() != 512) {
+            error = "the drive has " + std::to_string(ums::SectorBytes()) + "-byte sectors; RVZ games need 512";
+            ok = false;
+        }
+        if (!ok || !mount_image_volume(&d2x_usb_block_read, g_rvz_usb_volume, error, usb_wanted_folders())) {
             error = "USB drive after the cIOS reload: " + error;
             return post_reload_failure(log_path, error);
         }
