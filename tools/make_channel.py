@@ -32,7 +32,7 @@ import zlib
 # 00010001-RFTW, in 4:3 on a vWii; the installer removes that one.)
 TITLE_ID = 0x0001000155465457  # 00010001-UFTW
 OLD_TITLE_ID = 0x0001000152465457  # 00010001-RFTW
-TITLE_VERSION = 12  # wii/channel.hpp kChannelVersion says the same; 5: boot program and forwarder (vWii); 6: UFTW; 7: a Wii and a vWii package; 8: no start-up IOS_Close sweep; 9: hardware access; 10: full width on 16:9; 11: L2 emptied at the start; 12: not on a vWii (11 never started there)
+TITLE_VERSION = 13  # wii/channel.hpp kChannelVersion says the same; 5: boot program and forwarder (vWii); 6: UFTW; 7: a Wii and a vWii package; 8: no start-up IOS_Close sweep; 9: hardware access; 10: full width on 16:9; 11: L2 emptied at the start; 12: not on a vWii by the CPU's PVR (still did not start); 13: the vWii loader as in 10, no L2 clear
 # The TMD's access rights (0x1D8): bit 0 asks ES for hardware access (AHBPROT
 # off), as the Homebrew Channel's own title does. Without it RiftWii started
 # from the channel could not open IOS's NAND permission check (the Wii Menu's
@@ -845,7 +845,7 @@ def opening(banner, icon, sound):
 #   content 2 (check_loader). On a Wii that one did not start.
 WII_START_AT = 0x80003400
 
-# start.S's L2 clear (both boot programs): HID4 without L2CFI, then L2I.
+# start.S's L2 clear (the Wii boot program; the vWii loader has none, 11 and 12 never started there): HID4 without L2CFI, then L2I.
 # libogc 3.1.0 turns the L2 on without invalidating it, so without these
 # a game's cached lines outlive the launch (docs/CHANNEL.md).
 L2_CLEAR = (
@@ -915,7 +915,6 @@ def check_loader(dol):
     bss, bss_size, entry = struct.unpack_from(">III", dol, 0xD8)
     if starts[0] != LOADER_AT or dol[offsets[0] + 4:offsets[0] + 8] != b"RFTW":
         sys.exit(f"loader: the first text section is not start.S at {LOADER_AT:08x}")
-    check_l2_clear(bytes(dol[offsets[0]:offsets[0] + sizes[0]]), "loader")
     if entry != LOADER_AT + 8:
         sys.exit(f"loader: entry {entry:08x}, not vwii_entry ({LOADER_AT + 8:08x})")
     for i in range(18):

@@ -16,7 +16,6 @@
 
 #define HID0	1008
 #define HID4	1011
-#define L2CR	1017
 
 	.section .start, "ax", @progbits
 	.globl	_start
@@ -46,39 +45,6 @@ setup:
 	ori	3, 3, 0xc000
 	mtspr	HID0, 3
 	isync
-
-	# The L2 cache, emptied without writing anything back. A launch leaves
-	# the previous program's lines in it (a reset turns the L2 off but
-	# keeps what it holds), and libogc 3.1.0's start-up turns it back on
-	# without the invalidate it means to do (its PPCEarlyInit sets L2CE
-	# where it means L2I; libogc 3.2.0 fixed that, and casts the lines out
-	# to memory first). Left there, a game's cached data took the place of
-	# this program's and IOS's after leaving some games for the channel:
-	# a black screen at random points of the start. L2CFI off, so the
-	# invalidate drops the lines, as libogc 1.8 and the Nintendo start do.
-	# Not on a Wii U's CPU (Espresso, PVR 0x7001xxxx): channel 11 never
-	# started on a vWii with this clear, so a vWii goes on as before 11.
-	mfpvr	3
-	srwi	3, 3, 16
-	cmplwi	3, 0x7001
-	beq	9f
-	mfspr	3, HID4
-	rlwinm	3, 3, 0, 12, 10		# HID4 without L2CFI (bit 11)
-	mtspr	HID4, 3
-	isync
-	sync
-	li	3, 0
-	mtspr	L2CR, 3			# L2 off
-	sync
-	lis	3, 0x0020		# L2I: global invalidate
-	mtspr	L2CR, 3
-1:	mfspr	3, L2CR
-	andi.	3, 3, 1			# L2IP: still invalidating
-	bne	1b
-	li	3, 0
-	mtspr	L2CR, 3			# L2I off again; libogc turns the L2 on
-	sync
-9:
 
 	# No BATs, then every segment invalid
 	li	0, 0
