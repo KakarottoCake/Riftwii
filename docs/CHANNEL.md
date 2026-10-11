@@ -106,7 +106,8 @@ boot program without that clear (`L2_CLEAR`). Since version 11.
 The vWii loader (`channel/loader/start.S`) has no such clear: channels 11
 and 12 had it and never started on a vWii (12 skipped it by the CPU's PVR,
 which did not help). Since 13 the vWii loader is the one of 10 again, byte
-for byte. A vWii needs channel 13 (`ChannelVersionNeeded`), a Wii 11.
+for byte, and `tools/make_channel.py` refuses a vWii loader with the clear
+(`L2_CLEAR`). A vWii needs channel 13 (`ChannelVersionNeeded`), a Wii 11.
 
 ## The banner
 

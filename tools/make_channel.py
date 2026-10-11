@@ -847,7 +847,9 @@ WII_START_AT = 0x80003400
 
 # start.S's L2 clear (the Wii boot program; the vWii loader has none, 11 and 12 never started there): HID4 without L2CFI, then L2I.
 # libogc 3.1.0 turns the L2 on without invalidating it, so without these
-# a game's cached lines outlive the launch (docs/CHANNEL.md).
+# a game's cached lines outlive the launch (docs/CHANNEL.md). The Wii's
+# boot program must have them (check_l2_clear), the vWii loader must not
+# (check_no_l2_clear).
 L2_CLEAR = (
     bytes.fromhex("7c73faa6 54630314 7c73fba6".replace(" ", "")),  # mfspr r3,HID4; clear L2CFI; mtspr HID4,r3
     bytes.fromhex("3c600020 7c79fba6".replace(" ", "")),  # lis r3,0x0020 (L2I); mtspr L2CR,r3
@@ -857,6 +859,11 @@ L2_CLEAR = (
 def check_l2_clear(code, what):
     if not all(seq in code for seq in L2_CLEAR):
         sys.exit(f"{what}: start.S does not empty the L2 cache (L2_CLEAR)")
+
+
+def check_no_l2_clear(code, what):
+    if any(seq in code for seq in L2_CLEAR):
+        sys.exit(f"{what}: start.S empties the L2 cache, and a vWii never started with that (L2_CLEAR)")
 
 
 def wii_forwarder(dol, start):
@@ -915,6 +922,7 @@ def check_loader(dol):
     bss, bss_size, entry = struct.unpack_from(">III", dol, 0xD8)
     if starts[0] != LOADER_AT or dol[offsets[0] + 4:offsets[0] + 8] != b"RFTW":
         sys.exit(f"loader: the first text section is not start.S at {LOADER_AT:08x}")
+    check_no_l2_clear(bytes(dol[offsets[0]:offsets[0] + sizes[0]]), "loader")
     if entry != LOADER_AT + 8:
         sys.exit(f"loader: entry {entry:08x}, not vwii_entry ({LOADER_AT + 8:08x})")
     for i in range(18):

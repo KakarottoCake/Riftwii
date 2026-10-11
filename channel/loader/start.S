@@ -46,6 +46,10 @@ setup:
 	mtspr	HID0, 3
 	isync
 
+	# No L2 clear here, unlike channel/forwarder/start.S: channels 11 and
+	# 12 had one and never started on a vWii. tools/make_channel.py
+	# refuses this program with it (docs/CHANNEL.md).
+
 	# No BATs, then every segment invalid
 	li	0, 0
 	mtspr	528, 0
