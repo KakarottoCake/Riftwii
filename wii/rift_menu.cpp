@@ -1098,10 +1098,25 @@ static std::string g_reopenBanner;
 // Favourites list is built again.
 static bool g_favoritesChanged = false;
 
+// The banner Start was pressed on: left on screen, still playing, while
+// the game's page runs its checks out of sight, until the launch screen
+// (or the page, when a check keeps the player there) takes its place.
+// A still picture of it looked as if the menu had frozen.
+static std::unique_ptr<ChannelView> g_lingerBanner;
+
+// With the GUI halted.
+static void DropLingerBanner()
+{
+	if (!g_lingerBanner) return;
+	mainWindow->Remove(g_lingerBanner.get());
+	g_lingerBanner.reset();
+}
+
 static ChannelChoice ShowChannel(int& index, int count, const std::string& firstId, const BannerLoader& load,
 	const std::function<std::string(int)>& idOf)
 {
-	ChannelView view;
+	std::unique_ptr<ChannelView> owned(new ChannelView());
+	ChannelView& view = *owned;
 	std::string shownId;
 	// The banner's sound starts a few frames after its banner, with the
 	// menu drawing: decoding it took the longest part of a + or - (and
@@ -1314,6 +1329,13 @@ static ChannelChoice ShowChannel(int& index, int count, const std::string& first
 	mainWindow->Remove(&w);
 	mainWindow->SetState(STATE::DEFAULT);
 	logShown();
+	if (choice == 0) {
+		// Start: the banner plays on by itself, its buttons gone.
+		w.Remove(&view);
+		DropLingerBanner();
+		mainWindow->Append(&view);
+		g_lingerBanner = std::move(owned);
+	}
 	return choice == 0 ? ChannelChoice::Start : choice == 2 ? ChannelChoice::Page : ChannelChoice::Back;
 }
 
@@ -3010,8 +3032,9 @@ static int MenuSource(FrontendState& state)
 					ResumeGui();
 					continue;
 				}
-				// Start or Settings: the banner stays up while the game opens.
-				transition::Hold(transition::Kind::Fade);
+				// Settings: the banner's last frame stays up while the game
+				// opens. Start: the banner itself plays on (g_lingerBanner).
+				if (choice == ChannelChoice::Page) transition::Hold(transition::Kind::Fade);
 				fromChannel = true;
 			}
 			std::string error;
@@ -4483,16 +4506,23 @@ static int MenuHome(FrontendState& state)
 	w.Append(&backBtn.button);
 	w.Append(&startBtn.button);
 	w.Append(&dumpBtn);
-	mainWindow->Append(&w);
 	// Start on the banner screen: this page's Start, pressed for the player,
 	// so its checks and warnings still stand (the page stays when one does).
 	bool fromBanner = false;
+	// Until that Start is handled, the page is built out of sight under the
+	// banner, which plays on: it only shows if a check keeps the player on
+	// it (the status says why); a launch goes from the banner to its own
+	// screen.
+	bool bannerHeld = false;
 	if (g_startOnOpen) {
 		g_startOnOpen = false;
 		fromBanner = true;
+		bannerHeld = g_lingerBanner != nullptr;
 		logf("Game page: Start from the banner screen\n");
 		startBtn.button.SetState(STATE::CLICKED);
 	}
+	if (bannerHeld) w.SetVisible(false);
+	mainWindow->Append(&w);
 	ResumeGui();
 
 	const auto say = [&](const std::string& text) { statusTxt.SetText(text.c_str()); };
@@ -4508,6 +4538,7 @@ static int MenuHome(FrontendState& state)
 		usleep(10000);
 		HaltGui();
 		ClearStaleButtons({&backBtn.button, &startBtn.button});
+		bool startHandled = false;
 
 		if (coverStart && (coverAsked || (!g_coversOff && !riftwii::wii::NetFailed()))) {
 			if (riftwii::wii::CoverFetchGame() == state.game_id || riftwii::wii::StartCoverFetch(state.game_id))
@@ -4691,6 +4722,7 @@ static int MenuHome(FrontendState& state)
 			else backBtn.button.ResetState();
 		} else if (startBtn.Clicked()) {
 			startBtn.button.ResetState();
+			startHandled = true;
 			if (state.game_id.empty()) {
 				say("No game is selected; go back and pick one.");
 			} else if (!TurnOffEmptyPacks(state)) {
@@ -4764,11 +4796,24 @@ static int MenuHome(FrontendState& state)
 		} else if (dumpBtn.GetState() == STATE::CLICKED) {
 			menu = MENU_DUMP;
 		}
+		if (bannerHeld && startHandled) {
+			// Start handled: staying on the page, it comes in now (the
+			// launch screen takes the banner's place itself; Play on the
+			// "Before you play" popup pressed Start again).
+			if (menu != MENU_NONE) {
+				bannerHeld = false;
+			} else if (startBtn.button.GetState() != STATE::CLICKED) {
+				bannerHeld = false;
+				DropLingerBanner();
+				w.SetVisible(true);
+			}
+		}
 		ResumeGui();
 	}
 
 	HaltGui();
 	mainWindow->Remove(&w);
+	if (menu != MENU_LAUNCH && menu != MENU_BOOT) DropLingerBanner();  // the launch screen drops it otherwise
 	// Cheats and video settings go with every launch, mods or not.
 	if (menu == MENU_LAUNCH || menu == MENU_BOOT) {
 		riftwii::wii::PrepareLaunchExtras(state);
@@ -5910,6 +5955,7 @@ static void ShowLaunchFrame(const FrontendState& state, int action)
 	w.Append(&card);
 	w.Append(&footTxt);
 	mainWindow->Append(&w);
+	DropLingerBanner();  // a banner Start was pressed on gives way to this
 	ResumeGui();
 	// Faded in all the way first: this frame stays on screen.
 	transition::Settle();
