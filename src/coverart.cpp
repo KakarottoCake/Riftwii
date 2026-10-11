@@ -196,6 +196,67 @@ std::vector<std::uint8_t> make_box_file(const std::uint8_t* rgba, int w, int h) 
     return rgb5a3_file("RWB2", px, kBoxWidth, kBoxHeight);
 }
 
+namespace {
+// One RGB5A3 texel as RGBA.
+void from_rgb5a3(std::uint16_t v, std::uint8_t* p) {
+    if (v & 0x8000) {
+        p[0] = static_cast<std::uint8_t>(((v >> 10) & 31) * 255 / 31);
+        p[1] = static_cast<std::uint8_t>(((v >> 5) & 31) * 255 / 31);
+        p[2] = static_cast<std::uint8_t>((v & 31) * 255 / 31);
+        p[3] = 255;
+    } else {
+        p[0] = static_cast<std::uint8_t>(((v >> 8) & 15) * 17);
+        p[1] = static_cast<std::uint8_t>(((v >> 4) & 15) * 17);
+        p[2] = static_cast<std::uint8_t>((v & 15) * 17);
+        p[3] = static_cast<std::uint8_t>(((v >> 12) & 7) * 255 / 7);
+    }
+}
+}  // namespace
+
+void make_backdrop(const std::uint8_t* tiles, int w, int h, int x0, int x1, std::uint8_t* out) {
+    if (!tiles || !out || w <= 0 || h <= 0 || w % 4 || h % 4 || x0 < 0 || x1 > w || x1 <= x0) return;
+    const int sw = x1 - x0;
+    std::vector<std::uint8_t> src(static_cast<std::size_t>(sw) * h * 4);
+    for (int y = 0; y < h; ++y)
+        for (int x = x0; x < x1; ++x) {
+            const std::size_t at = ((static_cast<std::size_t>(y / 4) * (w / 4) + x / 4) * 16 + (y % 4) * 4 + x % 4) * 2;
+            from_rgb5a3(static_cast<std::uint16_t>((tiles[at] << 8) | tiles[at + 1]),
+                        &src[(static_cast<std::size_t>(y) * sw + (x - x0)) * 4]);
+        }
+    std::vector<std::uint8_t> px = scale_rgba(src.data(), sw, h, kBackdropWidth, kBackdropHeight);
+    // Twice a 3x3 average, the edges repeated.
+    std::vector<std::uint8_t> tmp(px.size());
+    for (int pass = 0; pass < 2; ++pass) {
+        for (int y = 0; y < kBackdropHeight; ++y)
+            for (int x = 0; x < kBackdropWidth; ++x)
+                for (int c = 0; c < 3; ++c) {
+                    int sum = 0;
+                    for (int dy = -1; dy <= 1; ++dy)
+                        for (int dx = -1; dx <= 1; ++dx) {
+                            const int sx = std::clamp(x + dx, 0, kBackdropWidth - 1);
+                            const int sy = std::clamp(y + dy, 0, kBackdropHeight - 1);
+                            sum += px[(static_cast<std::size_t>(sy) * kBackdropWidth + sx) * 4 + c];
+                        }
+                    tmp[(static_cast<std::size_t>(y) * kBackdropWidth + x) * 4 + c] = static_cast<std::uint8_t>(sum / 9);
+                }
+        for (std::size_t i = 0; i < px.size(); i += 4) {
+            px[i] = tmp[i];
+            px[i + 1] = tmp[i + 1];
+            px[i + 2] = tmp[i + 2];
+            px[i + 3] = 255;
+        }
+    }
+    std::uint8_t* q = out;
+    for (int ty = 0; ty < kBackdropHeight; ty += 4)
+        for (int tx = 0; tx < kBackdropWidth; tx += 4)
+            for (int y = ty; y < ty + 4; ++y)
+                for (int x = tx; x < tx + 4; ++x) {
+                    const std::uint16_t v = rgb5a3(&px[(static_cast<std::size_t>(y) * kBackdropWidth + x) * 4]);
+                    *q++ = static_cast<std::uint8_t>(v >> 8);
+                    *q++ = static_cast<std::uint8_t>(v);
+                }
+}
+
 bool box_header_valid(const std::uint8_t* h) {
     return h && h[0] == 'R' && h[1] == 'W' && h[2] == 'B' && h[3] == '2' && ((h[4] << 8) | h[5]) == kBoxWidth &&
            ((h[6] << 8) | h[7]) == kBoxHeight;

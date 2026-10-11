@@ -84,6 +84,10 @@ GuiGameGrid::GuiGameGrid() {
     caption->SetParent(this);
     caption->SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
     caption->SetPosition(0, kCaptionY);
+    captionInfo = new GuiText(nullptr, 14, skin::kInkSoft);
+    captionInfo->SetParent(this);
+    captionInfo->SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
+    captionInfo->SetPosition(0, kShelfCaptionY + 24);
     spineText = new GuiText(nullptr, 13, GXColor{40, 40, 48, 255});
     spineText->SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
     soundOver = new GuiSound(button_over_pcm, button_over_pcm_size, SOUND::PCM);
@@ -99,6 +103,7 @@ GuiGameGrid::~GuiGameGrid() {
     }
     delete measure;
     delete caption;
+    delete captionInfo;
     delete spineText;
     delete soundOver;
     delete soundClick;
@@ -190,6 +195,7 @@ void GuiGameGrid::SetShelf(bool on) {
     poses.clear();
     spineFit.clear();
     captionFor = -1;
+    infoFor = -1;
     caption->SetPosition(0, shelf ? kShelfCaptionY : kCaptionY);
     if (shelf) SetCovers(true);
 }

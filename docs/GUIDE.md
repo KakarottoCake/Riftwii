@@ -83,9 +83,14 @@ Settings switches to name tiles, or to the shelf.
 
 On the **shelf**, your games stand as boxes, spine out. The one you're
 on slides out and turns to show its front; Left and Right move along the
-shelf, Minus and Plus jump 12 games, and A opens the game. With the
+shelf (hold one to speed up), Minus and Plus jump 12 games, and A opens
+the game. Up or Down turns the box round to show its back. With the
 pointer, point at a spine (it lifts), press A to pull that box out, and
-A again to open it. Each box's spine and front come from GameTDB's full
+A again to open it; hold A and move the pointer sideways to drag the
+shelf, and let go while moving to send it gliding. Behind the shelf
+is a blurred copy of the game's cover, and under its name are where the
+game is, its region, how often you've played it and whether it has mods.
+Each box's spine and front come from GameTDB's full
 cover scan, fetched after the covers while Home is open and kept in
 `sd:/riftwii/boxes`. A game GameTDB has no scan for gets a white spine
 with its name and its cover on the front.

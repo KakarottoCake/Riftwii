@@ -788,6 +788,12 @@ void TestCoverArt() {
         // The tile at column 144 (the back): red (0xFC00).
         EXPECT_EQ((box[8 + 36 * 32] << 8) | box[8 + 36 * 32 + 1], 0xFC00);
         EXPECT_TRUE(make_box_file(full.data(), 160, 224).empty());
+        // The backdrop from the box's front (columns 16..144): all blue, opaque.
+        std::vector<std::uint8_t> back(kBackdropBytes, 0);
+        make_backdrop(box.data() + 8, kBoxWidth, kBoxHeight, kBoxSpineWidth, kBoxSpineWidth + kBoxFrontWidth,
+                      back.data());
+        EXPECT_EQ((back[0] << 8) | back[1], 0x801F);
+        EXPECT_EQ((back[kBackdropBytes - 2] << 8) | back[kBackdropBytes - 1], 0x801F);
     }
     std::uint8_t bad[8] = {'R', 'W', 'C', '1', 0, 40, 0, 112};
     EXPECT_FALSE(cover_header_valid(bad));

@@ -158,6 +158,25 @@ private:
     std::vector<std::pair<std::string, std::string>> spineFit;
     bool shelf = false;
     int shelfHover = -1;                // the box a pointer is on
+    // The focused box turned round to its back (Up or Down), for that box
+    // only; how many frames the focus has stood still (its sway and the
+    // backdrop wait for it); the frame count the sway runs on.
+    bool shelfFlip = false;
+    int shelfFlipFor = -1;
+    int shelfStill = 0;
+    unsigned shelfClock = 0;
+    // A held direction speeds up: the steps that came close together.
+    u64 shelfLastStep = 0;
+    int shelfStreak = 0;
+    // The pointer with A held drags the shelf sideways; let go moving, it
+    // glides on and slows down.
+    bool dragArmed = false, dragging = false;
+    int dragPress = -1;  // the box A went down on
+    int dragChan = -1;   // the controller dragging (Update runs once for each)
+    float dragStartX = 0, dragLastX = 0, dragAccum = 0, dragSpeed = 0;
+    float glide = 0, glideAccum = 0;
+    GuiText* captionInfo = nullptr;  // under the shelf's name: where the game is, its region, play count, mods
+    int infoFor = -1;
     bool channels = false;
     IconDrawer iconDrawer;
     bool iconShown[kPerPage] = {};  // channels: the tile drew its icon this frame
