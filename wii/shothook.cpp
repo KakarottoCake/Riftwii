@@ -166,6 +166,9 @@ bool plan_shot_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t
 bool install_shot_hook(ShotHook& hook, std::string& why) {
     if (!hook.active) return false;
     const rt_shot_header& h = header();
+    // Wii Remote rumble Off: the blob sends no rumble report (it has no
+    // IOS_IoctlvAsync to send one with).
+    if (!hook.rumble) reinterpret_cast<rt_shot_context*>(hook.code_base + h.context_offset)->ioctlv_async = 0;
     struct Site {
         std::uint32_t function, hook, replay, resume;
         const char* name;
