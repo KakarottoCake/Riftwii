@@ -7,6 +7,7 @@
 #include <sys/stat.h>
 
 #include <algorithm>
+#include <cstdio>
 #include <cctype>
 #include <cerrno>
 #include <cstring>
@@ -317,14 +318,26 @@ bool SaveChoices(const FrontendState& state, std::string& error) {
         return false;
     }
     if (!ensure_directory("sd:/riftwii", error) || !ensure_directory(kChoicesDir, error)) return false;
-    std::ofstream out(state.choices_path, std::ios::binary | std::ios::trunc);
-    if (!out) {
-        error = "cannot open " + state.choices_path + " for writing";
-        return false;
+    // Written whole beside it, then put in its place (as settings.txt): a
+    // power cut or a full card no longer leaves the game's choices empty.
+    const std::string temp = state.choices_path + ".part";
+    {
+        std::ofstream out(temp, std::ios::binary | std::ios::trunc);
+        if (!out) {
+            error = "cannot open " + temp + " for writing";
+            return false;
+        }
+        out << state.model.save();
+        out.close();
+        if (!out) {
+            std::remove(temp.c_str());
+            error = "cannot write " + state.choices_path;
+            return false;
+        }
     }
-    out << state.model.save();
-    out.flush();
-    if (!out) {
+    std::remove(state.choices_path.c_str());
+    if (std::rename(temp.c_str(), state.choices_path.c_str()) != 0) {
+        std::remove(temp.c_str());
         error = "cannot write " + state.choices_path;
         return false;
     }
