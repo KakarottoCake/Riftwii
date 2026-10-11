@@ -10,7 +10,8 @@ import numpy as np
 from scipy.signal import lfilter
 
 SR = 44100
-BPM = 90
+BPM = 104
+TRANSPOSE = 2               # F# minor: the "sped up" pitch the tempo gives
 S16 = 60.0 / BPM / 4          # one sixteenth, seconds
 BARS = 32
 N = int(round(BARS * 16 * S16 * SR))
@@ -26,7 +27,7 @@ def at(step):
 
 
 def hz(m):
-    return 440.0 * 2 ** ((m - 69) / 12)
+    return 440.0 * 2 ** ((m + TRANSPOSE - 69) / 12)
 
 
 def lowpass(x, cutoff):
@@ -162,8 +163,8 @@ for bar in range(BARS):
         n = at(1) - 120
         f = hz(root + GALLOP[k])
         x = saw(f, n) + 0.7 * saw(f, n, 0.007) + 0.5 * np.sign(np.sin(2 * np.pi * f / 2 * np.arange(n) / SR))
-        y = lowpass(lowpass(x, 900 if bar in full else 650), 2200)
-        y = np.tanh(y * 1.6)
+        y = lowpass(lowpass(x, 1100 if bar in full else 800), 2600)
+        y = np.tanh(y * 3.0)
         acc = 1.0 if k % 4 == 0 else 0.8
         add(y * env(n, 0.002, 0.09, 0.4, 0.012), bar * 16 + k, 0, 0.3 * acc)
 
@@ -203,20 +204,29 @@ for bar in range(BARS):
         continue
     root, _ = chords[bar]
     f = hz(root + 12)
+
+    def chord(n, f, cut):
+        x = 0.8 * saw(f / 2, n, 0.002) + saw(f, n, 0.0) + saw(f * 1.4983, n, 0.003) + 0.7 * saw(f * 2, n, -0.004)
+        y = np.tanh(lowpass(x, cut) * 12.0)
+        y = lowpass(y, 5000)
+        return y - lowpass(y, 90)  # no mud under the bass
+
     if bar in full:
-        for e8 in range(8):
-            n = at(2) - 80
-            x = saw(f, n, 0.0) + saw(f * 1.4983, n, 0.003) + 0.8 * saw(f * 2, n, -0.004)
-            y = np.tanh(lowpass(x, 2600) * 6.0) * env(n, 0.003, 0.6, 0.6, 0.02)
-            y = lowpass(y, 4200)
-            add(y, bar * 16 + e8 * 2, -0.75, 0.075)
-            add(y, bar * 16 + e8 * 2 + 0.08, 0.75, 0.07)
+        for beat in range(4):
+            n = at(4) - 60
+            ring = chord(n, f, 3000) * env(n, 0.003, 0.5, 0.35, 0.02)
+            add(ring, bar * 16 + beat * 4, -0.8, 0.07)
+            add(ring, bar * 16 + beat * 4 + 0.06, 0.8, 0.065)
+            for k in (1, 2, 3):
+                m = at(1) - 40
+                chug = lowpass(chord(m, f, 1500), 1600) * env(m, 0.002, 0.045)
+                add(chug, bar * 16 + beat * 4 + k, -0.8 if k % 2 else 0.8, 0.075)
     else:
         for k in range(16):
             n = at(1) - 60
-            x = saw(f, n, 0.0) + saw(f * 1.4983, n, 0.003)
-            y = lowpass(np.tanh(lowpass(x, 1400) * 6.0), 1800) * env(n, 0.002, 0.05)
-            add(y, bar * 16 + k, -0.7 if k % 2 else 0.7, 0.07 if k % 4 == 0 else 0.05)
+            x = 0.8 * saw(f / 2, n, 0.002) + saw(f, n, 0.0) + saw(f * 1.4983, n, 0.003)
+            y = lowpass(np.tanh(lowpass(x, 1400) * 10.0), 1800) * env(n, 0.002, 0.055)
+            add(y, bar * 16 + k, -0.75 if k % 2 else 0.75, 0.085 if k % 4 == 0 else 0.065)
 
 # --- lead: the hook, an original line over i - VI - III - VII -------------------
 # (sixteenth in the 8-bar phrase, length in sixteenths, MIDI note)
@@ -234,20 +244,25 @@ lead = np.zeros(N)
 
 
 def play_lead(start_bar, transpose=0, gain=1.0):
+    prev = None
     for s16, l16, m in HOOK:
-        n = at(l16) + int(0.06 * SR)
+        n = at(l16) + int(0.04 * SR)
         t = np.arange(n) / SR
-        f = hz(m + transpose) * (1 + 0.004 * np.sin(2 * np.pi * 5.5 * t) * np.clip(t * 4 - 0.4, 0, 1))
-        ph = np.cumsum(f) / SR
-        x = (2 * (ph % 1) - 1) * 0.5 + (2 * ((ph * 1.004) % 1) - 1) * 0.5 + 0.35 * np.sign(np.sin(2 * np.pi * ph * 0.5))
-        y = lowpass(x, 5200) * env(n, 0.004, 0.6, 0.65, 0.05)
-        # Doubled an octave up, a little quieter: brighter, bigger.
-        ph2 = ph * 2
-        x2 = (2 * (ph2 % 1) - 1) * 0.5 + (2 * ((ph2 * 1.003) % 1) - 1) * 0.5
-        y += 0.45 * lowpass(x2, 6000) * env(n, 0.004, 0.5, 0.5, 0.05)
+        target = hz(m + transpose)
+        start = hz(prev + transpose) if prev is not None else target
+        slide = target + (start - target) * np.exp(-t / 0.025)   # a quick slide from the last note
+        vib = 1 + 0.009 * np.sin(2 * np.pi * 7.0 * t) * np.clip(t * 6 - 0.5, 0, 1)
+        ph = np.cumsum(slide * vib) / SR
+        x = np.zeros(n)
+        for d in (-0.012, -0.005, 0.0, 0.005, 0.012):
+            x += 2 * ((ph * (1 + d)) % 1) - 1
+        x += 0.6 * (2 * ((ph * 2.004) % 1) - 1)
+        y = np.tanh(lowpass(x, 6500) * 1.8)
+        y = (y - lowpass(y, 250)) * env(n, 0.003, 0.5, 0.8, 0.04)
         s = at(start_bar * 16 + s16)
         e = min(N, s + n)
-        lead[s:e] += y[: e - s] * 0.12 * gain
+        lead[s:e] += y[: e - s] * 0.16 * gain
+        prev = m
 
 
 play_lead(8)
@@ -266,9 +281,9 @@ d = at(3)
 echoL = np.zeros(N)
 echoR = np.zeros(N)
 src = lead.copy()
-for k in range(1, 6):
+for k in range(1, 4):
     sh = d * k
-    g = 0.42 ** k
+    g = 0.3 ** k
     tgt = echoL if k % 2 else echoR
     tgt[sh:] += lowpass(src, 2500)[: N - sh] * g
 L += lead + echoL
