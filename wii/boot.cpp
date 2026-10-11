@@ -804,19 +804,6 @@ namespace {
 bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const SavegameOptions& savegame,
                         const RvzResidentOptions& rvz, std::uint32_t required, std::string& error) {
     bool force_ios_fields = options.preserve_current_ios;
-    // The installed IOS's own revision, for the version field the game is
-    // shown (a cIOS's own, d2x's 65535, is not one IOS56 ever had; The
-    // Smurfs: Dance Party's MetaFortress stops on an IOS it does not expect).
-    std::uint32_t required_revision = 0;
-    {
-        static u8 view[512] ATTRIBUTE_ALIGN(32);
-        u32 size = 0;
-        const u64 title = 0x100000000ull | required;
-        if (ES_GetTMDViewSize(title, &size) >= 0 && size >= sizeof(tmd_view) && size <= sizeof(view) &&
-            ES_GetTMDView(title, reinterpret_cast<tmd_view*>(view), size) >= 0) {
-            required_revision = reinterpret_cast<const tmd_view*>(view)->title_version;
-        }
-    }
     if (!options.preserve_current_ios) ProgressStage("Starting the game's IOS", 62);
     if (options.preserve_current_ios) {
         logf("Keeping IOS%d for the launch; reporting IOS%u to the game\n", IOS_GetVersion(), required);
@@ -1628,7 +1615,9 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
                                      : vsd.active && !vsd.code_in_mem2 ? vsd.new_arena1_hi
                                                                 : load32(0x80000038);
     // Below the FST too: wiped in a game that clears that memory.
-    const u64 return_to = clears_mem1_top ? 0 : return_title();
+    // Not into a game that checks its own code (MetaFortress): the patch
+    // changes it, and The Smurfs: Dance Party stopped after its logos.
+    const u64 return_to = clears_mem1_top || gx_protected ? 0 : return_title();
     const std::uint32_t return_stub = return_to == 0 ? 0 : code_build ? kCodeReturnStub : (arena1_top - 32) & ~31u;
     const std::uint32_t arena1_end = return_stub != 0 && !code_build ? return_stub : arena1_top;
     if (options.install_resident || vsd.active || pad.active || shot.active || fault.active || return_stub != 0)
@@ -1654,7 +1643,6 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         // never goes through this CPU's cache.
         u32 pretended = read32(0x80003188);
         if ((pretended >> 16) != required) pretended = (required << 16) | (read32(0x80003140) & 0xFFFF);
-        if (required_revision != 0) pretended = (required << 16) | (required_revision & 0xFFFF);
         write32(0x80003140, pretended);
         write32(0x80003188, pretended);
     }
