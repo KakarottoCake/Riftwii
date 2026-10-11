@@ -213,6 +213,9 @@ static void* mem2(u32 n) {
     return (void*)lo;
 }
 
+// The last mem2 block, given back.
+static void mem2_release(void* data) { SYS_SetArena2Lo(data); }
+
 int main(void) {
     video_init();
     intro();
@@ -229,7 +232,7 @@ int main(void) {
                 fclose(log);
             }
         }
-        dol = dolboot_read(kPaths[i], &size, mem2);
+        dol = dolboot_read(kPaths[i], &size, mem2, mem2_release);
         if (dol) path = kPaths[i];
         unmount(i);
     }

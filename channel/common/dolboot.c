@@ -18,7 +18,7 @@ typedef struct {
     u32 entry;
 } DolHeader;
 
-u8* dolboot_read(const char* path, u32* size, void* (*alloc)(u32 size)) {
+u8* dolboot_read(const char* path, u32* size, void* (*alloc)(u32 size), void (*release)(void* data)) {
     FILE* f = fopen(path, "rb");
     if (!f) return NULL;
     fseek(f, 0, SEEK_END);
@@ -26,13 +26,22 @@ u8* dolboot_read(const char* path, u32* size, void* (*alloc)(u32 size)) {
     fseek(f, 0, SEEK_SET);
     u8* data = NULL;
     if (n > 0x100 && (u32)n <= DOL_MAX) data = (u8*)alloc((u32)n);
-    if (data && fread(data, 1, (size_t)n, f) != (size_t)n) data = NULL;
+    if (data && fread(data, 1, (size_t)n, f) != (size_t)n) {
+        release(data);  // up to 16 MB, for the next path's try
+        data = NULL;
+    }
     fclose(f);
     *size = (u32)n;
     return data;
 }
 
 static bool overlaps(u32 lo, u32 hi, u32 other_lo, u32 other_hi) { return lo < other_hi && hi > other_lo; }
+
+// [address, address + bytes) inside MEM1's free part, the sum not wrapping
+// (a damaged header passed as 2 GB copied over MEM1: a black screen).
+static bool in_mem1(u32 address, u32 bytes) {
+    return address >= MEM1_LO && address <= MEM1_HI && bytes <= MEM1_HI - address;
+}
 
 bool dolboot_valid(const u8* dol, u32 size) {
     extern u8 __app_start[], __bss_end[];
@@ -41,13 +50,14 @@ bool dolboot_valid(const u8* dol, u32 size) {
     const DolHeader* h = (const DolHeader*)dol;
     for (int i = 0; i < 18; ++i) {
         if (h->size[i] == 0) continue;
+        if (h->offset[i] > size || h->size[i] > size - h->offset[i] || !in_mem1(h->address[i], h->size[i])) return false;
         const u32 lo = h->address[i], hi = lo + h->size[i];
-        if (h->offset[i] + h->size[i] > size || lo < MEM1_LO || hi > MEM1_HI) return false;
         if (overlaps(lo, hi, self_lo, self_hi) || overlaps(lo, hi, file_lo, file_hi)) return false;
     }
     if (h->bss_size) {
+        if (!in_mem1(h->bss_address, h->bss_size)) return false;
         const u32 lo = h->bss_address, hi = lo + h->bss_size;
-        if (lo < MEM1_LO || hi > MEM1_HI || overlaps(lo, hi, self_lo, self_hi) || overlaps(lo, hi, file_lo, file_hi)) {
+        if (overlaps(lo, hi, self_lo, self_hi) || overlaps(lo, hi, file_lo, file_hi)) {
             return false;
         }
     }

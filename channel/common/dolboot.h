@@ -13,8 +13,9 @@ extern "C" {
 #endif
 
 // Reads the file whole into memory from `alloc` (32-byte aligned), which
-// must not be where the program lands. NULL if it cannot.
-u8* dolboot_read(const char* path, u32* size, void* (*alloc)(u32 size));
+// must not be where the program lands. NULL if it cannot; memory taken for
+// a read that came up short goes back through `release`.
+u8* dolboot_read(const char* path, u32* size, void* (*alloc)(u32 size), void (*release)(void* data));
 
 // Whether the DOL's sections fit its file and land in MEM1, clear of this
 // program and of the file's own copy.
