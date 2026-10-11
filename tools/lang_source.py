@@ -3080,7 +3080,7 @@ FR = {
     "The menu runs under the Homebrew Channel's IOS (the default).":
         "Le menu s'exécute sous l'IOS de la Chaîne Homebrew (par défaut).",
     "The menu and every game run under cIOS {1}, so a cIOS with fakemote makes USB DS3/DS4 pads work as Wii Remotes. USB drives in the menu need a base-58 cIOS.":
-        "Le menu et chaque jeu tournent sous le cIOS {1}. Un cIOS avec fakemote permet d'utiliser des manettes DS3/DS4 USB comme Télécomandes Wii. Les stockages USB nécessitent un cIOS base-58.",
+        "Le menu et chaque jeu tournent sous le cIOS {1}. Un cIOS avec fakemote permet d'utiliser des manettes DS3/DS4 USB comme Télécommandes Wii. Les stockages USB nécessitent un cIOS base-58.",
     "Takes effect the next time RiftWii starts.":
         "Prendra effet au prochain démarrage de RiftWii.",
     "Looks for a PC running a RiiFS server when the games are read. Rescan to look now.":
@@ -3116,7 +3116,7 @@ FR = {
     "Buttons":
         "Boutons",
     "Point with the Wii Remote and press A, or move with the D-pad; in the games list, - and + turn the pages. B goes back, 2 opens Settings and HOME opens the HOME Menu. The Classic Controller and GameCube controllers work too, with the same buttons.":
-        "Pointez avec la Télécomande Wii et appuyez sur A, ou déplacez-vous avec la croix directionnelle. - et + tournent les pages. B revient en arrière, 2 ouvre les paramètres et HOME ouvre le menu HOME. Les manettes Classique et GameCube sont aussi compatibles.",
+        "Pointez avec la Télécommande Wii et appuyez sur A, ou déplacez-vous avec la croix directionnelle. - et + tournent les pages. B revient en arrière, 2 ouvre les paramètres et HOME ouvre le menu HOME. Les manettes Classique et GameCube sont aussi compatibles.",
     "You're all set":
         "Vous êtes prêt",
     "Settings has the video, language, online and update options. For more help, see the guide on RiftWii's GitHub page or join the Discord. Settings > Tutorial shows this tour again.":
@@ -3606,15 +3606,15 @@ FR = {
     "Rumble":
         "Vibrations",
     "Wii Remote speaker":
-        "Haut-parleur de la Télécomande Wii",
+        "Haut-parleur de la Télécommande Wii",
     "Region strings fix":
         "Correction des chaînes régionales",
     "Makes the game use 4:3 or widescreen 16:9 whatever the Wii's TV setting says. Not every game can be changed.":
         "Force l'affichage en 4:3 ou 16:9 indépendamment de la configuration système. Non compatible avec tous les jeux.",
     "Off: the Wii Remotes never rumble in this game.":
-        "Désactivé : désactive totalement les vibrations de la Télécomande Wii sur ce jeu.",
+        "Désactivé : désactive totalement les vibrations de la Télécommande Wii sur ce jeu.",
     "Off: no sound from the Wii Remotes' speakers in this game.":
-        "Désactivé : coupe le haut-parleur intégré des Télécomandes Wii pour ce jeu.",
+        "Désactivé : coupe le haut-parleur intégré des Télécommandes Wii pour ce jeu.",
     "For a game from another region (an import): the game sees its own region's country names where it looks for the console's.":
         "Pour les jeux importés d'une autre région : transmet au jeu les identifiants de pays correspondant à sa zone d'origine.",
     "Don't show again":
@@ -3700,7 +3700,7 @@ FR = {
     "Off: GameCube controllers don't rumble in games, in the adapter or the Wii's own ports.":
         "Désactivé : les manettes GameCube ne vibrent pas en jeu, sur l'adaptateur ou les ports de la Wii.",
     "Off: Wii Remotes don't rumble in any game. A game's own page also has Rumble, for that game only.":
-        "Désactivé : les Télécomandes Wii ne vibrent dans aucun jeu. La page d'un jeu a aussi Vibrations, pour ce jeu seulement.",
+        "Désactivé : les Télécommandes Wii ne vibrent dans aucun jeu. La page d'un jeu a aussi Vibrations, pour ce jeu seulement.",
     "Play":
         "Jouer",
     "Play history":
@@ -3750,7 +3750,7 @@ FR = {
     "Which port?":
         "Quel port ?",
     "Wii Remote rumble":
-        "Vibrations Télécomande Wii",
+        "Vibrations Télécommande Wii",
     "settings.txt turns parts of RiftWii off for testing (debug_off = {1}). Clear them unless the RiftWii developers asked you to keep them.":
         "settings.txt désactive des parties de RiftWii pour les tests (debug_off = {1}). Effacez-les sauf si les développeurs de RiftWii vous ont demandé de les garder.",
     "{1} and the new font":
