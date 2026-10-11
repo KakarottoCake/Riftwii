@@ -1027,8 +1027,12 @@ public:
 	// a banner that flashes on a Wii plays smoothly in Dolphin.
 	u64 lastDraw = 0, drawTotalUs = 0, drawMaxUs = 0;
 	unsigned frames = 0, late = 0;
+	// Left playing after Start (g_lingerBanner): its sound is kept going
+	// here, with no channel screen looping any more.
+	bool tendSound = false;
 	void Draw() override {
 		const u64 start = gettime();
+		if (tendSound) riftwii::wii::BannerSoundUpdate();
 		if (lastDraw != 0 && ticks_to_microsecs(start - lastDraw) > 20000) ++late;  // a frame missed
 		lastDraw = start;
 		// Black over Home, and its depth too: whatever Home's icons left
@@ -1098,10 +1102,26 @@ static std::string g_reopenBanner;
 // Favourites list is built again.
 static bool g_favoritesChanged = false;
 
+// The banner Start was pressed on: left on screen, still playing, while
+// the game's page runs its checks out of sight, until the launch screen
+// (or the page, when a check keeps the player there) takes its place.
+// A still picture of it looked as if the menu had frozen.
+static std::unique_ptr<ChannelView> g_lingerBanner;
+
+// With the GUI halted. Its sound stops with it and the menu's music comes back.
+static void DropLingerBanner()
+{
+	if (!g_lingerBanner) return;
+	riftwii::wii::BannerSoundStop();
+	mainWindow->Remove(g_lingerBanner.get());
+	g_lingerBanner.reset();
+}
+
 static ChannelChoice ShowChannel(int& index, int count, const std::string& firstId, const BannerLoader& load,
 	const std::function<std::string(int)>& idOf)
 {
-	ChannelView view;
+	std::unique_ptr<ChannelView> owned(new ChannelView());
+	ChannelView& view = *owned;
 	std::string shownId;
 	// The banner's sound starts a few frames after its banner, with the
 	// menu drawing: decoding it took the longest part of a + or - (and
@@ -1310,10 +1330,20 @@ static ChannelChoice ShowChannel(int& index, int count, const std::string& first
 		}
 		if (choice < 0) ResumeGui();
 	}
-	riftwii::wii::BannerSoundStop();
+	// Start: the banner's sound plays on with it (DropLingerBanner stops it).
+	if (choice != 0) riftwii::wii::BannerSoundStop();
 	mainWindow->Remove(&w);
 	mainWindow->SetState(STATE::DEFAULT);
 	logShown();
+	if (choice == 0) {
+		// Start: the banner plays on by itself, its buttons gone.
+		w.Remove(&view);
+		// One left from before goes quietly: the sound playing is this one's.
+		if (g_lingerBanner) mainWindow->Remove(g_lingerBanner.get());
+		view.tendSound = true;
+		mainWindow->Append(&view);
+		g_lingerBanner = std::move(owned);
+	}
 	return choice == 0 ? ChannelChoice::Start : choice == 2 ? ChannelChoice::Page : ChannelChoice::Back;
 }
 
@@ -3010,8 +3040,9 @@ static int MenuSource(FrontendState& state)
 					ResumeGui();
 					continue;
 				}
-				// Start or Settings: the banner stays up while the game opens.
-				transition::Hold(transition::Kind::Fade);
+				// Settings: the banner's last frame stays up while the game
+				// opens. Start: the banner itself plays on (g_lingerBanner).
+				if (choice == ChannelChoice::Page) transition::Hold(transition::Kind::Fade);
 				fromChannel = true;
 			}
 			std::string error;
@@ -3048,6 +3079,7 @@ static int MenuSource(FrontendState& state)
 				}
 			} else {
 				if (fromChannel) transition::Begin(transition::Kind::Fade);
+				DropLingerBanner();  // Start on a banner: Home comes back from under it
 				g_startOnOpen = false;
 				g_reopenBanner.clear();
 				logf("Home: %s\n", error.c_str());
@@ -4413,6 +4445,12 @@ static int MenuHome(FrontendState& state)
 {
 	int menu = MENU_NONE;
 
+	// Start on a banner, which plays on meanwhile: the packs are read from
+	// the card and the rows worked out with the GUI going (none of it is
+	// on screen), which stopped the banner otherwise. The widgets are made
+	// with it halted, as ever.
+	const bool buildBehindBanner = g_startOnOpen && g_lingerBanner;
+	if (buildBehindBanner) ResumeGui();
 	std::string scanStatus;
 	try {
 		scanStatus = ScanPackages(state);
@@ -4430,6 +4468,7 @@ static int MenuHome(FrontendState& state)
 	std::vector<FlowRow> rows;
 	std::vector<RowRef> refs;
 	BuildGameRows(state, rows, refs);
+	if (buildBehindBanner) HaltGui();
 
 	GameBanner banner(skin::HueFor(state.game_id));
 	const std::string where = SourceWhere(state);
@@ -4483,16 +4522,23 @@ static int MenuHome(FrontendState& state)
 	w.Append(&backBtn.button);
 	w.Append(&startBtn.button);
 	w.Append(&dumpBtn);
-	mainWindow->Append(&w);
 	// Start on the banner screen: this page's Start, pressed for the player,
 	// so its checks and warnings still stand (the page stays when one does).
 	bool fromBanner = false;
+	// Until that Start is handled, the page is built out of sight under the
+	// banner, which plays on: it only shows if a check keeps the player on
+	// it (the status says why); a launch goes from the banner to its own
+	// screen.
+	bool bannerHeld = false;
 	if (g_startOnOpen) {
 		g_startOnOpen = false;
 		fromBanner = true;
+		bannerHeld = g_lingerBanner != nullptr;
 		logf("Game page: Start from the banner screen\n");
 		startBtn.button.SetState(STATE::CLICKED);
 	}
+	if (bannerHeld) w.SetVisible(false);
+	mainWindow->Append(&w);
 	ResumeGui();
 
 	const auto say = [&](const std::string& text) { statusTxt.SetText(text.c_str()); };
@@ -4502,12 +4548,34 @@ static int MenuHome(FrontendState& state)
 		say(error);
 		return false;
 	};
+	// Start's save: with a banner playing on screen, written with the GUI
+	// running, so the banner does not stop (the page is out of sight).
+	const auto saveForStart = [&]() {
+		if (!bannerHeld) return saveOrSay();
+		std::string error;
+		ResumeGui();
+		const bool saved = SaveChoices(state, error);
+		HaltGui();
+		if (!saved) say(error);
+		return saved;
+	};
+	// Start's cIOS check reads the slots from the NAND: with a banner
+	// playing on screen, with the GUI running (it stopped for 0.2 s).
+	const auto ciosCheck = [&]() {
+		if (bannerHeld) ResumeGui();
+		const riftwii::wii::CiosCheck check = riftwii::wii::image_cios_check(riftwii::wii::SelectedSource(state).game,
+			riftwii::wii::SelectedSource(state).cios_slot,
+			!state.model.selections().empty() || state.model.save_mode != "nand");
+		if (bannerHeld) HaltGui();
+		return check;
+	};
 	int shownRow = -1;
 	while(menu == MENU_NONE)
 	{
 		usleep(10000);
 		HaltGui();
 		ClearStaleButtons({&backBtn.button, &startBtn.button});
+		bool startHandled = false;
 
 		if (coverStart && (coverAsked || (!g_coversOff && !riftwii::wii::NetFailed()))) {
 			if (riftwii::wii::CoverFetchGame() == state.game_id || riftwii::wii::StartCoverFetch(state.game_id))
@@ -4691,6 +4759,7 @@ static int MenuHome(FrontendState& state)
 			else backBtn.button.ResetState();
 		} else if (startBtn.Clicked()) {
 			startBtn.button.ResetState();
+			startHandled = true;
 			if (state.game_id.empty()) {
 				say("No game is selected; go back and pick one.");
 			} else if (!TurnOffEmptyPacks(state)) {
@@ -4702,10 +4771,7 @@ static int MenuHome(FrontendState& state)
 			} else if (state.use_sd && !state.sd_catalog.cios_note.empty()) {
 				say(FlatCapped(state.sd_catalog.cios_note, 150));
 			} else if (riftwii::wii::CiosCheck cios; (state.use_usb || state.use_sd) &&
-				   (cios = riftwii::wii::image_cios_check(riftwii::wii::SelectedSource(state).game,
-					    riftwii::wii::SelectedSource(state).cios_slot,
-					    !state.model.selections().empty() || state.model.save_mode != "nand")).verdict !=
-					   riftwii::wii::CiosCheck::Verdict::Ok &&
+				   (cios = ciosCheck()).verdict != riftwii::wii::CiosCheck::Verdict::Ok &&
 				   (cios.verdict == riftwii::wii::CiosCheck::Verdict::Refused || !g_oldCiosReminded)) {
 				// The cIOS the game would start on: refused while the menu is
 				// up, or d2x v11's earlier betas reminded once, then started.
@@ -4735,7 +4801,7 @@ static int MenuHome(FrontendState& state)
 				} else {
 					ShowPopup(tr("Before you play"), LaunchNote(state) + " " + tr("Press Start again to play."), tr("OK"));
 				}
-			} else if (!saveOrSay()) {
+			} else if (!saveForStart()) {
 				// the status shows why
 			} else if (!riftwii::needs_launch_pipeline(!state.model.selections().empty(), state.model.save_mode)) {
 				menu = MENU_BOOT;  // no resident work: boot the game as it is
@@ -4764,16 +4830,34 @@ static int MenuHome(FrontendState& state)
 		} else if (dumpBtn.GetState() == STATE::CLICKED) {
 			menu = MENU_DUMP;
 		}
+		if (bannerHeld && startHandled) {
+			// Start handled: staying on the page, it comes in now (the
+			// launch screen takes the banner's place itself; Play on the
+			// "Before you play" popup pressed Start again).
+			if (menu != MENU_NONE) {
+				bannerHeld = false;
+			} else if (startBtn.button.GetState() != STATE::CLICKED) {
+				bannerHeld = false;
+				DropLingerBanner();
+				w.SetVisible(true);
+			}
+		}
 		ResumeGui();
 	}
 
 	HaltGui();
 	mainWindow->Remove(&w);
+	if (menu != MENU_LAUNCH && menu != MENU_BOOT) DropLingerBanner();  // the launch screen drops it otherwise
 	// Cheats and video settings go with every launch, mods or not.
 	if (menu == MENU_LAUNCH || menu == MENU_BOOT) {
+		// The page is gone: a banner still on screen plays on meanwhile
+		// (cheats and settings read, the play recorded, all on the card).
+		const bool playing = g_lingerBanner != nullptr;
+		if (playing) ResumeGui();
 		riftwii::wii::PrepareLaunchExtras(state);
 		riftwii::wii::RecordPlay(state.game_id);
 		riftwii::wii::TagGame(state.game_id, true);
+		if (playing) HaltGui();
 	}
 	return menu;
 }
@@ -5915,6 +5999,7 @@ static void ShowLaunchFrame(const FrontendState& state, int action)
 	w.Append(&card);
 	w.Append(&footTxt);
 	mainWindow->Append(&w);
+	DropLingerBanner();  // a banner Start was pressed on gives way to this
 	ResumeGui();
 	// Faded in all the way first: this frame stays on screen.
 	transition::Settle();
