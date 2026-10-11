@@ -463,7 +463,7 @@ msgid "The menu runs under the Homebrew Channel's IOS (the default)."
 msgstr "Le menu s'exécute sous l'IOS de la Chaîne Homebrew (par défaut)."
 
 msgid "The menu and every game run under cIOS {1}, so a cIOS with fakemote makes USB DS3/DS4 pads work as Wii Remotes. USB drives in the menu need a base-58 cIOS."
-msgstr "Le menu et chaque jeu tournent sous le cIOS {1}. Un cIOS avec fakemote permet d'utiliser des manettes DS3/DS4 USB comme Wiimotes. Les stockages USB nécessitent un cIOS base-58."
+msgstr "Le menu et chaque jeu tournent sous le cIOS {1}. Un cIOS avec fakemote permet d'utiliser des manettes DS3/DS4 USB comme Télécomandes Wii. Les stockages USB nécessitent un cIOS base-58."
 
 msgid "Takes effect the next time RiftWii starts."
 msgstr "Prendra effet au prochain démarrage de RiftWii."
@@ -529,7 +529,7 @@ msgid "Buttons"
 msgstr "Boutons"
 
 msgid "Point with the Wii Remote and press A, or move with the D-pad; in the games list, - and + turn the pages. B goes back, 2 opens Settings and HOME opens the HOME Menu. The Classic Controller and GameCube controllers work too, with the same buttons."
-msgstr "Pointez avec la Wiimote et appuyez sur A, ou déplacez-vous avec la croix directionnelle. - et + tournent les pages. B revient en arrière, 2 ouvre les paramètres et HOME ouvre le menu HOME. Les manettes Classique et GameCube sont aussi compatibles."
+msgstr "Pointez avec la Télécomande Wii et appuyez sur A, ou déplacez-vous avec la croix directionnelle. - et + tournent les pages. B revient en arrière, 2 ouvre les paramètres et HOME ouvre le menu HOME. Les manettes Classique et GameCube sont aussi compatibles."
 
 msgid "You're all set"
 msgstr "Vous êtes prêt"
@@ -616,7 +616,7 @@ msgid "Shows live what the controllers in the adapter are pressing."
 msgstr "Affiche en direct les entrées des manettes branchées sur l'adaptateur."
 
 msgid "Reads the SD card and the USB drive again."
-msgstr "Relaance la lecture de la carte SD et du stockage USB."
+msgstr "Relance la lecture de la carte SD et du stockage USB."
 
 msgid "No d2x cIOS was found in slots 248 to 252, so the menu runs under IOS 58. Install d2x to play games from SD or USB."
 msgstr "Aucun cIOS d2x trouvé dans les slots 248 à 252, le menu tourne sous l'IOS 58. Installez d2x pour jouer depuis la SD ou l'USB."
@@ -1285,7 +1285,7 @@ msgid "Rumble"
 msgstr "Vibrations"
 
 msgid "Wii Remote speaker"
-msgstr "Haut-parleur de la Wiimote"
+msgstr "Haut-parleur de la Télécomande Wii"
 
 msgid "Region strings fix"
 msgstr "Correction des chaînes régionales"
@@ -1294,10 +1294,10 @@ msgid "Makes the game use 4:3 or widescreen 16:9 whatever the Wii's TV setting s
 msgstr "Force l'affichage en 4:3 ou 16:9 indépendamment de la configuration système. Non compatible avec tous les jeux."
 
 msgid "Off: the Wii Remotes never rumble in this game."
-msgstr "Désactivé : désactive totalement les vibrations de la Wiimote sur ce jeu."
+msgstr "Désactivé : désactive totalement les vibrations de la Télécomande Wii sur ce jeu."
 
 msgid "Off: no sound from the Wii Remotes' speakers in this game."
-msgstr "Désactivé : coupe le haut-parleur intégré des Wiimotes pour ce jeu."
+msgstr "Désactivé : coupe le haut-parleur intégré des Télécomandes Wii pour ce jeu."
 
 msgid "For a game from another region (an import): the game sees its own region's country names where it looks for the console's."
 msgstr "Pour les jeux importés d'une autre région : transmet au jeu les identifiants de pays correspondant à sa zone d'origine."
@@ -1519,7 +1519,7 @@ msgid "Off: GameCube controllers don't rumble in games, in the adapter or the Wi
 msgstr "Désactivé : les manettes GameCube ne vibrent pas en jeu, sur l'adaptateur ou les ports de la Wii."
 
 msgid "Off: Wii Remotes don't rumble in any game. A game's own page also has Rumble, for that game only."
-msgstr "Désactivé : les Wiimotes ne vibrent dans aucun jeu. La page d'un jeu a aussi Vibrations, pour ce jeu seulement."
+msgstr "Désactivé : les Télécomandes Wii ne vibrent dans aucun jeu. La page d'un jeu a aussi Vibrations, pour ce jeu seulement."
 
 msgid "Play"
 msgstr "Jouer"
@@ -1594,7 +1594,7 @@ msgid "Which port?"
 msgstr "Quel port ?"
 
 msgid "Wii Remote rumble"
-msgstr "Vibrations Wiimote"
+msgstr "Vibrations Télécomande Wii"
 
 msgid "settings.txt turns parts of RiftWii off for testing (debug_off = {1}). Clear them unless the RiftWii developers asked you to keep them."
 msgstr "settings.txt désactive des parties de RiftWii pour les tests (debug_off = {1}). Effacez-les sauf si les développeurs de RiftWii vous ont demandé de les garder."
@@ -1624,10 +1624,10 @@ msgid "The build has too many files to make an image of here (out of memory)."
 msgstr "La build a trop de fichiers pour en faire une image ici (mémoire insuffisante)."
 
 msgid "Disable clock on Home screen"
-msgstr "Désactiver l'horloge de l'accueil"
+msgstr "Désactiver l'horloge du Menu Home"
 
 msgid "Turns off the clock on Home."
-msgstr "Désactive l'horloge de l'accueil."
+msgstr "Désactive l'horloge sur le Menu Home."
 
 msgid "Nothing o'clock. The clock stays."
 msgstr "Il est rien heure. L'horloge reste."
