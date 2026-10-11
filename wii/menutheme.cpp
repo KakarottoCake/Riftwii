@@ -50,6 +50,15 @@ void LoadMenuTheme() {
     g_dir.clear();
     const std::string folder = Settings().theme;
     if (folder.empty() || folder == "default") return;
+    if (folder == kTimeThemeFolder) {
+        // Built in; its song and its soyjak come in themes/TheTime (no
+        // theme.ini there, so the Theme row never lists it).
+        g_theme = time_theme();
+        const std::string dir = std::string(kThemesDir) + "TheTime/";
+        if (Exists(dir)) g_dir = dir;
+        logf("Theme: %s (built in%s)\n", g_theme.name.c_str(), g_dir.empty() ? ", no themes/TheTime" : "");
+        return;
+    }
     const std::string dir = std::string(kThemesDir) + folder + "/";
     std::string text;
     if (!ReadFile(dir + "theme.ini", kMaxIni, text)) {

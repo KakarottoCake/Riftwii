@@ -117,6 +117,35 @@ Tex Upload(const Canvas& c) {
     return t;
 }
 
+// The clock-dial theme's soyjak (themes/TheTime/soyjak.png, by
+// soyjak.party, used with their blessing), at the wall's right edge,
+// a quarter bigger, his feet behind the bar.
+void AddSoyjak(Canvas& c) {
+    constexpr int kW = 192, kH = 304;
+    std::vector<std::uint8_t> px;
+    if (!LoadThemeImage("soyjak", kW, kH, px)) return;
+    const float scale = 1.25f;
+    const int dw = static_cast<int>(kW * scale), dh = static_cast<int>(kH * scale);
+    // Leaning in from the right edge, clear of the shelf's boxes.
+    const int ox = c.width() - dw + 96, oy = 480 - dh + 6;
+    for (int y = 0; y < dh; ++y) {
+        const int ty = oy + y;
+        if (ty < 0 || ty >= c.height()) continue;
+        const int sy = std::min(kH - 1, static_cast<int>(y / scale));
+        for (int x = 0; x < dw; ++x) {
+            const int tx = ox + x;
+            if (tx < 0 || tx >= c.width()) continue;
+            const std::uint8_t* s = &px[(static_cast<std::size_t>(sy) * kW + std::min(kW - 1, static_cast<int>(x / scale))) * 4];
+            const int a = s[3];
+            if (a == 0) continue;
+            const Rgba d = c.at(tx, ty);
+            c.put(tx, ty, Rgba{static_cast<std::uint8_t>((s[0] * a + d.r * (255 - a)) / 255),
+                               static_cast<std::uint8_t>((s[1] * a + d.g * (255 - a)) / 255),
+                               static_cast<std::uint8_t>((s[2] * a + d.b * (255 - a)) / 255), 255});
+        }
+    }
+}
+
 // The theme's <name>.png, else RiftWii's own picture in the theme's
 // colours (src/skinpaint.cpp). The theme's picture must be the painted
 // one's size (riftwii/theme.hpp lists them). The backdrop has no picture
@@ -139,9 +168,13 @@ Tex Pick(const ThemeImage& im) {
         std::vector<std::uint8_t> own;
         if (LoadThemeImage("bar", 640, 124, own)) return Tex();
     }
-    if (std::strncmp(im.name, "background", 10) == 0) return Tex();
+    // The clock-dial theme paints its own (only the two: the others fall back to them).
+    if (std::strncmp(im.name, "background", 10) == 0 &&
+        !(MenuTheme().clock_dials && (std::strcmp(im.name, "background") == 0 || std::strcmp(im.name, "background_wide") == 0)))
+        return Tex();
     Canvas c(0, 0);
     if (!paint_theme_image(im.name, MenuTheme(), c)) return Tex();
+    if (MenuTheme().clock_dials && std::strncmp(im.name, "background", 10) == 0) AddSoyjak(c);
     return Upload(c);
 }
 
@@ -289,7 +322,8 @@ void EnsureBackgrounds() {
             if (std::strcmp(im.name, name) == 0) *tex = Pick(im);
     };
     for (Wall& w : walls) {
-        if (wide && ThemeImageExists(w.wide_name)) {
+        const bool paintsWide = MenuTheme().clock_dials && std::strcmp(w.wide_name, "background_wide") == 0;
+        if (wide && (ThemeImageExists(w.wide_name) || paintsWide)) {
             if (!w.tried_wide) load(w.wide_name, w.wide_tex);
             w.tried_wide = true;
         } else {

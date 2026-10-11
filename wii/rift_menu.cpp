@@ -2475,7 +2475,7 @@ static bool TakeUpdateCheck()
 // with figures is shown as it is.
 class LcdClock : public GuiElement {
 public:
-	LcdClock(int centreX, int top, int height) : cx(centreX), top(top), h(height), rest("", height / 2 + 2, skin::kClock) {
+	LcdClock(int centreX, int top, int height) : cx(centreX), top(top), h(height), rest("", height * 2 / 5 + 1, skin::kClock) {
 		rest.SetParent(this);
 		rest.SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
 	}
@@ -2495,8 +2495,8 @@ public:
 		float width = 0;
 		for (char c : figures) width += c == ':' ? colonW : digitW;
 		const int restW = rest.GetTextWidth();
-		// The figures are centred, as on the Wii Menu: AM or PM hangs
-		// off to their right.
+		// The figures are centred, as on the Wii Menu: AM or PM, small,
+		// at their top right (clear of the bar's edge below).
 		float x = cx - width / 2;
 		const bool colonOn = (time(nullptr) & 1) == 0;  // blinks, as the Wii Menu's
 		for (char c : figures) {
@@ -2513,7 +2513,7 @@ public:
 			x += digitW;
 		}
 		if (restW > 0) {
-			rest.SetPosition(static_cast<int>(x + gap), top + h - (h / 2 + 2) - 2);
+			rest.SetPosition(static_cast<int>(x + gap * 0.6f), top - 1);
 			rest.Draw();
 		}
 	}
@@ -2629,11 +2629,14 @@ static int MenuSource(FrontendState& state)
 	if (dip) {
 		// Clear of the dip (58% of the bar, which is 856 wide on a widescreen menu).
 		const int dipLeft = 320 - static_cast<int>(0.29f * (wide > 0 ? 856 : 640));
-		Place(viewTxt, 16 - wide, 354);
-		viewTxt.SetMaxWidth(dipLeft - 10 - (16 - wide));  // one line, clear of the round button below
-		pageTxt.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
-		pageTxt.SetPosition(-(16 - wide), 354);
-		pageTxt.SetMaxWidth(dipLeft - 10 - (16 - wide));
+		// Centred over the round buttons under them (their centres x 64 and 576).
+		const int sideW = 2 * std::min(64 - 8, dipLeft - 10 - 64);
+		viewTxt.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
+		viewTxt.SetPosition(64 - 320 - wide, 354);
+		viewTxt.SetMaxWidth(sideW);  // one line, clear of the dip
+		pageTxt.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
+		pageTxt.SetPosition(576 - 320 + wide, 354);
+		pageTxt.SetMaxWidth(sideW);
 	} else {
 		Place(pageTxt, 40 - wide, 300);
 		// The view in use, always on screen (the status line below gives way to notices).
@@ -5002,11 +5005,12 @@ static int MenuSettings(FrontendState& state)
 	const std::vector<riftwii::wii::ThemeEntry> themes = riftwii::wii::ListMenuThemes();
 	const auto themeName = [&](const std::string& folder) -> std::string {
 		if (folder == "default") return tr("Default");
+		if (folder == riftwii::kTimeThemeFolder) return std::string("Would You Look at the Time");
 		for (const riftwii::wii::ThemeEntry& t : themes)
 			if (t.folder == folder) return t.name;
 		return folder;
 	};
-	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kServer, kHomeTiles, kHomeSource, kHomeSort, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kClockFormat, kFont, kSounds, kMusic, kReturnTo, kShots, kOnline, kNames, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kIos, kNet, kResync,
+	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kServer, kHomeTiles, kHomeSource, kHomeSort, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kClockFormat, kNoClock, kFont, kSounds, kMusic, kReturnTo, kShots, kOnline, kNames, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kIos, kNet, kResync,
 		kRescan, kChannel, kUpdate, kReport, kTests, kWiiChannel, kUsbHelp, kWhatsNew, kTutorial, kCredits, kExit, kNone, kHeading };
 	// The RiftWii channel on the Wii Menu (wii/channel.hpp).
 	unsigned channelVersion = 0;
@@ -5086,6 +5090,7 @@ static int MenuSettings(FrontendState& state)
 		option(tr("Theme"), themeName(settings.theme), settings.theme != "default", kTheme);
 		option(tr("Clock"), settings.clock == "12" ? tr("12-hour") : settings.clock == "24" ? tr("24-hour") : tr("Automatic"),
 			settings.clock != "auto", kClockFormat);
+		option(tr("Disable clock on Home screen"), tr("Off"), false, kNoClock, FlowRow::Kind::Toggle);
 		option(tr("Menu font"), settings.menu_font == "wii" ? tr("Wii Menu") : "RiftWii", settings.menu_font == "wii", kFont);
 		option(tr("Menu sounds"), MenuSoundsName(settings.menu_sounds), settings.menu_sounds != "off", kSounds);
 		option(tr("Menu music"), settings.menu_music == "off" ? tr("Off") : tr("On"), settings.menu_music != "off",
@@ -5255,6 +5260,7 @@ static int MenuSettings(FrontendState& state)
 			case kWidescreen: return tr("On a 16:9 TV the menu is drawn narrower, so covers and pictures keep their shape. Automatic follows the Wii's own TV setting.");
 			case kScreenSize: return tr("Makes the menu smaller on screen, so nothing is cut off at the TV's edges. Lower it until the whole menu shows.");
 			case kTheme: return tr("The menu's colours and pictures. Themes are folders in sd:/riftwii/themes (docs/THEMES.md on GitHub).");
+			case kNoClock: return tr("Turns off the clock on Home.");
 			case kClockFormat: return tr("How Home's clock writes the time: 12-hour (with AM and PM) or 24-hour. Automatic writes it as the menu's language does.");
 			case kFont: return tr("The letters the menu is written in: RiftWii's own, or the Wii Menu's, read from this Wii.");
 			case kSounds: return tr("How loud the menu's clicks are. Quiet softens the tick the pointer makes moving onto something.");
@@ -5518,6 +5524,30 @@ static int MenuSettings(FrontendState& state)
 					settings.clock = kClocks[((at % 3) + 3 + direction) % 3];
 					saveAndNote(tr("How Home's clock writes the time: 12-hour (with AM and PM) or 24-hour. Automatic writes it as the menu's language does."));
 					rebuild();
+					break;
+				}
+				case kNoClock: {
+					// It does not. Clocks, everywhere.
+					if (settings.theme == riftwii::kTimeThemeFolder) {
+						note("Would you look at the time.");
+						break;
+					}
+					settings.theme = riftwii::kTimeThemeFolder;
+					const std::string error = saveSettings();
+					rebuild();
+					if (!error.empty()) {
+						note(error);
+						break;
+					}
+					logf("Settings: someone tried to turn the clock off\n");
+					if (ShowPopup("Would you look at the time", "Nothing o'clock. The clock stays.",
+						    tr("Restart"), tr("Later")) == 0) {
+						riftwii::wii::WarmRestart(riftwii::wii::RestartKind::Theme,
+							tr("Theme: {1}", {themeName(settings.theme)}));
+						note(tr("RiftWii could not restart. Start it again from the Homebrew Channel."));
+					} else {
+						note(tr("The menu restarts to show it when you leave Settings."));
+					}
 					break;
 				}
 				case kFont: {

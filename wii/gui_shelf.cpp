@@ -26,6 +26,7 @@
 #include "gameextras.hpp"
 #include "gui_gamegrid.hpp"
 #include "i18n.hpp"
+#include "menutheme.hpp"
 #include "riftwii/casecolour.hpp"
 #include "riftwii/coverart.hpp"
 #include "skin.hpp"
@@ -406,6 +407,7 @@ void UpdateBackdrop(const std::string& id, bool still) {
 }
 
 void DrawBackdrop(int alpha) {
+    if (riftwii::wii::MenuTheme().clock_dials) return;  // the clock faces are the point
     f32 vx, vy, vw, vh;
     Menu_VisibleArea(&vx, &vy, &vw, &vh);
     // At z = -kEye a world unit is half a screen pixel.

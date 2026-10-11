@@ -22,7 +22,7 @@ struct Painter {
           bar(ToRgba(t.colors.bar)), banner_stripe(ToRgba(t.colors.banner_stripe)),
           backdrop(ToRgba(t.colors.backdrop)), backdrop_stripe(ToRgba(t.colors.backdrop_stripe)),
           shelf(ToRgba(t.colors.shelf)), shelf_edge(ToRgba(t.colors.shelf_edge)), corners(t.corners),
-          stripes(t.stripes), grain(t.shelf_grain), gloss(t.gloss), bump(t.bar_bump), ios6(t.home_ios6), clock(ToRgba(t.colors.clock)) {
+          stripes(t.stripes), grain(t.shelf_grain), dials(t.clock_dials), gloss(t.gloss), bump(t.bar_bump), ios6(t.home_ios6), clock(ToRgba(t.colors.clock)) {
         const ThemeColor* p[4] = {&t.colors.pointer1, &t.colors.pointer2, &t.colors.pointer3, &t.colors.pointer4};
         for (int i = 0; i < 4; ++i) pointer[i] = ToRgba(*p[i]);
     }
@@ -30,7 +30,7 @@ struct Painter {
     Rgba card, edge, edge_strong, shadow, accent, glow, glyph, chip_on, chip_off, chip_off_edge, switch_off, bar,
         banner_stripe, backdrop, backdrop_stripe, pointer[4], shelf, shelf_edge;
     float corners;
-    bool stripes, grain, gloss, bump, ios6;
+    bool stripes, grain, dials, gloss, bump, ios6;
     Rgba clock;
 
     // A glossy theme's shine: the top half of a shape, white fading down.
@@ -607,9 +607,114 @@ struct Painter {
         return c;
     }
 
+    // Words in chunky 5x7 capitals (only the letters the dials need),
+    // `cell` pixels to a dot, centred on (cx, cy), turned by `angle`.
+    static void BlockText(Canvas& c, const char* text, float cx, float cy, float cell, float angle, Rgba color) {
+        struct Glyph {
+            char ch;
+            const char* rows[7];
+        };
+        static const Glyph kGlyphs[] = {
+            {'N', {"X...X", "XX..X", "X.X.X", "X.X.X", "X..XX", "X...X", "X...X"}},
+            {'O', {".XXX.", "X...X", "X...X", "X...X", "X...X", "X...X", ".XXX."}},
+            {'T', {"XXXXX", "..X..", "..X..", "..X..", "..X..", "..X..", "..X.."}},
+            {'H', {"X...X", "X...X", "X...X", "XXXXX", "X...X", "X...X", "X...X"}},
+            {'I', {"XXX", ".X.", ".X.", ".X.", ".X.", ".X.", "XXX"}},
+            {'G', {".XXX.", "X...X", "X....", "X.XXX", "X...X", "X...X", ".XXX."}},
+        };
+        const auto find = [](char ch) -> const Glyph* {
+            for (const Glyph& g : kGlyphs)
+                if (g.ch == ch) return &g;
+            return nullptr;
+        };
+        float width = 0;
+        for (const char* p = text; *p; ++p)
+            if (const Glyph* g = find(*p)) width += (std::strlen(g->rows[0]) + 1) * cell;
+        width -= cell;
+        const float ca = std::cos(angle), sa = std::sin(angle);
+        const auto at = [&](float lx, float ly) {
+            return std::pair<float, float>{cx + lx * ca - ly * sa, cy + lx * sa + ly * ca};
+        };
+        float x = -width / 2;
+        for (const char* p = text; *p; ++p) {
+            const Glyph* g = find(*p);
+            if (!g) continue;
+            const int gw = static_cast<int>(std::strlen(g->rows[0]));
+            for (int r = 0; r < 7; ++r)
+                for (int k = 0; k < gw; ++k) {
+                    if (g->rows[r][k] != 'X') continue;
+                    const float lx = x + k * cell, ly = (r - 3.5f) * cell, e = cell + 0.6f;
+                    c.polygon({at(lx, ly), at(lx + e, ly), at(lx + e, ly + e), at(lx, ly + e)}, color);
+                }
+            x += (gw + 1) * cell;
+        }
+    }
+
+    // The wall for Settings' "Disable clock": big overlapping clock faces
+    // in navy, lavender, sage and blue, each with its ticks, a dark rim
+    // and NOTHING where its hours would be. `w` 640 or 856 (the faces
+    // stay where they are on a 4:3 menu, the wide one has more of them).
+    Canvas Dials(int w) const {
+        Canvas c(w, 480);
+        const float dx = (w - 640) / 2.0f;
+        // A soft navy, darker towards the corners.
+        for (int y = 0; y < 480; ++y)
+            for (int x = 0; x < w; ++x) {
+                const float u = (x - w / 2.0f) / (w / 2.0f), v = (y - 240) / 240.0f;
+                const float k = 1.0f - 0.28f * std::min(1.0f, (u * u + v * v) * 0.6f);
+                c.put(x, y, Rgba{static_cast<std::uint8_t>(29 * k), static_cast<std::uint8_t>(42 * k),
+                                 static_cast<std::uint8_t>(82 * k), 255});
+            }
+        const Rgba inkDark{24, 30, 58, 255};
+        struct Face {
+            float x, y, r;
+            Rgba fill;
+            float turn;     // where its first NOTHING sits
+            bool hands;
+        };
+        const Face faces[] = {
+            {-60 + dx * 0.0f, 410, 190, Rgba{74, 134, 208, 255}, 2.2f, false},  // blue, bottom left
+            {640 + dx * 2.0f + 30, 150, 175, Rgba{207, 227, 238, 255}, 3.4f, false},  // pale blue, right
+            {90 - dx * 0.4f, 60, 205, Rgba{126, 154, 138, 255}, 0.9f, false},  // sage, top left
+            {360 + dx, -30, 215, Rgba{201, 205, 230, 255}, 1.9f, true},  // lavender, top, with hands
+        };
+        for (const Face& f : faces) {
+            // Its shadow on the navy, then the face, then the rim.
+            c.circle(f.x + 6, f.y + 9, f.r + 4, Rgba{0, 0, 0, 70});
+            c.circle(f.x, f.y, f.r, f.fill);
+            c.ring(f.x, f.y, f.r - 1, 5, inkDark);
+            for (int t = 0; t < 60; ++t) {
+                const float a = t * (6.2831853f / 60);
+                const bool major = t % 5 == 0;
+                const float r0 = f.r - (major ? 34 : 20), r1 = f.r - 8;
+                c.line(f.x + r0 * std::cos(a), f.y + r0 * std::sin(a), f.x + r1 * std::cos(a), f.y + r1 * std::sin(a),
+                       major ? 5.0f : 2.4f, inkDark);
+            }
+            // NOTHING at three of its hours, reading along the radius.
+            for (int n = 0; n < 3; ++n) {
+                const float a = f.turn + n * 2.0943951f;
+                const float rr = f.r - 92;
+                const float cx = f.x + rr * std::cos(a), cy = f.y + rr * std::sin(a);
+                // Upright enough to read: turned along the radius, flipped on the left.
+                float ang = a;
+                if (std::cos(a) < 0) ang += 3.14159265f;
+                BlockText(c, "NOTHING", cx, cy, 3.4f, ang, inkDark);
+            }
+            if (f.hands) {
+                const float hx = f.x - 60, hy = f.y + 70;  // its hub, off centre as the faces overlap
+                c.line(hx, hy, hx + 110, hy - 42, 7, inkDark);
+                c.line(hx, hy, hx - 70, hy - 50, 9, inkDark);
+                c.circle(hx, hy, 19, inkDark);
+                c.circle(hx - 5, hy - 6, 5, Rgba{255, 255, 255, 60});
+            }
+        }
+        return c;
+    }
+
     // What the menu draws behind every screen without a background.png:
     // the backdrop colour, with a 2-pixel stripe every 4 rows.
     Canvas Background(int w = 640) const {
+        if (dials) return Dials(w);
         Canvas c(w, 480);
         c.fill(backdrop);
         if (stripes) {

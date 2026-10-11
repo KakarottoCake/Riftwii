@@ -95,6 +95,26 @@ Theme default_theme() {
     return Theme{};
 }
 
+Theme time_theme() {
+    static const char* const kIni =
+        "[theme]\nname = Would You Look at the Time\nauthor = RiftWii\n"
+        "[backdrop]\nstripes = no\n"
+        "[colors]\n"
+        "ink = #F2F3FA\nink_soft = #C9CDE6\nink_dim = #9AA3C8\nclock = #FFFFFF\n"
+        "accent = #5B95E0\naccent_ink = #A9C8F2\ntext_on_accent = #FFFFFF\nwarn = #E55656\n"
+        "card = #22305C\ncard_edge = #33427A\ncard_edge_strong = #46578F\nshadow = #0008206E\n"
+        "glow = #5B95E055\nglyph = #C9CDE6\n"
+        "chip_on = #2B4C86\nchip_off = #263562\nchip_off_edge = #384A80\nswitch_off = #34446F\n"
+        "bar = #18224A\nbackdrop = #1D2A52\nbackdrop_stripe = #1D2A52\nbanner_stripe = #FFFFFF14\n"
+        "banner_tint = #1D2A5240\n"
+        "divider = #33427A\nscroll_track = #1A2549\nscroll_thumb = #5A6CA6\nbadge = #2C3B6C\n"
+        "shelf = #C9CDE6\nshelf_edge = #8A93BE\n";
+    std::vector<std::string> notes;
+    Theme t = parse_theme(kIni, notes);
+    t.clock_dials = true;
+    return t;
+}
+
 bool parse_theme_color(const std::string& text, ThemeColor& out) {
     std::size_t offset = 0;
     if (!text.empty() && text[0] == '#') {

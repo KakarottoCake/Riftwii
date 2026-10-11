@@ -85,10 +85,18 @@ struct Theme {
     // the clock sits in the dip) or "bump" (it rises there, the clock above).
     bool bar_bump = false;
     bool home_ios6 = false;  // [shape] home_menu = ios6: the HOME Menu in iOS 6's manner, not the Wii's
+    // Not from theme.ini: the wall is big clock faces that read NOTHING
+    // (time_theme(), Settings' "Disable clock" row).
+    bool clock_dials = false;
 };
 
 // The default look (no theme), as theme.ini would give it.
 Theme default_theme();
+
+// Settings' "Disable clock on Home screen" row does not: it puts on this
+// one, built in, kept in settings.txt as theme = kTimeThemeFolder.
+inline constexpr const char* kTimeThemeFolder = "*time";
+Theme time_theme();
 
 // "#RRGGBB", "#RRGGBBAA", "RRGGBB" or "RRGGBBAA", any case.
 bool parse_theme_color(const std::string& text, ThemeColor& out);

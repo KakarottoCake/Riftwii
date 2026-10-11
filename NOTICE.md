@@ -53,6 +53,12 @@ for two lists derived from GameTDB's database (https://www.gametdb.com,
 page's Online server row, and the games whose case is not white,
 `src/casecolours.inc`, made by `tools/make_case_colours.py` for the Home
 shelf's boxes.
+The "Would You Look at the Time" theme (Settings' "Disable clock on Home
+screen" row) shows a soyjak cut from a soyjak.party image,
+`themes/TheTime/soyjak.png` (cut out by `tools/timesong/cutout.py`), used
+with soyjak.party's permission; it is not under the GPL and is not
+RiftWii's. Its song, `themes/TheTime/music.ogg`, is RiftWii's own, made
+by `tools/timesong/timesong.py` (GPL-3.0-or-later like the rest).
 RiftWii contains no Nintendo keys or assets.
 
 Build-time dependencies that are not vendored: devkitPPC/libogc, libfat,

@@ -81,6 +81,8 @@ const char* const kCredits[] = {
     "",
     "Menu music: \"Insect Factory (Wii-style music)\" by Zane Little (CC0).",
     "",
+    "The soyjak in one theme you may find: from soyjak.party, used with their permission.",
+    "",
     "Game names and covers from GameTDB (gametdb.com). Cheat codes from the GeckoCodes archive kept by "
     "RiiConnect24 (codes.rc24.xyz).",
     "",
