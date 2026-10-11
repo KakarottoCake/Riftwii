@@ -1027,8 +1027,12 @@ public:
 	// a banner that flashes on a Wii plays smoothly in Dolphin.
 	u64 lastDraw = 0, drawTotalUs = 0, drawMaxUs = 0;
 	unsigned frames = 0, late = 0;
+	// Left playing after Start (g_lingerBanner): its sound is kept going
+	// here, with no channel screen looping any more.
+	bool tendSound = false;
 	void Draw() override {
 		const u64 start = gettime();
+		if (tendSound) riftwii::wii::BannerSoundUpdate();
 		if (lastDraw != 0 && ticks_to_microsecs(start - lastDraw) > 20000) ++late;  // a frame missed
 		lastDraw = start;
 		// Black over Home, and its depth too: whatever Home's icons left
@@ -1104,10 +1108,11 @@ static bool g_favoritesChanged = false;
 // A still picture of it looked as if the menu had frozen.
 static std::unique_ptr<ChannelView> g_lingerBanner;
 
-// With the GUI halted.
+// With the GUI halted. Its sound stops with it and the menu's music comes back.
 static void DropLingerBanner()
 {
 	if (!g_lingerBanner) return;
+	riftwii::wii::BannerSoundStop();
 	mainWindow->Remove(g_lingerBanner.get());
 	g_lingerBanner.reset();
 }
@@ -1325,14 +1330,17 @@ static ChannelChoice ShowChannel(int& index, int count, const std::string& first
 		}
 		if (choice < 0) ResumeGui();
 	}
-	riftwii::wii::BannerSoundStop();
+	// Start: the banner's sound plays on with it (DropLingerBanner stops it).
+	if (choice != 0) riftwii::wii::BannerSoundStop();
 	mainWindow->Remove(&w);
 	mainWindow->SetState(STATE::DEFAULT);
 	logShown();
 	if (choice == 0) {
 		// Start: the banner plays on by itself, its buttons gone.
 		w.Remove(&view);
-		DropLingerBanner();
+		// One left from before goes quietly: the sound playing is this one's.
+		if (g_lingerBanner) mainWindow->Remove(g_lingerBanner.get());
+		view.tendSound = true;
 		mainWindow->Append(&view);
 		g_lingerBanner = std::move(owned);
 	}
