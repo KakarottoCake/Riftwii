@@ -2848,14 +2848,14 @@ static int MenuSource(FrontendState& state)
 		ScanDrives(state, statusTxt);  // the GameCube adapter may start from here on
 		// An old channel: nothing of Home until it is updated (the popup
 		// returns with the GUI halted, as this function's end has it).
-		// After the scan, so an adapter's pads can answer it too.
-		w.SetVisible(false);
+		// After the scan, so an adapter's pads can answer it too. Home is
+		// taken off the screen, not hidden: GuiWindow::SetVisible(true)
+		// shows every element again, the ones Home keeps hidden too (the
+		// plain clock under the Wii look's LCD one).
+		mainWindow->Remove(&w);
 		menu = RequireChannelUpdate();
-		w.SetVisible(true);
-		if (menu != MENU_NONE) {
-			mainWindow->Remove(&w);
-			return menu;
-		}
+		if (menu != MENU_NONE) return menu;
+		mainWindow->Append(&w);
 		ShowWhatsNewOnce(ShowTutorialOnce());
 		SuggestDotClean();
 		if (OfferChannelOnce()) menu = MENU_CHANNEL;
@@ -4589,8 +4589,10 @@ static int MenuHome(FrontendState& state)
 		logf("Game page: Start from the banner screen\n");
 		startBtn.button.SetState(STATE::CLICKED);
 	}
-	if (bannerHeld) w.SetVisible(false);
-	mainWindow->Append(&w);
+	// Under a banner still playing, the page stays off the screen until
+	// Start is handled. Off, not hidden: GuiWindow::SetVisible(true) would
+	// show every element again, the ones the page keeps hidden too.
+	if (!bannerHeld) mainWindow->Append(&w);
 	ResumeGui();
 
 	const auto say = [&](const std::string& text) { statusTxt.SetText(text.c_str()); };
@@ -4891,7 +4893,7 @@ static int MenuHome(FrontendState& state)
 			} else if (startBtn.button.GetState() != STATE::CLICKED) {
 				bannerHeld = false;
 				DropLingerBanner();
-				w.SetVisible(true);
+				mainWindow->Append(&w);
 			}
 		}
 		ResumeGui();
