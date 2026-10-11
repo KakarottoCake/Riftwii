@@ -1641,12 +1641,6 @@ T = {
     "Played once": ("Jugado una vez", "1回遊びました", "Jogado uma vez", "Giocato una volta"),
     "Played {1} times": ("Jugado {1} veces", "{1}回遊びました", "Jogado {1} vezes", "Giocato {1} volte"),
     "Recent": ("Recientes", "最近", "Recentes", "Recenti"),
-    "You can now disable the clock": ("Ahora puedes desactivar el reloj", "時計をオフにできるようになりました", "Agora você pode desativar o relógio", "Ora puoi disattivare l'orologio"),
-    "The shelf: reflections, a backdrop from the cover, momentum": ("El estante: reflejos, un fondo hecho con la portada, inercia", "棚: 映り込み、パッケージから作る背景、慣性スクロール", "A estante: reflexos, um fundo feito da capa, inércia", "Lo scaffale: riflessi, uno sfondo dalla copertina, inerzia"),
-    "Up and Down turn a shelf box round to its back": ("Arriba y Abajo giran la caja del estante para ver el dorso", "上下で棚のパッケージを裏返します", "Cima e Baixo viram a caixa da estante para mostrar o verso", "Su e Giù girano la custodia sullo scaffale per vederne il retro"),
-    "The disc drive has a box of its own": ("El lector de discos tiene su propia caja", "ディスクドライブ専用のパッケージ", "O leitor de discos tem uma caixa própria", "Il lettore di dischi ha una custodia tutta sua"),
-    "The shelf matches the Wii look": ("El estante combina con el aspecto de Wii", "棚がWiiの見た目に合うようになりました", "A estante combina com o visual do Wii", "Lo scaffale si abbina allo stile Wii"),
-    "AM and PM sit neatly by the clock": ("a. m. y p. m. quedan ordenados junto al reloj", "午前・午後の表示が時計の横にすっきり収まります", "AM e PM ficam bem ao lado do relógio", "AM e PM stanno in ordine accanto all'orologio"),
     # The channel update RiftWii waits for (channel 11)
     "Update the RiftWii channel": ("Actualiza el canal de RiftWii", "RiftWiiチャンネルを更新してください", "Atualize o canal do RiftWii", "Aggiorna il canale di RiftWii"),
     "Your RiftWii channel on the Wii Menu is version {1}, and this RiftWii needs version {2}: it fixes the black screen when a game's HOME Menu > Wii Menu goes back to RiftWii. RiftWii can't be used until the channel is updated.": ("Tu canal de RiftWii en el Menú de Wii es la versión {1}, y este RiftWii necesita la versión {2}: corrige la pantalla negra al volver a RiftWii desde el Menú HOME > Menú de Wii de un juego. No se puede usar RiftWii hasta que actualices el canal.", "WiiメニューのRiftWiiチャンネルはバージョン{1}ですが、このRiftWiiにはバージョン{2}が必要です。ゲームのHOMEメニュー > WiiメニューでRiftWiiに戻るときの黒い画面を直します。チャンネルを更新するまでRiftWiiは使えません。", "O canal do RiftWii no Menu Wii é a versão {1}, e este RiftWii precisa da versão {2}: ela corrige a tela preta ao voltar ao RiftWii pelo Menu HOME > Menu Wii de um jogo. O RiftWii não pode ser usado até o canal ser atualizado.", "Il canale di RiftWii nel Menu Wii è la versione {1}, e questo RiftWii richiede la versione {2}: corregge la schermata nera quando dal Menu HOME > Menu Wii di un gioco si torna a RiftWii. Non puoi usare RiftWii finché il canale non è aggiornato."),
@@ -1662,6 +1656,13 @@ T = {
     "Cars 2 is cursed: it goes to a black screen if RiftWii changes anything in it. Turn off the GameCube adapter (Settings), screenshots, cheats and mods for it. If it still won't boot, send a problem report.": ("Cars 2 está maldito: se queda en pantalla negra si RiftWii cambia cualquier cosa en él. Desactiva el adaptador de GameCube (Ajustes), las capturas, los trucos y los mods para este juego. Si aun así no arranca, envía un informe de problemas.", "カーズ2は呪われています。RiftWiiが何かを変えると黒い画面になります。このゲームではGameCubeアダプター（設定）、スクリーンショット、チート、MODをオフにしてください。それでも起動しないときは問題レポートを送ってください。", "Carros 2 é amaldiçoado: fica com a tela preta se o RiftWii mudar qualquer coisa nele. Desative o adaptador de GameCube (Configurações), as capturas de tela, os cheats e os mods para este jogo. Se ainda assim não iniciar, envie um relatório de problema.", "Cars 2 è maledetto: resta con lo schermo nero se RiftWii cambia qualsiasi cosa. Disattiva l'adattatore GameCube (Impostazioni), gli screenshot, i trucchi e le mod per questo gioco. Se ancora non si avvia, invia una segnalazione del problema."),
     "This game may be cursed": ("Este juego puede estar maldito", "このゲームは呪われているかもしれない", "Este jogo pode ser amaldiçoado", "Questo gioco potrebbe essere maledetto"),
     "This game may be cursed: it runs on Cars 2's engine, which goes to a black screen if RiftWii changes anything in it. If it won't boot, turn off the GameCube adapter (Settings), screenshots, cheats and mods for it, and send a problem report.": ("Este juego puede estar maldito: usa el motor de Cars 2, que se queda en pantalla negra si RiftWii cambia cualquier cosa en él. Si no arranca, desactiva el adaptador de GameCube (Ajustes), las capturas, los trucos y los mods para este juego, y envía un informe de problemas.", "このゲームは呪われているかもしれません。カーズ2と同じエンジンで動いていて、RiftWiiが何かを変えると黒い画面になります。起動しないときは、このゲームではGameCubeアダプター（設定）、スクリーンショット、チート、MODをオフにして、問題レポートを送ってください。", "Este jogo pode ser amaldiçoado: ele usa o motor de Carros 2, que fica com a tela preta se o RiftWii mudar qualquer coisa nele. Se não iniciar, desative o adaptador de GameCube (Configurações), as capturas de tela, os cheats e os mods para este jogo, e envie um relatório de problema.", "Questo gioco potrebbe essere maledetto: usa il motore di Cars 2, che resta con lo schermo nero se RiftWii cambia qualsiasi cosa. Se non si avvia, disattiva l'adattatore GameCube (Impostazioni), gli screenshot, i trucchi e le mod per questo gioco, e invia una segnalazione del problema."),
+    # What's new in Stable 2610
+    "RiftWii channel 11: fewer black screens on the way back": ("Canal de RiftWii 11: menos pantallas negras al volver", "RiftWiiチャンネル11：戻るときの黒い画面が減りました", "Canal do RiftWii 11: menos telas pretas ao voltar", "Canale di RiftWii 11: meno schermi neri al ritorno"),
+    "GameCube adapter with SD games on a Wii U works again": ("El adaptador de GameCube vuelve a funcionar con juegos de la SD en Wii U", "Wii UでSDのゲームとGameCubeアダプターがまた使えます", "O adaptador de GameCube volta a funcionar com jogos do SD no Wii U", "L'adattatore GameCube funziona di nuovo con i giochi su SD in Wii U"),
+    "Safer game saves on SD cards and USB drives": ("Partidas guardadas más seguras en tarjetas SD y unidades USB", "SDカードとUSBドライブへのセーブがより安全に", "Jogos salvos mais seguros em cartões SD e unidades USB", "Salvataggi più sicuri su schede SD e unità USB"),
+    "Start on a banner goes straight to the game": ("Jugar en un banner va directo al juego", "バナーで「はじめる」を押すとすぐゲームへ", "Jogar em um banner vai direto ao jogo", "Gioca su un banner porta subito al gioco"),
+    "Theme can always go back to Default": ("El tema siempre puede volver a Predeterminado", "テーマはいつでもデフォルトに戻せます", "O tema sempre pode voltar ao Padrão", "Il tema può sempre tornare a Predefinito"),
+    "Every menu fully translated in six languages": ("Todos los menús traducidos a seis idiomas", "すべてのメニューを6言語に翻訳", "Todos os menus traduzidos em seis idiomas", "Tutti i menu tradotti in sei lingue"),
 }
 
 
@@ -2766,18 +2767,6 @@ KO = {
         "{1}회 플레이",
     "Recent":
         "최근",
-    "You can now disable the clock":
-        "이제 시계를 끌 수 있습니다",
-    "The shelf: reflections, a backdrop from the cover, momentum":
-        "선반: 반사, 커버로 만든 배경, 관성 스크롤",
-    "Up and Down turn a shelf box round to its back":
-        "위/아래로 선반의 케이스를 돌려 뒷면을 봅니다",
-    "The disc drive has a box of its own":
-        "디스크 드라이브 전용 케이스",
-    "The shelf matches the Wii look":
-        "선반이 Wii 스타일과 어울립니다",
-    "AM and PM sit neatly by the clock":
-        "오전/오후 표시가 시계 옆에 깔끔하게 놓입니다",
     "Update the RiftWii channel":
         "RiftWii 채널을 업데이트하세요",
     "Your RiftWii channel on the Wii Menu is version {1}, and this RiftWii needs version {2}: it fixes the black screen when a game's HOME Menu > Wii Menu goes back to RiftWii. RiftWii can't be used until the channel is updated.":
@@ -2804,6 +2793,18 @@ KO = {
         "이 게임은 저주받았을 수도 있습니다",
     "This game may be cursed: it runs on Cars 2's engine, which goes to a black screen if RiftWii changes anything in it. If it won't boot, turn off the GameCube adapter (Settings), screenshots, cheats and mods for it, and send a problem report.":
         "이 게임은 저주받았을 수도 있습니다. 카 2와 같은 엔진을 쓰며, RiftWii가 무엇이든 바꾸면 화면이 검게 됩니다. 시작되지 않으면 이 게임에서 게임큐브 어댑터(설정), 스크린샷, 치트, 모드를 끄고 문제 보고서를 보내주세요.",
+    "RiftWii channel 11: fewer black screens on the way back":
+        "RiftWii 채널 11: 돌아올 때 검은 화면이 줄었습니다",
+    "GameCube adapter with SD games on a Wii U works again":
+        "Wii U에서 SD 게임과 게임큐브 어댑터가 다시 작동합니다",
+    "Safer game saves on SD cards and USB drives":
+        "SD 카드와 USB 드라이브의 게임 저장이 더 안전해졌습니다",
+    "Start on a banner goes straight to the game":
+        "배너에서 시작하면 바로 게임으로 갑니다",
+    "Theme can always go back to Default":
+        "테마는 언제든 기본으로 되돌릴 수 있습니다",
+    "Every menu fully translated in six languages":
+        "모든 메뉴를 6개 언어로 번역했습니다",
 }
 
 # French, a table of its own (msgid: text), from MidyGamy's translation
@@ -3809,18 +3810,6 @@ FR = {
         "Joué {1} fois",
     "Recent":
         "Récents",
-    "You can now disable the clock":
-        "Vous pouvez maintenant désactiver l'horloge",
-    "The shelf: reflections, a backdrop from the cover, momentum":
-        "L'étagère : reflets, un fond tiré de la jaquette, défilement avec élan",
-    "Up and Down turn a shelf box round to its back":
-        "Haut et Bas retournent un boîtier de l'étagère pour voir le dos",
-    "The disc drive has a box of its own":
-        "Le lecteur de disque a son propre boîtier",
-    "The shelf matches the Wii look":
-        "L'étagère s'accorde au style Wii",
-    "AM and PM sit neatly by the clock":
-        "AM et PM se placent proprement près de l'horloge",
     "Games":
         "Jeux",
     "Menu":
@@ -3945,6 +3934,18 @@ FR = {
         "Ce jeu est peut-être maudit",
     "This game may be cursed: it runs on Cars 2's engine, which goes to a black screen if RiftWii changes anything in it. If it won't boot, turn off the GameCube adapter (Settings), screenshots, cheats and mods for it, and send a problem report.":
         "Ce jeu est peut-être maudit : il utilise le moteur de Cars 2, qui reste sur un écran noir si RiftWii y change quoi que ce soit. S'il ne démarre pas, désactivez l'adaptateur GameCube (Paramètres), les captures d'écran, les codes et les mods pour ce jeu, et envoyez un rapport de problème.",
+    "RiftWii channel 11: fewer black screens on the way back":
+        "Chaîne RiftWii 11 : moins d'écrans noirs au retour",
+    "GameCube adapter with SD games on a Wii U works again":
+        "L'adaptateur GameCube refonctionne avec les jeux sur SD sur Wii U",
+    "Safer game saves on SD cards and USB drives":
+        "Sauvegardes plus sûres sur cartes SD et disques USB",
+    "Start on a banner goes straight to the game":
+        "Démarrer sur une bannière lance directement le jeu",
+    "Theme can always go back to Default":
+        "Le thème peut toujours revenir à Par défaut",
+    "Every menu fully translated in six languages":
+        "Tous les menus traduits en six langues",
 }
 
 # Languages kept in tables of their own: written after LANGS, every msgid

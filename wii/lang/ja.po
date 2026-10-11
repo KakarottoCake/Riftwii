@@ -1650,24 +1650,6 @@ msgstr "{1}回遊びました"
 msgid "Recent"
 msgstr "最近"
 
-msgid "You can now disable the clock"
-msgstr "時計をオフにできるようになりました"
-
-msgid "The shelf: reflections, a backdrop from the cover, momentum"
-msgstr "棚: 映り込み、パッケージから作る背景、慣性スクロール"
-
-msgid "Up and Down turn a shelf box round to its back"
-msgstr "上下で棚のパッケージを裏返します"
-
-msgid "The disc drive has a box of its own"
-msgstr "ディスクドライブ専用のパッケージ"
-
-msgid "The shelf matches the Wii look"
-msgstr "棚がWiiの見た目に合うようになりました"
-
-msgid "AM and PM sit neatly by the clock"
-msgstr "午前・午後の表示が時計の横にすっきり収まります"
-
 msgid "Update the RiftWii channel"
 msgstr "RiftWiiチャンネルを更新してください"
 
@@ -1706,3 +1688,21 @@ msgstr "このゲームは呪われているかもしれない"
 
 msgid "This game may be cursed: it runs on Cars 2's engine, which goes to a black screen if RiftWii changes anything in it. If it won't boot, turn off the GameCube adapter (Settings), screenshots, cheats and mods for it, and send a problem report."
 msgstr "このゲームは呪われているかもしれません。カーズ2と同じエンジンで動いていて、RiftWiiが何かを変えると黒い画面になります。起動しないときは、このゲームではGameCubeアダプター（設定）、スクリーンショット、チート、MODをオフにして、問題レポートを送ってください。"
+
+msgid "RiftWii channel 11: fewer black screens on the way back"
+msgstr "RiftWiiチャンネル11：戻るときの黒い画面が減りました"
+
+msgid "GameCube adapter with SD games on a Wii U works again"
+msgstr "Wii UでSDのゲームとGameCubeアダプターがまた使えます"
+
+msgid "Safer game saves on SD cards and USB drives"
+msgstr "SDカードとUSBドライブへのセーブがより安全に"
+
+msgid "Start on a banner goes straight to the game"
+msgstr "バナーで「はじめる」を押すとすぐゲームへ"
+
+msgid "Theme can always go back to Default"
+msgstr "テーマはいつでもデフォルトに戻せます"
+
+msgid "Every menu fully translated in six languages"
+msgstr "すべてのメニューを6言語に翻訳"

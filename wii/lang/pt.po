@@ -1650,24 +1650,6 @@ msgstr "Jogado {1} vezes"
 msgid "Recent"
 msgstr "Recentes"
 
-msgid "You can now disable the clock"
-msgstr "Agora você pode desativar o relógio"
-
-msgid "The shelf: reflections, a backdrop from the cover, momentum"
-msgstr "A estante: reflexos, um fundo feito da capa, inércia"
-
-msgid "Up and Down turn a shelf box round to its back"
-msgstr "Cima e Baixo viram a caixa da estante para mostrar o verso"
-
-msgid "The disc drive has a box of its own"
-msgstr "O leitor de discos tem uma caixa própria"
-
-msgid "The shelf matches the Wii look"
-msgstr "A estante combina com o visual do Wii"
-
-msgid "AM and PM sit neatly by the clock"
-msgstr "AM e PM ficam bem ao lado do relógio"
-
 msgid "Update the RiftWii channel"
 msgstr "Atualize o canal do RiftWii"
 
@@ -1706,3 +1688,21 @@ msgstr "Este jogo pode ser amaldiçoado"
 
 msgid "This game may be cursed: it runs on Cars 2's engine, which goes to a black screen if RiftWii changes anything in it. If it won't boot, turn off the GameCube adapter (Settings), screenshots, cheats and mods for it, and send a problem report."
 msgstr "Este jogo pode ser amaldiçoado: ele usa o motor de Carros 2, que fica com a tela preta se o RiftWii mudar qualquer coisa nele. Se não iniciar, desative o adaptador de GameCube (Configurações), as capturas de tela, os cheats e os mods para este jogo, e envie um relatório de problema."
+
+msgid "RiftWii channel 11: fewer black screens on the way back"
+msgstr "Canal do RiftWii 11: menos telas pretas ao voltar"
+
+msgid "GameCube adapter with SD games on a Wii U works again"
+msgstr "O adaptador de GameCube volta a funcionar com jogos do SD no Wii U"
+
+msgid "Safer game saves on SD cards and USB drives"
+msgstr "Jogos salvos mais seguros em cartões SD e unidades USB"
+
+msgid "Start on a banner goes straight to the game"
+msgstr "Jogar em um banner vai direto ao jogo"
+
+msgid "Theme can always go back to Default"
+msgstr "O tema sempre pode voltar ao Padrão"
+
+msgid "Every menu fully translated in six languages"
+msgstr "Todos os menus traduzidos em seis idiomas"

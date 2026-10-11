@@ -1650,24 +1650,6 @@ msgstr "Giocato {1} volte"
 msgid "Recent"
 msgstr "Recenti"
 
-msgid "You can now disable the clock"
-msgstr "Ora puoi disattivare l'orologio"
-
-msgid "The shelf: reflections, a backdrop from the cover, momentum"
-msgstr "Lo scaffale: riflessi, uno sfondo dalla copertina, inerzia"
-
-msgid "Up and Down turn a shelf box round to its back"
-msgstr "Su e Giù girano la custodia sullo scaffale per vederne il retro"
-
-msgid "The disc drive has a box of its own"
-msgstr "Il lettore di dischi ha una custodia tutta sua"
-
-msgid "The shelf matches the Wii look"
-msgstr "Lo scaffale si abbina allo stile Wii"
-
-msgid "AM and PM sit neatly by the clock"
-msgstr "AM e PM stanno in ordine accanto all'orologio"
-
 msgid "Update the RiftWii channel"
 msgstr "Aggiorna il canale di RiftWii"
 
@@ -1706,3 +1688,21 @@ msgstr "Questo gioco potrebbe essere maledetto"
 
 msgid "This game may be cursed: it runs on Cars 2's engine, which goes to a black screen if RiftWii changes anything in it. If it won't boot, turn off the GameCube adapter (Settings), screenshots, cheats and mods for it, and send a problem report."
 msgstr "Questo gioco potrebbe essere maledetto: usa il motore di Cars 2, che resta con lo schermo nero se RiftWii cambia qualsiasi cosa. Se non si avvia, disattiva l'adattatore GameCube (Impostazioni), gli screenshot, i trucchi e le mod per questo gioco, e invia una segnalazione del problema."
+
+msgid "RiftWii channel 11: fewer black screens on the way back"
+msgstr "Canale di RiftWii 11: meno schermi neri al ritorno"
+
+msgid "GameCube adapter with SD games on a Wii U works again"
+msgstr "L'adattatore GameCube funziona di nuovo con i giochi su SD in Wii U"
+
+msgid "Safer game saves on SD cards and USB drives"
+msgstr "Salvataggi più sicuri su schede SD e unità USB"
+
+msgid "Start on a banner goes straight to the game"
+msgstr "Gioca su un banner porta subito al gioco"
+
+msgid "Theme can always go back to Default"
+msgstr "Il tema può sempre tornare a Predefinito"
+
+msgid "Every menu fully translated in six languages"
+msgstr "Tutti i menu tradotti in sei lingue"

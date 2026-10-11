@@ -2279,12 +2279,12 @@ static std::string DiscTileNote()
 // holds seven lines), for the release script to keep up to date. Shown
 // once when they change; Settings > What's new shows them again.
 static const char* const kWhatsNew[] = {
-	"You can now disable the clock",
-	"The shelf: reflections, a backdrop from the cover, momentum",
-	"Up and Down turn a shelf box round to its back",
-	"The disc drive has a box of its own",
-	"The shelf matches the Wii look",
-	"AM and PM sit neatly by the clock",
+	"RiftWii channel 11: fewer black screens on the way back",
+	"GameCube adapter with SD games on a Wii U works again",
+	"Safer game saves on SD cards and USB drives",
+	"Start on a banner goes straight to the game",
+	"Theme can always go back to Default",
+	"Every menu fully translated in six languages",
 };
 
 static std::string WhatsNewText()
