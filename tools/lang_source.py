@@ -1657,6 +1657,9 @@ T = {
     "Check again": ("Volver a comprobar", "もう一度確認", "Verificar de novo", "Controlla di nuovo"),
     "Exit RiftWii": ("Salir de RiftWii", "RiftWiiを終了", "Sair do RiftWii", "Esci da RiftWii"),
     "The RiftWii channel needs updating. Its new installer is still downloading; RiftWii asks you to install it at the next start.": ("Hay que actualizar el canal de RiftWii. Su nuevo instalador aún se está descargando; RiftWii te pedirá instalarlo la próxima vez que se inicie.", "RiftWiiチャンネルの更新が必要です。新しいインストーラーはまだダウンロード中です。次に起動したときにインストールを求めます。", "O canal do RiftWii precisa ser atualizado. O novo instalador ainda está sendo baixado; o RiftWii pedirá para instalá-lo na próxima vez que iniciar.", "Il canale di RiftWii va aggiornato. Il nuovo installer è ancora in download; RiftWii ti chiederà di installarlo al prossimo avvio."),
+    # Cars 2
+    "This game is cursed": ("Este juego está maldito", "このゲームは呪われている", "Este jogo é amaldiçoado", "Questo gioco è maledetto"),
+    "Cars 2 is cursed: it goes to a black screen if RiftWii changes anything in it. Turn off the GameCube adapter (Settings), screenshots, cheats and mods for it. If it still won't boot, send a problem report.": ("Cars 2 está maldito: se queda en pantalla negra si RiftWii cambia cualquier cosa en él. Desactiva el adaptador de GameCube (Ajustes), las capturas, los trucos y los mods para este juego. Si aun así no arranca, envía un informe de problemas.", "カーズ2は呪われています。RiftWiiが何かを変えると黒い画面になります。このゲームではGameCubeアダプター（設定）、スクリーンショット、チート、MODをオフにしてください。それでも起動しないときは問題レポートを送ってください。", "Carros 2 é amaldiçoado: fica com a tela preta se o RiftWii mudar qualquer coisa nele. Desative o adaptador de GameCube (Configurações), as capturas de tela, os cheats e os mods para este jogo. Se ainda assim não iniciar, envie um relatório de problema.", "Cars 2 è maledetto: resta con lo schermo nero se RiftWii cambia qualsiasi cosa. Disattiva l'adattatore GameCube (Impostazioni), gli screenshot, i trucchi e le mod per questo gioco. Se ancora non si avvia, invia una segnalazione del problema."),
 }
 
 
@@ -2791,6 +2794,10 @@ KO = {
         "RiftWii 종료",
     "The RiftWii channel needs updating. Its new installer is still downloading; RiftWii asks you to install it at the next start.":
         "RiftWii 채널을 업데이트해야 합니다. 새 설치 프로그램을 아직 내려받는 중이며, 다음에 시작할 때 설치하라고 안내합니다.",
+    "This game is cursed":
+        "이 게임은 저주받았습니다",
+    "Cars 2 is cursed: it goes to a black screen if RiftWii changes anything in it. Turn off the GameCube adapter (Settings), screenshots, cheats and mods for it. If it still won't boot, send a problem report.":
+        "카 2는 저주받았습니다. RiftWii가 무엇이든 바꾸면 화면이 검게 됩니다. 이 게임에서는 게임큐브 어댑터(설정), 스크린샷, 치트, 모드를 끄세요. 그래도 시작되지 않으면 문제 보고서를 보내주세요.",
 }
 
 # French, a table of its own (msgid: text), from MidyGamy's translation
@@ -3924,6 +3931,10 @@ FR = {
         "Quitter RiftWii",
     "The RiftWii channel needs updating. Its new installer is still downloading; RiftWii asks you to install it at the next start.":
         "La chaîne RiftWii doit être mise à jour. Son nouvel installateur est encore en téléchargement ; RiftWii vous demandera de l'installer au prochain démarrage.",
+    "This game is cursed":
+        "Ce jeu est maudit",
+    "Cars 2 is cursed: it goes to a black screen if RiftWii changes anything in it. Turn off the GameCube adapter (Settings), screenshots, cheats and mods for it. If it still won't boot, send a problem report.":
+        "Cars 2 est maudit : il reste sur un écran noir si RiftWii y change quoi que ce soit. Désactivez l'adaptateur GameCube (Paramètres), les captures d'écran, les codes et les mods pour ce jeu. S'il ne démarre toujours pas, envoyez un rapport de problème.",
 }
 
 # Languages kept in tables of their own: written after LANGS, every msgid

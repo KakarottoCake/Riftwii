@@ -1374,12 +1374,31 @@ static bool HomebrewAppPackOn(const FrontendState& state)
 	return riftwii::wii::homebrew_app_stand_in(state.model.selections(), state.game_id, app, dropped);
 }
 
+static bool CursedGame(const FrontendState& state);
+
+static std::string LaunchNoteTitle(const FrontendState& state)
+{
+	return CursedGame(state) ? tr("This game is cursed") : tr("Before you play");
+}
+
 static const char* const kHomebrewAppWarning =
 	"CTGP Revolution (a pack that starts a Homebrew Channel app) does not work from RiftWii yet: it stops on a black or green screen. Start CTGP from the Homebrew Channel instead.";
+
+// Cars 2 (SCY?4Q): testers saw it go black with the GameCube adapter in
+// game, and again with screenshots on; it seems to refuse any change to it.
+static bool CursedGame(const FrontendState& state)
+{
+	return state.game_id.size() >= 6 && state.game_id.compare(0, 3, "SCY") == 0 &&
+	       state.game_id.compare(4, 2, "4Q") == 0;
+}
 
 static std::string LaunchNote(const FrontendState& state)
 {
 	std::string note = state.launch_warning;
+	if (CursedGame(state)) {
+		if (!note.empty()) note += " ";
+		note += tr("Cars 2 is cursed: it goes to a black screen if RiftWii changes anything in it. Turn off the GameCube adapter (Settings), screenshots, cheats and mods for it. If it still won't boot, send a problem report.");
+	}
 	if (HomebrewAppPackOn(state)) {
 		if (!note.empty()) note += " ";
 		note += tr(kHomebrewAppWarning);
@@ -4811,10 +4830,10 @@ static int MenuHome(FrontendState& state)
 				// the CTGP warning off before it said what to do.
 				if (fromBanner) {
 					// Start on the banner screen: Play goes on with it.
-					if (ShowPopup(tr("Before you play"), LaunchNote(state), tr("Play"), tr("Not now")) == 0)
+					if (ShowPopup(LaunchNoteTitle(state), LaunchNote(state), tr("Play"), tr("Not now")) == 0)
 						startBtn.button.SetState(STATE::CLICKED);
 				} else {
-					ShowPopup(tr("Before you play"), LaunchNote(state) + " " + tr("Press Start again to play."), tr("OK"));
+					ShowPopup(LaunchNoteTitle(state), LaunchNote(state) + " " + tr("Press Start again to play."), tr("OK"));
 				}
 			} else if (!saveForStart()) {
 				// the status shows why

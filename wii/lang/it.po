@@ -1694,3 +1694,9 @@ msgstr "Esci da RiftWii"
 
 msgid "The RiftWii channel needs updating. Its new installer is still downloading; RiftWii asks you to install it at the next start."
 msgstr "Il canale di RiftWii va aggiornato. Il nuovo installer è ancora in download; RiftWii ti chiederà di installarlo al prossimo avvio."
+
+msgid "This game is cursed"
+msgstr "Questo gioco è maledetto"
+
+msgid "Cars 2 is cursed: it goes to a black screen if RiftWii changes anything in it. Turn off the GameCube adapter (Settings), screenshots, cheats and mods for it. If it still won't boot, send a problem report."
+msgstr "Cars 2 è maledetto: resta con lo schermo nero se RiftWii cambia qualsiasi cosa. Disattiva l'adattatore GameCube (Impostazioni), gli screenshot, i trucchi e le mod per questo gioco. Se ancora non si avvia, invia una segnalazione del problema."

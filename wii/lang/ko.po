@@ -1694,3 +1694,9 @@ msgstr "RiftWii 종료"
 
 msgid "The RiftWii channel needs updating. Its new installer is still downloading; RiftWii asks you to install it at the next start."
 msgstr "RiftWii 채널을 업데이트해야 합니다. 새 설치 프로그램을 아직 내려받는 중이며, 다음에 시작할 때 설치하라고 안내합니다."
+
+msgid "This game is cursed"
+msgstr "이 게임은 저주받았습니다"
+
+msgid "Cars 2 is cursed: it goes to a black screen if RiftWii changes anything in it. Turn off the GameCube adapter (Settings), screenshots, cheats and mods for it. If it still won't boot, send a problem report."
+msgstr "카 2는 저주받았습니다. RiftWii가 무엇이든 바꾸면 화면이 검게 됩니다. 이 게임에서는 게임큐브 어댑터(설정), 스크린샷, 치트, 모드를 끄세요. 그래도 시작되지 않으면 문제 보고서를 보내주세요."
