@@ -28,6 +28,19 @@ static void copy_name(char* out, const char* in) {
     for (i = 0; i <= RTFAT_NAME_MAX; ++i) out[i] = in[i];
 }
 
+/* The same name to FAT: ASCII letters in either case. */
+static int same_name(const char* a, const char* b) {
+    uint32_t i;
+    for (i = 0; i <= RTFAT_NAME_MAX; ++i) {
+        char x = a[i], y = b[i];
+        if (x >= 'A' && x <= 'Z') x = (char)(x - 'A' + 'a');
+        if (y >= 'A' && y <= 'Z') y = (char)(y - 'A' + 'a');
+        if (x != y) return 0;
+        if (x == 0) return 1;
+    }
+    return 1;
+}
+
 /* Identifies only paths whose prefix ends at a path component boundary.
  * A path underneath the prefix must be one rtfat name, never a directory.
  * Anything that is not a terminated path under the prefix is OUTSIDE:
@@ -93,6 +106,38 @@ static struct rtfs_file* fake_file(struct rtfs_context* ctx, int32_t fd, uint32_
 
 static int32_t make_fd(const struct rtfs_file* file, uint32_t slot) {
     return (int32_t)(RTFS_FD_BASE + file->generation * RTFS_MAX_FDS + slot);
+}
+
+/* Another descriptor open on the file whose short entry is at (lba, index). */
+static struct rtfs_file* open_entry(struct rtfs_context* ctx, uint32_t lba, uint32_t index, uint32_t except) {
+    uint32_t i;
+    for (i = 0; i < RTFS_MAX_FDS; ++i) {
+        const struct rtfs_file* f = &ctx->files[i];
+        if (i != except && f->in_use && f->fat.entry_lba == lba && f->fat.entry_index == index) return &ctx->files[i];
+    }
+    return 0;
+}
+
+/* After a write through `slot`: the file's other descriptors see its new
+ * chain and size (each keeps its own position), so a second one neither
+ * writes into clusters the first gave back nor starts a chain of its own. */
+static void share_file(struct rtfs_context* ctx, uint32_t slot) {
+    const struct rtfs_file* from = &ctx->files[slot];
+    uint32_t i;
+    for (i = 0; i < RTFS_MAX_FDS; ++i) {
+        struct rtfs_file* f = &ctx->files[i];
+        if (i == slot || !f->in_use || f->fat.entry_lba != from->fat.entry_lba ||
+            f->fat.entry_index != from->fat.entry_index) continue;
+        f->fat.first_cluster = from->fat.first_cluster;
+        f->fat.size = from->fat.size;
+        f->fat.cache_index = 0;
+        f->fat.cache_cluster = 0;
+    }
+}
+
+/* Whether the entry the lookup just found is open. */
+static int found_open(struct rtfs_context* ctx, const struct rtfs_request* r) {
+    return open_entry(ctx, r->fat.found.entry_lba, r->fat.found.entry_index, RTFS_MAX_FDS) != 0;
 }
 
 static struct rtfs_file* free_file(struct rtfs_context* ctx, uint32_t* slot) {
@@ -230,7 +275,7 @@ static void riivo_walk(struct rtfs_context* ctx, struct rtfs_request* r) {
             return;
         case RTFS_ACTION_R_CREATEFILE: start_fat(ctx, r, RTFAT_OP_CREATE, RTFS_ACTION_R_CREATEFILE); return;
         case RTFS_ACTION_R_CREATEDIR: start_fat(ctx, r, RTFAT_OP_MKDIR, RTFS_ACTION_R_CREATEDIR); return;
-        case RTFS_ACTION_R_DELETE: start_fat(ctx, r, RTFAT_OP_DELETE, RTFS_ACTION_R_DELETE); return;
+        case RTFS_ACTION_R_DELETE: start_fat(ctx, r, RTFAT_OP_LOOKUP, RTFS_ACTION_R_DELETE_CHECK); return;
         default: start_fat(ctx, r, RTFAT_OP_LOOKUP, r->final_action); return; /* OPENDIR, STAT */
     }
 }
@@ -472,7 +517,7 @@ static void begin_ioctl(struct rtfs_context* ctx, struct rtfs_request* r, const 
         if (p == PATH_OUTSIDE) return;
         if (p != PATH_FILE) { finish(ctx, r, RTFAT_EINVAL); return; }
         if (busy(ctx, r)) { finish(ctx, r, RTFAT_EACCESS); return; }
-        start_fat(ctx, r, RTFAT_OP_DELETE, RTFS_ACTION_DELETE); return;
+        start_fat(ctx, r, RTFAT_OP_LOOKUP, RTFS_ACTION_DELETE_CHECK); return;
     }
     if (code == RTFS_IOCTL_RENAME) {
         const char* paths = (const char*)(uintptr_t)ipc->args.ioctl.in;
@@ -482,7 +527,12 @@ static void begin_ioctl(struct rtfs_context* ctx, struct rtfs_request* r, const 
           if (p == PATH_OUTSIDE && q == PATH_OUTSIDE) return;
           if (p != PATH_FILE || q != PATH_FILE) { finish(ctx, r, RTFAT_EINVAL); return; } }
         if (busy(ctx, r)) { finish(ctx, r, RTFAT_EACCESS); return; }
-        start_fat(ctx, r, RTFAT_OP_RENAME, RTFS_ACTION_RENAME); return;
+        start_fat(ctx, r, RTFAT_OP_LOOKUP, RTFS_ACTION_RENAME_CHECK);
+        if (r->active) {  /* the destination looked up first */
+            copy_name(r->saved_name, r->fat.name);
+            copy_name(r->fat.name, r->fat.name2);
+        }
+        return;
     }
     if (code == RTFS_IOCTL_CREATEFILE || code == RTFS_IOCTL_CREATEDIR || code == RTFS_IOCTL_SETATTR || code == RTFS_IOCTL_GETATTR) {
         if (code == RTFS_IOCTL_GETATTR && (ipc->args.ioctl.in == 0 || ipc->args.ioctl.in_len < RTFS_PATH_BYTES)) return;
@@ -601,6 +651,10 @@ static void open_found(struct rtfs_context* ctx, struct rtfs_request* r, int32_t
     f->fat.first_cluster = r->fat.found.first_cluster; f->fat.size = r->fat.found.size; f->fat.position = 0;
     f->fat.entry_lba = r->fat.found.entry_lba; f->fat.entry_index = r->fat.found.entry_index;
     f->fat.cache_index = 0; f->fat.cache_cluster = 0;
+    {   /* Already open: its chain and size as that descriptor has them. */
+        const struct rtfs_file* other = open_entry(ctx, f->fat.entry_lba, f->fat.entry_index, r->slot);
+        if (other != 0) { f->fat.first_cluster = other->fat.first_cluster; f->fat.size = other->fat.size; }
+    }
     finish(ctx, r, make_fd(f, r->slot));
 }
 
@@ -637,6 +691,10 @@ static int riivo_after(struct rtfs_context* ctx, struct rtfs_request* r) {
             if (res != RTFAT_OK && res != RTFAT_EEXIST) break;
             finish(ctx, r, RTFAT_OK);
             return 0;
+        case RTFS_ACTION_R_DELETE_CHECK:
+            if (res != RTFAT_OK || (!is_dir && found_open(ctx, r))) break;
+            start_fat(ctx, r, RTFAT_OP_DELETE, RTFS_ACTION_R_DELETE);
+            return 1;
         case RTFS_ACTION_R_CREATEDIR:
         case RTFS_ACTION_R_DELETE:
             if (res != RTFAT_OK) break;
@@ -677,7 +735,27 @@ int rtfs_step(struct rtfs_context* ctx, struct rtfs_request* r) {
     if (ctx == 0 || r == 0 || r->classification != RTFS_NEEDS_IO || !r->active) return RTFAT_DONE;
     step = rtfat_step(&ctx->volume, &r->fat);
     if (step == RTFAT_IO) return RTFAT_IO;
-    if (r->action >= RTFS_ACTION_WALK) return riivo_after(ctx, r) ? rtfs_step(ctx, r) : RTFAT_DONE;
+    if (r->action >= RTFS_ACTION_WALK && r->action <= RTFS_ACTION_R_DELETE_CHECK) {
+        return riivo_after(ctx, r) ? rtfs_step(ctx, r) : RTFAT_DONE;
+    }
+    if (r->action == RTFS_ACTION_DELETE_CHECK || r->action == RTFS_ACTION_RENAME_CHECK) {
+        const int32_t res = r->fat.result;
+        /* A rename onto the file's own name (in another case) replaces
+         * nothing: rtfat leaves it as it is, open or not. */
+        const int self = r->action == RTFS_ACTION_RENAME_CHECK && same_name(r->saved_name, r->fat.name);
+        if (res == RTFAT_OK && !self && found_open(ctx, r)) { finish(ctx, r, RTFAT_EACCESS); return RTFAT_DONE; }
+        if (r->action == RTFS_ACTION_DELETE_CHECK) {
+            if (res != RTFAT_OK) { finish(ctx, r, res); return RTFAT_DONE; }
+            r->action = RTFS_ACTION_DELETE;
+            rtfat_begin(&r->fat, RTFAT_OP_DELETE);
+        } else {
+            if (res != RTFAT_OK && res != RTFAT_ENOENT) { finish(ctx, r, res); return RTFAT_DONE; }
+            copy_name(r->fat.name, r->saved_name);
+            r->action = RTFS_ACTION_RENAME;
+            rtfat_begin(&r->fat, RTFAT_OP_RENAME);
+        }
+        return rtfs_step(ctx, r);
+    }
     if (r->fat.result >= RTFAT_OK) {
         if (r->action == RTFS_ACTION_OPEN) {
             open_found(ctx, r, RTFAT_ENOINODES);
@@ -705,6 +783,18 @@ int rtfs_step(struct rtfs_context* ctx, struct rtfs_request* r) {
         r->action = RTFS_ACTION_RENAME_REPLACE;
         rtfat_begin(&r->fat, RTFAT_OP_DELETE);
         return rtfs_step(ctx, r);
+    }
+    if (r->action == RTFS_ACTION_WRITE) share_file(ctx, r->slot);
+    if (r->action == RTFS_ACTION_RENAME && r->fat.result == RTFAT_OK) {
+        /* The file's open descriptors follow it to its new entry. */
+        uint32_t i;
+        for (i = 0; i < RTFS_MAX_FDS; ++i) {
+            struct rtfs_file* f = &ctx->files[i];
+            if (!f->in_use || f->fat.entry_lba != r->fat.source.entry_lba ||
+                f->fat.entry_index != r->fat.source.entry_index) continue;
+            f->fat.entry_lba = r->fat.found.entry_lba;
+            f->fat.entry_index = r->fat.found.entry_index;
+        }
     }
     if ((r->action == RTFS_ACTION_LIST || r->action == RTFS_ACTION_USAGE) && r->fat.result >= RTFAT_OK) finish(ctx, r, RTFAT_OK);
     else finish(ctx, r, r->fat.result);

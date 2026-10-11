@@ -327,6 +327,20 @@ void TestStatsRenameDeleteAndFailure(Low& low) {
             close.fd = kept;
             EXPECT_EQ(Run(fx, low, close), RTFAT_OK);
         }
+        // Open, and renamed onto its own name in another case: still a
+        // rename onto itself (not an open destination being replaced), and
+        // the descriptor goes on reading the file.
+        {
+            CopyPath(low.data, fx.prefix + "/banner.bin");
+            const int open = Run(fx, low, Open(Addr(low.data), 1));
+            EXPECT_TRUE(open >= static_cast<int>(RTFS_FD_BASE));
+            CopyPath(low.data, fx.prefix + "/banner.bin"); CopyPath(low.data + RTFS_PATH_BYTES, fx.prefix + "/BANNER.BIN");
+            EXPECT_EQ(Run(fx, low, rename), RTFAT_OK);
+            rtfs_ipc st{}; st.command = RTFS_CMD_IOCTL; st.fd = open; st.args.ioctl.request = RTFS_IOCTL_GETFILESTATS; st.args.ioctl.out = Addr(size); st.args.ioctl.out_len = 8;
+            EXPECT_EQ(Run(fx, low, st), RTFAT_OK); EXPECT_EQ(size[0], 1061u);
+            close.fd = open;
+            EXPECT_EQ(Run(fx, low, close), RTFAT_OK);
+        }
     }
     // The public classifier.
     {
@@ -344,6 +358,102 @@ void TestStatsRenameDeleteAndFailure(Low& low) {
     CopyPath(low.data, fx.prefix + "/banner.bin");
     fx.dev.fail_at = fx.dev.transfers + 1;
     EXPECT_EQ(Run(fx, low, Open(Addr(low.data), 1)), RTFAT_EIO);
+}
+
+// A file stays itself while it is open: it is not deleted or replaced by
+// a rename (its clusters would go to the next file made, and the stale
+// descriptor would write into that file); a rename takes its descriptors
+// along; and two descriptors on one file share its chain and size, so
+// neither writes over clusters the other gave back or starts a second
+// chain of its own.
+void TestOpenFiles(Low& low) {
+    Fixture fx;
+    rtfs_ipc del{}; del.command = RTFS_CMD_IOCTL; del.fd = 21; del.args.ioctl.request = RTFS_IOCTL_DELETE;
+    del.args.ioctl.in = Addr(low.data + 1024); del.args.ioctl.in_len = RTFS_PATH_BYTES;
+    rtfs_ipc rename{}; rename.command = RTFS_CMD_IOCTL; rename.fd = 21; rename.args.ioctl.request = RTFS_IOCTL_RENAME;
+    rename.args.ioctl.in = Addr(low.data + 1024); rename.args.ioctl.in_len = 2 * RTFS_PATH_BYTES;
+    rtfs_ipc close{}; close.command = RTFS_CMD_CLOSE;
+    auto open_rw = [&](const std::string& name) {
+        CopyPath(low.data, fx.prefix + "/" + name);
+        return Run(fx, low, Open(Addr(low.data), 3));
+    };
+    auto stats_of = [&](int fd) {
+        auto* st = reinterpret_cast<std::uint32_t*>(low.data + 2048);
+        rtfs_ipc ipc{}; ipc.command = RTFS_CMD_IOCTL; ipc.fd = fd; ipc.args.ioctl.request = RTFS_IOCTL_GETFILESTATS;
+        ipc.args.ioctl.out = Addr(st); ipc.args.ioctl.out_len = 8;
+        EXPECT_EQ(Run(fx, low, ipc), RTFAT_OK);
+        return st[0];
+    };
+
+    // Delete while open: refused; after the close it goes.
+    const int banner = open_rw("banner.bin");
+    EXPECT_TRUE(banner >= static_cast<int>(RTFS_FD_BASE));
+    CopyPath(low.data + 1024, fx.prefix + "/banner.bin");
+    EXPECT_EQ(Run(fx, low, del), RTFAT_EACCESS);
+    // Nor replaced by a rename onto it.
+    CopyPath(low.data + 1024, fx.prefix + "/other.dat");
+    CopyPath(low.data + 1024 + RTFS_PATH_BYTES, fx.prefix + "/banner.bin");
+    EXPECT_EQ(Run(fx, low, rename), RTFAT_EACCESS);
+    const int other_fd = open_rw("other.dat");
+    EXPECT_TRUE(other_fd >= static_cast<int>(RTFS_FD_BASE));  // other.dat is still there
+    close.fd = other_fd;
+    EXPECT_EQ(Run(fx, low, close), RTFAT_OK);
+    close.fd = banner;
+    EXPECT_EQ(Run(fx, low, close), RTFAT_OK);
+    CopyPath(low.data + 1024, fx.prefix + "/banner.bin");
+    EXPECT_EQ(Run(fx, low, del), RTFAT_OK);
+
+    // Renamed while open: a write through the descriptor reaches the file
+    // under its new name.
+    const int moving = open_rw("other.dat");
+    CopyPath(low.data + 1024, fx.prefix + "/other.dat");
+    CopyPath(low.data + 1024 + RTFS_PATH_BYTES, fx.prefix + "/moved.dat");
+    EXPECT_EQ(Run(fx, low, rename), RTFAT_OK);
+    std::memset(low.data + 3072, 0x5A, 40);
+    rtfs_ipc write{}; write.command = RTFS_CMD_WRITE; write.fd = moving; write.args.readwrite.data = Addr(low.data + 3072);
+    write.args.readwrite.length = 40;
+    EXPECT_EQ(Run(fx, low, write), 40);
+    close.fd = moving;
+    EXPECT_EQ(Run(fx, low, close), RTFAT_OK);
+    const int moved = open_rw("moved.dat");
+    EXPECT_EQ(stats_of(moved), 40u);
+    close.fd = moved;
+    EXPECT_EQ(Run(fx, low, close), RTFAT_OK);
+
+    // Two writers on one empty file: one chain, the later write over the
+    // earlier one's start, the size the longer write gave.
+    std::memset(low.attr, 0, sizeof(*low.attr));
+    CopyPath(reinterpret_cast<std::uint8_t*>(low.attr->filepath), fx.prefix + "/two.dat");
+    rtfs_ipc create{}; create.command = RTFS_CMD_IOCTL; create.fd = 21; create.args.ioctl.request = RTFS_IOCTL_CREATEFILE;
+    create.args.ioctl.in = Addr(low.attr); create.args.ioctl.in_len = sizeof(*low.attr);
+    EXPECT_EQ(Run(fx, low, create), RTFAT_OK);
+    const int a = open_rw("two.dat");
+    const int b = open_rw("two.dat");
+    std::memset(low.data + 3072, 0xA1, 100);
+    write.fd = a; write.args.readwrite.length = 100;
+    EXPECT_EQ(Run(fx, low, write), 100);
+    std::memset(low.data + 3072, 0xB2, 10);
+    write.fd = b; write.args.readwrite.length = 10;
+    EXPECT_EQ(Run(fx, low, write), 10);
+    EXPECT_EQ(stats_of(b), 100u);
+    const std::uint32_t sa = (static_cast<std::uint32_t>(a) - RTFS_FD_BASE) & (RTFS_MAX_FDS - 1u);
+    const std::uint32_t sb = (static_cast<std::uint32_t>(b) - RTFS_FD_BASE) & (RTFS_MAX_FDS - 1u);
+    EXPECT_EQ(fx.fs.files[sa].fat.first_cluster, fx.fs.files[sb].fat.first_cluster);
+    close.fd = a;
+    EXPECT_EQ(Run(fx, low, close), RTFAT_OK);
+    close.fd = b;
+    EXPECT_EQ(Run(fx, low, close), RTFAT_OK);
+    const int c = open_rw("two.dat");
+    EXPECT_EQ(stats_of(c), 100u);
+    rtfs_ipc read{}; read.command = RTFS_CMD_READ; read.fd = c; read.args.readwrite.data = Addr(low.data + 4096);
+    read.args.readwrite.length = 100;
+    EXPECT_EQ(Run(fx, low, read), 100);
+    EXPECT_EQ(low.data[4096], 0xB2u);
+    EXPECT_EQ(low.data[4105], 0xB2u);
+    EXPECT_EQ(low.data[4106], 0xA1u);
+    EXPECT_EQ(low.data[4195], 0xA1u);
+    close.fd = c;
+    EXPECT_EQ(Run(fx, low, close), RTFAT_OK);
 }
 
 // rtfs_probe classifies like rtfs_begin and changes nothing; the /dev/fs
@@ -742,6 +852,8 @@ void TestFileDeviceWrite(Low& low) {
     EXPECT_EQ(RunR(fx, low, seek), 2000);
     EXPECT_EQ(RunR(fx, low, read), 1000);
     EXPECT_EQ(std::memcmp(b.bytes + 3072, b.bytes + 2000, 1000), 0);
+    // Not deleted while open.
+    EXPECT_EQ(RunR(fx, low, DeviceIoctl(b, RTFS_RIIVO_DELETE, "/pulsar/Ghosts/1m23s456.rkg")), RTFS_RIIVO_ERROR);
     EXPECT_EQ(CloseR(fx, low, fd), RTFAT_OK);
     // O_CREAT makes a missing file; O_EXCL refuses an existing one; O_APPEND writes at the end.
     EXPECT_EQ(OpenR(fx, low, b, "file/pulsar/new.bin", 1), RTFS_RIIVO_NOT_OPENED);
@@ -839,6 +951,7 @@ int main() {
     TestWritePersists(low);
     TestIoctlsAndDirectory(low);
     TestStatsRenameDeleteAndFailure(low);
+    TestOpenFiles(low);
     TestProbeAndFsFd(low);
     TestHiddenMarker(low);
     TestFileDeviceRead(low);

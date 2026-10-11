@@ -184,6 +184,11 @@ struct rtfs_context {
 #define RTFS_ACTION_R_NEXTDIR 19u
 #define RTFS_ACTION_R_STAT 20u
 #define RTFS_ACTION_R_DELETE 21u
+#define RTFS_ACTION_R_DELETE_CHECK 22u  /* the name looked up first: an open file is not deleted */
+/* An open file is neither deleted nor replaced by a rename: the name is
+ * looked up first. (A renamed open file's descriptors follow its entry.) */
+#define RTFS_ACTION_DELETE_CHECK 23u
+#define RTFS_ACTION_RENAME_CHECK 24u    /* the destination */
 
 /* What a path is to the redirected directory (rtfs_path_type). */
 #define RTFS_PATH_OUTSIDE 0
