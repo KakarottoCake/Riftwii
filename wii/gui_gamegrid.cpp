@@ -164,6 +164,9 @@ int GuiGameGrid::ArrowY() const {
 
 void GuiGameGrid::SetItems(const std::vector<GridItem>* list) {
     items = list;
+    // A click not yet taken was an index into the old list: after a rescan
+    // the same place is another game (the old grid stays live meanwhile).
+    clicked = -1;
     if (focus >= Count()) focus = Count() > 0 ? Count() - 1 : 0;
     page = focus / kPerPage;
     laidOut = false;

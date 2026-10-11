@@ -151,6 +151,21 @@ bool InHeap(u32 address) {
     return false;
 }
 
+}  // namespace
+
+std::vector<std::pair<u32, u32>> HeapPieces() {
+    std::vector<std::pair<u32, u32>> out;
+    if (g_segments_lost) {
+        out.emplace_back(g_mem1_floor, kMem1Ceiling);
+        out.emplace_back(kMem2Floor, g_mem2_top);
+        return out;
+    }
+    for (u32 i = 0; i < g_segment_count; ++i) out.emplace_back(g_segments[i].start, g_segments[i].end);
+    return out;
+}
+
+namespace {
+
 // 96 bytes around `at`, as hex and as text: an overrun shows what wrote it.
 void Dump(u32 at) {
     const u32 from = (at - 48) & ~15u;

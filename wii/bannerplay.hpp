@@ -65,6 +65,10 @@ private:
     void Free();
 
     bool loaded_ = false;
+    // New textures since the last Draw: GX's texture cache is invalidated
+    // there, on the GUI thread. A load may run on the menu thread while the
+    // GUI thread draws, and a GX command from it could corrupt the FIFO.
+    bool tex_dirty_ = false;
     bool icon_ = false;
     std::string name_;
     std::uint8_t* arc_ = nullptr;

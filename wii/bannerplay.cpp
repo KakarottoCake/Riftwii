@@ -272,7 +272,7 @@ bool BannerPlayer::LoadParts(const std::vector<std::uint8_t>& opening_bnr, bool 
         logf("Banner: %s\n", describe_banner(base_, has_start_ ? &start_ : nullptr, has_loop_ ? &loop_ : nullptr).c_str());
     }
     DCFlushRange(arc_, (arc_size_ + 31) & ~std::size_t(31));
-    GX_InvalidateTexAll();
+    tex_dirty_ = true;  // GX_InvalidateTexAll at the next Draw, on the GUI thread
     // Every texture the animations swap in, named in the layout once: the
     // bindings then find them all, and no frame looks a name up.
     if (has_start_) add_animation_textures(start_, base_);
@@ -364,6 +364,10 @@ BannerPlayer::Texture* BannerPlayer::TextureByName(const std::string& name) {
 }
 
 void BannerPlayer::Draw(float x, float y, float w, float h, int alpha, const RoundClip* clip) {
+    if (tex_dirty_) {
+        tex_dirty_ = false;
+        GX_InvalidateTexAll();
+    }
     if (!loaded_ || alpha <= 0) return;
     float z = 0;
     if (clip) {

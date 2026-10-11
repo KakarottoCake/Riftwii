@@ -23,18 +23,27 @@ LoaderSettings& Settings() {
     if (!g_loaded) {
         g_loaded = true;
         std::string text;
-        if (ReadTextFile(kPath, text)) g_settings.parse(text);
+        // A save cut off between its two steps leaves only the new copy.
+        if (ReadTextFile(kPath, text) || ReadTextFile(std::string(kPath) + ".part", text)) g_settings.parse(text);
     }
     return g_settings;
 }
 
+// Written whole beside it, then put in its place: truncating it first left
+// it empty after a power cut or a full card, and every setting reset.
 bool SaveSettings() {
     mkdir("sd:/riftwii", 0777);
-    FILE* f = std::fopen(kPath, "wb");
+    const std::string temp = std::string(kPath) + ".part";
+    FILE* f = std::fopen(temp.c_str(), "wb");
     if (!f) return false;
     const std::string text = Settings().serialize();
-    const bool ok = std::fwrite(text.data(), 1, text.size(), f) == text.size();
-    std::fclose(f);
+    bool ok = std::fwrite(text.data(), 1, text.size(), f) == text.size();
+    ok = std::fclose(f) == 0 && ok;
+    if (ok) {
+        std::remove(kPath);
+        ok = std::rename(temp.c_str(), kPath) == 0;
+    }
+    if (!ok) std::remove(temp.c_str());
     return ok;
 }
 
