@@ -2212,12 +2212,12 @@ static std::string DiscTileNote()
 // holds seven lines), for the release script to keep up to date. Shown
 // once when they change; Settings > What's new shows them again.
 static const char* const kWhatsNew[] = {
-	"In-game screenshots are saved whole or not at all",
-	"The GameCube adapter works with USB games on Wii U",
-	"Project+ and PMEX return to RiftWii without crashing",
-	"A missing mod folder now says how to fix it",
-	"Shelf boxes in their case's colour",
-	"GameCube adapter On no longer stops SD games booting",
+	"You can now disable the clock",
+	"The shelf: reflections, a backdrop from the cover, momentum",
+	"Up and Down turn a shelf box round to its back",
+	"The disc drive has a box of its own",
+	"The shelf matches the Wii look",
+	"AM and PM sit neatly by the clock",
 };
 
 static std::string WhatsNewText()
