@@ -1700,3 +1700,9 @@ msgstr "Ce jeu est maudit"
 
 msgid "Cars 2 is cursed: it goes to a black screen if RiftWii changes anything in it. Turn off the GameCube adapter (Settings), screenshots, cheats and mods for it. If it still won't boot, send a problem report."
 msgstr "Cars 2 est maudit : il reste sur un écran noir si RiftWii y change quoi que ce soit. Désactivez l'adaptateur GameCube (Paramètres), les captures d'écran, les codes et les mods pour ce jeu. S'il ne démarre toujours pas, envoyez un rapport de problème."
+
+msgid "This game may be cursed"
+msgstr "Ce jeu est peut-être maudit"
+
+msgid "This game may be cursed: it runs on Cars 2's engine, which goes to a black screen if RiftWii changes anything in it. If it won't boot, turn off the GameCube adapter (Settings), screenshots, cheats and mods for it, and send a problem report."
+msgstr "Ce jeu est peut-être maudit : il utilise le moteur de Cars 2, qui reste sur un écran noir si RiftWii y change quoi que ce soit. S'il ne démarre pas, désactivez l'adaptateur GameCube (Paramètres), les captures d'écran, les codes et les mods pour ce jeu, et envoyez un rapport de problème."

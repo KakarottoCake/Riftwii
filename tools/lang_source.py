@@ -1660,6 +1660,8 @@ T = {
     # Cars 2
     "This game is cursed": ("Este juego está maldito", "このゲームは呪われている", "Este jogo é amaldiçoado", "Questo gioco è maledetto"),
     "Cars 2 is cursed: it goes to a black screen if RiftWii changes anything in it. Turn off the GameCube adapter (Settings), screenshots, cheats and mods for it. If it still won't boot, send a problem report.": ("Cars 2 está maldito: se queda en pantalla negra si RiftWii cambia cualquier cosa en él. Desactiva el adaptador de GameCube (Ajustes), las capturas, los trucos y los mods para este juego. Si aun así no arranca, envía un informe de problemas.", "カーズ2は呪われています。RiftWiiが何かを変えると黒い画面になります。このゲームではGameCubeアダプター（設定）、スクリーンショット、チート、MODをオフにしてください。それでも起動しないときは問題レポートを送ってください。", "Carros 2 é amaldiçoado: fica com a tela preta se o RiftWii mudar qualquer coisa nele. Desative o adaptador de GameCube (Configurações), as capturas de tela, os cheats e os mods para este jogo. Se ainda assim não iniciar, envie um relatório de problema.", "Cars 2 è maledetto: resta con lo schermo nero se RiftWii cambia qualsiasi cosa. Disattiva l'adattatore GameCube (Impostazioni), gli screenshot, i trucchi e le mod per questo gioco. Se ancora non si avvia, invia una segnalazione del problema."),
+    "This game may be cursed": ("Este juego puede estar maldito", "このゲームは呪われているかもしれない", "Este jogo pode ser amaldiçoado", "Questo gioco potrebbe essere maledetto"),
+    "This game may be cursed: it runs on Cars 2's engine, which goes to a black screen if RiftWii changes anything in it. If it won't boot, turn off the GameCube adapter (Settings), screenshots, cheats and mods for it, and send a problem report.": ("Este juego puede estar maldito: usa el motor de Cars 2, que se queda en pantalla negra si RiftWii cambia cualquier cosa en él. Si no arranca, desactiva el adaptador de GameCube (Ajustes), las capturas, los trucos y los mods para este juego, y envía un informe de problemas.", "このゲームは呪われているかもしれません。カーズ2と同じエンジンで動いていて、RiftWiiが何かを変えると黒い画面になります。起動しないときは、このゲームではGameCubeアダプター（設定）、スクリーンショット、チート、MODをオフにして、問題レポートを送ってください。", "Este jogo pode ser amaldiçoado: ele usa o motor de Carros 2, que fica com a tela preta se o RiftWii mudar qualquer coisa nele. Se não iniciar, desative o adaptador de GameCube (Configurações), as capturas de tela, os cheats e os mods para este jogo, e envie um relatório de problema.", "Questo gioco potrebbe essere maledetto: usa il motore di Cars 2, che resta con lo schermo nero se RiftWii cambia qualsiasi cosa. Se non si avvia, disattiva l'adattatore GameCube (Impostazioni), gli screenshot, i trucchi e le mod per questo gioco, e invia una segnalazione del problema."),
 }
 
 
@@ -2798,6 +2800,10 @@ KO = {
         "이 게임은 저주받았습니다",
     "Cars 2 is cursed: it goes to a black screen if RiftWii changes anything in it. Turn off the GameCube adapter (Settings), screenshots, cheats and mods for it. If it still won't boot, send a problem report.":
         "카 2는 저주받았습니다. RiftWii가 무엇이든 바꾸면 화면이 검게 됩니다. 이 게임에서는 게임큐브 어댑터(설정), 스크린샷, 치트, 모드를 끄세요. 그래도 시작되지 않으면 문제 보고서를 보내주세요.",
+    "This game may be cursed":
+        "이 게임은 저주받았을 수도 있습니다",
+    "This game may be cursed: it runs on Cars 2's engine, which goes to a black screen if RiftWii changes anything in it. If it won't boot, turn off the GameCube adapter (Settings), screenshots, cheats and mods for it, and send a problem report.":
+        "이 게임은 저주받았을 수도 있습니다. 카 2와 같은 엔진을 쓰며, RiftWii가 무엇이든 바꾸면 화면이 검게 됩니다. 시작되지 않으면 이 게임에서 게임큐브 어댑터(설정), 스크린샷, 치트, 모드를 끄고 문제 보고서를 보내주세요.",
 }
 
 # French, a table of its own (msgid: text), from MidyGamy's translation
@@ -3935,6 +3941,10 @@ FR = {
         "Ce jeu est maudit",
     "Cars 2 is cursed: it goes to a black screen if RiftWii changes anything in it. Turn off the GameCube adapter (Settings), screenshots, cheats and mods for it. If it still won't boot, send a problem report.":
         "Cars 2 est maudit : il reste sur un écran noir si RiftWii y change quoi que ce soit. Désactivez l'adaptateur GameCube (Paramètres), les captures d'écran, les codes et les mods pour ce jeu. S'il ne démarre toujours pas, envoyez un rapport de problème.",
+    "This game may be cursed":
+        "Ce jeu est peut-être maudit",
+    "This game may be cursed: it runs on Cars 2's engine, which goes to a black screen if RiftWii changes anything in it. If it won't boot, turn off the GameCube adapter (Settings), screenshots, cheats and mods for it, and send a problem report.":
+        "Ce jeu est peut-être maudit : il utilise le moteur de Cars 2, qui reste sur un écran noir si RiftWii y change quoi que ce soit. S'il ne démarre pas, désactivez l'adaptateur GameCube (Paramètres), les captures d'écran, les codes et les mods pour ce jeu, et envoyez un rapport de problème.",
 }
 
 # Languages kept in tables of their own: written after LANGS, every msgid
