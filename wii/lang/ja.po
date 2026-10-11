@@ -1616,3 +1616,57 @@ msgstr "このcIOSではゲームを起動できません"
 
 msgid "The build has too many files to make an image of here (out of memory)."
 msgstr "ビルドのファイルが多すぎて、ここではイメージを作れません (メモリ不足)。"
+
+msgid "Disable clock on Home screen"
+msgstr "ホームの時計をオフにする"
+
+msgid "Turns off the clock on Home."
+msgstr "ホームの時計をオフにします。"
+
+msgid "Nothing o'clock. The clock stays."
+msgstr "ナッシング時ちょうど。時計はそのままです。"
+
+msgid "USA"
+msgstr "アメリカ"
+
+msgid "Europe"
+msgstr "ヨーロッパ"
+
+msgid "Japan"
+msgstr "日本"
+
+msgid "Korea"
+msgstr "韓国"
+
+msgid "Taiwan"
+msgstr "台湾"
+
+msgid "Not played yet"
+msgstr "まだ遊んでいません"
+
+msgid "Played once"
+msgstr "1回遊びました"
+
+msgid "Played {1} times"
+msgstr "{1}回遊びました"
+
+msgid "Recent"
+msgstr "最近"
+
+msgid "You can now disable the clock"
+msgstr "時計をオフにできるようになりました"
+
+msgid "The shelf: reflections, a backdrop from the cover, momentum"
+msgstr "棚: 映り込み、パッケージから作る背景、慣性スクロール"
+
+msgid "Up and Down turn a shelf box round to its back"
+msgstr "上下で棚のパッケージを裏返します"
+
+msgid "The disc drive has a box of its own"
+msgstr "ディスクドライブ専用のパッケージ"
+
+msgid "The shelf matches the Wii look"
+msgstr "棚がWiiの見た目に合うようになりました"
+
+msgid "AM and PM sit neatly by the clock"
+msgstr "午前・午後の表示が時計の横にすっきり収まります"

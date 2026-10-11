@@ -1634,6 +1634,25 @@ T = {
         "ビルドのファイルが多すぎて、ここではイメージを作れません (メモリ不足)。",
         "A build tem arquivos demais para criar uma imagem aqui (sem memória).",
         "La build ha troppi file per crearne un'immagine qui (memoria esaurita)."),
+    # The shelf, the clock and What's new (2610-29x)
+    "Disable clock on Home screen": ("Desactivar el reloj de Inicio", "ホームの時計をオフにする", "Desativar o relógio do Início", "Disattiva l'orologio della Home"),
+    "Turns off the clock on Home.": ("Desactiva el reloj de Inicio.", "ホームの時計をオフにします。", "Desativa o relógio do Início.", "Disattiva l'orologio della Home."),
+    "Nothing o'clock. The clock stays.": ("Son las nada en punto. El reloj se queda.", "ナッシング時ちょうど。時計はそのままです。", "Nada em ponto. O relógio fica.", "Sono le niente in punto. L'orologio resta."),
+    "USA": ("EE. UU.", "アメリカ", "EUA", "USA"),
+    "Europe": ("Europa", "ヨーロッパ", "Europa", "Europa"),
+    "Japan": ("Japón", "日本", "Japão", "Giappone"),
+    "Korea": ("Corea", "韓国", "Coreia", "Corea"),
+    "Taiwan": ("Taiwán", "台湾", "Taiwan", "Taiwan"),
+    "Not played yet": ("Sin jugar todavía", "まだ遊んでいません", "Ainda não jogado", "Non ancora giocato"),
+    "Played once": ("Jugado una vez", "1回遊びました", "Jogado uma vez", "Giocato una volta"),
+    "Played {1} times": ("Jugado {1} veces", "{1}回遊びました", "Jogado {1} vezes", "Giocato {1} volte"),
+    "Recent": ("Recientes", "最近", "Recentes", "Recenti"),
+    "You can now disable the clock": ("Ahora puedes desactivar el reloj", "時計をオフにできるようになりました", "Agora você pode desativar o relógio", "Ora puoi disattivare l'orologio"),
+    "The shelf: reflections, a backdrop from the cover, momentum": ("El estante: reflejos, un fondo hecho con la portada, inercia", "棚: 映り込み、パッケージから作る背景、慣性スクロール", "A estante: reflexos, um fundo feito da capa, inércia", "Lo scaffale: riflessi, uno sfondo dalla copertina, inerzia"),
+    "Up and Down turn a shelf box round to its back": ("Arriba y Abajo giran la caja del estante para ver el dorso", "上下で棚のパッケージを裏返します", "Cima e Baixo viram a caixa da estante para mostrar o verso", "Su e Giù girano la custodia sullo scaffale per vederne il retro"),
+    "The disc drive has a box of its own": ("El lector de discos tiene su propia caja", "ディスクドライブ専用のパッケージ", "O leitor de discos tem uma caixa própria", "Il lettore di dischi ha una custodia tutta sua"),
+    "The shelf matches the Wii look": ("El estante combina con el aspecto de Wii", "棚がWiiの見た目に合うようになりました", "A estante combina com o visual do Wii", "Lo scaffale si abbina allo stile Wii"),
+    "AM and PM sit neatly by the clock": ("a. m. y p. m. quedan ordenados junto al reloj", "午前・午後の表示が時計の横にすっきり収まります", "AM e PM ficam bem ao lado do relógio", "AM e PM stanno in ordine accanto all'orologio"),
 }
 
 
@@ -2087,7 +2106,7 @@ KO = {
     "Online server":
         "온라인 서버",
     "Home tiles":
-        "홈 타이트",
+        "홈 타일",
     "Covers":
         "커버",
     "Names":
@@ -2716,6 +2735,42 @@ KO = {
         "이 cIOS로는 게임을 실행할 수 없습니다",
     "The build has too many files to make an image of here (out of memory).":
         "빌드의 파일이 너무 많아 여기서 이미지를 만들 수 없습니다(메모리 부족).",
+    "Disable clock on Home screen":
+        "홈 화면 시계 끄기",
+    "Turns off the clock on Home.":
+        "홈 화면의 시계를 끕니다.",
+    "Nothing o'clock. The clock stays.":
+        "지금은 '아무것도 아닌' 시. 시계는 그대로입니다.",
+    "USA":
+        "미국",
+    "Europe":
+        "유럽",
+    "Japan":
+        "일본",
+    "Korea":
+        "한국",
+    "Taiwan":
+        "대만",
+    "Not played yet":
+        "아직 플레이하지 않음",
+    "Played once":
+        "1회 플레이",
+    "Played {1} times":
+        "{1}회 플레이",
+    "Recent":
+        "최근",
+    "You can now disable the clock":
+        "이제 시계를 끌 수 있습니다",
+    "The shelf: reflections, a backdrop from the cover, momentum":
+        "선반: 반사, 커버로 만든 배경, 관성 스크롤",
+    "Up and Down turn a shelf box round to its back":
+        "위/아래로 선반의 케이스를 돌려 뒷면을 봅니다",
+    "The disc drive has a box of its own":
+        "디스크 드라이브 전용 케이스",
+    "The shelf matches the Wii look":
+        "선반이 Wii 스타일과 어울립니다",
+    "AM and PM sit neatly by the clock":
+        "오전/오후 표시가 시계 옆에 깔끔하게 놓입니다",
 }
 
 # French, a table of its own (msgid: text), from MidyGamy's translation
@@ -3699,6 +3754,140 @@ FR = {
         "Ce cIOS ne peut pas lancer de jeux",
     "The build has too many files to make an image of here (out of memory).":
         "La build a trop de fichiers pour en faire une image ici (mémoire insuffisante).",
+    "Disable clock on Home screen":
+        "Désactiver l'horloge de l'accueil",
+    "Turns off the clock on Home.":
+        "Désactive l'horloge de l'accueil.",
+    "Nothing o'clock. The clock stays.":
+        "Il est rien heure. L'horloge reste.",
+    "USA":
+        "États-Unis",
+    "Europe":
+        "Europe",
+    "Japan":
+        "Japon",
+    "Korea":
+        "Corée",
+    "Taiwan":
+        "Taïwan",
+    "Not played yet":
+        "Pas encore joué",
+    "Played once":
+        "Joué 1 fois",
+    "Played {1} times":
+        "Joué {1} fois",
+    "Recent":
+        "Récents",
+    "You can now disable the clock":
+        "Vous pouvez maintenant désactiver l'horloge",
+    "The shelf: reflections, a backdrop from the cover, momentum":
+        "L'étagère : reflets, un fond tiré de la jaquette, défilement avec élan",
+    "Up and Down turn a shelf box round to its back":
+        "Haut et Bas retournent un boîtier de l'étagère pour voir le dos",
+    "The disc drive has a box of its own":
+        "Le lecteur de disque a son propre boîtier",
+    "The shelf matches the Wii look":
+        "L'étagère s'accorde au style Wii",
+    "AM and PM sit neatly by the clock":
+        "AM et PM se placent proprement près de l'horloge",
+    "Games":
+        "Jeux",
+    "Menu":
+        "Menu",
+    "Finding games":
+        "Recherche des jeux",
+    "Online":
+        "En ligne",
+    "More":
+        "Plus",
+    "Picture":
+        "Image",
+    "Other":
+        "Autres",
+    "Clear search":
+        "Effacer la recherche",
+    "No games found yet. Put your games (WBFS, ISO or RVZ) in a folder named wbfs or games at the top of the SD card or USB drive, then pick Look for games again in Settings.":
+        "Aucun jeu trouvé pour l'instant. Placez vos jeux (WBFS, ISO ou RVZ) dans un dossier nommé wbfs ou games à la racine de la carte SD ou du stockage USB, puis choisissez Rechercher à nouveau les jeux dans les Paramètres.",
+    "This SD card ({1} GB) is too big for code builds. Make an SD image.":
+        "Cette carte SD ({1} Go) est trop grande pour les builds de code. Créez une image SD.",
+    "This won't work: this SD card is bigger than 32 GB ({1} GB, SDXC), and Brawl only reads SD cards up to 32 GB, so the build's files never load. Pick \"Make an SD image...\" under the build on the Mods page: the game then reads a small card inside a file on this one. Or copy the build to a 32 GB or smaller card.":
+        "Impossible : cette carte SD dépasse 32 Go ({1} Go, SDXC) et Brawl ne lit que les cartes SD de 32 Go maximum, donc les fichiers de la build ne se chargent jamais. Choisissez « Créer une image SD... » sous la build, sur la page Mods : le jeu lit alors une petite carte contenue dans un fichier sur celle-ci. Ou copiez la build sur une carte de 32 Go ou moins.",
+    "This won't work: code builds like Project+ read the SD card while you play, so the game can't be on the SD card too. Put it on a USB drive, use the disc, or pick \"Make an SD image...\" under the build on the Mods page.":
+        "Impossible : les builds de code comme Project+ lisent la carte SD pendant la partie, donc le jeu ne peut pas aussi être sur la carte SD. Mettez-le sur un stockage USB, utilisez le disque ou choisissez « Créer une image SD... » sous la build, sur la page Mods.",
+    "Make an SD image...":
+        "Créer une image SD...",
+    "RiftWii stopped while reading the Wii Menu's font last time, so it uses its own. Send a problem report so this can be fixed.":
+        "RiftWii s'est arrêté pendant la lecture de la police du Menu Wii la dernière fois ; il utilise donc la sienne. Envoyez un rapport de problème pour que cela soit corrigé.",
+    "Report sent: {1}":
+        "Rapport envoyé : {1}",
+    "SD image":
+        "Image SD",
+    "Looking at the build's files...":
+        "Examen des fichiers de la build...",
+    "No SD image made":
+        "Aucune image SD créée",
+    " and ":
+        " et ",
+    "RiftWii copies {1} into sd:/riftwii/{2} ({3}). The game then gets the image as its SD card, so it can be on the SD card too. This takes about {4} minutes.":
+        "RiftWii copie {1} dans sd:/riftwii/{2} ({3}). Le jeu reçoit ensuite l'image comme carte SD, il peut donc être lui aussi sur la carte SD. Cela prend environ {4} minutes.",
+    "It is saved in {1} parts, as a FAT32 card holds no file of 4 GB.":
+        "Elle est enregistrée en {1} parties, car une carte FAT32 ne peut contenir aucun fichier de 4 Go.",
+    "It replaces the {1} there now.":
+        "Elle remplace le {1} déjà présent.",
+    "Make an SD image?":
+        "Créer une image SD ?",
+    "Make it":
+        "Créer",
+    "Making {1}":
+        "Création de {1}",
+    "Stop":
+        "Arrêter",
+    "{1} minutes left":
+        "Encore {1} minutes",
+    "{1} seconds left":
+        "Encore {1} secondes",
+    "Free space":
+        "Espace libre",
+    "Stopped. Nothing was kept.":
+        "Arrêté. Rien n'a été conservé.",
+    "{1} could not be made: {2}. Nothing was kept.":
+        "Impossible de créer {1} : {2}. Rien n'a été conservé.",
+    "SD image made":
+        "Image SD créée",
+    "{1} is in sd:/riftwii, and the build in it is turned on: the game gets the image as its SD card.":
+        "{1} se trouve dans sd:/riftwii et la build qu'elle contient est activée : le jeu reçoit l'image comme carte SD.",
+    "Remove from the list":
+        "Retirer de la liste",
+    "Add a code build...":
+        "Ajouter une build de code...",
+    "..  (up a folder)":
+        "..  (dossier parent)",
+    "Pick":
+        "Choisir",
+    "Nothing here":
+        "Rien ici",
+    "Add a code build":
+        "Ajouter une build de code",
+    "Achievement unlocked: License Enthusiast":
+        "Succès débloqué : Passionné de licences",
+    "Congratulations! You read all 5,644 words of the GNU GPL, version 3. Are you really that bored? Respect to the developers whose work RiftWii builds on: every one of you is credited above. The GPL is there to protect people who share their code, not to be waved around only when it's handy for picking a fight. Your reward: absolutely nothing, as the license says (\"WITHOUT ANY WARRANTY\").":
+        "Félicitations ! Vous avez lu les 5 644 mots de la GNU GPL, version 3. Vous vous ennuyez à ce point ? Respect aux développeurs dont le travail sert de base à RiftWii : chacun d'entre vous est crédité ci-dessus. La GPL est là pour protéger ceux qui partagent leur code, pas pour être brandie seulement quand ça arrange pour chercher la bagarre. Votre récompense : absolument rien, comme le dit la licence (« WITHOUT ANY WARRANTY »).",
+    "Fair enough":
+        "D'accord",
+    "Only a build in a folder can go into an image.":
+        "Seule une build dans un dossier peut aller dans une image.",
+    "The build cannot go into an image: {1}.":
+        "La build ne peut pas aller dans une image : {1}.",
+    "The image needs {1} on the SD card and {2} is free. Make room (or use a bigger card) and try again.":
+        "L'image a besoin de {1} sur la carte SD et {2} sont libres. Faites de la place (ou utilisez une carte plus grande) et réessayez.",
+    "Cannot replace {1}.":
+        "Impossible de remplacer {1}.",
+    "{1} has folders too deep to copy.":
+        "{1} contient des dossiers trop profonds pour être copiés.",
+    "Cannot read sd:{1}.":
+        "Impossible de lire sd:{1}.",
+    "The build has more than {1} files.":
+        "La build contient plus de {1} fichiers.",
 }
 
 # Languages kept in tables of their own: written after LANGS, every msgid
@@ -3716,7 +3905,8 @@ def check(repo):
     """Every msgid must appear as a literal in the menu's sources, or it
     would never be looked up."""
     sources = ["wii/rift_menu.cpp", "wii/gameextras.cpp", "wii/gui_gamegrid.cpp", "wii/channel.cpp", "wii/frontend.cpp",
-               "wii/codebuilds.cpp", "wii/gui_searchkeys.cpp", "wii/main.cpp", "wii/vsdmake.cpp"]
+               "wii/codebuilds.cpp", "wii/gui_searchkeys.cpp", "wii/main.cpp", "wii/vsdmake.cpp",
+               "wii/gui_shelf.cpp"]
     text = "".join(open(os.path.join(repo, p), encoding="utf-8").read() for p in sources)
     missing = [k for k in T if '"%s"' % escape(k) not in text]
     for k in missing:

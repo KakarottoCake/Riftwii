@@ -1616,3 +1616,57 @@ msgstr "Questo cIOS non può avviare giochi"
 
 msgid "The build has too many files to make an image of here (out of memory)."
 msgstr "La build ha troppi file per crearne un'immagine qui (memoria esaurita)."
+
+msgid "Disable clock on Home screen"
+msgstr "Disattiva l'orologio della Home"
+
+msgid "Turns off the clock on Home."
+msgstr "Disattiva l'orologio della Home."
+
+msgid "Nothing o'clock. The clock stays."
+msgstr "Sono le niente in punto. L'orologio resta."
+
+msgid "USA"
+msgstr "USA"
+
+msgid "Europe"
+msgstr "Europa"
+
+msgid "Japan"
+msgstr "Giappone"
+
+msgid "Korea"
+msgstr "Corea"
+
+msgid "Taiwan"
+msgstr "Taiwan"
+
+msgid "Not played yet"
+msgstr "Non ancora giocato"
+
+msgid "Played once"
+msgstr "Giocato una volta"
+
+msgid "Played {1} times"
+msgstr "Giocato {1} volte"
+
+msgid "Recent"
+msgstr "Recenti"
+
+msgid "You can now disable the clock"
+msgstr "Ora puoi disattivare l'orologio"
+
+msgid "The shelf: reflections, a backdrop from the cover, momentum"
+msgstr "Lo scaffale: riflessi, uno sfondo dalla copertina, inerzia"
+
+msgid "Up and Down turn a shelf box round to its back"
+msgstr "Su e Giù girano la custodia sullo scaffale per vederne il retro"
+
+msgid "The disc drive has a box of its own"
+msgstr "Il lettore di dischi ha una custodia tutta sua"
+
+msgid "The shelf matches the Wii look"
+msgstr "Lo scaffale si abbina allo stile Wii"
+
+msgid "AM and PM sit neatly by the clock"
+msgstr "AM e PM stanno in ordine accanto all'orologio"

@@ -712,7 +712,7 @@ msgid "Online server"
 msgstr "온라인 서버"
 
 msgid "Home tiles"
-msgstr "홈 타이트"
+msgstr "홈 타일"
 
 msgid "Covers"
 msgstr "커버"
@@ -1616,3 +1616,57 @@ msgstr "이 cIOS로는 게임을 실행할 수 없습니다"
 
 msgid "The build has too many files to make an image of here (out of memory)."
 msgstr "빌드의 파일이 너무 많아 여기서 이미지를 만들 수 없습니다(메모리 부족)."
+
+msgid "Disable clock on Home screen"
+msgstr "홈 화면 시계 끄기"
+
+msgid "Turns off the clock on Home."
+msgstr "홈 화면의 시계를 끕니다."
+
+msgid "Nothing o'clock. The clock stays."
+msgstr "지금은 '아무것도 아닌' 시. 시계는 그대로입니다."
+
+msgid "USA"
+msgstr "미국"
+
+msgid "Europe"
+msgstr "유럽"
+
+msgid "Japan"
+msgstr "일본"
+
+msgid "Korea"
+msgstr "한국"
+
+msgid "Taiwan"
+msgstr "대만"
+
+msgid "Not played yet"
+msgstr "아직 플레이하지 않음"
+
+msgid "Played once"
+msgstr "1회 플레이"
+
+msgid "Played {1} times"
+msgstr "{1}회 플레이"
+
+msgid "Recent"
+msgstr "최근"
+
+msgid "You can now disable the clock"
+msgstr "이제 시계를 끌 수 있습니다"
+
+msgid "The shelf: reflections, a backdrop from the cover, momentum"
+msgstr "선반: 반사, 커버로 만든 배경, 관성 스크롤"
+
+msgid "Up and Down turn a shelf box round to its back"
+msgstr "위/아래로 선반의 케이스를 돌려 뒷면을 봅니다"
+
+msgid "The disc drive has a box of its own"
+msgstr "디스크 드라이브 전용 케이스"
+
+msgid "The shelf matches the Wii look"
+msgstr "선반이 Wii 스타일과 어울립니다"
+
+msgid "AM and PM sit neatly by the clock"
+msgstr "오전/오후 표시가 시계 옆에 깔끔하게 놓입니다"

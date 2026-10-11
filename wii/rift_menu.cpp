@@ -5544,7 +5544,7 @@ static int MenuSettings(FrontendState& state)
 						break;
 					}
 					logf("Settings: someone tried to turn the clock off\n");
-					if (ShowPopup("Would you look at the time", "Nothing o'clock. The clock stays.",
+					if (ShowPopup("Would you look at the time", tr("Nothing o'clock. The clock stays."),
 						    tr("Restart"), tr("Later")) == 0) {
 						riftwii::wii::WarmRestart(riftwii::wii::RestartKind::Theme,
 							tr("Theme: {1}", {themeName(settings.theme)}));

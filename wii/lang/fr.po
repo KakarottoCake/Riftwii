@@ -367,25 +367,25 @@ msgid "Settings"
 msgstr "Paramètres"
 
 msgid "Games"
-msgstr ""
+msgstr "Jeux"
 
 msgid "Menu"
-msgstr ""
+msgstr "Menu"
 
 msgid "Finding games"
-msgstr ""
+msgstr "Recherche des jeux"
 
 msgid "Online"
-msgstr ""
+msgstr "En ligne"
 
 msgid "More"
-msgstr ""
+msgstr "Plus"
 
 msgid "Picture"
-msgstr ""
+msgstr "Image"
 
 msgid "Other"
-msgstr ""
+msgstr "Autres"
 
 msgid "Language"
 msgstr "Langue"
@@ -562,10 +562,10 @@ msgid "View"
 msgstr "Voir"
 
 msgid "Clear search"
-msgstr ""
+msgstr "Effacer la recherche"
 
 msgid "No games found yet. Put your games (WBFS, ISO or RVZ) in a folder named wbfs or games at the top of the SD card or USB drive, then pick Look for games again in Settings."
-msgstr ""
+msgstr "Aucun jeu trouvé pour l'instant. Placez vos jeux (WBFS, ISO ou RVZ) dans un dossier nommé wbfs ou games à la racine de la carte SD ou du stockage USB, puis choisissez Rechercher à nouveau les jeux dans les Paramètres."
 
 msgid "Who RiftWii's parts come from, its license (the GNU GPL, version 3 or later) and where its source is."
 msgstr "L'origine des composants de RiftWii, sa licence (GNU GPL v3 ou ultérieure) et l'emplacement du code source."
@@ -835,19 +835,19 @@ msgid "This won't work: code builds like Project+ have to be on the SD card, not
 msgstr "Impossible : les mods de type Project+ doivent figurer sur la carte SD. Déplacez {1} au même emplacement sur la SD. Vos jeux peuvent rester sur l'USB."
 
 msgid "This SD card ({1} GB) is too big for code builds. Make an SD image."
-msgstr ""
+msgstr "Cette carte SD ({1} Go) est trop grande pour les builds de code. Créez une image SD."
 
 msgid "This won't work: this SD card is bigger than 32 GB ({1} GB, SDXC), and Brawl only reads SD cards up to 32 GB, so the build's files never load. Pick \"Make an SD image...\" under the build on the Mods page: the game then reads a small card inside a file on this one. Or copy the build to a 32 GB or smaller card."
-msgstr ""
+msgstr "Impossible : cette carte SD dépasse 32 Go ({1} Go, SDXC) et Brawl ne lit que les cartes SD de 32 Go maximum, donc les fichiers de la build ne se chargent jamais. Choisissez « Créer une image SD... » sous la build, sur la page Mods : le jeu lit alors une petite carte contenue dans un fichier sur celle-ci. Ou copiez la build sur une carte de 32 Go ou moins."
 
 msgid "Code builds need the game on USB or disc, not the SD card."
 msgstr "Les builds de code nécessitent le jeu sur USB ou disque, pas sur la SD."
 
 msgid "This won't work: code builds like Project+ read the SD card while you play, so the game can't be on the SD card too. Put it on a USB drive, use the disc, or pick \"Make an SD image...\" under the build on the Mods page."
-msgstr ""
+msgstr "Impossible : les builds de code comme Project+ lisent la carte SD pendant la partie, donc le jeu ne peut pas aussi être sur la carte SD. Mettez-le sur un stockage USB, utilisez le disque ou choisissez « Créer une image SD... » sous la build, sur la page Mods."
 
 msgid "Make an SD image..."
-msgstr ""
+msgstr "Créer une image SD..."
 
 msgid "{1} is on the USB drive: the game has to be there too."
 msgstr "{1} est sur le stockage USB : le jeu doit s'y trouver également."
@@ -1252,7 +1252,7 @@ msgid "Menu font: {1}"
 msgstr "Police du menu : {1}"
 
 msgid "RiftWii stopped while reading the Wii Menu's font last time, so it uses its own. Send a problem report so this can be fixed."
-msgstr ""
+msgstr "RiftWii s'est arrêté pendant la lecture de la police du Menu Wii la dernière fois ; il utilise donc la sienne. Envoyez un rapport de problème pour que cela soit corrigé."
 
 msgid "The Wii Menu's font could not be read, so RiftWii's is used."
 msgstr "Police originale du menu Wii introuvable, utilisation de la police native de RiftWii."
@@ -1300,109 +1300,109 @@ msgid "Don't show again"
 msgstr "Ne plus afficher"
 
 msgid "Report sent: {1}"
-msgstr ""
+msgstr "Rapport envoyé : {1}"
 
 msgid "SD image"
-msgstr ""
+msgstr "Image SD"
 
 msgid "Looking at the build's files..."
-msgstr ""
+msgstr "Examen des fichiers de la build..."
 
 msgid "No SD image made"
-msgstr ""
+msgstr "Aucune image SD créée"
 
 msgid " and "
-msgstr ""
+msgstr " et "
 
 msgid "RiftWii copies {1} into sd:/riftwii/{2} ({3}). The game then gets the image as its SD card, so it can be on the SD card too. This takes about {4} minutes."
-msgstr ""
+msgstr "RiftWii copie {1} dans sd:/riftwii/{2} ({3}). Le jeu reçoit ensuite l'image comme carte SD, il peut donc être lui aussi sur la carte SD. Cela prend environ {4} minutes."
 
 msgid "It is saved in {1} parts, as a FAT32 card holds no file of 4 GB."
-msgstr ""
+msgstr "Elle est enregistrée en {1} parties, car une carte FAT32 ne peut contenir aucun fichier de 4 Go."
 
 msgid "It replaces the {1} there now."
-msgstr ""
+msgstr "Elle remplace le {1} déjà présent."
 
 msgid "Make an SD image?"
-msgstr ""
+msgstr "Créer une image SD ?"
 
 msgid "Make it"
-msgstr ""
+msgstr "Créer"
 
 msgid "Making {1}"
-msgstr ""
+msgstr "Création de {1}"
 
 msgid "Stop"
-msgstr ""
+msgstr "Arrêter"
 
 msgid "{1} minutes left"
-msgstr ""
+msgstr "Encore {1} minutes"
 
 msgid "{1} seconds left"
-msgstr ""
+msgstr "Encore {1} secondes"
 
 msgid "Free space"
-msgstr ""
+msgstr "Espace libre"
 
 msgid "Stopped. Nothing was kept."
-msgstr ""
+msgstr "Arrêté. Rien n'a été conservé."
 
 msgid "{1} could not be made: {2}. Nothing was kept."
-msgstr ""
+msgstr "Impossible de créer {1} : {2}. Rien n'a été conservé."
 
 msgid "SD image made"
-msgstr ""
+msgstr "Image SD créée"
 
 msgid "{1} is in sd:/riftwii, and the build in it is turned on: the game gets the image as its SD card."
-msgstr ""
+msgstr "{1} se trouve dans sd:/riftwii et la build qu'elle contient est activée : le jeu reçoit l'image comme carte SD."
 
 msgid "Remove from the list"
-msgstr ""
+msgstr "Retirer de la liste"
 
 msgid "Add a code build..."
-msgstr ""
+msgstr "Ajouter une build de code..."
 
 msgid "..  (up a folder)"
-msgstr ""
+msgstr "..  (dossier parent)"
 
 msgid "Pick"
-msgstr ""
+msgstr "Choisir"
 
 msgid "Nothing here"
-msgstr ""
+msgstr "Rien ici"
 
 msgid "Add a code build"
-msgstr ""
+msgstr "Ajouter une build de code"
 
 msgid "Achievement unlocked: License Enthusiast"
-msgstr ""
+msgstr "Succès débloqué : Passionné de licences"
 
 msgid "Congratulations! You read all 5,644 words of the GNU GPL, version 3. Are you really that bored? Respect to the developers whose work RiftWii builds on: every one of you is credited above. The GPL is there to protect people who share their code, not to be waved around only when it's handy for picking a fight. Your reward: absolutely nothing, as the license says (\"WITHOUT ANY WARRANTY\")."
-msgstr ""
+msgstr "Félicitations ! Vous avez lu les 5 644 mots de la GNU GPL, version 3. Vous vous ennuyez à ce point ? Respect aux développeurs dont le travail sert de base à RiftWii : chacun d'entre vous est crédité ci-dessus. La GPL est là pour protéger ceux qui partagent leur code, pas pour être brandie seulement quand ça arrange pour chercher la bagarre. Votre récompense : absolument rien, comme le dit la licence (« WITHOUT ANY WARRANTY »)."
 
 msgid "Fair enough"
-msgstr ""
+msgstr "D'accord"
 
 msgid "Only a build in a folder can go into an image."
-msgstr ""
+msgstr "Seule une build dans un dossier peut aller dans une image."
 
 msgid "The build cannot go into an image: {1}."
-msgstr ""
+msgstr "La build ne peut pas aller dans une image : {1}."
 
 msgid "The image needs {1} on the SD card and {2} is free. Make room (or use a bigger card) and try again."
-msgstr ""
+msgstr "L'image a besoin de {1} sur la carte SD et {2} sont libres. Faites de la place (ou utilisez une carte plus grande) et réessayez."
 
 msgid "Cannot replace {1}."
-msgstr ""
+msgstr "Impossible de remplacer {1}."
 
 msgid "{1} has folders too deep to copy."
-msgstr ""
+msgstr "{1} contient des dossiers trop profonds pour être copiés."
 
 msgid "Cannot read sd:{1}."
-msgstr ""
+msgstr "Impossible de lire sd:{1}."
 
 msgid "The build has more than {1} files."
-msgstr ""
+msgstr "La build contient plus de {1} fichiers."
 
 msgid "Disc Channel"
 msgstr "Chaîne disques"
@@ -1616,3 +1616,57 @@ msgstr "Ce cIOS ne peut pas lancer de jeux"
 
 msgid "The build has too many files to make an image of here (out of memory)."
 msgstr "La build a trop de fichiers pour en faire une image ici (mémoire insuffisante)."
+
+msgid "Disable clock on Home screen"
+msgstr "Désactiver l'horloge de l'accueil"
+
+msgid "Turns off the clock on Home."
+msgstr "Désactive l'horloge de l'accueil."
+
+msgid "Nothing o'clock. The clock stays."
+msgstr "Il est rien heure. L'horloge reste."
+
+msgid "USA"
+msgstr "États-Unis"
+
+msgid "Europe"
+msgstr "Europe"
+
+msgid "Japan"
+msgstr "Japon"
+
+msgid "Korea"
+msgstr "Corée"
+
+msgid "Taiwan"
+msgstr "Taïwan"
+
+msgid "Not played yet"
+msgstr "Pas encore joué"
+
+msgid "Played once"
+msgstr "Joué 1 fois"
+
+msgid "Played {1} times"
+msgstr "Joué {1} fois"
+
+msgid "Recent"
+msgstr "Récents"
+
+msgid "You can now disable the clock"
+msgstr "Vous pouvez maintenant désactiver l'horloge"
+
+msgid "The shelf: reflections, a backdrop from the cover, momentum"
+msgstr "L'étagère : reflets, un fond tiré de la jaquette, défilement avec élan"
+
+msgid "Up and Down turn a shelf box round to its back"
+msgstr "Haut et Bas retournent un boîtier de l'étagère pour voir le dos"
+
+msgid "The disc drive has a box of its own"
+msgstr "Le lecteur de disque a son propre boîtier"
+
+msgid "The shelf matches the Wii look"
+msgstr "L'étagère s'accorde au style Wii"
+
+msgid "AM and PM sit neatly by the clock"
+msgstr "AM et PM se placent proprement près de l'horloge"
