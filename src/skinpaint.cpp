@@ -219,7 +219,21 @@ struct Painter {
         // The accent's ring, and the face inside it, light at the top.
         c.ring(40, 40, 31.5f, over ? 4.0f : 3.2f, accent);
         c.rounded_gradient(11.5f, 11.5f, 57, 57, 28.5f, shade(card, 1.04f), shade(card, 0.90f));
-        c.rounded_gradient(15, 13, 50, 24, 12, Rgba{255, 255, 255, 110}, Rgba{255, 255, 255, 0});
+        // The gloss: an oval of light over the face's top, inside the face,
+        // brightest at the top and gone before the middle, soft all round.
+        for (int y = 11; y < 42; ++y)
+            for (int x = 11; x < 69; ++x) {
+                const float px = x + 0.5f, py = y + 0.5f;
+                const float inFace = std::clamp(27.0f - std::hypot(px - 40, py - 40), 0.0f, 1.5f) / 1.5f;
+                const float ex = (px - 40) / 25.0f, ey = (py - 26) / 14.0f;
+                const float inOval = std::clamp((1.0f - (ex * ex + ey * ey)) * 3.0f, 0.0f, 1.0f);
+                const float down = std::clamp(1.0f - (py - 12) / 28.0f, 0.0f, 1.0f);
+                const float a = 0.55f * inFace * inOval * down * down;
+                if (a <= 0.0f) continue;
+                const Rgba d = c.at(x, y);
+                const auto mixc = [a](std::uint8_t v) { return static_cast<std::uint8_t>(v + (255 - v) * a); };
+                c.put(x, y, Rgba{mixc(d.r), mixc(d.g), mixc(d.b), d.a});
+            }
         return c;
     }
 
