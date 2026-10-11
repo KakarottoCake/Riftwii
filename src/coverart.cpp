@@ -213,15 +213,26 @@ void from_rgb5a3(std::uint16_t v, std::uint8_t* p) {
 }
 }  // namespace
 
-void make_backdrop(const std::uint8_t* tiles, int w, int h, int x0, int x1, std::uint8_t* out) {
+void make_backdrop(const std::uint8_t* tiles, int w, int h, int x0, int x1, std::uint8_t* out, bool rgba8) {
     if (!tiles || !out || w <= 0 || h <= 0 || w % 4 || h % 4 || x0 < 0 || x1 > w || x1 <= x0) return;
     const int sw = x1 - x0;
     std::vector<std::uint8_t> src(static_cast<std::size_t>(sw) * h * 4);
     for (int y = 0; y < h; ++y)
         for (int x = x0; x < x1; ++x) {
-            const std::size_t at = ((static_cast<std::size_t>(y / 4) * (w / 4) + x / 4) * 16 + (y % 4) * 4 + x % 4) * 2;
-            from_rgb5a3(static_cast<std::uint16_t>((tiles[at] << 8) | tiles[at + 1]),
-                        &src[(static_cast<std::size_t>(y) * sw + (x - x0)) * 4]);
+            std::uint8_t* p = &src[(static_cast<std::size_t>(y) * sw + (x - x0)) * 4];
+            const std::size_t tile = static_cast<std::size_t>(y / 4) * (w / 4) + x / 4;
+            const std::size_t in = static_cast<std::size_t>((y % 4) * 4 + x % 4) * 2;
+            if (rgba8) {
+                // A tile is 64 bytes: alpha and red pairs, then green and blue.
+                const std::uint8_t* t = tiles + tile * 64;
+                p[0] = t[in + 1];
+                p[1] = t[32 + in];
+                p[2] = t[32 + in + 1];
+                p[3] = t[in];
+            } else {
+                const std::size_t at = tile * 32 + in;
+                from_rgb5a3(static_cast<std::uint16_t>((tiles[at] << 8) | tiles[at + 1]), p);
+            }
         }
     std::vector<std::uint8_t> px = scale_rgba(src.data(), sw, h, kBackdropWidth, kBackdropHeight);
     // Twice a 3x3 average, the edges repeated.

@@ -66,13 +66,14 @@ std::vector<std::uint8_t> make_box_file(const std::uint8_t* rgba, int w, int h);
 bool box_header_valid(const std::uint8_t* header);
 
 // The shelf's backdrop: a small, soft copy of columns [x0, x1) of a w x h
-// RGB5A3 texture (4x4 tiles, as stored), each pixel the average of its
-// area and then blurred, opaque, as kBackdropWidth x kBackdropHeight
-// RGB5A3 tiles into `out` (kBackdropBytes). Drawn stretched across the
-// screen, the filtering does the rest of the blur.
+// RGB5A3 texture (4x4 tiles, as stored; with `rgba8`, GX RGBA8 tiles, as
+// the menu's painted pictures are), each pixel the average of its area
+// and then blurred, opaque, as kBackdropWidth x kBackdropHeight RGB5A3
+// tiles into `out` (kBackdropBytes). Drawn stretched across the screen,
+// the filtering does the rest of the blur.
 constexpr int kBackdropWidth = 32;
 constexpr int kBackdropHeight = 44;
 constexpr std::size_t kBackdropBytes = static_cast<std::size_t>(kBackdropWidth) * kBackdropHeight * 2;
-void make_backdrop(const std::uint8_t* tiles, int w, int h, int x0, int x1, std::uint8_t* out);
+void make_backdrop(const std::uint8_t* tiles, int w, int h, int x0, int x1, std::uint8_t* out, bool rgba8 = false);
 
 }  // namespace riftwii

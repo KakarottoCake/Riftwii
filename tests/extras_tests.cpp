@@ -794,6 +794,15 @@ void TestCoverArt() {
                       back.data());
         EXPECT_EQ((back[0] << 8) | back[1], 0x801F);
         EXPECT_EQ((back[kBackdropBytes - 2] << 8) | back[kBackdropBytes - 1], 0x801F);
+        // From GX RGBA8 tiles (a painted picture): all red, opaque.
+        std::vector<std::uint8_t> rgba8(128 * 176 * 4, 0);
+        for (std::size_t t = 0; t < rgba8.size(); t += 64)
+            for (int i = 0; i < 16; ++i) {
+                rgba8[t + i * 2] = 255;      // alpha
+                rgba8[t + i * 2 + 1] = 255;  // red
+            }
+        make_backdrop(rgba8.data(), 128, 176, 0, 128, back.data(), true);
+        EXPECT_EQ((back[0] << 8) | back[1], 0xFC00);
     }
     std::uint8_t bad[8] = {'R', 'W', 'C', '1', 0, 40, 0, 112};
     EXPECT_FALSE(cover_header_valid(bad));

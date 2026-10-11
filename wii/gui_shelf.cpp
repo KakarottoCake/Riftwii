@@ -373,13 +373,20 @@ std::string g_backId[2];
 float g_backShown[2] = {0, 0};
 int g_backCur = 0;
 
+// `id` "*disc": the disc drive's box (skin::discCase).
+constexpr const char* kDiscBackdrop = "*disc";
+
 void UpdateBackdrop(const std::string& id, bool still) {
     if (g_backId[g_backCur] != id && still && !id.empty()) {
-        const u8* art = riftwii::wii::BoxTexture(id);
-        const u8* cover = art ? nullptr : riftwii::wii::CoverTexture(id);
-        if (art || cover) {
+        const bool disc = id == kDiscBackdrop;
+        const u8* art = disc ? nullptr : riftwii::wii::BoxTexture(id);
+        const u8* cover = art || disc ? nullptr : riftwii::wii::CoverTexture(id);
+        if (art || cover || (disc && skin::discCase.data)) {
             const int next = 1 - g_backCur;
-            if (art)
+            if (disc)
+                riftwii::make_backdrop(skin::discCase.data, skin::discCase.w, skin::discCase.h, 0, skin::discCase.w,
+                                       g_backPx[next], true);
+            else if (art)
                 riftwii::make_backdrop(art, riftwii::kBoxWidth, riftwii::kBoxHeight, riftwii::kBoxSpineWidth,
                                        riftwii::kBoxSpineWidth + riftwii::kBoxFrontWidth, g_backPx[next]);
             else
@@ -587,7 +594,10 @@ void GuiGameGrid::DrawShelf(int alpha) {
         return (1.0f - 0.045f * std::min(ad, 7)) * (ad == 1 ? 0.93f : 1.0f);
     };
     LoadPerspective();
-    UpdateBackdrop(focus >= 0 && focus < Count() ? (*items)[focus].id : std::string(), shelfStill >= 8);
+    const std::string backdrop = focus < 0 || focus >= Count()      ? std::string()
+                                 : (*items)[focus].badge == "DISC" ? std::string(kDiscBackdrop)
+                                                                   : (*items)[focus].id;
+    UpdateBackdrop(backdrop, shelfStill >= 8);
     DrawBackdrop(alpha);
     if (focus >= first && focus <= last && poses[focus].placed && (g_flying.empty() || (*items)[focus].id != g_flying)) {
         const BoxPose& p = poses[focus];
