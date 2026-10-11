@@ -483,6 +483,12 @@ void TestHostile() {
         SetBe32(bytes, g + 8, 0xFFFFFFF0);
         EXPECT_FALSE(RvzImage::open(source(bytes), image, error));
         EXPECT_TRUE(error.find("impossible") != std::string::npos);
+        // A group stored as 1.5 GB (it fits the file's 2 GiB of sizes): it
+        // was read whole into memory at the first read of it.
+        bytes = good;
+        SetBe32(bytes, g + 4, 0x80000000u | 0x60000000u);
+        EXPECT_FALSE(RvzImage::open(source(bytes), image, error));
+        EXPECT_TRUE(error.find("impossible") != std::string::npos);
     }
 }
 

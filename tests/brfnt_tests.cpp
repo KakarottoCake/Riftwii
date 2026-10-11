@@ -91,6 +91,15 @@ static void test_font() {
     std::size_t sheet_bytes = 0;
     EXPECT_TRUE(BitmapFont::sheet_size(f.data(), f.size(), sheet_bytes));
     EXPECT_EQ(sheet_bytes, 32u);
+    // A first section claiming nearly 4 GiB: refused, as load() refuses it
+    // (on the Wii's 32-bit size_t the walk wrapped and read before the file).
+    {
+        Bytes bad = f;
+        const std::size_t first = (std::size_t(bad[12]) << 8) | bad[13];
+        put32(bad, first + 4, 0xFFFFFFF0u);
+        std::size_t ignored = 0;
+        EXPECT_TRUE(!BitmapFont::sheet_size(bad.data(), bad.size(), ignored));
+    }
     Bytes slot(32);
     BitmapFont font;
     std::string error;

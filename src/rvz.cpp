@@ -322,10 +322,17 @@ bool RvzImage::open(std::shared_ptr<const ByteSource> file, std::unique_ptr<RvzI
         error = "cannot read the group table: " + image->error_;
         return false;
     }
+    // What a group can hold once decoded (load_group's bound: its body,
+    // at most twice a chunk, and its hash exception lists), and so what it
+    // can take in the file: a stored size past that (up to 2 GiB) was
+    // allocated whole by decode.
+    const std::uint32_t lists = head.chunk_size >= kTwoMiB ? head.chunk_size / kTwoMiB : 1;
+    const std::uint64_t most_stored =
+        2ull * head.chunk_size + std::uint64_t(lists) * (2 + 22 * kMaxExceptions) + kZstdSlack;
     for (std::uint32_t i = 0; i < head.group_count; ++i) {
         const std::uint8_t* e = table.data() + std::size_t(i) * kRvzGroupEntry;
         const Group g{be32(e), be32(e + 4), be32(e + 8)};
-        if (g.packed > 2 * head.chunk_size) {
+        if (g.packed > 2 * head.chunk_size || (g.size & 0x7FFFFFFFu) > most_stored) {
             error = "group " + std::to_string(i) + " claims an impossible size";
             return false;
         }

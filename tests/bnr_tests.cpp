@@ -474,6 +474,13 @@ static void test_layout() {
 // read or allocation past the file, or undefined behaviour) before.
 static void test_hostile() {
     std::string error;
+    // A key at a NaN frame: neither before the first key nor after the
+    // last, and the track has no second key to blend towards.
+    {
+        AnimTrack nan;
+        nan.keys = {AnimKey{std::nanf(""), 7, 0}};
+        EXPECT_EQ(track_value(nan, 3), 7.0f);
+    }
     U8Archive a;
     // A name past 255 bytes.
     {

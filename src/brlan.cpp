@@ -153,6 +153,12 @@ bool parse_brlan(const std::uint8_t* data, std::size_t size, Animation& out, std
                         const std::uint8_t* key = en + ko + k * key_size;
                         AnimKey kv;
                         kv.frame = bef(key);
+                        // NaN or infinite: no place on the timeline (a NaN
+                        // made track_value read past the keys).
+                        if (!std::isfinite(kv.frame)) {
+                            error = "animation " + t.name + " has a key at no frame";
+                            return false;
+                        }
                         if (tr.step) kv.value = be16(key + 4);
                         else {
                             kv.value = bef(key + 4);
@@ -179,7 +185,7 @@ float track_value(const AnimTrack& track, float frame) {
     if (frame >= k.back().frame) return k.back().value;
     std::size_t i = 0;
     while (i + 1 < k.size() && k[i + 1].frame <= frame) ++i;
-    if (track.step) return k[i].value;
+    if (track.step || i + 1 >= k.size()) return k[i].value;
     const AnimKey& a = k[i];
     const AnimKey& b = k[i + 1];
     const float span = b.frame - a.frame;
