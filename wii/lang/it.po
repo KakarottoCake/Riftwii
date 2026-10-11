@@ -1428,12 +1428,6 @@ msgstr "Puoi riaverlo quando vuoi in Impostazioni > Canale Disco."
 msgid "The Disc drive's tile on Home, for playing from a disc. A disc still plays from it when it is off: switch it back on here."
 msgstr "Il riquadro del lettore di dischi nella Home, per giocare da un disco. Se è spento e vuoi giocare da un disco, riattivalo qui."
 
-msgid "Update the RiftWii channel?"
-msgstr "Aggiornare il canale RiftWii?"
-
-msgid "The RiftWii channel on your Wii Menu is an older version ({1}). The new one ({2}) starts RiftWii with full access to the Wii's hardware, which some features need. Reinstall it with the channel installer: it opens, then brings you back here. Settings > RiftWii channel on the Wii Menu can open it later too."
-msgstr "Il canale RiftWii nel tuo Menu Wii è una versione precedente ({1}). Quello nuovo ({2}) avvia RiftWii con pieno accesso all'hardware della Wii, che serve ad alcune funzioni. Reinstallalo con l'installer del canale: si apre e poi ti riporta qui. Puoi aprirlo anche più tardi da Impostazioni > Canale RiftWii nel Menu Wii."
-
 msgid "The Wii Menu's font needs hardware access or a d2x cIOS, and neither worked this time, so RiftWii's font is used. Start RiftWii from an up to date Homebrew Channel or the RiftWii channel (version 9)."
 msgstr "Il carattere del Menu Wii richiede l'accesso all'hardware o un cIOS d2x, e questa volta nessuno dei due ha funzionato, quindi si usa il carattere di RiftWii. Avvia RiftWii da un Homebrew Channel aggiornato o dal canale RiftWii (versione 9)."
 
@@ -1541,9 +1535,6 @@ msgstr "Ci sono opzioni di prova attive"
 
 msgid "Test switches cleared: games start with all of RiftWii's fixes again."
 msgstr "Opzioni di prova tolte: i giochi si avviano di nuovo con tutte le correzioni di RiftWii."
-
-msgid "The RiftWii channel is still version {1}. If you just installed it, the installer on the SD card is an old one: copy apps/riftwii_channel from the newest RiftWii zip onto the card."
-msgstr "Il canale RiftWii è ancora alla versione {1}. Se l'hai appena installato, l'installer sulla scheda SD è vecchio: copia apps/riftwii_channel dallo zip più recente di RiftWii sulla scheda."
 
 msgid "The cheat has no notes about its values: its author's page may say what they are."
 msgstr "Il trucco non ha note sui suoi valori: la pagina del suo autore potrebbe dire quali sono."
@@ -1676,3 +1667,30 @@ msgstr "Lo scaffale si abbina allo stile Wii"
 
 msgid "AM and PM sit neatly by the clock"
 msgstr "AM e PM stanno in ordine accanto all'orologio"
+
+msgid "Update the RiftWii channel"
+msgstr "Aggiorna il canale di RiftWii"
+
+msgid "Your RiftWii channel on the Wii Menu is version {1}, and this RiftWii needs version {2}: it fixes the black screen when a game's HOME Menu > Wii Menu goes back to RiftWii. RiftWii can't be used until the channel is updated."
+msgstr "Il canale di RiftWii nel Menu Wii è la versione {1}, e questo RiftWii richiede la versione {2}: corregge la schermata nera quando dal Menu HOME > Menu Wii di un gioco si torna a RiftWii. Non puoi usare RiftWii finché il canale non è aggiornato."
+
+msgid "The channel is still version {1} after the installer, so the installer on your SD card is an old one. Copy apps/riftwii_channel from the newest RiftWii zip onto the card, then update again."
+msgstr "Il canale è ancora alla versione {1} dopo l'installer, quindi l'installer sulla scheda SD è vecchio. Copia apps/riftwii_channel dallo zip più recente di RiftWii sulla scheda, poi aggiorna di nuovo."
+
+msgid "The installer opens, then brings you back here."
+msgstr "Si apre l'installer, che poi ti riporta qui."
+
+msgid "RiftWii can't update it from here: {1}."
+msgstr "RiftWii non può aggiornarlo da qui: {1}."
+
+msgid "Update now"
+msgstr "Aggiorna ora"
+
+msgid "Check again"
+msgstr "Controlla di nuovo"
+
+msgid "Exit RiftWii"
+msgstr "Esci da RiftWii"
+
+msgid "The RiftWii channel needs updating. Its new installer is still downloading; RiftWii asks you to install it at the next start."
+msgstr "Il canale di RiftWii va aggiornato. Il nuovo installer è ancora in download; RiftWii ti chiederà di installarlo al prossimo avvio."

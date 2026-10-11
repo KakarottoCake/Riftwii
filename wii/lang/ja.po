@@ -1428,12 +1428,6 @@ msgstr "設定 > ディスクドライブチャンネル でいつでも戻せ�
 msgid "The Disc drive's tile on Home, for playing from a disc. A disc still plays from it when it is off: switch it back on here."
 msgstr "ホームのディスクドライブのタイルです。ディスクから遊ぶときに使います。オフのときにディスクで遊ぶには、ここでオンに戻してください。"
 
-msgid "Update the RiftWii channel?"
-msgstr "RiftWiiチャンネルを更新しますか?"
-
-msgid "The RiftWii channel on your Wii Menu is an older version ({1}). The new one ({2}) starts RiftWii with full access to the Wii's hardware, which some features need. Reinstall it with the channel installer: it opens, then brings you back here. Settings > RiftWii channel on the Wii Menu can open it later too."
-msgstr "WiiメニューのRiftWiiチャンネルは古いバージョン ({1}) です。新しいバージョン ({2}) は、一部の機能に必要なWiiのハードウェアへのフルアクセスでRiftWiiを起動します。チャンネルのインストーラーで入れ直してください。インストーラーが開き、終わるとここに戻ります。あとで 設定 > WiiメニューのRiftWiiチャンネル から開くこともできます。"
-
 msgid "The Wii Menu's font needs hardware access or a d2x cIOS, and neither worked this time, so RiftWii's font is used. Start RiftWii from an up to date Homebrew Channel or the RiftWii channel (version 9)."
 msgstr "Wiiメニューのフォントにはハードウェアへのアクセスかd2x cIOSが必要ですが、今回はどちらも使えなかったため、RiftWiiのフォントを使います。最新のHomebrew ChannelかRiftWiiチャンネル (バージョン9) からRiftWiiを起動してください。"
 
@@ -1541,9 +1535,6 @@ msgstr "テスト用の設定がオンです"
 
 msgid "Test switches cleared: games start with all of RiftWii's fixes again."
 msgstr "テスト用の設定を外しました: ゲームはまたRiftWiiのすべての修正つきで起動します。"
-
-msgid "The RiftWii channel is still version {1}. If you just installed it, the installer on the SD card is an old one: copy apps/riftwii_channel from the newest RiftWii zip onto the card."
-msgstr "RiftWiiチャンネルはまだバージョン{1}です。今インストールしたばかりなら、SDカードのインストーラーが古いものです。最新のRiftWiiのzipからapps/riftwii_channelをカードにコピーしてください。"
 
 msgid "The cheat has no notes about its values: its author's page may say what they are."
 msgstr "このチートには値についての説明がありません。作者のページに書いてあるかもしれません。"
@@ -1676,3 +1667,30 @@ msgstr "棚がWiiの見た目に合うようになりました"
 
 msgid "AM and PM sit neatly by the clock"
 msgstr "午前・午後の表示が時計の横にすっきり収まります"
+
+msgid "Update the RiftWii channel"
+msgstr "RiftWiiチャンネルを更新してください"
+
+msgid "Your RiftWii channel on the Wii Menu is version {1}, and this RiftWii needs version {2}: it fixes the black screen when a game's HOME Menu > Wii Menu goes back to RiftWii. RiftWii can't be used until the channel is updated."
+msgstr "WiiメニューのRiftWiiチャンネルはバージョン{1}ですが、このRiftWiiにはバージョン{2}が必要です。ゲームのHOMEメニュー > WiiメニューでRiftWiiに戻るときの黒い画面を直します。チャンネルを更新するまでRiftWiiは使えません。"
+
+msgid "The channel is still version {1} after the installer, so the installer on your SD card is an old one. Copy apps/riftwii_channel from the newest RiftWii zip onto the card, then update again."
+msgstr "インストーラーのあともチャンネルはバージョン{1}のままです。SDカードのインストーラーが古いものです。最新のRiftWiiのzipからapps/riftwii_channelをカードにコピーして、もう一度更新してください。"
+
+msgid "The installer opens, then brings you back here."
+msgstr "インストーラーが開き、そのあとここに戻ります。"
+
+msgid "RiftWii can't update it from here: {1}."
+msgstr "RiftWiiからは更新できません: {1}。"
+
+msgid "Update now"
+msgstr "今すぐ更新"
+
+msgid "Check again"
+msgstr "もう一度確認"
+
+msgid "Exit RiftWii"
+msgstr "RiftWiiを終了"
+
+msgid "The RiftWii channel needs updating. Its new installer is still downloading; RiftWii asks you to install it at the next start."
+msgstr "RiftWiiチャンネルの更新が必要です。新しいインストーラーはまだダウンロード中です。次に起動したときにインストールを求めます。"

@@ -1428,12 +1428,6 @@ msgstr "Vous pouvez la réafficher à tout moment dans Paramètres > Chaîne dis
 msgid "The Disc drive's tile on Home, for playing from a disc. A disc still plays from it when it is off: switch it back on here."
 msgstr "La tuile du lecteur de disque sur l'accueil, pour jouer depuis un disque. Même désactivée, un disque se lance toujours : réactivez-la ici."
 
-msgid "Update the RiftWii channel?"
-msgstr "Mettre à jour la chaîne RiftWii ?"
-
-msgid "The RiftWii channel on your Wii Menu is an older version ({1}). The new one ({2}) starts RiftWii with full access to the Wii's hardware, which some features need. Reinstall it with the channel installer: it opens, then brings you back here. Settings > RiftWii channel on the Wii Menu can open it later too."
-msgstr "La chaîne RiftWii du menu Wii est une ancienne version ({1}). La nouvelle ({2}) lance RiftWii avec un accès complet au matériel de la Wii, nécessaire à certaines fonctions. Réinstallez-la avec l'installeur de la chaîne : il s'ouvre, puis vous ramène ici. Paramètres > Chaîne RiftWii sur le menu Wii permet aussi de l'ouvrir plus tard."
-
 msgid "The Wii Menu's font needs hardware access or a d2x cIOS, and neither worked this time, so RiftWii's font is used. Start RiftWii from an up to date Homebrew Channel or the RiftWii channel (version 9)."
 msgstr "La police du menu Wii nécessite un accès au matériel ou un cIOS d2x, et aucun des deux n'a fonctionné cette fois : la police de RiftWii est utilisée. Lancez RiftWii depuis une Chaîne Homebrew à jour ou la chaîne RiftWii (version 9)."
 
@@ -1541,9 +1535,6 @@ msgstr "Des réglages de test sont actifs"
 
 msgid "Test switches cleared: games start with all of RiftWii's fixes again."
 msgstr "Réglages de test effacés : les jeux démarrent de nouveau avec tous les correctifs de RiftWii."
-
-msgid "The RiftWii channel is still version {1}. If you just installed it, the installer on the SD card is an old one: copy apps/riftwii_channel from the newest RiftWii zip onto the card."
-msgstr "La chaîne RiftWii est toujours en version {1}. Si vous venez de l'installer, l'installeur sur la carte SD est ancien : copiez apps/riftwii_channel du zip RiftWii le plus récent sur la carte."
 
 msgid "The cheat has no notes about its values: its author's page may say what they are."
 msgstr "Ce code n'a pas de notes sur ses valeurs : la page de son auteur les indique peut-être."
@@ -1676,3 +1667,30 @@ msgstr "L'étagère s'accorde au style Wii"
 
 msgid "AM and PM sit neatly by the clock"
 msgstr "AM et PM se placent proprement près de l'horloge"
+
+msgid "Update the RiftWii channel"
+msgstr "Mettez à jour la chaîne RiftWii"
+
+msgid "Your RiftWii channel on the Wii Menu is version {1}, and this RiftWii needs version {2}: it fixes the black screen when a game's HOME Menu > Wii Menu goes back to RiftWii. RiftWii can't be used until the channel is updated."
+msgstr "Votre chaîne RiftWii du Menu Wii est en version {1}, et ce RiftWii a besoin de la version {2} : elle corrige l'écran noir au retour vers RiftWii depuis le menu HOME > Menu Wii d'un jeu. RiftWii ne peut pas être utilisé tant que la chaîne n'est pas mise à jour."
+
+msgid "The channel is still version {1} after the installer, so the installer on your SD card is an old one. Copy apps/riftwii_channel from the newest RiftWii zip onto the card, then update again."
+msgstr "La chaîne est toujours en version {1} après l'installateur : celui de votre carte SD est ancien. Copiez apps/riftwii_channel depuis le zip RiftWii le plus récent sur la carte, puis mettez à jour à nouveau."
+
+msgid "The installer opens, then brings you back here."
+msgstr "L'installateur s'ouvre, puis vous ramène ici."
+
+msgid "RiftWii can't update it from here: {1}."
+msgstr "RiftWii ne peut pas la mettre à jour d'ici : {1}."
+
+msgid "Update now"
+msgstr "Mettre à jour"
+
+msgid "Check again"
+msgstr "Vérifier à nouveau"
+
+msgid "Exit RiftWii"
+msgstr "Quitter RiftWii"
+
+msgid "The RiftWii channel needs updating. Its new installer is still downloading; RiftWii asks you to install it at the next start."
+msgstr "La chaîne RiftWii doit être mise à jour. Son nouvel installateur est encore en téléchargement ; RiftWii vous demandera de l'installer au prochain démarrage."

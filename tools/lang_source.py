@@ -1333,14 +1333,6 @@ T = {
         "ホームのディスクドライブのタイルです。ディスクから遊ぶときに使います。オフのときにディスクで遊ぶには、ここでオンに戻してください。",
         "O bloco do leitor de discos no Início, para jogar a partir de um disco. Se estiver desligado e quiser jogar um disco, ligue-o de novo aqui.",
         "Il riquadro del lettore di dischi nella Home, per giocare da un disco. Se è spento e vuoi giocare da un disco, riattivalo qui."),
-    "Update the RiftWii channel?": (
-        "¿Actualizar el canal de RiftWii?", "RiftWiiチャンネルを更新しますか?", "Atualizar o canal da RiftWii?",
-        "Aggiornare il canale RiftWii?"),
-    "The RiftWii channel on your Wii Menu is an older version ({1}). The new one ({2}) starts RiftWii with full access to the Wii's hardware, which some features need. Reinstall it with the channel installer: it opens, then brings you back here. Settings > RiftWii channel on the Wii Menu can open it later too.": (
-        "El canal de RiftWii de tu Menú Wii es una versión anterior ({1}). El nuevo ({2}) inicia RiftWii con acceso completo al hardware de la Wii, que algunas funciones necesitan. Reinstálalo con el instalador del canal: se abre y luego te trae de vuelta aquí. También puedes abrirlo más tarde en Ajustes > Canal de RiftWii en el Menú Wii.",
-        "WiiメニューのRiftWiiチャンネルは古いバージョン ({1}) です。新しいバージョン ({2}) は、一部の機能に必要なWiiのハードウェアへのフルアクセスでRiftWiiを起動します。チャンネルのインストーラーで入れ直してください。インストーラーが開き、終わるとここに戻ります。あとで 設定 > WiiメニューのRiftWiiチャンネル から開くこともできます。",
-        "O canal da RiftWii no seu Menu Wii é uma versão antiga ({1}). O novo ({2}) inicia a RiftWii com acesso total ao hardware do Wii, que alguns recursos precisam. Reinstale-o com o instalador do canal: ele abre e depois traz você de volta aqui. Você também pode abri-lo mais tarde em Configurações > Canal da RiftWii no Menu Wii.",
-        "Il canale RiftWii nel tuo Menu Wii è una versione precedente ({1}). Quello nuovo ({2}) avvia RiftWii con pieno accesso all'hardware della Wii, che serve ad alcune funzioni. Reinstallalo con l'installer del canale: si apre e poi ti riporta qui. Puoi aprirlo anche più tardi da Impostazioni > Canale RiftWii nel Menu Wii."),
     "The Wii Menu's font needs hardware access or a d2x cIOS, and neither worked this time, so RiftWii's font is used. Start RiftWii from an up to date Homebrew Channel or the RiftWii channel (version 9).": (
         "La fuente del Menú de Wii necesita acceso al hardware o un cIOS d2x, y esta vez no funcionó ninguno, así que se usa la fuente de RiftWii. Inicia RiftWii desde un Homebrew Channel actualizado o desde el canal de RiftWii (versión 9).",
         "Wiiメニューのフォントにはハードウェアへのアクセスかd2x cIOSが必要ですが、今回はどちらも使えなかったため、RiftWiiのフォントを使います。最新のHomebrew ChannelかRiftWiiチャンネル (バージョン9) からRiftWiiを起動してください。",
@@ -1522,11 +1514,6 @@ T = {
         "テスト用の設定を外しました: ゲームはまたRiftWiiのすべての修正つきで起動します。",
         "Opções de teste removidas: os jogos voltam a iniciar com todas as correções do RiftWii.",
         "Opzioni di prova tolte: i giochi si avviano di nuovo con tutte le correzioni di RiftWii."),
-    "The RiftWii channel is still version {1}. If you just installed it, the installer on the SD card is an old one: copy apps/riftwii_channel from the newest RiftWii zip onto the card.": (
-        "El canal de RiftWii sigue en la versión {1}. Si acabas de instalarlo, el instalador de la tarjeta SD es antiguo: copia apps/riftwii_channel del zip más reciente de RiftWii a la tarjeta.",
-        "RiftWiiチャンネルはまだバージョン{1}です。今インストールしたばかりなら、SDカードのインストーラーが古いものです。最新のRiftWiiのzipからapps/riftwii_channelをカードにコピーしてください。",
-        "O canal da RiftWii ainda está na versão {1}. Se você acabou de instalá-lo, o instalador no cartão SD é antigo: copie apps/riftwii_channel do zip mais recente da RiftWii para o cartão.",
-        "Il canale RiftWii è ancora alla versione {1}. Se l'hai appena installato, l'installer sulla scheda SD è vecchio: copia apps/riftwii_channel dallo zip più recente di RiftWii sulla scheda."),
     "The cheat has no notes about its values: its author's page may say what they are.": (
         "El truco no tiene notas sobre sus valores: la página de su autor puede decir cuáles son.",
         "このチートには値についての説明がありません。作者のページに書いてあるかもしれません。",
@@ -1660,6 +1647,16 @@ T = {
     "The disc drive has a box of its own": ("El lector de discos tiene su propia caja", "ディスクドライブ専用のパッケージ", "O leitor de discos tem uma caixa própria", "Il lettore di dischi ha una custodia tutta sua"),
     "The shelf matches the Wii look": ("El estante combina con el aspecto de Wii", "棚がWiiの見た目に合うようになりました", "A estante combina com o visual do Wii", "Lo scaffale si abbina allo stile Wii"),
     "AM and PM sit neatly by the clock": ("a. m. y p. m. quedan ordenados junto al reloj", "午前・午後の表示が時計の横にすっきり収まります", "AM e PM ficam bem ao lado do relógio", "AM e PM stanno in ordine accanto all'orologio"),
+    # The channel update RiftWii waits for (channel 11)
+    "Update the RiftWii channel": ("Actualiza el canal de RiftWii", "RiftWiiチャンネルを更新してください", "Atualize o canal do RiftWii", "Aggiorna il canale di RiftWii"),
+    "Your RiftWii channel on the Wii Menu is version {1}, and this RiftWii needs version {2}: it fixes the black screen when a game's HOME Menu > Wii Menu goes back to RiftWii. RiftWii can't be used until the channel is updated.": ("Tu canal de RiftWii en el Menú de Wii es la versión {1}, y este RiftWii necesita la versión {2}: corrige la pantalla negra al volver a RiftWii desde el Menú HOME > Menú de Wii de un juego. No se puede usar RiftWii hasta que actualices el canal.", "WiiメニューのRiftWiiチャンネルはバージョン{1}ですが、このRiftWiiにはバージョン{2}が必要です。ゲームのHOMEメニュー > WiiメニューでRiftWiiに戻るときの黒い画面を直します。チャンネルを更新するまでRiftWiiは使えません。", "O canal do RiftWii no Menu Wii é a versão {1}, e este RiftWii precisa da versão {2}: ela corrige a tela preta ao voltar ao RiftWii pelo Menu HOME > Menu Wii de um jogo. O RiftWii não pode ser usado até o canal ser atualizado.", "Il canale di RiftWii nel Menu Wii è la versione {1}, e questo RiftWii richiede la versione {2}: corregge la schermata nera quando dal Menu HOME > Menu Wii di un gioco si torna a RiftWii. Non puoi usare RiftWii finché il canale non è aggiornato."),
+    "The channel is still version {1} after the installer, so the installer on your SD card is an old one. Copy apps/riftwii_channel from the newest RiftWii zip onto the card, then update again.": ("El canal sigue en la versión {1} tras el instalador, así que el instalador de tu tarjeta SD es antiguo. Copia apps/riftwii_channel del zip más reciente de RiftWii a la tarjeta y vuelve a actualizar.", "インストーラーのあともチャンネルはバージョン{1}のままです。SDカードのインストーラーが古いものです。最新のRiftWiiのzipからapps/riftwii_channelをカードにコピーして、もう一度更新してください。", "O canal continua na versão {1} depois do instalador, então o instalador do seu cartão SD é antigo. Copie apps/riftwii_channel do zip mais recente do RiftWii para o cartão e atualize de novo.", "Il canale è ancora alla versione {1} dopo l'installer, quindi l'installer sulla scheda SD è vecchio. Copia apps/riftwii_channel dallo zip più recente di RiftWii sulla scheda, poi aggiorna di nuovo."),
+    "The installer opens, then brings you back here.": ("Se abre el instalador y luego vuelves aquí.", "インストーラーが開き、そのあとここに戻ります。", "O instalador abre e depois traz você de volta aqui.", "Si apre l'installer, che poi ti riporta qui."),
+    "RiftWii can't update it from here: {1}.": ("RiftWii no puede actualizarlo desde aquí: {1}.", "RiftWiiからは更新できません: {1}。", "O RiftWii não consegue atualizá-lo daqui: {1}.", "RiftWii non può aggiornarlo da qui: {1}."),
+    "Update now": ("Actualizar ahora", "今すぐ更新", "Atualizar agora", "Aggiorna ora"),
+    "Check again": ("Volver a comprobar", "もう一度確認", "Verificar de novo", "Controlla di nuovo"),
+    "Exit RiftWii": ("Salir de RiftWii", "RiftWiiを終了", "Sair do RiftWii", "Esci da RiftWii"),
+    "The RiftWii channel needs updating. Its new installer is still downloading; RiftWii asks you to install it at the next start.": ("Hay que actualizar el canal de RiftWii. Su nuevo instalador aún se está descargando; RiftWii te pedirá instalarlo la próxima vez que se inicie.", "RiftWiiチャンネルの更新が必要です。新しいインストーラーはまだダウンロード中です。次に起動したときにインストールを求めます。", "O canal do RiftWii precisa ser atualizado. O novo instalador ainda está sendo baixado; o RiftWii pedirá para instalá-lo na próxima vez que iniciar.", "Il canale di RiftWii va aggiornato. Il nuovo installer è ancora in download; RiftWii ti chiederà di installarlo al prossimo avvio."),
 }
 
 
@@ -2616,10 +2613,6 @@ KO = {
         "언제든지 설정 > 디스크 채널에서 다시 표시할 수 있습니다.",
     "The Disc drive's tile on Home, for playing from a disc. A disc still plays from it when it is off: switch it back on here.":
         "디스크로 플레이하기 위한 홈의 디스크 드라이브 타일입니다. 꺼져 있어도 디스크는 계속 실행됩니다. 여기에서 다시 켤 수 있습니다.",
-    "Update the RiftWii channel?":
-        "RiftWii 채널을 업데이트할까요?",
-    "The RiftWii channel on your Wii Menu is an older version ({1}). The new one ({2}) starts RiftWii with full access to the Wii's hardware, which some features need. Reinstall it with the channel installer: it opens, then brings you back here. Settings > RiftWii channel on the Wii Menu can open it later too.":
-        "Wii 메뉴의 RiftWii 채널이 이전 버전({1})입니다. 새 버전({2})은 일부 기능에 필요한 Wii 하드웨어 전체 접근 권한으로 RiftWii를 실행합니다. 채널 설치 프로그램으로 다시 설치하세요. 설치 프로그램이 열린 뒤 이곳으로 돌아옵니다. 나중에 설정 > Wii 메뉴의 RiftWii 채널에서도 열 수 있습니다.",
     "The Wii Menu's font needs hardware access or a d2x cIOS, and neither worked this time, so RiftWii's font is used. Start RiftWii from an up to date Homebrew Channel or the RiftWii channel (version 9).":
         "Wii 메뉴 글꼴을 쓰려면 하드웨어 접근 권한이나 d2x cIOS가 필요한데, 이번에는 둘 다 작동하지 않아 RiftWii 글꼴을 사용합니다. 최신 홈브류 채널이나 RiftWii 채널(버전 9)에서 RiftWii를 실행하세요.",
     "1. Use the USB port nearest the edge.":
@@ -2692,8 +2685,6 @@ KO = {
         "테스트 스위치가 켜져 있음",
     "Test switches cleared: games start with all of RiftWii's fixes again.":
         "테스트 스위치를 지웠습니다. 게임이 다시 RiftWii의 모든 수정 사항과 함께 실행됩니다.",
-    "The RiftWii channel is still version {1}. If you just installed it, the installer on the SD card is an old one: copy apps/riftwii_channel from the newest RiftWii zip onto the card.":
-        "RiftWii 채널이 아직 버전 {1}입니다. 방금 설치했다면 SD 카드의 설치 프로그램이 오래된 것입니다. 최신 RiftWii zip의 apps/riftwii_channel을 카드에 복사하세요.",
     "The cheat has no notes about its values: its author's page may say what they are.":
         "이 치트에는 값에 대한 설명이 없습니다. 제작자의 페이지에 설명이 있을 수 있습니다.",
     "The menu restarts to show it when you leave Settings.":
@@ -2782,6 +2773,24 @@ KO = {
         "선반이 Wii 스타일과 어울립니다",
     "AM and PM sit neatly by the clock":
         "오전/오후 표시가 시계 옆에 깔끔하게 놓입니다",
+    "Update the RiftWii channel":
+        "RiftWii 채널을 업데이트하세요",
+    "Your RiftWii channel on the Wii Menu is version {1}, and this RiftWii needs version {2}: it fixes the black screen when a game's HOME Menu > Wii Menu goes back to RiftWii. RiftWii can't be used until the channel is updated.":
+        "Wii 메뉴의 RiftWii 채널은 버전 {1}이며, 이 RiftWii에는 버전 {2}이 필요합니다. 게임의 HOME 메뉴 > Wii 메뉴에서 RiftWii로 돌아올 때 화면이 검게 되는 문제를 고칩니다. 채널을 업데이트할 때까지 RiftWii를 사용할 수 없습니다.",
+    "The channel is still version {1} after the installer, so the installer on your SD card is an old one. Copy apps/riftwii_channel from the newest RiftWii zip onto the card, then update again.":
+        "설치 후에도 채널이 여전히 버전 {1}입니다. SD 카드의 설치 프로그램이 오래된 것입니다. 최신 RiftWii zip의 apps/riftwii_channel을 카드에 복사한 다음 다시 업데이트하세요.",
+    "The installer opens, then brings you back here.":
+        "설치 프로그램이 열린 다음 여기로 돌아옵니다.",
+    "RiftWii can't update it from here: {1}.":
+        "RiftWii에서 업데이트할 수 없습니다: {1}.",
+    "Update now":
+        "지금 업데이트",
+    "Check again":
+        "다시 확인",
+    "Exit RiftWii":
+        "RiftWii 종료",
+    "The RiftWii channel needs updating. Its new installer is still downloading; RiftWii asks you to install it at the next start.":
+        "RiftWii 채널을 업데이트해야 합니다. 새 설치 프로그램을 아직 내려받는 중이며, 다음에 시작할 때 설치하라고 안내합니다.",
 }
 
 # French, a table of its own (msgid: text), from MidyGamy's translation
@@ -3639,10 +3648,6 @@ FR = {
         "Vous pouvez la réafficher à tout moment dans Paramètres > Chaîne disques.",
     "The Disc drive's tile on Home, for playing from a disc. A disc still plays from it when it is off: switch it back on here.":
         "La tuile du lecteur de disque sur l'accueil, pour jouer depuis un disque. Même désactivée, un disque se lance toujours : réactivez-la ici.",
-    "Update the RiftWii channel?":
-        "Mettre à jour la chaîne RiftWii ?",
-    "The RiftWii channel on your Wii Menu is an older version ({1}). The new one ({2}) starts RiftWii with full access to the Wii's hardware, which some features need. Reinstall it with the channel installer: it opens, then brings you back here. Settings > RiftWii channel on the Wii Menu can open it later too.":
-        "La chaîne RiftWii du menu Wii est une ancienne version ({1}). La nouvelle ({2}) lance RiftWii avec un accès complet au matériel de la Wii, nécessaire à certaines fonctions. Réinstallez-la avec l'installeur de la chaîne : il s'ouvre, puis vous ramène ici. Paramètres > Chaîne RiftWii sur le menu Wii permet aussi de l'ouvrir plus tard.",
     "The Wii Menu's font needs hardware access or a d2x cIOS, and neither worked this time, so RiftWii's font is used. Start RiftWii from an up to date Homebrew Channel or the RiftWii channel (version 9).":
         "La police du menu Wii nécessite un accès au matériel ou un cIOS d2x, et aucun des deux n'a fonctionné cette fois : la police de RiftWii est utilisée. Lancez RiftWii depuis une Chaîne Homebrew à jour ou la chaîne RiftWii (version 9).",
     "1. Use the USB port nearest the edge.":
@@ -3715,8 +3720,6 @@ FR = {
         "Des réglages de test sont actifs",
     "Test switches cleared: games start with all of RiftWii's fixes again.":
         "Réglages de test effacés : les jeux démarrent de nouveau avec tous les correctifs de RiftWii.",
-    "The RiftWii channel is still version {1}. If you just installed it, the installer on the SD card is an old one: copy apps/riftwii_channel from the newest RiftWii zip onto the card.":
-        "La chaîne RiftWii est toujours en version {1}. Si vous venez de l'installer, l'installeur sur la carte SD est ancien : copiez apps/riftwii_channel du zip RiftWii le plus récent sur la carte.",
     "The cheat has no notes about its values: its author's page may say what they are.":
         "Ce code n'a pas de notes sur ses valeurs : la page de son auteur les indique peut-être.",
     "The menu restarts to show it when you leave Settings.":
@@ -3903,6 +3906,24 @@ FR = {
         "Impossible de lire sd:{1}.",
     "The build has more than {1} files.":
         "La build contient plus de {1} fichiers.",
+    "Update the RiftWii channel":
+        "Mettez à jour la chaîne RiftWii",
+    "Your RiftWii channel on the Wii Menu is version {1}, and this RiftWii needs version {2}: it fixes the black screen when a game's HOME Menu > Wii Menu goes back to RiftWii. RiftWii can't be used until the channel is updated.":
+        "Votre chaîne RiftWii du Menu Wii est en version {1}, et ce RiftWii a besoin de la version {2} : elle corrige l'écran noir au retour vers RiftWii depuis le menu HOME > Menu Wii d'un jeu. RiftWii ne peut pas être utilisé tant que la chaîne n'est pas mise à jour.",
+    "The channel is still version {1} after the installer, so the installer on your SD card is an old one. Copy apps/riftwii_channel from the newest RiftWii zip onto the card, then update again.":
+        "La chaîne est toujours en version {1} après l'installateur : celui de votre carte SD est ancien. Copiez apps/riftwii_channel depuis le zip RiftWii le plus récent sur la carte, puis mettez à jour à nouveau.",
+    "The installer opens, then brings you back here.":
+        "L'installateur s'ouvre, puis vous ramène ici.",
+    "RiftWii can't update it from here: {1}.":
+        "RiftWii ne peut pas la mettre à jour d'ici : {1}.",
+    "Update now":
+        "Mettre à jour",
+    "Check again":
+        "Vérifier à nouveau",
+    "Exit RiftWii":
+        "Quitter RiftWii",
+    "The RiftWii channel needs updating. Its new installer is still downloading; RiftWii asks you to install it at the next start.":
+        "La chaîne RiftWii doit être mise à jour. Son nouvel installateur est encore en téléchargement ; RiftWii vous demandera de l'installer au prochain démarrage.",
 }
 
 # Languages kept in tables of their own: written after LANGS, every msgid

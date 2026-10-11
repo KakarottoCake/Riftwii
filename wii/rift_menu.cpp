@@ -2379,52 +2379,54 @@ static bool OfferChannelOnce()
 	return add;
 }
 
-// An older channel than this release's installer puts on (the old one
-// starts RiftWii without full access to the Wii's hardware, which some
-// features need): offered for reinstalling, once per channel version
-// (sd:/riftwii/channel_update_offered.txt keeps the version asked about).
-// True to open the installer.
-static bool OfferChannelUpdateOnce()
+// An older channel than this release's installer puts on: RiftWii is not
+// used until it is updated (the old ones went black when a game's HOME
+// Menu > Wii Menu came back to RiftWii, #62). Every start asks, with no
+// "Not now": Update now opens the installer, else RiftWii exits. Not in
+// Dolphin (the channel cannot be installed there), and not while an in-app
+// update is still bringing the new installer (the next start asks). A
+// headless launch never comes here. MENU_CHANNEL, MENU_EXIT or MENU_NONE.
+static int RequireChannelUpdate()
 {
-	static const char* const kMarker = "sd:/riftwii/channel_update_offered.txt";
 	unsigned version = 0;
-	std::string why;
-	if (!riftwii::wii::ChannelInstalled(version) || version >= riftwii::wii::kChannelVersion) return false;
-	if (riftwii::wii::CurrentRestartNote().kind == riftwii::wii::RestartKind::ChannelDone) {
-		// Back from the installer with the channel still old: the
-		// installer on the card is an old one (a tester's put version 8
-		// on again).
-		logf("Channel: still version %u after the installer\n", version);
-		SetHomeNotice(tr("The RiftWii channel is still version {1}. If you just installed it, the installer on the SD card is an old one: copy apps/riftwii_channel from the newest RiftWii zip onto the card.",
-			{std::to_string(version)}));
-		return false;
+	if (!riftwii::wii::ChannelInstalled(version) || version >= riftwii::wii::kChannelVersion) return MENU_NONE;
+	if (riftwii::wii::running_in_dolphin()) {
+		logf("Channel: version %u installed, %u needed; not asked in Dolphin\n", version, riftwii::wii::kChannelVersion);
+		return MENU_NONE;
 	}
-	// Not before an in-app update has brought the new installer.
-	if (riftwii::wii::AppsPackPending()) return false;
-	unsigned asked = 0;
-	if (FILE* f = std::fopen(kMarker, "r")) {
-		if (std::fscanf(f, "%u", &asked) != 1) asked = 0;
-		std::fclose(f);
+	if (riftwii::wii::AppsPackPending()) {
+		logf("Channel: version %u installed, %u needed; the in-app update brings the installer first\n", version,
+			riftwii::wii::kChannelVersion);
+		SetHomeNotice(tr("The RiftWii channel needs updating. Its new installer is still downloading; RiftWii asks you to install it at the next start."));
+		return MENU_NONE;
 	}
-	if (asked >= riftwii::wii::kChannelVersion) return false;
-	if (!riftwii::wii::ChannelCanInstall(why)) {
-		logf("Channel: version %u installed, %u available, cannot offer it: %s\n", version, riftwii::wii::kChannelVersion,
-			why.c_str());
-		return false;
+	const bool stillOld = riftwii::wii::CurrentRestartNote().kind == riftwii::wii::RestartKind::ChannelDone;
+	const std::string have = std::to_string(version), need = std::to_string(riftwii::wii::kChannelVersion);
+	for (;;) {
+		std::string why;
+		const bool can = riftwii::wii::ChannelCanInstall(why);
+		std::string body = tr("Your RiftWii channel on the Wii Menu is version {1}, and this RiftWii needs version {2}: it fixes the black screen when a game's HOME Menu > Wii Menu goes back to RiftWii. RiftWii can't be used until the channel is updated.",
+			{have, need});
+		if (stillOld)
+			body += std::string("\n\n") + tr("The channel is still version {1} after the installer, so the installer on your SD card is an old one. Copy apps/riftwii_channel from the newest RiftWii zip onto the card, then update again.",
+				{have});
+		if (can) body += std::string("\n\n") + tr("The installer opens, then brings you back here.");
+		else body += std::string("\n\n") + tr("RiftWii can't update it from here: {1}.", {why});
+		logf("Channel: version %u installed, %u needed; RiftWii waits for the update%s%s\n", version,
+			riftwii::wii::kChannelVersion, can ? "" : ": ", can ? "" : why.c_str());
+		const int choice = ShowPopup(tr("Update the RiftWii channel"), body, can ? tr("Update now") : tr("Check again"),
+			tr("Exit RiftWii"));
+		if (choice != 0) {
+			logf("Channel: update declined; RiftWii exits\n");
+			return MENU_EXIT;
+		}
+		if (can) {
+			logf("Channel: update to %u accepted\n", riftwii::wii::kChannelVersion);
+			return MENU_CHANNEL;
+		}
+		// Check again: the card may have been fixed meanwhile.
+		if (!riftwii::wii::ChannelInstalled(version) || version >= riftwii::wii::kChannelVersion) return MENU_NONE;
 	}
-	const bool update = ShowPopup(tr("Update the RiftWii channel?"),
-		tr("The RiftWii channel on your Wii Menu is an older version ({1}). The new one ({2}) starts RiftWii with full access to the Wii's hardware, which some features need. Reinstall it with the channel installer: it opens, then brings you back here. Settings > RiftWii channel on the Wii Menu can open it later too.",
-			{std::to_string(version), std::to_string(riftwii::wii::kChannelVersion)}),
-		tr("Open installer"), tr("Not now")) == 0;
-	mkdir("sd:/riftwii", 0777);
-	FILE* f = std::fopen(kMarker, "w");
-	if (f) {
-		std::fprintf(f, "%u\n", riftwii::wii::kChannelVersion);
-		std::fclose(f);
-	}
-	logf("Channel: version %u installed, update to %u offered, %s\n", version, riftwii::wii::kChannelVersion,
-		update ? "accepted" : "declined");
-	return update;
 }
 
 static void ScanDrives(FrontendState& state, GuiText& status)
@@ -2802,11 +2804,20 @@ static int MenuSource(FrontendState& state)
 		emptyNote.SetVisible(state.sd_catalog.games.empty() && state.usb_catalog.games.empty());
 	};
 	if (!g_scanned) {
+		// An old channel: nothing of Home until it is updated (the popup
+		// returns with the GUI halted, as this function's end has it).
+		w.SetVisible(false);
+		menu = RequireChannelUpdate();
+		w.SetVisible(true);
+		if (menu != MENU_NONE) {
+			mainWindow->Remove(&w);
+			return menu;
+		}
 		ScanDrives(state, statusTxt);
 		riftwii::wii::GcAdapterMenuAllowStart();
 		ShowWhatsNewOnce(ShowTutorialOnce());
 		SuggestDotClean();
-		if (OfferChannelOnce() || OfferChannelUpdateOnce()) menu = MENU_CHANNEL;
+		if (OfferChannelOnce()) menu = MENU_CHANNEL;
 		refresh(true);
 		// The first time Home shows, it opens on the last game played.
 		const std::vector<std::string> recent = riftwii::wii::History().recent(1);
