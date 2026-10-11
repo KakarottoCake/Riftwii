@@ -1562,6 +1562,13 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
             writable.push_back(MemoryRegion{kMem2Start, arena2_end > kMem2Start ? arena2_end - kMem2Start : 0});
         }
         if (return_stub != 0) exclusions.push_back(MemoryRegion{return_stub, 32});
+        // The loader keeps running after the patches (and restores its
+        // restart snapshot when the launch fails): its heap's pieces and the
+        // snapshot are not the game's to patch, wherever in MEM2 they are.
+        exclusions.push_back(MemoryRegion{mem::kRestartArea, mem::kRestartBytes});
+        for (const auto& piece : mem::HeapPieces()) {
+            if (piece.second > piece.first) exclusions.push_back(MemoryRegion{piece.first, piece.second - piece.first});
+        }
         if (vsd.active) {
             exclusions.push_back(MemoryRegion{vsd.code_base, vsd.code_bytes});
             exclusions.push_back(MemoryRegion{vsd.data_base, vsd.data_bytes});

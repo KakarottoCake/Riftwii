@@ -6,6 +6,8 @@
 
 #include <new>
 #include <string>
+#include <utility>
+#include <vector>
 
 // The Wii's memory as this loader may use it, in one place, and enforced.
 //
@@ -32,6 +34,11 @@ constexpr u32 kMem2Floor = 0x90800000;    // below: an IOS reload's
 // (wii/restart.hpp); the heap starts after them.
 constexpr u32 kRestartArea = kMem2Floor;
 constexpr u32 kRestartBytes = 0x9000;
+
+// The heap's pieces as [start, end) addresses, for keeping a game's memory
+// patches off them while the loader still runs. When the table of pieces
+// overflowed, the whole span the heap may grow into in each MEM.
+std::vector<std::pair<u32, u32>> HeapPieces();
 
 // First thing in main: applies the limits above to libogc's arenas.
 void Init();
