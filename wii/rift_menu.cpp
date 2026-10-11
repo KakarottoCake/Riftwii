@@ -2217,7 +2217,7 @@ static const char* const kWhatsNew[] = {
 	"Project+ and PMEX return to RiftWii without crashing",
 	"A missing mod folder now says how to fix it",
 	"Shelf boxes in their case's colour",
-	"Banner sounds start at once; GameCube pointer fixed",
+	"GameCube adapter On no longer stops SD games booting",
 };
 
 static std::string WhatsNewText()
