@@ -141,7 +141,7 @@ void leave() {
                 if (lo + n > reinterpret_cast<u32>(SYS_GetArena2Hi())) return nullptr;
                 SYS_SetArena2Lo(reinterpret_cast<void*>(lo + ((n + 31) & ~31u)));
                 return reinterpret_cast<void*>(lo);
-            });
+            }, [](void* data) { SYS_SetArena2Lo(data); });
             fatUnmount("sd:");
             __io_wiisd.shutdown();
             if (dol && dolboot_valid(dol, size)) dolboot_run(dol, kRiftWii);

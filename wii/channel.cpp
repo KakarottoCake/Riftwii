@@ -81,7 +81,8 @@ bool ChannelCanInstall(std::string& why) {
 bool StartChannelInstaller(std::string& error) {
     logf("Channel: starting %s\n", kInstaller);
     u32 size = 0;
-    u8* dol = dolboot_read(kInstaller, &size, [](u32 n) -> void* { return memalign(32, n); });
+    u8* dol = dolboot_read(kInstaller, &size, [](u32 n) -> void* { return memalign(32, n); },
+                            [](void* p) { std::free(p); });
     if (!dol || !dolboot_valid(dol, size)) {
         error = std::string("The channel installer (") + kInstaller + ") is missing or damaged";
         logf("Channel: %s\n", error.c_str());
@@ -99,7 +100,8 @@ bool StartChannelInstaller(std::string& error) {
 
 bool StartHomebrewApp(const std::string& path, std::string& error) {
     u32 size = 0;
-    u8* dol = dolboot_read(path.c_str(), &size, [](u32 n) -> void* { return memalign(32, n); });
+    u8* dol = dolboot_read(path.c_str(), &size, [](u32 n) -> void* { return memalign(32, n); },
+                            [](void* p) { std::free(p); });
     if (!dol || !dolboot_valid(dol, size)) {
         error = path + " is missing, damaged or does not fit next to RiftWii";
         logf("Homebrew app: %s\n", error.c_str());
