@@ -2252,7 +2252,12 @@ bool boot_game(const DiscProbe& probe, BootOptions options, std::string& error) 
         // menu's driver had through it. A disc game keeps the menu's IOS,
         // and its handle found the adapter still taken (a tester: SD and
         // RVZ games, after an IOS reload, worked; the disc did not).
-        if (di::frag_device() != 1) USB_Deinitialize();
+        // Not for an image d2x reads (fragment list, SD or USB): those start
+        // on a fresh cIOS, and on a Wii U's d2x (IOS251, Mario Kart Wii from
+        // the SD card, adapter On) every disc command after this failed
+        // (BCA -4, then the partition DI 128), from 2610-178, which added it,
+        // to 2610-290; 2610-168 never called it and the adapter worked there.
+        if (di::frag_device() == 0) USB_Deinitialize();
         // A d2x on base 56 or older has v4's /dev/usb/hid (57's and 58's
         // are v5, as IOS 58's).
         const int base = d2x_base(running_ios);
