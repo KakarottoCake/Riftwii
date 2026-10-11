@@ -1381,12 +1381,14 @@ bool read_slot_info(int slot, SlotInfo& out) {
     static char path[64] ATTRIBUTE_ALIGN(32);
     std::snprintf(path, sizeof(path), "/title/00000001/%08x/content/%08x.app", static_cast<unsigned>(slot),
                   static_cast<unsigned>(content));
-    static bool isfs = false, opened = false;
+    // The permission check, opened for the first slot IOS refuses, is
+    // closed again once every slot is read (slot_infos).
+    static bool isfs = false, refused = false;
     if (!isfs) isfs = ISFS_Initialize() >= 0;
     s32 fd = ISFS_Open(path, ISFS_OPEN_READ);
-    if (fd == -102 && !opened) {
-        opened = true;
+    if (fd == -102 && !refused) {
         if (open_nand_permissions("cIOS check")) fd = ISFS_Open(path, ISFS_OPEN_READ);
+        else refused = true;
     }
     if (fd < 0) {
         out.why = std::string(path) + " could not be opened (" + std::to_string(fd) + ")";
@@ -1422,6 +1424,7 @@ const std::vector<SlotInfo>& slot_infos() {
                                           : " (too old: RiftWii needs d2x v11 beta3)");
         infos.push_back(info);
     }
+    close_nand_permissions("cIOS check");
     return infos;
 }
 
