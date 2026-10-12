@@ -1721,3 +1721,36 @@ msgstr "+ y - mueven la estantería de caja en caja"
 
 msgid "Settings > Reset all settings"
 msgstr "Ajustes > Restablecer todos los ajustes"
+
+msgid "Memory for RiftWii's extras"
+msgstr "Memoria para los extras de RiftWii"
+
+msgid "about {1} KB"
+msgstr "unos {1} KB"
+
+msgid "(a lot)"
+msgstr "(mucha)"
+
+msgid "Taken from the game's own memory by what RiftWii adds to this launch: {1}."
+msgstr "Lo que RiftWii añade a este inicio toma de la memoria del propio juego: {1}."
+
+msgid "That is a lot: if the game crashes or stays black only with RiftWii, turn off what it does not need (screenshots, the GameCube adapter, mods) and try again."
+msgstr "Es mucho: si el juego se cuelga o se queda en negro solo con RiftWii, desactiva lo que no necesite (capturas, el adaptador de GameCube, mods) y vuelve a intentarlo."
+
+msgid "RVZ and mods"
+msgstr "RVZ y mods"
+
+msgid "mods"
+msgstr "mods"
+
+msgid "saves on the card"
+msgstr "partidas en la tarjeta"
+
+msgid "SD card for the game"
+msgstr "tarjeta SD para el juego"
+
+msgid "crash recorder"
+msgstr "registro de cuelgues"
+
+msgid "screenshots"
+msgstr "capturas"

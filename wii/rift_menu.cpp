@@ -81,6 +81,7 @@
 #include "gameextras.hpp"
 #include "i18n.hpp"
 #include "loadersettings.hpp"
+#include "memorybudget.hpp"
 #include "log.hpp"
 #include "ios_reload.hpp"
 #include "menuios.hpp"
@@ -3305,7 +3306,7 @@ static std::string SaveNote(const riftwii::LaunchModel& model)
 struct RowRef {
 	enum class What { Mods, Saves, Cheats, Width, Deflicker, Borders, VideoMode, RegionVideo, Aspect, Rumble, Speaker,
 		RegionStrings, Language, Cios, Server, Favorite, Pack, Option, Note,
-		AddCodes, ForgetCodes, MakeImage, Cover } what = What::Note;
+		AddCodes, ForgetCodes, MakeImage, Cover, Memory } what = What::Note;
 	std::size_t pkg = 0, opt = 0;
 };
 
@@ -3599,6 +3600,20 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 	show({W::Width, W::Deflicker, W::Borders, W::VideoMode, W::RegionVideo, W::Aspect});
 	heading(tr("Other"));
 	show({W::Language, W::RegionStrings, W::Cios, W::Server, W::Rumble, W::Speaker});
+	// What RiftWii's extras take of the game's memory this time.
+	const riftwii::ExtrasBudget budget = riftwii::wii::EstimateExtras(state);
+	if (!budget.pieces.empty()) {
+		FlowRow memory;
+		// An action row only to show its value (A does nothing); its
+		// chip lights up when it is a lot.
+		memory.kind = FlowRow::Kind::Action;
+		memory.label = tr("Memory for RiftWii's extras");
+		memory.value = tr("about {1} KB", {std::to_string(riftwii::whole_kb(budget.total()))});
+		if (budget.heavy()) memory.value += std::string(" ") + tr("(a lot)");
+		memory.on = budget.heavy();
+		rows.push_back(memory);
+		refs.push_back({W::Memory});
+	}
 }
 
 // "1.2 GB", "640 MB".
@@ -4710,6 +4725,13 @@ static int MenuHome(FrontendState& state)
 				say(tr("Favourites have their own view on Home: press 1 there until it shows."));
 			else if (ref.what == RowRef::What::Cover)
 				say(tr("Downloads this game's box art from GameTDB now."));
+			else if (ref.what == RowRef::What::Memory) {
+				const riftwii::ExtrasBudget budget = riftwii::wii::EstimateExtras(state);
+				std::string text = tr("Taken from the game's own memory by what RiftWii adds to this launch: {1}.", {budget.list()});
+				if (budget.heavy())
+					text += std::string(" ") + tr("That is a lot: if the game crashes or stays black only with RiftWii, turn off what it does not need (screenshots, the GameCube adapter, mods) and try again.");
+				say(text);
+			}
 			else if (ref.what == RowRef::What::Cios)
 				say(tr("The d2x cIOS the game runs under. Automatic uses the menu's, else the first of 249, 250 and 251 that works."));
 			else if (ref.what == RowRef::What::Server && riftwii::game_has_no_online(state.game_id))

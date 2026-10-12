@@ -1721,3 +1721,36 @@ msgstr "+와 -로 선반을 한 칸씩 움직입니다"
 
 msgid "Settings > Reset all settings"
 msgstr "설정 > 모든 설정 초기화"
+
+msgid "Memory for RiftWii's extras"
+msgstr "RiftWii 추가 기능이 쓰는 메모리"
+
+msgid "about {1} KB"
+msgstr "약 {1} KB"
+
+msgid "(a lot)"
+msgstr "(많음)"
+
+msgid "Taken from the game's own memory by what RiftWii adds to this launch: {1}."
+msgstr "이번 실행에서 RiftWii가 더하는 기능이 게임 자체의 메모리에서 쓰는 양: {1}."
+
+msgid "That is a lot: if the game crashes or stays black only with RiftWii, turn off what it does not need (screenshots, the GameCube adapter, mods) and try again."
+msgstr "많은 편입니다. RiftWii에서만 게임이 멈추거나 검은 화면이면 필요 없는 것(스크린샷, 게임큐브 어댑터, 모드)을 끄고 다시 시도하세요."
+
+msgid "RVZ and mods"
+msgstr "RVZ와 모드"
+
+msgid "mods"
+msgstr "모드"
+
+msgid "saves on the card"
+msgstr "카드의 저장 데이터"
+
+msgid "SD card for the game"
+msgstr "게임용 SD 카드"
+
+msgid "crash recorder"
+msgstr "충돌 기록"
+
+msgid "screenshots"
+msgstr "스크린샷"

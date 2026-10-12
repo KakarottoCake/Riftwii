@@ -1670,6 +1670,18 @@ T = {
     "A made-up back cover when none can be downloaded": ("Una contraportada inventada cuando no se puede descargar ninguna", "ダウンロードできないときは裏表紙を作成", "Uma contracapa criada quando nenhuma pode ser baixada", "Un retro di copertina creato quando non se ne può scaricare uno"),
     "+ and - move the shelf one box at a time": ("+ y - mueven la estantería de caja en caja", "+と-で棚を1つずつ動かします", "+ e - movem a estante uma caixa por vez", "+ e - spostano lo scaffale di una custodia alla volta"),
     "Settings > Reset all settings": ("Ajustes > Restablecer todos los ajustes", "設定 > すべての設定をリセット", "Configurações > Redefinir todas as configurações", "Impostazioni > Ripristina tutte le impostazioni"),
+    # Game page: memory for RiftWii's extras
+    "Memory for RiftWii's extras": ("Memoria para los extras de RiftWii", "RiftWiiの追加機能が使うメモリ", "Memória para os extras do RiftWii", "Memoria per gli extra di RiftWii"),
+    "about {1} KB": ("unos {1} KB", "約{1} KB", "cerca de {1} KB", "circa {1} KB"),
+    "(a lot)": ("(mucha)", "(多め)", "(muita)", "(molta)"),
+    "Taken from the game's own memory by what RiftWii adds to this launch: {1}.": ("Lo que RiftWii añade a este inicio toma de la memoria del propio juego: {1}.", "今回の起動でRiftWiiが追加するものがゲーム自身のメモリから使う量：{1}。", "O que o RiftWii adiciona a esta inicialização tira da memória do próprio jogo: {1}.", "Quello che RiftWii aggiunge a questo avvio prende dalla memoria del gioco: {1}."),
+    "That is a lot: if the game crashes or stays black only with RiftWii, turn off what it does not need (screenshots, the GameCube adapter, mods) and try again.": ("Es mucho: si el juego se cuelga o se queda en negro solo con RiftWii, desactiva lo que no necesite (capturas, el adaptador de GameCube, mods) y vuelve a intentarlo.", "多めです。RiftWiiでのみゲームが止まったり画面が黒いままになる場合は、不要なもの（スクリーンショット、ゲームキューブアダプター、MOD）をオフにしてもう一度試してください。", "É muito: se o jogo travar ou ficar com a tela preta só com o RiftWii, desative o que ele não precisa (capturas, o adaptador de GameCube, mods) e tente de novo.", "È molto: se il gioco si blocca o resta nero solo con RiftWii, disattiva ciò che non serve (screenshot, l'adattatore GameCube, mod) e riprova."),
+    "RVZ and mods": ("RVZ y mods", "RVZとMOD", "RVZ e mods", "RVZ e mod"),
+    "mods": ("mods", "MOD", "mods", "mod"),
+    "saves on the card": ("partidas en la tarjeta", "カードへのセーブ", "jogos salvos no cartão", "salvataggi sulla scheda"),
+    "SD card for the game": ("tarjeta SD para el juego", "ゲーム用のSDカード", "cartão SD para o jogo", "scheda SD per il gioco"),
+    "crash recorder": ("registro de cuelgues", "クラッシュ記録", "registro de travamentos", "registro dei crash"),
+    "screenshots": ("capturas", "スクリーンショット", "capturas", "screenshot"),
 }
 
 
@@ -2822,6 +2834,28 @@ KO = {
         "+와 -로 선반을 한 칸씩 움직입니다",
     "Settings > Reset all settings":
         "설정 > 모든 설정 초기화",
+    "Memory for RiftWii's extras":
+        "RiftWii 추가 기능이 쓰는 메모리",
+    "about {1} KB":
+        "약 {1} KB",
+    "(a lot)":
+        "(많음)",
+    "Taken from the game's own memory by what RiftWii adds to this launch: {1}.":
+        "이번 실행에서 RiftWii가 더하는 기능이 게임 자체의 메모리에서 쓰는 양: {1}.",
+    "That is a lot: if the game crashes or stays black only with RiftWii, turn off what it does not need (screenshots, the GameCube adapter, mods) and try again.":
+        "많은 편입니다. RiftWii에서만 게임이 멈추거나 검은 화면이면 필요 없는 것(스크린샷, 게임큐브 어댑터, 모드)을 끄고 다시 시도하세요.",
+    "RVZ and mods":
+        "RVZ와 모드",
+    "mods":
+        "모드",
+    "saves on the card":
+        "카드의 저장 데이터",
+    "SD card for the game":
+        "게임용 SD 카드",
+    "crash recorder":
+        "충돌 기록",
+    "screenshots":
+        "스크린샷",
 }
 
 # French, a table of its own (msgid: text), from MidyGamy's translation
@@ -3973,6 +4007,28 @@ FR = {
         "+ et - déplacent l'étagère d'un boîtier à la fois",
     "Settings > Reset all settings":
         "Paramètres > Réinitialiser tous les paramètres",
+    "Memory for RiftWii's extras":
+        "Mémoire pour les extras de RiftWii",
+    "about {1} KB":
+        "environ {1} Ko",
+    "(a lot)":
+        "(beaucoup)",
+    "Taken from the game's own memory by what RiftWii adds to this launch: {1}.":
+        "Ce que RiftWii ajoute à ce lancement prend sur la mémoire du jeu : {1}.",
+    "That is a lot: if the game crashes or stays black only with RiftWii, turn off what it does not need (screenshots, the GameCube adapter, mods) and try again.":
+        "C'est beaucoup : si le jeu plante ou reste noir seulement avec RiftWii, désactivez ce dont il n'a pas besoin (captures, l'adaptateur GameCube, mods) et réessayez.",
+    "RVZ and mods":
+        "RVZ et mods",
+    "mods":
+        "mods",
+    "saves on the card":
+        "sauvegardes sur la carte",
+    "SD card for the game":
+        "carte SD pour le jeu",
+    "crash recorder":
+        "enregistreur de plantages",
+    "screenshots":
+        "captures",
 }
 
 # Languages kept in tables of their own: written after LANGS, every msgid
@@ -3991,7 +4047,7 @@ def check(repo):
     would never be looked up."""
     sources = ["wii/rift_menu.cpp", "wii/gameextras.cpp", "wii/gui_gamegrid.cpp", "wii/channel.cpp", "wii/frontend.cpp",
                "wii/codebuilds.cpp", "wii/gui_searchkeys.cpp", "wii/main.cpp", "wii/vsdmake.cpp",
-               "wii/gui_shelf.cpp"]
+               "wii/gui_shelf.cpp", "wii/memorybudget.cpp"]
     text = "".join(open(os.path.join(repo, p), encoding="utf-8").read() for p in sources)
     missing = [k for k in T if '"%s"' % escape(k) not in text]
     for k in missing:

@@ -1721,3 +1721,36 @@ msgstr "+ et - déplacent l'étagère d'un boîtier à la fois"
 
 msgid "Settings > Reset all settings"
 msgstr "Paramètres > Réinitialiser tous les paramètres"
+
+msgid "Memory for RiftWii's extras"
+msgstr "Mémoire pour les extras de RiftWii"
+
+msgid "about {1} KB"
+msgstr "environ {1} Ko"
+
+msgid "(a lot)"
+msgstr "(beaucoup)"
+
+msgid "Taken from the game's own memory by what RiftWii adds to this launch: {1}."
+msgstr "Ce que RiftWii ajoute à ce lancement prend sur la mémoire du jeu : {1}."
+
+msgid "That is a lot: if the game crashes or stays black only with RiftWii, turn off what it does not need (screenshots, the GameCube adapter, mods) and try again."
+msgstr "C'est beaucoup : si le jeu plante ou reste noir seulement avec RiftWii, désactivez ce dont il n'a pas besoin (captures, l'adaptateur GameCube, mods) et réessayez."
+
+msgid "RVZ and mods"
+msgstr "RVZ et mods"
+
+msgid "mods"
+msgstr "mods"
+
+msgid "saves on the card"
+msgstr "sauvegardes sur la carte"
+
+msgid "SD card for the game"
+msgstr "carte SD pour le jeu"
+
+msgid "crash recorder"
+msgstr "enregistreur de plantages"
+
+msgid "screenshots"
+msgstr "captures"
