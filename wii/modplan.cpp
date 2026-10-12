@@ -854,8 +854,9 @@ bool compile_packages(const std::vector<PackageSelection>& packages, const DiscP
             std::uint8_t head[0x640] = {};
             const std::size_t n = static_cast<std::size_t>(std::min<std::uint64_t>(file->size(), sizeof head));
             if (file->read(0, head, n) && parse_banner_names(head, n, mod.banner_names)) {
-                mod.notes.push_back("/opening.bnr: the pack's banner names the game \"" +
-                                    mod.banner_names[kBnrEnglish] + "\"");
+                // Logged itself: a big pack's notes are cut short.
+                logf("Mods: /opening.bnr is the pack's own; its banner names the game \"%s\"\n",
+                     mod.banner_names[kBnrEnglish].c_str());
             }
         }
         VirtualFileLayout layout;
