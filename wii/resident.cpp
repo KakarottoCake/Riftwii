@@ -371,7 +371,11 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
         if (entry_address[e] == 0) return 0;
         return hooked[e] ? place.code_base + blob.replay_offsets[e] : entry_address[e];
     };
-    ctx->ioctlv_async = original(RT_IPC_ASYNC(7));
+    // Without the whole API (an SDK the search does not know) only
+    // IOS_IoctlAsync is hooked, and IOS_IoctlvAsync, found on its own, is
+    // called as it is: LEGO Batman's RVZ (a 2008 SDK) had none, so every
+    // read of the card was refused and the game stayed black.
+    ctx->ioctlv_async = original(RT_IPC_ASYNC(7)) != 0 ? original(RT_IPC_ASYNC(7)) : symbols.ioctlv_async;
     ctx->di_read_entry = original(RT_IPC_ASYNC_IOCTL);  // the unhooked IOS_IoctlAsync
     for (std::uint32_t i = 0; i < RT_MAX_PENDING; ++i) {
         ctx->pending[i].bounce = bounce_bytes != 0 ? bounce_address + i * RT_BOUNCE_BYTES : 0;
