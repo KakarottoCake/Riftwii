@@ -1491,12 +1491,29 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
             DCInvalidateRange(sector0, sizeof sector0);
             return sd_card_span(sector0, whole.sectors, why);
         };
+        // Only for a game with the SDK's SD card driver, which opens the
+        // slot by this name: one without never reaches for the card, and the
+        // blob's 9 KB at the MEM1 arena's top is better left to the game
+        // (Mario Kart Wii with a pack whose loader puts code just below the
+        // runtime stopped with 2610-346). Brawl and City Folk have it.
+        const auto has_sd_driver = [&]() {
+            static const char kSlot[] = "/dev/sdio/slot0";
+            for (std::size_t i = 0; i < kDolSections; ++i) {
+                const DolSection& s = dol.sections[i];
+                if (!s.used() || s.size < sizeof kSlot) continue;
+                const std::uint8_t* p = reinterpret_cast<const std::uint8_t*>(s.address);
+                if (std::search(p, p + s.size, kSlot, kSlot + sizeof kSlot - 1) != p + s.size) return true;
+            }
+            return false;
+        };
         if (gx_protected) {
             why = "the game checks its own code (MetaFortress)";
         } else if (whole_mem1) {
             why = whole_mem1_why;
         } else if (debug_off("sdshare")) {
             why = "debug_off";
+        } else if (!has_sd_driver()) {
+            why = "the game has no SD card driver";
         } else if (card_span()) {
             whole.enabled = true;
             whole.path = "the SD card itself";
