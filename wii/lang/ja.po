@@ -1689,24 +1689,6 @@ msgstr "このゲームは呪われているかもしれない"
 msgid "This game may be cursed: it runs on Cars 2's engine, which goes to a black screen if RiftWii changes anything in it. If it won't boot, turn off the GameCube adapter (Settings), screenshots, cheats and mods for it, and send a problem report."
 msgstr "このゲームは呪われているかもしれません。カーズ2と同じエンジンで動いていて、RiftWiiが何かを変えると黒い画面になります。起動しないときは、このゲームではGameCubeアダプター（設定）、スクリーンショット、チート、MODをオフにして、問題レポートを送ってください。"
 
-msgid "RiftWii channel 11: fewer black screens on the way back"
-msgstr "RiftWiiチャンネル11：戻るときの黒い画面が減りました"
-
-msgid "GameCube adapter with SD games on a Wii U works again"
-msgstr "Wii UでSDのゲームとGameCubeアダプターがまた使えます"
-
-msgid "Safer game saves on SD cards and USB drives"
-msgstr "SDカードとUSBドライブへのセーブがより安全に"
-
-msgid "Start on a banner goes straight to the game"
-msgstr "バナーで「はじめる」を押すとすぐゲームへ"
-
-msgid "Theme can always go back to Default"
-msgstr "テーマはいつでもデフォルトに戻せます"
-
-msgid "Every menu fully translated in six languages"
-msgstr "すべてのメニューを6言語に翻訳"
-
 msgid "Reset all settings"
 msgstr "すべての設定をリセット"
 
@@ -1724,3 +1706,18 @@ msgstr "すべての設定をRiftWiiの初期状態に戻します。各ゲー�
 
 msgid "Settings reset to the defaults"
 msgstr "設定を初期状態に戻しました"
+
+msgid "Games can use the SD card while your mods are on it"
+msgstr "MODがSDカードにあってもゲームがSDカードを使えます"
+
+msgid "Shelf boxes shaped like Wii cases"
+msgstr "棚のケースがWiiのケースの形に"
+
+msgid "A made-up back cover when none can be downloaded"
+msgstr "ダウンロードできないときは裏表紙を作成"
+
+msgid "+ and - move the shelf one box at a time"
+msgstr "+と-で棚を1つずつ動かします"
+
+msgid "Settings > Reset all settings"
+msgstr "設定 > すべての設定をリセット"

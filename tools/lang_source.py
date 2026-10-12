@@ -1657,12 +1657,6 @@ T = {
     "This game may be cursed": ("Este juego puede estar maldito", "このゲームは呪われているかもしれない", "Este jogo pode ser amaldiçoado", "Questo gioco potrebbe essere maledetto"),
     "This game may be cursed: it runs on Cars 2's engine, which goes to a black screen if RiftWii changes anything in it. If it won't boot, turn off the GameCube adapter (Settings), screenshots, cheats and mods for it, and send a problem report.": ("Este juego puede estar maldito: usa el motor de Cars 2, que se queda en pantalla negra si RiftWii cambia cualquier cosa en él. Si no arranca, desactiva el adaptador de GameCube (Ajustes), las capturas, los trucos y los mods para este juego, y envía un informe de problemas.", "このゲームは呪われているかもしれません。カーズ2と同じエンジンで動いていて、RiftWiiが何かを変えると黒い画面になります。起動しないときは、このゲームではGameCubeアダプター（設定）、スクリーンショット、チート、MODをオフにして、問題レポートを送ってください。", "Este jogo pode ser amaldiçoado: ele usa o motor de Carros 2, que fica com a tela preta se o RiftWii mudar qualquer coisa nele. Se não iniciar, desative o adaptador de GameCube (Configurações), as capturas de tela, os cheats e os mods para este jogo, e envie um relatório de problema.", "Questo gioco potrebbe essere maledetto: usa il motore di Cars 2, che resta con lo schermo nero se RiftWii cambia qualsiasi cosa. Se non si avvia, disattiva l'adattatore GameCube (Impostazioni), gli screenshot, i trucchi e le mod per questo gioco, e invia una segnalazione del problema."),
     # What's new in Stable 2610
-    "RiftWii channel 11: fewer black screens on the way back": ("Canal de RiftWii 11: menos pantallas negras al volver", "RiftWiiチャンネル11：戻るときの黒い画面が減りました", "Canal do RiftWii 11: menos telas pretas ao voltar", "Canale di RiftWii 11: meno schermi neri al ritorno"),
-    "GameCube adapter with SD games on a Wii U works again": ("El adaptador de GameCube vuelve a funcionar con juegos de la SD en Wii U", "Wii UでSDのゲームとGameCubeアダプターがまた使えます", "O adaptador de GameCube volta a funcionar com jogos do SD no Wii U", "L'adattatore GameCube funziona di nuovo con i giochi su SD in Wii U"),
-    "Safer game saves on SD cards and USB drives": ("Partidas guardadas más seguras en tarjetas SD y unidades USB", "SDカードとUSBドライブへのセーブがより安全に", "Jogos salvos mais seguros em cartões SD e unidades USB", "Salvataggi più sicuri su schede SD e unità USB"),
-    "Start on a banner goes straight to the game": ("Jugar en un banner va directo al juego", "バナーで「はじめる」を押すとすぐゲームへ", "Jogar em um banner vai direto ao jogo", "Gioca su un banner porta subito al gioco"),
-    "Theme can always go back to Default": ("El tema siempre puede volver a Predeterminado", "テーマはいつでもデフォルトに戻せます", "O tema sempre pode voltar ao Padrão", "Il tema può sempre tornare a Predefinito"),
-    "Every menu fully translated in six languages": ("Todos los menús traducidos a seis idiomas", "すべてのメニューを6言語に翻訳", "Todos os menus traduzidos em seis idiomas", "Tutti i menu tradotti in sei lingue"),
     # Settings > Reset all settings
     "Reset all settings": ("Restablecer todos los ajustes", "すべての設定をリセット", "Redefinir todas as configurações", "Ripristina tutte le impostazioni"),
     "Reset": ("Restablecer", "リセット", "Redefinir", "Ripristina"),
@@ -1670,6 +1664,12 @@ T = {
     "Every setting goes back to how RiftWii comes, and RiftWii restarts. Games' own pages, favourites, play history and mods are kept.": ("Todos los ajustes vuelven a como vienen en RiftWii, y RiftWii se reinicia. Se conservan las páginas de cada juego, los favoritos, el historial de juego y los mods.", "すべての設定がRiftWiiの初期状態に戻り、RiftWiiが再起動します。各ゲームのページ、お気に入り、プレイ履歴、MODはそのまま残ります。", "Todas as configurações voltam a como vêm no RiftWii, e o RiftWii reinicia. As páginas de cada jogo, os favoritos, o histórico de jogo e os mods são mantidos.", "Tutte le impostazioni tornano come in origine e RiftWii si riavvia. Le pagine dei singoli giochi, i preferiti, la cronologia di gioco e le mod restano."),
     "Every setting back to how RiftWii comes. Games' own pages, favourites, play history and mods are kept.": ("Todos los ajustes vuelven a como vienen en RiftWii. Se conservan las páginas de cada juego, los favoritos, el historial de juego y los mods.", "すべての設定をRiftWiiの初期状態に戻します。各ゲームのページ、お気に入り、プレイ履歴、MODはそのまま残ります。", "Todas as configurações voltam a como vêm no RiftWii. As páginas de cada jogo, os favoritos, o histórico de jogo e os mods são mantidos.", "Tutte le impostazioni tornano come in origine. Le pagine dei singoli giochi, i preferiti, la cronologia di gioco e le mod restano."),
     "Settings reset to the defaults": ("Ajustes restablecidos", "設定を初期状態に戻しました", "Configurações redefinidas", "Impostazioni ripristinate"),
+    # What's new in 2610-343
+    "Games can use the SD card while your mods are on it": ("Los juegos pueden usar la tarjeta SD aunque tus mods estén en ella", "MODがSDカードにあってもゲームがSDカードを使えます", "Os jogos podem usar o cartão SD mesmo com os seus mods nele", "I giochi possono usare la scheda SD anche con le tue mod sopra"),
+    "Shelf boxes shaped like Wii cases": ("Cajas de la estantería con forma de caja de Wii", "棚のケースがWiiのケースの形に", "Caixas da estante no formato das caixas do Wii", "Custodie dello scaffale a forma di custodia Wii"),
+    "A made-up back cover when none can be downloaded": ("Una contraportada inventada cuando no se puede descargar ninguna", "ダウンロードできないときは裏表紙を作成", "Uma contracapa criada quando nenhuma pode ser baixada", "Un retro di copertina creato quando non se ne può scaricare uno"),
+    "+ and - move the shelf one box at a time": ("+ y - mueven la estantería de caja en caja", "+と-で棚を1つずつ動かします", "+ e - movem a estante uma caixa por vez", "+ e - spostano lo scaffale di una custodia alla volta"),
+    "Settings > Reset all settings": ("Ajustes > Restablecer todos los ajustes", "設定 > すべての設定をリセット", "Configurações > Redefinir todas as configurações", "Impostazioni > Ripristina tutte le impostazioni"),
 }
 
 
@@ -2800,18 +2800,6 @@ KO = {
         "이 게임은 저주받았을 수도 있습니다",
     "This game may be cursed: it runs on Cars 2's engine, which goes to a black screen if RiftWii changes anything in it. If it won't boot, turn off the GameCube adapter (Settings), screenshots, cheats and mods for it, and send a problem report.":
         "이 게임은 저주받았을 수도 있습니다. 카 2와 같은 엔진을 쓰며, RiftWii가 무엇이든 바꾸면 화면이 검게 됩니다. 시작되지 않으면 이 게임에서 게임큐브 어댑터(설정), 스크린샷, 치트, 모드를 끄고 문제 보고서를 보내주세요.",
-    "RiftWii channel 11: fewer black screens on the way back":
-        "RiftWii 채널 11: 돌아올 때 검은 화면이 줄었습니다",
-    "GameCube adapter with SD games on a Wii U works again":
-        "Wii U에서 SD 게임과 게임큐브 어댑터가 다시 작동합니다",
-    "Safer game saves on SD cards and USB drives":
-        "SD 카드와 USB 드라이브의 게임 저장이 더 안전해졌습니다",
-    "Start on a banner goes straight to the game":
-        "배너에서 시작하면 바로 게임으로 갑니다",
-    "Theme can always go back to Default":
-        "테마는 언제든 기본으로 되돌릴 수 있습니다",
-    "Every menu fully translated in six languages":
-        "모든 메뉴를 6개 언어로 번역했습니다",
     "Reset all settings":
         "모든 설정 초기화",
     "Reset":
@@ -2824,6 +2812,16 @@ KO = {
         "모든 설정을 RiftWii의 기본값으로 되돌립니다. 게임별 페이지, 즐겨찾기, 플레이 기록, 모드는 그대로 유지됩니다.",
     "Settings reset to the defaults":
         "설정을 기본값으로 초기화했습니다",
+    "Games can use the SD card while your mods are on it":
+        "모드가 SD 카드에 있어도 게임이 SD 카드를 쓸 수 있습니다",
+    "Shelf boxes shaped like Wii cases":
+        "선반의 케이스가 Wii 케이스 모양으로",
+    "A made-up back cover when none can be downloaded":
+        "다운로드할 수 없을 때는 뒷면 커버를 만들어 줍니다",
+    "+ and - move the shelf one box at a time":
+        "+와 -로 선반을 한 칸씩 움직입니다",
+    "Settings > Reset all settings":
+        "설정 > 모든 설정 초기화",
 }
 
 # French, a table of its own (msgid: text), from MidyGamy's translation
@@ -3953,18 +3951,6 @@ FR = {
         "Ce jeu est peut-être maudit",
     "This game may be cursed: it runs on Cars 2's engine, which goes to a black screen if RiftWii changes anything in it. If it won't boot, turn off the GameCube adapter (Settings), screenshots, cheats and mods for it, and send a problem report.":
         "Ce jeu est peut-être maudit : il utilise le moteur de Cars 2, qui reste sur un écran noir si RiftWii y change quoi que ce soit. S'il ne démarre pas, désactivez l'adaptateur GameCube (Paramètres), les captures d'écran, les codes et les mods pour ce jeu, et envoyez un rapport de problème.",
-    "RiftWii channel 11: fewer black screens on the way back":
-        "Chaîne RiftWii 11 : moins d'écrans noirs au retour",
-    "GameCube adapter with SD games on a Wii U works again":
-        "L'adaptateur GameCube refonctionne avec les jeux sur SD sur Wii U",
-    "Safer game saves on SD cards and USB drives":
-        "Sauvegardes plus sûres sur cartes SD et disques USB",
-    "Start on a banner goes straight to the game":
-        "Démarrer sur une bannière lance directement le jeu",
-    "Theme can always go back to Default":
-        "Le thème peut toujours revenir à Par défaut",
-    "Every menu fully translated in six languages":
-        "Tous les menus traduits en six langues",
     "Reset all settings":
         "Réinitialiser tous les paramètres",
     "Reset":
@@ -3977,6 +3963,16 @@ FR = {
         "Tous les paramètres reviennent à ceux d'origine. Les pages des jeux, les favoris, l'historique de jeu et les mods sont conservés.",
     "Settings reset to the defaults":
         "Paramètres réinitialisés",
+    "Games can use the SD card while your mods are on it":
+        "Les jeux peuvent utiliser la carte SD même avec vos mods dessus",
+    "Shelf boxes shaped like Wii cases":
+        "Boîtiers de l'étagère en forme de boîtiers Wii",
+    "A made-up back cover when none can be downloaded":
+        "Un dos de boîtier créé quand aucun ne peut être téléchargé",
+    "+ and - move the shelf one box at a time":
+        "+ et - déplacent l'étagère d'un boîtier à la fois",
+    "Settings > Reset all settings":
+        "Paramètres > Réinitialiser tous les paramètres",
 }
 
 # Languages kept in tables of their own: written after LANGS, every msgid

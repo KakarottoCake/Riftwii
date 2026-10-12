@@ -1689,24 +1689,6 @@ msgstr "이 게임은 저주받았을 수도 있습니다"
 msgid "This game may be cursed: it runs on Cars 2's engine, which goes to a black screen if RiftWii changes anything in it. If it won't boot, turn off the GameCube adapter (Settings), screenshots, cheats and mods for it, and send a problem report."
 msgstr "이 게임은 저주받았을 수도 있습니다. 카 2와 같은 엔진을 쓰며, RiftWii가 무엇이든 바꾸면 화면이 검게 됩니다. 시작되지 않으면 이 게임에서 게임큐브 어댑터(설정), 스크린샷, 치트, 모드를 끄고 문제 보고서를 보내주세요."
 
-msgid "RiftWii channel 11: fewer black screens on the way back"
-msgstr "RiftWii 채널 11: 돌아올 때 검은 화면이 줄었습니다"
-
-msgid "GameCube adapter with SD games on a Wii U works again"
-msgstr "Wii U에서 SD 게임과 게임큐브 어댑터가 다시 작동합니다"
-
-msgid "Safer game saves on SD cards and USB drives"
-msgstr "SD 카드와 USB 드라이브의 게임 저장이 더 안전해졌습니다"
-
-msgid "Start on a banner goes straight to the game"
-msgstr "배너에서 시작하면 바로 게임으로 갑니다"
-
-msgid "Theme can always go back to Default"
-msgstr "테마는 언제든 기본으로 되돌릴 수 있습니다"
-
-msgid "Every menu fully translated in six languages"
-msgstr "모든 메뉴를 6개 언어로 번역했습니다"
-
 msgid "Reset all settings"
 msgstr "모든 설정 초기화"
 
@@ -1724,3 +1706,18 @@ msgstr "모든 설정을 RiftWii의 기본값으로 되돌립니다. 게임별 �
 
 msgid "Settings reset to the defaults"
 msgstr "설정을 기본값으로 초기화했습니다"
+
+msgid "Games can use the SD card while your mods are on it"
+msgstr "모드가 SD 카드에 있어도 게임이 SD 카드를 쓸 수 있습니다"
+
+msgid "Shelf boxes shaped like Wii cases"
+msgstr "선반의 케이스가 Wii 케이스 모양으로"
+
+msgid "A made-up back cover when none can be downloaded"
+msgstr "다운로드할 수 없을 때는 뒷면 커버를 만들어 줍니다"
+
+msgid "+ and - move the shelf one box at a time"
+msgstr "+와 -로 선반을 한 칸씩 움직입니다"
+
+msgid "Settings > Reset all settings"
+msgstr "설정 > 모든 설정 초기화"

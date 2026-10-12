@@ -26,6 +26,11 @@
 // the game's functions reach the code through veneers in the code
 // handler's list room, which a code build's own list leaves free. Without
 // that room the code goes below the MEM1 arena's top instead.
+//
+// The same blob also passes the real SD card through to a game while the
+// resident runtime holds it (wii/boot.cpp): the image is then the whole
+// card, read and written on the runtime's open handle, and its block sits
+// right above the runtime's MEM2 data.
 namespace riftwii::wii {
 
 struct VsdImage {
@@ -58,18 +63,26 @@ struct VsdHook {
     bool code_in_mem2 = false;
     std::uint32_t data_base = 0;                // the MEM2 block (code when in MEM2, then the state), at the arena's top
     std::uint32_t data_bytes = 0;
-    std::uint32_t stage_base = 0;               // where it is built: data_base itself
+    std::uint32_t stage_base = 0;               // where it is built: data_base itself, or below the runtime's stage
     std::uint32_t veneers = 0;                  // MEM1 veneers' address (code in MEM2)
     std::uint32_t new_arena1_hi = 0;
-    std::uint32_t new_arena2_lo = 0;           // unchanged: the game's MEM2 heaps stay where they always are
-    std::uint32_t new_arena2_hi = 0;           // the MEM2 arena's new end (0x80003128): data_base
+    std::uint32_t new_arena2_lo = 0;           // unchanged (above the runtime's data: past this block)
+    std::uint32_t new_arena2_hi = 0;           // the MEM2 arena's new end (0x80003128): data_base; 0 above the runtime
 };
 
 // Before the <memory> patches. `mem1_veneers`: the MEM1 room for the
 // veneers, 0 when there is none (the code then goes below `arena1_hi`).
+// `after_runtime`: the resident runtime's MEM2 data starts the arena,
+// staged at `runtime_stage`: the card's block goes right above that data
+// (the arena's start rising, as the runtime's own already does), staged
+// below the runtime's, instead of at the arena's top. `known_functions`
+// (VSD_ENTRIES, in vsd_hook.h's order): the game's IPC functions as the
+// runtime found them, before its hooks changed them.
 bool plan_vsd_hook(const DolHeader& dol, const VsdImage& image, const VsdDevice& device, std::uint32_t arena1_hi,
                    std::uint32_t mem1_floor, std::uint32_t arena2_lo, std::uint32_t mem1_veneers,
-                   const std::vector<MemoryPatch>& patches, VsdHook& out, std::string& why);
+                   const std::vector<MemoryPatch>& patches, VsdHook& out, std::string& why,
+                   bool after_runtime = false, std::uint32_t runtime_stage = 0,
+                   const std::uint32_t* known_functions = nullptr);
 
 // After the patches and the cheats, before the other blobs' hooks.
 bool install_vsd_hook(VsdHook& hook, std::string& why);

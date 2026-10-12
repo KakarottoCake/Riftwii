@@ -59,6 +59,7 @@
 #include "channel.hpp"
 #include "loadersettings.hpp"
 #include "riftwii/symsearch.hpp"
+#include "riftwii/vsdparts.hpp"
 #include "dolboot.h"
 
 namespace riftwii::wii {
@@ -1472,6 +1473,59 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     }
     // The virtual SD card: in the resident runtime's place (never with it).
     VsdHook vsd;
+    // Or, with the runtime holding the SD card (a pack's files, saves or
+    // an RVZ on it), the same blob as the game's way to that card: its
+    // image is the whole card, its device the runtime's open slot. The
+    // game could not use a card the runtime holds open: Animal Crossing:
+    // City Folk from the USB drive with a pack on the SD card found no
+    // card for its letters and pictures. The game's commands go one at a
+    // time beside the runtime's reads on the same handle.
+    if (!g_vsd.enabled && options.install_resident && card.fd >= 0) {
+        std::string why;
+        VsdImage whole;
+        // The card's size, from its first sector (its file systems' end).
+        const auto card_span = [&]() {
+            alignas(32) static std::uint8_t sector0[512];
+            DCInvalidateRange(sector0, sizeof sector0);
+            if (!sdio::read_sectors(card, 0, 1, sector0, why)) return false;
+            DCInvalidateRange(sector0, sizeof sector0);
+            return sd_card_span(sector0, whole.sectors, why);
+        };
+        if (gx_protected) {
+            why = "the game checks its own code (MetaFortress)";
+        } else if (whole_mem1) {
+            why = whole_mem1_why;
+        } else if (debug_off("sdshare")) {
+            why = "debug_off";
+        } else if (card_span()) {
+            whole.enabled = true;
+            whole.path = "the SD card itself";
+            whole.extents.push_back(rtvsd_extent{0, 0, whole.sectors});
+            VsdDevice device;
+            device.backend = card.d2x ? VSD_BACKEND_D2X_SD : VSD_BACKEND_SLOT0;
+            device.fd = card.fd;
+            device.sdhc = card.sdhc;
+            device.rca = card.rca;
+            // The runtime's hooks are in the functions already: their
+            // addresses as it found them (the branches there are chained).
+            std::uint32_t known[VSD_ENTRIES] = {};
+            known[VSD_OPEN_ASYNC] = resident.entries[RT_IPC_ASYNC(kIpcOpen)];
+            known[VSD_CLOSE_ASYNC] = resident.entries[RT_IPC_ASYNC(kIpcClose)];
+            known[VSD_IOCTL_ASYNC] = resident.entries[RT_IPC_ASYNC(kIpcIoctlCmd)];
+            known[VSD_IOCTLV_ASYNC] = resident.entries[RT_IPC_ASYNC(kIpcIoctlvCmd)];
+            known[VSD_OPEN] = resident.entries[RT_IPC_SYNC(kIpcOpen)];
+            known[VSD_CLOSE] = resident.entries[RT_IPC_SYNC(kIpcClose)];
+            known[VSD_IOCTL] = resident.entries[RT_IPC_SYNC(kIpcIoctlCmd)];
+            known[VSD_IOCTLV] = resident.entries[RT_IPC_SYNC(kIpcIoctlvCmd)];
+            if (!plan_vsd_hook(dol, whole, device, resident.new_arena1_hi, mem1_floor, resident.new_arena2_lo, 0,
+                               options.memory_patches, vsd, why, resident.data_bytes != 0,
+                               resident.data_bytes != 0 ? resident.stage_base : 0, known)) {
+                vsd = VsdHook{};
+            }
+        }
+        if (!vsd.active) logf("SD card for the game: not passed through: %s\n", why.c_str());
+        else logf("SD card for the game: passed through beside the runtime (%u sectors)\n", whole.sectors);
+    }
     if (g_vsd.enabled && !options.install_resident) {
         std::string why;
         VsdDevice device;
@@ -1611,8 +1665,8 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     const std::uint32_t arena1_top = fault.active               ? fault.new_arena1_hi
                                      : shot.active              ? shot.new_arena1_hi
                                      : pad.active               ? pad.new_arena1_hi
-                                     : options.install_resident ? resident.new_arena1_hi
                                      : vsd.active && !vsd.code_in_mem2 ? vsd.new_arena1_hi
+                                     : options.install_resident ? resident.new_arena1_hi
                                                                 : load32(0x80000038);
     // Below the FST too: wiped in a game that clears that memory.
     // Not into a game that checks its own code (MetaFortress): the patch
@@ -1654,13 +1708,15 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         // IOS's own field, like 0x3140: uncached, after the flush. The end
         // (0x3128) is never moved: the top of MEM2 stays the game's.
         write32(0x80003124, pad.new_arena2_lo);
+    } else if (vsd.active && vsd.new_arena2_hi == 0) {
+        write32(0x80003124, vsd.new_arena2_lo);  // above the runtime's data
     } else if (options.install_resident && resident.new_arena2_lo != resident.old_arena2_lo) {
         write32(0x80003124, resident.new_arena2_lo);
     }
     // The virtual SD card's MEM2 block is the arena's top: its end comes
     // down instead, the start (and the game's heaps) staying put.
     if (options.install_resident && resident.new_arena2_hi != 0) write32(0x80003128, resident.new_arena2_hi);
-    if (vsd.active) write32(0x80003128, vsd.new_arena2_hi);
+    if (vsd.active && vsd.new_arena2_hi != 0) write32(0x80003128, vsd.new_arena2_hi);
     // The crash blob of a code build is below that (or alone at the top).
     if (fault.active && fault.veneer != 0) write32(0x80003128, fault.new_arena2_hi);
 

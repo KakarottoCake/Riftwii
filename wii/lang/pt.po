@@ -1689,24 +1689,6 @@ msgstr "Este jogo pode ser amaldiçoado"
 msgid "This game may be cursed: it runs on Cars 2's engine, which goes to a black screen if RiftWii changes anything in it. If it won't boot, turn off the GameCube adapter (Settings), screenshots, cheats and mods for it, and send a problem report."
 msgstr "Este jogo pode ser amaldiçoado: ele usa o motor de Carros 2, que fica com a tela preta se o RiftWii mudar qualquer coisa nele. Se não iniciar, desative o adaptador de GameCube (Configurações), as capturas de tela, os cheats e os mods para este jogo, e envie um relatório de problema."
 
-msgid "RiftWii channel 11: fewer black screens on the way back"
-msgstr "Canal do RiftWii 11: menos telas pretas ao voltar"
-
-msgid "GameCube adapter with SD games on a Wii U works again"
-msgstr "O adaptador de GameCube volta a funcionar com jogos do SD no Wii U"
-
-msgid "Safer game saves on SD cards and USB drives"
-msgstr "Jogos salvos mais seguros em cartões SD e unidades USB"
-
-msgid "Start on a banner goes straight to the game"
-msgstr "Jogar em um banner vai direto ao jogo"
-
-msgid "Theme can always go back to Default"
-msgstr "O tema sempre pode voltar ao Padrão"
-
-msgid "Every menu fully translated in six languages"
-msgstr "Todos os menus traduzidos em seis idiomas"
-
 msgid "Reset all settings"
 msgstr "Redefinir todas as configurações"
 
@@ -1724,3 +1706,18 @@ msgstr "Todas as configurações voltam a como vêm no RiftWii. As páginas de c
 
 msgid "Settings reset to the defaults"
 msgstr "Configurações redefinidas"
+
+msgid "Games can use the SD card while your mods are on it"
+msgstr "Os jogos podem usar o cartão SD mesmo com os seus mods nele"
+
+msgid "Shelf boxes shaped like Wii cases"
+msgstr "Caixas da estante no formato das caixas do Wii"
+
+msgid "A made-up back cover when none can be downloaded"
+msgstr "Uma contracapa criada quando nenhuma pode ser baixada"
+
+msgid "+ and - move the shelf one box at a time"
+msgstr "+ e - movem a estante uma caixa por vez"
+
+msgid "Settings > Reset all settings"
+msgstr "Configurações > Redefinir todas as configurações"

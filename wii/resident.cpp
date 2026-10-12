@@ -508,6 +508,7 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
     out.ioctl_async_original = original(RT_IPC_ASYNC_IOCTL);
     out.ioctlv_async_original = original(RT_IPC_ASYNC(7)) != 0 ? original(RT_IPC_ASYNC(7)) : symbols.ioctlv_async;
     for (std::uint32_t e = 0; e < RT_IPC_ENTRIES; ++e) out.originals[e] = original(e);
+    for (std::uint32_t e = 0; e < RT_IPC_ENTRIES; ++e) out.entries[e] = entry_address[e];
     out.table = ctx->table;
     out.payload_bytes = static_cast<std::uint32_t>(payload.size());
     out.bounce_bytes = bounce_bytes;

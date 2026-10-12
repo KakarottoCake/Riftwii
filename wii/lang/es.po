@@ -1689,24 +1689,6 @@ msgstr "Este juego puede estar maldito"
 msgid "This game may be cursed: it runs on Cars 2's engine, which goes to a black screen if RiftWii changes anything in it. If it won't boot, turn off the GameCube adapter (Settings), screenshots, cheats and mods for it, and send a problem report."
 msgstr "Este juego puede estar maldito: usa el motor de Cars 2, que se queda en pantalla negra si RiftWii cambia cualquier cosa en él. Si no arranca, desactiva el adaptador de GameCube (Ajustes), las capturas, los trucos y los mods para este juego, y envía un informe de problemas."
 
-msgid "RiftWii channel 11: fewer black screens on the way back"
-msgstr "Canal de RiftWii 11: menos pantallas negras al volver"
-
-msgid "GameCube adapter with SD games on a Wii U works again"
-msgstr "El adaptador de GameCube vuelve a funcionar con juegos de la SD en Wii U"
-
-msgid "Safer game saves on SD cards and USB drives"
-msgstr "Partidas guardadas más seguras en tarjetas SD y unidades USB"
-
-msgid "Start on a banner goes straight to the game"
-msgstr "Jugar en un banner va directo al juego"
-
-msgid "Theme can always go back to Default"
-msgstr "El tema siempre puede volver a Predeterminado"
-
-msgid "Every menu fully translated in six languages"
-msgstr "Todos los menús traducidos a seis idiomas"
-
 msgid "Reset all settings"
 msgstr "Restablecer todos los ajustes"
 
@@ -1724,3 +1706,18 @@ msgstr "Todos los ajustes vuelven a como vienen en RiftWii. Se conservan las pá
 
 msgid "Settings reset to the defaults"
 msgstr "Ajustes restablecidos"
+
+msgid "Games can use the SD card while your mods are on it"
+msgstr "Los juegos pueden usar la tarjeta SD aunque tus mods estén en ella"
+
+msgid "Shelf boxes shaped like Wii cases"
+msgstr "Cajas de la estantería con forma de caja de Wii"
+
+msgid "A made-up back cover when none can be downloaded"
+msgstr "Una contraportada inventada cuando no se puede descargar ninguna"
+
+msgid "+ and - move the shelf one box at a time"
+msgstr "+ y - mueven la estantería de caja en caja"
+
+msgid "Settings > Reset all settings"
+msgstr "Ajustes > Restablecer todos los ajustes"

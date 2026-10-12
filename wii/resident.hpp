@@ -117,6 +117,9 @@ struct ResidentInstall {
     std::uint32_t ioctlv_async_original = 0;
     // The same for every SDK entry (RT_IPC_ASYNC / RT_IPC_SYNC order).
     std::array<std::uint32_t, RT_IPC_ENTRIES> originals{};
+    // The SDK entries themselves as found (0: not found), same order:
+    // once hooked, a later search no longer recognises them.
+    std::array<std::uint32_t, RT_IPC_ENTRIES> entries{};
     std::uint32_t table = 0;          // redirect table address, 0 when there are no replacements
     std::uint32_t payload_bytes = 0;
     std::uint32_t bounce_bytes = 0;   // SD bounce buffers after the payload, 0 without SD replacements

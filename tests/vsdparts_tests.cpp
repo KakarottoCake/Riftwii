@@ -57,9 +57,58 @@ static void test_join() {
     EXPECT_TRUE(why.find("the image") != std::string::npos);
 }
 
+static void test_span_partitions() {
+    std::uint8_t s[512] = {};
+    s[510] = 0x55;
+    s[511] = 0xAA;
+    // Partition 1: type 0x0C from sector 8192, 1000000 sectors.
+    s[446 + 4] = 0x0C;
+    s[446 + 8] = 0x00, s[446 + 9] = 0x20;
+    s[446 + 12] = 0x40, s[446 + 13] = 0x42, s[446 + 14] = 0x0F;
+    std::uint32_t sectors = 0;
+    std::string why;
+    EXPECT_TRUE(sd_card_span(s, sectors, why));
+    EXPECT_EQ(sectors, 8192u + 1000000u);
+    // A second one further on, listed second: its end.
+    s[462 + 4] = 0x83;
+    s[462 + 8] = 0x00, s[462 + 9] = 0x00, s[462 + 10] = 0x20;  // 0x200000
+    s[462 + 12] = 0x00, s[462 + 13] = 0x10;                     // 0x1000
+    EXPECT_TRUE(sd_card_span(s, sectors, why));
+    EXPECT_EQ(sectors, 0x201000u);
+}
+
+static void test_span_fat() {
+    std::uint8_t s[512] = {};
+    s[0] = 0xEB;
+    s[11] = 0x00, s[12] = 0x02;  // 512 bytes a sector
+    s[13] = 64;                  // per cluster
+    s[14] = 32;                  // reserved
+    s[16] = 2;                   // FATs
+    s[32] = 0x00, s[33] = 0x00, s[34] = 0xE0, s[35] = 0x00;  // 0xE00000 sectors
+    s[510] = 0x55;
+    s[511] = 0xAA;
+    std::uint32_t sectors = 0;
+    std::string why;
+    EXPECT_TRUE(sd_card_span(s, sectors, why));
+    EXPECT_EQ(sectors, 0xE00000u);
+}
+
+static void test_span_refused() {
+    std::uint8_t s[512] = {};
+    std::uint32_t sectors = 0;
+    std::string why;
+    EXPECT_FALSE(sd_card_span(s, sectors, why));  // no signature
+    s[510] = 0x55;
+    s[511] = 0xAA;
+    EXPECT_FALSE(sd_card_span(s, sectors, why));  // nothing in the table
+}
+
 int main() {
     test_names();
     test_join();
+    test_span_partitions();
+    test_span_fat();
+    test_span_refused();
     if (g_failures == 0) {
         std::cout << "ALL VSDPARTS TESTS PASSED" << std::endl;
         return 0;

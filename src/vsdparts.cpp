@@ -6,6 +6,49 @@
 
 namespace riftwii {
 
+namespace {
+
+std::uint32_t le16(const std::uint8_t* p) { return p[0] | (p[1] << 8); }
+std::uint32_t le32(const std::uint8_t* p) {
+    return p[0] | (p[1] << 8) | (p[2] << 16) | (static_cast<std::uint32_t>(p[3]) << 24);
+}
+
+}  // namespace
+
+bool sd_card_span(const std::uint8_t (&s)[512], std::uint32_t& sectors, std::string& why) {
+    sectors = 0;
+    if (s[510] != 0x55 || s[511] != 0xAA) {
+        why = "the card's first sector has no boot signature";
+        return false;
+    }
+    // A FAT file system from sector 0 (no partition table): its own size.
+    const std::uint32_t per_cluster = s[13];
+    const bool bpb = (s[0] == 0xEB || s[0] == 0xE9) && le16(s + 11) == 512 && per_cluster != 0 &&
+                     (per_cluster & (per_cluster - 1)) == 0 && le16(s + 14) != 0 && (s[16] == 1 || s[16] == 2);
+    if (bpb) {
+        sectors = le16(s + 19) != 0 ? le16(s + 19) : le32(s + 32);
+        if (sectors == 0) {
+            why = "the card's FAT boot sector gives no size";
+            return false;
+        }
+        return true;
+    }
+    // A partition table: to the end of its last partition.
+    std::uint64_t end = 0;
+    for (unsigned i = 0; i < 4; ++i) {
+        const std::uint8_t* e = s + 446 + i * 16;
+        const std::uint32_t lba = le32(e + 8), count = le32(e + 12);
+        if (e[4] == 0 || count == 0) continue;
+        if (static_cast<std::uint64_t>(lba) + count > end) end = static_cast<std::uint64_t>(lba) + count;
+    }
+    if (end == 0) {
+        why = "the card's partition table is empty";
+        return false;
+    }
+    sectors = end > 0xFFFFFFFFull ? 0xFFFFFFFFu : static_cast<std::uint32_t>(end);
+    return true;
+}
+
 std::string vsd_part_name(const std::string& image, unsigned part) {
     char suffix[16];
     std::snprintf(suffix, sizeof suffix, ".%03u", part);

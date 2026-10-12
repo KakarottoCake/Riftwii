@@ -166,7 +166,8 @@ bool find_vsd_image(const std::string& name, VsdImage& out, std::string& why) {
 
 bool plan_vsd_hook(const DolHeader& dol, const VsdImage& image, const VsdDevice& device, std::uint32_t arena1_hi,
                    std::uint32_t mem1_floor, std::uint32_t arena2_lo, std::uint32_t mem1_veneers,
-                   const std::vector<MemoryPatch>& patches, VsdHook& out, std::string& why) {
+                   const std::vector<MemoryPatch>& patches, VsdHook& out, std::string& why, bool after_runtime,
+                   std::uint32_t runtime_stage, const std::uint32_t* known_functions) {
     out = VsdHook{};
     const vsd_header& h = header();
     if (riftwii_vsd_bin_size < sizeof(vsd_header) || h.magic != VSD_MAGIC || h.version != VSD_VERSION ||
@@ -180,25 +181,29 @@ bool plan_vsd_hook(const DolHeader& dol, const VsdImage& image, const VsdDevice&
     }
 
     // 1. The game's IPC functions.
-    std::vector<CodeRange> text;
-    for (std::size_t i = 0; i < kDolTextSections; ++i) {
-        const DolSection& s = dol.sections[i];
-        if (s.used()) text.push_back({s.address, reinterpret_cast<const std::uint8_t*>(s.address), s.size});
+    if (known_functions != nullptr) {
+        for (unsigned e = 0; e < VSD_ENTRIES; ++e) out.functions[e] = known_functions[e];
+    } else {
+        std::vector<CodeRange> text;
+        for (std::size_t i = 0; i < kDolTextSections; ++i) {
+            const DolSection& s = dol.sections[i];
+            if (s.used()) text.push_back({s.address, reinterpret_cast<const std::uint8_t*>(s.address), s.size});
+        }
+        IpcSymbols symbols;
+        IpcApi api;
+        if (!find_ipc_symbols(text, symbols, why) || !find_ipc_api(text, symbols, api, why)) {
+            why = "the game's IPC functions were not found: " + why;
+            return false;
+        }
+        out.functions[VSD_OPEN_ASYNC] = api.async[kIpcOpen];
+        out.functions[VSD_CLOSE_ASYNC] = api.async[kIpcClose];
+        out.functions[VSD_IOCTL_ASYNC] = api.async[kIpcIoctlCmd];
+        out.functions[VSD_IOCTLV_ASYNC] = api.async[kIpcIoctlvCmd];
+        out.functions[VSD_OPEN] = api.sync[kIpcOpen];
+        out.functions[VSD_CLOSE] = api.sync[kIpcClose];
+        out.functions[VSD_IOCTL] = api.sync[kIpcIoctlCmd];
+        out.functions[VSD_IOCTLV] = api.sync[kIpcIoctlvCmd];
     }
-    IpcSymbols symbols;
-    IpcApi api;
-    if (!find_ipc_symbols(text, symbols, why) || !find_ipc_api(text, symbols, api, why)) {
-        why = "the game's IPC functions were not found: " + why;
-        return false;
-    }
-    out.functions[VSD_OPEN_ASYNC] = api.async[kIpcOpen];
-    out.functions[VSD_CLOSE_ASYNC] = api.async[kIpcClose];
-    out.functions[VSD_IOCTL_ASYNC] = api.async[kIpcIoctlCmd];
-    out.functions[VSD_IOCTLV_ASYNC] = api.async[kIpcIoctlvCmd];
-    out.functions[VSD_OPEN] = api.sync[kIpcOpen];
-    out.functions[VSD_CLOSE] = api.sync[kIpcClose];
-    out.functions[VSD_IOCTL] = api.sync[kIpcIoctlCmd];
-    out.functions[VSD_IOCTLV] = api.sync[kIpcIoctlvCmd];
     if (out.functions[VSD_OPEN] == 0 && out.functions[VSD_OPEN_ASYNC] == 0) {
         why = "the game has no IOS_Open";
         return false;
@@ -242,7 +247,27 @@ bool plan_vsd_hook(const DolHeader& dol, const VsdImage& image, const VsdDevice&
     out.new_arena2_lo = arena2_lo;
     out.new_arena2_hi = out.data_base;
     out.stage_base = out.data_base;
-    if (arena2_end < out.data_bytes || out.data_base < loader_top || out.data_base < align_up(arena2_lo)) {
+    if (after_runtime) {
+        // Above the runtime's data, over this loader's memory: built below
+        // the runtime's stage, copied down after the runtime's data.
+        out.data_base = align_up(arena2_lo);
+        if (out.code_in_mem2) {
+            out.code_base = out.data_base;
+            out.state_base = out.data_base + out.code_bytes;
+        } else {
+            out.state_base = out.data_base;
+        }
+        out.new_arena2_lo = out.data_base + out.data_bytes;
+        out.new_arena2_hi = 0;
+        out.stage_base = (runtime_stage - out.data_bytes) & ~31u;
+        if (runtime_stage < out.data_bytes || out.stage_base < loader_top || out.stage_base < out.new_arena2_lo) {
+            char buf[160];
+            std::snprintf(buf, sizeof(buf), "no room above the runtime's data (0x%08x, its stage at 0x%08x, this "
+                          "loader's memory ends at 0x%08x)", arena2_lo, runtime_stage, loader_top);
+            why = buf;
+            return false;
+        }
+    } else if (arena2_end < out.data_bytes || out.data_base < loader_top || out.data_base < align_up(arena2_lo)) {
         char buf[160];
         std::snprintf(buf, sizeof(buf), "no room in the MEM2 arena (0x%08x-0x%08x, this loader's memory ends at 0x%08x)",
                       arena2_lo, arena2_end, loader_top);
@@ -295,7 +320,9 @@ bool plan_vsd_hook(const DolHeader& dol, const VsdImage& image, const VsdDevice&
          "0x%08x%s\n",
          image.path.c_str(), image.sectors / 2048, st->card.sdhc ? "SDHC" : "SD", st->card.extent_count, h.size,
          out.code_base, out.state_bytes, out.state_base,
-         out.code_in_mem2 ? " (both in MEM2, built at the arena's top)" : "");
+         after_runtime      ? " (above the runtime's MEM2 data)"
+         : out.code_in_mem2 ? " (both in MEM2, built at the arena's top)"
+                            : "");
     return true;
 }
 

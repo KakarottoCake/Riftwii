@@ -38,4 +38,11 @@ struct VsdPart {
 bool join_vsd_parts(const std::vector<VsdPart>& parts, std::vector<Fragment>& out, std::uint64_t& bytes,
                     std::string& why);
 
+// How many sectors of an SD card its file systems use, from its first
+// sector: a FAT boot sector's own size, else the end of the MBR's last
+// partition. The game's SD card is the whole real card passed through
+// (wii/boot.cpp), as big as that. False with `why` when sector 0 is
+// neither.
+bool sd_card_span(const std::uint8_t (&sector0)[512], std::uint32_t& sectors, std::string& why);
+
 }  // namespace riftwii

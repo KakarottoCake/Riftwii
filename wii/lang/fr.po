@@ -1689,24 +1689,6 @@ msgstr "Ce jeu est peut-être maudit"
 msgid "This game may be cursed: it runs on Cars 2's engine, which goes to a black screen if RiftWii changes anything in it. If it won't boot, turn off the GameCube adapter (Settings), screenshots, cheats and mods for it, and send a problem report."
 msgstr "Ce jeu est peut-être maudit : il utilise le moteur de Cars 2, qui reste sur un écran noir si RiftWii y change quoi que ce soit. S'il ne démarre pas, désactivez l'adaptateur GameCube (Paramètres), les captures d'écran, les codes et les mods pour ce jeu, et envoyez un rapport de problème."
 
-msgid "RiftWii channel 11: fewer black screens on the way back"
-msgstr "Chaîne RiftWii 11 : moins d'écrans noirs au retour"
-
-msgid "GameCube adapter with SD games on a Wii U works again"
-msgstr "L'adaptateur GameCube refonctionne avec les jeux sur SD sur Wii U"
-
-msgid "Safer game saves on SD cards and USB drives"
-msgstr "Sauvegardes plus sûres sur cartes SD et disques USB"
-
-msgid "Start on a banner goes straight to the game"
-msgstr "Démarrer sur une bannière lance directement le jeu"
-
-msgid "Theme can always go back to Default"
-msgstr "Le thème peut toujours revenir à Par défaut"
-
-msgid "Every menu fully translated in six languages"
-msgstr "Tous les menus traduits en six langues"
-
 msgid "Reset all settings"
 msgstr "Réinitialiser tous les paramètres"
 
@@ -1724,3 +1706,18 @@ msgstr "Tous les paramètres reviennent à ceux d'origine. Les pages des jeux, l
 
 msgid "Settings reset to the defaults"
 msgstr "Paramètres réinitialisés"
+
+msgid "Games can use the SD card while your mods are on it"
+msgstr "Les jeux peuvent utiliser la carte SD même avec vos mods dessus"
+
+msgid "Shelf boxes shaped like Wii cases"
+msgstr "Boîtiers de l'étagère en forme de boîtiers Wii"
+
+msgid "A made-up back cover when none can be downloaded"
+msgstr "Un dos de boîtier créé quand aucun ne peut être téléchargé"
+
+msgid "+ and - move the shelf one box at a time"
+msgstr "+ et - déplacent l'étagère d'un boîtier à la fois"
+
+msgid "Settings > Reset all settings"
+msgstr "Paramètres > Réinitialiser tous les paramètres"

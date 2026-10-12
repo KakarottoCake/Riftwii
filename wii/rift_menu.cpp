@@ -2279,12 +2279,11 @@ static std::string DiscTileNote()
 // holds seven lines), for the release script to keep up to date. Shown
 // once when they change; Settings > What's new shows them again.
 static const char* const kWhatsNew[] = {
-	"RiftWii channel 11: fewer black screens on the way back",
-	"GameCube adapter with SD games on a Wii U works again",
-	"Safer game saves on SD cards and USB drives",
-	"Start on a banner goes straight to the game",
-	"Theme can always go back to Default",
-	"Every menu fully translated in six languages",
+	"Games can use the SD card while your mods are on it",
+	"Shelf boxes shaped like Wii cases",
+	"A made-up back cover when none can be downloaded",
+	"+ and - move the shelf one box at a time",
+	"Settings > Reset all settings",
 };
 
 static std::string WhatsNewText()
