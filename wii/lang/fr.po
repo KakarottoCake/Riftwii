@@ -1706,3 +1706,21 @@ msgstr "Le thème peut toujours revenir à Par défaut"
 
 msgid "Every menu fully translated in six languages"
 msgstr "Tous les menus traduits en six langues"
+
+msgid "Reset all settings"
+msgstr "Réinitialiser tous les paramètres"
+
+msgid "Reset"
+msgstr "Réinitialiser"
+
+msgid "Reset all settings?"
+msgstr "Réinitialiser tous les paramètres ?"
+
+msgid "Every setting goes back to how RiftWii comes, and RiftWii restarts. Games' own pages, favourites, play history and mods are kept."
+msgstr "Tous les paramètres reviennent à ceux d'origine et RiftWii redémarre. Les pages des jeux, les favoris, l'historique de jeu et les mods sont conservés."
+
+msgid "Every setting back to how RiftWii comes. Games' own pages, favourites, play history and mods are kept."
+msgstr "Tous les paramètres reviennent à ceux d'origine. Les pages des jeux, les favoris, l'historique de jeu et les mods sont conservés."
+
+msgid "Settings reset to the defaults"
+msgstr "Paramètres réinitialisés"

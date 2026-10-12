@@ -122,6 +122,7 @@ private:
     bool LetterKeys(GuiTrigger* t);
     int LetterTarget(int dir) const;
     bool letterHeld[4] = {};
+    int shelfStepHeld[4] = {};  // frames + or - has been held on the shelf, per controller
     bool letterUsed[4] = {};
     int SlotAt(int x, int y) const;
     int ArrowAt(int x, int y) const;  // -1 left, +1 right, 0 none

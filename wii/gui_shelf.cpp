@@ -45,8 +45,9 @@ constexpr float kFovY = 43.6028f;  // 2 * atan(240 / kEye), in degrees
 
 // A Wii case, to scale: 190 tall, 135 wide, 14 thick (mm).
 constexpr float kBoxH = 164.0f;
-constexpr float kBoxW = 125.0f;  // spine to front edge, along z
-constexpr float kBoxT = 18.0f;   // the spine's width
+// A Wii case's shape: a DVD keep case, 190 x 135 x 14 mm.
+constexpr float kBoxW = kBoxH * 135.0f / 190.0f;  // spine to front edge, along z
+constexpr float kBoxT = kBoxH * 14.0f / 190.0f;   // the spine's width
 // The plank lands on the lower shelf a theme paints under Home's second
 // row of covers (themes/Bookshelf): its top seen from 247 to 250, its front
 // edge down to 268.
@@ -92,6 +93,16 @@ bool PressedPage(GuiTrigger* t, int delta) {
     return (t->wpad && (t->wpad->btns_d & wpad)) || (t->wiidrcdata.btns_d & drc);
 }
 
+// + or - held: -1, +1, or 0 for neither.
+int HeldStep(GuiTrigger* t) {
+    const u32 minus = WPAD_BUTTON_MINUS | WPAD_CLASSIC_BUTTON_MINUS, plus = WPAD_BUTTON_PLUS | WPAD_CLASSIC_BUTTON_PLUS;
+    const u32 held = t->wpad ? t->wpad->btns_h : 0;
+    const u32 drc = t->wiidrcdata.btns_h;
+    if ((held & minus) || (drc & WIIDRC_BUTTON_MINUS)) return -1;
+    if ((held & plus) || (drc & WIIDRC_BUTTON_PLUS)) return 1;
+    return 0;
+}
+
 bool PressedA(GuiTrigger* t) {
     return (t->wpad && (t->wpad->btns_d & (WPAD_BUTTON_A | WPAD_CLASSIC_BUTTON_A))) || (t->pad.btns_d & PAD_BUTTON_A) ||
            (t->wiidrcdata.btns_d & WIIDRC_BUTTON_A);
@@ -119,35 +130,115 @@ struct Face {
     bool repeat = false;
     GXColor color;
     u8 fade[4] = {255, 255, 255, 255};  // each corner's share of the alpha (a gradient)
+    // A back cover made up for a game without GameTDB's full scan: a Wii
+    // case's back laid out from its front cover (`art`) and colour.
+    bool madeUpBack = false;
+    const u8* art = nullptr;
+    GXColor accent = {0, 0, 0, 255};
+    // The open edge of a keep case: rounded across its thickness.
+    bool rounded = false;
 };
 
-void DrawFace(const Face& f, int alpha) {
-    // Lit from above and the left, never darker than half.
-    const float light = 0.62f + 0.38f * std::max(0.0f, (f.normal.z * 0.85f - f.normal.y * 0.35f - f.normal.x * 0.25f));
-    const auto shade = [&](u8 c) { return static_cast<u8>(std::min(255.0f, c * light)); };
-    const u8 r = shade(f.color.r), g = shade(f.color.g), b = shade(f.color.b);
-    const u8 a = static_cast<u8>(f.color.a * alpha / 255);
-    if (f.tex) {
-        GXTexObj tex;
-        GX_InitTexObj(&tex, const_cast<u8*>(f.tex), static_cast<u16>(f.texW), static_cast<u16>(f.texH),
-                      f.rgba8 ? GX_TF_RGBA8 : GX_TF_RGB5A3, f.repeat ? GX_REPEAT : GX_CLAMP, GX_CLAMP, GX_FALSE);
-        GX_InitTexObjLOD(&tex, GX_LINEAR, GX_LINEAR, 0, 0, 0, GX_FALSE, GX_FALSE, GX_ANISO_1);
-        GX_LoadTexObj(&tex, GX_TEXMAP0);
+V3 Mix(V3 a, V3 b, float t) { return {a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t}; }
+V3 Add(V3 a, V3 b) { return {a.x + b.x, a.y + b.y, a.z + b.z}; }
+V3 Scale(V3 a, float k) { return {a.x * k, a.y * k, a.z * k}; }
+float Light(V3 n) { return 0.62f + 0.38f * std::max(0.0f, (n.z * 0.85f - n.y * 0.35f - n.x * 0.25f)); }
+
+// One quad, flat colour or textured (RGB5A3 `tex` of w x h, its part u0..u1, v0..v1).
+void Quad(const V3 (&c)[4], GXColor col, const u8* fade, const u8* tex, int w, int h, float u0, float u1, float v0,
+          float v1, bool rgba8, bool repeat) {
+    if (tex) {
+        GXTexObj obj;
+        GX_InitTexObj(&obj, const_cast<u8*>(tex), static_cast<u16>(w), static_cast<u16>(h), rgba8 ? GX_TF_RGBA8 : GX_TF_RGB5A3,
+                      repeat ? GX_REPEAT : GX_CLAMP, GX_CLAMP, GX_FALSE);
+        GX_InitTexObjLOD(&obj, GX_LINEAR, GX_LINEAR, 0, 0, 0, GX_FALSE, GX_FALSE, GX_ANISO_1);
+        GX_LoadTexObj(&obj, GX_TEXMAP0);
         GX_SetTevOp(GX_TEVSTAGE0, GX_MODULATE);
         GX_SetVtxDesc(GX_VA_TEX0, GX_DIRECT);
     } else {
         GX_SetTevOp(GX_TEVSTAGE0, GX_PASSCLR);
         GX_SetVtxDesc(GX_VA_TEX0, GX_NONE);
     }
-    const float us[4] = {f.u0, f.u1, f.u1, f.u0};
-    const float vs[4] = {f.v0, f.v0, f.v1, f.v1};
+    const float us[4] = {u0, u1, u1, u0};
+    const float vs[4] = {v0, v0, v1, v1};
     GX_Begin(GX_QUADS, GX_VTXFMT0, 4);
     for (int i = 0; i < 4; ++i) {
-        GX_Position3f32(f.c[i].x, f.c[i].y, f.c[i].z);
-        GX_Color4u8(r, g, b, static_cast<u8>(a * f.fade[i] / 255));
-        if (f.tex) GX_TexCoord2f32(us[i], vs[i]);
+        GX_Position3f32(c[i].x, c[i].y, c[i].z);
+        GX_Color4u8(col.r, col.g, col.b, static_cast<u8>(col.a * fade[i] / 255));
+        if (tex) GX_TexCoord2f32(us[i], vs[i]);
     }
     GX_End();
+}
+
+// The made-up back (Face::madeUpBack) over its paper: a grey band along
+// the top as on Wii cases, the cover's middle as the big picture, two
+// crops of it as screenshots, lines of text, a rating box and a barcode.
+void DrawMadeUpBack(const Face& f, float light, u8 a) {
+    const auto at = [&](float u, float v) { return Mix(Mix(f.c[0], f.c[1], u), Mix(f.c[3], f.c[2], u), v); };
+    const auto lit = [&](GXColor c) {
+        const auto sh = [&](u8 x) { return static_cast<u8>(std::min(255.0f, x * light)); };
+        return GXColor{sh(c.r), sh(c.g), sh(c.b), a};
+    };
+    const u8 full[4] = {255, 255, 255, 255};
+    const auto rect = [&](float u0, float v0, float u1, float v1, GXColor c, const u8* tex = nullptr, float tu0 = 0,
+                          float tu1 = 1, float tv0 = 0, float tv1 = 1) {
+        const V3 q[4] = {at(u0, v0), at(u1, v0), at(u1, v1), at(u0, v1)};
+        Quad(q, lit(c), full, tex, riftwii::kCoverWidth, riftwii::kCoverHeight, tu0, tu1, tv0, tv1, false, false);
+    };
+    const GXColor white = {255, 255, 255, 255};
+    rect(0.0f, 0.0f, 1.0f, 0.085f, {206, 208, 212, 255});  // the Wii band
+    rect(0.0f, 0.085f, 1.0f, 0.095f, f.accent);
+    if (f.art) {
+        rect(0.08f, 0.14f, 0.92f, 0.47f, white, f.art, 0.0f, 1.0f, 0.22f, 0.62f);
+        rect(0.08f, 0.51f, 0.48f, 0.66f, white, f.art, 0.05f, 0.50f, 0.58f, 0.86f);
+        rect(0.52f, 0.51f, 0.92f, 0.66f, white, f.art, 0.50f, 0.95f, 0.30f, 0.58f);
+    } else {
+        rect(0.08f, 0.14f, 0.92f, 0.47f, f.accent);
+        rect(0.08f, 0.51f, 0.48f, 0.66f, {150, 154, 160, 255});
+        rect(0.52f, 0.51f, 0.92f, 0.66f, {150, 154, 160, 255});
+    }
+    const GXColor ink = {176, 178, 182, 255};
+    rect(0.08f, 0.71f, 0.92f, 0.725f, ink);
+    rect(0.08f, 0.745f, 0.92f, 0.76f, ink);
+    rect(0.08f, 0.78f, 0.66f, 0.795f, ink);
+    rect(0.08f, 0.85f, 0.20f, 0.95f, {30, 30, 32, 255});  // the rating
+    rect(0.66f, 0.86f, 0.92f, 0.94f, white);                // the barcode
+    for (int i = 0; i < 9; ++i) {
+        const float u = 0.675f + i * 0.026f;
+        rect(u, 0.87f, u + (i % 3 == 0 ? 0.012f : 0.006f), 0.93f, {24, 24, 24, 255});
+    }
+}
+
+void DrawFace(const Face& f, int alpha) {
+    // Lit from above and the left, never darker than half.
+    const float light = Light(f.normal);
+    const auto shade = [&](u8 c) { return static_cast<u8>(std::min(255.0f, c * light)); };
+    const u8 a = static_cast<u8>(f.color.a * alpha / 255);
+    if (f.rounded) {
+        // Half a round rod: from the front cover's edge round to the
+        // back's, bulging out by a third of the thickness.
+        const V3 across = Sub(f.c[1], f.c[0]);
+        const float half = std::sqrt(Dot(across, across)) / 2;
+        if (half <= 0.0f) return;
+        const V3 ax = Scale(across, 1.0f / (2 * half));
+        const float bulge = half * 0.66f;
+        const V3 midTop = Mix(f.c[0], f.c[1], 0.5f), midBottom = Mix(f.c[3], f.c[2], 0.5f);
+        constexpr int kSteps = 6;
+        for (int i = 0; i < kSteps; ++i) {
+            const float t0 = -1.5707963f + 3.1415926f * i / kSteps, t1 = -1.5707963f + 3.1415926f * (i + 1) / kSteps;
+            const auto ring = [&](V3 mid, float t) { return Add(Add(mid, Scale(ax, std::sin(t) * half)), Scale(f.normal, std::cos(t) * bulge)); };
+            const V3 q[4] = {ring(midTop, t0), ring(midTop, t1), ring(midBottom, t1), ring(midBottom, t0)};
+            const float tm = (t0 + t1) / 2;
+            const V3 n = Add(Scale(ax, std::sin(tm)), Scale(f.normal, std::cos(tm)));
+            const float l = Light(n);
+            const auto sh = [&](u8 c) { return static_cast<u8>(std::min(255.0f, c * l)); };
+            Quad(q, GXColor{sh(f.color.r), sh(f.color.g), sh(f.color.b), a}, f.fade, nullptr, 0, 0, 0, 1, 0, 1, false, false);
+        }
+        return;
+    }
+    Quad(f.c, GXColor{shade(f.color.r), shade(f.color.g), shade(f.color.b), a}, f.fade, f.tex, f.texW, f.texH, f.u0, f.u1,
+         f.v0, f.v1, f.rgba8, f.repeat);
+    if (f.madeUpBack) DrawMadeUpBack(f, light, a);
 }
 
 // A box's eight corners, standing on the shelf at (x, z), turned `turn`
@@ -234,6 +325,7 @@ void BoxFaces(const std::string& id, const Box& b, const u8* art, const u8* cove
     faces[3] = face(0, 1, 5, 4);
     faces[4] = face(1, 0, 2, 3);
     faces[3].color = faces[4].color = CasePlastic(id);
+    faces[4].rounded = true;
     if (art) {
         faces[0].tex = art;
         faces[0].texW = riftwii::kBoxWidth;
@@ -267,10 +359,14 @@ void BoxFaces(const std::string& id, const Box& b, const u8* art, const u8* cove
         faces[0].color = {214, 228, 244, 255};
         return;
     }
-    // No scan: the back in the game's colour, as a case's back is never white.
-    if (!art)
-        faces[2].color = {static_cast<u8>(hue.r / 2 + 70), static_cast<u8>(hue.g / 2 + 70),
-                          static_cast<u8>(hue.b / 2 + 70), 255};
+    // No scan: a back made up from the front cover, laid out as a Wii
+    // case's back is.
+    if (!art) {
+        faces[2].color = {244, 244, 242, 255};
+        faces[2].madeUpBack = true;
+        faces[2].art = cover;
+        faces[2].accent = {hue.r, hue.g, hue.b, 255};
+    }
 }
 
 // The game whose box is flying (DrawShelfFlight): the shelf leaves its
@@ -315,6 +411,7 @@ void DrawReflection(const Face (&faces)[5], float k, int alpha) {
         r.v1 = f.v1 - (f.v1 - f.v0) * kReflectPart;
         r.fade[0] = r.fade[1] = 255;
         r.fade[2] = r.fade[3] = 0;
+        r.madeUpBack = false;
         Dim(r, k);
         r.color.a = static_cast<u8>(r.color.a * kReflectAlpha / 255);
         DrawFace(r, alpha);
@@ -890,11 +987,21 @@ void DrawShelfFlight(const ShelfFlight& from, float toX, float toY, float toW, f
 void SetShelfFlying(const std::string& id) { g_flying = id; }
 
 void GuiGameGrid::UpdateShelf(GuiTrigger* t) {
-    if (PressedPage(t, -1) || PressedPage(t, 1)) {
-        ShelfStep(PressedPage(t, -1) ? -kPerPage : kPerPage);
-        return;
+    // + and -: one box at a time (a grid's page means nothing on the
+    // shelf: it skipped 12 boxes), and held, they keep going.
+    if (t->chan >= 0 && t->chan < 4) {
+        const int step = HeldStep(t);
+        int& held = shelfStepHeld[t->chan];
+        if (step == 0) {
+            held = 0;
+        } else {
+            ++held;
+            if (PressedPage(t, step) || (held > 20 && held % 5 == 0)) ShelfStep(step);
+            return;
+        }
     }
     // Up or Down: the focused box turns round (not again until it has).
+    // Without GameTDB's full scan its back is made up (DrawMadeUpBack).
     if ((t->Up() || t->Down()) && shelfStill > 15) {
         shelfFlip = !shelfFlip;
         shelfStill = 0;

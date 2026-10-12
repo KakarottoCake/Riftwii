@@ -1663,6 +1663,13 @@ T = {
     "Start on a banner goes straight to the game": ("Jugar en un banner va directo al juego", "バナーで「はじめる」を押すとすぐゲームへ", "Jogar em um banner vai direto ao jogo", "Gioca su un banner porta subito al gioco"),
     "Theme can always go back to Default": ("El tema siempre puede volver a Predeterminado", "テーマはいつでもデフォルトに戻せます", "O tema sempre pode voltar ao Padrão", "Il tema può sempre tornare a Predefinito"),
     "Every menu fully translated in six languages": ("Todos los menús traducidos a seis idiomas", "すべてのメニューを6言語に翻訳", "Todos os menus traduzidos em seis idiomas", "Tutti i menu tradotti in sei lingue"),
+    # Settings > Reset all settings
+    "Reset all settings": ("Restablecer todos los ajustes", "すべての設定をリセット", "Redefinir todas as configurações", "Ripristina tutte le impostazioni"),
+    "Reset": ("Restablecer", "リセット", "Redefinir", "Ripristina"),
+    "Reset all settings?": ("¿Restablecer todos los ajustes?", "すべての設定をリセットしますか?", "Redefinir todas as configurações?", "Ripristinare tutte le impostazioni?"),
+    "Every setting goes back to how RiftWii comes, and RiftWii restarts. Games' own pages, favourites, play history and mods are kept.": ("Todos los ajustes vuelven a como vienen en RiftWii, y RiftWii se reinicia. Se conservan las páginas de cada juego, los favoritos, el historial de juego y los mods.", "すべての設定がRiftWiiの初期状態に戻り、RiftWiiが再起動します。各ゲームのページ、お気に入り、プレイ履歴、MODはそのまま残ります。", "Todas as configurações voltam a como vêm no RiftWii, e o RiftWii reinicia. As páginas de cada jogo, os favoritos, o histórico de jogo e os mods são mantidos.", "Tutte le impostazioni tornano come in origine e RiftWii si riavvia. Le pagine dei singoli giochi, i preferiti, la cronologia di gioco e le mod restano."),
+    "Every setting back to how RiftWii comes. Games' own pages, favourites, play history and mods are kept.": ("Todos los ajustes vuelven a como vienen en RiftWii. Se conservan las páginas de cada juego, los favoritos, el historial de juego y los mods.", "すべての設定をRiftWiiの初期状態に戻します。各ゲームのページ、お気に入り、プレイ履歴、MODはそのまま残ります。", "Todas as configurações voltam a como vêm no RiftWii. As páginas de cada jogo, os favoritos, o histórico de jogo e os mods são mantidos.", "Tutte le impostazioni tornano come in origine. Le pagine dei singoli giochi, i preferiti, la cronologia di gioco e le mod restano."),
+    "Settings reset to the defaults": ("Ajustes restablecidos", "設定を初期状態に戻しました", "Configurações redefinidas", "Impostazioni ripristinate"),
 }
 
 
@@ -2805,6 +2812,18 @@ KO = {
         "테마는 언제든 기본으로 되돌릴 수 있습니다",
     "Every menu fully translated in six languages":
         "모든 메뉴를 6개 언어로 번역했습니다",
+    "Reset all settings":
+        "모든 설정 초기화",
+    "Reset":
+        "초기화",
+    "Reset all settings?":
+        "모든 설정을 초기화할까요?",
+    "Every setting goes back to how RiftWii comes, and RiftWii restarts. Games' own pages, favourites, play history and mods are kept.":
+        "모든 설정이 RiftWii의 기본값으로 돌아가고 RiftWii가 다시 시작됩니다. 게임별 페이지, 즐겨찾기, 플레이 기록, 모드는 그대로 유지됩니다.",
+    "Every setting back to how RiftWii comes. Games' own pages, favourites, play history and mods are kept.":
+        "모든 설정을 RiftWii의 기본값으로 되돌립니다. 게임별 페이지, 즐겨찾기, 플레이 기록, 모드는 그대로 유지됩니다.",
+    "Settings reset to the defaults":
+        "설정을 기본값으로 초기화했습니다",
 }
 
 # French, a table of its own (msgid: text), from MidyGamy's translation
@@ -3946,6 +3965,18 @@ FR = {
         "Le thème peut toujours revenir à Par défaut",
     "Every menu fully translated in six languages":
         "Tous les menus traduits en six langues",
+    "Reset all settings":
+        "Réinitialiser tous les paramètres",
+    "Reset":
+        "Réinitialiser",
+    "Reset all settings?":
+        "Réinitialiser tous les paramètres ?",
+    "Every setting goes back to how RiftWii comes, and RiftWii restarts. Games' own pages, favourites, play history and mods are kept.":
+        "Tous les paramètres reviennent à ceux d'origine et RiftWii redémarre. Les pages des jeux, les favoris, l'historique de jeu et les mods sont conservés.",
+    "Every setting back to how RiftWii comes. Games' own pages, favourites, play history and mods are kept.":
+        "Tous les paramètres reviennent à ceux d'origine. Les pages des jeux, les favoris, l'historique de jeu et les mods sont conservés.",
+    "Settings reset to the defaults":
+        "Paramètres réinitialisés",
 }
 
 # Languages kept in tables of their own: written after LANGS, every msgid

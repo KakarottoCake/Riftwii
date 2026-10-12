@@ -1706,3 +1706,21 @@ msgstr "El tema siempre puede volver a Predeterminado"
 
 msgid "Every menu fully translated in six languages"
 msgstr "Todos los menús traducidos a seis idiomas"
+
+msgid "Reset all settings"
+msgstr "Restablecer todos los ajustes"
+
+msgid "Reset"
+msgstr "Restablecer"
+
+msgid "Reset all settings?"
+msgstr "¿Restablecer todos los ajustes?"
+
+msgid "Every setting goes back to how RiftWii comes, and RiftWii restarts. Games' own pages, favourites, play history and mods are kept."
+msgstr "Todos los ajustes vuelven a como vienen en RiftWii, y RiftWii se reinicia. Se conservan las páginas de cada juego, los favoritos, el historial de juego y los mods."
+
+msgid "Every setting back to how RiftWii comes. Games' own pages, favourites, play history and mods are kept."
+msgstr "Todos los ajustes vuelven a como vienen en RiftWii. Se conservan las páginas de cada juego, los favoritos, el historial de juego y los mods."
+
+msgid "Settings reset to the defaults"
+msgstr "Ajustes restablecidos"

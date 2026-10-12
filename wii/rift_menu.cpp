@@ -5162,7 +5162,7 @@ static int MenuSettings(FrontendState& state)
 		return folder;
 	};
 	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kServer, kHomeTiles, kHomeSource, kHomeSort, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kClockFormat, kNoClock, kFont, kSounds, kMusic, kReturnTo, kShots, kOnline, kNames, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kIos, kNet, kResync,
-		kRescan, kChannel, kUpdate, kReport, kTests, kWiiChannel, kUsbHelp, kWhatsNew, kTutorial, kCredits, kExit, kNone, kHeading };
+		kRescan, kChannel, kUpdate, kReport, kTests, kWiiChannel, kUsbHelp, kWhatsNew, kTutorial, kCredits, kResetAll, kExit, kNone, kHeading };
 	// The RiftWii channel on the Wii Menu (wii/channel.hpp).
 	unsigned channelVersion = 0;
 	const bool channelThere = riftwii::wii::ChannelInstalled(channelVersion);
@@ -5340,6 +5340,12 @@ static int MenuSettings(FrontendState& state)
 		wiiChannel.dim = !channelCan;
 		rows.push_back(wiiChannel);
 		actions.push_back(kWiiChannel);
+		FlowRow resetAll;
+		resetAll.kind = FlowRow::Kind::Action;
+		resetAll.label = tr("Reset all settings");
+		resetAll.value = tr("Reset");
+		rows.push_back(resetAll);
+		actions.push_back(kResetAll);
 		FlowRow credits;
 		credits.kind = FlowRow::Kind::Action;
 		credits.label = tr("Credits and license");
@@ -5440,6 +5446,7 @@ static int MenuSettings(FrontendState& state)
 					{tests != settings.other.end() ? tests->second : std::string()});
 			}
 			case kCredits: return tr("Who RiftWii's parts come from, its license (the GNU GPL, version 3 or later) and where its source is.");
+			case kResetAll: return tr("Every setting back to how RiftWii comes. Games' own pages, favourites, play history and mods are kept.");
 			case kIos: return MenuIosNote(iosSlot);
 			case kNet:
 				return netOn ? "Looks for a PC running a RiiFS server when the games are read. Rescan to look now."
@@ -5800,6 +5807,23 @@ static int MenuSettings(FrontendState& state)
 				case kWhatsNew:
 					ShowWhatsNew();
 					break;
+				case kResetAll: {
+					if (ShowPopup(tr("Reset all settings?"),
+						    tr("Every setting goes back to how RiftWii comes, and RiftWii restarts. Games' own pages, favourites, play history and mods are kept."),
+						    tr("Reset"), tr("Cancel")) != 0)
+						break;
+					logf("Settings: all reset to the defaults\n");
+					settings = riftwii::LoaderSettings{};
+					const std::string error = saveSettings();
+					rebuild();
+					if (!error.empty()) {
+						note(error);
+						break;
+					}
+					riftwii::wii::WarmRestart(riftwii::wii::RestartKind::Theme, tr("Settings reset to the defaults"));
+					note(tr("RiftWii could not restart. Start it again from the Homebrew Channel."));
+					break;
+				}
 				case kTests:
 					logf("Settings: test switches cleared (debug_off = %s)\n", settings.other["debug_off"].c_str());
 					settings.other.erase("debug_off");

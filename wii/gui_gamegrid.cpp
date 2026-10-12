@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "gui_gamegrid.hpp"
+#include "loadersettings.hpp"
 #include "transition.hpp"
 
 #include <algorithm>
@@ -636,6 +637,9 @@ int GuiGameGrid::LetterTarget(int dir) const {
 
 bool GuiGameGrid::LetterKeys(GuiTrigger* t) {
     if (t->chan < 0 || t->chan > 3) return false;
+    // A letter jump means something only in A to Z order (Home order:
+    // Recently played or Most played jumped to games out of order).
+    if (riftwii::wii::Settings().home_sort != "az") return false;
     const int ch = t->chan;
     const bool held = (t->wpad && (t->wpad->btns_h & (WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B))) ||
                       (t->pad.btns_h & PAD_TRIGGER_L) || (t->wiidrcdata.btns_h & WIIDRC_BUTTON_B);
