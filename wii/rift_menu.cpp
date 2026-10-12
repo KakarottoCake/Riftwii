@@ -2286,11 +2286,8 @@ static std::string DiscTileNote()
 // holds seven lines), for the release script to keep up to date. Shown
 // once when they change; Settings > What's new shows them again.
 static const char* const kWhatsNew[] = {
-	"Games can use the SD card while your mods are on it",
-	"Shelf boxes shaped like Wii cases",
-	"A made-up back cover when none can be downloaded",
-	"+ and - move the shelf one box at a time",
-	"Settings > Reset all settings",
+	"Games start faster",
+	"A mod's own banner names it on the Wii Message Board",
 };
 
 static std::string WhatsNewText()

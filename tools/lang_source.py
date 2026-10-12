@@ -1664,12 +1664,9 @@ T = {
     "Every setting goes back to how RiftWii comes, and RiftWii restarts. Games' own pages, favourites, play history and mods are kept.": ("Todos los ajustes vuelven a como vienen en RiftWii, y RiftWii se reinicia. Se conservan las páginas de cada juego, los favoritos, el historial de juego y los mods.", "すべての設定がRiftWiiの初期状態に戻り、RiftWiiが再起動します。各ゲームのページ、お気に入り、プレイ履歴、MODはそのまま残ります。", "Todas as configurações voltam a como vêm no RiftWii, e o RiftWii reinicia. As páginas de cada jogo, os favoritos, o histórico de jogo e os mods são mantidos.", "Tutte le impostazioni tornano come in origine e RiftWii si riavvia. Le pagine dei singoli giochi, i preferiti, la cronologia di gioco e le mod restano."),
     "Every setting back to how RiftWii comes. Games' own pages, favourites, play history and mods are kept.": ("Todos los ajustes vuelven a como vienen en RiftWii. Se conservan las páginas de cada juego, los favoritos, el historial de juego y los mods.", "すべての設定をRiftWiiの初期状態に戻します。各ゲームのページ、お気に入り、プレイ履歴、MODはそのまま残ります。", "Todas as configurações voltam a como vêm no RiftWii. As páginas de cada jogo, os favoritos, o histórico de jogo e os mods são mantidos.", "Tutte le impostazioni tornano come in origine. Le pagine dei singoli giochi, i preferiti, la cronologia di gioco e le mod restano."),
     "Settings reset to the defaults": ("Ajustes restablecidos", "設定を初期状態に戻しました", "Configurações redefinidas", "Impostazioni ripristinate"),
-    # What's new in 2610-343
-    "Games can use the SD card while your mods are on it": ("Los juegos pueden usar la tarjeta SD aunque tus mods estén en ella", "MODがSDカードにあってもゲームがSDカードを使えます", "Os jogos podem usar o cartão SD mesmo com os seus mods nele", "I giochi possono usare la scheda SD anche con le tue mod sopra"),
-    "Shelf boxes shaped like Wii cases": ("Cajas de la estantería con forma de caja de Wii", "棚のケースがWiiのケースの形に", "Caixas da estante no formato das caixas do Wii", "Custodie dello scaffale a forma di custodia Wii"),
-    "A made-up back cover when none can be downloaded": ("Una contraportada inventada cuando no se puede descargar ninguna", "ダウンロードできないときは裏表紙を作成", "Uma contracapa criada quando nenhuma pode ser baixada", "Un retro di copertina creato quando non se ne può scaricare uno"),
-    "+ and - move the shelf one box at a time": ("+ y - mueven la estantería de caja en caja", "+と-で棚を1つずつ動かします", "+ e - movem a estante uma caixa por vez", "+ e - spostano lo scaffale di una custodia alla volta"),
-    "Settings > Reset all settings": ("Ajustes > Restablecer todos los ajustes", "設定 > すべての設定をリセット", "Configurações > Redefinir todas as configurações", "Impostazioni > Ripristina tutte le impostazioni"),
+    # What's new in 2610-355
+    "Games start faster": ("Los juegos se inician más rápido", "ゲームの起動が速くなりました", "Os jogos iniciam mais rápido", "I giochi si avviano più velocemente"),
+    "A mod's own banner names it on the Wii Message Board": ("El banner propio de un mod le da su nombre en el Tablón de anuncios Wii", "MOD独自のバナーの名前がWii伝言板に表示されます", "O banner próprio de um mod dá o nome dele no Quadro de Mensagens Wii", "Il banner di una mod le dà il suo nome nella Bacheca Wii"),
     # Game page: memory for RiftWii's extras
     "Memory for RiftWii's extras": ("Memoria para los extras de RiftWii", "RiftWiiの追加機能が使うメモリ", "Memória para os extras do RiftWii", "Memoria per gli extra di RiftWii"),
     "about {1} KB": ("unos {1} KB", "約{1} KB", "cerca de {1} KB", "circa {1} KB"),
@@ -2824,16 +2821,10 @@ KO = {
         "모든 설정을 RiftWii의 기본값으로 되돌립니다. 게임별 페이지, 즐겨찾기, 플레이 기록, 모드는 그대로 유지됩니다.",
     "Settings reset to the defaults":
         "설정을 기본값으로 초기화했습니다",
-    "Games can use the SD card while your mods are on it":
-        "모드가 SD 카드에 있어도 게임이 SD 카드를 쓸 수 있습니다",
-    "Shelf boxes shaped like Wii cases":
-        "선반의 케이스가 Wii 케이스 모양으로",
-    "A made-up back cover when none can be downloaded":
-        "다운로드할 수 없을 때는 뒷면 커버를 만들어 줍니다",
-    "+ and - move the shelf one box at a time":
-        "+와 -로 선반을 한 칸씩 움직입니다",
-    "Settings > Reset all settings":
-        "설정 > 모든 설정 초기화",
+    "Games start faster":
+        "게임이 더 빨리 시작됩니다",
+    "A mod's own banner names it on the Wii Message Board":
+        "모드 자체 배너의 이름이 Wii 게시판에 표시됩니다",
     "Memory for RiftWii's extras":
         "RiftWii 추가 기능이 쓰는 메모리",
     "about {1} KB":
@@ -3997,16 +3988,10 @@ FR = {
         "Tous les paramètres reviennent à ceux d'origine. Les pages des jeux, les favoris, l'historique de jeu et les mods sont conservés.",
     "Settings reset to the defaults":
         "Paramètres réinitialisés",
-    "Games can use the SD card while your mods are on it":
-        "Les jeux peuvent utiliser la carte SD même avec vos mods dessus",
-    "Shelf boxes shaped like Wii cases":
-        "Boîtiers de l'étagère en forme de boîtiers Wii",
-    "A made-up back cover when none can be downloaded":
-        "Un dos de boîtier créé quand aucun ne peut être téléchargé",
-    "+ and - move the shelf one box at a time":
-        "+ et - déplacent l'étagère d'un boîtier à la fois",
-    "Settings > Reset all settings":
-        "Paramètres > Réinitialiser tous les paramètres",
+    "Games start faster":
+        "Les jeux démarrent plus vite",
+    "A mod's own banner names it on the Wii Message Board":
+        "La bannière d'un mod lui donne son nom dans la Messagerie Wii",
     "Memory for RiftWii's extras":
         "Mémoire pour les extras de RiftWii",
     "about {1} KB":

@@ -1707,20 +1707,11 @@ msgstr "すべての設定をRiftWiiの初期状態に戻します。各ゲー�
 msgid "Settings reset to the defaults"
 msgstr "設定を初期状態に戻しました"
 
-msgid "Games can use the SD card while your mods are on it"
-msgstr "MODがSDカードにあってもゲームがSDカードを使えます"
+msgid "Games start faster"
+msgstr "ゲームの起動が速くなりました"
 
-msgid "Shelf boxes shaped like Wii cases"
-msgstr "棚のケースがWiiのケースの形に"
-
-msgid "A made-up back cover when none can be downloaded"
-msgstr "ダウンロードできないときは裏表紙を作成"
-
-msgid "+ and - move the shelf one box at a time"
-msgstr "+と-で棚を1つずつ動かします"
-
-msgid "Settings > Reset all settings"
-msgstr "設定 > すべての設定をリセット"
+msgid "A mod's own banner names it on the Wii Message Board"
+msgstr "MOD独自のバナーの名前がWii伝言板に表示されます"
 
 msgid "Memory for RiftWii's extras"
 msgstr "RiftWiiの追加機能が使うメモリ"
