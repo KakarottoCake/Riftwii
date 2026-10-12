@@ -1690,7 +1690,16 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         read32(0x0D800064) == 0xFFFFFFFF) {
         write32(0xCD800018, read32(0xCD800018) | (1u << 17));
     }
+    // libogc's exception stubs at 0x1000, 0x1100 and 0x1200 (vectors this
+    // CPU never takes, which the game's OS leaves alone) were still there
+    // for the game. After the System Menu, Riivolution or Dolphin that
+    // memory is zero, and a pack's loader kept a pointer at 0x80001210:
+    // Mario Kart Wii with a "hax" pack crashed writing through
+    // 0x7D7A02A6, the stub's mfsrr0. Cleared before the packs' patches
+    // and the multi-executable stub (kDolSwitchStub), which may use it.
+    std::memset(reinterpret_cast<void*>(0x80001000), 0, 0x300);
     DCFlushRange(reinterpret_cast<void*>(kMem1Start), 0x3400);
+    ICInvalidateRange(reinterpret_cast<void*>(0x80001000), 0x300);
     if (force_ios_fields) {
         // Claim to be the IOS the apploader asked for (0x3188), as Brainslug
         // does. Uncached and after the flush: 0x3140 is IOS's own field and
