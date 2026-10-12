@@ -198,9 +198,11 @@ bool gx_protected_game(const std::string& id) {
 // the older LEGO games of TT's 2007-2009 engine: The Complete Saga (RLG),
 // Indiana Jones 1 (RLI?64) and 2 (RL4), Batman (RLB?WR). LEGO Harry Potter
 // and Star Wars III, a newer engine, started.
+// Ghostbusters: The Video Game (RGQ) froze from an RVZ and from an ISO, at
+// different points, with RiftWii's state at the bottom of MEM2 (a guess too).
 bool game_clears_mem1_top(const std::string& id) {
     const bool by_publisher = id.size() >= 6;
-    return id_is(id, "RB4") || id_is(id, "RLG") || id_is(id, "RL4") ||
+    return id_is(id, "RB4") || id_is(id, "RLG") || id_is(id, "RL4") || id_is(id, "RGQ") ||
            (by_publisher && id_is(id, "RLI") && id.compare(4, 2, "64") == 0) ||
            (by_publisher && id_is(id, "RLB") && id.compare(4, 2, "WR") == 0);
 }
