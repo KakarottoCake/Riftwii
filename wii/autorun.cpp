@@ -407,6 +407,7 @@ bool ProbeInserted(std::string& game_id, std::string& title, std::string& error,
 // skipped files are listed and the rest counted.
 void LogCompileNotes(const CompiledMod& mod) {
     constexpr std::size_t kMaxNoteLines = 60;
+    LogBatch batch;
     for (const std::string& w : mod.warnings) logf("  warning: %s\n", w.c_str());
     if (mod.notes.size() <= kMaxNoteLines) {
         for (const std::string& n : mod.notes) logf("  %s\n", n.c_str());

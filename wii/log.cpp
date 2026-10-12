@@ -18,6 +18,8 @@ u64 g_epoch = 0;  // time base at the first LogOpen: file lines carry ms since t
 // Off while the GUI owns the screen: libwiigui's framebuffer is also the
 // text console's, so every echoed line flashed over the menus.
 bool g_echo = false;
+int g_batch = 0;        // LogBatch scopes alive
+bool g_unsynced = false;  // lines in libfat's cache, not yet on the card
 }
 
 void LogEchoToScreen(bool on) { g_echo = on; }
@@ -36,8 +38,21 @@ void LogReopen() {
     g_line_start = true;
 }
 
+void LogSync() {
+    if (!g_file || !g_unsynced) return;
+    fsync(fileno(g_file));
+    g_unsynced = false;
+}
+
+LogBatch::LogBatch() { ++g_batch; }
+
+LogBatch::~LogBatch() {
+    if (--g_batch == 0) LogSync();
+}
+
 void LogClose() {
     if (g_file) std::fclose(g_file);
+    g_unsynced = false;
     g_file = nullptr;
 }
 
@@ -64,7 +79,8 @@ void logf(const char* format, ...) {
         // cache to the card. Without it a hang loses every line since
         // the last close, which on hardware is exactly the part needed.
         std::fflush(g_file);
-        fsync(fileno(g_file));
+        g_unsynced = true;
+        if (g_batch == 0) LogSync();
     }
 }
 

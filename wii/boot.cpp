@@ -1111,7 +1111,9 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
                                        : 0x600000;
     const std::uint64_t expected = dol_span + layout.data_header.fst_size;
     std::uint64_t loaded_bytes = 0;
-    for (;;) {
+    // A pack's game is served from memory, three lines a load: on the card
+    // together, except before a disc read (where d2x once never returned).
+    for (LogBatch batch;;) {
         void* destination = nullptr;
         int length = 0;
         int word_offset = 0;
@@ -1152,6 +1154,7 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         const auto read_disc = [&](std::uint64_t from, std::uint64_t to) {
             if (from >= to) return true;
             read_any = true;
+            LogSync();
             std::uint8_t* at = static_cast<std::uint8_t*>(destination) + (from - load_start);
             const std::uint32_t n = static_cast<std::uint32_t>(to - from);
             if (aligned32(at) && (n & 31) == 0 && (from & 3) == 0) {
