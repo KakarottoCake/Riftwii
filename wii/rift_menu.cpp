@@ -1975,6 +1975,11 @@ static int ShowHomeMenu()
 	mainWindow->Append(&w);
 	w.SetState(STATE::DEFAULT);
 	logf("HOME Menu: open\n");
+	// A sound as it opens and closes, as the Wii's own (NGT's suggestion):
+	// RiftWii's own, made by tools/make_sounds.py; Menu sounds sets its level.
+	static GuiSound openSound(home_open_pcm, home_open_pcm_size, SOUND::PCM);
+	static GuiSound closeSound(home_close_pcm, home_close_pcm_size, SOUND::PCM);
+	openSound.Play();
 	ResumeGui();
 	int choice = -1;
 	while (choice < 0) {
@@ -1989,6 +1994,7 @@ static int ShowHomeMenu()
 	}
 	static const char* const kWhere[] = {"closed", "Homebrew Channel", "Wii Menu", "Priiloader", "power off"};
 	logf("HOME Menu: %s\n", kWhere[choice]);
+	if (choice == 0) closeSound.Play();  // leaving RiftWii: its own sounds stop anyway
 	transition::Begin(transition::Kind::PopClose);
 	mainWindow->Remove(&w);
 	mainWindow->SetState(STATE::DEFAULT);
