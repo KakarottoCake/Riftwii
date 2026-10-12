@@ -26,6 +26,7 @@
 #include "gameextras.hpp"
 #include "gui_gamegrid.hpp"
 #include "i18n.hpp"
+#include "loadersettings.hpp"
 #include "menutheme.hpp"
 #include "riftwii/casecolour.hpp"
 #include "riftwii/coverart.hpp"
@@ -468,11 +469,13 @@ std::string ShelfInfo(const GridItem& item) {
             case 'W': add(tr("Taiwan")); break;
             default: break;
         }
+        // Play history off (Settings): no count, as the game page shows none.
         const riftwii::PlayRecord* played = riftwii::wii::History().find(item.id);
         const unsigned count = played ? played->count : 0;
-        add(count == 0   ? std::string(tr("Not played yet"))
-            : count == 1 ? std::string(tr("Played once"))
-                         : tr("Played {1} times", {std::to_string(count)}));
+        if (riftwii::wii::Settings().play_history != "off")
+            add(count == 0   ? std::string(tr("Not played yet"))
+                : count == 1 ? std::string(tr("Played once"))
+                             : tr("Played {1} times", {std::to_string(count)}));
     }
     if (item.mods) add(tr("Mods"));
     return out;

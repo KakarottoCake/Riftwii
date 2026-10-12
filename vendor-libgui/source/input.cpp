@@ -24,6 +24,7 @@
 #include "libwiigui/gui.h"
 #include "wiidrc.h"
 #include "gcadapter.hpp"
+#include "loadersettings.hpp"
 
 static void UpdatePadPointers();
 
@@ -514,6 +515,9 @@ void ShutoffRumble()
 
 void DoRumble(int i)
 {
+	// RiftWii: Settings > Wii Remote rumble off keeps the menu still too.
+	if(riftwii::wii::Settings().wiimote_rumble == "off")
+		rumbleRequest[i] = 0;
 	if(rumbleRequest[i] && rumbleCount[i] < 3)
 	{
 		WPAD_Rumble(i, 1); // rumble on

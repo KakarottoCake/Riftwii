@@ -2707,7 +2707,7 @@ static int MenuSource(FrontendState& state)
 		// Clear of the dip (58% of the bar, which is 856 wide on a widescreen menu).
 		const int dipLeft = 320 - static_cast<int>(0.29f * (wide > 0 ? 856 : 640));
 		// Centred over the round buttons under them (their centres x 64 and 576).
-		const int sideW = 2 * std::min(64 - 8, dipLeft - 10 - 64);
+		const int sideW = 2 * std::min(64 - 8, dipLeft - 10 - (64 - wide));  // the button's centre moves out with a wide menu
 		viewTxt.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
 		viewTxt.SetPosition(64 - 320 - wide, 354);
 		viewTxt.SetMaxWidth(sideW);  // one line, clear of the dip
