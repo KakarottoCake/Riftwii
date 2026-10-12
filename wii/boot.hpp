@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -140,6 +141,9 @@ struct BootOptions {
     // A replaced executable (CompiledMod::main_dol): the apploader loads
     // it from memory; the disc's DOL is not read.
     std::vector<std::uint8_t> main_dol;
+    // The pack's own banner names (CompiledMod::banner_names): the
+    // Message Board's play log shows the mod's name rather than the game's.
+    std::array<std::string, 10> banner_names;
     // <savegame>: the sd:/ folder the title's data directory is served
     // from by the runtime (requires install_resident and the card; the
     // folder is created when missing). Empty: the save stays on NAND.

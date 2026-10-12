@@ -2402,11 +2402,28 @@ s32 write_play_file(const u8* buffer, u32 bytes) {
     return r;
 }
 
-void write_play_log(const DiscProbe& probe) {
+// The name the pack's own opening.bnr gives, in the Wii's language (the
+// IMET order is the Wii's language numbering), else English; its two
+// lines joined. Empty without one.
+std::string pack_banner_name(const std::array<std::string, 10>& names) {
+    const s32 lang = CONF_GetLanguage();
+    std::string name = lang >= 0 && lang < 10 && !names[static_cast<std::size_t>(lang)].empty()
+                           ? names[static_cast<std::size_t>(lang)]
+                           : names[1];
+    std::replace(name.begin(), name.end(), '\n', ' ');
+    return name;
+}
+
+void write_play_log(const DiscProbe& probe, const std::array<std::string, 10>& banner_names) {
     const auto off = Settings().other.find("message_board");
     if (off != Settings().other.end() && off->second == "off") return;
-    const std::string name = GameDisplayName(probe.header.game_id,
-                                             probe.header.title.empty() ? probe.header.game_id : probe.header.title);
+    // A pack with its own banner (a mod's own name, as a patched disc's
+    // opening.bnr gives it) names it; the game's own name otherwise.
+    std::string name = pack_banner_name(banner_names);
+    if (name.empty()) {
+        name = GameDisplayName(probe.header.game_id, probe.header.title.empty() ? probe.header.game_id
+                                                                                : probe.header.title);
+    }
     const u64 ticks = secs_to_ticks(static_cast<u64>(std::time(nullptr)) - kWiiEpochOffset);
     const std::vector<std::uint8_t> record = play_log_record(name, probe.header.game_id, ticks);
     alignas(32) static u8 buffer[kPlayLogBytes];
@@ -2444,7 +2461,7 @@ bool boot_game(const DiscProbe& probe, BootOptions options, std::string& error) 
         return false;
     }
     logf("Booting %s with IOS%u\n", probe.header.game_id.c_str(), required);
-    write_play_log(probe);
+    write_play_log(probe, options.banner_names);
     // A background network job (the start's update check) ends first; the
     // theme download is stopped rather than waited for (the next start
     // fetches it again).

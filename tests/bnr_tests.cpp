@@ -244,8 +244,14 @@ static void test_opening() {
     EXPECT_EQ(b.names[kBnrEnglish], name);
     EXPECT_TRUE(b.icon == inner);
     EXPECT_TRUE(b.banner.empty());
+    // The names alone, from the header (a pack's opening.bnr for the play log).
+    std::array<std::string, kBnrLanguages> names;
+    EXPECT_TRUE(parse_banner_names(bnr.data(), 0x640, names));
+    EXPECT_EQ(names[kBnrEnglish], name);
+    EXPECT_TRUE(!parse_banner_names(bnr.data(), 0x100, names));
     bnr[0x40] = 'X';
     EXPECT_TRUE(!parse_opening_bnr(bnr.data(), bnr.size(), b, error));
+    EXPECT_TRUE(!parse_banner_names(bnr.data(), bnr.size(), names));
 }
 
 static void test_tpl() {

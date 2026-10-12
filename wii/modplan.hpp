@@ -2,12 +2,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "boot.hpp"
+#include "riftwii/bnr.hpp"
 #include "riftwii/launch.hpp"
 #include "riftwii/patch.hpp"
 #include "rtable.h"
@@ -42,6 +44,10 @@ struct CompiledMod {
     // (as Riivolution and Dolphin treat it; CT-CODE packs replace it this
     // way): the whole patched DOL, for the apploader only.
     std::vector<std::uint8_t> main_dol;
+    // The names in the pack's own opening.bnr, when one replaces the
+    // disc's: the Wii Menu's play log (the Message Board) takes the game's
+    // name from them. Empty otherwise.
+    std::array<std::string, kBnrLanguages> banner_names;
 };
 
 // A package and the choices to apply over its defaults, in order (see

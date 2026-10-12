@@ -293,13 +293,37 @@ bool unpack_banner_bin(const std::uint8_t* data, std::size_t size, std::vector<s
     return false;
 }
 
+namespace {
+
+// On a disc IMET is at 0x40; in a channel's first content at 0x80. 0: none.
+std::size_t imet_offset(const std::uint8_t* data, std::size_t size) {
+    if (size >= 0x44 && std::memcmp(data + 0x40, "IMET", 4) == 0) return 0x40;
+    if (size >= 0x84 && std::memcmp(data + 0x80, "IMET", 4) == 0) return 0x80;
+    return 0;
+}
+
+void read_names(const std::uint8_t* data, std::size_t imet, std::array<std::string, kBnrLanguages>& out) {
+    for (int l = 0; l < kBnrLanguages; ++l) {
+        // Two lines of 21 characters each.
+        const std::uint8_t* name = data + imet + 0x1C + static_cast<std::size_t>(l) * 84;
+        const std::string first = utf16be(name, 21), second = utf16be(name + 42, 21);
+        out[l] = second.empty() ? first : first + "\n" + second;
+    }
+}
+
+}  // namespace
+
+bool parse_banner_names(const std::uint8_t* data, std::size_t size, std::array<std::string, kBnrLanguages>& out) {
+    const std::size_t imet = imet_offset(data, size);
+    if (imet == 0 || size < imet + 0x1C + kBnrLanguages * 84) return false;
+    read_names(data, imet, out);
+    return true;
+}
+
 bool parse_opening_bnr(const std::uint8_t* data, std::size_t size, OpeningBanner& out, std::string& error,
                        bool want_banner) {
-    // On a disc IMET is at 0x40; in a channel's first content at 0x80.
-    std::size_t imet = 0;
-    if (size >= 0x44 && std::memcmp(data + 0x40, "IMET", 4) == 0) imet = 0x40;
-    else if (size >= 0x84 && std::memcmp(data + 0x80, "IMET", 4) == 0) imet = 0x80;
-    else {
+    const std::size_t imet = imet_offset(data, size);
+    if (imet == 0) {
         error = "no IMET header";
         return false;
     }
@@ -309,12 +333,7 @@ bool parse_opening_bnr(const std::uint8_t* data, std::size_t size, OpeningBanner
         return false;
     }
     OpeningBanner b;
-    for (int l = 0; l < kBnrLanguages; ++l) {
-        // Two lines of 21 characters each.
-        const std::uint8_t* name = data + imet + 0x1C + static_cast<std::size_t>(l) * 84;
-        const std::string first = utf16be(name, 21), second = utf16be(name + 42, 21);
-        b.names[l] = second.empty() ? first : first + "\n" + second;
-    }
+    read_names(data, imet, b.names);
     U8Archive u8;
     if (!U8Archive::parse(data + archive, size - archive, u8, error)) return false;
     const std::uint8_t* part = nullptr;

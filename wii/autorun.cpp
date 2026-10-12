@@ -492,6 +492,7 @@ bool BootCompiled(CompiledMod&& mod, std::string& error, const LaunchSource& sou
     options.relocations = std::move(mod.relocations);
     options.memory_patches = std::move(mod.memory);
     options.main_dol = std::move(mod.main_dol);
+    options.banner_names = mod.banner_names;
     options.savegame_dir = dir;
     options.savegame_clone = xml_saves ? mod.savegame_clone : saves.clone;
     if (!xml_saves && !saves.note.empty()) logf("Saves: %s\n", saves.note.c_str());
@@ -566,6 +567,7 @@ bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error, 
     options.table_entries=std::move(mod.entries); options.replacements=std::move(mod.mem);
     options.relocations=std::move(mod.relocations); options.memory_patches=std::move(mod.memory);
     options.main_dol=std::move(mod.main_dol);
+    options.banner_names=mod.banner_names;
     options.savegame_dir=dir; options.savegame_clone=xml_saves ? mod.savegame_clone : saves.clone;
     if (!xml_saves && !saves.note.empty()) logf("Saves: %s\n", saves.note.c_str());
     KeepOwnSaves(s, xml_saves, options);
@@ -874,6 +876,7 @@ void RunAutorun() {
             options.relocations = mods.relocations;
             options.memory_patches = mods.memory;
             options.main_dol = mods.main_dol;
+            options.banner_names = mods.banner_names;
             options.savegame_dir = mods.savegame_dir;
             options.savegame_clone = mods.savegame_clone;
             if (!s.ensure_probe(error)) {

@@ -18,6 +18,7 @@
 #include "netpacks.hpp"
 #include "progress.hpp"
 #include "riftwii/apply.hpp"
+#include "riftwii/bnr.hpp"
 #include "riftwii/dol.hpp"
 #include "riftwii/expand.hpp"
 #include "riftwii/fat32.hpp"
@@ -849,6 +850,14 @@ bool compile_packages(const std::vector<PackageSelection>& packages, const DiscP
         const FstEntry entry = create ? FstEntry() : fst.entries()[index];
         std::unique_ptr<AppliedFile> file;
         if (!apply_patches(groups[disc_path], provider, file, error)) return false;
+        if (strcasecmp(disc_path.c_str(), "/opening.bnr") == 0) {
+            std::uint8_t head[0x640] = {};
+            const std::size_t n = static_cast<std::size_t>(std::min<std::uint64_t>(file->size(), sizeof head));
+            if (file->read(0, head, n) && parse_banner_names(head, n, mod.banner_names)) {
+                mod.notes.push_back("/opening.bnr: the pack's banner names the game \"" +
+                                    mod.banner_names[kBnrEnglish] + "\"");
+            }
+        }
         VirtualFileLayout layout;
         layout.file = file.get();
         layout.original_offset = entry.offset;

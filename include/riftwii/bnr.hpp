@@ -76,6 +76,10 @@ struct OpeningBanner {
     std::vector<std::uint8_t> sound;               // as stored (IMD5 + BNS/WAV/AIFF)
 };
 
+// Only the IMET header's names (the first 0x640 bytes are enough). False
+// without an IMET header at 0x40 or 0x80.
+bool parse_banner_names(const std::uint8_t* data, std::size_t size, std::array<std::string, kBnrLanguages>& out);
+
 // `want_banner` false skips unpacking the large banner (a grid needs only
 // the icons).
 bool parse_opening_bnr(const std::uint8_t* data, std::size_t size, OpeningBanner& out, std::string& error,
