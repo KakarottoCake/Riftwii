@@ -85,6 +85,8 @@ bool g_menu_said_off = false;
 GcAdapterView g_menu_view;
 bool g_menu_view_set = false;
 u64 g_menu_checked = 0;
+bool g_menu_missing = false;  // the menu's last look found no adapter in the USB list
+u64 g_menu_end = 0;           // GcAdapterMenuEnd
 
 std::uint32_t Now() { return static_cast<std::uint32_t>(gettime()); }
 
@@ -411,7 +413,9 @@ void GcAdapterMenuPads(GcAdapterView& out) {
         g_menu_said_off = false;
         std::int32_t dev = -1;
         std::string devices;
-        if (ogc_adapter(dev, devices) != AdapterSeen::Found) return;
+        const AdapterSeen seen = ogc_adapter(dev, devices);
+        g_menu_missing = seen == AdapterSeen::Missing;
+        if (seen != AdapterSeen::Found) return;
         logf("GameCube adapter: plugged in (USB lists %s); the menu takes its controllers\n", devices.c_str());
         std::string why;
         if (!GcAdapterStart(why)) {
@@ -434,7 +438,15 @@ void GcAdapterMenuAllowStart() {
     g_menu_allowed = true;
 }
 
+bool GcAdapterMenuSawNone() {
+    // The menu looks every 2 s while none is plugged in: a look older than
+    // that at the menu's end means it had stopped looking.
+    return g_menu_missing && !g_menu_failed && g_menu_checked != 0 && g_menu_end != 0 &&
+           diff_msec(g_menu_checked, g_menu_end) < 2500;
+}
+
 void GcAdapterMenuEnd() {
+    if (!g_menu_ended) g_menu_end = gettime();
     g_menu_ended = true;
     GcAdapterStop();
 }

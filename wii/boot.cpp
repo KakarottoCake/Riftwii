@@ -38,6 +38,7 @@
 #include "netsock.hpp"
 #include "riftwii/mempatch.hpp"
 #include "riftwii/nandcheck.hpp"
+#include "gcadapter.hpp"
 #include "padhook.hpp"
 #include "resident.hpp"
 #include "faulthook.hpp"
@@ -2522,6 +2523,14 @@ bool boot_game(const DiscProbe& probe, BootOptions options, std::string& error) 
             logf("GameCube adapter: off: %s\n", off);
             g_extras.gc_adapter = GcAdapterMode::Off;
         }
+    }
+    if (g_extras.gc_adapter == GcAdapterMode::Auto && GcAdapterMenuSawNone()) {
+        // The menu looked every 2 s until the launch and USB listed none:
+        // USB is left alone, and the launch does not wait for our own
+        // /dev/usb/hid (on a Wii's d2x 250 its v5 GetVersion never answered,
+        // 1.5 s of every launch) or for the devices after the IOS reload.
+        logf("GameCube adapter (auto): not plugged in (the menu's USB list had none)\n");
+        g_extras.gc_adapter = GcAdapterMode::Off;
     }
     if (g_extras.gc_adapter == GcAdapterMode::Auto || g_extras.gc_adapter == GcAdapterMode::On) {
         // Auto: on only when an adapter is there now, so games that use

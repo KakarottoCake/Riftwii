@@ -56,6 +56,9 @@ bool GcAdapterMenuLastView(GcAdapterView& out);
 // it waits, so its USB traffic never meets the scan's first card reads
 // (a card read failed as the adapter started).
 void GcAdapterMenuAllowStart();
+// True when the menu was looking for the adapter up to its end and the
+// USB list never had one: a launch on Automatic need not look again.
+bool GcAdapterMenuSawNone();
 // The menu is over (a launch, or leaving): stops it for good.
 void GcAdapterMenuEnd();
 
