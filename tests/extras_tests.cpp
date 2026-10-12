@@ -496,6 +496,13 @@ void TestKeepsPictureWidth() {
     EXPECT_TRUE(game_keeps_picture_width("RMBP01"));
     EXPECT_FALSE(game_keeps_picture_width("RMCE01"));
     EXPECT_FALSE(game_keeps_picture_width(""));
+    EXPECT_TRUE(game_keeps_picture_height("SUKE01"));  // Kirby's Return to Dream Land (#13)
+    EXPECT_TRUE(game_keeps_picture_height("SUZP01"));
+    EXPECT_TRUE(game_keeps_picture_height("RM8E01"));  // Mario Party 8 (#15)
+    EXPECT_TRUE(game_keeps_picture_height("RB4E08"));
+    EXPECT_TRUE(game_keeps_picture_height("RZPE01"));
+    EXPECT_FALSE(game_keeps_picture_height("RMCE01"));
+    EXPECT_FALSE(game_keeps_picture_height(""));
 }
 
 void TestVideoModes() {

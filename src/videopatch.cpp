@@ -219,6 +219,13 @@ bool game_keeps_picture_width(const std::string& game_id) {
     return game_id.compare(0, 3, "RMB") == 0;
 }
 
+bool game_keeps_picture_height(const std::string& game_id) {
+    for (const char* prefix : {"SUK", "SUZ", "RM8", "RB4", "RZP"}) {
+        if (game_id.compare(0, 3, prefix) == 0) return true;
+    }
+    return false;
+}
+
 void patch_video_modes(std::uint8_t* bytes, std::size_t size, const VideoSettings& settings, VideoPatchReport& report) {
     for (std::size_t at = 0; at + kModeBytes <= size; at += 4) {
         std::uint8_t* p = bytes + at;

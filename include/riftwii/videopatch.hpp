@@ -82,6 +82,15 @@ struct VideoPatchReport {
 // square, the game running underneath; either setting alone did it.
 bool game_keeps_picture_width(const std::string& game_id);
 
+// Games whose picture breaks when Black borders: Remove all gives their
+// frame buffer the TV's whole height: they keep their top and bottom
+// borders (the side ones still go). Kirby's Return to Dream Land (SUK)
+// and Dream Collection (SUZ) show a pink bar under the picture (#13,
+// reproduced in Dolphin); Mario Party 8 (RM8) a shifted, half-drawn
+// minigame screen, Resident Evil 4 (RB4) a flashing title and a crash,
+// Link's Crossbow Training (RZP) misbehaved (#15).
+bool game_keeps_picture_height(const std::string& game_id);
+
 // Finds the render mode tables in `bytes` (a loaded DOL section, 4-byte
 // aligned) and applies `settings` to them, adding to `report`.
 void patch_video_modes(std::uint8_t* bytes, std::size_t size, const VideoSettings& settings, VideoPatchReport& report);
