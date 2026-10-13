@@ -1523,7 +1523,17 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
             why = "debug_off";
         } else if (!has_sd_driver()) {
             why = "the game has no SD card driver";
-        } else if (card_span()) {
+        } else if (!card_span()) {
+            // why says what the card's first sector lacked.
+        } else if (whole.sectors > RTVSD_SDSC_MAX_SECTORS) {
+            // An SDHC card (over 2 GB) takes block numbers where the SDK's
+            // SD card drivers of 2008 send byte addresses, 512 times as
+            // far: Brawl's Album copied a snapshot "fine" in Dolphin, its
+            // folder entry landing at 512 times its place on a 4 GB card,
+            // over whatever was there (2610-343 to 2610-355). Such a card
+            // is left to the game as before 2610-343: no card.
+            why = "it is an SDHC card (over 2 GB), which older games' SD card drivers write to the wrong places on";
+        } else {
             whole.enabled = true;
             whole.path = "the SD card itself";
             whole.extents.push_back(rtvsd_extent{0, 0, whole.sectors});
