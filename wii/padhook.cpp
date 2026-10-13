@@ -527,7 +527,8 @@ bool find_pad_functions(const DolHeader& dol, bool demo, PadHook& out, std::stri
 
 bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t mem1_floor, std::uint32_t arena2_lo,
                    std::uint32_t ioctl_async, std::uint32_t ioctlv_async,
-                   const std::vector<MemoryPatch>& patches, PadHook& out, std::string& why) {
+                   const std::vector<MemoryPatch>& patches, PadHook& out, std::string& why,
+                   std::uint32_t mem1_veneer) {
     const rt_pad_header& h = header();
     const bool demo = out.demo;
     if (out.read == 0) {
@@ -564,19 +565,45 @@ bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
     }
 
     // 3. Memory: the blob below the MEM1 arena's top, the state at the
-    //    bottom of the MEM2 arena. A pack's patch there turns it off.
+    //    bottom of the MEM2 arena. For a code build both at the top of
+    //    the MEM2 arena instead, the arena's start (and the build's fixed
+    //    addresses) left alone. A pack's patch there turns it off.
     out.code_bytes = align_up(h.size);
-    out.code_base = (arena1_hi - out.code_bytes) & ~31u;
     out.state_bytes = align_up(sizeof(gcad));
-    out.state_base = align_up(arena2_lo);
     const std::uint32_t arena2_end = read32(kMem2ArenaEndField);
-    if (arena1_hi < out.code_bytes || out.code_base < mem1_floor || out.state_base + out.state_bytes > arena2_end) {
-        char buf[160];
-        std::snprintf(buf, sizeof(buf), "no room (MEM1 arena top 0x%08x, floor 0x%08x; MEM2 arena 0x%08x-0x%08x)",
-                      arena1_hi, mem1_floor, arena2_lo, arena2_end);
-        why = buf;
-        if (out.fd >= 0) IOS_Close(out.fd);
-        return false;
+    if (mem1_veneer != 0) {
+        const std::uint32_t bytes = out.code_bytes + out.state_bytes;
+        const std::uint32_t base = (arena2_end - bytes) & ~31u;
+        // Below this loader's own MEM2 the blob would be overwritten before
+        // the jump; below the arena's start it would be the game's heap.
+        const std::uint32_t loader_top = reinterpret_cast<std::uint32_t>(SYS_GetArena2Hi());
+        const bool fits = arena2_end >= bytes && base >= loader_top && base >= align_up(arena2_lo);
+        if (!fits) {
+            char buf[160];
+            std::snprintf(buf, sizeof(buf),
+                          "no room in the MEM2 arena (0x%08x-0x%08x, this loader's memory ends at 0x%08x)", arena2_lo,
+                          arena2_end, loader_top);
+            why = buf;
+            if (out.fd >= 0) IOS_Close(out.fd);
+            return false;
+        }
+        out.code_base = base;
+        out.state_base = base + out.code_bytes;
+        out.veneer = mem1_veneer;
+        out.new_arena2_hi = base;
+    } else {
+        out.code_base = (arena1_hi - out.code_bytes) & ~31u;
+        out.state_base = align_up(arena2_lo);
+        const bool fits = arena1_hi >= out.code_bytes && out.code_base >= mem1_floor &&
+                          out.state_base + out.state_bytes <= arena2_end;
+        if (!fits) {
+            char buf[160];
+            std::snprintf(buf, sizeof(buf), "no room (MEM1 arena top 0x%08x, floor 0x%08x; MEM2 arena 0x%08x-0x%08x)",
+                          arena1_hi, mem1_floor, arena2_lo, arena2_end);
+            why = buf;
+            if (out.fd >= 0) IOS_Close(out.fd);
+            return false;
+        }
     }
     for (const MemoryPatch& p : patches) {
         if (overlaps(p, out.code_base, out.code_bytes) || overlaps(p, out.state_base, out.state_bytes)) {
@@ -588,8 +615,9 @@ bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
             return false;
         }
     }
-    out.new_arena1_hi = out.code_base;
-    out.new_arena2_lo = out.state_base + out.state_bytes;
+    // In MEM2 the MEM1 arena and the MEM2 arena's start stay as they were.
+    out.new_arena1_hi = mem1_veneer != 0 ? arena1_hi : out.code_base;
+    out.new_arena2_lo = mem1_veneer != 0 ? arena2_lo : out.state_base + out.state_bytes;
 
     // 4. The blob and its context; the hooks come after the patches.
     std::memset(reinterpret_cast<void*>(out.code_base), 0, out.code_bytes);
@@ -611,8 +639,9 @@ bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
     ctx->flags = demo ? RT_PAD_FLAG_DEMO : 0u;
     ctx->known_dev = out.version == 5 ? out.known_dev : -1;
     out.active = true;
-    logf("GameCube adapter: blob %u bytes at 0x%08x, state %u bytes at 0x%08x%s\n", h.size, out.code_base,
-         out.state_bytes, out.state_base, demo ? " (demo)" : "");
+    logf("GameCube adapter: blob %u bytes at 0x%08x, state %u bytes at 0x%08x%s%s\n", h.size, out.code_base,
+         out.state_bytes, out.state_base, demo ? " (demo)" : "",
+         mem1_veneer != 0 ? "; in MEM2, through veneers (a code build)" : "");
     return true;
 }
 
@@ -648,10 +677,22 @@ bool install_pad_hook(PadHook& hook, std::string& why) {
         store_words(hook.code_base + s.resume, resume.data(), 4);
     }
     sync_code(hook.code_base, hook.code_bytes);
+    unsigned veneers = 0;
     for (const Site& s : sites) {
         if (s.function == 0) continue;
+        std::uint32_t target = hook.code_base + s.hook;
+        if (hook.veneer != 0) {
+            // The blob is in MEM2, out of a branch's reach: the function
+            // branches to an absolute jump in low MEM1, which goes there.
+            const std::uint32_t at = hook.veneer + veneers * 16;
+            ++veneers;
+            const auto jump = encode_absolute_jump(kScratchRegister, target);
+            store_words(at, jump.data(), 4);
+            sync_code(at, 16);
+            target = at;
+        }
         std::uint32_t branch = 0;
-        if (!encode_branch(s.function, hook.code_base + s.hook, branch)) {
+        if (!encode_branch(s.function, target, branch)) {
             why = std::string(s.name) + " is out of a branch's reach";
             if (&s == &sites[0]) {
                 hook.active = false;

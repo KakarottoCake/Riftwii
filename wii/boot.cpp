@@ -88,6 +88,13 @@ static_assert(kCodeVeneers + VSD_ENTRIES * 16 <= kFaultVeneers, "the crash blob'
 // build's heaps (PMEX Remix wrote over it, and leaving to RiftWii crashed).
 constexpr std::uint32_t kCodeReturnStub = 0x80002FE0;
 static_assert(kCodeVeneers + (RT_IPC_ENTRIES + VSD_ENTRIES + 2) * 16 <= kCodeReturnStub, "every veneer must end before the stub");
+// A code build's GameCube adapter blob (in MEM2): its two veneers, PADRead's
+// and PADControlMotor's, right below the stub. The runtime's, the virtual
+// SD card's and the crash blob's run up from kCodeVeneers and end long
+// before.
+constexpr std::uint32_t kPadVeneers = kCodeReturnStub - 2 * 16;
+static_assert(kCodeVeneers + (RT_IPC_ENTRIES + VSD_ENTRIES + 2) * 16 <= kPadVeneers,
+              "the adapter's veneers must not meet the others");
 constexpr std::uint32_t kMem1Start = 0x80000000;
 constexpr std::uint32_t kMem1End = 0x81800000;
 constexpr std::uint32_t kMem2Start = 0x90000000;
@@ -1315,7 +1322,10 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     const char* const whole_mem1_why = code_build ? "a code build uses all of the game's memory"
                                                   : "the game clears the memory they would use";
     bool gc_adapter = g_extras.gc_adapter != GcAdapterMode::Off && !gx_protected;
-    if (gc_adapter && whole_mem1) {
+    // A code build gets the adapter in MEM2, reached through veneers (a Wii
+    // U has no GameCube ports, so Project+ there has no other way to use
+    // GameCube controllers); a game that clears MEM1's top does not.
+    if (gc_adapter && clears_mem1_top) {
         logf("GameCube adapter: off: %s (the Wii's own GameCube ports still work)\n", whole_mem1_why);
         gc_adapter = false;
     }
@@ -1598,11 +1608,17 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         std::string why;
         const std::uint32_t arena1_hi = base_arena1_hi();
         const std::uint32_t arena2_lo = base_arena2_lo();
+        const std::uint32_t pad_veneers = code_build ? kPadVeneers : 0;
         if (!plan_pad_hook(dol, arena1_hi, mem1_floor, arena2_lo,
                            options.install_resident ? resident.ioctl_async_original : 0,
                            options.install_resident ? resident.ioctlv_async_original : 0, options.memory_patches,
-                           pad, why)) {
+                           pad, why, pad_veneers)) {
             logf("GameCube adapter: off: %s\n", why.c_str());
+        } else if (pad.new_arena2_hi != 0) {
+            // The MEM2 arena's end comes down now, so the crash blob, planned
+            // next, goes below the adapter's.
+            store32(0x80003128, pad.new_arena2_hi);
+            DCFlushRange(reinterpret_cast<void*>(0x80003120), 32);
         }
     }
     // In-game screenshots: below the adapter, the runtime, or alone.
@@ -1762,6 +1778,8 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     // down instead, the start (and the game's heaps) staying put.
     if (options.install_resident && resident.new_arena2_hi != 0) write32(0x80003128, resident.new_arena2_hi);
     if (vsd.active && vsd.new_arena2_hi != 0) write32(0x80003128, vsd.new_arena2_hi);
+    // A code build's adapter blob is below the virtual SD card's block.
+    if (pad.active && pad.new_arena2_hi != 0) write32(0x80003128, pad.new_arena2_hi);
     // The crash blob of a code build is below that (or alone at the top).
     if (fault.active && fault.veneer != 0) write32(0x80003128, fault.new_arena2_hi);
 

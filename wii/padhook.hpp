@@ -22,6 +22,13 @@
 // game's first PADRead, so nothing is staged there. /dev/usb/hid is
 // opened here, after the last IOS reload, and handed to the game.
 //
+// A code build (Project+, PMEX Remix) sizes Brawl's heaps to all of MEM1
+// and reads its MEM2 data at fixed addresses from the arena's start, so
+// there the blob and its state go together at the top of the MEM2 arena,
+// whose end comes down (as the virtual SD card and the crash recorder do),
+// and PADRead and PADControlMotor reach the blob through two veneers in
+// low MEM1: MEM2 is out of a relative branch's reach.
+//
 // Anything that stands in the way turns the adapter off with a reason
 // for the log, never fails the launch: no PADRead in the game, a pack's
 // memory patch on the memory it would take, or (after the patches) a
@@ -40,8 +47,10 @@ struct PadHook {
     std::uint32_t code_bytes = 0;
     std::uint32_t state_base = 0;    // the driver state (MEM2)
     std::uint32_t state_bytes = 0;
-    std::uint32_t new_arena1_hi = 0; // == code_base
-    std::uint32_t new_arena2_lo = 0; // the end of the state
+    std::uint32_t new_arena1_hi = 0; // == code_base (unchanged with a veneer)
+    std::uint32_t new_arena2_lo = 0; // the end of the state (unchanged with a veneer)
+    std::uint32_t veneer = 0;        // in MEM2: the two veneers' address in low MEM1, else 0
+    std::uint32_t new_arena2_hi = 0; // in MEM2: the MEM2 arena's new end (== code_base), else 0
     std::int32_t fd = -1;            // /dev/usb/hid
     std::uint32_t version = 0;       // 4 or 5
     std::int32_t known_dev = -1;     // the adapter's v5 device id from libogc's list, -1: none
@@ -88,10 +97,14 @@ bool find_pad_functions(const DolHeader& dol, bool demo, PadHook& out, std::stri
 // Before the <memory> patches, on what find_pad_functions filled in.
 // `arena1_hi` and `arena2_lo` are the arena ends left by the resident
 // runtime (or the game's own without it); the IOS entries are the
-// resident's unhooked ones, 0 to search the game.
+// resident's unhooked ones, 0 to search the game. `mem1_veneer`, for a
+// code build, puts the blob at the top of MEM2 with its two veneers there
+// (32 bytes); the caller then lowers the MEM2 arena's end to
+// `new_arena2_hi`.
 bool plan_pad_hook(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t mem1_floor, std::uint32_t arena2_lo,
                    std::uint32_t ioctl_async, std::uint32_t ioctlv_async,
-                   const std::vector<MemoryPatch>& patches, PadHook& out, std::string& why);
+                   const std::vector<MemoryPatch>& patches, PadHook& out, std::string& why,
+                   std::uint32_t mem1_veneer = 0);
 
 // After the patches and the cheats, just before the handover.
 bool install_pad_hook(PadHook& hook, std::string& why);
