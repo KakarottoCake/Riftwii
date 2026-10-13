@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstdlib>
 
+#include "i18n.hpp"
 #include "skin.hpp"
 #include "video.h"
 #include "wiidrc.h"
@@ -205,7 +206,11 @@ void GuiFlowList::Draw() {
             label[i]->SetColor(r.dim ? skin::kInkDim : r.indent ? skin::kInkSoft : skin::kInk);
             const int control = ControlWidth(r);
             label[i]->SetMaxWidth(ControlsRight() - x0 - kPad - (r.indent ? 22 : 0) - (control ? control + kPad : 0));
-            std::string text = r.value;
+            // GuiText translates what it is given, but an action's value
+            // gets the arrow first, and "Rescan  >" is no catalog key: the
+            // value is translated here, before the arrow (issue 84). A value
+            // already translated with tr() is no key either and stays as it is.
+            std::string text = riftwii::wii::tr(r.value.c_str());
             if (r.kind == FlowRow::Kind::Action && !r.dim) text += "  \xE2\x80\xBA";
             value[i]->SetText(text.c_str());
             // A long value (a translation, "Remove all (experimental)")
