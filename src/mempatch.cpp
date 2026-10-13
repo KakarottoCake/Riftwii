@@ -38,11 +38,12 @@ bool write_checked(const std::vector<MemoryRegion>& writable, MemoryAccess& memo
     return true;
 }
 
-// The first address in `loaded` (load order, `align` stride) holding
-// `pattern`; the region is read in chunks that overlap by the pattern's
-// length, so no whole-region copy is needed.
+// The first address in `loaded` (load order, `align` stride), at or after
+// `from`, holding `pattern`; the region is read in chunks that overlap by
+// the pattern's length, so no whole-region copy is needed.
 bool find_pattern(const std::vector<MemoryRegion>& loaded, MemoryAccess& memory, const std::vector<std::uint8_t>& pattern,
-                  std::uint64_t align, std::uint32_t& found, std::size_t& region_index, std::string& error) {
+                  std::uint64_t align, std::uint32_t& found, std::size_t& region_index, std::string& error,
+                  std::uint64_t from = 0) {
     if (align == 0) align = 1;
     // Beyond any region's size the stride leaves one candidate per region;
     // clamping keeps the arithmetic below inside 32 bits on the console.
@@ -52,7 +53,7 @@ bool find_pattern(const std::vector<MemoryRegion>& loaded, MemoryAccess& memory,
     for (std::size_t ri = 0; ri < loaded.size(); ++ri) {
         const MemoryRegion& r = loaded[ri];
         if (r.length < n) continue;
-        std::uint64_t pos = r.address;
+        std::uint64_t pos = std::max<std::uint64_t>(r.address, from);
         if (pos % align != 0) pos += align - pos % align;
         const std::uint64_t last = static_cast<std::uint64_t>(r.address) + r.length - n;  // last start
         while (pos <= last) {
@@ -125,15 +126,29 @@ bool apply_search(const MemoryPatch& p, const std::vector<MemoryRegion>& loaded,
         error = "memory search patch without value";
         return false;
     }
-    std::uint32_t at = 0;
-    std::size_t region = 0;
-    if (!find_pattern(loaded, memory, p.original, p.align, at, region, error)) return false;
-    if (region == loaded.size()) {
-        notes.push_back("memory search: no match for " + std::to_string(p.original.size()) + " bytes");
-        return true;
+    // Every match is written, as Riivolution does on a Wii (Dolphin writes
+    // only the first): mods made on a console may count on it. The search
+    // goes on after what was written, so a value never matches itself.
+    const std::uint64_t step = std::max(p.original.size(), p.value.size());
+    std::uint64_t from = 0;
+    std::size_t matches = 0;
+    std::string where;
+    for (;;) {
+        std::uint32_t at = 0;
+        std::size_t region = 0;
+        if (!find_pattern(loaded, memory, p.original, p.align, at, region, error, from)) return false;
+        if (region == loaded.size()) break;
+        if (!write_checked(writable, memory, at, p.value, error)) return false;
+        if (matches < 4) where += (matches ? ", " : "") + hex32(at);
+        ++matches;
+        from = static_cast<std::uint64_t>(at) + step;
     }
-    if (!write_checked(writable, memory, at, p.value, error)) return false;
-    notes.push_back("memory search: " + std::to_string(p.value.size()) + " bytes written at " + hex32(at));
+    if (matches == 0) {
+        notes.push_back("memory search: no match for " + std::to_string(p.original.size()) + " bytes");
+    } else {
+        notes.push_back("memory search: " + std::to_string(p.value.size()) + " bytes written at " + where +
+                        (matches > 4 ? " and " + std::to_string(matches - 4) + " more" : ""));
+    }
     return true;
 }
 

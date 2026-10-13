@@ -188,15 +188,12 @@ static void test_search() {
     std::vector<std::string> notes;
     std::string err;
     EXPECT_TRUE(riftwii::apply_memory_patches({p}, loaded, kWritable, mem, notes, err));
+    // Every match at the stride is written, as Riivolution does on a Wii;
+    // the unaligned one in B is invisible at stride 4.
     EXPECT_EQ(mem.str(0x80008004, 12), std::string("Firmware RW "));
-    EXPECT_EQ(mem.str(0x80008104, 12), std::string("Firmware    "));  // only the first match
-    EXPECT_EQ(mem.str(0x80003001, 12), std::string("Firmware    "));
-    if (!notes.empty()) EXPECT_EQ(notes.back(), std::string("memory search: 12 bytes written at 0x80008004"));
-
-    // Again: the first region no longer matches, the unaligned one in B is
-    // invisible at stride 4, so the second occurrence in A is next.
-    EXPECT_TRUE(riftwii::apply_memory_patches({p}, loaded, kWritable, mem, notes, err));
     EXPECT_EQ(mem.str(0x80008104, 12), std::string("Firmware RW "));
+    EXPECT_EQ(mem.str(0x80003001, 12), std::string("Firmware    "));
+    if (!notes.empty()) EXPECT_EQ(notes.back(), std::string("memory search: 12 bytes written at 0x80008004, 0x80008104"));
     // Stride 1 finds the unaligned one.
     p.align = 1;
     EXPECT_TRUE(riftwii::apply_memory_patches({p}, loaded, kWritable, mem, notes, err));
@@ -206,6 +203,32 @@ static void test_search() {
     EXPECT_TRUE(riftwii::apply_memory_patches({p}, loaded, kWritable, mem, notes, err));
     EXPECT_EQ(notes.size(), before + 1);
     if (notes.size() == before + 1) EXPECT_EQ(notes.back(), std::string("memory search: no match for 12 bytes"));
+
+    // Overlapping matches: the search goes on after what was written, so
+    // "aaaa" in "aaaaaa" is written once, and a value holding the pattern
+    // never matches itself (no endless loop).
+    {
+        FakeMemory m2;
+        m2.put(0x80000000u, "aaaaaa..aaaa");
+        riftwii::MemoryPatch q;
+        q.search = true;
+        q.original = Bytes("aaaa");
+        q.value = Bytes("xaaaa");
+        q.align = 1;
+        EXPECT_TRUE(riftwii::apply_memory_patches({q}, {{0x80000000u, 12}}, kWritable, m2, notes, err));
+        EXPECT_EQ(m2.str(0x80000000u, 12), std::string("xaaaaa..xaaa"));
+        // Five matches or more: four addresses and a count.
+        FakeMemory m3;
+        for (std::uint32_t i = 0; i < 6; ++i) m3.put(0x80000000u + i * 8, "patt");
+        q.original = Bytes("patt");
+        q.value = Bytes("PATT");
+        q.align = 4;
+        EXPECT_TRUE(riftwii::apply_memory_patches({q}, {{0x80000000u, 48}}, kWritable, m3, notes, err));
+        EXPECT_EQ(m3.str(0x80000028u, 4), std::string("PATT"));
+        if (!notes.empty())
+            EXPECT_EQ(notes.back(), std::string("memory search: 4 bytes written at 0x80000000, 0x80000008, "
+                                                "0x80000010, 0x80000018 and 2 more"));
+    }
 
     // A pattern across the chunk boundary is still found (chunks overlap).
     FakeMemory big;
