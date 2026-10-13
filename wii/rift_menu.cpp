@@ -5114,10 +5114,11 @@ static void CreditsPage()
 	GuiText versionTxt("GPL-3.0-or-later", 15, skin::kInkDim);
 	versionTxt.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
 	versionTxt.SetPosition(-40, 40);
-	// About 840 lines: moved into the rows, not copied (the MEM1 heap is small).
+	// About 900 lines of 60 characters (64 ran past the list's 548 px with wide letters): moved into
+	// the rows, not copied (the MEM1 heap is small).
 	std::vector<FlowRow> rows;
 	{
-		std::vector<std::string> lines = riftwii::wii::CreditsLines(64);
+		std::vector<std::string> lines = riftwii::wii::CreditsLines(60);
 		rows.resize(lines.size());
 		for (std::size_t i = 0; i < lines.size(); ++i) rows[i].label = std::move(lines[i]);
 	}

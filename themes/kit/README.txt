@@ -158,6 +158,6 @@ Zip your theme's folder and share it. Others unzip it into
 sd:/riftwii/themes/ and pick it under Settings > Theme. Show it off on the
 RiftWii Discord: https://discord.gg/gGsTdjjQaK
 
-The templates, the guide pictures and the starter theme.ini in this kit
-are yours to use, change and share in your own themes, with or without
-credit.
+The templates, the guide pictures, the sounds and the starter theme.ini
+in this kit are yours to use, change and share in your own themes, with
+or without credit.

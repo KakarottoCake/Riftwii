@@ -72,6 +72,10 @@ const char* const kCredits[] = {
     "Dolphin, wiibrew and the Riivolution patch format wiki: how the Wii and the patch format behave, "
     "read as documentation.",
     "",
+    "libwbfs by Kwiirk and contributors, as in Wiimm's WBFS tools: the layout of a WBFS drive. "
+    "Friivolution by december: the launch argument other loaders pass. Both read as documentation, "
+    "nothing copied.",
+    "",
     "pugixml by Arseny Kapoulkine (MIT), Zstandard by Meta (BSD-3-Clause), BearSSL by Thomas Pornin "
     "(MIT), FreeType (FreeType License), zlib, Tremor and libogg (BSD-3-Clause).",
     "",
