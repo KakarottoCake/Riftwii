@@ -49,6 +49,10 @@ bool gx_kirby_game(const std::string& game_id);
 // set: Resident Evil 4 Wii Edition does at its title screen. Whatever a
 // loader puts below the FST is wiped, so RiftWii's blobs stay out.
 bool game_clears_mem1_top(const std::string& game_id);
+// Of those, the ones whose SDK maps no MEM2 for instructions: the runtime
+// (an RVZ's reads, a pack's files) cannot move its code to the top of MEM2
+// for them, and stays below the FST, where the game overwrites it.
+bool game_runs_no_mem2_code(const std::string& game_id);
 
 // Games whose main.dol only starts another executable on the disc (EA's
 // 2007 games among them): the FST index of the one to start in its place,

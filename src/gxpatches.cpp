@@ -198,16 +198,20 @@ bool gx_protected_game(const std::string& id) {
 // the older LEGO games of TT's 2007-2009 engine: The Complete Saga (RLG),
 // Indiana Jones 1 (RLI?64) and 2 (RL4), Batman (RLB?WR). LEGO Harry Potter
 // and Star Wars III, a newer engine, started.
-// Not Ghostbusters: The Video Game (RGQ): its SDK maps no MEM2 for
-// instructions, and the runtime's code there stopped it at its first disc
-// read (Dolphin: an instruction fetch from 0x93572248); with the code in
-// MEM1 its RVZ starts.
+// Ghostbusters: The Video Game (RGQ) hung in the Sedgewick Hotel, at the
+// PKE meter's tutorial, from a WBFS and an ISO, and the crash recorder
+// alone below its FST did it: without it (debug_off = fault) a tester's
+// Wii played on (2610-350). Its runtime stays in MEM1 (game_runs_no_mem2_code).
 bool game_clears_mem1_top(const std::string& id) {
     const bool by_publisher = id.size() >= 6;
-    return id_is(id, "RB4") || id_is(id, "RLG") || id_is(id, "RL4") ||
+    return id_is(id, "RB4") || id_is(id, "RLG") || id_is(id, "RL4") || id_is(id, "RGQ") ||
            (by_publisher && id_is(id, "RLI") && id.compare(4, 2, "64") == 0) ||
            (by_publisher && id_is(id, "RLB") && id.compare(4, 2, "WR") == 0);
 }
+
+// Ghostbusters' SDK: the runtime's code at the top of MEM2 stopped it at
+// its first disc read (Dolphin: an instruction fetch from 0x93572248).
+bool game_runs_no_mem2_code(const std::string& id) { return id_is(id, "RGQ"); }
 
 std::uint32_t game_start_file(const std::string& id) {
     // Game ID, FST index of the executable to start.

@@ -1469,7 +1469,12 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         // at the bottom of MEM2 (0x90004000): an RVZ of it, whose reads the
         // runtime serves, stayed black (the runtime's code and data both
         // overwritten). Both go to the top of MEM2 instead.
-        if (clears_mem1_top) {
+        // Not for a game that runs no code from MEM2 (Ghostbusters): there
+        // the runtime stays below the FST, which the game overwrites later
+        // (the menu warns before an RVZ of it).
+        if (clears_mem1_top && game_runs_no_mem2_code(probe.header.game_id)) {
+            logf("Runtime: in MEM1 below the FST: the game runs no code from MEM2, and may overwrite it later\n");
+        } else if (clears_mem1_top) {
             ro.mem1_veneers = kCodeVeneers;
             ro.mem2_top = true;
         }

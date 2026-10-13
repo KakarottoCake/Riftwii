@@ -59,7 +59,9 @@ void test_protected() {
     EXPECT_TRUE(game_clears_mem1_top("RLIE64"));
     EXPECT_TRUE(game_clears_mem1_top("RL4P64"));
     EXPECT_TRUE(game_clears_mem1_top("RLBEWR"));
-    EXPECT_FALSE(game_clears_mem1_top("RGQE70"));  // Ghostbusters: no MEM2 code (its SDK)
+    EXPECT_TRUE(game_clears_mem1_top("RGQE70"));  // Ghostbusters: the hotel's PKE tutorial
+    EXPECT_TRUE(game_runs_no_mem2_code("RGQE70"));
+    EXPECT_FALSE(game_runs_no_mem2_code("RB4E08"));
     EXPECT_FALSE(game_clears_mem1_top("RLIL78"));  // Guitar Hero 2nd Custom
     EXPECT_FALSE(game_clears_mem1_top("SC4E64"));  // LEGO Star Wars III starts
     EXPECT_FALSE(game_clears_mem1_top("R25EWR"));  // LEGO Harry Potter starts

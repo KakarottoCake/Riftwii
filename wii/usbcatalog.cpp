@@ -1241,6 +1241,12 @@ std::string rvz_warning(const ImageGame& game) {
         return "This game checks its own code (MetaFortress), and RiftWii has to change it to play it from an RVZ: "
                "it will likely stop with \"MetaFortress response\". Use a WBFS or ISO copy.";
     }
+    if (game_clears_mem1_top(game.id) && game_runs_no_mem2_code(game.id)) {
+        // The RVZ's reader has nowhere else to go: the game overwrites it
+        // (Ghostbusters froze in the hotel's elevator on a tester's Wii).
+        return "This game overwrites the memory RiftWii needs to play it from an RVZ: it will likely freeze partway. "
+               "Use a WBFS or ISO copy.";
+    }
     std::string text = "RVZ is experimental; if it fails, use a WBFS or ISO copy.";
     if (game.rvz_support != RvzSupport::AtOwnRisk) return text;
     text += " Play at your own risk:";
