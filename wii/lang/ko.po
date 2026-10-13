@@ -1707,11 +1707,14 @@ msgstr "모든 설정을 RiftWii의 기본값으로 되돌립니다. 게임별 �
 msgid "Settings reset to the defaults"
 msgstr "설정을 기본값으로 초기화했습니다"
 
-msgid "Games start faster"
-msgstr "게임이 더 빨리 시작됩니다"
+msgid "Themes can bring their own sound effects"
+msgstr "테마에 효과음을 넣을 수 있습니다"
 
-msgid "A mod's own banner names it on the Wii Message Board"
-msgstr "모드 자체 배너의 이름이 Wii 게시판에 표시됩니다"
+msgid "Ghostbusters plays on past the hotel"
+msgstr "고스트버스터즈가 호텔에서 멈추지 않습니다"
+
+msgid "SD cards over 2 GB are kept safe from older games"
+msgstr "2GB를 넘는 SD 카드를 오래된 게임으로부터 보호합니다"
 
 msgid "Memory for RiftWii's extras"
 msgstr "RiftWii 추가 기능이 쓰는 메모리"

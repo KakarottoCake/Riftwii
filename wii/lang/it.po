@@ -1707,11 +1707,14 @@ msgstr "Tutte le impostazioni tornano come in origine. Le pagine dei singoli gio
 msgid "Settings reset to the defaults"
 msgstr "Impostazioni ripristinate"
 
-msgid "Games start faster"
-msgstr "I giochi si avviano più velocemente"
+msgid "Themes can bring their own sound effects"
+msgstr "I temi possono avere i propri effetti sonori"
 
-msgid "A mod's own banner names it on the Wii Message Board"
-msgstr "Il banner di una mod le dà il suo nome nella Bacheca Wii"
+msgid "Ghostbusters plays on past the hotel"
+msgstr "Ghostbusters prosegue oltre l'hotel"
+
+msgid "SD cards over 2 GB are kept safe from older games"
+msgstr "Le schede SD oltre i 2 GB sono protette dai giochi più vecchi"
 
 msgid "Memory for RiftWii's extras"
 msgstr "Memoria per gli extra di RiftWii"

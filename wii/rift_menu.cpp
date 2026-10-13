@@ -2287,8 +2287,9 @@ static std::string DiscTileNote()
 // holds seven lines), for the release script to keep up to date. Shown
 // once when they change; Settings > What's new shows them again.
 static const char* const kWhatsNew[] = {
-	"Games start faster",
-	"A mod's own banner names it on the Wii Message Board",
+	"Themes can bring their own sound effects",
+	"Ghostbusters plays on past the hotel",
+	"SD cards over 2 GB are kept safe from older games",
 };
 
 static std::string WhatsNewText()

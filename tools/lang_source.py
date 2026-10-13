@@ -1664,9 +1664,10 @@ T = {
     "Every setting goes back to how RiftWii comes, and RiftWii restarts. Games' own pages, favourites, play history and mods are kept.": ("Todos los ajustes vuelven a como vienen en RiftWii, y RiftWii se reinicia. Se conservan las páginas de cada juego, los favoritos, el historial de juego y los mods.", "すべての設定がRiftWiiの初期状態に戻り、RiftWiiが再起動します。各ゲームのページ、お気に入り、プレイ履歴、MODはそのまま残ります。", "Todas as configurações voltam a como vêm no RiftWii, e o RiftWii reinicia. As páginas de cada jogo, os favoritos, o histórico de jogo e os mods são mantidos.", "Tutte le impostazioni tornano come in origine e RiftWii si riavvia. Le pagine dei singoli giochi, i preferiti, la cronologia di gioco e le mod restano."),
     "Every setting back to how RiftWii comes. Games' own pages, favourites, play history and mods are kept.": ("Todos los ajustes vuelven a como vienen en RiftWii. Se conservan las páginas de cada juego, los favoritos, el historial de juego y los mods.", "すべての設定をRiftWiiの初期状態に戻します。各ゲームのページ、お気に入り、プレイ履歴、MODはそのまま残ります。", "Todas as configurações voltam a como vêm no RiftWii. As páginas de cada jogo, os favoritos, o histórico de jogo e os mods são mantidos.", "Tutte le impostazioni tornano come in origine. Le pagine dei singoli giochi, i preferiti, la cronologia di gioco e le mod restano."),
     "Settings reset to the defaults": ("Ajustes restablecidos", "設定を初期状態に戻しました", "Configurações redefinidas", "Impostazioni ripristinate"),
-    # What's new in 2610-355
-    "Games start faster": ("Los juegos se inician más rápido", "ゲームの起動が速くなりました", "Os jogos iniciam mais rápido", "I giochi si avviano più velocemente"),
-    "A mod's own banner names it on the Wii Message Board": ("El banner propio de un mod le da su nombre en el Tablón de anuncios Wii", "MOD独自のバナーの名前がWii伝言板に表示されます", "O banner próprio de um mod dá o nome dele no Quadro de Mensagens Wii", "Il banner di una mod le dà il suo nome nella Bacheca Wii"),
+    # What's new in 2610-360
+    "Themes can bring their own sound effects": ("Los temas pueden traer sus propios efectos de sonido", "テーマに効果音を入れられます", "Os temas podem trazer os próprios efeitos sonoros", "I temi possono avere i propri effetti sonori"),
+    "Ghostbusters plays on past the hotel": ("Ghostbusters sigue más allá del hotel", "ゴーストバスターズがホテルで止まらなくなりました", "Ghostbusters continua depois do hotel", "Ghostbusters prosegue oltre l'hotel"),
+    "SD cards over 2 GB are kept safe from older games": ("Las tarjetas SD de más de 2 GB quedan protegidas de los juegos antiguos", "2 GBを超えるSDカードを古いゲームから守ります", "Cartões SD de mais de 2 GB ficam protegidos dos jogos antigos", "Le schede SD oltre i 2 GB sono protette dai giochi più vecchi"),
     # Game page: memory for RiftWii's extras
     "Memory for RiftWii's extras": ("Memoria para los extras de RiftWii", "RiftWiiの追加機能が使うメモリ", "Memória para os extras do RiftWii", "Memoria per gli extra di RiftWii"),
     "about {1} KB": ("unos {1} KB", "約{1} KB", "cerca de {1} KB", "circa {1} KB"),
@@ -2821,10 +2822,12 @@ KO = {
         "모든 설정을 RiftWii의 기본값으로 되돌립니다. 게임별 페이지, 즐겨찾기, 플레이 기록, 모드는 그대로 유지됩니다.",
     "Settings reset to the defaults":
         "설정을 기본값으로 초기화했습니다",
-    "Games start faster":
-        "게임이 더 빨리 시작됩니다",
-    "A mod's own banner names it on the Wii Message Board":
-        "모드 자체 배너의 이름이 Wii 게시판에 표시됩니다",
+    "Themes can bring their own sound effects":
+        "테마에 효과음을 넣을 수 있습니다",
+    "Ghostbusters plays on past the hotel":
+        "고스트버스터즈가 호텔에서 멈추지 않습니다",
+    "SD cards over 2 GB are kept safe from older games":
+        "2GB를 넘는 SD 카드를 오래된 게임으로부터 보호합니다",
     "Memory for RiftWii's extras":
         "RiftWii 추가 기능이 쓰는 메모리",
     "about {1} KB":
@@ -3988,10 +3991,12 @@ FR = {
         "Tous les paramètres reviennent à ceux d'origine. Les pages des jeux, les favoris, l'historique de jeu et les mods sont conservés.",
     "Settings reset to the defaults":
         "Paramètres réinitialisés",
-    "Games start faster":
-        "Les jeux démarrent plus vite",
-    "A mod's own banner names it on the Wii Message Board":
-        "La bannière d'un mod lui donne son nom dans la Messagerie Wii",
+    "Themes can bring their own sound effects":
+        "Les thèmes peuvent avoir leurs propres effets sonores",
+    "Ghostbusters plays on past the hotel":
+        "Ghostbusters continue après l'hôtel",
+    "SD cards over 2 GB are kept safe from older games":
+        "Les cartes SD de plus de 2 Go sont protégées des anciens jeux",
     "Memory for RiftWii's extras":
         "Mémoire pour les extras de RiftWii",
     "about {1} KB":
