@@ -672,9 +672,16 @@ static int riivo_after(struct rtfs_context* ctx, struct rtfs_request* r) {
             return (int)r->active;
         case RTFS_ACTION_R_OPEN:
             if (res == RTFAT_OK) {
-                /* O_EXCL wants a new file; truncation is not served. */
-                if ((r->flags & (RTFS_RIIVO_CREAT | RTFS_RIIVO_EXCL)) == (RTFS_RIIVO_CREAT | RTFS_RIIVO_EXCL) ||
-                    ((r->flags & RTFS_RIIVO_TRUNC) && found->size != 0)) break;
+                /* O_EXCL wants a new file. */
+                if ((r->flags & (RTFS_RIIVO_CREAT | RTFS_RIIVO_EXCL)) == (RTFS_RIIVO_CREAT | RTFS_RIIVO_EXCL)) break;
+                /* O_TRUNC empties it (NewerSMBW's replay recorder writes each
+                 * level's file again with O_CREAT | O_TRUNC): deleted and
+                 * created again, unless it is open. */
+                if ((r->flags & RTFS_RIIVO_TRUNC) && found->size != 0 && !is_dir) {
+                    if (found_open(ctx, r)) break;
+                    start_fat(ctx, r, RTFAT_OP_DELETE, RTFS_ACTION_R_OPEN_TRUNC);
+                    return 1;
+                }
                 open_found(ctx, r, RTFS_RIIVO_NOT_OPENED);
                 return 0;
             }
@@ -683,6 +690,10 @@ static int riivo_after(struct rtfs_context* ctx, struct rtfs_request* r) {
                 return 1;
             }
             break;
+        case RTFS_ACTION_R_OPEN_TRUNC:
+            if (res != RTFAT_OK) break;
+            start_fat(ctx, r, RTFAT_OP_CREATE, RTFS_ACTION_R_OPEN_CREATE);
+            return 1;
         case RTFS_ACTION_R_OPEN_CREATE:
             if (res != RTFAT_OK) break;
             open_found(ctx, r, RTFS_RIIVO_NOT_OPENED);
@@ -735,7 +746,7 @@ int rtfs_step(struct rtfs_context* ctx, struct rtfs_request* r) {
     if (ctx == 0 || r == 0 || r->classification != RTFS_NEEDS_IO || !r->active) return RTFAT_DONE;
     step = rtfat_step(&ctx->volume, &r->fat);
     if (step == RTFAT_IO) return RTFAT_IO;
-    if (r->action >= RTFS_ACTION_WALK && r->action <= RTFS_ACTION_R_DELETE_CHECK) {
+    if ((r->action >= RTFS_ACTION_WALK && r->action <= RTFS_ACTION_R_DELETE_CHECK) || r->action == RTFS_ACTION_R_OPEN_TRUNC) {
         return riivo_after(ctx, r) ? rtfs_step(ctx, r) : RTFAT_DONE;
     }
     if (r->action == RTFS_ACTION_DELETE_CHECK || r->action == RTFS_ACTION_RENAME_CHECK) {

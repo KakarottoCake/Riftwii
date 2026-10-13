@@ -189,6 +189,9 @@ struct rtfs_context {
  * looked up first. (A renamed open file's descriptors follow its entry.) */
 #define RTFS_ACTION_DELETE_CHECK 23u
 #define RTFS_ACTION_RENAME_CHECK 24u    /* the destination */
+/* O_TRUNC on a file with data: the entry is deleted, then created again
+ * empty (R_OPEN_CREATE). Not while the file is open. */
+#define RTFS_ACTION_R_OPEN_TRUNC 25u
 
 /* What a path is to the redirected directory (rtfs_path_type). */
 #define RTFS_PATH_OUTSIDE 0

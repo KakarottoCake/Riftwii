@@ -868,6 +868,25 @@ void TestFileDeviceWrite(Low& low) {
     EXPECT_EQ(RunR(fx, low, seek), 20);
     EXPECT_EQ(CloseR(fx, low, fd), RTFAT_OK);
     EXPECT_EQ(OpenR(fx, low, b, "file/pulsar/new.bin", 1 | RTFS_RIIVO_CREAT | RTFS_RIIVO_EXCL), RTFS_RIIVO_NOT_OPENED);
+    // O_TRUNC empties a file with data (NewerSMBW's replay recorder: 0x602),
+    // but not while it is open.
+    {
+        const int other = OpenR(fx, low, b, "file/pulsar/new.bin", 0);
+        EXPECT_TRUE(other >= static_cast<int>(RTFS_FD_BASE));
+        EXPECT_EQ(OpenR(fx, low, b, "file/pulsar/new.bin", 2 | RTFS_RIIVO_CREAT | RTFS_RIIVO_TRUNC), RTFS_RIIVO_NOT_OPENED);
+        if (other >= static_cast<int>(RTFS_FD_BASE)) EXPECT_EQ(CloseR(fx, low, other), RTFAT_OK);
+    }
+    fd = OpenR(fx, low, b, "file/pulsar/new.bin", 2 | RTFS_RIIVO_CREAT | RTFS_RIIVO_TRUNC);
+    EXPECT_TRUE(fd >= static_cast<int>(RTFS_FD_BASE));
+    seek.fd = fd; seek.args.seek.where = 0; seek.args.seek.whence = RTFS_SEEK_END;
+    EXPECT_EQ(RunR(fx, low, seek), 0);
+    write.fd = fd; write.args.readwrite.length = 7;
+    EXPECT_EQ(RunR(fx, low, write), 7);
+    EXPECT_EQ(CloseR(fx, low, fd), RTFAT_OK);
+    fd = OpenR(fx, low, b, "file/pulsar/new.bin", 0);
+    seek.fd = fd;
+    EXPECT_EQ(RunR(fx, low, seek), 7);
+    EXPECT_EQ(CloseR(fx, low, fd), RTFAT_OK);
     // Delete.
     EXPECT_EQ(RunR(fx, low, DeviceIoctl(b, RTFS_RIIVO_DELETE, "/pulsar/new.bin")), RTFAT_OK);
     EXPECT_EQ(RunR(fx, low, DeviceIoctl(b, RTFS_RIIVO_DELETE, "/pulsar/new.bin")), RTFS_RIIVO_ERROR);
