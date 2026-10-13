@@ -151,12 +151,12 @@ game crashes a few steps later instead. The next RiftWii start writes
    The in-app update's pack: `py -3.13 tools/make_update_pack.py
    riftwii-vYYMM-N.zip riftwii-update.pack` (the themes, then the
    zip's channel installer and icon).
-   The theme kit only when the pictures change (a new one in
+   The theme kit when a picture or a setting changes (a new one in
    `src/theme.cpp`'s list, or a new look): `cmake --build build-host
    --target theme_kit`, then `py -3.13 tools/make_theme_kit.py
-   build-host/theme_kit.exe riftwii-theme-kit-vYYMM-N.zip` (templates
-   painted by the menu's own code), attached to that release, and the
-   link in `docs/THEMES.md` moved to it.
+   build-host/theme_kit.exe --repo` (templates painted by the menu's own
+   code) refreshes `themes/kit/MyTheme` and `themes/kit/templates`;
+   commit them with the release.
 4. Screenshots for the notes go in `docs/screenshots/` and are committed
    before the tag; the notes load them from
    `raw.githubusercontent.com/KakarottoCake/Riftwii/<tag>/docs/screenshots/`.

@@ -3,6 +3,11 @@
 """Packs riftwii-theme-kit-v<version>.zip, a release's download for themers.
 
     py -3.13 tools/make_theme_kit.py <theme_kit.exe> <out.zip>
+    py -3.13 tools/make_theme_kit.py <theme_kit.exe> --repo
+
+--repo writes the generated part (MyTheme/theme.ini and templates/) into
+themes/kit instead, so the kit's folder on GitHub is complete: run it
+whenever a picture or a setting changes, and commit the result.
 
 <theme_kit.exe> is the host tool (cmake --build build-host --target
 theme_kit). It paints the template pictures with the menu's own painter,
@@ -48,6 +53,16 @@ def main():
         gen = pathlib.Path(tmp)
         subprocess.run([tool, str(gen), "Default", "Midnight=" + str(ROOT / "themes/Midnight/theme.ini"),
                         "Bookshelf=" + str(ROOT / "themes/Bookshelf/theme.ini")], check=True)
+        if sys.argv[2] == "--repo":
+            kit = ROOT / "themes/kit"
+            for old in kit.glob("templates/*/*.png"):
+                old.unlink()  # pictures RiftWii no longer has go too
+            for src in [gen / "MyTheme/theme.ini", *sorted((gen / "templates").rglob("*.png"))]:
+                dst = kit / src.relative_to(gen)
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                dst.write_bytes(src.read_bytes())
+            print(f"{kit}: MyTheme/theme.ini and {len(list(kit.glob('templates/*/*.png')))} templates")
+            return
         count = len(list((gen / "templates/Default").glob("*.png")))
         readme = (ROOT / "themes/kit/README.txt").read_text(encoding="utf-8")
         readme = readme.replace("{version}", version()).replace("{count}", str(count))

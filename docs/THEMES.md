@@ -171,9 +171,20 @@ it:
 
 ## Music
 
-A `music.ogg` in the theme's folder plays in the menu instead of RiftWii's
-tune (and instead of `sd:/riftwii/music.ogg`). Settings > **Menu music**
-still turns music off.
+A `music.ogg` in the theme's folder plays, looping, in the menu instead of
+RiftWii's tune (and instead of `sd:/riftwii/music.ogg`). One song per theme:
+there are no playlists, but each theme can bring its own.
+
+- **Ogg Vorbis only.** MP3, WAV, FLAC, M4A and Opus don't play, even renamed
+  to `.ogg`. Audacity converts them: File > Export Audio, "Ogg Vorbis",
+  quality 3 to 5.
+- **6 MB at most.** The whole file is loaded into memory when the menu
+  starts; a bigger one is skipped (`session.log` says so) and RiftWii's tune
+  plays. At quality 4 (about 128 kbit/s) that is about 6 minutes of music.
+- Mono or stereo, 44.1 or 48 kHz. It starts over from the beginning when it
+  ends.
+
+Settings > **Menu music** still turns music off.
 
 ## Layout, fonts and sounds
 
@@ -181,12 +192,15 @@ Layout (where things are on screen), fonts and sounds are not themeable yet.
 
 ## The theme kit
 
-[Download the theme kit](https://github.com/KakarottoCake/Riftwii/releases/download/v2610-142/riftwii-theme-kit-v2610-142.zip) (from RiftWii 2610-142; a
-new one comes out when the pictures change). It holds a
-starter `theme.ini` with every setting at its default, the Midnight
-sample, and all 45 pictures as templates, exactly as RiftWii draws them
-(in the default look and in Midnight's colours), at the right sizes.
-Edit a template, keep its size, and save it as PNG in your theme's folder.
+The kit is the [themes/kit](../themes/kit) folder: its
+[README](../themes/kit/README.txt) walks through a theme step by step, and it
+holds a starter `MyTheme/theme.ini` with every setting at its default, guide
+pictures that name every colour and picture on screen, and every picture as
+a template, exactly as RiftWii draws it (in the default look, Midnight's and
+Bookshelf's colours), at the right size. Take only the templates you want to
+change: edit one, keep its size, and save it as PNG in your theme's folder.
+The samples are [themes/Midnight](../themes/Midnight) and
+[themes/Bookshelf](../themes/Bookshelf).
 
 ## Make your own
 

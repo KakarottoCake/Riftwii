@@ -1,7 +1,8 @@
 RiftWii theme kit
 =================
 
-Everything you need to make a menu theme for RiftWii {version}.
+Everything you need to make a menu theme for RiftWii: its colours, its
+pictures and its music.
 
 What's in here
 --------------
@@ -11,16 +12,21 @@ What's in here
   guide/                 Pictures of the menu with every picture and
                          colour you can change marked by its name: start
                          here to find what you want to change.
-  Midnight/              The dark sample theme: colours only, no pictures.
-  Bookshelf/             The wooden sample theme: its own pictures (the
-                         wall, the bar, the book tiles) and the iOS 6 HOME
-                         Menu. Look at it to see a picture theme done.
-  templates/Default/     All {count} pictures a theme can replace, exactly
-                         as RiftWii draws them in its default look.
+  templates/Default/     Every picture a theme can replace, exactly as
+                         RiftWii draws them in its default look.
   templates/Midnight/    The same pictures in Midnight's colours.
   templates/Bookshelf/   The same pictures in Bookshelf's colours.
-  THEMES.md              The full reference: every setting, every picture,
-                         its size and where it shows.
+  Midnight/, Bookshelf/  The two sample themes (in the kit's zip; on
+                         GitHub they are in the themes folder, next to
+                         this one). Midnight is colours only; Bookshelf
+                         has its own pictures and the iOS 6 HOME Menu.
+  THEMES.md              The full reference (docs/THEMES.md on GitHub):
+                         every setting, every picture, its size and
+                         where it shows.
+
+A theme is one folder on your SD card, sd:/riftwii/themes/<name>/, with a
+theme.ini and, if you like, PNG pictures and a music.ogg. You only need the
+parts you change: RiftWii draws everything else in your theme's colours.
 
 Make a theme in 5 minutes (colours only)
 ----------------------------------------
@@ -36,7 +42,7 @@ Make a theme in 5 minutes (colours only)
 4. In RiftWii, open Settings > Theme, pick your theme and let the menu
    restart.
 
-A good start: change accent (every highlight, the bar's line), card (tiles,
+A good start: accent (every highlight, the bar's line), card (tiles,
 buttons, panels), bar (Home's bottom bar and the title bands), backdrop and
 ink (text). Buttons, panels, the clock and the HOME Menu all follow.
 
@@ -67,18 +73,15 @@ Replace pictures
    templates/Default (or templates/Midnight, templates/Bookshelf), for
    example tile.png, and edit it in any image editor that keeps
    transparency (GIMP, Krita, Paint.NET, Photopea).
-2. Keep the exact same size in pixels. A picture of any other size is
+2. Keep the exact same size in pixels: a picture of any other size is
    skipped. The size includes a see-through margin where the shadow and
-   glow go: keep your artwork in the same place as the template's.
-3. Save it as PNG with the same name into your theme's folder, next to
-   theme.ini (sd:/riftwii/themes/MyTheme/tile.png).
+   glow go, so keep your artwork where the template's is.
+3. Save it as PNG, 2 MB at most, with the same name, into your theme's
+   folder next to theme.ini (sd:/riftwii/themes/MyTheme/tile.png).
 
 Pictures ending in _over are the highlighted versions (where the pointer
 or the D-pad is). The pointers (pointer1.png to pointer4.png) aim with the
 exact centre of the picture, pixel (48, 48): keep the fingertip there.
-
-You only need the pictures you change. Anything you leave out is drawn by
-RiftWii in your theme's colours.
 
 Backgrounds
 -----------
@@ -100,8 +103,27 @@ bar setting says (dip or bump) so the clock and buttons sit right.
 Music
 -----
 
-Put a music.ogg in your theme's folder and it plays in the menu instead
-of RiftWii's tune.
+Put a music.ogg in your theme's folder and it plays, looping, in the menu
+instead of RiftWii's tune. It is one song per theme (no playlists); each
+theme can bring its own, so switching themes switches the music.
+
+  Format   Ogg Vorbis (.ogg) only. MP3, WAV, FLAC, M4A and Opus files
+           don't play, even renamed to .ogg: convert them first. In
+           Audacity: File > Export Audio, format "Ogg Vorbis", quality
+           3 to 5 is plenty for a TV.
+  Size     6 MB at most. The whole file is loaded into the Wii's memory
+           when the menu starts; a bigger one is skipped and RiftWii's
+           tune plays instead (session.log says "Menu music: ... at most
+           ... are played").
+  Length   Anything that fits in 6 MB: at quality 4 (about 128 kbit/s)
+           that is about 6 minutes. Lower the quality for a longer song.
+  Sound    Mono or stereo, 44.1 or 48 kHz.
+  Loop     The song starts over from the beginning when it ends, so a
+           song whose end leads into its start loops best.
+
+Settings > Menu music still turns music off. Without a music.ogg in the
+theme, RiftWii plays sd:/riftwii/music.ogg if there is one (the same
+rules), else its own tune.
 
 Sharing your theme
 ------------------
