@@ -186,9 +186,20 @@ there are no playlists, but each theme can bring its own.
 
 Settings > **Menu music** still turns music off.
 
-## Layout, fonts and sounds
+## Sound effects
 
-Layout (where things are on screen), fonts and sounds are not themeable yet.
+Optional WAV files in the theme's folder replace RiftWii's own sounds:
+`hover.wav` (the tick when the selection moves), `click.wav` (pressing
+something), `home_open.wav` and `home_close.wav` (the HOME Menu). Each is a
+16-bit PCM WAV (or AIFF), mono or stereo, 4 000 to 48 000 Hz, at most 1 MB
+and 5 seconds; a missing or unreadable one keeps RiftWii's (`session.log`
+says why). Keep `hover.wav` short: it plays every time the selection moves.
+The kit's `sounds/` folder has RiftWii's own four as WAVs. Settings >
+**Menu sounds** sets how loud they are.
+
+## Layout and fonts
+
+Layout (where things are on screen) and fonts are not themeable yet.
 
 ## The theme kit
 

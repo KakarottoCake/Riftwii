@@ -16,6 +16,8 @@ What's in here
                          RiftWii draws them in its default look.
   templates/Midnight/    The same pictures in Midnight's colours.
   templates/Bookshelf/   The same pictures in Bookshelf's colours.
+  sounds/                RiftWii's own sound effects as WAV files, under
+                         the names a theme uses for them.
   Midnight/, Bookshelf/  The two sample themes (in the kit's zip; on
                          GitHub they are in the themes folder, next to
                          this one). Midnight is colours only; Bookshelf
@@ -25,7 +27,7 @@ What's in here
                          where it shows.
 
 A theme is one folder on your SD card, sd:/riftwii/themes/<name>/, with a
-theme.ini and, if you like, PNG pictures and a music.ogg. You only need the
+theme.ini and, if you like, PNG pictures, a music.ogg and sound effects. You only need the
 parts you change: RiftWii draws everything else in your theme's colours.
 
 Make a theme in 5 minutes (colours only)
@@ -124,6 +126,30 @@ theme can bring its own, so switching themes switches the music.
 Settings > Menu music still turns music off. Without a music.ogg in the
 theme, RiftWii plays sd:/riftwii/music.ogg if there is one (the same
 rules), else its own tune.
+
+Sound effects
+-------------
+
+Put any of these WAV files in your theme's folder, next to theme.ini, and
+they play instead of RiftWii's own:
+
+  hover.wav       The tick when the pointer or the D-pad moves onto
+                  something.
+  click.wav       Pressing a button, a tile or a row.
+  home_open.wav   The HOME Menu opening.
+  home_close.wav  The HOME Menu closing.
+
+  Format   WAV (or AIFF), 16-bit PCM, mono or stereo, any rate from
+           4 000 to 48 000 Hz (44.1 or 48 kHz is best). In Audacity:
+           File > Export Audio, "WAV (Microsoft)", "Signed 16-bit PCM".
+  Size     1 MB and 5 seconds at most each; a longer sound is cut at
+           5 seconds. Keep hover.wav very short (a fraction of a second):
+           it plays every time the selection moves.
+
+The sounds/ folder has RiftWii's own four as a starting point. Each one is
+optional: leave one out and RiftWii's plays. Settings > Menu sounds sets
+how loud they are (Quiet softens hover.wav). A sound RiftWii can't read is
+skipped, and session.log says why (lines starting "Theme:").
 
 Sharing your theme
 ------------------

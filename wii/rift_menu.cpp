@@ -70,6 +70,7 @@
 #include "autorun.hpp"
 #include "menumusic.hpp"
 #include "menutheme.hpp"
+#include "themesounds.hpp"
 #include "screenshot.hpp"
 #include "boot.hpp"
 #include "demo.h"
@@ -6127,6 +6128,7 @@ int MainMenu(int menu, FrontendState& state)
 	const u64 musicStart = gettime();
 	riftwii::wii::MenuMusicStart();
 	logf("Startup: music started in %u ms\n", static_cast<unsigned>(diff_msec(musicStart, gettime())));
+	riftwii::wii::LoadThemeSounds();  // before the first GuiSound
 	soundOver = new GuiSound(button_over_pcm, button_over_pcm_size, SOUND::PCM);
 	mainWindow = new GuiWindow(screenwidth, screenheight);
 	backdrop = new skin::GuiBackdrop();

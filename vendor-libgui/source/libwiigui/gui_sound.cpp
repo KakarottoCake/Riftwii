@@ -8,7 +8,8 @@
  * GUI class definitions
  ***************************************************************************/
 /* Changed for RiftWii (September and October 2026), under
- * GPL-3.0-or-later: separate volumes for the hover sound and the others.
+ * GPL-3.0-or-later: separate volumes for the hover sound and the others;
+ * a menu theme's sounds in place of the built-in ones, at their own rate.
  * Every change is in RiftWii's git history; NOTICE.md lists the origin. */
 
 #include "gui.h"
@@ -16,6 +17,7 @@
 
 int GuiSound::hoverPercent = 100;
 int GuiSound::otherPercent = 100;
+void (*GuiSound::substitute)(const u8*& sound, s32& length, s32& rate) = nullptr;
 
 /**
  * Constructor for the GuiSound class.
@@ -28,6 +30,10 @@ GuiSound::GuiSound(const u8 * s, s32 l, SOUND t)
 	voice = -1;
 	volume = 100;
 	loop = false;
+	rate = 48000;
+	hover = s == button_over_pcm;
+	if (type == SOUND::PCM && substitute)
+		substitute(sound, length, rate);
 }
 
 /**
@@ -49,12 +55,12 @@ void GuiSound::Play()
 	switch(type)
 	{
 		case SOUND::PCM:
-		vol = 255*(volume/100.0) * (sound == button_over_pcm ? hoverPercent : otherPercent) / 100;
+		vol = 255*(volume/100.0) * (hover ? hoverPercent : otherPercent) / 100;
 		if (vol <= 0)
 			break;
 		voice = ASND_GetFirstUnusedVoice();
 		if(voice >= 0)
-			ASND_SetVoice(voice, VOICE_STEREO_16BIT, 48000, 0,
+			ASND_SetVoice(voice, VOICE_STEREO_16BIT, rate, 0,
 				(u8 *)sound, length, vol, vol, nullptr);
 		break;
 

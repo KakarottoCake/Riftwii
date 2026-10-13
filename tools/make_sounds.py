@@ -115,6 +115,15 @@ def main():
         folder = sys.argv[sys.argv.index("--wav") + 1]
         for name, frames in sounds.items():
             write_wav(os.path.join(folder, name + ".wav"), frames)
+    # The theme kit's templates, under the names a theme gives them
+    # (wii/themesounds.cpp): themes/kit/sounds.
+    if "--kit" in sys.argv:
+        folder = sys.argv[sys.argv.index("--kit") + 1]
+        os.makedirs(folder, exist_ok=True)
+        kit_names = {"button_over": "hover", "button_click": "click", "home_open": "home_open",
+                     "home_close": "home_close"}
+        for name, frames in sounds.items():
+            write_wav(os.path.join(folder, kit_names[name] + ".wav"), frames)
     print("wrote", ", ".join(n + ".pcm" for n in sounds))
 
 

@@ -20,6 +20,9 @@ so the kit always matches the release it ships with. The zip holds:
     riftwii-theme-kit/Bookshelf/          themes/Bookshelf (its own pictures)
     riftwii-theme-kit/guide/              themes/kit/guide: where each
                                           picture and colour shows
+    riftwii-theme-kit/sounds/             themes/kit/sounds: RiftWii's
+                                          own sound effects as WAVs
+                                          (tools/make_sounds.py --kit)
     riftwii-theme-kit/templates/Default/  every picture, default look
     riftwii-theme-kit/templates/Midnight/ the same in Midnight's colours
     riftwii-theme-kit/templates/Bookshelf/ the same in Bookshelf's
@@ -78,6 +81,8 @@ def main():
                 files[theme + "/" + f.name] = f.read_bytes()
         for f in sorted((ROOT / "themes/kit/guide").glob("*.png")):
             files["guide/" + f.name] = f.read_bytes()
+        for f in sorted((ROOT / "themes/kit/sounds").glob("*.wav")):
+            files["sounds/" + f.name] = f.read_bytes()
         for png in sorted((gen / "templates").rglob("*.png")):
             files["templates/" + png.relative_to(gen / "templates").as_posix()] = png.read_bytes()
         out.parent.mkdir(parents=True, exist_ok=True)

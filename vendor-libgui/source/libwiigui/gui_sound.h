@@ -1,5 +1,6 @@
 /* Changed for RiftWii (September and October 2026), under
- * GPL-3.0-or-later: separate volumes for the hover sound and the others.
+ * GPL-3.0-or-later: separate volumes for the hover sound and the others;
+ * a menu theme's sounds in place of the built-in ones, at their own rate.
  * Every change is in RiftWii's git history; NOTICE.md lists the origin. */
 #ifndef LIBWIIGUI_SOUND_H
 #define LIBWIIGUI_SOUND_H
@@ -40,6 +41,10 @@ public:
 	//!hover tick (button_over_pcm) by hoverPercent, the rest by otherPercent.
 	static int hoverPercent;
 	static int otherPercent;
+	//!Riftwii: a menu theme's sound in place of a built-in PCM sound
+	//!(wii/themesounds.cpp): given the built-in one, it may change the
+	//!data, its length and its rate (stereo 16-bit samples a second).
+	static void (*substitute)(const u8*& sound, s32& length, s32& rate);
 protected:
 	const u8 * sound; //!< Pointer to the sound data
 	SOUND type; //!< Sound format type (PCM or OGG)
@@ -47,6 +52,8 @@ protected:
 	s32 voice; //!< Currently assigned ASND voice channel
 	s32 volume; //!< Sound volume (0-100)
 	bool loop; //!< Loop sound playback
+	s32 rate; //!< PCM: samples a second (48000 for the built-in sounds)
+	bool hover; //!< the hover tick (button_over_pcm), whatever plays for it
 };
 
 #endif
