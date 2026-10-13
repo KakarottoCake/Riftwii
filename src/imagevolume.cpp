@@ -178,8 +178,18 @@ bool mount_image_volume(BlockReader reader, std::unique_ptr<ImageVolume>& out, s
     return mount_image_volume(std::move(reader), out, error, default_wanted_folders());
 }
 
+// What a partition that is neither FAT32 nor NTFS holds, for the notes:
+// a WBFS partition (USB Loader GX's own format) is worth naming, as games
+// on it are not read while a FAT32 or NTFS partition is in use.
+std::string other_partition_kind(const BlockReader& reader, std::uint64_t lba) {
+    std::uint8_t block[512];
+    if (!reader(lba, 1, block)) return "unreadable";
+    const bool wbfs = std::memcmp(block, "WBFS", 4) == 0;
+    return wbfs ? "WBFS" : "not FAT32 or NTFS";
+}
+
 bool mount_image_volume(BlockReader reader, std::unique_ptr<ImageVolume>& out, std::string& error,
-                        const std::vector<std::string>& wanted) {
+                        const std::vector<std::string>& wanted, std::vector<std::string>* notes) {
     out.reset();
     if (!reader) {
         error = "no block reader";
@@ -203,18 +213,27 @@ bool mount_image_volume(BlockReader reader, std::unique_ptr<ImageVolume>& out, s
     }
     // Every partition that mounts is scored; one volume is kept at a time.
     std::size_t best_score = 0;
+    std::uint64_t best_lba = 0;
     for (const DrivePartition& p : drive_partitions(reader, mbr)) {
+        const std::string where = "partition at block " + std::to_string(p.lba);
         std::unique_ptr<ImageVolume> candidate;
         if (!mount_candidate(reader, p.lba, candidate, e)) {
             tried += "; " + e;
+            if (notes) notes->push_back(where + ": " + other_partition_kind(reader, p.lba));
             continue;
         }
         const std::size_t score = score_volume(*candidate, wanted);
+        if (notes) {
+            notes->push_back(where + ": " + candidate->kind() + ", " + std::to_string(score) +
+                             " point(s) for its top folders");
+        }
         if (!out || score > best_score) {
             out = std::move(candidate);
             best_score = score;
+            best_lba = p.lba;
         }
     }
+    if (out && notes) notes->push_back("using the partition at block " + std::to_string(best_lba));
     if (out) {
         error.clear();
         return true;

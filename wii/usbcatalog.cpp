@@ -502,7 +502,10 @@ bool ensure_usb(std::string& error) {
         g_raw_mounted = true;
         return true;
     }
-    if (!mount_image_volume(&usb_read, g_usb_volume, error, usb_wanted_folders())) {
+    std::vector<std::string> partition_notes;
+    const bool mounted = mount_image_volume(&usb_read, g_usb_volume, error, usb_wanted_folders(), &partition_notes);
+    for (const std::string& note : partition_notes) logf("USB: %s\n", note.c_str());
+    if (!mounted) {
         // A drive formatted as WBFS by a USB loader's tools (libfat cannot
         // mount it either, so nothing can write to it).
         WbfsPartition wbfs;
@@ -779,6 +782,27 @@ bool image_format(const std::string& name, UsbImageFormat folder, UsbImageFormat
     if (folder != UsbImageFormat::Wbfs && extension(name, ".rvz")) { out = UsbImageFormat::Rvz; return true; }
     return false;
 }
+// A game folder ("Title [ID]") holding no .wbfs, .iso or .rvz the scan
+// can use: logged with the first few names it does hold (a split image's
+// .wbf1 alone, a short 8.3 name, a file one folder too deep).
+void log_folder_without_image(ImageDevice device, const std::string& path, const std::vector<VolumeEntry>& entries) {
+    constexpr std::size_t kNamesShown = 4;
+    std::string names;
+    std::size_t shown = 0;
+    for (const VolumeEntry& entry : entries) {
+        if (is_mac_metadata(entry.name)) continue;
+        if (shown == kNamesShown) {
+            names += ", ...";
+            break;
+        }
+        if (shown > 0) names += ", ";
+        names += entry.is_directory ? entry.name + "/" : entry.name;
+        ++shown;
+    }
+    if (names.empty()) names = "nothing";
+    logf("%s scan: %s has no .wbfs, .iso or .rvz (it holds %s)\n", device_name(device), path.c_str(), names.c_str());
+}
+
 // Lists a catalog directory with the volume's own bounded walker,
 // never libfat's readdir: a cross-linked directory chain (e.g. from an
 // interrupted multi-GB copy) loops readdir forever on successful reads,
@@ -823,13 +847,18 @@ void scan_dir(const ImageVolume& volume, const std::string& prefix, ImageDevice 
             std::vector<std::string> subnames;
             subnames.reserve(subentries.size());
             for (const VolumeEntry& x : subentries) subnames.push_back(x.name);
+            const UsbImageFormat inner = fmt == UsbImageFormat::Rvz ? fmt : UsbImageFormat::Wbfs;
+            bool found_image = false;
             for (const std::string& x : subnames) {
                 if (c.games.size() >= kMaxGames) return;
                 std::string p;
                 UsbImageFormat f;
-                const UsbImageFormat inner = fmt == UsbImageFormat::Rvz ? fmt : UsbImageFormat::Wbfs;
-                if (join(path, x, p) && image_format(x, inner, f)) add_game(volume, prefix, device, p, subnames, f, c, failure);
+                if (!image_format(x, inner, f)) continue;
+                found_image = true;
+                if (join(path, x, p)) add_game(volume, prefix, device, p, subnames, f, c, failure);
             }
+            // Not for a game_folders folder of the user's own, which may hold anything.
+            if (!found_image && fmt != UsbImageFormat::Rvz) log_folder_without_image(device, path, subentries);
         } else if (!e.is_directory) {
             UsbImageFormat f;
             if (image_format(e.name, fmt, f)) add_game(volume, prefix, device, path, siblings, f, c, failure);

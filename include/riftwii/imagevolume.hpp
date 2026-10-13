@@ -58,10 +58,13 @@ std::vector<DrivePartition> drive_partitions(const BlockReader& reader, const st
 // or in an MBR (primary or logical) or GPT partition. With several, the
 // one whose top folder holds the most of `wanted` wins (earlier names
 // weigh more; ASCII case-insensitive), then the first. `error` names
-// what was tried when none mounts.
+// what was tried when none mounts. `notes`, when given, gets one line per
+// partition of a partitioned drive (where it starts, what it holds, how
+// well it matched), so a log can show which one was used and which were
+// left out.
 bool mount_image_volume(BlockReader reader, std::unique_ptr<ImageVolume>& out, std::string& error);
 bool mount_image_volume(BlockReader reader, std::unique_ptr<ImageVolume>& out, std::string& error,
-                        const std::vector<std::string>& wanted);
+                        const std::vector<std::string>& wanted, std::vector<std::string>* notes = nullptr);
 
 // The top folders mount_image_volume looks for by default: game folders
 // first, then the mod packs.

@@ -615,6 +615,18 @@ void test_partitions() {
         // Asking for a folder only the FAT32 one has picks it instead.
         EXPECT_TRUE(riftwii::mount_image_volume(v.reader(), vol, error, {"nothing"}));
         EXPECT_TRUE(vol && std::string(vol->kind()) == "FAT32");
+
+        // The notes name each partition and the one used (issue 92: a log
+        // that shows a drive's other partitions).
+        std::vector<std::string> notes;
+        EXPECT_TRUE(riftwii::mount_image_volume(v.reader(), vol, error, riftwii::default_wanted_folders(), &notes));
+        const std::string ntfs_note = "partition at block " + std::to_string(ntfs_at) + ": NTFS, ";
+        bool named_ntfs = false;
+        for (const std::string& note : notes) {
+            if (note.compare(0, ntfs_note.size(), ntfs_note) == 0) named_ntfs = true;
+        }
+        EXPECT_TRUE(named_ntfs);
+        EXPECT_TRUE(!notes.empty() && notes.back() == "using the partition at block " + std::to_string(ntfs_at));
     }
     {
         // A logical partition inside an extended one.
