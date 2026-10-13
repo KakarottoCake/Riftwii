@@ -1707,14 +1707,14 @@ msgstr "すべての設定をRiftWiiの初期状態に戻します。各ゲー�
 msgid "Settings reset to the defaults"
 msgstr "設定を初期状態に戻しました"
 
-msgid "Themes can bring their own sound effects"
-msgstr "テーマに効果音を入れられます"
+msgid "The GameCube adapter works in Project+"
+msgstr "Project+でゲームキューブのアダプターが使えます"
 
-msgid "Ghostbusters plays on past the hotel"
-msgstr "ゴーストバスターズがホテルで止まらなくなりました"
+msgid "Mods that change several places in memory work fully"
+msgstr "メモリーの何か所も書き変えるMODが正しく動きます"
 
-msgid "SD cards over 2 GB are kept safe from older games"
-msgstr "2 GBを超えるSDカードを古いゲームから守ります"
+msgid "Every button in Settings is in your language"
+msgstr "設定のボタンがすべて選んだ言語になりました"
 
 msgid "Memory for RiftWii's extras"
 msgstr "RiftWiiの追加機能が使うメモリ"

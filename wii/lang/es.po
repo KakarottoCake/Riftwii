@@ -1707,14 +1707,14 @@ msgstr "Todos los ajustes vuelven a como vienen en RiftWii. Se conservan las pá
 msgid "Settings reset to the defaults"
 msgstr "Ajustes restablecidos"
 
-msgid "Themes can bring their own sound effects"
-msgstr "Los temas pueden traer sus propios efectos de sonido"
+msgid "The GameCube adapter works in Project+"
+msgstr "El adaptador de GameCube funciona en Project+"
 
-msgid "Ghostbusters plays on past the hotel"
-msgstr "Ghostbusters sigue más allá del hotel"
+msgid "Mods that change several places in memory work fully"
+msgstr "Los mods que cambian varios sitios de la memoria funcionan por completo"
 
-msgid "SD cards over 2 GB are kept safe from older games"
-msgstr "Las tarjetas SD de más de 2 GB quedan protegidas de los juegos antiguos"
+msgid "Every button in Settings is in your language"
+msgstr "Todos los botones de Ajustes están en tu idioma"
 
 msgid "Memory for RiftWii's extras"
 msgstr "Memoria para los extras de RiftWii"

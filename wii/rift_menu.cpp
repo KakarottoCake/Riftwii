@@ -2287,9 +2287,9 @@ static std::string DiscTileNote()
 // holds seven lines), for the release script to keep up to date. Shown
 // once when they change; Settings > What's new shows them again.
 static const char* const kWhatsNew[] = {
-	"Themes can bring their own sound effects",
-	"Ghostbusters plays on past the hotel",
-	"SD cards over 2 GB are kept safe from older games",
+	"The GameCube adapter works in Project+",
+	"Mods that change several places in memory work fully",
+	"Every button in Settings is in your language",
 };
 
 static std::string WhatsNewText()
