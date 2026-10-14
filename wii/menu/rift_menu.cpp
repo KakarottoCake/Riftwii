@@ -2289,7 +2289,7 @@ static std::string DiscTileNote()
 static const char* const kWhatsNew[] = {
 	"The GameCube adapter works in Project+",
 	"Mods that change several places in memory work fully",
-	"Every button in Settings is in your language",
+	"Wii U Pro Controller: a log to help it work in games",
 };
 
 static std::string WhatsNewText()

@@ -1713,8 +1713,8 @@ msgstr "L'adaptateur GameCube fonctionne dans Project+"
 msgid "Mods that change several places in memory work fully"
 msgstr "Les mods qui modifient plusieurs endroits de la mémoire fonctionnent entièrement"
 
-msgid "Every button in Settings is in your language"
-msgstr "Tous les boutons des Paramètres sont dans votre langue"
+msgid "Wii U Pro Controller: a log to help it work in games"
+msgstr "Manette Pro Wii U : un journal pour la faire marcher dans les jeux"
 
 msgid "Memory for RiftWii's extras"
 msgstr "Mémoire pour les extras de RiftWii"

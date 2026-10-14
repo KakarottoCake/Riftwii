@@ -1664,10 +1664,10 @@ T = {
     "Every setting goes back to how RiftWii comes, and RiftWii restarts. Games' own pages, favourites, play history and mods are kept.": ("Todos los ajustes vuelven a como vienen en RiftWii, y RiftWii se reinicia. Se conservan las páginas de cada juego, los favoritos, el historial de juego y los mods.", "すべての設定がRiftWiiの初期状態に戻り、RiftWiiが再起動します。各ゲームのページ、お気に入り、プレイ履歴、MODはそのまま残ります。", "Todas as configurações voltam a como vêm no RiftWii, e o RiftWii reinicia. As páginas de cada jogo, os favoritos, o histórico de jogo e os mods são mantidos.", "Tutte le impostazioni tornano come in origine e RiftWii si riavvia. Le pagine dei singoli giochi, i preferiti, la cronologia di gioco e le mod restano."),
     "Every setting back to how RiftWii comes. Games' own pages, favourites, play history and mods are kept.": ("Todos los ajustes vuelven a como vienen en RiftWii. Se conservan las páginas de cada juego, los favoritos, el historial de juego y los mods.", "すべての設定をRiftWiiの初期状態に戻します。各ゲームのページ、お気に入り、プレイ履歴、MODはそのまま残ります。", "Todas as configurações voltam a como vêm no RiftWii. As páginas de cada jogo, os favoritos, o histórico de jogo e os mods são mantidos.", "Tutte le impostazioni tornano come in origine. Le pagine dei singoli giochi, i preferiti, la cronologia di gioco e le mod restano."),
     "Settings reset to the defaults": ("Ajustes restablecidos", "設定を初期状態に戻しました", "Configurações redefinidas", "Impostazioni ripristinate"),
-    # What's new in 2610-368
+    # What's new in 2610-371
     "The GameCube adapter works in Project+": ("El adaptador de GameCube funciona en Project+", "Project+でゲームキューブのアダプターが使えます", "O adaptador de GameCube funciona no Project+", "L'adattatore GameCube funziona in Project+"),
     "Mods that change several places in memory work fully": ("Los mods que cambian varios sitios de la memoria funcionan por completo", "メモリーの何か所も書き変えるMODが正しく動きます", "Mods que mudam vários pontos da memória funcionam por completo", "Le mod che cambiano più punti della memoria funzionano del tutto"),
-    "Every button in Settings is in your language": ("Todos los botones de Ajustes están en tu idioma", "設定のボタンがすべて選んだ言語になりました", "Todos os botões das Configurações estão no seu idioma", "Tutti i pulsanti delle Impostazioni sono nella tua lingua"),
+    "Wii U Pro Controller: a log to help it work in games": ("Mando Pro de Wii U: un registro para que funcione en los juegos", "Wii U PROコントローラー：ゲームで使えるように記録を取ります", "Comando Pro do Wii U: um registro para que funcione nos jogos", "Controller Pro di Wii U: un registro per farlo funzionare nei giochi"),
     # Game page: memory for RiftWii's extras
     "Memory for RiftWii's extras": ("Memoria para los extras de RiftWii", "RiftWiiの追加機能が使うメモリ", "Memória para os extras do RiftWii", "Memoria per gli extra di RiftWii"),
     "about {1} KB": ("unos {1} KB", "約{1} KB", "cerca de {1} KB", "circa {1} KB"),
@@ -2826,8 +2826,8 @@ KO = {
         "Project+에서 게임큐브 어댑터를 쓸 수 있습니다",
     "Mods that change several places in memory work fully":
         "메모리 여러 곳을 바꾸는 모드가 제대로 작동합니다",
-    "Every button in Settings is in your language":
-        "설정의 모든 버튼이 선택한 언어로 표시됩니다",
+    "Wii U Pro Controller: a log to help it work in games":
+        "Wii U Pro 컨트롤러: 게임에서 작동하도록 기록을 남깁니다",
     "Memory for RiftWii's extras":
         "RiftWii 추가 기능이 쓰는 메모리",
     "about {1} KB":
@@ -3995,8 +3995,8 @@ FR = {
         "L'adaptateur GameCube fonctionne dans Project+",
     "Mods that change several places in memory work fully":
         "Les mods qui modifient plusieurs endroits de la mémoire fonctionnent entièrement",
-    "Every button in Settings is in your language":
-        "Tous les boutons des Paramètres sont dans votre langue",
+    "Wii U Pro Controller: a log to help it work in games":
+        "Manette Pro Wii U : un journal pour la faire marcher dans les jeux",
     "Memory for RiftWii's extras":
         "Mémoire pour les extras de RiftWii",
     "about {1} KB":

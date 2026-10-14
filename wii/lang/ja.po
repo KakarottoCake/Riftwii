@@ -1713,8 +1713,8 @@ msgstr "Project+でゲームキューブのアダプターが使えます"
 msgid "Mods that change several places in memory work fully"
 msgstr "メモリーの何か所も書き変えるMODが正しく動きます"
 
-msgid "Every button in Settings is in your language"
-msgstr "設定のボタンがすべて選んだ言語になりました"
+msgid "Wii U Pro Controller: a log to help it work in games"
+msgstr "Wii U PROコントローラー：ゲームで使えるように記録を取ります"
 
 msgid "Memory for RiftWii's extras"
 msgstr "RiftWiiの追加機能が使うメモリ"
