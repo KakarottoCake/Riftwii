@@ -62,6 +62,7 @@
 #include "loadersettings.hpp"
 #include "riftwii/symsearch.hpp"
 #include "riftwii/vsdparts.hpp"
+#include "riftwii/wpadlog.hpp"
 #include "dolboot.h"
 
 namespace riftwii::wii {
@@ -1935,6 +1936,25 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         }
         for (const std::string& note : gx.notes) logf("Game fixes: %s\n", note.c_str());
         if (changed) sync_loaded();
+    }
+    // Wii U Pro Controller test (settings.txt "wpad_probe = valid", off
+    // otherwise): the Wii Remote library's firmware probe reads a valid
+    // address, as the Pro Controller hangs up on the real one
+    // (riftwii/wpadlog.hpp). Testers only, until it is known to help.
+    if (const auto it = Settings().other.find("wpad_probe"); it != Settings().other.end() && it->second == "valid") {
+        WpadProbePatch probe_patch;
+        std::string why;
+        if (gx_protected) {
+            logf("Wii Remote probe: not changed: the game checks its own code (MetaFortress)\n");
+        } else if (!find_wpad_probe(loaded_spans, probe_patch, why)) {
+            logf("Wii Remote probe: not changed: %s\n", why.c_str());
+        } else {
+            apply_wpad_probe(loaded_spans, probe_patch);
+            sync_loaded();
+            logf("Wii Remote probe: reads 0x0016 instead of 0x1770 (0x%08x), its answer handled as a Wii Remote's "
+                 "(0x%08x), for the Wii U Pro Controller test\n",
+                 probe_patch.probe, probe_patch.result);
+        }
     }
     if (gx_protected && (g_extras.video.width != VideoWidth::Game || g_extras.video.deflicker != Deflicker::Game ||
                          g_extras.video.remove_borders)) {

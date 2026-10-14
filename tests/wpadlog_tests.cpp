@@ -101,6 +101,35 @@ int main() {
         EXPECT_EQ(riftwii::find_launch_menu_exit(c), 0u);
     }
 
+    // The firmware probe, as Mario Kart Wii has it: the handler at 0x80100000
+    // ("cmpwi r4,-1" then "mr r26,r4"), the probe loading it into r6 and
+    // the address 0x1770 next to the read report 0x17. Patched: 0x0016 and
+    // "li r26,1". A probe without the report next to it is not one.
+    {
+        std::vector<std::uint32_t> handler = {0x9421FD80, 0x2C04FFFF, 0x7C7B1B78, 0x7C9A2378, 0x4E800020};
+        std::vector<std::uint32_t> caller = {0x3CC08010,   // lis r6,0x8010
+                                             0x39600000,   // li r11,0
+                                             0x38C60000,   // addi r6,r6,0
+                                             0x39001770,   // li r8,0x1770
+                                             0x38E00017,   // li r7,0x17
+                                             0x4E800020};
+        std::vector<std::uint8_t> a = words(handler), b = words(caller);
+        const std::vector<riftwii::CodeSpan> spans = {{a.data(), a.size(), 0x80100000u}, {b.data(), b.size(), 0x80200000u}};
+        riftwii::WpadProbePatch patch;
+        std::string why;
+        EXPECT_TRUE(riftwii::find_wpad_probe(spans, patch, why));
+        EXPECT_EQ(patch.probe, 0x8020000Cu);
+        EXPECT_EQ(patch.handler, 0x80100000u);
+        EXPECT_EQ(patch.result, 0x8010000Cu);
+        riftwii::apply_wpad_probe(spans, patch);
+        EXPECT_EQ(b[12] * 0x1000000u + b[13] * 0x10000u + b[14] * 0x100u + b[15], 0x39000016u);
+        EXPECT_EQ(a[12] * 0x1000000u + a[13] * 0x10000u + a[14] * 0x100u + a[15], 0x3B400001u);
+
+        std::vector<std::uint8_t> lone = words({0x39001770, 0x60000000, 0x4E800020});
+        const std::vector<riftwii::CodeSpan> other = {{lone.data(), lone.size(), 0x80300000u}};
+        EXPECT_FALSE(riftwii::find_wpad_probe(other, patch, why));
+    }
+
     // The log as text: numbers, a %s copied by the blob, a floating-point
     // argument shown as "?", a repeat, keys and addresses kept out.
     {

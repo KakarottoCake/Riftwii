@@ -31,6 +31,29 @@ std::vector<std::uint32_t> find_print_stubs(const std::vector<CodeSpan>& spans);
 // can go there either way. 0 when the game has no such place.
 std::uint32_t find_launch_menu_exit(const std::vector<CodeSpan>& spans);
 
+// The Wii Remote library's firmware probe, for a Wii U Pro Controller test.
+// Right after a controller connects the SDK reads one byte at address
+// 0x1770, past the end of a Wii Remote's memory: a retail remote answers
+// with an error, which the SDK takes as "firmware 2.1 or later". A Wii U Pro
+// Controller hangs up on that read instead (testers' Wii Remote logs on
+// 2610-371 and 372, Mario Kart Wii), before the game looks at anything else.
+//
+// The patch makes the probe read 0x0016 (calibration, the first thing
+// libogc reads, which the Pro Controller answers in RiftWii's menu) and makes
+// the answer's handler take the error path whatever comes back, so a Wii
+// Remote goes on exactly as before. Found as `li rA,0x1770` with `li rB,0x17`
+// (the read report) close by; the handler is the callback loaded just
+// before it with `lis rC`/`addi rC`, whose `mr rD,r4` (keeping the result)
+// becomes `li rD,1`. Both or nothing.
+struct WpadProbePatch {
+    std::uint32_t probe = 0;    // the `li rA,0x1770`
+    std::uint32_t handler = 0;  // the callback
+    std::uint32_t result = 0;   // its `mr rD,r4`
+};
+bool find_wpad_probe(const std::vector<CodeSpan>& spans, WpadProbePatch& out, std::string& why);
+// Writes the two instructions (into `spans`' bytes).
+void apply_wpad_probe(const std::vector<CodeSpan>& spans, const WpadProbePatch& patch);
+
 // The saved log (/shared2/riftwii/wpadlog.bin) as text, one message a
 // line with its time; false with `error` when `bytes` is not one. Link keys
 // are left out and Bluetooth addresses kept only to their last byte, as the

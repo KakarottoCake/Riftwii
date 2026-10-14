@@ -211,6 +211,119 @@ std::uint32_t find_launch_menu_exit(const std::vector<CodeSpan>& spans) {
     return newer != 0 ? newer : first_launch_place(spans, 6, 5, 7);
 }
 
+namespace {
+
+constexpr std::uint16_t kProbeAddress = 0x1770;     // past a Wii Remote's memory
+constexpr std::uint16_t kCalibrationAddress = 0x0016;
+constexpr std::uint32_t kReadReport = 0x17;
+constexpr std::size_t kNear = 16;                    // words searched around a place
+
+// The span holding `address` (4 bytes), or nullptr.
+const CodeSpan* span_at(const std::vector<CodeSpan>& spans, std::uint32_t address) {
+    for (const CodeSpan& s : spans) {
+        if (address >= s.address && address - s.address + 4 <= s.size) return &s;
+    }
+    return nullptr;
+}
+
+bool word_at(const std::vector<CodeSpan>& spans, std::uint32_t address, std::uint32_t& word) {
+    const CodeSpan* s = span_at(spans, address);
+    if (s == nullptr) return false;
+    word = be32(s->bytes + (address - s->address));
+    return true;
+}
+
+void put_word(const std::vector<CodeSpan>& spans, std::uint32_t address, std::uint32_t word) {
+    const CodeSpan* s = span_at(spans, address);
+    if (s == nullptr) return;
+    std::uint8_t* p = s->bytes + (address - s->address);
+    p[0] = static_cast<std::uint8_t>(word >> 24);
+    p[1] = static_cast<std::uint8_t>(word >> 16);
+    p[2] = static_cast<std::uint8_t>(word >> 8);
+    p[3] = static_cast<std::uint8_t>(word);
+}
+
+unsigned rd(std::uint32_t word) { return (word >> 21) & 31; }
+unsigned ra(std::uint32_t word) { return (word >> 16) & 31; }
+
+// li rD,value (addi rD,0,value)
+bool is_li(std::uint32_t word, std::uint16_t value) {
+    return (word & 0xFC1F0000u) == 0x38000000u && (word & 0xFFFFu) == value;
+}
+
+// The callback loaded into a register just before the probe:
+// "lis rC,hi" then "addi rC,rC,lo".
+std::uint32_t callback_before(const std::vector<CodeSpan>& spans, std::uint32_t probe) {
+    for (std::size_t back = 1; back <= kNear; ++back) {
+        std::uint32_t addi = 0;
+        if (!word_at(spans, probe - 4 * back, addi)) return 0;
+        const bool is_addi = (addi >> 26) == 14 && rd(addi) == ra(addi) && ra(addi) != 0;
+        if (!is_addi) continue;
+        const unsigned reg = rd(addi);
+        for (std::size_t further = 1; further <= kNear; ++further) {
+            std::uint32_t lis = 0;
+            if (!word_at(spans, probe - 4 * (back + further), lis)) return 0;
+            if ((lis & 0xFC1F0000u) == 0x3C000000u && rd(lis) == reg) {
+                const std::int32_t low = static_cast<std::int16_t>(addi & 0xFFFF);
+                return ((lis & 0xFFFFu) << 16) + static_cast<std::uint32_t>(low);
+            }
+        }
+    }
+    return 0;
+}
+
+}  // namespace
+
+bool find_wpad_probe(const std::vector<CodeSpan>& spans, WpadProbePatch& out, std::string& why) {
+    out = WpadProbePatch{};
+    unsigned found = 0;
+    for (const CodeSpan& s : spans) {
+        for (std::size_t o = 0; o + 4 <= s.size; o += 4) {
+            if (!is_li(be32(s.bytes + o), kProbeAddress)) continue;
+            const std::uint32_t at = s.address + static_cast<std::uint32_t>(o);
+            // The read report's number close by.
+            bool report = false;
+            for (std::size_t k = 1; k <= kNear && !report; ++k) {
+                std::uint32_t w = 0;
+                if (word_at(spans, at + 4 * k, w) && is_li(w, kReadReport)) report = true;
+                if (word_at(spans, at - 4 * k, w) && is_li(w, kReadReport)) report = true;
+            }
+            if (!report) continue;
+            ++found;
+            if (out.probe == 0) out.probe = at;
+        }
+    }
+    if (found != 1) {
+        why = found == 0 ? "the firmware probe was not found" : "more than one firmware probe was found";
+        return false;
+    }
+    out.handler = callback_before(spans, out.probe);
+    if (out.handler == 0 || span_at(spans, out.handler) == nullptr) {
+        why = "the probe's answer handler was not found";
+        return false;
+    }
+    // In the handler: "cmpwi r4,-1" (no controller), then "mr rD,r4".
+    bool checked = false;
+    for (std::size_t k = 0; k < kNear; ++k) {
+        std::uint32_t w = 0;
+        if (!word_at(spans, out.handler + 4 * k, w)) break;
+        if (w == 0x2C04FFFFu) checked = true;
+        if (checked && (w & 0xFFE0FFFFu) == 0x7C802378u) {
+            out.result = out.handler + 4 * static_cast<std::uint32_t>(k);
+            return true;
+        }
+    }
+    why = "the handler does not keep the result as expected";
+    return false;
+}
+
+void apply_wpad_probe(const std::vector<CodeSpan>& spans, const WpadProbePatch& patch) {
+    std::uint32_t probe = 0, result = 0;
+    if (!word_at(spans, patch.probe, probe) || !word_at(spans, patch.result, result)) return;
+    put_word(spans, patch.probe, (probe & 0xFFFF0000u) | kCalibrationAddress);
+    put_word(spans, patch.result, 0x38000001u | (ra(result) << 21));  // li rD,1
+}
+
 bool describe_wpad_log(const std::uint8_t* bytes, std::size_t size, std::string& text, std::string& error) {
     constexpr std::size_t kHeader = 32;
     constexpr std::size_t kEntry = 152;

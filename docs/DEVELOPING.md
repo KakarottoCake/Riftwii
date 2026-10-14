@@ -116,6 +116,15 @@ It is on when the menu saw a Wii U Pro Controller. `wpad_log = on` in
 `settings.txt` keeps it for every launch (Dolphin tests), `wpad_log = off`
 never. Not in code builds or games that clear MEM1's top.
 
+What the logs showed: right after a controller connects, the game's Wii
+Remote library reads one byte at address 0x1770, past the end of a Wii
+Remote's memory, and takes the error a Wii Remote answers as "firmware 2.1
+or later". The Pro Controller hangs up on that read instead. `wpad_probe =
+valid` in `settings.txt` (a test, off by default) makes the probe read
+0x0016 and the answer's handler take the error path anyway, so Wii Remotes
+behave as before (`find_wpad_probe` in `src/patching/wpadlog.cpp`; found in
+Mario Kart Wii, City Folk and Brawl).
+
 ## A game that only fails on a console
 
 `debug_off` in `sd:/riftwii/settings.txt` turns RiftWii's launch extras
