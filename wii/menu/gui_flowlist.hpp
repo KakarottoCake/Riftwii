@@ -43,6 +43,9 @@ public:
     int Selected() const { return focus; }
     // Where row `index` is on screen now (its top), scrolled.
     int RowTop(int index) const { return y0 + index * kRowHeight - static_cast<int>(scroll); }
+    // The row at the top of the list once a scroll that is under way ends
+    // (the pointer moving the focus does not change it).
+    int TopRow() const { return static_cast<int>(aim + kRowHeight / 2) / kRowHeight; }
     // Scrolled to the bottom (a list that fits is always there).
     bool AtEnd() const { return scroll >= static_cast<float>(MaxScroll()) - 1.0f; }
     // The row acted on (A, or stepped forward), or stepped back (-, the

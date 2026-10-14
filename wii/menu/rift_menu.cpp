@@ -751,15 +751,20 @@ static std::string TrimSearch(const std::string& typed)
 	return from == std::string::npos ? "" : typed.substr(from, typed.find_last_not_of(' ') - from + 1);
 }
 
-static bool MatchesSearch(const std::string& name, const std::string& id)
+// Every word of `typed` is in the name or the game ID, in any order.
+static bool WordsMatch(const std::string& typed, const std::string& name, const std::string& id)
 {
-	// Every word typed must be in the name or the game ID, in any order.
-	std::istringstream words(g_search);
+	std::istringstream words(typed);
 	std::string word;
 	while (words >> word) {
 		if (!strcasestr(name.c_str(), word.c_str()) && !strcasestr(id.c_str(), word.c_str())) return false;
 	}
 	return true;
+}
+
+static bool MatchesSearch(const std::string& name, const std::string& id)
+{
+	return WordsMatch(g_search, name, id);
 }
 
 struct HomeEntry {
@@ -1439,6 +1444,23 @@ static std::string LaunchNote(const FrontendState& state)
 	return note;
 }
 
+// Home's count and button line on the Wii Menu's bar, which otherwise holds
+// the date alone: shown until the player has used 1 (the view) or 2
+// (Settings) once, so a first-time player learns them and the look stays
+// clean after. Kept in settings.txt as home_hints = learned.
+static bool HomeHintsLearned()
+{
+	const auto& other = riftwii::wii::Settings().other;
+	const auto it = other.find("home_hints");
+	return it != other.end() && it->second == "learned";
+}
+static void LearnHomeHints()
+{
+	if (HomeHintsLearned()) return;
+	riftwii::wii::Settings().other["home_hints"] = "learned";
+	riftwii::wii::SaveSettings();
+}
+
 static std::string HomeStatus(const FrontendState& state, const std::vector<GridItem>& items)
 {
 	if (!g_homeNotice.empty()) return g_homeNotice;
@@ -1463,8 +1485,9 @@ static std::string HomeStatus(const FrontendState& state, const std::vector<Grid
 	if (g_filter == Filter::Favorites && games == 0)
 		return tr("No favourite is on these drives. Mark games on their page. Press 1 for all games.");
 	if (games == 0) return "No games found (usb:/wbfs, usb:/games, sd:/wbfs, sd:/games)";
-	// The Wii Menu's bar holds the date and nothing more.
-	if (!skin::BarBump()) return "";
+	// The Wii Menu's bar holds the date and nothing more, once the buttons
+	// are learned.
+	if (!skin::BarBump() && HomeHintsLearned()) return "";
 	const std::string count = games == 1 ? std::string(tr("1 game")) : tr("{1} games", {std::to_string(games)});
 	return std::string(tr(FilterLabel(g_filter))) + ": " + count + "\n" + tr("1: view   2: settings   -/+: pages   B: A to Z");
 }
@@ -2638,13 +2661,17 @@ static void ClockText(std::string& clock, std::string& date)
 // runs, with the GUI halted, each time the entry changes (Home filters
 // its games as the player types, a tester's wish) and returns the line
 // shown beside the title, `matches` the games named above the card.
+// `typed` gets what is typed so far and fills in the matches' names and the
+// characters that still lead to a game when typed next (see
+// GuiSearchKeys::SetAvailable); it returns the count line.
 static bool AskSearch(std::string& text,
-	const std::function<std::string(const std::string&, std::string& matches)>& typed)
+	const std::function<std::string(const std::string&, std::string& matches, std::string& next)>& typed)
 {
 	GuiSearchKeys keys(text);
-	std::string matches;
-	keys.SetCount(typed(text, matches));
+	std::string matches, next;
+	keys.SetCount(typed(text, matches, next));
 	keys.SetMatches(matches);
+	keys.SetAvailable(next);
 	mainWindow->SetState(STATE::DISABLED);
 	mainWindow->Append(&keys);
 	keys.SetState(STATE::DEFAULT);
@@ -2655,8 +2682,9 @@ static bool AskSearch(std::string& text,
 		if (keys.Text() == last) continue;
 		HaltGui();
 		last = keys.Text();
-		keys.SetCount(typed(last, matches));
+		keys.SetCount(typed(last, matches, next));
 		keys.SetMatches(matches);
+		keys.SetAvailable(next);
 		ResumeGui();
 	}
 	HaltGui();
@@ -3154,18 +3182,38 @@ static int MenuSource(FrontendState& state)
 			if (ShowHomeMenu() > 0) menu = MENU_EXIT;
 		} else if (settingsBtn.Clicked()) {
 			g_homeFocus = grid.FocusedIndex();
+			LearnHomeHints();
 			menu = MENU_OPTIONS;
 		} else if (searchBtn.Clicked()) {
 			searchBtn.button.ResetState();
 			const std::string before = g_search;
 			std::string typed = g_search;
 			// The games behind the keyboard follow what is typed.
-			const auto live = [&](const std::string& words, std::string& matches) -> std::string {
+			const auto live = [&](const std::string& words, std::string& matches, std::string& next) -> std::string {
 				g_search = TrimSearch(words);
 				BuildHome(state, items, entries);
 				grid.SetItems(&items);
 				grid.Focus(0);
 				matches.clear();
+				// The keys still worth pressing: a character is live when some
+				// game shown now still matches with it typed next (a Space
+				// once a word is typed). The list only narrows, so the games
+				// shown are the ones to try.
+				next.clear();
+				static const char kCandidates[] = "abcdefghijklmnopqrstuvwxyz0123456789-'. ";
+				for (const char* c = kCandidates; *c; ++c) {
+					if (*c == ' ' && (words.empty() || words.back() == ' ')) continue;
+					const std::string trial = words + *c;
+					for (const HomeEntry& e : entries) {
+						if (e.kind == HomeEntry::Kind::Disc) continue;
+						const riftwii::wii::ImageGame& g = e.kind == HomeEntry::Kind::Usb
+							? state.usb_catalog.games[e.index] : state.sd_catalog.games[e.index];
+						if (WordsMatch(trial, GameName(g), g.id)) {
+							next += *c;
+							break;
+						}
+					}
+				}
 				if (g_search.empty()) return "";
 				// The keyboard hides the grid: the first few by name
 				// (a tester saw only the count until Search).
@@ -3204,6 +3252,7 @@ static int MenuSource(FrontendState& state)
 			else g_filter = Filter::Mods;
 			logf("Home: filter %s\n", FilterLabel(g_filter));
 			riftwii::wii::Settings().other["view"] = FilterKey(g_filter);
+			riftwii::wii::Settings().other["home_hints"] = "learned";
 			riftwii::wii::SaveSettings();
 			refresh(false);
 		} else if (rescanBtn.GetState() == STATE::CLICKED) {
@@ -5405,26 +5454,43 @@ static int MenuSettings(FrontendState& state)
 	};
 	versionTxt.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
 	versionTxt.SetPosition(-40, 40);
+	// The group keys, always in view beside the version: the help line
+	// under the list belongs to the focused row.
+	GuiText groupKeysTxt(tr("1 and 2: groups"), 15, skin::kInkDim);
+	groupKeysTxt.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
+	groupKeysTxt.SetPosition(-(40 + versionTxt.GetTextWidth() + 28), 40);
 	Panel panel(skin::panelGame, 34, 76);
 	GuiFlowList list(46, 82, 548, 5);
 	list.SetRows(&rows);
 	list.Select(1);  // row 0 is the first group's name
-	GuiText noteTxt(tr("These apply to every game. A game's own page can change them for that game."), 16, skin::kInkSoft);
+	GuiText noteTxt(tr("These apply to every game. A game's own page can change them for that game. 1 and 2 jump between the groups."), 16, skin::kInkSoft);
 	Place(noteTxt, 52, 312);
 	noteTxt.SetWrap(true, 536, 4);
 
 	SkinButton backBtn(skin::pill, skin::pillOver, 4, 198, 406, "Back",
 		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
+	// The list is long (four groups, some 60 rows): 1 and 2 (a GameCube
+	// pad's L and R, a Classic Controller's ZL and ZR) jump to the previous
+	// and the next group.
+	GuiTrigger trigPrevGroup, trigNextGroup;
+	trigPrevGroup.SetButtonOnlyTrigger(-1, WPAD_BUTTON_1 | WPAD_CLASSIC_BUTTON_ZL, PAD_TRIGGER_L);
+	trigNextGroup.SetButtonOnlyTrigger(-1, WPAD_BUTTON_2 | WPAD_CLASSIC_BUTTON_ZR, PAD_TRIGGER_R);
+	GuiButton prevGroupBtn(0, 0), nextGroupBtn(0, 0);
+	prevGroupBtn.SetTrigger(&trigPrevGroup);
+	nextGroupBtn.SetTrigger(&trigNextGroup);
 
 	HaltGui();
 	GuiWindow w(screenwidth, screenheight);
 	w.Append(&titleBand);
 	w.Append(&titleTxt);
 	w.Append(&versionTxt);
+	w.Append(&groupKeysTxt);
 	w.Append(&panel);
 	w.Append(&list);
 	w.Append(&noteTxt);
 	w.Append(&backBtn.button);
+	w.Append(&prevGroupBtn);
+	w.Append(&nextGroupBtn);
 	mainWindow->Append(&w);
 	ResumeGui();
 
@@ -5454,7 +5520,7 @@ static int MenuSettings(FrontendState& state)
 			case kPlayHistory: return tr("Counts the games you start from RiftWii, for Recently played, Home order and a game's page. Off: nothing more is counted, and the counts are not shown.");
 			case kHomeSource: return tr("Which drive's games Home lists. With a game on both, one drive's copy is enough.");
 			case kHomeSort: return tr("The order of the games on Home. Last played and Most played put the games you played from RiftWii first, the rest after them A to Z.");
-			case kMusic: return riftwii::wii::MenuMusicFound() ? tr("Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder.") : tr("No music.ogg found in sd:/riftwii or in RiftWii's own folder.");
+			case kMusic: return (riftwii::wii::MenuMusicFound() || settings.menu_music != "on") ? tr("Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder.") : tr("Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music.");
 			case kServer: return tr("The online server the game uses in place of Nintendo's, which closed. Custom uses wfc_domain in settings.txt.");
 			case kOnline:
 				return settings.online ? tr("Game names and cheats are downloaded when the Wii is online.")
@@ -5486,7 +5552,7 @@ static int MenuSettings(FrontendState& state)
 			case kWiiChannel:
 				if (!channelCan) return std::string(tr(channelWhy.c_str())) + ".";
 				return tr("A Wii Menu channel that starts RiftWii from the SD card. It holds no copy of RiftWii, so updates keep working. Opens the channel installer, to add, update or remove it.");
-			case kExit: return tr("Opens the HOME Menu, as HOME does: the Homebrew Channel, the Wii Menu, Priiloader or power off.");
+			case kExit: return tr("Pick where to go: the Homebrew Channel, the Wii Menu, Priiloader, or power off.");
 			case kHeading: return "";
 			case kNone:  // the Menu IOS row when there is nothing to choose
 				return tr("No d2x cIOS was found in slots 248 to 252, so the menu runs under IOS 58. Install d2x to play games from SD or USB.");
@@ -5499,6 +5565,41 @@ static int MenuSettings(FrontendState& state)
 		usleep(10000);
 		HaltGui();
 		ClearStaleButtons({&backBtn.button});
+		const bool toPrevGroup = prevGroupBtn.GetState() == STATE::CLICKED;
+		const bool toNextGroup = nextGroupBtn.GetState() == STATE::CLICKED;
+		if (toPrevGroup || toNextGroup) {
+			prevGroupBtn.ResetState();
+			nextGroupBtn.ResetState();
+			// Where the player is: a group heading at the top of the list
+			// (where the last jump left it), else the group of the focused
+			// row. The list's top is the guide, not the focus alone: with a
+			// Wii Remote pointing at the screen, the row under the pointer
+			// takes the focus again after every jump.
+			const int count = static_cast<int>(actions.size());
+			const int top = list.TopRow();
+			const bool headingOnTop = top >= 0 && top < count && actions[static_cast<std::size_t>(top)] == kHeading;
+			int start = headingOnTop ? top : list.Selected();
+			while (start > 0 && actions[static_cast<std::size_t>(start)] != kHeading) --start;
+			int target = -1;
+			if (toNextGroup) {
+				for (int i = start + 1; i < count && target < 0; ++i)
+					if (actions[static_cast<std::size_t>(i)] == kHeading) target = i;
+			} else {
+				// Back to this group's heading when it is not shown at the
+				// top; from there, to the group above.
+				int from = headingOnTop ? start - 1 : start;
+				while (from > 0 && actions[static_cast<std::size_t>(from)] != kHeading) --from;
+				target = from;
+			}
+			if (target >= 0 && target + 1 < count) {
+				// The heading at the top of the list, its first row focused:
+				// the row four below (the list shows five) brings the heading
+				// to the top going down, the heading itself does going up.
+				list.Select(std::min(target + 4, count - 1));
+				list.Select(target);
+				list.Select(target + 1);
+			}
+		}
 		const int focused = list.Selected();
 		if (focused != shownRow && focused >= 0 && static_cast<std::size_t>(focused) < actions.size()) {
 			shownRow = focused;
@@ -5651,7 +5752,7 @@ static int MenuSettings(FrontendState& state)
 					settings.menu_music = settings.menu_music == "off" ? "on" : "off";
 					if (settings.menu_music == "off") riftwii::wii::MenuMusicStop();
 					else riftwii::wii::MenuMusicStart();
-					saveAndNote(riftwii::wii::MenuMusicFound() ? tr("Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder.") : tr("No music.ogg found in sd:/riftwii or in RiftWii's own folder."));
+					saveAndNote((riftwii::wii::MenuMusicFound() || settings.menu_music != "on") ? tr("Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder.") : tr("Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music."));
 					rebuild();
 					break;
 				case kHomeTiles:

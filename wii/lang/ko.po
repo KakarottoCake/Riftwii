@@ -429,8 +429,11 @@ msgstr "RiftWii 나가기"
 msgid "Exit"
 msgstr "나가기"
 
-msgid "These apply to every game. A game's own page can change them for that game."
-msgstr "이 내용은 모든 게임에 적용됩니다. 개별 게임 페이지에서 해당 게임에 맞춰 이를 변경할 수 있습니다."
+msgid "These apply to every game. A game's own page can change them for that game. 1 and 2 jump between the groups."
+msgstr "모든 게임에 적용됩니다. 각 게임의 페이지에서 그 게임만 바꿀 수 있습니다. 1과 2로 그룹 사이를 이동합니다."
+
+msgid "1 and 2: groups"
+msgstr "1과 2: 그룹"
 
 msgid "Game names follow the language when they are downloaded."
 msgstr "게임 이름은 다운로드 시 해당 언어를 따릅니다."
@@ -810,8 +813,8 @@ msgstr "실험적 기능입니다. 게임 중 1번 버튼을 누른 상태에서
 msgid "Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder."
 msgstr "메뉴가 열려 있을 때 재생되는 음악: sd:/riftwii 경로의 music.ogg 또는 RiftWii 폴더 내의 음악 파일입니다."
 
-msgid "No music.ogg found in sd:/riftwii or in RiftWii's own folder."
-msgstr "sd:/riftwii 또는 RiftWii 자체 폴더에서 music.ogg 파일을 찾을 수 없습니다."
+msgid "Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music."
+msgstr "음악이 켜져 있지만 재생할 음악이 없습니다. sd:/riftwii에 music.ogg를 넣거나 음악이 있는 테마를 고르세요."
 
 msgid "On a Wii U the GameCube adapter may not work in game from the front USB ports; the rear ones work."
 msgstr "Wii U에서 게임큐브 어댑터를 전면 USB 포트에 연결하면 게임 중에 작동하지 않을 수 있으나, 후면 포트에서는 정상적으로 작동합니다."
@@ -1125,8 +1128,8 @@ msgstr "홈 메뉴"
 msgid "Close"
 msgstr "닫기"
 
-msgid "Opens the HOME Menu, as HOME does: the Homebrew Channel, the Wii Menu, Priiloader or power off."
-msgstr "홈 버튼과 마찬가지로 홈 메뉴(홈브류 채널, Wii 메뉴, Priiloader 또는 전원 끄기)를 엽니다."
+msgid "Pick where to go: the Homebrew Channel, the Wii Menu, Priiloader, or power off."
+msgstr "갈 곳을 고릅니다: 홈브류 채널, Wii 메뉴, Priiloader 또는 전원 끄기."
 
 msgid "Sending a report"
 msgstr "보고서 전송"

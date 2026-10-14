@@ -429,8 +429,11 @@ msgstr "RiftWiiを終わる"
 msgid "Exit"
 msgstr "終わる"
 
-msgid "These apply to every game. A game's own page can change them for that game."
-msgstr "すべてのゲームに適用されます。各ゲームのページでそのゲームだけ変えられます。"
+msgid "These apply to every game. A game's own page can change them for that game. 1 and 2 jump between the groups."
+msgstr "すべてのゲームに使われます。ゲームのページでそのゲームだけ変えられます。1と2でグループを移動します。"
+
+msgid "1 and 2: groups"
+msgstr "1と2：グループ"
 
 msgid "Game names follow the language when they are downloaded."
 msgstr "ゲーム名はダウンロード時にこの言語になります。"
@@ -810,8 +813,8 @@ msgstr "試験的な機能です。ゲーム中に1を押したままHOME(ゲー
 msgid "Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder."
 msgstr "メニューを開いている間の音楽です: sd:/riftwiiのmusic.ogg、なければRiftWiiのフォルダのものを流します。"
 
-msgid "No music.ogg found in sd:/riftwii or in RiftWii's own folder."
-msgstr "sd:/riftwiiにもRiftWiiのフォルダにもmusic.oggがありません。"
+msgid "Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music."
+msgstr "音楽はオンですが、流す曲がありません。sd:/riftwiiにmusic.oggを置くか、音楽のあるテーマを選んでください。"
 
 msgid "On a Wii U the GameCube adapter may not work in game from the front USB ports; the rear ones work."
 msgstr "Wii Uでは、前面のUSBポートだとゲーム中にゲームキューブアダプターが動かないことがあります。背面のポートなら動きます。"
@@ -1125,8 +1128,8 @@ msgstr "HOMEメニュー"
 msgid "Close"
 msgstr "とじる"
 
-msgid "Opens the HOME Menu, as HOME does: the Homebrew Channel, the Wii Menu, Priiloader or power off."
-msgstr "HOMEボタンと同じく、HOMEメニューを開きます: Homebrew Channel、Wiiメニュー、Priiloader、電源を切る。"
+msgid "Pick where to go: the Homebrew Channel, the Wii Menu, Priiloader, or power off."
+msgstr "行き先を選びます：Homebrew Channel、Wiiメニュー、Priiloader、または電源オフ。"
 
 msgid "Sending a report"
 msgstr "レポートを送信中"

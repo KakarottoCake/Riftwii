@@ -429,8 +429,11 @@ msgstr "Esci da RiftWii"
 msgid "Exit"
 msgstr "Esci"
 
-msgid "These apply to every game. A game's own page can change them for that game."
-msgstr "Valgono per tutti i giochi. La pagina di ogni gioco può cambiarle per quel gioco."
+msgid "These apply to every game. A game's own page can change them for that game. 1 and 2 jump between the groups."
+msgstr "Valgono per tutti i giochi. La pagina di ogni gioco può cambiarli per quel gioco. 1 e 2 saltano tra i gruppi."
+
+msgid "1 and 2: groups"
+msgstr "1 e 2: gruppi"
 
 msgid "Game names follow the language when they are downloaded."
 msgstr "I nomi dei giochi seguono la lingua quando vengono scaricati."
@@ -810,8 +813,8 @@ msgstr "Sperimentale. In un gioco, tieni premuto 1 e premi HOME (controller Game
 msgid "Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder."
 msgstr "Musica mentre il menu è aperto: music.ogg da sd:/riftwii, o quella nella cartella di RiftWii."
 
-msgid "No music.ogg found in sd:/riftwii or in RiftWii's own folder."
-msgstr "Nessun music.ogg in sd:/riftwii né nella cartella di RiftWii."
+msgid "Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music."
+msgstr "La musica è attiva, ma non c'è niente da suonare: metti un music.ogg in sd:/riftwii o scegli un tema con musica."
 
 msgid "On a Wii U the GameCube adapter may not work in game from the front USB ports; the rear ones work."
 msgstr "Su Wii U l'adattatore GameCube potrebbe non funzionare in gioco dalle porte USB anteriori; quelle posteriori funzionano."
@@ -1125,8 +1128,8 @@ msgstr "Menu HOME"
 msgid "Close"
 msgstr "Chiudi"
 
-msgid "Opens the HOME Menu, as HOME does: the Homebrew Channel, the Wii Menu, Priiloader or power off."
-msgstr "Apre il menu HOME, come il tasto HOME: Homebrew Channel, Menu Wii, Priiloader o spegnimento."
+msgid "Pick where to go: the Homebrew Channel, the Wii Menu, Priiloader, or power off."
+msgstr "Scegli dove andare: Homebrew Channel, Menu Wii, Priiloader o spegnimento."
 
 msgid "Sending a report"
 msgstr "Invio della segnalazione"

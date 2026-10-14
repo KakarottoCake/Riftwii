@@ -429,8 +429,11 @@ msgstr "Sair do RiftWii"
 msgid "Exit"
 msgstr "Sair"
 
-msgid "These apply to every game. A game's own page can change them for that game."
-msgstr "Valem para todos os jogos. A página de cada jogo pode mudá-los só para ele."
+msgid "These apply to every game. A game's own page can change them for that game. 1 and 2 jump between the groups."
+msgstr "Valem para todos os jogos. A página de cada jogo pode mudá-los para esse jogo. 1 e 2 pulam entre os grupos."
+
+msgid "1 and 2: groups"
+msgstr "1 e 2: grupos"
 
 msgid "Game names follow the language when they are downloaded."
 msgstr "Os nomes dos jogos seguem o idioma quando são baixados."
@@ -810,8 +813,8 @@ msgstr "Experimental. Num jogo, segure 1 e aperte HOME (controle de GameCube: se
 msgid "Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder."
 msgstr "Música enquanto o menu está aberto: music.ogg de sd:/riftwii, ou a da pasta do RiftWii."
 
-msgid "No music.ogg found in sd:/riftwii or in RiftWii's own folder."
-msgstr "Nenhum music.ogg em sd:/riftwii nem na pasta do RiftWii."
+msgid "Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music."
+msgstr "A música está ligada, mas não há nada para tocar: coloque um music.ogg em sd:/riftwii ou escolha um tema com música."
 
 msgid "On a Wii U the GameCube adapter may not work in game from the front USB ports; the rear ones work."
 msgstr "No Wii U, o adaptador de GameCube pode não funcionar no jogo pelas portas USB da frente; as de trás funcionam."
@@ -1125,8 +1128,8 @@ msgstr "Menu HOME"
 msgid "Close"
 msgstr "Fechar"
 
-msgid "Opens the HOME Menu, as HOME does: the Homebrew Channel, the Wii Menu, Priiloader or power off."
-msgstr "Abre o menu HOME, como o botão HOME: Homebrew Channel, Menu Wii, Priiloader ou desligar."
+msgid "Pick where to go: the Homebrew Channel, the Wii Menu, Priiloader, or power off."
+msgstr "Escolha para onde ir: Homebrew Channel, Menu do Wii, Priiloader ou desligar."
 
 msgid "Sending a report"
 msgstr "Enviando um relatório"

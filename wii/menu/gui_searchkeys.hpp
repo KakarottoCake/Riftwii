@@ -29,6 +29,11 @@ public:
     // The games that match so far, on a box above the card (the keyboard
     // hides the grid behind it); empty hides the box. GUI halted.
     void SetMatches(const std::string& text);
+    // Home's search: the characters that still lead to a game when typed
+    // next (lower case; ' ' for Space). The other letter keys are dimmed,
+    // can't be typed and the D-pad passes over them, so a name is a few
+    // presses away. Not called (the hex pad): every key. GUI halted.
+    void SetAvailable(const std::string& chars);
     // Search was chosen (1), cancelled (-1), or neither yet (0).
     int Result() const { return result; }
     void Draw() override;
@@ -43,6 +48,8 @@ private:
         GuiText* caption;
     };
     void Press(const Key& k);
+    // Whether `k` can be pressed: an action, or a character still available.
+    bool Live(const Key& k) const;
     int KeyAt(int x, int y) const;
     int Neighbour(int from, int dRow) const;
     int Y(int row) const;
@@ -51,6 +58,8 @@ private:
 
     std::vector<Key> keys;
     std::string text;
+    std::string available;  // SetAvailable's characters
+    bool limited = false;   // SetAvailable was called
     std::size_t maxLength = kMaxLength;
     bool hex = false;
     GuiText* shown;

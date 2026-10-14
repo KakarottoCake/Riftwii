@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "gui_searchkeys.hpp"
 
+#include <cctype>
+#include <cstdlib>
+
 #include "i18n.hpp"
 #include "riftwii/skinpaint.hpp"
 #include "skin.hpp"
@@ -16,6 +19,9 @@ constexpr int kPanelX = 34, kPanelY = 102;
 constexpr int kKeyLeft = 60, kKeyPitch = 52, kKeyW = 48, kKeyH = 30;
 constexpr int kFirstRowY = 190, kRowPitch = 35, kActionRowY = 334, kActionH = 34;
 constexpr int kRows = 5;  // four of letters, one of actions
+// The box above the card (a cheat value's note, Home's live matches): clear
+// of a TV's overscan at the top, ending above the card (kPanelY 102).
+constexpr int kBoxY = 24, kBoxH = 70;
 
 bool Pressed(GuiTrigger* t, u32 wpad, u32 drc) {
     return (t->wpad && (t->wpad->btns_d & wpad)) || (t->wiidrcdata.btns_d & drc);
@@ -90,7 +96,7 @@ void GuiSearchKeys::Build(const std::string& titleText, const std::string& noteT
         note = new GuiText(noteText.c_str(), 16, skin::kInk);
         note->SetParent(this);
         note->SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
-        note->SetPosition(kPanelX + 10, 20);
+        note->SetPosition(kPanelX + 10, kBoxY + 8);
         note->SetWrap(true, 572 - 20, 3);
     }
     title = new GuiText(titleText.c_str(), 24, skin::kInk);
@@ -100,7 +106,7 @@ void GuiSearchKeys::Build(const std::string& titleText, const std::string& noteT
     matches = new GuiText("", 16, skin::kInk);
     matches->SetParent(this);
     matches->SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
-    matches->SetPosition(kPanelX + 10, 20);
+    matches->SetPosition(kPanelX + 10, kBoxY + 8);
     matches->SetWrap(true, 572 - 20, 3);
     count = new GuiText("", 18, skin::kInkSoft);
     count->SetParent(this);
@@ -127,6 +133,30 @@ GuiSearchKeys::~GuiSearchKeys() {
 
 void GuiSearchKeys::SetCount(const std::string& line) { count->SetText(line.c_str()); }
 
+void GuiSearchKeys::SetAvailable(const std::string& chars) {
+    available = chars;
+    limited = true;
+    if (Live(keys[static_cast<std::size_t>(focus)])) return;
+    // The focused key went dead: the nearest live one in its row, else Search.
+    const Key& f = keys[static_cast<std::size_t>(focus)];
+    int best = -1, gap = 1 << 30;
+    for (std::size_t i = 0; i < keys.size(); ++i) {
+        if (keys[i].row != f.row || !Live(keys[i])) continue;
+        const int d = std::abs(keys[i].x - f.x);
+        if (d < gap) {
+            gap = d;
+            best = static_cast<int>(i);
+        }
+    }
+    focus = best >= 0 ? best : static_cast<int>(keys.size()) - 1;
+}
+
+bool GuiSearchKeys::Live(const Key& k) const {
+    if (!limited || (k.act != Key::Act::Type && k.act != Key::Act::Space)) return true;
+    const char lower = static_cast<char>(std::tolower(static_cast<unsigned char>(k.ch)));
+    return available.find(lower) != std::string::npos;
+}
+
 void GuiSearchKeys::SetMatches(const std::string& text) {
     matches->SetText(text.c_str());
     showMatches = !text.empty();
@@ -148,14 +178,14 @@ int GuiSearchKeys::Neighbour(int from, int dRow) const {
     // Rows with no keys (the hex keypad's) are passed over.
     const auto empty = [&](int r) {
         for (const Key& k : keys)
-            if (k.row == r) return false;
+            if (k.row == r && Live(k)) return false;
         return true;
     };
     while (row >= 0 && row < kRows && empty(row)) row += dRow;
     if (row < 0 || row >= kRows) return from;
     int best = from, gap = 1 << 30;
     for (std::size_t i = 0; i < keys.size(); ++i) {
-        if (keys[i].row != row) continue;
+        if (keys[i].row != row || !Live(keys[i])) continue;
         const int d = std::abs((keys[i].x + keys[i].w / 2) - (f.x + f.w / 2));
         if (d < gap) {
             gap = d;
@@ -169,7 +199,7 @@ void GuiSearchKeys::Press(const Key& k) {
     switch (k.act) {
     case Key::Act::Type:
     case Key::Act::Space:
-        if (text.size() < maxLength) text += k.ch;
+        if (Live(k) && text.size() < maxLength) text += k.ch;
         break;
     case Key::Act::Back:
         if (!text.empty()) text.pop_back();
@@ -230,11 +260,13 @@ void GuiSearchKeys::Update(GuiTrigger* t) {
     } else if (t->Left()) {
         // Same row, the key just left of this one.
         for (std::size_t i = 0; i < keys.size(); ++i)
-            if (keys[i].row == f.row && keys[i].x < f.x && (to == focus || keys[i].x > keys[static_cast<std::size_t>(to)].x))
+            if (keys[i].row == f.row && keys[i].x < f.x && Live(keys[i]) &&
+                (to == focus || keys[i].x > keys[static_cast<std::size_t>(to)].x))
                 to = static_cast<int>(i);
     } else if (t->Right()) {
         for (std::size_t i = 0; i < keys.size(); ++i)
-            if (keys[i].row == f.row && keys[i].x > f.x && (to == focus || keys[i].x < keys[static_cast<std::size_t>(to)].x))
+            if (keys[i].row == f.row && keys[i].x > f.x && Live(keys[i]) &&
+                (to == focus || keys[i].x < keys[static_cast<std::size_t>(to)].x))
                 to = static_cast<int>(i);
     }
     if (to != focus) {
@@ -251,10 +283,10 @@ void GuiSearchKeys::Draw() {
     Menu_FillWholeScreen((GXColor){0, 0, 0, 150});
     if (note) {
         // On a box of its own: what is behind is dimmed, any colour.
-        Menu_DrawRectangle(kPanelX, 12, 572, 76, skin::kBadge, 1);
+        Menu_DrawRectangle(kPanelX, kBoxY, 572, kBoxH, skin::kBadge, 1);
         note->Draw();
     } else if (showMatches) {
-        Menu_DrawRectangle(kPanelX, 12, 572, 76, skin::kBadge, 1);
+        Menu_DrawRectangle(kPanelX, kBoxY, 572, kBoxH, skin::kBadge, 1);
         matches->Draw();
     }
     skin::Draw(skin::panelSettings, kPanelX - 4, kPanelY - 4);
@@ -279,8 +311,15 @@ void GuiSearchKeys::Draw() {
         // accent; a lit key ringed in the accent, with its glow.
         const bool primary = k.act == Key::Act::Search;
         skin::DrawNine(skin::keys[(primary ? 2 : 0) + (on ? 1 : 0)], k.x - 4, ky - 4, k.w + 8, kh + 8, riftwii::kKeyCorner);
-        k.caption->SetColor(primary ? skin::kTextOnAccent : skin::kInk);
+        const bool live = Live(k);
+        k.caption->SetColor(primary ? skin::kTextOnAccent : live ? skin::kInk : skin::kInkSoft);
         k.caption->SetPosition(k.x + (k.w - k.caption->GetTextWidth()) / 2, ky + (kh - 18) / 2 - 1);
         k.caption->Draw();
+        if (!live) {
+            // Faded into the card: still there (the layout stays put), clearly out.
+            GXColor veil = skin::kBadge;
+            veil.a = 150;
+            Menu_DrawRectangle(k.x - 2, ky - 2, k.w + 4, kh + 4, veil, 1);
+        }
     }
 }

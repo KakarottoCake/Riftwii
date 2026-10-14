@@ -343,11 +343,12 @@ T = {
     "Rescan": ("Buscar", "再検索", "Procurar", "Cerca"),
     "Leave RiftWii": ("Salir de RiftWii", "RiftWiiを終わる", "Sair do RiftWii", "Esci da RiftWii"),
     "Exit": ("Salir", "終わる", "Sair", "Esci"),
-    "These apply to every game. A game's own page can change them for that game.": (
-        "Se aplican a todos los juegos. La página de cada juego puede cambiarlos para ese juego.",
-        "すべてのゲームに適用されます。各ゲームのページでそのゲームだけ変えられます。",
-        "Valem para todos os jogos. A página de cada jogo pode mudá-los só para ele.",
-        "Valgono per tutti i giochi. La pagina di ogni gioco può cambiarle per quel gioco."),
+    "These apply to every game. A game's own page can change them for that game. 1 and 2 jump between the groups.": (
+        "Se aplican a todos los juegos. La página de cada juego puede cambiarlos para ese juego. 1 y 2 saltan entre los grupos.",
+        "すべてのゲームに使われます。ゲームのページでそのゲームだけ変えられます。1と2でグループを移動します。",
+        "Valem para todos os jogos. A página de cada jogo pode mudá-los para esse jogo. 1 e 2 pulam entre os grupos.",
+        "Valgono per tutti i giochi. La pagina di ogni gioco può cambiarli per quel gioco. 1 e 2 saltano tra i gruppi."),
+    "1 and 2: groups": ("1 y 2: grupos", "1と2：グループ", "1 e 2: grupos", "1 e 2: gruppi"),
     "Game names follow the language when they are downloaded.": (
         "Los nombres de los juegos siguen el idioma al descargarse.",
         "ゲーム名はダウンロード時にこの言語になります。",
@@ -717,11 +718,11 @@ T = {
         "メニューを開いている間の音楽です: sd:/riftwiiのmusic.ogg、なければRiftWiiのフォルダのものを流します。",
         "Música enquanto o menu está aberto: music.ogg de sd:/riftwii, ou a da pasta do RiftWii.",
         "Musica mentre il menu è aperto: music.ogg da sd:/riftwii, o quella nella cartella di RiftWii."),
-    "No music.ogg found in sd:/riftwii or in RiftWii's own folder.": (
-        "No hay ningún music.ogg en sd:/riftwii ni en la carpeta de RiftWii.",
-        "sd:/riftwiiにもRiftWiiのフォルダにもmusic.oggがありません。",
-        "Nenhum music.ogg em sd:/riftwii nem na pasta do RiftWii.",
-        "Nessun music.ogg in sd:/riftwii né nella cartella di RiftWii."),
+    "Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music.": (
+        "La música está activada, pero no hay nada que sonar: pon un music.ogg en sd:/riftwii o elige un tema con música.",
+        "音楽はオンですが、流す曲がありません。sd:/riftwiiにmusic.oggを置くか、音楽のあるテーマを選んでください。",
+        "A música está ligada, mas não há nada para tocar: coloque um music.ogg em sd:/riftwii ou escolha um tema com música.",
+        "La musica è attiva, ma non c'è niente da suonare: metti un music.ogg in sd:/riftwii o scegli un tema con musica."),
     "On a Wii U the GameCube adapter may not work in game from the front USB ports; the rear ones work.": (
         "En una Wii U, el adaptador de GameCube puede no funcionar en el juego desde los puertos USB delanteros; los traseros sí funcionan.",
         "Wii Uでは、前面のUSBポートだとゲーム中にゲームキューブアダプターが動かないことがあります。背面のポートなら動きます。",
@@ -1076,11 +1077,11 @@ T = {
         "とじる",
         "Fechar",
         "Chiudi"),
-    "Opens the HOME Menu, as HOME does: the Homebrew Channel, the Wii Menu, Priiloader or power off.": (
-        "Abre el menú HOME, como el botón HOME: Homebrew Channel, menú de Wii, Priiloader o apagar.",
-        "HOMEボタンと同じく、HOMEメニューを開きます: Homebrew Channel、Wiiメニュー、Priiloader、電源を切る。",
-        "Abre o menu HOME, como o botão HOME: Homebrew Channel, Menu Wii, Priiloader ou desligar.",
-        "Apre il menu HOME, come il tasto HOME: Homebrew Channel, Menu Wii, Priiloader o spegnimento."),
+    "Pick where to go: the Homebrew Channel, the Wii Menu, Priiloader, or power off.": (
+        "Elige adónde ir: Homebrew Channel, menú de Wii, Priiloader o apagar.",
+        "行き先を選びます：Homebrew Channel、Wiiメニュー、Priiloader、または電源オフ。",
+        "Escolha para onde ir: Homebrew Channel, Menu do Wii, Priiloader ou desligar.",
+        "Scegli dove andare: Homebrew Channel, Menu Wii, Priiloader o spegnimento."),
     # Problem reports
     "Sending a report": ("Enviando un informe", "レポートを送信中", "Enviando um relatório", "Invio della segnalazione"),
     "Gathering the logs and sending them. This can take half a minute...": (
@@ -1956,8 +1957,10 @@ KO = {
         "RiftWii 나가기",
     "Exit":
         "나가기",
-    "These apply to every game. A game's own page can change them for that game.":
-        "이 내용은 모든 게임에 적용됩니다. 개별 게임 페이지에서 해당 게임에 맞춰 이를 변경할 수 있습니다.",
+    "These apply to every game. A game's own page can change them for that game. 1 and 2 jump between the groups.":
+        "모든 게임에 적용됩니다. 각 게임의 페이지에서 그 게임만 바꿀 수 있습니다. 1과 2로 그룹 사이를 이동합니다.",
+    "1 and 2: groups":
+        "1과 2: 그룹",
     "Game names follow the language when they are downloaded.":
         "게임 이름은 다운로드 시 해당 언어를 따릅니다.",
     "Game names and cheats are downloaded when the Wii is online.":
@@ -2198,8 +2201,8 @@ KO = {
         "실험적 기능입니다. 게임 중 1번 버튼을 누른 상태에서 홈 버튼을 누르세요 (또는 게임큐브 컨트롤러의 L과 R 버튼을 누른 상태에서 아래 방향키를 누르세요). 다음에 RiftWii를 실행하면 스크린샷이 sd:/riftwii/screenshots 경로에 저장됩니다. 일부 게임이나 모드에서는 이 기능이 작동하지 않을 수 있습니다.",
     "Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder.":
         "메뉴가 열려 있을 때 재생되는 음악: sd:/riftwii 경로의 music.ogg 또는 RiftWii 폴더 내의 음악 파일입니다.",
-    "No music.ogg found in sd:/riftwii or in RiftWii's own folder.":
-        "sd:/riftwii 또는 RiftWii 자체 폴더에서 music.ogg 파일을 찾을 수 없습니다.",
+    "Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music.":
+        "음악이 켜져 있지만 재생할 음악이 없습니다. sd:/riftwii에 music.ogg를 넣거나 음악이 있는 테마를 고르세요.",
     "On a Wii U the GameCube adapter may not work in game from the front USB ports; the rear ones work.":
         "Wii U에서 게임큐브 어댑터를 전면 USB 포트에 연결하면 게임 중에 작동하지 않을 수 있으나, 후면 포트에서는 정상적으로 작동합니다.",
     "Packs on USB are experimental; if it fails, copy them to SD.":
@@ -2400,8 +2403,8 @@ KO = {
         "홈 메뉴",
     "Close":
         "닫기",
-    "Opens the HOME Menu, as HOME does: the Homebrew Channel, the Wii Menu, Priiloader or power off.":
-        "홈 버튼과 마찬가지로 홈 메뉴(홈브류 채널, Wii 메뉴, Priiloader 또는 전원 끄기)를 엽니다.",
+    "Pick where to go: the Homebrew Channel, the Wii Menu, Priiloader, or power off.":
+        "갈 곳을 고릅니다: 홈브류 채널, Wii 메뉴, Priiloader 또는 전원 끄기.",
     "Sending a report":
         "보고서 전송",
     "Gathering the logs and sending them. This can take half a minute...":
@@ -3125,8 +3128,10 @@ FR = {
         "Quitter RiftWii",
     "Exit":
         "Quitter",
-    "These apply to every game. A game's own page can change them for that game.":
-        "S'applique à tous les jeux. La page propre à chaque jeu permet de les modifier.",
+    "These apply to every game. A game's own page can change them for that game. 1 and 2 jump between the groups.":
+        "S'applique à tous les jeux. La page d'un jeu peut les changer pour ce jeu. 1 et 2 passent d'un groupe à l'autre.",
+    "1 and 2: groups":
+        "1 et 2 : groupes",
     "Game names follow the language when they are downloaded.":
         "Les noms des jeux suivent la langue sélectionnée lors de leur téléchargement.",
     "Game names and cheats are downloaded when the Wii is online.":
@@ -3367,8 +3372,8 @@ FR = {
         "Expérimental. En jeu, maintenez 1 et appuyez sur HOME (Manette GC : L + R + Bas). Les images vont dans sd:/riftwii/screenshots au relancement de RiftWii. Incompatible avec certains jeux/mods.",
     "Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder.":
         "Musique du menu : fichier music.ogg situé dans sd:/riftwii ou dans le dossier propre de RiftWii.",
-    "No music.ogg found in sd:/riftwii or in RiftWii's own folder.":
-        "Aucun fichier music.ogg trouvé dans sd:/riftwii ou dans le dossier de RiftWii.",
+    "Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music.":
+        "La musique est activée, mais il n'y a rien à jouer : mettez un music.ogg dans sd:/riftwii ou choisissez un thème avec musique.",
     "On a Wii U the GameCube adapter may not work in game from the front USB ports; the rear ones work.":
         "Sur Wii U, l'adaptateur GameCube peut ne pas fonctionner sur les ports USB avant; utilisez les ports arrière.",
     "Packs on USB are experimental; if it fails, copy them to SD.":
@@ -3569,8 +3574,8 @@ FR = {
         "Menu HOME",
     "Close":
         "Fermer",
-    "Opens the HOME Menu, as HOME does: the Homebrew Channel, the Wii Menu, Priiloader or power off.":
-        "Ouvre le menu HOME : Chaîne Homebrew, Menu Wii, Priiloader ou extinction.",
+    "Pick where to go: the Homebrew Channel, the Wii Menu, Priiloader, or power off.":
+        "Choisissez où aller : Chaîne Homebrew, Menu Wii, Priiloader ou extinction.",
     "Sending a report":
         "Envoi du rapport",
     "Gathering the logs and sending them. This can take half a minute...":

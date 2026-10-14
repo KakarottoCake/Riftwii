@@ -429,8 +429,11 @@ msgstr "Salir de RiftWii"
 msgid "Exit"
 msgstr "Salir"
 
-msgid "These apply to every game. A game's own page can change them for that game."
-msgstr "Se aplican a todos los juegos. La página de cada juego puede cambiarlos para ese juego."
+msgid "These apply to every game. A game's own page can change them for that game. 1 and 2 jump between the groups."
+msgstr "Se aplican a todos los juegos. La página de cada juego puede cambiarlos para ese juego. 1 y 2 saltan entre los grupos."
+
+msgid "1 and 2: groups"
+msgstr "1 y 2: grupos"
 
 msgid "Game names follow the language when they are downloaded."
 msgstr "Los nombres de los juegos siguen el idioma al descargarse."
@@ -810,8 +813,8 @@ msgstr "Experimental. En un juego, mantén 1 y pulsa HOME (mando de GameCube: ma
 msgid "Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder."
 msgstr "Música mientras el menú está abierto: music.ogg de sd:/riftwii, o la de la carpeta de RiftWii."
 
-msgid "No music.ogg found in sd:/riftwii or in RiftWii's own folder."
-msgstr "No hay ningún music.ogg en sd:/riftwii ni en la carpeta de RiftWii."
+msgid "Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music."
+msgstr "La música está activada, pero no hay nada que sonar: pon un music.ogg en sd:/riftwii o elige un tema con música."
 
 msgid "On a Wii U the GameCube adapter may not work in game from the front USB ports; the rear ones work."
 msgstr "En una Wii U, el adaptador de GameCube puede no funcionar en el juego desde los puertos USB delanteros; los traseros sí funcionan."
@@ -1125,8 +1128,8 @@ msgstr "Menú HOME"
 msgid "Close"
 msgstr "Cerrar"
 
-msgid "Opens the HOME Menu, as HOME does: the Homebrew Channel, the Wii Menu, Priiloader or power off."
-msgstr "Abre el menú HOME, como el botón HOME: Homebrew Channel, menú de Wii, Priiloader o apagar."
+msgid "Pick where to go: the Homebrew Channel, the Wii Menu, Priiloader, or power off."
+msgstr "Elige adónde ir: Homebrew Channel, menú de Wii, Priiloader o apagar."
 
 msgid "Sending a report"
 msgstr "Enviando un informe"
