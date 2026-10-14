@@ -18,7 +18,7 @@
 //   AudioFrame  the end of AXNextFrame, once per audio frame (hook type
 //               7, which Project+ builds ask for in gameconfig.txt)
 // A second executable the game starts is hooked the same way, by
-// wii/dolswitch_stub.S (find_dol_jumps).
+// wii/launch/dolswitch_stub.S (find_dol_jumps).
 namespace riftwii {
 
 constexpr std::uint32_t kCodeHandlerAddress = 0x80001800;
@@ -42,7 +42,7 @@ const std::uint32_t* code_hook_pattern(CodeHook hook);
 
 // A game that starts another executable: its DOL loader ends with
 // "sync; isync; mtctr r31; bctr". The addresses of those `bctr`s, which
-// install_cheats points at wii/dolswitch_stub.S (at kDolSwitchStub) so the
+// install_cheats points at wii/launch/dolswitch_stub.S (at kDolSwitchStub) so the
 // next executable is hooked too (USB Loader GX's multidol hook does the
 // same).
 std::vector<std::uint32_t> find_dol_jumps(const std::vector<CodeRange>& text);

@@ -1,0 +1,67 @@
+// SPDX-FileCopyrightText: 2026 RiftWii contributors
+// SPDX-License-Identifier: GPL-3.0-or-later
+#pragma once
+
+#include <string>
+#include <vector>
+
+// The IOS RiftWii's own menu runs under. The Homebrew Channel starts it on
+// IOS58; a cIOS with an input module (fakemote turns USB DS3/DS4 pads into
+// Wii Remotes) only helps while that cIOS is running, so the menu can be
+// moved onto a d2x slot at startup. Games then launch under the same slot,
+// disc games included, so the pads keep working in the game.
+namespace riftwii::wii {
+
+// The saved choice (sd:/riftwii/menu_ios.txt): 0 for the Homebrew
+// Channel's IOS, else a cIOS slot.
+int LoadMenuIos();
+bool SaveMenuIos(int slot);
+
+// 0 followed by every d2x-looking slot from 248 to 252 with a launchable
+// title (the same test that gates game reloads).
+std::vector<int> MenuIosChoices();
+
+// Called once at startup with the SD card mounted and before video, pads,
+// USB or DI are touched: reloads into the saved slot when it is installed,
+// taking the card and the session log down and back up around the reload.
+// Returns false after a failed reload (the menu stays on the old IOS).
+// `fresh` (after a restart, wii/core/restart.hpp) reloads even into the IOS
+// already running, IOS 58 when no slot is saved, so nothing the old run
+// left open survives. `session_slot`, when no slot is saved, is a cIOS
+// for this session only (a burned disc, BurnedDiscSlot; the Wii Menu's
+// font without hardware access), `session_why` saying what for.
+bool StartMenuIos(bool sd_mounted, bool fresh = false, int session_slot = 0,
+                  const char* session_why = "to read a burned disc");
+
+// Burned discs: the Wii's own IOS refuses a disc that is not a pressed
+// Nintendo one, while d2x switches to reading it as a plain DVD (its
+// "DVD-ROM mode"), which only older Wii drives can do. The slot the menu
+// restarts under to read one: 249, 250 or 251 first, then 248 or 252 when
+// installed; 0 when none is.
+int BurnedDiscSlot();
+
+// The cIOS slot the menu is running under, or 0.
+int MenuCiosSlot();
+
+// Back to IOS58 from the session's cIOS (StartMenuIos), before the pads
+// and the drives are brought up: for a cIOS that was only needed for a
+// moment (copying the Wii Menu's font), since a d2x on another base than
+// 58 cannot read USB drives in the menu. True when IOS58 is running.
+bool LeaveSessionCios(bool sd_mounted, const char* why);
+
+// The IOS a fresh restart could not get back to (58), after a retry: 0
+// when it did. The IOS that stayed (a cIOS a failed launch had reloaded
+// into) cannot read USB drives through libogc, so the USB status says so.
+int MenuIosLost();
+
+// Wii Remote pairings in SYSCONF (BT.DINF) and how many of them are
+// fakemote's "Fake Wiimote" entries, which fakemote writes when its IOS
+// starts. -1 when SYSCONF cannot be read.
+struct PadPairings {
+    int registered = -1;
+    int fake = 0;
+};
+PadPairings ReadPadPairings();
+std::string DescribePadPairings(const PadPairings& p);
+
+}  // namespace riftwii::wii

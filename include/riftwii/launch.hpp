@@ -164,7 +164,7 @@ public:
     std::string pack_save_owner() const;
     // Whether an enabled pack patches the game: one with a choice picked,
     // or one with no options (it applies as a whole). Code builds do not
-    // count. The launch then leaves online play to the packs (wii/boot.cpp
+    // count. The launch then leaves online play to the packs (wii/launch/boot.cpp
     // patches no server), so the frontend shows the server as the pack's.
     bool packs_patch_game() const;
 

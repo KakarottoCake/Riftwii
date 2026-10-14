@@ -39,7 +39,7 @@ jobs:
       - name: Install Ninja
         run: sudo apt-get update -qq && sudo apt-get install -y -qq ninja-build
       # As docs/DEVELOPING.md builds it: no build type. With -O2, GCC 13
-      # warns about a memmove in src/wfcpatch.cpp it can't prove safe.
+      # warns about a memmove in src/patching/wfcpatch.cpp it can't prove safe.
       - name: Configure
         run: cmake -S . -B build-host -G Ninja
       - name: Build

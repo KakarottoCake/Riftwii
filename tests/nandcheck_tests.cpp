@@ -1,6 +1,6 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
-// The NAND permission patch (wii/boot.cpp) on a copy of memory: the first
+// The NAND permission patch (wii/launch/boot.cpp) on a copy of memory: the first
 // match only, and the 32-bit store changing just the branch.
 #include "riftwii/nandcheck.hpp"
 

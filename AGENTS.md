@@ -18,8 +18,8 @@ Where things are (the full map is [docs/MAP.md](docs/MAP.md), the design
 
 | Path | What it holds |
 | --- | --- |
-| `src/`, `include/riftwii/` | Platform-free library: XML parser, patch planner, FST, FAT32/NTFS, WBFS, RVZ, banners. Built for the host (tests) and the Wii. |
-| `wii/` | The Wii app: menu (libwiigui), launch path (`boot.cpp`), USB/SD, settings, translations (`wii/lang/`). |
+| `src/`, `include/riftwii/` | Platform-free library, built for the host (tests) and the Wii. `src/` is sorted by area: `patching/` (XML parser, patch planner, hooks, game fixes), `disc/`, `fs/` (FAT32, NTFS, WBFS, RVZ), `net/`, `art/`, `data/`; the headers stay in one flat `include/riftwii/`. |
+| `wii/` | The Wii app, sorted by area: `core/`, `menu/` (libwiigui), `launch/` (`boot.cpp`), `hooks/`, `controllers/`, `storage/` (USB/SD), `online/`; translations in `wii/lang/`. |
 | `runtime/` | C code that runs inside the game (resident runtime, pad hook, screenshots, crash recorder, virtual SD). Position-independent blobs. |
 | `channel/` | The Wii Menu channel: forwarder, loader, installer. |
 | `tests/` | One host test suite per area (`<area>_tests.cpp`). |
@@ -96,7 +96,7 @@ pack's patches, the runtime, saves, controllers.
 
 Readability beats brevity. For all code you write or change:
 
-- Follow the file's own conventions. `wii/rift_menu.cpp` and
+- Follow the file's own conventions. `wii/menu/rift_menu.cpp` and
   `vendor-libgui/` indent with tabs (libwiigui's style); everything else uses
   four spaces. C++ is in `namespace riftwii` (`riftwii::wii` in `wii/`);
   runtime code is C, prefixed by its module (`rtfs_`, `rtfat_`, `rtvsd_`).
@@ -111,7 +111,7 @@ Readability beats brevity. For all code you write or change:
 - `Makefile.wii` compiles every source into one flat folder, so no two
   sources may share a base name.
 - Nothing hardcoded for one mod. Per-game fixes live in the game lists of
-  `src/gxpatches.cpp`, with the reason in a comment.
+  `src/patching/gxpatches.cpp`, with the reason in a comment.
 - Write RiftWii's own implementation of an idea rather than porting someone
   else's code, and use RiftWii's own names in the UI and logs.
 
@@ -141,7 +141,7 @@ Readability beats brevity. For all code you write or change:
   `SPDX-License-Identifier: GPL-3.0-or-later`.
 - Third-party code or a design learned from someone's code gets a row in
   `NOTICE.md` (what, where from with the commit, license), a line in the
-  README's Credits and in `wii/credits.cpp`. `tools/attribution_audit.py
+  README's Credits and in `wii/menu/credits.cpp`. `tools/attribution_audit.py
   <other tree>` compares RiftWii's code with another project's.
 - Anything RiftWii downloads or reads from a network (RiiFS servers, update
   packs, GameTDB, cheats) is untrusted: bound every size and count, and never

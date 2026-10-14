@@ -50,14 +50,14 @@ Against USB Loader GX at commit `e25c4f3501ed957b7db73f79c51fdf00715ab2e2`
 
 | RiftWii file | Matches | Where from | Status |
 | --- | --- | --- | --- |
-| `wii/wfc.cpp`, `src/wfcpatch.cpp` | Wiimmfi's binary patch and the server patches | GX `source/patches/gamepatches.c` (Leseratte's Wiimmfi patches) | In NOTICE.md since they were added; holders in the files |
-| `src/gxpatches.cpp`, `src/gxkirby.inc`, `src/codehook.cpp`, `src/gamelang.cpp` | Patch words and search patterns copied as data | GX `gamepatches.c`, `disc.c`, `kirbypatch.c`, `patchcode.c` | In NOTICE.md since they were added; holders in the files |
-| `src/sysfont.cpp`, `wii/wiifont.*` | The Wii Menu font's two content hashes | GX `source/SystemMenu/SystemMenuResources.cpp` (Dimok, giantpune, blackb0x) | Added in this audit: NOTICE.md row, holders in the files, credits |
-| `src/riitag.cpp`, `wii/riitagsend.*` | No copied text; the Wiinnertag file format and behaviour | GX `source/network/Wiinnertag.cpp` (Dimok, zlib) | Added in this audit: NOTICE.md row, holders in the files, credits |
-| `wii/rift_menu.cpp` | 16 runs as written: the GUI thread and menu loop | libwiigui template `menu.cpp` (Tantric) | Added in this audit: Tantric named in the file and in NOTICE.md |
+| `wii/launch/wfc.cpp`, `src/patching/wfcpatch.cpp` | Wiimmfi's binary patch and the server patches | GX `source/patches/gamepatches.c` (Leseratte's Wiimmfi patches) | In NOTICE.md since they were added; holders in the files |
+| `src/patching/gxpatches.cpp`, `src/patching/gxkirby.inc`, `src/patching/codehook.cpp`, `src/patching/gamelang.cpp` | Patch words and search patterns copied as data | GX `gamepatches.c`, `disc.c`, `kirbypatch.c`, `patchcode.c` | In NOTICE.md since they were added; holders in the files |
+| `src/disc/sysfont.cpp`, `wii/menu/wiifont.*` | The Wii Menu font's two content hashes | GX `source/SystemMenu/SystemMenuResources.cpp` (Dimok, giantpune, blackb0x) | Added in this audit: NOTICE.md row, holders in the files, credits |
+| `src/net/riitag.cpp`, `wii/online/riitagsend.*` | No copied text; the Wiinnertag file format and behaviour | GX `source/network/Wiinnertag.cpp` (Dimok, zlib) | Added in this audit: NOTICE.md row, holders in the files, credits |
+| `wii/menu/rift_menu.cpp` | 16 runs as written: the GUI thread and menu loop | libwiigui template `menu.cpp` (Tantric) | Added in this audit: Tantric named in the file and in NOTICE.md |
 | `wii/main.cpp` | The start-up order and `ExitApp` | libwiigui template `demo.cpp` (Tantric) | Added in this audit, as above |
-| `wii/skin.cpp` | `DrawRgb5a3`'s drawing, after `Menu_DrawImg` | libwiigui template `video.cpp` (Tantric) | Added in this audit, as above |
-| `wii/boot.cpp` | A 14-byte pattern of IOS's ES code | libruntimeiospatch in GX's tree | In NOTICE.md: the bytes are IOS's, the code RiftWii's own |
+| `wii/menu/skin.cpp` | `DrawRgb5a3`'s drawing, after `Menu_DrawImg` | libwiigui template `video.cpp` (Tantric) | Added in this audit, as above |
+| `wii/launch/boot.cpp` | A 14-byte pattern of IOS's ES code | libruntimeiospatch in GX's tree | In NOTICE.md: the bytes are IOS's, the code RiftWii's own |
 
 ### Not copied
 
@@ -65,13 +65,13 @@ Against USB Loader GX at commit `e25c4f3501ed957b7db73f79c51fdf00715ab2e2`
   libntfs, FreeType, zlib and FreeTypeGX headers only in shape: an include
   guard, `extern "C" {`, then a list of `#define`s or prototypes. With
   every name replaced, any two such headers look alike.
-- **Byte tables.** `src/pngencode.cpp`, `wii/tlsroots.c` and
-  `src/gxkirby.inc` match other byte tables (GX's code handler, wolfSSL's
-  test certificates) only as long rows of hex numbers. `wii/tlsroots.c`
+- **Byte tables.** `src/art/pngencode.cpp`, `wii/online/tlsroots.c` and
+  `src/patching/gxkirby.inc` match other byte tables (GX's code handler, wolfSSL's
+  test certificates) only as long rows of hex numbers. `wii/online/tlsroots.c`
   holds public root certificates, the same bytes wherever they appear.
-- **Look-alike code.** `wii/rift_menu.cpp` against GX's file browser
-  (button set-up), `wii/crash.cpp` and `wii/rift_menu.cpp` against pugixml
-  (a run of `using` lines shaped like a run of `case` lines), `src/fat32.cpp`
+- **Look-alike code.** `wii/menu/rift_menu.cpp` against GX's file browser
+  (button set-up), `wii/core/crash.cpp` and `wii/menu/rift_menu.cpp` against pugixml
+  (a run of `using` lines shaped like a run of `case` lines), `src/fs/fat32.cpp`
   (a block of field assignments) and `runtime/shot/shot_hook.c` (a table).
 - **Function names.** Shared names are either generic (`Draw`, `read`,
   `parse`, `size`, `Update`) or libwiigui's (`HaltGui`, `ResumeGui`,

@@ -9,7 +9,7 @@
 // A problem report: one text holding what it takes to see what went wrong
 // on someone's Wii (the logs, the crash, the settings, the game's choices
 // and its packs' XMLs, the console and its controllers), sent to paste.rs
-// so the player only has to pass a link on (wii/reportsend.hpp).
+// so the player only has to pass a link on (wii/online/reportsend.hpp).
 namespace riftwii {
 
 // paste.rs keeps at most 384 KiB; the report stays under it.

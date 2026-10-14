@@ -2,7 +2,7 @@
 # SPDX-FileCopyrightText: 2026 RiftWii contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
 """The menu's translations, kept in one table and written out as the
-wii/lang/<lang>.po files the build embeds (wii/i18n.cpp).
+wii/lang/<lang>.po files the build embeds (wii/core/i18n.cpp).
 
     python tools/lang_source.py
 
@@ -1172,7 +1172,7 @@ T = {
         "変更しませんでした。",
         "Deixado como estava.",
         "Lasciato com'era."),
-    # Themes (wii/menutheme.cpp, docs/THEMES.md)
+    # Themes (wii/menu/menutheme.cpp, docs/THEMES.md)
     "Theme": ("Tema", "テーマ", "Tema", "Tema"),
     "Default": ("Predeterminado", "標準", "Padrão", "Predefinito"),
     "The menu's colours and pictures. Themes are folders in sd:/riftwii/themes (docs/THEMES.md on GitHub).": (
@@ -4035,9 +4035,9 @@ def escape(s):
 def check(repo):
     """Every msgid must appear as a literal in the menu's sources, or it
     would never be looked up."""
-    sources = ["wii/rift_menu.cpp", "wii/gameextras.cpp", "wii/gui_gamegrid.cpp", "wii/channel.cpp", "wii/frontend.cpp",
-               "wii/codebuilds.cpp", "wii/gui_searchkeys.cpp", "wii/main.cpp", "wii/vsdmake.cpp",
-               "wii/gui_shelf.cpp", "wii/memorybudget.cpp"]
+    sources = ["wii/menu/rift_menu.cpp", "wii/menu/gameextras.cpp", "wii/menu/gui_gamegrid.cpp", "wii/launch/channel.cpp", "wii/menu/frontend.cpp",
+               "wii/launch/codebuilds.cpp", "wii/menu/gui_searchkeys.cpp", "wii/main.cpp", "wii/menu/vsdmake.cpp",
+               "wii/menu/gui_shelf.cpp", "wii/menu/memorybudget.cpp"]
     text = "".join(open(os.path.join(repo, p), encoding="utf-8").read() for p in sources)
     missing = [k for k in T if '"%s"' % escape(k) not in text]
     for k in missing:
@@ -4047,7 +4047,7 @@ def check(repo):
     import glob
     import re
     untranslated = set()
-    for path in sorted(glob.glob(os.path.join(repo, "wii", "*.cpp"))):
+    for path in sorted(glob.glob(os.path.join(repo, "wii", "**", "*.cpp"), recursive=True)):
         code = open(path, encoding="utf-8").read()
         for m in re.finditer(r'\btr\(\s*"((?:[^"\\]|\\.)*)"', code):
             literal = m.group(1)

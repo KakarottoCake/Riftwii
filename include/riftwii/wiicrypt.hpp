@@ -18,7 +18,7 @@
 // 0x400 bytes of hashes and 0x7C00 bytes of data, the data encrypted with
 // the title key and the IV found at 0x3D0 of the (still encrypted) hash
 // block. RiftWii never carries the common key: the menu reads it from the
-// console's own OTP memory when it needs it (wii/otpkey.cpp).
+// console's own OTP memory when it needs it (wii/menu/otpkey.cpp).
 namespace riftwii {
 
 // AES-128, from FIPS-197.

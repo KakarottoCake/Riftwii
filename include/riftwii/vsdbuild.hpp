@@ -11,7 +11,7 @@
 #include <vector>
 
 // A virtual SD card's image made from files on the menu's side: the menu
-// lists what goes in (a code build's folders, wii/vsdmake.hpp), the card
+// lists what goes in (a code build's folders, wii/menu/vsdmake.hpp), the card
 // is planned here, then written front to back in one pass. The card is
 // laid out as Dolphin's and the netplay builds' sd.raw are: FAT32 with no
 // partition table, 512-byte sectors, 32 reserved sectors, two FATs, every

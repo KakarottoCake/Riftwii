@@ -9,7 +9,7 @@
 
 // Box art for the menu, from GameTDB (https://www.gametdb.com): the
 // front cover, shrunk once when it is downloaded into a ready GX texture
-// on the SD card (wii/covers.cpp), so drawing a page of covers is a few
+// on the SD card (wii/menu/covers.cpp), so drawing a page of covers is a few
 // small reads and no image decoding.
 namespace riftwii {
 

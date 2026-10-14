@@ -26,38 +26,38 @@ and `vendor-*` is third-party code.
 
 | Topic | Start in |
 | --- | --- |
-| A menu screen (Home, a game's page, Mods, Cheats, Settings) | `wii/rift_menu.cpp` |
-| How a list or the tile grid looks or scrolls | `wii/gui_flowlist.cpp`, `wii/gui_gamegrid.cpp`, `wii/skin.cpp` |
-| How screens, pages and popups come and go (fades, zooms, slides) | `wii/transition.cpp`, the camera in `vendor-libgui/source/video.cpp` |
-| Menu themes (colours, pictures, music) | `src/theme.cpp` (theme.ini), `src/skinpaint.cpp` (the painted pictures), `wii/menutheme.cpp`, `wii/skin.cpp`, `themes/`, [THEMES.md](THEMES.md) |
+| A menu screen (Home, a game's page, Mods, Cheats, Settings) | `wii/menu/rift_menu.cpp` |
+| How a list or the tile grid looks or scrolls | `wii/menu/gui_flowlist.cpp`, `wii/menu/gui_gamegrid.cpp`, `wii/menu/skin.cpp` |
+| How screens, pages and popups come and go (fades, zooms, slides) | `wii/menu/transition.cpp`, the camera in `vendor-libgui/source/video.cpp` |
+| Menu themes (colours, pictures, music) | `src/art/theme.cpp` (theme.ini), `src/art/skinpaint.cpp` (the painted pictures), `wii/menu/menutheme.cpp`, `wii/menu/skin.cpp`, `themes/`, [THEMES.md](THEMES.md) |
 | The theme kit download | `tools/theme_kit.cpp`, `tools/make_theme_kit.py`, `themes/kit/README.txt` |
-| Menu text and its translations | `tools/lang_source.py` (the table), `wii/i18n.cpp`, `wii/lang/*.po` |
-| Settings and what they mean | `src/settingsfile.cpp`, `wii/loadersettings.cpp`, the Settings screen in `wii/rift_menu.cpp` |
-| Finding games on the SD card and USB drives | `wii/usbcatalog.cpp`, `src/usbgame.cpp`, `src/imagevolume.cpp`, `src/fat32.cpp`, `src/ntfs.cpp`, `src/wbfspart.cpp` |
-| Riivolution packs: reading the XML | `src/patch.cpp` |
-| Riivolution packs: what a launch does with them | `wii/modplan.cpp`, `src/apply.cpp`, `src/expand.cpp`, `src/redirect.cpp`, `src/mempatch.cpp` |
-| Starting a game (IOS, disc, apploader, patches) | `wii/boot.cpp` |
-| What runs inside a game and serves the packs | `runtime/resident/rt_hook.c`, `runtime/rtable.c`, `wii/resident.cpp` |
-| Saves on the SD card instead of the NAND | `runtime/rtfs.c`, `runtime/rtfat.c`, `prepare_savegame` in `wii/boot.cpp` |
-| Code builds (Project+, REX) and their `gameconfig.txt` | `wii/codebuilds.cpp`, `src/gameconfig.cpp`, `src/codehook.cpp`, `vendor-gecko/`; cheats in a second executable: `wii/dolswitch_stub.S` |
-| The virtual SD card (`sd.raw`) | `runtime/rtvsd.c` (the card), `runtime/vsd/` (the in-game blob), `wii/vsdhook.cpp` (install), `wii/vsdimage.cpp` (the menu's view) |
-| Cheats | `src/cheats.cpp`, `wii/gameextras.cpp` |
-| RVZ games | `src/rvz.cpp`, `runtime/rtrvz.c`, `runtime/resident/rt_zstd.c`, `docs/RVZ.md` |
-| The GameCube controller adapter | `runtime/rtgcad.c` (the driver), `wii/gcadapter.cpp` (menu), `runtime/pad/` and `wii/padhook.cpp` (games) |
-| Screenshots | `wii/screenshot.cpp`, `runtime/shot/`, `wii/shothook.cpp`, `src/shotfile.cpp`, `src/pngencode.cpp` |
-| Problem reports and the QR code | `wii/reportsend.cpp`, `src/problemreport.cpp`, `src/qrcode.cpp` |
-| A game's crash record | `runtime/fault/`, `runtime/rtfault.c`, `wii/faulthook.cpp`, `src/gamefault.cpp` |
-| RiftWii's own crash screen | `wii/crash.cpp` |
-| Online play (Wiimmfi, WiiLink WFC) | `src/wfcpatch.cpp`, `wii/wfc.cpp`, `vendor-wwfc/` |
-| Video mode, borders, deflicker | `src/videopatch.cpp` |
-| Game language | `src/gamelang.cpp` |
-| Fixes for particular games, automatic cIOS choice (from USB Loader GX) | `src/gxpatches.cpp`, `src/gxkirby.inc` (`tools/gx_kirby_table.py`), the GX lines in `wii/boot.cpp`, `image_cios_order` in `wii/usbcatalog.cpp` |
-| Downloads: game names, covers, cheats, updates | `wii/online.cpp`, `src/http.cpp`, `wii/netsock.cpp`, `wii/tls.cpp`, `src/titles.cpp`, `src/coverart.cpp`, `src/update.cpp` |
-| Packs served from a PC (RiiFS) | `wii/netpacks.cpp`, `src/riifs.cpp`, `src/riifs_sync.cpp`, `docs/RIIFS.md` |
-| Returning to RiftWii (or another title) when a game exits | `src/returnto.cpp`, `apply_return_to` in `wii/boot.cpp`, `wii/restart.cpp` |
-| Being started by another loader | `wii/headless.cpp`, `src/launchargs.cpp`, `docs/HEADLESS.md` |
-| The Wii Menu channel | `channel/`, `wii/channel.cpp`, `tools/make_channel.py`, `docs/CHANNEL.md` |
-| Memory the menu may use | `wii/memlimits.cpp` |
+| Menu text and its translations | `tools/lang_source.py` (the table), `wii/core/i18n.cpp`, `wii/lang/*.po` |
+| Settings and what they mean | `src/data/settingsfile.cpp`, `wii/core/loadersettings.cpp`, the Settings screen in `wii/menu/rift_menu.cpp` |
+| Finding games on the SD card and USB drives | `wii/storage/usbcatalog.cpp`, `src/fs/usbgame.cpp`, `src/fs/imagevolume.cpp`, `src/fs/fat32.cpp`, `src/fs/ntfs.cpp`, `src/fs/wbfspart.cpp` |
+| Riivolution packs: reading the XML | `src/patching/patch.cpp` |
+| Riivolution packs: what a launch does with them | `wii/launch/modplan.cpp`, `src/patching/apply.cpp`, `src/patching/expand.cpp`, `src/patching/redirect.cpp`, `src/patching/mempatch.cpp` |
+| Starting a game (IOS, disc, apploader, patches) | `wii/launch/boot.cpp` |
+| What runs inside a game and serves the packs | `runtime/resident/rt_hook.c`, `runtime/rtable.c`, `wii/launch/resident.cpp` |
+| Saves on the SD card instead of the NAND | `runtime/rtfs.c`, `runtime/rtfat.c`, `prepare_savegame` in `wii/launch/boot.cpp` |
+| Code builds (Project+, REX) and their `gameconfig.txt` | `wii/launch/codebuilds.cpp`, `src/patching/gameconfig.cpp`, `src/patching/codehook.cpp`, `vendor-gecko/`; cheats in a second executable: `wii/launch/dolswitch_stub.S` |
+| The virtual SD card (`sd.raw`) | `runtime/rtvsd.c` (the card), `runtime/vsd/` (the in-game blob), `wii/hooks/vsdhook.cpp` (install), `wii/hooks/vsdimage.cpp` (the menu's view) |
+| Cheats | `src/data/cheats.cpp`, `wii/menu/gameextras.cpp` |
+| RVZ games | `src/fs/rvz.cpp`, `runtime/rtrvz.c`, `runtime/resident/rt_zstd.c`, `docs/RVZ.md` |
+| The GameCube controller adapter | `runtime/rtgcad.c` (the driver), `wii/controllers/gcadapter.cpp` (menu), `runtime/pad/` and `wii/hooks/padhook.cpp` (games) |
+| Screenshots | `wii/menu/screenshot.cpp`, `runtime/shot/`, `wii/hooks/shothook.cpp`, `src/data/shotfile.cpp`, `src/art/pngencode.cpp` |
+| Problem reports and the QR code | `wii/online/reportsend.cpp`, `src/data/problemreport.cpp`, `src/art/qrcode.cpp` |
+| A game's crash record | `runtime/fault/`, `runtime/rtfault.c`, `wii/hooks/faulthook.cpp`, `src/data/gamefault.cpp` |
+| RiftWii's own crash screen | `wii/core/crash.cpp` |
+| Online play (Wiimmfi, WiiLink WFC) | `src/patching/wfcpatch.cpp`, `wii/launch/wfc.cpp`, `vendor-wwfc/` |
+| Video mode, borders, deflicker | `src/patching/videopatch.cpp` |
+| Game language | `src/patching/gamelang.cpp` |
+| Fixes for particular games, automatic cIOS choice (from USB Loader GX) | `src/patching/gxpatches.cpp`, `src/patching/gxkirby.inc` (`tools/gx_kirby_table.py`), the GX lines in `wii/launch/boot.cpp`, `image_cios_order` in `wii/storage/usbcatalog.cpp` |
+| Downloads: game names, covers, cheats, updates | `wii/online/online.cpp`, `src/net/http.cpp`, `wii/online/netsock.cpp`, `wii/online/tls.cpp`, `src/data/titles.cpp`, `src/art/coverart.cpp`, `src/net/update.cpp` |
+| Packs served from a PC (RiiFS) | `wii/online/netpacks.cpp`, `src/net/riifs.cpp`, `src/net/riifs_sync.cpp`, `docs/RIIFS.md` |
+| Returning to RiftWii (or another title) when a game exits | `src/patching/returnto.cpp`, `apply_return_to` in `wii/launch/boot.cpp`, `wii/core/restart.cpp` |
+| Being started by another loader | `wii/launch/headless.cpp`, `src/patching/launchargs.cpp`, `docs/HEADLESS.md` |
+| The Wii Menu channel | `channel/`, `wii/launch/channel.cpp`, `tools/make_channel.py`, `docs/CHANNEL.md` |
+| Memory the menu may use | `wii/core/memlimits.cpp` |
 
 ## Top level
 
@@ -76,68 +76,110 @@ and `vendor-*` is third-party code.
 ## `wii/`: the Wii app
 
 The menu, the launch and everything that talks to IOS. Not host-tested:
-it links libogc. Each `.cpp` has a `.hpp` that describes it.
+it links libogc. Each `.cpp` has a `.hpp` beside it that describes it.
+The build compiles every folder into one, so no two files share a name.
 
 | File | What |
 | --- | --- |
 | `main.cpp` | Start-up: video, pads, SD card, crash handler, the menu, and what happens when the player leaves |
+| `lang/*.po` | The translations, written by `tools/lang_source.py` |
+| `font/` | The menu font's source (`rounded.ttf`, OFL) |
+| `font/` | The cut-down menu font (`tools/make_menu_font.py`), packed by the build |
+
+### `wii/core/`: logging, settings, text files, memory limits, restarting, the crash screen, translations
+
+| File | What |
+| --- | --- |
+| `i18n.cpp` | Translations (the built-in `.po` files, or one on the card) |
+| `console.cpp` | libogc's text console, for the launch screen and errors |
+| `crash.cpp` | RiftWii's crash screen and `crash.txt` |
+| `log.cpp` | The log (`session.log`, `boot.log`) |
+| `loadersettings.cpp` | Settings as the app reads and writes them |
+| `memlimits.cpp` | Keeps the app's heap out of memory a launch overwrites |
+| `restart.cpp` | Starting RiftWii again without the Homebrew Channel (after a game, or the channel) |
+
+### `wii/menu/`: the menu: screens, lists, artwork, themes, music, banners, covers
+
+| File | What |
+| --- | --- |
 | `rift_menu.cpp` | Every menu screen, the GUI thread, the HOME menu, the screen dimming |
 | `menu.h` | The menu's entry points for `main.cpp` |
 | `gui_flowlist.cpp` | The row lists (game page, Mods, Cheats, Settings) |
 | `gui_gamegrid.cpp` | The Home screen's tile grid and its cover textures |
-| `skin.cpp` | The menu's artwork (painted by `src/skinpaint.cpp`) or a theme's pictures, as textures |
+| `skin.cpp` | The menu's artwork (painted by `src/art/skinpaint.cpp`) or a theme's pictures, as textures |
 | `menutheme.cpp` | The chosen theme: its theme.ini, pictures and music on the SD card |
 | `menumusic.cpp` | The background music |
-| `i18n.cpp` | Translations (the built-in `.po` files, or one on the card) |
-| `lang/*.po` | The translations, written by `tools/lang_source.py` |
-| `font/` | The menu font's source (`rounded.ttf`, OFL) |
-| `font/` | The cut-down menu font (`tools/make_menu_font.py`), packed by the build |
 | `ftnopng.c` | Keeps FreeType from pulling in libpng |
-| `console.cpp` | libogc's text console, for the launch screen and errors |
-| `progress.cpp` | The launch screen's progress line |
-| `crash.cpp` | RiftWii's crash screen and `crash.txt` |
 | `credits.cpp` | Settings > Credits and license |
-| `log.cpp` | The log (`session.log`, `boot.log`) |
-| `loadersettings.cpp` | Settings as the app reads and writes them |
-| `memlimits.cpp` | Keeps the app's heap out of memory a launch overwrites |
-| `menuios.cpp` | Which IOS the menu runs under (58 or a d2x cIOS slot) |
-| `ios_reload.cpp` | IOS reloads, and telling Dolphin apart from a Wii |
-| `restart.cpp` | Starting RiftWii again without the Homebrew Channel (after a game, or the channel) |
-| `channel.cpp` | Offering and installing the Wii Menu channel |
 | `frontend.cpp` | The menu's state for a game: its packs, code builds and saved choices; Start's checks |
 | `gameextras.cpp` | The game page's extras: cheats, video, language, online server, code builds, what a launch carries |
+| `screenshot.cpp` | Menu screenshots and importing the games' ones |
+| `covers.cpp` | Cover art: download, cache, textures |
+| `guiscript.cpp` | Scripted menu input for tests (`sd:/riftwii/guiscript.txt`) |
+
+### `wii/launch/`: starting a game: IOS, the disc, the apploader, patches, the runtime, the jump
+
+| File | What |
+| --- | --- |
+| `progress.cpp` | The launch screen's progress line |
+| `menuios.cpp` | Which IOS the menu runs under (58 or a d2x cIOS slot) |
+| `ios_reload.cpp` | IOS reloads, and telling Dolphin apart from a Wii |
+| `channel.cpp` | Offering and installing the Wii Menu channel |
 | `codebuilds.cpp` | Finding code builds (on the card and inside `sd.raw`) and preparing their codes |
 | `modplan.cpp` | Compiling the chosen packs into boot options |
-| `netpacks.cpp` | Packs from a RiiFS server |
-| `usbcatalog.cpp` | Game images on the SD card and USB drives, the USB drive's volume, RVZ serving, the menu's file reads there |
-| `umsdev.cpp` | d2x's USB device (`/dev/usb2`), read by the launch and handed to the runtime |
-| `sdio.cpp` | Raw SD card access (`/dev/sdio/slot0`) after libogc's driver is gone |
-| `d2xsd.cpp` | d2x's SD device (`/dev/sdio/sdhc`), when the game itself is on the card |
-| `sdfile.cpp` | Where a file's bytes lie on the card |
 | `di.cpp` | The disc drive (`/dev/di`) |
 | `boot.cpp` | The launch: IOS, the disc or image, the apploader, patches, the blobs, low memory, the jump |
 | `resident.cpp` | Installing the resident runtime |
+| `wfc.cpp` | Patching the game for an online server |
+| `headless.cpp` | Launches another loader asks for |
+| `autorun.cpp` | Unattended test runs (`sd:/riftwii/autorun.txt`) |
+
+### `wii/hooks/`: installing the blobs that run inside the game (the adapter, screenshots, crashes, the virtual SD card)
+
+| File | What |
+| --- | --- |
 | `padhook.cpp` | Installing the GameCube adapter blob |
 | `shothook.cpp` | Installing the screenshot blob |
 | `faulthook.cpp` | Installing the crash blob (and its retail BCA answer) |
 | `vsdhook.cpp` | Finding `sd.raw` for a launch and installing the virtual SD card blob |
 | `vsdimage.cpp` | `sd.raw` as the menu's read-only `vsd:` drive |
+
+### `wii/controllers/`: the GameCube adapter in the menu and the Wii Remote queues
+
+| File | What |
+| --- | --- |
 | `gcadapter.cpp` | The GameCube adapter in the menu and on its test page |
-| `screenshot.cpp` | Menu screenshots and importing the games' ones |
-| `covers.cpp` | Cover art: download, cache, textures |
+
+### `wii/storage/`: sD cards and USB drives: game images, raw access, d2x devices, saves
+
+| File | What |
+| --- | --- |
+| `usbcatalog.cpp` | Game images on the SD card and USB drives, the USB drive's volume, RVZ serving, the menu's file reads there |
+| `umsdev.cpp` | d2x's USB device (`/dev/usb2`), read by the launch and handed to the runtime |
+| `sdio.cpp` | Raw SD card access (`/dev/sdio/slot0`) after libogc's driver is gone |
+| `d2xsd.cpp` | d2x's SD device (`/dev/sdio/sdhc`), when the game itself is on the card |
+| `sdfile.cpp` | Where a file's bytes lie on the card |
+
+### `wii/online/`: network, downloads, https, problem reports, RiiTag
+
+| File | What |
+| --- | --- |
+| `netpacks.cpp` | Packs from a RiiFS server |
 | `online.cpp` | Downloads (names, covers, cheats, the update check) |
 | `netsock.cpp` | Network sockets |
 | `tls.cpp`, `tlsroots.c` | https with BearSSL, and the certificates it trusts |
 | `reportsend.cpp` | Gathering and sending problem reports; log rotation; importing a game's crash |
-| `wfc.cpp` | Patching the game for an online server |
-| `headless.cpp` | Launches another loader asks for |
-| `autorun.cpp` | Unattended test runs (`sd:/riftwii/autorun.txt`) |
-| `guiscript.cpp` | Scripted menu input for tests (`sd:/riftwii/guiscript.txt`) |
 
 ## `src/` and `include/riftwii/`: portable code
 
-Plain C++17 with no Wii headers, host-tested. Each `src/x.cpp`
-implements `include/riftwii/x.hpp`, whose comments document it.
+Plain C++17 with no Wii headers, host-tested. Each `src/<area>/x.cpp`
+implements `include/riftwii/x.hpp` (one flat folder), whose comments
+document it.
+
+| Name | What |
+| --- | --- |
+
+### `src/patching/`: riivolution packs and patches, hooks, game fixes, launch arguments
 
 | Name | What |
 | --- | --- |
@@ -147,38 +189,63 @@ implements `include/riftwii/x.hpp`, whose comments document it.
 | `redirect` | The table of where each replaced file's bytes come from |
 | `mempatch` | Memory patches (plain, search, ocarina) and the regions they may touch |
 | `launch` | `LaunchModel`: the packs and code builds for a game and their choices |
-| `fst` | The disc's file system table |
-| `disc` | Wii disc structures (header, partitions, apploader) |
-| `dol` | The DOL executable header |
 | `symsearch` | Finding SDK functions (IPC, PAD, the crash handler) in a game's code |
 | `hook` | Branch encoding and placing the resident runtime |
 | `codehook` | Where the Gecko code handler is called from |
 | `gameconfig` | `gameconfig.txt` / `gc.txt` for code builds |
-| `cheats` | Cheat files and GCT building |
-| `fat32`, `ntfs`, `imagevolume` | Read-only FAT32 and NTFS walkers, and a drive's volume |
-| `usbgame` | WBFS, split WBFS and ISO images; the d2x fragment list |
-| `wbfspart` | USB drives formatted as WBFS: finding the partition, its discs, their fragments |
-| `rvz`, `sha1` | RVZ images and their hashes |
-| `titles` | Game names |
-| `coverart`, `pngdecode`, `canvas` | Cover art, a PNG reader, the software canvas the artwork is painted on |
-| `http` | HTTP GET and POST |
-| `update` | The update check |
-| `riifs`, `riifs_sync` | The RiiFS client and its mirror |
 | `wfcpatch` | Online server patches |
 | `videopatch` | Video settings for games |
 | `gamelang` | The game language |
 | `gxpatches` | USB Loader GX's per-game fixes and cIOS choice |
-| `settingsfile` | `settings.txt` |
-| `theme` | `theme.ini`: a theme's colours, corners and backdrop; the pictures a theme may replace |
-| `skinpaint` | The menu's pictures painted in a theme's colours (the Wii menu and the theme kit) |
-| `langfile` | Translation files |
-| `playhistory` | `history.txt` |
 | `returnto` | Returning to RiftWii from a game |
 | `launchargs` | Arguments from another loader |
+
+### `src/disc/`: wii discs, executables, banners and fonts
+
+| Name | What |
+| --- | --- |
+| `fst` | The disc's file system table |
+| `disc` | Wii disc structures (header, partitions, apploader) |
+| `dol` | The DOL executable header |
+
+### `src/fs/`: file systems and game images: FAT32, NTFS, WBFS, RVZ
+
+| Name | What |
+| --- | --- |
+| `fat32`, `ntfs`, `imagevolume` | Read-only FAT32 and NTFS walkers, and a drive's volume |
+| `usbgame` | WBFS, split WBFS and ISO images; the d2x fragment list |
+| `wbfspart` | USB drives formatted as WBFS: finding the partition, its discs, their fragments |
+| `rvz`, `sha1` | RVZ images and their hashes |
+
+### `src/net/`: hTTP, RiiFS, the update check, RiiTag
+
+| Name | What |
+| --- | --- |
+| `http` | HTTP GET and POST |
+| `update` | The update check |
+| `riifs`, `riifs_sync` | The RiiFS client and its mirror |
+
+### `src/art/`: pictures: the canvas, PNG, QR codes, themes, covers
+
+| Name | What |
+| --- | --- |
+| `coverart`, `pngdecode`, `canvas` | Cover art, a PNG reader, the software canvas the artwork is painted on |
+| `theme` | `theme.ini`: a theme's colours, corners and backdrop; the pictures a theme may replace |
+| `skinpaint` | The menu's pictures painted in a theme's colours (the Wii menu and the theme kit) |
+| `qrcode` | QR codes |
+
+### `src/data/`: RiftWii's own files: settings, history, cheats, titles, reports
+
+| Name | What |
+| --- | --- |
+| `cheats` | Cheat files and GCT building |
+| `titles` | Game names |
+| `settingsfile` | `settings.txt` |
+| `langfile` | Translation files |
+| `playhistory` | `history.txt` |
 | `cardlog` | The runtime's SD card log, as text |
 | `shotfile`, `pngencode` | Screenshot files and a PNG writer |
 | `problemreport` | A problem report's text |
-| `qrcode` | QR codes |
 | `gamefault` | A game's crash record, as text |
 
 ## `runtime/`: code that runs inside the game

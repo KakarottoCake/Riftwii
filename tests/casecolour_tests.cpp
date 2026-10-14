@@ -12,7 +12,7 @@ static int g_failures = 0;
 #define EXPECT_FALSE(cond) EXPECT_TRUE(!(cond))
 
 static const char kColours[] =
-#include "../src/casecolours.inc"
+#include "../src/art/casecolours.inc"
     ;
 
 static bool Is(const char* id, int r, int g, int b) {

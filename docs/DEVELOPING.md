@@ -85,7 +85,7 @@ Two scripts on the card drive a run without hands on a controller:
   `glide`, `shot`, `finalshot`, `slowmo <factor>` to stretch every
   transition for frame-by-frame screenshots, and `failnext` and `crash`
   to test the way back from a failed launch and the crash screen; see
-  `wii/guiscript.hpp`). After a restart the menu reads
+  `wii/menu/guiscript.hpp`). After a restart the menu reads
   `guiscript-restart.txt` instead. Pull the screenshots (and
   `crashscreen.bmp`) out of the SD image afterwards.
 
@@ -104,7 +104,7 @@ Gecko lines and Dolphin's DI and SD logs), savegames, and heap placement
 ## A game that only fails on a console
 
 `debug_off` in `sd:/riftwii/settings.txt` turns RiftWii's launch extras
-off one at a time (`wii/boot.cpp`, `debug_off`), so a tester can bisect
+off one at a time (`wii/launch/boot.cpp`, `debug_off`), so a tester can bisect
 what Dolphin cannot show:
 
 ```
@@ -152,7 +152,7 @@ game crashes a few steps later instead. The next RiftWii start writes
    riftwii-vYYMM-N.zip riftwii-update.pack` (the themes, then the
    zip's channel installer and icon).
    The theme kit when a picture or a setting changes (a new one in
-   `src/theme.cpp`'s list, or a new look): `cmake --build build-host
+   `src/art/theme.cpp`'s list, or a new look): `cmake --build build-host
    --target theme_kit`, then `py -3.13 tools/make_theme_kit.py
    build-host/theme_kit.exe --repo` (templates painted by the menu's own
    code) refreshes `themes/kit/MyTheme` and `themes/kit/templates`;
@@ -180,7 +180,7 @@ game crashes a few steps later instead. The next RiftWii start writes
    from with the commit, license), `SPDX-FileCopyrightText` lines (one per
    holder, above the license line) in each file that follows it, and a
    line in the README's Credits and in
-   `wii/credits.cpp`. Binaries built from someone else's source ship
+   `wii/menu/credits.cpp`. Binaries built from someone else's source ship
    with that source, as `vendor-gecko/` does.
 
 ## Ground rules

@@ -11,7 +11,7 @@
 
 // Online play after Nintendo Wi-Fi Connection: a game can be pointed at a
 // replacement server. The patches that work on any game's loaded code are
-// here; the Wii side (wii/wfc.cpp) adds Mario Kart Wii's Wiimmfi patch and
+// here; the Wii side (wii/launch/wfc.cpp) adds Mario Kart Wii's Wiimmfi patch and
 // WiiLink WFC's hook.
 namespace riftwii {
 

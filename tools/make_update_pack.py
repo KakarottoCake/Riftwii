@@ -11,7 +11,7 @@ other:
   files it shipped with (only those are removed);
 - the release zip's sd:/apps files besides RiftWii's own boot.dol,
   meta.xml and music.ogg ("RIFTWII APPS 1"): the channel installer's
-  folder and RiftWii's icon, the files wii/online.cpp (AppsFileAllowed)
+  folder and RiftWii's icon, the files wii/online/online.cpp (AppsFileAllowed)
   writes.
 
     python tools/make_update_pack.py riftwii-vYYMM-N.zip out/riftwii-update.pack

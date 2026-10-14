@@ -14,7 +14,7 @@
 // Installing the resident runtime: the blob format (runtime/resident/
 // rt_hook.h), the PowerPC instruction patching it needs and the placement
 // in MEM1 (code) and MEM2 (data). Pure functions so the host tests cover
-// them; wii/resident.cpp performs the actual copies and cache flushes.
+// them; wii/launch/resident.cpp performs the actual copies and cache flushes.
 namespace riftwii {
 
 constexpr std::size_t kResidentIpcEntries = 14;

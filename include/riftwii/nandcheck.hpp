@@ -8,7 +8,7 @@
 // IOS's file system keeps the Wii Menu's files to the Wii Menu: in its
 // Thumb code, "cmp r3, r1; beq" before "movs r5, #0x66" (-102). Turning
 // the beq into an unconditional branch opens the check for that IOS
-// (wii/boot.cpp, open_nand_permissions). The search and the store's
+// (wii/launch/boot.cpp, open_nand_permissions). The search and the store's
 // arithmetic are here so the tests can check them on a copy of memory.
 namespace riftwii {
 

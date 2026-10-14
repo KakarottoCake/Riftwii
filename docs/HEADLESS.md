@@ -141,8 +141,8 @@ has no counterpart: RiftWii boots.
 
 ## For RiftWii's developers
 
-The arguments are parsed in `src/launchargs.cpp` (host-tested in
+The arguments are parsed in `src/patching/launchargs.cpp` (host-tested in
 `tests/extras_tests.cpp`, `friiv_launch_args` for Friivolution's
-argument) and run by `wii/headless.cpp`, which takes the
+argument) and run by `wii/launch/headless.cpp`, which takes the
 same path as Start on the game page: `ScanPackages`, the loader's picks
 on top, `PrepareLaunchExtras`, then `RunLaunch` or `RunBoot`.

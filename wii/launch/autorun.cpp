@@ -1,0 +1,912 @@
+// SPDX-FileCopyrightText: 2026 RiftWii contributors
+// SPDX-License-Identifier: GPL-3.0-or-later
+#include "autorun.hpp"
+#include "d2xsave.hpp"
+#include "progress.hpp"
+#include "riftwii/ctgpconfig.hpp"
+
+#include <fat.h>
+#include <gccore.h>
+#include <ogc/system.h>
+#include <strings.h>
+#include <sys/stat.h>
+
+#include <cstdio>
+#include <fstream>
+#include <iterator>
+#include <sstream>
+
+#include "boot.hpp"
+#include "channel.hpp"
+#include "di.hpp"
+#include "frontend.hpp"
+#include "gameextras.hpp"
+#include "ios_reload.hpp"
+#include "log.hpp"
+#include "memlimits.hpp"
+#include "menuios.hpp"
+#include "modplan.hpp"
+#include "netpacks.hpp"
+#include "sdfile.hpp"
+#include "umsdev.hpp"
+#include "usbprobe.hpp"
+
+namespace riftwii::wii {
+namespace {
+
+std::string trim(const std::string& s) {
+    const auto b = s.find_first_not_of(" \t\r\n");
+    if (b == std::string::npos) return "";
+    const auto e = s.find_last_not_of(" \t\r\n");
+    return s.substr(b, e - b + 1);
+}
+
+std::string basename_of(const std::string& disc_path) {
+    const auto slash = disc_path.find_last_of('/');
+    return slash == std::string::npos ? disc_path : disc_path.substr(slash + 1);
+}
+
+// CTGP Revolution's channel, started under a d2x cIOS: its own IOS exploit
+// can wait forever there for hardware access, so sd:/ctgpr/config.ini gets
+// "disable_ios_exploit = yes" in [exploit] unless the player set that key.
+// Before any IOS reload, while libfat has the card.
+void SetCtgpDefaults(const std::string& app) {
+    const std::string folder = "sd:/apps/ctgpr/";
+    if (app.size() <= folder.size() || strncasecmp(app.c_str(), folder.c_str(), folder.size()) != 0 ||
+        app.find('/', folder.size()) != std::string::npos)
+        return;
+    struct stat st;
+    if (stat("sd:/ctgpr", &st) != 0 || !S_ISDIR(st.st_mode)) return;
+    const char* path = "sd:/ctgpr/config.ini";
+    std::string text;
+    {
+        std::ifstream in(path, std::ios::binary);
+        if (in) text.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+    }
+    if (!riftwii::ctgp_config_defaults(text)) {
+        logf("CTGP: config.ini already has disable_ios_exploit, left as it is\n");
+        return;
+    }
+    {
+        std::ofstream out(path, std::ios::binary | std::ios::trunc);
+        out.write(text.data(), static_cast<std::streamsize>(text.size()));
+        if (!out) {
+            logf("CTGP: could not write %s\n", path);
+            return;
+        }
+    }
+    forget_sd_layout();
+    logf("CTGP: config.ini set to skip CTGP's own IOS exploit ([exploit] disable_ios_exploit = yes)\n");
+}
+
+bool any_on_usb(const std::vector<PackageChoices>& packages) {
+    for (const PackageChoices& p : packages) {
+        if (p.xml_sd_path.compare(0, 5, "usb:/") == 0) return true;
+    }
+    return false;
+}
+
+// After a launch with d2x's IOS reload block failed: without clearing it,
+// every later IOS reload (the menu's own) would land in the cIOS instead.
+void ClearIosReloadBlock(std::string& error) {
+    if (!di::ios_reload_block_active()) return;
+    std::string why;
+    if (di::set_ios_reload_block(false, 0, why)) {
+        logf("d2x: IOS reload block cleared\n");
+        return;
+    }
+    logf("d2x: IOS reload block could not be cleared (%s)\n", why.c_str());
+    error += "; restart the console before starting another game";
+}
+
+// Shared state for one session: the probe and, lazily, the layout.
+struct Session {
+    LaunchSource source;
+    DiscProbe probe;
+    bool probed = false;
+    OpenedPartition partition;
+    bool laid_out = false;
+    void* frag_storage = nullptr;
+    std::size_t frag_storage_bytes = 0;
+    const char* log_path = nullptr;
+    // A pack is on the USB drive: d2x's USB device is opened before the
+    // probe opens the game partition, after which d2x refuses to open it.
+    bool usb_packs = false;
+    // The disc's launch moved to a d2x cIOS for those packs: keep it.
+    bool on_cios = false;
+    // A game image is kept as the disc for a program that reloads IOS
+    // itself (a Homebrew app stand-in): d2x blocks those reloads.
+    bool block_ios_reload = false;
+
+    // Set when the session hands a Homebrew Channel app the d2x setup and
+    // its reload block, which must outlive this session.
+    bool keep_reload_block = false;
+
+    explicit Session(const LaunchSource& launch_source = LaunchSource(), const char* active_log = nullptr)
+        : source(launch_source), log_path(active_log) {}
+
+    // A launch that comes back failed: d2x's IOS reload block (set for
+    // every USB/SD game) would send the menu's later IOS reloads, and the
+    // next game's, into this cIOS.
+    ~Session() {
+        if (keep_reload_block) return;
+        std::string ignored;
+        ClearIosReloadBlock(ignored);
+    }
+
+    // Saves on the game's page (RiftWii's own folder, not a pack's): the
+    // folder, whether the Wii's save is copied in, and whether d2x's NAND
+    // emulation keeps them (set by ensure_probe).
+    std::string own_saves_dir;
+    bool own_saves_clone = false;
+    bool d2x_saves = false;
+    // The game reads the SD card as it runs (packs, saves): the cIOS
+    // choice keeps to the bases that reach it (image_cios_order).
+    bool sd_in_use = false;
+
+    bool ensure_probe(std::string& error) {
+        if (probed) return true;
+        ProgressStage(source.kind == LaunchSource::Kind::Disc ? "Reading the disc" : "Opening the game image", 3);
+        if (source.kind != LaunchSource::Kind::Disc) {
+            bool active = false;
+            // Saves on the SD card kept by d2x (wii/storage/d2xsave.hpp): the
+            // folders and the Wii's save first, under the menu's IOS. Not
+            // for an RVZ on the card (RiftWii reads it from the card while
+            // the game runs) or a game whose title ID is not known.
+            bool d2x_ready = false;
+            if (!own_saves_dir.empty() && !running_in_dolphin()) {
+                std::string why;
+                if (source.game.title_id == 0) why = "the game's title ID is not known";
+                else if (source.game.device == ImageDevice::Sd && source.game.format == UsbImageFormat::Rvz)
+                    why = "an RVZ game on the SD card";
+                else d2x_ready = prepare_d2x_saves(source.game, own_saves_dir, own_saves_clone, why);
+                if (!d2x_ready) logf("Saves: RiftWii's own save code, not d2x's NAND emulation (%s)\n", why.c_str());
+            }
+            // When every slot fails, the first one's reason is the one to
+            // show (249: "not a d2x cIOS", not "251 is not installed").
+            std::string first_error;
+            int used_slot = 0;
+            for (int slot : image_cios_order(source.game, source.cios_slot, sd_in_use)) {
+                if (activate_image_game(source.game, slot, frag_storage, frag_storage_bytes, log_path, error,
+                                        block_ios_reload)) { active=true; used_slot=slot; break; }
+                if (reload_terminal_failure()) return false;
+                if (first_error.empty()) first_error = error;
+            }
+            if (!active) {
+                if (!first_error.empty()) error = first_error;
+                return false;
+            }
+            // Before the partition is opened: d2x turns its NAND
+            // emulation on only while no title runs. A game on the SD card
+            // itself only with d2x on base 56 or 57 (USB Loader GX's rule:
+            // the others cannot read the game and keep the save on one card).
+            if (d2x_ready) {
+                const int base = d2x_base(used_slot);
+                std::string why;
+                if (source.game.device == ImageDevice::Sd && base != 56 && base != 57)
+                    logf("Saves: RiftWii's own save code, not d2x's NAND emulation (a game on the SD card with d2x "
+                         "base %d; d2x keeps both on one card on base 56 or 57)\n", base);
+                else if (!(d2x_saves = enable_d2x_saves(own_saves_dir, why)))
+                    logf("Saves: RiftWii's own save code, not d2x's NAND emulation (%s)\n", why.c_str());
+            }
+            open_usb_for_packs();
+            logf("%s: virtual-disc probe\n", source.kind == LaunchSource::Kind::Usb ? "USB" : "SD");
+            ProbeOptions virtual_disc;
+            virtual_disc.virtual_source = true;
+            if (!probe_disc(probe, error, virtual_disc)) return false;
+            mem::CheckHeap("after the disc probe");
+            if (probe.header.game_id != source.game.id || probe.header.version != source.game.revision ||
+                probe.header.disc_number != source.game.disc_number) {
+                error="d2x virtual disc identity does not match the selected image";
+                return false;
+            }
+        } else {
+            if (usb_packs && MenuCiosSlot() == 0) {
+                if (!activate_disc_cios(source.cios_slot, log_path, error)) return false;
+                on_cios = true;
+                // A heap damaged across the reload (a tester's Wii U) would
+                // only fail later, somewhere else: stop here, with the reason.
+                if (!mem::CheckHeap("after the cIOS reload")) {
+                    error = "RiftWii's memory was damaged during the reload into IOS" +
+                            std::to_string(IOS_GetVersion()) + " (the details are in boot.log)";
+                    return false;
+                }
+            }
+            open_usb_for_packs();
+            if (!probe_disc(probe, error)) return false;
+            mem::CheckHeap("after the disc probe");
+        }
+        probed = true;
+        return true;
+    }
+    // A failure is only logged here: the pack that needs the drive says
+    // why when it is read.
+    void open_usb_for_packs() {
+        if (!usb_packs) return;
+        std::string why;
+        if (ums::OpenWaiting(why, 20)) logf("USB: d2x's /dev/usb2 opened for the packs, before the game partition\n");
+        else logf("USB: d2x's /dev/usb2 for the packs: %s\n", why.c_str());
+        mem::CheckHeap("after d2x's USB device");
+    }
+    bool ensure_layout(std::string& error) {
+        if (!ensure_probe(error)) return false;
+        if (laid_out) return true;
+        if (!read_partition_layout(partition, error)) return false;
+        mem::CheckHeap("after the file table");
+        laid_out = true;
+        return true;
+    }
+};
+
+// Reads an SD file as the replacement for an FST entry of the same size.
+bool LoadReplacement(const OpenedPartition& partition, const std::string& disc_path, const std::string& sd_path,
+                     MemReplacement& out, std::string& error) {
+    std::uint32_t index = partition.fst.find(disc_path, false);
+    if (index == Fst::npos) index = partition.fst.find(disc_path, true);
+    if (index == Fst::npos) {
+        error = "no such disc file '" + disc_path + "'";
+        return false;
+    }
+    const FstEntry& entry = partition.fst.entries()[index];
+    if (entry.is_directory) {
+        error = "'" + disc_path + "' is a directory";
+        return false;
+    }
+    std::ifstream file(sd_path, std::ios::binary);
+    if (!file) {
+        error = "cannot open " + sd_path;
+        return false;
+    }
+    out.bytes.assign(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
+    if (out.bytes.size() != entry.size) {
+        error = sd_path + " is " + std::to_string(out.bytes.size()) + " bytes but '" + disc_path + "' is " +
+                std::to_string(entry.size) + " (only same-size replacements yet)";
+        return false;
+    }
+    out.virtual_offset = entry.offset;
+    logf("Replace %s (%u bytes at 0x%llx) with %s\n", disc_path.c_str(), entry.size,
+         static_cast<unsigned long long>(entry.offset), sd_path.c_str());
+    error.clear();
+    return true;
+}
+
+// Reads an SD file as the new content of an FST entry, whatever its size.
+bool LoadVirtualFile(const OpenedPartition& partition, const std::string& disc_path, const std::string& sd_path,
+                     VirtualFile& out, std::string& error) {
+    std::uint32_t index = partition.fst.find(disc_path, false);
+    if (index == Fst::npos) index = partition.fst.find(disc_path, true);
+    if (index == Fst::npos) {
+        error = "no such disc file '" + disc_path + "'";
+        return false;
+    }
+    const FstEntry& entry = partition.fst.entries()[index];
+    if (entry.is_directory) {
+        error = "'" + disc_path + "' is a directory";
+        return false;
+    }
+    if (!partition.fst.path_of(index, out.disc_path)) {
+        error = "cannot name '" + disc_path + "'";
+        return false;
+    }
+    std::ifstream file(sd_path, std::ios::binary);
+    if (!file) {
+        error = "cannot open " + sd_path;
+        return false;
+    }
+    out.bytes.assign(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
+    logf("Grow %s (%u bytes at 0x%llx) to %u bytes from %s\n", out.disc_path.c_str(), entry.size,
+         static_cast<unsigned long long>(entry.offset), static_cast<unsigned>(out.bytes.size()), sd_path.c_str());
+    error.clear();
+    return true;
+}
+
+// Resolves an SD file of the same size as an FST entry to the sectors the
+// runtime will read it from.
+bool LoadSdReplacement(const OpenedPartition& partition, const std::string& disc_path, const std::string& sd_path,
+                       SdReplacement& out, std::string& error) {
+    std::uint32_t index = partition.fst.find(disc_path, false);
+    if (index == Fst::npos) index = partition.fst.find(disc_path, true);
+    if (index == Fst::npos) {
+        error = "no such disc file '" + disc_path + "'";
+        return false;
+    }
+    const FstEntry& entry = partition.fst.entries()[index];
+    if (entry.is_directory) {
+        error = "'" + disc_path + "' is a directory";
+        return false;
+    }
+    Fat32File file;
+    if (!resolve_sd_file(sd_path, file, error)) return false;
+    if (file.entry.size != entry.size) {
+        error = sd_path + " is " + std::to_string(file.entry.size) + " bytes but '" + disc_path + "' is " +
+                std::to_string(entry.size) + " (only same-size replacements yet)";
+        return false;
+    }
+    if (!place_on_fragments(file.fragments, 0, file.entry.size, out.runs, error)) return false;
+    out.virtual_offset = entry.offset;
+    logf("SD replace %s (%u bytes at 0x%llx) with %s: %u fragment(s), first sector %llu\n", disc_path.c_str(),
+         entry.size, static_cast<unsigned long long>(entry.offset), sd_path.c_str(),
+         static_cast<unsigned>(file.fragments.size()),
+         static_cast<unsigned long long>(file.fragments.empty() ? 0 : file.fragments[0].sector));
+    error.clear();
+    return true;
+}
+
+// Resolves an SD file of any size as the new content of an FST entry.
+bool LoadSdVirtualFile(const OpenedPartition& partition, const std::string& disc_path, const std::string& sd_path,
+                       VirtualFile& out, std::string& error) {
+    std::uint32_t index = partition.fst.find(disc_path, false);
+    if (index == Fst::npos) index = partition.fst.find(disc_path, true);
+    if (index == Fst::npos) {
+        error = "no such disc file '" + disc_path + "'";
+        return false;
+    }
+    const FstEntry& entry = partition.fst.entries()[index];
+    if (entry.is_directory) {
+        error = "'" + disc_path + "' is a directory";
+        return false;
+    }
+    if (!partition.fst.path_of(index, out.disc_path)) {
+        error = "cannot name '" + disc_path + "'";
+        return false;
+    }
+    Fat32File file;
+    if (!resolve_sd_file(sd_path, file, error)) return false;
+    if (file.entry.size == 0) {
+        error = sd_path + " is empty";
+        return false;
+    }
+    if (!place_on_fragments(file.fragments, 0, file.entry.size, out.sd_runs, error)) return false;
+    logf("SD grow %s (%u bytes at 0x%llx) to %u bytes from %s: %u fragment(s)\n", out.disc_path.c_str(), entry.size,
+         static_cast<unsigned long long>(entry.offset), file.entry.size, sd_path.c_str(),
+         static_cast<unsigned>(file.fragments.size()));
+    error.clear();
+    return true;
+}
+
+}  // namespace
+
+bool AutorunPresent() {
+    struct stat st;
+    return stat(kAutorunPath, &st) == 0 && S_ISREG(st.st_mode);
+}
+
+bool RunBoot(bool allow_ios_fallback, std::string& error, const LaunchSource& source) {
+    Session s(source, "sd:/riftwii/boot.log");
+    if (!s.ensure_probe(error)) return false;
+    BootOptions options;
+    options.allow_ios_fallback = allow_ios_fallback;
+    options.preserve_current_ios = source.kind != LaunchSource::Kind::Disc || MenuCiosSlot() != 0;
+    return boot_game(s.probe, std::move(options), error);
+}
+
+bool ProbeInserted(std::string& game_id, std::string& title, std::string& error,
+                   std::uint8_t* revision, std::uint8_t* disc_number) {
+    if (!di::open(error)) return false;
+    bool inserted = false;
+    if (!di::cover_status(inserted, error)) return false;
+    if (!inserted) {
+        error = "no disc in the drive";
+        return false;
+    }
+    // The menu only needs the header; an opened partition would leave a
+    // d2x Menu IOS refusing USB for the rest of the session.
+    DiscProbe probe;
+    ProbeOptions options;
+    options.header_only = true;
+    if (!probe_disc(probe, error, options)) return false;
+    game_id = probe.header.game_id;
+    title = probe.header.title;
+    if (revision) *revision = probe.header.version;
+    if (disc_number) *disc_number = probe.header.disc_number;
+    return true;
+}
+
+// A compile's warnings and notes for the log. A big mod has a note per
+// file and every log line is a card write, so past kMaxNoteLines only the
+// skipped files are listed and the rest counted.
+void LogCompileNotes(const CompiledMod& mod) {
+    constexpr std::size_t kMaxNoteLines = 60;
+    LogBatch batch;
+    for (const std::string& w : mod.warnings) logf("  warning: %s\n", w.c_str());
+    if (mod.notes.size() <= kMaxNoteLines) {
+        for (const std::string& n : mod.notes) logf("  %s\n", n.c_str());
+        return;
+    }
+    std::size_t shown = 0, hidden = 0;
+    for (const std::string& n : mod.notes) {
+        if (shown < kMaxNoteLines && n.find("skipped") != std::string::npos) {
+            logf("  %s\n", n.c_str());
+            ++shown;
+        } else {
+            ++hidden;
+        }
+    }
+    logf("  (%u more note(s): files placed, relocated or created)\n", static_cast<unsigned>(hidden));
+}
+
+bool CompileSelection(const std::vector<PackageChoices>& packages, CompiledMod& out, std::string& error, const LaunchSource& source) {
+    Session s(source, "sd:/riftwii/boot.log");
+    s.usb_packs = any_on_usb(packages);
+    if (!s.ensure_layout(error)) return false;
+    CompiledMod mod;
+    if (!compile_packages(packages, s.probe, s.partition, mod, error)) return false;
+    mod.source_identity = s.probe.header.identity();
+    mod.has_source_identity = true;
+    LogCompileNotes(mod);
+    logf("%u package(s): %u table entries, %u relocation(s), %u memory patch(es)\n",
+         static_cast<unsigned>(packages.size()), static_cast<unsigned>(mod.entries.size()),
+         static_cast<unsigned>(mod.relocations.size()), static_cast<unsigned>(mod.memory.size()));
+    out = std::move(mod);
+    return true;
+}
+
+// The game page's Saves for a launch (a pack's own <savegame> wins: then
+// none). Headless runs pass "nand".
+void SetOwnSaves(Session& s, const std::string& save_mode, const std::string& game_id) {
+    if (LaunchPackKeepsSaves()) return;
+    const SaveOverride own = resolve_save_override(save_mode, "", game_id);
+    s.own_saves_dir = own.dir;
+    s.own_saves_clone = own.clone;
+}
+
+// d2x keeps the save (the runtime leaves it alone), else the runtime
+// serves the folder's title/<type>/<id>/data. A pack's <savegame> as
+// before.
+void KeepOwnSaves(const Session& s, bool xml_saves, BootOptions& options) {
+    if (xml_saves || options.savegame_dir.empty()) return;
+    if (s.d2x_saves) {
+        logf("Saves: kept by d2x's NAND emulation in %s\n", options.savegame_dir.c_str());
+        options.savegame_dir.clear();
+        options.savegame_clone = false;
+        options.install_resident = !options.table_entries.empty() || !options.replacements.empty() ||
+                                   !options.relocations.empty();
+        return;
+    }
+    options.savegame_own = true;
+}
+
+bool BootCompiled(CompiledMod&& mod, std::string& error, const LaunchSource& source,
+                    const std::string& save_mode, const std::string& game_id) {
+    Session s(source, "sd:/riftwii/boot.log");
+    SetOwnSaves(s, save_mode, game_id);
+    s.sd_in_use = !mod.entries.empty() || !mod.savegame_dir.empty() || !s.own_saves_dir.empty();
+    if (!s.ensure_probe(error)) return false;
+    if (mod.has_source_identity && !same_disc_identity(mod.source_identity, s.probe.header.identity())) {
+        error = "disc changed since preflight; recompile the selected packages";
+        return false;
+    }
+    // The UI's save separation applies only when no <savegame external>
+    // patch claimed a folder (XML wins); headless runs pass "nand".
+    const SaveOverride saves = resolve_save_override(save_mode, mod.savegame_dir, game_id);
+    const bool xml_saves = !mod.savegame_dir.empty();
+    const std::string dir = xml_saves ? mod.savegame_dir : saves.dir;
+    BootOptions options;
+    options.allow_ios_fallback = true;
+    options.preserve_current_ios = source.kind != LaunchSource::Kind::Disc || MenuCiosSlot() != 0;
+    options.install_resident = !mod.entries.empty() || !mod.mem.empty() || !mod.relocations.empty() || !dir.empty();
+    options.resident_gecko = false;
+    // Moved, not copied: the menu's compiled mod is not needed again.
+    options.table_entries = std::move(mod.entries);
+    options.replacements = std::move(mod.mem);
+    options.relocations = std::move(mod.relocations);
+    options.memory_patches = std::move(mod.memory);
+    options.main_dol = std::move(mod.main_dol);
+    options.banner_names = mod.banner_names;
+    options.savegame_dir = dir;
+    options.savegame_clone = xml_saves ? mod.savegame_clone : saves.clone;
+    if (!xml_saves && !saves.note.empty()) logf("Saves: %s\n", saves.note.c_str());
+    KeepOwnSaves(s, xml_saves, options);
+    return boot_game(s.probe, std::move(options), error);
+}
+
+bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error, const LaunchSource& source,
+               const std::string& save_mode, const std::string& game_id) {
+    {
+        // A pack that only swaps the game's executable for a Homebrew
+        // Channel app (CTGP Revolution 1.03's channel): the app is started
+        // the way the Homebrew Channel starts it, not loaded as the game. It
+        // reads the game from the disc drive itself. For a disc, before a
+        // probe or an IOS reload would take its IOS and hardware access
+        // away; for a game on the USB drive or the SD card, after d2x was
+        // set up to serve that game as the disc (the reload into the cIOS
+        // ends the hardware access; the app runs under the cIOS).
+        std::string app, dropped;
+        if (homebrew_app_stand_in(packages, game_id, app, dropped)) {
+            logf("Mods: the packs only replace the game's executable with %s, a Homebrew Channel app: started as "
+                 "the Homebrew Channel starts it, not loaded as the game%s\n",
+                 app.c_str(), dropped.empty() ? "" : ("; " + dropped + " does not apply to it").c_str());
+            SetCtgpDefaults(app);
+            if (source.kind != LaunchSource::Kind::Disc) {
+                // The app reloads IOS itself (CTGP asks for IOS37), which
+                // would drop d2x and the game with it: d2x blocks that.
+                Session s(source, "sd:/riftwii/boot.log");
+                s.block_ios_reload = true;
+                const bool probed = s.ensure_probe(error);
+                std::string ignored;
+                // closepart: the partition stays open, so ES still names the
+                // disc's title when the app reloads IOS (d2x keeps its
+                // virtual disc across a reload only for a disc game).
+                if (debug_off("closepart")) logf("Homebrew app: debug_off: the disc's partition stays open\n");
+                else di::close_partition(ignored);
+                if (!probed) {
+                    ClearIosReloadBlock(error);
+                    return false;
+                }
+                di::close();
+                s.keep_reload_block = true;
+                logf("Homebrew app: d2x serves %s as the disc for it\n", source.game.id.c_str());
+            }
+            logf("Homebrew app: IOS%d, hardware access %s\n", IOS_GetVersion(),
+                 *reinterpret_cast<volatile u32*>(0xCD800064) == 0xFFFFFFFFu ? "on" : "off");
+            if (StartHomebrewApp(app, error)) return true;
+            ClearIosReloadBlock(error);
+            return false;
+        }
+    }
+    // Keep one session across activation, DI probing, package compilation and
+    // boot. In particular, a USB fragment list must survive the cIOS reload.
+    Session s(source, "sd:/riftwii/boot.log");
+    s.usb_packs = any_on_usb(packages);
+    SetOwnSaves(s, save_mode, game_id);
+    s.sd_in_use = !packages.empty() || !s.own_saves_dir.empty();
+    if (!s.ensure_layout(error)) return false;
+    CompiledMod mod; if (!compile_packages(packages, s.probe, s.partition, mod, error)) return false;
+    LogCompileNotes(mod);
+    logf("%u package(s): %u table entries, %u relocation(s), %u memory patch(es)\n",
+         static_cast<unsigned>(packages.size()), static_cast<unsigned>(mod.entries.size()),
+         static_cast<unsigned>(mod.relocations.size()), static_cast<unsigned>(mod.memory.size()));
+    const SaveOverride saves = resolve_save_override(save_mode, mod.savegame_dir, game_id);
+    const bool xml_saves = !mod.savegame_dir.empty();
+    const std::string dir = xml_saves ? mod.savegame_dir : saves.dir;
+    BootOptions options; options.allow_ios_fallback=true;
+    options.preserve_current_ios = source.kind != LaunchSource::Kind::Disc || MenuCiosSlot() != 0 || s.on_cios;
+    options.install_resident=!mod.entries.empty() || !mod.mem.empty() || !mod.relocations.empty() || !dir.empty();
+    // Moved, not copied: the compiled mod is not needed again, and a pack's
+    // main.dol and replacements can be megabytes.
+    options.table_entries=std::move(mod.entries); options.replacements=std::move(mod.mem);
+    options.relocations=std::move(mod.relocations); options.memory_patches=std::move(mod.memory);
+    options.main_dol=std::move(mod.main_dol);
+    options.banner_names=mod.banner_names;
+    options.savegame_dir=dir; options.savegame_clone=xml_saves ? mod.savegame_clone : saves.clone;
+    if (!xml_saves && !saves.note.empty()) logf("Saves: %s\n", saves.note.c_str());
+    KeepOwnSaves(s, xml_saves, options);
+    return boot_game(s.probe, std::move(options), error);
+}
+
+bool RunDump(const std::vector<std::string>& disc_paths, const std::string& sd_dir, std::string& error) {
+    LaunchSource source;
+    Session s(source, nullptr);
+    if (!s.ensure_layout(error)) return false;
+    if (!dump_metadata(s.probe, s.partition, sd_dir, error)) return false;
+    for (const std::string& p : disc_paths) {
+        if (!dump_file(s.partition, p, sd_dir + "/" + basename_of(p), error)) return false;
+    }
+    return true;
+}
+
+void RunAutorun() {
+    LogOpen(kAutorunLogPath);
+    logf("RiftWii autorun: %s\n", kAutorunPath);
+    {
+        int probe_local = 0;
+        logf("loader: stack near %p, arena1 %p-%p, arena2 %p-%p\n", static_cast<void*>(&probe_local),
+             SYS_GetArena1Lo(), SYS_GetArena1Hi(), SYS_GetArena2Lo(), SYS_GetArena2Hi());
+    }
+    mem::LogLimits();
+    mem::LogUsage("autorun");
+    std::vector<std::string> script_lines;
+    {
+        std::ifstream script(kAutorunPath);
+        std::string loaded;
+        while (std::getline(script, loaded)) script_lines.push_back(std::move(loaded));
+    }  // Never retain an SD FILE across a USB IOS reload.
+    LaunchSource source;
+    Session s(source, kAutorunLogPath);
+    bool allow_fallback = true;
+    bool install_resident = false;
+    std::vector<MemReplacement> replacements;
+    std::vector<VirtualFile> virtual_files;
+    std::vector<SdReplacement> sd_replacements;
+    std::vector<PackageSelection> packages;  // compiled together, later ones on top
+    CompiledMod mods;
+    // Recompiles every package named so far and logs the combined result.
+    const auto recompile = [&](std::string& err) {
+        CompiledMod mod;
+        if (!s.ensure_layout(err) || !compile_packages(packages, s.probe, s.partition, mod, err)) return false;
+        LogCompileNotes(mod);
+        logf("  %u package(s): %u table entries, %u relocation(s), %u memory patch(es)%s%s\n",
+             static_cast<unsigned>(packages.size()), static_cast<unsigned>(mod.entries.size()),
+             static_cast<unsigned>(mod.relocations.size()), static_cast<unsigned>(mod.memory.size()),
+             mod.savegame_dir.empty() ? "" : ", savegame in ", mod.savegame_dir.c_str());
+        if (!mod.entries.empty() || !mod.mem.empty() || !mod.relocations.empty() || !mod.savegame_dir.empty())
+            install_resident = true;
+        mods = std::move(mod);
+        return true;
+    };
+    std::string error;
+    int line_number = 0;
+    for (std::string line : script_lines) {
+        ++line_number;
+        line = trim(line);
+        if (line.empty() || line[0] == '#') continue;
+        std::istringstream words(line);
+        std::string cmd;
+        words >> cmd;
+        logf("> %s\n", line.c_str());
+        bool ok = true;
+        if (cmd == "usb") {
+            std::string wanted; int slot=0; words >> wanted >> slot;
+            UsbCatalog catalog; std::string scan_error;
+            if (wanted.empty() || !scan_usb_games(catalog, scan_error)) { ok=false; error=wanted.empty()?"usb needs a path or ID6":scan_error; }
+            else {
+                UsbGame* found=nullptr; for (UsbGame& g:catalog.games) if (g.path==wanted || g.id==wanted) { found=&g; break; }
+                if (!found) { ok=false; error="USB image '"+wanted+"' was not found in the USB catalog"; }
+                else if (!check_image_game(*found, error)) ok=false;
+                else { source=LaunchSource{}; source.kind=LaunchSource::Kind::Usb; source.game=*found; source.cios_slot=slot; s=Session(source, kAutorunLogPath); }
+            }
+        } else if (cmd == "sd") {
+            std::string wanted; int slot=0; words >> wanted >> slot;
+            ImageCatalog catalog; std::string scan_error;
+            if (wanted.empty() || !scan_sd_games(catalog, scan_error)) { ok=false; error=wanted.empty()?"sd needs a path or ID6":scan_error; }
+            else {
+                ImageGame* found=nullptr; for (ImageGame& g:catalog.games) if (g.path==wanted || g.id==wanted) { found=&g; break; }
+                if (!found) { ok=false; error="SD image '"+wanted+"' was not found in the SD catalog"; }
+                else if (!check_image_game(*found, error)) ok=false;
+                else { source=LaunchSource{}; source.kind=LaunchSource::Kind::Sd; source.game=*found; source.cios_slot=slot; s=Session(source, kAutorunLogPath); }
+            }
+        } else if (cmd == "rvz") {
+            // Dolphin only: boot the RVZ's stub as the disc and read the
+            // partitions from the RVZ on the card (d2x does this on a Wii).
+            std::string path; words >> path;
+            if (path.empty()) { ok=false; error="rvz needs an sd:/ path"; }
+            else if (!serve_disc_from_rvz(path, error)) ok=false;
+        } else if (cmd == "disc") {
+            source=LaunchSource{}; s=Session(source, kAutorunLogPath);
+        } else if (cmd == "netscan") {
+            // The network packs' list, as the menu's scan fetches it.
+            const std::string line = RefreshNetworkPacks(nullptr);
+            logf("  %s\n", line.empty() ? "no RiiFS server configured" : line.c_str());
+        } else if (cmd == "resync") {
+            ForceNextSync();
+        } else if (cmd == "usbcheck") {
+            // Settings > Check the GameCube adapter > Check each cIOS,
+            // straight away (its results in sd:/riftwii/usbcheck.txt).
+            logf("  %s\n", RunUsbCheck(true).c_str());
+        } else if (cmd == "probe") {
+            ok = s.ensure_probe(error);
+        } else if (cmd == "layout") {
+            ok = s.ensure_layout(error);
+        } else if (cmd == "meta") {
+            std::string dir;
+            words >> dir;
+            if (dir.empty()) dir = "sd:/riftwii/dump";
+            ok = s.ensure_layout(error) && dump_metadata(s.probe, s.partition, dir, error);
+        } else if (cmd == "dump") {
+            std::string disc_path, sd_path;
+            words >> disc_path >> sd_path;
+            if (disc_path.empty()) {
+                ok = false;
+                error = "dump needs a disc path";
+            } else {
+                if (sd_path.empty()) sd_path = "sd:/riftwii/dump/" + basename_of(disc_path);
+                ok = s.ensure_layout(error) && dump_file(s.partition, disc_path, sd_path, error);
+            }
+        } else if (cmd == "dol") {
+            std::string sd_path;
+            words >> sd_path;
+            if (sd_path.empty()) sd_path = "sd:/riftwii/dump/main.dol";
+            ok = s.ensure_layout(error) && dump_dol(s.partition, sd_path, error);
+        } else if (cmd == "nofallback") {
+            allow_fallback = false;
+        } else if (cmd == "hook") {
+            install_resident = true;  // E2: resident runtime, DI reads reported over the Gecko
+        } else if (cmd == "replace") {
+            // E3: `replace <disc path> <sd path>`, same size as the FST entry.
+            std::string disc_path, sd_path;
+            words >> disc_path >> sd_path;
+            MemReplacement r;
+            ok = !disc_path.empty() && !sd_path.empty() && s.ensure_layout(error) &&
+                 LoadReplacement(s.partition, disc_path, sd_path, r, error);
+            if (ok) {
+                replacements.push_back(std::move(r));
+                install_resident = true;
+            } else if (error.empty()) {
+                error = "replace needs a disc path and an SD path";
+            }
+        } else if (cmd == "grow") {
+            // E5: `grow <disc path> <sd path>`, any size; the file moves to
+            // the virtual window.
+            std::string disc_path, sd_path;
+            words >> disc_path >> sd_path;
+            VirtualFile v;
+            ok = !disc_path.empty() && !sd_path.empty() && s.ensure_layout(error) &&
+                 LoadVirtualFile(s.partition, disc_path, sd_path, v, error);
+            if (ok) {
+                virtual_files.push_back(std::move(v));
+                install_resident = true;
+            } else if (error.empty()) {
+                error = "grow needs a disc path and an SD path";
+            }
+        } else if (cmd == "sdreplace") {
+            // E4: `sdreplace <disc path> <sd path>`, same size as the FST
+            // entry, served from the card's sectors by the runtime.
+            std::string disc_path, sd_path;
+            words >> disc_path >> sd_path;
+            SdReplacement r;
+            ok = !disc_path.empty() && !sd_path.empty() && s.ensure_layout(error) &&
+                 LoadSdReplacement(s.partition, disc_path, sd_path, r, error);
+            if (ok) {
+                sd_replacements.push_back(std::move(r));
+                install_resident = true;
+            } else if (error.empty()) {
+                error = "sdreplace needs a disc path and an SD path";
+            }
+        } else if (cmd == "keep") {
+            // E7: `keep <disc path>`: the file moves to the virtual window
+            // with its own disc bytes, which the runtime fetches with a
+            // DVDLowRead of its own.
+            std::string disc_path;
+            words >> disc_path;
+            VirtualFile v;
+            v.original = true;
+            ok = !disc_path.empty() && s.ensure_layout(error);
+            if (ok) {
+                std::uint32_t index = s.partition.fst.find(disc_path, false);
+                if (index == Fst::npos) index = s.partition.fst.find(disc_path, true);
+                if (index == Fst::npos || s.partition.fst.entries()[index].is_directory ||
+                    !s.partition.fst.path_of(index, v.disc_path)) {
+                    ok = false;
+                    error = "no such disc file '" + disc_path + "'";
+                } else {
+                    logf("Keep %s (%u bytes at 0x%llx) in the virtual window\n", v.disc_path.c_str(),
+                         s.partition.fst.entries()[index].size,
+                         static_cast<unsigned long long>(s.partition.fst.entries()[index].offset));
+                    virtual_files.push_back(std::move(v));
+                    install_resident = true;
+                }
+            } else if (error.empty()) {
+                error = "keep needs a disc path";
+            }
+        } else if (cmd == "sdgrow") {
+            // E4+E5: `sdgrow <disc path> <sd path>`, any size, served from
+            // the card through the virtual window.
+            std::string disc_path, sd_path;
+            words >> disc_path >> sd_path;
+            VirtualFile v;
+            ok = !disc_path.empty() && !sd_path.empty() && s.ensure_layout(error) &&
+                 LoadSdVirtualFile(s.partition, disc_path, sd_path, v, error);
+            if (ok) {
+                virtual_files.push_back(std::move(v));
+                install_resident = true;
+            } else if (error.empty()) {
+                error = "sdgrow needs a disc path and an SD path";
+            }
+        } else if (cmd == "xml") {
+            // `xml <sd path>`: a Riivolution-format package with its
+            // default choices. All packages named so far are compiled
+            // together (later ones on top of earlier ones) so the log
+            // shows the combined result each time.
+            std::string sd_path;
+            words >> sd_path;
+            if (sd_path.empty()) {
+                ok = false;
+                error = "xml needs an SD path";
+            } else {
+                PackageSelection selection;
+                selection.xml_sd_path = sd_path;
+                packages.push_back(selection);
+                ok = recompile(error);
+                if (!ok) packages.pop_back();
+            }
+        } else if (cmd == "set") {
+            // `set <option>=<choice>`: a choice for the last `xml` package
+            // (option as "Option" or "Section/Option"; an empty choice or
+            // "disabled" turns the option off), then everything is
+            // recompiled.
+            std::string rest;
+            std::getline(words, rest);
+            rest = trim(rest);
+            const std::size_t eq = rest.find('=');
+            if (packages.empty() || eq == std::string::npos) {
+                ok = false;
+                error = packages.empty() ? "set needs a preceding xml" : "set needs <option>=<choice>";
+            } else {
+                packages.back().choices.emplace_back(trim(rest.substr(0, eq)), trim(rest.substr(eq + 1)));
+                ok = recompile(error);
+                if (!ok) packages.back().choices.pop_back();
+            }
+        } else if (cmd == "launch") {
+            // The GUI's path without the GUI: identify, scan, restore the
+            // saved choices, compile and boot.
+            FrontendState state;
+            if (source.kind != LaunchSource::Kind::Disc) {
+                state.use_usb = source.kind == LaunchSource::Kind::Usb;
+                state.use_sd = source.kind == LaunchSource::Kind::Sd;
+                state.game_id = source.game.id;
+                state.disc_title = source.game.title;
+                state.game_revision = source.game.revision;
+                state.game_disc_number = source.game.disc_number;
+                state.disc_status = std::string(source.kind == LaunchSource::Kind::Usb ? "USB: " : "SD: ") + source.game.id + "  " + source.game.title;
+                state.choices_path = std::string(kChoicesDir) + "/" + source.game.id + ".txt";
+            } else IdentifyDisc(state);
+            logf("  %s\n", state.disc_status.c_str());
+            logf("  %s\n", ScanPackages(state).c_str());
+            for (std::size_t i = 0; i < state.model.packages.size(); ++i) {
+                const auto& p = state.model.packages[i];
+                const std::string detail = p.valid ? "" : " (" + p.detail + ")";
+                logf("  %s: %s%s\n", p.file.c_str(),
+                     p.valid ? (p.for_disc ? (p.enabled ? "on" : "off") : "other disc") : "invalid", detail.c_str());
+                for (std::size_t o = 0; p.valid && o < p.package.options.size(); ++o) {
+                    logf("    %s/%s = %s\n", p.package.options[o].section.c_str(), p.package.options[o].name.c_str(),
+                         state.model.choice_name(i, o).c_str());
+                }
+            }
+            const std::vector<PackageChoices> selections = state.model.selections();
+            PrepareLaunchExtras(state);  // the game's cheats and video settings
+            if (state.game_id.empty()) {
+                ok = false;
+                error = "launch needs a disc";
+            } else if (!needs_launch_pipeline(!selections.empty(), state.model.save_mode)) {
+                logf("  nothing enabled and NAND saves selected: booting as is\n");
+                ok = mem::OutOfMemoryAsError(error, [&] { return RunBoot(allow_fallback, error, source); });
+                if (reload_terminal_failure()) halt_after_terminal_reload();
+                LogOpen(kAutorunLogPath, true);
+            } else {
+                logf(selections.empty() ? "  no packages enabled: applying selected Save Mode\n"
+                                        : "launch: handing over to the game\n");
+                ok = mem::OutOfMemoryAsError(error, [&] {
+                    return RunLaunch(selections, error, source, state.model.save_mode, state.game_id);
+                });
+                if (reload_terminal_failure()) halt_after_terminal_reload();
+                LogOpen(kAutorunLogPath, true);
+            }
+        } else if (cmd == "boot") {
+            BootOptions options;
+            options.allow_ios_fallback = allow_fallback;
+            options.preserve_current_ios = source.kind != LaunchSource::Kind::Disc || MenuCiosSlot() != 0;
+            options.install_resident = install_resident;
+            options.resident_gecko = install_resident;
+            options.replacements = replacements;
+            options.replacements.insert(options.replacements.end(), mods.mem.begin(), mods.mem.end());
+            options.virtual_files = virtual_files;
+            options.sd_replacements = sd_replacements;
+            options.verify_sd = true;
+            options.table_entries = mods.entries;
+            options.relocations = mods.relocations;
+            options.memory_patches = mods.memory;
+            options.main_dol = mods.main_dol;
+            options.banner_names = mods.banner_names;
+            options.savegame_dir = mods.savegame_dir;
+            options.savegame_clone = mods.savegame_clone;
+            if (!s.ensure_probe(error)) {
+                ok = false;
+            } else {
+                logf("boot: handing over to the game\n");
+                ok = boot_game(s.probe, std::move(options), error);  // returns only on failure, with the card remounted
+                if (reload_terminal_failure()) halt_after_terminal_reload();
+                LogOpen(kAutorunLogPath, true);
+            }
+        } else {
+            ok = false;
+            error = "unknown command";
+        }
+        if (!ok) {
+            if (reload_terminal_failure()) halt_after_terminal_reload();
+            logf("FAILED (line %d): %s\n", line_number, error.c_str());
+            break;
+        }
+        logf("ok\n");
+    }
+    logf("autorun finished\n");
+    LogClose();
+    if (running_in_dolphin()) {
+        // Stopping the emulated console makes Dolphin flush the SD image
+        // back to its sync folder, which is how the host reads the log.
+        fatUnmount("sd:");
+        logf("Dolphin detected: powering off so the SD card syncs\n");
+        SYS_ResetSystem(SYS_POWEROFF_STANDBY, 0, 0);
+    }
+}
+
+}  // namespace riftwii::wii

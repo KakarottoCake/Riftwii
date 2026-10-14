@@ -1,0 +1,211 @@
+// SPDX-FileCopyrightText: 2026 RiftWii contributors
+// SPDX-License-Identifier: GPL-3.0-or-later
+#pragma once
+
+#include <cstddef>
+#include <cstdint>
+#include <string>
+#include <vector>
+
+#include "riftwii/redirect.hpp"
+#include "riftwii/rvz.hpp"
+#include "riftwii/usbgame.hpp"
+#include "resident.hpp"
+
+namespace riftwii::wii {
+
+enum class ImageDevice { Usb, Sd };
+
+struct ImageGame {
+    ImageDevice device = ImageDevice::Usb;
+    std::string path;               // primary usb:/ or sd:/ path
+    std::string id;
+    std::string title;              // the disc header's internal name
+    std::string display;            // what the list shows (see riftwii/titles.hpp)
+    std::uint8_t revision = 0;
+    std::uint8_t disc_number = 0;
+    // The IOS its TMD asks for, read when it is opened (0: not known).
+    std::uint32_t required_ios = 0;
+    // Its title ID and the TMD itself, read then too (wii/storage/d2xsave.hpp: the
+    // emulated NAND's title.tmd). 0 and empty when not known (RVZ).
+    std::uint64_t title_id = 0;
+    std::vector<std::uint8_t> tmd;
+    UsbImageFormat format = UsbImageFormat::Iso;
+    // A disc of a USB drive formatted as WBFS (riftwii/wbfspart.hpp): its
+    // slot there. -1 for image files.
+    int wbfs_slot = -1;
+    D2xFragmentList fragments;
+    // Header read and fragment list built. An image whose name carries its
+    // ID is listed without being opened (a drive can hold hundreds);
+    // check_image_game opens it when it is picked.
+    bool checked = false;
+    // An RVZ image: whether RiftWii plays it (riftwii/rvz.hpp's check_rvz),
+    // filled when it is opened. Unsupported ones are listed, and picking
+    // one says why it cannot play.
+    RvzSupport rvz_support = RvzSupport::Supported;
+    std::vector<std::string> rvz_reasons;
+    std::uint64_t rvz_disc_bytes = 0;
+};
+
+struct ImageCatalog {
+    ImageDevice device = ImageDevice::Usb;
+    std::vector<ImageGame> games;
+    std::string status;
+    // Empty when at least one candidate cIOS slot holds a ticket; otherwise
+    // a user-visible warning that image games cannot boot yet. Presence only:
+    // identity is proven by the launch-time d2x probe, not here.
+    std::string cios_note;
+};
+
+struct LaunchSource {
+    enum class Kind { Disc, Usb, Sd } kind = Kind::Disc;
+    ImageGame game;
+    int cios_slot = 0;  // 0 selects 249, then 250, then 251
+};
+
+using UsbGame = ImageGame;
+using UsbCatalog = ImageCatalog;
+
+// Starts libogc USB storage, mounts usb: read-only from RiftWii's point of
+// view, and scans usb:/wbfs (flat and one nested game folder) and usb:/games,
+// or lists the slots of a drive formatted as WBFS.
+// Entries that cannot be proven to be Wii images are skipped with their first
+// failure retained in status. The USB volume must expose 512-byte sectors.
+bool scan_usb_games(UsbCatalog& out, std::string& error);
+// Waits up to `seconds` for USB to list a drive. A launch started at once
+// by another loader (a WiiFlow plugin) looks before the drive it just let
+// go of is listed again under the new IOS; the menu reads drives later.
+bool wait_for_usb_drive(int seconds);
+// The top folders that pick a USB drive's partition when it has several:
+// the user's game_folders, then wbfs, games and riivolution. Every mount
+// of the drive uses it, so the menu and the launch read the same one.
+std::vector<std::string> usb_wanted_folders();
+bool scan_sd_games(ImageCatalog& out, std::string& error);
+void unmount_usb_games();
+// Unmounts and stops libogc's USB driver when it was started in this IOS
+// (before an IOS reload, and before d2x's own USB device takes the drive).
+void release_usb_driver();
+// The drive the menu listed the games from when several are plugged in:
+// its sector size and a hash of its sector 0 (partition table or volume
+// header, which carry the drive's own serial numbers). False when the
+// menu did not have to choose. The launch's d2x drive is matched to it
+// (umsdev.cpp), so both read the same drive.
+bool usb_picked_drive(std::uint32_t& sector_bytes, std::uint64_t& sector0_hash);
+std::uint64_t usb_sector0_hash(const std::uint8_t* sector, std::size_t bytes);
+// Opens a listed game that is not checked yet: its pieces, disc header and
+// d2x fragment list, filling title, revision and disc number (and the ID
+// from the header). Needs the catalog's drive still mounted.
+bool check_image_game(ImageGame& game, std::string& error);
+// A file from the game's partition ("/opening.bnr"): an RVZ's as stored,
+// an ISO's or WBFS's decrypted with the console's own key (wii/menu/otpkey.hpp).
+bool read_image_disc_file(const ImageGame& game, const std::string& disc_path, std::vector<std::uint8_t>& out,
+                          std::string& error);
+// For an RVZ game that plays at the player's own risk: the warning to show
+// before it starts. Empty otherwise.
+std::string rvz_warning(const ImageGame& game);
+// Code builds for `game_id` left on the USB drive (FAT32 or NTFS): a
+// <game ID>.gct in a top folder or its codes folder. A code build reads
+// the SD card itself while the game runs, so the menu will not start the
+// game while one is there. The folders to move, like "usb:/Project+";
+// empty with no drive.
+std::vector<std::string> usb_mod_folders(const std::string& game_id);
+// Pack XMLs on the USB drive (FAT32 or NTFS), for the menu: the .xml
+// names directly in `folder` ("/riivolution"), sorted, hidden ones left
+// out; and a whole XML by "usb:/..." path (1 MiB at most). Nothing with no
+// drive mounted.
+std::vector<std::string> usb_xml_names(const std::string& folder);
+// The same for any extension (".raw"): file names directly in `folder`.
+std::vector<std::string> usb_file_names(const std::string& folder, const char* ext);
+bool read_usb_text(const std::string& usb_path, std::string& out);
+// Bytes of a file on the USB drive (the menu's view), by "usb:/..." path;
+// `size` gets the file's size. False past its end or when there is no
+// such file.
+bool read_usb_range(const std::string& usb_path, std::uint64_t offset, std::uint8_t* out, std::size_t length,
+                    std::uint64_t& size);
+// Whether the menu's view of the USB drive is up (no drive is started for it).
+bool usb_volume_ready();
+// Development aid for Dolphin, which has no d2x: partition reads of the
+// disc Dolphin boots (the RVZ's stub, made by tools/rvz) are answered from
+// the RVZ at `sd_path` instead.
+bool serve_disc_from_rvz(const std::string& sd_path, std::string& error);
+// The RVZ game about to start (its game partition opened through the
+// loader's partition reads): what the in-game runtime needs, with the
+// group table written to sd:/riftwii/rvz/<ID>.groups. Needs the card
+// mounted.
+bool rvz_resident_options(RvzResidentOptions& out, std::string& error);
+// A file on the SD card as a fresh view of the card sees it (what libfat
+// wrote is there once it has flushed): its size and its pieces as
+// absolute sectors of the card. Needs the card mounted.
+bool sd_file_pieces(const std::string& sd_path, std::uint64_t& size, std::vector<Fragment>& out, std::string& error);
+// A game's name from the title list (GameTDB, in the menu's language),
+// else `internal`, the disc header's.
+std::string GameDisplayName(const std::string& id, const std::string& internal);
+// Reads the title list again (after a language change or a download).
+void ReloadTitles();
+// Names (and sorts) a scanned catalog's games again from the title list.
+void RenameGames(ImageCatalog& catalog);
+// Whether a cIOS slot holds a launchable (non-stub) title.
+bool slot_has_ticket(int slot);
+
+// The cIOS slots to try for an image game, in order. `chosen` (the
+// game's or the global setting) alone when set; on automatic, USB Loader
+// GX's choice first (riftwii/gxpatches.hpp's gx_pick_cios: the d2x slot
+// whose base is the IOS the game asks for), then 249, 250 and 251.
+//
+// A Wii U with the GameCube adapter in use (seen in the menu, or the
+// setting On) gets a d2x slot on base 58 first: a tester's Wii U showed
+// that only base 58 reaches the adapter in a front USB port (IOS 58 and
+// d2x 251 base 58 did; 248, 249 base 56 and 250 base 57 did not).
+//
+// `uses_sd`: the launch reads the SD card while the game runs (mod packs
+// or saves there) though the game itself is on the USB drive: GX's rule
+// for the SD card applies as for a game on it (d2x bases 56-60 only; a
+// tester's Retro Rewind on base 38 failed the card's reset at the start).
+std::vector<int> image_cios_order(const ImageGame& game, int chosen, bool uses_sd = false);
+
+// The base IOS of the d2x cIOS in `slot` (its information block), 0 when
+// it is not a d2x that could be read, or one older than d2x v11 beta3.
+int d2x_base(int slot);
+
+// Whether games from the SD card or a USB drive may start on `slot`: false,
+// with `why` saying what to install, when its information block shows a
+// cIOS that is not d2x or a d2x older than v11 (riftwii/d2xversion.hpp).
+// True when the block could not be read.
+bool d2x_slot_allowed(int slot, std::string& why);
+
+// The cIOS check for starting `game` (its cIOS `chosen`, 0 automatic), in
+// the menu before it closes: the slot the launch will take and whether it
+// is out of date (d2x v11 before beta3: started, after a reminder), or why
+// every slot was turned down. Always Ok in Dolphin.
+struct CiosCheck {
+    enum class Verdict { Ok, OutOfDate, Refused };
+    Verdict verdict = Verdict::Ok;
+    int slot = 0;
+    std::string name;  // "d2x v11 beta2" when out of date
+    std::string why;   // when refused
+};
+CiosCheck image_cios_check(const ImageGame& game, int chosen, bool uses_sd = false);
+
+// On a Wii U, the d2x slot that reaches the GameCube adapter in any USB
+// port, 0 when none is known: the one on base 58; when no slot's base
+// can be read (a tester's console, its d2x at revision 65535), a slot
+// that sd:/riftwii/usbcheck.txt (Check each cIOS) saw the adapter with;
+// else 251, where the vWii d2x installer puts base 58. `why` says which.
+int wii_u_adapter_slot(std::string* why = nullptr);
+
+// The transition after the GUI has stopped. It leaves d2x owning the selected
+// image device and remounts SD, so XML and redirect files remain available. `storage` is
+// caller-owned memory that must outlive d2x configuration and the game boot.
+// `block_ios_reload`: d2x keeps its cIOS (and so the virtual disc) when the
+// program started next reloads IOS itself (see di::set_ios_reload_block).
+bool activate_image_game(const ImageGame& game, int cios_slot, void*& storage, std::size_t& storage_bytes,
+                         const char* log_path, std::string& error, bool block_ios_reload = false);
+// For a disc whose packs are on the USB drive while the menu runs a non-d2x
+// IOS: reloads the cIOS (`cios_slot`, or 249, then 250, then 251) with the
+// same teardown as activate_image_game, and brings the SD card and the log
+// back. The game then runs under it (d2x's USB device is read in game).
+// `purpose` names what the reload is for in the log.
+bool activate_disc_cios(int cios_slot, const char* log_path, std::string& error,
+                        const char* purpose = "the packs on the USB drive");
+
+}  // namespace riftwii::wii

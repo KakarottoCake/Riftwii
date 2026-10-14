@@ -6,7 +6,7 @@
  * decoding RVZ packing, where runs of the disc's padding are stored as the
  * 68-byte seed of the generator that made them. Format: Dolphin's
  * docs/WiaAndRvz.md. Freestanding C99 like rtable.c, so the host reader
- * (src/rvz.cpp) and the resident runtime share it.
+ * (src/fs/rvz.cpp) and the resident runtime share it.
  */
 #ifndef RIFTWII_RTRVZ_H
 #define RIFTWII_RTRVZ_H

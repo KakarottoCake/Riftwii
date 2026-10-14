@@ -91,7 +91,7 @@ ZSTDFLAGS := -Os -mcpu=750 -meabi -msoft-float -msdata=none \
 PYTHON  ?= python3
 # The loader embeds the two runtime blobs zstd-compressed (about half their
 # size, which is MEM1 the menu keeps) and unpacks the one a game needs when
-# it starts (wii/resident.cpp). zstd is the command-line tool.
+# it starts (wii/launch/resident.cpp). zstd is the command-line tool.
 ZSTD    ?= zstd
 BLOBZST := $(OUT)/riftwii_rt.zst
 RVZZST  := $(OUT)/riftwii_rt_rvz.zst

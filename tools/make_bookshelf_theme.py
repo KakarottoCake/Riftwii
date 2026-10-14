@@ -39,9 +39,9 @@ RNG = np.random.default_rng(1206)
 # shelf view's walls get the same planks.
 WALL_STATE = {}
 
-# Home's cover rows (wii/gui_gamegrid.cpp: covers 80x112, top 16, 14 apart).
+# Home's cover rows (wii/menu/gui_gamegrid.cpp: covers 80x112, top 16, 14 apart).
 COVER_ROW_BOTTOMS = (16 + 112, 16 + 112 + 14 + 112)
-# Home's channels: three rows of 84 from y 24, 12 apart (wii/gui_gamegrid.cpp).
+# Home's channels: three rows of 84 from y 24, 12 apart (wii/menu/gui_gamegrid.cpp).
 CHANNEL_ROW_BOTTOMS = (24 + 84, 24 + 84 + 12 + 84, 24 + 3 * 84 + 2 * 12)
 
 INI = """[theme]
@@ -217,7 +217,7 @@ def cover_tile(over):
 
 
 def bar(W=640):
-    """W x 124: Home's bottom bar, the same curve RiftWii paints (src/skinpaint.cpp):
+    """W x 124: Home's bottom bar, the same curve RiftWii paints (src/art/skinpaint.cpp):
     high at the sides, dipping over the middle 58% where the clock sits."""
     H = 124
     top = np.zeros(W)

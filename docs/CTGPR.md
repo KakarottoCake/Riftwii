@@ -7,8 +7,8 @@ reaches an offline race.
 ## How RiftWii starts it
 
 CTGP-R 1.03's Riivolution XML replaces `main.dol` with the CTGP-R Channel
-(`/apps/ctgpr/boot.dol`). `homebrew_app_stand_in` (`wii/modplan.cpp`)
-recognises a choice that only does that, and `RunLaunch` (`wii/autorun.cpp`)
+(`/apps/ctgpr/boot.dol`). `homebrew_app_stand_in` (`wii/launch/modplan.cpp`)
+recognises a choice that only does that, and `RunLaunch` (`wii/launch/autorun.cpp`)
 starts the app the way the Homebrew Channel does (`StartHomebrewApp`), not
 through the apploader. The save redirect in CTGP's XML cannot apply and is
 dropped.
@@ -32,7 +32,7 @@ d2x accepted the reload block and served the disc, and the app started
 under IOS249 with "hardware access off". The CTGP channel then showed a
 green screen.
 
-Since 2.7.0 RC7, `keep_hardware_access` (`wii/boot.cpp`) changes the
+Since 2.7.0 RC7, `keep_hardware_access` (`wii/launch/boot.cpp`) changes the
 running IOS's ES right before the reload into the cIOS so the cIOS keeps
 hardware access, as USB Loader GX and WiiFlow do with libruntimeiospatch's
 `IosPatch_AHBPROT`. It does the same to the cIOS's ES once d2x is set up,
@@ -91,7 +91,7 @@ The channel skips the exploit when `sd:/ctgpr/config.ini` says so in its
 `[exploit]` section (`disable_ios_exploit = yes`; booleans are `yes`/`no`,
 and CTGP only writes keys that differ from the default). Since 2.7.0 RC9,
 RiftWii adds that line before it starts `sd:/apps/ctgpr/boot.dol`
-(`SetCtgpDefaults`, `wii/autorun.cpp`; the INI merge is
+(`SetCtgpDefaults`, `wii/launch/autorun.cpp`; the INI merge is
 `riftwii/ctgpconfig.hpp`, tested in `tests/ctgpconfig_tests.cpp`). A value
 the player set is left alone. The key does not affect networking: online
 play comes from CTGP's patches to the game's code. `boot.log` shows
@@ -102,8 +102,8 @@ play comes from CTGP's patches to the game's code. `boot.log` shows
 ES ioctlv `0xA0` on `/dev/es`, two 4-byte inputs: mode 2 and the cIOS slot
 to load in place of any IOS the program asks for (as USB Loader GX's
 `BlockIOSReload` sends it). Mode 0 with one input clears it.
-`di::set_ios_reload_block` (`wii/di.cpp`) sends it; `tests/d2xreload_tests.cpp`
-runs the real `wii/di.cpp` against a mocked IOS (`tests/wii_mock/`) to check
+`di::set_ios_reload_block` (`wii/launch/di.cpp`) sends it; `tests/d2xreload_tests.cpp`
+runs the real `wii/launch/di.cpp` against a mocked IOS (`tests/wii_mock/`) to check
 the vectors, alignment, slot bounds (200-255) and error handling.
 
 It is armed in `activate_image_game` right after the F6 reset-disable,

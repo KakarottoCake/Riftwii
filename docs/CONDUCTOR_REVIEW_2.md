@@ -50,7 +50,7 @@ and `<memory>`. Today the Wii frontend would label all of them "Invalid".
 ## 3. Findings (ranked)
 
 ### F1 - Blocking: parser strictness is aimed at the wrong layer
-`src/patch.cpp` rejects the whole document on any unknown attribute/tag
+`src/patching/patch.cpp` rejects the whole document on any unknown attribute/tag
 (`HasForbiddenPi`, the `unsupported attribute ... in wiidisc` branches,
 `ParsePatchDef`, `ParseChoice`, `ParseSection`). Riivolution and Dolphin both
 ignore unknowns. Rule going forward: **the parser accepts and models the
@@ -103,7 +103,7 @@ section 4 (lookup-first/MISS semantics, MEM2 reservation, never launch a
 partially installed mod, synthetic high-offset window).
 
 ### F5 - Engine issues (real, not blocking)
-1. `src/apply.cpp:100` - with `create="true"` every `open_disc` failure
+1. `src/patching/apply.cpp:100` - with `create="true"` every `open_disc` failure
    (I/O error, oversize, permission) is treated as "absent" and silently
    becomes an empty original. Needs a typed open result (NotFound vs other).
 2. No composition of several patches on the same disc file. Real mods do
@@ -111,11 +111,11 @@ partially installed mod, synthetic high-offset window).
    `ReadOverlay` already gives later extents precedence, the fix is to build
    the next patch's overlay over the previous `AppliedFile` view instead of
    the raw original.
-3. `src/overlay.cpp:70` allocates a scratch buffer of the request size (up
+3. `src/patching/overlay.cpp:70` allocates a scratch buffer of the request size (up
    to 16 MiB) and rebuilds/sorts boundaries on every read. Fine for host
    tests; not acceptable for the Wii. But note section 4: the overlay is the
    *oracle*, not the runtime. The runtime gets a compiled table.
-4. `src/source.cpp:67,111` - `ftell`/`fseek` use `long`, which is 32-bit
+4. `src/patching/source.cpp:67,111` - `ftell`/`fseek` use `long`, which is 32-bit
    on both the Wii and this Windows toolchain. The 256 MiB cap does *not*
    make this safe: `ftell` on a file of 4 GiB + 100 bytes wraps to 100, the
    cap check passes, and the source reports a 100-byte file (agy
@@ -124,7 +124,7 @@ partially installed mod, synthetic high-offset window).
    Also: a default-constructed `AppliedFile` dereferences a null `overlay_`
    in `view()/size()/read()`; make the default constructor private or
    null-check.
-5. `src/patch.cpp:317` rejects any disc path containing `..` anywhere, which
+5. `src/patching/patch.cpp:317` rejects any disc path containing `..` anywhere, which
    also rejects legitimate names like `foo..bin`. Reject only the `..`
    *segment*.
 6. Missing external file: Riftwii errors, Dolphin skips. The strict
@@ -257,7 +257,7 @@ needs a USB mass-storage client inside the resident runtime (under the
 game's IOS that is usually OHCI USB 1.1 only - the reason USB loaders use a
 cIOS), plus a host-side NTFS resolver (MFT data runs, the NTFS analogue of
 `Fat32Volume`). When the time comes we are not limited to the GX binary:
-writing our own read-only NTFS resolver in the style of `src/fat32.cpp` is
+writing our own read-only NTFS resolver in the style of `src/fs/fat32.cpp` is
 the better fit for this architecture. Order then: USB+FAT32 first, NTFS
 second.
 
@@ -424,22 +424,22 @@ intro movie plays at 60 FPS and the title's OS logs scene transitions.
 header, partition table and TMD returned by DI match the raw ISO.
 
 ### 11.1 How the Wii side is laid out now
-- `wii/di.*`: own `/dev/di` client (0x12, 0x70, 0x71, 0x79, 0x88, 0x8A,
+- `wii/launch/di.*`: own `/dev/di` client (0x12, 0x70, 0x71, 0x79, 0x88, 0x8A,
   0x8B, 0x8C, 0x8D) with 32-byte aligned statics and a 32 KiB bounce
   buffer; `SystemAreaSource` / `PartitionSource` adapt it to the host
   parsers in `riftwii/disc.hpp`, so the same code paths are used by the
   host tests and on the console.
-- `wii/ios_reload.*`: `reload_ios(version)` re-implements the libogc
+- `wii/launch/ios_reload.*`: `reload_ios(version)` re-implements the libogc
   handshake but tolerates zero ticket views under Dolphin
   (`running_in_dolphin()` probes `/dev/dolphin`). On hardware it behaves
   like `IOS_ReloadIOS`.
-- `wii/boot.*`: `probe_disc` (cover, reset, inquiry, disc ID, header,
+- `wii/launch/boot.*`: `probe_disc` (cover, reset, inquiry, disc ID, header,
   partition table, `open_partition`, TMD) and `boot_game` (unmount SD,
   reload the TMD's IOS, reopen DI and the partition, run the apploader
   from 0x81200000, write the low-memory fields, set the video mode from the
   disc region, `SYS_ResetSystem(SYS_SHUTDOWN)`, jump). `dump_file` /
   `dump_metadata` are the E1 dump actions.
-- `wii/autorun.*`: if `sd:/riftwii/autorun.txt` exists the frontend runs
+- `wii/launch/autorun.*`: if `sd:/riftwii/autorun.txt` exists the frontend runs
   it headless (`probe`, `layout`, `meta [dir]`, `dump <disc path> [sd
   path]`, `nofallback`, `boot`) and logs to `sd:/riftwii/autorun.log`;
   under Dolphin it powers off afterwards so the SD folder syncs back.
@@ -469,7 +469,7 @@ header, partition table and TMD returned by DI match the raw ISO.
 
 ### 11.4 agy review of the Wii code (applied 2026-09-18)
 
-agy reviewed `wii/di.*`, `wii/ios_reload.*`, `wii/boot.*`, `wii/autorun.cpp`,
+agy reviewed `wii/launch/di.*`, `wii/launch/ios_reload.*`, `wii/launch/boot.*`, `wii/launch/autorun.cpp`,
 `wii/main.cpp` for hardware hazards Dolphin cannot show. Checked against
 libogc's headers, Brainslug and Dolphin before acting:
 
@@ -541,7 +541,7 @@ the game's OS started, 55 for 55 in order (18 MB in the first 45 s).
   replaces, and the MEM2 placement (64 KiB granules at the arena top).
 - `riftwii/dol.hpp`: DOL header parser, used to pick the text sections to
   search and to dump `main.dol` (`dol` in autorun).
-- `wii/resident.cpp`: copies, patches, flushes and invalidates; the loader
+- `wii/launch/resident.cpp`: copies, patches, flushes and invalidates; the loader
   then lowers `0x80003128` (uncached, after the low-memory flush).
 
 ### 12.2 Hypotheses from section 4 now confirmed (in Dolphin)
@@ -750,7 +750,7 @@ Loader, while the card is mounted: `resolve_sd_file` walks the FAT32
 volume with the host-tested resolver over libogc's block reads and
 `place_on_fragments` turns the file into sector runs; `build_payload`
 emits one SD entry per run (sector, skip, length). After the IOS reload
-the loader opens `/dev/sdio/slot0` itself (`wii/sdio.cpp`: reset,
+the loader opens `/dev/sdio/slot0` itself (`wii/storage/sdio.cpp`: reset,
 status, select, 512-byte blocks, 4-bit bus, clock; only cards IOS already
 initialised are accepted), optionally reads every run back for the
 check, and leaves the card selected with the fd in the context together
@@ -806,7 +806,7 @@ the remaining structural gap.
 
 ## 17. A package end to end (conductor, 2026-09-19)
 
-`wii/modplan.cpp` runs the host-tested pipeline on the console:
+`wii/launch/modplan.cpp` runs the host-tested pipeline on the console:
 `read_package` -> `plan_package` (default choices, bare file names
 resolved through the FST) -> `apply_patches` per disc file ->
 `AppliedFile::flatten` -> `build_redirect_table`. The Wii supplies a
@@ -1042,7 +1042,7 @@ file per game, ignoring what no longer exists. `select_choice` now
 tries every `/` split so a section or option name holding one still
 resolves.
 
-`wii/frontend.cpp` is the card side shared by the GUI and the
+`wii/menu/frontend.cpp` is the card side shared by the GUI and the
 autorun's `launch` command: `IdentifyDisc` probes without waiting for a
 disc (an empty drive is a status line, not a wait), `ScanPackages` lists
 `sd:/riivolution` and restores `sd:/riftwii/choices/<game id>.txt`,

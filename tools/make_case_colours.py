@@ -2,7 +2,7 @@
 # SPDX-FileCopyrightText: 2026 RiftWii contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
 """The games whose case is not white, from GameTDB's database, for the
-Home shelf's boxes (src/casecolour.cpp).
+Home shelf's boxes (src/art/casecolour.cpp).
 
 GameTDB (https://www.gametdb.com) gives a game's case colour as
 <case color="rrggbb"/>; empty means the usual white case. Wii discs and
@@ -11,7 +11,7 @@ as Project M's RSBEPM) are kept; WiiWare, Virtual Console, channels and
 GameCube discs never stand on the shelf. A colour that is not six hex
 digits, or is white, is left out.
 
-    python tools/make_case_colours.py wiitdb.xml src/casecolours.inc
+    python tools/make_case_colours.py wiitdb.xml src/art/casecolours.inc
 
 wiitdb.xml is in https://www.gametdb.com/wiitdb.zip.
 """

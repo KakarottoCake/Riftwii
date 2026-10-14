@@ -5,7 +5,7 @@ servers: a Wii reads mod files from a folder on a PC instead of the SD
 card. RiftWii speaks it as a client, read-only, so the servers people
 already run work unchanged. This file records the protocol as this
 project understands it and how RiftWii uses it. The client
-(`src/riifs.cpp`) was written for this project; no server or client code
+(`src/net/riifs.cpp`) was written for this project; no server or client code
 was copied.
 
 ## How RiftWii uses it

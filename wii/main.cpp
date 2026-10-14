@@ -53,7 +53,7 @@
 #include "channel.hpp"
 #include "skin.hpp"
 
-// Where the player leaves to (the HOME Menu, wii/rift_menu.cpp): 1 back
+// Where the player leaves to (the HOME Menu, wii/menu/rift_menu.cpp): 1 back
 // to the loader that started RiftWii (the Homebrew Channel), 2 the Wii
 // Menu, 3 Priiloader, 4 power off, 5 the power button.
 volatile int ExitRequested = 0;
@@ -163,7 +163,7 @@ void EnterConsolePhase() {
 }
 
 // After a launch that failed: back to Home (a fresh start, see
-// wii/restart.hpp; also after two minutes untouched) or out to the
+// wii/core/restart.hpp; also after two minutes untouched) or out to the
 // Homebrew Channel.
 void OfferRestart(const std::string& error) {
     // Players asking for help seldom know where the logs are: say it here,
@@ -179,7 +179,7 @@ void OfferRestart(const std::string& error) {
 
 // libfat's default initializer probes USB as well as SD. Mount only the SD
 // card here so autorun and the SD-backed package paths work; USB starts when
-// Home reads the drives (wii/usbcatalog.cpp), after the menu IOS is up.
+// Home reads the drives (wii/storage/usbcatalog.cpp), after the menu IOS is up.
 // A few tries: some cards are slow to answer right after the Homebrew
 // Channel lets go of them.
 bool MountStartupSd() {
@@ -262,7 +262,7 @@ bool UnpackMenuFont(u8*& font, std::size_t& size) {
 
 int main() {
     // Keeps the loader out of the memory the game's apploader and IOS
-    // reloads overwrite (wii/memlimits.hpp).
+    // reloads overwrite (wii/core/memlimits.hpp).
     riftwii::wii::mem::Init();
     const riftwii::wii::RestartNote restart = riftwii::wii::TakeRestartNote();
     riftwii::wii::CrashInstall();
@@ -512,7 +512,7 @@ int main() {
             OfferRestart(error);
         }
     } else if (action == MENU_CHANNEL) {
-        // The channel installer app (wii/channel.hpp). Only comes back if
+        // The channel installer app (wii/launch/channel.hpp). Only comes back if
         // it cannot start; a fresh start then says why on Home.
         std::string error;
         riftwii::wii::StartChannelInstaller(error);

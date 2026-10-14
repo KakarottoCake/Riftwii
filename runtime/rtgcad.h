@@ -4,7 +4,7 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The GameCube controller adapter for Wii U (WUP-028) through IOS's
  * /dev/usb/hid: one driver for the in-game runtime (runtime/pad), the
- * menu's test page (wii/gcadapter.cpp) and the host tests.
+ * menu's test page (wii/controllers/gcadapter.cpp) and the host tests.
  *
  * It is a state machine driven by IPC replies: every request goes out
  * asynchronously through the environment (gcad_env_*, supplied by each

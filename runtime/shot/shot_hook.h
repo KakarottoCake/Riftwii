@@ -13,7 +13,7 @@
  * game ending stays in part/, which the menu empties; a tester's console
  * gave back half its shots unreadable). The name it gets is checked free
  * first: a move replaces a file of that name. The menu turns the files
- * into PNGs at its next start (wii/screenshot.hpp).
+ * into PNGs at its next start (wii/menu/screenshot.hpp).
  *
  * Layout (shot_entry.S): the header below, the trampolines with their
  * loader-filled replay slots, the IPC completion entries, the C code,

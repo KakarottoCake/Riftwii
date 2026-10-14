@@ -9,8 +9,8 @@ below names the files that own it.
 ```
  Homebrew Channel
    └─ RiftWii menu (wii/)  ── reads drives, packs, choices
-        └─ plan the launch (src/, wii/modplan.cpp)
-             └─ boot the game (wii/boot.cpp)  ── IOS, apploader, patches
+        └─ plan the launch (src/, wii/launch/modplan.cpp)
+             └─ boot the game (wii/launch/boot.cpp)  ── IOS, apploader, patches
                   └─ in the game: resident runtime + pad hook (runtime/)
 ```
 
@@ -18,25 +18,25 @@ below names the files that own it.
 
 | Piece | Files |
 | --- | --- |
-| Screens (Home, game page, Mods, Cheats, Settings, adapter test) | `wii/rift_menu.cpp` |
-| Widgets: the tile grid and the row list | `wii/gui_gamegrid.cpp`, `wii/gui_flowlist.cpp` |
-| Artwork, painted at start (no image files) | `wii/skin.cpp`, `src/canvas.cpp` |
-| Menu state: the picked game, its packs, the choices | `wii/frontend.cpp`, `src/launch.cpp` (`LaunchModel`) |
-| Riivolution's choices file (`riivolution/config/<ID4>.xml`), read and written | `src/riiconfig.cpp`, `wii/frontend.cpp` |
-| Game images on SD and USB (WBFS, split WBFS, ISO; FAT32 and NTFS), and USB drives formatted as WBFS | `wii/usbcatalog.cpp`, `src/usbgame.cpp`, `src/fat32.cpp`, `src/ntfs.cpp`, `src/wbfspart.cpp` |
-| Cover art (GameTDB), stored as ready GX textures | `wii/covers.cpp`, `src/coverart.cpp`, `wii/gui_gamegrid.cpp` |
-| Game names (GameTDB), cheats (GeckoCodes archive) | `wii/online.cpp`, `src/titles.cpp`, `src/cheats.cpp`, `src/http.cpp`, `wii/netsock.cpp` |
-| Online servers (Wiimmfi, WiiLink WFC, AltWFC, custom) | `src/wfcpatch.cpp`, `wii/wfc.cpp`, `vendor-wwfc/` |
-| Per-game fixes (Kirby's MetaFortress, NSMBW, Prince of Persia, RE4, Excite Truck, error #002, 480p) and the automatic cIOS choice, as USB Loader GX makes them | `src/gxpatches.cpp`, `src/gxkirby.inc`, `wii/boot.cpp`, `wii/usbcatalog.cpp` |
-| Update check (GitHub over https: BearSSL, `Makefile.bearssl`) | `wii/online.cpp`, `src/update.cpp`, `wii/tls.cpp`, `wii/tlsroots.c` |
-| Network packs (RiiFS) | `wii/netpacks.cpp`, `src/riifs.cpp`, `src/riifs_sync.cpp`, `docs/RIIFS.md` |
-| Settings, play history, translations | `wii/loadersettings.cpp`, `src/settingsfile.cpp`, `src/playhistory.cpp`, `wii/i18n.cpp`, `tools/lang_source.py` |
-| Menu IOS (IOS 58 or a d2x cIOS slot) | `wii/menuios.cpp` |
-| GameCube adapter in the menu (its controllers work the menu; Settings' test page) | `wii/gcadapter.cpp` (drives `runtime/rtgcad.c` with libogc's IPC, or on IOS 58 through libogc's USB handle), `vendor-libgui/source/input.cpp` |
-| Memory limits: the heap never enters memory a launch overwrites | `wii/memlimits.cpp` |
-| Launches another loader asks for (`--launch` arguments, no menu; `docs/HEADLESS.md`) | `wii/headless.cpp`, `src/launchargs.cpp` |
-| Screenshots: the menu's, and importing the ones games left on the NAND as PNGs | `wii/screenshot.cpp`, `src/shotfile.cpp`, `src/pngencode.cpp` (a PNG writer with its own deflate) |
-| Problem reports: gathered, sent to paste.rs (dpaste.com when that fails), shown as a link and a QR code; a game's crash record imported at start | `wii/reportsend.cpp`, `src/problemreport.cpp`, `src/qrcode.cpp`, `src/gamefault.cpp`, `src/http.cpp` (the POST) |
+| Screens (Home, game page, Mods, Cheats, Settings, adapter test) | `wii/menu/rift_menu.cpp` |
+| Widgets: the tile grid and the row list | `wii/menu/gui_gamegrid.cpp`, `wii/menu/gui_flowlist.cpp` |
+| Artwork, painted at start (no image files) | `wii/menu/skin.cpp`, `src/art/canvas.cpp` |
+| Menu state: the picked game, its packs, the choices | `wii/menu/frontend.cpp`, `src/patching/launch.cpp` (`LaunchModel`) |
+| Riivolution's choices file (`riivolution/config/<ID4>.xml`), read and written | `src/patching/riiconfig.cpp`, `wii/menu/frontend.cpp` |
+| Game images on SD and USB (WBFS, split WBFS, ISO; FAT32 and NTFS), and USB drives formatted as WBFS | `wii/storage/usbcatalog.cpp`, `src/fs/usbgame.cpp`, `src/fs/fat32.cpp`, `src/fs/ntfs.cpp`, `src/fs/wbfspart.cpp` |
+| Cover art (GameTDB), stored as ready GX textures | `wii/menu/covers.cpp`, `src/art/coverart.cpp`, `wii/menu/gui_gamegrid.cpp` |
+| Game names (GameTDB), cheats (GeckoCodes archive) | `wii/online/online.cpp`, `src/data/titles.cpp`, `src/data/cheats.cpp`, `src/net/http.cpp`, `wii/online/netsock.cpp` |
+| Online servers (Wiimmfi, WiiLink WFC, AltWFC, custom) | `src/patching/wfcpatch.cpp`, `wii/launch/wfc.cpp`, `vendor-wwfc/` |
+| Per-game fixes (Kirby's MetaFortress, NSMBW, Prince of Persia, RE4, Excite Truck, error #002, 480p) and the automatic cIOS choice, as USB Loader GX makes them | `src/patching/gxpatches.cpp`, `src/patching/gxkirby.inc`, `wii/launch/boot.cpp`, `wii/storage/usbcatalog.cpp` |
+| Update check (GitHub over https: BearSSL, `Makefile.bearssl`) | `wii/online/online.cpp`, `src/net/update.cpp`, `wii/online/tls.cpp`, `wii/online/tlsroots.c` |
+| Network packs (RiiFS) | `wii/online/netpacks.cpp`, `src/net/riifs.cpp`, `src/net/riifs_sync.cpp`, `docs/RIIFS.md` |
+| Settings, play history, translations | `wii/core/loadersettings.cpp`, `src/data/settingsfile.cpp`, `src/data/playhistory.cpp`, `wii/core/i18n.cpp`, `tools/lang_source.py` |
+| Menu IOS (IOS 58 or a d2x cIOS slot) | `wii/launch/menuios.cpp` |
+| GameCube adapter in the menu (its controllers work the menu; Settings' test page) | `wii/controllers/gcadapter.cpp` (drives `runtime/rtgcad.c` with libogc's IPC, or on IOS 58 through libogc's USB handle), `vendor-libgui/source/input.cpp` |
+| Memory limits: the heap never enters memory a launch overwrites | `wii/core/memlimits.cpp` |
+| Launches another loader asks for (`--launch` arguments, no menu; `docs/HEADLESS.md`) | `wii/launch/headless.cpp`, `src/patching/launchargs.cpp` |
+| Screenshots: the menu's, and importing the ones games left on the NAND as PNGs | `wii/menu/screenshot.cpp`, `src/data/shotfile.cpp`, `src/art/pngencode.cpp` (a PNG writer with its own deflate) |
+| Problem reports: gathered, sent to paste.rs (dpaste.com when that fails), shown as a link and a QR code; a game's crash record imported at start | `wii/online/reportsend.cpp`, `src/data/problemreport.cpp`, `src/art/qrcode.cpp`, `src/data/gamefault.cpp`, `src/net/http.cpp` (the POST) |
 
 Everything the menu decides is plain data (`LaunchModel`, the per-game
 choices file) and host-tested; the screens only draw and read the pads.
@@ -48,37 +48,37 @@ every entry still appears in the sources.
 
 | Step | Files |
 | --- | --- |
-| Parse the XML (the whole documented format) | `src/patch.cpp` (`parse_package`) |
-| Resolve choices, params and placeholders for this disc | `src/patch.cpp` (`plan_package`) |
-| Turn file and folder patches into byte sources | `src/apply.cpp`, `src/overlay.cpp`, `src/expand.cpp`, `src/source.cpp` |
-| Memory patches (plain, search, ocarina) | `src/mempatch.cpp` |
-| The redirect table the runtime walks | `src/redirect.cpp`, `runtime/rtable.c` |
-| Glue on the Wii: packs to boot options | `wii/modplan.cpp` |
+| Parse the XML (the whole documented format) | `src/patching/patch.cpp` (`parse_package`) |
+| Resolve choices, params and placeholders for this disc | `src/patching/patch.cpp` (`plan_package`) |
+| Turn file and folder patches into byte sources | `src/patching/apply.cpp`, `src/patching/overlay.cpp`, `src/patching/expand.cpp`, `src/patching/source.cpp` |
+| Memory patches (plain, search, ocarina) | `src/patching/mempatch.cpp` |
+| The redirect table the runtime walks | `src/patching/redirect.cpp`, `runtime/rtable.c` |
+| Glue on the Wii: packs to boot options | `wii/launch/modplan.cpp` |
 
 A selected feature the runtime cannot carry out makes planning fail with
 the pack, option and file named, so a game never starts half patched.
 
 ## 3. Booting
 
-`wii/boot.cpp` does what the System Menu and an apploader would:
+`wii/launch/boot.cpp` does what the System Menu and an apploader would:
 
-1. Pick the IOS (`wii/ios_reload.cpp`). Launches that need the SD card or
+1. Pick the IOS (`wii/launch/ios_reload.cpp`). Launches that need the SD card or
    the GameCube adapter keep the running IOS and report the game's own
    to it; the rest reload to the IOS the game asks for.
-2. Open the disc (`wii/di.cpp`), or for an SD/USB image reload into a d2x
-   cIOS and hand it the image's fragment list (`wii/usbcatalog.cpp`,
+2. Open the disc (`wii/launch/di.cpp`), or for an SD/USB image reload into a d2x
+   cIOS and hand it the image's fragment list (`wii/storage/usbcatalog.cpp`,
    `activate_image_game`).
 3. Run the game's apploader. Overrides replace what it loads on the way
    in: the rewritten FST (files that grew or were created move into a
    virtual window above the disc), the data header, a pack's `main.dol`.
-4. Install the resident runtime (`wii/resident.cpp`), the pad hook
-   (`wii/padhook.cpp`), the screenshot hook (`wii/shothook.cpp`) and the
-   game crash hook (`wii/faulthook.cpp`);
+4. Install the resident runtime (`wii/launch/resident.cpp`), the pad hook
+   (`wii/hooks/padhook.cpp`), the screenshot hook (`wii/hooks/shothook.cpp`) and the
+   game crash hook (`wii/hooks/faulthook.cpp`);
    apply memory patches, cheats (the Gecko code
-   handler, `vendor-gecko/`), video patches (`src/videopatch.cpp`: width,
+   handler, `vendor-gecko/`), video patches (`src/patching/videopatch.cpp`: width,
    deflicker, borders, and a forced TV format that converts the game's
-   render mode tables) and the game language (`src/gamelang.cpp`); last,
-   the online server (`wii/wfc.cpp`), which may take memory below the
+   render mode tables) and the game language (`src/patching/gamelang.cpp`); last,
+   the online server (`wii/launch/wfc.cpp`), which may take memory below the
    MEM1 and MEM2 arena ends.
 5. Write the low-memory globals and jump to the game.
 
@@ -87,7 +87,7 @@ the pack, option and file named, so a game never starts half patched.
 **Resident runtime** (`runtime/resident/`). A position-independent blob:
 the build links it at two addresses and refuses it if the bytes differ.
 It hooks the game's `IOS_IoctlAsync`, found by structure
-(`src/symsearch.cpp`), not by per-game addresses, and answers disc reads
+(`src/patching/symsearch.cpp`), not by per-game addresses, and answers disc reads
 from the redirect table: bytes from memory, from the SD card (raw SDIO,
 or d2x's SD device when the game itself is on the card), or from the
 disc at another offset. Failed SD and disc reads are retried three times.
@@ -99,7 +99,7 @@ command at a time: savegame transfers and mod file reads wait for each
 other, and a failed transfer is tried again after a pause (2, 8, 32 ms).
 What still fails is written to a one-sector card log
 (`sd:/riftwii/cardlog.bin`) that the menu turns into
-`sd:/riftwii/cardlog.txt` at the next start (`src/cardlog.cpp`).
+`sd:/riftwii/cardlog.txt` at the next start (`src/data/cardlog.cpp`).
 
 **Pad hook** (`runtime/pad/`, `runtime/rtgcad.c`). With the GameCube
 adapter on, a second blob hooks the game's `PADRead` and
@@ -140,9 +140,9 @@ next start the menu turns that into `sd:/riftwii/gamecrash.txt`, deletes
 it, and offers to send a problem report. A game that freezes without an
 exception leaves nothing.
 
-**Virtual SD card** (`runtime/vsd/`, `runtime/rtvsd.c`, `wii/vsdhook.cpp`).
+**Virtual SD card** (`runtime/vsd/`, `runtime/rtvsd.c`, `wii/hooks/vsdhook.cpp`).
 When the code builds launched are inside `riftwii/sd.raw` (a FAT32 card
-image on the SD card or the USB drive; `wii/vsdimage.cpp` lists them
+image on the SD card or the USB drive; `wii/hooks/vsdimage.cpp` lists them
 through a read-only `vsd:` mount of the image), a blob of about 9 KB
 hooks the game's IOS_Open, IOS_Close, IOS_Ioctl and IOS_Ioctlv, sync and
 async (`find_ipc_api`). An open of `/dev/sdio/slot0` gets a handle of
@@ -171,11 +171,11 @@ resident runtime yet.
 | `0x80002300`–`0x80003000` | With a code build whose code list is elsewhere: veneers into code in MEM2 (the resident runtime's or the virtual SD card's) |
 | Top of the game's MEM1 arena | Resident runtime code, then the pad blob, the screenshot blob and the crash blob below it |
 | `0x90000000`–`0x90800000` | Left alone by the loader: an IOS reload stages its kernel here |
-| `0x90800000`–`0x90809000` | The restart snapshot and handoff (`wii/restart.hpp`) |
+| `0x90800000`–`0x90809000` | The restart snapshot and handoff (`wii/core/restart.hpp`) |
 | Bottom of the game's MEM2 arena | Resident runtime data (or the virtual SD card's code and state, about 49 KB), then the pad state, the screenshot state (a few KB: its picture is written straight from the frame buffer), then the crash blob's state (about 5 KB) |
 | `0x933E0000` and up | IOS |
 
-`wii/memlimits.cpp` keeps the loader's heap between the end of its own
+`wii/core/memlimits.cpp` keeps the loader's heap between the end of its own
 image and `0x81200000`, and in MEM2 above `0x90800000`. In Dolphin it
 fills the reload area with `0xDEADBEEF` at each reload, so a heap that
 strays there fails in the emulator as it would on a Wii.
@@ -207,7 +207,7 @@ reason (`Makefile.runtime`).
 ## Restarts and crashes
 
 RiftWii can start itself again without the Homebrew Channel
-(`wii/restart.cpp`). `Makefile.wii` wraps crt0's `__CheckARGV`, which
+(`wii/core/restart.cpp`). `Makefile.wii` wraps crt0's `__CheckARGV`, which
 runs before `.bss` is cleared, so every start copies the image's
 writable data (`.ctors` to `.sdata`, about 20 KB) to `0x90800000`. A
 restart shuts libogc down, copies that back and jumps to `__app_start`:
@@ -217,7 +217,7 @@ no handle of the old run survives) and shows the reason on Home.
 
 Two things restart:
 - a launch that fails (A on the error screen, or two minutes untouched);
-- a crash. `wii/crash.cpp` replaces libogc's panic function: it notes
+- a crash. `wii/core/crash.cpp` replaces libogc's panic function: it notes
   the registers, then resumes the crashed thread in a recovery function
   on its own stack with interrupts on. That function shows the report,
   writes it to the log and to `sd:/riftwii/crash.txt`, and restarts. A
@@ -233,7 +233,7 @@ addresses into source lines (keep the `riftwii.elf` of each release).
 | --- | --- |
 | `sd:/apps/riftwii/` | The app (`boot.dol`, `meta.xml`, `icon.png`) |
 | `sd:/riivolution/` | Mod packs: XML files and their folders |
-| `usb:/riivolution/` | Mod packs on a FAT32 or NTFS USB drive: listed through the menu's mount (`usb_xml_names`), read at launch through d2x's `/dev/usb2` (`wii/umsdev.cpp`, an `ImageVolume`); table runs of kind `RT_KIND_USB`, and small NTFS files kept in their MFT record become MEM replacements (`CompiledMod::mem`). Code builds on USB are refused at Start (`usb_mod_folders`, `ModPlaceProblem`) |
+| `usb:/riivolution/` | Mod packs on a FAT32 or NTFS USB drive: listed through the menu's mount (`usb_xml_names`), read at launch through d2x's `/dev/usb2` (`wii/storage/umsdev.cpp`, an `ImageVolume`); table runs of kind `RT_KIND_USB`, and small NTFS files kept in their MFT record become MEM replacements (`CompiledMod::mem`). Code builds on USB are refused at Start (`usb_mod_folders`, `ModPlaceProblem`) |
 | `sd:/riftwii/settings.txt` | Settings |
 | `sd:/riftwii/menu_ios.txt` | The menu IOS slot |
 | `sd:/riftwii/choices/<ID>.txt` | Per-game choices (packs, options, saves, cheats, picture) |

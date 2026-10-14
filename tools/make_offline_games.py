@@ -2,7 +2,7 @@
 # SPDX-FileCopyrightText: 2026 RiftWii contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
 """The games with no online play, from GameTDB's database, for the game
-page's Online server row (src/offlinegames.cpp).
+page's Online server row (src/data/offlinegames.cpp).
 
 GameTDB (https://www.gametdb.com) lists each game's online features under
 <wi-fi players="N"><feature>...</feature></wi-fi>. A game counts as having
@@ -16,7 +16,7 @@ Sports Resort). Games GameTDB does not know, and its custom entries
 Codes are the IDs' first four characters (game and region); a code is
 listed only when every game with it has no online play.
 
-    python tools/make_offline_games.py wiitdb.xml src/offlinegames.inc
+    python tools/make_offline_games.py wiitdb.xml src/data/offlinegames.inc
 
 wiitdb.xml is in https://www.gametdb.com/wiitdb.zip.
 """

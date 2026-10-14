@@ -12,7 +12,7 @@ static int g_failures = 0;
 #define EXPECT_FALSE(cond) EXPECT_TRUE(!(cond))
 
 static const char kCodes[] =
-#include "../src/offlinegames.inc"
+#include "../src/data/offlinegames.inc"
     ;
 
 int main() {

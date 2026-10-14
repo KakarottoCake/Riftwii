@@ -15,11 +15,11 @@ is still open. Do not redo any of them; build on them.
 
 | Task | State | Commit | Where |
 |------|-------|--------|-------|
-| A - FST parser | done, agy-reviewed | `4f440c7`, `c211c28` | `include/riftwii/fst.hpp`, `src/fst.cpp`, `tests/fst_tests.cpp` |
-| B - disc structures | done, agy-reviewed (no findings) | `934a474` | `include/riftwii/disc.hpp`, `src/disc.cpp`, `tests/disc_tests.cpp` |
-| C - boot in Dolphin | done in Dolphin (E1 passes), **hardware run open** | see `git log wii/boot.cpp` | `wii/di.*`, `wii/ios_reload.*`, `wii/boot.*`, `wii/autorun.*`, `wii/log.*`, `wii/console.*`, `tools/dolphin/` |
-| D - redirect table | done, agy-reviewed (no findings) | `f6a516a` | `runtime/rtable.{h,c}`, `include/riftwii/redirect.hpp`, `src/redirect.cpp`, `tests/redirect_tests.cpp` |
-| E - FAT32 resolver | done | `4770248` | `include/riftwii/fat32.hpp`, `src/fat32.cpp`, `tests/fat32_tests.cpp` |
+| A - FST parser | done, agy-reviewed | `4f440c7`, `c211c28` | `include/riftwii/fst.hpp`, `src/disc/fst.cpp`, `tests/fst_tests.cpp` |
+| B - disc structures | done, agy-reviewed (no findings) | `934a474` | `include/riftwii/disc.hpp`, `src/disc/disc.cpp`, `tests/disc_tests.cpp` |
+| C - boot in Dolphin | done in Dolphin (E1 passes), **hardware run open** | see `git log wii/launch/boot.cpp` | `wii/launch/di.*`, `wii/launch/ios_reload.*`, `wii/launch/boot.*`, `wii/launch/autorun.*`, `wii/core/log.*`, `wii/core/console.*`, `tools/dolphin/` |
+| D - redirect table | done, agy-reviewed (no findings) | `f6a516a` | `runtime/rtable.{h,c}`, `include/riftwii/redirect.hpp`, `src/patching/redirect.cpp`, `tests/redirect_tests.cpp` |
+| E - FAT32 resolver | done | `4770248` | `include/riftwii/fat32.hpp`, `src/fs/fat32.cpp`, `tests/fat32_tests.cpp` |
 
 Deviations from the specs below, all deliberate: the redirect entry is
 `{u64 vstart, u64 length, u64 source, u64 skip, u32 kind, u32 reserved}`
@@ -34,9 +34,9 @@ The FST size/max-size `>> 2` reading is confirmed against a real disc
 entries, and the apploader loads exactly that).
 
 Task C deviations, also deliberate: Riftwii has its own `/dev/di` client
-(`wii/di.*`) instead of libogc's `DI_*`/libdi, because libdi expects a
+(`wii/launch/di.*`) instead of libogc's `DI_*`/libdi, because libdi expects a
 cIOS on hardware and the resident runtime will need the raw ioctl
-numbers anyway; the IOS reload is Riftwii's own (`wii/ios_reload.*`)
+numbers anyway; the IOS reload is Riftwii's own (`wii/launch/ios_reload.*`)
 because libogc's `IOS_ReloadIOS` refuses when ES reports no ticket views,
 which is what Dolphin does for homebrew; the `sd:/riftwii/lowmem.bin`
 dump was not needed because Dolphin's log shows the game's OS reading the
@@ -65,7 +65,7 @@ section 11 for what E1 showed and what it means for E2.
 
 ## TASK A - Wii FST parser (host only)
 
-`include/riftwii/fst.hpp`, `src/fst.cpp`, `tests/fst_tests.cpp`.
+`include/riftwii/fst.hpp`, `src/disc/fst.cpp`, `tests/fst_tests.cpp`.
 Parse a Wii FST image (12-byte big-endian entries: byte 0 = type
 (0 file, 1 directory), bytes 1-3 = name offset into the string table that
 follows the entries, u32 offset (files: disc offset stored `>> 2`),
@@ -81,7 +81,7 @@ malformed ones. Reference: https://wiibrew.org/wiki/Wii_Disc (FST section).
 
 ## TASK B - Disc structure parser (host only)
 
-`include/riftwii/disc.hpp`, `src/disc.cpp`, `tests/disc_tests.cpp`.
+`include/riftwii/disc.hpp`, `src/disc/disc.cpp`, `tests/disc_tests.cpp`.
 Given a `ByteSource` of the raw (unencrypted view of the) disc:
 - disc header at 0: game ID (6 bytes), disc number (0x6), version (0x7),
   Wii magic at 0x18 (`0x5D1C9EA3`); produce a `DiscIdentity`.
@@ -104,7 +104,7 @@ https://wiibrew.org/wiki/Wii_Disc and https://wiibrew.org/wiki/Apploader .
 
 ## TASK C - Boot an unmodified disc from Riftwii, in Dolphin (E1)
 
-Frontend + a new `wii/boot.cpp`. Sequence (each step logs to the screen and
+Frontend + a new `wii/launch/boot.cpp`. Sequence (each step logs to the screen and
 aborts with a message on failure - never launch after a failed step):
 1. `DI_Init()`, wait for cover/disc, `DI_Mount()`, read the disc ID area;
    show game ID / region / version on screen.
@@ -164,7 +164,7 @@ several runs and the file end).
 
 ## TASK E - FAT32 fragment resolver (host only)
 
-`include/riftwii/fat32.hpp`, `src/fat32.cpp`, `tests/fat32_tests.cpp`.
+`include/riftwii/fat32.hpp`, `src/fs/fat32.cpp`, `tests/fat32_tests.cpp`.
 Over a `read_sector(lba, count, buffer)` callback: parse the boot sector
 (bytes per sector, sectors per cluster, reserved sectors, FAT count, FAT
 size, root cluster), walk a path with 8.3 and long-file-name entries

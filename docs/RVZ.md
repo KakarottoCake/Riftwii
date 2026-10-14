@@ -16,7 +16,7 @@ involves encryption, hashing or Nintendo's keys. Format: Dolphin's
    Zstandard is decoded by `vendor-zstd/` (1.5.7, decoder only).
 2. **Menu and loader (done; Dolphin-tested).** `.rvz` files in
    `sd:/games` and `usb:/games` are listed with the ISOs. Picking one
-   reads only its headers (`wii/usbcatalog.cpp`): a refused file says why,
+   reads only its headers (`wii/storage/usbcatalog.cpp`): a refused file says why,
    one at the player's own risk shows its warning on the first press of
    Start and plays on the second. At launch the loader writes the stub
    (`sd:/riftwii/rvz/<ID>.stub`, the disc's first 0x50000 bytes and every
@@ -24,9 +24,9 @@ involves encryption, hashing or Nintendo's keys. Format: Dolphin's
    places it on an otherwise empty disc. The stub is on the SD card even
    for an RVZ on the USB drive: d2x's disc is then the card, and the
    loader never writes to the drive. The RVZ itself is read from the
-   drive through d2x's USB device, `/dev/usb2` (`wii/d2xusb.cpp`), once
+   drive through d2x's USB device, `/dev/usb2` (`wii/storage/umsdev.cpp`), once
    the loader is in the cIOS, since libogc's USB driver and d2x's cannot
-   both own the drive (`wii/umsdev.cpp`, which packs on the USB drive use
+   both own the drive (`wii/storage/umsdev.cpp`, which packs on the USB drive use
    too: one handle serves both). `di::read` answers partition
    reads from the RVZ (`di::set_partition_resolver`), so the probe, the
    FST for the packs and the apploader's loads all come from the image,

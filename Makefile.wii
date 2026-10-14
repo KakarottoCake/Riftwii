@@ -29,14 +29,18 @@ export	FREETYPE_LIBS	:=	-lfreetype
 #---------------------------------------------------------------------------------
 TARGET		:=	riftwii
 BUILD		:=	build_wii
-SOURCES		:=	wii src runtime vendor-pugixml/src vendor-zstd \
+# wii/ and src/ are sorted into subfolders by area (docs/MAP.md); the build
+# still puts every object in one folder, so base names stay unique.
+WII_DIRS	:=	wii wii/core wii/menu wii/launch wii/hooks wii/controllers wii/storage wii/online
+SRC_DIRS	:=	src/fs src/disc src/patching src/net src/art src/data
+SOURCES		:=	$(WII_DIRS) $(SRC_DIRS) runtime vendor-pugixml/src vendor-zstd \
 				vendor-libgui/source/libwiigui \
 				vendor-libgui/source vendor-wwfc channel/common
 # wiidrc.c (FIX94's Wii U GamePad driver) is compiled in: the menus read
 # the GamePad through it, guarded so plain Wii and Dolphin are unaffected.
 EXCLUDES	:=	vendor-libgui/source/demo.cpp vendor-libgui/source/menu.cpp vendor-libgui/source/filebrowser.cpp \
 				vendor-libgui/source/gettext.cpp vendor-libgui/source/pngu.c
-INCLUDES	:=	wii vendor-libgui/source include runtime runtime/resident runtime/pad runtime/shot runtime/fault runtime/vsd vendor-pugixml/src vendor-bearssl/inc vendor-wwfc vendor-zstd \
+INCLUDES	:=	$(WII_DIRS) vendor-libgui/source include runtime runtime/resident runtime/pad runtime/shot runtime/fault runtime/vsd vendor-pugixml/src vendor-bearssl/inc vendor-wwfc vendor-zstd \
 				channel/common
 DATA		:=	wii/assets wii/lang vendor-gecko vendor-libgui/source/images vendor-libgui/source/fonts vendor-libgui/source/sounds vendor-libgui/source/lang \
 				build-runtime
@@ -53,7 +57,7 @@ LDFLAGS		=	-g $(MACHDEP) -Wl,-Map,$(notdir $@).map -Wl,--section-start,.init=0x8
 #---------------------------------------------------------------------------------
 # any extra libraries we wish to link with the project
 #---------------------------------------------------------------------------------
-# libbearssl.a comes from Makefile.bearssl (the TLS client, wii/tls.cpp).
+# libbearssl.a comes from Makefile.bearssl (the TLS client, wii/online/tls.cpp).
 LIBS :=	-lbearssl -lz -lfat -lwiiuse -lbte -lasnd -logc -lvorbisidec -logg -lfreetype -lbz2
 #---------------------------------------------------------------------------------
 # list of directories containing libraries, this must be the top level containing
@@ -83,7 +87,7 @@ CFLAGS		+=	-DRIFTWII_VERSION='"$(RIFTWII_VERSION)"'
 ifeq ($(RIFTWII_STABLE),1)
 CFLAGS		+=	-DRIFTWII_STABLE
 endif
-# Test builds: make WII_DEFINES=-DRIFTWII_TEST_LIMITS (wii/memlimits.hpp TestBallast).
+# Test builds: make WII_DEFINES=-DRIFTWII_TEST_LIMITS (wii/core/memlimits.hpp TestBallast).
 CFLAGS		+=	$(WII_DEFINES)
 
 ifneq ($(IN_BUILD),1)
@@ -97,10 +101,18 @@ export DEPSDIR	:=	$(PROJECT_ROOT)/$(BUILD)
 #---------------------------------------------------------------------------------
 # automatically build a list of object files for our project
 #---------------------------------------------------------------------------------
-CFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.c)))
-CPPFILES	:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.cpp)))
-sFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.s)))
-SFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.S)))
+# $(call files_in,<dirs>,<pattern>): the matching file names in all of
+# <dirs>, sorted together.
+files_in	=	$(sort $(foreach dir,$(1),$(notdir $(wildcard $(dir)/$(2)))))
+OTHER_DIRS	:=	$(filter-out $(WII_DIRS) $(SRC_DIRS),$(SOURCES))
+CFILES		:=	$(call files_in,$(WII_DIRS),*.c) $(call files_in,$(SRC_DIRS),*.c) \
+				$(foreach dir,$(OTHER_DIRS),$(notdir $(wildcard $(dir)/*.c)))
+CPPFILES	:=	$(call files_in,$(WII_DIRS),*.cpp) $(call files_in,$(SRC_DIRS),*.cpp) \
+				$(foreach dir,$(OTHER_DIRS),$(notdir $(wildcard $(dir)/*.cpp)))
+sFILES		:=	$(call files_in,$(WII_DIRS),*.s) $(call files_in,$(SRC_DIRS),*.s) \
+				$(foreach dir,$(OTHER_DIRS),$(notdir $(wildcard $(dir)/*.s)))
+SFILES		:=	$(call files_in,$(WII_DIRS),*.S) $(call files_in,$(SRC_DIRS),*.S) \
+				$(foreach dir,$(OTHER_DIRS),$(notdir $(wildcard $(dir)/*.S)))
 CFILES		:=	$(filter-out $(notdir $(EXCLUDES)),$(CFILES))
 CPPFILES	:=	$(filter-out $(notdir $(EXCLUDES)),$(CPPFILES))
 BINFILES	:=	$(foreach dir,$(DATA),$(notdir $(wildcard $(dir)/*.ttf) \
@@ -208,7 +220,7 @@ $(VERSION_USERS): $(VERSION_STAMP) $(STABLE_STAMP)
 	@echo $(notdir $<)
 	$(bin2o)
 
-# The menu's translations (wii/i18n.cpp), its font (main.cpp) and the GPL
+# The menu's translations (wii/core/i18n.cpp), its font (main.cpp) and the GPL
 # (credits.cpp) are embedded zstd-compressed and unpacked when needed: a
 # smaller DOL keeps more of MEM1 free below the game's apploader.
 %.po.zst : %.po
@@ -274,7 +286,7 @@ online.o reportsend.o netpacks.o codebuilds.o autorun.o modplan.o: CXXFLAGS += -
 
 # RiftWii's own sources build with -Werror, as the runtime and channel do;
 # the vendored ones (pugixml's known warning, libgui, zstd) do not.
-FIRST_PARTY_OBJS := $(patsubst %.cpp,%.o,$(patsubst %.c,%.o,$(notdir $(foreach dir,wii src runtime channel/common,$(wildcard $(PROJECT_ROOT)/$(dir)/*.c $(PROJECT_ROOT)/$(dir)/*.cpp)))))
+FIRST_PARTY_OBJS := $(patsubst %.cpp,%.o,$(patsubst %.c,%.o,$(notdir $(foreach dir,$(WII_DIRS) $(SRC_DIRS) runtime channel/common,$(wildcard $(PROJECT_ROOT)/$(dir)/*.c $(PROJECT_ROOT)/$(dir)/*.cpp)))))
 $(FIRST_PARTY_OBJS): CFLAGS += -Werror
 
 -include $(DEPENDS)

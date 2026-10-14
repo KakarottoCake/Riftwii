@@ -11,7 +11,7 @@
 // from GameTDB, cheat files, the update check), and the POST that sends a
 // problem report: the request, and the response as read from the
 // connection. https:// goes through the Wii's
-// TLS client (wii/tls.cpp); the socket loop is in wii/online.cpp.
+// TLS client (wii/online/tls.cpp); the socket loop is in wii/online/online.cpp.
 namespace riftwii {
 
 struct HttpUrl {

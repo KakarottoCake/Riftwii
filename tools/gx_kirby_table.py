@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 # SPDX-FileCopyrightText: 2026 RiftWii contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Writes src/gxkirby.inc: USB Loader GX's MetaFortress patch for Kirby's
+"""Writes src/patching/gxkirby.inc: USB Loader GX's MetaFortress patch for Kirby's
 Return to Dream Land (source/patches/kirbypatch.c, "Patch by crediar", ported
 to the other regions by dcx2, container12345 and blackb0x), as data.
 
-    py -3 tools/gx_kirby_table.py <usbloadergx>/source/patches/kirbypatch.c src/gxkirby.inc
+    py -3 tools/gx_kirby_table.py <usbloadergx>/source/patches/kirbypatch.c src/patching/gxkirby.inc
 
 Each word GX stores becomes one u32: the index of its value in a shared table
 in the top byte, the low 24 bits of its address below (every address is in
