@@ -101,6 +101,21 @@ Gecko lines and Dolphin's DI and SD logs), savegames, and heap placement
 - `sd:/riftwii/boot.log`: the last launch, up to the jump into the game.
 - The Wii model, the System Menu version and which cIOS is installed.
 
+## The Wii Remote log
+
+A Wii U Pro Controller works in RiftWii's menu (libogc reads it) but in no
+game. To learn why, a launch keeps what the game's Bluetooth and Wii Remote
+libraries would print in a debug build (`runtime/wlog`): retail games
+compile those prints into empty functions, and the blob takes their place.
+Leaving the game through HOME > Wii Menu saves it to
+`/shared2/riftwii/wpadlog.bin`; RiftWii's next start turns it into
+`sd:/riftwii/wpadlog.txt`, which goes into problem reports. Link keys are
+never written out and Bluetooth addresses keep only their last byte.
+
+It is on when the menu saw a Wii U Pro Controller. `wpad_log = on` in
+`settings.txt` keeps it for every launch (Dolphin tests), `wpad_log = off`
+never. Not in code builds or games that clear MEM1's top.
+
 ## A game that only fails on a console
 
 `debug_off` in `sd:/riftwii/settings.txt` turns RiftWii's launch extras
@@ -116,7 +131,7 @@ cheats' hook on jumps to another executable, `480p` the 480p fix,
 `returnto` the return-to patch, `consoletype` the console type RiftWii
 writes at 0x8000002C on a Wii, `prerun` the code handler's run before the
 game's entry, `closepart` the partition close before a Homebrew Channel
-app (CTGP) starts. `boot.log` names each one left out. Start with all of them,
+app (CTGP) starts, `wpadlog` the Wii Remote log. `boot.log` names each one left out. Start with all of them,
 then halve the list. The PMEX Remix crash on a Wii (2.7.0 RC9.2) was found
 this way: it was the crash recorder.
 

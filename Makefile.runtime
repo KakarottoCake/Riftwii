@@ -62,6 +62,13 @@ FAULTOUT  := $(OUT)/fault
 FAULTBLOB := $(OUT)/riftwii_fault.bin
 FAULTOBJS := $(FAULTOUT)/fault_entry.o $(FAULTOUT)/fault_hook.o $(FAULTOUT)/rtfault.o $(FAULTOUT)/rtshot.o
 
+# The Wii Remote log blob (runtime/wlog): the game's empty debug prints
+# kept, and saved to the NAND as the game leaves through the HOME Menu.
+WLOGSRC  := runtime/wlog
+WLOGOUT  := $(OUT)/wlog
+WLOGBLOB := $(OUT)/riftwii_wlog.bin
+WLOGOBJS := $(WLOGOUT)/wlog_entry.o $(WLOGOUT)/wlog_hook.o $(WLOGOUT)/rtshot.o
+
 # The virtual SD card blob (runtime/vsd): the game's SD slot answered from
 # a card image on the SD card or the USB drive, for code builds.
 VSDSRC  := runtime/vsd
@@ -97,7 +104,7 @@ BLOBZST := $(OUT)/riftwii_rt.zst
 RVZZST  := $(OUT)/riftwii_rt_rvz.zst
 
 .PHONY: all clean
-all: $(BLOB) $(PADBLOB) $(SHOTBLOB) $(FAULTBLOB) $(VSDBLOB) $(RVZBLOB) $(BLOBZST) $(RVZZST)
+all: $(BLOB) $(PADBLOB) $(SHOTBLOB) $(FAULTBLOB) $(WLOGBLOB) $(VSDBLOB) $(RVZBLOB) $(BLOBZST) $(RVZZST)
 
 $(OUT)/%.zst: $(OUT)/%.bin
 	$(ZSTD) -q -19 -f -o $@ $<
@@ -214,6 +221,33 @@ $(FAULTBLOB): $(FAULTOUT)/riftwii_fault.elf $(FAULTOUT)/riftwii_fault_alt.elf
 	$(OBJCOPY) -O binary $(FAULTOUT)/riftwii_fault_alt.elf $(FAULTOUT)/riftwii_fault_alt.bin
 	@cmp $@ $(FAULTOUT)/riftwii_fault_alt.bin || { echo "runtime: fault blob differs between link bases; not position independent"; rm -f $@; exit 1; }
 	@echo "fault blob: $$(stat -c %s $@) bytes"
+
+$(WLOGOUT):
+	@mkdir -p $(WLOGOUT)
+
+$(WLOGOUT)/wlog_entry.o: $(WLOGSRC)/wlog_entry.S $(WLOGSRC)/wlog_hook.h runtime/rtwlog.h | $(WLOGOUT)
+	$(CC) $(CFLAGS) -I$(WLOGSRC) -Iruntime -c -o $@ $<
+
+$(WLOGOUT)/wlog_hook.o: $(WLOGSRC)/wlog_hook.c $(WLOGSRC)/wlog_hook.h runtime/rtwlog.h runtime/rtshot.h | $(WLOGOUT)
+	$(CC) $(CFLAGS) -I$(WLOGSRC) -Iruntime -c -o $@ $<
+
+$(WLOGOUT)/rtshot.o: runtime/rtshot.c runtime/rtshot.h | $(WLOGOUT)
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(WLOGOUT)/riftwii_wlog.elf: $(WLOGOBJS) $(WLOGSRC)/wlog.ld
+	$(CC) $(CFLAGS) -nostdlib -nostartfiles -static -Wl,--build-id=none -Wl,--gc-sections -T $(WLOGSRC)/wlog.ld \
+		-Wl,--defsym,RT_BASE=0x00000000 -o $@ $(WLOGOBJS) -lgcc
+	@$(SIZE) -A $@ | awk '$$1 ~ /^\.(rodata|data|bss)$$/ && $$2 != 0 { print "runtime: section " $$1 " is not empty (" $$2 " bytes) in the wlog blob"; bad = 1 } END { exit bad }'
+
+$(WLOGOUT)/riftwii_wlog_alt.elf: $(WLOGOBJS) $(WLOGSRC)/wlog.ld
+	$(CC) $(CFLAGS) -nostdlib -nostartfiles -static -Wl,--build-id=none -Wl,--gc-sections -T $(WLOGSRC)/wlog.ld \
+		-Wl,--defsym,RT_BASE=0x12340000 -o $@ $(WLOGOBJS) -lgcc
+
+$(WLOGBLOB): $(WLOGOUT)/riftwii_wlog.elf $(WLOGOUT)/riftwii_wlog_alt.elf
+	$(OBJCOPY) -O binary $(WLOGOUT)/riftwii_wlog.elf $@
+	$(OBJCOPY) -O binary $(WLOGOUT)/riftwii_wlog_alt.elf $(WLOGOUT)/riftwii_wlog_alt.bin
+	@cmp $@ $(WLOGOUT)/riftwii_wlog_alt.bin || { echo "runtime: wlog blob differs between link bases; not position independent"; rm -f $@; exit 1; }
+	@echo "wlog blob: $$(stat -c %s $@) bytes"
 
 $(VSDOUT):
 	@mkdir -p $(VSDOUT)

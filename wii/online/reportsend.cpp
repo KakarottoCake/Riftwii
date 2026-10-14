@@ -3,9 +3,11 @@
 #include "reportsend.hpp"
 
 #include <dirent.h>
+#include <malloc.h>
 #include <sys/stat.h>
 
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <ctime>
 #include <new>
@@ -26,7 +28,10 @@
 #include "riftwii/gamefault.hpp"
 #include "riftwii/http.hpp"
 #include "riftwii/problemreport.hpp"
+#include "riftwii/wpadlog.hpp"
+#include "rtwlog.h"
 #include "wiidrc.h"
+#include "wpadhook.hpp"
 
 namespace riftwii::wii {
 namespace {
@@ -37,6 +42,8 @@ constexpr const char* kCrashFile = "sd:/riftwii/crash.txt";
 constexpr const char* kStateFile = "sd:/riftwii/report-state.txt";
 constexpr const char* kGameCrashFile = "sd:/riftwii/gamecrash.txt";
 constexpr const char* kGameCrashRecord = "/shared2/riftwii/crash.bin";  // runtime/rtfault.h
+constexpr const char* kWpadLogFile = "sd:/riftwii/wpadlog.txt";
+constexpr const char* kWpadLogRecord = "/shared2/riftwii/wpadlog.bin";  // runtime/rtwlog.h
 constexpr const char* kPasteUrl = "https://paste.rs/";
 // When paste.rs cannot be reached (some networks block it) or fails:
 // dpaste.com, a form post with the text as "content".
@@ -208,6 +215,7 @@ std::string gather(const std::string& reason, std::size_t limit) {
     std::vector<ReportPart> parts;
     parts.push_back(file_part(kCrashFile));
     parts.push_back(file_part(kGameCrashFile));
+    parts.push_back(file_part(kWpadLogFile));
     const ReportPart boot = file_part("sd:/riftwii/boot.log");
     parts.push_back(boot);
     // Check each cIOS's results, early: a long report is cut at its end.
@@ -254,7 +262,12 @@ std::string DescribeControllers() {
         std::string s = "Wii Remote " + std::to_string(i + 1);
         if (const WPADData* d = WPAD_Data(i)) {
             const unsigned exp = d->exp.type;
-            if (exp < sizeof(kExpansion) / sizeof(kExpansion[0])) s += kExpansion[exp];
+            if (exp == WPAD_EXP_CLASSIC && d->exp.classic.type == CLASSIC_TYPE_WIIU) {
+                // libogc reads it as a Classic Controller; games do not
+                // (the next launch keeps the Wii Remote log for that).
+                s = "Wii U Pro Controller " + std::to_string(i + 1);
+                note_wiiu_pro_seen();
+            } else if (exp < sizeof(kExpansion) / sizeof(kExpansion[0])) s += kExpansion[exp];
             else if (exp != WPAD_EXP_NONE) s += " + expansion " + std::to_string(exp);
         }
         add(s);
@@ -313,6 +326,36 @@ void ImportGameCrash() {
         if (end == std::string::npos) break;
         at = end + 1;
     }
+}
+
+void ImportWpadLog() {
+    if (ISFS_Initialize() < 0) return;
+    const s32 fd = ISFS_Open(kWpadLogRecord, ISFS_OPEN_READ);
+    if (fd < 0) {
+        ISFS_Deinitialize();
+        return;
+    }
+    // On the heap for the moment it is read: 68 KB kept for good would
+    // only take room from the menu.
+    u8* record = static_cast<u8*>(memalign(32, sizeof(rtwlog_file)));
+    const s32 got = record != nullptr ? ISFS_Read(fd, record, sizeof(rtwlog_file)) : -1;
+    ISFS_Close(fd);
+    ISFS_Delete(kWpadLogRecord);
+    // /dev/fs is not kept open: an IOS reload with it open damages the heap.
+    ISFS_Deinitialize();
+    std::string text, error;
+    const bool described = got >= 0 && describe_wpad_log(record, static_cast<std::size_t>(got), text, error);
+    std::free(record);
+    if (!described) {
+        logf("Wii Remote log: %s: %s; deleted\n", kWpadLogRecord, got < 0 ? "unreadable" : error.c_str());
+        return;
+    }
+    if (FILE* f = std::fopen(kWpadLogFile, "wb")) {
+        std::fputs(text.c_str(), f);
+        std::fclose(f);
+    }
+    const std::string first = text.substr(0, text.find('\n'));
+    logf("%s (saved as %s for the next problem report)\n", first.c_str(), kWpadLogFile);
 }
 
 bool UnreportedCrash(std::string& what) {

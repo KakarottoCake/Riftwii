@@ -47,6 +47,7 @@ and `vendor-*` is third-party code.
 | Screenshots | `wii/menu/screenshot.cpp`, `runtime/shot/`, `wii/hooks/shothook.cpp`, `src/data/shotfile.cpp`, `src/art/pngencode.cpp` |
 | Problem reports and the QR code | `wii/online/reportsend.cpp`, `src/data/problemreport.cpp`, `src/art/qrcode.cpp` |
 | A game's crash record | `runtime/fault/`, `runtime/rtfault.c`, `wii/hooks/faulthook.cpp`, `src/data/gamefault.cpp` |
+| The Wii Remote log (a Wii U Pro Controller diagnostic) | `runtime/wlog/`, `runtime/rtwlog.h`, `wii/hooks/wpadhook.cpp`, `src/patching/wpadlog.cpp` |
 | RiftWii's own crash screen | `wii/core/crash.cpp` |
 | Online play (Wiimmfi, WiiLink WFC) | `src/patching/wfcpatch.cpp`, `wii/launch/wfc.cpp`, `vendor-wwfc/` |
 | Video mode, borders, deflicker | `src/patching/videopatch.cpp` |
@@ -141,6 +142,7 @@ The build compiles every folder into one, so no two files share a name.
 | `padhook.cpp` | Installing the GameCube adapter blob |
 | `shothook.cpp` | Installing the screenshot blob |
 | `faulthook.cpp` | Installing the crash blob (and its retail BCA answer) |
+| `wpadhook.cpp` | Installing the Wii Remote log blob |
 | `vsdhook.cpp` | Finding `sd.raw` for a launch and installing the virtual SD card blob |
 | `vsdimage.cpp` | `sd.raw` as the menu's read-only `vsd:` drive |
 
@@ -196,6 +198,7 @@ document it.
 | `wfcpatch` | Online server patches |
 | `videopatch` | Video settings for games |
 | `gamelang` | The game language |
+| `wpadlog` | The Wii Remote log: the game's empty print functions, its HOME Menu exit, and the saved log as text |
 | `gxpatches` | USB Loader GX's per-game fixes and cIOS choice |
 | `returnto` | Returning to RiftWii from a game |
 | `launchargs` | Arguments from another loader |
@@ -263,6 +266,7 @@ shared C parts (`runtime/*.c`) are also built into the host tests.
 | `pad/`, `rtgcad.c` | The GameCube adapter blob and its WUP-028 driver (also used by the menu) |
 | `shot/`, `rtshot.c` | The in-game screenshot blob |
 | `fault/`, `rtfault.c` | The crash blob: the crash record to the NAND; also answers the BCA read |
+| `wlog/`, `rtwlog.h` | The Wii Remote log blob: the game's Bluetooth and Wii Remote debug prints, saved to the NAND at HOME > Wii Menu |
 | `vsd/`, `rtvsd.c` | The virtual SD card blob and the card it answers as |
 
 Each blob directory holds `<name>_entry.S` (a header of offsets the

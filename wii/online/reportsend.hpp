@@ -25,6 +25,10 @@ std::string DescribeControllers();
 // At startup, once the menu's IOS is up: a crash the game had last time
 // (wii/hooks/faulthook.hpp left it on the NAND) becomes sd:/riftwii/gamecrash.txt.
 void ImportGameCrash();
+// The same for the Wii Remote log (wii/hooks/wpadhook.hpp), which the game
+// saved when the player left through the HOME Menu: it becomes
+// sd:/riftwii/wpadlog.txt and goes into problem reports.
+void ImportWpadLog();
 
 // Whether the last run ended in a crash no report was offered for yet:
 // the game crashing (ImportGameCrash found one), RiftWii restarting after

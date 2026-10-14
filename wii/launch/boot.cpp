@@ -44,6 +44,7 @@
 #include "faulthook.hpp"
 #include "shothook.hpp"
 #include "vsdhook.hpp"
+#include "wpadhook.hpp"
 #include "sdfile.hpp"
 #include "sdio.hpp"
 #include "umsdev.hpp"
@@ -1690,6 +1691,45 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
                  why.c_str());
         }
     }
+    // The Wii Remote log, a diagnostic for the Wii U Pro Controller: below
+    // all of the above, when the menu saw one.
+    WpadLogHook wlog;
+    {
+        std::string why;
+        const bool wanted = wpad_log_wanted(why);
+        if (!wanted) {
+            // Said only when a setting turned it off: most launches never want it.
+            if (why == "wpad_log = off") logf("Wii Remote log: off: %s\n", why.c_str());
+        } else if (gx_protected) {
+            logf("Wii Remote log: off: the game checks its own code (MetaFortress)\n");
+        } else if (whole_mem1) {
+            logf("Wii Remote log: off: %s\n", whole_mem1_why);
+        } else if (debug_off("wpadlog")) {
+            logf("Wii Remote log: off: debug_off\n");
+        } else {
+            logf("Wii Remote log: on (%s)\n", why.c_str());
+            const std::uint32_t arena1_hi = fault.active  ? fault.new_arena1_hi
+                                            : shot.active ? shot.new_arena1_hi
+                                            : pad.active  ? pad.new_arena1_hi
+                                                          : base_arena1_hi();
+            const std::uint32_t arena2_lo = fault.active  ? fault.new_arena2_lo
+                                            : shot.active ? shot.new_arena2_lo
+                                            : pad.active  ? pad.new_arena2_lo
+                                                          : base_arena2_lo();
+            std::uint32_t known_ios[4] = {0, 0, 0, 0};
+            if (options.install_resident) {
+                // Unhooked: the resident's own would send /shared2 to a
+                // pack's save folder.
+                known_ios[0] = resident.originals[RT_IPC_SYNC(kIpcOpen)];
+                known_ios[1] = resident.originals[RT_IPC_SYNC(kIpcClose)];
+                known_ios[2] = resident.originals[RT_IPC_SYNC(kIpcWrite)];
+                known_ios[3] = resident.originals[RT_IPC_SYNC(kIpcIoctlCmd)];
+            }
+            if (!plan_wpad_log(dol, arena1_hi, mem1_floor, arena2_lo, known_ios, options.memory_patches, wlog, why)) {
+                logf("Wii Remote log: off: %s\n", why.c_str());
+            }
+        }
+    }
     // Never left open for the game (it may keep this IOS).
     close_nand_permissions("Launch");
     logf("Handing over\n");
@@ -1714,7 +1754,8 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     // game's can be: a pack's loader may put its code anywhere the game
     // doesn't use, and CTGP's writes its own over the SDK's spare room as
     // it runs.
-    const std::uint32_t arena1_top = fault.active               ? fault.new_arena1_hi
+    const std::uint32_t arena1_top = wlog.active                ? wlog.new_arena1_hi
+                                     : fault.active             ? fault.new_arena1_hi
                                      : shot.active              ? shot.new_arena1_hi
                                      : pad.active               ? pad.new_arena1_hi
                                      : vsd.active && !vsd.code_in_mem2 ? vsd.new_arena1_hi
@@ -1726,7 +1767,8 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     const u64 return_to = clears_mem1_top || gx_protected ? 0 : return_title();
     const std::uint32_t return_stub = return_to == 0 ? 0 : code_build ? kCodeReturnStub : (arena1_top - 32) & ~31u;
     const std::uint32_t arena1_end = return_stub != 0 && !code_build ? return_stub : arena1_top;
-    if (options.install_resident || vsd.active || pad.active || shot.active || fault.active || return_stub != 0)
+    if (options.install_resident || vsd.active || pad.active || shot.active || fault.active || wlog.active ||
+        return_stub != 0)
         store32(0x80000034, arena1_end);
     store32(0x80003110, arena1_end);
     std::memcpy(reinterpret_cast<void*>(0x80003180), probe.disc_id, 4);
@@ -1761,8 +1803,10 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         write32(0x80003140, pretended);
         write32(0x80003188, pretended);
     }
-    if (fault.active) {
-        write32(0x80003124, fault.new_arena2_lo);  // above all the others
+    if (wlog.active) {
+        write32(0x80003124, wlog.new_arena2_lo);  // above all the others
+    } else if (fault.active) {
+        write32(0x80003124, fault.new_arena2_lo);  // above all the others but the Wii Remote log
     } else if (shot.active) {
         write32(0x80003124, shot.new_arena2_lo);  // above the adapter's and the runtime's
     } else if (pad.active) {
@@ -1953,6 +1997,10 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     if (fault.active) {
         std::string why;
         if (!install_fault_hook(fault, why)) logf("Game crashes: not recorded: %s\n", why.c_str());
+    }
+    if (wlog.active) {
+        std::string why;
+        if (!install_wpad_log(wlog, why)) logf("Wii Remote log: off: %s\n", why.c_str());
     }
     // Test switch: settings.txt "debug_crash = <hex address>", or "pad" for
     // the game's PADRead (its main thread, every frame), puts a read from

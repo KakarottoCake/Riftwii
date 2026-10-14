@@ -124,7 +124,7 @@ BINFILES	:=	$(foreach dir,$(DATA),$(notdir $(wildcard $(dir)/*.ttf) \
 # for the recursive build after runtime-blob has completed. menufont.zst and
 # licence.zst are made in the build (below) from wii/font/rounded.ttf and
 # LICENSE.
-BINFILES	+=	riftwii_rt.zst riftwii_rt_rvz.zst riftwii_rt_rvz.rel riftwii_pad.bin riftwii_shot.bin riftwii_fault.bin riftwii_vsd.bin codehandleronly.bin menufont.zst licence.zst
+BINFILES	+=	riftwii_rt.zst riftwii_rt_rvz.zst riftwii_rt_rvz.rel riftwii_pad.bin riftwii_shot.bin riftwii_fault.bin riftwii_wlog.bin riftwii_vsd.bin codehandleronly.bin menufont.zst licence.zst
 
 #---------------------------------------------------------------------------------
 # use CXX for linking C++ projects, CC for standard C
