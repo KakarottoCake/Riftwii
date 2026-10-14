@@ -52,7 +52,8 @@ bool plan_wpad_log(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
                    const std::uint32_t known_ios[4], const std::vector<MemoryPatch>& patches, WpadLogHook& out,
                    std::string& why);
 
-// After the patches, the cheats and the other blobs' hooks.
+// After the patches, the cheats, the other blobs' hooks and Return to
+// RiftWii, which finds __OSLaunchMenu by the instruction the exit hook takes.
 bool install_wpad_log(WpadLogHook& hook, std::string& why);
 
 }  // namespace riftwii::wii

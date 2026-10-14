@@ -21,7 +21,10 @@ namespace riftwii::wii {
 namespace {
 
 constexpr std::uint32_t kMem2ArenaEndField = 0x80003128;
-constexpr std::uint32_t kBusClockField = 0x800000F8;  // the time base runs at a quarter of it
+// The Wii's bus clock; the time base runs at a quarter of it. A constant: boot.cpp
+// writes it to 0x800000F8 only at the handover, after this is planned (read
+// there, a launch from the RiftWii channel got 0).
+constexpr std::uint32_t kBusClock = 0x0E7BE2C0;
 constexpr std::uint32_t kPrintStubFirst = 0x9421FF90;  // stwu r1,-0x70(r1)
 
 bool g_wiiu_pro_seen = false;
@@ -169,7 +172,7 @@ bool plan_wpad_log(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
     ctx->ios_ioctl = ios[3];
     ctx->saved = 0;
     ctx->result = 0;
-    ctx->ticks_per_second = load_word(kBusClockField) / 4u;
+    ctx->ticks_per_second = kBusClock / 4u;
     ctx->stubs = static_cast<std::uint32_t>(out.stubs.size());
     out.active = true;
     logf("Wii Remote log: blob %u bytes at 0x%08x, log %u bytes at 0x%08x; %u print function(s), "

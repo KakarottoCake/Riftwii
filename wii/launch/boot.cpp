@@ -1998,10 +1998,6 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         std::string why;
         if (!install_fault_hook(fault, why)) logf("Game crashes: not recorded: %s\n", why.c_str());
     }
-    if (wlog.active) {
-        std::string why;
-        if (!install_wpad_log(wlog, why)) logf("Wii Remote log: off: %s\n", why.c_str());
-    }
     // Test switch: settings.txt "debug_crash = <hex address>", or "pad" for
     // the game's PADRead (its main thread, every frame), puts a read from
     // 0x28 there before the game starts (a tester's Project+ crash read
@@ -2039,6 +2035,13 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     }
     if (debug_off("returnto")) logf("Return to: debug_off: the game is not patched\n");
     else apply_return_to(loaded, return_to, return_stub);
+    // After Return to RiftWii: its exit hook takes the "li rZ,0" that
+    // patch_return_to looks for to find __OSLaunchMenu's first place, and
+    // placed before, it left the game going to the Wii Menu (2610-371).
+    if (wlog.active) {
+        std::string why;
+        if (!install_wpad_log(wlog, why)) logf("Wii Remote log: off: %s\n", why.c_str());
+    }
     settime(secs_to_ticks(static_cast<u64>(std::time(nullptr)) - kWiiEpochOffset));
 
     release_card_and_log();
