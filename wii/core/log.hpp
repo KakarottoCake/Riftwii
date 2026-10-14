@@ -30,5 +30,11 @@ public:
 // Writes what a LogBatch held back to the card now: before a step inside
 // the batch that could hang.
 void LogSync();
+// The launch screen without its log (a tester: "we don't need to see the
+// code"): lines are kept, their last few KB, instead of printed, until
+// LogShowHeld clears the console's window, prints them and goes back to
+// echoing (a failed launch shows what happened).
+void LogHoldScreen();
+void LogShowHeld();
 
 }  // namespace riftwii::wii

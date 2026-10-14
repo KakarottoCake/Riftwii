@@ -12,7 +12,10 @@ void ConsoleStart(bool video_initialised);
 // Starts the console in a window of the picture already on screen (the
 // menu's launch frame): `xfb` is that YUYV framebuffer, `fb_width` x
 // `fb_height`; the text goes into x, y, width, height, dark on white.
-void ConsoleStartInFrame(void* xfb, int fb_width, int fb_height, int x, int y, int width, int height);
+// `quiet` keeps what the frame shows in the window and holds the log back
+// (LogHoldScreen) until LogShowHeld.
+void ConsoleStartInFrame(void* xfb, int fb_width, int fb_height, int x, int y, int width, int height,
+                         bool quiet = false);
 
 // Blocks until RESET, or HOME/Start on any pad, then returns.
 void WaitForExit();
