@@ -1751,3 +1751,216 @@ msgstr "クラッシュ記録"
 
 msgid "screenshots"
 msgstr "スクリーンショット"
+
+msgid "About this game"
+msgstr "このゲームについて"
+
+msgid "What GameTDB says about the game: when it came out, how many can play, the controllers it takes and its story."
+msgstr "GameTDBによるゲームの情報：発売日、遊べる人数、使えるコントローラー、ストーリー。"
+
+msgid "Wii Remote"
+msgstr "Wiiリモコン"
+
+msgid "Nunchuk"
+msgstr "ヌンチャク"
+
+msgid "Classic Controller"
+msgstr "クラシックコントローラ"
+
+msgid "GameCube controller"
+msgstr "ゲームキューブコントローラ"
+
+msgid "Balance Board"
+msgstr "バランスWiiボード"
+
+msgid "Wii MotionPlus"
+msgstr "Wiiモーションプラス"
+
+msgid "Wii Wheel"
+msgstr "Wiiハンドル"
+
+msgid "Wii Zapper"
+msgstr "Wiiザッパー"
+
+msgid "Microphone (Wii Speak)"
+msgstr "マイク（Wiiスピーク）"
+
+msgid "USB keyboard"
+msgstr "USBキーボード"
+
+msgid "Nintendo DS"
+msgstr "ニンテンドーDS"
+
+msgid "Guitar"
+msgstr "ギター"
+
+msgid "Drums"
+msgstr "ドラム"
+
+msgid "Dance mat"
+msgstr "ダンスマット"
+
+msgid "uDraw tablet"
+msgstr "uDrawタブレット"
+
+msgid "January"
+msgstr "1月"
+
+msgid "February"
+msgstr "2月"
+
+msgid "March"
+msgstr "3月"
+
+msgid "April"
+msgstr "4月"
+
+msgid "May"
+msgstr "5月"
+
+msgid "June"
+msgstr "6月"
+
+msgid "July"
+msgstr "7月"
+
+msgid "August"
+msgstr "8月"
+
+msgid "September"
+msgstr "9月"
+
+msgid "October"
+msgstr "10月"
+
+msgid "November"
+msgstr "11月"
+
+msgid "December"
+msgstr "12月"
+
+msgid "{1} {2}, {3}"
+msgstr "{3}年{1}{2}日"
+
+msgid "Downloading game details"
+msgstr "ゲーム情報をダウンロード中"
+
+msgid "No game details"
+msgstr "ゲーム情報なし"
+
+msgid "Could not download them: {1}"
+msgstr "ダウンロードできませんでした：{1}"
+
+msgid "Reading game details..."
+msgstr "ゲーム情報を読み込み中..."
+
+msgid "Once for all your games: next time they open at once."
+msgstr "すべてのゲームの分を一度だけ読み込みます。次からはすぐに開きます。"
+
+msgid "No details for this game"
+msgstr "このゲームの情報はありません"
+
+msgid "GameTDB's database does not list {1}."
+msgstr "GameTDBのデータベースに{1}はありません。"
+
+msgid "Could not read them: {1}"
+msgstr "読み込めませんでした：{1}"
+
+msgid "No game details yet"
+msgstr "ゲーム情報はまだありません"
+
+msgid "They come from GameTDB's database of Wii games. Turn on Download names and cheats in Settings to get it."
+msgstr "GameTDBのWiiゲームのデータベースから取得します。設定で「ゲーム名とチートをダウンロード」をオンにしてください。"
+
+msgid "Download game details?"
+msgstr "ゲーム情報をダウンロードしますか？"
+
+msgid "They come from GameTDB's database of every Wii game: about 2 MB, kept on the SD card. Download it now?"
+msgstr "GameTDBの全Wiiゲームのデータベースから取得します（約2 MB、SDカードに保存）。今すぐダウンロードしますか？"
+
+msgid "Details"
+msgstr "情報"
+
+msgid "Released: {1}"
+msgstr "発売日：{1}"
+
+msgid "Genre: {1}"
+msgstr "ジャンル：{1}"
+
+msgid "Made and published by {1}"
+msgstr "開発・発売：{1}"
+
+msgid "Developer: {1}"
+msgstr "開発：{1}"
+
+msgid "Publisher: {1}"
+msgstr "発売元：{1}"
+
+msgid "Age rating: {1}"
+msgstr "年齢区分：{1}"
+
+msgid "Players"
+msgstr "人数"
+
+msgid "1 player"
+msgstr "1人"
+
+msgid "1 to {1} players"
+msgstr "1～{1}人"
+
+msgid "Online: up to {1} players"
+msgstr "オンライン：最大{1}人"
+
+msgid "Online server: the mod's own"
+msgstr "オンラインサーバー：MODのもの"
+
+msgid "Online needs a server: pick one on the game page."
+msgstr "オンラインにはサーバーが必要です。ゲームのページで選んでください。"
+
+msgid "Online server: {1}"
+msgstr "オンラインサーバー：{1}"
+
+msgid "Needed to play"
+msgstr "プレイに必要"
+
+msgid "Also works with"
+msgstr "こちらも使えます"
+
+msgid "Connected"
+msgstr "接続中"
+
+msgid "Not connected"
+msgstr "未接続"
+
+msgid "Story"
+msgstr "ストーリー"
+
+msgid "Game details"
+msgstr "ゲーム情報"
+
+msgid "Game details of {1}"
+msgstr "{1}のゲーム情報"
+
+msgid "From GameTDB, the database of Wii games its community keeps."
+msgstr "コミュニティが管理するWiiゲームのデータベース、GameTDBより。"
+
+msgid "One is connected now."
+msgstr "今、接続されています。"
+
+msgid "The game needs one: connect it before you start."
+msgstr "このゲームに必要です。始める前に接続してください。"
+
+msgid "None is connected now; the game also plays without it."
+msgstr "今は接続されていません。なくても遊べます。"
+
+msgid "The game needs this to play. RiftWii cannot see whether it is there."
+msgstr "プレイに必要です。RiftWiiからはあるかどうか分かりません。"
+
+msgid "The game also works with this."
+msgstr "これも使えます。"
+
+msgid "Downloads GameTDB's database again (about 2 MB), for the latest details."
+msgstr "最新の情報のため、GameTDBのデータベース（約2 MB）をもう一度ダウンロードします。"
+
+msgid "Game details downloaded."
+msgstr "ゲーム情報をダウンロードしました。"

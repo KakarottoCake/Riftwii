@@ -1751,3 +1751,216 @@ msgstr "registro dei crash"
 
 msgid "screenshots"
 msgstr "screenshot"
+
+msgid "About this game"
+msgstr "Informazioni sul gioco"
+
+msgid "What GameTDB says about the game: when it came out, how many can play, the controllers it takes and its story."
+msgstr "Cosa dice GameTDB del gioco: quando è uscito, quanti possono giocare, i controller che usa e la trama."
+
+msgid "Wii Remote"
+msgstr "Telecomando Wii"
+
+msgid "Nunchuk"
+msgstr "Nunchuk"
+
+msgid "Classic Controller"
+msgstr "Controller tradizionale"
+
+msgid "GameCube controller"
+msgstr "Controller GameCube"
+
+msgid "Balance Board"
+msgstr "Balance Board"
+
+msgid "Wii MotionPlus"
+msgstr "Wii MotionPlus"
+
+msgid "Wii Wheel"
+msgstr "Wii Wheel"
+
+msgid "Wii Zapper"
+msgstr "Wii Zapper"
+
+msgid "Microphone (Wii Speak)"
+msgstr "Microfono (Wii Speak)"
+
+msgid "USB keyboard"
+msgstr "Tastiera USB"
+
+msgid "Nintendo DS"
+msgstr "Nintendo DS"
+
+msgid "Guitar"
+msgstr "Chitarra"
+
+msgid "Drums"
+msgstr "Batteria"
+
+msgid "Dance mat"
+msgstr "Tappetino da ballo"
+
+msgid "uDraw tablet"
+msgstr "Tavoletta uDraw"
+
+msgid "January"
+msgstr "gennaio"
+
+msgid "February"
+msgstr "febbraio"
+
+msgid "March"
+msgstr "marzo"
+
+msgid "April"
+msgstr "aprile"
+
+msgid "May"
+msgstr "maggio"
+
+msgid "June"
+msgstr "giugno"
+
+msgid "July"
+msgstr "luglio"
+
+msgid "August"
+msgstr "agosto"
+
+msgid "September"
+msgstr "settembre"
+
+msgid "October"
+msgstr "ottobre"
+
+msgid "November"
+msgstr "novembre"
+
+msgid "December"
+msgstr "dicembre"
+
+msgid "{1} {2}, {3}"
+msgstr "{2} {1} {3}"
+
+msgid "Downloading game details"
+msgstr "Scaricamento dei dati dei giochi"
+
+msgid "No game details"
+msgstr "Nessun dato del gioco"
+
+msgid "Could not download them: {1}"
+msgstr "Impossibile scaricarli: {1}"
+
+msgid "Reading game details..."
+msgstr "Lettura dei dati dei giochi..."
+
+msgid "Once for all your games: next time they open at once."
+msgstr "Una volta per tutti i tuoi giochi: la prossima volta si aprono subito."
+
+msgid "No details for this game"
+msgstr "Nessun dato per questo gioco"
+
+msgid "GameTDB's database does not list {1}."
+msgstr "Il database di GameTDB non contiene {1}."
+
+msgid "Could not read them: {1}"
+msgstr "Impossibile leggerli: {1}"
+
+msgid "No game details yet"
+msgstr "Ancora nessun dato dei giochi"
+
+msgid "They come from GameTDB's database of Wii games. Turn on Download names and cheats in Settings to get it."
+msgstr "Provengono dal database dei giochi Wii di GameTDB. Attiva Scarica nomi e trucchi nelle Impostazioni per ottenerlo."
+
+msgid "Download game details?"
+msgstr "Scaricare i dati dei giochi?"
+
+msgid "They come from GameTDB's database of every Wii game: about 2 MB, kept on the SD card. Download it now?"
+msgstr "Provengono dal database di GameTDB con tutti i giochi Wii: circa 2 MB, salvati sulla scheda SD. Scaricarlo ora?"
+
+msgid "Details"
+msgstr "Dettagli"
+
+msgid "Released: {1}"
+msgstr "Uscita: {1}"
+
+msgid "Genre: {1}"
+msgstr "Genere: {1}"
+
+msgid "Made and published by {1}"
+msgstr "Sviluppato e pubblicato da {1}"
+
+msgid "Developer: {1}"
+msgstr "Sviluppatore: {1}"
+
+msgid "Publisher: {1}"
+msgstr "Editore: {1}"
+
+msgid "Age rating: {1}"
+msgstr "Classificazione per età: {1}"
+
+msgid "Players"
+msgstr "Giocatori"
+
+msgid "1 player"
+msgstr "1 giocatore"
+
+msgid "1 to {1} players"
+msgstr "Da 1 a {1} giocatori"
+
+msgid "Online: up to {1} players"
+msgstr "Online: fino a {1} giocatori"
+
+msgid "Online server: the mod's own"
+msgstr "Server online: quello della mod"
+
+msgid "Online needs a server: pick one on the game page."
+msgstr "Il gioco online richiede un server: scegline uno nella pagina del gioco."
+
+msgid "Online server: {1}"
+msgstr "Server online: {1}"
+
+msgid "Needed to play"
+msgstr "Necessario per giocare"
+
+msgid "Also works with"
+msgstr "Funziona anche con"
+
+msgid "Connected"
+msgstr "Collegato"
+
+msgid "Not connected"
+msgstr "Non collegato"
+
+msgid "Story"
+msgstr "Trama"
+
+msgid "Game details"
+msgstr "Dati del gioco"
+
+msgid "Game details of {1}"
+msgstr "Dati del {1}"
+
+msgid "From GameTDB, the database of Wii games its community keeps."
+msgstr "Da GameTDB, il database dei giochi Wii curato dalla sua comunità."
+
+msgid "One is connected now."
+msgstr "Ce n'è uno collegato."
+
+msgid "The game needs one: connect it before you start."
+msgstr "Il gioco ne ha bisogno: collegalo prima di iniziare."
+
+msgid "None is connected now; the game also plays without it."
+msgstr "Nessuno è collegato; il gioco funziona anche senza."
+
+msgid "The game needs this to play. RiftWii cannot see whether it is there."
+msgstr "Il gioco ne ha bisogno per giocare. RiftWii non può vedere se c'è."
+
+msgid "The game also works with this."
+msgstr "Il gioco funziona anche con questo."
+
+msgid "Downloads GameTDB's database again (about 2 MB), for the latest details."
+msgstr "Scarica di nuovo il database di GameTDB (circa 2 MB) per avere i dati più recenti."
+
+msgid "Game details downloaded."
+msgstr "Dati dei giochi scaricati."

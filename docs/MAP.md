@@ -53,6 +53,7 @@ and `vendor-*` is third-party code.
 | Video mode, borders, deflicker | `src/patching/videopatch.cpp` |
 | Game language | `src/patching/gamelang.cpp` |
 | Fixes for particular games, automatic cIOS choice (from USB Loader GX) | `src/patching/gxpatches.cpp`, `src/patching/gxkirby.inc` (`tools/gx_kirby_table.py`), the GX lines in `wii/launch/boot.cpp`, `image_cios_order` in `wii/storage/usbcatalog.cpp` |
+| A game's About page (GameTDB's details) | `wii/menu/rift_menu.cpp` (`MenuAbout`), `wii/online/gameinfo.cpp`, `src/data/gametdb.cpp` |
 | Downloads: game names, covers, cheats, updates | `wii/online/online.cpp`, `src/net/http.cpp`, `wii/online/netsock.cpp`, `wii/online/tls.cpp`, `src/data/titles.cpp`, `src/art/coverart.cpp`, `src/net/update.cpp` |
 | Packs served from a PC (RiiFS) | `wii/online/netpacks.cpp`, `src/net/riifs.cpp`, `src/net/riifs_sync.cpp`, `docs/RIIFS.md` |
 | Returning to RiftWii (or another title) when a game exits | `src/patching/returnto.cpp`, `apply_return_to` in `wii/launch/boot.cpp`, `wii/core/restart.cpp` |
@@ -171,6 +172,7 @@ The build compiles every folder into one, so no two files share a name.
 | `netsock.cpp` | Network sockets |
 | `tls.cpp`, `tlsroots.c` | https with BearSSL, and the certificates it trusts |
 | `reportsend.cpp` | Gathering and sending problem reports; log rotation; importing a game's crash |
+| `gameinfo.cpp` | Game details for the About page: GameTDB's database on the card, its download, the cache |
 
 ## `src/` and `include/riftwii/`: portable code
 
@@ -246,6 +248,7 @@ document it.
 | `settingsfile` | `settings.txt` |
 | `langfile` | Translation files |
 | `playhistory` | `history.txt` |
+| `gametdb` | GameTDB's `wiitdb.xml` read a game at a time, the game details cache, wrapping their text |
 | `cardlog` | The runtime's SD card log, as text |
 | `shotfile`, `pngencode` | Screenshot files and a PNG writer |
 | `problemreport` | A problem report's text |

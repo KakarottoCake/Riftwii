@@ -1751,3 +1751,216 @@ msgstr "충돌 기록"
 
 msgid "screenshots"
 msgstr "스크린샷"
+
+msgid "About this game"
+msgstr "이 게임에 대해"
+
+msgid "What GameTDB says about the game: when it came out, how many can play, the controllers it takes and its story."
+msgstr "GameTDB의 게임 정보: 발매일, 플레이 인원, 사용하는 컨트롤러, 스토리."
+
+msgid "Wii Remote"
+msgstr "Wii 리모컨"
+
+msgid "Nunchuk"
+msgstr "눈차크"
+
+msgid "Classic Controller"
+msgstr "클래식 컨트롤러"
+
+msgid "GameCube controller"
+msgstr "게임큐브 컨트롤러"
+
+msgid "Balance Board"
+msgstr "밸런스 Wii 보드"
+
+msgid "Wii MotionPlus"
+msgstr "Wii 모션플러스"
+
+msgid "Wii Wheel"
+msgstr "Wii 핸들"
+
+msgid "Wii Zapper"
+msgstr "Wii 재퍼"
+
+msgid "Microphone (Wii Speak)"
+msgstr "마이크 (Wii 스피크)"
+
+msgid "USB keyboard"
+msgstr "USB 키보드"
+
+msgid "Nintendo DS"
+msgstr "닌텐도 DS"
+
+msgid "Guitar"
+msgstr "기타"
+
+msgid "Drums"
+msgstr "드럼"
+
+msgid "Dance mat"
+msgstr "댄스 매트"
+
+msgid "uDraw tablet"
+msgstr "uDraw 태블릿"
+
+msgid "January"
+msgstr "1월"
+
+msgid "February"
+msgstr "2월"
+
+msgid "March"
+msgstr "3월"
+
+msgid "April"
+msgstr "4월"
+
+msgid "May"
+msgstr "5월"
+
+msgid "June"
+msgstr "6월"
+
+msgid "July"
+msgstr "7월"
+
+msgid "August"
+msgstr "8월"
+
+msgid "September"
+msgstr "9월"
+
+msgid "October"
+msgstr "10월"
+
+msgid "November"
+msgstr "11월"
+
+msgid "December"
+msgstr "12월"
+
+msgid "{1} {2}, {3}"
+msgstr "{3}년 {1} {2}일"
+
+msgid "Downloading game details"
+msgstr "게임 정보 다운로드 중"
+
+msgid "No game details"
+msgstr "게임 정보 없음"
+
+msgid "Could not download them: {1}"
+msgstr "다운로드할 수 없습니다: {1}"
+
+msgid "Reading game details..."
+msgstr "게임 정보 읽는 중..."
+
+msgid "Once for all your games: next time they open at once."
+msgstr "모든 게임의 정보를 한 번에 읽습니다. 다음부터는 바로 열립니다."
+
+msgid "No details for this game"
+msgstr "이 게임의 정보가 없습니다"
+
+msgid "GameTDB's database does not list {1}."
+msgstr "GameTDB 데이터베이스에 {1}이(가) 없습니다."
+
+msgid "Could not read them: {1}"
+msgstr "읽을 수 없습니다: {1}"
+
+msgid "No game details yet"
+msgstr "아직 게임 정보가 없습니다"
+
+msgid "They come from GameTDB's database of Wii games. Turn on Download names and cheats in Settings to get it."
+msgstr "GameTDB의 Wii 게임 데이터베이스에서 가져옵니다. 설정에서 이름 및 치트 다운로드를 켜 주세요."
+
+msgid "Download game details?"
+msgstr "게임 정보를 다운로드할까요?"
+
+msgid "They come from GameTDB's database of every Wii game: about 2 MB, kept on the SD card. Download it now?"
+msgstr "GameTDB의 모든 Wii 게임 데이터베이스에서 가져옵니다. 약 2 MB이며 SD 카드에 저장됩니다. 지금 다운로드할까요?"
+
+msgid "Details"
+msgstr "정보"
+
+msgid "Released: {1}"
+msgstr "발매일: {1}"
+
+msgid "Genre: {1}"
+msgstr "장르: {1}"
+
+msgid "Made and published by {1}"
+msgstr "개발 및 유통: {1}"
+
+msgid "Developer: {1}"
+msgstr "개발: {1}"
+
+msgid "Publisher: {1}"
+msgstr "유통: {1}"
+
+msgid "Age rating: {1}"
+msgstr "연령 등급: {1}"
+
+msgid "Players"
+msgstr "플레이 인원"
+
+msgid "1 player"
+msgstr "1명"
+
+msgid "1 to {1} players"
+msgstr "1~{1}명"
+
+msgid "Online: up to {1} players"
+msgstr "온라인: 최대 {1}명"
+
+msgid "Online server: the mod's own"
+msgstr "온라인 서버: MOD의 서버"
+
+msgid "Online needs a server: pick one on the game page."
+msgstr "온라인 플레이에는 서버가 필요합니다. 게임 페이지에서 고르세요."
+
+msgid "Online server: {1}"
+msgstr "온라인 서버: {1}"
+
+msgid "Needed to play"
+msgstr "플레이에 필요"
+
+msgid "Also works with"
+msgstr "이것도 사용 가능"
+
+msgid "Connected"
+msgstr "연결됨"
+
+msgid "Not connected"
+msgstr "연결 안 됨"
+
+msgid "Story"
+msgstr "스토리"
+
+msgid "Game details"
+msgstr "게임 정보"
+
+msgid "Game details of {1}"
+msgstr "{1} 게임 정보"
+
+msgid "From GameTDB, the database of Wii games its community keeps."
+msgstr "커뮤니티가 관리하는 Wii 게임 데이터베이스 GameTDB에서 가져왔습니다."
+
+msgid "One is connected now."
+msgstr "지금 연결되어 있습니다."
+
+msgid "The game needs one: connect it before you start."
+msgstr "게임에 필요합니다. 시작하기 전에 연결하세요."
+
+msgid "None is connected now; the game also plays without it."
+msgstr "지금은 연결되어 있지 않습니다. 없어도 플레이할 수 있습니다."
+
+msgid "The game needs this to play. RiftWii cannot see whether it is there."
+msgstr "플레이에 필요합니다. RiftWii는 연결 여부를 알 수 없습니다."
+
+msgid "The game also works with this."
+msgstr "이것도 사용할 수 있습니다."
+
+msgid "Downloads GameTDB's database again (about 2 MB), for the latest details."
+msgstr "최신 정보를 위해 GameTDB 데이터베이스(약 2 MB)를 다시 다운로드합니다."
+
+msgid "Game details downloaded."
+msgstr "게임 정보를 다운로드했습니다."

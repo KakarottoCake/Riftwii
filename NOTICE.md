@@ -44,7 +44,9 @@ an `SPDX-FileCopyrightText` line at the top; this table has the detail
 Data fetched at run time, when the Wii is online and "Download names and
 cheats" is on: game names and cover art from GameTDB
 (https://www.gametdb.com, the `wiitdb.txt` lists and
-art.gametdb.com's covers, stored shrunk on the SD card), cheat files from the GeckoCodes archive kept by
+art.gametdb.com's covers, stored shrunk on the SD card, and, when the
+player asks on a game's About page, its database `wiitdb.zip` in the
+menu's language for game details), cheat files from the GeckoCodes archive kept by
 RiiConnect24 (https://codes.rc24.xyz), and the newest release's tag from
 GitHub's API (the update check). Neither is shipped with RiftWii, except
 for two lists derived from GameTDB's database (https://www.gametdb.com,

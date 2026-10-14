@@ -34,6 +34,7 @@
 #include <fstream>
 #include <functional>
 #include <initializer_list>
+#include <memory>
 #include <new>
 #include <set>
 #include <unordered_map>
@@ -80,6 +81,7 @@
 #include "codebuilds.hpp"
 #include "vsdmake.hpp"
 #include "gameextras.hpp"
+#include "gameinfo.hpp"
 #include "i18n.hpp"
 #include "loadersettings.hpp"
 #include "memorybudget.hpp"
@@ -3354,7 +3356,7 @@ static std::string SaveNote(const riftwii::LaunchModel& model)
 struct RowRef {
 	enum class What { Mods, Saves, Cheats, Width, Deflicker, Borders, VideoMode, RegionVideo, Aspect, Rumble, Speaker,
 		RegionStrings, Language, Cios, Server, Favorite, Pack, Option, Note,
-		AddCodes, ForgetCodes, MakeImage, Cover, Memory } what = What::Note;
+		AddCodes, ForgetCodes, MakeImage, Cover, Memory, About } what = What::Note;
 	std::size_t pkg = 0, opt = 0;
 };
 
@@ -3498,6 +3500,12 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 	mods.value = shown == 0 ? tr("None") : enabled == 0 ? tr("Off") : tr("{1} switched on", {std::to_string(enabled)});
 	mods.on = enabled != 0;
 	add(mods, {RowRef::What::Mods});
+	if (!state.game_id.empty()) {
+		FlowRow about;
+		about.kind = FlowRow::Kind::Action;
+		about.label = tr("About this game");
+		add(about, {RowRef::What::About});
+	}
 
 	// A pack with its own <savegame> decides where the saves go; the
 	// setting is shown as the pack's and left alone until it lets go.
@@ -3643,7 +3651,7 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 		rows.push_back(row);
 		refs.push_back({W::Note});
 	};
-	show({W::Mods, W::Saves, W::Cheats, W::Favorite, W::Cover});
+	show({W::Mods, W::About, W::Saves, W::Cheats, W::Favorite, W::Cover});
 	heading(tr("Picture"));
 	show({W::Width, W::Deflicker, W::Borders, W::VideoMode, W::RegionVideo, W::Aspect});
 	heading(tr("Other"));
@@ -3839,6 +3847,370 @@ static std::string GameTitle(const FrontendState& state)
 	if (state.use_sd && state.sd_index < state.sd_catalog.games.size())
 		return GameName(state.sd_catalog.games[state.sd_index]);
 	return riftwii::wii::GameDisplayName(state.game_id, state.disc_title.empty() ? state.game_id : state.disc_title);
+}
+
+// ---------------------------------------------------------------------------
+// About this game: what GameTDB says about it (wii/online/gameinfo.hpp),
+// the controllers it takes checked against those connected now.
+
+// The controllers a game can see, connected now.
+struct ConnectedPads {
+	bool remote = false, nunchuk = false, classic = false, gamecube = false, board = false;
+};
+static ConnectedPads PadsConnectedNow()
+{
+	ConnectedPads pads;
+	for (int i = 0; i < 4; ++i) {
+		u32 type = 0;
+		if (WPAD_Probe(i, &type) != WPAD_ERR_NONE) continue;
+		pads.remote = true;
+		const WPADData* d = WPAD_Data(i);
+		if (!d) continue;
+		if (d->exp.type == WPAD_EXP_NUNCHUK) pads.nunchuk = true;
+		// A Wii U Pro Controller reads as a Classic Controller here, but
+		// games do not take it.
+		if (d->exp.type == WPAD_EXP_CLASSIC && d->exp.classic.type != CLASSIC_TYPE_WIIU) pads.classic = true;
+	}
+	u32 boardType = 0;
+	if (WPAD_Probe(WPAD_BALANCE_BOARD, &boardType) == WPAD_ERR_NONE) pads.board = true;
+	// SI_Probe answers from what the ports last said (PAD_ScanPads here
+	// would take a press from the menu).
+	for (int i = 0; i < 4; ++i) {
+		const u32 port = SI_Probe(i);
+		if (!(port & SI_ERROR_NO_RESPONSE) && (port & SI_TYPE_MASK) == SI_TYPE_GC) pads.gamecube = true;
+	}
+	riftwii::wii::GcAdapterView adapter;
+	if (riftwii::wii::GcAdapterMenuLastView(adapter) && adapter.open)
+		for (unsigned i = 0; i < GCAD_PORTS; ++i)
+			if (adapter.present[i]) pads.gamecube = true;
+	return pads;
+}
+
+// GameTDB's name for a controller as players know it; "" for what is not
+// one (it lists Mii support with them).
+static std::string ControlName(const std::string& type)
+{
+	if (type == "wiimote") return tr("Wii Remote");
+	if (type == "nunchuk") return tr("Nunchuk");
+	if (type == "classiccontroller") return tr("Classic Controller");
+	if (type == "gamecube") return tr("GameCube controller");
+	if (type == "balanceboard") return tr("Balance Board");
+	if (type == "motionplus" || type == "wiimotionplus") return tr("Wii MotionPlus");
+	if (type == "wheel") return tr("Wii Wheel");
+	if (type == "zapper") return tr("Wii Zapper");
+	if (type == "wiispeak" || type == "microphone") return tr("Microphone (Wii Speak)");
+	if (type == "keyboard") return tr("USB keyboard");
+	if (type == "nintendods") return tr("Nintendo DS");
+	if (type == "guitar") return tr("Guitar");
+	if (type == "drums") return tr("Drums");
+	if (type == "dancepad") return tr("Dance mat");
+	if (type == "udraw") return tr("uDraw tablet");
+	if (type == "mii") return "";
+	return type;
+}
+
+// Whether RiftWii can tell `type` is connected (`connected`: it is).
+static bool ControlSeen(const std::string& type, const ConnectedPads& pads, bool& connected)
+{
+	if (type == "wiimote") connected = pads.remote;
+	else if (type == "nunchuk") connected = pads.nunchuk;
+	else if (type == "classiccontroller") connected = pads.classic;
+	else if (type == "gamecube") connected = pads.gamecube;
+	else if (type == "balanceboard") connected = pads.board;
+	else return false;
+	return true;
+}
+
+static std::string ReleaseText(const riftwii::GameInfo& g)
+{
+	static const char* const kMonths[] = {"January", "February", "March", "April", "May", "June", "July",
+		"August", "September", "October", "November", "December"};
+	if (g.year == 0) return "";
+	if (g.month < 1 || g.month > 12) return std::to_string(g.year);
+	const std::string month = tr(kMonths[g.month - 1]);
+	if (g.day < 1) return month + " " + std::to_string(g.year);
+	return tr("{1} {2}, {3}", {month, std::to_string(g.day), std::to_string(g.year)});
+}
+
+// "Racing, kart racing": GameTDB's words, the first with a capital.
+static std::string GenreText(const std::vector<std::string>& genres)
+{
+	std::string out;
+	for (const std::string& g : genres) out += (out.empty() ? "" : ", ") + g;
+	if (!out.empty() && out[0] >= 'a' && out[0] <= 'z') out[0] = static_cast<char>(out[0] - 'a' + 'A');
+	return out;
+}
+
+// The database on the card, downloaded while a popup counts the bytes.
+static bool DownloadGameInfoNow()
+{
+	std::string error;
+	bool ok;
+	{
+		PopupBox box(tr("Downloading game details"), "");
+		ResumeGui();
+		ok = riftwii::wii::DownloadGameInfo(error, [&](std::size_t received) {
+			HaltGui();
+			box.SetBody(SizeText(received));
+			ResumeGui();
+		});
+		HaltGui();
+	}
+	if (!ok) ShowPopup(tr("No game details"), tr("Could not download them: {1}", {FlatCapped(error, 140)}), tr("OK"));
+	return ok;
+}
+
+// The game's details, from the cache or read out of the database (with a
+// popup and a bar while that takes seconds), downloading the database
+// first when the player agrees. False, having said why, when there are none.
+static bool FetchGameInfo(const FrontendState& state, riftwii::GameInfo& info)
+{
+	std::set<std::string> wanted;
+	for (const riftwii::wii::ImageGame& g : state.usb_catalog.games) wanted.insert(g.id);
+	for (const riftwii::wii::ImageGame& g : state.sd_catalog.games) wanted.insert(g.id);
+	for (int attempt = 0; attempt < 2; ++attempt) {
+		std::string error;
+		std::unique_ptr<ProgressBar> bar;
+		std::unique_ptr<PopupBox> box;
+		const auto progress = [&](double done) {
+			if (!box) {
+				bar.reset(new ProgressBar(56, 280, 528));
+				box.reset(new PopupBox(tr("Reading game details..."),
+					tr("Once for all your games: next time they open at once."), "", tr("Stop")));
+				box->Add(bar.get(), 528);
+				ResumeGui();
+			}
+			HaltGui();
+			bar->Set(done);
+			const bool stop = box->Pressed();
+			ResumeGui();
+			return !stop;
+		};
+		const riftwii::wii::GameInfoResult result = riftwii::wii::FindGameInfo(state.game_id, wanted, info, error, progress);
+		if (box) {
+			HaltGui();
+			box.reset();
+			bar.reset();
+		}
+		switch (result) {
+			case riftwii::wii::GameInfoResult::Found:
+				return true;
+			case riftwii::wii::GameInfoResult::NotListed:
+				ShowPopup(tr("No details for this game"), tr("GameTDB's database does not list {1}.", {state.game_id}), tr("OK"));
+				return false;
+			case riftwii::wii::GameInfoResult::Failed:
+				if (error != "stopped")
+					ShowPopup(tr("No game details"), tr("Could not read them: {1}", {FlatCapped(error, 140)}), tr("OK"));
+				return false;
+			case riftwii::wii::GameInfoResult::NoDatabase:
+				break;
+		}
+		if (attempt > 0) return false;
+		if (!riftwii::wii::Settings().online) {
+			ShowPopup(tr("No game details yet"),
+				tr("They come from GameTDB's database of Wii games. Turn on Download names and cheats in Settings to get it."),
+				tr("OK"));
+			return false;
+		}
+		if (ShowPopup(tr("Download game details?"),
+			    tr("They come from GameTDB's database of every Wii game: about 2 MB, kept on the SD card. Download it now?"),
+			    tr("Download"), tr("Cancel")) != 0)
+			return false;
+		if (!DownloadGameInfoNow()) return false;
+	}
+	return false;
+}
+
+static void MenuAbout(const FrontendState& state, riftwii::GameInfo info)
+{
+	enum class Act { None, Control, Download };
+	struct Ref {
+		Act act = Act::None;
+		std::string type;
+		bool required = false;
+	};
+	std::vector<FlowRow> rows;
+	std::vector<Ref> refs;
+	const ConnectedPads pads = PadsConnectedNow();
+	const auto build = [&]() {
+		rows.clear();
+		refs.clear();
+		const auto heading = [&](const std::string& name) {
+			FlowRow row;
+			row.heading = true;
+			row.label = name;
+			rows.push_back(row);
+			refs.push_back({});
+		};
+		const auto line = [&](const std::string& text) {
+			FlowRow row;
+			row.label = text;
+			rows.push_back(row);
+			refs.push_back({});
+		};
+
+		heading(tr("Details"));
+		const std::string released = ReleaseText(info);
+		if (!released.empty()) line(tr("Released: {1}", {released}));
+		if (!info.genres.empty()) line(tr("Genre: {1}", {FlatCapped(GenreText(info.genres), 60)}));
+		if (!info.developer.empty() && info.developer == info.publisher)
+			line(tr("Made and published by {1}", {FlatCapped(info.developer, 50)}));
+		else {
+			if (!info.developer.empty()) line(tr("Developer: {1}", {FlatCapped(info.developer, 56)}));
+			if (!info.publisher.empty()) line(tr("Publisher: {1}", {FlatCapped(info.publisher, 56)}));
+		}
+		if (!info.rating.empty()) line(tr("Age rating: {1}", {info.rating_system + " " + info.rating}));
+
+		heading(tr("Players"));
+		if (info.players == 1) line(tr("1 player"));
+		else if (info.players > 1) line(tr("1 to {1} players", {std::to_string(info.players)}));
+		const bool online = info.online_players > 0;
+		if (online) {
+			line(tr("Online: up to {1} players", {std::to_string(info.online_players)}));
+			// Nintendo's servers closed in 2014: online play needs another.
+			const riftwii::GameSettings& game = state.model.game;
+			const std::string server = game.server == "global" ? riftwii::wii::Settings().wfc_server : game.server;
+			if (state.model.packs_patch_game()) {
+				line(tr("Online server: the mod's own"));
+			} else if (server == "off" || server.empty()) {
+				line(tr("Online needs a server: pick one on the game page."));
+			} else {
+				line(tr("Online server: {1}", {ServerName(server)}));
+			}
+		} else if (riftwii::game_has_no_online(state.game_id) || info.players > 0) {
+			line(tr("No online play"));
+		}
+
+		// Needed first, then the rest; each with whether it is here.
+		for (int pass = 0; pass < 2; ++pass) {
+			bool headed = false;
+			for (const riftwii::GameControl& c : info.controls) {
+				if (c.required != (pass == 0)) continue;
+				const std::string name = ControlName(c.type);
+				if (name.empty()) continue;
+				if (!headed) {
+					heading(pass == 0 ? tr("Needed to play") : tr("Also works with"));
+					headed = true;
+				}
+				FlowRow row;
+				row.kind = FlowRow::Kind::Header;
+				row.label = name;
+				bool connected = false;
+				if (ControlSeen(c.type, pads, connected)) {
+					row.value = connected ? tr("Connected") : tr("Not connected");
+					row.on = connected;
+				}
+				rows.push_back(row);
+				refs.push_back({Act::Control, c.type, c.required});
+			}
+		}
+
+		if (!info.synopsis.empty()) {
+			heading(tr("Story"));
+			const std::string text = riftwii::plain_punctuation(info.synopsis);
+			for (const std::string& part : riftwii::wrap_columns(text, 60)) line(part);
+		}
+
+		heading("GameTDB");
+		std::string source;
+		std::time_t written = 0;
+		std::string when;
+		if (riftwii::wii::GameInfoSource(source, written)) {
+			char date[16];
+			std::strftime(date, sizeof date, "%Y-%m-%d", std::localtime(&written));
+			when = date;
+		}
+		FlowRow update;
+		update.kind = FlowRow::Kind::Action;
+		update.label = when.empty() ? tr("Game details") : tr("Game details of {1}", {when});
+		update.value = tr("Download again");
+		update.dim = !riftwii::wii::Settings().online;
+		rows.push_back(update);
+		refs.push_back({Act::Download, "", false});
+	};
+	build();
+
+	GuiText titleTxt(tr("About this game"), 30, skin::kInk);
+	Place(titleTxt, 40, 28);
+	TitleBand titleBand;
+	const std::string gameName = FlatCapped(GameTitle(state), 40);
+	GuiText gameTxt(gameName.c_str(), 16, skin::kInkDim);
+	gameTxt.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
+	gameTxt.SetPosition(-40, 40);
+	Panel panel(skin::panelGame, 34, 76);
+	GuiFlowList list(46, 82, 548, 5);
+	list.SetRows(&rows);
+	list.Select(1);
+	const std::string pageNote = tr("From GameTDB, the database of Wii games its community keeps.");
+	GuiText noteTxt(pageNote.c_str(), 16, skin::kInkSoft);
+	Place(noteTxt, 52, 312);
+	noteTxt.SetWrap(true, 536, 4);
+	SkinButton backBtn(skin::pill, skin::pillOver, 4, 198, 406, "Back",
+		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
+
+	HaltGui();
+	GuiWindow w(screenwidth, screenheight);
+	w.Append(&titleBand);
+	w.Append(&titleTxt);
+	w.Append(&gameTxt);
+	w.Append(&panel);
+	w.Append(&list);
+	w.Append(&noteTxt);
+	w.Append(&backBtn.button);
+	mainWindow->Append(&w);
+	ResumeGui();
+	logf("About: %s, %u controller(s) listed, %u bytes of story\n", state.game_id.c_str(),
+		static_cast<unsigned>(info.controls.size()), static_cast<unsigned>(info.synopsis.size()));
+
+	const auto say = [&](const std::string& text) { noteTxt.SetText(text.c_str()); };
+	int shownRow = -1;
+	bool done = false;
+	while (!done)
+	{
+		usleep(10000);
+		HaltGui();
+		ClearStaleButtons({&backBtn.button});
+
+		const int row = list.Selected();
+		if (row != shownRow && row >= 0 && static_cast<std::size_t>(row) < refs.size()) {
+			shownRow = row;
+			const Ref& ref = refs[static_cast<std::size_t>(row)];
+			bool connected = false;
+			if (ref.act == Act::Control && ControlSeen(ref.type, pads, connected)) {
+				if (connected) say(tr("One is connected now."));
+				else if (ref.required) say(tr("The game needs one: connect it before you start."));
+				else say(tr("None is connected now; the game also plays without it."));
+			} else if (ref.act == Act::Control) {
+				say(ref.required ? tr("The game needs this to play. RiftWii cannot see whether it is there.")
+					: tr("The game also works with this."));
+			} else if (ref.act == Act::Download) {
+				say(riftwii::wii::Settings().online
+					? tr("Downloads GameTDB's database again (about 2 MB), for the latest details.")
+					: tr("Downloads are off in Settings."));
+			} else {
+				say(pageNote);
+			}
+		}
+
+		const int acted = list.GetClicked();
+		list.GetClickedBack();
+		if (acted >= 0 && static_cast<std::size_t>(acted) < refs.size() &&
+		    refs[static_cast<std::size_t>(acted)].act == Act::Download && riftwii::wii::Settings().online) {
+			riftwii::GameInfo fresh;
+			if (DownloadGameInfoNow() && FetchGameInfo(state, fresh)) {
+				info = fresh;
+				build();
+				list.Refresh();
+				list.Select(acted < static_cast<int>(rows.size()) ? acted : 0);
+				say(tr("Game details downloaded."));
+				shownRow = acted;
+			}
+		}
+		if (backBtn.Clicked()) done = true;
+		ResumeGui();
+	}
+	HaltGui();
+	mainWindow->Remove(&w);
 }
 
 // ---------------------------------------------------------------------------
@@ -4773,6 +5145,8 @@ static int MenuHome(FrontendState& state)
 				say(tr("Favourites have their own view on Home: press 1 there until it shows."));
 			else if (ref.what == RowRef::What::Cover)
 				say(tr("Downloads this game's box art from GameTDB now."));
+			else if (ref.what == RowRef::What::About)
+				say(tr("What GameTDB says about the game: when it came out, how many can play, the controllers it takes and its story."));
 			else if (ref.what == RowRef::What::Memory) {
 				const riftwii::ExtrasBudget budget = riftwii::wii::EstimateExtras(state);
 				std::string text = tr("Taken from the game's own memory by what RiftWii adds to this launch: {1}.", {budget.list()});
@@ -4808,6 +5182,18 @@ static int MenuHome(FrontendState& state)
 				while (at < 3 && state.model.save_mode != modes[at]) ++at;
 				state.model.save_mode = modes[((at % 3) + 3 + direction) % 3];
 				changed = true;
+			} else if (ref.what == RowRef::What::About) {
+				// Asks first when there is no database yet, so the page
+				// slides in only once there is something to show.
+				riftwii::GameInfo info;
+				if (FetchGameInfo(state, info)) {
+					transition::Hold(transition::Kind::SlideForward);
+					mainWindow->Remove(&w);
+					MenuAbout(state, info);
+					transition::Hold(transition::Kind::SlideBack);
+					mainWindow->Append(&w);
+				}
+				shownRow = -1;
 			} else if (ref.what == RowRef::What::Mods || ref.what == RowRef::What::Cheats) {
 				transition::Hold(transition::Kind::SlideForward);
 				mainWindow->Remove(&w);

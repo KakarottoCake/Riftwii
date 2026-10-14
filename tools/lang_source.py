@@ -1681,6 +1681,77 @@ T = {
     "SD card for the game": ("tarjeta SD para el juego", "ゲーム用のSDカード", "cartão SD para o jogo", "scheda SD per il gioco"),
     "crash recorder": ("registro de cuelgues", "クラッシュ記録", "registro de travamentos", "registro dei crash"),
     "screenshots": ("capturas", "スクリーンショット", "capturas", "screenshot"),
+    "About this game": ("Sobre este juego", "このゲームについて", "Sobre este jogo", "Informazioni sul gioco"),
+    "What GameTDB says about the game: when it came out, how many can play, the controllers it takes and its story.": ("Lo que dice GameTDB del juego: cuándo salió, cuántos pueden jugar, los mandos que usa y su historia.", "GameTDBによるゲームの情報：発売日、遊べる人数、使えるコントローラー、ストーリー。", "O que o GameTDB diz sobre o jogo: quando saiu, quantos podem jogar, os controles que usa e a história.", "Cosa dice GameTDB del gioco: quando è uscito, quanti possono giocare, i controller che usa e la trama."),
+    "Wii Remote": ("Mando de Wii", "Wiiリモコン", "Wii Remote", "Telecomando Wii"),
+    "Nunchuk": ("Nunchuk", "ヌンチャク", "Nunchuk", "Nunchuk"),
+    "Classic Controller": ("Mando Clásico", "クラシックコントローラ", "Classic Controller", "Controller tradizionale"),
+    "GameCube controller": ("Mando de GameCube", "ゲームキューブコントローラ", "Controle do GameCube", "Controller GameCube"),
+    "Balance Board": ("Wii Balance Board", "バランスWiiボード", "Balance Board", "Balance Board"),
+    "Wii MotionPlus": ("Wii MotionPlus", "Wiiモーションプラス", "Wii MotionPlus", "Wii MotionPlus"),
+    "Wii Wheel": ("Wii Wheel", "Wiiハンドル", "Wii Wheel", "Wii Wheel"),
+    "Wii Zapper": ("Wii Zapper", "Wiiザッパー", "Wii Zapper", "Wii Zapper"),
+    "Microphone (Wii Speak)": ("Micrófono (Wii Speak)", "マイク（Wiiスピーク）", "Microfone (Wii Speak)", "Microfono (Wii Speak)"),
+    "USB keyboard": ("Teclado USB", "USBキーボード", "Teclado USB", "Tastiera USB"),
+    "Nintendo DS": ("Nintendo DS", "ニンテンドーDS", "Nintendo DS", "Nintendo DS"),
+    "Guitar": ("Guitarra", "ギター", "Guitarra", "Chitarra"),
+    "Drums": ("Batería", "ドラム", "Bateria", "Batteria"),
+    "Dance mat": ("Alfombra de baile", "ダンスマット", "Tapete de dança", "Tappetino da ballo"),
+    "uDraw tablet": ("Tableta uDraw", "uDrawタブレット", "Mesa digitalizadora uDraw", "Tavoletta uDraw"),
+    "January": ("enero", "1月", "janeiro", "gennaio"),
+    "February": ("febrero", "2月", "fevereiro", "febbraio"),
+    "March": ("marzo", "3月", "março", "marzo"),
+    "April": ("abril", "4月", "abril", "aprile"),
+    "May": ("mayo", "5月", "maio", "maggio"),
+    "June": ("junio", "6月", "junho", "giugno"),
+    "July": ("julio", "7月", "julho", "luglio"),
+    "August": ("agosto", "8月", "agosto", "agosto"),
+    "September": ("septiembre", "9月", "setembro", "settembre"),
+    "October": ("octubre", "10月", "outubro", "ottobre"),
+    "November": ("noviembre", "11月", "novembro", "novembre"),
+    "December": ("diciembre", "12月", "dezembro", "dicembre"),
+    "{1} {2}, {3}": ("{2} de {1} de {3}", "{3}年{1}{2}日", "{2} de {1} de {3}", "{2} {1} {3}"),
+    "Downloading game details": ("Descargando los datos de los juegos", "ゲーム情報をダウンロード中", "Baixando os dados dos jogos", "Scaricamento dei dati dei giochi"),
+    "No game details": ("Sin datos del juego", "ゲーム情報なし", "Sem dados do jogo", "Nessun dato del gioco"),
+    "Could not download them: {1}": ("No se pudieron descargar: {1}", "ダウンロードできませんでした：{1}", "Não foi possível baixá-los: {1}", "Impossibile scaricarli: {1}"),
+    "Reading game details...": ("Leyendo los datos de los juegos...", "ゲーム情報を読み込み中...", "Lendo os dados dos jogos...", "Lettura dei dati dei giochi..."),
+    "Once for all your games: next time they open at once.": ("Una vez para todos tus juegos: la próxima vez se abren al instante.", "すべてのゲームの分を一度だけ読み込みます。次からはすぐに開きます。", "Uma vez para todos os seus jogos: da próxima vez abrem na hora.", "Una volta per tutti i tuoi giochi: la prossima volta si aprono subito."),
+    "No details for this game": ("No hay datos de este juego", "このゲームの情報はありません", "Não há dados deste jogo", "Nessun dato per questo gioco"),
+    "GameTDB's database does not list {1}.": ("La base de datos de GameTDB no incluye {1}.", "GameTDBのデータベースに{1}はありません。", "A base de dados do GameTDB não inclui {1}.", "Il database di GameTDB non contiene {1}."),
+    "Could not read them: {1}": ("No se pudieron leer: {1}", "読み込めませんでした：{1}", "Não foi possível lê-los: {1}", "Impossibile leggerli: {1}"),
+    "No game details yet": ("Aún no hay datos de los juegos", "ゲーム情報はまだありません", "Ainda não há dados dos jogos", "Ancora nessun dato dei giochi"),
+    "They come from GameTDB's database of Wii games. Turn on Download names and cheats in Settings to get it.": ("Vienen de la base de datos de juegos de Wii de GameTDB. Activa Descargar nombres y trucos en Ajustes para obtenerla.", "GameTDBのWiiゲームのデータベースから取得します。設定で「ゲーム名とチートをダウンロード」をオンにしてください。", "Vêm da base de dados de jogos de Wii do GameTDB. Ative Baixar nomes e trapaças nas Configurações para obtê-la.", "Provengono dal database dei giochi Wii di GameTDB. Attiva Scarica nomi e trucchi nelle Impostazioni per ottenerlo."),
+    "Download game details?": ("¿Descargar los datos de los juegos?", "ゲーム情報をダウンロードしますか？", "Baixar os dados dos jogos?", "Scaricare i dati dei giochi?"),
+    "They come from GameTDB's database of every Wii game: about 2 MB, kept on the SD card. Download it now?": ("Vienen de la base de datos de GameTDB con todos los juegos de Wii: unos 2 MB, guardados en la tarjeta SD. ¿Descargarla ahora?", "GameTDBの全Wiiゲームのデータベースから取得します（約2 MB、SDカードに保存）。今すぐダウンロードしますか？", "Vêm da base de dados do GameTDB com todos os jogos de Wii: cerca de 2 MB, guardados no cartão SD. Baixar agora?", "Provengono dal database di GameTDB con tutti i giochi Wii: circa 2 MB, salvati sulla scheda SD. Scaricarlo ora?"),
+    "Details": ("Datos", "情報", "Dados", "Dettagli"),
+    "Released: {1}": ("Salida: {1}", "発売日：{1}", "Lançamento: {1}", "Uscita: {1}"),
+    "Genre: {1}": ("Género: {1}", "ジャンル：{1}", "Gênero: {1}", "Genere: {1}"),
+    "Made and published by {1}": ("Desarrollado y publicado por {1}", "開発・発売：{1}", "Desenvolvido e publicado por {1}", "Sviluppato e pubblicato da {1}"),
+    "Developer: {1}": ("Desarrollador: {1}", "開発：{1}", "Desenvolvedor: {1}", "Sviluppatore: {1}"),
+    "Publisher: {1}": ("Editor: {1}", "発売元：{1}", "Distribuidora: {1}", "Editore: {1}"),
+    "Age rating: {1}": ("Clasificación por edad: {1}", "年齢区分：{1}", "Classificação etária: {1}", "Classificazione per età: {1}"),
+    "Players": ("Jugadores", "人数", "Jogadores", "Giocatori"),
+    "1 player": ("1 jugador", "1人", "1 jogador", "1 giocatore"),
+    "1 to {1} players": ("De 1 a {1} jugadores", "1～{1}人", "De 1 a {1} jogadores", "Da 1 a {1} giocatori"),
+    "Online: up to {1} players": ("En línea: hasta {1} jugadores", "オンライン：最大{1}人", "Online: até {1} jogadores", "Online: fino a {1} giocatori"),
+    "Online server: the mod's own": ("Servidor en línea: el del mod", "オンラインサーバー：MODのもの", "Servidor online: o do mod", "Server online: quello della mod"),
+    "Online needs a server: pick one on the game page.": ("El juego en línea necesita un servidor: elige uno en la página del juego.", "オンラインにはサーバーが必要です。ゲームのページで選んでください。", "O jogo online precisa de um servidor: escolha um na página do jogo.", "Il gioco online richiede un server: scegline uno nella pagina del gioco."),
+    "Online server: {1}": ("Servidor en línea: {1}", "オンラインサーバー：{1}", "Servidor online: {1}", "Server online: {1}"),
+    "Needed to play": ("Necesario para jugar", "プレイに必要", "Necessário para jogar", "Necessario per giocare"),
+    "Also works with": ("También funciona con", "こちらも使えます", "Também funciona com", "Funziona anche con"),
+    "Connected": ("Conectado", "接続中", "Conectado", "Collegato"),
+    "Not connected": ("Sin conectar", "未接続", "Não conectado", "Non collegato"),
+    "Story": ("Historia", "ストーリー", "História", "Trama"),
+    "Game details": ("Datos del juego", "ゲーム情報", "Dados do jogo", "Dati del gioco"),
+    "Game details of {1}": ("Datos del {1}", "{1}のゲーム情報", "Dados de {1}", "Dati del {1}"),
+    "From GameTDB, the database of Wii games its community keeps.": ("De GameTDB, la base de datos de juegos de Wii que mantiene su comunidad.", "コミュニティが管理するWiiゲームのデータベース、GameTDBより。", "Do GameTDB, a base de dados de jogos de Wii mantida pela comunidade.", "Da GameTDB, il database dei giochi Wii curato dalla sua comunità."),
+    "One is connected now.": ("Hay uno conectado.", "今、接続されています。", "Há um conectado agora.", "Ce n'è uno collegato."),
+    "The game needs one: connect it before you start.": ("El juego lo necesita: conéctalo antes de empezar.", "このゲームに必要です。始める前に接続してください。", "O jogo precisa de um: conecte-o antes de começar.", "Il gioco ne ha bisogno: collegalo prima di iniziare."),
+    "None is connected now; the game also plays without it.": ("No hay ninguno conectado; el juego también funciona sin él.", "今は接続されていません。なくても遊べます。", "Nenhum está conectado; o jogo também funciona sem ele.", "Nessuno è collegato; il gioco funziona anche senza."),
+    "The game needs this to play. RiftWii cannot see whether it is there.": ("El juego lo necesita para jugar. RiftWii no puede ver si está.", "プレイに必要です。RiftWiiからはあるかどうか分かりません。", "O jogo precisa disto para jogar. O RiftWii não consegue ver se está lá.", "Il gioco ne ha bisogno per giocare. RiftWii non può vedere se c'è."),
+    "The game also works with this.": ("El juego también funciona con esto.", "これも使えます。", "O jogo também funciona com isto.", "Il gioco funziona anche con questo."),
+    "Downloads GameTDB's database again (about 2 MB), for the latest details.": ("Vuelve a descargar la base de datos de GameTDB (unos 2 MB) para tener los datos más recientes.", "最新の情報のため、GameTDBのデータベース（約2 MB）をもう一度ダウンロードします。", "Baixa de novo a base de dados do GameTDB (cerca de 2 MB), para os dados mais recentes.", "Scarica di nuovo il database di GameTDB (circa 2 MB) per avere i dati più recenti."),
+    "Game details downloaded.": ("Datos de los juegos descargados.", "ゲーム情報をダウンロードしました。", "Dados dos jogos baixados.", "Dati dei giochi scaricati."),
 }
 
 
@@ -2853,6 +2924,148 @@ KO = {
         "충돌 기록",
     "screenshots":
         "스크린샷",
+    "About this game":
+        "이 게임에 대해",
+    "What GameTDB says about the game: when it came out, how many can play, the controllers it takes and its story.":
+        "GameTDB의 게임 정보: 발매일, 플레이 인원, 사용하는 컨트롤러, 스토리.",
+    "Wii Remote":
+        "Wii 리모컨",
+    "Nunchuk":
+        "눈차크",
+    "Classic Controller":
+        "클래식 컨트롤러",
+    "GameCube controller":
+        "게임큐브 컨트롤러",
+    "Balance Board":
+        "밸런스 Wii 보드",
+    "Wii MotionPlus":
+        "Wii 모션플러스",
+    "Wii Wheel":
+        "Wii 핸들",
+    "Wii Zapper":
+        "Wii 재퍼",
+    "Microphone (Wii Speak)":
+        "마이크 (Wii 스피크)",
+    "USB keyboard":
+        "USB 키보드",
+    "Nintendo DS":
+        "닌텐도 DS",
+    "Guitar":
+        "기타",
+    "Drums":
+        "드럼",
+    "Dance mat":
+        "댄스 매트",
+    "uDraw tablet":
+        "uDraw 태블릿",
+    "January":
+        "1월",
+    "February":
+        "2월",
+    "March":
+        "3월",
+    "April":
+        "4월",
+    "May":
+        "5월",
+    "June":
+        "6월",
+    "July":
+        "7월",
+    "August":
+        "8월",
+    "September":
+        "9월",
+    "October":
+        "10월",
+    "November":
+        "11월",
+    "December":
+        "12월",
+    "{1} {2}, {3}":
+        "{3}년 {1} {2}일",
+    "Downloading game details":
+        "게임 정보 다운로드 중",
+    "No game details":
+        "게임 정보 없음",
+    "Could not download them: {1}":
+        "다운로드할 수 없습니다: {1}",
+    "Reading game details...":
+        "게임 정보 읽는 중...",
+    "Once for all your games: next time they open at once.":
+        "모든 게임의 정보를 한 번에 읽습니다. 다음부터는 바로 열립니다.",
+    "No details for this game":
+        "이 게임의 정보가 없습니다",
+    "GameTDB's database does not list {1}.":
+        "GameTDB 데이터베이스에 {1}이(가) 없습니다.",
+    "Could not read them: {1}":
+        "읽을 수 없습니다: {1}",
+    "No game details yet":
+        "아직 게임 정보가 없습니다",
+    "They come from GameTDB's database of Wii games. Turn on Download names and cheats in Settings to get it.":
+        "GameTDB의 Wii 게임 데이터베이스에서 가져옵니다. 설정에서 이름 및 치트 다운로드를 켜 주세요.",
+    "Download game details?":
+        "게임 정보를 다운로드할까요?",
+    "They come from GameTDB's database of every Wii game: about 2 MB, kept on the SD card. Download it now?":
+        "GameTDB의 모든 Wii 게임 데이터베이스에서 가져옵니다. 약 2 MB이며 SD 카드에 저장됩니다. 지금 다운로드할까요?",
+    "Details":
+        "정보",
+    "Released: {1}":
+        "발매일: {1}",
+    "Genre: {1}":
+        "장르: {1}",
+    "Made and published by {1}":
+        "개발 및 유통: {1}",
+    "Developer: {1}":
+        "개발: {1}",
+    "Publisher: {1}":
+        "유통: {1}",
+    "Age rating: {1}":
+        "연령 등급: {1}",
+    "Players":
+        "플레이 인원",
+    "1 player":
+        "1명",
+    "1 to {1} players":
+        "1~{1}명",
+    "Online: up to {1} players":
+        "온라인: 최대 {1}명",
+    "Online server: the mod's own":
+        "온라인 서버: MOD의 서버",
+    "Online needs a server: pick one on the game page.":
+        "온라인 플레이에는 서버가 필요합니다. 게임 페이지에서 고르세요.",
+    "Online server: {1}":
+        "온라인 서버: {1}",
+    "Needed to play":
+        "플레이에 필요",
+    "Also works with":
+        "이것도 사용 가능",
+    "Connected":
+        "연결됨",
+    "Not connected":
+        "연결 안 됨",
+    "Story":
+        "스토리",
+    "Game details":
+        "게임 정보",
+    "Game details of {1}":
+        "{1} 게임 정보",
+    "From GameTDB, the database of Wii games its community keeps.":
+        "커뮤니티가 관리하는 Wii 게임 데이터베이스 GameTDB에서 가져왔습니다.",
+    "One is connected now.":
+        "지금 연결되어 있습니다.",
+    "The game needs one: connect it before you start.":
+        "게임에 필요합니다. 시작하기 전에 연결하세요.",
+    "None is connected now; the game also plays without it.":
+        "지금은 연결되어 있지 않습니다. 없어도 플레이할 수 있습니다.",
+    "The game needs this to play. RiftWii cannot see whether it is there.":
+        "플레이에 필요합니다. RiftWii는 연결 여부를 알 수 없습니다.",
+    "The game also works with this.":
+        "이것도 사용할 수 있습니다.",
+    "Downloads GameTDB's database again (about 2 MB), for the latest details.":
+        "최신 정보를 위해 GameTDB 데이터베이스(약 2 MB)를 다시 다운로드합니다.",
+    "Game details downloaded.":
+        "게임 정보를 다운로드했습니다.",
 }
 
 # French, a table of its own (msgid: text), from MidyGamy's translation
@@ -4024,6 +4237,148 @@ FR = {
         "enregistreur de plantages",
     "screenshots":
         "captures",
+    "About this game":
+        "À propos de ce jeu",
+    "What GameTDB says about the game: when it came out, how many can play, the controllers it takes and its story.":
+        "Ce que GameTDB dit du jeu : sa sortie, le nombre de joueurs, les manettes utilisées et son histoire.",
+    "Wii Remote":
+        "Wiimote",
+    "Nunchuk":
+        "Nunchuk",
+    "Classic Controller":
+        "Manette Classique",
+    "GameCube controller":
+        "Manette GameCube",
+    "Balance Board":
+        "Balance Board",
+    "Wii MotionPlus":
+        "Wii MotionPlus",
+    "Wii Wheel":
+        "Wii Wheel",
+    "Wii Zapper":
+        "Wii Zapper",
+    "Microphone (Wii Speak)":
+        "Micro (Wii Speak)",
+    "USB keyboard":
+        "Clavier USB",
+    "Nintendo DS":
+        "Nintendo DS",
+    "Guitar":
+        "Guitare",
+    "Drums":
+        "Batterie",
+    "Dance mat":
+        "Tapis de danse",
+    "uDraw tablet":
+        "Tablette uDraw",
+    "January":
+        "janvier",
+    "February":
+        "février",
+    "March":
+        "mars",
+    "April":
+        "avril",
+    "May":
+        "mai",
+    "June":
+        "juin",
+    "July":
+        "juillet",
+    "August":
+        "août",
+    "September":
+        "septembre",
+    "October":
+        "octobre",
+    "November":
+        "novembre",
+    "December":
+        "décembre",
+    "{1} {2}, {3}":
+        "{2} {1} {3}",
+    "Downloading game details":
+        "Téléchargement des infos des jeux",
+    "No game details":
+        "Pas d'infos sur le jeu",
+    "Could not download them: {1}":
+        "Téléchargement impossible : {1}",
+    "Reading game details...":
+        "Lecture des infos des jeux...",
+    "Once for all your games: next time they open at once.":
+        "Une seule fois pour tous vos jeux : la prochaine fois, ils s'ouvrent aussitôt.",
+    "No details for this game":
+        "Aucune info pour ce jeu",
+    "GameTDB's database does not list {1}.":
+        "La base de GameTDB ne contient pas {1}.",
+    "Could not read them: {1}":
+        "Lecture impossible : {1}",
+    "No game details yet":
+        "Pas encore d'infos sur les jeux",
+    "They come from GameTDB's database of Wii games. Turn on Download names and cheats in Settings to get it.":
+        "Elles viennent de la base des jeux Wii de GameTDB. Activez Télécharger noms et codes de triche dans les Paramètres pour l'obtenir.",
+    "Download game details?":
+        "Télécharger les infos des jeux ?",
+    "They come from GameTDB's database of every Wii game: about 2 MB, kept on the SD card. Download it now?":
+        "Elles viennent de la base GameTDB de tous les jeux Wii : environ 2 Mo, gardés sur la carte SD. La télécharger maintenant ?",
+    "Details":
+        "Infos",
+    "Released: {1}":
+        "Sortie : {1}",
+    "Genre: {1}":
+        "Genre : {1}",
+    "Made and published by {1}":
+        "Développé et édité par {1}",
+    "Developer: {1}":
+        "Développeur : {1}",
+    "Publisher: {1}":
+        "Éditeur : {1}",
+    "Age rating: {1}":
+        "Classification : {1}",
+    "Players":
+        "Joueurs",
+    "1 player":
+        "1 joueur",
+    "1 to {1} players":
+        "De 1 à {1} joueurs",
+    "Online: up to {1} players":
+        "En ligne : jusqu'à {1} joueurs",
+    "Online server: the mod's own":
+        "Serveur en ligne : celui du mod",
+    "Online needs a server: pick one on the game page.":
+        "Le jeu en ligne a besoin d'un serveur : choisissez-en un sur la page du jeu.",
+    "Online server: {1}":
+        "Serveur en ligne : {1}",
+    "Needed to play":
+        "Nécessaire pour jouer",
+    "Also works with":
+        "Fonctionne aussi avec",
+    "Connected":
+        "Connectée",
+    "Not connected":
+        "Non connectée",
+    "Story":
+        "Histoire",
+    "Game details":
+        "Infos du jeu",
+    "Game details of {1}":
+        "Infos du {1}",
+    "From GameTDB, the database of Wii games its community keeps.":
+        "De GameTDB, la base des jeux Wii tenue par sa communauté.",
+    "One is connected now.":
+        "Il y en a une connectée.",
+    "The game needs one: connect it before you start.":
+        "Le jeu en a besoin : connectez-la avant de commencer.",
+    "None is connected now; the game also plays without it.":
+        "Aucune n'est connectée ; le jeu fonctionne aussi sans.",
+    "The game needs this to play. RiftWii cannot see whether it is there.":
+        "Le jeu en a besoin pour jouer. RiftWii ne peut pas voir s'il est là.",
+    "The game also works with this.":
+        "Le jeu fonctionne aussi avec.",
+    "Downloads GameTDB's database again (about 2 MB), for the latest details.":
+        "Télécharge de nouveau la base de GameTDB (environ 2 Mo) pour les infos les plus récentes.",
+    "Game details downloaded.":
+        "Infos des jeux téléchargées.",
 }
 
 # Languages kept in tables of their own: written after LANGS, every msgid

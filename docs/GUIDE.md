@@ -123,6 +123,17 @@ these rows:
   either side of the value (Minus steps back). A pack whose XML is broken
   shows the error under it. Settings that several packs share show once,
   as in Riivolution.
+- **About this game** shows what GameTDB says about it: when it came
+  out, its genre, who made it, its age rating, how many can play (and
+  online, with the server it would use), the controllers it needs and
+  those it also takes, each marked *Connected* or *Not connected* when
+  the Wii can tell, and its story. The details come from GameTDB's
+  database of every Wii game, `sd:/riftwii/wiitdb-<language>.zip` (about
+  2 MB, in the menu's language with English where there is no
+  translation): the first visit offers to download it, and a `wiitdb.xml`
+  another loader left on the card is used when it is there. The first page opened reads
+  it for all your games at once (a few seconds); after that they open at
+  once, from `sd:/riftwii/gameinfo-<language>.txt`.
 - **Saves**: *On the Wii* saves as usual. *SD, from Wii save* keeps this
   game's saves on the SD card, starting from a copy of the Wii's save
   (`sd:/riftwii/saves/<ID>/clone`); *SD, fresh start* starts a new one
