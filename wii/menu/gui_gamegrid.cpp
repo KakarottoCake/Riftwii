@@ -418,10 +418,15 @@ void GuiGameGrid::DrawNameTile(int i, bool on, int alpha) {
         skin::Draw(skin::iconDisc, x + tileW - 46 - dx, y + 8 + dy, alpha, s.scale);
     // Source badge and MODS tag along the bottom line.
     const int baseY = static_cast<int>(y + tileH - 26 + grow * (tileH / 2.0f - 26));
-    s.id->SetPosition(static_cast<int>(x + kTextLeft + dx), baseY);
-    s.id->Draw();
     const int badgeW = s.badge->GetTextWidth() + 10;
     const int badgeX = static_cast<int>(x + tileW - kTextLeft - badgeW - dx);
+    // The ID gives way to the MODS tag on a tile too narrow for both.
+    const int idX = static_cast<int>(x + kTextLeft + dx);
+    const int modsLeft = item.mods ? badgeX - (s.mods->GetTextWidth() + 10) - 5 : badgeX;
+    if (idX + s.id->GetTextWidth() + 4 <= modsLeft) {
+        s.id->SetPosition(idX, baseY);
+        s.id->Draw();
+    }
     Menu_DrawRectangle(badgeX, baseY - 1, badgeW, 15, skin::WithAlpha(skin::kBadge, alpha), 1);
     s.badge->SetPosition(badgeX + 5, baseY);
     s.badge->Draw();
