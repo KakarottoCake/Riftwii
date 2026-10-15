@@ -139,9 +139,9 @@ float GuiGameGrid::Stretch() const {
 
 const GuiGameGrid::Geometry& GuiGameGrid::Geo() const {
     // The top row starts 6 below the overscan's edge (y 24): room for the lit ring.
-    // 120 x 90: a channel's icon is 4:3 (128 x 96), so the whole icon fits
-    // the tile as the Wii Menu shows it; clear of the search button (x 568).
-    static const Geometry names = {kNameCols, 120, 90, 61, 30, 13, 10};
+    // 120 x 84, the Wii Menu's channel shape (about 1.43 to 1 on a 4:3
+    // menu); clear of the search button (x 568).
+    static const Geometry names = {kNameCols, 120, 84, 61, 30, 13, 12};
     if (covers) {
         // Six across about the middle, 8 apart (12 on a widescreen menu).
         const float k = CoverScale();
@@ -608,25 +608,28 @@ void GuiGameGrid::Draw() {
             // flags to keep their shape (its logo).
             const float tileW = Geo().tileW * s.scale, tileH = Geo().tileH * s.scale;
             const float cx = TileX(i) + Geo().tileW / 2.0f, cy = TileY(i) + Geo().tileH / 2.0f;
-            // The icon runs to the tile's rim, drawn over its edge (the
-            // Wii Menu's channels), on the tile's card and shadow.
+            // The icon runs to the channel's rim, which is drawn over its
+            // edge (the Wii Menu's), its shadow in the frame's margin.
             const float border = 1.0f;
-            DrawTilePicture(on ? skin::tileOver : skin::tile, i, tileAlpha, s.scale);
-            const auto rim = [&]() {
-                skin::DrawNine(on ? skin::channelFrameOver9 : skin::channelFrame9, cx - tileW / 2, cy - tileH / 2, tileW,
-                               tileH, riftwii::kChannelFrameCorner, tileAlpha);
+            const float m = static_cast<float>(riftwii::kChannelFrameMargin);
+            const auto frame = [&](const skin::Tex& t) {
+                skin::DrawNine(t, cx - tileW / 2 - m, cy - tileH / 2 - m, tileW + 2 * m, tileH + 2 * m,
+                               riftwii::kChannelFrameCorner, tileAlpha);
             };
+            const auto rim = [&]() { frame(on ? skin::channelFrameOver9 : skin::channelFrame9); };
             IconBox box;
             box.clipW = tileW - 2 * border;
             box.clipH = tileH - 2 * border;
             box.clipX = cx - box.clipW / 2;
             box.clipY = cy - box.clipH / 2;
-            box.radius = std::max(0.0f, 14.0f * riftwii::wii::MenuTheme().corners * s.scale - border);
-            // The whole icon in the tile's 4:3 inside (stretched with the
-            // grid on a widescreen menu, as the Wii Menu does): drawn at its
-            // own 128 x 96 and cropped to the tile, it looked zoomed in.
+            box.radius = std::max(0.0f, riftwii::kChannelRadius * riftwii::wii::MenuTheme().corners * s.scale - border);
+            // The icon across the channel's width (stretched with the grid
+            // on a widescreen menu, as the Wii Menu does), its 4:3 keeping
+            // its shape, so only a few lines at its top and bottom are cut:
+            // drawn at its own 128 x 96 it was cut on every side and looked
+            // zoomed in.
             box.w = box.clipW;
-            box.h = box.clipH;
+            box.h = box.clipW / Stretch() * kTileNarrow * 0.75f;
             box.x = cx - box.w / 2;
             box.y = cy - box.h / 2;
             box.alpha = tileAlpha;
@@ -639,9 +642,9 @@ void GuiGameGrid::Draw() {
                 // The disc drive, as the Wii Menu's Disc Channel: its disc,
                 // large in the middle of a plain channel; its name on the
                 // label when lit, as the others'.
+                frame(on ? skin::channelCardOver9 : skin::channelCard9);
                 const float k = std::min(box.clipH * 0.70f, box.clipW * 0.5f) / skin::iconDisc.h;
                 skin::Draw(skin::iconDisc, cx - skin::iconDisc.w / 2.0f, cy - skin::iconDisc.h / 2.0f, tileAlpha, k);
-                rim();
                 iconShown[i] = true;
                 return;
             }

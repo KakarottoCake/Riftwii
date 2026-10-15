@@ -878,19 +878,34 @@ void paint_key(const Theme& theme, int kind, Canvas& out) {
 
 void paint_card9(const Theme& theme, Canvas& out) { out = Painter(theme).Sheet(48, 48, 8, 14); }
 
-void paint_channel_frame9(const Theme& theme, bool over, Canvas& out) {
+void paint_channel_frame9(const Theme& theme, bool over, bool fill, Canvas& out) {
     const Painter p(theme);
-    const float r = p.R(14);
-    out = Canvas(64, 64);
+    const float m = static_cast<float>(kChannelFrameMargin), w = 80 - 2 * m, r = p.R(kChannelRadius);
+    out = Canvas(80, 80);
+    if (over) out.shadow(m - 1, m - 1, w + 2, w + 2, r + 1, m - 1, p.glow, 2.0f);
+    out.shadow(m, m + 1.5f, w, w, r, 4.0f, p.shadow, 2.0f);
+    // The icon shows within, so none of the shadow may: cleared inside the
+    // rim (its corners showed as grey notches over the icon).
+    const float inset = 1.0f, ir = std::max(0.0f, r - inset);
+    const float lo = m + inset, hi = m + w - inset;
+    for (int y = 0; y < 80; ++y) {
+        for (int x = 0; x < 80; ++x) {
+            const float px = x + 0.5f, py = y + 0.5f;
+            if (px < lo || px > hi || py < lo || py > hi) continue;
+            const float dx = std::max(0.0f, std::max(lo + ir - px, px - (hi - ir)));
+            const float dy = std::max(0.0f, std::max(lo + ir - py, py - (hi - ir)));
+            if (dx * dx + dy * dy <= ir * ir) out.put(x, y, Rgba{0, 0, 0, 0});
+        }
+    }
+    if (fill) out.rounded_rect(m, m, w, w, r, p.card);
     if (over) {
-        out.rounded_border(0, 0, 64, 64, r, 3.0f, p.accent);
-        out.rounded_border(3, 3, 58, 58, std::max(0.0f, r - 3), 1.0f, Rgba{255, 255, 255, 150});
+        out.rounded_border(m, m, w, w, r, 2.5f, p.accent);
+        out.rounded_border(m + 2.5f, m + 2.5f, w - 5, w - 5, std::max(0.0f, r - 2.5f), 1.0f, Rgba{255, 255, 255, 170});
         return;
     }
-    // A fine light rim, as the Wii Menu's: the card's edge colour, a
-    // white line just inside it.
-    out.rounded_border(0, 0, 64, 64, r, 1.5f, p.edge);
-    out.rounded_border(1.5f, 1.5f, 61, 61, std::max(0.0f, r - 1.5f), 1.0f, Rgba{255, 255, 255, 170});
+    // The Wii Menu's: one grey line, white just inside it.
+    out.rounded_border(m, m, w, w, r, 1.5f, Painter::Mix(p.edge, rgba(0x000000), 0.18f));
+    out.rounded_border(m + 1.5f, m + 1.5f, w - 3, w - 3, std::max(0.0f, r - 1.5f), 1.0f, Rgba{255, 255, 255, 200});
 }
 
 void paint_label9(const Theme& theme, Canvas& out) {

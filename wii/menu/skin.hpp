@@ -34,7 +34,8 @@ struct Tex {
 extern Tex keys[4];                      // 40x40 search keys (riftwii::paint_key), nine-sliced
 extern Tex card9;                        // 64x64 card (riftwii::paint_card9), nine-sliced
 extern Tex dropShadow9;
-extern Tex channelFrame9, channelFrameOver9;  // 64x64 channel rims (riftwii::paint_channel_frame9), nine-sliced
+extern Tex channelFrame9, channelFrameOver9;  // 80x80 channel frames (riftwii::paint_channel_frame9), nine-sliced
+extern Tex channelCard9, channelCardOver9;    // the same with the card within (a channel without an icon)
 extern Tex label9;
 // A controller's picture (Kenney's Input Prompts, riftwii/inputicons.hpp)
 // in the theme's glyph colour, 40x40; a game pad for one without its own.

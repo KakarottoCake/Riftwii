@@ -189,7 +189,7 @@ Tex clockDigits;
 Tex keys[4];
 Tex card9;
 Tex dropShadow9;
-Tex channelFrame9, channelFrameOver9;
+Tex channelFrame9, channelFrameOver9, channelCard9, channelCardOver9;
 Tex label9;
 
 // Kenney's pictures in the theme's glyph colour, painted the first time
@@ -318,10 +318,14 @@ void Init() {
         card9 = Upload(c);
         paint_drop_shadow9(MenuTheme(), c);
         dropShadow9 = Upload(c);
-        paint_channel_frame9(MenuTheme(), false, c);
+        paint_channel_frame9(MenuTheme(), false, false, c);
         channelFrame9 = Upload(c);
-        paint_channel_frame9(MenuTheme(), true, c);
+        paint_channel_frame9(MenuTheme(), true, false, c);
         channelFrameOver9 = Upload(c);
+        paint_channel_frame9(MenuTheme(), false, true, c);
+        channelCard9 = Upload(c);
+        paint_channel_frame9(MenuTheme(), true, true, c);
+        channelCardOver9 = Upload(c);
         paint_label9(MenuTheme(), c);
         label9 = Upload(c);
         paint_capsule9(c);
