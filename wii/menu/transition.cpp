@@ -192,7 +192,7 @@ void DrawPicture(int index, const Affine& a, float alpha, const Rect* clip = nul
     GX_LoadPosMtxImm(mv, GX_PNMTX0);
     GX_InvalidateTexAll();
     GXTexObj tex;
-    GX_InitTexObj(&tex, g_pic[index], static_cast<u16>(g_w), static_cast<u16>(g_h), GX_TF_RGB565, GX_CLAMP, GX_CLAMP,
+    GX_InitTexObj(&tex, g_pic[index], static_cast<u16>(g_w), static_cast<u16>(g_h), GX_TF_RGBA8, GX_CLAMP, GX_CLAMP,
                   GX_FALSE);
     GX_InitTexObjLOD(&tex, GX_LINEAR, GX_LINEAR, 0, 0, 0, GX_FALSE, GX_FALSE, GX_ANISO_1);
     GX_LoadTexObj(&tex, GX_TEXMAP0);
@@ -227,9 +227,11 @@ void DrawPicture(int index, const Affine& a, float alpha, const Rect* clip = nul
 void Keep(int index) {
     if (!g_pic[index]) return;
     GX_SetTexCopySrc(0, 0, static_cast<u16>(g_w), static_cast<u16>(g_h));
-    GX_SetTexCopyDst(static_cast<u16>(g_w), static_cast<u16>(g_h), GX_TF_RGB565, GX_FALSE);
+    GX_SetTexCopyDst(static_cast<u16>(g_w), static_cast<u16>(g_h), GX_TF_RGBA8, GX_FALSE);
+    Menu_SetPictureCopy(true);
     GX_CopyTex(g_pic[index], GX_FALSE);
     GX_PixModeSync();
+    Menu_SetPictureCopy(false);
     g_have = true;
 }
 
@@ -256,7 +258,7 @@ float EaseBack(float t) {
 void Init() {
     g_w = Menu_XfbWidth();
     g_h = Menu_EfbHeight();
-    const u32 size = GX_GetTexBufferSize(static_cast<u16>(g_w), static_cast<u16>(g_h), GX_TF_RGB565, GX_FALSE, 0);
+    const u32 size = GX_GetTexBufferSize(static_cast<u16>(g_w), static_cast<u16>(g_h), GX_TF_RGBA8, GX_FALSE, 0);
     for (u8*& p : g_pic) p = skin::Mem2Alloc(size);
     if (!g_pic[0] || !g_pic[1]) {
         g_pic[0] = g_pic[1] = nullptr;

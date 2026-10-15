@@ -21,6 +21,7 @@ void StopGXKeepPicture();
 void * Menu_CurrentXfb();
 int Menu_XfbWidth();
 int Menu_XfbHeight();
+void Menu_SetPictureCopy(bool picture);  // RiftWii: GX_CopyTex without the display filter
 int Menu_EfbHeight();  // RiftWii: for scissor boxes (scrolling lists)
 // RiftWii: the display scale (widescreen and screen size), see video.cpp.
 void Menu_SetDisplayScale(f32 sx, f32 sy);

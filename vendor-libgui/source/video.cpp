@@ -203,6 +203,20 @@ int Menu_EfbHeight()
 	return vmode ? vmode->efbHeight : 480;
 }
 
+// RiftWii: a copy of the frame kept as a picture (the transitions) is
+// taken without the display copy's filter. The video mode's deflicker
+// blur would soften it once when it is copied and again when the screen
+// it is drawn into is shown. The display's filter is put back after.
+void Menu_SetPictureCopy(bool picture)
+{
+	if (!vmode) return;
+	static u8 sharp[7] = {0, 0, 21, 22, 21, 0, 0};
+	if (picture)
+		GX_SetCopyFilter(GX_FALSE, vmode->sample_pattern, GX_FALSE, sharp);
+	else
+		GX_SetCopyFilter(vmode->aa, vmode->sample_pattern, GX_TRUE, vmode->vfilter);
+}
+
 /****************************************************************************
  * The display scale (RiftWii). The menu is laid out in 640x480 units;
  * these draw it smaller than the screen about the centre: across by
@@ -309,7 +323,10 @@ static void CameraPoint(f32& x, f32& y)
 void Menu_LoadOrtho()
 {
 	Mtx44 p;
-	guOrtho(p,0,479,0,639,0,300);
+	// RiftWii: 640 x 480 units across the 640 x 480 frame, one to a pixel
+	// (libwiigui's 0..639 / 0..479 put every picture a fraction of a pixel
+	// off its pixels, so all of them were resampled a little soft).
+	guOrtho(p,0,480,0,640,0,300);
 	Menu_ScaleProjection(p);
 	GX_LoadProjectionMtx(p, GX_ORTHOGRAPHIC);
 }

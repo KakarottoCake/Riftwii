@@ -2824,11 +2824,17 @@ static int MenuSource(FrontendState& state)
 	filterHint.SetPosition(72 - 320 - wide, 344);
 	settingsHint.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
 	settingsHint.SetPosition(568 - 320 + wide, 344);
+	// The search button: in the top right corner, above the page arrow; in
+	// Channels, whose four icons at their own size reach the corner, on the
+	// bar left of the gear.
+	const bool channelsView = riftwii::wii::Settings().home_tiles == "channels";
+	const int searchX = channelsView ? 484 + wide : 568 + wide, searchY = channelsView ? 396 : 24;
+	const int searchHintEnd = searchX - 18, searchHintTop = searchY + 9;  // its box clear of the button
 	searchHint.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
-	searchHint.SetPosition(-90 + wide, 33);  // ends at x 550; its box at 558, clear of the button at 568
+	searchHint.SetPosition(searchHintEnd - 640, searchHintTop);
 	// Each on a box of its own: the search's sits over the covers.
 	HintChip filterChip(filterHint, 72 - wide, 344, true), settingsChip(settingsHint, 568 + wide, 344, true),
-		searchChip(searchHint, 550 + wide, 33, false);
+		searchChip(searchHint, searchHintEnd, searchHintTop, false);
 	int hintAlpha[3] = {0, 0, 0};  // the hover names' fades
 	for (GuiText* hint : {&filterHint, &settingsHint, &searchHint}) {
 		hint->SetAlpha(0);
@@ -2851,7 +2857,9 @@ static int MenuSource(FrontendState& state)
 	// bar that dips, three above the bottom on one that bumps.
 	GuiText statusTxt("", dip ? 15 : 17, skin::kInkSoft);
 	Place(statusTxt, 0, dip ? 434 : 392, true);
-	statusTxt.SetWrap(true, 400 + 2 * wide, dip ? 1 : 3);  // between the round buttons (x 110 and 530 on 4:3)
+	// Between the round buttons (x 110 and 530 on 4:3), and clear of the
+	// search button when it is on the bar (from x 484).
+	statusTxt.SetWrap(true, (channelsView ? 330 : 400) + 2 * wide, dip ? 1 : 3);
 	EmptyHomeNote emptyNote;
 	emptyNote.SetVisible(false);
 
@@ -2863,8 +2871,8 @@ static int MenuSource(FrontendState& state)
 	// Search: Z on a GameCube controller, ZL on a Classic Controller (a
 	// Wii Remote has no button left; point and press A). Small, in the top
 	// right corner above the page arrow, inside the overscan (ends at x 606,
-	// starts at y 24), so the gear's name has room.
-	SkinButton searchBtn(skin::roundBtn, skin::roundBtnOver, 2, 568 + wide, 24, nullptr,
+	// starts at y 24), so the gear's name has room; in Channels on the bar.
+	SkinButton searchBtn(skin::roundBtn, skin::roundBtnOver, 2, searchX, searchY, nullptr,
 		WPAD_CLASSIC_BUTTON_ZL, PAD_TRIGGER_Z, 0, &skin::iconSearch, 0.5f);
 	// Minus and Plus turn the grid's pages (in GuiGameGrid). Rescan is in
 	// Settings, and on X of a GameCube controller, which has neither. Its

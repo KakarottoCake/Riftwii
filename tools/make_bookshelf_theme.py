@@ -42,8 +42,8 @@ WALL_STATE = {}
 # Home's cover rows (wii/menu/gui_gamegrid.cpp: covers 80x112 drawn at
 # kCoverScale, 104 high, from y 30, 12 apart).
 COVER_ROW_BOTTOMS = (30 + 104, 30 + 104 + 12 + 104)
-# Home's channels: three rows of 84 from y 30, 12 apart (wii/menu/gui_gamegrid.cpp).
-CHANNEL_ROW_BOTTOMS = (30 + 84, 30 + 84 + 12 + 84, 30 + 3 * 84 + 2 * 12)
+# Home's channels: three rows of 88 from y 30, 10 apart (wii/menu/gui_gamegrid.cpp).
+CHANNEL_ROW_BOTTOMS = (30 + 88, 30 + 88 + 10 + 88, 30 + 3 * 88 + 2 * 10)
 # The shelf view's plank (kShelfY in wii/menu/gui_shelf.cpp).
 SHELF_VIEW_BOTTOM = 248
 

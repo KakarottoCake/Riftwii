@@ -5,6 +5,7 @@
 #include "transition.hpp"
 
 #include <algorithm>
+#include <cmath>
 
 #include "covers.hpp"
 #include "menutheme.hpp"
@@ -45,6 +46,32 @@ float WideFactor() {
     return safeW > 640.0f ? safeW / 640.0f : 1.0f;
 }
 float CoverScale() { return WideFactor() > 1.0f ? kCoverScaleWide : kCoverScale4x3; }
+
+// The frame's pixels per menu unit across at the full screen size (a
+// widescreen menu fits 4/3 as many units into the same pixels).
+float PixelsPerUnitX() { return skin::WideMenu() ? 0.75f : 1.0f; }
+
+// `u` (menu units across, or down) moved onto the nearest edge between
+// two of the frame's pixels, as the display scale puts it.
+float SnapX(float u) {
+    const float k = 320.0f / (320.0f - Menu_ScreenToMenuX(0.0f));  // pixels per unit
+    return 320.0f + std::round((u - 320.0f) * k) / k;
+}
+float SnapY(float u) {
+    const float k = 240.0f / (240.0f - Menu_ScreenToMenuY(0.0f)) * Menu_EfbHeight() / 480.0f;
+    return 240.0f + std::round((u - 240.0f) * k) / k;
+}
+
+// A channel's icon is 128 x 96 and drawn one texel to a pixel, as the Wii
+// Menu does: shrunk into a smaller tile (it was 84%) every pixel of the
+// game's art was resampled and the icons looked fuzzy. The channel shows
+// it 128 x 88, a few lines cut at its top and bottom (the Wii Menu's
+// shape); 12 apart, so the page arrows sit over the outer columns' edges.
+constexpr float kIconPixelsW = 128.0f, kIconPixelsH = 96.0f;
+constexpr int kChannelPixelsH = 88, kChannelGapPixelsX = 12, kChannelGapY = 10;
+// As the other views' tiles; the search button moves to the bar
+// (rift_menu.cpp), the fourth column reaching the corner it had.
+constexpr int kChannelTop = 30;
 
 // Names: 4x3 wide tiles. Covers: 6x2 at the stored cover size, the name
 // line under them. Both between the arrows.
@@ -141,7 +168,7 @@ const GuiGameGrid::Geometry& GuiGameGrid::Geo() const {
     // The top row starts 6 below the overscan's edge (y 24): room for the lit ring.
     // 120 x 84, the Wii Menu's channel shape (about 1.43 to 1 on a 4:3
     // menu); clear of the search button (x 568).
-    static const Geometry names = {kNameCols, 120, 84, 61, 30, 13, 12};
+    static const Geometry names = {kNameCols, 120, 84, 61, 30, 13, 12};  // channels: channelGeo
     if (covers) {
         // Six across about the middle, 8 apart (12 on a widescreen menu).
         const float k = CoverScale();
@@ -150,6 +177,14 @@ const GuiGameGrid::Geometry& GuiGameGrid::Geo() const {
         const int gap = k > 1.0f ? 12 : 8;
         coverGeo = {kCoverCols, w, h, 320 - (kCoverCols * w + (kCoverCols - 1) * gap) / 2, 30, gap, 10};
         return coverGeo;
+    }
+    if (channels) {
+        const float px = PixelsPerUnitX();
+        const int w = static_cast<int>(kIconPixelsW / px + 0.5f);
+        const int gap = static_cast<int>(kChannelGapPixelsX / px + 0.5f);
+        channelGeo = {kNameCols, w, kChannelPixelsH, 320 - (kNameCols * w + (kNameCols - 1) * gap) / 2, kChannelTop,
+                      gap, kChannelGapY};
+        return channelGeo;
     }
     const float k = Stretch();
     if (k == 1.0f) return names;
@@ -598,6 +633,7 @@ void GuiGameGrid::Draw() {
         Slot& s = slots[i];
         const bool on = i == lit;
         s.scale += ((on ? 1.06f : 1.0f) - s.scale) * 0.35f;
+        if (!on && s.scale < 1.002f) s.scale = 1.0f;  // settled: a channel's icon back on whole pixels
         iconShown[i] = false;
         if (channels && iconDrawer) {
             // The icon fills the tile inside its border, 4:3 across the
@@ -623,15 +659,18 @@ void GuiGameGrid::Draw() {
             box.clipX = cx - box.clipW / 2;
             box.clipY = cy - box.clipH / 2;
             box.radius = std::max(0.0f, riftwii::kChannelRadius * riftwii::wii::MenuTheme().corners * s.scale - border);
-            // The icon across the channel's width (stretched with the grid
-            // on a widescreen menu, as the Wii Menu does), its 4:3 keeping
-            // its shape, so only a few lines at its top and bottom are cut:
-            // drawn at its own 128 x 96 it was cut on every side and looked
-            // zoomed in.
-            box.w = box.clipW;
-            box.h = box.clipW / Stretch() * kTileNarrow * 0.75f;
+            // The icon at its own size across the channel's width (a
+            // widescreen menu's units stretch it as the Wii Menu does), on
+            // whole pixels so each texel is one pixel; lit, it grows with
+            // the tile.
+            box.w = kIconPixelsW / PixelsPerUnitX() * s.scale;
+            box.h = kIconPixelsH * s.scale;
             box.x = cx - box.w / 2;
             box.y = cy - box.h / 2;
+            if (s.scale == 1.0f) {
+                box.x = SnapX(box.x);
+                box.y = SnapY(box.y);
+            }
             box.alpha = tileAlpha;
             if (iconDrawer(page * kPerPage + i, box)) {
                 rim();
