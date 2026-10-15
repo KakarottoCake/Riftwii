@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "gui_flowlist.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
 
@@ -47,7 +48,7 @@ int ControlWidth(const FlowRow& r) {
         case FlowRow::Kind::Toggle: return kSwitchW + 64;
         case FlowRow::Kind::Action:
         case FlowRow::Kind::Header: return r.value.empty() ? 0 : kChipW;
-        case FlowRow::Kind::Info: return 0;
+        case FlowRow::Kind::Info: return r.value.empty() ? 0 : kChipW;
     }
     return 0;
 }
@@ -213,7 +214,8 @@ void GuiFlowList::Draw() {
             if (index >= Count()) continue;
             const FlowRow& r = (*rows)[index];
             label[i]->SetText(r.label.c_str());
-            label[i]->SetFontSize(r.heading ? 20 : r.kind == FlowRow::Kind::Info ? 15 : 18);
+            const bool note = r.kind == FlowRow::Kind::Info && r.value.empty();
+            label[i]->SetFontSize(r.heading ? 20 : note ? 15 : 18);
             label[i]->SetColor(r.dim ? skin::kInkDim : r.indent ? skin::kInkSoft : skin::kInk);
             const int control = ControlWidth(r);
             label[i]->SetMaxWidth(ControlsRight() - x0 - kPad - (r.indent ? 22 : 0) - (control ? control + kPad : 0));
@@ -258,17 +260,7 @@ void GuiFlowList::Draw() {
     litFade += ((litShown ? 1.0f : 0.0f) - litFade) * 0.3f;
     if (litFade < 0.02f) litFade = 0.0f;
     if (cards) {
-        // The cards first, the lit one's ring over them, then the texts.
-        for (int i = 0; i <= visible; ++i) {
-            const int index = first + i;
-            if (index >= Count()) break;
-            const FlowRow& r = (*rows)[index];
-            if (r.kind == FlowRow::Kind::Info) continue;
-            const float y = y0 + index * kRowHeight - scroll + kCardGap;
-            const float left = static_cast<float>(CardLeft(r));
-            skin::DrawNine(skin::tile9, left - kCardShadow, y - kCardShadow, CardRight() - left + 2 * kCardShadow,
-                           kRowHeight - 2 * kCardGap + 2 * kCardShadow, skin::kTileCorner, r.dim ? alpha * 3 / 4 : alpha);
-        }
+        // Only the lit row is raised on a card; the texts go over it.
         if (litFade > 0.0f && lit >= 0 && lit < Count()) {
             const float y = y0 + litPos * kRowHeight - scroll + kCardGap;
             const float left = static_cast<float>(CardLeft((*rows)[lit]));
@@ -290,14 +282,18 @@ void GuiFlowList::Draw() {
         const int y = y0 + index * kRowHeight - static_cast<int>(scroll + 0.5f);
         if (y >= y0 + boxH) break;
         const bool isLit = index == lit && r.kind != FlowRow::Kind::Info;
-        if (isLit || cards) {
-            // (the highlight, or the cards, drawn above)
-        } else if (index + 1 < Count() && !(index + 1 == lit) &&
-                 !(r.kind == FlowRow::Kind::Info && (*rows)[index + 1].kind == FlowRow::Kind::Info))
-            Menu_DrawRectangle(x0 + kPad, y + kRowHeight - 1, rowWidth - 2 * kPad, 1,
-                               skin::WithAlpha(skin::kDivider, alpha), 1);
+        const bool fact = r.kind == FlowRow::Kind::Info && !r.value.empty();
+        const auto plain = [](const FlowRow& row) { return row.kind == FlowRow::Kind::Info && row.value.empty(); };
+        if (isLit) {
+            // (the highlight, drawn above)
+        } else if (index + 1 < Count() && !(index + 1 == lit) && !r.heading && !(plain(r) && plain((*rows)[index + 1])) &&
+                   !(*rows)[index + 1].heading) {
+            const int left = x0 + kPad + (r.indent ? 22 : 0);
+            const int lineRight = cards ? CardRight() - kPad : x0 + rowWidth - kPad;
+            Menu_DrawRectangle(left, y + kRowHeight - 1, lineRight - left, 1, skin::WithAlpha(skin::kDivider, alpha), 1);
+        }
 
-        const int labelH = r.heading ? 20 : r.kind == FlowRow::Kind::Info ? 15 : 18;
+        const int labelH = r.heading ? 20 : (r.kind == FlowRow::Kind::Info && !fact) ? 15 : 18;
         label[i]->SetPosition(x0 + kPad + (r.indent ? 22 : 0), y + (kRowHeight - labelH) / 2 - 2);
         label[i]->Draw();
 
@@ -318,6 +314,32 @@ void GuiFlowList::Draw() {
             value[i]->Draw();
             value[i]->SetAlpha(255);
         };
+        // A value as plain text at the row's end.
+        const auto endText = [&]() {
+            const int tw = std::min(value[i]->GetTextWidth(), kChipW - 20);
+            value[i]->SetPosition(right - tw + static_cast<int>(10.0f * (1.0f - valueIn[index])), textY);
+            value[i]->SetAlpha(static_cast<int>(255 * valueIn[index]));
+            value[i]->Draw();
+            value[i]->SetAlpha(255);
+        };
+        if (cards && r.kind != FlowRow::Kind::Toggle) {
+            if (r.kind == FlowRow::Kind::Option && !r.dim) {
+                // The value between where the arrows go; the arrows on the
+                // lit row (or the one the pointer is on) only.
+                const int backX = right - kStepperW, chipX = backX + kStep + kGap, fwdX = right - kStep;
+                if (index == lit) {
+                    const int by = y + (kRowHeight - kStep) / 2;
+                    const bool overBack = index == hover && hoverPart == Part::Back && !dragging;
+                    const bool overFwd = index == hover && hoverPart == Part::Forward && !dragging;
+                    skin::Draw(overBack ? skin::stepBackOver : skin::stepBack, backX - 4, by - 4, alpha);
+                    skin::Draw(overFwd ? skin::stepForwardOver : skin::stepForward, fwdX - 4, by - 4, alpha);
+                }
+                chipText(chipX);
+            } else if (!r.value.empty()) {
+                endText();
+            }
+            continue;
+        }
         switch (r.kind) {
             case FlowRow::Kind::Option:
                 if (r.dim) {

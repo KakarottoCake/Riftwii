@@ -1528,15 +1528,15 @@ private:
 	int x, y, extra;
 };
 
-// The help under a page's list, on a card of its own with an info sign,
-// in the same place on every page (inside a TV's overscan, over the prompts).
+// The help under a page's list, in the same place on every page (inside a
+// TV's overscan, over the prompts): plain text after a faint info sign, as
+// a settings list's footer, never framed like something to press.
 class NoteCard : public GuiElement {
 public:
 	static constexpr int kX = 40, kY = 326, kW = 560, kH = 86;
-	static constexpr int kTextX = kX + 46, kTextY = kY + 10, kTextW = kW - 58, kLines = 4;
+	static constexpr int kTextX = kX + 36, kTextY = kY + 10, kTextW = kW - 40, kLines = 4;
 	void Draw() override {
-		skin::DrawNine(skin::card9, kX - 8, kY - 8, kW + 16, kH + 16, riftwii::kCardCorner, GetAlpha());
-		skin::Draw(skin::iconInfo, kX + 12, kY + 10, GetAlpha() * 3 / 4);
+		skin::Draw(skin::iconInfo, kX + 2, kY + 7, GetAlpha() / 2);
 	}
 };
 
@@ -4071,10 +4071,11 @@ static void MenuAbout(const FrontendState& state, riftwii::GameInfo info)
 			refs.push_back({});
 		};
 
-		// A fact on a card: its name, and its value on the right.
+		// A fact: its name, and its value at the row's end, as text (it is
+		// read, not pressed).
 		const auto fact = [&](const std::string& name, const std::string& value) {
 			FlowRow row;
-			row.kind = FlowRow::Kind::Header;
+			row.kind = FlowRow::Kind::Info;
 			row.label = name;
 			row.value = value;
 			rows.push_back(row);
@@ -4119,12 +4120,13 @@ static void MenuAbout(const FrontendState& state, riftwii::GameInfo info)
 					heading(pass == 0 ? tr("Needed to play") : tr("Also works with"));
 					headed = true;
 				}
+				// A status, not a button: text, a dot before "Connected".
 				FlowRow row;
-				row.kind = FlowRow::Kind::Header;
+				row.kind = FlowRow::Kind::Info;
 				row.label = name;
 				bool connected = false;
 				if (ControlSeen(c.type, pads, connected)) {
-					row.value = connected ? tr("Connected") : tr("Not connected");
+					row.value = connected ? "\xE2\x97\x8F  " + std::string(tr("Connected")) : std::string(tr("Not connected"));
 					row.on = connected;
 				}
 				rows.push_back(row);
