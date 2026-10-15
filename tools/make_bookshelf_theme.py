@@ -39,10 +39,13 @@ RNG = np.random.default_rng(1206)
 # shelf view's walls get the same planks.
 WALL_STATE = {}
 
-# Home's cover rows (wii/menu/gui_gamegrid.cpp: covers 80x112, top 16, 14 apart).
-COVER_ROW_BOTTOMS = (16 + 112, 16 + 112 + 14 + 112)
-# Home's channels: three rows of 84 from y 24, 12 apart (wii/menu/gui_gamegrid.cpp).
-CHANNEL_ROW_BOTTOMS = (24 + 84, 24 + 84 + 12 + 84, 24 + 3 * 84 + 2 * 12)
+# Home's cover rows (wii/menu/gui_gamegrid.cpp: covers 80x112 drawn at
+# kCoverScale, 104 high, from y 30, 12 apart).
+COVER_ROW_BOTTOMS = (30 + 104, 30 + 104 + 12 + 104)
+# Home's channels: three rows of 84 from y 30, 12 apart (wii/menu/gui_gamegrid.cpp).
+CHANNEL_ROW_BOTTOMS = (30 + 84, 30 + 84 + 12 + 84, 30 + 3 * 84 + 2 * 12)
+# The shelf view's plank (kShelfY in wii/menu/gui_shelf.cpp).
+SHELF_VIEW_BOTTOM = 248
 
 INI = """[theme]
 name = Bookshelf
@@ -50,6 +53,7 @@ author = RiftWii
 
 [shape]
 corners = 1
+shelf_grain = yes
 gloss = yes
 # The HOME Menu as iOS 6 drew things (iBooks kept its books on a wooden shelf).
 home_menu = ios6
@@ -282,7 +286,7 @@ def main():
     # was for each wall), only the lower shelf.
     for name, w in (("background_shelf.png", 640), ("background_shelf_wide.png", 856)):
         RNG.bit_generator.state = WALL_STATE[w]
-        Image.fromarray(background(w, shelves=COVER_ROW_BOTTOMS[1:])).save(OUT / name, optimize=True)
+        Image.fromarray(background(w, shelves=(SHELF_VIEW_BOTTOM,))).save(OUT / name, optimize=True)
     # And with none, for the other screens.
     for name, w in (("background_plain.png", 640), ("background_plain_wide.png", 856)):
         RNG.bit_generator.state = WALL_STATE[w]
