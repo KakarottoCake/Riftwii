@@ -1710,14 +1710,17 @@ msgstr "모든 설정을 RiftWii의 기본값으로 되돌립니다. 게임별 �
 msgid "Settings reset to the defaults"
 msgstr "설정을 기본값으로 초기화했습니다"
 
-msgid "The GameCube adapter works in Project+"
-msgstr "Project+에서 게임큐브 어댑터를 쓸 수 있습니다"
+msgid "A new look: big tiles for each game and for Settings"
+msgstr "새로운 디자인: 각 게임과 설정에 큰 타일"
 
-msgid "Mods that change several places in memory work fully"
-msgstr "메모리 여러 곳을 바꾸는 모드가 제대로 작동합니다"
+msgid "Home: 3D covers on a ring, and a carousel"
+msgstr "홈: 고리 위의 3D 커버와 캐러셀"
 
-msgid "Wii U Pro Controller: a log to help it work in games"
-msgstr "Wii U Pro 컨트롤러: 게임에서 작동하도록 기록을 남깁니다"
+msgid "Each game's page: its art, and About with its story"
+msgstr "각 게임 페이지: 아트와 줄거리가 있는 정보"
+
+msgid "Channels look like the Wii Menu's"
+msgstr "채널이 Wii 메뉴처럼 보입니다"
 
 msgid "Memory for RiftWii's extras"
 msgstr "RiftWii 추가 기능이 쓰는 메모리"

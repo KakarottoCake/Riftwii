@@ -1710,14 +1710,17 @@ msgstr "Todos los ajustes vuelven a como vienen en RiftWii. Se conservan las pá
 msgid "Settings reset to the defaults"
 msgstr "Ajustes restablecidos"
 
-msgid "The GameCube adapter works in Project+"
-msgstr "El adaptador de GameCube funciona en Project+"
+msgid "A new look: big tiles for each game and for Settings"
+msgstr "Un nuevo aspecto: casillas grandes para cada juego y para Ajustes"
 
-msgid "Mods that change several places in memory work fully"
-msgstr "Los mods que cambian varios sitios de la memoria funcionan por completo"
+msgid "Home: 3D covers on a ring, and a carousel"
+msgstr "Inicio: portadas 3D en un anillo, y un carrusel"
 
-msgid "Wii U Pro Controller: a log to help it work in games"
-msgstr "Mando Pro de Wii U: un registro para que funcione en los juegos"
+msgid "Each game's page: its art, and About with its story"
+msgstr "La página de cada juego: su arte, y Acerca de con su historia"
+
+msgid "Channels look like the Wii Menu's"
+msgstr "Los canales se ven como los del menú de Wii"
 
 msgid "Memory for RiftWii's extras"
 msgstr "Memoria para los extras de RiftWii"

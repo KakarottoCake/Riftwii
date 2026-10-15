@@ -2364,9 +2364,10 @@ static std::string DiscTileNote()
 // holds seven lines), for the release script to keep up to date. Shown
 // once when they change; Settings > What's new shows them again.
 static const char* const kWhatsNew[] = {
-	"The GameCube adapter works in Project+",
-	"Mods that change several places in memory work fully",
-	"Wii U Pro Controller: a log to help it work in games",
+	"A new look: big tiles for each game and for Settings",
+	"Home: 3D covers on a ring, and a carousel",
+	"Each game's page: its art, and About with its story",
+	"Channels look like the Wii Menu's",
 };
 
 static std::string WhatsNewText()

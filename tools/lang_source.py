@@ -1661,10 +1661,11 @@ T = {
     "Every setting goes back to how RiftWii comes, and RiftWii restarts. Games' own pages, favourites, play history and mods are kept.": ("Todos los ajustes vuelven a como vienen en RiftWii, y RiftWii se reinicia. Se conservan las páginas de cada juego, los favoritos, el historial de juego y los mods.", "すべての設定がRiftWiiの初期状態に戻り、RiftWiiが再起動します。各ゲームのページ、お気に入り、プレイ履歴、MODはそのまま残ります。", "Todas as configurações voltam a como vêm no RiftWii, e o RiftWii reinicia. As páginas de cada jogo, os favoritos, o histórico de jogo e os mods são mantidos.", "Tutte le impostazioni tornano come in origine e RiftWii si riavvia. Le pagine dei singoli giochi, i preferiti, la cronologia di gioco e le mod restano."),
     "Every setting back to how RiftWii comes. Games' own pages, favourites, play history and mods are kept.": ("Todos los ajustes vuelven a como vienen en RiftWii. Se conservan las páginas de cada juego, los favoritos, el historial de juego y los mods.", "すべての設定をRiftWiiの初期状態に戻します。各ゲームのページ、お気に入り、プレイ履歴、MODはそのまま残ります。", "Todas as configurações voltam a como vêm no RiftWii. As páginas de cada jogo, os favoritos, o histórico de jogo e os mods são mantidos.", "Tutte le impostazioni tornano come in origine. Le pagine dei singoli giochi, i preferiti, la cronologia di gioco e le mod restano."),
     "Settings reset to the defaults": ("Ajustes restablecidos", "設定を初期状態に戻しました", "Configurações redefinidas", "Impostazioni ripristinate"),
-    # What's new in 2610-371
-    "The GameCube adapter works in Project+": ("El adaptador de GameCube funciona en Project+", "Project+でゲームキューブのアダプターが使えます", "O adaptador de GameCube funciona no Project+", "L'adattatore GameCube funziona in Project+"),
-    "Mods that change several places in memory work fully": ("Los mods que cambian varios sitios de la memoria funcionan por completo", "メモリーの何か所も書き変えるMODが正しく動きます", "Mods que mudam vários pontos da memória funcionam por completo", "Le mod che cambiano più punti della memoria funzionano del tutto"),
-    "Wii U Pro Controller: a log to help it work in games": ("Mando Pro de Wii U: un registro para que funcione en los juegos", "Wii U PROコントローラー：ゲームで使えるように記録を取ります", "Comando Pro do Wii U: um registro para que funcione nos jogos", "Controller Pro di Wii U: un registro per farlo funzionare nei giochi"),
+    # What's new in 2610-391
+    "A new look: big tiles for each game and for Settings": ("Un nuevo aspecto: casillas grandes para cada juego y para Ajustes", "新しいデザイン：各ゲームと設定に大きなタイル", "Um novo visual: blocos grandes para cada jogo e para as Configurações", "Un nuovo aspetto: riquadri grandi per ogni gioco e per le Impostazioni"),
+    "Home: 3D covers on a ring, and a carousel": ("Inicio: portadas 3D en un anillo, y un carrusel", "ホーム：輪に並ぶ3Dパッケージとカルーセル", "Início: capas 3D num anel, e um carrossel", "Home: copertine 3D su un anello, e un carosello"),
+    "Each game's page: its art, and About with its story": ("La página de cada juego: su arte, y Acerca de con su historia", "各ゲームのページ：アートと、あらすじ付きの情報", "A página de cada jogo: sua arte, e Sobre com a história", "La pagina di ogni gioco: la sua grafica, e Info con la trama"),
+    "Channels look like the Wii Menu's": ("Los canales se ven como los del menú de Wii", "チャンネルがWiiメニューのような見た目に", "Os canais parecem os do Menu Wii", "I canali somigliano a quelli del Menu Wii"),
     # Game page: memory for RiftWii's extras
     "Memory for RiftWii's extras": ("Memoria para los extras de RiftWii", "RiftWiiの追加機能が使うメモリ", "Memória para os extras do RiftWii", "Memoria per gli extra di RiftWii"),
     "about {1} KB": ("unos {1} KB", "約{1} KB", "cerca de {1} KB", "circa {1} KB"),
@@ -2913,12 +2914,14 @@ KO = {
         "모든 설정을 RiftWii의 기본값으로 되돌립니다. 게임별 페이지, 즐겨찾기, 플레이 기록, 모드는 그대로 유지됩니다.",
     "Settings reset to the defaults":
         "설정을 기본값으로 초기화했습니다",
-    "The GameCube adapter works in Project+":
-        "Project+에서 게임큐브 어댑터를 쓸 수 있습니다",
-    "Mods that change several places in memory work fully":
-        "메모리 여러 곳을 바꾸는 모드가 제대로 작동합니다",
-    "Wii U Pro Controller: a log to help it work in games":
-        "Wii U Pro 컨트롤러: 게임에서 작동하도록 기록을 남깁니다",
+    "A new look: big tiles for each game and for Settings":
+        "새로운 디자인: 각 게임과 설정에 큰 타일",
+    "Home: 3D covers on a ring, and a carousel":
+        "홈: 고리 위의 3D 커버와 캐러셀",
+    "Each game's page: its art, and About with its story":
+        "각 게임 페이지: 아트와 줄거리가 있는 정보",
+    "Channels look like the Wii Menu's":
+        "채널이 Wii 메뉴처럼 보입니다",
     "Memory for RiftWii's extras":
         "RiftWii 추가 기능이 쓰는 메모리",
     "about {1} KB":
@@ -4268,12 +4271,14 @@ FR = {
         "Tous les paramètres reviennent à ceux d'origine. Les pages des jeux, les favoris, l'historique de jeu et les mods sont conservés.",
     "Settings reset to the defaults":
         "Paramètres réinitialisés",
-    "The GameCube adapter works in Project+":
-        "L'adaptateur GameCube fonctionne dans Project+",
-    "Mods that change several places in memory work fully":
-        "Les mods qui modifient plusieurs endroits de la mémoire fonctionnent entièrement",
-    "Wii U Pro Controller: a log to help it work in games":
-        "Manette Pro Wii U : un journal pour la faire marcher dans les jeux",
+    "A new look: big tiles for each game and for Settings":
+        "Nouveau look : de grandes tuiles pour chaque jeu et les Paramètres",
+    "Home: 3D covers on a ring, and a carousel":
+        "Accueil : jaquettes 3D sur un anneau, et un carrousel",
+    "Each game's page: its art, and About with its story":
+        "La page de chaque jeu : son illustration, et À propos avec son histoire",
+    "Channels look like the Wii Menu's":
+        "Les chaînes ressemblent à celles du menu Wii",
     "Memory for RiftWii's extras":
         "Mémoire pour les extras de RiftWii",
     "about {1} KB":
