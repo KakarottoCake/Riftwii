@@ -1725,6 +1725,12 @@ msgstr "各ゲームのページ：アートと、あらすじ付きの情報"
 msgid "Channels look like the Wii Menu's"
 msgstr "チャンネルがWiiメニューのような見た目に"
 
+msgid "About: a game's details, controllers and story on one page"
+msgstr "情報：ゲームの詳細、コントローラー、あらすじを1ページに"
+
+msgid "Bigger covers and names on a widescreen TV"
+msgstr "ワイドテレビでパッケージと名前が大きく"
+
 msgid "Memory for RiftWii's extras"
 msgstr "RiftWiiの追加機能が使うメモリ"
 

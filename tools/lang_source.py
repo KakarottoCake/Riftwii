@@ -1662,11 +1662,13 @@ T = {
     "Every setting goes back to how RiftWii comes, and RiftWii restarts. Games' own pages, favourites, play history and mods are kept.": ("Todos los ajustes vuelven a como vienen en RiftWii, y RiftWii se reinicia. Se conservan las páginas de cada juego, los favoritos, el historial de juego y los mods.", "すべての設定がRiftWiiの初期状態に戻り、RiftWiiが再起動します。各ゲームのページ、お気に入り、プレイ履歴、MODはそのまま残ります。", "Todas as configurações voltam a como vêm no RiftWii, e o RiftWii reinicia. As páginas de cada jogo, os favoritos, o histórico de jogo e os mods são mantidos.", "Tutte le impostazioni tornano come in origine e RiftWii si riavvia. Le pagine dei singoli giochi, i preferiti, la cronologia di gioco e le mod restano."),
     "Every setting back to how RiftWii comes. Games' own pages, favourites, play history and mods are kept.": ("Todos los ajustes vuelven a como vienen en RiftWii. Se conservan las páginas de cada juego, los favoritos, el historial de juego y los mods.", "すべての設定をRiftWiiの初期状態に戻します。各ゲームのページ、お気に入り、プレイ履歴、MODはそのまま残ります。", "Todas as configurações voltam a como vêm no RiftWii. As páginas de cada jogo, os favoritos, o histórico de jogo e os mods são mantidos.", "Tutte le impostazioni tornano come in origine. Le pagine dei singoli giochi, i preferiti, la cronologia di gioco e le mod restano."),
     "Settings reset to the defaults": ("Ajustes restablecidos", "設定を初期状態に戻しました", "Configurações redefinidas", "Impostazioni ripristinate"),
-    # What's new in 2610-391
+    # What's new in 2610-395
     "A new look: big tiles for each game and for Settings": ("Un nuevo aspecto: casillas grandes para cada juego y para Ajustes", "新しいデザイン：各ゲームと設定に大きなタイル", "Um novo visual: blocos grandes para cada jogo e para as Configurações", "Un nuovo aspetto: riquadri grandi per ogni gioco e per le Impostazioni"),
     "Home: 3D covers on a ring, and a carousel": ("Inicio: portadas 3D en un anillo, y un carrusel", "ホーム：輪に並ぶ3Dパッケージとカルーセル", "Início: capas 3D num anel, e um carrossel", "Home: copertine 3D su un anello, e un carosello"),
     "Each game's page: its art, and About with its story": ("La página de cada juego: su arte, y Acerca de con su historia", "各ゲームのページ：アートと、あらすじ付きの情報", "A página de cada jogo: sua arte, e Sobre com a história", "La pagina di ogni gioco: la sua grafica, e Info con la trama"),
     "Channels look like the Wii Menu's": ("Los canales se ven como los del menú de Wii", "チャンネルがWiiメニューのような見た目に", "Os canais parecem os do Menu Wii", "I canali somigliano a quelli del Menu Wii"),
+    "About: a game's details, controllers and story on one page": ("Acerca de: los datos, mandos e historia de un juego en una página", "情報：ゲームの詳細、コントローラー、あらすじを1ページに", "Sobre: os dados, controles e história de um jogo numa página", "Info: dati, controller e trama di un gioco in una pagina"),
+    "Bigger covers and names on a widescreen TV": ("Portadas y nombres más grandes en una TV panorámica", "ワイドテレビでパッケージと名前が大きく", "Capas e nomes maiores numa TV widescreen", "Copertine e nomi più grandi su una TV panoramica"),
     # Game page: memory for RiftWii's extras
     "Memory for RiftWii's extras": ("Memoria para los extras de RiftWii", "RiftWiiの追加機能が使うメモリ", "Memória para os extras do RiftWii", "Memoria per gli extra di RiftWii"),
     "about {1} KB": ("unos {1} KB", "約{1} KB", "cerca de {1} KB", "circa {1} KB"),
@@ -2913,6 +2915,10 @@ KO = {
         "각 게임 페이지: 아트와 줄거리가 있는 정보",
     "Channels look like the Wii Menu's":
         "채널이 Wii 메뉴처럼 보입니다",
+    "About: a game's details, controllers and story on one page":
+        "정보: 게임의 세부 정보, 컨트롤러, 줄거리를 한 페이지에",
+    "Bigger covers and names on a widescreen TV":
+        "와이드 TV에서 더 큰 커버와 이름",
     "Memory for RiftWii's extras":
         "RiftWii 추가 기능이 쓰는 메모리",
     "about {1} KB":
@@ -4248,6 +4254,10 @@ FR = {
         "La page de chaque jeu : son illustration, et À propos avec son histoire",
     "Channels look like the Wii Menu's":
         "Les chaînes ressemblent à celles du menu Wii",
+    "About: a game's details, controllers and story on one page":
+        "À propos : détails, manettes et histoire d'un jeu sur une page",
+    "Bigger covers and names on a widescreen TV":
+        "Jaquettes et noms plus grands sur une TV 16:9",
     "Memory for RiftWii's extras":
         "Mémoire pour les extras de RiftWii",
     "about {1} KB":

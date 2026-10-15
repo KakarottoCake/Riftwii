@@ -1725,6 +1725,12 @@ msgstr "La pagina di ogni gioco: la sua grafica, e Info con la trama"
 msgid "Channels look like the Wii Menu's"
 msgstr "I canali somigliano a quelli del Menu Wii"
 
+msgid "About: a game's details, controllers and story on one page"
+msgstr "Info: dati, controller e trama di un gioco in una pagina"
+
+msgid "Bigger covers and names on a widescreen TV"
+msgstr "Copertine e nomi più grandi su una TV panoramica"
+
 msgid "Memory for RiftWii's extras"
 msgstr "Memoria per gli extra di RiftWii"
 

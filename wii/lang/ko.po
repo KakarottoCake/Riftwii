@@ -1725,6 +1725,12 @@ msgstr "각 게임 페이지: 아트와 줄거리가 있는 정보"
 msgid "Channels look like the Wii Menu's"
 msgstr "채널이 Wii 메뉴처럼 보입니다"
 
+msgid "About: a game's details, controllers and story on one page"
+msgstr "정보: 게임의 세부 정보, 컨트롤러, 줄거리를 한 페이지에"
+
+msgid "Bigger covers and names on a widescreen TV"
+msgstr "와이드 TV에서 더 큰 커버와 이름"
+
 msgid "Memory for RiftWii's extras"
 msgstr "RiftWii 추가 기능이 쓰는 메모리"
 

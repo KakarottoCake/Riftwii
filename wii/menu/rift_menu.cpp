@@ -2368,6 +2368,8 @@ static const char* const kWhatsNew[] = {
 	"Home: 3D covers on a ring, and a carousel",
 	"Each game's page: its art, and About with its story",
 	"Channels look like the Wii Menu's",
+	"About: a game's details, controllers and story on one page",
+	"Bigger covers and names on a widescreen TV",
 };
 
 static std::string WhatsNewText()
