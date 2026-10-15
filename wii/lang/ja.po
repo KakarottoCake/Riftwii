@@ -1875,24 +1875,6 @@ msgstr "GameTDBの全Wiiゲームのデータベースから取得します（�
 msgid "Details"
 msgstr "情報"
 
-msgid "Released: {1}"
-msgstr "発売日：{1}"
-
-msgid "Genre: {1}"
-msgstr "ジャンル：{1}"
-
-msgid "Made and published by {1}"
-msgstr "開発・発売：{1}"
-
-msgid "Developer: {1}"
-msgstr "開発：{1}"
-
-msgid "Publisher: {1}"
-msgstr "発売元：{1}"
-
-msgid "Age rating: {1}"
-msgstr "年齢区分：{1}"
-
 msgid "Players"
 msgstr "人数"
 
@@ -1901,18 +1883,6 @@ msgstr "1人"
 
 msgid "1 to {1} players"
 msgstr "1～{1}人"
-
-msgid "Online: up to {1} players"
-msgstr "オンライン：最大{1}人"
-
-msgid "Online server: the mod's own"
-msgstr "オンラインサーバー：MODのもの"
-
-msgid "Online needs a server: pick one on the game page."
-msgstr "オンラインにはサーバーが必要です。ゲームのページで選んでください。"
-
-msgid "Online server: {1}"
-msgstr "オンラインサーバー：{1}"
 
 msgid "Needed to play"
 msgstr "プレイに必要"
@@ -2021,3 +1991,33 @@ msgstr "ホーム"
 
 msgid "Options"
 msgstr "オプション"
+
+msgid "Released"
+msgstr "発売日"
+
+msgid "Genre"
+msgstr "ジャンル"
+
+msgid "Made by"
+msgstr "制作"
+
+msgid "Developer"
+msgstr "開発"
+
+msgid "Publisher"
+msgstr "発売元"
+
+msgid "Age rating"
+msgstr "年齢区分"
+
+msgid "On one Wii"
+msgstr "1台のWiiで"
+
+msgid "Up to {1} players"
+msgstr "最大{1}人"
+
+msgid "The mod's own"
+msgstr "MODのもの"
+
+msgid "Pick one on the game page"
+msgstr "ゲームのページで選んでください"

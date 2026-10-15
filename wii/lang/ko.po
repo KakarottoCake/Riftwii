@@ -1875,24 +1875,6 @@ msgstr "GameTDB의 모든 Wii 게임 데이터베이스에서 가져옵니다. �
 msgid "Details"
 msgstr "정보"
 
-msgid "Released: {1}"
-msgstr "발매일: {1}"
-
-msgid "Genre: {1}"
-msgstr "장르: {1}"
-
-msgid "Made and published by {1}"
-msgstr "개발 및 유통: {1}"
-
-msgid "Developer: {1}"
-msgstr "개발: {1}"
-
-msgid "Publisher: {1}"
-msgstr "유통: {1}"
-
-msgid "Age rating: {1}"
-msgstr "연령 등급: {1}"
-
 msgid "Players"
 msgstr "플레이 인원"
 
@@ -1901,18 +1883,6 @@ msgstr "1명"
 
 msgid "1 to {1} players"
 msgstr "1~{1}명"
-
-msgid "Online: up to {1} players"
-msgstr "온라인: 최대 {1}명"
-
-msgid "Online server: the mod's own"
-msgstr "온라인 서버: MOD의 서버"
-
-msgid "Online needs a server: pick one on the game page."
-msgstr "온라인 플레이에는 서버가 필요합니다. 게임 페이지에서 고르세요."
-
-msgid "Online server: {1}"
-msgstr "온라인 서버: {1}"
 
 msgid "Needed to play"
 msgstr "플레이에 필요"
@@ -2021,3 +1991,33 @@ msgstr "홈"
 
 msgid "Options"
 msgstr "옵션"
+
+msgid "Released"
+msgstr "발매일"
+
+msgid "Genre"
+msgstr "장르"
+
+msgid "Made by"
+msgstr "제작"
+
+msgid "Developer"
+msgstr "개발"
+
+msgid "Publisher"
+msgstr "유통"
+
+msgid "Age rating"
+msgstr "연령 등급"
+
+msgid "On one Wii"
+msgstr "Wii 한 대에서"
+
+msgid "Up to {1} players"
+msgstr "최대 {1}명"
+
+msgid "The mod's own"
+msgstr "MOD의 서버"
+
+msgid "Pick one on the game page"
+msgstr "게임 페이지에서 고르세요"

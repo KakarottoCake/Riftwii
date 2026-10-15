@@ -1528,6 +1528,29 @@ private:
 	int x, y, extra;
 };
 
+// The help under a page's list, on a card of its own with an info sign,
+// in the same place on every page (inside a TV's overscan, over the prompts).
+class NoteCard : public GuiElement {
+public:
+	static constexpr int kX = 40, kY = 326, kW = 560, kH = 86;
+	static constexpr int kTextX = kX + 46, kTextY = kY + 10, kTextW = kW - 58, kLines = 4;
+	void Draw() override {
+		skin::DrawNine(skin::card9, kX - 8, kY - 8, kW + 16, kH + 16, riftwii::kCardCorner, GetAlpha());
+		skin::Draw(skin::iconInfo, kX + 12, kY + 10, GetAlpha() * 3 / 4);
+	}
+};
+
+// The icon left of a page's title: the one on the tile that opened it.
+class PageIcon : public GuiElement {
+public:
+	explicit PageIcon(const skin::Tex* icon) : icon(icon) {}
+	void Draw() override {
+		if (icon && icon->data) skin::Draw(*icon, 40, 32, GetAlpha());
+	}
+private:
+	const skin::Tex* icon;
+};
+
 // How much wider a popup (and the launch screen's card) is on each side:
 // on a widescreen menu, up to 80 of the room the TV has past the 4:3
 // middle; none on a 4:3 one.
@@ -4048,36 +4071,41 @@ static void MenuAbout(const FrontendState& state, riftwii::GameInfo info)
 			refs.push_back({});
 		};
 
+		// A fact on a card: its name, and its value on the right.
+		const auto fact = [&](const std::string& name, const std::string& value) {
+			FlowRow row;
+			row.kind = FlowRow::Kind::Header;
+			row.label = name;
+			row.value = value;
+			rows.push_back(row);
+			refs.push_back({});
+		};
 		heading(tr("Details"));
 		const std::string released = ReleaseText(info);
-		if (!released.empty()) line(tr("Released: {1}", {released}));
-		if (!info.genres.empty()) line(tr("Genre: {1}", {FlatCapped(GenreText(info.genres), 60)}));
-		if (!info.developer.empty() && info.developer == info.publisher)
-			line(tr("Made and published by {1}", {FlatCapped(info.developer, 50)}));
-		else {
-			if (!info.developer.empty()) line(tr("Developer: {1}", {FlatCapped(info.developer, 56)}));
-			if (!info.publisher.empty()) line(tr("Publisher: {1}", {FlatCapped(info.publisher, 56)}));
+		if (!released.empty()) fact(tr("Released"), released);
+		if (!info.genres.empty()) fact(tr("Genre"), GenreText(info.genres));
+		if (!info.developer.empty() && info.developer == info.publisher) {
+			fact(tr("Made by"), info.developer);
+		} else {
+			if (!info.developer.empty()) fact(tr("Developer"), info.developer);
+			if (!info.publisher.empty()) fact(tr("Publisher"), info.publisher);
 		}
-		if (!info.rating.empty()) line(tr("Age rating: {1}", {info.rating_system + " " + info.rating}));
+		if (!info.rating.empty()) fact(tr("Age rating"), info.rating_system + " " + info.rating);
 
 		heading(tr("Players"));
-		if (info.players == 1) line(tr("1 player"));
-		else if (info.players > 1) line(tr("1 to {1} players", {std::to_string(info.players)}));
+		if (info.players == 1) fact(tr("On one Wii"), tr("1 player"));
+		else if (info.players > 1) fact(tr("On one Wii"), tr("1 to {1} players", {std::to_string(info.players)}));
 		const bool online = info.online_players > 0;
 		if (online) {
-			line(tr("Online: up to {1} players", {std::to_string(info.online_players)}));
+			fact(tr("Online"), tr("Up to {1} players", {std::to_string(info.online_players)}));
 			// Nintendo's servers closed in 2014: online play needs another.
 			const riftwii::GameSettings& game = state.model.game;
 			const std::string server = game.server == "global" ? riftwii::wii::Settings().wfc_server : game.server;
-			if (state.model.packs_patch_game()) {
-				line(tr("Online server: the mod's own"));
-			} else if (server == "off" || server.empty()) {
-				line(tr("Online needs a server: pick one on the game page."));
-			} else {
-				line(tr("Online server: {1}", {ServerName(server)}));
-			}
+			if (state.model.packs_patch_game()) fact(tr("Online server"), tr("The mod's own"));
+			else if (server == "off" || server.empty()) fact(tr("Online server"), tr("Pick one on the game page"));
+			else fact(tr("Online server"), ServerName(server));
 		} else if (riftwii::game_has_no_online(state.game_id) || info.players > 0) {
-			line(tr("No online play"));
+			fact(tr("Online"), tr("No online play"));
 		}
 
 		// Needed first, then the rest; each with whether it is here.
@@ -4130,20 +4158,22 @@ static void MenuAbout(const FrontendState& state, riftwii::GameInfo info)
 	build();
 
 	GuiText titleTxt(tr("About this game"), 30, skin::kInk);
-	Place(titleTxt, 40, 28);
+	Place(titleTxt, 78, 28);
 	TitleBand titleBand;
+	PageIcon pageIcon(&skin::iconInfo);
 	const std::string gameName = FlatCapped(GameTitle(state), 40);
 	GuiText gameTxt(gameName.c_str(), 16, skin::kInkDim);
 	gameTxt.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
 	gameTxt.SetPosition(-40, 40);
-	Panel panel(skin::panelGame, 34, 76);
-	GuiFlowList list(46, 82, 548, 5);
+	NoteCard noteCard;
+	GuiFlowList list(44, 84, 540, 5);
+	list.SetCards(true);
 	list.SetRows(&rows);
 	list.Select(1);
 	const std::string pageNote = tr("From GameTDB, the database of Wii games its community keeps.");
-	GuiText noteTxt(pageNote.c_str(), 16, skin::kInkSoft);
-	Place(noteTxt, 52, 312);
-	noteTxt.SetWrap(true, 536, 4);
+	GuiText noteTxt(pageNote.c_str(), 15, skin::kInkSoft);
+	Place(noteTxt, NoteCard::kTextX, NoteCard::kTextY);
+	noteTxt.SetWrap(true, NoteCard::kTextW, NoteCard::kLines);
 	SkinButton backBtn(skin::pill, skin::pillOver, 4, 198, 406, "Back",
 		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
 	HideButton(backBtn);
@@ -4153,9 +4183,10 @@ static void MenuAbout(const FrontendState& state, riftwii::GameInfo info)
 	HaltGui();
 	GuiWindow w(screenwidth, screenheight);
 	w.Append(&titleBand);
+	w.Append(&pageIcon);
 	w.Append(&titleTxt);
 	w.Append(&gameTxt);
-	w.Append(&panel);
+	w.Append(&noteCard);
 	w.Append(&list);
 	w.Append(&noteTxt);
 	w.Append(&backBtn.button);
@@ -4353,19 +4384,21 @@ static void MenuCheats(FrontendState& state)
 	build();
 
 	GuiText titleTxt(tr("Cheats"), 30, skin::kInk);
-	Place(titleTxt, 40, 28);
+	Place(titleTxt, 78, 28);
 	TitleBand titleBand;
+	PageIcon pageIcon(&skin::iconCheats);
 	const std::string gameName = FlatCapped(GameTitle(state), 40);
 	GuiText gameTxt(gameName.c_str(), 16, skin::kInkDim);
 	gameTxt.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
 	gameTxt.SetPosition(-40, 40);
-	Panel panel(skin::panelGame, 34, 76);
-	GuiFlowList list(46, 82, 548, 5);
+	NoteCard noteCard;
+	GuiFlowList list(44, 84, 540, 5);
+	list.SetCards(true);
 	list.SetRows(&rows);
 	list.Select(0);
-	GuiText noteTxt(fileNote.c_str(), 16, skin::kInkSoft);
-	Place(noteTxt, 52, 312);
-	noteTxt.SetWrap(true, 536, 4);
+	GuiText noteTxt(fileNote.c_str(), 15, skin::kInkSoft);
+	Place(noteTxt, NoteCard::kTextX, NoteCard::kTextY);
+	noteTxt.SetWrap(true, NoteCard::kTextW, NoteCard::kLines);
 	SkinButton backBtn(skin::pill, skin::pillOver, 4, 198, 406, "Back",
 		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
 	HideButton(backBtn);
@@ -4376,9 +4409,10 @@ static void MenuCheats(FrontendState& state)
 	HaltGui();
 	GuiWindow w(screenwidth, screenheight);
 	w.Append(&titleBand);
+	w.Append(&pageIcon);
 	w.Append(&titleTxt);
 	w.Append(&gameTxt);
-	w.Append(&panel);
+	w.Append(&noteCard);
 	w.Append(&list);
 	w.Append(&noteTxt);
 	w.Append(&backBtn.button);
@@ -4584,22 +4618,24 @@ static bool MenuPickCodes(const FrontendState& state, std::string& key)
 	fill();
 
 	GuiText titleTxt(tr("Add a code build"), 30, skin::kInk);
-	Place(titleTxt, 40, 28);
+	Place(titleTxt, 78, 28);
 	TitleBand titleBand;
+	PageIcon pageIcon(&skin::iconMods);
 	std::string whereText = folder + "/";
 	GuiText whereTxt(whereText.c_str(), 16, skin::kInkDim);
 	whereTxt.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
 	whereTxt.SetPosition(-40, 40);
-	Panel panel(skin::panelGame, 34, 76);
-	GuiFlowList list(46, 82, 548, 5);
+	NoteCard noteCard;
+	GuiFlowList list(44, 84, 540, 5);
+	list.SetCards(true);
 	list.SetRows(&rows);
 	// In a folder, the first entry (the game's code file when it is there),
 	// not the way up.
 	const auto firstRow = [&]() { return folder != "sd:" && rows.size() > 1 ? 1 : 0; };
 	list.Select(firstRow());
-	GuiText noteTxt("", 16, skin::kInkSoft);
-	Place(noteTxt, 52, 312);
-	noteTxt.SetWrap(true, 536, 4);
+	GuiText noteTxt("", 15, skin::kInkSoft);
+	Place(noteTxt, NoteCard::kTextX, NoteCard::kTextY);
+	noteTxt.SetWrap(true, NoteCard::kTextW, NoteCard::kLines);
 	const std::string help = "Open the build's folder and pick its code file (" + state.game_id +
 		".gct). Its gameconfig.txt is read from the same folder, a folder above it or the top of the card.";
 	noteTxt.SetText(help.c_str());
@@ -4613,9 +4649,10 @@ static bool MenuPickCodes(const FrontendState& state, std::string& key)
 	HaltGui();
 	GuiWindow w(screenwidth, screenheight);
 	w.Append(&titleBand);
+	w.Append(&pageIcon);
 	w.Append(&titleTxt);
 	w.Append(&whereTxt);
-	w.Append(&panel);
+	w.Append(&noteCard);
 	w.Append(&list);
 	w.Append(&noteTxt);
 	w.Append(&backBtn.button);
@@ -4773,20 +4810,22 @@ static void MenuMods(FrontendState& state, std::string& scanStatus)
 	BuildModRows(state, scanStatus, rows, refs);
 
 	GuiText titleTxt(tr("Mods"), 30, skin::kInk);
-	Place(titleTxt, 40, 28);
+	Place(titleTxt, 78, 28);
 	TitleBand titleBand;
+	PageIcon pageIcon(&skin::iconMods);
 	const std::string gameName = FlatCapped(GameTitle(state), 40);
 	GuiText gameTxt(gameName.c_str(), 16, skin::kInkDim);
 	gameTxt.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
 	gameTxt.SetPosition(-40, 40);
-	Panel panel(skin::panelGame, 34, 76);
-	GuiFlowList list(46, 82, 548, 5);
+	NoteCard noteCard;
+	GuiFlowList list(44, 84, 540, 5);
+	list.SetCards(true);
 	list.SetRows(&rows);
 	list.Select(0);
-	GuiText noteTxt("", 16, skin::kInkSoft);
-	Place(noteTxt, 52, 312);
-	noteTxt.SetWrap(true, 536, 4);
-	int noteWidth = 536;  // narrower while the picture is beside it
+	GuiText noteTxt("", 15, skin::kInkSoft);
+	Place(noteTxt, NoteCard::kTextX, NoteCard::kTextY);
+	noteTxt.SetWrap(true, NoteCard::kTextW, NoteCard::kLines);
+	int noteWidth = NoteCard::kTextW;  // narrower while the picture is beside it
 	SkinButton backBtn(skin::pill, skin::pillOver, 4, 198, 406, "Back",
 		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
 	HideButton(backBtn);
@@ -4798,9 +4837,10 @@ static void MenuMods(FrontendState& state, std::string& scanStatus)
 	HaltGui();
 	GuiWindow w(screenwidth, screenheight);
 	w.Append(&titleBand);
+	w.Append(&pageIcon);
 	w.Append(&titleTxt);
 	w.Append(&gameTxt);
-	w.Append(&panel);
+	w.Append(&noteCard);
 	w.Append(&list);
 	w.Append(&noteTxt);
 	w.Append(&backBtn.button);
@@ -4840,11 +4880,12 @@ static void MenuMods(FrontendState& state, std::string& scanStatus)
 				picture.Show(riftwii::wii::ModPicture(p), riftwii::wii::ModPictureName(p), list.RowTop(row));
 			}
 			picture.Step();
-			// The note's four lines (y 312 down) wrap short of the picture.
-			const int width = picture.Covers(312, 312 + 4 * 22) ? picture.Left() - 8 - 52 : 536;
+			// The note's lines wrap short of the picture.
+			const int width = picture.Covers(NoteCard::kY, NoteCard::kY + NoteCard::kH)
+				? picture.Left() - 8 - NoteCard::kTextX : NoteCard::kTextW;
 			if (width != noteWidth) {
 				noteWidth = width;
-				noteTxt.SetWrap(true, width, 4);
+				noteTxt.SetWrap(true, width, NoteCard::kLines);
 			}
 		}
 		if (row != shownRow && row >= 0 && static_cast<std::size_t>(row) < refs.size()) {
@@ -5088,19 +5129,21 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 	BuildGameRows(state, rows, refs, true);
 
 	GuiText titleTxt(tr("Game settings"), 30, skin::kInk);
-	Place(titleTxt, 40, 28);
+	Place(titleTxt, 78, 28);
 	TitleBand titleBand;
+	PageIcon pageIcon(&skin::iconGear);
 	const std::string gameName = FlatCapped(GameTitle(state), 40);
 	GuiText gameTxt(gameName.c_str(), 16, skin::kInkDim);
 	gameTxt.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
 	gameTxt.SetPosition(-40, 40);
-	Panel panel(skin::panelSettings, 34, 76);
-	GuiFlowList list(46, 82, 548, 6);
+	NoteCard noteCard;
+	GuiFlowList list(44, 84, 540, 5);
+	list.SetCards(true);
 	list.SetRows(&rows);
 	list.Select(1);
-	GuiText noteTxt("", 16, skin::kInkSoft);
-	Place(noteTxt, 52, 358);
-	noteTxt.SetWrap(true, 536, 3);
+	GuiText noteTxt("", 15, skin::kInkSoft);
+	Place(noteTxt, NoteCard::kTextX, NoteCard::kTextY);
+	noteTxt.SetWrap(true, NoteCard::kTextW, NoteCard::kLines);
 	SkinButton backBtn(skin::pill, skin::pillOver, 4, 198, 406, "Back",
 		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
 	HideButton(backBtn);
@@ -5111,9 +5154,10 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 	HaltGui();
 	GuiWindow w(screenwidth, screenheight);
 	w.Append(&titleBand);
+	w.Append(&pageIcon);
 	w.Append(&titleTxt);
 	w.Append(&gameTxt);
-	w.Append(&panel);
+	w.Append(&noteCard);
 	w.Append(&list);
 	w.Append(&noteTxt);
 	w.Append(&backBtn.button);
@@ -5860,6 +5904,20 @@ static std::string SectionName(SettingsSection s)
 	}
 }
 
+static const skin::Tex* SectionIcon(SettingsSection s)
+{
+	switch (s) {
+		case SettingsSection::Picture: return &skin::iconPicture;
+		case SettingsSection::Games: return &skin::iconPlay;
+		case SettingsSection::Controllers: return &skin::iconControllers;
+		case SettingsSection::HomeScreen: return &skin::iconHome;
+		case SettingsSection::Look: return &skin::iconSound;
+		case SettingsSection::Online: return &skin::iconOnline;
+		case SettingsSection::Finding: return &skin::iconDrives;
+		default: return &skin::iconHelp;
+	}
+}
+
 // One section of Settings (the hub's tile): its rows only. `backToHub`:
 // left with Back, for the hub (any other way out goes where it says).
 static int MenuSettingsSection(FrontendState& state, SettingsSection section, bool& backToHub)
@@ -6125,8 +6183,9 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 
 	const std::string sectionTitle = SectionName(section);
 	GuiText titleTxt(sectionTitle.c_str(), 30, skin::kInk);
-	Place(titleTxt, 40, 28);
+	Place(titleTxt, 78, 28);
 	TitleBand titleBand;
+	PageIcon pageIcon(SectionIcon(section));
 	GuiText versionTxt("RiftWii " RIFTWII_VERSION, 15, skin::kInkDim);
 	const auto saveSettings = [&]() {
 		if (!riftwii::wii::SaveSettings()) return std::string(tr("Cannot write sd:/riftwii/settings.txt"));
@@ -6141,13 +6200,14 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 	};
 	versionTxt.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
 	versionTxt.SetPosition(-40, 40);
-	Panel panel(skin::panelGame, 34, 76);
-	GuiFlowList list(46, 82, 548, 5);
+	NoteCard noteCard;
+	GuiFlowList list(44, 84, 540, 5);
+	list.SetCards(true);
 	list.SetRows(&rows);
 	list.Select(0);
-	GuiText noteTxt("", 16, skin::kInkSoft);
-	Place(noteTxt, 52, 312);
-	noteTxt.SetWrap(true, 536, 4);
+	GuiText noteTxt("", 15, skin::kInkSoft);
+	Place(noteTxt, NoteCard::kTextX, NoteCard::kTextY);
+	noteTxt.SetWrap(true, NoteCard::kTextW, NoteCard::kLines);
 
 	SkinButton backBtn(skin::pill, skin::pillOver, 4, 198, 406, "Back",
 		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
@@ -6159,9 +6219,10 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 	HaltGui();
 	GuiWindow w(screenwidth, screenheight);
 	w.Append(&titleBand);
+	w.Append(&pageIcon);
 	w.Append(&titleTxt);
 	w.Append(&versionTxt);
-	w.Append(&panel);
+	w.Append(&noteCard);
 	w.Append(&list);
 	w.Append(&noteTxt);
 	w.Append(&backBtn.button);

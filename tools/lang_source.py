@@ -1718,19 +1718,9 @@ T = {
     "Download game details?": ("¿Descargar los datos de los juegos?", "ゲーム情報をダウンロードしますか？", "Baixar os dados dos jogos?", "Scaricare i dati dei giochi?"),
     "They come from GameTDB's database of every Wii game: about 2 MB, kept on the SD card. Download it now?": ("Vienen de la base de datos de GameTDB con todos los juegos de Wii: unos 2 MB, guardados en la tarjeta SD. ¿Descargarla ahora?", "GameTDBの全Wiiゲームのデータベースから取得します（約2 MB、SDカードに保存）。今すぐダウンロードしますか？", "Vêm da base de dados do GameTDB com todos os jogos de Wii: cerca de 2 MB, guardados no cartão SD. Baixar agora?", "Provengono dal database di GameTDB con tutti i giochi Wii: circa 2 MB, salvati sulla scheda SD. Scaricarlo ora?"),
     "Details": ("Datos", "情報", "Dados", "Dettagli"),
-    "Released: {1}": ("Salida: {1}", "発売日：{1}", "Lançamento: {1}", "Uscita: {1}"),
-    "Genre: {1}": ("Género: {1}", "ジャンル：{1}", "Gênero: {1}", "Genere: {1}"),
-    "Made and published by {1}": ("Desarrollado y publicado por {1}", "開発・発売：{1}", "Desenvolvido e publicado por {1}", "Sviluppato e pubblicato da {1}"),
-    "Developer: {1}": ("Desarrollador: {1}", "開発：{1}", "Desenvolvedor: {1}", "Sviluppatore: {1}"),
-    "Publisher: {1}": ("Editor: {1}", "発売元：{1}", "Distribuidora: {1}", "Editore: {1}"),
-    "Age rating: {1}": ("Clasificación por edad: {1}", "年齢区分：{1}", "Classificação etária: {1}", "Classificazione per età: {1}"),
     "Players": ("Jugadores", "人数", "Jogadores", "Giocatori"),
     "1 player": ("1 jugador", "1人", "1 jogador", "1 giocatore"),
     "1 to {1} players": ("De 1 a {1} jugadores", "1～{1}人", "De 1 a {1} jogadores", "Da 1 a {1} giocatori"),
-    "Online: up to {1} players": ("En línea: hasta {1} jugadores", "オンライン：最大{1}人", "Online: até {1} jogadores", "Online: fino a {1} giocatori"),
-    "Online server: the mod's own": ("Servidor en línea: el del mod", "オンラインサーバー：MODのもの", "Servidor online: o do mod", "Server online: quello della mod"),
-    "Online needs a server: pick one on the game page.": ("El juego en línea necesita un servidor: elige uno en la página del juego.", "オンラインにはサーバーが必要です。ゲームのページで選んでください。", "O jogo online precisa de um servidor: escolha um na página do jogo.", "Il gioco online richiede un server: scegline uno nella pagina del gioco."),
-    "Online server: {1}": ("Servidor en línea: {1}", "オンラインサーバー：{1}", "Servidor online: {1}", "Server online: {1}"),
     "Needed to play": ("Necesario para jugar", "プレイに必要", "Necessário para jogar", "Necessario per giocare"),
     "Also works with": ("También funciona con", "こちらも使えます", "Também funciona com", "Funziona anche con"),
     "Connected": ("Conectado", "接続中", "Conectado", "Collegato"),
@@ -1767,6 +1757,16 @@ T = {
     "Drives": ("Unidades", "ドライブ", "Unidades", "Unità"),
     "Home": ("Inicio", "ホーム", "Início", "Home"),
     "Options": ("Opciones", "オプション", "Opções", "Opzioni"),
+    "Released": ("Salida", "発売日", "Lançamento", "Uscita"),
+    "Genre": ("Género", "ジャンル", "Gênero", "Genere"),
+    "Made by": ("Hecho por", "制作", "Feito por", "Creato da"),
+    "Developer": ("Desarrollador", "開発", "Desenvolvedor", "Sviluppatore"),
+    "Publisher": ("Editor", "発売元", "Distribuidora", "Editore"),
+    "Age rating": ("Clasificación", "年齢区分", "Classificação", "Età"),
+    "On one Wii": ("En una Wii", "1台のWiiで", "Num Wii", "Su una Wii"),
+    "Up to {1} players": ("Hasta {1} jugadores", "最大{1}人", "Até {1} jogadores", "Fino a {1} giocatori"),
+    "The mod's own": ("El del mod", "MODのもの", "O do mod", "Quello della mod"),
+    "Pick one on the game page": ("Elige uno en la página del juego", "ゲームのページで選んでください", "Escolha um na página do jogo", "Scegline uno nella pagina del gioco"),
 }
 
 
@@ -3021,32 +3021,12 @@ KO = {
         "GameTDB의 모든 Wii 게임 데이터베이스에서 가져옵니다. 약 2 MB이며 SD 카드에 저장됩니다. 지금 다운로드할까요?",
     "Details":
         "정보",
-    "Released: {1}":
-        "발매일: {1}",
-    "Genre: {1}":
-        "장르: {1}",
-    "Made and published by {1}":
-        "개발 및 유통: {1}",
-    "Developer: {1}":
-        "개발: {1}",
-    "Publisher: {1}":
-        "유통: {1}",
-    "Age rating: {1}":
-        "연령 등급: {1}",
     "Players":
         "플레이 인원",
     "1 player":
         "1명",
     "1 to {1} players":
         "1~{1}명",
-    "Online: up to {1} players":
-        "온라인: 최대 {1}명",
-    "Online server: the mod's own":
-        "온라인 서버: MOD의 서버",
-    "Online needs a server: pick one on the game page.":
-        "온라인 플레이에는 서버가 필요합니다. 게임 페이지에서 고르세요.",
-    "Online server: {1}":
-        "온라인 서버: {1}",
     "Needed to play":
         "플레이에 필요",
     "Also works with":
@@ -3119,6 +3099,26 @@ KO = {
         "홈",
     "Options":
         "옵션",
+    "Released":
+        "발매일",
+    "Genre":
+        "장르",
+    "Made by":
+        "제작",
+    "Developer":
+        "개발",
+    "Publisher":
+        "유통",
+    "Age rating":
+        "연령 등급",
+    "On one Wii":
+        "Wii 한 대에서",
+    "Up to {1} players":
+        "최대 {1}명",
+    "The mod's own":
+        "MOD의 서버",
+    "Pick one on the game page":
+        "게임 페이지에서 고르세요",
 }
 
 # French, a table of its own (msgid: text), from MidyGamy's translation
@@ -4372,32 +4372,12 @@ FR = {
         "Elles viennent de la base GameTDB de tous les jeux Wii : environ 2 Mo, gardés sur la carte SD. La télécharger maintenant ?",
     "Details":
         "Infos",
-    "Released: {1}":
-        "Sortie : {1}",
-    "Genre: {1}":
-        "Genre : {1}",
-    "Made and published by {1}":
-        "Développé et édité par {1}",
-    "Developer: {1}":
-        "Développeur : {1}",
-    "Publisher: {1}":
-        "Éditeur : {1}",
-    "Age rating: {1}":
-        "Classification : {1}",
     "Players":
         "Joueurs",
     "1 player":
         "1 joueur",
     "1 to {1} players":
         "De 1 à {1} joueurs",
-    "Online: up to {1} players":
-        "En ligne : jusqu'à {1} joueurs",
-    "Online server: the mod's own":
-        "Serveur en ligne : celui du mod",
-    "Online needs a server: pick one on the game page.":
-        "Le jeu en ligne a besoin d'un serveur : choisissez-en un sur la page du jeu.",
-    "Online server: {1}":
-        "Serveur en ligne : {1}",
     "Needed to play":
         "Nécessaire pour jouer",
     "Also works with":
@@ -4470,6 +4450,26 @@ FR = {
         "Accueil",
     "Options":
         "Options",
+    "Released":
+        "Sortie",
+    "Genre":
+        "Genre",
+    "Made by":
+        "Créé par",
+    "Developer":
+        "Développeur",
+    "Publisher":
+        "Éditeur",
+    "Age rating":
+        "Classification",
+    "On one Wii":
+        "Sur une Wii",
+    "Up to {1} players":
+        "Jusqu'à {1} joueurs",
+    "The mod's own":
+        "Celui du mod",
+    "Pick one on the game page":
+        "À choisir sur la page du jeu",
 }
 
 # Languages kept in tables of their own: written after LANGS, every msgid

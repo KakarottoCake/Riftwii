@@ -38,6 +38,10 @@ public:
     GuiFlowList(int x, int y, int rowWidth, int visibleRows);
     ~GuiFlowList() override;
     void SetRows(const std::vector<FlowRow>* rows);  // must outlive the list
+    // Each row on a card of its own (the tiles' look), on the backdrop
+    // with no panel under the list; the lit card gets the tiles' ring.
+    // Notes and group names stay plain text.
+    void SetCards(bool on) { cards = on; }
     void Refresh();                                  // after the rows changed
     void Select(int index);
     int Selected() const { return focus; }
@@ -88,6 +92,9 @@ private:
     int hoverArrow = 0;
     int textFirst = -1;
     bool dirty = true;
+    bool cards = false;
+    int CardLeft(const FlowRow& r) const;
+    int CardRight() const;
     GuiText* label[kMaxVisible + 1];
     GuiText* value[kMaxVisible + 1];
     GuiSound* soundOver;

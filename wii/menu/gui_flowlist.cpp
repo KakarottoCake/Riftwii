@@ -25,6 +25,9 @@ constexpr int kTrackW = 6;
 constexpr int kArrow = 34;       // skin::scrollUp/scrollDown
 constexpr int kArrowRepeat = 8;  // frames between rows while an arrow is held
 constexpr int kArrowRoom = 12;   // controls move in this far while the scroll arrows show
+constexpr int kCardArrowRoom = 30;  // cards end this far in, clear of the scroll arrows
+constexpr int kCardGap = 3;         // above and below each card, inside its row
+constexpr int kCardShadow = 8;      // skin::tile9's margin
 constexpr u32 kWpadA = WPAD_BUTTON_A | WPAD_CLASSIC_BUTTON_A;
 
 bool AnyPointer() {
@@ -143,7 +146,15 @@ bool GuiFlowList::Actionable(int row) const {
 
 // Where the rows' controls end: in from the right edge, further while the
 // list scrolls, so the arrows on that edge do not touch a switch or chip.
-int GuiFlowList::ControlsRight() const { return x0 + rowWidth - kPad - (Count() > visible ? kArrowRoom : 0); }
+int GuiFlowList::ControlsRight() const {
+    if (cards) return CardRight() - kPad;
+    return x0 + rowWidth - kPad - (Count() > visible ? kArrowRoom : 0);
+}
+
+// A card's edges: indented under its heading as its text is, short of the
+// scroll arrows while they show.
+int GuiFlowList::CardLeft(const FlowRow& r) const { return x0 + (r.indent ? 22 : 0); }
+int GuiFlowList::CardRight() const { return x0 + rowWidth - (Count() > visible ? kCardArrowRoom : 0); }
 
 // The arrows sit on the list's right edge, at the ends of its track.
 int GuiFlowList::ArrowX() const { return x0 + rowWidth + 5 - kArrow / 2; }
@@ -226,7 +237,9 @@ void GuiFlowList::Draw() {
 
     // Rows are clipped to the list's box while they scroll past its edges.
     const int boxH = visible * kRowHeight;
-    Menu_Scissor(x0, y0, rowWidth + 1, boxH);
+    // Cards' shadows reach past the box's sides: a little room there.
+    if (cards) Menu_Scissor(x0 - kCardShadow, y0, rowWidth + 2 * kCardShadow, boxH);
+    else Menu_Scissor(x0, y0, rowWidth + 1, boxH);
 
     const int lit = dragging ? -1 : hover >= 0 ? hover : (AnyPointer() ? -1 : focus);
     const int right = ControlsRight();
@@ -244,8 +257,27 @@ void GuiFlowList::Draw() {
     }
     litFade += ((litShown ? 1.0f : 0.0f) - litFade) * 0.3f;
     if (litFade < 0.02f) litFade = 0.0f;
-    if (litFade > 0.0f)
+    if (cards) {
+        // The cards first, the lit one's ring over them, then the texts.
+        for (int i = 0; i <= visible; ++i) {
+            const int index = first + i;
+            if (index >= Count()) break;
+            const FlowRow& r = (*rows)[index];
+            if (r.kind == FlowRow::Kind::Info) continue;
+            const float y = y0 + index * kRowHeight - scroll + kCardGap;
+            const float left = static_cast<float>(CardLeft(r));
+            skin::DrawNine(skin::tile9, left - kCardShadow, y - kCardShadow, CardRight() - left + 2 * kCardShadow,
+                           kRowHeight - 2 * kCardGap + 2 * kCardShadow, skin::kTileCorner, r.dim ? alpha * 3 / 4 : alpha);
+        }
+        if (litFade > 0.0f && lit >= 0 && lit < Count()) {
+            const float y = y0 + litPos * kRowHeight - scroll + kCardGap;
+            const float left = static_cast<float>(CardLeft((*rows)[lit]));
+            skin::DrawNine(skin::tile9Over, left - kCardShadow, y - kCardShadow, CardRight() - left + 2 * kCardShadow,
+                           kRowHeight - 2 * kCardGap + 2 * kCardShadow, skin::kTileCorner, static_cast<int>(alpha * litFade));
+        }
+    } else if (litFade > 0.0f) {
         skin::Draw(skin::rowFocus, x0, y0 + litPos * kRowHeight - scroll, static_cast<int>(alpha * litFade));
+    }
     if (static_cast<int>(switchPos.size()) != Count()) {
         switchPos.assign(Count(), -1.0f);
         shownValue.assign(Count(), std::string());
@@ -258,8 +290,8 @@ void GuiFlowList::Draw() {
         const int y = y0 + index * kRowHeight - static_cast<int>(scroll + 0.5f);
         if (y >= y0 + boxH) break;
         const bool isLit = index == lit && r.kind != FlowRow::Kind::Info;
-        if (isLit) {
-            // (the highlight, drawn above)
+        if (isLit || cards) {
+            // (the highlight, or the cards, drawn above)
         } else if (index + 1 < Count() && !(index + 1 == lit) &&
                  !(r.kind == FlowRow::Kind::Info && (*rows)[index + 1].kind == FlowRow::Kind::Info))
             Menu_DrawRectangle(x0 + kPad, y + kRowHeight - 1, rowWidth - 2 * kPad, 1,

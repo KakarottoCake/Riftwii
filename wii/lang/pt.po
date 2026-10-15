@@ -1875,24 +1875,6 @@ msgstr "Vêm da base de dados do GameTDB com todos os jogos de Wii: cerca de 2 M
 msgid "Details"
 msgstr "Dados"
 
-msgid "Released: {1}"
-msgstr "Lançamento: {1}"
-
-msgid "Genre: {1}"
-msgstr "Gênero: {1}"
-
-msgid "Made and published by {1}"
-msgstr "Desenvolvido e publicado por {1}"
-
-msgid "Developer: {1}"
-msgstr "Desenvolvedor: {1}"
-
-msgid "Publisher: {1}"
-msgstr "Distribuidora: {1}"
-
-msgid "Age rating: {1}"
-msgstr "Classificação etária: {1}"
-
 msgid "Players"
 msgstr "Jogadores"
 
@@ -1901,18 +1883,6 @@ msgstr "1 jogador"
 
 msgid "1 to {1} players"
 msgstr "De 1 a {1} jogadores"
-
-msgid "Online: up to {1} players"
-msgstr "Online: até {1} jogadores"
-
-msgid "Online server: the mod's own"
-msgstr "Servidor online: o do mod"
-
-msgid "Online needs a server: pick one on the game page."
-msgstr "O jogo online precisa de um servidor: escolha um na página do jogo."
-
-msgid "Online server: {1}"
-msgstr "Servidor online: {1}"
 
 msgid "Needed to play"
 msgstr "Necessário para jogar"
@@ -2021,3 +1991,33 @@ msgstr "Início"
 
 msgid "Options"
 msgstr "Opções"
+
+msgid "Released"
+msgstr "Lançamento"
+
+msgid "Genre"
+msgstr "Gênero"
+
+msgid "Made by"
+msgstr "Feito por"
+
+msgid "Developer"
+msgstr "Desenvolvedor"
+
+msgid "Publisher"
+msgstr "Distribuidora"
+
+msgid "Age rating"
+msgstr "Classificação"
+
+msgid "On one Wii"
+msgstr "Num Wii"
+
+msgid "Up to {1} players"
+msgstr "Até {1} jogadores"
+
+msgid "The mod's own"
+msgstr "O do mod"
+
+msgid "Pick one on the game page"
+msgstr "Escolha um na página do jogo"
