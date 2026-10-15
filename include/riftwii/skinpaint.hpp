@@ -33,6 +33,12 @@ void paint_key(const Theme& theme, int kind, Canvas& out);
 // nine-sliced to any size: Home's notices.
 constexpr int kCardCorner = 24;
 void paint_card9(const Theme& theme, Canvas& out);
+// A soft drop shadow 64 x 64, nine-sliced kShadowCorner in from each edge:
+// a rounded 32 x 32 shape's at (16, 16), in the theme's shadow colour made
+// deeper, fading out over 16. Under a game page's box.
+constexpr int kShadowCorner = 24;
+constexpr int kShadowMargin = 16;
+void paint_drop_shadow9(const Theme& theme, Canvas& out);
 // A black capsule with a light grey outline, 48 x 48 (40 x 40 inside a 4
 // margin), nine-sliced: the HOME Menu's batteries.
 constexpr int kCapsuleCorner = 24;

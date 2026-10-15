@@ -91,8 +91,8 @@ shows:
 | `bar` | `#DEDEE4` | Home's bottom bar, the banner screen's and the title bands (a shade under the backdrop) |
 | `backdrop` | `#ECECEF` | Behind every screen |
 | `backdrop_stripe` | `#E3E3E8` | The backdrop's thin stripes |
-| `banner_stripe` | `#FFFFFF14` | Stripes over a game page's banner |
-| `banner_tint` | `#00000000` | Mixed into each game's own colour (a game page's banner, plain spines and backs on the shelf) by its alpha: `00` keeps the games' colours, `FF` gives every game this colour |
+| `banner_stripe` | `#FFFFFF14` | Stripes over a game page's banner while it shows the game's colour (no box art on the card yet) |
+| `banner_tint` | `#00000000` | Mixed into each game's own colour and over its blurred box art (a game page's banner, plain spines and backs on the shelf) by its alpha: `00` keeps the games' colours, `FF` gives every game this colour |
 | `divider` | `#E8E8EE` | Between list rows |
 | `scroll_track` | `#E6E6EC` | A list's scroll track |
 | `scroll_thumb` | `#A8A8B4` | A list's scroll thumb |
@@ -134,7 +134,7 @@ Pictures ending in `_over` are the highlighted versions. Transparency
 | `panel_game` | 580x240 | The white panel behind a game page's list |
 | `panel_settings` | 580x284 | The white panel behind Settings |
 | `bar` | 640x124 | Home's bottom bar (its top edge is a curve; see `bar` under [shape]) |
-| `banner_stripes` | 640x192 | Drawn over a game page's banner |
+| `banner_stripes` | 640x192 | Drawn over a game page's banner while it shows the game's colour; once the game's box art is on the card, the banner is that art, blurred |
 | `arrow_left` / `arrow_left_over`, `arrow_right` / `arrow_right_over` | 48x48 | Home's page arrows |
 | `scroll_up` / `scroll_up_over`, `scroll_down` / `scroll_down_over` | 44x44 | A list's scroll arrows |
 | `icon_drives` | 28x28 | Drive icon |

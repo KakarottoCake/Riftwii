@@ -186,6 +186,7 @@ Tex backgroundShelf, backgroundShelfWide;
 Tex clockDigits;
 Tex keys[4];
 Tex card9;
+Tex dropShadow9;
 Tex capsule9;
 Tex homeBtnDanger, homeBtnDangerOver, iosClose, iosCloseOver, linen;
 Tex backgroundPlain, backgroundPlainWide, backgroundChannels, backgroundChannelsWide;
@@ -283,6 +284,8 @@ void Init() {
         }
         paint_card9(MenuTheme(), c);
         card9 = Upload(c);
+        paint_drop_shadow9(MenuTheme(), c);
+        dropShadow9 = Upload(c);
         paint_capsule9(c);
         capsule9 = Upload(c);
         if (MenuTheme().home_ios6) {
@@ -352,6 +355,8 @@ void SetOnHome(bool home) {
 }
 
 bool Ready() { return g_ready; }
+
+GXColor BannerTint() { return g_banner_tint; }
 
 GXColor HueFor(const std::string& id) {
     static const GXColor palette[] = {
@@ -430,7 +435,14 @@ void DrawRgb5a3(const u8* data, int w, int h, float x, float y, int alpha, float
 
 void DrawRgb5a3Part(const u8* data, int w, int h, float u0, float u1, float x, float y, float dw, float dh,
                     int alpha) {
-    if (!data || alpha <= 0) return;
+    const u8 a = static_cast<u8>(alpha < 0 ? 0 : alpha > 255 ? 255 : alpha);
+    DrawRgb5a3Region(data, w, h, u0, 0.0f, u1, 1.0f, x, y, dw, dh, (GXColor){0xFF, 0xFF, 0xFF, a},
+                     (GXColor){0xFF, 0xFF, 0xFF, a});
+}
+
+void DrawRgb5a3Region(const u8* data, int w, int h, float u0, float v0, float u1, float v1, float x, float y, float dw,
+                      float dh, GXColor top, GXColor bottom) {
+    if (!data || (top.a == 0 && bottom.a == 0)) return;
     GXTexObj tex;
     GX_InitTexObj(&tex, const_cast<u8*>(data), static_cast<u16>(w), static_cast<u16>(h), GX_TF_RGB5A3, GX_CLAMP, GX_CLAMP,
                   GX_FALSE);
@@ -443,20 +455,19 @@ void DrawRgb5a3Part(const u8* data, int w, int h, float u0, float u1, float x, f
     guMtxIdentity(view);
     guMtxTransApply(view, view, 0.0f, 0.0f, -50.0f);
     GX_LoadPosMtxImm(view, GX_PNMTX0);
-    const u8 a = static_cast<u8>(alpha > 255 ? 255 : alpha);
     GX_Begin(GX_QUADS, GX_VTXFMT0, 4);
     GX_Position3f32(x, y, 0);
-    GX_Color4u8(0xFF, 0xFF, 0xFF, a);
-    GX_TexCoord2f32(u0, 0);
+    GX_Color4u8(top.r, top.g, top.b, top.a);
+    GX_TexCoord2f32(u0, v0);
     GX_Position3f32(x + dw, y, 0);
-    GX_Color4u8(0xFF, 0xFF, 0xFF, a);
-    GX_TexCoord2f32(u1, 0);
+    GX_Color4u8(top.r, top.g, top.b, top.a);
+    GX_TexCoord2f32(u1, v0);
     GX_Position3f32(x + dw, y + dh, 0);
-    GX_Color4u8(0xFF, 0xFF, 0xFF, a);
-    GX_TexCoord2f32(u1, 1);
+    GX_Color4u8(bottom.r, bottom.g, bottom.b, bottom.a);
+    GX_TexCoord2f32(u1, v1);
     GX_Position3f32(x, y + dh, 0);
-    GX_Color4u8(0xFF, 0xFF, 0xFF, a);
-    GX_TexCoord2f32(u0, 1);
+    GX_Color4u8(bottom.r, bottom.g, bottom.b, bottom.a);
+    GX_TexCoord2f32(u0, v1);
     GX_End();
     GX_SetTevOp(GX_TEVSTAGE0, GX_PASSCLR);
     GX_SetVtxDesc(GX_VA_TEX0, GX_NONE);

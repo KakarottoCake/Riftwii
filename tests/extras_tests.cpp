@@ -833,6 +833,31 @@ void TestCoverArt() {
             }
         make_backdrop(rgba8.data(), 128, 176, 0, 128, back.data(), true);
         EXPECT_EQ((back[0] << 8) | back[1], 0xFC00);
+
+        // The game page's box: the front with its corners rounded off.
+        std::vector<std::uint8_t> front(static_cast<std::size_t>(kBoxFrontWidth) * kBoxHeight * 2, 0);
+        EXPECT_TRUE(round_corners(box.data() + 8, kBoxWidth, kBoxHeight, kBoxSpineWidth,
+                                  kBoxSpineWidth + kBoxFrontWidth, 6.0f, front.data()));
+        const auto texel = [&](int x, int y) {
+            const std::size_t at = (static_cast<std::size_t>(y / 4) * (kBoxFrontWidth / 4) + x / 4) * 32 +
+                                   static_cast<std::size_t>((y % 4) * 4 + x % 4) * 2;
+            return (front[at] << 8) | front[at + 1];
+        };
+        const auto alpha = [](int v) { return (v & 0x8000) ? 7 : (v >> 12) & 7; };
+        // Each corner texel gone, the middle and the edges' middles kept whole.
+        EXPECT_EQ(alpha(texel(0, 0)), 0);
+        EXPECT_EQ(alpha(texel(kBoxFrontWidth - 1, 0)), 0);
+        EXPECT_EQ(alpha(texel(0, kBoxHeight - 1)), 0);
+        EXPECT_EQ(alpha(texel(kBoxFrontWidth - 1, kBoxHeight - 1)), 0);
+        EXPECT_EQ(texel(64, 88), 0x801F);
+        EXPECT_EQ(texel(0, 88), 0x801F);
+        EXPECT_EQ(texel(64, 0), 0x801F);
+        // On the curve: partly see-through, still blue.
+        const int edge = texel(1, 2);
+        EXPECT_TRUE(alpha(edge) > 0 && alpha(edge) < 7);
+        EXPECT_EQ(edge & 0x000F, 0x000F);
+        // Columns that aren't whole tiles are refused.
+        EXPECT_FALSE(round_corners(box.data() + 8, kBoxWidth, kBoxHeight, 2, 130, 6.0f, front.data()));
     }
     std::uint8_t bad[8] = {'R', 'W', 'C', '1', 0, 40, 0, 112};
     EXPECT_FALSE(cover_header_valid(bad));

@@ -19,6 +19,7 @@
  * pads. Built on the vendored libwiigui template.
  ***************************************************************************/
 
+#include <malloc.h>
 #include <gccore.h>
 #include <ogcsys.h>
 #include <dirent.h>
@@ -3329,35 +3330,79 @@ static int MenuSource(FrontendState& state)
 // ---------------------------------------------------------------------------
 // Game page
 
-// The game's banner: its hue across the top with light stripes.
+// The game's banner across the top: its own box art, blurred and dimmed
+// so the white text on it reads, as TV app stores head a game's page
+// (Nintendo eShop, Apple TV). Until the art is on the card (or for a game
+// with none), the game's colour with light stripes and the accent line.
 class GameBanner : public GuiElement {
 public:
 	static constexpr int kHeight = 120;
-	explicit GameBanner(GXColor hue) : hue(hue) {}
+	GameBanner(GXColor hue, std::string id = "", bool disc = false) : hue(hue), id(std::move(id)), disc(disc) {}
 	void Draw() override {
+		UpdateArt();
 		Menu_FillScreen(-1000, 1000 + kHeight, hue);
-		Menu_Scissor(-1000, -1000, 3000, 1000 + kHeight);
-		// Across the whole screen: a widescreen menu is wider than the
-		// stripes' 640 (drawn once, the band's sides were bare). Copies side
-		// by side, a whole period apart, so they join.
-		f32 safeX, safeW;
-		Menu_SafeArea(&safeX, &safeW);
-		const int w = skin::bannerStripes.w > 0 ? skin::bannerStripes.w : 640;
-		for (int x = 0; x > safeX - w; x -= w) Stripes(x);
-		for (int x = w; x < safeX + safeW; x += w) Stripes(x);
-		GX_SetScissor(0, 0, Menu_XfbWidth(), Menu_EfbHeight());
+		const int plainAlpha = static_cast<int>(255 * (1.0f - artShown));
+		if (plainAlpha > 0) {
+			Menu_Scissor(-1000, -1000, 3000, 1000 + kHeight);
+			// Across the whole screen: a widescreen menu is wider than the
+			// stripes' 640 (drawn once, the band's sides were bare). Copies
+			// side by side, a whole period apart, so they join.
+			f32 safeX, safeW;
+			Menu_SafeArea(&safeX, &safeW);
+			const int w = skin::bannerStripes.w > 0 ? skin::bannerStripes.w : 640;
+			for (int x = 0; x > safeX - w; x -= w) Stripes(x, plainAlpha);
+			for (int x = w; x < safeX + safeW; x += w) Stripes(x, plainAlpha);
+			GX_SetScissor(0, 0, Menu_XfbWidth(), Menu_EfbHeight());
+		}
+		if (artShown > 0.0f) DrawArt();
 		for (int i = 0; i < 4; ++i) Menu_FillScreen(kHeight - 19 + 4 * i, 4, (GXColor){0, 0, 0, static_cast<u8>(10 + 10 * i)});
-		Menu_FillScreen(kHeight - 3, 3, skin::kAccent);
+		Menu_FillScreen(kHeight - 3, 3, skin::WithAlpha(skin::kAccent, plainAlpha));
+		// The art's lower edge: a faint light line, as on a glass panel.
+		Menu_FillScreen(kHeight - 1, 1, (GXColor){255, 255, 255, static_cast<u8>(40 * artShown)});
 		Menu_FillScreen(kHeight, 2, (GXColor){0, 0, 0, 30});
 		Menu_FillScreen(kHeight + 2, 3, (GXColor){0, 0, 0, 12});
 	}
 private:
+	// The best art on the card so far (the box's front, its cover, the disc
+	// drive's box), made small and soft once (riftwii::make_backdrop), and
+	// again when better art arrives; faded in over a third of a second.
+	void UpdateArt() {
+		const u8* box = id.empty() ? nullptr : riftwii::wii::BoxTexture(id);
+		const u8* cover = box || id.empty() ? nullptr : riftwii::wii::CoverTexture(id);
+		const int rank = box ? 3 : cover ? 2 : disc && skin::discCase.data ? 1 : 0;
+		if (rank > artRank) {
+			if (box)
+				riftwii::make_backdrop(box, riftwii::kBoxWidth, riftwii::kBoxHeight, riftwii::kBoxSpineWidth,
+					riftwii::kBoxSpineWidth + riftwii::kBoxFrontWidth, art);
+			else if (cover)
+				riftwii::make_backdrop(cover, riftwii::kCoverWidth, riftwii::kCoverHeight, 0, riftwii::kCoverWidth, art);
+			else
+				riftwii::make_backdrop(skin::discCase.data, skin::discCase.w, skin::discCase.h, 0, skin::discCase.w, art,
+					true);
+			DCFlushRange(art, sizeof(art));
+			GX_InvalidateTexAll();
+			artRank = rank;
+		}
+		if (artRank > 0 && artShown < 1.0f) artShown = std::min(1.0f, artShown + 0.06f);
+	}
+	// The art across the band, the whole screen wide: the upper part of the
+	// picture (a box's title and colours), dimmed to about half, darker
+	// towards the bottom where the facts are; then the theme's tint.
+	void DrawArt() {
+		f32 vx, vy, vw, vh;
+		Menu_VisibleArea(&vx, &vy, &vw, &vh);
+		const u8 a = static_cast<u8>(255 * artShown);
+		skin::DrawRgb5a3Region(art, riftwii::kBackdropWidth, riftwii::kBackdropHeight, 0.0f, 0.06f, 1.0f, 0.46f, vx - 8,
+			vy - 8, vw + 16, kHeight - vy + 8, (GXColor){128, 128, 134, a}, (GXColor){92, 92, 98, a});
+		const GXColor tint = skin::BannerTint();
+		if (tint.a > 0) Menu_FillScreen(-1000, 1000 + kHeight, skin::WithAlpha(tint, a));
+	}
 	// One copy of the stripes at x, cut to the screen and the band first:
 	// the copies at the sides of a widescreen menu ran some 530 units past
 	// the screen, and a console draws a polygon that runs far past it
 	// wrongly at times (7f1ad1d); a tester's 16:9 TV showed a bright bar
 	// where two copies meet. Dolphin draws either way the same.
-	void Stripes(int x) {
+	void Stripes(int x, int alpha) {
 		const skin::Tex& t = skin::bannerStripes;
 		if (!t.data) return;
 		f32 vx, vy, vw, vh;
@@ -3366,10 +3411,50 @@ private:
 		const float y0 = std::max(top, vy), y1 = std::min<float>(top + t.h, kHeight);
 		if (x1 <= x0 || y1 <= y0) return;
 		Menu_DrawImgPart(x0, y0, x1 - x0, y1 - y0, static_cast<u16>(t.w), static_cast<u16>(t.h), t.data,
-			(x0 - x) / t.w, (y0 - top) / t.h, (x1 - x) / t.w, (y1 - top) / t.h, 255);
+			(x0 - x) / t.w, (y0 - top) / t.h, (x1 - x) / t.w, (y1 - top) / t.h, alpha);
+	}
+	GXColor hue;
+	std::string id;
+	bool disc;
+	alignas(32) u8 art[riftwii::kBackdropBytes];
+	int artRank = 0;  // 0 none yet, 1 the disc drive's box, 2 the cover, 3 the box's front
+	float artShown = 0.0f;
+};
+
+// Text over a picture (the game page's band): a drop shadow, a dark
+// outline all round, then the text itself, so it reads on any art. The
+// text goes at (x, y), from its top left, in `color`.
+class OutlinedText : public GuiElement {
+public:
+	OutlinedText(GuiText& text, int x, int y, GXColor color, int outline, int drop)
+		: text(text), x(x), y(y), color(color), outline(outline), drop(drop) {
+		text.SetParent(this);
+		Place(text, x, y);
+	}
+	void Draw() override {
+		text.SetColor((GXColor){0, 0, 0, 255});
+		// The shadow, softer and lower; then the outline: every offset
+		// within its radius (8 at 1, 20 at 2).
+		text.SetAlpha(110);
+		text.SetPosition(x + 1, y + outline + drop);
+		text.Draw();
+		text.SetAlpha(225);
+		for (int dy = -outline; dy <= outline; ++dy)
+			for (int dx = -outline; dx <= outline; ++dx) {
+				if ((dx == 0 && dy == 0) || dx * dx + dy * dy > outline * outline + 1) continue;
+				text.SetPosition(x + dx, y + dy);
+				text.Draw();
+			}
+		text.SetColor(color);
+		text.SetAlpha(255);
+		text.SetPosition(x, y);
+		text.Draw();
 	}
 private:
-	GXColor hue;
+	GuiText& text;
+	int x, y;
+	GXColor color;
+	int outline, drop;
 };
 
 // A white card at (x, y) drawn from a panel texture.
@@ -5030,11 +5115,26 @@ static constexpr int kTilesW = kTilesRight - kTilesX;
 // The game's box on its page: the front of its full cover when one is
 // kept (the shelf's, wii/menu/boxart.hpp), else its small cover made
 // larger, else the disc drive's box for a disc, else the game's colour.
+// The art fills the box with slightly rounded corners of its own (a real
+// case's), over a soft drop shadow; a frame with larger corners around it
+// cut the art's corners off.
 class HeroCover : public GuiElement {
 public:
 	HeroCover(std::string id, bool disc, GXColor hue) : id(std::move(id)), disc(disc), hue(hue) {}
+	HeroCover(const HeroCover&) = delete;
+	HeroCover& operator=(const HeroCover&) = delete;
+	~HeroCover() override { free(rounded); }
 	void Draw() override {
 		const float x = kHeroX, y = kHeroY, w = kHeroW, h = kHeroH;
+		if (const u8* art = RoundedArt()) {
+			// A drop shadow, as if the box stood a little off the page, lit
+			// from above.
+			constexpr float kDrop = 6.0f;
+			const float m = riftwii::kShadowMargin;
+			skin::DrawNine(skin::dropShadow9, x - m + 2, y - m + kDrop, w + 2 * m - 4, h + 2 * m, riftwii::kShadowCorner);
+			skin::DrawRgb5a3Part(art, roundedW, roundedH, 0.0f, 1.0f, x, y, w, h);
+			return;
+		}
 		skin::DrawNine(skin::card9, x - 8, y - 8, w + 16, h + 16, riftwii::kCardCorner);
 		const float ax = x + 4, ay = y + 4, aw = w - 8, ah = h - 8;
 		if (const u8* box = id.empty() ? nullptr : riftwii::wii::BoxTexture(id)) {
@@ -5052,9 +5152,39 @@ public:
 		}
 	}
 private:
+	// The corners' radius as drawn: about a real case's, in proportion.
+	static constexpr float kArtCorner = 6.0f;
+	// The box's front (or the cover) with its corners rounded off
+	// (riftwii::round_corners), made again whenever the art changes.
+	const u8* RoundedArt() {
+		if (id.empty()) return nullptr;
+		const u8* box = riftwii::wii::BoxTexture(id);
+		const u8* cover = box ? nullptr : riftwii::wii::CoverTexture(id);
+		const u8* from = box ? box : cover;
+		if (!from) return nullptr;
+		if (from == roundedFrom) return rounded;
+		constexpr std::size_t kBytes = static_cast<std::size_t>(riftwii::kBoxFrontWidth) * riftwii::kBoxHeight * 2;
+		if (!rounded) rounded = static_cast<u8*>(memalign(32, kBytes));
+		if (!rounded) return nullptr;
+		roundedW = box ? riftwii::kBoxFrontWidth : riftwii::kCoverWidth;
+		roundedH = box ? riftwii::kBoxHeight : riftwii::kCoverHeight;
+		const float texels = kArtCorner * roundedW / kHeroW;
+		const bool made = box ? riftwii::round_corners(box, riftwii::kBoxWidth, riftwii::kBoxHeight, riftwii::kBoxSpineWidth,
+						 riftwii::kBoxSpineWidth + riftwii::kBoxFrontWidth, texels, rounded)
+				      : riftwii::round_corners(cover, riftwii::kCoverWidth, riftwii::kCoverHeight, 0,
+						 riftwii::kCoverWidth, texels, rounded);
+		if (!made) return nullptr;
+		DCFlushRange(rounded, kBytes);
+		GX_InvalidateTexAll();
+		roundedFrom = from;
+		return rounded;
+	}
 	std::string id;
 	bool disc;
 	GXColor hue;
+	u8* rounded = nullptr;  // kBoxFrontWidth x kBoxHeight at most, 32-aligned
+	const u8* roundedFrom = nullptr;
+	int roundedW = 0, roundedH = 0;
 };
 
 // The band's line of facts: the ID, the year, the genre, how many play,
@@ -5333,18 +5463,40 @@ static int MenuHome(FrontendState& state)
 	// A console's game page: the game's box on the left, over the band's
 	// edge; its name and a line of facts in the band; tiles to the right,
 	// Play first and largest. All inside a TV's overscan.
-	GameBanner banner(skin::HueFor(state.game_id));
-	HeroCover hero(state.game_id, !state.use_usb && !state.use_sd, skin::HueFor(state.game_id));
-	const std::string where = SourceWhere(state);
-	GuiText whereTxt(where.c_str(), 15, skin::WithAlpha(skin::kWhite, 210));
-	Place(whereTxt, kTilesX, 28);  // inside a TV's overscan (y 24)
+	const bool fromDisc = !state.use_usb && !state.use_sd;
+	GameBanner banner(skin::HueFor(state.game_id), state.game_id, fromDisc);
+	HeroCover hero(state.game_id, fromDisc, skin::HueFor(state.game_id));
+	// The band's text, as a store page heads a game: where it is as a small
+	// capital overline, the name large (as large as fits on one line, two
+	// smaller lines for a long one), the facts under it; each outlined in
+	// black over a drop shadow (OutlinedText), so it reads on bright art.
+	std::string where = tr(SourceWhere(state).c_str());
+	for (char& ch : where)
+		if (ch >= 'a' && ch <= 'z') ch = static_cast<char>(ch - 'a' + 'A');
+	// Centred in the band (y 24, the overscan's edge, to 120), the facts
+	// ending some 16 above its lower edge.
+	constexpr int kWhereY = 30;
+	const GXColor kWhereInk = {225, 228, 235, 255}, kFactsInk = {235, 237, 242, 255};
+	GuiText whereTxt(where.c_str(), 13, kWhereInk);
 	const std::string title = GameTitle(state);
-	GuiText titleTxt(title.c_str(), 24, skin::kWhite);
-	Place(titleTxt, kTilesX, 44);
-	titleTxt.SetWrap(true, kTilesW, 2);
-	GuiText factsTxt(GameFacts(state).c_str(), 15, skin::WithAlpha(skin::kWhite, 225));
-	Place(factsTxt, kTilesX, 100);
+	GuiText titleTxt(title.c_str(), 28, skin::kWhite);
+	int titleSize = 28;
+	while (titleSize > 22 && titleTxt.GetTextWidth() > kTilesW) titleTxt.SetFontSize(--titleSize);
+	// A name too long for one line: two lines of 19 (to y 88), the facts
+	// a little lower.
+	const bool titleWraps = titleTxt.GetTextWidth() > kTilesW;
+	if (titleWraps) {
+		titleSize = 19;
+		titleTxt.SetFontSize(titleSize);
+		titleTxt.SetWrap(true, kTilesW, 2);
+	}
+	const int titleY = titleWraps ? 44 : 48, factsY = titleWraps ? 92 : 86;
+	const std::string facts = GameFacts(state);
+	GuiText factsTxt(facts.c_str(), 15, kFactsInk);
 	factsTxt.SetMaxWidth(kTilesW);
+	OutlinedText whereOutlined(whereTxt, kTilesX + 1, kWhereY, kWhereInk, 1, 1);
+	OutlinedText titleOutlined(titleTxt, kTilesX, titleY, skin::kWhite, 2, 2);
+	OutlinedText factsOutlined(factsTxt, kTilesX, factsY, kFactsInk, 1, 1);
 
 	GuiTiles tileGrid;
 	tileGrid.SetTiles(&tiles);
@@ -5378,9 +5530,9 @@ static int MenuHome(FrontendState& state)
 	GuiWindow w(screenwidth, screenheight);
 	w.Append(&banner);
 	w.Append(&hero);
-	w.Append(&whereTxt);
-	w.Append(&titleTxt);
-	w.Append(&factsTxt);
+	w.Append(&whereOutlined);
+	w.Append(&titleOutlined);
+	w.Append(&factsOutlined);
 	w.Append(&tileGrid);
 	w.Append(&statusTxt);
 	w.Append(&backBtn.button);
@@ -7036,7 +7188,8 @@ static void ShowLaunchFrame(const FrontendState& state, int action)
 	const char* doing = action == MENU_DUMP ? tr("Dumping files from")
 		: action == MENU_CHANNEL ? tr("Opening the installer for") : tr("Starting");
 	// The game page's band in the game's colour, as the page it starts from.
-	GameBanner banner(skin::HueFor(action == MENU_CHANNEL ? std::string("RIFTWII") : state.game_id));
+	GameBanner banner(skin::HueFor(action == MENU_CHANNEL ? std::string("RIFTWII") : state.game_id),
+		action == MENU_CHANNEL ? std::string() : state.game_id, !state.use_usb && !state.use_sd);
 	GuiText doingTxt(doing, 16, skin::WithAlpha(skin::kWhite, 200));
 	Place(doingTxt, 40, 10);
 	GuiText titleTxt(title.c_str(), 28, skin::kWhite);

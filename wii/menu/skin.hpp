@@ -33,6 +33,7 @@ struct Tex {
 // Built by Init(); each has a transparent margin for its shadow or glow.
 extern Tex keys[4];                      // 40x40 search keys (riftwii::paint_key), nine-sliced
 extern Tex card9;                        // 64x64 card (riftwii::paint_card9), nine-sliced
+extern Tex dropShadow9;                  // 64x64 soft shadow (riftwii::paint_drop_shadow9), nine-sliced
 extern Tex capsule9;                     // 48x48 outlined black capsule, nine-sliced
 // A theme with home_menu = ios6 (HomeIos6): the HOME Menu's red button,
 // its Close and the linen behind it.
@@ -102,6 +103,8 @@ bool Ready();
 
 // A colour of the tile palette for a game ID (stable across runs).
 GXColor HueFor(const std::string& id);
+// The theme's banner_tint (its alpha says how much of it is mixed in).
+GXColor BannerTint();
 
 // `alpha` 0-255; `scale` about the texture's centre.
 void Draw(const Tex& t, float x, float y, int alpha = 255, float scale = 1.0f);
@@ -114,6 +117,11 @@ void DrawRgb5a3(const u8* data, int w, int h, float x, float y, int alpha = 255,
 // the dw x dh box at (x, y): the front of a game's box (wii/menu/boxart.hpp).
 void DrawRgb5a3Part(const u8* data, int w, int h, float u0, float u1, float x, float y, float dw, float dh,
                     int alpha = 255);
+// Texels [u0, u1) x [v0, v1) of a w x h RGB5A3 texture drawn at (x, y),
+// dw x dh, its colour multiplied by `top` along the top edge and `bottom`
+// along the bottom (a darkening gradient, or a fade).
+void DrawRgb5a3Region(const u8* data, int w, int h, float u0, float v0, float u1, float v1, float x, float y, float dw,
+                      float dh, GXColor top, GXColor bottom);
 
 // Whether the menu is drawn for a 16:9 TV (Menu_SafeArea wider than 640).
 bool WideMenu();

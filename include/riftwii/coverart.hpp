@@ -76,4 +76,12 @@ constexpr int kBackdropHeight = 44;
 constexpr std::size_t kBackdropBytes = static_cast<std::size_t>(kBackdropWidth) * kBackdropHeight * 2;
 void make_backdrop(const std::uint8_t* tiles, int w, int h, int x0, int x1, std::uint8_t* out, bool rgba8 = false);
 
+// A game page's box: columns [x0, x1) of a w x h RGB5A3 texture (4x4
+// tiles) copied as (x1 - x0) x h tiles into `out`, its four corners
+// rounded off with this radius in texels: outside the curve see-through,
+// on it partly (RGB5A3's 3-bit alpha), so the edge is smooth. x0, x1 and
+// h are multiples of 4; `out` holds (x1 - x0) * h * 2 bytes. False (and
+// `out` untouched) when they don't fit.
+bool round_corners(const std::uint8_t* tiles, int w, int h, int x0, int x1, float radius, std::uint8_t* out);
+
 }  // namespace riftwii

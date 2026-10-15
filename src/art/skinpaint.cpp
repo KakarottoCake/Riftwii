@@ -879,6 +879,15 @@ void paint_key(const Theme& theme, int kind, Canvas& out) {
 
 void paint_card9(const Theme& theme, Canvas& out) { out = Painter(theme).Sheet(48, 48, 8, 14); }
 
+void paint_drop_shadow9(const Theme& theme, Canvas& out) {
+    // The theme's shadow is a faint edge under cards; a box lifted off the
+    // page casts a deeper one.
+    Rgba deep = ToRgba(theme.colors.shadow);
+    deep.a = static_cast<std::uint8_t>(std::min(150, std::max(110, deep.a * 3)));
+    out = Canvas(64, 64);
+    out.shadow(kShadowMargin, kShadowMargin, 64 - 2 * kShadowMargin, 64 - 2 * kShadowMargin, 6, kShadowMargin, deep);
+}
+
 void paint_home_danger(const Theme& theme, bool over, Canvas& out) { out = Painter(theme).IosButton(over, true); }
 
 void paint_ios_bar_button(const Theme& theme, bool over, Canvas& out) { out = Painter(theme).IosBarButton(over); }

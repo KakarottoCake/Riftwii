@@ -268,6 +268,37 @@ void make_backdrop(const std::uint8_t* tiles, int w, int h, int x0, int x1, std:
                 }
 }
 
+bool round_corners(const std::uint8_t* tiles, int w, int h, int x0, int x1, float radius, std::uint8_t* out) {
+    if (!tiles || !out || w <= 0 || h <= 0 || w % 4 || h % 4 || x0 < 0 || x0 % 4 || x1 % 4 || x1 > w || x1 <= x0)
+        return false;
+    const int ow = x1 - x0;
+    const float r = std::clamp(radius, 0.0f, std::min(ow, h) / 2.0f);
+    for (int y = 0; y < h; ++y)
+        for (int x = 0; x < ow; ++x) {
+            const std::size_t from = (static_cast<std::size_t>(y / 4) * (w / 4) + (x + x0) / 4) * 32 +
+                                     static_cast<std::size_t>((y % 4) * 4 + (x + x0) % 4) * 2;
+            const std::size_t to = (static_cast<std::size_t>(y / 4) * (ow / 4) + x / 4) * 32 +
+                                   static_cast<std::size_t>((y % 4) * 4 + x % 4) * 2;
+            out[to] = tiles[from];
+            out[to + 1] = tiles[from + 1];
+            // How far into a corner's square the texel's middle is; inside
+            // one, how much of the texel the curve keeps.
+            const float px = x + 0.5f, py = y + 0.5f;
+            const float dx = px < r ? r - px : px > ow - r ? px - (ow - r) : 0.0f;
+            const float dy = py < r ? r - py : py > h - r ? py - (h - r) : 0.0f;
+            if (dx <= 0.0f || dy <= 0.0f) continue;
+            const float keep = std::clamp(r - std::sqrt(dx * dx + dy * dy) + 0.5f, 0.0f, 1.0f);
+            if (keep >= 1.0f) continue;
+            std::uint8_t p[4];
+            from_rgb5a3(static_cast<std::uint16_t>((tiles[from] << 8) | tiles[from + 1]), p);
+            p[3] = static_cast<std::uint8_t>(p[3] * keep + 0.5f);
+            const std::uint16_t v = rgb5a3(p);
+            out[to] = static_cast<std::uint8_t>(v >> 8);
+            out[to + 1] = static_cast<std::uint8_t>(v);
+        }
+    return true;
+}
+
 bool box_header_valid(const std::uint8_t* h) {
     return h && h[0] == 'R' && h[1] == 'W' && h[2] == 'B' && h[3] == '2' && ((h[4] << 8) | h[5]) == kBoxWidth &&
            ((h[6] << 8) | h[7]) == kBoxHeight;
