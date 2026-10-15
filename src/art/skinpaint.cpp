@@ -224,10 +224,11 @@ struct Painter {
         // border (uneven, thicker at the foot) on a tester's TV.
         if (over) c.shadow(3, 3, 74, 74, 37, 3.0f, glow, 2.0f);
         c.shadow(3, 4, 74, 74, 37, 2.5f, shadow, 2.0f);
-        // The rim: the card's colour shaded top to bottom, a fine light edge
-        // round it.
+        // The rim: the card's colour shaded top to bottom, a clear edge the
+        // same all round it and a white line just inside.
         c.rounded_gradient(3, 3, 74, 74, 37, shade(card, 1.0f), shade(card, 0.86f));
-        c.ring(40, 40, 37, 1.0f, Mix(edge, card, 0.35f));
+        c.ring(40, 40, 37, 2.0f, Mix(edge_strong, Rgba{0, 0, 0, 255}, 0.3f));
+        c.ring(40, 40, 35.0f, 1.0f, Rgba{255, 255, 255, 200});
         // The accent's ring, and the face inside it, light at the top.
         c.ring(40, 40, 31.5f, over ? 4.0f : 3.2f, accent);
         c.rounded_gradient(11.5f, 11.5f, 57, 57, 28.5f, shade(card, 1.04f), shade(card, 0.90f));
