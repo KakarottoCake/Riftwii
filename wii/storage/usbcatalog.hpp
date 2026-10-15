@@ -45,6 +45,7 @@ struct ImageGame {
     RvzSupport rvz_support = RvzSupport::Supported;
     std::vector<std::string> rvz_reasons;
     std::uint64_t rvz_disc_bytes = 0;
+    std::uint32_t rvz_chunk_bytes = 0;  // its block size (Dolphin's word), filled then too
 };
 
 struct ImageCatalog {

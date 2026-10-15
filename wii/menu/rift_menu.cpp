@@ -54,6 +54,7 @@
 #include "bannerplay.hpp"
 #include "banners.hpp"
 #include "bannersound.hpp"
+#include "riftwii/gxpatches.hpp"
 #include "riftwii/offlinegames.hpp"
 #include "riftwii/titles.hpp"
 #include "riftwii/bnr.hpp"
@@ -1445,6 +1446,20 @@ static std::string LaunchNote(const FrontendState& state)
 	if (HomebrewAppPackOn(state)) {
 		if (!note.empty()) note += " ";
 		note += tr(kHomebrewAppWarning);
+	}
+	// An RVZ's reader keeps a block as stored and as decoded, and the
+	// decoder's 48 KB, in the game's MEM2: about 300 KB with Dolphin's
+	// default 128 KiB blocks, 112 KB with 32 KiB ones.
+	{
+		const riftwii::wii::LaunchSource source = riftwii::wii::SelectedSource(state);
+		const std::uint32_t block_kib = source.game.rvz_chunk_bytes / 1024;
+		if (source.kind != riftwii::wii::LaunchSource::Kind::Disc &&
+		    source.game.format == riftwii::UsbImageFormat::Rvz && block_kib > 32 &&
+		    riftwii::game_needs_most_of_mem2(state.game_id)) {
+			if (!note.empty()) note += " ";
+			note += tr("This game needs nearly all of the Wii's memory, and this RVZ's {1} KiB blocks take about {2} KB of it in game: Newer Super Mario Bros. Wii crashed that way. If it crashes, convert the RVZ again in Dolphin with a block size of 32 KiB.",
+			           {std::to_string(block_kib), std::to_string(2 * block_kib + 48)});
+		}
 	}
 	if (PacksOnUsb(state)) {
 		if (!note.empty()) note += " ";

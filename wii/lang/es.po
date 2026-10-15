@@ -822,6 +822,9 @@ msgstr "La música está activada, pero no hay nada que sonar: pon un music.ogg 
 msgid "On a Wii U the GameCube adapter may not work in game from the front USB ports; the rear ones work."
 msgstr "En una Wii U, el adaptador de GameCube puede no funcionar en el juego desde los puertos USB delanteros; los traseros sí funcionan."
 
+msgid "This game needs nearly all of the Wii's memory, and this RVZ's {1} KiB blocks take about {2} KB of it in game: Newer Super Mario Bros. Wii crashed that way. If it crashes, convert the RVZ again in Dolphin with a block size of 32 KiB."
+msgstr "Este juego necesita casi toda la memoria de la Wii, y los bloques de {1} KiB de este RVZ ocupan unos {2} KB durante el juego: así se colgaba Newer Super Mario Bros. Wii. Si se cuelga, vuelve a convertir el RVZ en Dolphin con un tamaño de bloque de 32 KiB."
+
 msgid "Packs on USB are experimental; if it fails, copy them to SD."
 msgstr "Los packs en USB son experimentales; si falla, cópialos a la SD."
 

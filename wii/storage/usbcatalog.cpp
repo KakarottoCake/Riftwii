@@ -579,6 +579,7 @@ bool open_rvz_game(const ImageVolume& volume, const std::string& prefix, ImageGa
     game.rvz_support = verdict.support;
     game.rvz_reasons = verdict.reasons;
     game.rvz_disc_bytes = head.iso_size;
+    game.rvz_chunk_bytes = head.chunk_size;
     game.checked = true;
     logf("  %s\n", describe_rvz(head).c_str());
     for (const std::string& r : game.rvz_reasons) logf("  %s\n", r.c_str());

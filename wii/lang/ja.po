@@ -822,6 +822,9 @@ msgstr "音楽はオンですが、流す曲がありません。sd:/riftwiiにm
 msgid "On a Wii U the GameCube adapter may not work in game from the front USB ports; the rear ones work."
 msgstr "Wii Uでは、前面のUSBポートだとゲーム中にゲームキューブアダプターが動かないことがあります。背面のポートなら動きます。"
 
+msgid "This game needs nearly all of the Wii's memory, and this RVZ's {1} KiB blocks take about {2} KB of it in game: Newer Super Mario Bros. Wii crashed that way. If it crashes, convert the RVZ again in Dolphin with a block size of 32 KiB."
+msgstr "このゲームはWiiのメモリをほぼすべて使います。このRVZの{1} KiBのブロックはゲーム中に約{2} KBを使うため、Newer Super Mario Bros. Wiiはこれで止まりました。止まる場合は、DolphinでRVZをブロックサイズ32 KiBで変換し直してください。"
+
 msgid "Packs on USB are experimental; if it fails, copy them to SD."
 msgstr "USBのパックは試験的な機能です。うまくいかない場合はSDにコピーしてください。"
 

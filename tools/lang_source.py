@@ -725,6 +725,13 @@ T = {
         "Wii Uでは、前面のUSBポートだとゲーム中にゲームキューブアダプターが動かないことがあります。背面のポートなら動きます。",
         "No Wii U, o adaptador de GameCube pode não funcionar no jogo pelas portas USB da frente; as de trás funcionam.",
         "Su Wii U l'adattatore GameCube potrebbe non funzionare in gioco dalle porte USB anteriori; quelle posteriori funzionano."),
+    # A game that needs nearly all of MEM2, from an RVZ with big blocks: {1}
+    # the block size in KiB, {2} what the RVZ's reader takes in game, in KB.
+    "This game needs nearly all of the Wii's memory, and this RVZ's {1} KiB blocks take about {2} KB of it in game: Newer Super Mario Bros. Wii crashed that way. If it crashes, convert the RVZ again in Dolphin with a block size of 32 KiB.": (
+        "Este juego necesita casi toda la memoria de la Wii, y los bloques de {1} KiB de este RVZ ocupan unos {2} KB durante el juego: así se colgaba Newer Super Mario Bros. Wii. Si se cuelga, vuelve a convertir el RVZ en Dolphin con un tamaño de bloque de 32 KiB.",
+        "このゲームはWiiのメモリをほぼすべて使います。このRVZの{1} KiBのブロックはゲーム中に約{2} KBを使うため、Newer Super Mario Bros. Wiiはこれで止まりました。止まる場合は、DolphinでRVZをブロックサイズ32 KiBで変換し直してください。",
+        "Este jogo precisa de quase toda a memória do Wii, e os blocos de {1} KiB deste RVZ ocupam cerca de {2} KB dela durante o jogo: foi assim que o Newer Super Mario Bros. Wii travou. Se travar, converta o RVZ de novo no Dolphin com um tamanho de bloco de 32 KiB.",
+        "Questo gioco usa quasi tutta la memoria del Wii, e i blocchi da {1} KiB di questo RVZ ne occupano circa {2} KB durante il gioco: Newer Super Mario Bros. Wii si bloccava così. Se si blocca, riconverti l'RVZ in Dolphin con una dimensione dei blocchi di 32 KiB."),
     # Packs on USB
     "Packs on USB are experimental; if it fails, copy them to SD.": (
         "Los packs en USB son experimentales; si falla, cópialos a la SD.",
@@ -2286,6 +2293,8 @@ KO = {
         "음악이 켜져 있지만 재생할 음악이 없습니다. sd:/riftwii에 music.ogg를 넣거나 음악이 있는 테마를 고르세요.",
     "On a Wii U the GameCube adapter may not work in game from the front USB ports; the rear ones work.":
         "Wii U에서 게임큐브 어댑터를 전면 USB 포트에 연결하면 게임 중에 작동하지 않을 수 있으나, 후면 포트에서는 정상적으로 작동합니다.",
+    "This game needs nearly all of the Wii's memory, and this RVZ's {1} KiB blocks take about {2} KB of it in game: Newer Super Mario Bros. Wii crashed that way. If it crashes, convert the RVZ again in Dolphin with a block size of 32 KiB.":
+        "이 게임은 Wii의 메모리를 거의 전부 사용하며, 이 RVZ의 {1} KiB 블록은 게임 중에 약 {2} KB를 차지합니다. Newer Super Mario Bros. Wii가 이 때문에 멈췄습니다. 멈추면 Dolphin에서 블록 크기 32 KiB로 RVZ를 다시 변환하세요.",
     "Packs on USB are experimental; if it fails, copy them to SD.":
         "USB의 팩은 실험적인 기능입니다. 실패할 경우 SD 카드로 복사하세요.",
     "CTGP Revolution (a pack that starts a Homebrew Channel app) does not work from RiftWii yet: it stops on a black or green screen. Start CTGP from the Homebrew Channel instead.":
@@ -3623,6 +3632,8 @@ FR = {
         "La musique est activée, mais il n'y a rien à jouer : mettez un music.ogg dans sd:/riftwii ou choisissez un thème avec musique.",
     "On a Wii U the GameCube adapter may not work in game from the front USB ports; the rear ones work.":
         "Sur Wii U, l'adaptateur GameCube peut ne pas fonctionner sur les ports USB avant; utilisez les ports arrière.",
+    "This game needs nearly all of the Wii's memory, and this RVZ's {1} KiB blocks take about {2} KB of it in game: Newer Super Mario Bros. Wii crashed that way. If it crashes, convert the RVZ again in Dolphin with a block size of 32 KiB.":
+        "Ce jeu utilise presque toute la mémoire de la Wii, et les blocs de {1} Kio de ce RVZ en prennent environ {2} Ko pendant le jeu: c'est ainsi que Newer Super Mario Bros. Wii plantait. S'il plante, reconvertissez le RVZ dans Dolphin avec une taille de bloc de 32 Kio.",
     "Packs on USB are experimental; if it fails, copy them to SD.":
         "Les packs sur USB sont expérimentaux; en cas de problème, copiez-les sur la carte SD.",
     "CTGP Revolution (a pack that starts a Homebrew Channel app) does not work from RiftWii yet: it stops on a black or green screen. Start CTGP from the Homebrew Channel instead.":

@@ -53,6 +53,9 @@ bool game_clears_mem1_top(const std::string& game_id);
 // (an RVZ's reads, a pack's files) cannot move its code to the top of MEM2
 // for them, and stays below the FST, where the game overwrites it.
 bool game_runs_no_mem2_code(const std::string& game_id);
+// Games that need nearly all of MEM2, so the few hundred KB an RVZ's reader
+// takes in game can be too much (the menu says so before an RVZ launch).
+bool game_needs_most_of_mem2(const std::string& game_id);
 
 // Games whose main.dol only starts another executable on the disc (EA's
 // 2007 games among them): the FST index of the one to start in its place,

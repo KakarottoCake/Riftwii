@@ -213,6 +213,12 @@ bool game_clears_mem1_top(const std::string& id) {
 // its first disc read (Dolphin: an instruction fetch from 0x93572248).
 bool game_runs_no_mem2_code(const std::string& id) { return id_is(id, "RGQ"); }
 
+// New Super Mario Bros. Wii (SMN), the game Newer and the other big NSMBW
+// mods run on: Newer v1.30 crashed from a 128 KiB-block RVZ on a tester's
+// Wii U (2610-408), and in Dolphin it dies at its start with 352 KiB less
+// MEM2 than it gets from a disc.
+bool game_needs_most_of_mem2(const std::string& id) { return id_is(id, "SMN"); }
+
 std::uint32_t game_start_file(const std::string& id) {
     // Game ID, FST index of the executable to start.
     static const struct {
