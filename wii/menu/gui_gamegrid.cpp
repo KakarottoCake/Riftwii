@@ -10,6 +10,7 @@
 #include "menutheme.hpp"
 #include "riftwii/coverart.hpp"
 #include "riftwii/titles.hpp"
+#include "riftwii/skinpaint.hpp"
 #include "skin.hpp"
 #include "wiidrc.h"
 
@@ -130,7 +131,7 @@ float GuiGameGrid::Stretch() const {
 
 const GuiGameGrid::Geometry& GuiGameGrid::Geo() const {
     // The top row starts 6 below the overscan's edge (y 24): room for the lit ring.
-    static const Geometry names = {kNameCols, 124, 84, 57, 30, 10, 12};
+    static const Geometry names = {kNameCols, 120, 84, 61, 30, 13, 12};  // clear of the search button (x 568)
     static const Geometry coverGrid = {kCoverCols, static_cast<int>(riftwii::kCoverWidth * kCoverScale + 0.5f),
                                        static_cast<int>(riftwii::kCoverHeight * kCoverScale + 0.5f), 78, 30, 8, 12};
     const float k = Stretch();
@@ -493,15 +494,18 @@ void GuiGameGrid::DrawChannelLabel(int slot, int alpha) {
         caption->SetText(Fit((*items)[shown].title, 220).c_str());
         measure->SetFontSize(kTitleSize);
     }
+    // A pill under the tile, overlapping its foot, as the Wii Menu labels
+    // a channel; inside a TV's overscan.
     const int textW = caption->GetTextWidth();
-    const int boxW = textW + 18, boxH = kChannelLabelSize + 10;
+    const int boxW = textW + 28, boxH = 28;
     int x = TileX(slot) + Geo().tileW / 2 - boxW / 2;
     x = x < 32 ? 32 : x + boxW > 608 ? 608 - boxW : x;
-    const int y = TileY(slot) + Geo().tileH - 6;
-    Menu_DrawRectangle(x - 1, y - 1, boxW + 2, boxH + 2, skin::WithAlpha(skin::kAccent, alpha), 1);
-    Menu_DrawRectangle(x, y, boxW, boxH, skin::WithAlpha(skin::kCard, alpha), 1);
+    const int y = TileY(slot) + Geo().tileH - 8;
+    const int m = riftwii::kLabelMargin;
+    skin::DrawNine(skin::label9, x - m, y - m, boxW + 2 * m, boxH + 2 * m, riftwii::kLabelCorner, alpha);
     // The caption is centred on the screen's middle: move it to the box's.
-    caption->SetPosition(x + boxW / 2 - screenwidth / 2, y + 4);
+    // The font's letters sit low in their line: one up looks centred.
+    caption->SetPosition(x + boxW / 2 - screenwidth / 2, y + (boxH - kChannelLabelSize) / 2 - 2);
     caption->SetAlpha(alpha);
     caption->Draw();
 }
@@ -578,8 +582,14 @@ void GuiGameGrid::Draw() {
             // flags to keep their shape (its logo).
             const float tileW = Geo().tileW * s.scale, tileH = Geo().tileH * s.scale;
             const float cx = TileX(i) + Geo().tileW / 2.0f, cy = TileY(i) + Geo().tileH / 2.0f;
-            const float border = (on ? 2.5f : 1.5f) * s.scale;
+            // The icon runs to the tile's rim, drawn over its edge (the
+            // Wii Menu's channels), on the tile's card and shadow.
+            const float border = 1.0f;
             DrawTilePicture(on ? skin::tileOver : skin::tile, i, tileAlpha, s.scale);
+            const auto rim = [&]() {
+                skin::DrawNine(on ? skin::channelFrameOver9 : skin::channelFrame9, cx - tileW / 2, cy - tileH / 2, tileW,
+                               tileH, riftwii::kChannelFrameCorner, tileAlpha);
+            };
             IconBox box;
             box.clipW = tileW - 2 * border;
             box.clipH = tileH - 2 * border;
@@ -596,6 +606,17 @@ void GuiGameGrid::Draw() {
             box.y = cy - box.h / 2;
             box.alpha = tileAlpha;
             if (iconDrawer(page * kPerPage + i, box)) {
+                rim();
+                iconShown[i] = true;
+                return;
+            }
+            if ((*items)[page * kPerPage + i].badge == "DISC" && skin::iconDisc.data) {
+                // The disc drive, as the Wii Menu's Disc Channel: its disc,
+                // large in the middle of a plain channel; its name on the
+                // label when lit, as the others'.
+                const float k = std::min(box.clipH * 0.70f, box.clipW * 0.5f) / skin::iconDisc.h;
+                skin::Draw(skin::iconDisc, cx - skin::iconDisc.w / 2.0f, cy - skin::iconDisc.h / 2.0f, tileAlpha, k);
+                rim();
                 iconShown[i] = true;
                 return;
             }

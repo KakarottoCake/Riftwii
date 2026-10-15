@@ -879,6 +879,31 @@ void paint_key(const Theme& theme, int kind, Canvas& out) {
 
 void paint_card9(const Theme& theme, Canvas& out) { out = Painter(theme).Sheet(48, 48, 8, 14); }
 
+void paint_channel_frame9(const Theme& theme, bool over, Canvas& out) {
+    const Painter p(theme);
+    const float r = p.R(14);
+    out = Canvas(64, 64);
+    if (over) {
+        out.rounded_border(0, 0, 64, 64, r, 3.0f, p.accent);
+        out.rounded_border(3, 3, 58, 58, std::max(0.0f, r - 3), 1.0f, Rgba{255, 255, 255, 150});
+        return;
+    }
+    out.rounded_border(0, 0, 64, 64, r, 1.5f, p.edge_strong);
+    out.rounded_border(1.5f, 1.5f, 61, 61, std::max(0.0f, r - 1.5f), 1.5f, Painter::Mix(p.edge_strong, rgba(0xFFFFFF), 0.55f));
+    out.rounded_border(3, 3, 58, 58, std::max(0.0f, r - 3), 1.0f, Rgba{0, 0, 0, 55});
+}
+
+void paint_label9(const Theme& theme, Canvas& out) {
+    const Painter p(theme);
+    out = Canvas(48, 44);
+    const float m = static_cast<float>(kLabelMargin);
+    Rgba soft = p.shadow;
+    soft.a = static_cast<std::uint8_t>(std::min(110, soft.a * 2 + 20));
+    out.shadow(m, m + 2, 48 - 2 * m, 44 - 2 * m, 14, 5, soft);
+    out.rounded_rect(m, m, 48 - 2 * m, 44 - 2 * m, 14, p.card);
+    out.rounded_border(m, m, 48 - 2 * m, 44 - 2 * m, 14, 1.5f, p.edge_strong);
+}
+
 void paint_drop_shadow9(const Theme& theme, Canvas& out) {
     // The theme's shadow is a faint edge under cards; a box lifted off the
     // page casts a deeper one.

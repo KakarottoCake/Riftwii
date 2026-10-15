@@ -187,6 +187,8 @@ Tex clockDigits;
 Tex keys[4];
 Tex card9;
 Tex dropShadow9;
+Tex channelFrame9, channelFrameOver9;
+Tex label9;
 Tex capsule9;
 Tex homeBtnDanger, homeBtnDangerOver, iosClose, iosCloseOver, linen;
 Tex backgroundPlain, backgroundPlainWide, backgroundChannels, backgroundChannelsWide;
@@ -286,6 +288,12 @@ void Init() {
         card9 = Upload(c);
         paint_drop_shadow9(MenuTheme(), c);
         dropShadow9 = Upload(c);
+        paint_channel_frame9(MenuTheme(), false, c);
+        channelFrame9 = Upload(c);
+        paint_channel_frame9(MenuTheme(), true, c);
+        channelFrameOver9 = Upload(c);
+        paint_label9(MenuTheme(), c);
+        label9 = Upload(c);
         paint_capsule9(c);
         capsule9 = Upload(c);
         if (MenuTheme().home_ios6) {

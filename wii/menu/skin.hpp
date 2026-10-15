@@ -33,7 +33,9 @@ struct Tex {
 // Built by Init(); each has a transparent margin for its shadow or glow.
 extern Tex keys[4];                      // 40x40 search keys (riftwii::paint_key), nine-sliced
 extern Tex card9;                        // 64x64 card (riftwii::paint_card9), nine-sliced
-extern Tex dropShadow9;                  // 64x64 soft shadow (riftwii::paint_drop_shadow9), nine-sliced
+extern Tex dropShadow9;
+extern Tex channelFrame9, channelFrameOver9;  // 64x64 channel rims (riftwii::paint_channel_frame9), nine-sliced
+extern Tex label9;                       // 48x44 a lit channel's name pill (riftwii::paint_label9), nine-sliced                  // 64x64 soft shadow (riftwii::paint_drop_shadow9), nine-sliced
 extern Tex capsule9;                     // 48x48 outlined black capsule, nine-sliced
 // A theme with home_menu = ios6 (HomeIos6): the HOME Menu's red button,
 // its Close and the linen behind it.
