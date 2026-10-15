@@ -3,6 +3,7 @@
 #include "riftwii/wpadlog.hpp"
 
 #include <cctype>
+#include <cstddef>
 #include <cstdio>
 #include <cstring>
 
@@ -325,8 +326,9 @@ void apply_wpad_probe(const std::vector<CodeSpan>& spans, const WpadProbePatch& 
 }
 
 bool describe_wpad_log(const std::uint8_t* bytes, std::size_t size, std::string& text, std::string& error) {
-    constexpr std::size_t kHeader = 32;
+    constexpr std::size_t kHeader = offsetof(rtwlog_file, entries);
     constexpr std::size_t kEntry = 152;
+    static_assert(kHeader == 40, "the header layout the decoder reads");
     static_assert(sizeof(rtwlog_entry) == kEntry, "the entry layout the decoder reads");
     if (size < kHeader + kEntry * RTWLOG_ENTRIES || be32(bytes) != RTWLOG_MAGIC) {
         error = "not a Wii Remote log";
@@ -346,6 +348,19 @@ bool describe_wpad_log(const std::uint8_t* bytes, std::size_t size, std::string&
     std::snprintf(line, sizeof(line), "Wii Remote log: %s, %u message(s), %u print function(s) hooked\n",
                   game.c_str(), static_cast<unsigned>(total), static_cast<unsigned>(stubs));
     text = line;
+    // The Pro Controller test (settings.txt wpad_probe = valid).
+    const std::uint32_t probe = be32(bytes + 32), probe_at = be32(bytes + 36);
+    if (probe == RTWLOG_PROBE_CHANGED) {
+        std::snprintf(line, sizeof(line), "Pro Controller test: on, the firmware probe at 0x%08x reads 0x0016\n",
+                      static_cast<unsigned>(probe_at));
+        text += line;
+    } else if (probe == RTWLOG_PROBE_NOT_FOUND) {
+        text += "Pro Controller test: on, but the firmware probe was not found in this game; nothing changed\n";
+    } else if (probe == RTWLOG_PROBE_PROTECTED) {
+        text += "Pro Controller test: on, but this game checks its own code; nothing changed\n";
+    } else {
+        text += "Pro Controller test: off\n";
+    }
     if (total == 0) {
         text += "(the game printed nothing about its controllers)\n";
         return true;

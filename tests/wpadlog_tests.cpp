@@ -33,7 +33,7 @@ static std::vector<std::uint8_t> words(const std::vector<std::uint32_t>& list) {
 
 // A log file the way the blob leaves it.
 struct LogFile {
-    static constexpr std::size_t kHeader = 32;
+    static constexpr std::size_t kHeader = 40;
     static constexpr std::size_t kEntry = 152;
     std::vector<std::uint8_t> bytes = std::vector<std::uint8_t>(kHeader + kEntry * RTWLOG_ENTRIES, 0);
     std::uint32_t total = 0;
@@ -145,6 +145,7 @@ int main() {
         std::string text, error;
         EXPECT_TRUE(riftwii::describe_wpad_log(log.bytes.data(), log.bytes.size(), text, error));
         EXPECT_TRUE(has(text, "Wii Remote log: RMCE01, 6 message(s), 2 print function(s) hooked"));
+        EXPECT_TRUE(has(text, "Pro Controller test: off\n"));
         EXPECT_TRUE(has(text, "[   0.000] WUDSecurityCallback:\n"));
         // Eight arguments, seven kept (r4-r10): the last one shows as "?".
         EXPECT_TRUE(has(text, "DISCOVER RESULT:  xx:xx:xx:xx:xx:5f   \"Nintendo RVL-CNT-01-UC\" (?)"));
@@ -154,6 +155,23 @@ int main() {
         EXPECT_FALSE(has(text, "de:ad") || has(text, "dead"));
         EXPECT_FALSE(has(text, "1b:2c"));
         EXPECT_TRUE(has(text, "ack error --> report ID = 22, error code = 3"));
+    }
+
+    // The Pro Controller test's state, from the header.
+    {
+        LogFile log;
+        put32(log.bytes, 32, RTWLOG_PROBE_CHANGED);
+        put32(log.bytes, 36, 0x801d5a10u);
+        log.add(0.0, "hello\n", {});
+        std::string text, error;
+        EXPECT_TRUE(riftwii::describe_wpad_log(log.bytes.data(), log.bytes.size(), text, error));
+        EXPECT_TRUE(has(text, "Pro Controller test: on, the firmware probe at 0x801d5a10 reads 0x0016\n"));
+        put32(log.bytes, 32, RTWLOG_PROBE_NOT_FOUND);
+        EXPECT_TRUE(riftwii::describe_wpad_log(log.bytes.data(), log.bytes.size(), text, error));
+        EXPECT_TRUE(has(text, "the firmware probe was not found in this game"));
+        // A version 1 log (no probe state) is another version.
+        put32(log.bytes, 4, 1);
+        EXPECT_FALSE(riftwii::describe_wpad_log(log.bytes.data(), log.bytes.size(), text, error));
     }
 
     // More messages than fit: the first 320, a note, then the last 128 in order.

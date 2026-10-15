@@ -47,6 +47,8 @@ struct rt_wlog_context {
      * MEM2 it lives in is the loader's own until the jump. */
     uint32_t ticks_per_second;
     uint32_t stubs;
+    uint32_t probe;                /* RTWLOG_PROBE_*, for the header */
+    uint32_t probe_at;
 };
 
 /* The blob's memory in MEM2: the file first (32-aligned for IOS). */

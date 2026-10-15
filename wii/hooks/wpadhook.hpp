@@ -35,6 +35,10 @@ struct WpadLogHook {
     std::uint32_t state_bytes = 0;
     std::uint32_t new_arena1_hi = 0;
     std::uint32_t new_arena2_lo = 0;
+    // What the Pro Controller test did to the firmware probe (RTWLOG_PROBE_*),
+    // kept in the log's header: boot.log ends before it is done.
+    std::uint32_t probe = 0;
+    std::uint32_t probe_at = 0;
 };
 
 // The menu saw a Wii U Pro Controller (DescribeControllers, as the menu

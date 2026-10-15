@@ -223,6 +223,8 @@ bool install_wpad_log(WpadLogHook& hook, std::string& why) {
         return false;
     }
     ctx->stubs = hooked;
+    ctx->probe = hook.probe;
+    ctx->probe_at = hook.probe_at;
     sync_code(hook.code_base, hook.code_bytes);
     for (std::size_t i = 0; i < hook.stubs.size(); ++i) {
         if (branches[i] == 0) continue;

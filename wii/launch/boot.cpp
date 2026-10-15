@@ -44,6 +44,7 @@
 #include "faulthook.hpp"
 #include "shothook.hpp"
 #include "vsdhook.hpp"
+#include "rtwlog.h"
 #include "wpadhook.hpp"
 #include "sdfile.hpp"
 #include "sdio.hpp"
@@ -1945,10 +1946,14 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         WpadProbePatch probe_patch;
         std::string why;
         if (gx_protected) {
+            wlog.probe = RTWLOG_PROBE_PROTECTED;
             logf("Wii Remote probe: not changed: the game checks its own code (MetaFortress)\n");
         } else if (!find_wpad_probe(loaded_spans, probe_patch, why)) {
+            wlog.probe = RTWLOG_PROBE_NOT_FOUND;
             logf("Wii Remote probe: not changed: %s\n", why.c_str());
         } else {
+            wlog.probe = RTWLOG_PROBE_CHANGED;
+            wlog.probe_at = probe_patch.probe;
             apply_wpad_probe(loaded_spans, probe_patch);
             sync_loaded();
             logf("Wii Remote probe: reads 0x0016 instead of 0x1770 (0x%08x), its answer handled as a Wii Remote's "

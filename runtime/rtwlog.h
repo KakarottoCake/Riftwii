@@ -21,7 +21,13 @@ extern "C" {
 #endif
 
 #define RTWLOG_MAGIC 0x5257574Cu   /* "RWWL" */
-#define RTWLOG_VERSION 1u
+#define RTWLOG_VERSION 2u           /* 2: the Pro Controller probe's state in the header */
+/* rtwlog_file.probe: what the loader did to the Wii Remote library's
+ * firmware probe (riftwii/wpadlog.hpp, settings.txt "wpad_probe"). */
+#define RTWLOG_PROBE_NOT_ASKED 0u   /* the test is off */
+#define RTWLOG_PROBE_CHANGED 1u     /* reads 0x0016, at probe_at */
+#define RTWLOG_PROBE_NOT_FOUND 2u   /* the game's code did not match */
+#define RTWLOG_PROBE_PROTECTED 3u   /* the game checks its own code (MetaFortress) */
 #define RTWLOG_FIRST 320u
 #define RTWLOG_LAST 128u
 #define RTWLOG_ENTRIES (RTWLOG_FIRST + RTWLOG_LAST)
@@ -49,6 +55,8 @@ struct rtwlog_file {
     uint32_t total;                /* messages seen (repeats not counted) */
     uint32_t stubs;                /* print functions the loader hooked */
     uint32_t saves;                /* times the file was written this run */
+    uint32_t probe;                /* RTWLOG_PROBE_* */
+    uint32_t probe_at;             /* the probe's instruction, when changed */
     struct rtwlog_entry entries[RTWLOG_ENTRIES];
 };
 

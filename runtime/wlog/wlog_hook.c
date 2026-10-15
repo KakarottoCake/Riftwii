@@ -111,6 +111,8 @@ static void start_log(struct rt_wlog_context* c, struct rtwlog_file* f) {
     for (i = 0; i < sizeof(f->game); ++i) f->game[i] = ((const char*)0x80000000u)[i];
     f->ticks_per_second = c->ticks_per_second;
     f->stubs = c->stubs;
+    f->probe = c->probe;
+    f->probe_at = c->probe_at;
 }
 
 void wlog_on_print(struct rt_wlog_context* c, const uint32_t* words) {
