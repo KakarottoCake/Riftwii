@@ -335,9 +335,14 @@ void ImportWpadLog() {
         ISFS_Deinitialize();
         return;
     }
-    // On the heap for the moment it is read: 68 KB kept for good would
-    // only take room from the menu.
-    u8* record = static_cast<u8*>(memalign(32, sizeof(rtwlog_file)));
+    // On the heap for the moment it is read: 82 KB kept for good would
+    // only take room from the menu. Whole cache lines: the read invalidates
+    // the line holding the record's last bytes (82536 is not a multiple of
+    // 32), and with the heap's next header in it that header went back to
+    // what the game left in memory; the next allocation failed and RiftWii
+    // stopped at every return from a game that wrote this log.
+    const std::size_t room = (sizeof(rtwlog_file) + 31) & ~std::size_t(31);
+    u8* record = static_cast<u8*>(memalign(32, room));
     const s32 got = record != nullptr ? ISFS_Read(fd, record, sizeof(rtwlog_file)) : -1;
     ISFS_Close(fd);
     ISFS_Delete(kWpadLogRecord);
