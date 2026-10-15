@@ -1077,7 +1077,11 @@ void GuiGameGrid::DrawRing(int alpha) {
         const GridItem& item = (*items)[p.index];
         // 1 in front, 0 at the back: smaller, higher and darker behind.
         const float near = 0.5f + 0.5f * std::cos(p.angle);
-        const float scale = 0.30f + 0.70f * std::pow(near, 1.6f);
+        // The focused picture at full size; the rest at most 72% of it,
+        // smaller further round, so the ring's far side shows over them.
+        const float others = 0.30f + 0.42f * std::pow(near, 1.6f);
+        const float front = std::max(0.0f, 1.0f - std::fabs(p.angle) / step);
+        const float scale = others + (1.0f - others) * front;
         const float h = kRingFrontH * scale;
         const float cx = 320.0f + radiusX * std::sin(p.angle);
         float foot = kRingFloor - kRingRise * (1.0f - near);
