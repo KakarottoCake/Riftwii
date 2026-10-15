@@ -79,7 +79,7 @@ The tiles show each game's cover, the name of the one you point at
 under them. Covers come from GameTDB while Home is open (about a second
 each, the page on screen first) and are kept in `sd:/riftwii/covers`;
 a game GameTDB has no cover for shows its name. **Home tiles** in
-Settings switches to name tiles, or to the shelf.
+Settings switches to the carousel, the shelf, channels or name tiles.
 
 On the **shelf**, your games stand as boxes, spine out. The one you're
 on slides out and turns to show its front; Left and Right move along the
@@ -94,6 +94,11 @@ Each box's spine and front come from GameTDB's full
 cover scan, fetched after the covers while Home is open and kept in
 `sd:/riftwii/boxes`. A game GameTDB has no scan for gets a white spine
 with its name and its cover on the front.
+
+The **carousel** uses the same boxes, fanned out on an arc with every
+front showing: the one you're on stands forward in the middle, and the
+others turn away and drop back the further out they are. It moves and
+opens games as the shelf does.
 
 With **Channels**, each tile plays the game's own animated icon, the one
 the Wii Menu shows for a disc channel, and the tile you're on shows the
@@ -233,7 +238,7 @@ the tiles.
 - **Picture width**, **Deflicker**, **Black borders**, **Video mode**,
   **Aspect ratio**, **Game language**, **Game cIOS**, **Online server**:
   the defaults for every game.
-- **Home tiles**: covers, shelf, channels or names.
+- **Home tiles**: covers, carousel, shelf, channels or names.
 - **Games from**: *SD and USB*, *SD card* or *USB drive*: which drive's
   games Home lists.
 - **Play history**: *Off* stops counting the games you start (Recently

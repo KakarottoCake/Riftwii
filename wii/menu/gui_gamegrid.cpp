@@ -25,9 +25,15 @@ constexpr int kShelfCaptionY = 276;  // under the shelf (wii/menu/gui_shelf.cpp)
 constexpr int kChannelLabelSize = 15;  // channels: the lit icon's name
 constexpr int kTextLeft = 11;
 constexpr int kCoverTextLeft = 6;
-// The page arrows (36 across in a 48 canvas) sit 14 in from the screen's
-// edges, inside what a TV's overscan (the Wii U's especially) crops.
-constexpr int kArrowLeftX = 10, kArrowRightX = 586;
+// Everything on Home stays inside a TV's overscan: 5% of the screen in from
+// each edge (x 32 to 608, y 24 to 456 on a 4:3 menu), which the Wii U and
+// many TVs crop. The page arrows (36 across in a 48 canvas, drawn 2 to the
+// left) end at those edges.
+constexpr int kArrowLeftX = 26, kArrowRightX = 570;
+// The tiles between the arrows: covers drawn at 92% of the stored size,
+// names and channels 92% as wide, so six (four) fit across with room.
+constexpr float kCoverScale = 0.925f;
+constexpr float kTileNarrow = 0.92f;
 
 // Names: 4x3 wide tiles. Covers: 6x2 at the stored cover size, the name
 // line under them. Both between the arrows.
@@ -115,15 +121,18 @@ GuiGameGrid::~GuiGameGrid() {
 // tiles, their pictures and icons, the page arrows), about the middle;
 // the icons' logos keep their shape.
 float GuiGameGrid::Stretch() const {
-    if (!channels || shelf || !skin::WideMenu()) return 1.0f;
+    if (covers || shelf) return 1.0f;
+    if (!channels || !skin::WideMenu()) return kTileNarrow;
     f32 safeX, safeW;
     Menu_SafeArea(&safeX, &safeW);
-    return safeW > 640.0f ? safeW / 640.0f : 1.0f;
+    return kTileNarrow * (safeW > 640.0f ? safeW / 640.0f : 1.0f);
 }
 
 const GuiGameGrid::Geometry& GuiGameGrid::Geo() const {
-    static const Geometry names = {kNameCols, 124, 84, 57, 24, 10, 12};
-    static const Geometry coverGrid = {kCoverCols, riftwii::kCoverWidth, riftwii::kCoverHeight, 58, 16, 9, 14};
+    // The top row starts 6 below the overscan's edge (y 24): room for the lit ring.
+    static const Geometry names = {kNameCols, 124, 84, 57, 30, 10, 12};
+    static const Geometry coverGrid = {kCoverCols, static_cast<int>(riftwii::kCoverWidth * kCoverScale + 0.5f),
+                                       static_cast<int>(riftwii::kCoverHeight * kCoverScale + 0.5f), 78, 30, 8, 12};
     const float k = Stretch();
     if (covers || k == 1.0f) return covers ? coverGrid : names;
     stretched = names;
@@ -134,8 +143,9 @@ const GuiGameGrid::Geometry& GuiGameGrid::Geo() const {
 }
 
 int GuiGameGrid::ArrowX(int dir) const {
+    // At the safe area's edges, which a widescreen Channels view widens.
     const int base = dir < 0 ? kArrowLeftX : kArrowRightX;
-    return static_cast<int>(320 + (base + 22 - 320) * Stretch() + 0.5f) - 22;
+    return static_cast<int>(320 + (base + 22 - 320) * (Stretch() / (covers || shelf ? 1.0f : kTileNarrow)) + 0.5f) - 22;
 }
 
 // A tile's picture (`t` has the tile's 7-unit margin), stretched with
@@ -191,6 +201,12 @@ void GuiGameGrid::SetChannels(bool on, IconDrawer icon) {
     iconDrawer = on ? std::move(icon) : IconDrawer();
     captionFor = -1;
     if (channels) SetCovers(false);
+}
+
+void GuiGameGrid::SetCarousel(bool on) {
+    if (carousel == on) return;
+    carousel = on;
+    poses.clear();
 }
 
 void GuiGameGrid::SetShelf(bool on) {
@@ -418,10 +434,14 @@ void GuiGameGrid::DrawCoverTile(int i, bool on, int alpha) {
     // A point of the tile, scaled about its centre with the tile.
     const auto at_x = [&](float off) { return static_cast<int>(x + tileW / 2.0f + (off - tileW / 2.0f) * s.scale); };
     const auto at_y = [&](float off) { return static_cast<int>(y + tileH / 2.0f + (off - tileH / 2.0f) * s.scale); };
-    skin::Draw(on ? skin::coverTileOver : skin::coverTile, x - 7, y - 7, alpha, s.scale);
+    // The stored cover and its frame, drawn at kCoverScale about the tile's middle.
+    const float cx = x + tileW / 2.0f, cy = y + tileH / 2.0f;
+    const skin::Tex& frame = on ? skin::coverTileOver : skin::coverTile;
+    skin::Draw(frame, cx - frame.w / 2.0f, cy - frame.h / 2.0f, alpha, s.scale * kCoverScale);
     const u8* cover = riftwii::wii::CoverTexture(item.id);
     if (cover) {
-        skin::DrawRgb5a3(cover, tileW, tileH, x, y, alpha, s.scale);
+        skin::DrawRgb5a3(cover, riftwii::kCoverWidth, riftwii::kCoverHeight, cx - riftwii::kCoverWidth / 2.0f,
+                         cy - riftwii::kCoverHeight / 2.0f, alpha, s.scale * kCoverScale);
     } else if (item.badge == "DISC" && skin::discCase.data) {
         // The disc drive's own box, at a cover's size.
         const float k = static_cast<float>(tileH) / skin::discCase.h;
@@ -469,7 +489,7 @@ void GuiGameGrid::DrawChannelLabel(int slot, int alpha) {
     const int textW = caption->GetTextWidth();
     const int boxW = textW + 18, boxH = kChannelLabelSize + 10;
     int x = TileX(slot) + Geo().tileW / 2 - boxW / 2;
-    x = x < 8 ? 8 : x + boxW > 632 ? 632 - boxW : x;
+    x = x < 32 ? 32 : x + boxW > 608 ? 608 - boxW : x;
     const int y = TileY(slot) + Geo().tileH - 6;
     Menu_DrawRectangle(x - 1, y - 1, boxW + 2, boxH + 2, skin::WithAlpha(skin::kAccent, alpha), 1);
     Menu_DrawRectangle(x, y, boxW, boxH, skin::WithAlpha(skin::kCard, alpha), 1);
@@ -532,7 +552,9 @@ void GuiGameGrid::Draw() {
     // Empty places first, then tiles, the lit one last so it sits on top.
     for (int i = 0; i < kPerPage; ++i) {
         if (page * kPerPage + i < Count()) continue;
-        if (covers) skin::Draw(skin::coverTile, TileX(i) - 7, TileY(i) - 7, tileAlpha * 70 / 255);
+        if (covers)
+            skin::Draw(skin::coverTile, TileX(i) + Geo().tileW / 2.0f - skin::coverTile.w / 2.0f,
+                       TileY(i) + Geo().tileH / 2.0f - skin::coverTile.h / 2.0f, tileAlpha * 70 / 255, kCoverScale);
         else DrawTilePicture(skin::tileEmpty.data ? skin::tileEmpty : skin::tile, i, skin::tileEmpty.data ? tileAlpha : tileAlpha * 70 / 255, 1.0f);
     }
     const auto draw_tile = [&](int i) {

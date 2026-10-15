@@ -54,6 +54,9 @@ public:
     // The shelf instead of either (covers drawn on its boxes' fronts).
     void SetShelf(bool on);
     bool Shelf() const { return shelf; }
+    // With the shelf on: its boxes fanned out along an arc, every one
+    // showing its front, the focused one forward in the middle (no plank).
+    void SetCarousel(bool on);
     // The shelf's games near the focus, nearest first: whose boxes to fetch.
     std::vector<int> ShelfWanted() const;
     // A box was stored for `id`: draw it from now on.
@@ -158,6 +161,7 @@ private:
     // Each spine's name as fitted, with the title it was fitted from.
     std::vector<std::pair<std::string, std::string>> spineFit;
     bool shelf = false;
+    bool carousel = false;
     int shelfHover = -1;                // the box a pointer is on
     // The focused box turned round to its back (Up or Down), for that box
     // only; how many frames the focus has stood still (its sway and the

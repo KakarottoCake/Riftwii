@@ -621,6 +621,7 @@ T = {
     "Covers": ("Portadas", "パッケージ", "Capas", "Copertine"),
     "Names": ("Nombres", "名前", "Nomes", "Nomi"),
     "Shelf": ("Estante", "棚", "Estante", "Scaffale"),
+    "Carousel": ("Carrusel", "カルーセル", "Carrossel", "Carosello"),
     "Channels": ("Canales", "チャンネル", "Canais", "Canali"),
     "Widescreen menu": ("Menú panorámico", "ワイド画面メニュー", "Menu widescreen", "Menu panoramico"),
     "Screen size": ("Tamaño en pantalla", "画面の大きさ", "Tamanho na tela", "Dimensione sullo schermo"),
@@ -634,11 +635,11 @@ T = {
         "画面上のメニューを小さくして、テレビの端で切れないようにします。メニュー全体が見えるまで下げてください。",
         "Deixa o menu menor na tela, para que nada seja cortado nas bordas da TV. Diminua até o menu inteiro aparecer.",
         "Rende il menu più piccolo sullo schermo, così niente viene tagliato ai bordi della TV. Abbassalo finché non vedi tutto il menu."),
-    "Covers: each game's box art from GameTDB (fetched when downloads are on). Shelf: the boxes on a shelf. Channels: each game's animated icon, and its banner when you pick it, as on the Wii Menu. Names: the names only.": (
-        "Portadas: la carátula de cada juego de GameTDB (se descarga si las descargas están activadas). Estante: las cajas en un estante. Canales: el icono animado de cada juego, y su banner al elegirlo, como en el menú de Wii. Nombres: solo los nombres.",
-        "パッケージ: GameTDBの各ゲームのパッケージ画像(ダウンロードがオンのとき取得)。棚: ケースを棚に並べます。チャンネル: Wiiメニューのように各ゲームの動くアイコンと、選んだときのバナー。名前: 名前だけ。",
-        "Capas: a capa de cada jogo do GameTDB (baixada quando os downloads estão ligados). Estante: as caixas numa estante. Canais: o ícone animado de cada jogo, e o banner ao escolhê-lo, como no Menu Wii. Nomes: só os nomes.",
-        "Copertine: la copertina di ogni gioco da GameTDB (scaricata se i download sono attivi). Scaffale: le custodie su uno scaffale. Canali: l'icona animata di ogni gioco, e il banner quando lo scegli, come nel Menu Wii. Nomi: solo i nomi."),
+    "Covers: each game's box art from GameTDB (fetched when downloads are on). Carousel: the boxes fanned out on an arc. Shelf: the boxes on a shelf. Channels: each game's animated icon and banner, as on the Wii Menu. Names: the names only.": (
+        "Portadas: la carátula de cada juego de GameTDB (se descarga si las descargas están activadas). Carrusel: las cajas abiertas en abanico sobre un arco. Estante: las cajas en un estante. Canales: el icono animado y el banner de cada juego, como en el menú de Wii. Nombres: solo los nombres.",
+        "パッケージ: GameTDBの各ゲームのパッケージ画像(ダウンロードがオンのとき取得)。カルーセル: ケースを弧の上に扇形に並べます。棚: ケースを棚に並べます。チャンネル: Wiiメニューのように各ゲームの動くアイコンとバナー。名前: 名前だけ。",
+        "Capas: a capa de cada jogo do GameTDB (baixada quando os downloads estão ligados). Carrossel: as caixas abertas em leque sobre um arco. Estante: as caixas numa estante. Canais: o ícone animado e o banner de cada jogo, como no Menu Wii. Nomes: só os nomes.",
+        "Copertine: la copertina di ogni gioco da GameTDB (scaricata se i download sono attivi). Carosello: le custodie aperte a ventaglio su un arco. Scaffale: le custodie su uno scaffale. Canali: l'icona animata e il banner di ogni gioco, come nel Menu Wii. Nomi: solo i nomi."),
     "Custom (no wfc_domain set)": (
         "Personalizado (sin wfc_domain)", "カスタム（wfc_domain未設定）", "Personalizado (sem wfc_domain)",
         "Personalizzato (wfc_domain non impostato)"),
@@ -2225,6 +2226,8 @@ KO = {
         "이름",
     "Shelf":
         "선반",
+    "Carousel":
+        "캐러셀",
     "Channels":
         "채널",
     "Widescreen menu":
@@ -2235,8 +2238,8 @@ KO = {
         "16:9 비율의 TV에서는 메뉴가 더 좁게 표시되므로 표지와 사진의 형태가 유지됩니다. '자동' 설정은 Wii 본체의 TV 설정 방식을 따릅니다.",
     "Makes the menu smaller on screen, so nothing is cut off at the TV's edges. Lower it until the whole menu shows.":
         "화면상의 메뉴 크기를 줄여 TV 가장자리에서 메뉴가 잘리지 않도록 합니다. 메뉴 전체가 보일 때까지 크기를 낮추세요.",
-    "Covers: each game's box art from GameTDB (fetched when downloads are on). Shelf: the boxes on a shelf. Channels: each game's animated icon, and its banner when you pick it, as on the Wii Menu. Names: the names only.":
-        "'커버'는 다운로드 기능이 켜진 상태에서 홈 메뉴가 열려 있을 때 GameTDB에서 가져온 각 게임의 패키지 이미지를 표시합니다. '선반'은 게임 패키지를 선반 위에 세워진 형태로 보여줍니다. '채널'은 Wii 메뉴와 마찬가지로 각 게임의 고유한 애니메이션 아이콘을 표시하며, 게임을 선택하면 배너가 나타납니다. '이름'는 게임 이름만 표시합니다.",
+    "Covers: each game's box art from GameTDB (fetched when downloads are on). Carousel: the boxes fanned out on an arc. Shelf: the boxes on a shelf. Channels: each game's animated icon and banner, as on the Wii Menu. Names: the names only.":
+        "'커버'는 다운로드 기능이 켜져 있을 때 GameTDB에서 가져온 각 게임의 패키지 이미지를 표시합니다. '캐러셀'은 게임 패키지를 호 위에 부채꼴로 펼쳐 보여줍니다. '선반'은 게임 패키지를 선반 위에 세워진 형태로 보여줍니다. '채널'은 Wii 메뉴와 마찬가지로 각 게임의 애니메이션 아이콘과 배너를 표시합니다. '이름'은 게임 이름만 표시합니다.",
     "Custom (no wfc_domain set)":
         "커스텀 (wfc_domain 설정되지 않음)",
     "The online server the game uses in place of Nintendo's, which closed. Custom uses wfc_domain in settings.txt.":
@@ -3576,6 +3579,8 @@ FR = {
         "Noms",
     "Shelf":
         "Étagère",
+    "Carousel":
+        "Carrousel",
     "Channels":
         "Chaînes",
     "Widescreen menu":
@@ -3586,8 +3591,8 @@ FR = {
         "Sur une TV 16:9, le menu est ajusté pour conserver le ratio des images. \"Automatique\" suit le réglage TV de la Wii.",
     "Makes the menu smaller on screen, so nothing is cut off at the TV's edges. Lower it until the whole menu shows.":
         "Réduit l'affichage pour éviter que les bords ne soient coupés sur l'écran. Réduisez la valeur jusqu'à tout voir.",
-    "Covers: each game's box art from GameTDB (fetched when downloads are on). Shelf: the boxes on a shelf. Channels: each game's animated icon, and its banner when you pick it, as on the Wii Menu. Names: the names only.":
-        "Jacquettes : affiche la boîte GameTDB. Étagère : boîtes alignées sur une étagère. Chaînes : icônes et bannières animées comme sur le menu Wii. Noms : liste textuelle.",
+    "Covers: each game's box art from GameTDB (fetched when downloads are on). Carousel: the boxes fanned out on an arc. Shelf: the boxes on a shelf. Channels: each game's animated icon and banner, as on the Wii Menu. Names: the names only.":
+        "Jaquettes : affiche la boîte GameTDB. Carrousel : boîtes déployées en éventail sur un arc. Étagère : boîtes alignées sur une étagère. Chaînes : icônes et bannières animées comme sur le menu Wii. Noms : liste textuelle.",
     "Custom (no wfc_domain set)":
         "Personnalisé (wfc_domain non défini)",
     "The online server the game uses in place of Nintendo's, which closed. Custom uses wfc_domain in settings.txt.":

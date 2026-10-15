@@ -66,7 +66,8 @@ void LoaderSettings::parse(const std::string& text) {
             int slot;
             if (parse_cios_choice(value, slot)) game_cios = value;
         } else if (key == "home_tiles") {
-            if (value == "covers" || value == "names" || value == "shelf" || value == "channels") home_tiles = value;
+            if (value == "covers" || value == "names" || value == "shelf" || value == "carousel" || value == "channels")
+                home_tiles = value;
         } else if (key == "menu_widescreen") {
             if (value == "auto" || value == "on" || value == "off") menu_widescreen = value;
         } else if (key == "screen_size") {

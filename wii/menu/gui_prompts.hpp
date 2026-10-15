@@ -28,7 +28,7 @@ public:
     void Update(GuiTrigger* t) override;
 
     // The prompts' line: inside a TV's overscan (5% of 480 from the bottom).
-    static constexpr int kY = 432;
+    static constexpr int kY = 426;  // the badges end at y 450, inside the overscan (456)
 
 private:
     struct Prompt {

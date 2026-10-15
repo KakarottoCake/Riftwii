@@ -10,7 +10,7 @@ namespace skin = riftwii::wii::skin;
 
 namespace {
 
-constexpr int kRight = 608;  // the safe area's right edge (5% of 640 in from the side)
+constexpr int kRight = 600;  // 8 inside the safe area's right edge (5% of 640 in from the side)
 constexpr int kBadge = 24;   // skin::promptButton
 constexpr int kGap = 26;     // between two prompts
 constexpr int kTextGap = 8;  // between a badge and its text

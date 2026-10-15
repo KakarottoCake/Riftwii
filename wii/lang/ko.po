@@ -720,6 +720,9 @@ msgstr "이름"
 msgid "Shelf"
 msgstr "선반"
 
+msgid "Carousel"
+msgstr "캐러셀"
+
 msgid "Channels"
 msgstr "채널"
 
@@ -735,8 +738,8 @@ msgstr "16:9 비율의 TV에서는 메뉴가 더 좁게 표시되므로 표지�
 msgid "Makes the menu smaller on screen, so nothing is cut off at the TV's edges. Lower it until the whole menu shows."
 msgstr "화면상의 메뉴 크기를 줄여 TV 가장자리에서 메뉴가 잘리지 않도록 합니다. 메뉴 전체가 보일 때까지 크기를 낮추세요."
 
-msgid "Covers: each game's box art from GameTDB (fetched when downloads are on). Shelf: the boxes on a shelf. Channels: each game's animated icon, and its banner when you pick it, as on the Wii Menu. Names: the names only."
-msgstr "'커버'는 다운로드 기능이 켜진 상태에서 홈 메뉴가 열려 있을 때 GameTDB에서 가져온 각 게임의 패키지 이미지를 표시합니다. '선반'은 게임 패키지를 선반 위에 세워진 형태로 보여줍니다. '채널'은 Wii 메뉴와 마찬가지로 각 게임의 고유한 애니메이션 아이콘을 표시하며, 게임을 선택하면 배너가 나타납니다. '이름'는 게임 이름만 표시합니다."
+msgid "Covers: each game's box art from GameTDB (fetched when downloads are on). Carousel: the boxes fanned out on an arc. Shelf: the boxes on a shelf. Channels: each game's animated icon and banner, as on the Wii Menu. Names: the names only."
+msgstr "'커버'는 다운로드 기능이 켜져 있을 때 GameTDB에서 가져온 각 게임의 패키지 이미지를 표시합니다. '캐러셀'은 게임 패키지를 호 위에 부채꼴로 펼쳐 보여줍니다. '선반'은 게임 패키지를 선반 위에 세워진 형태로 보여줍니다. '채널'은 Wii 메뉴와 마찬가지로 각 게임의 애니메이션 아이콘과 배너를 표시합니다. '이름'은 게임 이름만 표시합니다."
 
 msgid "Custom (no wfc_domain set)"
 msgstr "커스텀 (wfc_domain 설정되지 않음)"

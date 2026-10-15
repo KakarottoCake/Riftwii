@@ -960,14 +960,15 @@ public:
 			k = 1 - t * t;
 		}
 		const int boxW = textW + 70, boxH = lines * 21 + 24;
-		const float x = 320 - boxW / 2.0f, y = -boxH - 12 + (boxH + 24) * k;
+		// It comes to rest at y 28, inside a TV's overscan (y 24).
+		const float x = 320 - boxW / 2.0f, y = -boxH - 12 + (boxH + 40) * k;
 		skin::DrawNine(skin::card9, x - 8, y - 8, boxW + 16, boxH + 16, riftwii::kCardCorner);
 		skin::Draw(skin::noticeIcon[isError ? 1 : 0], x + 14, y + boxH / 2.0f - 14);
 		text.SetPosition(static_cast<int>(x) + 54, static_cast<int>(y) + 12);
 		text.Draw();
 	}
 private:
-	static constexpr int kMaxText = 470;
+	static constexpr int kMaxText = 400;  // the box ends by x 555, clear of the search button (x 568)
 	GuiText text;
 	int lines = 1, textW = 0;
 	bool isError = false, on = false;
@@ -1233,7 +1234,7 @@ static ChannelChoice ShowChannel(int& index, int count, const std::string& first
 		WIIDRC_BUTTON_RIGHT | WIIDRC_BUTTON_PLUS);
 	// Favourite: a small round button in the top right corner (or 1), its
 	// star filled while the game shown is one.
-	SkinButton starBtn(skin::roundBtn, skin::roundBtnOver, 2, 582 + wide, 12, nullptr,
+	SkinButton starBtn(skin::roundBtn, skin::roundBtnOver, 2, 560 + wide, 24, nullptr,
 		WPAD_BUTTON_1 | WPAD_CLASSIC_BUTTON_Y, PAD_BUTTON_Y, WIIDRC_BUTTON_X, &skin::iconStar, 0.6f);
 	GuiImage starOn(skin::iconStarOn.data, skin::iconStarOn.w, skin::iconStarOn.h);
 	starOn.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::MIDDLE);
@@ -1473,7 +1474,23 @@ static void LearnHomeHints()
 	riftwii::wii::SaveSettings();
 }
 
+static std::string HomeStatusLines(const FrontendState& state, const std::vector<GridItem>& items);
+
+// Home's line under the clock. The Wii Menu's bar has room for one line
+// inside a TV's overscan: two become one there; and the button hints show
+// until 1 or 2 has been used, the game count after.
 static std::string HomeStatus(const FrontendState& state, const std::vector<GridItem>& items)
+{
+	std::string text = HomeStatusLines(state, items);
+	if (skin::BarBump()) return text;
+	const std::size_t newline = text.find('\n');
+	if (newline == std::string::npos) return text;
+	const std::string first = text.substr(0, newline), second = text.substr(newline + 1);
+	if (g_search.empty() && g_homeNotice.empty()) return HomeHintsLearned() ? first : second;
+	return first + "   " + second;
+}
+
+static std::string HomeStatusLines(const FrontendState& state, const std::vector<GridItem>& items)
 {
 	if (!g_homeNotice.empty()) return g_homeNotice;
 	// The games shown: the disc drive's tile, when it is there, is not one.
@@ -1497,9 +1514,6 @@ static std::string HomeStatus(const FrontendState& state, const std::vector<Grid
 	if (g_filter == Filter::Favorites && games == 0)
 		return tr("No favourite is on these drives. Mark games on their page. Press 1 for all games.");
 	if (games == 0) return "No games found (usb:/wbfs, usb:/games, sd:/wbfs, sd:/games)";
-	// The Wii Menu's bar holds the date and nothing more, once the buttons
-	// are learned.
-	if (!skin::BarBump() && HomeHintsLearned()) return "";
 	const std::string count = games == 1 ? std::string(tr("1 game")) : tr("{1} games", {std::to_string(games)});
 	return std::string(tr(FilterLabel(g_filter))) + ": " + count + "\n" + tr("1: view   2: settings   -/+: pages   B: A to Z");
 }
@@ -2008,7 +2022,7 @@ static int ShowHomeMenu()
 	const float closeScale = ios ? 1.0f : 0.62f;
 	const int closeW = ios ? 120 : static_cast<int>(244 * closeScale);
 	SkinButton closeBtn(ios ? skin::iosClose : skin::pill, ios ? skin::iosCloseOver : skin::pillOver, 4,
-		606 + wide - closeW, ios ? 18 : 22, tr("Close"),
+		600 + wide - closeW, ios ? 24 : 27, tr("Close"),  // inside a TV's overscan (x 608, y 24)
 		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B | WPAD_BUTTON_HOME | WPAD_CLASSIC_BUTTON_HOME, PAD_BUTTON_B | PAD_BUTTON_START,
 		WIIDRC_BUTTON_B | WIIDRC_BUTTON_HOME, nullptr, closeScale);
 	closeBtn.text.SetFontSize(20);
@@ -2739,7 +2753,8 @@ static int MenuSource(FrontendState& state)
 
 	GuiGameGrid grid;
 	grid.SetCovers(riftwii::wii::Settings().home_tiles != "names");
-	grid.SetShelf(riftwii::wii::Settings().home_tiles == "shelf");
+	grid.SetShelf(riftwii::wii::Settings().home_tiles == "shelf" || riftwii::wii::Settings().home_tiles == "carousel");
+	grid.SetCarousel(riftwii::wii::Settings().home_tiles == "carousel");
 	skin::SetOnHome(true);  // the wall for the view now set
 	grid.SetChannels(riftwii::wii::Settings().home_tiles == "channels",
 		[&items](int index, const GuiGameGrid::IconBox& b) {
@@ -2774,13 +2789,14 @@ static int MenuSource(FrontendState& state)
 	if (dip) {
 		// Clear of the dip (58% of the bar, which is 856 wide on a widescreen menu).
 		const int dipLeft = 320 - static_cast<int>(0.29f * (wide > 0 ? 856 : 640));
-		// Centred over the round buttons under them (their centres x 64 and 576).
-		const int sideW = 2 * std::min(64 - 8, dipLeft - 10 - (64 - wide));  // the button's centre moves out with a wide menu
-		viewTxt.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
-		viewTxt.SetPosition(64 - 320 - wide, 354);
-		viewTxt.SetMaxWidth(sideW);  // one line, clear of the dip
-		pageTxt.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
-		pageTxt.SetPosition(576 - 320 + wide, 354);
+		// From the overscan's edges inwards (x 36 and 604, 4 inside the safe
+		// area), over the round buttons under them; one line, clear of the dip.
+		const int sideW = dipLeft - 10 - 36;
+		viewTxt.SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
+		viewTxt.SetPosition(36 - wide, 354);
+		viewTxt.SetMaxWidth(sideW);
+		pageTxt.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
+		pageTxt.SetPosition(-36 + wide, 354);
 		pageTxt.SetMaxWidth(sideW);
 	} else {
 		Place(pageTxt, 40 - wide, 300);
@@ -2795,14 +2811,14 @@ static int MenuSource(FrontendState& state)
 	// centred on each; the small search button's to its left, level with it
 	// (the pointer's hand covers what is below or right of the button).
 	filterHint.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
-	filterHint.SetPosition(64 - 320 - wide, 354);
+	filterHint.SetPosition(72 - 320 - wide, 344);
 	settingsHint.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
-	settingsHint.SetPosition(576 - 320 + wide, 354);
+	settingsHint.SetPosition(568 - 320 + wide, 344);
 	searchHint.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
-	searchHint.SetPosition(-72 + wide, 21);  // ends at x 568; its box at 576, clear of the button at 588
+	searchHint.SetPosition(-90 + wide, 33);  // ends at x 550; its box at 558, clear of the button at 568
 	// Each on a box of its own: the search's sits over the covers.
-	HintChip filterChip(filterHint, 64 - wide, 354, true), settingsChip(settingsHint, 576 + wide, 354, true),
-		searchChip(searchHint, 568 + wide, 21, false);
+	HintChip filterChip(filterHint, 72 - wide, 344, true), settingsChip(settingsHint, 568 + wide, 344, true),
+		searchChip(searchHint, 550 + wide, 33, false);
 	int hintAlpha[3] = {0, 0, 0};  // the hover names' fades
 	for (GuiText* hint : {&filterHint, &settingsHint, &searchHint}) {
 		hint->SetAlpha(0);
@@ -2821,21 +2837,24 @@ static int MenuSource(FrontendState& state)
 	else lcd.SetVisible(false);
 	GuiText dateTxt(date.c_str(), dip ? 22 : 18, skin::kInkSoft);
 	Place(dateTxt, 0, dip ? 407 : 359, true);
+	// Ending by y 456, inside a TV's overscan: one line under the date on a
+	// bar that dips, three above the bottom on one that bumps.
 	GuiText statusTxt("", dip ? 15 : 17, skin::kInkSoft);
-	Place(statusTxt, 0, dip ? 438 : 396, true);
-	statusTxt.SetWrap(true, 400 + 2 * wide, dip ? 2 : 3);  // between the round buttons (x 106 and 534 on 4:3)
+	Place(statusTxt, 0, dip ? 434 : 392, true);
+	statusTxt.SetWrap(true, 400 + 2 * wide, dip ? 1 : 3);  // between the round buttons (x 110 and 530 on 4:3)
 	EmptyHomeNote emptyNote;
 	emptyNote.SetVisible(false);
 
-	SkinButton filterBtn(skin::roundBtn, skin::roundBtnOver, 2, 26 - wide, 386, nullptr,
+	// Inside a TV's overscan: 5% in from the sides and the bottom.
+	SkinButton filterBtn(skin::roundBtn, skin::roundBtnOver, 2, 34 - wide, 376, nullptr,
 		WPAD_BUTTON_1 | WPAD_CLASSIC_BUTTON_Y, PAD_BUTTON_Y, WIIDRC_BUTTON_X, &skin::iconDrives);
-	SkinButton settingsBtn(skin::roundBtn, skin::roundBtnOver, 2, 538 + wide, 386, nullptr,
+	SkinButton settingsBtn(skin::roundBtn, skin::roundBtnOver, 2, 530 + wide, 376, nullptr,
 		WPAD_BUTTON_2 | WPAD_CLASSIC_BUTTON_X, PAD_TRIGGER_R, WIIDRC_BUTTON_Y, &skin::iconGear);
 	// Search: Z on a GameCube controller, ZL on a Classic Controller (a
 	// Wii Remote has no button left; point and press A). Small, in the top
-	// right corner above the tiles' last column and the page arrow (they
-	// end at x 626, 14 in from the edge), so the gear's name has room.
-	SkinButton searchBtn(skin::roundBtn, skin::roundBtnOver, 2, 588 + wide, 12, nullptr,
+	// right corner above the page arrow, inside the overscan (ends at x 606,
+	// starts at y 24), so the gear's name has room.
+	SkinButton searchBtn(skin::roundBtn, skin::roundBtnOver, 2, 568 + wide, 24, nullptr,
 		WPAD_CLASSIC_BUTTON_ZL, PAD_TRIGGER_Z, 0, &skin::iconSearch, 0.5f);
 	// Minus and Plus turn the grid's pages (in GuiGameGrid). Rescan is in
 	// Settings, and on X of a GameCube controller, which has neither. Its
@@ -5004,7 +5023,7 @@ static void MenuMods(FrontendState& state, std::string& scanStatus)
 // Where the page's parts go: inside a TV's overscan, 5% of the screen in
 // from each edge (32 across, 24 down), the box over the band's edge.
 static constexpr int kHeroX = 40, kHeroY = 80, kHeroW = 150, kHeroH = 206;
-static constexpr int kTilesX = 214, kTilesRight = 608;
+static constexpr int kTilesX = 214, kTilesRight = 600;  // 40 in from each side, as the box
 static constexpr int kTilesW = kTilesRight - kTilesX;
 
 
@@ -5106,18 +5125,20 @@ static void BuildGameTiles(const FrontendState& state, std::vector<TileSpec>& ti
 	const std::string saves = !state.model.pack_save_owner().empty() ? std::string(tr("Kept by the pack"))
 		: std::string(tr(SaveLabel(state.model.save_mode).c_str()));
 
+	// The lower rows: two tiles across the tiles' width, 12 apart.
+	constexpr int kHalfW = (kTilesW - 12) / 2, kRightX = kTilesRight - kHalfW;
 	add(GameTile::Play, kTilesX, 132, 252, 84, tr("Play"), modsOn, &skin::iconPlay, false);
 	add(GameTile::Mods, kTilesX + 264, 132, kTilesRight - kTilesX - 264, 84, tr("Mods"),
 		shown == 0 ? tr("None") : enabled == 0 ? tr("Off") : tr("{1} switched on", {std::to_string(enabled)}),
 		&skin::iconMods, enabled != 0);
-	add(GameTile::Cheats, kTilesX, 228, 191, 70, tr("Cheats"), CheatsValue(game), &skin::iconCheats,
+	add(GameTile::Cheats, kTilesX, 228, kHalfW, 70, tr("Cheats"), CheatsValue(game), &skin::iconCheats,
 		game.cheats && !game.cheat_names.empty());
-	add(GameTile::Saves, kTilesX + 203, 228, 191, 70, tr("Saves"), saves, &skin::iconSaves, state.model.save_mode != "nand");
+	add(GameTile::Saves, kRightX, 228, kHalfW, 70, tr("Saves"), saves, &skin::iconSaves, state.model.save_mode != "nand");
 	add(GameTile::Favorite, kHeroX, 310, kHeroW, 70, tr("Favourite"), favorite ? tr("On") : tr("Off"),
 		favorite ? &skin::iconStarOn : &skin::iconStar, favorite);
-	add(GameTile::Options, kTilesX, 310, 191, 70, tr("Options"),
+	add(GameTile::Options, kTilesX, 310, kHalfW, 70, tr("Options"),
 		changed == 0 ? tr("Default") : tr("{1} changed", {std::to_string(changed)}), &skin::iconGear, changed != 0);
-	add(GameTile::About, kTilesX + 203, 310, 191, 70, tr("About"), "", &skin::iconInfo, false);
+	add(GameTile::About, kRightX, 310, kHalfW, 70, tr("About"), "", &skin::iconInfo, false);
 }
 
 // A game's own settings (the game page's Game settings tile): the picture,
@@ -5316,13 +5337,13 @@ static int MenuHome(FrontendState& state)
 	HeroCover hero(state.game_id, !state.use_usb && !state.use_sd, skin::HueFor(state.game_id));
 	const std::string where = SourceWhere(state);
 	GuiText whereTxt(where.c_str(), 15, skin::WithAlpha(skin::kWhite, 210));
-	Place(whereTxt, kTilesX, 22);
+	Place(whereTxt, kTilesX, 28);  // inside a TV's overscan (y 24)
 	const std::string title = GameTitle(state);
 	GuiText titleTxt(title.c_str(), 24, skin::kWhite);
-	Place(titleTxt, kTilesX, 40);
+	Place(titleTxt, kTilesX, 44);
 	titleTxt.SetWrap(true, kTilesW, 2);
 	GuiText factsTxt(GameFacts(state).c_str(), 15, skin::WithAlpha(skin::kWhite, 225));
-	Place(factsTxt, kTilesX, 96);
+	Place(factsTxt, kTilesX, 100);
 	factsTxt.SetMaxWidth(kTilesW);
 
 	GuiTiles tileGrid;
@@ -6010,6 +6031,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		heading(tr("Menu"));
 		option(tr("Language"), LanguageName(settings.language), settings.language != "auto", kLanguage);
 		option(tr("Home tiles"), settings.home_tiles == "names" ? tr("Names") : settings.home_tiles == "shelf" ? tr("Shelf")
+			: settings.home_tiles == "carousel" ? tr("Carousel")
 			: settings.home_tiles == "channels" ? tr("Channels") : tr("Covers"),
 			settings.home_tiles != "names", kHomeTiles);
 		option(tr("Games from"), HomeSourceName(settings.home_source), settings.home_source != "all", kHomeSource);
@@ -6244,7 +6266,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			case kAspect: return tr("Makes the game use 4:3 or widescreen 16:9 whatever the Wii's TV setting says. Not every game can be changed.");
 			case kGameLanguage: return tr("The language the game is told the console uses. Pick one the game has: some games stop without it.");
 			case kGameCios: return tr("The d2x cIOS the game runs under. Automatic uses the menu's, else the first of 249, 250 and 251 that works.");
-			case kHomeTiles: return tr("Covers: each game's box art from GameTDB (fetched when downloads are on). Shelf: the boxes on a shelf. Channels: each game's animated icon, and its banner when you pick it, as on the Wii Menu. Names: the names only.");
+			case kHomeTiles: return tr("Covers: each game's box art from GameTDB (fetched when downloads are on). Carousel: the boxes fanned out on an arc. Shelf: the boxes on a shelf. Channels: each game's animated icon and banner, as on the Wii Menu. Names: the names only.");
 			case kWidescreen: return tr("On a 16:9 TV the menu is drawn narrower, so covers and pictures keep their shape. Automatic follows the Wii's own TV setting.");
 			case kScreenSize: return tr("Makes the menu smaller on screen, so nothing is cut off at the TV's edges. Lower it until the whole menu shows.");
 			case kTheme: return tr("The menu's colours and pictures. Themes are folders in sd:/riftwii/themes (docs/THEMES.md on GitHub).");
@@ -6459,9 +6481,9 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					rebuild();
 					break;
 				case kHomeTiles:
-					settings.home_tiles = settings.home_tiles == "covers" ? "shelf" : settings.home_tiles == "shelf" ? "channels"
-						: settings.home_tiles == "channels" ? "names" : "covers";
-					saveAndNote(tr("Covers: each game's box art from GameTDB (fetched when downloads are on). Shelf: the boxes on a shelf. Channels: each game's animated icon, and its banner when you pick it, as on the Wii Menu. Names: the names only."));
+					settings.home_tiles = settings.home_tiles == "covers" ? "carousel" : settings.home_tiles == "carousel" ? "shelf"
+						: settings.home_tiles == "shelf" ? "channels" : settings.home_tiles == "channels" ? "names" : "covers";
+					saveAndNote(tr("Covers: each game's box art from GameTDB (fetched when downloads are on). Carousel: the boxes fanned out on an arc. Shelf: the boxes on a shelf. Channels: each game's animated icon and banner, as on the Wii Menu. Names: the names only."));
 					rebuild();
 					break;
 				case kWidescreen: {
@@ -6807,6 +6829,7 @@ static int SettingsHub(FrontendState& state, int& focus, bool fromSection)
 		if (t.folder == settings.theme) theme = t.name;
 	const std::size_t games = state.usb_catalog.games.size() + state.sd_catalog.games.size();
 	const std::string tiles = settings.home_tiles == "names" ? tr("Names") : settings.home_tiles == "shelf" ? tr("Shelf")
+			: settings.home_tiles == "carousel" ? tr("Carousel")
 		: settings.home_tiles == "channels" ? tr("Channels") : tr("Covers");
 
 	struct Section {
@@ -6838,7 +6861,7 @@ static int SettingsHub(FrontendState& state, int& focus, bool fromSection)
 	};
 	// Three across, three down, inside a TV's overscan.
 	std::vector<TileSpec> tilesSpec;
-	constexpr int kLeft = 40, kTop = 88, kW = 181, kH = 78, kGap = 12;
+	constexpr int kLeft = 40, kTop = 88, kW = 178, kH = 78, kGap = 13;  // x 40 to 600, inside a TV's overscan
 	for (int i = 0; i < static_cast<int>(sizeof(sections) / sizeof(sections[0])); ++i) {
 		TileSpec t;
 		t.x = kLeft + (i % 3) * (kW + kGap);

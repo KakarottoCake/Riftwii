@@ -64,6 +64,17 @@ constexpr int kSpineTextRoom = 140;  // the length of a spine's name
 // in front of the shelf were glossy; the part of each box nearest the
 // floor, fading out.
 constexpr float kMirrorY = kShelfY + 16.0f;
+// The carousel: the boxes on an arc of this radius, this far apart (in
+// radians) and as many each side; each turned away from the middle by
+// part of its angle, and lower the further out it stands.
+constexpr float kArcRadius = 700.0f;
+constexpr float kArcStep = 0.16f;
+constexpr int kArcReach = 7;
+constexpr float kArcTurn = 1.5f;
+constexpr float kArcDrop = 150.0f;
+// Where the reflection's mirror lies: under the plank's edge, or (the
+// carousel, no plank) right under the boxes.
+float g_mirrorY = kMirrorY;
 constexpr float kReflectPart = 0.30f;
 constexpr int kReflectAlpha = 54;
 constexpr float kDragStep = 30.0f;  // pointer pixels a box (dragging, gliding)
@@ -396,7 +407,7 @@ void Dim(Face& f, float k) {
 // The upright faces' lower part, mirrored under the plank and fading out
 // downwards. `k` darkens it with its box.
 void DrawReflection(const Face (&faces)[5], float k, int alpha) {
-    const auto mirror = [](V3 p) { return V3{p.x, kMirrorY + (kShelfY - p.y), p.z}; };
+    const auto mirror = [](V3 p) { return V3{p.x, g_mirrorY + (kShelfY - p.y), p.z}; };
     for (const int i : {0, 1, 2, 4}) {
         const Face& f = faces[i];
         Face r = f;
@@ -639,7 +650,9 @@ void GuiGameGrid::DrawShelf(int alpha) {
     // they appeared and vanished in view on a 16:9 menu.
     f32 vx, vy, vw, vh;
     Menu_VisibleArea(&vx, &vy, &vw, &vh);
-    const int reach = std::max(kReach, static_cast<int>((320.0f - vx + 60.0f - kOpen - kBoxT / 2) / kPitch) + 2);
+    const int reach = carousel ? kArcReach
+                               : std::max(kReach, static_cast<int>((320.0f - vx + 60.0f - kOpen - kBoxT / 2) / kPitch) + 2);
+    g_mirrorY = carousel ? kShelfY + 2.0f : kMirrorY;
     const int first = std::max(0, focus - reach), last = std::min(Count() - 1, focus + reach);
 
     // Where each box near the focus wants to be, and a step towards it.
@@ -654,7 +667,22 @@ void GuiGameGrid::DrawShelf(int alpha) {
         const int ad = d < 0 ? -d : d;
         BoxPose& p = poses[i];
         BoxPose want;
-        if (d == 0) {
+        if (carousel) {
+            // On the arc: further round and further back the further from
+            // the focus; facing out, turned partly away from the middle.
+            const float a = d * kArcStep;
+            want.x = 320.0f + kArcRadius * std::sin(a);
+            want.z = (d == 0 ? kPullZ : 0.0f) + kArcRadius * (std::cos(a) - 1.0f);
+            want.turn = static_cast<float>(M_PI) / 2 - kArcTurn * a + (d == 0 ? 0.07f * swing * settle : 0.0f) +
+                        (d == 0 && shelfFlip ? static_cast<float>(M_PI) : 0.0f);
+            want.lift = -kArcDrop * (1.0f - std::cos(a)) + (i == shelfHover ? kLift : 0.0f) +
+                        (d == 0 ? 3.0f * (0.5f + 0.5f * std::sin(shelfClock * 0.045f)) * settle : 0.0f);
+            if (!p.placed) {
+                p = want;
+                p.placed = true;
+                continue;
+            }
+        } else if (d == 0) {
             want.x = 320.0f;
             want.z = kPullZ;
             want.turn = static_cast<float>(M_PI) / 2 + (shelfFlip ? static_cast<float>(M_PI) : 0.0f) + 0.07f * swing * settle;
@@ -710,7 +738,8 @@ void GuiGameGrid::DrawShelf(int alpha) {
                                                                    : (*items)[focus].id;
     UpdateBackdrop(backdrop, shelfStill >= 8);
     DrawBackdrop(alpha);
-    if (focus >= first && focus <= last && poses[focus].placed && (g_flying.empty() || (*items)[focus].id != g_flying)) {
+    if (!carousel && focus >= first && focus <= last && poses[focus].placed &&
+        (g_flying.empty() || (*items)[focus].id != g_flying)) {
         const BoxPose& p = poses[focus];
         DrawWallShadow(MakeBox(p.x, p.z, p.turn, p.lift), std::fabs(std::sin(p.turn)), alpha);
     }
@@ -724,8 +753,9 @@ void GuiGameGrid::DrawShelf(int alpha) {
                  item.hue, faces);
         DrawReflection(faces, dimFor(i), alpha);
     }
-    // The plank: its top, then its front edge, wider than the screen.
-    {
+    // The plank: its top, then its front edge, wider than the screen (none
+    // under the carousel).
+    if (!carousel) {
         const bool pic = skin::shelfPlank.data != nullptr;
         const GXColor wood = pic ? GXColor{255, 255, 255, 255} : skin::kShelfWood;
         const GXColor edgeWood = pic ? GXColor{255, 255, 255, 255} : skin::kShelfEdge;
