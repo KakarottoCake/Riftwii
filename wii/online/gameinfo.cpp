@@ -283,6 +283,14 @@ GameInfoResult FindGameInfo(const std::string& id, const std::set<std::string>& 
     return GameInfoResult::Found;
 }
 
+bool PeekGameInfo(const std::string& id, GameInfo& out) {
+    LoadCache(MenuLocale());
+    const auto found = g_cache.games.find(id);
+    if (found == g_cache.games.end()) return false;
+    out = found->second;
+    return true;
+}
+
 bool DownloadGameInfo(std::string& error, const std::function<void(std::size_t received)>& received) {
     std::vector<std::uint8_t> body;
     HttpProgress progress = nullptr;

@@ -429,12 +429,6 @@ msgstr "RiftWiiを終わる"
 msgid "Exit"
 msgstr "終わる"
 
-msgid "These apply to every game. A game's own page can change them for that game. 1 and 2 jump between the groups."
-msgstr "すべてのゲームに使われます。ゲームのページでそのゲームだけ変えられます。1と2でグループを移動します。"
-
-msgid "1 and 2: groups"
-msgstr "1と2：グループ"
-
 msgid "Game names follow the language when they are downloaded."
 msgstr "ゲーム名はダウンロード時にこの言語になります。"
 
@@ -1964,3 +1958,66 @@ msgstr "最新の情報のため、GameTDBのデータベース（約2 MB）を�
 
 msgid "Game details downloaded."
 msgstr "ゲーム情報をダウンロードしました。"
+
+msgid "Select"
+msgstr "決定"
+
+msgid "Controllers"
+msgstr "コントローラー"
+
+msgid "Downloads off"
+msgstr "ダウンロード：オフ"
+
+msgid "Downloads on"
+msgstr "ダウンロード：オン"
+
+msgid "Game settings"
+msgstr "ゲームの設定"
+
+msgid "Mods on: {1}"
+msgstr "オンのMOD：{1}"
+
+msgid "Starts the game with the mods and settings shown here."
+msgstr "ここに表示されているMODと設定でゲームを始めます。"
+
+msgid "This game's own picture, language, online server and the rest. The ones not changed follow Settings."
+msgstr "このゲームだけの画面、言語、オンラインサーバーなど。変えていないものは設定に従います。"
+
+msgid "{1} changed"
+msgstr "{1}個変更"
+
+msgid "How games are drawn on your TV: picture width, the flicker filter, black borders, the video mode and the aspect ratio."
+msgstr "テレビでのゲームの映り方：画面の幅、ちらつき防止、黒い帯、映像モード、画面比率。"
+
+msgid "The language games are told the console uses, the cIOS they run under, where the Wii Menu button leads, and in-game screenshots."
+msgstr "ゲームに伝える言語、ゲームを動かすcIOS、Wiiメニューボタンの行き先、ゲーム中のスクリーンショット。"
+
+msgid "The GameCube controller adapter for Wii U, and rumble for GameCube controllers and Wii Remotes."
+msgstr "Wii U用ゲームキューブコントローラ接続タップと、ゲームキューブコントローラやWiiリモコンの振動。"
+
+msgid "How Home shows your games: covers, a shelf or channels, from which drive, in what order, play history and the clock."
+msgstr "ホームでのゲームの見せ方：パッケージ、棚、チャンネル、どのドライブか、並び順、プレイ履歴、時計。"
+
+msgid "The menu's language, theme, letters, size on the TV, sounds and music."
+msgstr "メニューの言語、テーマ、文字、テレビでの大きさ、効果音と音楽。"
+
+msgid "Downloads of game names, covers and cheats, the online server for games, and RiftWii's updates."
+msgstr "ゲーム名、パッケージ、チートのダウンロード、ゲームのオンラインサーバー、RiftWiiの更新。"
+
+msgid "Reading the SD card and the USB drive again, and mods from a PC on the network (RiiFS)."
+msgstr "SDカードとUSBドライブの読み直しと、ネットワーク上のPCからのMOD（RiiFS）。"
+
+msgid "Problem reports, what's new, the tutorial, the RiftWii channel, resetting the settings and the credits."
+msgstr "問題の報告、新しくなったこと、チュートリアル、RiftWiiチャンネル、設定のリセット、クレジット。"
+
+msgid "About"
+msgstr "情報"
+
+msgid "Drives"
+msgstr "ドライブ"
+
+msgid "Home"
+msgstr "ホーム"
+
+msgid "Options"
+msgstr "オプション"

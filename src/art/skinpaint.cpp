@@ -43,6 +43,12 @@ struct Painter {
     // A corner radius as the theme rounds it.
     float R(float radius) const { return radius * corners; }
 
+    // `a` taken `k` of the way to `b`, opaque.
+    static Rgba Mix(Rgba a, Rgba b, float k) {
+        const auto m = [k](std::uint8_t x, std::uint8_t y) { return static_cast<std::uint8_t>(x + (y - x) * k); };
+        return Rgba{m(a.r, b.r), m(a.g, b.g), m(a.b, b.b), 255};
+    }
+
     // `v` lightened (k > 1) or darkened (k < 1), with alpha `a`.
     static Rgba Shade(Rgba v, float k, int a = -1) {
         const auto ch = [k](std::uint8_t q) { return static_cast<std::uint8_t>(std::min(255.0f, q * k)); };
@@ -429,6 +435,139 @@ struct Painter {
         Canvas c(28, 28);
         c.ring(12, 12, 7.5f, 2.8f, glyph);
         c.line(17.5f, 17.5f, 24.0f, 24.0f, 3.6f, glyph);
+        return c;
+    }
+
+    // A tile of the game page and Settings, 64x64 to be nine-sliced
+    // (corner 24): the channel frame's card; lit, the accent's ring and
+    // glow. A primary one (Play) is tinted with the accent and keeps its
+    // ring when it is not lit, so the eye finds it first.
+    Canvas TileNine(bool over, bool primary) const {
+        if (!primary) return Tile(48, 48, 8, 16, over);
+        Canvas c(64, 64);
+        const float x = 8, y = 8, w = 48, h = 48, radius = R(16);
+        if (over) c.shadow(x - 1, y - 1, w + 2, h + 2, radius + 1, 7.0f, glow, 2.0f);
+        c.shadow(x, y + 2, w, h, radius, 3, shadow, 3.0f);
+        c.rounded_gradient(x, y, w, h, radius, Mix(card, accent, 0.16f), Mix(card, accent, 0.26f));
+        Shine(c, x, y, w, h, radius);
+        c.rounded_border(x, y, w, h, radius, over ? 3.0f : 2.5f, accent);
+        return c;
+    }
+
+    // The round badge a button's name sits on in the prompts along the
+    // bottom of a screen (A, B, +, 1, 2), as consoles draw them.
+    Canvas PromptButton() const {
+        Canvas c(24, 24);
+        c.circle(12, 12, 11.0f, glyph);
+        return c;
+    }
+
+    // The tiles' icons, 28x28 in the glyph colour, as the gear and the
+    // star: Play, Mods, Cheats, Saves, About, Help, Picture, Controllers,
+    // Online, Home and Look and sound.
+    Canvas Play() const {
+        Canvas c(28, 28);
+        c.polygon({{9, 5}, {23, 14}, {9, 23}}, glyph);
+        return c;
+    }
+    Canvas Layers() const {
+        Canvas c(28, 28);
+        const auto diamond = [&](float y, bool full) {
+            c.line(4, y, 14, y + 5, 2.2f, glyph);
+            c.line(14, y + 5, 24, y, 2.2f, glyph);
+            if (!full) return;
+            c.line(4, y, 14, y - 5, 2.2f, glyph);
+            c.line(14, y - 5, 24, y, 2.2f, glyph);
+        };
+        diamond(9, true);
+        diamond(14, false);
+        diamond(19, false);
+        return c;
+    }
+    Canvas Bolt() const {
+        Canvas c(28, 28);
+        c.polygon({{17, 2}, {6, 16}, {13, 16}, {10, 26}, {22, 11}, {15, 11}}, glyph);
+        return c;
+    }
+    Canvas Floppy() const {
+        Canvas c(28, 28);
+        c.rounded_border(5, 5, 18, 18, 2.5f, 2.0f, glyph);
+        c.rect(9, 5, 9, 6, glyph);
+        c.rounded_border(9, 15, 10, 8, 1.0f, 1.8f, glyph);
+        return c;
+    }
+    Canvas Info() const {
+        Canvas c(28, 28);
+        c.ring(14, 14, 10.5f, 2.0f, glyph);
+        c.circle(14, 9, 1.7f, glyph);
+        c.line(14, 13, 14, 20, 2.6f, glyph);
+        return c;
+    }
+    Canvas Help() const {
+        Canvas c(28, 28);
+        c.ring(14, 14, 10.5f, 2.0f, glyph);
+        const float hook[][2] = {{10.5f, 11}, {11.3f, 8.6f}, {14, 7.4f}, {16.7f, 8.4f}, {17.6f, 10.6f},
+                                 {16.4f, 12.8f}, {14, 14.2f}, {14, 16.6f}};
+        for (int i = 0; i + 1 < 8; ++i) c.line(hook[i][0], hook[i][1], hook[i + 1][0], hook[i + 1][1], 2.2f, glyph);
+        c.circle(14, 20.4f, 1.6f, glyph);
+        return c;
+    }
+    Canvas Tv() const {
+        Canvas c(28, 28);
+        c.rounded_border(3, 5, 22, 15, 2.5f, 2.0f, glyph);
+        c.line(14, 20, 14, 23, 2.0f, glyph);
+        c.line(9, 23.5f, 19, 23.5f, 2.2f, glyph);
+        return c;
+    }
+    Canvas Pad() const {
+        Canvas c(28, 28);
+        c.rounded_border(2, 8, 24, 13, 6.0f, 2.0f, glyph);
+        c.line(8, 11.5f, 8, 17.5f, 2.0f, glyph);
+        c.line(5, 14.5f, 11, 14.5f, 2.0f, glyph);
+        c.circle(18.5f, 12.8f, 1.6f, glyph);
+        c.circle(21.5f, 16.2f, 1.6f, glyph);
+        return c;
+    }
+    Canvas Globe() const {
+        Canvas c(28, 28);
+        c.ring(14, 14, 10.5f, 2.0f, glyph);
+        // The meridian: an ellipse a third as wide as it is tall.
+        for (int i = 0; i < 24; ++i) {
+            const float a0 = i * 3.14159265f / 12, a1 = (i + 1) * 3.14159265f / 12;
+            c.line(14 + 4.5f * std::cos(a0), 14 + 10.5f * std::sin(a0), 14 + 4.5f * std::cos(a1),
+                   14 + 10.5f * std::sin(a1), 1.6f, glyph);
+        }
+        c.line(3.5f, 14, 24.5f, 14, 1.6f, glyph);
+        c.line(6, 8.5f, 22, 8.5f, 1.4f, glyph);
+        c.line(6, 19.5f, 22, 19.5f, 1.4f, glyph);
+        return c;
+    }
+    Canvas House() const {
+        Canvas c(28, 28);
+        c.line(3, 14, 14, 4.5f, 2.4f, glyph);
+        c.line(14, 4.5f, 25, 14, 2.4f, glyph);
+        c.rounded_border(7, 12.5f, 14, 12, 1.5f, 2.0f, glyph);
+        c.rect(12, 17, 4, 7.5f, glyph);
+        return c;
+    }
+    Canvas Power() const {
+        Canvas c(28, 28);
+        // The ring, open at the top where the line stands.
+        const float gap = 0.55f, sweep = 2 * 3.14159265f - 2 * gap;
+        for (int i = 0; i < 30; ++i) {
+            const float a0 = -3.14159265f / 2 + gap + i * sweep / 30;
+            const float a1 = -3.14159265f / 2 + gap + (i + 1) * sweep / 30;
+            c.line(14 + 9.5f * std::cos(a0), 15 + 9.5f * std::sin(a0), 14 + 9.5f * std::cos(a1), 15 + 9.5f * std::sin(a1),
+                   2.4f, glyph);
+        }
+        c.line(14, 3.5f, 14, 13, 2.6f, glyph);
+        return c;
+    }
+    Canvas Note() const {
+        Canvas c(28, 28);
+        c.circle(10, 20.5f, 3.6f, glyph);
+        c.line(13.2f, 20.5f, 13.2f, 4.5f, 2.2f, glyph);
+        c.polygon({{13.2f, 4}, {21.5f, 8}, {21.5f, 12}, {13.2f, 8.5f}}, glyph);
         return c;
     }
 
@@ -851,6 +990,23 @@ bool paint_theme_image(const std::string& name, const Theme& theme, Canvas& out)
         {"icon_star", [](const Painter& q) { return q.Star(false); }},
         {"icon_star_on", [](const Painter& q) { return q.Star(true); }},
         {"icon_disc", [](const Painter& q) { return q.Disc(); }},
+        {"tile9", [](const Painter& q) { return q.TileNine(false, false); }},
+        {"tile9_over", [](const Painter& q) { return q.TileNine(true, false); }},
+        {"tile9_primary", [](const Painter& q) { return q.TileNine(false, true); }},
+        {"tile9_primary_over", [](const Painter& q) { return q.TileNine(true, true); }},
+        {"prompt_button", [](const Painter& q) { return q.PromptButton(); }},
+        {"icon_play", [](const Painter& q) { return q.Play(); }},
+        {"icon_mods", [](const Painter& q) { return q.Layers(); }},
+        {"icon_cheats", [](const Painter& q) { return q.Bolt(); }},
+        {"icon_saves", [](const Painter& q) { return q.Floppy(); }},
+        {"icon_info", [](const Painter& q) { return q.Info(); }},
+        {"icon_help", [](const Painter& q) { return q.Help(); }},
+        {"icon_picture", [](const Painter& q) { return q.Tv(); }},
+        {"icon_controllers", [](const Painter& q) { return q.Pad(); }},
+        {"icon_online", [](const Painter& q) { return q.Globe(); }},
+        {"icon_home", [](const Painter& q) { return q.House(); }},
+        {"icon_sound", [](const Painter& q) { return q.Note(); }},
+        {"icon_power", [](const Painter& q) { return q.Power(); }},
         {"disc_case", [](const Painter& q) { return q.DiscCase(); }},
         {"pointer1", [](const Painter& q) { return Painter::Hand(q.pointer[0]); }},
         {"pointer2", [](const Painter& q) { return Painter::Hand(q.pointer[1]); }},

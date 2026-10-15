@@ -343,12 +343,6 @@ T = {
     "Rescan": ("Buscar", "再検索", "Procurar", "Cerca"),
     "Leave RiftWii": ("Salir de RiftWii", "RiftWiiを終わる", "Sair do RiftWii", "Esci da RiftWii"),
     "Exit": ("Salir", "終わる", "Sair", "Esci"),
-    "These apply to every game. A game's own page can change them for that game. 1 and 2 jump between the groups.": (
-        "Se aplican a todos los juegos. La página de cada juego puede cambiarlos para ese juego. 1 y 2 saltan entre los grupos.",
-        "すべてのゲームに使われます。ゲームのページでそのゲームだけ変えられます。1と2でグループを移動します。",
-        "Valem para todos os jogos. A página de cada jogo pode mudá-los para esse jogo. 1 e 2 pulam entre os grupos.",
-        "Valgono per tutti i giochi. La pagina di ogni gioco può cambiarli per quel gioco. 1 e 2 saltano tra i gruppi."),
-    "1 and 2: groups": ("1 y 2: grupos", "1と2：グループ", "1 e 2: grupos", "1 e 2: gruppi"),
     "Game names follow the language when they are downloaded.": (
         "Los nombres de los juegos siguen el idioma al descargarse.",
         "ゲーム名はダウンロード時にこの言語になります。",
@@ -1752,6 +1746,27 @@ T = {
     "The game also works with this.": ("El juego también funciona con esto.", "これも使えます。", "O jogo também funciona com isto.", "Il gioco funziona anche con questo."),
     "Downloads GameTDB's database again (about 2 MB), for the latest details.": ("Vuelve a descargar la base de datos de GameTDB (unos 2 MB) para tener los datos más recientes.", "最新の情報のため、GameTDBのデータベース（約2 MB）をもう一度ダウンロードします。", "Baixa de novo a base de dados do GameTDB (cerca de 2 MB), para os dados mais recentes.", "Scarica di nuovo il database di GameTDB (circa 2 MB) per avere i dati più recenti."),
     "Game details downloaded.": ("Datos de los juegos descargados.", "ゲーム情報をダウンロードしました。", "Dados dos jogos baixados.", "Dati dei giochi scaricati."),
+    "Select": ("Elegir", "決定", "Escolher", "Scegli"),
+    "Controllers": ("Mandos", "コントローラー", "Controles", "Controller"),
+    "Downloads off": ("Descargas desactivadas", "ダウンロード：オフ", "Downloads desativados", "Download disattivati"),
+    "Downloads on": ("Descargas activadas", "ダウンロード：オン", "Downloads ativados", "Download attivi"),
+    "Game settings": ("Ajustes del juego", "ゲームの設定", "Configurações do jogo", "Impostazioni del gioco"),
+    "Mods on: {1}": ("Mods activados: {1}", "オンのMOD：{1}", "Mods ativados: {1}", "Mod attive: {1}"),
+    "Starts the game with the mods and settings shown here.": ("Inicia el juego con los mods y ajustes que se ven aquí.", "ここに表示されているMODと設定でゲームを始めます。", "Inicia o jogo com os mods e configurações mostrados aqui.", "Avvia il gioco con le mod e le impostazioni mostrate qui."),
+    "This game's own picture, language, online server and the rest. The ones not changed follow Settings.": ("La imagen, el idioma, el servidor en línea y lo demás de este juego. Lo que no cambies sigue lo de Ajustes.", "このゲームだけの画面、言語、オンラインサーバーなど。変えていないものは設定に従います。", "Imagem, idioma, servidor online e o resto só deste jogo. O que não mudar segue as Configurações.", "Immagine, lingua, server online e il resto solo per questo gioco. Ciò che non cambi segue le Impostazioni."),
+    "{1} changed": ("{1} cambiados", "{1}個変更", "{1} alterados", "{1} modificati"),
+    "How games are drawn on your TV: picture width, the flicker filter, black borders, the video mode and the aspect ratio.": ("Cómo se ven los juegos en tu TV: ancho de imagen, filtro de parpadeo, bordes negros, modo de vídeo y relación de aspecto.", "テレビでのゲームの映り方：画面の幅、ちらつき防止、黒い帯、映像モード、画面比率。", "Como os jogos aparecem na TV: largura da imagem, filtro de cintilação, bordas pretas, modo de vídeo e proporção.", "Come i giochi appaiono sulla TV: larghezza dell'immagine, filtro antisfarfallio, bordi neri, modalità video e proporzioni."),
+    "The language games are told the console uses, the cIOS they run under, where the Wii Menu button leads, and in-game screenshots.": ("El idioma que se indica a los juegos, el cIOS con el que funcionan, adónde lleva el botón Menú de Wii y las capturas en el juego.", "ゲームに伝える言語、ゲームを動かすcIOS、Wiiメニューボタンの行き先、ゲーム中のスクリーンショット。", "O idioma informado aos jogos, o cIOS em que rodam, para onde leva o botão Menu Wii e as capturas no jogo.", "La lingua comunicata ai giochi, il cIOS su cui girano, dove porta il pulsante Menu Wii e gli screenshot nel gioco."),
+    "The GameCube controller adapter for Wii U, and rumble for GameCube controllers and Wii Remotes.": ("El adaptador de mandos de GameCube para Wii U, y la vibración de los mandos de GameCube y de Wii.", "Wii U用ゲームキューブコントローラ接続タップと、ゲームキューブコントローラやWiiリモコンの振動。", "O adaptador de controles do GameCube para Wii U, e a vibração dos controles do GameCube e dos Wii Remotes.", "L'adattatore per controller GameCube per Wii U, e la vibrazione dei controller GameCube e dei telecomandi Wii."),
+    "How Home shows your games: covers, a shelf or channels, from which drive, in what order, play history and the clock.": ("Cómo muestra Inicio tus juegos: portadas, estantería o canales, de qué unidad, en qué orden, el historial y el reloj.", "ホームでのゲームの見せ方：パッケージ、棚、チャンネル、どのドライブか、並び順、プレイ履歴、時計。", "Como o Início mostra seus jogos: capas, estante ou canais, de qual unidade, em que ordem, histórico e o relógio.", "Come la home mostra i tuoi giochi: copertine, scaffale o canali, da quale unità, in che ordine, cronologia e orologio."),
+    "The menu's language, theme, letters, size on the TV, sounds and music.": ("El idioma, el tema, la letra, el tamaño en la TV, los sonidos y la música del menú.", "メニューの言語、テーマ、文字、テレビでの大きさ、効果音と音楽。", "O idioma, o tema, a letra, o tamanho na TV, os sons e a música do menu.", "La lingua, il tema, i caratteri, la dimensione sulla TV, i suoni e la musica del menu."),
+    "Downloads of game names, covers and cheats, the online server for games, and RiftWii's updates.": ("Descargas de nombres, portadas y trucos, el servidor en línea de los juegos y las actualizaciones de RiftWii.", "ゲーム名、パッケージ、チートのダウンロード、ゲームのオンラインサーバー、RiftWiiの更新。", "Downloads de nomes, capas e trapaças, o servidor online dos jogos e as atualizações do RiftWii.", "Download di nomi, copertine e trucchi, il server online dei giochi e gli aggiornamenti di RiftWii."),
+    "Reading the SD card and the USB drive again, and mods from a PC on the network (RiiFS).": ("Volver a leer la tarjeta SD y la unidad USB, y mods desde un PC en la red (RiiFS).", "SDカードとUSBドライブの読み直しと、ネットワーク上のPCからのMOD（RiiFS）。", "Ler de novo o cartão SD e a unidade USB, e mods de um PC na rede (RiiFS).", "Rileggere la scheda SD e l'unità USB, e mod da un PC in rete (RiiFS)."),
+    "Problem reports, what's new, the tutorial, the RiftWii channel, resetting the settings and the credits.": ("Informes de problemas, novedades, el tutorial, el canal de RiftWii, restablecer los ajustes y los créditos.", "問題の報告、新しくなったこと、チュートリアル、RiftWiiチャンネル、設定のリセット、クレジット。", "Relatórios de problemas, novidades, o tutorial, o canal RiftWii, redefinir as configurações e os créditos.", "Segnalazioni di problemi, novità, il tutorial, il canale RiftWii, il ripristino delle impostazioni e i crediti."),
+    "About": ("Acerca de", "情報", "Sobre", "Info"),
+    "Drives": ("Unidades", "ドライブ", "Unidades", "Unità"),
+    "Home": ("Inicio", "ホーム", "Início", "Home"),
+    "Options": ("Opciones", "オプション", "Opções", "Opzioni"),
 }
 
 
@@ -2028,10 +2043,6 @@ KO = {
         "RiftWii 나가기",
     "Exit":
         "나가기",
-    "These apply to every game. A game's own page can change them for that game. 1 and 2 jump between the groups.":
-        "모든 게임에 적용됩니다. 각 게임의 페이지에서 그 게임만 바꿀 수 있습니다. 1과 2로 그룹 사이를 이동합니다.",
-    "1 and 2: groups":
-        "1과 2: 그룹",
     "Game names follow the language when they are downloaded.":
         "게임 이름은 다운로드 시 해당 언어를 따릅니다.",
     "Game names and cheats are downloaded when the Wii is online.":
@@ -3066,6 +3077,48 @@ KO = {
         "최신 정보를 위해 GameTDB 데이터베이스(약 2 MB)를 다시 다운로드합니다.",
     "Game details downloaded.":
         "게임 정보를 다운로드했습니다.",
+    "Select":
+        "선택",
+    "Controllers":
+        "컨트롤러",
+    "Downloads off":
+        "다운로드 끔",
+    "Downloads on":
+        "다운로드 켬",
+    "Game settings":
+        "게임 설정",
+    "Mods on: {1}":
+        "켜진 MOD: {1}",
+    "Starts the game with the mods and settings shown here.":
+        "여기 표시된 MOD와 설정으로 게임을 시작합니다.",
+    "This game's own picture, language, online server and the rest. The ones not changed follow Settings.":
+        "이 게임만의 화면, 언어, 온라인 서버 등. 바꾸지 않은 것은 설정을 따릅니다.",
+    "{1} changed":
+        "{1}개 변경",
+    "How games are drawn on your TV: picture width, the flicker filter, black borders, the video mode and the aspect ratio.":
+        "TV에 게임이 표시되는 방식: 화면 폭, 깜박임 필터, 검은 테두리, 영상 모드, 화면 비율.",
+    "The language games are told the console uses, the cIOS they run under, where the Wii Menu button leads, and in-game screenshots.":
+        "게임에 알려 주는 언어, 게임이 실행되는 cIOS, Wii 메뉴 버튼의 이동 위치, 게임 중 스크린샷.",
+    "The GameCube controller adapter for Wii U, and rumble for GameCube controllers and Wii Remotes.":
+        "Wii U용 게임큐브 컨트롤러 어댑터, 게임큐브 컨트롤러와 Wii 리모컨의 진동.",
+    "How Home shows your games: covers, a shelf or channels, from which drive, in what order, play history and the clock.":
+        "홈에서 게임을 보여 주는 방식: 커버, 선반, 채널, 드라이브, 순서, 플레이 기록, 시계.",
+    "The menu's language, theme, letters, size on the TV, sounds and music.":
+        "메뉴의 언어, 테마, 글꼴, TV 화면 크기, 효과음과 음악.",
+    "Downloads of game names, covers and cheats, the online server for games, and RiftWii's updates.":
+        "게임 이름, 커버, 치트 다운로드, 게임의 온라인 서버, RiftWii 업데이트.",
+    "Reading the SD card and the USB drive again, and mods from a PC on the network (RiiFS).":
+        "SD 카드와 USB 드라이브 다시 읽기, 네트워크 PC의 MOD (RiiFS).",
+    "Problem reports, what's new, the tutorial, the RiftWii channel, resetting the settings and the credits.":
+        "문제 보고, 새로운 점, 튜토리얼, RiftWii 채널, 설정 초기화, 크레딧.",
+    "About":
+        "정보",
+    "Drives":
+        "드라이브",
+    "Home":
+        "홈",
+    "Options":
+        "옵션",
 }
 
 # French, a table of its own (msgid: text), from MidyGamy's translation
@@ -3341,10 +3394,6 @@ FR = {
         "Quitter RiftWii",
     "Exit":
         "Quitter",
-    "These apply to every game. A game's own page can change them for that game. 1 and 2 jump between the groups.":
-        "S'applique à tous les jeux. La page d'un jeu peut les changer pour ce jeu. 1 et 2 passent d'un groupe à l'autre.",
-    "1 and 2: groups":
-        "1 et 2 : groupes",
     "Game names follow the language when they are downloaded.":
         "Les noms des jeux suivent la langue sélectionnée lors de leur téléchargement.",
     "Game names and cheats are downloaded when the Wii is online.":
@@ -4379,6 +4428,48 @@ FR = {
         "Télécharge de nouveau la base de GameTDB (environ 2 Mo) pour les infos les plus récentes.",
     "Game details downloaded.":
         "Infos des jeux téléchargées.",
+    "Select":
+        "Choisir",
+    "Controllers":
+        "Manettes",
+    "Downloads off":
+        "Téléchargements désactivés",
+    "Downloads on":
+        "Téléchargements activés",
+    "Game settings":
+        "Paramètres du jeu",
+    "Mods on: {1}":
+        "Mods activés : {1}",
+    "Starts the game with the mods and settings shown here.":
+        "Lance le jeu avec les mods et paramètres affichés ici.",
+    "This game's own picture, language, online server and the rest. The ones not changed follow Settings.":
+        "L'image, la langue, le serveur en ligne et le reste pour ce jeu seul. Ce qui n'est pas changé suit les Paramètres.",
+    "{1} changed":
+        "{1} modifiés",
+    "How games are drawn on your TV: picture width, the flicker filter, black borders, the video mode and the aspect ratio.":
+        "L'affichage des jeux sur la TV : largeur de l'image, filtre anti-scintillement, bandes noires, mode vidéo et format.",
+    "The language games are told the console uses, the cIOS they run under, where the Wii Menu button leads, and in-game screenshots.":
+        "La langue annoncée aux jeux, le cIOS qui les fait tourner, où mène le bouton Menu Wii et les captures en jeu.",
+    "The GameCube controller adapter for Wii U, and rumble for GameCube controllers and Wii Remotes.":
+        "L'adaptateur de manettes GameCube pour Wii U, et la vibration des manettes GameCube et des Wiimotes.",
+    "How Home shows your games: covers, a shelf or channels, from which drive, in what order, play history and the clock.":
+        "Comment l'accueil montre vos jeux : jaquettes, étagère ou chaînes, quel support, quel ordre, l'historique et l'horloge.",
+    "The menu's language, theme, letters, size on the TV, sounds and music.":
+        "La langue, le thème, la police, la taille à l'écran, les sons et la musique du menu.",
+    "Downloads of game names, covers and cheats, the online server for games, and RiftWii's updates.":
+        "Téléchargement des noms, jaquettes et codes, le serveur en ligne des jeux et les mises à jour de RiftWii.",
+    "Reading the SD card and the USB drive again, and mods from a PC on the network (RiiFS).":
+        "Relire la carte SD et le disque USB, et les mods d'un PC sur le réseau (RiiFS).",
+    "Problem reports, what's new, the tutorial, the RiftWii channel, resetting the settings and the credits.":
+        "Rapports de problème, nouveautés, le tutoriel, la chaîne RiftWii, la réinitialisation et les crédits.",
+    "About":
+        "À propos",
+    "Drives":
+        "Supports",
+    "Home":
+        "Accueil",
+    "Options":
+        "Options",
 }
 
 # Languages kept in tables of their own: written after LANGS, every msgid

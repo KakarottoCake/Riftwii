@@ -429,12 +429,6 @@ msgstr "Esci da RiftWii"
 msgid "Exit"
 msgstr "Esci"
 
-msgid "These apply to every game. A game's own page can change them for that game. 1 and 2 jump between the groups."
-msgstr "Valgono per tutti i giochi. La pagina di ogni gioco può cambiarli per quel gioco. 1 e 2 saltano tra i gruppi."
-
-msgid "1 and 2: groups"
-msgstr "1 e 2: gruppi"
-
 msgid "Game names follow the language when they are downloaded."
 msgstr "I nomi dei giochi seguono la lingua quando vengono scaricati."
 
@@ -1964,3 +1958,66 @@ msgstr "Scarica di nuovo il database di GameTDB (circa 2 MB) per avere i dati pi
 
 msgid "Game details downloaded."
 msgstr "Dati dei giochi scaricati."
+
+msgid "Select"
+msgstr "Scegli"
+
+msgid "Controllers"
+msgstr "Controller"
+
+msgid "Downloads off"
+msgstr "Download disattivati"
+
+msgid "Downloads on"
+msgstr "Download attivi"
+
+msgid "Game settings"
+msgstr "Impostazioni del gioco"
+
+msgid "Mods on: {1}"
+msgstr "Mod attive: {1}"
+
+msgid "Starts the game with the mods and settings shown here."
+msgstr "Avvia il gioco con le mod e le impostazioni mostrate qui."
+
+msgid "This game's own picture, language, online server and the rest. The ones not changed follow Settings."
+msgstr "Immagine, lingua, server online e il resto solo per questo gioco. Ciò che non cambi segue le Impostazioni."
+
+msgid "{1} changed"
+msgstr "{1} modificati"
+
+msgid "How games are drawn on your TV: picture width, the flicker filter, black borders, the video mode and the aspect ratio."
+msgstr "Come i giochi appaiono sulla TV: larghezza dell'immagine, filtro antisfarfallio, bordi neri, modalità video e proporzioni."
+
+msgid "The language games are told the console uses, the cIOS they run under, where the Wii Menu button leads, and in-game screenshots."
+msgstr "La lingua comunicata ai giochi, il cIOS su cui girano, dove porta il pulsante Menu Wii e gli screenshot nel gioco."
+
+msgid "The GameCube controller adapter for Wii U, and rumble for GameCube controllers and Wii Remotes."
+msgstr "L'adattatore per controller GameCube per Wii U, e la vibrazione dei controller GameCube e dei telecomandi Wii."
+
+msgid "How Home shows your games: covers, a shelf or channels, from which drive, in what order, play history and the clock."
+msgstr "Come la home mostra i tuoi giochi: copertine, scaffale o canali, da quale unità, in che ordine, cronologia e orologio."
+
+msgid "The menu's language, theme, letters, size on the TV, sounds and music."
+msgstr "La lingua, il tema, i caratteri, la dimensione sulla TV, i suoni e la musica del menu."
+
+msgid "Downloads of game names, covers and cheats, the online server for games, and RiftWii's updates."
+msgstr "Download di nomi, copertine e trucchi, il server online dei giochi e gli aggiornamenti di RiftWii."
+
+msgid "Reading the SD card and the USB drive again, and mods from a PC on the network (RiiFS)."
+msgstr "Rileggere la scheda SD e l'unità USB, e mod da un PC in rete (RiiFS)."
+
+msgid "Problem reports, what's new, the tutorial, the RiftWii channel, resetting the settings and the credits."
+msgstr "Segnalazioni di problemi, novità, il tutorial, il canale RiftWii, il ripristino delle impostazioni e i crediti."
+
+msgid "About"
+msgstr "Info"
+
+msgid "Drives"
+msgstr "Unità"
+
+msgid "Home"
+msgstr "Home"
+
+msgid "Options"
+msgstr "Opzioni"

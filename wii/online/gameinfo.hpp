@@ -32,6 +32,11 @@ enum class GameInfoResult { Found, NotListed, NoDatabase, Failed };
 GameInfoResult FindGameInfo(const std::string& id, const std::set<std::string>& wanted, GameInfo& out,
                             std::string& error, const std::function<bool(double done)>& progress = nullptr);
 
+// `id`'s details when the cache already has them: the game page's line of
+// facts. Reads nothing but the cache file (once a session), never the
+// database.
+bool PeekGameInfo(const std::string& id, GameInfo& out);
+
 // Downloads the database in the menu's language (`received`: bytes so
 // far). The cache is made again from it at the next FindGameInfo.
 bool DownloadGameInfo(std::string& error, const std::function<void(std::size_t received)>& received = nullptr);

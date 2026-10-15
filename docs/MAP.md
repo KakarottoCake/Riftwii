@@ -28,6 +28,7 @@ and `vendor-*` is third-party code.
 | --- | --- |
 | A menu screen (Home, a game's page, Mods, Cheats, Settings) | `wii/menu/rift_menu.cpp` |
 | How a list or the tile grid looks or scrolls | `wii/menu/gui_flowlist.cpp`, `wii/menu/gui_gamegrid.cpp`, `wii/menu/skin.cpp` |
+| The game page's and Settings' tiles, the prompts bar | `wii/menu/gui_tiles.cpp`, `wii/menu/gui_prompts.cpp`, `wii/menu/rift_menu.cpp` (`MenuHome`, `SettingsHub`), `src/art/skinpaint.cpp` (tile frames and icons) |
 | How screens, pages and popups come and go (fades, zooms, slides) | `wii/menu/transition.cpp`, the camera in `vendor-libgui/source/video.cpp` |
 | Menu themes (colours, pictures, music) | `src/art/theme.cpp` (theme.ini), `src/art/skinpaint.cpp` (the painted pictures), `wii/menu/menutheme.cpp`, `wii/menu/skin.cpp`, `themes/`, [THEMES.md](THEMES.md) |
 | The theme kit download | `tools/theme_kit.cpp`, `tools/make_theme_kit.py`, `themes/kit/README.txt` |
@@ -106,7 +107,9 @@ The build compiles every folder into one, so no two files share a name.
 | --- | --- |
 | `rift_menu.cpp` | Every menu screen, the GUI thread, the HOME menu, the screen dimming |
 | `menu.h` | The menu's entry points for `main.cpp` |
-| `gui_flowlist.cpp` | The row lists (game page, Mods, Cheats, Settings) |
+| `gui_flowlist.cpp` | The row lists (a game's Options, Mods, Cheats, Settings' sections) |
+| `gui_tiles.cpp` | The tiles of the game page and the Settings hub: D-pad moves to the nearest, focus ring and lift |
+| `gui_prompts.cpp` | The button prompts along the bottom of a screen (A Select, B Back, + Play) |
 | `gui_gamegrid.cpp` | The Home screen's tile grid and its cover textures |
 | `skin.cpp` | The menu's artwork (painted by `src/art/skinpaint.cpp`) or a theme's pictures, as textures |
 | `menutheme.cpp` | The chosen theme: its theme.ini, pictures and music on the SD card |

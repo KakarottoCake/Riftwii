@@ -72,6 +72,14 @@ extern Tex iconDrives, iconGear, iconSearch;  // 28x28
 extern Tex iconStar, iconStarOn;         // 28x28 the banner screen's favourite button: off, on
 extern Tex discCase;                    // 128x176 RGBA8: the disc drive's box (covers, shelf)
 extern Tex iconDisc;                     // 40x40, the Disc drive tile's picture
+// The game page's and Settings' tiles (wii/menu/gui_tiles.hpp), 64x64
+// nine-sliced with corner kTileCorner: plain, lit, primary, primary lit.
+extern Tex tile9, tile9Over, tile9Primary, tile9PrimaryOver;
+constexpr float kTileCorner = 24.0f;
+extern Tex promptButton;                 // 24x24, a button's badge in the prompts bar
+// 28x28 tile icons.
+extern Tex iconPlay, iconMods, iconCheats, iconSaves, iconInfo, iconHelp, iconPicture, iconControllers,
+    iconOnline, iconHome, iconSound, iconPower;
 extern Tex hand[4];                      // 96x96 pointers, fingertip at the centre
 extern Tex background;                   // 640x480, a theme's (else none: GuiBackdrop paints)
 // 856 across, a theme's for a widescreen menu (else none: the 640 ones are
@@ -102,6 +110,10 @@ void DrawNine(const Tex& t, float x, float y, float w, float h, float corner, in
 GXColor WithAlpha(GXColor c, int alpha);
 // A w x h RGB5A3 texture (a cover, wii/menu/covers.hpp), like Draw.
 void DrawRgb5a3(const u8* data, int w, int h, float x, float y, int alpha = 255, float scale = 1.0f);
+// Columns u0..u1 (0 to 1) of a w x h RGB5A3 texture, drawn smoothed into
+// the dw x dh box at (x, y): the front of a game's box (wii/menu/boxart.hpp).
+void DrawRgb5a3Part(const u8* data, int w, int h, float u0, float u1, float x, float y, float dw, float dh,
+                    int alpha = 255);
 
 // Whether the menu is drawn for a 16:9 TV (Menu_SafeArea wider than 640).
 bool WideMenu();

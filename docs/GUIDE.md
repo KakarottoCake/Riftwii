@@ -115,15 +115,23 @@ Games you start show on the Wii Message Board with how long you
 played, as discs from the Wii Menu do (`message_board = off` in
 `sd:/riftwii/settings.txt` turns that off).
 
-Pick a game to open its page. It shows how often you played it, and
-these rows:
+Pick a game to open its page: its box on the left, its name in the band
+at the top with a line of facts (its ID, year, genre, how many can play,
+whether it plays online, how often you played it), and large tiles. The
+D-pad moves between the tiles, A opens the one that is lit, and the line
+under them says what it does. The prompts at the bottom right name the
+buttons that work on the screen (A, B, +); with the pointer, they can be
+pressed too.
+
+- **Play** (the large tile, or Plus) starts the game; it says how many
+  mods are on.
 
 - **Mods** opens the packs made for this game. Each pack has an On/Off
   switch; once it is on, its settings show under it, with arrows on
   either side of the value (Minus steps back). A pack whose XML is broken
   shows the error under it. Settings that several packs share show once,
   as in Riivolution.
-- **About this game** shows what GameTDB says about it: when it came
+- **About** shows what GameTDB says about it: when it came
   out, its genre, who made it, its age rating, how many can play (and
   online, with the server it would use), the controllers it needs and
   those it also takes, each marked *Connected* or *Not connected* when
@@ -152,6 +160,9 @@ these rows:
   show **Set values**: A asks for each value on a keypad (0-9, A-F; +
   is OK), with the cheat's notes above it, and turns the cheat on.
   **Its values** under it changes them later.
+- **Favourite** (under the box) puts the game in Home's Favourites view.
+- **Options** opens the game's own settings, a list of rows; the tile
+  says how many differ from Settings:
 - **Picture width**, **Deflicker** and **Black borders** change how the
   game draws its picture, like USB Loader GX's video settings:
   - *Picture width*: 720 fills the TV from side to side; many games
@@ -194,7 +205,7 @@ these rows:
 
   *Default* follows Settings, where the same rows apply to every game.
 
-**Start** (or Plus) boots the game with what you chose; with nothing on,
+**Play** (or Plus) boots the game with what you chose; with nothing on,
 the game starts as it is. While it starts, its progress prints on
 screen. Your choices are saved for each game.
 
@@ -205,9 +216,13 @@ A to keep going. Each arrow goes away at its end of the list.
 
 ### Settings
 
-The gear at the bottom right (or **2**) opens Settings. Its rows come in
-groups: *Games* (the defaults for every game), *Menu*, *Finding games*,
-*Online* and *More*. The note under the list explains the row you are on.
+The gear at the bottom right (or **2**) opens Settings: nine tiles, each
+showing what it is set to now. *Picture* and *Games* are the defaults for
+every game; then *Controllers*, *Home*, *Menu* (language, theme, font,
+sounds, music), *Online*, *Drives* (finding games), *Help* (reports,
+tutorial, the channel, reset, credits) and *Exit*. Each opens a short
+list; the note under it explains the row you are on, and B goes back to
+the tiles.
 
 - **Language**: English, Español, 日本語, Português, Italiano, Français,
   한국어 (Korean) or *Wii* to follow the console. Korean needs **Menu font** set

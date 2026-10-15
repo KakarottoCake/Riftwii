@@ -198,6 +198,9 @@ static volatile HomeWall g_homeWall = HomeWall::Plain;
 Tex noticeIcon[2];
 Tex tileEmpty;
 Tex shelfPlank;
+Tex tile9, tile9Over, tile9Primary, tile9PrimaryOver, promptButton;
+Tex iconPlay, iconMods, iconCheats, iconSaves, iconInfo, iconHelp, iconPicture, iconControllers, iconOnline,
+    iconHome, iconSound, iconPower;
 
 Tex ArtFrame(int w, int h) {
     // Two sizes at most (with and without the popup's hint line), each painted once.
@@ -252,6 +255,11 @@ void Init() {
         {"scroll_down", &scrollDown}, {"scroll_down_over", &scrollDownOver}, {"icon_drives", &iconDrives},
         {"icon_gear", &iconGear}, {"icon_search", &iconSearch}, {"icon_star", &iconStar}, {"icon_star_on", &iconStarOn}, {"icon_disc", &iconDisc}, {"disc_case", &discCase}, {"pointer1", &hand[0]}, {"pointer2", &hand[1]},
         {"pointer3", &hand[2]}, {"pointer4", &hand[3]}, {"shelf", &shelfPlank},
+        {"tile9", &tile9}, {"tile9_over", &tile9Over}, {"tile9_primary", &tile9Primary},
+        {"tile9_primary_over", &tile9PrimaryOver}, {"prompt_button", &promptButton}, {"icon_play", &iconPlay},
+        {"icon_mods", &iconMods}, {"icon_cheats", &iconCheats}, {"icon_saves", &iconSaves}, {"icon_info", &iconInfo},
+        {"icon_help", &iconHelp}, {"icon_picture", &iconPicture}, {"icon_controllers", &iconControllers},
+        {"icon_online", &iconOnline}, {"icon_home", &iconHome}, {"icon_sound", &iconSound}, {"icon_power", &iconPower},
         {"background_wide", &backgroundWide}, {"bar_wide", &barWide},
         {"background_shelf", &backgroundShelf}, {"background_shelf_wide", &backgroundShelfWide},
         {"background_plain", &backgroundPlain}, {"background_plain_wide", &backgroundPlainWide},
@@ -416,6 +424,40 @@ void DrawRgb5a3(const u8* data, int w, int h, float x, float y, int alpha, float
     GX_TexCoord2f32(0, 1);
     GX_End();
     GX_LoadPosMtxImm(view, GX_PNMTX0);
+    GX_SetTevOp(GX_TEVSTAGE0, GX_PASSCLR);
+    GX_SetVtxDesc(GX_VA_TEX0, GX_NONE);
+}
+
+void DrawRgb5a3Part(const u8* data, int w, int h, float u0, float u1, float x, float y, float dw, float dh,
+                    int alpha) {
+    if (!data || alpha <= 0) return;
+    GXTexObj tex;
+    GX_InitTexObj(&tex, const_cast<u8*>(data), static_cast<u16>(w), static_cast<u16>(h), GX_TF_RGB5A3, GX_CLAMP, GX_CLAMP,
+                  GX_FALSE);
+    GX_InitTexObjLOD(&tex, GX_LINEAR, GX_LINEAR, 0, 0, 0, GX_FALSE, GX_FALSE, GX_ANISO_1);
+    GX_LoadTexObj(&tex, GX_TEXMAP0);
+    GX_SetTevOp(GX_TEVSTAGE0, GX_MODULATE);
+    GX_SetVtxDesc(GX_VA_TEX0, GX_DIRECT);
+    // libgui's 2D view: the identity moved to z = -50 (video.cpp).
+    Mtx view;
+    guMtxIdentity(view);
+    guMtxTransApply(view, view, 0.0f, 0.0f, -50.0f);
+    GX_LoadPosMtxImm(view, GX_PNMTX0);
+    const u8 a = static_cast<u8>(alpha > 255 ? 255 : alpha);
+    GX_Begin(GX_QUADS, GX_VTXFMT0, 4);
+    GX_Position3f32(x, y, 0);
+    GX_Color4u8(0xFF, 0xFF, 0xFF, a);
+    GX_TexCoord2f32(u0, 0);
+    GX_Position3f32(x + dw, y, 0);
+    GX_Color4u8(0xFF, 0xFF, 0xFF, a);
+    GX_TexCoord2f32(u1, 0);
+    GX_Position3f32(x + dw, y + dh, 0);
+    GX_Color4u8(0xFF, 0xFF, 0xFF, a);
+    GX_TexCoord2f32(u1, 1);
+    GX_Position3f32(x, y + dh, 0);
+    GX_Color4u8(0xFF, 0xFF, 0xFF, a);
+    GX_TexCoord2f32(u0, 1);
+    GX_End();
     GX_SetTevOp(GX_TEVSTAGE0, GX_PASSCLR);
     GX_SetVtxDesc(GX_VA_TEX0, GX_NONE);
 }

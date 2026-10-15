@@ -429,12 +429,6 @@ msgstr "RiftWii 나가기"
 msgid "Exit"
 msgstr "나가기"
 
-msgid "These apply to every game. A game's own page can change them for that game. 1 and 2 jump between the groups."
-msgstr "모든 게임에 적용됩니다. 각 게임의 페이지에서 그 게임만 바꿀 수 있습니다. 1과 2로 그룹 사이를 이동합니다."
-
-msgid "1 and 2: groups"
-msgstr "1과 2: 그룹"
-
 msgid "Game names follow the language when they are downloaded."
 msgstr "게임 이름은 다운로드 시 해당 언어를 따릅니다."
 
@@ -1964,3 +1958,66 @@ msgstr "최신 정보를 위해 GameTDB 데이터베이스(약 2 MB)를 다시 �
 
 msgid "Game details downloaded."
 msgstr "게임 정보를 다운로드했습니다."
+
+msgid "Select"
+msgstr "선택"
+
+msgid "Controllers"
+msgstr "컨트롤러"
+
+msgid "Downloads off"
+msgstr "다운로드 끔"
+
+msgid "Downloads on"
+msgstr "다운로드 켬"
+
+msgid "Game settings"
+msgstr "게임 설정"
+
+msgid "Mods on: {1}"
+msgstr "켜진 MOD: {1}"
+
+msgid "Starts the game with the mods and settings shown here."
+msgstr "여기 표시된 MOD와 설정으로 게임을 시작합니다."
+
+msgid "This game's own picture, language, online server and the rest. The ones not changed follow Settings."
+msgstr "이 게임만의 화면, 언어, 온라인 서버 등. 바꾸지 않은 것은 설정을 따릅니다."
+
+msgid "{1} changed"
+msgstr "{1}개 변경"
+
+msgid "How games are drawn on your TV: picture width, the flicker filter, black borders, the video mode and the aspect ratio."
+msgstr "TV에 게임이 표시되는 방식: 화면 폭, 깜박임 필터, 검은 테두리, 영상 모드, 화면 비율."
+
+msgid "The language games are told the console uses, the cIOS they run under, where the Wii Menu button leads, and in-game screenshots."
+msgstr "게임에 알려 주는 언어, 게임이 실행되는 cIOS, Wii 메뉴 버튼의 이동 위치, 게임 중 스크린샷."
+
+msgid "The GameCube controller adapter for Wii U, and rumble for GameCube controllers and Wii Remotes."
+msgstr "Wii U용 게임큐브 컨트롤러 어댑터, 게임큐브 컨트롤러와 Wii 리모컨의 진동."
+
+msgid "How Home shows your games: covers, a shelf or channels, from which drive, in what order, play history and the clock."
+msgstr "홈에서 게임을 보여 주는 방식: 커버, 선반, 채널, 드라이브, 순서, 플레이 기록, 시계."
+
+msgid "The menu's language, theme, letters, size on the TV, sounds and music."
+msgstr "메뉴의 언어, 테마, 글꼴, TV 화면 크기, 효과음과 음악."
+
+msgid "Downloads of game names, covers and cheats, the online server for games, and RiftWii's updates."
+msgstr "게임 이름, 커버, 치트 다운로드, 게임의 온라인 서버, RiftWii 업데이트."
+
+msgid "Reading the SD card and the USB drive again, and mods from a PC on the network (RiiFS)."
+msgstr "SD 카드와 USB 드라이브 다시 읽기, 네트워크 PC의 MOD (RiiFS)."
+
+msgid "Problem reports, what's new, the tutorial, the RiftWii channel, resetting the settings and the credits."
+msgstr "문제 보고, 새로운 점, 튜토리얼, RiftWii 채널, 설정 초기화, 크레딧."
+
+msgid "About"
+msgstr "정보"
+
+msgid "Drives"
+msgstr "드라이브"
+
+msgid "Home"
+msgstr "홈"
+
+msgid "Options"
+msgstr "옵션"
