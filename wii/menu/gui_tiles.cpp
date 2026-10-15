@@ -135,6 +135,9 @@ void GuiTiles::Layout(int i) {
     } else {
         textX = s.x + kPad + (s.icon ? kIcon + 9 : 0);
         labelY = s.y + (s.h - (hasValue ? 42 : (s.primary ? 28 : 22))) / 2;
+        // A name alone: the font's letters sit low in their line, so it is
+        // raised to look centred on the tile and its icon (About, Exit).
+        if (!hasValue) labelY -= 3;
     }
     const int room = s.x + s.w - kPad - textX;
     // A long name (a translation) steps down to 15 points before "..." cuts it.
