@@ -1662,13 +1662,12 @@ T = {
     "Every setting goes back to how RiftWii comes, and RiftWii restarts. Games' own pages, favourites, play history and mods are kept.": ("Todos los ajustes vuelven a como vienen en RiftWii, y RiftWii se reinicia. Se conservan las páginas de cada juego, los favoritos, el historial de juego y los mods.", "すべての設定がRiftWiiの初期状態に戻り、RiftWiiが再起動します。各ゲームのページ、お気に入り、プレイ履歴、MODはそのまま残ります。", "Todas as configurações voltam a como vêm no RiftWii, e o RiftWii reinicia. As páginas de cada jogo, os favoritos, o histórico de jogo e os mods são mantidos.", "Tutte le impostazioni tornano come in origine e RiftWii si riavvia. Le pagine dei singoli giochi, i preferiti, la cronologia di gioco e le mod restano."),
     "Every setting back to how RiftWii comes. Games' own pages, favourites, play history and mods are kept.": ("Todos los ajustes vuelven a como vienen en RiftWii. Se conservan las páginas de cada juego, los favoritos, el historial de juego y los mods.", "すべての設定をRiftWiiの初期状態に戻します。各ゲームのページ、お気に入り、プレイ履歴、MODはそのまま残ります。", "Todas as configurações voltam a como vêm no RiftWii. As páginas de cada jogo, os favoritos, o histórico de jogo e os mods são mantidos.", "Tutte le impostazioni tornano come in origine. Le pagine dei singoli giochi, i preferiti, la cronologia di gioco e le mod restano."),
     "Settings reset to the defaults": ("Ajustes restablecidos", "設定を初期状態に戻しました", "Configurações redefinidas", "Impostazioni ripristinate"),
-    # What's new in 2610-395
-    "A new look: big tiles for each game and for Settings": ("Un nuevo aspecto: casillas grandes para cada juego y para Ajustes", "新しいデザイン：各ゲームと設定に大きなタイル", "Um novo visual: blocos grandes para cada jogo e para as Configurações", "Un nuovo aspetto: riquadri grandi per ogni gioco e per le Impostazioni"),
-    "Home: 3D covers on a ring, and a carousel": ("Inicio: portadas 3D en un anillo, y un carrusel", "ホーム：輪に並ぶ3Dパッケージとカルーセル", "Início: capas 3D num anel, e um carrossel", "Home: copertine 3D su un anello, e un carosello"),
-    "Each game's page: its art, and About with its story": ("La página de cada juego: su arte, y Acerca de con su historia", "各ゲームのページ：アートと、あらすじ付きの情報", "A página de cada jogo: sua arte, e Sobre com a história", "La pagina di ogni gioco: la sua grafica, e Info con la trama"),
-    "Channels look like the Wii Menu's": ("Los canales se ven como los del menú de Wii", "チャンネルがWiiメニューのような見た目に", "Os canais parecem os do Menu Wii", "I canali somigliano a quelli del Menu Wii"),
-    "About: a game's details, controllers and story on one page": ("Acerca de: los datos, mandos e historia de un juego en una página", "情報：ゲームの詳細、コントローラー、あらすじを1ページに", "Sobre: os dados, controles e história de um jogo numa página", "Info: dati, controller e trama di un gioco in una pagina"),
-    "Bigger covers and names on a widescreen TV": ("Portadas y nombres más grandes en una TV panorámica", "ワイドテレビでパッケージと名前が大きく", "Capas e nomes maiores numa TV widescreen", "Copertine e nomi più grandi su una TV panoramica"),
+    # What's new in 2610-406
+    "Wii U Pro Controller in games, as a Classic Controller (a first try)": ("El Mando Pro de Wii U en los juegos, como Mando Clásico (una primera prueba)", "Wii U PROコントローラーをゲームでクラシックコントローラとして（試験版）", "O Wii U Pro Controller nos jogos, como Classic Controller (um primeiro teste)", "Il Wii U Pro Controller nei giochi, come Controller tradizionale (una prima prova)"),
+    "Channels: sharp icons, framed like the Wii Menu's": ("Canales: iconos nítidos, con marcos como los del menú de Wii", "チャンネル：くっきりしたアイコンとWiiメニューのような枠", "Canais: ícones nítidos, com molduras como as do Menu Wii", "Canali: icone nitide, con cornici come quelle del Menu Wii"),
+    "New controller and button pictures": ("Nuevas imágenes de mandos y botones", "コントローラーとボタンの新しい絵", "Novas imagens de controles e botões", "Nuove immagini di controller e pulsanti"),
+    "Smoother round buttons": ("Botones redondos más suaves", "なめらかになった丸いボタン", "Botões redondos mais suaves", "Pulsanti rotondi più morbidi"),
+    "Fixed: some channel logos came out grey": ("Corregido: algunos logotipos de canales salían en gris", "修正：一部のチャンネルのロゴが灰色になっていた", "Corrigido: alguns logotipos de canais apareciam em cinza", "Corretto: alcuni loghi dei canali apparivano grigi"),
     # Game page: memory for RiftWii's extras
     "Memory for RiftWii's extras": ("Memoria para los extras de RiftWii", "RiftWiiの追加機能が使うメモリ", "Memória para os extras do RiftWii", "Memoria per gli extra di RiftWii"),
     "about {1} KB": ("unos {1} KB", "約{1} KB", "cerca de {1} KB", "circa {1} KB"),
@@ -2907,18 +2906,16 @@ KO = {
         "모든 설정을 RiftWii의 기본값으로 되돌립니다. 게임별 페이지, 즐겨찾기, 플레이 기록, 모드는 그대로 유지됩니다.",
     "Settings reset to the defaults":
         "설정을 기본값으로 초기화했습니다",
-    "A new look: big tiles for each game and for Settings":
-        "새로운 디자인: 각 게임과 설정에 큰 타일",
-    "Home: 3D covers on a ring, and a carousel":
-        "홈: 고리 위의 3D 커버와 캐러셀",
-    "Each game's page: its art, and About with its story":
-        "각 게임 페이지: 아트와 줄거리가 있는 정보",
-    "Channels look like the Wii Menu's":
-        "채널이 Wii 메뉴처럼 보입니다",
-    "About: a game's details, controllers and story on one page":
-        "정보: 게임의 세부 정보, 컨트롤러, 줄거리를 한 페이지에",
-    "Bigger covers and names on a widescreen TV":
-        "와이드 TV에서 더 큰 커버와 이름",
+    "Wii U Pro Controller in games, as a Classic Controller (a first try)":
+        "게임에서 Wii U PRO 컨트롤러를 클래식 컨트롤러로 (첫 시험)",
+    "Channels: sharp icons, framed like the Wii Menu's":
+        "채널: 선명한 아이콘, Wii 메뉴 같은 테두리",
+    "New controller and button pictures":
+        "새 컨트롤러와 버튼 그림",
+    "Smoother round buttons":
+        "더 부드러운 둥근 버튼",
+    "Fixed: some channel logos came out grey":
+        "수정: 일부 채널 로고가 회색으로 나오던 문제",
     "Memory for RiftWii's extras":
         "RiftWii 추가 기능이 쓰는 메모리",
     "about {1} KB":
@@ -4246,18 +4243,16 @@ FR = {
         "Tous les paramètres reviennent à ceux d'origine. Les pages des jeux, les favoris, l'historique de jeu et les mods sont conservés.",
     "Settings reset to the defaults":
         "Paramètres réinitialisés",
-    "A new look: big tiles for each game and for Settings":
-        "Nouveau look : de grandes tuiles pour chaque jeu et les Paramètres",
-    "Home: 3D covers on a ring, and a carousel":
-        "Accueil : jaquettes 3D sur un anneau, et un carrousel",
-    "Each game's page: its art, and About with its story":
-        "La page de chaque jeu : son illustration, et À propos avec son histoire",
-    "Channels look like the Wii Menu's":
-        "Les chaînes ressemblent à celles du menu Wii",
-    "About: a game's details, controllers and story on one page":
-        "À propos : détails, manettes et histoire d'un jeu sur une page",
-    "Bigger covers and names on a widescreen TV":
-        "Jaquettes et noms plus grands sur une TV 16:9",
+    "Wii U Pro Controller in games, as a Classic Controller (a first try)":
+        "La manette Wii U Pro dans les jeux, comme Manette Classique (un premier essai)",
+    "Channels: sharp icons, framed like the Wii Menu's":
+        "Chaînes : icônes nettes, encadrées comme dans le menu Wii",
+    "New controller and button pictures":
+        "Nouvelles images des manettes et des boutons",
+    "Smoother round buttons":
+        "Boutons ronds plus doux",
+    "Fixed: some channel logos came out grey":
+        "Corrigé : certains logos de chaînes apparaissaient en gris",
     "Memory for RiftWii's extras":
         "Mémoire pour les extras de RiftWii",
     "about {1} KB":

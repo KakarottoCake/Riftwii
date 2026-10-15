@@ -1713,23 +1713,20 @@ msgstr "Todos los ajustes vuelven a como vienen en RiftWii. Se conservan las pá
 msgid "Settings reset to the defaults"
 msgstr "Ajustes restablecidos"
 
-msgid "A new look: big tiles for each game and for Settings"
-msgstr "Un nuevo aspecto: casillas grandes para cada juego y para Ajustes"
+msgid "Wii U Pro Controller in games, as a Classic Controller (a first try)"
+msgstr "El Mando Pro de Wii U en los juegos, como Mando Clásico (una primera prueba)"
 
-msgid "Home: 3D covers on a ring, and a carousel"
-msgstr "Inicio: portadas 3D en un anillo, y un carrusel"
+msgid "Channels: sharp icons, framed like the Wii Menu's"
+msgstr "Canales: iconos nítidos, con marcos como los del menú de Wii"
 
-msgid "Each game's page: its art, and About with its story"
-msgstr "La página de cada juego: su arte, y Acerca de con su historia"
+msgid "New controller and button pictures"
+msgstr "Nuevas imágenes de mandos y botones"
 
-msgid "Channels look like the Wii Menu's"
-msgstr "Los canales se ven como los del menú de Wii"
+msgid "Smoother round buttons"
+msgstr "Botones redondos más suaves"
 
-msgid "About: a game's details, controllers and story on one page"
-msgstr "Acerca de: los datos, mandos e historia de un juego en una página"
-
-msgid "Bigger covers and names on a widescreen TV"
-msgstr "Portadas y nombres más grandes en una TV panorámica"
+msgid "Fixed: some channel logos came out grey"
+msgstr "Corregido: algunos logotipos de canales salían en gris"
 
 msgid "Memory for RiftWii's extras"
 msgstr "Memoria para los extras de RiftWii"

@@ -2364,12 +2364,11 @@ static std::string DiscTileNote()
 // holds seven lines), for the release script to keep up to date. Shown
 // once when they change; Settings > What's new shows them again.
 static const char* const kWhatsNew[] = {
-	"A new look: big tiles for each game and for Settings",
-	"Home: 3D covers on a ring, and a carousel",
-	"Each game's page: its art, and About with its story",
-	"Channels look like the Wii Menu's",
-	"About: a game's details, controllers and story on one page",
-	"Bigger covers and names on a widescreen TV",
+	"Wii U Pro Controller in games, as a Classic Controller (a first try)",
+	"Channels: sharp icons, framed like the Wii Menu's",
+	"New controller and button pictures",
+	"Smoother round buttons",
+	"Fixed: some channel logos came out grey",
 };
 
 static std::string WhatsNewText()

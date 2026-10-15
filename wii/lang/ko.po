@@ -1713,23 +1713,20 @@ msgstr "모든 설정을 RiftWii의 기본값으로 되돌립니다. 게임별 �
 msgid "Settings reset to the defaults"
 msgstr "설정을 기본값으로 초기화했습니다"
 
-msgid "A new look: big tiles for each game and for Settings"
-msgstr "새로운 디자인: 각 게임과 설정에 큰 타일"
+msgid "Wii U Pro Controller in games, as a Classic Controller (a first try)"
+msgstr "게임에서 Wii U PRO 컨트롤러를 클래식 컨트롤러로 (첫 시험)"
 
-msgid "Home: 3D covers on a ring, and a carousel"
-msgstr "홈: 고리 위의 3D 커버와 캐러셀"
+msgid "Channels: sharp icons, framed like the Wii Menu's"
+msgstr "채널: 선명한 아이콘, Wii 메뉴 같은 테두리"
 
-msgid "Each game's page: its art, and About with its story"
-msgstr "각 게임 페이지: 아트와 줄거리가 있는 정보"
+msgid "New controller and button pictures"
+msgstr "새 컨트롤러와 버튼 그림"
 
-msgid "Channels look like the Wii Menu's"
-msgstr "채널이 Wii 메뉴처럼 보입니다"
+msgid "Smoother round buttons"
+msgstr "더 부드러운 둥근 버튼"
 
-msgid "About: a game's details, controllers and story on one page"
-msgstr "정보: 게임의 세부 정보, 컨트롤러, 줄거리를 한 페이지에"
-
-msgid "Bigger covers and names on a widescreen TV"
-msgstr "와이드 TV에서 더 큰 커버와 이름"
+msgid "Fixed: some channel logos came out grey"
+msgstr "수정: 일부 채널 로고가 회색으로 나오던 문제"
 
 msgid "Memory for RiftWii's extras"
 msgstr "RiftWii 추가 기능이 쓰는 메모리"
