@@ -723,6 +723,9 @@ msgstr "Estante"
 msgid "Carousel"
 msgstr "Carrusel"
 
+msgid "Plays with"
+msgstr "Se juega con"
+
 msgid "3D covers"
 msgstr "Portadas 3D"
 
@@ -1881,9 +1884,6 @@ msgstr "¿Descargar los datos de los juegos?"
 msgid "They come from GameTDB's database of every Wii game: about 2 MB, kept on the SD card. Download it now?"
 msgstr "Vienen de la base de datos de GameTDB con todos los juegos de Wii: unos 2 MB, guardados en la tarjeta SD. ¿Descargarla ahora?"
 
-msgid "Details"
-msgstr "Datos"
-
 msgid "Players"
 msgstr "Jugadores"
 
@@ -1908,35 +1908,11 @@ msgstr "Sin conectar"
 msgid "Story"
 msgstr "Historia"
 
-msgid "Game details"
-msgstr "Datos del juego"
-
 msgid "Game details of {1}"
 msgstr "Datos del {1}"
 
 msgid "From GameTDB, the database of Wii games its community keeps."
 msgstr "De GameTDB, la base de datos de juegos de Wii que mantiene su comunidad."
-
-msgid "One is connected now."
-msgstr "Hay uno conectado."
-
-msgid "The game needs one: connect it before you start."
-msgstr "El juego lo necesita: conéctalo antes de empezar."
-
-msgid "None is connected now; the game also plays without it."
-msgstr "No hay ninguno conectado; el juego también funciona sin él."
-
-msgid "The game needs this to play. RiftWii cannot see whether it is there."
-msgstr "El juego lo necesita para jugar. RiftWii no puede ver si está."
-
-msgid "The game also works with this."
-msgstr "El juego también funciona con esto."
-
-msgid "Downloads GameTDB's database again (about 2 MB), for the latest details."
-msgstr "Vuelve a descargar la base de datos de GameTDB (unos 2 MB) para tener los datos más recientes."
-
-msgid "Game details downloaded."
-msgstr "Datos de los juegos descargados."
 
 msgid "Select"
 msgstr "Elegir"
@@ -2016,17 +1992,8 @@ msgstr "Desarrollador"
 msgid "Publisher"
 msgstr "Editor"
 
-msgid "Age rating"
-msgstr "Clasificación"
-
-msgid "On one Wii"
-msgstr "En una Wii"
-
 msgid "Up to {1} players"
 msgstr "Hasta {1} jugadores"
 
 msgid "The mod's own"
 msgstr "El del mod"
-
-msgid "Pick one on the game page"
-msgstr "Elige uno en la página del juego"

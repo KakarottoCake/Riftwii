@@ -4176,154 +4176,366 @@ static bool FetchGameInfo(const FrontendState& state, riftwii::GameInfo& info)
 	return false;
 }
 
-static void MenuAbout(const FrontendState& state, riftwii::GameInfo info)
-{
-	enum class Act { None, Control, Download };
-	struct Ref {
-		Act act = Act::None;
-		std::string type;
-		bool required = false;
-	};
-	std::vector<FlowRow> rows;
-	std::vector<Ref> refs;
-	const ConnectedPads pads = PadsConnectedNow();
-	const auto build = [&]() {
-		rows.clear();
-		refs.clear();
-		const auto heading = [&](const std::string& name) {
-			FlowRow row;
-			row.heading = true;
-			row.label = name;
-			rows.push_back(row);
-			refs.push_back({});
-		};
-		const auto line = [&](const std::string& text) {
-			FlowRow row;
-			row.label = text;
-			rows.push_back(row);
-			refs.push_back({});
-		};
+// Where the page's parts go: inside a TV's overscan, 5% of the screen in
+// from each edge (32 across, 24 down), the box over the band's edge.
+static constexpr int kHeroX = 40, kHeroY = 80, kHeroW = 150, kHeroH = 206;
+static constexpr int kTilesX = 214, kTilesRight = 600;  // 40 in from each side, as the box
+static constexpr int kTilesW = kTilesRight - kTilesX;
 
-		// A fact: its name, and its value at the row's end, as text (it is
-		// read, not pressed).
-		const auto fact = [&](const std::string& name, const std::string& value) {
-			FlowRow row;
-			row.kind = FlowRow::Kind::Info;
-			row.label = name;
-			row.value = value;
-			rows.push_back(row);
-			refs.push_back({});
-		};
-		heading(tr("Details"));
-		const std::string released = ReleaseText(info);
-		if (!released.empty()) fact(tr("Released"), released);
-		if (!info.genres.empty()) fact(tr("Genre"), GenreText(info.genres));
-		if (!info.developer.empty() && info.developer == info.publisher) {
-			fact(tr("Made by"), info.developer);
+
+// The game's box on its page: the front of its full cover when one is
+// kept (the shelf's, wii/menu/boxart.hpp), else its small cover made
+// larger, else the disc drive's box for a disc, else the game's colour.
+// The art fills the box with slightly rounded corners of its own (a real
+// case's), over a soft drop shadow; a frame with larger corners around it
+// cut the art's corners off.
+class HeroCover : public GuiElement {
+public:
+	HeroCover(std::string id, bool disc, GXColor hue) : id(std::move(id)), disc(disc), hue(hue) {}
+	HeroCover(const HeroCover&) = delete;
+	HeroCover& operator=(const HeroCover&) = delete;
+	~HeroCover() override { free(rounded); }
+	void Draw() override {
+		const float x = kHeroX, y = kHeroY, w = kHeroW, h = kHeroH;
+		if (const u8* art = RoundedArt()) {
+			// A drop shadow, as if the box stood a little off the page, lit
+			// from above.
+			constexpr float kDrop = 6.0f;
+			const float m = riftwii::kShadowMargin;
+			skin::DrawNine(skin::dropShadow9, x - m + 2, y - m + kDrop, w + 2 * m - 4, h + 2 * m, riftwii::kShadowCorner);
+			skin::DrawRgb5a3Part(art, roundedW, roundedH, 0.0f, 1.0f, x, y, w, h);
+			return;
+		}
+		skin::DrawNine(skin::card9, x - 8, y - 8, w + 16, h + 16, riftwii::kCardCorner);
+		const float ax = x + 4, ay = y + 4, aw = w - 8, ah = h - 8;
+		if (const u8* box = id.empty() ? nullptr : riftwii::wii::BoxTexture(id)) {
+			const float u0 = static_cast<float>(riftwii::kBoxSpineWidth) / riftwii::kBoxWidth;
+			const float u1 = static_cast<float>(riftwii::kBoxSpineWidth + riftwii::kBoxFrontWidth) / riftwii::kBoxWidth;
+			skin::DrawRgb5a3Part(box, riftwii::kBoxWidth, riftwii::kBoxHeight, u0, u1, ax, ay, aw, ah);
+		} else if (const u8* cover = id.empty() ? nullptr : riftwii::wii::CoverTexture(id)) {
+			skin::DrawRgb5a3Part(cover, riftwii::kCoverWidth, riftwii::kCoverHeight, 0.0f, 1.0f, ax, ay, aw, ah);
+		} else if (disc && skin::discCase.data) {
+			const float scale = aw / skin::discCase.w;
+			skin::Draw(skin::discCase, ax + (aw - skin::discCase.w) / 2, ay + (ah - skin::discCase.h) / 2, 255, scale);
 		} else {
-			if (!info.developer.empty()) fact(tr("Developer"), info.developer);
-			if (!info.publisher.empty()) fact(tr("Publisher"), info.publisher);
+			Menu_DrawRectangle(ax, ay, aw, ah, hue, 1);
+			skin::Draw(skin::iconDisc, ax + (aw - 40) / 2, ay + (ah - 40) / 2);
 		}
-		if (!info.rating.empty()) fact(tr("Age rating"), info.rating_system + " " + info.rating);
+	}
+private:
+	// The corners' radius as drawn: about a real case's, in proportion.
+	static constexpr float kArtCorner = 6.0f;
+	// The box's front (or the cover) with its corners rounded off
+	// (riftwii::round_corners), made again whenever the art changes.
+	const u8* RoundedArt() {
+		if (id.empty()) return nullptr;
+		const u8* box = riftwii::wii::BoxTexture(id);
+		const u8* cover = box ? nullptr : riftwii::wii::CoverTexture(id);
+		const u8* from = box ? box : cover;
+		if (!from) return nullptr;
+		if (from == roundedFrom) return rounded;
+		constexpr std::size_t kBytes = static_cast<std::size_t>(riftwii::kBoxFrontWidth) * riftwii::kBoxHeight * 2;
+		if (!rounded) rounded = static_cast<u8*>(memalign(32, kBytes));
+		if (!rounded) return nullptr;
+		roundedW = box ? riftwii::kBoxFrontWidth : riftwii::kCoverWidth;
+		roundedH = box ? riftwii::kBoxHeight : riftwii::kCoverHeight;
+		const float texels = kArtCorner * roundedW / kHeroW;
+		const bool made = box ? riftwii::round_corners(box, riftwii::kBoxWidth, riftwii::kBoxHeight, riftwii::kBoxSpineWidth,
+						 riftwii::kBoxSpineWidth + riftwii::kBoxFrontWidth, texels, rounded)
+				      : riftwii::round_corners(cover, riftwii::kCoverWidth, riftwii::kCoverHeight, 0,
+						 riftwii::kCoverWidth, texels, rounded);
+		if (!made) return nullptr;
+		DCFlushRange(rounded, kBytes);
+		GX_InvalidateTexAll();
+		roundedFrom = from;
+		return rounded;
+	}
+	std::string id;
+	bool disc;
+	GXColor hue;
+	u8* rounded = nullptr;  // kBoxFrontWidth x kBoxHeight at most, 32-aligned
+	const u8* roundedFrom = nullptr;
+	int roundedW = 0, roundedH = 0;
+};
 
-		heading(tr("Players"));
-		if (info.players == 1) fact(tr("On one Wii"), tr("1 player"));
-		else if (info.players > 1) fact(tr("On one Wii"), tr("1 to {1} players", {std::to_string(info.players)}));
-		const bool online = info.online_players > 0;
-		if (online) {
-			fact(tr("Online"), tr("Up to {1} players", {std::to_string(info.online_players)}));
-			// Nintendo's servers closed in 2014: online play needs another.
-			const riftwii::GameSettings& game = state.model.game;
-			const std::string server = game.server == "global" ? riftwii::wii::Settings().wfc_server : game.server;
-			if (state.model.packs_patch_game()) fact(tr("Online server"), tr("The mod's own"));
-			else if (server == "off" || server.empty()) fact(tr("Online server"), tr("Pick one on the game page"));
-			else fact(tr("Online server"), ServerName(server));
-		} else if (riftwii::game_has_no_online(state.game_id) || info.players > 0) {
-			fact(tr("Online"), tr("No online play"));
+// The About page's body, right of the box and under it: the facts in two
+// columns, the age rating as a badge in the band, the controllers as
+// icons, the story as a paragraph that scrolls (Up and Down, or the
+// arrows). Everything here is read, not pressed: plain text and icons.
+class AboutBody : public GuiElement {
+public:
+	struct Fact {
+		std::string name, value;
+	};
+	struct Control {
+		std::string type, name;
+		bool required = false, seen = false, connected = false;
+	};
+	static constexpr int kGridX = kTilesX, kGridY = 132, kColW = 186, kColGap = 14, kRowH = 38;
+	static constexpr int kStoryX = 40, kStoryY = 326, kStoryW = 520, kStoryLines = 4, kLineH = 19;  // ends by y 402, clear of the prompts
+
+	AboutBody(std::vector<Fact> facts, std::vector<Control> controls, std::string rating, std::string ratingSystem,
+		const std::string& story)
+		: facts(std::move(facts)), controls(std::move(controls)), rating(std::move(rating)),
+		  ratingSystem(std::move(ratingSystem))
+	{
+		width = screenwidth;
+		height = screenheight;
+		for (const Fact& f : this->facts) {
+			std::string upper = f.name;
+			for (char& ch : upper)
+				if (ch >= 'a' && ch <= 'z') ch = static_cast<char>(ch - 'a' + 'A');
+			names.emplace_back(new GuiText(upper.c_str(), 12, skin::kInkDim));
+			values.emplace_back(new GuiText(f.value.c_str(), 16, skin::kInk));
+			values.back()->SetMaxWidth(kColW - 4);
 		}
+		playsWith.reset(new GuiText(Upper(tr("Plays with")).c_str(), 12, skin::kInkDim));
+		storyHead.reset(new GuiText(Upper(tr("Story")).c_str(), 12, skin::kInkDim));
+		ratingTxt.reset(new GuiText(this->rating.c_str(), 26, skin::kInk));
+		systemTxt.reset(new GuiText(this->ratingSystem.c_str(), 11, skin::kInkSoft));
+		WrapStory(story);
+		for (int i = 0; i < kStoryLines; ++i) shown.emplace_back(new GuiText("", 15, skin::kInkSoft));
+		for (auto* t : {playsWith.get(), storyHead.get(), ratingTxt.get(), systemTxt.get()}) t->SetParent(this);
+		for (auto& t : names) t->SetParent(this);
+		for (auto& t : values) t->SetParent(this);
+		for (auto& t : shown) t->SetParent(this);
+	}
 
-		// Needed first, then the rest; each with whether it is here.
-		for (int pass = 0; pass < 2; ++pass) {
-			bool headed = false;
-			for (const riftwii::GameControl& c : info.controls) {
-				if (c.required != (pass == 0)) continue;
-				const std::string name = ControlName(c.type);
-				if (name.empty()) continue;
-				if (!headed) {
-					heading(pass == 0 ? tr("Needed to play") : tr("Also works with"));
-					headed = true;
-				}
-				// A status, not a button: text, a dot before "Connected".
-				FlowRow row;
-				row.kind = FlowRow::Kind::Info;
-				row.label = name;
-				bool connected = false;
-				if (ControlSeen(c.type, pads, connected)) {
-					row.value = connected ? "\xE2\x97\x8F  " + std::string(tr("Connected")) : std::string(tr("Not connected"));
-					row.on = connected;
-				}
-				rows.push_back(row);
-				refs.push_back({Act::Control, c.type, c.required});
+	bool HasRating() const { return !rating.empty(); }
+	// The control the pointer is on (-1 none), for the line at the foot.
+	int HoveredControl() const { return hoverControl; }
+	const Control& ControlAt(int i) const { return controls[static_cast<std::size_t>(i)]; }
+
+	void Draw() override
+	{
+		const int alpha = GetAlpha();
+		// The facts, two to a row.
+		for (std::size_t i = 0; i < facts.size(); ++i) {
+			const int x = kGridX + static_cast<int>(i % 2) * (kColW + kColGap);
+			const int y = kGridY + static_cast<int>(i / 2) * kRowH;
+			Place(*names[i], x, y);
+			names[i]->Draw();
+			Place(*values[i], x, y + 14);
+			values[i]->Draw();
+		}
+		// The controllers: needed ones first, at full strength; the ones
+		// that also work, fainter; a dot under each one that is connected.
+		const int rows = static_cast<int>((facts.size() + 1) / 2);
+		const int cy = kGridY + rows * kRowH + 4;
+		iconY = cy + 15;
+		if (!controls.empty()) {
+			Place(*playsWith, kGridX, cy);
+			playsWith->Draw();
+			for (std::size_t i = 0; i < controls.size(); ++i) {
+				const Control& c = controls[i];
+				const float x = static_cast<float>(IconX(static_cast<int>(i)));
+				const int a = c.required ? alpha : alpha * 120 / 255;
+				const float lift = static_cast<int>(i) == hoverControl ? -2.0f : 0.0f;
+				skin::Draw(skin::ControlIcon(c.type), x, iconY + lift, a, kIconScale);
+				if (c.connected)
+					Menu_DrawRectangle(x + 40 * kIconScale / 2 - 2, iconY + 40 * kIconScale + 2, 4, 4,
+						skin::WithAlpha(skin::kAccent, alpha), 1);
 			}
 		}
-
-		if (!info.synopsis.empty()) {
-			heading(tr("Story"));
-			const std::string text = riftwii::plain_punctuation(info.synopsis);
-			for (const std::string& part : riftwii::wrap_columns(text, 60)) line(part);
+		// The age rating: a badge in the band's top right corner.
+		if (HasRating()) {
+			const float bx = 548, by = 32, bw = 52, bh = 62;
+			skin::DrawNine(skin::card9, bx - 8, by - 8, bw + 16, bh + 16, riftwii::kCardCorner, alpha);
+			ratingTxt->SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
+			ratingTxt->SetPosition(static_cast<int>(bx + bw / 2) - screenwidth / 2, static_cast<int>(by + 8));
+			ratingTxt->Draw();
+			systemTxt->SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
+			systemTxt->SetPosition(static_cast<int>(bx + bw / 2) - screenwidth / 2, static_cast<int>(by + bh - 19));
+			systemTxt->Draw();
 		}
-
-		heading("GameTDB");
-		std::string source;
-		std::time_t written = 0;
-		std::string when;
-		if (riftwii::wii::GameInfoSource(source, written)) {
-			char date[16];
-			std::strftime(date, sizeof date, "%Y-%m-%d", std::localtime(&written));
-			when = date;
+		// The story, a window of it at a time.
+		if (!lines.empty()) {
+			Place(*storyHead, kStoryX, kStoryY - 18);
+			storyHead->Draw();
+			for (int i = 0; i < kStoryLines; ++i) {
+				const std::size_t at = static_cast<std::size_t>(first + i);
+				shown[i]->SetText(at < lines.size() ? lines[at].c_str() : "");
+				Place(*shown[i], kStoryX, kStoryY + i * kLineH);
+				shown[i]->Draw();
+			}
+			if (Scrolls()) {
+				if (first > 0) skin::Draw(overUp ? skin::scrollUpOver : skin::scrollUp, kArrowX - 4, kStoryY - 6, alpha);
+				if (first + kStoryLines < static_cast<int>(lines.size()))
+					skin::Draw(overDown ? skin::scrollDownOver : skin::scrollDown, kArrowX - 4,
+						kStoryY + kStoryLines * kLineH - 30, alpha);
+			}
 		}
-		FlowRow update;
-		update.kind = FlowRow::Kind::Action;
-		update.label = when.empty() ? tr("Game details") : tr("Game details of {1}", {when});
-		update.value = tr("Download again");
-		update.dim = !riftwii::wii::Settings().online;
-		rows.push_back(update);
-		refs.push_back({Act::Download, "", false});
-	};
-	build();
+	}
 
-	GuiText titleTxt(tr("About this game"), 30, skin::kInk);
-	Place(titleTxt, 78, 28);
-	TitleBand titleBand;
-	PageIcon pageIcon(&skin::iconInfo);
-	const std::string gameName = FlatCapped(GameTitle(state), 40);
-	GuiText gameTxt(gameName.c_str(), 16, skin::kInkDim);
-	gameTxt.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
-	gameTxt.SetPosition(-40, 40);
-	NoteCard noteCard;
-	GuiFlowList list(44, 84, 540, 5);
-	list.SetCards(true);
-	list.SetRows(&rows);
-	list.Select(1);
-	const std::string pageNote = tr("From GameTDB, the database of Wii games its community keeps.");
-	GuiText noteTxt(pageNote.c_str(), 15, skin::kInkSoft);
-	Place(noteTxt, NoteCard::kTextX, NoteCard::kTextY);
-	noteTxt.SetWrap(true, NoteCard::kTextW, NoteCard::kLines);
+	void Update(GuiTrigger* t) override
+	{
+		if (!t) return;
+		const int most = std::max(0, static_cast<int>(lines.size()) - kStoryLines);
+		if (t->Down() && first < most) ++first;
+		if (t->Up() && first > 0) --first;
+		if (!t->wpad || !t->wpad->ir.valid) {
+			if (t->chan == 0) hoverControl = -1;
+			return;
+		}
+		const int px = static_cast<int>(t->wpad->ir.x), py = static_cast<int>(t->wpad->ir.y);
+		hoverControl = -1;
+		for (int i = 0; i < static_cast<int>(controls.size()); ++i) {
+			const int x = IconX(i);
+			if (px >= x && px < x + kIconStep && py >= iconY && py < iconY + 40 * kIconScale) hoverControl = i;
+		}
+		overUp = Scrolls() && px >= kArrowX - 4 && px < kArrowX + 30 && py >= kStoryY - 6 && py < kStoryY + 28;
+		overDown = Scrolls() && px >= kArrowX - 4 && px < kArrowX + 30 && py >= kStoryY + kStoryLines * kLineH - 30 &&
+			py < kStoryY + kStoryLines * kLineH + 4;
+		if (t->wpad->btns_d & (WPAD_BUTTON_A | WPAD_CLASSIC_BUTTON_A)) {
+			if (overUp && first > 0) --first;
+			if (overDown && first < most) ++first;
+		}
+	}
+
+private:
+	static constexpr float kIconScale = 0.95f;
+	static constexpr int kIconStep = 46;
+	static constexpr int kArrowX = 572;
+	static std::string Upper(std::string text)
+	{
+		for (char& ch : text)
+			if (ch >= 'a' && ch <= 'z') ch = static_cast<char>(ch - 'a' + 'A');
+		return text;
+	}
+	int IconX(int i) const { return kGridX + i * kIconStep; }
+	bool Scrolls() const { return static_cast<int>(lines.size()) > kStoryLines; }
+	// The story in lines as wide as the column, measured in the menu's
+	// font, a word at a time.
+	void WrapStory(const std::string& text)
+	{
+		GuiText measure("", 15, skin::kInkSoft);
+		std::string line;
+		std::size_t i = 0;
+		while (i < text.size()) {
+			std::size_t j = text.find(' ', i);
+			if (j == std::string::npos) j = text.size();
+			const std::string word = text.substr(i, j - i);
+			const std::string tryLine = line.empty() ? word : line + " " + word;
+			measure.SetText(tryLine.c_str());
+			if (!line.empty() && measure.GetTextWidth() > kStoryW) {
+				lines.push_back(line);
+				line = word;
+			} else {
+				line = tryLine;
+			}
+			i = j + 1;
+		}
+		if (!line.empty()) lines.push_back(line);
+	}
+
+	std::vector<Fact> facts;
+	std::vector<Control> controls;
+	std::string rating, ratingSystem;
+	std::vector<std::unique_ptr<GuiText>> names, values, shown;
+	std::unique_ptr<GuiText> playsWith, storyHead, ratingTxt, systemTxt;
+	std::vector<std::string> lines;
+	int first = 0;
+	int hoverControl = -1;
+	float iconY = 0;
+	bool overUp = false, overDown = false;
+};
+
+// The About page: the game's band and box as on its page, then what
+// GameTDB says about it. True when its details were downloaded again
+// (the page is then drawn anew with them).
+static bool ShowAbout(const FrontendState& state, const riftwii::GameInfo& info)
+{
+	std::vector<AboutBody::Fact> facts;
+	const std::string released = ReleaseText(info);
+	if (!released.empty()) facts.push_back({tr("Released"), released});
+	// The first two of GameTDB's genres: a column's width.
+	if (!info.genres.empty())
+		facts.push_back({tr("Genre"), GenreText({info.genres.begin(), info.genres.begin() + std::min<std::size_t>(2, info.genres.size())})});
+	if (info.players == 1) facts.push_back({tr("Players"), tr("1 player")});
+	else if (info.players > 1) facts.push_back({tr("Players"), tr("1 to {1} players", {std::to_string(info.players)})});
+	if (info.online_players > 0) {
+		// Nintendo's servers closed in 2014: the server the launch would use.
+		const riftwii::GameSettings& game = state.model.game;
+		const std::string server = game.server == "global" ? riftwii::wii::Settings().wfc_server : game.server;
+		std::string online = tr("Up to {1} players", {std::to_string(info.online_players)});
+		if (state.model.packs_patch_game()) online += " \xC2\xB7 " + std::string(tr("The mod's own"));
+		else if (server != "off" && !server.empty()) online += " \xC2\xB7 " + ServerName(server);
+		facts.push_back({tr("Online"), online});
+	} else if (riftwii::game_has_no_online(state.game_id) || info.players > 0) {
+		facts.push_back({tr("Online"), tr("No online play")});
+	}
+	if (!info.developer.empty() && info.developer == info.publisher) {
+		facts.push_back({tr("Made by"), info.developer});
+	} else {
+		if (!info.developer.empty()) facts.push_back({tr("Developer"), info.developer});
+		if (!info.publisher.empty()) facts.push_back({tr("Publisher"), info.publisher});
+	}
+	if (facts.size() > 6) facts.resize(6);
+
+	const ConnectedPads pads = PadsConnectedNow();
+	std::vector<AboutBody::Control> controls;
+	for (int pass = 0; pass < 2; ++pass) {
+		for (const riftwii::GameControl& c : info.controls) {
+			if (c.required != (pass == 0)) continue;
+			const std::string name = ControlName(c.type);
+			if (name.empty() || controls.size() >= 9) continue;
+			AboutBody::Control one;
+			one.type = c.type;
+			one.name = name;
+			one.required = c.required;
+			one.seen = ControlSeen(c.type, pads, one.connected);
+			controls.push_back(one);
+		}
+	}
+
+	const bool fromDisc = !state.use_usb && !state.use_sd;
+	GameBanner banner(skin::HueFor(state.game_id), state.game_id, fromDisc);
+	HeroCover hero(state.game_id, fromDisc, skin::HueFor(state.game_id));
+	AboutBody body(facts, controls, info.rating, info.rating_system, riftwii::plain_punctuation(info.synopsis));
+	// The band's text as on the game page: an overline, the name.
+	std::string overline = tr("About this game");
+	for (char& ch : overline)
+		if (ch >= 'a' && ch <= 'z') ch = static_cast<char>(ch - 'a' + 'A');
+	GuiText whereTxt(overline.c_str(), 13, (GXColor){225, 228, 235, 255});
+	const std::string title = GameTitle(state);
+	const int titleRoom = kTilesW - (body.HasRating() ? 70 : 0);
+	GuiText titleTxt(title.c_str(), 28, skin::kWhite);
+	int titleSize = 28;
+	while (titleSize > 20 && titleTxt.GetTextWidth() > titleRoom) titleTxt.SetFontSize(--titleSize);
+	if (titleTxt.GetTextWidth() > titleRoom) titleTxt.SetWrap(true, titleRoom, 2);
+	OutlinedText whereOutlined(whereTxt, kTilesX + 1, 34, (GXColor){225, 228, 235, 255}, 1, 1);
+	OutlinedText titleOutlined(titleTxt, kTilesX, 52, skin::kWhite, 2, 2);
+
+	// The line at the foot: where the details come from, or the control
+	// the pointer is on.
+	std::string source;
+	std::time_t written = 0;
+	std::string sourceLine = tr("From GameTDB, the database of Wii games its community keeps.");
+	if (riftwii::wii::GameInfoSource(source, written)) {
+		char date[16];
+		std::strftime(date, sizeof date, "%Y-%m-%d", std::localtime(&written));
+		sourceLine = tr("Game details of {1}", {date}) + " \xC2\xB7 GameTDB";
+	}
+	GuiText footTxt(sourceLine.c_str(), 14, skin::kInkDim);
+	Place(footTxt, 40, 428);
+	footTxt.SetMaxWidth(300);
+
 	SkinButton backBtn(skin::pill, skin::pillOver, 4, 198, 406, "Back",
 		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
 	HideButton(backBtn);
 	GuiPrompts prompts;
 	const int promptBack = prompts.Add("B", tr("Back"));
+	const bool online = riftwii::wii::Settings().online;
+	const int promptUpdate = online ? prompts.Add("-", tr("Update")) : -1;
 
 	HaltGui();
 	GuiWindow w(screenwidth, screenheight);
-	w.Append(&titleBand);
-	w.Append(&pageIcon);
-	w.Append(&titleTxt);
-	w.Append(&gameTxt);
-	w.Append(&noteCard);
-	w.Append(&list);
-	w.Append(&noteTxt);
+	w.Append(&banner);
+	w.Append(&hero);
+	w.Append(&whereOutlined);
+	w.Append(&titleOutlined);
+	w.Append(&body);
+	w.Append(&footTxt);
 	w.Append(&backBtn.button);
 	w.Append(&prompts);
 	mainWindow->Append(&w);
@@ -4331,56 +4543,50 @@ static void MenuAbout(const FrontendState& state, riftwii::GameInfo info)
 	logf("About: %s, %u controller(s) listed, %u bytes of story\n", state.game_id.c_str(),
 		static_cast<unsigned>(info.controls.size()), static_cast<unsigned>(info.synopsis.size()));
 
-	const auto say = [&](const std::string& text) { noteTxt.SetText(text.c_str()); };
-	int shownRow = -1;
+	int footFor = -2;
+	bool update = false;
 	bool done = false;
 	while (!done)
 	{
 		usleep(10000);
 		HaltGui();
 		ClearStaleButtons({&backBtn.button});
-
-		const int row = list.Selected();
-		if (row != shownRow && row >= 0 && static_cast<std::size_t>(row) < refs.size()) {
-			shownRow = row;
-			const Ref& ref = refs[static_cast<std::size_t>(row)];
-			bool connected = false;
-			if (ref.act == Act::Control && ControlSeen(ref.type, pads, connected)) {
-				if (connected) say(tr("One is connected now."));
-				else if (ref.required) say(tr("The game needs one: connect it before you start."));
-				else say(tr("None is connected now; the game also plays without it."));
-			} else if (ref.act == Act::Control) {
-				say(ref.required ? tr("The game needs this to play. RiftWii cannot see whether it is there.")
-					: tr("The game also works with this."));
-			} else if (ref.act == Act::Download) {
-				say(riftwii::wii::Settings().online
-					? tr("Downloads GameTDB's database again (about 2 MB), for the latest details.")
-					: tr("Downloads are off in Settings."));
+		const int hovered = body.HoveredControl();
+		if (hovered != footFor) {
+			footFor = hovered;
+			if (hovered < 0) {
+				footTxt.SetText(sourceLine.c_str());
 			} else {
-				say(pageNote);
+				const AboutBody::Control& c = body.ControlAt(hovered);
+				std::string text = c.name + " \xC2\xB7 " + (c.required ? tr("Needed to play") : tr("Also works with"));
+				if (c.seen) text += " \xC2\xB7 " + std::string(c.connected ? tr("Connected") : tr("Not connected"));
+				footTxt.SetText(text.c_str());
 			}
 		}
-
-		const int acted = list.GetClicked();
-		list.GetClickedBack();
-		if (acted >= 0 && static_cast<std::size_t>(acted) < refs.size() &&
-		    refs[static_cast<std::size_t>(acted)].act == Act::Download && riftwii::wii::Settings().online) {
-			riftwii::GameInfo fresh;
-			if (DownloadGameInfoNow() && FetchGameInfo(state, fresh)) {
-				info = fresh;
-				build();
-				list.Refresh();
-				list.Select(acted < static_cast<int>(rows.size()) ? acted : 0);
-				say(tr("Game details downloaded."));
-				shownRow = acted;
-			}
+		for (int i = 0; i < 4 && promptUpdate >= 0; ++i) {
+			const bool minus = (userInput[i].wpad && (userInput[i].wpad->btns_d & (WPAD_BUTTON_MINUS | WPAD_CLASSIC_BUTTON_MINUS))) ||
+				(userInput[i].pad.btns_d & PAD_TRIGGER_L);
+			if (minus) update = true;
 		}
-		if (prompts.GetClicked() == promptBack) backBtn.button.SetState(STATE::CLICKED);
-		if (backBtn.Clicked()) done = true;
+		const int pressed = prompts.GetClicked();
+		if (pressed == promptBack) backBtn.button.SetState(STATE::CLICKED);
+		if (pressed >= 0 && pressed == promptUpdate) update = true;
+		if (backBtn.Clicked() || update) done = true;
 		ResumeGui();
 	}
 	HaltGui();
 	mainWindow->Remove(&w);
+	if (!update) return false;
+	return DownloadGameInfoNow();
+}
+
+static void MenuAbout(const FrontendState& state, riftwii::GameInfo info)
+{
+	while (ShowAbout(state, info)) {
+		riftwii::GameInfo fresh;
+		if (!FetchGameInfo(state, fresh)) return;
+		info = fresh;
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -5133,88 +5339,6 @@ static void MenuMods(FrontendState& state, std::string& scanStatus)
 
 // ---------------------------------------------------------------------------
 // The game page: the game's box, its name and facts, and tiles
-
-// Where the page's parts go: inside a TV's overscan, 5% of the screen in
-// from each edge (32 across, 24 down), the box over the band's edge.
-static constexpr int kHeroX = 40, kHeroY = 80, kHeroW = 150, kHeroH = 206;
-static constexpr int kTilesX = 214, kTilesRight = 600;  // 40 in from each side, as the box
-static constexpr int kTilesW = kTilesRight - kTilesX;
-
-
-// The game's box on its page: the front of its full cover when one is
-// kept (the shelf's, wii/menu/boxart.hpp), else its small cover made
-// larger, else the disc drive's box for a disc, else the game's colour.
-// The art fills the box with slightly rounded corners of its own (a real
-// case's), over a soft drop shadow; a frame with larger corners around it
-// cut the art's corners off.
-class HeroCover : public GuiElement {
-public:
-	HeroCover(std::string id, bool disc, GXColor hue) : id(std::move(id)), disc(disc), hue(hue) {}
-	HeroCover(const HeroCover&) = delete;
-	HeroCover& operator=(const HeroCover&) = delete;
-	~HeroCover() override { free(rounded); }
-	void Draw() override {
-		const float x = kHeroX, y = kHeroY, w = kHeroW, h = kHeroH;
-		if (const u8* art = RoundedArt()) {
-			// A drop shadow, as if the box stood a little off the page, lit
-			// from above.
-			constexpr float kDrop = 6.0f;
-			const float m = riftwii::kShadowMargin;
-			skin::DrawNine(skin::dropShadow9, x - m + 2, y - m + kDrop, w + 2 * m - 4, h + 2 * m, riftwii::kShadowCorner);
-			skin::DrawRgb5a3Part(art, roundedW, roundedH, 0.0f, 1.0f, x, y, w, h);
-			return;
-		}
-		skin::DrawNine(skin::card9, x - 8, y - 8, w + 16, h + 16, riftwii::kCardCorner);
-		const float ax = x + 4, ay = y + 4, aw = w - 8, ah = h - 8;
-		if (const u8* box = id.empty() ? nullptr : riftwii::wii::BoxTexture(id)) {
-			const float u0 = static_cast<float>(riftwii::kBoxSpineWidth) / riftwii::kBoxWidth;
-			const float u1 = static_cast<float>(riftwii::kBoxSpineWidth + riftwii::kBoxFrontWidth) / riftwii::kBoxWidth;
-			skin::DrawRgb5a3Part(box, riftwii::kBoxWidth, riftwii::kBoxHeight, u0, u1, ax, ay, aw, ah);
-		} else if (const u8* cover = id.empty() ? nullptr : riftwii::wii::CoverTexture(id)) {
-			skin::DrawRgb5a3Part(cover, riftwii::kCoverWidth, riftwii::kCoverHeight, 0.0f, 1.0f, ax, ay, aw, ah);
-		} else if (disc && skin::discCase.data) {
-			const float scale = aw / skin::discCase.w;
-			skin::Draw(skin::discCase, ax + (aw - skin::discCase.w) / 2, ay + (ah - skin::discCase.h) / 2, 255, scale);
-		} else {
-			Menu_DrawRectangle(ax, ay, aw, ah, hue, 1);
-			skin::Draw(skin::iconDisc, ax + (aw - 40) / 2, ay + (ah - 40) / 2);
-		}
-	}
-private:
-	// The corners' radius as drawn: about a real case's, in proportion.
-	static constexpr float kArtCorner = 6.0f;
-	// The box's front (or the cover) with its corners rounded off
-	// (riftwii::round_corners), made again whenever the art changes.
-	const u8* RoundedArt() {
-		if (id.empty()) return nullptr;
-		const u8* box = riftwii::wii::BoxTexture(id);
-		const u8* cover = box ? nullptr : riftwii::wii::CoverTexture(id);
-		const u8* from = box ? box : cover;
-		if (!from) return nullptr;
-		if (from == roundedFrom) return rounded;
-		constexpr std::size_t kBytes = static_cast<std::size_t>(riftwii::kBoxFrontWidth) * riftwii::kBoxHeight * 2;
-		if (!rounded) rounded = static_cast<u8*>(memalign(32, kBytes));
-		if (!rounded) return nullptr;
-		roundedW = box ? riftwii::kBoxFrontWidth : riftwii::kCoverWidth;
-		roundedH = box ? riftwii::kBoxHeight : riftwii::kCoverHeight;
-		const float texels = kArtCorner * roundedW / kHeroW;
-		const bool made = box ? riftwii::round_corners(box, riftwii::kBoxWidth, riftwii::kBoxHeight, riftwii::kBoxSpineWidth,
-						 riftwii::kBoxSpineWidth + riftwii::kBoxFrontWidth, texels, rounded)
-				      : riftwii::round_corners(cover, riftwii::kCoverWidth, riftwii::kCoverHeight, 0,
-						 riftwii::kCoverWidth, texels, rounded);
-		if (!made) return nullptr;
-		DCFlushRange(rounded, kBytes);
-		GX_InvalidateTexAll();
-		roundedFrom = from;
-		return rounded;
-	}
-	std::string id;
-	bool disc;
-	GXColor hue;
-	u8* rounded = nullptr;  // kBoxFrontWidth x kBoxHeight at most, 32-aligned
-	const u8* roundedFrom = nullptr;
-	int roundedW = 0, roundedH = 0;
-};
 
 // The band's line of facts: the ID, the year, the genre, how many play,
 // online, how often it was played here (GameTDB's from the cache only).

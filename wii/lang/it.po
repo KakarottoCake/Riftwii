@@ -723,6 +723,9 @@ msgstr "Scaffale"
 msgid "Carousel"
 msgstr "Carosello"
 
+msgid "Plays with"
+msgstr "Si gioca con"
+
 msgid "3D covers"
 msgstr "Copertine 3D"
 
@@ -1881,9 +1884,6 @@ msgstr "Scaricare i dati dei giochi?"
 msgid "They come from GameTDB's database of every Wii game: about 2 MB, kept on the SD card. Download it now?"
 msgstr "Provengono dal database di GameTDB con tutti i giochi Wii: circa 2 MB, salvati sulla scheda SD. Scaricarlo ora?"
 
-msgid "Details"
-msgstr "Dettagli"
-
 msgid "Players"
 msgstr "Giocatori"
 
@@ -1908,35 +1908,11 @@ msgstr "Non collegato"
 msgid "Story"
 msgstr "Trama"
 
-msgid "Game details"
-msgstr "Dati del gioco"
-
 msgid "Game details of {1}"
 msgstr "Dati del {1}"
 
 msgid "From GameTDB, the database of Wii games its community keeps."
 msgstr "Da GameTDB, il database dei giochi Wii curato dalla sua comunità."
-
-msgid "One is connected now."
-msgstr "Ce n'è uno collegato."
-
-msgid "The game needs one: connect it before you start."
-msgstr "Il gioco ne ha bisogno: collegalo prima di iniziare."
-
-msgid "None is connected now; the game also plays without it."
-msgstr "Nessuno è collegato; il gioco funziona anche senza."
-
-msgid "The game needs this to play. RiftWii cannot see whether it is there."
-msgstr "Il gioco ne ha bisogno per giocare. RiftWii non può vedere se c'è."
-
-msgid "The game also works with this."
-msgstr "Il gioco funziona anche con questo."
-
-msgid "Downloads GameTDB's database again (about 2 MB), for the latest details."
-msgstr "Scarica di nuovo il database di GameTDB (circa 2 MB) per avere i dati più recenti."
-
-msgid "Game details downloaded."
-msgstr "Dati dei giochi scaricati."
 
 msgid "Select"
 msgstr "Scegli"
@@ -2016,17 +1992,8 @@ msgstr "Sviluppatore"
 msgid "Publisher"
 msgstr "Editore"
 
-msgid "Age rating"
-msgstr "Età"
-
-msgid "On one Wii"
-msgstr "Su una Wii"
-
 msgid "Up to {1} players"
 msgstr "Fino a {1} giocatori"
 
 msgid "The mod's own"
 msgstr "Quello della mod"
-
-msgid "Pick one on the game page"
-msgstr "Scegline uno nella pagina del gioco"

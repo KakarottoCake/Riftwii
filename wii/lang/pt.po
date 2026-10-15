@@ -723,6 +723,9 @@ msgstr "Estante"
 msgid "Carousel"
 msgstr "Carrossel"
 
+msgid "Plays with"
+msgstr "Joga-se com"
+
 msgid "3D covers"
 msgstr "Capas 3D"
 
@@ -1881,9 +1884,6 @@ msgstr "Baixar os dados dos jogos?"
 msgid "They come from GameTDB's database of every Wii game: about 2 MB, kept on the SD card. Download it now?"
 msgstr "Vêm da base de dados do GameTDB com todos os jogos de Wii: cerca de 2 MB, guardados no cartão SD. Baixar agora?"
 
-msgid "Details"
-msgstr "Dados"
-
 msgid "Players"
 msgstr "Jogadores"
 
@@ -1908,35 +1908,11 @@ msgstr "Não conectado"
 msgid "Story"
 msgstr "História"
 
-msgid "Game details"
-msgstr "Dados do jogo"
-
 msgid "Game details of {1}"
 msgstr "Dados de {1}"
 
 msgid "From GameTDB, the database of Wii games its community keeps."
 msgstr "Do GameTDB, a base de dados de jogos de Wii mantida pela comunidade."
-
-msgid "One is connected now."
-msgstr "Há um conectado agora."
-
-msgid "The game needs one: connect it before you start."
-msgstr "O jogo precisa de um: conecte-o antes de começar."
-
-msgid "None is connected now; the game also plays without it."
-msgstr "Nenhum está conectado; o jogo também funciona sem ele."
-
-msgid "The game needs this to play. RiftWii cannot see whether it is there."
-msgstr "O jogo precisa disto para jogar. O RiftWii não consegue ver se está lá."
-
-msgid "The game also works with this."
-msgstr "O jogo também funciona com isto."
-
-msgid "Downloads GameTDB's database again (about 2 MB), for the latest details."
-msgstr "Baixa de novo a base de dados do GameTDB (cerca de 2 MB), para os dados mais recentes."
-
-msgid "Game details downloaded."
-msgstr "Dados dos jogos baixados."
 
 msgid "Select"
 msgstr "Escolher"
@@ -2016,17 +1992,8 @@ msgstr "Desenvolvedor"
 msgid "Publisher"
 msgstr "Distribuidora"
 
-msgid "Age rating"
-msgstr "Classificação"
-
-msgid "On one Wii"
-msgstr "Num Wii"
-
 msgid "Up to {1} players"
 msgstr "Até {1} jogadores"
 
 msgid "The mod's own"
 msgstr "O do mod"
-
-msgid "Pick one on the game page"
-msgstr "Escolha um na página do jogo"

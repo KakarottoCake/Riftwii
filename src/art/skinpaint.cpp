@@ -904,6 +904,100 @@ void paint_label9(const Theme& theme, Canvas& out) {
     out.rounded_border(m, m, 48 - 2 * m, 44 - 2 * m, 14, 1.5f, p.edge_strong);
 }
 
+void paint_control_icon(const Theme& theme, const std::string& type, Canvas& out) {
+    const Painter p(theme);
+    const Rgba g = p.glyph;
+    Canvas c(40, 40);
+    const auto cross = [&](float x, float y, float r) {
+        c.line(x - r, y, x + r, y, 2.0f, g);
+        c.line(x, y - r, x, y + r, 2.0f, g);
+    };
+    if (type == "wiimote") {
+        c.rounded_border(14, 2, 12, 36, 4, 2.0f, g);
+        cross(20, 9, 3);
+        c.circle(20, 17, 2.4f, g);
+        c.circle(20, 27, 1.4f, g);
+        c.circle(20, 31.5f, 1.4f, g);
+    } else if (type == "nunchuk") {
+        c.ring(20, 9, 4.5f, 2.0f, g);
+        c.rounded_border(12, 15, 16, 23, 8, 2.0f, g);
+        c.line(20, 2, 20, 4.5f, 2.0f, g);
+    } else if (type == "classiccontroller") {
+        c.rounded_border(3, 11, 34, 18, 8, 2.0f, g);
+        cross(11, 20, 3.2f);
+        c.circle(29, 16.5f, 1.6f, g);
+        c.circle(32.5f, 20, 1.6f, g);
+        c.circle(29, 23.5f, 1.6f, g);
+        c.circle(25.5f, 20, 1.6f, g);
+    } else if (type == "gamecube") {
+        c.rounded_border(3, 10, 34, 19, 8, 2.0f, g);
+        c.ring(11.5f, 18, 3.6f, 1.8f, g);
+        c.circle(28, 18, 3.2f, g);
+        c.circle(23.5f, 22.5f, 1.5f, g);
+        c.ring(25, 26.5f, 1.8f, 1.4f, g);
+        c.line(9, 29, 7, 35, 2.2f, g);
+        c.line(31, 29, 33, 35, 2.2f, g);
+    } else if (type == "balanceboard") {
+        c.rounded_border(2, 13, 36, 15, 6, 2.0f, g);
+        c.rounded_border(6, 16, 12, 9, 3, 1.6f, g);
+        c.rounded_border(22, 16, 12, 9, 3, 1.6f, g);
+    } else if (type == "wheel") {
+        c.ring(20, 20, 16, 2.2f, g);
+        c.rounded_border(16, 10, 8, 20, 2.5f, 1.8f, g);
+        c.line(4.5f, 20, 16, 20, 2.0f, g);
+        c.line(24, 20, 35.5f, 20, 2.0f, g);
+    } else if (type == "zapper") {
+        c.rounded_border(3, 12, 30, 8, 3, 2.0f, g);
+        c.polygon({{20, 19}, {27, 19}, {24, 33}, {17, 33}}, g);
+        c.rounded_border(5, 20, 7, 12, 3, 1.8f, g);
+    } else if (type == "motionplus" || type == "wiimotionplus") {
+        c.rounded_border(9, 9, 22, 22, 4, 2.0f, g);
+        cross(20, 20, 6);
+    } else if (type == "wiispeak" || type == "microphone") {
+        c.rounded_border(15, 3, 10, 19, 5, 2.0f, g);
+        for (int i = 0; i < 12; ++i) {
+            const float a0 = i * 3.14159265f / 12, a1 = (i + 1) * 3.14159265f / 12;
+            c.line(20 + 10 * std::cos(a0), 16 + 10 * std::sin(a0), 20 + 10 * std::cos(a1), 16 + 10 * std::sin(a1), 2.0f, g);
+        }
+        c.line(20, 26, 20, 34, 2.0f, g);
+        c.line(14, 35, 26, 35, 2.2f, g);
+    } else if (type == "keyboard") {
+        c.rounded_border(2, 11, 36, 18, 3, 2.0f, g);
+        for (int row = 0; row < 2; ++row)
+            for (int k = 0; k < 6; ++k) c.circle(8 + k * 4.8f, 16.5f + row * 4.5f, 1.2f, g);
+        c.line(12, 25.5f, 28, 25.5f, 2.0f, g);
+    } else if (type == "nintendods") {
+        c.rounded_border(9, 2, 22, 17, 2.5f, 2.0f, g);
+        c.rounded_border(9, 21, 22, 17, 2.5f, 2.0f, g);
+        c.rect(14, 6, 12, 9, g);
+    } else if (type == "guitar") {
+        c.line(29, 4, 18, 22, 3.0f, g);
+        c.ring(14, 28, 8, 2.2f, g);
+        c.circle(14, 28, 2.2f, g);
+        c.line(27, 3, 33, 7, 2.6f, g);
+    } else if (type == "drums") {
+        c.ring(11, 17, 7, 2.0f, g);
+        c.ring(29, 17, 7, 2.0f, g);
+        c.ring(20, 29, 7, 2.0f, g);
+    } else if (type == "dancepad") {
+        c.rounded_border(3, 3, 34, 34, 4, 2.0f, g);
+        c.polygon({{20, 7}, {24, 12}, {16, 12}}, g);
+        c.polygon({{20, 33}, {24, 28}, {16, 28}}, g);
+        c.polygon({{7, 20}, {12, 16}, {12, 24}}, g);
+        c.polygon({{33, 20}, {28, 16}, {28, 24}}, g);
+    } else if (type == "udraw") {
+        c.rounded_border(3, 8, 34, 26, 4, 2.0f, g);
+        c.line(14, 28, 30, 12, 2.4f, g);
+    } else {
+        // A game pad, as the Controllers tile's icon, larger.
+        c.rounded_border(3, 12, 34, 17, 8, 2.0f, g);
+        cross(11, 20.5f, 3);
+        c.circle(27, 18, 2, g);
+        c.circle(31, 23, 2, g);
+    }
+    out = c;
+}
+
 void paint_drop_shadow9(const Theme& theme, Canvas& out) {
     // The theme's shadow is a faint edge under cards; a box lifted off the
     // page casts a deeper one.

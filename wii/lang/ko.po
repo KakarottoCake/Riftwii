@@ -723,6 +723,9 @@ msgstr "선반"
 msgid "Carousel"
 msgstr "캐러셀"
 
+msgid "Plays with"
+msgstr "지원 컨트롤러"
+
 msgid "3D covers"
 msgstr "3D 커버"
 
@@ -1881,9 +1884,6 @@ msgstr "게임 정보를 다운로드할까요?"
 msgid "They come from GameTDB's database of every Wii game: about 2 MB, kept on the SD card. Download it now?"
 msgstr "GameTDB의 모든 Wii 게임 데이터베이스에서 가져옵니다. 약 2 MB이며 SD 카드에 저장됩니다. 지금 다운로드할까요?"
 
-msgid "Details"
-msgstr "정보"
-
 msgid "Players"
 msgstr "플레이 인원"
 
@@ -1908,35 +1908,11 @@ msgstr "연결 안 됨"
 msgid "Story"
 msgstr "스토리"
 
-msgid "Game details"
-msgstr "게임 정보"
-
 msgid "Game details of {1}"
 msgstr "{1} 게임 정보"
 
 msgid "From GameTDB, the database of Wii games its community keeps."
 msgstr "커뮤니티가 관리하는 Wii 게임 데이터베이스 GameTDB에서 가져왔습니다."
-
-msgid "One is connected now."
-msgstr "지금 연결되어 있습니다."
-
-msgid "The game needs one: connect it before you start."
-msgstr "게임에 필요합니다. 시작하기 전에 연결하세요."
-
-msgid "None is connected now; the game also plays without it."
-msgstr "지금은 연결되어 있지 않습니다. 없어도 플레이할 수 있습니다."
-
-msgid "The game needs this to play. RiftWii cannot see whether it is there."
-msgstr "플레이에 필요합니다. RiftWii는 연결 여부를 알 수 없습니다."
-
-msgid "The game also works with this."
-msgstr "이것도 사용할 수 있습니다."
-
-msgid "Downloads GameTDB's database again (about 2 MB), for the latest details."
-msgstr "최신 정보를 위해 GameTDB 데이터베이스(약 2 MB)를 다시 다운로드합니다."
-
-msgid "Game details downloaded."
-msgstr "게임 정보를 다운로드했습니다."
 
 msgid "Select"
 msgstr "선택"
@@ -2016,17 +1992,8 @@ msgstr "개발"
 msgid "Publisher"
 msgstr "유통"
 
-msgid "Age rating"
-msgstr "연령 등급"
-
-msgid "On one Wii"
-msgstr "Wii 한 대에서"
-
 msgid "Up to {1} players"
 msgstr "최대 {1}명"
 
 msgid "The mod's own"
 msgstr "MOD의 서버"
-
-msgid "Pick one on the game page"
-msgstr "게임 페이지에서 고르세요"

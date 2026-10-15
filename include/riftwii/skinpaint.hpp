@@ -48,6 +48,11 @@ void paint_channel_frame9(const Theme& theme, bool over, Canvas& out);
 constexpr int kLabelCorner = 20;
 constexpr int kLabelMargin = 6;
 void paint_label9(const Theme& theme, Canvas& out);
+// A controller GameTDB names (`type`: wiimote, nunchuk, classiccontroller,
+// gamecube, balanceboard, wheel, zapper, motionplus, wiispeak, keyboard,
+// nintendods, guitar, drums, dancepad, udraw), 40 x 40 in the glyph
+// colour, drawn as the tiles' icons are; a game pad for any other.
+void paint_control_icon(const Theme& theme, const std::string& type, Canvas& out);
 constexpr int kShadowCorner = 24;
 constexpr int kShadowMargin = 16;
 void paint_drop_shadow9(const Theme& theme, Canvas& out);

@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <map>
 #include <vector>
 
 #include "loadersettings.hpp"
@@ -189,6 +190,15 @@ Tex card9;
 Tex dropShadow9;
 Tex channelFrame9, channelFrameOver9;
 Tex label9;
+
+const Tex& ControlIcon(const std::string& type) {
+    static std::map<std::string, Tex> painted;
+    const auto found = painted.find(type);
+    if (found != painted.end()) return found->second;
+    Canvas c(0, 0);
+    paint_control_icon(MenuTheme(), type, c);
+    return painted[type] = Upload(c);
+}
 Tex capsule9;
 Tex homeBtnDanger, homeBtnDangerOver, iosClose, iosCloseOver, linen;
 Tex backgroundPlain, backgroundPlainWide, backgroundChannels, backgroundChannelsWide;

@@ -723,6 +723,9 @@ msgstr "Étagère"
 msgid "Carousel"
 msgstr "Carrousel"
 
+msgid "Plays with"
+msgstr "Se joue avec"
+
 msgid "3D covers"
 msgstr "Jaquettes 3D"
 
@@ -1881,9 +1884,6 @@ msgstr "Télécharger les infos des jeux ?"
 msgid "They come from GameTDB's database of every Wii game: about 2 MB, kept on the SD card. Download it now?"
 msgstr "Elles viennent de la base GameTDB de tous les jeux Wii : environ 2 Mo, gardés sur la carte SD. La télécharger maintenant ?"
 
-msgid "Details"
-msgstr "Infos"
-
 msgid "Players"
 msgstr "Joueurs"
 
@@ -1908,35 +1908,11 @@ msgstr "Non connectée"
 msgid "Story"
 msgstr "Histoire"
 
-msgid "Game details"
-msgstr "Infos du jeu"
-
 msgid "Game details of {1}"
 msgstr "Infos du {1}"
 
 msgid "From GameTDB, the database of Wii games its community keeps."
 msgstr "De GameTDB, la base des jeux Wii tenue par sa communauté."
-
-msgid "One is connected now."
-msgstr "Il y en a une connectée."
-
-msgid "The game needs one: connect it before you start."
-msgstr "Le jeu en a besoin : connectez-la avant de commencer."
-
-msgid "None is connected now; the game also plays without it."
-msgstr "Aucune n'est connectée ; le jeu fonctionne aussi sans."
-
-msgid "The game needs this to play. RiftWii cannot see whether it is there."
-msgstr "Le jeu en a besoin pour jouer. RiftWii ne peut pas voir s'il est là."
-
-msgid "The game also works with this."
-msgstr "Le jeu fonctionne aussi avec."
-
-msgid "Downloads GameTDB's database again (about 2 MB), for the latest details."
-msgstr "Télécharge de nouveau la base de GameTDB (environ 2 Mo) pour les infos les plus récentes."
-
-msgid "Game details downloaded."
-msgstr "Infos des jeux téléchargées."
 
 msgid "Select"
 msgstr "Choisir"
@@ -2016,17 +1992,8 @@ msgstr "Développeur"
 msgid "Publisher"
 msgstr "Éditeur"
 
-msgid "Age rating"
-msgstr "Classification"
-
-msgid "On one Wii"
-msgstr "Sur une Wii"
-
 msgid "Up to {1} players"
 msgstr "Jusqu'à {1} joueurs"
 
 msgid "The mod's own"
 msgstr "Celui du mod"
-
-msgid "Pick one on the game page"
-msgstr "À choisir sur la page du jeu"

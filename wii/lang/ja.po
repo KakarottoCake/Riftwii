@@ -723,6 +723,9 @@ msgstr "棚"
 msgid "Carousel"
 msgstr "カルーセル"
 
+msgid "Plays with"
+msgstr "対応コントローラー"
+
 msgid "3D covers"
 msgstr "3Dパッケージ"
 
@@ -1881,9 +1884,6 @@ msgstr "ゲーム情報をダウンロードしますか？"
 msgid "They come from GameTDB's database of every Wii game: about 2 MB, kept on the SD card. Download it now?"
 msgstr "GameTDBの全Wiiゲームのデータベースから取得します（約2 MB、SDカードに保存）。今すぐダウンロードしますか？"
 
-msgid "Details"
-msgstr "情報"
-
 msgid "Players"
 msgstr "人数"
 
@@ -1908,35 +1908,11 @@ msgstr "未接続"
 msgid "Story"
 msgstr "ストーリー"
 
-msgid "Game details"
-msgstr "ゲーム情報"
-
 msgid "Game details of {1}"
 msgstr "{1}のゲーム情報"
 
 msgid "From GameTDB, the database of Wii games its community keeps."
 msgstr "コミュニティが管理するWiiゲームのデータベース、GameTDBより。"
-
-msgid "One is connected now."
-msgstr "今、接続されています。"
-
-msgid "The game needs one: connect it before you start."
-msgstr "このゲームに必要です。始める前に接続してください。"
-
-msgid "None is connected now; the game also plays without it."
-msgstr "今は接続されていません。なくても遊べます。"
-
-msgid "The game needs this to play. RiftWii cannot see whether it is there."
-msgstr "プレイに必要です。RiftWiiからはあるかどうか分かりません。"
-
-msgid "The game also works with this."
-msgstr "これも使えます。"
-
-msgid "Downloads GameTDB's database again (about 2 MB), for the latest details."
-msgstr "最新の情報のため、GameTDBのデータベース（約2 MB）をもう一度ダウンロードします。"
-
-msgid "Game details downloaded."
-msgstr "ゲーム情報をダウンロードしました。"
 
 msgid "Select"
 msgstr "決定"
@@ -2016,17 +1992,8 @@ msgstr "開発"
 msgid "Publisher"
 msgstr "発売元"
 
-msgid "Age rating"
-msgstr "年齢区分"
-
-msgid "On one Wii"
-msgstr "1台のWiiで"
-
 msgid "Up to {1} players"
 msgstr "最大{1}人"
 
 msgid "The mod's own"
 msgstr "MODのもの"
-
-msgid "Pick one on the game page"
-msgstr "ゲームのページで選んでください"

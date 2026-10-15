@@ -622,6 +622,7 @@ T = {
     "Names": ("Nombres", "名前", "Nomes", "Nomi"),
     "Shelf": ("Estante", "棚", "Estante", "Scaffale"),
     "Carousel": ("Carrusel", "カルーセル", "Carrossel", "Carosello"),
+    "Plays with": ("Se juega con", "対応コントローラー", "Joga-se com", "Si gioca con"),
     "3D covers": ("Portadas 3D", "3Dパッケージ", "Capas 3D", "Copertine 3D"),
     "Channels": ("Canales", "チャンネル", "Canais", "Canali"),
     "Widescreen menu": ("Menú panorámico", "ワイド画面メニュー", "Menu widescreen", "Menu panoramico"),
@@ -1720,7 +1721,6 @@ T = {
     "They come from GameTDB's database of Wii games. Turn on Download names and cheats in Settings to get it.": ("Vienen de la base de datos de juegos de Wii de GameTDB. Activa Descargar nombres y trucos en Ajustes para obtenerla.", "GameTDBのWiiゲームのデータベースから取得します。設定で「ゲーム名とチートをダウンロード」をオンにしてください。", "Vêm da base de dados de jogos de Wii do GameTDB. Ative Baixar nomes e trapaças nas Configurações para obtê-la.", "Provengono dal database dei giochi Wii di GameTDB. Attiva Scarica nomi e trucchi nelle Impostazioni per ottenerlo."),
     "Download game details?": ("¿Descargar los datos de los juegos?", "ゲーム情報をダウンロードしますか？", "Baixar os dados dos jogos?", "Scaricare i dati dei giochi?"),
     "They come from GameTDB's database of every Wii game: about 2 MB, kept on the SD card. Download it now?": ("Vienen de la base de datos de GameTDB con todos los juegos de Wii: unos 2 MB, guardados en la tarjeta SD. ¿Descargarla ahora?", "GameTDBの全Wiiゲームのデータベースから取得します（約2 MB、SDカードに保存）。今すぐダウンロードしますか？", "Vêm da base de dados do GameTDB com todos os jogos de Wii: cerca de 2 MB, guardados no cartão SD. Baixar agora?", "Provengono dal database di GameTDB con tutti i giochi Wii: circa 2 MB, salvati sulla scheda SD. Scaricarlo ora?"),
-    "Details": ("Datos", "情報", "Dados", "Dettagli"),
     "Players": ("Jugadores", "人数", "Jogadores", "Giocatori"),
     "1 player": ("1 jugador", "1人", "1 jogador", "1 giocatore"),
     "1 to {1} players": ("De 1 a {1} jugadores", "1～{1}人", "De 1 a {1} jogadores", "Da 1 a {1} giocatori"),
@@ -1729,16 +1729,8 @@ T = {
     "Connected": ("Conectado", "接続中", "Conectado", "Collegato"),
     "Not connected": ("Sin conectar", "未接続", "Não conectado", "Non collegato"),
     "Story": ("Historia", "ストーリー", "História", "Trama"),
-    "Game details": ("Datos del juego", "ゲーム情報", "Dados do jogo", "Dati del gioco"),
     "Game details of {1}": ("Datos del {1}", "{1}のゲーム情報", "Dados de {1}", "Dati del {1}"),
     "From GameTDB, the database of Wii games its community keeps.": ("De GameTDB, la base de datos de juegos de Wii que mantiene su comunidad.", "コミュニティが管理するWiiゲームのデータベース、GameTDBより。", "Do GameTDB, a base de dados de jogos de Wii mantida pela comunidade.", "Da GameTDB, il database dei giochi Wii curato dalla sua comunità."),
-    "One is connected now.": ("Hay uno conectado.", "今、接続されています。", "Há um conectado agora.", "Ce n'è uno collegato."),
-    "The game needs one: connect it before you start.": ("El juego lo necesita: conéctalo antes de empezar.", "このゲームに必要です。始める前に接続してください。", "O jogo precisa de um: conecte-o antes de começar.", "Il gioco ne ha bisogno: collegalo prima di iniziare."),
-    "None is connected now; the game also plays without it.": ("No hay ninguno conectado; el juego también funciona sin él.", "今は接続されていません。なくても遊べます。", "Nenhum está conectado; o jogo também funciona sem ele.", "Nessuno è collegato; il gioco funziona anche senza."),
-    "The game needs this to play. RiftWii cannot see whether it is there.": ("El juego lo necesita para jugar. RiftWii no puede ver si está.", "プレイに必要です。RiftWiiからはあるかどうか分かりません。", "O jogo precisa disto para jogar. O RiftWii não consegue ver se está lá.", "Il gioco ne ha bisogno per giocare. RiftWii non può vedere se c'è."),
-    "The game also works with this.": ("El juego también funciona con esto.", "これも使えます。", "O jogo também funciona com isto.", "Il gioco funziona anche con questo."),
-    "Downloads GameTDB's database again (about 2 MB), for the latest details.": ("Vuelve a descargar la base de datos de GameTDB (unos 2 MB) para tener los datos más recientes.", "最新の情報のため、GameTDBのデータベース（約2 MB）をもう一度ダウンロードします。", "Baixa de novo a base de dados do GameTDB (cerca de 2 MB), para os dados mais recentes.", "Scarica di nuovo il database di GameTDB (circa 2 MB) per avere i dati più recenti."),
-    "Game details downloaded.": ("Datos de los juegos descargados.", "ゲーム情報をダウンロードしました。", "Dados dos jogos baixados.", "Dati dei giochi scaricati."),
     "Select": ("Elegir", "決定", "Escolher", "Scegli"),
     "Controllers": ("Mandos", "コントローラー", "Controles", "Controller"),
     "Downloads off": ("Descargas desactivadas", "ダウンロード：オフ", "Downloads desativados", "Download disattivati"),
@@ -1765,11 +1757,8 @@ T = {
     "Made by": ("Hecho por", "制作", "Feito por", "Creato da"),
     "Developer": ("Desarrollador", "開発", "Desenvolvedor", "Sviluppatore"),
     "Publisher": ("Editor", "発売元", "Distribuidora", "Editore"),
-    "Age rating": ("Clasificación", "年齢区分", "Classificação", "Età"),
-    "On one Wii": ("En una Wii", "1台のWiiで", "Num Wii", "Su una Wii"),
     "Up to {1} players": ("Hasta {1} jugadores", "最大{1}人", "Até {1} jogadores", "Fino a {1} giocatori"),
     "The mod's own": ("El del mod", "MODのもの", "O do mod", "Quello della mod"),
-    "Pick one on the game page": ("Elige uno en la página del juego", "ゲームのページで選んでください", "Escolha um na página do jogo", "Scegline uno nella pagina del gioco"),
 }
 
 
@@ -2232,6 +2221,8 @@ KO = {
         "캐러셀",
     "3D covers":
         "3D 커버",
+    "Plays with":
+        "지원 컨트롤러",
     "Channels":
         "채널",
     "Widescreen menu":
@@ -3028,8 +3019,6 @@ KO = {
         "게임 정보를 다운로드할까요?",
     "They come from GameTDB's database of every Wii game: about 2 MB, kept on the SD card. Download it now?":
         "GameTDB의 모든 Wii 게임 데이터베이스에서 가져옵니다. 약 2 MB이며 SD 카드에 저장됩니다. 지금 다운로드할까요?",
-    "Details":
-        "정보",
     "Players":
         "플레이 인원",
     "1 player":
@@ -3046,26 +3035,10 @@ KO = {
         "연결 안 됨",
     "Story":
         "스토리",
-    "Game details":
-        "게임 정보",
     "Game details of {1}":
         "{1} 게임 정보",
     "From GameTDB, the database of Wii games its community keeps.":
         "커뮤니티가 관리하는 Wii 게임 데이터베이스 GameTDB에서 가져왔습니다.",
-    "One is connected now.":
-        "지금 연결되어 있습니다.",
-    "The game needs one: connect it before you start.":
-        "게임에 필요합니다. 시작하기 전에 연결하세요.",
-    "None is connected now; the game also plays without it.":
-        "지금은 연결되어 있지 않습니다. 없어도 플레이할 수 있습니다.",
-    "The game needs this to play. RiftWii cannot see whether it is there.":
-        "플레이에 필요합니다. RiftWii는 연결 여부를 알 수 없습니다.",
-    "The game also works with this.":
-        "이것도 사용할 수 있습니다.",
-    "Downloads GameTDB's database again (about 2 MB), for the latest details.":
-        "최신 정보를 위해 GameTDB 데이터베이스(약 2 MB)를 다시 다운로드합니다.",
-    "Game details downloaded.":
-        "게임 정보를 다운로드했습니다.",
     "Select":
         "선택",
     "Controllers":
@@ -3118,16 +3091,10 @@ KO = {
         "개발",
     "Publisher":
         "유통",
-    "Age rating":
-        "연령 등급",
-    "On one Wii":
-        "Wii 한 대에서",
     "Up to {1} players":
         "최대 {1}명",
     "The mod's own":
         "MOD의 서버",
-    "Pick one on the game page":
-        "게임 페이지에서 고르세요",
 }
 
 # French, a table of its own (msgid: text), from MidyGamy's translation
@@ -3589,6 +3556,8 @@ FR = {
         "Carrousel",
     "3D covers":
         "Jaquettes 3D",
+    "Plays with":
+        "Se joue avec",
     "Channels":
         "Chaînes",
     "Widescreen menu":
@@ -4385,8 +4354,6 @@ FR = {
         "Télécharger les infos des jeux ?",
     "They come from GameTDB's database of every Wii game: about 2 MB, kept on the SD card. Download it now?":
         "Elles viennent de la base GameTDB de tous les jeux Wii : environ 2 Mo, gardés sur la carte SD. La télécharger maintenant ?",
-    "Details":
-        "Infos",
     "Players":
         "Joueurs",
     "1 player":
@@ -4403,26 +4370,10 @@ FR = {
         "Non connectée",
     "Story":
         "Histoire",
-    "Game details":
-        "Infos du jeu",
     "Game details of {1}":
         "Infos du {1}",
     "From GameTDB, the database of Wii games its community keeps.":
         "De GameTDB, la base des jeux Wii tenue par sa communauté.",
-    "One is connected now.":
-        "Il y en a une connectée.",
-    "The game needs one: connect it before you start.":
-        "Le jeu en a besoin : connectez-la avant de commencer.",
-    "None is connected now; the game also plays without it.":
-        "Aucune n'est connectée ; le jeu fonctionne aussi sans.",
-    "The game needs this to play. RiftWii cannot see whether it is there.":
-        "Le jeu en a besoin pour jouer. RiftWii ne peut pas voir s'il est là.",
-    "The game also works with this.":
-        "Le jeu fonctionne aussi avec.",
-    "Downloads GameTDB's database again (about 2 MB), for the latest details.":
-        "Télécharge de nouveau la base de GameTDB (environ 2 Mo) pour les infos les plus récentes.",
-    "Game details downloaded.":
-        "Infos des jeux téléchargées.",
     "Select":
         "Choisir",
     "Controllers":
@@ -4475,16 +4426,10 @@ FR = {
         "Développeur",
     "Publisher":
         "Éditeur",
-    "Age rating":
-        "Classification",
-    "On one Wii":
-        "Sur une Wii",
     "Up to {1} players":
         "Jusqu'à {1} joueurs",
     "The mod's own":
         "Celui du mod",
-    "Pick one on the game page":
-        "À choisir sur la page du jeu",
 }
 
 # Languages kept in tables of their own: written after LANGS, every msgid
