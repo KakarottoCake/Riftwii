@@ -118,6 +118,58 @@ emulation and no cIOS. It covers fewer games (only those that take a
 GameCube controller), but it is small, self-contained and follows a
 pattern that works on hardware.
 
+## The Wii U Pro Controller translator
+
+The Wii U Pro Controller is the one foreign controller the Wii already
+pairs and connects: it speaks the Wii Remote's protocol. Games still do
+nothing with it. Its buttons and sticks come only in the extension bytes,
+in a layout of its own, behind an extension ID no Wii game knows
+(`0x0120`). Testers' Wii Remote logs also showed it disconnecting 10-40 ms
+after the game's first requests.
+
+`runtime/rtpro.c` (host-tested in `tests/pro_tests.cpp`) runs inside the
+Wii Remote log blob (`runtime/wlog`), which hooks the game's
+`IOS_IoctlvAsync` like the screenshot blob does. On a link whose address
+is a pairing named "Nintendo RVL-CNT-01-UC", or whose extension ID reads
+back as the Pro's:
+
+- The controller is asked for reporting mode 0x34 (buttons and 19
+  extension bytes, room for all 11 of the Pro's) whatever the game asked
+  for. Each report is rebuilt in the game's own mode: no Wii Remote
+  buttons, the accelerometer at rest, no IR points, and the extension
+  bytes as a Classic Controller's. The sticks are scaled, and the button
+  bytes are already in the Classic Controller's bit places.
+- The extension ID reads back as a Classic Controller Pro's. Its
+  calibration, and the Wii Remote's accelerometer calibration, read back
+  as standard values. Errors on write acknowledgements (the Pro has no IR
+  camera or speaker) read back as success.
+- Encryption: a game that writes `0xAA` to `0xA400F0` and a 16-byte key at
+  `0xA40040` decrypts every extension byte. The translator makes the two
+  8-byte tables from that key and the game's own lookup tables, and
+  encrypts what it hands the game. The tables are an answer table (7 rows
+  of 6 bytes), a key box and eight table boxes; the loader finds them in
+  the game's data (`find_extension_tables`), and RiftWii carries none of
+  them. The Pro gets `0x55` in place of the `0xAA`, so its own bytes stay
+  plain. If it encrypts them anyway, its first report shows it and they
+  are decrypted.
+
+The blob is on when the menu saw a Pro Controller or one is paired.
+`settings.txt` `pro_controller = off` leaves the traffic alone and keeps the
+trace only. `pro_controller = every` takes every link as a Pro, so the
+translator can run in Dolphin, which has no Pro Controller. Checked in
+Dolphin (Mario Kart Wii): the game's tables found, its key checked out,
+thousands of reports rebuilt with no disconnection. With a real Pro
+Controller it is untested.
+
+The same blob keeps a **Bluetooth trace** in the Wii Remote log
+(`wpadlog.txt`). It records HCI commands and events, and the L2CAP
+signalling and HID reports both ways (as they came, and as the translator
+handed them to the game). The data report stream is kept only at first,
+then counted. The text names each packet and gives a disconnection's
+reason ("the controller ended it", "the Wii (the game's Bluetooth stack)
+ended it"). Bluetooth addresses are cut to their last byte, and link keys
+and PINs are never shown.
+
 ## What exists
 
 - `runtime/rtshot.c`: parses HCI ACL packets from the bulk-in endpoint
@@ -128,6 +180,9 @@ pattern that works on hardware.
   completion for the game's ACL reads, calls the game's callback
   afterwards, and chains with the resident runtime's hook of the same
   function.
+- `runtime/wlog/` and `runtime/rtpro.c`: the same kind of hook on all of
+  the game's traffic with the dongle (HCI commands and events, ACL both
+  ways), with the Pro Controller translator and the Bluetooth trace above.
 
 ## Sources
 

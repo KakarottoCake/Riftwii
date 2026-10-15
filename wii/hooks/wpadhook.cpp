@@ -26,6 +26,8 @@ constexpr std::uint32_t kMem2ArenaEndField = 0x80003128;
 // there, a launch from the RiftWii channel got 0).
 constexpr std::uint32_t kBusClock = 0x0E7BE2C0;
 constexpr std::uint32_t kPrintStubFirst = 0x9421FF90;  // stwu r1,-0x70(r1)
+constexpr unsigned kScratchRegister = 12;              // wlog_entry.S's jump back
+constexpr std::uint32_t kNop = 0x60000000;
 
 bool g_wiiu_pro_seen = false;
 
@@ -53,11 +55,55 @@ bool overlaps(const MemoryPatch& p, std::uint32_t start, std::uint32_t bytes) {
 // patches it.
 bool is_li_zero(std::uint32_t word) { return (word & 0xFC1FFFFFu) == 0x38000000u; }
 
+// A plain `b` (not bl, not absolute): another blob's hook.
+bool is_plain_branch(std::uint32_t word, std::uint32_t at, std::uint32_t& target) {
+    if ((word & 0xFC000003u) != 0x48000000u) return false;
+    std::int32_t delta = static_cast<std::int32_t>(word & 0x03FFFFFCu);
+    if (delta & 0x02000000) delta -= 0x04000000;
+    target = at + static_cast<std::uint32_t>(delta);
+    return true;
+}
+
+// IOS_IoctlvAsync's replay slot and jump back, for a chained or a plain
+// hook: false (with the reason logged) when it cannot be hooked.
+bool prepare_ioctlv(const WpadLogHook& hook, const rt_wlog_header& h) {
+    const std::uint32_t first = load_word(hook.ioctlv);
+    std::uint32_t replay[4] = {first, kNop, kNop, kNop};
+    std::uint32_t target = 0;
+    std::string reason;
+    if (is_plain_branch(first, hook.ioctlv, target)) {
+        // Another blob's hook already: the replay takes the same branch.
+        if (!encode_branch(hook.code_base + h.replay_ioctlv, target, replay[0])) {
+            logf("Wii Remote log: IOS_IoctlvAsync's hook at 0x%08x is out of reach; no Bluetooth trace\n", target);
+            return false;
+        }
+        logf("Wii Remote log: IOS_IoctlvAsync already hooked (to 0x%08x); chained\n", target);
+    } else if (!displaceable(first, kScratchRegister, reason)) {
+        logf("Wii Remote log: IOS_IoctlvAsync's first instruction (0x%08x) cannot be moved (%s); no Bluetooth "
+             "trace\n", first, reason.c_str());
+        return false;
+    }
+    for (int i = 0; i < 4; ++i) store_word(hook.code_base + h.replay_ioctlv + 4 * i, replay[i]);
+    const auto resume = encode_absolute_jump(kScratchRegister, hook.ioctlv + 4);
+    for (int i = 0; i < 4; ++i) store_word(hook.code_base + h.continue_ioctlv + 4 * i, resume[i]);
+    return true;
+}
+
 }  // namespace
 
 void note_wiiu_pro_seen() { g_wiiu_pro_seen = true; }
 
-bool wpad_log_wanted(std::string& why) {
+bool pro_translator_wanted() {
+    const auto it = Settings().other.find("pro_controller");
+    return it == Settings().other.end() || it->second != "off";
+}
+
+bool pro_translator_every_link() {
+    const auto it = Settings().other.find("pro_controller");
+    return it != Settings().other.end() && it->second == "every";
+}
+
+bool wpad_log_wanted(std::size_t pro_pairings, std::string& why) {
     const auto it = Settings().other.find("wpad_log");
     const std::string mode = it == Settings().other.end() ? "auto" : it->second;
     if (mode == "on") {
@@ -68,14 +114,22 @@ bool wpad_log_wanted(std::string& why) {
         why = "wpad_log = off";
         return false;
     }
-    why = g_wiiu_pro_seen ? "a Wii U Pro Controller was connected in the menu"
-                          : "no Wii U Pro Controller was connected in the menu";
-    return g_wiiu_pro_seen;
+    if (g_wiiu_pro_seen) {
+        why = "a Wii U Pro Controller was connected in the menu";
+        return true;
+    }
+    if (pro_pairings > 0) {
+        why = std::to_string(pro_pairings) + " Wii U Pro Controller pairing(s) on the console";
+        return true;
+    }
+    why = "no Wii U Pro Controller connected in the menu or paired";
+    return false;
 }
 
 bool plan_wpad_log(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t mem1_floor, std::uint32_t arena2_lo,
-                   const std::uint32_t known_ios[4], const std::vector<MemoryPatch>& patches, WpadLogHook& out,
-                   std::string& why) {
+                   const std::uint32_t known_ios[4], std::uint32_t known_ioctlv,
+                   const std::vector<std::array<std::uint8_t, 6>>& pros, bool translate,
+                   const std::vector<MemoryPatch>& patches, WpadLogHook& out, std::string& why) {
     out = WpadLogHook{};
     const rt_wlog_header& h = header();
     if (riftwii_wlog_bin_size < sizeof(rt_wlog_header) || h.magic != RT_WLOG_MAGIC ||
@@ -96,6 +150,16 @@ bool plan_wpad_log(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
         text.push_back(CodeRange{s.address, bytes, s.size});
     }
     out.stubs = find_print_stubs(spans);
+    // The extension encryption's lookup tables are in the game's data.
+    {
+        std::vector<CodeSpan> all = spans;
+        for (std::size_t i = kDolTextSections; i < kDolSections; ++i) {
+            const DolSection& s = dol.sections[i];
+            if (!s.used()) continue;
+            all.push_back(CodeSpan{reinterpret_cast<std::uint8_t*>(s.address), s.size, s.address});
+        }
+        out.tables = find_extension_tables(all);
+    }
     if (out.stubs.empty()) {
         why = "the game has no empty print functions";
         return false;
@@ -106,9 +170,11 @@ bool plan_wpad_log(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
         return false;
     }
 
-    // 2. The game's synchronous IOS functions, for the save.
+    // 2. The game's synchronous IOS functions, for the save, and its
+    //    IOS_IoctlvAsync, for the Bluetooth side.
     std::uint32_t ios[4] = {known_ios[0], known_ios[1], known_ios[2], known_ios[3]};
-    if (ios[0] == 0 || ios[1] == 0 || ios[2] == 0 || ios[3] == 0) {
+    out.ioctlv = known_ioctlv;
+    if (ios[0] == 0 || ios[1] == 0 || ios[2] == 0 || ios[3] == 0 || out.ioctlv == 0) {
         std::string error;
         IpcSymbols symbols;
         IpcApi api;
@@ -116,10 +182,13 @@ bool plan_wpad_log(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
             why = "the game's IOS functions were not found: " + error;
             return false;
         }
-        ios[0] = api.sync[kIpcOpen];
-        ios[1] = api.sync[kIpcClose];
-        ios[2] = api.sync[kIpcWrite];
-        ios[3] = api.sync[kIpcIoctlCmd];
+        if (ios[0] == 0 || ios[1] == 0 || ios[2] == 0 || ios[3] == 0) {
+            ios[0] = api.sync[kIpcOpen];
+            ios[1] = api.sync[kIpcClose];
+            ios[2] = api.sync[kIpcWrite];
+            ios[3] = api.sync[kIpcIoctlCmd];
+        }
+        if (out.ioctlv == 0) out.ioctlv = api.async[kIpcIoctlvCmd] ? api.async[kIpcIoctlvCmd] : symbols.ioctlv_async;
     }
     if (ios[0] == 0 || ios[1] == 0 || ios[2] == 0 || ios[3] == 0) {
         char buf[128];
@@ -174,11 +243,33 @@ bool plan_wpad_log(const DolHeader& dol, std::uint32_t arena1_hi, std::uint32_t 
     ctx->result = 0;
     ctx->ticks_per_second = kBusClock / 4u;
     ctx->stubs = static_cast<std::uint32_t>(out.stubs.size());
+    ctx->complete_bt = out.code_base + h.complete_bt;
+    ctx->tables = out.tables;
+    out.translate = translate && out.ioctlv != 0;
+    ctx->flags = out.translate ? RT_WLOG_FLAG_TRANSLATE : 0u;
+    ctx->hooked = 0;
+    ctx->inited = 0;
+    const std::size_t count = pros.size() < RTPRO_ADDRESSES ? pros.size() : RTPRO_ADDRESSES;
+    ctx->pro_count = static_cast<std::uint32_t>(count);
+    for (std::size_t i = 0; i < count; ++i) std::memcpy(ctx->pro_addresses + 6 * i, pros[i].data(), 6);
+    if (pro_translator_every_link()) {
+        ctx->pro_count = RTPRO_EVERY_LINK;
+        logf("Wii Remote log: pro_controller = every: every link is taken as a Wii U Pro Controller (a test)\n");
+    }
     out.active = true;
     logf("Wii Remote log: blob %u bytes at 0x%08x, log %u bytes at 0x%08x; %u print function(s), "
          "HOME Menu exit at 0x%08x\n",
          h.size, out.code_base, out.state_bytes, out.state_base, static_cast<unsigned>(out.stubs.size()),
          out.exit_site);
+    if (out.ioctlv == 0) {
+        logf("Wii Remote log: the game's IOS_IoctlvAsync was not found; no Bluetooth trace, no Pro Controller "
+             "translator\n");
+    } else {
+        logf("Wii Remote log: Bluetooth trace through IOS_IoctlvAsync 0x%08x; Wii U Pro Controller translator %s, "
+             "%u Pro Controller pairing(s); the extension encryption's tables %s 0x%08x\n",
+             out.ioctlv, out.translate ? "on" : "off (pro_controller = off)", static_cast<unsigned>(count),
+             out.tables ? "at" : "not found,", out.tables);
+    }
     return true;
 }
 
@@ -225,6 +316,14 @@ bool install_wpad_log(WpadLogHook& hook, std::string& why) {
     ctx->stubs = hooked;
     ctx->probe = hook.probe;
     ctx->probe_at = hook.probe_at;
+    // IOS_IoctlvAsync, checked now, after the other blobs' hooks.
+    const bool bluetooth = hook.ioctlv != 0 && prepare_ioctlv(hook, h);
+    std::uint32_t to_ioctlv = 0;
+    if (bluetooth && !encode_branch(hook.ioctlv, hook.code_base + h.hook_ioctlv, to_ioctlv)) {
+        logf("Wii Remote log: IOS_IoctlvAsync is out of a branch's reach; no Bluetooth trace\n");
+    }
+    ctx->hooked = to_ioctlv != 0 ? 1u : 0u;
+    if (to_ioctlv == 0) ctx->flags = 0;
     sync_code(hook.code_base, hook.code_bytes);
     for (std::size_t i = 0; i < hook.stubs.size(); ++i) {
         if (branches[i] == 0) continue;
@@ -233,8 +332,13 @@ bool install_wpad_log(WpadLogHook& hook, std::string& why) {
     }
     store_word(hook.exit_site, to_exit);
     sync_code(hook.exit_site & ~31u, 32);
-    logf("Wii Remote log: hooked %u print function(s) and the HOME Menu exit; saved when the player picks "
-         "Wii Menu\n", hooked);
+    if (to_ioctlv != 0) {
+        store_word(hook.ioctlv, to_ioctlv);
+        sync_code(hook.ioctlv & ~31u, 32);
+    }
+    logf("Wii Remote log: hooked %u print function(s), the HOME Menu exit%s; saved when the player picks "
+         "Wii Menu\n", hooked, to_ioctlv == 0 ? "" : ctx->flags ? " and IOS_IoctlvAsync (trace, translator)"
+                                                                 : " and IOS_IoctlvAsync (trace)");
     return true;
 }
 

@@ -199,6 +199,11 @@ PadPairings ReadPadPairings() {
             char name[0x41] = {};
             std::memcpy(name, conf + data + 1 + e * kPadEntryBytes + 6, 0x40);
             if (std::strstr(name, "Fake Wiimote")) ++out.fake;
+            if (std::strstr(name, "RVL-CNT-01-UC")) {
+                std::array<std::uint8_t, 6> address;
+                std::memcpy(address.data(), conf + data + 1 + e * kPadEntryBytes, 6);
+                out.pro.push_back(address);
+            }
         }
         return out;
     }

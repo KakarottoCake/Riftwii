@@ -325,6 +325,308 @@ void apply_wpad_probe(const std::vector<CodeSpan>& spans, const WpadProbePatch& 
     put_word(spans, patch.result, 0x38000001u | (ra(result) << 21));  // li rD,1
 }
 
+namespace {
+
+std::uint32_t be16(const std::uint8_t* p) { return (std::uint32_t(p[0]) << 8) | p[1]; }
+std::uint32_t le16(const std::uint8_t* p) { return std::uint32_t(p[0]) | (std::uint32_t(p[1]) << 8); }
+
+// The Bluetooth core specification's names, for the events and commands
+// a game's stack uses.
+const char* hci_event_name(unsigned code) {
+    switch (code) {
+    case 0x01: return "Inquiry Complete";
+    case 0x02: return "Inquiry Result";
+    case 0x03: return "Connection Complete";
+    case 0x04: return "Connection Request";
+    case 0x05: return "Disconnection Complete";
+    case 0x06: return "Authentication Complete";
+    case 0x07: return "Remote Name Request Complete";
+    case 0x08: return "Encryption Change";
+    case 0x0B: return "Read Remote Supported Features Complete";
+    case 0x0C: return "Read Remote Version Information Complete";
+    case 0x0E: return "Command Complete";
+    case 0x0F: return "Command Status";
+    case 0x10: return "Hardware Error";
+    case 0x12: return "Role Change";
+    case 0x14: return "Mode Change";
+    case 0x15: return "Return Link Keys";
+    case 0x16: return "PIN Code Request";
+    case 0x17: return "Link Key Request";
+    case 0x18: return "Link Key Notification";
+    case 0x1B: return "Max Slots Change";
+    case 0x1D: return "Connection Packet Type Changed";
+    case 0x20: return "Page Scan Repetition Mode Change";
+    default: return nullptr;
+    }
+}
+
+const char* hci_command_name(unsigned opcode) {
+    switch (opcode) {
+    case 0x0401: return "Inquiry";
+    case 0x0405: return "Create Connection";
+    case 0x0406: return "Disconnect";
+    case 0x0409: return "Accept Connection Request";
+    case 0x040A: return "Reject Connection Request";
+    case 0x040B: return "Link Key Request Reply";
+    case 0x040C: return "Link Key Request Negative Reply";
+    case 0x040D: return "PIN Code Request Reply";
+    case 0x040E: return "PIN Code Request Negative Reply";
+    case 0x040F: return "Change Connection Packet Type";
+    case 0x0411: return "Authentication Requested";
+    case 0x0413: return "Set Connection Encryption";
+    case 0x0419: return "Remote Name Request";
+    case 0x041B: return "Read Remote Supported Features";
+    case 0x041D: return "Read Remote Version Information";
+    case 0x0803: return "Sniff Mode";
+    case 0x0804: return "Exit Sniff Mode";
+    case 0x080B: return "Switch Role";
+    case 0x080D: return "Write Link Policy Settings";
+    case 0x0C01: return "Set Event Mask";
+    case 0x0C03: return "Reset";
+    case 0x0C05: return "Set Event Filter";
+    case 0x0C0D: return "Read Stored Link Key";
+    case 0x0C11: return "Write Stored Link Key";
+    case 0x0C12: return "Delete Stored Link Key";
+    case 0x0C13: return "Write Local Name";
+    case 0x0C16: return "Write Connection Accept Timeout";
+    case 0x0C18: return "Write Page Timeout";
+    case 0x0C1A: return "Write Scan Enable";
+    case 0x0C1C: return "Write Page Scan Activity";
+    case 0x0C1E: return "Write Inquiry Scan Activity";
+    case 0x0C20: return "Write Authentication Enable";
+    case 0x0C24: return "Write Class Of Device";
+    case 0x0C33: return "Host Buffer Size";
+    case 0x0C37: return "Write Link Supervision Timeout";
+    case 0x1001: return "Read Local Version Information";
+    case 0x1005: return "Read Buffer Size";
+    case 0x1009: return "Read BD_ADDR";
+    default: return nullptr;
+    }
+}
+
+// Disconnection Complete's reason: who ended the link.
+const char* disconnect_reason(unsigned reason) {
+    switch (reason) {
+    case 0x05: return "authentication failure";
+    case 0x06: return "the link key is missing";
+    case 0x08: return "the connection timed out";
+    case 0x13: return "the controller ended it";
+    case 0x14: return "the controller ended it (low resources)";
+    case 0x15: return "the controller is powering off";
+    case 0x16: return "the Wii (the game's Bluetooth stack) ended it";
+    case 0x22: return "the link layer timed out";
+    default: return nullptr;
+    }
+}
+
+const char* l2cap_signal_name(unsigned code) {
+    switch (code) {
+    case 0x01: return "L2CAP Command Reject";
+    case 0x02: return "L2CAP Connection Request";
+    case 0x03: return "L2CAP Connection Response";
+    case 0x04: return "L2CAP Configuration Request";
+    case 0x05: return "L2CAP Configuration Response";
+    case 0x06: return "L2CAP Disconnection Request";
+    case 0x07: return "L2CAP Disconnection Response";
+    case 0x0A: return "L2CAP Information Request";
+    case 0x0B: return "L2CAP Information Response";
+    default: return nullptr;
+    }
+}
+
+// The Wii Remote's HID reports by their first two bytes.
+const char* hid_report_name(unsigned prefix, unsigned id) {
+    if (prefix == 0xA2) {
+        switch (id) {
+        case 0x10: return "rumble";
+        case 0x11: return "player LEDs";
+        case 0x12: return "reporting mode";
+        case 0x13: return "IR camera enable";
+        case 0x14: return "speaker enable";
+        case 0x15: return "status request";
+        case 0x16: return "memory write";
+        case 0x17: return "memory read";
+        case 0x18: return "speaker data";
+        case 0x19: return "speaker mute";
+        case 0x1A: return "IR camera enable 2";
+        default: return nullptr;
+        }
+    }
+    if (prefix == 0xA1) {
+        if (id == 0x20) return "status";
+        if (id == 0x21) return "memory read answer";
+        if (id == 0x22) return "acknowledgement";
+        if (id >= 0x30 && id <= 0x3F) return "data report";
+    }
+    return nullptr;
+}
+
+// What of an HCI packet is not printed: all of an address but its last
+// byte (as the game's own messages are kept), and link keys and PINs
+// entirely. `data` starts at the packet, `params` is where its
+// parameters begin.
+enum class Hide : std::uint8_t { None, Address, Secret };
+
+void hide_address(std::vector<Hide>& hide, std::size_t at) {
+    // HCI keeps an address least significant byte first: that one is the
+    // "last byte" the log keeps.
+    for (std::size_t i = at + 1; i < at + 6 && i < hide.size(); ++i) hide[i] = Hide::Address;
+}
+
+void hide_secret(std::vector<Hide>& hide, std::size_t at) {
+    for (std::size_t i = at; i < hide.size(); ++i) hide[i] = Hide::Secret;
+}
+
+std::vector<Hide> hci_hidden(bool command, const std::uint8_t* data, std::size_t n) {
+    std::vector<Hide> hide(n, Hide::None);
+    if (n < 3) return hide;
+    const std::size_t p = command ? 3 : 2;
+    const unsigned code = command ? le16(data) : data[0];
+    // A list of address and key pairs after a count.
+    const auto pairs = [&]() {
+        for (std::size_t at = p + 1; at < n; at += 22) {
+            hide_address(hide, at);
+            hide_secret(hide, at + 6);
+        }
+    };
+    if (command) {
+        if (code == 0x040B || code == 0x040D) {
+            hide_address(hide, p);
+            hide_secret(hide, p + 6);
+        } else if (code == 0x0C11) {
+            pairs();
+        } else if (code == 0x0405 || code == 0x0409 || code == 0x040A || code == 0x040C || code == 0x040E ||
+                   code == 0x0419 || code == 0x0C0D || code == 0x0C12) {
+            hide_address(hide, p);
+        }
+        return hide;
+    }
+    if (code == 0x18) {
+        hide_address(hide, p);
+        hide_secret(hide, p + 6);
+    } else if (code == 0x15) {
+        pairs();
+    } else if (code == 0x03) {
+        hide_address(hide, p + 3);
+    } else if (code == 0x07 || code == 0x12) {
+        hide_address(hide, p + 1);
+    } else if (code == 0x04 || code == 0x16 || code == 0x17) {
+        hide_address(hide, p);
+    } else if (code == 0x02) {
+        hide_secret(hide, p);  // inquiry results: addresses of anything nearby
+    }
+    return hide;
+}
+
+std::string hex_bytes(const std::uint8_t* data, std::size_t n, const std::vector<Hide>& hide) {
+    std::string out;
+    char b[4];
+    for (std::size_t i = 0; i < n; ++i) {
+        if (i) out += ' ';
+        const Hide h = i < hide.size() ? hide[i] : Hide::None;
+        if (h == Hide::Address) {
+            out += "xx";
+        } else if (h == Hide::Secret) {
+            out += "**";
+        } else {
+            std::snprintf(b, sizeof(b), "%02x", data[i]);
+            out += b;
+        }
+    }
+    return out;
+}
+
+// One traced packet as a line (after its time).
+std::string bt_line(const std::uint8_t* e) {
+    const unsigned kind = e[4], flags = e[5];
+    const unsigned handle = be16(e + 6), size = be16(e + 8), cid = be16(e + 10);
+    const std::uint8_t* d = e + 12;
+    const std::size_t kept = size < RTWLOG_BT_BYTES ? size : RTWLOG_BT_BYTES;
+    char head[160];
+    std::string what;
+    if (kind == RTWLOG_BT_COMMAND || kind == RTWLOG_BT_EVENT) {
+        const bool command = kind == RTWLOG_BT_COMMAND;
+        if (command) {
+            const unsigned opcode = kept >= 2 ? le16(d) : 0;
+            const char* name = hci_command_name(opcode);
+            std::snprintf(head, sizeof(head), "HCI command 0x%04x%s%s%s", opcode, name ? " (" : "", name ? name : "",
+                          name ? ")" : "");
+        } else {
+            const unsigned code = kept >= 1 ? d[0] : 0;
+            const char* name = hci_event_name(code);
+            std::snprintf(head, sizeof(head), "HCI event 0x%02x%s%s%s", code, name ? " (" : "", name ? name : "",
+                          name ? ")" : "");
+            if (code == 0x05 && kept >= 6) {
+                const char* reason = disconnect_reason(d[5]);
+                char more[128];
+                std::snprintf(more, sizeof(more), ", handle 0x%04x, reason 0x%02x%s%s", le16(d + 3) & 0x0FFFu, d[5],
+                              reason ? ": " : "", reason ? reason : "");
+                what = more;
+            } else if ((code == 0x0E && kept >= 5) || (code == 0x0F && kept >= 6)) {
+                const unsigned opcode = le16(d + (code == 0x0E ? 3 : 4));
+                const char* name2 = hci_command_name(opcode);
+                const unsigned status = code == 0x0E ? (kept >= 6 ? d[5] : 0) : d[2];
+                char more[128];
+                std::snprintf(more, sizeof(more), ", for 0x%04x%s%s, status 0x%02x", opcode, name2 ? " " : "",
+                              name2 ? name2 : "", status);
+                what = more;
+            } else if (code == 0x14 && kept >= 6) {
+                char more[64];
+                std::snprintf(more, sizeof(more), ", handle 0x%04x, %s", le16(d + 3) & 0x0FFFu,
+                              d[5] == 0 ? "active" : d[5] == 2 ? "sniff" : d[5] == 1 ? "hold" : "park");
+                what = more;
+            }
+        }
+        return std::string(head) + what + ": " + hex_bytes(d, kept, hci_hidden(command, d, kept)) +
+               (size > kept ? " ..." : "");
+    }
+    const char* way = kind == RTWLOG_BT_OUT ? "to  " : kind == RTWLOG_BT_IN ? "from" : "game";
+    std::snprintf(head, sizeof(head), "%s 0x%04x cid 0x%04x, %u byte(s)", way, handle, cid, size);
+    std::string line = head;
+    if (cid == 0x0001 && kept >= 1) {
+        const char* name = l2cap_signal_name(d[0]);
+        if (name) line += std::string(" (") + name + ")";
+    } else if (kept >= 2) {
+        const char* name = hid_report_name(d[0], d[1]);
+        if (name) line += std::string(" (") + name + ")";
+    }
+    line += ": " + hex_bytes(d, kept, {}) + (size > kept ? " ..." : "");
+    if (flags & 2u) line += kind == RTWLOG_BT_OUT ? "  [changed by the translator]" : "  [as the translator rebuilt it]";
+    return line;
+}
+
+}  // namespace
+
+namespace {
+
+// 256 bytes that hold every value once. Random data shows a repeat within
+// a few dozen bytes, so most places are turned down at once.
+bool is_permutation(const std::uint8_t* p) {
+    std::uint32_t seen[8] = {};
+    for (unsigned i = 0; i < 256; ++i) {
+        const unsigned v = p[i];
+        const std::uint32_t bit = 1u << (v & 31u);
+        if (seen[v >> 5] & bit) return false;
+        seen[v >> 5] |= bit;
+    }
+    return true;
+}
+
+}  // namespace
+
+std::uint32_t find_extension_tables(const std::vector<CodeSpan>& spans) {
+    constexpr std::size_t kAnswers = 48, kBox = 256, kBoxes = 9;
+    for (const CodeSpan& s : spans) {
+        if (s.size < kAnswers + kBox * kBoxes) continue;
+        for (std::size_t at = kAnswers; at + kBox * kBoxes <= s.size; at += 4) {
+            unsigned boxes = 0;
+            while (boxes < kBoxes && is_permutation(s.bytes + at + kBox * boxes)) ++boxes;
+            if (boxes == kBoxes) return s.address + static_cast<std::uint32_t>(at - kAnswers);
+        }
+    }
+    return 0;
+}
+
 bool describe_wpad_log(const std::uint8_t* bytes, std::size_t size, std::string& text, std::string& error) {
     constexpr std::size_t kHeader = offsetof(rtwlog_file, entries);
     constexpr std::size_t kEntry = 152;
@@ -334,10 +636,17 @@ bool describe_wpad_log(const std::uint8_t* bytes, std::size_t size, std::string&
         error = "not a Wii Remote log";
         return false;
     }
-    if (be32(bytes + 4) != RTWLOG_VERSION) {
-        error = "a Wii Remote log of another version (" + std::to_string(be32(bytes + 4)) + ")";
+    const std::uint32_t version = be32(bytes + 4);
+    if (version != RTWLOG_VERSION && version != 2) {
+        error = "a Wii Remote log of another version (" + std::to_string(version) + ")";
         return false;
     }
+    constexpr std::size_t kPro = kHeader + kEntry * RTWLOG_ENTRIES;
+    constexpr std::size_t kBt = kPro + sizeof(rtwlog_pro);
+    constexpr std::size_t kBtEntry = 28;
+    static_assert(sizeof(rtwlog_bt) == kBtEntry, "the trace entry layout the decoder reads");
+    static_assert(offsetof(rtwlog_file, pro) == kPro && offsetof(rtwlog_file, bt) == kBt, "the trace's place");
+    const bool traced = version >= 3 && size >= kBt + kBtEntry * RTWLOG_BT_ENTRIES;
     const std::string game = text_field(bytes + 8, 6);
     const std::uint32_t ticks_per_second = be32(bytes + 16);
     const std::uint32_t total = be32(bytes + 20);
@@ -361,9 +670,41 @@ bool describe_wpad_log(const std::uint8_t* bytes, std::size_t size, std::string&
     } else {
         text += "Pro Controller test: off\n";
     }
+    // The Bluetooth side (version 3): the translator's counts first.
+    const std::uint8_t* pro = bytes + kPro;
+    const auto pro_word = [&](std::size_t field) { return be32(pro + 4 * field); };
+    if (traced && pro_word(1) != 0) {
+        if (pro_word(0)) {
+            char counts[320];
+            std::snprintf(counts, sizeof(counts),
+                          "Pro Controller translator: on; %u Pro Controller link(s), %u report(s) rebuilt, %u "
+                          "extension ID(s) answered as a Classic Controller Pro, %u calibration read(s) answered, "
+                          "%u acknowledgement error(s) cleared, %u reporting mode(s) changed\n",
+                          pro_word(2), pro_word(3), pro_word(4), pro_word(5), pro_word(6), pro_word(7));
+            text += counts;
+            if (pro_word(8)) {
+                std::snprintf(counts, sizeof(counts),
+                              "Pro Controller translator: the game turned on encryption; %u key(s) made into tables, "
+                              "%u did not check out\n",
+                              pro_word(12), pro_word(13));
+                text += counts;
+            }
+            if (pro_word(14)) {
+                std::snprintf(counts, sizeof(counts),
+                              "Pro Controller translator: the game's encryption tables at 0x%08x\n", pro_word(14));
+                text += counts;
+            } else {
+                text += "Pro Controller translator: the game's encryption tables were not found\n";
+            }
+            if (pro_word(15)) text += "Pro Controller translator: the Pro sent its bytes encrypted anyway\n";
+        } else {
+            text += "Pro Controller translator: off (settings.txt pro_controller = off); the trace only\n";
+        }
+    } else if (traced) {
+        text += "Bluetooth trace: off (the game's IOS_IoctlvAsync was not hooked)\n";
+    }
     if (total == 0) {
         text += "(the game printed nothing about its controllers)\n";
-        return true;
     }
 
     const auto entry_at = [&](std::uint32_t n) { return bytes + kHeader + kEntry * rtwlog_slot(n); };
@@ -388,6 +729,37 @@ bool describe_wpad_log(const std::uint8_t* bytes, std::size_t size, std::string&
             text += "... " + std::to_string(last_start - RTWLOG_FIRST) + " message(s) not kept ...\n";
         }
         for (std::uint32_t n = last_start; n < total; ++n) write_message(n);
+    }
+    if (!traced || pro_word(1) == 0) return true;
+
+    // The Bluetooth trace, on the messages' clock.
+    const std::uint32_t bt_total = pro_word(9);
+    const auto bt_at = [&](std::uint32_t n) { return bytes + kBt + kBtEntry * rtwlog_bt_slot(n); };
+    std::snprintf(line, sizeof(line),
+                  "\nBluetooth trace: %u packet(s); %u data report(s) and %u Number Of Completed Packets event(s) "
+                  "only counted\n",
+                  static_cast<unsigned>(bt_total), pro_word(10), pro_word(11));
+    text += line;
+    if (bt_total == 0) return true;
+    const std::uint32_t clock_start = total > 0 ? be32(entry_at(0)) : be32(bt_at(0));
+    const auto write_packet = [&](std::uint32_t n) {
+        const std::uint8_t* e = bt_at(n);
+        const double seconds =
+            units_per_second > 0 ? static_cast<std::int32_t>(be32(e) - clock_start) / units_per_second : 0;
+        std::snprintf(line, sizeof(line), "[%8.3f] ", seconds);
+        text += line;
+        text += bt_line(e);
+        text += "\n";
+    };
+    const std::uint32_t first_bt = bt_total < RTWLOG_BT_FIRST ? bt_total : RTWLOG_BT_FIRST;
+    for (std::uint32_t n = 0; n < first_bt; ++n) write_packet(n);
+    if (bt_total > RTWLOG_BT_FIRST) {
+        const std::uint32_t last_start =
+            bt_total - RTWLOG_BT_LAST > RTWLOG_BT_FIRST ? bt_total - RTWLOG_BT_LAST : RTWLOG_BT_FIRST;
+        if (last_start > RTWLOG_BT_FIRST) {
+            text += "... " + std::to_string(last_start - RTWLOG_BT_FIRST) + " packet(s) not kept ...\n";
+        }
+        for (std::uint32_t n = last_start; n < bt_total; ++n) write_packet(n);
     }
     return true;
 }

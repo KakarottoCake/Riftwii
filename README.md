@@ -116,7 +116,8 @@ contains theirs names them in its file header, and
   Martin, Sven Peter and others): the toolchain and the Wii library.
 - **Dolphin**, **wiibrew**, the **Riivolution patch format wiki** and
   **libruntimeiospatch**: how the Wii, IOS and the patch format behave
-  (read as documentation). **libwbfs** by Kwiirk and contributors: the
+  (read as documentation); Dolphin also for how the Wii Remote extension's
+  encryption key is used (the Pro Controller translator). **libwbfs** by Kwiirk and contributors: the
   WBFS drive layout. **Friivolution** by december: the launch argument
   other loaders pass (both read as documentation, nothing copied).
 - **pugixml** by Arseny Kapoulkine, **Zstandard** by Meta, **BearSSL**

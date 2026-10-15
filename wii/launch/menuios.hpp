@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
+#include <array>
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -56,10 +58,13 @@ int MenuIosLost();
 
 // Wii Remote pairings in SYSCONF (BT.DINF) and how many of them are
 // fakemote's "Fake Wiimote" entries, which fakemote writes when its IOS
-// starts. -1 when SYSCONF cannot be read.
+// starts. -1 when SYSCONF cannot be read. `pro`: the addresses of the
+// pairings named as a Wii U Pro Controller ("Nintendo RVL-CNT-01-UC"), six
+// bytes each as SYSCONF keeps them.
 struct PadPairings {
     int registered = -1;
     int fake = 0;
+    std::vector<std::array<std::uint8_t, 6>> pro;
 };
 PadPairings ReadPadPairings();
 std::string DescribePadPairings(const PadPairings& p);

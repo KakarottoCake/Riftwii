@@ -6,9 +6,11 @@
     .section .text.wlog_entry, "ax", @progbits
     .globl _wlog_blob_start
 _wlog_blob_start:
-    .long 0x52575757, 1, _wlog_blob_end - _wlog_blob_start, wlog_context_data - _wlog_blob_start
+    .long 0x52575757, 2, _wlog_blob_end - _wlog_blob_start, wlog_context_data - _wlog_blob_start
     .long wlog_hook_print - _wlog_blob_start, wlog_hook_exit - _wlog_blob_start
     .long wlog_replay_exit - _wlog_blob_start
+    .long wlog_hook_ioctlv - _wlog_blob_start, wlog_replay_ioctlv - _wlog_blob_start
+    .long wlog_continue_ioctlv - _wlog_blob_start, wlog_complete_bt - _wlog_blob_start
 
 /* A debug print, (format, arguments...): it takes the empty function's
  * place, so the caller comes here and goes straight back.
@@ -95,8 +97,84 @@ wlog_replay_exit:
     nop
     nop
 
+/* s32 IOS_IoctlvAsync(fd, ioctl, in count, io count, vectors, callback,
+ * user data): wlog_on_ioctlv(ctx, args) looks at a Bluetooth transfer
+ * (and may put this blob's callback in place of the game's) and returns
+ * its watch slot; the original runs with the arguments as they are then,
+ * and wlog_after_ioctlv(ctx, slot, result) frees the slot when IOS
+ * refused the request. Frame: 8-32 the seven arguments, 36 the slot. */
+    .globl wlog_hook_ioctlv
+wlog_hook_ioctlv:
+    stwu 1, -0x40(1)
+    mflr 0
+    stw 0, 0x44(1)
+    stw 3, 0x08(1)
+    stw 4, 0x0C(1)
+    stw 5, 0x10(1)
+    stw 6, 0x14(1)
+    stw 7, 0x18(1)
+    stw 8, 0x1C(1)
+    stw 9, 0x20(1)
+    addi 4, 1, 0x08
+    bl 3f
+3:  mflr 3
+    addi 3, 3, wlog_context_data - 3b
+    bl wlog_on_ioctlv
+    stw 3, 0x24(1)
+    lwz 3, 0x08(1)
+    lwz 4, 0x0C(1)
+    lwz 5, 0x10(1)
+    lwz 6, 0x14(1)
+    lwz 7, 0x18(1)
+    lwz 8, 0x1C(1)
+    lwz 9, 0x20(1)
+    bl wlog_replay_ioctlv
+    mr 5, 3
+    lwz 4, 0x24(1)
+    bl 4f
+4:  mflr 3
+    addi 3, 3, wlog_context_data - 4b
+    bl wlog_after_ioctlv
+    lwz 0, 0x44(1)
+    mtlr 0
+    addi 1, 1, 0x40
+    blr
+
+/* The SDK's IPC callback of a watched read: r3 result, r4 user data. */
+    .globl wlog_complete_bt
+wlog_complete_bt:
+    stwu 1, -0x20(1)
+    mflr 0
+    stw 0, 0x24(1)
+    mr 5, 4
+    mr 4, 3
+    bl 5f
+5:  mflr 3
+    addi 3, 3, wlog_context_data - 5b
+    bl wlog_on_bt
+    lwz 0, 0x24(1)
+    mtlr 0
+    addi 1, 1, 0x20
+    blr
+
+/* Loader-filled: IOS_IoctlvAsync's first word (or another blob's branch,
+ * retargeted) and nops, then the jump to its second word through r12. */
+    .balign 16
+    .globl wlog_replay_ioctlv
+wlog_replay_ioctlv:
+    nop
+    nop
+    nop
+    nop
+    .globl wlog_continue_ioctlv
+wlog_continue_ioctlv:
+    lis 12, 0
+    ori 12, 12, 0
+    mtctr 12
+    bctr
+
     .balign 32
     .globl wlog_context_data
 wlog_context_data:
     .long 0x52575758
-    .fill 15, 4, 0
+    .fill 31, 4, 0

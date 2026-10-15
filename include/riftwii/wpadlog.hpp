@@ -54,6 +54,15 @@ bool find_wpad_probe(const std::vector<CodeSpan>& spans, WpadProbePatch& out, st
 // Writes the two instructions (into `spans`' bytes).
 void apply_wpad_probe(const std::vector<CodeSpan>& spans, const WpadProbePatch& patch);
 
+// The game's lookup tables for the Wii Remote extension's encryption, for
+// the Pro Controller translator (runtime/rtpro.h): the Wii Remote library
+// keeps an answer table of 7 rows of 6 bytes (48 with padding), then a key
+// box and eight table boxes of 256 bytes, each box a permutation of 0..255.
+// The address of the answer table (the first such set, the one for
+// Nintendo's own extensions), or 0. RiftWii carries none of the tables:
+// they are the game's, used where they are.
+std::uint32_t find_extension_tables(const std::vector<CodeSpan>& spans);
+
 // The saved log (/shared2/riftwii/wpadlog.bin) as text, one message a
 // line with its time; false with `error` when `bytes` is not one. Link keys
 // are left out and Bluetooth addresses kept only to their last byte, as the

@@ -108,6 +108,16 @@ only (how its choices files and macros work), never copied. Behavioural referenc
   with BT.601 for the YUV to RGB conversion. The PNG writer
   (`src/art/pngencode.cpp`) follows the PNG specification and RFC 1951
   (Deflate). No code was used from any of them.
+- The Wii U Pro Controller translator (`runtime/rtpro.c`, `runtime/wlog/`,
+  `wii/hooks/wpadhook.cpp`) follows wiibrew's pages on the Wii Remote, its
+  extension controllers, the Classic Controller and the Wii U Pro
+  Controller, and the Bluetooth core specification. How the extension
+  encryption's 16-byte key and the game's lookup tables make the two 8-byte
+  tables was learned from Dolphin's `Source/Core/Core/HW/WiimoteEmu/Encryption.cpp`
+  (GPL-2.0-or-later, master as of 2026-10-15); RiftWii's code is its own.
+  The lookup tables themselves are not in RiftWii: the loader finds each
+  game's own (`find_extension_tables` in `src/patching/wpadlog.cpp`) and the
+  translator uses them where they are.
 - Game banners and channel icons (`src/disc/bnr.cpp`, `src/disc/tpl.cpp`,
   `src/disc/brlyt.cpp`, `src/disc/brlan.cpp`, `src/disc/wiicrypt.cpp`, `wii/menu/banners.*`,
   `wii/menu/bannerplay.*`, `wii/menu/otpkey.*`, `src/disc/bnrsound.cpp`, `wii/menu/bannersound.*`)

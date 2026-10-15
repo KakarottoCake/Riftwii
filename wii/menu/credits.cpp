@@ -70,7 +70,8 @@ const char* const kCredits[] = {
     "others): the toolchain and the Wii library.",
     "",
     "Dolphin, wiibrew and the Riivolution patch format wiki: how the Wii and the patch format behave, "
-    "read as documentation.",
+    "read as documentation. Dolphin also for how the Wii Remote extension's encryption key is used "
+    "(the Wii U Pro Controller translator).",
     "",
     "libwbfs by Kwiirk and contributors, as in Wiimm's WBFS tools: the layout of a WBFS drive. "
     "Friivolution by december: the launch argument other loaders pass. Both read as documentation, "

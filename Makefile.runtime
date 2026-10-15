@@ -67,7 +67,7 @@ FAULTOBJS := $(FAULTOUT)/fault_entry.o $(FAULTOUT)/fault_hook.o $(FAULTOUT)/rtfa
 WLOGSRC  := runtime/wlog
 WLOGOUT  := $(OUT)/wlog
 WLOGBLOB := $(OUT)/riftwii_wlog.bin
-WLOGOBJS := $(WLOGOUT)/wlog_entry.o $(WLOGOUT)/wlog_hook.o $(WLOGOUT)/rtshot.o
+WLOGOBJS := $(WLOGOUT)/wlog_entry.o $(WLOGOUT)/wlog_hook.o $(WLOGOUT)/rtshot.o $(WLOGOUT)/rtpro.o
 
 # The virtual SD card blob (runtime/vsd): the game's SD slot answered from
 # a card image on the SD card or the USB drive, for code builds.
@@ -225,13 +225,16 @@ $(FAULTBLOB): $(FAULTOUT)/riftwii_fault.elf $(FAULTOUT)/riftwii_fault_alt.elf
 $(WLOGOUT):
 	@mkdir -p $(WLOGOUT)
 
-$(WLOGOUT)/wlog_entry.o: $(WLOGSRC)/wlog_entry.S $(WLOGSRC)/wlog_hook.h runtime/rtwlog.h | $(WLOGOUT)
+$(WLOGOUT)/wlog_entry.o: $(WLOGSRC)/wlog_entry.S $(WLOGSRC)/wlog_hook.h runtime/rtwlog.h runtime/rtpro.h | $(WLOGOUT)
 	$(CC) $(CFLAGS) -I$(WLOGSRC) -Iruntime -c -o $@ $<
 
-$(WLOGOUT)/wlog_hook.o: $(WLOGSRC)/wlog_hook.c $(WLOGSRC)/wlog_hook.h runtime/rtwlog.h runtime/rtshot.h | $(WLOGOUT)
+$(WLOGOUT)/wlog_hook.o: $(WLOGSRC)/wlog_hook.c $(WLOGSRC)/wlog_hook.h runtime/rtwlog.h runtime/rtshot.h runtime/rtpro.h | $(WLOGOUT)
 	$(CC) $(CFLAGS) -I$(WLOGSRC) -Iruntime -c -o $@ $<
 
 $(WLOGOUT)/rtshot.o: runtime/rtshot.c runtime/rtshot.h | $(WLOGOUT)
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(WLOGOUT)/rtpro.o: runtime/rtpro.c runtime/rtpro.h | $(WLOGOUT)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 $(WLOGOUT)/riftwii_wlog.elf: $(WLOGOBJS) $(WLOGSRC)/wlog.ld

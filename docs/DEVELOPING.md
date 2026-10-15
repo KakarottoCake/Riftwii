@@ -112,9 +112,18 @@ Leaving the game through HOME > Wii Menu saves it to
 `sd:/riftwii/wpadlog.txt`, which goes into problem reports. Link keys are
 never written out and Bluetooth addresses keep only their last byte.
 
-It is on when the menu saw a Wii U Pro Controller. `wpad_log = on` in
-`settings.txt` keeps it for every launch (Dolphin tests), `wpad_log = off`
-never. Not in code builds or games that clear MEM1's top.
+It is on when the menu saw a Wii U Pro Controller or the console has one
+paired. `wpad_log = on` in `settings.txt` keeps it for every launch (Dolphin
+tests), `wpad_log = off` never. Not in code builds or games that clear
+MEM1's top.
+
+The same blob runs the Wii U Pro Controller translator and keeps a trace of
+the game's Bluetooth traffic in the log (docs/BLUETOOTH.md).
+`pro_controller = off` keeps the trace and leaves the traffic alone;
+`pro_controller = every` takes every link as a Pro Controller, so the
+translator runs in Dolphin (whose Wii Remote then has no buttons of its
+own). `build-dolphin/wlog_memdump.py` saves the log from the running game's
+memory when HOME > Wii Menu cannot be reached.
 
 What the logs showed: right after a controller connects, the game's Wii
 Remote library reads one byte at address 0x1770, past the end of a Wii
