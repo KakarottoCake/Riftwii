@@ -544,6 +544,14 @@ void BannerPlayer::Draw(float x, float y, float w, float h, int alpha, const Rou
         const std::int16_t kBlack[4] = {0, 0, 0, 0}, kWhite[4] = {255, 255, 255, 255};
         GX_SetTevColorS10(GX_TEVREG0, S10(m ? m->black : kBlack));
         GX_SetTevColorS10(GX_TEVREG1, S10(m ? m->white : kWhite));
+        // A material with its own stages, drawn before this one, may have
+        // left its swaps behind: Mario & Sonic at the Olympic Winter Games'
+        // icon has a light effect whose stage reads its texture through
+        // swap table 2, and the logo after it came out as its green
+        // channel alone (grey on a tester's Wii). Every stage here reads
+        // its colours as they are.
+        GX_SetTevSwapModeTable(GX_TEV_SWAP0, GX_CH_RED, GX_CH_GREEN, GX_CH_BLUE, GX_CH_ALPHA);
+        for (int s = 0; s < 3; ++s) GX_SetTevSwapMode(static_cast<u8>(GX_TEVSTAGE0 + s), GX_TEV_SWAP0, GX_TEV_SWAP0);
         // Stage 0: the texture's black to white mapped onto C0 to C1 (no
         // texture: C1). Stage 1: times the rasterised colour.
         GX_SetNumTevStages(2);
