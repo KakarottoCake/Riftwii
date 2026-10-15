@@ -219,11 +219,15 @@ struct Painter {
             const auto ch = [k](std::uint8_t x) { return static_cast<std::uint8_t>(std::min(255.0f, x * k)); };
             return Rgba{ch(v.r), ch(v.g), ch(v.b), v.a};
         };
-        if (over) c.circle(40, 40, 39, glow);
-        c.circle(40, 41.5f, 38, shadow);
-        // The rim: the card's colour shaded top to bottom, a fine edge round it.
+        // Soft all round, the shadow a little lower: a hard dark circle a
+        // pixel past the rim, under a dark edge, showed as a rough grey
+        // border (uneven, thicker at the foot) on a tester's TV.
+        if (over) c.shadow(3, 3, 74, 74, 37, 3.0f, glow, 2.0f);
+        c.shadow(3, 4, 74, 74, 37, 2.5f, shadow, 2.0f);
+        // The rim: the card's colour shaded top to bottom, a fine light edge
+        // round it.
         c.rounded_gradient(3, 3, 74, 74, 37, shade(card, 1.0f), shade(card, 0.86f));
-        c.ring(40, 40, 37, 1.2f, edge_strong);
+        c.ring(40, 40, 37, 1.0f, Mix(edge, card, 0.35f));
         // The accent's ring, and the face inside it, light at the top.
         c.ring(40, 40, 31.5f, over ? 4.0f : 3.2f, accent);
         c.rounded_gradient(11.5f, 11.5f, 57, 57, 28.5f, shade(card, 1.04f), shade(card, 0.90f));
