@@ -887,9 +887,10 @@ void paint_channel_frame9(const Theme& theme, bool over, Canvas& out) {
         out.rounded_border(3, 3, 58, 58, std::max(0.0f, r - 3), 1.0f, Rgba{255, 255, 255, 150});
         return;
     }
-    out.rounded_border(0, 0, 64, 64, r, 1.5f, p.edge_strong);
-    out.rounded_border(1.5f, 1.5f, 61, 61, std::max(0.0f, r - 1.5f), 1.5f, Painter::Mix(p.edge_strong, rgba(0xFFFFFF), 0.55f));
-    out.rounded_border(3, 3, 58, 58, std::max(0.0f, r - 3), 1.0f, Rgba{0, 0, 0, 55});
+    // A fine light rim, as the Wii Menu's: the card's edge colour, a
+    // white line just inside it.
+    out.rounded_border(0, 0, 64, 64, r, 1.5f, p.edge);
+    out.rounded_border(1.5f, 1.5f, 61, 61, std::max(0.0f, r - 1.5f), 1.0f, Rgba{255, 255, 255, 170});
 }
 
 void paint_label9(const Theme& theme, Canvas& out) {

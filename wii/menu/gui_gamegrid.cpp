@@ -139,7 +139,9 @@ float GuiGameGrid::Stretch() const {
 
 const GuiGameGrid::Geometry& GuiGameGrid::Geo() const {
     // The top row starts 6 below the overscan's edge (y 24): room for the lit ring.
-    static const Geometry names = {kNameCols, 120, 84, 61, 30, 13, 12};  // clear of the search button (x 568)
+    // 120 x 90: a channel's icon is 4:3 (128 x 96), so the whole icon fits
+    // the tile as the Wii Menu shows it; clear of the search button (x 568).
+    static const Geometry names = {kNameCols, 120, 90, 61, 30, 13, 10};
     if (covers) {
         // Six across about the middle, 8 apart (12 on a widescreen menu).
         const float k = CoverScale();
@@ -620,12 +622,11 @@ void GuiGameGrid::Draw() {
             box.clipX = cx - box.clipW / 2;
             box.clipY = cy - box.clipH / 2;
             box.radius = std::max(0.0f, 14.0f * riftwii::wii::MenuTheme().corners * s.scale - border);
-            // The icon's own 128 x 96 (stretched with the grid on a
-            // widescreen menu), not shrunk into the tile: scaled by 0.94 it
-            // looked blurry on a tester's HDMI Wii. The tile's inside clips
-            // the few pixels at its sides.
-            box.w = 128.0f * Stretch() * s.scale;
-            box.h = 96.0f * s.scale;
+            // The whole icon in the tile's 4:3 inside (stretched with the
+            // grid on a widescreen menu, as the Wii Menu does): drawn at its
+            // own 128 x 96 and cropped to the tile, it looked zoomed in.
+            box.w = box.clipW;
+            box.h = box.clipH;
             box.x = cx - box.w / 2;
             box.y = cy - box.h / 2;
             box.alpha = tileAlpha;
