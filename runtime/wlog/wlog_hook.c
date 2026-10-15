@@ -205,13 +205,13 @@ static void trace(struct rt_wlog_state* st, uint32_t kind, uint32_t flags, uint3
 
 /* An ACL packet into the trace, from its L2CAP payload. The steady stream
  * (data reports in, speaker data out) is kept only at first, then
- * counted. */
-static void trace_acl(struct rt_wlog_state* st, uint32_t kind, uint32_t flags, const uint8_t* acl, uint32_t size) {
+ * counted. Returns whether it was kept. */
+static int trace_acl(struct rt_wlog_state* st, uint32_t kind, uint32_t flags, const uint8_t* acl, uint32_t size) {
     uint32_t payload;
     const uint8_t* p = acl + 8;
     if (size < 8u) {
         trace(st, kind, flags, 0, 0, acl, size);
-        return;
+        return 1;
     }
     payload = le16(acl + 4);
     if (8u + payload > size) payload = size - 8u;
@@ -223,17 +223,18 @@ static void trace_acl(struct rt_wlog_state* st, uint32_t kind, uint32_t flags, c
             /* The rebuilt copy of a report follows its original: kept when
              * that was (it counted already), dropped silently when not. */
             if (kind == RTWLOG_BT_GAME) {
-                if (*kept > RTWLOG_BT_DATA_KEPT) return;
+                if (*kept > RTWLOG_BT_DATA_KEPT) return 0;
             } else if (*kept >= RTWLOG_BT_DATA_KEPT) {
                 st->file.pro.data_skipped++;
                 *kept = RTWLOG_BT_DATA_KEPT + 1u;
-                return;
+                return 0;
             } else {
                 ++*kept;
             }
         }
     }
     trace(st, kind, flags, le16(acl) & 0x0FFFu, le16(acl + 6), p, payload);
+    return 1;
 }
 
 static void copy_counts(struct rt_wlog_state* st) {
@@ -247,11 +248,20 @@ static void copy_counts(struct rt_wlog_state* st) {
     f->modes = st->pro.modes;
     f->keys = st->pro.keys;
     f->bad_keys = st->pro.bad_keys;
+    f->memory_reads = st->pro.memory_reads;
+    f->replaced = st->pro.replaced;
     for (i = 0; i < RTPRO_LINKS; ++i) {
         const struct rtpro_link* l = &st->pro.links[i];
         if (l->used && l->pro && l->encrypted) f->encrypted = 1;
         if (l->used && l->pro && l->pro_encrypts == RTPRO_SENDS_ENCRYPTED) f->pro_encrypted = 1;
     }
+}
+
+/* A bulk-out transfer made shorter: its length, given twice (the
+ * endpoint's 16-bit length in, and the data vector's size). */
+static void set_out_size(uint32_t* vec, uint32_t size) {
+    if (vec[3] == 2u && readable(vec[2])) *(uint16_t*)(uintptr_t)vec[2] = (uint16_t)size;
+    vec[5] = size;
 }
 
 uint32_t wlog_on_ioctlv(struct rt_wlog_context* c, uint32_t* a) {
@@ -282,10 +292,20 @@ uint32_t wlog_on_ioctlv(struct rt_wlog_context* c, uint32_t* a) {
     endpoint = *(const uint8_t*)(uintptr_t)vec[0];
     if (endpoint == EP_ACL_OUT && a[1] == USBV0_BLKMSG) {
         uint8_t* acl = (uint8_t*)(uintptr_t)vec[4];
-        uint32_t what = 0;
-        /* Changed before IOS_IoctlvAsync flushes the buffer for IOS. */
-        if (c->flags & RT_WLOG_FLAG_TRANSLATE) what = rtpro_acl_out(&st->pro, acl, vec[5]);
-        trace_acl(st, RTWLOG_BT_OUT, what, acl, vec[5]);
+        uint32_t what = 0, size = vec[5];
+        /* The game's packet as it was, for the trace if the translator
+         * changes it. */
+        uint8_t asked[8u + 32u];  /* a whole report: 23 bytes at most */
+        const uint32_t asked_size = size < sizeof(asked) ? size : sizeof(asked);
+        for (i = 0; i < asked_size; ++i) asked[i] = acl[i];
+        /* Changed before IOS_IoctlvAsync flushes the buffers for IOS. */
+        if (c->flags & RT_WLOG_FLAG_TRANSLATE) what = rtpro_acl_out(&st->pro, acl, &size);
+        if (size != vec[5]) set_out_size((uint32_t*)(uintptr_t)a[4], size);
+        if (what & RTPRO_CHANGED) {
+            if (trace_acl(st, RTWLOG_BT_OUT, what, asked, asked_size)) trace_acl(st, RTWLOG_BT_SENT, 0, acl, size);
+        } else {
+            trace_acl(st, RTWLOG_BT_OUT, what, acl, size);
+        }
         copy_counts(st);
         interrupts_restore(msr);
         return 0;

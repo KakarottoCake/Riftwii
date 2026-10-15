@@ -32,6 +32,19 @@
  *    0xAA's place so its own bytes stay plain (and if it encrypts them
  *    anyway, that shows in its first report and they are decrypted). An
  *    older game's single 0x00 at 0xA40040 means the fixed 0x17 transform.
+ *  - What a Pro Controller cannot take never reaches it: on a real one
+ *    (2610-407, a tester's Bluetooth trace) the game's first request, a
+ *    read of the Wii Remote's own memory (EEPROM 0x1770, the firmware
+ *    probe), made the Pro hang up 27 ms later, at every connection. The
+ *    Pro gets only what the Wii U asks of it: rumble, LEDs, the reporting
+ *    mode, status, and reads and writes of the extension's registers
+ *    (0xA4xxxx). A read of anything else goes out as a read of the
+ *    extension's calibration and its answers come back as the Wii
+ *    Remote's would (the accelerometer calibration ours, the rest erased,
+ *    error 8 past the end of its memory, as a Wii Remote answers the
+ *    probe). Any other report goes out as a status request when the game
+ *    waits for its acknowledgement (the status answer comes back as that
+ *    acknowledgement), as the LEDs again when it does not.
  *
  * Sources (no code taken from any of them):
  *  - wiibrew, "Wiimote": the HID reports (0x12, 0x16, 0x17 out; 0x20,
@@ -60,6 +73,7 @@ extern "C" {
 #define RTPRO_ADDRESSES 8u    /* Pro Controller pairings the loader hands over */
 #define RTPRO_EVERY_LINK 0xFFFFFFFFu  /* as the count: every link is taken as a Pro (Dolphin tests) */
 #define RTPRO_READS 4u        /* memory reads awaiting their answer, per link */
+#define RTPRO_STATUSES 8u     /* status requests awaiting their answer, per link */
 
 /* rtpro_link.pro */
 #define RTPRO_NOT_PRO 0u
@@ -72,9 +86,16 @@ extern "C" {
 struct rtpro_read {
     uint32_t address;         /* 24 bits; RTPRO_REGISTERS when in register space */
     uint16_t size;
-    uint16_t used;
+    uint16_t used;            /* RTPRO_READ_* */
+    uint32_t asked;           /* RTPRO_READ_STAND_IN: what the game asked for (address as above) */
+    uint32_t asked_size;
 };
 #define RTPRO_REGISTERS 0x01000000u
+#define RTPRO_READ_FREE 0u
+#define RTPRO_READ_SENT 1u        /* sent to the controller as the game asked */
+#define RTPRO_READ_STAND_IN 2u    /* a calibration read went in its place (answered as the Wii Remote's) */
+/* The Wii Remote's memory (EEPROM) ends here: a read past it gets error 8. */
+#define RTPRO_EEPROM_END 0x1700u
 
 /* rtpro_link.cipher */
 #define RTPRO_PLAIN 0u        /* the game reads the extension's bytes as they are */
@@ -102,6 +123,13 @@ struct rtpro_link {
     uint8_t key[16];          /* as written, 0xA40040 on */
     uint8_t xor_table[8];     /* encrypted = (plain - add_table[a % 8]) ^ xor_table[a % 8] */
     uint8_t add_table[8];
+    /* The answers expected to the status requests sent, oldest first: 0
+     * for the game's own, else the report ID whose acknowledgement the
+     * answer stands for. */
+    uint8_t statuses[RTPRO_STATUSES];
+    uint8_t status_count;
+    uint8_t leds;             /* the player LEDs the game last set (0x11's first byte, its top bits) */
+    uint8_t pad3[2];
 };
 
 struct rtpro_state {
@@ -114,6 +142,8 @@ struct rtpro_state {
     uint32_t modes;           /* reporting modes changed to RTPRO_MODE */
     uint32_t keys;            /* encryption keys turned into tables */
     uint32_t bad_keys;        /* keys that did not check out (or no tables) */
+    uint32_t memory_reads;    /* reads of the Wii Remote's memory answered in the Pro's place */
+    uint32_t replaced;        /* other reports a Pro cannot take, sent as status or LEDs */
     const uint8_t* tables;    /* the game's lookup tables (rtpro_set_tables), 0: none found */
 };
 
@@ -138,9 +168,10 @@ void rtpro_init(struct rtpro_state* st);
 void rtpro_event(struct rtpro_state* st, const uint8_t* addresses, uint32_t count, const uint8_t* event,
                  uint32_t size);
 
-/* An ACL packet the game sends (bulk-out), changed in place. Returns
- * RTPRO_* bits. */
-uint32_t rtpro_acl_out(struct rtpro_state* st, uint8_t* acl, uint32_t size);
+/* An ACL packet the game sends (bulk-out), changed in place. `size` is
+ * its size, and its new one after (a report put in another's place can
+ * be shorter: the caller sends that many bytes). Returns RTPRO_* bits. */
+uint32_t rtpro_acl_out(struct rtpro_state* st, uint8_t* acl, uint32_t* size);
 
 /* An ACL packet the game receives (bulk-in), `size` bytes in a buffer of
  * `room`, changed in place. Returns the packet's new size; `what` gets

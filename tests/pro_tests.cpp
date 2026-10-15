@@ -3,8 +3,10 @@
 // The Wii U Pro Controller translator (runtime/rtpro.h): links followed
 // from HCI events, the reporting mode asked for, the extension ID, the
 // calibration reads, the acknowledgements and the data reports rebuilt as
-// a Classic Controller Pro's; the extension's encryption, with made-up
-// lookup tables (a game's own are never in the repository).
+// a Classic Controller Pro's; what a Pro cannot take (the Wii Remote's
+// memory, IR camera and speaker) sent as something it can and answered as
+// a Wii Remote would; the extension's encryption, with made-up lookup
+// tables (a game's own are never in the repository).
 #include "rtpro.h"
 
 #include <cstdint>
@@ -59,8 +61,12 @@ std::uint32_t In(rtpro_state& st, Bytes& acl, std::uint32_t* what = nullptr) {
     return n;
 }
 
+// The packet as the translator sends it on (it may come out shorter).
 std::uint32_t Out(rtpro_state& st, Bytes& acl) {
-    return rtpro_acl_out(&st, acl.data(), static_cast<std::uint32_t>(acl.size()));
+    std::uint32_t size = static_cast<std::uint32_t>(acl.size());
+    const std::uint32_t what = rtpro_acl_out(&st, acl.data(), &size);
+    acl.resize(size);
+    return what;
 }
 
 // The Pro Controller's eleven bytes: sticks (12 bits LE), buttons (active low).
@@ -119,14 +125,22 @@ void test_calibration() {
     rtpro_state st;
     rtpro_init(&st);
     Connect(st, kPro, kProAddress);
-    // The Wii Remote's accelerometer calibration, which the Pro refuses.
+    // The Wii Remote's accelerometer calibration, in its memory, which a
+    // Pro has not got: a read of the extension's calibration goes instead.
     Bytes read = Acl(kPro, {0xA2, 0x17, 0x00, 0x00, 0x00, 0x16, 0x00, 0x0A});
-    Out(st, read);
-    Bytes reply = Acl(kPro, ReadReply(0x0016, 1, 0x8, {}));
+    EXPECT_TRUE(Out(st, read) & RTPRO_CHANGED);
+    EXPECT_EQ(read[10], 0x04);
+    EXPECT_EQ(read[11], 0xA4);
+    EXPECT_EQ(read[12], 0x00);
+    EXPECT_EQ(read[13], 0x20);
+    EXPECT_EQ(read[15], 0x0A);
+    Bytes reply = Acl(kPro, ReadReply(0x0020, 10, 0, Bytes(16, 0x33)));
     std::uint32_t what = 0;
     In(st, reply, &what);
     EXPECT_TRUE(what & RTPRO_CHANGED);
-    EXPECT_EQ(reply[12] & 0x0F, 0);  // no error
+    EXPECT_EQ(reply[12], 0x90);  // 10 bytes, no error
+    EXPECT_EQ(reply[13], 0x00);
+    EXPECT_EQ(reply[14], 0x16);  // at the address the game asked for
     EXPECT_EQ(reply[15], 0x80);
     EXPECT_EQ(reply[19], 0x9A);
     unsigned sum = 0;
@@ -146,11 +160,101 @@ void test_calibration() {
         EXPECT_EQ(r[29], static_cast<std::uint8_t>(s + 0x55));
         EXPECT_EQ(r[30], static_cast<std::uint8_t>(s + 0xAA));
     }
-    EXPECT_EQ(st.calibrations, 3u);
+    EXPECT_EQ(st.calibrations, 2u);
+    EXPECT_EQ(st.memory_reads, 1u);
     // An acknowledgement's error is cleared on the Pro only.
     Bytes ack = Acl(kPro, {0xA1, 0x22, 0x00, 0x00, 0x16, 0x03});
     In(st, ack);
     EXPECT_EQ(ack[13], 0);
+}
+
+// A Pro hangs up on a read of the Wii Remote's memory (a tester's trace:
+// the firmware probe at 0x1770), and has no IR camera or speaker.
+void test_stand_ins() {
+    rtpro_state st;
+    rtpro_init(&st);
+    Connect(st, kPro, kProAddress);
+    // The firmware probe: past the end of the memory, so error 8, as a Wii
+    // Remote answers it.
+    Bytes probe = Acl(kPro, {0xA2, 0x17, 0x00, 0x00, 0x17, 0x70, 0x00, 0x01});
+    Out(st, probe);
+    EXPECT_EQ(probe[10], 0x04);
+    EXPECT_EQ(probe[11], 0xA4);
+    EXPECT_EQ(probe[13], 0x20);
+    EXPECT_EQ(probe[15], 0x01);
+    Bytes answer = Acl(kPro, ReadReply(0x0020, 1, 0, Bytes(16, 0x33)));
+    In(st, answer);
+    EXPECT_EQ(answer[12], 0xF8);
+    EXPECT_EQ(answer[13], 0x17);
+    EXPECT_EQ(answer[14], 0x70);
+    EXPECT_EQ(answer[15], 0x00);
+    // 56 bytes from 0x2A: four answers, at the game's addresses, erased.
+    Bytes block = Acl(kPro, {0xA2, 0x17, 0x00, 0x00, 0x00, 0x2A, 0x00, 0x38});
+    Out(st, block);
+    EXPECT_EQ(block[15], 0x38);
+    for (std::uint32_t part = 0; part < 4; ++part) {
+        const std::uint32_t len = part < 3 ? 16 : 8;
+        Bytes r = Acl(kPro, ReadReply(0x0020 + 16 * part, len, 0, Bytes(16, 0x33)));
+        In(st, r);
+        EXPECT_EQ(r[12], static_cast<std::uint8_t>((len - 1) << 4));
+        EXPECT_EQ(r[14], static_cast<std::uint8_t>(0x2A + 16 * part));
+        EXPECT_EQ(r[15], 0xFF);
+    }
+    EXPECT_EQ(st.memory_reads, 2u);
+    // The LEDs pass, and are remembered.
+    Bytes leds = Acl(kPro, {0xA2, 0x11, 0x12});
+    EXPECT_EQ(Out(st, leds) & RTPRO_CHANGED, 0u);
+    // The IR camera on, an acknowledgement asked: a status request goes, and
+    // its answer comes back as that acknowledgement.
+    Bytes ir = Acl(kPro, {0xA2, 0x13, 0x06});
+    EXPECT_TRUE(Out(st, ir) & RTPRO_CHANGED);
+    EXPECT_EQ(ir[9], 0x15);
+    EXPECT_EQ(ir[10], 0x00);
+    // The game's own status request after it: answered as it is.
+    Bytes status = Acl(kPro, {0xA2, 0x15, 0x00});
+    EXPECT_EQ(Out(st, status) & RTPRO_CHANGED, 0u);
+    // A write to the IR camera's registers (always acknowledged): shorter.
+    Bytes write = Acl(kPro, {0xA2, 0x16, 0x04, 0xB0, 0x00, 0x30, 0x01, 0x08, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0});
+    Out(st, write);
+    EXPECT_EQ(write.size(), 11u);
+    EXPECT_EQ(write[2], 7);  // ACL length
+    EXPECT_EQ(write[4], 3);  // L2CAP length
+    EXPECT_EQ(write[9], 0x15);
+    // Speaker data, no acknowledgement: the LEDs again.
+    Bytes speaker = Acl(kPro, {0xA2, 0x18, 0xA0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20});
+    Out(st, speaker);
+    EXPECT_EQ(speaker.size(), 11u);
+    EXPECT_EQ(speaker[9], 0x11);
+    EXPECT_EQ(speaker[10], 0x10);
+    EXPECT_EQ(st.replaced, 3u);
+    // The three status answers, in order: the IR camera's acknowledgement,
+    // the game's status, the write's acknowledgement.
+    const Bytes status_answer = {0xA1, 0x20, 0x00, 0x08, 0x02, 0x00, 0x00, 0xC0};
+    Bytes first = Acl(kPro, status_answer);
+    EXPECT_EQ(In(st, first), 14u);
+    EXPECT_EQ(first[9], 0x22);
+    EXPECT_EQ(first[11], 0x08);  // the buttons kept
+    EXPECT_EQ(first[12], 0x13);
+    EXPECT_EQ(first[13], 0x00);
+    Bytes second = Acl(kPro, status_answer);
+    EXPECT_EQ(In(st, second), 16u);
+    EXPECT_EQ(second[9], 0x20);
+    Bytes third = Acl(kPro, status_answer);
+    In(st, third);
+    EXPECT_EQ(third[12], 0x16);
+    // Reads and writes of the extension's registers go to the Pro as they are.
+    Bytes id = Acl(kPro, {0xA2, 0x17, 0x04, 0xA4, 0x00, 0xFA, 0x00, 0x06});
+    EXPECT_EQ(Out(st, id) & RTPRO_CHANGED, 0u);
+    Bytes init = Acl(kPro, {0xA2, 0x16, 0x04, 0xA4, 0x00, 0xFB, 0x01, 0x00, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0});
+    EXPECT_EQ(Out(st, init) & RTPRO_CHANGED, 0u);
+    // A Wii Remote keeps all of it.
+    Connect(st, kRemote, kOtherAddress);
+    Bytes remote_probe = Acl(kRemote, {0xA2, 0x17, 0x00, 0x00, 0x17, 0x70, 0x00, 0x01});
+    EXPECT_EQ(Out(st, remote_probe) & RTPRO_CHANGED, 0u);
+    EXPECT_EQ(remote_probe[12], 0x17);
+    Bytes remote_ir = Acl(kRemote, {0xA2, 0x13, 0x06});
+    EXPECT_EQ(Out(st, remote_ir) & RTPRO_CHANGED, 0u);
+    EXPECT_EQ(remote_ir[9], 0x13);
 }
 
 void test_classic_bytes() {
@@ -365,7 +469,7 @@ void test_encryption() {
         // The Wii Remote's own calibration (EEPROM) is never encrypted.
         Bytes eread = Acl(kPro, {0xA2, 0x17, 0x00, 0x00, 0x00, 0x16, 0x00, 0x0A});
         Out(st, eread);
-        Bytes eep = Acl(kPro, ReadReply(0x0016, 10, 0, {}));
+        Bytes eep = Acl(kPro, ReadReply(0x0020, 10, 0, Bytes(16, 0x33)));  // the stand-in read's answer
         In(st, eep);
         EXPECT_EQ(eep[15], 0x80);
     }
@@ -453,6 +557,7 @@ int main() {
     test_links();
     test_extension_id();
     test_calibration();
+    test_stand_ins();
     test_classic_bytes();
     test_data_reports();
     test_encryption();

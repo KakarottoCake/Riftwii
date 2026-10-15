@@ -536,8 +536,8 @@ std::string hex_bytes(const std::uint8_t* data, std::size_t n, const std::vector
     return out;
 }
 
-// One traced packet as a line (after its time).
-std::string bt_line(const std::uint8_t* e) {
+// One traced packet as a line (after its time), from a log of `version`.
+std::string bt_line(const std::uint8_t* e, std::uint32_t version) {
     const unsigned kind = e[4], flags = e[5];
     const unsigned handle = be16(e + 6), size = be16(e + 8), cid = be16(e + 10);
     const std::uint8_t* d = e + 12;
@@ -580,7 +580,10 @@ std::string bt_line(const std::uint8_t* e) {
         return std::string(head) + what + ": " + hex_bytes(d, kept, hci_hidden(command, d, kept)) +
                (size > kept ? " ..." : "");
     }
-    const char* way = kind == RTWLOG_BT_OUT ? "to  " : kind == RTWLOG_BT_IN ? "from" : "game";
+    const char* way = kind == RTWLOG_BT_OUT    ? "to  "
+                      : kind == RTWLOG_BT_IN   ? "from"
+                      : kind == RTWLOG_BT_SENT ? "sent"
+                                               : "game";
     std::snprintf(head, sizeof(head), "%s 0x%04x cid 0x%04x, %u byte(s)", way, handle, cid, size);
     std::string line = head;
     if (cid == 0x0001 && kept >= 1) {
@@ -591,7 +594,15 @@ std::string bt_line(const std::uint8_t* e) {
         if (name) line += std::string(" (") + name + ")";
     }
     line += ": " + hex_bytes(d, kept, {}) + (size > kept ? " ..." : "");
-    if (flags & 2u) line += kind == RTWLOG_BT_OUT ? "  [changed by the translator]" : "  [as the translator rebuilt it]";
+    if (flags & 2u) {
+        if (kind != RTWLOG_BT_OUT) {
+            line += "  [as the translator rebuilt it]";
+        } else if (version >= 4) {
+            line += "  [as the game asked; the translator sent the next line instead]";
+        } else {
+            line += "  [changed by the translator]";
+        }
+    }
     return line;
 }
 
@@ -637,15 +648,21 @@ bool describe_wpad_log(const std::uint8_t* bytes, std::size_t size, std::string&
         return false;
     }
     const std::uint32_t version = be32(bytes + 4);
-    if (version != RTWLOG_VERSION && version != 2) {
+    if (version < 2 || version > RTWLOG_VERSION) {
         error = "a Wii Remote log of another version (" + std::to_string(version) + ")";
         return false;
     }
     constexpr std::size_t kPro = kHeader + kEntry * RTWLOG_ENTRIES;
-    constexpr std::size_t kBt = kPro + sizeof(rtwlog_pro);
     constexpr std::size_t kBtEntry = 28;
+    // Version 3's counts end at pro_encrypted; version 4 added two.
+    constexpr std::size_t kProWords3 = 16;
+    constexpr std::size_t kProWords4 = 18;
+    static_assert(sizeof(rtwlog_pro) == 4 * kProWords4, "the counts the decoder reads");
     static_assert(sizeof(rtwlog_bt) == kBtEntry, "the trace entry layout the decoder reads");
-    static_assert(offsetof(rtwlog_file, pro) == kPro && offsetof(rtwlog_file, bt) == kBt, "the trace's place");
+    static_assert(offsetof(rtwlog_file, pro) == kPro && offsetof(rtwlog_file, bt) == kPro + sizeof(rtwlog_pro),
+                  "the trace's place");
+    const std::size_t pro_words = version >= 4 ? kProWords4 : kProWords3;
+    const std::size_t kBt = kPro + 4 * pro_words;
     const bool traced = version >= 3 && size >= kBt + kBtEntry * RTWLOG_BT_ENTRIES;
     const std::string game = text_field(bytes + 8, 6);
     const std::uint32_t ticks_per_second = be32(bytes + 16);
@@ -697,6 +714,13 @@ bool describe_wpad_log(const std::uint8_t* bytes, std::size_t size, std::string&
                 text += "Pro Controller translator: the game's encryption tables were not found\n";
             }
             if (pro_word(15)) text += "Pro Controller translator: the Pro sent its bytes encrypted anyway\n";
+            if (pro_words >= kProWords4) {
+                std::snprintf(counts, sizeof(counts),
+                              "Pro Controller translator: %u read(s) of the Wii Remote's memory answered in the "
+                              "Pro's place, %u other report(s) it cannot take sent as status or LEDs\n",
+                              pro_word(16), pro_word(17));
+                text += counts;
+            }
         } else {
             text += "Pro Controller translator: off (settings.txt pro_controller = off); the trace only\n";
         }
@@ -748,7 +772,7 @@ bool describe_wpad_log(const std::uint8_t* bytes, std::size_t size, std::string&
             units_per_second > 0 ? static_cast<std::int32_t>(be32(e) - clock_start) / units_per_second : 0;
         std::snprintf(line, sizeof(line), "[%8.3f] ", seconds);
         text += line;
-        text += bt_line(e);
+        text += bt_line(e, version);
         text += "\n";
     };
     const std::uint32_t first_bt = bt_total < RTWLOG_BT_FIRST ? bt_total : RTWLOG_BT_FIRST;

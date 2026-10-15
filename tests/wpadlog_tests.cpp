@@ -227,29 +227,48 @@ int main() {
         log.pro(3, 250);
         log.pro(4, 1);
         log.pro(10, 900);
+        log.pro(16, 2);
+        log.pro(17, 5);
         log.packet(0.5, RTWLOG_BT_COMMAND, 0, 0, 0, {0x03, 0x0C, 0x00});
         log.packet(0.6, RTWLOG_BT_COMMAND, 0, 0, 0,
                    {0x0B, 0x04, 0x16, 0x93, 0x11, 0x22, 0x33, 0x44, 0x55, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x12});
         log.packet(1.1, RTWLOG_BT_EVENT, 0, 0, 0,
                    {0x03, 0x0B, 0x00, 0x21, 0x00, 0x93, 0x11, 0x22, 0x33, 0x44, 0x55, 0x01, 0x00});
-        log.packet(1.3, RTWLOG_BT_OUT, 2, 0x21, 0x41, {0xA2, 0x12, 0x04, 0x34});
+        log.packet(1.3, RTWLOG_BT_OUT, 2, 0x21, 0x41, {0xA2, 0x12, 0x04, 0x30});
+        log.packet(1.3, RTWLOG_BT_SENT, 0, 0x21, 0x41, {0xA2, 0x12, 0x04, 0x34});
         log.packet(1.4, RTWLOG_BT_IN, 0, 0x21, 0x01, {0x06, 0x05, 0x04, 0x00, 0x40, 0x00, 0x41, 0x00});
         log.packet(1.5, RTWLOG_BT_EVENT, 0, 0, 0, {0x05, 0x04, 0x00, 0x21, 0x00, 0x13});
         std::string text, error;
         EXPECT_TRUE(riftwii::describe_wpad_log(log.bytes.data(), log.bytes.size(), text, error));
         EXPECT_TRUE(has(text, "Pro Controller translator: on; 1 Pro Controller link(s), 250 report(s) rebuilt, 1 "
                               "extension ID(s)"));
-        EXPECT_TRUE(has(text, "Bluetooth trace: 6 packet(s); 900 data report(s)"));
+        EXPECT_TRUE(has(text, "2 read(s) of the Wii Remote's memory answered in the Pro's place, 5 other report(s)"));
+        EXPECT_TRUE(has(text, "Bluetooth trace: 7 packet(s); 900 data report(s)"));
         EXPECT_TRUE(has(text, "HCI command 0x0c03 (Reset): 03 0c 00"));
         // Link Key Request Reply: the address's last byte, then nothing of the key.
         EXPECT_TRUE(has(text, "(Link Key Request Reply): 0b 04 16 93 xx xx xx xx xx ** ** ** ** ** ** **"));
         EXPECT_FALSE(has(text, "aa bb"));
         EXPECT_TRUE(has(text, "(Connection Complete): 03 0b 00 21 00 93 xx xx xx xx xx 01 00"));
         EXPECT_FALSE(has(text, "11 22 33"));
-        EXPECT_TRUE(has(text, "to   0x0021 cid 0x0041, 4 byte(s) (reporting mode): a2 12 04 34  [changed by the translator]"));
+        EXPECT_TRUE(has(text, "to   0x0021 cid 0x0041, 4 byte(s) (reporting mode): a2 12 04 30  [as the game asked; "
+                              "the translator sent the next line instead]"));
+        EXPECT_TRUE(has(text, "sent 0x0021 cid 0x0041, 4 byte(s) (reporting mode): a2 12 04 34\n"));
         EXPECT_TRUE(has(text, "from 0x0021 cid 0x0001, 8 byte(s) (L2CAP Disconnection Request)"));
         EXPECT_TRUE(has(text, "handle 0x0021, reason 0x13: the controller ended it"));
         EXPECT_TRUE(text.find("BTA_Init") < text.find("HCI command 0x0c03"));
+
+        // The same as version 3 wrote it (2610-406, 407): two counts fewer,
+        // and a changed packet was traced only as sent.
+        std::vector<std::uint8_t> v3 = log.bytes;
+        const std::size_t counts_end = offsetof(rtwlog_file, pro) + 16 * 4;
+        v3.erase(v3.begin() + counts_end, v3.begin() + counts_end + 8);
+        put32(v3, 4, 3);
+        text.clear();
+        EXPECT_TRUE(riftwii::describe_wpad_log(v3.data(), v3.size(), text, error));
+        EXPECT_FALSE(has(text, "read(s) of the Wii Remote's memory"));
+        EXPECT_TRUE(has(text, "Bluetooth trace: 7 packet(s)"));
+        EXPECT_TRUE(has(text, "(reporting mode): a2 12 04 30  [changed by the translator]"));
+        EXPECT_TRUE(has(text, "handle 0x0021, reason 0x13: the controller ended it"));
     }
     // Translator off: said so; not hooked: said so.
     {

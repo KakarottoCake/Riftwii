@@ -28,7 +28,9 @@ extern "C" {
 #endif
 
 #define RTWLOG_MAGIC 0x5257574Cu   /* "RWWL" */
-#define RTWLOG_VERSION 3u           /* 2: the Pro Controller probe's state; 3: the Bluetooth trace */
+/* 2: the Pro Controller probe's state; 3: the Bluetooth trace; 4: the
+ * game's packet and the translator's both traced, two more counts. */
+#define RTWLOG_VERSION 4u
 /* rtwlog_file.probe: what the loader did to the Wii Remote library's
  * firmware probe (riftwii/wpadlog.hpp, settings.txt "wpad_probe"). */
 #define RTWLOG_PROBE_NOT_ASKED 0u   /* the test is off */
@@ -52,9 +54,10 @@ extern "C" {
 /* rtwlog_bt.kind */
 #define RTWLOG_BT_COMMAND 1u       /* HCI command to the dongle: opcode, length, parameters */
 #define RTWLOG_BT_EVENT 2u         /* HCI event from it: code, length, parameters */
-#define RTWLOG_BT_OUT 3u           /* ACL to a controller, as sent (after the translator) */
+#define RTWLOG_BT_OUT 3u           /* ACL to a controller as the game sent it (3: after the translator) */
 #define RTWLOG_BT_IN 4u            /* ACL from a controller, as it came */
 #define RTWLOG_BT_GAME 5u          /* the same, as the translator handed it to the game */
+#define RTWLOG_BT_SENT 6u          /* what the translator sent in place of the OUT before it (4) */
 
 /* One packet: 28 bytes. `handle` is the ACL connection's (HCI: 0);
  * `size` the packet's (ACL: its L2CAP payload's); `cid` the L2CAP
@@ -87,6 +90,8 @@ struct rtwlog_pro {
     uint32_t bad_keys;             /* keys that did not check out against the game's tables */
     uint32_t tables;               /* where the game's lookup tables are, 0: not found */
     uint32_t pro_encrypted;        /* a Pro sent its bytes encrypted although asked not to */
+    uint32_t memory_reads;         /* 4: reads of the Wii Remote's memory answered in a Pro's place */
+    uint32_t replaced;             /* 4: other reports a Pro cannot take, sent as status or LEDs */
 };
 
 /* One message: big-endian, as the Wii wrote it. 152 bytes. */

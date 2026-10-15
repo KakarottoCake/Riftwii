@@ -10,12 +10,30 @@
 #define HID_OUTPUT 0xA2u
 
 /* Output reports. */
+#define OUT_RUMBLE 0x10u
+#define OUT_LEDS 0x11u
 #define OUT_MODE 0x12u
+#define OUT_STATUS 0x15u
 #define OUT_WRITE 0x16u
 #define OUT_READ 0x17u
+/* An output report's first byte: bit 0 is the rumble motor, bit 1 asks
+ * for an acknowledgement, bit 2 of a read or write's says register space
+ * (not the Wii Remote's memory). */
+#define OUT_RUMBLE_BIT 0x01u
+#define OUT_ACK_BIT 0x02u
+#define OUT_REGISTERS_BIT 0x04u
 /* Input reports. */
+#define IN_STATUS 0x20u
 #define IN_READ 0x21u
 #define IN_ACK 0x22u
+
+/* A read the Pro Controller cannot take goes out as a read of the
+ * extension's registers from its calibration (0xA40020) to their end:
+ * up to this many bytes. */
+#define STAND_IN_ADDRESS 0xA40020u
+#define STAND_IN_ROOM 0xE0u
+/* A read answer's error for an address past the end of the memory. */
+#define READ_ERROR_ADDRESS 8u
 
 /* HCI events. */
 #define EVENT_CONNECTION_COMPLETE 0x03u
@@ -266,42 +284,115 @@ static void set_lengths(uint8_t* acl, uint32_t n) {
     put_le16(acl + 2, n + 4u);
 }
 
-uint32_t rtpro_acl_out(struct rtpro_state* st, uint8_t* acl, uint32_t size) {
+/* A read kept until answered, the oldest given way to a new one. */
+static void remember_read(struct rtpro_link* l, uint32_t address, uint32_t size, uint32_t used, uint32_t asked,
+                          uint32_t asked_size) {
+    uint32_t i, slot = 0;
+    for (i = 0; i < RTPRO_READS; ++i) {
+        if (l->reads[i].used == RTPRO_READ_FREE) {
+            slot = i;
+            break;
+        }
+    }
+    if (i == RTPRO_READS) {
+        for (i = 1; i < RTPRO_READS; ++i) l->reads[i - 1u] = l->reads[i];
+        slot = RTPRO_READS - 1u;
+    }
+    l->reads[slot].address = address;
+    l->reads[slot].size = (uint16_t)size;
+    l->reads[slot].used = (uint16_t)used;
+    l->reads[slot].asked = asked;
+    l->reads[slot].asked_size = asked_size;
+}
+
+/* A status request sent: its answer stands for `id`'s acknowledgement (0:
+ * the game's own request, answered as it is). */
+static void expect_status(struct rtpro_link* l, uint32_t id) {
+    uint32_t i;
+    if (l->status_count >= RTPRO_STATUSES) {
+        for (i = 1; i < RTPRO_STATUSES; ++i) l->statuses[i - 1u] = l->statuses[i];
+        l->status_count = RTPRO_STATUSES - 1u;
+    }
+    l->statuses[l->status_count++] = (uint8_t)id;
+}
+
+/* Whether a read reaches what a Pro Controller answers: the extension's
+ * registers. */
+static int pro_answers_read(uint32_t first, uint32_t address) {
+    return (first & OUT_REGISTERS_BIT) && (address & 0xFF0000u) == 0xA40000u;
+}
+
+uint32_t rtpro_acl_out(struct rtpro_state* st, uint8_t* acl, uint32_t* size) {
     uint8_t* p;
-    uint32_t n, what = RTPRO_SEEN;
-    struct rtpro_link* l = report_of(st, acl, size, 1, &p, &n);
-    if (!l || p[0] != HID_OUTPUT) return 0;
-    if (p[1] == OUT_MODE && n >= 4u) {
+    uint32_t n, id, what = RTPRO_SEEN;
+    struct rtpro_link* l = report_of(st, acl, *size, 1, &p, &n);
+    if (!l || p[0] != HID_OUTPUT || n < 3u) return 0;
+    id = p[1];
+    if (id == OUT_MODE && n >= 4u) {
         l->mode = p[3];
         if (l->pro && p[3] != RTPRO_MODE) {
             p[3] = RTPRO_MODE;
             st->modes++;
             what |= RTPRO_CHANGED;
         }
-    } else if (p[1] == OUT_READ && n >= 8u) {
-        /* Kept until answered, the oldest given way to a new one. */
-        uint32_t i, slot = 0;
-        for (i = 0; i < RTPRO_READS; ++i) {
-            if (!l->reads[i].used) {
-                slot = i;
-                break;
-            }
-        }
-        if (i == RTPRO_READS) {
-            for (i = 1; i < RTPRO_READS; ++i) l->reads[i - 1u] = l->reads[i];
-            slot = RTPRO_READS - 1u;
-        }
-        l->reads[slot].address = ((uint32_t)p[3] << 16) | ((uint32_t)p[4] << 8) | p[5];
-        if (p[2] & 0x04u) l->reads[slot].address |= RTPRO_REGISTERS;
-        l->reads[slot].size = (uint16_t)(((uint32_t)p[6] << 8) | p[7]);
-        l->reads[slot].used = 1;
-    } else if (p[1] == OUT_WRITE && n >= 7u && (p[2] & 0x04u)) {
-        const uint32_t address = ((uint32_t)p[3] << 16) | ((uint32_t)p[4] << 8) | p[5];
-        uint32_t size = p[6];
-        if (size > n - 7u) size = n - 7u;
-        if ((address & 0xFF0000u) == 0xA40000u) what |= extension_write(st, l, address, p + 7, size);
+        return what;
     }
-    return what;
+    if (id == OUT_READ && n >= 8u) {
+        const uint32_t address = ((uint32_t)p[3] << 16) | ((uint32_t)p[4] << 8) | p[5];
+        const uint32_t asked = address | ((p[2] & OUT_REGISTERS_BIT) ? RTPRO_REGISTERS : 0u);
+        const uint32_t asked_size = ((uint32_t)p[6] << 8) | p[7];
+        uint32_t stand_in_size = asked_size;
+        if (!l->pro || pro_answers_read(p[2], address)) {
+            remember_read(l, asked, asked_size, RTPRO_READ_SENT, 0, 0);
+            return what;
+        }
+        /* An answer that is only an error comes in one part. */
+        if (stand_in_size == 0 || stand_in_size > STAND_IN_ROOM) stand_in_size = 1;
+        if (!(asked & RTPRO_REGISTERS) && address + asked_size > RTPRO_EEPROM_END) stand_in_size = 1;
+        p[2] = (uint8_t)((p[2] & OUT_RUMBLE_BIT) | OUT_REGISTERS_BIT);
+        p[3] = (uint8_t)(STAND_IN_ADDRESS >> 16);
+        p[4] = (uint8_t)(STAND_IN_ADDRESS >> 8);
+        p[5] = (uint8_t)STAND_IN_ADDRESS;
+        p[6] = (uint8_t)(stand_in_size >> 8);
+        p[7] = (uint8_t)stand_in_size;
+        remember_read(l, STAND_IN_ADDRESS | RTPRO_REGISTERS, stand_in_size, RTPRO_READ_STAND_IN, asked, asked_size);
+        st->memory_reads++;
+        return what | RTPRO_CHANGED;
+    }
+    if (id == OUT_WRITE && n >= 7u && (p[2] & OUT_REGISTERS_BIT)) {
+        const uint32_t address = ((uint32_t)p[3] << 16) | ((uint32_t)p[4] << 8) | p[5];
+        uint32_t bytes = p[6];
+        if (bytes > n - 7u) bytes = n - 7u;
+        if ((address & 0xFF0000u) == 0xA40000u) return what | extension_write(st, l, address, p + 7, bytes);
+    }
+    if (!l->pro) return what;
+    if (id == OUT_LEDS) {
+        l->leds = (uint8_t)(p[2] & 0xF0u);
+        return what;
+    }
+    if (id == OUT_STATUS) {
+        expect_status(l, 0);
+        return what;
+    }
+    if (id == OUT_RUMBLE || id == OUT_MODE) return what;
+    /* Anything else (the IR camera, the speaker, a write outside the
+     * extension's registers): a Wii Remote's, which a Pro Controller has
+     * no use for. A write is always acknowledged; the rest when asked. */
+    {
+        const uint8_t rumble = (uint8_t)(p[2] & OUT_RUMBLE_BIT);
+        if (id == OUT_WRITE || (p[2] & OUT_ACK_BIT)) {
+            p[1] = OUT_STATUS;
+            p[2] = rumble;
+            expect_status(l, id);
+        } else {
+            p[1] = OUT_LEDS;
+            p[2] = (uint8_t)(l->leds | rumble);
+        }
+        set_lengths(acl, 3u);
+        *size = 8u + 3u;
+        st->replaced++;
+        return what | RTPRO_CHANGED;
+    }
 }
 
 /* The Classic Controller's calibration, 16 bytes (at 0xA40020, again at
@@ -338,25 +429,57 @@ static uint8_t classic_pro_id(uint32_t j) {
     return 0x01u;
 }
 
-/* The read `addr16` answers: its full address (with RTPRO_REGISTERS), or
- * 0xFFFFFFFF when none is known. Forgotten once its last part is in. */
-static uint32_t answered_read(struct rtpro_link* l, uint32_t addr16, uint32_t len, uint32_t error) {
+/* The read `addr16` answers, copied to `out`; 0 when none is known.
+ * Forgotten once its last part is in. */
+static int answered_read(struct rtpro_link* l, uint32_t addr16, uint32_t len, uint32_t error, struct rtpro_read* out) {
     uint32_t i;
     for (i = 0; i < RTPRO_READS; ++i) {
         struct rtpro_read* r = &l->reads[i];
         const uint32_t start = r->address & 0xFFFFu;
-        if (!r->used || addr16 < start || addr16 >= start + r->size) continue;
-        {
-            const uint32_t full = (r->address & ~0xFFFFu) | addr16;
-            if (error || addr16 + len >= start + r->size) {
-                uint32_t j;
-                for (j = i + 1u; j < RTPRO_READS; ++j) l->reads[j - 1u] = l->reads[j];
-                l->reads[RTPRO_READS - 1u].used = 0;
-            }
-            return full;
+        if (r->used == RTPRO_READ_FREE || addr16 < start || addr16 >= start + r->size) continue;
+        *out = *r;
+        if (error || addr16 + len >= start + r->size) {
+            uint32_t j;
+            for (j = i + 1u; j < RTPRO_READS; ++j) l->reads[j - 1u] = l->reads[j];
+            l->reads[RTPRO_READS - 1u].used = RTPRO_READ_FREE;
         }
+        return 1;
     }
-    return 0xFFFFFFFFu;
+    return 0;
+}
+
+static int calibration_at(uint32_t address);
+
+/* A byte of the Wii Remote's memory as a Pro Controller's stand-in holds
+ * it: the accelerometer calibration ours, the rest erased. */
+static uint8_t eeprom_byte(uint32_t address) {
+    const int v = calibration_at(address);
+    return v >= 0 ? (uint8_t)v : 0xFFu;
+}
+
+/* A part of the stand-in read's answer, made the answer to the read the
+ * game asked for: its address, the Wii Remote's bytes (none of the other
+ * registers: zeros), and error 8 for a read past the end of the memory
+ * (or longer than the stand-in has room for), in one part. */
+static uint32_t stand_in_answer(uint8_t* p, const struct rtpro_read* r, uint32_t addr16, uint32_t len) {
+    const uint32_t asked = r->asked & 0xFFFFFFu;
+    const int memory = !(r->asked & RTPRO_REGISTERS);
+    const uint32_t at = asked + (addr16 - (r->address & 0xFFFFu));
+    uint32_t k;
+    if ((memory && asked + r->asked_size > RTPRO_EEPROM_END) || r->asked_size == 0 || r->asked_size > STAND_IN_ROOM) {
+        p[4] = (uint8_t)(0xF0u | READ_ERROR_ADDRESS);
+        p[5] = (uint8_t)(asked >> 8);
+        p[6] = (uint8_t)asked;
+        for (k = 0; k < 16u; ++k) p[7 + k] = 0;
+        return RTPRO_CHANGED;
+    }
+    /* The game's read may end inside the Pro's part. */
+    if (at + len > asked + r->asked_size) len = asked + r->asked_size - at;
+    p[4] = (uint8_t)((len - 1u) << 4);
+    p[5] = (uint8_t)(at >> 8);
+    p[6] = (uint8_t)at;
+    for (k = 0; k < 16u; ++k) p[7 + k] = k < len && memory ? eeprom_byte(at + k) : 0;
+    return RTPRO_CHANGED;
 }
 
 /* The calibration byte at `address` for a Pro Controller, or -1. */
@@ -374,12 +497,15 @@ static int calibration_at(uint32_t address) {
 /* An answer to a memory read: a1 21 BB BB SE AH AL D0-D15. */
 static uint32_t read_answer(struct rtpro_state* st, struct rtpro_link* l, uint8_t* p, uint32_t n) {
     uint32_t addr16, len, error, full, k, what = 0;
+    struct rtpro_read read;
     if (n < 23u) return 0;
     addr16 = ((uint32_t)p[5] << 8) | p[6];
     len = (p[4] >> 4) + 1u;
     error = p[4] & 0x0Fu;
-    full = answered_read(l, addr16, len, error);
-    if (full == 0xFFFFFFFFu) {
+    if (answered_read(l, addr16, len, error, &read)) {
+        if (read.used == RTPRO_READ_STAND_IN) return stand_in_answer(p, &read, addr16, len);
+        full = (read.address & ~0xFFFFu) | addr16;
+    } else {
         /* Not one we saw asked: only an extension ID is recognised. */
         if (addr16 < 0x00F0u) return 0;
         full = 0xA40000u | addr16 | RTPRO_REGISTERS;
@@ -540,6 +666,21 @@ uint32_t rtpro_acl_in(struct rtpro_state* st, uint8_t* acl, uint32_t size, uint3
             *what |= RTPRO_CHANGED;
         }
         return size;
+    }
+    if (p[1] == IN_STATUS && n >= 6u && l->status_count > 0) {
+        /* The answer to the oldest status request: the game's own as it
+         * is, else the acknowledgement it stands for (the buttons kept). */
+        const uint32_t stands_for = l->statuses[0];
+        uint32_t i;
+        for (i = 1; i < l->status_count; ++i) l->statuses[i - 1u] = l->statuses[i];
+        l->status_count--;
+        if (stands_for == 0) return size;
+        p[1] = IN_ACK;
+        p[4] = (uint8_t)stands_for;
+        p[5] = 0;
+        set_lengths(acl, 6u);
+        *what |= RTPRO_CHANGED;
+        return 8u + 6u;
     }
     if (p[1] >= 0x30u && p[1] <= 0x3Fu) {
         uint32_t offset = 0, mode = l->mode;

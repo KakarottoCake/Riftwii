@@ -152,23 +152,41 @@ back as the Pro's:
   them. The Pro gets `0x55` in place of the `0xAA`, so its own bytes stay
   plain. If it encrypts them anyway, its first report shows it and they
   are decrypted.
+- What a Pro cannot take never reaches it. A tester's Bluetooth trace
+  (2610-407) showed why it hung up: the game's first request on a new link
+  reads the Wii Remote's own memory (EEPROM `0x1770`, the firmware probe),
+  and 27 ms later the Pro closed both channels and dropped the link, at
+  every connection. The Pro now gets only what the Wii U asks of it:
+  rumble, LEDs, the reporting mode, status, and reads and writes of the
+  extension's registers (`0xA4xxxx`). A read of the Wii Remote's memory (or
+  of its other registers) goes out as a read of the extension's
+  calibration, and its answers come back as a Wii Remote's would: at the
+  address the game asked for, the accelerometer calibration RiftWii's, the
+  rest erased, and error 8 past the end of the memory (`0x1700`), which is
+  how a Wii Remote answers the probe. The IR camera, the speaker and writes
+  outside the extension go out as a status request when the game waits for
+  an acknowledgement (the status answer comes back as it), and as the LEDs
+  again when it does not.
 
 The blob is on when the menu saw a Pro Controller or one is paired.
 `settings.txt` `pro_controller = off` leaves the traffic alone and keeps the
 trace only. `pro_controller = every` takes every link as a Pro, so the
 translator can run in Dolphin, which has no Pro Controller. Checked in
 Dolphin (Mario Kart Wii): the game's tables found, its key checked out,
-thousands of reports rebuilt with no disconnection. With a real Pro
+thousands of reports rebuilt with no disconnection; the firmware probe,
+the memory reads and the IR camera and speaker set-up answered in the Pro's
+place, and the game took the answers as a Wii Remote's. With a real Pro
 Controller it is untested.
 
 The same blob keeps a **Bluetooth trace** in the Wii Remote log
 (`wpadlog.txt`). It records HCI commands and events, and the L2CAP
 signalling and HID reports both ways (as they came, and as the translator
-handed them to the game). The data report stream is kept only at first,
-then counted. The text names each packet and gives a disconnection's
-reason ("the controller ended it", "the Wii (the game's Bluetooth stack)
-ended it"). Bluetooth addresses are cut to their last byte, and link keys
-and PINs are never shown.
+handed them to the game; and since log version 4, a report the game sent
+next to what the translator sent in its place). The data report stream is
+kept only at first, then counted. The text names each packet and gives a
+disconnection's reason ("the controller ended it", "the Wii (the game's
+Bluetooth stack) ended it"). Bluetooth addresses are cut to their last
+byte, and link keys and PINs are never shown.
 
 ## What exists
 
