@@ -196,7 +196,9 @@ static bool g_onHome = true;
 // Home's view for its wall, set by the menu thread: the GUI thread draws
 // the backdrop every frame and must not read Settings()' strings while
 // the menu thread may be changing them.
-enum class HomeWall { Plain, Shelf, Channels };
+// Home's wall: the covers' (Plain), the shelf view's, the channels' (and names'), or
+// none of their rows (Bare: the theme's plain wall, as on other screens).
+enum class HomeWall { Plain, Shelf, Channels, Bare };
 static volatile HomeWall g_homeWall = HomeWall::Plain;
 Tex noticeIcon[2];
 Tex tileEmpty;
@@ -358,7 +360,12 @@ bool HomeIos6() { return MenuTheme().home_ios6; }
 
 void SetOnHome(bool home) {
     const std::string& tiles = riftwii::wii::Settings().home_tiles;
-    g_homeWall = tiles == "shelf" ? HomeWall::Shelf : tiles == "channels" ? HomeWall::Channels : HomeWall::Plain;
+    // Names stand in the channels' three rows; the carousel and the 3D
+    // covers' ring stand free of any row (a shelf would cut through them).
+    g_homeWall = tiles == "shelf"                          ? HomeWall::Shelf
+                 : tiles == "channels" || tiles == "names" ? HomeWall::Channels
+                 : tiles == "carousel" || tiles == "covers3d" ? HomeWall::Bare
+                                                            : HomeWall::Plain;
     g_onHome = home;
 }
 
@@ -569,7 +576,7 @@ void GuiBackdrop::DrawBackdrop() {
     const Tex* pick = wide && backgroundWide.data ? &backgroundWide : &background;
     // The shelf view's own wall when the theme has one (Bookshelf: no
     // shelf through the boxes, where Home's upper row of covers stands).
-    if (!g_onHome) {
+    if (!g_onHome || g_homeWall == HomeWall::Bare) {
         // Every other screen: the theme's plain wall when it has one
         // (Bookshelf: no shelves behind Settings' panels).
         if (wide && backgroundPlainWide.data) pick = &backgroundPlainWide;
