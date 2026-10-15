@@ -50,6 +50,14 @@ void Init();
 // in other builds.
 void TestBallast();
 
+// Test builds only: test_limits.txt's "game_mem1_kib = N",
+// "game_mem2_kib = M" and "game_mem2_top_kib = T": N KiB taken off the top
+// of the game's MEM1 arena, M KiB off the bottom of its MEM2 arena and T
+// KiB off its top at the launch, so Dolphin can run a game as short of
+// memory as on a tester's Wii (where an SD image, a pack's files or a blob
+// take more of it). All 0 in other builds.
+void TestGameSqueeze(u32& mem1_kib, u32& mem2_kib, u32& mem2_top_kib);
+
 // session.log lines: the limits and the physical sizes (Dolphin's memory
 // size override shows here), then, with LogUsage, what is used and free.
 void LogLimits();

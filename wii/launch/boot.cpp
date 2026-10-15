@@ -1777,6 +1777,16 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         return_stub != 0)
         store32(0x80000034, arena1_end);
     store32(0x80003110, arena1_end);
+    {
+        // Test builds: less of MEM1 for the game (mem::TestGameSqueeze).
+        u32 squeeze1 = 0, squeeze2 = 0, squeeze2_top = 0;
+        mem::TestGameSqueeze(squeeze1, squeeze2, squeeze2_top);
+        if (squeeze1 != 0) {
+            const u32 mem1_end = (load32(0x80003110) - (squeeze1 << 10)) & ~31u;
+            store32(0x80000034, mem1_end);
+            store32(0x80003110, mem1_end);
+        }
+    }
     std::memcpy(reinterpret_cast<void*>(0x80003180), probe.disc_id, 4);
     store32(0x80003184, 0x80000000);            // where the game id lives
     store32(0x80003194, probe.partition.type);
@@ -1823,6 +1833,13 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         write32(0x80003124, vsd.new_arena2_lo);  // above the runtime's data
     } else if (options.install_resident && resident.new_arena2_lo != resident.old_arena2_lo) {
         write32(0x80003124, resident.new_arena2_lo);
+    }
+    {
+        // Test builds: less of MEM2 for the game (mem::TestGameSqueeze).
+        u32 squeeze1 = 0, squeeze2 = 0, squeeze2_top = 0;
+        mem::TestGameSqueeze(squeeze1, squeeze2, squeeze2_top);
+        if (squeeze2 != 0) write32(0x80003124, (read32(0x80003124) + (squeeze2 << 10) + 31u) & ~31u);
+        if (squeeze2_top != 0) write32(0x80003128, (read32(0x80003128) - (squeeze2_top << 10)) & ~31u);
     }
     // The virtual SD card's MEM2 block is the arena's top: its end comes
     // down instead, the start (and the game's heaps) staying put.

@@ -46,6 +46,7 @@ void Init() {
 
 namespace {
 unsigned g_ballast_kib = 0;
+unsigned g_game_mem1_kib = 0, g_game_mem2_kib = 0, g_game_mem2_top_kib = 0;
 #ifdef RIFTWII_TEST_LIMITS
 void* g_pieces[64];
 #endif
@@ -62,6 +63,9 @@ void TestBallast() {
         if (std::sscanf(line, " ballast_kib = %u", &v) == 1) ballast = v;
         else if (std::sscanf(line, " chunk_kib = %u", &v) == 1 && v > 0) chunk = v;
         else if (std::sscanf(line, " heap_pieces = %u", &v) == 1) pieces = v;
+        else if (std::sscanf(line, " game_mem1_kib = %u", &v) == 1) g_game_mem1_kib = v;
+        else if (std::sscanf(line, " game_mem2_kib = %u", &v) == 1) g_game_mem2_kib = v;
+        else if (std::sscanf(line, " game_mem2_top_kib = %u", &v) == 1) g_game_mem2_top_kib = v;
     }
     std::fclose(f);
     // Never freed: the run (menu and launch) has that much less.
@@ -84,6 +88,12 @@ void TestBallast() {
         g_pieces[i] = nullptr;
     }
 #endif
+}
+
+void TestGameSqueeze(u32& mem1_kib, u32& mem2_kib, u32& mem2_top_kib) {
+    mem1_kib = g_game_mem1_kib;
+    mem2_kib = g_game_mem2_kib;
+    mem2_top_kib = g_game_mem2_top_kib;
 }
 
 void LogLimits() {
