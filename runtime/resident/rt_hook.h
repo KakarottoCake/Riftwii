@@ -620,9 +620,16 @@ struct rt_rvz_state {
     uint32_t entries[RT_RVZ_ENTRIES_PER_SECTOR * 2] __attribute__((aligned(32)));  /* one table sector */
     uint32_t status[8] __attribute__((aligned(32)));  /* the null round trip's out word */
     rtrvz_junk junk;
-    struct rt_rvz_extent extents[RT_RVZ_MAX_EXTENTS];
     struct rt_rvz_extent table_extents[RT_RVZ_TABLE_EXTENTS];
+    /* Last: the loader makes room for `extent_count` of them only
+     * (rt_rvz_state_bytes), not all RT_RVZ_MAX_EXTENTS (12 KiB). It is the
+     * game's MEM2, and Newer Super Mario Bros. Wii has little to spare. */
+    struct rt_rvz_extent extents[RT_RVZ_MAX_EXTENTS];
 };
+
+/* The state's size with room for `extent_count` pieces of the RVZ. */
+#define rt_rvz_state_bytes(extent_count) \
+    ((uint32_t)__builtin_offsetof(struct rt_rvz_state, extents) + (uint32_t)(extent_count) * (uint32_t)sizeof(struct rt_rvz_extent))
 
 /* The decoder's workspace: its tables and a 4 KiB literal buffer
  * (rt_zstd.c); rt_zstd_init fails when it is too small. */

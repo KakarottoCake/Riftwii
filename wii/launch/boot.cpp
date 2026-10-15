@@ -1694,15 +1694,16 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         }
     }
     // The Wii Remote log and the Wii U Pro Controller translator: below all
-    // of the above, when the menu saw a Pro Controller or one is paired.
+    // of the above, when the menu saw a Pro Controller.
     WpadLogHook wlog;
     {
         std::string why;
         const PadPairings pairings = ReadPadPairings();
         const bool wanted = wpad_log_wanted(pairings.pro.size(), why);
         if (!wanted) {
-            // Said only when a setting turned it off: most launches never want it.
-            if (why == "wpad_log = off") logf("Wii Remote log: off: %s\n", why.c_str());
+            // Said only when a setting turned it off or a Pro is paired: most
+            // launches never want it.
+            if (why == "wpad_log = off" || !pairings.pro.empty()) logf("Wii Remote log: off: %s\n", why.c_str());
         } else if (gx_protected) {
             logf("Wii Remote log: off: the game checks its own code (MetaFortress)\n");
         } else if (whole_mem1) {

@@ -112,10 +112,19 @@ Leaving the game through HOME > Wii Menu saves it to
 `sd:/riftwii/wpadlog.txt`, which goes into problem reports. Link keys are
 never written out and Bluetooth addresses keep only their last byte.
 
-It is on when the menu saw a Wii U Pro Controller or the console has one
-paired. `wpad_log = on` in `settings.txt` keeps it for every launch (Dolphin
-tests), `wpad_log = off` never. Not in code builds or games that clear
-MEM1's top.
+It is on when the menu saw a Wii U Pro Controller: a pairing alone is not
+enough, because the log takes 43 KB of the game's MEM2 and the blob 10 KB of
+MEM1 (Newer Super Mario Bros. Wii from an RVZ ran out of MEM2 with them).
+`wpad_log = on` in `settings.txt` keeps it for every launch (Dolphin tests),
+`wpad_log = off` never. Not in code builds or games that clear MEM1's top.
+
+Test builds (`make -f Makefile.wii WII_DEFINES=-DRIFTWII_TEST_LIMITS`) can
+also run a game short of memory, to find out whether a crash is one:
+`sd:/riftwii/test_limits.txt` with `game_mem1_kib = N`, `game_mem2_kib = M`
+or `game_mem2_top_kib = T` takes that many KiB off the end of the game's
+MEM1 arena, the start of its MEM2 arena or its end. In Dolphin, Newer Super
+Mario Bros. Wii v1.30 runs with 336 KiB less MEM2 and dies at the start with
+352 KiB less.
 
 The same blob runs the Wii U Pro Controller translator and keeps a trace of
 the game's Bluetooth traffic in the log (docs/BLUETOOTH.md).

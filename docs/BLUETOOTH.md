@@ -168,7 +168,8 @@ back as the Pro's:
   an acknowledgement (the status answer comes back as it), and as the LEDs
   again when it does not.
 
-The blob is on when the menu saw a Pro Controller or one is paired.
+The blob is on when the menu saw a Pro Controller (connect it in the menu
+before starting the game).
 `settings.txt` `pro_controller = off` leaves the traffic alone and keeps the
 trace only. `pro_controller = every` takes every link as a Pro, so the
 translator can run in Dolphin, which has no Pro Controller. Checked in

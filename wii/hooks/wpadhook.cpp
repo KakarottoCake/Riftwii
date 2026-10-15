@@ -118,11 +118,12 @@ bool wpad_log_wanted(std::size_t pro_pairings, std::string& why) {
         why = "a Wii U Pro Controller was connected in the menu";
         return true;
     }
-    if (pro_pairings > 0) {
-        why = std::to_string(pro_pairings) + " Wii U Pro Controller pairing(s) on the console";
-        return true;
-    }
-    why = "no Wii U Pro Controller connected in the menu or paired";
+    // A pairing alone is not enough: the log takes 43 KB of the game's MEM2
+    // and the blob 10 KB of MEM1, and Newer Super Mario Bros. Wii from an
+    // RVZ ran out of MEM2 on a Wii with a Pro paired but not in use.
+    why = pro_pairings > 0 ? std::to_string(pro_pairings) +
+                                 " Wii U Pro Controller pairing(s), but none was connected in the menu"
+                           : "no Wii U Pro Controller connected in the menu";
     return false;
 }
 

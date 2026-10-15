@@ -232,7 +232,7 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
         // one that compresses nothing.
         rvz_buffers = rvz_buffer_sizes(rvz_table);
         rvz_dctx_bytes = rvz_buffers.decoder ? RT_RVZ_DCTX_BYTES : 0;
-        rvz_bytes = ((static_cast<std::uint32_t>(sizeof(rt_rvz_state)) + 31) & ~31u) + rvz_buffers.stored +
+        rvz_bytes = ((rt_rvz_state_bytes(options.rvz.extents.size()) + 31) & ~31u) + rvz_buffers.stored +
                     rvz_buffers.group + rvz_dctx_bytes + 32;
     }
     bool has_fs = options.savegame.enabled;
@@ -331,7 +331,7 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
     const std::uint32_t fs_state_address = (bounce_address + bounce_bytes + 31) & ~31u;
     const std::uint32_t rvz_state_address = (fs_state_address + fs_bytes + 31) & ~31u;
     const std::uint32_t rvz_stored_address =
-        rvz_state_address + ((static_cast<std::uint32_t>(sizeof(rt_rvz_state)) + 31) & ~31u);
+        rvz_state_address + ((rt_rvz_state_bytes(options.rvz.extents.size()) + 31) & ~31u);
     const std::uint32_t rvz_group_address = rvz_stored_address + rvz_buffers.stored;
     const std::uint32_t rvz_dctx_address = rvz_group_address + rvz_buffers.group;
     // Where each final address is written now.
@@ -424,7 +424,9 @@ bool install_resident(const DolHeader& dol, const ResidentOptions& options, Resi
     }
     if (rvz) {
         rt_rvz_state* st = reinterpret_cast<rt_rvz_state*>(staged(rvz_state_address));
-        std::memset(st, 0, sizeof(*st));
+        // Only as far as its pieces of the RVZ: the rest of the struct was
+        // never given room (rt_rvz_state_bytes).
+        std::memset(st, 0, rt_rvz_state_bytes(options.rvz.extents.size()));
         st->magic = RT_RVZ_MAGIC;
         st->data_kib = rvz_table.data_kib;
         st->group_kib = rvz_table.group_kib;

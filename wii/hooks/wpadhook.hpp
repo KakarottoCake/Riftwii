@@ -56,8 +56,8 @@ struct WpadLogHook {
 // closes): with wpad_log = auto (the default) the launch keeps the log.
 void note_wiiu_pro_seen();
 // Whether this launch keeps the log, from settings.txt's wpad_log (auto,
-// on, off) and, for auto, whether a Pro Controller was seen in the menu or
-// is among the console's `pro_pairings`; `why` says which for boot.log.
+// on, off) and, for auto, whether a Pro Controller was seen in the menu
+// (the console's `pro_pairings` only go into `why`, for boot.log).
 bool wpad_log_wanted(std::size_t pro_pairings, std::string& why);
 // Whether the translator runs (settings.txt pro_controller, on unless off).
 bool pro_translator_wanted();

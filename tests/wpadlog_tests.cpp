@@ -199,20 +199,20 @@ int main() {
         EXPECT_FALSE(riftwii::describe_wpad_log(log.bytes.data(), log.bytes.size(), text, error));
     }
 
-    // More messages than fit: the first 320, a note, then the last 128 in order.
+    // More messages than fit: the first 160, a note, then the last 64 in order.
     {
         LogFile log;
         for (std::uint32_t n = 0; n < 600; ++n) log.add(n * 0.01, "message %d\n", {n});
         std::string text, error;
         EXPECT_TRUE(riftwii::describe_wpad_log(log.bytes.data(), log.bytes.size(), text, error));
         EXPECT_TRUE(has(text, "message 0\n"));
-        EXPECT_TRUE(has(text, "message 319\n"));
-        EXPECT_FALSE(has(text, "message 320\n"));
-        EXPECT_TRUE(has(text, "... 152 message(s) not kept ..."));
-        EXPECT_FALSE(has(text, "message 471\n"));
-        EXPECT_TRUE(has(text, "message 472\n"));
+        EXPECT_TRUE(has(text, "message 159\n"));
+        EXPECT_FALSE(has(text, "message 160\n"));
+        EXPECT_TRUE(has(text, "... 376 message(s) not kept ..."));
+        EXPECT_FALSE(has(text, "message 535\n"));
+        EXPECT_TRUE(has(text, "message 536\n"));
         EXPECT_TRUE(has(text, "message 599\n"));
-        EXPECT_TRUE(text.find("message 472\n") < text.find("message 599\n"));
+        EXPECT_TRUE(text.find("message 536\n") < text.find("message 599\n"));
     }
 
     // The Bluetooth trace: named events and commands, addresses cut to their
@@ -256,19 +256,9 @@ int main() {
         EXPECT_TRUE(has(text, "from 0x0021 cid 0x0001, 8 byte(s) (L2CAP Disconnection Request)"));
         EXPECT_TRUE(has(text, "handle 0x0021, reason 0x13: the controller ended it"));
         EXPECT_TRUE(text.find("BTA_Init") < text.find("HCI command 0x0c03"));
-
-        // The same as version 3 wrote it (2610-406, 407): two counts fewer,
-        // and a changed packet was traced only as sent.
-        std::vector<std::uint8_t> v3 = log.bytes;
-        const std::size_t counts_end = offsetof(rtwlog_file, pro) + 16 * 4;
-        v3.erase(v3.begin() + counts_end, v3.begin() + counts_end + 8);
-        put32(v3, 4, 3);
-        text.clear();
-        EXPECT_TRUE(riftwii::describe_wpad_log(v3.data(), v3.size(), text, error));
-        EXPECT_FALSE(has(text, "read(s) of the Wii Remote's memory"));
-        EXPECT_TRUE(has(text, "Bluetooth trace: 7 packet(s)"));
-        EXPECT_TRUE(has(text, "(reporting mode): a2 12 04 30  [changed by the translator]"));
-        EXPECT_TRUE(has(text, "handle 0x0021, reason 0x13: the controller ended it"));
+        // A log of an older version (2610-408 wrote 4) is not read.
+        put32(log.bytes, 4, 4);
+        EXPECT_FALSE(riftwii::describe_wpad_log(log.bytes.data(), log.bytes.size(), text, error));
     }
     // Translator off: said so; not hooked: said so.
     {
