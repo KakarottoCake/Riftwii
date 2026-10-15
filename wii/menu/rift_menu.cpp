@@ -2799,7 +2799,7 @@ static int MenuSource(FrontendState& state)
 		const int dipLeft = 320 - static_cast<int>(0.29f * (wide > 0 ? 856 : 640));
 		// From the overscan's edges inwards (x 36 and 604, 4 inside the safe
 		// area), over the round buttons under them; one line, clear of the dip.
-		const int sideW = dipLeft - 10 - 36;
+		const int sideW = dipLeft - 10 - (36 - wide);  // a widescreen menu's start further out, at its own edge
 		viewTxt.SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
 		viewTxt.SetPosition(36 - wide, 354);
 		viewTxt.SetMaxWidth(sideW);

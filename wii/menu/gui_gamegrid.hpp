@@ -111,6 +111,8 @@ private:
     const Geometry& Geo() const;
     float Stretch() const;          // how much wider Channels is drawn on a widescreen menu (1 otherwise)
     mutable Geometry stretched{};   // Geo()'s, when stretched
+    mutable Geometry coverGeo{};    // Geo()'s for covers (their size follows the menu's width)
+    int CoverCaptionY() const;      // the lit cover's name, under the covers
     int ArrowX(int dir) const;      // a page arrow's left edge (-1 left, +1 right)
     void DrawTilePicture(const riftwii::wii::skin::Tex& t, int slot, int alpha, float scale) const;
     int Cols() const { return Geo().cols; }

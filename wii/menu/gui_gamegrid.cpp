@@ -31,10 +31,20 @@ constexpr int kCoverTextLeft = 6;
 // many TVs crop. The page arrows (36 across in a 48 canvas, drawn 2 to the
 // left) end at those edges.
 constexpr int kArrowLeftX = 26, kArrowRightX = 570;
-// The tiles between the arrows: covers drawn at 92% of the stored size,
-// names and channels 92% as wide, so six (four) fit across with room.
-constexpr float kCoverScale = 0.925f;
+// The tiles between the arrows: covers at 92% of the stored size (6
+// across), 20% larger than stored on a widescreen menu, which has the room; names and channels 92%
+// as wide, as wide again as a widescreen menu is.
+constexpr float kCoverScale4x3 = 0.925f, kCoverScaleWide = 1.2f;
 constexpr float kTileNarrow = 0.92f;
+
+// How much wider than 640 the menu is (1 on a 4:3 menu).
+float WideFactor() {
+    if (!skin::WideMenu()) return 1.0f;
+    f32 safeX, safeW;
+    Menu_SafeArea(&safeX, &safeW);
+    return safeW > 640.0f ? safeW / 640.0f : 1.0f;
+}
+float CoverScale() { return WideFactor() > 1.0f ? kCoverScaleWide : kCoverScale4x3; }
 
 // Names: 4x3 wide tiles. Covers: 6x2 at the stored cover size, the name
 // line under them. Both between the arrows.
@@ -123,19 +133,24 @@ GuiGameGrid::~GuiGameGrid() {
 // the icons' logos keep their shape.
 float GuiGameGrid::Stretch() const {
     if (covers || shelf) return 1.0f;
-    if (!channels || !skin::WideMenu()) return kTileNarrow;
-    f32 safeX, safeW;
-    Menu_SafeArea(&safeX, &safeW);
-    return kTileNarrow * (safeW > 640.0f ? safeW / 640.0f : 1.0f);
+    // Names and channels alike: across a widescreen menu's width.
+    return kTileNarrow * WideFactor();
 }
 
 const GuiGameGrid::Geometry& GuiGameGrid::Geo() const {
     // The top row starts 6 below the overscan's edge (y 24): room for the lit ring.
     static const Geometry names = {kNameCols, 120, 84, 61, 30, 13, 12};  // clear of the search button (x 568)
-    static const Geometry coverGrid = {kCoverCols, static_cast<int>(riftwii::kCoverWidth * kCoverScale + 0.5f),
-                                       static_cast<int>(riftwii::kCoverHeight * kCoverScale + 0.5f), 78, 30, 8, 12};
+    if (covers) {
+        // Six across about the middle, 8 apart (12 on a widescreen menu).
+        const float k = CoverScale();
+        const int w = static_cast<int>(riftwii::kCoverWidth * k + 0.5f);
+        const int h = static_cast<int>(riftwii::kCoverHeight * k + 0.5f);
+        const int gap = k > 1.0f ? 12 : 8;
+        coverGeo = {kCoverCols, w, h, 320 - (kCoverCols * w + (kCoverCols - 1) * gap) / 2, 30, gap, 10};
+        return coverGeo;
+    }
     const float k = Stretch();
-    if (covers || k == 1.0f) return covers ? coverGrid : names;
+    if (k == 1.0f) return names;
     stretched = names;
     stretched.left = static_cast<int>(320 + (names.left - 320) * k + 0.5f);
     stretched.tileW = static_cast<int>(names.tileW * k + 0.5f);
@@ -143,10 +158,13 @@ const GuiGameGrid::Geometry& GuiGameGrid::Geo() const {
     return stretched;
 }
 
+int GuiGameGrid::CoverCaptionY() const { return std::max(kCaptionY, TileY(kPerPage - 1) + Geo().tileH + 8); }
+
 int GuiGameGrid::ArrowX(int dir) const {
     // At the safe area's edges, which a widescreen Channels view widens.
     const int base = dir < 0 ? kArrowLeftX : kArrowRightX;
-    return static_cast<int>(320 + (base + 22 - 320) * (Stretch() / (covers || shelf ? 1.0f : kTileNarrow)) + 0.5f) - 22;
+    const float out = covers || shelf ? WideFactor() : Stretch() / kTileNarrow;
+    return static_cast<int>(320 + (base + 22 - 320) * out + 0.5f) - 22;
 }
 
 // A tile's picture (`t` has the tile's 7-unit margin), stretched with
@@ -359,7 +377,7 @@ void GuiGameGrid::TurnPage(int delta) {
         // Down past the lit game's name under the covers, all of it: an
         // edge across it showed the old name's top over the new one's foot.
         const float bottom = static_cast<float>(
-            std::max(TileY(kPerPage - 1) + Geo().tileH + 30, covers ? kCaptionY + kCaptionSize + 14 : 0));
+            std::max(TileY(kPerPage - 1) + Geo().tileH + 30, covers ? CoverCaptionY() + kCaptionSize + 14 : 0));
         // Across the tiles' columns only (their lit edge included): the
         // search button above the last column and the page arrows stay
         // out, or the sliding picture took a copy of them along (a
@@ -447,7 +465,8 @@ void GuiGameGrid::DrawCoverTile(int i, bool on, int alpha) {
     // A point of the tile, scaled about its centre with the tile.
     const auto at_x = [&](float off) { return static_cast<int>(x + tileW / 2.0f + (off - tileW / 2.0f) * s.scale); };
     const auto at_y = [&](float off) { return static_cast<int>(y + tileH / 2.0f + (off - tileH / 2.0f) * s.scale); };
-    // The stored cover and its frame, drawn at kCoverScale about the tile's middle.
+    // The stored cover and its frame, drawn at CoverScale() about the tile's middle.
+    const float kCoverScale = CoverScale();
     const float cx = x + tileW / 2.0f, cy = y + tileH / 2.0f;
     const skin::Tex& frame = on ? skin::coverTileOver : skin::coverTile;
     skin::Draw(frame, cx - frame.w / 2.0f, cy - frame.h / 2.0f, alpha, s.scale * kCoverScale);
@@ -570,7 +589,7 @@ void GuiGameGrid::Draw() {
         if (page * kPerPage + i < Count()) continue;
         if (covers)
             skin::Draw(skin::coverTile, TileX(i) + Geo().tileW / 2.0f - skin::coverTile.w / 2.0f,
-                       TileY(i) + Geo().tileH / 2.0f - skin::coverTile.h / 2.0f, tileAlpha * 70 / 255, kCoverScale);
+                       TileY(i) + Geo().tileH / 2.0f - skin::coverTile.h / 2.0f, tileAlpha * 70 / 255, CoverScale());
         else DrawTilePicture(skin::tileEmpty.data ? skin::tileEmpty : skin::tile, i, skin::tileEmpty.data ? tileAlpha : tileAlpha * 70 / 255, 1.0f);
     }
     const auto draw_tile = [&](int i) {
@@ -646,6 +665,7 @@ void GuiGameGrid::Draw() {
             caption->SetText(shown >= 0 && shown < Count() ? Fit((*items)[shown].title, 560).c_str() : "");
             measure->SetFontSize(kCoverTitleSize);
         }
+        caption->SetPosition(0, CoverCaptionY());
         caption->Draw();
         PrefetchCovers();
     }
