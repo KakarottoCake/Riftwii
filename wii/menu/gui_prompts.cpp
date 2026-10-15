@@ -16,7 +16,8 @@ constexpr int kGap = 10;     // between two prompts' buttons
 constexpr int kTextGap = 8;  // between a badge and its text
 // Each prompt can be pressed with the pointer, so it is a button: a small
 // card (the tiles' frame) round its badge and word, ringed when pointed at.
-constexpr int kPadLeft = 6, kPadRight = 12, kPadY = 4;
+// The same room each side of the badge and word, so they sit in its middle.
+constexpr int kPadLeft = 9, kPadRight = 9, kPadY = 4;
 constexpr int kShadow = 8;  // skin::tile9's margin
 
 }  // namespace
@@ -95,7 +96,9 @@ void GuiPrompts::Draw() {
                              kY + kBadge / 2 - GetHeight() / 2 - (sign ? 2 : 1));
         p.badge->Draw();
         p.text->SetColor(lit ? skin::kAccentInk : skin::kInkSoft);
-        p.text->SetPosition(p.x + kBadge + kTextGap, kY + 2);
+        // One down from the top puts the word's capitals on the button's
+        // middle (measured on a screenshot), with the badge's letter.
+        p.text->SetPosition(p.x + kBadge + kTextGap, kY + 1);
         p.text->Draw();
     }
     UpdateEffects();
