@@ -36,9 +36,11 @@ private:
         GuiText* text;
         bool shown = true;
         bool symbol = false;  // + or -, not a letter
+        std::string button;   // its name, for its picture (skin::ButtonIcon)
         int x = 0, w = 0;  // where it is drawn, worked out by Draw
     };
     std::vector<Prompt> prompts;
+    void DrawBadgeText(Prompt& p);
     int hover = -1, clicked = -1;
     GuiSound* soundOver;
     GuiSound* soundClick;

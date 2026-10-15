@@ -36,9 +36,12 @@ extern Tex card9;                        // 64x64 card (riftwii::paint_card9), n
 extern Tex dropShadow9;
 extern Tex channelFrame9, channelFrameOver9;  // 64x64 channel rims (riftwii::paint_channel_frame9), nine-sliced
 extern Tex label9;
-// A controller's icon (riftwii::paint_control_icon), 40x40, painted the
-// first time it is asked for and kept.
-const Tex& ControlIcon(const std::string& type);                       // 48x44 a lit channel's name pill (riftwii::paint_label9), nine-sliced                  // 64x64 soft shadow (riftwii::paint_drop_shadow9), nine-sliced
+// A controller's picture (Kenney's Input Prompts, riftwii/inputicons.hpp)
+// in the theme's glyph colour, 40x40; a game pad for one without its own.
+const Tex& ControlIcon(const std::string& type);
+// A button's picture ("A", "B", "+", "-", "1", "2", "HOME", "C", "Z") at
+// `size` x `size`, or a Tex without data for a button that has none.
+const Tex& ButtonIcon(const std::string& button, int size);                       // 48x44 a lit channel's name pill (riftwii::paint_label9), nine-sliced                  // 64x64 soft shadow (riftwii::paint_drop_shadow9), nine-sliced
 extern Tex capsule9;                     // 48x48 outlined black capsule, nine-sliced
 // A theme with home_menu = ios6 (HomeIos6): the HOME Menu's red button,
 // its Close and the linen behind it.

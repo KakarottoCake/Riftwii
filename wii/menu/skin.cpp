@@ -14,6 +14,7 @@
 #include "loadersettings.hpp"
 #include "menutheme.hpp"
 #include "riftwii/canvas.hpp"
+#include "riftwii/inputicons.hpp"
 #include "riftwii/skinpaint.hpp"
 #include "riftwii/theme.hpp"
 
@@ -191,13 +192,30 @@ Tex dropShadow9;
 Tex channelFrame9, channelFrameOver9;
 Tex label9;
 
-const Tex& ControlIcon(const std::string& type) {
+// Kenney's pictures in the theme's glyph colour, painted the first time
+// one is asked for at a size and kept.
+static const Tex& InputIcon(const std::string& name, int size) {
     static std::map<std::string, Tex> painted;
-    const auto found = painted.find(type);
+    const std::string key = name + "@" + std::to_string(size);
+    const auto found = painted.find(key);
     if (found != painted.end()) return found->second;
+    const ThemeColor& g = MenuTheme().colors.glyph;
     Canvas c(0, 0);
-    paint_control_icon(MenuTheme(), type, c);
-    return painted[type] = Upload(c);
+    if (!paint_input_icon(name, size, Rgba{g.r, g.g, g.b, g.a}, c)) return painted[key] = Tex{};
+    return painted[key] = Upload(c);
+}
+
+const Tex& ControlIcon(const std::string& type) {
+    // A controller without a picture of its own (a Balance Board, a wheel):
+    // a game pad.
+    const std::string name = input_icon_for_control(type);
+    return InputIcon(name.empty() ? "controller_wii_classic_pro" : name, 40);
+}
+
+const Tex& ButtonIcon(const std::string& button, int size) {
+    const std::string name = input_icon_for_button(button);
+    static const Tex none{};
+    return name.empty() ? none : InputIcon(name, size);
 }
 Tex capsule9;
 Tex homeBtnDanger, homeBtnDangerOver, iosClose, iosCloseOver, linen;

@@ -51,6 +51,7 @@ int GuiPrompts::Add(const std::string& button, const std::string& action) {
     p.text->SetParent(this);
     p.text->SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
     p.symbol = button == "+" || button == "-";
+    p.button = button;
     prompts.push_back(p);
     return static_cast<int>(prompts.size()) - 1;
 }
@@ -67,6 +68,18 @@ int GuiPrompts::GetClicked() {
     const int c = clicked;
     clicked = -1;
     return c;
+}
+
+// The theme's badge's letter, for a button without a picture of its own.
+void GuiPrompts::DrawBadgeText(Prompt& p) {
+    // Offsets from the middle of this element, which covers the screen.
+    // The font's middle takes in its descenders, so a capital sits low:
+    // one up; a + or a - (drawn at a capital's middle) one more, and one
+    // to the left, where its advance leaves it.
+    const bool sign = p.symbol;
+    p.badge->SetPosition(p.x + kBadge / 2 - GetWidth() / 2 - (sign ? 1 : 0),
+                         kY + kBadge / 2 - GetHeight() / 2 - (sign ? 2 : 1));
+    p.badge->Draw();
 }
 
 void GuiPrompts::Draw() {
@@ -86,15 +99,15 @@ void GuiPrompts::Draw() {
         const float bw = static_cast<float>(kPadLeft + p.w + kPadRight), bh = static_cast<float>(kBadge + 2 * kPadY);
         skin::DrawNine(lit ? skin::tile9Over : skin::tile9, bx - kShadow, by - kShadow, bw + 2 * kShadow, bh + 2 * kShadow,
                        skin::kTileCorner, alpha);
-        skin::Draw(skin::promptButton, static_cast<float>(p.x), static_cast<float>(kY), alpha);
-        // Offsets from the middle of this element, which covers the screen.
-        // The font's middle takes in its descenders, so a capital sits low:
-        // one up; a + or a - (drawn at a capital's middle) one more, and one
-        // to the left, where its advance leaves it.
-        const bool sign = p.symbol;
-        p.badge->SetPosition(p.x + kBadge / 2 - GetWidth() / 2 - (sign ? 1 : 0),
-                             kY + kBadge / 2 - GetHeight() / 2 - (sign ? 2 : 1));
-        p.badge->Draw();
+        // The button's own picture (Kenney's Input Prompts); the theme's
+        // badge with its name for one that has none.
+        const skin::Tex& picture = skin::ButtonIcon(p.button, kBadge);
+        if (picture.data) {
+            skin::Draw(picture, static_cast<float>(p.x), static_cast<float>(kY), alpha);
+        } else {
+            skin::Draw(skin::promptButton, static_cast<float>(p.x), static_cast<float>(kY), alpha);
+            DrawBadgeText(p);
+        }
         p.text->SetColor(lit ? skin::kAccentInk : skin::kInkSoft);
         // One down from the top puts the word's capitals on the button's
         // middle (measured on a screenshot), with the badge's letter.

@@ -80,6 +80,7 @@ const char* const kCredits[] = {
     "(MIT), FreeType (FreeType License), zlib, Tremor and libogg (BSD-3-Clause).",
     "",
     "Menu font: M PLUS Rounded 1c by the M+ Fonts Project (SIL Open Font License 1.1).",
+    "Controller and button pictures: Input Prompts by Kenney (kenney.nl, CC0).",
     "",
     "Korean translation: DDinghoya. French translation: MidyGamy.",
     "",

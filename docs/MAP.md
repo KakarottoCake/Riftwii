@@ -324,6 +324,7 @@ code comments cite.
 | `vendor-libgui/` | libwiigui (menu widgets, video, input), with RiftWii's changes; `wiidrc.*` is the Wii U GamePad |
 | `vendor-pugixml/` | XML parsing |
 | `vendor-bearssl/` | TLS |
+| `vendor-kenney/input-prompts/` | Kenney's controller and button pictures (CC0); `tools/make_input_icons.py` turns them into `src/art/inputicons_data.cpp` |
 | `vendor-zstd/` | The Zstandard decoder (RVZ) |
 | `vendor-gecko/` | The Gecko code handler, with its source |
 | `vendor-wwfc/` | WiiLink WFC's patcher pieces |

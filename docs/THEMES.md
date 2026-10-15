@@ -142,7 +142,7 @@ Pictures ending in `_over` are the highlighted versions. Transparency
 | `icon_search` | 28x28 | Magnifier icon on the search button |
 | `icon_star`, `icon_star_on` | 28x28 | Favourite button on a game's banner: not a favourite, a favourite |
 | `tile9`, `tile9_over`, `tile9_primary`, `tile9_primary_over` | 64x64 | The game page's and Settings' tiles, stretched with 24-pixel corners kept: plain, lit, the main one (Play), the main one lit |
-| `prompt_button` | 24x24 | The round badge under a button's name in the prompts along the bottom of a screen |
+| `prompt_button` | 24x24 | The round badge under a button's name in the prompts along the bottom of a screen, for a button without a picture of its own (A, B, +, -, 1, 2, HOME, C and Z have Kenney's, drawn in `glyph`) |
 | `icon_play`, `icon_mods`, `icon_cheats`, `icon_saves`, `icon_info`, `icon_help` | 28x28 | The game page's tiles: Play, Mods, Cheats, Saves, About; Help in Settings |
 | `icon_picture`, `icon_controllers`, `icon_online`, `icon_home`, `icon_sound`, `icon_power` | 28x28 | Settings' tiles: Picture, Controllers, Online, Home screen, Look and sound, Leave RiftWii |
 | `icon_disc` | 40x40 | Disc icon (name and channel tiles) |

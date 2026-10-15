@@ -123,7 +123,7 @@ contains theirs names them in its file header, and
   by Thomas Pornin, **FreeType**, **zlib**, **Tremor**.
 - **GameTDB** for game names and covers, **RiiConnect24** for the cheat
   archive, **M+ Fonts** for the menu font, **Zane Little** for the menu
-  music.
+  music, **Kenney** (kenney.nl) for the controller and button pictures.
 - **DDinghoya** for the Korean translation, **MidyGamy** for the French
   one.
 
