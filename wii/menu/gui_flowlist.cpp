@@ -260,7 +260,19 @@ void GuiFlowList::Draw() {
     litFade += ((litShown ? 1.0f : 0.0f) - litFade) * 0.3f;
     if (litFade < 0.02f) litFade = 0.0f;
     if (cards) {
-        // Only the lit row is raised on a card; the texts go over it.
+        // What can be pressed looks it: each such row on a card, the lit
+        // one with the tiles' ring; what is only read (facts, notes, group
+        // names) is plain text on the backdrop. The texts go over them.
+        for (int i = 0; i <= visible; ++i) {
+            const int index = first + i;
+            if (index >= Count()) break;
+            const FlowRow& r = (*rows)[index];
+            if (r.kind == FlowRow::Kind::Info) continue;
+            const float y = y0 + index * kRowHeight - scroll + kCardGap;
+            const float left = static_cast<float>(CardLeft(r));
+            skin::DrawNine(skin::tile9, left - kCardShadow, y - kCardShadow, CardRight() - left + 2 * kCardShadow,
+                           kRowHeight - 2 * kCardGap + 2 * kCardShadow, skin::kTileCorner, r.dim ? alpha * 3 / 4 : alpha);
+        }
         if (litFade > 0.0f && lit >= 0 && lit < Count()) {
             const float y = y0 + litPos * kRowHeight - scroll + kCardGap;
             const float left = static_cast<float>(CardLeft((*rows)[lit]));
@@ -284,10 +296,15 @@ void GuiFlowList::Draw() {
         const bool isLit = index == lit && r.kind != FlowRow::Kind::Info;
         const bool fact = r.kind == FlowRow::Kind::Info && !r.value.empty();
         const auto plain = [](const FlowRow& row) { return row.kind == FlowRow::Kind::Info && row.value.empty(); };
+        // Lines between rows: on cards, only between facts (the cards part
+        // the rest).
+        const auto lined = [&](const FlowRow& next) {
+            if (cards) return fact && next.kind == FlowRow::Kind::Info && !next.value.empty();
+            return !r.heading && !(plain(r) && plain(next)) && !next.heading;
+        };
         if (isLit) {
             // (the highlight, drawn above)
-        } else if (index + 1 < Count() && !(index + 1 == lit) && !r.heading && !(plain(r) && plain((*rows)[index + 1])) &&
-                   !(*rows)[index + 1].heading) {
+        } else if (index + 1 < Count() && !(index + 1 == lit) && lined((*rows)[index + 1])) {
             const int left = x0 + kPad + (r.indent ? 22 : 0);
             const int lineRight = cards ? CardRight() - kPad : x0 + rowWidth - kPad;
             Menu_DrawRectangle(left, y + kRowHeight - 1, lineRight - left, 1, skin::WithAlpha(skin::kDivider, alpha), 1);
@@ -324,10 +341,9 @@ void GuiFlowList::Draw() {
         };
         if (cards && r.kind != FlowRow::Kind::Toggle) {
             if (r.kind == FlowRow::Kind::Option && !r.dim) {
-                // The value between where the arrows go; the arrows on the
-                // lit row (or the one the pointer is on) only.
+                // The value between its arrows (each a button of its own).
                 const int backX = right - kStepperW, chipX = backX + kStep + kGap, fwdX = right - kStep;
-                if (index == lit) {
+                {
                     const int by = y + (kRowHeight - kStep) / 2;
                     const bool overBack = index == hover && hoverPart == Part::Back && !dragging;
                     const bool overFwd = index == hover && hoverPart == Part::Forward && !dragging;

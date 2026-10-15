@@ -12,8 +12,12 @@ namespace {
 
 constexpr int kRight = 600;  // 8 inside the safe area's right edge (5% of 640 in from the side)
 constexpr int kBadge = 24;   // skin::promptButton
-constexpr int kGap = 26;     // between two prompts
+constexpr int kGap = 10;     // between two prompts' buttons
 constexpr int kTextGap = 8;  // between a badge and its text
+// Each prompt can be pressed with the pointer, so it is a button: a small
+// card (the tiles' frame) round its badge and word, ringed when pointed at.
+constexpr int kPadLeft = 6, kPadRight = 12, kPadY = 4;
+constexpr int kShadow = 8;  // skin::tile9's margin
 
 }  // namespace
 
@@ -74,9 +78,13 @@ void GuiPrompts::Draw() {
         if (!p.shown) continue;
         const int textW = p.text->GetTextWidth();
         p.w = kBadge + kTextGap + textW;
-        p.x = right - p.w;
-        right = p.x - kGap;
+        p.x = right - kPadRight - p.w;
+        right = p.x - kPadLeft - kGap;
         const bool lit = i == hover;
+        const float bx = static_cast<float>(p.x - kPadLeft), by = static_cast<float>(kY - kPadY);
+        const float bw = static_cast<float>(kPadLeft + p.w + kPadRight), bh = static_cast<float>(kBadge + 2 * kPadY);
+        skin::DrawNine(lit ? skin::tile9Over : skin::tile9, bx - kShadow, by - kShadow, bw + 2 * kShadow, bh + 2 * kShadow,
+                       skin::kTileCorner, alpha);
         skin::Draw(skin::promptButton, static_cast<float>(p.x), static_cast<float>(kY), alpha);
         // Offsets from the middle of this element, which covers the screen.
         // The font's middle takes in its descenders, so a capital sits low:
@@ -99,7 +107,9 @@ void GuiPrompts::Update(GuiTrigger* t) {
     int at = -1;
     for (int i = 0; i < static_cast<int>(prompts.size()); ++i) {
         const Prompt& p = prompts[i];
-        if (p.shown && p.w > 0 && px >= p.x - 6 && px < p.x + p.w + 6 && py >= kY - 8 && py < kY + kBadge + 8) at = i;
+        if (p.shown && p.w > 0 && px >= p.x - kPadLeft && px < p.x + p.w + kPadRight && py >= kY - kPadY &&
+            py < kY + kBadge + kPadY)
+            at = i;
     }
     if (at != hover && at >= 0) soundOver->Play();
     hover = at;

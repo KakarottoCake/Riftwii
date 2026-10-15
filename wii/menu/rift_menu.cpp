@@ -1548,7 +1548,7 @@ private:
 // a settings list's footer, never framed like something to press.
 class NoteCard : public GuiElement {
 public:
-	static constexpr int kX = 40, kY = 326, kW = 560, kH = 86;
+	static constexpr int kX = 40, kY = 316, kW = 560, kH = 86;  // four lines end by y 410, above the prompts (y 418)
 	static constexpr int kTextX = kX + 36, kTextY = kY + 10, kTextW = kW - 40, kLines = 4;
 	void Draw() override {
 		skin::Draw(skin::iconInfo, kX + 2, kY + 7, GetAlpha() / 2);

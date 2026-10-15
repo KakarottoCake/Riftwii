@@ -38,12 +38,11 @@ public:
     GuiFlowList(int x, int y, int rowWidth, int visibleRows);
     ~GuiFlowList() override;
     void SetRows(const std::vector<FlowRow>* rows);  // must outlive the list
-    // The rows on the backdrop with no panel, as TV settings lists draw
-    // them (tvOS, Android TV): only the lit row is raised on a card (the
-    // tiles' ring), values are plain text at the row's end, an action's
-    // with a ">", and an option's arrows show on the lit row alone. So only
-    // what can be pressed looks it. An Info row may have a value: a fact,
-    // drawn the same way, never lit.
+    // The rows on the backdrop with no panel under them. What can be
+    // pressed looks it: each such row on a card (the lit one with the
+    // tiles' ring), an option's value between its arrows, an action's
+    // ending in ">". What is only read (an Info row: a note, or a fact
+    // with a value) is plain text, never lit.
     void SetCards(bool on) { cards = on; }
     void Refresh();                                  // after the rows changed
     void Select(int index);
