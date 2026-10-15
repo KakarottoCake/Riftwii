@@ -862,6 +862,44 @@ void TestCoverArt() {
     std::uint8_t bad[8] = {'R', 'W', 'C', '1', 0, 40, 0, 112};
     EXPECT_FALSE(cover_header_valid(bad));
 
+    // A 3D cover: GameTDB's 176x248 kept as it is, see-through parts and all.
+    {
+        EXPECT_EQ(cover3d_url("US", "RSBE01"), "http://art.gametdb.com/wii/cover3D/US/RSBE01.png");
+        std::vector<std::uint8_t> pic(176 * 248 * 4, 0);  // see-through
+        for (int y = 100; y < 248; ++y)
+            for (int x = 20; x < 156; ++x) {
+                std::uint8_t* p = &pic[(static_cast<std::size_t>(y) * 176 + x) * 4];
+                p[0] = 255;  // opaque red
+                p[3] = 255;
+            }
+        const std::vector<std::uint8_t> file = make_cover3d_file(pic.data(), 176, 248);
+        EXPECT_EQ(file.size(), kCover3dHeaderSize + kCover3dPixelBytes);
+        EXPECT_TRUE(cover3d_header_valid(file.data()));
+        const auto texel = [&](int x, int y) {
+            const std::size_t at = kCover3dHeaderSize +
+                                   (static_cast<std::size_t>(y / 4) * (kCover3dWidth / 4) + x / 4) * 32 +
+                                   static_cast<std::size_t>((y % 4) * 4 + x % 4) * 2;
+            return (file[at] << 8) | file[at + 1];
+        };
+        EXPECT_EQ(texel(0, 0) & 0xF000, 0);  // see-through: alpha 0
+        EXPECT_EQ(texel(88, 200), 0xFC00);   // opaque red
+        // A picture of another shape fits inside, standing on the bottom:
+        // 88x248 drawn 88 wide in the middle, the sides see-through.
+        std::vector<std::uint8_t> narrow(88 * 248 * 4, 255);
+        const std::vector<std::uint8_t> fitted = make_cover3d_file(narrow.data(), 88, 248);
+        const auto at = [&](int x, int y) {
+            const std::size_t i = kCover3dHeaderSize +
+                                  (static_cast<std::size_t>(y / 4) * (kCover3dWidth / 4) + x / 4) * 32 +
+                                  static_cast<std::size_t>((y % 4) * 4 + x % 4) * 2;
+            return (fitted[i] << 8) | fitted[i + 1];
+        };
+        EXPECT_EQ(at(10, 200) & 0xF000, 0);
+        EXPECT_EQ(at(88, 200), 0xFFFF);
+        EXPECT_TRUE(make_cover3d_file(narrow.data(), 4, 4).empty());
+        std::uint8_t wrong[8] = {'R', 'W', '3', 'D', 0, 176, 0, 200};
+        EXPECT_FALSE(cover3d_header_valid(wrong));
+    }
+
     LoaderSettings s;
     EXPECT_EQ(s.home_tiles, "covers");
     s.parse("home_tiles = names\n");

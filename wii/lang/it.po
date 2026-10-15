@@ -723,6 +723,9 @@ msgstr "Scaffale"
 msgid "Carousel"
 msgstr "Carosello"
 
+msgid "3D covers"
+msgstr "Copertine 3D"
+
 msgid "Channels"
 msgstr "Canali"
 
@@ -738,8 +741,8 @@ msgstr "Su una TV 16:9 il menu viene disegnato più stretto, così copertine e i
 msgid "Makes the menu smaller on screen, so nothing is cut off at the TV's edges. Lower it until the whole menu shows."
 msgstr "Rende il menu più piccolo sullo schermo, così niente viene tagliato ai bordi della TV. Abbassalo finché non vedi tutto il menu."
 
-msgid "Covers: each game's box art from GameTDB (fetched when downloads are on). Carousel: the boxes fanned out on an arc. Shelf: the boxes on a shelf. Channels: each game's animated icon and banner, as on the Wii Menu. Names: the names only."
-msgstr "Copertine: la copertina di ogni gioco da GameTDB (scaricata se i download sono attivi). Carosello: le custodie aperte a ventaglio su un arco. Scaffale: le custodie su uno scaffale. Canali: l'icona animata e il banner di ogni gioco, come nel Menu Wii. Nomi: solo i nomi."
+msgid "Covers: each game's box art from GameTDB (fetched when downloads are on). 3D covers: GameTDB's pictures of the cases, round a ring with no end. Carousel: the boxes fanned out on an arc. Shelf: the boxes on a shelf. Channels: each game's animated icon and banner, as on the Wii Menu. Names: the names only."
+msgstr "Copertine: la copertina di ogni gioco da GameTDB (scaricata se i download sono attivi). Copertine 3D: le immagini delle custodie di GameTDB, su un anello senza fine. Carosello: le custodie aperte a ventaglio su un arco. Scaffale: le custodie su uno scaffale. Canali: l'icona animata e il banner di ogni gioco, come nel Menu Wii. Nomi: solo i nomi."
 
 msgid "Custom (no wfc_domain set)"
 msgstr "Personalizzato (wfc_domain non impostato)"

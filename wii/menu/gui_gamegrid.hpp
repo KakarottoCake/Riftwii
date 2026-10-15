@@ -57,6 +57,13 @@ public:
     // With the shelf on: its boxes fanned out along an arc, every one
     // showing its front, the focused one forward in the middle (no plank).
     void SetCarousel(bool on);
+    // With the shelf on: GameTDB's 3D covers (pictures of the cases, not
+    // models) standing round a ring that never ends: past the last game
+    // comes the first. The focused one stands large in front.
+    void SetRing(bool on);
+    bool Ring() const { return ring; }
+    // A 3D cover was stored for `id`: draw it from now on.
+    void Cover3dArrived(const std::string& id);
     // The shelf's games near the focus, nearest first: whose boxes to fetch.
     std::vector<int> ShelfWanted() const;
     // A box was stored for `id`: draw it from now on.
@@ -143,6 +150,8 @@ private:
         float x0, y0, x1, y1;
     };
     void DrawShelf(int alpha);
+    void DrawRing(int alpha);
+    void DrawShelfCaption(int alpha);
     void UpdateShelf(GuiTrigger* t);
     void ShelfStep(int delta);
     int ShelfHit(int x, int y) const;
@@ -162,6 +171,9 @@ private:
     std::vector<std::pair<std::string, std::string>> spineFit;
     bool shelf = false;
     bool carousel = false;
+    bool ring = false;
+    float ringPos = 0.0f;  // the ring's turn, in games (0 to Count()), following the focus
+    bool ringPlaced = false;
     int shelfHover = -1;                // the box a pointer is on
     // The focused box turned round to its back (Up or Down), for that box
     // only; how many frames the focus has stood still (its sway and the

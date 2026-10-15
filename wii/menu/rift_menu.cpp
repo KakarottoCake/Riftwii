@@ -58,6 +58,7 @@
 #include "riftwii/titles.hpp"
 #include "riftwii/bnr.hpp"
 #include "boxart.hpp"
+#include "cover3d.hpp"
 #include "covers.hpp"
 #include "riftwii/coverart.hpp"
 #include "riftwii/qrcode.hpp"
@@ -981,6 +982,9 @@ static bool g_coversOff = false;
 // The shelf's boxes (wii/menu/boxart.cpp), asked for as the shelf comes near them.
 static std::set<std::string> g_boxesChecked;
 static bool g_boxesOff = false;
+// The same for the 3D covers view's pictures (wii/menu/cover3d.hpp).
+static std::set<std::string> g_covers3dChecked;
+static bool g_covers3dOff = false;
 
 // The Channels view: each game's own icon from its banner (wii/menu/banners.cpp),
 // read from its image once and kept on the card. The icons of the page
@@ -2754,8 +2758,10 @@ static int MenuSource(FrontendState& state)
 
 	GuiGameGrid grid;
 	grid.SetCovers(riftwii::wii::Settings().home_tiles != "names");
-	grid.SetShelf(riftwii::wii::Settings().home_tiles == "shelf" || riftwii::wii::Settings().home_tiles == "carousel");
-	grid.SetCarousel(riftwii::wii::Settings().home_tiles == "carousel");
+	const std::string& homeTiles = riftwii::wii::Settings().home_tiles;
+	grid.SetShelf(homeTiles == "shelf" || homeTiles == "carousel" || homeTiles == "covers3d");
+	grid.SetCarousel(homeTiles == "carousel");
+	grid.SetRing(homeTiles == "covers3d");
 	skin::SetOnHome(true);  // the wall for the view now set
 	grid.SetChannels(riftwii::wii::Settings().home_tiles == "channels",
 		[&items](int index, const GuiGameGrid::IconBox& b) {
@@ -3007,6 +3013,15 @@ static int MenuSource(FrontendState& state)
 			}
 			if (boxGot != riftwii::wii::CoverFetch::Stored) boxArrived.clear();
 		}
+		std::string cover3dArrived, cover3dError;
+		riftwii::wii::CoverFetch cover3dGot = riftwii::wii::CoverFetch::NotFound;
+		if (riftwii::wii::TakeCover3dFetch(cover3dArrived, cover3dGot, cover3dError)) {
+			if (cover3dGot == riftwii::wii::CoverFetch::Failed) {
+				logf("3D covers: downloads stopped: %s\n", cover3dError.c_str());
+				g_covers3dOff = true;
+			}
+			if (cover3dGot != riftwii::wii::CoverFetch::Stored) cover3dArrived.clear();
+		}
 		// Not while the update check has the network.
 		if (!coverQueue.empty() && !g_coversOff && !riftwii::wii::NetBackgroundBusy() && !riftwii::wii::NetFailed() &&
 		    riftwii::wii::CoverFetchGame().empty()) {
@@ -3066,8 +3081,20 @@ static int MenuSource(FrontendState& state)
 				if (!iconLoaded) g_bannerAbsent.insert(iconId);
 			}
 		}
+		// The 3D covers view's pictures once the covers are in (a game
+		// without one shows its cover meanwhile): the ones near the focus first.
+		if (coverQueue.empty() && grid.Ring() && !g_covers3dOff && !g_coversOff && riftwii::wii::Settings().online &&
+		    !riftwii::wii::NetBackgroundBusy() && !riftwii::wii::NetFailed() && riftwii::wii::CoverFetchGame().empty() &&
+		    riftwii::wii::Cover3dFetchGame().empty()) {
+			for (const int i : grid.ShelfWanted()) {
+				const std::string& id = items[static_cast<std::size_t>(i)].id;
+				if (!g_covers3dChecked.insert(id).second || !riftwii::wii::Cover3dWanted(id)) continue;
+				riftwii::wii::StartCover3dFetch(id);
+				break;
+			}
+		}
 		// The shelf's boxes once the covers are in: the ones near the focus first.
-		if (coverQueue.empty() && grid.Shelf() && !g_boxesOff && !g_coversOff && riftwii::wii::Settings().online &&
+		if (coverQueue.empty() && grid.Shelf() && !grid.Ring() && !g_boxesOff && !g_coversOff && riftwii::wii::Settings().online &&
 		    !riftwii::wii::NetBackgroundBusy() && !riftwii::wii::NetFailed() && riftwii::wii::CoverFetchGame().empty() &&
 		    riftwii::wii::BoxFetchGame().empty()) {
 			for (const int i : grid.ShelfWanted()) {
@@ -3081,6 +3108,7 @@ static int MenuSource(FrontendState& state)
 		if (iconLoaded) KeepIcon(iconId, std::move(iconLoaded));
 		if (!arrived.empty()) grid.CoverArrived(arrived);
 		if (!boxArrived.empty()) grid.BoxArrived(boxArrived);
+		if (!cover3dArrived.empty()) grid.Cover3dArrived(cover3dArrived);
 		if (!coverNote.empty()) {
 			statusTxt.SetText(coverNote.c_str());
 			coverNoteShown = !g_coversOff;  // a failure stays up
@@ -6183,7 +6211,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		heading(tr("Menu"));
 		option(tr("Language"), LanguageName(settings.language), settings.language != "auto", kLanguage);
 		option(tr("Home tiles"), settings.home_tiles == "names" ? tr("Names") : settings.home_tiles == "shelf" ? tr("Shelf")
-			: settings.home_tiles == "carousel" ? tr("Carousel")
+			: settings.home_tiles == "carousel" ? tr("Carousel") : settings.home_tiles == "covers3d" ? tr("3D covers")
 			: settings.home_tiles == "channels" ? tr("Channels") : tr("Covers"),
 			settings.home_tiles != "names", kHomeTiles);
 		option(tr("Games from"), HomeSourceName(settings.home_source), settings.home_source != "all", kHomeSource);
@@ -6418,7 +6446,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			case kAspect: return tr("Makes the game use 4:3 or widescreen 16:9 whatever the Wii's TV setting says. Not every game can be changed.");
 			case kGameLanguage: return tr("The language the game is told the console uses. Pick one the game has: some games stop without it.");
 			case kGameCios: return tr("The d2x cIOS the game runs under. Automatic uses the menu's, else the first of 249, 250 and 251 that works.");
-			case kHomeTiles: return tr("Covers: each game's box art from GameTDB (fetched when downloads are on). Carousel: the boxes fanned out on an arc. Shelf: the boxes on a shelf. Channels: each game's animated icon and banner, as on the Wii Menu. Names: the names only.");
+			case kHomeTiles: return tr("Covers: each game's box art from GameTDB (fetched when downloads are on). 3D covers: GameTDB's pictures of the cases, round a ring with no end. Carousel: the boxes fanned out on an arc. Shelf: the boxes on a shelf. Channels: each game's animated icon and banner, as on the Wii Menu. Names: the names only.");
 			case kWidescreen: return tr("On a 16:9 TV the menu is drawn narrower, so covers and pictures keep their shape. Automatic follows the Wii's own TV setting.");
 			case kScreenSize: return tr("Makes the menu smaller on screen, so nothing is cut off at the TV's edges. Lower it until the whole menu shows.");
 			case kTheme: return tr("The menu's colours and pictures. Themes are folders in sd:/riftwii/themes (docs/THEMES.md on GitHub).");
@@ -6633,9 +6661,10 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					rebuild();
 					break;
 				case kHomeTiles:
-					settings.home_tiles = settings.home_tiles == "covers" ? "carousel" : settings.home_tiles == "carousel" ? "shelf"
+					settings.home_tiles = settings.home_tiles == "covers" ? "covers3d" : settings.home_tiles == "covers3d" ? "carousel"
+						: settings.home_tiles == "carousel" ? "shelf"
 						: settings.home_tiles == "shelf" ? "channels" : settings.home_tiles == "channels" ? "names" : "covers";
-					saveAndNote(tr("Covers: each game's box art from GameTDB (fetched when downloads are on). Carousel: the boxes fanned out on an arc. Shelf: the boxes on a shelf. Channels: each game's animated icon and banner, as on the Wii Menu. Names: the names only."));
+					saveAndNote(tr("Covers: each game's box art from GameTDB (fetched when downloads are on). 3D covers: GameTDB's pictures of the cases, round a ring with no end. Carousel: the boxes fanned out on an arc. Shelf: the boxes on a shelf. Channels: each game's animated icon and banner, as on the Wii Menu. Names: the names only."));
 					rebuild();
 					break;
 				case kWidescreen: {
@@ -6981,7 +7010,7 @@ static int SettingsHub(FrontendState& state, int& focus, bool fromSection)
 		if (t.folder == settings.theme) theme = t.name;
 	const std::size_t games = state.usb_catalog.games.size() + state.sd_catalog.games.size();
 	const std::string tiles = settings.home_tiles == "names" ? tr("Names") : settings.home_tiles == "shelf" ? tr("Shelf")
-			: settings.home_tiles == "carousel" ? tr("Carousel")
+			: settings.home_tiles == "carousel" ? tr("Carousel") : settings.home_tiles == "covers3d" ? tr("3D covers")
 		: settings.home_tiles == "channels" ? tr("Channels") : tr("Covers");
 
 	struct Section {

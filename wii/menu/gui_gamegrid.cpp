@@ -209,6 +209,13 @@ void GuiGameGrid::SetCarousel(bool on) {
     poses.clear();
 }
 
+void GuiGameGrid::SetRing(bool on) {
+    if (ring == on) return;
+    ring = on;
+    ringPlaced = false;
+    poses.clear();
+}
+
 void GuiGameGrid::SetShelf(bool on) {
     if (shelf == on) return;
     shelf = on;

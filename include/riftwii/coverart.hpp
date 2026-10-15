@@ -55,6 +55,23 @@ constexpr std::size_t kBoxFileSize = kBoxHeaderSize + kBoxPixelBytes;
 
 std::string coverfull_url(const std::string& region, const std::string& game_id);
 
+// GameTDB's 3D cover: a picture of the game's case standing turned a
+// little, on a see-through ground (176x248 as GameTDB serves it), for the
+// Home view of those pictures. Stored as "RW3D", the width and the height
+// (big-endian 16-bit), then GX RGB5A3 in 4x4 tiles, its see-through parts
+// kept (RGB5A3's 3-bit alpha).
+constexpr int kCover3dWidth = 176;
+constexpr int kCover3dHeight = 248;
+constexpr std::size_t kCover3dHeaderSize = 8;
+constexpr std::size_t kCover3dPixelBytes = static_cast<std::size_t>(kCover3dWidth) * kCover3dHeight * 2;
+std::string cover3d_url(const std::string& region, const std::string& game_id);
+// The stored picture for an RGBA image of any size: scaled to fit
+// kCover3dWidth x kCover3dHeight keeping its shape, standing on the
+// bottom edge, centred across, the rest see-through. Empty when the size
+// is unusable.
+std::vector<std::uint8_t> make_cover3d_file(const std::uint8_t* rgba, int w, int h);
+bool cover3d_header_valid(const std::uint8_t* header);
+
 // Where the spine is across a full cover `w` x `h`: [x0, x1). A Wii case's
 // front and back are 135 mm wide and 190 mm tall, the spine between them
 // about 14 mm; a picture whose middle strip is far off that gets a 14 mm

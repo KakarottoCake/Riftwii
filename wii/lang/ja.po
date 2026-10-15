@@ -723,6 +723,9 @@ msgstr "棚"
 msgid "Carousel"
 msgstr "カルーセル"
 
+msgid "3D covers"
+msgstr "3Dパッケージ"
+
 msgid "Channels"
 msgstr "チャンネル"
 
@@ -738,8 +741,8 @@ msgstr "16:9のテレビではメニューを細く描き、パッケージや�
 msgid "Makes the menu smaller on screen, so nothing is cut off at the TV's edges. Lower it until the whole menu shows."
 msgstr "画面上のメニューを小さくして、テレビの端で切れないようにします。メニュー全体が見えるまで下げてください。"
 
-msgid "Covers: each game's box art from GameTDB (fetched when downloads are on). Carousel: the boxes fanned out on an arc. Shelf: the boxes on a shelf. Channels: each game's animated icon and banner, as on the Wii Menu. Names: the names only."
-msgstr "パッケージ: GameTDBの各ゲームのパッケージ画像(ダウンロードがオンのとき取得)。カルーセル: ケースを弧の上に扇形に並べます。棚: ケースを棚に並べます。チャンネル: Wiiメニューのように各ゲームの動くアイコンとバナー。名前: 名前だけ。"
+msgid "Covers: each game's box art from GameTDB (fetched when downloads are on). 3D covers: GameTDB's pictures of the cases, round a ring with no end. Carousel: the boxes fanned out on an arc. Shelf: the boxes on a shelf. Channels: each game's animated icon and banner, as on the Wii Menu. Names: the names only."
+msgstr "パッケージ: GameTDBの各ゲームのパッケージ画像(ダウンロードがオンのとき取得)。3Dパッケージ: GameTDBのケースの画像を終わりのない輪に並べます。カルーセル: ケースを弧の上に扇形に並べます。棚: ケースを棚に並べます。チャンネル: Wiiメニューのように各ゲームの動くアイコンとバナー。名前: 名前だけ。"
 
 msgid "Custom (no wfc_domain set)"
 msgstr "カスタム（wfc_domain未設定）"

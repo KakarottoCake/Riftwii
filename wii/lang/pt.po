@@ -723,6 +723,9 @@ msgstr "Estante"
 msgid "Carousel"
 msgstr "Carrossel"
 
+msgid "3D covers"
+msgstr "Capas 3D"
+
 msgid "Channels"
 msgstr "Canais"
 
@@ -738,8 +741,8 @@ msgstr "Numa TV 16:9 o menu é desenhado mais estreito, para que as capas e imag
 msgid "Makes the menu smaller on screen, so nothing is cut off at the TV's edges. Lower it until the whole menu shows."
 msgstr "Deixa o menu menor na tela, para que nada seja cortado nas bordas da TV. Diminua até o menu inteiro aparecer."
 
-msgid "Covers: each game's box art from GameTDB (fetched when downloads are on). Carousel: the boxes fanned out on an arc. Shelf: the boxes on a shelf. Channels: each game's animated icon and banner, as on the Wii Menu. Names: the names only."
-msgstr "Capas: a capa de cada jogo do GameTDB (baixada quando os downloads estão ligados). Carrossel: as caixas abertas em leque sobre um arco. Estante: as caixas numa estante. Canais: o ícone animado e o banner de cada jogo, como no Menu Wii. Nomes: só os nomes."
+msgid "Covers: each game's box art from GameTDB (fetched when downloads are on). 3D covers: GameTDB's pictures of the cases, round a ring with no end. Carousel: the boxes fanned out on an arc. Shelf: the boxes on a shelf. Channels: each game's animated icon and banner, as on the Wii Menu. Names: the names only."
+msgstr "Capas: a capa de cada jogo do GameTDB (baixada quando os downloads estão ligados). Capas 3D: as imagens das caixas do GameTDB, num anel sem fim. Carrossel: as caixas abertas em leque sobre um arco. Estante: as caixas numa estante. Canais: o ícone animado e o banner de cada jogo, como no Menu Wii. Nomes: só os nomes."
 
 msgid "Custom (no wfc_domain set)"
 msgstr "Personalizado (sem wfc_domain)"
