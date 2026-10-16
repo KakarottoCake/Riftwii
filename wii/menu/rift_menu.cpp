@@ -1835,7 +1835,6 @@ static bool PickCodeModStart(FrontendState& state)
 	}
 	tiles[0].label = tr("With extras");
 	tiles[0].value = tr("Crash reports, back to RiftWii");
-	tiles[0].primary = true;
 	tiles[1].label = tr("Without extras");
 	tiles[1].value = tr("As the mod's own loader");
 	GuiTiles choices;
