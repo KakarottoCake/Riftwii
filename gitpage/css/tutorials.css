@@ -1,3 +1,5 @@
+/* SPDX-FileCopyrightText: 2026 RiftWii contributors */
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 @font-face {
     font-family: "Rounded";
     src: url("../resources/fonts/rounded.ttf")
@@ -137,27 +139,12 @@ p {
 
 .tutorial-image {
     display: block;
-
     width: 100%;
-
-    aspect-ratio: 16 / 9;
-
-    object-fit: cover;
-
-    margin:
-        18px 0 22px;
-
-    border-radius: 16px;
-
-    border:
-        1px solid
-        rgba(120, 211, 255, 0.18);
-
-    box-shadow:
-        0 0 28px
-            rgba(65, 206, 255, 0.08),
-        0 0 42px
-            rgba(152, 76, 255, 0.05);
+    height: auto;
+    max-width: none;
+    margin: 20px 0;
+    object-fit: contain;
+    border-radius: 14px;
 }
 
 code {
@@ -179,6 +166,7 @@ code {
     font-size: 0.9em;
 }
 
+/* Footer styles disabled
 .site-footer {
     width: min(900px, 100%);
     margin: 48px auto 24px;
@@ -259,7 +247,7 @@ code {
     font-size: 0.72rem;
     letter-spacing: 0.22em;
 }
-
+*/
 
 .download-button {
     display: inline-flex;
@@ -502,4 +490,168 @@ code {
     box-shadow:
         inset 0 0 18px
             rgba(72, 210, 255, 0.04);
+}
+
+.guide-link-button {
+    margin: 10px 0 8px;
+}
+
+
+.tutorial-doc-content {
+    margin-top: 28px;
+    font-family: Arial, sans-serif;
+    line-height: 1.7;
+    color: rgba(220, 232, 255, 0.82);
+}
+
+.tutorial-doc-content h2,
+.tutorial-doc-content h3,
+.tutorial-doc-content h4 {
+    font-family: "Rounded", sans-serif;
+    color: #f6fbff;
+    line-height: 1.3;
+}
+
+.tutorial-doc-content h2 {
+    margin: 34px 0 14px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(120, 211, 255, 0.16);
+    font-size: clamp(1.35rem, 2.4vw, 2rem);
+}
+
+.tutorial-doc-content h3 {
+    margin: 26px 0 10px;
+    color: #b8eaff;
+    font-size: 1.15rem;
+}
+
+.tutorial-doc-content p,
+.tutorial-doc-content li {
+    color: rgba(220, 232, 255, 0.82);
+}
+
+.tutorial-doc-content a {
+    color: #8feaff;
+}
+
+.tutorial-doc-content ul,
+.tutorial-doc-content ol {
+    padding-left: 24px;
+}
+
+.tutorial-doc-content pre {
+    overflow-x: auto;
+    padding: 16px;
+    border: 1px solid rgba(115, 211, 255, 0.16);
+    border-radius: 12px;
+    background: rgba(0, 0, 0, 0.34);
+}
+
+.tutorial-doc-content pre code {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: #dff8ff;
+}
+
+.tutorial-doc-content table {
+    width: 100%;
+    margin: 20px 0;
+    border-collapse: collapse;
+    overflow: hidden;
+    border: 1px solid rgba(120, 211, 255, 0.18);
+    border-radius: 14px;
+}
+
+.tutorial-doc-content th,
+.tutorial-doc-content td {
+    padding: 12px 14px;
+    text-align: left;
+    vertical-align: top;
+    border-bottom: 1px solid rgba(120, 211, 255, 0.12);
+}
+
+.tutorial-doc-content th {
+    color: #9feaff;
+    font-family: "Rounded", sans-serif;
+    background:
+        linear-gradient(
+            90deg,
+            rgba(59, 211, 255, 0.12),
+            rgba(154, 79, 255, 0.14)
+        );
+}
+
+.tutorial-doc-content tr:last-child td {
+    border-bottom: 0;
+}
+
+.tutorial-doc-content blockquote {
+    margin: 20px 0;
+    padding: 14px 18px;
+    border-left: 3px solid rgba(126, 225, 255, 0.55);
+    background: rgba(59, 211, 255, 0.06);
+    color: rgba(220, 232, 255, 0.78);
+}
+
+.doc-hero-image {
+    width: 100%;
+    height: auto;
+    object-fit: contain;
+}
+
+
+.file-tree {
+    width: 100%;
+
+    margin:
+        16px 0
+        22px;
+
+    padding:
+        18px
+        20px;
+
+    overflow-x: auto;
+
+    border:
+        1px solid
+        rgba(115, 211, 255, 0.18);
+
+    border-radius: 14px;
+
+    background:
+        rgba(
+            3,
+            12,
+            38,
+            0.72
+        );
+
+    box-shadow:
+        inset 0 1px 0
+            rgba(255, 255, 255, 0.04),
+        0 0 24px
+            rgba(65, 206, 255, 0.05);
+
+    white-space: pre;
+
+    tab-size: 4;
+}
+
+.file-tree code {
+    padding: 0;
+
+    border: 0;
+
+    background: transparent;
+
+    color: #dff8ff;
+
+    font-family:
+        monospace;
+
+    font-size: 0.9rem;
+
+    line-height: 1.65;
 }

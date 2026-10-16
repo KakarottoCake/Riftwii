@@ -1,0 +1,126 @@
+<!-- SPDX-FileCopyrightText: 2026 RiftWii contributors -->
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Developing RiftWii (Advanced) - RiftWii</title>
+
+    <link rel="stylesheet" href="../css/tutorials.css?v=20261016-7">
+
+    <link
+        rel="icon"
+        type="image/png"
+        href="https://github.com/KakarottoCake/Riftwii/blob/main/hbc/icon.png?raw=true"
+    >
+</head>
+
+<body>
+
+    <main class="tutorial-page">
+
+        <a
+            class="back-link"
+            href="../index.html#tutorials"
+        >
+            ← Back to RiftWii
+        </a>
+
+        <article class="tutorial-card">
+
+            <span class="kicker">
+                DEVELOPING
+            </span>
+
+            <h1>
+                Developing RiftWii (Advanced)
+            </h1>
+
+            
+
+            <a
+                class="link-button guide-link-button"
+                href="https://github.com/KakarottoCake/Riftwii/blob/main/docs/DEVELOPING.md"
+                target="_blank"
+                rel="noopener noreferrer"
+            >
+                View the source documentation on GitHub
+            </a>
+
+            <div class="tutorial-doc-content">
+<p>Start with <code>ARCHITECTURE.md</code> for the map of the code. This page covers building, testing and releasing.</p>
+<h2 id="building">Building</h2>
+<p>Everything builds on Windows inside devkitPro's MSYS2 shell (plain Git Bash cannot find the C++ headers). From the project root:</p>
+<pre><code># the host library and its tests
+cmake -S . -B build-host -G Ninja
+cmake --build build-host
+ctest --test-dir build-host --output-on-failure
+
+# the Wii app: riftwii.dol and riftwii.elf
+export DEVKITPRO=/opt/devkitpro DEVKITPPC=/opt/devkitpro/devkitPPC
+make -f Makefile.wii</code></pre>
+<p>The Wii build needs devkitPPC, libogc, libfat and the portlibs <code>Makefile.wii</code> lists (FreeType, zlib, libogg/tremor), and the <code>zstd</code> command-line tool (devkitPro's MSYS2 has it), which packs the runtime blobs, the menu font, the translations and the GPL text. It first builds the two in-game blobs with <code>Makefile.runtime</code> (<code>build-runtime/riftwii_rt.bin</code>, the resident runtime, and <code>riftwii_pad.bin</code>, the pad hook), checking that each is position-independent, then embeds them with the font, the translations and the Gecko code handler.</p>
+<p>Things that bite:</p>
+<ul>
+<li><code>Makefile.wii</code> compiles every source into one flat folder, so two sources may not share a base name (<code>redirect.cpp</code> and <code>rtable.c</code>, not two <code>redirect</code>s).</li>
+<li>Versions follow Dolphin's numbering: a release is its year and month (<code>2610</code>), and every build after it is that plus the commits since the release's tag (<code>2610-123</code>). <code>CMakeLists.txt</code> holds the YYMM (<code>project(Riftwii VERSION ...)</code>) and the tag (<code>RIFTWII_BASE_TAG</code>); <code>Makefile.wii</code> counts the commits with git at every build and rebuilds only the sources that print the version. A release is tagged with <code>v</code> and the DOL's version (<code>v2610-123</code>), built from that commit.</li>
+<li>The pugixml <code>-Wmaybe-uninitialized</code> warning is expected.</li>
+</ul>
+<h2 id="tests">Tests</h2>
+<p><code>ctest</code> runs 49 suites, one per area (<code>tests/&lt;area&gt;_tests.cpp</code>): the XML parser and planner, the patch engine, FST and disc parsing, FAT32 and NTFS walkers, the WBFS mapper and WBFS drives, the resident runtime's C code (compiled for the host with fake IOS calls), the FAT32 and NTFS engines, the GameCube adapter driver and the PAD search, the titles, cheats and settings files. The in-game code is built for both the host (tests) and the Wii from the same sources.</p>
+<p>Translations: <code>python tools/lang_source.py</code> checks that every table entry is still in the menu's sources and writes <code>wii/lang/*.po</code>. New Japanese text must be in the menu font; <code>tools/make_menu_font.py</code> explains how the subset is cut.</p>
+<h2 id="running-in-dolphin">Running in Dolphin</h2>
+<p><code>docs/HARNESS.md</code> describes the isolated Dolphin setup (<code>build-dolphin/user</code>). In short:</p>
+<pre><code>DOLPHIN_DIR=/c/path/to/Dolphin-x64 tools/dolphin/run.sh 240</code></pre>
+<p>runs <code>riftwii.dol</code> (or <code>DOL=...</code>) for 240 seconds and prints the USB Gecko and Dolphin logs. Dolphin rebuilds its SD image from <code>build-dolphin/user/Load/WiiSDSync/</code> at every boot, which takes more than a minute on a large card, so short runs never reach the menu.</p>
+<p>Two scripts on the card drive a run without hands on a controller:</p>
+<ul>
+<li><code>sd:/riftwii/autorun.txt</code> skips the menu and runs commands, one per line, logging to <code>sd:/riftwii/autorun.log</code>: <code>disc</code>, <code>sd &lt;path-or-id&gt; [cios]</code>, <code>usb &lt;path-or-id&gt; [cios]</code>, <code>probe</code>, <code>layout</code>, <code>meta [dir]</code>, <code>dump &lt;disc path&gt; [sd path]</code>, <code>dol [sd path]</code>, <code>xml &lt;sd path&gt;</code>, <code>set &lt;option&gt;=&lt;choice&gt;</code>, <code>replace</code>/<code>grow</code>/<code>sdreplace</code>/<code>sdgrow &lt;disc path&gt; &lt;sd path&gt;</code>, <code>keep &lt;disc path&gt;</code>, <code>hook</code>, <code>nofallback</code>, <code>boot</code>, <code>launch</code>.</li>
+<li><code>sd:/riftwii/guiscript.txt</code> plays input into the menu and saves screenshots (<code>wait</code>, <code>point</code>, <code>nopoint</code>, <code>press</code>, <code>hold</code>, <code>release</code>, <code>glide</code>, <code>shot</code>, <code>finalshot</code>, <code>slowmo &lt;factor&gt;</code> to stretch every transition for frame-by-frame screenshots, and <code>failnext</code> and <code>crash</code> to test the way back from a failed launch and the crash screen; see <code>wii/menu/guiscript.hpp</code>). After a restart the menu reads <code>guiscript-restart.txt</code> instead. Pull the screenshots (and <code>crashscreen.bmp</code>) out of the SD image afterwards.</li>
+</ul>
+<p>Dolphin cannot run a d2x cIOS, so SD and USB image boot can only be checked on a Wii (<code>docs/USB_HARDWARE_TEST.md</code>). What Dolphin does check well: the menu, disc launches with packs, the resident runtime (its Gecko lines and Dolphin's DI and SD logs), savegames, and heap placement (RiftWii poisons the IOS reload area there, see <code>ARCHITECTURE.md</code>).</p>
+<h2 id="logs-to-ask-testers-for">Logs to ask testers for</h2>
+<ul>
+<li><code>sd:/riftwii/session.log</code>: the menu, from start to the launch.</li>
+<li><code>sd:/riftwii/boot.log</code>: the last launch, up to the jump into the game.</li>
+<li>The Wii model, the System Menu version and which cIOS is installed.</li>
+</ul>
+<h2 id="the-wii-remote-log">The Wii Remote log</h2>
+<p>A Wii U Pro Controller works in RiftWii's menu (libogc reads it) but in no game. To learn why, a launch keeps what the game's Bluetooth and Wii Remote libraries would print in a debug build (<code>runtime/wlog</code>): retail games compile those prints into empty functions, and the blob takes their place. Leaving the game through HOME &gt; Wii Menu saves it to <code>/shared2/riftwii/wpadlog.bin</code>; RiftWii's next start turns it into <code>sd:/riftwii/wpadlog.txt</code>, which goes into problem reports. Link keys are never written out and Bluetooth addresses keep only their last byte.</p>
+<p>It is on when the menu saw a Wii U Pro Controller: a pairing alone is not enough, because the log takes 43 KB of the game's MEM2 and the blob 10 KB of MEM1 (Newer Super Mario Bros. Wii from an RVZ ran out of MEM2 with them). <code>wpad_log = on</code> in <code>settings.txt</code> keeps it for every launch (Dolphin tests), <code>wpad_log = off</code> never. Not in code builds or games that clear MEM1's top.</p>
+<p>Test builds (<code>make -f Makefile.wii WII_DEFINES=-DRIFTWII_TEST_LIMITS</code>) can also run a game short of memory, to find out whether a crash is one: <code>sd:/riftwii/test_limits.txt</code> with <code>game_mem1_kib = N</code>, <code>game_mem2_kib = M</code> or <code>game_mem2_top_kib = T</code> takes that many KiB off the end of the game's MEM1 arena, the start of its MEM2 arena or its end. In Dolphin, Newer Super Mario Bros. Wii v1.30 runs with 336 KiB less MEM2 and dies at the start with 352 KiB less.</p>
+<p>The same blob runs the Wii U Pro Controller translator and keeps a trace of the game's Bluetooth traffic in the log (docs/BLUETOOTH.md). <code>pro_controller = off</code> keeps the trace and leaves the traffic alone; <code>pro_controller = every</code> takes every link as a Pro Controller, so the translator runs in Dolphin (whose Wii Remote then has no buttons of its own). <code>build-dolphin/wlog_memdump.py</code> saves the log from the running game's memory when HOME &gt; Wii Menu cannot be reached.</p>
+<p>What the logs showed: right after a controller connects, the game's Wii Remote library reads one byte at address 0x1770, past the end of a Wii Remote's memory, and takes the error a Wii Remote answers as "firmware 2.1 or later". The Pro Controller hangs up on that read instead. <code>wpad_probe = valid</code> in <code>settings.txt</code> (a test, off by default) makes the probe read 0x0016 and the answer's handler take the error path anyway, so Wii Remotes behave as before (<code>find_wpad_probe</code> in <code>src/patching/wpadlog.cpp</code>; found in Mario Kart Wii, City Folk and Brawl).</p>
+<h2 id="a-game-that-only-fails-on-a-console">A game that only fails on a console</h2>
+<p><code>debug_off</code> in <code>sd:/riftwii/settings.txt</code> turns RiftWii's launch extras off one at a time (<code>wii/launch/boot.cpp</code>, <code>debug_off</code>), so a tester can bisect what Dolphin cannot show:</p>
+<pre><code>debug_off = bca, fault, dolswitch, 480p, returnto, consoletype, prerun</code></pre>
+<p><code>bca</code> the retail BCA answer, <code>fault</code> the crash recorder, <code>dolswitch</code> the cheats' hook on jumps to another executable, <code>480p</code> the 480p fix, <code>returnto</code> the return-to patch, <code>consoletype</code> the console type RiftWii writes at 0x8000002C on a Wii, <code>prerun</code> the code handler's run before the game's entry, <code>closepart</code> the partition close before a Homebrew Channel app (CTGP) starts, <code>wpadlog</code> the Wii Remote log. <code>boot.log</code> names each one left out. Start with all of them, then halve the list. The PMEX Remix crash on a Wii (2.7.0 RC9.2) was found this way: it was the crash recorder.</p>
+<p><code>debug_crash</code> in the same file breaks the game on purpose, to try the crash recorder: <code>debug_crash = pad</code> puts a read from address 0x28 at the start of the game's PADRead (its main thread, every frame), or give a hex address. In Dolphin, turn on MMU emulation (<code>FELK_MMU=1</code> for <code>build-dolphin/felk-run.sh</code>), or the bad read is only a warning and the game crashes a few steps later instead. The next RiftWii start writes <code>sd:/riftwii/gamecrash.txt</code>. Never leave it in a tester's settings.</p>
+<h2 id="releasing">Releasing</h2>
+<ol type="1">
+<li>Bump the version in <code>CMakeLists.txt</code> and <code>hbc/meta.xml</code> (<code>version</code>, <code>release_date</code>), then <code>make -f Makefile.wii clean</code> and build.</li>
+<li>Run the host tests and the Dolphin checks above.</li>
+<li>Pack the zip: <code>sd-card/apps/riftwii/</code> with <code>boot.dol</code> (the new <code>riftwii.dol</code>), <code>meta.xml</code>, <code>icon.png</code> and <code>music.ogg</code> (all from <code>hbc/</code>); <code>sd-card/apps/riftwii_channel/</code> with <code>boot.dol</code> (<code>build-channel/installer.dol</code>, from <code>make -f Makefile.channel</code>) and <code>channel/installer/hbc/meta.xml</code> and <code>icon.png</code>; <code>sd-card/riivolution/</code>, <code>sd-card/wbfs/</code>, <code>sd-card/games/</code>, <code>usb-drive/wbfs/</code> and <code>usb-drive/games/</code>, each with a short text file saying what goes there; a <code>README.txt</code> for players at the top. The GPL goes with every copy: also at the top, <code>LICENSE.txt</code> (the repository's <code>LICENSE</code>), <code>NOTICE.md</code>, and <code>SOURCE.txt</code> naming the tag and commit the zip was built from and the repository URL. The README's last section says the same in a few lines and lists the credits. Settings &gt; Credits and license shows <code>LICENSE</code> itself (the build packs it). The in-app update's pack: <code>py -3.13 tools/make_update_pack.py riftwii-vYYMM-N.zip riftwii-update.pack</code> (the themes, then the zip's channel installer and icon). The theme kit when a picture or a setting changes (a new one in <code>src/art/theme.cpp</code>'s list, or a new look): <code>cmake --build build-host --target theme_kit</code>, then <code>py -3.13 tools/make_theme_kit.py build-host/theme_kit.exe --repo</code> (templates painted by the menu's own code) refreshes <code>themes/kit/MyTheme</code> and <code>themes/kit/templates</code>; commit them with the release.</li>
+<li>Screenshots for the notes go in <code>docs/screenshots/</code> and are committed before the tag; the notes load them from <code>raw.githubusercontent.com/KakarottoCake/Riftwii/&lt;tag&gt;/docs/screenshots/</code>. <code>gh release create vYYMM-N --prerelease</code> with three files: the zip, <code>riftwii.dol</code> (what the in-app update downloads) and <code>riftwii-update.pack</code>. The notes give what changed and the DOL's SHA-256, and end with a "License and source" line: GPL-3.0-or-later, the source at the tag, the credits in <code>NOTICE.md</code>.</li>
+<li>Release candidates and stable releases. A release candidate is a beta build like any other (<code>--prerelease</code>, titled "RiftWii YYMM-N RC1") that testers go through with <code>docs/TESTING.md</code>. A stable release is that same commit, rebuilt with <code>make -f Makefile.wii RIFTWII_STABLE=1</code> and published without <code>--prerelease</code> (so it is GitHub's latest release), titled "RiftWii Stable YYMM-N". The flag is the only difference from the tested build: with it, Settings &gt; Updates on Automatic follows Stable although the version has a dash. Leave it out and every player on Automatic ends up on Beta. Players on the release candidate are not offered the stable build (it has the same version), and need not be: it is the same code.</li>
+<li>When a third-party piece is added: a row in <code>NOTICE.md</code> (what, where from with the commit, license), <code>SPDX-FileCopyrightText</code> lines (one per holder, above the license line) in each file that follows it, and a line in the README's Credits and in <code>wii/menu/credits.cpp</code>. Binaries built from someone else's source ship with that source, as <code>vendor-gecko/</code> does.</li>
+</ol>
+<h2 id="ground-rules">Ground rules</h2>
+<ul>
+<li>No Riivolution code. Behaviour comes from its public patch-format documentation and from Dolphin's independent implementation; see the provenance list in <code>NOTICE.md</code>. MIT and compatible sources may be adapted with credit in <code>NOTICE.md</code>.</li>
+<li>No Nintendo keys or assets in the repository.</li>
+<li>Nothing hardcoded for one game or one mod.</li>
+</ul>
+
+            </div>
+
+        </article>
+
+    </main>
+
+</body>
+
+</html>

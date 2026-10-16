@@ -1,3 +1,5 @@
+<!-- SPDX-FileCopyrightText: 2026 RiftWii contributors -->
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
 <!DOCTYPE html>
 <html lang="en">
 
@@ -7,16 +9,11 @@
         name="viewport"
         content="width=device-width, initial-scale=1.0"
     >
-    <meta
-        name="tutorial-date"
-        content="2026-10-08"
-    >
-
-    <title>Getting Started - RiftWii</title>
+<title>Getting Started - RiftWii</title>
 
     <link
         rel="stylesheet"
-        href="../css/tutorials.css"
+        href="../css/tutorials.css?v=20261016-7"
     >
     <link
     rel="icon"
@@ -80,20 +77,30 @@
                 and opening RiftWii.
             </p>
 
+            <a
+                class="link-button guide-link-button"
+                href="https://github.com/KakarottoCake/Riftwii/blob/main/docs/GUIDE.md#what-you-need"
+                target="_blank"
+                rel="noopener noreferrer"
+            >
+                Read the official Getting Started guide
+            </a>
+
+
             <div class="placeholder-step">
                 <strong>
                     Requirements
                 </strong>
 
                 <p>
-                    - A Wii, Wii U or Wii Mini with
+                    - A Wii, or a Wii U in Wii mode, with
                     the Homebrew Channel
                     <br>
                     - An SD Card that is formatted
                     to FAT32
                     <br>
-                    - A USB Drive that is formatted
-                    to FAT32 or WBFS (Optional)
+                    - A USB Drive formatted to FAT32, NTFS,
+                    or as a WBFS drive by a WBFS manager (Optional)
                     <br>
                     - A computer or device to
                     download RiftWii
@@ -107,7 +114,9 @@
                 </strong>
 
                 <p>
-                    Download the zip file from the Github
+                    Download the zip file from the Github.<br>
+                    Stable is the tested release and is the best choice if you want the version that has been checked on real Wiis.<br>
+                    Beta is newer and includes the latest fixes and features, but it has not been checked as thoroughly yet. Use it if you are happy to test and report problems.
                 </p>
 
                             <a
@@ -142,25 +151,28 @@
                     <code>sd-card</code>
                     folder onto the root of your
                     SD Card. It should look like:
-                    <br><code>/apps</code>
-                    <br><code>- riftwii</code>
-                    <br><code>- riftwii_channel</code>
-                    <br><code>games</code>
-                    <br><code>/riftwii</code>
-                    <br><code>- themess</code>
-                    <br><code>/riivolution</code>
-                    <br><code>/wbfs</code>
                 </p>
 
-
+                <pre class="file-tree"><code>SD Card
+├── apps/
+│   ├── riftwii/
+│   └── riftwii_channel/
+├── games/
+├── riftwii/
+│   └── themes/
+├── riivolution/
+└── wbfs/</code></pre>
 
                 <p>
                     If you have a USB Drive, also copy
                     the contents of
-                    <code>usb-drives</code>
+                    <code>usb-drive</code>
                     onto your USB Drive. It should look like:
-                    <br><code>wbfs</code>
                 </p>
+
+                <pre class="file-tree"><code>USB Drive
+├── games/
+└── wbfs/</code></pre>
             </div>
 
 
@@ -228,8 +240,8 @@
                 <p>All Done!</p>
                 <img
                     class="tutorial-image"
-                    src="resources/wii-menu.png"
-                    alt="hbc rift"
+                    src="https://github.com/KakarottoCake/Riftwii/blob/main/docs/screenshots/2610-406-channels.png?raw=true"
+                    alt="RiftWii current widescreen home screen"
                 >
                 
 
@@ -238,27 +250,6 @@
 
         </article>
     </main>
-
-<footer class="site-footer">
-    <div class="footer-inner">
-
-        <div class="footer-main">
-            <span class="footer-label">
-                Tutorial by
-            </span>
-
-            <span class="footer-author">
-                Ｄｉａ！♪～☆
-            </span>
-        </div>
-
-        <div class="footer-year">
-            RiftWii 2026
-        </div>
-
-    </div>
-</footer>
-
 </body>
 
 </html>

@@ -1,3 +1,5 @@
+<!-- SPDX-FileCopyrightText: 2026 RiftWii contributors -->
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
 <!DOCTYPE html>
 
 <html lang="en">
@@ -10,19 +12,13 @@
         name="viewport"
         content="width=device-width, initial-scale=1.0"
     >
-
-    <meta
-        name="tutorial-date"
-        content="2026-10-09"
-    >
-
-    <title>
+<title>
         Installing Mods - RiftWii
     </title>
 
     <link
         rel="stylesheet"
-        href="../css/tutorials.css"
+        href="../css/tutorials.css?v=20261016-7"
     >
 
     <link
@@ -96,6 +92,16 @@
                 RiftWii supports it all! With the exception of CTGP-R 1.03 being experimental at the time of writing this.
             </p>
 
+            <a
+                class="link-button guide-link-button"
+                href="https://github.com/KakarottoCake/Riftwii/blob/main/docs/GUIDE.md#a-games-page"
+                target="_blank"
+                rel="noopener noreferrer"
+            >
+                Read the official Mods, Cheats and game-page guide
+            </a>
+
+
             <br>
 
             <a
@@ -152,11 +158,13 @@
 
                 <p>
                     Copy your mod folder to the root of your SD Card or USB Drive, and the .xml file to the Riivolution folder. It should look like this:
-                    <br><code>/apps</code>
-                    <br><code>/[MOD NAME FOLDER]</code>
-                    <br><code>/Riivolution</code>
-                    <br><code>- MOD NAME.xml</code>
                 </p>
+
+                <pre class="file-tree"><code>SD Card or USB Drive
+├── apps/
+├── [MOD NAME FOLDER]/
+└── riivolution/
+    └── MOD NAME.xml</code></pre>
 
             </div>
 
@@ -167,12 +175,12 @@
                 </strong>
 
                 <p>
-                    Go into the RiftWii Settings of your game, and select mods
+                    Open the game's own page in RiftWii and select the <code>Mods</code> tile.
                 </p>
                                 <img
                     class="tutorial-image"
-                    src="resources/modsmenu.png"
-                    alt="mods"
+                    src="https://github.com/KakarottoCake/Riftwii/blob/main/docs/screenshots/2610-391-game.png?raw=true"
+                    alt="RiftWii game page showing the Mods and Cheats tiles"
                 >
             </div>
 
@@ -187,8 +195,8 @@
                 </p>
                                 <img
                     class="tutorial-image"
-                    src="resources/riivo-mod.png"
-                    alt="mods"
+                    src="https://github.com/KakarottoCake/Riftwii/blob/main/docs/images/mods.png?raw=true"
+                    alt="RiftWii Mods screen showing an enabled mod"
                 >
             </div>
                         <div class="placeholder-step">
@@ -239,11 +247,15 @@
 
                 <p>
                     Put your mod files onto the root of your SD Card. It should look like:
-                    <br><code>/apps</code>
-                    <br><code>/codes</code>
-                    <br><code>/[MOD NAME FOLDER]</code>
-                    <br>
-                    <br>Note: It has to be on the SD Card or your mod will not work.
+                </p>
+
+                <pre class="file-tree"><code>SD Card
+├── apps/
+├── codes/
+└── [MOD NAME FOLDER]/</code></pre>
+
+                <p>
+                    Note: It has to be on the SD Card or your mod will not work.
                 </p>
 
 
@@ -256,12 +268,12 @@
                 </strong>
 
                 <p>
-                    Go into the RiftWii Settings of your game, and select mods
+                    Open the game's own page in RiftWii and select the <code>Mods</code> tile.
                 </p>
                                 <img
                     class="tutorial-image"
-                    src="resources/modsmenu.png"
-                    alt="mods"
+                    src="https://github.com/KakarottoCake/Riftwii/blob/main/docs/screenshots/2610-391-game.png?raw=true"
+                    alt="RiftWii game page showing the Mods and Cheats tiles"
                 >
             </div>
 
@@ -276,7 +288,7 @@
                 </p>
                                 <img
                     class="tutorial-image"
-                    src="resources/modon.png"
+                    src="https://github.com/KakarottoCake/Riftwii/releases/download/v3.3.0-beta/screenshot-sd-image-row.png"
                     alt="mods"
                 >
             </div>
@@ -285,16 +297,36 @@
                         <div class="placeholder-step">
 
                 <strong>
-                    Step 4 - Launch and Play
+                    Step 4 - Choose how to start the code build
                 </strong>
 
                 <p>
-                    Go back and start the game. Enjoy!
+                    Press Start while the code mod is enabled.
+                    RiftWii will ask whether to launch <code>With extras</code> or
+                    <code>Without extras</code>. Choose the option you want to use for this launch.
                 </p>
-                                <img
+
+                <img
+                    class="tutorial-image"
+                    src="https://raw.githubusercontent.com/KakarottoCake/Riftwii/main/docs/screenshots/2610-code-mod-start.png"
+                    alt="With extras or Without extras launch choice"
+                >
+            </div>
+
+            <div class="placeholder-step">
+
+                <strong>
+                    Step 5 - Launch and Play
+                </strong>
+
+                <p>
+                    Start the game and enjoy!
+                </p>
+
+                <img
                     class="tutorial-image"
                     src="resources/pp.png"
-                    alt="projectplus"
+                    alt="Project+ running"
                 >
             </div>
 
@@ -326,20 +358,78 @@
                 </strong>
 
                 <p>
-                    Open the cheats menu, and select the cheats you want to enable
+                    Open the game's own page in RiftWii, select the <code>Cheats</code> tile, and choose the cheats you want to enable.
                 </p>
 
                                                 <img
                     class="tutorial-image"
-                    src="resources/cheats-menu.png"
-                    alt="cheatmenu"
+                    src="https://github.com/KakarottoCake/Riftwii/blob/main/docs/images/cheats.png?raw=true"
+                    alt="RiftWii Cheats screen showing available cheat options"
                 >
             </div>
 
                         <div class="placeholder-step">
 
                 <strong>
-                    Step 2 - Launch and Play
+                    Step 2 - Set Gecko X values
+                </strong>
+
+                <p>
+                    Some Gecko cheats contain editable values shown as <code>X</code>, <code>Y</code>, and other letters.
+                    If a cheat needs these values, turn it on and select <code>Set values</code>.
+                    RiftWii will show the cheat's notes underneath the list so you can see what each value controls.
+                </p>
+
+                <img
+                    class="tutorial-image"
+                    src="https://github.com/KakarottoCake/Riftwii/blob/main/docs/screenshots/2610-161-cheat-set-values.png?raw=true"
+                    alt="RiftWii Cheats screen showing a Gecko cheat with editable X values"
+                >
+            </div>
+
+            <div class="placeholder-step">
+
+                <strong>
+                    Step 3 - Enter the value
+                </strong>
+
+                <p>
+                    RiftWii will ask for each value one at a time.
+                    Enter the hexadecimal value using the on-screen keypad, then select <code>OK</code>.
+                    The number of required digits is shown in the title. If the cheat has more than one editable value,
+                    such as <code>X</code> and <code>Y</code>, RiftWii will ask for each one in sequence.
+                </p>
+
+                <img
+                    class="tutorial-image"
+                    src="https://github.com/KakarottoCake/Riftwii/blob/main/docs/screenshots/2610-161-cheat-keypad.png?raw=true"
+                    alt="RiftWii hexadecimal keypad used to enter a Gecko cheat X value"
+                >
+            </div>
+
+            <div class="placeholder-step">
+
+                <strong>
+                    Step 4 - Review or change the values
+                </strong>
+
+                <p>
+                    After saving them, the current values appear under the cheat.
+                    Select <code>Change</code> at any time if you want to edit the <code>X</code>, <code>Y</code>,
+                    or other values again. The cheat remains enabled with the values you saved.
+                </p>
+
+                <img
+                    class="tutorial-image"
+                    src="https://github.com/KakarottoCake/Riftwii/blob/main/docs/screenshots/2610-161-cheat-values.png?raw=true"
+                    alt="RiftWii Cheats screen showing saved Gecko X and Y values"
+                >
+            </div>
+
+            <div class="placeholder-step">
+
+                <strong>
+                    Step 5 - Launch and Play
                 </strong>
 
                 <p>
@@ -359,7 +449,7 @@
                 </strong>
 
                 <p>
-                    If you don't have internet, you have to download the cheats manually from gamehacking.org, and then activate them with the cheats menu.
+                    If you don't have internet, download the cheats manually in the usual text format and save the file as <code>sd:/riftwii/cheats/&lt;game ID&gt;.txt</code>. Then open the game's <code>Cheats</code> tile and activate the codes you want.
                 </p>
 <a class="link-button" href="https://gamehacking.org/system/wii">
     Download Cheat Codes Manually
@@ -369,32 +459,6 @@
         </article>
 
     </main>
-
-
-    <footer class="site-footer">
-
-        <div class="footer-inner">
-
-            <div class="footer-main">
-
-                <span class="footer-label">
-                    Tutorial by
-                </span>
-
-                <span class="footer-author">
-                    Ｄｉａ！♪～☆
-                </span>
-
-            </div>
-
-            <div class="footer-year">
-                RiftWii 2026
-            </div>
-
-        </div>
-
-    </footer>
-
 </body>
 
 </html>

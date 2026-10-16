@@ -1,0 +1,993 @@
+<!-- SPDX-FileCopyrightText: 2026 RiftWii contributors -->
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Code Map (Advanced) - RiftWii</title>
+
+    <link rel="stylesheet" href="../css/tutorials.css?v=20261016-7">
+
+    <link
+        rel="icon"
+        type="image/png"
+        href="https://github.com/KakarottoCake/Riftwii/blob/main/hbc/icon.png?raw=true"
+    >
+</head>
+
+<body>
+
+    <main class="tutorial-page">
+
+        <a
+            class="back-link"
+            href="../index.html#tutorials"
+        >
+            ← Back to RiftWii
+        </a>
+
+        <article class="tutorial-card">
+
+            <span class="kicker">
+                CODE MAP
+            </span>
+
+            <h1>
+                Code Map (Advanced)
+            </h1>
+
+            
+            <img
+                class="tutorial-image doc-hero-image"
+                src="https://github.com/KakarottoCake/Riftwii/blob/main/docs/images/home.png?raw=true"
+                alt="Code Map"
+            >
+
+
+            <a
+                class="link-button guide-link-button"
+                href="https://github.com/KakarottoCake/Riftwii/blob/main/docs/MAP.md"
+                target="_blank"
+                rel="noopener noreferrer"
+            >
+                View the source documentation on GitHub
+            </a>
+
+            <div class="tutorial-doc-content">
+<p>Every file in the repository, where it sits and what it is for, so a fork can find its way around without reading everything first. For how the pieces work together (a launch from menu to game, the memory map), read <a href="https://github.com/KakarottoCake/Riftwii/blob/main/docs/ARCHITECTURE.md">ARCHITECTURE.md</a>; for building and testing, <a href="https://github.com/KakarottoCake/Riftwii/blob/main/docs/DEVELOPING.md">DEVELOPING.md</a>.</p>
+<h2 id="start-here">Start here</h2>
+<ol type="1">
+<li><a href="https://github.com/KakarottoCake/Riftwii/blob/main/README.md">README.md</a>: what RiftWii is.</li>
+<li><a href="https://github.com/KakarottoCake/Riftwii/blob/main/docs/GUIDE.md">GUIDE.md</a>: what it does, from the player's side. Most features in the code have a section there.</li>
+<li><a href="https://github.com/KakarottoCake/Riftwii/blob/main/docs/ARCHITECTURE.md">ARCHITECTURE.md</a>: the four phases of a launch and the memory map.</li>
+<li>This page: where each piece lives.</li>
+<li><a href="https://github.com/KakarottoCake/Riftwii/blob/main/docs/DEVELOPING.md">DEVELOPING.md</a>: building, the host tests, Dolphin runs, releasing, and the ground rules.</li>
+</ol>
+<p>The layout in one sentence: <code>src/</code> and <code>include/riftwii/</code> are portable C++ that the host tests cover, <code>wii/</code> is the Wii app that uses them, <code>runtime/</code> is the small freestanding code that runs inside the game, and <code>vendor-*</code> is third-party code.</p>
+<h2 id="i-want-to-change">I want to change...</h2>
+<table>
+<thead>
+<tr class="header">
+<th>Topic</th>
+<th>Start in</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>A menu screen (Home, a game's page, Mods, Cheats, Settings)</td>
+<td><code>wii/menu/rift_menu.cpp</code></td>
+</tr>
+<tr class="even">
+<td>How a list or the tile grid looks or scrolls</td>
+<td><code>wii/menu/gui_flowlist.cpp</code>, <code>wii/menu/gui_gamegrid.cpp</code>, <code>wii/menu/skin.cpp</code></td>
+</tr>
+<tr class="odd">
+<td>The game page's and Settings' tiles, the prompts bar</td>
+<td><code>wii/menu/gui_tiles.cpp</code>, <code>wii/menu/gui_prompts.cpp</code>, <code>wii/menu/rift_menu.cpp</code> (<code>MenuHome</code>, <code>SettingsHub</code>), <code>src/art/skinpaint.cpp</code> (tile frames and icons)</td>
+</tr>
+<tr class="even">
+<td>Home's shelf, carousel and 3D covers ring; their boxes and 3D cover pictures</td>
+<td><code>wii/menu/gui_shelf.cpp</code>, <code>wii/menu/boxart.cpp</code>, <code>wii/menu/cover3d.cpp</code>, <code>src/art/coverart.cpp</code></td>
+</tr>
+<tr class="odd">
+<td>How screens, pages and popups come and go (fades, zooms, slides)</td>
+<td><code>wii/menu/transition.cpp</code>, the camera in <code>vendor-libgui/source/video.cpp</code></td>
+</tr>
+<tr class="even">
+<td>Menu themes (colours, pictures, music)</td>
+<td><code>src/art/theme.cpp</code> (theme.ini), <code>src/art/skinpaint.cpp</code> (the painted pictures), <code>wii/menu/menutheme.cpp</code>, <code>wii/menu/skin.cpp</code>, <code>themes/</code>, <a href="https://github.com/KakarottoCake/Riftwii/blob/main/docs/THEMES.md">THEMES.md</a></td>
+</tr>
+<tr class="odd">
+<td>The theme kit download</td>
+<td><code>tools/theme_kit.cpp</code>, <code>tools/make_theme_kit.py</code>, <code>themes/kit/README.txt</code></td>
+</tr>
+<tr class="even">
+<td>Menu text and its translations</td>
+<td><code>tools/lang_source.py</code> (the table), <code>wii/core/i18n.cpp</code>, <code>wii/lang/*.po</code></td>
+</tr>
+<tr class="odd">
+<td>Settings and what they mean</td>
+<td><code>src/data/settingsfile.cpp</code>, <code>wii/core/loadersettings.cpp</code>, the Settings screen in <code>wii/menu/rift_menu.cpp</code></td>
+</tr>
+<tr class="even">
+<td>Finding games on the SD card and USB drives</td>
+<td><code>wii/storage/usbcatalog.cpp</code>, <code>src/fs/usbgame.cpp</code>, <code>src/fs/imagevolume.cpp</code>, <code>src/fs/fat32.cpp</code>, <code>src/fs/ntfs.cpp</code>, <code>src/fs/wbfspart.cpp</code></td>
+</tr>
+<tr class="odd">
+<td>Riivolution packs: reading the XML</td>
+<td><code>src/patching/patch.cpp</code></td>
+</tr>
+<tr class="even">
+<td>Riivolution packs: what a launch does with them</td>
+<td><code>wii/launch/modplan.cpp</code>, <code>src/patching/apply.cpp</code>, <code>src/patching/expand.cpp</code>, <code>src/patching/redirect.cpp</code>, <code>src/patching/mempatch.cpp</code></td>
+</tr>
+<tr class="odd">
+<td>Starting a game (IOS, disc, apploader, patches)</td>
+<td><code>wii/launch/boot.cpp</code></td>
+</tr>
+<tr class="even">
+<td>What runs inside a game and serves the packs</td>
+<td><code>runtime/resident/rt_hook.c</code>, <code>runtime/rtable.c</code>, <code>wii/launch/resident.cpp</code></td>
+</tr>
+<tr class="odd">
+<td>Saves on the SD card instead of the NAND</td>
+<td><code>runtime/rtfs.c</code>, <code>runtime/rtfat.c</code>, <code>prepare_savegame</code> in <code>wii/launch/boot.cpp</code></td>
+</tr>
+<tr class="even">
+<td>Code builds (Project+, REX) and their <code>gameconfig.txt</code></td>
+<td><code>wii/launch/codebuilds.cpp</code>, <code>src/patching/gameconfig.cpp</code>, <code>src/patching/codehook.cpp</code>, <code>vendor-gecko/</code>; cheats in a second executable: <code>wii/launch/dolswitch_stub.S</code></td>
+</tr>
+<tr class="odd">
+<td>The virtual SD card (<code>sd.raw</code>)</td>
+<td><code>runtime/rtvsd.c</code> (the card), <code>runtime/vsd/</code> (the in-game blob), <code>wii/hooks/vsdhook.cpp</code> (install), <code>wii/hooks/vsdimage.cpp</code> (the menu's view)</td>
+</tr>
+<tr class="even">
+<td>Cheats</td>
+<td><code>src/data/cheats.cpp</code>, <code>wii/menu/gameextras.cpp</code></td>
+</tr>
+<tr class="odd">
+<td>RVZ games</td>
+<td><code>src/fs/rvz.cpp</code>, <code>runtime/rtrvz.c</code>, <code>runtime/resident/rt_zstd.c</code>, <code>docs/RVZ.md</code></td>
+</tr>
+<tr class="even">
+<td>The GameCube controller adapter</td>
+<td><code>runtime/rtgcad.c</code> (the driver), <code>wii/controllers/gcadapter.cpp</code> (menu), <code>runtime/pad/</code> and <code>wii/hooks/padhook.cpp</code> (games)</td>
+</tr>
+<tr class="odd">
+<td>Screenshots</td>
+<td><code>wii/menu/screenshot.cpp</code>, <code>runtime/shot/</code>, <code>wii/hooks/shothook.cpp</code>, <code>src/data/shotfile.cpp</code>, <code>src/art/pngencode.cpp</code></td>
+</tr>
+<tr class="even">
+<td>Problem reports and the QR code</td>
+<td><code>wii/online/reportsend.cpp</code>, <code>src/data/problemreport.cpp</code>, <code>src/art/qrcode.cpp</code></td>
+</tr>
+<tr class="odd">
+<td>A game's crash record</td>
+<td><code>runtime/fault/</code>, <code>runtime/rtfault.c</code>, <code>wii/hooks/faulthook.cpp</code>, <code>src/data/gamefault.cpp</code></td>
+</tr>
+<tr class="even">
+<td>The Wii Remote log, the Bluetooth trace and the Wii U Pro Controller translator</td>
+<td><code>runtime/wlog/</code>, <code>runtime/rtwlog.h</code>, <code>runtime/rtpro.c</code>, <code>wii/hooks/wpadhook.cpp</code>, <code>src/patching/wpadlog.cpp</code>, <code>docs/BLUETOOTH.md</code></td>
+</tr>
+<tr class="odd">
+<td>RiftWii's own crash screen</td>
+<td><code>wii/core/crash.cpp</code></td>
+</tr>
+<tr class="even">
+<td>Online play (Wiimmfi, WiiLink WFC)</td>
+<td><code>src/patching/wfcpatch.cpp</code>, <code>wii/launch/wfc.cpp</code>, <code>vendor-wwfc/</code></td>
+</tr>
+<tr class="odd">
+<td>Video mode, borders, deflicker</td>
+<td><code>src/patching/videopatch.cpp</code></td>
+</tr>
+<tr class="even">
+<td>Game language</td>
+<td><code>src/patching/gamelang.cpp</code></td>
+</tr>
+<tr class="odd">
+<td>Fixes for particular games, automatic cIOS choice (from USB Loader GX)</td>
+<td><code>src/patching/gxpatches.cpp</code>, <code>src/patching/gxkirby.inc</code> (<code>tools/gx_kirby_table.py</code>), the GX lines in <code>wii/launch/boot.cpp</code>, <code>image_cios_order</code> in <code>wii/storage/usbcatalog.cpp</code></td>
+</tr>
+<tr class="even">
+<td>A game's About page (GameTDB's details)</td>
+<td><code>wii/menu/rift_menu.cpp</code> (<code>MenuAbout</code>), <code>wii/online/gameinfo.cpp</code>, <code>src/data/gametdb.cpp</code></td>
+</tr>
+<tr class="odd">
+<td>Downloads: game names, covers, cheats, updates</td>
+<td><code>wii/online/online.cpp</code>, <code>src/net/http.cpp</code>, <code>wii/online/netsock.cpp</code>, <code>wii/online/tls.cpp</code>, <code>src/data/titles.cpp</code>, <code>src/art/coverart.cpp</code>, <code>src/net/update.cpp</code></td>
+</tr>
+<tr class="even">
+<td>Packs served from a PC (RiiFS)</td>
+<td><code>wii/online/netpacks.cpp</code>, <code>src/net/riifs.cpp</code>, <code>src/net/riifs_sync.cpp</code>, <code>docs/RIIFS.md</code></td>
+</tr>
+<tr class="odd">
+<td>Returning to RiftWii (or another title) when a game exits</td>
+<td><code>src/patching/returnto.cpp</code>, <code>apply_return_to</code> in <code>wii/launch/boot.cpp</code>, <code>wii/core/restart.cpp</code></td>
+</tr>
+<tr class="even">
+<td>Being started by another loader</td>
+<td><code>wii/launch/headless.cpp</code>, <code>src/patching/launchargs.cpp</code>, <code>docs/HEADLESS.md</code></td>
+</tr>
+<tr class="odd">
+<td>The Wii Menu channel</td>
+<td><code>channel/</code>, <code>wii/launch/channel.cpp</code>, <code>tools/make_channel.py</code>, <code>docs/CHANNEL.md</code></td>
+</tr>
+<tr class="even">
+<td>Memory the menu may use</td>
+<td><code>wii/core/memlimits.cpp</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="top-level">Top level</h2>
+<table>
+<thead>
+<tr class="header">
+<th>File</th>
+<th>What</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>README.md</code></td>
+<td>The project page: what it is, installing, credits</td>
+</tr>
+<tr class="even">
+<td><code>NOTICE.md</code></td>
+<td>Every third-party piece RiftWii contains or follows: origin, license, what was used</td>
+</tr>
+<tr class="odd">
+<td><code>LICENSE</code></td>
+<td>GNU GPL version 3</td>
+</tr>
+<tr class="even">
+<td><code>CMakeLists.txt</code></td>
+<td>The host build: the portable library, the runtime's C code and the test suites (<code>ctest</code>)</td>
+</tr>
+<tr class="odd">
+<td><code>Makefile.wii</code></td>
+<td>The Wii app (<code>riftwii.dol</code>); builds the runtime blobs and BearSSL first and embeds them</td>
+</tr>
+<tr class="even">
+<td><code>Makefile.runtime</code></td>
+<td>The in-game blobs (resident runtime, RVZ runtime, adapter, screenshot, crash and virtual SD card), each checked position independent</td>
+</tr>
+<tr class="odd">
+<td><code>Makefile.bearssl</code></td>
+<td>BearSSL for the Wii (https for the update check and problem reports)</td>
+</tr>
+<tr class="even">
+<td><code>Makefile.channel</code></td>
+<td>The Wii Menu channel and its installer</td>
+</tr>
+<tr class="odd">
+<td><code>hbc/</code></td>
+<td>The Homebrew Channel files: <code>meta.xml</code> (name, version), <code>icon.png</code>, <code>music.ogg</code> (the menu's music)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="wii-the-wii-app"><code>wii/</code>: the Wii app</h2>
+<p>The menu, the launch and everything that talks to IOS. Not host-tested: it links libogc. Each <code>.cpp</code> has a <code>.hpp</code> beside it that describes it. The build compiles every folder into one, so no two files share a name.</p>
+<table>
+<thead>
+<tr class="header">
+<th>File</th>
+<th>What</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>main.cpp</code></td>
+<td>Start-up: video, pads, SD card, crash handler, the menu, and what happens when the player leaves</td>
+</tr>
+<tr class="even">
+<td><code>lang/*.po</code></td>
+<td>The translations, written by <code>tools/lang_source.py</code></td>
+</tr>
+<tr class="odd">
+<td><code>font/</code></td>
+<td>The menu font's source (<code>rounded.ttf</code>, OFL)</td>
+</tr>
+<tr class="even">
+<td><code>font/</code></td>
+<td>The cut-down menu font (<code>tools/make_menu_font.py</code>), packed by the build</td>
+</tr>
+</tbody>
+</table>
+<h3 id="wiicore-logging-settings-text-files-memory-limits-restarting-the-crash-screen-translations"><code>wii/core/</code>: logging, settings, text files, memory limits, restarting, the crash screen, translations</h3>
+<table>
+<thead>
+<tr class="header">
+<th>File</th>
+<th>What</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>i18n.cpp</code></td>
+<td>Translations (the built-in <code>.po</code> files, or one on the card)</td>
+</tr>
+<tr class="even">
+<td><code>console.cpp</code></td>
+<td>libogc's text console, for the launch screen and errors</td>
+</tr>
+<tr class="odd">
+<td><code>crash.cpp</code></td>
+<td>RiftWii's crash screen and <code>crash.txt</code></td>
+</tr>
+<tr class="even">
+<td><code>log.cpp</code></td>
+<td>The log (<code>session.log</code>, <code>boot.log</code>)</td>
+</tr>
+<tr class="odd">
+<td><code>loadersettings.cpp</code></td>
+<td>Settings as the app reads and writes them</td>
+</tr>
+<tr class="even">
+<td><code>memlimits.cpp</code></td>
+<td>Keeps the app's heap out of memory a launch overwrites</td>
+</tr>
+<tr class="odd">
+<td><code>restart.cpp</code></td>
+<td>Starting RiftWii again without the Homebrew Channel (after a game, or the channel)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="wiimenu-the-menu-screens-lists-artwork-themes-music-banners-covers"><code>wii/menu/</code>: the menu: screens, lists, artwork, themes, music, banners, covers</h3>
+<table>
+<thead>
+<tr class="header">
+<th>File</th>
+<th>What</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>rift_menu.cpp</code></td>
+<td>Every menu screen, the GUI thread, the HOME menu, the screen dimming</td>
+</tr>
+<tr class="even">
+<td><code>menu.h</code></td>
+<td>The menu's entry points for <code>main.cpp</code></td>
+</tr>
+<tr class="odd">
+<td><code>gui_flowlist.cpp</code></td>
+<td>The row lists (a game's Options, Mods, Cheats, Settings' sections)</td>
+</tr>
+<tr class="even">
+<td><code>gui_tiles.cpp</code></td>
+<td>The tiles of the game page and the Settings hub: D-pad moves to the nearest, focus ring and lift</td>
+</tr>
+<tr class="odd">
+<td><code>gui_prompts.cpp</code></td>
+<td>The button prompts along the bottom of a screen (A Select, B Back, + Play)</td>
+</tr>
+<tr class="even">
+<td><code>gui_gamegrid.cpp</code></td>
+<td>The Home screen's tile grid and its cover textures</td>
+</tr>
+<tr class="odd">
+<td><code>skin.cpp</code></td>
+<td>The menu's artwork (painted by <code>src/art/skinpaint.cpp</code>) or a theme's pictures, as textures</td>
+</tr>
+<tr class="even">
+<td><code>menutheme.cpp</code></td>
+<td>The chosen theme: its theme.ini, pictures and music on the SD card</td>
+</tr>
+<tr class="odd">
+<td><code>menumusic.cpp</code></td>
+<td>The background music</td>
+</tr>
+<tr class="even">
+<td><code>ftnopng.c</code></td>
+<td>Keeps FreeType from pulling in libpng</td>
+</tr>
+<tr class="odd">
+<td><code>credits.cpp</code></td>
+<td>Settings &gt; Credits and license</td>
+</tr>
+<tr class="even">
+<td><code>frontend.cpp</code></td>
+<td>The menu's state for a game: its packs, code builds and saved choices; Start's checks</td>
+</tr>
+<tr class="odd">
+<td><code>gameextras.cpp</code></td>
+<td>The game page's extras: cheats, video, language, online server, code builds, what a launch carries</td>
+</tr>
+<tr class="even">
+<td><code>screenshot.cpp</code></td>
+<td>Menu screenshots and importing the games' ones</td>
+</tr>
+<tr class="odd">
+<td><code>covers.cpp</code></td>
+<td>Cover art: download, cache, textures</td>
+</tr>
+<tr class="even">
+<td><code>guiscript.cpp</code></td>
+<td>Scripted menu input for tests (<code>sd:/riftwii/guiscript.txt</code>)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="wiilaunch-starting-a-game-ios-the-disc-the-apploader-patches-the-runtime-the-jump"><code>wii/launch/</code>: starting a game: IOS, the disc, the apploader, patches, the runtime, the jump</h3>
+<table>
+<thead>
+<tr class="header">
+<th>File</th>
+<th>What</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>progress.cpp</code></td>
+<td>The launch screen's progress line</td>
+</tr>
+<tr class="even">
+<td><code>menuios.cpp</code></td>
+<td>Which IOS the menu runs under (58 or a d2x cIOS slot)</td>
+</tr>
+<tr class="odd">
+<td><code>ios_reload.cpp</code></td>
+<td>IOS reloads, and telling Dolphin apart from a Wii</td>
+</tr>
+<tr class="even">
+<td><code>channel.cpp</code></td>
+<td>Offering and installing the Wii Menu channel</td>
+</tr>
+<tr class="odd">
+<td><code>codebuilds.cpp</code></td>
+<td>Finding code builds (on the card and inside <code>sd.raw</code>) and preparing their codes</td>
+</tr>
+<tr class="even">
+<td><code>modplan.cpp</code></td>
+<td>Compiling the chosen packs into boot options</td>
+</tr>
+<tr class="odd">
+<td><code>di.cpp</code></td>
+<td>The disc drive (<code>/dev/di</code>)</td>
+</tr>
+<tr class="even">
+<td><code>boot.cpp</code></td>
+<td>The launch: IOS, the disc or image, the apploader, patches, the blobs, low memory, the jump</td>
+</tr>
+<tr class="odd">
+<td><code>resident.cpp</code></td>
+<td>Installing the resident runtime</td>
+</tr>
+<tr class="even">
+<td><code>wfc.cpp</code></td>
+<td>Patching the game for an online server</td>
+</tr>
+<tr class="odd">
+<td><code>headless.cpp</code></td>
+<td>Launches another loader asks for</td>
+</tr>
+<tr class="even">
+<td><code>autorun.cpp</code></td>
+<td>Unattended test runs (<code>sd:/riftwii/autorun.txt</code>)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="wiihooks-installing-the-blobs-that-run-inside-the-game-the-adapter-screenshots-crashes-the-virtual-sd-card"><code>wii/hooks/</code>: installing the blobs that run inside the game (the adapter, screenshots, crashes, the virtual SD card)</h3>
+<table>
+<thead>
+<tr class="header">
+<th>File</th>
+<th>What</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>padhook.cpp</code></td>
+<td>Installing the GameCube adapter blob</td>
+</tr>
+<tr class="even">
+<td><code>shothook.cpp</code></td>
+<td>Installing the screenshot blob</td>
+</tr>
+<tr class="odd">
+<td><code>faulthook.cpp</code></td>
+<td>Installing the crash blob (and its retail BCA answer)</td>
+</tr>
+<tr class="even">
+<td><code>wpadhook.cpp</code></td>
+<td>Installing the Wii Remote log blob</td>
+</tr>
+<tr class="odd">
+<td><code>vsdhook.cpp</code></td>
+<td>Finding <code>sd.raw</code> for a launch and installing the virtual SD card blob</td>
+</tr>
+<tr class="even">
+<td><code>vsdimage.cpp</code></td>
+<td><code>sd.raw</code> as the menu's read-only <code>vsd:</code> drive</td>
+</tr>
+</tbody>
+</table>
+<h3 id="wiicontrollers-the-gamecube-adapter-in-the-menu-and-the-wii-remote-queues"><code>wii/controllers/</code>: the GameCube adapter in the menu and the Wii Remote queues</h3>
+<table>
+<thead>
+<tr class="header">
+<th>File</th>
+<th>What</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>gcadapter.cpp</code></td>
+<td>The GameCube adapter in the menu and on its test page</td>
+</tr>
+</tbody>
+</table>
+<h3 id="wiistorage-sd-cards-and-usb-drives-game-images-raw-access-d2x-devices-saves"><code>wii/storage/</code>: sD cards and USB drives: game images, raw access, d2x devices, saves</h3>
+<table>
+<thead>
+<tr class="header">
+<th>File</th>
+<th>What</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>usbcatalog.cpp</code></td>
+<td>Game images on the SD card and USB drives, the USB drive's volume, RVZ serving, the menu's file reads there</td>
+</tr>
+<tr class="even">
+<td><code>umsdev.cpp</code></td>
+<td>d2x's USB device (<code>/dev/usb2</code>), read by the launch and handed to the runtime</td>
+</tr>
+<tr class="odd">
+<td><code>sdio.cpp</code></td>
+<td>Raw SD card access (<code>/dev/sdio/slot0</code>) after libogc's driver is gone</td>
+</tr>
+<tr class="even">
+<td><code>d2xsd.cpp</code></td>
+<td>d2x's SD device (<code>/dev/sdio/sdhc</code>), when the game itself is on the card</td>
+</tr>
+<tr class="odd">
+<td><code>sdfile.cpp</code></td>
+<td>Where a file's bytes lie on the card</td>
+</tr>
+</tbody>
+</table>
+<h3 id="wiionline-network-downloads-https-problem-reports-riitag"><code>wii/online/</code>: network, downloads, https, problem reports, RiiTag</h3>
+<table>
+<thead>
+<tr class="header">
+<th>File</th>
+<th>What</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>netpacks.cpp</code></td>
+<td>Packs from a RiiFS server</td>
+</tr>
+<tr class="even">
+<td><code>online.cpp</code></td>
+<td>Downloads (names, covers, cheats, the update check)</td>
+</tr>
+<tr class="odd">
+<td><code>netsock.cpp</code></td>
+<td>Network sockets</td>
+</tr>
+<tr class="even">
+<td><code>tls.cpp</code>, <code>tlsroots.c</code></td>
+<td>https with BearSSL, and the certificates it trusts</td>
+</tr>
+<tr class="odd">
+<td><code>reportsend.cpp</code></td>
+<td>Gathering and sending problem reports; log rotation; importing a game's crash</td>
+</tr>
+<tr class="even">
+<td><code>gameinfo.cpp</code></td>
+<td>Game details for the About page: GameTDB's database on the card, its download, the cache</td>
+</tr>
+</tbody>
+</table>
+<h2 id="src-and-includeriftwii-portable-code"><code>src/</code> and <code>include/riftwii/</code>: portable code</h2>
+<p>Plain C++17 with no Wii headers, host-tested. Each <code>src/&lt;area&gt;/x.cpp</code> implements <code>include/riftwii/x.hpp</code> (one flat folder), whose comments document it.</p>
+<table>
+<thead>
+<tr class="header">
+<th>Name</th>
+<th>What</th>
+</tr>
+</thead>
+<tbody>
+</tbody>
+</table>
+<h3 id="srcpatching-riivolution-packs-and-patches-hooks-game-fixes-launch-arguments"><code>src/patching/</code>: riivolution packs and patches, hooks, game fixes, launch arguments</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Name</th>
+<th>What</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>patch</code></td>
+<td>Riivolution XML: parsing, and a plan for one disc (choices, params, placeholders)</td>
+</tr>
+<tr class="even">
+<td><code>apply</code>, <code>overlay</code>, <code>source</code></td>
+<td>Composing replaced files from byte sources</td>
+</tr>
+<tr class="odd">
+<td><code>expand</code></td>
+<td>Folder patches into file patches against the disc's file table</td>
+</tr>
+<tr class="even">
+<td><code>redirect</code></td>
+<td>The table of where each replaced file's bytes come from</td>
+</tr>
+<tr class="odd">
+<td><code>mempatch</code></td>
+<td>Memory patches (plain, search, ocarina) and the regions they may touch</td>
+</tr>
+<tr class="even">
+<td><code>launch</code></td>
+<td><code>LaunchModel</code>: the packs and code builds for a game and their choices</td>
+</tr>
+<tr class="odd">
+<td><code>symsearch</code></td>
+<td>Finding SDK functions (IPC, PAD, the crash handler) in a game's code</td>
+</tr>
+<tr class="even">
+<td><code>hook</code></td>
+<td>Branch encoding and placing the resident runtime</td>
+</tr>
+<tr class="odd">
+<td><code>codehook</code></td>
+<td>Where the Gecko code handler is called from</td>
+</tr>
+<tr class="even">
+<td><code>gameconfig</code></td>
+<td><code>gameconfig.txt</code> / <code>gc.txt</code> for code builds</td>
+</tr>
+<tr class="odd">
+<td><code>wfcpatch</code></td>
+<td>Online server patches</td>
+</tr>
+<tr class="even">
+<td><code>videopatch</code></td>
+<td>Video settings for games</td>
+</tr>
+<tr class="odd">
+<td><code>gamelang</code></td>
+<td>The game language</td>
+</tr>
+<tr class="even">
+<td><code>wpadlog</code></td>
+<td>The Wii Remote log: the game's empty print functions, its HOME Menu exit, and the saved log as text</td>
+</tr>
+<tr class="odd">
+<td><code>gxpatches</code></td>
+<td>USB Loader GX's per-game fixes and cIOS choice</td>
+</tr>
+<tr class="even">
+<td><code>returnto</code></td>
+<td>Returning to RiftWii from a game</td>
+</tr>
+<tr class="odd">
+<td><code>launchargs</code></td>
+<td>Arguments from another loader</td>
+</tr>
+</tbody>
+</table>
+<h3 id="srcdisc-wii-discs-executables-banners-and-fonts"><code>src/disc/</code>: wii discs, executables, banners and fonts</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Name</th>
+<th>What</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>fst</code></td>
+<td>The disc's file system table</td>
+</tr>
+<tr class="even">
+<td><code>disc</code></td>
+<td>Wii disc structures (header, partitions, apploader)</td>
+</tr>
+<tr class="odd">
+<td><code>dol</code></td>
+<td>The DOL executable header</td>
+</tr>
+</tbody>
+</table>
+<h3 id="srcfs-file-systems-and-game-images-fat32-ntfs-wbfs-rvz"><code>src/fs/</code>: file systems and game images: FAT32, NTFS, WBFS, RVZ</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Name</th>
+<th>What</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>fat32</code>, <code>ntfs</code>, <code>imagevolume</code></td>
+<td>Read-only FAT32 and NTFS walkers, and a drive's volume</td>
+</tr>
+<tr class="even">
+<td><code>usbgame</code></td>
+<td>WBFS, split WBFS and ISO images; the d2x fragment list</td>
+</tr>
+<tr class="odd">
+<td><code>wbfspart</code></td>
+<td>USB drives formatted as WBFS: finding the partition, its discs, their fragments</td>
+</tr>
+<tr class="even">
+<td><code>rvz</code>, <code>sha1</code></td>
+<td>RVZ images and their hashes</td>
+</tr>
+</tbody>
+</table>
+<h3 id="srcnet-http-riifs-the-update-check-riitag"><code>src/net/</code>: hTTP, RiiFS, the update check, RiiTag</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Name</th>
+<th>What</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>http</code></td>
+<td>HTTP GET and POST</td>
+</tr>
+<tr class="even">
+<td><code>update</code></td>
+<td>The update check</td>
+</tr>
+<tr class="odd">
+<td><code>riifs</code>, <code>riifs_sync</code></td>
+<td>The RiiFS client and its mirror</td>
+</tr>
+</tbody>
+</table>
+<h3 id="srcart-pictures-the-canvas-png-qr-codes-themes-covers"><code>src/art/</code>: pictures: the canvas, PNG, QR codes, themes, covers</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Name</th>
+<th>What</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>coverart</code>, <code>pngdecode</code>, <code>canvas</code></td>
+<td>Cover art, a PNG reader, the software canvas the artwork is painted on</td>
+</tr>
+<tr class="even">
+<td><code>theme</code></td>
+<td><code>theme.ini</code>: a theme's colours, corners and backdrop; the pictures a theme may replace</td>
+</tr>
+<tr class="odd">
+<td><code>skinpaint</code></td>
+<td>The menu's pictures painted in a theme's colours (the Wii menu and the theme kit)</td>
+</tr>
+<tr class="even">
+<td><code>qrcode</code></td>
+<td>QR codes</td>
+</tr>
+</tbody>
+</table>
+<h3 id="srcdata-riftwiis-own-files-settings-history-cheats-titles-reports"><code>src/data/</code>: RiftWii's own files: settings, history, cheats, titles, reports</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Name</th>
+<th>What</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>cheats</code></td>
+<td>Cheat files and GCT building</td>
+</tr>
+<tr class="even">
+<td><code>titles</code></td>
+<td>Game names</td>
+</tr>
+<tr class="odd">
+<td><code>settingsfile</code></td>
+<td><code>settings.txt</code></td>
+</tr>
+<tr class="even">
+<td><code>langfile</code></td>
+<td>Translation files</td>
+</tr>
+<tr class="odd">
+<td><code>playhistory</code></td>
+<td><code>history.txt</code></td>
+</tr>
+<tr class="even">
+<td><code>gametdb</code></td>
+<td>GameTDB's <code>wiitdb.xml</code> read a game at a time, the game details cache, wrapping their text</td>
+</tr>
+<tr class="odd">
+<td><code>cardlog</code></td>
+<td>The runtime's SD card log, as text</td>
+</tr>
+<tr class="even">
+<td><code>shotfile</code>, <code>pngencode</code></td>
+<td>Screenshot files and a PNG writer</td>
+</tr>
+<tr class="odd">
+<td><code>problemreport</code></td>
+<td>A problem report's text</td>
+</tr>
+<tr class="even">
+<td><code>gamefault</code></td>
+<td>A game's crash record, as text</td>
+</tr>
+</tbody>
+</table>
+<h2 id="runtime-code-that-runs-inside-the-game"><code>runtime/</code>: code that runs inside the game</h2>
+<p>Freestanding C99 and assembly: no libc, no data sections, position independent (each blob is linked at two addresses and compared). The shared C parts (<code>runtime/*.c</code>) are also built into the host tests.</p>
+<table>
+<thead>
+<tr class="header">
+<th>Path</th>
+<th>What</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>resident/</code></td>
+<td>The resident runtime: IPC hooks, serving pack files from the card, USB drive or memory, save redirection, Riivolution's <code>file</code> device, RVZ reading. <code>rt_entry.S</code> (header, trampolines), <code>rt_hook.c</code>, <code>rt_hook.h</code> (the layout the loader fills), <code>rt.ld</code>, <code>rt_rvz.ld</code> and <code>rt_zstd.c</code> for the RVZ build</td>
+</tr>
+<tr class="even">
+<td><code>rtable.c</code></td>
+<td>The redirect table the resident walks</td>
+</tr>
+<tr class="odd">
+<td><code>rtfat.c</code>, <code>rtfs.c</code></td>
+<td>A resumable FAT32 engine, and the NAND (ISFS) requests on top of it, for saves on the card</td>
+</tr>
+<tr class="even">
+<td><code>rtrvz.c</code></td>
+<td>Unpacking RVZ groups</td>
+</tr>
+<tr class="odd">
+<td><code>pad/</code>, <code>rtgcad.c</code></td>
+<td>The GameCube adapter blob and its WUP-028 driver (also used by the menu)</td>
+</tr>
+<tr class="even">
+<td><code>shot/</code>, <code>rtshot.c</code></td>
+<td>The in-game screenshot blob</td>
+</tr>
+<tr class="odd">
+<td><code>fault/</code>, <code>rtfault.c</code></td>
+<td>The crash blob: the crash record to the NAND; also answers the BCA read</td>
+</tr>
+<tr class="even">
+<td><code>wlog/</code>, <code>rtwlog.h</code></td>
+<td>The Wii Remote log blob: the game's Bluetooth and Wii Remote debug prints and a trace of its Bluetooth traffic, saved to the NAND at HOME &gt; Wii Menu; it runs the Pro Controller translator</td>
+</tr>
+<tr class="odd">
+<td><code>rtpro.c</code></td>
+<td>The Wii U Pro Controller translator: the Pro presented to the game as a Wii Remote with a Classic Controller Pro (host-tested in <code>tests/pro_tests.cpp</code>)</td>
+</tr>
+<tr class="even">
+<td><code>vsd/</code>, <code>rtvsd.c</code></td>
+<td>The virtual SD card blob and the card it answers as</td>
+</tr>
+</tbody>
+</table>
+<p>Each blob directory holds <code>&lt;name&gt;_entry.S</code> (a header of offsets the loader reads, the trampolines), <code>&lt;name&gt;_hook.c</code>, <code>&lt;name&gt;_hook.h</code> (the header and context layout) and <code>&lt;name&gt;.ld</code>. The Wii side that installs each one is the matching <code>wii/*hook.cpp</code>.</p>
+<h2 id="tests"><code>tests/</code></h2>
+<p>One suite per area, <code>tests/&lt;name&gt;_tests.cpp</code>, registered in <code>CMakeLists.txt</code> and run with <code>ctest</code>. <code>fat32_image.hpp</code> builds FAT32 images in memory, <code>fixtures/</code> holds XML and RVZ inputs, <code>qrcode_ref.inc</code> is reference data from python-qrcode. <code>hook_tests.cpp</code> and <code>vsdblob_tests.cpp</code> run the resident runtime's and the virtual SD card blob's C code on the host against a fake IOS (the blobs keep addresses as 32-bit words, so their memory is placed below 4 GiB; the virtual SD card's at the Wii's own MEM1 and MEM2 addresses).</p>
+<h2 id="tools"><code>tools/</code></h2>
+<table>
+<thead>
+<tr class="header">
+<th>File</th>
+<th>What</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>lang_source.py</code></td>
+<td>The translation table: writes <code>wii/lang/*.po</code> and checks every string still appears in the code</td>
+</tr>
+<tr class="even">
+<td><code>make_menu_font.py</code>, <code>make_sounds.py</code></td>
+<td>Build-time assets</td>
+</tr>
+<tr class="odd">
+<td><code>make_channel.py</code>, <code>make_channel_art.py</code>, <code>preview_channel.py</code></td>
+<td>The Wii Menu channel's WAD and art</td>
+</tr>
+<tr class="even">
+<td><code>rtreloc.py</code></td>
+<td>Relocations for the RVZ runtime blob</td>
+</tr>
+<tr class="odd">
+<td><code>ipcscan.cpp</code>, <code>rvzstub.cpp</code></td>
+<td>Host tools: the IPC search on a game's DOL; an RVZ's stub disc for Dolphin</td>
+</tr>
+<tr class="even">
+<td><code>theme_kit.cpp</code>, <code>make_theme_kit.py</code></td>
+<td>The theme kit zip: template pictures, a starter theme.ini, the guide</td>
+</tr>
+<tr class="odd">
+<td><code>rvz/make_test_disc.py</code></td>
+<td>The RVZ test fixtures</td>
+</tr>
+<tr class="even">
+<td><code>dolphin/</code></td>
+<td>Dolphin test harness: <code>run.sh</code>, the USB Gecko log reader, a RiiFS test server, movie and screenshot helpers (see <code>docs/HARNESS.md</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="channel"><code>channel/</code></h2>
+<p>The Wii Menu channel (<code>docs/CHANNEL.md</code>): <code>forwarder/</code> (the channel that starts RiftWii), <code>loader/</code> (its boot program), <code>installer/</code> (the app that installs it), <code>common/</code> (starting a DOL), <code>art/</code> (its artwork, drawn by <code>tools/make_channel_art.py</code>).</p>
+<h2 id="docs"><code>docs/</code></h2>
+<p>Listed in <a href="https://github.com/KakarottoCake/Riftwii/blob/main/docs/README.md">docs/README.md</a>, with the history documents that code comments cite.</p>
+<h2 id="vendor--third-party-code"><code>vendor-*</code>: third-party code</h2>
+<table>
+<thead>
+<tr class="header">
+<th>Folder</th>
+<th>What</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>vendor-libgui/</code></td>
+<td>libwiigui (menu widgets, video, input), with RiftWii's changes; <code>wiidrc.*</code> is the Wii U GamePad</td>
+</tr>
+<tr class="even">
+<td><code>vendor-pugixml/</code></td>
+<td>XML parsing</td>
+</tr>
+<tr class="odd">
+<td><code>vendor-bearssl/</code></td>
+<td>TLS</td>
+</tr>
+<tr class="even">
+<td><code>vendor-kenney/input-prompts/</code></td>
+<td>Kenney's controller and button pictures (CC0); <code>tools/make_input_icons.py</code> turns them into <code>src/art/inputicons_data.cpp</code></td>
+</tr>
+<tr class="odd">
+<td><code>vendor-zstd/</code></td>
+<td>The Zstandard decoder (RVZ)</td>
+</tr>
+<tr class="even">
+<td><code>vendor-gecko/</code></td>
+<td>The Gecko code handler, with its source</td>
+</tr>
+<tr class="odd">
+<td><code>vendor-wwfc/</code></td>
+<td>WiiLink WFC's patcher pieces</td>
+</tr>
+</tbody>
+</table>
+<p>Licenses and what RiftWii changed are in <a href="https://github.com/KakarottoCake/Riftwii/blob/main/NOTICE.md">NOTICE.md</a>.</p>
+<h2 id="not-in-the-repository">Not in the repository</h2>
+<p>Build output, all git-ignored: <code>build-host/</code> (CMake), <code>build_wii/</code> and <code>riftwii.dol</code> / <code>.elf</code> (<code>Makefile.wii</code>), <code>build-runtime/</code> (the blobs), <code>build-bearssl/</code>, <code>build-channel/</code>. <code>build-dolphin/</code> is the local Dolphin test setup (<code>docs/HARNESS.md</code>).</p>
+<h2 id="on-the-sd-card">On the SD card</h2>
+<p>What RiftWii keeps in <code>sd:/riftwii/</code> is listed in <a href="https://github.com/KakarottoCake/Riftwii/blob/main/docs/ARCHITECTURE.md#files-on-the-sd-card">ARCHITECTURE.md</a>.</p>
+<h2 id="conventions">Conventions</h2>
+<ul>
+<li>No two files share a base name across <code>src/</code>, <code>wii/</code> and <code>runtime/</code> (devkitPPC builds into one flat folder).</li>
+<li>Logic that can run on a PC goes in <code>src/</code> with tests; <code>wii/</code> is glue to IOS and the screen.</li>
+<li>A new in-game blob follows the existing ones: its own <code>runtime/&lt;name&gt;/</code>, rules in <code>Makefile.runtime</code>, a <code>wii/&lt;name&gt;hook.cpp</code>, an entry in <code>ARCHITECTURE.md</code>'s memory map.</li>
+<li>New third-party code, or code written from someone else's, gets a row in <code>NOTICE.md</code>.</li>
+</ul>
+
+            </div>
+
+        </article>
+
+    </main>
+
+</body>
+
+</html>

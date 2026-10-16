@@ -1,9 +1,18 @@
 [
-  "getting-started.html"
-  ,"installing-mods.html"
-  ,"troubleshooting.html"
-  ,"tutorialtest.html"
-  ,"updating-riftwii.html"
-  ,"using-a-usb-disc-drive.html"
-  ,"virtual-sd-card-setup.html"
+  "getting-started.html",
+  "installing-mods.html",
+  "send-a-problem-report.html",
+  "updating-riftwii.html",
+  "using-a-usb-disc-drive.html",
+  "virtual-sd-cards.html",
+  "code-map.html",
+  "architecture.html",
+  "developing.html",
+  "themes.html",
+  "harness.html",
+  "usb-hardware-test.html",
+  "ctgp-r.html",
+  "riifs.html",
+  "headless-launching.html",
+  "bluetooth.html"
 ]

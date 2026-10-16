@@ -1,3 +1,5 @@
+<!-- SPDX-FileCopyrightText: 2026 RiftWii contributors -->
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
 # Main Features:
 
 - Loads Riivolution-format packs without a disc

@@ -1,0 +1,122 @@
+<!-- SPDX-FileCopyrightText: 2026 RiftWii contributors -->
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Other Bluetooth Controllers (Advanced) - RiftWii</title>
+
+    <link rel="stylesheet" href="../css/tutorials.css?v=20261016-7">
+
+    <link
+        rel="icon"
+        type="image/png"
+        href="https://github.com/KakarottoCake/Riftwii/blob/main/hbc/icon.png?raw=true"
+    >
+</head>
+
+<body>
+
+    <main class="tutorial-page">
+
+        <a
+            class="back-link"
+            href="../index.html#tutorials"
+        >
+            ← Back to RiftWii
+        </a>
+
+        <article class="tutorial-card">
+
+            <span class="kicker">
+                BLUETOOTH
+            </span>
+
+            <h1>
+                Other Bluetooth Controllers (Advanced)
+            </h1>
+
+            
+
+            <a
+                class="link-button guide-link-button"
+                href="https://github.com/KakarottoCake/Riftwii/blob/main/docs/BLUETOOTH.md"
+                target="_blank"
+                rel="noopener noreferrer"
+            >
+                View the source documentation on GitHub
+            </a>
+
+            <div class="tutorial-doc-content">
+<p>The question: could RiftWii do for the Wii what <a href="https://github.com/ndeadly/MissionControl">MissionControl</a> does for the Switch, letting a PS4, PS5, Xbox or Switch Pro controller connect over Bluetooth and work as the console's own controller, without a custom IOS?</p>
+<p>Short answer: it can be done in principle, but not as a small change. It needs a Wii Remote emulator running inside every game, and it can only be tested on a real Wii with the real controllers. The first piece exists now: RiftWii's in-game screenshot blob already sits between the game and the Bluetooth dongle and reads the Wii Remote's reports (see "What exists" below). This page lays out the rest so it can be built in steps.</p>
+<h2 id="how-missioncontrol-works-and-why-the-wii-is-different">How MissionControl works, and why the Wii is different</h2>
+<p>MissionControl is a Switch system module. The Switch has one Bluetooth host stack, in a system service, shared by every game. MissionControl patches that service so it accepts pairing with controllers that are not Nintendo's, and translates their input reports into Switch Pro Controller reports before games see them. The Switch's radio does Bluetooth 4.x with Secure Simple Pairing, so modern controllers pair with it normally.</p>
+<p>The Wii is built differently:</p>
+<ul>
+<li><code>The Bluetooth host stack is in each game</code>, not in the system. IOS only exposes the USB Bluetooth dongle (a Broadcom BCM2045) as <code>/dev/usb/oh1/57e/305</code>. HCI commands go out on the control endpoint, events come in on the interrupt endpoint (0x81) and data (ACL) on the bulk endpoints (0x02 out, 0x82 in). The game's SDK runs HCI, L2CAP and HID itself. There is no single service to patch. The code has to sit in each game, between its stack and the dongle.</li>
+<li><code>The radio is Bluetooth 2.0 + EDR</code>: no Secure Simple Pairing, no Bluetooth Low Energy. Controllers that only pair with SSP, or only speak BLE (Xbox Series controllers, and Xbox One controllers on current firmware), cannot connect at all.</li>
+<li><code>Games accept only known devices.</code> The SDK connects Wii Remotes listed in SYSCONF (<code>BT.DINF</code>) and answers link key requests from its stored keys. A new device would have to be registered there, or hidden from the game's stack entirely.</li>
+<li><code>Games only understand Wii Remotes.</code> The game sends output reports (LEDs, reporting mode, status requests, memory reads for calibration and extension identification, extension encryption setup, IR camera registers, speaker data) and waits for the matching input reports. A foreign controller must be presented as a complete Wii Remote, or the game's WPAD layer times out and shows "Communications with the Wii Remote have been interrupted".</li>
+</ul>
+<p>fakemote (a d2x cIOS module, which RiftWii can already launch games with) does the equivalent work inside IOS. It fakes the dongle for the game, adds fake Wii Remotes backed by USB controllers, and emulates the Wii Remote protocol for them. It uses USB rather than the radio, which avoids pairing entirely.</p>
+<h2 id="doing-it-without-a-cios-the-parts">Doing it without a cIOS: the parts</h2>
+<p>All of it would run on the PowerPC, inside the game, in the IPC completion path RiftWii's blobs already use:</p>
+<ol type="1">
+<li><p><code>Tap the game's Bluetooth traffic.</code> Hook the game's <code>IOS_IoctlvAsync</code>, watch its USBV0 messages to the dongle, and read or rewrite HCI events and ACL data before the game's callbacks see them. <em>Done</em> for ACL input: <code>runtime/rtshot.c</code> and <code>runtime/shot/</code> (the screenshot combo reads Wii Remote buttons this way and hides HOME).</p></li>
+<li><p><code>Send our own HCI commands and ACL packets</code> through the same fd, and remove their replies (Command Complete and Command Status events, and the flow-control counts in Number Of Completed Packets) from what the game sees, so its HCI state stays consistent.</p></li>
+<li><p><code>Accept the foreign controller.</code> Answer its Connection Request ourselves (Accept Connection Request), answer its Link Key Request with the key it was paired with, open its HID control (PSM 0x11) and interrupt (PSM 0x13) channels, and keep all of that hidden from the game. Pairing depends on the controller:</p>
+<ul>
+<li>DualShock 3: over USB, write the Wii's address into the controller (feature report 0xF5). It then connects to the Wii by itself.</li>
+<li>DualShock 4 and DualSense: over USB, write the Wii's address and a link key into the controller. It then connects with legacy authentication using that key, which step 3 answers.</li>
+<li>Switch Pro Controller, 8BitDo and others: pair over the air. Whether they accept legacy PIN pairing from a Bluetooth 2.0 host has to be tried controller by controller.</li>
+</ul>
+<p>The USB side of pairing would be a page in RiftWii's menu (libogc reaches USB HID devices there), done once per controller.</p></li>
+<li><p><code>Present a Wii Remote to the game.</code> Inject a Connection Request for a Wii Remote address the game accepts. To avoid writing SYSCONF (a corrupted SYSCONF stops the Wii Menu), the address of a Wii Remote already paired with the console can be borrowed while that remote is off. Then answer the game's L2CAP and HID traffic for it: its output reports (status, memory and register reads and writes, reporting mode) and a steady stream of input reports built from the foreign controller's state (buttons, and a Nunchuk or Classic Controller extension made from the sticks).</p></li>
+<li><p><code>Translate the controllers.</code> One small driver per family (DS3, DS4, DualSense, Switch Pro), mapping their HID reports onto Wii Remote, Nunchuk and Classic Controller buttons and sticks. Motion and pointer (IR) are the hard part: IR can be faked from a stick or a touchpad, and motion from the controller's gyro and accelerometer.</p></li>
+</ol>
+<h2 id="risks-and-cost">Risks and cost</h2>
+<ul>
+<li>Parts 2 to 5 are several thousand lines of code running in every game, inside interrupt handlers. A mistake disconnects the real Wii Remotes too.</li>
+<li>None of it can be tested in Dolphin. Dolphin's emulated Bluetooth has no foreign controllers, and passthrough needs a real dongle on the PC. Every step needs a Wii and the controllers.</li>
+<li>Registering devices in SYSCONF is avoided by design (step 4).</li>
+</ul>
+<h2 id="a-safer-first-step">A safer first step</h2>
+<p><code>USB controllers as GameCube controllers</code>, in games that support the GameCube controller. The GameCube adapter blob (<code>runtime/pad</code>) already drives a USB HID device from inside the game through IOS 58's <code>/dev/usb/hid</code> and feeds it into <code>PADRead</code>. A DualShock 3 or 4 on a USB cable could be read the same way, with no Bluetooth, no Wii Remote emulation and no cIOS. It covers fewer games (only those that take a GameCube controller), but it is small, self-contained and follows a pattern that works on hardware.</p>
+<h2 id="the-wii-u-pro-controller-translator">The Wii U Pro Controller translator</h2>
+<p>The Wii U Pro Controller is the one foreign controller the Wii already pairs and connects: it speaks the Wii Remote's protocol. Games still do nothing with it. Its buttons and sticks come only in the extension bytes, in a layout of its own, behind an extension ID no Wii game knows (<code>0x0120</code>). Testers' Wii Remote logs also showed it disconnecting 10-40 ms after the game's first requests.</p>
+<p><code>runtime/rtpro.c</code> (host-tested in <code>tests/pro_tests.cpp</code>) runs inside the Wii Remote log blob (<code>runtime/wlog</code>), which hooks the game's <code>IOS_IoctlvAsync</code> like the screenshot blob does. On a link whose address is a pairing named "Nintendo RVL-CNT-01-UC", or whose extension ID reads back as the Pro's:</p>
+<ul>
+<li>The controller is asked for reporting mode 0x34 (buttons and 19 extension bytes, room for all 11 of the Pro's) whatever the game asked for. Each report is rebuilt in the game's own mode: no Wii Remote buttons, the accelerometer at rest, no IR points, and the extension bytes as a Classic Controller's. The sticks are scaled, and the button bytes are already in the Classic Controller's bit places.</li>
+<li>The extension ID reads back as a Classic Controller Pro's. Its calibration, and the Wii Remote's accelerometer calibration, read back as standard values. Errors on write acknowledgements (the Pro has no IR camera or speaker) read back as success.</li>
+<li>Encryption: a game that writes <code>0xAA</code> to <code>0xA400F0</code> and a 16-byte key at <code>0xA40040</code> decrypts every extension byte. The translator makes the two 8-byte tables from that key and the game's own lookup tables, and encrypts what it hands the game. The tables are an answer table (7 rows of 6 bytes), a key box and eight table boxes; the loader finds them in the game's data (<code>find_extension_tables</code>), and RiftWii carries none of them. The Pro gets <code>0x55</code> in place of the <code>0xAA</code>, so its own bytes stay plain. If it encrypts them anyway, its first report shows it and they are decrypted.</li>
+<li>What a Pro cannot take never reaches it. A tester's Bluetooth trace (2610-407) showed why it hung up: the game's first request on a new link reads the Wii Remote's own memory (EEPROM <code>0x1770</code>, the firmware probe), and 27 ms later the Pro closed both channels and dropped the link, at every connection. The Pro now gets only what the Wii U asks of it: rumble, LEDs, the reporting mode, status, and reads and writes of the extension's registers (<code>0xA4xxxx</code>). A read of the Wii Remote's memory (or of its other registers) goes out as a read of the extension's calibration, and its answers come back as a Wii Remote's would: at the address the game asked for, the accelerometer calibration RiftWii's, the rest erased, and error 8 past the end of the memory (<code>0x1700</code>), which is how a Wii Remote answers the probe. The IR camera, the speaker and writes outside the extension go out as a status request when the game waits for an acknowledgement (the status answer comes back as it), and as the LEDs again when it does not.</li>
+</ul>
+<p>The blob is on when the menu saw a Pro Controller (connect it in the menu before starting the game). <code>settings.txt</code> <code>pro_controller = off</code> leaves the traffic alone and keeps the trace only. <code>pro_controller = every</code> takes every link as a Pro, so the translator can run in Dolphin, which has no Pro Controller. Checked in Dolphin (Mario Kart Wii): the game's tables found, its key checked out, thousands of reports rebuilt with no disconnection; the firmware probe, the memory reads and the IR camera and speaker set-up answered in the Pro's place, and the game took the answers as a Wii Remote's. With a real Pro Controller it is untested.</p>
+<p>The same blob keeps a <code>Bluetooth trace</code> in the Wii Remote log (<code>wpadlog.txt</code>). It records HCI commands and events, and the L2CAP signalling and HID reports both ways (as they came, and as the translator handed them to the game; and since log version 4, a report the game sent next to what the translator sent in its place). The data report stream is kept only at first, then counted. The text names each packet and gives a disconnection's reason ("the controller ended it", "the Wii (the game's Bluetooth stack) ended it"). Bluetooth addresses are cut to their last byte, and link keys and PINs are never shown.</p>
+<h2 id="what-exists">What exists</h2>
+<ul>
+<li><code>runtime/rtshot.c</code>: parses HCI ACL packets from the bulk-in endpoint (handle, L2CAP header, HID input reports 0x20-0x22, 0x30-0x37, 0x3E/0x3F) and can change a report in place. It is host-tested in <code>tests/shot_tests.cpp</code>.</li>
+<li><code>runtime/shot/</code>: the <code>IOS_IoctlvAsync</code> hook that swaps in its own completion for the game's ACL reads, calls the game's callback afterwards, and chains with the resident runtime's hook of the same function.</li>
+<li><code>runtime/wlog/</code> and <code>runtime/rtpro.c</code>: the same kind of hook on all of the game's traffic with the dongle (HCI commands and events, ACL both ways), with the Pro Controller translator and the Bluetooth trace above.</li>
+</ul>
+<h2 id="sources">Sources</h2>
+<ul>
+<li>wiibrew: "Wiimote" (HID over L2CAP, reports, extensions), "/dev/usb/oh1" (the dongle's endpoints and the USBV0 ioctlvs), "SYSCONF" (<code>BT.DINF</code>).</li>
+<li>The Bluetooth Core Specification 2.0 + EDR: HCI, L2CAP, legacy pairing.</li>
+<li>fakemote and MissionControl: what they do, read as descriptions only.</li>
+<li>Dolphin's Bluetooth emulation: how the game's stack talks to the dongle.</li>
+</ul>
+
+            </div>
+
+        </article>
+
+    </main>
+
+</body>
+
+</html>

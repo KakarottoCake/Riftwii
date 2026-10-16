@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: 2026 RiftWii contributors
+// SPDX-License-Identifier: GPL-3.0-or-later
 if ("scrollRestoration" in history) {
     history.scrollRestoration = "manual";
 }
@@ -448,8 +450,6 @@ const tutorialSortWrap = tutorialSortButton
     ? tutorialSortButton.closest(".tutorial-sort-wrap")
     : null;
 
-const TUTORIAL_VISIBLE_LIMIT = 3;
-
 const FEATURED_TUTORIALS = [
     "getting-started.html",
     "installing-mods.html",
@@ -461,11 +461,56 @@ const TUTORIAL_REPO_FALLBACK = {
     repo: "Riftwii"
 };
 
+const TUTORIAL_FALLBACK_FILES = [
+    "getting-started.html",
+    "installing-mods.html",
+    "send-a-problem-report.html",
+    "updating-riftwii.html",
+    "using-a-usb-disc-drive.html",
+    "virtual-sd-cards.html",
+    "code-map.html",
+    "architecture.html",
+    "developing.html",
+    "themes.html",
+    "harness.html",
+    "usb-hardware-test.html",
+    "ctgp-r.html",
+    "riifs.html",
+    "headless-launching.html",
+    "bluetooth.html",
+];
+
+const TUTORIAL_COLLAPSED_FILES = [
+    "getting-started.html",
+    "installing-mods.html",
+    "send-a-problem-report.html",
+];
+
+
 let tutorialFiles = [];
 let tutorialExpanded = false;
 let tutorialSortMode = "az";
 
 function tutorialDisplayName(filename) {
+    const key = filename.replace(/\.html?$/i, "").toLowerCase();
+
+    const specialNames = {
+        "ctgp-r": "CTGP-R (Advanced)",
+        "riifs": "RiiFS (Advanced)",
+        "usb-hardware-test": "USB Hardware Test (Advanced)",
+        "code-map": "Code Map (Advanced)",
+        "headless-launching": "Headless Launching (Advanced)",
+        "architecture": "Architecture (Advanced)",
+        "developing": "Developing (Advanced)",
+        "themes": "Themes",
+        "harness": "Dolphin Test Harness (Advanced)",
+        "bluetooth": "Bluetooth (Advanced)"
+    };
+
+    if (specialNames[key]) {
+        return specialNames[key];
+    }
+
     return filename
         .replace(/\.html?$/i, "")
         .replace(/[-_]+/g, " ")
@@ -478,37 +523,28 @@ function tutorialRelativeUrl(filename) {
     return `tutorials/${encodeURIComponent(filename)}`;
 }
 
-function extractHtmlFilesFromDirectoryListing(directoryHtml) {
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(directoryHtml, "text/html");
-
-    return [...doc.querySelectorAll("a[href]")]
-        .map((link) => {
-            try {
-                const url = new URL(link.getAttribute("href"), window.location.href);
-                return decodeURIComponent(url.pathname.split("/").pop() || "");
-            } catch {
-                return "";
-            }
-        })
-        .filter((name) => /\.html?$/i.test(name))
-        .filter((name, index, array) => array.indexOf(name) === index);
-}
-
-async function scanTutorialDirectoryListing() {
-    const response = await fetch("tutorials/", {
+async function scanTutorialJson() {
+    const response = await fetch("tutorials.json?v=20261016-6", {
         cache: "no-store"
     });
 
     if (!response.ok) {
-        throw new Error("Directory listing unavailable");
+        throw new Error("tutorials.json unavailable");
     }
 
-    const text = await response.text();
-    const files = extractHtmlFilesFromDirectoryListing(text);
+    const contents = await response.json();
+
+    if (!Array.isArray(contents)) {
+        throw new Error("Unexpected tutorials.json format");
+    }
+
+    const files = contents
+        .filter((name) => typeof name === "string" && /\.html?$/i.test(name))
+        .map((name) => name.trim())
+        .filter(Boolean);
 
     if (!files.length) {
-        throw new Error("No tutorial links found in directory listing");
+        throw new Error("tutorials.json contains no tutorials");
     }
 
     return files;
@@ -538,7 +574,7 @@ async function scanTutorialGitHubFolder() {
 
     const endpoint =
         `https://api.github.com/repos/${encodeURIComponent(owner)}/` +
-        `${encodeURIComponent(repo)}/contents/tutorials`;
+        `${encodeURIComponent(repo)}/contents/gitpage/tutorials`;
 
     const response = await fetch(endpoint, {
         headers: {
@@ -562,51 +598,6 @@ async function scanTutorialGitHubFolder() {
         .map((item) => item.name);
 }
 
-async function getTutorialDate(filename) {
-    try {
-        const response = await fetch(tutorialRelativeUrl(filename), {
-            cache: "no-store"
-        });
-
-        if (response.ok) {
-            const text = await response.text();
-            const doc = new DOMParser().parseFromString(text, "text/html");
-            const authored = doc.querySelector('meta[name="tutorial-date"]');
-
-            if (authored && authored.content) {
-                const timestamp = Date.parse(authored.content);
-                if (!Number.isNaN(timestamp)) {
-                    return timestamp;
-                }
-            }
-
-            const lastModified = response.headers.get("last-modified");
-
-            if (lastModified) {
-                const timestamp = Date.parse(lastModified);
-                if (!Number.isNaN(timestamp)) {
-                    return timestamp;
-                }
-            }
-        }
-    } catch {
-    }
-
-    return 0;
-}
-
-function formatTutorialDate(timestamp) {
-    if (!timestamp) {
-        return "Date unknown";
-    }
-
-    return new Intl.DateTimeFormat(undefined, {
-        year: "numeric",
-        month: "short",
-        day: "numeric"
-    }).format(new Date(timestamp));
-}
-
 function sortTutorials(items) {
     const sorted = [...items];
 
@@ -619,22 +610,6 @@ function sortTutorials(items) {
                     { numeric: true, sensitivity: "base" }
                 )
             );
-
-        case "date-asc":
-            return sorted.sort((a, b) => {
-                if (!a.date && !b.date) return 0;
-                if (!a.date) return 1;
-                if (!b.date) return -1;
-                return a.date - b.date;
-            });
-
-        case "date-desc":
-            return sorted.sort((a, b) => {
-                if (!a.date && !b.date) return 0;
-                if (!a.date) return 1;
-                if (!b.date) return -1;
-                return b.date - a.date;
-            });
 
         case "az":
         default:
@@ -649,30 +624,11 @@ function sortTutorials(items) {
 }
 
 function getCollapsedTutorials(items) {
-    const featured = FEATURED_TUTORIALS
+    return TUTORIAL_COLLAPSED_FILES
         .map((filename) =>
-            items.find(
-                (tutorial) =>
-                    tutorial.filename.toLowerCase() === filename.toLowerCase()
-            )
+            items.find((item) => item.filename === filename)
         )
         .filter(Boolean);
-
-    if (featured.length < TUTORIAL_VISIBLE_LIMIT) {
-        const extras = items.filter(
-            (tutorial) =>
-                !featured.some(
-                    (featuredTutorial) =>
-                        featuredTutorial.filename === tutorial.filename
-                )
-        );
-
-        featured.push(
-            ...extras.slice(0, TUTORIAL_VISIBLE_LIMIT - featured.length)
-        );
-    }
-
-    return featured.slice(0, TUTORIAL_VISIBLE_LIMIT);
 }
 
 function makeTutorialItem(tutorial) {
@@ -688,13 +644,6 @@ function makeTutorialItem(tutorial) {
     name.textContent = tutorial.displayName;
 
     main.appendChild(name);
-
-    if (tutorialExpanded) {
-        const date = document.createElement("span");
-        date.className = "tutorial-item-date";
-        date.textContent = `Written ${formatTutorialDate(tutorial.date)}`;
-        main.appendChild(date);
-    }
 
     const arrow = document.createElement("span");
     arrow.className = "tutorial-item-arrow";
@@ -785,13 +734,15 @@ function renderTutorials({ animate = true } = {}) {
     }
 
     if (tutorialToggle) {
+        const collapsedCount = getCollapsedTutorials(tutorialFiles).length;
+
         tutorialToggle.hidden =
-            searching || tutorialFiles.length <= TUTORIAL_VISIBLE_LIMIT;
+            searching || tutorialFiles.length <= collapsedCount;
 
         if (!tutorialToggle.hidden) {
             tutorialToggle.textContent = tutorialExpanded
                 ? "Hide ▲"
-                : `Show All Tutorials ▼`;
+                : "Show All Tutorials ▼";
         }
     }
 
@@ -814,35 +765,27 @@ async function scanTutorials() {
     let files = [];
 
     try {
-        files = await scanTutorialDirectoryListing();
-    } catch {
-        try {
-            files = await scanTutorialGitHubFolder();
-        } catch {
-            tutorialList.innerHTML =
-                '<div class="tutorial-status">' +
-                'No tutorials could be loaded. Add HTML files to the tutorials folder.' +
-                '</div>';
+        files = await scanTutorialJson();
+    } catch (error) {
+        console.warn(
+            "tutorials.json could not be loaded; using the built-in tutorial list.",
+            error
+        );
 
-            if (tutorialToggle) {
-                tutorialToggle.hidden = true;
-            }
-
-            return;
-        }
+        files = [...TUTORIAL_FALLBACK_FILES];
     }
 
     const uniqueFiles = files.filter(
-        (name, index, array) => array.indexOf(name) === index
+        (name, index, array) =>
+            typeof name === "string" &&
+            /\.html?$/i.test(name) &&
+            array.indexOf(name) === index
     );
 
-    tutorialFiles = await Promise.all(
-        uniqueFiles.map(async (filename) => ({
-            filename,
-            displayName: tutorialDisplayName(filename),
-            date: await getTutorialDate(filename)
-        }))
-    );
+    tutorialFiles = uniqueFiles.map((filename) => ({
+        filename,
+        displayName: tutorialDisplayName(filename)
+    }));
 
     renderTutorials({ animate: false });
 }
@@ -897,9 +840,7 @@ if (tutorialSortMenu) {
 
         const labels = {
             "az": "A–Z",
-            "za": "Z–A",
-            "date-asc": "Date ↑",
-            "date-desc": "Date ↓"
+            "za": "Z–A"
         };
 
         if (tutorialSortLabel) {

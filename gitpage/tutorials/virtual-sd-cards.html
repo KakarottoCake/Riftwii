@@ -1,3 +1,5 @@
+<!-- SPDX-FileCopyrightText: 2026 RiftWii contributors -->
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
 <!DOCTYPE html>
 
 <html lang="en">
@@ -10,19 +12,13 @@
         name="viewport"
         content="width=device-width, initial-scale=1.0"
     >
-
-    <meta
-        name="tutorial-date"
-        content="2026-10-09"
-    >
-
-    <title>
+<title>
         Virtual SD Cards - RiftWii
     </title>
 
     <link
         rel="stylesheet"
-        href="../css/tutorials.css"
+        href="../css/tutorials.css?v=20261016-7"
     >
 
     <link
@@ -93,6 +89,16 @@
                 <br>
                 - It's now easier to have multiple modpacks on your device without constantly swapping files out
             </p>
+
+            <a
+                class="link-button guide-link-button"
+                href="https://github.com/KakarottoCake/Riftwii/blob/main/docs/GUIDE.md#code-builds-on-a-virtual-sd-card-raw-images"
+                target="_blank"
+                rel="noopener noreferrer"
+            >
+                Read the official Virtual SD card guide
+            </a>
+
 
             <br>
             <p>Now before we start, there are multiple ways to do this, either with SD RAWR, or with RiftWii, so I'll just give you a table to compare them yourself:</p>
@@ -234,18 +240,23 @@
 
                 <p>
                     Copy your output <code>.raw</code> file into the <code>/riftwii</code> folder on the same device you have your <code>wbfs</code> files. It should look like:
-                    <br><code>wbfs</code>
-                    <br><code>/riftwii</code>
-                    <br><code>projectm.raw</code>
-<br>
-                    <br>If SD RAWR split your virtual SD card, copy all the <code>.raw.001</code>, <code>.raw.002</code>, etc. files in teh same way. It should look like:
-                    <br><code>wbfs</code>
-                    <br><code>/riftwii</code>
-                    <br><code>projectm.raw.001</code>
-                    <br><code>projectm.raw.002</code>
-                    <br><code>etc.</code>
-
                 </p>
+
+                <pre class="file-tree"><code>USB Drive or SD Card
+├── wbfs/
+└── riftwii/
+    └── projectm.raw</code></pre>
+
+                <p>
+                    If SD RAWR split your virtual SD card, copy all the <code>.raw.001</code>, <code>.raw.002</code>, etc. files in the same way. It should look like:
+                </p>
+
+                <pre class="file-tree"><code>USB Drive or SD Card
+├── wbfs/
+└── riftwii/
+    ├── projectm.raw.001
+    ├── projectm.raw.002
+    └── ...</code></pre>
 
             </div>
 
@@ -315,11 +326,15 @@
 
                 <p>
                     Put your mod files onto the root of your SD Card. It should look like:
-                    <br><code>/apps</code>
-                    <br><code>/codes</code>
-                    <br><code>/[MOD NAME FOLDER]</code>
-                    <br>
-                    <br>Note: It has to be on the SD Card or your mod will not work.
+                </p>
+
+                <pre class="file-tree"><code>SD Card
+├── apps/
+├── codes/
+└── [MOD NAME FOLDER]/</code></pre>
+
+                <p>
+                    Note: It has to be on the SD Card or your mod will not work.
                 </p>
 
             </div>
@@ -378,32 +393,6 @@
             </div>
         </article>
     </main>
-
-
-    <footer class="site-footer">
-
-        <div class="footer-inner">
-
-            <div class="footer-main">
-
-                <span class="footer-label">
-                    Tutorial by
-                </span>
-
-                <span class="footer-author">
-                    Ｄｉａ！♪～☆
-                </span>
-
-            </div>
-
-            <div class="footer-year">
-                RiftWii 2026
-            </div>
-
-        </div>
-
-    </footer>
-
 </body>
 
 </html>

@@ -1,0 +1,496 @@
+<!-- SPDX-FileCopyrightText: 2026 RiftWii contributors -->
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>RiftWii Themes - RiftWii</title>
+
+    <link rel="stylesheet" href="../css/tutorials.css?v=20261016-7">
+
+    <link
+        rel="icon"
+        type="image/png"
+        href="https://github.com/KakarottoCake/Riftwii/blob/main/hbc/icon.png?raw=true"
+    >
+</head>
+
+<body>
+
+    <main class="tutorial-page">
+
+        <a
+            class="back-link"
+            href="../index.html#tutorials"
+        >
+            ← Back to RiftWii
+        </a>
+
+        <article class="tutorial-card">
+
+            <span class="kicker">
+                THEMES
+            </span>
+
+            <h1>
+                RiftWii Themes
+            </h1>
+
+            
+            <img
+                class="tutorial-image doc-hero-image"
+                src="https://github.com/KakarottoCake/Riftwii/blob/main/docs/images/midnight.png?raw=true"
+                alt="RiftWii Themes"
+            >
+
+
+            <a
+                class="link-button guide-link-button"
+                href="https://github.com/KakarottoCake/Riftwii/blob/main/docs/THEMES.md"
+                target="_blank"
+                rel="noopener noreferrer"
+            >
+                View the source documentation on GitHub
+            </a>
+
+            <div class="tutorial-doc-content">
+<p>Everything about creating and installing menu themes for RiftWii.</p>
+<h2 id="how-themes-work">How themes work</h2>
+<p>A theme is a folder in <code>sd:/riftwii/themes/</code>, for example <code>sd:/riftwii/themes/Midnight/</code>. It must hold <code>theme.ini</code>. Everything else is optional.</p>
+<p>Settings &gt; <code>Theme</code> steps through <em>Default</em> (RiftWii's own light look, no files needed) and every folder in <code>sd:/riftwii/themes/</code> that has a <code>theme.ini</code>, shown by the theme's <code>name</code> (or the folder name if it has none). RiftWii offers to restart its menu to show the new theme. The choice is saved as <code>theme = &lt;folder&gt;</code> in <code>sd:/riftwii/settings.txt</code> (<code>theme = default</code> for the default).</p>
+<h2 id="the-themeini-file">The theme.ini file</h2>
+<p><code>theme.ini</code> is a plain text file split into sections. Comments start with <code>#</code> or <code>;</code>.</p>
+<p>Anything missing keeps the default value. Anything wrong is skipped and RiftWii keeps the default for it; it never stops the menu. Each skipped line is written to <code>sd:/riftwii/session.log</code> as a line starting <code>Theme:</code>.</p>
+<h3 id="theme">[theme]</h3>
+<p>Holds theme information:</p>
+<ul>
+<li><code>name</code>: the name shown in Settings &gt; Theme. If omitted, the folder name is shown.</li>
+<li><code>author</code>: the author of the theme.</li>
+</ul>
+<h3 id="shape">[shape]</h3>
+<p>Controls the painted parts' shape:</p>
+<ul>
+<li><code>corners</code>: corner roundness multiplier, from <code>0</code> (square corners) to <code>2</code> (twice as round). The default is <code>1</code>.</li>
+<li><code>gloss</code>: <code>yes</code> or <code>no</code>. A shine across the top half of buttons, tiles and option boxes. The default is <code>no</code>.</li>
+<li><code>bar</code>: <code>dip</code> or <code>bump</code>. Home's bottom bar sinks in the middle with the clock in the dip and the date under it, as the Wii Menu's (<code>dip</code>, the default), or rises there with the clock above it (<code>bump</code>). A theme's own <code>bar.png</code> should have the same shape.</li>
+<li><code>home_menu</code>: <code>wii</code> or <code>ios6</code>. The HOME Menu as the Wii's own (<code>wii</code>, the default: black bars, round pale buttons) or as iOS 6 drew things (<code>ios6</code>: glossy bars in the <code>bar</code> colour, dark linen between them, shaded buttons with a red Power off). Bookshelf uses <code>ios6</code>.</li>
+<li><code>shelf_grain</code>: <code>yes</code> or <code>no</code>. Wood grain along Home's shelf (<code>yes</code>, as Bookshelf and Midnight), or a smooth shelf with a thin <code>accent</code> line along its front edge (<code>no</code>, the default). A theme's own <code>shelf.png</code> wins.</li>
+</ul>
+<h3 id="backdrop">[backdrop]</h3>
+<p>Controls backdrop stripes:</p>
+<ul>
+<li><code>stripes</code>: <code>yes</code> or <code>no</code>. Sets whether thin horizontal stripes are drawn across the backdrop. The default is <code>yes</code>.</li>
+</ul>
+<h3 id="colors">[colors]</h3>
+<p>Colours are written as <code>#RRGGBB</code> or <code>#RRGGBBAA</code>, where <code>AA</code> is opacity (<code>00</code> transparent to <code>FF</code> solid). If <code>AA</code> is omitted, the colour is fully solid. Hex letters can be upper case or lower case.</p>
+<p>The table below lists every colour key, its default value, and where it shows:</p>
+<table>
+<thead>
+<tr class="header">
+<th>Key</th>
+<th>Default</th>
+<th>Where it shows</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>ink</code></td>
+<td><code>#2E2E36</code></td>
+<td>Titles and labels</td>
+</tr>
+<tr class="even">
+<td><code>ink_soft</code></td>
+<td><code>#4A4A54</code></td>
+<td>Values, secondary text (lighter text level)</td>
+</tr>
+<tr class="odd">
+<td><code>ink_dim</code></td>
+<td><code>#6A6A74</code></td>
+<td>Hints, footers (lighter text level)</td>
+</tr>
+<tr class="even">
+<td><code>clock</code></td>
+<td><code>#74747E</code></td>
+<td>Home's clock</td>
+</tr>
+<tr class="odd">
+<td><code>accent</code></td>
+<td><code>#2FB6E9</code></td>
+<td>Highlights, outlines, the bar's curve</td>
+</tr>
+<tr class="even">
+<td><code>accent_ink</code></td>
+<td><code>#0E6488</code></td>
+<td>Text in the accent's colour (switched-on values)</td>
+</tr>
+<tr class="odd">
+<td><code>text_on_accent</code></td>
+<td><code>#FFFFFF</code></td>
+<td>Text drawn on the accent colour</td>
+</tr>
+<tr class="even">
+<td><code>warn</code></td>
+<td><code>#B03A2E</code></td>
+<td>Warnings, errors</td>
+</tr>
+<tr class="odd">
+<td><code>card</code></td>
+<td><code>#FFFFFF</code></td>
+<td>Tiles, buttons, panels</td>
+</tr>
+<tr class="even">
+<td><code>card_edge</code></td>
+<td><code>#CFCFD6</code></td>
+<td>Outline of tiles, buttons and panels</td>
+</tr>
+<tr class="odd">
+<td><code>card_edge_strong</code></td>
+<td><code>#C4C4CE</code></td>
+<td>Round buttons' rims</td>
+</tr>
+<tr class="even">
+<td><code>shadow</code></td>
+<td><code>#28283C22</code></td>
+<td>Shadow under tiles and buttons</td>
+</tr>
+<tr class="odd">
+<td><code>glow</code></td>
+<td><code>#2FB6E950</code></td>
+<td>Glow around the highlighted part</td>
+</tr>
+<tr class="even">
+<td><code>glyph</code></td>
+<td><code>#55555F</code></td>
+<td>Icons and arrows</td>
+</tr>
+<tr class="odd">
+<td><code>chip_on</code></td>
+<td><code>#E3F5FC</code></td>
+<td>An option's value box, changed from the default</td>
+</tr>
+<tr class="even">
+<td><code>chip_off</code></td>
+<td><code>#F4F4F6</code></td>
+<td>An option's value box at its default</td>
+</tr>
+<tr class="odd">
+<td><code>chip_off_edge</code></td>
+<td><code>#D0D0D8</code></td>
+<td>Its outline</td>
+</tr>
+<tr class="even">
+<td><code>switch_off</code></td>
+<td><code>#D4D4DB</code></td>
+<td>An On/Off switch when off</td>
+</tr>
+<tr class="odd">
+<td><code>bar</code></td>
+<td><code>#DEDEE4</code></td>
+<td>Home's bottom bar, the banner screen's and the title bands (a shade under the backdrop)</td>
+</tr>
+<tr class="even">
+<td><code>backdrop</code></td>
+<td><code>#ECECEF</code></td>
+<td>Behind every screen</td>
+</tr>
+<tr class="odd">
+<td><code>backdrop_stripe</code></td>
+<td><code>#E3E3E8</code></td>
+<td>The backdrop's thin stripes</td>
+</tr>
+<tr class="even">
+<td><code>banner_stripe</code></td>
+<td><code>#FFFFFF14</code></td>
+<td>Stripes over a game page's banner while it shows the game's colour (no box art on the card yet)</td>
+</tr>
+<tr class="odd">
+<td><code>banner_tint</code></td>
+<td><code>#00000000</code></td>
+<td>Mixed into each game's own colour and over its blurred box art (a game page's banner, plain spines and backs on the shelf) by its alpha: <code>00</code> keeps the games' colours, <code>FF</code> gives every game this colour</td>
+</tr>
+<tr class="even">
+<td><code>divider</code></td>
+<td><code>#E8E8EE</code></td>
+<td>Between list rows</td>
+</tr>
+<tr class="odd">
+<td><code>scroll_track</code></td>
+<td><code>#E6E6EC</code></td>
+<td>A list's scroll track</td>
+</tr>
+<tr class="even">
+<td><code>scroll_thumb</code></td>
+<td><code>#A8A8B4</code></td>
+<td>A list's scroll thumb</td>
+</tr>
+<tr class="odd">
+<td><code>badge</code></td>
+<td><code>#ECECF1</code></td>
+<td>A tile's DISC/USB/SD label</td>
+</tr>
+<tr class="even">
+<td><code>shelf</code></td>
+<td><code>#F4F6F9</code></td>
+<td>The top of Home's shelf</td>
+</tr>
+<tr class="odd">
+<td><code>shelf_edge</code></td>
+<td><code>#D6DDE6</code></td>
+<td>The front edge of Home's shelf</td>
+</tr>
+<tr class="even">
+<td><code>pointer1</code></td>
+<td><code>#3B8FD6</code></td>
+<td>Outline of player 1's pointer hand</td>
+</tr>
+<tr class="odd">
+<td><code>pointer2</code></td>
+<td><code>#D64545</code></td>
+<td>Outline of player 2's pointer hand</td>
+</tr>
+<tr class="even">
+<td><code>pointer3</code></td>
+<td><code>#3FA34D</code></td>
+<td>Outline of player 3's pointer hand</td>
+</tr>
+<tr class="odd">
+<td><code>pointer4</code></td>
+<td><code>#D9A21B</code></td>
+<td>Outline of player 4's pointer hand</td>
+</tr>
+</tbody>
+</table>
+<h2 id="pictures">Pictures</h2>
+<p>A theme may replace any of RiftWii's painted pictures with a PNG of the same name in its folder.</p>
+<p>The picture must be exactly the size listed, or it is skipped (and noted in <code>session.log</code>). Sizes include a transparent margin where RiftWii paints the shadow or glow, so keep the visible part inside it, centred. Pictures ending in <code>_over</code> are the highlighted versions. Transparency (PNG alpha) is used.</p>
+<p><code>background.png</code> replaces the whole backdrop (and the stripes).</p>
+<table>
+<thead>
+<tr class="header">
+<th>Picture</th>
+<th>Size</th>
+<th>What it is</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>background</code></td>
+<td>640x480</td>
+<td>The whole screen behind the menu</td>
+</tr>
+<tr class="even">
+<td><code>tile</code> / <code>tile_over</code></td>
+<td>140x100</td>
+<td>A game tile on Home (names view)</td>
+</tr>
+<tr class="odd">
+<td><code>tile_empty</code></td>
+<td>140x100</td>
+<td>An empty place on Home (Names and Channels)</td>
+</tr>
+<tr class="even">
+<td><code>cover_tile</code> / <code>cover_tile_over</code></td>
+<td>96x128</td>
+<td>A game tile with its cover (the cover is drawn on top)</td>
+</tr>
+<tr class="odd">
+<td><code>round_button</code> / <code>round_button_over</code></td>
+<td>80x80</td>
+<td>Home's two round buttons</td>
+</tr>
+<tr class="even">
+<td><code>pill</code> / <code>pill_over</code></td>
+<td>252x60</td>
+<td>The wide buttons (Back, OK)</td>
+</tr>
+<tr class="odd">
+<td><code>pill_primary</code> / <code>pill_primary_over</code></td>
+<td>252x60</td>
+<td>The main wide button (Start)</td>
+</tr>
+<tr class="even">
+<td><code>home_button</code> / <code>home_button_over</code></td>
+<td>264x88</td>
+<td>The HOME Menu's buttons</td>
+</tr>
+<tr class="odd">
+<td><code>chip_off</code> / <code>chip_on</code></td>
+<td>212x36</td>
+<td>An option's value box, at its default / changed</td>
+</tr>
+<tr class="even">
+<td><code>row_focus</code></td>
+<td>548x44</td>
+<td>The highlighted row in a list</td>
+</tr>
+<tr class="odd">
+<td><code>step_back</code> / <code>step_back_over</code>, <code>step_forward</code> / <code>step_forward_over</code></td>
+<td>44x44</td>
+<td>The arrows either side of an option</td>
+</tr>
+<tr class="even">
+<td><code>switch_on</code> / <code>switch_off</code></td>
+<td>68x40</td>
+<td>On/Off switches</td>
+</tr>
+<tr class="odd">
+<td><code>panel_game</code></td>
+<td>580x240</td>
+<td>The white panel behind a game page's list</td>
+</tr>
+<tr class="even">
+<td><code>panel_settings</code></td>
+<td>580x284</td>
+<td>The white panel behind Settings</td>
+</tr>
+<tr class="odd">
+<td><code>bar</code></td>
+<td>640x124</td>
+<td>Home's bottom bar (its top edge is a curve; see <code>bar</code> under [shape])</td>
+</tr>
+<tr class="even">
+<td><code>banner_stripes</code></td>
+<td>640x192</td>
+<td>Drawn over a game page's banner while it shows the game's colour; once the game's box art is on the card, the banner is that art, blurred</td>
+</tr>
+<tr class="odd">
+<td><code>arrow_left</code> / <code>arrow_left_over</code>, <code>arrow_right</code> / <code>arrow_right_over</code></td>
+<td>48x48</td>
+<td>Home's page arrows</td>
+</tr>
+<tr class="even">
+<td><code>scroll_up</code> / <code>scroll_up_over</code>, <code>scroll_down</code> / <code>scroll_down_over</code></td>
+<td>44x44</td>
+<td>A list's scroll arrows</td>
+</tr>
+<tr class="odd">
+<td><code>icon_drives</code></td>
+<td>28x28</td>
+<td>Drive icon</td>
+</tr>
+<tr class="even">
+<td><code>icon_gear</code></td>
+<td>28x28</td>
+<td>Gear icon</td>
+</tr>
+<tr class="odd">
+<td><code>icon_search</code></td>
+<td>28x28</td>
+<td>Magnifier icon on the search button</td>
+</tr>
+<tr class="even">
+<td><code>icon_star</code>, <code>icon_star_on</code></td>
+<td>28x28</td>
+<td>Favourite button on a game's banner: not a favourite, a favourite</td>
+</tr>
+<tr class="odd">
+<td><code>tile9</code>, <code>tile9_over</code>, <code>tile9_primary</code>, <code>tile9_primary_over</code></td>
+<td>64x64</td>
+<td>The game page's and Settings' tiles, stretched with 24-pixel corners kept: plain, lit, the main one (Play), the main one lit</td>
+</tr>
+<tr class="even">
+<td><code>prompt_button</code></td>
+<td>24x24</td>
+<td>The round badge under a button's name in the prompts along the bottom of a screen, for a button without a picture of its own (A, B, +, -, 1, 2, HOME, C and Z have Kenney's, drawn in <code>glyph</code>)</td>
+</tr>
+<tr class="odd">
+<td><code>icon_play</code>, <code>icon_mods</code>, <code>icon_cheats</code>, <code>icon_saves</code>, <code>icon_info</code>, <code>icon_help</code></td>
+<td>28x28</td>
+<td>The game page's tiles: Play, Mods, Cheats, Saves, About; Help in Settings</td>
+</tr>
+<tr class="even">
+<td><code>icon_picture</code>, <code>icon_controllers</code>, <code>icon_online</code>, <code>icon_home</code>, <code>icon_sound</code>, <code>icon_power</code></td>
+<td>28x28</td>
+<td>Settings' tiles: Picture, Controllers, Online, Home screen, Look and sound, Leave RiftWii</td>
+</tr>
+<tr class="odd">
+<td><code>icon_disc</code></td>
+<td>40x40</td>
+<td>Disc icon (name and channel tiles)</td>
+</tr>
+<tr class="even">
+<td><code>disc_case</code></td>
+<td>128x176</td>
+<td>The Disc drive's box: its cover tile, and its front and back on the shelf</td>
+</tr>
+<tr class="odd">
+<td><code>pointer1</code> to <code>pointer4</code></td>
+<td>96x96</td>
+<td>Each player's pointer; the fingertip must be at the centre (48, 48)</td>
+</tr>
+<tr class="even">
+<td><code>shelf</code></td>
+<td>256x64</td>
+<td>Home's shelf: rows 0-47 are its top (the far edge first), rows 48-63 its front edge. It repeats along the shelf, so make the left and right edges meet</td>
+</tr>
+<tr class="odd">
+<td><code>background_wide</code></td>
+<td>856x480</td>
+<td><code>background</code> for a widescreen menu (optional)</td>
+</tr>
+<tr class="even">
+<td><code>bar_wide</code></td>
+<td>856x124</td>
+<td><code>bar</code> for a widescreen menu, its dip (or bump) in the middle (optional)</td>
+</tr>
+<tr class="odd">
+<td><code>background_shelf</code> / <code>background_shelf_wide</code></td>
+<td>640x480 / 856x480</td>
+<td><code>background</code> / <code>background_wide</code> while Home shows the shelf, the carousel or 3D covers (Settings &gt; Home tiles), for a background drawn to go with Home's rows of covers (optional)</td>
+</tr>
+<tr class="even">
+<td><code>background_plain</code> / <code>background_plain_wide</code></td>
+<td>640x480 / 856x480</td>
+<td><code>background</code> / <code>background_wide</code> on every screen but Home, for a background drawn around Home (Bookshelf: its wall without the shelves) (optional)</td>
+</tr>
+<tr class="odd">
+<td><code>background_channels</code> / <code>background_channels_wide</code></td>
+<td>640x480 / 856x480</td>
+<td><code>background</code> / <code>background_wide</code> while Home shows Channels, for a background drawn to go with its three rows (Bookshelf: a shelf under each) (optional)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="widescreen-and-screen-size">Widescreen and screen size</h3>
+<p>With Settings &gt; <code>Widescreen menu</code> on 16:9 the menu is 856 wide instead of 640, its middle 640 where a 4:3 menu's is. A smaller <code>Screen size</code> leaves room around the menu, too. Pictures are never stretched to fill it:</p>
+<ul>
+<li><code>background_wide</code> and <code>bar_wide</code> are used on a widescreen menu when the theme has them. Without them, <code>background</code> and <code>bar</code> are drawn in the middle at their own size.</li>
+<li>Past a picture's edges, its edges are mirrored outward, back and forth: the whole background, the bar's first and last 176 columns at its sides and its lowest 40 rows below it. Keep those parts plain (no words or shapes) so the mirror images look like more of the same.</li>
+<li>Rows stay where they are: Home's covers are at the same height on any screen, so a background drawn to go with them (shelves under the covers, as in Bookshelf) still lines up.</li>
+</ul>
+<h2 id="music">Music</h2>
+<p>A <code>music.ogg</code> in the theme's folder plays, looping, in the menu instead of RiftWii's tune (and instead of <code>sd:/riftwii/music.ogg</code>). One song per theme: there are no playlists, but each theme can bring its own.</p>
+<ul>
+<li><code>Ogg Vorbis only.</code> MP3, WAV, FLAC, M4A and Opus don't play, even renamed to <code>.ogg</code>. Audacity converts them: File &gt; Export Audio, "Ogg Vorbis", quality 3 to 5.</li>
+<li><code>6 MB at most.</code> The whole file is loaded into memory when the menu starts; a bigger one is skipped (<code>session.log</code> says so) and RiftWii's tune plays. At quality 4 (about 128 kbit/s) that is about 6 minutes of music.</li>
+<li>Mono or stereo, 44.1 or 48 kHz. It starts over from the beginning when it ends.</li>
+</ul>
+<p>Settings &gt; <code>Menu music</code> still turns music off.</p>
+<h2 id="sound-effects">Sound effects</h2>
+<p>Optional WAV files in the theme's folder replace RiftWii's own sounds: <code>hover.wav</code> (the tick when the selection moves), <code>click.wav</code> (pressing something), <code>home_open.wav</code> and <code>home_close.wav</code> (the HOME Menu). Each is a 16-bit PCM WAV (or AIFF), mono or stereo, 4 000 to 48 000 Hz, at most 1 MB and 5 seconds; a missing or unreadable one keeps RiftWii's (<code>session.log</code> says why). Keep <code>hover.wav</code> short: it plays every time the selection moves. The kit's <code>sounds/</code> folder has RiftWii's own four as WAVs. Settings &gt; <code>Menu sounds</code> sets how loud they are.</p>
+<h2 id="layout-and-fonts">Layout and fonts</h2>
+<p>Layout (where things are on screen) and fonts are not themeable yet.</p>
+<h2 id="the-theme-kit">The theme kit</h2>
+<p>The kit is the <a href="https://github.com/KakarottoCake/Riftwii/blob/main/themes/kit">themes/kit</a> folder: its <a href="https://github.com/KakarottoCake/Riftwii/blob/main/themes/kit/README.txt">README</a> walks through a theme step by step, and it holds a starter <code>MyTheme/theme.ini</code> with every setting at its default, guide pictures that name every colour and picture on screen, and every picture as a template, exactly as RiftWii draws it (in the default look, Midnight's and Bookshelf's colours), at the right size. Take only the templates you want to change: edit one, keep its size, and save it as PNG in your theme's folder. The samples are <a href="https://github.com/KakarottoCake/Riftwii/blob/main/themes/Midnight">themes/Midnight</a> and <a href="https://github.com/KakarottoCake/Riftwii/blob/main/themes/Bookshelf">themes/Bookshelf</a>.</p>
+<h2 id="make-your-own">Make your own</h2>
+<p>To make your own theme:</p>
+<ol type="1">
+<li>Copy <code>themes/Midnight/</code> to a new folder in <code>sd:/riftwii/themes/</code>, for example <code>sd:/riftwii/themes/MyTheme/</code>.</li>
+<li>Open <code>theme.ini</code> in a text editor.</li>
+<li>Change <code>name</code> under <code>[theme]</code> to your theme's name, and <code>author</code> to your name.</li>
+<li>Change a few colours under <code>[colors]</code>. Check contrast: text must be readable on cards and on the backdrop.</li>
+<li>In RiftWii, open Settings &gt; <code>Theme</code>, step to your theme, and accept the restart.</li>
+</ol>
+<p>Picture sizes are exact. If you draw your own PNG pictures, an image editor's "canvas size" is the tool for adding margin around your artwork so it matches the required dimensions.</p>
+
+            </div>
+
+        </article>
+
+    </main>
+
+</body>
+
+</html>
