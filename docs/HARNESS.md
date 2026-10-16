@@ -56,6 +56,13 @@ Dolphin after SECS. Dolphin log lands in
   over the raw on boot. When the emulated SD disagrees with the
   folder, point at a FRESH raw and let Dolphin build it from the
   folder. Keep the old raws; never delete, only repoint.
+- A big card (REX's is 12 GB) takes many minutes to build at every
+  boot and to sync back at every close. Build it once, then run
+  `FELK_NOSYNC=1 felk-run.sh ...`: Dolphin uses `WiiSD-<card>.raw` as
+  it is, and a forced close loses nothing. Change files in the image
+  with `tools/dolphin/sdimg.py <raw> ls|get|put|rm ...` (paths without
+  a leading slash) while Dolphin is closed. A REX run went from 15-30
+  minutes to under 3.
 - Backups live next to the tree: `build-dolphin/Dolphin-*.ini`
   (per-setup configs) and `build-dolphin/autorun-*.txt`.
 

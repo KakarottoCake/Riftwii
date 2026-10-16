@@ -499,11 +499,14 @@ A few things to know:
   reached a match). Older builds that go in `sd:/codes` with
   `gameconfig.txt` at the top of the card (Project M, Brawl Minus,
   Legacy XP's setup for USB loaders) use the same files.
-- These builds use all of the game's main memory, so RiftWii puts its
-  crash recorder and the GameCube controller adapter for Wii U in the
-  console's second memory instead (experimental on a Wii U: tell us how
-  it goes). In-game screenshots stay off. `boot.log` says where each one
-  went, or why it is off.
+- RiftWii starts a code build the way its own loader would: the codes
+  and `gameconfig.txt`, and the GameCube controller adapter for Wii U
+  when one is plugged in (in the console's second memory, as these
+  builds use all of the game's main memory). Everything else RiftWii
+  adds to a game stays off: the crash recorder, Return to RiftWii (HOME
+  > Wii Menu goes to the Wii Menu), the game page's video and other
+  preferences, screenshots and online patches. `code_build_extras = on`
+  in `sd:/riftwii/settings.txt` turns them back on, for testing.
 - PMEX Remix is very heavy for a real Wii: it can lag (on the character
   select screen, for one) and its own start screen recommends Dolphin.
   That is the build, not RiftWii.

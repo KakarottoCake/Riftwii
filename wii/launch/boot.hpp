@@ -237,6 +237,8 @@ void close_nand_permissions(const char* who);
 bool keep_hardware_access(const char* who);
 // Test switches from settings.txt (debug_off = a, b, ...; docs/DEVELOPING.md).
 bool debug_off(const char* what);
+// settings.txt "code_build_extras = on" (boot.cpp).
+bool code_build_extras_wanted();
 
 // Reloads IOS, runs the apploader and jumps to the game. Only returns on
 // failure. The caller must have shut down its own GUI, audio and pads;

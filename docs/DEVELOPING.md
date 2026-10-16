@@ -162,6 +162,13 @@ app (CTGP) starts, `wpadlog` the Wii Remote log. `boot.log` names each one left 
 then halve the list. The PMEX Remix crash on a Wii (2.7.0 RC9.2) was found
 this way: it was the crash recorder.
 
+A code build (REX, Project+, a `gameconfig.txt` build) starts without
+these extras at all: only its codes, `gameconfig.txt`'s words, the
+code handler's run before the game and the GameCube adapter when one
+is plugged in (REX went black on a tester's Wii U, 2610-412).
+`code_build_extras = on` brings the others back, so `debug_off` can
+bisect them again.
+
 `debug_crash` in the same file breaks the game on purpose, to try the
 crash recorder: `debug_crash = pad` puts a read from address 0x28 at the
 start of the game's PADRead (its main thread, every frame), or give a
