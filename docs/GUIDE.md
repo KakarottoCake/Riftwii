@@ -512,6 +512,10 @@ A few things to know:
   A launch without the menu (autorun, another loader) starts with the
   extras, or without them with `code_build_extras = off` in
   `sd:/riftwii/settings.txt`.
+- Either way, a code build runs under IOS58 (the Homebrew Channel's) or
+  the cIOS RiftWii's menu runs on, and the game is told it has its own
+  IOS, as the launcher Project+ and its mods ship with (MinimaLauncher)
+  does. Brawl's own IOS36 is what the disc asks for.
 - PMEX Remix is very heavy for a real Wii: it can lag (on the character
   select screen, for one) and its own start screen recommends Dolphin.
   That is the build, not RiftWii.

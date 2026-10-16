@@ -2789,6 +2789,18 @@ bool boot_game(const DiscProbe& probe, BootOptions options, std::string& error) 
         effective.preserve_current_ios = true;
         logf("Keeping IOS%d for resident SD access; reporting IOS%u to the game\n", running_ios, required);
     }
+    // A code build starts the way the launcher Project+ and the mods built
+    // on it ship (MinimaLauncher: REX's and P+EX Remix's SD loaders) starts
+    // it: under IOS58, reporting the game's IOS to it (Dolphin's log: it
+    // launches IOS58, then writes IOS36 at 0x3140 and 0x3188). Under IOS36,
+    // as the disc asks, REX went to a black screen on a tester's Wii U
+    // (2610-412). A cIOS the menu runs on is kept the same way.
+    if (!effective.preserve_current_ios && running_ios != static_cast<int>(required) &&
+        !g_extras.code_builds.empty() && (running_ios == 58 || running_ios >= 200)) {
+        effective.preserve_current_ios = true;
+        logf("Keeping IOS%d for the code build, as its own launcher does; reporting IOS%u to the game\n",
+             running_ios, required);
+    }
     if (!effective.preserve_current_ios && running_ios != static_cast<int>(required) &&
         g_extras.gc_adapter != GcAdapterMode::Off && usb_hid_present()) {
         // The adapter needs /dev/usb/hid, which the IOS a game asks for
