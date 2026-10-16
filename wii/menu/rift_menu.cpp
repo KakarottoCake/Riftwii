@@ -2435,11 +2435,12 @@ static std::string DiscTileNote()
 // holds seven lines), for the release script to keep up to date. Shown
 // once when they change; Settings > What's new shows them again.
 static const char* const kWhatsNew[] = {
-	"Wii U Pro Controller in games, as a Classic Controller (a first try)",
-	"Channels: sharp icons, framed like the Wii Menu's",
-	"New controller and button pictures",
-	"Smoother round buttons",
-	"Fixed: some channel logos came out grey",
+	"Code mods ask how to start: with or without RiftWii's extras",
+	"Code mods start on IOS58, as their own launcher does",
+	"USB keyboard games like City Folk keep their keyboard",
+	"More memory for games, and a note before big RVZ games",
+	"Wii U Pro Controller works in games",
+	"Fixed: a crash when going back to RiftWii after some games",
 };
 
 static std::string WhatsNewText()

@@ -1734,20 +1734,23 @@ msgstr "すべての設定をRiftWiiの初期状態に戻します。各ゲー�
 msgid "Settings reset to the defaults"
 msgstr "設定を初期状態に戻しました"
 
-msgid "Wii U Pro Controller in games, as a Classic Controller (a first try)"
-msgstr "Wii U PROコントローラーをゲームでクラシックコントローラとして（試験版）"
+msgid "Code mods ask how to start: with or without RiftWii's extras"
+msgstr "コードModは起動のしかたを選べます：RiftWiiの追加機能あり・なし"
 
-msgid "Channels: sharp icons, framed like the Wii Menu's"
-msgstr "チャンネル：くっきりしたアイコンとWiiメニューのような枠"
+msgid "Code mods start on IOS58, as their own launcher does"
+msgstr "コードModはMod自身のローダーと同じくIOS58で起動します"
 
-msgid "New controller and button pictures"
-msgstr "コントローラーとボタンの新しい絵"
+msgid "USB keyboard games like City Folk keep their keyboard"
+msgstr "City Folkなど、USBキーボードを使うゲームでキーボードが使えます"
 
-msgid "Smoother round buttons"
-msgstr "なめらかになった丸いボタン"
+msgid "More memory for games, and a note before big RVZ games"
+msgstr "ゲームに使えるメモリを増やし、大きなRVZのゲームの前にお知らせを表示"
 
-msgid "Fixed: some channel logos came out grey"
-msgstr "修正：一部のチャンネルのロゴが灰色になっていた"
+msgid "Wii U Pro Controller works in games"
+msgstr "Wii U PROコントローラーがゲームで使えます"
+
+msgid "Fixed: a crash when going back to RiftWii after some games"
+msgstr "修正：一部のゲームのあとRiftWiiに戻るときのクラッシュ"
 
 msgid "Memory for RiftWii's extras"
 msgstr "RiftWiiの追加機能が使うメモリ"

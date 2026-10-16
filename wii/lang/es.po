@@ -1734,20 +1734,23 @@ msgstr "Todos los ajustes vuelven a como vienen en RiftWii. Se conservan las pá
 msgid "Settings reset to the defaults"
 msgstr "Ajustes restablecidos"
 
-msgid "Wii U Pro Controller in games, as a Classic Controller (a first try)"
-msgstr "El Mando Pro de Wii U en los juegos, como Mando Clásico (una primera prueba)"
+msgid "Code mods ask how to start: with or without RiftWii's extras"
+msgstr "Los mods de códigos preguntan cómo iniciarse: con o sin los extras de RiftWii"
 
-msgid "Channels: sharp icons, framed like the Wii Menu's"
-msgstr "Canales: iconos nítidos, con marcos como los del menú de Wii"
+msgid "Code mods start on IOS58, as their own launcher does"
+msgstr "Los mods de códigos se inician en IOS58, como su propio cargador"
 
-msgid "New controller and button pictures"
-msgstr "Nuevas imágenes de mandos y botones"
+msgid "USB keyboard games like City Folk keep their keyboard"
+msgstr "Los juegos con teclado USB, como City Folk, conservan el teclado"
 
-msgid "Smoother round buttons"
-msgstr "Botones redondos más suaves"
+msgid "More memory for games, and a note before big RVZ games"
+msgstr "Más memoria para los juegos y un aviso antes de los juegos RVZ grandes"
 
-msgid "Fixed: some channel logos came out grey"
-msgstr "Corregido: algunos logotipos de canales salían en gris"
+msgid "Wii U Pro Controller works in games"
+msgstr "El Mando Pro de Wii U funciona en los juegos"
+
+msgid "Fixed: a crash when going back to RiftWii after some games"
+msgstr "Corregido: un fallo al volver a RiftWii después de algunos juegos"
 
 msgid "Memory for RiftWii's extras"
 msgstr "Memoria para los extras de RiftWii"

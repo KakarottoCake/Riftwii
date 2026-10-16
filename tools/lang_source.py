@@ -1699,12 +1699,13 @@ T = {
     "Every setting goes back to how RiftWii comes, and RiftWii restarts. Games' own pages, favourites, play history and mods are kept.": ("Todos los ajustes vuelven a como vienen en RiftWii, y RiftWii se reinicia. Se conservan las páginas de cada juego, los favoritos, el historial de juego y los mods.", "すべての設定がRiftWiiの初期状態に戻り、RiftWiiが再起動します。各ゲームのページ、お気に入り、プレイ履歴、MODはそのまま残ります。", "Todas as configurações voltam a como vêm no RiftWii, e o RiftWii reinicia. As páginas de cada jogo, os favoritos, o histórico de jogo e os mods são mantidos.", "Tutte le impostazioni tornano come in origine e RiftWii si riavvia. Le pagine dei singoli giochi, i preferiti, la cronologia di gioco e le mod restano."),
     "Every setting back to how RiftWii comes. Games' own pages, favourites, play history and mods are kept.": ("Todos los ajustes vuelven a como vienen en RiftWii. Se conservan las páginas de cada juego, los favoritos, el historial de juego y los mods.", "すべての設定をRiftWiiの初期状態に戻します。各ゲームのページ、お気に入り、プレイ履歴、MODはそのまま残ります。", "Todas as configurações voltam a como vêm no RiftWii. As páginas de cada jogo, os favoritos, o histórico de jogo e os mods são mantidos.", "Tutte le impostazioni tornano come in origine. Le pagine dei singoli giochi, i preferiti, la cronologia di gioco e le mod restano."),
     "Settings reset to the defaults": ("Ajustes restablecidos", "設定を初期状態に戻しました", "Configurações redefinidas", "Impostazioni ripristinate"),
-    # What's new in 2610-406
-    "Wii U Pro Controller in games, as a Classic Controller (a first try)": ("El Mando Pro de Wii U en los juegos, como Mando Clásico (una primera prueba)", "Wii U PROコントローラーをゲームでクラシックコントローラとして（試験版）", "O Wii U Pro Controller nos jogos, como Classic Controller (um primeiro teste)", "Il Wii U Pro Controller nei giochi, come Controller tradizionale (una prima prova)"),
-    "Channels: sharp icons, framed like the Wii Menu's": ("Canales: iconos nítidos, con marcos como los del menú de Wii", "チャンネル：くっきりしたアイコンとWiiメニューのような枠", "Canais: ícones nítidos, com molduras como as do Menu Wii", "Canali: icone nitide, con cornici come quelle del Menu Wii"),
-    "New controller and button pictures": ("Nuevas imágenes de mandos y botones", "コントローラーとボタンの新しい絵", "Novas imagens de controles e botões", "Nuove immagini di controller e pulsanti"),
-    "Smoother round buttons": ("Botones redondos más suaves", "なめらかになった丸いボタン", "Botões redondos mais suaves", "Pulsanti rotondi più morbidi"),
-    "Fixed: some channel logos came out grey": ("Corregido: algunos logotipos de canales salían en gris", "修正：一部のチャンネルのロゴが灰色になっていた", "Corrigido: alguns logotipos de canais apareciam em cinza", "Corretto: alcuni loghi dei canali apparivano grigi"),
+    # What's new in 2610-418
+    "Code mods ask how to start: with or without RiftWii's extras": ("Los mods de códigos preguntan cómo iniciarse: con o sin los extras de RiftWii", "コードModは起動のしかたを選べます：RiftWiiの追加機能あり・なし", "Os mods de códigos perguntam como iniciar: com ou sem os extras do RiftWii", "I mod di codici chiedono come partire: con o senza gli extra di RiftWii"),
+    "Code mods start on IOS58, as their own launcher does": ("Los mods de códigos se inician en IOS58, como su propio cargador", "コードModはMod自身のローダーと同じくIOS58で起動します", "Os mods de códigos iniciam no IOS58, como o próprio carregador deles", "I mod di codici partono su IOS58, come il loro loader"),
+    "USB keyboard games like City Folk keep their keyboard": ("Los juegos con teclado USB, como City Folk, conservan el teclado", "City Folkなど、USBキーボードを使うゲームでキーボードが使えます", "Jogos com teclado USB, como City Folk, mantêm o teclado", "I giochi con tastiera USB, come City Folk, mantengono la tastiera"),
+    "More memory for games, and a note before big RVZ games": ("Más memoria para los juegos y un aviso antes de los juegos RVZ grandes", "ゲームに使えるメモリを増やし、大きなRVZのゲームの前にお知らせを表示", "Mais memória para os jogos e um aviso antes de jogos RVZ grandes", "Più memoria per i giochi e un avviso prima dei giochi RVZ grandi"),
+    "Wii U Pro Controller works in games": ("El Mando Pro de Wii U funciona en los juegos", "Wii U PROコントローラーがゲームで使えます", "O Wii U Pro Controller funciona nos jogos", "Il Wii U Pro Controller funziona nei giochi"),
+    "Fixed: a crash when going back to RiftWii after some games": ("Corregido: un fallo al volver a RiftWii después de algunos juegos", "修正：一部のゲームのあとRiftWiiに戻るときのクラッシュ", "Corrigido: um travamento ao voltar ao RiftWii depois de alguns jogos", "Corretto: un crash tornando a RiftWii dopo alcuni giochi"),
     # Game page: memory for RiftWii's extras
     "Memory for RiftWii's extras": ("Memoria para los extras de RiftWii", "RiftWiiの追加機能が使うメモリ", "Memória para os extras do RiftWii", "Memoria per gli extra di RiftWii"),
     "about {1} KB": ("unos {1} KB", "約{1} KB", "cerca de {1} KB", "circa {1} KB"),
@@ -2957,16 +2958,18 @@ KO = {
         "모든 설정을 RiftWii의 기본값으로 되돌립니다. 게임별 페이지, 즐겨찾기, 플레이 기록, 모드는 그대로 유지됩니다.",
     "Settings reset to the defaults":
         "설정을 기본값으로 초기화했습니다",
-    "Wii U Pro Controller in games, as a Classic Controller (a first try)":
-        "게임에서 Wii U PRO 컨트롤러를 클래식 컨트롤러로 (첫 시험)",
-    "Channels: sharp icons, framed like the Wii Menu's":
-        "채널: 선명한 아이콘, Wii 메뉴 같은 테두리",
-    "New controller and button pictures":
-        "새 컨트롤러와 버튼 그림",
-    "Smoother round buttons":
-        "더 부드러운 둥근 버튼",
-    "Fixed: some channel logos came out grey":
-        "수정: 일부 채널 로고가 회색으로 나오던 문제",
+    "Code mods ask how to start: with or without RiftWii's extras":
+        "코드 모드 시작 방법 선택: RiftWii 추가 기능 사용 또는 없이",
+    "Code mods start on IOS58, as their own launcher does":
+        "코드 모드는 자체 로더처럼 IOS58에서 시작",
+    "USB keyboard games like City Folk keep their keyboard":
+        "City Folk 같은 USB 키보드 게임에서 키보드 사용 가능",
+    "More memory for games, and a note before big RVZ games":
+        "게임용 메모리 증가, 큰 RVZ 게임 전에 안내 표시",
+    "Wii U Pro Controller works in games":
+        "게임에서 Wii U PRO 컨트롤러 사용 가능",
+    "Fixed: a crash when going back to RiftWii after some games":
+        "수정: 일부 게임 후 RiftWii로 돌아갈 때의 충돌",
     "Memory for RiftWii's extras":
         "RiftWii 추가 기능이 쓰는 메모리",
     "about {1} KB":
@@ -4308,16 +4311,18 @@ FR = {
         "Tous les paramètres reviennent à ceux d'origine. Les pages des jeux, les favoris, l'historique de jeu et les mods sont conservés.",
     "Settings reset to the defaults":
         "Paramètres réinitialisés",
-    "Wii U Pro Controller in games, as a Classic Controller (a first try)":
-        "La manette Wii U Pro dans les jeux, comme Manette Classique (un premier essai)",
-    "Channels: sharp icons, framed like the Wii Menu's":
-        "Chaînes : icônes nettes, encadrées comme dans le menu Wii",
-    "New controller and button pictures":
-        "Nouvelles images des manettes et des boutons",
-    "Smoother round buttons":
-        "Boutons ronds plus doux",
-    "Fixed: some channel logos came out grey":
-        "Corrigé : certains logos de chaînes apparaissaient en gris",
+    "Code mods ask how to start: with or without RiftWii's extras":
+        "Les mods de code demandent comment démarrer : avec ou sans les extras de RiftWii",
+    "Code mods start on IOS58, as their own launcher does":
+        "Les mods de code démarrent sur l'IOS58, comme leur propre chargeur",
+    "USB keyboard games like City Folk keep their keyboard":
+        "Les jeux à clavier USB comme City Folk gardent leur clavier",
+    "More memory for games, and a note before big RVZ games":
+        "Plus de mémoire pour les jeux, et un avis avant les gros jeux RVZ",
+    "Wii U Pro Controller works in games":
+        "La manette Wii U Pro fonctionne dans les jeux",
+    "Fixed: a crash when going back to RiftWii after some games":
+        "Corrigé : un plantage au retour vers RiftWii après certains jeux",
     "Memory for RiftWii's extras":
         "Mémoire pour les extras de RiftWii",
     "about {1} KB":
