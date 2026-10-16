@@ -244,7 +244,7 @@ bool install_cheats(const std::vector<MemoryRegion>& loaded, const std::vector<M
     *reinterpret_cast<volatile std::uint32_t*>(hook) = branch;
     DCFlushRange(reinterpret_cast<void*>(hook & ~31u), 32);
     ICInvalidateRange(reinterpret_cast<void*>(hook & ~31u), 32);
-    if (!g_extras.code_builds.empty() && !code_build_extras_wanted())
+    if (!g_extras.code_builds.empty() && g_extras.code_build_plain)
         logf("Codes: no hook on jumps to another executable: a code build starts without RiftWii's extras\n");
     else if (!debug_off("dolswitch")) install_dol_switch(text, code_hook_pattern(audio ? CodeHook::AudioFrame : CodeHook::Retrace));
     else
@@ -1320,15 +1320,28 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     // crash recorder, GameCube adapter or screenshots), as under USB
     // Loader GX.
     const bool code_build = g_extras.code_list_start != 0 && !g_extras.cheat_gct.empty();
-    // A code build starts as its own SD loader would start it: its codes,
-    // gameconfig.txt's words and the GameCube adapter when one is plugged
-    // in, and none of RiftWii's other extras (crash recorder, Return to
-    // RiftWii, video and game-page preferences, game fixes, WFC). REX went
-    // to a black screen on a tester's Wii U (2610-412) and runs from its
-    // own loader on the same console. settings.txt "code_build_extras = on"
-    // brings them back, for testing.
-    const bool plain_code_build = code_build && !code_build_extras_wanted();
-    if (plain_code_build) logf("Code build: started without RiftWii's extras (code_build_extras = on brings them back)\n");
+    // Picked at Start: a code build started as its own SD loader would
+    // start it, with its codes, gameconfig.txt's words and the GameCube
+    // adapter when one is plugged in, and none of RiftWii's other extras
+    // (crash recorder, Return to RiftWii, video and game-page preferences,
+    // game fixes, WFC). Mods differ: Project+ runs with them, REX went to a
+    // black screen on a tester's Wii U (2610-412).
+    const bool plain_code_build = code_build && g_extras.code_build_plain;
+    if (mem::TestWiiMem2Top()) {
+        // Test builds: MEM2's top as a Wii's IOS leaves it (the MEM2 end,
+        // the arena's end and IOS's IPC buffer), before the blobs at the
+        // top are planned. Dolphin's IOS ends 2 MiB higher, and lowering
+        // only the arena's end left a layout no Wii has: Project+ went to a
+        // black screen in it, while it runs on a Wii.
+        store32(0x80003120, 0x93400000);
+        if (load32(0x80003128) > 0x933E0000) store32(0x80003128, 0x933E0000);
+        store32(0x80003130, 0x933E0000);
+        store32(0x80003134, 0x93400000);
+        DCFlushRange(reinterpret_cast<void*>(0x80003120), 32);
+        logf("Memory: TEST BUILD: MEM2's top as on a Wii (arena end 0x%08x)\n", load32(0x80003128));
+    }
+    if (code_build)
+        logf("Code build: started %s RiftWii's extras (picked at Start)\n", plain_code_build ? "without" : "with");
     // Resident Evil 4 clears MEM1 up to its FST at its title screen: the
     // blobs there were wiped and the screenshot hook then wrote through a
     // null state (the crash at Start Game on a console; in Dolphin too).
@@ -1763,8 +1776,13 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     store32(0x80000020, 0x0D15EA5E);            // boot magic
     store32(0x80000024, 1);                     // version
     store32(0x80000028, 0x01800000);            // MEM1 size
-    if (!running_in_dolphin() && !debug_off("consoletype"))
+    // Not for a code build started without the extras: left as the
+    // apploader set it, as the mod's own loader leaves it.
+    if ((!running_in_dolphin() || mem::TestConsoleTypeAsWii()) && !debug_off("consoletype") && !plain_code_build) {
+        const u32 apploader_console_type = load32(0x8000002C);
         store32(0x8000002C, 1 + (read32(0xCC00302C) >> 28));  // console type
+        logf("Console type: 0x%08x written (it was 0x%08x)\n", load32(0x8000002C), apploader_console_type);
+    }
     store32(0x800000EC, 0x81800000);            // debug monitor location
     store32(0x800000F0, 0x01800000);            // simulated memory size
     store32(0x800000F8, 0x0E7BE2C0);            // bus clock
@@ -2487,13 +2505,6 @@ void close_nand_permissions(const char* who) {
     const bool back = *reinterpret_cast<volatile u32*>(word) == g_nand_before;
     write16(0x0D8B420A, protection);
     logf("%s: IOS%d's NAND permission check %s\n", who, IOS_GetVersion(), back ? "closed" : "could not be closed");
-}
-
-// settings.txt "code_build_extras = on": a code build gets RiftWii's
-// extras again (see plain_code_build in the launch).
-bool code_build_extras_wanted() {
-    const auto it = Settings().other.find("code_build_extras");
-    return it != Settings().other.end() && it->second == "on";
 }
 
 // Test switches for a game that only fails on a console: settings.txt

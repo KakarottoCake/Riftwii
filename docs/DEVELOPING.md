@@ -162,12 +162,21 @@ app (CTGP) starts, `wpadlog` the Wii Remote log. `boot.log` names each one left 
 then halve the list. The PMEX Remix crash on a Wii (2.7.0 RC9.2) was found
 this way: it was the crash recorder.
 
-A code build (REX, Project+, a `gameconfig.txt` build) starts without
-these extras at all: only its codes, `gameconfig.txt`'s words, the
-code handler's run before the game and the GameCube adapter when one
-is plugged in (REX went black on a tester's Wii U, 2610-412).
-`code_build_extras = on` brings the others back, so `debug_off` can
-bisect them again.
+A code build (REX, Project+, a `gameconfig.txt` build) can also start
+without these extras at all, picked at Start (or `code_build_extras =
+off` for autorun): only its codes, `gameconfig.txt`'s words, the code
+handler's run before the game and the GameCube adapter when one is
+plugged in. REX went black on a tester's Wii U (2610-412).
+
+`build-dolphin/sim.sh` runs one code-build launch on a card image
+without folder sync and scores it (PASS or BLACK); `sim_matrix.sh` runs
+every code-build card with the extras on and off. Test builds' keys in
+`test_limits.txt`: `console_type_as_wii = 1` writes the console type in
+Dolphin as on a console. Dolphin's IOS leaves MEM2's top where the same
+IOS does on a Wii (0x935e0000 under Brawl's IOS36, 0x933e0000 under
+IOS58), so a game needs no squeeze to have a Wii's memory;
+`wii_mem2_top = 1` forces IOS58's layout, and `game_mem2_top_kib`
+alone builds a layout no Wii has (Project+ goes black in it).
 
 `debug_crash` in the same file breaks the game on purpose, to try the
 crash recorder: `debug_crash = pad` puts a read from address 0x28 at the

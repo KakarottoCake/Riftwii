@@ -57,6 +57,12 @@ void TestBallast();
 // memory as on a tester's Wii (where an SD image, a pack's files or a blob
 // take more of it). All 0 in other builds.
 void TestGameSqueeze(u32& mem1_kib, u32& mem2_kib, u32& mem2_top_kib);
+// Test builds: test_limits.txt "wii_mem2_top = 1" gives the game MEM2's
+// top as a Wii's IOS leaves it, in Dolphin, whose IOS ends 2 MiB higher.
+bool TestWiiMem2Top();
+// Test builds: "console_type_as_wii = 1" writes the console type at the
+// launch in Dolphin too, as on a Wii.
+bool TestConsoleTypeAsWii();
 
 // session.log lines: the limits and the physical sizes (Dolphin's memory
 // size override shows here), then, with LogUsage, what is used and free.

@@ -172,6 +172,11 @@ void PrepareLaunchExtras(const FrontendState& state, const HeadlessLaunch* headl
         extras.code_list_end = builds.list_end;
         extras.code_hooktype = builds.hooktype;
         extras.pokes = std::move(builds.pokes);
+        // The menu asks at Start; a launch without the menu (autorun, another
+        // loader) goes by settings.txt "code_build_extras = off".
+        const auto setting = Settings().other.find("code_build_extras");
+        const bool setting_off = setting != Settings().other.end() && setting->second == "off";
+        extras.code_build_plain = state.code_build_plain || setting_off;
     } else {
         logf("Code builds are off: %s\n", error.c_str());  // the game page checked before Start
     }

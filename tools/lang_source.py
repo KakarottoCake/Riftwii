@@ -1244,6 +1244,36 @@ T = {
         "elimina i file il cui nome inizia con \"._\"."),
     "This code mod can't start": ("Este mod de códigos no puede iniciarse", "このコードModは起動できません",
         "Este mod de códigos não pode iniciar", "Questo mod di codici non può partire"),
+    "How should this code mod start?": (
+        "¿Cómo debe iniciarse este mod de códigos?",
+        "このコードModをどう起動しますか？",
+        "Como este mod de códigos deve iniciar?",
+        "Come deve partire questo mod di codici?"),
+    "Code mods differ. Most, like Project+, run well with RiftWii's extras. If a mod stays on a black screen, start it without them, as its own loader would.": (
+        "Cada mod de códigos es distinto. La mayoría, como Project+, funcionan bien con los extras de RiftWii. Si un mod se queda con la pantalla en negro, inícialo sin ellos, como lo haría su propio cargador.",
+        "コードModはそれぞれ違います。Project+など多くのModは、RiftWiiの追加機能があっても動きます。画面が黒いままのModは、Mod自身のローダーと同じように追加機能なしで起動してください。",
+        "Cada mod de códigos é diferente. A maioria, como o Project+, funciona bem com os extras do RiftWii. Se um mod ficar com a tela preta, inicie-o sem eles, como o próprio carregador dele faria.",
+        "Ogni mod di codici è diverso. La maggior parte, come Project+, funziona bene con gli extra di RiftWii. Se un mod resta su uno schermo nero, avvialo senza, come farebbe il suo loader."),
+    "With extras": (
+        "Con extras",
+        "追加機能あり",
+        "Com extras",
+        "Con gli extra"),
+    "Crash reports, back to RiftWii": (
+        "Informes de fallos, volver a RiftWii",
+        "クラッシュ記録、RiftWiiに戻る",
+        "Relatórios de falhas, voltar ao RiftWii",
+        "Rapporti di crash, ritorno a RiftWii"),
+    "Without extras": (
+        "Sin extras",
+        "追加機能なし",
+        "Sem extras",
+        "Senza extra"),
+    "As the mod's own loader": (
+        "Como el cargador del propio mod",
+        "Mod自身のローダーと同じ",
+        "Como o carregador do próprio mod",
+        "Come il loader del mod stesso"),
     "{1} has more codes than the game has room for ({2}, room for {3}). It needs the file gameconfig.txt (or gc.txt) from the same download as the mod. Copy it into the mod's own folder on the SD card, {4}, so it can't replace another mod's. Not in the download? Ask whoever made the mod.": (
         '{1} tiene más códigos de los que caben en el juego ({2}, hay sitio para {3}). Necesita el archivo gameconfig.txt (o gc.txt) de la misma descarga que el mod. Cópialo en la carpeta del propio mod en la tarjeta SD, {4}, así no reemplaza el de otro mod. ¿No está en la descarga? Pregunta a quien hizo el mod.',
         '{1}のコードはゲームに入る量を超えています（{2}、空きは{3}）。Modと同じダウンロードに入っているgameconfig.txt（またはgc.txt）が必要です。ほかのModのものを上書きしないよう、SDカードのそのMod自身のフォルダ（{4}）にコピーしてください。ダウンロードにない場合は、Modの作者に聞いてください。',
@@ -2589,6 +2619,18 @@ KO = {
         "이 SD 카드에는 macOS가 파일을 복사할 때 생성하는 숨김 파일(이름이 \"._\"로 시작하는 파일)이 포함되어 있습니다. RiftWii는 이 파일들을 무시하고 넘어가지만, 카드 용량을 차지할 뿐만 아니라 다른 홈브류 프로그램에 혼란을 줄 수 있습니다. 이를 제거하려면 카드를 Mac에 연결한 뒤 터미널을 열고 `dot_clean -m /Volumes/`를 입력한 다음 카드 이름을 이어서 입력하십시오. 윈도우의 경우, 이름이 \"._\"로 시작하는 파일을 삭제하면 됩니다.",
     "This code mod can't start":
         "이 코드 모드는 시작되지 않음",
+    "How should this code mod start?":
+        "이 코드 모드를 어떻게 시작할까요?",
+    "Code mods differ. Most, like Project+, run well with RiftWii's extras. If a mod stays on a black screen, start it without them, as its own loader would.":
+        "코드 모드마다 다릅니다. Project+ 같은 대부분의 모드는 RiftWii의 추가 기능과 함께 잘 실행됩니다. 화면이 검은 채로 멈추는 모드는 모드 자체 로더처럼 추가 기능 없이 시작하세요.",
+    "With extras":
+        "추가 기능 사용",
+    "Crash reports, back to RiftWii":
+        "충돌 기록, RiftWii로 돌아가기",
+    "Without extras":
+        "추가 기능 없이",
+    "As the mod's own loader":
+        "모드 자체 로더와 같이",
     "{1} has more codes than the game has room for ({2}, room for {3}). It needs the file gameconfig.txt (or gc.txt) from the same download as the mod. Copy it into the mod's own folder on the SD card, {4}, so it can't replace another mod's. Not in the download? Ask whoever made the mod.":
         "{1}에 포함된 코드의 수가 게임이 수용할 수 있는 한도({2}, 수용 한도: {3})를 초과합니다. 이 모드와 함께 제공된 gameconfig.txt (또는 gc.txt) 파일이 필요합니다. 다른 모드의 파일을 덮어쓰지 않도록, 해당 파일을 SD 카드 내 모드 전용 폴더인 {4}에 복사해 넣으세요. 만약 다운로드 파일에 해당 파일이 없다면 모드 제작자에게 문의하세요.",
     "The codes take {1}, but {2} only makes room for {3}. Turn off some cheats on this game's Cheats page, or turn off a code mod.":
@@ -3928,6 +3970,18 @@ FR = {
         "Cette carte contient des fichiers système macOS commençant par \"._\". RiftWii les ignore mais ils prennent de la place. Pour les supprimer sur Mac, utilisez la commande Terminal `dot_clean -m /Volumes/[NomCarte]`. Sur Windows, supprimez manuellement les fichiers \"._\".",
     "This code mod can't start":
         "Ce mod de code ne peut pas démarrer",
+    "How should this code mod start?":
+        "Comment démarrer ce mod de code ?",
+    "Code mods differ. Most, like Project+, run well with RiftWii's extras. If a mod stays on a black screen, start it without them, as its own loader would.":
+        "Chaque mod de code est différent. La plupart, comme Project+, fonctionnent bien avec les extras de RiftWii. Si un mod reste sur un écran noir, démarrez-le sans eux, comme le ferait son propre chargeur.",
+    "With extras":
+        "Avec les extras",
+    "Crash reports, back to RiftWii":
+        "Rapports de plantage, retour à RiftWii",
+    "Without extras":
+        "Sans extras",
+    "As the mod's own loader":
+        "Comme le chargeur du mod",
     "{1} has more codes than the game has room for ({2}, room for {3}). It needs the file gameconfig.txt (or gc.txt) from the same download as the mod. Copy it into the mod's own folder on the SD card, {4}, so it can't replace another mod's. Not in the download? Ask whoever made the mod.":
         "{1} contient plus de codes que la mémoire disponible ({2}, limite à {3}). Le fichier gameconfig.txt (ou gc.txt) inclus avec le mod est requis dans {4}.",
     "The codes take {1}, but {2} only makes room for {3}. Turn off some cheats on this game's Cheats page, or turn off a code mod.":

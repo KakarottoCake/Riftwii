@@ -1281,6 +1281,24 @@ msgstr "이 SD 카드에는 macOS가 파일을 복사할 때 생성하는 숨김
 msgid "This code mod can't start"
 msgstr "이 코드 모드는 시작되지 않음"
 
+msgid "How should this code mod start?"
+msgstr "이 코드 모드를 어떻게 시작할까요?"
+
+msgid "Code mods differ. Most, like Project+, run well with RiftWii's extras. If a mod stays on a black screen, start it without them, as its own loader would."
+msgstr "코드 모드마다 다릅니다. Project+ 같은 대부분의 모드는 RiftWii의 추가 기능과 함께 잘 실행됩니다. 화면이 검은 채로 멈추는 모드는 모드 자체 로더처럼 추가 기능 없이 시작하세요."
+
+msgid "With extras"
+msgstr "추가 기능 사용"
+
+msgid "Crash reports, back to RiftWii"
+msgstr "충돌 기록, RiftWii로 돌아가기"
+
+msgid "Without extras"
+msgstr "추가 기능 없이"
+
+msgid "As the mod's own loader"
+msgstr "모드 자체 로더와 같이"
+
 msgid "{1} has more codes than the game has room for ({2}, room for {3}). It needs the file gameconfig.txt (or gc.txt) from the same download as the mod. Copy it into the mod's own folder on the SD card, {4}, so it can't replace another mod's. Not in the download? Ask whoever made the mod."
 msgstr "{1}에 포함된 코드의 수가 게임이 수용할 수 있는 한도({2}, 수용 한도: {3})를 초과합니다. 이 모드와 함께 제공된 gameconfig.txt (또는 gc.txt) 파일이 필요합니다. 다른 모드의 파일을 덮어쓰지 않도록, 해당 파일을 SD 카드 내 모드 전용 폴더인 {4}에 복사해 넣으세요. 만약 다운로드 파일에 해당 파일이 없다면 모드 제작자에게 문의하세요."
 

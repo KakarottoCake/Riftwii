@@ -195,6 +195,9 @@ struct LaunchExtras {
     std::uint32_t code_list_end = 0;
     int code_hooktype = 0;
     std::vector<GamePoke> pokes;
+    // Picked at Start: the code build starts with its codes, gameconfig.txt
+    // and a plugged-in GameCube adapter only, none of RiftWii's other extras.
+    bool code_build_plain = false;
     // What a game's Wii Menu button starts, for a headless launch
     // (wii/launch/headless.hpp): a title, or the Wii Menu itself; neither
     // leaves it to the Wii Menu button setting.
@@ -237,8 +240,6 @@ void close_nand_permissions(const char* who);
 bool keep_hardware_access(const char* who);
 // Test switches from settings.txt (debug_off = a, b, ...; docs/DEVELOPING.md).
 bool debug_off(const char* what);
-// settings.txt "code_build_extras = on" (boot.cpp).
-bool code_build_extras_wanted();
 
 // Reloads IOS, runs the apploader and jumps to the game. Only returns on
 // failure. The caller must have shut down its own GUI, audio and pads;

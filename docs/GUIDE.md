@@ -499,14 +499,19 @@ A few things to know:
   reached a match). Older builds that go in `sd:/codes` with
   `gameconfig.txt` at the top of the card (Project M, Brawl Minus,
   Legacy XP's setup for USB loaders) use the same files.
-- RiftWii starts a code build the way its own loader would: the codes
-  and `gameconfig.txt`, and the GameCube controller adapter for Wii U
-  when one is plugged in (in the console's second memory, as these
-  builds use all of the game's main memory). Everything else RiftWii
-  adds to a game stays off: the crash recorder, Return to RiftWii (HOME
-  > Wii Menu goes to the Wii Menu), the game page's video and other
-  preferences, screenshots and online patches. `code_build_extras = on`
-  in `sd:/riftwii/settings.txt` turns them back on, for testing.
+- Press Start with a code mod on and RiftWii asks how to start it:
+  - **With RiftWii's extras**: the crash recorder, Return to RiftWii
+    from the HOME Menu, the game page's video and other settings, and
+    the GameCube controller adapter for Wii U (in the console's second
+    memory, as these builds use all of the game's main memory).
+    Project+ runs this way.
+  - **Without extras**: as the mod's own loader starts it: its codes,
+    `gameconfig.txt` and the GameCube controller adapter when one is
+    plugged in, nothing else (HOME > Wii Menu goes to the Wii Menu).
+    Try this when a mod stays on a black screen.
+  A launch without the menu (autorun, another loader) starts with the
+  extras, or without them with `code_build_extras = off` in
+  `sd:/riftwii/settings.txt`.
 - PMEX Remix is very heavy for a real Wii: it can lag (on the character
   select screen, for one) and its own start screen recommends Dolphin.
   That is the build, not RiftWii.

@@ -1750,6 +1750,10 @@ public:
 		mainWindow->SetState(STATE::DEFAULT);
 	}
 	void SetBody(const std::string& body) { bodyTxt.SetText(body.c_str()); }
+	// Something more in the box, over its whole width (it must outlive the box).
+	void Append(GuiElement* e) { w.Append(e); }
+	// The second button alone, in the middle (as the first is when alone).
+	void CenterCancel() { cancelBtn.button.SetPosition(198 - 4, 314 - 4); }
 	// While work goes on with the box up (the GUI halted): whether its
 	// last button was pressed.
 	bool Pressed()
@@ -1799,6 +1803,59 @@ static int ShowPopup(const std::string& title, const std::string& body, const st
 {
 	PopupBox box(title, body, ok, cancel);
 	return box.Wait();
+}
+
+// A code mod is switched on for the next start.
+static bool CodeModOn(const FrontendState& state)
+{
+	for (const riftwii::LaunchPackage& p : state.model.packages)
+		if (p.enabled && p.code_build()) return true;
+	return false;
+}
+
+// Start with a code mod on: with RiftWii's extras or without them, as the
+// mod's own loader starts it. Mods differ: Project+ runs with the extras,
+// REX went to a black screen on a tester's Wii U (2610-412) and starts
+// from its own loader there. False: B, back to the game page.
+static bool PickCodeModStart(FrontendState& state)
+{
+	state.code_build_plain = false;
+	if (!CodeModOn(state)) return true;
+	PopupBox box(tr("How should this code mod start?"),
+		tr("Code mods differ. Most, like Project+, run well with RiftWii's extras. If a mod stays on a black screen, start it without them, as its own loader would."),
+		"", tr("Back"));
+	box.CenterCancel();
+	std::vector<TileSpec> tiles(2);
+	tiles[0].x = 56;
+	tiles[1].x = 332;
+	for (TileSpec& t : tiles) {
+		t.y = 238;
+		t.w = 252;
+		t.h = 64;
+	}
+	tiles[0].label = tr("With extras");
+	tiles[0].value = tr("Crash reports, back to RiftWii");
+	tiles[0].primary = true;
+	tiles[1].label = tr("Without extras");
+	tiles[1].value = tr("As the mod's own loader");
+	GuiTiles choices;
+	choices.SetTiles(&tiles);
+	choices.Select(0);
+	box.Append(&choices);
+	ResumeGui();
+	int picked = -1;
+	bool back = false;
+	while (picked < 0 && !back) {
+		usleep(20000);
+		HaltGui();
+		picked = choices.GetClicked();
+		back = picked < 0 && box.Pressed();  // Back, B or HOME
+		if (picked < 0 && !back) ResumeGui();
+	}
+	if (back) return false;
+	state.code_build_plain = picked == 1;
+	logf("Start: the code mod starts %s RiftWii's extras\n", state.code_build_plain ? "without" : "with");
+	return true;
 }
 
 // Packs switched on with every option off change nothing, and the launch
@@ -5946,6 +6003,8 @@ static int MenuHome(FrontendState& state)
 				} else {
 					ShowPopup(LaunchNoteTitle(state), LaunchNote(state) + " " + tr("Press Start again to play."), tr("OK"));
 				}
+			} else if (!PickCodeModStart(state)) {
+				// B: back on the game page
 			} else if (!saveForStart()) {
 				// the status shows why
 			} else if (!riftwii::needs_launch_pipeline(!state.model.selections().empty(), state.model.save_mode)) {
