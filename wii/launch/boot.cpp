@@ -2775,8 +2775,21 @@ bool boot_game(const DiscProbe& probe, BootOptions options, std::string& error) 
     // `game` reloads for every game, `menu` never does.
     const auto sd_ios = Settings().other.find("sd_launch_ios");
     const std::string sd_ios_setting = sd_ios != Settings().other.end() ? sd_ios->second : std::string();
-    const bool reload_for_sd = sd_ios_setting == "game" || (sd_ios_setting != "menu" && required == 57);
-    if (!effective.preserve_current_ios && running_ios != static_cast<int>(required) &&
+    // A game that reads a USB keyboard (City Folk) gets the IOS it asks for
+    // when that one has the keyboard driver, never IOS58, which has none
+    // (Dolphin: City Folk under IOS58 found no /dev/usb/kbd, under IOS38 it
+    // opened it). Kept off the three rules below that keep the running IOS.
+    const bool keyboard_ios = !effective.preserve_current_ios && running_ios != static_cast<int>(required) &&
+                              game_uses_usb_keyboard(probe.header.game_id) &&
+                              ios_has_usb_keyboard(static_cast<int>(required)) &&
+                              !ios_has_usb_keyboard(running_ios >= 200 ? d2x_base(running_ios) : running_ios) &&
+                              sd_ios_setting != "menu";
+    const bool reload_for_sd =
+        sd_ios_setting == "game" || (sd_ios_setting != "menu" && required == 57) || keyboard_ios;
+    if (keyboard_ios) {
+        logf("Starting IOS%u for the game: it reads a USB keyboard, which IOS%d has no driver for\n", required,
+             running_ios);
+    } else if (!effective.preserve_current_ios && running_ios != static_cast<int>(required) &&
         needs_resident_sd(effective) && reload_for_sd) {
         logf("Starting IOS%u for the game although the runtime needs the SD card (%s)\n", required,
              sd_ios_setting == "game" ? "sd_launch_ios = game" : "IOS57 games run under it");
@@ -2796,12 +2809,12 @@ bool boot_game(const DiscProbe& probe, BootOptions options, std::string& error) 
     // as the disc asks, REX went to a black screen on a tester's Wii U
     // (2610-412). A cIOS the menu runs on is kept the same way.
     if (!effective.preserve_current_ios && running_ios != static_cast<int>(required) &&
-        !g_extras.code_builds.empty() && (running_ios == 58 || running_ios >= 200)) {
+        !keyboard_ios && !g_extras.code_builds.empty() && (running_ios == 58 || running_ios >= 200)) {
         effective.preserve_current_ios = true;
         logf("Keeping IOS%d for the code build, as its own launcher does; reporting IOS%u to the game\n",
              running_ios, required);
     }
-    if (!effective.preserve_current_ios && running_ios != static_cast<int>(required) &&
+    if (!effective.preserve_current_ios && running_ios != static_cast<int>(required) && !keyboard_ios &&
         g_extras.gc_adapter != GcAdapterMode::Off && usb_hid_present()) {
         // The adapter needs /dev/usb/hid, which the IOS a game asks for
         // often lacks (IOS36 has none); the running one has it.

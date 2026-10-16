@@ -120,4 +120,21 @@ struct D2xSlot {
 int gx_pick_cios(const std::string& game_id, int requested_ios, std::vector<D2xSlot> slots, bool sd_card,
                  std::string& why);
 
+// Games that read a USB keyboard through IOS's /dev/usb/kbd: Animal
+// Crossing: City Folk (RUU) and Monster Hunter Tri (RMH, its chat).
+bool game_uses_usb_keyboard(const std::string& game_id);
+// Whether an IOS, or a d2x cIOS on that base, has /dev/usb/kbd: IOS30 and
+// up, but not 57-59, whose new USB stack has no keyboard driver (as
+// Dolphin's VersionInfo.cpp has it; City Folk under IOS58 in Dolphin:
+// "Unknown device: /dev/usb/kbd").
+bool ios_has_usb_keyboard(int ios);
+// `order` (cIOS slots to try) with the slots whose base has the keyboard
+// driver first, then the others, each group as it was. The d2x slots not
+// in `order` that have it are tried too. With the SD card in use, a base
+// below 56 goes last, after the ones without the keyboard: GX keeps the
+// SD card to bases 56-60 (see gx_pick_cios), and a pack that fails in game
+// is worse than no keyboard.
+std::vector<int> keyboard_slots_first(const std::vector<int>& order, const std::vector<D2xSlot>& slots,
+                                      bool sd_card);
+
 }  // namespace riftwii

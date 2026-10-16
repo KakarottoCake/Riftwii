@@ -1611,6 +1611,16 @@ std::vector<int> image_cios_order(const ImageGame& game, int chosen, bool uses_s
     for (int slot : {249, 250, 251}) {
         if (std::find(order.begin(), order.end(), slot) == order.end()) order.push_back(slot);
     }
+    if (game_uses_usb_keyboard(game.id)) {
+        // A base-58 d2x has no keyboard driver: a tester's City Folk ran on
+        // IOS251 after IOS249 (base 56) did not start the drive, and took
+        // no keyboard (2610-412).
+        order = keyboard_slots_first(order, d2x_slots(), game.device == ImageDevice::Sd || uses_sd);
+        std::string list;
+        for (int slot : order) list += (list.empty() ? "" : ", ") + std::to_string(slot);
+        logf("cIOS: %s reads a USB keyboard, which d2x bases 57-59 have no driver for: tried in the order %s\n",
+             game.id.c_str(), list.c_str());
+    }
     return order;
 }
 

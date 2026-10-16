@@ -320,6 +320,29 @@ void test_pick_cios() {
     EXPECT_EQ(gx_pick_cios("RMCE01", 0, slots, false, why), 0);  // nothing asked
 }
 
+void test_keyboard() {
+    EXPECT_TRUE(game_uses_usb_keyboard("RUUE01"));
+    EXPECT_TRUE(game_uses_usb_keyboard("RMHP08"));
+    EXPECT_TRUE(!game_uses_usb_keyboard("RMCE01"));
+    EXPECT_TRUE(ios_has_usb_keyboard(38));
+    EXPECT_TRUE(ios_has_usb_keyboard(56));
+    EXPECT_TRUE(!ios_has_usb_keyboard(57));
+    EXPECT_TRUE(!ios_has_usb_keyboard(58));
+    EXPECT_TRUE(ios_has_usb_keyboard(61));
+    EXPECT_TRUE(!ios_has_usb_keyboard(0));
+    // The tester's Wii: 249 (56) first, as GX picks it; then base 38 before
+    // 57 and 58 without the SD card.
+    const std::vector<D2xSlot> slots = {{248, 38}, {249, 56}, {250, 57}, {251, 58}};
+    const std::vector<int> order = {249, 250, 251};
+    EXPECT_TRUE((keyboard_slots_first(order, slots, false) == std::vector<int>{249, 248, 250, 251}));
+    // With the SD card: base 56 first, then 57 and 58, base 38 last.
+    EXPECT_TRUE((keyboard_slots_first(order, slots, true) == std::vector<int>{249, 250, 251, 248}));
+    // A slot with an unknown base keeps its place among the others.
+    EXPECT_TRUE((keyboard_slots_first({251, 249, 252}, slots, false) == std::vector<int>{249, 248, 251, 252}));
+    // Only new-stack bases: the order as it was.
+    EXPECT_TRUE((keyboard_slots_first({250, 251}, {{250, 57}, {251, 58}}, true) == std::vector<int>{250, 251}));
+}
+
 }  // namespace
 
 int main() {
@@ -335,6 +358,7 @@ int main() {
     test_region_video_fix();
     test_preferences();
     test_pick_cios();
+    test_keyboard();
     if (g_failures == 0) {
         std::cout << "ALL GXPATCHES TESTS PASSED" << std::endl;
         return 0;

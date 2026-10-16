@@ -219,6 +219,15 @@ bool game_runs_no_mem2_code(const std::string& id) { return id_is(id, "RGQ"); }
 // MEM2 than it gets from a disc.
 bool game_needs_most_of_mem2(const std::string& id) { return id_is(id, "SMN"); }
 
+// A tester's City Folk from a USB drive ran on a base-58 d2x and took no
+// keyboard (2610-412).
+bool game_uses_usb_keyboard(const std::string& id) { return id_is(id, "RUU") || id_is(id, "RMH"); }
+
+bool ios_has_usb_keyboard(int ios) {
+    const bool new_usb_stack = ios >= 57 && ios <= 59;
+    return ios >= 30 && !new_usb_stack;
+}
+
 std::uint32_t game_start_file(const std::string& id) {
     // Game ID, FST index of the executable to start.
     static const struct {
@@ -473,6 +482,31 @@ bool gx_fix_480p(const std::vector<CodeSpan>& loaded, GxReport& report) {
     put32(code + 8, 0x48000000u + (((site + 4) - (patch + 8)) & 0x3ffffffu));
     report.notes.push_back("480p fix: " + hex(site) + " branches to " + hex(patch));
     return true;
+}
+
+std::vector<int> keyboard_slots_first(const std::vector<int>& order, const std::vector<D2xSlot>& slots,
+                                      bool sd_card) {
+    const auto base_of = [&slots](int slot) {
+        for (const D2xSlot& s : slots)
+            if (s.slot == slot) return s.base;
+        return 0;
+    };
+    std::vector<int> all = order;
+    for (const D2xSlot& s : slots)
+        if (std::find(all.begin(), all.end(), s.slot) == all.end() && ios_has_usb_keyboard(s.base))
+            all.push_back(s.slot);
+    // 0: the keyboard (on a base that suits the SD card when it is in
+    // use); 1: no keyboard; 2: the keyboard on a base the SD card may not suit.
+    const auto group = [&](int slot) {
+        const int base = base_of(slot);
+        if (!ios_has_usb_keyboard(base)) return 1;
+        return sd_card && base < 56 ? 2 : 0;
+    };
+    std::vector<int> sorted;
+    for (int g = 0; g <= 2; ++g)
+        for (int slot : all)
+            if (group(slot) == g) sorted.push_back(slot);
+    return sorted;
 }
 
 int gx_pick_cios(const std::string& game_id, int requested, std::vector<D2xSlot> slots, bool sd_card,
