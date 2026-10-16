@@ -2125,14 +2125,26 @@ public:
 			// of it, charge = level * 2.46 / 255 - 0.013).
 			const int bx = x + 62, by = top + 10;
 			const GXColor line = on ? (GXColor){220, 220, 220, 255} : (GXColor){110, 110, 110, 255};
-			Menu_DrawRectangle(bx, by, 44, 16, line, 0);
-			Menu_DrawRectangle(bx + 1, by + 1, 42, 14, line, 0);
-			Menu_DrawRectangle(bx + 44, by + 4, 4, 8, line, 1);
+			// The outline is four filled strips, not GX lines: a line lands
+			// on the pixel edge and rounds a pixel either way, which left the
+			// bars nearer one side. Inside it is 40 x 12.
+			const int bodyW = 44, bodyH = 16, edge = 2;
+			Menu_DrawRectangle(bx, by, bodyW, edge, line, 1);
+			Menu_DrawRectangle(bx, by + bodyH - edge, bodyW, edge, line, 1);
+			Menu_DrawRectangle(bx, by, edge, bodyH, line, 1);
+			Menu_DrawRectangle(bx + bodyW - edge, by, edge, bodyH, line, 1);
+			Menu_DrawRectangle(bx + bodyW, by + 4, 4, 8, line, 1);
 			if (!on) continue;
 			const int level = WPAD_BatteryLevel(i);
 			const int bars = level >= 92 ? 4 : level >= 66 ? 3 : level >= 40 ? 2 : level >= 14 ? 1 : 0;
+			// Four 7 x 6 bars 2 apart: 34 wide, so 3 pixels of space on
+			// every side of the inside.
+			const int barW = 7, barH = 6, gap = 2;
+			const int barsX = bx + edge + (bodyW - 2 * edge - (4 * barW + 3 * gap)) / 2;
+			const int barsY = by + edge + (bodyH - 2 * edge - barH) / 2;
 			for (int k = 0; k < bars; ++k)
-				Menu_DrawRectangle(bx + 4 + k * 10, by + 4, 8, 8, bars == 1 ? (GXColor){222, 72, 72, 255} : skin::kAccent, 1);
+				Menu_DrawRectangle(barsX + k * (barW + gap), barsY, barW, barH,
+					bars == 1 ? (GXColor){222, 72, 72, 255} : skin::kAccent, 1);
 		}
 	}
 private:
