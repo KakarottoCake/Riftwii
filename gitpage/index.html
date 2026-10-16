@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RiftWii</title>
+    <link rel="stylesheet" href="css/style.css">
+
+    <meta property="og:title" content="RiftWii">
+
+<meta
+    property="og:description"
+    content="A mod loader for the Wii. Play Riivolution-format mods from the disc, a USB drive or the SD card."
+>
+
+<meta property="og:type" content="website">
+
+<meta
+    property="og:image"
+    content="https://github.com/KakarottoCake/Riftwii/raw/main/docs/images/banner.png"
+>
+
+<meta name="twitter:card" content="summary_large_image">
+
+<meta name="twitter:title" content="RiftWii">
+
+<meta
+    name="twitter:description"
+    content="A mod loader for the Wii. Play Riivolution-format mods from the disc, a USB drive or the SD card."
+>
+
+<meta
+    name="twitter:image"
+    content="https://github.com/KakarottoCake/Riftwii/raw/main/docs/images/banner.png"
+>
+<link
+    rel="icon"
+    type="image/png"
+    href="https://github.com/KakarottoCake/Riftwii/blob/main/hbc/icon.png?raw=true"
+>
+</head>
+<body class="page-locked">
+    <div class="background">
+        <div class="haze-main"></div>
+        <div class="mist haze-1"></div>
+        <div class="mist haze-2"></div>
+        <div class="stars" id="stars"></div>
+    </div>
+
+    <aside class="tbar delayed-ui" id="tbar" aria-label="Primary navigation">
+        <button
+            class="tbar-toggle"
+            id="tbarToggle"
+            type="button"
+            aria-label="Hide navigation"
+            aria-expanded="true"
+        >
+            <span class="tbar-arrow">‹</span>
+        </button>
+
+        <div class="tbar-brand">RIFTWII NAVI</div>
+
+        <nav class="tbar-links">
+            <a class="active" data-section="home" href="#home">Home</a>
+            <a data-section="features" href="#features">Features</a>
+            <a data-section="tutorials" href="#tutorials">Tutorials</a>
+            <a data-section="download" href="#download">Download</a>
+            <a data-section="socials" href="#socials">Socials</a>
+            <a data-section="credits" href="#credits">Credits</a>
+
+            <button
+                class="tbar-motion-toggle"
+                id="motionToggle"
+                type="button"
+                aria-pressed="false"
+            >
+                Animations: On
+            </button>
+        </nav>
+    </aside>
+
+    <main class="page-content">
+        <section class="hero" id="home">
+            <div class="hero-stack">
+                <div class="title-wrap">
+                    <div class="welcome delayed-ui">Welcome to</div>
+                    <h1 class="riftwii">RiftWii</h1>
+                    <p class="mod-loader">MOD LOADER</p>
+                </div>
+
+                <article class="content-box intro-box hero-intro reveal-box">
+                    <span class="box-kicker">RIFTWII</span>
+                    <h2>All your mods and games in one place</h2>
+                    <p>
+                        RiftWii is a USBLoader for the Wii that can also run your mods. So say goodbye to needing a disc to boot Riivolution-format mods!
+                    </p>
+                </article>
+            </div>
+        </section>
+
+<section class="page-section" id="features">
+            <div class="content-shell">
+                <article class="content-box section-box reveal-box">
+                    <span class="box-kicker">FEATURES</span>
+            <div class="grid-image">
+                <img
+                    src="https://github.com/KakarottoCake/Riftwii/raw/main/docs/images/home.png"
+                    alt="Placeholder image"
+                >
+
+                <img
+                    src="https://github.com/KakarottoCake/Riftwii/raw/main/docs/images/shelf.png"
+                    alt="Placeholder image"
+                >
+
+                <img
+                    src="https://github.com/KakarottoCake/Riftwii/raw/main/docs/images/channels.png"
+                    alt="Placeholder image"
+                >
+
+                <img
+                    src="https://github.com/KakarottoCake/Riftwii/raw/main/docs/images/channel-banner.png"
+                    alt="Placeholder image"
+                >
+                <img
+                    src="https://github.com/KakarottoCake/Riftwii/raw/main/docs/images/game.png"
+                    alt="Placeholder image"
+                >
+                <img
+                    src="https://github.com/KakarottoCake/Riftwii/raw/main/docs/images/mods.png"
+                    alt="Placeholder image"
+                >
+                <img
+                    src="https://github.com/KakarottoCake/Riftwii/raw/main/docs/images/cheats.png"
+                    alt="Placeholder image"
+                >
+                <img
+                    src="https://github.com/KakarottoCake/Riftwii/raw/main/docs/images/midnight.png"
+                    alt="Placeholder image"
+                >
+                <img
+                    src="https://github.com/KakarottoCake/Riftwii/raw/main/docs/images/settings.png"
+                    alt="Placeholder image"
+                >
+                <img
+                    src="https://github.com/KakarottoCake/Riftwii/raw/main/docs/images/homemenu.png"
+                    alt="Placeholder image"
+                >
+            </div>
+                    <h2>What RiftWii can Do:</h2>
+
+                    <div
+                        id="featuresGrid"
+                        class="features-grid"
+                        aria-live="polite"
+                    >
+                        <div class="features-status">
+                            Loading features...
+                        </div>
+                    </div>
+
+                    <button
+                        id="featuresToggle"
+                        class="features-toggle"
+                        type="button"
+                        hidden
+                    >
+                        Show more
+                    </button>
+                    <br>
+                    <br>
+                    <p>
+                        We're constantly updating and adding new features!
+                    </p>
+                </article>
+            </div>
+        </section>
+
+        <section class="page-section" id="tutorials">
+            <div class="content-shell">
+                <article class="content-box section-box reveal-box">
+                    <span class="box-kicker">TUTORIALS</span>
+                    <h2>All the information you could need on using RiftWii</h2>
+                    <p>
+                        Having trouble getting something to work? These tutorials written by our testers are here to help:
+                    </p>
+
+                    <div class="tutorial-browser">
+                        <div class="tutorial-toolbar">
+                            <label class="tutorial-search-wrap">
+                                <span class="sr-only">Search tutorials</span>
+                                <input
+                                    id="tutorialSearch"
+                                    class="tutorial-search"
+                                    type="search"
+                                    placeholder="Search tutorials..."
+                                    autocomplete="off"
+                                >
+                            </label>
+
+                            <div class="tutorial-sort-wrap tutorial-sort-hidden">
+                                <button
+                                    id="tutorialSortButton"
+                                    class="tutorial-sort-button"
+                                    type="button"
+                                    aria-expanded="false"
+                                    aria-controls="tutorialSortMenu"
+                                >
+                                    <span id="tutorialSortLabel">A–Z</span>
+                                    <span class="tutorial-sort-chevron" aria-hidden="true">⌄</span>
+                                </button>
+
+                                <div
+                                    id="tutorialSortMenu"
+                                    class="tutorial-sort-menu"
+                                    role="menu"
+                                >
+                                    <div class="tutorial-sort-menu-inner">
+                                        <button type="button" data-sort="az" role="menuitem">A–Z</button>
+                                        <button type="button" data-sort="za" role="menuitem">Z–A</button>
+                                        <button type="button" data-sort="date-asc" role="menuitem">Date written ↑</button>
+                                        <button type="button" data-sort="date-desc" role="menuitem">Date written ↓</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div
+                            id="tutorialList"
+                            class="tutorial-list"
+                            aria-live="polite"
+                        >
+                            <div class="tutorial-status">
+                                Loading tutorials...
+                            </div>
+                        </div>
+
+                        <button
+                            id="tutorialToggle"
+                            class="tutorial-toggle"
+                            type="button"
+                            hidden
+                        >
+                            Show all tutorials
+                        </button>
+                    </div>
+                    <br>
+                    <p>
+                        Still stuck? Send a message in our community Discord!
+                    </p>
+                </article>
+            </div>
+        </section>
+
+        <section class="page-section" id="download">
+            <div class="content-shell">
+                <article class="content-box section-box reveal-box">
+
+                    <span class="box-kicker">DOWNLOAD</span>
+                    <img class="placeholder-image" src="resources/img/banner.png" alt="banner">
+                    <h2>Choose your RiftWii release</h2>
+                    <p class="download-intro">
+                        Choose your version of RiftWii from the Github:
+                    </p>
+
+                    <div class="release-grid">
+                        <div class="release-card stable-release">
+                            <span class="release-type">LATEST STABLE</span>
+                            <h3 id="stableVersion">Checking latest release...</h3>
+                            <p>
+                                The latest stable release of RiftWii. Doesn't have all the features, but is the best for compatibility. Reccomended for users.
+                            </p>
+                            <a
+                                class="download-button release-button"
+                                id="stableReleaseLink"
+                                href="https://github.com/KakarottoCake/Riftwii/releases/latest"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                Latest Stable
+                            </a>
+                        </div>
+
+                        <div class="release-card prerelease-release">
+                            <span class="release-type">LATEST PRERELEASE</span>
+                            <h3 id="prereleaseVersion">Checking latest prerelease...</h3>
+                            <p>
+                                The latest beta release of RiftWii. Has more experimental features for testing, however it might be unstable. Reccomended for testers.
+                            </p>
+                            <a
+                                class="download-button release-button"
+                                id="prereleaseReleaseLink"
+                                href="https://github.com/KakarottoCake/Riftwii/releases"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                Latest Prerelease
+                            </a>
+                        </div>
+                    </div>
+                </article>
+            </div>
+        </section>
+
+
+<section class="page-section" id="socials">
+
+    <div class="content-shell">
+
+        <article class="content-box section-box reveal-box">
+
+            <span class="box-kicker">
+                SOCIALS
+            </span>
+
+            <h2>
+                Join the RiftWii community:
+            </h2>
+
+            <p>
+                Want to discuss RiftWii, see upcoming features, report an error, or contribute to the project?
+                Check out our Discord and GitHub!
+            </p>
+
+            <div class="social-embed-grid">
+
+                <div class="discord-invite">
+
+                    <div class="discord-server-icon">
+
+                        <img
+                            src="resources/img/servericon.png"
+                            alt="Wii Want Backups server logo"
+                        >
+
+                    </div>
+
+                    <p class="discord-invite-text">
+                        You're invited to
+                    </p>
+
+                    <h3 class="discord-server-name">
+                        Wii Want Backups
+                    </h3>
+
+                    <a
+                        class="discord-join-button"
+                        href="https://discord.gg/gGsTdjjQaK"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        Join the Discord!
+                    </a>
+
+                </div>
+
+
+                <div class="github-invite">
+
+                    <div class="discord-server-icon">
+
+                        <img
+                            src="resources/img/61133727.png"
+                            alt="GitHub logo"
+                        >
+
+                    </div>
+
+                    <p class="github-invite-text">
+                        View the project on
+                    </p>
+
+                    <h3 class="github-repo-name">
+                        KakarottoCake / Riftwii
+                    </h3>
+
+                    <a
+                        class="github-repo-button"
+                        href="https://github.com/KakarottoCake/Riftwii"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        View the GitHub Repo
+                    </a>
+
+                </div>
+
+            </div>
+
+        </article>
+
+    </div>
+
+</section>
+<section class="page-section" id="credits">
+    <div class="content-shell">
+        <article class="content-box section-box reveal-box">
+
+            <span class="box-kicker">
+                CREDITS
+            </span>
+
+            <h2>
+                Contributors
+            </h2>
+
+            <div
+                id="creditsGrid"
+                class="credits-grid"
+                aria-live="polite"
+            >
+                <div class="credits-status">
+                    Loading credits...
+                </div>
+            </div>
+
+            <button
+                id="creditsToggle"
+                class="credits-toggle"
+                type="button"
+                hidden
+            >
+                Show more
+            </button>
+
+        </article>
+    </div>
+</section>
+    </main>
+
+
+<footer class="site-footer">
+    <div class="footer-inner">
+
+        <div class="footer-main">
+            <span class="footer-label">
+                Website by
+            </span>
+            <span class="footer-author">
+                Ｄｉａ！♪～☆
+            </span>
+            
+        </div>
+        <div class="footer-year">
+            RiftWii 2026
+        </div>
+
+
+    </div>
+</footer>
+
+    <script src="java/script.js"></script></body>
+</html>

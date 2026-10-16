@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <meta
+        name="tutorial-date"
+        content="2026-10-09"
+    >
+
+    <title>
+        Virtual SD Cards - RiftWii
+    </title>
+
+    <link
+        rel="stylesheet"
+        href="../css/tutorials.css"
+    >
+
+    <link
+        rel="icon"
+        type="image/png"
+        href="https://github.com/KakarottoCake/Riftwii/blob/main/hbc/icon.png?raw=true"
+    
+    >
+
+    <meta property="og:title" content="RiftWii Tutorials">
+
+<meta
+    property="og:description"
+    content="Guides and tutorials for installing and using RiftWii."
+>
+
+<meta property="og:type" content="website">
+
+<meta
+    property="og:image"
+    content="https://github.com/KakarottoCake/Riftwii/raw/main/docs/images/banner.png"
+>
+
+<meta name="twitter:card" content="summary_large_image">
+
+<meta name="twitter:title" content="RiftWii Tutorials">
+
+<meta
+    name="twitter:description"
+    content="Guides and tutorials for installing and using RiftWii."
+>
+
+<meta
+    name="twitter:image"
+    content="https://github.com/KakarottoCake/Riftwii/raw/main/docs/images/banner.png"
+>
+
+</head>
+
+<body>
+
+    <main class="tutorial-page">
+
+        <a
+            class="back-link"
+            href="../index.html#tutorials"
+        >
+            ← Back to RiftWii
+        </a>
+
+
+        <article class="tutorial-card">
+
+            <span class="kicker">
+                VIRTUAL SD CARD SETUP
+            </span>
+
+            <h1>
+                Using and Installing Virtual SD Cards
+            </h1>
+
+            <p>
+                You might be thinking, why on earth would I need a virtual SD Card on my very non-virtual, physical SD Card. Well, I'm glad you asked. There are tons of great reasons to doing this!
+                <br>
+                - You can use physical SD Cards with more than 32GB for Gecko Code Mods (like Project+, REX, etc.)
+                <br>
+                - Mods can be stored on USB Drives as well
+                <br>
+                - It's now easier to have multiple modpacks on your device without constantly swapping files out
+            </p>
+
+            <br>
+            <p>Now before we start, there are multiple ways to do this, either with SD RAWR, or with RiftWii, so I'll just give you a table to compare them yourself:</p>
+
+            <div class="tutorial-table-wrap">
+
+    <table class="tutorial-table">
+
+        <thead>
+            <tr>
+                <th>SD RAWR</th>
+                <th>RiftWii</th>
+            </tr>
+        </thead>
+
+        <tbody>
+
+            <tr>
+                <td>Requires ImDisk and Windows to use</td>
+                <td>Drag and drop, all done on your Wii</td>
+            </tr>
+
+            <tr>
+                <td>More functionality and options to manage, edit, and create Virtual SD Cards</td>
+                <td>Only builds the Virtual SD Card</td>
+            </tr>
+
+            <tr>
+                <td>Fast at creating virtual SD Cards (depending on your PC specs)</td>
+                <td>Quite slow and can take a very long time at larger mods</td>
+            </tr>
+        </tbody>
+
+    </table>
+
+</div>
+
+            <a
+                class="link-button"
+                href="#sdrawr"
+            >
+                Use SD RAWR
+            </a>
+
+            <br>
+
+            <a
+                class="link-button"
+                href="#rift"
+            >
+                Use RiftWii
+            </a>
+
+        </article>
+<br>
+<br>
+
+        <article
+            class="tutorial-card"
+            id="sdrawr"
+        >
+
+            <span class="kicker">
+                SD RAWR
+            </span>
+
+            <h1>
+                Using SD RAWR
+            </h1>
+
+            <p>
+                This section teaches you how to install Virtual SD Cards with SD RAWR
+            </p>
+
+            <div class="placeholder-step">
+
+                <strong>
+                    Step 1
+                </strong>
+
+                <p>
+                    Download SD RAWR:
+
+                </p>
+<a class="link-button" href="https://github.com/jannycraig/SD-RAWR/releases">
+    Download SD RAWR
+</a>
+            </div>
+
+            <div class="placeholder-step">
+
+                <strong>
+                    Step 2
+                </strong>
+
+                <p>
+                    Next, put all the contents you want into a parent folder by itself:
+                    <br>For example:
+                    <br><code>Project M SD Card</code>
+                    <br><code>/codes</code>
+                    <br><code>- RSBE01.GCT</code>
+                    <br><code>projectm</code>
+                </p>
+
+            <div class="placeholder-step">
+
+                <strong>
+                    Step 2
+                </strong>
+
+                <p>
+                    Open SD RAWR and under "Create Virtual SD", choose the directory of your parent folder, in my example, its <code>Project M SD Card</code>.
+                </p>
+                                <img
+                    class="tutorial-image"
+                    src="https://github.com/jannycraig/SD-RAWR/raw/main/SHOWCASE.png"
+                    alt="sd rawr"
+                >
+            </div>
+                        <div class="placeholder-step">
+
+                <strong>
+                    Step 3
+                </strong>
+
+                <p>
+                    Choose a name, size, and output folder for your Virtual SD Card.
+                    <br>Note: If your drive is formatted to FAT32, select split final RAW into 4000MiB, otherwise your Virtual SD Card might be too big for your device.
+                </p>
+
+            </div>
+
+
+                                    <div class="placeholder-step">
+
+                <strong>
+                    Step 4
+                </strong>
+
+                <p>
+                    Copy your output <code>.raw</code> file into the <code>/riftwii</code> folder on the same device you have your <code>wbfs</code> files. It should look like:
+                    <br><code>wbfs</code>
+                    <br><code>/riftwii</code>
+                    <br><code>projectm.raw</code>
+<br>
+                    <br>If SD RAWR split your virtual SD card, copy all the <code>.raw.001</code>, <code>.raw.002</code>, etc. files in teh same way. It should look like:
+                    <br><code>wbfs</code>
+                    <br><code>/riftwii</code>
+                    <br><code>projectm.raw.001</code>
+                    <br><code>projectm.raw.002</code>
+                    <br><code>etc.</code>
+
+                </p>
+
+            </div>
+
+
+                        </div>
+                        <div class="placeholder-step">
+
+                <strong>
+                    Step 5
+                </strong>
+
+                <p>
+                    Launch RiftWii and go to your mods, and turn on the mod you created in the Virtual SD Card
+                </p>
+
+                                <img
+                    class="tutorial-image"
+                    src="resources/praw.png"
+                    alt="mods"
+                >
+            </div>
+
+
+                        <div class="placeholder-step">
+
+                <strong>
+                    Step 6 - Launch and Play
+                </strong>
+
+                <p>
+                    Go back and start the game. Enjoy!
+                </p>
+                                <img
+                    class="tutorial-image"
+                    src="resources/pp.png"
+                    alt="projectplus"
+                >
+            </div>
+        </article>
+
+<br>
+<br>
+        <article
+            class="tutorial-card"
+            id="rift"
+        >
+
+            <span class="kicker">
+                RIFTWII
+            </span>
+
+            <h1>
+                Using RIFTWII
+            </h1>
+
+            <p>
+                This section teaches you how to install Virtual SD Cards with RiftWii
+            </p>
+
+
+
+            <div class="placeholder-step">
+
+                <strong>
+                    Step 1
+                </strong>
+
+                <p>
+                    Put your mod files onto the root of your SD Card. It should look like:
+                    <br><code>/apps</code>
+                    <br><code>/codes</code>
+                    <br><code>/[MOD NAME FOLDER]</code>
+                    <br>
+                    <br>Note: It has to be on the SD Card or your mod will not work.
+                </p>
+
+            </div>
+                        <div class="placeholder-step">
+
+                <strong>
+                    Step 2
+                </strong>
+
+                <p>
+                    Launch RiftWii, and choose mods. Then select <code>Make an SD image...</code>. When it finishes scanning, click Make.(Be patient as it can take over 30 minutes depending on your mod!)
+                </p>
+                               <img
+                    class="tutorial-image"
+                    src="resources/makeimg.png"
+                    alt="mods"
+                >
+            </div>
+
+
+
+
+                        </div>
+                        <div class="placeholder-step">
+
+                <strong>
+                    Step 3
+                </strong>
+
+                <p>
+                    Launch RiftWii and go to your mods, and turn on the mod you created in the Virtual SD Card
+                </p>
+
+                                <img
+                    class="tutorial-image"
+                    src="resources/praw.png"
+                    alt="mods"
+                >
+            </div>
+
+
+                        <div class="placeholder-step">
+
+                <strong>
+                    Step 4 - Launch and Play
+                </strong>
+
+                <p>
+                    Go back and start the game. Enjoy!
+                </p>
+                                <img
+                    class="tutorial-image"
+                    src="resources/pp.png"
+                    alt="projectplus"
+                >
+            </div>
+        </article>
+    </main>
+
+
+    <footer class="site-footer">
+
+        <div class="footer-inner">
+
+            <div class="footer-main">
+
+                <span class="footer-label">
+                    Tutorial by
+                </span>
+
+                <span class="footer-author">
+                    Ｄｉａ！♪～☆
+                </span>
+
+            </div>
+
+            <div class="footer-year">
+                RiftWii 2026
+            </div>
+
+        </div>
+
+    </footer>
+
+</body>
+
+</html>

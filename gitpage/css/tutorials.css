@@ -1,0 +1,505 @@
+@font-face {
+    font-family: "Rounded";
+    src: url("../resources/fonts/rounded.ttf")
+        format("truetype");
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    margin: 0;
+    min-height: 100%;
+    scroll-behavior: smooth;
+}
+
+
+body {
+    padding: 48px 24px;
+
+    background:
+        radial-gradient(
+            circle at 25% 20%,
+            rgba(45, 160, 255, 0.20),
+            transparent 32%
+        ),
+        radial-gradient(
+            circle at 78% 35%,
+            rgba(150, 70, 255, 0.22),
+            transparent 34%
+        ),
+        #05071f;
+
+    color: white;
+
+    font-family:
+        "Rounded",
+        sans-serif;
+}
+
+.tutorial-page {
+    width: min(900px, 100%);
+
+    margin: 0 auto;
+}
+
+.back-link {
+    display: inline-block;
+
+    margin-bottom: 24px;
+
+    color: #9feaff;
+
+    text-decoration: none;
+}
+
+.tutorial-card {
+    padding: 34px;
+
+    border:
+        1px solid
+        rgba(135, 181, 255, 0.20);
+
+    border-radius: 24px;
+
+    background:
+        linear-gradient(
+            145deg,
+            rgba(12, 27, 75, 0.70),
+            rgba(38, 15, 83, 0.56)
+        );
+
+    box-shadow:
+        0 18px 50px
+            rgba(0, 0, 30, 0.22),
+        inset 0 1px 0
+            rgba(255, 255, 255, 0.06);
+
+    backdrop-filter: blur(16px);
+}
+
+.kicker {
+    color: #8feaff;
+
+    letter-spacing: 0.24em;
+
+    font-size: 0.76rem;
+}
+
+h1 {
+    margin: 10px 0 18px;
+
+    font-size:
+        clamp(
+            2rem,
+            5vw,
+            4rem
+        );
+}
+
+p {
+    font-family:
+        Arial,
+        sans-serif;
+
+    line-height: 1.7;
+
+    color:
+        rgba(
+            220,
+            232,
+            255,
+            0.82
+        );
+}
+
+.placeholder-step {
+    margin-top: 18px;
+
+    padding: 18px;
+
+    border:
+        1px solid
+        rgba(115, 211, 255, 0.16);
+
+    border-radius: 16px;
+
+    background:
+        rgba(
+            28,
+            51,
+            112,
+            0.24
+        );
+}
+
+.tutorial-image {
+    display: block;
+
+    width: 100%;
+
+    aspect-ratio: 16 / 9;
+
+    object-fit: cover;
+
+    margin:
+        18px 0 22px;
+
+    border-radius: 16px;
+
+    border:
+        1px solid
+        rgba(120, 211, 255, 0.18);
+
+    box-shadow:
+        0 0 28px
+            rgba(65, 206, 255, 0.08),
+        0 0 42px
+            rgba(152, 76, 255, 0.05);
+}
+
+code {
+    padding: 2px 6px;
+
+    border:
+        1px solid
+        rgba(115, 211, 255, 0.18);
+
+    border-radius: 6px;
+
+    background:
+        rgba(0, 0, 0, 0.35);
+
+    color: #9feaff;
+
+    font-family: monospace;
+
+    font-size: 0.9em;
+}
+
+.site-footer {
+    width: min(900px, 100%);
+    margin: 48px auto 24px;
+}
+
+.footer-inner {
+    position: relative;
+
+    width: 100%;
+    min-height: 120px;
+
+    padding: 28px 24px;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+
+    gap: 10px;
+
+    text-align: center;
+
+    border: 1px solid rgba(135, 181, 255, 0.20);
+    border-radius: 24px;
+
+    background:
+        linear-gradient(
+            145deg,
+            rgba(12, 27, 75, 0.70),
+            rgba(38, 15, 83, 0.56)
+        );
+
+    box-shadow:
+        0 18px 50px rgba(0, 0, 30, 0.22),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06);
+
+    backdrop-filter: blur(16px);
+
+    overflow: hidden;
+
+    font-family: "Rounded", sans-serif;
+}
+
+.footer-main {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    gap: 0.7em;
+
+    font-size: clamp(0.8rem, 1.4vw, 1rem);
+    letter-spacing: 0.35em;
+
+    color: #9dbaf8;
+
+    text-shadow:
+        0 0 8px rgba(120, 190, 255, 0.12),
+        0 0 18px rgba(120, 190, 255, 0.05);
+}
+
+.footer-label {
+    color: #9dbaf8;
+    opacity: 0.88;
+}
+
+.footer-author {
+    color: #d8e9ff;
+    opacity: 0.96;
+
+    text-shadow:
+        0 0 8px rgba(120, 210, 255, 0.24),
+        0 0 18px rgba(166, 92, 255, 0.18);
+}
+
+.footer-year {
+    color: rgba(157, 186, 248, 0.62);
+
+    font-size: 0.72rem;
+    letter-spacing: 0.22em;
+}
+
+
+.download-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 22px;
+    min-height: 44px;
+    padding: 10px 16px;
+    border-radius: 12px;
+    color: #eafdff;
+    text-decoration: none;
+    border: 1px solid rgba(98, 217, 255, 0.25);
+    background:
+        linear-gradient(
+            90deg,
+            rgba(59, 211, 255, 0.13),
+            rgba(154, 79, 255, 0.16)
+        );
+    transition:
+        transform 0.25s ease,
+        box-shadow 0.25s ease,
+        border-color 0.25s ease;
+}
+
+.release-button {
+    width: 100%;
+    margin-top: 20px;
+}
+
+
+.link-button {
+    display: flex;
+    justify-content: center;
+    align-items: center; 
+
+    min-height: 44px;
+    padding: 10px 16px;
+
+    border: 1px solid rgba(98, 217, 255, 0.25);
+    border-radius: 12px;
+
+    background:
+        linear-gradient(
+            90deg,
+            rgba(59, 211, 255, 0.13),
+            rgba(154, 79, 255, 0.16)
+        );
+
+    color: #eafdff;
+
+    font-family: "Rounded", sans-serif;
+    text-decoration: none;
+
+    cursor: pointer;
+
+    transition:
+        transform 0.25s ease,
+        box-shadow 0.25s ease,
+        border-color 0.25s ease;
+}
+
+.link-button:hover,
+.link-button:focus-visible {
+    display: flex;
+    justify-content: center;
+    align-items: center; 
+    transform: translateY(-2px);
+
+    border-color:
+        rgba(126, 229, 255, 0.52);
+
+    box-shadow:
+        0 0 18px rgba(70, 215, 255, 0.12),
+        0 0 28px rgba(157, 76, 255, 0.08);
+
+    outline: none;
+}
+
+
+
+.download-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    margin-top: 22px;
+    min-height: 44px;
+    padding: 10px 16px;
+
+    border-radius: 12px;
+
+    color: #eafdff;
+    text-decoration: none;
+
+    border: 1px solid rgba(98, 217, 255, 0.25);
+
+    background:
+        linear-gradient(
+            90deg,
+            rgba(59, 211, 255, 0.13),
+            rgba(154, 79, 255, 0.16)
+        );
+
+    transition:
+        transform 0.25s ease,
+        box-shadow 0.25s ease,
+        border-color 0.25s ease;
+}
+
+.download-button:hover,
+.download-button:focus-visible {
+    transform: translateY(-2px);
+
+    border-color: rgba(126, 229, 255, 0.52);
+
+    box-shadow:
+        0 0 18px rgba(70, 215, 255, 0.12),
+        0 0 28px rgba(157, 76, 255, 0.08);
+
+    outline: none;
+}
+
+
+.tutorial-video {
+    display: block;
+
+    width: 100%;
+
+    aspect-ratio: 16 / 9;
+
+    object-fit: cover;
+
+    margin:
+        18px 0 22px;
+
+    border-radius: 16px;
+
+    border:
+        1px solid
+        rgba(120, 211, 255, 0.18);
+
+    box-shadow:
+        0 0 28px
+            rgba(65, 206, 255, 0.08),
+        0 0 42px
+            rgba(152, 76, 255, 0.05);
+
+    background: #000;
+}
+
+
+
+.tutorial-table-wrap {
+    width: 100%;
+
+    margin: 22px 0;
+
+    overflow-x: auto;
+
+    border:
+        1px solid
+        rgba(120, 211, 255, 0.18);
+
+    border-radius: 16px;
+
+    box-shadow:
+        0 0 28px
+            rgba(65, 206, 255, 0.06),
+        0 0 42px
+            rgba(152, 76, 255, 0.04);
+}
+
+.tutorial-table {
+    width: 100%;
+
+    border-collapse: collapse;
+
+    background:
+        linear-gradient(
+            145deg,
+            rgba(12, 27, 75, 0.52),
+            rgba(38, 15, 83, 0.42)
+        );
+
+    color: #eafdff;
+
+    font-family:
+        Arial,
+        sans-serif;
+
+    font-size: 0.95rem;
+}
+
+.tutorial-table th,
+.tutorial-table td {
+    padding: 14px 16px;
+
+    text-align: left;
+
+    border-bottom:
+        1px solid
+        rgba(120, 211, 255, 0.12);
+}
+
+.tutorial-table th {
+    color: #9feaff;
+
+    font-family:
+        "Rounded",
+        sans-serif;
+
+    letter-spacing: 0.08em;
+
+    background:
+        linear-gradient(
+            90deg,
+            rgba(59, 211, 255, 0.12),
+            rgba(154, 79, 255, 0.14)
+        );
+}
+
+.tutorial-table tr:last-child td {
+    border-bottom: 0;
+}
+
+.tutorial-table tbody tr {
+    transition:
+        background 0.22s ease,
+        box-shadow 0.22s ease;
+}
+
+.tutorial-table tbody tr:hover {
+    background:
+        linear-gradient(
+            90deg,
+            rgba(66, 211, 255, 0.08),
+            rgba(155, 80, 255, 0.08)
+        );
+
+    box-shadow:
+        inset 0 0 18px
+            rgba(72, 210, 255, 0.04);
+}
