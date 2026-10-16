@@ -63,13 +63,6 @@ void TestHttp() {
     EXPECT_TRUE(release_tag_from_json("[{\"url\":\"x\",\"tag_name\" : \"v2.0.1-beta\",\"tag_name\":\"old\"}]", tag));
     EXPECT_EQ(tag, "v2.0.1-beta");
     EXPECT_FALSE(release_tag_from_json("[]", tag));
-    // GitHub's order (the day, then the name as text) is not the versions'.
-    EXPECT_TRUE(newest_release_tag("[{\"tag_name\":\"v3.3.9-beta\"},{\"tag_name\":\"v3.3.4-beta\"},"
-                                   "{\"tag_name\":\"v2610-125\"},{\"tag_name\":\"v3.3.3-beta\"}]", tag));
-    EXPECT_EQ(tag, std::string("v2610-125"));
-    EXPECT_TRUE(newest_release_tag("[{\"tag_name\":\"v3.3.9\"},{\"tag_name\":\"v3.3.10\"}]", tag));
-    EXPECT_EQ(tag, std::string("v3.3.10"));
-    EXPECT_FALSE(newest_release_tag("[]", tag));
     EXPECT_FALSE(release_tag_from_json("{\"tag_name\":3}", tag));
     {
         // The shape of GitHub's answer: the release's own "name", then the
@@ -120,16 +113,6 @@ void TestHttp() {
     EXPECT_EQ(compare_versions("2611", "2610-500"), 1);
     EXPECT_EQ(compare_versions("2610-123", "3.3.9-beta"), 1);
     EXPECT_EQ(compare_versions("v2610-5", "2.7.0"), 1);
-    EXPECT_EQ(effective_update_channel("auto", "2610-123"), "beta");
-    EXPECT_EQ(effective_update_channel("auto", "2610"), "stable");
-    EXPECT_EQ(effective_update_channel("auto", "2.1.0"), "stable");
-    EXPECT_EQ(effective_update_channel("auto", "2.1.0-rc1"), "beta");
-    EXPECT_EQ(effective_update_channel("auto", "2.0.10-beta"), "beta");
-    EXPECT_EQ(effective_update_channel("stable", "2.1.1-beta"), "stable");
-    EXPECT_EQ(effective_update_channel("beta", "2.1.0"), "beta");
-    // A stable release named by its build number stays on Stable.
-    EXPECT_EQ(effective_update_channel("auto", "2610-258", true), "stable");
-    EXPECT_EQ(effective_update_channel("beta", "2610-258", true), "beta");
 
     const std::string plain = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 5\r\n\r\nhello";
     EXPECT_FALSE(http_response_complete(bytes(plain.substr(0, plain.size() - 1))));

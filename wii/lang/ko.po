@@ -912,23 +912,8 @@ msgstr "정말 업데이트하지 않나요? 혹시 문제가 있었다면 최�
 msgid "RiftWii {1} is out. Settings > Check for a new version installs it."
 msgstr "RiftWii {1}이(가) 출시되었습니다. 설정 > 새 버전 확인을 통해 설치할 수 있습니다."
 
-msgid "Updates"
-msgstr "업데이트"
-
-msgid "Beta"
-msgstr "베타"
-
-msgid "Stable"
-msgstr "안정화"
-
-msgid "Beta: every new version, including test builds that may have new bugs. For testers."
-msgstr "베타: 새로운 버그가 포함될 수 있는 테스트 빌드를 포함한 모든 새 버전입니다. 테스터용입니다."
-
-msgid "Stable: only versions marked stable, which testers have checked."
-msgstr "안정 버전: 테스터가 확인을 마친, '안정'으로 표시된 버전만 해당합니다."
-
-msgid "No stable version is out yet. This is RiftWii {1}."
-msgstr "아직 안정 버전은 출시되지 않았습니다. 이것은 RiftWii {1}입니다."
+msgid "No release is out yet. This is RiftWii {1}."
+msgstr "아직 출시된 버전이 없습니다. 이것은 RiftWii {1}입니다."
 
 msgid "SD card: {1}"
 msgstr "SD 카드: {1}"

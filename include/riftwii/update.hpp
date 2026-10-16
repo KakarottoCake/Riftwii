@@ -5,17 +5,12 @@
 #include <string>
 
 // The update check: RiftWii asks GitHub for its newest release and
-// compares its tag with its own version. The Stable channel asks for the
-// latest release (/releases/latest, which leaves pre-releases out), the
-// Beta channel for the newest of all (/releases?per_page=1).
+// compares its tag with its own version. It asks for the latest release
+// (/releases/latest, which leaves pre-releases out).
 namespace riftwii {
 
 // The first "tag_name" in a GitHub API answer.
 bool release_tag_from_json(const std::string& json, std::string& tag);
-// The newest of the releases a GitHub API answer lists, by compare_versions:
-// GitHub's own order is by day, then by the tag's name as text, so on one
-// day "v3.3.9-beta" came before "v2610-125" (and "3.3.9" before "3.3.10").
-bool newest_release_tag(const std::string& json, std::string& tag);
 
 // A file attached to a release: where to download it, its SHA-256 (lowercase
 // hex, empty when GitHub gave none) and its size in bytes (0: unknown).
@@ -33,20 +28,5 @@ bool release_asset_from_json(const std::string& json, const std::string& name, R
 // numbers, then the suffixes as text ("beta" after "alpha", "rc" after
 // "beta"). -1, 0 or 1.
 int compare_versions(const std::string& a, const std::string& b);
-
-// The update channel a setting means for this build: "stable" or "beta"
-// as set, and "auto" follows the version: one with a "-suffix" (beta,
-// rc1, a build number) is a pre-release build and follows Beta, unless the
-// build is a stable release (`stable_build`): a stable release is a tested
-// build published as the latest release, its build number and all.
-std::string effective_update_channel(const std::string& setting, const std::string& version,
-                                     bool stable_build = false);
-
-// Built for a stable release (make -f Makefile.wii RIFTWII_STABLE=1).
-#ifdef RIFTWII_STABLE
-constexpr bool kStableBuild = true;
-#else
-constexpr bool kStableBuild = false;
-#endif
 
 }  // namespace riftwii

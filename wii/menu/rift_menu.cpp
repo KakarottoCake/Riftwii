@@ -6231,13 +6231,6 @@ static std::string PadButtons(const gcad_pad& pad)
 	return (s.empty() ? std::string("-") : s) + "   " + sticks;
 }
 
-static std::string ChannelNote(const riftwii::LoaderSettings& settings)
-{
-	if (riftwii::effective_update_channel(settings.update_channel, RIFTWII_VERSION, riftwii::kStableBuild) == "beta")
-		return tr("Beta: every new version, including test builds that may have new bugs. For testers.");
-	return tr("Stable: only versions marked stable, which testers have checked.");
-}
-
 static std::string AdapterNote(const std::string& mode)
 {
 	// Experimental: confirmed in the menu on a Wii U, not yet in games.
@@ -6481,7 +6474,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		return folder;
 	};
 	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kServer, kHomeTiles, kHomeSource, kHomeSort, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kClockFormat, kNoClock, kFont, kSounds, kMusic, kReturnTo, kShots, kOnline, kNames, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kIos, kNet, kResync,
-		kRescan, kChannel, kUpdate, kReport, kTests, kWiiChannel, kUsbHelp, kWhatsNew, kTutorial, kCredits, kResetAll, kExit, kNone, kHeading };
+		kRescan, kUpdate, kReport, kTests, kWiiChannel, kUsbHelp, kWhatsNew, kTutorial, kCredits, kResetAll, kExit, kNone, kHeading };
 	// The RiftWii channel on the Wii Menu (wii/launch/channel.hpp).
 	unsigned channelVersion = 0;
 	const bool channelThere = riftwii::wii::ChannelInstalled(channelVersion);
@@ -6606,10 +6599,6 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		names.dim = !settings.online;
 		rows.push_back(names);
 		actions.push_back(kNames);
-		{
-			const bool beta = riftwii::effective_update_channel(settings.update_channel, RIFTWII_VERSION, riftwii::kStableBuild) == "beta";
-			option(tr("Updates"), beta ? tr("Beta") : tr("Stable"), beta, kChannel);
-		}
 		FlowRow update;
 		update.kind = FlowRow::Kind::Action;
 		update.label = tr("Check for a new version");
@@ -6695,7 +6684,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				case kLanguage: case kWidescreen: case kScreenSize: case kTheme: case kFont: case kSounds: case kMusic:
 				case kIos: case kNone:
 					return SettingsSection::Look;
-				case kOnline: case kNames: case kServer: case kChannel: case kUpdate:
+				case kOnline: case kNames: case kServer: case kUpdate:
 					return SettingsSection::Online;
 				case kRescan: case kNet: case kResync:
 					return SettingsSection::Finding;
@@ -6819,7 +6808,6 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					: "Only servers named by <network> in an XML on the card are used.";
 			case kResync: return "The next launch copies every file of its network packs again.";
 			case kRescan: return tr("Reads the SD card and the USB drive again.");
-			case kChannel: return ChannelNote(settings);
 			case kUpdate: return tr("This is RiftWii {1}. Looks on GitHub for a newer release.", {RIFTWII_VERSION});
 			case kReport: return tr("Something went wrong? Sends what it takes to find out to a paste site, and shows a link to pass on.");
 			case kWiiChannel:
@@ -7149,13 +7137,6 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					rebuild();
 					break;
 				}
-				case kChannel:
-					// Stable and Beta; the setting stays explicit once changed.
-					settings.update_channel =
-						riftwii::effective_update_channel(settings.update_channel, RIFTWII_VERSION, riftwii::kStableBuild) == "beta" ? "stable" : "beta";
-					saveAndNote(ChannelNote(settings));
-					rebuild();
-					break;
 				case kGcTest:
 					transition::Hold(transition::Kind::SlideForward);
 					mainWindow->Remove(&w);
@@ -7261,7 +7242,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 							? tr("RiftWii {1} is installed. Start RiftWii again to use it.", {latest})
 							: tr("RiftWii {1} is out: {2}", {latest, riftwii::wii::kReleasesPage}));
 					} else if (latest.empty()) {
-						note(tr("No stable version is out yet. This is RiftWii {1}.", {RIFTWII_VERSION}));
+						note(tr("No release is out yet. This is RiftWii {1}.", {RIFTWII_VERSION}));
 					} else {
 						note(tr("RiftWii {1} is the newest version.", {RIFTWII_VERSION}));
 					}

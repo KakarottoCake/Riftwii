@@ -43,7 +43,6 @@ struct LoaderSettings {
     std::string screenshots = "off";      // in-game screenshots: on, off (demo: Dolphin tests)
     bool online = true;                   // download game names and cheats when the Wii is online
     std::string riitag_key;               // RiiTag (riftwii/riitag.hpp): the player's key, empty for none
-    std::string update_channel = "auto";  // stable, beta, or auto (the build's own: beta for a -suffix version)
     std::string gc_rumble = "on";         // on, off: GameCube controllers' rumble in games (PADControlMotor)
     std::string wiimote_rumble = "on";    // on, off: Wii Remotes' rumble in every game (WPADControlMotor; a game's own Rumble too)
     std::string gc_adapter = "auto";      // GameCube controller adapter for Wii U: auto (when plugged in at launch), on, off (demo: Dolphin tests)

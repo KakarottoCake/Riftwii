@@ -912,23 +912,8 @@ msgstr "¿Seguro que no quieres actualizar? ¡Si tenías algún problema, puede 
 msgid "RiftWii {1} is out. Settings > Check for a new version installs it."
 msgstr "Ya salió RiftWii {1}. Ajustes > Buscar una versión nueva la instala."
 
-msgid "Updates"
-msgstr "Actualizaciones"
-
-msgid "Beta"
-msgstr "Beta"
-
-msgid "Stable"
-msgstr "Estable"
-
-msgid "Beta: every new version, including test builds that may have new bugs. For testers."
-msgstr "Beta: cada versión nueva, incluidas las de prueba, que pueden tener fallos nuevos. Para testers."
-
-msgid "Stable: only versions marked stable, which testers have checked."
-msgstr "Estable: solo las versiones marcadas como estables, que los testers han probado."
-
-msgid "No stable version is out yet. This is RiftWii {1}."
-msgstr "Aún no hay ninguna versión estable. Esta es RiftWii {1}."
+msgid "No release is out yet. This is RiftWii {1}."
+msgstr "Aún no ha salido ninguna versión. Esta es RiftWii {1}."
 
 msgid "SD card: {1}"
 msgstr "Tarjeta SD: {1}"

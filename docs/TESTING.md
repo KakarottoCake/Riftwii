@@ -1,8 +1,7 @@
 # Testing RiftWii
 
-This is the full test plan for the next stable release. It covers
-everything that changed since the last stable one, 2.7.0, and the basics
-that must keep working. Please don't try to do all of it in one go: pick
+This is the full test plan for a release. It covers what changed
+lately and the basics that must keep working. Please don't try to do all of it in one go: pick
 the sections that match what you have (a disc, a USB drive, mods, a Wii U,
 a GameCube adapter, another loader) and go through those.
 
@@ -14,8 +13,7 @@ console; everything else is worth trying on both.
 
 1. Put the release zip's `sd-card` folder on your SD card (and
    `usb-drive` on your USB drive if you use one), replacing the old
-   files. Or, with Settings > Updates on Beta, let RiftWii update itself
-   (that's a test too: section 2).
+   files. Or let RiftWii update itself (that's a test too: section 2).
 2. Games on the SD card or a USB drive need d2x cIOS v11 beta3 or newer
    in 248 to 252 (249 and 251 are the usual ones). Discs work without one.
 3. Note your console: Wii or Wii U, region, and your cIOS slots. A
@@ -98,10 +96,9 @@ For things that worked, a short "works" with the game, where it ran from
 
 ## 2. Updates
 
-- [ ] **Settings > Updates** switches between Stable and Beta.
-- [ ] **Check for a new version.** On Beta it offers the newest beta; on
-  Stable it doesn't offer anything older. The update shows its progress
-  and RiftWii restarts into the new version.
+- [ ] **Check for a new version** offers the newest release and nothing
+  older. The update shows its progress and RiftWii restarts into the new
+  version.
 - [ ] **Offline**: with no network, the start-up check gives up after a
   few seconds and the menu works.
 

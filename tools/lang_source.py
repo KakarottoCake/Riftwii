@@ -841,24 +841,11 @@ T = {
         "RiftWii {1}が出ています。設定 > 新しいバージョンを確認 でインストールできます。",
         "Saiu a RiftWii {1}. Configurações > Procurar uma versão nova a instala.",
         "È uscita RiftWii {1}. Impostazioni > Cerca una nuova versione la installa."),
-    "Updates": ("Actualizaciones", "アップデート", "Atualizações", "Aggiornamenti"),
-    "Beta": ("Beta", "ベータ", "Beta", "Beta"),
-    "Stable": ("Estable", "安定版", "Estável", "Stabile"),
-    "Beta: every new version, including test builds that may have new bugs. For testers.": (
-        "Beta: cada versión nueva, incluidas las de prueba, que pueden tener fallos nuevos. Para testers.",
-        "ベータ: テスト版を含むすべての新しいバージョンです。新しい不具合があるかもしれません。テスター向けです。",
-        "Beta: toda versão nova, incluindo as de teste, que podem ter bugs novos. Para testadores.",
-        "Beta: ogni nuova versione, comprese quelle di prova, che possono avere nuovi bug. Per i tester."),
-    "Stable: only versions marked stable, which testers have checked.": (
-        "Estable: solo las versiones marcadas como estables, que los testers han probado.",
-        "安定版: テスターが確認した、安定版とされたバージョンだけです。",
-        "Estável: só as versões marcadas como estáveis, que os testadores verificaram.",
-        "Stabile: solo le versioni segnate come stabili, già controllate dai tester."),
-    "No stable version is out yet. This is RiftWii {1}.": (
-        "Aún no hay ninguna versión estable. Esta es RiftWii {1}.",
-        "安定版はまだ出ていません。これはRiftWii {1}です。",
-        "Ainda não saiu nenhuma versão estável. Esta é a RiftWii {1}.",
-        "Non è ancora uscita una versione stabile. Questa è RiftWii {1}."),
+    "No release is out yet. This is RiftWii {1}.": (
+        "Aún no ha salido ninguna versión. Esta es RiftWii {1}.",
+        "まだリリースはありません。これはRiftWii {1}です。",
+        "Ainda não saiu nenhuma versão. Esta é a RiftWii {1}.",
+        "Non è ancora uscita nessuna versione. Questa è RiftWii {1}."),
     # Drive and SD card problems (pop-ups at start)
     "SD card: {1}": ("Tarjeta SD: {1}", "SDカード: {1}", "Cartão SD: {1}", "Scheda SD: {1}"),
     "USB drive: {1}": ("Unidad USB: {1}", "USBドライブ: {1}", "Unidade USB: {1}", "Unità USB: {1}"),
@@ -2376,18 +2363,8 @@ KO = {
         "정말 업데이트하지 않나요? 혹시 문제가 있었다면 최신 업데이트에서 해결되었을 수도 있습니다!",
     "RiftWii {1} is out. Settings > Check for a new version installs it.":
         "RiftWii {1}이(가) 출시되었습니다. 설정 > 새 버전 확인을 통해 설치할 수 있습니다.",
-    "Updates":
-        "업데이트",
-    "Beta":
-        "베타",
-    "Stable":
-        "안정화",
-    "Beta: every new version, including test builds that may have new bugs. For testers.":
-        "베타: 새로운 버그가 포함될 수 있는 테스트 빌드를 포함한 모든 새 버전입니다. 테스터용입니다.",
-    "Stable: only versions marked stable, which testers have checked.":
-        "안정 버전: 테스터가 확인을 마친, '안정'으로 표시된 버전만 해당합니다.",
-    "No stable version is out yet. This is RiftWii {1}.":
-        "아직 안정 버전은 출시되지 않았습니다. 이것은 RiftWii {1}입니다.",
+    "No release is out yet. This is RiftWii {1}.":
+        "아직 출시된 버전이 없습니다. 이것은 RiftWii {1}입니다.",
     "SD card: {1}":
         "SD 카드: {1}",
     "USB drive: {1}":
@@ -3729,18 +3706,8 @@ FR = {
         "Êtes-vous sûr de ne pas vouloir mettre à jour ? Un bug rencontré a peut-être été corrigé !",
     "RiftWii {1} is out. Settings > Check for a new version installs it.":
         "RiftWii {1} est disponible. Rendez-vous dans Paramètres > Vérifier les mises à jour.",
-    "Updates":
-        "Mises à jour",
-    "Beta":
-        "Bêta",
-    "Stable":
-        "Stable",
-    "Beta: every new version, including test builds that may have new bugs. For testers.":
-        "Bêta : inclut les versions de test pouvant contenir des bugs. Pour les testeurs.",
-    "Stable: only versions marked stable, which testers have checked.":
-        "Stable : uniquement les versions validées et certifiées stables.",
-    "No stable version is out yet. This is RiftWii {1}.":
-        "Aucune version stable disponible pour le moment. Version actuelle : RiftWii {1}.",
+    "No release is out yet. This is RiftWii {1}.":
+        "Aucune version disponible pour le moment. Version actuelle : RiftWii {1}.",
     "SD card: {1}":
         "Carte SD : {1}",
     "USB drive: {1}":

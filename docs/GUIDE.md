@@ -20,7 +20,7 @@ Everything about installing and using RiftWii. The [README](../README.md) has th
 
 ## Installing
 
-1. Download `riftwii-vX.Y.Z-beta.zip` from the
+1. Download the newest `riftwii-vYYMM-N.zip` from the
    [releases](https://github.com/KakarottoCake/Riftwii/releases).
 2. Copy the zip's `sd-card` folder onto your SD card, merging it with
    what is there. That puts RiftWii in `sd:/apps/riftwii/`.
@@ -307,8 +307,7 @@ the tiles.
 - **Menu IOS**: IOS 58, or a d2x cIOS slot (248 to 252). Pick the slot that has
   fakemote to use USB DS3/DS4 pads as Wii Remotes.
 - **Find network packs (RiiFS)** and **Copy network packs again** (below).
-- **Look for games again**, **Updates** (Stable or Beta, below),
-  **Check for a new version** (on GitHub; with downloads on, RiftWii also
+- **Look for games again**, **Check for a new version** (on GitHub; with downloads on, RiftWii also
   looks at every start and asks before it updates), and **Leave RiftWii**,
   which opens the HOME Menu (below).
 - **Send a problem report**: see Reporting a problem below.
@@ -761,18 +760,17 @@ launch:
 
 Boot.log lists them under "Game fixes".
 
-## Stable and beta versions
+## Versions and updates
 
-Versions are numbered the way Dolphin numbers its own. A stable version
-is named after the year and month it came out (2610 is October 2026; it
-was called 2.7.0), and testers have checked it on real Wiis. A beta
-version is that stable version plus the number of changes made since
-(2610-123), so a higher number is always newer. Betas come more often and
-carry new fixes and features that are not checked yet. **Settings >
-Updates** picks which ones RiftWii offers: **Stable** only stable
-versions, **Beta** every new version. A stable version starts on Stable
-and a beta on Beta. (Versions before October 2026 were numbered like
-2.7.0 and 3.3.9-beta.)
+Versions are numbered the way Dolphin numbers its own: the year and
+month of the release line (2610 is October 2026), then the number of
+changes made since (2610-123), so a higher number is always newer.
+(Versions before October 2026 were numbered like 2.7.0 and 3.3.9-beta.)
+
+There is one kind of release: every new version is for everyone, and
+RiftWii offers the newest one. Earlier versions had a Stable and a Beta
+choice in Settings; a version that had it set to either still updates to
+the newest release.
 
 An update from inside RiftWii also brings the themes that come with it
 (Bookshelf, Midnight) and the channel installer (`apps/riftwii_channel`)
@@ -786,7 +784,7 @@ GitHub gives for it. While the new RiftWii is being put in place, the
 power button waits until it is: the screen stays on for a moment, then
 the Wii turns off.
 
-**Experimental** features are in stable versions too, but they are not
+**Experimental** features are in releases too, but they are not
 yet confirmed on real Wiis and may not work on yours. The menu marks
 them (a note before the launch, or "Experimental" in the Settings note):
 
