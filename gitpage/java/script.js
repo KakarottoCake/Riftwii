@@ -468,16 +468,6 @@ const TUTORIAL_FALLBACK_FILES = [
     "updating-riftwii.html",
     "using-a-usb-disc-drive.html",
     "virtual-sd-cards.html",
-    "code-map.html",
-    "architecture.html",
-    "developing.html",
-    "themes.html",
-    "harness.html",
-    "usb-hardware-test.html",
-    "ctgp-r.html",
-    "riifs.html",
-    "headless-launching.html",
-    "bluetooth.html",
     "developers.html"
 ];
 
