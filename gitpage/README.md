@@ -7,18 +7,64 @@ The GitHub Pages website is currently kept in the `gitpage/` directory for testi
 
 ## Preview locally
 
-From `gitpage/`:
+The website can be previewed locally before publishing.
+
+### Windows
+
+From inside the `gitpage/` folder, run:
 
 ```text
-python -m http.server
+open-site.bat
 ```
 
-## Add a tutorial
+This starts the local web server and opens the website in your browser.
 
-1. Add the `.html` file to `gitpage/tutorials/`.
-2. Add its filename to `gitpage/tutorials.json`.
-3. Reuse suitable current screenshots from `docs/screenshots/` where they match the tutorial.
-4. Put tutorial-only media in `gitpage/tutorials/resources/`.
-5. Preview the site before committing.
+### Python
 
-`tutorials.json` is the normal tutorial index. The GitHub API is only a fallback.
+From inside the `gitpage/` folder, run:
+
+```text
+python serve.py
+```
+
+Then open the local address shown in the terminal, usually:
+
+```text
+http://localhost:8000
+```
+
+If port `8000` is already being used by another local server, stop the old server or change the port in `serve.py`.
+
+To stop the local server, return to the terminal and press:
+
+```text
+Ctrl + C
+```
+
+## Tutorials
+
+The tutorial list is controlled by:
+
+```text
+tutorials.json
+```
+
+To add a new tutorial:
+
+1. Add the tutorial `.html` file to the `tutorials/` folder.
+2. Add the tutorial filename to `tutorials.json`.
+
+For example:
+
+```json
+[
+    "getting-started.html",
+    "installing-mods.html",
+    "send-a-problem-report.html",
+    "my-new-tutorial.html"
+]
+```
+
+`tutorials.json` is the normal source used to build the tutorial list on the website.
+
+If `tutorials.json` cannot be loaded, the site may use its built-in fallback tutorial list instead.

@@ -1,0 +1,181 @@
+<!-- SPDX-FileCopyrightText: 2026 RiftWii contributors -->
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>For Developers - RiftWii</title>
+    <link rel="stylesheet" href="../css/tutorials.css">
+    <link rel="icon" type="image/png" href="https://github.com/KakarottoCake/Riftwii/blob/main/hbc/icon.png?raw=true">
+    <meta property="og:title" content="RiftWii Developer Documentation">
+    <meta property="og:description" content="Developer documentation and technical references for RiftWii.">
+    <meta property="og:type" content="website">
+    <meta property="og:image" content="https://github.com/KakarottoCake/Riftwii/blob/main/docs/images/banner.png?raw=true">
+    <meta name="twitter:card" content="summary_large_image">
+</head>
+<body>
+    <main class="tutorial-page">
+
+        <a class="back-link" href="../index.html">← Back to RiftWii</a>
+
+        <article class="tutorial-card">
+            <span class="kicker">DEVELOPERS</span>
+            <h1>For Developers</h1>
+            <p>
+                RiftWii's technical documentation is maintained in the repository's
+                <code>docs/</code> folder. Rather than copying those documents into the
+                website, this page gives a short summary of each area and links to the
+                current version on GitHub.
+            </p>
+            <a class="link-button"
+               href="https://github.com/KakarottoCake/Riftwii/tree/main/docs"
+               target="_blank"
+               rel="noopener noreferrer">
+                Browse All Developer Documentation
+            </a>
+        </article>
+
+        <br><br>
+
+        <article class="tutorial-card">
+            <span class="kicker">PROJECT OVERVIEW</span>
+
+            <h2>Code Map</h2>
+            <p>
+                A map of the RiftWii source tree and its major systems. Use it to find
+                where runtime components, file-system code, patching systems and tests live.
+            </p>
+            <a class="link-button"
+               href="https://github.com/KakarottoCake/Riftwii/blob/main/docs/MAP.md"
+               target="_blank"
+               rel="noopener noreferrer">Open Code Map</a>
+
+            <h2>Architecture</h2>
+            <p>
+                Explains how RiftWii plans and launches games, applies patches, redirects
+                files and installs the in-game runtime hooks.
+            </p>
+            <a class="link-button"
+               href="https://github.com/KakarottoCake/Riftwii/blob/main/docs/ARCHITECTURE.md"
+               target="_blank"
+               rel="noopener noreferrer">Open Architecture Documentation</a>
+
+            <h2>Developing RiftWii</h2>
+            <p>
+                Build and development notes for contributors, including project setup,
+                build behaviour, versioning and tests.
+            </p>
+            <a class="link-button"
+               href="https://github.com/KakarottoCake/Riftwii/blob/main/docs/DEVELOPING.md"
+               target="_blank"
+               rel="noopener noreferrer">Open Development Guide</a>
+        </article>
+
+        <br><br>
+
+        <article class="tutorial-card">
+            <span class="kicker">TESTING</span>
+
+            <h2>Dolphin Test Harness</h2>
+            <p>
+                Documentation for the Dolphin-based development and test setup, including
+                automated launches, test images and logging.
+            </p>
+            <a class="link-button"
+               href="https://github.com/KakarottoCake/Riftwii/blob/main/docs/HARNESS.md"
+               target="_blank"
+               rel="noopener noreferrer">Open Dolphin Test Harness Documentation</a>
+
+            <h2>USB Hardware Test</h2>
+            <p>
+                Technical instructions for testing SD and USB behaviour on real Wii
+                hardware, including the storage paths used by RiftWii.
+            </p>
+            <a class="link-button"
+               href="https://github.com/KakarottoCake/Riftwii/blob/main/docs/USB_HARDWARE_TEST.md"
+               target="_blank"
+               rel="noopener noreferrer">Open USB Hardware Test</a>
+        </article>
+
+        <br><br>
+
+        <article class="tutorial-card">
+            <span class="kicker">GAME AND MOD SUPPORT</span>
+
+            <h2>CTGP-R</h2>
+            <p>
+                Technical notes for RiftWii's experimental CTGP-R 1.03 support and its
+                launch requirements.
+            </p>
+            <a class="link-button"
+               href="https://github.com/KakarottoCake/Riftwii/blob/main/docs/CTGPR.md"
+               target="_blank"
+               rel="noopener noreferrer">Open CTGP-R Documentation</a>
+
+            <h2>RiiFS</h2>
+            <p>
+                Documents RiftWii's network-pack support and the RiiFS protocol used to
+                access mod files from a server over the network.
+            </p>
+            <a class="link-button"
+               href="https://github.com/KakarottoCake/Riftwii/blob/main/docs/RIIFS.md"
+               target="_blank"
+               rel="noopener noreferrer">Open RiiFS Documentation</a>
+
+            <h2>Headless Launching</h2>
+            <p>
+                Describes how another loader can start RiftWii directly with launch
+                arguments for a game, source device, image path and mod configuration.
+            </p>
+            <a class="link-button"
+               href="https://github.com/KakarottoCake/Riftwii/blob/main/docs/HEADLESS.md"
+               target="_blank"
+               rel="noopener noreferrer">Open Headless Launching Documentation</a>
+        </article>
+
+        <br><br>
+
+        <article class="tutorial-card">
+            <span class="kicker">INPUT AND CUSTOMISATION</span>
+
+            <h2>Bluetooth Controllers</h2>
+            <p>
+                Technical documentation for additional Bluetooth-controller support and
+                the runtime translation used by RiftWii.
+            </p>
+            <a class="link-button"
+               href="https://github.com/KakarottoCake/Riftwii/blob/main/docs/BLUETOOTH.md"
+               target="_blank"
+               rel="noopener noreferrer">Open Bluetooth Documentation</a>
+
+            <h2>Theme Documentation</h2>
+            <p>
+                The full theme-format reference for people creating RiftWii themes,
+                including theme files, images, colours, layout behaviour and music.
+            </p>
+            <a class="link-button"
+               href="https://github.com/KakarottoCake/Riftwii/blob/main/docs/THEMES.md"
+               target="_blank"
+               rel="noopener noreferrer">Open Theme Documentation</a>
+        </article>
+
+        <br><br>
+
+        <article class="tutorial-card">
+            <span class="kicker">GENERAL REFERENCE</span>
+
+            <h2>RiftWii Guide</h2>
+            <p>
+                The main RiftWii guide contains the current reference for setup, game
+                pages, mods, cheats, storage, virtual SD cards, updates and problem reports.
+            </p>
+            <a class="link-button"
+               href="https://github.com/KakarottoCake/Riftwii/blob/main/docs/GUIDE.md"
+               target="_blank"
+               rel="noopener noreferrer">Open RiftWii Guide</a>
+        </article>
+
+    </main>
+</body>
+</html>

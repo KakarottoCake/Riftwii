@@ -478,6 +478,7 @@ const TUTORIAL_FALLBACK_FILES = [
     "riifs.html",
     "headless-launching.html",
     "bluetooth.html",
+    "developers.html"
 ];
 
 const TUTORIAL_COLLAPSED_FILES = [
@@ -504,7 +505,8 @@ function tutorialDisplayName(filename) {
         "developing": "Developing (Advanced)",
         "themes": "Themes",
         "harness": "Dolphin Test Harness (Advanced)",
-        "bluetooth": "Bluetooth (Advanced)"
+        "bluetooth": "Bluetooth (Advanced)",
+        "developers": "For Developers"
     };
 
     if (specialNames[key]) {

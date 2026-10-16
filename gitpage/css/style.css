@@ -3319,3 +3319,189 @@ body.reduced-motion .tutorial-list {
     }
 }
 
+.credits-notice {
+    width: 100%;
+
+    margin:
+        26px
+        0
+        0;
+
+    padding:
+        24px;
+
+    border:
+        1px solid
+        rgba(
+            127,
+            205,
+            255,
+            0.20
+        );
+
+    border-radius: 18px;
+
+    background:
+        linear-gradient(
+            145deg,
+            rgba(
+                23,
+                50,
+                107,
+                0.46
+            ),
+            rgba(
+                55,
+                20,
+                105,
+                0.42
+            )
+        );
+
+    box-shadow:
+        inset
+        0
+        1px
+        0
+        rgba(
+            255,
+            255,
+            255,
+            0.05
+        ),
+        0
+        0
+        28px
+        rgba(
+            75,
+            218,
+            255,
+            0.05
+        );
+}
+
+#credits .content-box .credits-notice {
+    margin-top: 26px;
+    color:
+        rgba(
+            217,
+            229,
+            255,
+            0.78
+        );
+
+    font-family:
+        Arial,
+        sans-serif;
+
+    line-height: 1.7;
+
+    font-size: 0.98rem;
+}
+
+.credits-notice a {
+    width: 100%;
+
+    min-height: 46px;
+
+    margin-top: 18px;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    padding:
+        11px
+        16px;
+
+    border:
+        1px solid
+        rgba(
+            98,
+            217,
+            255,
+            0.25
+        );
+
+    border-radius: 12px;
+
+    background:
+        linear-gradient(
+            90deg,
+            rgba(
+                59,
+                211,
+                255,
+                0.13
+            ),
+            rgba(
+                154,
+                79,
+                255,
+                0.16
+            )
+        );
+
+    color: #eafdff;
+
+    font-family:
+        "Rounded",
+        sans-serif;
+
+    font-weight: 600;
+
+    text-align: center;
+
+    text-decoration: none;
+
+    transition:
+        transform
+        0.25s
+        ease,
+        box-shadow
+        0.25s
+        ease,
+        border-color
+        0.25s
+        ease;
+}
+
+.credits-notice a:hover,
+.credits-notice a:focus-visible {
+    transform:
+        translateY(
+            -2px
+        );
+
+    border-color:
+        rgba(
+            126,
+            229,
+            255,
+            0.52
+        );
+
+    box-shadow:
+        0
+        0
+        18px
+        rgba(
+            70,
+            215,
+            255,
+            0.12
+        ),
+        0
+        0
+        28px
+        rgba(
+            157,
+            76,
+            255,
+            0.08
+        );
+
+    outline: none;
+}
