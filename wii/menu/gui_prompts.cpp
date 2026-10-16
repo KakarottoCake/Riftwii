@@ -82,6 +82,24 @@ void GuiPrompts::DrawBadgeText(Prompt& p) {
     p.badge->Draw();
 }
 
+int GuiPrompts::CardTop() {
+    return kY - kPadY;
+}
+
+int GuiPrompts::LeftEdge() {
+    // The same walk from the right as Draw makes.
+    int right = kRight;
+    int left = kRight + kPadRight;
+    for (Prompt& p : prompts) {
+        if (!p.shown) continue;
+        const int w = kBadge + kTextGap + p.text->GetTextWidth();
+        const int x = right - kPadRight - w;
+        left = x - kPadLeft;
+        right = left - kGap;
+    }
+    return left;
+}
+
 void GuiPrompts::Draw() {
     if (!IsVisible()) return;
     const int alpha = GetAlpha();

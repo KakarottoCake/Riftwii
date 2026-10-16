@@ -1688,6 +1688,118 @@ private:
 	GuiText text;
 };
 
+// A page's line of help or status above the prompts along the bottom. The
+// lines that reach down to the prompts' cards are cut short of the leftmost
+// card (measured, so a longer translation or a third prompt moves it),
+// so the text never runs under them; the lines above them keep the full
+// width. Past the last line the text ends in "..." as GuiText's own wrap
+// does. `x`, `y`: the top left of the first line on the screen.
+class PromptsNote : public GuiElement {
+public:
+	PromptsNote(GuiPrompts& prompts, int x, int y, int fullWidth, int maxLines, int fontSize, GXColor color)
+		: prompts_(prompts), x_(x), y_(y), fullWidth_(fullWidth), fontSize_(fontSize), meter_("", fontSize, color) {
+		for (int i = 0; i < maxLines; ++i) {
+			lines_.emplace_back(new GuiText("", fontSize, color));
+			lines_.back()->SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
+		}
+	}
+	void SetText(const std::string& text) {
+		text_ = text;
+		laidOutFor_ = -1;  // laid out again at the next draw
+	}
+	void Draw() override {
+		if (!IsVisible()) return;
+		const int pillsLeft = prompts_.LeftEdge();
+		if (pillsLeft != laidOutFor_) Layout(pillsLeft);
+		for (std::size_t i = 0; i < lines_.size(); ++i) {
+			if (shown_[i].empty()) continue;
+			lines_[i]->SetAlpha(GetAlpha());
+			lines_[i]->SetPosition(x_, y_ + static_cast<int>(i) * LineHeight());
+			lines_[i]->Draw();
+		}
+	}
+
+private:
+	int LineHeight() const { return fontSize_ + 6; }  // GuiText's own spacing
+
+	// The width line `index` may use: the whole of it, or what is left of
+	// the leftmost card when its text would reach the cards' top.
+	int WidthOfLine(int index, int pillsLeft) const {
+		const int textBottom = y_ + index * LineHeight() + fontSize_;
+		if (textBottom <= GuiPrompts::CardTop()) return fullWidth_;
+		const int clearOfShadow = 16;
+		return std::max(60, std::min(fullWidth_, pillsLeft - clearOfShadow - x_));
+	}
+
+	// Byte offsets in `s` where a line may end: before a space (the space is
+	// dropped), after a CJK character (Japanese has no spaces), and at a
+	// newline.
+	static std::vector<std::size_t> BreakPoints(const std::string& s) {
+		std::vector<std::size_t> points;
+		std::size_t i = 0;
+		while (i < s.size()) {
+			const unsigned char lead = static_cast<unsigned char>(s[i]);
+			const std::size_t length = lead < 0x80 ? 1 : lead < 0xE0 ? 2 : lead < 0xF0 ? 3 : 4;
+			const std::size_t next = std::min(s.size(), i + length);
+			if (lead == ' ' || lead == '\n') points.push_back(i);
+			if (lead == '\n') break;
+			const bool cjk = length == 3 && i + 1 < s.size() && (((lead & 0x0F) << 12) | ((static_cast<unsigned char>(s[i + 1]) & 0x3F) << 6)) >= 0x2E80;
+			if (cjk) points.push_back(next);
+			i = next;
+		}
+		return points;
+	}
+
+	int TextWidth(const std::string& s) {
+		meter_.SetText(s.c_str());
+		return meter_.GetTextWidth();
+	}
+
+	void Layout(int pillsLeft) {
+		laidOutFor_ = pillsLeft;
+		shown_.assign(lines_.size(), std::string());
+		std::string rest = text_;
+		for (std::size_t i = 0; i < lines_.size() && !rest.empty(); ++i) {
+			const int width = WidthOfLine(static_cast<int>(i), pillsLeft);
+			std::string line = rest;
+			const bool lastLine = i + 1 == lines_.size();
+			if (!lastLine) {
+				// The longest start of the rest that fits this line.
+				std::size_t cut = std::string::npos;
+				for (const std::size_t point : BreakPoints(rest)) {
+					if (point == 0) continue;
+					if (cut != std::string::npos && TextWidth(rest.substr(0, point)) > width) break;
+					cut = point;
+				}
+				const bool wholeFits = rest.find('\n') == std::string::npos && TextWidth(rest) <= width;
+				if (!wholeFits && cut != std::string::npos) {
+					line = rest.substr(0, cut);
+					std::size_t skip = cut;
+					if (skip < rest.size() && (rest[skip] == ' ' || rest[skip] == '\n')) ++skip;
+					rest = rest.substr(skip);
+				} else {
+					// All of it fits, or it is one word too long for the line,
+					// which GuiText ends in "...".
+					rest.clear();
+				}
+			} else {
+				rest.clear();
+			}
+			shown_[i] = line;
+			lines_[i]->SetText(line.c_str());
+			lines_[i]->SetWrap(true, width, 1);
+		}
+	}
+
+	GuiPrompts& prompts_;
+	int x_, y_, fullWidth_, fontSize_;
+	GuiText meter_;
+	std::vector<std::unique_ptr<GuiText>> lines_;
+	std::vector<std::string> shown_;
+	std::string text_;
+	int laidOutFor_ = -1;
+};
+
 // A QR code on screen: a white quiet zone of two modules, then the dark
 // modules, a run of them on a row as one rectangle.
 class QrImage : public GuiElement {
@@ -5738,11 +5850,6 @@ static int MenuHome(FrontendState& state)
 	tileGrid.SetTiles(&tiles);
 	tileGrid.Select(0);
 
-	GuiText statusTxt(ModsNote(state, scanStatus).c_str(), 15, skin::kInkSoft);
-	// Two lines over the prompts: a cIOS remedy or a compile error must
-	// stay readable in full.
-	Place(statusTxt, 40, 392);
-	statusTxt.SetWrap(true, 568, 2);
 
 	// B and + (Start) as ever, named by the prompts along the bottom.
 	SkinButton backBtn(skin::pill, skin::pillOver, 4, 50, 406, "Back",
@@ -5755,6 +5862,10 @@ static int MenuHome(FrontendState& state)
 	const int promptPlay = prompts.Add("+", tr("Play"));
 	const int promptBack = prompts.Add("B", tr("Back"));
 	prompts.Add("A", tr("Select"));
+	// Two lines over the prompts: a cIOS remedy or a compile error must
+	// stay readable in full. The second line is cut short of the prompts.
+	PromptsNote statusTxt(prompts, 40, 392, 568, 2, 15, skin::kInkSoft);
+	statusTxt.SetText(ModsNote(state, scanStatus));
 	// Dump (a development aid) has no button: the Wii Remote's 2 or a
 	// GameCube pad's Z.
 	GuiTrigger trigDump;
@@ -5796,7 +5907,7 @@ static int MenuHome(FrontendState& state)
 	if (!bannerHeld) mainWindow->Append(&w);
 	ResumeGui();
 
-	const auto say = [&](const std::string& text) { statusTxt.SetText(text.c_str()); };
+	const auto say = [&](const std::string& text) { statusTxt.SetText(text); };
 	const auto saveOrSay = [&]() {
 		std::string error;
 		if (SaveChoices(state, error)) return true;
@@ -7274,15 +7385,14 @@ static int SettingsHub(FrontendState& state, int& focus, bool fromSection)
 	GuiTiles tileGrid;
 	tileGrid.SetTiles(&tilesSpec);
 	tileGrid.Select(focus);
-	GuiText noteTxt("", 16, skin::kInkSoft);
-	Place(noteTxt, 44, 360);
-	noteTxt.SetWrap(true, 556, 3);
 	SkinButton backBtn(skin::pill, skin::pillOver, 4, 198, 406, "Back",
 		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
 	HideButton(backBtn);
 	GuiPrompts prompts;
 	const int promptBack = prompts.Add("B", tr("Back"));
 	prompts.Add("A", tr("Open"));
+	// Three lines; the third is cut short of the prompts.
+	PromptsNote noteTxt(prompts, 44, 360, 556, 3, 16, skin::kInkSoft);
 
 	HaltGui();
 	GuiWindow w(screenwidth, screenheight);

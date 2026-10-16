@@ -27,6 +27,13 @@ public:
     void Draw() override;
     void Update(GuiTrigger* t) override;
 
+    // Where the shown prompts' cards begin on the screen: the left edge of
+    // the leftmost one, or the right edge of the area when none is shown.
+    // For text that shares the bottom of the screen with them.
+    int LeftEdge();
+    // The y the cards begin at (their soft shadow reaches a little above).
+    static int CardTop();
+
     // The prompts' line: inside a TV's overscan (5% of 480 from the bottom).
     static constexpr int kY = 422;  // the buttons end at y 450, inside the overscan (456)
 
