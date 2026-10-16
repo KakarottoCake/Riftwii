@@ -1303,6 +1303,14 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     DCFlushRange(reinterpret_cast<void*>(kMem1Start), 0x100);
     logf("Apploader: arena top 0x%08x, FST 0x%08x (%u bytes), BI2 0x%08x\n", load32(0x80000034),
          load32(0x80000038), load32(0x8000003C), load32(0x800000F4));
+    // MEM2 as the running IOS left it for the game, before any blob takes
+    // some. A Wii U's IOSes are their own builds (IOS36 v3864, a Wii's is
+    // v3608), and Dolphin only knows a Wii's: under IOS36 the arena ends at
+    // 0x935e0000. REX starts with 256 KiB less in Dolphin but not with 1 MiB
+    // less, and went black on a tester's Wii U (2610-412).
+    logf("Memory for the game: MEM2 arena 0x%08x-0x%08x, MEM2 end 0x%08x, IPC buffer 0x%08x-0x%08x (IOS%d)\n",
+         read32(0x80003124), read32(0x80003128), read32(0x80003120), read32(0x80003130), read32(0x80003134),
+         IOS_GetVersion());
 
 
     // The DOL header for the runtime's search, read now: an RVZ game's
