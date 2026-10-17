@@ -924,6 +924,15 @@ msgstr "USBドライブ: {1}"
 msgid "Drive problem"
 msgstr "ドライブの問題"
 
+msgid "Wii U drive"
+msgstr "Wii Uのドライブ"
+
+msgid "USB: a Wii U drive (RiftWii leaves it alone)"
+msgstr "USB: Wii Uのドライブ(RiftWiiは使いません)"
+
+msgid "The USB drive plugged in is a Wii U's own storage drive. RiftWii can't read it, so it leaves it alone. For Wii games on USB, use a drive formatted FAT32 or NTFS on a computer."
+msgstr "接続されているUSBドライブはWii U本体用の保存ドライブです。RiftWiiは読み込めないため、このドライブは使いません。WiiのゲームをUSBから遊ぶには、パソコンでFAT32かNTFSにフォーマットしたドライブを使ってください。"
+
 msgid "Games on that drive are not listed. Check the drive on a computer; details are in sd:/riftwii/session.log."
 msgstr "そのドライブのゲームは表示されません。パソコンでドライブを確認してください。詳しくはsd:/riftwii/session.logにあります。"
 

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/imagevolume.hpp"
 
+#include <algorithm>
 #include <cstring>
 
 #include "riftwii/ntfs.hpp"
@@ -172,6 +173,35 @@ std::vector<DrivePartition> drive_partitions(const BlockReader& reader, const st
 const std::vector<std::string>& default_wanted_folders() {
     static const std::vector<std::string> names = {"wbfs", "games", "riivolution"};
     return names;
+}
+
+DriveBlock0 classify_drive_block0(const std::uint8_t* block0) {
+    if (block0[510] == 0x55 && block0[511] == 0xAA) return DriveBlock0::Readable;
+    if (std::memcmp(block0, "WBFS", 4) == 0) return DriveBlock0::Wbfs;
+    // Encrypted bytes use most of the 256 values (about 220 in 512 random
+    // bytes) and never repeat one for long. Any format with a structure in
+    // block 0 (a boot sector, a header, padding) repeats zeros or a filler
+    // byte, and uses far fewer values.
+    bool seen[256] = {};
+    unsigned distinct = 0;
+    unsigned run = 1;
+    unsigned longest_run = 1;
+    bool all_zero = block0[0] == 0;
+    for (int i = 0; i < 512; ++i) {
+        const std::uint8_t b = block0[i];
+        if (!seen[b]) {
+            seen[b] = true;
+            ++distinct;
+        }
+        if (b != 0) all_zero = false;
+        if (i > 0) {
+            run = b == block0[i - 1] ? run + 1 : 1;
+            longest_run = std::max(longest_run, run);
+        }
+    }
+    if (all_zero) return DriveBlock0::Empty;
+    if (distinct >= 160 && longest_run <= 6) return DriveBlock0::WiiU;
+    return DriveBlock0::Unknown;
 }
 
 bool mount_image_volume(BlockReader reader, std::unique_ptr<ImageVolume>& out, std::string& error) {
