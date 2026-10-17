@@ -169,6 +169,7 @@ The build compiles every folder into one, so no two files share a name.
 | `sdfile.cpp` | Where a file's bytes lie on the card |
 | `d2xsave.cpp` | Saves of SD and USB games kept by d2x's NAND emulation in a folder of the card |
 | `sharednandfind.cpp` | The Saves choice "SD, emulated NAND": the folder read from the other loader's settings files; the folder its channels are in |
+| `wadinstall.cpp` | Settings > Install WAD files: `.wad` files from `sd:/wad` into the emulated NAND the channels are listed from |
 | `nandchannels.cpp` | WiiWare and Virtual Console games on the Wii and in an emulated NAND on the card: listing them, their banners, the files a start needs |
 
 ### `wii/online/`: network, downloads, https, problem reports, RiiTag
@@ -262,6 +263,7 @@ document it.
 | `problemreport` | A problem report's text |
 | `gamefault` | A game's crash record, as text |
 | `sharednand` | The shared emulated NAND's folder: the other loader's settings lines and the checks on the path |
+| `wadfile` | `.wad` files: their layout, each content decrypted and checked against its TMD hash, `/shared1/content.map` |
 | `nandchannel` | WiiWare and Virtual Console titles: which titles are games, a stored TMD's contents, the content RiftWii loads, their cheats' code |
 
 ## `runtime/`: code that runs inside the game

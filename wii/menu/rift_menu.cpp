@@ -30,6 +30,7 @@
 #include <strings.h>
 #include <algorithm>
 #include <cstdlib>
+#include <cstring>
 #include <atomic>
 #include <ctime>
 #include <fstream>
@@ -104,6 +105,8 @@
 #include "netpacks.hpp"
 #include "netsock.hpp"
 #include "sharednandfind.hpp"
+#include "otpkey.hpp"
+#include "wadinstall.hpp"
 #include "video.h"
 
 namespace transition = riftwii::wii::transition;
@@ -2407,6 +2410,74 @@ static void RunUpdate(const std::string& latest)
 		while (1) usleep(THREAD_SLEEP);
 	}
 	SetHomeNotice(tr("RiftWii {1} is installed. Start RiftWii again to use it.", {latest}));
+}
+
+// Settings > Install WAD files: every .wad in sd:/wad into the emulated NAND
+// the channels are listed from (wii/storage/wadinstall.hpp), asked first,
+// with a progress bar. True when any was installed (Home reads them again).
+static bool InstallWads()
+{
+	const std::vector<std::string> files = riftwii::wii::list_wad_files();
+	if (files.empty()) {
+		ShowPopup(tr("Install WAD files"), tr("No .wad files in the wad folder of the SD card."), tr("OK"));
+		return false;
+	}
+	const riftwii::wii::SharedNandLookup nand = riftwii::wii::look_up_channel_nand();
+	if (!nand.usable) {
+		ShowPopup(tr("Install WAD files"), tr("The emulated NAND folder can't be used: {1}", {FlatCapped(nand.error, 120)}), tr("OK"));
+		return false;
+	}
+	std::uint8_t key[16];
+	if (!riftwii::wii::ConsoleCommonKey(key)) {
+		ShowPopup(tr("Install WAD files"), tr("This Wii's key could not be read, so WAD files can't be installed."), tr("OK"));
+		return false;
+	}
+	if (ShowPopup(tr("Install WAD files"), tr("Install {1} WAD file(s) into {2}? The Wii itself is not changed.", {std::to_string(files.size()), nand.folder}),
+		    tr("Install"), tr("Cancel")) != 0) {
+		std::memset(key, 0, sizeof key);
+		return false;
+	}
+	std::size_t installed = 0;
+	std::string failed;
+	for (std::size_t i = 0; i < files.size(); ++i) {
+		const std::string& path = files[i];
+		const std::string name = path.substr(path.rfind('/') + 1);
+		std::string code, error;
+		bool ok;
+		{
+			PopupBox box(tr("Installing WAD files"),
+				tr("{1} of {2}: {3}", {std::to_string(i + 1), std::to_string(files.size()), FlatCapped(name, 40)}));
+			ProgressBar bar(56, 280, 528);
+			box.Add(&bar, 528);
+			ResumeGui();
+			int shown = -1;
+			ok = riftwii::wii::install_wad(path, nand.folder, key, [&](double done) {
+				const int percent = static_cast<int>(done * 100);
+				if (percent == shown) return;
+				shown = percent;
+				HaltGui();
+				bar.Set(done);
+				ResumeGui();
+			}, code, error);
+			HaltGui();
+		}
+		if (ok) {
+			++installed;
+		} else {
+			logf("WADs: %s not installed: %s\n", path.c_str(), error.c_str());
+			failed += (failed.empty() ? "" : ", ") + name;
+		}
+	}
+	std::memset(key, 0, sizeof key);
+	// Nothing installed: only what was not, and where the reasons are.
+	std::string summary;
+	if (installed != 0) summary = tr("Installed {1} of {2}. They are on Home now.", {std::to_string(installed), std::to_string(files.size())});
+	if (!failed.empty()) {
+		if (!summary.empty()) summary += " ";
+		summary += tr("Not installed: {1}. The reasons are in sd:/riftwii/session.log.", {FlatCapped(failed, 120)});
+	}
+	ShowPopup(tr("Install WAD files"), summary, tr("OK"));
+	return installed != 0;
 }
 
 // Sends a problem report (wii/online/reportsend.hpp) and shows its link, with a
@@ -6632,7 +6703,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			if (t.folder == folder) return t.name;
 		return folder;
 	};
-	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kServer, kHomeTiles, kHomeSource, kHomeSort, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kClockFormat, kNoClock, kFont, kSounds, kMusic, kReturnTo, kShots, kOnline, kNames, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kIos, kNet, kResync,
+	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kServer, kHomeTiles, kHomeSource, kHomeSort, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kClockFormat, kNoClock, kFont, kSounds, kMusic, kReturnTo, kShots, kOnline, kNames, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kIos, kNet, kResync, kWads,
 		kRescan, kUpdate, kReport, kTests, kWiiChannel, kUsbHelp, kWhatsNew, kTutorial, kCredits, kResetAll, kExit, kNone, kHeading };
 	// The RiftWii channel on the Wii Menu (wii/launch/channel.hpp).
 	unsigned channelVersion = 0;
@@ -6748,6 +6819,16 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		resync.value = "Resync";
 		rows.push_back(resync);
 		actions.push_back(kResync);
+		// WiiWare and Virtual Console games from .wad files, into the
+		// emulated NAND RiftWii lists channels from.
+		const std::size_t wadCount = riftwii::wii::list_wad_files().size();
+		FlowRow wads;
+		wads.kind = FlowRow::Kind::Action;
+		wads.label = tr("Install WAD files");
+		wads.value = wadCount == 0 ? tr("None") : tr("{1} found", {std::to_string(wadCount)});
+		wads.dim = wadCount == 0;
+		rows.push_back(wads);
+		actions.push_back(kWads);
 		heading(tr("Online"));
 		option(tr("Download names and cheats"), settings.online ? tr("On") : tr("Off"), settings.online, kOnline,
 			FlowRow::Kind::Toggle);
@@ -6845,7 +6926,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					return SettingsSection::Look;
 				case kOnline: case kNames: case kServer: case kUpdate:
 					return SettingsSection::Online;
-				case kRescan: case kNet: case kResync:
+				case kRescan: case kNet: case kResync: case kWads:
 					return SettingsSection::Finding;
 				case kHeading:
 				case kExit:  // the hub's Leave RiftWii tile
@@ -6966,6 +7047,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				return netOn ? "Looks for a PC running a RiiFS server when the games are read. Rescan to look now."
 					: "Only servers named by <network> in an XML on the card are used.";
 			case kResync: return "The next launch copies every file of its network packs again.";
+			case kWads: return tr("Installs the .wad files in the wad folder of the SD card into the emulated NAND USB Loader GX keeps its channels in, and lists them on Home. The Wii itself is not changed.");
 			case kRescan: return tr("Reads the SD card and the USB drive again.");
 			case kUpdate: return tr("This is RiftWii {1}. Looks on GitHub for a newer release.", {RIFTWII_VERSION});
 			case kReport: return tr("Something went wrong? Sends what it takes to find out to a paste site, and shows a link to pass on.");
@@ -7380,6 +7462,12 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				case kRescan:
 					g_scanned = false;
 					menu = MENU_SOURCE;
+					break;
+				case kWads:
+					if (InstallWads()) {
+						g_scanned = false;
+						menu = MENU_SOURCE;
+					}
 					break;
 				case kUpdate: {
 					if (!settings.online) {
