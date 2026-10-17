@@ -458,7 +458,17 @@ void GuiGameGrid::DrawNameTile(int i, bool on, int alpha) {
     const GridItem& item = (*items)[page * kPerPage + i];
     Slot& s = slots[i];
     const float x = TileX(i), y = TileY(i);
-    DrawTilePicture(on ? skin::tileOver : skin::tile, i, alpha, s.scale);
+    if (channels && skin::channelCard9.data) {
+        // A game without a banner in the Channels view: the channel's own
+        // box (as the icons' and the empty places'), with its name in it.
+        const float m = static_cast<float>(riftwii::kChannelFrameMargin);
+        const float w = tileW * s.scale, h = tileH * s.scale;
+        const float cx = x + tileW / 2.0f, cy = y + tileH / 2.0f;
+        skin::DrawNine(on ? skin::channelCardOver9 : skin::channelCard9, cx - w / 2 - m, cy - h / 2 - m, w + 2 * m,
+                       h + 2 * m, riftwii::kChannelFrameCorner, alpha);
+    } else {
+        DrawTilePicture(on ? skin::tileOver : skin::tile, i, alpha, s.scale);
+    }
     // The game's colour along the bottom, inset from the round corners.
     const float grow = (s.scale - 1.0f);
     const float bx = x + 12 - grow * tileW / 2, bw = tileW - 24 + grow * tileW;
@@ -624,6 +634,16 @@ void GuiGameGrid::Draw() {
     // Empty places first, then tiles, the lit one last so it sits on top.
     for (int i = 0; i < kPerPage; ++i) {
         if (page * kPerPage + i < Count()) continue;
+        if (channels && iconDrawer && skin::channelCard9.data) {
+            // As the Wii Menu's empty channel: the very box a channel's
+            // icon fills (its size, place and rim), faded and blank. The
+            // Names view's empty tile, smaller and rounder, stood out
+            // beside the icons.
+            const float m = static_cast<float>(riftwii::kChannelFrameMargin);
+            skin::DrawNine(skin::channelCard9, TileX(i) - m, TileY(i) - m, Geo().tileW + 2 * m, Geo().tileH + 2 * m,
+                           riftwii::kChannelFrameCorner, tileAlpha * 110 / 255);
+            continue;
+        }
         if (covers)
             skin::Draw(skin::coverTile, TileX(i) + Geo().tileW / 2.0f - skin::coverTile.w / 2.0f,
                        TileY(i) + Geo().tileH / 2.0f - skin::coverTile.h / 2.0f, tileAlpha * 70 / 255, CoverScale());
