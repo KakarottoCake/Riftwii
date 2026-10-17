@@ -1110,11 +1110,17 @@ void gc_on_ai_dma(struct gc_rt_context* ctx, uint32_t start, uint32_t length) {
     st->mixes++;
 }
 
-/* Back to RiftWii: the title the loader picked (its channel, else the
- * Homebrew Channel, else the Wii Menu), launched through /dev/es, which
- * IOS still runs in Wii mode. The screen goes black first (the VI's
- * display enable, DCR bit 0). Returns only when IOS refused. */
+/* Back to RiftWii: the title the loader picked (the Homebrew Channel, the
+ * RiftWii channel or the Wii Menu, gcnative.cpp's way_back_title),
+ * launched through /dev/es, which IOS still runs in Wii mode. The picture
+ * goes black first, but the VI stays on in the mode the game set, as the
+ * Wii Menu leaves it when it starts a title: with the display turned off
+ * (DCR bit 0), the RiftWii channel came up, but the Homebrew Channel
+ * (00010001-JODI on a tester's Wii) ran with the TV black. Returns only
+ * when IOS refused. */
 #define GC_ES_LAUNCHTITLE 8u
+#define GC_YUYV_BLACK 0x10801080u
+static int gc_crash_frame(const struct gc_rt_context* ctx, const uint8_t* card, int black);
 static void gc_leave(struct gc_rt_context* ctx) {
     const uint32_t buf = ctx->leave_buf;
     int32_t result;
@@ -1129,7 +1135,7 @@ static void gc_leave(struct gc_rt_context* ctx) {
     }
     gc_trace(ctx, GC_TRACE_LEAVE);
     msr = gc_irq_off();  /* the game stops here: IOS takes the console over */
-    *(volatile uint16_t*)(uintptr_t)GC_VI_DCR &= (uint16_t)~1u;
+    gc_crash_frame(ctx, 0, 1);
     ctx->vec[0] = gc_physical(buf);
     ctx->vec[1] = 8;
     ctx->vec[2] = gc_physical(buf + 0x20);
@@ -1140,11 +1146,11 @@ static void gc_leave(struct gc_rt_context* ctx) {
     ctx->ipc_no_timeout = 1;
     result = gc_ioctlv(ctx, ctx->leave_fd, GC_ES_LAUNCHTITLE, 2, 0);
     ctx->ipc_no_timeout = 0;
-    /* Still here: IOS said no (the title went, or its ticket). The picture
-     * and the game come back, and the trace says why. */
+    /* Still here: IOS said no (the title went, or its ticket). The game
+     * comes back (its next frame repaints the screen, as the crash screen
+     * redraws itself), and the trace says why. */
     ctx->busy = 0;
     ctx->last_error = result;
-    *(volatile uint16_t*)(uintptr_t)GC_VI_DCR |= 1u;
     gc_irq_restore(msr);
     gc_trace(ctx, GC_TRACE_LEAVE);
 }
@@ -1499,8 +1505,9 @@ static uint32_t gc_card_at(const uint8_t* card, int32_t x, int32_t y) {
  * card's sectors are still to be written back. */
 #define GC_CRASH_KEEP_BELOW_CONTEXT 0x8000u
 /* The picture the VI shows now, both fields: blue, with the card in the
- * middle. 0 when the VI's registers give no frame to draw in. */
-static int gc_crash_frame(const struct gc_rt_context* ctx, const uint8_t* card) {
+ * middle, or all black when `black` is 1. 0 when the VI's registers give
+ * no frame to draw in. */
+static int gc_crash_frame(const struct gc_rt_context* ctx, const uint8_t* card, int black) {
     const uint32_t keep_from = gc_physical((uint32_t)(uintptr_t)ctx) - GC_CRASH_KEEP_BELOW_CONTEXT;
     const uint32_t top = gc_vi_fb(GC_VI_TFBL), bottom = gc_vi_fb(GC_VI_BFBL);
     const uint16_t hsw = *(volatile uint16_t*)(uintptr_t)GC_VI_HSW;
@@ -1522,7 +1529,7 @@ static int gc_crash_frame(const struct gc_rt_context* ctx, const uint8_t* card) 
             for (w = 0; w < words; ++w) {
                 /* Two pixels a word: Y0 Cb Y1 Cr. */
                 const int32_t x = (int32_t)(w * 2u) - card_left;
-                row[w] = gc_crash_yuyv(gc_card_at(card, x, y), gc_card_at(card, x + 1, y));
+                row[w] = black ? GC_YUYV_BLACK : gc_crash_yuyv(gc_card_at(card, x, y), gc_card_at(card, x + 1, y));
             }
         }
     }
@@ -1538,7 +1545,7 @@ static void gc_crash_draw(const struct gc_rt_context* ctx) {
     volatile uint32_t* p;
     uint32_t i;
     if (!gc_vi_showing()) gc_vi_put_back(ctx);
-    if (gc_crash_frame(ctx, card)) return;
+    if (gc_crash_frame(ctx, card, 0)) return;
     /* No frame in the VI's registers: the one on screen at the jump. */
     if (ctx->xfb == 0 || gc_physical(ctx->xfb) + ctx->xfb_bytes > keep_from) return;
     p = (volatile uint32_t*)(uintptr_t)(gc_physical(ctx->xfb) | 0xC0000000u);
