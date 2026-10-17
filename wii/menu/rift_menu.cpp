@@ -4598,7 +4598,10 @@ static constexpr int kTilesW = kTilesRight - kTilesX;
 // cut the art's corners off.
 class HeroCover : public GuiElement {
 public:
-	HeroCover(std::string id, bool disc, GXColor hue) : id(std::move(id)), disc(disc), hue(hue) {}
+	// `channel`: a WiiWare or Virtual Console game, drawn as its channel
+	// (its own icon, playing) when GameTDB has no box or cover for it.
+	HeroCover(std::string id, bool disc, GXColor hue, bool channel = false)
+		: id(std::move(id)), disc(disc), channel(channel), hue(hue) {}
 	HeroCover(const HeroCover&) = delete;
 	HeroCover& operator=(const HeroCover&) = delete;
 	~HeroCover() override { free(rounded); }
@@ -4621,6 +4624,13 @@ public:
 			skin::DrawRgb5a3Part(box, riftwii::kBoxWidth, riftwii::kBoxHeight, u0, u1, ax, ay, aw, ah);
 		} else if (const u8* cover = id.empty() ? nullptr : riftwii::wii::CoverTexture(id)) {
 			skin::DrawRgb5a3Part(cover, riftwii::kCoverWidth, riftwii::kCoverHeight, 0.0f, 1.0f, ax, ay, aw, ah);
+		} else if (riftwii::wii::BannerPlayer* icon = channel ? IconFor(id) : nullptr) {
+			// The channel's icon as the Channels view shows it (4:3, on
+			// black), across the card and centred down it.
+			const float ih = aw * 3 / 4, iy = ay + (ah - ih) / 2;
+			Menu_DrawRectangle(ax, ay, aw, ah, (GXColor){0, 0, 0, 255}, 1);
+			icon->Step();
+			icon->Draw(ax, iy, aw, ih, 255);
 		} else if (disc && skin::discCase.data) {
 			const float scale = aw / skin::discCase.w;
 			skin::Draw(skin::discCase, ax + (aw - skin::discCase.w) / 2, ay + (ah - skin::discCase.h) / 2, 255, scale);
@@ -4659,6 +4669,7 @@ private:
 	}
 	std::string id;
 	bool disc;
+	bool channel;
 	GXColor hue;
 	u8* rounded = nullptr;  // kBoxFrontWidth x kBoxHeight at most, 32-aligned
 	const u8* roundedFrom = nullptr;
@@ -4897,7 +4908,7 @@ static bool ShowAbout(const FrontendState& state, const riftwii::GameInfo& info)
 
 	const bool fromDisc = !state.use_usb && !state.use_sd && !state.use_channel;
 	GameBanner banner(skin::HueFor(state.game_id), state.game_id, fromDisc);
-	HeroCover hero(state.game_id, fromDisc, skin::HueFor(state.game_id));
+	HeroCover hero(state.game_id, fromDisc, skin::HueFor(state.game_id), state.use_channel);
 	AboutBody body(facts, controls, info.rating, info.rating_system, riftwii::plain_punctuation(info.synopsis));
 	// The band's text as on the game page: an overline, the name.
 	std::string overline = tr("About this game");
@@ -6035,13 +6046,22 @@ static int MenuHome(FrontendState& state)
 	std::vector<GameTile> tileWhat;
 	BuildGameTiles(state, tiles, tileWhat);
 	if (buildBehindBanner) HaltGui();
+	// A channel's page shows its icon (HeroCover): loaded here when Home's
+	// Channels view did not, its banner stored from the Wii first if need be.
+	if (state.use_channel && state.channel_index < state.channels.size() && !IconFor(state.game_id)) {
+		std::unique_ptr<riftwii::wii::BannerPlayer> icon = LoadIcon(state.game_id);
+		std::string why;
+		if (!icon && riftwii::wii::StoreChannelBanner(state.channels[state.channel_index], why))
+			icon = LoadIcon(state.game_id);
+		if (icon) KeepIcon(state.game_id, std::move(icon));
+	}
 
 	// A console's game page: the game's box on the left, over the band's
 	// edge; its name and a line of facts in the band; tiles to the right,
 	// Play first and largest. All inside a TV's overscan.
 	const bool fromDisc = !state.use_usb && !state.use_sd && !state.use_channel;
 	GameBanner banner(skin::HueFor(state.game_id), state.game_id, fromDisc);
-	HeroCover hero(state.game_id, fromDisc, skin::HueFor(state.game_id));
+	HeroCover hero(state.game_id, fromDisc, skin::HueFor(state.game_id), state.use_channel);
 	// The band's text, as a store page heads a game: where it is as a small
 	// capital overline, the name large (as large as fits on one line, two
 	// smaller lines for a long one), the facts under it; each outlined in
