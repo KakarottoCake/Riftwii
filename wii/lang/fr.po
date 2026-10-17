@@ -2181,8 +2181,8 @@ msgstr "\"{1}\" est sur l'accueil : sa tuile lance le jeu avec ces mods. Son ima
 msgid "Remove this tile?"
 msgstr "Retirer cette tuile ?"
 
-msgid "\"{1}\" goes from Home, with its own mods and settings. The game and its mods stay."
-msgstr "\"{1}\" quitte l'accueil, avec ses propres mods et réglages. Le jeu et ses mods restent."
+msgid "\"{1}\" goes from Home, with its own mods and settings, and its picture in sd:/riftwii/profiles if it has one. The game and its mods stay."
+msgstr "\"{1}\" quitte l'accueil, avec ses propres mods et réglages, et son image dans sd:/riftwii/profiles si elle en a une. Le jeu et ses mods restent."
 
 msgid "Removed \"{1}\". This page is the game's own again."
 msgstr "\"{1}\" retirée. Cette page est de nouveau celle du jeu."

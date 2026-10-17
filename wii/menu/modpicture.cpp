@@ -139,6 +139,14 @@ const u8* ProfilePicture(const std::string& key, const std::string& art) {
     return victim->data;
 }
 
+bool ProfilePictureLoad(const std::string& key, const std::string& art) {
+    if (key.empty() || g_profileNone.count(key)) return false;
+    for (const Slot& s : g_profileSlots)
+        if (s.data && s.path == key) return false;
+    ProfilePicture(key, art);
+    return true;
+}
+
 void ForgetProfilePictures() {
     g_profileNone.clear();
     for (Slot& s : g_profileSlots) {

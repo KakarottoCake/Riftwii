@@ -2181,8 +2181,8 @@ msgstr "\"{1}\" ya está en el inicio: su casilla inicia el juego con estos mods
 msgid "Remove this tile?"
 msgstr "¿Quitar esta casilla?"
 
-msgid "\"{1}\" goes from Home, with its own mods and settings. The game and its mods stay."
-msgstr "\"{1}\" se quita del inicio, con sus propios mods y ajustes. El juego y sus mods se quedan."
+msgid "\"{1}\" goes from Home, with its own mods and settings, and its picture in sd:/riftwii/profiles if it has one. The game and its mods stay."
+msgstr "\"{1}\" se quita del inicio, con sus propios mods y ajustes, y su imagen de sd:/riftwii/profiles si la tiene. El juego y sus mods se quedan."
 
 msgid "Removed \"{1}\". This page is the game's own again."
 msgstr "Se quitó \"{1}\". Esta página vuelve a ser la del juego."

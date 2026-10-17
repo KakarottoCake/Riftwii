@@ -2181,8 +2181,8 @@ msgstr "\"{1}\" 타일이 홈에 생겼습니다. 이 타일은 이 MOD로 게�
 msgid "Remove this tile?"
 msgstr "이 타일을 제거할까요?"
 
-msgid "\"{1}\" goes from Home, with its own mods and settings. The game and its mods stay."
-msgstr "\"{1}\" 타일이 자체 MOD와 설정과 함께 홈에서 사라집니다. 게임과 MOD는 그대로 남습니다."
+msgid "\"{1}\" goes from Home, with its own mods and settings, and its picture in sd:/riftwii/profiles if it has one. The game and its mods stay."
+msgstr "\"{1}\" 타일이 자체 MOD와 설정, 그리고 sd:/riftwii/profiles의 그림(있다면)과 함께 홈에서 사라집니다. 게임과 MOD는 그대로 남습니다."
 
 msgid "Removed \"{1}\". This page is the game's own again."
 msgstr "\"{1}\" 타일을 제거했습니다. 이 페이지는 다시 게임 자체의 페이지입니다."

@@ -877,8 +877,10 @@ static std::vector<HomeRow> HomeRows(const FrontendState& state, bool ordered)
 		std::set<std::string> withProfiles;
 		const std::size_t games = rows.size();
 		for (std::size_t r = 0; r < games; ++r) {
-			if (rows[r].entry.kind == HomeEntry::Kind::Channel || !withProfiles.insert(rows[r].id).second) continue;
-			for (const riftwii::Profile* p : riftwii::wii::Profiles().for_game(rows[r].id)) {
+			const HomeEntry::Kind kind = rows[r].entry.kind;
+			const bool onDrive = kind == HomeEntry::Kind::Usb || kind == HomeEntry::Kind::Sd;
+			if (!onDrive || !withProfiles.insert(rows[r].id).second) continue;
+			for (const riftwii::Profile* p : riftwii::wii::Profiles().tiles_for(rows[r].id, onDrive)) {
 				Row row = rows[r];
 				row.name = p->name;
 				row.key = p->key();
@@ -3294,6 +3296,9 @@ static int MenuSource(FrontendState& state)
 			return true;
 		});
 	// A profile's tile: its picture in the corner (riftwii/profiles.hpp).
+	// The loop below reads the page's pictures first; one the grid asks
+	// for before that (the first frame, a page just turned) is read here,
+	// on the GUI thread, once.
 	grid.SetPictureSource([&items](int index) -> const u8* {
 		if (index < 0 || static_cast<std::size_t>(index) >= items.size()) return nullptr;
 		const riftwii::Profile* profile = riftwii::wii::Profiles().find(items[static_cast<std::size_t>(index)].key);
@@ -3638,6 +3643,15 @@ static int MenuSource(FrontendState& state)
 		}
 		HaltGui();
 		if (iconLoaded) KeepIcon(iconId, std::move(iconLoaded));
+		// The profiles' pictures on the page shown, read here (the GUI
+		// halted) before the grid draws them: a slow SD read then holds
+		// this loop, not a frame. One a turn; read ones are kept.
+		for (int k = grid.PageFirst(); k < grid.PageFirst() + GuiGameGrid::kPerPage && k < static_cast<int>(items.size()); ++k) {
+			const GridItem& item = items[static_cast<std::size_t>(k)];
+			if (!item.profile) continue;
+			const riftwii::Profile* profile = riftwii::wii::Profiles().find(item.key);
+			if (profile && riftwii::wii::ProfilePictureLoad(profile->key(), profile->art)) break;
+		}
 		if (!arrived.empty()) grid.CoverArrived(arrived);
 		if (!boxArrived.empty()) grid.BoxArrived(boxArrived);
 		if (!cover3dArrived.empty()) grid.Cover3dArrived(cover3dArrived);
@@ -5965,7 +5979,7 @@ static void MenuMods(FrontendState& state, std::string& scanStatus)
 				std::string error;
 				const std::string name = state.profile_name;
 				if (ShowPopup(tr("Remove this tile?"),
-					    tr("\"{1}\" goes from Home, with its own mods and settings. The game and its mods stay.", {name}),
+					    tr("\"{1}\" goes from Home, with its own mods and settings, and its picture in sd:/riftwii/profiles if it has one. The game and its mods stay.", {name}),
 					    tr("Remove"), tr("Cancel")) != 0) {
 					// kept
 				} else if (riftwii::wii::RemoveProfile(state, error)) {
@@ -6721,6 +6735,7 @@ static int MenuHome(FrontendState& state)
 		if (playing) ResumeGui();
 		riftwii::wii::PrepareLaunchExtras(state);
 		riftwii::wii::RecordPlay(riftwii::wii::TileKey(state));
+		riftwii::wii::RememberLaunchedTile(riftwii::wii::TileKey(state));
 		riftwii::wii::TagGame(state.game_id, true);
 		if (playing) HaltGui();
 	}

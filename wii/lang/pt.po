@@ -2181,8 +2181,8 @@ msgstr "\"{1}\" já está no início: o bloco inicia o jogo com estes mods. Uma 
 msgid "Remove this tile?"
 msgstr "Remover este bloco?"
 
-msgid "\"{1}\" goes from Home, with its own mods and settings. The game and its mods stay."
-msgstr "\"{1}\" sai do início, com seus próprios mods e configurações. O jogo e os mods continuam."
+msgid "\"{1}\" goes from Home, with its own mods and settings, and its picture in sd:/riftwii/profiles if it has one. The game and its mods stay."
+msgstr "\"{1}\" sai do início, com seus próprios mods e configurações, e a imagem dele em sd:/riftwii/profiles, se tiver. O jogo e os mods continuam."
 
 msgid "Removed \"{1}\". This page is the game's own again."
 msgstr "\"{1}\" removido. Esta página voltou a ser a do jogo."

@@ -2181,8 +2181,8 @@ msgstr "\"{1}\" ora è nella home: il suo riquadro avvia il gioco con queste mod
 msgid "Remove this tile?"
 msgstr "Togliere questo riquadro?"
 
-msgid "\"{1}\" goes from Home, with its own mods and settings. The game and its mods stay."
-msgstr "\"{1}\" sparisce dalla home, con le sue mod e impostazioni. Il gioco e le sue mod restano."
+msgid "\"{1}\" goes from Home, with its own mods and settings, and its picture in sd:/riftwii/profiles if it has one. The game and its mods stay."
+msgstr "\"{1}\" sparisce dalla home, con le sue mod e impostazioni e la sua immagine in sd:/riftwii/profiles, se ce l'ha. Il gioco e le sue mod restano."
 
 msgid "Removed \"{1}\". This page is the game's own again."
 msgstr "\"{1}\" tolto. Questa pagina è di nuovo quella del gioco."

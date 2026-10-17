@@ -37,6 +37,10 @@ std::string ModPicturePath(const LaunchPackage& p);
 constexpr int kProfilePicture = 64;
 constexpr const char* kProfilePictureDir = "sd:/riftwii/profiles";
 const u8* ProfilePicture(const std::string& key, const std::string& art);
+// Reads the picture ahead of drawing (Home's loop, a page at a time): true
+// when it had to read the card this time, false when it was ready or there
+// is none.
+bool ProfilePictureLoad(const std::string& key, const std::string& art);
 
 // Forgets which mods had no picture (leaving the Mods page: one may have
 // been added since). The pictures read stay.

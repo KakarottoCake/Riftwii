@@ -27,6 +27,14 @@ constexpr std::size_t kMaxProfileSlug = 24;
 constexpr std::size_t kMaxProfileArtPath = 200;
 constexpr std::size_t kMaxProfilesFile = 32 * 1024;  // 48 lines of at most ~270 bytes, with room
 
+// The choices file a problem report shows for the last launch: the tile
+// launched (sd:/riftwii/last_tile.txt, its key on the first line) when it
+// is a profile of `launched_id`, the game boot.log names; else the game's
+// own. A key that is not a profile of that game (a stale file, another
+// game started since) is never used.
+constexpr const char* kLastTilePath = "sd:/riftwii/last_tile.txt";
+std::string launched_choices_key(const std::string& launched_id, const std::string& last_tile_text);
+
 struct Profile {
     std::string game_id;
     std::string slug;
@@ -70,6 +78,10 @@ public:
 
     const std::vector<Profile>& all() const { return profiles_; }
     std::vector<const Profile*> for_game(const std::string& game_id) const;
+    // The tiles Home shows for a game it lists: its profiles when the game
+    // is on a drive (USB or SD), none for the disc drive's tile or one of
+    // the Wii's own channels, which never read a choices file.
+    std::vector<const Profile*> tiles_for(const std::string& game_id, bool on_drive) const;
     const Profile* find(const std::string& key) const;
     // A new profile for `game_id` named `name` (cleaned), its slug made
     // unique among the game's ("retro-rewind-2"); `key` is set to its key.

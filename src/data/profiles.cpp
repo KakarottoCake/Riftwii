@@ -107,7 +107,11 @@ bool valid_profile_art(const std::string& path) {
 
 void ProfileList::parse(const std::string& text) {
     profiles_.clear();
-    std::istringstream in(text.substr(0, kMaxProfilesFile));
+    // A file past the limit is read that far, back to its last whole line:
+    // a line cut in two would keep a shortened name or picture path.
+    std::string head = text.substr(0, kMaxProfilesFile);
+    if (text.size() > kMaxProfilesFile) head.resize(head.rfind('\n') == std::string::npos ? 0 : head.rfind('\n') + 1);
+    std::istringstream in(head);
     std::string line;
     while (std::getline(in, line) && profiles_.size() < kMaxProfiles) {
         if (!line.empty() && line.back() == '\r') line.pop_back();
@@ -150,6 +154,18 @@ std::vector<const Profile*> ProfileList::for_game(const std::string& game_id) co
     for (const Profile& p : profiles_)
         if (p.game_id == game_id) out.push_back(&p);
     return out;
+}
+
+std::vector<const Profile*> ProfileList::tiles_for(const std::string& game_id, bool on_drive) const {
+    if (!on_drive) return {};
+    return for_game(game_id);
+}
+
+std::string launched_choices_key(const std::string& launched_id, const std::string& last_tile_text) {
+    std::string key = last_tile_text.substr(0, last_tile_text.find('\n'));
+    if (!key.empty() && key.back() == '\r') key.pop_back();
+    const bool profile = key.find('@') != std::string::npos && valid_tile_key(key);
+    return profile && !launched_id.empty() && tile_game_id(key) == launched_id ? key : launched_id;
 }
 
 const Profile* ProfileList::find(const std::string& key) const {

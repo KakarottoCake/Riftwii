@@ -1966,11 +1966,11 @@ T = {
         "このタイルを消しますか？",
         "Remover este bloco?",
         "Togliere questo riquadro?"),
-    "\"{1}\" goes from Home, with its own mods and settings. The game and its mods stay.": (
-        "\"{1}\" se quita del inicio, con sus propios mods y ajustes. El juego y sus mods se quedan.",
-        "「{1}」は専用のMODと設定ごとホームから消えます。ゲームとMODは残ります。",
-        "\"{1}\" sai do início, com seus próprios mods e configurações. O jogo e os mods continuam.",
-        "\"{1}\" sparisce dalla home, con le sue mod e impostazioni. Il gioco e le sue mod restano."),
+    "\"{1}\" goes from Home, with its own mods and settings, and its picture in sd:/riftwii/profiles if it has one. The game and its mods stay.": (
+        "\"{1}\" se quita del inicio, con sus propios mods y ajustes, y su imagen de sd:/riftwii/profiles si la tiene. El juego y sus mods se quedan.",
+        "「{1}」は専用のMODと設定、それにsd:/riftwii/profilesの画像（あれば）ごとホームから消えます。ゲームとMODは残ります。",
+        "\"{1}\" sai do início, com seus próprios mods e configurações, e a imagem dele em sd:/riftwii/profiles, se tiver. O jogo e os mods continuam.",
+        "\"{1}\" sparisce dalla home, con le sue mod e impostazioni e la sua immagine in sd:/riftwii/profiles, se ce l'ha. Il gioco e le sue mod restano."),
     "Removed \"{1}\". This page is the game's own again.": (
         "Se quitó \"{1}\". Esta página vuelve a ser la del juego.",
         "「{1}」を消しました。このページはゲーム本来のものに戻りました。",
@@ -3434,8 +3434,8 @@ KO = {
         "\"{1}\" 타일이 홈에 생겼습니다. 이 타일은 이 MOD로 게임을 시작합니다. 전용 그림은 sd:/riftwii/profiles/{2}.png에 넣을 수 있습니다.",
     "Remove this tile?":
         "이 타일을 제거할까요?",
-    "\"{1}\" goes from Home, with its own mods and settings. The game and its mods stay.":
-        "\"{1}\" 타일이 자체 MOD와 설정과 함께 홈에서 사라집니다. 게임과 MOD는 그대로 남습니다.",
+    "\"{1}\" goes from Home, with its own mods and settings, and its picture in sd:/riftwii/profiles if it has one. The game and its mods stay.":
+        "\"{1}\" 타일이 자체 MOD와 설정, 그리고 sd:/riftwii/profiles의 그림(있다면)과 함께 홈에서 사라집니다. 게임과 MOD는 그대로 남습니다.",
     "Removed \"{1}\". This page is the game's own again.":
         "\"{1}\" 타일을 제거했습니다. 이 페이지는 다시 게임 자체의 페이지입니다.",
 }
@@ -4895,8 +4895,8 @@ FR = {
         "\"{1}\" est sur l'accueil : sa tuile lance le jeu avec ces mods. Son image peut aller dans sd:/riftwii/profiles/{2}.png.",
     "Remove this tile?":
         "Retirer cette tuile ?",
-    "\"{1}\" goes from Home, with its own mods and settings. The game and its mods stay.":
-        "\"{1}\" quitte l'accueil, avec ses propres mods et réglages. Le jeu et ses mods restent.",
+    "\"{1}\" goes from Home, with its own mods and settings, and its picture in sd:/riftwii/profiles if it has one. The game and its mods stay.":
+        "\"{1}\" quitte l'accueil, avec ses propres mods et réglages, et son image dans sd:/riftwii/profiles si elle en a une. Le jeu et ses mods restent.",
     "Removed \"{1}\". This page is the game's own again.":
         "\"{1}\" retirée. Cette page est de nouveau celle du jeu.",
 }

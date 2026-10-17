@@ -106,6 +106,15 @@ void RecordPlay(const std::string& game_id) {
     WriteHistory();
 }
 
+void RememberLaunchedTile(const std::string& key) {
+    mkdir("sd:/riftwii", 0777);
+    if (FILE* f = std::fopen(kLastTilePath, "wb")) {  // riftwii/profiles.hpp
+        const std::string line = key + "\n";
+        std::fwrite(line.data(), 1, line.size(), f);
+        std::fclose(f);
+    }
+}
+
 void ForgetPlays(const std::string& game_id) {
     if (!History().find(game_id)) return;
     g_history.forget(game_id);

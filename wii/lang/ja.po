@@ -2181,8 +2181,8 @@ msgstr "「{1}」をホームに置きました。このタイルからはこの
 msgid "Remove this tile?"
 msgstr "このタイルを消しますか？"
 
-msgid "\"{1}\" goes from Home, with its own mods and settings. The game and its mods stay."
-msgstr "「{1}」は専用のMODと設定ごとホームから消えます。ゲームとMODは残ります。"
+msgid "\"{1}\" goes from Home, with its own mods and settings, and its picture in sd:/riftwii/profiles if it has one. The game and its mods stay."
+msgstr "「{1}」は専用のMODと設定、それにsd:/riftwii/profilesの画像（あれば）ごとホームから消えます。ゲームとMODは残ります。"
 
 msgid "Removed \"{1}\". This page is the game's own again."
 msgstr "「{1}」を消しました。このページはゲーム本来のものに戻りました。"

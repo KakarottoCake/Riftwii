@@ -28,6 +28,7 @@
 #include "riftwii/gamefault.hpp"
 #include "riftwii/http.hpp"
 #include "riftwii/problemreport.hpp"
+#include "riftwii/profiles.hpp"
 #include "riftwii/wpadlog.hpp"
 #include "rtwlog.h"
 #include "wiidrc.h"
@@ -233,13 +234,18 @@ std::string gather(const std::string& reason, std::size_t limit) {
     // The game and packs of the last launch.
     const std::string id = launched_game_id(boot.text);
     if (!id.empty()) {
-        ReportPart choices = file_part("sd:/riftwii/choices/" + id + ".txt");
+        // A launch from one of the game's profile tiles ran that tile's
+        // choices (riftwii/profiles.hpp), its mods and cheats among them.
+        const ReportPart lastTile = file_part(riftwii::kLastTilePath);
+        const std::string tile = riftwii::launched_choices_key(id, lastTile.found ? lastTile.text : "");
+        ReportPart choices = file_part("sd:/riftwii/choices/" + tile + ".txt");
         parts.push_back(choices);
+        // The border note is the game's, whichever tile ran it.
         parts.push_back(file_part("sd:/riftwii/choices/" + id + ".video"));
         // The cheats picked, as the cheat file has them (a tester's own
         // code that did nothing could not be seen before).
         const ReportPart cheats = file_part(CheatPath(id));
-        if (choices.found) parts.push_back({"cheats picked for " + id, picked_cheats_report(choices.text, cheats.text), true});
+        if (choices.found) parts.push_back({"cheats picked for " + tile, picked_cheats_report(choices.text, cheats.text), true});
         add_packs(choices.text, parts);
     }
     parts.push_back(listing("sd:/riivolution"));

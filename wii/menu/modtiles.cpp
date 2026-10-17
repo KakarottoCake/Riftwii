@@ -130,6 +130,9 @@ bool RemoveProfile(FrontendState& state, std::string& error) {
         return false;
     }
     std::remove(state.choices_path.c_str());
+    // Its picture too, or a new tile of the same name (the same key) would
+    // show it; the remove popup says so, as the player put it there.
+    std::remove((std::string(kProfilePictureDir) + "/" + key + ".png").c_str());
     if (Settings().favorites.erase(key) != 0) SaveSettings();
     ForgetPlays(key);
     ForgetProfilePictures();

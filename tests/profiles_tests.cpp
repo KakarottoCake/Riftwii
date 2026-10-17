@@ -150,6 +150,36 @@ static void test_parse_untrusted() {
     // A huge file is read only so far.
     list.parse(std::string(kMaxProfilesFile, '#') + "\nRMCE01@late\tLate\n");
     EXPECT_TRUE(list.all().empty());
+    // A line cut off at the limit is dropped, not kept shortened.
+    const std::string first = "RMCE01@first\tFirst\n";
+    std::string cut = first + std::string(kMaxProfilesFile - first.size() - 20, '#') + "\nRMCE01@cut\tA long name";
+    cut += std::string(100, 'x') + "\n";
+    list.parse(cut);
+    EXPECT_EQ(list.all().size(), std::size_t(1));
+    EXPECT_TRUE(list.find("RMCE01@first") != nullptr && list.find("RMCE01@cut") == nullptr);
+}
+
+// Home shows a game's profiles only for a game on a drive: not for the
+// disc drive's tile or the Wii's channels.
+static void test_tiles_for() {
+    ProfileList list;
+    std::string key;
+    list.add("RMCE01", "Retro Rewind", "", key);
+    list.add("WBME01", "Hand edited", "", key);  // a channel's ID, as a hand-edited file could have
+    EXPECT_EQ(list.tiles_for("RMCE01", true).size(), std::size_t(1));
+    EXPECT_TRUE(list.tiles_for("RMCE01", false).empty());
+    EXPECT_TRUE(list.tiles_for("WBME01", false).empty());
+}
+
+// The choices a problem report shows: a profile's only when it is of the game launched.
+static void test_launched_choices_key() {
+    EXPECT_EQ(launched_choices_key("RMCE01", "RMCE01@retro-rewind\n"), std::string("RMCE01@retro-rewind"));
+    EXPECT_EQ(launched_choices_key("RMCE01", "RMCE01@retro-rewind\r\n"), std::string("RMCE01@retro-rewind"));
+    EXPECT_EQ(launched_choices_key("RMCE01", "RMCE01\n"), std::string("RMCE01"));
+    EXPECT_EQ(launched_choices_key("SMNE01", "RMCE01@retro-rewind\n"), std::string("SMNE01"));  // another game since
+    EXPECT_EQ(launched_choices_key("RMCE01", "RMCE01@../../x\n"), std::string("RMCE01"));
+    EXPECT_EQ(launched_choices_key("RMCE01", ""), std::string("RMCE01"));
+    EXPECT_EQ(launched_choices_key("", "RMCE01@retro-rewind"), std::string(""));
 }
 
 // Home keys a profile's tile on its own in the play history and the favourites.
@@ -183,6 +213,8 @@ int main() {
     test_list();
     test_parse_untrusted();
     test_keyed_files();
+    test_tiles_for();
+    test_launched_choices_key();
     if (g_failures == 0) std::cout << "profiles tests passed" << std::endl;
     return g_failures == 0 ? 0 : 1;
 }
