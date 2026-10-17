@@ -25,6 +25,11 @@ struct SharedNandLookup {
 // Reads the settings without logging (the game page shows the result).
 SharedNandLookup look_up_shared_nand(const std::string& game_id);
 
+// The emulated NAND folder the other loader keeps its WiiWare and Virtual
+// Console channels in (GXGlobal.cfg's NandEmuChanPath, else sd:/nands/01),
+// checked as a save folder is.
+SharedNandLookup look_up_channel_nand();
+
 // For a launch: the same, with a log line either way.
 bool find_shared_nand(const std::string& game_id, std::string& folder, std::string& error);
 

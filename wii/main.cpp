@@ -15,6 +15,8 @@
 #include <string>
 #include <vector>
 
+#include "boot.hpp"
+#include "nandchannels.hpp"
 #include "menumusic.hpp"
 #include "screenshot.hpp"
 #include "FreeTypeGX.h"
@@ -85,9 +87,40 @@ void StartHomebrewChannelTitle() {
     }
 }
 
+// A WiiWare or Virtual Console game installed on the Wii, started by the
+// system as the Wii Menu starts it. WII_LaunchTitle returns only when it
+// could not; the Wii Menu is then the way out.
+void StartChannel(u64 title) {
+    riftwii::wii::logf("Wii channels: starting %08x-%08x\n", static_cast<unsigned>(title >> 32),
+                       static_cast<unsigned>(title));
+    std::string error;
+    riftwii::wii::ChannelBootFiles files;
+    const std::string emu_nand = riftwii::wii::ChannelToStartNand();
+    if (riftwii::wii::read_channel_boot(title, emu_nand, files, error)) {
+        riftwii::wii::boot_channel(std::move(files), error);  // returns only when it did not start
+        if (riftwii::wii::reload_terminal_failure()) riftwii::wii::halt_after_terminal_reload();
+    }
+    if (!emu_nand.empty()) {
+        // The Wii does not have it: back to RiftWii, which says why.
+        riftwii::wii::logf("Wii channels: it did not start from %s: %s\n", emu_nand.c_str(), error.c_str());
+        if (riftwii::wii::CanRestart())
+            riftwii::wii::WarmRestart(riftwii::wii::RestartKind::LaunchFailed, "The game did not start: " + error);
+        std::exit(0);
+    }
+    riftwii::wii::logf("Wii channels: RiftWii's loader did not start it (%s); the system starts it as the Wii Menu does\n",
+                       error.c_str());
+    riftwii::wii::LogClose();
+    fatUnmount("sd:");
+    fatUnmount("usb:");
+    if (WII_Initialize() >= 0) WII_LaunchTitle(title);
+    SYS_ResetSystem(SYS_RETURNTOMENU, 0, 0);
+}
+
 // Anywhere but the loader that started RiftWii, which std::exit returns to.
 void LeaveTo(int where) {
-    if (where == 1 && !StartedByHomebrewChannel()) {
+    if (where == riftwii::wii::kLeaveToChannel && riftwii::wii::ChannelToStart() != 0) {
+        StartChannel(riftwii::wii::ChannelToStart());
+    } else if (where == 1 && !StartedByHomebrewChannel()) {
         StartHomebrewChannelTitle();
     } else if (where == 4) {
         // Standby or off, as the Wii's own power setting says; the drives
@@ -140,10 +173,11 @@ namespace {
 
 // Leaves the libwiigui renderer for the disc phase (the GUI thread is
 // already halted by MainMenu): its last frame, the launch screen, stays
-// up and the log prints into the white card on it.
-void EnterConsolePhase() {
+// up and the log prints into the white card on it. Music kept for the
+// launch plays on, and LaunchMusicEnd shuts the audio down later.
+void EnterConsolePhase(bool music_kept) {
     ShutoffRumble();
-    ShutdownAudio();
+    if (!music_kept) ShutdownAudio();
     StopGXKeepPicture();
     // The card's inside (menu units 48,176 to 592,384, and the bar's row at
     // 388; wider by PopupExtra on each side on a widescreen menu, as the
@@ -166,6 +200,8 @@ void EnterConsolePhase() {
 // wii/core/restart.hpp; also after two minutes untouched) or out to the
 // Homebrew Channel.
 void OfferRestart(const std::string& error) {
+    // The failure is the news now: no music under it or the choice below.
+    riftwii::wii::LaunchMusicEnd("the launch failed");
     // Players asking for help seldom know where the logs are: say it here,
     // where the failure is, in words a first-time user can follow.
     riftwii::wii::logf("\nTo get help, press A: RiftWii offers to send a problem report\n"
@@ -456,7 +492,12 @@ int main() {
     // Before the adapter stops: what the player had plugged in, for the
     // launch's log.
     const std::string controllers = riftwii::wii::DescribeControllers();
-    riftwii::wii::MenuMusicStop();
+    // A launch keeps the music under its log, so the launch screen is not
+    // silent while the disc is checked and the launch prepared (a tester
+    // found the quiet gap awkward); it fades out before the game's IOS or
+    // the game itself takes over (LaunchMusicEnd).
+    const bool music_kept = (action == MENU_LAUNCH || action == MENU_BOOT) && riftwii::wii::MenuMusicKeepForLaunch();
+    if (!music_kept) riftwii::wii::MenuMusicStop();
     riftwii::wii::ScreenshotsStop();
     // Before anything is launched: nothing of the menu's adapter may be
     // left in flight for the game (or the next IOS) to answer.
@@ -465,7 +506,7 @@ int main() {
     const bool heap_whole = riftwii::wii::mem::CheckHeap("menu closed");
     const riftwii::wii::LaunchSource source = riftwii::wii::SelectedSource(state);
 
-    EnterConsolePhase();
+    EnterConsolePhase(music_kept);
     // A tester's heap broke between "menu closed" and the first reload
     // (once; the same launch worked when tried again): checked at the steps
     // between too (the cIOS search checks after itself), to name the one.
@@ -532,6 +573,7 @@ int main() {
             riftwii::wii::logf("FAILED: %s\n", error.c_str());
         }
     }
+    riftwii::wii::LaunchMusicEnd("the launch ended");
     riftwii::wii::LogClose();
     riftwii::wii::logf("Press HOME, Start or RESET to exit.\n");
     riftwii::wii::WaitForExit();

@@ -36,6 +36,11 @@ extern Tex card9;                        // 64x64 card (riftwii::paint_card9), n
 extern Tex dropShadow9;
 extern Tex channelFrame9, channelFrameOver9;  // 80x80 channel frames (riftwii::paint_channel_frame9), nine-sliced
 extern Tex channelCard9, channelCardOver9;    // the same with the card within (a channel without an icon)
+// The channel frames' corners (Settings()' channel_corners over the theme's
+// corners): painted again for `choice`, on the menu thread. ChannelCorners()
+// is the radius multiplier the frames now have, for the icons' clip.
+void SetChannelCorners(const std::string& choice);
+float ChannelCorners();
 extern Tex label9;
 // A controller's picture (Kenney's Input Prompts, riftwii/inputicons.hpp)
 // in the theme's glyph colour, 40x40; a game pad for one without its own.

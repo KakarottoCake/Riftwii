@@ -70,6 +70,13 @@ void LoaderSettings::parse(const std::string& text) {
             if (value == "covers" || value == "names" || value == "shelf" || value == "carousel" || value == "covers3d" ||
                 value == "channels")
                 home_tiles = value;
+        } else if (key == "channel_corners") {
+            if (value == "theme" || value == "square" || value == "slight" || value == "round" || value == "rounder")
+                channel_corners = value;
+        } else if (key == "grid_spacing") {
+            if (value == "normal" || value == "roomy") grid_spacing = value;
+        } else if (key == "page_peek") {
+            if (value == "on" || value == "off") page_peek = value;
         } else if (key == "menu_widescreen") {
             if (value == "auto" || value == "on" || value == "off") menu_widescreen = value;
         } else if (key == "screen_size") {
@@ -87,9 +94,9 @@ void LoaderSettings::parse(const std::string& text) {
         } else if (key == "play_history") {
             if (value == "on" || value == "off") play_history = value;
         } else if (key == "home_source") {
-            if (value == "all" || value == "sd" || value == "usb") home_source = value;
+            if (value == "all" || value == "sd" || value == "usb" || value == "wii") home_source = value;
         } else if (key == "home_sort") {
-            if (value == "az" || value == "recent" || value == "most") home_sort = value;
+            if (value == "az" || value == "recent" || value == "most" || value == "custom") home_sort = value;
         } else if (key == "home_disc") {
             if (value == "on" || value == "off") home_disc = value;
         } else if (key == "theme") {
@@ -159,6 +166,9 @@ std::string LoaderSettings::serialize() const {
     s += "wfc_server = " + wfc_server + "\n";
     s += "wfc_domain = " + wfc_domain + "\n";
     s += "home_tiles = " + home_tiles + "\n";
+    s += "channel_corners = " + channel_corners + "\n";
+    s += "grid_spacing = " + grid_spacing + "\n";
+    s += "page_peek = " + page_peek + "\n";
     s += "menu_widescreen = " + menu_widescreen + "\n";
     s += "screen_size = " + std::to_string(screen_size) + "\n";
     s += "menu_sounds = " + menu_sounds + "\n";
@@ -251,6 +261,16 @@ WfcServer effective_wfc_server(const GameSettings& game, const LoaderSettings& g
     }
     if (server == WfcServer::Custom && !valid_wfc_domain(global.wfc_domain)) server = WfcServer::Off;
     return server;
+}
+
+float channel_corner_scale(const std::string& choice, float theme_corners) {
+    // Round is RiftWii's own theme's (the Wii Menu's small corners), and
+    // Rounder the most a theme may ask for.
+    if (choice == "square") return 0.0f;
+    if (choice == "slight") return 0.5f;
+    if (choice == "round") return 1.0f;
+    if (choice == "rounder") return 2.0f;
+    return theme_corners;
 }
 
 bool parse_cios_choice(const std::string& s, int& slot) {

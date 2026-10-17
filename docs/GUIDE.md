@@ -336,6 +336,32 @@ B or HOME goes back, so a HOME pressed by mistake costs nothing. Without
 a pointer, the D-pad moves between the buttons, starting on Close. The
 bar at the bottom shows each Wii Remote's batteries.
 
+### WiiWare and Virtual Console games
+
+The WiiWare and Virtual Console games installed on your Wii are on Home
+with your other games, badged **WII**, each with its own icon and banner
+in the Channels view. Those USB Loader GX keeps in an emulated NAND on
+the SD card (its channel folder, `sd:/nands/01` unless you changed it)
+are there too, badged **SD**. **Settings > Games from > Wii channels**
+shows only these.
+
+A channel game has a page like any game: **Play**, **Cheats**,
+**Options** (the picture, language and the other game settings),
+**Favourite** and **About**. RiftWii starts it itself, so the cheats,
+the settings and the Wii Menu button's way back to RiftWii work as they
+do for discs. This needs a d2x cIOS, as SD and USB games do; when it
+cannot start a game from the Wii itself, the Wii starts it as the Wii
+Menu would. A game in an emulated NAND keeps its saves in that folder.
+
+To add games from `.wad` files, put them in a folder named `wad` at the
+top of the SD card and pick **Settings > Drives > Install WAD files**.
+They go into that emulated NAND (the Wii itself is not changed) and show
+up on Home. RiftWii decrypts them with your own Wii's key, read when you
+install; it carries no key itself.
+
+A game whose data was removed from the Wii to make room can't start:
+RiftWii says so when you pick it.
+
 ### RVZ games
 
 Dolphin's compressed `.rvz` images play straight from `games` on the SD

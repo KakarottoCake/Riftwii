@@ -741,6 +741,33 @@ msgstr "Portadas 3D"
 msgid "Channels"
 msgstr "Canales"
 
+msgid "Channel corners"
+msgstr "Esquinas de los canales"
+
+msgid "Square corners"
+msgstr "Esquinas rectas"
+
+msgid "Slightly round"
+msgstr "Algo redondeadas"
+
+msgid "Round corners"
+msgstr "Esquinas redondas"
+
+msgid "Extra round"
+msgstr "Muy redondeadas"
+
+msgid "How round the corners of the Channels view's tiles are. Theme keeps the theme's own; the others are the same in every theme."
+msgstr "Lo redondeadas que son las esquinas de los recuadros en la vista Canales. Tema mantiene las del propio tema; las demás son iguales en todos los temas."
+
+msgid "Grid spacing"
+msgstr "Espaciado de la cuadrícula"
+
+msgid "Roomy"
+msgstr "Amplio"
+
+msgid "Roomy makes the Names and Channels tiles a little smaller, with wider gaps between them and at the sides, as on the Wii Menu."
+msgstr "Amplio hace un poco más pequeñas las casillas de Nombres y Canales, con más espacio entre ellas y a los lados, como en el Menú de Wii."
+
 msgid "Widescreen menu"
 msgstr "Menú panorámico"
 
@@ -1551,9 +1578,6 @@ msgstr "Jugar"
 msgid "Play history"
 msgstr "Historial de juego"
 
-msgid "SD and USB"
-msgstr "SD y USB"
-
 msgid "Scan the code for the guide."
 msgstr "Escanea el código para ver la guía."
 
@@ -1572,8 +1596,29 @@ msgstr "El truco no tiene notas sobre sus valores: la página de su autor puede 
 msgid "The menu restarts to show it when you leave Settings."
 msgstr "El menú se reinicia para mostrarlo al salir de Ajustes."
 
-msgid "The order of the games on Home. Last played and Most played put the games you played from RiftWii first, the rest after them A to Z."
-msgstr "El orden de los juegos en Inicio. Último jugado y Más jugados ponen primero los juegos que jugaste desde RiftWii, y el resto después, de la A a la Z."
+msgid "The order of the games on Home. Last played and Most played put the games you played from RiftWii first, the rest after them A to Z. Your order is yours: on Home, hold B and press A on a game to move it."
+msgstr "El orden de los juegos en Inicio. Último jugado y Más jugados ponen primero los juegos que jugaste desde RiftWii, y el resto después, de la A a la Z. Tu orden es el tuyo: en Inicio, mantén B y pulsa A sobre un juego para moverlo."
+
+msgid "Your order"
+msgstr "Tu orden"
+
+msgid "Home is in your own order now. Settings > Home order puts it back A to Z."
+msgstr "Inicio está ahora en tu propio orden. Ajustes > Orden de Inicio lo vuelve a poner de la A a la Z."
+
+msgid "Let go of A: put it down   At a side: turn the page"
+msgstr "Suelta A: dejarlo   En un lado: pasar página"
+
+msgid "D-pad: move   A: put it down   B: put it back"
+msgstr "Cruceta: mover   A: dejarlo   B: devolverlo"
+
+msgid "1: view   2: settings   -/+: pages   B+A: move"
+msgstr "1: vista   2: ajustes   -/+: páginas   B+A: mover"
+
+msgid "1: view  2: settings  B: A-Z  B+A: move"
+msgstr "1: vista  2: ajustes  B: A-Z  B+A: mover"
+
+msgid "1: view   2: settings   -/+: pages"
+msgstr "1: vista   2: ajustes   -/+: páginas"
 
 msgid "The values were not saved: {1}"
 msgstr "Los valores no se guardaron: {1}"
@@ -1607,9 +1652,6 @@ msgstr "Novedades de RiftWii {1}"
 
 msgid "Which USB port is the adapter plugged into?"
 msgstr "¿En qué puerto USB está conectado el adaptador?"
-
-msgid "Which drive's games Home lists. With a game on both, one drive's copy is enough."
-msgstr "De qué unidad muestra Inicio los juegos. Si un juego está en ambas, basta con la copia de una."
 
 msgid "Which port?"
 msgstr "¿Qué puerto?"
@@ -1736,6 +1778,54 @@ msgstr "Todos los ajustes vuelven a como vienen en RiftWii. Se conservan las pá
 
 msgid "Settings reset to the defaults"
 msgstr "Ajustes restablecidos"
+
+msgid "Install WAD files"
+msgstr "Instalar archivos WAD"
+
+msgid "{1} found"
+msgstr "{1} encontrados"
+
+msgid "Installs the .wad files in the wad folder of the SD card into the emulated NAND USB Loader GX keeps its channels in, and lists them on Home. The Wii itself is not changed."
+msgstr "Instala los archivos .wad de la carpeta wad de la tarjeta SD en la NAND emulada donde USB Loader GX guarda sus canales, y los muestra en Inicio. La propia Wii no cambia."
+
+msgid "No .wad files in the wad folder of the SD card."
+msgstr "No hay archivos .wad en la carpeta wad de la tarjeta SD."
+
+msgid "Install {1} WAD file(s) into {2}? The Wii itself is not changed."
+msgstr "¿Instalar {1} archivo(s) WAD en {2}? La propia Wii no cambia."
+
+msgid "Install"
+msgstr "Instalar"
+
+msgid "Installing WAD files"
+msgstr "Instalando archivos WAD"
+
+msgid "{1} of {2}: {3}"
+msgstr "{1} de {2}: {3}"
+
+msgid "This Wii's key could not be read, so WAD files can't be installed."
+msgstr "No se pudo leer la clave de esta Wii, así que no se pueden instalar archivos WAD."
+
+msgid "Installed {1} of {2}. They are on Home now."
+msgstr "Instalados {1} de {2}. Ya están en Inicio."
+
+msgid "Not installed: {1}. The reasons are in sd:/riftwii/session.log."
+msgstr "Sin instalar: {1}. Los motivos están en sd:/riftwii/session.log."
+
+msgid "The emulated NAND folder can't be used: {1}"
+msgstr "No se puede usar la carpeta de la NAND emulada: {1}"
+
+msgid "Starts the game with the cheats and settings shown here."
+msgstr "Inicia el juego con los trucos y ajustes que se ven aquí."
+
+msgid "Wii channels"
+msgstr "Canales Wii"
+
+msgid "Which games Home lists: every drive's and the Wii's own, or one place's only. With a game on both drives, one copy is enough."
+msgstr "Qué juegos muestra el Inicio: los de cada unidad y los de la propia Wii, o solo los de un sitio. Con un juego en ambas unidades, basta una copia."
+
+msgid "This game's data was removed from the Wii, so it can't start."
+msgstr "Los datos de este juego se borraron de la Wii, así que no puede iniciarse."
 
 msgid "Popups look like the Wii Menu's message box"
 msgstr "Las ventanas emergentes se parecen al cuadro de mensajes del Menú Wii"
@@ -2027,6 +2117,12 @@ msgstr "Hasta {1} jugadores"
 
 msgid "The mod's own"
 msgstr "El del mod"
+
+msgid "Pages at the sides"
+msgstr "Páginas a los lados"
+
+msgid "Channels: the edges of the previous and the next page at the sides of the screen, as on the Wii Menu. Point at one and press A to turn to that page."
+msgstr "Canales: los bordes de la página anterior y de la siguiente a los lados de la pantalla, como en el Menú de Wii. Apunta a uno y pulsa A para pasar a esa página."
 
 msgid "Could not save the tiles to the SD card."
 msgstr "No se pudieron guardar las casillas en la tarjeta SD."

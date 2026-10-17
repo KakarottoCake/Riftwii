@@ -741,6 +741,33 @@ msgstr "3D 커버"
 msgid "Channels"
 msgstr "채널"
 
+msgid "Channel corners"
+msgstr "채널 모서리"
+
+msgid "Square corners"
+msgstr "각진 모서리"
+
+msgid "Slightly round"
+msgstr "살짝 둥근 모서리"
+
+msgid "Round corners"
+msgstr "둥근 모서리"
+
+msgid "Extra round"
+msgstr "더 둥근 모서리"
+
+msgid "How round the corners of the Channels view's tiles are. Theme keeps the theme's own; the others are the same in every theme."
+msgstr "채널 보기에서 타일 모서리가 얼마나 둥근지 정합니다. '테마'는 테마 자체의 모서리를 따르고, 나머지는 모든 테마에서 똑같습니다."
+
+msgid "Grid spacing"
+msgstr "타일 간격"
+
+msgid "Roomy"
+msgstr "넓게"
+
+msgid "Roomy makes the Names and Channels tiles a little smaller, with wider gaps between them and at the sides, as on the Wii Menu."
+msgstr "넓게를 선택하면 이름과 채널 타일이 조금 작아지고, 타일 사이와 양옆의 여백이 Wii 메뉴처럼 넓어집니다."
+
 msgid "Widescreen menu"
 msgstr "와이드화면 메뉴"
 
@@ -1551,9 +1578,6 @@ msgstr "플레이"
 msgid "Play history"
 msgstr "플레이 기록"
 
-msgid "SD and USB"
-msgstr "SD 및 USB"
-
 msgid "Scan the code for the guide."
 msgstr "코드를 스캔하면 가이드를 볼 수 있습니다."
 
@@ -1572,8 +1596,29 @@ msgstr "이 치트에는 값에 대한 설명이 없습니다. 제작자의 페�
 msgid "The menu restarts to show it when you leave Settings."
 msgstr "설정을 나가면 메뉴가 다시 시작되어 적용됩니다."
 
-msgid "The order of the games on Home. Last played and Most played put the games you played from RiftWii first, the rest after them A to Z."
-msgstr "홈의 게임 순서입니다. 최근 플레이순과 많이 플레이한 순은 RiftWii에서 플레이한 게임을 먼저, 나머지는 그 뒤에 가나다순으로 표시합니다."
+msgid "The order of the games on Home. Last played and Most played put the games you played from RiftWii first, the rest after them A to Z. Your order is yours: on Home, hold B and press A on a game to move it."
+msgstr "홈의 게임 순서입니다. 최근 플레이순과 많이 플레이한 순은 RiftWii에서 플레이한 게임을 먼저, 나머지는 그 뒤에 가나다순으로 표시합니다. 내 순서는 직접 정합니다: 홈에서 B 버튼을 누른 채 게임 위에서 A 버튼을 누르면 옮길 수 있습니다."
+
+msgid "Your order"
+msgstr "내 순서"
+
+msgid "Home is in your own order now. Settings > Home order puts it back A to Z."
+msgstr "이제 홈이 내 순서로 정렬됩니다. '설정 > 홈 정렬 순서'에서 가나다순으로 되돌릴 수 있습니다."
+
+msgid "Let go of A: put it down   At a side: turn the page"
+msgstr "A 버튼 떼기: 내려놓기   가장자리: 페이지 넘기기"
+
+msgid "D-pad: move   A: put it down   B: put it back"
+msgstr "십자 버튼: 이동   A: 내려놓기   B: 되돌리기"
+
+msgid "1: view   2: settings   -/+: pages   B+A: move"
+msgstr "1: 보기   2: 설정   -/+: 페이지   B+A: 이동"
+
+msgid "1: view  2: settings  B: A-Z  B+A: move"
+msgstr "1: 보기  2: 설정  B: 가나다순  B+A: 이동"
+
+msgid "1: view   2: settings   -/+: pages"
+msgstr "1: 보기   2: 설정   -/+: 페이지"
 
 msgid "The values were not saved: {1}"
 msgstr "값이 저장되지 않았습니다: {1}"
@@ -1607,9 +1652,6 @@ msgstr "RiftWii {1}의 새로운 기능"
 
 msgid "Which USB port is the adapter plugged into?"
 msgstr "어댑터가 어느 USB 포트에 꽂혀 있나요?"
-
-msgid "Which drive's games Home lists. With a game on both, one drive's copy is enough."
-msgstr "홈에 표시할 게임의 드라이브입니다. 두 드라이브에 같은 게임이 있으면 한쪽의 사본으로 충분합니다."
 
 msgid "Which port?"
 msgstr "어느 포트인가요?"
@@ -1736,6 +1778,54 @@ msgstr "모든 설정을 RiftWii의 기본값으로 되돌립니다. 게임별 �
 
 msgid "Settings reset to the defaults"
 msgstr "설정을 기본값으로 초기화했습니다"
+
+msgid "Install WAD files"
+msgstr "WAD 파일 설치"
+
+msgid "{1} found"
+msgstr "{1}개"
+
+msgid "Installs the .wad files in the wad folder of the SD card into the emulated NAND USB Loader GX keeps its channels in, and lists them on Home. The Wii itself is not changed."
+msgstr "SD 카드의 wad 폴더에 있는 .wad 파일을 USB Loader GX가 채널을 두는 에뮬레이트 NAND에 설치하고 홈에 표시합니다. Wii 본체는 바뀌지 않습니다."
+
+msgid "No .wad files in the wad folder of the SD card."
+msgstr "SD 카드의 wad 폴더에 .wad 파일이 없습니다."
+
+msgid "Install {1} WAD file(s) into {2}? The Wii itself is not changed."
+msgstr "WAD 파일 {1}개를 {2}에 설치할까요? Wii 본체는 바뀌지 않습니다."
+
+msgid "Install"
+msgstr "설치"
+
+msgid "Installing WAD files"
+msgstr "WAD 파일 설치 중"
+
+msgid "{1} of {2}: {3}"
+msgstr "{2}개 중 {1}번째: {3}"
+
+msgid "This Wii's key could not be read, so WAD files can't be installed."
+msgstr "이 Wii의 키를 읽을 수 없어 WAD 파일을 설치할 수 없습니다."
+
+msgid "Installed {1} of {2}. They are on Home now."
+msgstr "{2}개 중 {1}개를 설치했습니다. 이제 홈에 있습니다."
+
+msgid "Not installed: {1}. The reasons are in sd:/riftwii/session.log."
+msgstr "설치되지 않음: {1}. 이유는 sd:/riftwii/session.log에 있습니다."
+
+msgid "The emulated NAND folder can't be used: {1}"
+msgstr "에뮬레이트 NAND 폴더를 사용할 수 없습니다: {1}"
+
+msgid "Starts the game with the cheats and settings shown here."
+msgstr "여기 보이는 치트와 설정으로 게임을 시작합니다."
+
+msgid "Wii channels"
+msgstr "Wii 채널"
+
+msgid "Which games Home lists: every drive's and the Wii's own, or one place's only. With a game on both drives, one copy is enough."
+msgstr "홈에 표시할 게임: 모든 드라이브와 Wii 본체의 게임, 또는 한 곳의 게임만. 두 드라이브에 같은 게임이 있으면 하나면 충분합니다."
+
+msgid "This game's data was removed from the Wii, so it can't start."
+msgstr "이 게임의 데이터가 Wii에서 삭제되어 시작할 수 없습니다."
 
 msgid "Popups look like the Wii Menu's message box"
 msgstr "팝업이 Wii 메뉴의 메시지 상자처럼 보입니다"
@@ -2027,6 +2117,12 @@ msgstr "최대 {1}명"
 
 msgid "The mod's own"
 msgstr "MOD의 서버"
+
+msgid "Pages at the sides"
+msgstr "양옆 페이지"
+
+msgid "Channels: the edges of the previous and the next page at the sides of the screen, as on the Wii Menu. Point at one and press A to turn to that page."
+msgstr "채널: Wii 메뉴처럼 이전 페이지와 다음 페이지의 가장자리를 화면 양옆에 보여 줍니다. 가리키고 A를 누르면 그 페이지로 넘어갑니다."
 
 msgid "Could not save the tiles to the SD card."
 msgstr "타일을 SD 카드에 저장할 수 없습니다."

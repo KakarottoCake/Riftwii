@@ -636,6 +636,24 @@ T = {
     "Plays with": ("Se juega con", "対応コントローラー", "Joga-se com", "Si gioca con"),
     "3D covers": ("Portadas 3D", "3Dパッケージ", "Capas 3D", "Copertine 3D"),
     "Channels": ("Canales", "チャンネル", "Canais", "Canali"),
+    # Channel corners (Settings, the Channels view)
+    "Channel corners": ("Esquinas de los canales", "チャンネルの角", "Cantos dos canais", "Angoli dei canali"),
+    "Square corners": ("Esquinas rectas", "四角い角", "Cantos retos", "Angoli squadrati"),
+    "Slightly round": ("Algo redondeadas", "少し丸い角", "Pouco arredondados", "Poco arrotondati"),
+    "Round corners": ("Esquinas redondas", "丸い角", "Cantos redondos", "Angoli arrotondati"),
+    "Extra round": ("Muy redondeadas", "もっと丸い角", "Bem arredondados", "Molto arrotondati"),
+    "How round the corners of the Channels view's tiles are. Theme keeps the theme's own; the others are the same in every theme.": (
+        "Lo redondeadas que son las esquinas de los recuadros en la vista Canales. Tema mantiene las del propio tema; las demás son iguales en todos los temas.",
+        "チャンネル表示のタイルの角の丸さです。「テーマ」はテーマ自体の丸さのままです。ほかはどのテーマでも同じです。",
+        "O quanto os cantos dos blocos na vista Canais são arredondados. Tema mantém os do próprio tema; os outros são iguais em todos os temas.",
+        "Quanto sono arrotondati gli angoli dei riquadri nella vista Canali. Tema mantiene quelli del tema; gli altri sono uguali in ogni tema."),
+    "Grid spacing": ("Espaciado de la cuadrícula", "タイルの間隔", "Espaçamento da grade", "Spaziatura della griglia"),
+    "Roomy": ("Amplio", "ゆったり", "Amplo", "Ampio"),
+    "Roomy makes the Names and Channels tiles a little smaller, with wider gaps between them and at the sides, as on the Wii Menu.": (
+        "Amplio hace un poco más pequeñas las casillas de Nombres y Canales, con más espacio entre ellas y a los lados, como en el Menú de Wii.",
+        "ゆったりにすると、名前とチャンネルのタイルが少し小さくなり、タイルの間と左右の余白が広がります。Wiiメニューと同じ並びです。",
+        "Amplo deixa os blocos de Nomes e Canais um pouco menores, com mais espaço entre eles e nas laterais, como no Menu Wii.",
+        "Ampio rende i riquadri di Nomi e Canali un po' più piccoli, con più spazio tra loro e ai lati, come nel Menu Wii."),
     "Widescreen menu": ("Menú panorámico", "ワイド画面メニュー", "Menu widescreen", "Menu panoramico"),
     "Screen size": ("Tamaño en pantalla", "画面の大きさ", "Tamanho na tela", "Dimensione sullo schermo"),
     "On a 16:9 TV the menu is drawn narrower, so covers and pictures keep their shape. Automatic follows the Wii's own TV setting.": (
@@ -1529,11 +1547,6 @@ T = {
         "プレイ履歴",
         "Histórico de jogo",
         "Cronologia di gioco"),
-    "SD and USB": (
-        "SD y USB",
-        "SDとUSB",
-        "SD e USB",
-        "SD e USB"),
     "Scan the code for the guide.": (
         "Escanea el código para ver la guía.",
         "コードを読み取るとガイドが見られます。",
@@ -1564,11 +1577,42 @@ T = {
         "設定を出るとメニューが再起動して反映されます。",
         "O menu reinicia para mostrá-lo quando você sair das Configurações.",
         "Il menu si riavvia per mostrarlo quando esci dalle Impostazioni."),
-    "The order of the games on Home. Last played and Most played put the games you played from RiftWii first, the rest after them A to Z.": (
-        "El orden de los juegos en Inicio. Último jugado y Más jugados ponen primero los juegos que jugaste desde RiftWii, y el resto después, de la A a la Z.",
-        "ホームのゲームの並び順です。最後に遊んだ順とよく遊ぶ順では、RiftWiiで遊んだゲームが先に、ほかはそのあとにA〜Z順で並びます。",
-        "A ordem dos jogos no Início. Último jogado e Mais jogados põem primeiro os jogos que você jogou pelo RiftWii, e o resto depois, de A a Z.",
-        "L'ordine dei giochi nella Home. Ultimo giocato e Più giocati mettono prima i giochi che hai giocato da RiftWii, e il resto dopo, dalla A alla Z."),
+    "The order of the games on Home. Last played and Most played put the games you played from RiftWii first, the rest after them A to Z. Your order is yours: on Home, hold B and press A on a game to move it.": (
+        "El orden de los juegos en Inicio. Último jugado y Más jugados ponen primero los juegos que jugaste desde RiftWii, y el resto después, de la A a la Z. Tu orden es el tuyo: en Inicio, mantén B y pulsa A sobre un juego para moverlo.",
+        "ホームのゲームの並び順です。最後に遊んだ順とよく遊ぶ順では、RiftWiiで遊んだゲームが先に、ほかはそのあとにA〜Z順で並びます。自分の並び順では、ホームでBを押したままゲームの上でAを押すと、ゲームを動かせます。",
+        "A ordem dos jogos no Início. Último jogado e Mais jogados põem primeiro os jogos que você jogou pelo RiftWii, e o resto depois, de A a Z. Sua ordem é a sua: no Início, segure B e aperte A num jogo para movê-lo.",
+        "L'ordine dei giochi nella Home. Ultimo giocato e Più giocati mettono prima i giochi che hai giocato da RiftWii, e il resto dopo, dalla A alla Z. Il tuo ordine è tuo: nella Home, tieni premuto B e premi A su un gioco per spostarlo."),
+    "Your order": ("Tu orden", "自分の並び順", "Sua ordem", "Il tuo ordine"),
+    "Home is in your own order now. Settings > Home order puts it back A to Z.": (
+        "Inicio está ahora en tu propio orden. Ajustes > Orden de Inicio lo vuelve a poner de la A a la Z.",
+        "ホームは自分の並び順になりました。設定 > ホームの並び順でA〜Z順に戻せます。",
+        "O Início está agora na sua própria ordem. Configurações > Ordem do Início volta para de A a Z.",
+        "La Home è ora nel tuo ordine. Impostazioni > Ordine della Home la rimette dalla A alla Z."),
+    "Let go of A: put it down   At a side: turn the page": (
+        "Suelta A: dejarlo   En un lado: pasar página",
+        "Aを離す: 置く   端で止める: ページをめくる",
+        "Solte A: deixar   Num lado: mudar de página",
+        "Rilascia A: posa   Su un lato: cambia pagina"),
+    "D-pad: move   A: put it down   B: put it back": (
+        "Cruceta: mover   A: dejarlo   B: devolverlo",
+        "十字ボタン: 動かす   A: 置く   B: 元に戻す",
+        "Direcional: mover   A: deixar   B: devolver",
+        "Croce: sposta   A: posa   B: rimetti a posto"),
+    "1: view   2: settings   -/+: pages   B+A: move": (
+        "1: vista   2: ajustes   -/+: páginas   B+A: mover",
+        "1: 表示   2: 設定   -/+: ページ   B+A: 動かす",
+        "1: visão   2: configurações   -/+: páginas   B+A: mover",
+        "1: vista   2: impostazioni   -/+: pagine   B+A: sposta"),
+    "1: view  2: settings  B: A-Z  B+A: move": (
+        "1: vista  2: ajustes  B: A-Z  B+A: mover",
+        "1: 表示  2: 設定  B: A〜Z  B+A: 動かす",
+        "1: visão  2: config.  B: A-Z  B+A: mover",
+        "1: vista  2: impost.  B: A-Z  B+A: sposta"),
+    "1: view   2: settings   -/+: pages": (
+        "1: vista   2: ajustes   -/+: páginas",
+        "1: 表示   2: 設定   -/+: ページ",
+        "1: visão   2: configurações   -/+: páginas",
+        "1: vista   2: impostazioni   -/+: pagine"),
     "The values were not saved: {1}": (
         "Los valores no se guardaron: {1}",
         "値は保存されませんでした: {1}",
@@ -1624,11 +1668,6 @@ T = {
         "アダプターはどのUSBポートにつないでいますか?",
         "Em qual porta USB o adaptador está ligado?",
         "In quale porta USB è collegato l'adattatore?"),
-    "Which drive's games Home lists. With a game on both, one drive's copy is enough.": (
-        "De qué unidad muestra Inicio los juegos. Si un juego está en ambas, basta con la copia de una.",
-        "ホームにどのドライブのゲームを表示するかです。両方にあるゲームは片方のコピーで足ります。",
-        "De qual unidade o Início mostra os jogos. Com um jogo nas duas, a cópia de uma basta.",
-        "Di quale unità la Home elenca i giochi. Con un gioco su entrambe, basta la copia di una."),
     "Which port?": (
         "¿Qué puerto?",
         "どのポート?",
@@ -1704,6 +1743,23 @@ T = {
     "Every setting goes back to how RiftWii comes, and RiftWii restarts. Games' own pages, favourites, play history and mods are kept.": ("Todos los ajustes vuelven a como vienen en RiftWii, y RiftWii se reinicia. Se conservan las páginas de cada juego, los favoritos, el historial de juego y los mods.", "すべての設定がRiftWiiの初期状態に戻り、RiftWiiが再起動します。各ゲームのページ、お気に入り、プレイ履歴、MODはそのまま残ります。", "Todas as configurações voltam a como vêm no RiftWii, e o RiftWii reinicia. As páginas de cada jogo, os favoritos, o histórico de jogo e os mods são mantidos.", "Tutte le impostazioni tornano come in origine e RiftWii si riavvia. Le pagine dei singoli giochi, i preferiti, la cronologia di gioco e le mod restano."),
     "Every setting back to how RiftWii comes. Games' own pages, favourites, play history and mods are kept.": ("Todos los ajustes vuelven a como vienen en RiftWii. Se conservan las páginas de cada juego, los favoritos, el historial de juego y los mods.", "すべての設定をRiftWiiの初期状態に戻します。各ゲームのページ、お気に入り、プレイ履歴、MODはそのまま残ります。", "Todas as configurações voltam a como vêm no RiftWii. As páginas de cada jogo, os favoritos, o histórico de jogo e os mods são mantidos.", "Tutte le impostazioni tornano come in origine. Le pagine dei singoli giochi, i preferiti, la cronologia di gioco e le mod restano."),
     "Settings reset to the defaults": ("Ajustes restablecidos", "設定を初期状態に戻しました", "Configurações redefinidas", "Impostazioni ripristinate"),
+    # Wii channels (WiiWare and Virtual Console)
+    "Install WAD files": ("Instalar archivos WAD", "WADファイルをインストール", "Instalar arquivos WAD", "Installa file WAD"),
+    "{1} found": ("{1} encontrados", "{1}個", "{1} encontrados", "{1} trovati"),
+    "Installs the .wad files in the wad folder of the SD card into the emulated NAND USB Loader GX keeps its channels in, and lists them on Home. The Wii itself is not changed.": ("Instala los archivos .wad de la carpeta wad de la tarjeta SD en la NAND emulada donde USB Loader GX guarda sus canales, y los muestra en Inicio. La propia Wii no cambia.", "SDカードのwadフォルダにある.wadファイルを、USB Loader GXがチャンネルを置くエミュレートNANDにインストールし、ホームに表示します。Wii本体は変わりません。", "Instala os arquivos .wad da pasta wad do cartão SD na NAND emulada onde o USB Loader GX guarda seus canais, e os mostra no Início. O próprio Wii não muda.", "Installa i file .wad della cartella wad della scheda SD nella NAND emulata dove USB Loader GX tiene i suoi canali, e li mostra nella Home. La Wii stessa non cambia."),
+    "No .wad files in the wad folder of the SD card.": ("No hay archivos .wad en la carpeta wad de la tarjeta SD.", "SDカードのwadフォルダに.wadファイルがありません。", "Não há arquivos .wad na pasta wad do cartão SD.", "Nessun file .wad nella cartella wad della scheda SD."),
+    "Install {1} WAD file(s) into {2}? The Wii itself is not changed.": ("¿Instalar {1} archivo(s) WAD en {2}? La propia Wii no cambia.", "{1}個のWADファイルを{2}にインストールしますか？Wii本体は変わりません。", "Instalar {1} arquivo(s) WAD em {2}? O próprio Wii não muda.", "Installare {1} file WAD in {2}? La Wii stessa non cambia."),
+    "Install": ("Instalar", "インストール", "Instalar", "Installa"),
+    "Installing WAD files": ("Instalando archivos WAD", "WADファイルをインストール中", "Instalando arquivos WAD", "Installazione dei file WAD"),
+    "{1} of {2}: {3}": ("{1} de {2}: {3}", "{2}個中{1}個目: {3}", "{1} de {2}: {3}", "{1} di {2}: {3}"),
+    "This Wii's key could not be read, so WAD files can't be installed.": ("No se pudo leer la clave de esta Wii, así que no se pueden instalar archivos WAD.", "このWiiのキーを読めなかったため、WADファイルをインストールできません。", "Não foi possível ler a chave deste Wii, então os arquivos WAD não podem ser instalados.", "Non è stato possibile leggere la chiave di questa Wii, quindi i file WAD non si possono installare."),
+    "Installed {1} of {2}. They are on Home now.": ("Instalados {1} de {2}. Ya están en Inicio.", "{2}個中{1}個をインストールしました。ホームに表示されています。", "Instalados {1} de {2}. Já estão no Início.", "Installati {1} di {2}. Ora sono nella Home."),
+    "Not installed: {1}. The reasons are in sd:/riftwii/session.log.": ("Sin instalar: {1}. Los motivos están en sd:/riftwii/session.log.", "インストールされなかったもの: {1}。理由はsd:/riftwii/session.logにあります。", "Não instalados: {1}. Os motivos estão em sd:/riftwii/session.log.", "Non installati: {1}. I motivi sono in sd:/riftwii/session.log."),
+    "The emulated NAND folder can't be used: {1}": ("No se puede usar la carpeta de la NAND emulada: {1}", "エミュレートNANDのフォルダを使えません: {1}", "A pasta da NAND emulada não pode ser usada: {1}", "La cartella della NAND emulata non si può usare: {1}"),
+    "Starts the game with the cheats and settings shown here.": ("Inicia el juego con los trucos y ajustes que se ven aquí.", "ここに表示されているチートと設定でゲームを始めます。", "Inicia o jogo com os truques e ajustes mostrados aqui.", "Avvia il gioco con i trucchi e le impostazioni mostrati qui."),
+    "Wii channels": ("Canales Wii", "Wiiチャンネル", "Canais Wii", "Canali Wii"),
+    "Which games Home lists: every drive's and the Wii's own, or one place's only. With a game on both drives, one copy is enough.": ("Qué juegos muestra el Inicio: los de cada unidad y los de la propia Wii, o solo los de un sitio. Con un juego en ambas unidades, basta una copia.", "ホームに表示するゲーム：すべてのドライブとWii本体のもの、または1か所のものだけ。両方のドライブにあるゲームは1つで十分です。", "Quais jogos o Início mostra: os de cada unidade e os do próprio Wii, ou só os de um lugar. Com um jogo nas duas unidades, basta uma cópia.", "Quali giochi mostra la Home: quelli di ogni unità e quelli della Wii stessa, o solo quelli di un posto. Con un gioco su entrambe le unità, basta una copia."),
+    "This game's data was removed from the Wii, so it can't start.": ("Los datos de este juego se borraron de la Wii, así que no puede iniciarse.", "このゲームのデータはWiiから削除されているため、起動できません。", "Os dados deste jogo foram apagados do Wii, então ele não pode ser iniciado.", "I dati di questo gioco sono stati cancellati dalla Wii, quindi non può partire."),
     # What's new in the release after 2610-421
     "Popups look like the Wii Menu's message box": ("Las ventanas emergentes se parecen al cuadro de mensajes del Menú Wii", "ポップアップがWiiメニューのメッセージ画面のようになりました", "As janelas pop-up parecem a caixa de mensagem do Menu Wii", "I popup somigliano al riquadro dei messaggi del Menu Wii"),
     "Channels: empty places match the channel icons": ("Canales: los huecos vacíos coinciden con los iconos de los canales", "チャンネル：空きの枠がチャンネルのアイコンとそろいました", "Canais: os espaços vazios combinam com os ícones dos canais", "Canali: gli spazi vuoti corrispondono alle icone dei canali"),
@@ -1804,6 +1860,16 @@ T = {
     "Publisher": ("Editor", "発売元", "Distribuidora", "Editore"),
     "Up to {1} players": ("Hasta {1} jugadores", "最大{1}人", "Até {1} jogadores", "Fino a {1} giocatori"),
     "The mod's own": ("El del mod", "MODのもの", "O do mod", "Quello della mod"),
+    "Pages at the sides": (
+        "Páginas a los lados",
+        "左右のページ",
+        "Páginas nas laterais",
+        "Pagine ai lati"),
+    "Channels: the edges of the previous and the next page at the sides of the screen, as on the Wii Menu. Point at one and press A to turn to that page.": (
+        "Canales: los bordes de la página anterior y de la siguiente a los lados de la pantalla, como en el Menú de Wii. Apunta a uno y pulsa A para pasar a esa página.",
+        "チャンネル: 前と次のページの端を、Wiiメニューのように画面の左右に表示します。そこを指してAを押すと、そのページに移ります。",
+        "Canais: as bordas da página anterior e da próxima nas laterais da tela, como no Menu Wii. Aponte para uma e aperte A para ir a essa página.",
+        "Canali: i bordi della pagina precedente e di quella successiva ai lati dello schermo, come nel Menu Wii. Punta su uno e premi A per passare a quella pagina."),
     # A game's extra Home tiles, each with its own mods (riftwii/profiles.hpp).
     "Could not save the tiles to the SD card.": (
         "No se pudieron guardar las casillas en la tarjeta SD.",
@@ -2382,6 +2448,24 @@ KO = {
         "지원 컨트롤러",
     "Channels":
         "채널",
+    "Channel corners":
+        "채널 모서리",
+    "Square corners":
+        "각진 모서리",
+    "Slightly round":
+        "살짝 둥근 모서리",
+    "Round corners":
+        "둥근 모서리",
+    "Extra round":
+        "더 둥근 모서리",
+    "How round the corners of the Channels view's tiles are. Theme keeps the theme's own; the others are the same in every theme.":
+        "채널 보기에서 타일 모서리가 얼마나 둥근지 정합니다. '테마'는 테마 자체의 모서리를 따르고, 나머지는 모든 테마에서 똑같습니다.",
+    "Grid spacing":
+        "타일 간격",
+    "Roomy":
+        "넓게",
+    "Roomy makes the Names and Channels tiles a little smaller, with wider gaps between them and at the sides, as on the Wii Menu.":
+        "넓게를 선택하면 이름과 채널 타일이 조금 작아지고, 타일 사이와 양옆의 여백이 Wii 메뉴처럼 넓어집니다.",
     "Widescreen menu":
         "와이드화면 메뉴",
     "Screen size":
@@ -2948,8 +3032,6 @@ KO = {
         "플레이",
     "Play history":
         "플레이 기록",
-    "SD and USB":
-        "SD 및 USB",
     "Scan the code for the guide.":
         "코드를 스캔하면 가이드를 볼 수 있습니다.",
     "Set values":
@@ -2962,8 +3044,22 @@ KO = {
         "이 치트에는 값에 대한 설명이 없습니다. 제작자의 페이지에 설명이 있을 수 있습니다.",
     "The menu restarts to show it when you leave Settings.":
         "설정을 나가면 메뉴가 다시 시작되어 적용됩니다.",
-    "The order of the games on Home. Last played and Most played put the games you played from RiftWii first, the rest after them A to Z.":
-        "홈의 게임 순서입니다. 최근 플레이순과 많이 플레이한 순은 RiftWii에서 플레이한 게임을 먼저, 나머지는 그 뒤에 가나다순으로 표시합니다.",
+    "The order of the games on Home. Last played and Most played put the games you played from RiftWii first, the rest after them A to Z. Your order is yours: on Home, hold B and press A on a game to move it.":
+        "홈의 게임 순서입니다. 최근 플레이순과 많이 플레이한 순은 RiftWii에서 플레이한 게임을 먼저, 나머지는 그 뒤에 가나다순으로 표시합니다. 내 순서는 직접 정합니다: 홈에서 B 버튼을 누른 채 게임 위에서 A 버튼을 누르면 옮길 수 있습니다.",
+    "Your order":
+        "내 순서",
+    "Home is in your own order now. Settings > Home order puts it back A to Z.":
+        "이제 홈이 내 순서로 정렬됩니다. '설정 > 홈 정렬 순서'에서 가나다순으로 되돌릴 수 있습니다.",
+    "Let go of A: put it down   At a side: turn the page":
+        "A 버튼 떼기: 내려놓기   가장자리: 페이지 넘기기",
+    "D-pad: move   A: put it down   B: put it back":
+        "십자 버튼: 이동   A: 내려놓기   B: 되돌리기",
+    "1: view   2: settings   -/+: pages   B+A: move":
+        "1: 보기   2: 설정   -/+: 페이지   B+A: 이동",
+    "1: view  2: settings  B: A-Z  B+A: move":
+        "1: 보기  2: 설정  B: 가나다순  B+A: 이동",
+    "1: view   2: settings   -/+: pages":
+        "1: 보기   2: 설정   -/+: 페이지",
     "The values were not saved: {1}":
         "값이 저장되지 않았습니다: {1}",
     "This cheat has values to fill in (the X's): press A to set them.":
@@ -2986,8 +3082,6 @@ KO = {
         "RiftWii {1}의 새로운 기능",
     "Which USB port is the adapter plugged into?":
         "어댑터가 어느 USB 포트에 꽂혀 있나요?",
-    "Which drive's games Home lists. With a game on both, one drive's copy is enough.":
-        "홈에 표시할 게임의 드라이브입니다. 두 드라이브에 같은 게임이 있으면 한쪽의 사본으로 충분합니다.",
     "Which port?":
         "어느 포트인가요?",
     "Wii Remote rumble":
@@ -3072,6 +3166,38 @@ KO = {
         "모든 설정을 RiftWii의 기본값으로 되돌립니다. 게임별 페이지, 즐겨찾기, 플레이 기록, 모드는 그대로 유지됩니다.",
     "Settings reset to the defaults":
         "설정을 기본값으로 초기화했습니다",
+    "This game's data was removed from the Wii, so it can't start.":
+        "이 게임의 데이터가 Wii에서 삭제되어 시작할 수 없습니다.",
+    "Starts the game with the cheats and settings shown here.":
+        "여기 보이는 치트와 설정으로 게임을 시작합니다.",
+    "Install WAD files":
+        "WAD 파일 설치",
+    "{1} found":
+        "{1}개",
+    "Installs the .wad files in the wad folder of the SD card into the emulated NAND USB Loader GX keeps its channels in, and lists them on Home. The Wii itself is not changed.":
+        "SD 카드의 wad 폴더에 있는 .wad 파일을 USB Loader GX가 채널을 두는 에뮬레이트 NAND에 설치하고 홈에 표시합니다. Wii 본체는 바뀌지 않습니다.",
+    "No .wad files in the wad folder of the SD card.":
+        "SD 카드의 wad 폴더에 .wad 파일이 없습니다.",
+    "Install {1} WAD file(s) into {2}? The Wii itself is not changed.":
+        "WAD 파일 {1}개를 {2}에 설치할까요? Wii 본체는 바뀌지 않습니다.",
+    "Install":
+        "설치",
+    "Installing WAD files":
+        "WAD 파일 설치 중",
+    "{1} of {2}: {3}":
+        "{2}개 중 {1}번째: {3}",
+    "This Wii's key could not be read, so WAD files can't be installed.":
+        "이 Wii의 키를 읽을 수 없어 WAD 파일을 설치할 수 없습니다.",
+    "Installed {1} of {2}. They are on Home now.":
+        "{2}개 중 {1}개를 설치했습니다. 이제 홈에 있습니다.",
+    "Not installed: {1}. The reasons are in sd:/riftwii/session.log.":
+        "설치되지 않음: {1}. 이유는 sd:/riftwii/session.log에 있습니다.",
+    "The emulated NAND folder can't be used: {1}":
+        "에뮬레이트 NAND 폴더를 사용할 수 없습니다: {1}",
+    "Wii channels":
+        "Wii 채널",
+    "Which games Home lists: every drive's and the Wii's own, or one place's only. With a game on both drives, one copy is enough.":
+        "홈에 표시할 게임: 모든 드라이브와 Wii 본체의 게임, 또는 한 곳의 게임만. 두 드라이브에 같은 게임이 있으면 하나면 충분합니다.",
     "Popups look like the Wii Menu's message box":
         "팝업이 Wii 메뉴의 메시지 상자처럼 보입니다",
     "Channels: empty places match the channel icons":
@@ -3266,6 +3392,10 @@ KO = {
         "최대 {1}명",
     "The mod's own":
         "MOD의 서버",
+    "Pages at the sides":
+        "양옆 페이지",
+    "Channels: the edges of the previous and the next page at the sides of the screen, as on the Wii Menu. Point at one and press A to turn to that page.":
+        "채널: Wii 메뉴처럼 이전 페이지와 다음 페이지의 가장자리를 화면 양옆에 보여 줍니다. 가리키고 A를 누르면 그 페이지로 넘어갑니다.",
     "Could not save the tiles to the SD card.":
         "타일을 SD 카드에 저장할 수 없습니다.",
     "The tile needs a name.":
@@ -3779,6 +3909,24 @@ FR = {
         "Se joue avec",
     "Channels":
         "Chaînes",
+    "Channel corners":
+        "Coins des chaînes",
+    "Square corners":
+        "Coins carrés",
+    "Slightly round":
+        "Peu arrondis",
+    "Round corners":
+        "Coins arrondis",
+    "Extra round":
+        "Très arrondis",
+    "How round the corners of the Channels view's tiles are. Theme keeps the theme's own; the others are the same in every theme.":
+        "L'arrondi des coins des tuiles dans la vue Chaînes. Thème garde celui du thème ; les autres sont les mêmes dans tous les thèmes.",
+    "Grid spacing":
+        "Espacement des tuiles",
+    "Roomy":
+        "Aéré",
+    "Roomy makes the Names and Channels tiles a little smaller, with wider gaps between them and at the sides, as on the Wii Menu.":
+        "« Aéré » rend les tuiles Noms et Chaînes un peu plus petites, avec plus d'espace entre elles et sur les côtés, comme sur le Menu Wii.",
     "Widescreen menu":
         "Menu 16:9",
     "Screen size":
@@ -4247,8 +4395,6 @@ FR = {
         "Jouer",
     "Play history":
         "Historique de jeu",
-    "SD and USB":
-        "SD et USB",
     "Scan the code for the guide.":
         "Scannez le code pour le guide.",
     "Set values":
@@ -4261,8 +4407,22 @@ FR = {
         "Ce code n'a pas de notes sur ses valeurs : la page de son auteur les indique peut-être.",
     "The menu restarts to show it when you leave Settings.":
         "Le menu redémarre pour l'afficher quand vous quittez les paramètres.",
-    "The order of the games on Home. Last played and Most played put the games you played from RiftWii first, the rest after them A to Z.":
-        "L'ordre des jeux sur l'accueil. Dernier joué et Plus joués placent d'abord les jeux joués depuis RiftWii, puis les autres de A à Z.",
+    "The order of the games on Home. Last played and Most played put the games you played from RiftWii first, the rest after them A to Z. Your order is yours: on Home, hold B and press A on a game to move it.":
+        "L'ordre des jeux sur l'accueil. Dernier joué et Plus joués placent d'abord les jeux joués depuis RiftWii, puis les autres de A à Z. Votre ordre est le vôtre : sur l'accueil, maintenez B et appuyez sur A sur un jeu pour le déplacer.",
+    "Your order":
+        "Votre ordre",
+    "Home is in your own order now. Settings > Home order puts it back A to Z.":
+        "L'accueil est maintenant dans votre ordre. Paramètres > Ordre de l'accueil le remet de A à Z.",
+    "Let go of A: put it down   At a side: turn the page":
+        "Relâchez A : poser   Sur un côté : tourner la page",
+    "D-pad: move   A: put it down   B: put it back":
+        "Croix : déplacer   A : poser   B : remettre",
+    "1: view   2: settings   -/+: pages   B+A: move":
+        "1 : vue   2 : paramètres   -/+ : pages   B+A : déplacer",
+    "1: view  2: settings  B: A-Z  B+A: move":
+        "1 : vue  2 : réglages  B : A-Z  B+A : déplacer",
+    "1: view   2: settings   -/+: pages":
+        "1 : vue   2 : paramètres   -/+ : pages",
     "The values were not saved: {1}":
         "Les valeurs n'ont pas été enregistrées : {1}",
     "This cheat has values to fill in (the X's): press A to set them.":
@@ -4285,8 +4445,6 @@ FR = {
         "Nouveautés de RiftWii {1}",
     "Which USB port is the adapter plugged into?":
         "Sur quel port USB l'adaptateur est-il branché ?",
-    "Which drive's games Home lists. With a game on both, one drive's copy is enough.":
-        "Le stockage dont l'accueil liste les jeux. Pour un jeu présent sur les deux, une seule copie suffit.",
     "Which port?":
         "Quel port ?",
     "Wii Remote rumble":
@@ -4469,6 +4627,38 @@ FR = {
         "Tous les paramètres reviennent à ceux d'origine. Les pages des jeux, les favoris, l'historique de jeu et les mods sont conservés.",
     "Settings reset to the defaults":
         "Paramètres réinitialisés",
+    "This game's data was removed from the Wii, so it can't start.":
+        "Les données de ce jeu ont été effacées de la Wii, il ne peut donc pas démarrer.",
+    "Starts the game with the cheats and settings shown here.":
+        "Lance le jeu avec les codes de triche et les réglages affichés ici.",
+    "Install WAD files":
+        "Installer des fichiers WAD",
+    "{1} found":
+        "{1} trouvés",
+    "Installs the .wad files in the wad folder of the SD card into the emulated NAND USB Loader GX keeps its channels in, and lists them on Home. The Wii itself is not changed.":
+        "Installe les fichiers .wad du dossier wad de la carte SD dans la NAND émulée où USB Loader GX garde ses chaînes, et les affiche dans l'Accueil. La Wii elle-même ne change pas.",
+    "No .wad files in the wad folder of the SD card.":
+        "Aucun fichier .wad dans le dossier wad de la carte SD.",
+    "Install {1} WAD file(s) into {2}? The Wii itself is not changed.":
+        "Installer {1} fichier(s) WAD dans {2} ? La Wii elle-même ne change pas.",
+    "Install":
+        "Installer",
+    "Installing WAD files":
+        "Installation des fichiers WAD",
+    "{1} of {2}: {3}":
+        "{1} sur {2} : {3}",
+    "This Wii's key could not be read, so WAD files can't be installed.":
+        "La clé de cette Wii n'a pas pu être lue, les fichiers WAD ne peuvent donc pas être installés.",
+    "Installed {1} of {2}. They are on Home now.":
+        "{1} sur {2} installés. Ils sont maintenant dans l'Accueil.",
+    "Not installed: {1}. The reasons are in sd:/riftwii/session.log.":
+        "Non installés : {1}. Les raisons sont dans sd:/riftwii/session.log.",
+    "The emulated NAND folder can't be used: {1}":
+        "Le dossier de la NAND émulée ne peut pas être utilisé : {1}",
+    "Wii channels":
+        "Chaînes Wii",
+    "Which games Home lists: every drive's and the Wii's own, or one place's only. With a game on both drives, one copy is enough.":
+        "Les jeux qu'affiche l'Accueil : ceux de chaque support et ceux de la Wii elle-même, ou ceux d'un seul endroit. Avec un jeu sur les deux supports, une copie suffit.",
     "Popups look like the Wii Menu's message box":
         "Les fenêtres ressemblent à la boîte de message du Menu Wii",
     "Channels: empty places match the channel icons":
@@ -4663,6 +4853,10 @@ FR = {
         "Jusqu'à {1} joueurs",
     "The mod's own":
         "Celui du mod",
+    "Pages at the sides":
+        "Pages sur les côtés",
+    "Channels: the edges of the previous and the next page at the sides of the screen, as on the Wii Menu. Point at one and press A to turn to that page.":
+        "Chaînes : les bords de la page précédente et de la suivante sur les côtés de l'écran, comme sur le Menu Wii. Pointez-en un et appuyez sur A pour passer à cette page.",
     "Could not save the tiles to the SD card.":
         "Impossible d'enregistrer les tuiles sur la carte SD.",
     "The tile needs a name.":

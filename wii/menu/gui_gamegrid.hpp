@@ -93,6 +93,13 @@ public:
         pictureSource = std::move(source);
         pictureSide = side;
     }
+    // Roomy spacing: names and channels smaller, with wider gaps and sides
+    // (grid_spacing = roomy). Covers and the shelf keep their own sizes.
+    void SetRoomy(bool on);
+    // Channels: the neighbouring pages' nearest columns at the screen's
+    // sides (page_peek), read from the settings when Home is built: the
+    // GUI thread asks every frame, so not from the settings' string.
+    void SetPagePeek(bool on) { pagePeek = on; }
     // The items on the page shown: whose icons to have ready.
     int PageFirst() const { return page * kPerPage; }
     // A cover was stored for `id`: draw it from now on.
@@ -108,6 +115,21 @@ public:
     int Pages() const;
     // The item A was pressed on since the last call, or -1.
     int GetClicked();
+    // Moving games (Home order: Your order), as the Wii Menu moves its
+    // channels: hold B (L on a GameCube controller) and press A on a game
+    // to pick it up. Pointing, it follows the pointer while A stays held,
+    // the other tiles making room where it would land; held over a page
+    // arrow or past the tiles' sides it turns the page; letting go of A
+    // puts it down. Without a pointer the D-pad (and - and +) moves it, A
+    // puts it down and B puts it back. Not on the shelf. The first `fixed`
+    // tiles stay where they are (the disc drive's).
+    void SetMovable(bool on, int fixed);
+    bool Carrying() const { return carryFrom >= 0; }
+    bool CarryingWithPointer() const { return carryFrom >= 0 && carryPointer; }
+    // The game put down since the last call moved from `from` to `to`
+    // (indices into the list). The caller moves it in the list as well,
+    // in the same halt of the GUI: until then the grid shows it moved.
+    bool TakeMove(int& from, int& to);
     void Draw() override;
     void Update(GuiTrigger* t) override;
 
@@ -124,12 +146,13 @@ private:
     };
     const Geometry& Geo() const;
     float Stretch() const;          // how much wider Channels is drawn on a widescreen menu (1 otherwise)
+    float IconScale() const;        // a channel's icon against its own size (1 unless roomy)
     mutable Geometry stretched{};   // Geo()'s, when stretched
     mutable Geometry coverGeo{};    // Geo()'s for covers (their size follows the menu's width)
     mutable Geometry channelGeo{};  // Geo()'s for channels (in pixels: the icons drawn one texel to a pixel)
     int CoverCaptionY() const;      // the lit cover's name, under the covers
     int ArrowX(int dir) const;      // a page arrow's left edge (-1 left, +1 right)
-    void DrawTilePicture(const riftwii::wii::skin::Tex& t, int slot, int alpha, float scale) const;
+    void DrawTilePicture(const riftwii::wii::skin::Tex& t, float x, float y, int alpha, float scale) const;
     int Cols() const { return Geo().cols; }
     int TileX(int slot) const;
     int TileY(int slot) const;
@@ -152,8 +175,43 @@ private:
     int shelfStepHeld[4] = {};  // frames + or - has been held on the shelf, per controller
     bool letterUsed[4] = {};
     int SlotAt(int x, int y) const;
+    // Moving a game (SetMovable). carryFrom is its index in the list,
+    // carryTo the place it would land; the tiles between them shift by one.
+    bool movable = false;
+    int fixedFirst = 0;
+    int carryFrom = -1, carryTo = -1, carryChan = -1;
+    bool carryPointer = false;  // following a pointer (else the D-pad's)
+    bool carryDropped = false;  // put down, waiting for TakeMove
+    float carryX = 0, carryY = 0;  // the pointer, where the game hangs from
+    int edgeFrames = 0;            // how long the pointer has waited at a side
+    // The item each slot shows, with a game picked up (its own index for
+    // the place it would land).
+    int ItemAt(int slot) const;
+    int ShownItem(int index) const;  // the same for any place in the list (a peeking page's)
+    bool CarryKeys(GuiTrigger* t);
+    void CarryTo(int index);
+    void PutDown();
+    int NearestIndex(int x, int y) const;  // the place under (or nearest) a pointer
+    // Tiles glide to their new places: each slot's offset from it, eased
+    // away, and the item it showed last frame (-1 none).
+    float shiftX[kPerPage] = {}, shiftY[kPerPage] = {};
+    int shownItem[kPerPage];
+    int shiftPage = -1;  // the page they were measured on
+    void EaseShifts();
+    int BaseX(int slot) const;  // a slot's place, without the slide or the glide
+    int BaseY(int slot) const;
+    void DrawEmptyPlace(int slot, int alpha) const;
     int ArrowAt(int x, int y) const;  // -1 left, +1 right, 0 none
-    void DrawNameTile(int i, bool on, int alpha);
+    void DrawNameTile(int index, Slot& s, float x, float y, bool on, int alpha);
+    // Channels: the game's icon (or the disc drive's disc) in its channel
+    // at (x, y); false when it has neither (its name is drawn instead).
+    bool DrawChannelTile(int index, float x, float y, float scale, bool on, int alpha);
+    // Channels, page_peek on: the pages either side, their nearest column
+    // showing at the screen's sides, dimmed, carried along by a page turn.
+    bool PagePeek() const;  // SetPagePeek's, in the Channels view only
+    float PageStride() const;  // one page to the next, in menu units
+    int PeekAlpha(float x, int alpha) const;  // a tile at x: dimmed the further out of the page's columns
+    void DrawNeighbourPages(int alpha);
     void DrawCoverTile(int i, bool on, int alpha);
     void PrefetchCovers();
     void ReadAllCovers();
@@ -212,6 +270,7 @@ private:
     GuiText* captionInfo = nullptr;  // under the shelf's name: where the game is, its region, play count, mods
     int infoFor = -1;
     bool channels = false;
+    bool roomy = false;  // grid_spacing = roomy
     IconDrawer iconDrawer;
     bool iconShown[kPerPage] = {};  // channels: the tile drew its icon this frame
     void DrawChannelLabel(int slot, int alpha);
@@ -229,6 +288,11 @@ private:
 
     const std::vector<GridItem>* items = nullptr;
     Slot slots[kPerPage];
+    // The page turned away from, its names as laid out (Channels with
+    // page_peek on draws it sliding away, then beside the page).
+    Slot leaving[kPerPage];
+    int leavingPage = -1;
+    bool pagePeek = false;
     GuiText* measure;
     GuiText* caption;    // covers: the lit game's name
     int captionFor = -1;
