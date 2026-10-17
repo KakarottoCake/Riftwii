@@ -11,6 +11,7 @@
 #include <memory>
 
 #include "boot.hpp"
+#include "ios_reload.hpp"
 #include "log.hpp"
 #include "usbcatalog.hpp"
 
@@ -79,6 +80,32 @@ bool read_head(NandAccess& access, const std::string& path, u32 bytes, std::vect
     ISFS_Close(fd);
     if (got <= 0) return false;
     out.assign(buffer.get(), buffer.get() + got);
+    return true;
+}
+
+// A whole NAND file of at most `max_bytes`, or false with `error`.
+bool read_whole(NandAccess& access, const std::string& path, u32 max_bytes, std::vector<u8>& out,
+                std::string& error) {
+    const s32 fd = access.open(path);
+    if (fd < 0) {
+        error = path + " could not be opened (" + std::to_string(fd) + ")";
+        return false;
+    }
+    static fstats stats ATTRIBUTE_ALIGN(32);
+    const u32 size = ISFS_GetFileStats(fd, &stats) < 0 ? 0 : stats.file_length;
+    if (size == 0 || size > max_bytes) {
+        ISFS_Close(fd);
+        error = path + " is " + std::to_string(size) + " bytes, not a size RiftWii reads";
+        return false;
+    }
+    AlignedBuffer buffer = aligned(size);
+    const s32 got = buffer ? ISFS_Read(fd, buffer.get(), size) : -1;
+    ISFS_Close(fd);
+    if (got != static_cast<s32>(size)) {
+        error = path + " read " + std::to_string(got) + " of " + std::to_string(size) + " bytes";
+        return false;
+    }
+    out.assign(buffer.get(), buffer.get() + size);
     return true;
 }
 
@@ -184,6 +211,70 @@ bool read_nand_channel_banner(const NandChannel& channel, std::vector<std::uint8
         return false;
     }
     out.assign(buffer.get(), buffer.get() + size);
+    return true;
+}
+
+bool read_channel_boot(std::uint64_t title_id, ChannelBootFiles& out, std::string& error) {
+    // A WiiWare game's program is a few megabytes (the shop sold games of
+    // at most 40 MB in all); MEM1 holds 24 MB.
+    constexpr u32 kMaxProgramBytes = 24u << 20;
+    constexpr u32 kMaxTicketBytes = 0x1000;  // 0x2A4, one ticket
+    constexpr u32 kMaxCertBytes = 0x4000;    // /sys/cert.sys is 0xA00
+    ChannelBootFiles files;
+    files.title_id = title_id;
+    if (ISFS_Initialize() < 0) {
+        error = "the Wii's memory could not be read";
+        return false;
+    }
+    u32 tmd_size = 0;
+    if (ES_GetStoredTMDSize(title_id, &tmd_size) < 0 || tmd_size < 0x1E4 || tmd_size > kMaxTmdBytes) {
+        error = "its TMD could not be read";
+        return false;
+    }
+    AlignedBuffer tmd = aligned(tmd_size);
+    if (!tmd || ES_GetStoredTMD(title_id, reinterpret_cast<signed_blob*>(tmd.get()), tmd_size) < 0) {
+        error = "its TMD could not be read";
+        return false;
+    }
+    files.tmd.assign(tmd.get(), tmd.get() + tmd_size);
+    TmdContents contents;
+    if (!parse_tmd_contents(files.tmd.data(), files.tmd.size(), contents, error)) return false;
+    files.required_ios = contents.required_ios;
+    files.game_id = channel_game_id(channel_code(title_id), contents.maker);
+    if (!running_in_dolphin()) {
+        ImageGame as_image;
+        as_image.id = files.game_id;
+        as_image.required_ios = files.required_ios;
+        for (int slot : image_cios_order(as_image, 0)) {
+            std::string why;
+            if (slot_has_ticket(slot) && d2x_slot_allowed(slot, why)) files.ios_order.push_back(slot);
+        }
+    }
+    if (files.required_ios != 0) files.ios_order.push_back(static_cast<int>(files.required_ios));
+
+    NandAccess access;
+    std::vector<ContentStart> starts;
+    for (const TmdContent& c : contents.contents) {
+        if (c.index == 0 || (c.type & 0x8000) != 0) continue;
+        ContentStart start;
+        start.index = c.index;
+        start.size = c.size;
+        if (read_head(access, nand_content_path(title_id, c.id), kDolHeaderBytes, start.head)) starts.push_back(start);
+    }
+    if (!choose_channel_program(contents, starts, files.program, error)) return false;
+    const TmdContent* program = tmd_content_by_index(contents, files.program.index);
+    if (!program || !read_whole(access, nand_content_path(title_id, program->id), kMaxProgramBytes, files.dol, error))
+        return false;
+    if (files.dol.size() < files.program.dol.image_size()) {
+        error = "its program is shorter than its own header says";
+        return false;
+    }
+    char ticket_path[64];
+    std::snprintf(ticket_path, sizeof ticket_path, "/ticket/%08x/%08x.tik", static_cast<unsigned>(title_id >> 32),
+                  static_cast<unsigned>(title_id & 0xFFFFFFFFu));
+    if (!read_whole(access, ticket_path, kMaxTicketBytes, files.ticket, error)) return false;
+    if (!read_whole(access, "/sys/cert.sys", kMaxCertBytes, files.certs, error)) return false;
+    out = std::move(files);
     return true;
 }
 
