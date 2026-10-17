@@ -3069,20 +3069,49 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
     std::memset(reinterpret_cast<void*>(0x80001000), 0, 0x300);  // libogc's exception stubs, as for a disc
     DCFlushRange(reinterpret_cast<void*>(kMem1Start), 0x3400);
     ICInvalidateRange(reinterpret_cast<void*>(0x80001000), 0x300);
-    configure_video_for_game(code.size() == 4 ? code[3] : 'E');
+    const char region = code.size() == 4 ? code[3] : 'E';
+    configure_video_for_game(region);
+
+    // The game page's extras, in the order a disc game gets them: the
+    // picture and language, the game's settings, the cheats, the online
+    // server. The card stays up for the log and the border note.
+    g_card_live_for_log = card;
+    apply_video(loaded, false);
+    {
+        std::vector<CodeSpan> spans;
+        for (const MemoryRegion& r : loaded)
+            spans.push_back(CodeSpan{reinterpret_cast<std::uint8_t*>(r.address), r.length, r.address});
+        GxReport gx;
+        unsigned changed = 0;
+        if (g_extras.region_video) changed += gx_region_video_fix(region, spans, gx);
+        if (g_extras.region_strings) changed += gx_country_strings(CONF_GetRegion(), region, spans, gx);
+        if (g_extras.rumble_off) changed += gx_rumble_off(spans, gx);
+        if (g_extras.speaker_off) changed += gx_speaker_off(spans, gx);
+        if (g_extras.aspect >= 0) changed += gx_force_aspect(g_extras.aspect == 1, spans, gx);
+        if (debug_off("480p")) logf("Game fixes: debug_off: no 480p fix\n");
+        else if (gx_fix_480p(spans, gx)) ++changed;
+        for (const std::string& note : gx.notes) logf("Game fixes: %s\n", note.c_str());
+        if (changed) {
+            for (const MemoryRegion& r : loaded) {
+                DCFlushRange(reinterpret_cast<void*>(r.address), r.length);
+                ICInvalidateRange(reinterpret_cast<void*>(r.address), r.length);
+            }
+        }
+    }
+    if (!g_extras.cheat_gct.empty()) {
+        std::string why;
+        if (!install_cheats(loaded, {}, {}, why)) logf("Codes are off: %s\n", why.c_str());
+    }
+    if (g_extras.server != WfcServer::Off) ApplyWfc(loaded, g_extras.server, g_extras.wfc_domain, g_extras.game_id, 0);
 
     // Back to RiftWii: the stub in the room a code build's uses (below
-    // 0x80003000, which no game's OS touches), as there is no code handler.
+    // 0x80003000, past the code handler, which no game's OS touches).
     const u64 return_to = debug_off("returnto") ? 0 : return_title();
     apply_return_to(loaded, return_to, kCodeReturnStub);
 
     logf("Wii channels: handing over to %s\n", files.game_id.c_str());
-    LogClose();
+    release_card_and_log();
     settime(secs_to_ticks(static_cast<u64>(std::time(nullptr)) - kWiiEpochOffset));
-    if (card) {
-        fatUnmount("sd:");
-        sd_interface()->shutdown();
-    }
     SYS_ResetSystem(SYS_SHUTDOWN, 0, 0);
     dolboot_system_call_vector();
     reinterpret_cast<void (*)()>(dol.entry)();

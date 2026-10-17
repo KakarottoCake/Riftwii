@@ -17,6 +17,7 @@
 #include <vector>
 
 #include "autorun.hpp"
+#include "banners.hpp"
 #include "di.hpp"
 #include "vsdimage.hpp"
 #include "i18n.hpp"
@@ -93,6 +94,7 @@ void IdentifyDisc(FrontendState& state, void (*progress)(const char*)) {
     std::string error;
     state.use_usb = false;
     state.use_sd = false;
+    state.use_channel = false;
     state.usb_index = 0;
     state.sd_index = 0;
     state.has_compiled = false;
@@ -120,6 +122,7 @@ bool SelectDisc(FrontendState& state, std::string& error) {
     state.compiled = CompiledMod{};
     state.use_usb = false;
     state.use_sd = false;
+    state.use_channel = false;
     state.usb_index = 0;
     state.sd_index = 0;
     if (!ProbeInserted(state.game_id, state.disc_title, error, &state.game_revision, &state.game_disc_number)) {
@@ -159,6 +162,7 @@ bool SelectUsbGame(FrontendState& state, std::size_t index, std::string& error) 
     if (!check_image_game(state.usb_catalog.games[index], error)) return false;
     state.use_usb = true;
     state.use_sd = false;
+    state.use_channel = false;
     state.usb_index = index;
     state.sd_index = 0;
     const UsbGame& g = state.usb_catalog.games[index];
@@ -180,7 +184,7 @@ bool SelectSdGame(FrontendState& state, std::size_t index, std::string& error) {
     state.has_compiled = false; state.compiled = CompiledMod{};
     if (index >= state.sd_catalog.games.size()) { error = "no such SD game"; return false; }
     if (!check_image_game(state.sd_catalog.games[index], error)) return false;
-    state.use_usb = false; state.use_sd = true; state.usb_index = 0; state.sd_index = index;
+    state.use_usb = false; state.use_sd = true; state.use_channel = false; state.usb_index = 0; state.sd_index = index;
     const ImageGame& g = state.sd_catalog.games[index];
     state.launch_warning = rvz_warning(g);
     state.warning_shown = false;
@@ -189,6 +193,34 @@ bool SelectSdGame(FrontendState& state, std::size_t index, std::string& error) {
     if (!state.sd_catalog.cios_note.empty()) state.disc_status += "  [no cIOS: install d2x for SD boot]";
     state.choices_path=std::string(kChoicesDir)+"/"+g.id+".txt";
     error.clear(); return true;
+}
+
+bool SelectChannel(FrontendState& state, std::size_t index, std::string& error) {
+    state.has_compiled = false;
+    state.compiled = CompiledMod{};
+    if (index >= state.channels.size()) {
+        error = "no such channel";
+        return false;
+    }
+    const NandChannel& channel = state.channels[index];
+    if (!channel.playable) {
+        error = tr("This game's data was removed from the Wii, so it can't start.");
+        return false;
+    }
+    state.use_usb = false;
+    state.use_sd = false;
+    state.use_channel = true;
+    state.channel_index = index;
+    state.launch_warning.clear();
+    state.warning_shown = false;
+    state.game_id = channel.game_id;
+    state.disc_title = nand_channel_name(channel, BannerLanguageIndex());
+    state.disc_status = "Wii: " + state.disc_title + "  (" + channel.game_id + ")";
+    state.game_revision = 0;
+    state.game_disc_number = 0;
+    state.choices_path = std::string(kChoicesDir) + "/" + channel.game_id + ".txt";
+    error.clear();
+    return true;
 }
 
 LaunchSource SelectedSource(const FrontendState& state) {

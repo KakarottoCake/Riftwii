@@ -1731,6 +1731,9 @@ msgstr "Todas as configurações voltam a como vêm no RiftWii. As páginas de c
 msgid "Settings reset to the defaults"
 msgstr "Configurações redefinidas"
 
+msgid "Starts the game with the cheats and settings shown here."
+msgstr "Inicia o jogo com os truques e ajustes mostrados aqui."
+
 msgid "Wii channels"
 msgstr "Canais Wii"
 
@@ -1739,9 +1742,6 @@ msgstr "Quais jogos o Início mostra: os de cada unidade e os do próprio Wii, o
 
 msgid "This game's data was removed from the Wii, so it can't start."
 msgstr "Os dados deste jogo foram apagados do Wii, então ele não pode ser iniciado."
-
-msgid "Start this game? RiftWii closes and the Wii starts it, as the Wii Menu does."
-msgstr "Iniciar este jogo? O RiftWii fecha e o Wii o inicia, como o Menu Wii faz."
 
 msgid "Popups look like the Wii Menu's message box"
 msgstr "As janelas pop-up parecem a caixa de mensagem do Menu Wii"

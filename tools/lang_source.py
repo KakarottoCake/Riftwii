@@ -1695,10 +1695,10 @@ T = {
     "Every setting back to how RiftWii comes. Games' own pages, favourites, play history and mods are kept.": ("Todos los ajustes vuelven a como vienen en RiftWii. Se conservan las páginas de cada juego, los favoritos, el historial de juego y los mods.", "すべての設定をRiftWiiの初期状態に戻します。各ゲームのページ、お気に入り、プレイ履歴、MODはそのまま残ります。", "Todas as configurações voltam a como vêm no RiftWii. As páginas de cada jogo, os favoritos, o histórico de jogo e os mods são mantidos.", "Tutte le impostazioni tornano come in origine. Le pagine dei singoli giochi, i preferiti, la cronologia di gioco e le mod restano."),
     "Settings reset to the defaults": ("Ajustes restablecidos", "設定を初期状態に戻しました", "Configurações redefinidas", "Impostazioni ripristinate"),
     # Wii channels (WiiWare and Virtual Console)
+    "Starts the game with the cheats and settings shown here.": ("Inicia el juego con los trucos y ajustes que se ven aquí.", "ここに表示されているチートと設定でゲームを始めます。", "Inicia o jogo com os truques e ajustes mostrados aqui.", "Avvia il gioco con i trucchi e le impostazioni mostrati qui."),
     "Wii channels": ("Canales Wii", "Wiiチャンネル", "Canais Wii", "Canali Wii"),
     "Which games Home lists: every drive's and the Wii's own, or one place's only. With a game on both drives, one copy is enough.": ("Qué juegos muestra el Inicio: los de cada unidad y los de la propia Wii, o solo los de un sitio. Con un juego en ambas unidades, basta una copia.", "ホームに表示するゲーム：すべてのドライブとWii本体のもの、または1か所のものだけ。両方のドライブにあるゲームは1つで十分です。", "Quais jogos o Início mostra: os de cada unidade e os do próprio Wii, ou só os de um lugar. Com um jogo nas duas unidades, basta uma cópia.", "Quali giochi mostra la Home: quelli di ogni unità e quelli della Wii stessa, o solo quelli di un posto. Con un gioco su entrambe le unità, basta una copia."),
     "This game's data was removed from the Wii, so it can't start.": ("Los datos de este juego se borraron de la Wii, así que no puede iniciarse.", "このゲームのデータはWiiから削除されているため、起動できません。", "Os dados deste jogo foram apagados do Wii, então ele não pode ser iniciado.", "I dati di questo gioco sono stati cancellati dalla Wii, quindi non può partire."),
-    "Start this game? RiftWii closes and the Wii starts it, as the Wii Menu does.": ("¿Iniciar este juego? RiftWii se cierra y la Wii lo inicia, como desde el Menú Wii.", "このゲームを始めますか？RiftWiiを終了し、Wiiメニューと同じようにWiiがゲームを起動します。", "Iniciar este jogo? O RiftWii fecha e o Wii o inicia, como o Menu Wii faz.", "Avviare questo gioco? RiftWii si chiude e la Wii lo avvia, come fa il Menu Wii."),
     # What's new in the release after 2610-421
     "Popups look like the Wii Menu's message box": ("Las ventanas emergentes se parecen al cuadro de mensajes del Menú Wii", "ポップアップがWiiメニューのメッセージ画面のようになりました", "As janelas pop-up parecem a caixa de mensagem do Menu Wii", "I popup somigliano al riquadro dei messaggi del Menu Wii"),
     "Channels: empty places match the channel icons": ("Canales: los huecos vacíos coinciden con los iconos de los canales", "チャンネル：空きの枠がチャンネルのアイコンとそろいました", "Canais: os espaços vazios combinam com os ícones dos canais", "Canali: gli spazi vuoti corrispondono alle icone dei canali"),
@@ -2959,12 +2959,12 @@ KO = {
         "설정을 기본값으로 초기화했습니다",
     "This game's data was removed from the Wii, so it can't start.":
         "이 게임의 데이터가 Wii에서 삭제되어 시작할 수 없습니다.",
+    "Starts the game with the cheats and settings shown here.":
+        "여기 보이는 치트와 설정으로 게임을 시작합니다.",
     "Wii channels":
         "Wii 채널",
     "Which games Home lists: every drive's and the Wii's own, or one place's only. With a game on both drives, one copy is enough.":
         "홈에 표시할 게임: 모든 드라이브와 Wii 본체의 게임, 또는 한 곳의 게임만. 두 드라이브에 같은 게임이 있으면 하나면 충분합니다.",
-    "Start this game? RiftWii closes and the Wii starts it, as the Wii Menu does.":
-        "이 게임을 시작할까요? RiftWii가 닫히고 Wii 메뉴처럼 Wii가 게임을 시작합니다.",
     "Popups look like the Wii Menu's message box":
         "팝업이 Wii 메뉴의 메시지 상자처럼 보입니다",
     "Channels: empty places match the channel icons":
@@ -4318,12 +4318,12 @@ FR = {
         "Paramètres réinitialisés",
     "This game's data was removed from the Wii, so it can't start.":
         "Les données de ce jeu ont été effacées de la Wii, il ne peut donc pas démarrer.",
+    "Starts the game with the cheats and settings shown here.":
+        "Lance le jeu avec les codes de triche et les réglages affichés ici.",
     "Wii channels":
         "Chaînes Wii",
     "Which games Home lists: every drive's and the Wii's own, or one place's only. With a game on both drives, one copy is enough.":
         "Les jeux qu'affiche l'Accueil : ceux de chaque support et ceux de la Wii elle-même, ou ceux d'un seul endroit. Avec un jeu sur les deux supports, une copie suffit.",
-    "Start this game? RiftWii closes and the Wii starts it, as the Wii Menu does.":
-        "Lancer ce jeu ? RiftWii se ferme et la Wii le lance, comme le fait le Menu Wii.",
     "Popups look like the Wii Menu's message box":
         "Les fenêtres ressemblent à la boîte de message du Menu Wii",
     "Channels: empty places match the channel icons":
