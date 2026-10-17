@@ -124,6 +124,37 @@ const TmdContent* tmd_content_by_index(const TmdContents& tmd, std::uint16_t ind
     return nullptr;
 }
 
+bool choose_channel_program(const TmdContents& tmd, const std::vector<ContentStart>& starts, ChannelProgram& out,
+                            std::string& error) {
+    bool found = false;
+    std::uint64_t found_size = 0;
+    ChannelProgram best;
+    for (const ContentStart& start : starts) {
+        const TmdContent* record = tmd_content_by_index(tmd, start.index);
+        const bool shared = record && (record->type & 0x8000) != 0;
+        if (!record || shared || start.index == 0) continue;
+        DolHeader dol;
+        std::string why;
+        if (!parse_dol_header(start.head.data(), start.head.size(), dol, why)) continue;
+        // A header whose sections run past the file is not this file's.
+        if (dol.image_size() > start.size) continue;
+        const bool bigger = !found || start.size > found_size;
+        if (!bigger) continue;
+        found = true;
+        found_size = start.size;
+        best.index = start.index;
+        best.dol = dol;
+    }
+    if (!found) {
+        error = "none of its contents is a DOL RiftWii can load";
+        return false;
+    }
+    best.past_loader = best.index != tmd.boot_index;
+    out = best;
+    error.clear();
+    return true;
+}
+
 std::string nand_content_path(std::uint64_t title_id, std::uint32_t content_id) {
     char path[64];
     std::snprintf(path, sizeof path, "/title/%08x/%08x/content/%08x.app", static_cast<unsigned>(title_id >> 32),

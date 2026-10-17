@@ -7,6 +7,8 @@
 #include <string>
 #include <vector>
 
+#include "riftwii/dol.hpp"
+
 // WiiWare and Virtual Console games installed on the Wii: which of the
 // Wii's titles they are, and where their files lie in its memory (the
 // NAND). Plain data, host-tested; wii/storage/nandchannels.cpp lists the
@@ -82,5 +84,34 @@ const TmdContent* tmd_content_by_index(const TmdContents& tmd, std::uint16_t ind
 // A shared content (type bit 0x8000) lives in /shared1 under a name that
 // only /shared1/content.map knows, so this is only for the title's own ones.
 std::string nand_content_path(std::uint64_t title_id, std::uint32_t content_id);
+
+// The first bytes of one of a title's own contents (at least the DOL
+// header's 0x100 when the file is that long), for choose_channel_program.
+struct ContentStart {
+    std::uint16_t index = 0;
+    std::uint64_t size = 0;  // the whole file's
+    std::vector<std::uint8_t> head;
+};
+
+// The program RiftWii loads itself in place of the system: the content
+// whose DOL starts the game, and its header.
+struct ChannelProgram {
+    std::uint16_t index = 0;
+    DolHeader dol;
+    // True when it is not the boot index's content: the boot content was a
+    // smaller DOL, a loader that starts this one.
+    bool past_loader = false;
+};
+
+// Which content to load: the biggest of the title's own contents (not the
+// banner, not a shared one) that is a whole, valid DOL. Many WiiWare games
+// boot a small loader that reads the real program from another content;
+// loading the biggest DOL skips the loader and starts the game itself, so
+// RiftWii's patches go into the code that runs. Virtual Console games boot
+// their emulator, and their other contents are archives, not DOLs. False
+// when no content is a DOL (a compressed program, say), with `error`
+// saying so: the system then starts the title as the Wii Menu does.
+bool choose_channel_program(const TmdContents& tmd, const std::vector<ContentStart>& starts, ChannelProgram& out,
+                            std::string& error);
 
 }  // namespace riftwii
