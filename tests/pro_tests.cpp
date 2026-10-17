@@ -3,7 +3,7 @@
 // The Wii U Pro Controller translator (runtime/rtpro.h): links followed
 // from HCI events, the reporting mode asked for, the extension ID, the
 // calibration reads, the acknowledgements and the data reports rebuilt as
-// a Classic Controller Pro's; what a Pro cannot take (the Wii Remote's
+// a Classic Controller's; what a Pro cannot take (the Wii Remote's
 // memory, IR camera and speaker) sent as something it can and answered as
 // a Wii Remote would; the extension's encryption, with made-up lookup
 // tables (a game's own are never in the repository).
@@ -106,7 +106,10 @@ void test_extension_id() {
     std::uint32_t what = 0;
     In(st, reply, &what);
     EXPECT_TRUE(what & RTPRO_CHANGED);
-    const std::uint8_t want[6] = {0x01, 0x00, 0xA4, 0x20, 0x01, 0x01};
+    // An original Classic Controller's ID, not a Classic Controller Pro's
+    // (01 00 ...): a Mario Kart Wii cheat for the Classic Controller's
+    // buttons did nothing with that one.
+    const std::uint8_t want[6] = {0x00, 0x00, 0xA4, 0x20, 0x01, 0x01};
     for (int i = 0; i < 6; ++i) EXPECT_EQ(reply[15 + i], want[i]);
     EXPECT_EQ(st.pros, 1u);
     // A real Classic Controller's ID is left as it is.

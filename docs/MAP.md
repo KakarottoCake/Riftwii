@@ -283,7 +283,7 @@ shared C parts (`runtime/*.c`) are also built into the host tests.
 | `shot/`, `rtshot.c` | The in-game screenshot blob |
 | `fault/`, `rtfault.c` | The crash blob: the crash record to the NAND; also answers the BCA read |
 | `wlog/`, `rtwlog.h` | The Wii Remote log blob: the game's Bluetooth and Wii Remote debug prints and a trace of its Bluetooth traffic, saved to the NAND at HOME > Wii Menu; it runs the Pro Controller translator |
-| `rtpro.c` | The Wii U Pro Controller translator: the Pro presented to the game as a Wii Remote with a Classic Controller Pro (host-tested in `tests/pro_tests.cpp`) |
+| `rtpro.c` | The Wii U Pro Controller translator: the Pro presented to the game as a Wii Remote with a Classic Controller (host-tested in `tests/pro_tests.cpp`) |
 | `vsd/`, `rtvsd.c` | The virtual SD card blob and the card it answers as |
 
 Each blob directory holds `<name>_entry.S` (a header of offsets the

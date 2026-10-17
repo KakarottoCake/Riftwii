@@ -139,7 +139,8 @@ back as the Pro's:
   buttons, the accelerometer at rest, no IR points, and the extension
   bytes as a Classic Controller's. The sticks are scaled, and the button
   bytes are already in the Classic Controller's bit places.
-- The extension ID reads back as a Classic Controller Pro's. Its
+- The extension ID reads back as an original Classic Controller's
+  (`00 00 A4 20 01 01`, not the Pro's `01 00 ...`). Its
   calibration, and the Wii Remote's accelerometer calibration, read back
   as standard values. Errors on write acknowledgements (the Pro has no IR
   camera or speaker) read back as success.
