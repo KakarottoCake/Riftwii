@@ -371,19 +371,17 @@ function startBoxReveals() {
     }
 }
 
-async function loadLatestReleases() {
-    const stableVersion = document.getElementById("stableVersion");
-    const prereleaseVersion = document.getElementById("prereleaseVersion");
-    const stableLink = document.getElementById("stableReleaseLink");
-    const prereleaseLink = document.getElementById("prereleaseReleaseLink");
+async function loadLatestRelease() {
+    const latestVersion = document.getElementById("latestVersion");
+    const latestLink = document.getElementById("latestReleaseLink");
 
-    if (!stableVersion || !prereleaseVersion || !stableLink || !prereleaseLink) {
+    if (!latestVersion || !latestLink) {
         return;
     }
 
     try {
         const response = await fetch(
-            "https://api.github.com/repos/KakarottoCake/Riftwii/releases",
+            "https://api.github.com/repos/KakarottoCake/Riftwii/releases/latest",
             {
                 headers: {
                     "Accept": "application/vnd.github+json"
@@ -395,48 +393,30 @@ async function loadLatestReleases() {
             throw new Error("GitHub release request failed");
         }
 
-        const releases = await response.json();
+        const release = await response.json();
 
-        const stable = releases.find(
-            (release) => !release.draft && !release.prerelease
-        );
+        latestVersion.textContent =
+            release.name || release.tag_name;
 
-        const prerelease = releases.find(
-            (release) => !release.draft && release.prerelease
-        );
+        latestLink.href =
+            release.html_url;
 
-        if (stable) {
-            stableVersion.textContent = stable.name || stable.tag_name;
-            stableLink.href = stable.html_url;
-            stableLink.textContent = `Get ${stable.tag_name}`;
-        } else {
-            stableVersion.textContent = "No stable release published yet";
-        }
+        latestLink.textContent =
+            `Get ${release.tag_name}`;
 
-        if (prerelease) {
-            prereleaseVersion.textContent =
-                prerelease.name || prerelease.tag_name;
-            prereleaseLink.href = prerelease.html_url;
-            prereleaseLink.textContent = `Get ${prerelease.tag_name}`;
-        } else {
-            prereleaseVersion.textContent = "No prerelease published right now";
-            prereleaseLink.href =
-                "https://github.com/KakarottoCake/Riftwii/releases";
-            prereleaseLink.textContent = "View all releases";
-        }
     } catch (error) {
-        stableVersion.textContent = "Latest stable release";
-        prereleaseVersion.textContent = "Latest prerelease";
+        latestVersion.textContent =
+            "Latest RiftWii release";
 
-        stableLink.href =
+        latestLink.href =
             "https://github.com/KakarottoCake/Riftwii/releases/latest";
 
-        prereleaseLink.href =
-            "https://github.com/KakarottoCake/Riftwii/releases";
+        latestLink.textContent =
+            "Download Latest Release";
     }
 }
 
-loadLatestReleases();
+loadLatestRelease();
 
 
 

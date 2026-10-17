@@ -1344,15 +1344,21 @@ body:not(.loaded) .reveal-box {
 
 .release-grid {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr;
     gap: 18px;
     margin-top: 26px;
+}
+
+.release-grid-single {
+    width: min(620px, 100%);
+    margin-left: auto;
+    margin-right: auto;
 }
 
 .release-card {
     position: relative;
     min-width: 0;
-    padding: 24px;
+    padding: 28px;
     border: 1px solid rgba(127, 205, 255, 0.20);
     border-radius: 18px;
     background:
@@ -1363,19 +1369,13 @@ body:not(.loaded) .reveal-box {
         );
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.05),
+        0 0 28px rgba(75, 218, 255, 0.05),
         0 12px 28px rgba(0, 0, 20, 0.12);
+    text-align: center;
 }
 
-.stable-release {
-    box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.05),
-        0 0 28px rgba(75, 218, 255, 0.05);
-}
-
-.prerelease-release {
-    box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.05),
-        0 0 28px rgba(170, 82, 255, 0.06);
+.latest-release {
+    width: 100%;
 }
 
 .release-type {
@@ -1386,18 +1386,17 @@ body:not(.loaded) .reveal-box {
     letter-spacing: 0.22em;
 }
 
-.prerelease-release .release-type {
-    color: #c18cff;
-}
-
 .release-card h3 {
     margin: 0 0 12px;
     color: #f5fbff;
-    font-size: clamp(1.15rem, 2vw, 1.5rem);
+    font-size: clamp(1.35rem, 2.2vw, 1.7rem);
 }
 
 .release-card p {
-    min-height: 5.2em;
+    min-height: 0;
+    max-width: 520px;
+    margin-left: auto;
+    margin-right: auto;
 }
 
 .release-button {
@@ -1410,12 +1409,8 @@ body:not(.loaded) .reveal-box {
 }
 
 @media (max-width: 760px) {
-    .release-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .release-card p {
-        min-height: 0;
+    .release-grid-single {
+        width: 100%;
     }
 }
 
