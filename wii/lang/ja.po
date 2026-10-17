@@ -1551,9 +1551,6 @@ msgstr "遊ぶ"
 msgid "Play history"
 msgstr "プレイ履歴"
 
-msgid "SD and USB"
-msgstr "SDとUSB"
-
 msgid "Scan the code for the guide."
 msgstr "コードを読み取るとガイドが見られます。"
 
@@ -1607,9 +1604,6 @@ msgstr "RiftWii {1}の新しくなったこと"
 
 msgid "Which USB port is the adapter plugged into?"
 msgstr "アダプターはどのUSBポートにつないでいますか?"
-
-msgid "Which drive's games Home lists. With a game on both, one drive's copy is enough."
-msgstr "ホームにどのドライブのゲームを表示するかです。両方にあるゲームは片方のコピーで足ります。"
 
 msgid "Which port?"
 msgstr "どのポート?"
@@ -1736,6 +1730,12 @@ msgstr "すべての設定をRiftWiiの初期状態に戻します。各ゲー�
 
 msgid "Settings reset to the defaults"
 msgstr "設定を初期状態に戻しました"
+
+msgid "Wii channels"
+msgstr "Wiiチャンネル"
+
+msgid "Which games Home lists: every drive's and the Wii's own, or one place's only. With a game on both drives, one copy is enough."
+msgstr "ホームに表示するゲーム：すべてのドライブとWii本体のもの、または1か所のものだけ。両方のドライブにあるゲームは1つで十分です。"
 
 msgid "This game's data was removed from the Wii, so it can't start."
 msgstr "このゲームのデータはWiiから削除されているため、起動できません。"

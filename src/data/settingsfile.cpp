@@ -86,7 +86,7 @@ void LoaderSettings::parse(const std::string& text) {
         } else if (key == "play_history") {
             if (value == "on" || value == "off") play_history = value;
         } else if (key == "home_source") {
-            if (value == "all" || value == "sd" || value == "usb") home_source = value;
+            if (value == "all" || value == "sd" || value == "usb" || value == "wii") home_source = value;
         } else if (key == "home_sort") {
             if (value == "az" || value == "recent" || value == "most") home_sort = value;
         } else if (key == "home_disc") {

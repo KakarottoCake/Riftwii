@@ -905,6 +905,8 @@ void TestCoverArt() {
     s.parse("home_source = disc\n");
     EXPECT_EQ(s.home_source, "usb");
     EXPECT_TRUE(s.serialize().find("home_source = usb\n") != std::string::npos);
+    s.parse("home_source = wii\n");
+    EXPECT_EQ(s.home_source, "wii");
     s.home_source = "all";
     EXPECT_EQ(s.gc_rumble, "on");
     s.parse("gc_rumble = off\n");

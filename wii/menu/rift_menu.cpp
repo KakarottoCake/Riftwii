@@ -608,7 +608,7 @@ static std::string ReturnToNote()
 }
 static const char* HomeSourceName(const std::string& v)
 {
-	return v == "sd" ? tr("SD card") : v == "usb" ? tr("USB drive") : tr("SD and USB");
+	return v == "sd" ? tr("SD card") : v == "usb" ? tr("USB drive") : v == "wii" ? tr("Wii channels") : tr("All games");
 }
 
 static const char* HomeSortName(const std::string& v)
@@ -827,16 +827,16 @@ static void BuildHome(const FrontendState& state, std::vector<GridItem>& items, 
 	}
 	struct Row { std::string name; HomeEntry entry; std::string id; };
 	std::vector<Row> rows;
-	// Settings > Games from: one drive's games only.
+	// Settings > Games from: everything, or one place's games only (a
+	// drive, or the Wii's own WiiWare and Virtual Console games).
 	const std::string& source = riftwii::wii::Settings().home_source;
-	if (source != "sd")
+	if (source == "all" || source == "usb")
 		for (std::size_t i = 0; i < state.usb_catalog.games.size(); ++i)
 			rows.push_back({GameName(state.usb_catalog.games[i]), {HomeEntry::Kind::Usb, i}, state.usb_catalog.games[i].id});
-	if (source != "usb")
+	if (source == "all" || source == "sd")
 		for (std::size_t i = 0; i < state.sd_catalog.games.size(); ++i)
 			rows.push_back({GameName(state.sd_catalog.games[i]), {HomeEntry::Kind::Sd, i}, state.sd_catalog.games[i].id});
-	// The Wii's own WiiWare and Virtual Console games, with every drive's.
-	if (source == "all")
+	if (source == "all" || source == "wii")
 		for (std::size_t i = 0; i < state.channels.size(); ++i)
 			rows.push_back({ChannelName(state.channels[i]), {HomeEntry::Kind::Channel, i}, state.channels[i].game_id});
 	std::stable_sort(rows.begin(), rows.end(), [](const Row& a, const Row& b) {
@@ -3249,7 +3249,7 @@ static int MenuSource(FrontendState& state)
 		grid.SetItems(&items);
 		grid.Focus(std::min(focus, std::max(0, static_cast<int>(items.size()) - 1)));
 		statusTxt.SetText(HomeStatus(state, items).c_str());
-		emptyNote.SetVisible(state.sd_catalog.games.empty() && state.usb_catalog.games.empty());
+		emptyNote.SetVisible(state.sd_catalog.games.empty() && state.usb_catalog.games.empty() && state.channels.empty());
 	};
 	if (!g_scanned) {
 		ScanDrives(state, statusTxt);  // the GameCube adapter may start from here on
@@ -6931,7 +6931,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			case kShots: return tr("Experimental. In a game, hold 1 and press HOME (GameCube controller: hold L and R, press Down). Pictures go to sd:/riftwii/screenshots when RiftWii next starts. Some games and mods don't work with it.");
 			case kDiscTile: return DiscTileNote();
 			case kPlayHistory: return tr("Counts the games you start from RiftWii, for Recently played, Home order and a game's page. Off: nothing more is counted, and the counts are not shown.");
-			case kHomeSource: return tr("Which drive's games Home lists. With a game on both, one drive's copy is enough.");
+			case kHomeSource: return tr("Which games Home lists: every drive's and the Wii's own, or one place's only. With a game on both drives, one copy is enough.");
 			case kHomeSort: return tr("The order of the games on Home. Last played and Most played put the games you played from RiftWii first, the rest after them A to Z.");
 			case kMusic: return (riftwii::wii::MenuMusicFound() || settings.menu_music != "on") ? tr("Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder.") : tr("Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music.");
 			case kServer: return tr("The online server the game uses in place of Nintendo's, which closed. Custom uses wfc_domain in settings.txt.");
@@ -7065,11 +7065,11 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					rebuild();
 					break;
 				case kHomeSource: {
-					static const char* const kSourceChoices[] = {"all", "sd", "usb"};
+					static const char* const kSourceChoices[] = {"all", "sd", "usb", "wii"};
 					int at = 0;
-					while (at < 3 && settings.home_source != kSourceChoices[at]) ++at;
-					settings.home_source = kSourceChoices[((at % 3) + 3 + direction) % 3];
-					saveAndNote(tr("Which drive's games Home lists. With a game on both, one drive's copy is enough."));
+					while (at < 4 && settings.home_source != kSourceChoices[at]) ++at;
+					settings.home_source = kSourceChoices[((at % 4) + 4 + direction) % 4];
+					saveAndNote(tr("Which games Home lists: every drive's and the Wii's own, or one place's only. With a game on both drives, one copy is enough."));
 					rebuild();
 					break;
 				}
