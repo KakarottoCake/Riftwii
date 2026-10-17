@@ -13,6 +13,7 @@ namespace {
 // offsets below are from the start of the signed blob.
 constexpr std::size_t kTmdIosOffset = 0x184;
 constexpr std::size_t kTmdTitleIdOffset = 0x18C;
+constexpr std::size_t kTmdGroupIdOffset = 0x198;
 constexpr std::size_t kTmdContentCountOffset = 0x1DE;
 constexpr std::size_t kTmdBootIndexOffset = 0x1E0;
 constexpr std::size_t kTmdContentsOffset = 0x1E4;
@@ -90,6 +91,15 @@ bool parse_tmd_contents(const std::uint8_t* tmd, std::size_t size, TmdContents& 
     const std::uint64_t ios = be64(tmd + kTmdIosOffset);
     if ((ios >> 32) == 1 && (ios & 0xFFFFFFFFu) < 256) result.required_ios = static_cast<std::uint32_t>(ios & 0xFF);
     result.boot_index = be16(tmd + kTmdBootIndexOffset);
+    for (int i = 0; i < 2; ++i) {
+        const char c = static_cast<char>(tmd[kTmdGroupIdOffset + i]);
+        const bool ok = (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9');
+        if (!ok) {
+            result.maker.clear();
+            break;
+        }
+        result.maker += c;
+    }
     for (std::uint16_t i = 0; i < count; ++i) {
         const std::uint8_t* record = tmd + kTmdContentsOffset + std::size_t(i) * kTmdContentBytes;
         TmdContent c;
@@ -102,6 +112,10 @@ bool parse_tmd_contents(const std::uint8_t* tmd, std::size_t size, TmdContents& 
     out = std::move(result);
     error.clear();
     return true;
+}
+
+std::string channel_game_id(const std::string& code, const std::string& maker) {
+    return code + (maker.size() == 2 ? maker : std::string("01"));
 }
 
 const TmdContent* tmd_content_by_index(const TmdContents& tmd, std::uint16_t index) {

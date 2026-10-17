@@ -785,9 +785,26 @@ static bool MatchesSearch(const std::string& name, const std::string& id)
 }
 
 struct HomeEntry {
-	enum class Kind { Disc, Usb, Sd } kind;
+	// Channel: a WiiWare or Virtual Console game installed on the Wii
+	// (FrontendState::channels).
+	enum class Kind { Disc, Usb, Sd, Channel } kind;
 	std::size_t index;
 };
+
+static std::string ChannelName(const riftwii::wii::NandChannel& c)
+{
+	return riftwii::wii::nand_channel_name(c, riftwii::wii::BannerLanguageIndex());
+}
+
+// The banner of a Home entry for the Channels view: an image game's from
+// its disc, a channel's from the Wii's memory.
+static bool StoreEntryBanner(const FrontendState& state, const HomeEntry& e, std::string& why)
+{
+	if (e.kind == HomeEntry::Kind::Channel) return riftwii::wii::StoreChannelBanner(state.channels[e.index], why);
+	const riftwii::wii::ImageGame& game = e.kind == HomeEntry::Kind::Usb ? state.usb_catalog.games[e.index]
+		: state.sd_catalog.games[e.index];
+	return riftwii::wii::StoreBanner(game, why);
+}
 
 static std::string GameName(const riftwii::wii::ImageGame& g)
 {
@@ -808,16 +825,20 @@ static void BuildHome(const FrontendState& state, std::vector<GridItem>& items, 
 		items.push_back(disc);
 		entries.push_back({HomeEntry::Kind::Disc, 0});
 	}
-	struct Row { std::string name; HomeEntry entry; const riftwii::wii::ImageGame* game; };
+	struct Row { std::string name; HomeEntry entry; std::string id; };
 	std::vector<Row> rows;
 	// Settings > Games from: one drive's games only.
 	const std::string& source = riftwii::wii::Settings().home_source;
 	if (source != "sd")
 		for (std::size_t i = 0; i < state.usb_catalog.games.size(); ++i)
-			rows.push_back({GameName(state.usb_catalog.games[i]), {HomeEntry::Kind::Usb, i}, &state.usb_catalog.games[i]});
+			rows.push_back({GameName(state.usb_catalog.games[i]), {HomeEntry::Kind::Usb, i}, state.usb_catalog.games[i].id});
 	if (source != "usb")
 		for (std::size_t i = 0; i < state.sd_catalog.games.size(); ++i)
-			rows.push_back({GameName(state.sd_catalog.games[i]), {HomeEntry::Kind::Sd, i}, &state.sd_catalog.games[i]});
+			rows.push_back({GameName(state.sd_catalog.games[i]), {HomeEntry::Kind::Sd, i}, state.sd_catalog.games[i].id});
+	// The Wii's own WiiWare and Virtual Console games, with every drive's.
+	if (source == "all")
+		for (std::size_t i = 0; i < state.channels.size(); ++i)
+			rows.push_back({ChannelName(state.channels[i]), {HomeEntry::Kind::Channel, i}, state.channels[i].game_id});
 	std::stable_sort(rows.begin(), rows.end(), [](const Row& a, const Row& b) {
 		// A leading "The" is not sorted on (The Legend of Zelda under L).
 		const int by = strcasecmp(a.name.c_str() + riftwii::sort_name_start(a.name),
@@ -832,8 +853,8 @@ static void BuildHome(const FrontendState& state, std::vector<GridItem>& items, 
 		const riftwii::PlayHistory& history = riftwii::wii::History();
 		const bool most = order == "most";
 		std::stable_sort(rows.begin(), rows.end(), [&](const Row& a, const Row& b) {
-			const auto* pa = history.find(a.game->id);
-			const auto* pb = history.find(b.game->id);
+			const auto* pa = history.find(a.id);
+			const auto* pb = history.find(b.id);
 			if (!pa || !pb) return pa && !pb;
 			if (most && pa->count != pb->count) return pa->count > pb->count;
 			return pa->last > pb->last;
@@ -843,22 +864,22 @@ static void BuildHome(const FrontendState& state, std::vector<GridItem>& items, 
 		// The games played from RiftWii, the latest first.
 		const riftwii::PlayHistory& history = riftwii::wii::History();
 		rows.erase(std::remove_if(rows.begin(), rows.end(),
-			[&](const Row& r) { return history.find(r.game->id) == nullptr; }), rows.end());
+			[&](const Row& r) { return history.find(r.id) == nullptr; }), rows.end());
 		std::stable_sort(rows.begin(), rows.end(), [&](const Row& a, const Row& b) {
-			return history.find(a.game->id)->last > history.find(b.game->id)->last;
+			return history.find(a.id)->last > history.find(b.id)->last;
 		});
 	}
 	for (const Row& r : rows) {
-		const bool mods = g_packs.has_packs(r.game->id);
-		if (searching && !MatchesSearch(r.name, r.game->id)) continue;
+		const bool mods = g_packs.has_packs(r.id);
+		if (searching && !MatchesSearch(r.name, r.id)) continue;
 		if (!searching && g_filter == Filter::Mods && !mods) continue;
-		if (!searching && g_filter == Filter::Favorites && riftwii::wii::Settings().favorites.count(r.game->id) == 0) continue;
+		if (!searching && g_filter == Filter::Favorites && riftwii::wii::Settings().favorites.count(r.id) == 0) continue;
 		GridItem item;
 		item.title = r.name;
-		item.id = r.game->id;
-		item.badge = r.entry.kind == HomeEntry::Kind::Usb ? "USB" : "SD";
+		item.id = r.id;
+		item.badge = r.entry.kind == HomeEntry::Kind::Usb ? "USB" : r.entry.kind == HomeEntry::Kind::Channel ? "WII" : "SD";
 		item.mods = mods;
-		item.hue = skin::HueFor(r.game->id);
+		item.hue = skin::HueFor(r.id);
 		items.push_back(std::move(item));
 		entries.push_back(r.entry);
 	}
@@ -2048,6 +2069,24 @@ private:
 // 3 Priiloader, 4 power off.
 static int g_leave = 1;
 
+// Start a WiiWare or Virtual Console game installed on the Wii: asked
+// first from a tile, the banner screen's Start being the choice already.
+// True when RiftWii should leave to it (g_leave is set).
+static bool StartChannelChoice(const riftwii::wii::NandChannel& channel, bool startPressed)
+{
+	const std::string name = ChannelName(channel);
+	if (!channel.playable) {
+		ShowPopup(name, tr("This game's data was removed from the Wii, so it can't start."), tr("OK"));
+		return false;
+	}
+	if (!startPressed && ShowPopup(name, tr("Start this game? RiftWii closes and the Wii starts it, as the Wii Menu does."), tr("Start"), tr("Back")) != 0)
+		return false;
+	logf("Wii channels: %s (%s) picked\n", channel.game_id.c_str(), name.c_str());
+	riftwii::wii::SetChannelToStart(channel.title_id);
+	g_leave = riftwii::wii::kLeaveToChannel;
+	return true;
+}
+
 // The HOME Menu, as the Wii's: black bands across the top (its name and
 // Close) and the bottom (the Remotes' batteries), each edged with a fine
 // light line towards the middle, and the screen between them darkened
@@ -2830,6 +2869,10 @@ static void ScanDrives(FrontendState& state, GuiText& status)
 	const bool usb = scan_usb_games(state.usb_catalog, error);
 	HaltGui();
 	riftwii::wii::mem::CheckHeap("after the USB scan");
+	{
+		std::string channels;
+		riftwii::wii::list_nand_channels(state.channels, channels);
+	}
 	// The scan's reads are over: the GameCube adapter may start now, so its
 	// pads can answer the drive popup below (a Wii U has no GameCube ports:
 	// with only an adapter pad, OK could not be pressed).
@@ -3319,10 +3362,8 @@ static int MenuSource(FrontendState& state)
 				const HomeEntry& e = entries[k];
 				if (e.kind == HomeEntry::Kind::Disc || !g_bannersTried.insert(items[k].id).second) continue;
 				if (!riftwii::wii::BannerWanted(items[k].id)) continue;
-				const riftwii::wii::ImageGame& game = e.kind == HomeEntry::Kind::Usb ? state.usb_catalog.games[e.index]
-					: state.sd_catalog.games[e.index];
 				std::string why;
-				if (riftwii::wii::StoreBanner(game, why)) g_bannerAbsent.erase(items[k].id);
+				if (StoreEntryBanner(state, e, why)) g_bannerAbsent.erase(items[k].id);
 				read = true;
 				break;
 			}
@@ -3447,11 +3488,9 @@ static int MenuSource(FrontendState& state)
 					const std::string& id = items[static_cast<std::size_t>(i)].id;
 					if (riftwii::wii::LoadBanner(id, bytes)) return true;
 					if (!riftwii::wii::BannerWanted(id)) return false;
-					const riftwii::wii::ImageGame& game = e.kind == HomeEntry::Kind::Usb ? state.usb_catalog.games[e.index]
-						: state.sd_catalog.games[e.index];
 					std::string why;
 					g_bannersTried.insert(id);
-					if (!riftwii::wii::StoreBanner(game, why)) return false;
+					if (!StoreEntryBanner(state, e, why)) return false;
 					g_bannerAbsent.erase(id);
 					return riftwii::wii::LoadBanner(id, bytes);
 				};
@@ -3482,6 +3521,18 @@ static int MenuSource(FrontendState& state)
 				// opens. Start: the banner itself plays on (g_lingerBanner).
 				if (choice == ChannelChoice::Page) transition::Hold(transition::Kind::Fade);
 				fromChannel = true;
+			}
+			if (entry.kind == HomeEntry::Kind::Channel) {
+				if (StartChannelChoice(state.channels[entry.index], fromChannel)) {
+					menu = MENU_EXIT;
+				} else {
+					if (fromChannel) transition::Begin(transition::Kind::Fade);
+					DropLingerBanner();
+					g_startOnOpen = false;
+					g_reopenBanner.clear();
+				}
+				ResumeGui();
+				continue;
 			}
 			std::string error;
 			statusTxt.SetText(entry.kind == HomeEntry::Kind::Disc ? "Reading the disc..." : "Opening the game...");
@@ -3559,6 +3610,14 @@ static int MenuSource(FrontendState& state)
 					const std::string trial = words + *c;
 					for (const HomeEntry& e : entries) {
 						if (e.kind == HomeEntry::Kind::Disc) continue;
+						if (e.kind == HomeEntry::Kind::Channel) {
+							const riftwii::wii::NandChannel& ch = state.channels[e.index];
+							if (WordsMatch(trial, ChannelName(ch), ch.game_id)) {
+								next += *c;
+								break;
+							}
+							continue;
+						}
 						const riftwii::wii::ImageGame& g = e.kind == HomeEntry::Kind::Usb
 							? state.usb_catalog.games[e.index] : state.sd_catalog.games[e.index];
 						if (WordsMatch(trial, GameName(g), g.id)) {

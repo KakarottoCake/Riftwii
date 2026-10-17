@@ -59,6 +59,9 @@ struct TmdContents {
     std::uint64_t title_id = 0;
     std::uint32_t required_ios = 0;  // 0 when the TMD names no IOS
     std::uint16_t boot_index = 0;    // the content the system starts
+    // The two-letter maker code (the TMD's group ID, "01" for Nintendo),
+    // empty when its bytes are not letters or digits.
+    std::string maker;
     std::vector<TmdContent> contents;
 };
 
@@ -66,6 +69,11 @@ struct TmdContents {
 // in front, as ES_GetStoredTMD returns it). False when it is too small
 // for its own content count.
 bool parse_tmd_contents(const std::uint8_t* tmd, std::size_t size, TmdContents& out, std::string& error);
+
+// The six-character ID RiftWii keys a channel by, as a disc game's is its
+// four-letter code and its maker ("WBME01"): favourites, play history,
+// the stored banner and covers. The code alone gets "01" without a maker.
+std::string channel_game_id(const std::string& code, const std::string& maker);
 
 // The record with `index`, or nullptr.
 const TmdContent* tmd_content_by_index(const TmdContents& tmd, std::uint16_t index);

@@ -15,6 +15,7 @@
 #include <string>
 #include <vector>
 
+#include "nandchannels.hpp"
 #include "menumusic.hpp"
 #include "screenshot.hpp"
 #include "FreeTypeGX.h"
@@ -85,9 +86,23 @@ void StartHomebrewChannelTitle() {
     }
 }
 
+// A WiiWare or Virtual Console game installed on the Wii, started by the
+// system as the Wii Menu starts it. WII_LaunchTitle returns only when it
+// could not; the Wii Menu is then the way out.
+void StartChannel(u64 title) {
+    riftwii::wii::logf("Wii channels: starting %08x-%08x\n", static_cast<unsigned>(title >> 32),
+                       static_cast<unsigned>(title));
+    fatUnmount("sd:");
+    fatUnmount("usb:");
+    if (WII_Initialize() >= 0) WII_LaunchTitle(title);
+    SYS_ResetSystem(SYS_RETURNTOMENU, 0, 0);
+}
+
 // Anywhere but the loader that started RiftWii, which std::exit returns to.
 void LeaveTo(int where) {
-    if (where == 1 && !StartedByHomebrewChannel()) {
+    if (where == riftwii::wii::kLeaveToChannel && riftwii::wii::ChannelToStart() != 0) {
+        StartChannel(riftwii::wii::ChannelToStart());
+    } else if (where == 1 && !StartedByHomebrewChannel()) {
         StartHomebrewChannelTitle();
     } else if (where == 4) {
         // Standby or off, as the Wii's own power setting says; the drives

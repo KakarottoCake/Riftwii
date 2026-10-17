@@ -12,6 +12,7 @@
 
 #include "boot.hpp"
 #include "log.hpp"
+#include "usbcatalog.hpp"
 
 namespace riftwii::wii {
 namespace {
@@ -108,19 +109,27 @@ bool list_nand_channels(std::vector<NandChannel>& out, std::string& status) {
     }
     const u64* titles = reinterpret_cast<const u64*>(ids.get());
     NandAccess access;
-    unsigned unreadable = 0, missing = 0;
+    unsigned unreadable = 0, missing = 0, unlisted = 0;
     for (u32 i = 0; i < count; ++i) {
         NandChannel channel;
         channel.title_id = titles[i];
         channel.kind = classify_channel(channel.title_id);
         if (channel.kind.kind == ChannelKind::None) continue;
         channel.code = channel_code(channel.title_id);
+        // Homebrew forwarders take Shop-like codes too (Nintendont's is
+        // WWND): with GameTDB's title list on the card, only the codes it
+        // knows are games. Without one, the first letter has to do.
+        if (GameTitleListed(channel.code, channel.listed_name) && channel.listed_name.empty()) {
+            ++unlisted;
+            continue;
+        }
         std::string why;
         if (!read_stored_tmd(channel.title_id, channel.tmd, why)) {
             logf("Wii channels: %s left out: %s\n", channel.code.c_str(), why.c_str());
             ++unreadable;
             continue;
         }
+        channel.game_id = channel_game_id(channel.code, channel.tmd.maker);
         const TmdContent* banner = tmd_content_by_index(channel.tmd, 0);
         const TmdContent* program = tmd_content_by_index(channel.tmd, channel.tmd.boot_index);
         if (banner) {
@@ -139,6 +148,7 @@ bool list_nand_channels(std::vector<NandChannel>& out, std::string& status) {
     std::sort(out.begin(), out.end(), [](const NandChannel& a, const NandChannel& b) { return a.code < b.code; });
     status = std::to_string(out.size()) + " WiiWare and Virtual Console game(s) on the Wii";
     if (missing) status += ", " + std::to_string(missing) + " of them with their game data removed (they cannot start)";
+    if (unlisted) status += "; " + std::to_string(unlisted) + " channel(s) GameTDB does not list (homebrew) left out";
     if (unreadable) status += "; " + std::to_string(unreadable) + " unreadable title(s) left out";
     if (access.refused) status += "; the Wii refused to show their files, so they have no names";
     status += ".";
@@ -146,7 +156,47 @@ bool list_nand_channels(std::vector<NandChannel>& out, std::string& status) {
     return true;
 }
 
+bool read_nand_channel_banner(const NandChannel& channel, std::vector<std::uint8_t>& out, std::string& error) {
+    // A banner with its sound is a few hundred KB; past this it is not one.
+    constexpr u32 kMaxBannerBytes = 4u << 20;
+    if (channel.banner_path.empty()) {
+        error = "it has no banner content";
+        return false;
+    }
+    NandAccess access;
+    const s32 fd = access.open(channel.banner_path);
+    if (fd < 0) {
+        error = channel.banner_path + " could not be opened (" + std::to_string(fd) + ")";
+        return false;
+    }
+    static fstats stats ATTRIBUTE_ALIGN(32);
+    const u32 size = ISFS_GetFileStats(fd, &stats) < 0 ? 0 : stats.file_length;
+    if (size == 0 || size > kMaxBannerBytes) {
+        ISFS_Close(fd);
+        error = channel.banner_path + " has no size we can read";
+        return false;
+    }
+    AlignedBuffer buffer = aligned(size);
+    const s32 got = buffer ? ISFS_Read(fd, buffer.get(), size) : -1;
+    ISFS_Close(fd);
+    if (got != static_cast<s32>(size)) {
+        error = channel.banner_path + " read " + std::to_string(got) + " of " + std::to_string(size) + " bytes";
+        return false;
+    }
+    out.assign(buffer.get(), buffer.get() + size);
+    return true;
+}
+
+namespace {
+std::uint64_t g_channel_to_start = 0;
+}  // namespace
+
+void SetChannelToStart(std::uint64_t title_id) { g_channel_to_start = title_id; }
+std::uint64_t ChannelToStart() { return g_channel_to_start; }
+
 std::string nand_channel_name(const NandChannel& channel, int language) {
+    // GameTDB's name first, as for disc games: it is in the menu's language.
+    if (!channel.listed_name.empty()) return channel.listed_name;
     if (language >= 0 && language < kBnrLanguages && !channel.names[language].empty()) return channel.names[language];
     if (!channel.names[kBnrEnglish].empty()) return channel.names[kBnrEnglish];
     for (const std::string& name : channel.names)
