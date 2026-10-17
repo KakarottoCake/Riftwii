@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 
+#include "nandchannels.hpp"
 #include "riftwii/disc.hpp"
 #include "riftwii/dol.hpp"
 #include "riftwii/fst.hpp"
@@ -250,5 +251,14 @@ bool debug_off(const char* what);
 // `options` by value: callers move theirs in (a pack's main.dol and
 // replacements can be megabytes, and the launch needs them only once).
 bool boot_game(const DiscProbe& probe, BootOptions options, std::string& error);
+
+// Starts a WiiWare or Virtual Console game installed on the Wii with
+// RiftWii's own loader, so the game gets Back to RiftWii: reloads the IOS
+// its TMD asks for, has ES run it as its own title (ES_Identify, so its
+// saves are its own), copies its program into memory and jumps to it.
+// Returns only when it did not start, with `error` saying why; the caller
+// then lets the system start the title as the Wii Menu does. Check
+// reload_terminal_failure() first: after that, nothing more may be tried.
+bool boot_channel(ChannelBootFiles files, std::string& error);
 
 }  // namespace riftwii::wii

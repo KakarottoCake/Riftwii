@@ -2520,7 +2520,7 @@ void close_nand_permissions(const char* who) {
 
 // Test switches for a game that only fails on a console: settings.txt
 // "debug_off = bca, fault, dolswitch, 480p, returnto, consoletype, prerun,
-// closepart"
+// closepart, identify"
 // turns those extras off one by one (PMEX Remix's SD files fail under
 // RiftWii on a Wii but not under USB Loader GX with the same cIOS).
 bool debug_off(const char* what) {
@@ -2952,6 +2952,141 @@ bool boot_game(const DiscProbe& probe, BootOptions options, std::string& error) 
         fatInitDefault();  // give the caller its card back so it can log this
     }
     logf("Boot failed: %s\n", error.c_str());
+    return false;
+}
+
+bool boot_channel(ChannelBootFiles files, std::string& error) {
+    const DolHeader& dol = files.program.dol;
+    // Every section goes below this loader, in MEM1: it is copied while
+    // RiftWii still runs from 0x80A00000 up, its heap above that.
+    for (std::size_t i = 0; i < kDolSections; ++i) {
+        const DolSection& s = dol.sections[i];
+        if (!s.used()) continue;
+        if (s.address < kGameStart || s.address >= kMem2Start || overlaps_loader(s.address, s.size)) {
+            char where[64];
+            std::snprintf(where, sizeof where, "its program loads at 0x%08x", static_cast<unsigned>(s.address));
+            error = std::string(where) + ", where RiftWii itself is";
+            return false;
+        }
+    }
+    const std::string code = files.game_id.substr(0, 4);
+    std::string order;
+    for (int ios : files.ios_order) order += (order.empty() ? "IOS" : ", IOS") + std::to_string(ios);
+    logf("Wii channels: %s starts with RiftWii's loader: content %u%s, entry 0x%08x; it asks for IOS%u, tried: %s\n",
+         files.game_id.c_str(), static_cast<unsigned>(files.program.index),
+         files.program.past_loader ? " (past its boot loader)" : "", dol.entry,
+         static_cast<unsigned>(files.required_ios), order.empty() ? "the running one" : order.c_str());
+    if (files.ios_order.empty()) files.ios_order.push_back(IOS_GetVersion());
+
+    // As for a disc game: the Wii Remotes, the log and the card go before
+    // each reload kills their handles; the card comes back after it, for
+    // the log, until the jump.
+    release_wii_remotes();
+    bool card = true;
+    bool identified = false;
+    for (int ios : files.ios_order) {
+        LogClose();
+        fatUnmount("sd:");
+        fatUnmount("usb:");
+        sd_interface()->shutdown();
+        std::string why;
+        const ReloadResult reload = reload_ios(ios, why);
+        if (reload == ReloadResult::Terminal) {
+            error = why;
+            return false;
+        }
+        card = fatMountSimple("sd", sd_interface());
+        if (card) LogReopen();
+        if (reload == ReloadResult::NotInstalled || reload == ReloadResult::Failed) {
+            logf("Wii channels: IOS%d could not be started: %s\n", ios, why.c_str());
+            continue;
+        }
+        // ES runs the game as its own title, as when the system starts it:
+        // its saves (/title/.../data) and its files are its own.
+        u32 key = 0;
+        const s32 result = ES_Identify(reinterpret_cast<const signed_blob*>(files.certs.data()),
+                                       static_cast<u32>(files.certs.size()),
+                                       reinterpret_cast<const signed_blob*>(files.tmd.data()),
+                                       static_cast<u32>(files.tmd.size()),
+                                       reinterpret_cast<const signed_blob*>(files.ticket.data()),
+                                       static_cast<u32>(files.ticket.size()), &key);
+        if (result >= 0) {
+            logf("Wii channels: on IOS%d, ES runs RiftWii as %08x-%08x now\n", IOS_GetVersion(),
+                 static_cast<unsigned>(files.title_id >> 32), static_cast<unsigned>(files.title_id));
+            identified = true;
+            break;
+        }
+        logf("Wii channels: on IOS%d, ES would not run RiftWii as %s (%d)\n", IOS_GetVersion(), files.game_id.c_str(),
+             result);
+    }
+    // Test switch (debug_off = identify): Dolphin's ES, like Nintendo's
+    // IOSes, keeps ES_Identify to the Wii Menu, so the rest of the start
+    // can only be tried there with the game running as RiftWii.
+    if (!identified && debug_off("identify")) {
+        logf("Wii channels: debug_off: started without ES running it as its own title (its saves may not open)\n");
+        identified = true;
+    }
+    if (!identified) {
+        error = "ES would not run it as its own title on any IOS tried";
+        return false;
+    }
+
+    // The program, section by section. Its BSS is cleared by the game's
+    // own start-up code, as on a disc.
+    std::vector<MemoryRegion> loaded;
+    for (std::size_t i = 0; i < kDolSections; ++i) {
+        const DolSection& s = dol.sections[i];
+        if (!s.used()) continue;
+        void* to = reinterpret_cast<void*>(s.address);
+        std::memcpy(to, files.dol.data() + s.offset, s.size);
+        DCFlushRange(to, s.size);
+        ICInvalidateRange(to, s.size);
+        loaded.push_back(MemoryRegion{s.address, s.size});
+    }
+    files.dol.clear();
+    files.dol.shrink_to_fit();
+
+    // Low memory as the system leaves it for a game (as boot_after_unmount
+    // writes it for a disc), with the title's ID in the place of a disc's
+    // and no disc magic, partition or FST.
+    std::memset(reinterpret_cast<void*>(kMem1Start), 0, 0x40);
+    std::memcpy(reinterpret_cast<void*>(kMem1Start), files.game_id.data(), std::min<std::size_t>(files.game_id.size(), 6));
+    store32(0x80000020, 0x0D15EA5E);  // boot magic
+    store32(0x80000024, 1);           // version
+    store32(0x80000028, 0x01800000);  // MEM1 size
+    if (!running_in_dolphin() || mem::TestConsoleTypeAsWii()) store32(0x8000002C, 1 + (read32(0xCC00302C) >> 28));
+    store32(0x800000EC, 0x81800000);  // debug monitor location
+    store32(0x800000F0, 0x01800000);  // simulated memory size
+    store32(0x800000F8, 0x0E7BE2C0);  // bus clock
+    store32(0x800000FC, 0x2B73A840);  // CPU clock
+    // The MEM1 arena runs to the top of MEM1: there is no FST below it.
+    store32(0x80000034, kMem1End);
+    store32(0x80003110, kMem1End);
+    std::memcpy(reinterpret_cast<void*>(0x80003180), code.data(), std::min<std::size_t>(code.size(), 4));
+    store32(0x80003184, 0x80000000);  // where the game id lives
+    store32(0x80003194, 0);
+    store32(0x80003198, 0);
+    std::memset(reinterpret_cast<void*>(0x80001000), 0, 0x300);  // libogc's exception stubs, as for a disc
+    DCFlushRange(reinterpret_cast<void*>(kMem1Start), 0x3400);
+    ICInvalidateRange(reinterpret_cast<void*>(0x80001000), 0x300);
+    configure_video_for_game(code.size() == 4 ? code[3] : 'E');
+
+    // Back to RiftWii: the stub in the room a code build's uses (below
+    // 0x80003000, which no game's OS touches), as there is no code handler.
+    const u64 return_to = debug_off("returnto") ? 0 : return_title();
+    apply_return_to(loaded, return_to, kCodeReturnStub);
+
+    logf("Wii channels: handing over to %s\n", files.game_id.c_str());
+    LogClose();
+    settime(secs_to_ticks(static_cast<u64>(std::time(nullptr)) - kWiiEpochOffset));
+    if (card) {
+        fatUnmount("sd:");
+        sd_interface()->shutdown();
+    }
+    SYS_ResetSystem(SYS_SHUTDOWN, 0, 0);
+    dolboot_system_call_vector();
+    reinterpret_cast<void (*)()>(dol.entry)();
+    error = "the game's entry point returned";
     return false;
 }
 

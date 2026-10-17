@@ -49,6 +49,31 @@ bool read_nand_channel_banner(const NandChannel& channel, std::vector<std::uint8
 // BannerLanguage), then English, then the first one there is, then its code.
 std::string nand_channel_name(const NandChannel& channel, int language);
 
+// What RiftWii needs to start a channel with its own loader (boot.hpp's
+// boot_channel): the program to load, and the title's TMD, ticket and the
+// system's certificates, for ES to run the game as that title (its saves
+// are its own title's).
+struct ChannelBootFiles {
+    std::uint64_t title_id = 0;
+    std::string game_id;
+    std::uint32_t required_ios = 0;
+    // The IOSes to try, in order: ES runs a game as its own title
+    // (ES_Identify) only for the Wii Menu on Nintendo's IOSes, and for
+    // anyone on a d2x cIOS, so the d2x slots image games would take come
+    // first, then the IOS the title asks for. In Dolphin only that one.
+    std::vector<int> ios_order;
+    ChannelProgram program;
+    std::vector<std::uint8_t> dol;  // the program content, whole
+    std::vector<std::uint8_t> tmd;
+    std::vector<std::uint8_t> ticket;
+    std::vector<std::uint8_t> certs;
+};
+
+// Reads them for `title_id`, under the running IOS (opening its NAND
+// permission check as the listing does). False with `error` saying why:
+// the system then starts the title as the Wii Menu does.
+bool read_channel_boot(std::uint64_t title_id, ChannelBootFiles& out, std::string& error);
+
 // The channel the menu is leaving to (wii/main.cpp's ExitApp, leave code
 // kLeaveToChannel): set by the menu when Start is pressed on one.
 constexpr int kLeaveToChannel = 6;

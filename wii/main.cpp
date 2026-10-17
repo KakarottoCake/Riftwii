@@ -15,6 +15,7 @@
 #include <string>
 #include <vector>
 
+#include "boot.hpp"
 #include "nandchannels.hpp"
 #include "menumusic.hpp"
 #include "screenshot.hpp"
@@ -92,6 +93,15 @@ void StartHomebrewChannelTitle() {
 void StartChannel(u64 title) {
     riftwii::wii::logf("Wii channels: starting %08x-%08x\n", static_cast<unsigned>(title >> 32),
                        static_cast<unsigned>(title));
+    std::string error;
+    riftwii::wii::ChannelBootFiles files;
+    if (riftwii::wii::read_channel_boot(title, files, error)) {
+        riftwii::wii::boot_channel(std::move(files), error);  // returns only when it did not start
+        if (riftwii::wii::reload_terminal_failure()) riftwii::wii::halt_after_terminal_reload();
+    }
+    riftwii::wii::logf("Wii channels: RiftWii's loader did not start it (%s); the system starts it as the Wii Menu does\n",
+                       error.c_str());
+    riftwii::wii::LogClose();
     fatUnmount("sd:");
     fatUnmount("usb:");
     if (WII_Initialize() >= 0) WII_LaunchTitle(title);
