@@ -741,6 +741,24 @@ msgstr "3D 커버"
 msgid "Channels"
 msgstr "채널"
 
+msgid "Channel corners"
+msgstr "채널 모서리"
+
+msgid "Square corners"
+msgstr "각진 모서리"
+
+msgid "Slightly round"
+msgstr "살짝 둥근 모서리"
+
+msgid "Round corners"
+msgstr "둥근 모서리"
+
+msgid "Extra round"
+msgstr "더 둥근 모서리"
+
+msgid "How round the corners of the Channels view's tiles are. Theme keeps the theme's own; the others are the same in every theme."
+msgstr "채널 보기에서 타일 모서리가 얼마나 둥근지 정합니다. '테마'는 테마 자체의 모서리를 따르고, 나머지는 모든 테마에서 똑같습니다."
+
 msgid "Grid spacing"
 msgstr "타일 간격"
 

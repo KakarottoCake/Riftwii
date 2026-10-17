@@ -741,6 +741,24 @@ msgstr "3Dパッケージ"
 msgid "Channels"
 msgstr "チャンネル"
 
+msgid "Channel corners"
+msgstr "チャンネルの角"
+
+msgid "Square corners"
+msgstr "四角い角"
+
+msgid "Slightly round"
+msgstr "少し丸い角"
+
+msgid "Round corners"
+msgstr "丸い角"
+
+msgid "Extra round"
+msgstr "もっと丸い角"
+
+msgid "How round the corners of the Channels view's tiles are. Theme keeps the theme's own; the others are the same in every theme."
+msgstr "チャンネル表示のタイルの角の丸さです。「テーマ」はテーマ自体の丸さのままです。ほかはどのテーマでも同じです。"
+
 msgid "Grid spacing"
 msgstr "タイルの間隔"
 

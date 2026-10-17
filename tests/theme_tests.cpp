@@ -504,6 +504,45 @@ static void test_painted_images() {
     EXPECT_TRUE(round_tile.at(8, 8).a < square_tile.at(8, 8).a);
 }
 
+// The channel frames are drawn nine-sliced kChannelFrameCorner in from
+// each edge (wii/menu/skin.cpp's DrawNine): the slices between the corners
+// are stretched to the tile's size, so they must hold straight edges only.
+// Any of the rim's curve, glow or shadow there would be drawn wider than the
+// icon's clip. Checked at every corners value up to the roundest (2: a
+// theme's most, and Settings' Rounder), lit and plain, with and without the
+// card within.
+static void test_channel_frame_slices() {
+    EXPECT_EQ(kChannelFrameMargin, 8);
+    EXPECT_EQ(kChannelFrameCorner, 24);
+    EXPECT_TRUE(kChannelRadius == 6.0f);
+    EXPECT_TRUE(2 * kChannelFrameCorner < 80);
+    const auto same = [](Rgba a, Rgba b) { return a.r == b.r && a.g == b.g && a.b == b.b && a.a == b.a; };
+    const float corner_values[] = {0.0f, 0.5f, 1.0f, 2.0f};
+    for (float corners : corner_values) {
+        Theme theme;
+        theme.corners = corners;
+        for (int kind = 0; kind < 4; ++kind) {
+            const bool over = (kind & 1) != 0, fill = (kind & 2) != 0;
+            Canvas frame(0, 0);
+            paint_channel_frame9(theme, over, fill, frame);
+            EXPECT_EQ(frame.width(), 80);
+            EXPECT_EQ(frame.height(), 80);
+            const int first = kChannelFrameCorner, last = 80 - kChannelFrameCorner;
+            int curved = 0;
+            for (int along = first + 1; along < last; ++along) {
+                for (int across = 0; across < 80; ++across) {
+                    if (!same(frame.at(along, across), frame.at(first, across))) ++curved;  // top and bottom edges
+                    if (!same(frame.at(across, along), frame.at(across, first))) ++curved;  // left and right edges
+                }
+            }
+            if (curved != 0)
+                std::cerr << "corners " << corners << ", kind " << kind << ": " << curved
+                          << " pixels differ in the stretched slices" << std::endl;
+            EXPECT_EQ(curved, 0);
+        }
+    }
+}
+
 int main() {
     test_default_theme();
     test_parse_theme_color();
@@ -513,6 +552,7 @@ int main() {
     test_theme_color_keys();
     test_theme_images();
     test_painted_images();
+    test_channel_frame_slices();
     test_case_insensitivity_and_boolean_formats();
 
     if (g_failures == 0) {

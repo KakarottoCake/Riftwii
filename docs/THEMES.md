@@ -37,7 +37,11 @@ Holds theme information:
 Controls the painted parts' shape:
 
 - `corners`: corner roundness multiplier, from `0` (square corners) to `2`
-  (twice as round). The default is `1`.
+  (twice as round). The default is `1`. A player can override it for the
+  Channels view's tiles alone in Settings > Home > Channel corners (shown
+  while Home is in the Channels view; `channel_corners` in `settings.txt`):
+  `theme` (the default) keeps this value, and `square`, `slight`, `round`
+  and `rounder` use `0`, `0.5`, `1` and `2` in every theme.
 - `gloss`: `yes` or `no`. A shine across the top half of buttons, tiles
   and option boxes. The default is `no`.
 - `bar`: `dip` or `bump`. Home's bottom bar sinks in the middle with the

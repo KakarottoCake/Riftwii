@@ -28,6 +28,7 @@ struct LoaderSettings {
     std::string wfc_server = "off";       // online play: riftwii/wfcpatch.hpp names
     std::string wfc_domain;               // the "custom" server's domain
     std::string home_tiles = "covers";    // Home's tiles: covers, names, shelf or channels
+    std::string channel_corners = "theme";  // theme, square, slight, round, rounder: the Channels view's tiles
     std::string grid_spacing = "normal";  // normal, roomy: Home's grid smaller, with wider gaps at its sides
     std::string page_peek = "on";         // on, off: Channels shows the next and previous pages' nearest columns at its sides
     std::string menu_widescreen = "off";  // auto (the Wii's own 16:9 setting), on, off: the menu kept in shape on a 16:9 TV
@@ -76,5 +77,9 @@ bool parse_cios_choice(const std::string& s, int& slot);
 // The online server a launch uses; Custom without a valid domain is Off.
 WfcServer effective_wfc_server(const GameSettings& game, const LoaderSettings& global);
 constexpr int kFirstGameCios = 248, kLastGameCios = 252;
+// How round the Channels view's tiles are, as a multiple of their corner
+// radius (riftwii/skinpaint.hpp): the theme's own [shape] corners for
+// "theme" (or a value this RiftWii does not know), else the player's choice.
+float channel_corner_scale(const std::string& choice, float theme_corners);
 
 }  // namespace riftwii

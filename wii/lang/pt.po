@@ -741,6 +741,24 @@ msgstr "Capas 3D"
 msgid "Channels"
 msgstr "Canais"
 
+msgid "Channel corners"
+msgstr "Cantos dos canais"
+
+msgid "Square corners"
+msgstr "Cantos retos"
+
+msgid "Slightly round"
+msgstr "Pouco arredondados"
+
+msgid "Round corners"
+msgstr "Cantos redondos"
+
+msgid "Extra round"
+msgstr "Bem arredondados"
+
+msgid "How round the corners of the Channels view's tiles are. Theme keeps the theme's own; the others are the same in every theme."
+msgstr "O quanto os cantos dos blocos na vista Canais são arredondados. Tema mantém os do próprio tema; os outros são iguais em todos os temas."
+
 msgid "Grid spacing"
 msgstr "Espaçamento da grade"
 

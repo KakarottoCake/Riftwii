@@ -741,6 +741,24 @@ msgstr "Portadas 3D"
 msgid "Channels"
 msgstr "Canales"
 
+msgid "Channel corners"
+msgstr "Esquinas de los canales"
+
+msgid "Square corners"
+msgstr "Esquinas rectas"
+
+msgid "Slightly round"
+msgstr "Algo redondeadas"
+
+msgid "Round corners"
+msgstr "Esquinas redondas"
+
+msgid "Extra round"
+msgstr "Muy redondeadas"
+
+msgid "How round the corners of the Channels view's tiles are. Theme keeps the theme's own; the others are the same in every theme."
+msgstr "Lo redondeadas que son las esquinas de los recuadros en la vista Canales. Tema mantiene las del propio tema; las demás son iguales en todos los temas."
+
 msgid "Grid spacing"
 msgstr "Espaciado de la cuadrícula"
 

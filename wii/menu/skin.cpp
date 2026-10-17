@@ -318,14 +318,7 @@ void Init() {
         card9 = Upload(c);
         paint_drop_shadow9(MenuTheme(), c);
         dropShadow9 = Upload(c);
-        paint_channel_frame9(MenuTheme(), false, false, c);
-        channelFrame9 = Upload(c);
-        paint_channel_frame9(MenuTheme(), true, false, c);
-        channelFrameOver9 = Upload(c);
-        paint_channel_frame9(MenuTheme(), false, true, c);
-        channelCard9 = Upload(c);
-        paint_channel_frame9(MenuTheme(), true, true, c);
-        channelCardOver9 = Upload(c);
+        SetChannelCorners(riftwii::wii::Settings().channel_corners);
         paint_label9(MenuTheme(), c);
         label9 = Upload(c);
         paint_capsule9(c);
@@ -384,6 +377,37 @@ void EnsureBackgrounds() {
             w.tried = true;
         }
     }
+}
+
+// The Channels view's corner radius as a multiple of kChannelRadius: set
+// on the menu thread, read by the GUI thread as it clips each icon.
+static volatile float g_channelCorners = 1.0f;
+
+float ChannelCorners() { return g_channelCorners; }
+
+void SetChannelCorners(const std::string& choice) {
+    Theme shaped = MenuTheme();
+    shaped.corners = riftwii::channel_corner_scale(choice, MenuTheme().corners);
+    g_channelCorners = shaped.corners;
+    // Painted again into the same MEM2 (it is never given back), so a
+    // player stepping through the choices costs nothing; the GUI thread may
+    // show one frame half painted.
+    const auto paint = [&](Tex& tex, bool over, bool fill) {
+        Canvas c(0, 0);
+        paint_channel_frame9(shaped, over, fill, c);
+        if (!tex.data) {
+            tex = Upload(c);
+            return;
+        }
+        const std::vector<std::uint8_t> gx = to_gx_rgba8(c);
+        if (c.width() != tex.w || c.height() != tex.h || gx.empty()) return;
+        std::memcpy(tex.data, gx.data(), gx.size());
+        DCFlushRange(tex.data, gx.size());
+    };
+    paint(channelFrame9, false, false);
+    paint(channelFrameOver9, true, false);
+    paint(channelCard9, false, true);
+    paint(channelCardOver9, true, true);
 }
 
 bool BarBump() { return MenuTheme().bar_bump; }

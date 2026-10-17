@@ -596,7 +596,7 @@ bool GuiGameGrid::DrawChannelTile(int index, float x, float y, float scale, bool
     box.clipH = tileH - 2 * border;
     box.clipX = cx - box.clipW / 2;
     box.clipY = cy - box.clipH / 2;
-    box.radius = std::max(0.0f, riftwii::kChannelRadius * riftwii::wii::MenuTheme().corners * scale - border);
+    box.radius = std::max(0.0f, riftwii::kChannelRadius * skin::ChannelCorners() * scale - border);
     // The icon at its own size across the channel's width (a
     // widescreen menu's units stretch it as the Wii Menu does), on
     // whole pixels so each texel is one pixel; lit, it grows with
