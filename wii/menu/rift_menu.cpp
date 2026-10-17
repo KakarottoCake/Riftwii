@@ -6151,6 +6151,16 @@ static void MakeGcCrashCard(const riftwii::wii::ImageGame& game)
 		// before the value.
 		const int room = static_cast<int>(GC_CRASH_VALUE_CELL * candidate - candidate / 2);
 		if (measure("DSISR", size) > room || measure("SRR1", size) > room || measure("R31", size) > room) continue;
+		// The two rows that are not on the grid stay inside the card (its
+		// title-safe width) too: the game and version from the third
+		// column, and "Called from" with four addresses two cells apart.
+		const int third = static_cast<int>(2 * GC_CRASH_COLUMN_CELLS * candidate);
+		const int idLine = third + measure(texts[GC_CRASH_PIECE_GAME], size) + static_cast<int>(2 * candidate) +
+			measure(texts[GC_CRASH_PIECE_VERSION], size);
+		const int called = std::max(measure(texts[GC_CRASH_PIECE_CALLED], size) + static_cast<int>(2 * candidate),
+			static_cast<int>(GC_CRASH_VALUE_CELL * candidate));
+		const int chainLine = called + static_cast<int>(4 * 8 * candidate + 3 * 2 * candidate);
+		if (idLine > static_cast<int>(cardW) || chainLine > static_cast<int>(cardW)) continue;
 		dumpSize = size;
 		cell = candidate;
 	}

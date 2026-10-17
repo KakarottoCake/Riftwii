@@ -39,8 +39,16 @@
 /* The card: 2 bits of coverage a pixel, four pixels a byte, the leftmost
  * in the top bits, centred on the frame. Bands from the top: the header
  * line, the dump (rows of GC_CRASH_ROW_H, filled by the blob from the
- * strip) and the hint (up to two lines). */
-#define GC_CRASH_CARD_W 624u
+ * strip) and the hint (up to two lines).
+ * The card keeps inside a TV's title-safe area, as overscan can hide
+ * about 5% of the picture on each side: on a 640-pixel-wide frame it
+ * leaves 32 pixels at the left and right, and on a 448-line frame (the
+ * shortest a game shows) 24 lines at the top and bottom. The menu sizes
+ * the dump's cells so its four columns fit the card's width, at 4:3 and
+ * at 16:9. */
+#define GC_CRASH_SAFE_W 576u
+#define GC_CRASH_SAFE_H 400u
+#define GC_CRASH_CARD_W GC_CRASH_SAFE_W
 #define GC_CRASH_HEADER_H 36u
 #define GC_CRASH_DUMP_Y 44u
 #define GC_CRASH_ROW_H 20u
@@ -49,6 +57,7 @@
 #define GC_CRASH_HINT_H 44u
 #define GC_CRASH_CARD_H (GC_CRASH_HINT_Y + GC_CRASH_HINT_H)
 #define GC_CRASH_CARD_BYTES (GC_CRASH_CARD_W * GC_CRASH_CARD_H / 4u)
+typedef char gc_crash_card_safe[(GC_CRASH_CARD_H <= GC_CRASH_SAFE_H) ? 1 : -1];
 
 /* The dump's grid: four columns of GC_CRASH_COLUMN_CELLS cells, each a
  * register's name and, GC_CRASH_VALUE_CELL cells in, its eight digits. */
