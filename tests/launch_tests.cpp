@@ -369,6 +369,10 @@ static void test_saves() {
     model.game.rumble = "off";
     model.game.speaker = "off";
     model.game.region_strings = "on";
+    EXPECT_TRUE(model.save().find("gcdiscreads") == std::string::npos);
+    model.game.gc_disc_reads = "drive";
+    EXPECT_TRUE(model.save().find("gccard") == std::string::npos);
+    model.game.gc_card = "shared";
     riftwii::LaunchModel prefs;
     prefs.add("a.xml", "sd:/riivolution/a.xml", kModA, &disc);
     prefs.restore(model.save());
@@ -376,6 +380,103 @@ static void test_saves() {
     EXPECT_EQ(prefs.game.rumble, std::string("off"));
     EXPECT_EQ(prefs.game.speaker, std::string("off"));
     EXPECT_EQ(prefs.game.region_strings, std::string("on"));
+    EXPECT_EQ(prefs.game.gc_disc_reads, std::string("drive"));
+    EXPECT_EQ(prefs.game.gc_card, std::string("shared"));
+    prefs.restore("*riftwii*\tgccard\tbogus\n");
+    EXPECT_EQ(prefs.game.gc_card, std::string("own"));
+    // Fast is the default; one saved as fast before stays fast.
+    {
+        riftwii::LaunchModel fresh;
+        fresh.add("a.xml", "sd:/riivolution/a.xml", kModA, &disc);
+        fresh.restore("");
+        EXPECT_EQ(fresh.game.gc_disc_reads, std::string("fast"));
+        fresh.restore("*riftwii*\tgcdiscreads\tfast\n");
+        EXPECT_EQ(fresh.game.gc_disc_reads, std::string("fast"));
+    }
+    prefs.restore(model.save());
+    // A GameCube game's 480p, 16:9 and language: Settings' and the Wii's
+    // (global, the default) write nothing, a pick and the game's own
+    // round-trip, and anything unknown is global again.
+    {
+        riftwii::LaunchModel gc;
+        EXPECT_EQ(gc.game.gc_progressive, std::string("global"));
+        EXPECT_EQ(gc.game.gc_widescreen, std::string("global"));
+        EXPECT_EQ(gc.game.gc_language, std::string("global"));
+        EXPECT_TRUE(gc.save().find("gcprogressive") == std::string::npos);
+        EXPECT_TRUE(gc.save().find("gcwidescreen") == std::string::npos);
+        EXPECT_TRUE(gc.save().find("gclanguage") == std::string::npos);
+        gc.game.gc_progressive = "480p";
+        gc.game.gc_widescreen = "16:9";
+        gc.game.gc_language = "german";
+        riftwii::LaunchModel back;
+        back.restore(gc.save());
+        EXPECT_EQ(back.game.gc_progressive, std::string("480p"));
+        EXPECT_EQ(back.game.gc_widescreen, std::string("16:9"));
+        EXPECT_EQ(back.game.gc_language, std::string("german"));
+        gc.game.gc_progressive = "game";
+        gc.game.gc_widescreen = "game";
+        gc.game.gc_language = "game";
+        back.restore(gc.save());
+        EXPECT_EQ(back.game.gc_progressive, std::string("game"));
+        EXPECT_EQ(back.game.gc_widescreen, std::string("game"));
+        EXPECT_EQ(back.game.gc_language, std::string("game"));
+        back.restore("*riftwii*\tgcprogressive\t1080p\n*riftwii*\tgcwidescreen\t21:9\n*riftwii*\tgclanguage\tklingon\n");
+        EXPECT_EQ(back.game.gc_progressive, std::string("global"));
+        EXPECT_EQ(back.game.gc_widescreen, std::string("global"));
+        EXPECT_EQ(back.game.gc_language, std::string("global"));
+
+        // Global resolved: 16:9 never (experimental, only when picked);
+        // the Wii's 480p setting, never for a PAL game; Settings'
+        // language, its "console" the Wii's (CONF_LANG_GERMAN is 2).
+        riftwii::GameSettings g;
+        riftwii::GcConsoleSettings console;
+        EXPECT_FALSE(riftwii::gc_widescreen_on(g, console));
+        console.wii_widescreen = true;
+        EXPECT_FALSE(riftwii::gc_widescreen_on(g, console));
+        console.aspect = "16:9";
+        EXPECT_FALSE(riftwii::gc_widescreen_on(g, console));
+        console.wii_widescreen = false;
+        g.gc_widescreen = "game";
+        EXPECT_FALSE(riftwii::gc_widescreen_on(g, console));
+        g.gc_widescreen = "16:9";
+        console.aspect = "4:3";
+        EXPECT_TRUE(riftwii::gc_widescreen_on(g, console));
+
+        EXPECT_FALSE(riftwii::gc_progressive_on(g, "GMSE01", console));
+        console.wii_progressive = true;
+        EXPECT_TRUE(riftwii::gc_progressive_on(g, "GMSE01", console));
+        EXPECT_FALSE(riftwii::gc_progressive_on(g, "GLMP01", console));
+        g.gc_progressive = "game";
+        EXPECT_FALSE(riftwii::gc_progressive_on(g, "GMSE01", console));
+        g.gc_progressive = "480p";
+        console.wii_progressive = false;
+        EXPECT_TRUE(riftwii::gc_progressive_on(g, "GMSJ01", console));
+        EXPECT_FALSE(riftwii::gc_progressive_on(g, "GLMP01", console));
+
+        console.wii_language = 2;
+        EXPECT_EQ(riftwii::gc_language_number(g, console), 1);
+        console.wii_language = 0;  // Japanese: the console's GameCube setting
+        EXPECT_EQ(riftwii::gc_language_number(g, console), -1);
+        console.game_language = "fr";
+        EXPECT_EQ(riftwii::gc_language_number(g, console), 2);
+        console.game_language = "ko";
+        EXPECT_EQ(riftwii::gc_language_number(g, console), -1);
+        g.gc_language = "dutch";
+        EXPECT_EQ(riftwii::gc_language_number(g, console), 5);
+        g.gc_language = "game";
+        console.game_language = "en";
+        EXPECT_EQ(riftwii::gc_language_number(g, console), -1);
+        // The SRAM's numbers: English 0 to Dutch 5.
+        EXPECT_EQ(riftwii::gc_sram_language("english"), 0);
+        EXPECT_EQ(riftwii::gc_sram_language("french"), 2);
+        EXPECT_EQ(riftwii::gc_sram_language("dutch"), 5);
+        EXPECT_EQ(riftwii::gc_sram_language("game"), -1);
+        EXPECT_TRUE(riftwii::gc_pal_game("GLMP01"));
+        EXPECT_TRUE(riftwii::gc_pal_game("GZLD01"));
+        EXPECT_FALSE(riftwii::gc_pal_game("GMSE01"));
+        EXPECT_FALSE(riftwii::gc_pal_game("GMSJ01"));
+        EXPECT_FALSE(riftwii::gc_pal_game("GM"));
+    }
     prefs.restore("*riftwii*\taspect\t21:9\n");
     EXPECT_EQ(prefs.game.aspect, std::string("global"));  // unknown: Settings' choice
     // "Game's own" picked on the page is kept, over Settings' choice.

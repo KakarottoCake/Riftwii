@@ -3,8 +3,10 @@
 // Host tool: a game's opening.bnr from an RVZ (or a loose opening.bnr),
 // what it holds, and its icon and banner drawn as RiftWii draws them
 // (riftwii/brlyt.hpp's quads, rasterised here) for checking the banner
-// code against real games.
-//   bannerdump <game.rvz | opening.bnr> <out dir>
+// code against real games. A GameCube disc's BNR1/BNR2 opening.bnr (or a
+// GameCube .iso) gives the banner RiftWii draws for it in place of an
+// animated one (riftwii/gcbanner.hpp), without the name the menu writes.
+//   bannerdump <game.rvz | game.iso | opening.bnr> <out dir>
 #include <algorithm>
 #include <cstdlib>
 #include <cmath>
@@ -19,6 +21,7 @@
 #include "riftwii/brlan.hpp"
 #include "riftwii/brlyt.hpp"
 #include "riftwii/disc.hpp"
+#include "riftwii/gcbanner.hpp"
 #include "riftwii/pngencode.hpp"
 #include "riftwii/rvz.hpp"
 #include "riftwii/tpl.hpp"
@@ -86,10 +89,19 @@ int wrap(int v, int n, int mode) {
 }
 
 // Draws one layout's quads into a w x h RGBA canvas (layout centre at the
-// canvas centre, y up).
-void rasterise(const Layout& lyt, const std::vector<Texture*>& textures, int W, int H, std::vector<std::uint8_t>& px) {
+// canvas centre, y up). `wide_x` below 1 draws it as a 16:9 menu shows it:
+// stretched across by its inverse, the panes flagged to keep their shape
+// narrowed back first (riftwii/brlyt.hpp's layout_quads).
+void rasterise(const Layout& lyt, const std::vector<Texture*>& textures, int W, int H, std::vector<std::uint8_t>& px,
+               float wide_x = 1.0f) {
     px.assign(static_cast<std::size_t>(W) * H * 4, 0);
-    for (const LytQuad& q : layout_quads(lyt)) {
+    std::vector<LytQuad> quads;
+    LytScratch scratch;
+    layout_quads(lyt, quads, scratch, wide_x);
+    for (LytQuad& q : quads) {
+        for (float& x : q.x) x /= wide_x;
+    }
+    for (const LytQuad& q : quads) {
         const LytMaterial* mat = q.material >= 0 ? &lyt.materials[q.material] : nullptr;
         const Texture* tex = nullptr;
         const Texture* mask_tex = nullptr;
@@ -311,11 +323,46 @@ bool dump_archive(const std::vector<std::uint8_t>& arc, const std::string& kind,
     return true;
 }
 
+// A GameCube banner's picture in RiftWii's own frame, icon and banner.
+bool dump_gc_banner(const std::vector<std::uint8_t>& bnr, const std::string& out_dir) {
+    GcBanner banner;
+    std::string error;
+    if (!parse_gc_banner(bnr.data(), bnr.size(), false, banner, error)) {
+        std::cerr << error << "\n";
+        return false;
+    }
+    std::cout << "GameCube banner (" << banner.texts.size() << " language(s)); name (English): "
+              << gc_banner_name(banner, kBnrEnglish) << "\n";
+    Texture picture{kGcBannerWidth, kGcBannerHeight, banner.rgba};
+    const GcPictureColours colours = gc_picture_colours(banner.rgba);
+    const auto rgb = [](LytColor c) {
+        return std::to_string(c.r) + "," + std::to_string(c.g) + "," + std::to_string(c.b);
+    };
+    std::cout << "Colours: top " << rgb(colours.top) << ", bottom " << rgb(colours.bottom) << ", accent "
+              << (colours.colourful ? rgb(colours.accent) : std::string("none (grey)")) << "\n";
+    // The icon on a 4:3 and on a 16:9 menu's channel, then the full banner.
+    struct View {
+        bool icon;
+        float wide_x;
+        const char* name;
+    };
+    for (const View view : {View{true, 1.0f, "icon_gc"}, View{true, 0.75f, "icon_gc_wide"}, View{false, 1.0f, "banner_gc"}}) {
+        Layout layout = gc_picture_layout(view.icon, colours);
+        gc_picture_fit(layout, view.wide_x);
+        const int W = static_cast<int>(layout.width / view.wide_x + 0.5f), H = static_cast<int>(layout.height);
+        std::vector<std::uint8_t> px, png;
+        rasterise(layout, {&picture}, W, H, px, view.wide_x);
+        encode_png_rgba(px.data(), W, H, png);
+        write_file(out_dir + "/" + view.name + ".png", png);
+    }
+    return true;
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
     if (argc != 3) {
-        std::cerr << "usage: bannerdump <game.rvz | opening.bnr> <out dir>\n";
+        std::cerr << "usage: bannerdump <game.rvz | game.iso | opening.bnr> <out dir>\n";
         return 2;
     }
     const std::string in = argv[1], out_dir = argv[2];
@@ -327,6 +374,13 @@ int main(int argc, char** argv) {
             return 1;
         }
         write_file(out_dir + "/opening.bnr", bnr);
+    } else if (in.size() > 4 && in.substr(in.size() - 4) == ".iso") {
+        StreamSource f(in);
+        if (!f.ok() || !read_gc_disc_file(f, "/opening.bnr", bnr, error)) {
+            std::cerr << in << ": " << error << "\n";
+            return 1;
+        }
+        write_file(out_dir + "/opening.bnr", bnr);
     } else {
         StreamSource f(in);
         bnr.resize(static_cast<std::size_t>(f.size()));
@@ -335,6 +389,7 @@ int main(int argc, char** argv) {
             return 1;
         }
     }
+    if (is_gc_banner(bnr.data(), bnr.size())) return dump_gc_banner(bnr, out_dir) ? 0 : 1;
     OpeningBanner b;
     if (!parse_opening_bnr(bnr.data(), bnr.size(), b, error)) {
         std::cerr << error << "\n";

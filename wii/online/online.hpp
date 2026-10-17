@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "riftwii/cheats.hpp"
+#include "riftwii/http.hpp"
 
 // What RiftWii fetches from the internet when the Wii is online and the
 // "Download names and cheats" setting is on, over plain HTTP
@@ -23,10 +24,13 @@ constexpr const char* kCheatDir = "sd:/riftwii/cheats";
 // Bytes received so far (headers included), called as they come in.
 using HttpProgress = std::function<void(std::size_t received)>;
 
-// One GET (http:// or https://), following up to three redirects. `body` holds at most
-// `max_bytes`.
+// One GET (http:// or https://), following up to three redirects that
+// `redirects` allows (riftwii/http.hpp's HttpRedirects). A redirect it does
+// not allow fails as an answer does ("<host> answered 301 ..."). `body`
+// holds at most `max_bytes`.
 bool HttpGet(const std::string& url, std::vector<std::uint8_t>& body, std::string& error,
-             std::size_t max_bytes = 8u << 20, int timeout_ms = 15000, const HttpProgress& progress = nullptr);
+             std::size_t max_bytes = 8u << 20, int timeout_ms = 15000, const HttpProgress& progress = nullptr,
+             HttpRedirects redirects = HttpRedirects::Follow);
 
 // One POST of `body`, no redirects. True when the server answered at
 // all: `status` and `answer` (its body, at most 64 KiB) are what it said.
@@ -103,11 +107,23 @@ void EnsureMetaAhbAccess();
 // added by hand, values filled in). The archive answers with an empty
 // page for a game it has no cheats for: `error` says so.
 bool DownloadCheats(const std::string& game_id, std::string& error);
+// A GameCube game's animated banner, made by the community and hosted by
+// RiiConnect24, asked for by its full ID and then, for a regional copy of
+// a game (`regional_fallback`, riftwii/gcbanner.hpp's
+// gc_banner_regional_copy), by its first three letters. No redirect is
+// followed: one counts as the server having none. Found: `bytes` holds a
+// banner that passed check_gc_banner_download. None: the server has none,
+// or sent something that is not a whole banner (`error` says which).
+// Failed: the server could not be reached or did not answer in time.
+enum class BannerDownload { Found, None, Failed };
+BannerDownload DownloadGameCubeBanner(const std::string& game_id, bool regional_fallback,
+                                      std::vector<std::uint8_t>& bytes, std::string& error);
 // The placeholders (X, Y...) of cheat `name` in the game's cheat file,
-// with their values when they are filled in. Empty when none.
-std::vector<CheatField> CheatFields(const std::string& game_id, const std::string& name);
+// with their values when they are filled in. Empty when none. `revision`
+// is the disc's, for a file with a section per release.
+std::vector<CheatField> CheatFields(const std::string& game_id, const std::string& name, int revision);
 // Fills them in, in the file (riftwii/cheats.hpp fill_cheat_values).
 bool FillCheatValues(const std::string& game_id, const std::string& name, const std::vector<CheatField>& fields,
-                     std::string& error);
+                     int revision, std::string& error);
 
 }  // namespace riftwii::wii

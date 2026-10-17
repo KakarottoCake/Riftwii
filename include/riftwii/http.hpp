@@ -33,6 +33,16 @@ std::string http_url_for_messages(const std::string& url);
 // same server) goes. Fails when it would leave https for plain http.
 bool http_redirect(const HttpUrl& from, const std::string& location, HttpUrl& to, std::string& error);
 
+// Which redirects a GET follows. Follow: any http_redirect allows (most
+// downloads: GitHub's releases redirect to its file servers). SameHost:
+// only to the same server (host, port and scheme). Never: none; a 3xx is
+// an answer like a 404, for a download that must come from the server
+// asked and from the address asked (a GameCube banner: a redirect to
+// another game's banner would show the wrong game).
+enum class HttpRedirects { Follow, SameHost, Never };
+// Whether `policy` lets a GET go on from `from` to `to`.
+bool http_redirect_allowed(HttpRedirects policy, const HttpUrl& from, const HttpUrl& to);
+
 // The request's bytes: GET, Host, a User-Agent, Connection: close.
 std::string http_get_request(const HttpUrl& url);
 // A POST of `body` (Content-Type `content_type`), body included.

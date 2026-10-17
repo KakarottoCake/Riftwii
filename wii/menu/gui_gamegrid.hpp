@@ -37,8 +37,9 @@ void SetShelfFlying(const std::string& id);
 struct GridItem {
     std::string title;  // the display name, fitted to the tile
     std::string id;     // shown small under the title; the cover's game
-    std::string badge;  // DISC, USB, SD
+    std::string badge;  // DISC, USB, SD, GC (a GameCube game, on the SD card)
     bool mods = false;  // packs exist for this game
+    bool to_build = false;  // a GameCube game still to be made from its patch
     GXColor hue = {90, 90, 100, 255};
 };
 

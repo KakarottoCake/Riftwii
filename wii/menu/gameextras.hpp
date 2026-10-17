@@ -16,8 +16,10 @@ namespace riftwii::wii {
 
 // Reads the game's cheat file. With `download` and the online setting on,
 // a missing file is fetched first. False with `status` saying why there
-// are no cheats (no file, none in the archive, offline...).
-bool LoadGameCheats(const std::string& game_id, bool download, CheatFile& out, std::string& status);
+// are no cheats (no file, none in the archive, offline...). `revision` is
+// the disc header's revision byte: a file with a section per release gives
+// only that release's cheats (riftwii/cheats.hpp).
+bool LoadGameCheats(const std::string& game_id, int revision, bool download, CheatFile& out, std::string& status);
 
 // What the last launch of the game found about its borders (boot.cpp
 // writes sd:/riftwii/choices/<ID>.video): a sentence for the game page,

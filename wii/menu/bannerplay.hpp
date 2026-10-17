@@ -33,10 +33,17 @@ public:
     BannerPlayer& operator=(const BannerPlayer&) = delete;
 
     // `icon`: the Wii Menu's 128x96 tile picture; else the full banner.
-    bool Load(const std::vector<std::uint8_t>& opening_bnr, bool icon, std::string& error);
+    // A GameCube disc's BNR1/BNR2 banner (riftwii/gcbanner.hpp) is drawn as
+    // its picture in RiftWii's own frame; `game_id` says whether its text
+    // is Japanese (Shift-JIS).
+    bool Load(const std::vector<std::uint8_t>& opening_bnr, bool icon, std::string& error,
+              const std::string& game_id = "");
     bool Loaded() const { return loaded_; }
     // The game's name in the Wii's language, as the banner gives it.
     const std::string& Name() const { return name_; }
+    // A GameCube disc's picture: it has no name drawn in it, so whoever
+    // shows the full banner writes Name() under the picture.
+    bool Picture() const { return picture_; }
     // One frame on: the start animation once, then the loop.
     void Step();
     void Restart();
@@ -52,6 +59,8 @@ public:
 
 private:
     bool LoadParts(const std::vector<std::uint8_t>& opening_bnr, bool icon, std::string& error);
+    bool LoadGameCube(const std::vector<std::uint8_t>& bnr, bool icon, bool shift_jis, std::string& error);
+    bool picture_ = false;
     struct Texture {
         GXTexObj obj;
         GXTlutObj tlut;

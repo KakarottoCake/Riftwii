@@ -65,6 +65,16 @@ void test_protected() {
     EXPECT_TRUE(game_needs_most_of_mem2("SMNE01"));
     EXPECT_TRUE(game_needs_most_of_mem2("SMNP01"));
     EXPECT_FALSE(game_needs_most_of_mem2("RMCE01"));
+    // Mario Party 4 in every region keeps its ARAM addresses; Mario Party 5
+    // and Super Mario Sunshine have them raised.
+    EXPECT_TRUE(gc_keeps_aram_addresses("GMPE01"));
+    EXPECT_TRUE(gc_keeps_aram_addresses("GMPP01"));
+    EXPECT_TRUE(gc_keeps_aram_addresses("GMPJ01"));
+    EXPECT_FALSE(gc_keeps_aram_addresses("GP5E01"));
+    EXPECT_FALSE(gc_keeps_aram_addresses("GMSE01"));
+    EXPECT_TRUE(gc_loads_use_queued_heap("GLMP01"));
+    EXPECT_TRUE(gc_loads_use_queued_heap("GLME01"));
+    EXPECT_FALSE(gc_loads_use_queued_heap("GMSE04"));
     EXPECT_FALSE(game_clears_mem1_top("RLIL78"));  // Guitar Hero 2nd Custom
     EXPECT_FALSE(game_clears_mem1_top("SC4E64"));  // LEGO Star Wars III starts
     EXPECT_FALSE(game_clears_mem1_top("R25EWR"));  // LEGO Harry Potter starts

@@ -12,6 +12,7 @@
 #include "autorun.hpp"
 #include "frontend.hpp"
 #include "gameextras.hpp"
+#include "gclaunch.hpp"
 #include "ios_reload.hpp"
 #include "log.hpp"
 #include "memlimits.hpp"
@@ -174,6 +175,22 @@ bool read_launch_lines(const std::string& path, std::vector<std::string>& args) 
 bool launch(const std::vector<std::string>& args, std::string& error) {
     HeadlessLaunch h;
     if (!parse_headless_launch(args, h, error)) return false;
+    // A GameCube game on the SD card goes to RiftWii's own loader.
+    GcImage gc;
+    if ((h.from.empty() || h.from == "sd") && (!h.game.empty() || !h.path.empty()) &&
+        FindGcImage(h.game, h.path, gc)) {
+        if (h.all_packs || !h.code_builds.empty()) {
+            error = "xml=all and code builds are not supported for GameCube games yet";
+            return false;
+        }
+        std::vector<PackageChoices> packs;
+        for (const std::string& x : h.xmls) {
+            PackageChoices p;
+            p.xml_sd_path = x.find_first_of(":/") == std::string::npos ? "sd:/riivolution/" + x : x;
+            packs.push_back(p);
+        }
+        return LaunchGcGame(gc, packs, error);
+    }
     FrontendState state;
     InitializeFrontend(state);
     if (!select_game(h, state, error)) return false;

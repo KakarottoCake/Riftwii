@@ -208,10 +208,12 @@ RvzVerdict check_rvz(const RvzHead& head, std::uint64_t file_bytes) {
                            size_text(kRvzTestedChunk) + ": loading may be slower and may stutter.");
         }
     }
+    // A GameCube disc has no partitions: the whole disc is raw data, read
+    // as it is (RvzDiscSource, and the GameCube blob in game).
     if (head.disc_type == 1) {
-        refuse.push_back("It is a GameCube game; RiftWii plays Wii games.");
+        if (!head.partitions.empty()) refuse.push_back("It is a GameCube disc that claims Wii partitions.");
     } else if (head.disc_type != 2) {
-        refuse.push_back("It is not a Wii disc (disc type " + std::to_string(head.disc_type) + ").");
+        refuse.push_back("It is not a Wii or GameCube disc (disc type " + std::to_string(head.disc_type) + ").");
     } else if (head.partitions.empty()) {
         refuse.push_back("It holds no Wii partitions.");
     }
@@ -531,6 +533,77 @@ bool RvzImage::runtime_table(std::size_t index, RvzRuntimeTable& out, std::strin
         }
     }
     error.clear();
+    return true;
+}
+
+bool RvzImage::disc_runtime_table(RvzRuntimeTable& out, std::string& error) const {
+    out = RvzRuntimeTable{};
+    if (!head_.partitions.empty()) {
+        error = "the image has partitions: its disc is not read as raw data";
+        return false;
+    }
+    const bool zstd = static_cast<RvzMethod>(head_.method) == RvzMethod::Zstd;
+    const std::uint64_t chunk = head_.chunk_size;
+    const std::uint64_t chunks = (head_.iso_size + chunk - 1) / chunk;
+    if (chunks > 0xFFFFFu) {
+        error = "the disc has too many chunks";
+        return false;
+    }
+    out.group_kib = static_cast<std::uint32_t>(chunk / 1024);
+    out.data_kib = static_cast<std::uint32_t>(head_.iso_size / 1024);
+    out.split_kib = out.data_kib;
+    out.lists = 0;  // raw data carries no hash exceptions
+    for (std::uint64_t j = 0; j < chunks; ++j) {
+        const std::uint64_t start = j * chunk;
+        // The raw entry that holds this chunk as one whole group of its own.
+        std::uint32_t group = UINT32_MAX;
+        for (const Raw& r : raw_) {
+            if (start < r.start || start >= r.end) continue;
+            if ((start - r.start) % chunk != 0) break;
+            group = r.group_index + static_cast<std::uint32_t>((start - r.start) / chunk);
+            break;
+        }
+        if (group == UINT32_MAX || group >= groups_.size()) {
+            error = "disc offset " + std::to_string(start) + " is not stored as a whole group";
+            return false;
+        }
+        const Group& g = groups_[group];
+        const std::uint32_t stored = g.size & 0x7FFFFFFFu;
+        if (stored > 0x3FFFFFFFu || g.packed > 0x3FFFFFFFu) {
+            error = "group " + std::to_string(group) + " is too large";
+            return false;
+        }
+        const auto payload = static_cast<std::uint32_t>(std::min<std::uint64_t>(chunk, head_.iso_size - start));
+        std::uint32_t word1 = stored;
+        if (stored != 0 && zstd && (g.size & 0x80000000u) != 0) word1 |= 0x80000000u;
+        if (stored != 0 && g.packed != 0) word1 |= 0x40000000u;
+        const std::uint32_t words[2] = {g.offset4, word1};
+        for (std::uint32_t w : words) {
+            for (int shift = 24; shift >= 0; shift -= 8) out.entries.push_back(static_cast<std::uint8_t>(w >> shift));
+        }
+        out.max_stored = std::max(out.max_stored, stored);
+        if (word1 & 0x80000000u) {
+            out.max_compressed = std::max(out.max_compressed, stored);
+        } else {
+            out.max_raw = std::max(out.max_raw, stored);
+        }
+        if (stored != 0) out.max_body = std::max(out.max_body, g.packed != 0 ? g.packed : payload);
+        ++out.group_count;
+    }
+    out.first_groups = out.group_count;
+    error.clear();
+    return true;
+}
+
+bool RvzDiscSource::open(std::shared_ptr<const ByteSource> file, std::unique_ptr<RvzDiscSource>& out,
+                         std::string& error) {
+    std::unique_ptr<RvzImage> image;
+    if (!RvzImage::open(std::move(file), image, error)) return false;
+    if (!image->head().partitions.empty()) {
+        error = "it is a Wii disc: its game is read from its partitions";
+        return false;
+    }
+    out.reset(new RvzDiscSource(std::move(image)));
     return true;
 }
 

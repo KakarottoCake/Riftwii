@@ -22,12 +22,14 @@
 /* Changed for RiftWii (September and October 2026), under
  * GPL-3.0-or-later: charToWideChar decodes UTF-8 (translations, game names); less memory for the menu;
  * InitFreeType takes a font collection's face and says when it can't read it (the Menu font setting);
- * FontHasChar (the Korean menu needs a font with Hangul).
+ * FontHasChar (the Korean menu needs a font with Hangul); RenderTextCoverage (a GameCube game's crash
+ * screen, drawn without GX: centred or left-aligned, narrowed for 16:9, its widest line measured).
  * Every change is in RiftWii's git history; NOTICE.md lists the origin. */
 
 #include "FreeTypeGX.h"
 
 #include FT_MODULE_H
+#include FT_SIZES_H
 
 #define ALIGN8(x) (((x) + 7) & ~7)
 
@@ -92,6 +94,85 @@ void DeinitFreeType()
 	FT_Done_Memory(ftMemory);
 	ftLibrary = nullptr;
 	ftMemory = nullptr;
+}
+
+// RiftWii: through a size of its own, so the face's size, which the GUI's
+// glyph cache goes on using, is as it was afterwards.
+int RenderTextCoverage(const char* text, FT_UInt pixelSize, uint8_t* out, int width, int height,
+	FT_UInt pixelWidth, bool centred, int* widest)
+{
+	if (widest) *widest = 0;
+	if (!ftFace || !text || !out || width <= 0 || height <= 0) return 0;
+	FT_Size saved = ftFace->size, mine = nullptr;
+	if (FT_New_Size(ftFace, &mine) != 0) return 0;
+	FT_Activate_Size(mine);
+	// A bitmap-only face without this size: nothing drawn rather than
+	// glyphs at some other size overrunning the card.
+	if (FT_Set_Pixel_Sizes(ftFace, pixelWidth, pixelSize) != 0)
+	{
+		FT_Activate_Size(saved);
+		FT_Done_Size(mine);
+		return 0;
+	}
+	// Outlines only, so the glyphs come out as 8-bit coverage and not as a
+	// face's embedded 1-bit bitmaps.
+	const FT_Int32 loadFlags = FT_LOAD_NO_BITMAP | FT_LOAD_TARGET_NORMAL;
+	wchar_t* wide = charToWideChar(text);
+	const auto advance = [loadFlags](wchar_t c) -> int {
+		if (FT_Load_Char(ftFace, (FT_ULong) c, loadFlags) != 0) return 0;
+		return (int) (ftSlot->advance.x >> 6);
+	};
+	const int ascender = (int) (ftFace->size->metrics.ascender >> 6);
+	const int lineHeight = (int) (ftFace->size->metrics.height >> 6);
+	int lines = 0;
+	const wchar_t* at = wide;
+	while (wide && *at && (lines + 1) * lineHeight <= height)
+	{
+		// As many whole words as fit; a word longer than the line alone.
+		const wchar_t* end = at;
+		const wchar_t* lastBreak = nullptr;
+		int used = 0, usedAtBreak = 0;
+		while (*end && *end != L'\n')
+		{
+			const int w = advance(*end);
+			if (used + w > width && end != at) break;
+			used += w;
+			++end;
+			if (*end == L' ') { lastBreak = end; usedAtBreak = used; }
+		}
+		if (*end && *end != L'\n' && lastBreak) { end = lastBreak; used = usedAtBreak; }
+		int pen = centred ? (width - used) / 2 : 0;
+		if (widest && used > *widest) *widest = used;
+		const int baseline = lines * lineHeight + ascender;
+		for (const wchar_t* c = at; c < end; ++c)
+		{
+			if (FT_Load_Char(ftFace, (FT_ULong) *c, FT_LOAD_RENDER | loadFlags) != 0) continue;
+			const FT_Bitmap& bmp = ftSlot->bitmap;
+			// Gray is a byte a pixel; mono (a face with no outlines) a bit.
+			const bool gray = bmp.pixel_mode == FT_PIXEL_MODE_GRAY;
+			const bool mono = bmp.pixel_mode == FT_PIXEL_MODE_MONO;
+			if (!gray && !mono) { pen += (int) (ftSlot->advance.x >> 6); continue; }
+			for (int y = 0; y < (int) bmp.rows; ++y)
+				for (int x = 0; x < (int) bmp.width; ++x)
+				{
+					const int ox = pen + ftSlot->bitmap_left + x, oy = baseline - ftSlot->bitmap_top + y;
+					if (ox < 0 || oy < 0 || ox >= width || oy >= height) continue;
+					const uint8_t* row = bmp.buffer + y * bmp.pitch;
+					const uint8_t v = gray ? row[x] : ((row[x >> 3] & (0x80 >> (x & 7))) ? 255 : 0);
+					if (v > out[oy * width + ox]) out[oy * width + ox] = v;
+				}
+			pen += (int) (ftSlot->advance.x >> 6);
+		}
+		++lines;
+		at = end;
+		while (*at == L' ' || *at == L'\n') ++at;
+	}
+	// Characters left over: the text did not fit in the height.
+	const bool allFit = !wide || !*at;
+	delete[] wide;
+	FT_Activate_Size(saved);
+	FT_Done_Size(mine);
+	return allFit ? lines : -1;
 }
 
 void ChangeFontSize(FT_UInt pixelSize)

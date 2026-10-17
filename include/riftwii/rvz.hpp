@@ -153,6 +153,11 @@ public:
     // Partition `index`'s groups for the in-game runtime. Fails for a
     // layout it cannot describe (segments that are not back to back).
     bool runtime_table(std::size_t index, RvzRuntimeTable& out, std::string& error) const;
+    // The same for a disc read as raw data (a GameCube disc: no
+    // partitions), one entry per chunk of the disc in disc order, for the
+    // GameCube blob (runtime/gc/gc_rvz.h). Fails when a chunk is not one
+    // whole group of a raw data entry, which Dolphin never writes.
+    bool disc_runtime_table(RvzRuntimeTable& out, std::string& error) const;
 
     const std::string& last_error() const { return error_; }
 
@@ -206,6 +211,24 @@ public:
 
 private:
     const RvzImage& image_;
+};
+
+// A GameCube disc from its RVZ, read as its image would be: the disc has
+// no partitions, so all of it is raw data. Owns the image it reads.
+class RvzDiscSource final : public ByteSource {
+public:
+    // Fails for anything RvzImage cannot open, and for a Wii disc.
+    static bool open(std::shared_ptr<const ByteSource> file, std::unique_ptr<RvzDiscSource>& out,
+                     std::string& error);
+    std::uint64_t size() const override { return image_->head().iso_size; }
+    bool read(std::uint64_t offset, std::uint8_t* destination, std::size_t length) const override {
+        return image_->read_raw(offset, destination, length);
+    }
+    const RvzImage& image() const { return *image_; }
+
+private:
+    explicit RvzDiscSource(std::unique_ptr<RvzImage> image) : image_(std::move(image)) {}
+    std::unique_ptr<RvzImage> image_;
 };
 
 // One partition's data, decrypted and without hashes.

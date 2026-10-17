@@ -118,14 +118,75 @@ unsupported.
 | Format | RVZ 0.03 to 1.00 | RVZ newer than 1.00 that says 1.00 readers can read it | WIA; RVZ that needs a newer reader; RVZ before 0.03 |
 | Compression | Zstandard (any level up to 22), none | Zstandard level above 22 | bzip2, LZMA, LZMA2 (too slow on a Wii); unknown methods |
 | Chunk size | 32 to 128 KiB | 256 and 512 KiB | 1 MiB and more (too large to decode during play) |
-| Disc | Wii | | GameCube; no partitions |
+| Disc | Wii, GameCube | | a Wii disc without partitions; a GameCube disc that claims some |
 | File | complete | | shorter or longer than its header says |
 
 The chunk-size limits are provisional until a real Wii is measured. Zstandard's level is not a real limit: decoding costs the same at
 every level (Super Mario Galaxy 2 at levels 5 and 22 decodes at the same
 speed and the file differs by 0.7%), and most RVZs in the wild use 22.
 
+## GameCube games
+
+A GameCube RVZ is the simpler case: no partitions, no encryption, no
+hashes. The whole disc is raw data in groups of one chunk each, stored,
+compressed, or RVZ-packed; GameCube padding comes from the same generator
+as a Wii disc's, seeded by the disc's ID and its offset on the disc, and
+RVZ packing keeps the seed, so the reader only needs the disc offset of
+the group's start.
+
+`sd:/games/<folder>/game.rvz` is listed as a GameCube game, as an ISO is
+(`ScanGcImages`), with its ID, title, cover and the disc's own banner,
+read through `RvzDiscSource` (`OpenGcDisc`). `check_rvz` gives it the same
+verdicts as a Wii game's: the table above. A refused one says why at
+Start; otherwise the first press of Start shows the note every RVZ gets
+(experimental), with the reasons when it plays at the player's risk, as
+for a Wii game. A GameCube RVZ elsewhere (`sd:/wbfs`, the top of `sd:/games`, the USB drive)
+is listed refused, with a pointer to the folder it goes in. Patch-only
+mods (`sd:/riftwii/patches`) are made from ISOs only.
+
+At launch (`wii/launch/gcnative.cpp`) the loader reads boot.bin, bi2.bin,
+the FST and the DOL from the RVZ, writes the group table for the disc to
+`sd:/riftwii/rvz/<ID>.groups` (8 bytes a group, as for Wii games) and
+starts the game with the blob's RVZ build, `riftwii_gc_rvz.bin`: the usual
+blob built with `RT_RVZ`, plus `runtime/gc/gc_rvz.c`, RVZ packing and
+Zstandard. Like the Wii RVZ runtime it is relocated where the loader puts
+it (`riftwii_gc_rvz.rel`), and it takes 50 KB more of MEM1's top than the
+ISO blob (74 KB): a game that keeps its stack there needs its ISO, and the
+launch says so. The plain blob stays position independent.
+
+In game, a read of the image (`GC_RUN_RVZ` runs; a pack's own files still
+come from the card) finds its group, reads the table sector that holds its
+entry, fetches the group's stored bytes in requests of at most 64 KiB,
+decodes them, and copies or unpacks them into the game's buffer. The
+alarm's 64 KB pieces of a read (`gc_read_step`) end where a group does, so
+one turn of the alarm decodes at most one group, and the decoding counts
+in the read's time: with Loading speed set to As on a GameCube the callback waits
+for the drive's time only when that is longer, and with Fast it comes as
+soon as the bytes are there. Two groups are kept decoded, one for the
+game's reads and one for disc audio streaming (`gc_stream_fetch`), so the
+music read ahead does not throw out the group the game reads through.
+The buffers are in MEM2 at `0x91300000` (2 MB set aside, sized from the
+RVZ's own table: about 430 KB with 128 KiB chunks, about 1.6 MB with
+512 KiB ones); a table that needs more is refused at launch. The trace
+records the groups decoded, the time spent and the last error.
+
+Checked: Luigi's Mansion PAL (Rev 1) from Dolphin's own RVZ (Zstandard
+level 19, 128 KiB chunks, 8981 of its 11139 groups RVZ-packed) reads byte
+for byte as the ISO through both `RvzDiscSource` and the blob's reader on
+the host, and plays its title screen in Dolphin; Super Mario Eclipse from
+an RVZ made without packing does too, and Home's Channels view shows both
+games' disc banners read from their RVZs. Not yet checked on a Wii (decode
+time per group on Broadway decides the chunk limits, as for Wii games).
+
 ## Tests
+
+`tests/gcrvz_tests.cpp` writes a synthetic GameCube disc as an RVZ itself
+(groups of zeros, stored, Zstandard frames, and packed padding from odd
+offsets across 0x8000 boundaries; Zstandard and no compression; 32 to
+128 KiB chunks) and reads it back byte for byte through `RvzDiscSource`
+and `runtime/gc/gc_rvz.c`, the file in pieces on a fake card, with the
+failures (past the end, a failed request, a sector outside the pieces, a
+buffer too small).
 
 `tests/rvz_tests.cpp` reads the images in `tests/fixtures/rvz/`, made by
 `tools/rvz/make_test_disc.py` from a disc built from scratch (encrypted

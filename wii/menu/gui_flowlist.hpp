@@ -29,6 +29,12 @@ struct FlowRow {
     bool dim = false;      // greyed and fixed (broken pack, notes, unavailable)
     bool heading = false;  // larger label (a pack)
     bool indent = false;   // under a heading (a pack's options)
+    // A picture at the row's start (a memory card save's icon): room is kept
+    // for it when `icon_column` is set, and `icon` (32x32 GX RGB5A3 tiles,
+    // 32-byte aligned, kept by the caller while the list shows it) is drawn
+    // there when it is not null. A save with no icon keeps its place blank.
+    bool icon_column = false;
+    const unsigned char* icon = nullptr;
 };
 
 class GuiFlowList : public GuiElement {

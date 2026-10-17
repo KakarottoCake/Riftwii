@@ -17,6 +17,12 @@
 //               (RiftWii's choice; Gecko OS hook type 1)
 //   AudioFrame  the end of AXNextFrame, once per audio frame (hook type
 //               7, which Project+ builds ask for in gameconfig.txt)
+//   GcRetrace   the end of a GameCube game's video retrace handler
+//               (__VIRetraceHandler), whose SDK builds lack Retrace's
+//               words: it is found by its check of the second display
+//               interrupt (lis r3,0xCC00; lhzu r4,0x2034(r3);
+//               rlwinm. r0,r4,0,16,16; beq), the same in Luigi's Mansion's
+//               2001 SDK and Super Mario Sunshine's 2002 one
 // A second executable the game starts is hooked the same way, by
 // wii/launch/dolswitch_stub.S (find_dol_jumps).
 namespace riftwii {
@@ -26,12 +32,18 @@ constexpr std::uint32_t kCodeHandlerEntry = 0x800018A8;
 constexpr std::uint32_t kCodeListAddress = 0x800022A8;
 constexpr std::uint32_t kCodeListEnd = 0x80003000;
 
-enum class CodeHook { Retrace, AudioFrame };
+enum class CodeHook { Retrace, AudioFrame, GcRetrace };
 
 // The address of the `blr` to replace, or 0 when no text has the pattern.
 std::uint32_t find_code_hook(const std::vector<CodeRange>& text, CodeHook hook);
 inline std::uint32_t find_cheat_hook(const std::vector<CodeRange>& text) {
     return find_code_hook(text, CodeHook::Retrace);
+}
+// A GameCube game's: its SDK's retrace handler, else the Wii one's (a late
+// GameCube SDK may already be built like the Wii's).
+inline std::uint32_t find_gc_cheat_hook(const std::vector<CodeRange>& text) {
+    const std::uint32_t gc = find_code_hook(text, CodeHook::GcRetrace);
+    return gc != 0 ? gc : find_code_hook(text, CodeHook::Retrace);
 }
 
 // The `b` from `from` to `to`, or 0 when out of reach.

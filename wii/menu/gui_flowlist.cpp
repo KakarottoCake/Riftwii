@@ -27,6 +27,8 @@ constexpr int kArrow = 34;       // skin::scrollUp/scrollDown
 constexpr int kArrowRepeat = 8;  // frames between rows while an arrow is held
 constexpr int kArrowRoom = 12;   // controls move in this far while the scroll arrows show
 constexpr int kCardArrowRoom = 30;  // cards end this far in, clear of the scroll arrows
+constexpr int kIconSide = 32;       // a row's picture (FlowRow::icon)
+constexpr int kIconRoom = kIconSide + 10;  // what it and the gap after it take from the label
 constexpr int kCardGap = 3;         // above and below each card, inside its row
 constexpr int kCardShadow = 8;      // skin::tile9's margin
 constexpr u32 kWpadA = WPAD_BUTTON_A | WPAD_CLASSIC_BUTTON_A;
@@ -218,7 +220,8 @@ void GuiFlowList::Draw() {
             label[i]->SetFontSize(r.heading ? 20 : note ? 15 : 18);
             label[i]->SetColor(r.dim ? skin::kInkDim : r.indent ? skin::kInkSoft : skin::kInk);
             const int control = ControlWidth(r);
-            label[i]->SetMaxWidth(ControlsRight() - x0 - kPad - (r.indent ? 22 : 0) - (control ? control + kPad : 0));
+            label[i]->SetMaxWidth(ControlsRight() - x0 - kPad - (r.indent ? 22 : 0) - (r.icon_column ? kIconRoom : 0) -
+                                  (control ? control + kPad : 0));
             // GuiText translates what it is given, but an action's value
             // gets the arrow first, and "Rescan  >" is no catalog key: the
             // value is translated here, before the arrow (issue 84). A value
@@ -311,7 +314,11 @@ void GuiFlowList::Draw() {
         }
 
         const int labelH = r.heading ? 20 : (r.kind == FlowRow::Kind::Info && !fact) ? 15 : 18;
-        label[i]->SetPosition(x0 + kPad + (r.indent ? 22 : 0), y + (kRowHeight - labelH) / 2 - 2);
+        const int labelX = x0 + kPad + (r.indent ? 22 : 0);
+        if (r.icon)
+            skin::DrawRgb5a3(r.icon, kIconSide, kIconSide, static_cast<float>(labelX), static_cast<float>(y + (kRowHeight - kIconSide) / 2),
+                             r.dim ? alpha / 2 : alpha);
+        label[i]->SetPosition(labelX + (r.icon_column ? kIconRoom : 0), y + (kRowHeight - labelH) / 2 - 2);
         label[i]->Draw();
 
         const int cy = y + (kRowHeight - kChipH) / 2;  // controls' top

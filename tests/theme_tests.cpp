@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 
+#include "riftwii/inputicons.hpp"
 #include "riftwii/skinpaint.hpp"
 #include "riftwii/theme.hpp"
 
@@ -504,6 +505,31 @@ static void test_painted_images() {
     EXPECT_TRUE(round_tile.at(8, 8).a < square_tile.at(8, 8).a);
 }
 
+// The stick and D-pad pictures RiftWii draws itself (the GameCube controls
+// popup's badges): named like Kenney's, inside the same area as his.
+static void test_drawn_input_icons() {
+    EXPECT_EQ(input_icon_for_button("Stick"), std::string("stick"));
+    EXPECT_EQ(input_icon_for_button("D-pad"), std::string("dpad"));
+    const Rgba ink{10, 20, 30, 255};
+
+    Canvas stick(0, 0);
+    EXPECT_TRUE(paint_input_icon("stick", 32, ink, stick));
+    EXPECT_EQ(stick.width(), 32);
+    EXPECT_EQ(int(stick.at(16, 16).a), 255);  // the stick's top
+    EXPECT_EQ(int(stick.at(24, 16).a), 0);    // the groove round it
+    EXPECT_EQ(int(stick.at(26, 16).a), 255);  // the rim
+    EXPECT_EQ(int(stick.at(0, 0).a), 0);
+    EXPECT_EQ(int(stick.at(31, 16).a), 0);    // Kenney's margin
+    EXPECT_EQ(int(stick.at(16, 16).g), 20);
+
+    Canvas dpad(0, 0);
+    EXPECT_TRUE(paint_input_icon("dpad", 32, ink, dpad));
+    EXPECT_EQ(int(dpad.at(16, 16).a), 0);    // the hole at its middle
+    EXPECT_EQ(int(dpad.at(16, 6).a), 255);   // the up arm
+    EXPECT_EQ(int(dpad.at(26, 15).a), 255);  // the right arm
+    EXPECT_EQ(int(dpad.at(6, 6).a), 0);      // between two arms
+}
+
 int main() {
     test_default_theme();
     test_parse_theme_color();
@@ -513,6 +539,7 @@ int main() {
     test_theme_color_keys();
     test_theme_images();
     test_painted_images();
+    test_drawn_input_icons();
     test_case_insensitivity_and_boolean_formats();
 
     if (g_failures == 0) {

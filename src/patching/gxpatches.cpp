@@ -219,6 +219,16 @@ bool game_runs_no_mem2_code(const std::string& id) { return id_is(id, "RGQ"); }
 // MEM2 than it gets from a disc.
 bool game_needs_most_of_mem2(const std::string& id) { return id_is(id, "SMN"); }
 
+// Mario Party 4 (GMP), every region: its sound manager's ARAM check
+// (gxpatches.hpp), learned from the game's decompilation (marioparty4's
+// src/msm/msmsys.c and src/game/audio.c).
+bool gc_keeps_aram_addresses(const std::string& id) { return id_is(id, "GMP"); }
+
+// Luigi's Mansion (GLM), every region: its loader thread's heap race
+// (gxpatches.hpp), found on a real Wii (an ISI through "JKRT" going upstairs
+// after the key, PAL) and in Dolphin with reads at the SD card's speed.
+bool gc_loads_use_queued_heap(const std::string& id) { return id_is(id, "GLM"); }
+
 // A tester's City Folk from a USB drive ran on a base-58 d2x and took no
 // keyboard (2610-412).
 bool game_uses_usb_keyboard(const std::string& id) { return id_is(id, "RUU") || id_is(id, "RMH"); }

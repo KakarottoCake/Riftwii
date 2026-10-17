@@ -185,6 +185,16 @@ bool http_redirect(const HttpUrl& from, const std::string& location, HttpUrl& to
     return true;
 }
 
+bool http_redirect_allowed(HttpRedirects policy, const HttpUrl& from, const HttpUrl& to) {
+    switch (policy) {
+    case HttpRedirects::Follow: return true;
+    case HttpRedirects::Never: return false;
+    case HttpRedirects::SameHost: break;
+    }
+    // Host names are not case-sensitive; parse_http_url keeps them as written.
+    return lower(from.host) == lower(to.host) && from.port == to.port && from.tls == to.tls;
+}
+
 namespace {
 
 std::string request_head(const char* method, const HttpUrl& url) {

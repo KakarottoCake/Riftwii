@@ -589,6 +589,7 @@ std::string ShelfInfo(const GridItem& item) {
     };
     if (item.badge == "USB") add(tr("USB drive"));
     else if (item.badge == "SD") add(tr("SD card"));
+    else if (item.badge == "GC") add(tr("GameCube"));
     if (item.id.size() >= 4) {
         switch (item.id[3]) {
             case 'E': add(tr("USA")); break;
@@ -606,7 +607,8 @@ std::string ShelfInfo(const GridItem& item) {
                 : count == 1 ? std::string(tr("Played once"))
                              : tr("Played {1} times", {std::to_string(count)}));
     }
-    if (item.mods) add(tr("Mods"));
+    if (item.to_build) add(tr("Not made yet"));
+    else if (item.mods) add(tr("Mods"));
     return out;
 }
 
