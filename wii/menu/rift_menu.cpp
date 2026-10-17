@@ -3523,7 +3523,9 @@ static int MenuSource(FrontendState& state)
 				fromChannel = true;
 			}
 			if (entry.kind == HomeEntry::Kind::Channel) {
-				if (StartChannelChoice(state.channels[entry.index], fromChannel)) {
+				// A channel has no game page yet: the banner screen's
+				// Settings asks to start it, as a tile does; its Start starts it.
+				if (StartChannelChoice(state.channels[entry.index], fromChannel && g_startOnOpen)) {
 					menu = MENU_EXIT;
 				} else {
 					if (fromChannel) transition::Begin(transition::Kind::Fade);
