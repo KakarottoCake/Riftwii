@@ -91,13 +91,16 @@ int GuiTiles::TileAt(int x, int y) const {
 }
 
 // The tile the D-pad goes to from `from`: of those whose middle lies that
-// way, the nearest, where a tile in line with this one (overlapping it
-// across the way of travel) counts as nearer than one off to the side.
+// way, a tile in line with this one (overlapping it across the way of
+// travel) always wins over one off to the side, and the nearest wins within
+// each group. A plain distance score sent Cheats, Right, to Play (wide, on
+// the row above, so its middle is close) instead of to Saves beside it.
 int GuiTiles::Neighbour(int from, int dx, int dy) const {
     const TileSpec& a = (*tiles)[from];
     const float ax = a.x + a.w / 2.0f, ay = a.y + a.h / 2.0f;
     int best = -1;
     float bestScore = 0;
+    bool bestInLine = false;
     for (int i = 0; i < Count(); ++i) {
         if (i == from) continue;
         const TileSpec& b = (*tiles)[i];
@@ -111,9 +114,12 @@ int GuiTiles::Neighbour(int from, int dx, int dy) const {
         // Among tiles in line, the one whose middle is closest across.
         const float centre = dx != 0 ? std::fabs(by - ay) : std::fabs(bx - ax);
         const float score = along + across * 4.0f + centre * 0.25f;
-        if (best < 0 || score < bestScore) {
+        const bool inLine = across == 0.0f;
+        const bool better = best < 0 || (inLine && !bestInLine) || (inLine == bestInLine && score < bestScore);
+        if (better) {
             best = i;
             bestScore = score;
+            bestInLine = inLine;
         }
     }
     return best;
