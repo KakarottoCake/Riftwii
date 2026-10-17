@@ -262,7 +262,7 @@ msgid "720 pixels (full)"
 msgstr "720 pixels (complet)"
 
 msgid "Game's own"
-msgstr "Par défaut du jeu"
+msgstr "Celui du jeu"
 
 msgid "Off (sharp)"
 msgstr "Désactivé (net)"

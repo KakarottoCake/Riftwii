@@ -3338,7 +3338,7 @@ FR = {
     "720 pixels (full)":
         "720 pixels (complet)",
     "Game's own":
-        "Par défaut du jeu",
+        "Celui du jeu",
     "Off (sharp)":
         "Désactivé (net)",
     "Low":
