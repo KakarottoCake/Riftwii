@@ -1693,13 +1693,15 @@ T = {
     "Every setting goes back to how RiftWii comes, and RiftWii restarts. Games' own pages, favourites, play history and mods are kept.": ("Todos los ajustes vuelven a como vienen en RiftWii, y RiftWii se reinicia. Se conservan las páginas de cada juego, los favoritos, el historial de juego y los mods.", "すべての設定がRiftWiiの初期状態に戻り、RiftWiiが再起動します。各ゲームのページ、お気に入り、プレイ履歴、MODはそのまま残ります。", "Todas as configurações voltam a como vêm no RiftWii, e o RiftWii reinicia. As páginas de cada jogo, os favoritos, o histórico de jogo e os mods são mantidos.", "Tutte le impostazioni tornano come in origine e RiftWii si riavvia. Le pagine dei singoli giochi, i preferiti, la cronologia di gioco e le mod restano."),
     "Every setting back to how RiftWii comes. Games' own pages, favourites, play history and mods are kept.": ("Todos los ajustes vuelven a como vienen en RiftWii. Se conservan las páginas de cada juego, los favoritos, el historial de juego y los mods.", "すべての設定をRiftWiiの初期状態に戻します。各ゲームのページ、お気に入り、プレイ履歴、MODはそのまま残ります。", "Todas as configurações voltam a como vêm no RiftWii. As páginas de cada jogo, os favoritos, o histórico de jogo e os mods são mantidos.", "Tutte le impostazioni tornano come in origine. Le pagine dei singoli giochi, i preferiti, la cronologia di gioco e le mod restano."),
     "Settings reset to the defaults": ("Ajustes restablecidos", "設定を初期状態に戻しました", "Configurações redefinidas", "Impostazioni ripristinate"),
+    # What's new in the release after 2610-421
+    "Popups look like the Wii Menu's message box": ("Las ventanas emergentes se parecen al cuadro de mensajes del Menú Wii", "ポップアップがWiiメニューのメッセージ画面のようになりました", "As janelas pop-up parecem a caixa de mensagem do Menu Wii", "I popup somigliano al riquadro dei messaggi del Menu Wii"),
+    "Channels: empty places match the channel icons": ("Canales: los huecos vacíos coinciden con los iconos de los canales", "チャンネル：空きの枠がチャンネルのアイコンとそろいました", "Canais: os espaços vazios combinam com os ícones dos canais", "Canali: gli spazi vuoti corrispondono alle icone dei canali"),
+    "A Wii U's own USB drive is left alone, with no error": ("El disco USB propio de una Wii U se deja tal cual, sin errores", "Wii U本体用のUSBドライブはエラーを出さずにそのままにします", "O disco USB próprio do Wii U é ignorado, sem erros", "L'unità USB propria di una Wii U viene ignorata, senza errori"),
+    "Fixed: Retro Rewind would not start with its separate save on": ("Corregido: Retro Rewind no arrancaba con su partida aparte activada", "修正：Retro Rewindが別セーブをオンにすると起動しなかった問題", "Corrigido: Retro Rewind não iniciava com o save separado ativado", "Corretto: Retro Rewind non partiva con il salvataggio separato attivo"),
+    "Every RiftWii now updates to the latest release": ("Todas las copias de RiftWii se actualizan ahora a la última versión", "すべてのRiftWiiが最新リリースに更新されるようになりました", "Todo RiftWii agora atualiza para a versão mais recente", "Ogni RiftWii ora si aggiorna all'ultima versione"),
     # What's new in 2610-418
     "Code mods ask how to start: with or without RiftWii's extras": ("Los mods de códigos preguntan cómo iniciarse: con o sin los extras de RiftWii", "コードModは起動のしかたを選べます：RiftWiiの追加機能あり・なし", "Os mods de códigos perguntam como iniciar: com ou sem os extras do RiftWii", "I mod di codici chiedono come partire: con o senza gli extra di RiftWii"),
-    "Code mods start on IOS58, as their own launcher does": ("Los mods de códigos se inician en IOS58, como su propio cargador", "コードModはMod自身のローダーと同じくIOS58で起動します", "Os mods de códigos iniciam no IOS58, como o próprio carregador deles", "I mod di codici partono su IOS58, come il loro loader"),
-    "USB keyboard games like City Folk keep their keyboard": ("Los juegos con teclado USB, como City Folk, conservan el teclado", "City Folkなど、USBキーボードを使うゲームでキーボードが使えます", "Jogos com teclado USB, como City Folk, mantêm o teclado", "I giochi con tastiera USB, come City Folk, mantengono la tastiera"),
-    "More memory for games, and a note before big RVZ games": ("Más memoria para los juegos y un aviso antes de los juegos RVZ grandes", "ゲームに使えるメモリを増やし、大きなRVZのゲームの前にお知らせを表示", "Mais memória para os jogos e um aviso antes de jogos RVZ grandes", "Più memoria per i giochi e un avviso prima dei giochi RVZ grandi"),
     "Wii U Pro Controller works in games": ("El Mando Pro de Wii U funciona en los juegos", "Wii U PROコントローラーがゲームで使えます", "O Wii U Pro Controller funciona nos jogos", "Il Wii U Pro Controller funziona nei giochi"),
-    "Fixed: a crash when going back to RiftWii after some games": ("Corregido: un fallo al volver a RiftWii después de algunos juegos", "修正：一部のゲームのあとRiftWiiに戻るときのクラッシュ", "Corrigido: um travamento ao voltar ao RiftWii depois de alguns jogos", "Corretto: un crash tornando a RiftWii dopo alcuni giochi"),
     # Game page: memory for RiftWii's extras
     "Memory for RiftWii's extras": ("Memoria para los extras de RiftWii", "RiftWiiの追加機能が使うメモリ", "Memória para os extras do RiftWii", "Memoria per gli extra di RiftWii"),
     "about {1} KB": ("unos {1} KB", "約{1} KB", "cerca de {1} KB", "circa {1} KB"),
@@ -2948,18 +2950,20 @@ KO = {
         "모든 설정을 RiftWii의 기본값으로 되돌립니다. 게임별 페이지, 즐겨찾기, 플레이 기록, 모드는 그대로 유지됩니다.",
     "Settings reset to the defaults":
         "설정을 기본값으로 초기화했습니다",
+    "Popups look like the Wii Menu's message box":
+        "팝업이 Wii 메뉴의 메시지 상자처럼 보입니다",
+    "Channels: empty places match the channel icons":
+        "채널: 빈 자리가 채널 아이콘과 같은 모양입니다",
+    "A Wii U's own USB drive is left alone, with no error":
+        "Wii U 전용 USB 드라이브는 오류 없이 그대로 둡니다",
+    "Fixed: Retro Rewind would not start with its separate save on":
+        "수정: Retro Rewind가 별도 세이브를 켜면 시작되지 않던 문제",
+    "Every RiftWii now updates to the latest release":
+        "이제 모든 RiftWii가 최신 릴리스로 업데이트됩니다",
     "Code mods ask how to start: with or without RiftWii's extras":
         "코드 모드 시작 방법 선택: RiftWii 추가 기능 사용 또는 없이",
-    "Code mods start on IOS58, as their own launcher does":
-        "코드 모드는 자체 로더처럼 IOS58에서 시작",
-    "USB keyboard games like City Folk keep their keyboard":
-        "City Folk 같은 USB 키보드 게임에서 키보드 사용 가능",
-    "More memory for games, and a note before big RVZ games":
-        "게임용 메모리 증가, 큰 RVZ 게임 전에 안내 표시",
     "Wii U Pro Controller works in games":
         "게임에서 Wii U PRO 컨트롤러 사용 가능",
-    "Fixed: a crash when going back to RiftWii after some games":
-        "수정: 일부 게임 후 RiftWii로 돌아갈 때의 충돌",
     "Memory for RiftWii's extras":
         "RiftWii 추가 기능이 쓰는 메모리",
     "about {1} KB":
@@ -4297,18 +4301,20 @@ FR = {
         "Tous les paramètres reviennent à ceux d'origine. Les pages des jeux, les favoris, l'historique de jeu et les mods sont conservés.",
     "Settings reset to the defaults":
         "Paramètres réinitialisés",
+    "Popups look like the Wii Menu's message box":
+        "Les fenêtres ressemblent à la boîte de message du Menu Wii",
+    "Channels: empty places match the channel icons":
+        "Chaînes : les emplacements vides ont la forme des icônes de chaîne",
+    "A Wii U's own USB drive is left alone, with no error":
+        "Le disque USB propre à une Wii U est ignoré, sans erreur",
+    "Fixed: Retro Rewind would not start with its separate save on":
+        "Corrigé : Retro Rewind ne démarrait pas avec sa sauvegarde séparée activée",
+    "Every RiftWii now updates to the latest release":
+        "Chaque RiftWii se met maintenant à jour vers la dernière version",
     "Code mods ask how to start: with or without RiftWii's extras":
         "Les mods de code demandent comment démarrer : avec ou sans les extras de RiftWii",
-    "Code mods start on IOS58, as their own launcher does":
-        "Les mods de code démarrent sur l'IOS58, comme leur propre chargeur",
-    "USB keyboard games like City Folk keep their keyboard":
-        "Les jeux à clavier USB comme City Folk gardent leur clavier",
-    "More memory for games, and a note before big RVZ games":
-        "Plus de mémoire pour les jeux, et un avis avant les gros jeux RVZ",
     "Wii U Pro Controller works in games":
         "La manette Wii U Pro fonctionne dans les jeux",
-    "Fixed: a crash when going back to RiftWii after some games":
-        "Corrigé : un plantage au retour vers RiftWii après certains jeux",
     "Memory for RiftWii's extras":
         "Mémoire pour les extras de RiftWii",
     "about {1} KB":

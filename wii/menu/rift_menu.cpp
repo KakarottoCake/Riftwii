@@ -2613,12 +2613,13 @@ static std::string DiscTileNote()
 // holds seven lines), for the release script to keep up to date. Shown
 // once when they change; Settings > What's new shows them again.
 static const char* const kWhatsNew[] = {
-	"Code mods ask how to start: with or without RiftWii's extras",
-	"Code mods start on IOS58, as their own launcher does",
-	"USB keyboard games like City Folk keep their keyboard",
-	"More memory for games, and a note before big RVZ games",
+	"Popups look like the Wii Menu's message box",
+	"Channels: empty places match the channel icons",
+	"A Wii U's own USB drive is left alone, with no error",
+	"Fixed: Retro Rewind would not start with its separate save on",
+	"Every RiftWii now updates to the latest release",
 	"Wii U Pro Controller works in games",
-	"Fixed: a crash when going back to RiftWii after some games",
+	"Code mods ask how to start: with or without RiftWii's extras",
 };
 
 static std::string WhatsNewText()

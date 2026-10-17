@@ -1728,23 +1728,26 @@ msgstr "모든 설정을 RiftWii의 기본값으로 되돌립니다. 게임별 �
 msgid "Settings reset to the defaults"
 msgstr "설정을 기본값으로 초기화했습니다"
 
+msgid "Popups look like the Wii Menu's message box"
+msgstr "팝업이 Wii 메뉴의 메시지 상자처럼 보입니다"
+
+msgid "Channels: empty places match the channel icons"
+msgstr "채널: 빈 자리가 채널 아이콘과 같은 모양입니다"
+
+msgid "A Wii U's own USB drive is left alone, with no error"
+msgstr "Wii U 전용 USB 드라이브는 오류 없이 그대로 둡니다"
+
+msgid "Fixed: Retro Rewind would not start with its separate save on"
+msgstr "수정: Retro Rewind가 별도 세이브를 켜면 시작되지 않던 문제"
+
+msgid "Every RiftWii now updates to the latest release"
+msgstr "이제 모든 RiftWii가 최신 릴리스로 업데이트됩니다"
+
 msgid "Code mods ask how to start: with or without RiftWii's extras"
 msgstr "코드 모드 시작 방법 선택: RiftWii 추가 기능 사용 또는 없이"
 
-msgid "Code mods start on IOS58, as their own launcher does"
-msgstr "코드 모드는 자체 로더처럼 IOS58에서 시작"
-
-msgid "USB keyboard games like City Folk keep their keyboard"
-msgstr "City Folk 같은 USB 키보드 게임에서 키보드 사용 가능"
-
-msgid "More memory for games, and a note before big RVZ games"
-msgstr "게임용 메모리 증가, 큰 RVZ 게임 전에 안내 표시"
-
 msgid "Wii U Pro Controller works in games"
 msgstr "게임에서 Wii U PRO 컨트롤러 사용 가능"
-
-msgid "Fixed: a crash when going back to RiftWii after some games"
-msgstr "수정: 일부 게임 후 RiftWii로 돌아갈 때의 충돌"
 
 msgid "Memory for RiftWii's extras"
 msgstr "RiftWii 추가 기능이 쓰는 메모리"

@@ -1728,23 +1728,26 @@ msgstr "Tous les paramètres reviennent à ceux d'origine. Les pages des jeux, l
 msgid "Settings reset to the defaults"
 msgstr "Paramètres réinitialisés"
 
+msgid "Popups look like the Wii Menu's message box"
+msgstr "Les fenêtres ressemblent à la boîte de message du Menu Wii"
+
+msgid "Channels: empty places match the channel icons"
+msgstr "Chaînes : les emplacements vides ont la forme des icônes de chaîne"
+
+msgid "A Wii U's own USB drive is left alone, with no error"
+msgstr "Le disque USB propre à une Wii U est ignoré, sans erreur"
+
+msgid "Fixed: Retro Rewind would not start with its separate save on"
+msgstr "Corrigé : Retro Rewind ne démarrait pas avec sa sauvegarde séparée activée"
+
+msgid "Every RiftWii now updates to the latest release"
+msgstr "Chaque RiftWii se met maintenant à jour vers la dernière version"
+
 msgid "Code mods ask how to start: with or without RiftWii's extras"
 msgstr "Les mods de code demandent comment démarrer : avec ou sans les extras de RiftWii"
 
-msgid "Code mods start on IOS58, as their own launcher does"
-msgstr "Les mods de code démarrent sur l'IOS58, comme leur propre chargeur"
-
-msgid "USB keyboard games like City Folk keep their keyboard"
-msgstr "Les jeux à clavier USB comme City Folk gardent leur clavier"
-
-msgid "More memory for games, and a note before big RVZ games"
-msgstr "Plus de mémoire pour les jeux, et un avis avant les gros jeux RVZ"
-
 msgid "Wii U Pro Controller works in games"
 msgstr "La manette Wii U Pro fonctionne dans les jeux"
-
-msgid "Fixed: a crash when going back to RiftWii after some games"
-msgstr "Corrigé : un plantage au retour vers RiftWii après certains jeux"
 
 msgid "Memory for RiftWii's extras"
 msgstr "Mémoire pour les extras de RiftWii"
