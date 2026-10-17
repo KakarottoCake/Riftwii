@@ -489,22 +489,27 @@ static bool gather_package(const PackageSelection& selection, const DiscProbe& p
     }
     use_misplaced_folders(plan, xml_sd_path, on_usb ? std::string(kUsbPrefix) : std::string(), provider, mod);
 
-    // <savegame>: one folder per launch; a second, different one is an
-    // error rather than a silent choice. `clone` (the default) copies the
-    // NAND save into a folder created at this launch; the runtime does
-    // that as the game, which may read its own data directory.
+    // <savegame>: one folder per launch. When the choices picked give more
+    // than one, the last one picked wins, with its own clone setting: a
+    // pack's optional "separate save" choice comes after the save folder
+    // its base patch sets (Retro Rewind: "Pack" sets RetroWFC, "Seperate
+    // Savegame" RetroWFC2), and refusing the launch stopped players who
+    // switched both on. Dolphin keeps the first; with one savegame, as
+    // most packs have, both agree. `clone` copies the NAND save into a
+    // folder created at this launch; the runtime does that as the game,
+    // which may read its own data directory.
     for (const SavegamePatch& sg : plan.savegames) {
         std::string abs = sg.external;
         if (abs.empty() || abs[0] != '/') abs = "/" + abs;
         while (abs.size() > 1 && abs.back() == '/') abs.pop_back();
         const std::string sd = "sd:" + abs;
         if (!mod.savegame_dir.empty() && mod.savegame_dir != sd) {
-            error = xml_sd_path + ": <savegame external=\"" + sg.external + "\"> after another save folder (" +
-                    mod.savegame_dir + "); one per launch";
-            return false;
+            logf("Mods: %s: save folder %s takes the place of %s (the last one picked is used)\n",
+                 xml_sd_path.c_str(), sd.c_str(), mod.savegame_dir.c_str());
+            mod.notes.push_back("savegame " + mod.savegame_dir + " replaced by a later choice's");
         }
         mod.savegame_dir = sd;
-        if (sg.clone) mod.savegame_clone = true;
+        mod.savegame_clone = sg.clone;
         mod.notes.push_back("savegame redirected to " + sd + (sg.clone ? " (NAND save cloned into a new folder)" : " (no clone)"));
     }
 
