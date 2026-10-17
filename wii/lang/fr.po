@@ -1743,9 +1743,6 @@ msgstr "Corrigé : Retro Rewind ne démarrait pas avec sa sauvegarde séparée a
 msgid "Every RiftWii now updates to the latest release"
 msgstr "Chaque RiftWii se met maintenant à jour vers la dernière version"
 
-msgid "Code mods ask how to start: with or without RiftWii's extras"
-msgstr "Les mods de code demandent comment démarrer : avec ou sans les extras de RiftWii"
-
 msgid "Wii U Pro Controller works in games"
 msgstr "La manette Wii U Pro fonctionne dans les jeux"
 

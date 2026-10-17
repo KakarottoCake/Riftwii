@@ -1700,7 +1700,6 @@ T = {
     "Fixed: Retro Rewind would not start with its separate save on": ("Corregido: Retro Rewind no arrancaba con su partida aparte activada", "修正：Retro Rewindが別セーブをオンにすると起動しなかった問題", "Corrigido: Retro Rewind não iniciava com o save separado ativado", "Corretto: Retro Rewind non partiva con il salvataggio separato attivo"),
     "Every RiftWii now updates to the latest release": ("Todas las copias de RiftWii se actualizan ahora a la última versión", "すべてのRiftWiiが最新リリースに更新されるようになりました", "Todo RiftWii agora atualiza para a versão mais recente", "Ogni RiftWii ora si aggiorna all'ultima versione"),
     # What's new in 2610-418
-    "Code mods ask how to start: with or without RiftWii's extras": ("Los mods de códigos preguntan cómo iniciarse: con o sin los extras de RiftWii", "コードModは起動のしかたを選べます：RiftWiiの追加機能あり・なし", "Os mods de códigos perguntam como iniciar: com ou sem os extras do RiftWii", "I mod di codici chiedono come partire: con o senza gli extra di RiftWii"),
     "Wii U Pro Controller works in games": ("El Mando Pro de Wii U funciona en los juegos", "Wii U PROコントローラーがゲームで使えます", "O Wii U Pro Controller funciona nos jogos", "Il Wii U Pro Controller funziona nei giochi"),
     # Game page: memory for RiftWii's extras
     "Memory for RiftWii's extras": ("Memoria para los extras de RiftWii", "RiftWiiの追加機能が使うメモリ", "Memória para os extras do RiftWii", "Memoria per gli extra di RiftWii"),
@@ -2960,8 +2959,6 @@ KO = {
         "수정: Retro Rewind가 별도 세이브를 켜면 시작되지 않던 문제",
     "Every RiftWii now updates to the latest release":
         "이제 모든 RiftWii가 최신 릴리스로 업데이트됩니다",
-    "Code mods ask how to start: with or without RiftWii's extras":
-        "코드 모드 시작 방법 선택: RiftWii 추가 기능 사용 또는 없이",
     "Wii U Pro Controller works in games":
         "게임에서 Wii U PRO 컨트롤러 사용 가능",
     "Memory for RiftWii's extras":
@@ -4311,8 +4308,6 @@ FR = {
         "Corrigé : Retro Rewind ne démarrait pas avec sa sauvegarde séparée activée",
     "Every RiftWii now updates to the latest release":
         "Chaque RiftWii se met maintenant à jour vers la dernière version",
-    "Code mods ask how to start: with or without RiftWii's extras":
-        "Les mods de code demandent comment démarrer : avec ou sans les extras de RiftWii",
     "Wii U Pro Controller works in games":
         "La manette Wii U Pro fonctionne dans les jeux",
     "Memory for RiftWii's extras":

@@ -1743,9 +1743,6 @@ msgstr "수정: Retro Rewind가 별도 세이브를 켜면 시작되지 않던 �
 msgid "Every RiftWii now updates to the latest release"
 msgstr "이제 모든 RiftWii가 최신 릴리스로 업데이트됩니다"
 
-msgid "Code mods ask how to start: with or without RiftWii's extras"
-msgstr "코드 모드 시작 방법 선택: RiftWii 추가 기능 사용 또는 없이"
-
 msgid "Wii U Pro Controller works in games"
 msgstr "게임에서 Wii U PRO 컨트롤러 사용 가능"
 

@@ -2610,7 +2610,7 @@ static std::string DiscTileNote()
 // A card that has been used before (settings, play history, covers, the
 // channel offer answered) counts as seen: an update does not show it.
 // What's new: this release's main changes, one short line each (the box
-// holds seven lines), for the release script to keep up to date. Shown
+// holds six lines), for the release script to keep up to date. Shown
 // once when they change; Settings > What's new shows them again.
 static const char* const kWhatsNew[] = {
 	"Popups look like the Wii Menu's message box",
@@ -2619,7 +2619,6 @@ static const char* const kWhatsNew[] = {
 	"Fixed: Retro Rewind would not start with its separate save on",
 	"Every RiftWii now updates to the latest release",
 	"Wii U Pro Controller works in games",
-	"Code mods ask how to start: with or without RiftWii's extras",
 };
 
 static std::string WhatsNewText()
