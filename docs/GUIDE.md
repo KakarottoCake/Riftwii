@@ -273,9 +273,11 @@ the tiles.
   Leaving Settings, RiftWii offers to restart its menu to show it (once,
   for the theme and the font together). The choice is
   saved as `theme = <folder>` in `sd:/riftwii/settings.txt`
-  (`theme = default` for the default). The zip comes with two:
-  *Midnight* (dark) and *Bookshelf* (a light wooden bookcase: your covers
-  stand on its shelves, with paper panels). More in [THEMES.md](THEMES.md).
+  (`theme = default` for the default). The zip comes with three:
+  *Midnight* (dark), *Bookshelf* (a light wooden bookcase: your covers
+  stand on its shelves, with paper panels) and *Indigo* (indigo and violet
+  glass on a fine dark grid, gold for what is lit). More in
+  [THEMES.md](THEMES.md).
 - **Clock**: how Home's clock writes the time: *12-hour* (with AM and
   PM), *24-hour*, or *Automatic*, as the menu's language writes it. Saved
   as `clock = auto`, `12` or `24`.
@@ -775,11 +777,11 @@ choice in Settings; a version that had it set to either still updates to
 the newest release.
 
 An update from inside RiftWii also brings the themes that come with it
-(Bookshelf, Midnight) and the channel installer (`apps/riftwii_channel`)
-up to date, the first time the new version starts online. Themes you
-made or downloaded and your `music.ogg` are left alone; changes you made
-to Bookshelf or Midnight themselves are replaced, so copy such a theme
-to a folder of its own name first.
+(Bookshelf, Indigo, Midnight) and the channel installer
+(`apps/riftwii_channel`) up to date, the first time the new version starts
+online. Themes you made or downloaded and your `music.ogg` are left alone;
+changes you made to Bookshelf, Indigo or Midnight themselves are replaced,
+so copy such a theme to a folder of its own name first.
 
 An update is installed only when its download matches the SHA-256
 GitHub gives for it. While the new RiftWii is being put in place, the

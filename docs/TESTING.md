@@ -71,8 +71,9 @@ For things that worked, a short "works" with the game, where it ran from
   you use.
 - [ ] **Aspect ratio** (Settings): 16:9 and 4:3 menus, on a Wii U's TV
   and a Wii's.
-- [ ] **Themes** (Settings > Theme): Default, Midnight and Bookshelf, each
-  with its own colours and music. Theme updates come with app updates.
+- [ ] **Themes** (Settings > Theme): Default, Midnight, Bookshelf and
+  Indigo, each with its own colours and pictures (and music, where it has
+  some). Theme updates come with app updates.
 - [ ] **Transitions**: opening a game, Settings and a channel zooms and
   slides smoothly, with no freeze.
 - [ ] **Menu music and sounds** (Settings): on and off, Normal, Quiet
