@@ -877,7 +877,9 @@ static void BuildHome(const FrontendState& state, std::vector<GridItem>& items, 
 		GridItem item;
 		item.title = r.name;
 		item.id = r.id;
-		item.badge = r.entry.kind == HomeEntry::Kind::Usb ? "USB" : r.entry.kind == HomeEntry::Kind::Channel ? "WII" : "SD";
+		// A channel of an emulated NAND is on the SD card.
+		const bool wiiChannel = r.entry.kind == HomeEntry::Kind::Channel && state.channels[r.entry.index].emu_nand.empty();
+		item.badge = r.entry.kind == HomeEntry::Kind::Usb ? "USB" : wiiChannel ? "WII" : "SD";
 		item.mods = mods;
 		item.hue = skin::HueFor(r.id);
 		items.push_back(std::move(item));
@@ -2854,6 +2856,9 @@ static void ScanDrives(FrontendState& state, GuiText& status)
 	{
 		std::string channels;
 		riftwii::wii::list_nand_channels(state.channels, channels);
+		// And those USB Loader GX keeps in an emulated NAND on the card.
+		const riftwii::wii::SharedNandLookup emu = riftwii::wii::look_up_channel_nand();
+		if (emu.usable) riftwii::wii::list_emu_channels(emu.folder, state.channels, channels);
 	}
 	// The scan's reads are over: the GameCube adapter may start now, so its
 	// pads can answer the drive popup below (a Wii U has no GameCube ports:
@@ -4318,6 +4323,8 @@ static std::string SourceWhere(const FrontendState& state)
 {
 	if (state.use_usb) return "USB drive";
 	if (state.use_sd) return "SD card";
+	if (state.use_channel && state.channel_index < state.channels.size() && !state.channels[state.channel_index].emu_nand.empty())
+		return "SD card";
 	if (state.use_channel) return "Wii channels";
 	return "Disc drive";
 }
@@ -6235,7 +6242,7 @@ static int MenuHome(FrontendState& state)
 				if (saveForStart() && state.channel_index < state.channels.size()) {
 					const riftwii::wii::NandChannel& channel = state.channels[state.channel_index];
 					logf("Wii channels: %s (%s) started from its page\n", channel.game_id.c_str(), ChannelName(channel).c_str());
-					riftwii::wii::SetChannelToStart(channel.title_id);
+					riftwii::wii::SetChannelToStart(channel);
 					g_leave = riftwii::wii::kLeaveToChannel;
 					menu = MENU_EXIT;
 				}

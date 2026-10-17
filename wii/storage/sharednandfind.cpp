@@ -76,6 +76,27 @@ SharedNandLookup look_up_shared_nand(const std::string& game_id) {
     return found;
 }
 
+SharedNandLookup look_up_channel_nand() {
+    std::string configured = kDefaultSharedNand;
+    std::string from = "the default folder";
+    for (const char* settings : kSettingsFolders) {
+        const std::string global = std::string(settings) + "GXGlobal.cfg";
+        std::string path;
+        const bool found = each_line(global, [&](const std::string& line) { return shared_nand_channels_line(line, path); });
+        if (!found) continue;
+        if (!path.empty()) {
+            configured = path;
+            from = global;
+        }
+        break;
+    }
+    SharedNandLookup found;
+    found.configured = configured;
+    found.from = from;
+    found.usable = shared_nand_folder(configured, found.folder, found.error);
+    return found;
+}
+
 bool find_shared_nand(const std::string& game_id, std::string& folder, std::string& error) {
     const SharedNandLookup found = look_up_shared_nand(game_id);
     if (!found.usable) {
