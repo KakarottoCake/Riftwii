@@ -26,6 +26,9 @@ enum class Kind {
     PageForward,   // Home's next page: the old one slides out to the left, inside `from` only
     PageBack,      // the page before: out to the right
     FromBlack,     // the menu's start
+    Cut,           // at once, nothing of the old screen over the new: a popup
+                   // straight after another (its text and buttons would show
+                   // through the new one's in a crossfade)
 };
 
 struct Rect {
