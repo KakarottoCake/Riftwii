@@ -133,6 +133,7 @@ Pictures ending in `_over` are the highlighted versions. Transparency
 | `switch_on` / `switch_off` | 68x40 | On/Off switches |
 | `panel_game` | 580x240 | The white panel behind a game page's list |
 | `panel_settings` | 580x284 | The white panel behind Settings |
+| `popup` | 580x284 | A popup's box: the title in a band across its top 44 pixels, a narrower band across the bottom 18 |
 | `bar` | 640x124 | Home's bottom bar (its top edge is a curve; see `bar` under [shape]) |
 | `banner_stripes` | 640x192 | Drawn over a game page's banner while it shows the game's colour; once the game's box art is on the card, the banner is that art, blurred |
 | `arrow_left` / `arrow_left_over`, `arrow_right` / `arrow_right_over` | 48x48 | Home's page arrows |

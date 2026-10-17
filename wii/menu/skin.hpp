@@ -74,6 +74,7 @@ extern Tex rowFocus;                     // 548x44 highlighted list row
 extern Tex stepBack, stepBackOver, stepForward, stepForwardOver;  // 34 round arrow buttons, drawn at -4,-4
 extern Tex switchOn, switchOff;          // 60x30 On/Off switches, drawn at -3,-4
 extern Tex panelGame, panelSettings;     // 572x232 and 572x276 white panels, drawn at -4,-4
+extern Tex popup;                        // 572x276 popup box, as the Wii Menu's (bands top and bottom), drawn at -4,-4
 extern Tex bar;                          // 640x124 bottom bar
 extern Tex bannerStripes;                // 640x192 overlay for the game banner
 extern Tex arrowLeft, arrowLeftOver, arrowRight, arrowRightOver;  // 44 page arrows, drawn at -2,-2

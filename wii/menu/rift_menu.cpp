@@ -584,6 +584,7 @@ static std::string ShortSourceProblem(const char* tag, const riftwii::wii::Image
 	if (reason.compare(0, prefix.size(), prefix) == 0) reason = reason.substr(prefix.size());
 	if (reason.compare(0, 8, "No valid") == 0) return tr("{1}: no games in /wbfs or /games", {tag});
 	if (reason == "no USB mass-storage device is inserted") return "";  // no drive is not a problem
+	if (catalog.status == tr("USB: a Wii U drive (RiftWii leaves it alone)")) return "";  // nor is a Wii U's own drive
 	if (reason == "no SD card is inserted") return tr("SD: no card");
 	return std::string(tag) + ": " + FlatCapped(reason, 110);
 }
@@ -1601,7 +1602,7 @@ int PopupExtra()
 // no input while it is up. Built and closed with the GUI halted.
 class Dim : public GuiElement {
 public:
-	void Draw() override { Menu_FillWholeScreen((GXColor){0, 0, 0, 150}); }
+	void Draw() override { Menu_FillWholeScreen((GXColor){0, 0, 0, 185}); }
 };
 
 // A window that comes in from a little smaller (or from above or below)
@@ -1688,6 +1689,118 @@ private:
 	GuiText text;
 };
 
+// A page's line of help or status above the prompts along the bottom. The
+// lines that reach down to the prompts' cards are cut short of the leftmost
+// card (measured, so a longer translation or a third prompt moves it),
+// so the text never runs under them; the lines above them keep the full
+// width. Past the last line the text ends in "..." as GuiText's own wrap
+// does. `x`, `y`: the top left of the first line on the screen.
+class PromptsNote : public GuiElement {
+public:
+	PromptsNote(GuiPrompts& prompts, int x, int y, int fullWidth, int maxLines, int fontSize, GXColor color)
+		: prompts_(prompts), x_(x), y_(y), fullWidth_(fullWidth), fontSize_(fontSize), meter_("", fontSize, color) {
+		for (int i = 0; i < maxLines; ++i) {
+			lines_.emplace_back(new GuiText("", fontSize, color));
+			lines_.back()->SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
+		}
+	}
+	void SetText(const std::string& text) {
+		text_ = text;
+		laidOutFor_ = -1;  // laid out again at the next draw
+	}
+	void Draw() override {
+		if (!IsVisible()) return;
+		const int pillsLeft = prompts_.LeftEdge();
+		if (pillsLeft != laidOutFor_) Layout(pillsLeft);
+		for (std::size_t i = 0; i < lines_.size(); ++i) {
+			if (shown_[i].empty()) continue;
+			lines_[i]->SetAlpha(GetAlpha());
+			lines_[i]->SetPosition(x_, y_ + static_cast<int>(i) * LineHeight());
+			lines_[i]->Draw();
+		}
+	}
+
+private:
+	int LineHeight() const { return fontSize_ + 6; }  // GuiText's own spacing
+
+	// The width line `index` may use: the whole of it, or what is left of
+	// the leftmost card when its text would reach the cards' top.
+	int WidthOfLine(int index, int pillsLeft) const {
+		const int textBottom = y_ + index * LineHeight() + fontSize_;
+		if (textBottom <= GuiPrompts::CardTop()) return fullWidth_;
+		const int clearOfShadow = 16;
+		return std::max(60, std::min(fullWidth_, pillsLeft - clearOfShadow - x_));
+	}
+
+	// Byte offsets in `s` where a line may end: before a space (the space is
+	// dropped), after a CJK character (Japanese has no spaces), and at a
+	// newline.
+	static std::vector<std::size_t> BreakPoints(const std::string& s) {
+		std::vector<std::size_t> points;
+		std::size_t i = 0;
+		while (i < s.size()) {
+			const unsigned char lead = static_cast<unsigned char>(s[i]);
+			const std::size_t length = lead < 0x80 ? 1 : lead < 0xE0 ? 2 : lead < 0xF0 ? 3 : 4;
+			const std::size_t next = std::min(s.size(), i + length);
+			if (lead == ' ' || lead == '\n') points.push_back(i);
+			if (lead == '\n') break;
+			const bool cjk = length == 3 && i + 1 < s.size() && (((lead & 0x0F) << 12) | ((static_cast<unsigned char>(s[i + 1]) & 0x3F) << 6)) >= 0x2E80;
+			if (cjk) points.push_back(next);
+			i = next;
+		}
+		return points;
+	}
+
+	int TextWidth(const std::string& s) {
+		meter_.SetText(s.c_str());
+		return meter_.GetTextWidth();
+	}
+
+	void Layout(int pillsLeft) {
+		laidOutFor_ = pillsLeft;
+		shown_.assign(lines_.size(), std::string());
+		std::string rest = text_;
+		for (std::size_t i = 0; i < lines_.size() && !rest.empty(); ++i) {
+			const int width = WidthOfLine(static_cast<int>(i), pillsLeft);
+			std::string line = rest;
+			const bool lastLine = i + 1 == lines_.size();
+			if (!lastLine) {
+				// The longest start of the rest that fits this line.
+				std::size_t cut = std::string::npos;
+				for (const std::size_t point : BreakPoints(rest)) {
+					if (point == 0) continue;
+					if (cut != std::string::npos && TextWidth(rest.substr(0, point)) > width) break;
+					cut = point;
+				}
+				const bool wholeFits = rest.find('\n') == std::string::npos && TextWidth(rest) <= width;
+				if (!wholeFits && cut != std::string::npos) {
+					line = rest.substr(0, cut);
+					std::size_t skip = cut;
+					if (skip < rest.size() && (rest[skip] == ' ' || rest[skip] == '\n')) ++skip;
+					rest = rest.substr(skip);
+				} else {
+					// All of it fits, or it is one word too long for the line,
+					// which GuiText ends in "...".
+					rest.clear();
+				}
+			} else {
+				rest.clear();
+			}
+			shown_[i] = line;
+			lines_[i]->SetText(line.c_str());
+			lines_[i]->SetWrap(true, width, 1);
+		}
+	}
+
+	GuiPrompts& prompts_;
+	int x_, y_, fullWidth_, fontSize_;
+	GuiText meter_;
+	std::vector<std::unique_ptr<GuiText>> lines_;
+	std::vector<std::string> shown_;
+	std::string text_;
+	int laidOutFor_ = -1;
+};
+
 // A QR code on screen: a white quiet zone of two modules, then the dark
 // modules, a run of them on a row as one rectangle.
 class QrImage : public GuiElement {
@@ -1715,23 +1828,42 @@ private:
 	int x, y, module;
 };
 
+// When the last popup closed: one opening straight after it (the
+// tutorial's next page, a note after What's new) takes its place at once,
+// as the Wii's message box changes its text, instead of popping over the
+// old one's fading picture (both boxes' text and buttons showed at once).
+static u64 g_popupClosedAt = 0;
+static bool PopupJustClosed()
+{
+	return g_popupClosedAt != 0 && diff_msec(g_popupClosedAt, gettime()) < 400;
+}
+
+// The popup, as the Wii Menu's message box (skin::popup): its title in the
+// darker band across the top, the text below it (centred, as the Wii's,
+// unless it is a list or sits beside something), the buttons above the
+// band at the bottom, the page darkened behind it.
 class PopupBox {
 public:
+	static constexpr int kTitleY = 110, kBodyY = 158, kButtonY = 304;
+	// The body ends a little above the buttons: at 16 points a line is 22.
+	static constexpr int kBodyLines = (kButtonY - 10 - kBodyY) / 22;
 	PopupBox(const std::string& title, const std::string& body, const std::string& ok = "",
 		 const std::string& cancel = "")
-		: extra(PopupExtra()), panel(skin::panelSettings, 34, 102, extra), titleTxt(title.c_str(), 24, skin::kInk),
+		: extra(PopupExtra()), panel(skin::popup, 34, 102, extra), titleTxt(title.c_str(), 24, skin::kInk),
 		  bodyTxt(body.c_str(), 16, skin::kInkSoft),
-		  okBtn(skin::pill, skin::pillOver, 4, cancel.empty() ? 198 : 70, 314, ok.c_str(),
+		  okBtn(skin::pill, skin::pillOver, 4, cancel.empty() ? 198 : 70, kButtonY, ok.c_str(),
 			WPAD_BUTTON_A | WPAD_CLASSIC_BUTTON_A, PAD_BUTTON_A, WIIDRC_BUTTON_A),
-		  cancelBtn(skin::pill, skin::pillOver, 4, 326, 314, cancel.c_str(),
+		  cancelBtn(skin::pill, skin::pillOver, 4, 326, kButtonY, cancel.c_str(),
 			WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B | WPAD_BUTTON_HOME | WPAD_CLASSIC_BUTTON_HOME, PAD_BUTTON_B,
 			WIIDRC_BUTTON_B | WIIDRC_BUTTON_HOME),
-		  hasOk(!ok.empty()), hasCancel(!cancel.empty()), w(0.86f, 0, true)
+		  hasOk(!ok.empty()), hasCancel(!cancel.empty()), chained(PopupJustClosed()),
+		  w(chained ? 1.0f : 0.86f, 0, !chained)
 	{
-		Place(titleTxt, 56 - extra, 120);
-		Place(bodyTxt, 56 - extra, 160);
+		Place(titleTxt, 0, kTitleY, true);
 		titleTxt.SetMaxWidth(528 + 2 * extra);
-		bodyTxt.SetWrap(true, 528 + 2 * extra, 7);
+		// A list (lines of its own) reads better from the left.
+		PlaceBody(body.find('\n') == std::string::npos);
+		bodyTxt.SetWrap(true, 528 + 2 * extra, kBodyLines);
 		w.Append(&dim);
 		w.Append(&panel);
 		w.Append(&titleTxt);
@@ -1739,7 +1871,7 @@ public:
 		if (hasOk) w.Append(&okBtn.button);
 		if (hasCancel) w.Append(&cancelBtn.button);
 		mainWindow->SetState(STATE::DISABLED);
-		transition::Begin(transition::Kind::PopOpen);
+		transition::Begin(chained ? transition::Kind::Cut : transition::Kind::PopOpen);
 		mainWindow->Append(&w);
 		w.SetState(STATE::DEFAULT);
 	}
@@ -1748,8 +1880,13 @@ public:
 		transition::Begin(transition::Kind::PopClose);
 		mainWindow->Remove(&w);
 		mainWindow->SetState(STATE::DEFAULT);
+		g_popupClosedAt = gettime();
 	}
 	void SetBody(const std::string& body) { bodyTxt.SetText(body.c_str()); }
+	// Something more in the box, over its whole width (it must outlive the box).
+	void Append(GuiElement* e) { w.Append(e); }
+	// The second button alone, in the middle (as the first is when alone).
+	void CenterCancel() { cancelBtn.button.SetPosition(198 - 4, kButtonY - 4); }
 	// While work goes on with the box up (the GUI halted): whether its
 	// last button was pressed.
 	bool Pressed()
@@ -1762,7 +1899,8 @@ public:
 	void Add(GuiElement* e, int width)
 	{
 		w.Append(e);
-		bodyTxt.SetWrap(true, width + extra, 7);  // the box's right part stays where it was
+		PlaceBody(false);  // beside it: from the left
+		bodyTxt.SetWrap(true, width + extra, kBodyLines);  // the box's right part stays where it was
 	}
 	// Until a button is pressed: 0 the first, 1 the second. A is the first
 	// button's hotkey, so A with the pointer on the second clicks both in
@@ -1783,6 +1921,18 @@ public:
 		return choice;
 	}
 private:
+	// Centred, it sits in the middle of the room between the title band
+	// and the buttons, as the Wii's message does (libwiigui measures
+	// MIDDLE from the screen's middle, y 240); a list starts at the top.
+	void PlaceBody(bool centred)
+	{
+		if (centred) {
+			bodyTxt.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::MIDDLE);
+			bodyTxt.SetPosition(0, (kBodyY + kButtonY - 10) / 2 - 240);
+		} else {
+			Place(bodyTxt, 56 - extra, kBodyY);
+		}
+	}
 	int extra;  // first: the panel and the texts use it
 	Dim dim;
 	Panel panel;
@@ -1791,6 +1941,7 @@ private:
 	SkinButton okBtn;
 	SkinButton cancelBtn;
 	bool hasOk, hasCancel;
+	bool chained;  // before w, which it sets up
 	ShiftWindow w;
 };
 
@@ -1799,6 +1950,58 @@ static int ShowPopup(const std::string& title, const std::string& body, const st
 {
 	PopupBox box(title, body, ok, cancel);
 	return box.Wait();
+}
+
+// A code mod is switched on for the next start.
+static bool CodeModOn(const FrontendState& state)
+{
+	for (const riftwii::LaunchPackage& p : state.model.packages)
+		if (p.enabled && p.code_build()) return true;
+	return false;
+}
+
+// Start with a code mod on: with RiftWii's extras or without them, as the
+// mod's own loader starts it. Mods differ: Project+ runs with the extras,
+// REX went to a black screen on a tester's Wii U (2610-412) and starts
+// from its own loader there. False: B, back to the game page.
+static bool PickCodeModStart(FrontendState& state)
+{
+	state.code_build_plain = false;
+	if (!CodeModOn(state)) return true;
+	PopupBox box(tr("How should this code mod start?"),
+		tr("Code mods differ. Most, like Project+, run well with RiftWii's extras. If a mod stays on a black screen, start it without them, as its own loader would."),
+		"", tr("Back"));
+	box.CenterCancel();
+	std::vector<TileSpec> tiles(2);
+	tiles[0].x = 56;
+	tiles[1].x = 332;
+	for (TileSpec& t : tiles) {
+		t.y = 226;
+		t.w = 252;
+		t.h = 64;
+	}
+	tiles[0].label = tr("With extras");
+	tiles[0].value = tr("Crash reports, back to RiftWii");
+	tiles[1].label = tr("Without extras");
+	tiles[1].value = tr("As the mod's own loader");
+	GuiTiles choices;
+	choices.SetTiles(&tiles);
+	choices.Select(0);
+	box.Append(&choices);
+	ResumeGui();
+	int picked = -1;
+	bool back = false;
+	while (picked < 0 && !back) {
+		usleep(20000);
+		HaltGui();
+		picked = choices.GetClicked();
+		back = picked < 0 && box.Pressed();  // Back, B or HOME
+		if (picked < 0 && !back) ResumeGui();
+	}
+	if (back) return false;
+	state.code_build_plain = picked == 1;
+	logf("Start: the code mod starts %s RiftWii's extras\n", state.code_build_plain ? "without" : "with");
+	return true;
 }
 
 // Packs switched on with every option off change nothing, and the launch
@@ -1957,14 +2160,26 @@ public:
 			// of it, charge = level * 2.46 / 255 - 0.013).
 			const int bx = x + 62, by = top + 10;
 			const GXColor line = on ? (GXColor){220, 220, 220, 255} : (GXColor){110, 110, 110, 255};
-			Menu_DrawRectangle(bx, by, 44, 16, line, 0);
-			Menu_DrawRectangle(bx + 1, by + 1, 42, 14, line, 0);
-			Menu_DrawRectangle(bx + 44, by + 4, 4, 8, line, 1);
+			// The outline is four filled strips, not GX lines: a line lands
+			// on the pixel edge and rounds a pixel either way, which left the
+			// bars nearer one side. Inside it is 40 x 12.
+			const int bodyW = 44, bodyH = 16, edge = 2;
+			Menu_DrawRectangle(bx, by, bodyW, edge, line, 1);
+			Menu_DrawRectangle(bx, by + bodyH - edge, bodyW, edge, line, 1);
+			Menu_DrawRectangle(bx, by, edge, bodyH, line, 1);
+			Menu_DrawRectangle(bx + bodyW - edge, by, edge, bodyH, line, 1);
+			Menu_DrawRectangle(bx + bodyW, by + 4, 4, 8, line, 1);
 			if (!on) continue;
 			const int level = WPAD_BatteryLevel(i);
 			const int bars = level >= 92 ? 4 : level >= 66 ? 3 : level >= 40 ? 2 : level >= 14 ? 1 : 0;
+			// Four 7 x 6 bars 2 apart: 34 wide, so 3 pixels of space on
+			// every side of the inside.
+			const int barW = 7, barH = 6, gap = 2;
+			const int barsX = bx + edge + (bodyW - 2 * edge - (4 * barW + 3 * gap)) / 2;
+			const int barsY = by + edge + (bodyH - 2 * edge - barH) / 2;
 			for (int k = 0; k < bars; ++k)
-				Menu_DrawRectangle(bx + 4 + k * 10, by + 4, 8, 8, bars == 1 ? (GXColor){222, 72, 72, 255} : skin::kAccent, 1);
+				Menu_DrawRectangle(barsX + k * (barW + gap), barsY, barW, barH,
+					bars == 1 ? (GXColor){222, 72, 72, 255} : skin::kAccent, 1);
 		}
 	}
 private:
@@ -2316,6 +2531,25 @@ static void WarnAboutDrives(const std::string& sdError, const std::string& usbEr
 	}
 }
 
+// A Wii U's own storage drive (encrypted; usb_only_wiiu_drive): players on a
+// Wii U often leave it plugged in. Said once, the first time it is seen,
+// then only Home's status line names it.
+static std::string WiiUDriveStatus()
+{
+	return tr("USB: a Wii U drive (RiftWii leaves it alone)");
+}
+static void NoteWiiUDrive()
+{
+	auto& other = riftwii::wii::Settings().other;
+	const auto seen = other.find("wiiu_drive_note");
+	if (seen != other.end() && seen->second == "shown") return;
+	ShowPopup(tr("Wii U drive"),
+		tr("The USB drive plugged in is a Wii U's own storage drive. RiftWii can't read it, so it leaves it alone. For Wii games on USB, use a drive formatted FAT32 or NTFS on a computer."),
+		tr("OK"));
+	other["wiiu_drive_note"] = "shown";
+	riftwii::wii::SaveSettings();
+}
+
 // What the last game's card log noted (wii/launch/boot.hpp TakeCardLog): into
 // the session log and sd:/riftwii/cardlog.txt, with a popup. Once per run.
 static void ReportCardLog()
@@ -2376,14 +2610,15 @@ static std::string DiscTileNote()
 // A card that has been used before (settings, play history, covers, the
 // channel offer answered) counts as seen: an update does not show it.
 // What's new: this release's main changes, one short line each (the box
-// holds seven lines), for the release script to keep up to date. Shown
+// holds six lines), for the release script to keep up to date. Shown
 // once when they change; Settings > What's new shows them again.
 static const char* const kWhatsNew[] = {
-	"Wii U Pro Controller in games, as a Classic Controller (a first try)",
-	"Channels: sharp icons, framed like the Wii Menu's",
-	"New controller and button pictures",
-	"Smoother round buttons",
-	"Fixed: some channel logos came out grey",
+	"Popups look like the Wii Menu's message box",
+	"Channels: empty places match the channel icons",
+	"A Wii U's own USB drive is left alone, with no error",
+	"Fixed: Retro Rewind would not start with its separate save on",
+	"Every RiftWii now updates to the latest release",
+	"Wii U Pro Controller works in games",
 };
 
 static std::string WhatsNewText()
@@ -2596,9 +2831,16 @@ static void ScanDrives(FrontendState& state, GuiText& status)
 	// pads can answer the drive popup below (a Wii U has no GameCube ports:
 	// with only an adapter pad, OK could not be pressed).
 	riftwii::wii::GcAdapterMenuAllowStart();
-	WarnAboutDrives(sdError, usb ? std::string() : error.empty() ? std::string("scan failed") : error);
+	// A Wii U's own drive is not a broken drive: no "Drive problem", one
+	// note the first time, and a calm line on Home after that.
+	const bool wiiuDrive = !usb && riftwii::wii::usb_only_wiiu_drive();
+	WarnAboutDrives(sdError, usb || wiiuDrive ? std::string() : error.empty() ? std::string("scan failed") : error);
+	if (wiiuDrive) NoteWiiUDrive();
 	if (sd) ReportCardLog();
-	if (!usb) {
+	if (wiiuDrive) {
+		logf("USB: only a Wii U's own drive is plugged in; left alone\n");
+		state.usb_catalog.status = WiiUDriveStatus();
+	} else if (!usb) {
 		logf("USB scan failed: %s\n", error.c_str());
 		state.usb_catalog.status = "USB: " + (error.empty() ? std::string(tr("scan failed")) : error);
 		if (riftwii::wii::MenuCiosSlot() != 0 && error.find("more than one") == std::string::npos) {
@@ -5435,8 +5677,10 @@ static void BuildGameTiles(const FrontendState& state, std::vector<TileSpec>& ti
 	// The lower rows: two tiles across the tiles' width, 12 apart.
 	constexpr int kHalfW = (kTilesW - 12) / 2, kRightX = kTilesRight - kHalfW;
 	add(GameTile::Play, kTilesX, 132, 252, 84, tr("Play"), modsOn, &skin::iconPlay, false);
+	// "On" alone: the tile is narrow ("1 switched on" was cut to "1 switc..."),
+	// and Play beside it says how many.
 	add(GameTile::Mods, kTilesX + 264, 132, kTilesRight - kTilesX - 264, 84, tr("Mods"),
-		shown == 0 ? tr("None") : enabled == 0 ? tr("Off") : tr("{1} switched on", {std::to_string(enabled)}),
+		shown == 0 ? tr("None") : enabled == 0 ? tr("Off") : tr("On"),
 		&skin::iconMods, enabled != 0);
 	add(GameTile::Cheats, kTilesX, 228, kHalfW, 70, tr("Cheats"), CheatsValue(game), &skin::iconCheats,
 		game.cheats && !game.cheat_names.empty());
@@ -5679,11 +5923,6 @@ static int MenuHome(FrontendState& state)
 	tileGrid.SetTiles(&tiles);
 	tileGrid.Select(0);
 
-	GuiText statusTxt(ModsNote(state, scanStatus).c_str(), 15, skin::kInkSoft);
-	// Two lines over the prompts: a cIOS remedy or a compile error must
-	// stay readable in full.
-	Place(statusTxt, 40, 392);
-	statusTxt.SetWrap(true, 568, 2);
 
 	// B and + (Start) as ever, named by the prompts along the bottom.
 	SkinButton backBtn(skin::pill, skin::pillOver, 4, 50, 406, "Back",
@@ -5696,6 +5935,10 @@ static int MenuHome(FrontendState& state)
 	const int promptPlay = prompts.Add("+", tr("Play"));
 	const int promptBack = prompts.Add("B", tr("Back"));
 	prompts.Add("A", tr("Select"));
+	// Two lines over the prompts: a cIOS remedy or a compile error must
+	// stay readable in full. The second line is cut short of the prompts.
+	PromptsNote statusTxt(prompts, 40, 392, 568, 2, 15, skin::kInkSoft);
+	statusTxt.SetText(ModsNote(state, scanStatus));
 	// Dump (a development aid) has no button: the Wii Remote's 2 or a
 	// GameCube pad's Z.
 	GuiTrigger trigDump;
@@ -5737,7 +5980,7 @@ static int MenuHome(FrontendState& state)
 	if (!bannerHeld) mainWindow->Append(&w);
 	ResumeGui();
 
-	const auto say = [&](const std::string& text) { statusTxt.SetText(text.c_str()); };
+	const auto say = [&](const std::string& text) { statusTxt.SetText(text); };
 	const auto saveOrSay = [&]() {
 		std::string error;
 		if (SaveChoices(state, error)) return true;
@@ -5946,6 +6189,8 @@ static int MenuHome(FrontendState& state)
 				} else {
 					ShowPopup(LaunchNoteTitle(state), LaunchNote(state) + " " + tr("Press Start again to play."), tr("OK"));
 				}
+			} else if (!PickCodeModStart(state)) {
+				// B: back on the game page
 			} else if (!saveForStart()) {
 				// the status shows why
 			} else if (!riftwii::needs_launch_pipeline(!state.model.selections().empty(), state.model.save_mode)) {
@@ -6045,13 +6290,6 @@ static std::string PadButtons(const gcad_pad& pad)
 	std::snprintf(sticks, sizeof(sticks), "stick %d,%d  C %d,%d  L %u  R %u", pad.stick_x, pad.stick_y,
 		pad.substick_x, pad.substick_y, pad.trigger_l, pad.trigger_r);
 	return (s.empty() ? std::string("-") : s) + "   " + sticks;
-}
-
-static std::string ChannelNote(const riftwii::LoaderSettings& settings)
-{
-	if (riftwii::effective_update_channel(settings.update_channel, RIFTWII_VERSION, riftwii::kStableBuild) == "beta")
-		return tr("Beta: every new version, including test builds that may have new bugs. For testers.");
-	return tr("Stable: only versions marked stable, which testers have checked.");
 }
 
 static std::string AdapterNote(const std::string& mode)
@@ -6297,7 +6535,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		return folder;
 	};
 	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kServer, kHomeTiles, kHomeSource, kHomeSort, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kClockFormat, kNoClock, kFont, kSounds, kMusic, kReturnTo, kShots, kOnline, kNames, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kIos, kNet, kResync,
-		kRescan, kChannel, kUpdate, kReport, kTests, kWiiChannel, kUsbHelp, kWhatsNew, kTutorial, kCredits, kResetAll, kExit, kNone, kHeading };
+		kRescan, kUpdate, kReport, kTests, kWiiChannel, kUsbHelp, kWhatsNew, kTutorial, kCredits, kResetAll, kExit, kNone, kHeading };
 	// The RiftWii channel on the Wii Menu (wii/launch/channel.hpp).
 	unsigned channelVersion = 0;
 	const bool channelThere = riftwii::wii::ChannelInstalled(channelVersion);
@@ -6422,10 +6660,6 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		names.dim = !settings.online;
 		rows.push_back(names);
 		actions.push_back(kNames);
-		{
-			const bool beta = riftwii::effective_update_channel(settings.update_channel, RIFTWII_VERSION, riftwii::kStableBuild) == "beta";
-			option(tr("Updates"), beta ? tr("Beta") : tr("Stable"), beta, kChannel);
-		}
 		FlowRow update;
 		update.kind = FlowRow::Kind::Action;
 		update.label = tr("Check for a new version");
@@ -6511,7 +6745,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 				case kLanguage: case kWidescreen: case kScreenSize: case kTheme: case kFont: case kSounds: case kMusic:
 				case kIos: case kNone:
 					return SettingsSection::Look;
-				case kOnline: case kNames: case kServer: case kChannel: case kUpdate:
+				case kOnline: case kNames: case kServer: case kUpdate:
 					return SettingsSection::Online;
 				case kRescan: case kNet: case kResync:
 					return SettingsSection::Finding;
@@ -6635,7 +6869,6 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					: "Only servers named by <network> in an XML on the card are used.";
 			case kResync: return "The next launch copies every file of its network packs again.";
 			case kRescan: return tr("Reads the SD card and the USB drive again.");
-			case kChannel: return ChannelNote(settings);
 			case kUpdate: return tr("This is RiftWii {1}. Looks on GitHub for a newer release.", {RIFTWII_VERSION});
 			case kReport: return tr("Something went wrong? Sends what it takes to find out to a paste site, and shows a link to pass on.");
 			case kWiiChannel:
@@ -6965,13 +7198,6 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					rebuild();
 					break;
 				}
-				case kChannel:
-					// Stable and Beta; the setting stays explicit once changed.
-					settings.update_channel =
-						riftwii::effective_update_channel(settings.update_channel, RIFTWII_VERSION, riftwii::kStableBuild) == "beta" ? "stable" : "beta";
-					saveAndNote(ChannelNote(settings));
-					rebuild();
-					break;
 				case kGcTest:
 					transition::Hold(transition::Kind::SlideForward);
 					mainWindow->Remove(&w);
@@ -7077,7 +7303,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 							? tr("RiftWii {1} is installed. Start RiftWii again to use it.", {latest})
 							: tr("RiftWii {1} is out: {2}", {latest, riftwii::wii::kReleasesPage}));
 					} else if (latest.empty()) {
-						note(tr("No stable version is out yet. This is RiftWii {1}.", {RIFTWII_VERSION}));
+						note(tr("No release is out yet. This is RiftWii {1}.", {RIFTWII_VERSION}));
 					} else {
 						note(tr("RiftWii {1} is the newest version.", {RIFTWII_VERSION}));
 					}
@@ -7213,15 +7439,14 @@ static int SettingsHub(FrontendState& state, int& focus, bool fromSection)
 	GuiTiles tileGrid;
 	tileGrid.SetTiles(&tilesSpec);
 	tileGrid.Select(focus);
-	GuiText noteTxt("", 16, skin::kInkSoft);
-	Place(noteTxt, 44, 360);
-	noteTxt.SetWrap(true, 556, 3);
 	SkinButton backBtn(skin::pill, skin::pillOver, 4, 198, 406, "Back",
 		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
 	HideButton(backBtn);
 	GuiPrompts prompts;
 	const int promptBack = prompts.Add("B", tr("Back"));
 	prompts.Add("A", tr("Open"));
+	// Three lines; the third is cut short of the prompts.
+	PromptsNote noteTxt(prompts, 44, 360, 556, 3, 16, skin::kInkSoft);
 
 	HaltGui();
 	GuiWindow w(screenwidth, screenheight);

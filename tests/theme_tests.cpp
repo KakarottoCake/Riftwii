@@ -380,7 +380,7 @@ static void test_theme_color_keys() {
 
 static void test_theme_images() {
     const auto& images = theme_images();
-    EXPECT_EQ(images.size(), 72U);
+    EXPECT_EQ(images.size(), 73U);
 
     // Unique names.
     for (std::size_t i = 0; i < images.size(); ++i) {
@@ -402,9 +402,9 @@ static void test_theme_images() {
     EXPECT_EQ(images[0].w, 640);
     EXPECT_EQ(images[0].h, 480);
 
-    EXPECT_EQ(std::string(images[62].name), "pointer4");
-    EXPECT_EQ(images[62].w, 96);
-    EXPECT_EQ(images[62].h, 96);
+    EXPECT_EQ(std::string(images[63].name), "pointer4");
+    EXPECT_EQ(images[63].w, 96);
+    EXPECT_EQ(images[63].h, 96);
 }
 
 static void test_case_insensitivity_and_boolean_formats() {

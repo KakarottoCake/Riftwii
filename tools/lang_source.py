@@ -841,28 +841,22 @@ T = {
         "RiftWii {1}が出ています。設定 > 新しいバージョンを確認 でインストールできます。",
         "Saiu a RiftWii {1}. Configurações > Procurar uma versão nova a instala.",
         "È uscita RiftWii {1}. Impostazioni > Cerca una nuova versione la installa."),
-    "Updates": ("Actualizaciones", "アップデート", "Atualizações", "Aggiornamenti"),
-    "Beta": ("Beta", "ベータ", "Beta", "Beta"),
-    "Stable": ("Estable", "安定版", "Estável", "Stabile"),
-    "Beta: every new version, including test builds that may have new bugs. For testers.": (
-        "Beta: cada versión nueva, incluidas las de prueba, que pueden tener fallos nuevos. Para testers.",
-        "ベータ: テスト版を含むすべての新しいバージョンです。新しい不具合があるかもしれません。テスター向けです。",
-        "Beta: toda versão nova, incluindo as de teste, que podem ter bugs novos. Para testadores.",
-        "Beta: ogni nuova versione, comprese quelle di prova, che possono avere nuovi bug. Per i tester."),
-    "Stable: only versions marked stable, which testers have checked.": (
-        "Estable: solo las versiones marcadas como estables, que los testers han probado.",
-        "安定版: テスターが確認した、安定版とされたバージョンだけです。",
-        "Estável: só as versões marcadas como estáveis, que os testadores verificaram.",
-        "Stabile: solo le versioni segnate come stabili, già controllate dai tester."),
-    "No stable version is out yet. This is RiftWii {1}.": (
-        "Aún no hay ninguna versión estable. Esta es RiftWii {1}.",
-        "安定版はまだ出ていません。これはRiftWii {1}です。",
-        "Ainda não saiu nenhuma versão estável. Esta é a RiftWii {1}.",
-        "Non è ancora uscita una versione stabile. Questa è RiftWii {1}."),
+    "No release is out yet. This is RiftWii {1}.": (
+        "Aún no ha salido ninguna versión. Esta es RiftWii {1}.",
+        "まだリリースはありません。これはRiftWii {1}です。",
+        "Ainda não saiu nenhuma versão. Esta é a RiftWii {1}.",
+        "Non è ancora uscita nessuna versione. Questa è RiftWii {1}."),
     # Drive and SD card problems (pop-ups at start)
     "SD card: {1}": ("Tarjeta SD: {1}", "SDカード: {1}", "Cartão SD: {1}", "Scheda SD: {1}"),
     "USB drive: {1}": ("Unidad USB: {1}", "USBドライブ: {1}", "Unidade USB: {1}", "Unità USB: {1}"),
     "Drive problem": ("Problema con una unidad", "ドライブの問題", "Problema em uma unidade", "Problema con un'unità"),
+    "Wii U drive": ("Unidad de Wii U", "Wii Uのドライブ", "Unidade do Wii U", "Unità della Wii U"),
+    "USB: a Wii U drive (RiftWii leaves it alone)": ("USB: una unidad de Wii U (RiftWii no la usa)", "USB: Wii Uのドライブ(RiftWiiは使いません)", "USB: uma unidade do Wii U (o RiftWii não a usa)", "USB: un'unità della Wii U (RiftWii non la usa)"),
+    "The USB drive plugged in is a Wii U's own storage drive. RiftWii can't read it, so it leaves it alone. For Wii games on USB, use a drive formatted FAT32 or NTFS on a computer.": (
+        "La unidad USB conectada es la unidad de almacenamiento de una Wii U. RiftWii no puede leerla, así que no la usa. Para juegos de Wii por USB, usa una unidad formateada en FAT32 o NTFS en un ordenador.",
+        "接続されているUSBドライブはWii U本体用の保存ドライブです。RiftWiiは読み込めないため、このドライブは使いません。WiiのゲームをUSBから遊ぶには、パソコンでFAT32かNTFSにフォーマットしたドライブを使ってください。",
+        "A unidade USB conectada é a unidade de armazenamento de um Wii U. O RiftWii não consegue lê-la, então não a usa. Para jogos de Wii pelo USB, use uma unidade formatada em FAT32 ou NTFS em um computador.",
+        "L'unità USB collegata è l'unità di archiviazione di una Wii U. RiftWii non può leggerla, quindi non la usa. Per i giochi Wii da USB, usa un'unità formattata in FAT32 o NTFS su un computer."),
     "Games on that drive are not listed. Check the drive on a computer; details are in sd:/riftwii/session.log.": (
         "Los juegos de esa unidad no aparecen. Revisa la unidad en un ordenador; los detalles están en sd:/riftwii/session.log.",
         "そのドライブのゲームは表示されません。パソコンでドライブを確認してください。詳しくはsd:/riftwii/session.logにあります。",
@@ -1244,6 +1238,36 @@ T = {
         "elimina i file il cui nome inizia con \"._\"."),
     "This code mod can't start": ("Este mod de códigos no puede iniciarse", "このコードModは起動できません",
         "Este mod de códigos não pode iniciar", "Questo mod di codici non può partire"),
+    "How should this code mod start?": (
+        "¿Cómo debe iniciarse este mod de códigos?",
+        "このコードModをどう起動しますか？",
+        "Como este mod de códigos deve iniciar?",
+        "Come deve partire questo mod di codici?"),
+    "Code mods differ. Most, like Project+, run well with RiftWii's extras. If a mod stays on a black screen, start it without them, as its own loader would.": (
+        "Cada mod de códigos es distinto. La mayoría, como Project+, funcionan bien con los extras de RiftWii. Si un mod se queda con la pantalla en negro, inícialo sin ellos, como lo haría su propio cargador.",
+        "コードModはそれぞれ違います。Project+など多くのModは、RiftWiiの追加機能があっても動きます。画面が黒いままのModは、Mod自身のローダーと同じように追加機能なしで起動してください。",
+        "Cada mod de códigos é diferente. A maioria, como o Project+, funciona bem com os extras do RiftWii. Se um mod ficar com a tela preta, inicie-o sem eles, como o próprio carregador dele faria.",
+        "Ogni mod di codici è diverso. La maggior parte, come Project+, funziona bene con gli extra di RiftWii. Se un mod resta su uno schermo nero, avvialo senza, come farebbe il suo loader."),
+    "With extras": (
+        "Con extras",
+        "追加機能あり",
+        "Com extras",
+        "Con gli extra"),
+    "Crash reports, back to RiftWii": (
+        "Informes de fallos, volver a RiftWii",
+        "クラッシュ記録、RiftWiiに戻る",
+        "Relatórios de falhas, voltar ao RiftWii",
+        "Rapporti di crash, ritorno a RiftWii"),
+    "Without extras": (
+        "Sin extras",
+        "追加機能なし",
+        "Sem extras",
+        "Senza extra"),
+    "As the mod's own loader": (
+        "Como el cargador del propio mod",
+        "Mod自身のローダーと同じ",
+        "Como o carregador do próprio mod",
+        "Come il loader del mod stesso"),
     "{1} has more codes than the game has room for ({2}, room for {3}). It needs the file gameconfig.txt (or gc.txt) from the same download as the mod. Copy it into the mod's own folder on the SD card, {4}, so it can't replace another mod's. Not in the download? Ask whoever made the mod.": (
         '{1} tiene más códigos de los que caben en el juego ({2}, hay sitio para {3}). Necesita el archivo gameconfig.txt (o gc.txt) de la misma descarga que el mod. Cópialo en la carpeta del propio mod en la tarjeta SD, {4}, así no reemplaza el de otro mod. ¿No está en la descarga? Pregunta a quien hizo el mod.',
         '{1}のコードはゲームに入る量を超えています（{2}、空きは{3}）。Modと同じダウンロードに入っているgameconfig.txt（またはgc.txt）が必要です。ほかのModのものを上書きしないよう、SDカードのそのMod自身のフォルダ（{4}）にコピーしてください。ダウンロードにない場合は、Modの作者に聞いてください。',
@@ -1669,12 +1693,14 @@ T = {
     "Every setting goes back to how RiftWii comes, and RiftWii restarts. Games' own pages, favourites, play history and mods are kept.": ("Todos los ajustes vuelven a como vienen en RiftWii, y RiftWii se reinicia. Se conservan las páginas de cada juego, los favoritos, el historial de juego y los mods.", "すべての設定がRiftWiiの初期状態に戻り、RiftWiiが再起動します。各ゲームのページ、お気に入り、プレイ履歴、MODはそのまま残ります。", "Todas as configurações voltam a como vêm no RiftWii, e o RiftWii reinicia. As páginas de cada jogo, os favoritos, o histórico de jogo e os mods são mantidos.", "Tutte le impostazioni tornano come in origine e RiftWii si riavvia. Le pagine dei singoli giochi, i preferiti, la cronologia di gioco e le mod restano."),
     "Every setting back to how RiftWii comes. Games' own pages, favourites, play history and mods are kept.": ("Todos los ajustes vuelven a como vienen en RiftWii. Se conservan las páginas de cada juego, los favoritos, el historial de juego y los mods.", "すべての設定をRiftWiiの初期状態に戻します。各ゲームのページ、お気に入り、プレイ履歴、MODはそのまま残ります。", "Todas as configurações voltam a como vêm no RiftWii. As páginas de cada jogo, os favoritos, o histórico de jogo e os mods são mantidos.", "Tutte le impostazioni tornano come in origine. Le pagine dei singoli giochi, i preferiti, la cronologia di gioco e le mod restano."),
     "Settings reset to the defaults": ("Ajustes restablecidos", "設定を初期状態に戻しました", "Configurações redefinidas", "Impostazioni ripristinate"),
-    # What's new in 2610-406
-    "Wii U Pro Controller in games, as a Classic Controller (a first try)": ("El Mando Pro de Wii U en los juegos, como Mando Clásico (una primera prueba)", "Wii U PROコントローラーをゲームでクラシックコントローラとして（試験版）", "O Wii U Pro Controller nos jogos, como Classic Controller (um primeiro teste)", "Il Wii U Pro Controller nei giochi, come Controller tradizionale (una prima prova)"),
-    "Channels: sharp icons, framed like the Wii Menu's": ("Canales: iconos nítidos, con marcos como los del menú de Wii", "チャンネル：くっきりしたアイコンとWiiメニューのような枠", "Canais: ícones nítidos, com molduras como as do Menu Wii", "Canali: icone nitide, con cornici come quelle del Menu Wii"),
-    "New controller and button pictures": ("Nuevas imágenes de mandos y botones", "コントローラーとボタンの新しい絵", "Novas imagens de controles e botões", "Nuove immagini di controller e pulsanti"),
-    "Smoother round buttons": ("Botones redondos más suaves", "なめらかになった丸いボタン", "Botões redondos mais suaves", "Pulsanti rotondi più morbidi"),
-    "Fixed: some channel logos came out grey": ("Corregido: algunos logotipos de canales salían en gris", "修正：一部のチャンネルのロゴが灰色になっていた", "Corrigido: alguns logotipos de canais apareciam em cinza", "Corretto: alcuni loghi dei canali apparivano grigi"),
+    # What's new in the release after 2610-421
+    "Popups look like the Wii Menu's message box": ("Las ventanas emergentes se parecen al cuadro de mensajes del Menú Wii", "ポップアップがWiiメニューのメッセージ画面のようになりました", "As janelas pop-up parecem a caixa de mensagem do Menu Wii", "I popup somigliano al riquadro dei messaggi del Menu Wii"),
+    "Channels: empty places match the channel icons": ("Canales: los huecos vacíos coinciden con los iconos de los canales", "チャンネル：空きの枠がチャンネルのアイコンとそろいました", "Canais: os espaços vazios combinam com os ícones dos canais", "Canali: gli spazi vuoti corrispondono alle icone dei canali"),
+    "A Wii U's own USB drive is left alone, with no error": ("El disco USB propio de una Wii U se deja tal cual, sin errores", "Wii U本体用のUSBドライブはエラーを出さずにそのままにします", "O disco USB próprio do Wii U é ignorado, sem erros", "L'unità USB propria di una Wii U viene ignorata, senza errori"),
+    "Fixed: Retro Rewind would not start with its separate save on": ("Corregido: Retro Rewind no arrancaba con su partida aparte activada", "修正：Retro Rewindが別セーブをオンにすると起動しなかった問題", "Corrigido: Retro Rewind não iniciava com o save separado ativado", "Corretto: Retro Rewind non partiva con il salvataggio separato attivo"),
+    "Every RiftWii now updates to the latest release": ("Todas las copias de RiftWii se actualizan ahora a la última versión", "すべてのRiftWiiが最新リリースに更新されるようになりました", "Todo RiftWii agora atualiza para a versão mais recente", "Ogni RiftWii ora si aggiorna all'ultima versione"),
+    # What's new in 2610-418
+    "Wii U Pro Controller works in games": ("El Mando Pro de Wii U funciona en los juegos", "Wii U PROコントローラーがゲームで使えます", "O Wii U Pro Controller funciona nos jogos", "Il Wii U Pro Controller funziona nei giochi"),
     # Game page: memory for RiftWii's extras
     "Memory for RiftWii's extras": ("Memoria para los extras de RiftWii", "RiftWiiの追加機能が使うメモリ", "Memória para os extras do RiftWii", "Memoria per gli extra di RiftWii"),
     "about {1} KB": ("unos {1} KB", "約{1} KB", "cerca de {1} KB", "circa {1} KB"),
@@ -2345,24 +2371,20 @@ KO = {
         "정말 업데이트하지 않나요? 혹시 문제가 있었다면 최신 업데이트에서 해결되었을 수도 있습니다!",
     "RiftWii {1} is out. Settings > Check for a new version installs it.":
         "RiftWii {1}이(가) 출시되었습니다. 설정 > 새 버전 확인을 통해 설치할 수 있습니다.",
-    "Updates":
-        "업데이트",
-    "Beta":
-        "베타",
-    "Stable":
-        "안정화",
-    "Beta: every new version, including test builds that may have new bugs. For testers.":
-        "베타: 새로운 버그가 포함될 수 있는 테스트 빌드를 포함한 모든 새 버전입니다. 테스터용입니다.",
-    "Stable: only versions marked stable, which testers have checked.":
-        "안정 버전: 테스터가 확인을 마친, '안정'으로 표시된 버전만 해당합니다.",
-    "No stable version is out yet. This is RiftWii {1}.":
-        "아직 안정 버전은 출시되지 않았습니다. 이것은 RiftWii {1}입니다.",
+    "No release is out yet. This is RiftWii {1}.":
+        "아직 출시된 버전이 없습니다. 이것은 RiftWii {1}입니다.",
     "SD card: {1}":
         "SD 카드: {1}",
     "USB drive: {1}":
         "USB 드라이브: {1}",
     "Drive problem":
         "드라이브 문제",
+    "Wii U drive":
+        "Wii U 드라이브",
+    "USB: a Wii U drive (RiftWii leaves it alone)":
+        "USB: Wii U 드라이브 (RiftWii는 사용하지 않음)",
+    "The USB drive plugged in is a Wii U's own storage drive. RiftWii can't read it, so it leaves it alone. For Wii games on USB, use a drive formatted FAT32 or NTFS on a computer.":
+        "연결된 USB 드라이브는 Wii U 본체의 저장 드라이브입니다. RiftWii는 이 드라이브를 읽을 수 없으므로 사용하지 않습니다. USB로 Wii 게임을 하려면 컴퓨터에서 FAT32 또는 NTFS로 포맷한 드라이브를 사용하세요.",
     "Games on that drive are not listed. Check the drive on a computer; details are in sd:/riftwii/session.log.":
         "해당 드라이브의 게임이 목록에 표시되지 않습니다. 컴퓨터에서 드라이브를 확인해 보세요오. 자세한 내용은 sd:/riftwii/session.log 파일에서 확인할 수 있습니다.",
     "SD card problems":
@@ -2589,6 +2611,18 @@ KO = {
         "이 SD 카드에는 macOS가 파일을 복사할 때 생성하는 숨김 파일(이름이 \"._\"로 시작하는 파일)이 포함되어 있습니다. RiftWii는 이 파일들을 무시하고 넘어가지만, 카드 용량을 차지할 뿐만 아니라 다른 홈브류 프로그램에 혼란을 줄 수 있습니다. 이를 제거하려면 카드를 Mac에 연결한 뒤 터미널을 열고 `dot_clean -m /Volumes/`를 입력한 다음 카드 이름을 이어서 입력하십시오. 윈도우의 경우, 이름이 \"._\"로 시작하는 파일을 삭제하면 됩니다.",
     "This code mod can't start":
         "이 코드 모드는 시작되지 않음",
+    "How should this code mod start?":
+        "이 코드 모드를 어떻게 시작할까요?",
+    "Code mods differ. Most, like Project+, run well with RiftWii's extras. If a mod stays on a black screen, start it without them, as its own loader would.":
+        "코드 모드마다 다릅니다. Project+ 같은 대부분의 모드는 RiftWii의 추가 기능과 함께 잘 실행됩니다. 화면이 검은 채로 멈추는 모드는 모드 자체 로더처럼 추가 기능 없이 시작하세요.",
+    "With extras":
+        "추가 기능 사용",
+    "Crash reports, back to RiftWii":
+        "충돌 기록, RiftWii로 돌아가기",
+    "Without extras":
+        "추가 기능 없이",
+    "As the mod's own loader":
+        "모드 자체 로더와 같이",
     "{1} has more codes than the game has room for ({2}, room for {3}). It needs the file gameconfig.txt (or gc.txt) from the same download as the mod. Copy it into the mod's own folder on the SD card, {4}, so it can't replace another mod's. Not in the download? Ask whoever made the mod.":
         "{1}에 포함된 코드의 수가 게임이 수용할 수 있는 한도({2}, 수용 한도: {3})를 초과합니다. 이 모드와 함께 제공된 gameconfig.txt (또는 gc.txt) 파일이 필요합니다. 다른 모드의 파일을 덮어쓰지 않도록, 해당 파일을 SD 카드 내 모드 전용 폴더인 {4}에 복사해 넣으세요. 만약 다운로드 파일에 해당 파일이 없다면 모드 제작자에게 문의하세요.",
     "The codes take {1}, but {2} only makes room for {3}. Turn off some cheats on this game's Cheats page, or turn off a code mod.":
@@ -2915,16 +2949,18 @@ KO = {
         "모든 설정을 RiftWii의 기본값으로 되돌립니다. 게임별 페이지, 즐겨찾기, 플레이 기록, 모드는 그대로 유지됩니다.",
     "Settings reset to the defaults":
         "설정을 기본값으로 초기화했습니다",
-    "Wii U Pro Controller in games, as a Classic Controller (a first try)":
-        "게임에서 Wii U PRO 컨트롤러를 클래식 컨트롤러로 (첫 시험)",
-    "Channels: sharp icons, framed like the Wii Menu's":
-        "채널: 선명한 아이콘, Wii 메뉴 같은 테두리",
-    "New controller and button pictures":
-        "새 컨트롤러와 버튼 그림",
-    "Smoother round buttons":
-        "더 부드러운 둥근 버튼",
-    "Fixed: some channel logos came out grey":
-        "수정: 일부 채널 로고가 회색으로 나오던 문제",
+    "Popups look like the Wii Menu's message box":
+        "팝업이 Wii 메뉴의 메시지 상자처럼 보입니다",
+    "Channels: empty places match the channel icons":
+        "채널: 빈 자리가 채널 아이콘과 같은 모양입니다",
+    "A Wii U's own USB drive is left alone, with no error":
+        "Wii U 전용 USB 드라이브는 오류 없이 그대로 둡니다",
+    "Fixed: Retro Rewind would not start with its separate save on":
+        "수정: Retro Rewind가 별도 세이브를 켜면 시작되지 않던 문제",
+    "Every RiftWii now updates to the latest release":
+        "이제 모든 RiftWii가 최신 릴리스로 업데이트됩니다",
+    "Wii U Pro Controller works in games":
+        "게임에서 Wii U PRO 컨트롤러 사용 가능",
     "Memory for RiftWii's extras":
         "RiftWii 추가 기능이 쓰는 메모리",
     "about {1} KB":
@@ -3684,24 +3720,20 @@ FR = {
         "Êtes-vous sûr de ne pas vouloir mettre à jour ? Un bug rencontré a peut-être été corrigé !",
     "RiftWii {1} is out. Settings > Check for a new version installs it.":
         "RiftWii {1} est disponible. Rendez-vous dans Paramètres > Vérifier les mises à jour.",
-    "Updates":
-        "Mises à jour",
-    "Beta":
-        "Bêta",
-    "Stable":
-        "Stable",
-    "Beta: every new version, including test builds that may have new bugs. For testers.":
-        "Bêta : inclut les versions de test pouvant contenir des bugs. Pour les testeurs.",
-    "Stable: only versions marked stable, which testers have checked.":
-        "Stable : uniquement les versions validées et certifiées stables.",
-    "No stable version is out yet. This is RiftWii {1}.":
-        "Aucune version stable disponible pour le moment. Version actuelle : RiftWii {1}.",
+    "No release is out yet. This is RiftWii {1}.":
+        "Aucune version disponible pour le moment. Version actuelle : RiftWii {1}.",
     "SD card: {1}":
         "Carte SD : {1}",
     "USB drive: {1}":
         "Stockage USB : {1}",
     "Drive problem":
         "Problème de stockage",
+    "Wii U drive":
+        "Stockage de Wii U",
+    "USB: a Wii U drive (RiftWii leaves it alone)":
+        "USB : un stockage de Wii U (RiftWii ne l'utilise pas)",
+    "The USB drive plugged in is a Wii U's own storage drive. RiftWii can't read it, so it leaves it alone. For Wii games on USB, use a drive formatted FAT32 or NTFS on a computer.":
+        "Le stockage USB branché est celui d'une Wii U. RiftWii ne peut pas le lire, il ne l'utilise donc pas. Pour les jeux Wii sur USB, utilisez un stockage formaté en FAT32 ou NTFS sur un PC.",
     "Games on that drive are not listed. Check the drive on a computer; details are in sd:/riftwii/session.log.":
         "Les jeux de ce stockage ne sont pas listés. Vérifiez le stockage sur PC; détails dans sd:/riftwii/session.log.",
     "SD card problems":
@@ -3928,6 +3960,18 @@ FR = {
         "Cette carte contient des fichiers système macOS commençant par \"._\". RiftWii les ignore mais ils prennent de la place. Pour les supprimer sur Mac, utilisez la commande Terminal `dot_clean -m /Volumes/[NomCarte]`. Sur Windows, supprimez manuellement les fichiers \"._\".",
     "This code mod can't start":
         "Ce mod de code ne peut pas démarrer",
+    "How should this code mod start?":
+        "Comment démarrer ce mod de code ?",
+    "Code mods differ. Most, like Project+, run well with RiftWii's extras. If a mod stays on a black screen, start it without them, as its own loader would.":
+        "Chaque mod de code est différent. La plupart, comme Project+, fonctionnent bien avec les extras de RiftWii. Si un mod reste sur un écran noir, démarrez-le sans eux, comme le ferait son propre chargeur.",
+    "With extras":
+        "Avec les extras",
+    "Crash reports, back to RiftWii":
+        "Rapports de plantage, retour à RiftWii",
+    "Without extras":
+        "Sans extras",
+    "As the mod's own loader":
+        "Comme le chargeur du mod",
     "{1} has more codes than the game has room for ({2}, room for {3}). It needs the file gameconfig.txt (or gc.txt) from the same download as the mod. Copy it into the mod's own folder on the SD card, {4}, so it can't replace another mod's. Not in the download? Ask whoever made the mod.":
         "{1} contient plus de codes que la mémoire disponible ({2}, limite à {3}). Le fichier gameconfig.txt (ou gc.txt) inclus avec le mod est requis dans {4}.",
     "The codes take {1}, but {2} only makes room for {3}. Turn off some cheats on this game's Cheats page, or turn off a code mod.":
@@ -4254,16 +4298,18 @@ FR = {
         "Tous les paramètres reviennent à ceux d'origine. Les pages des jeux, les favoris, l'historique de jeu et les mods sont conservés.",
     "Settings reset to the defaults":
         "Paramètres réinitialisés",
-    "Wii U Pro Controller in games, as a Classic Controller (a first try)":
-        "La manette Wii U Pro dans les jeux, comme Manette Classique (un premier essai)",
-    "Channels: sharp icons, framed like the Wii Menu's":
-        "Chaînes : icônes nettes, encadrées comme dans le menu Wii",
-    "New controller and button pictures":
-        "Nouvelles images des manettes et des boutons",
-    "Smoother round buttons":
-        "Boutons ronds plus doux",
-    "Fixed: some channel logos came out grey":
-        "Corrigé : certains logos de chaînes apparaissaient en gris",
+    "Popups look like the Wii Menu's message box":
+        "Les fenêtres ressemblent à la boîte de message du Menu Wii",
+    "Channels: empty places match the channel icons":
+        "Chaînes : les emplacements vides ont la forme des icônes de chaîne",
+    "A Wii U's own USB drive is left alone, with no error":
+        "Le disque USB propre à une Wii U est ignoré, sans erreur",
+    "Fixed: Retro Rewind would not start with its separate save on":
+        "Corrigé : Retro Rewind ne démarrait pas avec sa sauvegarde séparée activée",
+    "Every RiftWii now updates to the latest release":
+        "Chaque RiftWii se met maintenant à jour vers la dernière version",
+    "Wii U Pro Controller works in games":
+        "La manette Wii U Pro fonctionne dans les jeux",
     "Memory for RiftWii's extras":
         "Mémoire pour les extras de RiftWii",
     "about {1} KB":

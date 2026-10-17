@@ -162,6 +162,22 @@ app (CTGP) starts, `wpadlog` the Wii Remote log. `boot.log` names each one left 
 then halve the list. The PMEX Remix crash on a Wii (2.7.0 RC9.2) was found
 this way: it was the crash recorder.
 
+A code build (REX, Project+, a `gameconfig.txt` build) can also start
+without these extras at all, picked at Start (or `code_build_extras =
+off` for autorun): only its codes, `gameconfig.txt`'s words, the code
+handler's run before the game and the GameCube adapter when one is
+plugged in. REX went black on a tester's Wii U (2610-412).
+
+`build-dolphin/sim.sh` runs one code-build launch on a card image
+without folder sync and scores it (PASS or BLACK); `sim_matrix.sh` runs
+every code-build card with the extras on and off. Test builds' keys in
+`test_limits.txt`: `console_type_as_wii = 1` writes the console type in
+Dolphin as on a console. Dolphin's IOS leaves MEM2's top where the same
+IOS does on a Wii (0x935e0000 under Brawl's IOS36, 0x933e0000 under
+IOS58), so a game needs no squeeze to have a Wii's memory;
+`wii_mem2_top = 1` forces IOS58's layout, and `game_mem2_top_kib`
+alone builds a layout no Wii has (Project+ goes black in it).
+
 `debug_crash` in the same file breaks the game on purpose, to try the
 crash recorder: `debug_crash = pad` puts a read from address 0x28 at the
 start of the game's PADRead (its main thread, every frame), or give a
@@ -202,22 +218,19 @@ game crashes a few steps later instead. The next RiftWii start writes
 4. Screenshots for the notes go in `docs/screenshots/` and are committed
    before the tag; the notes load them from
    `raw.githubusercontent.com/KakarottoCake/Riftwii/<tag>/docs/screenshots/`.
-   `gh release create vYYMM-N --prerelease` with three files: the zip,
+   `gh release create vYYMM-N` (not `--prerelease`) with three files: the zip,
    `riftwii.dol` (what the in-app update downloads) and
    `riftwii-update.pack`. The notes give what changed and the DOL's
    SHA-256, and end with a "License and source" line: GPL-3.0-or-later,
    the source at the tag, the credits in `NOTICE.md`.
-5. Release candidates and stable releases. A release candidate is a beta
-   build like any other (`--prerelease`, titled "RiftWii YYMM-N RC1") that
-   testers go through with `docs/TESTING.md`. A stable release is that
-   same commit, rebuilt with `make -f Makefile.wii RIFTWII_STABLE=1` and
-   published without `--prerelease` (so it is GitHub's latest release),
-   titled "RiftWii Stable YYMM-N". The flag is the only difference from
-   the tested build: with it, Settings > Updates on Automatic follows
-   Stable although the version has a dash. Leave it out and every player
-   on Automatic ends up on Beta. Players on the release candidate are not
-   offered the stable build (it has the same version), and need not be:
-   it is the same code.
+5. Every release is for everyone. It is published as GitHub's latest
+   release (no `--prerelease`), titled "RiftWii YYMM-N", and every
+   RiftWii updates to it: the update check reads `/releases/latest`.
+   There is no Stable or Beta any more. Older builds still have that
+   setting: on Stable they read the latest release too, but on Beta they
+   take the newest release of all, pre-releases included, so a test
+   build for a few testers goes out as a DOL in a message, never as a
+   GitHub pre-release.
 6. When a third-party piece is added: a row in `NOTICE.md` (what, where
    from with the commit, license), `SPDX-FileCopyrightText` lines (one per
    holder, above the license line) in each file that follows it, and a

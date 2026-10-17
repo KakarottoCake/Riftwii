@@ -132,7 +132,8 @@ void LoaderSettings::parse(const std::string& text) {
                 at = semi + 1;
             }
         } else if (key == "update_channel") {
-            if (value == "auto" || value == "stable" || value == "beta") update_channel = value;
+            // Stable and Beta are gone: every build follows the latest
+            // release. The old line is dropped at the next save.
         } else if (key == "gc_rumble") {
             if (value == "on" || value == "off") gc_rumble = value;
         } else if (key == "wiimote_rumble") {
@@ -173,7 +174,6 @@ std::string LoaderSettings::serialize() const {
     s += "screenshots = " + screenshots + "\n";
     s += std::string("online = ") + (online ? "on" : "off") + "\n";
     if (!riitag_key.empty()) s += "riitag_key = " + riitag_key + "\n";
-    s += "update_channel = " + update_channel + "\n";
     s += "gc_rumble = " + gc_rumble + "\n";
     s += "wiimote_rumble = " + wiimote_rumble + "\n";
     s += "gc_adapter = " + gc_adapter + "\n";

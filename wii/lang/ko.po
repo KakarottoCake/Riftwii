@@ -912,23 +912,8 @@ msgstr "정말 업데이트하지 않나요? 혹시 문제가 있었다면 최�
 msgid "RiftWii {1} is out. Settings > Check for a new version installs it."
 msgstr "RiftWii {1}이(가) 출시되었습니다. 설정 > 새 버전 확인을 통해 설치할 수 있습니다."
 
-msgid "Updates"
-msgstr "업데이트"
-
-msgid "Beta"
-msgstr "베타"
-
-msgid "Stable"
-msgstr "안정화"
-
-msgid "Beta: every new version, including test builds that may have new bugs. For testers."
-msgstr "베타: 새로운 버그가 포함될 수 있는 테스트 빌드를 포함한 모든 새 버전입니다. 테스터용입니다."
-
-msgid "Stable: only versions marked stable, which testers have checked."
-msgstr "안정 버전: 테스터가 확인을 마친, '안정'으로 표시된 버전만 해당합니다."
-
-msgid "No stable version is out yet. This is RiftWii {1}."
-msgstr "아직 안정 버전은 출시되지 않았습니다. 이것은 RiftWii {1}입니다."
+msgid "No release is out yet. This is RiftWii {1}."
+msgstr "아직 출시된 버전이 없습니다. 이것은 RiftWii {1}입니다."
 
 msgid "SD card: {1}"
 msgstr "SD 카드: {1}"
@@ -938,6 +923,15 @@ msgstr "USB 드라이브: {1}"
 
 msgid "Drive problem"
 msgstr "드라이브 문제"
+
+msgid "Wii U drive"
+msgstr "Wii U 드라이브"
+
+msgid "USB: a Wii U drive (RiftWii leaves it alone)"
+msgstr "USB: Wii U 드라이브 (RiftWii는 사용하지 않음)"
+
+msgid "The USB drive plugged in is a Wii U's own storage drive. RiftWii can't read it, so it leaves it alone. For Wii games on USB, use a drive formatted FAT32 or NTFS on a computer."
+msgstr "연결된 USB 드라이브는 Wii U 본체의 저장 드라이브입니다. RiftWii는 이 드라이브를 읽을 수 없으므로 사용하지 않습니다. USB로 Wii 게임을 하려면 컴퓨터에서 FAT32 또는 NTFS로 포맷한 드라이브를 사용하세요."
 
 msgid "Games on that drive are not listed. Check the drive on a computer; details are in sd:/riftwii/session.log."
 msgstr "해당 드라이브의 게임이 목록에 표시되지 않습니다. 컴퓨터에서 드라이브를 확인해 보세요오. 자세한 내용은 sd:/riftwii/session.log 파일에서 확인할 수 있습니다."
@@ -1280,6 +1274,24 @@ msgstr "이 SD 카드에는 macOS가 파일을 복사할 때 생성하는 숨김
 
 msgid "This code mod can't start"
 msgstr "이 코드 모드는 시작되지 않음"
+
+msgid "How should this code mod start?"
+msgstr "이 코드 모드를 어떻게 시작할까요?"
+
+msgid "Code mods differ. Most, like Project+, run well with RiftWii's extras. If a mod stays on a black screen, start it without them, as its own loader would."
+msgstr "코드 모드마다 다릅니다. Project+ 같은 대부분의 모드는 RiftWii의 추가 기능과 함께 잘 실행됩니다. 화면이 검은 채로 멈추는 모드는 모드 자체 로더처럼 추가 기능 없이 시작하세요."
+
+msgid "With extras"
+msgstr "추가 기능 사용"
+
+msgid "Crash reports, back to RiftWii"
+msgstr "충돌 기록, RiftWii로 돌아가기"
+
+msgid "Without extras"
+msgstr "추가 기능 없이"
+
+msgid "As the mod's own loader"
+msgstr "모드 자체 로더와 같이"
 
 msgid "{1} has more codes than the game has room for ({2}, room for {3}). It needs the file gameconfig.txt (or gc.txt) from the same download as the mod. Copy it into the mod's own folder on the SD card, {4}, so it can't replace another mod's. Not in the download? Ask whoever made the mod."
 msgstr "{1}에 포함된 코드의 수가 게임이 수용할 수 있는 한도({2}, 수용 한도: {3})를 초과합니다. 이 모드와 함께 제공된 gameconfig.txt (또는 gc.txt) 파일이 필요합니다. 다른 모드의 파일을 덮어쓰지 않도록, 해당 파일을 SD 카드 내 모드 전용 폴더인 {4}에 복사해 넣으세요. 만약 다운로드 파일에 해당 파일이 없다면 모드 제작자에게 문의하세요."
@@ -1716,20 +1728,23 @@ msgstr "모든 설정을 RiftWii의 기본값으로 되돌립니다. 게임별 �
 msgid "Settings reset to the defaults"
 msgstr "설정을 기본값으로 초기화했습니다"
 
-msgid "Wii U Pro Controller in games, as a Classic Controller (a first try)"
-msgstr "게임에서 Wii U PRO 컨트롤러를 클래식 컨트롤러로 (첫 시험)"
+msgid "Popups look like the Wii Menu's message box"
+msgstr "팝업이 Wii 메뉴의 메시지 상자처럼 보입니다"
 
-msgid "Channels: sharp icons, framed like the Wii Menu's"
-msgstr "채널: 선명한 아이콘, Wii 메뉴 같은 테두리"
+msgid "Channels: empty places match the channel icons"
+msgstr "채널: 빈 자리가 채널 아이콘과 같은 모양입니다"
 
-msgid "New controller and button pictures"
-msgstr "새 컨트롤러와 버튼 그림"
+msgid "A Wii U's own USB drive is left alone, with no error"
+msgstr "Wii U 전용 USB 드라이브는 오류 없이 그대로 둡니다"
 
-msgid "Smoother round buttons"
-msgstr "더 부드러운 둥근 버튼"
+msgid "Fixed: Retro Rewind would not start with its separate save on"
+msgstr "수정: Retro Rewind가 별도 세이브를 켜면 시작되지 않던 문제"
 
-msgid "Fixed: some channel logos came out grey"
-msgstr "수정: 일부 채널 로고가 회색으로 나오던 문제"
+msgid "Every RiftWii now updates to the latest release"
+msgstr "이제 모든 RiftWii가 최신 릴리스로 업데이트됩니다"
+
+msgid "Wii U Pro Controller works in games"
+msgstr "게임에서 Wii U PRO 컨트롤러 사용 가능"
 
 msgid "Memory for RiftWii's extras"
 msgstr "RiftWii 추가 기능이 쓰는 메모리"

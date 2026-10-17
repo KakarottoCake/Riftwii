@@ -22,7 +22,7 @@ namespace riftwii::wii::skin {
 
 Tex tile, tileOver, coverTile, coverTileOver, roundBtn, roundBtnOver, pill, pillOver, pillPrimary, pillPrimaryOver, homeBtn, homeBtnOver, chipOff, chipOn, rowFocus,
     stepBack, stepBackOver, stepForward, stepForwardOver, switchOn, switchOff,
-    panelGame, panelSettings, bar, bannerStripes, arrowLeft, arrowLeftOver, arrowRight, arrowRightOver, iconDrives,
+    panelGame, panelSettings, popup, bar, bannerStripes, arrowLeft, arrowLeftOver, arrowRight, arrowRightOver, iconDrives,
     scrollUp, scrollUpOver, scrollDown, scrollDownOver,
     iconGear, iconDisc, discCase, iconSearch, iconStar, iconStarOn, hand[4];
 
@@ -282,7 +282,7 @@ void Init() {
         {"chip_off", &chipOff}, {"chip_on", &chipOn}, {"row_focus", &rowFocus}, {"step_back", &stepBack},
         {"step_back_over", &stepBackOver}, {"step_forward", &stepForward}, {"step_forward_over", &stepForwardOver},
         {"switch_on", &switchOn}, {"switch_off", &switchOff}, {"panel_game", &panelGame},
-        {"panel_settings", &panelSettings}, {"bar", &bar}, {"banner_stripes", &bannerStripes},
+        {"panel_settings", &panelSettings}, {"popup", &popup}, {"bar", &bar}, {"banner_stripes", &bannerStripes},
         {"arrow_left", &arrowLeft}, {"arrow_left_over", &arrowLeftOver}, {"arrow_right", &arrowRight},
         {"arrow_right_over", &arrowRightOver}, {"scroll_up", &scrollUp}, {"scroll_up_over", &scrollUpOver},
         {"scroll_down", &scrollDown}, {"scroll_down_over", &scrollDownOver}, {"icon_drives", &iconDrives},

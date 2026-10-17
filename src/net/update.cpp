@@ -78,18 +78,6 @@ bool release_tag_from_json(const std::string& json, std::string& tag) {
     return true;
 }
 
-bool newest_release_tag(const std::string& json, std::string& tag) {
-    std::string best, text, bare;
-    for (std::size_t at = find_key(json, "tag_name", 0, json.size()); at != std::string::npos;
-         at = find_key(json, "tag_name", at + 10, json.size())) {
-        if (!value_after(json, at + 10, text, bare) || text.empty() || text.size() > 64) continue;
-        if (best.empty() || compare_versions(text, best) > 0) best = text;
-    }
-    if (best.empty()) return false;
-    tag = best;
-    return true;
-}
-
 bool release_asset_from_json(const std::string& json, const std::string& name, ReleaseAsset& out) {
     // GitHub lists an asset's "name" before its "size", "digest" and
     // "browser_download_url"; nothing of another asset comes between.
@@ -168,12 +156,6 @@ int compare_versions(const std::string& a, const std::string& b) {
     if (x.suffix.empty()) return count(y.suffix) ? -1 : 1;
     if (y.suffix.empty()) return count(x.suffix) ? 1 : -1;
     return compare_suffixes(x.suffix, y.suffix);
-}
-
-std::string effective_update_channel(const std::string& setting, const std::string& version, bool stable_build) {
-    if (setting == "stable" || setting == "beta") return setting;
-    if (stable_build) return "stable";
-    return version.find('-') != std::string::npos ? "beta" : "stable";
 }
 
 }  // namespace riftwii

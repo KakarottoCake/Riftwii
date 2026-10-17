@@ -70,6 +70,21 @@ bool mount_image_volume(BlockReader reader, std::unique_ptr<ImageVolume>& out, s
 // first, then the mod packs.
 const std::vector<std::string>& default_wanted_folders();
 
+// What a drive's first 512-byte block says about it, before anything is
+// mounted. A Wii U formats its own storage drive with no partition table
+// and encrypts every block with the console's key, so its block 0 reads
+// as random bytes; a drive nothing has formatted reads as zeros. Players
+// on a Wii U often leave that drive plugged in while RiftWii runs, so it
+// is recognised and left alone rather than reported as a broken drive.
+enum class DriveBlock0 {
+    Readable,  // 0x55AA at its end: a partition table, or a FAT32, exFAT or NTFS volume
+    Wbfs,      // a drive a USB loader formatted as WBFS
+    WiiU,      // random-looking bytes: most likely a Wii U's own (encrypted) drive
+    Empty,     // all zeros: not formatted, or a format with nothing in block 0
+    Unknown,
+};
+DriveBlock0 classify_drive_block0(const std::uint8_t* block0);
+
 // A file of an ImageVolume as a ByteSource (the volume must outlive it).
 class VolumeFileSource final : public ByteSource {
 public:

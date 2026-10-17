@@ -912,23 +912,8 @@ msgstr "Tem certeza de que não quer atualizar? Se você teve algum problema, el
 msgid "RiftWii {1} is out. Settings > Check for a new version installs it."
 msgstr "Saiu a RiftWii {1}. Configurações > Procurar uma versão nova a instala."
 
-msgid "Updates"
-msgstr "Atualizações"
-
-msgid "Beta"
-msgstr "Beta"
-
-msgid "Stable"
-msgstr "Estável"
-
-msgid "Beta: every new version, including test builds that may have new bugs. For testers."
-msgstr "Beta: toda versão nova, incluindo as de teste, que podem ter bugs novos. Para testadores."
-
-msgid "Stable: only versions marked stable, which testers have checked."
-msgstr "Estável: só as versões marcadas como estáveis, que os testadores verificaram."
-
-msgid "No stable version is out yet. This is RiftWii {1}."
-msgstr "Ainda não saiu nenhuma versão estável. Esta é a RiftWii {1}."
+msgid "No release is out yet. This is RiftWii {1}."
+msgstr "Ainda não saiu nenhuma versão. Esta é a RiftWii {1}."
 
 msgid "SD card: {1}"
 msgstr "Cartão SD: {1}"
@@ -938,6 +923,15 @@ msgstr "Unidade USB: {1}"
 
 msgid "Drive problem"
 msgstr "Problema em uma unidade"
+
+msgid "Wii U drive"
+msgstr "Unidade do Wii U"
+
+msgid "USB: a Wii U drive (RiftWii leaves it alone)"
+msgstr "USB: uma unidade do Wii U (o RiftWii não a usa)"
+
+msgid "The USB drive plugged in is a Wii U's own storage drive. RiftWii can't read it, so it leaves it alone. For Wii games on USB, use a drive formatted FAT32 or NTFS on a computer."
+msgstr "A unidade USB conectada é a unidade de armazenamento de um Wii U. O RiftWii não consegue lê-la, então não a usa. Para jogos de Wii pelo USB, use uma unidade formatada em FAT32 ou NTFS em um computador."
 
 msgid "Games on that drive are not listed. Check the drive on a computer; details are in sd:/riftwii/session.log."
 msgstr "Os jogos dessa unidade não aparecem. Verifique a unidade em um computador; os detalhes estão em sd:/riftwii/session.log."
@@ -1280,6 +1274,24 @@ msgstr "Este cartão SD tem arquivos ocultos que o macOS cria ao copiar (nomes q
 
 msgid "This code mod can't start"
 msgstr "Este mod de códigos não pode iniciar"
+
+msgid "How should this code mod start?"
+msgstr "Como este mod de códigos deve iniciar?"
+
+msgid "Code mods differ. Most, like Project+, run well with RiftWii's extras. If a mod stays on a black screen, start it without them, as its own loader would."
+msgstr "Cada mod de códigos é diferente. A maioria, como o Project+, funciona bem com os extras do RiftWii. Se um mod ficar com a tela preta, inicie-o sem eles, como o próprio carregador dele faria."
+
+msgid "With extras"
+msgstr "Com extras"
+
+msgid "Crash reports, back to RiftWii"
+msgstr "Relatórios de falhas, voltar ao RiftWii"
+
+msgid "Without extras"
+msgstr "Sem extras"
+
+msgid "As the mod's own loader"
+msgstr "Como o carregador do próprio mod"
 
 msgid "{1} has more codes than the game has room for ({2}, room for {3}). It needs the file gameconfig.txt (or gc.txt) from the same download as the mod. Copy it into the mod's own folder on the SD card, {4}, so it can't replace another mod's. Not in the download? Ask whoever made the mod."
 msgstr "{1} tem mais códigos do que cabem no jogo ({2}, espaço para {3}). Ele precisa do arquivo gameconfig.txt (ou gc.txt) do mesmo download do mod. Copie-o para a pasta do próprio mod no cartão SD, {4}, assim ele não substitui o de outro mod. Não está no download? Pergunte a quem fez o mod."
@@ -1716,20 +1728,23 @@ msgstr "Todas as configurações voltam a como vêm no RiftWii. As páginas de c
 msgid "Settings reset to the defaults"
 msgstr "Configurações redefinidas"
 
-msgid "Wii U Pro Controller in games, as a Classic Controller (a first try)"
-msgstr "O Wii U Pro Controller nos jogos, como Classic Controller (um primeiro teste)"
+msgid "Popups look like the Wii Menu's message box"
+msgstr "As janelas pop-up parecem a caixa de mensagem do Menu Wii"
 
-msgid "Channels: sharp icons, framed like the Wii Menu's"
-msgstr "Canais: ícones nítidos, com molduras como as do Menu Wii"
+msgid "Channels: empty places match the channel icons"
+msgstr "Canais: os espaços vazios combinam com os ícones dos canais"
 
-msgid "New controller and button pictures"
-msgstr "Novas imagens de controles e botões"
+msgid "A Wii U's own USB drive is left alone, with no error"
+msgstr "O disco USB próprio do Wii U é ignorado, sem erros"
 
-msgid "Smoother round buttons"
-msgstr "Botões redondos mais suaves"
+msgid "Fixed: Retro Rewind would not start with its separate save on"
+msgstr "Corrigido: Retro Rewind não iniciava com o save separado ativado"
 
-msgid "Fixed: some channel logos came out grey"
-msgstr "Corrigido: alguns logotipos de canais apareciam em cinza"
+msgid "Every RiftWii now updates to the latest release"
+msgstr "Todo RiftWii agora atualiza para a versão mais recente"
+
+msgid "Wii U Pro Controller works in games"
+msgstr "O Wii U Pro Controller funciona nos jogos"
 
 msgid "Memory for RiftWii's extras"
 msgstr "Memória para os extras do RiftWii"

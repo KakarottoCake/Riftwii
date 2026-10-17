@@ -47,6 +47,8 @@ void Init() {
 namespace {
 unsigned g_ballast_kib = 0;
 unsigned g_game_mem1_kib = 0, g_game_mem2_kib = 0, g_game_mem2_top_kib = 0;
+bool g_wii_mem2_top = false;
+bool g_console_type_as_wii = false;
 #ifdef RIFTWII_TEST_LIMITS
 void* g_pieces[64];
 #endif
@@ -66,6 +68,8 @@ void TestBallast() {
         else if (std::sscanf(line, " game_mem1_kib = %u", &v) == 1) g_game_mem1_kib = v;
         else if (std::sscanf(line, " game_mem2_kib = %u", &v) == 1) g_game_mem2_kib = v;
         else if (std::sscanf(line, " game_mem2_top_kib = %u", &v) == 1) g_game_mem2_top_kib = v;
+        else if (std::sscanf(line, " wii_mem2_top = %u", &v) == 1) g_wii_mem2_top = v != 0;
+        else if (std::sscanf(line, " console_type_as_wii = %u", &v) == 1) g_console_type_as_wii = v != 0;
     }
     std::fclose(f);
     // Never freed: the run (menu and launch) has that much less.
@@ -95,6 +99,9 @@ void TestGameSqueeze(u32& mem1_kib, u32& mem2_kib, u32& mem2_top_kib) {
     mem2_kib = g_game_mem2_kib;
     mem2_top_kib = g_game_mem2_top_kib;
 }
+
+bool TestWiiMem2Top() { return g_wii_mem2_top; }
+bool TestConsoleTypeAsWii() { return g_console_type_as_wii; }
 
 void LogLimits() {
     const u32 mem1_size = *reinterpret_cast<volatile u32*>(0x80000028);

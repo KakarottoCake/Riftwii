@@ -205,6 +205,44 @@ void test_second_partition_and_gpt() {
     if (!parts.empty()) EXPECT_EQ(parts[0].blocks, std::uint64_t(100000000));
 }
 
+// A drive's block 0 before any mount: a Wii U's own drive (encrypted, so
+// random-looking bytes) is told apart from a blank one and from formats
+// RiftWii reads.
+void test_drive_block0_kinds() {
+    std::uint8_t b[512] = {};
+    EXPECT_TRUE(classify_drive_block0(b) == DriveBlock0::Empty);
+
+    b[510] = 0x55;
+    b[511] = 0xAA;
+    EXPECT_TRUE(classify_drive_block0(b) == DriveBlock0::Readable);
+
+    std::memset(b, 0, sizeof(b));
+    std::memcpy(b, "WBFS", 4);
+    EXPECT_TRUE(classify_drive_block0(b) == DriveBlock0::Wbfs);
+
+    // Encrypted-looking: a simple generator's bytes, as a cipher's would look.
+    std::uint32_t x = 0x12345678;
+    for (std::uint8_t& v : b) {
+        x = x * 1664525u + 1013904223u;
+        v = static_cast<std::uint8_t>(x >> 24);
+    }
+    b[510] = 0x12;  // not 0x55AA by chance
+    EXPECT_TRUE(classify_drive_block0(b) == DriveBlock0::WiiU);
+
+    // Structured data that is neither: text and padding.
+    std::memset(b, 0xFF, sizeof(b));
+    std::memcpy(b, "some header of another format", 29);
+    EXPECT_TRUE(classify_drive_block0(b) == DriveBlock0::Unknown);
+    // Random bytes with a long stretch of zeros in them are not encrypted.
+    for (std::uint8_t& v : b) {
+        x = x * 1664525u + 1013904223u;
+        v = static_cast<std::uint8_t>(x >> 24);
+    }
+    std::memset(b + 100, 0, 16);
+    b[510] = 0x12;
+    EXPECT_TRUE(classify_drive_block0(b) == DriveBlock0::Unknown);
+}
+
 void test_block_zero_without_mbr() {
     Drive d;
     wbfs_header(d, 0, kUserSectors);
@@ -556,6 +594,7 @@ int main(int argc, char** argv) {
     test_layout_matches_libwbfs();
     test_mbr_partition_with_fat16_type();
     test_second_partition_and_gpt();
+    test_drive_block0_kinds();
     test_block_zero_without_mbr();
     test_bad_headers();
     test_damaged_slots_are_skipped();

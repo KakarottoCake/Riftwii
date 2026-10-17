@@ -244,8 +244,11 @@ bool install_cheats(const std::vector<MemoryRegion>& loaded, const std::vector<M
     *reinterpret_cast<volatile std::uint32_t*>(hook) = branch;
     DCFlushRange(reinterpret_cast<void*>(hook & ~31u), 32);
     ICInvalidateRange(reinterpret_cast<void*>(hook & ~31u), 32);
-    if (!debug_off("dolswitch")) install_dol_switch(text, code_hook_pattern(audio ? CodeHook::AudioFrame : CodeHook::Retrace));
-    else logf("Codes: debug_off: no hook on jumps to another executable\n");
+    if (!g_extras.code_builds.empty() && g_extras.code_build_plain)
+        logf("Codes: no hook on jumps to another executable: a code build starts without RiftWii's extras\n");
+    else if (!debug_off("dolswitch")) install_dol_switch(text, code_hook_pattern(audio ? CodeHook::AudioFrame : CodeHook::Retrace));
+    else
+        logf("Codes: debug_off: no hook on jumps to another executable\n");
     logf("Codes: %u cheat(s)%s%s, %u bytes at 0x%08x, handler at 0x%08x called from %s 0x%08x\n",
          static_cast<unsigned>(g_extras.cheat_count), g_extras.code_builds.empty() ? "" : " and ",
          g_extras.code_builds.c_str(), static_cast<unsigned>(gct.size()), static_cast<unsigned>(list),
@@ -1300,6 +1303,14 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     DCFlushRange(reinterpret_cast<void*>(kMem1Start), 0x100);
     logf("Apploader: arena top 0x%08x, FST 0x%08x (%u bytes), BI2 0x%08x\n", load32(0x80000034),
          load32(0x80000038), load32(0x8000003C), load32(0x800000F4));
+    // MEM2 as the running IOS left it for the game, before any blob takes
+    // some. A Wii U's IOSes are their own builds (IOS36 v3864, a Wii's is
+    // v3608), and Dolphin only knows a Wii's: under IOS36 the arena ends at
+    // 0x935e0000. REX starts with 256 KiB less in Dolphin but not with 1 MiB
+    // less, and went black on a tester's Wii U (2610-412).
+    logf("Memory for the game: MEM2 arena 0x%08x-0x%08x, MEM2 end 0x%08x, IPC buffer 0x%08x-0x%08x (IOS%d)\n",
+         read32(0x80003124), read32(0x80003128), read32(0x80003120), read32(0x80003130), read32(0x80003134),
+         IOS_GetVersion());
 
 
     // The DOL header for the runtime's search, read now: an RVZ game's
@@ -1317,6 +1328,28 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     // crash recorder, GameCube adapter or screenshots), as under USB
     // Loader GX.
     const bool code_build = g_extras.code_list_start != 0 && !g_extras.cheat_gct.empty();
+    // Picked at Start: a code build started as its own SD loader would
+    // start it, with its codes, gameconfig.txt's words and the GameCube
+    // adapter when one is plugged in, and none of RiftWii's other extras
+    // (crash recorder, Return to RiftWii, video and game-page preferences,
+    // game fixes, WFC). Mods differ: Project+ runs with them, REX went to a
+    // black screen on a tester's Wii U (2610-412).
+    const bool plain_code_build = code_build && g_extras.code_build_plain;
+    if (mem::TestWiiMem2Top()) {
+        // Test builds: MEM2's top as a Wii's IOS leaves it (the MEM2 end,
+        // the arena's end and IOS's IPC buffer), before the blobs at the
+        // top are planned. Dolphin's IOS ends 2 MiB higher, and lowering
+        // only the arena's end left a layout no Wii has: Project+ went to a
+        // black screen in it, while it runs on a Wii.
+        store32(0x80003120, 0x93400000);
+        if (load32(0x80003128) > 0x933E0000) store32(0x80003128, 0x933E0000);
+        store32(0x80003130, 0x933E0000);
+        store32(0x80003134, 0x93400000);
+        DCFlushRange(reinterpret_cast<void*>(0x80003120), 32);
+        logf("Memory: TEST BUILD: MEM2's top as on a Wii (arena end 0x%08x)\n", load32(0x80003128));
+    }
+    if (code_build)
+        logf("Code build: started %s RiftWii's extras (picked at Start)\n", plain_code_build ? "without" : "with");
     // Resident Evil 4 clears MEM1 up to its FST at its title screen: the
     // blobs there were wiped and the screenshot hook then wrote through a
     // null state (the crash at Start Game on a console; in Dolphin too).
@@ -1659,6 +1692,8 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         logf("Game crashes: not recorded: the game checks its own code (MetaFortress); RiftWii's hooks stay out\n");
     } else if (debug_off("fault")) {
         logf("Game crashes: not recorded: debug_off (and the BCA read not answered)\n");
+    } else if (plain_code_build) {
+        logf("Game crashes: not recorded: a code build starts without RiftWii's extras\n");
     } else if (whole_mem1 && code_build && options.install_resident) {
         // The game-time runtime (a pack's files, saves or an RVZ) takes the
         // same two places: its veneers run from kCodeVeneers past
@@ -1749,8 +1784,13 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     store32(0x80000020, 0x0D15EA5E);            // boot magic
     store32(0x80000024, 1);                     // version
     store32(0x80000028, 0x01800000);            // MEM1 size
-    if (!running_in_dolphin() && !debug_off("consoletype"))
+    // Not for a code build started without the extras: left as the
+    // apploader set it, as the mod's own loader leaves it.
+    if ((!running_in_dolphin() || mem::TestConsoleTypeAsWii()) && !debug_off("consoletype") && !plain_code_build) {
+        const u32 apploader_console_type = load32(0x8000002C);
         store32(0x8000002C, 1 + (read32(0xCC00302C) >> 28));  // console type
+        logf("Console type: 0x%08x written (it was 0x%08x)\n", load32(0x8000002C), apploader_console_type);
+    }
     store32(0x800000EC, 0x81800000);            // debug monitor location
     store32(0x800000F0, 0x01800000);            // simulated memory size
     store32(0x800000F8, 0x0E7BE2C0);            // bus clock
@@ -1771,7 +1811,8 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     // Below the FST too: wiped in a game that clears that memory.
     // Not into a game that checks its own code (MetaFortress): the patch
     // changes it, and The Smurfs: Dance Party stopped after its logos.
-    const u64 return_to = clears_mem1_top || gx_protected ? 0 : return_title();
+    const u64 return_to = clears_mem1_top || gx_protected || plain_code_build ? 0 : return_title();
+    if (plain_code_build) logf("Return to: off: a code build starts without RiftWii's extras\n");
     const std::uint32_t return_stub = return_to == 0 ? 0 : code_build ? kCodeReturnStub : (arena1_top - 32) & ~31u;
     const std::uint32_t arena1_end = return_stub != 0 && !code_build ? return_stub : arena1_top;
     if (options.install_resident || vsd.active || pad.active || shot.active || fault.active || wlog.active ||
@@ -1835,13 +1876,6 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     } else if (options.install_resident && resident.new_arena2_lo != resident.old_arena2_lo) {
         write32(0x80003124, resident.new_arena2_lo);
     }
-    {
-        // Test builds: less of MEM2 for the game (mem::TestGameSqueeze).
-        u32 squeeze1 = 0, squeeze2 = 0, squeeze2_top = 0;
-        mem::TestGameSqueeze(squeeze1, squeeze2, squeeze2_top);
-        if (squeeze2 != 0) write32(0x80003124, (read32(0x80003124) + (squeeze2 << 10) + 31u) & ~31u);
-        if (squeeze2_top != 0) write32(0x80003128, (read32(0x80003128) - (squeeze2_top << 10)) & ~31u);
-    }
     // The virtual SD card's MEM2 block is the arena's top: its end comes
     // down instead, the start (and the game's heaps) staying put.
     if (options.install_resident && resident.new_arena2_hi != 0) write32(0x80003128, resident.new_arena2_hi);
@@ -1850,6 +1884,14 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     if (pad.active && pad.new_arena2_hi != 0) write32(0x80003128, pad.new_arena2_hi);
     // The crash blob of a code build is below that (or alone at the top).
     if (fault.active && fault.veneer != 0) write32(0x80003128, fault.new_arena2_hi);
+    {
+        // Test builds: less of MEM2 for the game (mem::TestGameSqueeze),
+        // after every blob has set the arena's ends.
+        u32 squeeze1 = 0, squeeze2 = 0, squeeze2_top = 0;
+        mem::TestGameSqueeze(squeeze1, squeeze2, squeeze2_top);
+        if (squeeze2 != 0) write32(0x80003124, (read32(0x80003124) + (squeeze2 << 10) + 31u) & ~31u);
+        if (squeeze2_top != 0) write32(0x80003128, (read32(0x80003128) - (squeeze2_top << 10)) & ~31u);
+    }
 
     // <memory> patches, last of all so they win over the globals above (as
     // in Dolphin, which writes low memory before its patches). Writes may
@@ -1943,14 +1985,21 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         const bool own_executable = !options.main_dol.empty();
         unsigned changed = gx_game_patches(probe.header.game_id, dol, loaded_spans, gx, own_executable);
         if (di::frag_device() == 2 && !own_executable) changed += gx_sd_card_patches(probe.header.game_id, loaded_spans, gx);
-        if (g_extras.region_video && !gx_protected && probe.header.game_id.size() >= 4)
+        const bool page_prefs = g_extras.region_video || g_extras.region_strings || g_extras.rumble_off ||
+                                g_extras.speaker_off || g_extras.aspect >= 0;
+        if (page_prefs && plain_code_build) {
+            gx.notes.push_back("the game page's preferences left out: a code build starts without RiftWii's extras");
+        }
+        if (g_extras.region_video && !gx_protected && !plain_code_build && probe.header.game_id.size() >= 4)
             changed += gx_region_video_fix(probe.header.game_id[3], loaded_spans, gx);
         // The game page's preferences, as GX applies them. Its data only
         // (the country strings) also in games that check their own code.
-        if (g_extras.region_strings && probe.header.game_id.size() >= 4)
+        if (g_extras.region_strings && !plain_code_build && probe.header.game_id.size() >= 4)
             changed += gx_country_strings(CONF_GetRegion(), probe.header.game_id[3], loaded_spans, gx);
         const bool prefs = g_extras.rumble_off || g_extras.speaker_off || g_extras.aspect >= 0;
-        if (prefs && gx_protected) {
+        if (plain_code_build) {
+            // Noted above.
+        } else if (prefs && gx_protected) {
             gx.notes.push_back("rumble, speaker and aspect ratio left as the game has them: it checks its own code");
         } else {
             if (g_extras.rumble_off) changed += gx_rumble_off(loaded_spans, gx);
@@ -1964,7 +2013,8 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     // otherwise): the Wii Remote library's firmware probe reads a valid
     // address, as the Pro Controller hangs up on the real one
     // (riftwii/wpadlog.hpp). Testers only, until it is known to help.
-    if (const auto it = Settings().other.find("wpad_probe"); it != Settings().other.end() && it->second == "valid") {
+    if (const auto it = Settings().other.find("wpad_probe");
+        it != Settings().other.end() && it->second == "valid" && !plain_code_build) {
         WpadProbePatch probe_patch;
         std::string why;
         if (gx_protected) {
@@ -2003,6 +2053,10 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         logf("Video: top and bottom borders kept (the side ones removed): its picture breaks when its height changes\n");
         g_extras.video.remove_top_bottom = false;
     }
+    if (plain_code_build && g_extras.video.any()) {
+        logf("Video: as the game has it: a code build starts without RiftWii's extras\n");
+        g_extras.video = VideoSettings{};
+    }
     // The menu's extras, over the game as loaded and patched.
     apply_video(loaded, card.fd < 0);  // not while the runtime's card handle is open
     bool codes_first = false;  // run the codes once before the game starts
@@ -2023,6 +2077,7 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     if (!gx_protected) {
         GxReport gx;
         if (debug_off("480p")) logf("Game fixes: debug_off: no 480p fix\n");
+        else if (plain_code_build) logf("Game fixes: no 480p fix: a code build starts without RiftWii's extras\n");
         else if (gx_fix_480p(loaded_spans, gx)) sync_loaded();
         for (const std::string& note : gx.notes) logf("Game fixes: %s\n", note.c_str());
     }
@@ -2078,6 +2133,7 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         const bool packs = !options.memory_patches.empty() || !options.virtual_files.empty() ||
                            file_replacements;
         if (packs) logf("WFC: not patched; packs are on\n");
+        else if (plain_code_build) logf("WFC: not patched: a code build starts without RiftWii's extras\n");
         else ApplyWfc(loaded, g_extras.server, g_extras.wfc_domain, g_extras.game_id, probe.header.version);
     }
     if (debug_off("returnto")) logf("Return to: debug_off: the game is not patched\n");
@@ -2459,13 +2515,6 @@ void close_nand_permissions(const char* who) {
     logf("%s: IOS%d's NAND permission check %s\n", who, IOS_GetVersion(), back ? "closed" : "could not be closed");
 }
 
-// ES gives a title it starts hardware access only when the title's TMD asks
-// for it (the access rights at TMD offset 0x1D8, "movs r2, #0xEC; lsls r2,
-// r2, #1" in this sequence of ES's Thumb code), and an IOS's TMD does not.
-// Writing 1 to the byte 25 bytes into the sequence makes that test pass for
-// every title. This is the byte libruntimeiospatch's IosPatch_AHBPROT
-// writes (USB Loader GX, WiiFlow); the code here is RiftWii's own. Same
-// MEM2 handling as open_nand_permissions above.
 // Test switches for a game that only fails on a console: settings.txt
 // "debug_off = bca, fault, dolswitch, 480p, returnto, consoletype, prerun,
 // closepart"
@@ -2484,6 +2533,13 @@ bool debug_off(const char* what) {
     return false;
 }
 
+// ES gives a title it starts hardware access only when the title's TMD asks
+// for it (the access rights at TMD offset 0x1D8, "movs r2, #0xEC; lsls r2,
+// r2, #1" in this sequence of ES's Thumb code), and an IOS's TMD does not.
+// Writing 1 to the byte 25 bytes into the sequence makes that test pass for
+// every title. This is the byte libruntimeiospatch's IosPatch_AHBPROT
+// writes (USB Loader GX, WiiFlow); the code here is RiftWii's own. Same
+// MEM2 handling as open_nand_permissions above.
 bool keep_hardware_access(const char* who) {
     if (read32(0x0D800064) != 0xFFFFFFFF) {
         logf("%s: no AHBPROT access, IOS%d's ES left as it is\n", who, IOS_GetVersion());
@@ -2727,8 +2783,21 @@ bool boot_game(const DiscProbe& probe, BootOptions options, std::string& error) 
     // `game` reloads for every game, `menu` never does.
     const auto sd_ios = Settings().other.find("sd_launch_ios");
     const std::string sd_ios_setting = sd_ios != Settings().other.end() ? sd_ios->second : std::string();
-    const bool reload_for_sd = sd_ios_setting == "game" || (sd_ios_setting != "menu" && required == 57);
-    if (!effective.preserve_current_ios && running_ios != static_cast<int>(required) &&
+    // A game that reads a USB keyboard (City Folk) gets the IOS it asks for
+    // when that one has the keyboard driver, never IOS58, which has none
+    // (Dolphin: City Folk under IOS58 found no /dev/usb/kbd, under IOS38 it
+    // opened it). Kept off the three rules below that keep the running IOS.
+    const bool keyboard_ios = !effective.preserve_current_ios && running_ios != static_cast<int>(required) &&
+                              game_uses_usb_keyboard(probe.header.game_id) &&
+                              ios_has_usb_keyboard(static_cast<int>(required)) &&
+                              !ios_has_usb_keyboard(running_ios >= 200 ? d2x_base(running_ios) : running_ios) &&
+                              sd_ios_setting != "menu";
+    const bool reload_for_sd =
+        sd_ios_setting == "game" || (sd_ios_setting != "menu" && required == 57) || keyboard_ios;
+    if (keyboard_ios) {
+        logf("Starting IOS%u for the game: it reads a USB keyboard, which IOS%d has no driver for\n", required,
+             running_ios);
+    } else if (!effective.preserve_current_ios && running_ios != static_cast<int>(required) &&
         needs_resident_sd(effective) && reload_for_sd) {
         logf("Starting IOS%u for the game although the runtime needs the SD card (%s)\n", required,
              sd_ios_setting == "game" ? "sd_launch_ios = game" : "IOS57 games run under it");
@@ -2741,7 +2810,19 @@ bool boot_game(const DiscProbe& probe, BootOptions options, std::string& error) 
         effective.preserve_current_ios = true;
         logf("Keeping IOS%d for resident SD access; reporting IOS%u to the game\n", running_ios, required);
     }
+    // A code build starts the way the launcher Project+ and the mods built
+    // on it ship (MinimaLauncher: REX's and P+EX Remix's SD loaders) starts
+    // it: under IOS58, reporting the game's IOS to it (Dolphin's log: it
+    // launches IOS58, then writes IOS36 at 0x3140 and 0x3188). Under IOS36,
+    // as the disc asks, REX went to a black screen on a tester's Wii U
+    // (2610-412). A cIOS the menu runs on is kept the same way.
     if (!effective.preserve_current_ios && running_ios != static_cast<int>(required) &&
+        !keyboard_ios && !g_extras.code_builds.empty() && (running_ios == 58 || running_ios >= 200)) {
+        effective.preserve_current_ios = true;
+        logf("Keeping IOS%d for the code build, as its own launcher does; reporting IOS%u to the game\n",
+             running_ios, required);
+    }
+    if (!effective.preserve_current_ios && running_ios != static_cast<int>(required) && !keyboard_ios &&
         g_extras.gc_adapter != GcAdapterMode::Off && usb_hid_present()) {
         // The adapter needs /dev/usb/hid, which the IOS a game asks for
         // often lacks (IOS36 has none); the running one has it.
