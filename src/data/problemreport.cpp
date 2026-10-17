@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/problemreport.hpp"
 
+#include "riftwii/cheats.hpp"
+
 #include <algorithm>
 #include <sstream>
 
@@ -212,6 +214,67 @@ std::vector<std::string> enabled_pack_files(const std::string& choices) {
         const std::string file = line.substr(0, t1);
         if (file == "*riftwii*" || line.substr(t1 + 1) != "on") continue;
         if (std::find(out.begin(), out.end(), file) == out.end()) out.push_back(file);
+    }
+    return out;
+}
+
+std::string picked_cheats_report(const std::string& choices, const std::string& cheat_text) {
+    std::vector<std::string> picked;
+    bool on = false;
+    {
+        std::istringstream lines(choices);
+        std::string line;
+        while (std::getline(lines, line)) {
+            if (!line.empty() && line.back() == '\r') line.pop_back();
+            if (line == "*riftwii*\tcheats\ton") on = true;
+            const std::string prefix = "*riftwii*\tcheat\t";
+            if (line.compare(0, prefix.size(), prefix) == 0) picked.push_back(line.substr(prefix.size()));
+        }
+    }
+    if (picked.empty()) return on ? "Cheats on, none picked.\n" : "Cheats off, none picked.\n";
+    std::string out = on ? "Cheats on, " : "Cheats off (these picked for when they are on), ";
+    out += std::to_string(picked.size()) + " picked.\n";
+
+    // The file's blocks: a cheat is its name line and the lines under it,
+    // up to a blank line.
+    std::vector<std::vector<std::string>> blocks(1);
+    {
+        std::istringstream lines(cheat_text);
+        std::string line;
+        while (std::getline(lines, line)) {
+            if (!line.empty() && line.back() == '\r') line.pop_back();
+            if (trim(line).empty()) {
+                if (!blocks.back().empty()) blocks.emplace_back();
+                continue;
+            }
+            blocks.back().push_back(line);
+        }
+    }
+    CheatFile parsed;
+    std::string error;
+    const bool read = parse_cheat_text(cheat_text, parsed, error);
+    for (const std::string& name : picked) {
+        out += "\n";
+        const std::vector<std::string>* block = nullptr;
+        for (const auto& b : blocks)
+            if (!b.empty() && trim(b.front()) == trim(name)) block = &b;
+        if (block == nullptr) {
+            out += name + "\n  (the cheat file has no cheat of this name: it is not sent to the game)\n";
+            continue;
+        }
+        for (const std::string& line : *block) out += line + "\n";
+        const Cheat* cheat = nullptr;
+        if (read)
+            for (const Cheat& c : parsed.cheats)
+                if (trim(c.name) == trim(name)) cheat = &c;
+        if (cheat == nullptr) {
+            out += "  (RiftWii read no code lines in it)\n";
+        } else if (cheat->needs_values) {
+            out += "  (RiftWii read " + std::to_string(cheat->words.size() / 2) +
+                   " code line(s); placeholders are left to fill in, so it is not sent to the game)\n";
+        } else {
+            out += "  (RiftWii read " + std::to_string(cheat->words.size() / 2) + " code line(s))\n";
+        }
     }
     return out;
 }

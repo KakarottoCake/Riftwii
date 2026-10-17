@@ -124,6 +124,31 @@ int main() {
         EXPECT_TRUE(enabled_pack_files("").empty());
     }
 
+    // The cheats a choices file picked, as the cheat file has them.
+    {
+        const std::string cheat_file =
+            "RMCE01\r\nMario Kart Wii\r\n\r\n"
+            "Classic Controller Rumble (b_squo)\r\n04123456 00000001\r\n\r\n"
+            "Enhanced Classic Controller [Vague Rant]\r\nC2000000 00000002\r\n38000001 60000000\r\n"
+            "*A note from its author\r\n\r\n"
+            "Set coins [tester]\r\n0412XXXX 0000YYYY\r\n\r\n"
+            "Not picked\r\n04000000 00000000\r\n";
+        const std::string choices =
+            "*riftwii*\tsaves\tnand\n*riftwii*\tcheats\ton\n*riftwii*\tcheat\tClassic Controller Rumble (b_squo)\n"
+            "*riftwii*\tcheat\tEnhanced Classic Controller [Vague Rant]\n*riftwii*\tcheat\tSet coins [tester]\n"
+            "*riftwii*\tcheat\tGone\nRetroRewind6.xml\toff\n";
+        const std::string r = picked_cheats_report(choices, cheat_file);
+        EXPECT_TRUE(has(r, "Cheats on, 4 picked.\n"));
+        EXPECT_TRUE(has(r, "Enhanced Classic Controller [Vague Rant]\nC2000000 00000002\n38000001 60000000\n"
+                           "*A note from its author\n  (RiftWii read 2 code line(s))\n"));
+        EXPECT_TRUE(has(r, "Classic Controller Rumble (b_squo)\n04123456 00000001\n  (RiftWii read 1 code line(s))\n"));
+        EXPECT_TRUE(has(r, "placeholders are left to fill in"));
+        EXPECT_TRUE(has(r, "Gone\n  (the cheat file has no cheat of this name"));
+        EXPECT_FALSE(has(r, "Not picked"));
+        EXPECT_EQ(picked_cheats_report("*riftwii*\tcheats\toff\n", cheat_file), std::string("Cheats off, none picked.\n"));
+        EXPECT_TRUE(has(picked_cheats_report("*riftwii*\tcheat\tGone\n", ""), "the cheat file has no cheat"));
+    }
+
     // paste.rs's answers.
     {
         std::string link, error;

@@ -236,6 +236,10 @@ std::string gather(const std::string& reason, std::size_t limit) {
         ReportPart choices = file_part("sd:/riftwii/choices/" + id + ".txt");
         parts.push_back(choices);
         parts.push_back(file_part("sd:/riftwii/choices/" + id + ".video"));
+        // The cheats picked, as the cheat file has them (a tester's own
+        // code that did nothing could not be seen before).
+        const ReportPart cheats = file_part(CheatPath(id));
+        if (choices.found) parts.push_back({"cheats picked for " + id, picked_cheats_report(choices.text, cheats.text), true});
         add_packs(choices.text, parts);
     }
     parts.push_back(listing("sd:/riivolution"));

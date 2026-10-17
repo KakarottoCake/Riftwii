@@ -56,6 +56,14 @@ std::string hide_url_keys(const std::string& text);
 // as it names them ("RetroRewind6.xml", "mod.xml @ 192.168.1.20:1137").
 std::vector<std::string> enabled_pack_files(const std::string& choices);
 
+// The cheats a choices file has picked ("*riftwii*\tcheat\t<name>" lines),
+// each as the game's cheat file has it (its name, code lines and notes as
+// written), then what RiftWii read of it: its code lines, placeholders
+// left to fill in, or that the file has no cheat of that name. Says so
+// when cheats are off or none is picked. A report carries these rather
+// than the whole file, which can be a downloaded archive of 70 KB.
+std::string picked_cheats_report(const std::string& choices, const std::string& cheat_text);
+
 // paste.rs's answer to the upload: 201 and the link, or 206 and the link
 // to a paste cut short. False with `error` for anything else.
 // `site` names the paste site in the error (paste.rs, or dpaste.com, the
