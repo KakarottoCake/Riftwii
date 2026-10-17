@@ -586,9 +586,35 @@ static bool gather_package(const PackageSelection& selection, const DiscProbe& p
     }
     if (!plan.memory.empty()) mod.notes.push_back(std::to_string(plan.memory.size()) + " memory patch(es)");
     // A pack whose files are not where its XML says (its folder copied one
-    // level too deep, or not at all) is not started half applied.
-    if (expanded.empty() && (!missing_value.empty() || !first_missing.empty())) {
-        const std::string& what = !missing_value.empty() ? missing_value : first_missing;
+    // level too deep, or not at all) is not started half applied. A <file>
+    // patch stays in `expanded` even when its external is missing (step 2
+    // of the plan skips it later), so "has files" means files the card
+    // really holds. A Retro Rewind copy with no RetroRewind6 folder passed
+    // the older empty-list test with 140 such entries, started with its
+    // hooks in the game and no Loader.pul behind them, and crashed.
+    std::size_t files_present = 0;
+    // The first <file> patch's missing external: a pack of plain <file>
+    // patches whose folder is gone has no missing-folder or valuefile note
+    // at this point (each file's skip is noted later, in step 2), so this is
+    // what names the folder then.
+    std::string first_missing_file;
+    for (const FilePatch& patch : expanded) {
+        std::unique_ptr<ByteSource> external;
+        std::string open_error;
+        if (provider.open_external(patch.external, external, open_error) != OpenStatus::NotFound) ++files_present;
+        else if (first_missing_file.empty()) first_missing_file = patch.external;
+    }
+    const std::size_t files_missing = expanded.size() - files_present;
+    // A memory patch whose valuefile is missing is a code blob the pack's
+    // other patches jump into: with most of the pack's files gone as well,
+    // the install is incomplete and not worth a crash to find out.
+    const bool code_missing_with_pack = !missing_value.empty() && files_missing > files_present;
+    const bool nothing_present =
+        files_present == 0 && (!missing_value.empty() || !first_missing.empty() || !first_missing_file.empty());
+    if (nothing_present || code_missing_with_pack) {
+        const std::string& what = !missing_value.empty() ? missing_value
+                                  : !first_missing.empty() ? first_missing
+                                                           : first_missing_file;
         const bool usb = OnUsb(what);
         std::string path = usb ? what.substr(4) : what;
         if (path.empty() || path[0] != '/') path = "/" + path;
