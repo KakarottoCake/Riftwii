@@ -16,6 +16,14 @@ on:
   push:
     branches: ['**']
   workflow_dispatch:
+  # The nightly (nightly.yml) runs these same checks on the commit it
+  # publishes, and publishes nothing when one fails.
+  workflow_call:
+    inputs:
+      ref:
+        description: The commit to check
+        type: string
+        required: true
 
 # Read-only: a PR from a fork can't write anything with this token.
 permissions:
@@ -23,8 +31,9 @@ permissions:
 
 # A new push to a PR or branch cancels its run still in progress. On main
 # every commit keeps its own run, so each one shows whether it built.
+# Named by workflow: the nightly's call to CI is apart from main's own runs.
 concurrency:
-  group: ci-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.workflow }}-ci-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
@@ -36,6 +45,8 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref }}
       - name: Install Ninja
         run: sudo apt-get update -qq && sudo apt-get install -y -qq ninja-build
       # As docs/DEVELOPING.md builds it: no build type. With -O2, GCC 13
@@ -69,6 +80,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
+          ref: ${{ inputs.ref }}
           # Makefile.wii numbers the build by the commits since the
           # release's tag, so it needs the history and the tags.
           fetch-depth: 0
@@ -93,6 +105,8 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref }}
       # A key twice in the table: Python keeps the last one without a word.
       - name: No duplicate keys
         run: |

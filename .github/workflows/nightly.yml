@@ -1,0 +1,170 @@
+# SPDX-FileCopyrightText: 2026 RiftWii contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# A nightly build of main, published as a beta release (a GitHub
+# pre-release tagged vYYMM-N, like a hand-made beta) with the same three
+# files: the zip, riftwii.dol and riftwii-update.pack. Settings > Updates
+# on Beta offers it by itself; Stable never does. Nothing is published on
+# a night with no new commit, or when CI fails on the commit.
+name: Nightly
+
+on:
+  schedule:
+    - cron: '0 3 * * *'  # 03:00 UTC
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Build and pack, but publish nothing
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+# One nightly at a time; a second one waits rather than racing for a tag.
+concurrency:
+  group: nightly
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Anything new?
+    # A fork's own schedule never publishes; a fork can still run it by
+    # hand (with dry_run to publish nothing).
+    if: github.repository == 'KakarottoCake/Riftwii' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      build: ${{ steps.check.outputs.build }}
+      sha: ${{ steps.check.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+      # As CI does: a fork has none of RiftWii's tags.
+      - name: Fetch the release tags
+        run: git fetch --quiet --no-tags https://github.com/KakarottoCake/Riftwii.git 'refs/tags/*:refs/tags/*'
+      # main's newest commit already has a release (the last nightly, or a
+      # hand-made beta or stable release): nothing to do.
+      - name: Check
+        id: check
+        run: |
+          sha=$(git rev-parse HEAD)
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          if tags=$(git tag --points-at "$sha" 'v*') && [ -n "$tags" ]; then
+            echo "main ($sha) is already released as $tags."
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  ci:
+    name: CI
+    needs: check
+    if: needs.check.outputs.build == 'true'
+    uses: ./.github/workflows/ci.yml
+    with:
+      ref: ${{ needs.check.outputs.sha }}
+
+  build:
+    name: Build and pack
+    needs: [check, ci]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    # The same pinned image as CI's Wii build.
+    container: devkitpro/devkitppc@sha256:44cb1a920e1ec3ec7c06767493c3b85f8d643d6137cc4661f0201895ac6e4967
+    outputs:
+      version: ${{ steps.pack.outputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.check.outputs.sha }}
+          fetch-depth: 0
+      - name: Install zstd
+        run: apt-get update -qq && apt-get install -y -qq zstd
+      - name: Fetch the release tags
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git fetch --quiet --no-tags https://github.com/KakarottoCake/Riftwii.git 'refs/tags/*:refs/tags/*'
+      # A beta build: no RIFTWII_STABLE, so Automatic follows Beta.
+      - name: Build the DOL
+        run: |
+          make -f Makefile.wii -j"$(nproc)"
+          test -s riftwii.dol
+      - name: Build the channel
+        run: make -f Makefile.channel -j"$(nproc)"
+      - name: Pack
+        id: pack
+        run: |
+          version=$(cat build_wii/riftwii_version.stamp)  # Makefile.wii writes it in its build folder
+          case "$version" in
+            *-*) ;;
+            *) echo "::error::$version is a release's own version (no commits since its tag): a nightly comes after one."; exit 1 ;;
+          esac
+          if git rev-parse -q --verify "refs/tags/v$version" >/dev/null; then
+            echo "::error::v$version is already tagged, on another commit. Is RIFTWII_BASE_TAG in CMakeLists.txt current?"
+            exit 1
+          fi
+          mkdir out
+          cp riftwii.dol out/riftwii.dol
+          python3 tools/make_release_zip.py "$version" riftwii.dol build-channel/installer.dol "out/riftwii-v$version.zip" --nightly
+          python3 tools/make_update_pack.py "out/riftwii-v$version.zip" out/riftwii-update.pack
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      # The changes since the last release, newest first, from the commits'
+      # subject lines.
+      - name: Release notes
+        run: |
+          version=${{ steps.pack.outputs.version }}
+          since=$(git describe --tags --abbrev=0 --match 'v*' HEAD)
+          sha256=$(sha256sum riftwii.dol | cut -d' ' -f1 | tr a-f A-F)
+          size=$(stat -c %s riftwii.dol)
+          {
+            echo "**Nightly build:** made automatically from \`main\` and not tested on a real Wii. Things may be broken. For a tested build, use the [latest release](https://github.com/KakarottoCake/Riftwii/releases/latest). With Settings > Updates on Beta, RiftWii offers each new nightly by itself."
+            echo
+            echo "## Changes since ${since#v}"
+            echo
+            git log --no-merges --format='- %s' "$since..HEAD"
+            echo
+            echo "## Download"
+            echo
+            echo "\`riftwii-v$version.zip\`: copy its \`sd-card\` folder onto your SD card and let it replace the files (and \`usb-drive\` onto your USB drive if you use one). \`riftwii.dol\` is the same build as the zip's \`boot.dol\` (SHA256 $sha256, $size bytes). \`riftwii-update.pack\` is what the in-app update reads; you don't need to download it."
+            echo
+            echo "If something goes wrong, use Settings > Send a problem report and send the link, or open an issue with \`sd:/riftwii/session.log\`, \`sd:/riftwii/boot.log\`, your Wii model, your Menu IOS and your cIOS, and say which nightly."
+            echo
+            echo "## License and source"
+            echo
+            echo "RiftWii is free software under the GNU General Public License, version 3 or later, with no warranty. Its source is this repository at the tag \`v$version\`; the zip carries \`LICENSE.txt\`, \`NOTICE.md\` and \`SOURCE.txt\`. [NOTICE.md](https://github.com/KakarottoCake/Riftwii/blob/v$version/NOTICE.md) credits every project RiftWii contains or follows, with each piece's origin and license."
+          } > out/notes.md
+          cat out/notes.md
+      - uses: actions/upload-artifact@v5
+        with:
+          name: riftwii-nightly
+          path: out/
+          if-no-files-found: error
+
+  publish:
+    name: Publish
+    needs: [check, build]
+    if: ${{ !inputs.dry_run }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    # The only job that can write: it makes the tag and the release.
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          name: riftwii-nightly
+          path: out
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.build.outputs.version }}
+          SHA: ${{ needs.check.outputs.sha }}
+        run: |
+          gh release create "v$VERSION" -R "$GITHUB_REPOSITORY" \
+            --prerelease --target "$SHA" \
+            --title "RiftWii $VERSION Nightly" \
+            --notes-file out/notes.md \
+            "out/riftwii-v$VERSION.zip" out/riftwii.dol out/riftwii-update.pack

@@ -237,6 +237,16 @@ game crashes a few steps later instead. The next RiftWii start writes
    line in the README's Credits and in
    `wii/menu/credits.cpp`. Binaries built from someone else's source ship
    with that source, as `vendor-gecko/` does.
+7. Nightly builds. `.github/workflows/nightly.yml` publishes `main` at
+   03:00 UTC as a beta (`--prerelease`, titled "RiftWii YYMM-N
+   Nightly") with the same three files, packed by
+   `tools/make_release_zip.py --nightly` (a short README.txt pointing to
+   the latest release). It skips a night with no new commit (`main`
+   already tagged `v*`) and publishes nothing when CI fails on it.
+   Actions > Nightly > Run workflow starts one by hand; `dry_run` builds
+   and packs without publishing (the files are on the run's page).
+   Hand-made betas, release candidates and stable releases are as above;
+   a nightly never sets `RIFTWII_STABLE`.
 
 ## Ground rules
 
