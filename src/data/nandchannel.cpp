@@ -75,6 +75,15 @@ ChannelClass classify_channel(std::uint64_t title_id) {
     return out;
 }
 
+std::string channel_cheat_code(const std::string& game_id) {
+    if (game_id.size() != 6) return "";
+    std::uint32_t lower = 0;
+    for (int i = 0; i < 4; ++i) lower = (lower << 8) | static_cast<std::uint8_t>(game_id[i]);
+    const std::uint64_t as_title = (std::uint64_t(kDownloadedChannels) << 32) | lower;
+    if (classify_channel(as_title).kind == ChannelKind::None) return "";
+    return game_id.substr(0, 4);
+}
+
 bool parse_tmd_contents(const std::uint8_t* tmd, std::size_t size, TmdContents& out, std::string& error) {
     if (tmd == nullptr || size < kTmdContentsOffset) {
         error = "the TMD is too small";

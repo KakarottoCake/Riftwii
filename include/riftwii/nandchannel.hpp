@@ -77,6 +77,12 @@ bool parse_tmd_contents(const std::uint8_t* tmd, std::size_t size, TmdContents& 
 // the stored banner and covers. The code alone gets "01" without a maker.
 std::string channel_game_id(const std::string& code, const std::string& maker);
 
+// The GeckoCodes archive keys WiiWare and Virtual Console games by their
+// four-letter code alone ("NAAE" for Super Mario 64, "WGOE" for World of
+// Goo; "NAAE01" is not there): that code for a channel game's
+// six-character ID, empty for any other ID.
+std::string channel_cheat_code(const std::string& game_id);
+
 // The record with `index`, or nullptr.
 const TmdContent* tmd_content_by_index(const TmdContents& tmd, std::uint16_t index);
 

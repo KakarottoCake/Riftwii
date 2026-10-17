@@ -24,6 +24,7 @@
 #include "netsock.hpp"
 #include "tls.hpp"
 #include "textfile.hpp"
+#include "riftwii/nandchannel.hpp"
 #include "riftwii/cheats.hpp"
 #include "riftwii/dol.hpp"
 #include "riftwii/http.hpp"
@@ -764,7 +765,11 @@ bool FillCheatValues(const std::string& game_id, const std::string& name, const 
 
 bool DownloadCheats(const std::string& game_id, std::string& error) {
     std::vector<std::uint8_t> body;
-    if (!HttpGet(kCheatsUrl + url_encode(game_id), body, error, 1u << 20)) {
+    // A WiiWare or Virtual Console game is in the archive under its
+    // four-letter code (riftwii/nandchannel.hpp's channel_cheat_code).
+    const std::string channel_code = channel_cheat_code(game_id);
+    const std::string archive_id = channel_code.empty() ? game_id : channel_code;
+    if (!HttpGet(kCheatsUrl + url_encode(archive_id), body, error, 1u << 20)) {
         // The archive answers 404 for a game it has no cheats for.
         if (error.size() >= 12 && error.compare(error.size() - 12, 12, "answered 404") == 0)
             error = "the cheat archive has no cheats for " + game_id;
