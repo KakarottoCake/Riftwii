@@ -1731,6 +1731,42 @@ msgstr "すべての設定をRiftWiiの初期状態に戻します。各ゲー�
 msgid "Settings reset to the defaults"
 msgstr "設定を初期状態に戻しました"
 
+msgid "Install WAD files"
+msgstr "WADファイルをインストール"
+
+msgid "{1} found"
+msgstr "{1}個"
+
+msgid "Installs the .wad files in the wad folder of the SD card into the emulated NAND USB Loader GX keeps its channels in, and lists them on Home. The Wii itself is not changed."
+msgstr "SDカードのwadフォルダにある.wadファイルを、USB Loader GXがチャンネルを置くエミュレートNANDにインストールし、ホームに表示します。Wii本体は変わりません。"
+
+msgid "No .wad files in the wad folder of the SD card."
+msgstr "SDカードのwadフォルダに.wadファイルがありません。"
+
+msgid "Install {1} WAD file(s) into {2}? The Wii itself is not changed."
+msgstr "{1}個のWADファイルを{2}にインストールしますか？Wii本体は変わりません。"
+
+msgid "Install"
+msgstr "インストール"
+
+msgid "Installing WAD files"
+msgstr "WADファイルをインストール中"
+
+msgid "{1} of {2}: {3}"
+msgstr "{2}個中{1}個目: {3}"
+
+msgid "This Wii's key could not be read, so WAD files can't be installed."
+msgstr "このWiiのキーを読めなかったため、WADファイルをインストールできません。"
+
+msgid "Installed {1} of {2}. They are on Home now."
+msgstr "{2}個中{1}個をインストールしました。ホームに表示されています。"
+
+msgid "Not installed: {1}. The reasons are in sd:/riftwii/session.log."
+msgstr "インストールされなかったもの: {1}。理由はsd:/riftwii/session.logにあります。"
+
+msgid "The emulated NAND folder can't be used: {1}"
+msgstr "エミュレートNANDのフォルダを使えません: {1}"
+
 msgid "Starts the game with the cheats and settings shown here."
 msgstr "ここに表示されているチートと設定でゲームを始めます。"
 

@@ -1731,6 +1731,42 @@ msgstr "Tous les paramètres reviennent à ceux d'origine. Les pages des jeux, l
 msgid "Settings reset to the defaults"
 msgstr "Paramètres réinitialisés"
 
+msgid "Install WAD files"
+msgstr "Installer des fichiers WAD"
+
+msgid "{1} found"
+msgstr "{1} trouvés"
+
+msgid "Installs the .wad files in the wad folder of the SD card into the emulated NAND USB Loader GX keeps its channels in, and lists them on Home. The Wii itself is not changed."
+msgstr "Installe les fichiers .wad du dossier wad de la carte SD dans la NAND émulée où USB Loader GX garde ses chaînes, et les affiche dans l'Accueil. La Wii elle-même ne change pas."
+
+msgid "No .wad files in the wad folder of the SD card."
+msgstr "Aucun fichier .wad dans le dossier wad de la carte SD."
+
+msgid "Install {1} WAD file(s) into {2}? The Wii itself is not changed."
+msgstr "Installer {1} fichier(s) WAD dans {2} ? La Wii elle-même ne change pas."
+
+msgid "Install"
+msgstr "Installer"
+
+msgid "Installing WAD files"
+msgstr "Installation des fichiers WAD"
+
+msgid "{1} of {2}: {3}"
+msgstr "{1} sur {2} : {3}"
+
+msgid "This Wii's key could not be read, so WAD files can't be installed."
+msgstr "La clé de cette Wii n'a pas pu être lue, les fichiers WAD ne peuvent donc pas être installés."
+
+msgid "Installed {1} of {2}. They are on Home now."
+msgstr "{1} sur {2} installés. Ils sont maintenant dans l'Accueil."
+
+msgid "Not installed: {1}. The reasons are in sd:/riftwii/session.log."
+msgstr "Non installés : {1}. Les raisons sont dans sd:/riftwii/session.log."
+
+msgid "The emulated NAND folder can't be used: {1}"
+msgstr "Le dossier de la NAND émulée ne peut pas être utilisé : {1}"
+
 msgid "Starts the game with the cheats and settings shown here."
 msgstr "Lance le jeu avec les codes de triche et les réglages affichés ici."
 

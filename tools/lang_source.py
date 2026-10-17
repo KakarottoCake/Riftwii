@@ -1695,6 +1695,18 @@ T = {
     "Every setting back to how RiftWii comes. Games' own pages, favourites, play history and mods are kept.": ("Todos los ajustes vuelven a como vienen en RiftWii. Se conservan las páginas de cada juego, los favoritos, el historial de juego y los mods.", "すべての設定をRiftWiiの初期状態に戻します。各ゲームのページ、お気に入り、プレイ履歴、MODはそのまま残ります。", "Todas as configurações voltam a como vêm no RiftWii. As páginas de cada jogo, os favoritos, o histórico de jogo e os mods são mantidos.", "Tutte le impostazioni tornano come in origine. Le pagine dei singoli giochi, i preferiti, la cronologia di gioco e le mod restano."),
     "Settings reset to the defaults": ("Ajustes restablecidos", "設定を初期状態に戻しました", "Configurações redefinidas", "Impostazioni ripristinate"),
     # Wii channels (WiiWare and Virtual Console)
+    "Install WAD files": ("Instalar archivos WAD", "WADファイルをインストール", "Instalar arquivos WAD", "Installa file WAD"),
+    "{1} found": ("{1} encontrados", "{1}個", "{1} encontrados", "{1} trovati"),
+    "Installs the .wad files in the wad folder of the SD card into the emulated NAND USB Loader GX keeps its channels in, and lists them on Home. The Wii itself is not changed.": ("Instala los archivos .wad de la carpeta wad de la tarjeta SD en la NAND emulada donde USB Loader GX guarda sus canales, y los muestra en Inicio. La propia Wii no cambia.", "SDカードのwadフォルダにある.wadファイルを、USB Loader GXがチャンネルを置くエミュレートNANDにインストールし、ホームに表示します。Wii本体は変わりません。", "Instala os arquivos .wad da pasta wad do cartão SD na NAND emulada onde o USB Loader GX guarda seus canais, e os mostra no Início. O próprio Wii não muda.", "Installa i file .wad della cartella wad della scheda SD nella NAND emulata dove USB Loader GX tiene i suoi canali, e li mostra nella Home. La Wii stessa non cambia."),
+    "No .wad files in the wad folder of the SD card.": ("No hay archivos .wad en la carpeta wad de la tarjeta SD.", "SDカードのwadフォルダに.wadファイルがありません。", "Não há arquivos .wad na pasta wad do cartão SD.", "Nessun file .wad nella cartella wad della scheda SD."),
+    "Install {1} WAD file(s) into {2}? The Wii itself is not changed.": ("¿Instalar {1} archivo(s) WAD en {2}? La propia Wii no cambia.", "{1}個のWADファイルを{2}にインストールしますか？Wii本体は変わりません。", "Instalar {1} arquivo(s) WAD em {2}? O próprio Wii não muda.", "Installare {1} file WAD in {2}? La Wii stessa non cambia."),
+    "Install": ("Instalar", "インストール", "Instalar", "Installa"),
+    "Installing WAD files": ("Instalando archivos WAD", "WADファイルをインストール中", "Instalando arquivos WAD", "Installazione dei file WAD"),
+    "{1} of {2}: {3}": ("{1} de {2}: {3}", "{2}個中{1}個目: {3}", "{1} de {2}: {3}", "{1} di {2}: {3}"),
+    "This Wii's key could not be read, so WAD files can't be installed.": ("No se pudo leer la clave de esta Wii, así que no se pueden instalar archivos WAD.", "このWiiのキーを読めなかったため、WADファイルをインストールできません。", "Não foi possível ler a chave deste Wii, então os arquivos WAD não podem ser instalados.", "Non è stato possibile leggere la chiave di questa Wii, quindi i file WAD non si possono installare."),
+    "Installed {1} of {2}. They are on Home now.": ("Instalados {1} de {2}. Ya están en Inicio.", "{2}個中{1}個をインストールしました。ホームに表示されています。", "Instalados {1} de {2}. Já estão no Início.", "Installati {1} di {2}. Ora sono nella Home."),
+    "Not installed: {1}. The reasons are in sd:/riftwii/session.log.": ("Sin instalar: {1}. Los motivos están en sd:/riftwii/session.log.", "インストールされなかったもの: {1}。理由はsd:/riftwii/session.logにあります。", "Não instalados: {1}. Os motivos estão em sd:/riftwii/session.log.", "Non installati: {1}. I motivi sono in sd:/riftwii/session.log."),
+    "The emulated NAND folder can't be used: {1}": ("No se puede usar la carpeta de la NAND emulada: {1}", "エミュレートNANDのフォルダを使えません: {1}", "A pasta da NAND emulada não pode ser usada: {1}", "La cartella della NAND emulata non si può usare: {1}"),
     "Starts the game with the cheats and settings shown here.": ("Inicia el juego con los trucos y ajustes que se ven aquí.", "ここに表示されているチートと設定でゲームを始めます。", "Inicia o jogo com os truques e ajustes mostrados aqui.", "Avvia il gioco con i trucchi e le impostazioni mostrati qui."),
     "Wii channels": ("Canales Wii", "Wiiチャンネル", "Canais Wii", "Canali Wii"),
     "Which games Home lists: every drive's and the Wii's own, or one place's only. With a game on both drives, one copy is enough.": ("Qué juegos muestra el Inicio: los de cada unidad y los de la propia Wii, o solo los de un sitio. Con un juego en ambas unidades, basta una copia.", "ホームに表示するゲーム：すべてのドライブとWii本体のもの、または1か所のものだけ。両方のドライブにあるゲームは1つで十分です。", "Quais jogos o Início mostra: os de cada unidade e os do próprio Wii, ou só os de um lugar. Com um jogo nas duas unidades, basta uma cópia.", "Quali giochi mostra la Home: quelli di ogni unità e quelli della Wii stessa, o solo quelli di un posto. Con un gioco su entrambe le unità, basta una copia."),
@@ -2961,6 +2973,30 @@ KO = {
         "이 게임의 데이터가 Wii에서 삭제되어 시작할 수 없습니다.",
     "Starts the game with the cheats and settings shown here.":
         "여기 보이는 치트와 설정으로 게임을 시작합니다.",
+    "Install WAD files":
+        "WAD 파일 설치",
+    "{1} found":
+        "{1}개",
+    "Installs the .wad files in the wad folder of the SD card into the emulated NAND USB Loader GX keeps its channels in, and lists them on Home. The Wii itself is not changed.":
+        "SD 카드의 wad 폴더에 있는 .wad 파일을 USB Loader GX가 채널을 두는 에뮬레이트 NAND에 설치하고 홈에 표시합니다. Wii 본체는 바뀌지 않습니다.",
+    "No .wad files in the wad folder of the SD card.":
+        "SD 카드의 wad 폴더에 .wad 파일이 없습니다.",
+    "Install {1} WAD file(s) into {2}? The Wii itself is not changed.":
+        "WAD 파일 {1}개를 {2}에 설치할까요? Wii 본체는 바뀌지 않습니다.",
+    "Install":
+        "설치",
+    "Installing WAD files":
+        "WAD 파일 설치 중",
+    "{1} of {2}: {3}":
+        "{2}개 중 {1}번째: {3}",
+    "This Wii's key could not be read, so WAD files can't be installed.":
+        "이 Wii의 키를 읽을 수 없어 WAD 파일을 설치할 수 없습니다.",
+    "Installed {1} of {2}. They are on Home now.":
+        "{2}개 중 {1}개를 설치했습니다. 이제 홈에 있습니다.",
+    "Not installed: {1}. The reasons are in sd:/riftwii/session.log.":
+        "설치되지 않음: {1}. 이유는 sd:/riftwii/session.log에 있습니다.",
+    "The emulated NAND folder can't be used: {1}":
+        "에뮬레이트 NAND 폴더를 사용할 수 없습니다: {1}",
     "Wii channels":
         "Wii 채널",
     "Which games Home lists: every drive's and the Wii's own, or one place's only. With a game on both drives, one copy is enough.":
@@ -4320,6 +4356,30 @@ FR = {
         "Les données de ce jeu ont été effacées de la Wii, il ne peut donc pas démarrer.",
     "Starts the game with the cheats and settings shown here.":
         "Lance le jeu avec les codes de triche et les réglages affichés ici.",
+    "Install WAD files":
+        "Installer des fichiers WAD",
+    "{1} found":
+        "{1} trouvés",
+    "Installs the .wad files in the wad folder of the SD card into the emulated NAND USB Loader GX keeps its channels in, and lists them on Home. The Wii itself is not changed.":
+        "Installe les fichiers .wad du dossier wad de la carte SD dans la NAND émulée où USB Loader GX garde ses chaînes, et les affiche dans l'Accueil. La Wii elle-même ne change pas.",
+    "No .wad files in the wad folder of the SD card.":
+        "Aucun fichier .wad dans le dossier wad de la carte SD.",
+    "Install {1} WAD file(s) into {2}? The Wii itself is not changed.":
+        "Installer {1} fichier(s) WAD dans {2} ? La Wii elle-même ne change pas.",
+    "Install":
+        "Installer",
+    "Installing WAD files":
+        "Installation des fichiers WAD",
+    "{1} of {2}: {3}":
+        "{1} sur {2} : {3}",
+    "This Wii's key could not be read, so WAD files can't be installed.":
+        "La clé de cette Wii n'a pas pu être lue, les fichiers WAD ne peuvent donc pas être installés.",
+    "Installed {1} of {2}. They are on Home now.":
+        "{1} sur {2} installés. Ils sont maintenant dans l'Accueil.",
+    "Not installed: {1}. The reasons are in sd:/riftwii/session.log.":
+        "Non installés : {1}. Les raisons sont dans sd:/riftwii/session.log.",
+    "The emulated NAND folder can't be used: {1}":
+        "Le dossier de la NAND émulée ne peut pas être utilisé : {1}",
     "Wii channels":
         "Chaînes Wii",
     "Which games Home lists: every drive's and the Wii's own, or one place's only. With a game on both drives, one copy is enough.":
