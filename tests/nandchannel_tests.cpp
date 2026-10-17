@@ -129,6 +129,18 @@ void test_tmd() {
     EXPECT_TRUE(!parse_tmd_contents(nullptr, 0, parsed, error));
 }
 
+void test_cheat_code() {
+    EXPECT_EQ(channel_cheat_code("NAAE01"), std::string("NAAE"));
+    EXPECT_EQ(channel_cheat_code("WGOE5G"), std::string("WGOE"));
+    EXPECT_EQ(channel_cheat_code("FABE01"), std::string("FABE"));
+    // Disc games, Nintendo's own channels and homebrew keep their IDs.
+    EXPECT_EQ(channel_cheat_code("RSBE01"), std::string(""));
+    EXPECT_EQ(channel_cheat_code("GZLE01"), std::string(""));
+    EXPECT_EQ(channel_cheat_code("HAAA01"), std::string(""));
+    EXPECT_EQ(channel_cheat_code("UFTW01"), std::string(""));
+    EXPECT_EQ(channel_cheat_code("NAAE"), std::string(""));
+}
+
 void test_paths() {
     EXPECT_EQ(nand_content_path(title(kDownloadedChannels, "WBME"), 0),
               std::string("/title/00010001/57424d45/content/00000000.app"));
@@ -192,6 +204,7 @@ int main() {
     test_tmd();
     test_paths();
     test_program();
+    test_cheat_code();
     if (g_failures == 0) std::cout << "nandchannel tests passed" << std::endl;
     return g_failures == 0 ? 0 : 1;
 }
