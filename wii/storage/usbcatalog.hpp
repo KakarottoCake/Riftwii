@@ -145,6 +145,10 @@ bool sd_file_pieces(const std::string& sd_path, std::uint64_t& size, std::vector
 // A game's name from the title list (GameTDB, in the menu's language),
 // else `internal`, the disc header's.
 std::string GameDisplayName(const std::string& id, const std::string& internal);
+// GameTDB's title list, when one is on the card (downloaded or kept): false
+// without a list. With one, `title` gets the name for `id` (6 characters or
+// a 4-character WiiWare or Virtual Console code), empty when it has none.
+bool GameTitleListed(const std::string& id, std::string& title);
 // Reads the title list again (after a language change or a download).
 void ReloadTitles();
 // Names (and sorts) a scanned catalog's games again from the title list.

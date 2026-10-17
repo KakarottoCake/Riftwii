@@ -43,6 +43,8 @@ std::vector<std::uint8_t> make_tmd(std::uint64_t title_id, std::uint32_t ios, st
     put64(t.data() + 0x18C, title_id);
     put16(t.data() + 0x1DE, static_cast<std::uint16_t>(contents.size()));
     put16(t.data() + 0x1E0, boot);
+    t[0x198] = '0';
+    t[0x199] = '1';
     for (std::size_t i = 0; i < contents.size(); ++i) {
         std::uint8_t* r = t.data() + 0x1E4 + i * 36;
         put32(r, contents[i].id);
@@ -96,6 +98,10 @@ void test_tmd() {
     EXPECT_EQ(parsed.title_id, id);
     EXPECT_EQ(parsed.required_ios, 53u);
     EXPECT_EQ(parsed.boot_index, 1);
+    EXPECT_EQ(parsed.maker, std::string("01"));
+    EXPECT_EQ(channel_game_id("WBME", parsed.maker), std::string("WBME01"));
+    EXPECT_EQ(channel_game_id("WBME", ""), std::string("WBME01"));
+    EXPECT_EQ(channel_game_id("NAKE", "8P"), std::string("NAKE8P"));
     EXPECT_EQ(parsed.contents.size(), std::size_t(3));
     const TmdContent* boot = tmd_content_by_index(parsed, parsed.boot_index);
     EXPECT_TRUE(boot != nullptr);
@@ -109,6 +115,11 @@ void test_tmd() {
     const std::vector<std::uint8_t> no_ios = make_tmd(id, 0, 0, {{0, 0, 1, 16}});
     EXPECT_TRUE(parse_tmd_contents(no_ios.data(), no_ios.size(), parsed, error));
     EXPECT_EQ(parsed.required_ios, 0u);
+    // A group ID that is not two letters or digits: no maker.
+    std::vector<std::uint8_t> odd = no_ios;
+    odd[0x198] = 0;
+    EXPECT_TRUE(parse_tmd_contents(odd.data(), odd.size(), parsed, error));
+    EXPECT_TRUE(parsed.maker.empty());
 
     // Too small for its own count, and too small for the header.
     std::vector<std::uint8_t> cut = t;

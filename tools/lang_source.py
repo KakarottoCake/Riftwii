@@ -1704,6 +1704,9 @@ T = {
     "Every setting goes back to how RiftWii comes, and RiftWii restarts. Games' own pages, favourites, play history and mods are kept.": ("Todos los ajustes vuelven a como vienen en RiftWii, y RiftWii se reinicia. Se conservan las páginas de cada juego, los favoritos, el historial de juego y los mods.", "すべての設定がRiftWiiの初期状態に戻り、RiftWiiが再起動します。各ゲームのページ、お気に入り、プレイ履歴、MODはそのまま残ります。", "Todas as configurações voltam a como vêm no RiftWii, e o RiftWii reinicia. As páginas de cada jogo, os favoritos, o histórico de jogo e os mods são mantidos.", "Tutte le impostazioni tornano come in origine e RiftWii si riavvia. Le pagine dei singoli giochi, i preferiti, la cronologia di gioco e le mod restano."),
     "Every setting back to how RiftWii comes. Games' own pages, favourites, play history and mods are kept.": ("Todos los ajustes vuelven a como vienen en RiftWii. Se conservan las páginas de cada juego, los favoritos, el historial de juego y los mods.", "すべての設定をRiftWiiの初期状態に戻します。各ゲームのページ、お気に入り、プレイ履歴、MODはそのまま残ります。", "Todas as configurações voltam a como vêm no RiftWii. As páginas de cada jogo, os favoritos, o histórico de jogo e os mods são mantidos.", "Tutte le impostazioni tornano come in origine. Le pagine dei singoli giochi, i preferiti, la cronologia di gioco e le mod restano."),
     "Settings reset to the defaults": ("Ajustes restablecidos", "設定を初期状態に戻しました", "Configurações redefinidas", "Impostazioni ripristinate"),
+    # Wii channels (WiiWare and Virtual Console)
+    "This game's data was removed from the Wii, so it can't start.": ("Los datos de este juego se borraron de la Wii, así que no puede iniciarse.", "このゲームのデータはWiiから削除されているため、起動できません。", "Os dados deste jogo foram apagados do Wii, então ele não pode ser iniciado.", "I dati di questo gioco sono stati cancellati dalla Wii, quindi non può partire."),
+    "Start this game? RiftWii closes and the Wii starts it, as the Wii Menu does.": ("¿Iniciar este juego? RiftWii se cierra y la Wii lo inicia, como desde el Menú Wii.", "このゲームを始めますか？RiftWiiを終了し、Wiiメニューと同じようにWiiがゲームを起動します。", "Iniciar este jogo? O RiftWii fecha e o Wii o inicia, como o Menu Wii faz.", "Avviare questo gioco? RiftWii si chiude e la Wii lo avvia, come fa il Menu Wii."),
     # What's new in the release after 2610-421
     "Popups look like the Wii Menu's message box": ("Las ventanas emergentes se parecen al cuadro de mensajes del Menú Wii", "ポップアップがWiiメニューのメッセージ画面のようになりました", "As janelas pop-up parecem a caixa de mensagem do Menu Wii", "I popup somigliano al riquadro dei messaggi del Menu Wii"),
     "Channels: empty places match the channel icons": ("Canales: los huecos vacíos coinciden con los iconos de los canales", "チャンネル：空きの枠がチャンネルのアイコンとそろいました", "Canais: os espaços vazios combinam com os ícones dos canais", "Canali: gli spazi vuoti corrispondono alle icone dei canali"),
@@ -2966,6 +2969,10 @@ KO = {
         "모든 설정을 RiftWii의 기본값으로 되돌립니다. 게임별 페이지, 즐겨찾기, 플레이 기록, 모드는 그대로 유지됩니다.",
     "Settings reset to the defaults":
         "설정을 기본값으로 초기화했습니다",
+    "This game's data was removed from the Wii, so it can't start.":
+        "이 게임의 데이터가 Wii에서 삭제되어 시작할 수 없습니다.",
+    "Start this game? RiftWii closes and the Wii starts it, as the Wii Menu does.":
+        "이 게임을 시작할까요? RiftWii가 닫히고 Wii 메뉴처럼 Wii가 게임을 시작합니다.",
     "Popups look like the Wii Menu's message box":
         "팝업이 Wii 메뉴의 메시지 상자처럼 보입니다",
     "Channels: empty places match the channel icons":
@@ -4321,6 +4328,10 @@ FR = {
         "Tous les paramètres reviennent à ceux d'origine. Les pages des jeux, les favoris, l'historique de jeu et les mods sont conservés.",
     "Settings reset to the defaults":
         "Paramètres réinitialisés",
+    "This game's data was removed from the Wii, so it can't start.":
+        "Les données de ce jeu ont été effacées de la Wii, il ne peut donc pas démarrer.",
+    "Start this game? RiftWii closes and the Wii starts it, as the Wii Menu does.":
+        "Lancer ce jeu ? RiftWii se ferme et la Wii le lance, comme le fait le Menu Wii.",
     "Popups look like the Wii Menu's message box":
         "Les fenêtres ressemblent à la boîte de message du Menu Wii",
     "Channels: empty places match the channel icons":

@@ -16,8 +16,12 @@ namespace riftwii::wii {
 // decides which titles those are).
 struct NandChannel {
     std::uint64_t title_id = 0;
-    std::string code;  // the four letters of its title ID ("WBME"), also its game ID for covers and cheats
+    std::string code;     // the four letters of its title ID ("WBME")
+    std::string game_id;  // what RiftWii keys it by (riftwii/nandchannel.hpp's channel_game_id: "WBME01")
     ChannelClass kind;
+    // Its name in GameTDB's title list, in the menu's language (empty
+    // without a list).
+    std::string listed_name;
     TmdContents tmd;
     // Its names from the banner's IMET header, one per BannerLanguage
     // (some empty); all empty when the banner could not be read.
@@ -37,8 +41,18 @@ struct NandChannel {
 // closing it again before returning.
 bool list_nand_channels(std::vector<NandChannel>& out, std::string& status);
 
-// The name a channel is shown by: its banner's name in `language` (a
+// The whole banner file (content index 0), for the Channels view's banner
+// store (wii/menu/banners.hpp). False with `error` saying why.
+bool read_nand_channel_banner(const NandChannel& channel, std::vector<std::uint8_t>& out, std::string& error);
+
+// The name a channel is shown by: GameTDB's name, else its banner's name in `language` (a
 // BannerLanguage), then English, then the first one there is, then its code.
 std::string nand_channel_name(const NandChannel& channel, int language);
+
+// The channel the menu is leaving to (wii/main.cpp's ExitApp, leave code
+// kLeaveToChannel): set by the menu when Start is pressed on one.
+constexpr int kLeaveToChannel = 6;
+void SetChannelToStart(std::uint64_t title_id);
+std::uint64_t ChannelToStart();
 
 }  // namespace riftwii::wii
