@@ -23,6 +23,7 @@
 #include "boot.hpp"
 #include "gcadapter.hpp"
 #include "memlimits.hpp"
+#include "menumusic.hpp"
 #include "netsock.hpp"
 #include "umsdev.hpp"
 
@@ -94,6 +95,10 @@ void release_wii_remotes() {
 
 ReloadResult reload_ios(int version, std::string& error, bool force) {
     CoverLoaderHold();  // no SD read in flight across the reload
+    // Launches stop the music before they close the log; this is for any
+    // reload that comes without that: no audio may run across a reload
+    // (LaunchMusicPauseForReload says what it did on a Wii).
+    LaunchMusicEnd("an IOS reload");
     g_terminal_failure = false;
     g_reload_detail.clear();
     if (version < 3 || version > 0xFF) {

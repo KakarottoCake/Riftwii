@@ -33,6 +33,7 @@
 #include "di.hpp"
 #include "ios_reload.hpp"
 #include "menuios.hpp"
+#include "menumusic.hpp"
 #include "log.hpp"
 #include "memlimits.hpp"
 #include "netsock.hpp"
@@ -377,6 +378,7 @@ bool verify_sd_replacement(const sdio::Card& card, const SdReplacement& r, std::
 // (g_card_live_for_log is defined with g_extras, above.)
 void release_card_and_log() {
     if (!g_card_live_for_log) return;
+    if (LaunchMusicPlaying()) logf("Menu music: plays on until the game starts\n");
     logf("Releasing the SD card (the log ends here; the rest is on screen)\n");
     LogClose();
     fatUnmount("sd:");
@@ -2156,6 +2158,9 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     // may read it: Other M Redux's finds the top of memory through it and
     // jumped to 0 - its payload's size without it.
     const std::uint32_t bi2 = load32(0x800000F4);
+    // The last moment for the menu's music: libogc shuts down next, and
+    // the game then takes the DSP and the audio interrupt.
+    LaunchMusicEnd("the game starts next");
     SYS_ResetSystem(SYS_SHUTDOWN, 0, 0);
     store32(0x800000F4, bi2);
     if (options.install_resident && resident.data_bytes != 0 && resident.data_base != resident.stage_base) {
@@ -2920,6 +2925,13 @@ bool boot_game(const DiscProbe& probe, BootOptions options, std::string& error) 
         }
     }
 
+    // The menu's music ends here, while the log is still open to say so,
+    // when the game's IOS is loaded next: no audio across a reload. With
+    // the running IOS kept it plays on while the game is loaded, until
+    // RiftWii shuts down for it: the game's memory is below RiftWii and
+    // above its heap (kLoaderStart, mem::kMem1Ceiling), the decoder's is
+    // RiftWii's own, and nothing up to then masks the audio's interrupts.
+    if (!effective.preserve_current_ios) LaunchMusicEnd("the game's IOS is loaded next");
     // Everything IOS holds for us dies with a reload: the Wii Remote stack
     // (which also saves its pairings to NAND on shutdown, so it must go
     // while IPC is still alive), the log, DI and the SD card. With the

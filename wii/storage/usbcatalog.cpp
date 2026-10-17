@@ -43,6 +43,7 @@
 #include "riftwii/wiicrypt.hpp"
 #include "otpkey.hpp"
 #include "memlimits.hpp"
+#include "menumusic.hpp"
 #include "umsdev.hpp"
 #include "gcadapter.hpp"
 #include "netsock.hpp"
@@ -1819,6 +1820,7 @@ bool activate_disc_cios(int cios_slot, const char* log_path, std::string& error,
         }
         logf("Disc: reload IOS%d for %s; releasing Wii Remotes, USB, SD and DI\n", slot, purpose);
         mem::CheckHeap("before the cIOS reload");
+        LaunchMusicPauseForReload("the disc's cIOS is loaded next");
         LogClose();
         const std::string released = release_for_reload();
         const ReloadResult r = reload_ios(slot, error, true);
@@ -1934,6 +1936,7 @@ bool activate_image_game(const ImageGame& game, int cios_slot, void*& storage, s
     // hardware access, which an IOS reload ends: the running IOS's ES is
     // told to leave it on for the cIOS.
     if (block_ios_reload) keep_hardware_access(device_name(game.device));
+    LaunchMusicPauseForReload("the game's cIOS is loaded next");
     LogClose();
     const std::string released = release_for_reload();
     const PadPairings pads_before = ReadPadPairings();
@@ -1979,6 +1982,9 @@ bool activate_image_game(const ImageGame& game, int cios_slot, void*& storage, s
                 " (the details are in boot.log)";
         return post_reload_failure(log_path, error);
     }
+    // The cIOS is up and the heap whole: the menu's music again for the
+    // rest of the launch (debug_off = musicresume keeps it quiet).
+    if (!debug_off("musicresume")) LaunchMusicResumeAfterReload();
     if (disc_device == ImageDevice::Usb && !rvz) log_d2x_usb_view(game.fragments);
     logf("%s: d2x F9 config\n", device_name(game.device));
     if (!di::configure_frag(device,storage,static_cast<std::uint32_t>(bytes.size()),error)) { error = "d2x F9 fragment setup failed: " + error; return post_reload_failure(log_path, error); }
