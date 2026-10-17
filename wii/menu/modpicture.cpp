@@ -74,7 +74,86 @@ bool exists(const std::string& path) {
     return stat(path.c_str(), &st) == 0 && !S_ISDIR(st.st_mode);
 }
 
+// A picture file read and fitted into a `w` x `h` RGBA8 texture at `out`
+// (`what` names it in the log). False when it can't be read.
+bool load_fitted(const std::string& path, int bw, int bh, u8* out, const char* what) {
+    std::vector<std::uint8_t> png, rgba;
+    int w = 0, h = 0;
+    std::string error;
+    if (!read_picture(path, png)) {
+        logf("%s: %s can't be read (a PNG of 2 MB at most)\n", what, path.c_str());
+        return false;
+    }
+    if (!DecodePngRgba(png, rgba, w, h, error)) {
+        logf("%s: %s: %s\n", what, path.c_str(), error.c_str());
+        return false;
+    }
+    std::vector<std::uint8_t>().swap(png);
+    const std::vector<std::uint8_t> box = fit_art(rgba.data(), w, h, bw, bh);
+    std::vector<std::uint8_t>().swap(rgba);
+    if (!to_gx_rgba8(box.data(), bw, bh, out)) return false;
+    DCFlushRange(out, static_cast<std::size_t>(bw) * bh * 4);
+    logf("%s: picture %s (%dx%d)\n", what, path.c_str(), w, h);
+    return true;
+}
+
+// The profiles' pictures, by profile key: a page of tiles' worth.
+constexpr int kProfileSlots = 12;
+constexpr std::size_t kProfileSlotBytes = static_cast<std::size_t>(kProfilePicture) * kProfilePicture * 4;
+Slot g_profileSlots[kProfileSlots];
+std::set<std::string> g_profileNone;
+
 }  // namespace
+
+std::string ModPicturePath(const LaunchPackage& p) {
+    for (const std::string& c : candidates(p))
+        if (exists(c)) return c;
+    return "";
+}
+
+const u8* ProfilePicture(const std::string& key, const std::string& art) {
+    if (key.empty() || g_profileNone.count(key)) return nullptr;
+    Slot* victim = &g_profileSlots[0];
+    for (Slot& s : g_profileSlots) {
+        if (s.data && s.path == key) {
+            s.used = ++g_clock;
+            return s.data;
+        }
+        if (s.used < victim->used) victim = &s;
+    }
+    // The player's own picture first, then the pack's.
+    std::string path = std::string(kProfilePictureDir) + "/" + key + ".png";
+    if (!exists(path)) path = art;
+    if (path.empty() || !exists(path)) {
+        g_profileNone.insert(key);
+        return nullptr;
+    }
+    if (!victim->data) victim->data = skin::Mem2Alloc(kProfileSlotBytes);
+    victim->path.clear();
+    if (!victim->data || !load_fitted(path, kProfilePicture, kProfilePicture, victim->data, "Home tile")) {
+        g_profileNone.insert(key);
+        return nullptr;
+    }
+    victim->path = key;
+    victim->used = ++g_clock;
+    return victim->data;
+}
+
+bool ProfilePictureLoad(const std::string& key, const std::string& art) {
+    if (key.empty() || g_profileNone.count(key)) return false;
+    for (const Slot& s : g_profileSlots)
+        if (s.data && s.path == key) return false;
+    ProfilePicture(key, art);
+    return true;
+}
+
+void ForgetProfilePictures() {
+    g_profileNone.clear();
+    for (Slot& s : g_profileSlots) {
+        s.path.clear();
+        s.used = 0;
+    }
+}
 
 const u8* ModPicture(const LaunchPackage& p) {
     const std::string key = p.file + "\n" + p.path + "\n" + p.gct_path;
@@ -97,31 +176,14 @@ const u8* ModPicture(const LaunchPackage& p) {
         }
         if (s.used < victim->used) victim = &s;
     }
-    std::vector<std::uint8_t> png, rgba;
-    int w = 0, h = 0;
-    std::string error;
-    if (!read_picture(path, png)) {
-        logf("Mods: %s can't be read (a PNG of 2 MB at most)\n", path.c_str());
-        g_none.insert(key);
-        return nullptr;
-    }
-    if (!DecodePngRgba(png, rgba, w, h, error)) {
-        logf("Mods: %s: %s\n", path.c_str(), error.c_str());
-        g_none.insert(key);
-        return nullptr;
-    }
-    std::vector<std::uint8_t>().swap(png);
-    const std::vector<std::uint8_t> box = fit_art(rgba.data(), w, h, kModPictureW, kModPictureH);
-    std::vector<std::uint8_t>().swap(rgba);
     if (!victim->data) victim->data = skin::Mem2Alloc(kSlotBytes);
-    if (!victim->data || !to_gx_rgba8(box.data(), kModPictureW, kModPictureH, victim->data)) {
+    victim->path.clear();
+    if (!victim->data || !load_fitted(path, kModPictureW, kModPictureH, victim->data, "Mods")) {
         g_none.insert(key);
         return nullptr;
     }
-    DCFlushRange(victim->data, kSlotBytes);
     victim->path = path;
     victim->used = ++g_clock;
-    logf("Mods: picture %s (%dx%d)\n", path.c_str(), w, h);
     return victim->data;
 }
 

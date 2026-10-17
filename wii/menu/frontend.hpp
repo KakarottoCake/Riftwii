@@ -7,6 +7,7 @@
 #include "modplan.hpp"
 #include "nandchannels.hpp"
 #include "riftwii/launch.hpp"
+#include "riftwii/profiles.hpp"
 #include "usbcatalog.hpp"
 
 namespace riftwii::wii {
@@ -27,6 +28,10 @@ struct FrontendState {
     std::uint8_t game_disc_number = 0;
     riftwii::LaunchModel model;
     std::string choices_path;
+    // A profile's tile was opened (riftwii/profiles.hpp): its key and name,
+    // and choices_path is its own choices file. Empty for the game's own tile.
+    std::string profile_key;
+    std::string profile_name;
     CompiledMod compiled;
     bool has_compiled = false;
     UsbCatalog usb_catalog;
@@ -73,5 +78,14 @@ std::string ScanPackages(FrontendState& state);
 // the short form for the game page.
 std::string ModPlaceProblem(const FrontendState& state, bool brief = false);
 bool SaveChoices(const FrontendState& state, std::string& error);
+// `model`'s choices written to `path` (a profile's new file), safely as SaveChoices.
+bool SaveChoicesTo(const riftwii::LaunchModel& model, const std::string& path, std::string& error);
+// The game just selected, opened as one of its profiles: its choices from
+// then on are the profile's own file. Call after SelectUsbGame or
+// SelectSdGame (which leave the game's own choices selected).
+void SelectProfile(FrontendState& state, const riftwii::Profile& profile);
+// What Home keys the open tile on (play history, favourites): the
+// profile's key, or the game ID.
+std::string TileKey(const FrontendState& state);
 
 }  // namespace riftwii::wii

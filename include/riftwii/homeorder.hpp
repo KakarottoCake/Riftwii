@@ -23,7 +23,9 @@ constexpr std::size_t kHomeOrderMaxBytes = 64u << 10;
 constexpr std::size_t kHomeOrderMaxGames = 2048;
 
 // `place`: "usb", "sd" or "wii" (a channel on the Wii, its own NAND or an
-// emulated one). `disc_number` as the disc header has it (0 the first disc).
+// emulated one). `game_id` may be a profile's tile key on a drive
+// ("RMCE01@retro-rewind", riftwii/profiles.hpp): its tile has a place of
+// its own. `disc_number` as the disc header has it (0 the first disc).
 std::string home_order_key(const std::string& place, const std::string& game_id, unsigned disc_number);
 
 // The games named, in the file's order. Lenient: blank lines, comments

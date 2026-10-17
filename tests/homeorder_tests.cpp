@@ -22,6 +22,23 @@ static Keys Arranged(const Keys& order, const Keys& keys) {
     return out;
 }
 
+// A profile's tile (riftwii/profiles.hpp) is named by its key, on a drive.
+static void TestProfileKeys() {
+    EXPECT_EQ(riftwii::home_order_key("usb", "RMCE01@retro-rewind", 0), std::string("usb:RMCE01@retro-rewind"));
+    const Keys order = riftwii::parse_home_order(
+        "usb:RMCE01@retro-rewind\n"
+        "disc:RMCE01@deluxe\n"     // no drive: a profile's tile is a drive's game's
+        "wii:WBME01@mods\n"        // the Wii's channels have no profiles
+        "sd:SMNE01@newer/2\n"
+        "usb:RMCE01@Bad_Slug\n"    // not a profile's slug
+        "usb:RMCE01@\n"
+        "usb:RMCE01@../x\n"
+        "wii:WBME01\n"
+        "usb:RMCE01\n");
+    EXPECT_EQ(order, (Keys{"usb:RMCE01@retro-rewind", "sd:SMNE01@newer/2", "wii:WBME01", "usb:RMCE01"}));
+    EXPECT_EQ(riftwii::parse_home_order(riftwii::serialize_home_order(order)), order);
+}
+
 static void TestKeys() {
     EXPECT_EQ(riftwii::home_order_key("usb", "RMCE01", 0), "usb:RMCE01");
     EXPECT_EQ(riftwii::home_order_key("sd", "SMNE01", 0), "sd:SMNE01");
@@ -150,6 +167,7 @@ static void TestMergeRefillEdges() {
 
 int main() {
     TestKeys();
+    TestProfileKeys();
     TestOversize();
     TestMergeRefillEdges();
     TestParse();

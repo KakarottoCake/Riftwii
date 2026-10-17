@@ -6,15 +6,14 @@
 #include <cstdlib>
 #include <sstream>
 
+#include "riftwii/profiles.hpp"
+
 namespace riftwii {
 namespace {
 
-bool plausible_id(const std::string& id) {
-    if (id.size() < 4 || id.size() > 6) return false;
-    for (char c : id)
-        if (!((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9'))) return false;
-    return true;
-}
+// A game ID, or a profile's tile key (riftwii/profiles.hpp): its tile is
+// played and listed on its own.
+bool plausible_id(const std::string& id) { return valid_tile_key(id); }
 
 }  // namespace
 
@@ -54,6 +53,8 @@ void PlayHistory::record(const std::string& game_id, std::int64_t now) {
     if (r.count != 0xFFFFFFFFu) ++r.count;
     r.last = std::max<std::int64_t>(now, 0);
 }
+
+void PlayHistory::forget(const std::string& game_id) { games_.erase(game_id); }
 
 const PlayRecord* PlayHistory::find(const std::string& game_id) const {
     const auto it = games_.find(game_id);

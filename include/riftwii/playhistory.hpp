@@ -24,7 +24,9 @@ public:
     void parse(const std::string& text);
     std::string serialize() const;
 
+    // `game_id` may also be a profile's tile key ("RMCE01@retro-rewind").
     void record(const std::string& game_id, std::int64_t now);
+    void forget(const std::string& game_id);
     const PlayRecord* find(const std::string& game_id) const;
     // Game IDs, the most recently played first (at most `limit`).
     std::vector<std::string> recent(std::size_t limit = 64) const;
