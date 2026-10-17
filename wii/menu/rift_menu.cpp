@@ -2069,24 +2069,6 @@ private:
 // 3 Priiloader, 4 power off.
 static int g_leave = 1;
 
-// Start a WiiWare or Virtual Console game installed on the Wii: asked
-// first from a tile, the banner screen's Start being the choice already.
-// True when RiftWii should leave to it (g_leave is set).
-static bool StartChannelChoice(const riftwii::wii::NandChannel& channel, bool startPressed)
-{
-	const std::string name = ChannelName(channel);
-	if (!channel.playable) {
-		ShowPopup(name, tr("This game's data was removed from the Wii, so it can't start."), tr("OK"));
-		return false;
-	}
-	if (!startPressed && ShowPopup(name, tr("Start this game? RiftWii closes and the Wii starts it, as the Wii Menu does."), tr("Start"), tr("Back")) != 0)
-		return false;
-	logf("Wii channels: %s (%s) picked\n", channel.game_id.c_str(), name.c_str());
-	riftwii::wii::SetChannelToStart(channel.title_id);
-	g_leave = riftwii::wii::kLeaveToChannel;
-	return true;
-}
-
 // The HOME Menu, as the Wii's: black bands across the top (its name and
 // Close) and the bottom (the Remotes' batteries), each edged with a fine
 // light line towards the middle, and the screen between them darkened
@@ -3522,20 +3504,6 @@ static int MenuSource(FrontendState& state)
 				if (choice == ChannelChoice::Page) transition::Hold(transition::Kind::Fade);
 				fromChannel = true;
 			}
-			if (entry.kind == HomeEntry::Kind::Channel) {
-				// A channel has no game page yet: the banner screen's
-				// Settings asks to start it, as a tile does; its Start starts it.
-				if (StartChannelChoice(state.channels[entry.index], fromChannel && g_startOnOpen)) {
-					menu = MENU_EXIT;
-				} else {
-					if (fromChannel) transition::Begin(transition::Kind::Fade);
-					DropLingerBanner();
-					g_startOnOpen = false;
-					g_reopenBanner.clear();
-				}
-				ResumeGui();
-				continue;
-			}
 			std::string error;
 			statusTxt.SetText(entry.kind == HomeEntry::Kind::Disc ? "Reading the disc..." : "Opening the game...");
 			ResumeGui();
@@ -3552,6 +3520,8 @@ static int MenuSource(FrontendState& state)
 				}
 			} else if (entry.kind == HomeEntry::Kind::Usb) {
 				ok = SelectUsbGame(state, entry.index, error);
+			} else if (entry.kind == HomeEntry::Kind::Channel) {
+				ok = SelectChannel(state, entry.index, error);
 			} else {
 				ok = SelectSdGame(state, entry.index, error);
 			}
@@ -4160,7 +4130,8 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 		rows.push_back(row);
 		refs.push_back({W::Note});
 	};
-	if (!settingsOnly) show({W::Mods, W::About, W::Saves, W::Cheats, W::Favorite, W::Cover});
+	if (!settingsOnly && state.use_channel) show({W::About, W::Cheats, W::Favorite, W::Cover});
+	else if (!settingsOnly) show({W::Mods, W::About, W::Saves, W::Cheats, W::Favorite, W::Cover});
 	heading(tr("Picture"));
 	show({W::Width, W::Deflicker, W::Borders, W::VideoMode, W::RegionVideo, W::Aspect});
 	heading(tr("Other"));
@@ -4168,7 +4139,7 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 	if (settingsOnly) show({W::Cover});
 	// What RiftWii's extras take of the game's memory this time.
 	const riftwii::ExtrasBudget budget = riftwii::wii::EstimateExtras(state);
-	if (!budget.pieces.empty()) {
+	if (!budget.pieces.empty() && !state.use_channel) {
 		FlowRow memory;
 		// An action row only to show its value (A does nothing); its
 		// chip lights up when it is a lot.
@@ -4347,6 +4318,7 @@ static std::string SourceWhere(const FrontendState& state)
 {
 	if (state.use_usb) return "USB drive";
 	if (state.use_sd) return "SD card";
+	if (state.use_channel) return "Wii channels";
 	return "Disc drive";
 }
 
@@ -4356,6 +4328,8 @@ static std::string GameTitle(const FrontendState& state)
 		return GameName(state.usb_catalog.games[state.usb_index]);
 	if (state.use_sd && state.sd_index < state.sd_catalog.games.size())
 		return GameName(state.sd_catalog.games[state.sd_index]);
+	if (state.use_channel && state.channel_index < state.channels.size())
+		return ChannelName(state.channels[state.channel_index]);
 	return riftwii::wii::GameDisplayName(state.game_id, state.disc_title.empty() ? state.game_id : state.disc_title);
 }
 
@@ -4843,7 +4817,7 @@ static bool ShowAbout(const FrontendState& state, const riftwii::GameInfo& info)
 		}
 	}
 
-	const bool fromDisc = !state.use_usb && !state.use_sd;
+	const bool fromDisc = !state.use_usb && !state.use_sd && !state.use_channel;
 	GameBanner banner(skin::HueFor(state.game_id), state.game_id, fromDisc);
 	HeroCover hero(state.game_id, fromDisc, skin::HueFor(state.game_id));
 	AboutBody body(facts, controls, info.rating, info.rating_system, riftwii::plain_punctuation(info.synopsis));
@@ -5765,6 +5739,20 @@ static void BuildGameTiles(const FrontendState& state, std::vector<TileSpec>& ti
 
 	// The lower rows: two tiles across the tiles' width, 12 apart.
 	constexpr int kHalfW = (kTilesW - 12) / 2, kRightX = kTilesRight - kHalfW;
+	if (state.use_channel) {
+		// A WiiWare or Virtual Console game: no packs are made for them,
+		// and its saves stay where the Wii keeps them. Play across the
+		// row, the cheats and the game's settings under it.
+		add(GameTile::Play, kTilesX, 132, kTilesRight - kTilesX, 84, tr("Play"), "", &skin::iconPlay, false);
+		add(GameTile::Cheats, kTilesX, 228, kHalfW, 70, tr("Cheats"), CheatsValue(game), &skin::iconCheats,
+			game.cheats && !game.cheat_names.empty());
+		add(GameTile::Options, kRightX, 228, kHalfW, 70, tr("Options"),
+			changed == 0 ? tr("Default") : tr("{1} changed", {std::to_string(changed)}), &skin::iconGear, changed != 0);
+		add(GameTile::Favorite, kHeroX, 310, kHeroW, 70, tr("Favourite"), favorite ? tr("On") : tr("Off"),
+			favorite ? &skin::iconStarOn : &skin::iconStar, favorite);
+		add(GameTile::About, kTilesX, 310, kHalfW, 70, tr("About"), "", &skin::iconInfo, false);
+		return;
+	}
 	add(GameTile::Play, kTilesX, 132, 252, 84, tr("Play"), modsOn, &skin::iconPlay, false);
 	// "On" alone: the tile is narrow ("1 switched on" was cut to "1 switc..."),
 	// and Play beside it says how many.
@@ -5973,7 +5961,7 @@ static int MenuHome(FrontendState& state)
 	// A console's game page: the game's box on the left, over the band's
 	// edge; its name and a line of facts in the band; tiles to the right,
 	// Play first and largest. All inside a TV's overscan.
-	const bool fromDisc = !state.use_usb && !state.use_sd;
+	const bool fromDisc = !state.use_usb && !state.use_sd && !state.use_channel;
 	GameBanner banner(skin::HueFor(state.game_id), state.game_id, fromDisc);
 	HeroCover hero(state.game_id, fromDisc, skin::HueFor(state.game_id));
 	// The band's text, as a store page heads a game: where it is as a small
@@ -6158,7 +6146,9 @@ static int MenuHome(FrontendState& state)
 		if (lit != shownTile && lit >= 0 && static_cast<std::size_t>(lit) < tileWhat.size()) {
 			shownTile = lit;
 			switch (tileWhat[static_cast<std::size_t>(lit)]) {
-				case GameTile::Play: say(tr("Starts the game with the mods and settings shown here.")); break;
+				case GameTile::Play:
+					say(state.use_channel ? tr("Starts the game with the cheats and settings shown here.") : tr("Starts the game with the mods and settings shown here."));
+					break;
 				case GameTile::Mods: say(ModsNote(state, scanStatus)); break;
 				case GameTile::Cheats: say(tr("Cheat codes for this game. Press A to choose them.")); break;
 				case GameTile::Saves: say(SaveNote(state.model, state.game_id)); break;
@@ -6240,6 +6230,15 @@ static int MenuHome(FrontendState& state)
 			startHandled = true;
 			if (state.game_id.empty()) {
 				say("No game is selected; go back and pick one.");
+			} else if (state.use_channel) {
+				// The Wii's own game: none of the drives' checks apply.
+				if (saveForStart() && state.channel_index < state.channels.size()) {
+					const riftwii::wii::NandChannel& channel = state.channels[state.channel_index];
+					logf("Wii channels: %s (%s) started from its page\n", channel.game_id.c_str(), ChannelName(channel).c_str());
+					riftwii::wii::SetChannelToStart(channel.title_id);
+					g_leave = riftwii::wii::kLeaveToChannel;
+					menu = MENU_EXIT;
+				}
 			} else if (!TurnOffEmptyPacks(state)) {
 				// stays on the page, the pack as it was
 			} else if (state.use_usb && !state.usb_catalog.cios_note.empty()) {
@@ -6328,8 +6327,10 @@ static int MenuHome(FrontendState& state)
 	HaltGui();
 	mainWindow->Remove(&w);
 	if (menu != MENU_LAUNCH && menu != MENU_BOOT) DropLingerBanner();  // the launch screen drops it otherwise
-	// Cheats and video settings go with every launch, mods or not.
-	if (menu == MENU_LAUNCH || menu == MENU_BOOT) {
+	// Cheats and video settings go with every launch, mods or not, and
+	// with a channel's.
+	const bool channelStart = menu == MENU_EXIT && state.use_channel && g_leave == riftwii::wii::kLeaveToChannel;
+	if (menu == MENU_LAUNCH || menu == MENU_BOOT || channelStart) {
 		// The page is gone: a banner still on screen plays on meanwhile
 		// (cheats and settings read, the play recorded, all on the card).
 		const bool playing = g_lingerBanner != nullptr;

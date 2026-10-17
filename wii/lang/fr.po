@@ -1731,6 +1731,9 @@ msgstr "Tous les paramètres reviennent à ceux d'origine. Les pages des jeux, l
 msgid "Settings reset to the defaults"
 msgstr "Paramètres réinitialisés"
 
+msgid "Starts the game with the cheats and settings shown here."
+msgstr "Lance le jeu avec les codes de triche et les réglages affichés ici."
+
 msgid "Wii channels"
 msgstr "Chaînes Wii"
 
@@ -1739,9 +1742,6 @@ msgstr "Les jeux qu'affiche l'Accueil : ceux de chaque support et ceux de la Wii
 
 msgid "This game's data was removed from the Wii, so it can't start."
 msgstr "Les données de ce jeu ont été effacées de la Wii, il ne peut donc pas démarrer."
-
-msgid "Start this game? RiftWii closes and the Wii starts it, as the Wii Menu does."
-msgstr "Lancer ce jeu ? RiftWii se ferme et la Wii le lance, comme le fait le Menu Wii."
 
 msgid "Popups look like the Wii Menu's message box"
 msgstr "Les fenêtres ressemblent à la boîte de message du Menu Wii"
