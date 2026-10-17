@@ -44,6 +44,7 @@ and `vendor-*` is third-party code.
 | Code builds (Project+, REX) and their `gameconfig.txt` | `wii/launch/codebuilds.cpp`, `src/patching/gameconfig.cpp`, `src/patching/codehook.cpp`, `vendor-gecko/`; cheats in a second executable: `wii/launch/dolswitch_stub.S` |
 | The virtual SD card (`sd.raw`) | `runtime/rtvsd.c` (the card), `runtime/vsd/` (the in-game blob), `wii/hooks/vsdhook.cpp` (install), `wii/hooks/vsdimage.cpp` (the menu's view) |
 | Cheats | `src/data/cheats.cpp`, `wii/menu/gameextras.cpp` |
+| A game's extra Home tiles, each with its own mods | `src/data/profiles.cpp`, `wii/menu/modtiles.cpp`, the Mods page and `BuildHome` in `wii/menu/rift_menu.cpp` |
 | RVZ games | `src/fs/rvz.cpp`, `runtime/rtrvz.c`, `runtime/resident/rt_zstd.c`, `docs/RVZ.md` |
 | The GameCube controller adapter | `runtime/rtgcad.c` (the driver), `wii/controllers/gcadapter.cpp` (menu), `runtime/pad/` and `wii/hooks/padhook.cpp` (games) |
 | Screenshots | `wii/menu/screenshot.cpp`, `runtime/shot/`, `wii/hooks/shothook.cpp`, `src/data/shotfile.cpp`, `src/art/pngencode.cpp` |
@@ -118,6 +119,7 @@ The build compiles every folder into one, so no two files share a name.
 | `ftnopng.c` | Keeps FreeType from pulling in libpng |
 | `credits.cpp` | Settings > Credits and license |
 | `frontend.cpp` | The menu's state for a game: its packs, code builds and saved choices; Start's checks |
+| `modtiles.cpp` | A game's extra Home tiles with mods of their own (profiles): their list and choices on the card |
 | `gameextras.cpp` | The game page's extras: cheats, video, language, online server, code builds, what a launch carries |
 | `screenshot.cpp` | Menu screenshots and importing the games' ones |
 | `covers.cpp` | Cover art: download, cache, textures |
@@ -254,6 +256,7 @@ document it.
 | `settingsfile` | `settings.txt` |
 | `langfile` | Translation files |
 | `playhistory` | `history.txt` |
+| `profiles` | `profiles.txt`: a game's extra Home tiles with their own mods; their names, keys and limits |
 | `gametdb` | GameTDB's `wiitdb.xml` read a game at a time, the game details cache, wrapping their text |
 | `cardlog` | The runtime's SD card log, as text |
 | `shotfile`, `pngencode` | Screenshot files and a PNG writer |

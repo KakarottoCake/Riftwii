@@ -25,8 +25,24 @@ const u8* ModPicture(const LaunchPackage& p);
 // none: "Newer.png", "pm.png", "Project+/cover.png".
 std::string ModPictureName(const LaunchPackage& p);
 
+// The mod's picture file on the card, the first of its places that has
+// one; empty when none does.
+std::string ModPicturePath(const LaunchPackage& p);
+
+// A profile's picture for its Home tile (riftwii/profiles.hpp): the PNG the
+// player put at sd:/riftwii/profiles/<key>.png, else the one it was made
+// with (its pack's). An RGBA8 texture of kProfilePicture square, the
+// picture fitted whole in it; nullptr when there is none or it can't be
+// read. Read once and kept (the last page's worth); GUI thread, halted.
+constexpr int kProfilePicture = 64;
+constexpr const char* kProfilePictureDir = "sd:/riftwii/profiles";
+const u8* ProfilePicture(const std::string& key, const std::string& art);
+
 // Forgets which mods had no picture (leaving the Mods page: one may have
 // been added since). The pictures read stay.
 void ForgetModPictures();
+// The same for the profiles' pictures (Home looks again: one may have
+// been added, or a profile renamed or removed).
+void ForgetProfilePictures();
 
 }  // namespace riftwii::wii
