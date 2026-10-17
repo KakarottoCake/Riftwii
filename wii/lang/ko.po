@@ -1653,8 +1653,8 @@ msgstr "Dolphin 저장 데이터 가져오기"
 msgid "Copy every save from Dolphin's GC folder in one go."
 msgstr "Dolphin의 GC 폴더에 있는 저장 데이터를 한 번에 모두 복사합니다."
 
-msgid "To bring all of Dolphin's saves at once, copy its GC folder to {1}."
-msgstr "Dolphin의 저장 데이터를 한꺼번에 가져오려면 GC 폴더를 {1}에 복사하세요."
+msgid "To bring all of Dolphin's saves at once, copy its GC folder (in Dolphin: File > Open User Folder) to {1}."
+msgstr "Dolphin의 저장 데이터를 한꺼번에 가져오려면 GC 폴더(Dolphin의 File > Open User Folder)를 {1}에 복사하세요."
 
 msgid "Added: {1}. Already on the card, so skipped: {2}."
 msgstr "추가됨: {1}. 이미 카드에 있어 건너뜀: {2}."
@@ -1668,8 +1668,8 @@ msgstr "메모리 카드가 가득 차서 나머지는 들어가지 않았습니
 msgid "No saves from Dolphin"
 msgstr "Dolphin 저장 데이터 없음"
 
-msgid "RiftWii found no saves for this memory card in {1}. Copy Dolphin's GC folder there: it holds the USA, EUR and JAP folders."
-msgstr "RiftWii가 {1}에서 이 메모리 카드용 저장 데이터를 찾지 못했습니다. Dolphin의 GC 폴더(USA, EUR, JAP 폴더가 들어 있습니다)를 그곳에 복사하세요."
+msgid "RiftWii found no saves for this memory card in {1}. Copy Dolphin's GC folder there (in Dolphin: File > Open User Folder, then GC): it holds the USA, EUR and JAP folders."
+msgstr "RiftWii가 {1}에서 이 메모리 카드용 저장 데이터를 찾지 못했습니다. Dolphin의 GC 폴더(Dolphin의 File > Open User Folder 안의 GC, USA, EUR, JAP 폴더가 들어 있습니다)를 그곳에 복사하세요."
 
 msgid "Bring your Dolphin saves?"
 msgstr "Dolphin 저장 데이터를 가져올까요?"

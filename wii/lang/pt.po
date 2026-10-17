@@ -1653,8 +1653,8 @@ msgstr "Trazer seus saves do Dolphin"
 msgid "Copy every save from Dolphin's GC folder in one go."
 msgstr "Copia de uma vez todos os saves da pasta GC do Dolphin."
 
-msgid "To bring all of Dolphin's saves at once, copy its GC folder to {1}."
-msgstr "Para trazer todos os saves do Dolphin de uma vez, copie a pasta GC dele para {1}."
+msgid "To bring all of Dolphin's saves at once, copy its GC folder (in Dolphin: File > Open User Folder) to {1}."
+msgstr "Para trazer todos os saves do Dolphin de uma vez, copie a pasta GC dele (no Dolphin: File > Open User Folder) para {1}."
 
 msgid "Added: {1}. Already on the card, so skipped: {2}."
 msgstr "Adicionados: {1}. Já estavam no cartão, então foram pulados: {2}."
@@ -1668,8 +1668,8 @@ msgstr "O cartão de memória está cheio, então o restante não coube."
 msgid "No saves from Dolphin"
 msgstr "Nenhum save do Dolphin"
 
-msgid "RiftWii found no saves for this memory card in {1}. Copy Dolphin's GC folder there: it holds the USA, EUR and JAP folders."
-msgstr "O RiftWii não encontrou saves para este cartão de memória em {1}. Copie a pasta GC do Dolphin para lá: ela contém as pastas USA, EUR e JAP."
+msgid "RiftWii found no saves for this memory card in {1}. Copy Dolphin's GC folder there (in Dolphin: File > Open User Folder, then GC): it holds the USA, EUR and JAP folders."
+msgstr "O RiftWii não encontrou saves para este cartão de memória em {1}. Copie a pasta GC do Dolphin para lá (no Dolphin: File > Open User Folder, depois GC): ela contém as pastas USA, EUR e JAP."
 
 msgid "Bring your Dolphin saves?"
 msgstr "Trazer seus saves do Dolphin?"

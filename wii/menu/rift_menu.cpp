@@ -5786,7 +5786,7 @@ static bool GcDolphinImport(const FrontendState& state, const std::string& cardP
 	const riftwii::GcDolphinFiles found = riftwii::gc_dolphin_scan(kGcDolphinDir, riftwii::gc_dolphin_regions(state.game_id, shared));
 	if (found.gci.empty() && found.raw.empty()) {
 		ShowPopup(tr("No saves from Dolphin"),
-			tr("RiftWii found no saves for this memory card in {1}. Copy Dolphin's GC folder there: it holds the USA, EUR and JAP folders.",
+			tr("RiftWii found no saves for this memory card in {1}. Copy Dolphin's GC folder there (in Dolphin: File > Open User Folder, then GC): it holds the USA, EUR and JAP folders.",
 				{kGcDolphinDir}), tr("OK"));
 		return false;
 	}
@@ -5956,7 +5956,7 @@ static void MenuGcCard(FrontendState& state)
 		if (at >= info.saves.size()) {
 			const std::string add = tr("Adds a .gci save file from {1}.", {kGcSavesDir});
 			if (dolphinRow) return add;
-			return add + "\n" + std::string(tr("To bring all of Dolphin's saves at once, copy its GC folder to {1}.", {kGcDolphinDir}));
+			return add + "\n" + std::string(tr("To bring all of Dolphin's saves at once, copy its GC folder (in Dolphin: File > Open User Folder) to {1}.", {kGcDolphinDir}));
 		}
 		const riftwii::GcSave& save = info.saves[at];
 		if (!save.intact) return tr("This save is damaged: its blocks do not add up. It can only be deleted.");

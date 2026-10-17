@@ -1448,12 +1448,12 @@ T = {
     "The card is full: this game can't save. Make room on the Memory Card page or use its own card.": ("Tarjeta llena: este juego no puede guardar. Haz sitio o dale su propia tarjeta.", "カードがいっぱいで、セーブできません。空きを作るか、専用のカードにしてください。", "Cartão cheio: este jogo não consegue salvar. Libere espaço ou dê a ele um cartão próprio.", "Scheda piena: questo gioco non può salvare. Fai spazio o dagli una scheda propria."),
     "Bring your Dolphin saves": ("Traer tus partidas de Dolphin", "Dolphinのセーブを持ってくる", "Trazer seus saves do Dolphin", "Porta i salvataggi di Dolphin"),
     "Copy every save from Dolphin's GC folder in one go.": ("Copia todas las partidas de la carpeta GC de Dolphin de una vez.", "DolphinのGCフォルダにあるセーブをすべて一度にコピーします。", "Copia de uma vez todos os saves da pasta GC do Dolphin.", "Copia in un colpo solo tutti i salvataggi dalla cartella GC di Dolphin."),
-    "To bring all of Dolphin's saves at once, copy its GC folder to {1}.": ("Para traer todas las partidas de Dolphin a la vez, copia su carpeta GC en {1}.", "Dolphinのセーブをまとめて持ってくるには、そのGCフォルダを{1}にコピーしてください。", "Para trazer todos os saves do Dolphin de uma vez, copie a pasta GC dele para {1}.", "Per portare tutti i salvataggi di Dolphin in una volta, copia la sua cartella GC in {1}."),
+    "To bring all of Dolphin's saves at once, copy its GC folder (in Dolphin: File > Open User Folder) to {1}.": ("Para traer todas las partidas de Dolphin a la vez, copia su carpeta GC (en Dolphin: File > Open User Folder) en {1}.", "Dolphinのセーブをまとめて持ってくるには、そのGCフォルダ(Dolphinの「File > Open User Folder」)を{1}にコピーしてください。", "Para trazer todos os saves do Dolphin de uma vez, copie a pasta GC dele (no Dolphin: File > Open User Folder) para {1}.", "Per portare tutti i salvataggi di Dolphin in una volta, copia la sua cartella GC (in Dolphin: File > Open User Folder) in {1}."),
     "Added: {1}. Already on the card, so skipped: {2}.": ("Añadidas: {1}. Ya estaban en la tarjeta y se omitieron: {2}.", "追加: {1}。カードにすでにあるためスキップ: {2}。", "Adicionados: {1}. Já estavam no cartão, então foram pulados: {2}.", "Aggiunti: {1}. Già sulla scheda, quindi saltati: {2}."),
     "Could not be used: {1}.": ("No se pudieron usar: {1}.", "使えなかったもの: {1}。", "Não puderam ser usados: {1}.", "Non utilizzabili: {1}."),
     "The memory card is full, so the rest did not fit.": ("La tarjeta de memoria está llena, así que el resto no cabió.", "メモリーカードがいっぱいで、残りは入りませんでした。", "O cartão de memória está cheio, então o restante não coube.", "La Memory Card è piena, quindi il resto non c'è stato."),
     "No saves from Dolphin": ("Sin partidas de Dolphin", "Dolphinのセーブがありません", "Nenhum save do Dolphin", "Nessun salvataggio di Dolphin"),
-    "RiftWii found no saves for this memory card in {1}. Copy Dolphin's GC folder there: it holds the USA, EUR and JAP folders.": ("RiftWii no ha encontrado partidas para esta tarjeta de memoria en {1}. Copia allí la carpeta GC de Dolphin: contiene las carpetas USA, EUR y JAP.", "{1}にこのメモリーカード用のセーブが見つかりません。DolphinのGCフォルダ(USA、EUR、JAPのフォルダが入っています)をそこにコピーしてください。", "O RiftWii não encontrou saves para este cartão de memória em {1}. Copie a pasta GC do Dolphin para lá: ela contém as pastas USA, EUR e JAP.", "RiftWii non ha trovato salvataggi per questa Memory Card in {1}. Copiaci la cartella GC di Dolphin: contiene le cartelle USA, EUR e JAP."),
+    "RiftWii found no saves for this memory card in {1}. Copy Dolphin's GC folder there (in Dolphin: File > Open User Folder, then GC): it holds the USA, EUR and JAP folders.": ("RiftWii no ha encontrado partidas para esta tarjeta de memoria en {1}. Copia allí la carpeta GC de Dolphin (en Dolphin: File > Open User Folder, luego GC): contiene las carpetas USA, EUR y JAP.", "{1}にこのメモリーカード用のセーブが見つかりません。DolphinのGCフォルダ(Dolphinの「File > Open User Folder」の中のGC。USA、EUR、JAPのフォルダが入っています)をそこにコピーしてください。", "O RiftWii não encontrou saves para este cartão de memória em {1}. Copie a pasta GC do Dolphin para lá (no Dolphin: File > Open User Folder, depois GC): ela contém as pastas USA, EUR e JAP.", "RiftWii non ha trovato salvataggi per questa Memory Card in {1}. Copiaci la cartella GC di Dolphin (in Dolphin: File > Open User Folder, poi GC): contiene le cartelle USA, EUR e JAP."),
     "Bring your Dolphin saves?": ("¿Traer tus partidas de Dolphin?", "Dolphinのセーブを持ってきますか?", "Trazer seus saves do Dolphin?", "Portare i salvataggi di Dolphin?"),
     "RiftWii found {1} files in Dolphin's folder. Their saves are copied to this memory card, and the ones it has already are left alone. The card is kept as a copy first, so Restore an older save can undo it.": ("RiftWii ha encontrado {1} archivos en la carpeta de Dolphin. Sus partidas se copian a esta tarjeta de memoria y las que ya tiene no se tocan. Antes se guarda una copia de la tarjeta, así que Restaurar una partida anterior puede deshacerlo.", "Dolphinのフォルダに{1}個のファイルが見つかりました。そのセーブをこのメモリーカードにコピーします。すでにあるセーブはそのままです。先にカードのコピーを残すので、「前のセーブに戻す」で元に戻せます。", "O RiftWii encontrou {1} arquivos na pasta do Dolphin. Os saves deles são copiados para este cartão de memória, e os que ele já tem ficam como estão. Uma cópia do cartão é guardada antes, então Restaurar um save anterior pode desfazer isso.", "RiftWii ha trovato {1} file nella cartella di Dolphin. I loro salvataggi vengono copiati su questa Memory Card e quelli già presenti restano come sono. Prima viene fatta una copia della scheda, quindi Ripristina un salvataggio precedente può annullare tutto."),
     "Bring them": ("Traerlas", "持ってくる", "Trazer", "Portale"),
@@ -3129,8 +3129,8 @@ KO = {
         "Dolphin 저장 데이터 가져오기",
     "Copy every save from Dolphin's GC folder in one go.":
         "Dolphin의 GC 폴더에 있는 저장 데이터를 한 번에 모두 복사합니다.",
-    "To bring all of Dolphin's saves at once, copy its GC folder to {1}.":
-        "Dolphin의 저장 데이터를 한꺼번에 가져오려면 GC 폴더를 {1}에 복사하세요.",
+    "To bring all of Dolphin's saves at once, copy its GC folder (in Dolphin: File > Open User Folder) to {1}.":
+        "Dolphin의 저장 데이터를 한꺼번에 가져오려면 GC 폴더(Dolphin의 File > Open User Folder)를 {1}에 복사하세요.",
     "Added: {1}. Already on the card, so skipped: {2}.":
         "추가됨: {1}. 이미 카드에 있어 건너뜀: {2}.",
     "Could not be used: {1}.":
@@ -3139,8 +3139,8 @@ KO = {
         "메모리 카드가 가득 차서 나머지는 들어가지 않았습니다.",
     "No saves from Dolphin":
         "Dolphin 저장 데이터 없음",
-    "RiftWii found no saves for this memory card in {1}. Copy Dolphin's GC folder there: it holds the USA, EUR and JAP folders.":
-        "RiftWii가 {1}에서 이 메모리 카드용 저장 데이터를 찾지 못했습니다. Dolphin의 GC 폴더(USA, EUR, JAP 폴더가 들어 있습니다)를 그곳에 복사하세요.",
+    "RiftWii found no saves for this memory card in {1}. Copy Dolphin's GC folder there (in Dolphin: File > Open User Folder, then GC): it holds the USA, EUR and JAP folders.":
+        "RiftWii가 {1}에서 이 메모리 카드용 저장 데이터를 찾지 못했습니다. Dolphin의 GC 폴더(Dolphin의 File > Open User Folder 안의 GC, USA, EUR, JAP 폴더가 들어 있습니다)를 그곳에 복사하세요.",
     "Bring your Dolphin saves?":
         "Dolphin 저장 데이터를 가져올까요?",
     "RiftWii found {1} files in Dolphin's folder. Their saves are copied to this memory card, and the ones it has already are left alone. The card is kept as a copy first, so Restore an older save can undo it.":
@@ -5020,8 +5020,8 @@ FR = {
         "Récupérer vos sauvegardes Dolphin",
     "Copy every save from Dolphin's GC folder in one go.":
         "Copie d'un coup toutes les sauvegardes du dossier GC de Dolphin.",
-    "To bring all of Dolphin's saves at once, copy its GC folder to {1}.":
-        "Pour récupérer d'un coup toutes les sauvegardes de Dolphin, copiez son dossier GC dans {1}.",
+    "To bring all of Dolphin's saves at once, copy its GC folder (in Dolphin: File > Open User Folder) to {1}.":
+        "Pour récupérer d'un coup toutes les sauvegardes de Dolphin, copiez son dossier GC (dans Dolphin : File > Open User Folder) dans {1}.",
     "Added: {1}. Already on the card, so skipped: {2}.":
         "Ajoutées : {1}. Déjà sur la carte, donc ignorées : {2}.",
     "Could not be used: {1}.":
@@ -5030,8 +5030,8 @@ FR = {
         "La carte mémoire est pleine, le reste n'a donc pas tenu.",
     "No saves from Dolphin":
         "Aucune sauvegarde Dolphin",
-    "RiftWii found no saves for this memory card in {1}. Copy Dolphin's GC folder there: it holds the USA, EUR and JAP folders.":
-        "RiftWii n'a trouvé aucune sauvegarde pour cette carte mémoire dans {1}. Copiez-y le dossier GC de Dolphin : il contient les dossiers USA, EUR et JAP.",
+    "RiftWii found no saves for this memory card in {1}. Copy Dolphin's GC folder there (in Dolphin: File > Open User Folder, then GC): it holds the USA, EUR and JAP folders.":
+        "RiftWii n'a trouvé aucune sauvegarde pour cette carte mémoire dans {1}. Copiez-y le dossier GC de Dolphin (dans Dolphin : File > Open User Folder, puis GC) : il contient les dossiers USA, EUR et JAP.",
     "Bring your Dolphin saves?":
         "Récupérer vos sauvegardes Dolphin ?",
     "RiftWii found {1} files in Dolphin's folder. Their saves are copied to this memory card, and the ones it has already are left alone. The card is kept as a copy first, so Restore an older save can undo it.":

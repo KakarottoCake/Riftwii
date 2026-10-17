@@ -1653,8 +1653,8 @@ msgstr "Dolphinのセーブを持ってくる"
 msgid "Copy every save from Dolphin's GC folder in one go."
 msgstr "DolphinのGCフォルダにあるセーブをすべて一度にコピーします。"
 
-msgid "To bring all of Dolphin's saves at once, copy its GC folder to {1}."
-msgstr "Dolphinのセーブをまとめて持ってくるには、そのGCフォルダを{1}にコピーしてください。"
+msgid "To bring all of Dolphin's saves at once, copy its GC folder (in Dolphin: File > Open User Folder) to {1}."
+msgstr "Dolphinのセーブをまとめて持ってくるには、そのGCフォルダ(Dolphinの「File > Open User Folder」)を{1}にコピーしてください。"
 
 msgid "Added: {1}. Already on the card, so skipped: {2}."
 msgstr "追加: {1}。カードにすでにあるためスキップ: {2}。"
@@ -1668,8 +1668,8 @@ msgstr "メモリーカードがいっぱいで、残りは入りませんでし
 msgid "No saves from Dolphin"
 msgstr "Dolphinのセーブがありません"
 
-msgid "RiftWii found no saves for this memory card in {1}. Copy Dolphin's GC folder there: it holds the USA, EUR and JAP folders."
-msgstr "{1}にこのメモリーカード用のセーブが見つかりません。DolphinのGCフォルダ(USA、EUR、JAPのフォルダが入っています)をそこにコピーしてください。"
+msgid "RiftWii found no saves for this memory card in {1}. Copy Dolphin's GC folder there (in Dolphin: File > Open User Folder, then GC): it holds the USA, EUR and JAP folders."
+msgstr "{1}にこのメモリーカード用のセーブが見つかりません。DolphinのGCフォルダ(Dolphinの「File > Open User Folder」の中のGC。USA、EUR、JAPのフォルダが入っています)をそこにコピーしてください。"
 
 msgid "Bring your Dolphin saves?"
 msgstr "Dolphinのセーブを持ってきますか?"
