@@ -2069,3 +2069,9 @@ msgstr "최대 {1}명"
 
 msgid "The mod's own"
 msgstr "MOD의 서버"
+
+msgid "Pages at the sides"
+msgstr "양옆 페이지"
+
+msgid "Channels: the edges of the previous and the next page at the sides of the screen, as on the Wii Menu. Point at one and press A to turn to that page."
+msgstr "채널: Wii 메뉴처럼 이전 페이지와 다음 페이지의 가장자리를 화면 양옆에 보여 줍니다. 가리키고 A를 누르면 그 페이지로 넘어갑니다."

@@ -79,6 +79,10 @@ public:
     using IconDrawer = std::function<bool(int index, const IconBox& box)>;
     void SetChannels(bool on, IconDrawer icon);
     bool Channels() const { return channels; }
+    // Channels: the neighbouring pages' nearest columns at the screen's
+    // sides (page_peek), read from the settings when Home is built: the
+    // GUI thread asks every frame, so not from the settings' string.
+    void SetPagePeek(bool on) { pagePeek = on; }
     // The items on the page shown: whose icons to have ready.
     int PageFirst() const { return page * kPerPage; }
     // A cover was stored for `id`: draw it from now on.
@@ -115,7 +119,7 @@ private:
     mutable Geometry channelGeo{};  // Geo()'s for channels (in pixels: the icons drawn one texel to a pixel)
     int CoverCaptionY() const;      // the lit cover's name, under the covers
     int ArrowX(int dir) const;      // a page arrow's left edge (-1 left, +1 right)
-    void DrawTilePicture(const riftwii::wii::skin::Tex& t, int slot, int alpha, float scale) const;
+    void DrawTilePicture(const riftwii::wii::skin::Tex& t, float x, float y, int alpha, float scale) const;
     int Cols() const { return Geo().cols; }
     int TileX(int slot) const;
     int TileY(int slot) const;
@@ -139,7 +143,16 @@ private:
     bool letterUsed[4] = {};
     int SlotAt(int x, int y) const;
     int ArrowAt(int x, int y) const;  // -1 left, +1 right, 0 none
-    void DrawNameTile(int i, bool on, int alpha);
+    void DrawNameTile(int index, Slot& s, float x, float y, bool on, int alpha);
+    // Channels: the game's icon (or the disc drive's disc) in its channel
+    // at (x, y); false when it has neither (its name is drawn instead).
+    bool DrawChannelTile(int index, float x, float y, float scale, bool on, int alpha);
+    // Channels, page_peek on: the pages either side, their nearest column
+    // showing at the screen's sides, dimmed, carried along by a page turn.
+    bool PagePeek() const;  // SetPagePeek's, in the Channels view only
+    float PageStride() const;  // one page to the next, in menu units
+    int PeekAlpha(float x, int alpha) const;  // a tile at x: dimmed the further out of the page's columns
+    void DrawNeighbourPages(int alpha);
     void DrawCoverTile(int i, bool on, int alpha);
     void PrefetchCovers();
     void ReadAllCovers();
@@ -209,6 +222,11 @@ private:
 
     const std::vector<GridItem>* items = nullptr;
     Slot slots[kPerPage];
+    // The page turned away from, its names as laid out (Channels with
+    // page_peek on draws it sliding away, then beside the page).
+    Slot leaving[kPerPage];
+    int leavingPage = -1;
+    bool pagePeek = false;
     GuiText* measure;
     GuiText* caption;    // covers: the lit game's name
     int captionFor = -1;

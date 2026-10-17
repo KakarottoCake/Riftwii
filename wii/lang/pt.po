@@ -2069,3 +2069,9 @@ msgstr "Até {1} jogadores"
 
 msgid "The mod's own"
 msgstr "O do mod"
+
+msgid "Pages at the sides"
+msgstr "Páginas nas laterais"
+
+msgid "Channels: the edges of the previous and the next page at the sides of the screen, as on the Wii Menu. Point at one and press A to turn to that page."
+msgstr "Canais: as bordas da página anterior e da próxima nas laterais da tela, como no Menu Wii. Aponte para uma e aperte A para ir a essa página."
