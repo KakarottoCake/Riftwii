@@ -1551,9 +1551,6 @@ msgstr "Jugar"
 msgid "Play history"
 msgstr "Historial de juego"
 
-msgid "SD and USB"
-msgstr "SD y USB"
-
 msgid "Scan the code for the guide."
 msgstr "Escanea el código para ver la guía."
 
@@ -1607,9 +1604,6 @@ msgstr "Novedades de RiftWii {1}"
 
 msgid "Which USB port is the adapter plugged into?"
 msgstr "¿En qué puerto USB está conectado el adaptador?"
-
-msgid "Which drive's games Home lists. With a game on both, one drive's copy is enough."
-msgstr "De qué unidad muestra Inicio los juegos. Si un juego está en ambas, basta con la copia de una."
 
 msgid "Which port?"
 msgstr "¿Qué puerto?"
@@ -1736,6 +1730,54 @@ msgstr "Todos los ajustes vuelven a como vienen en RiftWii. Se conservan las pá
 
 msgid "Settings reset to the defaults"
 msgstr "Ajustes restablecidos"
+
+msgid "Install WAD files"
+msgstr "Instalar archivos WAD"
+
+msgid "{1} found"
+msgstr "{1} encontrados"
+
+msgid "Installs the .wad files in the wad folder of the SD card into the emulated NAND USB Loader GX keeps its channels in, and lists them on Home. The Wii itself is not changed."
+msgstr "Instala los archivos .wad de la carpeta wad de la tarjeta SD en la NAND emulada donde USB Loader GX guarda sus canales, y los muestra en Inicio. La propia Wii no cambia."
+
+msgid "No .wad files in the wad folder of the SD card."
+msgstr "No hay archivos .wad en la carpeta wad de la tarjeta SD."
+
+msgid "Install {1} WAD file(s) into {2}? The Wii itself is not changed."
+msgstr "¿Instalar {1} archivo(s) WAD en {2}? La propia Wii no cambia."
+
+msgid "Install"
+msgstr "Instalar"
+
+msgid "Installing WAD files"
+msgstr "Instalando archivos WAD"
+
+msgid "{1} of {2}: {3}"
+msgstr "{1} de {2}: {3}"
+
+msgid "This Wii's key could not be read, so WAD files can't be installed."
+msgstr "No se pudo leer la clave de esta Wii, así que no se pueden instalar archivos WAD."
+
+msgid "Installed {1} of {2}. They are on Home now."
+msgstr "Instalados {1} de {2}. Ya están en Inicio."
+
+msgid "Not installed: {1}. The reasons are in sd:/riftwii/session.log."
+msgstr "Sin instalar: {1}. Los motivos están en sd:/riftwii/session.log."
+
+msgid "The emulated NAND folder can't be used: {1}"
+msgstr "No se puede usar la carpeta de la NAND emulada: {1}"
+
+msgid "Starts the game with the cheats and settings shown here."
+msgstr "Inicia el juego con los trucos y ajustes que se ven aquí."
+
+msgid "Wii channels"
+msgstr "Canales Wii"
+
+msgid "Which games Home lists: every drive's and the Wii's own, or one place's only. With a game on both drives, one copy is enough."
+msgstr "Qué juegos muestra el Inicio: los de cada unidad y los de la propia Wii, o solo los de un sitio. Con un juego en ambas unidades, basta una copia."
+
+msgid "This game's data was removed from the Wii, so it can't start."
+msgstr "Los datos de este juego se borraron de la Wii, así que no puede iniciarse."
 
 msgid "Popups look like the Wii Menu's message box"
 msgstr "Las ventanas emergentes se parecen al cuadro de mensajes del Menú Wii"

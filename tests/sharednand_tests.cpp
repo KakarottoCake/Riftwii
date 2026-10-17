@@ -36,6 +36,11 @@ void global_lines() {
     EXPECT_EQ(path, std::string("sd:/tabbed/"));
     EXPECT_TRUE(shared_nand_global_line("\xEF\xBB\xBFNandEmuPath = sd:/bom/\n", path));
     EXPECT_EQ(path, std::string("sd:/bom/"));
+    // The channels' folder has its own line.
+    EXPECT_TRUE(shared_nand_channels_line("NandEmuChanPath = sd:/nands/02/\n", path));
+    EXPECT_EQ(path, std::string("sd:/nands/02/"));
+    EXPECT_FALSE(shared_nand_channels_line("NandEmuPath = sd:/nands/01/\n", path));
+    EXPECT_FALSE(shared_nand_channels_line("# NandEmuChanPath = sd:/old/\n", path));
 }
 
 void game_lines() {

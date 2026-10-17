@@ -28,14 +28,27 @@ std::string without_bom(const std::string& line) {
 
 }  // namespace
 
-bool shared_nand_global_line(const std::string& raw_line, std::string& path) {
+namespace {
+
+// "<key> = <value>" as GXGlobal.cfg writes it.
+bool global_value(const std::string& raw_line, const char* key, std::string& path) {
     const std::string line = trimmed(without_bom(raw_line));
     if (line.empty() || line[0] == '#') return false;
     const std::size_t equals = line.find('=');
     if (equals == std::string::npos) return false;
-    if (trimmed(line.substr(0, equals)) != "NandEmuPath") return false;
+    if (trimmed(line.substr(0, equals)) != key) return false;
     path = trimmed(line.substr(equals + 1));
     return true;
+}
+
+}  // namespace
+
+bool shared_nand_global_line(const std::string& raw_line, std::string& path) {
+    return global_value(raw_line, "NandEmuPath", path);
+}
+
+bool shared_nand_channels_line(const std::string& raw_line, std::string& path) {
+    return global_value(raw_line, "NandEmuChanPath", path);
 }
 
 bool shared_nand_game_line(const std::string& raw_line, const std::string& game_id, std::string& path) {

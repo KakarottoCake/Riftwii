@@ -29,6 +29,12 @@ constexpr std::size_t kSharedNandMaxPath = 31 + 3;
 // the line's start skipped), or false for any other line.
 bool shared_nand_global_line(const std::string& line, std::string& path);
 
+// The value of a GXGlobal.cfg line "NandEmuChanPath = <path>": the
+// emulated NAND the other loader keeps its WiiWare and Virtual Console
+// channels in (sd:/nands/01 too when nothing says otherwise), read the
+// same way; false for any other line.
+bool shared_nand_channels_line(const std::string& line, std::string& path);
+
 // The NandEmuPath of `game_id`'s line in GXGameSettings.cfg
 // ("game:RMCE01 = name:...; NandEmuPath:sd:/nands/02/; ..."), or false for
 // another game's line, a line without one, or an empty one (the game then

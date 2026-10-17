@@ -5,6 +5,7 @@
 #include <string>
 
 #include "modplan.hpp"
+#include "nandchannels.hpp"
 #include "riftwii/launch.hpp"
 #include "usbcatalog.hpp"
 
@@ -30,10 +31,18 @@ struct FrontendState {
     bool has_compiled = false;
     UsbCatalog usb_catalog;
     ImageCatalog sd_catalog;
+    // The WiiWare and Virtual Console games installed on the Wii
+    // (nandchannels.hpp), listed with the drives' games on Home.
+    std::vector<NandChannel> channels;
     bool use_usb = false;
     bool use_sd = false;
+    // A WiiWare or Virtual Console game of the Wii's (channels[channel_index]):
+    // its page offers cheats and the game's settings, and Play leaves
+    // RiftWii for the channel loader (boot.hpp's boot_channel).
+    bool use_channel = false;
     std::size_t usb_index = 0;
     std::size_t sd_index = 0;
+    std::size_t channel_index = 0;
     // Shown on the first press of Start for a game that plays at the
     // player's own risk (an RVZ outside what was tested); the second press
     // starts it.
@@ -55,6 +64,8 @@ void IdentifyDisc(FrontendState& state, void (*progress)(const char*) = nullptr)
 bool SelectDisc(FrontendState& state, std::string& error);
 bool SelectUsbGame(FrontendState& state, std::size_t index, std::string& error);
 bool SelectSdGame(FrontendState& state, std::size_t index, std::string& error);
+// False with `error` when the channel's game data was removed from the Wii.
+bool SelectChannel(FrontendState& state, std::size_t index, std::string& error);
 LaunchSource SelectedSource(const FrontendState& state);
 std::string ScanPackages(FrontendState& state);
 // Why the game cannot start with its mods where they are, or "": a code
