@@ -3610,8 +3610,10 @@ static void TestWindowedRead() {
 // buffer, while IOS's own answer is sent to the context's sink; other
 // ioctls, and the BCA read without the flag, are left alone.
 void TestRetailBca() {
-    std::vector<std::uint8_t> storage(sizeof(rt_context) + 64);
-    rt_context& ctx = *reinterpret_cast<rt_context*>(storage.data());
+    // The context wants 32-byte alignment, which a std::vector<uint8_t>
+    // does not give (UBSan: misaligned reference).
+    alignas(rt_context) std::uint8_t storage[sizeof(rt_context) + 64];
+    rt_context& ctx = *reinterpret_cast<rt_context*>(storage);
     std::memset(&ctx, 0, sizeof(rt_context));
     ctx.magic = RT_CONTEXT_MAGIC;
     std::uint8_t out[0x40];

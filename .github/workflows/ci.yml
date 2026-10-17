@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 # The checks docs/DEVELOPING.md asks of every change, run on each pull
-# request and every push: the host tests, the Wii build (DOL and channel)
-# and the translations. Nothing is published: no release, no downloadable
+# request and every push: the host tests (also under the sanitizers), the
+# Wii build (DOL and channel), the translations and the project rules. Nothing is published: no release, no downloadable
 # build.
 name: CI
 
@@ -58,6 +58,49 @@ jobs:
             exit 1
           fi
 
+  host-sanitizers:
+    name: Host tests (sanitizers)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      # With GCC 13's AddressSanitizer, stack-use-after-return makes the
+      # parser tests about 100 times slower (patch_tests 0.3 s -> 42 s,
+      # vsdbuild_tests 3 s -> 177 s) and their time limits fail. The rest of
+      # AddressSanitizer stays on.
+      ASAN_OPTIONS: detect_stack_use_after_return=0
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install Ninja
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ninja-build
+      # AddressSanitizer and UndefinedBehaviorSanitizer (RIFTWII_SANITIZE in
+      # CMakeLists.txt). Leak detection is on, so a test that forgets to free
+      # fails too. UBSan stops the test at the first finding.
+      - name: Configure
+        run: cmake -S . -B build-asan -G Ninja -DRIFTWII_SANITIZE=ON
+      - name: Build
+        run: cmake --build build-asan
+      # The low-memory suites map buffers or fixed addresses below 4 GiB
+      # (rtfs, rtfat, hook and rvz with MAP_32BIT; vsdblob at 0x80100000
+      # and 0x90000000). AddressSanitizer keeps that range for its shadow
+      # memory, so those mappings fail and the suites skip or break. They
+      # run in the next step with UBSan alone.
+      - name: Test (AddressSanitizer and UBSan)
+        run: ctest --test-dir build-asan --output-on-failure -j4 -E '^(rtfs|rtfat|hook|rvz|vsdblob)$'
+      - name: Configure (UBSan only)
+        run: cmake -S . -B build-ubsan -G Ninja -DRIFTWII_SANITIZE=ON -DRIFTWII_SANITIZE_ADDRESS=OFF
+      - name: Build (UBSan only)
+        run: cmake --build build-ubsan
+      - name: Test low-memory suites (UBSan only)
+        run: |
+          set -o pipefail
+          ctest --test-dir build-ubsan --output-on-failure -V -R '^(rtfs|rtfat|hook|rvz|vsdblob)$' 2>&1 | tee ctest.log
+          # As in the host-tests job: a suite that found no low memory
+          # skips (ctest's exit 77) and still passes, so a skip is a failure.
+          if grep -F '***Skipped' ctest.log; then
+            echo "::error::A low-memory suite found no memory at its addresses and skipped. It did not run."
+            exit 1
+          fi
+
   wii-build:
     name: Wii build (devkitPPC)
     runs-on: ubuntu-24.04
@@ -86,6 +129,34 @@ jobs:
           test -s riftwii.dol
       - name: Build the channel
         run: make -f Makefile.channel -j"$(nproc)"
+
+  project-rules:
+    name: Project rules
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # The checks compare the change with its base, so they need the
+          # history and the base branch.
+          fetch-depth: 0
+      # AGENTS.md's rules that a script can check: SPDX lines on new files,
+      # no build output, unique base names, NOTICE.md with vendor changes,
+      # no secrets or console files. tools/ci_rules.py has the details and
+      # runs by hand the same way.
+      - name: Pull request changes
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: python3 tools/ci_rules.py --base "origin/$BASE_REF"
+      # A push to a branch is checked from where the branch was before it.
+      # A new branch (all zeros) or a force push that dropped that commit
+      # gets the whole-tree checks only.
+      - name: Pushed changes
+        if: github.event_name != 'pull_request'
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+        run: python3 tools/ci_rules.py --before "$BEFORE_SHA"
 
   translations:
     name: Translations

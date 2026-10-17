@@ -11,6 +11,26 @@ set(RIFTWII_BASE_TAG "v2.7.0")
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+# The CI sanitizer job (-DRIFTWII_SANITIZE=ON): AddressSanitizer and
+# UndefinedBehaviorSanitizer on everything built here, libraries included. An
+# undefined-behavior finding stops the test (no-sanitize-recover), so it fails
+# the suite instead of scrolling past in the log.
+# RIFTWII_SANITIZE_ADDRESS=OFF leaves AddressSanitizer out: it reserves
+# address space that the low-memory suites' MAP_32BIT buffers need.
+option(RIFTWII_SANITIZE "Build with AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
+option(RIFTWII_SANITIZE_ADDRESS "With RIFTWII_SANITIZE: include AddressSanitizer" ON)
+if(RIFTWII_SANITIZE)
+    if(NOT CMAKE_C_COMPILER_ID MATCHES "GNU|Clang" OR NOT CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        message(FATAL_ERROR "RIFTWII_SANITIZE needs GCC or Clang")
+    endif()
+    if(RIFTWII_SANITIZE_ADDRESS)
+        set(RIFTWII_SANITIZERS address,undefined)
+    else()
+        set(RIFTWII_SANITIZERS undefined)
+    endif()
+    add_compile_options(-fsanitize=${RIFTWII_SANITIZERS} -fno-omit-frame-pointer -fno-sanitize-recover=undefined)
+    add_link_options(-fsanitize=${RIFTWII_SANITIZERS})
+endif()
 add_library(pugixml STATIC vendor-pugixml/src/pugixml.cpp)
 target_include_directories(pugixml PUBLIC vendor-pugixml/src)
 # Zstandard's decoder only (zstddeclib.c, built from zstd 1.5.7's
