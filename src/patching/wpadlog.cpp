@@ -687,7 +687,7 @@ bool describe_wpad_log(const std::uint8_t* bytes, std::size_t size, std::string&
             char counts[320];
             std::snprintf(counts, sizeof(counts),
                           "Pro Controller translator: on; %u Pro Controller link(s), %u report(s) rebuilt, %u "
-                          "extension ID(s) answered as a Classic Controller Pro, %u calibration read(s) answered, "
+                          "extension ID(s) answered as a Classic Controller, %u calibration read(s) answered, "
                           "%u acknowledgement error(s) cleared, %u reporting mode(s) changed\n",
                           pro_word(2), pro_word(3), pro_word(4), pro_word(5), pro_word(6), pro_word(7));
             text += counts;

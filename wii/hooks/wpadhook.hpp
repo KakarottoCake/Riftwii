@@ -21,7 +21,7 @@
 // which the menu reads, does nothing in games. It also hooks the game's
 // IOS_IoctlvAsync, chained with the resident runtime and the screenshot
 // blob, to run the Wii U Pro Controller translator (runtime/rtpro.h: the
-// Pro reaches the game as a Wii Remote with a Classic Controller Pro) and
+// Pro reaches the game as a Wii Remote with a Classic Controller) and
 // to keep a trace of the game's Bluetooth traffic in the same file.
 //
 // It is on when the menu saw a Pro Controller or the console has one
