@@ -116,6 +116,7 @@ bool parse_tmd_contents(const std::uint8_t* tmd, std::size_t size, TmdContents& 
         c.index = be16(record + 4);
         c.type = be16(record + 6);
         c.size = be64(record + 8);
+        std::memcpy(c.sha1.data(), record + 16, c.sha1.size());
         result.contents.push_back(c);
     }
     out = std::move(result);

@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "riftwii/dol.hpp"
+#include "riftwii/sha1.hpp"
 
 // WiiWare and Virtual Console games installed on the Wii: which of the
 // Wii's titles they are, and where their files lie in its memory (the
@@ -55,6 +56,7 @@ struct TmdContent {
     std::uint16_t index = 0;  // 0 is the banner, the boot index the program
     std::uint16_t type = 0;   // 1 normal, 0x4001 and 0x8001 shared
     std::uint64_t size = 0;
+    Sha1Digest sha1{};        // of its plain bytes
 };
 
 struct TmdContents {
