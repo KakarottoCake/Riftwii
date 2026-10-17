@@ -66,6 +66,7 @@ float Duration(Kind k) {
     case Kind::PageForward:
     case Kind::PageBack: return 280;
     case Kind::FromBlack: return 600;
+    case Kind::Cut: return 1;
     case Kind::Fade:
     default: return 240;
     }
@@ -155,6 +156,8 @@ void Pose(const Running& r, Affine& live, Affine& old, float& oldAlpha, float& b
     case Kind::FromBlack:
         black = 1 - Ease(t);
         break;
+    case Kind::Cut:
+        break;  // the new screen as it is, the old one not drawn
     case Kind::PopOpen:
     case Kind::PopClose:
     case Kind::Fade:

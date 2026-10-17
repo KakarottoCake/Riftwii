@@ -403,6 +403,7 @@ const std::vector<ThemeImage>& theme_images() {
         {"switch_off", 68, 40},
         {"panel_game", 580, 240},
         {"panel_settings", 580, 284},
+        {"popup", 580, 284},
         {"bar", 640, 124},
         {"banner_stripes", 640, 192},
         {"arrow_left", 48, 48},

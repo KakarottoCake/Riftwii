@@ -156,6 +156,35 @@ struct Painter {
         return c;
     }
 
+    // A popup, as the Wii Menu's message box: a darker band across the top
+    // (`header` high, where the title goes) and a narrower one across the
+    // bottom, the middle lighter with fine lines across it, a fine edge.
+    // In the theme's card colour, so a dark theme's popups are dark.
+    Canvas Dialog(int w, int h, int margin, float radius, int header, int footer) const {
+        Canvas c((w + 2 * margin + 3) & ~3, (h + 2 * margin + 3) & ~3);
+        const float x = static_cast<float>(margin), y = static_cast<float>(margin);
+        const float fw = static_cast<float>(w), fh = static_cast<float>(h);
+        radius = R(radius);
+        c.shadow(x, y + 2, fw, fh, radius, static_cast<float>(margin), shadow, 3.0f);
+        // The bands: the whole shape in the darker shade (its rounded
+        // corners lie inside them), the middle painted over it.
+        c.rounded_gradient(x, y, fw, fh, radius, Shade(card, 0.90f), Shade(card, 0.80f));
+        const float top = y + header, bottom = y + fh - footer;
+        c.rect(x, top, fw, bottom - top, Shade(card, 0.99f));
+        // The fine lines across the middle: one in every three, faint.
+        for (float ly = top + 2; ly < bottom - 1; ly += 3) c.rect(x, ly, fw, 1, Rgba{0, 0, 0, 9});
+        // Where the bands meet the middle: a shade under the top band, a
+        // light line over the bottom one.
+        c.rect(x, top, fw, 1, Rgba{0, 0, 0, 34});
+        c.rect(x, top + 1, fw, 1, Rgba{255, 255, 255, 120});
+        c.rect(x, bottom - 1, fw, 1, Rgba{255, 255, 255, 120});
+        c.rect(x, bottom, fw, 1, Rgba{0, 0, 0, 26});
+        c.rounded_border(x, y, fw, fh, radius, 1.5f, edge);
+        c.rounded_border(x + 1.5f, y + 1.5f, fw - 3, fh - 3, std::max(0.0f, radius - 1.5f), 1.0f,
+                         Rgba{255, 255, 255, 150});
+        return c;
+    }
+
     // A channel's frame, as the Wii Menu's: a shadow, the card, a fine grey
     // edge with a light line inside it; lit, the accent's border and glow.
     Canvas Tile(int w, int h, int margin, float radius, bool over) const {
@@ -1031,6 +1060,7 @@ bool paint_theme_image(const std::string& name, const Theme& theme, Canvas& out)
         {"switch_off", [](const Painter& q) { return q.Switch(false); }},
         {"panel_game", [](const Painter& q) { return q.Sheet(572, 232, 4, 18); }},
         {"panel_settings", [](const Painter& q) { return q.Sheet(572, 276, 4, 18); }},
+        {"popup", [](const Painter& q) { return q.Dialog(572, 276, 4, 18, 44, 18); }},
         {"bar", [](const Painter& q) { return q.Bar(); }},
         {"background_wide", [](const Painter& q) { return q.Background(856); }},
         {"bar_wide", [](const Painter& q) { return q.Bar(856); }},

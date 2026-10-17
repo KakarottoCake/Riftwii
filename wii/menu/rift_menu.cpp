@@ -1602,7 +1602,7 @@ int PopupExtra()
 // no input while it is up. Built and closed with the GUI halted.
 class Dim : public GuiElement {
 public:
-	void Draw() override { Menu_FillWholeScreen((GXColor){0, 0, 0, 150}); }
+	void Draw() override { Menu_FillWholeScreen((GXColor){0, 0, 0, 185}); }
 };
 
 // A window that comes in from a little smaller (or from above or below)
@@ -1828,23 +1828,42 @@ private:
 	int x, y, module;
 };
 
+// When the last popup closed: one opening straight after it (the
+// tutorial's next page, a note after What's new) takes its place at once,
+// as the Wii's message box changes its text, instead of popping over the
+// old one's fading picture (both boxes' text and buttons showed at once).
+static u64 g_popupClosedAt = 0;
+static bool PopupJustClosed()
+{
+	return g_popupClosedAt != 0 && diff_msec(g_popupClosedAt, gettime()) < 400;
+}
+
+// The popup, as the Wii Menu's message box (skin::popup): its title in the
+// darker band across the top, the text below it (centred, as the Wii's,
+// unless it is a list or sits beside something), the buttons above the
+// band at the bottom, the page darkened behind it.
 class PopupBox {
 public:
+	static constexpr int kTitleY = 110, kBodyY = 158, kButtonY = 304;
+	// The body ends a little above the buttons: at 16 points a line is 22.
+	static constexpr int kBodyLines = (kButtonY - 10 - kBodyY) / 22;
 	PopupBox(const std::string& title, const std::string& body, const std::string& ok = "",
 		 const std::string& cancel = "")
-		: extra(PopupExtra()), panel(skin::panelSettings, 34, 102, extra), titleTxt(title.c_str(), 24, skin::kInk),
+		: extra(PopupExtra()), panel(skin::popup, 34, 102, extra), titleTxt(title.c_str(), 24, skin::kInk),
 		  bodyTxt(body.c_str(), 16, skin::kInkSoft),
-		  okBtn(skin::pill, skin::pillOver, 4, cancel.empty() ? 198 : 70, 314, ok.c_str(),
+		  okBtn(skin::pill, skin::pillOver, 4, cancel.empty() ? 198 : 70, kButtonY, ok.c_str(),
 			WPAD_BUTTON_A | WPAD_CLASSIC_BUTTON_A, PAD_BUTTON_A, WIIDRC_BUTTON_A),
-		  cancelBtn(skin::pill, skin::pillOver, 4, 326, 314, cancel.c_str(),
+		  cancelBtn(skin::pill, skin::pillOver, 4, 326, kButtonY, cancel.c_str(),
 			WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B | WPAD_BUTTON_HOME | WPAD_CLASSIC_BUTTON_HOME, PAD_BUTTON_B,
 			WIIDRC_BUTTON_B | WIIDRC_BUTTON_HOME),
-		  hasOk(!ok.empty()), hasCancel(!cancel.empty()), w(0.86f, 0, true)
+		  hasOk(!ok.empty()), hasCancel(!cancel.empty()), chained(PopupJustClosed()),
+		  w(chained ? 1.0f : 0.86f, 0, !chained)
 	{
-		Place(titleTxt, 56 - extra, 120);
-		Place(bodyTxt, 56 - extra, 160);
+		Place(titleTxt, 0, kTitleY, true);
 		titleTxt.SetMaxWidth(528 + 2 * extra);
-		bodyTxt.SetWrap(true, 528 + 2 * extra, 7);
+		// A list (lines of its own) reads better from the left.
+		PlaceBody(body.find('\n') == std::string::npos);
+		bodyTxt.SetWrap(true, 528 + 2 * extra, kBodyLines);
 		w.Append(&dim);
 		w.Append(&panel);
 		w.Append(&titleTxt);
@@ -1852,7 +1871,7 @@ public:
 		if (hasOk) w.Append(&okBtn.button);
 		if (hasCancel) w.Append(&cancelBtn.button);
 		mainWindow->SetState(STATE::DISABLED);
-		transition::Begin(transition::Kind::PopOpen);
+		transition::Begin(chained ? transition::Kind::Cut : transition::Kind::PopOpen);
 		mainWindow->Append(&w);
 		w.SetState(STATE::DEFAULT);
 	}
@@ -1861,12 +1880,13 @@ public:
 		transition::Begin(transition::Kind::PopClose);
 		mainWindow->Remove(&w);
 		mainWindow->SetState(STATE::DEFAULT);
+		g_popupClosedAt = gettime();
 	}
 	void SetBody(const std::string& body) { bodyTxt.SetText(body.c_str()); }
 	// Something more in the box, over its whole width (it must outlive the box).
 	void Append(GuiElement* e) { w.Append(e); }
 	// The second button alone, in the middle (as the first is when alone).
-	void CenterCancel() { cancelBtn.button.SetPosition(198 - 4, 314 - 4); }
+	void CenterCancel() { cancelBtn.button.SetPosition(198 - 4, kButtonY - 4); }
 	// While work goes on with the box up (the GUI halted): whether its
 	// last button was pressed.
 	bool Pressed()
@@ -1879,7 +1899,8 @@ public:
 	void Add(GuiElement* e, int width)
 	{
 		w.Append(e);
-		bodyTxt.SetWrap(true, width + extra, 7);  // the box's right part stays where it was
+		PlaceBody(false);  // beside it: from the left
+		bodyTxt.SetWrap(true, width + extra, kBodyLines);  // the box's right part stays where it was
 	}
 	// Until a button is pressed: 0 the first, 1 the second. A is the first
 	// button's hotkey, so A with the pointer on the second clicks both in
@@ -1900,6 +1921,18 @@ public:
 		return choice;
 	}
 private:
+	// Centred, it sits in the middle of the room between the title band
+	// and the buttons, as the Wii's message does (libwiigui measures
+	// MIDDLE from the screen's middle, y 240); a list starts at the top.
+	void PlaceBody(bool centred)
+	{
+		if (centred) {
+			bodyTxt.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::MIDDLE);
+			bodyTxt.SetPosition(0, (kBodyY + kButtonY - 10) / 2 - 240);
+		} else {
+			Place(bodyTxt, 56 - extra, kBodyY);
+		}
+	}
 	int extra;  // first: the panel and the texts use it
 	Dim dim;
 	Panel panel;
@@ -1908,6 +1941,7 @@ private:
 	SkinButton okBtn;
 	SkinButton cancelBtn;
 	bool hasOk, hasCancel;
+	bool chained;  // before w, which it sets up
 	ShiftWindow w;
 };
 
@@ -1942,7 +1976,7 @@ static bool PickCodeModStart(FrontendState& state)
 	tiles[0].x = 56;
 	tiles[1].x = 332;
 	for (TileSpec& t : tiles) {
-		t.y = 238;
+		t.y = 226;
 		t.w = 252;
 		t.h = 64;
 	}
