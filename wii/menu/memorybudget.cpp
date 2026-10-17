@@ -68,7 +68,7 @@ ExtrasBudget EstimateExtras(const FrontendState& state) {
         packs = true;
         code_build = code_build || p.code_build();
     }
-    const bool saves = state.model.save_mode == "separate" || state.model.save_mode == "fresh";
+    const bool saves = state.model.save_mode != "nand";
     const bool rvz = is_rvz(state);
     const bool protected_game = gx_protected_game(id);
     const bool clears_mem1_top = game_clears_mem1_top(id);

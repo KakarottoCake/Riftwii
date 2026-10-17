@@ -40,7 +40,7 @@ and `vendor-*` is third-party code.
 | Riivolution packs: what a launch does with them | `wii/launch/modplan.cpp`, `src/patching/apply.cpp`, `src/patching/expand.cpp`, `src/patching/redirect.cpp`, `src/patching/mempatch.cpp` |
 | Starting a game (IOS, disc, apploader, patches) | `wii/launch/boot.cpp` |
 | What runs inside a game and serves the packs | `runtime/resident/rt_hook.c`, `runtime/rtable.c`, `wii/launch/resident.cpp` |
-| Saves on the SD card instead of the NAND | `runtime/rtfs.c`, `runtime/rtfat.c`, `prepare_savegame` in `wii/launch/boot.cpp` |
+| Saves on the SD card instead of the NAND | `runtime/rtfs.c`, `runtime/rtfat.c`, `prepare_savegame` in `wii/launch/boot.cpp`, `wii/storage/d2xsave.cpp` (d2x's NAND emulation); the shared emulated NAND: `src/data/sharednand.cpp`, `wii/storage/sharednandfind.cpp` |
 | Code builds (Project+, REX) and their `gameconfig.txt` | `wii/launch/codebuilds.cpp`, `src/patching/gameconfig.cpp`, `src/patching/codehook.cpp`, `vendor-gecko/`; cheats in a second executable: `wii/launch/dolswitch_stub.S` |
 | The virtual SD card (`sd.raw`) | `runtime/rtvsd.c` (the card), `runtime/vsd/` (the in-game blob), `wii/hooks/vsdhook.cpp` (install), `wii/hooks/vsdimage.cpp` (the menu's view) |
 | Cheats | `src/data/cheats.cpp`, `wii/menu/gameextras.cpp` |
@@ -166,6 +166,8 @@ The build compiles every folder into one, so no two files share a name.
 | `sdio.cpp` | Raw SD card access (`/dev/sdio/slot0`) after libogc's driver is gone |
 | `d2xsd.cpp` | d2x's SD device (`/dev/sdio/sdhc`), when the game itself is on the card |
 | `sdfile.cpp` | Where a file's bytes lie on the card |
+| `d2xsave.cpp` | Saves of SD and USB games kept by d2x's NAND emulation in a folder of the card |
+| `sharednandfind.cpp` | The Saves choice "SD, emulated NAND": the folder read from the other loader's settings files |
 
 ### `wii/online/`: network, downloads, https, problem reports, RiiTag
 
@@ -257,6 +259,7 @@ document it.
 | `shotfile`, `pngencode` | Screenshot files and a PNG writer |
 | `problemreport` | A problem report's text |
 | `gamefault` | A game's crash record, as text |
+| `sharednand` | The shared emulated NAND's folder: the other loader's settings lines and the checks on the path |
 
 ## `runtime/`: code that runs inside the game
 

@@ -2282,13 +2282,14 @@ bool prepare_savegame(const DiscProbe& probe, const BootOptions& options, Savega
         return false;
     }
     // The clone marker: a hidden file inside the folder, created when a
-    // clone is decided (a new folder, or a marker left by a clone that
-    // did not run to its end) and deleted by the runtime when the clone
+    // clone is decided (a new folder, an empty one in the shared emulated
+    // NAND, or a marker left by a clone that did not run to its end) and deleted by the runtime when the clone
     // is complete. The game never sees hidden entries (rtfat skips
     // them). Without clone, a stale marker goes.
     const std::string marker = dir + "/riftwii.cln";
     const bool marked = stat(marker.c_str(), &existing) == 0 && !S_ISDIR(existing.st_mode);
-    out.clone = options.savegame_clone && (!existed || marked);
+    const bool unsaved = !existed || (options.savegame_clone_empty && save_folder_empty(dir));
+    out.clone = options.savegame_clone && (unsaved || marked);
     if (out.clone) {
         if (!marked) {
             FILE* f = std::fopen(marker.c_str(), "wb");
@@ -2346,7 +2347,9 @@ bool prepare_savegame(const DiscProbe& probe, const BootOptions& options, Savega
     out.prefix = prefix;
     out.enabled = true;
     logf("Savegame: %s served from %s%s\n", prefix, dir.c_str(),
-         out.clone ? (existed ? " (marked folder: the NAND save is cloned in again)" : " (new folder: the NAND save is cloned in)")
+         out.clone ? (!existed ? " (new folder: the NAND save is cloned in)"
+                      : marked  ? " (marked folder: the NAND save is cloned in again)"
+                                : " (empty folder: the NAND save is cloned in)")
                    : existed ? " (existing folder)" : " (new folder)");
     return true;
 }
@@ -2684,6 +2687,7 @@ bool boot_game(const DiscProbe& probe, BootOptions options, std::string& error) 
             effective.resident_gecko = false;
             effective.savegame_dir.clear();
             effective.savegame_clone = false;
+            effective.savegame_clone_empty = false;
             effective.file_device = false;
         }
     }

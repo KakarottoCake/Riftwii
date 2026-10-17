@@ -1,4 +1,6 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
+// SPDX-FileCopyrightText: 2011 Dimok
+// SPDX-FileCopyrightText: USB Loader GX contributors <https://github.com/wiidev/usbloadergx>
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
@@ -26,13 +28,21 @@ std::string own_save_data_dir(const std::string& dir, std::uint64_t title_id);
 
 // Moves save files left in `dir` itself (before 2610-190) into
 // `data_dir`, creating it when there are any. The clone marker stays.
+// Nothing for a folder outside sd:/riftwii/saves (the shared emulated NAND).
 bool move_flat_saves(const std::string& dir, const std::string& data_dir, std::string& error);
+
+// Whether a game's data folder holds no save: missing, or nothing in it
+// but RiftWii's hidden clone marker.
+bool save_folder_empty(const std::string& data_dir);
 
 // Before the cIOS reload, under the menu's IOS: the emulated NAND's
 // folders, the game's title.tmd (from the image), the old flat files moved
 // in and, for `clone` and a save folder that had no save yet, the Wii's
-// own save copied in once. `game.title_id` must be known.
-bool prepare_d2x_saves(const ImageGame& game, const std::string& dir, bool clone, std::string& error);
+// own save copied in once. With `clone_into_empty`, a data folder that
+// exists but is empty counts as no save yet (the shared emulated NAND).
+// `game.title_id` must be known.
+bool prepare_d2x_saves(const ImageGame& game, const std::string& dir, bool clone, bool clone_into_empty,
+                       std::string& error);
 
 // After the reload into d2x and before the game's partition is opened
 // (d2x refuses it once a title runs): the card is unmounted (libfat

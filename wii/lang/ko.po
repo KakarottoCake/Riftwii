@@ -126,6 +126,9 @@ msgstr "SD, Wii 세이브에서"
 msgid "SD, fresh start"
 msgstr "SD, 처음부터"
 
+msgid "SD, emulated NAND"
+msgstr "SD, 에뮬레이트 NAND"
+
 msgid "Kept by the pack"
 msgstr "팩이 관리"
 
@@ -137,6 +140,12 @@ msgstr "세이브 데이터는 Wii의 세이브 데이터를 시작으로 SD 카
 
 msgid "Saves go to the SD card, starting fresh."
 msgstr "저장 데이터는 SD 카드에 저장되며, 처음부터 새로 시작하게 됩니다."
+
+msgid "Saves go to {1} on the SD card, shared with other loaders."
+msgstr "세이브 데이터는 SD 카드의 {1}에 저장되며, 다른 로더와 공유됩니다."
+
+msgid "{1} can't hold saves: use a short folder on the SD card."
+msgstr "{1}에는 저장할 수 없습니다. SD 카드의 짧은 폴더를 사용하세요."
 
 msgid "Saves stay on the Wii, as usual."
 msgstr "세이브는 평소와 마찬가지로 Wii 본체에 저장됩니다."

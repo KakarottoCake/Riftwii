@@ -126,6 +126,9 @@ msgstr "SD (Wiiのセーブから)"
 msgid "SD, fresh start"
 msgstr "SD (最初から)"
 
+msgid "SD, emulated NAND"
+msgstr "SD (エミュNAND)"
+
 msgid "Kept by the pack"
 msgstr "パックが管理"
 
@@ -137,6 +140,12 @@ msgstr "セーブはSDカードに保存されます(Wiiのセーブから始め
 
 msgid "Saves go to the SD card, starting fresh."
 msgstr "セーブはSDカードに保存されます(最初から始めます)。"
+
+msgid "Saves go to {1} on the SD card, shared with other loaders."
+msgstr "セーブはSDカードの{1}に保存され、他のローダーと共有されます。"
+
+msgid "{1} can't hold saves: use a short folder on the SD card."
+msgstr "{1}にはセーブできません。SDカードの短いフォルダを使ってください。"
 
 msgid "Saves stay on the Wii, as usual."
 msgstr "セーブはいつも通りWii本体に保存されます。"

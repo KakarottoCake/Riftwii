@@ -77,7 +77,7 @@ std::string pack_title(const LaunchPackage& p) {
 }
 
 bool needs_launch_pipeline(bool has_selected_packages, const std::string& save_mode) {
-    return has_selected_packages || save_mode == "separate" || save_mode == "fresh";
+    return has_selected_packages || save_mode == "separate" || save_mode == "fresh" || save_mode == "emunand";
 }
 
 void PackIndex::add(const std::string& xml) {
@@ -314,7 +314,7 @@ std::vector<std::size_t> LaunchModel::packs_with_nothing_picked() const {
 }
 
 SaveOverride resolve_save_override(const std::string& save_mode, const std::string& xml_dir,
-                                   const std::string& game_id) {
+                                   const std::string& game_id, const std::string& shared_nand) {
     SaveOverride none;
     if (!xml_dir.empty() || game_id.empty()) return none;
     if (save_mode == "separate") {
@@ -331,6 +331,18 @@ SaveOverride resolve_save_override(const std::string& save_mode, const std::stri
         o.dir = dir;
         o.clone = false;
         o.note = "saves separate at " + dir + " (fresh start)";
+        return o;
+    }
+    // Shared with the other loaders that use this emulated NAND: the
+    // Wii's save is copied in once, only when the folder has none for
+    // this game yet (a save already there is the player's and stays). An
+    // empty data folder is no save: the other loader makes it up front.
+    if (save_mode == "emunand" && !shared_nand.empty()) {
+        SaveOverride o;
+        o.dir = shared_nand;
+        o.clone = true;
+        o.clone_into_empty = true;
+        o.note = "saves in the shared emulated NAND at " + shared_nand + " (the Wii's save copied in when it has none)";
         return o;
     }
     return none;
@@ -394,7 +406,7 @@ void LaunchModel::restore(const std::string& text) {
             const std::string key = line.substr(t1 + 1, t2 - t1 - 1);
             const std::string value = line.substr(t2 + 1);
             if (key == "saves") {
-                if (value == "nand" || value == "separate" || value == "fresh") save_mode = value;
+                if (value == "nand" || value == "separate" || value == "fresh" || value == "emunand") save_mode = value;
             } else if (key == "cheats") {
                 game.cheats = value == "on";
             } else if (key == "cheat") {

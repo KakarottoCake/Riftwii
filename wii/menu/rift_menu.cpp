@@ -103,6 +103,7 @@
 #include "riftwii/settingsfile.hpp"
 #include "netpacks.hpp"
 #include "netsock.hpp"
+#include "sharednandfind.hpp"
 #include "video.h"
 
 namespace transition = riftwii::wii::transition;
@@ -3759,9 +3760,28 @@ static std::string SaveLabel(const std::string& mode)
 {
 	if (mode == "separate") return "SD, from Wii save";
 	if (mode == "fresh") return "SD, fresh start";
+	if (mode == "emunand") return "SD, emulated NAND";
 	return "On the Wii";
 }
-static std::string SaveNote(const riftwii::LaunchModel& model)
+// The shared emulated NAND's folder for a game, as its settings say. Read
+// again for another game or when asked (the choice was just picked); the
+// game's own settings file can be long, so not at every focus.
+static const riftwii::wii::SharedNandLookup& SharedNandFor(const std::string& game_id, bool read_again)
+{
+	static std::string lookedUpFor;
+	static riftwii::wii::SharedNandLookup found;
+	static bool known = false;
+	if (!known || read_again || lookedUpFor != game_id) {
+		found = riftwii::wii::look_up_shared_nand(game_id);
+		lookedUpFor = game_id;
+		known = true;
+	}
+	return found;
+}
+// The Saves tile's note. "SD, emulated NAND" names the folder, since
+// which one (the game's own, the global one or the default) decides which
+// save the game finds; a folder the launch would refuse shows here first.
+static std::string SaveNote(const riftwii::LaunchModel& model, const std::string& game_id, bool read_again = false)
 {
 	const std::string owner = model.pack_save_owner();
 	if (!owner.empty())
@@ -3769,6 +3789,12 @@ static std::string SaveNote(const riftwii::LaunchModel& model)
 	const std::string& mode = model.save_mode;
 	if (mode == "separate") return "Saves go to the SD card, starting from the Wii's save.";
 	if (mode == "fresh") return "Saves go to the SD card, starting fresh.";
+	if (mode == "emunand") {
+		const riftwii::wii::SharedNandLookup& shared = SharedNandFor(game_id, read_again);
+		if (shared.usable)
+			return tr("Saves go to {1} on the SD card, shared with other loaders.", {shared.folder});
+		return tr("{1} can't hold saves: use a short folder on the SD card.", {shared.configured});
+	}
 	return "Saves stay on the Wii, as usual.";
 }
 
@@ -6074,7 +6100,7 @@ static int MenuHome(FrontendState& state)
 				case GameTile::Play: say(tr("Starts the game with the mods and settings shown here.")); break;
 				case GameTile::Mods: say(ModsNote(state, scanStatus)); break;
 				case GameTile::Cheats: say(tr("Cheat codes for this game. Press A to choose them.")); break;
-				case GameTile::Saves: say(SaveNote(state.model)); break;
+				case GameTile::Saves: say(SaveNote(state.model, state.game_id)); break;
 				case GameTile::Favorite: say(tr("Favourites have their own view on Home: press 1 there until it shows.")); break;
 				case GameTile::Options:
 					say(tr("This game's own picture, language, online server and the rest. The ones not changed follow Settings."));
@@ -6091,15 +6117,16 @@ static int MenuHome(FrontendState& state)
 			if (tile == GameTile::Play) {
 				startBtn.button.SetState(STATE::CLICKED);
 			} else if (tile == GameTile::Saves && !state.model.pack_save_owner().empty()) {
-				say(SaveNote(state.model));
+				say(SaveNote(state.model, state.game_id));
 			} else if (tile == GameTile::Saves) {
-				static const char* const modes[] = {"nand", "separate", "fresh"};
+				static const char* const modes[] = {"nand", "separate", "fresh", "emunand"};
+				const int count = static_cast<int>(sizeof(modes) / sizeof(modes[0]));
 				int at = 0;
-				while (at < 3 && state.model.save_mode != modes[at]) ++at;
-				state.model.save_mode = modes[(at + 1) % 3];
+				while (at < count && state.model.save_mode != modes[at]) ++at;
+				state.model.save_mode = modes[(at + 1) % count];
 				saveOrSay();
 				rebuildTiles();
-				say(SaveNote(state.model));
+				say(SaveNote(state.model, state.game_id, true));
 			} else if (tile == GameTile::Favorite && !state.game_id.empty()) {
 				std::set<std::string>& favorites = riftwii::wii::Settings().favorites;
 				if (favorites.count(state.game_id) != 0) favorites.erase(state.game_id);

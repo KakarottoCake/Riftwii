@@ -153,6 +153,9 @@ struct BootOptions {
     // the runtime copies the title's NAND save into it before the game's
     // first request. Any other existing folder is used as it is.
     bool savegame_clone = false;
+    // And when the folder exists but holds no save (only for the shared
+    // emulated NAND, whose other loader makes the game's folder up front).
+    bool savegame_clone_empty = false;
     // The folder is RiftWii's own (Saves on the game's page, not a pack's
     // <savegame>): an emulated NAND (wii/storage/d2xsave.hpp) whose
     // title/<type>/<id>/data is served; flat files from before move in.

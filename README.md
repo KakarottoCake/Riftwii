@@ -90,7 +90,8 @@ contains theirs names them in its file header, and
   MetaFortress, New Super Mario Bros. Wii, Prince of Persia, Resident
   Evil 4, Excite Truck, the error #002 and 480p fixes), its automatic
   cIOS choice, the region strings fix and the aspect ratio, rumble and
-  speaker options, the Wiinnertag file the RiiTag support reads (Dimok,
+  speaker options, how it keeps saves in d2x's emulated NAND and where
+  it keeps that NAND (for the Saves choice "SD, emulated NAND"), the Wiinnertag file the RiiTag support reads (Dimok,
   zlib), how to find the Wii Menu's fonts for Settings > Menu font
   (Dimok, giantpune, blackb0x) and read its bitmap font (giantpune and
   Dimok, zlib), how to drive d2x's USB device on

@@ -126,6 +126,9 @@ msgstr "SD, desde la de la Wii"
 msgid "SD, fresh start"
 msgstr "SD, empezar de cero"
 
+msgid "SD, emulated NAND"
+msgstr "SD, NAND emulada"
+
 msgid "Kept by the pack"
 msgstr "Las gestiona el pack"
 
@@ -137,6 +140,12 @@ msgstr "Las partidas se guardan en la SD, empezando por la de la Wii."
 
 msgid "Saves go to the SD card, starting fresh."
 msgstr "Las partidas se guardan en la SD, empezando de cero."
+
+msgid "Saves go to {1} on the SD card, shared with other loaders."
+msgstr "Las partidas se guardan en {1} en la SD, compartidas con otros cargadores."
+
+msgid "{1} can't hold saves: use a short folder on the SD card."
+msgstr "{1} no puede guardar partidas: usa una carpeta corta de la SD."
 
 msgid "Saves stay on the Wii, as usual."
 msgstr "Las partidas se quedan en la Wii, como siempre."

@@ -56,10 +56,16 @@ bool needs_launch_pipeline(bool has_selected_packages, const std::string& save_m
 // side lists the directory, draws and boots.
 // The UI's save handling for one game, persisted with its choices:
 // "nand" (the Wii saves as usual), "separate" (an SD folder the NAND save
-// is cloned into once), "fresh" (a distinct persistent folder, started empty).
+// is cloned into once), "fresh" (a distinct persistent folder, started empty),
+// "emunand" (the emulated NAND folder other loaders keep on the SD card,
+// riftwii/sharednand.hpp: shared with them, the NAND save cloned in once).
 struct SaveOverride {
     std::string dir;   // sd:/ folder, empty when nothing is overridden
     bool clone = false;
+    // The clone also fills a data folder that exists but holds no save:
+    // the shared emulated NAND's other loader makes the game's folder at
+    // every launch, before the game has saved anything.
+    bool clone_into_empty = false;
     std::string note;  // one log line when dir is set
 };
 
@@ -72,9 +78,10 @@ std::string pack_title(const LaunchPackage& p);
 
 // Folder the title's saves are served from when the UI asks for separation
 // and no <savegame external> patch claimed one (XML wins): an empty dir
-// means no override. An empty game_id means no override.
+// means no override. An empty game_id means no override. `shared_nand` is
+// the folder "emunand" uses (shared_nand_folder); empty, no override.
 SaveOverride resolve_save_override(const std::string& save_mode, const std::string& xml_dir,
-                                   const std::string& game_id);
+                                   const std::string& game_id, const std::string& shared_nand = std::string());
 
 // Which games have packs, from one pass over the XML files: the game
 // grid's MODS tag and its "games with mods" filter. A listed image's
