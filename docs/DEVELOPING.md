@@ -158,7 +158,9 @@ cheats' hook on jumps to another executable, `480p` the 480p fix,
 `returnto` the return-to patch, `consoletype` the console type RiftWii
 writes at 0x8000002C on a Wii, `prerun` the code handler's run before the
 game's entry, `closepart` the partition close before a Homebrew Channel
-app (CTGP) starts, `wpadlog` the Wii Remote log. `boot.log` names each one left out. Start with all of them,
+app (CTGP) starts, `wpadlog` the Wii Remote log, `musicresume` the menu's
+music coming back after an SD, USB or burned-disc launch's cIOS reload (it
+fades out before the reload either way). `boot.log` names each one left out. Start with all of them,
 then halve the list. The PMEX Remix crash on a Wii (2.7.0 RC9.2) was found
 this way: it was the crash recorder.
 

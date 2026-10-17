@@ -17,6 +17,7 @@
 #include <sstream>
 
 #include "boot.hpp"
+#include "menumusic.hpp"
 #include "channel.hpp"
 #include "di.hpp"
 #include "frontend.hpp"
@@ -211,6 +212,8 @@ struct Session {
                             std::to_string(IOS_GetVersion()) + " (the details are in boot.log)";
                     return false;
                 }
+                // The menu's music again (debug_off = musicresume keeps it quiet).
+                if (!debug_off("musicresume")) LaunchMusicResumeAfterReload();
             }
             open_usb_for_packs();
             if (!probe_disc(probe, error)) return false;
