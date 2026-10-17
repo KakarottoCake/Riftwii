@@ -15,22 +15,26 @@
 <table>
   <tr>
     <td width="50%"><img src="docs/images/home.png" alt="Home"><br><p align="center">Your games, with covers from GameTDB</p></td>
-    <td width="50%"><img src="docs/images/shelf.png" alt="Shelf view"><br><p align="center">Or on a shelf, as boxes (the Bookshelf theme)</p></td>
+    <td width="50%"><img src="docs/images/covers3d.png" alt="3D covers view"><br><p align="center">Or as 3D cases, round a ring</p></td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/carousel.png" alt="Carousel view"><br><p align="center">Fanned out on a carousel</p></td>
+    <td><img src="docs/images/shelf.png" alt="Shelf view"><br><p align="center">On a shelf (the Bookshelf theme)</p></td>
   </tr>
   <tr>
     <td><img src="docs/images/channels.png" alt="Channels view"><br><p align="center">Or as channels, with each game's own icon</p></td>
     <td><img src="docs/images/channel-banner.png" alt="A game's banner"><br><p align="center">and its banner, as on the Wii Menu</p></td>
   </tr>
   <tr>
-    <td><img src="docs/images/game.png" alt="A game's page"><br><p align="center">Each game's own page and settings</p></td>
+    <td><img src="docs/images/game.png" alt="A game's page"><br><p align="center">Each game's own page</p></td>
     <td><img src="docs/images/mods.png" alt="Mods"><br><p align="center">Turn mod packs on and pick their options</p></td>
   </tr>
   <tr>
     <td><img src="docs/images/cheats.png" alt="Cheats"><br><p align="center">Cheats, downloaded for you</p></td>
-    <td><img src="docs/images/midnight.png" alt="The Midnight theme"><br><p align="center">Themes (Midnight)</p></td>
+    <td><img src="docs/images/settings.png" alt="Settings"><br><p align="center">Settings</p></td>
   </tr>
   <tr>
-    <td><img src="docs/images/settings.png" alt="Settings"><br><p align="center">Settings</p></td>
+    <td><img src="docs/images/midnight.png" alt="The Midnight theme"><br><p align="center">Themes (Midnight)</p></td>
     <td><img src="docs/images/homemenu.png" alt="HOME Menu"><br><p align="center">A HOME Menu, like the Wii's</p></td>
   </tr>
 </table>
@@ -39,13 +43,15 @@
 
 - **Mods, no patching.** Riivolution-format packs (the same XML and folders) load into the game as it starts. Your game files are never changed.
 - **Play from anywhere.** The disc, a USB drive (FAT32, NTFS or formatted as WBFS) or the SD card, as WBFS, ISO or Dolphin's RVZ.
+- **WiiWare and Virtual Console.** The channels on your Wii, and those in an emulated NAND on the SD card, are on Home with the rest, with cheats and video settings. WAD files can be installed into that emulated NAND from Settings.
 - **Big mods work.** Pulsar and CT-CODE packs such as CTGP Revolution 1.02 and other Mario Kart Wii distributions (CTGP Revolution 1.03 does not work yet), plus packs over the network from a PC (RiiFS), and Gecko code builds like Project+ and REX without their launchers.
-- **Saves kept apart.** Modded saves can live on the SD card, away from your Wii saves.
+- **Saves kept apart.** Modded saves can live on the SD card, away from your Wii saves, or in the same emulated NAND as USB Loader GX's.
 - **Per game settings.** Cheats (downloaded for you), picture width, deflicker, borders, video mode (480p, PAL 60), game language and cIOS.
 - **Online play.** Wiimmfi, WiiLink WFC, AltWFC or your own server.
-- **Feels like a Wii.** Covers and names from GameTDB, three ways to show your games (covers, a shelf of boxes, or channels with each game's animated icon and banner), themes, favourites, recently played, letter jumps (hold B and press a direction), a HOME Menu and seven languages (English, Spanish, Japanese, Portuguese, Italian, French and Korean).
-- **Any controller.** Wii Remote, Classic Controller, GameCube controller, the GameCube adapter for Wii U, and USB pads through fakemote.
-- **A Wii Menu channel**, on a Wii or a Wii U, and **updates** from inside RiftWii (Stable or Beta).
+- **Feels like a Wii.** Covers, names and game details from GameTDB, several ways to show your games (covers, names, 3D cases on a ring, a carousel, a shelf of boxes, or channels with each game's animated icon and banner), your own order (move games around as on the Wii Menu), themes, favourites, recently played, search, letter jumps (hold B and press a direction), a HOME Menu and seven languages (English, Spanish, Japanese, Portuguese, Italian, French and Korean).
+- **Any controller.** Wii Remote, Classic Controller, GameCube controller, the GameCube adapter for Wii U, the Wii U Pro Controller (in games, as a Classic Controller), and USB pads through fakemote.
+- **A Wii Menu channel**, on a Wii or a Wii U, and **updates** from inside RiftWii, always to the latest release.
+- **Problem reports in one step.** When something goes wrong, RiftWii uploads its logs and shows a QR code to send us; no need to take out your SD card.
 - **Experimental:** burned Wii discs, in the Wii's drive or a USB DVD drive.
 
 ## Getting started
