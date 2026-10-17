@@ -955,6 +955,9 @@ void TestCoverArt() {
     s.parse("home_sort = shuffle\n");
     EXPECT_EQ(s.home_sort, "most");
     EXPECT_TRUE(s.serialize().find("home_sort = most\n") != std::string::npos);
+    s.parse("home_sort = custom\n");
+    EXPECT_EQ(s.home_sort, "custom");
+    EXPECT_TRUE(s.serialize().find("home_sort = custom\n") != std::string::npos);
     s.home_sort = "az";
     EXPECT_EQ(s.home_disc, "on");
     s.parse("home_disc = off\n");

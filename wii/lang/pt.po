@@ -1596,8 +1596,29 @@ msgstr "A trapaça não tem notas sobre seus valores: a página do autor pode di
 msgid "The menu restarts to show it when you leave Settings."
 msgstr "O menu reinicia para mostrá-lo quando você sair das Configurações."
 
-msgid "The order of the games on Home. Last played and Most played put the games you played from RiftWii first, the rest after them A to Z."
-msgstr "A ordem dos jogos no Início. Último jogado e Mais jogados põem primeiro os jogos que você jogou pelo RiftWii, e o resto depois, de A a Z."
+msgid "The order of the games on Home. Last played and Most played put the games you played from RiftWii first, the rest after them A to Z. Your order is yours: on Home, hold B and press A on a game to move it."
+msgstr "A ordem dos jogos no Início. Último jogado e Mais jogados põem primeiro os jogos que você jogou pelo RiftWii, e o resto depois, de A a Z. Sua ordem é a sua: no Início, segure B e aperte A num jogo para movê-lo."
+
+msgid "Your order"
+msgstr "Sua ordem"
+
+msgid "Home is in your own order now. Settings > Home order puts it back A to Z."
+msgstr "O Início está agora na sua própria ordem. Configurações > Ordem do Início volta para de A a Z."
+
+msgid "Let go of A: put it down   At a side: turn the page"
+msgstr "Solte A: deixar   Num lado: mudar de página"
+
+msgid "D-pad: move   A: put it down   B: put it back"
+msgstr "Direcional: mover   A: deixar   B: devolver"
+
+msgid "1: view   2: settings   -/+: pages   B+A: move"
+msgstr "1: visão   2: configurações   -/+: páginas   B+A: mover"
+
+msgid "1: view  2: settings  B: A-Z  B+A: move"
+msgstr "1: visão  2: config.  B: A-Z  B+A: mover"
+
+msgid "1: view   2: settings   -/+: pages"
+msgstr "1: visão   2: configurações   -/+: páginas"
 
 msgid "The values were not saved: {1}"
 msgstr "Os valores não foram salvos: {1}"

@@ -1596,8 +1596,29 @@ msgstr "이 치트에는 값에 대한 설명이 없습니다. 제작자의 페�
 msgid "The menu restarts to show it when you leave Settings."
 msgstr "설정을 나가면 메뉴가 다시 시작되어 적용됩니다."
 
-msgid "The order of the games on Home. Last played and Most played put the games you played from RiftWii first, the rest after them A to Z."
-msgstr "홈의 게임 순서입니다. 최근 플레이순과 많이 플레이한 순은 RiftWii에서 플레이한 게임을 먼저, 나머지는 그 뒤에 가나다순으로 표시합니다."
+msgid "The order of the games on Home. Last played and Most played put the games you played from RiftWii first, the rest after them A to Z. Your order is yours: on Home, hold B and press A on a game to move it."
+msgstr "홈의 게임 순서입니다. 최근 플레이순과 많이 플레이한 순은 RiftWii에서 플레이한 게임을 먼저, 나머지는 그 뒤에 가나다순으로 표시합니다. 내 순서는 직접 정합니다: 홈에서 B 버튼을 누른 채 게임 위에서 A 버튼을 누르면 옮길 수 있습니다."
+
+msgid "Your order"
+msgstr "내 순서"
+
+msgid "Home is in your own order now. Settings > Home order puts it back A to Z."
+msgstr "이제 홈이 내 순서로 정렬됩니다. '설정 > 홈 정렬 순서'에서 가나다순으로 되돌릴 수 있습니다."
+
+msgid "Let go of A: put it down   At a side: turn the page"
+msgstr "A 버튼 떼기: 내려놓기   가장자리: 페이지 넘기기"
+
+msgid "D-pad: move   A: put it down   B: put it back"
+msgstr "십자 버튼: 이동   A: 내려놓기   B: 되돌리기"
+
+msgid "1: view   2: settings   -/+: pages   B+A: move"
+msgstr "1: 보기   2: 설정   -/+: 페이지   B+A: 이동"
+
+msgid "1: view  2: settings  B: A-Z  B+A: move"
+msgstr "1: 보기  2: 설정  B: 가나다순  B+A: 이동"
+
+msgid "1: view   2: settings   -/+: pages"
+msgstr "1: 보기   2: 설정   -/+: 페이지"
 
 msgid "The values were not saved: {1}"
 msgstr "값이 저장되지 않았습니다: {1}"

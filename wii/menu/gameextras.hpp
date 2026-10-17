@@ -3,6 +3,7 @@
 #pragma once
 
 #include <string>
+#include <vector>
 
 #include "frontend.hpp"
 #include "riftwii/cheats.hpp"
@@ -41,5 +42,10 @@ const PlayHistory& History();
 void RecordPlay(const std::string& game_id);
 // "Played 3 times, last on 9/21" for the game page; empty when never.
 std::string PlayNote(const std::string& game_id);
+
+// Home's own order (sd:/riftwii/order.txt, riftwii/homeorder.hpp), read
+// once; and written back after the player moves a game.
+const std::vector<std::string>& HomeOrder();
+void SaveHomeOrder(const std::vector<std::string>& order);
 
 }  // namespace riftwii::wii

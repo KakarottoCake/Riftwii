@@ -1596,8 +1596,29 @@ msgstr "このチートには値についての説明がありません。作者
 msgid "The menu restarts to show it when you leave Settings."
 msgstr "設定を出るとメニューが再起動して反映されます。"
 
-msgid "The order of the games on Home. Last played and Most played put the games you played from RiftWii first, the rest after them A to Z."
-msgstr "ホームのゲームの並び順です。最後に遊んだ順とよく遊ぶ順では、RiftWiiで遊んだゲームが先に、ほかはそのあとにA〜Z順で並びます。"
+msgid "The order of the games on Home. Last played and Most played put the games you played from RiftWii first, the rest after them A to Z. Your order is yours: on Home, hold B and press A on a game to move it."
+msgstr "ホームのゲームの並び順です。最後に遊んだ順とよく遊ぶ順では、RiftWiiで遊んだゲームが先に、ほかはそのあとにA〜Z順で並びます。自分の並び順では、ホームでBを押したままゲームの上でAを押すと、ゲームを動かせます。"
+
+msgid "Your order"
+msgstr "自分の並び順"
+
+msgid "Home is in your own order now. Settings > Home order puts it back A to Z."
+msgstr "ホームは自分の並び順になりました。設定 > ホームの並び順でA〜Z順に戻せます。"
+
+msgid "Let go of A: put it down   At a side: turn the page"
+msgstr "Aを離す: 置く   端で止める: ページをめくる"
+
+msgid "D-pad: move   A: put it down   B: put it back"
+msgstr "十字ボタン: 動かす   A: 置く   B: 元に戻す"
+
+msgid "1: view   2: settings   -/+: pages   B+A: move"
+msgstr "1: 表示   2: 設定   -/+: ページ   B+A: 動かす"
+
+msgid "1: view  2: settings  B: A-Z  B+A: move"
+msgstr "1: 表示  2: 設定  B: A〜Z  B+A: 動かす"
+
+msgid "1: view   2: settings   -/+: pages"
+msgstr "1: 表示   2: 設定   -/+: ページ"
 
 msgid "The values were not saved: {1}"
 msgstr "値は保存されませんでした: {1}"

@@ -1577,11 +1577,42 @@ T = {
         "設定を出るとメニューが再起動して反映されます。",
         "O menu reinicia para mostrá-lo quando você sair das Configurações.",
         "Il menu si riavvia per mostrarlo quando esci dalle Impostazioni."),
-    "The order of the games on Home. Last played and Most played put the games you played from RiftWii first, the rest after them A to Z.": (
-        "El orden de los juegos en Inicio. Último jugado y Más jugados ponen primero los juegos que jugaste desde RiftWii, y el resto después, de la A a la Z.",
-        "ホームのゲームの並び順です。最後に遊んだ順とよく遊ぶ順では、RiftWiiで遊んだゲームが先に、ほかはそのあとにA〜Z順で並びます。",
-        "A ordem dos jogos no Início. Último jogado e Mais jogados põem primeiro os jogos que você jogou pelo RiftWii, e o resto depois, de A a Z.",
-        "L'ordine dei giochi nella Home. Ultimo giocato e Più giocati mettono prima i giochi che hai giocato da RiftWii, e il resto dopo, dalla A alla Z."),
+    "The order of the games on Home. Last played and Most played put the games you played from RiftWii first, the rest after them A to Z. Your order is yours: on Home, hold B and press A on a game to move it.": (
+        "El orden de los juegos en Inicio. Último jugado y Más jugados ponen primero los juegos que jugaste desde RiftWii, y el resto después, de la A a la Z. Tu orden es el tuyo: en Inicio, mantén B y pulsa A sobre un juego para moverlo.",
+        "ホームのゲームの並び順です。最後に遊んだ順とよく遊ぶ順では、RiftWiiで遊んだゲームが先に、ほかはそのあとにA〜Z順で並びます。自分の並び順では、ホームでBを押したままゲームの上でAを押すと、ゲームを動かせます。",
+        "A ordem dos jogos no Início. Último jogado e Mais jogados põem primeiro os jogos que você jogou pelo RiftWii, e o resto depois, de A a Z. Sua ordem é a sua: no Início, segure B e aperte A num jogo para movê-lo.",
+        "L'ordine dei giochi nella Home. Ultimo giocato e Più giocati mettono prima i giochi che hai giocato da RiftWii, e il resto dopo, dalla A alla Z. Il tuo ordine è tuo: nella Home, tieni premuto B e premi A su un gioco per spostarlo."),
+    "Your order": ("Tu orden", "自分の並び順", "Sua ordem", "Il tuo ordine"),
+    "Home is in your own order now. Settings > Home order puts it back A to Z.": (
+        "Inicio está ahora en tu propio orden. Ajustes > Orden de Inicio lo vuelve a poner de la A a la Z.",
+        "ホームは自分の並び順になりました。設定 > ホームの並び順でA〜Z順に戻せます。",
+        "O Início está agora na sua própria ordem. Configurações > Ordem do Início volta para de A a Z.",
+        "La Home è ora nel tuo ordine. Impostazioni > Ordine della Home la rimette dalla A alla Z."),
+    "Let go of A: put it down   At a side: turn the page": (
+        "Suelta A: dejarlo   En un lado: pasar página",
+        "Aを離す: 置く   端で止める: ページをめくる",
+        "Solte A: deixar   Num lado: mudar de página",
+        "Rilascia A: posa   Su un lato: cambia pagina"),
+    "D-pad: move   A: put it down   B: put it back": (
+        "Cruceta: mover   A: dejarlo   B: devolverlo",
+        "十字ボタン: 動かす   A: 置く   B: 元に戻す",
+        "Direcional: mover   A: deixar   B: devolver",
+        "Croce: sposta   A: posa   B: rimetti a posto"),
+    "1: view   2: settings   -/+: pages   B+A: move": (
+        "1: vista   2: ajustes   -/+: páginas   B+A: mover",
+        "1: 表示   2: 設定   -/+: ページ   B+A: 動かす",
+        "1: visão   2: configurações   -/+: páginas   B+A: mover",
+        "1: vista   2: impostazioni   -/+: pagine   B+A: sposta"),
+    "1: view  2: settings  B: A-Z  B+A: move": (
+        "1: vista  2: ajustes  B: A-Z  B+A: mover",
+        "1: 表示  2: 設定  B: A〜Z  B+A: 動かす",
+        "1: visão  2: config.  B: A-Z  B+A: mover",
+        "1: vista  2: impost.  B: A-Z  B+A: sposta"),
+    "1: view   2: settings   -/+: pages": (
+        "1: vista   2: ajustes   -/+: páginas",
+        "1: 表示   2: 設定   -/+: ページ",
+        "1: visão   2: configurações   -/+: páginas",
+        "1: vista   2: impostazioni   -/+: pagine"),
     "The values were not saved: {1}": (
         "Los valores no se guardaron: {1}",
         "値は保存されませんでした: {1}",
@@ -2907,8 +2938,22 @@ KO = {
         "이 치트에는 값에 대한 설명이 없습니다. 제작자의 페이지에 설명이 있을 수 있습니다.",
     "The menu restarts to show it when you leave Settings.":
         "설정을 나가면 메뉴가 다시 시작되어 적용됩니다.",
-    "The order of the games on Home. Last played and Most played put the games you played from RiftWii first, the rest after them A to Z.":
-        "홈의 게임 순서입니다. 최근 플레이순과 많이 플레이한 순은 RiftWii에서 플레이한 게임을 먼저, 나머지는 그 뒤에 가나다순으로 표시합니다.",
+    "The order of the games on Home. Last played and Most played put the games you played from RiftWii first, the rest after them A to Z. Your order is yours: on Home, hold B and press A on a game to move it.":
+        "홈의 게임 순서입니다. 최근 플레이순과 많이 플레이한 순은 RiftWii에서 플레이한 게임을 먼저, 나머지는 그 뒤에 가나다순으로 표시합니다. 내 순서는 직접 정합니다: 홈에서 B 버튼을 누른 채 게임 위에서 A 버튼을 누르면 옮길 수 있습니다.",
+    "Your order":
+        "내 순서",
+    "Home is in your own order now. Settings > Home order puts it back A to Z.":
+        "이제 홈이 내 순서로 정렬됩니다. '설정 > 홈 정렬 순서'에서 가나다순으로 되돌릴 수 있습니다.",
+    "Let go of A: put it down   At a side: turn the page":
+        "A 버튼 떼기: 내려놓기   가장자리: 페이지 넘기기",
+    "D-pad: move   A: put it down   B: put it back":
+        "십자 버튼: 이동   A: 내려놓기   B: 되돌리기",
+    "1: view   2: settings   -/+: pages   B+A: move":
+        "1: 보기   2: 설정   -/+: 페이지   B+A: 이동",
+    "1: view  2: settings  B: A-Z  B+A: move":
+        "1: 보기  2: 설정  B: 가나다순  B+A: 이동",
+    "1: view   2: settings   -/+: pages":
+        "1: 보기   2: 설정   -/+: 페이지",
     "The values were not saved: {1}":
         "값이 저장되지 않았습니다: {1}",
     "This cheat has values to fill in (the X's): press A to set them.":
@@ -4214,8 +4259,22 @@ FR = {
         "Ce code n'a pas de notes sur ses valeurs : la page de son auteur les indique peut-être.",
     "The menu restarts to show it when you leave Settings.":
         "Le menu redémarre pour l'afficher quand vous quittez les paramètres.",
-    "The order of the games on Home. Last played and Most played put the games you played from RiftWii first, the rest after them A to Z.":
-        "L'ordre des jeux sur l'accueil. Dernier joué et Plus joués placent d'abord les jeux joués depuis RiftWii, puis les autres de A à Z.",
+    "The order of the games on Home. Last played and Most played put the games you played from RiftWii first, the rest after them A to Z. Your order is yours: on Home, hold B and press A on a game to move it.":
+        "L'ordre des jeux sur l'accueil. Dernier joué et Plus joués placent d'abord les jeux joués depuis RiftWii, puis les autres de A à Z. Votre ordre est le vôtre : sur l'accueil, maintenez B et appuyez sur A sur un jeu pour le déplacer.",
+    "Your order":
+        "Votre ordre",
+    "Home is in your own order now. Settings > Home order puts it back A to Z.":
+        "L'accueil est maintenant dans votre ordre. Paramètres > Ordre de l'accueil le remet de A à Z.",
+    "Let go of A: put it down   At a side: turn the page":
+        "Relâchez A : poser   Sur un côté : tourner la page",
+    "D-pad: move   A: put it down   B: put it back":
+        "Croix : déplacer   A : poser   B : remettre",
+    "1: view   2: settings   -/+: pages   B+A: move":
+        "1 : vue   2 : paramètres   -/+ : pages   B+A : déplacer",
+    "1: view  2: settings  B: A-Z  B+A: move":
+        "1 : vue  2 : réglages  B : A-Z  B+A : déplacer",
+    "1: view   2: settings   -/+: pages":
+        "1 : vue   2 : paramètres   -/+ : pages",
     "The values were not saved: {1}":
         "Les valeurs n'ont pas été enregistrées : {1}",
     "This cheat has values to fill in (the X's): press A to set them.":

@@ -257,6 +257,7 @@ document it.
 | `settingsfile` | `settings.txt` |
 | `langfile` | Translation files |
 | `playhistory` | `history.txt` |
+| `homeorder` | `order.txt`: Home's own order (Settings > Home order: Your order) |
 | `gametdb` | GameTDB's `wiitdb.xml` read a game at a time, the game details cache, wrapping their text |
 | `cardlog` | The runtime's SD card log, as text |
 | `shotfile`, `pngencode` | Screenshot files and a PNG writer |

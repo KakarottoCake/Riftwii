@@ -1596,8 +1596,29 @@ msgstr "Ce code n'a pas de notes sur ses valeurs : la page de son auteur les ind
 msgid "The menu restarts to show it when you leave Settings."
 msgstr "Le menu redémarre pour l'afficher quand vous quittez les paramètres."
 
-msgid "The order of the games on Home. Last played and Most played put the games you played from RiftWii first, the rest after them A to Z."
-msgstr "L'ordre des jeux sur l'accueil. Dernier joué et Plus joués placent d'abord les jeux joués depuis RiftWii, puis les autres de A à Z."
+msgid "The order of the games on Home. Last played and Most played put the games you played from RiftWii first, the rest after them A to Z. Your order is yours: on Home, hold B and press A on a game to move it."
+msgstr "L'ordre des jeux sur l'accueil. Dernier joué et Plus joués placent d'abord les jeux joués depuis RiftWii, puis les autres de A à Z. Votre ordre est le vôtre : sur l'accueil, maintenez B et appuyez sur A sur un jeu pour le déplacer."
+
+msgid "Your order"
+msgstr "Votre ordre"
+
+msgid "Home is in your own order now. Settings > Home order puts it back A to Z."
+msgstr "L'accueil est maintenant dans votre ordre. Paramètres > Ordre de l'accueil le remet de A à Z."
+
+msgid "Let go of A: put it down   At a side: turn the page"
+msgstr "Relâchez A : poser   Sur un côté : tourner la page"
+
+msgid "D-pad: move   A: put it down   B: put it back"
+msgstr "Croix : déplacer   A : poser   B : remettre"
+
+msgid "1: view   2: settings   -/+: pages   B+A: move"
+msgstr "1 : vue   2 : paramètres   -/+ : pages   B+A : déplacer"
+
+msgid "1: view  2: settings  B: A-Z  B+A: move"
+msgstr "1 : vue  2 : réglages  B : A-Z  B+A : déplacer"
+
+msgid "1: view   2: settings   -/+: pages"
+msgstr "1 : vue   2 : paramètres   -/+ : pages"
 
 msgid "The values were not saved: {1}"
 msgstr "Les valeurs n'ont pas été enregistrées : {1}"

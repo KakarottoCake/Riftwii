@@ -1596,8 +1596,29 @@ msgstr "Il trucco non ha note sui suoi valori: la pagina del suo autore potrebbe
 msgid "The menu restarts to show it when you leave Settings."
 msgstr "Il menu si riavvia per mostrarlo quando esci dalle Impostazioni."
 
-msgid "The order of the games on Home. Last played and Most played put the games you played from RiftWii first, the rest after them A to Z."
-msgstr "L'ordine dei giochi nella Home. Ultimo giocato e Più giocati mettono prima i giochi che hai giocato da RiftWii, e il resto dopo, dalla A alla Z."
+msgid "The order of the games on Home. Last played and Most played put the games you played from RiftWii first, the rest after them A to Z. Your order is yours: on Home, hold B and press A on a game to move it."
+msgstr "L'ordine dei giochi nella Home. Ultimo giocato e Più giocati mettono prima i giochi che hai giocato da RiftWii, e il resto dopo, dalla A alla Z. Il tuo ordine è tuo: nella Home, tieni premuto B e premi A su un gioco per spostarlo."
+
+msgid "Your order"
+msgstr "Il tuo ordine"
+
+msgid "Home is in your own order now. Settings > Home order puts it back A to Z."
+msgstr "La Home è ora nel tuo ordine. Impostazioni > Ordine della Home la rimette dalla A alla Z."
+
+msgid "Let go of A: put it down   At a side: turn the page"
+msgstr "Rilascia A: posa   Su un lato: cambia pagina"
+
+msgid "D-pad: move   A: put it down   B: put it back"
+msgstr "Croce: sposta   A: posa   B: rimetti a posto"
+
+msgid "1: view   2: settings   -/+: pages   B+A: move"
+msgstr "1: vista   2: impostazioni   -/+: pagine   B+A: sposta"
+
+msgid "1: view  2: settings  B: A-Z  B+A: move"
+msgstr "1: vista  2: impost.  B: A-Z  B+A: sposta"
+
+msgid "1: view   2: settings   -/+: pages"
+msgstr "1: vista   2: impostazioni   -/+: pagine"
 
 msgid "The values were not saved: {1}"
 msgstr "I valori non sono stati salvati: {1}"

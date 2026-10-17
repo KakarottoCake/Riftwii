@@ -17,6 +17,7 @@
 #include "log.hpp"
 #include "online.hpp"
 #include "textfile.hpp"
+#include "riftwii/homeorder.hpp"
 #include "riftwii/settingsfile.hpp"
 
 namespace riftwii::wii {
@@ -25,6 +26,10 @@ namespace {
 constexpr const char* kHistoryPath = "sd:/riftwii/history.txt";
 PlayHistory g_history;
 bool g_history_loaded = false;
+constexpr const char* kHomeOrderPath = "sd:/riftwii/order.txt";
+std::vector<std::string> g_home_order;
+bool g_home_order_loaded = false;
+bool g_home_order_unreadable = false;  // there, but not read: never written over
 
 bool read_text(const std::string& path, std::string& text) {
     return ReadTextFile(path, text);
@@ -93,6 +98,78 @@ void RecordPlay(const std::string& game_id) {
         std::fwrite(text.data(), 1, text.size(), f);
         std::fclose(f);
     }
+}
+
+namespace {
+
+// Reads at most kHomeOrderMaxBytes of the order file, however large it
+// is: a file grown past that still gives its first games, cut back to
+// its last whole line. False when it is there but cannot be read.
+bool ReadHomeOrderFile(std::vector<std::string>& order) {
+    struct stat st;
+    if (stat(kHomeOrderPath, &st) != 0) return true;  // no file yet: nothing listed
+    FILE* f = std::fopen(kHomeOrderPath, "rb");
+    if (!f) return false;
+    std::string head(kHomeOrderMaxBytes, '\0');
+    const std::size_t got = std::fread(&head[0], 1, head.size(), f);
+    const bool failed = std::ferror(f) != 0;
+    // One byte more than the cap means the file went on past it.
+    const bool cut = got == kHomeOrderMaxBytes && std::fgetc(f) != EOF;
+    std::fclose(f);
+    if (failed) return false;
+    head.resize(got);
+    if (cut)
+        logf("Home order: %s is larger than %u KiB, so only its first %u KiB are read\n", kHomeOrderPath,
+             static_cast<unsigned>(kHomeOrderMaxBytes >> 10), static_cast<unsigned>(kHomeOrderMaxBytes >> 10));
+    order = parse_home_order(home_order_whole_lines(head, cut));
+    return true;
+}
+
+}  // namespace
+
+const std::vector<std::string>& HomeOrder() {
+    if (!g_home_order_loaded) {
+        g_home_order_loaded = true;
+        g_home_order_unreadable = !ReadHomeOrderFile(g_home_order);
+        if (g_home_order_unreadable)
+            logf("Home order: %s is there but could not be read, so moves are not saved over it\n", kHomeOrderPath);
+        else
+            logf("Home order: %u game(s) in %s\n", static_cast<unsigned>(g_home_order.size()), kHomeOrderPath);
+    }
+    return g_home_order;
+}
+
+void SaveHomeOrder(const std::vector<std::string>& order) {
+    HomeOrder();
+    g_home_order = order;
+    // A file that could not be read is kept: writing the moves over it
+    // would lose every place it holds.
+    if (g_home_order_unreadable) {
+        logf("Home order: the move lasts until RiftWii closes; %s is left as it was\n", kHomeOrderPath);
+        return;
+    }
+    mkdir("sd:/riftwii", 0777);
+    // Written beside it and renamed over it, so a card pulled mid-write
+    // leaves the old order whole (as settings.txt is written).
+    const std::string temp = std::string(kHomeOrderPath) + ".part";
+    const std::string text = serialize_home_order(order);
+    FILE* f = std::fopen(temp.c_str(), "wb");
+    bool ok = f != nullptr;
+    if (f) {
+        ok = std::fwrite(text.data(), 1, text.size(), f) == text.size();
+        ok = std::fclose(f) == 0 && ok;
+    }
+    if (ok) {
+        std::remove(kHomeOrderPath);
+        ok = std::rename(temp.c_str(), kHomeOrderPath) == 0;
+    }
+    if (!ok) {
+        std::remove(temp.c_str());
+        logf("Home order: %s could not be written, so the new order lasts until RiftWii closes\n", kHomeOrderPath);
+        return;
+    }
+    logf("Home order: %u game(s) written to %s\n", static_cast<unsigned>(std::min(order.size(), kHomeOrderMaxGames)),
+         kHomeOrderPath);
 }
 
 std::string PlayNote(const std::string& game_id) {

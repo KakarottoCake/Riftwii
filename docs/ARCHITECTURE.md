@@ -241,6 +241,7 @@ addresses into source lines (keep the `riftwii.elf` of each release).
 | `sd:/riftwii/cheats/<ID>.txt` | The game's cheat list |
 | `sd:/riftwii/saves/<ID>/` | Saves kept on the card |
 | `sd:/riftwii/history.txt` | Recently played |
+| `sd:/riftwii/order.txt` | Home's own order, one game a line as `drive:ID` (`src/data/homeorder.cpp`) |
 | `sd:/riftwii/titles-<lang>.txt` | GameTDB's game names |
 | `sd:/riftwii/lang/<lang>.po` | A translation that overrides the built-in one |
 | `sd:/riftwii/riifs/` | Files copied from network packs |
