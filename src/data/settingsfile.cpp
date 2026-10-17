@@ -88,7 +88,7 @@ void LoaderSettings::parse(const std::string& text) {
         } else if (key == "home_source") {
             if (value == "all" || value == "sd" || value == "usb") home_source = value;
         } else if (key == "home_sort") {
-            if (value == "az" || value == "recent" || value == "most") home_sort = value;
+            if (value == "az" || value == "recent" || value == "most" || value == "custom") home_sort = value;
         } else if (key == "home_disc") {
             if (value == "on" || value == "off") home_disc = value;
         } else if (key == "theme") {

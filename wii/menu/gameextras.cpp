@@ -17,6 +17,7 @@
 #include "log.hpp"
 #include "online.hpp"
 #include "textfile.hpp"
+#include "riftwii/homeorder.hpp"
 #include "riftwii/settingsfile.hpp"
 
 namespace riftwii::wii {
@@ -25,6 +26,9 @@ namespace {
 constexpr const char* kHistoryPath = "sd:/riftwii/history.txt";
 PlayHistory g_history;
 bool g_history_loaded = false;
+constexpr const char* kHomeOrderPath = "sd:/riftwii/order.txt";
+std::vector<std::string> g_home_order;
+bool g_home_order_loaded = false;
 
 bool read_text(const std::string& path, std::string& text) {
     return ReadTextFile(path, text);
@@ -93,6 +97,32 @@ void RecordPlay(const std::string& game_id) {
         std::fwrite(text.data(), 1, text.size(), f);
         std::fclose(f);
     }
+}
+
+const std::vector<std::string>& HomeOrder() {
+    if (!g_home_order_loaded) {
+        g_home_order_loaded = true;
+        std::string text;
+        if (ReadTextFile(kHomeOrderPath, text, kHomeOrderMaxBytes)) g_home_order = parse_home_order(text);
+        logf("Home order: %u game(s) in %s\n", static_cast<unsigned>(g_home_order.size()), kHomeOrderPath);
+    }
+    return g_home_order;
+}
+
+void SaveHomeOrder(const std::vector<std::string>& order) {
+    g_home_order = order;
+    g_home_order_loaded = true;
+    mkdir("sd:/riftwii", 0777);
+    const std::string text = serialize_home_order(order);
+    FILE* f = std::fopen(kHomeOrderPath, "wb");
+    if (!f) {
+        logf("Home order: %s could not be written, so the new order lasts until RiftWii closes\n", kHomeOrderPath);
+        return;
+    }
+    const std::size_t written = std::fwrite(text.data(), 1, text.size(), f);
+    std::fclose(f);
+    logf("Home order: %u game(s) written to %s%s\n", static_cast<unsigned>(std::min(order.size(), kHomeOrderMaxGames)),
+         kHomeOrderPath, written == text.size() ? "" : ", but the card took only part of it");
 }
 
 std::string PlayNote(const std::string& game_id) {

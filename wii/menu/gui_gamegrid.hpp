@@ -94,6 +94,21 @@ public:
     int Pages() const;
     // The item A was pressed on since the last call, or -1.
     int GetClicked();
+    // Moving games (Home order: Your order), as the Wii Menu moves its
+    // channels: hold B (L on a GameCube controller) and press A on a game
+    // to pick it up. Pointing, it follows the pointer while A stays held,
+    // the other tiles making room where it would land; held over a page
+    // arrow or past the tiles' sides it turns the page; letting go of A
+    // puts it down. Without a pointer the D-pad (and - and +) moves it, A
+    // puts it down and B puts it back. Not on the shelf. The first `fixed`
+    // tiles stay where they are (the disc drive's).
+    void SetMovable(bool on, int fixed);
+    bool Carrying() const { return carryFrom >= 0; }
+    bool CarryingWithPointer() const { return carryFrom >= 0 && carryPointer; }
+    // The game put down since the last call moved from `from` to `to`
+    // (indices into the list). The caller moves it in the list as well,
+    // in the same halt of the GUI: until then the grid shows it moved.
+    bool TakeMove(int& from, int& to);
     void Draw() override;
     void Update(GuiTrigger* t) override;
 
@@ -138,6 +153,31 @@ private:
     int shelfStepHeld[4] = {};  // frames + or - has been held on the shelf, per controller
     bool letterUsed[4] = {};
     int SlotAt(int x, int y) const;
+    // Moving a game (SetMovable). carryFrom is its index in the list,
+    // carryTo the place it would land; the tiles between them shift by one.
+    bool movable = false;
+    int fixedFirst = 0;
+    int carryFrom = -1, carryTo = -1, carryChan = -1;
+    bool carryPointer = false;  // following a pointer (else the D-pad's)
+    bool carryDropped = false;  // put down, waiting for TakeMove
+    float carryX = 0, carryY = 0;  // the pointer, where the game hangs from
+    int edgeFrames = 0;            // how long the pointer has waited at a side
+    // The item each slot shows, with a game picked up (its own index for
+    // the place it would land).
+    int ItemAt(int slot) const;
+    bool CarryKeys(GuiTrigger* t);
+    void CarryTo(int index);
+    void PutDown();
+    int NearestIndex(int x, int y) const;  // the place under (or nearest) a pointer
+    // Tiles glide to their new places: each slot's offset from it, eased
+    // away, and the item it showed last frame (-1 none).
+    float shiftX[kPerPage] = {}, shiftY[kPerPage] = {};
+    int shownItem[kPerPage];
+    int shiftPage = -1;  // the page they were measured on
+    void EaseShifts();
+    int BaseX(int slot) const;  // a slot's place, without the slide or the glide
+    int BaseY(int slot) const;
+    void DrawEmptyPlace(int slot, int alpha) const;
     int ArrowAt(int x, int y) const;  // -1 left, +1 right, 0 none
     void DrawNameTile(int i, bool on, int alpha);
     void DrawCoverTile(int i, bool on, int alpha);

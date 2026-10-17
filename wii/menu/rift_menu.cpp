@@ -57,6 +57,7 @@
 #include "riftwii/gxpatches.hpp"
 #include "riftwii/offlinegames.hpp"
 #include "riftwii/titles.hpp"
+#include "riftwii/homeorder.hpp"
 #include "riftwii/bnr.hpp"
 #include "boxart.hpp"
 #include "cover3d.hpp"
@@ -613,6 +614,7 @@ static const char* HomeSourceName(const std::string& v)
 
 static const char* HomeSortName(const std::string& v)
 {
+	if (v == "custom") return tr("Your order");
 	return v == "recent" ? tr("Last played") : v == "most" ? tr("Most played") : tr("A to Z");
 }
 
@@ -796,19 +798,25 @@ static std::string GameName(const riftwii::wii::ImageGame& g)
 	return g.id;
 }
 
-static void BuildHome(const FrontendState& state, std::vector<GridItem>& items, std::vector<HomeEntry>& entries)
+static const riftwii::wii::ImageGame& HomeGame(const FrontendState& state, const HomeEntry& entry)
 {
-	items.clear();
-	entries.clear();
-	{
-		GridItem disc;
-		disc.title = tr("Disc drive");  // translated whole: the tile splits it into lines
-		disc.badge = "DISC";
-		disc.hue = {88, 92, 104, 255};
-		items.push_back(disc);
-		entries.push_back({HomeEntry::Kind::Disc, 0});
-	}
-	struct Row { std::string name; HomeEntry entry; const riftwii::wii::ImageGame* game; };
+	return entry.kind == HomeEntry::Kind::Usb ? state.usb_catalog.games[entry.index] : state.sd_catalog.games[entry.index];
+}
+
+// A game's name in Home's own order (riftwii/homeorder.hpp): its drive and its ID.
+static std::string HomeKey(const FrontendState& state, const HomeEntry& entry)
+{
+	const riftwii::wii::ImageGame& game = HomeGame(state, entry);
+	return riftwii::home_order_key(entry.kind == HomeEntry::Kind::Usb, game.id, game.disc_number);
+}
+
+struct HomeRow { std::string name; HomeEntry entry; const riftwii::wii::ImageGame* game; };
+
+// The drives' games in Settings > Home order (`ordered`; else A to Z),
+// before a view or a search picks from them.
+static std::vector<HomeRow> HomeRows(const FrontendState& state, bool ordered)
+{
+	using Row = HomeRow;
 	std::vector<Row> rows;
 	// Settings > Games from: one drive's games only.
 	const std::string& source = riftwii::wii::Settings().home_source;
@@ -824,9 +832,18 @@ static void BuildHome(const FrontendState& state, std::vector<GridItem>& items, 
 			b.name.c_str() + riftwii::sort_name_start(b.name));
 		return by != 0 ? by < 0 : strcasecmp(a.name.c_str(), b.name.c_str()) < 0;
 	});
-	const bool searching = !g_search.empty();
 	const std::string& order = riftwii::wii::Settings().home_sort;
-	if (!searching && g_filter != Filter::Recent && order != "az") {
+	if (ordered && order == "custom") {
+		// Your order: the games sd:/riftwii/order.txt lists first, as it
+		// lists them, the rest after them A to Z.
+		std::vector<std::string> keys;
+		keys.reserve(rows.size());
+		for (const Row& r : rows) keys.push_back(HomeKey(state, r.entry));
+		std::vector<Row> arranged;
+		arranged.reserve(rows.size());
+		for (const std::size_t i : riftwii::arrange_home_order(riftwii::wii::HomeOrder(), keys)) arranged.push_back(rows[i]);
+		rows.swap(arranged);
+	} else if (ordered && order != "az") {
 		// Settings > Home order: the played games first (latest or most
 		// played), the rest after them A to Z.
 		const riftwii::PlayHistory& history = riftwii::wii::History();
@@ -839,6 +856,24 @@ static void BuildHome(const FrontendState& state, std::vector<GridItem>& items, 
 			return pa->last > pb->last;
 		});
 	}
+	return rows;
+}
+
+static void BuildHome(const FrontendState& state, std::vector<GridItem>& items, std::vector<HomeEntry>& entries)
+{
+	items.clear();
+	entries.clear();
+	{
+		GridItem disc;
+		disc.title = tr("Disc drive");  // translated whole: the tile splits it into lines
+		disc.badge = "DISC";
+		disc.hue = {88, 92, 104, 255};
+		items.push_back(disc);
+		entries.push_back({HomeEntry::Kind::Disc, 0});
+	}
+	using Row = HomeRow;
+	const bool searching = !g_search.empty();
+	std::vector<Row> rows = HomeRows(state, !searching && g_filter != Filter::Recent);
 	if (!searching && g_filter == Filter::Recent) {
 		// The games played from RiftWii, the latest first.
 		const riftwii::PlayHistory& history = riftwii::wii::History();
@@ -868,6 +903,55 @@ static void BuildHome(const FrontendState& state, std::vector<GridItem>& items, 
 		items.erase(items.begin());
 		entries.erase(entries.begin());
 	}
+}
+
+// The tile at `from` moved to `to`, the ones between shifted by one.
+template <typename T>
+static void MoveInList(std::vector<T>& list, int from, int to)
+{
+	if (from < to) std::rotate(list.begin() + from, list.begin() + from + 1, list.begin() + to + 1);
+	else std::rotate(list.begin() + to, list.begin() + from, list.begin() + from + 1);
+}
+
+// The player moved a game on Home (GuiGameGrid::TakeMove): the list
+// follows, and sd:/riftwii/order.txt takes the new order. In another
+// Home order, the order shown becomes the player's own, moved, so nothing
+// jumps; true then, for the notice that says so.
+static bool MoveHomeGame(const FrontendState& state, std::vector<GridItem>& items, std::vector<HomeEntry>& entries,
+	int from, int to)
+{
+	const int count = static_cast<int>(items.size());
+	if (from < 0 || to < 0 || from >= count || to >= count || from == to) return false;
+	const std::string title = items[static_cast<std::size_t>(from)].title;
+	MoveInList(items, from, to);
+	MoveInList(entries, from, to);
+	// Every game on the drives in the order Home had, the ones this view
+	// leaves out too.
+	std::vector<std::string> before;
+	for (const HomeRow& r : HomeRows(state, true)) before.push_back(HomeKey(state, r.entry));
+	riftwii::LoaderSettings& settings = riftwii::wii::Settings();
+	const bool switched = settings.home_sort != "custom";
+	const std::vector<std::string> order = switched ? riftwii::merge_home_order(before, riftwii::wii::HomeOrder())
+		: riftwii::merge_home_order(riftwii::wii::HomeOrder(), before);
+	std::vector<std::string> shown;
+	for (const HomeEntry& e : entries)
+		if (e.kind != HomeEntry::Kind::Disc) shown.push_back(HomeKey(state, e));
+	riftwii::wii::SaveHomeOrder(riftwii::refill_home_order(order, shown));
+	logf("Home order: %s moved from place %d to place %d\n", title.c_str(), from + 1, to + 1);
+	if (switched) {
+		logf("Home order: was %s, now the player's own, starting from the order shown\n", settings.home_sort.c_str());
+		settings.home_sort = "custom";
+		riftwii::wii::SaveSettings();
+	}
+	return switched;
+}
+
+// Games can be moved where the tiles are the drives' in Home's order:
+// not in a search, nor in Recently played (always latest first).
+static void SetHomeMovable(GuiGameGrid& grid, const std::vector<HomeEntry>& entries)
+{
+	const bool discFirst = !entries.empty() && entries[0].kind == HomeEntry::Kind::Disc;
+	grid.SetMovable(g_search.empty() && g_filter != Filter::Recent, discFirst ? 1 : 0);
 }
 
 // The bottom bar with the clock's bump.
@@ -1539,7 +1623,10 @@ static std::string HomeStatusLines(const FrontendState& state, const std::vector
 		return tr("No favourite is on these drives. Mark games on their page. Press 1 for all games.");
 	if (games == 0) return "No games found (usb:/wbfs, usb:/games, sd:/wbfs, sd:/games)";
 	const std::string count = games == 1 ? std::string(tr("1 game")) : tr("{1} games", {std::to_string(games)});
-	return std::string(tr(FilterLabel(g_filter))) + ": " + count + "\n" + tr("1: view   2: settings   -/+: pages   B: A to Z");
+	// B goes by letters in A to Z only; in another order, it picks a game up (with A).
+	const char* keys = riftwii::wii::Settings().home_sort == "az" ? tr("1: view   2: settings   -/+: pages   B: A to Z")
+		: tr("1: view   2: settings   -/+: pages   B+A: move");
+	return std::string(tr(FilterLabel(g_filter))) + ": " + count + "\n" + keys;
 }
 
 class Panel : public GuiElement {
@@ -3204,6 +3291,7 @@ static int MenuSource(FrontendState& state)
 		BuildHome(state, items, entries);
 		bannerPageDone = -1;
 		grid.SetItems(&items);
+		SetHomeMovable(grid, entries);
 		grid.Focus(std::min(focus, std::max(0, static_cast<int>(items.size()) - 1)));
 		statusTxt.SetText(HomeStatus(state, items).c_str());
 		emptyNote.SetVisible(state.sd_catalog.games.empty() && state.usb_catalog.games.empty());
@@ -3253,7 +3341,10 @@ static int MenuSource(FrontendState& state)
 	};
 	queueCovers();
 
+	SetHomeMovable(grid, entries);
 	int shownPage = -1, shownPages = -1;
+	// While a game is being moved, the status line says how to put it down.
+	bool carryNoteShown = false;
 	// The status line says covers are coming while they are, and why they
 	// stopped when a download failed.
 	bool coverNoteShown = false;
@@ -3415,6 +3506,18 @@ static int MenuSource(FrontendState& state)
 			dateTxt.SetText(date.c_str());
 		}
 
+		int movedFrom = -1, movedTo = -1;
+		if (grid.TakeMove(movedFrom, movedTo)) {
+			if (MoveHomeGame(state, items, entries, movedFrom, movedTo))
+				toast.Show(tr("Home is in your own order now. Settings > Home order puts it back A to Z."), false);
+		}
+		if (grid.Carrying() != carryNoteShown) {
+			carryNoteShown = grid.Carrying();
+			const std::string note = !carryNoteShown ? HomeStatus(state, items)
+				: grid.CarryingWithPointer() ? tr("Let go of A: put it down   At a side: turn the page")
+				: tr("D-pad: move   A: put it down   B: put it back");
+			statusTxt.SetText(note.c_str());
+		}
 		int clicked = grid.GetClicked();
 		bool reopening = false;
 		if (!g_reopenBanner.empty()) {
@@ -6871,7 +6974,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			case kDiscTile: return DiscTileNote();
 			case kPlayHistory: return tr("Counts the games you start from RiftWii, for Recently played, Home order and a game's page. Off: nothing more is counted, and the counts are not shown.");
 			case kHomeSource: return tr("Which drive's games Home lists. With a game on both, one drive's copy is enough.");
-			case kHomeSort: return tr("The order of the games on Home. Last played and Most played put the games you played from RiftWii first, the rest after them A to Z.");
+			case kHomeSort: return tr("The order of the games on Home. Last played and Most played put the games you played from RiftWii first, the rest after them A to Z. Your order is yours: on Home, hold B and press A on a game to move it.");
 			case kMusic: return (riftwii::wii::MenuMusicFound() || settings.menu_music != "on") ? tr("Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder.") : tr("Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music.");
 			case kServer: return tr("The online server the game uses in place of Nintendo's, which closed. Custom uses wfc_domain in settings.txt.");
 			case kOnline:
@@ -7013,11 +7116,11 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					break;
 				}
 				case kHomeSort: {
-					static const char* const kSortChoices[] = {"az", "recent", "most"};
+					static const char* const kSortChoices[] = {"az", "recent", "most", "custom"};
 					int at = 0;
-					while (at < 3 && settings.home_sort != kSortChoices[at]) ++at;
-					settings.home_sort = kSortChoices[((at % 3) + 3 + direction) % 3];
-					saveAndNote(tr("The order of the games on Home. Last played and Most played put the games you played from RiftWii first, the rest after them A to Z."));
+					while (at < 4 && settings.home_sort != kSortChoices[at]) ++at;
+					settings.home_sort = kSortChoices[((at % 4) + 4 + direction) % 4];
+					saveAndNote(tr("The order of the games on Home. Last played and Most played put the games you played from RiftWii first, the rest after them A to Z. Your order is yours: on Home, hold B and press A on a game to move it."));
 					rebuild();
 					break;
 				}
