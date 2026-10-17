@@ -22,6 +22,7 @@
 #include "riftwii/expand.hpp"
 #include "riftwii/fst.hpp"
 #include "riftwii/gcoverlay.hpp"
+#include "riftwii/gcvideo.hpp"
 #include "riftwii/patch.hpp"
 #include "riftwii/redirect.hpp"
 #include "riftwii/rvz.hpp"
@@ -516,6 +517,7 @@ GcConsoleSettings GcConsoleNow() {
     console.wii_widescreen = CONF_GetAspectRatio() == CONF_ASPECT_16_9;
     console.wii_progressive = CONF_GetProgressiveScan() > 0;
     console.wii_language = CONF_GetLanguage();
+    console.video_width = Settings().video_width;
     return console;
 }
 
@@ -556,6 +558,9 @@ bool LaunchGcGame(const GcImage& wanted,const std::vector<PackageChoices>& packa
         image.widescreen = kGcWidescreenReady && gc_widescreen_on(game, console);
         image.language = gc_language_number(game, console);
         image.sharp = game.gc_sharp == "on";
+        image.vi_width = gc_vi_width(gc_picture_width(game, console));
+        logf("GameCube: Picture width %s (Settings' %s): %s\n", game.gc_width.c_str(), console.video_width.c_str(),
+             gc_picture_width(game, console).c_str());
         logf("GameCube: Progressive scan %s (the Wii's 480p setting %s%s), Widescreen %s (Settings' aspect %s, "
              "the Wii's TV %s), Game language %s (Settings' %s, the Wii's language %d)\n",
              game.gc_progressive.c_str(), console.wii_progressive ? "on" : "off",

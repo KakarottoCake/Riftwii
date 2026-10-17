@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/gcvideo.hpp"
 
+#include "gc_video.h"
+
 namespace riftwii {
 namespace {
 
@@ -84,6 +86,13 @@ GcCopyFilterSwitch find_gc_copy_filter_switch(const std::vector<CodeRange>& text
     });
     if (count != 1) return GcCopyFilterSwitch{};
     return found;
+}
+
+std::uint32_t gc_vi_width(const std::string& name) {
+    if (name == "framebuffer") return GC_VI_WIDTH_FRAMEBUFFER;
+    if (name == "704") return 704;
+    if (name == "720") return GC_VI_LINE;
+    return 0;
 }
 
 }  // namespace riftwii

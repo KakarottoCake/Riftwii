@@ -335,7 +335,8 @@ struct gc_rt_context {
     uint32_t ar_waits;
     uint32_t ar_wait_longest;
     uint32_t ar_wait_timeouts;
-    uint32_t vi_copy[16];     /* the progressive copy of the game's GXRenderModeObj (0x3C bytes) */
+    uint32_t vi_width;        /* Picture width (gc_video.h's vi_width): 0 the game's own */
+    uint32_t vi_copy[16];     /* the copy of the game's GXRenderModeObj VIConfigure gets (0x3C bytes, gc_video.h) */
     uint32_t projection[16];  /* the widened copy of the game's projection matrix */
     uint32_t projection_callers[GC_PROJECTION_CALLERS * 4];
     uint8_t aram_scratch[32] __attribute__((aligned(32)));  /* the hardware's own ARAM DMA goes here */
@@ -347,7 +348,7 @@ struct gc_rt_context {
     uint32_t response[8] __attribute__((aligned(32)));
 };
 
-#define GC_RT_CONTEXT_BYTES 0x520u
+#define GC_RT_CONTEXT_BYTES 0x540u
 typedef char gc_rt_context_size[(sizeof(struct gc_rt_context) == GC_RT_CONTEXT_BYTES) ? 1 : -1];
 
 #ifdef RT_TARGET_PPC

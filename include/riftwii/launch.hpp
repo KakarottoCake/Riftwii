@@ -138,6 +138,10 @@ struct GameSettings {
     // Sharper picture: "on" copies every line as it is, without the
     // game's blur (riftwii/gcvideo.hpp); "off" is the game as made.
     std::string gc_sharp = "off";
+    // Picture width: "global" follows Settings' Picture width as a Wii
+    // game's row does, or "game", "framebuffer", "704", "720"
+    // (riftwii/videopatch.hpp's names), drawn centred.
+    std::string gc_width = "global";
 };
 
 // The GameCube's languages in the order of their number in its settings
@@ -161,6 +165,7 @@ struct GcConsoleSettings {
     bool wii_widescreen = false;            // the Wii's TV is set to 16:9
     bool wii_progressive = false;           // the Wii's 480p setting is on
     int wii_language = -1;                  // the Wii's language, as libogc's CONF_LANG_* number
+    std::string video_width = "game";       // LoaderSettings::video_width (riftwii/videopatch.hpp names)
 };
 
 // Whether the game's 3D is drawn for 16:9: only "16:9", picked for the
@@ -179,6 +184,10 @@ constexpr bool kGcWidescreenReady = false;
 // Whether the game gets 480p: "480p" yes, "game" no, "global" when the
 // Wii's own 480p setting is on. Never for a PAL game (gc_pal_game).
 bool gc_progressive_on(const GameSettings& game, const std::string& id, const GcConsoleSettings& console);
+
+// The picture width the game gets, as a riftwii/videopatch.hpp name:
+// the game's pick, or Settings' for "global" ("game" for anything else).
+std::string gc_picture_width(const GameSettings& game, const GcConsoleSettings& console);
 
 // The SRAM language number the game is told (kGcLanguages' order), or -1
 // for the console's GameCube setting as it is. "global": Settings' game

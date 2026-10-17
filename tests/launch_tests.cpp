@@ -435,6 +435,30 @@ static void test_saves() {
         back.restore("*riftwii*\tgcsharp\tblurry\n");
         EXPECT_EQ(back.game.gc_sharp, std::string("off"));
 
+        // Picture width: global (Settings') writes nothing, the Wii row's
+        // names round-trip, anything else is global; global resolves to
+        // Settings' width.
+        EXPECT_TRUE(gc.save().find("gcwidth") == std::string::npos);
+        gc.game.gc_width = "704";
+        back.restore(gc.save());
+        EXPECT_EQ(back.game.gc_width, std::string("704"));
+        back.restore("*riftwii*\tgcwidth\t1080\n");
+        EXPECT_EQ(back.game.gc_width, std::string("global"));
+        {
+            riftwii::GameSettings w;
+            riftwii::GcConsoleSettings settings;
+            EXPECT_EQ(riftwii::gc_picture_width(w, settings), std::string("game"));
+            settings.video_width = "720";
+            EXPECT_EQ(riftwii::gc_picture_width(w, settings), std::string("720"));
+            w.gc_width = "game";
+            EXPECT_EQ(riftwii::gc_picture_width(w, settings), std::string("game"));
+            w.gc_width = "framebuffer";
+            EXPECT_EQ(riftwii::gc_picture_width(w, settings), std::string("framebuffer"));
+            w.gc_width = "global";
+            settings.video_width = "huge";
+            EXPECT_EQ(riftwii::gc_picture_width(w, settings), std::string("game"));
+        }
+
         // Global resolved: 16:9 never (experimental, only when picked);
         // the Wii's 480p setting, never for a PAL game; Settings'
         // language, its "console" the Wii's (CONF_LANG_GERMAN is 2).

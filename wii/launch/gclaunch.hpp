@@ -25,6 +25,7 @@ struct GcImage {
     bool widescreen = false;   // 3D drawn for 16:9 (its Widescreen option)
     int language = -1;         // the SRAM language the game reads (its Game language option); -1: the console's
     bool sharp = false;        // every line copied without the game's blur (its Sharper picture option)
+    std::uint32_t vi_width = 0;  // its Picture width, as the blob takes it (riftwii/gcvideo.hpp); 0: the game's own
 };
 
 // A GameCube image on the SD card in games/<folder>/ (.iso, .gcm or .rvz)

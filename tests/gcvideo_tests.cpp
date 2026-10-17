@@ -5,6 +5,8 @@
 // instruction in the shape the SDK's functions have.
 #include "riftwii/gcvideo.hpp"
 
+#include "gc_video.h"
+
 #include <cstdint>
 #include <iostream>
 #include <vector>
@@ -110,10 +112,86 @@ void test_copy_filter() {
     }
 }
 
+// A render mode as the SDK's tables hold one: TV mode, fbWidth, then the
+// VI's origin and width, xfbMode and field rendering.
+struct Mode {
+    std::uint8_t bytes[GC_RM_BYTES] = {};
+    Mode(std::uint32_t tv_mode, unsigned fb_width, unsigned x, unsigned width, std::uint32_t xfb_mode,
+         std::uint8_t field_rendering = 0) {
+        gc_video_put32(bytes + GC_RM_TV_MODE, tv_mode);
+        gc_video_put16(bytes + GC_RM_FB_WIDTH, fb_width);
+        gc_video_put16(bytes + GC_RM_VI_X, x);
+        gc_video_put16(bytes + GC_RM_VI_WIDTH, width);
+        gc_video_put32(bytes + GC_RM_XFB_MODE, xfb_mode);
+        bytes[GC_RM_FIELD_RENDERING] = field_rendering;
+        bytes[50] = 21;  // something past the fields changed, copied as it is
+    }
+};
+
+constexpr std::uint32_t kPalInterlaced = 1u << 2;
+
+void test_video_pick() {
+    std::uint8_t copy[GC_RM_BYTES];
+    {
+        // Nothing asked: the game's own mode, copied whole.
+        const Mode ntsc(GC_VI_NTSC_INTERLACED, 640, 40, 640, GC_VI_XFB_DOUBLE);
+        EXPECT_EQ(gc_video_pick(ntsc.bytes, 0, 0, copy), 0u);
+        EXPECT_EQ(unsigned(copy[50]), 21u);
+    }
+    {
+        // 480p: interlaced whole frames become progressive, single field.
+        const Mode ntsc(GC_VI_NTSC_INTERLACED, 640, 40, 640, GC_VI_XFB_DOUBLE);
+        EXPECT_EQ(gc_video_pick(ntsc.bytes, 1, 0, copy), 1u);
+        EXPECT_EQ(gc_video_get32(copy + GC_RM_TV_MODE), GC_VI_NTSC_PROGRESSIVE);
+        EXPECT_EQ(gc_video_get32(copy + GC_RM_XFB_MODE), GC_VI_XFB_SINGLE);
+        EXPECT_EQ(gc_video_get16(copy + GC_RM_VI_WIDTH), 640u);
+        // A field at a time, or a PAL mode: left alone.
+        const Mode fields(GC_VI_NTSC_INTERLACED, 640, 40, 640, GC_VI_XFB_DOUBLE, 1);
+        EXPECT_EQ(gc_video_pick(fields.bytes, 1, 0, copy), 0u);
+        const Mode pal(kPalInterlaced, 640, 40, 640, GC_VI_XFB_DOUBLE);
+        EXPECT_EQ(gc_video_pick(pal.bytes, 1, 0, copy), 0u);
+    }
+    {
+        // Picture width: drawn that wide, centred in the 720-pixel line.
+        const Mode ntsc(GC_VI_NTSC_INTERLACED, 640, 40, 640, GC_VI_XFB_DOUBLE);
+        EXPECT_EQ(gc_video_pick(ntsc.bytes, 0, 720, copy), 1u);
+        EXPECT_EQ(gc_video_get16(copy + GC_RM_VI_WIDTH), 720u);
+        EXPECT_EQ(gc_video_get16(copy + GC_RM_VI_X), 0u);
+        EXPECT_EQ(gc_video_get32(copy + GC_RM_TV_MODE), GC_VI_NTSC_INTERLACED);
+        EXPECT_EQ(gc_video_pick(ntsc.bytes, 0, 704, copy), 1u);
+        EXPECT_EQ(gc_video_get16(copy + GC_RM_VI_WIDTH), 704u);
+        EXPECT_EQ(gc_video_get16(copy + GC_RM_VI_X), 8u);
+        // Both at once.
+        EXPECT_EQ(gc_video_pick(ntsc.bytes, 1, 720, copy), 1u);
+        EXPECT_EQ(gc_video_get32(copy + GC_RM_TV_MODE), GC_VI_NTSC_PROGRESSIVE);
+        EXPECT_EQ(gc_video_get16(copy + GC_RM_VI_WIDTH), 720u);
+        // Already that wide: nothing to change.
+        const Mode full(GC_VI_NTSC_INTERLACED, 640, 0, 720, GC_VI_XFB_DOUBLE);
+        EXPECT_EQ(gc_video_pick(full.bytes, 0, 720, copy), 0u);
+    }
+    {
+        // The frame buffer's width: Luigi's Mansion's PAL picture is 640
+        // pixels drawn 660 wide at 30; it becomes 640 at 40.
+        const Mode lm(kPalInterlaced, 640, 30, 660, GC_VI_XFB_DOUBLE);
+        EXPECT_EQ(gc_video_pick(lm.bytes, 0, GC_VI_WIDTH_FRAMEBUFFER, copy), 1u);
+        EXPECT_EQ(gc_video_get16(copy + GC_RM_VI_WIDTH), 640u);
+        EXPECT_EQ(gc_video_get16(copy + GC_RM_VI_X), 40u);
+        // Narrower than the frame buffer: the VI cannot shrink it.
+        const Mode wide(GC_VI_NTSC_INTERLACED, 704, 8, 704, GC_VI_XFB_DOUBLE);
+        EXPECT_EQ(gc_video_pick(wide.bytes, 0, 640, copy), 0u);
+    }
+    EXPECT_EQ(riftwii::gc_vi_width("game"), 0u);
+    EXPECT_EQ(riftwii::gc_vi_width("framebuffer"), GC_VI_WIDTH_FRAMEBUFFER);
+    EXPECT_EQ(riftwii::gc_vi_width("704"), 704u);
+    EXPECT_EQ(riftwii::gc_vi_width("720"), 720u);
+    EXPECT_EQ(riftwii::gc_vi_width("1080"), 0u);
+}
+
 }  // namespace
 
 int main() {
     test_copy_filter();
+    test_video_pick();
     if (g_failures == 0) std::cout << "gcvideo tests passed" << std::endl;
     return g_failures == 0 ? 0 : 1;
 }

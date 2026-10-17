@@ -25,6 +25,7 @@
 #include "gc_card.h"
 #include "gc_rt.h"
 #include "gc_rvz.h"
+#include "gc_video.h"
 #include "loadersettings.hpp"
 #include "ios_reload.hpp"
 #include "log.hpp"
@@ -1357,23 +1358,43 @@ template <class ReplayHook>
 static void apply_picture_and_language(const GcImage& image, Code& code, ReplayHook replay_hook, const gc_rt_header& h,
                                        gc_rt_context* ctx, bool test_no_widen) {
     const SramReads sram = find_sram_reads(code);
+    // VIConfigure, hooked once for what changes the mode it is given
+    // (gc_on_vi_configure): 480p and the picture width.
+    const bool pal_480p = image.progressive && gc_pal_game(image.id);
+    const bool progressive = image.progressive && !pal_480p;
+    std::uint32_t vi_configure = 0;
+    bool vi_hooked = false;
+    if (progressive || image.vi_width != 0) {
+        vi_configure = find_vi_configure(code);
+        vi_hooked = vi_configure != 0 &&
+                    replay_hook(vi_configure, h.hook_vi_configure, h.replay_vi_configure, h.continue_vi_configure);
+    }
     // 480p. A game offers it when VIGetDTVStatus says a component cable is
     // in and OSGetProgressiveMode says the console's 480p setting is on
     // (or the player holds B at start): both are told yes. A game that has
     // no 480p is switched to it by VIConfigure (gc_on_vi_configure).
-    if (image.progressive && gc_pal_game(image.id)) {
+    if (pal_480p) {
         logf("GameCube: 480p left off: %s is a PAL game, its picture is not NTSC's 480 lines\n", image.id.c_str());
-    } else if (image.progressive) {
+    } else if (progressive) {
         const std::vector<std::uint32_t> dtv = find_dtv_reads(code);
         for (std::uint32_t a : dtv) code.put(a, li(reg_d(code.at(a)), 1));  // a component cable is in
         for (std::uint32_t a : sram.progressive) code.put(a, li(reg_d(code.at(a)), 0x80));  // the 480p setting is on
-        const std::uint32_t vi_configure = find_vi_configure(code);
-        const bool hooked = vi_configure != 0 &&
-                            replay_hook(vi_configure, h.hook_vi_configure, h.replay_vi_configure, h.continue_vi_configure);
-        if (hooked) ctx->flags |= GC_FLAG_PROGRESSIVE;
+        if (vi_hooked) ctx->flags |= GC_FLAG_PROGRESSIVE;
         logf("GameCube: 480p: %u cable check(s) and %u 480p setting read(s) answer yes; VIConfigure 0x%08x %s\n",
              static_cast<unsigned>(dtv.size()), static_cast<unsigned>(sram.progressive.size()), vi_configure,
-             hooked ? "turns interlaced modes into 480p" : "not hooked: a game without its own 480p stays interlaced");
+             vi_hooked ? "turns interlaced modes into 480p" : "not hooked: a game without its own 480p stays interlaced");
+    }
+    // Picture width: VIConfigure draws the picture that wide, centred.
+    if (image.vi_width != 0) {
+        if (vi_hooked) ctx->vi_width = image.vi_width;
+        const std::string wanted = image.vi_width == GC_VI_WIDTH_FRAMEBUFFER ? std::string("the frame buffer's width")
+                                                                             : std::to_string(image.vi_width) + " pixels";
+        if (vi_hooked) {
+            logf("GameCube: picture width %s, centred, through VIConfigure 0x%08x\n", wanted.c_str(), vi_configure);
+        } else {
+            logf("GameCube: picture width %s not applied: VIConfigure was not found, so the game keeps its own\n",
+                 wanted.c_str());
+        }
     }
     // 16:9: GXSetProjection widens what the game draws in perspective
     // (gc_hook_projection); its 2D, drawn with orthographic projections,

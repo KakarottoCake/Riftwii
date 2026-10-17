@@ -4333,7 +4333,7 @@ struct RowRef {
 	enum class What { Mods, Saves, Cheats, Width, Deflicker, Borders, VideoMode, RegionVideo, Aspect, Rumble, Speaker,
 		RegionStrings, Language, Cios, Server, Favorite, Pack, Option, Note,
 		AddCodes, ForgetCodes, MakeImage, Cover, Memory, About, GcDiscReads, GcCard, GcProgressive, GcWidescreen,
-		GcSharp, GcLanguage, GcControls, SaveTile, RenameTile, RemoveTile } what = What::Note;
+		GcSharp, GcWidth, GcLanguage, GcControls, SaveTile, RenameTile, RemoveTile } what = What::Note;
 	std::size_t pkg = 0, opt = 0;
 };
 
@@ -4717,6 +4717,13 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 		sharp.value = sharp.on ? tr("On") : tr("Off (as made)");
 		rows.push_back(sharp);
 		refs.push_back({W::GcSharp});
+		FlowRow width;
+		width.kind = FlowRow::Kind::Option;
+		width.label = tr("Picture width");
+		width.on = game.gc_width != "global";
+		width.value = GameValue(game.gc_width, global.video_width, WidthName);
+		rows.push_back(width);
+		refs.push_back({W::GcWidth});
 		FlowRow language;
 		language.kind = FlowRow::Kind::Option;
 		language.label = tr("Game language");
@@ -7885,6 +7892,7 @@ static int ChangedGameSettings(const riftwii::GameSettings& g)
 	if (riftwii::kGcWidescreenReady && g.gc_widescreen != "global") ++changed;
 	if (g.gc_language != "global") ++changed;
 	if (g.gc_sharp == "on") ++changed;
+	if (g.gc_width != "global") ++changed;
 	if (g.rumble == "off") ++changed;
 	if (g.speaker == "off") ++changed;
 	return changed;
@@ -8075,6 +8083,8 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 				say(tr("Fills a widescreen TV with the game world; menus stay stretched, and some games show wrong colors (experimental)."));
 			else if (ref.what == RowRef::What::GcSharp)
 				say(tr("Turns off the soft blur some games add."));
+			else if (ref.what == RowRef::What::GcWidth)
+				say(tr("How wide the picture is drawn. 720 fills the screen from side to side."));
 			else if (ref.what == RowRef::What::GcLanguage)
 				say(tr("The language this game plays in, leaving the Wii's own setting alone (most US and Japanese games have only one)."));
 			else if (ref.what == RowRef::What::GcControls)
@@ -8143,6 +8153,7 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 			}
 			else if (ref.what == RowRef::What::GcWidescreen) game.gc_widescreen = StepValue(kGcWidescreenChoices, game.gc_widescreen, direction);
 			else if (ref.what == RowRef::What::GcSharp) game.gc_sharp = game.gc_sharp == "on" ? "off" : "on";
+			else if (ref.what == RowRef::What::GcWidth) game.gc_width = StepValue(kWidths, game.gc_width, direction);
 			else if (ref.what == RowRef::What::GcLanguage) game.gc_language = StepValue(kGcLanguageChoices, game.gc_language, direction);
 			else if (ref.what == RowRef::What::GcControls) {
 				ShowGcControls(false);

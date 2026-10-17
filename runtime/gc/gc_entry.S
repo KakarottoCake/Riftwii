@@ -211,9 +211,9 @@ gc_continue_ai_dma:
     mtctr 12
     bctr
 
-/* VIConfigure(rm), for 480p: gc_on_vi_configure(ctx, rm) returns the
- * mode to use (a progressive copy, or the game's own), and the original
- * runs on it from its replay slot. */
+/* VIConfigure(rm), for 480p and the picture width: gc_on_vi_configure(ctx,
+ * rm) returns the mode to use (a changed copy, or the game's own), and the
+ * original runs on it from its replay slot. */
     .globl gc_hook_vi_configure
 gc_hook_vi_configure:
     stwu 1, -0x20(1)
@@ -501,6 +501,6 @@ gc_exi_table:
     .balign 32
     .globl gc_context_data
 gc_context_data:
-    /* struct gc_rt_context, GC_RT_CONTEXT_BYTES (0x520) long: the magic, then zeros */
+    /* struct gc_rt_context, GC_RT_CONTEXT_BYTES (0x540) long: the magic, then zeros */
     .long 0x52574743
-    .fill 327, 4, 0
+    .fill 335, 4, 0

@@ -109,6 +109,13 @@ bool gc_progressive_on(const GameSettings& game, const std::string& id, const Gc
     return console.wii_progressive;
 }
 
+std::string gc_picture_width(const GameSettings& game, const GcConsoleSettings& console) {
+    const std::string& chosen = game.gc_width == "global" ? console.video_width : game.gc_width;
+    for (const char* name : {"framebuffer", "704", "720"})
+        if (chosen == name) return chosen;
+    return "game";
+}
+
 int gc_language_number(const GameSettings& game, const GcConsoleSettings& console) {
     if (game.gc_language == "game") return -1;
     if (game.gc_language != "global") return gc_sram_language(game.gc_language);
@@ -425,6 +432,7 @@ std::string LaunchModel::save() const {
     if (game.gc_language == "game" || gc_sram_language(game.gc_language) >= 0)
         text += "*riftwii*\tgclanguage\t" + game.gc_language + "\n";
     if (game.gc_sharp == "on") text += "*riftwii*\tgcsharp\ton\n";
+    if (game.gc_width != "global") text += "*riftwii*\tgcwidth\t" + clean(game.gc_width) + "\n";
     for (const LaunchPackage& p : packages) {
         // Only this game's packs: the file is per game ID, and another
         // game's pack could not be turned on here anyway.
@@ -507,6 +515,9 @@ void LaunchModel::restore(const std::string& text) {
                 game.gc_language = value == "game" || gc_sram_language(value) >= 0 ? value : "global";
             } else if (key == "gcsharp") {
                 game.gc_sharp = value == "on" ? "on" : "off";
+            } else if (key == "gcwidth") {
+                const bool known = value == "game" || value == "framebuffer" || value == "704" || value == "720";
+                game.gc_width = known ? value : "global";
             }
             continue;
         }

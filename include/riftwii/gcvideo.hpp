@@ -3,6 +3,7 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
 #include <vector>
 
 #include "riftwii/symsearch.hpp"
@@ -31,5 +32,11 @@ struct GcCopyFilterSwitch {
 // The one GXSetCopyFilter in `text`; branch 0 when there is none or more
 // than one.
 GcCopyFilterSwitch find_gc_copy_filter_switch(const std::vector<CodeRange>& text);
+
+// Picture width: the blob's vi_width for a riftwii/videopatch.hpp width
+// name (gc_picture_width's): 0 the game's own, else as gc_video.h's
+// gc_video_pick takes it, which draws the picture that wide in the TV
+// line, centred.
+std::uint32_t gc_vi_width(const std::string& name);
 
 }  // namespace riftwii
