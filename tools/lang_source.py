@@ -1870,6 +1870,112 @@ T = {
         "チャンネル: 前と次のページの端を、Wiiメニューのように画面の左右に表示します。そこを指してAを押すと、そのページに移ります。",
         "Canais: as bordas da página anterior e da próxima nas laterais da tela, como no Menu Wii. Aponte para uma e aperte A para ir a essa página.",
         "Canali: i bordi della pagina precedente e di quella successiva ai lati dello schermo, come nel Menu Wii. Punta su uno e premi A per passare a quella pagina."),
+    # A game's extra Home tiles, each with its own mods (riftwii/profiles.hpp).
+    "Could not save the tiles to the SD card.": (
+        "No se pudieron guardar las casillas en la tarjeta SD.",
+        "タイルをSDカードに保存できませんでした。",
+        "Não foi possível salvar os blocos no cartão SD.",
+        "Impossibile salvare i riquadri sulla scheda SD."),
+    "The tile needs a name.": (
+        "La casilla necesita un nombre.",
+        "タイルに名前を付けてください。",
+        "O bloco precisa de um nome.",
+        "Il riquadro ha bisogno di un nome."),
+    "This game has {1} tiles already, as many as it can have.": (
+        "Este juego ya tiene {1} casillas, el máximo posible.",
+        "このゲームのタイルはすでに{1}個あり、これ以上は作れません。",
+        "Este jogo já tem {1} blocos, o máximo possível.",
+        "Questo gioco ha già {1} riquadri, il massimo possibile."),
+    "Home has {1} extra tiles already, as many as it can have.": (
+        "El inicio ya tiene {1} casillas extra, el máximo posible.",
+        "ホームの追加タイルはすでに{1}個あり、これ以上は作れません。",
+        "O início já tem {1} blocos extras, o máximo possível.",
+        "La home ha già {1} riquadri in più, il massimo possibile."),
+    "This game has no ID to keep its tile under.": (
+        "Este juego no tiene un ID con el que guardar su casilla.",
+        "このゲームにはタイルを保存するためのIDがありません。",
+        "Este jogo não tem um ID para guardar o bloco.",
+        "Questo gioco non ha un ID con cui salvare il riquadro."),
+    "Could not save the tile's mods to the SD card.": (
+        "No se pudieron guardar los mods de la casilla en la tarjeta SD.",
+        "タイルのMODをSDカードに保存できませんでした。",
+        "Não foi possível salvar os mods do bloco no cartão SD.",
+        "Impossibile salvare le mod del riquadro sulla scheda SD."),
+    "This tile is not on the list any more.": (
+        "Esta casilla ya no está en la lista.",
+        "このタイルはもう一覧にありません。",
+        "Este bloco não está mais na lista.",
+        "Questo riquadro non è più nell'elenco."),
+    "Shift": (
+        "Mayús",
+        "大文字",
+        "Shift",
+        "Maiusc"),
+    "Make a Home tile with these mods...": (
+        "Crear una casilla de inicio con estos mods...",
+        "このMODでホームにタイルを作る...",
+        "Criar um bloco no início com estes mods...",
+        "Crea un riquadro nella home con queste mod..."),
+    "Rename this tile...": (
+        "Cambiar el nombre de esta casilla...",
+        "このタイルの名前を変える...",
+        "Renomear este bloco...",
+        "Rinomina questo riquadro..."),
+    "Remove this tile from Home": (
+        "Quitar esta casilla del inicio",
+        "このタイルをホームから消す",
+        "Remover este bloco do início",
+        "Togli questo riquadro dalla home"),
+    "Puts this game on Home again as a tile of its own, which starts it with the mods and settings set here.": (
+        "Pone este juego otra vez en el inicio como una casilla propia, que lo inicia con los mods y ajustes elegidos aquí.",
+        "このゲームを専用のタイルとしてもう一つホームに置きます。そのタイルからは、ここで選んだMODと設定で起動します。",
+        "Coloca este jogo de novo no início como um bloco próprio, que o inicia com os mods e configurações escolhidos aqui.",
+        "Mette di nuovo questo gioco nella home come riquadro a sé, che lo avvia con le mod e le impostazioni scelte qui."),
+    "This page is the \"{1}\" tile's: what is changed here is changed for it only.": (
+        "Esta página es la de la casilla \"{1}\": lo que cambies aquí cambia solo para ella.",
+        "このページは「{1}」タイルのものです。ここでの変更はこのタイルだけに反映されます。",
+        "Esta página é a do bloco \"{1}\": o que mudar aqui muda só para ele.",
+        "Questa pagina è del riquadro \"{1}\": ciò che cambi qui cambia solo per lui."),
+    "Takes the \"{1}\" tile off Home. The game and its mods stay.": (
+        "Quita la casilla \"{1}\" del inicio. El juego y sus mods se quedan.",
+        "「{1}」タイルをホームから消します。ゲームとMODは残ります。",
+        "Tira o bloco \"{1}\" do início. O jogo e os mods continuam.",
+        "Toglie il riquadro \"{1}\" dalla home. Il gioco e le sue mod restano."),
+    "Rename the tile": (
+        "Cambiar el nombre de la casilla",
+        "タイルの名前を変える",
+        "Renomear o bloco",
+        "Rinomina il riquadro"),
+    "Name the new tile": (
+        "Nombre de la nueva casilla",
+        "新しいタイルの名前",
+        "Nome do novo bloco",
+        "Nome del nuovo riquadro"),
+    "Renamed \"{1}\".": (
+        "Nuevo nombre: \"{1}\".",
+        "名前を「{1}」に変えました。",
+        "Novo nome: \"{1}\".",
+        "Nuovo nome: \"{1}\"."),
+    "\"{1}\" is on Home now: its tile starts the game with these mods. Its own picture can go in sd:/riftwii/profiles/{2}.png.": (
+        "\"{1}\" ya está en el inicio: su casilla inicia el juego con estos mods. Puedes ponerle una imagen propia en sd:/riftwii/profiles/{2}.png.",
+        "「{1}」をホームに置きました。このタイルからはこのMODでゲームが起動します。専用の画像は sd:/riftwii/profiles/{2}.png に置けます。",
+        "\"{1}\" já está no início: o bloco inicia o jogo com estes mods. Uma imagem própria pode ir em sd:/riftwii/profiles/{2}.png.",
+        "\"{1}\" ora è nella home: il suo riquadro avvia il gioco con queste mod. Un'immagine sua può andare in sd:/riftwii/profiles/{2}.png."),
+    "Remove this tile?": (
+        "¿Quitar esta casilla?",
+        "このタイルを消しますか？",
+        "Remover este bloco?",
+        "Togliere questo riquadro?"),
+    "\"{1}\" goes from Home, with its own mods and settings, and its picture in sd:/riftwii/profiles if it has one. The game and its mods stay.": (
+        "\"{1}\" se quita del inicio, con sus propios mods y ajustes, y su imagen de sd:/riftwii/profiles si la tiene. El juego y sus mods se quedan.",
+        "「{1}」は専用のMODと設定、それにsd:/riftwii/profilesの画像（あれば）ごとホームから消えます。ゲームとMODは残ります。",
+        "\"{1}\" sai do início, com seus próprios mods e configurações, e a imagem dele em sd:/riftwii/profiles, se tiver. O jogo e os mods continuam.",
+        "\"{1}\" sparisce dalla home, con le sue mod e impostazioni e la sua immagine in sd:/riftwii/profiles, se ce l'ha. Il gioco e le sue mod restano."),
+    "Removed \"{1}\". This page is the game's own again.": (
+        "Se quitó \"{1}\". Esta página vuelve a ser la del juego.",
+        "「{1}」を消しました。このページはゲーム本来のものに戻りました。",
+        "\"{1}\" removido. Esta página voltou a ser a do jogo.",
+        "\"{1}\" tolto. Questa pagina è di nuovo quella del gioco."),
 }
 
 
@@ -3290,6 +3396,48 @@ KO = {
         "양옆 페이지",
     "Channels: the edges of the previous and the next page at the sides of the screen, as on the Wii Menu. Point at one and press A to turn to that page.":
         "채널: Wii 메뉴처럼 이전 페이지와 다음 페이지의 가장자리를 화면 양옆에 보여 줍니다. 가리키고 A를 누르면 그 페이지로 넘어갑니다.",
+    "Could not save the tiles to the SD card.":
+        "타일을 SD 카드에 저장할 수 없습니다.",
+    "The tile needs a name.":
+        "타일 이름이 필요합니다.",
+    "This game has {1} tiles already, as many as it can have.":
+        "이 게임에는 이미 타일이 {1}개 있어 더 만들 수 없습니다.",
+    "Home has {1} extra tiles already, as many as it can have.":
+        "홈에 이미 추가 타일이 {1}개 있어 더 만들 수 없습니다.",
+    "This game has no ID to keep its tile under.":
+        "이 게임에는 타일을 저장할 ID가 없습니다.",
+    "Could not save the tile's mods to the SD card.":
+        "타일의 MOD를 SD 카드에 저장할 수 없습니다.",
+    "This tile is not on the list any more.":
+        "이 타일은 더 이상 목록에 없습니다.",
+    "Shift":
+        "Shift",
+    "Make a Home tile with these mods...":
+        "이 MOD로 홈 타일 만들기...",
+    "Rename this tile...":
+        "이 타일 이름 바꾸기...",
+    "Remove this tile from Home":
+        "홈에서 이 타일 제거",
+    "Puts this game on Home again as a tile of its own, which starts it with the mods and settings set here.":
+        "이 게임을 별도의 타일로 홈에 하나 더 놓습니다. 그 타일은 여기서 고른 MOD와 설정으로 게임을 시작합니다.",
+    "This page is the \"{1}\" tile's: what is changed here is changed for it only.":
+        "이 페이지는 \"{1}\" 타일의 페이지입니다. 여기서 바꾼 것은 이 타일에만 적용됩니다.",
+    "Takes the \"{1}\" tile off Home. The game and its mods stay.":
+        "\"{1}\" 타일을 홈에서 제거합니다. 게임과 MOD는 그대로 남습니다.",
+    "Rename the tile":
+        "타일 이름 바꾸기",
+    "Name the new tile":
+        "새 타일 이름",
+    "Renamed \"{1}\".":
+        "이름을 \"{1}\"(으)로 바꿨습니다.",
+    "\"{1}\" is on Home now: its tile starts the game with these mods. Its own picture can go in sd:/riftwii/profiles/{2}.png.":
+        "\"{1}\" 타일이 홈에 생겼습니다. 이 타일은 이 MOD로 게임을 시작합니다. 전용 그림은 sd:/riftwii/profiles/{2}.png에 넣을 수 있습니다.",
+    "Remove this tile?":
+        "이 타일을 제거할까요?",
+    "\"{1}\" goes from Home, with its own mods and settings, and its picture in sd:/riftwii/profiles if it has one. The game and its mods stay.":
+        "\"{1}\" 타일이 자체 MOD와 설정, 그리고 sd:/riftwii/profiles의 그림(있다면)과 함께 홈에서 사라집니다. 게임과 MOD는 그대로 남습니다.",
+    "Removed \"{1}\". This page is the game's own again.":
+        "\"{1}\" 타일을 제거했습니다. 이 페이지는 다시 게임 자체의 페이지입니다.",
 }
 
 # French, a table of its own (msgid: text), from MidyGamy's translation
@@ -4709,6 +4857,48 @@ FR = {
         "Pages sur les côtés",
     "Channels: the edges of the previous and the next page at the sides of the screen, as on the Wii Menu. Point at one and press A to turn to that page.":
         "Chaînes : les bords de la page précédente et de la suivante sur les côtés de l'écran, comme sur le Menu Wii. Pointez-en un et appuyez sur A pour passer à cette page.",
+    "Could not save the tiles to the SD card.":
+        "Impossible d'enregistrer les tuiles sur la carte SD.",
+    "The tile needs a name.":
+        "La tuile a besoin d'un nom.",
+    "This game has {1} tiles already, as many as it can have.":
+        "Ce jeu a déjà {1} tuiles, le maximum possible.",
+    "Home has {1} extra tiles already, as many as it can have.":
+        "L'accueil a déjà {1} tuiles en plus, le maximum possible.",
+    "This game has no ID to keep its tile under.":
+        "Ce jeu n'a pas d'ID sous lequel ranger sa tuile.",
+    "Could not save the tile's mods to the SD card.":
+        "Impossible d'enregistrer les mods de la tuile sur la carte SD.",
+    "This tile is not on the list any more.":
+        "Cette tuile n'est plus dans la liste.",
+    "Shift":
+        "Maj",
+    "Make a Home tile with these mods...":
+        "Créer une tuile d'accueil avec ces mods...",
+    "Rename this tile...":
+        "Renommer cette tuile...",
+    "Remove this tile from Home":
+        "Retirer cette tuile de l'accueil",
+    "Puts this game on Home again as a tile of its own, which starts it with the mods and settings set here.":
+        "Remet ce jeu sur l'accueil comme une tuile à part, qui le lance avec les mods et réglages choisis ici.",
+    "This page is the \"{1}\" tile's: what is changed here is changed for it only.":
+        "Cette page est celle de la tuile \"{1}\" : ce qui change ici ne change que pour elle.",
+    "Takes the \"{1}\" tile off Home. The game and its mods stay.":
+        "Retire la tuile \"{1}\" de l'accueil. Le jeu et ses mods restent.",
+    "Rename the tile":
+        "Renommer la tuile",
+    "Name the new tile":
+        "Nom de la nouvelle tuile",
+    "Renamed \"{1}\".":
+        "Nouveau nom : \"{1}\".",
+    "\"{1}\" is on Home now: its tile starts the game with these mods. Its own picture can go in sd:/riftwii/profiles/{2}.png.":
+        "\"{1}\" est sur l'accueil : sa tuile lance le jeu avec ces mods. Son image peut aller dans sd:/riftwii/profiles/{2}.png.",
+    "Remove this tile?":
+        "Retirer cette tuile ?",
+    "\"{1}\" goes from Home, with its own mods and settings, and its picture in sd:/riftwii/profiles if it has one. The game and its mods stay.":
+        "\"{1}\" quitte l'accueil, avec ses propres mods et réglages, et son image dans sd:/riftwii/profiles si elle en a une. Le jeu et ses mods restent.",
+    "Removed \"{1}\". This page is the game's own again.":
+        "\"{1}\" retirée. Cette page est de nouveau celle du jeu.",
 }
 
 # Languages kept in tables of their own: written after LANGS, every msgid
@@ -4727,7 +4917,7 @@ def check(repo):
     would never be looked up."""
     sources = ["wii/menu/rift_menu.cpp", "wii/menu/gameextras.cpp", "wii/menu/gui_gamegrid.cpp", "wii/launch/channel.cpp", "wii/menu/frontend.cpp",
                "wii/launch/codebuilds.cpp", "wii/menu/gui_searchkeys.cpp", "wii/main.cpp", "wii/menu/vsdmake.cpp",
-               "wii/menu/gui_shelf.cpp", "wii/menu/memorybudget.cpp"]
+               "wii/menu/gui_shelf.cpp", "wii/menu/memorybudget.cpp", "wii/menu/modtiles.cpp"]
     text = "".join(open(os.path.join(repo, p), encoding="utf-8").read() for p in sources)
     missing = [k for k in T if '"%s"' % escape(k) not in text]
     for k in missing:

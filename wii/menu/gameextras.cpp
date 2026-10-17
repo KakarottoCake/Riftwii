@@ -88,16 +88,37 @@ const PlayHistory& History() {
     return g_history;
 }
 
-void RecordPlay(const std::string& game_id) {
-    if (Settings().play_history == "off") return;  // Settings > Play history
-    History();
-    g_history.record(game_id, static_cast<std::int64_t>(std::time(nullptr)));
+namespace {
+void WriteHistory() {
     mkdir("sd:/riftwii", 0777);
     const std::string text = g_history.serialize();
     if (FILE* f = std::fopen(kHistoryPath, "wb")) {
         std::fwrite(text.data(), 1, text.size(), f);
         std::fclose(f);
     }
+}
+}  // namespace
+
+void RecordPlay(const std::string& game_id) {
+    if (Settings().play_history == "off") return;  // Settings > Play history
+    History();
+    g_history.record(game_id, static_cast<std::int64_t>(std::time(nullptr)));
+    WriteHistory();
+}
+
+void RememberLaunchedTile(const std::string& key) {
+    mkdir("sd:/riftwii", 0777);
+    if (FILE* f = std::fopen(kLastTilePath, "wb")) {  // riftwii/profiles.hpp
+        const std::string line = key + "\n";
+        std::fwrite(line.data(), 1, line.size(), f);
+        std::fclose(f);
+    }
+}
+
+void ForgetPlays(const std::string& game_id) {
+    if (!History().find(game_id)) return;
+    g_history.forget(game_id);
+    WriteHistory();
 }
 
 namespace {

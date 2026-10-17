@@ -7,6 +7,8 @@
 #include <set>
 #include <sstream>
 
+#include "riftwii/profiles.hpp"
+
 namespace riftwii {
 namespace {
 
@@ -17,15 +19,19 @@ bool plausible_id(const std::string& id) {
     return true;
 }
 
-// "usb:", "sd:" or "wii:", a game ID, and "/2" to "/9" for a later disc.
+// "usb:", "sd:" or "wii:", a game ID (on a drive also a profile's tile
+// key, "RMCE01@retro-rewind", riftwii/profiles.hpp), and "/2" to "/9" for
+// a later disc.
 bool plausible_key(const std::string& key) {
     std::size_t at = 0;
     if (key.compare(0, 4, "usb:") == 0 || key.compare(0, 4, "wii:") == 0) at = 4;
     else if (key.compare(0, 3, "sd:") == 0) at = 3;
     else return false;
     const std::size_t slash = key.find('/', at);
-    const std::string id = key.substr(at, slash == std::string::npos ? std::string::npos : slash - at);
-    if (!plausible_id(id)) return false;
+    const std::string tile = key.substr(at, slash == std::string::npos ? std::string::npos : slash - at);
+    // The Wii's channels take no packs, so they have no profiles.
+    const bool profile = tile.find('@') != std::string::npos;
+    if (profile ? key.compare(0, 4, "wii:") == 0 || !valid_tile_key(tile) : !plausible_id(tile)) return false;
     if (slash == std::string::npos) return true;
     const std::string disc = key.substr(slash + 1);
     return disc.size() == 1 && disc[0] >= '2' && disc[0] <= '9';

@@ -2123,3 +2123,66 @@ msgstr "左右のページ"
 
 msgid "Channels: the edges of the previous and the next page at the sides of the screen, as on the Wii Menu. Point at one and press A to turn to that page."
 msgstr "チャンネル: 前と次のページの端を、Wiiメニューのように画面の左右に表示します。そこを指してAを押すと、そのページに移ります。"
+
+msgid "Could not save the tiles to the SD card."
+msgstr "タイルをSDカードに保存できませんでした。"
+
+msgid "The tile needs a name."
+msgstr "タイルに名前を付けてください。"
+
+msgid "This game has {1} tiles already, as many as it can have."
+msgstr "このゲームのタイルはすでに{1}個あり、これ以上は作れません。"
+
+msgid "Home has {1} extra tiles already, as many as it can have."
+msgstr "ホームの追加タイルはすでに{1}個あり、これ以上は作れません。"
+
+msgid "This game has no ID to keep its tile under."
+msgstr "このゲームにはタイルを保存するためのIDがありません。"
+
+msgid "Could not save the tile's mods to the SD card."
+msgstr "タイルのMODをSDカードに保存できませんでした。"
+
+msgid "This tile is not on the list any more."
+msgstr "このタイルはもう一覧にありません。"
+
+msgid "Shift"
+msgstr "大文字"
+
+msgid "Make a Home tile with these mods..."
+msgstr "このMODでホームにタイルを作る..."
+
+msgid "Rename this tile..."
+msgstr "このタイルの名前を変える..."
+
+msgid "Remove this tile from Home"
+msgstr "このタイルをホームから消す"
+
+msgid "Puts this game on Home again as a tile of its own, which starts it with the mods and settings set here."
+msgstr "このゲームを専用のタイルとしてもう一つホームに置きます。そのタイルからは、ここで選んだMODと設定で起動します。"
+
+msgid "This page is the \"{1}\" tile's: what is changed here is changed for it only."
+msgstr "このページは「{1}」タイルのものです。ここでの変更はこのタイルだけに反映されます。"
+
+msgid "Takes the \"{1}\" tile off Home. The game and its mods stay."
+msgstr "「{1}」タイルをホームから消します。ゲームとMODは残ります。"
+
+msgid "Rename the tile"
+msgstr "タイルの名前を変える"
+
+msgid "Name the new tile"
+msgstr "新しいタイルの名前"
+
+msgid "Renamed \"{1}\"."
+msgstr "名前を「{1}」に変えました。"
+
+msgid "\"{1}\" is on Home now: its tile starts the game with these mods. Its own picture can go in sd:/riftwii/profiles/{2}.png."
+msgstr "「{1}」をホームに置きました。このタイルからはこのMODでゲームが起動します。専用の画像は sd:/riftwii/profiles/{2}.png に置けます。"
+
+msgid "Remove this tile?"
+msgstr "このタイルを消しますか？"
+
+msgid "\"{1}\" goes from Home, with its own mods and settings, and its picture in sd:/riftwii/profiles if it has one. The game and its mods stay."
+msgstr "「{1}」は専用のMODと設定、それにsd:/riftwii/profilesの画像（あれば）ごとホームから消えます。ゲームとMODは残ります。"
+
+msgid "Removed \"{1}\". This page is the game's own again."
+msgstr "「{1}」を消しました。このページはゲーム本来のものに戻りました。"

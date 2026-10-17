@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/settingsfile.hpp"
+#include "riftwii/profiles.hpp"
 #include "riftwii/riitag.hpp"
 
 #include <algorithm>
@@ -119,10 +120,9 @@ void LoaderSettings::parse(const std::string& text) {
             while (at <= value.size()) {
                 const std::size_t comma = std::min(value.find(',', at), value.size());
                 const std::string id = trim(value.substr(at, comma - at));
-                // Game IDs are letters and digits; anything else is noise.
-                bool plain = !id.empty() && id.size() <= 6;
-                for (char c : id) plain = plain && ((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9'));
-                if (plain) favorites.insert(id);
+                // Game IDs, and profiles' tile keys (riftwii/profiles.hpp);
+                // anything else is noise.
+                if (valid_tile_key(id)) favorites.insert(id);
                 at = comma + 1;
             }
         } else if (key == "game_folders") {

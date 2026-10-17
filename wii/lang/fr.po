@@ -2123,3 +2123,66 @@ msgstr "Pages sur les côtés"
 
 msgid "Channels: the edges of the previous and the next page at the sides of the screen, as on the Wii Menu. Point at one and press A to turn to that page."
 msgstr "Chaînes : les bords de la page précédente et de la suivante sur les côtés de l'écran, comme sur le Menu Wii. Pointez-en un et appuyez sur A pour passer à cette page."
+
+msgid "Could not save the tiles to the SD card."
+msgstr "Impossible d'enregistrer les tuiles sur la carte SD."
+
+msgid "The tile needs a name."
+msgstr "La tuile a besoin d'un nom."
+
+msgid "This game has {1} tiles already, as many as it can have."
+msgstr "Ce jeu a déjà {1} tuiles, le maximum possible."
+
+msgid "Home has {1} extra tiles already, as many as it can have."
+msgstr "L'accueil a déjà {1} tuiles en plus, le maximum possible."
+
+msgid "This game has no ID to keep its tile under."
+msgstr "Ce jeu n'a pas d'ID sous lequel ranger sa tuile."
+
+msgid "Could not save the tile's mods to the SD card."
+msgstr "Impossible d'enregistrer les mods de la tuile sur la carte SD."
+
+msgid "This tile is not on the list any more."
+msgstr "Cette tuile n'est plus dans la liste."
+
+msgid "Shift"
+msgstr "Maj"
+
+msgid "Make a Home tile with these mods..."
+msgstr "Créer une tuile d'accueil avec ces mods..."
+
+msgid "Rename this tile..."
+msgstr "Renommer cette tuile..."
+
+msgid "Remove this tile from Home"
+msgstr "Retirer cette tuile de l'accueil"
+
+msgid "Puts this game on Home again as a tile of its own, which starts it with the mods and settings set here."
+msgstr "Remet ce jeu sur l'accueil comme une tuile à part, qui le lance avec les mods et réglages choisis ici."
+
+msgid "This page is the \"{1}\" tile's: what is changed here is changed for it only."
+msgstr "Cette page est celle de la tuile \"{1}\" : ce qui change ici ne change que pour elle."
+
+msgid "Takes the \"{1}\" tile off Home. The game and its mods stay."
+msgstr "Retire la tuile \"{1}\" de l'accueil. Le jeu et ses mods restent."
+
+msgid "Rename the tile"
+msgstr "Renommer la tuile"
+
+msgid "Name the new tile"
+msgstr "Nom de la nouvelle tuile"
+
+msgid "Renamed \"{1}\"."
+msgstr "Nouveau nom : \"{1}\"."
+
+msgid "\"{1}\" is on Home now: its tile starts the game with these mods. Its own picture can go in sd:/riftwii/profiles/{2}.png."
+msgstr "\"{1}\" est sur l'accueil : sa tuile lance le jeu avec ces mods. Son image peut aller dans sd:/riftwii/profiles/{2}.png."
+
+msgid "Remove this tile?"
+msgstr "Retirer cette tuile ?"
+
+msgid "\"{1}\" goes from Home, with its own mods and settings, and its picture in sd:/riftwii/profiles if it has one. The game and its mods stay."
+msgstr "\"{1}\" quitte l'accueil, avec ses propres mods et réglages, et son image dans sd:/riftwii/profiles si elle en a une. Le jeu et ses mods restent."
+
+msgid "Removed \"{1}\". This page is the game's own again."
+msgstr "\"{1}\" retirée. Cette page est de nouveau celle du jeu."

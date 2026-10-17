@@ -49,7 +49,7 @@ struct LoaderSettings {
     std::string gc_rumble = "on";         // on, off: GameCube controllers' rumble in games (PADControlMotor)
     std::string wiimote_rumble = "on";    // on, off: Wii Remotes' rumble in every game (WPADControlMotor; a game's own Rumble too)
     std::string gc_adapter = "auto";      // GameCube controller adapter for Wii U: auto (when plugged in at launch), on, off (demo: Dolphin tests)
-    std::set<std::string> favorites;      // game IDs, written "favorites = ID,ID"
+    std::set<std::string> favorites;      // game IDs and profiles' tile keys, written "favorites = ID,ID@slug"
     // More folders to look for games in, besides wbfs and games:
     // "game_folders = /Wii Games; usb:/iso". A plain "/path" is looked
     // for on both drives, "sd:/path" or "usb:/path" on that one.

@@ -99,6 +99,8 @@ void IdentifyDisc(FrontendState& state, void (*progress)(const char*)) {
     state.sd_index = 0;
     state.has_compiled = false;
     state.compiled = CompiledMod{};
+    state.profile_key.clear();
+    state.profile_name.clear();
     if (progress) progress("Probing disc...");
     if (ProbeInserted(state.game_id, state.disc_title, error, &state.game_revision, &state.game_disc_number)) {
         state.disc_status = "Disc: " + state.game_id + "  " + state.disc_title;
@@ -116,6 +118,8 @@ void IdentifyDisc(FrontendState& state, void (*progress)(const char*)) {
 // The game the DISC button boots: a fresh probe, so a swapped disc is
 // picked up. False when no disc answers.
 bool SelectDisc(FrontendState& state, std::string& error) {
+    state.profile_key.clear();
+    state.profile_name.clear();
     state.launch_warning.clear();
     state.warning_shown = false;
     state.has_compiled = false;
@@ -150,6 +154,8 @@ bool SelectDisc(FrontendState& state, std::string& error) {
 
 // The USB game the games screen hands over: index into the catalog.
 bool SelectUsbGame(FrontendState& state, std::size_t index, std::string& error) {
+    state.profile_key.clear();
+    state.profile_name.clear();
     state.launch_warning.clear();
     state.warning_shown = false;
     state.has_compiled = false;
@@ -181,6 +187,8 @@ bool SelectUsbGame(FrontendState& state, std::size_t index, std::string& error) 
 }
 
 bool SelectSdGame(FrontendState& state, std::size_t index, std::string& error) {
+    state.profile_key.clear();
+    state.profile_name.clear();
     state.has_compiled = false; state.compiled = CompiledMod{};
     if (index >= state.sd_catalog.games.size()) { error = "no such SD game"; return false; }
     if (!check_image_game(state.sd_catalog.games[index], error)) return false;
@@ -282,6 +290,10 @@ std::string ScanPackages(FrontendState& state) {
         std::string text;
         if (ReadTextFile(state.choices_path, text)) {
             state.model.restore(text);
+        } else if (!state.profile_key.empty()) {
+            // A profile whose file went missing starts from the game's own
+            // choices, as a new one does.
+            if (ReadTextFile(std::string(kChoicesDir) + "/" + state.game_id + ".txt", text)) state.model.restore(text);
         } else if (!state.game_id.empty()) {
             // A game RiftWii has never saved: start from what Riivolution
             // last used for it.
@@ -344,38 +356,58 @@ std::string ModPlaceProblem(const FrontendState& state, bool brief) {
     return "";
 }
 
-bool SaveChoices(const FrontendState& state, std::string& error) {
-    if (state.choices_path.empty()) {
-        error = "cannot save choices: no game is selected";
-        return false;
-    }
+bool SaveChoicesTo(const LaunchModel& model, const std::string& path, std::string& error) {
     if (!ensure_directory("sd:/riftwii", error) || !ensure_directory(kChoicesDir, error)) return false;
     // Written whole beside it, then put in its place (as settings.txt): a
     // power cut or a full card no longer leaves the game's choices empty.
-    const std::string temp = state.choices_path + ".part";
+    const std::string temp = path + ".part";
     {
         std::ofstream out(temp, std::ios::binary | std::ios::trunc);
         if (!out) {
             error = "cannot open " + temp + " for writing";
             return false;
         }
-        out << state.model.save();
+        out << model.save();
         out.close();
         if (!out) {
             std::remove(temp.c_str());
-            error = "cannot write " + state.choices_path;
+            error = "cannot write " + path;
             return false;
         }
     }
-    std::remove(state.choices_path.c_str());
-    if (std::rename(temp.c_str(), state.choices_path.c_str()) != 0) {
+    std::remove(path.c_str());
+    if (std::rename(temp.c_str(), path.c_str()) != 0) {
         std::remove(temp.c_str());
-        error = "cannot write " + state.choices_path;
+        error = "cannot write " + path;
         return false;
     }
-    WriteRiivolutionConfig(state);
     error.clear();
     return true;
+}
+
+bool SaveChoices(const FrontendState& state, std::string& error) {
+    if (state.choices_path.empty()) {
+        error = "cannot save choices: no game is selected";
+        return false;
+    }
+    if (!SaveChoicesTo(state.model, state.choices_path, error)) return false;
+    // Riivolution keeps one record a game: it follows the game's own
+    // choices, never a profile's.
+    if (state.profile_key.empty()) WriteRiivolutionConfig(state);
+    error.clear();
+    return true;
+}
+
+void SelectProfile(FrontendState& state, const Profile& profile) {
+    state.profile_key = profile.key();
+    state.profile_name = profile.name;
+    state.choices_path = std::string(kChoicesDir) + "/" + state.profile_key + ".txt";
+    logf("Home: %s opened as its tile \"%s\" (%s)\n", state.game_id.c_str(), profile.name.c_str(),
+         state.choices_path.c_str());
+}
+
+std::string TileKey(const FrontendState& state) {
+    return state.profile_key.empty() ? state.game_id : state.profile_key;
 }
 
 }  // namespace riftwii::wii

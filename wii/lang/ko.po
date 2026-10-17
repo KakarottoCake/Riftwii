@@ -2123,3 +2123,66 @@ msgstr "양옆 페이지"
 
 msgid "Channels: the edges of the previous and the next page at the sides of the screen, as on the Wii Menu. Point at one and press A to turn to that page."
 msgstr "채널: Wii 메뉴처럼 이전 페이지와 다음 페이지의 가장자리를 화면 양옆에 보여 줍니다. 가리키고 A를 누르면 그 페이지로 넘어갑니다."
+
+msgid "Could not save the tiles to the SD card."
+msgstr "타일을 SD 카드에 저장할 수 없습니다."
+
+msgid "The tile needs a name."
+msgstr "타일 이름이 필요합니다."
+
+msgid "This game has {1} tiles already, as many as it can have."
+msgstr "이 게임에는 이미 타일이 {1}개 있어 더 만들 수 없습니다."
+
+msgid "Home has {1} extra tiles already, as many as it can have."
+msgstr "홈에 이미 추가 타일이 {1}개 있어 더 만들 수 없습니다."
+
+msgid "This game has no ID to keep its tile under."
+msgstr "이 게임에는 타일을 저장할 ID가 없습니다."
+
+msgid "Could not save the tile's mods to the SD card."
+msgstr "타일의 MOD를 SD 카드에 저장할 수 없습니다."
+
+msgid "This tile is not on the list any more."
+msgstr "이 타일은 더 이상 목록에 없습니다."
+
+msgid "Shift"
+msgstr "Shift"
+
+msgid "Make a Home tile with these mods..."
+msgstr "이 MOD로 홈 타일 만들기..."
+
+msgid "Rename this tile..."
+msgstr "이 타일 이름 바꾸기..."
+
+msgid "Remove this tile from Home"
+msgstr "홈에서 이 타일 제거"
+
+msgid "Puts this game on Home again as a tile of its own, which starts it with the mods and settings set here."
+msgstr "이 게임을 별도의 타일로 홈에 하나 더 놓습니다. 그 타일은 여기서 고른 MOD와 설정으로 게임을 시작합니다."
+
+msgid "This page is the \"{1}\" tile's: what is changed here is changed for it only."
+msgstr "이 페이지는 \"{1}\" 타일의 페이지입니다. 여기서 바꾼 것은 이 타일에만 적용됩니다."
+
+msgid "Takes the \"{1}\" tile off Home. The game and its mods stay."
+msgstr "\"{1}\" 타일을 홈에서 제거합니다. 게임과 MOD는 그대로 남습니다."
+
+msgid "Rename the tile"
+msgstr "타일 이름 바꾸기"
+
+msgid "Name the new tile"
+msgstr "새 타일 이름"
+
+msgid "Renamed \"{1}\"."
+msgstr "이름을 \"{1}\"(으)로 바꿨습니다."
+
+msgid "\"{1}\" is on Home now: its tile starts the game with these mods. Its own picture can go in sd:/riftwii/profiles/{2}.png."
+msgstr "\"{1}\" 타일이 홈에 생겼습니다. 이 타일은 이 MOD로 게임을 시작합니다. 전용 그림은 sd:/riftwii/profiles/{2}.png에 넣을 수 있습니다."
+
+msgid "Remove this tile?"
+msgstr "이 타일을 제거할까요?"
+
+msgid "\"{1}\" goes from Home, with its own mods and settings, and its picture in sd:/riftwii/profiles if it has one. The game and its mods stay."
+msgstr "\"{1}\" 타일이 자체 MOD와 설정, 그리고 sd:/riftwii/profiles의 그림(있다면)과 함께 홈에서 사라집니다. 게임과 MOD는 그대로 남습니다."
+
+msgid "Removed \"{1}\". This page is the game's own again."
+msgstr "\"{1}\" 타일을 제거했습니다. 이 페이지는 다시 게임 자체의 페이지입니다."

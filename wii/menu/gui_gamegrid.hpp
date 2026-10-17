@@ -37,8 +37,13 @@ void SetShelfFlying(const std::string& id);
 struct GridItem {
     std::string title;  // the display name, fitted to the tile
     std::string id;     // shown small under the title; the cover's game
+    // What Home keys the tile on (focus, favourites, history): the game ID,
+    // or a profile's "<game ID>@<slug>" (riftwii/profiles.hpp).
+    std::string key;
     std::string badge;  // DISC, USB, SD
     bool mods = false;  // packs exist for this game
+    // One of the game's profiles: its picture in the tile's top right corner.
+    bool profile = false;
     GXColor hue = {90, 90, 100, 255};
 };
 
@@ -79,6 +84,15 @@ public:
     using IconDrawer = std::function<bool(int index, const IconBox& box)>;
     void SetChannels(bool on, IconDrawer icon);
     bool Channels() const { return channels; }
+    // A profile's tile: its picture (item index), an RGBA8 texture `side`
+    // texels square, drawn in the tile's corner; nullptr when it has none:
+    // Channels shows the Mods icon there, Names and Covers nothing. Not on
+    // the shelf.
+    using PictureSource = std::function<const u8*(int index)>;
+    void SetPictureSource(PictureSource source, int side) {
+        pictureSource = std::move(source);
+        pictureSide = side;
+    }
     // Roomy spacing: names and channels smaller, with wider gaps and sides
     // (grid_spacing = roomy). Covers and the shelf keep their own sizes.
     void SetRoomy(bool on);
@@ -260,6 +274,12 @@ private:
     IconDrawer iconDrawer;
     bool iconShown[kPerPage] = {};  // channels: the tile drew its icon this frame
     void DrawChannelLabel(int slot, int alpha);
+    PictureSource pictureSource;
+    int pictureSide = 0;
+    const u8* ProfilePictureOf(int index) const;
+    // A profile's picture in the corner of tile `slot` (drawn at `scale`).
+    void DrawProfilePicture(int slot, float scale, int alpha);
+    float ProfilePictureSize() const;
     // What ReadAllCovers last gave the loader.
     const std::vector<GridItem>* readAllItems = nullptr;
     int readAllCount = -1;

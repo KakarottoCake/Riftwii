@@ -38,8 +38,14 @@ bool CheckCodeBuilds(const FrontendState& state, std::string& error);
 // Which games were started from RiftWii (sd:/riftwii/history.txt), read
 // once.
 const PlayHistory& History();
-// Counts a start of the game and saves the history.
+// Counts a start of the game (or of a profile's tile, by its key) and saves the history.
 void RecordPlay(const std::string& game_id);
+// The tile launched (the game ID, or a profile's key), kept in
+// sd:/riftwii/last_tile.txt even with the history off: a problem report
+// then shows the choices that ran (riftwii/profiles.hpp's launched_choices_key).
+void RememberLaunchedTile(const std::string& key);
+// Drops a tile from the history (a profile removed).
+void ForgetPlays(const std::string& game_id);
 // "Played 3 times, last on 9/21" for the game page; empty when never.
 std::string PlayNote(const std::string& game_id);
 

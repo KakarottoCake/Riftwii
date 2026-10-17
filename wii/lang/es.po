@@ -2123,3 +2123,66 @@ msgstr "Páginas a los lados"
 
 msgid "Channels: the edges of the previous and the next page at the sides of the screen, as on the Wii Menu. Point at one and press A to turn to that page."
 msgstr "Canales: los bordes de la página anterior y de la siguiente a los lados de la pantalla, como en el Menú de Wii. Apunta a uno y pulsa A para pasar a esa página."
+
+msgid "Could not save the tiles to the SD card."
+msgstr "No se pudieron guardar las casillas en la tarjeta SD."
+
+msgid "The tile needs a name."
+msgstr "La casilla necesita un nombre."
+
+msgid "This game has {1} tiles already, as many as it can have."
+msgstr "Este juego ya tiene {1} casillas, el máximo posible."
+
+msgid "Home has {1} extra tiles already, as many as it can have."
+msgstr "El inicio ya tiene {1} casillas extra, el máximo posible."
+
+msgid "This game has no ID to keep its tile under."
+msgstr "Este juego no tiene un ID con el que guardar su casilla."
+
+msgid "Could not save the tile's mods to the SD card."
+msgstr "No se pudieron guardar los mods de la casilla en la tarjeta SD."
+
+msgid "This tile is not on the list any more."
+msgstr "Esta casilla ya no está en la lista."
+
+msgid "Shift"
+msgstr "Mayús"
+
+msgid "Make a Home tile with these mods..."
+msgstr "Crear una casilla de inicio con estos mods..."
+
+msgid "Rename this tile..."
+msgstr "Cambiar el nombre de esta casilla..."
+
+msgid "Remove this tile from Home"
+msgstr "Quitar esta casilla del inicio"
+
+msgid "Puts this game on Home again as a tile of its own, which starts it with the mods and settings set here."
+msgstr "Pone este juego otra vez en el inicio como una casilla propia, que lo inicia con los mods y ajustes elegidos aquí."
+
+msgid "This page is the \"{1}\" tile's: what is changed here is changed for it only."
+msgstr "Esta página es la de la casilla \"{1}\": lo que cambies aquí cambia solo para ella."
+
+msgid "Takes the \"{1}\" tile off Home. The game and its mods stay."
+msgstr "Quita la casilla \"{1}\" del inicio. El juego y sus mods se quedan."
+
+msgid "Rename the tile"
+msgstr "Cambiar el nombre de la casilla"
+
+msgid "Name the new tile"
+msgstr "Nombre de la nueva casilla"
+
+msgid "Renamed \"{1}\"."
+msgstr "Nuevo nombre: \"{1}\"."
+
+msgid "\"{1}\" is on Home now: its tile starts the game with these mods. Its own picture can go in sd:/riftwii/profiles/{2}.png."
+msgstr "\"{1}\" ya está en el inicio: su casilla inicia el juego con estos mods. Puedes ponerle una imagen propia en sd:/riftwii/profiles/{2}.png."
+
+msgid "Remove this tile?"
+msgstr "¿Quitar esta casilla?"
+
+msgid "\"{1}\" goes from Home, with its own mods and settings, and its picture in sd:/riftwii/profiles if it has one. The game and its mods stay."
+msgstr "\"{1}\" se quita del inicio, con sus propios mods y ajustes, y su imagen de sd:/riftwii/profiles si la tiene. El juego y sus mods se quedan."
+
+msgid "Removed \"{1}\". This page is the game's own again."
+msgstr "Se quitó \"{1}\". Esta página vuelve a ser la del juego."
