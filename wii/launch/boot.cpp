@@ -3001,6 +3001,17 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
             logf("Wii channels: IOS%d could not be started: %s\n", ios, why.c_str());
             continue;
         }
+        // A channel of an emulated NAND runs in it: d2x serves the game's
+        // NAND paths from the folder, its saves among them.
+        if (!files.emu_nand.empty()) {
+            std::string emu_error;
+            if (!enable_d2x_saves(files.emu_nand, emu_error)) {
+                logf("Wii channels: on IOS%d, no NAND emulation of %s: %s\n", IOS_GetVersion(), files.emu_nand.c_str(),
+                     emu_error.c_str());
+                if (!debug_off("identify")) continue;
+                logf("Wii channels: debug_off: started without the NAND emulation\n");
+            }
+        }
         // ES runs the game as its own title, as when the system starts it:
         // its saves (/title/.../data) and its files are its own.
         u32 key = 0;

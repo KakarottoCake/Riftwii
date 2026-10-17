@@ -95,9 +95,17 @@ void StartChannel(u64 title) {
                        static_cast<unsigned>(title));
     std::string error;
     riftwii::wii::ChannelBootFiles files;
-    if (riftwii::wii::read_channel_boot(title, files, error)) {
+    const std::string emu_nand = riftwii::wii::ChannelToStartNand();
+    if (riftwii::wii::read_channel_boot(title, emu_nand, files, error)) {
         riftwii::wii::boot_channel(std::move(files), error);  // returns only when it did not start
         if (riftwii::wii::reload_terminal_failure()) riftwii::wii::halt_after_terminal_reload();
+    }
+    if (!emu_nand.empty()) {
+        // The Wii does not have it: back to RiftWii, which says why.
+        riftwii::wii::logf("Wii channels: it did not start from %s: %s\n", emu_nand.c_str(), error.c_str());
+        if (riftwii::wii::CanRestart())
+            riftwii::wii::WarmRestart(riftwii::wii::RestartKind::LaunchFailed, "The game did not start: " + error);
+        std::exit(0);
     }
     riftwii::wii::logf("Wii channels: RiftWii's loader did not start it (%s); the system starts it as the Wii Menu does\n",
                        error.c_str());

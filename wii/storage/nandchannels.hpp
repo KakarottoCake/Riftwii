@@ -32,6 +32,11 @@ struct NandChannel {
     // there: a channel whose contents were deleted to make room keeps its
     // TMD, and cannot start.
     bool playable = false;
+    // The emulated NAND folder on the SD card it is installed in
+    // ("sd:/nands/01"), as USB Loader GX keeps channels; empty for the
+    // Wii's own. Its files are read from the card, and it runs under d2x's
+    // NAND emulation of that folder, its saves kept there.
+    std::string emu_nand;
 };
 
 // The WiiWare and Virtual Console games installed on this Wii, sorted by
@@ -40,6 +45,12 @@ struct NandChannel {
 // permission check (boot.hpp) when the running IOS refuses the files, and
 // closing it again before returning.
 bool list_nand_channels(std::vector<NandChannel>& out, std::string& status);
+
+// The WiiWare and Virtual Console games installed in the emulated NAND
+// `folder` (sd:/...), added to `out`; a title the Wii itself has (already
+// in `out`) is not listed twice. `status` says how many, in a plain
+// sentence. False when the folder holds no channels.
+bool list_emu_channels(const std::string& folder, std::vector<NandChannel>& out, std::string& status);
 
 // The whole banner file (content index 0), for the Channels view's banner
 // store (wii/menu/banners.hpp). False with `error` saying why.
@@ -55,6 +66,7 @@ std::string nand_channel_name(const NandChannel& channel, int language);
 // are its own title's).
 struct ChannelBootFiles {
     std::uint64_t title_id = 0;
+    std::string emu_nand;  // NandChannel::emu_nand
     std::string game_id;
     std::uint32_t required_ios = 0;
     // The IOSes to try, in order: ES runs a game as its own title
@@ -72,12 +84,16 @@ struct ChannelBootFiles {
 // Reads them for `title_id`, under the running IOS (opening its NAND
 // permission check as the listing does). False with `error` saying why:
 // the system then starts the title as the Wii Menu does.
-bool read_channel_boot(std::uint64_t title_id, ChannelBootFiles& out, std::string& error);
+// `emu_nand`: the emulated NAND folder the channel is in, empty for the
+// Wii's own.
+bool read_channel_boot(std::uint64_t title_id, const std::string& emu_nand, ChannelBootFiles& out, std::string& error);
 
 // The channel the menu is leaving to (wii/main.cpp's ExitApp, leave code
 // kLeaveToChannel): set by the menu when Start is pressed on one.
 constexpr int kLeaveToChannel = 6;
-void SetChannelToStart(std::uint64_t title_id);
+void SetChannelToStart(const NandChannel& channel);
 std::uint64_t ChannelToStart();
+// Its emulated NAND folder, empty for the Wii's own.
+const std::string& ChannelToStartNand();
 
 }  // namespace riftwii::wii
