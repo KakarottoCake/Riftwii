@@ -625,6 +625,13 @@ T = {
     "Plays with": ("Se juega con", "対応コントローラー", "Joga-se com", "Si gioca con"),
     "3D covers": ("Portadas 3D", "3Dパッケージ", "Capas 3D", "Copertine 3D"),
     "Channels": ("Canales", "チャンネル", "Canais", "Canali"),
+    "Grid spacing": ("Espaciado de la cuadrícula", "タイルの間隔", "Espaçamento da grade", "Spaziatura della griglia"),
+    "Roomy": ("Amplio", "ゆったり", "Amplo", "Ampio"),
+    "Roomy makes the Names and Channels tiles a little smaller, with wider gaps between them and at the sides, as on the Wii Menu.": (
+        "Amplio hace un poco más pequeñas las casillas de Nombres y Canales, con más espacio entre ellas y a los lados, como en el Menú de Wii.",
+        "ゆったりにすると、名前とチャンネルのタイルが少し小さくなり、タイルの間と左右の余白が広がります。Wiiメニューと同じ並びです。",
+        "Amplo deixa os blocos de Nomes e Canais um pouco menores, com mais espaço entre eles e nas laterais, como no Menu Wii.",
+        "Ampio rende i riquadri di Nomi e Canali un po' più piccoli, con più spazio tra loro e ai lati, come nel Menu Wii."),
     "Widescreen menu": ("Menú panorámico", "ワイド画面メニュー", "Menu widescreen", "Menu panoramico"),
     "Screen size": ("Tamaño en pantalla", "画面の大きさ", "Tamanho na tela", "Dimensione sullo schermo"),
     "On a 16:9 TV the menu is drawn narrower, so covers and pictures keep their shape. Automatic follows the Wii's own TV setting.": (
@@ -2259,6 +2266,12 @@ KO = {
         "지원 컨트롤러",
     "Channels":
         "채널",
+    "Grid spacing":
+        "타일 간격",
+    "Roomy":
+        "넓게",
+    "Roomy makes the Names and Channels tiles a little smaller, with wider gaps between them and at the sides, as on the Wii Menu.":
+        "넓게를 선택하면 이름과 채널 타일이 조금 작아지고, 타일 사이와 양옆의 여백이 Wii 메뉴처럼 넓어집니다.",
     "Widescreen menu":
         "와이드화면 메뉴",
     "Screen size":
@@ -3608,6 +3621,12 @@ FR = {
         "Se joue avec",
     "Channels":
         "Chaînes",
+    "Grid spacing":
+        "Espacement des tuiles",
+    "Roomy":
+        "Aéré",
+    "Roomy makes the Names and Channels tiles a little smaller, with wider gaps between them and at the sides, as on the Wii Menu.":
+        "« Aéré » rend les tuiles Noms et Chaînes un peu plus petites, avec plus d'espace entre elles et sur les côtés, comme sur le Menu Wii.",
     "Widescreen menu":
         "Menu 16:9",
     "Screen size":

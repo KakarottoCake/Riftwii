@@ -732,6 +732,15 @@ msgstr "Portadas 3D"
 msgid "Channels"
 msgstr "Canales"
 
+msgid "Grid spacing"
+msgstr "Espaciado de la cuadrícula"
+
+msgid "Roomy"
+msgstr "Amplio"
+
+msgid "Roomy makes the Names and Channels tiles a little smaller, with wider gaps between them and at the sides, as on the Wii Menu."
+msgstr "Amplio hace un poco más pequeñas las casillas de Nombres y Canales, con más espacio entre ellas y a los lados, como en el Menú de Wii."
+
 msgid "Widescreen menu"
 msgstr "Menú panorámico"
 

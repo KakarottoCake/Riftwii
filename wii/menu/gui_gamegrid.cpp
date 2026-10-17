@@ -72,6 +72,14 @@ constexpr int kChannelPixelsH = 88, kChannelGapPixelsX = 12, kChannelGapY = 10;
 // As the other views' tiles; the search button moves to the bar
 // (rift_menu.cpp), the fourth column reaching the corner it had.
 constexpr int kChannelTop = 30;
+// Roomy spacing (grid_spacing = roomy): a tester found the grid cramped
+// beside the Wii Menu, which leaves wider gaps at the sides. The channels
+// are 7/8 the size (112 x 77, the icons scaled with them, so no longer
+// one texel to a pixel) and 16 apart, which leaves about 70 pixels at each
+// side on a 4:3 menu and keeps the page arrows (x 26 to 62 and 570 to 606)
+// clear of the tiles, even lit; the grid stays centred down the screen.
+constexpr float kRoomyIconScale = 0.875f;
+constexpr int kRoomyChannelGapPixelsX = 16, kRoomyChannelGapY = 14, kRoomyChannelTop = 42;
 
 // Names: 4x3 wide tiles. Covers: 6x2 at the stored cover size, the name
 // line under them. Both between the arrows.
@@ -169,6 +177,9 @@ const GuiGameGrid::Geometry& GuiGameGrid::Geo() const {
     // 120 x 84, the Wii Menu's channel shape (about 1.43 to 1 on a 4:3
     // menu); clear of the search button (x 568).
     static const Geometry names = {kNameCols, 120, 84, 61, 30, 13, 12};  // channels: channelGeo
+    // Roomy: 9/10 the size and 18 apart, about 77 at each side, the rows
+    // centred where the normal ones are.
+    static const Geometry roomyNames = {kNameCols, 108, 76, 77, 40, 18, 14};
     if (covers) {
         // Six across about the middle, 8 apart (12 on a widescreen menu).
         const float k = CoverScale();
@@ -180,18 +191,23 @@ const GuiGameGrid::Geometry& GuiGameGrid::Geo() const {
     }
     if (channels) {
         const float px = PixelsPerUnitX();
-        const int w = static_cast<int>(kIconPixelsW / px + 0.5f);
-        const int gap = static_cast<int>(kChannelGapPixelsX / px + 0.5f);
-        channelGeo = {kNameCols, w, kChannelPixelsH, 320 - (kNameCols * w + (kNameCols - 1) * gap) / 2, kChannelTop,
-                      gap, kChannelGapY};
+        const float iconScale = IconScale();
+        const int w = static_cast<int>(kIconPixelsW * iconScale / px + 0.5f);
+        const int h = static_cast<int>(kChannelPixelsH * iconScale + 0.5f);
+        const int gapPixels = roomy ? kRoomyChannelGapPixelsX : kChannelGapPixelsX;
+        const int gap = static_cast<int>(gapPixels / px + 0.5f);
+        const int top = roomy ? kRoomyChannelTop : kChannelTop;
+        const int gapY = roomy ? kRoomyChannelGapY : kChannelGapY;
+        channelGeo = {kNameCols, w, h, 320 - (kNameCols * w + (kNameCols - 1) * gap) / 2, top, gap, gapY};
         return channelGeo;
     }
+    const Geometry& base = roomy ? roomyNames : names;
     const float k = Stretch();
-    if (k == 1.0f) return names;
-    stretched = names;
-    stretched.left = static_cast<int>(320 + (names.left - 320) * k + 0.5f);
-    stretched.tileW = static_cast<int>(names.tileW * k + 0.5f);
-    stretched.gapX = static_cast<int>(names.gapX * k + 0.5f);
+    if (k == 1.0f) return base;
+    stretched = base;
+    stretched.left = static_cast<int>(320 + (base.left - 320) * k + 0.5f);
+    stretched.tileW = static_cast<int>(base.tileW * k + 0.5f);
+    stretched.gapX = static_cast<int>(base.gapX * k + 0.5f);
     return stretched;
 }
 
@@ -249,6 +265,15 @@ void GuiGameGrid::SetCovers(bool on) {
     laidOut = false;
     captionFor = -1;
 }
+
+void GuiGameGrid::SetRoomy(bool on) {
+    if (roomy == on) return;
+    roomy = on;
+    laidOut = false;  // the names wrap to the tiles' new width
+    captionFor = -1;
+}
+
+float GuiGameGrid::IconScale() const { return roomy ? kRoomyIconScale : 1.0f; }
 
 void GuiGameGrid::CoverArrived(const std::string& id) { riftwii::wii::ForgetCover(id); }
 
@@ -683,8 +708,8 @@ void GuiGameGrid::Draw() {
             // widescreen menu's units stretch it as the Wii Menu does), on
             // whole pixels so each texel is one pixel; lit, it grows with
             // the tile.
-            box.w = kIconPixelsW / PixelsPerUnitX() * s.scale;
-            box.h = kIconPixelsH * s.scale;
+            box.w = kIconPixelsW * IconScale() / PixelsPerUnitX() * s.scale;
+            box.h = kIconPixelsH * IconScale() * s.scale;
             box.x = cx - box.w / 2;
             box.y = cy - box.h / 2;
             if (s.scale == 1.0f) {

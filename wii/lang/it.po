@@ -732,6 +732,15 @@ msgstr "Copertine 3D"
 msgid "Channels"
 msgstr "Canali"
 
+msgid "Grid spacing"
+msgstr "Spaziatura della griglia"
+
+msgid "Roomy"
+msgstr "Ampio"
+
+msgid "Roomy makes the Names and Channels tiles a little smaller, with wider gaps between them and at the sides, as on the Wii Menu."
+msgstr "Ampio rende i riquadri di Nomi e Canali un po' più piccoli, con più spazio tra loro e ai lati, come nel Menu Wii."
+
 msgid "Widescreen menu"
 msgstr "Menu panoramico"
 

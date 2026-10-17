@@ -732,6 +732,15 @@ msgstr "3D 커버"
 msgid "Channels"
 msgstr "채널"
 
+msgid "Grid spacing"
+msgstr "타일 간격"
+
+msgid "Roomy"
+msgstr "넓게"
+
+msgid "Roomy makes the Names and Channels tiles a little smaller, with wider gaps between them and at the sides, as on the Wii Menu."
+msgstr "넓게를 선택하면 이름과 채널 타일이 조금 작아지고, 타일 사이와 양옆의 여백이 Wii 메뉴처럼 넓어집니다."
+
 msgid "Widescreen menu"
 msgstr "와이드화면 메뉴"
 

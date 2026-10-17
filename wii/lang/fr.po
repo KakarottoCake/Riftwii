@@ -732,6 +732,15 @@ msgstr "Jaquettes 3D"
 msgid "Channels"
 msgstr "Chaînes"
 
+msgid "Grid spacing"
+msgstr "Espacement des tuiles"
+
+msgid "Roomy"
+msgstr "Aéré"
+
+msgid "Roomy makes the Names and Channels tiles a little smaller, with wider gaps between them and at the sides, as on the Wii Menu."
+msgstr "« Aéré » rend les tuiles Noms et Chaînes un peu plus petites, avec plus d'espace entre elles et sur les côtés, comme sur le Menu Wii."
+
 msgid "Widescreen menu"
 msgstr "Menu 16:9"
 

@@ -732,6 +732,15 @@ msgstr "3Dパッケージ"
 msgid "Channels"
 msgstr "チャンネル"
 
+msgid "Grid spacing"
+msgstr "タイルの間隔"
+
+msgid "Roomy"
+msgstr "ゆったり"
+
+msgid "Roomy makes the Names and Channels tiles a little smaller, with wider gaps between them and at the sides, as on the Wii Menu."
+msgstr "ゆったりにすると、名前とチャンネルのタイルが少し小さくなり、タイルの間と左右の余白が広がります。Wiiメニューと同じ並びです。"
+
 msgid "Widescreen menu"
 msgstr "ワイド画面メニュー"
 
