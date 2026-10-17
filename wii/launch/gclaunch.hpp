@@ -24,6 +24,7 @@ struct GcImage {
     bool progressive = false;  // 480p (the game's 480p picture option)
     bool widescreen = false;   // 3D drawn for 16:9 (its Widescreen option)
     int language = -1;         // the SRAM language the game reads (its Game language option); -1: the console's
+    bool sharp = false;        // every line copied without the game's blur (its Sharper picture option)
 };
 
 // A GameCube image on the SD card in games/<folder>/ (.iso, .gcm or .rvz)

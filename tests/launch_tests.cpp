@@ -425,6 +425,16 @@ static void test_saves() {
         EXPECT_EQ(back.game.gc_widescreen, std::string("global"));
         EXPECT_EQ(back.game.gc_language, std::string("global"));
 
+        // Sharper picture: off (the game as made) writes nothing, on
+        // round-trips, anything else is off.
+        EXPECT_EQ(gc.game.gc_sharp, std::string("off"));
+        EXPECT_TRUE(gc.save().find("gcsharp") == std::string::npos);
+        gc.game.gc_sharp = "on";
+        back.restore(gc.save());
+        EXPECT_EQ(back.game.gc_sharp, std::string("on"));
+        back.restore("*riftwii*\tgcsharp\tblurry\n");
+        EXPECT_EQ(back.game.gc_sharp, std::string("off"));
+
         // Global resolved: 16:9 never (experimental, only when picked);
         // the Wii's 480p setting, never for a PAL game; Settings'
         // language, its "console" the Wii's (CONF_LANG_GERMAN is 2).

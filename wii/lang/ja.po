@@ -2627,3 +2627,12 @@ msgstr "「{1}」は専用のMODと設定、それにsd:/riftwii/profilesの画�
 
 msgid "Removed \"{1}\". This page is the game's own again."
 msgstr "「{1}」を消しました。このページはゲーム本来のものに戻りました。"
+
+msgid "Sharper picture"
+msgstr "くっきりした画面"
+
+msgid "Off (as made)"
+msgstr "オフ (元のまま)"
+
+msgid "Turns off the soft blur some games add."
+msgstr "一部のゲームが加えるぼかしをなくします。"

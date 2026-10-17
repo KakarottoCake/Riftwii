@@ -424,6 +424,7 @@ std::string LaunchModel::save() const {
         text += "*riftwii*\tgcwidescreen\t" + game.gc_widescreen + "\n";
     if (game.gc_language == "game" || gc_sram_language(game.gc_language) >= 0)
         text += "*riftwii*\tgclanguage\t" + game.gc_language + "\n";
+    if (game.gc_sharp == "on") text += "*riftwii*\tgcsharp\ton\n";
     for (const LaunchPackage& p : packages) {
         // Only this game's packs: the file is per game ID, and another
         // game's pack could not be turned on here anyway.
@@ -504,6 +505,8 @@ void LaunchModel::restore(const std::string& text) {
                 game.gc_widescreen = value == "16:9" || value == "game" ? value : "global";
             } else if (key == "gclanguage") {
                 game.gc_language = value == "game" || gc_sram_language(value) >= 0 ? value : "global";
+            } else if (key == "gcsharp") {
+                game.gc_sharp = value == "on" ? "on" : "off";
             }
             continue;
         }

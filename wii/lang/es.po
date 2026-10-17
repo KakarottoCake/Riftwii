@@ -2627,3 +2627,12 @@ msgstr "\"{1}\" se quita del inicio, con sus propios mods y ajustes, y su imagen
 
 msgid "Removed \"{1}\". This page is the game's own again."
 msgstr "Se quitó \"{1}\". Esta página vuelve a ser la del juego."
+
+msgid "Sharper picture"
+msgstr "Imagen más nítida"
+
+msgid "Off (as made)"
+msgstr "No (como se hizo)"
+
+msgid "Turns off the soft blur some games add."
+msgstr "Quita el ligero desenfoque que añaden algunos juegos."

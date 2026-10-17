@@ -33,6 +33,7 @@
 #include "riftwii/gcbackup.hpp"
 #include "riftwii/gccard.hpp"
 #include "riftwii/gclayout.hpp"
+#include "riftwii/gcvideo.hpp"
 #include "riftwii/gcoverlay.hpp"
 #include "riftwii/gxpatches.hpp"
 #include "riftwii/hook.hpp"
@@ -163,6 +164,12 @@ public:
     void each(F f) const {
         for (const Section& s : text_)
             for (std::uint32_t i = 0; i + 4 <= s.bytes.size(); i += 4) f(s.address + i, be32(&s.bytes[i]));
+    }
+    // The same code for the host-tested finders (riftwii/gcvideo.hpp).
+    std::vector<CodeRange> ranges() const {
+        std::vector<CodeRange> out;
+        for (const Section& s : text_) out.push_back(CodeRange{s.address, s.bytes.data(), s.bytes.size()});
+        return out;
     }
 
 private:
@@ -1382,6 +1389,19 @@ static void apply_picture_and_language(const GcImage& image, Code& code, ReplayH
                            : test_no_widen ? "hooked but not widened (the test of the hook alone)"
                                            : "widens 3D";
         logf("GameCube: 16:9: GXSetProjection 0x%08x %s\n", projection, what);
+    }
+    // Sharper picture: GXSetCopyFilter always writes the weights that copy
+    // each line as it is (riftwii/gcvideo.hpp).
+    if (image.sharp) {
+        const GcCopyFilterSwitch filter = find_gc_copy_filter_switch(code.ranges());
+        if (filter.branch != 0) {
+            code.put(filter.branch, branch(filter.branch, filter.sharp));
+            logf("GameCube: sharper picture: GXSetCopyFilter's blur test at 0x%08x now always takes the sharp "
+                 "weights at 0x%08x\n", filter.branch, filter.sharp);
+        } else {
+            logf("GameCube: sharper picture not applied: GXSetCopyFilter was not found, so the game keeps its own "
+                 "blur\n");
+        }
     }
     // The language: OSGetLanguage's read of the settings' copy becomes the
     // chosen number. The console's SRAM is left as it is (sram above).

@@ -135,6 +135,9 @@ struct GameSettings {
     // one of kGcLanguages: the language the game is told the console's
     // GameCube settings say, for this game only.
     std::string gc_language = "global";
+    // Sharper picture: "on" copies every line as it is, without the
+    // game's blur (riftwii/gcvideo.hpp); "off" is the game as made.
+    std::string gc_sharp = "off";
 };
 
 // The GameCube's languages in the order of their number in its settings

@@ -2627,3 +2627,12 @@ msgstr "\"{1}\" sparisce dalla home, con le sue mod e impostazioni e la sua imma
 
 msgid "Removed \"{1}\". This page is the game's own again."
 msgstr "\"{1}\" tolto. Questa pagina è di nuovo quella del gioco."
+
+msgid "Sharper picture"
+msgstr "Immagine più nitida"
+
+msgid "Off (as made)"
+msgstr "No (come fatto)"
+
+msgid "Turns off the soft blur some games add."
+msgstr "Toglie la leggera sfocatura che alcuni giochi aggiungono."

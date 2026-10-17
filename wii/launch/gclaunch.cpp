@@ -555,6 +555,7 @@ bool LaunchGcGame(const GcImage& wanted,const std::vector<PackageChoices>& packa
         image.progressive = gc_progressive_on(game, image.id, console);
         image.widescreen = kGcWidescreenReady && gc_widescreen_on(game, console);
         image.language = gc_language_number(game, console);
+        image.sharp = game.gc_sharp == "on";
         logf("GameCube: Progressive scan %s (the Wii's 480p setting %s%s), Widescreen %s (Settings' aspect %s, "
              "the Wii's TV %s), Game language %s (Settings' %s, the Wii's language %d)\n",
              game.gc_progressive.c_str(), console.wii_progressive ? "on" : "off",
@@ -565,8 +566,8 @@ bool LaunchGcGame(const GcImage& wanted,const std::vector<PackageChoices>& packa
     }
     logf("GameCube: %s (%s), disc reads %s\n", image.id.c_str(), image.path.c_str(),
          image.drive_timing ? "at a GameCube drive's speed" : "at the SD card's speed");
-    logf("GameCube: picture %s, %s; language %s\n", image.progressive ? "480p" : "the game's own",
-         image.widescreen ? "16:9" : "the game's own aspect",
+    logf("GameCube: picture %s, %s, %s; language %s\n", image.progressive ? "480p" : "the game's own",
+         image.widescreen ? "16:9" : "the game's own aspect", image.sharp ? "sharper" : "the game's own blur",
          image.language >= 0 ? kGcLanguages[image.language] : "the console's");
     if (packages.empty()) return LaunchGcNative(image, nullptr, error);
     // A pack that cannot be applied whole stops the launch (plan_packs).

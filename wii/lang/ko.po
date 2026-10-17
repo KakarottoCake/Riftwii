@@ -2627,3 +2627,12 @@ msgstr "\"{1}\" 타일이 자체 MOD와 설정, 그리고 sd:/riftwii/profiles�
 
 msgid "Removed \"{1}\". This page is the game's own again."
 msgstr "\"{1}\" 타일을 제거했습니다. 이 페이지는 다시 게임 자체의 페이지입니다."
+
+msgid "Sharper picture"
+msgstr "더 선명한 화면"
+
+msgid "Off (as made)"
+msgstr "끔 (원래대로)"
+
+msgid "Turns off the soft blur some games add."
+msgstr "일부 게임이 더하는 부드러운 흐림을 끕니다."

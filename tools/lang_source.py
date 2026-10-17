@@ -2136,6 +2136,21 @@ T = {
         "「{1}」を消しました。このページはゲーム本来のものに戻りました。",
         "\"{1}\" removido. Esta página voltou a ser a do jogo.",
         "\"{1}\" tolto. Questa pagina è di nuovo quella del gioco."),
+    "Sharper picture": (
+        "Imagen más nítida",
+        "くっきりした画面",
+        "Imagem mais nítida",
+        "Immagine più nitida"),
+    "Off (as made)": (
+        "No (como se hizo)",
+        "オフ (元のまま)",
+        "Não (como foi feito)",
+        "No (come fatto)"),
+    "Turns off the soft blur some games add.": (
+        "Quita el ligero desenfoque que añaden algunos juegos.",
+        "一部のゲームが加えるぼかしをなくします。",
+        "Tira o leve desfoque que alguns jogos colocam.",
+        "Toglie la leggera sfocatura che alcuni giochi aggiungono."),
 }
 
 
@@ -3892,6 +3907,12 @@ KO = {
         "\"{1}\" 타일이 자체 MOD와 설정, 그리고 sd:/riftwii/profiles의 그림(있다면)과 함께 홈에서 사라집니다. 게임과 MOD는 그대로 남습니다.",
     "Removed \"{1}\". This page is the game's own again.":
         "\"{1}\" 타일을 제거했습니다. 이 페이지는 다시 게임 자체의 페이지입니다.",
+    "Sharper picture":
+        "더 선명한 화면",
+    "Off (as made)":
+        "끔 (원래대로)",
+    "Turns off the soft blur some games add.":
+        "일부 게임이 더하는 부드러운 흐림을 끕니다.",
 }
 
 # French, a table of its own (msgid: text), from MidyGamy's translation
@@ -5647,6 +5668,12 @@ FR = {
         "\"{1}\" quitte l'accueil, avec ses propres mods et réglages, et son image dans sd:/riftwii/profiles si elle en a une. Le jeu et ses mods restent.",
     "Removed \"{1}\". This page is the game's own again.":
         "\"{1}\" retirée. Cette page est de nouveau celle du jeu.",
+    "Sharper picture":
+        "Image plus nette",
+    "Off (as made)":
+        "Désactivé (d'origine)",
+    "Turns off the soft blur some games add.":
+        "Retire le léger flou que certains jeux ajoutent.",
 }
 
 # Languages kept in tables of their own: written after LANGS, every msgid
