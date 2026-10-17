@@ -1507,9 +1507,75 @@ bool unpack_gc_rvz_blob(std::vector<std::uint8_t>& out, std::string& error) {
 // game's OS leaves the area alone. The handler runs at the end of the
 // game's __VIRetraceHandler, once per frame, as in a Wii game.
 struct GcCheats {
-    std::vector<std::uint8_t> gct;  // empty: no cheats
-    std::uint32_t hook = 0;         // the retrace handler's blr
+    std::vector<std::uint8_t> gct;      // empty: no cheats
+    std::uint32_t hook = 0;             // the retrace handler's blr
+    std::vector<std::uint8_t> handler;  // the code handler as placed (gc_handler_without_fpu)
 };
+
+// The code handler for a GameCube game: the Gecko handler with its FPU use
+// taken out. As shipped it turns MSR[FP] on at its start, saves f2 and f3,
+// and leaves FP on when it returns. Hooked at the end of the GameCube SDK's
+// __VIRetraceHandler, in the OS's interrupt context, that crashed Luigi's
+// Mansion on a real Wii at its first retraces with any code on, even one
+// plain 04 write (an ISI at 0; with the MSR put back at its end, a hang);
+// without the FP enable and the f2/f3 save and restore it boots and the
+// codes apply (Jack's Wii, 18 Oct, sd:/riftwii/gc/cheatnofp of a test
+// build). Dolphin showed neither. The handler's only other FPU use is the
+// float add and multiply of the register operation codes (86/88 with
+// operation 9 or A): those now skip to the end of the operation, so such a
+// code does nothing in a GameCube game instead of raising an FP-unavailable
+// exception in the interrupt. False, with `why`, when the handler is not
+// the one these words were found in.
+static bool gc_handler_without_fpu(std::vector<std::uint8_t>& image, std::string& why) {
+    const auto word_at = [&](std::size_t at) {
+        return static_cast<std::uint32_t>(image[at]) << 24 | static_cast<std::uint32_t>(image[at + 1]) << 16 |
+               static_cast<std::uint32_t>(image[at + 2]) << 8 | image[at + 3];
+    };
+    const auto put = [&](std::size_t at, std::uint32_t w) {
+        image[at] = static_cast<std::uint8_t>(w >> 24);
+        image[at + 1] = static_cast<std::uint8_t>(w >> 16);
+        image[at + 2] = static_cast<std::uint8_t>(w >> 8);
+        image[at + 3] = static_cast<std::uint8_t>(w);
+    };
+    // Each instruction's place; it must be there exactly once.
+    const auto find_once = [&](std::uint32_t w, std::size_t& at) {
+        std::size_t found = 0;
+        for (std::size_t i = 0; i + 4 <= image.size(); i += 4) {
+            if (word_at(i) != w) continue;
+            at = i;
+            ++found;
+        }
+        return found == 1;
+    };
+    constexpr std::uint32_t kNop = 0x60000000;
+    struct Taken {
+        std::uint32_t word;
+        const char* what;
+    };
+    const Taken taken[] = {
+        {0x7F400124, "mtmsr r26 (FP on)"},
+        {0xD8410098, "stfd f2,152(r1)"},
+        {0xD86100A0, "stfd f3,160(r1)"},
+        {0xC8410098, "lfd f2,152(r1)"},
+        {0xC86100A0, "lfd f3,160(r1)"},
+    };
+    std::size_t places[5];
+    for (std::size_t i = 0; i < 5; ++i) {
+        if (!find_once(taken[i].word, places[i])) {
+            why = std::string("the code handler is not the one RiftWii knows (") + taken[i].what + ")";
+            return false;
+        }
+    }
+    std::size_t float_load = 0, float_store = 0;
+    if (!find_once(0xC05A0000, float_load) || !find_once(0xD05A0000, float_store) || float_store <= float_load) {
+        why = "the code handler is not the one RiftWii knows (its float operations)";
+        return false;
+    }
+    for (std::size_t place : places) put(place, kNop);
+    // lfs f2,0(r26) becomes a branch past stfs f2,0(r26).
+    put(float_load, 0x48000000 | static_cast<std::uint32_t>(float_store + 4 - float_load));
+    return true;
+}
 
 // IOS's globals area and the most of the function there that may run from
 // a copy (move_out_of_ios): a hook in it would be undone or left behind.
@@ -1551,8 +1617,11 @@ static bool plan_gc_cheats(const Dol& dol, GcCheats& out, std::string& why) {
         why = "the end of the game's video retrace handler is in IOS's globals area, where RiftWii moves code";
         return false;
     }
+    std::vector<std::uint8_t> handler(codehandleronly_bin, codehandleronly_bin + codehandleronly_bin_size);
+    if (!gc_handler_without_fpu(handler, why)) return false;
     out.gct = extras.cheat_gct;
     out.hook = hook;
+    out.handler = std::move(handler);
     return true;
 }
 
@@ -1577,7 +1646,7 @@ static bool hook_gc_cheats(Code& code, const GcCheats& cheats, std::string& why)
 // of low memory, before the game runs.
 static void place_gc_cheats(const GcCheats& cheats, const std::string& game_id) {
     std::uint8_t* handler = reinterpret_cast<std::uint8_t*>(kCodeHandlerAddress);
-    std::memcpy(handler, codehandleronly_bin, codehandleronly_bin_size);
+    std::memcpy(handler, cheats.handler.data(), cheats.handler.size());
     // Its first bytes hold the game's ID, where cheat tools look for it.
     std::memcpy(handler, game_id.data(), std::min<std::size_t>(6, game_id.size()));
     void* list = reinterpret_cast<void*>(kCodeListAddress);
@@ -2226,7 +2295,8 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
     // taken its word unnoticed.
     if (!cheats.gct.empty()) {
         if (hook_gc_cheats(code, cheats, cheats_off)) {
-            logf("Codes: %u cheat(s), %u bytes at 0x%08x, handler at 0x%08x called from the retrace handler 0x%08x\n",
+            logf("Codes: %u cheat(s), %u bytes at 0x%08x, handler at 0x%08x called from the retrace handler 0x%08x "
+                 "(the handler leaves the FPU alone: float operation codes do nothing)\n",
                  static_cast<unsigned>(CurrentLaunchExtras().cheat_count), static_cast<unsigned>(cheats.gct.size()),
                  kCodeListAddress, kCodeHandlerAddress, cheats.hook);
         } else {
