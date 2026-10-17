@@ -893,6 +893,21 @@ void TestCoverArt() {
     EXPECT_EQ(s.home_tiles, "shelf");
     s.parse("home_tiles = channels\n");
     EXPECT_EQ(s.home_tiles, "channels");
+    // The Channels view's corners: the theme's unless the player chose.
+    EXPECT_EQ(s.channel_corners, "theme");
+    EXPECT_TRUE(channel_corner_scale(s.channel_corners, 1.5f) == 1.5f);
+    s.parse("channel_corners = square\n");
+    EXPECT_EQ(s.channel_corners, "square");
+    EXPECT_TRUE(channel_corner_scale(s.channel_corners, 1.5f) == 0.0f);
+    s.parse("channel_corners = pointy\n");
+    EXPECT_EQ(s.channel_corners, "square");
+    s.parse("channel_corners = rounder\n");
+    EXPECT_TRUE(s.serialize().find("channel_corners = rounder\n") != std::string::npos);
+    EXPECT_TRUE(channel_corner_scale(s.channel_corners, 0.0f) == 2.0f);
+    EXPECT_TRUE(channel_corner_scale("slight", 1.0f) == 0.5f);
+    EXPECT_TRUE(channel_corner_scale("round", 0.0f) == 1.0f);
+    EXPECT_TRUE(channel_corner_scale("unknown", 0.25f) == 0.25f);
+    s.channel_corners = "theme";
     EXPECT_EQ(s.menu_widescreen, "off");
     EXPECT_EQ(s.play_history, "on");
     s.parse("play_history = off\n");

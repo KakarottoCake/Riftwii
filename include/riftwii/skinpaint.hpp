@@ -40,9 +40,12 @@ void paint_card9(const Theme& theme, Canvas& out);
 // kChannelFrameCorner in: a soft shadow in its kChannelFrameMargin, a thin
 // grey rim with small corners (kChannelRadius) and a white line inside it,
 // see-through within so the icon shows (`fill`: the card's colour within,
-// for a channel without an icon); lit, the accent's rim and glow.
+// for a channel without an icon); lit, the accent's rim and glow. The
+// corner slice holds the roundest rim (kChannelRadius at corners 2, the
+// most a theme or Settings' Channel corners asks for), so no part of its
+// curve is stretched along the edges.
 constexpr int kChannelFrameMargin = 8;
-constexpr int kChannelFrameCorner = 16;
+constexpr int kChannelFrameCorner = 24;
 constexpr float kChannelRadius = 6.0f;
 void paint_channel_frame9(const Theme& theme, bool over, bool fill, Canvas& out);
 // The name label under a lit channel, 48 x 44, nine-sliced kLabelCorner

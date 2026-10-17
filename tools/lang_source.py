@@ -625,6 +625,17 @@ T = {
     "Plays with": ("Se juega con", "対応コントローラー", "Joga-se com", "Si gioca con"),
     "3D covers": ("Portadas 3D", "3Dパッケージ", "Capas 3D", "Copertine 3D"),
     "Channels": ("Canales", "チャンネル", "Canais", "Canali"),
+    # Channel corners (Settings, the Channels view)
+    "Channel corners": ("Esquinas de los canales", "チャンネルの角", "Cantos dos canais", "Angoli dei canali"),
+    "Square": ("Rectas", "四角", "Retos", "Squadrati"),
+    "Slight": ("Suaves", "少し丸く", "Suaves", "Leggeri"),
+    "Round": ("Redondas", "丸く", "Redondos", "Arrotondati"),
+    "Rounder": ("Más redondas", "もっと丸く", "Mais redondos", "Più arrotondati"),
+    "How round the corners of the Channels view's tiles are. Theme keeps the theme's own; the others are the same in every theme.": (
+        "Lo redondeadas que son las esquinas de los recuadros en la vista Canales. Tema mantiene las del propio tema; las demás son iguales en todos los temas.",
+        "チャンネル表示のタイルの角の丸さです。「テーマ」はテーマ自体の丸さのままです。ほかはどのテーマでも同じです。",
+        "O quanto os cantos dos blocos na vista Canais são arredondados. Tema mantém os do próprio tema; os outros são iguais em todos os temas.",
+        "Quanto sono arrotondati gli angoli dei riquadri nella vista Canali. Tema mantiene quelli del tema; gli altri sono uguali in ogni tema."),
     "Widescreen menu": ("Menú panorámico", "ワイド画面メニュー", "Menu widescreen", "Menu panoramico"),
     "Screen size": ("Tamaño en pantalla", "画面の大きさ", "Tamanho na tela", "Dimensione sullo schermo"),
     "On a 16:9 TV the menu is drawn narrower, so covers and pictures keep their shape. Automatic follows the Wii's own TV setting.": (
@@ -2259,6 +2270,18 @@ KO = {
         "지원 컨트롤러",
     "Channels":
         "채널",
+    "Channel corners":
+        "채널 모서리",
+    "Square":
+        "각지게",
+    "Slight":
+        "살짝 둥글게",
+    "Round":
+        "둥글게",
+    "Rounder":
+        "더 둥글게",
+    "How round the corners of the Channels view's tiles are. Theme keeps the theme's own; the others are the same in every theme.":
+        "채널 보기에서 타일 모서리가 얼마나 둥근지 정합니다. '테마'는 테마 자체의 모서리를 따르고, 나머지는 모든 테마에서 똑같습니다.",
     "Widescreen menu":
         "와이드화면 메뉴",
     "Screen size":
@@ -3608,6 +3631,18 @@ FR = {
         "Se joue avec",
     "Channels":
         "Chaînes",
+    "Channel corners":
+        "Coins des chaînes",
+    "Square":
+        "Carrés",
+    "Slight":
+        "Légers",
+    "Round":
+        "Arrondis",
+    "Rounder":
+        "Très arrondis",
+    "How round the corners of the Channels view's tiles are. Theme keeps the theme's own; the others are the same in every theme.":
+        "L'arrondi des coins des tuiles dans la vue Chaînes. Thème garde celui du thème ; les autres sont les mêmes dans tous les thèmes.",
     "Widescreen menu":
         "Menu 16:9",
     "Screen size":

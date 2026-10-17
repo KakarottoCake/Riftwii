@@ -69,6 +69,9 @@ void LoaderSettings::parse(const std::string& text) {
             if (value == "covers" || value == "names" || value == "shelf" || value == "carousel" || value == "covers3d" ||
                 value == "channels")
                 home_tiles = value;
+        } else if (key == "channel_corners") {
+            if (value == "theme" || value == "square" || value == "slight" || value == "round" || value == "rounder")
+                channel_corners = value;
         } else if (key == "menu_widescreen") {
             if (value == "auto" || value == "on" || value == "off") menu_widescreen = value;
         } else if (key == "screen_size") {
@@ -159,6 +162,7 @@ std::string LoaderSettings::serialize() const {
     s += "wfc_server = " + wfc_server + "\n";
     s += "wfc_domain = " + wfc_domain + "\n";
     s += "home_tiles = " + home_tiles + "\n";
+    s += "channel_corners = " + channel_corners + "\n";
     s += "menu_widescreen = " + menu_widescreen + "\n";
     s += "screen_size = " + std::to_string(screen_size) + "\n";
     s += "menu_sounds = " + menu_sounds + "\n";
@@ -251,6 +255,16 @@ WfcServer effective_wfc_server(const GameSettings& game, const LoaderSettings& g
     }
     if (server == WfcServer::Custom && !valid_wfc_domain(global.wfc_domain)) server = WfcServer::Off;
     return server;
+}
+
+float channel_corner_scale(const std::string& choice, float theme_corners) {
+    // Round is RiftWii's own theme's (the Wii Menu's small corners), and
+    // Rounder the most a theme may ask for.
+    if (choice == "square") return 0.0f;
+    if (choice == "slight") return 0.5f;
+    if (choice == "round") return 1.0f;
+    if (choice == "rounder") return 2.0f;
+    return theme_corners;
 }
 
 bool parse_cios_choice(const std::string& s, int& slot) {

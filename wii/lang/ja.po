@@ -732,6 +732,24 @@ msgstr "3Dパッケージ"
 msgid "Channels"
 msgstr "チャンネル"
 
+msgid "Channel corners"
+msgstr "チャンネルの角"
+
+msgid "Square"
+msgstr "四角"
+
+msgid "Slight"
+msgstr "少し丸く"
+
+msgid "Round"
+msgstr "丸く"
+
+msgid "Rounder"
+msgstr "もっと丸く"
+
+msgid "How round the corners of the Channels view's tiles are. Theme keeps the theme's own; the others are the same in every theme."
+msgstr "チャンネル表示のタイルの角の丸さです。「テーマ」はテーマ自体の丸さのままです。ほかはどのテーマでも同じです。"
+
 msgid "Widescreen menu"
 msgstr "ワイド画面メニュー"
 

@@ -732,6 +732,24 @@ msgstr "Copertine 3D"
 msgid "Channels"
 msgstr "Canali"
 
+msgid "Channel corners"
+msgstr "Angoli dei canali"
+
+msgid "Square"
+msgstr "Squadrati"
+
+msgid "Slight"
+msgstr "Leggeri"
+
+msgid "Round"
+msgstr "Arrotondati"
+
+msgid "Rounder"
+msgstr "Più arrotondati"
+
+msgid "How round the corners of the Channels view's tiles are. Theme keeps the theme's own; the others are the same in every theme."
+msgstr "Quanto sono arrotondati gli angoli dei riquadri nella vista Canali. Tema mantiene quelli del tema; gli altri sono uguali in ogni tema."
+
 msgid "Widescreen menu"
 msgstr "Menu panoramico"
 

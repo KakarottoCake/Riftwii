@@ -732,6 +732,24 @@ msgstr "Capas 3D"
 msgid "Channels"
 msgstr "Canais"
 
+msgid "Channel corners"
+msgstr "Cantos dos canais"
+
+msgid "Square"
+msgstr "Retos"
+
+msgid "Slight"
+msgstr "Suaves"
+
+msgid "Round"
+msgstr "Redondos"
+
+msgid "Rounder"
+msgstr "Mais redondos"
+
+msgid "How round the corners of the Channels view's tiles are. Theme keeps the theme's own; the others are the same in every theme."
+msgstr "O quanto os cantos dos blocos na vista Canais são arredondados. Tema mantém os do próprio tema; os outros são iguais em todos os temas."
+
 msgid "Widescreen menu"
 msgstr "Menu widescreen"
 

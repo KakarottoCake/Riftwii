@@ -732,6 +732,24 @@ msgstr "Jaquettes 3D"
 msgid "Channels"
 msgstr "Chaînes"
 
+msgid "Channel corners"
+msgstr "Coins des chaînes"
+
+msgid "Square"
+msgstr "Carrés"
+
+msgid "Slight"
+msgstr "Légers"
+
+msgid "Round"
+msgstr "Arrondis"
+
+msgid "Rounder"
+msgstr "Très arrondis"
+
+msgid "How round the corners of the Channels view's tiles are. Theme keeps the theme's own; the others are the same in every theme."
+msgstr "L'arrondi des coins des tuiles dans la vue Chaînes. Thème garde celui du thème ; les autres sont les mêmes dans tous les thèmes."
+
 msgid "Widescreen menu"
 msgstr "Menu 16:9"
 
