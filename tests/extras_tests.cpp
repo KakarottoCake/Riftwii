@@ -893,6 +893,13 @@ void TestCoverArt() {
     EXPECT_EQ(s.home_tiles, "shelf");
     s.parse("home_tiles = channels\n");
     EXPECT_EQ(s.home_tiles, "channels");
+    EXPECT_EQ(s.page_peek, "on");
+    s.parse("page_peek = off\n");
+    EXPECT_EQ(s.page_peek, "off");
+    EXPECT_TRUE(s.serialize().find("page_peek = off\n") != std::string::npos);
+    s.parse("page_peek = wide\n");
+    EXPECT_EQ(s.page_peek, "off");
+    s.page_peek = "on";
     EXPECT_EQ(s.menu_widescreen, "off");
     EXPECT_EQ(s.play_history, "on");
     s.parse("play_history = off\n");

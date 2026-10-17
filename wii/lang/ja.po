@@ -2018,3 +2018,9 @@ msgstr "最大{1}人"
 
 msgid "The mod's own"
 msgstr "MODのもの"
+
+msgid "Pages at the sides"
+msgstr "左右のページ"
+
+msgid "Channels: the edges of the previous and the next page at the sides of the screen, as on the Wii Menu. Point at one and press A to turn to that page."
+msgstr "チャンネル: 前と次のページの端を、Wiiメニューのように画面の左右に表示します。そこを指してAを押すと、そのページに移ります。"

@@ -2018,3 +2018,9 @@ msgstr "Fino a {1} giocatori"
 
 msgid "The mod's own"
 msgstr "Quello della mod"
+
+msgid "Pages at the sides"
+msgstr "Pagine ai lati"
+
+msgid "Channels: the edges of the previous and the next page at the sides of the screen, as on the Wii Menu. Point at one and press A to turn to that page."
+msgstr "Canali: i bordi della pagina precedente e di quella successiva ai lati dello schermo, come nel Menu Wii. Punta su uno e premi A per passare a quella pagina."
