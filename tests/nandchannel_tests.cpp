@@ -136,6 +136,54 @@ void test_paths() {
               std::string("/title/00010001/4e414b45/content/0000001f.app"));
 }
 
+// The first 0x100 bytes of a DOL with one text section of `text` bytes
+// loading at 0x80004000, its entry at the start.
+std::vector<std::uint8_t> dol_head(std::uint32_t text) {
+    std::vector<std::uint8_t> h(0x100, 0);
+    put32(h.data(), 0x100);
+    put32(h.data() + 0x48, 0x80004000);
+    put32(h.data() + 0x90, text);
+    put32(h.data() + 0xE0, 0x80004000);
+    return h;
+}
+
+void test_program() {
+    TmdContents tmd;
+    tmd.boot_index = 1;
+    // 0 banner, 1 a small loader, 2 the game, 3 an archive, 4 shared.
+    tmd.contents = {{0, 0, 1, 0x40000}, {1, 1, 1, 0x3000}, {2, 2, 1, 0x300000}, {3, 3, 1, 0x800000},
+                    {4, 4, 0x8001, 0x900000}};
+    std::vector<std::uint8_t> archive(0x100, 0);
+    put32(archive.data(), 0x55AA382D);
+    std::vector<ContentStart> starts = {
+        {0, 0x40000, dol_head(0x1000)},  // the banner is never the program, DOL or not
+        {1, 0x3000, dol_head(0x2000)},
+        {2, 0x300000, dol_head(0x2FF000)},
+        {3, 0x800000, archive},
+        {4, 0x900000, dol_head(0x8FF000)},  // shared: not the title's own
+    };
+    ChannelProgram program;
+    std::string error;
+    EXPECT_TRUE(choose_channel_program(tmd, starts, program, error));
+    EXPECT_EQ(program.index, 2);
+    EXPECT_TRUE(program.past_loader);
+    EXPECT_EQ(program.dol.entry, 0x80004000u);
+
+    // Only the boot content is a DOL (a Virtual Console emulator).
+    starts.erase(starts.begin() + 2);
+    EXPECT_TRUE(choose_channel_program(tmd, starts, program, error));
+    EXPECT_EQ(program.index, 1);
+    EXPECT_TRUE(!program.past_loader);
+
+    // A header whose text runs past its file is not taken.
+    starts[1].head = dol_head(0x4000);
+    EXPECT_TRUE(!choose_channel_program(tmd, starts, program, error));
+    EXPECT_TRUE(!error.empty());
+
+    // A content the TMD does not list is not taken either.
+    EXPECT_TRUE(!choose_channel_program(tmd, {{7, 0x300000, dol_head(0x1000)}}, program, error));
+}
+
 }  // namespace
 
 int main() {
@@ -143,6 +191,7 @@ int main() {
     test_classify();
     test_tmd();
     test_paths();
+    test_program();
     if (g_failures == 0) std::cout << "nandchannel tests passed" << std::endl;
     return g_failures == 0 ? 0 : 1;
 }
