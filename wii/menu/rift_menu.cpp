@@ -1223,11 +1223,13 @@ static ChannelChoice ShowChannel(int& index, int count, const std::string& first
 	backBtn.button.SetVisible(false);
 	// + and - go to the next and previous game, as on the Wii Menu's
 	// channel screen (a tester's muscle memory); Start is A on it.
-	SkinButton goBtn(skin::pillPrimary, skin::pillPrimaryOver, 4, 326, 384, tr("Start"),
+	// The two pills sit 36 apart: the hovered one grows to 110% (12 more
+	// on each side), which closed the old 12 gap and covered its neighbour.
+	SkinButton goBtn(skin::pillPrimary, skin::pillPrimaryOver, 4, 338, 384, tr("Start"),
 		WPAD_BUTTON_A | WPAD_CLASSIC_BUTTON_A, PAD_BUTTON_A | PAD_BUTTON_START, WIIDRC_BUTTON_A);
 	goBtn.text.SetColor(skin::kAccentInk);
 	// A pill like Start's, where the Wii Menu has its "Wii Menu" one.
-	SkinButton pageBtn(skin::pill, skin::pillOver, 4, 70, 384, tr("Settings"),
+	SkinButton pageBtn(skin::pill, skin::pillOver, 4, 58, 384, tr("Settings"),
 		WPAD_BUTTON_2 | WPAD_CLASSIC_BUTTON_X, PAD_TRIGGER_R, WIIDRC_BUTTON_Y);
 	// The arrows at the screen's sides, level with the banner's middle.
 	f32 safeX, safeW;
