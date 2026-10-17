@@ -69,6 +69,8 @@ void LoaderSettings::parse(const std::string& text) {
             if (value == "covers" || value == "names" || value == "shelf" || value == "carousel" || value == "covers3d" ||
                 value == "channels")
                 home_tiles = value;
+        } else if (key == "grid_spacing") {
+            if (value == "normal" || value == "roomy") grid_spacing = value;
         } else if (key == "page_peek") {
             if (value == "on" || value == "off") page_peek = value;
         } else if (key == "menu_widescreen") {
@@ -161,6 +163,7 @@ std::string LoaderSettings::serialize() const {
     s += "wfc_server = " + wfc_server + "\n";
     s += "wfc_domain = " + wfc_domain + "\n";
     s += "home_tiles = " + home_tiles + "\n";
+    s += "grid_spacing = " + grid_spacing + "\n";
     s += "page_peek = " + page_peek + "\n";
     s += "menu_widescreen = " + menu_widescreen + "\n";
     s += "screen_size = " + std::to_string(screen_size) + "\n";

@@ -79,6 +79,9 @@ public:
     using IconDrawer = std::function<bool(int index, const IconBox& box)>;
     void SetChannels(bool on, IconDrawer icon);
     bool Channels() const { return channels; }
+    // Roomy spacing: names and channels smaller, with wider gaps and sides
+    // (grid_spacing = roomy). Covers and the shelf keep their own sizes.
+    void SetRoomy(bool on);
     // Channels: the neighbouring pages' nearest columns at the screen's
     // sides (page_peek), read from the settings when Home is built: the
     // GUI thread asks every frame, so not from the settings' string.
@@ -114,6 +117,7 @@ private:
     };
     const Geometry& Geo() const;
     float Stretch() const;          // how much wider Channels is drawn on a widescreen menu (1 otherwise)
+    float IconScale() const;        // a channel's icon against its own size (1 unless roomy)
     mutable Geometry stretched{};   // Geo()'s, when stretched
     mutable Geometry coverGeo{};    // Geo()'s for covers (their size follows the menu's width)
     mutable Geometry channelGeo{};  // Geo()'s for channels (in pixels: the icons drawn one texel to a pixel)
@@ -211,6 +215,7 @@ private:
     GuiText* captionInfo = nullptr;  // under the shelf's name: where the game is, its region, play count, mods
     int infoFor = -1;
     bool channels = false;
+    bool roomy = false;  // grid_spacing = roomy
     IconDrawer iconDrawer;
     bool iconShown[kPerPage] = {};  // channels: the tile drew its icon this frame
     void DrawChannelLabel(int slot, int alpha);
