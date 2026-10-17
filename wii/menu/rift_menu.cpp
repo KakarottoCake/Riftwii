@@ -584,6 +584,7 @@ static std::string ShortSourceProblem(const char* tag, const riftwii::wii::Image
 	if (reason.compare(0, prefix.size(), prefix) == 0) reason = reason.substr(prefix.size());
 	if (reason.compare(0, 8, "No valid") == 0) return tr("{1}: no games in /wbfs or /games", {tag});
 	if (reason == "no USB mass-storage device is inserted") return "";  // no drive is not a problem
+	if (catalog.status == tr("USB: a Wii U drive (RiftWii leaves it alone)")) return "";  // nor is a Wii U's own drive
 	if (reason == "no SD card is inserted") return tr("SD: no card");
 	return std::string(tag) + ": " + FlatCapped(reason, 110);
 }
@@ -2496,6 +2497,25 @@ static void WarnAboutDrives(const std::string& sdError, const std::string& usbEr
 	}
 }
 
+// A Wii U's own storage drive (encrypted; usb_only_wiiu_drive): players on a
+// Wii U often leave it plugged in. Said once, the first time it is seen,
+// then only Home's status line names it.
+static std::string WiiUDriveStatus()
+{
+	return tr("USB: a Wii U drive (RiftWii leaves it alone)");
+}
+static void NoteWiiUDrive()
+{
+	auto& other = riftwii::wii::Settings().other;
+	const auto seen = other.find("wiiu_drive_note");
+	if (seen != other.end() && seen->second == "shown") return;
+	ShowPopup(tr("Wii U drive"),
+		tr("The USB drive plugged in is a Wii U's own storage drive. RiftWii can't read it, so it leaves it alone. For Wii games on USB, use a drive formatted FAT32 or NTFS on a computer."),
+		tr("OK"));
+	other["wiiu_drive_note"] = "shown";
+	riftwii::wii::SaveSettings();
+}
+
 // What the last game's card log noted (wii/launch/boot.hpp TakeCardLog): into
 // the session log and sd:/riftwii/cardlog.txt, with a popup. Once per run.
 static void ReportCardLog()
@@ -2777,9 +2797,16 @@ static void ScanDrives(FrontendState& state, GuiText& status)
 	// pads can answer the drive popup below (a Wii U has no GameCube ports:
 	// with only an adapter pad, OK could not be pressed).
 	riftwii::wii::GcAdapterMenuAllowStart();
-	WarnAboutDrives(sdError, usb ? std::string() : error.empty() ? std::string("scan failed") : error);
+	// A Wii U's own drive is not a broken drive: no "Drive problem", one
+	// note the first time, and a calm line on Home after that.
+	const bool wiiuDrive = !usb && riftwii::wii::usb_only_wiiu_drive();
+	WarnAboutDrives(sdError, usb || wiiuDrive ? std::string() : error.empty() ? std::string("scan failed") : error);
+	if (wiiuDrive) NoteWiiUDrive();
 	if (sd) ReportCardLog();
-	if (!usb) {
+	if (wiiuDrive) {
+		logf("USB: only a Wii U's own drive is plugged in; left alone\n");
+		state.usb_catalog.status = WiiUDriveStatus();
+	} else if (!usb) {
 		logf("USB scan failed: %s\n", error.c_str());
 		state.usb_catalog.status = "USB: " + (error.empty() ? std::string(tr("scan failed")) : error);
 		if (riftwii::wii::MenuCiosSlot() != 0 && error.find("more than one") == std::string::npos) {

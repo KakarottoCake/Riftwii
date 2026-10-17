@@ -92,6 +92,10 @@ void release_usb_driver();
 // menu did not have to choose. The launch's d2x drive is matched to it
 // (umsdev.cpp), so both read the same drive.
 bool usb_picked_drive(std::uint32_t& sector_bytes, std::uint64_t& sector0_hash);
+// The last USB scan found only a Wii U's own drive (riftwii/imagevolume.hpp,
+// classify_drive_block0): the menu says so once and leaves the drive alone
+// instead of reporting a broken drive at every start.
+bool usb_only_wiiu_drive();
 std::uint64_t usb_sector0_hash(const std::uint8_t* sector, std::size_t bytes);
 // Opens a listed game that is not checked yet: its pieces, disc header and
 // d2x fragment list, filling title, revision and disc number (and the ID

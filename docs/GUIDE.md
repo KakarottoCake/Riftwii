@@ -15,7 +15,9 @@ Everything about installing and using RiftWii. The [README](../README.md) has th
     older d2x or on a cIOS that is not d2x. A USB drive may be FAT32 or NTFS, or a drive
     formatted as WBFS by a WBFS manager or USB loader (its games are
     listed straight from the drive). The SD card and the USB drive both
-    need 512-byte sectors;
+    need 512-byte sectors. A Wii U's own storage drive (formatted by the
+    Wii U) can't be read: RiftWii recognises it, says so once, and leaves
+    it alone, so it can stay plugged in;
   - Dolphin's compressed `.rvz` images, from the same places (below).
 
 ## Installing

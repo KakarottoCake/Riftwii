@@ -63,6 +63,11 @@ bool g_raw_mounted = false;
 bool g_libfat_mounted = false;
 bool g_usb_started = false;  // libogc's USB storage driver runs
 bool g_sd_back = false;  // SD remounted (and the log reopened) after an IOS reload
+bool g_usb_wiiu_drive = false;  // the only drive found is a Wii U's own (usb_only_wiiu_drive)
+// What a drive whose block 0 looks encrypted is called in the log and the
+// scan's error (the menu words it for players itself).
+constexpr const char* kWiiUDriveError =
+    "the USB drive is a Wii U's own storage drive (encrypted by the Wii U); RiftWii cannot read it and leaves it alone";
 // The RVZ game being launched: the loader's partition reads come from it.
 std::shared_ptr<const ByteSource> g_rvz_file;
 std::unique_ptr<RvzImage> g_rvz;
@@ -277,6 +282,7 @@ bool pick_drive(const usb_device_entry* devices, u8 listed, std::string& error) 
         bool games = false;
     };
     std::vector<Candidate> readable;
+    bool saw_wiiu = false;
     for (u8 i = 0; i < listed && i < 8; ++i) {
         const usb_device_entry& d = devices[i];
         if (!is_mass_storage(d)) continue;
@@ -335,6 +341,9 @@ bool pick_drive(const usb_device_entry* devices, u8 listed, std::string& error) 
                 } else if (bytes == 512 && std::memcmp(b, "WBFS", 4) == 0) {
                     ok = games = true;
                     what = "a WBFS drive";
+                } else if (bytes == 512 && classify_drive_block0(b) == DriveBlock0::WiiU) {
+                    what = "a Wii U's own drive (encrypted; left alone)";
+                    saw_wiiu = true;
                 }
             }
             logf("USB: drive %04x:%04x LUN %d: %u sectors of %u bytes, %s\n", d.vid, d.pid, static_cast<int>(lun),
@@ -348,6 +357,11 @@ bool pick_drive(const usb_device_entry* devices, u8 listed, std::string& error) 
         if (!kept) USBStorage_Close(&h);
     }
     if (readable.empty()) {
+        if (saw_wiiu) {
+            g_usb_wiiu_drive = true;
+            error = kWiiUDriveError;
+            return false;
+        }
         error = "none of the USB drives plugged in has a FAT32 or NTFS volume RiftWii can read (a Wii U-formatted "
                 "drive cannot be read: the games need a drive formatted FAT32 or NTFS on a computer)";
         return false;
@@ -444,6 +458,7 @@ bool open_usb_raw_disc(std::string& error) {
 
 bool ensure_usb(std::string& error) {
     if (g_raw_mounted && (g_usb_volume || g_usb_raw_disc || g_usb_wbfs)) return true;
+    g_usb_wiiu_drive = false;
     // libogc's storage driver and d2x each pick one drive, not always the
     // same one when two are plugged in (a Wii U's own drive and the games'),
     // so with more than one RiftWii picks the drive it can read itself.
@@ -522,6 +537,15 @@ bool ensure_usb(std::string& error) {
         // A WBFS it refuses is named; otherwise the drive is simply neither.
         if (why.compare(0, 5, "WBFS ") == 0) {
             error = "USB has a WBFS partition RiftWii cannot use: " + why;
+            unmount_usb_games();
+            return false;
+        }
+        // A Wii U's own drive: named as such, and left alone.
+        static std::uint8_t block0[512] ATTRIBUTE_ALIGN(32);
+        if (usb_read(0, 1, block0) && classify_drive_block0(block0) == DriveBlock0::WiiU) {
+            logf("USB: %s\n", kWiiUDriveError);
+            g_usb_wiiu_drive = true;
+            error = kWiiUDriveError;
             unmount_usb_games();
             return false;
         }
@@ -1681,6 +1705,8 @@ std::uint64_t usb_sector0_hash(const std::uint8_t* sector, std::size_t bytes) {
     for (std::size_t i = 0; i < bytes && i < 512; ++i) h = (h ^ sector[i]) * 1099511628211ull;
     return h;
 }
+
+bool usb_only_wiiu_drive() { return g_usb_wiiu_drive; }
 
 bool usb_picked_drive(std::uint32_t& sector_bytes, std::uint64_t& sector0_hash) {
     if (!g_picked.known) return false;
