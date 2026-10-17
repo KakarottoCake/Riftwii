@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 RiftWii contributors
 // SPDX-FileCopyrightText: 2009 Tantric (libwiigui template) <https://github.com/dborth/libwiigui>
 // SPDX-License-Identifier: GPL-3.0-or-later
+#include "drawtrace.hpp"
 #include "skin.hpp"
 
 #include <gccore.h>
@@ -613,6 +614,7 @@ void DrawExtended(const Tex& t, float x, float y, float left, float top, float r
 }
 
 void GuiBackdrop::Draw() {
+    DrawTrace trace("the backdrop");
     // The whole screen, also past the menu's 640x480 when it is drawn
     // smaller (widescreen, screen size). The theme's picture is never
     // stretched: it stays where the menu's rows are (Bookshelf paints

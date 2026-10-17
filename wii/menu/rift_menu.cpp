@@ -46,6 +46,7 @@
 
 #include "libwiigui/gui.h"
 #include "transition.hpp"
+#include "drawtrace.hpp"
 #include "gui_flowlist.hpp"
 #include "gui_prompts.hpp"
 #include "gui_tiles.hpp"
@@ -310,6 +311,7 @@ UpdateGUI(void *arg)
 		}
 		else
 		{
+			riftwii::wii::GuiPhase("pads and scripts");
 			UpdatePads();
 			riftwii::wii::GuiScriptApply();
 			riftwii::wii::ScreenshotPoll();
@@ -330,11 +332,15 @@ UpdateGUI(void *arg)
 			}
 			dimAlpha = idle ? std::min(dimAlpha + 4, 150) : std::max(dimAlpha - 30, 0);
 			if (swallowInput && !AnyHeld()) swallowInput = false;
+			riftwii::wii::GuiPhase("transition start");
 			riftwii::wii::transition::FrameStart();
+			riftwii::wii::GuiPhase("drawing the windows");
 			mainWindow->Draw();
+			riftwii::wii::GuiPhase("transition end");
 			// The old screen over the new one while it comes in, and this
 			// frame kept for the next change (before the pointers).
 			riftwii::wii::transition::FrameEnd();
+			riftwii::wii::GuiPhase("pointers");
 
 			for(i = 3; i >= 0; i--)
 			{
@@ -348,13 +354,17 @@ UpdateGUI(void *arg)
 			if (const int flash = riftwii::wii::ScreenshotFlash())
 				Menu_FillWholeScreen((GXColor){255, 255, 255, static_cast<u8>(flash)});
 
+			riftwii::wii::GuiPhase("rendering (GX_DrawDone, vsync)");
 			Menu_Render();
+			riftwii::wii::GuiPhase("after the frame");
 			riftwii::wii::GuiScriptAfterFrame(Menu_CurrentXfb(), Menu_XfbWidth(), Menu_XfbHeight());
 			riftwii::wii::ScreenshotAfterFrame(Menu_CurrentXfb(), Menu_XfbWidth(), Menu_XfbHeight());
 
+			riftwii::wii::GuiPhase("updating the windows");
 			if (!idle && !swallowInput && !riftwii::wii::transition::Busy())
 				for(i = 0; i < 4; i++)
 					mainWindow->Update(&userInput[i]);
+			riftwii::wii::GuiPhase("frame done");
 
 			// An exit waits while the update's files are being swapped on
 			// the card: the menu keeps drawing until they are.
@@ -409,10 +419,29 @@ static void ResetPressed(u32, void*)
 	g_resetPressed = true;
 }
 
+// For a minute after DrawTraceArm: once a second, whether the GUI thread
+// is drawing frames and where it is (wii/menu/drawtrace.hpp).
+static void LogGuiWatch()
+{
+	static u64 lastLogged = 0;
+	static u32 lastFrame = 0;
+	const u64 now = gettime();
+	if (riftwii::wii::g_drawTraceUntil == 0 || now > riftwii::wii::g_drawTraceUntil) return;
+	if (lastLogged != 0 && diff_msec(lastLogged, now) < 1000) return;
+	const u32 frame = FrameTimer;
+	logf("GUI watch: frame %u (%u since the last line), halted %s, GUI thread %s, in \"%s\", element \"%s\", menu tick %d ms ago\n",
+	     static_cast<unsigned>(frame), static_cast<unsigned>(frame - lastFrame), guiHalt ? "yes" : "no",
+	     LWP_ThreadIsSuspended(guithread) ? "suspended" : "running", riftwii::wii::g_guiPhase,
+	     riftwii::wii::g_guiElement, static_cast<int>(diff_msec(g_menuTick, now)));
+	lastLogged = now;
+	lastFrame = frame;
+}
+
 static void* MenuWatchdog(void*)
 {
 	while (g_watchdogOn) {
 		usleep(200000);
+		LogGuiWatch();
 		const u64 tick = g_menuTick;
 		if (!g_watchdogOn) break;
 		if (tick == 0 || diff_msec(tick, gettime()) < 4000) {
@@ -1967,6 +1996,7 @@ public:
 	}
 	void Draw() override {
 		if (!IsVisible()) return;
+		riftwii::wii::DrawTrace trace("the status line");
 		const int pillsLeft = prompts_.LeftEdge();
 		if (pillsLeft != laidOutFor_) Layout(pillsLeft);
 		for (std::size_t i = 0; i < lines_.size(); ++i) {
@@ -4179,6 +4209,7 @@ public:
 	static constexpr int kHeight = 120;
 	GameBanner(GXColor hue, std::string id = "", bool disc = false) : hue(hue), id(std::move(id)), disc(disc) {}
 	void Draw() override {
+		riftwii::wii::DrawTrace trace("the page's band");
 		UpdateArt();
 		Menu_FillScreen(-1000, 1000 + kHeight, hue);
 		const int plainAlpha = static_cast<int>(255 * (1.0f - artShown));
@@ -4272,6 +4303,7 @@ public:
 		Place(text, x, y);
 	}
 	void Draw() override {
+		riftwii::wii::DrawTrace trace("the page's text");
 		text.SetColor((GXColor){0, 0, 0, 255});
 		// The shadow, softer and lower; then the outline: every offset
 		// within its radius (8 at 1, 20 at 2).
@@ -6630,6 +6662,7 @@ public:
 	HeroCover& operator=(const HeroCover&) = delete;
 	~HeroCover() override { free(rounded); }
 	void Draw() override {
+		riftwii::wii::DrawTrace trace("the page's cover");
 		const float x = kHeroX, y = kHeroY, w = kHeroW, h = kHeroH;
 		if (const u8* art = RoundedArt()) {
 			// A drop shadow, as if the box stood a little off the page, lit
@@ -8189,6 +8222,11 @@ static int MenuHome(FrontendState& state)
 	// the card and the rows worked out with the GUI going (none of it is
 	// on screen), which stopped the banner otherwise. The widgets are made
 	// with it halted, as ever.
+	// A tester's Wii froze here with the Indigo theme: for the next minute
+	// the menu watchdog logs where the GUI thread is, once a second
+	// (wii/menu/drawtrace.hpp).
+	riftwii::wii::DrawTraceArm(60);
+	logf("Game page: building\n");
 	const bool buildBehindBanner = g_startOnOpen && g_lingerBanner;
 	if (buildBehindBanner) ResumeGui();
 	std::string scanStatus;
@@ -8211,6 +8249,7 @@ static int MenuHome(FrontendState& state)
 	std::vector<TileSpec> tiles;
 	std::vector<GameTile> tileWhat;
 	BuildGameTiles(state, tiles, tileWhat);
+	logf("Game page: tiles built\n");
 	if (buildBehindBanner) HaltGui();
 	// A channel's page shows its icon (HeroCover): loaded here when Home's
 	// Channels view did not, its banner stored from the Wii first if need be.
@@ -8260,6 +8299,7 @@ static int MenuHome(FrontendState& state)
 	OutlinedText titleOutlined(titleTxt, kTilesX, titleY, skin::kWhite, 2, 2);
 	OutlinedText factsOutlined(factsTxt, kTilesX, factsY, kFactsInk, 1, 1);
 
+	logf("Game page: texts made\n");
 	GuiTiles tileGrid;
 	tileGrid.SetTiles(&tiles);
 	tileGrid.Select(0);
@@ -8321,6 +8361,7 @@ static int MenuHome(FrontendState& state)
 	// Start is handled. Off, not hidden: GuiWindow::SetVisible(true) would
 	// show every element again, the ones the page keeps hidden too.
 	if (!bannerHeld) mainWindow->Append(&w);
+	logf("Game page: shown, the GUI runs\n");
 	ResumeGui();
 
 	const auto say = [&](const std::string& text) { statusTxt.SetText(text); };
