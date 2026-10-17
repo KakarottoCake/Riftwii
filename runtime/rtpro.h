@@ -18,7 +18,7 @@
  *  - In: each 0x34 report is rebuilt in the game's mode, the extension
  *    bytes as a Classic Controller's (sticks scaled, the button bytes are
  *    the same bits), the accelerometer at rest, no IR points.
- *  - The extension ID reads back as a Classic Controller Pro's; its
+ *  - The extension ID reads back as an original Classic Controller's; its
  *    calibration, and the Wii Remote's accelerometer calibration, as
  *    standard values; an error on a write's acknowledgement (the Pro has
  *    no IR camera or speaker) as success.
@@ -136,7 +136,7 @@ struct rtpro_state {
     struct rtpro_link links[RTPRO_LINKS];
     uint32_t pros;            /* links found to be Pro Controllers */
     uint32_t translated;      /* reports rebuilt, all links */
-    uint32_t ids;             /* extension IDs answered as a Classic Controller Pro */
+    uint32_t ids;             /* extension IDs answered as a Classic Controller */
     uint32_t calibrations;    /* calibration reads answered */
     uint32_t acks;            /* acknowledgement errors cleared */
     uint32_t modes;           /* reporting modes changed to RTPRO_MODE */

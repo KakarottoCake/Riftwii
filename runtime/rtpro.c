@@ -420,9 +420,14 @@ static uint8_t accel_calibration(uint32_t i) {
     return 0;
 }
 
-/* A Classic Controller Pro's extension ID (0xA400FA-0xA400FF). */
-static uint8_t classic_pro_id(uint32_t j) {
-    if (j == 0) return 0x01u;
+/* An original Classic Controller's extension ID (0xA400FA-0xA400FF),
+ * 00 00 A4 20 01 01. A Classic Controller Pro's starts with 01, and a
+ * cheat that remaps Mario Kart Wii's Classic Controller buttons did
+ * nothing with that one (2610-432, a tester's Pro Controller), though it
+ * worked with the same Pro through fakemote before. Every Classic
+ * Controller game takes the original. */
+static uint8_t classic_id(uint32_t j) {
+    if (j == 0) return 0x00u;
     if (j == 2) return 0xA4u;
     if (j == 3) return 0x20u;
     if (j == 1) return 0x00u;
@@ -537,7 +542,7 @@ static uint32_t read_answer(struct rtpro_state* st, struct rtpro_link* l, uint8_
             for (k = 0; k < len && k < 16u; ++k) {
                 const uint32_t a = (full & 0xFFFFFFu) + k;
                 if (a >= 0xA400FAu && a <= 0xA400FFu) {
-                    const uint8_t v = classic_pro_id(a - 0xA400FAu);
+                    const uint8_t v = classic_id(a - 0xA400FAu);
                     p[7 + k] = game_decrypts ? encrypt_byte(l, v, a) : v;
                 }
             }
