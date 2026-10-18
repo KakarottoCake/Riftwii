@@ -58,7 +58,25 @@ struct GcClockFix {
 // of `running` instead. None when `running` is the GameCube's own clocks.
 // The lower half has to come within four instructions of the upper one,
 // with nothing between them that could change the register or branch away.
+// This catches only a full Hz value built in place with immediates; folded
+// constants (a division by 40500, a multiply by a magic number) and floats
+// or doubles loaded from data are not detected, so finding none proves
+// nothing about the game's timing.
 std::vector<GcClockFix> find_gc_clock_values(const GcCodeReader& read, const std::vector<GcTextRange>& text,
                                              const GcClocks& running);
+
+// A float or double in a game's data that holds one of the GameCube clocks
+// (162e6, 486e6 or 40.5e6).
+struct GcClockConstant {
+    std::uint32_t address = 0;
+    bool is_double = false;
+    std::uint32_t hz = 0;  // the GameCube clock it holds
+};
+
+// Every big-endian float and double in `data` that holds a GameCube clock.
+// Log-only: nothing is rewritten, as a float loaded from data may be used
+// for more than the clock. Scans the ranges at word steps and reads them
+// with `read`.
+std::vector<GcClockConstant> find_gc_clock_constants(const GcCodeReader& read, const std::vector<GcTextRange>& data);
 
 }  // namespace riftwii

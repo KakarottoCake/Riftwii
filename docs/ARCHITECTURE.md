@@ -279,10 +279,15 @@ do.
   reading those words. The loader looks for `lis` and `ori`/`addi` pairs
   that build 162000000, 486000000 or 40500000 into one register and
   makes them build the running speed's values. Each one changed gets its
-  own line in `boot.log`. Luigi's Mansion (PAL), Super Mario Sunshine and
-  Super Mario Eclipse have none (checked 2026-10-18), so for now this is
-  a guard for games not yet seen. Floating-point copies of the clocks in
-  a game's data are not looked for.
+  own line in `boot.log`. This catches only a full Hz value built in
+  place with immediates; folded constants (`ticks / 40500`, a multiply
+  by a magic number) and floats or doubles loaded from data are not
+  detected, so "clock values: none" in a log is not proof that the
+  game's timing is right. Luigi's Mansion (PAL), Super Mario Sunshine
+  and Super Mario Eclipse have none built in place (checked
+  2026-10-18). A second, log-only scan looks through the DOL's data
+  sections for big-endian floats and doubles of 162e6, 486e6 and
+  40.5e6 and logs their section address; nothing is rewritten.
 
 *What stays different from a GameCube.* With the timers true, game time
 passes at the right rate, but work that is bound by the CPU, memory or

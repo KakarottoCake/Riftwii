@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The GameCube loader's clocks: the speed read from HW_CLOCKS, and
 // GameCube clock values built in a game's code (as lis and ori or addi
-// pairs) moved to the Wii's, which a game running in Wii mode really has.
+// pairs) moved to the Wii's, which a game running in Wii mode really has, and
+// float or double clocks in its data found (log-only).
 #include "riftwii/gcclock.hpp"
 
 #include <cstdint>
@@ -124,6 +125,25 @@ void leaves_everything_at_gamecube_speed() {
     EXPECT_EQ(find_gc_clock_values(text.reader(), kText, kGameCubeClocks).size(), 0u);
 }
 
+void finds_float_and_double_clocks_in_data() {
+    // 162e6 as a float, 486e6 as a double, 40.5e6 as a float, and a word
+    // that is only the first half of a double.
+    Text data;
+    data.put(kStart, {0x4D1A7EC8, 0x41BCF7C5, 0x80000000, 0x4C1A7EC8, 0x41834FD9, 0x12345678});
+    const auto found = find_gc_clock_constants(data.reader(), kText);
+    EXPECT_EQ(found.size(), 3u);
+    if (found.size() != 3) return;
+    EXPECT_EQ(found[0].address, kStart);
+    EXPECT_TRUE(!found[0].is_double);
+    EXPECT_EQ(found[0].hz, 162000000u);
+    EXPECT_EQ(found[1].address, kStart + 4);
+    EXPECT_TRUE(found[1].is_double);
+    EXPECT_EQ(found[1].hz, 486000000u);
+    EXPECT_EQ(found[2].address, kStart + 12);
+    EXPECT_TRUE(!found[2].is_double);
+    EXPECT_EQ(found[2].hz, 40500000u);
+}
+
 }  // namespace
 
 int main() {
@@ -134,6 +154,7 @@ int main() {
     leaves_pairs_it_cannot_be_sure_of();
     moves_a_value_built_in_r0_with_ori();
     leaves_everything_at_gamecube_speed();
+    finds_float_and_double_clocks_in_data();
     if (g_failures != 0) {
         std::cerr << g_failures << " failure(s)" << std::endl;
         return 1;

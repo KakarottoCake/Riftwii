@@ -805,10 +805,33 @@ GcClocks match_game_to_clocks(Code& code, const Dol& dol) {
              fix.old_value, fix.high_at, fix.new_value);
     }
     if (fixes.empty())
-        logf("GameCube: clock values: none built into the game's code, so its timers all go by the clocks it is told\n");
+        logf("GameCube: clock values: none found built in place with immediates; a folded or float clock would not be found, so this does not prove the game's timing is right\n");
     else
         logf("GameCube: clock values: %u built into the game's code moved to the Wii's\n",
              static_cast<unsigned>(fixes.size()));
+
+    // Floats and doubles holding a clock are only reported: a float in
+    // data may be used for more than the clock, so it is not rewritten.
+    const GcCodeReader read_data = [&dol](std::uint32_t address, std::uint32_t& word) {
+        for (const Section& s : dol.data) {
+            const bool inside = address >= s.address && address - s.address + 4 <= s.bytes.size();
+            if (!inside) continue;
+            const std::uint8_t* b = s.bytes.data() + (address - s.address);
+            word = (static_cast<std::uint32_t>(b[0]) << 24) | (static_cast<std::uint32_t>(b[1]) << 16) |
+                   (static_cast<std::uint32_t>(b[2]) << 8) | b[3];
+            return true;
+        }
+        return false;
+    };
+    std::vector<GcTextRange> data_ranges;
+    for (const Section& s : dol.data)
+        data_ranges.push_back({s.address, s.address + static_cast<std::uint32_t>(s.bytes.size())});
+    const std::vector<GcClockConstant> constants = find_gc_clock_constants(read_data, data_ranges);
+    for (const GcClockConstant& c : constants)
+        logf("GameCube: the game's data holds the GameCube clock %u as a %s at 0x%08x; it is only reported, not changed\n",
+             c.hz, c.is_double ? "double" : "float", c.address);
+    if (constants.empty())
+        logf("GameCube: no float or double holding a GameCube clock found in the game's data sections\n");
     return clocks;
 }
 

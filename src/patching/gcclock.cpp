@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "riftwii/gcclock.hpp"
 
+#include <cstring>
+
 namespace riftwii {
 
 namespace {
@@ -108,6 +110,45 @@ std::vector<GcClockFix> find_gc_clock_values(const GcCodeReader& read, const std
         }
     }
     return fixes;
+}
+
+std::vector<GcClockConstant> find_gc_clock_constants(const GcCodeReader& read, const std::vector<GcTextRange>& data) {
+    const std::uint32_t clocks_hz[] = {kGameCubeClocks.bus, kGameCubeClocks.cpu, gc_time_base_hz(kGameCubeClocks)};
+
+    // The big-endian words each clock has as a float, and as a double's
+    // upper and lower halves.
+    struct Encoding {
+        std::uint32_t hz;
+        std::uint32_t float_word;
+        std::uint32_t double_high;
+        std::uint32_t double_low;
+    };
+    std::vector<Encoding> encodings;
+    for (std::uint32_t hz : clocks_hz) {
+        const float as_float = static_cast<float>(hz);
+        const double as_double = static_cast<double>(hz);
+        std::uint32_t float_word = 0;
+        std::uint64_t double_bits = 0;
+        std::memcpy(&float_word, &as_float, sizeof(float_word));
+        std::memcpy(&double_bits, &as_double, sizeof(double_bits));
+        encodings.push_back({hz, float_word, static_cast<std::uint32_t>(double_bits >> 32),
+                             static_cast<std::uint32_t>(double_bits)});
+    }
+
+    std::vector<GcClockConstant> found;
+    for (const GcTextRange& range : data) {
+        for (std::uint32_t at = range.start; at + 4 <= range.end; at += 4) {
+            std::uint32_t word = 0;
+            if (!read(at, word)) continue;
+            for (const Encoding& e : encodings) {
+                if (word == e.float_word) found.push_back({at, false, e.hz});
+                if (word != e.double_high || at + 8 > range.end) continue;
+                std::uint32_t next = 0;
+                if (read(at + 4, next) && next == e.double_low) found.push_back({at, true, e.hz});
+            }
+        }
+    }
+    return found;
 }
 
 }  // namespace riftwii
