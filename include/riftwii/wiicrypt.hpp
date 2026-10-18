@@ -39,8 +39,9 @@ constexpr std::size_t kTicketBytes = 0x2A4;
 constexpr std::size_t kClusterBytes = 0x8000;
 constexpr std::size_t kClusterDataBytes = 0x7C00;
 
-// The title key from a partition's ticket. Only tickets for the ordinary
-// common key (index 0) are taken: Korean games use another.
+// The title key from a partition's ticket (or a WAD's). Only tickets for
+// the ordinary common key are taken: index 1 (Korean) and 2 (vWii) are
+// refused; any other index is not a real key and reads as the ordinary one.
 bool decrypt_title_key(const std::uint8_t* ticket, std::size_t size, const std::uint8_t common_key[16],
                        std::uint8_t title_key[16], std::string& error);
 

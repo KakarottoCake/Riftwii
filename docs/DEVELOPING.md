@@ -99,8 +99,9 @@ Two scripts on the card drive a run without hands on a controller:
   through the controls map instead of the Bluetooth, for Dolphin, whose
   emulated remote a script cannot press), `fakepro` (the same with a
   made-up Wii U Pro Controller, which Dolphin cannot emulate, in its own
-  report layout) and `rumbletest` (the game's
-  PADControlMotor called for the test remote's port). The first GameCube
+  report layout), `rumbletest` (the game's PADControlMotor called for the
+  test remote's port) and `reset` (the blob presses Reset twice, the
+  restart, `GC_FLAG_RESET_TEST`). The first GameCube
   line of `sd:/riftwii/boot.log` lists the ones that are on. The test
   remote's results take the `projection_callers` words of the trace
   (`tools/gc_trace.py`), which that run does not need.
@@ -207,6 +208,22 @@ hex address. In Dolphin, turn on MMU emulation (`FELK_MMU=1` for
 `build-dolphin/felk-run.sh`), or the bad read is only a warning and the
 game crashes a few steps later instead. The next RiftWii start writes
 `sd:/riftwii/gamecrash.txt`. Never leave it in a tester's settings.
+
+## A menu that freezes only on a console
+
+`debug_gx` in `settings.txt` watches the menu's drawing
+(`wii/menu/drawtrace.hpp`). `debug_gx = watch`: for a minute after a
+game's page opens, and whenever the frames stop with the GUI not halted,
+the menu's watchdog thread logs a `GUI watch` line once a second: the
+frame count, where the GUI thread is (`render step "GX_DrawDone"` is a
+GPU that never finished its frame), whether the menu's own thread is
+suspended, and how often GX's command buffer filled up. `debug_gx =
+drawdone` adds the GX trace: the GUI waits for the GPU after every
+element it draws and keeps the last 16 in memory (class, name, last
+picture's address, size and format); when the frames stop, `GX trace`
+lines name them, the one the GPU stopped in first. Drawing is slower with
+it. Off by default; a GX buffer that filled up is logged either way
+(`Graphics: the menu's drawing ran ahead of the GPU`).
 
 ## Releasing
 

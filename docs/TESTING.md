@@ -24,7 +24,7 @@ console; everything else is worth trying on both.
 Problem reports need no computer, and you don't need to take out your
 SD card:
 
-1. In RiftWii, go to **Settings > Send a problem report**.
+1. In RiftWii, go to **Settings > Help > Send a problem report**.
 2. Scan the QR code with your phone, or copy the link it shows.
 3. Post the link with a line on what you did and what happened.
 
@@ -214,7 +214,7 @@ For things that worked, a short "works" with the game, where it ran from
 
 ## 12. Problem reports and crashes
 
-- [ ] **Settings > Send a problem report**: the link opens and the QR code
+- [ ] **Settings > Help > Send a problem report**: the link opens and the QR code
   scans.
 - [ ] **A crash**: the crash screen shows, and the next start offers the
   report, with `gamecrash.txt` for a game crash.

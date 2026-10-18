@@ -250,6 +250,27 @@ end there too, so a jump into it (seen in Wind Waker and Metroid Prime)
 is recorded with the jumper's LR and CTR instead of running its fields. At its next start the menu turns the trace's crash into
 `gamecrash.txt` (`src/data/gccrash.cpp`) and offers a problem report.
 
+**Reset.** A short press of the Wii's Reset button restarts the game, as
+a GameCube's does (`src/patching/gcreset.cpp` finds the functions). The
+game's own OSResetSystem runs its reset functions, stops the sound and
+turns the picture off; where the SDK would then have the hardware reset
+the console (PI's reset register) or reboot the disc through the
+apploader, the blob puts MEM1 back as the loader left it at the jump,
+from a copy kept in MEM2, and starts the game at its entry again
+(`gc_on_hot_reset`). The memory card is written back first; the Wii
+Remotes stay connected. The blob also watches the button itself (PI's
+bit 16) at each pad read: a press the game has not answered with its own
+OSResetSystem within two seconds is answered by calling it for the game.
+OSResetSystem asked for the start-up menu goes back to RiftWii instead.
+The restart is used only for games it is known to work in
+(`gc_restart_known_to_work`, `src/patching/gxpatches.cpp`: Super Mario
+Sunshine USA and Super Mario Eclipse, by their exact IDs); in every other
+game Reset, and the game's own OSResetSystem, go back to RiftWii as
+holding HOME does. Cheats start again with the game: their handler and
+list are in the debugger area (`0x80001800`–`0x80003000`), inside the
+low memory that is put back, so keep them there. The test switch is
+`sd:/riftwii/gc/test/reset`: two presses made by the blob.
+
 **Memory cards** (`src/fs/gccard.cpp`): one image per game,
 `sd:/riftwii/gc/cards/<ID>.raw`, or a shared `shared.raw` (`shared-jp.raw`
 for Japanese games), formatted the first time. The game page's Saves tile
@@ -274,7 +295,7 @@ many saves and blocks the copy holds, comes from its directory alone
 | `0x80A00000`–`0x81200000` | The RiftWii loader (link address in `Makefile.wii`) and its heap |
 | `0x81200000` | The game's apploader, while it runs |
 | `0x80002300`–`0x80003000` | With a code build whose code list is elsewhere: veneers into code in MEM2 (the resident runtime's or the virtual SD card's) |
-| Top of the game's MEM1 arena | Resident runtime code, then the pad blob, the screenshot blob and the crash blob below it |
+| Top of the game's MEM1 arena | Resident runtime code, then the pad blob, the screenshot blob, the crash blob and the Wii Remote log's blob below it. A WiiWare or Virtual Console game has no FST, so its arena runs to `0x81800000`: the blobs are carved from there, never below the end of the loader's heap or of the game's program (`channel_extras_floor`) |
 | `0x90000000`–`0x90800000` | Left alone by the loader: an IOS reload stages its kernel here |
 | `0x90800000`–`0x90809000` | The restart snapshot and handoff (`wii/core/restart.hpp`) |
 | Bottom of the game's MEM2 arena | Resident runtime data (or the virtual SD card's code and state, about 49 KB), then the pad state, the screenshot state (a few KB: its picture is written straight from the frame buffer), then the crash blob's state (about 5 KB) |
@@ -282,6 +303,7 @@ many saves and blocks the copy holds, comes from its directory alone
 | `0x91000000`–`0x91200000` | A GameCube game's memory card image |
 | `0x91200000`–`0x91300000` | A GameCube game's data buffers: the SD bounce buffer, the disc audio ring, the trace record, the Wii Remotes' state, the crash screen (its card and the strip of glyphs the register dump is made from) and the disc runs (and an RVZ's reader) |
 | `0x91300000`–`0x91500000` | A GameCube game from an RVZ: Zstandard's workspace, a group as stored, and two decoded groups (about 430 KB with 128 KiB chunks) |
+| `0x91500000`–`0x92D00000` | A GameCube game's restart (Reset): the table of what MEM1 gets back, then MEM1's pieces as they were at the jump (the game's sections, BI2, the FST, low memory: about 4 MB for Super Mario Eclipse), and the 4 KB stack the blob puts them back on at the top |
 | Under a GameCube game's FST | The GameCube blob and its context, the code moved from IOS's counter, the ARAM stubs, the memory card's struct, the way back's block and the DI registers' stand-in (an address ending in `0x6000`), then BI2's copy (`wii/launch/gcnative.cpp`); the game's arena ends below them. Mario Golf and Mario Power Tennis put their stack and ArenaLo at `0x817dc000`, so this stays small |
 | `0x933E0000` and up | IOS |
 
@@ -372,7 +394,7 @@ addresses into source lines (keep the `riftwii.elf` of each release).
 | `sd:/riftwii/gc/dolphin/` | Dolphin's `GC` folder, copied whole (`USA/Card A/*.gci`, `MemoryCardA.USA.raw`...), for Bring your Dolphin saves (`gcimport.hpp`) |
 | `sd:/riftwii/gc/trace.bin`, `trace-crash.bin` | The last GameCube launch's trace (`tools/gc_trace.py`), and the last one with a crash, once offered |
 | `sd:/riftwii/gc/controls_seen.txt` | The controls card was shown |
-| `sd:/riftwii/gc/test/press`, `leave`, `crash`, `crashblack`, `streamonly`, `nowiden`, `keeparam`, `fakeremote`, `fakepro`, `rumbletest` | Test switches, in a folder of their own: presses on port 1, holding the way back, a crash on purpose (and on a blanked screen), the disc music alone, 16:9's hook without the widening, the ARAM addresses as the SDK gives them, a made-up Wii Remote through the controls map instead of the Bluetooth (its results in the trace's `projection_callers` words, which that run does not need; `fakepro`: a made-up Wii U Pro Controller in its place), and the game's own PADControlMotor called for the test remote's port every 120 pad reads, rumble then stop (with `fakeremote`: the trace's `bt_rumble` word counts the calls and the remote's motor switches) |
+| `sd:/riftwii/gc/test/press`, `leave`, `crash`, `crashblack`, `streamonly`, `nowiden`, `keeparam`, `fakeremote`, `fakepro`, `rumbletest`, `reset` | Test switches, in a folder of their own: presses on port 1, holding the way back, a crash on purpose (and on a blanked screen), the disc music alone, 16:9's hook without the widening, the ARAM addresses as the SDK gives them, a made-up Wii Remote through the controls map instead of the Bluetooth (its results in the trace's `projection_callers` words, which that run does not need; `fakepro`: a made-up Wii U Pro Controller in its place), the game's own PADControlMotor called for the test remote's port every 120 pad reads, rumble then stop (with `fakeremote`: the trace's `bt_rumble` word counts the calls and the remote's motor switches), and two Reset presses (at the 1500th and 3600th pad reads; the first through the OS's own restart, reset 0) |
 | `sd:/riftwii/autorun.txt`, `guiscript.txt` | Test scripts (see `DEVELOPING.md`) |
 
 ## Rules the code keeps

@@ -9,10 +9,14 @@
  ***************************************************************************/
 /* Changed for RiftWii (October 2026), under GPL-3.0-or-later: a disabled
  * window's tint covers the whole screen, a widescreen one too; a hook
- * when a window's elements change (the menu's transitions).
+ * when a window's elements change (the menu's transitions); hooks
+ * around each element's Draw (the GX trace, settings.txt debug_gx).
  * Every change is in RiftWii's git history; NOTICE.md lists the origin. */
 
 #include "gui.h"
+
+void (*GuiDrawHookBefore)(GuiElement* element) = nullptr;
+void (*GuiDrawHookAfter)(GuiElement* element) = nullptr;
 
 GuiWindow::GuiWindow()
 {
@@ -113,7 +117,13 @@ void GuiWindow::Draw()
 	u32 elemSize = _elements.size();
 	for (u32 i = 0; i < elemSize; ++i)
 	{
-		try	{ _elements.at(i)->Draw(); }
+		try
+		{
+			GuiElement* element = _elements.at(i);
+			if (GuiDrawHookBefore) GuiDrawHookBefore(element);
+			element->Draw();
+			if (GuiDrawHookAfter) GuiDrawHookAfter(element);
+		}
 		catch (const std::exception& e) { }
 	}
 
