@@ -1308,6 +1308,25 @@ private:
 // Covers: the games looked at this session; off after a network failure.
 static std::set<std::string> g_coversChecked;
 static bool g_coversOff = false;
+// What the downloads came to: a cover GameTDB has none of, or one that got
+// no answer, is passed over; only several in a row with no answer, or a
+// full card, stop them (riftwii/coverart.hpp, issue #130).
+static riftwii::CoverDownloads g_coverRun;
+
+// Counts a cover download; true when the downloads stop with it.
+static bool CountCoverFetch(riftwii::wii::CoverFetch got, const std::string& game, const std::string& error)
+{
+	riftwii::CoverOutcome outcome = riftwii::CoverOutcome::Stored;
+	if (got == riftwii::wii::CoverFetch::NotFound) outcome = riftwii::CoverOutcome::NotFound;
+	else if (got == riftwii::wii::CoverFetch::NoAnswer) outcome = riftwii::CoverOutcome::NoAnswer;
+	else if (got == riftwii::wii::CoverFetch::Failed) outcome = riftwii::CoverOutcome::CannotStore;
+	const bool stop = g_coverRun.count(outcome);
+	if (stop) logf("Covers: stopped: %s\n", error.c_str());
+	else if (outcome == riftwii::CoverOutcome::NoAnswer)
+		logf("Covers: passed over %s for now, as its download got no answer (%s); the others go on\n", game.c_str(),
+			error.c_str());
+	return stop;
+}
 // The shelf's boxes (wii/menu/boxart.cpp), asked for as the shelf comes near them.
 static std::set<std::string> g_boxesChecked;
 static bool g_boxesOff = false;
@@ -3910,8 +3929,7 @@ static int MenuSource(FrontendState& state)
 		std::string arrived, coverError;
 		riftwii::wii::CoverFetch got = riftwii::wii::CoverFetch::NotFound;
 		if (riftwii::wii::TakeCoverFetch(arrived, got, coverError)) {
-			if (got == riftwii::wii::CoverFetch::Failed) {
-				logf("Covers: stopped: %s\n", coverError.c_str());
+			if (CountCoverFetch(got, arrived, coverError)) {
 				g_coversOff = true;
 				coverQueue.clear();
 				coverNote = tr("Covers could not be downloaded ({1}). To try again, use Settings > Look for games again.", {FlatCapped(coverError, 60)});
@@ -3991,6 +4009,11 @@ static int MenuSource(FrontendState& state)
 				coverQueue.erase(coverQueue.begin() + static_cast<std::ptrdiff_t>(pick));
 				coverNote = tr("Getting covers from GameTDB: {1} left", {std::to_string(coverQueue.size() + 1)});
 			}
+		}
+		// The queue done (or stopped): what came of it, once.
+		if (coverQueue.empty() && riftwii::wii::CoverFetchGame().empty()) {
+			const std::string summary = g_coverRun.take_summary();
+			if (!summary.empty()) logf("%s\n", summary.c_str());
 		}
 		// Channels: the banners of the page shown, read from the games' images
 		// (a moment each, once: they are kept on the card).
@@ -4329,6 +4352,7 @@ static int MenuSource(FrontendState& state)
 			// Covers that failed (or were never tried) are asked for again.
 			g_coversOff = false;
 			g_coversChecked.clear();
+			g_coverRun.reset();
 			queueCovers();
 		}
 		ResumeGui();
@@ -8612,15 +8636,15 @@ static int MenuHome(FrontendState& state)
 				if (got == riftwii::wii::CoverFetch::Stored) riftwii::wii::ForgetCover(id);
 				if (id != state.game_id) {
 					// One Home started before this page opened.
-					if (got == riftwii::wii::CoverFetch::Failed) {
-						logf("Covers: stopped: %s\n", error.c_str());
-						g_coversOff = true;
-					}
+					if (CountCoverFetch(got, id, error)) g_coversOff = true;
 				} else {
+					// Counted like Home's, unless the player asked for it: that
+					// one never turns the downloads off, its failure is only said
+					// to them (below).
+					const bool stop = !coverAsked && CountCoverFetch(got, id, error);
 					if (got == riftwii::wii::CoverFetch::Stored) {
 						g_coversOff = false;
-					} else if (got == riftwii::wii::CoverFetch::Failed && !coverAsked) {
-						logf("Covers: stopped: %s\n", error.c_str());
+					} else if (stop) {
 						g_coversOff = true;
 					}
 					if (coverAsked) {
