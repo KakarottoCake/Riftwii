@@ -318,7 +318,10 @@ static void bt_on_event(struct gc_bt* bt, const uint8_t* e, uint32_t length) {
     }
     if (code == GC_EV_DISCONNECTED) {
         struct gc_bt_remote* r = bt_by_handle(bt, bt_le16(p + 1) & 0x0FFFu);
-        if (p[0] == 0 && r) r->used = 0;
+        if (p[0] == 0 && r) {
+            r->used = 0;
+            r->rumble = 0;  /* the link is gone and the motor with it; a remote that returns starts still */
+        }
         bt->disconnect_reason = p[3];
         bt->progress |= GC_BT_SEEN_DISCONNECT;
         return;
@@ -354,11 +357,15 @@ static void bt_on_event(struct gc_bt* bt, const uint8_t* e, uint32_t length) {
 
 /* --- The remote ----------------------------------------------------- */
 
-/* An output report: 0xA2, then `data`, on the interrupt channel. */
+/* An output report: 0xA2, then `data`, on the interrupt channel. Bit 0 of
+ * the first data byte of every output report is the rumble motor, so each
+ * one carries the remote's current state: a LED or report-mode report must
+ * not stop a rumble the game has on, nor start one. */
 static void bt_report(struct gc_bt* bt, const struct gc_bt_remote* r, const uint8_t* data, uint32_t length) {
     uint8_t packet[24];
     packet[0] = 0xA2;
     bt_copy(packet + 1, data, length);
+    if (length >= 2) packet[2] = (uint8_t)((packet[2] & ~1u) | (r->rumble & 1u));
     bt_acl(bt, r->handle, r->intr_cid, packet, length + 1);
 }
 
@@ -691,6 +698,26 @@ static void bt_update_leds(struct gc_bt* bt) {
     }
 }
 
+/* Each ready remote's motor follows the port it plays on: the report
+ * (0x10, whose one byte is the motor bit) goes out only when the state
+ * changes. `send` 0: the test remote has no link, only the state and the
+ * count change. */
+static void bt_update_rumble(struct gc_bt* bt, int send) {
+    uint32_t i;
+    for (i = 0; i < GC_BT_REMOTES && bt->stage != GC_BT_STAGE_FAILED; ++i) {
+        struct gc_bt_remote* r = &bt->remotes[i];
+        const uint32_t port = bt->port_of[i];
+        const uint8_t want = (uint8_t)(r->used && r->ready && port < GC_PORTS && bt->rumble_want[port] ? 1 : 0);
+        uint8_t report[2];
+        if (!r->used || !r->ready || want == r->rumble) continue;
+        r->rumble = want;
+        bt->rumble_changes++;
+        report[0] = 0x10;
+        report[1] = want;
+        if (send) bt_report(bt, r, report, 2);
+    }
+}
+
 void gc_bt_poll(struct gc_rt_context* ctx, struct gc_bt* bt) {
     uint32_t i, msr;
     if (bt->stage == GC_BT_STAGE_FAILED) return;
@@ -705,6 +732,7 @@ void gc_bt_poll(struct gc_rt_context* ctx, struct gc_bt* bt) {
     bt_take_replies(bt);
     if (bt->stage == GC_BT_STAGE_READY) {
         bt_update_leds(bt);
+        bt_update_rumble(bt, 1);
         bt_check_extensions(bt);
     }
     for (i = 0; i < GC_BT_EVENT_READS && bt->stage != GC_BT_STAGE_FAILED; ++i) {
@@ -841,6 +869,32 @@ static void bt_fill_one(const struct gc_map* map, const struct gc_bt_remote* r, 
     pad[10] = 0;
 }
 
+void gc_bt_motor(struct gc_bt* bt, uint32_t chan, uint32_t command, int allowed) {
+    bt->motor_calls++;
+    if (chan >= GC_PORTS) return;
+    bt->rumble_want[chan] = (uint8_t)(allowed && command == 1 ? 1 : 0);
+}
+
+/* The game is leaving or has crashed: no PADRead is coming to switch the
+ * motors off, so it is done here, now. A remote that cannot be written to
+ * (IOS busy with a request) is left to the link going down, which stops
+ * its motor too. */
+void gc_bt_stop_rumble(struct gc_rt_context* ctx, struct gc_bt* bt) {
+    uint32_t i, msr;
+    for (i = 0; i < GC_PORTS; ++i) bt->rumble_want[i] = 0;
+    if (bt->stage != GC_BT_STAGE_READY) return;
+    msr = gc_irq_off();
+    if (ctx->busy) {
+        gc_irq_restore(msr);
+        return;
+    }
+    ctx->busy = 1;
+    bt_update_rumble(bt, 1);
+    ctx->busy = 0;
+    gc_guard(ctx);
+    gc_irq_restore(msr);
+}
+
 int gc_bt_home_held(const struct gc_bt* bt) {
     uint32_t i;
     for (i = 0; i < GC_BT_REMOTES; ++i) {
@@ -925,6 +979,7 @@ void gc_bt_fake(struct gc_bt* bt, uint8_t* status, uint32_t n) {
     if (step == 5) report[12] = 0x01;
     bt_on_input(bt, r, report, nunchuk ? 23u : 7u);
     gc_bt_fill(bt, status);
+    bt_update_rumble(bt, 0);
     if (frame == 0) {
         log[0] = 0;
         log[1] = 0;

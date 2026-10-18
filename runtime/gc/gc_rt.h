@@ -23,7 +23,7 @@
 #include "gc_crash.h"
 
 #define GC_RT_MAGIC 0x52574744u          /* "RWGD" */
-#define GC_RT_VERSION 4u                 /* also in gc_entry.S's header */
+#define GC_RT_VERSION 5u                 /* also in gc_entry.S's header */
 #define GC_RT_CONTEXT_MAGIC 0x52574743u  /* "RWGC" */
 
 /* The DI interrupt types a DVDLow callback takes. */
@@ -85,6 +85,9 @@ struct gc_rt_header {
     uint32_t hook_load_alloc;       /* its loading thread's alloc(length, alignment) for a buffer: gc_on_load_alloc */
     uint32_t hook_load_callbacks;   /* its loading thread's group(id) before a load's callbacks: gc_on_load_callbacks */
     uint32_t hook_load_callbacks_done; /* and group(old) after them: gc_on_load_callbacks_done */
+    uint32_t hook_pad_motor;  /* PADControlMotor(chan, command): the original, then gc_on_pad_motor */
+    uint32_t replay_pad_motor;
+    uint32_t continue_pad_motor;
 };
 
 /* gc_on_fatal's exception numbers (GC_EXCEPTION_EARLY, GC_EXCEPTION_STRAY)
@@ -140,6 +143,8 @@ enum gc_trace_word {
                     * disconnect reason << 8 | the extension's last error (0x80 | n: its ID read failed) */
     GC_TR_BT_EXT, /* the last extension ID << 16 | the last report mode << 8 | extensions given up */
     GC_TR_BT_REPORTS, /* data reports from every remote */
+    GC_TR_BT_RUMBLE, /* PADControlMotor calls << 16 | motor switches << 8 | each remote slot's motor (bit 4-7: slot 0-3 on)
+                      * | the ports the game wants rumbling (bits 0-3) */
     GC_TR_WORDS
 };
 typedef char gc_trace_fits[(GC_TR_WORDS * 4 <= 512) ? 1 : -1];
@@ -166,6 +171,9 @@ typedef char gc_trace_fits[(GC_TR_WORDS * 4 <= 512) ? 1 : -1];
 #define GC_FLAG_CRASH 4u  /* tests of the crash screen: the 600th pad read takes a program exception */
 #define GC_FLAG_LEAVE 2u  /* tests of the way back: port 1 holds L, R, Z and Start from the 1800th pad read;
                            * with GC_FLAG_CRASH, the crash screen takes A after twenty seconds */
+#define GC_FLAG_REMOTE_RUMBLE 256u  /* Settings' Wii Remote rumble (and the game's own) is on: PADControlMotor rumbles a remote */
+#define GC_FLAG_RUMBLE_TEST 512u  /* tests in Dolphin (with the test remote): the game's own PADControlMotor is called
+                                   * for port 1, rumble then stop, every 240 pad reads */
 #define GC_FLAG_FAKE_REMOTE 128u  /* tests in Dolphin: a made-up Wii Remote instead of the Bluetooth (gc_bt_fake) */
 #define GC_FLAG_CRASH_BLACK 64u  /* with GC_FLAG_CRASH: the screen is blanked first, as VISetBlack does (no active lines) */
 #define GC_FLAG_STREAM_ONLY 32u  /* tests: AI buffers that carry disc music carry it alone (the game's own sound cleared) */
@@ -316,6 +324,7 @@ struct gc_rt_context {
      * read from it. */
     uint32_t rvz;             /* struct gc_rvz (loader-placed), 0: an ISO */
     uint32_t rvz_ticks;       /* timebase ticks spent in its reads (card and decoding), wraps */
+    uint32_t test_motor;      /* GC_FLAG_RUMBLE_TEST: the game's PADControlMotor (hooked), 0: not found */
     /* The way back to RiftWii: holding HOME (or L, R, Z and Start) for
      * leave_hold ticks launches the title in leave_buf through /dev/es. */
     uint32_t leave_fd;        /* /dev/es, opened by the loader; 0xFFFFFFFF: no way back */
@@ -355,7 +364,7 @@ struct gc_rt_context {
     uint32_t response[8] __attribute__((aligned(32)));
 };
 
-#define GC_RT_CONTEXT_BYTES 0x520u
+#define GC_RT_CONTEXT_BYTES 0x540u
 typedef char gc_rt_context_size[(sizeof(struct gc_rt_context) == GC_RT_CONTEXT_BYTES) ? 1 : -1];
 
 #ifdef RT_TARGET_PPC
@@ -373,6 +382,7 @@ void gc_on_trace_now(struct gc_rt_context* ctx, uint32_t where);
 uint32_t gc_on_ar_dma(struct gc_rt_context* ctx, uint32_t type, uint32_t main, uint32_t aram, uint32_t length);
 void gc_after_ar_dma(struct gc_rt_context* ctx);
 uint32_t gc_on_pad_read(struct gc_rt_context* ctx, uint32_t status, uint32_t result);
+void gc_on_pad_motor(struct gc_rt_context* ctx, uint32_t chan, uint32_t command);
 uint32_t gc_on_vi_configure(struct gc_rt_context* ctx, uint32_t mode);
 uint32_t gc_on_projection(struct gc_rt_context* ctx, uint32_t mtx, uint32_t type, uint32_t caller);
 void gc_on_ai_dma(struct gc_rt_context* ctx, uint32_t start, uint32_t length);

@@ -487,3 +487,66 @@ bool find_unhandled_exception(const std::vector<CodeRange>& text, const std::vec
 }
 
 }  // namespace riftwii
+
+// --- PADControlMotor of a GameCube game's SDK ---------------------------------
+
+namespace riftwii {
+namespace {
+
+constexpr std::uint32_t kKeepLow2BitsMask = 0xFC00FFFFu;  // rlwinm rA, rS, 0, 30, 31, any registers
+constexpr std::uint32_t kKeepLow2Bits = 0x540007BEu;
+constexpr std::uint32_t kOrisMotorMask = 0xFC00FFFFu;     // oris rA, rS, 0x40, any registers
+constexpr std::uint32_t kOrisMotor = 0x64000040u;
+constexpr std::uint32_t kMotorFunctionBytes = 0x100;      // the function is about 0x80 bytes long
+
+// The word after the previous `blr` before `address`, 0 when none is near.
+std::uint32_t after_previous_blr(const std::vector<CodeRange>& text, std::uint32_t address) {
+    for (std::uint32_t back = 4; back <= kMotorFunctionBytes && address >= back; back += 4) {
+        const std::uint32_t at = address - back;
+        if (!inside(text, at)) return 0;
+        if (word_at(text, at) == kBlr) return at + 4;
+    }
+    return 0;
+}
+
+}  // namespace
+
+bool find_gc_pad_motor(const std::vector<CodeRange>& text, std::uint32_t& out, std::string& error) {
+    std::set<std::uint32_t> functions;
+    out = 0;
+    for (const CodeRange& range : text) {
+        const std::size_t words = range.size / 4;
+        for (std::size_t i = 0; i < words; ++i) {
+            const std::uint32_t at = range.address + static_cast<std::uint32_t>(i * 4);
+            if ((be32(range.bytes + i * 4) & kKeepLow2BitsMask) != kKeepLow2Bits) continue;
+            // The OR with 0x40 follows within a few words...
+            std::uint32_t oris_at = 0;
+            for (std::uint32_t step = 4; step <= 16 && oris_at == 0; step += 4) {
+                if (inside(text, at + step) && (word_at(text, at + step) & kOrisMotorMask) == kOrisMotor)
+                    oris_at = at + step;
+            }
+            if (oris_at == 0) continue;
+            // ...then SISetCommand and SITransferCommands, called one after the other.
+            bool two_calls = false;
+            for (std::uint32_t step = 4; step <= 12 && !two_calls; step += 4) {
+                const std::uint32_t call = oris_at + step;
+                two_calls = inside(text, call + 4) && is_bl(word_at(text, call)) && is_bl(word_at(text, call + 4));
+            }
+            if (!two_calls) continue;
+            const std::uint32_t start = after_previous_blr(text, at);
+            if (start != 0) functions.insert(start);
+        }
+    }
+    if (functions.size() > 1) {
+        char buf[96];
+        std::snprintf(buf, sizeof(buf), "%u GameCube PADControlMotor candidates, the first 0x%08x",
+                      static_cast<unsigned>(functions.size()), *functions.begin());
+        error = buf;
+        return false;
+    }
+    if (!functions.empty()) out = *functions.begin();
+    error.clear();
+    return true;
+}
+
+}  // namespace riftwii

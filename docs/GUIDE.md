@@ -307,7 +307,9 @@ the tiles.
 - **GameCube rumble**: *Off* stops GameCube controllers rumbling in games,
   in the adapter and in the Wii's own ports.
 - **Wii Remote rumble**: *Off* stops the Wii Remotes rumbling in every game
-  (a game's own page has **Rumble** for that game alone).
+  (a game's own page has **Rumble** for that game alone). In a GameCube
+  game a Wii Remote rumbles when the game rumbles the port it plays on, and
+  stops when the game stops it, leaves or crashes.
 - **Menu IOS**: IOS 58, or a d2x cIOS slot (248 to 252). Pick the slot that has
   fakemote to use USB DS3/DS4 pads as Wii Remotes.
 - **Find network packs (RiiFS)** and **Copy network packs again** (below).
@@ -720,6 +722,22 @@ HOME = none
 [classic]         # a Classic Controller (or Pro)
 ZL = L
 ```
+
+A Classic Controller laid out as in Super Mario 3D All-Stars, with ZR
+opening the map in Super Mario Sunshine:
+
+```
+# sd:/riftwii/gc/controls/GMSE01.txt
+[classic]
+ZR = Y            # ZR opens the map (the GameCube's Y button)
+ZL = Z            # ZL stays a plain Z press, as it is without a file
+```
+
+ZL and ZR are buttons that are either pressed or not, and both press Z
+unless a file says otherwise. The Classic Controller's analogue triggers
+are L and R: the game reads how far you press them, and they stay the
+GameCube's analogue triggers whatever a file says about the `L` and `R`
+buttons.
 
 - **Headings:** `[remote]`, `[nunchuk]`, `[classic]`.
 - **Buttons** (left of `=`): `A`, `B`, `1`, `2`, `-` (or `Minus`), `+`

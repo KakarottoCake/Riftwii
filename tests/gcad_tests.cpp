@@ -889,6 +889,63 @@ static void TestPadSearch() {
     EXPECT_EQ(pad.read, 0u);
 }
 
+// A GameCube game's PADControlMotor: the command's low two bits ORed with
+// 0x40 in the top half, then SISetCommand and SITransferCommands in a row.
+static void gc_motor_function(Asm& a, std::uint32_t set_command, std::uint32_t transfer, bool second_call) {
+    a.op(0x7C0802A6u);  // mflr r0
+    a.op(0x90010004u);  // stw r0,4(r1)
+    a.op(0x9421FFD8u);  // stwu r1,-40(r1)
+    a.op(0x808D8CE0u);  // lwz r4,-29472(r13): the analog mode
+    a.op(0x57C007BEu);  // clrlwi r0,r30,30
+    a.op(0x387D0000u);  // addi r3,r29,0
+    a.op(0x64840040u);  // oris r4,r4,0x40
+    a.op(0x7C840378u);  // or r4,r4,r0
+    a.bl(set_command);
+    if (second_call) a.bl(transfer);
+    else a.op(0x60000000u);
+    a.op(0x80010034u);  // lwz r0,52(r1)
+    a.op(0x38210028u);  // addi r1,r1,40
+    a.op(0x7C0803A6u);  // mtlr r0
+    a.blr();
+}
+
+static void TestGcPadMotorSearch() {
+    constexpr std::uint32_t kSetCommand = 0x80004000u;
+    constexpr std::uint32_t kTransfer = 0x80004040u;
+    std::string error;
+    std::uint32_t found = 0;
+
+    Asm one{0x80200000u, {}};
+    one.op(0x60000000u);
+    one.blr();
+    const std::uint32_t motor = one.here();
+    gc_motor_function(one, kSetCommand, kTransfer, true);
+    std::vector<std::uint8_t> code = one.bytes();
+    std::vector<riftwii::CodeRange> text = {{one.base, code.data(), code.size()}};
+    EXPECT_TRUE(riftwii::find_gc_pad_motor(text, found, error));
+    EXPECT_EQ(found, motor);
+
+    // The same words with only one call after them: not the motor.
+    Asm other{0x80200000u, {}};
+    other.blr();
+    gc_motor_function(other, kSetCommand, kTransfer, false);
+    code = other.bytes();
+    text = {{other.base, code.data(), code.size()}};
+    EXPECT_TRUE(riftwii::find_gc_pad_motor(text, found, error));
+    EXPECT_EQ(found, 0u);
+    EXPECT_TRUE(error.empty());
+
+    // Two such functions: refused, not guessed.
+    Asm twice{0x80200000u, {}};
+    twice.blr();
+    gc_motor_function(twice, kSetCommand, kTransfer, true);
+    gc_motor_function(twice, kSetCommand, kTransfer, true);
+    code = twice.bytes();
+    text = {{twice.base, code.data(), code.size()}};
+    EXPECT_FALSE(riftwii::find_gc_pad_motor(text, found, error));
+    EXPECT_TRUE(error.find("PADControlMotor") != std::string::npos);
+}
+
 int main() {
     EXPECT_EQ(sizeof(gcad) % 4, 0u);
     EXPECT_EQ(offsetof(gcad, setup_in) % 32, 0u);
@@ -906,6 +963,7 @@ int main() {
     TestTransferErrorRelinks();
     TestListErrorRetries();
     TestPadSearch();
+    TestGcPadMotorSearch();
     if (g_failures == 0) std::cout << "gcad tests passed" << std::endl;
     return g_failures == 0 ? 0 : 1;
 }

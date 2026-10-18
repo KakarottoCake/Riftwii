@@ -151,6 +151,23 @@ void test_file_changes_only_its_lines() {
     EXPECT_EQ(map.to[GC_MAP_REMOTE][GC_IN_SHAKE], GC_PAD_B);
 }
 
+// The sample in docs/GUIDE.md (GMSE01.txt): it parses without a note, and ZR
+// presses Y while ZL stays Z.
+void test_guide_sample() {
+    gc_map map;
+    gc_controls_default(map);
+    std::vector<std::string> notes;
+    const std::string text =
+        "# sd:/riftwii/gc/controls/GMSE01.txt\n"
+        "[classic]\n"
+        "ZR = Y            # ZR opens the map (the GameCube's Y button)\n"
+        "ZL = Z            # ZL stays a plain Z press, as it is without a file\n";
+    EXPECT_EQ(gc_controls_apply(text, "GMSE01.txt", map, notes), 2);
+    EXPECT_EQ(notes.size(), 0);
+    EXPECT_EQ(press(map, GC_MAP_CLASSIC, held(GC_IN_ZR)).buttons, GC_PAD_Y);
+    EXPECT_EQ(press(map, GC_MAP_CLASSIC, held(GC_IN_ZL)).buttons, GC_PAD_Z);
+}
+
 void test_unknown_names_left_out() {
     gc_map map;
     gc_controls_default(map);
@@ -294,6 +311,7 @@ int main() {
     test_default_nunchuk_and_classic();
     test_sticks_kept();
     test_file_changes_only_its_lines();
+    test_guide_sample();
     test_unknown_names_left_out();
     test_bounds();
     test_paths();

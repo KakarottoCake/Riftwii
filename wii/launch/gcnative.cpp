@@ -40,6 +40,7 @@
 #include "riftwii/redirect.hpp"
 #include "riftwii/rvz.hpp"
 #include "riftwii/sha1.hpp"
+#include "riftwii/symsearch.hpp"
 #include "riftwii_gc_bin.h"
 #include "riftwii_gc_rvz_rel.h"
 #include "riftwii_gc_rvz_zst.h"
@@ -1709,6 +1710,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
     // cannot press Dolphin's emulated one): a made-up remote instead
     // (gc_bt.h's gc_bt_fake).
     const bool test_fake_remote = stat("sd:/riftwii/gc/fakeremote", &st_press) == 0;
+    const bool test_rumble = stat("sd:/riftwii/gc/rumbletest", &st_press) == 0;
     // What the Wii Remotes' buttons press, from the player's files.
     gc_map controls;
     load_gc_controls(image.id, controls);
@@ -2224,6 +2226,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
     // PADRead: the Wii Remotes are polled from it, and the test presses
     // go in there.
     const std::uint32_t pad_read = find_pad_read(code);
+    std::uint32_t motor = 0;
     if (pad_read != 0) {
         replay_hook(pad_read, h.hook_pad_read, h.replay_pad_read, h.continue_pad_read);
         if (test_presses) ctx->flags |= GC_FLAG_PRESS;
@@ -2231,6 +2234,27 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
         if (test_leave) ctx->flags |= GC_FLAG_LEAVE;
         if (test_crash || test_crash_black) ctx->flags |= GC_FLAG_CRASH;
         if (test_crash_black) ctx->flags |= GC_FLAG_CRASH_BLACK;
+        // PADControlMotor: a Wii Remote on the port the game rumbles
+        // rumbles too, unless Settings' Wii Remote rumble (or this game's
+        // own Rumble) is off, as for Wii games. The game's own function
+        // runs first, for a GameCube controller on the port.
+        std::vector<CodeRange> ranges;
+        for (const Section& s : dol.text) ranges.push_back(CodeRange{s.address, s.bytes.data(), s.bytes.size()});
+        std::string motor_error;
+        if (!find_gc_pad_motor(ranges, motor, motor_error)) logf("GameCube: Wii Remote rumble off: %s\n", motor_error.c_str());
+        const unsigned motor_first = opcode(code.at(motor));
+        if (motor != 0 && (motor_first == 16 || motor_first == 18)) {
+            logf("GameCube: Wii Remote rumble off: PADControlMotor 0x%08x starts with a branch\n", motor);
+            motor = 0;
+        }
+        if (motor != 0) {
+            replay_hook(motor, h.hook_pad_motor, h.replay_pad_motor, h.continue_pad_motor);
+            if (!CurrentLaunchExtras().rumble_off) ctx->flags |= GC_FLAG_REMOTE_RUMBLE;
+            if (test_rumble) {
+                ctx->flags |= GC_FLAG_RUMBLE_TEST;
+                ctx->test_motor = motor;
+            }
+        }
     }
     if (test_stream_only) ctx->flags |= GC_FLAG_STREAM_ONLY;
     // The memory card: the EXI functions to the blob (gc_card.h).
@@ -2324,6 +2348,10 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
     logf("GameCube: PADRead 0x%08x%s%s, ARStartDMA 0x%08x\n", pad_read, test_presses ? " (test presses)" : "",
          test_fake_remote ? " (test remote)" : "", ar_dma);
     logf("GameCube: Wii Remotes %s\n", pad_read == 0 ? "off (no PADRead found)" : "on");
+    logf("GameCube: PADControlMotor 0x%08x%s\n", motor,
+         motor == 0 ? " (not found: a Wii Remote does not rumble)"
+         : (ctx->flags & GC_FLAG_REMOTE_RUMBLE) ? ": a Wii Remote rumbles with its port"
+                                                : ": Wii Remote rumble is off in the settings");
     logf("GameCube: %u DI register access(es) sent to 0x%08x; AIInitDMA 0x%08x%s\n", di_patches, di_regs, ai_dma,
          ai_dma ? "" : " (not found: no disc audio streaming)");
     if (low.reset != 0) code.put(low.reset, 0x4E800020);  // blr: the drive is not there to reset

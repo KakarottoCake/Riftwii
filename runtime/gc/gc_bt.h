@@ -78,7 +78,8 @@ struct gc_bt_remote {
     uint8_t ready;      /* both channels configured, LEDs set */
     uint8_t chans;
     uint8_t led_port;   /* the port its LED shows */
-    uint8_t spare[3];
+    uint8_t rumble;     /* the motor as the remote has it: bit 0 of every output report it is sent */
+    uint8_t spare[2];
     uint32_t ctrl_cid;  /* the remote's end of each channel */
     uint32_t intr_cid;
     uint32_t ext_step;  /* 0 none, 1-3 starting it (gc_bt.c), 4 ready */
@@ -128,6 +129,12 @@ struct gc_bt {
     uint8_t event_log[4][8];  /* the first four events' first bytes, for the trace */
     uint32_t event_lengths;   /* their lengths, a byte each */
     uint32_t shakes;          /* shakes that pressed their button, all remotes */
+    /* Rumble: what the game last asked of each port through PADControlMotor
+     * (1 rumbles, 0 and 2 stop), and the trace's counters. A remote rumbles
+     * while the port it plays on is asked to. */
+    uint8_t rumble_want[4];
+    uint32_t motor_calls;     /* PADControlMotor calls seen */
+    uint32_t rumble_changes;  /* times a remote's motor was switched on or off */
     /* How far the Bluetooth got, for a tester's trace (GC_BT_SEEN_*), and
      * what came back when it did not go further. */
     uint32_t progress;
@@ -189,6 +196,13 @@ struct gc_rt_context;
  * the game's PADStatus[4]). */
 void gc_bt_poll(struct gc_rt_context* ctx, struct gc_bt* bt);
 void gc_bt_fill(struct gc_bt* bt, uint8_t* status);
+/* PADControlMotor(chan, command) from the game: the port's rumble is noted
+ * (command 1 rumbles, 0 and 2 stop) and goes to the remote on that port
+ * with the next PADRead. `allowed`: Settings' Wii Remote rumble (and the
+ * game's own) is on; off, every command stops. */
+void gc_bt_motor(struct gc_bt* bt, uint32_t chan, uint32_t command, int allowed);
+/* Every remote's motor off at once (the game is leaving or has crashed). */
+void gc_bt_stop_rumble(struct gc_rt_context* ctx, struct gc_bt* bt);
 /* 1 while a ready Wii Remote's HOME, or its Classic Controller's, is held. */
 int gc_bt_home_held(const struct gc_bt* bt);
 /* The test remote (sd:/riftwii/gc/fakeremote, gc_rt.h's

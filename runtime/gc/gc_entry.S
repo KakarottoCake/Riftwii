@@ -6,7 +6,7 @@
     .section .text.gc_entry, "ax", @progbits
     .globl _gc_blob_start
 _gc_blob_start:
-    .long 0x52574744, 4, _gc_blob_end - _gc_blob_start, gc_context_data - _gc_blob_start
+    .long 0x52574744, 5, _gc_blob_end - _gc_blob_start, gc_context_data - _gc_blob_start
     .long gc_hook_read - _gc_blob_start, gc_hook_seek - _gc_blob_start
     .long gc_hook_disk_id - _gc_blob_start, gc_hook_inquiry - _gc_blob_start
     .long gc_hook_cb_r3 - _gc_blob_start, gc_hook_audio_status - _gc_blob_start
@@ -27,6 +27,8 @@ _gc_blob_start:
     .long gc_hook_load_queued - _gc_blob_start
     .long gc_hook_load_alloc - _gc_blob_start
     .long gc_hook_load_callbacks - _gc_blob_start, gc_hook_load_callbacks_done - _gc_blob_start
+    .long gc_hook_pad_motor - _gc_blob_start, gc_replay_pad_motor - _gc_blob_start
+    .long gc_continue_pad_motor - _gc_blob_start
 
 /* Calls `fn` with the context in r3 and the game's r3..r6 moved up one
  * register (r4..r7). */
@@ -136,6 +138,43 @@ gc_replay_pad_read:
     nop
     .globl gc_continue_pad_read
 gc_continue_pad_read:
+    lis 12, 0
+    ori 12, 12, 0
+    mtctr 12
+    bctr
+
+/* void PADControlMotor(s32 chan, u32 command): the original through its
+ * replay slot (the pad of a GameCube controller there takes it), then
+ * gc_on_pad_motor(ctx, chan, command) for a Wii Remote on that port.
+ * Frame: 8 chan, 12 command. */
+    .globl gc_hook_pad_motor
+gc_hook_pad_motor:
+    stwu 1, -0x20(1)
+    mflr 0
+    stw 0, 0x24(1)
+    stw 3, 0x08(1)
+    stw 4, 0x0C(1)
+    bl gc_replay_pad_motor
+    lwz 4, 0x08(1)
+    lwz 5, 0x0C(1)
+    bl 8f
+8:  mflr 3
+    addi 3, 3, gc_context_data - 8b
+    bl gc_on_pad_motor
+    lwz 0, 0x24(1)
+    mtlr 0
+    addi 1, 1, 0x20
+    blr
+
+    .balign 16
+    .globl gc_replay_pad_motor
+gc_replay_pad_motor:
+    nop
+    nop
+    nop
+    nop
+    .globl gc_continue_pad_motor
+gc_continue_pad_motor:
     lis 12, 0
     ori 12, 12, 0
     mtctr 12
@@ -501,6 +540,6 @@ gc_exi_table:
     .balign 32
     .globl gc_context_data
 gc_context_data:
-    /* struct gc_rt_context, GC_RT_CONTEXT_BYTES (0x520) long: the magic, then zeros */
+    /* struct gc_rt_context, GC_RT_CONTEXT_BYTES (0x540) long: the magic, then zeros */
     .long 0x52574743
-    .fill 327, 4, 0
+    .fill 335, 4, 0
