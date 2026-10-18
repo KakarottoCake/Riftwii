@@ -4497,7 +4497,7 @@ struct RowRef {
 	enum class What { Mods, Saves, Cheats, Width, Deflicker, Borders, VideoMode, RegionVideo, Aspect, Rumble, Speaker,
 		RegionStrings, Language, Cios, Server, Favorite, Pack, Option, Note,
 		AddCodes, ForgetCodes, MakeImage, Cover, Memory, About, GcDiscReads, GcCard, GcProgressive, GcWidescreen,
-		GcLanguage, GcControls, SaveTile, RenameTile, RemoveTile } what = What::Note;
+		GcSharp, GcWidth, GcSpeed, GcLanguage, GcControls, SaveTile, RenameTile, RemoveTile } what = What::Note;
 	std::size_t pkg = 0, opt = 0;
 };
 
@@ -4873,6 +4873,30 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 			widescreen.value = game.gc_widescreen == "global" ? tr("Default ({1})", {widescreenNow}) : widescreenNow;
 			rows.push_back(widescreen);
 			refs.push_back({W::GcWidescreen});
+		}
+		FlowRow sharp;
+		sharp.kind = FlowRow::Kind::Option;
+		sharp.label = tr("Sharper picture");
+		sharp.on = game.gc_sharp == "on";
+		sharp.value = sharp.on ? tr("On") : tr("Off (as made)");
+		rows.push_back(sharp);
+		refs.push_back({W::GcSharp});
+		FlowRow width;
+		width.kind = FlowRow::Kind::Option;
+		width.label = tr("Picture width");
+		width.on = game.gc_width != "global";
+		width.value = GameValue(game.gc_width, global.video_width, WidthName);
+		rows.push_back(width);
+		refs.push_back({W::GcWidth});
+		// 50 or 60 Hz is a European game's question only.
+		if (riftwii::gc_pal_game(state.game_id)) {
+			FlowRow speed;
+			speed.kind = FlowRow::Kind::Option;
+			speed.label = tr("Game speed");
+			speed.on = game.gc_speed == "60";
+			speed.value = speed.on ? tr("Smoother (60 Hz)") : tr("As made (50 Hz)");
+			rows.push_back(speed);
+			refs.push_back({W::GcSpeed});
 		}
 		FlowRow language;
 		language.kind = FlowRow::Kind::Option;
@@ -5413,8 +5437,6 @@ static std::string GcLeaveLine()
 	return cards.empty() ? std::string(tr("Hold HOME for two seconds to leave the game.")) : cards.front().leave;
 }
 
-// 480p picked while the Wii's own 480p setting is off: said once, as the
-// setting being off may mean no cable takes it. True: Turn on.
 // Before a game's memory card changes between its own and the shared one.
 static bool AskGcCardSwitch()
 {
@@ -5422,6 +5444,8 @@ static bool AskGcCardSwitch()
 		tr("Switch"), tr("Cancel")) == 0;
 }
 
+// 480p picked with no component cable seen: said once, as the TV may not
+// take it. True: Turn on.
 static bool AskGc480p()
 {
 	const std::string body = std::string(tr("Only with a component or HDMI cable: without one the picture stays black.")) +
@@ -8042,6 +8066,9 @@ static int ChangedGameSettings(const riftwii::GameSettings& g)
 	if (g.gc_progressive != "global") ++changed;
 	if (riftwii::kGcWidescreenReady && g.gc_widescreen != "global") ++changed;
 	if (g.gc_language != "global") ++changed;
+	if (g.gc_sharp == "on") ++changed;
+	if (g.gc_width != "global") ++changed;
+	if (g.gc_speed == "60") ++changed;
 	if (g.rumble == "off") ++changed;
 	if (g.speaker == "off") ++changed;
 	return changed;
@@ -8226,10 +8253,19 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 				say(tr("Save to a card for this game alone, or to one card shared by all your games."));
 			else if (ref.what == RowRef::What::GcProgressive && riftwii::gc_pal_game(state.game_id))
 				say(tr("480p is for US and Japanese games; this European game keeps its own picture."));
+			else if (ref.what == RowRef::What::GcProgressive && state.model.game.gc_progressive == "global" &&
+				 !riftwii::gc_progressive_on(state.model.game, state.game_id, riftwii::wii::GcConsoleNow()))
+				say(tr("Default turns 480p on when the Wii is set to 480p and a component cable is seen; pick On (480p) if your TV takes it anyway."));
 			else if (ref.what == RowRef::What::GcProgressive)
 				say(tr("Gives a sharper, steadier picture on a component cable, even in games with no 480p mode; some games ask first."));
 			else if (ref.what == RowRef::What::GcWidescreen)
 				say(tr("Fills a widescreen TV with the game world; menus stay stretched, and some games show wrong colors (experimental)."));
+			else if (ref.what == RowRef::What::GcSharp)
+				say(tr("Turns off the soft blur some games add."));
+			else if (ref.what == RowRef::What::GcWidth)
+				say(tr("How wide the picture is drawn. 720 fills the screen from side to side."));
+			else if (ref.what == RowRef::What::GcSpeed)
+				say(tr("Smoother plays at 60 Hz in games that have a 60 Hz mode, on a TV that takes it; the others stay at 50 Hz."));
 			else if (ref.what == RowRef::What::GcLanguage)
 				say(tr("The language this game plays in, leaving the Wii's own setting alone (most US and Japanese games have only one)."));
 			else if (ref.what == RowRef::What::GcControls)
@@ -8286,17 +8322,21 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 			}
 			else if (ref.what == RowRef::What::GcProgressive) {
 				std::string next = StepValue(kGcProgressiveChoices, game.gc_progressive, direction);
-				// The Wii's own 480p setting off says nothing about the cable:
+				// Without a component cable seen nothing says the TV takes
+				// 480p (the Wii's own setting may be from another cable):
 				// asked once, when 480p is picked; Cancel goes on past it.
 				riftwii::GameSettings picked = game;
 				picked.gc_progressive = next;
 				const riftwii::GcConsoleSettings console = riftwii::wii::GcConsoleNow();
-				if (!console.wii_progressive && riftwii::gc_progressive_on(picked, state.game_id, console) &&
+				if (!console.component_cable && riftwii::gc_progressive_on(picked, state.game_id, console) &&
 				    !AskGc480p())
 					next = StepValue(kGcProgressiveChoices, next, direction);
 				game.gc_progressive = next;
 			}
 			else if (ref.what == RowRef::What::GcWidescreen) game.gc_widescreen = StepValue(kGcWidescreenChoices, game.gc_widescreen, direction);
+			else if (ref.what == RowRef::What::GcSharp) game.gc_sharp = game.gc_sharp == "on" ? "off" : "on";
+			else if (ref.what == RowRef::What::GcWidth) game.gc_width = StepValue(kWidths, game.gc_width, direction);
+			else if (ref.what == RowRef::What::GcSpeed) game.gc_speed = game.gc_speed == "60" ? "50" : "60";
 			else if (ref.what == RowRef::What::GcLanguage) game.gc_language = StepValue(kGcLanguageChoices, game.gc_language, direction);
 			else if (ref.what == RowRef::What::GcControls) {
 				ShowGcControls(false);

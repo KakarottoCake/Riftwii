@@ -106,7 +106,27 @@ bool gc_progressive_on(const GameSettings& game, const std::string& id, const Gc
     if (gc_pal_game(id)) return false;
     if (game.gc_progressive == "480p") return true;
     if (game.gc_progressive == "game") return false;
-    return console.wii_progressive;
+    // Both have to say so: the Wii set to 480p and a component cable seen,
+    // as for a Wii game (boot.cpp) and as a GameCube offers 480p only with
+    // the cable in. The setting alone was on in a tester's Wii whose
+    // picture then stayed black (Super Mario Eclipse, 2610-454): a setting
+    // outlives the cable it was made with. The cable alone may go to a TV
+    // that takes only 480i (many CRTs with component inputs), and the
+    // game is told yes without asking. An adapter that does not report as
+    // a component cable takes On (480p).
+    return console.wii_progressive && console.component_cable;
+}
+
+bool gc_sixty_hz_on(const GameSettings& game, const std::string& id) {
+    // US and Japanese games are 60 Hz already.
+    return gc_pal_game(id) && game.gc_speed == "60";
+}
+
+std::string gc_picture_width(const GameSettings& game, const GcConsoleSettings& console) {
+    const std::string& chosen = game.gc_width == "global" ? console.video_width : game.gc_width;
+    for (const char* name : {"framebuffer", "704", "720"})
+        if (chosen == name) return chosen;
+    return "game";
 }
 
 int gc_language_number(const GameSettings& game, const GcConsoleSettings& console) {
@@ -424,6 +444,9 @@ std::string LaunchModel::save() const {
         text += "*riftwii*\tgcwidescreen\t" + game.gc_widescreen + "\n";
     if (game.gc_language == "game" || gc_sram_language(game.gc_language) >= 0)
         text += "*riftwii*\tgclanguage\t" + game.gc_language + "\n";
+    if (game.gc_sharp == "on") text += "*riftwii*\tgcsharp\ton\n";
+    if (game.gc_width != "global") text += "*riftwii*\tgcwidth\t" + clean(game.gc_width) + "\n";
+    if (game.gc_speed == "60") text += "*riftwii*\tgcspeed\t60\n";
     for (const LaunchPackage& p : packages) {
         // Only this game's packs: the file is per game ID, and another
         // game's pack could not be turned on here anyway.
@@ -504,6 +527,13 @@ void LaunchModel::restore(const std::string& text) {
                 game.gc_widescreen = value == "16:9" || value == "game" ? value : "global";
             } else if (key == "gclanguage") {
                 game.gc_language = value == "game" || gc_sram_language(value) >= 0 ? value : "global";
+            } else if (key == "gcsharp") {
+                game.gc_sharp = value == "on" ? "on" : "off";
+            } else if (key == "gcwidth") {
+                const bool known = value == "game" || value == "framebuffer" || value == "704" || value == "720";
+                game.gc_width = known ? value : "global";
+            } else if (key == "gcspeed") {
+                game.gc_speed = value == "60" ? "60" : "50";
             }
             continue;
         }

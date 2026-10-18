@@ -4,6 +4,7 @@
 
 #include <dirent.h>
 #include <ogc/conf.h>
+#include <ogc/video.h>
 
 #include <cctype>
 #include <cstdio>
@@ -22,6 +23,7 @@
 #include "riftwii/expand.hpp"
 #include "riftwii/fst.hpp"
 #include "riftwii/gcoverlay.hpp"
+#include "riftwii/gcvideo.hpp"
 #include "riftwii/patch.hpp"
 #include "riftwii/redirect.hpp"
 #include "riftwii/rvz.hpp"
@@ -515,7 +517,9 @@ GcConsoleSettings GcConsoleNow() {
     console.game_language = Settings().game_language;
     console.wii_widescreen = CONF_GetAspectRatio() == CONF_ASPECT_16_9;
     console.wii_progressive = CONF_GetProgressiveScan() > 0;
+    console.component_cable = VIDEO_HaveComponentCable() != 0;
     console.wii_language = CONF_GetLanguage();
+    console.video_width = Settings().video_width;
     return console;
 }
 
@@ -555,18 +559,24 @@ bool LaunchGcGame(const GcImage& wanted,const std::vector<PackageChoices>& packa
         image.progressive = gc_progressive_on(game, image.id, console);
         image.widescreen = kGcWidescreenReady && gc_widescreen_on(game, console);
         image.language = gc_language_number(game, console);
-        logf("GameCube: Progressive scan %s (the Wii's 480p setting %s%s), Widescreen %s (Settings' aspect %s, "
+        image.sharp = game.gc_sharp == "on";
+        image.sixty_hz = gc_sixty_hz_on(game, image.id);
+        image.vi_width = gc_vi_width(gc_picture_width(game, console));
+        logf("GameCube: Picture width %s (Settings' %s): %s\n", game.gc_width.c_str(), console.video_width.c_str(),
+             gc_picture_width(game, console).c_str());
+        logf("GameCube: Progressive scan %s (the Wii's 480p setting %s, a component cable %s%s), Widescreen %s (Settings' aspect %s, "
              "the Wii's TV %s), Game language %s (Settings' %s, the Wii's language %d)\n",
              game.gc_progressive.c_str(), console.wii_progressive ? "on" : "off",
-             gc_pal_game(image.id) ? ", a PAL game never gets 480p" : "",
+             console.component_cable ? "plugged in" : "not seen", gc_pal_game(image.id) ? ", a PAL game never gets 480p" : "",
              kGcWidescreenReady ? game.gc_widescreen.c_str() : "held back from this release",
              console.aspect.c_str(), console.wii_widescreen ? "16:9" : "4:3", game.gc_language.c_str(),
              console.game_language.c_str(), console.wii_language);
     }
     logf("GameCube: %s (%s), disc reads %s\n", image.id.c_str(), image.path.c_str(),
          image.drive_timing ? "at a GameCube drive's speed" : "at the SD card's speed");
-    logf("GameCube: picture %s, %s; language %s\n", image.progressive ? "480p" : "the game's own",
-         image.widescreen ? "16:9" : "the game's own aspect",
+    logf("GameCube: picture %s, %s, %s, %s; language %s\n", image.progressive ? "480p" : "the game's own",
+         image.widescreen ? "16:9" : "the game's own aspect", image.sharp ? "sharper" : "the game's own blur",
+         image.sixty_hz ? "60 Hz where the game has it" : "the game's own speed",
          image.language >= 0 ? kGcLanguages[image.language] : "the console's");
     if (packages.empty()) return LaunchGcNative(image, nullptr, error);
     // A pack that cannot be applied whole stops the launch (plan_packs).

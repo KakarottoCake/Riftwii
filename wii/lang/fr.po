@@ -2627,3 +2627,27 @@ msgstr "\"{1}\" quitte l'accueil, avec ses propres mods et réglages, et son ima
 
 msgid "Removed \"{1}\". This page is the game's own again."
 msgstr "\"{1}\" retirée. Cette page est de nouveau celle du jeu."
+
+msgid "Sharper picture"
+msgstr "Image plus nette"
+
+msgid "Off (as made)"
+msgstr "Désactivé (d'origine)"
+
+msgid "Turns off the soft blur some games add."
+msgstr "Retire le léger flou que certains jeux ajoutent."
+
+msgid "Game speed"
+msgstr "Vitesse du jeu"
+
+msgid "Smoother (60 Hz)"
+msgstr "Plus fluide (60 Hz)"
+
+msgid "As made (50 Hz)"
+msgstr "D'origine (50 Hz)"
+
+msgid "Smoother plays at 60 Hz in games that have a 60 Hz mode, on a TV that takes it; the others stay at 50 Hz."
+msgstr "Plus fluide joue à 60 Hz dans les jeux qui ont un mode 60 Hz, sur une télé qui l'accepte ; les autres restent à 50 Hz."
+
+msgid "Default turns 480p on when the Wii is set to 480p and a component cable is seen; pick On (480p) if your TV takes it anyway."
+msgstr "Par défaut active le 480p quand la Wii est réglée sur 480p et qu'un câble composante est détecté ; choisissez Activé (480p) si votre télé l'accepte quand même."

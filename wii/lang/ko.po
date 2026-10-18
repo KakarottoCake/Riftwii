@@ -2627,3 +2627,27 @@ msgstr "\"{1}\" 타일이 자체 MOD와 설정, 그리고 sd:/riftwii/profiles�
 
 msgid "Removed \"{1}\". This page is the game's own again."
 msgstr "\"{1}\" 타일을 제거했습니다. 이 페이지는 다시 게임 자체의 페이지입니다."
+
+msgid "Sharper picture"
+msgstr "더 선명한 화면"
+
+msgid "Off (as made)"
+msgstr "끔 (원래대로)"
+
+msgid "Turns off the soft blur some games add."
+msgstr "일부 게임이 더하는 부드러운 흐림을 끕니다."
+
+msgid "Game speed"
+msgstr "게임 속도"
+
+msgid "Smoother (60 Hz)"
+msgstr "더 부드럽게 (60 Hz)"
+
+msgid "As made (50 Hz)"
+msgstr "원래대로 (50 Hz)"
+
+msgid "Smoother plays at 60 Hz in games that have a 60 Hz mode, on a TV that takes it; the others stay at 50 Hz."
+msgstr "60 Hz 모드가 있는 게임은 이를 지원하는 TV에서 60 Hz로 플레이합니다. 다른 게임은 50 Hz로 남습니다."
+
+msgid "Default turns 480p on when the Wii is set to 480p and a component cable is seen; pick On (480p) if your TV takes it anyway."
+msgstr "기본은 Wii가 480p로 설정되어 있고 컴포넌트 케이블이 감지될 때 480p를 켭니다. TV가 지원한다면 켬 (480p)을 고르세요."

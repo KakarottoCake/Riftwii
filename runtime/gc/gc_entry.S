@@ -6,7 +6,7 @@
     .section .text.gc_entry, "ax", @progbits
     .globl _gc_blob_start
 _gc_blob_start:
-    .long 0x52574744, 4, _gc_blob_end - _gc_blob_start, gc_context_data - _gc_blob_start
+    .long 0x52574744, 5, _gc_blob_end - _gc_blob_start, gc_context_data - _gc_blob_start
     .long gc_hook_read - _gc_blob_start, gc_hook_seek - _gc_blob_start
     .long gc_hook_disk_id - _gc_blob_start, gc_hook_inquiry - _gc_blob_start
     .long gc_hook_cb_r3 - _gc_blob_start, gc_hook_audio_status - _gc_blob_start
@@ -27,6 +27,9 @@ _gc_blob_start:
     .long gc_hook_load_queued - _gc_blob_start
     .long gc_hook_load_alloc - _gc_blob_start
     .long gc_hook_load_callbacks - _gc_blob_start, gc_hook_load_callbacks_done - _gc_blob_start
+    .long gc_hook_reset_system - _gc_blob_start, gc_replay_reset_system - _gc_blob_start
+    .long gc_continue_reset_system - _gc_blob_start
+    .long gc_hook_hot_reset - _gc_blob_start
 
 /* Calls `fn` with the context in r3 and the game's r3..r6 moved up one
  * register (r4..r7). */
@@ -211,9 +214,9 @@ gc_continue_ai_dma:
     mtctr 12
     bctr
 
-/* VIConfigure(rm), for 480p: gc_on_vi_configure(ctx, rm) returns the
- * mode to use (a progressive copy, or the game's own), and the original
- * runs on it from its replay slot. */
+/* VIConfigure(rm), for 480p and the picture width: gc_on_vi_configure(ctx,
+ * rm) returns the mode to use (a changed copy, or the game's own), and the
+ * original runs on it from its replay slot. */
     .globl gc_hook_vi_configure
 gc_hook_vi_configure:
     stwu 1, -0x20(1)
@@ -281,6 +284,57 @@ gc_continue_projection:
     ori 12, 12, 0
     mtctr 12
     bctr
+
+/* OSResetSystem(reset, code, menu), for the restart: gc_on_reset_system(ctx,
+ * args) may change the three (args: the frame's words at 8, 12 and 16),
+ * and the original runs on them from its replay slot. */
+    .globl gc_hook_reset_system
+gc_hook_reset_system:
+    stwu 1, -0x20(1)
+    mflr 0
+    stw 0, 0x24(1)
+    stw 3, 0x08(1)
+    stw 4, 0x0C(1)
+    stw 5, 0x10(1)
+    addi 4, 1, 0x08
+    bl 1f
+1:  mflr 3
+    addi 3, 3, gc_context_data - 1b
+    bl gc_on_reset_system
+    lwz 3, 0x08(1)
+    lwz 4, 0x0C(1)
+    lwz 5, 0x10(1)
+    lwz 0, 0x24(1)
+    mtlr 0
+    addi 1, 1, 0x20
+    b gc_replay_reset_system
+
+    .balign 16
+    .globl gc_replay_reset_system
+gc_replay_reset_system:
+    nop
+    nop
+    nop
+    nop
+    .globl gc_continue_reset_system
+gc_continue_reset_system:
+    lis 12, 0
+    ori 12, 12, 0
+    mtctr 12
+    bctr
+
+/* The SDK's reset routine(code << 3), in place of the write to PI's reset
+ * register: gc_on_hot_reset(ctx, code) restarts the game and never
+ * returns. */
+    .globl gc_hook_hot_reset
+gc_hook_hot_reset:
+    stwu 1, -0x20(1)
+    mr 4, 3
+    bl 1f
+1:  mflr 3
+    addi 3, 3, gc_context_data - 1b
+    bl gc_on_hot_reset
+2:  b 2b
 
 /* Commands with nothing to do but their callback, in r3..r6: moved to
  * r4 for gc_on_done(ctx, cb). */
@@ -501,6 +555,6 @@ gc_exi_table:
     .balign 32
     .globl gc_context_data
 gc_context_data:
-    /* struct gc_rt_context, GC_RT_CONTEXT_BYTES (0x520) long: the magic, then zeros */
+    /* struct gc_rt_context, GC_RT_CONTEXT_BYTES (0x560) long: the magic, then zeros */
     .long 0x52574743
-    .fill 327, 4, 0
+    .fill 343, 4, 0

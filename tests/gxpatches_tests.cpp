@@ -75,6 +75,11 @@ void test_protected() {
     EXPECT_TRUE(gc_loads_use_queued_heap("GLMP01"));
     EXPECT_TRUE(gc_loads_use_queued_heap("GLME01"));
     EXPECT_FALSE(gc_loads_use_queued_heap("GMSE04"));
+    EXPECT_TRUE(gc_restart_known_to_work("GMSE01"));
+    EXPECT_TRUE(gc_restart_known_to_work("GMSE04"));
+    EXPECT_FALSE(gc_restart_known_to_work("GLMP01"));
+    EXPECT_FALSE(gc_restart_known_to_work("GMSP01"));  // not run with it yet
+    EXPECT_FALSE(gc_restart_known_to_work("GMSJ01"));
     EXPECT_FALSE(game_clears_mem1_top("RLIL78"));  // Guitar Hero 2nd Custom
     EXPECT_FALSE(game_clears_mem1_top("SC4E64"));  // LEGO Star Wars III starts
     EXPECT_FALSE(game_clears_mem1_top("R25EWR"));  // LEGO Harry Potter starts

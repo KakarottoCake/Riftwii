@@ -425,6 +425,53 @@ static void test_saves() {
         EXPECT_EQ(back.game.gc_widescreen, std::string("global"));
         EXPECT_EQ(back.game.gc_language, std::string("global"));
 
+        // Sharper picture: off (the game as made) writes nothing, on
+        // round-trips, anything else is off.
+        EXPECT_EQ(gc.game.gc_sharp, std::string("off"));
+        EXPECT_TRUE(gc.save().find("gcsharp") == std::string::npos);
+        gc.game.gc_sharp = "on";
+        back.restore(gc.save());
+        EXPECT_EQ(back.game.gc_sharp, std::string("on"));
+        back.restore("*riftwii*\tgcsharp\tblurry\n");
+        EXPECT_EQ(back.game.gc_sharp, std::string("off"));
+
+        // Picture width: global (Settings') writes nothing, the Wii row's
+        // names round-trip, anything else is global; global resolves to
+        // Settings' width.
+        EXPECT_TRUE(gc.save().find("gcwidth") == std::string::npos);
+        gc.game.gc_width = "704";
+        back.restore(gc.save());
+        EXPECT_EQ(back.game.gc_width, std::string("704"));
+        back.restore("*riftwii*\tgcwidth\t1080\n");
+        EXPECT_EQ(back.game.gc_width, std::string("global"));
+
+        // Game speed: 50 Hz (as made) writes nothing, 60 round-trips, and
+        // only a European game is told the TV takes 60 Hz.
+        EXPECT_TRUE(gc.save().find("gcspeed") == std::string::npos);
+        gc.game.gc_speed = "60";
+        back.restore(gc.save());
+        EXPECT_EQ(back.game.gc_speed, std::string("60"));
+        EXPECT_TRUE(riftwii::gc_sixty_hz_on(back.game, "GLMP01"));
+        EXPECT_FALSE(riftwii::gc_sixty_hz_on(back.game, "GMSE01"));
+        EXPECT_FALSE(riftwii::gc_sixty_hz_on(back.game, "GMSJ01"));
+        back.restore("*riftwii*\tgcspeed\t100\n");
+        EXPECT_EQ(back.game.gc_speed, std::string("50"));
+        EXPECT_FALSE(riftwii::gc_sixty_hz_on(back.game, "GLMP01"));
+        {
+            riftwii::GameSettings w;
+            riftwii::GcConsoleSettings settings;
+            EXPECT_EQ(riftwii::gc_picture_width(w, settings), std::string("game"));
+            settings.video_width = "720";
+            EXPECT_EQ(riftwii::gc_picture_width(w, settings), std::string("720"));
+            w.gc_width = "game";
+            EXPECT_EQ(riftwii::gc_picture_width(w, settings), std::string("game"));
+            w.gc_width = "framebuffer";
+            EXPECT_EQ(riftwii::gc_picture_width(w, settings), std::string("framebuffer"));
+            w.gc_width = "global";
+            settings.video_width = "huge";
+            EXPECT_EQ(riftwii::gc_picture_width(w, settings), std::string("game"));
+        }
+
         // Global resolved: 16:9 never (experimental, only when picked);
         // the Wii's 480p setting, never for a PAL game; Settings'
         // language, its "console" the Wii's (CONF_LANG_GERMAN is 2).
@@ -442,16 +489,29 @@ static void test_saves() {
         console.aspect = "4:3";
         EXPECT_TRUE(riftwii::gc_widescreen_on(g, console));
 
+        // Default: the Wii's 480p setting and a component cable seen, both;
+        // never a PAL game, never "game".
         EXPECT_FALSE(riftwii::gc_progressive_on(g, "GMSE01", console));
         console.wii_progressive = true;
+        EXPECT_FALSE(riftwii::gc_progressive_on(g, "GMSE01", console));  // the setting alone
+        console.component_cable = true;
         EXPECT_TRUE(riftwii::gc_progressive_on(g, "GMSE01", console));
         EXPECT_FALSE(riftwii::gc_progressive_on(g, "GLMP01", console));
+        console.wii_progressive = false;
+        EXPECT_FALSE(riftwii::gc_progressive_on(g, "GMSE01", console));  // the cable alone
+        console.wii_progressive = true;
         g.gc_progressive = "game";
         EXPECT_FALSE(riftwii::gc_progressive_on(g, "GMSE01", console));
+        console.component_cable = false;
         g.gc_progressive = "480p";
         console.wii_progressive = false;
         EXPECT_TRUE(riftwii::gc_progressive_on(g, "GMSJ01", console));
         EXPECT_FALSE(riftwii::gc_progressive_on(g, "GLMP01", console));
+        // A European game at Smoother (60 Hz) takes EURGB60 interlaced, which
+        // gc_video_pick never makes progressive, so 480p is never asked of it.
+        g.gc_speed = "60";
+        EXPECT_FALSE(riftwii::gc_progressive_on(g, "GLMP01", console));
+        g.gc_speed = "50";
 
         console.wii_language = 2;
         EXPECT_EQ(riftwii::gc_language_number(g, console), 1);
