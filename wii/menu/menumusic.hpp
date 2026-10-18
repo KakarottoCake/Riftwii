@@ -16,7 +16,7 @@ void MenuMusicStart();
 // Stops it; before audio is shut down and before any launch.
 void MenuMusicStop();
 // Fades the music out over half a second, then stops it. The launch does
-// this when the player chose "Fade out" for Music while a game starts: the
+// this when the player chose "Fade out" for Launch music: the
 // music is gone before the launch screen and stays off.
 void MenuMusicFadeOut();
 // Whether a music file was found (the Settings row's note says so).

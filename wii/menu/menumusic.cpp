@@ -74,6 +74,15 @@ void Load() {
     }
 }
 
+// The half-second fade both endings of the music share, so they cannot drift
+// apart: the volume steps down to silence, the decoder keeps running.
+void FadeVolumeToZero() {
+    for (int step = kFadeSteps - 1; step >= 0; --step) {
+        SetVolumeOgg(kVolume * step / kFadeSteps);
+        usleep(kFadeStepUs);
+    }
+}
+
 }  // namespace
 
 void MenuMusicStart() {
@@ -98,10 +107,7 @@ void MenuMusicStop() {
 
 void MenuMusicFadeOut() {
     if (!g_playing) return;
-    for (int step = kFadeSteps - 1; step >= 0; --step) {
-        SetVolumeOgg(kVolume * step / kFadeSteps);
-        usleep(kFadeStepUs);
-    }
+    FadeVolumeToZero();
     MenuMusicStop();
 }
 
@@ -117,7 +123,7 @@ bool MenuMusicKeepForLaunch() {
     // whole launch. "Keep playing" fades out and back in around that reload
     // (LaunchMusicPauseForReload / LaunchMusicResumeAfterReload), by design.
     if (Settings().launch_music == "off") {
-        logf("Menu music: fades out as the menu closes (Settings: Music while a game starts is Fade out)\n");
+        logf("Menu music: fades out as the menu closes (Settings: Launch music is Fade out)\n");
         return false;
     }
     // The decoder runs on its own thread from the file in MEM2 and the
@@ -134,10 +140,7 @@ namespace {
 // the decoder, not the DSP's mixing, not the audio DMA.
 void FadeOutAndStop(const char* why, s32 resume_at_ms) {
     const u64 start = gettime();
-    for (int step = kFadeSteps - 1; step >= 0; --step) {
-        SetVolumeOgg(kVolume * step / kFadeSteps);
-        usleep(kFadeStepUs);
-    }
+    FadeVolumeToZero();
     MenuMusicStop();
     ShutdownAudio();
     g_resume_at_ms = resume_at_ms;
