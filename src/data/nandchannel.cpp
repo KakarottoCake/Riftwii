@@ -33,7 +33,56 @@ constexpr const char* kHomebrewCodes[] = {
     "UFTW",  // RiftWii's own channel
 };
 
+// Text a forwarder's program holds to name the app it starts.
+constexpr const char* kForwarderMarkers[] = {"/apps/", "boot.dol", "boot.elf"};
+// The longest stretch of the path shown in the log.
+constexpr std::size_t kMaxShownPath = 60;
+
+bool printable(std::uint8_t c) { return c >= 0x20 && c < 0x7F; }
+
 }  // namespace
+
+bool is_homebrew_code(const std::string& code) {
+    for (const char* homebrew : kHomebrewCodes)
+        if (code == homebrew) return true;
+    return false;
+}
+
+std::string forwarder_app_path(const std::uint8_t* bytes, std::size_t size) {
+    if (bytes == nullptr) return "";
+    for (const char* marker : kForwarderMarkers) {
+        const std::size_t length = std::strlen(marker);
+        for (std::size_t at = 0; at + length <= size; ++at) {
+            if (std::memcmp(bytes + at, marker, length) != 0) continue;
+            // Widen to the whole run of printable characters around it, so
+            // the log shows "sd:/apps/Nintendont/boot.dol", not the marker.
+            std::size_t begin = at;
+            while (begin > 0 && at - begin < kMaxShownPath / 2 && printable(bytes[begin - 1])) --begin;
+            std::size_t end = at + length;
+            while (end < size && end - begin < kMaxShownPath && printable(bytes[end])) ++end;
+            return std::string(reinterpret_cast<const char*>(bytes + begin), end - begin);
+        }
+    }
+    return "";
+}
+
+ChannelVerdict judge_unlisted_channel(const std::string& code, std::uint64_t program_size,
+                                      const std::uint8_t* program, std::size_t program_bytes) {
+    ChannelVerdict verdict;
+    if (is_homebrew_code(code)) {
+        verdict.homebrew = true;
+        verdict.reason = "its code belongs to a known homebrew channel";
+        return verdict;
+    }
+    // An inject carries a whole emulator and a game; only a small program
+    // can be a forwarder.
+    if (program_size == 0 || program_size > kForwarderMaxBytes) return verdict;
+    const std::string path = forwarder_app_path(program, program_bytes);
+    if (path.empty()) return verdict;
+    verdict.homebrew = true;
+    verdict.reason = "a homebrew forwarder (its program starts " + path + ")";
+    return verdict;
+}
 
 std::string channel_code(std::uint64_t title_id) {
     std::string code;
@@ -52,8 +101,7 @@ ChannelClass classify_channel(std::uint64_t title_id) {
     if (static_cast<std::uint32_t>(title_id >> 32) != kDownloadedChannels) return out;
     const std::string code = channel_code(title_id);
     if (code.empty()) return out;
-    for (const char* homebrew : kHomebrewCodes)
-        if (code == homebrew) return out;
+    if (is_homebrew_code(code)) return out;
     // The first letter of a Shop title's code names what it is. H is
     // Nintendo's own channels (the Shop, Photo, Mii, News...), which are
     // not games and stay out.

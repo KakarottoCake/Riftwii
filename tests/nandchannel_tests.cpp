@@ -4,6 +4,7 @@
 // a stored TMD's content records, and the NAND paths of their files.
 #include "riftwii/nandchannel.hpp"
 
+#include <algorithm>
 #include <iostream>
 #include <vector>
 
@@ -221,6 +222,37 @@ void test_program() {
 
 }  // namespace
 
+void test_unlisted_verdict() {
+    // A forwarder: small, with an app path inside.
+    std::vector<std::uint8_t> forwarder(20000, 0);
+    const char path[] = "sd:/apps/Nintendont/boot.dol";
+    std::copy(path, path + sizeof path - 1, forwarder.begin() + 4000);
+    const ChannelVerdict fwd = judge_unlisted_channel("WWND", forwarder.size(), forwarder.data(), forwarder.size());
+    EXPECT_TRUE(fwd.homebrew);
+    EXPECT_TRUE(fwd.reason.find("sd:/apps/Nintendont/boot.dol") != std::string::npos);
+
+    // An inject: big, no path. Too big to read, so no bytes at all.
+    EXPECT_TRUE(!judge_unlisted_channel("NZLX", 6u << 20, nullptr, 0).homebrew);
+    // Even if its bytes were read and held the text, its size says game.
+    EXPECT_TRUE(!judge_unlisted_channel("NZLX", 6u << 20, forwarder.data(), forwarder.size()).homebrew);
+    // A small program without any path is a game too.
+    std::vector<std::uint8_t> plain(20000, 0x41);
+    EXPECT_TRUE(!judge_unlisted_channel("NZLX", plain.size(), plain.data(), plain.size()).homebrew);
+
+    // Known homebrew codes, whatever the program.
+    EXPECT_TRUE(judge_unlisted_channel("LULZ", 6u << 20, nullptr, 0).homebrew);
+    EXPECT_TRUE(is_homebrew_code("UFTW"));
+    // A GameTDB-listed game never reaches the verdict; its code is no homebrew's.
+    EXPECT_TRUE(!is_homebrew_code("WBME"));
+    EXPECT_TRUE(!judge_unlisted_channel("WBME", 3u << 20, nullptr, 0).homebrew);
+
+    // The path shown is bounded.
+    std::vector<std::uint8_t> endless(5000, 'a');
+    std::copy(path, path + sizeof path - 1, endless.begin() + 2500);
+    EXPECT_TRUE(forwarder_app_path(endless.data(), endless.size()).size() <= 60);
+    EXPECT_EQ(forwarder_app_path(nullptr, 0), std::string());
+}
+
 int main() {
     test_codes();
     test_classify();
@@ -228,6 +260,7 @@ int main() {
     test_paths();
     test_program();
     test_cheat_code();
+    test_unlisted_verdict();
     if (g_failures == 0) std::cout << "nandchannel tests passed" << std::endl;
     return g_failures == 0 ? 0 : 1;
 }

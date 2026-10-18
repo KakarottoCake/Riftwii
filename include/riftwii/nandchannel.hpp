@@ -50,6 +50,33 @@ std::string channel_code(std::uint64_t title_id);
 // JODI, RiftWii's UFTW) are left out.
 ChannelClass classify_channel(std::uint64_t title_id);
 
+// Whether `code` is one of the known homebrew channels' (the Homebrew
+// Channel's LULZ and JODI, RiftWii's UFTW).
+bool is_homebrew_code(const std::string& code);
+
+// A forwarder channel's program is a few tens of KB; an inject's holds an
+// emulator and a game, megabytes. Programs above this are never forwarders,
+// and the listing reads no more than this much of one.
+constexpr std::size_t kForwarderMaxBytes = 256 * 1024;
+
+// The app path a forwarder's program names: the run of printable text
+// around the first "/apps/", "boot.dol" or "boot.elf" in `bytes`, cut to a
+// bounded length, or empty when there is none.
+std::string forwarder_app_path(const std::uint8_t* bytes, std::size_t size);
+
+struct ChannelVerdict {
+    bool homebrew = false;
+    std::string reason;  // for the log, when homebrew
+};
+
+// Whether a channel GameTDB does not list is homebrew, judged from the
+// title itself: a known homebrew code, or a program (`program_size` from
+// the TMD, `program` its first `program_bytes`, none when it was too big
+// to read or unreadable) that is small and names an app to start. Anything
+// else is a game: a custom Virtual Console inject takes a made-up code.
+ChannelVerdict judge_unlisted_channel(const std::string& code, std::uint64_t program_size,
+                                      const std::uint8_t* program, std::size_t program_bytes);
+
 // One of a TMD's content records.
 struct TmdContent {
     std::uint32_t id = 0;     // the file's name on the NAND, %08x.app
