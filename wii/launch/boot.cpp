@@ -36,6 +36,7 @@
 #include "menumusic.hpp"
 #include "log.hpp"
 #include "memlimits.hpp"
+#include "stash.hpp"
 #include "netsock.hpp"
 #include "riftwii/mempatch.hpp"
 #include "riftwii/nandcheck.hpp"
@@ -2199,6 +2200,8 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         // restart snapshot when the launch fails): its heap's pieces and the
         // snapshot are not the game's to patch, wherever in MEM2 they are.
         exclusions.push_back(MemoryRegion{mem::kRestartArea, mem::kRestartBytes});
+        // The start-up stash's copy: a restart after a failed launch reads the menu's font from it.
+        exclusions.push_back(MemoryRegion{mem::kStashArea, stash::ReservedEnd() - mem::kStashArea});
         for (const auto& piece : mem::HeapPieces()) {
             if (piece.second > piece.first) exclusions.push_back(MemoryRegion{piece.first, piece.second - piece.first});
         }

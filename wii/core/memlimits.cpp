@@ -16,6 +16,7 @@
 #include "ios_reload.hpp"
 #include "log.hpp"
 #include "skin.hpp"
+#include "stash.hpp"
 
 namespace riftwii::wii::mem {
 namespace {
@@ -38,8 +39,9 @@ void Init() {
     g_mem2_libogc_lo = Address(SYS_GetArena2Lo());
     g_mem2_top = Address(SYS_GetArena2Hi());
     if (Address(SYS_GetArena1Hi()) > kMem1Ceiling) SYS_SetArena1Hi(reinterpret_cast<void*>(kMem1Ceiling));
-    if (Address(SYS_GetArena2Lo()) < kMem2Floor + kRestartBytes)
-        SYS_SetArena2Lo(reinterpret_cast<void*>(kMem2Floor + kRestartBytes));
+    // Arena 2 starts above the restart area and the start-up stash's copy.
+    const u32 mem2_lo = stash::ReservedEnd();
+    if (Address(SYS_GetArena2Lo()) < mem2_lo) SYS_SetArena2Lo(reinterpret_cast<void*>(mem2_lo));
     // Asked now, while IOS is up: PoisonReloadArea runs mid-reload.
     g_dolphin = running_in_dolphin();
 }
@@ -110,6 +112,7 @@ void LogLimits() {
          mem1_size == 24u << 20 && mem2_size == 64u << 20 ? "" : " (not a Wii's 24 and 64: an emulator override)");
     logf("Memory: limits MEM1 0x%08x-0x%08x, MEM2 0x%08x-0x%08x (below 0x%08x: IOS reloads%s)\n", g_mem1_floor,
          kMem1Ceiling, kMem2Floor, g_mem2_top, kMem2Floor, g_dolphin ? ", poisoned in Dolphin" : "");
+    stash::Log();
     if (g_ballast_kib) logf("Memory: TEST BUILD: %u KiB of the heap held back (test_limits.txt)\n", g_ballast_kib);
 }
 

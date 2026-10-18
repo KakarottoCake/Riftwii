@@ -18,6 +18,7 @@
 #include "guiscript.hpp"
 #include "log.hpp"
 #include "menu.h"
+#include "plugins.hpp"
 #include "restart.hpp"
 #include "skin.hpp"
 #include "video.h"
@@ -30,6 +31,7 @@ namespace {
 constexpr u64 kCrashLoopSeconds = 30;
 constexpr int kAutoRestartSeconds = 60;
 constexpr unsigned kBacktraceFrames = 12;
+constexpr std::size_t kCrashPluginRanges = 40;
 
 struct CrashInfo {
     unsigned exid;
@@ -86,8 +88,17 @@ void Append(std::size_t& at, const char* format, ...) {
 void BuildReport() {
     std::size_t at = 0;
     const CrashInfo& c = g_info;
+    // Plugins (wii/core/plugins.hpp) run from MEM2, where riftwii.elf has
+    // no symbols: an address inside one is named "plugin <name> +0x..",
+    // the offset to look up in that plugin's ELF
+    // (build-plugins/<name>/<name>.elf, linked at 0).
+    PluginRange plugins[kCrashPluginRanges];
+    const std::size_t plugin_count = plugin::CrashRanges(plugins, kCrashPluginRanges);
+    char where[64];
     Append(at, "RiftWii %s crashed: %s\n", RIFTWII_VERSION, ExceptionName(c.exid));
     Append(at, "PC %08X  LR %08X  MSR %08X  CR %08X  CTR %08X\n", c.pc, c.lr, c.msr, c.cr, c.ctr);
+    if (plugin_describe_address(c.pc, plugins, plugin_count, where, sizeof(where))) Append(at, "PC is in %s\n", where);
+    if (plugin_describe_address(c.lr, plugins, plugin_count, where, sizeof(where))) Append(at, "LR is in %s\n", where);
     if (c.exid == PPC_EXCPT_DSI) Append(at, "DAR %08X  DSISR %08X\n", c.dar, c.dsisr);
     for (int r = 0; r < 32; r += 4) {
         Append(at, "R%02d %08X  R%02d %08X  R%02d %08X  R%02d %08X\n", r, c.gpr[r], r + 1, c.gpr[r + 1], r + 2,
@@ -96,13 +107,27 @@ void BuildReport() {
     // The stack's saved return addresses: back chain at 0(sp), LR at 4(sp).
     Append(at, "Stack:");
     u32 sp = c.gpr[1];
+    u32 returns[kBacktraceFrames];
+    unsigned frames = 0;
     for (unsigned i = 0; i < kBacktraceFrames && Plausible(sp); ++i) {
         const u32 next = *reinterpret_cast<const u32*>(sp);
         if (!Plausible(next) || next <= sp) break;
-        Append(at, " %08X", *reinterpret_cast<const u32*>(next + 4));
+        returns[frames] = *reinterpret_cast<const u32*>(next + 4);
+        Append(at, " %08X", returns[frames]);
+        ++frames;
         sp = next;
     }
-    Append(at, "\nIOS%d. The addresses are in this release's riftwii.elf.\n", IOS_GetVersion());
+    Append(at, "\n");
+    for (unsigned i = 0; i < frames; ++i) {
+        if (plugin_describe_address(returns[i], plugins, plugin_count, where, sizeof(where)))
+            Append(at, "  %08X is in %s\n", returns[i], where);
+    }
+    if (plugin_count != 0) {
+        char loaded[256];
+        plugin::CrashSummary(loaded, sizeof(loaded));
+        Append(at, "Plugins: %s\n", loaded);
+    }
+    Append(at, "IOS%d. The addresses are in this release's riftwii.elf.\n", IOS_GetVersion());
 }
 
 // Prints `text` with every line indented, clear of the TV's overscan.
@@ -189,7 +214,14 @@ void* SaveReport(void*) {
         const char* end = std::strchr(stack, '\n');
         const int n = end ? static_cast<int>(end - stack) : static_cast<int>(std::strlen(stack));
         if (len > 0 && len < static_cast<int>(sizeof(summary)))
-            std::snprintf(summary + len, sizeof(summary) - static_cast<std::size_t>(len), "%.*s", n, stack);
+            len += std::snprintf(summary + len, sizeof(summary) - static_cast<std::size_t>(len), "%.*s", n, stack);
+    }
+    // A crash in a plugin: its name and offset reach the next start's log.
+    if (const char* in_plugin = std::strstr(g_report, "PC is in plugin ")) {
+        const char* end = std::strchr(in_plugin, '\n');
+        const int n = end ? static_cast<int>(end - in_plugin) : static_cast<int>(std::strlen(in_plugin));
+        if (len > 0 && len < static_cast<int>(sizeof(summary)))
+            std::snprintf(summary + len, sizeof(summary) - static_cast<std::size_t>(len), " %.*s", n, in_plugin);
     }
     lwp_t saver = LWP_THREAD_NULL;
     if (g_save_stack == nullptr ||

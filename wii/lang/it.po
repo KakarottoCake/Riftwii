@@ -2643,6 +2643,21 @@ msgstr "\"{1}\" sparisce dalla home, con le sue mod e impostazioni e la sua imma
 msgid "Removed \"{1}\". This page is the game's own again."
 msgstr "\"{1}\" tolto. Questa pagina è di nuovo quella del gioco."
 
+msgid "A part of RiftWii is missing (the {1} add-on). Update RiftWii again."
+msgstr "Manca una parte di RiftWii (il componente aggiuntivo {1}). Aggiorna di nuovo RiftWii."
+
+msgid "A part of RiftWii is damaged (the {1} add-on). Update RiftWii again."
+msgstr "Una parte di RiftWii è danneggiata (il componente aggiuntivo {1}). Aggiorna di nuovo RiftWii."
+
+msgid "The {1} add-on is from a different RiftWii ({2}, this one is {3}). Update RiftWii again."
+msgstr "Il componente aggiuntivo {1} è di un altro RiftWii ({2}, questo è {3}). Aggiorna di nuovo RiftWii."
+
+msgid "There was not enough memory for the {1} add-on. Restart RiftWii and try again."
+msgstr "Non c'era abbastanza memoria per il componente aggiuntivo {1}. Riavvia RiftWii e riprova."
+
+msgid "The {1} add-on did not start. Send a problem report so this can be fixed."
+msgstr "Il componente aggiuntivo {1} non si è avviato. Invia una segnalazione così si può correggere."
+
 msgid "Sharper picture"
 msgstr "Immagine più nitida"
 

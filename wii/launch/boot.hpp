@@ -220,7 +220,8 @@ struct LaunchExtras {
 };
 void SetLaunchExtras(LaunchExtras extras);
 // What SetLaunchExtras set, for a launch that does not go through
-// boot_game (a GameCube game's, wii/launch/gcnative.cpp, reads its cheats).
+// boot_game (a GameCube game's: wii/launch/gcplugin.cpp hands its cheats to
+// the gamecube plugin).
 const LaunchExtras& CurrentLaunchExtras();
 // The menu's word on the next launch: a pack keeps its own saves.
 bool LaunchPackKeepsSaves();

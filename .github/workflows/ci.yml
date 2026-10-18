@@ -132,6 +132,15 @@ jobs:
         run: |
           make -f Makefile.wii -j"$(nproc)"
           test -s riftwii.dol
+      # The plugins (docs/PLUGINS.md) next to the DOL: each built with this
+      # commit's build stamp and the DOL's API version, whole, and named
+      # for this version. The DOL's own build already checks this; here it
+      # is checked against the commit CI checked out, so a stale plugin can't
+      # pass.
+      - name: Plugins match the DOL
+        run: |
+          python3 tools/make_plugin.py check --dol riftwii.dol \
+            --commit "$(git rev-parse --short=8 HEAD)" build-plugins/plugins/*.rwp
       - name: Build the channel
         run: make -f Makefile.channel -j"$(nproc)"
       # Size report: the DOL and each runtime blob against main, so a
@@ -192,6 +201,8 @@ jobs:
             --blob build-runtime/riftwii_fault.bin \
             --blob build-runtime/riftwii_wlog.bin \
             --blob build-runtime/riftwii_vsd.bin \
+            --plugin build-plugins/selftest.rwp \
+            --plugin build-plugins/gamecube.rwp \
             $baseline --json-out size-report.json > size-report.md
           cat size-report.md >> "$GITHUB_STEP_SUMMARY"
       # Sizes only, a few hundred bytes of JSON. Not the DOL: CI publishes

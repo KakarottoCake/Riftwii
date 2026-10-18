@@ -93,7 +93,7 @@
 #include "riftwii/patch.hpp"
 #include "codebuilds.hpp"
 #include "gclaunch.hpp"
-#include "gcnative.hpp"
+#include "gcplugin.hpp"
 #include "gc_crash.h"
 #include "riftwii/gccrash.hpp"
 #include "gcpatch.hpp"
@@ -6353,7 +6353,7 @@ static void MenuGcCard(FrontendState& state)
 	RunRowPage(shared ? tr("Shared Memory Card") : tr("Memory Card"), GameTitle(state), rows, note, act, space);
 }
 
-// A GameCube game's crash screen (gcnative.hpp's SetGcCrashScreen, laid
+// A GameCube game's crash screen (gcplugin.hpp's SetGcCrashScreen, laid
 // out as runtime/gc/gc_crash.h says), in the menu's own font and language,
 // made here as the launch screen cannot show translations: a header line,
 // a hint saying which button goes where, and the pieces the blob puts the

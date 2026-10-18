@@ -8,7 +8,7 @@
 
 namespace riftwii {
 
-// Where RiftWii's GameCube loader (wii/launch/gcnative.cpp) puts its part
+// Where RiftWii's GameCube loader (plugins/gamecube/gcnative.cpp) puts its part
 // of a running GameCube game, and what of the game's own layout it has to
 // stay clear of.
 //

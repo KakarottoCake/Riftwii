@@ -14,7 +14,7 @@
 #include <memory>
 #include <sstream>
 
-#include "gcnative.hpp"
+#include "gcplugin.hpp"
 #include "gcpatch.hpp"
 #include "loadersettings.hpp"
 #include "log.hpp"

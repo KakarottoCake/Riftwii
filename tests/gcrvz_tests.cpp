@@ -353,7 +353,7 @@ extern "C" int gc_rvz_device_read(void* io, std::uint32_t sector, std::uint32_t 
 namespace {
 
 // The disc through the GameCube blob's reader, set up as the loader does
-// (wii/launch/gcnative.cpp): the group table file and the RVZ on the card.
+// (plugins/gamecube/gcnative.cpp): the group table file and the RVZ on the card.
 void CheckBlobReader(const Disc& d, const char* name) {
     std::unique_ptr<RvzDiscSource> disc;
     std::string error;

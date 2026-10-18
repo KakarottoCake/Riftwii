@@ -176,7 +176,9 @@ reader `src/patching/vcdiff.cpp`). Starting it builds
 `sd:/games/<ID>/game.iso` once, in the menu's Build box and progress
 window (`PrepareGcGameInMenu` in `wii/menu/rift_menu.cpp`).
 
-**Loading** (`wii/launch/gclaunch.cpp`, `wii/launch/gcnative.cpp`). The
+**Loading** (`wii/launch/gclaunch.cpp`, `wii/launch/gcplugin.cpp`, and the
+`gamecube` plugin's `plugins/gamecube/gcnative.cpp`, loaded on first use;
+[PLUGINS.md](PLUGINS.md)). The
 loader reads the game's choices file into a `GcImage` (disc reads, memory
 card, 480p, 16:9, language), plans its Riivolution packs as a window past
 the image's end with a rewritten FST (`src/patching/gcoverlay.cpp`), and
@@ -237,7 +239,7 @@ No hook or too many codes: the game starts without them, with a
   RVZ, a group at a time ([RVZ.md](RVZ.md#gamecube-games)).
 - `gc_entry.S`: the hooks' entry points.
 
-**Clock speed** (`match_game_to_clocks` in `wii/launch/gcnative.cpp`,
+**Clock speed** (`match_game_to_clocks` in `plugins/gamecube/gcnative.cpp`,
 `src/patching/gcclock.cpp`). A GameCube runs its CPU at 486 MHz and its
 bus (Flipper: memory, graphics) at 162 MHz. A Wii in Wii mode runs
 Broadway at 729 MHz and Hollywood at 243 MHz, half as fast again. The
@@ -363,13 +365,16 @@ many saves and blocks the copy holds, comes from its directory alone
 | Top of the game's MEM1 arena | Resident runtime code, then the pad blob, the screenshot blob, the crash blob and the Wii Remote log's blob below it. A WiiWare or Virtual Console game has no FST, so its arena runs to `0x81800000`: the blobs are carved from there, never below the end of the loader's heap or of the game's program (`channel_extras_floor`) |
 | `0x90000000`–`0x90800000` | Left alone by the loader: an IOS reload stages its kernel here |
 | `0x90800000`–`0x90809000` | The restart snapshot and handoff (`wii/core/restart.hpp`) |
+| `0x90809000`–about `0x908ED000` | The start-up stash's copy: the menu font, translations and GPL, zstd (`wii/core/stash.hpp`, [MEMORY.md](MEMORY.md)); arena 2 starts above it |
+| From the end of `.bss` (start-up only) | The start-up stash as `boot.dol` loads it, until crt0 has copied it to MEM2; then the MEM1 heap |
 | Bottom of the game's MEM2 arena | Resident runtime data (or the virtual SD card's code and state, about 49 KB), then the pad state, the screenshot state (a few KB: its picture is written straight from the frame buffer), then the crash blob's state (about 5 KB) |
 | `0x90000000`–`0x91000000` | A GameCube game's ARAM (in a GameCube game only) |
 | `0x91000000`–`0x91200000` | A GameCube game's memory card image |
 | `0x91200000`–`0x91300000` | A GameCube game's data buffers: the SD bounce buffer, the disc audio ring, the trace record, the Wii Remotes' state, the crash screen (its card and the strip of glyphs the register dump is made from) and the disc runs (and an RVZ's reader) |
 | `0x91300000`–`0x91500000` | A GameCube game from an RVZ: Zstandard's workspace, a group as stored, and two decoded groups (about 430 KB with 128 KiB chunks) |
 | `0x91500000`–`0x92D00000` | A GameCube game's restart (Reset): the table of what MEM1 gets back, then MEM1's pieces as they were at the jump (the game's sections, BI2, the FST, low memory: about 4 MB for Super Mario Eclipse), and the 4 KB stack the blob puts them back on at the top |
-| Under a GameCube game's FST | The GameCube blob and its context, the code moved from IOS's counter, the ARAM stubs, the memory card's struct, the way back's block and the DI registers' stand-in (an address ending in `0x6000`), then BI2's copy (`wii/launch/gcnative.cpp`); the game's arena ends below them. Mario Golf and Mario Power Tennis put their stack and ArenaLo at `0x817dc000`, so this stays small |
+| Under a GameCube game's FST | The GameCube blob and its context, the code moved from IOS's counter, the ARAM stubs, the memory card's struct, the way back's block and the DI registers' stand-in (an address ending in `0x6000`), then BI2's copy (`plugins/gamecube/gcnative.cpp`); the game's arena ends below them. Mario Golf and Mario Power Tennis put their stack and ArenaLo at `0x817dc000`, so this stays small |
+| The top 256 KiB of the loader's MEM2 (below `0x933E0000` under IOS58), once a plugin is used | The plugin arena: the loaded plugins' images, `.bss` and state (`wii/core/plugins.cpp`, [PLUGINS.md](PLUGINS.md)); arena 2's high end is lowered under it, and given back when the plugins shut down at the menu's close. A GameCube launch loads the `gamecube` plugin there after that, and its code runs from there to the jump, above everything the launch writes in MEM2 (it checks) |
 | `0x933E0000` and up | IOS |
 
 `wii/core/memlimits.cpp` keeps the loader's heap between the end of its own
@@ -388,7 +393,11 @@ between the end of its image and `0x81200000` (about 2.4 MiB at 2.2.3,
 image end `0x80F8C560`, 4.7 MB file of which most is the menu font and
 the packed runtime blobs). That heap holds a big pack's file table while
 it is planned, so it is the thing to watch: `session.log` prints the
-MEM1 figures at start and at each "Heap check".
+MEM1 figures at start and at each "Heap check". The menu font, the
+translations and the GPL are not part of the image: `boot.dol` carries
+them in a start-up stash above its BSS that crt0 copies to MEM2, so
+their MEM1 becomes heap ([MEMORY.md](MEMORY.md), with a breakdown of
+what takes MEM1).
 
 A game whose DOL (or bss) reaches `0x80A00000` would overwrite the
 loader while the apploader still runs. The loader checks every

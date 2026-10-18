@@ -162,7 +162,7 @@ only (how its choices files and macros work), never copied. Behavioural referenc
   RiftWii's reading of what those fields are for. No code from Dolphin,
   Nintendont, libogc or any other project was used.
   The formatted card itself (`gc_card_format`, moved there from
-  `wii/launch/gcnative.cpp`) keeps the layout recorded for the GameCube
+  `plugins/gamecube/gcnative.cpp`) keeps the layout recorded for the GameCube
   loader in the table above.
 - A GameCube disc's banner (`src/disc/gcbanner.cpp`): the BNR1/BNR2
   layout (the 96x32 RGB5A3 picture at 0x20, the 0x140-byte records of
@@ -171,7 +171,7 @@ only (how its choices files and macros work), never copied. Behavioural referenc
   Its text goes through the memory card's Shift-JIS and Windows-1252
   conversion. The frame RiftWii draws the picture in is its own.
 - A GameCube game's 480p, 16:9 and language options (`apply_picture_and_language`
-  and its searches in `wii/launch/gcnative.cpp`, `gc_on_vi_configure` and
+  and its searches in `plugins/gamecube/gcnative.cpp`, `gc_on_vi_configure` and
   `gc_on_projection` in `runtime/gc/gc_rt.c`, their hooks in
   `runtime/gc/gc_entry.S`). Facts: YAGCD's SRAM layout (the language byte
   and its numbers, the flags byte with progressive scan in bit 7) and its

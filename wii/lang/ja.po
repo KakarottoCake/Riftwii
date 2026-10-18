@@ -2643,6 +2643,21 @@ msgstr "「{1}」は専用のMODと設定、それにsd:/riftwii/profilesの画�
 msgid "Removed \"{1}\". This page is the game's own again."
 msgstr "「{1}」を消しました。このページはゲーム本来のものに戻りました。"
 
+msgid "A part of RiftWii is missing (the {1} add-on). Update RiftWii again."
+msgstr "RiftWiiの一部（{1}アドオン）がありません。もう一度RiftWiiを更新してください。"
+
+msgid "A part of RiftWii is damaged (the {1} add-on). Update RiftWii again."
+msgstr "RiftWiiの一部（{1}アドオン）が壊れています。もう一度RiftWiiを更新してください。"
+
+msgid "The {1} add-on is from a different RiftWii ({2}, this one is {3}). Update RiftWii again."
+msgstr "{1}アドオンは別のRiftWiiのものです（{2}、このRiftWiiは{3}）。もう一度RiftWiiを更新してください。"
+
+msgid "There was not enough memory for the {1} add-on. Restart RiftWii and try again."
+msgstr "{1}アドオンのためのメモリが足りませんでした。RiftWiiを再起動して、もう一度試してください。"
+
+msgid "The {1} add-on did not start. Send a problem report so this can be fixed."
+msgstr "{1}アドオンが起動しませんでした。直せるように、問題レポートを送ってください。"
+
 msgid "Sharper picture"
 msgstr "くっきりした画面"
 

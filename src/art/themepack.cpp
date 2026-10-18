@@ -24,6 +24,15 @@ bool path_ok(const std::string& path) {
            theme_pack_name_ok(path.substr(slash + 1), true);
 }
 
+// The apps part also carries RiftWii's plugins, one folder deeper
+// ("riftwii/plugins/<file>"): a folder, then a path as above.
+bool apps_path_ok(const std::string& path) {
+    if (path_ok(path)) return true;
+    const std::size_t slash = path.find('/');
+    return slash != std::string::npos && theme_pack_name_ok(path.substr(0, slash), false) &&
+           path_ok(path.substr(slash + 1));
+}
+
 }  // namespace
 
 bool parse_theme_pack(const std::uint8_t* data, std::size_t size, ThemePack& out, std::string& error,
@@ -79,7 +88,8 @@ bool parse_theme_pack(const std::uint8_t* data, std::size_t size, ThemePack& out
                 error = "a file line without its size: " + text;
                 return false;
             }
-            if (!path_ok(f.path)) {
+            const bool apps = std::string(header) == kAppsPackHeader;
+            if (!(apps ? apps_path_ok(f.path) : path_ok(f.path))) {
                 error = "a file outside one theme's folder: " + f.path;
                 return false;
             }

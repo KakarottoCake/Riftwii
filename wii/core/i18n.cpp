@@ -5,15 +5,10 @@
 #include <vector>
 
 #include "FreeTypeGX.h"
-#include "es_po_zst.h"
-#include "fr_po_zst.h"
 #include "gettext.h"
-#include "it_po_zst.h"
-#include "ja_po_zst.h"
-#include "ko_po_zst.h"
 #include "log.hpp"
-#include "pt_po_zst.h"
 #include "riftwii/langfile.hpp"
+#include "stash.hpp"
 #include "textfile.hpp"
 #include "zstd.h"
 
@@ -22,28 +17,22 @@ namespace {
 
 Translations g_catalog;
 
-// wii/lang/*.po, zstd-compressed (Makefile.wii); only the menu's language
-// is unpacked.
-struct BuiltIn {
-    const char* lang;
-    const unsigned char* data;
-    const unsigned size;
-};
+// wii/lang/*.po, zstd-compressed in the start-up stash as "<lang>.po.zst"
+// (Makefile.wii, wii/core/stash.hpp); only the menu's language is unpacked.
+const char* const kBuiltIn[] = {"es", "ja", "pt", "it", "fr", "ko"};
 
-const BuiltIn kBuiltIn[] = {
-    {"es", es_po_zst, es_po_zst_size},
-    {"ja", ja_po_zst, ja_po_zst_size},
-    {"pt", pt_po_zst, pt_po_zst_size},
-    {"it", it_po_zst, it_po_zst_size},
-    {"fr", fr_po_zst, fr_po_zst_size},
-    {"ko", ko_po_zst, ko_po_zst_size},
-};
-
-std::string Unpack(const BuiltIn& b) {
-    const unsigned long long size = ZSTD_getFrameContentSize(b.data, b.size);
+std::string Unpack(const char* lang) {
+    const std::string name = std::string(lang) + ".po.zst";
+    const u8* packed = nullptr;
+    u32 packed_size = 0;
+    if (!stash::Find(name.c_str(), packed, packed_size)) {
+        logf("Language: %s is not in the start-up data\n", name.c_str());
+        return {};
+    }
+    const unsigned long long size = ZSTD_getFrameContentSize(packed, packed_size);
     if (size == ZSTD_CONTENTSIZE_UNKNOWN || size == ZSTD_CONTENTSIZE_ERROR || size == 0 || size > (1u << 20)) return {};
     std::string text(static_cast<std::size_t>(size), '\0');
-    if (ZSTD_decompress(&text[0], text.size(), b.data, b.size) != text.size()) return {};
+    if (ZSTD_decompress(&text[0], text.size(), packed, packed_size) != text.size()) return {};
     return text;
 }
 
@@ -52,8 +41,8 @@ std::string Unpack(const BuiltIn& b) {
 void SetMenuLanguage(const std::string& lang) {
     g_catalog.clear();
     std::size_t built_in = 0;
-    for (const BuiltIn& b : kBuiltIn) {
-        if (lang == b.lang) built_in = parse_po(Unpack(b), g_catalog);
+    for (const char* b : kBuiltIn) {
+        if (lang == b) built_in = parse_po(Unpack(b), g_catalog);
     }
     std::size_t from_card = 0;
     const std::string path = "sd:/riftwii/lang/" + lang + ".po";

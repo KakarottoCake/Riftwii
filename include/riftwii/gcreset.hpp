@@ -8,7 +8,7 @@
 #include "riftwii/symsearch.hpp"
 
 // A GameCube game's restart (the console's Reset button), found in its
-// code before it starts (wii/launch/gcnative.cpp hooks it, runtime/gc
+// code before it starts (plugins/gamecube/gcnative.cpp hooks it, runtime/gc
 // does the restart).
 //
 // On a GameCube the game itself watches Reset and, once it has faded out

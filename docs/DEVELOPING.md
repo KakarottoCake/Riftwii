@@ -22,11 +22,27 @@ make -f Makefile.wii
 The Wii build needs devkitPPC, libogc, libfat and the portlibs `Makefile.wii`
 lists (FreeType, zlib, libogg/tremor), and the `zstd` command-line
 tool (devkitPro's MSYS2 has it), which packs the runtime blobs, the menu
-font, the translations and the GPL text. It first builds the
+font, the translations and the GPL text. Python 3 then adds the font,
+the translations and the GPL to `riftwii.dol` as the start-up stash
+(`tools/dol_stash.py`, [MEMORY.md](MEMORY.md)); `riftwii.elf` has no
+stash and stops at the menu font if started directly. It first builds the
 two in-game blobs with `Makefile.runtime` (`build-runtime/riftwii_rt.bin`,
 the resident runtime, and `riftwii_pad.bin`, the pad hook), checking that
 each is position-independent, then embeds them with the font, the
 translations and the Gecko code handler.
+
+The plugins ([PLUGINS.md](PLUGINS.md)) are built in the same `make`,
+before the DOL, by `Makefile.plugin` (`make -f Makefile.wii plugins`
+builds only them). Each is linked at two bases and
+`tools/make_plugin.py` writes the `.rwp` with the DOL's version and build
+stamp (the version and the commit, `2610-469-ga5ef290f`):
+`build-plugins/plugins/<name>.<version>.rwp` goes to
+`sd:/apps/riftwii/plugins/` next to `boot.dol`, and
+`build-plugins/<name>/<name>.elf` (linked at 0) is the ELF a crash
+report's `plugin <name> +0x...` offset is looked up in. The DOL's rule
+ends with `make_plugin.py check`, so a DOL is never built next to
+plugins it would refuse. Copy the DOL and its plugins together: a DOL
+refuses plugins from any other build.
 
 Things that bite:
 
@@ -111,6 +127,33 @@ checked on a Wii (`docs/USB_HARDWARE_TEST.md`). What Dolphin does check
 well: the menu, disc launches with packs, the resident runtime (its
 Gecko lines and Dolphin's DI and SD logs), savegames, and heap placement
 (RiftWii poisons the IOS reload area there, see `ARCHITECTURE.md`).
+
+### The plugin test switch
+
+`sd:/riftwii/plugin_test.txt` loads plugins at the menu's start, which
+nothing else does, and logs every step to `session.log`:
+
+```
+load selftest
+```
+
+`selftest` (`plugins/selftest/`) logs its version, the address its code
+runs from, a value computed through relocated function pointers (it must
+come out `0x8af4bb0e`), a block from the plugin arena, and a read of the
+test file through the host table; then its probe and, when the menu
+closes, its shutdown. A line `crash` in the same file makes it crash on
+purpose after that, to check that the crash screen and `crash.txt` name
+`plugin selftest +0x...`. The plugins are read from the running DOL's
+folder (`argv[0]`, else `sd:/apps/riftwii/plugins/`; Dolphin passes no
+path), or from `plugins = <folder>` in `settings.txt`.
+
+The refusals: a `load <name>` line for a plugin that isn't there, or a
+file changed with `tools/make_plugin.py variant` (`--damage` for a broken
+hash, `--api 2` or `--stamp 2610-1-g00000000` for another RiftWii's
+plugin, `--name` to load it under another name), each give one log line
+saying which check failed and Home's notice with the sentence a player
+would see. Nothing of a refused plugin runs. Leave no `plugin_test.txt`
+on a tester's card.
 
 ## Logs to ask testers for
 
@@ -231,7 +274,10 @@ it. Off by default; a GX buffer that filled up is logged either way
    `release_date`), then `make -f Makefile.wii clean` and build.
 2. Run the host tests and the Dolphin checks above.
 3. Pack the zip: `sd-card/apps/riftwii/` with `boot.dol` (the new
-   `riftwii.dol`), `meta.xml`, `icon.png` and `music.ogg` (all from `hbc/`);
+   `riftwii.dol`), `meta.xml`, `icon.png` and `music.ogg` (all from `hbc/`),
+   and `plugins/` with every file of `build-plugins/plugins/` from the
+   same build (`make_update_pack.py` refuses plugins that don't match the
+   zip's `boot.dol`);
    `sd-card/apps/riftwii_channel/`
    with `boot.dol` (`build-channel/installer.dol`, from
    `make -f Makefile.channel`) and `channel/installer/hbc/meta.xml` and
@@ -247,7 +293,19 @@ it. Off by default; a GX buffer that filled up is logged either way
    build packs it).
    The in-app update's pack: `py -3.13 tools/make_update_pack.py
    riftwii-vYYMM-N.zip riftwii-update.pack` (the themes, then the
-   zip's channel installer and icon).
+   zip's plugins, channel installer and icon). It fails a zip without
+   `plugins/gamecube.<version>.rwp`: the DOL has no GameCube loader of its
+   own any more. Attach the pack to every release: the in-app update
+   downloads it with the DOL and writes its plugins first.
+   Before going on, check the zip has the plugin folder: `unzip -l
+   riftwii-vYYMM-N.zip | grep apps/riftwii/plugins/` lists one
+   `<name>.<version>.rwp` per plugin, with this release's version. A zip
+   without it starts, but every feature that lives in a plugin says the
+   add-on is missing. `tools/make_release_zip.py` (when it is in the tree)
+   copies `build-plugins/plugins/` itself; a zip packed by hand or by an
+   older script needs the folder copied, so check either way.
+   Keep `build-plugins/*/*.elf` with `riftwii.elf`: a crash in a plugin
+   is named as `plugin <name> +0x...`, an offset into that ELF.
    The theme kit when a picture or a setting changes (a new one in
    `src/art/theme.cpp`'s list, or a new look): `cmake --build build-host
    --target theme_kit`, then `py -3.13 tools/make_theme_kit.py

@@ -24,6 +24,7 @@
 #include "log.hpp"
 #include "menuios.hpp"
 #include "online.hpp"
+#include "plugins.hpp"
 #include "restart.hpp"
 #include "riftwii/gamefault.hpp"
 #include "riftwii/gccrash.hpp"
@@ -145,6 +146,9 @@ std::string describe_system(const std::string& reason) {
     std::string s = "RiftWii problem report\n";
     s += "Why: " + reason + "\n";
     s += std::string("RiftWii: ") + RIFTWII_VERSION + "\n";
+    // Plugins run code the DOL does not carry: named with their stamps, so
+    // a crash in one can be looked up in that plugin's ELF.
+    s += "Plugins: " + plugin::Summary() + "\n";
     s += std::string("Made: ") + when + " (the console's clock)\n";
     s += std::string("Console: ") + (running_in_dolphin() ? "Dolphin" : is_wii_u() ? "Wii U (vWii)" : "Wii") +
          ", region " + region_name() + ", System Menu " +

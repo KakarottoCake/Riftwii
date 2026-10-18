@@ -7,6 +7,8 @@
 #include <cstdlib>
 #include <vector>
 
+#include "riftwii/pluginfile.hpp"
+
 namespace riftwii {
 namespace {
 
@@ -156,6 +158,46 @@ int compare_versions(const std::string& a, const std::string& b) {
     if (x.suffix.empty()) return count(y.suffix) ? -1 : 1;
     if (y.suffix.empty()) return count(x.suffix) ? 1 : -1;
     return compare_suffixes(x.suffix, y.suffix);
+}
+
+bool plan_update_writes(const ThemePack& apps, const std::string& release, const std::string& plugin_dir,
+                        const std::string& dol_path, std::vector<UpdateWrite>& out, std::string& error) {
+    out.clear();
+    static const std::string kPluginsFolder = "riftwii/plugins/";
+    // The releases' tags are "v2610-500"; the version in a file name is
+    // the build's own, "2610-500".
+    const bool tagged = !release.empty() && (release[0] == 'v' || release[0] == 'V');
+    const std::string version = tagged ? release.substr(1) : release;
+    if (version.empty() || dol_path.empty() || plugin_dir.empty() || plugin_dir.back() != '/') {
+        error = "the update has no version, DOL path or plugin folder to write to";
+        return false;
+    }
+    std::vector<UpdateWrite> plugins;
+    for (const ThemePackFile& file : apps.files) {
+        if (file.path.compare(0, kPluginsFolder.size(), kPluginsFolder) != 0) continue;  // the next start's
+        const std::string name = file.path.substr(kPluginsFolder.size());
+        std::string plugin;
+        std::string its_version;
+        if (name.find('/') != std::string::npos || !plugin_file_parse(name, plugin, its_version)) {
+            error = "the update's apps pack has a plugin file RiftWii does not write: " + file.path;
+            return false;
+        }
+        if (its_version != version) {
+            error = "the update's plugin " + name + " is not for " + version + ", the version being installed";
+            return false;
+        }
+        UpdateWrite write;
+        write.path = plugin_dir + name;
+        write.offset = file.offset;
+        write.size = file.size;
+        plugins.push_back(write);
+    }
+    out = plugins;
+    UpdateWrite dol;
+    dol.path = dol_path;
+    dol.dol = true;
+    out.push_back(dol);
+    return true;
 }
 
 }  // namespace riftwii

@@ -40,6 +40,11 @@ SOURCES		:=	$(WII_DIRS) $(SRC_DIRS) runtime vendor-pugixml/src vendor-zstd \
 # the GamePad through it, guarded so plain Wii and Dolphin are unaffected.
 EXCLUDES	:=	vendor-libgui/source/demo.cpp vendor-libgui/source/menu.cpp vendor-libgui/source/filebrowser.cpp \
 				vendor-libgui/source/gettext.cpp vendor-libgui/source/pngu.c
+# What only the GameCube loader uses lives in the gamecube plugin
+# (Makefile.plugin's gamecube_SRC, docs/PLUGINS.md "Stage (b)"), not in the
+# DOL; the host tests still build these (CMakeLists.txt).
+EXCLUDES	+=	src/patching/gclayout.cpp src/patching/gcclock.cpp src/patching/gcreset.cpp \
+				src/data/gccontrols.cpp
 INCLUDES	:=	$(WII_DIRS) vendor-libgui/source include runtime runtime/resident runtime/pad runtime/gc runtime/shot runtime/fault runtime/vsd vendor-pugixml/src vendor-bearssl/inc vendor-wwfc vendor-zstd \
 				channel/common
 DATA		:=	wii/assets wii/lang vendor-gecko vendor-libgui/source/images vendor-libgui/source/fonts vendor-libgui/source/sounds vendor-libgui/source/lang \
@@ -82,6 +87,12 @@ $(error cannot count the commits since $(RIFTWII_BASE_TAG): git and the tag are 
 endif
 RIFTWII_VERSION := $(RIFTWII_BASE)$(if $(filter-out 0,$(RIFTWII_COMMITS)),-$(RIFTWII_COMMITS))
 CFLAGS		+=	-DRIFTWII_VERSION='"$(RIFTWII_VERSION)"'
+# The build stamp the DOL and its plugins share (docs/PLUGINS.md): the
+# version and the commit, so a plugin from another build is refused even
+# when the version number is the same (a local build of another branch).
+RIFTWII_COMMIT := $(shell git -C "$(PROJECT_ROOT)" rev-parse --short=8 HEAD 2>/dev/null)
+RIFTWII_BUILD_STAMP := $(RIFTWII_VERSION)-g$(or $(RIFTWII_COMMIT),unknown)
+CFLAGS		+=	-DRIFTWII_BUILD_STAMP='"$(RIFTWII_BUILD_STAMP)"'
 # Test builds: make WII_DEFINES=-DRIFTWII_TEST_LIMITS (wii/core/memlimits.hpp TestBallast).
 CFLAGS		+=	$(WII_DEFINES)
 
@@ -112,14 +123,20 @@ CFILES		:=	$(filter-out $(notdir $(EXCLUDES)),$(CFILES))
 CPPFILES	:=	$(filter-out $(notdir $(EXCLUDES)),$(CPPFILES))
 BINFILES	:=	$(foreach dir,$(DATA),$(notdir $(wildcard $(dir)/*.ttf) \
 					$(wildcard $(dir)/*.lang) $(wildcard $(dir)/*.png) \
-					$(wildcard $(dir)/*.ogg) $(wildcard $(dir)/*.pcm) \
-					$(addsuffix .zst,$(wildcard $(dir)/*.po))))
+					$(wildcard $(dir)/*.ogg) $(wildcard $(dir)/*.pcm)))
 # Do not discover this through wildcard: the outer build evaluates BINFILES
 # before runtime-blob creates build-runtime/riftwii_rt.bin. VPATH resolves it
 # for the recursive build after runtime-blob has completed. menufont.zst and
 # licence.zst are made in the build (below) from wii/font/rounded.ttf and
-# LICENSE.
-BINFILES	+=	riftwii_rt.zst riftwii_rt_rvz.zst riftwii_rt_rvz.rel riftwii_pad.bin riftwii_gc.bin riftwii_gc_rvz.zst riftwii_gc_rvz.rel riftwii_shot.bin riftwii_fault.bin riftwii_wlog.bin riftwii_vsd.bin codehandleronly.bin menufont.zst licence.zst
+# LICENSE. The GameCube runtime blobs (riftwii_gc*) are the gamecube
+# plugin's (plugins/gamecube/gcblobs.S), not the DOL's.
+BINFILES	+=	riftwii_rt.zst riftwii_rt_rvz.zst riftwii_rt_rvz.rel riftwii_pad.bin riftwii_shot.bin riftwii_fault.bin riftwii_wlog.bin riftwii_vsd.bin codehandleronly.bin
+# The start-up stash (wii/core/stash.hpp): not linked, but added to the
+# DOL as a section above .bss that crt0 copies to MEM2, so its MEM1 is
+# the heap's after the start. The menu's font, the GPL's text (credits)
+# and its translations (wii/lang/*.po), zstd-compressed.
+export STASHFILES	:=	menufont.zst licence.zst \
+					$(foreach dir,$(DATA),$(addsuffix .zst,$(notdir $(wildcard $(dir)/*.po))))
 
 #---------------------------------------------------------------------------------
 # use CXX for linking C++ projects, CC for standard C
@@ -150,12 +167,20 @@ export LIBPATHS	:=	$(foreach dir,$(LIBDIRS),-L$(dir)/lib) \
 					-L$(LIBOGC_LIB) -L$(PROJECT_ROOT)/build-bearssl
 
 export OUTPUT	:=	$(PROJECT_ROOT)/$(TARGET)
-.PHONY: $(BUILD) clean runtime-blob bearssl-lib
+.PHONY: $(BUILD) clean runtime-blob bearssl-lib plugins
 
 #---------------------------------------------------------------------------------
+# The plugins first (Makefile.plugin), from inside the build so they get
+# the same version and build stamp as the DOL; the DOL's rule then checks
+# that they match.
 $(BUILD): runtime-blob bearssl-lib
 	@[ -d $@ ] || mkdir -p $@
+	@IN_BUILD=1 PROJECT_ROOT="$(PROJECT_ROOT)" $(MAKE) --no-print-directory -C "$(BUILD)" -f ../Makefile.wii plugins
 	@IN_BUILD=1 PROJECT_ROOT="$(PROJECT_ROOT)" $(MAKE) --no-print-directory -C "$(BUILD)" -f ../Makefile.wii
+
+plugins:
+	@[ -d $(BUILD) ] || mkdir -p $(BUILD)
+	@IN_BUILD=1 PROJECT_ROOT="$(PROJECT_ROOT)" $(MAKE) --no-print-directory -C "$(BUILD)" -f ../Makefile.wii plugins
 
 #---------------------------------------------------------------------------------
 # The resident runtime (runtime/resident) is a separate freestanding build
@@ -170,7 +195,7 @@ bearssl-lib:
 #---------------------------------------------------------------------------------
 clean:
 	@echo clean ...
-	@rm -fr "$(BUILD)" "$(TARGET).elf" "$(TARGET).dol" build-runtime build-bearssl
+	@rm -fr "$(BUILD)" "$(TARGET).elf" "$(TARGET).dol" build-runtime build-bearssl build-plugins
 
 #---------------------------------------------------------------------------------
 run:
@@ -188,8 +213,32 @@ DEPENDS	:=	$(OFILES:.o=.d)
 #---------------------------------------------------------------------------------
 # main targets
 #---------------------------------------------------------------------------------
-$(OUTPUT).dol: $(OUTPUT).elf
+# The DOL is elf2dol's, plus the start-up stash as one more data section
+# right above .bss (tools/dol_stash.py). The build fails if the stash
+# would end past STASH_LIMIT: the game's apploader at 0x81200000, which is
+# also where RiftWii's heap stops, and well below 0x81300000, where the
+# Homebrew Channel refused a DOL section on a real Wii. riftwii.elf has
+# no stash: start the .dol.
+PYTHON		?=	python3
+STASH_LIMIT	:=	0x81200000
+#
+# Then every plugin in build-plugins/plugins must carry this DOL's build
+# stamp and API version (tools/make_plugin.py check, as CI runs it).
+PLUGIN_FILES = $(wildcard $(PROJECT_ROOT)/build-plugins/plugins/*.rwp)
+$(OUTPUT).dol: $(OUTPUT).elf $(STASHFILES) $(PROJECT_ROOT)/tools/dol_stash.py $(PROJECT_ROOT)/tools/make_plugin.py
+	@echo output ... $(notdir $@)
+	@elf2dol $< $@
+	@$(PYTHON) $(PROJECT_ROOT)/tools/dol_stash.py $@ --version "$(RIFTWII_VERSION)" --limit $(STASH_LIMIT) \
+		$(foreach f,$(STASHFILES),$(f)=$(f))
+	@$(PYTHON) $(PROJECT_ROOT)/tools/make_plugin.py check --dol $@ --stamp "$(RIFTWII_BUILD_STAMP)" \
+		--version "$(RIFTWII_VERSION)" $(PLUGIN_FILES)
 $(OUTPUT).elf: $(OFILES)
+
+# The plugins, built with this build's version and stamp (Makefile.plugin).
+.PHONY: plugins
+plugins:
+	@$(MAKE) --no-print-directory -C "$(PROJECT_ROOT)" -f Makefile.plugin VPATH= \
+		RIFTWII_VERSION="$(RIFTWII_VERSION)" RIFTWII_BUILD_STAMP="$(RIFTWII_BUILD_STAMP)"
 
 $(OFILES_SOURCES): $(HFILES)
 # A new version must not leave the old number in the DOL (2.7.0 RC8 to
@@ -199,8 +248,8 @@ $(OFILES_SOURCES): $(HFILES)
 # they depend on a stamp rewritten when the version differs.
 $(OFILES_SOURCES): $(PROJECT_ROOT)/CMakeLists.txt
 VERSION_STAMP := riftwii_version.stamp
-VERSION_USERS := $(patsubst %.cpp,%.o,$(patsubst %.c,%.o,$(notdir $(shell grep -l RIFTWII_VERSION $(foreach dir,$(WII_DIRS) $(SRC_DIRS) runtime,$(PROJECT_ROOT)/$(dir)/*.c $(PROJECT_ROOT)/$(dir)/*.cpp) 2>/dev/null))))
-$(shell [ "$$(cat $(VERSION_STAMP) 2>/dev/null)" = "$(RIFTWII_VERSION)" ] || echo "$(RIFTWII_VERSION)" > $(VERSION_STAMP))
+VERSION_USERS := $(patsubst %.cpp,%.o,$(patsubst %.c,%.o,$(notdir $(shell grep -l -e RIFTWII_VERSION -e RIFTWII_BUILD_STAMP $(foreach dir,$(WII_DIRS) $(SRC_DIRS) runtime,$(PROJECT_ROOT)/$(dir)/*.c $(PROJECT_ROOT)/$(dir)/*.cpp) 2>/dev/null))))
+$(shell [ "$$(cat $(VERSION_STAMP) 2>/dev/null)" = "$(RIFTWII_BUILD_STAMP)" ] || echo "$(RIFTWII_BUILD_STAMP)" > $(VERSION_STAMP))
 $(VERSION_USERS): $(VERSION_STAMP)
 #---------------------------------------------------------------------------------
 # This rule links in binary data with .ttf, .png, .ogg and .pcm extensions
@@ -214,19 +263,11 @@ $(VERSION_USERS): $(VERSION_STAMP)
 	$(bin2o)
 
 # The menu's translations (wii/core/i18n.cpp), its font (main.cpp) and the GPL
-# (credits.cpp) are embedded zstd-compressed and unpacked when needed: a
-# smaller DOL keeps more of MEM1 free below the game's apploader.
+# (credits.cpp) are zstd-compressed into the start-up stash (above) and
+# unpacked when needed: none of them takes MEM1 after the start.
 %.po.zst : %.po
 	@echo $(notdir $@)
 	@zstd -q -19 -f -o $@ $<
-
-# bin2o names es.po.zst's header es_po_zst.h, which the %.zst rule below
-# cannot name (its stem is es.po), so make never waited for it: a
-# parallel build could compile i18n.cpp with a catalog's old size, and
-# every translation then failed to unpack (the menu stayed in English).
-%.po.zst.o %_po_zst.h : %.po.zst
-	@echo $(notdir $<)
-	$(bin2o)
 
 menufont.zst : $(PROJECT_ROOT)/wii/font/rounded.ttf
 	@echo $(notdir $@)
@@ -276,6 +317,10 @@ rift_menu.o: CXXFLAGS += -Os
 # What waits on the network or the card, or runs once a launch: for size
 # as well (the room the DOL keeps under 0x81041980 is the menu's margin).
 online.o reportsend.o netpacks.o codebuilds.o autorun.o modplan.o: CXXFLAGS += -Os
+
+# The plugin loader waits on the card too, and is the price of every MEM1
+# saving a plugin brings: for size.
+plugins.o pluginfile.o sha256.o: CXXFLAGS += -Os
 
 # RiftWii's own sources build with -Werror, as the runtime and channel do;
 # the vendored ones (pugixml's known warning, libgui, zstd) do not.

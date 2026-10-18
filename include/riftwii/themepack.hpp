@@ -51,7 +51,9 @@ struct ThemePack {
 };
 
 // False (and `error` says why) for anything that is not a whole pack, or
-// that names a path outside one theme's folder.
+// that names a path outside one theme's folder. The apps part may also
+// name a file one folder deeper (riftwii/plugins/<name>.<version>.rwp);
+// what the update then writes is wii/online/online.cpp's AppsFileAllowed.
 // `end`, when given, is where the bytes after the pack's end line start
 // (the next part of riftwii-update.pack).
 bool parse_theme_pack(const std::uint8_t* data, std::size_t size, ThemePack& out, std::string& error,

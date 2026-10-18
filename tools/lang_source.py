@@ -2145,6 +2145,32 @@ T = {
         "「{1}」を消しました。このページはゲーム本来のものに戻りました。",
         "\"{1}\" removido. Esta página voltou a ser a do jogo.",
         "\"{1}\" tolto. Questa pagina è di nuovo quella del gioco."),
+    # Plugins (wii/core/plugins.cpp): a part of RiftWii that could not be loaded.
+    "A part of RiftWii is missing (the {1} add-on). Update RiftWii again.": (
+        "Falta una parte de RiftWii (el complemento {1}). Vuelve a actualizar RiftWii.",
+        "RiftWiiの一部（{1}アドオン）がありません。もう一度RiftWiiを更新してください。",
+        "Falta uma parte do RiftWii (o complemento {1}). Atualize o RiftWii de novo.",
+        "Manca una parte di RiftWii (il componente aggiuntivo {1}). Aggiorna di nuovo RiftWii."),
+    "A part of RiftWii is damaged (the {1} add-on). Update RiftWii again.": (
+        "Una parte de RiftWii está dañada (el complemento {1}). Vuelve a actualizar RiftWii.",
+        "RiftWiiの一部（{1}アドオン）が壊れています。もう一度RiftWiiを更新してください。",
+        "Uma parte do RiftWii está danificada (o complemento {1}). Atualize o RiftWii de novo.",
+        "Una parte di RiftWii è danneggiata (il componente aggiuntivo {1}). Aggiorna di nuovo RiftWii."),
+    "The {1} add-on is from a different RiftWii ({2}, this one is {3}). Update RiftWii again.": (
+        "El complemento {1} es de otro RiftWii ({2}; este es {3}). Vuelve a actualizar RiftWii.",
+        "{1}アドオンは別のRiftWiiのものです（{2}、このRiftWiiは{3}）。もう一度RiftWiiを更新してください。",
+        "O complemento {1} é de outro RiftWii ({2}; este é {3}). Atualize o RiftWii de novo.",
+        "Il componente aggiuntivo {1} è di un altro RiftWii ({2}, questo è {3}). Aggiorna di nuovo RiftWii."),
+    "There was not enough memory for the {1} add-on. Restart RiftWii and try again.": (
+        "No había memoria suficiente para el complemento {1}. Reinicia RiftWii y vuelve a intentarlo.",
+        "{1}アドオンのためのメモリが足りませんでした。RiftWiiを再起動して、もう一度試してください。",
+        "Não havia memória suficiente para o complemento {1}. Reinicie o RiftWii e tente de novo.",
+        "Non c'era abbastanza memoria per il componente aggiuntivo {1}. Riavvia RiftWii e riprova."),
+    "The {1} add-on did not start. Send a problem report so this can be fixed.": (
+        "El complemento {1} no se inició. Envía un informe de problemas para que se pueda arreglar.",
+        "{1}アドオンが起動しませんでした。直せるように、問題レポートを送ってください。",
+        "O complemento {1} não iniciou. Envie um relatório de problema para que isso seja corrigido.",
+        "Il componente aggiuntivo {1} non si è avviato. Invia una segnalazione così si può correggere."),
     "Sharper picture": (
         "Imagen más nítida",
         "くっきりした画面",
@@ -3951,6 +3977,16 @@ KO = {
         "\"{1}\" 타일이 자체 MOD와 설정, 그리고 sd:/riftwii/profiles의 그림(있다면)과 함께 홈에서 사라집니다. 게임과 MOD는 그대로 남습니다.",
     "Removed \"{1}\". This page is the game's own again.":
         "\"{1}\" 타일을 제거했습니다. 이 페이지는 다시 게임 자체의 페이지입니다.",
+    "A part of RiftWii is missing (the {1} add-on). Update RiftWii again.":
+        "RiftWii의 일부({1} 애드온)가 없습니다. RiftWii를 다시 업데이트해 주세요.",
+    "A part of RiftWii is damaged (the {1} add-on). Update RiftWii again.":
+        "RiftWii의 일부({1} 애드온)가 손상되었습니다. RiftWii를 다시 업데이트해 주세요.",
+    "The {1} add-on is from a different RiftWii ({2}, this one is {3}). Update RiftWii again.":
+        "{1} 애드온은 다른 RiftWii의 것입니다({2}, 이 RiftWii는 {3}). RiftWii를 다시 업데이트해 주세요.",
+    "There was not enough memory for the {1} add-on. Restart RiftWii and try again.":
+        "{1} 애드온에 필요한 메모리가 부족했습니다. RiftWii를 다시 시작한 뒤 다시 시도해 주세요.",
+    "The {1} add-on did not start. Send a problem report so this can be fixed.":
+        "{1} 애드온이 시작되지 않았습니다. 이 문제가 해결될 수 있도록 오류 보고서를 보내주세요.",
     "Sharper picture":
         "더 선명한 화면",
     "Off (as made)":
@@ -5732,6 +5768,16 @@ FR = {
         "\"{1}\" quitte l'accueil, avec ses propres mods et réglages, et son image dans sd:/riftwii/profiles si elle en a une. Le jeu et ses mods restent.",
     "Removed \"{1}\". This page is the game's own again.":
         "\"{1}\" retirée. Cette page est de nouveau celle du jeu.",
+    "A part of RiftWii is missing (the {1} add-on). Update RiftWii again.":
+        "Une partie de RiftWii est manquante (le module {1}). Mettez RiftWii à jour à nouveau.",
+    "A part of RiftWii is damaged (the {1} add-on). Update RiftWii again.":
+        "Une partie de RiftWii est endommagée (le module {1}). Mettez RiftWii à jour à nouveau.",
+    "The {1} add-on is from a different RiftWii ({2}, this one is {3}). Update RiftWii again.":
+        "Le module {1} vient d'un autre RiftWii ({2}, celui-ci est {3}). Mettez RiftWii à jour à nouveau.",
+    "There was not enough memory for the {1} add-on. Restart RiftWii and try again.":
+        "Il n'y avait pas assez de mémoire pour le module {1}. Redémarrez RiftWii et réessayez.",
+    "The {1} add-on did not start. Send a problem report so this can be fixed.":
+        "Le module {1} n'a pas démarré. Envoyez un rapport de problème pour que cela soit corrigé.",
     "Sharper picture":
         "Image plus nette",
     "Off (as made)":
@@ -5766,7 +5812,8 @@ def check(repo):
     would never be looked up."""
     sources = ["wii/menu/rift_menu.cpp", "wii/menu/gameextras.cpp", "wii/menu/gui_gamegrid.cpp", "wii/launch/channel.cpp", "wii/menu/frontend.cpp",
                "wii/launch/codebuilds.cpp", "wii/menu/gui_searchkeys.cpp", "wii/main.cpp", "wii/menu/vsdmake.cpp",
-               "wii/menu/gui_shelf.cpp", "wii/menu/memorybudget.cpp", "wii/menu/modtiles.cpp"]
+               "wii/menu/gui_shelf.cpp", "wii/menu/memorybudget.cpp", "wii/menu/modtiles.cpp",
+               "wii/core/plugins.cpp"]
     text = "".join(open(os.path.join(repo, p), encoding="utf-8").read() for p in sources)
     missing = [k for k in T if '"%s"' % escape(k) not in text]
     for k in missing:
@@ -5776,7 +5823,12 @@ def check(repo):
     import glob
     import re
     untranslated = set()
-    for path in sorted(glob.glob(os.path.join(repo, "wii", "**", "*.cpp"), recursive=True)):
+    # The plugins too (docs/PLUGINS.md): their text is shown through the
+    # loader's tr(), so it needs its translations here like the menu's.
+    code_files = glob.glob(os.path.join(repo, "wii", "**", "*.cpp"), recursive=True)
+    for pattern in ("*.c", "*.cpp"):
+        code_files += glob.glob(os.path.join(repo, "plugins", "**", pattern), recursive=True)
+    for path in sorted(code_files):
         code = open(path, encoding="utf-8").read()
         for m in re.finditer(r'\btr\(\s*"((?:[^"\\]|\\.)*)"', code):
             literal = m.group(1)
