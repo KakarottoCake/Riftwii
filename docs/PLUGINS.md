@@ -1,8 +1,9 @@
 # Plugins: a design
 
 Status: stage (a) is built (the loader, API 1, the `selftest` plugin, the
-packaging and the checks; "Stage (a) as built" below). Stages (b) and (c)
-are still the design. No number here was measured on a Wii; the sizes
+packaging and the checks; "Stage (a) as built" below). Stage (b), the
+GameCube loader as a plugin, has its design below ("Stage (b): the
+GameCube loader as a plugin"); stage (c) is still the design. No number here was measured on a Wii; the sizes
 of stage (a) are from the Wii build, the rest are estimates. The words
 "must" and "will" describe the design.
 
@@ -63,6 +64,164 @@ next start writes the release's apps part (plugins included) from
 own version and says the add-on is missing; it never runs an old one.
 Stage (b) makes the update write the plugins before the DOL, so the
 GameCube loader is there from the first start.
+
+## Stage (b): the GameCube loader as a plugin
+
+The maintainer's choice for the boundary (pull request #121, option 2): a
+C interface, a table of plain C function pointers, with the C++ kept
+inside the plugin. A throwaway link of the loader against `plugin.ld`
+found 99 undefined symbols (117 after #113, #115 and #116): libstdc++'s
+out-of-line parts, the C library, libogc, Zstandard, four embedded blobs
+and 24 of RiftWii's own functions that take `std::string`, `std::vector`
+or `Settings()`. None of them may cross as C++. This section is the design
+for moving it; "Stage (b) as built" below records what came out.
+
+### What moves
+
+The plugin is `gamecube` (`plugins/gamecube/`). Its one job is what
+`LaunchGcNative` did: read the game's DOL and FST, find and hook its
+functions, lay out MEM1 and MEM2, hand the SD card over and jump. Into
+it go:
+
+- `wii/launch/gcnative.cpp`, moved to `plugins/gamecube/gcnative.cpp`;
+- the GameCube runtime blobs, which only it copies into a game:
+  `riftwii_gc.bin`, `riftwii_gc_rvz.zst` and `riftwii_gc_rvz.rel`;
+- its own copies of the platform-free code it calls from `src/`
+  (`gcclock`, `gcreset`, `gclayout`, `gccontrols`, `gcvideo`, `gcoverlay`,
+  `rvz`, `sha1`, `symsearch`, `codehook`, `hook`, `redirect`, the game
+  lists of `gxpatches`), linked with `--gc-sections` so only what it reaches
+  is kept. The ones nothing else in the DOL uses (`gcclock`, `gcreset`,
+  `gclayout`, `gccontrols`) leave the DOL; the others stay in both, as
+  section 4 allows ("linked into the plugin that needs them").
+
+What stays in the DOL: listing the games, their pages, their options and
+the packs' plan (`gclaunch.cpp`), the memory card backup, the crash
+screen the menu draws in its font, and the way back (the ES ticket views):
+`wii/launch/gcplugin.cpp` keeps `FindGcWayBack` and `SetGcCrashScreen`,
+and `LaunchGcNative` there becomes the call into the plugin.
+
+### The plugin's table: launch
+
+`rwp_plugin` gains one entry, after `shutdown`:
+
+    int32_t (*launch)(const void* request, uint32_t request_bytes);
+
+It starts what the plugin starts and returns only on failure. The request
+is the plugin's own C structure, here `rwp_gc_launch` in
+`include/riftwii/plugin_gamecube.h`, which begins with its size: the game
+(path, ID, whether it is an RVZ, the game's options as numbers), the packs'
+plan as flat arrays (the new FST, the header bytes, the window's entries),
+a snapshot of what the launch reads from the settings and the launch's
+extras (rumble off, Dolphin or a Wii, the cheats' code list and count,
+whether a code build's own codes were picked, the code handler's bytes),
+the crash screen's bytes and whether its hint promises a way back, the way
+back (its title, kind and ticket view, fetched by the DOL), and an error
+buffer. The plugin turns the arrays back into `GcImage` and
+`GcOverlayPlan` and runs the moved code. `kPluginTableBytes` becomes 28,
+and `plugin_check_table` checks `launch` as it does `probe`: NULL or a
+word of code inside the image.
+
+### The host table: API 2
+
+RiftWii's table grows at its end; `RWP_API_VERSION` becomes 2, as
+`rwp_plugin` changed too. Each new entry is a plain C function with C
+types (pointers and sizes, out-structures with fixed fields), grouped by
+what the loader needs:
+
+| Group | Entries | Replaces |
+| --- | --- | --- |
+| C runtime | `format` (vsnprintf), `move_bytes` (memmove), `fill_bytes` (memset) | `snprintf`, `memcpy`, `memmove`, `memset` |
+| Log | `log_text` (a line as it is, its own "GameCube: " start and line end), `log_close` | `logf`, `LogClose` |
+| Files | `stream_open`, `stream_close`, `stream_read`, `stream_write`, `stream_seek`, `stream_tell` (an opaque handle, 64-bit offsets), `path_info` (size, folder or file), `make_directory` | `fopen` and the rest, `stat`, `mkdir` |
+| The SD card, raw | `sd_file_fragments` (a file's sectors as `rwp_fragment` pairs and its size), `sd_forget_layout`, `sd_hand_over` (unmount, shut the interface down, open the card for the game: `rwp_sd_card` with its fd, RCA and SDHC flag) | `resolve_sd_file`, `forget_sd_layout`, `fatUnmount`, `sd_interface()->shutdown()`, `sdio::open_card` |
+| System | `ios_open`, `read_sram` (`rwp_sram`: the clock bias, the language, slot A's flash ID), `video_framebuffer`, `shut_down_for_game` (the TV mode as a number, `RWP_TV_NTSC` or `RWP_TV_PAL`; configures the video encoder, two retraces, `SYS_ResetSystem(SYS_SHUTDOWN)`) | `IOS_Open`, `__SYS_LockSram*`, `VIDEO_*` with `TVNtsc480IntDf`/`TVPal528IntDf`, `SYS_ResetSystem` |
+| Zstandard | `zstd_decompress`, `zstd_frame_size`, `zstd_is_error` | the three `ZSTD_*` the RVZ reader and the RVZ blob need |
+
+The cache entries of API 1 (`flush_range`, `sync_code`) replace
+`DCFlushRange` and `ICInvalidateRange`, and `mem1_alloc` and `mem1_free`
+(the loader's heap, which carries on into MEM2) back the plugin's
+`operator new`. Not in the table, because the DOL does them before the
+call: the ES ticket views of the way back, `Settings()`, the launch's
+extras, the memory card backup (`gcbackup`, which the menu uses too) and
+whether the image is an RVZ.
+
+### C++ inside the plugin
+
+Built with `-fno-exceptions -fno-rtti -fno-threadsafe-statics`.
+`plugins/common/rwpruntime.cpp`, linked into every C++ plugin, gives the
+link what libstdc++ and the C library would: `operator new` and `delete`
+on `mem1_alloc` and `mem1_free`, `memcpy`, `memmove`, `memset`, `memcmp`,
+`strlen`, the stdio calls and `stat` and `mkdir` over the Files group,
+`snprintf` over `format`, the `ZSTD_*` names over the Zstandard group,
+`abort`, `__cxa_pure_virtual`, and the `std::__throw_*` functions.
+`std::string`'s members are instantiated in the plugin itself (an explicit
+instantiation in `rwpruntime.cpp`, compiled without exceptions), so
+nothing of libstdc++'s exception-built objects is linked. The one
+`dynamic_cast` (the RVZ reader's) goes: the plugin opens the disc itself,
+so it keeps the RVZ source it made.
+
+Nothing may throw, so the `__throw_*` functions and an `operator new`
+that finds no memory do not trap: during a launch they jump back to the
+plugin's `launch` (`__builtin_setjmp`, no library needed) and it returns
+the failure. Out of memory comes back as its own result, and the DOL
+throws `std::bad_alloc` there, so the existing "RiftWii ran out of memory
+while starting the game" message (`mem::OutOfMemoryAsError`) still shows.
+What the launch had allocated is not freed: the failure path restarts
+RiftWii anyway (`OfferRestart`). Outside a launch (its `init`) such a
+failure stops the plugin with a trap, which the crash report names.
+
+The one global with a constructor, the crash screen's `std::vector`,
+leaves the plugin: the DOL keeps the screen and passes its bytes in the
+request.
+
+### Where the plugin runs, and staying out of the game's way
+
+The plugin outlives the menu: it is loaded at the launch, after "the menu
+closed" (the menu's `ShutdownAll` runs before any launch), and its code
+runs to the jump. Its arena is the top of arena 2, above everything a
+GameCube launch writes in MEM2 (the card and buffers from `0x91000000`,
+the Reset snapshot to `0x92D00000`; MEMORY.md). The plugin checks this
+before it writes anything: when its own image is within one arena's size
+of that range, the launch stops with a sentence saying so instead of
+overwriting its own code. Everything it calls after `shut_down_for_game`
+(the cache functions, `move_bytes`, `fill_bytes`) is DOL code above
+`0x80A00000`, which no game section reaches (`read_dol` refuses one that
+does).
+
+### When the plugin is missing
+
+`LaunchGcNative` (DOL) asks `plugin::Launch("gamecube", ...)`, which loads
+the plugin on first use. When it cannot be used (missing, damaged, from
+another RiftWii, no memory), the launch fails with the loader's sentence
+on screen (translated, "A part of RiftWii is missing (the gamecube
+add-on). Update RiftWii again.") and the log says
+`GameCube games need RiftWii's gamecube plugin in <folder> (<file>): ...`
+with the refusal's reason. RiftWii comes back as for any failed launch.
+
+### Updates: plugins first
+
+The in-app update knows the release's `riftwii-update.pack` from the
+update check (its URL, size and SHA-256 kept in the update note with the
+DOL's). It downloads the pack with the DOL, checks both, and writes the
+pack's plugin files (`riftwii/plugins/<name>.<version>.rwp`, the new
+version's names) next to the running DOL before it writes `boot.dol`; a
+plugin it cannot write stops the update before the DOL is touched. The
+stamped names keep the old DOL working until the new one is in place,
+and the new DOL's first start finds its own plugins. The rest of the apps
+part and the themes are written at that start, as before, which also
+removes the old version's plugins. The order is planned by
+`plan_update_writes` (`src/net/update.cpp`, host-tested).
+`tools/make_update_pack.py` puts the plugins first in the apps part and
+fails a zip without the `gamecube` plugin.
+
+### Tests
+
+Host: the table's size and packing (`plugin_tests`), the request's layout
+and the round trip of a packs' plan through it (`gcplugin_tests`), the
+update's order. Build: `make_plugin.py check` for `selftest` and
+`gamecube`, the size report. Dolphin: an ISO and an RVZ started by
+`autorun.txt` with the plugin there, and with it missing; the arena's
+"stays taken" check in each `session.log`.
 
 RiftWii's loader (`boot.dol`) is linked at `0x80A00000` and grows upward
 toward the apploader at `0x81200000`; its heap is the space between its
