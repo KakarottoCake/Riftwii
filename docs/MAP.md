@@ -47,6 +47,7 @@ and `vendor-*` is third-party code.
 | A game's extra Home tiles, each with its own mods | `src/data/profiles.cpp`, `wii/menu/modtiles.cpp`, the Mods page and `BuildHome` in `wii/menu/rift_menu.cpp` |
 | WiiWare and Virtual Console games (the Wii's channels, and those in an emulated NAND on the card) | `src/data/nandchannel.cpp` (which titles, their TMD, the program to load), `wii/storage/nandchannels.cpp` (listing, reading their files), `boot_channel` in `wii/launch/boot.cpp` (the start) |
 | RVZ games | `src/fs/rvz.cpp`, `runtime/rtrvz.c`, `runtime/resident/rt_zstd.c`, `runtime/gc/gc_rvz.c` (GameCube games), `docs/RVZ.md` |
+| Plugins (a design: optional code loaded from the card into MEM2) | `docs/PLUGINS.md` |
 | The GameCube controller adapter | `runtime/rtgcad.c` (the driver), `wii/controllers/gcadapter.cpp` (menu), `runtime/pad/` and `wii/hooks/padhook.cpp` (games) |
 | Screenshots | `wii/menu/screenshot.cpp`, `runtime/shot/`, `wii/hooks/shothook.cpp`, `src/data/shotfile.cpp`, `src/art/pngencode.cpp` |
 | Problem reports and the QR code | `wii/online/reportsend.cpp`, `src/data/problemreport.cpp`, `src/art/qrcode.cpp` |

@@ -1,0 +1,495 @@
+# Plugins: a design
+
+Status: a proposal for discussion. Nothing in this document is built, and
+no number in it was measured on a Wii; every size is an estimate to be
+replaced by a real one in the first stage. The words "must" and "will"
+describe the design, not the code. This is a design only: the pull request
+that adds it changes no source file.
+
+RiftWii's loader (`boot.dol`) is linked at `0x80A00000` and grows upward
+toward the apploader at `0x81200000`; its heap is the space between its
+image end and that address ([ARCHITECTURE.md](ARCHITECTURE.md#the-loaders-size-and-the-games-room)).
+The Homebrew Channel loads the whole DOL into RAM and the Wii does not page,
+so every feature RiftWii has costs MEM1 whether or not a player ever uses
+it. A separate effort moves data only needed at start-up to MEM2. This
+document is about the other half: code that most launches never run can
+stay on the card until it is needed.
+
+## 1. Goals and non-goals
+
+Goals:
+
+- **MEM1 relief.** The code and read-only data of a feature that is not in
+  use leave `boot.dol` and so leave the MEM1 image.
+- **Optional features loaded on demand.** A plugin is read from the card
+  the first time its feature is used, into MEM2, and can be dropped again.
+- **One bundle.** Plugins ship inside the release zip and
+  `riftwii-update.pack`, and are written together with `boot.dol`. A player
+  installs and updates RiftWii once; there is nothing else to find, trust
+  or keep in step.
+
+Non-goals:
+
+- Third-party plugins, a plugin store, or any download of a plugin from a
+  network. The maintainer's constraint is that everything stays bundled.
+- Running untrusted code. A plugin runs with the loader's full rights, in
+  the same address space, exactly like the rest of RiftWii. Nothing in this
+  design sandboxes it, and nothing will claim to. Because only RiftWii's
+  own build produces plugins and the update pack's SHA-256 already guards
+  what is written, no signature scheme is proposed either (section 7).
+- A stable public API. The function table is versioned (section 4) but is
+  private to the project: it changes whenever RiftWii needs it to, and a
+  plugin of another build is simply refused.
+- Replacing the in-game blobs under `runtime/`. Those run inside a game,
+  already are position independent and are installed by their own hooks;
+  this design reuses their build rules but does not move them.
+- Saving MEM1 inside a running game. Plugins relieve the *loader*; the
+  game's own MEM1 is a separate matter.
+
+## 2. Format
+
+A plugin is one file, `<name>.rwp`, built like the runtime blobs: freestanding
+C or restricted C++ for the 750CL, no libc and no heap of its own, linked
+twice at two different bases and refused if the two images differ in
+anything but a relocation. `Makefile.runtime` already does this for the
+resident runtime, and `tools/rtreloc.py` already writes a relocation list
+for the two blobs that carry constant tables (the RVZ runtime and the
+GameCube RVZ blob), applied by the loader that copies them. The plugin
+format uses both mechanisms:
+
+- **Pure position-independent code** where the plugin is small and plain
+  (the test plugin, a launcher).
+- **An image plus a relocation list** where the code has tables of
+  pointers (the GameCube loader, which is C++ with `std::` containers from
+  `src/`, has plenty). The loader adds the load address to each listed word.
+  This is the existing RVZ-blob approach, not a new loader.
+
+Allowed in a plugin: code, read-only data, zero-initialised `.bss` (its size
+is in the header and the loader clears it), and writable data only inside
+a state structure the plugin asks for. Not allowed: static constructors and
+destructors, exceptions, RTTI, thread-local data, `.sdata` (the build uses
+`-msdata=none`, as `Makefile.runtime` does), and calls to any libogc or
+RiftWii symbol by name. Everything the plugin needs from outside comes
+through the function table it is given (section 4). The build's blob check
+refuses a plugin whose link map holds an undefined symbol or a section
+outside this list.
+
+### Header
+
+All fields are big-endian, the header is 128 bytes, and everything past it
+is the image:
+
+| Field | Meaning |
+| --- | --- |
+| magic | `RWPL` and a one-byte header version |
+| name | Up to 16 characters, `A-Za-z0-9_-`, the same as the file's base name |
+| plugin version | A number the plugin's own table reports, for logs |
+| API version | The version of the function table the plugin was built against (section 4) |
+| build stamp | The RiftWii build the plugin was made with: the same version string and commit as the DOL prints (`YYMM-N` plus the short hash of the checkout, or `dev` plus the hash of the source files for a local build) |
+| entry table | Offsets of `init`, `shutdown` and the plugin's own table inside the image |
+| sizes | Image size, `.bss` size, relocation count and the state size the plugin wants |
+| flags | Whether the plugin can be unloaded; which memory it needs (section 3) |
+| hash | SHA-256 of the header (this field zeroed) and the image, so a half-written or damaged file is caught before it runs |
+
+### Refusal
+
+The loader checks, in this order, and stops at the first failure with one
+plain sentence in the log and on screen:
+
+1. Magic, header version, sizes inside the file and inside the budget:
+   "The GameCube add-on file is damaged. Update RiftWii again."
+2. Hash: the same message.
+3. API version not equal to the loader's: "The GameCube add-on is from a
+   different RiftWii (API 3, this one is 4). Update RiftWii again."
+4. Build stamp not equal to the DOL's: the same message with both stamps.
+
+An older plugin next to a newer DOL (a card from before an update, or a
+copy from an earlier zip) is therefore never run. The feature it provides
+stays off, its menu entries show as unavailable with the sentence above,
+and the rest of RiftWii works. Nothing is ever loaded in a degraded mode.
+Version and build stamp are both checked because the stamp catches a
+rebuild with the same API number and the API number gives a clearer
+message when only the table changed; a local build stamps both the DOL and
+its plugins in one `make`, so developers meet the check only when they copy
+files by hand.
+
+### Where the files live
+
+Two places were weighed.
+
+- `sd:/riftwii/plugins/` sits with the player's data: themes, covers, saves,
+  settings. Players copy, back up and delete that folder, and a file there
+  looks like theirs to change.
+- `sd:/apps/riftwii/plugins/` sits next to `boot.dol`, in the folder that
+  the zip already unpacks and the Homebrew Channel already treats as the
+  application.
+
+**Proposed: `sd:/apps/riftwii/plugins/`.** A plugin is program code that
+must match one specific `boot.dol` exactly; it belongs to the application
+folder, not to the player's data, and anyone replacing `boot.dol` by hand
+(or unpacking a zip over it) then replaces the plugins too. The in-app
+update already writes into `sd:/apps`: `AppsFileAllowed` in
+`wii/online/online.cpp` lists what it may touch, and the plugin folder
+becomes one more entry there, written by the same apps part of
+`riftwii-update.pack`. The cost is that a loader started from another
+folder, for example by `wiiload` from a development tree, must find its
+plugins next to the DOL that is running: the loader takes the directory of
+its own `argv[0]` (what the Homebrew Channel passes) and falls back to
+`sd:/apps/riftwii/`. A development override, `plugins=<path>` in
+`sd:/riftwii/settings.ini`, is allowed for tests.
+
+### Naming across updates
+
+The in-app update writes several files; a power cut between them must not
+leave a card the old DOL refuses. Two options:
+
+- **Fixed names** (`gcnative.rwp`). Simple. Update order matters: write the
+  plugins, then the DOL last. A cut in between leaves the old DOL with new
+  plugins, which the old DOL refuses until the update is run again.
+- **Stamped names** (`gcnative.2610-440.rwp`). The old DOL still finds its
+  own plugins until the new DOL is written, after which the new DOL
+  deletes the other stamps. More files briefly; no refusal window.
+
+Stamped names are proposed for the cost of a few lines in the loader and
+the pack. This is a question for the maintainer (section 9).
+
+## 3. Loading
+
+**Decided: plugins load automatically on first use.** A plugin is read
+into MEM2 the first time RiftWii needs it, for example when a player
+presses Play on a GameCube game or opens a Settings row the plugin owns. It
+costs nothing until then, and it stays loaded until RiftWii closes. A source
+the player has hidden with the existing settings (such as Games from) never
+asks, so its plugin is never loaded. Nothing is loaded at start-up except
+what the menu needs to draw its first frame.
+
+There are **no per-plugin on/off switches** for the built-in plugins. The
+reason: everything ships together in one bundle, so a plugin is never
+missing by choice, and memory is only spent on what is used, so a switch
+would add a setting without saving anything. Hiding a feature stays the job
+of the settings that exist.
+
+1. Open `<plugins dir>/<name>.<stamp>.rwp` through RiftWii's own file
+   layer (the same `sd:` mount the rest of the loader uses).
+2. Read the 128-byte header and check it (section 2) *before* allocating.
+3. Allocate the image, `.bss` and state in MEM2 (below), read the image in,
+   apply relocations.
+4. `DCFlushRange` the image and `ICInvalidateRange` it, then `ICSync`/a
+   `sync; isync` pair before the first call. The virtual SD card install
+   (`wii/hooks/vsdhook.cpp`) does exactly this after writing code into
+   MEM2, and the resident runtime for code builds runs from MEM2 under the
+   same rules; the plugin loader reuses that sequence rather than inventing
+   one.
+5. Call `init(api)`. A non-zero return unloads it again and logs the
+   plugin's own reason.
+
+Where the plugin goes in MEM2: the loader's MEM2 heap runs from
+`0x90809000` (above the restart snapshot) to just under IOS at
+`0x933E0000`. The current users inside it are the menu's covers and
+decoded art, the update pack and file downloads, the screenshot buffer
+and the game being read for a launch. A game launch then puts its own
+data at the arena ends, and a GameCube launch uses `0x90000000`–`0x91500000`
+([Memory](ARCHITECTURE.md#memory)). A plugin therefore:
+
+- is allocated from the **top** of the loader's MEM2 heap downward (a small
+  arena of its own, sized from the largest plugin plus its `.bss` and
+  state, a few hundred KB at most), so it does not fragment the heap used
+  for covers and downloads, and does not sit inside any range a launch
+  writes. The arena's size is set by the budget table in the first stage's
+  measurement, not guessed here;
+- must not be needed after a launch hands over. The GameCube loader's last
+  act is a jump into the game; nothing of it is called after that, and
+  the blob it left under the FST is a separate thing the loader places
+  (and which does not live in the plugin's memory). The launch hand-off
+  calls `shutdown` and then forgets the arena.
+
+**Unload.** Plugins are kept until RiftWii closes. Dropping one under
+memory pressure is optional: a plugin flagged unloadable, with no open
+handles, may be dropped (`shutdown` first, then its arena released) when the
+heap would otherwise fail an allocation. Stage (a) frees everything at
+launch and does not need more; stage (b) measures whether any real plugin
+does.
+
+A plugin that fails to load never takes the menu down: the call site gets
+a plain "not available" and a `logf` line saying which check failed.
+
+## 4. The API
+
+Two tables, both plain structures of function pointers, both versioned.
+
+### The table RiftWii gives the plugin
+
+Passed to `init`. It starts with its own size and the API version, so a
+plugin built for a longer table than it received refuses to start instead
+of calling a pointer past the end. It stays small; each group below is
+a handful of functions, not a wrapper around libogc.
+
+| Group | What a plugin can ask for |
+| --- | --- |
+| Log | `logf` with the plugin's name prefixed in the line, so every log line names where it came from |
+| Memory | Allocate and free from the plugin's own MEM2 arena; allocate and free from the loader's MEM1 heap (for short-lived buffers that must be in MEM1); cache flush and invalidate for ranges |
+| Files | Open, read, write, seek, size, directory listing and stat on `sd:` and the USB mounts, through RiftWii's own layers (the FAT32/NTFS/WBFS engines under `src/fs/` and the mounts `wii/storage/` sets up), never libogc directly; a read of a sector range of an image for the launch code |
+| Menu | Add a source to the Home screen (a title, an icon the plugin supplies as a small ready texture, a callback to list games), add an action to a game's page, add rows to Settings; every string given as English and passed through the loader's `tr()` (section 5) |
+| Launch | Hand a prepared launch (a plan from `LaunchModel`, a chosen IOS, the SD/USB image) to the loader's boot code; ask for the controller state; ask for the video mode |
+| System | The few things a launcher needs: shut down the loader's IPC cleanly, reload an IOS, read the time |
+| Crash | Register a name and base address for the crash screen (section 8) |
+
+The table never exposes the loader's `riftwii::wii` classes. It exposes
+what the function would do, so a menu refactor does not break plugins.
+Pieces of `src/` that both the loader and a plugin need (the vcdiff reader,
+the GameCube FST rewrite) are linked into the plugin that needs them, or
+into the DOL and handed over by a function, never both; which one is
+decided per function by size.
+
+### The table the plugin gives RiftWii
+
+Returned from `init` (as the entry table's third offset):
+
+- **probe**: given a mounted drive, report whether the plugin has games
+  there, cheaply (a directory test, not a scan).
+- **list**: add the games it finds to RiftWii's game list, in the shape the
+  menu already uses for Wii games (id, title, a cover key, a flag for which
+  source it is). This is what `wii/launch/gclaunch.cpp` does today for
+  `sd:/games/<folder>/game.iso`.
+- **details**: for one game, the facts the game page shows (region,
+  size, features the plugin can offer, its extra rows).
+- **launch**: start it. Does not return on success.
+- **shutdown**: release what `init` took.
+
+A plugin implements only what its kind needs; absent entries are null.
+There is no plugin-to-plugin call.
+
+### Staying stable
+
+"Stable" means two things here, and only one is promised.
+
+- **Within a build, nothing moves.** A plugin and its DOL are built together
+  and checked together (build stamp), so internal consistency does not
+  depend on freezing anything.
+- **Across builds, the API number tells the truth.** The table has a
+  version; any change to the layout or meaning of a function bumps it. The
+  version is written into every plugin by the build from a single header
+  (`include/riftwii/plugin_api.h`, to be created in stage (a)), and the same
+  header is what the loader builds against, so the two cannot drift
+  silently. Adding a function at the end of a group is an additive change
+  and does not need a bump if the plugin checks the table's size field
+  before using it; anything else does.
+
+Because everything ships together and a mismatch is refused, an early
+mistake in the table costs a rebuild of RiftWii and its plugins, not a
+broken ecosystem. Section 8 comes back to the risk of freezing too early.
+
+## 5. Translations and strings
+
+Every menu string is English in the source, goes through `tr()` and has
+its six translations in `tools/lang_source.py` (AGENTS.md). Plugins keep
+that rule.
+
+- A plugin shows a string by giving the loader the English text through
+  the menu part of the API; the loader's `tr()` looks it up in the
+  translation table the DOL already carries (`wii/core/i18n.cpp`,
+  `wii/lang/*.po`, a card's own `.po` on top) and returns the translated
+  text, copied into the loader's memory.
+- `tools/lang_source.py` already checks that every string in `T`, `KO` and
+  `FR` still appears in the code. Its search is extended in stage (a) to
+  look in `plugins/<name>/` as well, so a plugin's string without its six
+  translations fails `lang_source.py` and CI like any other.
+- New Japanese text must exist in the menu font
+  (`tools/make_menu_font.py`) as before.
+
+Where the translated text *lives* is the one open point. In stage (a) and
+(b) the plugin's strings stay in the DOL's tables (a few KB per plugin,
+all languages together): simplest, and the saving is the code. If the
+strings of a large plugin prove a real part of what stays in MEM1, a
+later stage lets a plugin carry its own table, `<name>.<lang>.po` packed
+beside it and loaded with it, with `lang_source.py` writing one set of
+files per plugin. That changes where `lang_source.py` writes, so it is
+left for a later decision (section 9).
+
+Log lines from a plugin follow the same rules as the loader's: plain
+sentences, US spelling where players read them, and the plugin's name at
+the start of each line.
+
+## 6. First candidates
+
+Sizes below are estimates from source sizes and the shape of the code, not
+measurements; stage (a)'s first job is to produce a table from the linker
+map of a real build (`size` on the ELF by object file) and replace these.
+
+| Rank | Candidate | Estimated MEM1 saving | What it would take |
+| --- | --- | --- | --- |
+| 1 | **The GameCube native loader** | The largest single block: `wii/launch/gcnative.cpp` is about 125 KB of source, with `gclaunch.cpp` and `gcpatch.cpp` another 33 KB, plus the vcdiff reader, the overlay and layout code and the GameCube memory card tools in `src/`, and the embedded `runtime/gc` blobs (compressed in the DOL). A rough first guess is 100-200 KB of image, to be measured | The cleanest cut: the code has one entry (a launch) and one list function. It needs the Launch group of the API; `PrepareGcGameInMenu` in `rift_menu.cpp` and the Home source for GC games move behind the plugin's list/details. The shared helpers (patch application, the FST rewrite used for Riivolution packs) must be split into what only GC uses (goes in the plugin) and what Wii launches also use (stays). The plugin needs its blobs from the DOL: they move into the plugin's file, which also moves their compressed bytes out of MEM1 |
+| 2 | **Code-build tools** (Project+ and the like) | Tens of KB: the code-build planning in `gameextras.cpp`, the code list placement and hook code in `src/patching/`, the MEM2 veneer logic | Harder than rank 1 because code builds touch the Wii launch path (`boot.cpp`) at several points and the cheat code handler is shared with ordinary cheats. It would take a defined set of hook points (before apploader, after, before jump) in the API, so a plugin can add its work to a launch without being the launch. Do not attempt before the hook list is clear from stage (b) |
+| 3 | **Emulator launchers** (Not64, mGBA: a user request) | None today (they do not exist), which is the point: each would otherwise add to the DOL. Small each (a launcher is a loader for another DOL plus a game list) | They need the generic parts to be in place: probe/list/launch for a non-disc source, a way to start another DOL with arguments (the headless code path in `wii/launch/headless.cpp` points the way), and files for ROMs in the file layer. Each is a plugin of a few KB plus whatever the emulator's own DOL is, and the emulator DOL is a separate question (it is not RiftWii's to ship unless its license allows; this document does not decide that). Worth listing because they are the case where the plugin shape is right and a DOL feature would be wrong |
+
+Other things left out on purpose: the online (WFC) code and the RVZ reader
+are used by ordinary Wii launches and stay in the DOL; the theme and cover
+code are too tied to the first frame to defer.
+
+## 7. Build and release
+
+**Make targets.** `Makefile.plugin` (new in stage (a)) with one rule per
+plugin under `plugins/<name>/`, driven by `Makefile.wii` like
+`runtime-blob` is: `make -f Makefile.wii plugins` builds all of them;
+`make -f Makefile.wii` still produces the DOL, and now depends on the
+plugin step so that the DOL and its plugins carry the same stamp. The
+rules reuse `Makefile.runtime`'s flags and its two-base link check;
+`tools/rtreloc.py` writes the relocation list and a new
+`tools/make_plugin.py` writes the header and the hash. The build fails if
+a plugin has an undefined symbol, a forbidden section, an image larger
+than the arena budget, or two links that differ beyond relocations.
+
+**Source layout.** `plugins/<name>/` for a plugin's own sources, using
+`src/` for shared platform-free code as everything else does. The
+"no two sources share a base name" rule (AGENTS.md) covers plugin sources
+too, since one flat output folder is how devkitPPC builds here.
+
+**Release.** Today the zip is packed by hand (DEVELOPING.md, "Releasing"):
+`sd-card/apps/riftwii/` with `boot.dol`, `meta.xml`, `icon.png`,
+`music.ogg`. Plugins join as `sd-card/apps/riftwii/plugins/*.rwp`, in
+the same step and in the same zip, so there are still exactly three
+release assets. When the nightly draft's `tools/make_release_zip.py`
+lands, that script packs them; until then the manual step in DEVELOPING.md
+grows one line. `tools/make_update_pack.py` already carries the zip's
+`sd-card/apps` files besides the DOL, `meta.xml` and `music.ogg`; the
+plugin files ride in that same apps part, and `AppsFileAllowed` gains the
+`riftwii/plugins/` prefix (and only `.rwp` files in it) so the pack's
+reader still refuses anything else. The apps part is written before
+`boot.dol`, or by stamped name as in section 2.
+
+**The channel.** The Wii Menu channel is a forwarder that starts
+`sd:/apps/riftwii/boot.dol` ([CHANNEL.md](CHANNEL.md)), so plugins in that
+folder are found with no change to the channel. A DOL started by the
+channel or the Homebrew Channel gets its directory from `argv[0]`
+or the fallback, as above.
+
+**Warm restarts.** A restart ([ARCHITECTURE.md](ARCHITECTURE.md#restarts-and-crashes))
+re-enters `__app_start` with the writable data copied back from
+`0x90800000` and starts exactly like a first run. A plugin's memory is
+not part of that snapshot and is gone after a restart: the new run
+loads again on demand. That is the safe behaviour (a plugin never
+survives into a state it did not initialise) and costs one more file read.
+
+**CI.** The three CI jobs (host tests; Wii and channel builds; translations)
+gain these checks:
+
+- the Wii job builds the plugins and runs the blob check;
+- a size check: every plugin image plus `.bss` within its budget, and the
+  DOL not larger than its limit, so a change that moves code back into
+  the DOL is visible;
+- a version match check: every `.rwp` in the build output carries the
+  DOL's build stamp and the current API number;
+- the translations job covers `plugins/`.
+
+Host tests cover the parts with no hardware in them: the header parser
+and the refusals, the relocation applier, and the function table's size
+and version rules, in a new `tests/plugin_tests.cpp`.
+
+## 8. Risks
+
+**Code in MEM2.** The design relies on MEM2 being executable and cacheable
+for code the loader writes. Evidence it works: the virtual SD card blob
+and the resident runtime for code builds already run from MEM2 under
+libogc's default BAT setup, and `vsdhook.cpp` flushes and invalidates
+around the copy. What is not yet shown is *the loader itself* calling into
+MEM2 code on a real Wii (not just Dolphin, which does not model BAT
+permission faults the same way). Stage (a)'s test plugin exists to answer
+this before anything real moves: Dolphin first, then a real Wii with
+the d2x cIOS and with the original IOS 58 (the Wii-only checks AGENTS.md
+says cannot be called tested in Dolphin). If it fails, the fallback is
+setting a BAT for the arena in the plugin loader, which libogc allows; the
+decision there is to treat it as a design failure and stop, not to hack
+around it.
+
+**Debugging and crash reports.** A crash inside a plugin shows a PC in MEM2
+that `addr2line -e riftwii.elf` cannot resolve. Required from stage (a):
+
+- the plugin's name, base address and build stamp are kept in a small
+  table the loader owns;
+- the crash screen (`wii/core/crash.cpp`) and `sd:/riftwii/crash.txt` print,
+  for every address in the report that falls inside a plugin's arena,
+  `plugin gcnative +0x1a40` instead of a bare address; the log has the
+  load address at load time;
+- the plugin build writes a map file and a stripped-but-symbolic ELF per
+  plugin, and the release notes' "keep `riftwii.elf`" advice grows to "keep
+  the plugins' ELF files" (the zip can carry them in a `symbols/` folder
+  that the problem report names, not the player's card);
+- the problem report names every loaded plugin with its stamp.
+
+The in-game crash screen (`runtime/fault/`) and the GameCube blob's crash
+screen are unaffected: they are in the game, not in a plugin.
+
+**An API frozen too early.** The first design of a function table is the
+one most likely to be wrong, and the first plugin to move (the GameCube
+loader) is a large one. The mitigation is the build stamp rule: the API
+has no outside users and every release ships a matching set, so a wrong
+table is changed in the next build with no compatibility cost. The risk
+is a team that treats the version number as a promise. The document
+says plainly that it is not one. A second mitigation is the order of the
+stages: the table starts as only what the test plugin needs, grows with the
+GameCube loader's real needs, and only then is looked at again for
+others.
+
+Smaller risks:
+
+- **Two ways to fail.** A card lacking a plugin (an interrupted copy) must
+  read as "update again", not as "GameCube games vanished". The list shows
+  the unavailable source with the plain sentence, and a plugin-needed
+  setting is not silently dropped from the settings file.
+- **MEM2 pressure.** Another effort is moving start-up data to MEM2; both
+  together must not starve the covers and downloads. The plugin arena's
+  size is therefore in the memory map (ARCHITECTURE.md, Memory) once
+  built, and the heap check in `session.log` prints it.
+- **The unseen cost of splitting.** Code shared between the DOL and a
+  plugin is either duplicated (size) or called through the table (a
+  dependency). Moving the GameCube loader will show which; the size check
+  in CI keeps a drift visible.
+- **Performance.** Every call into a plugin is an indirect branch through
+  a table. Nothing that runs per frame is proposed for a plugin.
+- **Clean room.** The design is RiftWii's own and uses names from this
+  project (`.rwp`, function tables, build stamp). It follows no other
+  loader's plugin interface, and a plugin must be written from this
+  document and the code here, not ported from elsewhere (AGENTS.md).
+
+## 9. Staged plan
+
+Each stage is its own pull request, and each ends with the host tests,
+the Wii and channel builds, and the translation check passing, plus
+Dolphin for anything a player can see.
+
+1. **(a) Loader and API skeleton, with a test plugin.**
+   `include/riftwii/plugin_api.h`, the header and refusals
+   (`src/` portable code, host-tested), the loader in `wii/core/`, the
+   MEM2 arena, the debugging table in the crash screen,
+   `Makefile.plugin`, `tools/make_plugin.py`, the CI checks, and one
+   plugin, `selftest`, that logs, reads a file, adds one Settings row
+   with a `tr()` string and a Home source with one fake game. Update
+   pack and zip carry it. Measure the real sizes and replace the
+   estimates in this document. Test in Dolphin, then on a real Wii
+   (IOS 58 and d2x) for the MEM2 code question. No existing feature
+   moves; `selftest` is removed or kept behind a debug flag at the end of
+   the stage.
+2. **(b) Move the GameCube loader.** `plugins/gcnative/`, the Launch group
+   of the API grown to what it needs, `gclaunch.cpp`, `gcnative.cpp` and
+   `gcpatch.cpp` and the GC-only helpers out of the DOL. Report the
+   measured MEM1 saving, and that every GameCube checklist item
+   (HOME, saves, 480p, 16:9, crash screen, RVZ) still passes. Changes to
+   behavior are out of scope: this is a move.
+3. **(c) Others, one at a time:** code-build tools if the hook points
+   hold up, then each emulator launcher a player asks for.
+
+Stages (b) and (c) wait on the maintainer's answers below and on the MEM2
+start-up work, whose memory map they must not contradict.
+
+### Decisions for the maintainer
+
+- Is the format right: a relocatable image with the header in section 2,
+  or should plugins be restricted to pure PIC C like the in-game blobs?
+- Location: `sd:/apps/riftwii/plugins/` (proposed) or `sd:/riftwii/plugins/`.
+- Fixed file names with the DOL written last, or names stamped with the
+  build.
+- Plugin strings stay in the DOL's tables (proposed) or each plugin carries
+  its own translation files later.
+- Is the GameCube loader the right first move, and is stage (a) allowed to
+  add a `selftest` plugin to the release for one version?
+- Is "the API is private and changes freely" acceptable as the rule?
