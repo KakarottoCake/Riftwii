@@ -66,24 +66,6 @@ std::string forwarder_app_path(const std::uint8_t* bytes, std::size_t size) {
     return "";
 }
 
-ChannelVerdict judge_unlisted_channel(const std::string& code, std::uint64_t program_size,
-                                      const std::uint8_t* program, std::size_t program_bytes) {
-    ChannelVerdict verdict;
-    if (is_homebrew_code(code)) {
-        verdict.homebrew = true;
-        verdict.reason = "its code belongs to a known homebrew channel";
-        return verdict;
-    }
-    // An inject carries a whole emulator and a game; only a small program
-    // can be a forwarder.
-    if (program_size == 0 || program_size > kForwarderMaxBytes) return verdict;
-    const std::string path = forwarder_app_path(program, program_bytes);
-    if (path.empty()) return verdict;
-    verdict.homebrew = true;
-    verdict.reason = "a homebrew forwarder (its program starts " + path + ")";
-    return verdict;
-}
-
 std::string channel_code(std::uint64_t title_id) {
     std::string code;
     for (int shift = 24; shift >= 0; shift -= 8) {
@@ -255,6 +237,51 @@ std::string nand_content_path(std::uint64_t title_id, std::uint32_t content_id) 
     std::snprintf(path, sizeof path, "/title/%08x/%08x/content/%08x.app", static_cast<unsigned>(title_id >> 32),
                   static_cast<unsigned>(title_id & 0xFFFFFFFFu), static_cast<unsigned>(content_id));
     return path;
+}
+
+ChannelVerdict judge_unlisted_channel(const std::string& code, const TmdContents& tmd,
+                                      const std::vector<ContentStart>& starts) {
+    ChannelVerdict verdict;
+    verdict.left_out = true;
+    if (is_homebrew_code(code)) {
+        verdict.reason = "its code belongs to a known homebrew channel";
+        return verdict;
+    }
+    const TmdContent* boot = tmd_content_by_index(tmd, tmd.boot_index);
+    const ContentStart* boot_start = nullptr;
+    for (const ContentStart& start : starts)
+        if (start.index == tmd.boot_index && !start.head.empty()) boot_start = &start;
+    if (boot == nullptr || (boot->type & 0x8000) != 0 || boot_start == nullptr) {
+        verdict.reason = "its program is not on the Wii (or could not be read), so it cannot start";
+        return verdict;
+    }
+
+    // The program the loader would start; a loader's own first stage is not
+    // the one that says where the channel puts itself.
+    ChannelProgram program;
+    std::string error;
+    if (choose_channel_program(tmd, starts, program, error) && program.format == "DOL") {
+        for (const DolSection& section : program.dol.sections) {
+            if (!section.used() || section.address < kHomebrewLoadAddress) continue;
+            char text[96];
+            std::snprintf(text, sizeof text, "a homebrew loader (its program loads at 0x%08x)",
+                          static_cast<unsigned>(section.address));
+            verdict.reason = text;
+            return verdict;
+        }
+    }
+
+    // An inject carries a whole emulator and a game; only a small program
+    // can be a forwarder.
+    if (boot->size != 0 && boot->size <= kForwarderMaxBytes) {
+        const std::string path = forwarder_app_path(boot_start->head.data(), boot_start->head.size());
+        if (!path.empty()) {
+            verdict.reason = "a homebrew forwarder (its program starts " + path + ")";
+            return verdict;
+        }
+    }
+    verdict.left_out = false;
+    return verdict;
 }
 
 }  // namespace riftwii

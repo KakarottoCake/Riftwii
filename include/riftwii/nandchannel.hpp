@@ -64,18 +64,19 @@ constexpr std::size_t kForwarderMaxBytes = 256 * 1024;
 // bounded length, or empty when there is none.
 std::string forwarder_app_path(const std::uint8_t* bytes, std::size_t size);
 
-struct ChannelVerdict {
-    bool homebrew = false;
-    std::string reason;  // for the log, when homebrew
-};
+// Retail games and Nintendo's Virtual Console emulators (which every
+// inject uses) load their program from 0x80004000 or close to it and stay
+// below about 0x80900000. Homebrew loaders and forwarders often place
+// themselves high, to leave room for what they load: Retro Rewind's
+// channel loads at 0x81000000. A DOL with any section at or above this is
+// taken for homebrew. 0x80003100 (libogc's default start) is below it on
+// purpose: nothing here shows retail never uses it, so it counts as a game.
+constexpr std::uint32_t kHomebrewLoadAddress = 0x80A00000;
 
-// Whether a channel GameTDB does not list is homebrew, judged from the
-// title itself: a known homebrew code, or a program (`program_size` from
-// the TMD, `program` its first `program_bytes`, none when it was too big
-// to read or unreadable) that is small and names an app to start. Anything
-// else is a game: a custom Virtual Console inject takes a made-up code.
-ChannelVerdict judge_unlisted_channel(const std::string& code, std::uint64_t program_size,
-                                      const std::uint8_t* program, std::size_t program_bytes);
+struct ChannelVerdict {
+    bool left_out = false;  // not listed on Home
+    std::string reason;     // for the log, when left out
+};
 
 // One of a TMD's content records.
 struct TmdContent {
@@ -149,5 +150,23 @@ struct ChannelProgram {
 // saying so: the system then starts the title as the Wii Menu does.
 bool choose_channel_program(const TmdContents& tmd, const std::vector<ContentStart>& starts, ChannelProgram& out,
                             std::string& error);
+
+// Whether a channel GameTDB does not list stays off Home, judged from the
+// title itself. `starts` are the first bytes of its own contents (the
+// banner and shared ones need none); the boot content's are up to
+// kForwarderMaxBytes, so a small forwarder's text is in them. In order:
+//   1. a known homebrew code: left out;
+//   2. no readable boot content (missing, shared, or the read failed): left
+//      out, as it cannot be started or judged;
+//   3. the program RiftWii's loader would take (choose_channel_program) is
+//      a DOL with a section at or above kHomebrewLoadAddress: a homebrew
+//      loader, left out;
+//   4. the boot content is at most kForwarderMaxBytes and names an app to
+//      start: a forwarder, left out;
+//   5. anything else is a game: a custom Virtual Console inject takes a
+//      made-up code.
+// An ELF or a program that is no DOL is judged by rule 4 only.
+ChannelVerdict judge_unlisted_channel(const std::string& code, const TmdContents& tmd,
+                                      const std::vector<ContentStart>& starts);
 
 }  // namespace riftwii

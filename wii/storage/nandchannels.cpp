@@ -12,6 +12,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <functional>
 #include <memory>
 
 #include "boot.hpp"
@@ -150,15 +151,27 @@ bool read_card_head(const std::string& path, std::size_t bytes, std::vector<u8>&
     return got > 0;
 }
 
-// Whether a channel GameTDB's list does not name is a game or a homebrew
-// forwarder, and if the latter, logs it by code, banner name and reason.
-// `program_head` is the program's first bytes (empty when it was too big or
-// unreadable, which counts as a game).
-bool leave_out_as_homebrew(const NandChannel& channel, const TmdContent* program,
-                           const std::vector<u8>& program_head, const std::string& where) {
-    const ChannelVerdict verdict = judge_unlisted_channel(channel.code, program ? program->size : 0,
-                                                          program_head.data(), program_head.size());
-    if (!verdict.homebrew) return false;
+// Reads the first `bytes` of a content's file into `out`; false when it cannot.
+using HeadReader = std::function<bool(const std::string& path, std::size_t bytes, std::vector<u8>& out)>;
+
+// Whether a channel GameTDB's list does not name stays off Home, and if so,
+// logs it by code, banner name and reason. It reads the start of each of the
+// title's own contents (judge_unlisted_channel says what it needs): the boot
+// content's up to kForwarderMaxBytes, the others' a program header's worth.
+bool leave_out_unlisted(const NandChannel& channel, const HeadReader& read, const std::string& where) {
+    std::vector<ContentStart> starts;
+    for (const TmdContent& content : channel.tmd.contents) {
+        if (content.index == 0 || (content.type & 0x8000) != 0) continue;
+        const std::uint64_t most = content.index == channel.tmd.boot_index ? kForwarderMaxBytes : kProgramHeadBytes;
+        ContentStart start;
+        start.index = content.index;
+        start.size = content.size;
+        const std::size_t bytes = static_cast<std::size_t>(std::min<std::uint64_t>(most, content.size));
+        if (bytes != 0 && read(nand_content_path(channel.title_id, content.id), bytes, start.head))
+            starts.push_back(std::move(start));
+    }
+    const ChannelVerdict verdict = judge_unlisted_channel(channel.code, channel.tmd, starts);
+    if (!verdict.left_out) return false;
     std::string name;
     for (const std::string& banner_name : channel.names)
         if (name.empty()) name = banner_name;
@@ -226,10 +239,10 @@ bool list_nand_channels(std::vector<NandChannel>& out, std::string& status) {
                 parse_banner_names(head.data(), head.size(), channel.names);
         }
         if (not_in_list) {
-            std::vector<u8> program_head;
-            if (program && !(program->type & 0x8000) && program->size <= kForwarderMaxBytes)
-                read_head(access, nand_content_path(channel.title_id, program->id), kForwarderMaxBytes, program_head);
-            if (leave_out_as_homebrew(channel, program, program_head, "")) {
+            const HeadReader read = [&](const std::string& path, std::size_t bytes, std::vector<u8>& head) {
+                return read_head(access, path, static_cast<u32>(bytes), head);
+            };
+            if (leave_out_unlisted(channel, read, "")) {
                 ++unlisted;
                 continue;
             }
@@ -244,7 +257,7 @@ bool list_nand_channels(std::vector<NandChannel>& out, std::string& status) {
     std::sort(out.begin(), out.end(), [](const NandChannel& a, const NandChannel& b) { return a.code < b.code; });
     status = std::to_string(out.size()) + " WiiWare and Virtual Console game(s) on the Wii";
     if (missing) status += ", " + std::to_string(missing) + " of them with their game data removed (they cannot start)";
-    if (unlisted) status += "; " + std::to_string(unlisted) + " homebrew forwarder(s) left out";
+    if (unlisted) status += "; " + std::to_string(unlisted) + " unlisted channel(s) left out";
     if (unreadable) status += "; " + std::to_string(unreadable) + " unreadable title(s) left out";
     if (access.refused) status += "; the Wii refused to show their files, so they have no names";
     status += ".";
@@ -301,11 +314,10 @@ bool list_emu_channels(const std::string& folder, std::vector<NandChannel>& out,
                 parse_banner_names(head.data(), head.size(), channel.names);
         }
         if (not_in_list) {
-            std::vector<u8> program_head;
-            if (program && !(program->type & 0x8000) && program->size <= kForwarderMaxBytes)
-                read_card_head(folder + nand_content_path(channel.title_id, program->id), kForwarderMaxBytes,
-                               program_head);
-            if (leave_out_as_homebrew(channel, program, program_head, " in " + folder)) {
+            const HeadReader read = [&](const std::string& path, std::size_t bytes, std::vector<u8>& head) {
+                return read_card_head(folder + path, bytes, head);
+            };
+            if (leave_out_unlisted(channel, read, " in " + folder)) {
                 ++unlisted;
                 continue;
             }
@@ -331,7 +343,7 @@ bool list_emu_channels(const std::string& folder, std::vector<NandChannel>& out,
     if (twice) status += "; " + std::to_string(twice) + " the Wii has itself listed once";
     if (instead)
         status += "; " + std::to_string(instead) + " shown from here instead of the Wii's copy, whose game data was removed";
-    if (unlisted) status += "; " + std::to_string(unlisted) + " homebrew forwarder(s) left out";
+    if (unlisted) status += "; " + std::to_string(unlisted) + " unlisted channel(s) left out";
     if (unreadable) status += "; " + std::to_string(unreadable) + " unreadable title(s) left out";
     status += ".";
     logf("Wii channels: %s\n", status.c_str());
