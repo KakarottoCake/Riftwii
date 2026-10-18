@@ -2142,6 +2142,14 @@ public:
 	void SetBody(const std::string& body) { bodyTxt.SetText(body.c_str()); }
 	// Something more in the box, over its whole width (it must outlive the box).
 	void Append(GuiElement* e) { w.Append(e); }
+	// The text centred across the top of the room, in at most `lines`
+	// lines, for a box with something of its own below it (the code mod's
+	// two choices): centred in the middle, it ran under them.
+	void BodyAtTop(int lines)
+	{
+		Place(bodyTxt, 0, kBodyY, true);
+		bodyTxt.SetWrap(true, 528 + 2 * extra, lines);
+	}
 	// The second button alone, in the middle (as the first is when alone).
 	void CenterCancel() { cancelBtn.button.SetPosition(198 - 4, kButtonY - 4); }
 	// How much wider than 4:3 the box is on each side (PopupExtra).
@@ -2261,13 +2269,16 @@ static bool PickCodeModStart(FrontendState& state)
 		tr("Code mods differ. Most, like Project+, run well with RiftWii's extras. If a mod stays on a black screen, start it without them, as its own loader would."),
 		"", tr("Back"));
 	box.CenterCancel();
+	// The text's three lines at most (from y 158, 22 apart) end at 224,
+	// above the choices; the choices end above Back's pill (y 300).
+	box.BodyAtTop(3);
 	std::vector<TileSpec> tiles(2);
 	tiles[0].x = 56;
 	tiles[1].x = 332;
 	for (TileSpec& t : tiles) {
-		t.y = 226;
+		t.y = 230;
 		t.w = 252;
-		t.h = 64;
+		t.h = 62;
 	}
 	tiles[0].label = tr("With extras");
 	tiles[0].value = tr("Crash reports, back to RiftWii");
