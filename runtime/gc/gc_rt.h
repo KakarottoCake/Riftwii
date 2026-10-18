@@ -176,6 +176,8 @@ typedef char gc_trace_fits[(GC_TR_WORDS * 4 <= 512) ? 1 : -1];
  * buffers) as eleven words, then 0x48 (the fetch width and scaling) and
  * 0x6c (the clock), each word two 16-bit registers. */
 #define GC_VI_SAVED_WORDS 13u
+/* gc_rt_context.vi_at_jump: the VI's registers 0x00-0x77. */
+#define GC_VI_HANDOVER_WORDS 30u
 
 /* gc_rt_context.flags */
 #define GC_FLAG_PRESS 1u  /* tests without a controller: port 1 presses A, B and Start in turn */
@@ -400,6 +402,11 @@ struct gc_rt_context {
     uint32_t reset_down_since;    /* when it went down (low bit set), 0: up */
     uint32_t reset_request_at;    /* when a press ended (low bit set), 0: none waiting */
     uint32_t reset_asked_before;  /* resets_asked then: the game's own call answers the press */
+    /* The hand-over to the next title (gc_leave): the VI's registers as
+     * RiftWii left them at the jump, the game's TV format interlaced as
+     * libogc set it up, noted by gc_on_trace_now and put back blanked
+     * (gc_vi_hand_over). Two 16-bit registers a word, from 0x00. */
+    uint32_t vi_at_jump[GC_VI_HANDOVER_WORDS];
     uint8_t aram_scratch[32] __attribute__((aligned(32)));  /* the hardware's own ARAM DMA goes here */
     uint8_t alarm[GC_ALARM_BYTES] __attribute__((aligned(32)));
     uint8_t beat_alarm[GC_ALARM_BYTES] __attribute__((aligned(32)));
@@ -409,7 +416,7 @@ struct gc_rt_context {
     uint32_t response[8] __attribute__((aligned(32)));
 };
 
-#define GC_RT_CONTEXT_BYTES 0x560u
+#define GC_RT_CONTEXT_BYTES 0x5E0u
 typedef char gc_rt_context_size[(sizeof(struct gc_rt_context) == GC_RT_CONTEXT_BYTES) ? 1 : -1];
 
 #ifdef RT_TARGET_PPC

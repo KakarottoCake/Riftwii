@@ -881,6 +881,90 @@ static void gc_vi_put_back(const struct gc_rt_context* ctx) {
     }
 }
 
+/* The hand-over to the next title (gc_leave). That title's libogc finds
+ * the VI still on and keeps going from the mode it sees there, but the
+ * display control register only says interlaced or not: a progressive
+ * picture at 54 MHz (VI_CLK, 0x6C), which the game set up for 480p, reads
+ * as a 240-line one, the likely reason the Homebrew Channel ran with the
+ * TV black on a Wii set to 480p (seen on 18 Oct). So the VI goes back to the registers RiftWii's own
+ * libogc left at the jump (vi_at_jump: the game's TV format, interlaced,
+ * 27 MHz), blanked, as a libogc program leaves it when it starts another. */
+#define GC_VI_REGISTERS (GC_VI_HANDOVER_WORDS * 2u)  /* 16-bit registers from 0x00 */
+#define GC_VI_DCR_RESET 0x0002u                       /* DCR bit 1: the VI resets */
+#define GC_VI_DI_STATUS 0x8000u                       /* a display interrupt's status bit (0x30-0x3C, upper halves) */
+static uint32_t gc_vi_register(const uint32_t* words, uint32_t r) {
+    const uint32_t word = words[r / 2u];
+    return (r & 1u) ? (word & 0xFFFFu) : (word >> 16);
+}
+static void gc_vi_set_register(uint32_t* words, uint32_t r, uint32_t value) {
+    uint32_t* word = &words[r / 2u];
+    *word = (r & 1u) ? ((*word & 0xFFFF0000u) | (value & 0xFFFFu)) : ((*word & 0xFFFFu) | value << 16);
+}
+static void gc_vi_read_all(uint32_t* words) {
+    uint32_t r;
+    for (r = 0; r < GC_VI_REGISTERS; r += 2u) {
+        const uint32_t high = *(volatile uint16_t*)(uintptr_t)(GC_VI_BASE + 2u * r);
+        const uint32_t low = *(volatile uint16_t*)(uintptr_t)(GC_VI_BASE + 2u * r + 2u);
+        words[r / 2u] = high << 16 | low;
+    }
+}
+/* Registers that are not settings: the beam's position (0x2C, 0x2E), the
+ * light gun latches (0x40-0x46) and 0x6E, whose bit 0 is the cable. */
+static int gc_vi_is_setting(uint32_t r) {
+    const uint32_t offset = 2u * r;
+    if (offset == 0x2Cu || offset == 0x2Eu || offset == 0x6Eu) return 0;
+    return offset < 0x40u || offset > 0x46u;
+}
+/* `words` into the VI as a libogc start-up does it: a reset, every
+ * setting with the display off, the display control last. A display
+ * interrupt's status bit is written as 0, which clears it. */
+static void gc_vi_write_all(const uint32_t* words) {
+    volatile uint16_t* const dcr = (volatile uint16_t*)(uintptr_t)GC_VI_DCR;
+    uint32_t r, spin;
+    *dcr = GC_VI_DCR_RESET;
+    for (spin = 0; spin < 1000u; ++spin) __asm__ volatile("" ::: "memory");
+    *dcr = 0;
+    for (r = 0; r < GC_VI_REGISTERS; ++r) {
+        uint32_t value = gc_vi_register(words, r);
+        const uint32_t offset = 2u * r;
+        if (offset == 0x02u || !gc_vi_is_setting(r)) continue;
+        if (offset >= 0x30u && offset <= 0x3Cu && (offset & 2u) == 0) value &= ~GC_VI_DI_STATUS;
+        *(volatile uint16_t*)(uintptr_t)(GC_VI_BASE + offset) = (uint16_t)value;
+    }
+    *dcr = (uint16_t)gc_vi_register(words, 1u);
+}
+/* The mode in `words` with no active lines: the lines go to the blanking
+ * before and after them, so the timing stays the same (VTR 0x00: lines
+ * per field in bits 4-13; 0x0C and 0x10 the blanking after each field,
+ * 0x0E and 0x12 before it). The VI then reads no frame buffer at all. */
+static void gc_vi_blank(uint32_t* words) {
+    const uint32_t vtr = gc_vi_register(words, 0u);
+    const uint32_t lines = GC_VI_ACTIVE_LINES(vtr);
+    uint32_t r;
+    if (lines == 0) return;
+    gc_vi_set_register(words, 0u, vtr & ~(0x3FFu << 4));
+    for (r = 0x0Cu / 2u; r <= 0x12u / 2u; ++r) {
+        const int before_field = (r & 1u) != 0;  /* 0x0E and 0x12 */
+        const uint32_t now = gc_vi_register(words, r);
+        gc_vi_set_register(words, r, before_field ? now + 2u * lines - 2u : now + 2u);
+    }
+}
+/* Before ES_LaunchTitle: RiftWii's own mode back, blank. `saved` gets the
+ * game's registers, for gc_vi_take_back when IOS says no. */
+static void gc_vi_hand_over(const struct gc_rt_context* ctx, uint32_t* saved) {
+    uint32_t mode[GC_VI_HANDOVER_WORDS];
+    uint32_t i;
+    gc_vi_read_all(saved);
+    if (gc_vi_register(ctx->vi_at_jump, 1u) == 0) return;  /* nothing noted at the jump */
+    for (i = 0; i < GC_VI_HANDOVER_WORDS; ++i) mode[i] = ctx->vi_at_jump[i];
+    gc_vi_blank(mode);
+    gc_vi_write_all(mode);
+}
+static void gc_vi_take_back(const struct gc_rt_context* ctx, const uint32_t* saved) {
+    if (gc_vi_register(ctx->vi_at_jump, 1u) == 0) return;
+    gc_vi_write_all(saved);
+}
+
 typedef void (*gc_callback_fn)(uint32_t type);
 /* An OSContext's saved LR, SRR0 and SRR1 (the SDK's layout). */
 #define GC_OSCONTEXT_LR 0x84u
@@ -1142,16 +1226,18 @@ void gc_on_ai_dma(struct gc_rt_context* ctx, uint32_t start, uint32_t length) {
 /* Back to RiftWii: the title the loader picked (the Homebrew Channel, the
  * RiftWii channel or the Wii Menu, gcnative.cpp's way_back_title),
  * launched through /dev/es, which IOS still runs in Wii mode. The picture
- * goes black first, but the VI stays on in the mode the game set, as the
- * Wii Menu leaves it when it starts a title: with the display turned off
- * (DCR bit 0), the RiftWii channel came up, but the Homebrew Channel
- * (00010001-JODI on a tester's Wii) ran with the TV black. Returns only
- * when IOS refused. */
+ * goes black first, then the VI is handed over on, in RiftWii's own
+ * interlaced mode from the jump, blanked (gc_vi_hand_over). Neither the
+ * display turned off (DCR bit 0: the Homebrew Channel, 00010001-JODI, ran
+ * with the TV black on a tester's Wii) nor the game's own mode left on
+ * (black again with 480p on, 18 Oct) gave the next title a picture.
+ * Returns only when IOS refused, with the game's VI registers back. */
 #define GC_ES_LAUNCHTITLE 8u
 #define GC_YUYV_BLACK 0x10801080u
 static int gc_crash_frame(const struct gc_rt_context* ctx, const uint8_t* card, int black);
 static void gc_leave(struct gc_rt_context* ctx) {
     const uint32_t buf = ctx->leave_buf;
+    uint32_t game_vi[GC_VI_HANDOVER_WORDS];
     int32_t result;
     uint32_t msr;
     /* The memory card first: what the game saved is in MEM2 until a
@@ -1167,6 +1253,7 @@ static void gc_leave(struct gc_rt_context* ctx) {
     if (ctx->bt) gc_bt_stop_rumble(ctx, (struct gc_bt*)(uintptr_t)ctx->bt);
     msr = gc_irq_off();  /* the game stops here: IOS takes the console over */
     gc_crash_frame(ctx, 0, 1);
+    gc_vi_hand_over(ctx, game_vi);
     ctx->vec[0] = gc_physical(buf);
     ctx->vec[1] = 8;
     ctx->vec[2] = gc_physical(buf + 0x20);
@@ -1182,6 +1269,7 @@ static void gc_leave(struct gc_rt_context* ctx) {
      * redraws itself), and the trace says why. */
     ctx->busy = 0;
     ctx->last_error = result;
+    gc_vi_take_back(ctx, game_vi);
     gc_irq_restore(msr);
     gc_trace(ctx, GC_TRACE_LEAVE);
 }
@@ -1724,7 +1812,10 @@ void gc_after_ar_dma(struct gc_rt_context* ctx) {
 void gc_on_trace_now(struct gc_rt_context* ctx, uint32_t where) {
     /* The jump's: the VI shows RiftWii's last frame, in the game's TV
      * format, until the game's VIInit. */
-    if (where == GC_TRACE_JUMP) gc_vi_note(ctx);
+    if (where == GC_TRACE_JUMP) {
+        gc_vi_note(ctx);
+        gc_vi_read_all(ctx->vi_at_jump);  /* for the hand-over (gc_vi_hand_over) */
+    }
     gc_trace(ctx, where);
 }
 
