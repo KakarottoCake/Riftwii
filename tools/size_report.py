@@ -63,6 +63,9 @@ def read_dol_layout(path):
         "data": data_bytes,
         "bss": bss_size,
         "end": max(end_addresses) if end_addresses else 0,
+        # Where the heap starts: the start-up stash (tools/dol_stash.py)
+        # sits above the BSS only until crt0 has copied it to MEM2.
+        "program_end": bss_address + bss_size if bss_size else 0,
     }
 
 
@@ -91,7 +94,7 @@ def load_baseline(path):
     dol = {}
     raw_dol = raw.get("dol")
     if isinstance(raw_dol, dict):
-        for key in ("text", "data", "bss", "end"):
+        for key in ("text", "data", "bss", "end", "program_end"):
             if valid_size(raw_dol.get(key)):
                 dol[key] = raw_dol[key]
     if not files:
@@ -147,7 +150,8 @@ def markdown(report, baseline):
         ("Text sections (bytes)", "text", f"{layout['text']:,}"),
         ("Data sections (bytes)", "data", f"{layout['data']:,}"),
         ("BSS (bytes)", "bss", f"{layout['bss']:,}"),
-        ("Highest end address", "end", f"`0x{layout['end']:08X}`"),
+        ("Highest end address (the start-up stash's end)", "end", f"`0x{layout['end']:08X}`"),
+        ("Program end (the MEM1 heap starts here)", "program_end", f"`0x{layout['program_end']:08X}`"),
     ]
     for label, key, shown in parts:
         row = f"| {label} | {shown} |"

@@ -11,7 +11,8 @@ toward the apploader at `0x81200000`; its heap is the space between its
 image end and that address ([ARCHITECTURE.md](ARCHITECTURE.md#the-loaders-size-and-the-games-room)).
 The Homebrew Channel loads the whole DOL into RAM and the Wii does not page,
 so every feature RiftWii has costs MEM1 whether or not a player ever uses
-it. A separate effort moves data only needed at start-up to MEM2. This
+it. The start-up stash ([MEMORY.md](MEMORY.md)) already moves the data
+only needed now and then (the menu font, translations, GPL) to MEM2. This
 document is about the other half: code that most launches never run can
 stay on the card until it is needed.
 
@@ -184,7 +185,8 @@ of the settings that exist.
    plugin's own reason.
 
 Where the plugin goes in MEM2: the loader's MEM2 heap runs from
-`0x90809000` (above the restart snapshot) to just under IOS at
+above the start-up stash's copy (`0x90809000` up, about 927 KiB, after the
+restart snapshot; MEMORY.md) to just under IOS at
 `0x933E0000`. The current users inside it are the menu's covers and
 decoded art, the update pack and file downloads, the screenshot buffer
 and the game being read for a launch. A game launch then puts its own
@@ -436,8 +438,9 @@ Smaller risks:
   read as "update again", not as "GameCube games vanished". The list shows
   the unavailable source with the plain sentence, and a plugin-needed
   setting is not silently dropped from the settings file.
-- **MEM2 pressure.** Another effort is moving start-up data to MEM2; both
-  together must not starve the covers and downloads. The plugin arena's
+- **MEM2 pressure.** The start-up stash keeps about 927 KiB of MEM2 for the
+  whole run (MEMORY.md); both together must not starve the covers and
+  downloads. The plugin arena's
   size is therefore in the memory map (ARCHITECTURE.md, Memory) once
   built, and the heap check in `session.log` prints it.
 - **The unseen cost of splitting.** Code shared between the DOL and a

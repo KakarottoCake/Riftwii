@@ -48,6 +48,7 @@ and `vendor-*` is third-party code.
 | WiiWare and Virtual Console games (the Wii's channels, and those in an emulated NAND on the card) | `src/data/nandchannel.cpp` (which titles, their TMD, the program to load), `wii/storage/nandchannels.cpp` (listing, reading their files), `boot_channel` in `wii/launch/boot.cpp` (the start) |
 | RVZ games | `src/fs/rvz.cpp`, `runtime/rtrvz.c`, `runtime/resident/rt_zstd.c`, `runtime/gc/gc_rvz.c` (GameCube games), `docs/RVZ.md` |
 | Plugins (a design: optional code loaded from the card into MEM2) | `docs/PLUGINS.md` |
+| What takes MEM1, and the start-up stash (the menu font, translations and GPL copied to MEM2 at start) | `docs/MEMORY.md`, `tools/dol_stash.py`, `wii/core/stash.cpp`, `src/data/stashimage.cpp` |
 | The GameCube controller adapter | `runtime/rtgcad.c` (the driver), `wii/controllers/gcadapter.cpp` (menu), `runtime/pad/` and `wii/hooks/padhook.cpp` (games) |
 | Screenshots | `wii/menu/screenshot.cpp`, `runtime/shot/`, `wii/hooks/shothook.cpp`, `src/data/shotfile.cpp`, `src/art/pngencode.cpp` |
 | Problem reports and the QR code | `wii/online/reportsend.cpp`, `src/data/problemreport.cpp`, `src/art/qrcode.cpp` |
@@ -105,6 +106,7 @@ The build compiles every folder into one, so no two files share a name.
 | `loadersettings.cpp` | Settings as the app reads and writes them |
 | `memlimits.cpp` | Keeps the app's heap out of memory a launch overwrites |
 | `restart.cpp` | Starting RiftWii again without the Homebrew Channel (after a game, or the channel) |
+| `stash.cpp` | The start-up stash: crt0's copy to MEM2, and finding the font, translations and GPL in it |
 
 ### `wii/menu/`: the menu: screens, lists, artwork, themes, music, banners, covers
 
@@ -330,6 +332,8 @@ card's at the Wii's own MEM1 and MEM2 addresses).
 | `make_sjis_table.py` | The Shift-JIS table for Japanese memory cards' text (`src/fs/sjis_table.inc`) |
 | `make_channel.py`, `make_channel_art.py`, `preview_channel.py` | The Wii Menu channel's WAD and art |
 | `rtreloc.py` | Relocations for the RVZ runtime blob |
+| `dol_stash.py` | Adds the start-up stash (menu font, translations, GPL) to `riftwii.dol` above its BSS (`docs/MEMORY.md`) |
+| `size_report.py` | CI's size table: the DOL's sections, its program end and the stash's end, the runtime blobs |
 | `ipcscan.cpp`, `rvzstub.cpp` | Host tools: the IPC search on a game's DOL; an RVZ's stub disc for Dolphin |
 | `theme_kit.cpp`, `make_theme_kit.py` | The theme kit zip: template pictures, a starter theme.ini, the guide |
 | `rvz/make_test_disc.py` | The RVZ test fixtures |

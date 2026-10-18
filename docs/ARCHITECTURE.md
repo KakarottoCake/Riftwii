@@ -274,6 +274,8 @@ many saves and blocks the copy holds, comes from its directory alone
 | Top of the game's MEM1 arena | Resident runtime code, then the pad blob, the screenshot blob and the crash blob below it |
 | `0x90000000`–`0x90800000` | Left alone by the loader: an IOS reload stages its kernel here |
 | `0x90800000`–`0x90809000` | The restart snapshot and handoff (`wii/core/restart.hpp`) |
+| `0x90809000`–about `0x908ED000` | The start-up stash's copy: the menu font, translations and GPL, zstd (`wii/core/stash.hpp`, [MEMORY.md](MEMORY.md)); arena 2 starts above it |
+| From the end of `.bss` (start-up only) | The start-up stash as `boot.dol` loads it, until crt0 has copied it to MEM2; then the MEM1 heap |
 | Bottom of the game's MEM2 arena | Resident runtime data (or the virtual SD card's code and state, about 49 KB), then the pad state, the screenshot state (a few KB: its picture is written straight from the frame buffer), then the crash blob's state (about 5 KB) |
 | `0x90000000`–`0x91000000` | A GameCube game's ARAM (in a GameCube game only) |
 | `0x91000000`–`0x91200000` | A GameCube game's memory card image |
@@ -298,7 +300,11 @@ between the end of its image and `0x81200000` (about 2.4 MiB at 2.2.3,
 image end `0x80F8C560`, 4.7 MB file of which most is the menu font and
 the packed runtime blobs). That heap holds a big pack's file table while
 it is planned, so it is the thing to watch: `session.log` prints the
-MEM1 figures at start and at each "Heap check".
+MEM1 figures at start and at each "Heap check". The menu font, the
+translations and the GPL are not part of the image: `boot.dol` carries
+them in a start-up stash above its BSS that crt0 copies to MEM2, so
+their MEM1 becomes heap ([MEMORY.md](MEMORY.md), with a breakdown of
+what takes MEM1).
 
 A game whose DOL (or bss) reaches `0x80A00000` would overwrite the
 loader while the apploader still runs. The loader checks every
