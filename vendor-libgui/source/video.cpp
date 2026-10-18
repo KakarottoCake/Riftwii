@@ -7,7 +7,8 @@
  ***************************************************************************/
 /* Changed for RiftWii (September and October 2026), under
  * GPL-3.0-or-later: no text console on the menu's frame buffer, StopGXKeepPicture, the frame buffer accessors the launch screen and screenshots use, the display scale (widescreen and screen size), and a camera
- * that moves and scales everything drawn (the menu's transitions).
+ * that moves and scales everything drawn (the menu's transitions), the GX
+ * trace's texture hook and Menu_Render's step (settings.txt debug_gx).
  * Every change is in RiftWii's git history; NOTICE.md lists the origin. */
 
 #include <gccore.h>
@@ -30,6 +31,8 @@ static Mtx GXmodelView2D;
 int screenheight;
 int screenwidth;
 u32 FrameTimer = 0;
+void (*Menu_TextureHook)(const void* data, u16 width, u16 height, u8 format) = nullptr;
+const char* volatile menuRenderStep = "";
 
 /****************************************************************************
  * ResetVideo_Menu
@@ -416,6 +419,7 @@ void Menu_DrawImgPart(f32 x, f32 y, f32 w, f32 h, u16 texW, u16 texH, u8 data[],
 {
 	if (data == nullptr || w <= 0 || h <= 0)
 		return;
+	if (Menu_TextureHook) Menu_TextureHook(data, texW, texH, GX_TF_RGBA8);
 	GXTexObj texObj;
 	GX_InitTexObj(&texObj, data, texW, texH, GX_TF_RGBA8, GX_CLAMP, GX_CLAMP, GX_FALSE);
 	GX_LoadTexObj(&texObj, GX_TEXMAP0);
@@ -457,10 +461,13 @@ void Menu_Render()
 	}
 	GX_SetColorUpdate(GX_TRUE);
 	GX_CopyDisp(xfb[whichfb],GX_TRUE);
+	menuRenderStep = "GX_DrawDone";
 	GX_DrawDone();
 	VIDEO_SetNextFramebuffer(xfb[whichfb]);
 	VIDEO_Flush();
+	menuRenderStep = "vsync";
 	VIDEO_WaitVSync();
+	menuRenderStep = "";
 	FrameTimer++;
 }
 
@@ -474,6 +481,7 @@ void Menu_DrawImg(f32 xpos, f32 ypos, u16 width, u16 height, u8 data[],
 {
 	if(data == nullptr)
 		return;
+	if (Menu_TextureHook) Menu_TextureHook(data, width, height, GX_TF_RGBA8);
 
 	GXTexObj texObj;
 

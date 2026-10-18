@@ -31,6 +31,7 @@ and `vendor-*` is third-party code.
 | The game page's and Settings' tiles, the prompts bar | `wii/menu/gui_tiles.cpp`, `wii/menu/gui_prompts.cpp`, `wii/menu/rift_menu.cpp` (`MenuHome`, `SettingsHub`), `src/art/skinpaint.cpp` (tile frames and icons) |
 | Home's shelf, carousel and 3D covers ring; their boxes and 3D cover pictures | `wii/menu/gui_shelf.cpp`, `wii/menu/boxart.cpp`, `wii/menu/cover3d.cpp`, `src/art/coverart.cpp` |
 | How screens, pages and popups come and go (fades, zooms, slides) | `wii/menu/transition.cpp`, the camera in `vendor-libgui/source/video.cpp` |
+| A menu that freezes on a console only (the GUI watch, the GX trace, `debug_gx`) | `wii/menu/drawtrace.cpp`, `LogGuiWatch` and `UpdateGUI` in `wii/menu/rift_menu.cpp` |
 | Menu themes (colours, pictures, music) | `src/art/theme.cpp` (theme.ini), `src/art/skinpaint.cpp` (the painted pictures), `wii/menu/menutheme.cpp`, `wii/menu/skin.cpp`, `themes/`, [THEMES.md](THEMES.md) |
 | The theme kit download | `tools/theme_kit.cpp`, `tools/make_theme_kit.py`, `themes/kit/README.txt` |
 | Menu text and its translations | `tools/lang_source.py` (the table), `wii/core/i18n.cpp`, `wii/lang/*.po` |
@@ -126,6 +127,7 @@ The build compiles every folder into one, so no two files share a name.
 | `screenshot.cpp` | Menu screenshots and importing the games' ones |
 | `covers.cpp` | Cover art: download, cache, textures |
 | `guiscript.cpp` | Scripted menu input for tests (`sd:/riftwii/guiscript.txt`) |
+| `drawtrace.cpp` | Where the GUI thread is drawing, for a freeze on a console: the GUI watch and the GX trace (`debug_gx`) |
 
 ### `wii/launch/`: starting a game: IOS, the disc, the apploader, patches, the runtime, the jump
 

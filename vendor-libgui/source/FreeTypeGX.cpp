@@ -23,10 +23,12 @@
  * GPL-3.0-or-later: charToWideChar decodes UTF-8 (translations, game names); less memory for the menu;
  * InitFreeType takes a font collection's face and says when it can't read it (the Menu font setting);
  * FontHasChar (the Korean menu needs a font with Hangul); RenderTextCoverage (a GameCube game's crash
- * screen, drawn without GX: centred or left-aligned, narrowed for 16:9, its widest line measured).
+ * screen, drawn without GX: centred or left-aligned, narrowed for 16:9, its widest line measured);
+ * each glyph drawn is told to the GX trace (Menu_TextureHook, settings.txt debug_gx).
  * Every change is in RiftWii's git history; NOTICE.md lists the origin. */
 
 #include "FreeTypeGX.h"
+#include "video.h"
 
 #include FT_MODULE_H
 #include FT_SIZES_H
@@ -610,6 +612,7 @@ uint16_t FreeTypeGX::drawText(int16_t x, int16_t y, wchar_t *text, GXColor color
 				x_pos += pairDelta.x >> 6;
 			}
 
+			if (Menu_TextureHook) Menu_TextureHook(glyphData->glyphDataTexture, glyphData->textureWidth, glyphData->textureHeight, GX_TF_I4);
 			GX_InitTexObj(&glyphTexture, glyphData->glyphDataTexture, glyphData->textureWidth, glyphData->textureHeight, GX_TF_I4, GX_CLAMP, GX_CLAMP, GX_FALSE);
 			this->copyTextureToFramebuffer(&glyphTexture, glyphData->textureWidth, glyphData->textureHeight, x_pos + glyphData->renderOffsetX + x_offset, y - glyphData->renderOffsetY + y_offset, color);
 

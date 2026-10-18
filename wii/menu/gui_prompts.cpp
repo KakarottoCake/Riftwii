@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "gui_prompts.hpp"
 
+#include "drawtrace.hpp"
 #include "skin.hpp"
 #include "video.h"
 #include "wiidrc.h"
@@ -102,6 +103,7 @@ int GuiPrompts::LeftEdge() {
 
 void GuiPrompts::Draw() {
     if (!IsVisible()) return;
+    riftwii::wii::DrawTrace trace("the prompts");
     const int alpha = GetAlpha();
     // Laid out from the right: the first prompt added is the rightmost.
     int right = kRight;

@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstdlib>
 
+#include "drawtrace.hpp"
 #include "i18n.hpp"
 #include "video.h"
 #include "wiidrc.h"
@@ -164,6 +165,7 @@ void GuiTiles::Layout(int i) {
 
 void GuiTiles::Draw() {
     if (!IsVisible() || !tiles) return;
+    riftwii::wii::DrawTrace trace("the page's tiles");
     const int alpha = GetAlpha();
     if (dirty) {
         dirty = false;

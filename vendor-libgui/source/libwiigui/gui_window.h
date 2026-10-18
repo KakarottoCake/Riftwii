@@ -82,4 +82,9 @@ protected:
 	std::vector<GuiElement*> _elements; //!< Contains all elements within the GuiWindow
 };
 
+// RiftWii: called around each element a window draws, when set (the GX
+// trace, settings.txt debug_gx; wii/menu/drawtrace.hpp). Null otherwise.
+extern void (*GuiDrawHookBefore)(GuiElement* element);
+extern void (*GuiDrawHookAfter)(GuiElement* element);
+
 #endif
