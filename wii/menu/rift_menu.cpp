@@ -161,6 +161,12 @@ static skin::GuiBackdrop * backdrop = nullptr;
 static GuiSound * soundOver = nullptr;
 static lwp_t guithread = LWP_THREAD_NULL;
 static std::atomic<bool> guiHalt{true};
+// Set by the GUI thread itself while it waits at the top of its loop for
+// ResumeGui. Being suspended is not enough to call it halted: GX also
+// suspends it in the middle of a frame while the GPU catches up (UpdateGUI).
+static std::atomic<bool> guiParked{false};
+// The menu's own thread, for the GUI watch (it is the one that called InitGUIThreads).
+static lwp_t menuthread = LWP_THREAD_NULL;
 static std::atomic<bool> hidePointers{false};
 
 // The Wii's screen burn-in reduction (Wii Settings): while it is on, the
@@ -276,14 +282,25 @@ static void ResumeGui()
 	// reload) was the menu's own work, and it is done.
 	riftwii::wii::CoverLoaderRelease();
 	guiHalt = false;
-	LWP_ResumeThread(guithread);
+	// Only from its park at the top of its loop: in the middle of a frame
+	// GX may be holding it until the GPU catches up, and woken there it
+	// would write on over commands the GPU has not read yet (UpdateGUI).
+	if (guiParked)
+		LWP_ResumeThread(guithread);
+}
+
+// Halted: parked at the top of its loop, its frame finished. Not merely
+// suspended, which GX also does in the middle of a frame (UpdateGUI).
+static bool GuiParked()
+{
+	return guiParked && LWP_ThreadIsSuspended(guithread);
 }
 
 static void HaltGui()
 {
 	g_menuTick = gettime();
 	guiHalt = true;
-	while(!LWP_ThreadIsSuspended(guithread))
+	while(!GuiParked())
 		usleep(THREAD_SLEEP);
 }
 
@@ -303,11 +320,34 @@ UpdateGUI(void *arg)
 	(void)arg;
 	int i;
 
+	// GX stops the thread that draws when its command buffer (the FIFO,
+	// 256 KB, read by the GPU while the CPU writes) is nearly full, and lets
+	// it go on once the GPU has read half of it. The thread it stops is
+	// the "GX thread", by default the one that called GX_Init: the menu's
+	// own thread, not this one. A frame that ran more than 240 KB ahead of
+	// the GPU then suspended the menu's thread while this one wrote on,
+	// round the ring and over commands the GPU had not read yet; a real
+	// GPU reads that as garbage and never finishes the frame (GX_DrawDone
+	// waits for ever), and the menu's thread stays suspended. Dolphin's GPU
+	// keeps up, so it never showed there. A tester's Wii froze just so on a
+	// game's page with the Indigo theme (both threads stopped, the GUI in
+	// GX_DrawDone, the menu's thread outside HaltGui): most likely the
+	// theme's full-screen picture under the page's outlined text, every
+	// glyph a texture load, kept the GPU behind long enough. GX now stops
+	// this thread instead, the one writing.
+	GX_SetCurrentGXThread();
+
 	while(1)
 	{
 		if(guiHalt)
 		{
-			LWP_SuspendThread(LWP_GetSelf());
+			guiParked = true;
+			// Again if something wakes it while the menu still holds it
+			// (GX lets "its" thread go when the GPU catches up, even one
+			// suspended here).
+			while(guiHalt)
+				LWP_SuspendThread(LWP_GetSelf());
+			guiParked = false;
 		}
 		else
 		{
@@ -419,22 +459,65 @@ static void ResetPressed(u32, void*)
 	g_resetPressed = true;
 }
 
-// For a minute after DrawTraceArm: once a second, whether the GUI thread
-// is drawing frames and where it is (wii/menu/drawtrace.hpp).
+// For a minute after DrawTraceArm, and when the frames stop, with
+// settings.txt's debug_gx on: once a second, whether the GUI thread
+// is drawing frames, where it is, and whether GX has the menu's thread
+// waiting (wii/menu/drawtrace.hpp).
 static void LogGuiWatch()
 {
-	static u64 lastLogged = 0;
+	static u64 lastSample = 0;
 	static u32 lastFrame = 0;
+	static bool stallLogged = false;
 	const u64 now = gettime();
-	if (riftwii::wii::g_drawTraceUntil == 0 || now > riftwii::wii::g_drawTraceUntil) return;
-	if (lastLogged != 0 && diff_msec(lastLogged, now) < 1000) return;
+	if (lastSample != 0 && diff_msec(lastSample, now) < 1000) return;
+	const bool firstSample = lastSample == 0;
 	const u32 frame = FrameTimer;
-	logf("GUI watch: frame %u (%u since the last line), halted %s, GUI thread %s, in \"%s\", element \"%s\", menu tick %d ms ago\n",
-	     static_cast<unsigned>(frame), static_cast<unsigned>(frame - lastFrame), guiHalt ? "yes" : "no",
-	     LWP_ThreadIsSuspended(guithread) ? "suspended" : "running", riftwii::wii::g_guiPhase,
-	     riftwii::wii::g_guiElement, static_cast<int>(diff_msec(g_menuTick, now)));
-	lastLogged = now;
+	const u32 framesSince = frame - lastFrame;
+	lastSample = now;
 	lastFrame = frame;
+
+	const bool armed = riftwii::wii::g_drawTraceUntil != 0 && now <= riftwii::wii::g_drawTraceUntil;
+	const bool stalled = !firstSample && framesSince == 0 && !guiHalt;
+	if (!stalled) stallLogged = false;
+	const bool newStall = riftwii::wii::g_gxWatch && stalled && !stallLogged;
+	if (!armed && !newStall) return;
+
+	const char* gui = GuiParked() ? "halted" : LWP_ThreadIsSuspended(guithread) ? "suspended by GX in a frame" : "running";
+	const char* menu = menuthread == LWP_THREAD_NULL ? "unknown"
+		: LWP_ThreadIsSuspended(menuthread) ? "suspended" : "not suspended";
+	logf("GUI watch: frame %u (%u since the last line), halted %s, GUI thread %s, in \"%s\" (render step \"%s\"), "
+	     "element \"%s\", menu tick %d ms ago, menu thread %s, GX FIFO overflows %u\n",
+	     static_cast<unsigned>(frame), static_cast<unsigned>(framesSince), guiHalt ? "yes" : "no", gui,
+	     riftwii::wii::g_guiPhase, menuRenderStep, riftwii::wii::g_guiElement,
+	     static_cast<int>(diff_msec(g_menuTick, now)), menu, static_cast<unsigned>(GX_GetOverflowCount()));
+	if (!riftwii::wii::g_gxTrace) return;
+	// The elements last started, newest first: with the GUI waiting for the
+	// GPU after each one, the first is the one the GPU stopped in.
+	riftwii::wii::GxDrawRecord records[8];
+	const int count = riftwii::wii::GxTraceLast(records, newStall ? 8 : 1);
+	for (int i = 0; i < count; ++i) {
+		const riftwii::wii::GxDrawRecord& r = records[i];
+		logf("GX trace %d: frame %u, element %s \"%s\", last picture %p, %ux%u %s\n", i + 1,
+		     static_cast<unsigned>(r.frame), r.kind, r.name, r.texture, static_cast<unsigned>(r.width),
+		     static_cast<unsigned>(r.height), r.texture ? riftwii::wii::GxFormatName(r.format) : "-");
+	}
+	if (newStall) stallLogged = true;
+}
+
+// GX's command FIFO filling up (UpdateGUI): the GUI thread then waits for
+// the GPU. Said in the log, at most once a minute, for problem reports.
+static void LogGxOverflows()
+{
+	static u32 told = 0;
+	static u64 toldAt = 0;
+	const u32 count = GX_GetOverflowCount();
+	if (count == told) return;
+	const u64 now = gettime();
+	if (told != 0 && diff_sec(toldAt, now) < 60) return;
+	logf("Graphics: the menu's drawing ran ahead of the GPU %u time(s) so far; each time the command buffer filled up "
+	     "and the GUI thread waited for the GPU to catch up\n", static_cast<unsigned>(count));
+	told = count;
+	toldAt = now;
 }
 
 static void* MenuWatchdog(void*)
@@ -442,6 +525,7 @@ static void* MenuWatchdog(void*)
 	while (g_watchdogOn) {
 		usleep(200000);
 		LogGuiWatch();
+		LogGxOverflows();
 		const u64 tick = g_menuTick;
 		if (!g_watchdogOn) break;
 		if (tick == 0 || diff_msec(tick, gettime()) < 4000) {
@@ -452,7 +536,7 @@ static void* MenuWatchdog(void*)
 		// short (the power button waits for it, as the GUI's exit does).
 		if (riftwii::wii::CardWritesBusy()) continue;
 		bool home = false;
-		if (LWP_ThreadIsSuspended(guithread)) {
+		if (GuiParked()) {
 			// Nobody else reads the Remotes now.
 			WPAD_ScanPads();
 			for (int c = 0; c < 4; ++c) home = home || (WPAD_ButtonsDown(c) & WPAD_BUTTON_HOME);
@@ -476,6 +560,8 @@ void InitGUIThreads()
 	SYS_SetPowerCallback(PowerPressed);
 	SYS_SetResetCallback(ResetPressed);
 	WPAD_SetPowerButtonCallback(RemotePowerPressed);
+	menuthread = LWP_GetSelf();
+	riftwii::wii::GxTraceStart();
 	if (LWP_CreateThread(&guithread, UpdateGUI, nullptr, nullptr, 24576, 70) < 0)
 		ExitApp();
 	HaltGui();
@@ -8222,11 +8308,14 @@ static int MenuHome(FrontendState& state)
 	// the card and the rows worked out with the GUI going (none of it is
 	// on screen), which stopped the banner otherwise. The widgets are made
 	// with it halted, as ever.
-	// A tester's Wii froze here with the Indigo theme: for the next minute
-	// the menu watchdog logs where the GUI thread is, once a second
+	// A tester's Wii froze here with the Indigo theme. With settings.txt's
+	// debug_gx on, the page's steps are logged and, for the next minute,
+	// the menu watchdog logs where the GUI thread is once a second
 	// (wii/menu/drawtrace.hpp).
-	riftwii::wii::DrawTraceArm(60);
-	logf("Game page: building\n");
+	if (riftwii::wii::g_gxWatch) {
+		riftwii::wii::DrawTraceArm(60);
+		logf("Game page: building\n");
+	}
 	const bool buildBehindBanner = g_startOnOpen && g_lingerBanner;
 	if (buildBehindBanner) ResumeGui();
 	std::string scanStatus;
@@ -8249,7 +8338,7 @@ static int MenuHome(FrontendState& state)
 	std::vector<TileSpec> tiles;
 	std::vector<GameTile> tileWhat;
 	BuildGameTiles(state, tiles, tileWhat);
-	logf("Game page: tiles built\n");
+	if (riftwii::wii::g_gxWatch) logf("Game page: tiles built\n");
 	if (buildBehindBanner) HaltGui();
 	// A channel's page shows its icon (HeroCover): loaded here when Home's
 	// Channels view did not, its banner stored from the Wii first if need be.
@@ -8299,7 +8388,7 @@ static int MenuHome(FrontendState& state)
 	OutlinedText titleOutlined(titleTxt, kTilesX, titleY, skin::kWhite, 2, 2);
 	OutlinedText factsOutlined(factsTxt, kTilesX, factsY, kFactsInk, 1, 1);
 
-	logf("Game page: texts made\n");
+	if (riftwii::wii::g_gxWatch) logf("Game page: texts made\n");
 	GuiTiles tileGrid;
 	tileGrid.SetTiles(&tiles);
 	tileGrid.Select(0);
@@ -8361,7 +8450,7 @@ static int MenuHome(FrontendState& state)
 	// Start is handled. Off, not hidden: GuiWindow::SetVisible(true) would
 	// show every element again, the ones the page keeps hidden too.
 	if (!bannerHeld) mainWindow->Append(&w);
-	logf("Game page: shown, the GUI runs\n");
+	if (riftwii::wii::g_gxWatch) logf("Game page: shown, the GUI runs\n");
 	ResumeGui();
 
 	const auto say = [&](const std::string& text) { statusTxt.SetText(text); };
