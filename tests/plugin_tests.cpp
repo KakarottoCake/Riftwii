@@ -263,6 +263,10 @@ static void TestDamagedHeaders() {
     spec.init = 0xFFFFFFFCu;
     EXPECT_EQ(Parse(MakePlugin(spec), header, why), PluginRefusal::Damaged);
     EXPECT_TRUE(why.find("init") != std::string::npos);
+    // Offset 0 is the reserved word (plugins/plugin.ld), never an entry.
+    spec.init = 0;
+    EXPECT_EQ(Parse(MakePlugin(spec), header, why), PluginRefusal::Damaged);
+    EXPECT_TRUE(why.find("offset 0") != std::string::npos);
     // The table: all of its kPluginTableBytes inside the image. Its last
     // possible place is fine; anything later would let the loader read
     // probe or shutdown past the image, so the first four words alone
@@ -307,7 +311,7 @@ static void TestTable() {
     EXPECT_EQ(check(image_with(whole, RWP_API_VERSION, base + 0x30, shutdown)), PluginRefusal::None);
     // No probe is allowed; a longer table (a later plugin) too.
     EXPECT_EQ(check(image_with(whole, RWP_API_VERSION, 0, shutdown)), PluginRefusal::None);
-    EXPECT_EQ(check(image_with(40, RWP_API_VERSION, base, shutdown)), PluginRefusal::None);
+    EXPECT_EQ(check(image_with(40, RWP_API_VERSION, base + 0x30, shutdown)), PluginRefusal::None);
     // Its own size and API: API 1's 24-byte table, without launch, is too short.
     EXPECT_EQ(check(image_with(16, RWP_API_VERSION, base + 0x30, shutdown)), PluginRefusal::Damaged);
     EXPECT_EQ(check(image_with(24, RWP_API_VERSION, base + 0x30, shutdown)), PluginRefusal::Damaged);
@@ -329,6 +333,28 @@ static void TestTable() {
     EXPECT_EQ(check(image_with(whole, RWP_API_VERSION, 0, shutdown, base - 4)), PluginRefusal::Damaged);
     EXPECT_EQ(check(image_with(whole, RWP_API_VERSION, 0, shutdown, 0x80A00000u)), PluginRefusal::Damaged);
     EXPECT_EQ(check(image_with(whole, RWP_API_VERSION, 0, shutdown, base + 0x36)), PluginRefusal::Damaged);
+    // Nothing the loader calls may be the image's first word, which is
+    // reserved: the gamecube plugin of stage (b) once had its shutdown
+    // linked there, the header said "none" (offset 0) and the table the
+    // base, so every load was refused. Probe and launch at the base are
+    // refused the same way.
+    EXPECT_EQ(check(image_with(whole, RWP_API_VERSION, base, shutdown)), PluginRefusal::Damaged);
+    EXPECT_TRUE(why.find("probe") != std::string::npos);
+    EXPECT_EQ(check(image_with(whole, RWP_API_VERSION, 0, shutdown, base)), PluginRefusal::Damaged);
+    EXPECT_TRUE(why.find("launch") != std::string::npos);
+    {
+        Spec none;
+        none.shutdown = 0;
+        PluginHeader no_shutdown;
+        EXPECT_EQ(Parse(MakePlugin(none), no_shutdown, why), PluginRefusal::None);
+        Bytes image(no_shutdown.image_bytes, 0);
+        Put32(image, no_shutdown.table_offset, whole);
+        Put32(image, no_shutdown.table_offset + 4, RWP_API_VERSION);
+        Put32(image, no_shutdown.table_offset + 20, base);  // the shutdown at offset 0
+        EXPECT_EQ(riftwii::plugin_check_table(image.data(), no_shutdown, base, RWP_API_VERSION, why),
+                  PluginRefusal::Damaged);
+        EXPECT_TRUE(why.find("offset 0") != std::string::npos);
+    }
     // A shutdown other than the header's, outside the image, or missing
     // while the header has one.
     EXPECT_EQ(check(image_with(whole, RWP_API_VERSION, base + 0x30, base + 0x24)), PluginRefusal::Damaged);
@@ -386,7 +412,7 @@ static void TestRelocation() {
     Spec spec;
     spec.image_bytes = 64;
     spec.bss_bytes = 32;
-    spec.init = 0;
+    spec.init = 0x20;  // offset 0 is the reserved word
     spec.shutdown = 0;
     spec.table = 0;
     // At base 0x933A7FC0 the target 0x50 is 0x933A8010: a low half of

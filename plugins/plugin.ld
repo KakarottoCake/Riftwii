@@ -18,7 +18,12 @@ ENTRY(rwp_init)
 SECTIONS
 {
     . = RWP_BASE;
-    .text : { *(.text .text.*) }
+    /* The image's first word is reserved, never code: the header's
+     * shutdown offset 0 means "none", so a function linked at offset 0
+     * could not be named (the gamecube plugin's rwp_shutdown landed there
+     * and was refused at every load). A zero word, which traps if jumped
+     * to; make_plugin.py refuses any entry at offset 0 as well. */
+    .text : { LONG(0) *(.text .text.*) }
     .rodata : { *(.rodata .rodata.* .sdata2 .sdata2.* .sbss2 .sbss2.*) }
     .data : { *(.data .data.* .sdata .sdata.*) }
     .rwp_constructors : {

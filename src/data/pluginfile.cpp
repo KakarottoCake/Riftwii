@@ -173,6 +173,9 @@ PluginRefusal plugin_parse_header(const std::uint8_t* bytes, std::size_t availab
         return (offset & 3) == 0 && std::uint64_t(offset) + length <= out.image_bytes;
     };
     if (!entry_ok(out.init_offset, 4)) return Damaged(why, "init offset 0x%x is outside the image", static_cast<unsigned>(out.init_offset));
+    // Offset 0 is the reserved word (plugins/plugin.ld), never code: a
+    // shutdown there would read as none.
+    if (out.init_offset == 0) return Damaged(why, "init is at image offset 0, which is reserved");
     if (out.shutdown_offset != 0 && !entry_ok(out.shutdown_offset, 4)) {
         return Damaged(why, "shutdown offset 0x%x is outside the image", static_cast<unsigned>(out.shutdown_offset));
     }
@@ -270,10 +273,11 @@ PluginRefusal plugin_check_table(const std::uint8_t* image, const PluginHeader& 
                        static_cast<unsigned>(size));
     }
     // Addresses, relocated: code the loader may call must be a word inside
-    // the image, never past it (the .bss, the state) or elsewhere in memory.
+    // the image, never past it (the .bss, the state) or elsewhere in memory,
+    // and never its first word, which is reserved (plugins/plugin.ld).
     const auto code_inside = [&](std::uint32_t address) {
         const std::uint32_t offset = address - base;
-        return address >= base && (offset & 3) == 0 && offset < header.image_bytes;
+        return address > base && (offset & 3) == 0 && offset < header.image_bytes;
     };
     const std::uint32_t probe = Read32(table + 16);
     if (probe != 0 && !code_inside(probe)) {
@@ -287,6 +291,11 @@ PluginRefusal plugin_check_table(const std::uint8_t* image, const PluginHeader& 
     }
     const std::uint32_t shutdown = Read32(table + 20);
     const std::uint32_t header_shutdown = header.shutdown_offset != 0 ? base + header.shutdown_offset : 0;
+    if (shutdown == base) {
+        // Linked without plugins/plugin.ld's reserved word: a shutdown at
+        // offset 0, which the header can only call "none".
+        return Damaged(why, "its table's shutdown is at image offset 0, which is reserved and the header reads as none");
+    }
     if (shutdown != header_shutdown) {
         return Damaged(why, "its table's shutdown 0x%08x is not the header's 0x%08x", static_cast<unsigned>(shutdown),
                        static_cast<unsigned>(header_shutdown));

@@ -300,10 +300,21 @@ def build(args):
         if value is None:
             fail("%s: no %s (every plugin has rwp_init and rwp_exports)" % (args.elf, symbol))
         entries[symbol] = value
-    shutdown = elf.symbol("rwp_shutdown") or 0
+    shutdown_symbol = elf.symbol("rwp_shutdown")
+    shutdown = shutdown_symbol or 0
+
+    # Offset 0 of the image is reserved (plugins/plugin.ld puts a zero word
+    # there): the header's shutdown offset 0 means "none", and as linked at
+    # 0 a table pointer to offset 0 reads as NULL, so code there could not
+    # be named. The loader would refuse the plugin at every load.
+    if entries["rwp_init"] == 0:
+        fail("%s: rwp_init is at image offset 0, which is reserved; link with plugins/plugin.ld" % args.elf)
+    if shutdown_symbol == 0:
+        fail("%s: rwp_shutdown is at image offset 0, which the header reads as no shutdown; "
+             "link with plugins/plugin.ld, which reserves that word" % args.elf)
 
     # The plugin's own table, as linked at 0: size, API version, version,
-    # flags, probe, shutdown.
+    # flags, probe, shutdown, launch.
     table = entries["rwp_exports"]
     size, table_api, plugin_version, flags = struct.unpack_from(">IIII", image, table)
     if table_api != api_version:
@@ -311,6 +322,16 @@ def build(args):
     table_shutdown, = struct.unpack_from(">I", image, table + 20)
     if size >= 24 and table_shutdown != shutdown:
         fail("rwp_exports.shutdown (0x%x) is not rwp_shutdown (0x%x)" % (table_shutdown, shutdown))
+    # A pointer in the table is a relocated word; one that holds 0 as linked
+    # at 0 points at offset 0 (a NULL has no relocation).
+    pointed = {offset for offset, _, _ in relocs}
+    for name, at in (("probe", 16), ("shutdown", 20), ("launch", 24)):
+        if at + 4 > size:
+            continue
+        value, = struct.unpack_from(">I", image, table + at)
+        if value == 0 and table + at in pointed:
+            fail("%s: rwp_exports.%s points at image offset 0, which is reserved and never code; "
+                 "link with plugins/plugin.ld" % (args.elf, name))
 
     state_bytes = int(args.state, 0)
     memory = align32(len(image)) + align32(bss_bytes) + align32(state_bytes)

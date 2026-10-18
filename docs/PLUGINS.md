@@ -371,6 +371,15 @@ is the image:
 The byte offsets are in `include/riftwii/pluginfile.hpp`; the relocation
 list follows the image, 12 bytes per record (offset, type, target).
 
+The image's first word is reserved, a zero that `plugins/plugin.ld`
+places before any code: a shutdown offset of 0 means "none", so a
+function linked at offset 0 could not be named. The first `gamecube`
+plugin had its `rwp_shutdown` there, and the loader refused it at every
+load (its table said the arena's base, the header said none). Now
+`make_plugin.py` refuses any entry or table pointer at offset 0 when it
+builds a plugin, and the loader refuses an init, probe, shutdown or launch
+there.
+
 ### Refusal
 
 The loader checks, in this order, and stops at the first failure with one
