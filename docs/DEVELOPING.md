@@ -89,6 +89,11 @@ Two scripts on the card drive a run without hands on a controller:
   `guiscript-restart.txt` instead. Pull the screenshots (and
   `crashscreen.bmp`) out of the SD image afterwards.
 
+GameCube test switches are empty files in `sd:/riftwii/gc/test/`. So far
+`reset` makes the blob press Reset twice (the restart, `GC_FLAG_RESET_TEST`).
+The older switches (`streamonly`, `nowiden`, ...) sit in `sd:/riftwii/gc/`
+and move there with their own changes.
+
 Dolphin cannot run a d2x cIOS, so SD and USB image boot can only be
 checked on a Wii (`docs/USB_HARDWARE_TEST.md`). What Dolphin does check
 well: the menu, disc launches with packs, the resident runtime (its
