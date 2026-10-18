@@ -239,6 +239,43 @@ TmdContents one_program_channel(std::uint64_t program_size) {
     return tmd;
 }
 
+// Where the extras' blobs may start in a channel game: above RiftWii,
+// and above any of the program that loads past it.
+void test_extras_floor() {
+    constexpr std::uint32_t kLoaderEnd = 0x81200000;
+    DolHeader dol;
+    // The usual program, low in MEM1 (Bit.Trip Void's starts at 0x80003400):
+    // the floor is RiftWii's end.
+    dol.sections[0] = DolSection{0x100, 0x80003400, 0x200000, true};
+    dol.sections[7] = DolSection{0x200100, 0x80203400, 0x40000, false};
+    dol.bss_address = 0x80243400;
+    dol.bss_size = 0x100000;
+    EXPECT_EQ(channel_extras_floor(dol, kLoaderEnd), kLoaderEnd);
+
+    // A data section above RiftWii: the blobs go above it, 32-byte aligned.
+    dol.sections[8] = DolSection{0x240100, 0x81300000, 0x1001, false};
+    EXPECT_EQ(channel_extras_floor(dol, kLoaderEnd), 0x81301020u);
+
+    // A BSS that reaches higher still.
+    dol.bss_address = 0x81301020;
+    dol.bss_size = 0x20000;
+    EXPECT_EQ(channel_extras_floor(dol, kLoaderEnd), 0x81321020u);
+
+    // A program up to the top of MEM1 leaves no room at all.
+    dol.bss_size = 0x81800000 - 0x81301020;
+    EXPECT_EQ(channel_extras_floor(dol, kLoaderEnd), 0x81800000u);
+
+    // MEM2 parts (refused by the loader anyway) and empty sections do not count.
+    DolHeader mem2;
+    mem2.sections[0] = DolSection{0x100, 0x80004000, 0x1000, true};
+    mem2.sections[8] = DolSection{0x1100, 0x90000000, 0x100000, false};
+    mem2.sections[9] = DolSection{0, 0x81700000, 0, false};
+    EXPECT_EQ(channel_extras_floor(mem2, kLoaderEnd), kLoaderEnd);
+
+    // An unaligned end of RiftWii's memory is rounded up too.
+    EXPECT_EQ(channel_extras_floor(mem2, 0x81200004), 0x81200020u);
+}
+
 }  // namespace
 
 void test_unlisted_verdict() {
@@ -327,6 +364,7 @@ void test_unlisted_verdict() {
 }
 
 int main() {
+    test_extras_floor();
     test_codes();
     test_classify();
     test_tmd();

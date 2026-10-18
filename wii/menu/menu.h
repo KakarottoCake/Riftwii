@@ -44,5 +44,6 @@ enum
 	MENU_DUMP,     // leave the GUI and dump test files from the disc
 	MENU_SOURCE,   // home: every game as tiles
 	MENU_CHANNEL,  // leave the GUI and start the RiftWii channel installer
-	MENU_NEEDS_SD  // no SD card: says why RiftWii can't run, then exits
+	MENU_NEEDS_SD, // no SD card: says why RiftWii can't run, then exits
+	MENU_PLAY_CHANNEL  // leave the GUI and start a WiiWare or Virtual Console game
 };

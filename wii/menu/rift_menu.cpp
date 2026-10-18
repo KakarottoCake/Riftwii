@@ -158,6 +158,7 @@ static const char* ScreenName(int menu)
 		case MENU_SOURCE: return "home";
 		case MENU_CHANNEL: return "channel";
 		case MENU_NEEDS_SD: return "needs an SD card";
+		case MENU_PLAY_CHANNEL: return "launch (Wii channel)";
 		default: return "?";
 	}
 }
@@ -8680,8 +8681,7 @@ static int MenuHome(FrontendState& state)
 					const riftwii::wii::NandChannel& channel = state.channels[state.channel_index];
 					logf("Wii channels: %s (%s) started from its page\n", channel.game_id.c_str(), ChannelName(channel).c_str());
 					riftwii::wii::SetChannelToStart(channel);
-					g_leave = riftwii::wii::kLeaveToChannel;
-					menu = MENU_EXIT;
+					menu = MENU_PLAY_CHANNEL;
 				}
 			} else if (!TurnOffEmptyPacks(state)) {
 				// stays on the page, the pack as it was
@@ -8774,11 +8774,10 @@ static int MenuHome(FrontendState& state)
 
 	HaltGui();
 	mainWindow->Remove(&w);
-	if (menu != MENU_LAUNCH && menu != MENU_BOOT) DropLingerBanner();  // the launch screen drops it otherwise
+	if (menu != MENU_LAUNCH && menu != MENU_BOOT && menu != MENU_PLAY_CHANNEL) DropLingerBanner();  // the launch screen drops it otherwise
 	// Cheats and video settings go with every launch, mods or not, and
 	// with a channel's.
-	const bool channelStart = menu == MENU_EXIT && state.use_channel && g_leave == riftwii::wii::kLeaveToChannel;
-	if (menu == MENU_LAUNCH || menu == MENU_BOOT || channelStart) {
+	if (menu == MENU_LAUNCH || menu == MENU_BOOT || menu == MENU_PLAY_CHANNEL) {
 		// The page is gone: a banner still on screen plays on meanwhile
 		// (cheats and settings read, the play recorded, all on the card).
 		const bool playing = g_lingerBanner != nullptr;
@@ -10187,7 +10186,7 @@ static void ShowLaunchFrame(const FrontendState& state, int action)
 		: action == MENU_CHANNEL ? tr("Opening the installer for") : tr("Starting");
 	// The game page's band in the game's colour, as the page it starts from.
 	GameBanner banner(skin::HueFor(action == MENU_CHANNEL ? std::string("RIFTWII") : state.game_id),
-		action == MENU_CHANNEL ? std::string() : state.game_id, !state.use_usb && !state.use_sd);
+		action == MENU_CHANNEL ? std::string() : state.game_id, !state.use_usb && !state.use_sd && !state.use_channel);
 	GuiText doingTxt(doing, 16, skin::WithAlpha(skin::kWhite, 200));
 	Place(doingTxt, 40, 10);
 	GuiText titleTxt(title.c_str(), 28, skin::kWhite);
@@ -10263,7 +10262,7 @@ int MainMenu(int menu, FrontendState& state)
 	ResumeGui();
 
 	while(currentMenu != MENU_EXIT && currentMenu != MENU_LAUNCH && currentMenu != MENU_BOOT && currentMenu != MENU_DUMP &&
-		currentMenu != MENU_CHANNEL)
+		currentMenu != MENU_CHANNEL && currentMenu != MENU_PLAY_CHANNEL)
 	{
 		logf("Screen: %s\n", ScreenName(currentMenu));
 		skin::SetOnHome(currentMenu == MENU_SOURCE);
@@ -10303,7 +10302,8 @@ int MainMenu(int menu, FrontendState& state)
 	}
 
 	logf("Screen: %s\n", ScreenName(currentMenu));
-	if (currentMenu == MENU_LAUNCH || currentMenu == MENU_BOOT || currentMenu == MENU_DUMP || currentMenu == MENU_CHANNEL) {
+	if (currentMenu == MENU_LAUNCH || currentMenu == MENU_BOOT || currentMenu == MENU_DUMP || currentMenu == MENU_CHANNEL ||
+		currentMenu == MENU_PLAY_CHANNEL) {
 		// The GUI thread is halted after this; main prints the boot log
 		// into the card of the frame left on screen.
 		ShowLaunchFrame(state, currentMenu);

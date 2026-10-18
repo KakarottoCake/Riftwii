@@ -169,4 +169,14 @@ bool choose_channel_program(const TmdContents& tmd, const std::vector<ContentSta
 ChannelVerdict judge_unlisted_channel(const std::string& code, const TmdContents& tmd,
                                       const std::vector<ContentStart>& starts);
 
+// The lowest MEM1 address RiftWii's extras (screenshots, the crash
+// recorder, the GameCube adapter, the Wii Remote log) may take in a channel
+// game RiftWii's loader starts. A channel has no FST: its MEM1 arena runs to
+// the top of MEM1, and the extras' blobs are carved from that top down to
+// this floor. It is above RiftWii's own memory (`loader_end`), which is in
+// use until the game starts, and above every part of the program (sections
+// and BSS) that loads past it, rounded up to 32 bytes. Parts below
+// `loader_end` (the usual case, from 0x80003400 up) do not move it.
+std::uint32_t channel_extras_floor(const DolHeader& program, std::uint32_t loader_end);
+
 }  // namespace riftwii

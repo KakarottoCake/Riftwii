@@ -88,9 +88,8 @@ struct ChannelBootFiles {
 // Wii's own.
 bool read_channel_boot(std::uint64_t title_id, const std::string& emu_nand, ChannelBootFiles& out, std::string& error);
 
-// The channel the menu is leaving to (wii/main.cpp's ExitApp, leave code
-// kLeaveToChannel): set by the menu when Start is pressed on one.
-constexpr int kLeaveToChannel = 6;
+// The channel game the menu is launching (MENU_PLAY_CHANNEL, wii/main.cpp's
+// StartChannel): set by the menu when Start is pressed on one.
 void SetChannelToStart(const NandChannel& channel);
 std::uint64_t ChannelToStart();
 // Its emulated NAND folder, empty for the Wii's own.

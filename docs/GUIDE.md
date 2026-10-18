@@ -347,11 +347,13 @@ shows only these.
 
 A channel game has a page like any game: **Play**, **Cheats**,
 **Options** (the picture, language and the other game settings),
-**Favourite** and **About**. RiftWii starts it itself, so the cheats,
-the settings and the Wii Menu button's way back to RiftWii work as they
-do for discs. This needs a d2x cIOS, as SD and USB games do; when it
-cannot start a game from the Wii itself, the Wii starts it as the Wii
-Menu would. A game in an emulated NAND keeps its saves in that folder.
+**Favourite** and **About**. RiftWii starts it itself, on the same
+launch screen as a disc, so the cheats, the settings, screenshots, the
+crash recorder, the GameCube adapter, the Wii U Pro Controller and the
+Wii Menu button's way back to RiftWii work as they do for discs. This
+needs a d2x cIOS, as SD and USB games do; when it cannot start a game
+from the Wii itself, the Wii starts it as the Wii Menu would, without
+those extras. A game in an emulated NAND keeps its saves in that folder.
 
 To add games from `.wad` files, put them in a folder named `wad` (or `wads`) at the
 top of the SD card and pick **Settings > Drives > Install WAD files**.

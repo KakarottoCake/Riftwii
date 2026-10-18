@@ -232,6 +232,25 @@ bool choose_channel_program(const TmdContents& tmd, const std::vector<ContentSta
     return true;
 }
 
+std::uint32_t channel_extras_floor(const DolHeader& program, std::uint32_t loader_end) {
+    // Only MEM1 counts: the blobs' code is in MEM1, and RiftWii's loader
+    // refuses a program with parts in MEM2.
+    constexpr std::uint64_t kMem1Start = 0x80000000;
+    constexpr std::uint64_t kMem1End = 0x81800000;
+    std::uint64_t floor = loader_end;
+    const auto raise_past = [&](std::uint32_t address, std::uint32_t size) {
+        if (size == 0 || address < kMem1Start || address >= kMem1End) return;
+        const std::uint64_t end = static_cast<std::uint64_t>(address) + size;
+        if (end > floor) floor = end;
+    };
+    for (const DolSection& section : program.sections) {
+        if (section.used()) raise_past(section.address, section.size);
+    }
+    raise_past(program.bss_address, program.bss_size);
+    const std::uint64_t aligned = (floor + 31) & ~std::uint64_t{31};
+    return aligned > kMem1End ? static_cast<std::uint32_t>(kMem1End) : static_cast<std::uint32_t>(aligned);
+}
+
 std::string nand_content_path(std::uint64_t title_id, std::uint32_t content_id) {
     char path[64];
     std::snprintf(path, sizeof path, "/title/%08x/%08x/content/%08x.app", static_cast<unsigned>(title_id >> 32),
