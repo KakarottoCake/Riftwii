@@ -3530,18 +3530,23 @@ static int MenuSource(FrontendState& state)
 	const bool dip = !skin::BarBump();
 	GuiText pageTxt("", dip ? 14 : 15, skin::kInkDim);
 	GuiText viewTxt("", dip ? 14 : 16, skin::kAccent);
+	// The room each label has beside the dip; 0 on a bar that bumps, where
+	// the view's own cut-off below applies and the page has no limit.
+	int sideW = 0;
 	if (dip) {
 		// Clear of the dip (58% of the bar, which is 856 wide on a widescreen menu).
 		const int dipLeft = 320 - static_cast<int>(0.29f * (wide > 0 ? 856 : 640));
 		// From the overscan's edges inwards (x 36 and 604, 4 inside the safe
 		// area), over the round buttons under them; one line, clear of the dip.
-		const int sideW = dipLeft - 10 - (36 - wide);  // a widescreen menu's start further out, at its own edge
+		// That leaves 320 - 185 - 10 - 36 = 89 px on a 4:3 menu (about 134 on
+		// a widescreen one). "Page 1 of 28" at 14 px is wider than that, so
+		// the old cut ended it in "...".
+		sideW = dipLeft - 10 - (36 - wide);  // a widescreen menu's start further out, at its own edge
 		viewTxt.SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
 		viewTxt.SetPosition(36 - wide, 354);
 		viewTxt.SetMaxWidth(sideW);
 		pageTxt.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
 		pageTxt.SetPosition(-36 + wide, 354);
-		pageTxt.SetMaxWidth(sideW);
 	} else {
 		Place(pageTxt, 40 - wide, 300);
 		// The view in use, always on screen (the status line below gives way to notices).
@@ -3656,12 +3661,34 @@ static int MenuSource(FrontendState& state)
 		g_homeNoticeShown = true;
 	}
 
+	// The page number is never cut: a page count has to be read whole. When
+	// "Page 1 of 28" (or its translation) is wider than the room beside the
+	// dip, it is shown as "1 / 28", which needs no translation.
+	const auto setPageText = [&](int page, int pages) {
+		const std::string full = tr("Page {1} of {2}", {std::to_string(page), std::to_string(pages)});
+		pageTxt.SetText(full.c_str());
+		if (sideW > 0 && pageTxt.GetTextWidth() > sideW) {
+			const std::string compact = std::to_string(page) + " / " + std::to_string(pages);
+			pageTxt.SetText(compact.c_str());
+		}
+	};
+	// The view's name, shrunk a size at a time (never below 12 px) before
+	// it would be cut: "Todos los juegos" is wider than the 89 px of a
+	// 4:3 menu at 14 px, and a name reads better small than ended in "...".
+	const auto setViewText = [&](const std::string& text) {
+		viewTxt.SetText(text.c_str());
+		if (sideW <= 0) return;
+		for (int size = 14; size >= 12; --size) {
+			viewTxt.SetFontSize(size);
+			if (viewTxt.GetTextWidth() <= sideW) break;
+		}
+	};
 	const auto showView = [&] {
 		// A search lists every game whatever the filter, so it is the view.
 		// Over the view's own round button on a bar that dips: its name is enough.
 		const std::string name = g_search.empty() ? std::string(tr(dip ? FilterShortLabel(g_filter) : FilterLabel(g_filter)))
 			: tr("Search \"{1}\"", {g_search});
-		viewTxt.SetText((dip ? name : std::string(tr("View")) + ": " + name).c_str());
+		setViewText(dip ? name : std::string(tr("View")) + ": " + name);
 		// While a search is on, the round button's first press ends it.
 		filterHint.SetText(g_search.empty() ? tr("View") : tr("Clear search"));
 	};
@@ -3932,8 +3959,11 @@ static int MenuSource(FrontendState& state)
 			shownPage = grid.Page();
 			shownPages = grid.Pages();
 			// The shelf has no pages: Minus and Plus move it by 12 games.
-			const std::string page = shownPages > 1 && !grid.Shelf() ? tr("Page {1} of {2}", {std::to_string(shownPage + 1), std::to_string(shownPages)}) : "";
-			pageTxt.SetText(page.c_str());
+			if (shownPages > 1 && !grid.Shelf()) {
+				setPageText(shownPage + 1, shownPages);
+			} else {
+				pageTxt.SetText("");
+			}
 		}
 		std::string nowClock, nowDate;
 		ClockText(nowClock, nowDate);
