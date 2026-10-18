@@ -202,6 +202,7 @@ jobs:
             --blob build-runtime/riftwii_wlog.bin \
             --blob build-runtime/riftwii_vsd.bin \
             --plugin build-plugins/selftest.rwp \
+            --plugin build-plugins/gamecube.rwp \
             $baseline --json-out size-report.json > size-report.md
           cat size-report.md >> "$GITHUB_STEP_SUMMARY"
       # Sizes only, a few hundred bytes of JSON. Not the DOL: CI publishes

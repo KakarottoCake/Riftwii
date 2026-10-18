@@ -40,6 +40,11 @@ SOURCES		:=	$(WII_DIRS) $(SRC_DIRS) runtime vendor-pugixml/src vendor-zstd \
 # the GamePad through it, guarded so plain Wii and Dolphin are unaffected.
 EXCLUDES	:=	vendor-libgui/source/demo.cpp vendor-libgui/source/menu.cpp vendor-libgui/source/filebrowser.cpp \
 				vendor-libgui/source/gettext.cpp vendor-libgui/source/pngu.c
+# What only the GameCube loader uses lives in the gamecube plugin
+# (Makefile.plugin's gamecube_SRC, docs/PLUGINS.md "Stage (b)"), not in the
+# DOL; the host tests still build these (CMakeLists.txt).
+EXCLUDES	+=	src/patching/gclayout.cpp src/patching/gcclock.cpp src/patching/gcreset.cpp \
+				src/data/gccontrols.cpp
 INCLUDES	:=	$(WII_DIRS) vendor-libgui/source include runtime runtime/resident runtime/pad runtime/gc runtime/shot runtime/fault runtime/vsd vendor-pugixml/src vendor-bearssl/inc vendor-wwfc vendor-zstd \
 				channel/common
 DATA		:=	wii/assets wii/lang vendor-gecko vendor-libgui/source/images vendor-libgui/source/fonts vendor-libgui/source/sounds vendor-libgui/source/lang \
@@ -123,8 +128,9 @@ BINFILES	:=	$(foreach dir,$(DATA),$(notdir $(wildcard $(dir)/*.ttf) \
 # before runtime-blob creates build-runtime/riftwii_rt.bin. VPATH resolves it
 # for the recursive build after runtime-blob has completed. menufont.zst and
 # licence.zst are made in the build (below) from wii/font/rounded.ttf and
-# LICENSE.
-BINFILES	+=	riftwii_rt.zst riftwii_rt_rvz.zst riftwii_rt_rvz.rel riftwii_pad.bin riftwii_gc.bin riftwii_gc_rvz.zst riftwii_gc_rvz.rel riftwii_shot.bin riftwii_fault.bin riftwii_wlog.bin riftwii_vsd.bin codehandleronly.bin
+# LICENSE. The GameCube runtime blobs (riftwii_gc*) are the gamecube
+# plugin's (plugins/gamecube/gcblobs.S), not the DOL's.
+BINFILES	+=	riftwii_rt.zst riftwii_rt_rvz.zst riftwii_rt_rvz.rel riftwii_pad.bin riftwii_shot.bin riftwii_fault.bin riftwii_wlog.bin riftwii_vsd.bin codehandleronly.bin
 # The start-up stash (wii/core/stash.hpp): not linked, but added to the
 # DOL as a section above .bss that crt0 copies to MEM2, so its MEM1 is
 # the heap's after the start. The menu's font, the GPL's text (credits)

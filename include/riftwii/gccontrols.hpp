@@ -20,7 +20,7 @@
 //   shake = B
 // A line changes only the button it names; every other button keeps the
 // built-in map (gc_controls_default) or what an earlier file gave it.
-// The loader reads the files at a launch (wii/launch/gcnative.cpp) and
+// The loader reads the files at a launch (plugins/gamecube/gcnative.cpp) and
 // hands the map to the blob (runtime/gc/gc_bt.c).
 namespace riftwii {
 

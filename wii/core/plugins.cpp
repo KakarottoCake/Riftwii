@@ -3,6 +3,7 @@
 #include "plugins.hpp"
 
 #include <dirent.h>
+#include <fat.h>
 #include <gccore.h>
 #include <malloc.h>
 #include <ogc/lwp_watchdog.h>
@@ -18,10 +19,22 @@
 #include <memory>
 #include <vector>
 
+#include "d2xsd.hpp"
 #include "i18n.hpp"
 #include "loadersettings.hpp"
 #include "log.hpp"
 #include "riftwii/sha256.hpp"
+#include "sdfile.hpp"
+#include "sdio.hpp"
+#include "zstd.h"
+
+// libogc's SRAM copies (libogc/system.c), not in its headers: read_sram.
+extern "C" {
+syssram* __SYS_LockSram(void);
+u32 __SYS_UnlockSram(u32 write);
+syssramex* __SYS_LockSramEx(void);
+u32 __SYS_UnlockSramEx(u32 write);
+}
 
 namespace riftwii::wii::plugin {
 namespace {
@@ -220,10 +233,189 @@ int32_t HostCrashRegister(const char* what, uint32_t start, uint32_t bytes) {
     return 1;
 }
 
+// ---- API 2: what a launcher needs (docs/PLUGINS.md, "Stage (b)") ----
+
+int32_t HostFormat(char* out, uint32_t bytes, const char* format, va_list args) {
+    return std::vsnprintf(out, bytes, format, args);
+}
+
+void* HostMoveBytes(void* to, const void* from, uint32_t bytes) { return std::memmove(to, from, bytes); }
+
+void* HostFillBytes(void* to, int32_t value, uint32_t bytes) { return std::memset(to, value, bytes); }
+
+// The plugin's own lines, as it wrote them: no name put in front, since
+// they already say what they are about ("GameCube: ...").
+void HostLogText(const char* text) { logf("%s", text); }
+
+void HostLogClose() { LogClose(); }
+
+// A stream is the C library's FILE, which the plugin never looks into.
+FILE* AsFile(void* stream) { return static_cast<FILE*>(stream); }
+
+void* HostStreamOpen(const char* path, const char* mode) { return std::fopen(path, mode); }
+
+int32_t HostStreamClose(void* stream) { return std::fclose(AsFile(stream)) == 0 ? 0 : -1; }
+
+uint32_t HostStreamRead(void* stream, void* buffer, uint32_t bytes) {
+    return static_cast<uint32_t>(std::fread(buffer, 1, bytes, AsFile(stream)));
+}
+
+uint32_t HostStreamWrite(void* stream, const void* buffer, uint32_t bytes) {
+    return static_cast<uint32_t>(std::fwrite(buffer, 1, bytes, AsFile(stream)));
+}
+
+int32_t HostStreamSeek(void* stream, int64_t offset, int32_t whence) {
+    return fseeko(AsFile(stream), static_cast<off_t>(offset), whence) == 0 ? 0 : -1;
+}
+
+int64_t HostStreamTell(void* stream) { return static_cast<int64_t>(ftello(AsFile(stream))); }
+
+int32_t HostPathInfo(const char* path, rwp_path_info* out) {
+    struct stat info;
+    if (stat(path, &info) != 0) return -1;
+    out->is_directory = S_ISDIR(info.st_mode) ? 1 : 0;
+    out->size = out->is_directory ? 0 : static_cast<uint64_t>(info.st_size);
+    return 0;
+}
+
+int32_t HostMakeDirectory(const char* path) {
+    if (mkdir(path, 0777) == 0) return 0;
+    struct stat info;
+    return stat(path, &info) == 0 && S_ISDIR(info.st_mode) ? 0 : -1;
+}
+
+void CopyReason(const std::string& reason, char* error, uint32_t error_bytes) {
+    if (error != nullptr && error_bytes != 0) std::snprintf(error, error_bytes, "%s", reason.c_str());
+}
+
+int32_t HostSdFileFragments(const char* path, rwp_fragment* out, uint32_t max, uint32_t* count, uint64_t* file_bytes,
+                            char* error, uint32_t error_bytes) {
+    Fat32File file;
+    std::string reason;
+    if (!resolve_sd_file(path, file, reason)) {
+        CopyReason(reason, error, error_bytes);
+        return 0;
+    }
+    *count = static_cast<uint32_t>(file.fragments.size());
+    *file_bytes = file.entry.size;
+    for (std::size_t i = 0; i < file.fragments.size() && i < max; ++i) {
+        out[i].sector = file.fragments[i].sector;
+        out[i].sector_count = file.fragments[i].sector_count;
+    }
+    return 1;
+}
+
+void HostSdForgetLayout() { forget_sd_layout(); }
+
+// As a Wii game's launch does: IOS lets one owner have the slot, so the
+// file system lets go of the card before it is opened for the game.
+int32_t HostSdHandOver(rwp_sd_card* out, char* error, uint32_t error_bytes) {
+    fatUnmount("sd:");
+    sd_interface()->shutdown();
+    sdio::Card card;
+    std::string reason;
+    if (!sdio::open_card(card, reason)) {
+        CopyReason(reason, error, error_bytes);
+        return 0;
+    }
+    if (card.d2x) {
+        CopyReason("the SD card is in use through d2x (not handled yet)", error, error_bytes);
+        return 0;
+    }
+    out->fd = card.fd;
+    out->rca = card.rca;
+    out->sdhc = card.sdhc ? 1 : 0;
+    return 1;
+}
+
+int32_t HostIosOpen(const char* path, uint32_t mode) { return IOS_Open(path, mode); }
+
+void HostReadSram(rwp_sram* out) {
+    syssram* sram = __SYS_LockSram();
+    out->counter_bias = sram->counter_bias;
+    out->language = sram->lang;
+    __SYS_UnlockSram(0);
+    syssramex* sramex = __SYS_LockSramEx();
+    std::memcpy(out->flash_id_a, sramex->flash_id[0], sizeof(out->flash_id_a));
+    __SYS_UnlockSramEx(0);
+}
+
+uint32_t HostVideoFramebuffer() { return reinterpret_cast<uint32_t>(VIDEO_GetCurrentFramebuffer()); }
+
+// The Wii's video encoder in the game's region. It has its own region
+// setting (NTSC, PAL...) that libogc writes from its retrace handler when
+// the video mode changes; once the game runs that handler is gone, so a US
+// game on a PAL Wii ran its NTSC picture through an encoder still set for
+// PAL: red came out blue, yellow cyan. The game's own mode on the frame on
+// screen, two retraces for the handler to apply it, then libogc shut down.
+void HostShutDownForGame(uint32_t tv_mode) {
+    void* const frame = VIDEO_GetCurrentFramebuffer();
+    VIDEO_Configure(tv_mode == RWP_TV_PAL ? &TVPal528IntDf : &TVNtsc480IntDf);
+    VIDEO_SetNextFramebuffer(frame);
+    VIDEO_Flush();
+    VIDEO_WaitVSync();
+    VIDEO_WaitVSync();
+    SYS_ResetSystem(SYS_SHUTDOWN, 0, 0);
+}
+
+size_t HostZstdDecompress(void* to, size_t to_bytes, const void* from, size_t from_bytes) {
+    return ZSTD_decompress(to, to_bytes, from, from_bytes);
+}
+
+unsigned long long HostZstdFrameSize(const void* from, size_t from_bytes) {
+    return ZSTD_getFrameContentSize(from, from_bytes);
+}
+
+uint32_t HostZstdIsError(size_t code) { return ZSTD_isError(code) ? 1 : 0; }
+
+const char* HostZstdErrorName(size_t code) { return ZSTD_getErrorName(code); }
+
+// Every entry in plugin_api.h's order, which a plugin was built against;
+// tests/plugin_tests.cpp checks that order and that none is skipped.
 const rwp_host kHost = {
-    sizeof(rwp_host), RWP_API_VERSION, HostLog,     HostArenaAlloc, HostMem1Alloc,  HostMem1Free,      HostFlushRange,
-    HostInvalidateRange, HostSyncCode, HostFileRead, HostFileSize,   HostVersion,    HostBuildStamp,    HostCrashRegister,
+    sizeof(rwp_host),
+    RWP_API_VERSION,
+    HostLog,
+    HostArenaAlloc,
+    HostMem1Alloc,
+    HostMem1Free,
+    HostFlushRange,
+    HostInvalidateRange,
+    HostSyncCode,
+    HostFileRead,
+    HostFileSize,
+    HostVersion,
+    HostBuildStamp,
+    HostCrashRegister,
+    // API 2
+    HostFormat,
+    HostMoveBytes,
+    HostFillBytes,
+    HostLogText,
+    HostLogClose,
+    HostStreamOpen,
+    HostStreamClose,
+    HostStreamRead,
+    HostStreamWrite,
+    HostStreamSeek,
+    HostStreamTell,
+    HostPathInfo,
+    HostMakeDirectory,
+    HostSdFileFragments,
+    HostSdForgetLayout,
+    HostSdHandOver,
+    HostIosOpen,
+    HostReadSram,
+    HostVideoFramebuffer,
+    HostShutDownForGame,
+    HostZstdDecompress,
+    HostZstdFrameSize,
+    HostZstdIsError,
+    HostZstdErrorName,
 };
+// A missing initializer would leave the last entries NULL without a word:
+// the count is checked against the struct's size.
+static_assert(sizeof(rwp_host) == 8 + 36 * sizeof(void*), "kHost and plugin_api.h's rwp_host disagree");
 
 // ---- Refusals ----
 
@@ -491,6 +683,23 @@ const rwp_plugin* Use(const char* name, std::string* message) {
     ReleaseArena();
     if (message) *message = Message(refused.refusal, name, refused.theirs, refused.ours);
     return nullptr;
+}
+
+int32_t Launch(const char* name, const void* request, uint32_t request_bytes, std::string& message) {
+    const rwp_plugin* table = Use(name, &message);
+    if (table == nullptr) return -1;
+    if (table->launch == nullptr) {
+        logf("Plugins: %s starts nothing (its table has no launch)\n", name);
+        message = Message(PluginRefusal::InitFailed, name, "", "");
+        return -1;
+    }
+    // Its code runs as the plugin's: a crash report names it, and what it
+    // registers for the crash screen is its own.
+    Slot* const before = g_current;
+    g_current = Find(name);
+    const int32_t result = table->launch(request, request_bytes);
+    g_current = before;
+    return result;
 }
 
 void ShutdownAll(const char* why) {

@@ -28,6 +28,13 @@ namespace riftwii::wii::plugin {
 // `message`, when given, holds the sentence for the player.
 const rwp_plugin* Use(const char* name, std::string* message = nullptr);
 
+// Starts what plugin `name` starts (its table's launch, with `request` of
+// `request_bytes`), loading it on first use. Returns only on failure: the
+// plugin's RWP_LAUNCH_* result (its reason in the request), or -1 when the
+// plugin cannot be used or starts nothing, with `message` the sentence for
+// the player (the log already says why).
+int32_t Launch(const char* name, const void* request, uint32_t request_bytes, std::string& message);
+
 // Calls every loaded plugin's shutdown and forgets them, giving the arena
 // back to the heap. `why` is for the log ("the menu closed").
 void ShutdownAll(const char* why);

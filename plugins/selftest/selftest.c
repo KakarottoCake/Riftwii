@@ -75,7 +75,7 @@ void rwp_shutdown(void);
 static int32_t selftest_probe(const char* drive_root);
 
 const rwp_plugin rwp_exports = {
-    sizeof(rwp_plugin), RWP_API_VERSION, SELFTEST_VERSION, 0, selftest_probe, rwp_shutdown,
+    sizeof(rwp_plugin), RWP_API_VERSION, SELFTEST_VERSION, 0, selftest_probe, rwp_shutdown, 0,
 };
 
 int32_t rwp_init(const rwp_host* host) {

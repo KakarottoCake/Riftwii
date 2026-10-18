@@ -284,7 +284,8 @@ static void TestTable() {
     std::string why;
     EXPECT_EQ(Parse(MakePlugin(Spec{}), header, why), PluginRefusal::None);  // shutdown 0x20, table 0x40
     const std::uint32_t base = 0x933C0000;
-    const auto image_with = [&](std::uint32_t size, std::uint32_t api, std::uint32_t probe, std::uint32_t shutdown) {
+    const auto image_with = [&](std::uint32_t size, std::uint32_t api, std::uint32_t probe, std::uint32_t shutdown,
+                                std::uint32_t launch = 0) {
         Bytes image(header.image_bytes, 0);
         Put32(image, header.table_offset, size);
         Put32(image, header.table_offset + 4, api);
@@ -292,39 +293,52 @@ static void TestTable() {
         Put32(image, header.table_offset + 12, 0);
         Put32(image, header.table_offset + 16, probe);
         Put32(image, header.table_offset + 20, shutdown);
+        Put32(image, header.table_offset + 24, launch);
         return image;
     };
     const auto check = [&](const Bytes& image) {
         return riftwii::plugin_check_table(image.data(), header, base, RWP_API_VERSION, why);
     };
     const std::uint32_t shutdown = base + 0x20;
-    EXPECT_EQ(check(image_with(24, RWP_API_VERSION, base + 0x30, shutdown)), PluginRefusal::None);
+    const std::uint32_t whole = riftwii::kPluginTableBytes;
+    EXPECT_EQ(whole, 28u);
+    EXPECT_EQ(check(image_with(whole, RWP_API_VERSION, base + 0x30, shutdown)), PluginRefusal::None);
     // No probe is allowed; a longer table (a later plugin) too.
-    EXPECT_EQ(check(image_with(24, RWP_API_VERSION, 0, shutdown)), PluginRefusal::None);
+    EXPECT_EQ(check(image_with(whole, RWP_API_VERSION, 0, shutdown)), PluginRefusal::None);
     EXPECT_EQ(check(image_with(40, RWP_API_VERSION, base, shutdown)), PluginRefusal::None);
-    // Its own size and API.
+    // Its own size and API: API 1's 24-byte table, without launch, is too short.
     EXPECT_EQ(check(image_with(16, RWP_API_VERSION, base + 0x30, shutdown)), PluginRefusal::Damaged);
-    EXPECT_EQ(check(image_with(24, RWP_API_VERSION + 1, base + 0x30, shutdown)), PluginRefusal::Damaged);
+    EXPECT_EQ(check(image_with(24, RWP_API_VERSION, base + 0x30, shutdown)), PluginRefusal::Damaged);
+    EXPECT_EQ(check(image_with(whole, RWP_API_VERSION + 1, base + 0x30, shutdown)), PluginRefusal::Damaged);
     // A probe at the image's end, in the .bss, before it, elsewhere in
     // memory, or not on a word.
-    EXPECT_EQ(check(image_with(24, RWP_API_VERSION, base + header.image_bytes - 4, shutdown)), PluginRefusal::None);
-    EXPECT_EQ(check(image_with(24, RWP_API_VERSION, base + header.image_bytes, shutdown)), PluginRefusal::Damaged);
+    EXPECT_EQ(check(image_with(whole, RWP_API_VERSION, base + header.image_bytes - 4, shutdown)), PluginRefusal::None);
+    EXPECT_EQ(check(image_with(whole, RWP_API_VERSION, base + header.image_bytes, shutdown)), PluginRefusal::Damaged);
     EXPECT_TRUE(why.find("probe") != std::string::npos);
-    EXPECT_EQ(check(image_with(24, RWP_API_VERSION, base - 4, shutdown)), PluginRefusal::Damaged);
-    EXPECT_EQ(check(image_with(24, RWP_API_VERSION, 0x80003000u, shutdown)), PluginRefusal::Damaged);
-    EXPECT_EQ(check(image_with(24, RWP_API_VERSION, base + 0x32, shutdown)), PluginRefusal::Damaged);
+    EXPECT_EQ(check(image_with(whole, RWP_API_VERSION, base - 4, shutdown)), PluginRefusal::Damaged);
+    EXPECT_EQ(check(image_with(whole, RWP_API_VERSION, 0x80003000u, shutdown)), PluginRefusal::Damaged);
+    EXPECT_EQ(check(image_with(whole, RWP_API_VERSION, base + 0x32, shutdown)), PluginRefusal::Damaged);
+    // The launch (API 2) under the same rule as the probe: code inside the
+    // image or none.
+    EXPECT_EQ(check(image_with(whole, RWP_API_VERSION, 0, shutdown, base + 0x34)), PluginRefusal::None);
+    EXPECT_EQ(check(image_with(whole, RWP_API_VERSION, 0, shutdown, base + header.image_bytes - 4)), PluginRefusal::None);
+    EXPECT_EQ(check(image_with(whole, RWP_API_VERSION, 0, shutdown, base + header.image_bytes)), PluginRefusal::Damaged);
+    EXPECT_TRUE(why.find("launch") != std::string::npos);
+    EXPECT_EQ(check(image_with(whole, RWP_API_VERSION, 0, shutdown, base - 4)), PluginRefusal::Damaged);
+    EXPECT_EQ(check(image_with(whole, RWP_API_VERSION, 0, shutdown, 0x80A00000u)), PluginRefusal::Damaged);
+    EXPECT_EQ(check(image_with(whole, RWP_API_VERSION, 0, shutdown, base + 0x36)), PluginRefusal::Damaged);
     // A shutdown other than the header's, outside the image, or missing
     // while the header has one.
-    EXPECT_EQ(check(image_with(24, RWP_API_VERSION, base + 0x30, base + 0x24)), PluginRefusal::Damaged);
+    EXPECT_EQ(check(image_with(whole, RWP_API_VERSION, base + 0x30, base + 0x24)), PluginRefusal::Damaged);
     EXPECT_TRUE(why.find("shutdown") != std::string::npos);
-    EXPECT_EQ(check(image_with(24, RWP_API_VERSION, base + 0x30, 0x80001800u)), PluginRefusal::Damaged);
-    EXPECT_EQ(check(image_with(24, RWP_API_VERSION, base + 0x30, 0)), PluginRefusal::Damaged);
+    EXPECT_EQ(check(image_with(whole, RWP_API_VERSION, base + 0x30, 0x80001800u)), PluginRefusal::Damaged);
+    EXPECT_EQ(check(image_with(whole, RWP_API_VERSION, base + 0x30, 0)), PluginRefusal::Damaged);
     // No shutdown in either.
     Spec spec;
     spec.shutdown = 0;
     EXPECT_EQ(Parse(MakePlugin(spec), header, why), PluginRefusal::None);
-    EXPECT_EQ(check(image_with(24, RWP_API_VERSION, base + 0x30, 0)), PluginRefusal::None);
-    EXPECT_EQ(check(image_with(24, RWP_API_VERSION, base + 0x30, base + 0x20)), PluginRefusal::Damaged);
+    EXPECT_EQ(check(image_with(whole, RWP_API_VERSION, base + 0x30, 0)), PluginRefusal::None);
+    EXPECT_EQ(check(image_with(whole, RWP_API_VERSION, base + 0x30, base + 0x20)), PluginRefusal::Damaged);
 }
 
 static void TestHash() {
@@ -492,7 +506,7 @@ static void TestDescribeAddress() {
 // with its size and the API version, later functions only at the end, and
 // RWP_HOST_HAS tells a plugin whether a shorter table has a function.
 static void TestTables() {
-    EXPECT_EQ(RWP_API_VERSION, 1);
+    EXPECT_EQ(RWP_API_VERSION, 2);
     EXPECT_EQ(offsetof(rwp_host, size), 0u);
     EXPECT_EQ(offsetof(rwp_host, api_version), 4u);
     EXPECT_EQ(offsetof(rwp_plugin, size), 0u);
@@ -505,16 +519,38 @@ static void TestTables() {
     EXPECT_TRUE(offsetof(rwp_host, sync_code) < offsetof(rwp_host, file_read));
     EXPECT_TRUE(offsetof(rwp_host, file_size) < offsetof(rwp_host, version));
     EXPECT_TRUE(offsetof(rwp_host, build_stamp) < offsetof(rwp_host, crash_register));
-    EXPECT_EQ(offsetof(rwp_host, crash_register) + sizeof(void*), sizeof(rwp_host));
+    // API 2's groups follow API 1's, in docs/PLUGINS.md's order ("Stage
+    // (b)"): the C runtime, log, files, the SD card raw, system, Zstandard.
+    EXPECT_TRUE(offsetof(rwp_host, crash_register) < offsetof(rwp_host, format));
+    EXPECT_TRUE(offsetof(rwp_host, fill_bytes) < offsetof(rwp_host, log_text));
+    EXPECT_TRUE(offsetof(rwp_host, log_close) < offsetof(rwp_host, stream_open));
+    EXPECT_TRUE(offsetof(rwp_host, make_directory) < offsetof(rwp_host, sd_file_fragments));
+    EXPECT_TRUE(offsetof(rwp_host, sd_hand_over) < offsetof(rwp_host, ios_open));
+    EXPECT_TRUE(offsetof(rwp_host, shut_down_for_game) < offsetof(rwp_host, zstd_decompress));
+    EXPECT_EQ(offsetof(rwp_host, zstd_error_name) + sizeof(void*), sizeof(rwp_host));
+    // Every entry is one pointer, none skipped: on the Wii (4-byte
+    // pointers) the table is 2 words and 36 functions.
+    EXPECT_EQ(sizeof(rwp_host), 8u + 36u * sizeof(void*));
     EXPECT_TRUE(offsetof(rwp_plugin, probe) < offsetof(rwp_plugin, shutdown));
-    EXPECT_EQ(offsetof(rwp_plugin, shutdown) + sizeof(void*), sizeof(rwp_plugin));
+    EXPECT_TRUE(offsetof(rwp_plugin, shutdown) < offsetof(rwp_plugin, launch));
+    EXPECT_EQ(offsetof(rwp_plugin, launch) + sizeof(void*), sizeof(rwp_plugin));
+    // The out-structures the Wii lays out the same everywhere: fixed
+    // fields, no pointers.
+    EXPECT_EQ(sizeof(rwp_path_info), 16u);
+    EXPECT_EQ(sizeof(rwp_fragment), 16u);
+    EXPECT_EQ(sizeof(rwp_sd_card), 12u);
+    EXPECT_EQ(sizeof(rwp_sram), 20u);
     // A whole table has every function; one cut before the last has not.
     rwp_host host{};
     host.size = sizeof(rwp_host);
+    EXPECT_TRUE(RWP_HOST_HAS(&host, zstd_error_name));
+    host.size = static_cast<std::uint32_t>(offsetof(rwp_host, zstd_error_name));
+    EXPECT_FALSE(RWP_HOST_HAS(&host, zstd_error_name));
+    EXPECT_TRUE(RWP_HOST_HAS(&host, zstd_is_error));
+    // An API 1 loader's table ends at crash_register: none of API 2's.
+    host.size = static_cast<std::uint32_t>(offsetof(rwp_host, crash_register) + sizeof(void*));
     EXPECT_TRUE(RWP_HOST_HAS(&host, crash_register));
-    host.size = static_cast<std::uint32_t>(offsetof(rwp_host, crash_register));
-    EXPECT_FALSE(RWP_HOST_HAS(&host, crash_register));
-    EXPECT_TRUE(RWP_HOST_HAS(&host, build_stamp));
+    EXPECT_FALSE(RWP_HOST_HAS(&host, format));
     // The arena holds the largest plugin the header accepts.
     EXPECT_EQ(RWP_ARENA_BYTES, 256u * 1024u);
 }
@@ -541,7 +577,8 @@ static void TestToolFixture(const std::string& fixtures) {
     EXPECT_EQ(riftwii::plugin_check_versions(header, header.api_version, "2610-1-g00000000", why), PluginRefusal::Stamp);
     EXPECT_TRUE(header.reloc_count > 0);
     // Relocated at a MEM2 address, its rwp_plugin table points into itself:
-    // probe and shutdown are relocated words, shutdown the header's entry.
+    // probe and shutdown are relocated words, shutdown the header's entry;
+    // it starts nothing, so its launch is NULL.
     Bytes memory(header.memory_bytes(), 0);
     std::copy(file.begin() + riftwii::kPluginHeaderBytes,
               file.begin() + riftwii::kPluginHeaderBytes + header.image_bytes, memory.begin());
@@ -555,6 +592,7 @@ static void TestToolFixture(const std::string& fixtures) {
     const std::uint32_t shutdown = Get32(memory, table + 20);
     EXPECT_TRUE(probe >= base && probe < base + header.image_bytes);
     EXPECT_EQ(shutdown, base + header.shutdown_offset);
+    EXPECT_EQ(Get32(memory, table + 24), 0u);
     EXPECT_EQ(riftwii::plugin_check_table(memory.data(), header, base, header.api_version, why), PluginRefusal::None);
 }
 

@@ -280,6 +280,11 @@ PluginRefusal plugin_check_table(const std::uint8_t* image, const PluginHeader& 
         return Damaged(why, "its table's probe 0x%08x is not a word of code inside its image",
                        static_cast<unsigned>(probe));
     }
+    const std::uint32_t launch = Read32(table + 24);
+    if (launch != 0 && !code_inside(launch)) {
+        return Damaged(why, "its table's launch 0x%08x is not a word of code inside its image",
+                       static_cast<unsigned>(launch));
+    }
     const std::uint32_t shutdown = Read32(table + 20);
     const std::uint32_t header_shutdown = header.shutdown_offset != 0 ? base + header.shutdown_offset : 0;
     if (shutdown != header_shutdown) {

@@ -39,11 +39,11 @@ constexpr std::size_t kPluginNameBytes = 16;
 constexpr std::size_t kPluginStampBytes = 32;
 constexpr std::size_t kPluginHashOffset = 96;
 constexpr std::size_t kPluginRelocBytes = 12;
-// The rwp_plugin table of API 1 as the Wii lays it out (plugin_api.h):
-// size, API version, version, flags, then the probe and shutdown
+// The rwp_plugin table of API 2 as the Wii lays it out (plugin_api.h):
+// size, API version, version, flags, then the probe, shutdown and launch
 // pointers, 32 bits each. Every byte of it the loader reads must be inside
 // the image; wii/core/plugins.cpp checks it against sizeof(rwp_plugin).
-constexpr std::uint32_t kPluginTableBytes = 24;
+constexpr std::uint32_t kPluginTableBytes = 28;
 // A sanity bound before any allocation: far more than a plugin needs.
 constexpr std::uint32_t kPluginMaxRelocs = 65536;
 
@@ -125,8 +125,8 @@ bool plugin_relocate(std::uint8_t* image, const PluginHeader& header, const std:
 
 // The plugin's rwp_plugin table in an image relocated to `base` (the
 // header already put all kPluginTableBytes of it inside the image): its
-// size covers the table, its API is `api_version`, its probe is NULL or
-// code inside the image, and its shutdown is the header's (both none, or
+// size covers the table, its API is `api_version`, its probe and launch
+// are each NULL or code inside the image, and its shutdown is the header's (both none, or
 // the same address). Damaged with `why` otherwise, before any of its code
 // runs.
 PluginRefusal plugin_check_table(const std::uint8_t* image, const PluginHeader& header, std::uint32_t base,
