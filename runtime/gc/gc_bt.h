@@ -31,6 +31,8 @@
 
 #include <stdint.h>
 
+#include "gc_controls.h"
+
 #define GC_BT_EVENT_READS 2u
 #define GC_BT_ACL_READS 6u  /* a remote reports up to about 100 times a second; PADRead comes 60 */
 #define GC_BT_READ_BYTES 256u
@@ -114,6 +116,8 @@ struct gc_bt {
     uint32_t last_event;    /* code << 16 | the opcode or first bytes */
     uint8_t event_log[4][8];  /* the first four events' first bytes, for the trace */
     uint32_t event_lengths;   /* their lengths, a byte each */
+    /* What each button presses (gc_controls.h), filled by the loader. */
+    struct gc_map map;
 };
 
 #define GC_BT_STAGE_CLOSED 0u

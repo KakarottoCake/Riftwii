@@ -679,6 +679,69 @@ that add GameCube controls to NSMBW).
 > unless you are testing the adapter, and send a problem report when it
 > freezes.
 
+### Wii Remote controls in GameCube games
+
+In a GameCube game a Wii Remote plays as a GameCube controller. Without
+files of your own the buttons are these:
+
+| GameCube | Wii Remote alone (held sideways) | With a Nunchuk | Classic Controller |
+| --- | --- | --- | --- |
+| A, B | 2, 1 | A, B | a, b |
+| X, Y | A, HOME | 1, 2 | x, y |
+| Z | - | - | ZL or ZR |
+| L, R | (none), B | C, Z | L, R |
+| Start | + | + | + |
+| Control stick | D-pad | Nunchuk stick | left stick |
+| C-stick | (none) | D-pad | right stick |
+| D-pad | D-pad | (none) | D-pad |
+
+You can change them in text files on the SD card:
+
+- `sd:/riftwii/gc/controls/default.txt` for every GameCube game;
+- `sd:/riftwii/gc/controls/<game ID>.txt` for one game (its six-letter
+  ID, `GLMP01.txt` for Luigi's Mansion), read after `default.txt`.
+
+A file has a heading for each way of holding the controller, then one
+line per button you want changed: the button, `=`, and what it presses.
+Buttons you don't name keep what they had. `#` starts a comment.
+
+```
+# sd:/riftwii/gc/controls/GLMP01.txt
+[remote]          # a Wii Remote alone, held sideways
+B = L             # the trigger as L
+- = R Z           # - presses R and Z together
+
+[nunchuk]         # a Wii Remote with a Nunchuk
+C = Y
+Up = Up           # the D-pad's up as the D-pad's up, not the C-stick
+HOME = none
+
+[classic]         # a Classic Controller (or Pro)
+ZL = L
+```
+
+- **Headings:** `[remote]`, `[nunchuk]`, `[classic]`.
+- **Buttons** (left of `=`): `A`, `B`, `1`, `2`, `-` (or `Minus`), `+`
+  (or `Plus`), `HOME`, `Up`, `Down`, `Left`, `Right`; with a
+  Nunchuk also `C` and `Z`; on a Classic Controller `A`, `B`, `X`, `Y`,
+  `L`, `R`, `ZL`, `ZR`, `-`, `+`, `HOME` and the D-pad (no `1` or
+  `2`). The D-pad's directions are as you hold the controller: with
+  the remote sideways, `Up` is the arrow that points up then.
+- **What they press** (right of `=`, several separated by spaces):
+  `A`, `B`, `X`, `Y`, `Z`, `L`, `R`, `Start`, the D-pad's `Up`, `Down`,
+  `Left`, `Right`, the control stick pushed all the way (`StickUp`,
+  `StickDown`, `StickLeft`, `StickRight`) and the C-stick
+  (`CStickUp`, `CStickDown`, `CStickLeft`, `CStickRight`). `none`
+  presses nothing. `Up = Up StickUp` presses both.
+- The Nunchuk's stick and the Classic Controller's sticks and triggers
+  always stay the GameCube's sticks and triggers.
+- Upper or lower case doesn't matter. A name RiftWii doesn't know, or a
+  button the controller doesn't have, is skipped, and the log
+  (`sd:/riftwii/boot.log`, lines starting `GameCube controls:`) says which
+  line and why.
+- Leaving the game doesn't change: hold HOME (HOME and - on a Wii Remote
+  alone) for two seconds, whatever HOME presses in the game.
+
 ### For pack authors
 
 RiftWii reads the whole documented Riivolution patch format

@@ -32,6 +32,7 @@
 #include "riftwii/fat32.hpp"
 #include "riftwii/gcbackup.hpp"
 #include "riftwii/gccard.hpp"
+#include "riftwii/gccontrols.hpp"
 #include "riftwii/gclayout.hpp"
 #include "riftwii/gcoverlay.hpp"
 #include "riftwii/gxpatches.hpp"
@@ -1656,6 +1657,26 @@ static void place_gc_cheats(const GcCheats& cheats, const std::string& game_id) 
     ICInvalidateRange(handler, kCodeListEnd - kCodeHandlerAddress);
 }
 
+// The Wii Remotes' map for this game (riftwii/gccontrols.hpp): the
+// built-in one, then sd:/riftwii/gc/controls/default.txt and the game's
+// own file over it, each line said in the log when it could not be used.
+static void load_gc_controls(const std::string& game_id, gc_map& map) {
+    gc_controls_default(map);
+    for (const std::string& path : gc_controls_paths(game_id)) {
+        std::FILE* f = std::fopen(path.c_str(), "rb");
+        if (!f) continue;
+        // One byte more than a file may have, so a larger one is seen as such.
+        std::string text(kMaxGcControlsFile + 1, '\0');
+        text.resize(std::fread(&text[0], 1, text.size(), f));
+        std::fclose(f);
+        const std::string name = path.substr(path.rfind('/') + 1);
+        std::vector<std::string> notes;
+        const std::size_t changed = gc_controls_apply(text, name, map, notes);
+        for (const std::string& note : notes) logf("GameCube controls: %s\n", note.c_str());
+        logf("GameCube controls: %s read, %u button(s) changed\n", path.c_str(), static_cast<unsigned>(changed));
+    }
+}
+
 bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string& error) {
     logf("GameCube (native): %s (%s)\n", image.id.c_str(), image.path.c_str());
     // Test presses for Dolphin runs with no controller to press with
@@ -1679,6 +1700,9 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
     // list: tells whether a game's crash comes from the raised addresses
     // without a build for it.
     const bool test_keep_aram = stat("sd:/riftwii/gc/keeparam", &st_press) == 0;
+    // What the Wii Remotes' buttons press, from the player's files.
+    gc_map controls;
+    load_gc_controls(image.id, controls);
     const bool rvz = GcImageIsRvz(image.path);
     Fat32File file;
     if (!resolve_sd_file(image.path, file, error)) return false;
@@ -2150,6 +2174,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
     // The Wii Remotes' state (gc_bt.h), zeroed in MEM2's stage: the blob
     // opens the Bluetooth controller at the game's first PADRead.
     ctx->bt = bt_addr;
+    static_cast<gc_bt*>(staged(bt_addr))->map = controls;
     auto* memcard = reinterpret_cast<gc_card*>(card_addr);
     std::memset(memcard, 0, sizeof(*memcard));
     // Its landing words (gc_card.h), with the card on or off: a jump to the

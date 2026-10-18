@@ -350,6 +350,15 @@ static void bt_ext_write(struct gc_bt* bt, const struct gc_bt_remote* r, uint32_
     bt_report(bt, r, w, sizeof(w));
 }
 
+/* Which of the map's tables a remote plays with (gc_controls.h). An
+ * extension that is neither a Nunchuk nor a Classic Controller leaves it a
+ * Wii Remote alone. */
+static uint32_t bt_kind(const struct gc_bt_remote* r) {
+    if (r->ext_step == 4 && r->ext_kind == GC_BT_EXT_CLASSIC) return GC_MAP_CLASSIC;
+    if (r->ext_step == 4 && r->ext_kind == GC_BT_EXT_NUNCHUK) return GC_MAP_NUNCHUK;
+    return GC_MAP_REMOTE;
+}
+
 /* The report mode: buttons only, or buttons and eight extension bytes;
  * sent only when something changes (the remote then reports at once). */
 static void bt_set_mode(struct gc_bt* bt, const struct gc_bt_remote* r) {
@@ -618,89 +627,96 @@ void gc_bt_poll(struct gc_rt_context* ctx, struct gc_bt* bt) {
 /* --- The GameCube side ---------------------------------------------- */
 
 /* PADStatus (12 bytes): buttons, stick x/y, C-stick x/y, L, R, analog A,
- * B, err. */
-#define GC_PAD_LEFT 0x0001u
-#define GC_PAD_RIGHT 0x0002u
-#define GC_PAD_DOWN 0x0004u
-#define GC_PAD_UP 0x0008u
-#define GC_PAD_Z 0x0010u
-#define GC_PAD_R 0x0020u
-#define GC_PAD_L 0x0040u
-#define GC_PAD_A 0x0100u
-#define GC_PAD_B 0x0200u
-#define GC_PAD_X 0x0400u
-#define GC_PAD_Y 0x0800u
-#define GC_PAD_START 0x1000u
+ * B, err. The buttons' bits are gc_controls.h's GC_PAD_*. */
 #define GC_PAD_NO_CONTROLLER 0xFFu  /* err -1 */
-#define GC_STICK_FULL 100
 
 static int32_t bt_clamp(int32_t v) { return v < -127 ? -127 : v > 127 ? 127 : v; }
 
-/* The remote's buttons (first byte: left 0x01, right 0x02, down 0x04,
- * up 0x08, plus 0x10; second: two 0x01, one 0x02, B 0x04, A 0x08, minus
- * 0x10, home 0x80), the D-pad as the remote is held: upright with an
- * extension, sideways (D-pad on the left) without. */
-static void bt_fill_one(const struct gc_bt_remote* r, uint8_t* pad) {
+/* The Wii Remote's own buttons (first byte: left 0x01, right 0x02, down
+ * 0x04, up 0x08, plus 0x10; second: two 0x01, one 0x02, B 0x04, A 0x08,
+ * minus 0x10, home 0x80) as gc_controls.h's inputs, the D-pad as the
+ * remote is held: upright with a Nunchuk, sideways (D-pad on the left, so
+ * its up points left) without. */
+static uint32_t bt_remote_held(const struct gc_bt_remote* r, int sideways) {
     const uint32_t b0 = r->core[0], b1 = r->core[1];
-    uint32_t buttons = 0;
+    uint32_t held = 0;
+    if (b1 & 0x08u) held |= 1u << GC_IN_A;
+    if (b1 & 0x04u) held |= 1u << GC_IN_B;
+    if (b1 & 0x02u) held |= 1u << GC_IN_1;
+    if (b1 & 0x01u) held |= 1u << GC_IN_2;
+    if (b1 & 0x10u) held |= 1u << GC_IN_MINUS;
+    if (b0 & 0x10u) held |= 1u << GC_IN_PLUS;
+    if (b1 & 0x80u) held |= 1u << GC_IN_HOME;
+    if (sideways) {
+        if (b0 & 0x02u) held |= 1u << GC_IN_UP;
+        if (b0 & 0x01u) held |= 1u << GC_IN_DOWN;
+        if (b0 & 0x08u) held |= 1u << GC_IN_LEFT;
+        if (b0 & 0x04u) held |= 1u << GC_IN_RIGHT;
+    } else {
+        if (b0 & 0x08u) held |= 1u << GC_IN_UP;
+        if (b0 & 0x04u) held |= 1u << GC_IN_DOWN;
+        if (b0 & 0x01u) held |= 1u << GC_IN_LEFT;
+        if (b0 & 0x02u) held |= 1u << GC_IN_RIGHT;
+    }
+    return held;
+}
+
+/* The Classic Controller's buttons, its fifth and sixth bytes (active
+ * low), as gc_controls.h's inputs. */
+static uint32_t bt_classic_held(const struct gc_bt_remote* r) {
+    const uint32_t e4 = ~(uint32_t)r->ext[4] & 0xFFu, e5 = ~(uint32_t)r->ext[5] & 0xFFu;
+    uint32_t held = 0;
+    if (e5 & 0x01u) held |= 1u << GC_IN_UP;
+    if (e4 & 0x40u) held |= 1u << GC_IN_DOWN;
+    if (e5 & 0x02u) held |= 1u << GC_IN_LEFT;
+    if (e4 & 0x80u) held |= 1u << GC_IN_RIGHT;
+    if (e5 & 0x10u) held |= 1u << GC_IN_A;
+    if (e5 & 0x40u) held |= 1u << GC_IN_B;
+    if (e5 & 0x08u) held |= 1u << GC_IN_X;
+    if (e5 & 0x20u) held |= 1u << GC_IN_Y;
+    if (e5 & 0x80u) held |= 1u << GC_IN_ZL;
+    if (e5 & 0x04u) held |= 1u << GC_IN_ZR;
+    if (e4 & 0x20u) held |= 1u << GC_IN_L;
+    if (e4 & 0x02u) held |= 1u << GC_IN_R;
+    if (e4 & 0x04u) held |= 1u << GC_IN_PLUS;
+    if (e4 & 0x10u) held |= 1u << GC_IN_MINUS;
+    if (e4 & 0x08u) held |= 1u << GC_IN_HOME;
+    return held;
+}
+
+/* One remote as a GameCube controller: its inputs through the map's table
+ * for how it is held, over the analogue parts the map leaves alone. */
+static void bt_fill_one(const struct gc_map* map, const struct gc_bt_remote* r, uint8_t* pad) {
+    const uint32_t kind = bt_kind(r);
+    uint32_t held, targets, buttons;
     int32_t sx = 0, sy = 0, cx = 0, cy = 0;
     uint32_t l = 0, rt = 0;
-    if (b0 & 0x10u) buttons |= GC_PAD_START;
-    if (b1 & 0x10u) buttons |= GC_PAD_Z;
-    if (r->ext_kind == GC_BT_EXT_CLASSIC && r->ext_step == 4) {
-        /* Active low; the sticks and triggers packed into the first four bytes. */
-        const uint32_t e4 = ~(uint32_t)r->ext[4] & 0xFFu, e5 = ~(uint32_t)r->ext[5] & 0xFFu;
+    if (kind == GC_MAP_CLASSIC) {
+        /* The sticks and triggers packed into the first four bytes. */
         const int32_t lx = r->ext[0] & 0x3F, ly = r->ext[1] & 0x3F;
         const int32_t rx = ((r->ext[0] & 0xC0) >> 3) | ((r->ext[1] & 0xC0) >> 5) | ((r->ext[2] & 0x80) >> 7);
         const int32_t ry = r->ext[2] & 0x1F;
         const uint32_t lt = ((r->ext[2] & 0x60u) >> 2) | ((r->ext[3] & 0xE0u) >> 5);
         const uint32_t rtv = r->ext[3] & 0x1Fu;
-        buttons = 0;
-        if (e5 & 0x10u) buttons |= GC_PAD_A;
-        if (e5 & 0x40u) buttons |= GC_PAD_B;
-        if (e5 & 0x08u) buttons |= GC_PAD_X;
-        if (e5 & 0x20u) buttons |= GC_PAD_Y;
-        if (e5 & 0x84u) buttons |= GC_PAD_Z;  /* ZL or ZR */
-        if (e4 & 0x04u) buttons |= GC_PAD_START;
-        if (e4 & 0x20u) buttons |= GC_PAD_L;
-        if (e4 & 0x02u) buttons |= GC_PAD_R;
-        if (e5 & 0x01u) buttons |= GC_PAD_UP;
-        if (e4 & 0x40u) buttons |= GC_PAD_DOWN;
-        if (e5 & 0x02u) buttons |= GC_PAD_LEFT;
-        if (e4 & 0x80u) buttons |= GC_PAD_RIGHT;
+        held = bt_classic_held(r);
         sx = (lx - 32) * 3;
         sy = (ly - 32) * 3;
         cx = (rx - 16) * 6;
         cy = (ry - 16) * 6;
         l = lt * 8;
         rt = rtv * 8;
-    } else if (r->ext_kind == GC_BT_EXT_NUNCHUK && r->ext_step == 4) {
-        if (b1 & 0x08u) buttons |= GC_PAD_A;
-        if (b1 & 0x04u) buttons |= GC_PAD_B;
-        if (b1 & 0x02u) buttons |= GC_PAD_X;
-        if (b1 & 0x01u) buttons |= GC_PAD_Y;
-        if (!(r->ext[5] & 0x01u)) buttons |= GC_PAD_R;  /* Z, active low */
-        if (!(r->ext[5] & 0x02u)) buttons |= GC_PAD_L;  /* C */
+    } else if (kind == GC_MAP_NUNCHUK) {
+        held = bt_remote_held(r, 0);
+        if (!(r->ext[5] & 0x01u)) held |= 1u << GC_IN_Z;  /* active low */
+        if (!(r->ext[5] & 0x02u)) held |= 1u << GC_IN_C;
         sx = (int32_t)r->ext[0] - 128;
         sy = (int32_t)r->ext[1] - 128;
-        /* The D-pad as the C-stick (the camera in most games). */
-        if (b0 & 0x01u) cx = -GC_STICK_FULL;
-        if (b0 & 0x02u) cx = GC_STICK_FULL;
-        if (b0 & 0x08u) cy = GC_STICK_FULL;
-        if (b0 & 0x04u) cy = -GC_STICK_FULL;
     } else {
-        /* Sideways: 2 is A, 1 is B, the trigger R, A is X, home Y; the
-         * D-pad (its up now points left) is the stick and the D-pad. */
-        if (b1 & 0x01u) buttons |= GC_PAD_A;
-        if (b1 & 0x02u) buttons |= GC_PAD_B;
-        if (b1 & 0x04u) buttons |= GC_PAD_R;
-        if (b1 & 0x08u) buttons |= GC_PAD_X;
-        if (b1 & 0x80u) buttons |= GC_PAD_Y;
-        if (b0 & 0x08u) { buttons |= GC_PAD_LEFT; sx = -GC_STICK_FULL; }
-        if (b0 & 0x04u) { buttons |= GC_PAD_RIGHT; sx = GC_STICK_FULL; }
-        if (b0 & 0x02u) { buttons |= GC_PAD_UP; sy = GC_STICK_FULL; }
-        if (b0 & 0x01u) { buttons |= GC_PAD_DOWN; sy = -GC_STICK_FULL; }
+        held = bt_remote_held(r, 1);
     }
+    targets = gc_map_targets(map, kind, held);
+    buttons = targets & GC_PAD_BUTTONS;
+    gc_map_sticks(targets, &sx, &sy, &cx, &cy);
     if (buttons & GC_PAD_L) l = 0xFF;
     if (buttons & GC_PAD_R) rt = 0xFF;
     pad[0] = (uint8_t)(buttons >> 8);
@@ -743,7 +759,8 @@ void gc_bt_fill(struct gc_bt* bt, uint8_t* status) {
     gc_ports_assign(pads, remotes, bt->port_of);
     for (i = 0; i < GC_BT_REMOTES; ++i) {
         const uint32_t port = bt->port_of[i];
-        if (port < GC_PORTS) bt_fill_one(&bt->remotes[i], status + 12 * port);
+        if (port < GC_PORTS) bt_fill_one(&bt->map, &bt->remotes[i], status + 12 * port);
     }
     for (i = 0; i < GC_PORTS; ++i) bt->port_err[i] = status[12 * i + 10];
 }
+
