@@ -40,8 +40,9 @@ struct GridItem {
     // What Home keys the tile on (focus, favourites, history): the game ID,
     // or a profile's "<game ID>@<slug>" (riftwii/profiles.hpp).
     std::string key;
-    std::string badge;  // DISC, USB, SD
+    std::string badge;  // DISC, USB, SD, GC (a GameCube game, on the SD card)
     bool mods = false;  // packs exist for this game
+    bool to_build = false;  // a GameCube game still to be made from its patch
     // One of the game's profiles: its picture in the tile's top right corner.
     bool profile = false;
     GXColor hue = {90, 90, 100, 255};

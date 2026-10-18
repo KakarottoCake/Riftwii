@@ -57,6 +57,23 @@ bool game_runs_no_mem2_code(const std::string& game_id);
 // takes in game can be too much (the menu says so before an RVZ launch).
 bool game_needs_most_of_mem2(const std::string& game_id);
 
+// GameCube games (the native loader, gcnative.cpp) whose ARAM addresses
+// must stay as the SDK gives them: raising them to 0x10004000, for the
+// sound program to read MEM2, breaks a check of their own. Mario Party 4's
+// sound manager (msmSysInit, its ARAM end fixed at 0x808000) tests
+// ARGetBaseAddress() plus its sound data's size against that end, sees no
+// room and stops in an endless loop before the first frame. Their sound
+// program then reads its samples from MEM1 (wrong sound), but they run.
+bool gc_keeps_aram_addresses(const std::string& game_id);
+
+// GameCube games whose file loader thread takes a queued load as soon as a
+// read finishes and allocates from JSystem's current heap, a single global:
+// with reads at the SD card's speed it can wake while another thread has
+// made a small, full heap current (Luigi's Mansion: a 512 KB solid heap for
+// a room's models) and gets nothing. The native loader makes each load use
+// the heap current where it was queued (gcnative.cpp's find_lm_loader).
+bool gc_loads_use_queued_heap(const std::string& game_id);
+
 // Games whose main.dol only starts another executable on the disc (EA's
 // 2007 games among them): the FST index of the one to start in its place,
 // 0 for none. Started through main.dol, Madden NFL 08 from an RVZ stopped

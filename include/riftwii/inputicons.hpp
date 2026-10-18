@@ -16,13 +16,14 @@ namespace riftwii {
 // The picture for a controller GameTDB names (wiimote, nunchuk,
 // classiccontroller, gamecube), or "" when there is none for it.
 std::string input_icon_for_control(const std::string& type);
-// The picture for a button a prompt names (A, B, +, -, 1, 2, HOME, C, Z),
-// or "" when there is none.
+// The picture for a button a prompt names (A, B, +, -, 1, 2, HOME, C, Z;
+// Stick and D-pad, which RiftWii draws itself), or "" when there is none.
 std::string input_icon_for_button(const std::string& button);
 
-// `name` (a picture's file name without ".png") as a `size` x `size`
-// canvas in `color`, each pixel the average of the area it covers. False
-// (and `out` untouched) when there is no such picture.
+// `name` (a picture's file name without ".png", or RiftWii's own "stick"
+// or "dpad") as a `size` x `size` canvas in `color`, each pixel the
+// average of the area it covers. False (and `out` untouched) when there
+// is no such picture.
 bool paint_input_icon(const std::string& name, int size, Rgba color, Canvas& out);
 
 }  // namespace riftwii

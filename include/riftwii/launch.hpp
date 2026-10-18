@@ -118,7 +118,70 @@ struct GameSettings {
     std::string rumble = "on";          // "off": gx_rumble_off
     std::string speaker = "on";         // "off": gx_speaker_off
     std::string region_strings = "off"; // "on": the Region strings fix (gx_country_strings)
+    // A GameCube game's disc reads: "drive" take a GameCube drive's time
+    // (some games count on it), "fast" come at the SD card's speed.
+    std::string gc_disc_reads = "fast";
+    // A GameCube game's memory card: "own" is the game's own file, "shared"
+    // one card for all the games of its encoding (gc_card_path).
+    std::string gc_card = "own";
+    // A GameCube game's picture and language (gcnative.cpp does each).
+    // "global", the default, follows Settings and the Wii's own settings
+    // as a Wii game's rows do (GcConsoleSettings, resolved below); "game"
+    // is the game's own whatever those say.
+    // "480p": progressive scan, for a US or Japanese game on a component cable;
+    std::string gc_progressive = "global";
+    // "16:9": the game's 3D drawn for a widescreen TV;
+    std::string gc_widescreen = "global";
+    // one of kGcLanguages: the language the game is told the console's
+    // GameCube settings say, for this game only.
+    std::string gc_language = "global";
 };
+
+// The GameCube's languages in the order of their number in its settings
+// (the SRAM's language byte, as YAGCD lists it), by GameSettings name.
+inline const char* const kGcLanguages[] = {"english", "german", "french", "spanish", "italian", "dutch"};
+
+// The SRAM language number for a GameSettings::gc_language name; -1 for
+// "game" or a name that is not one of kGcLanguages.
+int gc_sram_language(const std::string& name);
+
+// A GameCube game made for a PAL television (its ID's fourth letter): its
+// picture is 50 Hz or 576 lines, never NTSC's 480.
+bool gc_pal_game(const std::string& id);
+
+// What a GameCube game's "global" options follow: Settings' choices for
+// every game and the Wii's own settings (the menu and the loader read
+// them from the console; a test sets them by hand).
+struct GcConsoleSettings {
+    std::string aspect = "game";            // LoaderSettings::aspect: "game" (the Wii's TV setting), "4:3", "16:9"
+    std::string game_language = "console";  // LoaderSettings::game_language (riftwii/gamelang.hpp names)
+    bool wii_widescreen = false;            // the Wii's TV is set to 16:9
+    bool wii_progressive = false;           // the Wii's 480p setting is on
+    int wii_language = -1;                  // the Wii's language, as libogc's CONF_LANG_* number
+};
+
+// Whether the game's 3D is drawn for 16:9: only "16:9", picked for the
+// game; "game" and "global" (Default) keep the game's own picture, as the
+// widening is experimental.
+bool gc_widescreen_on(const GameSettings& game, const GcConsoleSettings& console);
+
+// Held back from this release, to come back in a PR of their own: on a Wii,
+// "As on a GameCube" loading still freezes Super Mario Eclipse at its
+// welcome scene, and 16:9 inverts the colours in some games. While a switch
+// is off, its row is hidden from the game page and the launch ignores the
+// choice; a choice already saved in a game's settings is kept for then.
+constexpr bool kGcDriveTimingReady = false;
+constexpr bool kGcWidescreenReady = false;
+
+// Whether the game gets 480p: "480p" yes, "game" no, "global" when the
+// Wii's own 480p setting is on. Never for a PAL game (gc_pal_game).
+bool gc_progressive_on(const GameSettings& game, const std::string& id, const GcConsoleSettings& console);
+
+// The SRAM language number the game is told (kGcLanguages' order), or -1
+// for the console's GameCube setting as it is. "global": Settings' game
+// language when it is one of the GameCube's six, the Wii's own language
+// when Settings says the console's, else -1.
+int gc_language_number(const GameSettings& game, const GcConsoleSettings& console);
 
 class LaunchModel {
 public:

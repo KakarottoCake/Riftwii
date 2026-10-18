@@ -54,6 +54,21 @@ unsigned long long ChannelTitle() {
     return 0;
 }
 
+bool StartedByHomebrewChannel() {
+    const volatile u32* stub = reinterpret_cast<const volatile u32*>(0x80001804);
+    return stub[0] == 0x53545542 && stub[1] == 0x48415858;
+}
+
+unsigned long long HomebrewChannelTitle() {
+    static const u64 kTitles[] = {0x000100014C554C5Aull, 0x000100014F484243ull, 0x0001000148415858ull,
+                                  0x00010001AF1BF516ull};
+    for (u64 title : kTitles) {
+        u32 views = 0;
+        if (ES_GetNumTicketViews(title, &views) >= 0 && views != 0) return title;
+    }
+    return 0;
+}
+
 bool ChannelInstalled(unsigned& version) {
     for (u64 title : kChannelTitles) {
         if (title_installed(title, version)) return true;

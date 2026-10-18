@@ -3,6 +3,7 @@
 #include "riftwii/inputicons.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <vector>
@@ -29,11 +30,68 @@ std::string input_icon_for_button(const std::string& button) {
     if (button == "HOME") return "wii_button_home";
     if (button == "C") return "wii_button_c";
     if (button == "Z") return "wii_button_z";
+    if (button == "Stick") return "stick";
+    if (button == "D-pad") return "dpad";
     return "";
+}
+
+// How much of a drawn picture covers the point (u, v), each from -0.5 to
+// 0.5 across the picture: 1 inside, 0 outside. RiftWii draws these two
+// (Kenney's pictures that come with RiftWii have no stick or D-pad), in
+// the same filled style as the button pictures and over the same area:
+// Kenney's buttons reach 0.375 from the middle (8 to 55 of 64 pixels).
+static bool drawn_icon_covers(const std::string& name, double u, double v) {
+    const double reach = 0.375;
+    if (name == "stick") {
+        // A stick's top seen from above: a disc with a ring cut round its
+        // middle, so it does not read as a plain button.
+        const double r = std::sqrt(u * u + v * v);
+        const bool groove = r > 0.24 && r < 0.30;
+        return r <= reach && !groove;
+    }
+    if (name == "dpad") {
+        // A cross with a small hole at its middle, where the pad pivots.
+        const double arm = 0.13;
+        const bool across = std::fabs(v) <= arm && std::fabs(u) <= reach;
+        const bool down = std::fabs(u) <= arm && std::fabs(v) <= reach;
+        const bool middle = u * u + v * v < 0.06 * 0.06;
+        return (across || down) && !middle;
+    }
+    return false;
+}
+
+static bool is_drawn_icon(const std::string& name) {
+    return name == "stick" || name == "dpad";
+}
+
+// A drawn picture, each pixel's alpha the share of 4 x 4 samples inside it.
+static void paint_drawn_icon(const std::string& name, int size, Rgba color, Canvas& out) {
+    const int samples = 4;
+    Canvas c(size, size);
+    for (int y = 0; y < size; ++y) {
+        for (int x = 0; x < size; ++x) {
+            int inside = 0;
+            for (int sy = 0; sy < samples; ++sy) {
+                for (int sx = 0; sx < samples; ++sx) {
+                    const double u = (x + (sx + 0.5) / samples) / size - 0.5;
+                    const double v = (y + (sy + 0.5) / samples) / size - 0.5;
+                    if (drawn_icon_covers(name, u, v)) ++inside;
+                }
+            }
+            Rgba p = color;
+            p.a = static_cast<std::uint8_t>((color.a * inside + samples * samples / 2) / (samples * samples));
+            c.put(x, y, p);
+        }
+    }
+    out = c;
 }
 
 bool paint_input_icon(const std::string& name, int size, Rgba color, Canvas& out) {
     if (size <= 0 || size > 256) return false;
+    if (is_drawn_icon(name)) {
+        paint_drawn_icon(name, size, color, out);
+        return true;
+    }
     const InputIconData* icon = nullptr;
     for (unsigned i = 0; i < kInputIconCount; ++i)
         if (name == kInputIcons[i].name) icon = &kInputIcons[i];

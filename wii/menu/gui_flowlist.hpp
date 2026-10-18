@@ -25,10 +25,17 @@ struct FlowRow {
     Kind kind = Kind::Info;
     std::string label;
     std::string value;     // the control's text (Toggle: "On"/"Off" beside the switch)
+    std::string detail;    // a second line under the label (a backup's "2 saves · 4 blocks"), in a list made taller with SetRowHeight; empty for none
     bool on = false;       // accent colour; a Toggle's state
     bool dim = false;      // greyed and fixed (broken pack, notes, unavailable)
     bool heading = false;  // larger label (a pack)
     bool indent = false;   // under a heading (a pack's options)
+    // A picture at the row's start (a memory card save's icon): room is kept
+    // for it when `icon_column` is set, and `icon` (32x32 GX RGB5A3 tiles,
+    // 32-byte aligned, kept by the caller while the list shows it) is drawn
+    // there when it is not null. A save with no icon keeps its place blank.
+    bool icon_column = false;
+    const unsigned char* icon = nullptr;
 };
 
 class GuiFlowList : public GuiElement {
@@ -48,7 +55,10 @@ public:
     void Select(int index);
     int Selected() const { return focus; }
     // Where row `index` is on screen now (its top), scrolled.
-    int RowTop(int index) const { return y0 + index * kRowHeight - static_cast<int>(scroll); }
+    int RowTop(int index) const { return y0 + index * rowH - static_cast<int>(scroll); }
+    // Taller rows for a list whose rows have a second line (FlowRow::detail);
+    // kRowHeight by default. Set before the list is shown.
+    void SetRowHeight(int h) { rowH = h; }
     // Scrolled to the bottom (a list that fits is always there).
     bool AtEnd() const { return scroll >= static_cast<float>(MaxScroll()) - 1.0f; }
     // The row acted on (A, or stepped forward), or stepped back (-, the
@@ -95,10 +105,12 @@ private:
     int textFirst = -1;
     bool dirty = true;
     bool cards = false;
+    int rowH = kRowHeight;
     int CardLeft(const FlowRow& r) const;
     int CardRight() const;
     GuiText* label[kMaxVisible + 1];
     GuiText* value[kMaxVisible + 1];
+    GuiText* detail[kMaxVisible + 1];
     GuiSound* soundOver;
     GuiSound* soundClick;
 };

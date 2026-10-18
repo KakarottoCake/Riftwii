@@ -55,7 +55,8 @@ const char* const kCredits[] = {
     "",
     "wup-028-bslug by Alex Chadwick (MIT): the GameCube controller adapter.",
     "",
-    "Nintendont by FIX94 and contributors: the USB HID driver, used with its developers' permission.",
+    "Nintendont by FIX94 and contributors: the USB HID driver and the GameCube sound program patches, used "
+    "with its developers' permission.",
     "",
     "WiiDRC by FIX94 (MIT): the Wii U GamePad.",
     "",
@@ -92,6 +93,8 @@ const char* const kCredits[] = {
     "",
     "Game names and covers from GameTDB (gametdb.com). Cheat codes from the GeckoCodes archive kept by "
     "RiiConnect24 (codes.rc24.xyz).",
+    "",
+    "Animated GameCube banners: the community's banners, hosted by RiiConnect24 (banner.rc24.xyz).",
     "",
     "RiftWii contains no Riivolution code and no Nintendo keys or assets.",
     "",

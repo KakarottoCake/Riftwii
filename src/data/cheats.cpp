@@ -66,11 +66,60 @@ bool is_id_line(const std::vector<std::string>& lines, std::size_t i) {
     return !(next < lines.size() && code_line(lines[next], a, b) != 0);
 }
 
+// A heading's words, lower case, longest first so "version" is not read
+// as "v": the region a release was for, then what its number is called.
+const char* const kHeadingRegions[] = {"ntsc-u", "ntsc-j", "ntsc-k", "ntsc", "pal"};
+const char* const kHeadingVersionWords[] = {"version", "ver.", "ver", "v"};
+const char* const kHeadingRevisionWords[] = {"revision", "rev.", "rev"};
+// Longer lines are never headings (a cheat's name or a note).
+constexpr std::size_t kMaxHeadingLength = 40;
+
+// Whether `word` is at `at` in `s`, followed by a space, a digit or the
+// end; `at` then moves past it and the spaces after it.
+bool take_word(const std::string& s, std::size_t& at, const char* word) {
+    const std::size_t n = std::char_traits<char>::length(word);
+    if (s.compare(at, n, word) != 0) return false;
+    const std::size_t after = at + n;
+    if (after < s.size() && s[after] != ' ' && !std::isdigit(static_cast<unsigned char>(s[after]))) return false;
+    at = after;
+    while (at < s.size() && s[at] == ' ') ++at;
+    return true;
+}
+
+template <std::size_t N>
+bool take_any_word(const std::string& s, std::size_t& at, const char* const (&words)[N]) {
+    for (const char* word : words) {
+        if (take_word(s, at, word)) return true;
+    }
+    return false;
+}
+
+// Digits at `at`, at most `max_digits` of them; -1 when there are none or
+// too many.
+int take_number(const std::string& s, std::size_t& at, std::size_t max_digits) {
+    const std::size_t from = at;
+    int value = 0;
+    while (at < s.size() && std::isdigit(static_cast<unsigned char>(s[at]))) {
+        if (at - from == max_digits) return -1;
+        value = value * 10 + (s[at] - '0');
+        ++at;
+    }
+    return at == from ? -1 : value;
+}
+
+// The lines between headings carry the revision of the heading above them
+// (kAnyRevision before the first one).
+bool shown_for(int section, int revision) {
+    return revision == kAnyRevision || section == kAnyRevision || section == revision;
+}
+
 // A cheat file as text: its header lines, then its blocks (one cheat or
-// note each, as the lines between blank lines), trimmed.
+// note each, as the lines between blank lines), trimmed. `section[i]` is
+// the revision heading block i is under (a heading is under itself).
 struct CheatBlocks {
     std::vector<std::string> header;
     std::vector<std::vector<std::string>> blocks;
+    std::vector<int> section;
 };
 
 CheatBlocks split_blocks(const std::string& text) {
@@ -85,9 +134,15 @@ CheatBlocks split_blocks(const std::string& text) {
     if (is_id_line(lines, i)) out.header.push_back(lines[i++]);
     if (!out.header.empty() && i < lines.size() && !lines[i].empty()) out.header.push_back(lines[i++]);
     std::vector<std::string> block;
+    int section = kAnyRevision;
     for (; i <= lines.size(); ++i) {
         if (i == lines.size() || lines[i].empty()) {
-            if (!block.empty()) out.blocks.push_back(block);
+            if (!block.empty()) {
+                if (block.size() == 1 && cheat_revision_heading(block[0]) >= 0)
+                    section = cheat_revision_heading(block[0]);
+                out.blocks.push_back(block);
+                out.section.push_back(section);
+            }
             block.clear();
         } else {
             block.push_back(lines[i]);
@@ -130,12 +185,14 @@ bool is_template(const std::string& line) {
     return line.compare(0, n, kCheatTemplateNote) == 0;
 }
 
-// The block of cheat `name`, named as parse_cheat_text names cheats
-// ("Name (2)" for a second one of the same name); nullptr when none.
-std::vector<std::string>* find_cheat(CheatBlocks& file, const std::string& name) {
+// The block of cheat `name`, named as parse_cheat_text names cheats for
+// `revision` ("Name (2)" for a second one of the same name); nullptr when
+// none.
+std::vector<std::string>* find_cheat(CheatBlocks& file, const std::string& name, int revision) {
     std::vector<std::string> seen;
-    for (std::vector<std::string>& block : file.blocks) {
-        if (!is_cheat(block)) continue;
+    for (std::size_t k = 0; k < file.blocks.size(); ++k) {
+        std::vector<std::string>& block = file.blocks[k];
+        if (!is_cheat(block) || !shown_for(file.section[k], revision)) continue;
         int n = 1;
         for (const std::string& s : seen) {
             if (s == block[0]) ++n;
@@ -173,12 +230,77 @@ std::vector<std::string> codes_of(const std::vector<std::string>& block) {
     return codes;
 }
 
+// Puts `from`'s block `m` (a player's own cheat) at the end of the same
+// revision's part of `into`, so it stays under its heading: the cheats
+// before any heading stay before the first one, and a revision `into` has
+// no heading for gets `from`'s heading at the end.
+void insert_in_section(CheatBlocks& into, const CheatBlocks& from, std::size_t m) {
+    const int section = from.section[m];
+    std::size_t at = into.blocks.size();
+    bool has_section = false;
+    for (std::size_t k = 0; k < into.blocks.size(); ++k) {
+        if (into.section[k] == section) {
+            has_section = true;
+            at = k + 1;
+        }
+    }
+    if (section == kAnyRevision && !has_section) at = 0;  // every block is under a heading
+    if (!has_section && section != kAnyRevision) {
+        for (std::size_t k = 0; k < from.blocks.size(); ++k) {
+            const bool its_heading = from.section[k] == section && from.blocks[k].size() == 1 &&
+                                     cheat_revision_heading(from.blocks[k][0]) == section;
+            if (!its_heading) continue;
+            into.blocks.push_back(from.blocks[k]);
+            into.section.push_back(section);
+            break;
+        }
+        at = into.blocks.size();
+    }
+    into.blocks.insert(into.blocks.begin() + static_cast<std::ptrdiff_t>(at), from.blocks[m]);
+    into.section.insert(into.section.begin() + static_cast<std::ptrdiff_t>(at), section);
+}
+
 }  // namespace
 
-std::vector<CheatField> cheat_fields(const std::string& text, const std::string& name) {
+int cheat_revision_heading(const std::string& line) {
+    if (line.size() > kMaxHeadingLength) return -1;
+    // Decoration around it ("-- Version 1.0 --", "[v1.1]", "Version 1.0:").
+    static const char kDecoration[] = " -=*#[]():";
+    const std::size_t first = line.find_first_not_of(kDecoration);
+    if (first == std::string::npos) return -1;
+    const std::size_t last = line.find_last_not_of(kDecoration);
+    std::string s = line.substr(first, last - first + 1);
+    for (char& c : s) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+
+    std::size_t at = 0;
+    const bool region = take_any_word(s, at, kHeadingRegions);
+    const bool version_word = take_any_word(s, at, kHeadingVersionWords);
+    const bool revision_word = !version_word && take_any_word(s, at, kHeadingRevisionWords);
+    if (!region && !version_word && !revision_word) return -1;  // a bare number is a note
+
+    const int major = take_number(s, at, 3);
+    if (major < 0) return -1;
+    int revision = -1;
+    if (at < s.size() && s[at] == '.') {
+        // A release number: 1.0 and 1.00 are the first release (revision
+        // 0), 1.1 and 1.01 the next, 1.02 the one after.
+        ++at;
+        const int minor = take_number(s, at, 2);
+        if (major != 1 || minor < 0) return -1;
+        revision = minor;
+    } else if (revision_word) {
+        revision = major;  // "Rev 1": the revision byte itself
+    } else {
+        return -1;  // "v1" alone could be 1.0 or revision 1
+    }
+    if (at != s.size() || revision > 255) return -1;
+    return revision;
+}
+
+std::vector<CheatField> cheat_fields(const std::string& text, const std::string& name, int revision) {
     std::vector<CheatField> fields;
     CheatBlocks file = split_blocks(text);
-    const std::vector<std::string>* block = find_cheat(file, name);
+    const std::vector<std::string>* block = find_cheat(file, name, revision);
     if (!block) return fields;
     const std::vector<std::string> tmpl = template_of(*block);
     const std::vector<std::string> codes = codes_of(*block);
@@ -211,16 +333,16 @@ std::vector<CheatField> cheat_fields(const std::string& text, const std::string&
 }
 
 bool fill_cheat_values(std::string& text, const std::string& name, const std::vector<CheatField>& fields,
-                       std::string& error) {
+                       std::string& error, int revision) {
     CheatBlocks file = split_blocks(text);
-    std::vector<std::string>* block = find_cheat(file, name);
+    std::vector<std::string>* block = find_cheat(file, name, revision);
     if (!block) {
         error = "no cheat called " + name;
         return false;
     }
     const std::vector<std::string> tmpl = template_of(*block);
     // Each letter's value, as many digits as its longest run.
-    std::vector<CheatField> want = cheat_fields(text, name);
+    std::vector<CheatField> want = cheat_fields(text, name, revision);
     for (CheatField& w : want) {
         w.value.clear();
         for (const CheatField& f : fields) {
@@ -273,12 +395,15 @@ std::string merge_cheat_text(const std::string& fresh, const std::string& old, s
     kept = 0;
     CheatBlocks merged = split_blocks(fresh);
     const CheatBlocks before = split_blocks(old);
-    std::vector<std::vector<std::string>> added;
-    for (const std::vector<std::string>& mine : before.blocks) {
+    std::vector<std::size_t> added;  // indexes into before.blocks
+    for (std::size_t m = 0; m < before.blocks.size(); ++m) {
+        const std::vector<std::string>& mine = before.blocks[m];
         if (!is_cheat(mine)) continue;
         bool found = false;
-        for (std::vector<std::string>& theirs : merged.blocks) {
-            if (!is_cheat(theirs) || theirs[0] != mine[0]) continue;
+        for (std::size_t t = 0; t < merged.blocks.size(); ++t) {
+            std::vector<std::string>& theirs = merged.blocks[t];
+            // Two releases' cheats of the same name are different codes.
+            if (!is_cheat(theirs) || theirs[0] != mine[0] || merged.section[t] != before.section[m]) continue;
             found = true;
             // Values filled in by hand stay filled in.
             if (has_placeholders(theirs) && !has_placeholders(mine)) {
@@ -288,15 +413,15 @@ std::string merge_cheat_text(const std::string& fresh, const std::string& old, s
             break;
         }
         if (!found) {
-            added.push_back(mine);
+            added.push_back(m);
             ++kept;
         }
     }
-    for (std::vector<std::string>& block : added) merged.blocks.push_back(std::move(block));
+    for (std::size_t m : added) insert_in_section(merged, before, m);
     return join_blocks(merged);
 }
 
-bool parse_cheat_text(const std::string& text, CheatFile& out, std::string& error) {
+bool parse_cheat_text(const std::string& text, CheatFile& out, std::string& error, int revision) {
     out = CheatFile{};
     std::istringstream in(text);
     std::string raw;
@@ -310,8 +435,14 @@ bool parse_cheat_text(const std::string& text, CheatFile& out, std::string& erro
     if (!out.game_id.empty() && i < lines.size() && !lines[i].empty()) out.title = lines[i++];
     Cheat current;
     bool open = false;
+    // The revision heading the lines are under, and whether they are read.
+    int section = kAnyRevision;
+    bool shown = true;
     const auto close = [&]() {
-        if (open && (!current.words.empty() || current.needs_values)) out.cheats.push_back(current);
+        if (open && (!current.words.empty() || current.needs_values)) {
+            if (shown) out.cheats.push_back(current);
+            else ++out.other_revision_cheats;
+        }
         current = Cheat{};
         open = false;
     };
@@ -325,6 +456,15 @@ bool parse_cheat_text(const std::string& text, CheatFile& out, std::string& erro
         const int kind = code_line(line, a, b);
         if (!open) {
             if (kind != 0) continue;  // code lines with no name: nothing to call them
+            // A heading is a line alone between blank lines.
+            const bool alone = i + 1 == lines.size() || lines[i + 1].empty();
+            const int heading = alone ? cheat_revision_heading(line) : -1;
+            if (heading >= 0) {
+                section = heading;
+                shown = shown_for(section, revision);
+                out.revisions.push_back(static_cast<std::uint8_t>(heading));
+                continue;
+            }
             current.name = line;
             open = true;
             continue;

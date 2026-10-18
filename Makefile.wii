@@ -40,7 +40,7 @@ SOURCES		:=	$(WII_DIRS) $(SRC_DIRS) runtime vendor-pugixml/src vendor-zstd \
 # the GamePad through it, guarded so plain Wii and Dolphin are unaffected.
 EXCLUDES	:=	vendor-libgui/source/demo.cpp vendor-libgui/source/menu.cpp vendor-libgui/source/filebrowser.cpp \
 				vendor-libgui/source/gettext.cpp vendor-libgui/source/pngu.c
-INCLUDES	:=	$(WII_DIRS) vendor-libgui/source include runtime runtime/resident runtime/pad runtime/shot runtime/fault runtime/vsd vendor-pugixml/src vendor-bearssl/inc vendor-wwfc vendor-zstd \
+INCLUDES	:=	$(WII_DIRS) vendor-libgui/source include runtime runtime/resident runtime/pad runtime/gc runtime/shot runtime/fault runtime/vsd vendor-pugixml/src vendor-bearssl/inc vendor-wwfc vendor-zstd \
 				channel/common
 DATA		:=	wii/assets wii/lang vendor-gecko vendor-libgui/source/images vendor-libgui/source/fonts vendor-libgui/source/sounds vendor-libgui/source/lang \
 				build-runtime
@@ -119,7 +119,7 @@ BINFILES	:=	$(foreach dir,$(DATA),$(notdir $(wildcard $(dir)/*.ttf) \
 # for the recursive build after runtime-blob has completed. menufont.zst and
 # licence.zst are made in the build (below) from wii/font/rounded.ttf and
 # LICENSE.
-BINFILES	+=	riftwii_rt.zst riftwii_rt_rvz.zst riftwii_rt_rvz.rel riftwii_pad.bin riftwii_shot.bin riftwii_fault.bin riftwii_wlog.bin riftwii_vsd.bin codehandleronly.bin menufont.zst licence.zst
+BINFILES	+=	riftwii_rt.zst riftwii_rt_rvz.zst riftwii_rt_rvz.rel riftwii_pad.bin riftwii_gc.bin riftwii_gc_rvz.zst riftwii_gc_rvz.rel riftwii_shot.bin riftwii_fault.bin riftwii_wlog.bin riftwii_vsd.bin codehandleronly.bin menufont.zst licence.zst
 
 #---------------------------------------------------------------------------------
 # use CXX for linking C++ projects, CC for standard C

@@ -161,11 +161,113 @@ veneers at `0x80002300`, the code handler's list room a code build
 leaves free (below the MEM1 arena's top without it). Not with the
 resident runtime yet.
 
+## 5. GameCube games
+
+GameCube games run in **Wii mode**, with RiftWii's own code: no
+Nintendont and nothing on the Starlet. IOS keeps running, and the game
+reaches the SD card, the Wii Remotes and the way back through it.
+
+**Listing.** `wii/launch/gclaunch.cpp` adds the `sd:/games/<folder>/game.iso`
+images (or `game.rvz`, see [RVZ.md](RVZ.md#gamecube-games)) whose header says
+GameCube to the SD card's games (`ImageGame::gamecube`). A patch-only
+mod, `sd:/riftwii/patches/*.xdelta`, is listed as the game it makes when
+one of those images is its original (`wii/launch/gcpatch.cpp`, the VCDIFF
+reader `src/patching/vcdiff.cpp`). Starting it builds
+`sd:/games/<ID>/game.iso` once, in the menu's Build box and progress
+window (`PrepareGcGameInMenu` in `wii/menu/rift_menu.cpp`).
+
+**Loading** (`wii/launch/gclaunch.cpp`, `wii/launch/gcnative.cpp`). The
+loader reads the game's choices file into a `GcImage` (disc reads, memory
+card, 480p, 16:9, language), plans its Riivolution packs as a window past
+the image's end with a rewritten FST (`src/patching/gcoverlay.cpp`), and
+reads the DOL. It finds the SDK functions it needs by their
+instructions, not by per-game addresses: `DVDLow*`, `PADRead`,
+`ARStartDMA`/`ARInit`, the EXI calls for memory card slot A,
+`__OSUnhandledException`, and for the options `VIGetDTVStatus`,
+`OSGetProgressiveMode`, `OSGetLanguage`, `VIConfigure` and
+`GXSetProjection`. Each found function is branched to the blob; one not
+found leaves its feature off, with a `boot.log` line. Then it places the
+blob under the FST and its data buffers in MEM2 (see Memory), checks
+that the game's own stack top and ArenaLo (found in `__init_registers`
+and `OSInit`, `src/patching/gclayout.cpp`) stay under the arena's top,
+opens `/dev/sdio/slot0` and `/dev/es`
+(IOS keeps both open across the jump), writes low memory as a GameCube's
+start-up leaves it, and jumps to the game.
+
+**Cheats.** The game page's Cheats work as for a Wii game (the same
+file, download and code list). After the low-memory clear the loader puts
+the Gecko code handler at `0x80001800`, the GameCube's debugger area, and
+the code list after it up to `0x80003000`; the end of the game's
+`__VIRetraceHandler` branches to it, found by its check of the second
+display interrupt (`CodeHook::GcRetrace` in `riftwii/codehook.hpp`, the
+Wii's pattern as a fallback). The hook is looked for before any other
+patch, and put in only after all of them, if its `blr` is still there.
+No hook or too many codes: the game starts without them, with a
+`boot.log` line.
+
+**The blob** (`runtime/gc/`, position independent, no heap or libc):
+- `gc_rt.c`: disc reads from the image's SD sectors (and the packs'
+  window), with polled IPC and the game's own `OSSetAlarm` for the
+  callbacks, the SD card read from the alarm once `DVDLowRead` has
+  returned, as a drive works while the game runs on; a GameCube drive's
+  timing unless Disc reads is Fast; Luigi's Mansion's loader steered to
+  the heap each load was queued from; disc
+  audio streaming mixed into the game's AI DMA; ARAM kept in MEM2 at
+  `0x90000000` (a Wii's ARAM DMA moves nothing in Wii mode), with the
+  game's ARAM addresses raised so its own sound program reads MEM2
+  (except in games whose own checks need them as they are,
+  `gc_keeps_aram_addresses`: Mario Party 4), and
+  each `ARStartDMA` called with interrupts off returning only once its
+  interrupt is pending (a Wii's
+  instant transfers otherwise let ARQ's chained chunks finish in the
+  middle of the game's own bookkeeping); the options; the trace; the way
+  back; the crash screen.
+- `gc_bt.c`: a Bluetooth driver for Wii Remotes, Nunchuks and Classic
+  Controllers, filled into the pad ports. `gc_ports.h` has the rule: a
+  GameCube controller keeps its own port; each remote plays on its slot's
+  port (its LED), or the next free one when a GameCube controller holds
+  that, and the LED follows; a remote that reconnects gets its slot back
+  by its Bluetooth address.
+- `gc_card.c`: memory card slot A, from an image in MEM2 at `0x91000000`
+  written back to its file's sectors as the game saves.
+- `gc_rvz.c` (the RVZ build, `riftwii_gc_rvz.bin`): the disc read from an
+  RVZ, a group at a time ([RVZ.md](RVZ.md#gamecube-games)).
+- `gc_entry.S`: the hooks' entry points.
+
+**Leaving and crashing.** Holding HOME (HOME and - on a Wii Remote
+alone; L, R, Z and Start on a GameCube controller) for two seconds goes
+where Settings > Return to says, as a Wii game's HOME Menu does: the
+RiftWii channel when it is installed, else the Wii Menu, through
+`ES_LaunchTitle` with the ticket view the loader read. The memory card is
+written back first. A crash ends in `gc_on_fatal`: a record in
+the trace, then the menu's own message (drawn by FreeTypeGX's
+`RenderTextCoverage` before the launch) over the picture the VI shows, and
+A goes back. The memory card's struct starts with two words of code that
+end there too, so a jump into it (seen in Wind Waker and Metroid Prime)
+is recorded with the jumper's LR and CTR instead of running its fields. At its next start the menu turns the trace's crash into
+`gamecrash.txt` (`src/data/gccrash.cpp`) and offers a problem report.
+
+**Memory cards** (`src/fs/gccard.cpp`): one image per game,
+`sd:/riftwii/gc/cards/<ID>.raw`, or a shared `shared.raw` (`shared-jp.raw`
+for Japanese games), formatted the first time. The game page's Saves tile
+opens it: saves with their icons, copied out as `.gci`, deleted, or added
+from `sd:/riftwii/gc/saves`. Before each start (Settings' Back up saves,
+on by default) the loader copies the card the game will use to
+`sd:/riftwii/gc/backups/<card>/<date>_<time>.raw` (`src/fs/gcbackup.cpp`),
+`<card>` being the card file's name (the game's ID, or `shared`), keeping
+the newest five and skipping the copy while the card matches the newest.
+The Saves page's Restore an older save lists them by date and puts the one
+picked back over the card, after a backup of the card as it is now, so a
+restore can be undone the same way: that copy's name ends in `-undo`, and
+the list marks it "(before you restored)". Each row's second line, how
+many saves and blocks the copy holds, comes from its directory alone
+(`gc_card_space`).
+
 ## Memory
 
 | Where | What |
 | --- | --- |
-| `0x80000000`–`0x80003400` | Low-memory globals; the Gecko code handler at `0x80001800` |
+| `0x80000000`–`0x80003400` | Low-memory globals; the Gecko code handler at `0x80001800` and its code list to `0x80003000` (in Wii and GameCube games) |
 | `0x80A00000`–`0x81200000` | The RiftWii loader (link address in `Makefile.wii`) and its heap |
 | `0x81200000` | The game's apploader, while it runs |
 | `0x80002300`–`0x80003000` | With a code build whose code list is elsewhere: veneers into code in MEM2 (the resident runtime's or the virtual SD card's) |
@@ -173,6 +275,11 @@ resident runtime yet.
 | `0x90000000`–`0x90800000` | Left alone by the loader: an IOS reload stages its kernel here |
 | `0x90800000`–`0x90809000` | The restart snapshot and handoff (`wii/core/restart.hpp`) |
 | Bottom of the game's MEM2 arena | Resident runtime data (or the virtual SD card's code and state, about 49 KB), then the pad state, the screenshot state (a few KB: its picture is written straight from the frame buffer), then the crash blob's state (about 5 KB) |
+| `0x90000000`–`0x91000000` | A GameCube game's ARAM (in a GameCube game only) |
+| `0x91000000`–`0x91200000` | A GameCube game's memory card image |
+| `0x91200000`–`0x91300000` | A GameCube game's data buffers: the SD bounce buffer, the disc audio ring, the trace record, the Wii Remotes' state, the crash screen (its card and the strip of glyphs the register dump is made from) and the disc runs (and an RVZ's reader) |
+| `0x91300000`–`0x91500000` | A GameCube game from an RVZ: Zstandard's workspace, a group as stored, and two decoded groups (about 430 KB with 128 KiB chunks) |
+| Under a GameCube game's FST | The GameCube blob and its context, the code moved from IOS's counter, the ARAM stubs, the memory card's struct, the way back's block and the DI registers' stand-in (an address ending in `0x6000`), then BI2's copy (`wii/launch/gcnative.cpp`); the game's arena ends below them. Mario Golf and Mario Power Tennis put their stack and ArenaLo at `0x817dc000`, so this stays small |
 | `0x933E0000` and up | IOS |
 
 `wii/core/memlimits.cpp` keeps the loader's heap between the end of its own
@@ -255,6 +362,14 @@ addresses into source lines (keep the `riftwii.elf` of each release).
 | `sd:/riftwii/rvz/` | RVZ group tables the runtime reads |
 | `sd:/riftwii/update.txt` | The last update check |
 | `sd:/riftwii/cardlog.bin`, `cardlog.txt` | The SD card's failures during the last game, and their text |
+| `sd:/games/<ID>/game.iso` | A GameCube game |
+| `sd:/riftwii/patches/*.xdelta` | Patch-only GameCube mods, built into `sd:/games/<ID>/` once |
+| `sd:/riftwii/gc/cards/<ID>.raw`, `shared.raw`, `shared-jp.raw` | GameCube memory cards |
+| `sd:/riftwii/gc/saves/*.gci` | GameCube saves copied out, or to add to a card |
+| `sd:/riftwii/gc/dolphin/` | Dolphin's `GC` folder, copied whole (`USA/Card A/*.gci`, `MemoryCardA.USA.raw`...), for Bring your Dolphin saves (`gcimport.hpp`) |
+| `sd:/riftwii/gc/trace.bin`, `trace-crash.bin` | The last GameCube launch's trace (`tools/gc_trace.py`), and the last one with a crash, once offered |
+| `sd:/riftwii/gc/controls_seen.txt` | The controls card was shown |
+| `sd:/riftwii/gc/press`, `leave`, `crash`, `nowiden` | Test switches: presses on port 1, holding the way back, a crash on purpose, 16:9's hook without the widening |
 | `sd:/riftwii/autorun.txt`, `guiscript.txt` | Test scripts (see `DEVELOPING.md`) |
 
 ## Rules the code keeps

@@ -61,10 +61,14 @@
 #include "riftwii/titles.hpp"
 #include "riftwii/homeorder.hpp"
 #include "riftwii/bnr.hpp"
+#include "riftwii/gcbanner.hpp"
 #include "boxart.hpp"
 #include "cover3d.hpp"
 #include "covers.hpp"
 #include "riftwii/coverart.hpp"
+#include "riftwii/gcbackup.hpp"
+#include "riftwii/gcimport.hpp"
+#include "riftwii/gccard.hpp"
 #include "riftwii/qrcode.hpp"
 #include "riftwii/update.hpp"
 #include "gui_gamegrid.hpp"
@@ -87,6 +91,11 @@
 #include "riftwii/apply.hpp"
 #include "riftwii/patch.hpp"
 #include "codebuilds.hpp"
+#include "gclaunch.hpp"
+#include "gcnative.hpp"
+#include "gc_crash.h"
+#include "riftwii/gccrash.hpp"
+#include "gcpatch.hpp"
 #include "vsdmake.hpp"
 #include "gameextras.hpp"
 #include "gameinfo.hpp"
@@ -613,7 +622,14 @@ static std::string ReturnToNote()
 }
 static const char* HomeSourceName(const std::string& v)
 {
-	return v == "sd" ? tr("SD card") : v == "usb" ? tr("USB drive") : v == "wii" ? tr("Wii channels") : tr("All games");
+	return v == "sd" ? tr("SD card") : v == "usb" ? tr("USB drive") : v == "gamecube" ? tr("GameCube")
+		: v == "wii" ? tr("Wii channels") : tr("All games");
+}
+
+static std::string HomeSourceNote(const std::string& v)
+{
+	if (v == "gamecube") return tr("Home lists the GameCube games only, from sd:/games.");
+	return tr("Which games Home lists: every drive's and the Wii's own, or one place's only. With a game on both drives, one copy is enough.");
 }
 
 static const char* HomeSortName(const std::string& v)
@@ -775,19 +791,30 @@ static std::string TrimSearch(const std::string& typed)
 }
 
 // Every word of `typed` is in the name or the game ID, in any order.
-static bool WordsMatch(const std::string& typed, const std::string& name, const std::string& id)
+// A searched word that names the GameCube: "gc", or "gamecube" or the
+// start of it ("game" alone is too common: it is in many names).
+static bool NamesGameCube(const std::string& word)
+{
+	if (strcasecmp(word.c_str(), "gc") == 0) return true;
+	return word.size() >= 5 && strncasecmp("gamecube", word.c_str(), word.size()) == 0;
+}
+
+// Every typed word is in the name or the ID; for a GameCube game, a word
+// may name the GameCube instead.
+static bool WordsMatch(const std::string& typed, const std::string& name, const std::string& id, bool gamecube = false)
 {
 	std::istringstream words(typed);
 	std::string word;
 	while (words >> word) {
+		if (gamecube && NamesGameCube(word)) continue;
 		if (!strcasestr(name.c_str(), word.c_str()) && !strcasestr(id.c_str(), word.c_str())) return false;
 	}
 	return true;
 }
 
-static bool MatchesSearch(const std::string& name, const std::string& id)
+static bool MatchesSearch(const std::string& name, const std::string& id, bool gamecube)
 {
-	return WordsMatch(g_search, name, id);
+	return WordsMatch(g_search, name, id, gamecube);
 }
 
 struct HomeEntry {
@@ -840,11 +867,13 @@ static std::string HomeKey(const FrontendState& state, const HomeEntry& entry)
 // `name` is the tile's, `gameName` the game's: a profile's tile sorts A to
 // Z beside its game's, after it. `id` is the game's; `key` is what the
 // history and the favourites know the tile by (the game ID, or a profile's
-// "<ID>@<slug>").
+// "<ID>@<slug>"). `game` is the image game behind a drive's row (none for
+// a channel), for the GameCube badge and the to-build flag.
 struct HomeRow {
 	std::string name, gameName;
 	HomeEntry entry;
 	std::string id, key;
+	const riftwii::wii::ImageGame* game;
 };
 
 // The games in Settings > Home order (`ordered`; else A to Z), before a
@@ -853,21 +882,27 @@ static std::vector<HomeRow> HomeRows(const FrontendState& state, bool ordered)
 {
 	using Row = HomeRow;
 	std::vector<Row> rows;
-	const auto add = [&](const std::string& name, HomeEntry::Kind kind, std::size_t i, const std::string& id) {
-		rows.push_back({name, name, {kind, i, "", name}, id, id});
+	const auto add = [&](const std::string& name, HomeEntry::Kind kind, std::size_t i, const std::string& id,
+				const riftwii::wii::ImageGame* game) {
+		rows.push_back({name, name, {kind, i, "", name}, id, id, game});
 	};
 	// Settings > Games from: everything, or one place's games only (a
-	// drive, or the Wii's own WiiWare and Virtual Console games).
+	// drive, the Wii's own WiiWare and Virtual Console games, or the
+	// GameCube games, all on the SD card).
 	const std::string& source = riftwii::wii::Settings().home_source;
 	if (source == "all" || source == "usb")
 		for (std::size_t i = 0; i < state.usb_catalog.games.size(); ++i)
-			add(GameName(state.usb_catalog.games[i]), HomeEntry::Kind::Usb, i, state.usb_catalog.games[i].id);
-	if (source == "all" || source == "sd")
-		for (std::size_t i = 0; i < state.sd_catalog.games.size(); ++i)
-			add(GameName(state.sd_catalog.games[i]), HomeEntry::Kind::Sd, i, state.sd_catalog.games[i].id);
+			add(GameName(state.usb_catalog.games[i]), HomeEntry::Kind::Usb, i, state.usb_catalog.games[i].id,
+				&state.usb_catalog.games[i]);
+	if (source == "all" || source == "sd" || source == "gamecube")
+		for (std::size_t i = 0; i < state.sd_catalog.games.size(); ++i) {
+			if (source == "gamecube" && !state.sd_catalog.games[i].gamecube) continue;
+			add(GameName(state.sd_catalog.games[i]), HomeEntry::Kind::Sd, i, state.sd_catalog.games[i].id,
+				&state.sd_catalog.games[i]);
+		}
 	if (source == "all" || source == "wii")
 		for (std::size_t i = 0; i < state.channels.size(); ++i)
-			add(ChannelName(state.channels[i]), HomeEntry::Kind::Channel, i, state.channels[i].game_id);
+			add(ChannelName(state.channels[i]), HomeEntry::Kind::Channel, i, state.channels[i].game_id, nullptr);
 	// The games' profiles, each a tile of its own, with the first copy of
 	// its game found on a drive (a game on both drives gets them once; the
 	// Wii's channels take no packs). Only a game Home lists has them: a
@@ -955,7 +990,7 @@ static void BuildHome(const FrontendState& state, std::vector<GridItem>& items, 
 	for (const Row& r : rows) {
 		const bool profile = !r.entry.profile.empty();
 		const bool mods = g_packs.has_packs(r.id);
-		if (searching && !MatchesSearch(r.entry.searchName, r.id)) continue;
+		if (searching && !MatchesSearch(r.entry.searchName, r.id, r.game && r.game->gamecube)) continue;
 		// A profile is a setup of mods: it stays in the mods view.
 		if (!searching && g_filter == Filter::Mods && !mods && !profile) continue;
 		if (!searching && g_filter == Filter::Favorites && riftwii::wii::Settings().favorites.count(r.key) == 0) continue;
@@ -966,8 +1001,10 @@ static void BuildHome(const FrontendState& state, std::vector<GridItem>& items, 
 		item.profile = profile;
 		// A channel of an emulated NAND is on the SD card.
 		const bool wiiChannel = r.entry.kind == HomeEntry::Kind::Channel && state.channels[r.entry.index].emu_nand.empty();
-		item.badge = r.entry.kind == HomeEntry::Kind::Usb ? "USB" : wiiChannel ? "WII" : "SD";
+		const bool gamecube = r.game && r.game->gamecube;
+		item.badge = r.entry.kind == HomeEntry::Kind::Usb ? "USB" : wiiChannel ? "WII" : gamecube ? "GC" : "SD";
 		item.mods = mods || profile;
+		item.to_build = r.game && !r.game->gc_patch_source.empty();
 		item.hue = skin::HueFor(r.id);
 		items.push_back(std::move(item));
 		entries.push_back(r.entry);
@@ -1171,6 +1208,10 @@ static std::unordered_map<std::string, IconSlot*> g_iconIndex;  // the filled sl
 static u32 g_iconClock = 0;
 static std::set<std::string> g_bannersTried;   // read from the image this session (or tried)
 static std::set<std::string> g_bannerAbsent;   // not on the card when last looked for
+// GameCube games whose animated banner was asked for this session; none
+// asked after a download failed for want of a network.
+static std::set<std::string> g_gcBannersAsked;
+static bool g_gcBannersOff = false;
 
 static riftwii::wii::BannerPlayer* IconFor(const std::string& id)
 {
@@ -1189,7 +1230,7 @@ static std::unique_ptr<riftwii::wii::BannerPlayer> LoadIcon(const std::string& i
 	std::string error;
 	std::unique_ptr<riftwii::wii::BannerPlayer> player(new riftwii::wii::BannerPlayer());
 	if (!riftwii::wii::LoadBannerIcon(id, bytes)) return nullptr;
-	if (!player->Load(bytes, true, error)) {
+	if (!player->Load(bytes, true, error, id)) {
 		logf("Icon of %s: %s\n", id.c_str(), error.c_str());
 		return nullptr;
 	}
@@ -1209,6 +1250,19 @@ static void KeepIcon(const std::string& id, std::unique_ptr<riftwii::wii::Banner
 	g_iconIndex[id] = victim;
 }
 
+// With the GUI halted: the game's icon let go, after a new banner was
+// stored for it (a GameCube game's animated one), so the loop loads it again.
+static void ForgetIcon(const std::string& id)
+{
+	const auto found = g_iconIndex.find(id);
+	if (found == g_iconIndex.end()) return;
+	IconSlot* slot = found->second;
+	g_iconIndex.erase(found);
+	slot->id.clear();
+	slot->player.reset();
+	slot->used = 0;
+}
+
 // The full banner, as the Wii Menu shows a channel before it starts:
 // Start, or Settings for the game's page. The bar starts where the Wii
 // Menu's Disc Channel starts its own (measured in Dolphin), just under
@@ -1225,6 +1279,13 @@ public:
 	// Left playing after Start (g_lingerBanner): its sound is kept going
 	// here, with no channel screen looping any more.
 	bool tendSound = false;
+	// A GameCube disc's picture has no name in it: the game's name is
+	// written under its frame (riftwii/gcbanner.hpp's gc_picture_layout).
+	GuiText caption{"", 26, (GXColor){40, 44, 52, 255}};
+	ChannelView() {
+		caption.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
+		caption.SetWrap(true, 540);
+	}
 	void Draw() override {
 		const u64 start = gettime();
 		if (tendSound) riftwii::wii::BannerSoundUpdate();
@@ -1243,6 +1304,13 @@ public:
 		f32 vx, vy, vw, vh;
 		Menu_VisibleArea(&vx, &vy, &vw, &vh);
 		player.Draw(vx, vy, vw, vh, 255);
+		if (player.Picture()) {
+			// The name starts just under the frame and its shadow, clear of
+			// the bar below.
+			const f32 nameTop = vy + vh * (228.0f + riftwii::kGcBannerNameTop) / 456.0f;
+			caption.SetPosition(static_cast<int>(vx + vw / 2), static_cast<int>(nameTop));
+			caption.Draw();
+		}
 		const u64 took = ticks_to_microsecs(gettime() - start);
 		drawTotalUs += took;
 		drawMaxUs = std::max(drawMaxUs, took);
@@ -1344,7 +1412,9 @@ static ChannelChoice ShowChannel(int& index, int count, const std::string& first
 		// skipped and the one up stays.
 		bool parsed = false;
 		try {
-			parsed = riftwii::parse_opening_bnr(bytes.data(), bytes.size(), parts, error, false);
+			// A GameCube disc's picture has no sound; the player checks it.
+			parsed = riftwii::is_gc_banner(bytes.data(), bytes.size()) ||
+				riftwii::parse_opening_bnr(bytes.data(), bytes.size(), parts, error, false);
 		} catch (const std::bad_alloc&) {
 			error = "out of memory for the banner";
 		}
@@ -1355,10 +1425,11 @@ static ChannelChoice ShowChannel(int& index, int count, const std::string& first
 		sound.swap(parts.sound);
 		parts = riftwii::OpeningBanner();
 		const u64 t2 = gettime();
-		if (!view.player.Load(bytes, false, error)) {
+		if (!view.player.Load(bytes, false, error, idOf(i))) {
 			logf("Banner of %s: %s\n", idOf(i).c_str(), error.c_str());
 			return false;
 		}
+		view.caption.SetText(view.player.Picture() ? view.player.Name().c_str() : "");
 		const u64 t3 = gettime();
 		logShown();
 		shownId = idOf(i);
@@ -1851,11 +1922,14 @@ private:
 // the empty tiles of the second row.
 class EmptyHomeNote : public GuiElement {
 public:
-	static constexpr int kW = 440, kH = 108, kTop = 150;
-	EmptyHomeNote() : text(tr("No games found yet. Put your games (WBFS, ISO or RVZ) in a folder named wbfs or games at the top of the SD card or USB drive, then pick Look for games again in Settings."), 16, skin::kInk) {
+	static constexpr int kW = 440, kH = 146, kTop = 136;
+	EmptyHomeNote()
+		: words(std::string(tr("No games found yet. Put your games (WBFS, ISO or RVZ) in a folder named wbfs or games at the top of the SD card or USB drive, then pick Look for games again in Settings.")) +
+			" " + tr("A GameCube game goes on the SD card, as sd:/games/<its ID>/game.iso.")),
+		  text(words.c_str(), 16, skin::kInk) {
 		// Without a parent, x is where the centre goes on the screen.
 		text.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
-		text.SetWrap(true, kW - 40, 4);
+		text.SetWrap(true, kW - 40, 6);
 	}
 	void Draw() override {
 		if (!IsVisible()) return;
@@ -1868,6 +1942,7 @@ public:
 	}
 
 private:
+	std::string words;  // first: the text is made from it
 	GuiText text;
 };
 
@@ -2069,6 +2144,15 @@ public:
 	void Append(GuiElement* e) { w.Append(e); }
 	// The second button alone, in the middle (as the first is when alone).
 	void CenterCancel() { cancelBtn.button.SetPosition(198 - 4, kButtonY - 4); }
+	// How much wider than 4:3 the box is on each side (PopupExtra).
+	int Extra() const { return extra; }
+	// After another box was opened over this one and closed: the page
+	// underneath takes no input again, this box does.
+	void Reactivate()
+	{
+		mainWindow->SetState(STATE::DISABLED);
+		w.SetState(STATE::DEFAULT);
+	}
 	// While work goes on with the box up (the GUI halted): whether its
 	// last button was pressed.
 	bool Pressed()
@@ -2095,12 +2179,35 @@ public:
 		while (choice < 0) {
 			usleep(20000);
 			HaltGui();
-			ClearStaleButtons({&okBtn.button, &cancelBtn.button});
-			if (hasCancel && cancelBtn.Clicked()) choice = 1;
-			else if (hasOk && okBtn.Clicked()) choice = 0;
+			choice = Poll();
 			if (choice < 0) ResumeGui();
 		}
 		return choice;
+	}
+	// For a box that does more while it waits (the GUI halted): Wait's
+	// answer once a button was pressed, else -1.
+	int Poll()
+	{
+		ClearStaleButtons({&okBtn.button, &cancelBtn.button});
+		if (hasCancel && cancelBtn.Clicked()) return 1;
+		if (hasOk && okBtn.Clicked()) return 0;
+		return -1;
+	}
+	void SetTitle(const std::string& title) { titleTxt.SetText(title.c_str()); }
+	// A title too long for the band at 24 points (a controller's name on
+	// the GameCube controls) is drawn smaller, down to 18, rather than
+	// cut short.
+	void SetTitleFitted(const std::string& title)
+	{
+		const int room = 528 + 2 * extra;
+		titleTxt.SetText(title.c_str());
+		int size = 24;
+		titleTxt.SetFontSize(size);
+		while (size > 18 && titleTxt.GetTextWidth() > room) {
+			size -= 2;
+			titleTxt.SetFontSize(size);
+		}
+		titleTxt.SetMaxWidth(room);  // also drops the text drawn at the old size
 	}
 private:
 	// Centred, it sits in the middle of the room between the title band
@@ -2220,6 +2327,94 @@ public:
 private:
 	int x, y, width;
 	double fraction = 0;
+};
+
+// A game's small cover at (x, y), `w` x `h`: its cover when one is kept,
+// else its colour with a disc on it. Drawn in a popup, over the page.
+class SmallCover : public GuiElement {
+public:
+	SmallCover(std::string id, int x, int y, int w, int h) : id(std::move(id)), x(x), y(y), w(w), h(h) {}
+	void Draw() override
+	{
+		skin::DrawNine(skin::card9, x - 4, y - 4, w + 8, h + 8, 12);
+		if (const u8* cover = id.empty() ? nullptr : riftwii::wii::CoverTexture(id)) {
+			skin::DrawRgb5a3Part(cover, riftwii::kCoverWidth, riftwii::kCoverHeight, 0.0f, 1.0f, x, y, w, h);
+			return;
+		}
+		Menu_DrawRectangle(x, y, w, h, skin::HueFor(id), 1);
+		skin::Draw(skin::iconDisc, x + (w - 40) / 2, y + (h - 40) / 2);
+	}
+private:
+	std::string id;
+	int x, y, w, h;
+};
+
+// One of the skin's pictures at (x, y), `scale`d, in a popup.
+class SkinMark : public GuiElement {
+public:
+	SkinMark(const skin::Tex& tex, int x, int y, float scale) : tex(tex), x(x), y(y), scale(scale) {}
+	void Draw() override
+	{
+		if (tex.data) skin::Draw(tex, x, y, 255, scale);
+	}
+private:
+	const skin::Tex& tex;
+	int x, y;
+	float scale;
+};
+
+// A long job's progress in a popup box (making a GameCube game, an SD
+// image): the game's cover on the left; beside it the share done, large,
+// the bar under it, the time left under the bar and, last, what is being
+// done now. The box's own text stays empty.
+class ProgressPanel {
+public:
+	ProgressPanel(PopupBox& box, const std::string& coverId)
+		: left(56 - box.Extra()), right(584 + box.Extra()),
+		  cover(coverId, left, PopupBox::kBodyY, kCoverW, kCoverH), percentTxt("0%", 36, skin::kInk),
+		  bar(left + kCoverW + 24, PopupBox::kBodyY + 46, right - (left + kCoverW + 24)), timeTxt("", 15, skin::kInkSoft),
+		  stageTxt("", 15, skin::kInkSoft), start(gettime())
+	{
+		// From the body's top down; the stage's two lines end above the
+		// buttons (PopupBox::kButtonY), which they touched at 4:3.
+		const int textX = left + kCoverW + 24;
+		Place(percentTxt, textX, PopupBox::kBodyY);
+		Place(timeTxt, textX, PopupBox::kBodyY + 66);
+		Place(stageTxt, textX, PopupBox::kBodyY + 90);
+		stageTxt.SetWrap(true, right - textX, 2);
+		box.Append(&cover);
+		box.Append(&percentTxt);
+		box.Append(&bar);
+		box.Append(&timeTxt);
+		box.Append(&stageTxt);
+	}
+	// `done` of `total`; the time left at the rate so far, once there is
+	// one (ten seconds in), and what is left in bytes before that.
+	void Set(std::uint64_t done, std::uint64_t total)
+	{
+		const double fraction = total ? static_cast<double>(std::min(done, total)) / static_cast<double>(total) : 0;
+		bar.Set(fraction);
+		percentTxt.SetText((std::to_string(static_cast<int>(fraction * 100)) + "%").c_str());
+		const u64 ms = diff_msec(start, gettime());
+		// Until there is a rate, a placeholder: an empty line looked unfinished.
+		std::string time = tr("Working out the time left...");
+		if (ms > 10000 && done > 0 && total > done) {
+			const std::uint64_t secs = (total - done) * ms / done / 1000;
+			time = secs >= 90 ? tr("{1} minutes left", {std::to_string((secs + 59) / 60)})
+					 : tr("{1} seconds left", {std::to_string(secs)});
+		}
+		timeTxt.SetText(time.c_str());
+	}
+	void SetStage(const std::string& stage) { stageTxt.SetText(stage.c_str()); }
+private:
+	static constexpr int kCoverW = 80, kCoverH = 112;
+	int left, right;
+	SmallCover cover;
+	GuiText percentTxt;
+	ProgressBar bar;
+	GuiText timeTxt;
+	GuiText stageTxt;
+	u64 start;
 };
 
 // Where the player leaves to, for wii/main.cpp's ExitApp: 1 the loader
@@ -3561,6 +3756,45 @@ static int MenuSource(FrontendState& state)
 			}
 			if (cover3dGot != riftwii::wii::CoverFetch::Stored) cover3dArrived.clear();
 		}
+		// Channels: a GameCube game's animated banner, downloaded on the
+		// network's thread (with Download names and cheats on), one game at
+		// a time, the page shown's first; its disc's picture shows
+		// meanwhile. Before the covers, which this view does not show.
+		std::string gcBannerArrived;
+		{
+			std::string fetched, fetchError;
+			riftwii::wii::BannerFetch fetchGot = riftwii::wii::BannerFetch::NotFound;
+			if (riftwii::wii::TakeGameCubeBannerFetch(fetched, fetchGot, fetchError)) {
+				if (fetchGot == riftwii::wii::BannerFetch::Failed) {
+					logf("Banners: no more GameCube banner downloads this session: %s\n", fetchError.c_str());
+					g_gcBannersOff = true;
+				} else if (fetchGot == riftwii::wii::BannerFetch::Stored) {
+					gcBannerArrived = fetched;
+				}
+			}
+		}
+		if (grid.Channels() && !g_gcBannersOff && riftwii::wii::Settings().online && !riftwii::wii::NetBackgroundBusy() &&
+		    !riftwii::wii::NetFailed() && riftwii::wii::CoverFetchGame().empty() &&
+		    riftwii::wii::GameCubeBannerFetchGame().empty()) {
+			// The page shown, and the next page's column peeking in.
+			const std::size_t first = static_cast<std::size_t>(grid.PageFirst());
+			for (std::size_t k = first; k < first + GuiGameGrid::kPerPage + 4 && k < items.size(); ++k) {
+				const HomeEntry& e = entries[k];
+				if (e.kind != HomeEntry::Kind::Sd) continue;
+				const riftwii::wii::ImageGame& game = state.sd_catalog.games[e.index];
+				if (!game.gamecube || !g_gcBannersAsked.insert(game.id).second) continue;
+				if (!riftwii::wii::GameCubeBannerWanted(game.id)) continue;
+				// A mod is asked for by its own ID only: the three-letter
+				// banner would be the game it was made from.
+				const bool regional = riftwii::gc_banner_regional_copy(game.id, !game.gc_patch_source.empty(),
+					riftwii::wii::LoadedTitles());
+				if (riftwii::wii::StartGameCubeBannerFetch(game.id, regional))
+					logf("Banners: asking for %s's animated banner (%s)\n", game.id.c_str(),
+						regional ? "its ID, then its first three letters: a regional copy of a game"
+							: "its own ID only: a mod, or a game the title list does not show in another region");
+				break;
+			}
+		}
 		// Not while the update check has the network.
 		if (!coverQueue.empty() && !g_coversOff && !riftwii::wii::NetBackgroundBusy() && !riftwii::wii::NetFailed() &&
 		    riftwii::wii::CoverFetchGame().empty()) {
@@ -3643,6 +3877,11 @@ static int MenuSource(FrontendState& state)
 		}
 		HaltGui();
 		if (iconLoaded) KeepIcon(iconId, std::move(iconLoaded));
+		if (!gcBannerArrived.empty()) {
+			// The disc's picture gives way to the animated banner at the next turn.
+			ForgetIcon(gcBannerArrived);
+			g_bannerAbsent.erase(gcBannerArrived);
+		}
 		// The profiles' pictures on the page shown, read here (the GUI
 		// halted) before the grid draws them: a slow SD read then holds
 		// this loop, not a frame. One a turn; read ones are kept.
@@ -3852,7 +4091,7 @@ static int MenuSource(FrontendState& state)
 					for (std::size_t k = 0; k < entries.size(); ++k) {
 						const HomeEntry& e = entries[k];
 						if (e.searchName.empty()) continue;  // the disc drive's tile
-						if (WordsMatch(trial, e.searchName, items[k].id)) {
+						if (WordsMatch(trial, e.searchName, items[k].id, items[k].badge == "GC")) {
 							next += *c;
 							break;
 						}
@@ -4093,7 +4332,8 @@ static std::string SaveNote(const riftwii::LaunchModel& model, const std::string
 struct RowRef {
 	enum class What { Mods, Saves, Cheats, Width, Deflicker, Borders, VideoMode, RegionVideo, Aspect, Rumble, Speaker,
 		RegionStrings, Language, Cios, Server, Favorite, Pack, Option, Note,
-		AddCodes, ForgetCodes, MakeImage, Cover, Memory, About, SaveTile, RenameTile, RemoveTile } what = What::Note;
+		AddCodes, ForgetCodes, MakeImage, Cover, Memory, About, GcDiscReads, GcCard, GcProgressive, GcWidescreen,
+		GcLanguage, GcControls, SaveTile, RenameTile, RemoveTile } what = What::Note;
 	std::size_t pkg = 0, opt = 0;
 };
 
@@ -4110,6 +4350,24 @@ static std::string AspectName(const std::string& v)
 }
 static const char* const kGameLanguages[] = {"global", "console", "ja", "en", "de", "fr", "es", "it", "nl", "zh-hans",
 	"zh-hant", "ko"};
+// A GameCube game's picture and language: Settings' and the Wii's own
+// first (riftwii::GcConsoleSettings), then the game's choices; the
+// languages are the console's GameCube setting, then riftwii::kGcLanguages
+// in the SRAM's order.
+static const char* const kGcProgressiveChoices[] = {"global", "480p", "game"};
+static const char* const kGcWidescreenChoices[] = {"global", "16:9", "game"};
+static const char* const kGcLanguageChoices[] = {"global", "game", "english", "german", "french", "spanish", "italian",
+	"dutch"};
+static std::string GcLanguageName(const std::string& v)
+{
+	if (v == "english") return tr("English");
+	if (v == "german") return tr("German");
+	if (v == "french") return tr("French");
+	if (v == "spanish") return tr("Spanish");
+	if (v == "italian") return tr("Italian");
+	if (v == "dutch") return tr("Dutch");
+	return tr("The console's");
+}
 static const char* const kCiosChoices[] = {"global", "auto", "248", "249", "250", "251", "252"};
 static const char* const kServers[] = {"global", "off", "wiimmfi", "wiilink", "altwfc", "custom"};
 
@@ -4406,6 +4664,69 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 	};
 	if (!settingsOnly && state.use_channel) show({W::About, W::Cheats, W::Favorite, W::Cover});
 	else if (!settingsOnly) show({W::Mods, W::About, W::Saves, W::Cheats, W::Favorite, W::Cover});
+	if (state.use_sd && state.sd_index < state.sd_catalog.games.size() && state.sd_catalog.games[state.sd_index].gamecube) {
+		// A GameCube game: none of the Wii's picture or online settings
+		// reach it; its own instead.
+		if (riftwii::kGcDriveTimingReady) {
+			FlowRow discReads;
+			discReads.kind = FlowRow::Kind::Option;
+			discReads.label = tr("Loading speed");
+			discReads.value = game.gc_disc_reads == "fast" ? tr("Fast") : tr("As on a GameCube (slower)");
+			discReads.on = game.gc_disc_reads == "drive";
+			rows.push_back(discReads);
+			refs.push_back({W::GcDiscReads});
+		}
+		FlowRow card;
+		card.kind = FlowRow::Kind::Option;
+		card.label = tr("Memory card");
+		card.value = game.gc_card == "shared" ? tr("Shared") : tr("This game's own");
+		card.on = game.gc_card == "shared";
+		rows.push_back(card);
+		refs.push_back({W::GcCard});
+		FlowRow progressive;
+		progressive.kind = FlowRow::Kind::Option;
+		progressive.label = tr("480p picture");
+		// "global" is shown as what it comes to now, as a Wii game's rows
+		// show Settings' choice.
+		const riftwii::GcConsoleSettings console = riftwii::wii::GcConsoleNow();
+		// 480p is NTSC's: a PAL game keeps its own picture whatever is picked.
+		progressive.dim = riftwii::gc_pal_game(state.game_id);
+		progressive.on = game.gc_progressive != "global" && !progressive.dim;
+		const bool progressiveNow = riftwii::gc_progressive_on(game, state.game_id, console);
+		if (progressive.dim) progressive.value = tr("Not for European games");
+		else if (game.gc_progressive == "global")
+			progressive.value = tr("Default ({1})", {progressiveNow ? std::string(tr("On")) : std::string(tr("Off"))});
+		else progressive.value = progressiveNow ? tr("On (480p)") : tr("Off");
+		rows.push_back(progressive);
+		refs.push_back({W::GcProgressive});
+		if (riftwii::kGcWidescreenReady) {
+			FlowRow widescreen;
+			widescreen.kind = FlowRow::Kind::Option;
+			widescreen.label = tr("Widescreen");
+			widescreen.on = game.gc_widescreen != "global";
+			const std::string widescreenNow = riftwii::gc_widescreen_on(game, console)
+				? std::string("16:9") : std::string(tr("Game's own"));
+			widescreen.value = game.gc_widescreen == "global" ? tr("Default ({1})", {widescreenNow}) : widescreenNow;
+			rows.push_back(widescreen);
+			refs.push_back({W::GcWidescreen});
+		}
+		FlowRow language;
+		language.kind = FlowRow::Kind::Option;
+		language.label = tr("Game language");
+		language.on = game.gc_language != "global";
+		const int languageNumber = riftwii::gc_language_number(game, console);
+		const std::string languageNow = GcLanguageName(languageNumber >= 0 ? riftwii::kGcLanguages[languageNumber] : "game");
+		language.value = game.gc_language == "global" ? tr("Default ({1})", {languageNow}) : languageNow;
+		rows.push_back(language);
+		refs.push_back({W::GcLanguage});
+		FlowRow controls;
+		controls.kind = FlowRow::Kind::Action;
+		controls.label = tr("Controls");
+		rows.push_back(controls);
+		refs.push_back({W::GcControls});
+		if (settingsOnly) show({W::Cover});
+		return;
+	}
 	heading(tr("Picture"));
 	show({W::Width, W::Deflicker, W::Borders, W::VideoMode, W::RegionVideo, W::Aspect});
 	heading(tr("Other"));
@@ -4434,6 +4755,17 @@ static std::string SizeText(std::uint64_t bytes)
 	if (mb < 1024) return std::to_string(mb) + " MB";
 	const std::uint64_t tenths = mb * 10 / 1024;
 	return std::to_string(tenths / 10) + "." + std::to_string(tenths % 10) + " GB";
+}
+
+// Stop pressed in `box`: asked once more, with `question` and `body`, as
+// the work so far is thrown away. Stop is the first button (A, or the
+// pointer): the second takes B and HOME, so a B pressed twice in a hurry
+// keeps the work going. True: stop.
+static bool ConfirmStop(PopupBox& box, const std::string& question, const std::string& body)
+{
+	const bool stop = ShowPopup(question, body, tr("Stop"), tr("Keep going")) == 0;
+	box.Reactivate();
+	return stop;
 }
 
 // Makes an image of the code build `p` on the SD card (wii/menu/vsdmake.hpp),
@@ -4467,26 +4799,19 @@ static bool MakeSdImage(const FrontendState& state, const riftwii::LaunchPackage
 	logf("Image: making %s from %s\n", plan.image.c_str(), p.file.c_str());
 	{
 		PopupBox box(tr("Making {1}", {plan.image}), "", "", tr("Stop"));
-		ProgressBar bar(56, 280, 528);
-		box.Add(&bar, 528);
-		const u64 start = gettime();
+		box.CenterCancel();  // its only button, in the middle
+		ProgressPanel progress(box, state.game_id);
 		std::string shown;
 		ResumeGui();
 		ok = riftwii::wii::MakeVsdImage(plan, [&](std::uint64_t written, const std::string& path) {
 			if (!path.empty()) shown = path;
-			const u64 ms = diff_msec(start, gettime());
-			std::string text = SizeText(written) + " / " + SizeText(plan.plan.image_bytes);
-			// What is left at the rate so far, once there is a rate.
-			if (ms > 10000 && written > (16u << 20)) {
-				const std::uint64_t left = (plan.plan.image_bytes - std::min(written, plan.plan.image_bytes)) * ms / written / 1000;
-				text += "  -  " + std::string(left >= 90 ? tr("{1} minutes left", {std::to_string((left + 59) / 60)})
-						: tr("{1} seconds left", {std::to_string(left)}));
-			}
-			text += "\n" + FlatCapped(shown.empty() ? std::string(tr("Free space")) : shown, 60);
 			HaltGui();
-			bar.Set(static_cast<double>(written) / static_cast<double>(plan.plan.image_bytes));
-			box.SetBody(text);
-			const bool stop = box.Pressed();
+			progress.Set(written, plan.plan.image_bytes);
+			progress.SetStage(SizeText(written) + " / " + SizeText(plan.plan.image_bytes) + "\n" +
+				FlatCapped(shown.empty() ? std::string(tr("Free space")) : shown, 44));
+			const bool stop = box.Pressed() &&
+				ConfirmStop(box, tr("Stop making {1}?", {plan.image}),
+					tr("What is made so far is deleted. It can be made again later, from the start."));
 			ResumeGui();
 			return !stop;
 		}, error);
@@ -4504,6 +4829,1446 @@ static bool MakeSdImage(const FrontendState& state, const riftwii::LaunchPackage
 		tr("{1} is in sd:/riftwii, and the build in it is turned on: the game gets the image as its SD card.",
 			{plan.image}),
 		tr("OK"));
+	return true;
+}
+
+// The game picked, when it is a GameCube one (on the SD card).
+static const riftwii::wii::ImageGame* SelectedGcGame(const FrontendState& state)
+{
+	if (!state.use_sd || state.sd_index >= state.sd_catalog.games.size()) return nullptr;
+	const riftwii::wii::ImageGame& game = state.sd_catalog.games[state.sd_index];
+	return game.gamecube ? &game : nullptr;
+}
+
+// The game picked, when it is a GameCube game still to be made from its
+// patch (wii/launch/gcpatch.hpp).
+static const riftwii::wii::ImageGame* SelectedGcPatch(const FrontendState& state)
+{
+	const riftwii::wii::ImageGame* game = SelectedGcGame(state);
+	return game && !game->gc_patch_source.empty() ? game : nullptr;
+}
+
+static std::string ImageGameName(const riftwii::wii::ImageGame& game)
+{
+	if (!game.display.empty()) return game.display;
+	return game.title.empty() ? game.id : game.title;
+}
+
+// The game a patch makes its game from, when it is listed.
+static const riftwii::wii::ImageGame* GcOriginal(const FrontendState& state, const riftwii::wii::ImageGame& patch)
+{
+	for (const riftwii::wii::ImageGame& game : state.sd_catalog.games)
+		if (game.path == patch.gc_patch_source) return &game;
+	return nullptr;
+}
+
+// Building a game from its patch reads the original and writes the new
+// game on the same card: about 4 MB a second here (Super Mario Eclipse,
+// 1.4 GB, in 5 to 6 minutes), but SD cards differ a lot (an old class 4
+// card, a nearly full one), so a range: 5 down to 2.5 MB a second. The
+// progress window says the measured time once it runs.
+static std::string GcBuildTime(std::uint64_t bytes)
+{
+	const unsigned fast = static_cast<unsigned>((bytes / (5ull << 20) + 59) / 60);
+	const unsigned slow = static_cast<unsigned>((bytes * 2 / (5ull << 20) + 59) / 60);
+	if (slow <= 1) return tr("About a minute");
+	return tr("About {1}-{2} minutes", {std::to_string(std::max(1u, fast)), std::to_string(slow)});
+}
+
+// Room and time for the Play tile and the box that asks: "1.4 GB · about
+// 6 minutes", from the original's size (0 when it cannot be opened).
+static std::uint64_t GcBuildBytes(const riftwii::wii::ImageGame& patch)
+{
+	riftwii::wii::GcImage image{patch.path, patch.id, patch.gc_patch_source};
+	std::uint64_t need = 0, have = 0;
+	if (!riftwii::wii::GcPatchSpace(image, need, have)) return 0;
+	return need;
+}
+
+// The box that asks before a game is made from its patch: the original's
+// cover, an arrow, the new game's; what it does, what it needs; and, in
+// place of the question, what is missing when it cannot be made. True:
+// make it.
+static bool AskGcBuild(const std::string& name, const std::string& originalName, const std::string& originalId,
+		       const std::string& id, std::uint64_t need, std::uint64_t have, bool originalThere)
+{
+	const bool roomy = have == 0 || have >= need;
+	std::string title, body;
+	if (!originalThere) {
+		title = tr("{1} can't be built", {name});
+		body = tr("It is built from {1}, and RiftWii cannot open it on the SD card any more. Put it back in sd:/games and try again.",
+			{originalName});
+	} else if (!roomy) {
+		title = tr("{1} can't be built", {name});
+		body = tr("Building it needs {1} free on the SD card, and only {2} is free. Free some space and press Start again.",
+			{SizeText(need), SizeText(have)});
+	} else {
+		title = tr("Build this game first?");
+		body = tr("Build {1} from your {2}? This happens once.", {name, originalName});
+	}
+	// The facts only when they are known: without the original there is no size.
+	if (originalThere)
+		body += "\n\n" + tr("Needs {1}", {SizeText(need)}) + " \xC2\xB7 " + GcBuildTime(need) + " \xC2\xB7 " + tr("Once only");
+	const bool canBuild = originalThere && roomy;
+	PopupBox box(title, body, canBuild ? tr("Build it") : tr("OK"), canBuild ? tr("Not now") : "");
+	// The covers on the right, the text beside them.
+	const int coversX = 584 + box.Extra() - 2 * 64 - 28;
+	const int coversY = PopupBox::kBodyY + 6;
+	SmallCover from(originalId, coversX, coversY, 64, 90);
+	SmallCover to(id, coversX + 64 + 28, coversY, 64, 90);
+	// The theme's own right arrow (the banner view's), at about the gap's
+	// width; skin::Draw scales about the picture's middle, so its 44x44 box
+	// is placed with its middle on the gap's and the covers' middles.
+	SkinMark arrow(skin::arrowRight, coversX + 64 + 14 - 22, coversY + 45 - 22, 0.6f);
+	// The text runs from 56 - Extra() to 16 short of the covers; Add counts
+	// Extra() in itself.
+	box.Add(&from, coversX - 16 - 56);
+	box.Append(&to);
+	box.Append(&arrow);
+	return box.Wait() == 0 && canBuild;
+}
+
+// A GameCube game that is still to be made from its patch (gcpatch.hpp)
+// is made here, with the menu's own box, before the launch screen (which
+// cannot show translations) takes over. True: the game is ready (or was
+// never a patch); false: the player stopped it or it failed, and the
+// popup said why.
+static bool PrepareGcGameInMenu(FrontendState& state)
+{
+	if (!SelectedGcPatch(state)) return true;
+	riftwii::wii::ImageGame& game = state.sd_catalog.games[state.sd_index];
+	const std::string name = ImageGameName(game);
+	const riftwii::wii::ImageGame* original = GcOriginal(state, game);
+	const std::string originalName = original ? ImageGameName(*original) : FlatCapped(game.gc_patch_source, 40);
+	const std::string originalId = original ? original->id : std::string();
+
+	riftwii::wii::GcImage image{game.path, game.id, game.gc_patch_source};
+	std::uint64_t need = 0, have = 0;
+	const bool originalThere = riftwii::wii::GcPatchSpace(image, need, have);
+	if (!originalThere) logf("GameCube: %s cannot be made: the original %s cannot be opened\n", game.id.c_str(), image.patch_source.c_str());
+	else if (have != 0 && have < need)
+		logf("GameCube: %s needs %llu MB free on the SD card, %llu MB are free\n", game.id.c_str(),
+			static_cast<unsigned long long>(need >> 20), static_cast<unsigned long long>(have >> 20));
+	if (!AskGcBuild(name, originalName, originalId, game.id, need, have, originalThere)) {
+		if (originalThere && (have == 0 || have >= need)) logf("GameCube: the player did not want %s made now\n", game.id.c_str());
+		return false;
+	}
+
+	for (;;) {
+		std::string error;
+		bool ok;
+		{
+			PopupBox box(tr("Building {1}", {name}), "", "", tr("Stop"));
+			box.CenterCancel();  // its only button, in the middle
+			ProgressPanel progress(box, game.id);
+			progress.SetStage(tr("Reading {1} and writing {2}", {originalName, name}));
+			u64 last_redraw = 0;
+			ResumeGui();
+			ok = riftwii::wii::PrepareGcPatch(image, error, [&](std::uint64_t done, std::uint64_t total) {
+				// A few redraws a second: each one halts the GUI, which costs copy time.
+				const u64 now = gettime();
+				if (last_redraw != 0 && diff_msec(last_redraw, now) < 400) return true;
+				last_redraw = now;
+				HaltGui();
+				// Minutes of work with no button pressed: not idle, so the
+				// screen does not dim over the bar.
+				lastActive = now;
+				progress.Set(done, total);
+				const bool stop = box.Pressed() &&
+					ConfirmStop(box, tr("Stop building {1}?", {name}),
+						tr("What is built so far is deleted. It can be built again later, from the start."));
+				ResumeGui();
+				return !stop;
+			});
+			HaltGui();
+		}
+		if (ok) break;
+		logf("GameCube: %s was not made: %s\n", game.id.c_str(), error.c_str());
+		if (error == "stopped") {
+			ShowPopup(tr("{1} not built", {name}), tr("Stopped. Nothing was kept."), tr("OK"));
+			return false;
+		}
+		// Most failures are the card's (a write, a read): worth another go.
+		if (ShowPopup(tr("{1} not built", {name}),
+			    tr("{1} could not be built: {2}. Nothing was kept.", {name, FlatCapped(error, 140)}),
+			    tr("Try again"), tr("OK")) != 0)
+			return false;
+		image = riftwii::wii::GcImage{game.path, game.id, game.gc_patch_source};
+	}
+	// The entry now is the prepared image, so the launch starts it as any other.
+	game.path = image.path;
+	game.gc_patch_source.clear();
+	return true;
+}
+
+// The controllers a game can see, connected now (PadsConnectedNow, with
+// About this game).
+struct ConnectedPads {
+	bool remote = false, nunchuk = false, classic = false, gamecube = false, board = false;
+};
+static ConnectedPads PadsConnectedNow();
+
+// One controller's buttons as the GameCube controller's, in two columns.
+// Each row reads the same way: the badges of the buttons in the player's
+// hand, an arrow, then the GameCube button they are. A badge is Kenney's
+// picture where there is one (as the prompts draw it), RiftWii's own for
+// the Control Stick and the D-pad, the stick's picture with L or R on it
+// for a Classic Controller's sticks, or the theme's round badge with the
+// button's name. A column's arrows line up, so the controller's side and
+// the GameCube's read as columns of their own.
+class GcControlsTable : public GuiElement {
+public:
+	// `buttons`: one button name or more, apart by spaces ("ZL ZR": both
+	// are the one GameCube button). "LS" and "RS": a Classic Controller's
+	// left and right sticks.
+	struct Pair { std::string buttons, gamecube; };
+	GcControlsTable(const std::vector<Pair>& pairs, int left, int right) : left(left), right(right),
+		arrow("\xE2\x86\x92", 18, skin::kInkSoft)  // U+2192, in the leave line's quieter colour
+	{
+		arrow.SetAlignment(ALIGN_H::LEFT, ALIGN_V::MIDDLE);
+		for (const Pair& p : pairs) {
+			Row row;
+			std::size_t start = 0;
+			while (start < p.buttons.size()) {
+				std::size_t end = p.buttons.find(' ', start);
+				if (end == std::string::npos) end = p.buttons.size();
+				row.badges.push_back(MakeBadge(p.buttons.substr(start, end - start)));
+				start = end + 1;
+			}
+			row.name.reset(new GuiText(p.gamecube.c_str(), 18, skin::kInk));
+			row.name->SetAlignment(ALIGN_H::LEFT, ALIGN_V::MIDDLE);
+			rows.push_back(std::move(row));
+		}
+	}
+	void Draw() override
+	{
+		// Hidden while another controller's card is shown.
+		if (!IsVisible()) return;
+		const int column = (right - left) / 2;
+		const int perColumn = static_cast<int>((rows.size() + 1) / 2);
+		// Each column's arrows sit just past its widest group of badges.
+		int arrowOffset[2] = {0, 0};
+		for (std::size_t i = 0; i < rows.size(); ++i) {
+			const int col = static_cast<int>(i) / perColumn;
+			arrowOffset[col] = std::max(arrowOffset[col], BadgesWidth(rows[i]) + kGap);
+		}
+		const int arrowWidth = arrow.GetTextWidth();
+		for (std::size_t i = 0; i < rows.size(); ++i) {
+			// Down the first column, then the second.
+			const int col = static_cast<int>(i) / perColumn, line = static_cast<int>(i) % perColumn;
+			const int x = left + col * column, y = kTop + line * kRow;
+			int badgeX = x;
+			for (Badge& badge : rows[i].badges) {
+				DrawBadge(badge, badgeX, y);
+				badgeX += kBadge + kBadgeGap;
+			}
+			const int arrowX = x + arrowOffset[col];
+			arrow.SetPosition(arrowX, y + kBadge / 2 - 1);
+			arrow.Draw();
+			rows[i].name->SetPosition(arrowX + arrowWidth + kGap, y + kBadge / 2);
+			rows[i].name->Draw();
+		}
+	}
+	// Five rows (a Classic Controller's ten buttons) and the leave line
+	// under them fit the popup's body, from its top (PopupBox::kBodyY) to
+	// kLeaveY: rows a little closer than the pictures' 24 (they have a
+	// clear margin of their own). A picture smaller than 24 would be too
+	// small to read, and GX takes no size that is not a multiple of 4.
+	static constexpr int kBadge = 24, kTop = PopupBox::kBodyY, kRow = 23;
+	static constexpr int kLeaveY = PopupBox::kButtonY - 10 - 18;  // its 15-point line ends above the buttons
+private:
+	static constexpr int kBadgeGap = 4, kGap = 8;
+	struct Badge {
+		std::string button;
+		std::unique_ptr<GuiText> letters;  // on the theme's badge or a stick's picture; none on Kenney's
+	};
+	struct Row {
+		std::vector<Badge> badges;
+		std::unique_ptr<GuiText> name;
+	};
+	static bool IsClassicStick(const std::string& button) { return button == "LS" || button == "RS"; }
+	static Badge MakeBadge(const std::string& button)
+	{
+		Badge badge;
+		badge.button = button;
+		if (IsClassicStick(button)) {
+			// The stick's L or R, small enough for the middle of its picture.
+			badge.letters.reset(new GuiText(button.substr(0, 1).c_str(), 12, skin::kCard));
+		} else if (!skin::ButtonIcon(button, kBadge).data) {
+			badge.letters.reset(new GuiText(button.c_str(), 14, skin::kCard));
+		}
+		if (badge.letters) badge.letters->SetAlignment(ALIGN_H::CENTRE, ALIGN_V::MIDDLE);
+		return badge;
+	}
+	static int BadgesWidth(const Row& row)
+	{
+		const int count = static_cast<int>(row.badges.size());
+		return count * kBadge + (count - 1) * kBadgeGap;
+	}
+	static void DrawBadge(Badge& badge, int x, int y)
+	{
+		if (IsClassicStick(badge.button)) {
+			// Beside the Classic Controller's other buttons, which are the
+			// theme's badges and fill all kBadge: the stick's picture a
+			// size up (its disc fills 3/4 of it) to be as big, which also
+			// leaves room for the letter.
+			const int size = kBadge * 4 / 3, margin = (size - kBadge) / 2;
+			skin::Draw(skin::ButtonIcon("Stick", size), x - margin, y - margin);
+		} else {
+			const skin::Tex& icon = skin::ButtonIcon(badge.button, kBadge);
+			skin::Draw(icon.data ? icon : skin::promptButton, x, y);
+		}
+		if (badge.letters) {
+			badge.letters->SetPosition(x + kBadge / 2, y + kBadge / 2 - 1);
+			badge.letters->Draw();
+		}
+	}
+	std::vector<Row> rows;
+	int left, right;
+	GuiText arrow;
+};
+
+// One kind of controller's GameCube buttons, and how it leaves the game.
+struct GcControlsCard {
+	std::string title;
+	std::vector<GcControlsTable::Pair> pairs;  // none: a GameCube controller's own
+	std::string leave;
+};
+
+// Which buttons are the GameCube controller's (runtime/gc/gc_bt.c's
+// bt_fill_one), one card per kind of controller connected now (a Wii
+// Remote alone when none is). A Wii Remote alone leaves with HOME and -
+// together, as its HOME alone is the game's Y.
+static std::vector<GcControlsCard> GcControlsCards()
+{
+	std::vector<GcControlsCard> cards;
+	const ConnectedPads pads = PadsConnectedNow();
+	const std::string leaveHome = tr("Hold HOME for two seconds to leave the game.");
+	if (pads.classic)
+		cards.push_back({tr("Classic Controller"),
+			{{"a", "A"}, {"b", "B"}, {"x", "X"}, {"y", "Y"}, {"L", "L"}, {"R", "R"}, {"ZL ZR", "Z"}, {"+", "Start"},
+				{"LS", tr("Stick")}, {"RS", tr("C-stick")}}, leaveHome});
+	if (pads.nunchuk)
+		cards.push_back({tr("Wii Remote and Nunchuk"),
+			{{"A", "A"}, {"B", "B"}, {"1", "X"}, {"2", "Y"}, {"C", "L"}, {"Z", "R"}, {"-", "Z"}, {"+", "Start"},
+				{"Stick", tr("Stick")}, {"D-pad", tr("C-stick")}}, leaveHome});
+	if ((pads.remote && !pads.nunchuk && !pads.classic) || (!pads.remote && !pads.gamecube))
+		cards.push_back({tr("Wii Remote, held sideways"),
+			{{"2", "A"}, {"1", "B"}, {"A", "X"}, {"HOME", "Y"}, {"B", "R"}, {"-", "Z"}, {"+", "Start"},
+				{"D-pad", tr("Stick")}}, tr("Hold HOME and - for two seconds to leave the game.")});
+	if (pads.gamecube)
+		cards.push_back({tr("GameCube controller"), {}, tr("Hold L, R, Z and Start for two seconds to leave the game.")});
+	return cards;
+}
+
+// Dots under a popup's title, one per card, the one shown filled.
+static std::string CardDots(std::size_t count, std::size_t shown)
+{
+	std::string dots;
+	for (std::size_t i = 0; i < count; ++i) {
+		if (i) dots += " ";
+		dots += i == shown ? "\xE2\x97\x8F" : "\xE2\x97\x8B";  // U+25CF, U+25CB
+	}
+	return dots;
+}
+
+// The controls cards in one popup: Left and Right (or the arrows) turn to
+// the other controllers' cards, the dots say which is shown. `starting`:
+// before a game starts, with Play and Back; true when Play was pressed.
+// Otherwise OK alone.
+static bool ShowGcControls(bool starting)
+{
+	const std::vector<GcControlsCard> cards = GcControlsCards();
+	const std::string ownButtons = tr("Its buttons are the game's own, as on a GameCube.");
+	const auto title = [&](std::size_t i) { return std::string(tr("GameCube controls: {1}", {cards[i].title})); };
+	const auto body = [&](std::size_t i) { return cards[i].pairs.empty() ? ownButtons : std::string(); };
+	PopupBox box(title(0), body(0), starting ? tr("Play") : tr("OK"), starting ? tr("Back") : "");
+	const int left = 56 - box.Extra(), right = 584 + box.Extra();
+	// Every card's table and leave line made at once; only the shown
+	// card's are visible.
+	std::vector<std::unique_ptr<GcControlsTable>> tables;
+	std::vector<std::unique_ptr<GuiText>> leaves;
+	for (const GcControlsCard& card : cards) {
+		tables.emplace_back(new GcControlsTable(card.pairs, left, right));
+		leaves.emplace_back(new GuiText(card.leave.c_str(), 15, skin::kInkSoft));
+		Place(*leaves.back(), left, GcControlsTable::kLeaveY);
+		box.Append(tables.back().get());
+		box.Append(leaves.back().get());
+	}
+	// The dots in the body's top right corner, beside the table's short
+	// first row: in the title band they ran into a long title.
+	GuiText dots(CardDots(cards.size(), 0).c_str(), 14, skin::kInkSoft);
+	dots.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
+	dots.SetPosition(-left, PopupBox::kBodyY);
+	// The arrows on the box's sides, level with the middle of its body.
+	const int arrowY = (PopupBox::kBodyY + PopupBox::kButtonY - 10) / 2 - skin::arrowLeft.h / 2;
+	SkinButton prevBtn(skin::arrowLeft, skin::arrowLeftOver, 2, 2 - box.Extra(), arrowY, nullptr,
+		WPAD_BUTTON_LEFT | WPAD_CLASSIC_BUTTON_LEFT, PAD_BUTTON_LEFT, WIIDRC_BUTTON_LEFT);
+	SkinButton nextBtn(skin::arrowRight, skin::arrowRightOver, 2, 594 + box.Extra(), arrowY, nullptr,
+		WPAD_BUTTON_RIGHT | WPAD_CLASSIC_BUTTON_RIGHT, PAD_BUTTON_RIGHT, WIIDRC_BUTTON_RIGHT);
+	if (cards.size() > 1) {
+		box.Append(&dots);
+		box.Append(&prevBtn.button);
+		box.Append(&nextBtn.button);
+	}
+	std::size_t shown = 0;
+	const auto show = [&](std::size_t i) {
+		shown = i;
+		for (std::size_t c = 0; c < cards.size(); ++c) {
+			tables[c]->SetVisible(c == i);
+			leaves[c]->SetVisible(c == i);
+		}
+		box.SetTitleFitted(title(i));
+		box.SetBody(body(i));
+		dots.SetText(CardDots(cards.size(), i).c_str());
+	};
+	show(0);
+	ResumeGui();
+	int choice = -1;
+	while (choice < 0) {
+		usleep(20000);
+		HaltGui();
+		ClearStaleButtons({&prevBtn.button, &nextBtn.button});
+		if (prevBtn.Clicked() || nextBtn.Clicked()) {
+			const std::size_t n = cards.size();
+			show(prevBtn.Clicked() ? (shown + n - 1) % n : (shown + 1) % n);
+			prevBtn.button.ResetState();
+			nextBtn.button.ResetState();
+		}
+		choice = box.Poll();
+		if (choice < 0) ResumeGui();
+	}
+	return choice == 0;
+}
+
+// The leave line for the controller a player would hold first (the
+// controls cards' first one), for a note shown before the game starts.
+static std::string GcLeaveLine()
+{
+	const std::vector<GcControlsCard> cards = GcControlsCards();
+	return cards.empty() ? std::string(tr("Hold HOME for two seconds to leave the game.")) : cards.front().leave;
+}
+
+// 480p picked while the Wii's own 480p setting is off: said once, as the
+// setting being off may mean no cable takes it. True: Turn on.
+// Before a game's memory card changes between its own and the shared one.
+static bool AskGcCardSwitch()
+{
+	return ShowPopup(tr("Memory card"), tr("Switching copies no saves: they stay on the other card. Move them with Copy to the SD card and Add a save from the SD card on the Saves page. Japanese games have a shared card of their own."),
+		tr("Switch"), tr("Cancel")) == 0;
+}
+
+static bool AskGc480p()
+{
+	const std::string body = std::string(tr("Only with a component or HDMI cable: without one the picture stays black.")) +
+		" " + GcLeaveLine();
+	return ShowPopup(tr("480p picture"), body, tr("Turn on"), tr("Cancel")) == 0;
+}
+
+// The controls before the first GameCube game starts from this card
+// (sd:/riftwii/gc/controls_seen.txt remembers). False: Back.
+static bool ShowGcControlsOnce(const FrontendState& state)
+{
+	static const char* const kMarker = "sd:/riftwii/gc/controls_seen.txt";
+	if (!SelectedGcGame(state)) return true;
+	struct stat st;
+	// Without a card nothing could remember it: it would show every start.
+	if (stat("sd:/", &st) != 0 || stat(kMarker, &st) == 0) return true;
+	if (!ShowGcControls(true)) return false;
+	mkdir("sd:/riftwii", 0777);
+	mkdir("sd:/riftwii/gc", 0777);
+	if (FILE* f = std::fopen(kMarker, "w")) {
+		std::fprintf(f, "shown\n");
+		std::fclose(f);
+	}
+	return true;
+}
+
+// ---------------------------------------------------------------------------
+// A GameCube game's memory card (riftwii/gccard.hpp): its saves, copied to
+// the SD card as .gci files (Dolphin's and Nintendont's), deleted, or
+// added from the SD card.
+
+static const char* const kGcSavesDir = "sd:/riftwii/gc/saves";
+// Where the player copies Dolphin's GC folder (riftwii/gcimport.hpp).
+static const char* const kGcDolphinDir = "sd:/riftwii/gc/dolphin";
+
+static std::string GameTitle(const FrontendState& state);
+
+// The game's card, named as the loader names it (gcnative.cpp): its own
+// file, or the shared one when the game's Memory card option says so.
+static bool GcCardShared(const FrontendState& state)
+{
+	return state.model.game.gc_card == "shared";
+}
+
+static std::string GcCardPath(const FrontendState& state)
+{
+	return riftwii::gc_card_path(state.game_id, GcCardShared(state));
+}
+
+// Whether the card the game will use has no block or no directory slot
+// left (riftwii::GcCardSpace::full), read from its first five blocks so
+// the game page opens as fast as before. False without a card yet, or
+// with one that cannot be read (its own page says why).
+static bool ReadGcCardSpace(const std::string& path, riftwii::GcCardSpace& space)
+{
+	FILE* f = std::fopen(path.c_str(), "rb");
+	if (!f) return false;
+	std::fseek(f, 0, SEEK_END);
+	const long size = std::ftell(f);
+	std::fseek(f, 0, SEEK_SET);
+	std::vector<std::uint8_t> head(riftwii::kGcCardSystemBlocks * riftwii::kGcCardBlockBytes);
+	const bool read = size >= static_cast<long>(head.size()) && std::fread(head.data(), 1, head.size(), f) == head.size();
+	std::fclose(f);
+	std::string why;
+	return read && riftwii::gc_card_space(head, static_cast<std::uint64_t>(size), space, why);
+}
+
+static bool GcCardFull(const FrontendState& state)
+{
+	riftwii::GcCardSpace space;
+	return ReadGcCardSpace(GcCardPath(state), space) && space.full();
+}
+
+// What the game page says about a full card: that the game can't save, and
+// how to make room (on a shared card, also the way out to its own card).
+// Both fit the page's two note lines at 16:9, beside the button hints.
+static std::string GcCardFullNote(const FrontendState& state)
+{
+	return GcCardShared(state)
+		? tr("The card is full: this game can't save. Make room on the Memory Card page or use its own card.")
+		: tr("The memory card is full: this game can't save. Delete or copy saves on the Memory Card page to make room.");
+}
+
+// The icons of a card's saves as textures (32x32 RGB5A3, 2 KB each) for
+// the rows of the Memory Card page; freed with the page.
+class GcIconTextures {
+public:
+	GcIconTextures() = default;
+	GcIconTextures(const GcIconTextures&) = delete;
+	GcIconTextures& operator=(const GcIconTextures&) = delete;
+	~GcIconTextures() { Clear(); }
+	void Clear()
+	{
+		for (u8* buffer : buffers) free(buffer);
+		buffers.clear();
+	}
+	// The save's first icon frame, or null: no icon, or one that does not
+	// fit in its save (a damaged card), or no memory left for it.
+	const u8* Make(const std::vector<std::uint8_t>& card, unsigned slot)
+	{
+		std::vector<std::uint8_t> rgba;
+		std::string why;
+		if (!riftwii::gc_card_icon(card, slot, rgba, why)) return nullptr;
+		const std::vector<std::uint8_t> tiles = riftwii::gc_icon_rgb5a3(rgba);
+		if (tiles.empty()) return nullptr;
+		u8* buffer = static_cast<u8*>(memalign(32, tiles.size()));
+		if (!buffer) return nullptr;
+		memcpy(buffer, tiles.data(), tiles.size());
+		DCFlushRange(buffer, tiles.size());
+		buffers.push_back(buffer);
+		return buffer;
+	}
+private:
+	std::vector<u8*> buffers;
+};
+
+// A whole file of at most `limit` bytes.
+static bool ReadSmallFile(const std::string& path, std::size_t limit, std::vector<std::uint8_t>& out)
+{
+	FILE* f = std::fopen(path.c_str(), "rb");
+	if (!f) return false;
+	std::fseek(f, 0, SEEK_END);
+	const long size = std::ftell(f);
+	std::fseek(f, 0, SEEK_SET);
+	bool ok = size >= 0 && static_cast<std::size_t>(size) <= limit;
+	if (ok) {
+		out.resize(static_cast<std::size_t>(size));
+		ok = out.empty() || std::fread(out.data(), 1, out.size(), f) == out.size();
+	}
+	std::fclose(f);
+	return ok;
+}
+
+// What a card change is, which sets the order its blocks reach the SD card.
+enum class CardChange { Import, Delete };
+
+// Writes back only the card's blocks that changed: the library writes an
+// update into the copies not in use, so a write cut off halfway leaves the
+// old directory and block table in charge, which rewriting the whole file
+// would not. The groups go in the library's own order (gccard.cpp), each
+// flushed to the card before the next: for an import the save's blocks,
+// then the BAT, then the directory, so a directory entry never points at
+// blocks not written yet; for a delete the directory, then the BAT, so a
+// cut-off delete leaves blocks nobody uses rather than a save on free ones.
+static bool WriteChangedBlocks(const std::string& path, const std::vector<std::uint8_t>& before,
+			       const std::vector<std::uint8_t>& after, CardChange change)
+{
+	if (before.size() != after.size()) return false;
+	FILE* f = std::fopen(path.c_str(), "r+b");
+	if (!f) return false;
+	constexpr std::size_t kBlock = 0x2000;
+	// Block 0 is the header (changed by neither), 1-2 the directory, 3-4
+	// the BAT, 5 on the saves.
+	enum Group { kData, kBat, kDirectory };
+	const auto groupOf = [](std::size_t block) {
+		if (block == 1 || block == 2) return kDirectory;
+		if (block == 3 || block == 4) return kBat;
+		return kData;
+	};
+	const std::vector<Group> order = change == CardChange::Import
+		? std::vector<Group>{kData, kBat, kDirectory}
+		: std::vector<Group>{kDirectory, kBat, kData};
+	bool ok = true;
+	for (Group group : order) {
+		bool wroteAny = false;
+		for (std::size_t at = 0; ok && at < after.size(); at += kBlock) {
+			if (groupOf(at / kBlock) != group) continue;
+			const std::size_t n = std::min(kBlock, after.size() - at);
+			if (memcmp(before.data() + at, after.data() + at, n) == 0) continue;
+			ok = std::fseek(f, static_cast<long>(at), SEEK_SET) == 0 && std::fwrite(after.data() + at, 1, n, f) == n;
+			wroteAny = true;
+		}
+		if (!ok) break;
+		if (wroteAny) {
+			ok = std::fflush(f) == 0;
+			fsync(fileno(f));
+		}
+		if (!ok) break;
+	}
+	ok = std::fclose(f) == 0 && ok;
+	return ok;
+}
+
+// A save's name as the menu shows it, from the card's own encoding.
+static std::string GcSaveName(const riftwii::GcSave& save, bool shiftJis)
+{
+	if (!save.comment_title.empty()) return riftwii::gc_card_text_utf8(save.comment_title, shiftJis);
+	if (save.file_name.empty()) return save.game_code;
+	return riftwii::gc_card_text_utf8(save.file_name, shiftJis);
+}
+
+// "10/16/2026": a save's time, seconds since 2000-01-01.
+static std::string GcSaveDate(std::uint32_t seconds)
+{
+	// Whole years, then whole months, from 2000 (a leap year every fourth,
+	// enough until 2100).
+	std::uint32_t days = seconds / 86400;
+	unsigned year = 2000;
+	for (;;) {
+		const std::uint32_t inYear = year % 4 == 0 ? 366 : 365;
+		if (days < inYear) break;
+		days -= inYear;
+		++year;
+	}
+	static const unsigned kMonthDays[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+	unsigned month = 0;
+	for (; month < 11; ++month) {
+		const std::uint32_t inMonth = kMonthDays[month] + (month == 1 && year % 4 == 0 ? 1 : 0);
+		if (days < inMonth) break;
+		days -= inMonth;
+	}
+	// A whole date in the language's own order: month, day and year are
+	// {1}, {2} and {3} ("10/16/2026"; "16/10/2026", "2026/10/16").
+	return tr("{1}/{2}/{3}", {std::to_string(month + 1), std::to_string(static_cast<unsigned>(days) + 1),
+		std::to_string(year)});
+}
+
+// A save's own file name on the SD card: "GMSE01-Sunshine save.gci", with
+// only letters, digits and a few marks.
+static std::string GciFileName(const riftwii::GcSave& save)
+{
+	std::string name = save.game_code + save.maker + "-" + save.file_name;
+	std::string clean;
+	for (char c : name) {
+		const bool plain = (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' ||
+				   c == '_' || c == '.' || c == ' ';
+		clean += plain ? c : '_';
+	}
+	if (clean.size() > 60) clean.resize(60);
+	return clean + ".gci";
+}
+
+// Where in `dir` a copy of the save goes: GciFileName, or with -2, -3...
+// before ".gci" when a file of that name is there, so a copy never
+// overwrites an older one. Empty when even -999 is taken.
+static std::string FreeGciPath(const std::string& dir, const riftwii::GcSave& save)
+{
+	const std::string name = GciFileName(save);
+	const std::string stem = name.substr(0, name.size() - 4);
+	for (int n = 1; n <= 999; ++n) {
+		const std::string candidate = dir + "/" + (n == 1 ? name : stem + "-" + std::to_string(n) + ".gci");
+		struct stat st;
+		if (stat(candidate.c_str(), &st) != 0) return candidate;
+	}
+	return std::string();
+}
+
+// Two choices as tiles over a popup, with Back: 0 or 1, -1 for Back.
+static int ChooseTwo(const std::string& title, const std::string& body, const std::string& label0,
+		     const std::string& value0, const std::string& label1, const std::string& value1)
+{
+	PopupBox box(title, body, "", tr("Back"));
+	box.CenterCancel();
+	std::vector<TileSpec> tiles(2);
+	tiles[0].x = 56;
+	tiles[1].x = 332;
+	for (TileSpec& t : tiles) {
+		t.w = 252;
+		t.h = 64;
+		// Just above the buttons, as the code mod's start choice: at 238
+		// they touched Back.
+		t.y = PopupBox::kButtonY - 14 - t.h;
+	}
+	tiles[0].label = label0;
+	tiles[0].value = value0;
+	tiles[1].label = label1;
+	tiles[1].value = value1;
+	GuiTiles choices;
+	choices.SetTiles(&tiles);
+	choices.Select(0);
+	box.Append(&choices);
+	ResumeGui();
+	int picked = -1;
+	bool back = false;
+	while (picked < 0 && !back) {
+		usleep(20000);
+		HaltGui();
+		picked = choices.GetClicked();
+		back = picked < 0 && box.Pressed();  // Back, B or HOME
+		if (picked < 0 && !back) ResumeGui();
+	}
+	return back ? -1 : picked;
+}
+
+// What a row page's `act` calls to open another page over it:
+// `aside(nested)` takes the page away (no input reaches it, nothing of it
+// is drawn) while `nested` runs, then puts it back. Popups need none of
+// this, as they switch the page off themselves.
+using PageAside = std::function<void(const std::function<void()>&)>;
+
+// A list of rows on its own page, with a note under it, until B: what
+// MenuGcCard and the .gci picker show. `act(row, aside)` is called on A
+// (with the GUI halted); it returns true to leave.
+// `rowHeight`, when given, makes the rows that tall, for rows with a
+// second line (FlowRow::detail).
+static void RunRowPage(const std::string& title, const std::string& subtitle, std::vector<FlowRow>& rows,
+		       const std::function<std::string(int)>& note, const std::function<bool(int, const PageAside&)>& act,
+		       const std::function<std::string()>& status = nullptr, int rowHeight = 0)
+{
+	GuiText titleTxt(title.c_str(), 30, skin::kInk);
+	Place(titleTxt, 78, 28);
+	TitleBand titleBand;
+	PageIcon pageIcon(&skin::iconSaves);
+	const std::string sub = FlatCapped(subtitle, 40);
+	GuiText subTxt(sub.c_str(), 16, skin::kInkDim);
+	subTxt.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
+	// With a status line (the card's space) the two share the band's height.
+	subTxt.SetPosition(-40, status ? 28 : 40);
+	GuiText statusTxt(status ? status().c_str() : "", 14, skin::kInkDim);
+	statusTxt.SetAlignment(ALIGN_H::RIGHT, ALIGN_V::TOP);
+	statusTxt.SetPosition(-40, 48);
+	NoteCard noteCard;
+	// Taller rows fit fewer in the same space: four of 56 where five of 44 go.
+	GuiFlowList list(44, 84, 540, rowHeight > 0 ? 4 : 5);
+	if (rowHeight > 0) list.SetRowHeight(rowHeight);
+	list.SetCards(true);
+	list.SetRows(&rows);
+	list.Select(0);
+	GuiText noteTxt("", 15, skin::kInkSoft);
+	Place(noteTxt, NoteCard::kTextX, NoteCard::kTextY);
+	noteTxt.SetWrap(true, NoteCard::kTextW, NoteCard::kLines);
+	SkinButton backBtn(skin::pill, skin::pillOver, 4, 198, 406, "Back",
+		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
+	HideButton(backBtn);
+	GuiPrompts prompts;
+	const int promptBack = prompts.Add("B", tr("Back"));
+	prompts.Add("A", tr("Select"));
+
+	HaltGui();
+	GuiWindow w(screenwidth, screenheight);
+	w.Append(&titleBand);
+	w.Append(&pageIcon);
+	w.Append(&titleTxt);
+	w.Append(&subTxt);
+	if (status) w.Append(&statusTxt);
+	w.Append(&noteCard);
+	w.Append(&list);
+	w.Append(&noteTxt);
+	w.Append(&backBtn.button);
+	w.Append(&prompts);
+	mainWindow->Append(&w);
+	ResumeGui();
+
+	// A nested page ends with the GUI halted, as `act` was called.
+	const PageAside aside = [&](const std::function<void()>& nested) {
+		transition::Hold(transition::Kind::SlideForward);
+		mainWindow->Remove(&w);
+		nested();
+		HaltGui();
+		transition::Hold(transition::Kind::SlideBack);
+		mainWindow->Append(&w);
+	};
+
+	int shownRow = -1;
+	bool done = false;
+	while (!done) {
+		usleep(10000);
+		HaltGui();
+		ClearStaleButtons({&backBtn.button});
+		const int row = list.Selected();
+		if (row != shownRow && row >= 0 && static_cast<std::size_t>(row) < rows.size()) {
+			shownRow = row;
+			noteTxt.SetText(note(row).c_str());
+		}
+		const int acted = list.GetClicked();
+		if (acted >= 0 && static_cast<std::size_t>(acted) < rows.size()) {
+			done = act(acted, aside);
+			// What was pressed in a page or popup opened from here is not
+			// this page's: B there must not also leave this one.
+			list.GetClicked();
+			list.GetClickedBack();
+			prompts.GetClicked();
+			backBtn.button.ResetState();
+			if (status) statusTxt.SetText(status().c_str());
+			list.Refresh();
+			if (!rows.empty()) list.Select(std::min<int>(acted, static_cast<int>(rows.size()) - 1));
+			shownRow = -1;
+		}
+		if (prompts.GetClicked() == promptBack) backBtn.button.SetState(STATE::CLICKED);
+		if (backBtn.Clicked()) done = true;
+		ResumeGui();
+	}
+	HaltGui();
+	mainWindow->Remove(&w);
+}
+
+// The .gci files in sd:/riftwii/gc/saves, sorted, at most 200.
+static std::vector<std::string> ListGciFiles()
+{
+	std::vector<std::string> names;
+	if (DIR* dir = opendir(kGcSavesDir)) {
+		while (dirent* e = readdir(dir)) {
+			const std::string name = e->d_name;
+			// macOS's "._" files beside every copied one are not saves.
+			if (name.size() > 4 && name[0] != '.' && strcasecmp(name.c_str() + name.size() - 4, ".gci") == 0)
+				names.push_back(name);
+		}
+		closedir(dir);
+	}
+	std::sort(names.begin(), names.end());
+	if (names.size() > 200) names.resize(200);
+	return names;
+}
+
+// One of `names` (ListGciFiles), picked on a page of its own. False: B.
+static bool PickGciFile(const std::vector<std::string>& names, std::string& path)
+{
+	std::vector<FlowRow> rows;
+	for (const std::string& name : names) {
+		FlowRow row;
+		row.kind = FlowRow::Kind::Action;
+		row.label = FlatCapped(name, 50);
+		rows.push_back(row);
+	}
+	int picked = -1;
+	RunRowPage(tr("Add a save"), kGcSavesDir, rows, [](int) { return std::string(tr("Press A to add this save to the memory card.")); },
+		[&](int row, const PageAside&) {
+			picked = row;
+			return true;
+		});
+	if (picked < 0) return false;
+	path = std::string(kGcSavesDir) + "/" + names[static_cast<std::size_t>(picked)];
+	return true;
+}
+
+// ---------------------------------------------------------------------------
+// Restore an older save: the backups the loader makes of a GameCube game's
+// memory card before each start (riftwii/gcbackup.hpp).
+
+// A backup's date, as GcSaveDate writes one.
+static std::string GcBackupDate(const riftwii::GcBackupStamp& stamp)
+{
+	return tr("{1}/{2}/{3}", {std::to_string(stamp.month), std::to_string(stamp.day), std::to_string(stamp.year)});
+}
+
+// A backup's date and time: the time as Home's clock writes it (the Clock
+// setting); a second backup in the same minute gets its number.
+static std::string GcBackupWhen(const riftwii::GcBackupStamp& stamp)
+{
+	const std::string date = GcBackupDate(stamp);
+	char minutes[4];
+	snprintf(minutes, sizeof(minutes), "%02u", stamp.minute % 60);
+	const unsigned hour12 = stamp.hour % 12 == 0 ? 12 : stamp.hour % 12;
+	const bool morning = stamp.hour < 12;
+	const char* const ampm = morning ? "{1}:{2} AM" : "{1}:{2} PM";
+	const std::string& mode = riftwii::wii::Settings().clock;
+	std::string timeText;
+	if (mode == "24") {
+		timeText = std::to_string(stamp.hour) + ":" + minutes;
+	} else if (mode == "12") {
+		// The language's own 12-hour way, unless it writes the 24-hour
+		// hour: then the English one, as ClockText does.
+		const std::string own = tr(ampm);
+		timeText = own.find("{1}") != std::string::npos ? tr(ampm, {std::to_string(hour12), minutes, std::to_string(hour12)})
+			: std::to_string(hour12) + ":" + minutes + (morning ? " AM" : " PM");
+	} else {
+		timeText = tr(ampm, {std::to_string(hour12), minutes, std::to_string(stamp.hour)});
+	}
+	std::string when = date + " \xC2\xB7 " + timeText;
+	if (stamp.serial >= 2) when += " (" + std::to_string(stamp.serial) + ")";
+	return when;
+}
+
+// Puts the backup `from` over the card at `cardPath`, after a backup of the
+// card as it is now (made even with Back up saves off), so the restore can
+// be undone from the same list. Says how it went. True: the card changed.
+static bool RestoreGcBackup(const std::string& cardPath, const std::string& folder, const std::string& from,
+	const std::string& when)
+{
+	std::vector<std::uint8_t> bytes;
+	if (!ReadSmallFile(from, riftwii::kGcBackupMaxBytes, bytes)) {
+		logf("GameCube card %s: the backup %s could not be read\n", cardPath.c_str(), from.c_str());
+		ShowPopup(tr("Save not restored"), tr("RiftWii could not read that copy."), tr("OK"));
+		return false;
+	}
+	riftwii::GcCardInfo info;
+	std::string why;
+	if (!riftwii::gc_card_read(bytes, info, why)) {
+		logf("GameCube card %s: the backup %s is damaged: %s\n", cardPath.c_str(), from.c_str(), why.c_str());
+		ShowPopup(tr("Save not restored"), tr("That copy is damaged, so your save was not changed."), tr("OK"));
+		return false;
+	}
+	const time_t now = time(nullptr);
+	struct tm local;
+	localtime_r(&now, &local);
+	// Marked as the undo copy, which the list names "before you restored".
+	riftwii::GcBackupStamp stamp = riftwii::gc_backup_stamp(local);
+	stamp.undo = true;
+	const riftwii::GcBackupResult before = riftwii::gc_backup_card(cardPath, folder, stamp);
+	if (before.what == riftwii::GcBackupResult::What::Failed) {
+		logf("GameCube card %s: not restored, as the card as it is now could not be backed up: %s\n", cardPath.c_str(),
+			before.error.c_str());
+		ShowPopup(tr("Save not restored"), tr("RiftWii could not keep a copy of the save as it is now, so it was not changed: {1}",
+			{FlatCapped(before.error, 120)}), tr("OK"));
+		return false;
+	}
+	if (before.what == riftwii::GcBackupResult::What::Made)
+		logf("GameCube card %s: backed up to %s/%s before the restore\n", cardPath.c_str(), folder.c_str(), before.name.c_str());
+	for (const std::string& old : before.pruned)
+		logf("GameCube card %s: oldest backup %s/%s deleted, to keep the newest %u\n", cardPath.c_str(), folder.c_str(),
+			old.c_str(), static_cast<unsigned>(riftwii::kGcBackupsKept));
+	// A card that was never made: its folder may be missing too.
+	mkdir("sd:/riftwii", 0777);
+	mkdir("sd:/riftwii/gc", 0777);
+	mkdir("sd:/riftwii/gc/cards", 0777);
+	if (!riftwii::gc_overwrite_file(cardPath, bytes, why)) {
+		logf("GameCube card %s: the restore from %s could not be written: %s\n", cardPath.c_str(), from.c_str(), why.c_str());
+		ShowPopup(tr("Save not restored"), tr("RiftWii could not write the memory card: {1}", {FlatCapped(why, 120)}), tr("OK"));
+		return false;
+	}
+	logf("GameCube card %s: restored from %s\n", cardPath.c_str(), from.c_str());
+	ShowPopup(tr("Save restored"),
+		tr("The memory card is as it was on {1}. The save from before is kept among the older saves, so you can go back to it.", {when}),
+		tr("OK"));
+	return true;
+}
+
+// The game's card's backups, newest first, on a page of their own; the one
+// picked, once confirmed, is put back. True: the card changed.
+static bool MenuGcRestore(FrontendState& state)
+{
+	const bool shared = GcCardShared(state);
+	const std::string cardPath = GcCardPath(state);
+	const std::string folder = riftwii::gc_backup_folder(state.game_id, shared);
+	const std::vector<std::string> names = riftwii::gc_backup_list(folder);
+	// The Saves page offers this only with backups there; none: nothing to show.
+	if (names.empty()) return false;
+	std::vector<FlowRow> rows;
+	std::vector<std::string> whens;
+	for (const std::string& name : names) {
+		riftwii::GcBackupStamp stamp;
+		riftwii::gc_backup_parse(name, stamp);
+		whens.push_back(GcBackupWhen(stamp));
+		FlowRow row;
+		row.kind = FlowRow::Kind::Action;
+		row.label = whens.back();
+		// The copy a restore made: picking it undoes that restore.
+		if (stamp.undo) row.label += std::string(" ") + tr("(before you restored)");
+		// What the copy holds, on the row's second line, read from its
+		// directory alone so the list opens fast: "2 saves · 4 blocks".
+		riftwii::GcCardSpace space;
+		if (ReadGcCardSpace(folder + "/" + name, space)) {
+			const unsigned saves = riftwii::kGcCardMaxEntries - space.free_entries;
+			const unsigned used = space.blocks - riftwii::kGcCardSystemBlocks - space.free_blocks;
+			row.detail = (saves == 1 ? std::string(tr("1 save")) : tr("{1} saves", {std::to_string(saves)})) +
+				" \xC2\xB7 " + (used == 1 ? std::string(tr("1 block")) : tr("{1} blocks", {std::to_string(used)}));
+		}
+		rows.push_back(row);
+	}
+	bool restored = false;
+	const auto note = [&](int) -> std::string {
+		return shared ? tr("Press A to put the shared memory card back to how it was then, for every game on it.")
+			: tr("Press A to put this game's save back to how it was then.");
+	};
+	const auto act = [&](int row, const PageAside&) {
+		const std::size_t at = static_cast<std::size_t>(row);
+		const std::string& when = whens[at];
+		// The question in the title, short in every language; the date and
+		// time in the body. Cancel is the second button, the one B and HOME
+		// press, so backing out never changes a save.
+		const std::string body = shared
+			? tr("Every game's save on the shared memory card goes back to how it was on {1}. How they are now is kept as a copy first, so you can come back to them.", {when})
+			: tr("Your save goes back to how it was on {1}. Your save as it is now is kept as a copy first, so you can come back to it.", {when});
+		if (ShowPopup(tr("Restore this save?"), body, tr("Restore"), tr("Cancel")) != 0) return false;
+		restored = RestoreGcBackup(cardPath, folder, folder + "/" + names[at], when);
+		// The list has changed (the copy made first): back to the saves.
+		return restored;
+	};
+	// No line beside the title: a long one (French) reaches it on a 16:9
+	// TV, and the Saves page before this one named the game and its card.
+	// Rows of two lines, the date and what the copy holds.
+	RunRowPage(tr("Restore an older save"), "", rows, note, act, nullptr, 56);
+	return restored;
+}
+
+// ---------------------------------------------------------------------------
+// Bring your Dolphin saves: every save in Dolphin's GC folder, copied to
+// sd:/riftwii/gc/dolphin, goes into the memory card the page shows.
+
+// What bringing the saves in came to, in a sentence or three.
+static std::string GcDolphinSummary(const riftwii::GcImportCount& count, bool leftOut)
+{
+	std::string text = tr("Added: {1}. Already on the card, so skipped: {2}.",
+		{std::to_string(count.added), std::to_string(count.skipped)});
+	if (count.unusable > 0) text += std::string(" ") + tr("Could not be used: {1}.", {std::to_string(count.unusable)});
+	if (count.full) text += std::string(" ") + tr("The memory card is full, so the rest did not fit.");
+	if (leftOut) text += std::string(" ") + tr("Some files were left out because there were too many.");
+	return text;
+}
+
+// Asks, backs the card up, then adds the saves found in the folder to
+// `changed` (a copy of the card). True: something was added and `changed`
+// is to be written. Says why when nothing is.
+static bool GcDolphinImport(const FrontendState& state, const std::string& cardPath, bool shared,
+	std::vector<std::uint8_t>& changed, riftwii::GcImportCount& count, bool& leftOut)
+{
+	const riftwii::GcDolphinFiles found = riftwii::gc_dolphin_scan(kGcDolphinDir, riftwii::gc_dolphin_regions(state.game_id, shared));
+	if (found.gci.empty() && found.raw.empty()) {
+		ShowPopup(tr("No saves from Dolphin"),
+			tr("RiftWii found no saves for this memory card in {1}. Copy Dolphin's GC folder there (in Dolphin: File > Open User Folder, then GC): it holds the USA, EUR and JAP folders.",
+				{kGcDolphinDir}), tr("OK"));
+		return false;
+	}
+	leftOut = found.truncated;
+	const std::size_t files = found.gci.size() + found.raw.size();
+	if (found.truncated)
+		logf("GameCube card %s: the Dolphin folder holds more than RiftWii reads at once, so some files were left out\n",
+			cardPath.c_str());
+	// Cancel is the second button, the one B and HOME press, so backing out
+	// never changes a save.
+	if (ShowPopup(tr("Bring your Dolphin saves?"),
+		    tr("RiftWii found {1} files in Dolphin's folder. Their saves are copied to this memory card, and the ones it has already are left alone. The card is kept as a copy first, so Restore an older save can undo it.",
+			{std::to_string(files)}) + (found.truncated ? std::string(" ") + tr("Some files will be left out because there are too many.") : std::string()),
+		    tr("Bring them"), tr("Cancel")) != 0)
+		return false;
+
+	// A file at a time: a save is at most a card's blocks, a card file 16 MB.
+	for (const std::string& path : found.gci) {
+		if (count.full) break;
+		std::vector<std::uint8_t> gci;
+		if (!ReadSmallFile(path, riftwii::kGcDolphinMaxGciBytes, gci)) {
+			logf("GameCube card %s: %s could not be read\n", cardPath.c_str(), path.c_str());
+			++count.unusable;
+			continue;
+		}
+		riftwii::gc_import_one(changed, gci, count);
+	}
+	for (const std::string& path : found.raw) {
+		if (count.full) break;
+		std::vector<std::uint8_t> raw;
+		if (!ReadSmallFile(path, riftwii::kGcDolphinMaxRawBytes, raw)) {
+			logf("GameCube card %s: %s could not be read\n", cardPath.c_str(), path.c_str());
+			++count.unusable;
+			continue;
+		}
+		riftwii::gc_import_card(changed, raw, count);
+	}
+	logf("GameCube card %s: Dolphin saves found in %u files: %u to add, %u already there, %u unusable%s%s\n", cardPath.c_str(),
+		static_cast<unsigned>(files), count.added, count.skipped, count.unusable, count.full ? ", the card filled up" : "",
+		leftOut ? ", some files were left out" : "");
+	if (count.added == 0) {
+		ShowPopup(count.full ? tr("Memory card full") : tr("Nothing new to add"), GcDolphinSummary(count, leftOut), tr("OK"));
+		return false;
+	}
+	// The copy is made only now that there is something to add (still before
+	// anything is written), so a second try that finds nothing new makes none.
+	const std::string folder = riftwii::gc_backup_folder(state.game_id, shared);
+	const time_t now = time(nullptr);
+	struct tm local;
+	localtime_r(&now, &local);
+	const riftwii::GcBackupResult before = riftwii::gc_backup_card(cardPath, folder, riftwii::gc_backup_stamp(local));
+	if (before.what == riftwii::GcBackupResult::What::Failed) {
+		logf("GameCube card %s: Dolphin saves not brought, as the card could not be backed up: %s\n", cardPath.c_str(),
+			before.error.c_str());
+		ShowPopup(tr("Saves not brought"),
+			tr("RiftWii could not keep a copy of the memory card, so it was not changed: {1}", {FlatCapped(before.error, 120)}), tr("OK"));
+		return false;
+	}
+	if (before.what == riftwii::GcBackupResult::What::Made)
+		logf("GameCube card %s: backed up to %s/%s before bringing the Dolphin saves\n", cardPath.c_str(), folder.c_str(),
+			before.name.c_str());
+	for (const std::string& old : before.pruned)
+		logf("GameCube card %s: oldest backup %s/%s deleted, to keep the newest %u\n", cardPath.c_str(), folder.c_str(),
+			old.c_str(), static_cast<unsigned>(riftwii::kGcBackupsKept));
+	return true;
+}
+
+// The game's memory card: its saves, how full it is, and adding a save.
+static void MenuGcCard(FrontendState& state)
+{
+	const std::string path = GcCardPath(state);
+	const bool shared = GcCardShared(state);
+	std::vector<std::uint8_t> card;
+	// A card is 2 MB; the library takes 4 to 128 Mbit ones.
+	if (!ReadSmallFile(path, 16u << 20, card)) {
+		ShowPopup(tr("No memory card yet"),
+			shared ? tr("The shared memory card is made the first time a game that uses it starts: {1}.", {path})
+				: tr("This game's memory card is made the first time the game starts: {1}.", {path}), tr("OK"));
+		return;
+	}
+	riftwii::GcCardInfo info;
+	std::string error;
+	if (!riftwii::gc_card_read(card, info, error)) {
+		logf("GameCube card %s: %s\n", path.c_str(), error.c_str());
+		ShowPopup(tr("Memory card damaged"), tr("RiftWii cannot read {1}: {2}", {path, FlatCapped(error, 120)}), tr("OK"));
+		return;
+	}
+	std::vector<FlowRow> rows;
+	GcIconTextures icons;
+	const std::string backupFolder = riftwii::gc_backup_folder(state.game_id, shared);
+	bool haveBackups = false;
+	bool dolphinRow = false;
+	const auto rebuild = [&] {
+		rows.clear();
+		icons.Clear();
+		haveBackups = !riftwii::gc_backup_list(backupFolder).empty();
+		for (const riftwii::GcSave& save : info.saves) {
+			FlowRow row;
+			row.kind = FlowRow::Kind::Action;
+			row.icon_column = true;
+			if (save.intact) row.icon = icons.Make(card, save.slot);
+			row.label = FlatCapped(GcSaveName(save, info.shift_jis), 30);
+			row.value = save.block_count == 1 ? std::string(tr("1 block"))
+				: tr("{1} blocks", {std::to_string(save.block_count)});
+			row.dim = !save.intact;
+			rows.push_back(row);
+		}
+		FlowRow add;
+		add.kind = FlowRow::Kind::Action;
+		add.label = tr("Add a save from the SD card");
+		add.icon_column = true;
+		rows.push_back(add);
+		FlowRow restore;
+		restore.kind = FlowRow::Kind::Action;
+		restore.label = tr("Restore an older save");
+		restore.icon_column = true;
+		rows.push_back(restore);
+		// Only when Dolphin's folder has been copied to the SD card; the
+		// Add a save note says where to put it otherwise.
+		dolphinRow = riftwii::gc_dolphin_folder_exists(kGcDolphinDir);
+		if (dolphinRow) {
+			FlowRow dolphin;
+			dolphin.kind = FlowRow::Kind::Action;
+			dolphin.label = tr("Bring your Dolphin saves");
+			dolphin.icon_column = true;
+			rows.push_back(dolphin);
+		}
+	};
+	rebuild();
+	// Set when the card file could not be read back after a failed write:
+	// the page leaves rather than show saves that may not be there.
+	bool leavePage = false;
+	const auto commit = [&](const std::vector<std::uint8_t>& changed, CardChange change) {
+		if (!WriteChangedBlocks(path, card, changed, change)) {
+			logf("GameCube card %s: could not be written\n", path.c_str());
+			// Part of it may have reached the SD card: what the page shows
+			// is read from the file again, so it matches what is there.
+			std::vector<std::uint8_t> onDisk;
+			riftwii::GcCardInfo again;
+			std::string why;
+			if (ReadSmallFile(path, 16u << 20, onDisk) && riftwii::gc_card_read(onDisk, again, why)) {
+				card = std::move(onDisk);
+				info = again;
+				rebuild();
+			} else {
+				logf("GameCube card %s: could not be read back after the failed write, so the page closes\n", path.c_str());
+				leavePage = true;
+			}
+			ShowPopup(tr("Memory card not changed"), tr("RiftWii could not write {1}.", {path}), tr("OK"));
+			return false;
+		}
+		card = changed;
+		riftwii::GcCardInfo again;
+		std::string why;
+		if (riftwii::gc_card_read(card, again, why)) info = again;
+		rebuild();
+		return true;
+	};
+	const auto note = [&](int row) -> std::string {
+		const std::size_t at = static_cast<std::size_t>(row);
+		if (at == info.saves.size() + 1) {
+			if (!haveBackups) return tr("RiftWii keeps a copy each time you start the game.");
+			return shared ? tr("Go back to how the shared memory card was on a day you pick, for every game on it.")
+				: tr("Go back to how your save was on a day you pick.");
+		}
+		if (dolphinRow && at == info.saves.size() + 2) return tr("Copy every save from Dolphin's GC folder in one go.");
+		if (at >= info.saves.size()) {
+			const std::string add = tr("Adds a .gci save file from {1}.", {kGcSavesDir});
+			if (dolphinRow) return add;
+			return add + "\n" + std::string(tr("To bring all of Dolphin's saves at once, copy its GC folder (in Dolphin: File > Open User Folder) to {1}.", {kGcDolphinDir}));
+		}
+		const riftwii::GcSave& save = info.saves[at];
+		if (!save.intact) return tr("This save is damaged: its blocks do not add up. It can only be deleted.");
+		// The save alone here: the card's space is in the header.
+		std::string text = save.comment_detail.empty() ? std::string()
+			: riftwii::gc_card_text_utf8(save.comment_detail, info.shift_jis) + "\n";
+		text += tr("Saved {1}", {GcSaveDate(save.modified)}) + " \xC2\xB7 " + save.game_code + save.maker;
+		return text;
+	};
+	const auto act = [&](int row, const PageAside& aside) {
+		const std::size_t at = static_cast<std::size_t>(row);
+		std::string why;
+		if (at == info.saves.size() + 1) {
+			// None yet: the note says when there will be; nothing to open.
+			if (!haveBackups) return false;
+			bool restored = false;
+			aside([&] { restored = MenuGcRestore(state); });
+			if (!restored) return false;
+			// The card is the backup's now: read again, as the page shows it.
+			std::vector<std::uint8_t> onDisk;
+			riftwii::GcCardInfo again;
+			if (ReadSmallFile(path, 16u << 20, onDisk) && riftwii::gc_card_read(onDisk, again, why)) {
+				card = std::move(onDisk);
+				info = again;
+				rebuild();
+				return false;
+			}
+			logf("GameCube card %s: could not be read back after the restore, so the page closes\n", path.c_str());
+			return true;
+		}
+		if (dolphinRow && at == info.saves.size() + 2) {
+			std::vector<std::uint8_t> changed = card;
+			riftwii::GcImportCount count;
+			bool leftOut = false;
+			if (!GcDolphinImport(state, path, shared, changed, count, leftOut)) return false;
+			if (commit(changed, CardChange::Import)) {
+				ShowPopup(count.full ? tr("Memory card full") : tr("Dolphin saves brought"), GcDolphinSummary(count, leftOut), tr("OK"));
+				logf("GameCube card %s: the Dolphin saves are on the card\n", path.c_str());
+			}
+			return leavePage;
+		}
+		if (at >= info.saves.size()) {
+			const std::vector<std::string> names = ListGciFiles();
+			if (names.empty()) {
+				ShowPopup(tr("No saves on the SD card"),
+					tr("Put .gci save files (from Dolphin, Nintendont or another card) in {1}, then try again.", {kGcSavesDir}), tr("OK"));
+				return false;
+			}
+			// The picker is a page of its own: this one is taken away
+			// meanwhile, so its B and its list do not see the picker's presses.
+			std::string from;
+			bool picked = false;
+			aside([&] { picked = PickGciFile(names, from); });
+			if (!picked) return false;
+			std::vector<std::uint8_t> gci;
+			// The largest a .gci can be: its entry and a whole card's blocks.
+			if (!ReadSmallFile(from, 64 + 2043u * 0x2000, gci)) {
+				ShowPopup(tr("Save not added"), tr("RiftWii could not read {1}.", {from}), tr("OK"));
+				return false;
+			}
+			std::vector<std::uint8_t> changed = card;
+			if (!riftwii::gc_card_import(changed, gci, why)) {
+				logf("GameCube card %s: %s not added: %s\n", path.c_str(), from.c_str(), why.c_str());
+				ShowPopup(tr("Save not added"), FlatCapped(why, 200), tr("OK"));
+				return false;
+			}
+			if (commit(changed, CardChange::Import)) logf("GameCube card %s: %s added\n", path.c_str(), from.c_str());
+			return leavePage;
+		}
+		const riftwii::GcSave save = info.saves[at];
+		const std::string name = GcSaveName(save, info.shift_jis);
+		const int choice = save.intact
+			? ChooseTwo(name, note(row), tr("Copy to the SD card"), tr("As a save file for Dolphin"), tr("Delete"), tr("From this memory card"))
+			: (ShowPopup(name, note(row), tr("Delete"), tr("Back")) == 0 ? 1 : -1);
+		if (choice == 0) {
+			std::vector<std::uint8_t> gci;
+			if (!riftwii::gc_card_export(card, save.slot, gci, why)) {
+				ShowPopup(tr("Save not copied"), FlatCapped(why, 200), tr("OK"));
+				return false;
+			}
+			mkdir("sd:/riftwii", 0777);
+			mkdir("sd:/riftwii/gc", 0777);
+			mkdir(kGcSavesDir, 0777);
+			const std::string free = FreeGciPath(kGcSavesDir, save);
+			const std::string to = free.empty() ? std::string(kGcSavesDir) + "/" + GciFileName(save) : free;
+			FILE* f = free.empty() ? nullptr : std::fopen(to.c_str(), "wb");
+			const bool written = f && std::fwrite(gci.data(), 1, gci.size(), f) == gci.size();
+			if (f) std::fclose(f);
+			logf("GameCube card %s: %s %s\n", path.c_str(), to.c_str(), written ? "written" : "could not be written");
+			ShowPopup(written ? tr("Save copied") : tr("Save not copied"),
+				written ? tr("It is {1}.", {to}) : tr("RiftWii could not write {1}.", {to}), tr("OK"));
+		} else if (choice == 1) {
+			// Keep it is the second button, the one B and HOME press, so
+			// backing out never deletes a save.
+			if (ShowPopup(tr("Delete {1}?", {name}), tr("It is gone from the memory card for good. Copy it to the SD card first to keep it."),
+				    tr("Delete"), tr("Keep it")) != 0)
+				return false;
+			std::vector<std::uint8_t> changed = card;
+			if (!riftwii::gc_card_delete(changed, save.slot, why)) {
+				ShowPopup(tr("Save not deleted"), FlatCapped(why, 200), tr("OK"));
+				return false;
+			}
+			if (commit(changed, CardChange::Delete)) logf("GameCube card %s: %s deleted\n", path.c_str(), save.file_name.c_str());
+		}
+		return leavePage;
+	};
+	const auto space = [&] {
+		return tr("{1} of {2} blocks free", {std::to_string(info.free_blocks), std::to_string(info.blocks - 5)});
+	};
+	RunRowPage(shared ? tr("Shared Memory Card") : tr("Memory Card"), GameTitle(state), rows, note, act, space);
+}
+
+// A GameCube game's crash screen (gcnative.hpp's SetGcCrashScreen, laid
+// out as runtime/gc/gc_crash.h says), in the menu's own font and language,
+// made here as the launch screen cannot show translations: a header line,
+// a hint saying which button goes where, and the pieces the blob puts the
+// register dump together from at the crash.
+static void MakeGcCrashCard(const riftwii::wii::ImageGame& game)
+{
+	std::string hint;
+	// The ways back say that HOME or A goes back; with none the hint says
+	// to turn the Wii off.
+	bool wayBack = true;
+	switch (riftwii::wii::FindGcWayBack()) {
+		case riftwii::wii::GcWayBack::HomebrewChannel:
+			hint = tr("Press HOME or A to go back to the Homebrew Channel. RiftWii offers to send a problem report when it next starts.");
+			break;
+		case riftwii::wii::GcWayBack::Channel: hint = tr("Press HOME or A to go back to RiftWii and send a problem report."); break;
+		case riftwii::wii::GcWayBack::WiiMenu:
+			hint = tr("Press HOME or A to go back to the Wii Menu. RiftWii offers to send a problem report when it next starts.");
+			break;
+		default:
+			hint = tr("Turn the Wii off and on again. RiftWii offers to send a problem report when it next starts.");
+			wayBack = false;
+			break;
+	}
+	// A 16:9 TV stretches the game's picture, so there the glyphs are drawn
+	// 3/4 as wide, as the menu itself is.
+	const bool wide = riftwii::wii::MenuWidescreen();
+	const auto glyphWidth = [wide](int size) { return static_cast<FT_UInt>(wide ? size * 3 / 4 : 0); };
+	const unsigned cardW = GC_CRASH_CARD_W;
+	std::vector<std::uint8_t> card(static_cast<std::size_t>(cardW) * GC_CRASH_CARD_H, 0);
+
+	// A band of the card from the left edge, at the largest size whose
+	// text fits; even cut short at the smallest, what was drawn beats none.
+	const auto drawBand = [&](const std::string& text, std::initializer_list<int> sizes, unsigned top, unsigned tall,
+				  int& usedSize) {
+		std::vector<std::uint8_t> band;
+		int lines = -1;
+		for (int size : sizes) {
+			usedSize = size;
+			band.assign(static_cast<std::size_t>(cardW) * tall, 0);
+			lines = RenderTextCoverage(text.c_str(), size, band.data(), cardW, tall, glyphWidth(size), false);
+			if (lines >= 1) break;
+		}
+		std::copy(band.begin(), band.end(), card.begin() + static_cast<std::size_t>(top) * cardW);
+		return lines;
+	};
+	int headerSize = 0, hintSize = 0;
+	const int headerLines = drawBand(tr("The game stopped."), {24, 21, 18}, 0, GC_CRASH_HEADER_H, headerSize);
+	const int hintLines = drawBand(hint, {20, 18, 16, 14}, GC_CRASH_HINT_Y, GC_CRASH_HINT_H, hintSize);
+
+	// The dump's pieces. The cell is the widest digit and a pixel; the size
+	// is the largest at which the four columns fit across the card and
+	// every register's name ends before its value.
+	std::vector<std::string> texts(GC_CRASH_PIECES);
+	for (unsigned index = 0; index < GC_CRASH_PIECE_TEXT; ++index) texts[index] = riftwii::gc_crash_piece_text(index);
+	texts[GC_CRASH_PIECE_GAME] = game.id;
+	texts[GC_CRASH_PIECE_VERSION] = std::string("RiftWii ") + RIFTWII_VERSION;
+	texts[GC_CRASH_PIECE_CALLED] = tr("Called from");
+	const unsigned pieceW = 512;
+	std::vector<std::uint8_t> piece(static_cast<std::size_t>(pieceW) * GC_CRASH_STRIP_H);
+	const auto measure = [&](const std::string& text, int size) {
+		std::fill(piece.begin(), piece.end(), 0);
+		int advance = 0;
+		if (RenderTextCoverage(text.c_str(), size, piece.data(), pieceW, GC_CRASH_STRIP_H, glyphWidth(size), false, &advance) != 1)
+			return -1;
+		return advance;
+	};
+	int dumpSize = 0;
+	unsigned cell = 0;
+	for (int size = 18; size >= 10 && cell == 0; --size) {
+		int widest = 0;
+		for (unsigned digit = 0; digit < 16 && widest >= 0; ++digit) {
+			const int advance = measure(texts[digit], size);
+			widest = advance < 0 ? -1 : std::max(widest, advance);
+		}
+		if (widest <= 0) continue;
+		const unsigned candidate = static_cast<unsigned>(widest) + 1;
+		if (candidate * GC_CRASH_COLUMNS * GC_CRASH_COLUMN_CELLS > cardW) continue;
+		// The longest names, "DSISR", "SRR1" and "R31", end half a cell
+		// before the value.
+		const int room = static_cast<int>(GC_CRASH_VALUE_CELL * candidate - candidate / 2);
+		if (measure("DSISR", size) > room || measure("SRR1", size) > room || measure("R31", size) > room) continue;
+		// The two rows that are not on the grid stay inside the card (its
+		// title-safe width) too: the game and version from the third
+		// column, and "Called from" with four addresses two cells apart.
+		const int third = static_cast<int>(2 * GC_CRASH_COLUMN_CELLS * candidate);
+		const int idLine = third + measure(texts[GC_CRASH_PIECE_GAME], size) + static_cast<int>(2 * candidate) +
+			measure(texts[GC_CRASH_PIECE_VERSION], size);
+		const int called = std::max(measure(texts[GC_CRASH_PIECE_CALLED], size) + static_cast<int>(2 * candidate),
+			static_cast<int>(GC_CRASH_VALUE_CELL * candidate));
+		const int chainLine = called + static_cast<int>(4 * 8 * candidate + 3 * 2 * candidate);
+		if (idLine > static_cast<int>(cardW) || chainLine > static_cast<int>(cardW)) continue;
+		dumpSize = size;
+		cell = candidate;
+	}
+	if (cell == 0) {
+		// The smallest size, overlapping or not.
+		dumpSize = 10;
+		cell = static_cast<unsigned>(std::max(1, measure("0", dumpSize))) + 1;
+	}
+	auto strip = std::make_unique<gc_crash_strip>();
+	memset(strip.get(), 0, sizeof(gc_crash_strip));
+	strip->cell = static_cast<std::uint16_t>(cell);
+	unsigned next = 0;
+	unsigned missing = 0;
+	for (unsigned index = 0; index < GC_CRASH_PIECES; ++index) {
+		if (texts[index].empty()) continue;
+		const int advance = measure(texts[index], dumpSize);
+		if (advance <= 0 || !riftwii::gc_crash_strip_add(*strip, index, piece.data(), pieceW, advance, next)) ++missing;
+	}
+
+	std::vector<std::uint8_t> screen(GC_CRASH_SCREEN_BYTES, 0);
+	riftwii::gc_crash_pack(card.data(), card.size(), screen.data());
+	memcpy(screen.data() + GC_CRASH_CARD_BYTES, strip.get(), sizeof(gc_crash_strip));
+	logf("GameCube: the crash screen drawn%s: the header at %d px%s, the hint at %d px (%d line(s)%s), the dump at "
+		"%d px in %u-pixel cells (%u of %u columns of the strip, %u piece(s) missing)\n",
+		wide ? " 3/4 as wide for 16:9" : "", headerSize, headerLines >= 1 ? "" : " (cut short)", hintSize, hintLines,
+		hintLines >= 1 ? "" : ", not all of it fits", dumpSize, cell, next, GC_CRASH_STRIP_W, missing);
+	riftwii::wii::SetGcCrashScreen(std::move(screen), wayBack);
+}
+
+// Before a GameCube game starts: its controls the first time, and its
+// crash screen. False: Back.
+static bool ReadyGcStart(const FrontendState& state)
+{
+	const riftwii::wii::ImageGame* game = SelectedGcGame(state);
+	if (!game) return true;
+	if (!ShowGcControlsOnce(state)) return false;
+	MakeGcCrashCard(*game);
 	return true;
 }
 
@@ -4667,10 +6432,6 @@ static std::string GameTitle(const FrontendState& state)
 // About this game: what GameTDB says about it (wii/online/gameinfo.hpp),
 // the controllers it takes checked against those connected now.
 
-// The controllers a game can see, connected now.
-struct ConnectedPads {
-	bool remote = false, nunchuk = false, classic = false, gamecube = false, board = false;
-};
 static ConnectedPads PadsConnectedNow()
 {
 	ConnectedPads pads;
@@ -5272,7 +7033,7 @@ static bool AskCheatValues(const FrontendState& state, const riftwii::Cheat& c, 
 	std::string& error)
 {
 	error.clear();
-	std::vector<riftwii::CheatField> fields = riftwii::wii::CheatFields(state.game_id, c.name);
+	std::vector<riftwii::CheatField> fields = riftwii::wii::CheatFields(state.game_id, c.name, state.game_revision);
 	if (fields.empty()) {
 		error = tr("Its values could not be found in the file.");
 		return false;
@@ -5295,9 +7056,9 @@ static bool AskCheatValues(const FrontendState& state, const riftwii::Cheat& c, 
 		if (keys.Result() < 0) return false;
 		f.value = keys.Text();
 	}
-	if (!riftwii::wii::FillCheatValues(state.game_id, c.name, fields, error)) return false;
+	if (!riftwii::wii::FillCheatValues(state.game_id, c.name, fields, state.game_revision, error)) return false;
 	values.clear();
-	for (const riftwii::CheatField& f : riftwii::wii::CheatFields(state.game_id, c.name))
+	for (const riftwii::CheatField& f : riftwii::wii::CheatFields(state.game_id, c.name, state.game_revision))
 		values += std::string(values.empty() ? "" : ", ") + f.letter + " = " + f.value;
 	return true;
 }
@@ -5376,7 +7137,7 @@ static void MenuCheats(FrontendState& state)
 	// Picks of cheats the file no longer has are dropped, so the game page
 	// counts only what will be applied.
 	const auto load = [&](bool download) {
-		loaded = riftwii::wii::LoadGameCheats(state.game_id, download, file, status);
+		loaded = riftwii::wii::LoadGameCheats(state.game_id, state.game_revision, download, file, status);
 		if (!loaded) return;
 		std::set<std::string> names;
 		for (const riftwii::Cheat& c : file.cheats) names.insert(c.name);
@@ -5493,7 +7254,7 @@ static void MenuCheats(FrontendState& state)
 				say(FlatCapped(note.empty() ? c.name : c.name + ": " + note, 200));
 			} else if (ref.act == Act::Values) {
 				std::string values;
-				for (const riftwii::CheatField& f : riftwii::wii::CheatFields(state.game_id, file.cheats[ref.cheat].name))
+				for (const riftwii::CheatField& f : riftwii::wii::CheatFields(state.game_id, file.cheats[ref.cheat].name, state.game_revision))
 					values += std::string(values.empty() ? "" : ", ") + f.letter + " = " + f.value;
 				say(tr("Values of {1}: {2}. Press A to change them.", {FlatCapped(file.cheats[ref.cheat].name, 60), values}));
 			} else if (ref.act == Act::Use) {
@@ -6052,6 +7813,32 @@ static void MenuMods(FrontendState& state, std::string& scanStatus)
 // ---------------------------------------------------------------------------
 // The game page: the game's box, its name and facts, and tiles
 
+// The Play tile's note: what Start does; for a game still to be made from
+// its patch, that it is made first, once.
+static std::string PlayTileNote(const FrontendState& state)
+{
+	const riftwii::wii::ImageGame* patch = SelectedGcPatch(state);
+	// Said first, as the page opens on Play: the game would start, but
+	// could not save.
+	if (SelectedGcGame(state) && GcCardFull(state)) return GcCardFullNote(state);
+	if (!patch) return tr("Starts the game with the mods and settings shown here.");
+	const riftwii::wii::ImageGame* original = GcOriginal(state, *patch);
+	const std::string originalName = original ? ImageGameName(*original) : FlatCapped(patch->gc_patch_source, 40);
+	return tr("Made from {1} on first start, once; every start after that is immediate.", {originalName});
+}
+
+// The Saves tile's note for a GameCube game.
+static std::string GcSaveNote(const FrontendState& state)
+{
+	const std::string card = GcCardPath(state);
+	const std::string where = GcCardShared(state)
+		? tr("Saves go to the shared memory card on the SD card: {1}.", {card})
+		: tr("Saves go to this game's own memory card on the SD card: {1}.", {card});
+	// Two lines at most: the full card's note takes the place of where it is.
+	if (GcCardFull(state)) return GcCardFullNote(state);
+	return where + " " + tr("Press A to see its saves.");
+}
+
 // The band's line of facts: the ID, the year, the genre, how many play,
 // online, how often it was played here (GameTDB's from the cache only).
 static std::string GameFacts(const FrontendState& state)
@@ -6060,6 +7847,7 @@ static std::string GameFacts(const FrontendState& state)
 	// A profile's page is headed with its own name: which game it starts.
 	if (!state.profile_key.empty()) parts.push_back(GameOwnTitle(state));
 	if (!state.game_id.empty()) parts.push_back(state.game_id);
+	if (SelectedGcGame(state)) parts.push_back(tr("GameCube"));
 	riftwii::GameInfo info;
 	if (!state.game_id.empty() && riftwii::wii::PeekGameInfo(state.game_id, info)) {
 		if (info.year) parts.push_back(std::to_string(info.year));
@@ -6084,6 +7872,11 @@ static int ChangedGameSettings(const riftwii::GameSettings& g)
 		if (*v != "global") ++changed;
 	if (g.region_video == "on") ++changed;
 	if (g.region_strings == "on") ++changed;
+	if (riftwii::kGcDriveTimingReady && g.gc_disc_reads == "drive") ++changed;
+	if (g.gc_card == "shared") ++changed;
+	if (g.gc_progressive != "global") ++changed;
+	if (riftwii::kGcWidescreenReady && g.gc_widescreen != "global") ++changed;
+	if (g.gc_language != "global") ++changed;
 	if (g.rumble == "off") ++changed;
 	if (g.speaker == "off") ++changed;
 	return changed;
@@ -6119,8 +7912,25 @@ static void BuildGameTiles(const FrontendState& state, std::vector<TileSpec>& ti
 	const riftwii::GameSettings& game = state.model.game;
 	const int changed = ChangedGameSettings(game);
 	const bool favorite = riftwii::wii::Settings().favorites.count(riftwii::wii::TileKey(state)) != 0;
-	const std::string saves = !state.model.pack_save_owner().empty() ? std::string(tr("Kept by the pack"))
+	const riftwii::wii::ImageGame* gamecube = SelectedGcGame(state);
+	const riftwii::wii::ImageGame* toBuild = SelectedGcPatch(state);
+	// A GameCube game saves to its memory card on the SD card, whatever the
+	// save mode. Its cheats are picked as a Wii game's are.
+	const bool cardFull = gamecube && GcCardFull(state);
+	const std::string saves = cardFull ? std::string(tr("Memory card full"))
+		: gamecube ? std::string(tr("Memory Card")) + " \xC2\xB7 SD"
+		: !state.model.pack_save_owner().empty() ? std::string(tr("Kept by the pack"))
 		: std::string(tr(SaveLabel(state.model.save_mode).c_str()));
+	const std::string cheats = CheatsValue(game);
+	// Until a patch's game is made: what making it takes, where the mods
+	// count would be.
+	std::string play = tr("Play"), playValue = modsOn;
+	if (toBuild) {
+		play = tr("Build and play");
+		const std::uint64_t bytes = GcBuildBytes(*toBuild);
+		if (bytes != 0)
+			playValue = SizeText(bytes) + " \xC2\xB7 " + GcBuildTime(bytes);
+	}
 
 	// The lower rows: two tiles across the tiles' width, 12 apart.
 	constexpr int kHalfW = (kTilesW - 12) / 2, kRightX = kTilesRight - kHalfW;
@@ -6138,15 +7948,18 @@ static void BuildGameTiles(const FrontendState& state, std::vector<TileSpec>& ti
 		add(GameTile::About, kTilesX, 310, kHalfW, 70, tr("About"), "", &skin::iconInfo, false);
 		return;
 	}
-	add(GameTile::Play, kTilesX, 132, 252, 84, tr("Play"), modsOn, &skin::iconPlay, false);
+	add(GameTile::Play, kTilesX, 132, 252, 84, play, playValue, &skin::iconPlay, false);
 	// "On" alone: the tile is narrow ("1 switched on" was cut to "1 switc..."),
 	// and Play beside it says how many.
 	add(GameTile::Mods, kTilesX + 264, 132, kTilesRight - kTilesX - 264, 84, tr("Mods"),
 		shown == 0 ? tr("None") : enabled == 0 ? tr("Off") : tr("On"),
 		&skin::iconMods, enabled != 0);
-	add(GameTile::Cheats, kTilesX, 228, kHalfW, 70, tr("Cheats"), CheatsValue(game), &skin::iconCheats,
+	add(GameTile::Cheats, kTilesX, 228, kHalfW, 70, tr("Cheats"), cheats, &skin::iconCheats,
 		game.cheats && !game.cheat_names.empty());
-	add(GameTile::Saves, kRightX, 228, kHalfW, 70, tr("Saves"), saves, &skin::iconSaves, state.model.save_mode != "nand");
+	add(GameTile::Saves, kRightX, 228, kHalfW, 70, tr("Saves"), saves, &skin::iconSaves,
+		!gamecube && state.model.save_mode != "nand");
+	// A full card is a warning, in the theme's colour for one.
+	tiles.back().warn = cardFull;
 	add(GameTile::Favorite, kHeroX, 310, kHeroW, 70, tr("Favourite"), favorite ? tr("On") : tr("Off"),
 		favorite ? &skin::iconStarOn : &skin::iconStar, favorite);
 	add(GameTile::Options, kTilesX, 310, kHalfW, 70, tr("Options"),
@@ -6185,7 +7998,7 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 	HideButton(backBtn);
 	GuiPrompts prompts;
 	const int promptBack = prompts.Add("B", tr("Back"));
-	prompts.Add("A", tr("Change"));
+	const int promptChange = prompts.Add("A", tr("Change"));
 
 	HaltGui();
 	GuiWindow w(screenwidth, screenheight);
@@ -6214,6 +8027,9 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 		if (row != shownRow && row >= 0 && static_cast<std::size_t>(row) < refs.size()) {
 			shownRow = row;
 			const RowRef& ref = refs[static_cast<std::size_t>(row)];
+			// A dimmed row only says why it cannot change.
+			const bool fixedRow = static_cast<std::size_t>(row) < rows.size() && rows[static_cast<std::size_t>(row)].dim;
+			prompts.SetAction(promptChange, fixedRow ? tr("About this") : tr("Change"));
 			if (ref.what == RowRef::What::Width)
 				say(tr("How wide the picture is drawn. 720 fills the screen from side to side."));
 			else if (ref.what == RowRef::What::Deflicker)
@@ -6239,6 +8055,20 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 				say(tr("The language the game is told the console uses. Pick one the game has: some games stop without it."));
 			else if (ref.what == RowRef::What::Cover)
 				say(tr("Downloads this game's box art from GameTDB now."));
+			else if (ref.what == RowRef::What::GcDiscReads)
+				say(tr("Fast suits almost every game; a few need the GameCube's own, slower speed (experimental, it can freeze some games)."));
+			else if (ref.what == RowRef::What::GcCard)
+				say(tr("Save to a card for this game alone, or to one card shared by all your games."));
+			else if (ref.what == RowRef::What::GcProgressive && riftwii::gc_pal_game(state.game_id))
+				say(tr("480p is for US and Japanese games; this European game keeps its own picture."));
+			else if (ref.what == RowRef::What::GcProgressive)
+				say(tr("Gives a sharper, steadier picture on a component cable, even in games with no 480p mode; some games ask first."));
+			else if (ref.what == RowRef::What::GcWidescreen)
+				say(tr("Fills a widescreen TV with the game world; menus stay stretched, and some games show wrong colors (experimental)."));
+			else if (ref.what == RowRef::What::GcLanguage)
+				say(tr("The language this game plays in, leaving the Wii's own setting alone (most US and Japanese games have only one)."));
+			else if (ref.what == RowRef::What::GcControls)
+				say(tr("Shows which Wii Remote, Nunchuk or Classic Controller buttons act as the GameCube controller's, and how to leave the game."));
 			else if (ref.what == RowRef::What::Memory) {
 				const riftwii::ExtrasBudget budget = riftwii::wii::EstimateExtras(state);
 				std::string text = tr("Taken from the game's own memory by what RiftWii adds to this launch: {1}.", {budget.list()});
@@ -6278,6 +8108,35 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 			else if (ref.what == RowRef::What::RegionStrings) game.region_strings = game.region_strings == "on" ? "off" : "on";
 			else if (ref.what == RowRef::What::Language) game.language = StepValue(kGameLanguages, game.language, direction);
 			else if (ref.what == RowRef::What::Cios) game.cios = StepValue(kCiosChoices, game.cios, direction);
+			else if (ref.what == RowRef::What::GcDiscReads) game.gc_disc_reads = game.gc_disc_reads == "fast" ? "drive" : "fast";
+			else if (ref.what == RowRef::What::GcCard) {
+				// Asked when switching, where it matters: the saves stay behind.
+				if (AskGcCardSwitch()) game.gc_card = game.gc_card == "shared" ? "own" : "shared";
+				else changed = false;
+			}
+			else if (ref.what == RowRef::What::GcProgressive && riftwii::gc_pal_game(state.game_id)) {
+				// The row is dimmed: nothing to change, only why.
+				say(tr("480p is for US and Japanese games; this European game keeps its own picture."));
+				changed = false;
+			}
+			else if (ref.what == RowRef::What::GcProgressive) {
+				std::string next = StepValue(kGcProgressiveChoices, game.gc_progressive, direction);
+				// The Wii's own 480p setting off says nothing about the cable:
+				// asked once, when 480p is picked; Cancel goes on past it.
+				riftwii::GameSettings picked = game;
+				picked.gc_progressive = next;
+				const riftwii::GcConsoleSettings console = riftwii::wii::GcConsoleNow();
+				if (!console.wii_progressive && riftwii::gc_progressive_on(picked, state.game_id, console) &&
+				    !AskGc480p())
+					next = StepValue(kGcProgressiveChoices, next, direction);
+				game.gc_progressive = next;
+			}
+			else if (ref.what == RowRef::What::GcWidescreen) game.gc_widescreen = StepValue(kGcWidescreenChoices, game.gc_widescreen, direction);
+			else if (ref.what == RowRef::What::GcLanguage) game.gc_language = StepValue(kGcLanguageChoices, game.gc_language, direction);
+			else if (ref.what == RowRef::What::GcControls) {
+				ShowGcControls(false);
+				changed = false;
+			}
 			else if (ref.what == RowRef::What::Server && riftwii::game_has_no_online(state.game_id)) {
 				say(tr("This game has no online play, so it needs no server."));
 				changed = false;
@@ -6403,7 +8262,9 @@ static int MenuHome(FrontendState& state)
 	HideButton(backBtn);
 	HideButton(startBtn);
 	GuiPrompts prompts;
-	const int promptPlay = prompts.Add("+", tr("Play"));
+	// The same words as the Play tile: Build and play while the game is still
+	// to be made from its patch (rebuildTiles keeps it so).
+	const int promptPlay = prompts.Add("+", SelectedGcPatch(state) ? tr("Build and play") : tr("Play"));
 	const int promptBack = prompts.Add("B", tr("Back"));
 	prompts.Add("A", tr("Select"));
 	// Two lines over the prompts: a cIOS remedy or a compile error must
@@ -6483,6 +8344,7 @@ static int MenuHome(FrontendState& state)
 		BuildGameTiles(state, tiles, tileWhat);
 		tileGrid.Refresh();
 		factsTxt.SetText(GameFacts(state).c_str());
+		prompts.SetAction(promptPlay, SelectedGcPatch(state) ? tr("Build and play") : tr("Play"));
 	};
 	int shownTile = -1;
 	while(menu == MENU_NONE)
@@ -6541,14 +8403,15 @@ static int MenuHome(FrontendState& state)
 			shownTile = lit;
 			switch (tileWhat[static_cast<std::size_t>(lit)]) {
 				case GameTile::Play:
-					say(state.use_channel ? tr("Starts the game with the cheats and settings shown here.") : tr("Starts the game with the mods and settings shown here."));
+					say(state.use_channel ? std::string(tr("Starts the game with the cheats and settings shown here.")) : PlayTileNote(state));
 					break;
 				case GameTile::Mods: say(ModsNote(state, scanStatus)); break;
 				case GameTile::Cheats: say(tr("Cheat codes for this game. Press A to choose them.")); break;
-				case GameTile::Saves: say(SaveNote(state.model, state.game_id)); break;
+				case GameTile::Saves: say(SelectedGcGame(state) ? GcSaveNote(state) : SaveNote(state.model, state.game_id)); break;
 				case GameTile::Favorite: say(tr("Favourites have their own view on Home: press 1 there until it shows.")); break;
 				case GameTile::Options:
-					say(tr("This game's own picture, language, online server and the rest. The ones not changed follow Settings."));
+					say(SelectedGcGame(state) ? std::string(tr("This game's own options: how its disc is read, and its controls."))
+								  : std::string(tr("This game's own picture, language, online server and the rest. The ones not changed follow Settings.")));
 					break;
 				case GameTile::About:
 					say(tr("What GameTDB says about the game: when it came out, how many can play, the controllers it takes and its story."));
@@ -6561,6 +8424,14 @@ static int MenuHome(FrontendState& state)
 			const GameTile tile = tileWhat[static_cast<std::size_t>(acted)];
 			if (tile == GameTile::Play) {
 				startBtn.button.SetState(STATE::CLICKED);
+			} else if (tile == GameTile::Saves && SelectedGcGame(state)) {
+				transition::Hold(transition::Kind::SlideForward);
+				mainWindow->Remove(&w);
+				MenuGcCard(state);
+				transition::Hold(transition::Kind::SlideBack);
+				mainWindow->Append(&w);
+				rebuildTiles();
+				shownTile = -1;
 			} else if (tile == GameTile::Saves && !state.model.pack_save_owner().empty()) {
 				say(SaveNote(state.model, state.game_id));
 			} else if (tile == GameTile::Saves) {
@@ -6665,6 +8536,10 @@ static int MenuHome(FrontendState& state)
 			} else if (std::string codes_error; !riftwii::wii::CheckCodeBuilds(state, codes_error)) {
 				// In a popup: what to do takes more than the status line's two rows.
 				ShowPopup(tr("This code mod can't start"), codes_error, tr("OK"));
+			} else if (!PrepareGcGameInMenu(state)) {
+				// stopped or failed: the popup said why; stays on the page
+			} else if (!ReadyGcStart(state)) {
+				// Back: stays on the page (a game just made stays made)
 			} else if (!LaunchNote(state).empty() && !state.warning_shown) {
 				state.warning_shown = true;
 				// In a popup: the status line holds two rows, which cut
@@ -7024,7 +8899,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			if (t.folder == folder) return t.name;
 		return folder;
 	};
-	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kServer, kHomeTiles, kChannelCorners, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kClockFormat, kNoClock, kFont, kSounds, kMusic, kReturnTo, kShots, kOnline, kNames, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kIos, kNet, kResync, kWads,
+	enum RowAction { kLanguage, kWidth, kDeflicker, kBorders, kVideoMode, kAspect, kGameLanguage, kGameCios, kServer, kHomeTiles, kChannelCorners, kPagePeek, kGridSpacing, kHomeSource, kHomeSort, kPlayHistory, kDiscTile, kWidescreen, kScreenSize, kTheme, kClockFormat, kNoClock, kFont, kSounds, kMusic, kReturnTo, kShots, kOnline, kNames, kGcAdapter, kGcRumble, kWiiRumble, kGcTest, kGcBackups, kIos, kNet, kResync, kWads,
 		kRescan, kUpdate, kReport, kTests, kWiiChannel, kUsbHelp, kWhatsNew, kTutorial, kCredits, kResetAll, kExit, kNone, kHeading };
 	// The RiftWii channel on the Wii Menu (wii/launch/channel.hpp).
 	unsigned channelVersion = 0;
@@ -7072,6 +8947,8 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		option(tr("In-game screenshots"), settings.screenshots == "demo" ? std::string("Demo")
 			: settings.screenshots == "on" ? tr("On") : tr("Off"), settings.screenshots != "off", kShots,
 			FlowRow::Kind::Toggle);
+		option(tr("Back up saves"), settings.gc_backups == "off" ? tr("Off") : tr("On"), settings.gc_backups != "off",
+			kGcBackups, FlowRow::Kind::Toggle);
 		option(tr("GameCube adapter"), settings.gc_adapter == "demo" ? std::string("Demo")
 			: settings.gc_adapter == "on" ? tr("On") : settings.gc_adapter == "off" ? tr("Off") : tr("Automatic"),
 			settings.gc_adapter != "off", kGcAdapter);
@@ -7244,7 +9121,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			switch (a) {
 				case kWidth: case kDeflicker: case kBorders: case kVideoMode: case kAspect:
 					return SettingsSection::Picture;
-				case kGameLanguage: case kGameCios: case kReturnTo: case kShots:
+				case kGameLanguage: case kGameCios: case kReturnTo: case kShots: case kGcBackups:
 					return SettingsSection::Games;
 				case kGcAdapter: case kGcRumble: case kWiiRumble: case kGcTest:
 					return SettingsSection::Controllers;
@@ -7353,8 +9230,9 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 			case kReturnTo: return ReturnToNote();
 			case kShots: return tr("Experimental. In a game, hold 1 and press HOME (GameCube controller: hold L and R, press Down). Pictures go to sd:/riftwii/screenshots when RiftWii next starts. Some games and mods don't work with it.");
 			case kDiscTile: return DiscTileNote();
+			case kGcBackups: return tr("Before a GameCube game starts, its memory card is copied to the SD card. The last five copies are kept, for Restore an older save on the game's Saves page.");
 			case kPlayHistory: return tr("Counts the games you start from RiftWii, for Recently played, Home order and a game's page. Off: nothing more is counted, and the counts are not shown.");
-			case kHomeSource: return tr("Which games Home lists: every drive's and the Wii's own, or one place's only. With a game on both drives, one copy is enough.");
+			case kHomeSource: return HomeSourceNote(settings.home_source);
 			case kHomeSort: return tr("The order of the games on Home. Last played and Most played put the games you played from RiftWii first, the rest after them A to Z. Your order is yours: on Home, hold B and press A on a game to move it.");
 			case kMusic: return (riftwii::wii::MenuMusicFound() || settings.menu_music != "on") ? tr("Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder.") : tr("Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music.");
 			case kServer: return tr("The online server the game uses in place of Nintendo's, which closed. Custom uses wfc_domain in settings.txt.");
@@ -7494,11 +9372,12 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					rebuild();
 					break;
 				case kHomeSource: {
-					static const char* const kSourceChoices[] = {"all", "sd", "usb", "wii"};
+					static const char* const kSourceChoices[] = {"all", "sd", "usb", "wii", "gamecube"};
+					constexpr int kSources = 5;
 					int at = 0;
-					while (at < 4 && settings.home_source != kSourceChoices[at]) ++at;
-					settings.home_source = kSourceChoices[((at % 4) + 4 + direction) % 4];
-					saveAndNote(tr("Which games Home lists: every drive's and the Wii's own, or one place's only. With a game on both drives, one copy is enough."));
+					while (at < kSources && settings.home_source != kSourceChoices[at]) ++at;
+					settings.home_source = kSourceChoices[((at % kSources) + kSources + direction) % kSources];
+					saveAndNote(HomeSourceNote(settings.home_source));
 					rebuild();
 					break;
 				}
@@ -7542,6 +9421,11 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 						settings.return_to = settings.return_to == "menu" ? "riftwii" : "menu";
 					}
 					saveAndNote(ReturnToNote());
+					rebuild();
+					break;
+				case kGcBackups:
+					settings.gc_backups = settings.gc_backups == "off" ? "on" : "off";
+					saveAndNote(tr("Before a GameCube game starts, its memory card is copied to the SD card. The last five copies are kept, for Restore an older save on the game's Saves page."));
 					rebuild();
 					break;
 				case kShots:

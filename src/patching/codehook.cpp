@@ -22,6 +22,9 @@ void put(std::uint8_t* p, std::uint32_t v) {
 constexpr std::uint32_t kRetrace[4] = {0x7CE33B78, 0x38870034, 0x38A70038, 0x38C7004C};
 // In AXNextFrame: li r0,14; mr r3,r31; sth r0,0(r5); li r4,0x80.
 constexpr std::uint32_t kAudioFrame[4] = {0x3800000E, 0x7FE3FB78, 0xB0050000, 0x38800080};
+// In a GameCube __VIRetraceHandler: lis r3,0xCC00; lhzu r4,0x2034(r3);
+// rlwinm. r0,r4,0,16,16; beq +0x10 (its second display interrupt's check).
+constexpr std::uint32_t kGcRetrace[4] = {0x3C60CC00, 0xA4832034, 0x54800421, 0x41820010};
 constexpr std::uint32_t kBlr = 0x4E800020;
 constexpr std::size_t kMaxDistance = 0x1000;  // bytes from the pattern to the function's end
 
@@ -33,7 +36,7 @@ constexpr std::uint32_t kLisR15 = 0x3DE00000, kOriR15 = 0x61EF0000;
 }  // namespace
 
 std::uint32_t find_code_hook(const std::vector<CodeRange>& text, CodeHook hook) {
-    const std::uint32_t* pattern = hook == CodeHook::AudioFrame ? kAudioFrame : kRetrace;
+    const std::uint32_t* pattern = code_hook_pattern(hook);
     for (const CodeRange& r : text) {
         if (r.bytes == nullptr || r.size < 16) continue;
         for (std::size_t at = 0; at + 16 <= r.size; at += 4) {
@@ -49,7 +52,12 @@ std::uint32_t find_code_hook(const std::vector<CodeRange>& text, CodeHook hook) 
 }
 
 const std::uint32_t* code_hook_pattern(CodeHook hook) {
-    return hook == CodeHook::AudioFrame ? kAudioFrame : kRetrace;
+    switch (hook) {
+        case CodeHook::AudioFrame: return kAudioFrame;
+        case CodeHook::GcRetrace: return kGcRetrace;
+        case CodeHook::Retrace: break;
+    }
+    return kRetrace;
 }
 
 std::vector<std::uint32_t> find_dol_jumps(const std::vector<CodeRange>& text) {

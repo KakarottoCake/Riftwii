@@ -37,7 +37,7 @@ bool read_text(const std::string& path, std::string& text) {
 
 }  // namespace
 
-bool LoadGameCheats(const std::string& game_id, bool download, CheatFile& out, std::string& status) {
+bool LoadGameCheats(const std::string& game_id, int revision, bool download, CheatFile& out, std::string& status) {
     out = CheatFile{};
     if (game_id.empty()) {
         status = tr("No game is selected.");
@@ -61,8 +61,16 @@ bool LoadGameCheats(const std::string& game_id, bool download, CheatFile& out, s
         return false;
     }
     std::string error;
-    if (!parse_cheat_text(text, out, error)) {
-        status = tr("The cheat file has no cheats in it: {1}", {path.substr(3)});
+    if (!parse_cheat_text(text, out, error, revision)) {
+        // Melee's file has sections for 1.0 and 1.1 only: a 1.02 disc gets
+        // neither, as their addresses are another release's.
+        if (out.other_revision_cheats != 0) {
+            logf("Cheats: %s has %u cheat(s), all of them for other releases than this disc's (revision %d)\n",
+                 path.c_str(), static_cast<unsigned>(out.other_revision_cheats), revision);
+            status = tr("The cheat file only has cheats for other versions of this game.");
+        } else {
+            status = tr("The cheat file has no cheats in it: {1}", {path.substr(3)});
+        }
         return false;
     }
     return true;
@@ -213,7 +221,7 @@ std::vector<std::uint8_t> CheatGct(const FrontendState& state, std::size_t& coun
     if (!state.model.game.cheats || state.model.game.cheat_names.empty()) return {};
     CheatFile file;
     std::string status;
-    if (!LoadGameCheats(state.game_id, false, file, status)) {
+    if (!LoadGameCheats(state.game_id, state.game_revision, false, file, status)) {
         if (log) logf("Cheats: none loaded for %s: %s\n", state.game_id.c_str(), status.c_str());
         return {};
     }

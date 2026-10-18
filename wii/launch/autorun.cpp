@@ -22,6 +22,7 @@
 #include "di.hpp"
 #include "frontend.hpp"
 #include "gameextras.hpp"
+#include "gclaunch.hpp"
 #include "ios_reload.hpp"
 #include "log.hpp"
 #include "memlimits.hpp"
@@ -379,6 +380,7 @@ bool AutorunPresent() {
 }
 
 bool RunBoot(bool allow_ios_fallback, std::string& error, const LaunchSource& source) {
+    if (source.game.gamecube) return LaunchGcGame(GcImage{source.game.path, source.game.id, source.game.gc_patch_source}, {}, error);
     Session s(source, "sd:/riftwii/boot.log");
     if (!s.ensure_probe(error)) return false;
     BootOptions options;
@@ -528,6 +530,8 @@ bool BootCompiled(CompiledMod&& mod, std::string& error, const LaunchSource& sou
 
 bool RunLaunch(const std::vector<PackageChoices>& packages, std::string& error, const LaunchSource& source,
                const std::string& save_mode, const std::string& game_id) {
+    // A GameCube game: RiftWii's own loader, its packs served past the image.
+    if (source.game.gamecube) return LaunchGcGame(GcImage{source.game.path, source.game.id, source.game.gc_patch_source}, packages, error);
     {
         // A pack that only swaps the game's executable for a Homebrew
         // Channel app (CTGP Revolution 1.03's channel): the app is started

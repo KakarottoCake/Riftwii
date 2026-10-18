@@ -1,0 +1,2456 @@
+// SPDX-FileCopyrightText: 2026 RiftWii contributors
+// SPDX-License-Identifier: GPL-3.0-or-later
+#include "gcnative.hpp"
+
+#include <gccore.h>
+#include <malloc.h>
+#include <sys/stat.h>
+#include <ogc/lwp_watchdog.h>
+#include <ogc/machine/processor.h>
+
+#include <algorithm>
+#include <cstdio>
+#include <cstring>
+#include <ctime>
+#include <map>
+#include <vector>
+
+#include <fat.h>
+
+#include "boot.hpp"
+#include "channel.hpp"
+#include "codehandleronly_bin.h"
+#include "d2xsd.hpp"
+#include "gc_bt.h"
+#include "gc_card.h"
+#include "gc_rt.h"
+#include "gc_rvz.h"
+#include "loadersettings.hpp"
+#include "ios_reload.hpp"
+#include "log.hpp"
+#include "riftwii/codehook.hpp"
+#include "riftwii/fat32.hpp"
+#include "riftwii/gcbackup.hpp"
+#include "riftwii/gccard.hpp"
+#include "riftwii/gclayout.hpp"
+#include "riftwii/gcoverlay.hpp"
+#include "riftwii/gxpatches.hpp"
+#include "riftwii/hook.hpp"
+#include "riftwii/redirect.hpp"
+#include "riftwii/rvz.hpp"
+#include "riftwii/sha1.hpp"
+#include "riftwii_gc_bin.h"
+#include "riftwii_gc_rvz_rel.h"
+#include "riftwii_gc_rvz_zst.h"
+#include "sdfile.hpp"
+#include "sdio.hpp"
+#include "zstd.h"
+
+namespace riftwii::wii {
+
+// libogc's SRAM copies (libogc/system.c), not in its headers.
+extern "C" {
+syssram* __SYS_LockSram(void);
+u32 __SYS_UnlockSram(u32 write);
+syssramex* __SYS_LockSramEx(void);
+u32 __SYS_UnlockSramEx(u32 write);
+}
+
+namespace {
+
+constexpr std::uint32_t kMem1Top = 0x81800000;
+constexpr std::uint32_t kLoaderStart = 0x80A00000;  // RiftWii's own image (Makefile.wii)
+constexpr std::uint32_t kLoaderCeiling = 0x81200000;  // its heap's top (memlimits.hpp)
+constexpr std::uint32_t kGameFloor = 0x80003100;
+constexpr std::uint32_t kBounceBytes = 0x8000;
+constexpr std::uint32_t kBi2Bytes = 0x2000;
+// The blob's data buffers in MEM2 (the layout in LaunchGcNative): after
+// the memory card's image, which follows the game's 16 MB of ARAM, and far
+// below IOS (0x933E0000).
+constexpr std::uint32_t kGcMem2Data = GC_CARD_IMAGE + GC_CARD_BYTES;
+constexpr std::uint32_t kGcMem2DataMax = 0x00100000;
+// An RVZ game's group buffers and Zstandard's workspace (gc_rvz.h), right
+// after the data buffers: 2 MB, which holds 512 KiB chunks (two decoded
+// groups, one as stored and the decoder's 48 KB), still far below IOS.
+// Nothing needs to be in them at the jump, so they are not staged.
+constexpr std::uint32_t kGcRvzCache = kGcMem2Data + kGcMem2DataMax;
+constexpr std::uint32_t kGcRvzCacheMax = 0x00200000;
+// The decoder's workspace: its tables and a 4 KiB literal buffer, as for
+// Wii games (runtime/resident/rt_hook.h's RT_RVZ_DCTX_BYTES).
+constexpr std::uint32_t kGcRvzDecoderBytes = 0xC000;
+// Disc audio read ahead (the ring of runtime/gc's gc_rt_stream): about 0.6 s,
+// four top-ups of GC_STREAM_CHUNK, so several frames without one (the card
+// busy with the game's own reads) do not run it dry.
+constexpr std::uint32_t kStreamBytes = 4 * GC_STREAM_CHUNK;
+// Broadway in Wii mode: the time base runs at the bus clock / 4 whatever
+// the game believes, so the game is told the Wii's clocks and its OSTicks
+// conversions come out right.
+constexpr std::uint32_t kWiiBusClock = 243000000;
+constexpr std::uint32_t kWiiCpuClock = 729000000;
+
+std::uint32_t be32(const std::uint8_t* p) {
+    return (std::uint32_t(p[0]) << 24) | (std::uint32_t(p[1]) << 16) | (std::uint32_t(p[2]) << 8) | p[3];
+}
+
+struct Section {
+    std::uint32_t address = 0;
+    std::vector<std::uint8_t> bytes;
+};
+
+struct Dol {
+    std::vector<Section> text;
+    std::vector<Section> data;
+    std::uint32_t bss = 0;
+    std::uint32_t bss_size = 0;
+    std::uint32_t entry = 0;
+};
+
+bool read_at(const ByteSource& disc, std::uint64_t offset, void* out, std::size_t length) {
+    return disc.read(offset, static_cast<std::uint8_t*>(out), length);
+}
+
+bool read_dol(const ByteSource& f, std::uint32_t at, Dol& out, std::string& error) {
+    std::uint8_t h[0x100];
+    if (!read_at(f, at, h, sizeof(h))) {
+        error = "cannot read the game's executable";
+        return false;
+    }
+    for (int i = 0; i < 18; ++i) {
+        const std::uint32_t offset = be32(h + 4 * i);
+        const std::uint32_t address = be32(h + 0x48 + 4 * i);
+        const std::uint32_t size = be32(h + 0x90 + 4 * i);
+        if (size == 0) continue;
+        if (address < kGameFloor || address + size > kLoaderStart) {
+            error = "the game's executable reaches memory RiftWii is still in (not handled yet)";
+            return false;
+        }
+        Section s;
+        s.address = address;
+        s.bytes.resize(size);
+        if (!read_at(f, std::uint64_t(at) + offset, s.bytes.data(), size)) {
+            error = "cannot read the game's executable";
+            return false;
+        }
+        (i < 7 ? out.text : out.data).push_back(std::move(s));
+    }
+    out.bss = be32(h + 0xD8);
+    out.bss_size = be32(h + 0xDC);
+    out.entry = be32(h + 0xE0);
+    if (out.bss_size != 0 && out.bss + out.bss_size > kLoaderStart) {
+        error = "the game's memory reaches memory RiftWii is still in (not handled yet)";
+        return false;
+    }
+    return !out.text.empty();
+}
+
+// The game's code as words by address, for the search below.
+class Code {
+public:
+    explicit Code(std::vector<Section>& text) : text_(text) {}
+    bool has(std::uint32_t a) const { return find(a) != nullptr; }
+    std::uint32_t at(std::uint32_t a) const {
+        const std::uint8_t* p = find(a);
+        return p ? be32(p) : 0;
+    }
+    void put(std::uint32_t a, std::uint32_t word) {
+        std::uint8_t* p = const_cast<std::uint8_t*>(find(a));
+        p[0] = word >> 24;
+        p[1] = word >> 16;
+        p[2] = word >> 8;
+        p[3] = word;
+    }
+    template <class F>
+    void each(F f) const {
+        for (const Section& s : text_)
+            for (std::uint32_t i = 0; i + 4 <= s.bytes.size(); i += 4) f(s.address + i, be32(&s.bytes[i]));
+    }
+
+private:
+    const std::uint8_t* find(std::uint32_t a) const {
+        for (const Section& s : text_)
+            if (a >= s.address && a + 4 <= s.address + s.bytes.size()) return &s.bytes[a - s.address];
+        return nullptr;
+    }
+    std::vector<Section>& text_;
+};
+
+bool is_lis(std::uint32_t w, std::uint16_t value) { return (w & 0xFC1F0000) == 0x3C000000 && (w & 0xFFFF) == value; }
+bool is_oris(std::uint32_t w, std::uint16_t value) { return (w >> 26) == 25 && (w & 0xFFFF) == value; }
+std::uint32_t bl_target(std::uint32_t at, std::uint32_t w) {
+    if ((w & 0xFC000003) != 0x48000001) return 0;
+    std::int32_t d = static_cast<std::int32_t>(w & 0x03FFFFFC);
+    if (d & 0x02000000) d -= 0x04000000;
+    return at + d;
+}
+
+// The DVDLow* functions, found by the DI command each one writes (the
+// command words are the drive's, documented on wiibrew and in yagcd).
+struct DvdLow {
+    std::uint32_t read = 0, seek = 0, disk_id = 0, inquiry = 0, stop_motor = 0, request_error = 0;
+    std::uint32_t audio_stream = 0, audio_status = 0, audio_config = 0, reset = 0;
+    std::uint32_t set_alarm = 0;
+};
+
+// The start of the function holding `at`: the word after the previous blr.
+std::uint32_t branch(std::uint32_t from, std::uint32_t to) { return 0x48000000 | ((to - from) & 0x03FFFFFC); }
+
+std::uint32_t function_start(const Code& code, std::uint32_t at) {
+    for (std::uint32_t a = at - 4; code.has(a) && at - a < 0x400; a -= 4)
+        if (code.at(a) == 0x4E800020) return a + 4;
+    return 0;
+}
+
+// Whether one of the four instructions after `at` is "addi rD,`reg`,`value`",
+// before anything else loads `reg`.
+bool adds_to_register(const Code& code, std::uint32_t at, unsigned reg, std::uint16_t value) {
+    for (std::uint32_t a = at + 4; a <= at + 16 && code.has(a); a += 4) {
+        const std::uint32_t w = code.at(a);
+        const unsigned op = w >> 26, d = (w >> 21) & 31, ra = (w >> 16) & 31;
+        if (op == 14 && ra == reg && (w & 0xFFFF) == value) return true;
+        const bool loads = (op >= 32 && op <= 35) || (op >= 40 && op <= 43) || op == 46;
+        const bool immediate = op == 7 || (op >= 12 && op <= 15);  // mulli, addic, addi, addis
+        if (d == reg && (loads || immediate)) return false;  // reg gets another value
+    }
+    return false;
+}
+
+bool find_dvd_low(const Code& code, DvdLow& out, std::string& error) {
+    std::uint32_t just_read = 0;
+    std::map<std::uint32_t, std::vector<std::uint32_t>> calls;  // target -> call sites
+    // Each command's candidates; the same words turn up elsewhere in a
+    // game, so only those beside the read, seek and disc ID are taken.
+    std::map<std::uint32_t*, std::vector<std::uint32_t>> found;
+    code.each([&](std::uint32_t a, std::uint32_t w) {
+        if (std::uint32_t t = bl_target(a, w)) calls[t].push_back(a);
+        auto take = [&](std::uint32_t& slot) {
+            const std::uint32_t f = function_start(code, a);
+            if (f != 0) found[&slot].push_back(f);
+        };
+        if (is_lis(w, 0xA800)) {
+            // ReadDiskID adds 0x40 to the read command, within a few
+            // instructions: Luigi's Mansion (USA), an early SDK, stores the
+            // link register in between (lis r5; stw r0,4(r1); addi r0,r5,0x40).
+            if (adds_to_register(code, a, (w >> 21) & 31, 0x40)) take(out.disk_id);
+            else take(just_read);
+        } else if (is_lis(w, 0xAB00)) take(out.seek);
+        else if (is_lis(w, 0x1200)) take(out.inquiry);
+        else if (is_lis(w, 0xE300)) take(out.stop_motor);
+        else if (is_lis(w, 0xE000)) take(out.request_error);
+        else if (is_oris(w, 0xE100)) take(out.audio_stream);
+        else if (is_oris(w, 0xE200)) take(out.audio_status);
+        else if (is_oris(w, 0xE400)) take(out.audio_config);
+    });
+    // The read, seek and disc ID functions sit together: the read that has
+    // a seek within 4 KB.
+    for (std::uint32_t r : found[&just_read])
+        for (std::uint32_t k : found[&out.seek])
+            for (std::uint32_t d : found[&out.disk_id])
+                if (just_read == 0 && std::max({r, k, d}) - std::min({r, k, d}) < 0x1000) {
+                    just_read = r;
+                    out.seek = k;
+                    out.disk_id = d;
+                }
+    if (just_read == 0) {
+        error = "the game's disc functions were not found";
+        return false;
+    }
+    // DVDLowRead may be a wrapper round the function that writes the
+    // command (older SDKs seek first on some drives): of the two, the one
+    // the rest of the game calls.
+    const std::uint32_t lo = std::min({just_read, out.seek, out.disk_id}) - 0x1000;
+    const std::uint32_t hi = std::max({just_read, out.seek, out.disk_id}) + 0x1000;
+    for (std::uint32_t* slot : {&out.inquiry, &out.stop_motor, &out.request_error, &out.audio_stream,
+                                &out.audio_status, &out.audio_config})
+        for (std::uint32_t f : found[slot])
+            if (*slot == 0 && f >= lo && f <= hi) *slot = f;
+    auto outside = [&](std::uint32_t target) {
+        std::size_t n = 0;
+        for (std::uint32_t site : calls[target])
+            if (site < lo || site > hi) ++n;
+        return n;
+    };
+    out.read = just_read;
+    std::size_t best = outside(just_read);
+    for (std::uint32_t site : calls[just_read]) {
+        const std::uint32_t f = function_start(code, site);
+        if (f != 0 && f >= lo && f <= hi && outside(f) > best) {
+            best = outside(f);
+            out.read = f;
+        }
+    }
+    // OSSetAlarm: Seek's last call (its timeout alarm).
+    for (std::uint32_t a = out.seek; code.has(a) && code.at(a) != 0x4E800020; a += 4)
+        if (std::uint32_t t = bl_target(a, code.at(a))) out.set_alarm = t;
+    // DVDLowReset: near the others, toggles the DI reset bit in PI's reset
+    // register (0xCC003024) with "ori 1" then "ori 5".
+    code.each([&](std::uint32_t a, std::uint32_t w) {
+        if (a < lo || a > hi || out.reset != 0) return;
+        if ((w >> 26) == 24 && (w & 0xFFFF) == 5 && (code.at(a + 4) & 0xFC00FFFF) == 0x90000000) {
+            for (std::uint32_t b = a; b > a - 0x80; b -= 4)
+                if ((code.at(b) >> 26) == 24 && (code.at(b) & 0xFFFF) == 1) {
+                    out.reset = function_start(code, b);
+                    break;
+                }
+        }
+    });
+    if (out.set_alarm == 0) {
+        error = "the game's OSSetAlarm was not found";
+        return false;
+    }
+    return true;
+}
+
+// __OSUnhandledException(exception, context, dsisr, dar), the GameCube
+// OS's last stop for a crash: the function that prints "Unhandled
+// Exception %d". The SDK loads the address of its block of strings once
+// (lis/addi) and adds each string's offset, so a function whose base is
+// at most 0x200 bytes before the string and that adds the difference.
+std::uint32_t find_unhandled_exception(const Code& code, const Dol& dol) {
+    static const char kText[] = "Unhandled Exception %d";
+    std::uint32_t text = 0;
+    for (const Section& s : dol.data) {
+        const auto at = std::search(s.bytes.begin(), s.bytes.end(), kText, kText + sizeof(kText));
+        if (at != s.bytes.end()) {
+            text = s.address + static_cast<std::uint32_t>(at - s.bytes.begin());
+            break;
+        }
+    }
+    if (text == 0) return 0;
+    std::uint32_t found = 0;
+    code.each([&](std::uint32_t a, std::uint32_t w) {
+        if (found != 0 || (w & 0xFC1F0000) != 0x3C000000) return;  // lis rX,hi
+        const std::uint32_t reg = (w >> 21) & 31;
+        for (std::uint32_t b = a + 4; b <= a + 40; b += 4) {
+            const std::uint32_t add = code.at(b);
+            if ((add >> 26) != 14 || ((add >> 16) & 31) != reg) continue;  // addi rY,rX,lo
+            const std::uint32_t base = (w << 16) + static_cast<std::uint32_t>(static_cast<std::int16_t>(add & 0xFFFF));
+            if (base > text || text - base >= 0x200) return;
+            const std::uint32_t held = (add >> 21) & 31;
+            const std::uint32_t wanted = (14u << 26) | (3u << 21) | (held << 16) | (text - base);  // addi r3,rY,off
+            if (base == text && held == 3) {
+                found = function_start(code, a);
+                return;
+            }
+            for (std::uint32_t c = b + 4; code.has(c) && c < b + 0x300; c += 4)
+                if (code.at(c) == wanted) {
+                    found = function_start(code, a);
+                    return;
+                }
+            return;
+        }
+    });
+    return found;
+}
+
+// ARAM DMA moves nothing in Wii mode (the blob's gc_aram_copy does the
+// game's transfers instead), so __ARChecksize (the function that writes
+// 0xDEADBEEF test patterns into ARAM to look for an expansion) would read
+// back nonsense. It is sent from where it records "no expansion" (`li r0,0`, then `stw
+// r0,x(r13)`) to its last block, which writes the ARAM mode register and
+// the size: the 16 MB every console has, none of the test DMAs.
+std::uint32_t find_aram_check(const Code& code) {
+    std::uint32_t check = 0;
+    // __ARChecksize, found by 0xDEADBEEF itself: `lis rX,0xDEAE`, then `addi rY,rX,0xBEEF` within a
+    // few words. The OS's thread code builds 0xDEADBABE the same way, and
+    // matching only the `lis` picked that function in Super Mario Eclipse,
+    // so the real check ran (in Dolphin its test DMAs reach main memory).
+    code.each([&](std::uint32_t a, std::uint32_t w) {
+        if (check != 0 || (w & 0xFC1FFFFF) != 0x3C00DEAE) return;  // lis rX,0xDEAE
+        const std::uint32_t high = (w >> 21) & 31;
+        for (std::uint32_t b = a + 4; b <= a + 16 && code.has(b); b += 4) {
+            const std::uint32_t x = code.at(b);
+            if ((x >> 26) == 14 && ((x >> 16) & 31) == high && (x & 0xFFFF) == 0xBEEF) {  // addi rY,rX,0xBEEF
+                check = function_start(code, a);
+                return;
+            }
+        }
+    });
+    return check;
+}
+
+// The 2001 SDK's __ARChecksize (Luigi's Mansion USA) records no "no
+// expansion" in r13's data: it keeps the mode bits and the size in two
+// registers to the end, and its first test already looks for 32 MB of
+// ARAM, writing past 16 MB (in Dolphin that is MEM2 at 0x91000000, the
+// memory card's image, whose header it overwrote). So right after the mode
+// register's address is set (`sthu rX,0x12(rM)`), the registers get the
+// function's own 16 MB answer (`li rMode,N` then `lis rSize,0x100`) and it
+// goes to its last block. `to` is that block, `end` the function's blr.
+bool skip_aram_size_check_2001(Code& code, std::uint32_t check, std::uint32_t to, std::uint32_t end) {
+    // The last block's registers: `or rA,rA,rMode` after the clrrwi, and
+    // the size stored to 0x800000D0 (`stw rSize,0xD0(rX)`).
+    unsigned mode_reg = 32, size_reg = 32;
+    const std::uint32_t or_word = code.at(to + 8);
+    if ((or_word >> 26) == 31 && ((or_word >> 1) & 0x3FF) == 444) mode_reg = (or_word >> 11) & 31;  // or rA,rS,rB
+    for (std::uint32_t a = to; a < end; a += 4) {
+        const std::uint32_t w = code.at(a);
+        if ((w >> 26) == 36 && (w & 0xFFFF) == 0xD0) size_reg = (w >> 21) & 31;  // stw rS,0xD0(rX)
+    }
+    if (mode_reg == 32 || size_reg == 32) return false;
+    // The 16 MB answer: `li rMode,N` right before `lis rSize,0x100`.
+    std::uint32_t mode = 0x10000;
+    for (std::uint32_t a = check + 4; a < to && mode == 0x10000; a += 4)
+        if (code.at(a) == ((15u << 26) | (size_reg << 21) | 0x100u)) {
+            const std::uint32_t prev = code.at(a - 4);
+            if ((prev & 0xFFFF0000u) == ((14u << 26) | (mode_reg << 21))) mode = prev & 0xFFFF;
+        }
+    // Where the mode register's address is set.
+    std::uint32_t after = 0;
+    for (std::uint32_t a = check; a < to && after == 0; a += 4) {
+        const std::uint32_t w = code.at(a);
+        if ((w >> 26) == 45 && (w & 0xFFFF) == 0x12) after = a + 4;  // sthu rX,0x12(rM)
+    }
+    if (mode == 0x10000 || after == 0 || after + 8 >= to) return false;
+    code.put(after, (14u << 26) | (mode_reg << 21) | mode);       // li rMode,N
+    code.put(after + 4, (15u << 26) | (size_reg << 21) | 0x100u);  // lis rSize,0x100 (16 MB)
+    code.put(after + 8, 0x48000000 | ((to - (after + 8)) & 0x03FFFFFC));  // b to
+    return true;
+}
+
+bool skip_aram_size_check(Code& code) {
+    const std::uint32_t check = find_aram_check(code);
+    if (check == 0) return false;
+    std::uint32_t from = 0, to = 0, end = 0;
+    for (std::uint32_t a = check; code.has(a) && a < check + 0x1000; a += 4)
+        if (code.at(a) == 0x4E800020) {
+            end = a;
+            break;
+        }
+    if (end == 0) return false;
+    for (std::uint32_t a = check + 4; a < end && from == 0; a += 4) {
+        const std::uint32_t w = code.at(a);
+        const std::uint32_t prev = code.at(a - 4);
+        // stw rX,d(r13) right after li rX,0
+        if ((w >> 26) == 36 && ((w >> 16) & 31) == 13 && prev == ((14u << 26) | (w & 0x03E00000)))
+            from = a + 4;
+    }
+    // The last block: `lhz rA,0(rM)` then `clrrwi rA,rA,6` (the mode register).
+    for (std::uint32_t a = end; a > check && to == 0; a -= 4) {
+        const std::uint32_t w = code.at(a);
+        const std::uint32_t reg = (w >> 21) & 31;
+        if (w == ((21u << 26) | (reg << 21) | (reg << 16) | (25u << 1)) && (code.at(a - 4) >> 26) == 40) to = a - 4;
+    }
+    if (to != 0 && from == 0) return skip_aram_size_check_2001(code, check, to, end);
+    if (from == 0 || to == 0 || to <= from) return false;
+    code.put(from, 0x48000000 | ((to - from) & 0x03FFFFFC));  // b to
+    return true;
+}
+
+// The game's ARAM addresses with bit 28 set (0x10004000 up instead of
+// 0x4000 up), so its sound program's reads of ARAM samples go to MEM2,
+// where the blob keeps ARAM (gc_aram_copy masks the bit off). On a Wii
+// in Wii mode the DSP's reads with bit 28 go to MEM2 and those without
+// it to MEM1; Dolphin's DSP does the same. This leaves the game's sound
+// program as it is, which Dolphin's fast HLE audio needs: it recognises
+// a program by its checksum and stopped on the patched ones.
+// ARInit (the function that calls __ARChecksize) starts the allocator at
+// `li rX,0x4000`, and returns that base again when called twice; each
+// such `li` becomes a branch to a stub of `lis rX,0x1000`, `ori
+// rX,rX,0x4000` and a branch back. ARGetBaseAddress (`li r3,0x4000`,
+// `blr`, beside ARInit) is changed the same way. Returns how many.
+constexpr std::uint32_t kStubBytes = 0x40;  // five stubs of three words
+unsigned raise_aram_base(Code& code, std::uint32_t check, std::uint32_t stubs, std::vector<std::uint32_t>& words) {
+    if (check == 0) return 0;
+    std::uint32_t init = 0;
+    code.each([&](std::uint32_t a, std::uint32_t w) {
+        if (init == 0 && bl_target(a, w) == check) init = function_start(code, a);
+    });
+    if (init == 0) return 0;
+    std::vector<std::uint32_t> sites;
+    auto is_li_4000 = [](std::uint32_t w) { return (w & 0xFC1FFFFF) == 0x38004000; };  // li rX,0x4000
+    for (std::uint32_t a = init; code.has(a) && a < init + 0x400; a += 4) {
+        const std::uint32_t w = code.at(a);
+        if (w == 0x4E800020) break;
+        if (is_li_4000(w)) sites.push_back(a);
+    }
+    if (sites.empty()) return 0;
+    for (std::uint32_t a = init - 0x800; a < init + 0x800; a += 4)
+        if (code.has(a) && code.has(a + 4) && code.has(a - 4) && code.at(a) == 0x38604000 &&
+            code.at(a + 4) == 0x4E800020 && code.at(a - 4) == 0x4E800020)
+            sites.push_back(a);
+    words.clear();
+    for (std::uint32_t a : sites) {
+        if (words.size() + 3 > kStubBytes / 4) break;
+        const std::uint32_t reg = (code.at(a) >> 21) & 31;
+        const std::uint32_t stub = stubs + 4 * static_cast<std::uint32_t>(words.size());
+        words.push_back(0x3C001000 | (reg << 21));                // lis rX,0x1000
+        words.push_back(0x60004000 | (reg << 21) | (reg << 16));  // ori rX,rX,0x4000
+        words.push_back(branch(stub + 8, a + 4));
+        code.put(a, branch(a, stub));
+    }
+    return static_cast<unsigned>(words.size() / 3);
+}
+
+// __AI_SRC_INIT times the audio interface by switching its disc-stream
+// playback on and waiting for the stream's sample counter (0xCC006C08)
+// to move: `lwz r0,0(rC)`, `cmplw r3,r0`, `beq` back, twice, with
+// interrupts off. On a GameCube the drive's streaming ticks it; on a Wii
+// in Wii mode nothing does, and Super Mario Eclipse hung there for good
+// (Dolphin ticks it anyway). The waits become nops: the calibration sees
+// no time pass and keeps its first, normal answer.
+unsigned skip_ai_stream_waits(Code& code) {
+    unsigned patched = 0;
+    code.each([&](std::uint32_t a, std::uint32_t w) {
+        if ((w & 0xFFE0FFFF) != 0x80000000) return;  // lwz r0,0(rC)
+        if (code.at(a + 4) != 0x7C030040 || code.at(a + 8) != 0x4182FFF8) return;  // cmplw r3,r0; beq- -8
+        // Only in a function that drives the AI's control register (0x6C00).
+        const std::uint32_t f = function_start(code, a);
+        bool ai = false;
+        for (std::uint32_t b = f; f != 0 && b < a; b += 4)
+            if ((code.at(b) & 0xFFFF) == 0x6C00 && (code.at(b) >> 26) == 32) ai = true;  // lwz rX,0x6C00(rY)
+        if (!ai) return;
+        code.put(a + 8, 0x60000000);  // nop
+        ++patched;
+    });
+    return patched;
+}
+
+// The function that stores to each of `addresses` (DSP registers, built
+// from "lis rX,0xCC00" and adds, which a walk through each function
+// follows):
+// - AIInitDMA: the AI DMA start (0xCC005030, 0xCC005032) and length (0xCC005036);
+// - ARStartDMA: the ARAM DMA's main memory address (0xCC005020/22), ARAM
+//   address (0xCC005024/26) and length with direction (0xCC005028/2A).
+std::uint32_t find_dsp_stores(const Code& code, const std::vector<std::uint32_t>& addresses) {
+    std::uint32_t found = 0;
+    std::uint32_t fn = 0;
+    std::uint32_t value[32] = {};
+    bool known[32] = {};
+    std::uint32_t seen = 0;
+    const std::uint32_t all = (1u << addresses.size()) - 1;
+    code.each([&](std::uint32_t a, std::uint32_t w) {
+        if (found) return;
+        if (fn == 0) {
+            fn = a;
+            std::fill(std::begin(known), std::end(known), false);
+            seen = 0;
+        }
+        const unsigned op = w >> 26, d = (w >> 21) & 31, ra = (w >> 16) & 31;
+        const std::int32_t imm = static_cast<std::int16_t>(w & 0xFFFF);
+        if (op == 15 && ra == 0) {  // lis
+            value[d] = static_cast<std::uint32_t>(imm) << 16;
+            known[d] = true;
+        } else if (op == 14 && ra != 0 && known[ra]) {  // addi
+            value[d] = value[ra] + imm;
+            known[d] = true;
+        } else if ((op == 44 || op == 45) && known[ra]) {  // sth, sthu
+            const std::uint32_t at = value[ra] + imm;
+            for (std::size_t i = 0; i < addresses.size(); ++i)
+                if (at == addresses[i]) seen |= 1u << i;
+            if (seen == all) found = fn;
+        } else if (op >= 32 && op <= 43) {  // a load replaces its target
+            known[d] = false;
+        }
+        if (w == 0x4E800020) fn = 0;  // blr: the next word starts a function
+    });
+    return found;
+}
+
+// PADRead(PADStatus status[4]): for each port it cannot read, it stores
+// the error into the status's `err` byte (offset 10) and clears the 10
+// bytes before it (`stb rE,10(rS)`, then `li r5,10` and a call): the
+// function with the most such places, at least three.
+std::uint32_t find_pad_read(const Code& code) {
+    std::map<std::uint32_t, unsigned> sites;
+    code.each([&](std::uint32_t a, std::uint32_t w) {
+        if ((w >> 26) != 38 || (w & 0xFFFF) != 10) return;  // stb rX,10(rY)
+        for (std::uint32_t b = a + 4; b <= a + 16; b += 4)
+            if (code.at(b) == 0x38A0000A) {  // li r5,10
+                if (std::uint32_t f = function_start(code, a)) sites[f]++;
+                break;
+            }
+    });
+    std::uint32_t best = 0;
+    unsigned most = 2;
+    for (auto& [f, n] : sites)
+        if (n > most) {
+            most = n;
+            best = f;
+        }
+    return best;
+}
+
+// Sends the game's DI register accesses to `base` (where 0xCC006000 was):
+// each "lis rX,0xCC00" whose register is then only used at 0x6000-0x603F
+// gets `base`'s upper half. Returns how many.
+unsigned redirect_di_registers(Code& code, std::uint32_t base) {
+    std::vector<std::uint32_t> patch;
+    code.each([&](std::uint32_t a, std::uint32_t w) {
+        if (!is_lis(w, 0xCC00)) return;
+        const unsigned r = (w >> 21) & 31;
+        bool di = false, other = false;
+        for (std::uint32_t b = a + 4; b < a + 4 * 40 && code.has(b); b += 4) {
+            const std::uint32_t x = code.at(b);
+            const unsigned op = x >> 26, d = (x >> 21) & 31, ra = (x >> 16) & 31;
+            const std::uint32_t disp = x & 0xFFFF;
+            if ((op == 14 || (op >= 32 && op <= 47)) && ra == r) {
+                if (disp >= 0x6000 && disp < 0x6040) di = true;
+                else other = true;
+            }
+            if (x == 0x4E800020) break;
+            if ((op == 14 || op == 15 || (op >= 32 && op <= 43)) && d == r && !(op >= 32 && op <= 43 && ra == r && false))
+                break;  // the register gets another value
+        }
+        if (di && !other) patch.push_back(a);
+    });
+    for (std::uint32_t a : patch) code.put(a, (code.at(a) & 0xFFFF0000) | ((base - 0x6000) >> 16));
+    return static_cast<unsigned>(patch.size());
+}
+
+// The serial interface (GameCube controllers), EXI (memory cards) and the
+// audio interface sit at 0xCD006400-0xCD006FFF on a Wii in Wii mode; a
+// GameCube game reaches for them at 0xCC006400-0xCC006FFF, which goes
+// nowhere there (so its sound played at the Wii's 48 kHz, 1.5 times too
+// fast, and it found no memory card; Dolphin answers at both). Each
+// "lis rX,0xCC00" whose register is then only used in that range gets
+// 0xCD00. Returns how many; `mixed` counts those also used elsewhere,
+// left alone.
+unsigned redirect_wii_blocks(Code& code, unsigned& mixed) {
+    std::vector<std::uint32_t> patch;
+    mixed = 0;
+    code.each([&](std::uint32_t a, std::uint32_t w) {
+        if (!is_lis(w, 0xCC00)) return;
+        const unsigned r = (w >> 21) & 31;
+        bool moved = false, other = false;
+        for (std::uint32_t b = a + 4; b < a + 4 * 40 && code.has(b); b += 4) {
+            const std::uint32_t x = code.at(b);
+            const unsigned op = x >> 26, d = (x >> 21) & 31, ra = (x >> 16) & 31;
+            const std::uint32_t disp = x & 0xFFFF;
+            if ((op == 14 || (op >= 32 && op <= 47)) && ra == r) {
+                const bool wii_block = disp >= 0x6400 && disp < 0x7000;
+                if (wii_block) moved = true;
+                else other = true;
+                // An update form (lwzu, sthu...) leaves the register on that
+                // block's register: what follows is relative to it.
+                if (op >= 32 && (op & 1) && disp >= 0x6400 && disp < 0x7000) break;
+            }
+            if (x == 0x4E800020) break;
+            if ((op == 14 || op == 15 || (op >= 32 && op <= 43)) && d == r) break;  // the register gets another value
+            const unsigned xo = (x >> 1) & 0x1FF;
+            if (op == 31 && d == r && (xo == 266 || xo == 40 || xo == 10)) break;  // add, subf, addc into it
+        }
+        if (moved && !other) patch.push_back(a);
+        if (moved && other) ++mixed;
+    });
+    for (std::uint32_t a : patch) code.put(a, (code.at(a) & 0xFFFF0000) | 0xCD00);
+    return static_cast<unsigned>(patch.size());
+}
+
+// The sound chip's ARAM in Wii mode. A GameCube game copies its samples
+// to ARAM addresses below 16 MB and has the DSP read them back from
+// there; in Wii mode the blob keeps ARAM at the start of MEM2 (its ARAM
+// DMA moves nothing there), but the DSP's own reads below 0x10000000 go
+// to MEM1, so it plays the game's code and data as sound. Each sound program (DSP microcode) the game
+// carries is patched to set that bit in the address it reads samples
+// from: a call to a few words of free space that do "ori $AC0.M,
+// #0x1000" and then the two instructions the call replaced. Which
+// programs, and where, follows Nintendont's DSP patches (kernel/Patch.c,
+// FIX94 and the Nintendont contributors, used with permission): the
+// program is recognised by its first words, its length and its SHA-1.
+// Used on a Wii (see the choice in LaunchGcNative): in Dolphin the
+// game's ARAM addresses are raised instead (raise_aram_base).
+struct DspFix {
+    const char* name;
+    std::uint32_t length;     // bytes
+    std::uint8_t sha1[20];
+    std::uint16_t free_at;    // DSP word address of six unused words
+    std::uint16_t calls[2];   // where the address is loaded (two places, the same two instructions)
+};
+
+constexpr DspFix kDspFixes[] = {
+    {"Super Mario Sunshine", 0x1CE0,
+     {0x21, 0xD0, 0xC0, 0xEE, 0x25, 0x3D, 0x8C, 0x9E, 0x02, 0x58, 0x66, 0x7F, 0x3C, 0x1B, 0x11, 0xBC, 0x90, 0x1F, 0x33, 0xE2},
+     0x0E66, {0x0531, 0x057C}},
+    {"Luigi's Mansion", 0x17E0,
+     {0x09, 0xF1, 0x6B, 0x48, 0x57, 0x15, 0xEB, 0x3F, 0x67, 0x3E, 0x19, 0xEF, 0x7A, 0xCF, 0xE3, 0x60, 0x7D, 0x2E, 0x4F, 0x02},
+     0x0BE8, {0x00BE, 0x0109}},
+};
+
+// Patches every known sound program in the executable; returns how many.
+// Unknown ones are left alone (their sound plays from the wrong memory).
+unsigned patch_dsp_programs(Dol& dol) {
+    unsigned patched = 0;
+    auto patch_in = [&](Section& sec) {
+        std::vector<std::uint8_t>& b = sec.bytes;
+        for (std::size_t i = 0; i + 16 <= b.size(); i += 4) {
+            // A sound program starts with a jump table: "jmp" words
+            // (0x029F) and "halt" words (0x02FF) at its first entries.
+            if (b[i] != 0x02 || b[i + 1] != 0x9F || b[i + 8] != 0x02 || b[i + 9] != 0xFF) continue;
+            for (const DspFix& fix : kDspFixes) {
+                if (i + fix.length > b.size()) continue;
+                const Sha1Digest digest = sha1(&b[i], fix.length);
+                if (std::memcmp(digest.data(), fix.sha1, 20) != 0) continue;
+                auto word = [&](std::uint32_t at) -> std::uint8_t* { return &b[i + 2 * at]; };
+                auto put = [&](std::uint32_t at, std::uint16_t v) {
+                    word(at)[0] = v >> 8;
+                    word(at)[1] = v & 0xFF;
+                };
+                const std::uint8_t* original = word(fix.calls[0]);
+                const std::uint16_t first = (original[0] << 8) | original[1];
+                const std::uint16_t second = (original[2] << 8) | original[3];
+                put(fix.free_at + 0, 0x0260);  // ori $AC0.M, #0x1000
+                put(fix.free_at + 1, 0x1000);
+                put(fix.free_at + 2, first);   // the two instructions the calls replace
+                put(fix.free_at + 3, second);
+                put(fix.free_at + 4, 0x02DF);  // ret
+                put(fix.free_at + 5, 0x02DF);
+                for (std::uint16_t at : fix.calls) {
+                    put(at, 0x02BF);  // call free_at
+                    put(at + 1, fix.free_at);
+                }
+                logf("GameCube: the %s sound program at 0x%08x reads its samples from MEM2 now\n", fix.name,
+                     sec.address + static_cast<std::uint32_t>(i));
+                ++patched;
+                i += fix.length - 4;
+                break;
+            }
+        }
+    };
+    for (Section& sec : dol.text) patch_in(sec);
+    for (Section& sec : dol.data) patch_in(sec);
+    return patched;
+}
+
+
+// IOS keeps live globals in 0x80003100-0x800031ff on a Wii and rewrites
+// a counter at 0x800031a0 several times a second, but a GameCube game has
+// code there (Eclipse: memset's fill loop). The function holding that
+// word runs from a copy instead: up to 0x100 bytes from its start, with
+// the relative branches that leave the copy aimed back where they went;
+// the original's first word becomes a branch to the copy. The blob's
+// guard still puts IOS's writes back, for anything else in the area.
+constexpr std::uint32_t kIosCounter = 0x800031A0;
+constexpr std::uint32_t kMovedBytes = 0x100;
+
+bool move_out_of_ios(Code& code, std::uint32_t moved_addr, std::vector<std::uint32_t>& moved) {
+    if (!code.has(kIosCounter)) return false;
+    const std::uint32_t start = function_start(code, kIosCounter);
+    if (start == 0 || start == kIosCounter) return false;
+    // Up to the function's blr. A longer function is copied as far as the
+    // copy has room for, and its last word jumps back to the rest: without
+    // that, it ran on past the copy into whatever followed.
+    std::uint32_t length = 0;
+    bool whole = false;
+    while (length + 4 < kMovedBytes && code.has(start + length)) {
+        const bool last = code.at(start + length) == 0x4E800020;
+        length += 4;
+        if (last) {
+            whole = true;
+            break;
+        }
+    }
+    if (start + length <= kIosCounter) return false;  // the counter's word would stay where it is
+    moved.clear();
+    for (std::uint32_t at = 0; at < length; at += 4) {
+        std::uint32_t w = code.at(start + at);
+        const std::uint32_t op = w >> 26;
+        const bool absolute = (w & 2) != 0;
+        if (op == 18 && !absolute) {  // b / bl
+            std::int32_t d = static_cast<std::int32_t>(w & 0x03FFFFFC);
+            if (d & 0x02000000) d -= 0x04000000;
+            const std::uint32_t target = start + at + d;
+            if (target < start || target >= start + length)
+                w = (w & 0xFC000003) | ((target - (moved_addr + at)) & 0x03FFFFFC);
+        } else if (op == 16 && !absolute) {  // bc
+            const std::int32_t d = static_cast<std::int16_t>(w & 0xFFFC);
+            const std::uint32_t target = start + at + d;
+            if (target < start || target >= start + length) return false;  // out of a bc's reach from the copy
+        }
+        moved.push_back(w);
+    }
+    if (!whole) moved.push_back(branch(moved_addr + length, start + length));  // on with the rest, where it is
+    code.put(start, branch(start, moved_addr));
+    return true;
+}
+
+
+void store32(std::uint32_t a, std::uint32_t v) { *reinterpret_cast<volatile std::uint32_t*>(a) = v; }
+std::uint32_t load32(std::uint32_t a) { return *reinterpret_cast<volatile std::uint32_t*>(a); }
+
+// A formatted, empty 251-block card (gc_card.h), its header made from
+// this console's SRAM (the card's flash ID for slot A, the clock bias,
+// the language), the time and the DTV register; the layout is the
+// library's (src/fs/gccard.cpp). Some games (Eclipse) never offer to
+// format a blank card and use it as if it were.
+void format_card(std::vector<std::uint8_t>& card, bool shift_jis) {
+    GcCardFormat format;
+    syssram* sram = __SYS_LockSram();
+    format.counter_bias = sram->counter_bias;
+    format.language = sram->lang;
+    __SYS_UnlockSram(0);
+    format.format_time = gettime();
+    syssramex* sramex = __SYS_LockSramEx();
+    std::memcpy(format.flash_id.data(), sramex->flash_id[0], format.flash_id.size());
+    __SYS_UnlockSramEx(0);
+    format.dtv = *reinterpret_cast<volatile std::uint16_t*>(0xCC00206E);
+    format.size_mbits = GC_CARD_ID & 0xFC;
+    format.shift_jis = shift_jis;
+    gc_card_format(card, format);
+}
+
+// Before the game starts: a copy of the memory card it will use in
+// sd:/riftwii/gc/backups/<card>/ (riftwii/gcbackup.hpp), the newest five
+// kept, none when the card has not changed since the last one. A shared
+// card's copies go in backups/shared, as they hold every game's saves.
+// Nothing here stops the start: a copy that fails is only logged.
+void back_up_card(const GcImage& image) {
+    const std::string path = gc_card_path(image.id, image.shared_card);
+    const std::string folder = gc_backup_folder(image.id, image.shared_card);
+    // The Wii's clock, as the menu's own clock shows it.
+    const time_t now = time(nullptr);
+    struct tm local;
+    localtime_r(&now, &local);
+    const GcBackupStamp stamp = gc_backup_stamp(local);
+    const u64 started = gettime();
+    const GcBackupResult result = gc_backup_card(path, folder, stamp);
+    const unsigned ms = static_cast<unsigned>(ticks_to_millisecs(gettime() - started));
+    switch (result.what) {
+        case GcBackupResult::What::NoCard:
+            logf("GameCube: no memory card to back up yet (%s)\n", path.c_str());
+            break;
+        case GcBackupResult::What::Same:
+            logf("GameCube: memory card %s unchanged since its backup %s/%s, so no new copy (%u ms)\n",
+                 path.c_str(), folder.c_str(), result.name.c_str(), ms);
+            break;
+        case GcBackupResult::What::Made:
+            logf("GameCube: memory card backed up to %s/%s (%u KB in %u ms)\n", folder.c_str(), result.name.c_str(),
+                 static_cast<unsigned>(result.bytes / 1024), ms);
+            for (const std::string& old : result.pruned)
+                logf("GameCube: oldest backup %s/%s deleted, to keep the newest %u\n", folder.c_str(), old.c_str(),
+                     static_cast<unsigned>(kGcBackupsKept));
+            break;
+        case GcBackupResult::What::Failed:
+            logf("GameCube: memory card %s not backed up: %s (%u ms)\n", path.c_str(), result.error.c_str(), ms);
+            break;
+    }
+    // New files change the SD card's folders, which the raw lookups cache.
+    if (result.what == GcBackupResult::What::Made) forget_sd_layout();
+}
+
+// The SDK's EXI functions (gc_card.h's order), found through the EXI
+// control blocks they all index (an array of 0x40-byte blocks, one per
+// channel, its state word at 12) and what each does to that state word:
+// select sets 4 and deselect clears it, lock sets 16 and unlock clears
+// it, attach sets 8 (and probes). EXIImm keeps its buffer and length at 16 and 20;
+// EXIDma calls the same interrupt clear as EXIImm without storing them;
+// EXIGetID reads the probe times at 0x800030C0 and calls lock, select,
+// EXIImm, then EXISync; EXIProbe and EXIProbeEx call the probe select
+// uses and EXIGetID, EXIProbeEx returning -1 too. Returns the control
+// blocks' address, 0 when anything is missing or doubtful.
+//
+// The 2001 SDK (Luigi's Mansion USA) differs: its blocks are 0x38 bytes,
+// indexed with mulli by 0x38; its EXIGetID does not read the probe times
+// (it is the one function calling lock, select and EXIImm); and it has no
+// EXIProbeEx, its EXIProbe being the probe select calls. EXIProbeEx is then
+// left 0, and the other ten are hooked.
+//
+// One block size: `index_word` is the instruction that turns a channel
+// into its block's offset.
+std::uint32_t find_exi_functions_by(const Code& code, std::uint32_t index_word, std::uint32_t (&out)[GC_EXI_HOOKS]) {
+    std::fill(std::begin(out), std::end(out), 0);
+    // The control blocks: lis/addi pairs near the index instruction at a
+    // function's start.
+    std::map<std::uint32_t, unsigned> bases;
+    std::map<std::uint32_t, std::uint32_t> base_of;  // function -> its base
+    code.each([&](std::uint32_t a, std::uint32_t w) {
+        if ((w & 0xFC00FFFF) != index_word) return;
+        const std::uint32_t f = function_start(code, a);
+        if (f == 0 || a - f > 0x40) return;
+        std::uint32_t hi[32] = {};
+        bool known[32] = {};
+        for (std::uint32_t b = f; b < f + 0x50; b += 4) {
+            const std::uint32_t x = code.at(b);
+            const unsigned op = x >> 26, d = (x >> 21) & 31, ra = (x >> 16) & 31;
+            if (op == 15 && ra == 0) {
+                hi[d] = (x & 0xFFFF) << 16;
+                known[d] = true;
+            } else if (op == 14 && ra != 0 && known[ra]) {
+                const std::uint32_t value = hi[ra] + static_cast<std::uint32_t>(static_cast<std::int16_t>(x & 0xFFFF));
+                if (value >= 0x80000000 && value < 0x81800000) {
+                    bases[value]++;
+                    base_of[f] = value;
+                    return;
+                }
+            }
+        }
+    });
+    std::uint32_t ecb = 0;
+    unsigned most = 7;
+    for (auto& [b, n] : bases)
+        if (n > most) {
+            most = n;
+            ecb = b;
+        }
+    if (ecb == 0) return 0;
+    struct Fn {
+        std::uint32_t start = 0, size = 0;
+        bool sets[32] = {}, clears[32] = {}, stores_16_20 = false, minus_one = false, probe_times = false;
+        bool dma_start = false;  // ori rX,rX,3: a DMA transfer's control word
+        std::vector<std::uint32_t> calls;
+    };
+    std::vector<Fn> fns;
+    for (auto& [f, b] : base_of) {
+        if (b != ecb) continue;
+        Fn fn;
+        fn.start = f;
+        bool st16 = false, st20 = false;
+        for (std::uint32_t a = f; code.has(a) && a < f + 0x800; a += 4) {
+            const std::uint32_t x = code.at(a);
+            const unsigned op = x >> 26;
+            if (op == 24 && ((x >> 21) & 31) == ((x >> 16) & 31) && (x & 0xFFFF) < 32 && (x & 0xFFFF) != 0)
+                for (unsigned bit = 0; bit < 5; ++bit)
+                    if ((x & 0xFFFF) == (1u << bit)) fn.sets[bit] = true;  // ori rX,rX,1<<bit
+            if (op == 24 && ((x >> 21) & 31) == ((x >> 16) & 31) && (x & 0xFFFF) == 3) fn.dma_start = true;
+            if (op == 21 && ((x >> 11) & 31) == 0) {  // rlwinm rA,rS,0,MB,ME clearing one bit
+                const unsigned mb = (x >> 6) & 31, me = (x >> 1) & 31;
+                if (mb == (me + 2) % 32) fn.clears[31 - ((me + 1) % 32)] = true;
+            }
+            if (op == 36 && (x & 0xFFFF) == 16) st16 = true;
+            if (op == 36 && (x & 0xFFFF) == 20) st20 = true;
+            if (x == 0x3860FFFF) fn.minus_one = true;  // li r3,-1
+            if (op == 14 && (x & 0xFFFF) == 0x30C0) fn.probe_times = true;
+            if (std::uint32_t t = bl_target(a, x)) fn.calls.push_back(t);
+            if (x == 0x4E800020) {
+                fn.size = a + 4 - f;
+                break;
+            }
+        }
+        fn.stores_16_20 = st16 && st20;
+        fns.push_back(fn);
+    }
+    auto only = [&](auto test) -> std::uint32_t {
+        std::uint32_t found = 0;
+        for (const Fn& fn : fns)
+            if (test(fn)) {
+                if (found) return 0;  // two: doubtful
+                found = fn.start;
+            }
+        return found;
+    };
+    auto calls = [](const Fn& fn, std::uint32_t target) {
+        return target != 0 && std::find(fn.calls.begin(), fn.calls.end(), target) != fn.calls.end();
+    };
+    out[GC_EXI_SELECT] = only([](const Fn& fn) { return fn.sets[2] && !fn.sets[4]; });
+    out[GC_EXI_DESELECT] = only([](const Fn& fn) { return fn.clears[2]; });
+    out[GC_EXI_LOCK] = only([](const Fn& fn) { return fn.sets[4]; });
+    out[GC_EXI_IMM] = only([](const Fn& fn) { return fn.stores_16_20 && fn.sets[1]; });
+    out[GC_EXI_GET_ID] = only([&](const Fn& fn) {
+        return fn.probe_times && calls(fn, out[GC_EXI_LOCK]) && calls(fn, out[GC_EXI_SELECT]);
+    });
+    if (out[GC_EXI_GET_ID] == 0)  // the 2001 SDK's, which does not read the probe times
+        out[GC_EXI_GET_ID] = only([&](const Fn& fn) {
+            return calls(fn, out[GC_EXI_LOCK]) && calls(fn, out[GC_EXI_SELECT]) && calls(fn, out[GC_EXI_IMM]);
+        });
+    const std::uint32_t get_id = out[GC_EXI_GET_ID];
+    // EXIGetID unlocks (and attaches) too: never taken for those.
+    out[GC_EXI_UNLOCK] = only([&](const Fn& fn) { return fn.clears[4] && !fn.probe_times && fn.start != get_id; });
+    // The probe select calls (in the control blocks' functions).
+    std::uint32_t probe = 0;
+    for (const Fn& fn : fns)
+        if (fn.start == out[GC_EXI_SELECT])
+            for (std::uint32_t t : fn.calls)
+                for (const Fn& g : fns)
+                    if (g.start == t && probe == 0) probe = t;
+    out[GC_EXI_ATTACH] = only(
+        [&](const Fn& fn) { return fn.sets[3] && calls(fn, probe) && !fn.probe_times && fn.start != get_id; });
+    out[GC_EXI_PROBE] = only([&](const Fn& fn) {
+        return calls(fn, probe) && calls(fn, out[GC_EXI_GET_ID]) && !fn.minus_one && !fn.sets[3] && fn.size < 0x100;
+    });
+    out[GC_EXI_PROBE_EX] = only([&](const Fn& fn) {
+        return calls(fn, probe) && calls(fn, out[GC_EXI_GET_ID]) && fn.minus_one && !fn.sets[3];
+    });
+    // The 2001 SDK: no EXIProbe around the probe, and no EXIProbeEx.
+    const bool old_sdk = index_word == 0x1C000038;  // the 0x38-byte blocks
+    const bool old_probe = old_sdk && out[GC_EXI_PROBE] == 0 && out[GC_EXI_PROBE_EX] == 0 && probe != 0;
+    if (old_probe) out[GC_EXI_PROBE] = probe;
+    // EXIDma: the other one that starts a transfer, with DMA and start
+    // set in the control word.
+    out[GC_EXI_DMA] = only([&](const Fn& fn) { return fn.dma_start && fn.start != out[GC_EXI_IMM]; });
+    // EXISync: what EXIGetID calls right after its first EXIImm.
+    for (const Fn& fn : fns)
+        if (fn.start == out[GC_EXI_GET_ID])
+            for (std::size_t i = 0; i + 1 < fn.calls.size(); ++i)
+                if (fn.calls[i] == out[GC_EXI_IMM]) {
+                    out[GC_EXI_SYNC] = fn.calls[i + 1];
+                    break;
+                }
+    for (unsigned i = 0; i < GC_EXI_HOOKS; ++i)
+        if (out[i] == 0 && !(i == GC_EXI_PROBE_EX && old_probe)) return 0;
+    return ecb;
+}
+
+// The 0x40-byte blocks first ("slwi rX,rY,6"), then the 2001 SDK's 0x38-byte
+// ones ("mulli rX,rY,0x38"), each kept only if all the functions are found
+// on it: in Luigi's Mansion (USA) a table of the game's own has more
+// slwi-by-6 users than anything else, and in Twilight Princess another has
+// more mulli-by-0x38 users than its EXI blocks.
+std::uint32_t find_exi_functions(const Code& code, std::uint32_t (&out)[GC_EXI_HOOKS]) {
+    if (const std::uint32_t ecb = find_exi_functions_by(code, 0x54003032, out)) return ecb;
+    return find_exi_functions_by(code, 0x1C000038, out);
+}
+
+// Instruction fields, for the searches below.
+unsigned opcode(std::uint32_t w) { return w >> 26; }
+unsigned reg_d(std::uint32_t w) { return (w >> 21) & 31; }
+unsigned reg_a(std::uint32_t w) { return (w >> 16) & 31; }
+std::uint32_t li(unsigned reg, std::uint16_t value) { return (14u << 26) | (reg << 21) | value; }  // addi reg,0,value
+// rlwinm's shift, first and last mask bits, as its low 16 bits hold them
+// (rA is above them).
+std::uint32_t rlwinm_low(unsigned shift, unsigned first, unsigned last) {
+    return (shift << 11) | (first << 6) | (last << 1);
+}
+bool is_rlwinm_of(std::uint32_t w, unsigned source, std::uint32_t low) {
+    return opcode(w) == 21 && reg_d(w) == source && (w & 0xFFFF) == low;
+}
+
+// The GameCube OS keeps the console's settings (the SRAM: language,
+// progressive scan, sound...) in a copy in memory, read once at start-up,
+// and its getters read that copy after locking it: `lis rA,hi`, `addi
+// rB,rA,lo` (the copy), then the lock word at 0x48 and `addi r4,rB,0x48`.
+// The settings are bytes in the copy (YAGCD's SRAM layout): the language
+// at 0x12, the flags at 0x13 with progressive scan in bit 7.
+//
+// The language and progressive getters (OSGetLanguage,
+// OSGetProgressiveMode) each read their byte from that register: the
+// loads found here, for the loader to turn into a constant. The copy and
+// the console's SRAM are never changed, so nothing the game writes back
+// to the SRAM later (it does for its own 480p question) carries a choice
+// made here.
+constexpr std::uint16_t kSramLockOffset = 0x48;
+constexpr std::uint16_t kSramLanguage = 0x12;
+constexpr std::uint16_t kSramFlags = 0x13;
+
+struct SramReads {
+    std::uint32_t copy = 0;  // the settings' copy in memory
+    std::vector<std::uint32_t> language;     // lbz rX,0x12(copy)
+    std::vector<std::uint32_t> progressive;  // lbz rX,0x13(copy), then its bit 7 taken (>> 7 & 1)
+};
+
+SramReads find_sram_reads(const Code& code) {
+    struct Site {
+        std::uint32_t at;  // the addi that makes the copy's address
+        unsigned reg;
+        std::uint32_t copy;
+    };
+    std::vector<Site> sites;
+    std::map<std::uint32_t, unsigned> seen;  // copy address -> how many locks
+    code.each([&](std::uint32_t a, std::uint32_t w) {
+        if (opcode(w) != 15 || reg_a(w) != 0) return;  // lis rA,hi
+        const unsigned high_reg = reg_d(w);
+        for (std::uint32_t b = a + 4; b < a + 24 && code.has(b); b += 4) {
+            const std::uint32_t add = code.at(b);
+            if (opcode(add) != 14 || reg_a(add) != high_reg) continue;  // addi rB,rA,lo
+            const unsigned copy_reg = reg_d(add);
+            const std::uint32_t copy = (w << 16) + static_cast<std::uint32_t>(static_cast<std::int16_t>(add & 0xFFFF));
+            const std::uint32_t lock_load = (32u << 26) | (copy_reg << 16) | kSramLockOffset;  // lwz r0,0x48(rB)
+            const std::uint32_t lock_addr = (14u << 26) | (4u << 21) | (copy_reg << 16) | kSramLockOffset;  // addi r4,rB,0x48
+            for (std::uint32_t c = b + 4; c < b + 48 && code.has(c + 4); c += 4)
+                if (code.at(c) == lock_load && code.at(c + 4) == lock_addr) {
+                    sites.push_back({b, copy_reg, copy});
+                    seen[copy]++;
+                    break;
+                }
+            return;
+        }
+    });
+    SramReads out;
+    unsigned most = 0;
+    for (const auto& [copy, n] : seen)
+        if (n > most) {
+            most = n;
+            out.copy = copy;
+        }
+    const std::uint32_t take_bit7 = rlwinm_low(25, 31, 31);  // rlwinm rC,rX,25,31,31
+    for (const Site& site : sites) {
+        if (site.copy != out.copy) continue;
+        for (std::uint32_t a = site.at + 4; code.has(a) && a < site.at + 0x100; a += 4) {
+            const std::uint32_t w = code.at(a);
+            if (w == 0x4E800020) break;
+            if (opcode(w) != 34 || reg_a(w) != site.reg) continue;  // lbz rX,d(rB)
+            const std::uint16_t offset = w & 0xFFFF;
+            if (offset == kSramLanguage) out.language.push_back(a);
+            if (offset != kSramFlags) continue;
+            // The getter takes bit 7 within a few words; OSSetProgressiveMode
+            // and the reset code read the same byte to change it.
+            for (std::uint32_t b = a + 4; b <= a + 16; b += 4)
+                if (is_rlwinm_of(code.at(b), reg_d(w), take_bit7)) {
+                    out.progressive.push_back(a);
+                    break;
+                }
+        }
+    }
+    return out;
+}
+
+// VIGetDTVStatus: reads the VI's DTV register (0xCC00206E, bit 0 set
+// while a component cable is plugged in, YAGCD's VI_DTV) with `lhz
+// rX,0x206E(rY)` and keeps its low two bits (`clrlwi rZ,rX,30`). Other
+// OS code reads the register too, for its other bits.
+std::vector<std::uint32_t> find_dtv_reads(const Code& code) {
+    std::vector<std::uint32_t> found;
+    const std::uint32_t low_two_bits = rlwinm_low(0, 30, 31);
+    code.each([&](std::uint32_t a, std::uint32_t w) {
+        if (opcode(w) != 40 || (w & 0xFFFF) != 0x206E) return;  // lhz rX,0x206E(rY)
+        if (is_rlwinm_of(code.at(a + 4), reg_d(w), low_two_bits)) found.push_back(a);
+    });
+    return found;
+}
+
+// VIConfigure(const GXRenderModeObj* rm): near its start it keeps rm in a
+// register, loads rm->viTVMode (`lwz rX,0(rR)`) and takes its low two
+// bits (interlaced, double-strike or progressive), reads the start-up TV
+// mode at 0x800000CC, and shifts viTVMode right by 2 (its TV format). The
+// one function doing all three in its first 0x80 bytes; 0 if not exactly one.
+std::uint32_t find_vi_configure(const Code& code) {
+    std::uint32_t found = 0;
+    unsigned count = 0;
+    const std::uint32_t low_two_bits = rlwinm_low(0, 30, 31);
+    const std::uint32_t shift_right_2 = rlwinm_low(30, 2, 31);
+    code.each([&](std::uint32_t start, std::uint32_t) {
+        if (!code.has(start - 4) || code.at(start - 4) != 0x4E800020) return;  // a function's first word
+        bool takes_interlace = false, reads_boot_mode = false, takes_format = false;
+        bool high_8000[32] = {};
+        for (std::uint32_t a = start; code.has(a) && a < start + 0x80; a += 4) {
+            const std::uint32_t w = code.at(a);
+            if (w == 0x4E800020) break;
+            if (opcode(w) == 15 && reg_a(w) == 0) high_8000[reg_d(w)] = (w & 0xFFFF) == 0x8000;  // lis rA,0x8000
+            if (opcode(w) == 32 && high_8000[reg_a(w)] && (w & 0xFFFF) == 0xCC) reads_boot_mode = true;
+            if (opcode(w) == 32 && (w & 0xFFFF) == 0 && reg_a(w) > 3) {  // lwz rX,0(rR), rR kept from r3
+                for (std::uint32_t b = a + 4; b < a + 24; b += 4)
+                    if (is_rlwinm_of(code.at(b), reg_d(w), low_two_bits)) takes_interlace = true;
+            }
+            if (opcode(w) == 21 && (w & 0xFFFF) == shift_right_2) takes_format = true;
+        }
+        if (takes_interlace && reads_boot_mode && takes_format) {
+            found = start;
+            ++count;
+        }
+    });
+    return count == 1 ? found : 0;
+}
+
+// GXSetProjection(f32 mtx[4][4], GXProjectionType type): it compares the
+// type with 1 (orthographic) at once and loads mtx's terms GX keeps: [0][0],
+// [1][1], [2][2], [2][3] (0x00, 0x14, 0x28, 0x2C) and, by the type, [0][2]
+// and [1][2] or [0][3] and [1][3] (0x08, 0x18 or 0x0C, 0x1C). The one
+// function that does it all in its first 0x80 bytes; 0 if not exactly one.
+std::uint32_t find_gx_set_projection(const Code& code) {
+    std::uint32_t found = 0;
+    unsigned count = 0;
+    code.each([&](std::uint32_t start, std::uint32_t) {
+        if (!code.has(start - 4) || code.at(start - 4) != 0x4E800020) return;
+        bool compares_type = false;
+        std::uint32_t loaded = 0;  // bit n: the word at 4n of mtx
+        for (std::uint32_t a = start; code.has(a) && a < start + 0x80; a += 4) {
+            const std::uint32_t w = code.at(a);
+            if (w == 0x4E800020) break;
+            if (w == 0x2C040001 && a < start + 0x20) compares_type = true;  // cmpwi r4,1
+            if (opcode(w) == 48 && reg_a(w) == 3 && (w & 0xFFFF) < 0x40 && (w & 3) == 0)  // lfs fX,d(r3)
+                loaded |= 1u << ((w & 0xFFFF) / 4);
+        }
+        const std::uint32_t wanted = (1u << 0) | (1u << 2) | (1u << 3) | (1u << 5) | (1u << 6) | (1u << 7) |
+                                     (1u << 10) | (1u << 11);
+        if (compares_type && (loaded & wanted) == wanted) {
+            found = start;
+            ++count;
+        }
+    });
+    return count == 1 ? found : 0;
+}
+
+}  // namespace
+
+// The way back from the game (gc_rt.c's gc_leave): the title holding
+// HOME launches, with its ticket view, and /dev/es opened here; IOS keeps
+// it open across the jump, as it keeps the SD card's. The RiftWii channel
+// when it is installed and Settings > Return to says RiftWii, else the
+// Wii Menu.
+constexpr std::uint32_t kLeaveBytes = 0x100;
+constexpr u64 kWiiMenuTitle = 0x0000000100000002ull;
+
+// Where the way back goes, as Settings > Return to says and as a Wii
+// game's HOME Menu goes (boot.cpp's return_title): on "riftwii", back to
+// what started RiftWii (the Homebrew Channel when its stub is there, else
+// the RiftWii channel when it is installed), else the Wii Menu. The first
+// of those with a ticket, with its first ticket view; 0 when none has one.
+static u64 way_back_title(GcWayBack& kind, tikview& view) {
+    std::vector<std::pair<u64, GcWayBack>> titles;
+    if (Settings().return_to == "riftwii") {
+        if (StartedByHomebrewChannel()) {
+            if (const u64 hbc = HomebrewChannelTitle()) titles.emplace_back(hbc, GcWayBack::HomebrewChannel);
+        }
+        if (const u64 channel = ChannelTitle()) titles.emplace_back(channel, GcWayBack::Channel);
+    }
+    titles.emplace_back(kWiiMenuTitle, GcWayBack::WiiMenu);
+    for (const auto& [title, what] : titles) {
+        u32 views = 0;
+        if (ES_GetNumTicketViews(title, &views) < 0 || views == 0) continue;
+        // ES_GetTicketViews fills as many as asked: room for one is enough.
+        static tikview found[4] ATTRIBUTE_ALIGN(32);
+        if (ES_GetTicketViews(title, found, 1) < 0) continue;
+        view = found[0];
+        kind = what;
+        return title;
+    }
+    kind = GcWayBack::None;
+    return 0;
+}
+
+// The crash screen's card and strip (SetGcCrashScreen), as gc_crash.h
+// lays them out.
+static std::vector<std::uint8_t> g_crash_screen;
+// Whether its message promises that A goes back (SetGcCrashScreen).
+static bool g_crash_screen_way_back = false;
+
+GcWayBack FindGcWayBack() {
+    GcWayBack kind;
+    static tikview view ATTRIBUTE_ALIGN(32);
+    way_back_title(kind, view);
+    return kind;
+}
+
+void SetGcCrashScreen(std::vector<std::uint8_t> screen, bool way_back) {
+    g_crash_screen.clear();
+    g_crash_screen_way_back = way_back;
+    if (screen.size() == GC_CRASH_SCREEN_BYTES) g_crash_screen = std::move(screen);
+}
+
+static void prepare_leave(gc_rt_context* ctx, std::uint32_t buf, bool test) {
+    ctx->leave_fd = 0xFFFFFFFFu;
+    ctx->leave_buf = 0;
+    ctx->leave_hold = 2 * 60750000u;  // two seconds of the timebase (the bus clock / 4)
+    ctx->leave_since = 0;
+    auto* bytes = reinterpret_cast<std::uint8_t*>(buf);
+    std::memset(bytes, 0, kLeaveBytes);
+    GcWayBack kind;
+    static tikview view ATTRIBUTE_ALIGN(32);
+    if (const u64 title = way_back_title(kind, view)) {
+        const s32 fd = IOS_Open("/dev/es", 0);
+        if (fd < 0) {
+            logf("GameCube: no way back to RiftWii: /dev/es did not open (%d)\n", fd);
+            return;
+        }
+        for (unsigned i = 0; i < 8; ++i) bytes[i] = static_cast<std::uint8_t>(title >> (56 - 8 * i));
+        std::memcpy(bytes + 0x20, &view, sizeof(tikview));
+        DCFlushRange(bytes, kLeaveBytes);
+        ctx->leave_fd = static_cast<std::uint32_t>(fd);
+        ctx->leave_buf = buf;
+        logf("GameCube: holding HOME for two seconds goes to %08x-%08x\n", static_cast<u32>(title >> 32),
+             static_cast<u32>(title));
+        return;
+    }
+    logf("GameCube: no way back to RiftWii: none of the titles to go back to is installed\n");
+    // The test of the way back (sd:/riftwii/gc/leave) goes on regardless,
+    // to the Wii Menu with no ticket view: IOS refuses, and the game must
+    // carry on.
+    if (!test) return;
+    const s32 fd = IOS_Open("/dev/es", 0);
+    if (fd < 0) return;
+    for (unsigned i = 0; i < 8; ++i) bytes[i] = static_cast<std::uint8_t>(kWiiMenuTitle >> (56 - 8 * i));
+    DCFlushRange(bytes, kLeaveBytes);
+    ctx->leave_fd = static_cast<std::uint32_t>(fd);
+    ctx->leave_buf = buf;
+    logf("GameCube: the test of the way back goes on without a ticket view, to be refused\n");
+}
+
+// Luigi's Mansion's file loader (gc_on_load_queued and on, gc_rt.c): its
+// loading thread allocates a load's buffer, and its callbacks what they
+// make, from JSystem's current heap, a global, at whatever moment the
+// thread runs; with reads at the SD card's speed that was another
+// thread's temporary heap. Found by the game's own code:
+//   the thread: lbz r3,0x80(r30); bl group; mr; bl align; slwi r4,r3,5;
+//               lwz r3,0x60(r30); bl alloc (replaced: gc_on_load_alloc);
+//               stw r3,0x64(r30)
+//   the queue:  addi r4,r4,31; clrrwi r4,r4,5; stw r4,0x60(r3), then
+//               stw rX,0x64(r3) and, a few words on, bl post
+// The queue's post is the call replaced (two queue functions, one post).
+// Then, further on in the thread, its callbacks: lbz r3,0x80(r30); bl
+// group (replaced: gc_on_load_callbacks), and after them mr r3,r29; bl
+// group (replaced: gc_on_load_callbacks_done). The current heap's place
+// is alloc's first lwz rX,d(r13). Only the games gxpatches.hpp's
+// gc_loads_use_queued_heap names are looked at.
+struct LmLoader {
+    std::uint32_t group = 0, align = 0, alloc = 0, alloc_site = 0, post = 0;
+    std::vector<std::uint32_t> post_sites;
+    std::uint32_t heap_offset = 0, callbacks_site = 0, callbacks_done_site = 0;
+};
+
+LmLoader find_lm_loader(const std::string& id, const Code& code) {
+    LmLoader out;
+    if (!gc_loads_use_queued_heap(id)) return out;
+    unsigned threads = 0;
+    bool one_post = true;
+    code.each([&](std::uint32_t a, std::uint32_t w) {
+        if (w != 0x54642834u) return;  // slwi r4,r3,5
+        if (!code.has(a - 16) || !code.has(a + 12)) return;
+        const std::uint32_t load_group = code.at(a - 16);
+        if ((load_group & 0xFFE0FFFFu) != 0x88600080u) return;  // lbz r3,0x80(rR)
+        const std::uint32_t r = (load_group >> 16) & 31;
+        if (code.at(a + 4) != (0x80600060u | (r << 16)) || code.at(a + 12) != (0x90600064u | (r << 16))) return;
+        const std::uint32_t group = bl_target(a - 12, code.at(a - 12));
+        const std::uint32_t align = bl_target(a - 4, code.at(a - 4));
+        const std::uint32_t alloc = bl_target(a + 8, code.at(a + 8));
+        if (group == 0 || align == 0 || alloc == 0 || r != 30) return;
+        out.group = group;
+        out.align = align;
+        out.alloc = alloc;
+        out.alloc_site = a + 8;
+        ++threads;
+        // The callbacks, further on in the same loop.
+        for (std::uint32_t b = a + 16; b < a + 0x100 && code.has(b + 4); b += 4) {
+            if (out.callbacks_site == 0 && code.at(b) == 0x887E0080u && bl_target(b + 4, code.at(b + 4)) == group)
+                out.callbacks_site = b + 4;
+            else if (out.callbacks_site != 0 && code.at(b) == 0x7FA3EB78u && bl_target(b + 4, code.at(b + 4)) == group) {
+                out.callbacks_done_site = b + 4;
+                break;
+            }
+        }
+    });
+    code.each([&](std::uint32_t a, std::uint32_t w) {
+        if (w != 0x90830060u) return;  // stw r4,0x60(r3)
+        if (!code.has(a - 8) || code.at(a - 8) != 0x3884001Fu || code.at(a - 4) != 0x54840034u) return;
+        for (std::uint32_t b = a + 4; b < a + 32 && code.has(b); b += 4) {
+            if ((code.at(b) & 0xFC1FFFFFu) != 0x90030064u) continue;  // stw rX,0x64(r3)
+            for (std::uint32_t c = b + 4; c < b + 16 && code.has(c); c += 4) {
+                const std::uint32_t post = bl_target(c, code.at(c));
+                if (post == 0) continue;
+                if (out.post != 0 && post != out.post) one_post = false;
+                out.post = post;
+                out.post_sites.push_back(c);
+                break;
+            }
+            break;
+        }
+    });
+    if (threads != 1 || !one_post || out.post_sites.empty() || out.post_sites.size() > 4) return LmLoader{};
+    if (out.callbacks_site == 0 || out.callbacks_done_site == 0) return LmLoader{};
+    // alloc, or the function it calls first (a wrapper).
+    std::uint32_t fn = out.alloc;
+    for (int depth = 0; depth < 2 && out.heap_offset == 0 && fn != 0; ++depth) {
+        std::uint32_t first_call = 0;
+        for (std::uint32_t a = fn; a < fn + 0x40 && code.has(a); a += 4) {
+            const std::uint32_t w = code.at(a);
+            if ((w >> 26) == 32 && ((w >> 16) & 31) == 13) {  // lwz rX,d(r13)
+                out.heap_offset =
+                    static_cast<std::uint32_t>(static_cast<std::int32_t>(static_cast<std::int16_t>(w & 0xFFFF)));
+                break;
+            }
+            if (first_call == 0) first_call = bl_target(a, w);
+            if (w == 0x4E800020u) break;  // blr
+        }
+        fn = first_call;
+    }
+    return out;
+}
+
+// The game's picture and language options (its Options page), patched
+// into the staged code. `replay_hook(fn, entry, replay, back)` hooks a
+// function that then runs on (false: it cannot be hooked).
+template <class ReplayHook>
+static void apply_picture_and_language(const GcImage& image, Code& code, ReplayHook replay_hook, const gc_rt_header& h,
+                                       gc_rt_context* ctx, bool test_no_widen) {
+    const SramReads sram = find_sram_reads(code);
+    // 480p. A game offers it when VIGetDTVStatus says a component cable is
+    // in and OSGetProgressiveMode says the console's 480p setting is on
+    // (or the player holds B at start): both are told yes. A game that has
+    // no 480p is switched to it by VIConfigure (gc_on_vi_configure).
+    if (image.progressive && gc_pal_game(image.id)) {
+        logf("GameCube: 480p left off: %s is a PAL game, its picture is not NTSC's 480 lines\n", image.id.c_str());
+    } else if (image.progressive) {
+        const std::vector<std::uint32_t> dtv = find_dtv_reads(code);
+        for (std::uint32_t a : dtv) code.put(a, li(reg_d(code.at(a)), 1));  // a component cable is in
+        for (std::uint32_t a : sram.progressive) code.put(a, li(reg_d(code.at(a)), 0x80));  // the 480p setting is on
+        const std::uint32_t vi_configure = find_vi_configure(code);
+        const bool hooked = vi_configure != 0 &&
+                            replay_hook(vi_configure, h.hook_vi_configure, h.replay_vi_configure, h.continue_vi_configure);
+        if (hooked) ctx->flags |= GC_FLAG_PROGRESSIVE;
+        logf("GameCube: 480p: %u cable check(s) and %u 480p setting read(s) answer yes; VIConfigure 0x%08x %s\n",
+             static_cast<unsigned>(dtv.size()), static_cast<unsigned>(sram.progressive.size()), vi_configure,
+             hooked ? "turns interlaced modes into 480p" : "not hooked: a game without its own 480p stays interlaced");
+    }
+    // 16:9: GXSetProjection widens what the game draws in perspective
+    // (gc_hook_projection); its 2D, drawn with orthographic projections,
+    // stays as it is and is stretched by the TV.
+    if (image.widescreen) {
+        const std::uint32_t projection = find_gx_set_projection(code);
+        const bool hooked = projection != 0 &&
+                            replay_hook(projection, h.hook_projection, h.replay_projection, h.continue_projection);
+        // The test of the hook alone (sd:/riftwii/gc/nowiden): every
+        // projection goes through it and is copied, none is widened.
+        if (hooked && !test_no_widen) ctx->flags |= GC_FLAG_WIDEN;
+        const char* what = !hooked ? "not hooked: 4:3 as before"
+                           : test_no_widen ? "hooked but not widened (the test of the hook alone)"
+                                           : "widens 3D";
+        logf("GameCube: 16:9: GXSetProjection 0x%08x %s\n", projection, what);
+    }
+    // The language: OSGetLanguage's read of the settings' copy becomes the
+    // chosen number. The console's SRAM is left as it is (sram above).
+    if (image.language >= 0) {
+        for (std::uint32_t a : sram.language)
+            code.put(a, li(reg_d(code.at(a)), static_cast<std::uint16_t>(image.language)));
+        logf("GameCube: the game is told the language is %s (%u read(s) of the settings at 0x%08x)\n",
+             kGcLanguages[image.language], static_cast<unsigned>(sram.language.size()), sram.copy);
+    }
+}
+
+// An RVZ game's reader as the loader sets it up (gc_rvz.h): the RVZ's
+// group table for the disc, written to the card, and where the RVZ and that
+// file lie on the card.
+struct GcRvzSetup {
+    RvzRuntimeTable table;
+    RvzBufferSizes sizes;
+    std::vector<gc_rvz_extent> extents;        // the RVZ
+    std::vector<gc_rvz_extent> table_extents;  // sd:/riftwii/rvz/<ID>.groups
+    std::uint32_t disc_bytes = 0;
+    std::uint32_t chunk_bytes = 0;
+    std::uint8_t header[GC_RVZ_HEADER_BYTES] = {};
+};
+
+// A file's pieces on the card as the reader takes them: which of its
+// sectors lie where.
+std::vector<gc_rvz_extent> extents_of(const Fat32File& file) {
+    std::vector<gc_rvz_extent> out;
+    std::uint32_t file_sector = 0;
+    for (const auto& fragment : file.fragments) {
+        gc_rvz_extent e{};
+        e.file_sector = file_sector;
+        e.device_sector = static_cast<std::uint32_t>(fragment.sector);
+        e.count = static_cast<std::uint32_t>(fragment.sector_count);
+        out.push_back(e);
+        file_sector += e.count;
+    }
+    return out;
+}
+
+bool prepare_gc_rvz(const GcImage& image, const ByteSource& disc, const Fat32File& file, GcRvzSetup& out,
+                    std::string& error) {
+    const auto* source = dynamic_cast<const RvzDiscSource*>(&disc);
+    if (source == nullptr) {
+        error = "the RVZ was not opened as one";
+        return false;
+    }
+    const RvzImage& rvz = source->image();
+    if (rvz.head().iso_size > 0xFFFFFFFFull) {
+        error = "the RVZ's disc is larger than a GameCube disc";
+        return false;
+    }
+    if (!rvz.disc_runtime_table(out.table, error)) {
+        error = "the RVZ's groups cannot be read during play: " + error;
+        return false;
+    }
+    out.sizes = rvz_buffer_sizes(out.table);
+    out.disc_bytes = static_cast<std::uint32_t>(rvz.head().iso_size);
+    out.chunk_bytes = rvz.head().chunk_size;
+    std::memcpy(out.header, rvz.head().disc_header.data(), sizeof(out.header));
+    out.extents = extents_of(file);
+    if (out.extents.size() > GC_RVZ_MAX_EXTENTS) {
+        error = "the RVZ is in " + std::to_string(out.extents.size()) + " pieces on the SD card, more than the " +
+                std::to_string(GC_RVZ_MAX_EXTENTS) + " RiftWii can follow during play: copy it to the card again";
+        return false;
+    }
+    // The group table, 8 bytes a group (gc_rvz.h), read from the card a
+    // sector at a time during play.
+    mkdir("sd:/riftwii", 0777);
+    mkdir("sd:/riftwii/rvz", 0777);
+    const std::string path = "sd:/riftwii/rvz/" + image.id + ".groups";
+    {
+        std::FILE* f = std::fopen(path.c_str(), "wb");
+        const bool written =
+            f && std::fwrite(out.table.entries.data(), 1, out.table.entries.size(), f) == out.table.entries.size();
+        if (f) std::fclose(f);
+        if (!written) {
+            error = "cannot write " + path;
+            return false;
+        }
+    }
+    forget_sd_layout();  // the raw lookups' folder listings predate it
+    Fat32File groups;
+    if (!resolve_sd_file(path, groups, error)) {
+        error = path + ": " + error;
+        return false;
+    }
+    out.table_extents = extents_of(groups);
+    if (out.table_extents.size() > GC_RVZ_TABLE_EXTENTS) {
+        error = path + " is in too many pieces on the SD card";
+        return false;
+    }
+    logf("GameCube: %s, %u groups of %u KiB; group table %s (%u bytes, %u piece(s)), the RVZ in %u piece(s)\n",
+         describe_rvz(rvz.head()).c_str(), static_cast<unsigned>(out.table.group_count),
+         static_cast<unsigned>(out.chunk_bytes / 1024), path.c_str(),
+         static_cast<unsigned>(out.table.entries.size()), static_cast<unsigned>(out.table_extents.size()),
+         static_cast<unsigned>(out.extents.size()));
+    return true;
+}
+
+// The RVZ build of the blob out of its zstd frame (Makefile.runtime).
+bool unpack_gc_rvz_blob(std::vector<std::uint8_t>& out, std::string& error) {
+    const unsigned long long bytes = ZSTD_getFrameContentSize(riftwii_gc_rvz_zst, riftwii_gc_rvz_zst_size);
+    if (bytes == ZSTD_CONTENTSIZE_UNKNOWN || bytes == ZSTD_CONTENTSIZE_ERROR || bytes > (1u << 20)) {
+        error = "the GameCube RVZ blob in this build is damaged";
+        return false;
+    }
+    out.resize(static_cast<std::size_t>(bytes));
+    const std::size_t got = ZSTD_decompress(out.data(), out.size(), riftwii_gc_rvz_zst, riftwii_gc_rvz_zst_size);
+    if (ZSTD_isError(got) || got != out.size()) {
+        error = "the GameCube RVZ blob in this build is damaged";
+        return false;
+    }
+    return true;
+}
+
+// Cheats (riftwii/cheats.hpp), picked on the game page as for a Wii game:
+// the Gecko code handler at kCodeHandlerAddress and the code list after it
+// (to kCodeListEnd), in the GameCube's debugger area. Nothing of RiftWii's
+// is there in a GameCube launch (the blob, the DI registers' stand-in and
+// BI2 are at MEM1's top, the buffers in MEM2, the early exception stubs
+// below 0x80000E00), no game section loads under kGameFloor, and the
+// game's OS leaves the area alone. The handler runs at the end of the
+// game's __VIRetraceHandler, once per frame, as in a Wii game.
+struct GcCheats {
+    std::vector<std::uint8_t> gct;      // empty: no cheats
+    std::uint32_t hook = 0;             // the retrace handler's blr
+    std::vector<std::uint8_t> handler;  // the code handler as placed (gc_handler_without_fpu)
+};
+
+// The code handler for a GameCube game: the Gecko handler with its FPU use
+// taken out. As shipped it turns MSR[FP] on at its start, saves f2 and f3,
+// and leaves FP on when it returns. Hooked at the end of the GameCube SDK's
+// __VIRetraceHandler, in the OS's interrupt context, that crashed Luigi's
+// Mansion on a real Wii at its first retraces with any code on, even one
+// plain 04 write (an ISI at 0; with the MSR put back at its end, a hang);
+// without the FP enable and the f2/f3 save and restore it boots and the
+// codes apply (Jack's Wii, 18 Oct, sd:/riftwii/gc/cheatnofp of a test
+// build). Dolphin showed neither. The handler's only other FPU use is the
+// float add and multiply of the register operation codes (86/88 with
+// operation 9 or A): those now skip to the end of the operation, so such a
+// code does nothing in a GameCube game instead of raising an FP-unavailable
+// exception in the interrupt. False, with `why`, when the handler is not
+// the one these words were found in.
+static bool gc_handler_without_fpu(std::vector<std::uint8_t>& image, std::string& why) {
+    const auto word_at = [&](std::size_t at) {
+        return static_cast<std::uint32_t>(image[at]) << 24 | static_cast<std::uint32_t>(image[at + 1]) << 16 |
+               static_cast<std::uint32_t>(image[at + 2]) << 8 | image[at + 3];
+    };
+    const auto put = [&](std::size_t at, std::uint32_t w) {
+        image[at] = static_cast<std::uint8_t>(w >> 24);
+        image[at + 1] = static_cast<std::uint8_t>(w >> 16);
+        image[at + 2] = static_cast<std::uint8_t>(w >> 8);
+        image[at + 3] = static_cast<std::uint8_t>(w);
+    };
+    // Each instruction's place; it must be there exactly once.
+    const auto find_once = [&](std::uint32_t w, std::size_t& at) {
+        std::size_t found = 0;
+        for (std::size_t i = 0; i + 4 <= image.size(); i += 4) {
+            if (word_at(i) != w) continue;
+            at = i;
+            ++found;
+        }
+        return found == 1;
+    };
+    constexpr std::uint32_t kNop = 0x60000000;
+    struct Taken {
+        std::uint32_t word;
+        const char* what;
+    };
+    const Taken taken[] = {
+        {0x7F400124, "mtmsr r26 (FP on)"},
+        {0xD8410098, "stfd f2,152(r1)"},
+        {0xD86100A0, "stfd f3,160(r1)"},
+        {0xC8410098, "lfd f2,152(r1)"},
+        {0xC86100A0, "lfd f3,160(r1)"},
+    };
+    std::size_t places[5];
+    for (std::size_t i = 0; i < 5; ++i) {
+        if (!find_once(taken[i].word, places[i])) {
+            why = std::string("the code handler is not the one RiftWii knows (") + taken[i].what + ")";
+            return false;
+        }
+    }
+    std::size_t float_load = 0, float_store = 0;
+    if (!find_once(0xC05A0000, float_load) || !find_once(0xD05A0000, float_store) || float_store <= float_load) {
+        why = "the code handler is not the one RiftWii knows (its float operations)";
+        return false;
+    }
+    for (std::size_t place : places) put(place, kNop);
+    // lfs f2,0(r26) becomes a branch past stfs f2,0(r26).
+    put(float_load, 0x48000000 | static_cast<std::uint32_t>(float_store + 4 - float_load));
+    return true;
+}
+
+// IOS's globals area and the most of the function there that may run from
+// a copy (move_out_of_ios): a hook in it would be undone or left behind.
+constexpr std::uint32_t kIosAreaStart = 0x80003100;
+constexpr std::uint32_t kIosAreaEnd = kIosCounter + kMovedBytes;
+
+// The launch's cheats and where their hook goes, looked for in the game's
+// code before any patch of ours. False, with `why`, when they stay off.
+static bool plan_gc_cheats(const Dol& dol, GcCheats& out, std::string& why) {
+    const LaunchExtras& extras = CurrentLaunchExtras();
+    out = GcCheats{};
+    if (extras.cheat_gct.empty()) return true;
+    // A code build's gameconfig.txt (Project+) is for Wii games: its list
+    // place and hook type mean nothing here.
+    if (!extras.code_builds.empty() || extras.code_list_start != 0 || extras.code_hooktype == 7) {
+        why = "a code build's own codes are not supported for GameCube games";
+        return false;
+    }
+    // The handler's file ends with the first 8 bytes of its own (empty)
+    // code list, at kCodeListAddress: the list written there replaces them.
+    if (codehandleronly_bin_size > kCodeListEnd - kCodeHandlerAddress) {
+        why = "the code handler is larger than the debugger area";
+        return false;
+    }
+    const std::uint32_t room = kCodeListEnd - kCodeListAddress;
+    if (extras.cheat_gct.size() > room) {
+        why = "the codes need " + std::to_string(extras.cheat_gct.size()) + " bytes and the code list holds " +
+              std::to_string(room) + " (up to 0x80003000, where IOS's globals start); pick fewer cheats";
+        return false;
+    }
+    std::vector<CodeRange> text;
+    for (const Section& s : dol.text) text.push_back(CodeRange{s.address, s.bytes.data(), s.bytes.size()});
+    const std::uint32_t hook = find_gc_cheat_hook(text);
+    if (hook == 0) {
+        why = "the game's video retrace handler was not found, so there is nowhere to run them from";
+        return false;
+    }
+    if (hook >= kIosAreaStart && hook < kIosAreaEnd) {
+        why = "the end of the game's video retrace handler is in IOS's globals area, where RiftWii moves code";
+        return false;
+    }
+    std::vector<std::uint8_t> handler(codehandleronly_bin, codehandleronly_bin + codehandleronly_bin_size);
+    if (!gc_handler_without_fpu(handler, why)) return false;
+    out.gct = extras.cheat_gct;
+    out.hook = hook;
+    out.handler = std::move(handler);
+    return true;
+}
+
+// The branch to the handler, into the staged code, once every other patch
+// is in: false, with `why`, when one of them took the hook's word.
+static bool hook_gc_cheats(Code& code, const GcCheats& cheats, std::string& why) {
+    constexpr std::uint32_t kBlr = 0x4E800020;
+    if (code.at(cheats.hook) != kBlr) {
+        why = "another of RiftWii's patches changed the end of the game's video retrace handler";
+        return false;
+    }
+    const std::uint32_t jump = encode_b(cheats.hook, kCodeHandlerEntry);
+    if (jump == 0) {
+        why = "the code handler is out of a branch's reach from the game's video retrace handler";
+        return false;
+    }
+    code.put(cheats.hook, jump);
+    return true;
+}
+
+// The handler and the list into the debugger area: after the jump's clear
+// of low memory, before the game runs.
+static void place_gc_cheats(const GcCheats& cheats, const std::string& game_id) {
+    std::uint8_t* handler = reinterpret_cast<std::uint8_t*>(kCodeHandlerAddress);
+    std::memcpy(handler, cheats.handler.data(), cheats.handler.size());
+    // Its first bytes hold the game's ID, where cheat tools look for it.
+    std::memcpy(handler, game_id.data(), std::min<std::size_t>(6, game_id.size()));
+    void* list = reinterpret_cast<void*>(kCodeListAddress);
+    std::memset(list, 0, kCodeListEnd - kCodeListAddress);
+    std::memcpy(list, cheats.gct.data(), cheats.gct.size());
+    DCFlushRange(handler, kCodeListEnd - kCodeHandlerAddress);
+    ICInvalidateRange(handler, kCodeListEnd - kCodeHandlerAddress);
+}
+
+bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string& error) {
+    logf("GameCube (native): %s (%s)\n", image.id.c_str(), image.path.c_str());
+    // Test presses for Dolphin runs with no controller to press with
+    // (sd:/riftwii/gc/press), read while the card is still the file
+    // system's (before it is opened raw).
+    struct stat st_press;
+    const bool test_presses = stat("sd:/riftwii/gc/press", &st_press) == 0;
+    // A test of the way back (gc_rt.h's GC_FLAG_LEAVE).
+    const bool test_leave = stat("sd:/riftwii/gc/leave", &st_press) == 0;
+    // And of the crash screen (GC_FLAG_CRASH).
+    const bool test_crash = stat("sd:/riftwii/gc/crash", &st_press) == 0;
+    // And of it on a blanked screen (GC_FLAG_CRASH_BLACK).
+    const bool test_crash_black = stat("sd:/riftwii/gc/crashblack", &st_press) == 0;
+    // And of disc audio streaming: the music alone, to compare it with an
+    // offline decode (GC_FLAG_STREAM_ONLY).
+    const bool test_stream_only = stat("sd:/riftwii/gc/streamonly", &st_press) == 0;
+    // And of 16:9's hook without the widening (GC_FLAG_WIDEN).
+    const bool test_no_widen = stat("sd:/riftwii/gc/nowiden", &st_press) == 0;
+    // And of the ARAM addresses left as the SDK gives them in any game
+    // (sd:/riftwii/gc/keeparam), as gc_keeps_aram_addresses does for its
+    // list: tells whether a game's crash comes from the raised addresses
+    // without a build for it.
+    const bool test_keep_aram = stat("sd:/riftwii/gc/keeparam", &st_press) == 0;
+    const bool rvz = GcImageIsRvz(image.path);
+    Fat32File file;
+    if (!resolve_sd_file(image.path, file, error)) return false;
+    // The disc: the image file itself, or the disc an RVZ holds.
+    std::unique_ptr<ByteSource> disc;
+    if (!OpenGcDisc(image.path, disc, error)) return false;
+    const ByteSource& f = *disc;
+    // The game's view of the disc: the image, then the packs' window
+    // (gcoverlay.hpp) when there are packs. An RVZ's bytes are read from it
+    // by their offset in the image (the blob's RVZ build).
+    std::vector<GcRun> placed;
+    if (rvz) {
+        if (!gc_disc_runs_rvz(disc->size(), pack, placed, error)) return false;
+    } else if (!gc_disc_runs(file.fragments, file.entry.size, pack, placed, error)) {
+        return false;
+    }
+    GcRvzSetup rvz_setup;
+    if (rvz && !prepare_gc_rvz(image, *disc, file, rvz_setup, error)) return false;
+
+    std::vector<std::uint8_t> boot(0x440), bi2(kBi2Bytes);
+    Dol dol;
+    bool ok = read_at(f, 0, boot.data(), boot.size()) && read_at(f, 0x440, bi2.data(), bi2.size());
+    if (!ok) error = "cannot read " + image.path;
+    ok = ok && read_dol(f, be32(&boot[0x420]), dol, error);
+    // With packs, the header and FST are the plan's (the files moved to
+    // its window), and the game reads that FST from memory.
+    if (pack) std::copy(pack->header.begin(), pack->header.end(), boot.begin() + 0x420);
+    const std::uint32_t fst_size = be32(&boot[0x428]);
+    const std::uint32_t fst_max = std::max(be32(&boot[0x42C]), fst_size);
+    std::vector<std::uint8_t> fst(fst_size);
+    if (pack) {
+        fst = pack->fst;
+    } else if (ok && (fst.empty() || !read_at(f, be32(&boot[0x424]), fst.data(), fst.size()))) {
+        error = "cannot read the game's FST";
+        ok = false;
+    }
+    if (!ok) return false;
+
+
+    Code code(dol.text);
+    DvdLow low;
+    if (!find_dvd_low(code, low, error)) return false;
+    // The cheats' hook, found while the code is still the game's own.
+    GcCheats cheats;
+    std::string cheats_off;
+    if (!plan_gc_cheats(dol, cheats, cheats_off)) logf("Codes are off: %s\n", cheats_off.c_str());
+    logf("GameCube: DVDLowRead 0x%08x, Seek 0x%08x, ReadDiskID 0x%08x, Inquiry 0x%08x, StopMotor 0x%08x, "
+         "RequestError 0x%08x, AudioStream 0x%08x, AudioStatus 0x%08x, AudioConfig 0x%08x, Reset 0x%08x, "
+         "OSSetAlarm 0x%08x\n",
+         low.read, low.seek, low.disk_id, low.inquiry, low.stop_motor, low.request_error, low.audio_stream,
+         low.audio_status, low.audio_config, low.reset, low.set_alarm);
+
+    // Where RiftWii's part goes. MEM1's top, as the apploader leaves it:
+    // the FST, then (ours) the blob with its context, the code moved from
+    // IOS's counter, the ARAM stubs, the memory card's struct and the way
+    // back's block, packed around the DI registers' stand-in
+    // (riftwii/gclayout.hpp), and BI2's copy under them all, right on the
+    // arena's top. BI2 sits lowest: a disc whose bi2.bin still has
+    // developer arguments (Soulcalibur II's "Final_US.elf -O ...",
+    // argument offset 0x1FCC) has the SDK's __start set ArenaHi to BI2
+    // plus that offset, and OSInit then clears the arena up to there.
+    // Above everything of ours, that wiped the blob; below it, the new
+    // ArenaHi stays inside BI2's own copy.
+    //
+    // The blob's data buffers live in MEM2 after the memory card's image
+    // (kGcMem2Data): IOS reads and writes MEM2 as well as MEM1, the game
+    // never sees it, and it keeps the top of MEM1 small. Some games link
+    // their stack and ArenaLo up there: Mario Golf: Toadstool Tour and
+    // Mario Power Tennis start the stack at 0x817dc000, 0x24000 bytes under
+    // MEM1's end. The 0x2c000 bytes RiftWii's part took there before put
+    // ArenaHi under their ArenaLo, and OSInit's arena clear ran past MEM1's
+    // end. Code and the blob's context stay in MEM1, within reach of the
+    // game's own branches.
+    // The blob: the RVZ build for an RVZ (Zstandard and RVZ packing, 50 KB
+    // more of MEM1), the plain one for an ISO.
+    std::vector<std::uint8_t> rvz_blob;
+    const std::uint8_t* blob_bytes = riftwii_gc_bin;
+    std::size_t blob_size = riftwii_gc_bin_size;
+    if (rvz) {
+        if (!unpack_gc_rvz_blob(rvz_blob, error)) return false;
+        blob_bytes = rvz_blob.data();
+        blob_size = rvz_blob.size();
+    }
+    const gc_rt_header& h = *reinterpret_cast<const gc_rt_header*>(blob_bytes);
+    if (blob_size < sizeof(h) || h.magic != GC_RT_MAGIC || h.version != GC_RT_VERSION || h.size > blob_size) {
+        error = "the GameCube blob is damaged";
+        return false;
+    }
+    // The context the blob reserves (gc_entry.S) must hold the whole
+    // struct: one that ends past the blob writes into what lies above it.
+    if (h.context_offset + sizeof(gc_rt_context) > h.size) {
+        error = "the GameCube blob's context is smaller than gc_rt_context";
+        return false;
+    }
+    const std::uint32_t fst_addr = (kMem1Top - fst_max) & ~31u;
+    enum Mem1Piece { kPieceBlob, kPieceCard, kPieceMoved, kPieceLeave, kPieceStubs, kMem1Pieces };
+    std::vector<GcMem1Piece> mem1_pieces(kMem1Pieces);
+    mem1_pieces[kPieceBlob].bytes = h.size;  // the biggest first: it packs best
+    mem1_pieces[kPieceCard].bytes = sizeof(gc_card);
+    mem1_pieces[kPieceMoved].bytes = kMovedBytes;
+    mem1_pieces[kPieceLeave].bytes = kLeaveBytes;
+    mem1_pieces[kPieceStubs].bytes = kStubBytes;
+    const GcMem1Plan mem1 = plan_gc_mem1(fst_addr, mem1_pieces, kBi2Bytes);
+    const std::uint32_t blob_addr = mem1_pieces[kPieceBlob].address;
+    const std::uint32_t card_addr = mem1_pieces[kPieceCard].address;
+    const std::uint32_t moved_addr = mem1_pieces[kPieceMoved].address;
+    const std::uint32_t leave_addr = mem1_pieces[kPieceLeave].address;
+    const std::uint32_t stubs_addr = mem1_pieces[kPieceStubs].address;
+    const std::uint32_t di_regs = mem1.di_regs;
+    const std::uint32_t bi2_addr = mem1.bi2;
+    const std::uint32_t arena_hi = mem1.arena_hi;
+    if (arena_hi < kLoaderCeiling) {
+        error = "the game's FST is too large";
+        return false;
+    }
+    // MEM2, one after another from kGcMem2Data, each 32-byte aligned.
+    const std::uint32_t runs_bytes = static_cast<std::uint32_t>(placed.size() * sizeof(gc_rt_run));
+    std::uint32_t mem2_next = kGcMem2Data;
+    auto mem2_take = [&mem2_next](std::uint32_t bytes) {
+        const std::uint32_t at = mem2_next;
+        mem2_next = (at + bytes + 31u) & ~31u;
+        return at;
+    };
+    const std::uint32_t bounce_addr = mem2_take(kBounceBytes);
+    const std::uint32_t adp_addr = mem2_take(kStreamBytes);
+    const std::uint32_t stream_addr = mem2_take(sizeof(gc_rt_stream));
+    const std::uint32_t trace_addr = mem2_take(512);
+    const std::uint32_t bt_addr = mem2_take(sizeof(gc_bt));
+    const std::uint32_t crash_addr = mem2_take(GC_CRASH_SCREEN_BYTES);  // the card, then the strip
+    const std::uint32_t runs_addr = mem2_take(runs_bytes);
+    // An RVZ's reader: its state and the pieces of the RVZ on the card.
+    const std::uint32_t rvz_state_bytes =
+        rvz ? gc_rvz_state_bytes(static_cast<std::uint32_t>(rvz_setup.extents.size())) : 0;
+    const std::uint32_t rvz_addr = rvz ? mem2_take(rvz_state_bytes) : 0;
+    const std::uint32_t mem2_bytes = mem2_next - kGcMem2Data;
+    if (mem2_bytes > kGcMem2DataMax) {
+        error = "the packs' disc layout is too large";
+        return false;
+    }
+    // An RVZ's buffers, in their own window after those (kGcRvzCache): the
+    // decoder's workspace, a group as stored, and the two slots' decoded
+    // groups (the game's reads and the disc audio stream's).
+    std::uint32_t rvz_next = kGcRvzCache;
+    auto rvz_take = [&rvz_next](std::uint32_t bytes) {
+        const std::uint32_t at = rvz_next;
+        rvz_next = (at + bytes + 31u) & ~31u;
+        return at;
+    };
+    const std::uint32_t rvz_dctx_addr = rvz && rvz_setup.sizes.decoder ? rvz_take(kGcRvzDecoderBytes) : 0;
+    const std::uint32_t rvz_stored_addr = rvz && rvz_setup.sizes.stored ? rvz_take(rvz_setup.sizes.stored) : 0;
+    const std::uint32_t rvz_slot_addr[GC_RVZ_SLOTS] = {rvz ? rvz_take(rvz_setup.sizes.group) : 0,
+                                                       rvz ? rvz_take(rvz_setup.sizes.group) : 0};
+    if (rvz_next - kGcRvzCache > kGcRvzCacheMax) {
+        logf("GameCube: the RVZ's %u KiB chunks need %u KB of buffers in game, more than the %u KB set aside\n",
+             static_cast<unsigned>(rvz_setup.chunk_bytes / 1024), static_cast<unsigned>((rvz_next - kGcRvzCache) / 1024),
+             static_cast<unsigned>(kGcRvzCacheMax / 1024));
+        error = "This RVZ's chunks are too large to read during play: convert it again in Dolphin with 128 KiB chunks.";
+        return false;
+    }
+    // Built here, zeroed, and moved into MEM2 just before the jump with
+    // the card's image: the loader's own heap may be where it goes.
+    std::vector<std::uint8_t> mem2_stage(mem2_bytes, 0);
+    auto staged = [&mem2_stage](std::uint32_t mem2_address) {
+        return static_cast<void*>(mem2_stage.data() + (mem2_address - kGcMem2Data));
+    };
+
+    // The game's own layout at the top of MEM1: its stack's top (the r1
+    // that __init_registers sets) and ArenaLo (OSInit's __ArenaLo). The
+    // arena's top has to stay at or above both, or OSInit's clear wraps
+    // and the stack runs down into RiftWii's part.
+    {
+        const GcCodeReader read = [&code](std::uint32_t address, std::uint32_t& word) {
+            if (!code.has(address)) return false;
+            word = code.at(address);
+            return true;
+        };
+        std::vector<GcTextRange> text_ranges;
+        for (const Section& s : dol.text)
+            text_ranges.push_back({s.address, s.address + static_cast<std::uint32_t>(s.bytes.size())});
+        const GcStackTop stack = find_gc_stack_top(read, dol.entry);
+        const std::uint32_t arena_lo = find_gc_arena_lo(read, text_ranges);
+        char stack_text[48] = "not found";
+        char arena_text[16] = "not found";
+        if (stack.address != 0)
+            std::snprintf(stack_text, sizeof(stack_text), "0x%08x (set at 0x%08x)", static_cast<unsigned>(stack.address),
+                          static_cast<unsigned>(stack.set_at));
+        if (arena_lo != 0) std::snprintf(arena_text, sizeof(arena_text), "0x%08x", static_cast<unsigned>(arena_lo));
+        logf("GameCube: the game's stack top %s, its ArenaLo %s\n", stack_text, arena_text);
+        logf("GameCube: MEM1 from the arena's top 0x%08x: BI2 0x%08x, DI stand-in 0x%08x, blob 0x%08x (%u bytes, "
+             "context 0x%08x), memory card 0x%08x, way back 0x%08x, code at IOS's counter 0x%08x, ARAM stubs "
+             "0x%08x, FST 0x%08x (%u bytes)\n",
+             arena_hi, bi2_addr, di_regs, blob_addr, static_cast<unsigned>(h.size), blob_addr + h.context_offset,
+             card_addr, leave_addr, moved_addr, stubs_addr, fst_addr, static_cast<unsigned>(fst_max));
+        logf("GameCube: MEM2 0x%08x (%u bytes): bounce 0x%08x, stream 0x%08x (ring 0x%08x), trace 0x%08x, Wii "
+             "Remotes 0x%08x, crash screen 0x%08x (strip 0x%08x), %u run(s) 0x%08x\n",
+             kGcMem2Data, static_cast<unsigned>(mem2_bytes), bounce_addr, stream_addr, adp_addr, trace_addr, bt_addr,
+             crash_addr, crash_addr + GC_CRASH_CARD_BYTES, static_cast<unsigned>(placed.size()), runs_addr);
+        if (rvz)
+            logf("GameCube: RVZ reader 0x%08x (%u bytes); buffers 0x%08x (%u bytes): decoder 0x%08x, stored group "
+                 "0x%08x (%u bytes), the game's group 0x%08x and the stream's 0x%08x (%u bytes each)\n",
+                 rvz_addr, static_cast<unsigned>(rvz_state_bytes), kGcRvzCache,
+                 static_cast<unsigned>(rvz_next - kGcRvzCache), rvz_dctx_addr, rvz_stored_addr,
+                 static_cast<unsigned>(rvz_setup.sizes.stored), rvz_slot_addr[0], rvz_slot_addr[1],
+                 static_cast<unsigned>(rvz_setup.sizes.group));
+        const std::uint32_t game_floor = std::max(stack.address, arena_lo);
+        if (game_floor > arena_hi) {
+            logf("GameCube: the game's stack or arena starts at 0x%08x, above the arena's top 0x%08x: the FST and "
+                 "RiftWii's part leave it no room\n",
+                 game_floor, arena_hi);
+            error = rvz ? "the game keeps its stack where RiftWii's part has to be (top of MEM1), which is larger for "
+                          "an RVZ: use an ISO of it"
+                        : "the game keeps its stack where RiftWii's part has to be (top of MEM1)";
+            return false;
+        }
+    }
+
+    // The blob straight into place (above RiftWii's heap), its table to
+    // MEM2's stage.
+    std::memcpy(reinterpret_cast<void*>(blob_addr), blob_bytes, h.size);
+    // The RVZ build's references to Zstandard's tables, for where it now is.
+    if (rvz && !apply_resident_relocs(reinterpret_cast<std::uint8_t*>(blob_addr), h.size, riftwii_gc_rvz_rel,
+                                      riftwii_gc_rvz_rel_size, blob_addr, error)) {
+        error = "the GameCube RVZ blob: " + error;
+        return false;
+    }
+    auto* ctx = reinterpret_cast<gc_rt_context*>(blob_addr + h.context_offset);
+    auto* runs = static_cast<gc_rt_run*>(staged(runs_addr));
+    for (std::size_t i = 0; i < placed.size(); ++i) {
+        const GcRun& r = placed[i];
+        runs[i].disc = static_cast<std::uint32_t>(r.disc);
+        runs[i].length = static_cast<std::uint32_t>(r.length);
+        runs[i].skip = r.skip;
+        if (r.kind == GcRun::Kind::Sd) {
+            runs[i].kind = GC_RUN_SD;
+            runs[i].source = static_cast<std::uint32_t>(r.sector);
+        } else if (r.kind == GcRun::Kind::Image) {
+            runs[i].kind = GC_RUN_RVZ;
+            runs[i].source = static_cast<std::uint32_t>(r.image_offset);
+        } else if (r.kind == GcRun::Kind::Fst) {
+            runs[i].kind = GC_RUN_MEM;
+            runs[i].source = fst_addr + static_cast<std::uint32_t>(r.fst_offset);
+        } else {
+            runs[i].kind = GC_RUN_ZERO;
+            runs[i].source = 0;
+        }
+    }
+    std::memcpy(reinterpret_cast<void*>(fst_addr), fst.data(), fst.size());
+    std::memcpy(reinterpret_cast<void*>(bi2_addr), bi2.data(), bi2.size());
+    // Developer arguments left in bi2.bin move the game's ArenaHi (see the
+    // layout above): worth a line, as a disc with them clears up to there.
+    const std::uint32_t bi2_arg_offset = be32(&bi2[8]);
+    // What else of bi2.bin the game's start-up reads: the debug flag (2 or
+    // 3 has __start start the MetroTRK debugger), the simulated memory
+    // size and the controllers' spec, which a disc left with developer
+    // settings may hold too.
+    logf("GameCube: bi2 simulated memory 0x%08x, argument offset 0x%x, debug flag %u, pad spec %u\n",
+         static_cast<unsigned>(be32(&bi2[4])), static_cast<unsigned>(bi2_arg_offset),
+         static_cast<unsigned>(be32(&bi2[0xC])), static_cast<unsigned>(be32(&bi2[0x24])));
+    if (bi2_arg_offset != 0)
+        logf("GameCube: bi2 argument offset 0x%x: the game's __start sets ArenaHi from it (0x%08x), below the blob\n",
+             static_cast<unsigned>(bi2_arg_offset), static_cast<unsigned>((bi2_addr + bi2_arg_offset + 4) & ~31u));
+    // A simulated memory size above a retail console's 24 MB (a development
+    // kit's 48 MB left in bi2.bin) is brought down to 24 MB, as Swiss does
+    // for a disc that has one: a game that sizes its memory from it writes
+    // past MEM1's end.
+    if (be32(&bi2[4]) > 0x01800000) {
+        store32(bi2_addr + 4, 0x01800000);
+        logf("GameCube: bi2's simulated memory size lowered to a GameCube's 24 MB\n");
+    }
+
+    // The trace and the memory cards live in sd:/riftwii/gc. mkdir makes one
+    // level at a time, and a launch that did not come through the menu
+    // (autorun, headless) finds no gc folder on a fresh card: without these
+    // the game ran with no memory card and no trace.
+    mkdir("sd:/riftwii", 0777);
+    mkdir("sd:/riftwii/gc", 0777);
+    mkdir("sd:/riftwii/gc/cards", 0777);
+
+    // The trace (gc_rt.h): one cluster's worth of zeroed records, its
+    // sectors given to the blob, read back after a run that went wrong.
+    std::uint32_t trace_sector = 0, trace_count = 0;
+    {
+        static const char kTrace[] = "sd:/riftwii/gc/trace.bin";
+        std::vector<std::uint8_t> zeros(128 << 10);
+        std::FILE* t = std::fopen(kTrace, "wb");
+        const bool written = t && std::fwrite(zeros.data(), 1, zeros.size(), t) == zeros.size();
+        if (t) std::fclose(t);
+        forget_sd_layout();  // the raw lookups' folder listings predate it
+        Fat32File tf;
+        std::string why;
+        if (written && resolve_sd_file(kTrace, tf, why) && !tf.fragments.empty()) {
+            trace_sector = static_cast<std::uint32_t>(tf.fragments[0].sector);
+            trace_count = static_cast<std::uint32_t>(std::min<std::uint64_t>(256, tf.fragments[0].sector_count));
+        }
+        logf("GameCube: trace %s (sector %u, %u records)%s%s\n", trace_count ? "on" : "off", trace_sector, trace_count,
+             why.empty() ? "" : ": ", why.c_str());
+    }
+
+    // The memory card in slot A (gc_card.h): one file per game, or the shared one
+    // (gc_card_path), made and formatted the first time. Its whole image goes to MEM2 at the
+    // jump, and the blob writes what the game saves back to its sectors.
+    std::vector<std::uint8_t> card_image;
+    std::vector<gc_card_run> card_runs;
+    if (Settings().gc_backups != "off") back_up_card(image);
+    {
+        const std::string path = gc_card_path(image.id, image.shared_card);
+        card_image.assign(GC_CARD_BYTES, 0xFF);
+        bool ready = false;
+        bool exists = false;
+        long size = -1;
+        if (std::FILE* f = std::fopen(path.c_str(), "rb")) {
+            exists = true;
+            std::fseek(f, 0, SEEK_END);
+            size = std::ftell(f);
+            std::fseek(f, 0, SEEK_SET);
+            ready = size == static_cast<long>(GC_CARD_BYTES) &&
+                    std::fread(card_image.data(), 1, card_image.size(), f) == card_image.size();
+            std::fclose(f);
+        }
+        // A card of another size (a 59-block one from Dolphin or a real
+        // card, say) is never overwritten: its saves stay, and the game runs
+        // without a card. The menu still reads it, to copy its saves out.
+        const bool other_size = exists && size != static_cast<long>(GC_CARD_BYTES) && size != 0;
+        // New, empty, or never formatted (its header still erased): formatted here.
+        const bool blank = !other_size && (!ready || std::all_of(card_image.begin(), card_image.begin() + 0x200,
+                                                                   [](std::uint8_t b) { return b == 0xFF; }));
+        if (other_size) {
+            logf("GameCube: %s is %ld bytes, not a 251-block card's %u: left as it is, and the game runs without a card\n",
+                 path.c_str(), size, GC_CARD_BYTES);
+            ready = false;
+        }
+        if (blank) {
+            const bool shift_jis = gc_card_shift_jis(image.id);
+            format_card(card_image, shift_jis);
+            logf("GameCube: a newly formatted memory card, %s (%u KB)\n", path.c_str(), GC_CARD_BYTES / 1024);
+            std::FILE* f = std::fopen(path.c_str(), "wb");
+            ready = f && std::fwrite(card_image.data(), 1, card_image.size(), f) == card_image.size();
+            if (f) std::fclose(f);
+            forget_sd_layout();
+        }
+        Fat32File cf;
+        std::string why;
+        if (ready && resolve_sd_file(path.c_str(), cf, why)) {
+            std::uint32_t at = 0;
+            for (const auto& fr : cf.fragments) {
+                if (at >= GC_CARD_FILE_SECTORS) break;
+                gc_card_run run{};
+                run.card_sector = at;
+                run.sd_sector = static_cast<std::uint32_t>(fr.sector);
+                run.count = static_cast<std::uint32_t>(
+                    std::min<std::uint64_t>(fr.sector_count, GC_CARD_FILE_SECTORS - at));
+                at += run.count;
+                card_runs.push_back(run);
+            }
+            if (at < GC_CARD_FILE_SECTORS || card_runs.size() > GC_CARD_RUNS) {
+                why = "the file is in too many pieces or too short";
+                card_runs.clear();
+            }
+        }
+        if (card_runs.empty()) {
+            logf("GameCube: no memory card (%s): %s\n", path.c_str(), why.empty() ? "it could not be made" : why.c_str());
+            card_image.clear();
+        } else {
+            logf("GameCube: memory card %s, %u piece(s)\n", path.c_str(), static_cast<unsigned>(card_runs.size()));
+        }
+    }
+
+    // Hooks into the blob, in the staged code.
+    auto hook = [&](std::uint32_t fn, std::uint32_t entry) {
+        if (fn != 0) code.put(fn, branch(fn, blob_addr + entry));
+    };
+    // A hook that runs the original afterwards: its first word to the
+    // replay slot, then the jump to its second.
+    auto replay_hook = [&](std::uint32_t fn, std::uint32_t entry, std::uint32_t replay, std::uint32_t back) {
+        store32(blob_addr + replay, code.at(fn));
+        store32(blob_addr + back, 0x3D800000 | ((fn + 4) >> 16));
+        store32(blob_addr + back + 4, 0x618C0000 | ((fn + 4) & 0xFFFF));
+        hook(fn, entry);
+    };
+    // The game's picture and language options, while the log still
+    // reaches the card (testers send it).
+    apply_picture_and_language(image, code, [&](std::uint32_t fn, std::uint32_t entry, std::uint32_t replay,
+                                                std::uint32_t back) {
+        // The replay slot runs the first word elsewhere: not a relative branch.
+        const unsigned first = opcode(code.at(fn));
+        if (first == 16 || first == 18) return false;
+        replay_hook(fn, entry, replay, back);
+        return true;
+    }, h, ctx, test_no_widen);
+
+    // Luigi's Mansion: its loads allocate from the heap they were queued from.
+    const LmLoader lm = find_lm_loader(image.id, code);
+    if (lm.heap_offset != 0) {
+        ctx->load_post = lm.post;
+        ctx->load_group = lm.group;
+        ctx->load_alloc = lm.alloc;
+        ctx->load_heap_offset = lm.heap_offset;
+        for (std::uint32_t site : lm.post_sites) code.put(site, branch(site, blob_addr + h.hook_load_queued) | 1);  // bl
+        code.put(lm.alloc_site, branch(lm.alloc_site, blob_addr + h.hook_load_alloc) | 1);
+        code.put(lm.callbacks_site, branch(lm.callbacks_site, blob_addr + h.hook_load_callbacks) | 1);
+        code.put(lm.callbacks_done_site, branch(lm.callbacks_done_site, blob_addr + h.hook_load_callbacks_done) | 1);
+        logf("GameCube: the file loader's buffers and callbacks use the heap each load was queued from (post 0x%08x "
+             "from %u place(s), alloc 0x%08x, current heap at r13%+d)\n",
+             static_cast<unsigned>(lm.post), static_cast<unsigned>(lm.post_sites.size()),
+             static_cast<unsigned>(lm.alloc), static_cast<int>(static_cast<std::int32_t>(lm.heap_offset)));
+    } else if (gc_loads_use_queued_heap(image.id)) {
+        logf("GameCube: Luigi's Mansion's file loader was not found; it allocates from whichever heap is current\n");
+    }
+
+    // What holding HOME goes to.
+    prepare_leave(ctx, leave_addr, test_leave);
+    ctx->crash_card = 0;
+    // A hint promising that HOME or A goes back is left out (with the
+    // dump) when there is no way back after all (/dev/es did not open): a
+    // plain blue screen beats a promise the buttons cannot keep.
+    const bool broken_promise = g_crash_screen_way_back && ctx->leave_buf == 0;
+    if (broken_promise && !g_crash_screen.empty())
+        logf("GameCube: the crash screen's dump and hint are left out, as the hint promises a way back there is not\n");
+    if (g_crash_screen.size() == GC_CRASH_SCREEN_BYTES && !broken_promise) {
+        std::memcpy(staged(crash_addr), g_crash_screen.data(), GC_CRASH_SCREEN_BYTES);
+        ctx->crash_card = crash_addr;
+    }
+    ctx->runs = runs_addr;
+    ctx->run_count = static_cast<std::uint32_t>(placed.size());
+    if (rvz) {
+        // The RVZ's reader (gc_rvz.h), staged with the rest of MEM2's data;
+        // its buffers need nothing in them.
+        auto* reader = static_cast<gc_rvz*>(staged(rvz_addr));
+        reader->magic = GC_RVZ_MAGIC;
+        reader->disc_bytes = rvz_setup.disc_bytes;
+        reader->chunk_bytes = rvz_setup.chunk_bytes;
+        reader->group_count = rvz_setup.table.group_count;
+        reader->stored_buffer = rvz_stored_addr;
+        reader->stored_bytes = rvz_stored_addr ? rvz_setup.sizes.stored : 0;
+        reader->dctx_buffer = rvz_dctx_addr;
+        reader->dctx_bytes = rvz_dctx_addr ? kGcRvzDecoderBytes : 0;
+        for (std::uint32_t s = 0; s < GC_RVZ_SLOTS; ++s) {
+            reader->slots[s].buffer = rvz_slot_addr[s];
+            reader->slots[s].buffer_bytes = rvz_setup.sizes.group;
+            reader->slots[s].group = GC_RVZ_NO_GROUP;
+        }
+        std::memcpy(reader->header, rvz_setup.header, sizeof(reader->header));
+        reader->entry_sector = GC_RVZ_NO_GROUP;
+        reader->table_extent_count = static_cast<std::uint32_t>(rvz_setup.table_extents.size());
+        std::copy(rvz_setup.table_extents.begin(), rvz_setup.table_extents.end(), reader->table_extents);
+        reader->extent_count = static_cast<std::uint32_t>(rvz_setup.extents.size());
+        std::copy(rvz_setup.extents.begin(), rvz_setup.extents.end(), reader->extents);
+        ctx->rvz = rvz_addr;
+    }
+    ctx->set_alarm = low.set_alarm;
+    ctx->alarm_entry = blob_addr + h.alarm_entry;
+    ctx->bounce = bounce_addr;
+    ctx->bounce_bytes = kBounceBytes;
+    ctx->delay_ticks = 2000;  // about 30 microseconds
+    // Reads take a GameCube drive's time (gc_drive_ticks) unless the game's
+    // Loading speed option says Fast.
+    ctx->drive_timing = image.drive_timing ? 1 : 0;
+    ctx->beat_ticks = 30375000;  // half a second of the bus clock / 4
+    ctx->di_regs = di_regs;
+    std::memset(reinterpret_cast<void*>(di_regs), 0, 0x40);
+    auto* stream = static_cast<gc_rt_stream*>(staged(stream_addr));
+    stream->buf = adp_addr;
+    stream->buf_bytes = kStreamBytes;
+    stream->sample = 28;
+    ctx->stream = stream_addr;
+    ctx->trace_sector = trace_sector;
+    ctx->trace_count = trace_count;
+    ctx->trace_buf = trace_addr;
+    // The Wii Remotes' state (gc_bt.h), zeroed in MEM2's stage: the blob
+    // opens the Bluetooth controller at the game's first PADRead.
+    ctx->bt = bt_addr;
+    auto* memcard = reinterpret_cast<gc_card*>(card_addr);
+    std::memset(memcard, 0, sizeof(*memcard));
+    // Its landing words (gc_card.h), with the card on or off: a jump to the
+    // struct's start shows the crash screen with the jumper's LR and CTR.
+    memcard->landing[0] = 0x7C0802A6;  // mflr r0
+    memcard->landing[1] = branch(card_addr + 4, blob_addr + h.stray_entry) | 1;  // bl gc_stray_entry
+
+    // The hooks, in the staged code.
+    hook(low.read, h.hook_read);
+    hook(low.seek, h.hook_seek);
+    hook(low.disk_id, h.hook_disk_id);
+    hook(low.inquiry, h.hook_inquiry);
+    hook(low.stop_motor, h.hook_cb_r3);
+    hook(low.request_error, h.hook_cb_r3);
+    hook(low.audio_status, h.hook_audio_status);
+    hook(low.audio_config, h.hook_cb_r5);
+    hook(low.audio_stream, h.hook_audio_stream);
+    const unsigned di_patches = redirect_di_registers(code, di_regs);
+    unsigned wii_mixed = 0;
+    const unsigned wii_blocks = redirect_wii_blocks(code, wii_mixed);
+    logf("GameCube: %u SI/EXI/AI register base(s) moved to 0xCD00 (%u also used elsewhere, left)\n", wii_blocks,
+         wii_mixed);
+    const std::uint32_t ai_dma = find_dsp_stores(code, {0xCC005030, 0xCC005032, 0xCC005036});
+    if (ai_dma != 0) {
+        // Its first word to the replay slot, then the jump to its second.
+        const std::uint32_t replay = blob_addr + h.replay_ai_dma;
+        const std::uint32_t back = blob_addr + h.continue_ai_dma;
+        const std::uint32_t first = code.at(ai_dma);
+        if ((first >> 26) == 18 || (first >> 26) == 16) {
+            error = "AIInitDMA starts with a branch (not handled yet)";
+            return false;
+        }
+        store32(replay, first);
+        store32(back, 0x3D800000 | ((ai_dma + 4) >> 16));        // lis r12, hi
+        store32(back + 4, 0x618C0000 | ((ai_dma + 4) & 0xFFFF));  // ori r12, r12, lo
+        hook(ai_dma, h.hook_ai_dma);
+    }
+    // PADRead: the Wii Remotes are polled from it, and the test presses
+    // go in there.
+    const std::uint32_t pad_read = find_pad_read(code);
+    if (pad_read != 0) {
+        replay_hook(pad_read, h.hook_pad_read, h.replay_pad_read, h.continue_pad_read);
+        if (test_presses) ctx->flags |= GC_FLAG_PRESS;
+        if (test_leave) ctx->flags |= GC_FLAG_LEAVE;
+        if (test_crash || test_crash_black) ctx->flags |= GC_FLAG_CRASH;
+        if (test_crash_black) ctx->flags |= GC_FLAG_CRASH_BLACK;
+    }
+    if (test_stream_only) ctx->flags |= GC_FLAG_STREAM_ONLY;
+    // The memory card: the EXI functions to the blob (gc_card.h).
+    if (!card_image.empty()) {
+        std::uint32_t exi[GC_EXI_HOOKS];
+        const std::uint32_t ecb = find_exi_functions(code, exi);
+        bool branches = false;
+        for (std::uint32_t f : exi)
+            if (f != 0 && ((code.at(f) >> 26) == 18 || (code.at(f) >> 26) == 16)) branches = true;
+        if (ecb != 0 && !branches) {
+            for (unsigned i = 0; i < GC_EXI_HOOKS; ++i) {
+                if (exi[i] == 0) continue;  // EXIProbeEx, which the 2001 SDK does not have
+                const std::uint32_t entry = h.exi_hooks + 12 * i;
+                replay_hook(exi[i], load32(blob_addr + entry), load32(blob_addr + entry + 4),
+                            load32(blob_addr + entry + 8));
+            }
+            memcard->image = GC_CARD_IMAGE;
+            memcard->ecb = ecb;
+            memcard->run_count = static_cast<std::uint32_t>(card_runs.size());
+            std::copy(card_runs.begin(), card_runs.end(), memcard->runs);
+            ctx->card = card_addr;
+        }
+        logf("GameCube: memory card %s (EXI blocks 0x%08x, EXIImm 0x%08x, EXIGetID 0x%08x)\n",
+             ctx->card ? "in slot A" : "off: the EXI functions were not all found", ecb, exi[GC_EXI_IMM],
+             exi[GC_EXI_GET_ID]);
+    }
+    const std::uint32_t ar_dma = find_dsp_stores(code, {0xCC005020, 0xCC005022, 0xCC005024, 0xCC005026,
+                                                         0xCC005028, 0xCC00502A});
+    if (ar_dma != 0) replay_hook(ar_dma, h.hook_ar_dma, h.replay_ar_dma, h.continue_ar_dma);
+    // The sound program reads ARAM from MEM2 (where the blob keeps it) in
+    // one of two ways, and a Wii and Dolphin each take only one of them.
+    // The DSP's sample reader keeps its addresses in the samples' own units
+    // (nibbles for 4-bit samples, words for 16-bit). A Wii picks MEM2 by
+    // bit 28 of that register: Nintendont's patched programs set it there,
+    // and they play right on a Wii. Dolphin turns the register into a byte
+    // address first and looks at bit 28 of that, and its fast HLE audio
+    // reads byte addresses itself and stops on a patched program. So:
+    //  - on a Wii, the program is patched (patch_dsp_programs). Raising
+    //    the game's byte addresses instead (raise_aram_base) put bit 29,
+    //    not 28, into a 4-bit sample's register, and Super Mario Eclipse's
+    //    music came out garbled on a Wii (clean in Dolphin);
+    //  - in Dolphin, and for a program not in Nintendont's list, the game's
+    //    ARAM addresses are raised.
+    const bool on_wii = !running_in_dolphin();
+    const unsigned dsp_patched = on_wii ? patch_dsp_programs(dol) : 0;
+    std::vector<std::uint32_t> stub_words;
+    // A game whose own checks need the SDK's ARAM addresses keeps them
+    // (gxpatches.hpp's gc_keeps_aram_addresses).
+    const bool keep_aram = gc_keeps_aram_addresses(image.id) || test_keep_aram;
+    const unsigned aram_raised =
+        dsp_patched || keep_aram ? 0 : raise_aram_base(code, find_aram_check(code), stubs_addr, stub_words);
+    for (std::size_t i = 0; i < stub_words.size(); ++i) store32(stubs_addr + 4 * i, stub_words[i]);
+    DCFlushRange(reinterpret_cast<void*>(stubs_addr), kStubBytes);
+    ICInvalidateRange(reinterpret_cast<void*>(stubs_addr), kStubBytes);
+    if (dsp_patched)
+        logf("GameCube: %u sound program(s) patched to read ARAM from MEM2 (a Wii)\n", dsp_patched);
+    else if (keep_aram && !gc_keeps_aram_addresses(image.id))
+        logf("GameCube: ARAM addresses left as the SDK gives them, as sd:/riftwii/gc/keeparam asks (the sound "
+             "may play wrong)\n");
+    else if (keep_aram)
+        logf("GameCube: ARAM addresses left as the SDK gives them: %s checks them against its own limit "
+             "(its sound may play wrong)\n", image.id.c_str());
+    else
+        logf("GameCube: ARAM addresses from 0x10004000 (%u place(s)) for the sound program to read MEM2 (%s)\n",
+             aram_raised, on_wii ? "a Wii, the program not one Nintendont's list knows" : "Dolphin");
+    const bool aram_check_skipped = skip_aram_size_check(code);
+    const unsigned ai_waits = skip_ai_stream_waits(code);
+    logf("GameCube: %u wait(s) for the AI stream counter skipped\n", ai_waits);
+    logf("GameCube: ARAM in MEM2 through ARStartDMA 0x%08x, size check %s\n", ar_dma,
+         aram_check_skipped ? "skipped" : "not found");
+    // A crash shows itself on the screen and in the trace instead of a
+    // blank halt.
+    const std::uint32_t unhandled = find_unhandled_exception(code, dol);
+    hook(unhandled, h.hook_fatal);
+    std::vector<std::uint32_t> moved;
+    const bool moved_out = move_out_of_ios(code, moved_addr, moved);
+    for (std::size_t i = 0; i < moved.size(); ++i) store32(moved_addr + 4 * i, moved[i]);
+    DCFlushRange(reinterpret_cast<void*>(moved_addr), kMovedBytes);
+    ICInvalidateRange(reinterpret_cast<void*>(moved_addr), kMovedBytes);
+    logf("GameCube: the code at IOS's counter (0x%08x) %s\n", kIosCounter,
+         moved_out ? "runs from a copy" : "left where it is");
+    // The guard (gc_rt.h): the game's bytes for IOS's globals area, taken
+    // after every patch above (the branch to the moved code is one), or the
+    // guard would put the unpatched words back.
+    for (const Section& s : dol.text)
+        if (s.address <= 0x80003100 && s.address + s.bytes.size() >= 0x80003200) {
+            ctx->guard_addr = 0x80003100;
+            for (std::uint32_t i = 0; i < 64; ++i) ctx->guard_copy[i] = be32(&s.bytes[0x80003100 - s.address + 4 * i]);
+        }
+    logf("GameCube: __OSUnhandledException 0x%08x\n", unhandled);
+    logf("GameCube: PADRead 0x%08x%s, ARStartDMA 0x%08x\n", pad_read, test_presses ? " (test presses)" : "", ar_dma);
+    logf("GameCube: Wii Remotes %s\n", pad_read == 0 ? "off (no PADRead found)" : "on");
+    logf("GameCube: %u DI register access(es) sent to 0x%08x; AIInitDMA 0x%08x%s\n", di_patches, di_regs, ai_dma,
+         ai_dma ? "" : " (not found: no disc audio streaming)");
+    if (low.reset != 0) code.put(low.reset, 0x4E800020);  // blr: the drive is not there to reset
+    // The cheats' hook, last: every patch above is in, so none can have
+    // taken its word unnoticed.
+    if (!cheats.gct.empty()) {
+        if (hook_gc_cheats(code, cheats, cheats_off)) {
+            logf("Codes: %u cheat(s), %u bytes at 0x%08x, handler at 0x%08x called from the retrace handler 0x%08x "
+                 "(the handler leaves the FPU alone: float operation codes do nothing)\n",
+                 static_cast<unsigned>(CurrentLaunchExtras().cheat_count), static_cast<unsigned>(cheats.gct.size()),
+                 kCodeListAddress, kCodeHandlerAddress, cheats.hook);
+        } else {
+            logf("Codes are off: %s\n", cheats_off.c_str());
+            cheats = GcCheats{};
+        }
+    }
+
+    // The SD card goes to the blob only now, after every patch above, so
+    // their log lines still reach boot.log (testers send it). The card,
+    // opened and selected: IOS lets one owner have the slot, so the file
+    // system lets go first, as a Wii game's launch does.
+    // What goes to MEM2 at the jump, as one block: the card's image (when
+    // the game has a card) and the blob's buffers right after it.
+    const std::uint32_t mem2_card_bytes = ctx->card ? GC_CARD_BYTES : 0;
+    const std::uint32_t mem2_from = kGcMem2Data - mem2_card_bytes;
+    std::vector<std::uint8_t> mem2_image;
+    if (ctx->card) {
+        card_image.resize(GC_CARD_BYTES + mem2_bytes);
+        std::memcpy(card_image.data() + GC_CARD_BYTES, mem2_stage.data(), mem2_bytes);
+        mem2_image.swap(card_image);
+    } else {
+        mem2_image.swap(mem2_stage);
+    }
+    logf("Releasing the SD card (the log ends here; the rest is on screen)\n");
+    LogClose();
+    fatUnmount("sd:");
+    sd_interface()->shutdown();
+    sdio::Card card;
+    if (!sdio::open_card(card, error)) return false;
+    if (card.d2x) {
+        error = "the SD card is in use through d2x (not handled yet)";
+        return false;
+    }
+    ctx->sdio_fd = static_cast<std::uint32_t>(card.fd);
+    ctx->sdhc = card.sdhc ? 1 : 0;
+    ctx->card_rca = card.rca;
+
+    const std::uint32_t tv_mode = image.id.size() > 3 && (image.id[3] == 'P' || image.id[3] == 'D' ||
+                                                          image.id[3] == 'F' || image.id[3] == 'S' ||
+                                                          image.id[3] == 'I' || image.id[3] == 'X')
+                                      ? 1  // PAL
+                                      : 0;
+    logf("GameCube: entry 0x%08x, FST 0x%08x, blob 0x%08x (%u bytes), %u run(s), arena top 0x%08x, card fd %d %s\n",
+         dol.entry, fst_addr, blob_addr, static_cast<unsigned>(h.size), static_cast<unsigned>(placed.size()),
+         arena_hi, card.fd, card.sdhc ? "SDHC" : "SDSC");
+    DCFlushRange(reinterpret_cast<void*>(bi2_addr), kMem1Top - bi2_addr);
+    ICInvalidateRange(reinterpret_cast<void*>(blob_addr), h.size);
+    ICInvalidateRange(memcard->landing, sizeof(memcard->landing));
+
+    LogClose();
+    // The frame stays on screen until the game sets up its own video; a
+    // crash turns it blue (gc_on_fatal) when the VI's registers give none.
+    const std::uint32_t xfb = reinterpret_cast<std::uint32_t>(VIDEO_GetCurrentFramebuffer());
+    const std::uint32_t xfb_bytes = 640 * 480 * 2;
+    ctx->xfb = xfb;
+    ctx->xfb_bytes = xfb_bytes;
+    DCFlushRange(ctx, sizeof(*ctx));
+    // The Wii's video encoder in the game's region. It has its own region
+    // setting (NTSC, PAL...) that libogc writes from its retrace handler
+    // when the video mode changes; once the game runs that handler is
+    // gone, so a US game on a PAL Wii ran its NTSC picture through an
+    // encoder still set for PAL: red came out blue, yellow cyan. The
+    // game's own mode, and two retraces for the handler to apply it.
+    VIDEO_Configure(tv_mode == 1 ? &TVPal528IntDf : &TVNtsc480IntDf);
+    VIDEO_SetNextFramebuffer(reinterpret_cast<void*>(xfb));
+    VIDEO_Flush();
+    VIDEO_WaitVSync();
+    VIDEO_WaitVSync();
+    SYS_ResetSystem(SYS_SHUTDOWN, 0, 0);
+    u32 level;
+    _CPU_ISR_Disable(level);
+    (void)level;
+
+    // Low memory as a GameCube's start-up leaves it for the game.
+    std::memset(reinterpret_cast<void*>(0x80000000), 0, kGameFloor - 0x80000000);
+    for (const Section& s : dol.text) std::memcpy(reinterpret_cast<void*>(s.address), s.bytes.data(), s.bytes.size());
+    for (const Section& s : dol.data) std::memcpy(reinterpret_cast<void*>(s.address), s.bytes.data(), s.bytes.size());
+    if (dol.bss_size != 0) {
+        // Sections may sit inside the BSS range; zero only around them.
+        std::vector<std::pair<std::uint32_t, std::uint32_t>> used;
+        for (const Section& s : dol.data) used.emplace_back(s.address, s.address + s.bytes.size());
+        for (std::uint32_t a = dol.bss; a < dol.bss + dol.bss_size; ++a) {
+            bool inside = false;
+            for (auto& u : used)
+                if (a >= u.first && a < u.second) inside = true;
+            if (!inside) *reinterpret_cast<volatile std::uint8_t*>(a) = 0;
+        }
+    }
+    std::memcpy(reinterpret_cast<void*>(0x80000000), boot.data(), 0x20);
+    store32(0x80000020, 0x0D15EA5E);
+    store32(0x80000024, 1);
+    store32(0x80000028, 0x01800000);
+    store32(0x8000002C, 0x00000003);  // a retail console
+    store32(0x80000034, arena_hi);
+    store32(0x80000038, fst_addr);
+    store32(0x8000003C, fst_max);
+    store32(0x800000CC, tv_mode);
+    store32(0x800000D0, 0x01000000);  // ARAM
+    store32(0x800000EC, kMem1Top);
+    store32(0x800000F0, 0x01800000);
+    store32(0x800000F4, bi2_addr);
+    store32(0x800000F8, kWiiBusClock);
+    store32(0x800000FC, kWiiCpuClock);
+    // After the clear above, which would have taken them.
+    if (!cheats.gct.empty()) place_gc_cheats(cheats, image.id);
+    // IOS's replies stay polled: no IPC interrupt reaches the game.
+    store32(0xCD000004, 0);
+    // Nor any other of Hollywood's interrupts: the game's OS knows none of
+    // them and could not clear one (HW_PPCIRQMASK, then the flags acked).
+    store32(0xCD000034, 0);
+    store32(0xCD000030, 0xFFFFFFFF);
+    // A first trace record through the blob's own IPC, as the game will
+    // use it. The guarded bytes in memory before the checks' IOS requests compare them.
+    DCFlushRange(reinterpret_cast<void*>(0x80003100), 0x100);
+    // MEM2 now, before the blob's first trace record (its buffer is
+    // there): one move of what was put together above. The heap it comes
+    // from may be where it goes; memmove copes with one overlapping copy,
+    // and nothing reads the heap after.
+    std::memmove(reinterpret_cast<void*>(mem2_from), mem2_image.data(), mem2_image.size());
+    DCFlushRange(reinterpret_cast<void*>(mem2_from), mem2_image.size());
+    reinterpret_cast<void (*)(std::uint32_t)>(blob_addr + h.trace_now)(GC_TRACE_JUMP);
+    // Until the game's OS installs its own exception handlers, every
+    // vector goes to the blob's crash screen (gc_on_fatal), so a crash in
+    // the first moments shows instead of hanging on an empty vector. Each
+    // stub saves r3, SRR0, SRR1 and its number in SPRG0-3 and rfi's to
+    // dsi_entry with translation on.
+    {
+        const std::uint32_t entry = blob_addr + h.dsi_entry;
+        for (std::uint32_t vector = 0x2; vector <= 0xD; ++vector) {
+            const std::uint32_t stub[] = {
+                0x7C7043A6,                    // mtsprg 0,r3
+                0x38600000 | vector,           // li r3,vector
+                0x7C7343A6,                    // mtsprg 3,r3
+                0x7C7A02A6,                    // mfsrr0 r3
+                0x7C7143A6,                    // mtsprg 1,r3
+                0x7C7B02A6,                    // mfsrr1 r3
+                0x7C7243A6,                    // mtsprg 2,r3
+                0x3C600000 | (entry >> 16),    // lis r3,entry@h
+                0x60630000 | (entry & 0xFFFF), // ori r3,r3,entry@l
+                0x7C7A03A6,                    // mtsrr0 r3
+                0x7C6000A6,                    // mfmsr r3
+                0x60630030,                    // ori r3,r3,0x30 (IR, DR)
+                0x7C7B03A6,                    // mtsrr1 r3
+                0x4C000064,                    // rfi
+            };
+            for (std::size_t i = 0; i < sizeof(stub) / sizeof(stub[0]); ++i)
+                store32(0x80000000 + vector * 0x100 + 4 * i, stub[i]);
+        }
+    }
+    DCFlushRange(reinterpret_cast<void*>(0x80000000), kLoaderStart - 0x80000000);
+    ICInvalidateRange(reinterpret_cast<void*>(0x80000000), kLoaderStart - 0x80000000);
+    reinterpret_cast<void (*)()>(dol.entry)();
+    return false;
+}
+
+}  // namespace riftwii::wii

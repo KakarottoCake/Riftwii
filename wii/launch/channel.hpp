@@ -24,6 +24,15 @@ unsigned ChannelVersionNeeded();
 // when it is not installed.
 unsigned long long ChannelTitle();
 
+// Whether the Homebrew Channel started RiftWii: its return stub at
+// 0x80001800 ("STUBHAXX" at 0x80001804), which std::exit goes back
+// through. Started from the RiftWii channel there is none.
+bool StartedByHomebrewChannel();
+// The Homebrew Channel as an installed title: LULZ (1.1 and later, Wii and
+// vWii), OHBC (the Open Homebrew Channel), HAXX or JODI (older ones), the
+// first with a ticket; 0 when none is installed.
+unsigned long long HomebrewChannelTitle();
+
 // Whether the installer app is on the card (Settings opens it); `why`
 // says where to get it when it is not.
 bool ChannelInstallerPresent(std::string& why);

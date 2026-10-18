@@ -186,6 +186,19 @@ bool SelectUsbGame(FrontendState& state, std::size_t index, std::string& error) 
     return true;
 }
 
+// The note at Start for a GameCube game from an RVZ (wii/launch/gclaunch.hpp),
+// as rvz_warning gives a Wii game's: experimental, and at the player's own
+// risk when check_rvz says so, with its reasons.
+static std::string GcRvzWarning(const ImageGame& game) {
+    if (game.format != UsbImageFormat::Rvz) return std::string();
+    std::string text = tr("RVZ is experimental for GameCube games; if it fails, use an ISO copy.");
+    if (game.rvz_support != RvzSupport::AtOwnRisk) return text;
+    text += " ";
+    text += tr("Play at your own risk:");
+    for (const std::string& r : game.rvz_reasons) text += " " + r;
+    return text;
+}
+
 bool SelectSdGame(FrontendState& state, std::size_t index, std::string& error) {
     state.profile_key.clear();
     state.profile_name.clear();
@@ -194,11 +207,16 @@ bool SelectSdGame(FrontendState& state, std::size_t index, std::string& error) {
     if (!check_image_game(state.sd_catalog.games[index], error)) return false;
     state.use_usb = false; state.use_sd = true; state.use_channel = false; state.usb_index = 0; state.sd_index = index;
     const ImageGame& g = state.sd_catalog.games[index];
-    state.launch_warning = rvz_warning(g);
+    state.launch_warning = g.gamecube ? GcRvzWarning(g) : rvz_warning(g);
     state.warning_shown = false;
     state.game_id=g.id; state.disc_title=g.title; state.disc_status="SD: "+(g.display.empty() ? g.title : g.display)+"  ("+g.id+")";
     state.game_revision=g.revision; state.game_disc_number=g.disc_number;
-    if (!state.sd_catalog.cios_note.empty()) state.disc_status += "  [no cIOS: install d2x for SD boot]";
+    // For the log (autorun, headless); the game page says it in its facts
+    // and the Play tile.
+    if (g.gamecube && !g.gc_patch_source.empty())
+        state.disc_status += "  [GameCube, made from " + g.gc_patch_source + " on first start]";
+    else if (g.gamecube) state.disc_status += "  [GameCube]";
+    else if (!state.sd_catalog.cios_note.empty()) state.disc_status += "  [no cIOS: install d2x for SD boot]";
     state.choices_path=std::string(kChoicesDir)+"/"+g.id+".txt";
     error.clear(); return true;
 }

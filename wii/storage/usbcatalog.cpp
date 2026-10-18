@@ -23,6 +23,7 @@
 #include <sstream>
 
 #include "d2xsd.hpp"
+#include "gclaunch.hpp"
 #include "loadersettings.hpp"
 #include "online.hpp"
 #include "boot.hpp"
@@ -596,7 +597,14 @@ bool open_rvz_game(const ImageVolume& volume, const std::string& prefix, ImageGa
     if (!read_rvz_head(*image.pieces[0].source, head, error)) return false;
     DiscHeader header;
     if (!parse_disc_header(head.disc_header.data(), head.disc_header.size(), header, error)) return false;
-    const RvzVerdict verdict = check_rvz(head, image.pieces[0].file.entry.size);
+    RvzVerdict verdict = check_rvz(head, image.pieces[0].file.entry.size);
+    // A GameCube game is played from a folder of its own in sd:/games
+    // (wii/launch/gclaunch.hpp), not from the Wii games' folders.
+    if (head.disc_type == 1) {
+        verdict.support = RvzSupport::Unsupported;
+        verdict.reasons.assign(1, "It is a GameCube game: RiftWii plays those from a folder of their own in "
+                                  "sd:/games (sd:/games/<name>/game.rvz).");
+    }
     game.id = header.game_id;
     game.title = header.title;
     game.revision = header.version;
@@ -1402,6 +1410,8 @@ std::string GameDisplayName(const std::string& id, const std::string& internal) 
     return display_title(titles(), id, std::string(), internal);
 }
 
+const TitleTable* LoadedTitles() { return g_titles_loaded && !g_titles_from.empty() ? &g_titles : nullptr; }
+
 bool GameTitleListed(const std::string& id, std::string& title) {
     const TitleTable* table = titles();
     title.clear();
@@ -1738,6 +1748,7 @@ bool scan_sd_games(ImageCatalog& out, std::string& error) {
     if (!mount_image_volume(&sd_read, g_sd_volume, error)) { error = "SD has no readable FAT32 or NTFS volume: " + error; return false; }
     std::string failure; scan_dir(*g_sd_volume, "sd:/", ImageDevice::Sd, "sd:/wbfs", true, UsbImageFormat::Wbfs, out, failure); scan_dir(*g_sd_volume, "sd:/", ImageDevice::Sd, "sd:/games", false, UsbImageFormat::Iso, out, failure);
     scan_own_folders(*g_sd_volume, "sd", ImageDevice::Sd, out, failure);
+    ScanGcImages(out.games);
     apply_titles(out);
     out.status = out.games.empty() ? (failure.empty() ? "No valid Wii images under sd:/wbfs or sd:/games" : "No valid SD images: " + failure) : "SD: " + std::to_string(out.games.size()) + " valid game(s)";
     logf("%s\n", out.status.c_str());

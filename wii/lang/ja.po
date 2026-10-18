@@ -372,6 +372,9 @@ msgstr "{1} にチートファイルがありません"
 msgid "The cheat file has no cheats in it: {1}"
 msgstr "チートファイルにチートがありません: {1}"
 
+msgid "The cheat file only has cheats for other versions of this game."
+msgstr "チートファイルには、このゲームの別のバージョン用のチートしかありません。"
+
 msgid "Settings"
 msgstr "設定"
 
@@ -863,6 +866,12 @@ msgstr "このゲームはWiiのメモリをほぼすべて使います。この
 
 msgid "Packs on USB are experimental; if it fails, copy them to SD."
 msgstr "USBのパックは試験的な機能です。うまくいかない場合はSDにコピーしてください。"
+
+msgid "RVZ is experimental for GameCube games; if it fails, use an ISO copy."
+msgstr "GameCubeのゲームのRVZは試験的な機能です。うまくいかない場合はISOのコピーを使ってください。"
+
+msgid "Play at your own risk:"
+msgstr "自己責任でプレイしてください:"
 
 msgid "CTGP Revolution (a pack that starts a Homebrew Channel app) does not work from RiftWii yet: it stops on a black or green screen. Start CTGP from the Homebrew Channel instead."
 msgstr "CTGP Revolution（Homebrew Channelのアプリを起動するパック）はまだRiftWiiから動きません。黒または緑の画面で止まります。CTGPはHomebrew Channelから起動してください。"
@@ -1412,6 +1421,438 @@ msgstr "中止しました。何も保存されませんでした。"
 
 msgid "{1} could not be made: {2}. Nothing was kept."
 msgstr "{1}を作成できませんでした: {2}。何も保存されませんでした。"
+
+msgid "GameCube"
+msgstr "ゲームキューブ"
+
+msgid "Memory Card"
+msgstr "メモリーカード"
+
+msgid "Build and play"
+msgstr "作ってプレイ"
+
+msgid "Made from {1} on first start, once; every start after that is immediate."
+msgstr "最初の起動時に{1}から一度だけ作られます。次回からはすぐに始まります。"
+
+msgid "Saves go to this game's own memory card on the SD card: {1}."
+msgstr "セーブはSDカード上のこのゲーム専用のメモリーカードに保存されます: {1}。"
+
+msgid "Stop making {1}?"
+msgstr "{1}の作成を中止しますか?"
+
+msgid "What is made so far is deleted. It can be made again later, from the start."
+msgstr "ここまでに作った分は削除されます。あとで最初から作り直せます。"
+
+msgid "Keep going"
+msgstr "続ける"
+
+msgid "{1} can't be built"
+msgstr "{1}を作れません"
+
+msgid "It is built from {1}, and RiftWii cannot open it on the SD card any more. Put it back in sd:/games and try again."
+msgstr "このゲームは{1}から作られますが、RiftWiiはSDカード上でそれを開けなくなりました。sd:/gamesに戻して、もう一度試してください。"
+
+msgid "Building it needs {1} free on the SD card, and only {2} is free. Free some space and press Start again."
+msgstr "作るにはSDカードに{1}の空きが必要ですが、空きは{2}だけです。空き容量を増やして、もう一度スタートを押してください。"
+
+msgid "Build this game first?"
+msgstr "先にこのゲームを作りますか?"
+
+msgid "Build {1} from your {2}? This happens once."
+msgstr "お持ちの{2}から{1}を作りますか? これは一度だけです。"
+
+msgid "Needs {1}"
+msgstr "{1}必要"
+
+msgid "Once only"
+msgstr "一度だけ"
+
+msgid "Build it"
+msgstr "作る"
+
+msgid "Building {1}"
+msgstr "{1}を作成中"
+
+msgid "Reading {1} and writing {2}"
+msgstr "{1}を読み込み、{2}を書き込み中"
+
+msgid "{1} not built"
+msgstr "{1}は作られませんでした"
+
+msgid "Hold HOME and - for two seconds to leave the game."
+msgstr "HOMEと-を2秒押し続けるとゲームをやめます。"
+
+msgid "Hold L, R, Z and Start for two seconds to leave the game."
+msgstr "L、R、Z、スタートを2秒押し続けるとゲームをやめます。"
+
+msgid "{1}/{2}/{3}"
+msgstr "{3}/{1}/{2}"
+
+msgid "Not for European games"
+msgstr "ヨーロッパのゲームには使えません"
+
+msgid "Only with a component or HDMI cable: without one the picture stays black."
+msgstr "コンポーネントかHDMIのケーブルが必要です。ないと画面が黒いままになります。"
+
+msgid "Turn on"
+msgstr "オンにする"
+
+msgid "Wii Remote and Nunchuk"
+msgstr "Wiiリモコンとヌンチャク"
+
+msgid "Wii Remote, held sideways"
+msgstr "Wiiリモコン(横持ち)"
+
+msgid "GameCube controls: {1}"
+msgstr "ゲームキューブの操作: {1}"
+
+msgid "Its buttons are the game's own, as on a GameCube."
+msgstr "ボタンはゲームキューブと同じです。"
+
+msgid "Stick"
+msgstr "スティック"
+
+msgid "C-stick"
+msgstr "Cスティック"
+
+msgid "Saved {1}"
+msgstr "保存日 {1}"
+
+msgid "{1} of {2} blocks free"
+msgstr "{2}ブロック中{1}ブロックが空き"
+
+msgid "Working out the time left..."
+msgstr "残り時間を計算しています..."
+
+msgid "Stop building {1}?"
+msgstr "{1}の作成を中止しますか?"
+
+msgid "What is built so far is deleted. It can be built again later, from the start."
+msgstr "ここまでに作った分は削除されます。あとで最初から作り直せます。"
+
+msgid "{1} could not be built: {2}. Nothing was kept."
+msgstr "{1}を作れませんでした: {2}。何も保存されませんでした。"
+
+msgid "About a minute"
+msgstr "約1分"
+
+msgid "About {1}-{2} minutes"
+msgstr "約{1}〜{2}分"
+
+msgid "The game stopped."
+msgstr "ゲームが止まりました。"
+
+msgid "Press HOME or A to go back to RiftWii and send a problem report."
+msgstr "HOMEかAを押すとRiftWiiに戻り、問題の報告を送れます。"
+
+msgid "Press HOME or A to go back to the Homebrew Channel. RiftWii offers to send a problem report when it next starts."
+msgstr "HOMEかAを押すとHomebrew Channelに戻ります。次にRiftWiiを起動すると、問題の報告を送るか聞かれます。"
+
+msgid "Press HOME or A to go back to the Wii Menu. RiftWii offers to send a problem report when it next starts."
+msgstr "HOMEかAを押すとWiiメニューに戻ります。次にRiftWiiを起動すると、問題の報告を送るか聞かれます。"
+
+msgid "Turn the Wii off and on again. RiftWii offers to send a problem report when it next starts."
+msgstr "Wiiの電源を切って、もう一度入れてください。次にRiftWiiを起動すると、問題の報告を送るか聞かれます。"
+
+msgid "Called from"
+msgstr "呼び出し元"
+
+msgid "Hold HOME for two seconds to leave the game."
+msgstr "HOMEを2秒押し続けるとゲームをやめます。"
+
+msgid "1 block"
+msgstr "1ブロック"
+
+msgid "{1} blocks"
+msgstr "{1}ブロック"
+
+msgid "Add a save"
+msgstr "セーブを追加"
+
+msgid "Add a save from the SD card"
+msgstr "SDカードからセーブを追加"
+
+msgid "Back up saves"
+msgstr "セーブのバックアップ"
+
+msgid "Before a GameCube game starts, its memory card is copied to the SD card. The last five copies are kept, for Restore an older save on the game's Saves page."
+msgstr "ゲームキューブのゲームを起動する前に、そのメモリーカードをSDカードにコピーします。最新の5つのコピーが残り、ゲームのセーブのページの「前のセーブに戻す」で使えます。"
+
+msgid "Restore an older save"
+msgstr "前のセーブに戻す"
+
+msgid "Go back to how your save was on a day you pick."
+msgstr "選んだ日のセーブの状態に戻します。"
+
+msgid "Go back to how the shared memory card was on a day you pick, for every game on it."
+msgstr "選んだ日の共有メモリーカードの状態に戻します。カードのすべてのゲームが戻ります。"
+
+msgid "Press A to put this game's save back to how it was then."
+msgstr "Aボタンで、このゲームのセーブをその時の状態に戻します。"
+
+msgid "Press A to put the shared memory card back to how it was then, for every game on it."
+msgstr "Aボタンで、共有メモリーカードをその時の状態に戻します。カードのすべてのゲームが戻ります。"
+
+msgid "Restore"
+msgstr "戻す"
+
+msgid "Save restored"
+msgstr "セーブを戻しました"
+
+msgid "The memory card is as it was on {1}. The save from before is kept among the older saves, so you can go back to it."
+msgstr "メモリーカードは{1}の状態になりました。戻す前のセーブは前のセーブの一覧に残るので、あとで戻せます。"
+
+msgid "Save not restored"
+msgstr "セーブを戻せませんでした"
+
+msgid "RiftWii could not read that copy."
+msgstr "RiftWiiはそのコピーを読めませんでした。"
+
+msgid "That copy is damaged, so your save was not changed."
+msgstr "そのコピーは壊れているため、セーブは変わっていません。"
+
+msgid "RiftWii could not keep a copy of the save as it is now, so it was not changed: {1}"
+msgstr "RiftWiiは今のセーブのコピーを残せなかったため、セーブは変わっていません: {1}"
+
+msgid "RiftWii could not write the memory card: {1}"
+msgstr "RiftWiiはメモリーカードに書き込めませんでした: {1}"
+
+msgid "Memory card full"
+msgstr "カードがいっぱい"
+
+msgid "Restore this save?"
+msgstr "このセーブに戻しますか?"
+
+msgid "Your save goes back to how it was on {1}. Your save as it is now is kept as a copy first, so you can come back to it."
+msgstr "セーブが{1}の状態に戻ります。今のセーブは先にコピーとして残るので、あとで戻せます。"
+
+msgid "Every game's save on the shared memory card goes back to how it was on {1}. How they are now is kept as a copy first, so you can come back to them."
+msgstr "共有メモリーカードのすべてのゲームのセーブが{1}の状態に戻ります。今の状態は先にコピーとして残るので、あとで戻せます。"
+
+msgid "(before you restored)"
+msgstr "(戻す前)"
+
+msgid "1 save"
+msgstr "セーブ1個"
+
+msgid "{1} saves"
+msgstr "セーブ{1}個"
+
+msgid "RiftWii keeps a copy each time you start the game."
+msgstr "ゲームを起動するたびに、RiftWiiがコピーを残します。"
+
+msgid "The memory card is full: this game can't save. Delete or copy saves on the Memory Card page to make room."
+msgstr "カードがいっぱいで、セーブできません。メモリーカードのページで空きを作ってください。"
+
+msgid "The card is full: this game can't save. Make room on the Memory Card page or use its own card."
+msgstr "カードがいっぱいで、セーブできません。空きを作るか、専用のカードにしてください。"
+
+msgid "Bring your Dolphin saves"
+msgstr "Dolphinのセーブを持ってくる"
+
+msgid "Copy every save from Dolphin's GC folder in one go."
+msgstr "DolphinのGCフォルダにあるセーブをすべて一度にコピーします。"
+
+msgid "To bring all of Dolphin's saves at once, copy its GC folder (in Dolphin: File > Open User Folder) to {1}."
+msgstr "Dolphinのセーブをまとめて持ってくるには、そのGCフォルダ(Dolphinの「File > Open User Folder」)を{1}にコピーしてください。"
+
+msgid "Added: {1}. Already on the card, so skipped: {2}."
+msgstr "追加: {1}。カードにすでにあるためスキップ: {2}。"
+
+msgid "Could not be used: {1}."
+msgstr "使えなかったもの: {1}。"
+
+msgid "The memory card is full, so the rest did not fit."
+msgstr "メモリーカードがいっぱいで、残りは入りませんでした。"
+
+msgid "No saves from Dolphin"
+msgstr "Dolphinのセーブがありません"
+
+msgid "RiftWii found no saves for this memory card in {1}. Copy Dolphin's GC folder there (in Dolphin: File > Open User Folder, then GC): it holds the USA, EUR and JAP folders."
+msgstr "{1}にこのメモリーカード用のセーブが見つかりません。DolphinのGCフォルダ(Dolphinの「File > Open User Folder」の中のGC。USA、EUR、JAPのフォルダが入っています)をそこにコピーしてください。"
+
+msgid "Bring your Dolphin saves?"
+msgstr "Dolphinのセーブを持ってきますか?"
+
+msgid "RiftWii found {1} files in Dolphin's folder. Their saves are copied to this memory card, and the ones it has already are left alone. The card is kept as a copy first, so Restore an older save can undo it."
+msgstr "Dolphinのフォルダに{1}個のファイルが見つかりました。そのセーブをこのメモリーカードにコピーします。すでにあるセーブはそのままです。先にカードのコピーを残すので、「前のセーブに戻す」で元に戻せます。"
+
+msgid "Bring them"
+msgstr "持ってくる"
+
+msgid "Saves not brought"
+msgstr "セーブを持ってこられませんでした"
+
+msgid "RiftWii could not keep a copy of the memory card, so it was not changed: {1}"
+msgstr "メモリーカードのコピーを残せなかったため、変更していません: {1}"
+
+msgid "Nothing new to add"
+msgstr "追加するものはありません"
+
+msgid "Dolphin saves brought"
+msgstr "Dolphinのセーブを持ってきました"
+
+msgid "Some files were left out because there were too many."
+msgstr "多すぎたため、一部のファイルは除きました。"
+
+msgid "Some files will be left out because there are too many."
+msgstr "多すぎるため、一部のファイルは除きます。"
+
+msgid "Shared Memory Card"
+msgstr "共有メモリーカード"
+
+msgid "The shared memory card is made the first time a game that uses it starts: {1}."
+msgstr "共有メモリーカードは、それを使うゲームを初めて起動したときに作られます: {1}"
+
+msgid "Saves go to the shared memory card on the SD card: {1}."
+msgstr "セーブはSDカード上の共有メモリーカードに保存されます: {1}"
+
+msgid "Memory card"
+msgstr "メモリーカード"
+
+msgid "About this"
+msgstr "説明"
+
+msgid "Save to a card for this game alone, or to one card shared by all your games."
+msgstr "このゲームだけのカードか、すべてのゲームで共有する1枚のカードにセーブします。"
+
+msgid "Switching copies no saves: they stay on the other card. Move them with Copy to the SD card and Add a save from the SD card on the Saves page. Japanese games have a shared card of their own."
+msgstr "切り替えてもセーブはコピーされず、もう一方のカードに残ります。セーブのページの「SDカードにコピー」と「SDカードからセーブを追加」で移せます。日本のゲームは専用の共有カードを使います。"
+
+msgid "Switch"
+msgstr "切り替える"
+
+msgid "Shared"
+msgstr "共有"
+
+msgid "This game's own"
+msgstr "このゲーム専用"
+
+msgid "Adds a .gci save file from {1}."
+msgstr "{1}から.gciのセーブファイルを追加します。"
+
+msgid "As a save file for Dolphin"
+msgstr "セーブファイルとして (Dolphin用)"
+
+msgid "Copy to the SD card"
+msgstr "SDカードにコピー"
+
+msgid "Delete"
+msgstr "削除"
+
+msgid "Delete {1}?"
+msgstr "{1}を削除しますか?"
+
+msgid "From this memory card"
+msgstr "このメモリーカードから"
+
+msgid "It is gone from the memory card for good. Copy it to the SD card first to keep it."
+msgstr "メモリーカードから完全に消えます。残すには先にSDカードにコピーしてください。"
+
+msgid "Keep it"
+msgstr "残す"
+
+msgid "Memory card damaged"
+msgstr "メモリーカードが壊れています"
+
+msgid "Memory card not changed"
+msgstr "メモリーカードは変更されていません"
+
+msgid "No memory card yet"
+msgstr "メモリーカードはまだありません"
+
+msgid "No saves on the SD card"
+msgstr "SDカードにセーブがありません"
+
+msgid "Press A to add this save to the memory card."
+msgstr "Aを押すと、このセーブをメモリーカードに追加します。"
+
+msgid "Press A to see its saves."
+msgstr "Aを押すとセーブを見られます。"
+
+msgid "Put .gci save files (from Dolphin, Nintendont or another card) in {1}, then try again."
+msgstr ".gciのセーブファイル(Dolphin、Nintendont、別のカードのもの)を{1}に入れてから、もう一度試してください。"
+
+msgid "Save copied"
+msgstr "セーブをコピーしました"
+
+msgid "Save not added"
+msgstr "セーブは追加されませんでした"
+
+msgid "Save not copied"
+msgstr "セーブはコピーされませんでした"
+
+msgid "Save not deleted"
+msgstr "セーブは削除されませんでした"
+
+msgid "This game's memory card is made the first time the game starts: {1}."
+msgstr "このゲームのメモリーカードは、ゲームを初めて始めたときに作られます: {1}。"
+
+msgid "This save is damaged: its blocks do not add up. It can only be deleted."
+msgstr "このセーブは壊れています: ブロックが合いません。削除しかできません。"
+
+msgid "It is {1}."
+msgstr "{1}です。"
+
+msgid "RiftWii cannot read {1}: {2}"
+msgstr "RiftWiiは{1}を読めません: {2}"
+
+msgid "RiftWii could not read {1}."
+msgstr "RiftWiiは{1}を読めませんでした。"
+
+msgid "RiftWii could not write {1}."
+msgstr "RiftWiiは{1}を書き込めませんでした。"
+
+msgid "This game's own options: how its disc is read, and its controls."
+msgstr "このゲーム専用のオプション: ディスクの読み込み方と操作。"
+
+msgid "Not made yet"
+msgstr "まだ作られていません"
+
+msgid "Home lists the GameCube games only, from sd:/games."
+msgstr "ホームにはsd:/gamesのゲームキューブのゲームだけを表示します。"
+
+msgid "A GameCube game goes on the SD card, as sd:/games/<its ID>/game.iso."
+msgstr "ゲームキューブのゲームはSDカードにsd:/games/<ID>/game.isoとして入れます。"
+
+msgid "Loading speed"
+msgstr "読み込み速度"
+
+msgid "Fast"
+msgstr "高速"
+
+msgid "As on a GameCube (slower)"
+msgstr "ゲームキューブと同じ (遅い)"
+
+msgid "480p picture"
+msgstr "480pの映像"
+
+msgid "On (480p)"
+msgstr "オン (480p)"
+
+msgid "Widescreen"
+msgstr "ワイド画面"
+
+msgid "480p is for US and Japanese games; this European game keeps its own picture."
+msgstr "480pはアメリカと日本のゲーム用で、このヨーロッパのゲームはゲームのままの映像になります。"
+
+msgid "Gives a sharper, steadier picture on a component cable, even in games with no 480p mode; some games ask first."
+msgstr "コンポーネントケーブルで、くっきり安定した映像にします。480pのないゲームも対象で、先に確認を求めるゲームもあります。"
+
+msgid "Fills a widescreen TV with the game world; menus stay stretched, and some games show wrong colors (experimental)."
+msgstr "ゲームの世界をワイドテレビいっぱいに広げます。メニューは横に伸びたままで、色がおかしくなるゲームもあります (試験的)。"
+
+msgid "The language this game plays in, leaving the Wii's own setting alone (most US and Japanese games have only one)."
+msgstr "このゲームを遊ぶ言語で、Wii本体の設定は変わりません (アメリカと日本のゲームの多くは1言語だけです)。"
+
+msgid "Controls"
+msgstr "操作"
+
+msgid "Fast suits almost every game; a few need the GameCube's own, slower speed (experimental, it can freeze some games)."
+msgstr "高速はほとんどのゲームに向いています。ゲームキューブ本来の遅い速さが必要なゲームも少しあります (試験的、一部のゲームが止まることがあります)。"
+
+msgid "Shows which Wii Remote, Nunchuk or Classic Controller buttons act as the GameCube controller's, and how to leave the game."
+msgstr "Wiiリモコン、ヌンチャク、クラシックコントローラのどのボタンがゲームキューブコントローラのボタンになるかと、ゲームのやめ方を表示します。"
 
 msgid "SD image made"
 msgstr "SDイメージを作成しました"

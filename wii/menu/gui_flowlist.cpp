@@ -27,6 +27,8 @@ constexpr int kArrow = 34;       // skin::scrollUp/scrollDown
 constexpr int kArrowRepeat = 8;  // frames between rows while an arrow is held
 constexpr int kArrowRoom = 12;   // controls move in this far while the scroll arrows show
 constexpr int kCardArrowRoom = 30;  // cards end this far in, clear of the scroll arrows
+constexpr int kIconSide = 32;       // a row's picture (FlowRow::icon)
+constexpr int kIconRoom = kIconSide + 10;  // what it and the gap after it take from the label
 constexpr int kCardGap = 3;         // above and below each card, inside its row
 constexpr int kCardShadow = 8;      // skin::tile9's margin
 constexpr u32 kWpadA = WPAD_BUTTON_A | WPAD_CLASSIC_BUTTON_A;
@@ -67,6 +69,9 @@ GuiFlowList::GuiFlowList(int x, int y, int w, int n)
         value[i] = new GuiText(nullptr, 16, skin::kInkSoft);
         value[i]->SetParent(this);
         value[i]->SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
+        detail[i] = new GuiText(nullptr, 14, skin::kInkDim);
+        detail[i]->SetParent(this);
+        detail[i]->SetAlignment(ALIGN_H::LEFT, ALIGN_V::TOP);
     }
     soundOver = new GuiSound(button_over_pcm, button_over_pcm_size, SOUND::PCM);
     soundClick = new GuiSound(button_click_pcm, button_click_pcm_size, SOUND::PCM);
@@ -76,6 +81,7 @@ GuiFlowList::~GuiFlowList() {
     for (int i = 0; i <= kMaxVisible; ++i) {
         delete label[i];
         delete value[i];
+        delete detail[i];
     }
     delete soundOver;
     delete soundClick;
@@ -93,7 +99,7 @@ void GuiFlowList::Refresh() {
 }
 
 int GuiFlowList::MaxScroll() const {
-    const int over = (Count() - visible) * kRowHeight;
+    const int over = (Count() - visible) * rowH;
     return over > 0 ? over : 0;
 }
 
@@ -105,8 +111,8 @@ void GuiFlowList::ScrollTo(float y) {
 void GuiFlowList::Select(int index) {
     if (index < 0 || index >= Count()) return;
     focus = index;
-    const float top = static_cast<float>(index * kRowHeight);
-    const float bottom = top + kRowHeight - visible * kRowHeight;
+    const float top = static_cast<float>(index * rowH);
+    const float bottom = top + rowH - visible * rowH;
     if (aim > top) ScrollTo(top);
     else if (aim < bottom) ScrollTo(bottom);
 }
@@ -124,8 +130,8 @@ int GuiFlowList::GetClickedBack() {
 }
 
 int GuiFlowList::RowAt(int x, int y) const {
-    if (x < x0 || x >= x0 + rowWidth || y < y0 || y >= y0 + visible * kRowHeight) return -1;
-    const int index = static_cast<int>((y - y0 + scroll) / kRowHeight);
+    if (x < x0 || x >= x0 + rowWidth || y < y0 || y >= y0 + visible * rowH) return -1;
+    const int index = static_cast<int>((y - y0 + scroll) / rowH);
     return index < Count() ? index : -1;
 }
 
@@ -160,7 +166,7 @@ int GuiFlowList::CardRight() const { return x0 + rowWidth - (Count() > visible ?
 // The arrows sit on the list's right edge, at the ends of its track.
 int GuiFlowList::ArrowX() const { return x0 + rowWidth + 5 - kArrow / 2; }
 
-int GuiFlowList::ArrowY(int dir) const { return dir < 0 ? y0 : y0 + visible * kRowHeight - kArrow; }
+int GuiFlowList::ArrowY(int dir) const { return dir < 0 ? y0 : y0 + visible * rowH - kArrow; }
 
 int GuiFlowList::ArrowAt(int x, int y) const {
     if (Count() <= visible) return 0;
@@ -176,13 +182,13 @@ int GuiFlowList::ArrowAt(int x, int y) const {
 bool GuiFlowList::OnTrack(int x, int y) const {
     const int trackX = x0 + rowWidth + 2;
     return Count() > visible && x >= trackX - 8 && x < trackX + kTrackW + 12 && y >= y0 + kArrow + 4 &&
-           y < y0 + visible * kRowHeight - kArrow - 4;
+           y < y0 + visible * rowH - kArrow - 4;
 }
 
 void GuiFlowList::ScrollFromTrack(int y) {
-    const int top = y0 + kArrow + 4, trackH = visible * kRowHeight - 2 * (kArrow + 4);
+    const int top = y0 + kArrow + 4, trackH = visible * rowH - 2 * (kArrow + 4);
     const float at = static_cast<float>(y - top) / trackH;
-    const int boxH = visible * kRowHeight;
+    const int boxH = visible * rowH;
     ScrollTo(at * (MaxScroll() + boxH) - boxH / 2.0f);
     scroll = aim;
 }
@@ -204,7 +210,7 @@ void GuiFlowList::Draw() {
         if (std::fabs(aim - scroll) < 0.5f) scroll = aim;
     }
 
-    const int first = static_cast<int>(scroll) / kRowHeight;
+    const int first = static_cast<int>(scroll) / rowH;
     if (first != textFirst) dirty = true;
     if (dirty) {
         dirty = false;
@@ -218,7 +224,12 @@ void GuiFlowList::Draw() {
             label[i]->SetFontSize(r.heading ? 20 : note ? 15 : 18);
             label[i]->SetColor(r.dim ? skin::kInkDim : r.indent ? skin::kInkSoft : skin::kInk);
             const int control = ControlWidth(r);
-            label[i]->SetMaxWidth(ControlsRight() - x0 - kPad - (r.indent ? 22 : 0) - (control ? control + kPad : 0));
+            label[i]->SetMaxWidth(ControlsRight() - x0 - kPad - (r.indent ? 22 : 0) - (r.icon_column ? kIconRoom : 0) -
+                                  (control ? control + kPad : 0));
+            detail[i]->SetText(r.detail.empty() ? nullptr : r.detail.c_str());
+            detail[i]->SetColor(skin::kInkDim);
+            detail[i]->SetMaxWidth(ControlsRight() - x0 - kPad - (r.indent ? 22 : 0) - (r.icon_column ? kIconRoom : 0) -
+                                   (control ? control + kPad : 0));
             // GuiText translates what it is given, but an action's value
             // gets the arrow first, and "Rescan  >" is no catalog key: the
             // value is translated here, before the arrow (issue 84). A value
@@ -238,7 +249,7 @@ void GuiFlowList::Draw() {
     }
 
     // Rows are clipped to the list's box while they scroll past its edges.
-    const int boxH = visible * kRowHeight;
+    const int boxH = visible * rowH;
     // Cards' shadows reach past the box's sides: a little room there.
     if (cards) Menu_Scissor(x0 - kCardShadow, y0, rowWidth + 2 * kCardShadow, boxH);
     else Menu_Scissor(x0, y0, rowWidth + 1, boxH);
@@ -268,19 +279,19 @@ void GuiFlowList::Draw() {
             if (index >= Count()) break;
             const FlowRow& r = (*rows)[index];
             if (r.kind == FlowRow::Kind::Info) continue;
-            const float y = y0 + index * kRowHeight - scroll + kCardGap;
+            const float y = y0 + index * rowH - scroll + kCardGap;
             const float left = static_cast<float>(CardLeft(r));
             skin::DrawNine(skin::tile9, left - kCardShadow, y - kCardShadow, CardRight() - left + 2 * kCardShadow,
-                           kRowHeight - 2 * kCardGap + 2 * kCardShadow, skin::kTileCorner, r.dim ? alpha * 3 / 4 : alpha);
+                           rowH - 2 * kCardGap + 2 * kCardShadow, skin::kTileCorner, r.dim ? alpha * 3 / 4 : alpha);
         }
         if (litFade > 0.0f && lit >= 0 && lit < Count()) {
-            const float y = y0 + litPos * kRowHeight - scroll + kCardGap;
+            const float y = y0 + litPos * rowH - scroll + kCardGap;
             const float left = static_cast<float>(CardLeft((*rows)[lit]));
             skin::DrawNine(skin::tile9Over, left - kCardShadow, y - kCardShadow, CardRight() - left + 2 * kCardShadow,
-                           kRowHeight - 2 * kCardGap + 2 * kCardShadow, skin::kTileCorner, static_cast<int>(alpha * litFade));
+                           rowH - 2 * kCardGap + 2 * kCardShadow, skin::kTileCorner, static_cast<int>(alpha * litFade));
         }
     } else if (litFade > 0.0f) {
-        skin::Draw(skin::rowFocus, x0, y0 + litPos * kRowHeight - scroll, static_cast<int>(alpha * litFade));
+        skin::Draw(skin::rowFocus, x0, y0 + litPos * rowH - scroll, static_cast<int>(alpha * litFade));
     }
     if (static_cast<int>(switchPos.size()) != Count()) {
         switchPos.assign(Count(), -1.0f);
@@ -291,7 +302,7 @@ void GuiFlowList::Draw() {
         const int index = first + i;
         if (index >= Count()) break;
         const FlowRow& r = (*rows)[index];
-        const int y = y0 + index * kRowHeight - static_cast<int>(scroll + 0.5f);
+        const int y = y0 + index * rowH - static_cast<int>(scroll + 0.5f);
         if (y >= y0 + boxH) break;
         const bool isLit = index == lit && r.kind != FlowRow::Kind::Info;
         const bool fact = r.kind == FlowRow::Kind::Info && !r.value.empty();
@@ -307,15 +318,30 @@ void GuiFlowList::Draw() {
         } else if (index + 1 < Count() && !(index + 1 == lit) && lined((*rows)[index + 1])) {
             const int left = x0 + kPad + (r.indent ? 22 : 0);
             const int lineRight = cards ? CardRight() - kPad : x0 + rowWidth - kPad;
-            Menu_DrawRectangle(left, y + kRowHeight - 1, lineRight - left, 1, skin::WithAlpha(skin::kDivider, alpha), 1);
+            Menu_DrawRectangle(left, y + rowH - 1, lineRight - left, 1, skin::WithAlpha(skin::kDivider, alpha), 1);
         }
 
         const int labelH = r.heading ? 20 : (r.kind == FlowRow::Kind::Info && !fact) ? 15 : 18;
-        label[i]->SetPosition(x0 + kPad + (r.indent ? 22 : 0), y + (kRowHeight - labelH) / 2 - 2);
-        label[i]->Draw();
+        const int labelX = x0 + kPad + (r.indent ? 22 : 0);
+        if (r.icon)
+            skin::DrawRgb5a3(r.icon, kIconSide, kIconSide, static_cast<float>(labelX), static_cast<float>(y + (rowH - kIconSide) / 2),
+                             r.dim ? alpha / 2 : alpha);
+        // With a second line (a list made taller with SetRowHeight) the
+        // label goes above the row's middle and the detail under it, in the
+        // dim ink, as a value under a label is drawn elsewhere.
+        const int textLeft = labelX + (r.icon_column ? kIconRoom : 0);
+        if (r.detail.empty()) {
+            label[i]->SetPosition(textLeft, y + (rowH - labelH) / 2 - 2);
+            label[i]->Draw();
+        } else {
+            label[i]->SetPosition(textLeft, y + rowH / 2 - 21);
+            label[i]->Draw();
+            detail[i]->SetPosition(textLeft, y + rowH / 2 + 3);
+            detail[i]->Draw();
+        }
 
-        const int cy = y + (kRowHeight - kChipH) / 2;  // controls' top
-        const int textY = y + (kRowHeight - 15) / 2 - 2;
+        const int cy = y + (rowH - kChipH) / 2;  // controls' top
+        const int textY = y + (rowH - 15) / 2 - 2;
         // A value that just changed comes in from the side, fading up.
         if (shownValue[index] != r.value) {
             if (!shownValue[index].empty() || valueIn[index] < 1.0f) valueIn[index] = 0.0f;
@@ -344,7 +370,7 @@ void GuiFlowList::Draw() {
                 // The value between its arrows (each a button of its own).
                 const int backX = right - kStepperW, chipX = backX + kStep + kGap, fwdX = right - kStep;
                 {
-                    const int by = y + (kRowHeight - kStep) / 2;
+                    const int by = y + (rowH - kStep) / 2;
                     const bool overBack = index == hover && hoverPart == Part::Back && !dragging;
                     const bool overFwd = index == hover && hoverPart == Part::Forward && !dragging;
                     skin::Draw(overBack ? skin::stepBackOver : skin::stepBack, backX - 4, by - 4, alpha);
@@ -363,7 +389,7 @@ void GuiFlowList::Draw() {
                     chipText(right - kChipW);
                 } else {
                     const int backX = right - kStepperW, chipX = backX + kStep + kGap, fwdX = right - kStep;
-                    const int by = y + (kRowHeight - kStep) / 2;
+                    const int by = y + (rowH - kStep) / 2;
                     const bool overBack = index == hover && hoverPart == Part::Back && !dragging;
                     const bool overFwd = index == hover && hoverPart == Part::Forward && !dragging;
                     skin::Draw(overBack ? skin::stepBackOver : skin::stepBack, backX - 4, by - 4, alpha);
@@ -403,7 +429,7 @@ void GuiFlowList::Draw() {
     if (Count() > visible) {
         // Where the list is, along its right edge; A on it (held) drags it.
         const int trackX = x0 + rowWidth + 2, trackTop = y0 + kArrow + 4, trackH = boxH - 2 * (kArrow + 4);
-        const int total = Count() * kRowHeight;
+        const int total = Count() * rowH;
         int thumb = trackH * boxH / total;
         if (thumb < 16) thumb = 16;
         const int thumbY = trackTop + static_cast<int>((trackH - thumb) * scroll / MaxScroll());
@@ -437,7 +463,7 @@ void GuiFlowList::Update(GuiTrigger* t) {
             // or the list reaches that end.
             if (held && pointing && ArrowAt(px, py) == grabArrow) {
                 if (++arrowHeld >= 2 * kArrowRepeat && arrowHeld % kArrowRepeat == 0)
-                    ScrollTo(aim + grabArrow * kRowHeight);
+                    ScrollTo(aim + grabArrow * rowH);
                 return;
             }
             grabChan = -1;
@@ -478,8 +504,8 @@ void GuiFlowList::Update(GuiTrigger* t) {
     const bool back = Pressed(t, WPAD_BUTTON_MINUS | WPAD_CLASSIC_BUTTON_MINUS, PAD_BUTTON_Y, WIIDRC_BUTTON_MINUS);
     if (pointing) {
         // While pointing, the D-pad scrolls by a row.
-        if (t->Down()) ScrollTo(aim + kRowHeight);
-        else if (t->Up()) ScrollTo(aim - kRowHeight);
+        if (t->Down()) ScrollTo(aim + rowH);
+        else if (t->Up()) ScrollTo(aim - rowH);
         const int arrow = ArrowAt(px, py);
         if (arrow != hoverArrow && arrow != 0) soundOver->Play();
         hoverArrow = arrow;
@@ -487,7 +513,7 @@ void GuiFlowList::Update(GuiTrigger* t) {
             hover = -1;
             if (a) {
                 // One row per press; held, it repeats.
-                ScrollTo(aim + arrow * kRowHeight);
+                ScrollTo(aim + arrow * rowH);
                 soundClick->Play();
                 grabChan = t->chan;
                 grabArrow = arrow;
@@ -509,7 +535,7 @@ void GuiFlowList::Update(GuiTrigger* t) {
         hover = row;
         hoverPart = part;
         if (row >= 0) focus = row;
-        if (a && px >= x0 && px < x0 + rowWidth && py >= y0 && py < y0 + visible * kRowHeight) {
+        if (a && px >= x0 && px < x0 + rowWidth && py >= y0 && py < y0 + visible * rowH) {
             grabChan = t->chan;
             grabY = py;
             grabScroll = aim;

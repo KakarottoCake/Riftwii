@@ -132,7 +132,7 @@ void GuiTiles::Layout(int i) {
     label[i]->SetFontSize(s.primary ? 26 : 20);
     label[i]->SetColor(s.dim ? skin::kInkDim : s.primary ? skin::kAccentInk : skin::kInk);
     value[i]->SetText(s.value.c_str());
-    value[i]->SetColor(s.dim ? skin::kInkDim : s.on ? skin::kAccentInk : skin::kInkSoft);
+    value[i]->SetColor(s.dim ? skin::kInkDim : s.warn ? skin::kWarn : s.on ? skin::kAccentInk : skin::kInkSoft);
     const bool hasValue = !s.value.empty();
     int textX, labelY;
     if (Tall(s)) {

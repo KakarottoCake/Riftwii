@@ -372,6 +372,9 @@ msgstr "Nenhum arquivo de trapaças em {1}"
 msgid "The cheat file has no cheats in it: {1}"
 msgstr "O arquivo de trapaças está vazio: {1}"
 
+msgid "The cheat file only has cheats for other versions of this game."
+msgstr "O arquivo de trapaças só tem trapaças para outras versões deste jogo."
+
 msgid "Settings"
 msgstr "Configurações"
 
@@ -863,6 +866,12 @@ msgstr "Este jogo precisa de quase toda a memória do Wii, e os blocos de {1} Ki
 
 msgid "Packs on USB are experimental; if it fails, copy them to SD."
 msgstr "Packs no USB são experimentais; se falhar, copie-os para o SD."
+
+msgid "RVZ is experimental for GameCube games; if it fails, use an ISO copy."
+msgstr "O RVZ é experimental para jogos de GameCube; se falhar, use uma cópia ISO."
+
+msgid "Play at your own risk:"
+msgstr "Jogue por sua conta e risco:"
 
 msgid "CTGP Revolution (a pack that starts a Homebrew Channel app) does not work from RiftWii yet: it stops on a black or green screen. Start CTGP from the Homebrew Channel instead."
 msgstr "O CTGP Revolution (um pack que inicia um app do Homebrew Channel) ainda não funciona pelo RiftWii: ele para numa tela preta ou verde. Inicie o CTGP pelo Homebrew Channel."
@@ -1411,7 +1420,439 @@ msgid "Stopped. Nothing was kept."
 msgstr "Interrompido. Nada foi guardado."
 
 msgid "{1} could not be made: {2}. Nothing was kept."
-msgstr "Não foi possível criar {1}: {2}. Nada foi guardado."
+msgstr "Não foi possível criar {1}: {2}. Nada foi salvo."
+
+msgid "GameCube"
+msgstr "GameCube"
+
+msgid "Memory Card"
+msgstr "Cartão de memória"
+
+msgid "Build and play"
+msgstr "Criar e jogar"
+
+msgid "Made from {1} on first start, once; every start after that is immediate."
+msgstr "É criado a partir de {1} na primeira vez que o jogo inicia, uma só vez; depois disso, o jogo inicia na hora."
+
+msgid "Saves go to this game's own memory card on the SD card: {1}."
+msgstr "Os saves vão para o cartão de memória próprio deste jogo, no cartão SD: {1}."
+
+msgid "Stop making {1}?"
+msgstr "Parar de criar {1}?"
+
+msgid "What is made so far is deleted. It can be made again later, from the start."
+msgstr "O que foi criado até agora é apagado. Pode ser criado outra vez mais tarde, desde o início."
+
+msgid "Keep going"
+msgstr "Continuar"
+
+msgid "{1} can't be built"
+msgstr "Não é possível criar {1}"
+
+msgid "It is built from {1}, and RiftWii cannot open it on the SD card any more. Put it back in sd:/games and try again."
+msgstr "É criado a partir de {1}, e o RiftWii não consegue mais abri-lo no cartão SD. Coloque-o de volta em sd:/games e tente de novo."
+
+msgid "Building it needs {1} free on the SD card, and only {2} is free. Free some space and press Start again."
+msgstr "Para criá-lo, são precisos {1} livres no cartão SD, e só há {2}. Libere espaço e aperte Jogar de novo."
+
+msgid "Build this game first?"
+msgstr "Criar este jogo primeiro?"
+
+msgid "Build {1} from your {2}? This happens once."
+msgstr "Criar {1} a partir do seu {2}? Isto só acontece uma vez."
+
+msgid "Needs {1}"
+msgstr "Precisa de {1}"
+
+msgid "Once only"
+msgstr "Só uma vez"
+
+msgid "Build it"
+msgstr "Criar"
+
+msgid "Building {1}"
+msgstr "Criando {1}"
+
+msgid "Reading {1} and writing {2}"
+msgstr "Lendo {1} e gravando {2}"
+
+msgid "{1} not built"
+msgstr "{1} não foi criado"
+
+msgid "Hold HOME and - for two seconds to leave the game."
+msgstr "Segure HOME e - por dois segundos para sair do jogo."
+
+msgid "Hold L, R, Z and Start for two seconds to leave the game."
+msgstr "Segure L, R, Z e Start por dois segundos para sair do jogo."
+
+msgid "{1}/{2}/{3}"
+msgstr "{2}/{1}/{3}"
+
+msgid "Not for European games"
+msgstr "Não para jogos europeus"
+
+msgid "Only with a component or HDMI cable: without one the picture stays black."
+msgstr "Só com um cabo componente ou HDMI: sem ele, a imagem fica preta."
+
+msgid "Turn on"
+msgstr "Ativar"
+
+msgid "Wii Remote and Nunchuk"
+msgstr "Wii Remote e Nunchuk"
+
+msgid "Wii Remote, held sideways"
+msgstr "Wii Remote, na horizontal"
+
+msgid "GameCube controls: {1}"
+msgstr "Controles de GameCube: {1}"
+
+msgid "Its buttons are the game's own, as on a GameCube."
+msgstr "Os botões são os do próprio jogo, como em um GameCube."
+
+msgid "Stick"
+msgstr "Analógico"
+
+msgid "C-stick"
+msgstr "Stick C"
+
+msgid "Saved {1}"
+msgstr "Salvo em {1}"
+
+msgid "{1} of {2} blocks free"
+msgstr "{1} de {2} blocos livres"
+
+msgid "Working out the time left..."
+msgstr "Calculando o tempo restante..."
+
+msgid "Stop building {1}?"
+msgstr "Parar de criar {1}?"
+
+msgid "What is built so far is deleted. It can be built again later, from the start."
+msgstr "O que foi criado até agora é apagado. Pode ser criado outra vez mais tarde, desde o início."
+
+msgid "{1} could not be built: {2}. Nothing was kept."
+msgstr "Não foi possível criar {1}: {2}. Nada foi salvo."
+
+msgid "About a minute"
+msgstr "Cerca de um minuto"
+
+msgid "About {1}-{2} minutes"
+msgstr "Cerca de {1}-{2} minutos"
+
+msgid "The game stopped."
+msgstr "O jogo parou."
+
+msgid "Press HOME or A to go back to RiftWii and send a problem report."
+msgstr "Aperte HOME ou A para voltar ao RiftWii e enviar um relatório do problema."
+
+msgid "Press HOME or A to go back to the Homebrew Channel. RiftWii offers to send a problem report when it next starts."
+msgstr "Aperte HOME ou A para voltar ao Homebrew Channel. O RiftWii vai oferecer o envio de um relatório do problema na próxima vez que iniciar."
+
+msgid "Press HOME or A to go back to the Wii Menu. RiftWii offers to send a problem report when it next starts."
+msgstr "Aperte HOME ou A para voltar ao Menu Wii. O RiftWii vai oferecer o envio de um relatório do problema na próxima vez que iniciar."
+
+msgid "Turn the Wii off and on again. RiftWii offers to send a problem report when it next starts."
+msgstr "Desligue o Wii e ligue de novo. O RiftWii vai oferecer o envio de um relatório do problema na próxima vez que iniciar."
+
+msgid "Called from"
+msgstr "Chamado de"
+
+msgid "Hold HOME for two seconds to leave the game."
+msgstr "Segure HOME por dois segundos para sair do jogo."
+
+msgid "1 block"
+msgstr "1 bloco"
+
+msgid "{1} blocks"
+msgstr "{1} blocos"
+
+msgid "Add a save"
+msgstr "Adicionar um save"
+
+msgid "Add a save from the SD card"
+msgstr "Adicionar um save do cartão SD"
+
+msgid "Back up saves"
+msgstr "Backup dos saves"
+
+msgid "Before a GameCube game starts, its memory card is copied to the SD card. The last five copies are kept, for Restore an older save on the game's Saves page."
+msgstr "Antes de um jogo de GameCube iniciar, o cartão de memória dele é copiado para o cartão SD. As últimas cinco cópias são mantidas, para Restaurar um save anterior na página de saves do jogo."
+
+msgid "Restore an older save"
+msgstr "Restaurar um save anterior"
+
+msgid "Go back to how your save was on a day you pick."
+msgstr "Volte o seu save para como estava no dia que você escolher."
+
+msgid "Go back to how the shared memory card was on a day you pick, for every game on it."
+msgstr "Volte o cartão de memória compartilhado para como estava no dia que você escolher, para todos os jogos nele."
+
+msgid "Press A to put this game's save back to how it was then."
+msgstr "Aperte A para voltar o save deste jogo para como estava então."
+
+msgid "Press A to put the shared memory card back to how it was then, for every game on it."
+msgstr "Aperte A para voltar o cartão de memória compartilhado para como estava então, para todos os jogos nele."
+
+msgid "Restore"
+msgstr "Restaurar"
+
+msgid "Save restored"
+msgstr "Save restaurado"
+
+msgid "The memory card is as it was on {1}. The save from before is kept among the older saves, so you can go back to it."
+msgstr "O cartão de memória está como era em {1}. O save de antes fica entre os saves anteriores, para você poder voltar a ele."
+
+msgid "Save not restored"
+msgstr "Save não restaurado"
+
+msgid "RiftWii could not read that copy."
+msgstr "O RiftWii não conseguiu ler essa cópia."
+
+msgid "That copy is damaged, so your save was not changed."
+msgstr "Essa cópia está danificada, então o seu save não foi alterado."
+
+msgid "RiftWii could not keep a copy of the save as it is now, so it was not changed: {1}"
+msgstr "O RiftWii não conseguiu guardar uma cópia do save como está agora, então ele não foi alterado: {1}"
+
+msgid "RiftWii could not write the memory card: {1}"
+msgstr "O RiftWii não conseguiu gravar o cartão de memória: {1}"
+
+msgid "Memory card full"
+msgstr "Cartão cheio"
+
+msgid "Restore this save?"
+msgstr "Restaurar este save?"
+
+msgid "Your save goes back to how it was on {1}. Your save as it is now is kept as a copy first, so you can come back to it."
+msgstr "Seu save volta a ser como era em {1}. O save como está agora é guardado antes como cópia, para você poder voltar a ele."
+
+msgid "Every game's save on the shared memory card goes back to how it was on {1}. How they are now is kept as a copy first, so you can come back to them."
+msgstr "Os saves de todos os jogos no cartão de memória compartilhado voltam a ser como eram em {1}. Como estão agora é guardado antes como cópia, para você poder voltar a eles."
+
+msgid "(before you restored)"
+msgstr "(antes de restaurar)"
+
+msgid "1 save"
+msgstr "1 save"
+
+msgid "{1} saves"
+msgstr "{1} saves"
+
+msgid "RiftWii keeps a copy each time you start the game."
+msgstr "O RiftWii guarda uma cópia toda vez que você inicia o jogo."
+
+msgid "The memory card is full: this game can't save. Delete or copy saves on the Memory Card page to make room."
+msgstr "Cartão cheio: este jogo não consegue salvar. Libere espaço na página Cartão de memória."
+
+msgid "The card is full: this game can't save. Make room on the Memory Card page or use its own card."
+msgstr "Cartão cheio: este jogo não consegue salvar. Libere espaço ou dê a ele um cartão próprio."
+
+msgid "Bring your Dolphin saves"
+msgstr "Trazer seus saves do Dolphin"
+
+msgid "Copy every save from Dolphin's GC folder in one go."
+msgstr "Copia de uma vez todos os saves da pasta GC do Dolphin."
+
+msgid "To bring all of Dolphin's saves at once, copy its GC folder (in Dolphin: File > Open User Folder) to {1}."
+msgstr "Para trazer todos os saves do Dolphin de uma vez, copie a pasta GC dele (no Dolphin: File > Open User Folder) para {1}."
+
+msgid "Added: {1}. Already on the card, so skipped: {2}."
+msgstr "Adicionados: {1}. Já estavam no cartão, então foram pulados: {2}."
+
+msgid "Could not be used: {1}."
+msgstr "Não puderam ser usados: {1}."
+
+msgid "The memory card is full, so the rest did not fit."
+msgstr "O cartão de memória está cheio, então o restante não coube."
+
+msgid "No saves from Dolphin"
+msgstr "Nenhum save do Dolphin"
+
+msgid "RiftWii found no saves for this memory card in {1}. Copy Dolphin's GC folder there (in Dolphin: File > Open User Folder, then GC): it holds the USA, EUR and JAP folders."
+msgstr "O RiftWii não encontrou saves para este cartão de memória em {1}. Copie a pasta GC do Dolphin para lá (no Dolphin: File > Open User Folder, depois GC): ela contém as pastas USA, EUR e JAP."
+
+msgid "Bring your Dolphin saves?"
+msgstr "Trazer seus saves do Dolphin?"
+
+msgid "RiftWii found {1} files in Dolphin's folder. Their saves are copied to this memory card, and the ones it has already are left alone. The card is kept as a copy first, so Restore an older save can undo it."
+msgstr "O RiftWii encontrou {1} arquivos na pasta do Dolphin. Os saves deles são copiados para este cartão de memória, e os que ele já tem ficam como estão. Uma cópia do cartão é guardada antes, então Restaurar um save anterior pode desfazer isso."
+
+msgid "Bring them"
+msgstr "Trazer"
+
+msgid "Saves not brought"
+msgstr "Saves não trazidos"
+
+msgid "RiftWii could not keep a copy of the memory card, so it was not changed: {1}"
+msgstr "O RiftWii não conseguiu guardar uma cópia do cartão de memória, então ele não foi alterado: {1}"
+
+msgid "Nothing new to add"
+msgstr "Nada novo para adicionar"
+
+msgid "Dolphin saves brought"
+msgstr "Saves do Dolphin trazidos"
+
+msgid "Some files were left out because there were too many."
+msgstr "Alguns arquivos ficaram de fora porque eram demais."
+
+msgid "Some files will be left out because there are too many."
+msgstr "Alguns arquivos ficarão de fora porque são demais."
+
+msgid "Shared Memory Card"
+msgstr "Cartão de memória compartilhado"
+
+msgid "The shared memory card is made the first time a game that uses it starts: {1}."
+msgstr "O cartão de memória compartilhado é criado na primeira vez que um jogo que o usa é iniciado: {1}."
+
+msgid "Saves go to the shared memory card on the SD card: {1}."
+msgstr "Os saves vão para o cartão de memória compartilhado no cartão SD: {1}."
+
+msgid "Memory card"
+msgstr "Cartão de memória"
+
+msgid "About this"
+msgstr "Sobre isto"
+
+msgid "Save to a card for this game alone, or to one card shared by all your games."
+msgstr "Salva em um cartão só para este jogo, ou em um cartão compartilhado por todos os seus jogos."
+
+msgid "Switching copies no saves: they stay on the other card. Move them with Copy to the SD card and Add a save from the SD card on the Saves page. Japanese games have a shared card of their own."
+msgstr "Trocar não copia saves: eles ficam no outro cartão. Mova-os com Copiar para o cartão SD e Adicionar um save do cartão SD na página de saves. Os jogos japoneses têm o seu próprio cartão compartilhado."
+
+msgid "Switch"
+msgstr "Trocar"
+
+msgid "Shared"
+msgstr "Compartilhado"
+
+msgid "This game's own"
+msgstr "Só deste jogo"
+
+msgid "Adds a .gci save file from {1}."
+msgstr "Adiciona um arquivo de save .gci de {1}."
+
+msgid "As a save file for Dolphin"
+msgstr "Como arquivo de save, para o Dolphin"
+
+msgid "Copy to the SD card"
+msgstr "Copiar para o cartão SD"
+
+msgid "Delete"
+msgstr "Apagar"
+
+msgid "Delete {1}?"
+msgstr "Apagar {1}?"
+
+msgid "From this memory card"
+msgstr "Deste cartão de memória"
+
+msgid "It is gone from the memory card for good. Copy it to the SD card first to keep it."
+msgstr "Ele some do cartão de memória para sempre. Copie-o para o cartão SD antes, para mantê-lo."
+
+msgid "Keep it"
+msgstr "Manter"
+
+msgid "Memory card damaged"
+msgstr "Cartão de memória danificado"
+
+msgid "Memory card not changed"
+msgstr "Cartão de memória sem alterações"
+
+msgid "No memory card yet"
+msgstr "Ainda não há cartão de memória"
+
+msgid "No saves on the SD card"
+msgstr "Sem saves no cartão SD"
+
+msgid "Press A to add this save to the memory card."
+msgstr "Aperte A para adicionar este save ao cartão de memória."
+
+msgid "Press A to see its saves."
+msgstr "Aperte A para ver os saves."
+
+msgid "Put .gci save files (from Dolphin, Nintendont or another card) in {1}, then try again."
+msgstr "Coloque arquivos de save .gci (do Dolphin, do Nintendont ou de outro cartão) em {1} e tente de novo."
+
+msgid "Save copied"
+msgstr "Save copiado"
+
+msgid "Save not added"
+msgstr "Save não adicionado"
+
+msgid "Save not copied"
+msgstr "Save não copiado"
+
+msgid "Save not deleted"
+msgstr "Save não apagado"
+
+msgid "This game's memory card is made the first time the game starts: {1}."
+msgstr "O cartão de memória deste jogo é criado na primeira vez que o jogo inicia: {1}."
+
+msgid "This save is damaged: its blocks do not add up. It can only be deleted."
+msgstr "Este save está danificado: os blocos não batem. Só pode ser apagado."
+
+msgid "It is {1}."
+msgstr "É {1}."
+
+msgid "RiftWii cannot read {1}: {2}"
+msgstr "O RiftWii não consegue ler {1}: {2}"
+
+msgid "RiftWii could not read {1}."
+msgstr "O RiftWii não conseguiu ler {1}."
+
+msgid "RiftWii could not write {1}."
+msgstr "O RiftWii não conseguiu escrever {1}."
+
+msgid "This game's own options: how its disc is read, and its controls."
+msgstr "As opções próprias deste jogo: como o disco é lido e os controles."
+
+msgid "Not made yet"
+msgstr "Ainda não criado"
+
+msgid "Home lists the GameCube games only, from sd:/games."
+msgstr "O Início mostra só os jogos de GameCube, de sd:/games."
+
+msgid "A GameCube game goes on the SD card, as sd:/games/<its ID>/game.iso."
+msgstr "Um jogo de GameCube vai no cartão SD, como sd:/games/<seu ID>/game.iso."
+
+msgid "Loading speed"
+msgstr "Carregamento"
+
+msgid "Fast"
+msgstr "Rápida"
+
+msgid "As on a GameCube (slower)"
+msgstr "Como em um GameCube (mais lenta)"
+
+msgid "480p picture"
+msgstr "Imagem em 480p"
+
+msgid "On (480p)"
+msgstr "Sim (480p)"
+
+msgid "Widescreen"
+msgstr "Widescreen"
+
+msgid "480p is for US and Japanese games; this European game keeps its own picture."
+msgstr "480p é para jogos dos EUA e do Japão; este jogo europeu mantém a sua própria imagem."
+
+msgid "Gives a sharper, steadier picture on a component cable, even in games with no 480p mode; some games ask first."
+msgstr "Dá uma imagem mais nítida e estável com cabo componente, mesmo em jogos sem modo 480p; alguns jogos perguntam antes."
+
+msgid "Fills a widescreen TV with the game world; menus stay stretched, and some games show wrong colors (experimental)."
+msgstr "Preenche uma TV widescreen com o mundo do jogo; os menus continuam esticados e alguns jogos mostram cores erradas (experimental)."
+
+msgid "The language this game plays in, leaving the Wii's own setting alone (most US and Japanese games have only one)."
+msgstr "O idioma em que este jogo é jogado, sem mudar a configuração do Wii (a maioria dos jogos dos EUA e do Japão tem só um)."
+
+msgid "Controls"
+msgstr "Controles"
+
+msgid "Fast suits almost every game; a few need the GameCube's own, slower speed (experimental, it can freeze some games)."
+msgstr "Rápida serve para quase todos os jogos; alguns poucos precisam da velocidade mais lenta do próprio GameCube (experimental, pode travar alguns jogos)."
+
+msgid "Shows which Wii Remote, Nunchuk or Classic Controller buttons act as the GameCube controller's, and how to leave the game."
+msgstr "Mostra quais botões do Wii Remote, do Nunchuk ou do Classic Controller funcionam como os do controle do GameCube, e como sair do jogo."
 
 msgid "SD image made"
 msgstr "Imagem SD criada"

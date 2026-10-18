@@ -232,6 +232,46 @@ From a USB drive or the SD card where you can:
 - [ ] **Wii Fit Plus** with a Balance Board.
 - [ ] **Metroid Prime Trilogy** with a cheat on, inside one of its games.
 
+## 14. GameCube games
+
+Super Mario Sunshine as `sd:/games/GMSE01/game.iso` with Super Mario
+Eclipse's patch in `sd:/riftwii/patches`, and any other GameCube game in
+`sd:/games/<ID>/game.iso`. After each launch, keep `sd:/riftwii/boot.log`
+and `sd:/riftwii/gc/trace.bin`.
+
+- [ ] **Home**: GameCube games have the GC badge; Eclipse has BUILD until
+  it is built; Settings > Games from > GameCube lists only them; search
+  "gc" finds them.
+- [ ] **Build**: Eclipse's page says Build and play; the Build box shows
+  both covers; building shows the time left; Stop asks, B twice keeps
+  building; the game starts once built, and Play starts it at once next
+  time.
+- [ ] **Controls**: the controls card shows once before the first start,
+  with the controllers connected; a Wii Remote (sideways), a Nunchuk, a
+  Classic Controller and a GameCube controller in a Wii port all play.
+- [ ] **Sound and music**: in-game sound and the disc's streamed music.
+- [ ] **Memory card**: save in the game, restart it, the save loads; the
+  Saves tile lists it with its icon; copy it out as `.gci`, delete it,
+  add it back; Options > Memory card > Shared uses `shared.raw`.
+- [ ] **Leaving**: hold HOME for two seconds (HOME and - on a Wii Remote
+  alone; L, R, Z and Start on a GameCube controller), just after saving:
+  Settings > Return to: RiftWii goes back to the RiftWii channel (the Wii
+  Menu without it), Wii Menu to the Wii Menu; the save is there next time.
+- [ ] **A crash** (`sd:/riftwii/gc/crash` makes one 600 pad reads in;
+  `sd:/riftwii/gc/crashblack` makes it on a blanked screen, as in a game's
+  first moments): the blue screen shows "The game stopped.", the register
+  dump (the exception, SRR0 to DAR, R0-R31, the callers, the game's ID and
+  the version) and the hint, on the TV and straight at 4:3 and 16:9; HOME
+  or A goes back (to the Homebrew Channel when it started RiftWii), the
+  next start offers the report. In Dolphin, `sd:/riftwii/gc/leave` as well
+  takes A as pressed after twenty seconds.
+- [ ] **Options**: Disc reads Fast loads sooner; 480p on a component
+  cable (the game asks first); 16:9, picked by hand (Default keeps the
+  game's own), widens the 3D (experimental: on a Wii Super Mario Eclipse's
+  colours inverted and its picture doubled); a PAL game's language
+  changes its menus.
+- [ ] **Packs**: Luigi's Mansion with a pack that changes a file.
+
 ## Known issues
 
 - Some games freeze or go black after HOME > Wii Menu instead of going

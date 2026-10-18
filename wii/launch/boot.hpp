@@ -219,6 +219,9 @@ struct LaunchExtras {
     bool pack_keeps_saves = false;  // a pack's <savegame> decides where the saves go
 };
 void SetLaunchExtras(LaunchExtras extras);
+// What SetLaunchExtras set, for a launch that does not go through
+// boot_game (a GameCube game's, wii/launch/gcnative.cpp, reads its cheats).
+const LaunchExtras& CurrentLaunchExtras();
 // The menu's word on the next launch: a pack keeps its own saves.
 bool LaunchPackKeepsSaves();
 

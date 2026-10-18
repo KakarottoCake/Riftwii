@@ -121,6 +121,14 @@ struct FtgxBitmapGlyph { const uint8_t* pixels; int width, rows, left, top, adva
 typedef bool (*FtgxBitmapGlyphSource)(wchar_t charCode, int pixelSize, FtgxBitmapGlyph* out);
 void SetBitmapGlyphSource(FtgxBitmapGlyphSource source);
 void ChangeFontSize(FT_UInt pixelSize);
+// RiftWii: UTF-8 `text` as 8-bit coverage at `pixelSize` into `out`
+// (`width` x `height`, zeroed by the caller), wrapped at spaces and each
+// line centred (or from the left edge), for drawing without GX.
+// `pixelWidth` other than 0 narrows or widens the glyphs (a picture a 16:9
+// TV stretches); `widest`, when given, gets the widest line's advance.
+// Returns the lines drawn, or -1 when not all the text fit.
+int RenderTextCoverage(const char* text, FT_UInt pixelSize, uint8_t* out, int width, int height,
+	FT_UInt pixelWidth = 0, bool centred = true, int* widest = nullptr);
 wchar_t* charToWideChar(const char* p);
 void ClearFontData();
 

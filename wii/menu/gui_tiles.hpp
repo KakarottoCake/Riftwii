@@ -22,6 +22,7 @@ struct TileSpec {
     bool primary = false;
     bool on = false;   // the value in the accent's colour (something switched on)
     bool dim = false;  // greyed: still lit and pressed, its page says why
+    bool warn = false; // the value in the theme's warning colour (a memory card that is full)
 };
 
 class GuiTiles : public GuiElement {

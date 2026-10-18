@@ -25,6 +25,8 @@ public:
     void add_text(const std::string& text, const std::set<std::string>* wanted = nullptr);
     // The title for a 6-char game ID, or its 4-char prefix; null when none.
     const std::string* find(const std::string& id) const;
+    // The title for exactly this ID, without the 4-char prefix's; null when none.
+    const std::string* find_exact(const std::string& id) const;
     std::size_t size() const { return titles_.size(); }
 
 private:

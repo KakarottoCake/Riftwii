@@ -36,7 +36,7 @@ struct LoaderSettings {
     std::string menu_sounds = "quiet";    // normal, quiet (a soft hover tick), off
     std::string menu_music = "on";        // on, off: music.ogg while the menu is open
     std::string play_history = "on";      // on, off: count the games played from RiftWii (history.txt)
-    std::string home_source = "all";      // all, sd, usb, wii (its WiiWare and Virtual Console games): which games Home lists
+    std::string home_source = "all";      // all, sd, usb: which drive's games Home lists; gamecube: the GameCube games only; wii: its WiiWare and Virtual Console games
     std::string home_sort = "az";         // az, recent (last played first), most (most played first), custom (sd:/riftwii/order.txt)
     std::string home_disc = "on";         // on, off: the Disc drive's tile on Home (asked on a new card)
     std::string theme = "default";        // default, or a folder in sd:/riftwii/themes (docs/THEMES.md)
@@ -49,6 +49,7 @@ struct LoaderSettings {
     std::string gc_rumble = "on";         // on, off: GameCube controllers' rumble in games (PADControlMotor)
     std::string wiimote_rumble = "on";    // on, off: Wii Remotes' rumble in every game (WPADControlMotor; a game's own Rumble too)
     std::string gc_adapter = "auto";      // GameCube controller adapter for Wii U: auto (when plugged in at launch), on, off (demo: Dolphin tests)
+    std::string gc_backups = "on";        // on, off: copy a GameCube game's memory card to sd:/riftwii/gc/backups before it starts
     std::set<std::string> favorites;      // game IDs and profiles' tile keys, written "favorites = ID,ID@slug"
     // More folders to look for games in, besides wbfs and games:
     // "game_folders = /Wii Games; usb:/iso". A plain "/path" is looked

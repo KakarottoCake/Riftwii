@@ -48,6 +48,23 @@ PADOUT  := $(OUT)/pad
 PADBLOB := $(OUT)/riftwii_pad.bin
 PADOBJS := $(PADOUT)/pad_entry.o $(PADOUT)/pad_hook.o $(PADOUT)/rtgcad.o
 
+# The GameCube disc blob (runtime/gc): a GameCube game's DVDLow*
+# functions served from the SD card in Wii mode.
+GCSRC   := runtime/gc
+GCOUT   := $(OUT)/gc
+GCBLOB  := $(OUT)/riftwii_gc.bin
+GCOBJS  := $(GCOUT)/gc_entry.o $(GCOUT)/gc_rt.o $(GCOUT)/gc_bt.o $(GCOUT)/gc_card.o
+
+# The GameCube blob's RVZ build (docs/RVZ.md, "GameCube games"): the same
+# blob built with RT_RVZ, plus RVZ packing and Zstandard, for GameCube
+# games read from an RVZ. Like the Wii RVZ runtime it carries Zstandard's
+# constant tables, so tools/rtreloc.py writes its relocations.
+GCRVZOUT  := $(OUT)/gcrvz
+GCRVZBLOB := $(OUT)/riftwii_gc_rvz.bin
+GCRVZREL  := $(OUT)/riftwii_gc_rvz.rel
+GCRVZOBJS := $(GCRVZOUT)/gc_entry.o $(GCRVZOUT)/gc_rt.o $(GCRVZOUT)/gc_bt.o $(GCRVZOUT)/gc_card.o \
+             $(GCRVZOUT)/gc_rvz.o $(GCRVZOUT)/rtrvz.o $(GCRVZOUT)/rt_zstd.o
+
 # The in-game screenshot blob (runtime/shot): IOS_IoctlvAsync and PADRead
 # hooks, installed only when the option is on.
 SHOTSRC  := runtime/shot
@@ -102,9 +119,11 @@ PYTHON  ?= python3
 ZSTD    ?= zstd
 BLOBZST := $(OUT)/riftwii_rt.zst
 RVZZST  := $(OUT)/riftwii_rt_rvz.zst
+GCRVZZST := $(OUT)/riftwii_gc_rvz.zst
 
 .PHONY: all clean
-all: $(BLOB) $(PADBLOB) $(SHOTBLOB) $(FAULTBLOB) $(WLOGBLOB) $(VSDBLOB) $(RVZBLOB) $(BLOBZST) $(RVZZST)
+all: $(BLOB) $(PADBLOB) $(GCBLOB) $(SHOTBLOB) $(FAULTBLOB) $(WLOGBLOB) $(VSDBLOB) $(RVZBLOB) $(BLOBZST) $(RVZZST) \
+     $(GCRVZBLOB) $(GCRVZZST)
 
 $(OUT)/%.zst: $(OUT)/%.bin
 	$(ZSTD) -q -19 -f -o $@ $<
@@ -166,6 +185,76 @@ $(PADBLOB): $(PADOUT)/riftwii_pad.elf $(PADOUT)/riftwii_pad_alt.elf
 	$(OBJCOPY) -O binary $(PADOUT)/riftwii_pad_alt.elf $(PADOUT)/riftwii_pad_alt.bin
 	@cmp $@ $(PADOUT)/riftwii_pad_alt.bin || { echo "runtime: pad blob differs between link bases; not position independent"; rm -f $@; exit 1; }
 	@echo "pad blob: $$(stat -c %s $@) bytes"
+
+$(GCOUT):
+	@mkdir -p $(GCOUT)
+
+$(GCOUT)/gc_entry.o: $(GCSRC)/gc_entry.S $(GCSRC)/gc_rt.h $(GCSRC)/gc_crash.h | $(GCOUT)
+	$(CC) $(CFLAGS) -I$(GCSRC) -c -o $@ $<
+
+$(GCOUT)/gc_rt.o: $(GCSRC)/gc_rt.c $(GCSRC)/gc_rt.h $(GCSRC)/gc_crash.h $(GCSRC)/gc_bt.h $(GCSRC)/gc_card.h | $(GCOUT)
+	$(CC) $(CFLAGS) -I$(GCSRC) -c -o $@ $<
+
+$(GCOUT)/gc_bt.o: $(GCSRC)/gc_bt.c $(GCSRC)/gc_bt.h $(GCSRC)/gc_ports.h $(GCSRC)/gc_rt.h $(GCSRC)/gc_crash.h | $(GCOUT)
+	$(CC) $(CFLAGS) -I$(GCSRC) -c -o $@ $<
+
+$(GCOUT)/gc_card.o: $(GCSRC)/gc_card.c $(GCSRC)/gc_card.h $(GCSRC)/gc_rt.h $(GCSRC)/gc_crash.h | $(GCOUT)
+	$(CC) $(CFLAGS) -I$(GCSRC) -c -o $@ $<
+
+$(GCOUT)/riftwii_gc.elf: $(GCOBJS) $(GCSRC)/gc.ld
+	$(CC) $(CFLAGS) -nostdlib -nostartfiles -static -Wl,--build-id=none -Wl,--gc-sections -T $(GCSRC)/gc.ld \
+		-Wl,--defsym,RT_BASE=0x00000000 -o $@ $(GCOBJS) -lgcc
+	@$(SIZE) -A $@ | awk '$$1 ~ /^\.(rodata|data|bss)$$/ && $$2 != 0 { print "runtime: section " $$1 " is not empty (" $$2 " bytes) in the gc blob"; bad = 1 } END { exit bad }'
+
+$(GCOUT)/riftwii_gc_alt.elf: $(GCOBJS) $(GCSRC)/gc.ld
+	$(CC) $(CFLAGS) -nostdlib -nostartfiles -static -Wl,--build-id=none -Wl,--gc-sections -T $(GCSRC)/gc.ld \
+		-Wl,--defsym,RT_BASE=0x12340000 -o $@ $(GCOBJS) -lgcc
+
+$(GCBLOB): $(GCOUT)/riftwii_gc.elf $(GCOUT)/riftwii_gc_alt.elf
+	$(OBJCOPY) -O binary $(GCOUT)/riftwii_gc.elf $@
+	$(OBJCOPY) -O binary $(GCOUT)/riftwii_gc_alt.elf $(GCOUT)/riftwii_gc_alt.bin
+	@cmp $@ $(GCOUT)/riftwii_gc_alt.bin || { echo "runtime: gc blob differs between link bases; not position independent"; rm -f $@; exit 1; }
+	@echo "gc blob: $$(stat -c %s $@) bytes"
+
+$(GCRVZOUT):
+	@mkdir -p $(GCRVZOUT)
+
+$(GCRVZOUT)/gc_entry.o: $(GCSRC)/gc_entry.S $(GCSRC)/gc_rt.h $(GCSRC)/gc_crash.h | $(GCRVZOUT)
+	$(CC) $(CFLAGS) -DRT_RVZ -I$(GCSRC) -c -o $@ $<
+
+$(GCRVZOUT)/gc_rt.o: $(GCSRC)/gc_rt.c $(GCSRC)/gc_rt.h $(GCSRC)/gc_crash.h $(GCSRC)/gc_bt.h $(GCSRC)/gc_card.h $(GCSRC)/gc_rvz.h | $(GCRVZOUT)
+	$(CC) $(CFLAGS) -DRT_RVZ -I$(GCSRC) -c -o $@ $<
+
+$(GCRVZOUT)/gc_bt.o: $(GCSRC)/gc_bt.c $(GCSRC)/gc_bt.h $(GCSRC)/gc_ports.h $(GCSRC)/gc_rt.h $(GCSRC)/gc_crash.h | $(GCRVZOUT)
+	$(CC) $(CFLAGS) -DRT_RVZ -I$(GCSRC) -c -o $@ $<
+
+$(GCRVZOUT)/gc_card.o: $(GCSRC)/gc_card.c $(GCSRC)/gc_card.h $(GCSRC)/gc_rt.h $(GCSRC)/gc_crash.h | $(GCRVZOUT)
+	$(CC) $(CFLAGS) -DRT_RVZ -I$(GCSRC) -c -o $@ $<
+
+$(GCRVZOUT)/gc_rvz.o: $(GCSRC)/gc_rvz.c $(GCSRC)/gc_rvz.h runtime/rtrvz.h | $(GCRVZOUT)
+	$(CC) $(CFLAGS) -DRT_RVZ -I$(GCSRC) -c -o $@ $<
+
+$(GCRVZOUT)/rtrvz.o: runtime/rtrvz.c runtime/rtrvz.h | $(GCRVZOUT)
+	$(CC) $(CFLAGS) -DRT_RVZ -c -o $@ $<
+
+$(GCRVZOUT)/rt_zstd.o: $(SRC)/rt_zstd.c $(SRC)/rt_hook.h vendor-zstd/zstddeclib.c | $(GCRVZOUT)
+	$(CC) $(ZSTDFLAGS) -c -o $@ $<
+
+$(GCRVZOUT)/riftwii_gc_rvz.elf: $(GCRVZOBJS) $(GCSRC)/gc_rvz.ld
+	$(CC) $(CFLAGS) -nostdlib -nostartfiles -static -Wl,--build-id=none -Wl,--gc-sections -Wl,--emit-relocs \
+		-T $(GCSRC)/gc_rvz.ld -Wl,--defsym,RT_BASE=0x00000000 -o $@ $(GCRVZOBJS) -lgcc
+	@$(SIZE) -A $@ | awk '$$1 ~ /^\.(data|bss)$$/ && $$2 != 0 { print "runtime: section " $$1 " is not empty (" $$2 " bytes) in the GameCube RVZ blob"; bad = 1 } END { exit bad }'
+
+$(GCRVZOUT)/riftwii_gc_rvz_alt.elf: $(GCRVZOBJS) $(GCSRC)/gc_rvz.ld
+	$(CC) $(CFLAGS) -nostdlib -nostartfiles -static -Wl,--build-id=none -Wl,--gc-sections \
+		-T $(GCSRC)/gc_rvz.ld -Wl,--defsym,RT_BASE=0x12340000 -o $@ $(GCRVZOBJS) -lgcc
+
+$(GCRVZBLOB) $(GCRVZREL): $(GCRVZOUT)/riftwii_gc_rvz.elf $(GCRVZOUT)/riftwii_gc_rvz_alt.elf tools/rtreloc.py
+	$(OBJCOPY) -O binary -j .text $(GCRVZOUT)/riftwii_gc_rvz.elf $(GCRVZBLOB)
+	$(OBJCOPY) -O binary -j .text $(GCRVZOUT)/riftwii_gc_rvz_alt.elf $(GCRVZOUT)/riftwii_gc_rvz_alt.bin
+	@$(PYTHON) tools/rtreloc.py $(GCRVZOUT)/riftwii_gc_rvz.elf $(GCRVZBLOB) $(GCRVZOUT)/riftwii_gc_rvz_alt.bin 0x12340000 $(GCRVZREL) \
+		|| { rm -f $(GCRVZBLOB) $(GCRVZREL); exit 1; }
+	@echo "GameCube RVZ blob: $$(stat -c %s $(GCRVZBLOB)) bytes"
 
 $(SHOTOUT):
 	@mkdir -p $(SHOTOUT)

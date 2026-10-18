@@ -9,6 +9,7 @@
 
 #include "riftwii/redirect.hpp"
 #include "riftwii/rvz.hpp"
+#include "riftwii/titles.hpp"
 #include "riftwii/usbgame.hpp"
 #include "resident.hpp"
 
@@ -46,6 +47,12 @@ struct ImageGame {
     std::vector<std::string> rvz_reasons;
     std::uint64_t rvz_disc_bytes = 0;
     std::uint32_t rvz_chunk_bytes = 0;  // its block size (Dolphin's word), filled then too
+    // A GameCube image (sd:/games/<folder>/game.iso): started by RiftWii's
+    // own loader (wii/launch/gclaunch.hpp), not d2x.
+    bool gamecube = false;
+    // A patch-only mod listed as the game it makes (wii/launch/gcpatch.hpp):
+    // `path` is the patch, this the original it is made from.
+    std::string gc_patch_source;
 };
 
 struct ImageCatalog {
@@ -151,6 +158,9 @@ std::string GameDisplayName(const std::string& id, const std::string& internal);
 bool GameTitleListed(const std::string& id, std::string& title);
 // Reads the title list again (after a language change or a download).
 void ReloadTitles();
+// The title list the last scan read, without reading or downloading it
+// now; null when there is none yet.
+const TitleTable* LoadedTitles();
 // Names (and sorts) a scanned catalog's games again from the title list.
 void RenameGames(ImageCatalog& catalog);
 // Whether a cIOS slot holds a launchable (non-stub) title.

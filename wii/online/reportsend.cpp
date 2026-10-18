@@ -26,6 +26,7 @@
 #include "online.hpp"
 #include "restart.hpp"
 #include "riftwii/gamefault.hpp"
+#include "riftwii/gccrash.hpp"
 #include "riftwii/http.hpp"
 #include "riftwii/problemreport.hpp"
 #include "riftwii/profiles.hpp"
@@ -303,7 +304,44 @@ std::string DescribeControllers() {
     return out + "; " + DescribePadPairings(pairings);
 }
 
+// A GameCube game's crash: its loader's trace (riftwii/gccrash.hpp), kept
+// as trace-crash.bin once read so it is asked about once; the next launch
+// makes a new trace.bin. The game's ID from the launch's log.
+static bool import_gc_crash() {
+    static const char kTrace[] = "sd:/riftwii/gc/trace.bin";
+    static const char kKept[] = "sd:/riftwii/gc/trace-crash.bin";
+    std::string raw;
+    if (!read_text(kTrace, raw)) return false;
+    const std::vector<std::uint8_t> trace(raw.begin(), raw.end());
+    std::string id, text;
+    std::string boot;
+    if (read_text("sd:/riftwii/boot.log", boot)) {
+        // The loader's own line: "GameCube (native): GMSE04 (sd:/...)".
+        static const char kLine[] = "GameCube (native): ";
+        const std::size_t at = boot.find(kLine);
+        if (at != std::string::npos && at + sizeof(kLine) - 1 + 6 <= boot.size()) id = boot.substr(at + sizeof(kLine) - 1, 6);
+    }
+    if (!describe_gc_crash(trace, id, text)) return false;
+    std::remove(kKept);
+    std::rename(kTrace, kKept);
+    if (FILE* f = std::fopen(kGameCrashFile, "wb")) {
+        std::fputs(text.c_str(), f);
+        std::fclose(f);
+    }
+    g_game_crashed = true;
+    logf("Game crash: %s (from %s, saved as %s)\n", text.substr(0, text.find('\n')).c_str(), kTrace, kGameCrashFile);
+    std::size_t line = 0;
+    while (line < text.size()) {
+        const std::size_t end = text.find('\n', line);
+        logf("  %s\n", text.substr(line, end - line).c_str());
+        if (end == std::string::npos) break;
+        line = end + 1;
+    }
+    return true;
+}
+
 void ImportGameCrash() {
+    if (import_gc_crash()) return;
     if (ISFS_Initialize() < 0) return;
     static u8 record[512] ATTRIBUTE_ALIGN(32);
     const s32 fd = ISFS_Open(kGameCrashRecord, ISFS_OPEN_READ);

@@ -105,6 +105,19 @@ void test_hooks() {
     std::vector<CodeRange> vr{{0x801E99F4, vi.data(), vi.size()}};
     EXPECT_EQ(find_cheat_hook(vr), 0x801E9A04u);
     EXPECT_EQ(find_code_hook(vr, CodeHook::AudioFrame), 0u);
+    // A GameCube SDK's retrace handler: its check of the second display
+    // interrupt, the callbacks it calls (blrl, not its end), then its blr.
+    Bytes gc;
+    for (std::uint32_t w : {0x3C60CC00u, 0xA4832034u, 0x54800421u, 0x41820010u, 0x7D8803A6u, 0x4E800021u,
+                            0x7C0803A6u, 0x4E800020u})
+        put(gc, w);
+    std::vector<CodeRange> gr{{0x8034ED58, gc.data(), gc.size()}};
+    EXPECT_EQ(find_gc_cheat_hook(gr), 0x8034ED74u);
+    EXPECT_EQ(find_cheat_hook(gr), 0u);  // a Wii game's search does not take it
+    // A GameCube game built like a Wii one: the Wii pattern as a fallback.
+    EXPECT_EQ(find_gc_cheat_hook(vr), 0x801E9A04u);
+    EXPECT_EQ(find_gc_cheat_hook(ranges), 0u);
+    EXPECT_EQ(code_hook_pattern(CodeHook::GcRetrace)[1], 0xA4832034u);
 }
 
 void test_dol_jumps() {

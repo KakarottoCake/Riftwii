@@ -372,6 +372,9 @@ msgstr "{1}에 치트 파일이 없"
 msgid "The cheat file has no cheats in it: {1}"
 msgstr "치트 파일에 치트 없음: {1}"
 
+msgid "The cheat file only has cheats for other versions of this game."
+msgstr "치트 파일에는 이 게임의 다른 버전용 치트만 있습니다."
+
 msgid "Settings"
 msgstr "설정"
 
@@ -863,6 +866,12 @@ msgstr "이 게임은 Wii의 메모리를 거의 전부 사용하며, 이 RVZ의
 
 msgid "Packs on USB are experimental; if it fails, copy them to SD."
 msgstr "USB의 팩은 실험적인 기능입니다. 실패할 경우 SD 카드로 복사하세요."
+
+msgid "RVZ is experimental for GameCube games; if it fails, use an ISO copy."
+msgstr "GameCube 게임의 RVZ는 실험적인 기능입니다. 실패할 경우 ISO 사본을 사용하세요."
+
+msgid "Play at your own risk:"
+msgstr "사용 시 발생하는 문제는 사용자의 책임입니다:"
 
 msgid "CTGP Revolution (a pack that starts a Homebrew Channel app) does not work from RiftWii yet: it stops on a black or green screen. Start CTGP from the Homebrew Channel instead."
 msgstr "CTGP Revolution(홈브류 채널 앱을 통해 실행하는 팩)은 아직 RiftWii에서 정상적으로 작동하지 않으며, 검은색 또는 녹색 화면에서 멈춥니다. 대신 홈브류 채널에서 CTGP를 실행하세요."
@@ -1412,6 +1421,438 @@ msgstr "중단되었습니다. 아무것도 보관되지 않았습니다."
 
 msgid "{1} could not be made: {2}. Nothing was kept."
 msgstr "{1}을(를) 생성할 수 없습니다: {2}. 아무것도 보존되지 않았습니다."
+
+msgid "GameCube"
+msgstr "게임큐브"
+
+msgid "Memory Card"
+msgstr "메모리 카드"
+
+msgid "Build and play"
+msgstr "만들고 플레이"
+
+msgid "Made from {1} on first start, once; every start after that is immediate."
+msgstr "처음 시작할 때 {1}에서 한 번만 만들어지며, 그 뒤로는 바로 시작됩니다."
+
+msgid "Saves go to this game's own memory card on the SD card: {1}."
+msgstr "저장 데이터는 SD 카드에 있는 이 게임 전용 메모리 카드에 저장됩니다: {1}."
+
+msgid "Stop making {1}?"
+msgstr "{1} 만들기를 중지할까요?"
+
+msgid "What is made so far is deleted. It can be made again later, from the start."
+msgstr "지금까지 만든 것은 삭제됩니다. 나중에 처음부터 다시 만들 수 있습니다."
+
+msgid "Keep going"
+msgstr "계속하기"
+
+msgid "{1} can't be built"
+msgstr "{1}을(를) 만들 수 없습니다"
+
+msgid "It is built from {1}, and RiftWii cannot open it on the SD card any more. Put it back in sd:/games and try again."
+msgstr "{1}에서 만들어지는데, RiftWii가 SD 카드에서 더 이상 열 수 없습니다. sd:/games에 다시 넣고 다시 시도하세요."
+
+msgid "Building it needs {1} free on the SD card, and only {2} is free. Free some space and press Start again."
+msgstr "만들려면 SD 카드에 {1}의 여유 공간이 필요하지만 {2}만 남아 있습니다. 공간을 확보한 뒤 시작을 다시 누르세요."
+
+msgid "Build this game first?"
+msgstr "먼저 이 게임을 만들까요?"
+
+msgid "Build {1} from your {2}? This happens once."
+msgstr "가지고 있는 {2}(으)로 {1}을(를) 만들까요? 한 번만 하면 됩니다."
+
+msgid "Needs {1}"
+msgstr "{1} 필요"
+
+msgid "Once only"
+msgstr "한 번만"
+
+msgid "Build it"
+msgstr "만들기"
+
+msgid "Building {1}"
+msgstr "{1} 만드는 중"
+
+msgid "Reading {1} and writing {2}"
+msgstr "{1} 읽고 {2} 쓰는 중"
+
+msgid "{1} not built"
+msgstr "{1}을(를) 만들지 못했습니다"
+
+msgid "Hold HOME and - for two seconds to leave the game."
+msgstr "HOME과 -를 2초 동안 누르면 게임을 나갑니다."
+
+msgid "Hold L, R, Z and Start for two seconds to leave the game."
+msgstr "L, R, Z, 스타트를 2초 동안 누르면 게임을 나갑니다."
+
+msgid "{1}/{2}/{3}"
+msgstr "{3}/{1}/{2}"
+
+msgid "Not for European games"
+msgstr "유럽 게임용 아님"
+
+msgid "Only with a component or HDMI cable: without one the picture stays black."
+msgstr "컴포넌트 또는 HDMI 케이블이 있을 때만 쓰세요. 없으면 화면이 검은 채로 남습니다."
+
+msgid "Turn on"
+msgstr "켜기"
+
+msgid "Wii Remote and Nunchuk"
+msgstr "Wii 리모컨과 눈차크"
+
+msgid "Wii Remote, held sideways"
+msgstr "Wii 리모컨 (가로로)"
+
+msgid "GameCube controls: {1}"
+msgstr "게임큐브 조작: {1}"
+
+msgid "Its buttons are the game's own, as on a GameCube."
+msgstr "버튼은 게임큐브와 같습니다."
+
+msgid "Stick"
+msgstr "스틱"
+
+msgid "C-stick"
+msgstr "C스틱"
+
+msgid "Saved {1}"
+msgstr "저장일 {1}"
+
+msgid "{1} of {2} blocks free"
+msgstr "{2}블록 중 {1}블록 남음"
+
+msgid "Working out the time left..."
+msgstr "남은 시간을 계산하는 중..."
+
+msgid "Stop building {1}?"
+msgstr "{1} 만들기를 중지할까요?"
+
+msgid "What is built so far is deleted. It can be built again later, from the start."
+msgstr "지금까지 만든 것은 삭제됩니다. 나중에 처음부터 다시 만들 수 있습니다."
+
+msgid "{1} could not be built: {2}. Nothing was kept."
+msgstr "{1}을(를) 만들 수 없습니다: {2}. 아무것도 남기지 않았습니다."
+
+msgid "About a minute"
+msgstr "약 1분"
+
+msgid "About {1}-{2} minutes"
+msgstr "약 {1}~{2}분"
+
+msgid "The game stopped."
+msgstr "게임이 멈췄습니다."
+
+msgid "Press HOME or A to go back to RiftWii and send a problem report."
+msgstr "HOME이나 A를 누르면 RiftWii로 돌아가 문제 보고를 보낼 수 있습니다."
+
+msgid "Press HOME or A to go back to the Homebrew Channel. RiftWii offers to send a problem report when it next starts."
+msgstr "HOME이나 A를 누르면 홈브류 채널로 돌아갑니다. 다음에 RiftWii를 시작하면 문제 보고를 보낼지 묻습니다."
+
+msgid "Press HOME or A to go back to the Wii Menu. RiftWii offers to send a problem report when it next starts."
+msgstr "HOME이나 A를 누르면 Wii 메뉴로 돌아갑니다. 다음에 RiftWii를 시작하면 문제 보고를 보낼지 묻습니다."
+
+msgid "Turn the Wii off and on again. RiftWii offers to send a problem report when it next starts."
+msgstr "Wii를 껐다가 다시 켜세요. 다음에 RiftWii를 시작하면 문제 보고를 보낼지 묻습니다."
+
+msgid "Called from"
+msgstr "호출한 곳"
+
+msgid "Hold HOME for two seconds to leave the game."
+msgstr "HOME을 2초 동안 누르면 게임을 나갑니다."
+
+msgid "1 block"
+msgstr "1블록"
+
+msgid "{1} blocks"
+msgstr "{1}블록"
+
+msgid "Add a save"
+msgstr "저장 데이터 추가"
+
+msgid "Add a save from the SD card"
+msgstr "SD 카드에서 저장 데이터 추가"
+
+msgid "Back up saves"
+msgstr "저장 데이터 백업"
+
+msgid "Before a GameCube game starts, its memory card is copied to the SD card. The last five copies are kept, for Restore an older save on the game's Saves page."
+msgstr "게임큐브 게임을 시작하기 전에 메모리 카드를 SD 카드에 복사합니다. 최근 복사본 다섯 개가 남으며, 게임의 저장 페이지에 있는 이전 저장 데이터로 되돌리기에 쓰입니다."
+
+msgid "Restore an older save"
+msgstr "이전 저장 데이터로 되돌리기"
+
+msgid "Go back to how your save was on a day you pick."
+msgstr "고른 날의 저장 데이터 상태로 되돌립니다."
+
+msgid "Go back to how the shared memory card was on a day you pick, for every game on it."
+msgstr "고른 날의 공유 메모리 카드 상태로 되돌립니다. 카드의 모든 게임이 되돌아갑니다."
+
+msgid "Press A to put this game's save back to how it was then."
+msgstr "A 버튼을 누르면 이 게임의 저장 데이터를 그때 상태로 되돌립니다."
+
+msgid "Press A to put the shared memory card back to how it was then, for every game on it."
+msgstr "A 버튼을 누르면 공유 메모리 카드를 그때 상태로 되돌립니다. 카드의 모든 게임이 되돌아갑니다."
+
+msgid "Restore"
+msgstr "되돌리기"
+
+msgid "Save restored"
+msgstr "저장 데이터를 되돌렸습니다"
+
+msgid "The memory card is as it was on {1}. The save from before is kept among the older saves, so you can go back to it."
+msgstr "메모리 카드가 {1}의 상태가 되었습니다. 되돌리기 전의 저장 데이터는 이전 저장 데이터 목록에 남으므로 다시 돌아갈 수 있습니다."
+
+msgid "Save not restored"
+msgstr "저장 데이터를 되돌리지 못했습니다"
+
+msgid "RiftWii could not read that copy."
+msgstr "RiftWii가 그 복사본을 읽지 못했습니다."
+
+msgid "That copy is damaged, so your save was not changed."
+msgstr "그 복사본이 손상되어 저장 데이터는 바뀌지 않았습니다."
+
+msgid "RiftWii could not keep a copy of the save as it is now, so it was not changed: {1}"
+msgstr "RiftWii가 지금의 저장 데이터 복사본을 남기지 못해 저장 데이터는 바뀌지 않았습니다: {1}"
+
+msgid "RiftWii could not write the memory card: {1}"
+msgstr "RiftWii가 메모리 카드에 쓰지 못했습니다: {1}"
+
+msgid "Memory card full"
+msgstr "카드 가득 참"
+
+msgid "Restore this save?"
+msgstr "이 저장 데이터로 되돌릴까요?"
+
+msgid "Your save goes back to how it was on {1}. Your save as it is now is kept as a copy first, so you can come back to it."
+msgstr "저장 데이터가 {1}의 상태로 되돌아갑니다. 지금의 저장 데이터는 먼저 복사본으로 남으므로 다시 돌아올 수 있습니다."
+
+msgid "Every game's save on the shared memory card goes back to how it was on {1}. How they are now is kept as a copy first, so you can come back to them."
+msgstr "공유 메모리 카드에 있는 모든 게임의 저장 데이터가 {1}의 상태로 되돌아갑니다. 지금 상태는 먼저 복사본으로 남으므로 다시 돌아올 수 있습니다."
+
+msgid "(before you restored)"
+msgstr "(되돌리기 전)"
+
+msgid "1 save"
+msgstr "저장 데이터 1개"
+
+msgid "{1} saves"
+msgstr "저장 데이터 {1}개"
+
+msgid "RiftWii keeps a copy each time you start the game."
+msgstr "게임을 시작할 때마다 RiftWii가 복사본을 남깁니다."
+
+msgid "The memory card is full: this game can't save. Delete or copy saves on the Memory Card page to make room."
+msgstr "메모리 카드가 가득 차서 저장할 수 없습니다. 메모리 카드 페이지에서 공간을 만드세요."
+
+msgid "The card is full: this game can't save. Make room on the Memory Card page or use its own card."
+msgstr "카드가 가득 차서 저장할 수 없습니다. 공간을 만들거나 전용 카드로 바꾸세요."
+
+msgid "Bring your Dolphin saves"
+msgstr "Dolphin 저장 데이터 가져오기"
+
+msgid "Copy every save from Dolphin's GC folder in one go."
+msgstr "Dolphin의 GC 폴더에 있는 저장 데이터를 한 번에 모두 복사합니다."
+
+msgid "To bring all of Dolphin's saves at once, copy its GC folder (in Dolphin: File > Open User Folder) to {1}."
+msgstr "Dolphin의 저장 데이터를 한꺼번에 가져오려면 GC 폴더(Dolphin의 File > Open User Folder)를 {1}에 복사하세요."
+
+msgid "Added: {1}. Already on the card, so skipped: {2}."
+msgstr "추가됨: {1}. 이미 카드에 있어 건너뜀: {2}."
+
+msgid "Could not be used: {1}."
+msgstr "사용할 수 없음: {1}."
+
+msgid "The memory card is full, so the rest did not fit."
+msgstr "메모리 카드가 가득 차서 나머지는 들어가지 않았습니다."
+
+msgid "No saves from Dolphin"
+msgstr "Dolphin 저장 데이터 없음"
+
+msgid "RiftWii found no saves for this memory card in {1}. Copy Dolphin's GC folder there (in Dolphin: File > Open User Folder, then GC): it holds the USA, EUR and JAP folders."
+msgstr "RiftWii가 {1}에서 이 메모리 카드용 저장 데이터를 찾지 못했습니다. Dolphin의 GC 폴더(Dolphin의 File > Open User Folder 안의 GC, USA, EUR, JAP 폴더가 들어 있습니다)를 그곳에 복사하세요."
+
+msgid "Bring your Dolphin saves?"
+msgstr "Dolphin 저장 데이터를 가져올까요?"
+
+msgid "RiftWii found {1} files in Dolphin's folder. Their saves are copied to this memory card, and the ones it has already are left alone. The card is kept as a copy first, so Restore an older save can undo it."
+msgstr "RiftWii가 Dolphin 폴더에서 파일 {1}개를 찾았습니다. 그 저장 데이터를 이 메모리 카드에 복사하며, 이미 있는 것은 그대로 둡니다. 먼저 카드의 복사본을 남기므로 '이전 저장 데이터로 되돌리기'로 취소할 수 있습니다."
+
+msgid "Bring them"
+msgstr "가져오기"
+
+msgid "Saves not brought"
+msgstr "저장 데이터를 가져오지 못함"
+
+msgid "RiftWii could not keep a copy of the memory card, so it was not changed: {1}"
+msgstr "RiftWii가 메모리 카드의 복사본을 남기지 못해 카드는 바뀌지 않았습니다: {1}"
+
+msgid "Nothing new to add"
+msgstr "새로 추가할 것이 없음"
+
+msgid "Dolphin saves brought"
+msgstr "Dolphin 저장 데이터를 가져왔습니다"
+
+msgid "Some files were left out because there were too many."
+msgstr "파일이 너무 많아 일부는 제외했습니다."
+
+msgid "Some files will be left out because there are too many."
+msgstr "파일이 너무 많아 일부는 제외됩니다."
+
+msgid "Shared Memory Card"
+msgstr "공유 메모리 카드"
+
+msgid "The shared memory card is made the first time a game that uses it starts: {1}."
+msgstr "공유 메모리 카드는 이를 사용하는 게임을 처음 시작할 때 만들어집니다: {1}."
+
+msgid "Saves go to the shared memory card on the SD card: {1}."
+msgstr "저장 데이터는 SD 카드의 공유 메모리 카드에 저장됩니다: {1}."
+
+msgid "Memory card"
+msgstr "메모리 카드"
+
+msgid "About this"
+msgstr "설명"
+
+msgid "Save to a card for this game alone, or to one card shared by all your games."
+msgstr "이 게임 전용 카드나 모든 게임이 함께 쓰는 카드 한 장에 저장합니다."
+
+msgid "Switching copies no saves: they stay on the other card. Move them with Copy to the SD card and Add a save from the SD card on the Saves page. Japanese games have a shared card of their own."
+msgstr "바꿔도 저장 데이터는 복사되지 않고 다른 카드에 남습니다. 저장 페이지의 SD 카드에 복사와 SD 카드에서 저장 데이터 추가로 옮길 수 있습니다. 일본 게임은 별도의 공유 카드를 씁니다."
+
+msgid "Switch"
+msgstr "바꾸기"
+
+msgid "Shared"
+msgstr "공유"
+
+msgid "This game's own"
+msgstr "이 게임 전용"
+
+msgid "Adds a .gci save file from {1}."
+msgstr "{1}에서 .gci 저장 파일을 추가합니다."
+
+msgid "As a save file for Dolphin"
+msgstr "저장 파일로 (Dolphin용)"
+
+msgid "Copy to the SD card"
+msgstr "SD 카드에 복사"
+
+msgid "Delete"
+msgstr "삭제"
+
+msgid "Delete {1}?"
+msgstr "{1}을(를) 삭제할까요?"
+
+msgid "From this memory card"
+msgstr "이 메모리 카드에서"
+
+msgid "It is gone from the memory card for good. Copy it to the SD card first to keep it."
+msgstr "메모리 카드에서 완전히 사라집니다. 남기려면 먼저 SD 카드에 복사하세요."
+
+msgid "Keep it"
+msgstr "남기기"
+
+msgid "Memory card damaged"
+msgstr "메모리 카드 손상"
+
+msgid "Memory card not changed"
+msgstr "메모리 카드가 바뀌지 않았습니다"
+
+msgid "No memory card yet"
+msgstr "아직 메모리 카드가 없습니다"
+
+msgid "No saves on the SD card"
+msgstr "SD 카드에 저장 데이터가 없습니다"
+
+msgid "Press A to add this save to the memory card."
+msgstr "A를 누르면 이 저장 데이터를 메모리 카드에 추가합니다."
+
+msgid "Press A to see its saves."
+msgstr "A를 누르면 저장 데이터를 볼 수 있습니다."
+
+msgid "Put .gci save files (from Dolphin, Nintendont or another card) in {1}, then try again."
+msgstr ".gci 저장 파일(Dolphin, Nintendont, 다른 카드의 것)을 {1}에 넣고 다시 시도하세요."
+
+msgid "Save copied"
+msgstr "저장 데이터 복사됨"
+
+msgid "Save not added"
+msgstr "저장 데이터가 추가되지 않았습니다"
+
+msgid "Save not copied"
+msgstr "저장 데이터가 복사되지 않았습니다"
+
+msgid "Save not deleted"
+msgstr "저장 데이터가 삭제되지 않았습니다"
+
+msgid "This game's memory card is made the first time the game starts: {1}."
+msgstr "이 게임의 메모리 카드는 게임을 처음 시작할 때 만들어집니다: {1}."
+
+msgid "This save is damaged: its blocks do not add up. It can only be deleted."
+msgstr "이 저장 데이터는 손상되었습니다: 블록이 맞지 않습니다. 삭제만 할 수 있습니다."
+
+msgid "It is {1}."
+msgstr "{1}입니다."
+
+msgid "RiftWii cannot read {1}: {2}"
+msgstr "RiftWii가 {1}을(를) 읽을 수 없습니다: {2}"
+
+msgid "RiftWii could not read {1}."
+msgstr "RiftWii가 {1}을(를) 읽지 못했습니다."
+
+msgid "RiftWii could not write {1}."
+msgstr "RiftWii가 {1}을(를) 쓰지 못했습니다."
+
+msgid "This game's own options: how its disc is read, and its controls."
+msgstr "이 게임만의 옵션: 디스크 읽기 방식과 조작."
+
+msgid "Not made yet"
+msgstr "아직 만들어지지 않음"
+
+msgid "Home lists the GameCube games only, from sd:/games."
+msgstr "홈에 sd:/games의 게임큐브 게임만 표시합니다."
+
+msgid "A GameCube game goes on the SD card, as sd:/games/<its ID>/game.iso."
+msgstr "게임큐브 게임은 SD 카드에 sd:/games/<ID>/game.iso로 넣습니다."
+
+msgid "Loading speed"
+msgstr "로딩 속도"
+
+msgid "Fast"
+msgstr "빠르게"
+
+msgid "As on a GameCube (slower)"
+msgstr "게임큐브처럼 (느림)"
+
+msgid "480p picture"
+msgstr "480p 화면"
+
+msgid "On (480p)"
+msgstr "켬 (480p)"
+
+msgid "Widescreen"
+msgstr "와이드 화면"
+
+msgid "480p is for US and Japanese games; this European game keeps its own picture."
+msgstr "480p는 미국과 일본 게임용이며, 이 유럽 게임은 원래 화면을 그대로 씁니다."
+
+msgid "Gives a sharper, steadier picture on a component cable, even in games with no 480p mode; some games ask first."
+msgstr "컴포넌트 케이블에서 더 선명하고 안정적인 화면을 보여 주며, 480p가 없는 게임도 해당됩니다. 일부 게임은 먼저 물어봅니다."
+
+msgid "Fills a widescreen TV with the game world; menus stay stretched, and some games show wrong colors (experimental)."
+msgstr "게임 세계를 와이드 TV에 가득 채웁니다. 메뉴는 늘어난 채로 남고, 일부 게임은 색이 잘못 나올 수 있습니다 (실험적)."
+
+msgid "The language this game plays in, leaving the Wii's own setting alone (most US and Japanese games have only one)."
+msgstr "이 게임을 플레이할 언어이며 Wii 본체 설정은 바뀌지 않습니다 (미국·일본 게임은 대부분 언어가 하나뿐입니다)."
+
+msgid "Controls"
+msgstr "조작"
+
+msgid "Fast suits almost every game; a few need the GameCube's own, slower speed (experimental, it can freeze some games)."
+msgstr "빠르게는 거의 모든 게임에 맞고, 일부 게임은 게임큐브 본래의 느린 속도가 필요합니다 (실험적, 일부 게임이 멈출 수 있습니다)."
+
+msgid "Shows which Wii Remote, Nunchuk or Classic Controller buttons act as the GameCube controller's, and how to leave the game."
+msgstr "Wii 리모컨, 눈차크, 클래식 컨트롤러의 어떤 버튼이 게임큐브 컨트롤러의 버튼이 되는지와 게임에서 나가는 방법을 보여 줍니다."
 
 msgid "SD image made"
 msgstr "SD 이미지 생성됨"
