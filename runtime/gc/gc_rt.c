@@ -420,6 +420,40 @@ static uint32_t gc_trace_slot(const struct gc_rt_context* ctx, uint32_t seq) {
 /* The test remote's results take the projection callers' 16 words. */
 typedef char gc_fake_log_fits[(GC_TR_RVZ_GROUPS - GC_TR_PROJECTION_CALLERS == GC_BT_FAKE_STEPS * 2) ? 1 : -1];
 
+/* The audio hardware. The audio interface sits where a Wii in Wii mode
+ * has it (0xCC006C00 on a GameCube; the loader moves the game's own
+ * accesses too); the DSP's registers stay at 0xCC005000. */
+#define GC_AI_CR 0xCD006C00u
+#define GC_AI_VR 0xCD006C04u
+#define GC_AI_IT 0xCD006C0Cu  /* the sample count that raises the AI interrupt */
+#define GC_AI_PSTAT 0x01u     /* the stream plays */
+#define GC_AI_AFR 0x02u       /* the stream's rate, as the game set it */
+#define GC_AI_INTMSK 0x04u    /* the stream's sample count raises an interrupt */
+#define GC_AI_INT 0x08u       /* ... which is pending (written 1: cleared) */
+#define GC_AI_INTVLD 0x10u
+#define GC_AI_SCRESET 0x20u   /* written 1: the sample counter goes back to 0 */
+#define GC_AI_32K 0x40u       /* the DMA (the game's own audio) runs at 32 kHz, as the game sets it */
+#define GC_DSP_MAIL_TO_DSP 0xCC005000u    /* upper half; bit 15: the DSP has not taken it yet */
+#define GC_DSP_MAIL_FROM_DSP 0xCC005004u  /* upper half; bit 15: mail for the CPU */
+#define GC_DSP_MAIL_FROM_DSP_LOW 0xCC005006u  /* reading it takes the mail */
+#define GC_DSP_CSR 0xCC00500Au
+#define GC_DSP_CSR_RESET 0x0001u      /* written 1: the DSP resets; reads 1 until it has */
+#define GC_DSP_CSR_HALT 0x0004u
+#define GC_DSP_CSR_AIINT 0x0008u      /* the audio DMA's interrupt (written 1: cleared) */
+#define GC_DSP_CSR_ARINT 0x0020u      /* an ARAM transfer finished (cleared by the game's handler) */
+#define GC_DSP_CSR_ARINTMSK 0x0040u   /* ... and raises the DSP interrupt */
+#define GC_DSP_CSR_DSPINT 0x0080u     /* the DSP's own interrupt (written 1: cleared) */
+#define GC_DSP_CSR_DMA_BUSY 0x0200u   /* an ARAM transfer is going (ARGetDMAStatus) */
+#define GC_DSP_CSR_INIT 0x0400u       /* the DSP is still taking its boot code */
+#define GC_DSP_CSR_BOOT_ROM 0x0800u   /* the DSP starts from its ROM at the next reset */
+#define GC_AR_SIZE 0xCC005012u
+#define GC_AR_REFRESH 0xCC00501Au
+#define GC_AI_DMA_CONTROL 0xCC005036u  /* bit 15: the audio DMA runs */
+#define GC_AI_DMA_ON 0x8000u
+
+static uint32_t gc_read16(uint32_t address) { return *(volatile uint16_t*)(uintptr_t)address; }
+static void gc_write16(uint32_t address, uint32_t value) { *(volatile uint16_t*)(uintptr_t)address = (uint16_t)value; }
+
 /* One record of the trace (gc_rt.h), with interrupts held off so it
  * cannot meet a read on the card; skipped while a read is going on. */
 static int32_t gc_trace(struct gc_rt_context* ctx, uint32_t where) {
@@ -526,6 +560,11 @@ static int32_t gc_trace(struct gc_rt_context* ctx, uint32_t where) {
     w[GC_TR_RESTARTS] = ctx->restarts;
     w[GC_TR_RESETS] = ctx->resets_asked << 16 | (ctx->reset_presses & 0xFFFFu);
     w[GC_TR_RESET_LAST] = ctx->reset_last;
+    w[GC_TR_DSP_CSR] = gc_read16(GC_DSP_CSR) << 16 | gc_read16(GC_AI_DMA_CONTROL);
+    w[GC_TR_DSP_MAIL] = gc_read16(GC_DSP_MAIL_TO_DSP) << 16 | gc_read16(GC_DSP_MAIL_FROM_DSP);
+    w[GC_TR_AI_CR] = gc_read32(GC_AI_CR);
+    w[GC_TR_AR_CONFIG] = gc_read16(GC_AR_SIZE) << 16 | gc_read16(GC_AR_REFRESH);
+    w[GC_TR_AUDIO_RESET] = ctx->audio_reset;
     w[GC_TR_AR_WAITS] = ctx->ar_waits;
     w[GC_TR_AR_WAIT_LONGEST] = ctx->ar_wait_longest;
     w[GC_TR_AR_WAIT_TIMEOUTS] = ctx->ar_wait_timeouts;
@@ -1016,12 +1055,6 @@ void gc_on_alarm(struct gc_rt_context* ctx, uint32_t alarm, uint32_t os_context)
 
 /* ---- Disc audio streaming ------------------------------------------ */
 
-/* The audio interface where a Wii in Wii mode has it (0xCC006C00 on a
- * GameCube; the loader moves the game's own accesses too). */
-#define GC_AI_CR 0xCD006C00u
-#define GC_AI_VR 0xCD006C04u
-#define GC_AI_PSTAT 0x01u   /* the stream plays */
-#define GC_AI_32K 0x40u     /* the DMA (the game's own audio) runs at 32 kHz, as the game sets it */
 #define GC_ADP_BLOCK 32u    /* 28 stereo samples */
 
 static void gc_stream_reset(struct gc_rt_stream* st) {
@@ -1519,6 +1552,68 @@ static void gc_restore_and_start(struct gc_rt_context* ctx) {
     }
 }
 
+/* The audio hardware as a restart must leave it (gc_on_hot_reset). A
+ * GameCube's Reset button resets the whole console and the game starts
+ * from a DSP, audio interface and ARAM interface fresh from that reset;
+ * the restart here keeps the console running, and on a Wii the restarted
+ * game stopped where its audio starts (Super Mario Sunshine, GMSE01 and
+ * GMSE04: no AI or ARAM transfer, no pad read after the restart), while
+ * every disc command finished. The game's own OSResetSystem has already
+ * stopped the DSP and the audio DMA. On top of that: the audio DMA and
+ * the stream off with their interrupts cleared and the sample counter
+ * back to 0, any ARAM transfer finished, the DSP held in reset to start
+ * from its ROM with every interrupt cleared, the mailboxes emptied, and
+ * the ARAM interface's size and refresh as they were at the first start.
+ * The waits are bounded; one that runs out is noted (audio_reset, the
+ * trace's GC_TR_AUDIO_RESET) and the restart goes on. */
+#define GC_AUDIO_WAIT_TICKS 607500u   /* 10 ms of the timebase */
+#define GC_AUDIO_DMA_SLOW 1u          /* an ARAM transfer was still going */
+#define GC_AUDIO_INIT_SLOW 2u         /* the DSP was still taking boot code */
+#define GC_AUDIO_RESET_SLOW 4u        /* the DSP's reset did not finish */
+/* Waits until `mask` of the DSP's control register reads 0; 1 when it
+ * did in time. */
+static int gc_dsp_wait_clear(uint32_t mask) {
+    uint32_t start, now;
+    __asm__ volatile("mftb %0" : "=r"(start));
+    do {
+        if ((gc_read16(GC_DSP_CSR) & mask) == 0) return 1;
+        __asm__ volatile("mftb %0" : "=r"(now));
+    } while (now - start < GC_AUDIO_WAIT_TICKS);
+    return 0;
+}
+static void gc_audio_reset(struct gc_rt_context* ctx) {
+    const uint32_t before = gc_read16(GC_DSP_CSR);
+    const uint32_t ai_kept = ctx->ai_cr_at_jump & (GC_AI_AFR | GC_AI_32K);
+    const uint32_t acks = GC_DSP_CSR_DSPINT | GC_DSP_CSR_ARINT | GC_DSP_CSR_AIINT;
+    uint32_t slow = 0, start, now;
+    /* The audio DMA and the stream. */
+    gc_write16(GC_AI_DMA_CONTROL, gc_read16(GC_AI_DMA_CONTROL) & ~GC_AI_DMA_ON);
+    gc_write32(GC_AI_CR, ai_kept | GC_AI_INT | GC_AI_SCRESET);
+    gc_write32(GC_AI_IT, 0);
+    /* The DSP: no ARAM transfer under way, then halted, to start from its
+     * ROM, its interrupts cleared and masked. */
+    if (!gc_dsp_wait_clear(GC_DSP_CSR_DMA_BUSY)) slow |= GC_AUDIO_DMA_SLOW;
+    gc_write16(GC_DSP_CSR, GC_DSP_CSR_BOOT_ROM | GC_DSP_CSR_HALT | acks);
+    if (!gc_dsp_wait_clear(GC_DSP_CSR_INIT)) slow |= GC_AUDIO_INIT_SLOW;
+    /* The mailboxes: the CPU's to the DSP written empty, the DSP's to the
+     * CPU taken. */
+    gc_write16(GC_DSP_MAIL_TO_DSP, 0);
+    if (gc_read16(GC_DSP_MAIL_FROM_DSP) & 0x8000u) (void)gc_read16(GC_DSP_MAIL_FROM_DSP_LOW);
+    /* A moment for the DSP to see the halt, then its reset. */
+    __asm__ volatile("mftb %0" : "=r"(start));
+    do {
+        __asm__ volatile("mftb %0" : "=r"(now));
+    } while (now - start < 600u);  /* 10 us */
+    gc_write16(GC_DSP_CSR, GC_DSP_CSR_BOOT_ROM | GC_DSP_CSR_HALT | GC_DSP_CSR_RESET | acks);
+    if (!gc_dsp_wait_clear(GC_DSP_CSR_RESET)) slow |= GC_AUDIO_RESET_SLOW;
+    /* The ARAM interface as at the first start. */
+    if (ctx->ar_config_at_jump != 0) {
+        gc_write16(GC_AR_SIZE, ctx->ar_config_at_jump >> 16);
+        gc_write16(GC_AR_REFRESH, ctx->ar_config_at_jump & 0xFFFFu);
+    }
+    ctx->audio_reset = before << 16 | slow << 12 | (gc_read16(GC_DSP_CSR) & 0xFFFu);
+}
+
 /* The SDK's reset routine(code << 3), in place of PI's reset register:
  * the game's OSResetSystem has run its reset functions, stopped the DSP
  * and the audio and turned the picture off, with interrupts off. MEM1
@@ -1545,6 +1640,8 @@ void gc_on_hot_reset(struct gc_rt_context* ctx, uint32_t code) {
         __asm__ volatile("mftb %0" : "=r"(now));
     } while ((*(volatile uint16_t*)(uintptr_t)GC_CP_SR & GC_CP_SR_IDLE) != GC_CP_SR_IDLE &&
              now - start < GC_GP_IDLE_TICKS);
+    gc_audio_reset(ctx);
+    gc_trace(ctx, GC_TRACE_RESTART);  /* the audio as the restarted game finds it */
     gc_forget_game(ctx);
     __asm__ volatile("mr 1,%0\n\tmr 3,%1\n\tb gc_restore_and_start" : : "r"(ctx->restart_stack), "r"(ctx) : "memory");
     for (;;) {
@@ -1776,10 +1873,6 @@ uint32_t gc_on_ar_dma(struct gc_rt_context* ctx, uint32_t type, uint32_t main, u
  * Only registers are read here (the DSP's control register and the PI's
  * cause): nothing is masked, delayed or written. When the caller has
  * interrupts on, the interrupt is taken as it comes and nothing waits. */
-#define GC_DSP_CSR 0xCC00500Au
-#define GC_DSP_CSR_ARINT 0x0020u      /* an ARAM transfer finished (cleared by the game's handler) */
-#define GC_DSP_CSR_ARINTMSK 0x0040u   /* ... and raises the DSP interrupt */
-#define GC_DSP_CSR_DMA_BUSY 0x0200u   /* an ARAM transfer is going (ARGetDMAStatus) */
 #define GC_PI_CAUSE 0xCC003000u
 #define GC_PI_CAUSE_DSP 0x00000040u
 #define GC_MSR_EE 0x8000u
@@ -1815,6 +1908,9 @@ void gc_on_trace_now(struct gc_rt_context* ctx, uint32_t where) {
     if (where == GC_TRACE_JUMP) {
         gc_vi_note(ctx);
         gc_vi_read_all(ctx->vi_at_jump);  /* for the hand-over (gc_vi_hand_over) */
+        /* and the audio hardware as the first start has it (gc_audio_reset) */
+        ctx->ar_config_at_jump = gc_read16(GC_AR_SIZE) << 16 | gc_read16(GC_AR_REFRESH);
+        ctx->ai_cr_at_jump = gc_read32(GC_AI_CR);
     }
     gc_trace(ctx, where);
 }

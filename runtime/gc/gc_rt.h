@@ -155,6 +155,15 @@ enum gc_trace_word {
     GC_TR_RESTARTS = GC_TR_BT_PRO_RANGE + 4, /* restarts done (gc_on_hot_reset) */
     GC_TR_RESETS, /* the game's OSResetSystem calls << 16 | Reset button presses seen */
     GC_TR_RESET_LAST, /* the game's last OSResetSystem: reset << 8 | menu */
+    /* The audio hardware as the record found it, for a restart that hangs
+     * on a Wii (Dolphin does not model the DSP's state across it). */
+    GC_TR_DSP_CSR, /* the DSP's control (0x500A) << 16 | the audio DMA's control (0x5036, bit 15: on) */
+    GC_TR_DSP_MAIL, /* the CPU's mail to the DSP, upper half (0x5000) << 16 | the DSP's to the CPU, upper half (0x5004);
+                     * bit 15 of each: mail waiting. The lower halves are not read: reading takes the mail. */
+    GC_TR_AI_CR, /* the audio interface's control (0xCD006C00 in Wii mode) */
+    GC_TR_AR_CONFIG, /* the ARAM interface's size (0x5012) << 16 | its refresh (0x501A) */
+    GC_TR_AUDIO_RESET, /* the last restart's audio reset (gc_audio_reset): the DSP's control before << 16 |
+                        * the waits that ran out << 12 (GC_AUDIO_*_SLOW) | the DSP's control after (low 12 bits) */
     GC_TR_WORDS
 };
 typedef char gc_trace_fits[(GC_TR_WORDS * 4 <= 512) ? 1 : -1];
@@ -407,6 +416,12 @@ struct gc_rt_context {
      * libogc set it up, noted by gc_on_trace_now and put back blanked
      * (gc_vi_hand_over). Two 16-bit registers a word, from 0x00. */
     uint32_t vi_at_jump[GC_VI_HANDOVER_WORDS];
+    /* The restart's audio reset (gc_audio_reset): the ARAM interface's
+     * size (0x5012) << 16 | refresh (0x501A) and the audio interface's
+     * control as they were at the jump, which the first start had. */
+    uint32_t ar_config_at_jump;
+    uint32_t ai_cr_at_jump;
+    uint32_t audio_reset;         /* GC_TR_AUDIO_RESET */
     uint8_t aram_scratch[32] __attribute__((aligned(32)));  /* the hardware's own ARAM DMA goes here */
     uint8_t alarm[GC_ALARM_BYTES] __attribute__((aligned(32)));
     uint8_t beat_alarm[GC_ALARM_BYTES] __attribute__((aligned(32)));
