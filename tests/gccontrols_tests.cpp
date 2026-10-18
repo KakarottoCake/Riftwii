@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // A GameCube game's Wii Remote controls: the built-in map
 // (src/data/gccontrols.cpp), the files that change it, and the blob's
-// side of it (runtime/gc/gc_controls.h): the map applied.
+// side of it (runtime/gc/gc_controls.h): the map applied, and the shake.
 #include <cstdint>
 #include <cstdio>
 #include <string>
@@ -79,6 +79,8 @@ void test_default_remote_sideways() {
     const Pad both = press(map, GC_MAP_REMOTE, held(GC_IN_LEFT) | held(GC_IN_RIGHT) | held(GC_IN_UP) | held(GC_IN_DOWN));
     EXPECT_EQ(both.sx, GC_STICK_FULL);
     EXPECT_EQ(both.sy, -GC_STICK_FULL);
+    EXPECT_EQ(map.to[GC_MAP_REMOTE][GC_IN_SHAKE], 0);
+    EXPECT_TRUE(!gc_map_wants_shake(&map, GC_MAP_REMOTE));
 }
 
 void test_default_nunchuk_and_classic() {
@@ -123,7 +125,7 @@ void test_file_changes_only_its_lines() {
         "# My controls\n"
         "[Remote]\n"
         "2 = Start   # the game's menu\n"
-        "B = Z\n"
+        "Shake = B\n"
         "\n"
         "[nunchuk]\r\n"
         "c = y, cstickup\r\n"
@@ -132,19 +134,21 @@ void test_file_changes_only_its_lines() {
     EXPECT_EQ(gc_controls_apply(text, "default.txt", map, notes), 5);
     EXPECT_EQ(notes.size(), 0);
     EXPECT_EQ(map.to[GC_MAP_REMOTE][GC_IN_2], GC_PAD_START);
-    EXPECT_EQ(map.to[GC_MAP_REMOTE][GC_IN_B], GC_PAD_Z);
+    EXPECT_EQ(map.to[GC_MAP_REMOTE][GC_IN_SHAKE], GC_PAD_B);
     EXPECT_EQ(map.to[GC_MAP_REMOTE][GC_IN_1], GC_PAD_B);  // untouched
     EXPECT_EQ(map.to[GC_MAP_NUNCHUK][GC_IN_C], GC_PAD_Y | GC_OUT_CSTICK_UP);
     EXPECT_EQ(map.to[GC_MAP_NUNCHUK][GC_IN_HOME], 0);
     EXPECT_EQ(map.to[GC_MAP_NUNCHUK][GC_IN_PLUS], 0);  // nothing after '=' clears it
     EXPECT_EQ(map.to[GC_MAP_NUNCHUK][GC_IN_Z], GC_PAD_R);
-    EXPECT_EQ(press(map, GC_MAP_REMOTE, held(GC_IN_B) | held(GC_IN_2)).buttons, GC_PAD_Z | GC_PAD_START);
+    EXPECT_TRUE(gc_map_wants_shake(&map, GC_MAP_REMOTE));
+    EXPECT_TRUE(!gc_map_wants_shake(&map, GC_MAP_NUNCHUK));
+    EXPECT_EQ(press(map, GC_MAP_REMOTE, held(GC_IN_SHAKE)).buttons, GC_PAD_B);
 
     // A game's file after it: its lines win, the rest stays.
     notes.clear();
     EXPECT_EQ(gc_controls_apply("[remote]\n2 = X\n", "GLMP01.txt", map, notes), 1);
     EXPECT_EQ(map.to[GC_MAP_REMOTE][GC_IN_2], GC_PAD_X);
-    EXPECT_EQ(map.to[GC_MAP_REMOTE][GC_IN_B], GC_PAD_Z);
+    EXPECT_EQ(map.to[GC_MAP_REMOTE][GC_IN_SHAKE], GC_PAD_B);
 }
 
 void test_unknown_names_left_out() {
@@ -160,7 +164,7 @@ void test_unknown_names_left_out() {
         "A = Y Turbo\n"               // 6: one known, one not: Y kept
         "B A\n"                       // 7: no '='
         "[classic]\n"
-        "1 = A\n"                     // 9: no 1 on a Classic Controller
+        "shake = A\n"                 // 9: no shake on a Classic Controller
         "[guitar]\n"                  // 10: no such heading
         "A = B\n"                     // 11: under it: skipped, no note of its own
         "[classic]\n"
@@ -171,6 +175,7 @@ void test_unknown_names_left_out() {
     EXPECT_EQ(map.to[GC_MAP_REMOTE][GC_IN_C], 0);
     EXPECT_EQ(map.to[GC_MAP_CLASSIC][GC_IN_A], GC_PAD_A);
     EXPECT_EQ(map.to[GC_MAP_CLASSIC][GC_IN_ZL], GC_PAD_R);
+    EXPECT_EQ(map.to[GC_MAP_CLASSIC][GC_IN_SHAKE], 0);
     EXPECT_EQ(notes.size(), 8);
     EXPECT_TRUE(has_note_with(notes, "GLMP01.txt line 1: the line comes before any heading"));
     EXPECT_TRUE(has_note_with(notes, "line 3: \"Q\" is not a button RiftWii knows"));
@@ -178,7 +183,7 @@ void test_unknown_names_left_out() {
     EXPECT_TRUE(has_note_with(notes, "line 5: \"Jump\" is not a GameCube button"));
     EXPECT_TRUE(has_note_with(notes, "line 6: \"Turbo\""));
     EXPECT_TRUE(has_note_with(notes, "line 7: the line has no '='"));
-    EXPECT_TRUE(has_note_with(notes, "line 9: A Classic Controller has no \"1\""));
+    EXPECT_TRUE(has_note_with(notes, "line 9: A Classic Controller has no \"shake\""));
     EXPECT_TRUE(has_note_with(notes, "line 10: [guitar] is not a heading"));
 }
 
@@ -246,6 +251,42 @@ void test_describe() {
     EXPECT_TRUE(riftwii::gc_controls_describe(GC_PAD_START | GC_PAD_A) == "A Start");
 }
 
+void test_shake_jolt() {
+    const std::uint8_t still[3] = {0x80, 0x80, 0x9A};
+    const std::uint8_t tilted[3] = {0x88, 0x80, 0x98};  // a slow turn: 10 from one report to the next
+    const std::uint8_t flicked[3] = {0xA0, 0x80, 0x9A}; // 32 on one axis: not yet
+    const std::uint8_t shaken[3] = {0xA0, 0x90, 0x9A};  // 48 over two
+    EXPECT_TRUE(!gc_shake_jolt(still, still));
+    EXPECT_TRUE(!gc_shake_jolt(still, tilted));
+    EXPECT_TRUE(!gc_shake_jolt(still, flicked));
+    EXPECT_TRUE(gc_shake_jolt(still, shaken));
+    EXPECT_TRUE(gc_shake_jolt(shaken, still));  // either way
+}
+
+// Shaking on: the button is pressed GC_SHAKE_PRESS PADReads, let go at
+// least GC_SHAKE_REST, pressed again. One jolt: one press.
+void test_shake_presses() {
+    std::uint8_t timer = 0, jolted = 0;
+    std::string pattern;
+    for (int frame = 0; frame < 30; ++frame) {
+        jolted = 1;
+        pattern += gc_shake_step(&timer, &jolted) ? 'X' : '.';
+        EXPECT_EQ(jolted, 0);
+    }
+    EXPECT_TRUE(pattern == "XXXXXX.......XXXXXX.......XXXX");
+
+    timer = 0;
+    jolted = 1;
+    pattern.clear();
+    for (int frame = 0; frame < 20; ++frame) pattern += gc_shake_step(&timer, &jolted) ? 'X' : '.';
+    EXPECT_TRUE(pattern == "XXXXXX..............");
+
+    // No jolt: never pressed.
+    timer = 0;
+    jolted = 0;
+    EXPECT_TRUE(!gc_shake_step(&timer, &jolted));
+}
+
 }  // namespace
 
 int main() {
@@ -257,6 +298,8 @@ int main() {
     test_bounds();
     test_paths();
     test_describe();
+    test_shake_jolt();
+    test_shake_presses();
     if (failures) {
         std::printf("%d failure(s)\n", failures);
         return 1;

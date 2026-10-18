@@ -1675,6 +1675,11 @@ static void load_gc_controls(const std::string& game_id, gc_map& map) {
         for (const std::string& note : notes) logf("GameCube controls: %s\n", note.c_str());
         logf("GameCube controls: %s read, %u button(s) changed\n", path.c_str(), static_cast<unsigned>(changed));
     }
+    static const char* const kKindNames[GC_MAP_KINDS] = {"held sideways", "with a Nunchuk", "a Classic Controller"};
+    for (std::uint32_t kind = 0; kind < GC_MAP_KINDS; ++kind)
+        if (gc_map_wants_shake(&map, kind))
+            logf("GameCube controls: shaking the Wii Remote (%s) presses %s\n", kKindNames[kind],
+                 gc_controls_describe(map.to[kind][GC_IN_SHAKE]).c_str());
 }
 
 bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string& error) {

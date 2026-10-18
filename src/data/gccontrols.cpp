@@ -39,7 +39,7 @@ constexpr InputName kInputs[] = {
     {"1", GC_IN_1, kWiiRemoteKinds},    {"2", GC_IN_2, kWiiRemoteKinds},
     {"-", GC_IN_MINUS, kEveryKind},     {"minus", GC_IN_MINUS, kEveryKind},
     {"+", GC_IN_PLUS, kEveryKind},      {"plus", GC_IN_PLUS, kEveryKind},
-    {"home", GC_IN_HOME, kEveryKind},
+    {"home", GC_IN_HOME, kEveryKind},   {"shake", GC_IN_SHAKE, kWiiRemoteKinds},
     {"c", GC_IN_C, kNunchukBit},        {"z", GC_IN_Z, kNunchukBit},
     {"x", GC_IN_X, kClassicBit},        {"y", GC_IN_Y, kClassicBit},
     {"l", GC_IN_L, kClassicBit},        {"r", GC_IN_R, kClassicBit},

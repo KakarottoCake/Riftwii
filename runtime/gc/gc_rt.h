@@ -133,6 +133,7 @@ enum gc_trace_word {
     GC_TR_RVZ_ERROR,
     GC_TR_BT_PORTS, /* each remote slot's port (gc_ports.h), a byte each from slot 0 in the top byte; 0xFF none */
     GC_TR_PAD_ERRS, /* each port's err as the game got it after the remotes' fill, port 1 in the top byte; 0xFF none */
+    GC_TR_BT_SHAKES, /* shakes that pressed their button (gc_controls.h), all remotes */
     GC_TR_WORDS
 };
 typedef char gc_trace_fits[(GC_TR_WORDS * 4 <= 512) ? 1 : -1];

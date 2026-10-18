@@ -17,7 +17,7 @@
 // controller is held:
 //   [remote]    # a Wii Remote alone, held sideways
 //   2 = A
-//   1 = B
+//   shake = B
 // A line changes only the button it names; every other button keeps the
 // built-in map (gc_controls_default) or what an earlier file gave it.
 // The loader reads the files at a launch (wii/launch/gcnative.cpp) and
@@ -34,7 +34,7 @@ constexpr std::size_t kMaxGcControlsNotes = 24;        // log lines from one fil
 std::vector<std::string> gc_controls_paths(const std::string& game_id);
 
 // The built-in map: the Wii Remote sideways, with a Nunchuk and the
-// Classic Controller as RiftWii has always set them.
+// Classic Controller as RiftWii has always set them, and no shake.
 void gc_controls_default(gc_map& map);
 
 // One file's text applied over `map`. `name` is the file as the notes call

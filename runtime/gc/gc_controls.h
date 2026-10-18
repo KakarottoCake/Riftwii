@@ -45,7 +45,8 @@
 #define GC_IN_R 16u
 #define GC_IN_ZL 17u
 #define GC_IN_ZR 18u
-#define GC_INPUTS 19u
+#define GC_IN_SHAKE 19u  /* the Wii Remote shaken (gc_bt.c's accelerometer) */
+#define GC_INPUTS 20u
 
 /* What an input presses: the GameCube buttons by their own bits in
  * PADStatus's first half-word, and the sticks pushed all the way. */
@@ -98,6 +99,44 @@ static inline void gc_map_sticks(uint32_t targets, int32_t* sx, int32_t* sy, int
     if (targets & GC_OUT_CSTICK_RIGHT) *cx = GC_STICK_FULL;
     if (targets & GC_OUT_CSTICK_UP) *cy = GC_STICK_FULL;
     if (targets & GC_OUT_CSTICK_DOWN) *cy = -GC_STICK_FULL;
+}
+
+/* 1 when a kind's shake presses something: its remotes then report their
+ * accelerometer (gc_bt.c's report mode). */
+static inline int gc_map_wants_shake(const struct gc_map* map, uint32_t kind) {
+    return kind < GC_MAP_KINDS && map->to[kind][GC_IN_SHAKE] != 0;
+}
+
+/* A shake, from the accelerometer's three axes (eight bits each, about 26
+ * a g, as the remote's reports carry them): a jolt is a change of at least
+ * GC_SHAKE_CHANGE, the three axes' changes added, from one report to the
+ * next. A remote reports about 100 times a second, so that is roughly a
+ * change of 1.5 g in a hundredth of a second: a flick of the wrist, not a
+ * tilt, which changes the axes slowly. */
+#define GC_SHAKE_CHANGE 40u
+/* A jolt holds the button for GC_SHAKE_PRESS PADReads (a tenth of a second
+ * at 60 a second, so the game sees it), then lets go for at least
+ * GC_SHAKE_REST before the next jolt can press it again: shaking on presses
+ * the button again and again, as pressing it would. */
+#define GC_SHAKE_PRESS 6u
+#define GC_SHAKE_REST 6u
+
+static inline int gc_shake_jolt(const uint8_t* before, const uint8_t* now) {
+    uint32_t change = 0;
+    uint32_t axis;
+    for (axis = 0; axis < 3; ++axis)
+        change += before[axis] > now[axis] ? (uint32_t)(before[axis] - now[axis]) : (uint32_t)(now[axis] - before[axis]);
+    return change >= GC_SHAKE_CHANGE;
+}
+
+/* Once a PADRead: `timer` counts the press and the rest down, `jolted` is
+ * the jolt seen since the last PADRead (cleared here). Returns 1 while the
+ * shake's button is held. */
+static inline int gc_shake_step(uint8_t* timer, uint8_t* jolted) {
+    if (*timer != 0) --*timer;
+    else if (*jolted) *timer = (uint8_t)(GC_SHAKE_PRESS + GC_SHAKE_REST);
+    *jolted = 0;
+    return *timer > GC_SHAKE_REST;
 }
 
 #endif

@@ -710,6 +710,7 @@ Buttons you don't name keep what they had. `#` starts a comment.
 [remote]          # a Wii Remote alone, held sideways
 B = L             # the trigger as L
 - = R Z           # - presses R and Z together
+shake = B         # shake the remote to press B
 
 [nunchuk]         # a Wii Remote with a Nunchuk
 C = Y
@@ -722,10 +723,10 @@ ZL = L
 
 - **Headings:** `[remote]`, `[nunchuk]`, `[classic]`.
 - **Buttons** (left of `=`): `A`, `B`, `1`, `2`, `-` (or `Minus`), `+`
-  (or `Plus`), `HOME`, `Up`, `Down`, `Left`, `Right`; with a
+  (or `Plus`), `HOME`, `Up`, `Down`, `Left`, `Right`, `Shake`; with a
   Nunchuk also `C` and `Z`; on a Classic Controller `A`, `B`, `X`, `Y`,
-  `L`, `R`, `ZL`, `ZR`, `-`, `+`, `HOME` and the D-pad (no `1` or
-  `2`). The D-pad's directions are as you hold the controller: with
+  `L`, `R`, `ZL`, `ZR`, `-`, `+`, `HOME` and the D-pad (no `1`, `2` or
+  `Shake`). The D-pad's directions are as you hold the controller: with
   the remote sideways, `Up` is the arrow that points up then.
 - **What they press** (right of `=`, several separated by spaces):
   `A`, `B`, `X`, `Y`, `Z`, `L`, `R`, `Start`, the D-pad's `Up`, `Down`,
@@ -733,6 +734,9 @@ ZL = L
   `StickDown`, `StickLeft`, `StickRight`) and the C-stick
   (`CStickUp`, `CStickDown`, `CStickLeft`, `CStickRight`). `none`
   presses nothing. `Up = Up StickUp` presses both.
+- **Shake** presses its button for a moment each time the Wii Remote is
+  shaken, again and again while you keep shaking. It is off unless a file
+  names it, as the remote then sends its motion all the time.
 - The Nunchuk's stick and the Classic Controller's sticks and triggers
   always stay the GameCube's sticks and triggers.
 - Upper or lower case doesn't matter. A name RiftWii doesn't know, or a

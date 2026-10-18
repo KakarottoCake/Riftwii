@@ -17,7 +17,8 @@
  *    packets, L2CAP signalling (connection, configuration).
  *  - wiibrew, "Wiimote": the HID channels (PSM 0x11, 0x13), output
  *    reports 0x11 (LEDs), 0x12 (report mode), 0x15 (status), 0x16/0x17
- *    (registers), input reports 0x20-0x22 and 0x30/0x32, the extension's
+ *    (registers), input reports 0x20-0x22 and 0x30-0x32/0x35 (the
+ *    accelerometer's three bytes after the buttons), the extension's
  *    unencrypted start (0x55 to 0xA400F0, 0 to 0xA400FB), its ID at
  *    0xA400FA, the Nunchuk and Classic Controller data formats.
  *  - wiibrew, "/dev/usb/oh1": the USB v0 ioctls (control 0, bulk 1,
@@ -82,6 +83,13 @@ struct gc_bt_remote {
     uint32_t ext_kind;
     uint8_t core[2];    /* the buttons, as the remote sends them */
     uint8_t ext[6];     /* the extension's first six bytes */
+    /* The accelerometer, reported only while the remote's kind has a shake
+     * in the map (gc_controls.h): its last reading and the shake's state. */
+    uint8_t accel[3];
+    uint8_t accel_known;  /* accel holds a reading to compare the next with */
+    uint8_t jolted;       /* a jolt since the last PADRead */
+    uint8_t shake_timer;  /* gc_shake_step's */
+    uint8_t spare2[2];
 };
 
 struct gc_bt {
@@ -116,6 +124,7 @@ struct gc_bt {
     uint32_t last_event;    /* code << 16 | the opcode or first bytes */
     uint8_t event_log[4][8];  /* the first four events' first bytes, for the trace */
     uint32_t event_lengths;   /* their lengths, a byte each */
+    uint32_t shakes;          /* shakes that pressed their button, all remotes */
     /* What each button presses (gc_controls.h), filled by the loader. */
     struct gc_map map;
 };

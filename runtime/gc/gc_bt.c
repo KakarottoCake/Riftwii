@@ -359,14 +359,28 @@ static uint32_t bt_kind(const struct gc_bt_remote* r) {
     return GC_MAP_REMOTE;
 }
 
-/* The report mode: buttons only, or buttons and eight extension bytes;
- * sent only when something changes (the remote then reports at once). */
+/* The report mode: the buttons, with eight extension bytes when one is
+ * ready; and the accelerometer too (0x31, or 0x35 with sixteen extension
+ * bytes) when the remote's kind has a shake in the map, since only a shake
+ * needs it. Sent only when something changes (the remote then reports at
+ * once). */
 static void bt_set_mode(struct gc_bt* bt, const struct gc_bt_remote* r) {
+    const uint32_t kind = bt_kind(r);
+    const int accel = kind != GC_MAP_CLASSIC && gc_map_wants_shake(&bt->map, kind);
     uint8_t m[3];
     m[0] = 0x12;
     m[1] = 0x00;
-    m[2] = r->ext_step == 4 ? 0x32 : 0x30;
+    if (r->ext_step == 4) m[2] = accel ? 0x35 : 0x32;
+    else m[2] = accel ? 0x31 : 0x30;
     bt_report(bt, r, m, 3);
+}
+
+/* A reading of the accelerometer: a jolt against the last one is noted for
+ * the next PADRead (gc_controls.h's shake). */
+static void bt_on_accel(struct gc_bt_remote* r, const uint8_t* reading) {
+    if (r->accel_known && gc_shake_jolt(r->accel, reading)) r->jolted = 1;
+    bt_copy(r->accel, reading, 3);
+    r->accel_known = 1;
 }
 
 static void bt_on_input(struct gc_bt* bt, struct gc_bt_remote* r, const uint8_t* p, uint32_t length) {
@@ -430,7 +444,11 @@ static void bt_on_input(struct gc_bt* bt, struct gc_bt_remote* r, const uint8_t*
         bt_set_mode(bt, r);
         return;
     }
+    /* The data reports: 0xA1, the ID, the two button bytes, then the
+     * accelerometer's three (0x31, 0x35) and the extension's bytes. */
+    if ((id == 0x31 || id == 0x35) && length >= 7) bt_on_accel(r, p + 4);
     if (id == 0x32 && length >= 10) bt_copy(r->ext, p + 4, 6);
+    if (id == 0x35 && length >= 13) bt_copy(r->ext, p + 7, 6);
 }
 
 /* The remote's half of the HID channels: it opens both (control, then
@@ -714,6 +732,7 @@ static void bt_fill_one(const struct gc_map* map, const struct gc_bt_remote* r, 
     } else {
         held = bt_remote_held(r, 1);
     }
+    if (kind != GC_MAP_CLASSIC && r->shake_timer > GC_SHAKE_REST) held |= 1u << GC_IN_SHAKE;
     targets = gc_map_targets(map, kind, held);
     buttons = targets & GC_PAD_BUTTONS;
     gc_map_sticks(targets, &sx, &sy, &cx, &cy);
@@ -754,8 +773,15 @@ void gc_bt_fill(struct gc_bt* bt, uint8_t* status) {
      * starting, a transfer error) is a controller there, which keeps it. */
     for (i = 0; i < GC_PORTS; ++i)
         if (status[12 * i + 10] != GC_PAD_NO_CONTROLLER) pads |= 1u << i;
-    for (i = 0; i < GC_BT_REMOTES; ++i)
-        if (bt->remotes[i].used && bt->remotes[i].ready) remotes |= 1u << i;
+    for (i = 0; i < GC_BT_REMOTES; ++i) {
+        struct gc_bt_remote* r = &bt->remotes[i];
+        if (!r->used || !r->ready) continue;
+        remotes |= 1u << i;
+        /* The shake's press and rest go by PADReads, whatever port the
+         * remote has. */
+        gc_shake_step(&r->shake_timer, &r->jolted);
+        if (r->shake_timer == GC_SHAKE_PRESS + GC_SHAKE_REST) bt->shakes++;
+    }
     gc_ports_assign(pads, remotes, bt->port_of);
     for (i = 0; i < GC_BT_REMOTES; ++i) {
         const uint32_t port = bt->port_of[i];
