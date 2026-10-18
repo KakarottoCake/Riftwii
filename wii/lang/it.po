@@ -2268,23 +2268,23 @@ msgstr "Quali giochi mostra la Home: quelli di ogni unità e quelli della Wii st
 msgid "This game's data was removed from the Wii, so it can't start."
 msgstr "I dati di questo gioco sono stati cancellati dalla Wii, quindi non può partire."
 
-msgid "Popups look like the Wii Menu's message box"
-msgstr "I popup somigliano al riquadro dei messaggi del Menu Wii"
+msgid "GameCube games play in Wii mode (trial)"
+msgstr "I giochi GameCube funzionano in modalità Wii (prova)"
 
-msgid "Channels: empty places match the channel icons"
-msgstr "Canali: gli spazi vuoti corrispondono alle icone dei canali"
+msgid "WiiWare and Virtual Console games on Home"
+msgstr "Giochi WiiWare e Virtual Console nella Home"
 
-msgid "A Wii U's own USB drive is left alone, with no error"
-msgstr "L'unità USB propria di una Wii U viene ignorata, senza errori"
+msgid "A game can have more Home tiles, each with its own mods"
+msgstr "Un gioco può avere più riquadri nella Home, ognuno con le sue mod"
 
-msgid "Fixed: Retro Rewind would not start with its separate save on"
-msgstr "Corretto: Retro Rewind non partiva con il salvataggio separato attivo"
+msgid "Put the games on Home in your own order"
+msgstr "Metti i giochi della Home nel tuo ordine"
 
-msgid "Every RiftWii now updates to the latest release"
-msgstr "Ogni RiftWii ora si aggiorna all'ultima versione"
+msgid "Indigo: a third built-in theme"
+msgstr "Indigo: un terzo tema incluso"
 
-msgid "Wii U Pro Controller works in games"
-msgstr "Il Wii U Pro Controller funziona nei giochi"
+msgid "Saves can be shared with USB Loader GX's emulated NAND"
+msgstr "I salvataggi si possono condividere con la NAND emulata di USB Loader GX"
 
 msgid "Memory for RiftWii's extras"
 msgstr "Memoria per gli extra di RiftWii"

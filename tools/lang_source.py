@@ -1921,14 +1921,13 @@ T = {
     "Wii channels": ("Canales Wii", "Wiiチャンネル", "Canais Wii", "Canali Wii"),
     "Which games Home lists: every drive's and the Wii's own, or one place's only. With a game on both drives, one copy is enough.": ("Qué juegos muestra el Inicio: los de cada unidad y los de la propia Wii, o solo los de un sitio. Con un juego en ambas unidades, basta una copia.", "ホームに表示するゲーム：すべてのドライブとWii本体のもの、または1か所のものだけ。両方のドライブにあるゲームは1つで十分です。", "Quais jogos o Início mostra: os de cada unidade e os do próprio Wii, ou só os de um lugar. Com um jogo nas duas unidades, basta uma cópia.", "Quali giochi mostra la Home: quelli di ogni unità e quelli della Wii stessa, o solo quelli di un posto. Con un gioco su entrambe le unità, basta una copia."),
     "This game's data was removed from the Wii, so it can't start.": ("Los datos de este juego se borraron de la Wii, así que no puede iniciarse.", "このゲームのデータはWiiから削除されているため、起動できません。", "Os dados deste jogo foram apagados do Wii, então ele não pode ser iniciado.", "I dati di questo gioco sono stati cancellati dalla Wii, quindi non può partire."),
-    # What's new in the release after 2610-421
-    "Popups look like the Wii Menu's message box": ("Las ventanas emergentes se parecen al cuadro de mensajes del Menú Wii", "ポップアップがWiiメニューのメッセージ画面のようになりました", "As janelas pop-up parecem a caixa de mensagem do Menu Wii", "I popup somigliano al riquadro dei messaggi del Menu Wii"),
-    "Channels: empty places match the channel icons": ("Canales: los huecos vacíos coinciden con los iconos de los canales", "チャンネル：空きの枠がチャンネルのアイコンとそろいました", "Canais: os espaços vazios combinam com os ícones dos canais", "Canali: gli spazi vuoti corrispondono alle icone dei canali"),
-    "A Wii U's own USB drive is left alone, with no error": ("El disco USB propio de una Wii U se deja tal cual, sin errores", "Wii U本体用のUSBドライブはエラーを出さずにそのままにします", "O disco USB próprio do Wii U é ignorado, sem erros", "L'unità USB propria di una Wii U viene ignorata, senza errori"),
-    "Fixed: Retro Rewind would not start with its separate save on": ("Corregido: Retro Rewind no arrancaba con su partida aparte activada", "修正：Retro Rewindが別セーブをオンにすると起動しなかった問題", "Corrigido: Retro Rewind não iniciava com o save separado ativado", "Corretto: Retro Rewind non partiva con il salvataggio separato attivo"),
-    "Every RiftWii now updates to the latest release": ("Todas las copias de RiftWii se actualizan ahora a la última versión", "すべてのRiftWiiが最新リリースに更新されるようになりました", "Todo RiftWii agora atualiza para a versão mais recente", "Ogni RiftWii ora si aggiorna all'ultima versione"),
-    # What's new in 2610-418
-    "Wii U Pro Controller works in games": ("El Mando Pro de Wii U funciona en los juegos", "Wii U PROコントローラーがゲームで使えます", "O Wii U Pro Controller funciona nos jogos", "Il Wii U Pro Controller funziona nei giochi"),
+    # What's new in the release after 2610-432
+    "GameCube games play in Wii mode (trial)": ("Los juegos de GameCube funcionan en modo Wii (prueba)", "ゲームキューブのゲームがWiiモードで遊べます（試験版）", "Jogos de GameCube rodam no modo Wii (teste)", "I giochi GameCube funzionano in modalità Wii (prova)"),
+    "WiiWare and Virtual Console games on Home": ("Juegos de WiiWare y Consola Virtual en el Inicio", "Wiiウェアとバーチャルコンソールのゲームがホームに並びます", "Jogos de WiiWare e Virtual Console no Início", "Giochi WiiWare e Virtual Console nella Home"),
+    "A game can have more Home tiles, each with its own mods": ("Un juego puede tener más casillas en el Inicio, cada una con sus mods", "1つのゲームにホームのタイルを増やし、それぞれ別のMODを使えます", "Um jogo pode ter mais blocos no Início, cada um com seus mods", "Un gioco può avere più riquadri nella Home, ognuno con le sue mod"),
+    "Put the games on Home in your own order": ("Pon los juegos del Inicio en tu propio orden", "ホームのゲームを自分の並び順にできます", "Coloque os jogos do Início na sua ordem", "Metti i giochi della Home nel tuo ordine"),
+    "Indigo: a third built-in theme": ("Indigo: un tercer tema incluido", "Indigo：3つ目の内蔵テーマ", "Indigo: um terceiro tema incluído", "Indigo: un terzo tema incluso"),
+    "Saves can be shared with USB Loader GX's emulated NAND": ("Las partidas pueden compartirse con la NAND emulada de USB Loader GX", "セーブをUSB Loader GXのエミュレートNANDと共有できます", "Os saves podem ser compartilhados com a NAND emulada do USB Loader GX", "I salvataggi si possono condividere con la NAND emulata di USB Loader GX"),
     # Game page: memory for RiftWii's extras
     "Memory for RiftWii's extras": ("Memoria para los extras de RiftWii", "RiftWiiの追加機能が使うメモリ", "Memória para os extras do RiftWii", "Memoria per gli extra di RiftWii"),
     "about {1} KB": ("unos {1} KB", "約{1} KB", "cerca de {1} KB", "circa {1} KB"),
@@ -3653,18 +3652,18 @@ KO = {
         "Wii 채널",
     "Which games Home lists: every drive's and the Wii's own, or one place's only. With a game on both drives, one copy is enough.":
         "홈에 표시할 게임: 모든 드라이브와 Wii 본체의 게임, 또는 한 곳의 게임만. 두 드라이브에 같은 게임이 있으면 하나면 충분합니다.",
-    "Popups look like the Wii Menu's message box":
-        "팝업이 Wii 메뉴의 메시지 상자처럼 보입니다",
-    "Channels: empty places match the channel icons":
-        "채널: 빈 자리가 채널 아이콘과 같은 모양입니다",
-    "A Wii U's own USB drive is left alone, with no error":
-        "Wii U 전용 USB 드라이브는 오류 없이 그대로 둡니다",
-    "Fixed: Retro Rewind would not start with its separate save on":
-        "수정: Retro Rewind가 별도 세이브를 켜면 시작되지 않던 문제",
-    "Every RiftWii now updates to the latest release":
-        "이제 모든 RiftWii가 최신 릴리스로 업데이트됩니다",
-    "Wii U Pro Controller works in games":
-        "게임에서 Wii U PRO 컨트롤러 사용 가능",
+    "GameCube games play in Wii mode (trial)":
+        "게임큐브 게임을 Wii 모드에서 플레이할 수 있습니다(시험판)",
+    "WiiWare and Virtual Console games on Home":
+        "WiiWare와 버추얼 콘솔 게임이 홈에 표시됩니다",
+    "A game can have more Home tiles, each with its own mods":
+        "한 게임에 홈 타일을 더 만들고 타일마다 다른 MOD를 쓸 수 있습니다",
+    "Put the games on Home in your own order":
+        "홈의 게임을 원하는 순서로 놓을 수 있습니다",
+    "Indigo: a third built-in theme":
+        "Indigo: 세 번째 기본 테마",
+    "Saves can be shared with USB Loader GX's emulated NAND":
+        "세이브를 USB Loader GX의 에뮬레이트 NAND와 공유할 수 있습니다",
     "Memory for RiftWii's extras":
         "RiftWii 추가 기능이 쓰는 메모리",
     "about {1} KB":
@@ -5408,18 +5407,18 @@ FR = {
         "Chaînes Wii",
     "Which games Home lists: every drive's and the Wii's own, or one place's only. With a game on both drives, one copy is enough.":
         "Les jeux qu'affiche l'Accueil : ceux de chaque support et ceux de la Wii elle-même, ou ceux d'un seul endroit. Avec un jeu sur les deux supports, une copie suffit.",
-    "Popups look like the Wii Menu's message box":
-        "Les fenêtres ressemblent à la boîte de message du Menu Wii",
-    "Channels: empty places match the channel icons":
-        "Chaînes : les emplacements vides ont la forme des icônes de chaîne",
-    "A Wii U's own USB drive is left alone, with no error":
-        "Le disque USB propre à une Wii U est ignoré, sans erreur",
-    "Fixed: Retro Rewind would not start with its separate save on":
-        "Corrigé : Retro Rewind ne démarrait pas avec sa sauvegarde séparée activée",
-    "Every RiftWii now updates to the latest release":
-        "Chaque RiftWii se met maintenant à jour vers la dernière version",
-    "Wii U Pro Controller works in games":
-        "La manette Wii U Pro fonctionne dans les jeux",
+    "GameCube games play in Wii mode (trial)":
+        "Les jeux GameCube fonctionnent en mode Wii (essai)",
+    "WiiWare and Virtual Console games on Home":
+        "Jeux WiiWare et Console Virtuelle sur l'Accueil",
+    "A game can have more Home tiles, each with its own mods":
+        "Un jeu peut avoir plusieurs tuiles d'accueil, chacune avec ses mods",
+    "Put the games on Home in your own order":
+        "Rangez les jeux de l'Accueil dans votre ordre",
+    "Indigo: a third built-in theme":
+        "Indigo : un troisième thème intégré",
+    "Saves can be shared with USB Loader GX's emulated NAND":
+        "Les sauvegardes peuvent être partagées avec la NAND émulée d'USB Loader GX",
     "Memory for RiftWii's extras":
         "Mémoire pour les extras de RiftWii",
     "about {1} KB":

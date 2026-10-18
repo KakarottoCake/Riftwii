@@ -3058,12 +3058,12 @@ static std::string DiscTileNote()
 // holds six lines), for the release script to keep up to date. Shown
 // once when they change; Settings > What's new shows them again.
 static const char* const kWhatsNew[] = {
-	"Popups look like the Wii Menu's message box",
-	"Channels: empty places match the channel icons",
-	"A Wii U's own USB drive is left alone, with no error",
-	"Fixed: Retro Rewind would not start with its separate save on",
-	"Every RiftWii now updates to the latest release",
-	"Wii U Pro Controller works in games",
+	"GameCube games play in Wii mode (trial)",
+	"WiiWare and Virtual Console games on Home",
+	"A game can have more Home tiles, each with its own mods",
+	"Put the games on Home in your own order",
+	"Indigo: a third built-in theme",
+	"Saves can be shared with USB Loader GX's emulated NAND",
 };
 
 static std::string WhatsNewText()
