@@ -40,6 +40,23 @@ Measured: the loader costs 26 KiB of MEM1 (the program's end moves from
 `selftest` is 2,892 bytes on the card and takes 2,016 bytes of the
 arena (image 1,984, `.bss` 8, 65 relocations).
 
+Still to run in Dolphin for stage (a), beyond the runs in the pull
+request:
+
+- **The arena that stays taken.** `ReleaseArena` gives the 256 KiB back
+  only when arena 2's high end is still where the loader left it
+  (`SYS_GetArena2Hi()` equal to the arena's low end); when something has
+  moved it since, the log says `the arena at 0x... stays taken (MEM2's
+  top moved since)` and the memory is lost to the heap until RiftWii
+  restarts. No code in RiftWii is known to move it, so the test is to
+  find out whether any real path does: load `selftest` by the test
+  switch, then go through what can touch MEM2's top before "the menu
+  closed" (a Wii launch, a GameCube launch from a disc, an ISO and an
+  RVZ, a failed launch coming back, a theme and a language restart, an
+  IOS reload, the in-app update, the network on) and search each
+  `session.log` for `stays taken`. Every run should say `is the heap's
+  again`; a run that does not names the path to fix.
+
 What the in-app update does today: it writes the new `boot.dol`, and the
 next start writes the release's apps part (plugins included) from
 `riftwii-update.pack`. Between the two, the new DOL finds no file of its
@@ -128,7 +145,7 @@ is the image:
 | plugin version | A number the plugin's own table reports, for logs |
 | API version | The version of the function table the plugin was built against (section 4) |
 | build stamp | The RiftWii build the plugin was made with: the same version string and commit as the DOL prints (`YYMM-N` plus the short hash of the checkout, or `dev` plus the hash of the source files for a local build) |
-| entry table | Offsets of `init`, `shutdown` and the plugin's own table inside the image |
+| entry table | Offsets of `init`, `shutdown` and the plugin's own table inside the image (all 24 bytes of the table, `kPluginTableBytes`, not just its first words) |
 | sizes | Image size, `.bss` size, relocation count and the state size the plugin wants |
 | flags | Whether the plugin can be unloaded; which memory it needs (section 3) |
 | hash | SHA-256 of the header (this field zeroed), the image and the relocations after it, so a half-written or damaged file is caught before it runs |
@@ -147,6 +164,9 @@ plain sentence in the log and on screen:
 3. API version not equal to the loader's: "The GameCube add-on is from a
    different RiftWii (API 3, this one is 4). Update RiftWii again."
 4. Build stamp not equal to the DOL's: the same message with both stamps.
+5. After the relocation, the plugin's own table: its size and API, its
+   `probe` NULL or a word inside the image, its `shutdown` the header's
+   (`plugin_check_table`): the damaged message, before `init` runs.
 
 An older plugin next to a newer DOL (a card from before an update, or a
 copy from an earlier zip) is therefore never run. The feature it provides

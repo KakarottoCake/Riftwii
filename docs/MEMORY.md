@@ -194,6 +194,16 @@ today). Checked against the other users of MEM2:
   the loader's MEM2 heap downward, at the far end from the stash: 256 KiB
   (`RWP_ARENA_BYTES`) just below where arena 2 ends, only once a plugin is
   used, and given back when the plugins shut down at the menu's close.
+  That arena lies inside a range a GameCube launch writes later: #113's
+  Reset restart snapshot copies MEM1 (24 MiB) into MEM2 at `0x91500000`
+  up to about `0x92D00000`, inside the menu's arena-2 range. It is written
+  only once a game runs, after "the menu closed" has shut the plugins
+  down and given the arena back, so today nothing of a plugin is there
+  when it is overwritten. A future plugin that outlives the menu (one
+  that stays loaded into a launch, or leaves code or state behind for
+  the game) must not be placed there: it needs its own place outside
+  `0x91500000`–`0x92D00000`, and outside the GameCube runtime's ranges
+  below it.
 - **IOS at `0x933E0000`** is far above.
 - **The GameCube runtime** (`0x91000000` up: the memory card, the data
   buffers at `0x91200000`, the RVZ buffers at `0x91300000`, a later Reset

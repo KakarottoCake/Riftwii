@@ -261,6 +261,13 @@ game crashes a few steps later instead. The next RiftWii start writes
    The in-app update's pack: `py -3.13 tools/make_update_pack.py
    riftwii-vYYMM-N.zip riftwii-update.pack` (the themes, then the
    zip's channel installer, icon and plugins).
+   Before going on, check the zip has the plugin folder: `unzip -l
+   riftwii-vYYMM-N.zip | grep apps/riftwii/plugins/` lists one
+   `<name>.<version>.rwp` per plugin, with this release's version. A zip
+   without it starts, but every feature that lives in a plugin says the
+   add-on is missing. `tools/make_release_zip.py` (when it is in the tree)
+   copies `build-plugins/plugins/` itself; a zip packed by hand or by an
+   older script needs the folder copied, so check either way.
    Keep `build-plugins/*/*.elf` with `riftwii.elf`: a crash in a plugin
    is named as `plugin <name> +0x...`, an offset into that ELF.
    The theme kit when a picture or a setting changes (a new one in
