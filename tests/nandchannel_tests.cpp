@@ -192,6 +192,16 @@ void test_program() {
     EXPECT_TRUE(!choose_channel_program(tmd, starts, program, error));
     EXPECT_TRUE(!error.empty());
 
+    // The error says what each content was instead.
+    std::vector<std::uint8_t> elf(0x100, 0);
+    elf[0] = 0x7F;
+    elf[1] = 'E';
+    elf[2] = 'L';
+    elf[3] = 'F';
+    EXPECT_TRUE(!choose_channel_program(tmd, {{1, 0x3000, elf}, {3, 0x800000, archive}}, program, error));
+    EXPECT_TRUE(error.find("1: an ELF program") != std::string::npos);
+    EXPECT_TRUE(error.find("3: a U8 archive") != std::string::npos);
+
     // A content the TMD does not list is not taken either.
     EXPECT_TRUE(!choose_channel_program(tmd, {{7, 0x300000, dol_head(0x1000)}}, program, error));
 }

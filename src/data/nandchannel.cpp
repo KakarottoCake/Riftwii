@@ -134,20 +134,49 @@ const TmdContent* tmd_content_by_index(const TmdContents& tmd, std::uint16_t ind
     return nullptr;
 }
 
+namespace {
+
+// What a content's first bytes say it is, when it is not a DOL.
+std::string content_kind(const std::vector<std::uint8_t>& head) {
+    if (head.size() < 4) return "unreadable";
+    if (head[0] == 0x7F && head[1] == 'E' && head[2] == 'L' && head[3] == 'F') return "an ELF program";
+    if (head[0] == 'L' && head[1] == 'Z' && head[2] == '7' && head[3] == '7') return "LZ77-compressed (LZ77 header)";
+    if (head[0] == 0x10 || head[0] == 0x11) return "LZ77-compressed, it seems (type " + std::to_string(head[0]) + ")";
+    if (head[0] == 0x55 && head[1] == 0xAA && head[2] == 0x38 && head[3] == 0x2D) return "a U8 archive";
+    char text[48];
+    std::snprintf(text, sizeof text, "starts %02x %02x %02x %02x %02x %02x %02x %02x", head[0], head[1], head[2],
+                  head[3], head.size() > 4 ? head[4] : 0, head.size() > 5 ? head[5] : 0,
+                  head.size() > 6 ? head[6] : 0, head.size() > 7 ? head[7] : 0);
+    return text;
+}
+
+}  // namespace
+
 bool choose_channel_program(const TmdContents& tmd, const std::vector<ContentStart>& starts, ChannelProgram& out,
                             std::string& error) {
     bool found = false;
     std::uint64_t found_size = 0;
     ChannelProgram best;
+    // What each content was instead, for the log: a WiiWare game whose
+    // program RiftWii could not find (Fluidity) left no clue which form
+    // its program takes.
+    std::string seen;
     for (const ContentStart& start : starts) {
         const TmdContent* record = tmd_content_by_index(tmd, start.index);
         const bool shared = record && (record->type & 0x8000) != 0;
         if (!record || shared || start.index == 0) continue;
         DolHeader dol;
         std::string why;
-        if (!parse_dol_header(start.head.data(), start.head.size(), dol, why)) continue;
+        if (!parse_dol_header(start.head.data(), start.head.size(), dol, why)) {
+            seen += (seen.empty() ? "" : "; ") + std::to_string(start.index) + ": " + content_kind(start.head) +
+                    (why.empty() ? "" : " (" + why + ")");
+            continue;
+        }
         // A header whose sections run past the file is not this file's.
-        if (dol.image_size() > start.size) continue;
+        if (dol.image_size() > start.size) {
+            seen += (seen.empty() ? "" : "; ") + std::to_string(start.index) + ": a DOL longer than the file";
+            continue;
+        }
         const bool bigger = !found || start.size > found_size;
         if (!bigger) continue;
         found = true;
@@ -157,6 +186,7 @@ bool choose_channel_program(const TmdContents& tmd, const std::vector<ContentSta
     }
     if (!found) {
         error = "none of its contents is a DOL RiftWii can load";
+        if (!seen.empty()) error += " (contents " + seen + ")";
         return false;
     }
     best.past_loader = best.index != tmd.boot_index;
