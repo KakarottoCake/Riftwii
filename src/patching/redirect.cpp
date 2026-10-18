@@ -43,51 +43,6 @@ bool push_entry(std::vector<rt_entry>& entries, std::uint64_t vstart, std::uint6
 
 }  // namespace
 
-bool place_on_fragments(const std::vector<Fragment>& fragments, std::uint64_t file_offset,
-                        std::uint64_t length, std::vector<PlacedRun>& out, std::string& error, std::uint32_t kind) {
-    std::vector<PlacedRun> runs;
-    std::uint64_t frag_start = 0;  // file offset where the current fragment begins
-    std::uint64_t remaining = length;
-    std::uint64_t cursor = file_offset;
-    for (const Fragment& f : fragments) {
-        if (f.sector_count == 0) {
-            error = "empty fragment";
-            return false;
-        }
-        if (f.sector_count > std::numeric_limits<std::uint64_t>::max() / RT_SECTOR_BYTES) {
-            error = "fragment too large";
-            return false;
-        }
-        const std::uint64_t frag_bytes = f.sector_count * RT_SECTOR_BYTES;
-        if (frag_start > std::numeric_limits<std::uint64_t>::max() - frag_bytes) {
-            error = "fragment list too large";
-            return false;
-        }
-        const std::uint64_t frag_end = frag_start + frag_bytes;
-        if (remaining > 0 && cursor < frag_end) {
-            const std::uint64_t within = cursor - frag_start;
-            const std::uint64_t take = std::min(remaining, frag_end - cursor);
-            PlacedRun r;
-            r.kind = kind;
-            r.length = take;
-            r.source = f.sector + within / RT_SECTOR_BYTES;
-            r.skip = static_cast<std::uint32_t>(within % RT_SECTOR_BYTES);
-            runs.push_back(r);
-            cursor += take;
-            remaining -= take;
-        }
-        frag_start = frag_end;
-        if (remaining == 0) break;
-    }
-    if (remaining != 0) {
-        error = "range extends past the fragment list";
-        return false;
-    }
-    out = std::move(runs);
-    error.clear();
-    return true;
-}
-
 bool build_redirect_table(const std::vector<VirtualFileLayout>& files, const ExternalPlacer& place,
                           std::uint32_t sdio_fd, std::uint64_t tag,
                           std::vector<std::uint8_t>& out, std::string& error) {

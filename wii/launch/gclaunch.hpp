@@ -10,7 +10,7 @@
 #include "usbcatalog.hpp"
 
 // GameCube games on the SD card, started in Wii mode by RiftWii's own
-// loader (gcnative.hpp). Patch-only mods (gcpatch.hpp) are listed as the
+// loader (gcplugin.hpp, the gamecube plugin). Patch-only mods (gcpatch.hpp) are listed as the
 // game they make. Packs are applied without touching the image: their
 // files are served from a window past its end (riftwii/gcoverlay.hpp).
 namespace riftwii::wii {

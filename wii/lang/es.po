@@ -2643,6 +2643,21 @@ msgstr "\"{1}\" se quita del inicio, con sus propios mods y ajustes, y su imagen
 msgid "Removed \"{1}\". This page is the game's own again."
 msgstr "Se quitó \"{1}\". Esta página vuelve a ser la del juego."
 
+msgid "A part of RiftWii is missing (the {1} add-on). Update RiftWii again."
+msgstr "Falta una parte de RiftWii (el complemento {1}). Vuelve a actualizar RiftWii."
+
+msgid "A part of RiftWii is damaged (the {1} add-on). Update RiftWii again."
+msgstr "Una parte de RiftWii está dañada (el complemento {1}). Vuelve a actualizar RiftWii."
+
+msgid "The {1} add-on is from a different RiftWii ({2}, this one is {3}). Update RiftWii again."
+msgstr "El complemento {1} es de otro RiftWii ({2}; este es {3}). Vuelve a actualizar RiftWii."
+
+msgid "There was not enough memory for the {1} add-on. Restart RiftWii and try again."
+msgstr "No había memoria suficiente para el complemento {1}. Reinicia RiftWii y vuelve a intentarlo."
+
+msgid "The {1} add-on did not start. Send a problem report so this can be fixed."
+msgstr "El complemento {1} no se inició. Envía un informe de problemas para que se pueda arreglar."
+
 msgid "Sharper picture"
 msgstr "Imagen más nítida"
 

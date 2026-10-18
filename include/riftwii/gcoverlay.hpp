@@ -13,7 +13,7 @@ namespace riftwii {
 // GameCube mods without touching the image. A pack's changed and created
 // files move to a window past the end of the image, and so does a
 // rewritten FST; the game's view of the disc is the image up to its end,
-// then the window. RiftWii's GameCube loader (wii/launch/gcnative.cpp)
+// then the window. RiftWii's GameCube loader (plugins/gamecube/gcnative.cpp)
 // serves every disc read from that view, as a list of runs of SD sectors,
 // zeros and the FST it keeps in memory.
 

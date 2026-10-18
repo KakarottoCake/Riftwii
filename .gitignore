@@ -9,4 +9,5 @@ build-runtime/
 *.dtm
 build-bearssl/
 build-channel/
+build-plugins/
 tests/local/

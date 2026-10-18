@@ -9,7 +9,7 @@
 #include "riftwii/symsearch.hpp"
 
 // A GameCube game's picture settings that are found in its code before it
-// starts (wii/launch/gcnative.cpp applies them; the blob's VIConfigure hook
+// starts (plugins/gamecube/gcnative.cpp applies them; the blob's VIConfigure hook
 // does the rest, runtime/gc/gc_video.h).
 namespace riftwii {
 

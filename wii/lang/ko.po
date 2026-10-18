@@ -2643,6 +2643,21 @@ msgstr "\"{1}\" 타일이 자체 MOD와 설정, 그리고 sd:/riftwii/profiles�
 msgid "Removed \"{1}\". This page is the game's own again."
 msgstr "\"{1}\" 타일을 제거했습니다. 이 페이지는 다시 게임 자체의 페이지입니다."
 
+msgid "A part of RiftWii is missing (the {1} add-on). Update RiftWii again."
+msgstr "RiftWii의 일부({1} 애드온)가 없습니다. RiftWii를 다시 업데이트해 주세요."
+
+msgid "A part of RiftWii is damaged (the {1} add-on). Update RiftWii again."
+msgstr "RiftWii의 일부({1} 애드온)가 손상되었습니다. RiftWii를 다시 업데이트해 주세요."
+
+msgid "The {1} add-on is from a different RiftWii ({2}, this one is {3}). Update RiftWii again."
+msgstr "{1} 애드온은 다른 RiftWii의 것입니다({2}, 이 RiftWii는 {3}). RiftWii를 다시 업데이트해 주세요."
+
+msgid "There was not enough memory for the {1} add-on. Restart RiftWii and try again."
+msgstr "{1} 애드온에 필요한 메모리가 부족했습니다. RiftWii를 다시 시작한 뒤 다시 시도해 주세요."
+
+msgid "The {1} add-on did not start. Send a problem report so this can be fixed."
+msgstr "{1} 애드온이 시작되지 않았습니다. 이 문제가 해결될 수 있도록 오류 보고서를 보내주세요."
+
 msgid "Sharper picture"
 msgstr "더 선명한 화면"
 
