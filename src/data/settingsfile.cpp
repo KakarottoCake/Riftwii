@@ -294,4 +294,11 @@ bool parse_cios_choice(const std::string& s, int& slot) {
     return true;
 }
 
+LoaderSettings settings_after_reset(const LoaderSettings& before) {
+    LoaderSettings after;
+    after.favorites = before.favorites;
+    after.game_folders = before.game_folders;
+    return after;
+}
+
 }  // namespace riftwii

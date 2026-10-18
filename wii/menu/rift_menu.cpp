@@ -2225,15 +2225,26 @@ public:
 	static constexpr int kTitleY = 110, kBodyY = 158, kButtonY = 304;
 	// The body ends a little above the buttons: at 16 points a line is 22.
 	static constexpr int kBodyLines = (kButtonY - 10 - kBodyY) / 22;
+	// `safeFirst`: for a question whose second button does something that
+	// cannot be undone. The first button (the safe one) takes A, B and HOME
+	// as hotkeys, so a press that is not aimed at the second button never
+	// answers it; the second is pressed only by pointing at it and
+	// pressing A, or by + (START on a GameCube controller).
 	PopupBox(const std::string& title, const std::string& body, const std::string& ok = "",
-		 const std::string& cancel = "")
+		 const std::string& cancel = "", bool safeFirst = false)
 		: extra(PopupExtra()), panel(skin::popup, 34, 102, extra), titleTxt(title.c_str(), 24, skin::kInk),
 		  bodyTxt(body.c_str(), 16, skin::kInkSoft),
 		  okBtn(skin::pill, skin::pillOver, 4, cancel.empty() ? 198 : kPairLeftX, kButtonY, ok.c_str(),
-			WPAD_BUTTON_A | WPAD_CLASSIC_BUTTON_A, PAD_BUTTON_A, WIIDRC_BUTTON_A),
+			safeFirst ? (WPAD_BUTTON_A | WPAD_CLASSIC_BUTTON_A | WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B |
+				     WPAD_BUTTON_HOME | WPAD_CLASSIC_BUTTON_HOME)
+				  : (WPAD_BUTTON_A | WPAD_CLASSIC_BUTTON_A),
+			safeFirst ? (PAD_BUTTON_A | PAD_BUTTON_B) : PAD_BUTTON_A,
+			safeFirst ? (WIIDRC_BUTTON_A | WIIDRC_BUTTON_B | WIIDRC_BUTTON_HOME) : WIIDRC_BUTTON_A),
 		  cancelBtn(skin::pill, skin::pillOver, 4, kPairRightX, kButtonY, cancel.c_str(),
-			WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B | WPAD_BUTTON_HOME | WPAD_CLASSIC_BUTTON_HOME, PAD_BUTTON_B,
-			WIIDRC_BUTTON_B | WIIDRC_BUTTON_HOME),
+			safeFirst ? (WPAD_BUTTON_PLUS | WPAD_CLASSIC_BUTTON_PLUS)
+				  : (WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B | WPAD_BUTTON_HOME | WPAD_CLASSIC_BUTTON_HOME),
+			safeFirst ? PAD_BUTTON_START : PAD_BUTTON_B,
+			safeFirst ? WIIDRC_BUTTON_PLUS : (WIIDRC_BUTTON_B | WIIDRC_BUTTON_HOME)),
 		  hasOk(!ok.empty()), hasCancel(!cancel.empty()), chained(PopupJustClosed()),
 		  w(chained ? 1.0f : 0.86f, 0, !chained)
 	{
@@ -2367,6 +2378,16 @@ static int ShowPopup(const std::string& title, const std::string& body, const st
 	const std::string& cancel = "")
 {
 	PopupBox box(title, body, ok, cancel);
+	return box.Wait();
+}
+
+// A question whose second answer cannot be undone: 0 the first (safe)
+// button, which A, B and HOME press, 1 the second, which needs the pointer
+// on it (or +). See PopupBox's `safeFirst`.
+static int ShowPopupSafeFirst(const std::string& title, const std::string& body, const std::string& safe,
+	const std::string& risky)
+{
+	PopupBox box(title, body, safe, risky, true);
 	return box.Wait();
 }
 
@@ -9863,12 +9884,14 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 					ShowWhatsNew();
 					break;
 				case kResetAll: {
-					if (ShowPopup(tr("Reset all settings?"),
+					// Cancel is the first button: A, B and HOME all answer it, so
+					// a stray press never resets (Jack, on a real Wii).
+					if (ShowPopupSafeFirst(tr("Reset all settings?"),
 						    tr("Every setting goes back to how RiftWii comes, and RiftWii restarts. Games' own pages, favourites, play history and mods are kept."),
-						    tr("Reset"), tr("Cancel")) != 0)
+						    tr("Cancel"), tr("Reset")) != 1)
 						break;
-					logf("Settings: all reset to the defaults\n");
-					settings = riftwii::LoaderSettings{};
+					logf("Settings: all reset to the defaults (favorites and game folders kept)\n");
+					settings = riftwii::settings_after_reset(settings);
 					const std::string error = saveSettings();
 					rebuild();
 					if (!error.empty()) {
