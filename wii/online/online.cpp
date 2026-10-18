@@ -22,6 +22,7 @@
 #include "loadersettings.hpp"
 #include "log.hpp"
 #include "netsock.hpp"
+#include "plugins.hpp"
 #include "tls.hpp"
 #include "textfile.hpp"
 #include "riftwii/nandchannel.hpp"
@@ -29,6 +30,7 @@
 #include "riftwii/dol.hpp"
 #include "riftwii/gcbanner.hpp"
 #include "riftwii/http.hpp"
+#include "riftwii/pluginfile.hpp"
 #include "riftwii/themepack.hpp"
 #include "riftwii/update.hpp"
 
@@ -498,11 +500,34 @@ void MarkDone(const char* path) {
     }
 }
 
-// What the apps pack may write: the channel installer's folder and
-// RiftWii's icon. RiftWii's boot.dol and meta.xml are the update's own,
+// What the apps pack may write: the channel installer's folder, RiftWii's
+// icon and its plugins (riftwii/plugins/<name>.<version>.rwp, nothing else
+// in that folder). RiftWii's boot.dol and meta.xml are the update's own,
 // and a player's music.ogg stays.
+constexpr char kPluginsPrefix[] = "riftwii/plugins/";
+
+bool PluginFileAllowed(const std::string& path) {
+    const std::size_t prefix = sizeof(kPluginsPrefix) - 1;
+    if (path.compare(0, prefix, kPluginsPrefix) != 0) return false;
+    const std::string file = path.substr(prefix);
+    std::string name;
+    std::string version;
+    // A plugin file of some version: "<name>.<version>.rwp", no folders.
+    return file.find('/') == std::string::npos && plugin_file_parse(file, name, version);
+}
+
 bool AppsFileAllowed(const std::string& path) {
-    return path.compare(0, 16, "riftwii_channel/") == 0 || path == "riftwii/icon.png";
+    return path.compare(0, 16, "riftwii_channel/") == 0 || path == "riftwii/icon.png" || PluginFileAllowed(path);
+}
+
+// Where an apps pack file goes: sd:/apps/<path>, except the plugins, which
+// go next to the boot.dol that is running (plugin::Directory), the folder
+// it reads them from, even when RiftWii was renamed or moved.
+std::string AppsFileTarget(const std::string& path) {
+    if (!PluginFileAllowed(path)) return "sd:/apps/" + path;
+    const std::string directory = plugin::Directory();
+    if (directory.compare(0, 4, "sd:/") != 0) return "sd:/apps/" + path;  // the pack writes the SD card only
+    return directory + path.substr(sizeof(kPluginsPrefix) - 1);
 }
 
 // The card brought up to a pack: sd:/riftwii/themes (its themes' files
@@ -534,8 +559,11 @@ void ApplyPack(PackKind& k) {
             logf("%s: %s skipped\n", k.label, f.path.c_str());
             continue;
         }
-        const std::string path = root + f.path;
-        mkdir((root + f.path.substr(0, f.path.find('/'))).c_str(), 0777);
+        const std::string path = themes ? root + f.path : AppsFileTarget(f.path);
+        // Each folder on the way (riftwii/plugins/ is two deep).
+        for (std::size_t slash = path.find('/', 4); slash != std::string::npos; slash = path.find('/', slash + 1)) {
+            mkdir(path.substr(0, slash).c_str(), 0777);
+        }
         if (SameFile(path, bytes + f.offset, f.size)) {
             ++same;
             continue;
@@ -560,6 +588,9 @@ void ApplyPack(PackKind& k) {
     }
     logf("%s: %u file(s) brought up to %s's, %u already were%s\n", k.label, written, RIFTWII_VERSION, same,
          failed ? " (some could not be written; tried again next start)" : "");
+    // This version's plugins are all there now: the ones from before the
+    // update are never loaded again, so they go.
+    if (!themes && !failed) plugin::RemoveOtherVersions();
     if (!failed) MarkDone(k.done);
 }
 

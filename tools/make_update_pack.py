@@ -11,8 +11,9 @@ other:
   files it shipped with (only those are removed);
 - the release zip's sd:/apps files besides RiftWii's own boot.dol,
   meta.xml and music.ogg ("RIFTWII APPS 1"): the channel installer's
-  folder and RiftWii's icon, the files wii/online/online.cpp (AppsFileAllowed)
-  writes.
+  folder, RiftWii's icon and its plugins (riftwii/plugins/, each checked
+  against the zip's boot.dol), the files wii/online/online.cpp
+  (AppsFileAllowed) writes.
 
     python tools/make_update_pack.py riftwii-vYYMM-N.zip out/riftwii-update.pack
 """
@@ -21,6 +22,8 @@ import re
 import subprocess
 import sys
 import zipfile
+
+import make_plugin
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 THEMES = ROOT / "themes"
@@ -31,6 +34,8 @@ RETIRED = []
 NAME = re.compile(r"^[A-Za-z0-9_\- ]{1,64}$")
 FILE = re.compile(r"^[A-Za-z0-9_\-. ]{1,64}$")
 APPS = "sd-card/apps/"
+PLUGINS = "riftwii/plugins/"
+PLUGIN_FILE = re.compile(r"^([A-Za-z0-9_-]{1,16})\.([A-Za-z0-9_-]{1,32})\.rwp$")
 
 
 def fail(message):
@@ -77,15 +82,35 @@ def themes_part():
     return b"".join(parts), count
 
 
+def check_plugin(name, data, dol):
+    """A plugin file of the zip: named <name>.<version>.rwp, whole, and
+    carrying the zip's boot.dol's build stamp (tools/make_plugin.py)."""
+    match = PLUGIN_FILE.match(name)
+    if not match:
+        fail("plugin file name not allowed in the zip: %s%s" % (PLUGINS, name))
+    fields = make_plugin.parse_header(data, name)
+    if not make_plugin.hash_ok(data) or fields["name"] != match.group(1):
+        fail("plugin %s is damaged or misnamed" % name)
+    if dol is None:
+        fail("the zip has plugins but no %sriftwii/boot.dol to match them with" % APPS)
+    marker = make_plugin.DOL_MARKER + fields["stamp"].encode() + b"\0"
+    if marker not in dol or not fields["stamp"].startswith(match.group(2) + "-"):
+        fail("plugin %s (stamp %s) does not match the zip's boot.dol" % (name, fields["stamp"]))
+
+
 def apps_part(zip_path):
     parts = [b"RIFTWII APPS 1\n"]
     count = 0
     found = set()
+    plugins = {}
     with zipfile.ZipFile(zip_path) as z:
         for info in sorted(z.infolist(), key=lambda i: i.filename):
             if info.is_dir() or not info.filename.startswith(APPS):
                 continue
             path = info.filename[len(APPS):]
+            if path.startswith(PLUGINS):
+                plugins[path[len(PLUGINS):]] = z.read(info)
+                continue
             if not (path.startswith("riftwii_channel/") or path == "riftwii/icon.png"):
                 continue
             folder, _, name = path.partition("/")
@@ -94,6 +119,14 @@ def apps_part(zip_path):
             parts.append(file_entry(path, z.read(info)))
             found.add(path)
             count += 1
+        dol = z.read(APPS + "riftwii/boot.dol") if (APPS + "riftwii/boot.dol") in z.namelist() else None
+    # RiftWii's plugins (docs/PLUGINS.md): written by the in-app update
+    # next to the running boot.dol. Each must match the zip's boot.dol, or
+    # the update would install files that DOL refuses.
+    for name, data in sorted(plugins.items()):
+        check_plugin(name, data, dol)
+        parts.append(file_entry(PLUGINS + name, data))
+        count += 1
     # The installer the channel prompt runs, by name: three files of any
     # kind used to be enough.
     for needed in ("riftwii_channel/boot.dol", "riftwii_channel/meta.xml"):
