@@ -151,8 +151,9 @@ void gc_bt_fill(struct gc_bt* bt, uint8_t* status);
 /* 1 while a ready Wii Remote's HOME, or its Classic Controller's, is held. */
 int gc_bt_home_held(const struct gc_bt* bt);
 /* The test remote (sd:/riftwii/gc/fakeremote, gc_rt.h's
- * GC_FLAG_FAKE_REMOTE), for Dolphin, whose emulated remotes do not connect
- * without a key pressed in its window: instead of the Bluetooth, a remote
+ * GC_FLAG_FAKE_REMOTE), for Dolphin, whose emulated remote connects but
+ * takes its buttons and motion from keys in its window, which a test run
+ * cannot press: instead of the Bluetooth, a remote
  * in slot 1 sends made-up reports through the same parser and map, a step
  * of GC_BT_FAKE_FRAMES PADReads at a time (gc_bt.c lists them), and what
  * port 1 got in each step goes to fake_log for the trace. `n`: the

@@ -1705,8 +1705,8 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
     // list: tells whether a game's crash comes from the raised addresses
     // without a build for it.
     const bool test_keep_aram = stat("sd:/riftwii/gc/keeparam", &st_press) == 0;
-    // And of the Wii Remotes' map with no remote to press (Dolphin's
-    // emulated ones do not connect unpressed): a made-up remote instead
+    // And of the Wii Remotes' map with no remote to press (a test run
+    // cannot press Dolphin's emulated one): a made-up remote instead
     // (gc_bt.h's gc_bt_fake).
     const bool test_fake_remote = stat("sd:/riftwii/gc/fakeremote", &st_press) == 0;
     // What the Wii Remotes' buttons press, from the player's files.
