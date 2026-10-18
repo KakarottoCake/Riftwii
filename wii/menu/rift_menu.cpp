@@ -3345,7 +3345,7 @@ static void SuggestDotClean()
 	}
 }
 
-// The picture of the CISO popup (tools/make_ciso_face.py, embedded from
+// The picture of the CISO popup (drawn by KakarottoCake, embedded from
 // wii/assets) as a texture in `tex`, which the caller frees. False, and
 // the popup goes without it, when it can't be decoded.
 static bool LoadCisoFace(skin::Tex& tex)
