@@ -855,8 +855,8 @@ msgstr "試験的な機能です。ゲーム中に1を押したままHOME(ゲー
 msgid "Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder."
 msgstr "メニューを開いている間の音楽です: sd:/riftwiiのmusic.ogg、なければRiftWiiのフォルダのものを流します。"
 
-msgid "Music while a game starts"
-msgstr "ゲーム起動中の音楽"
+msgid "Launch music"
+msgstr "起動中の音楽"
 
 msgid "Keep playing"
 msgstr "流し続ける"

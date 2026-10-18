@@ -855,8 +855,8 @@ msgstr "실험적 기능입니다. 게임 중 1번 버튼을 누른 상태에서
 msgid "Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder."
 msgstr "메뉴가 열려 있을 때 재생되는 음악: sd:/riftwii 경로의 music.ogg 또는 RiftWii 폴더 내의 음악 파일입니다."
 
-msgid "Music while a game starts"
-msgstr "게임을 시작할 때 음악"
+msgid "Launch music"
+msgstr "실행 중 음악"
 
 msgid "Keep playing"
 msgstr "계속 재생"

@@ -9170,7 +9170,7 @@ static int MenuSettingsSection(FrontendState& state, SettingsSection section, bo
 		option(tr("Menu sounds"), MenuSoundsName(settings.menu_sounds), settings.menu_sounds != "off", kSounds);
 		option(tr("Menu music"), settings.menu_music == "off" ? tr("Off") : tr("On"), settings.menu_music != "off",
 			kMusic, FlowRow::Kind::Toggle);
-		option(tr("Music while a game starts"), settings.launch_music == "off" ? tr("Fade out") : tr("Keep playing"),
+		option(tr("Launch music"), settings.launch_music == "off" ? tr("Fade out") : tr("Keep playing"),
 			settings.launch_music != "off", kLaunchMusic);
 		// Without menu music there is nothing to keep or fade.
 		if (settings.menu_music == "off") rows.back().dim = true;

@@ -855,8 +855,8 @@ msgstr "Experimental. En un juego, mantén 1 y pulsa HOME (mando de GameCube: ma
 msgid "Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder."
 msgstr "Música mientras el menú está abierto: music.ogg de sd:/riftwii, o la de la carpeta de RiftWii."
 
-msgid "Music while a game starts"
-msgstr "Música al iniciar un juego"
+msgid "Launch music"
+msgstr "Música al jugar"
 
 msgid "Keep playing"
 msgstr "Seguir sonando"

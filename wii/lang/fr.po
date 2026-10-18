@@ -855,8 +855,8 @@ msgstr "Expérimental. En jeu, maintenez 1 et appuyez sur HOME (Manette GC : L +
 msgid "Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder."
 msgstr "Musique du menu : fichier music.ogg situé dans sd:/riftwii ou dans le dossier propre de RiftWii."
 
-msgid "Music while a game starts"
-msgstr "Musique au lancement d'un jeu"
+msgid "Launch music"
+msgstr "Musique de départ"
 
 msgid "Keep playing"
 msgstr "Continuer"

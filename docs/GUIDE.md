@@ -295,7 +295,7 @@ the tiles.
 - **Menu sounds** (Normal, Quiet, Off) and **Menu music**: the music is
   `music.ogg` (Ogg Vorbis, up to 6 MB) from `sd:/riftwii/`, or else the one
   the release puts in `sd:/apps/riftwii/`, looped while the menu is open.
-- **Music while a game starts** (Keep playing, Fade out; right after Menu
+- **Launch music** (Keep playing, Fade out; right after Menu
   music): *Keep playing* lets the menu's music play on under the launch
   screen's blue bar and log and fade out before the game takes over (it
   pauses while the game's IOS is loaded, and comes back after). *Fade out*
