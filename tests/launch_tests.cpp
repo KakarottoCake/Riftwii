@@ -495,6 +495,20 @@ static void test_saves() {
         EXPECT_FALSE(riftwii::gc_progressive_on(g, "GLMP01", console));
         g.gc_progressive = "game";
         EXPECT_FALSE(riftwii::gc_progressive_on(g, "GMSE01", console));
+        // 480p by itself: Default with a component cable plugged in, the
+        // Wii's own setting off; never a PAL game, never "game".
+        {
+            riftwii::GameSettings automatic;
+            riftwii::GcConsoleSettings cable;
+            cable.component_cable = true;
+            EXPECT_TRUE(riftwii::gc_progressive_on(automatic, "GMSE01", cable));
+            EXPECT_FALSE(riftwii::gc_progressive_on(automatic, "GLMP01", cable));
+            automatic.gc_progressive = "game";
+            EXPECT_FALSE(riftwii::gc_progressive_on(automatic, "GMSE01", cable));
+            cable.component_cable = false;
+            automatic.gc_progressive = "global";
+            EXPECT_FALSE(riftwii::gc_progressive_on(automatic, "GMSE01", cable));
+        }
         g.gc_progressive = "480p";
         console.wii_progressive = false;
         EXPECT_TRUE(riftwii::gc_progressive_on(g, "GMSJ01", console));

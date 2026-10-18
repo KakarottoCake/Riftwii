@@ -2171,6 +2171,11 @@ T = {
         "60 Hzモードがあるゲームは、対応するテレビで60 Hzで遊べます。ほかのゲームは50 Hzのままです。",
         "Mais suave roda a 60 Hz nos jogos que têm um modo de 60 Hz, em uma TV compatível; os outros continuam em 50 Hz.",
         "Più fluido gioca a 60 Hz nei giochi che hanno una modalità a 60 Hz, su un televisore che la accetta; gli altri restano a 50 Hz."),
+    "A component cable is plugged in, so Default turns 480p on by itself; some games ask first.": (
+        "Hay un cable de componentes conectado, así que Predeterminado activa 480p por sí solo; algunos juegos preguntan antes.",
+        "コンポーネントケーブルがつながっているので、標準では480pが自動でオンになります。先に確認するゲームもあります。",
+        "Há um cabo componente conectado, então Padrão liga o 480p sozinho; alguns jogos perguntam antes.",
+        "È collegato un cavo component, quindi Predefinito attiva da solo i 480p; alcuni giochi chiedono prima."),
 }
 
 
@@ -3941,6 +3946,8 @@ KO = {
         "원래대로 (50 Hz)",
     "Smoother plays at 60 Hz in games that have a 60 Hz mode, on a TV that takes it; the others stay at 50 Hz.":
         "60 Hz 모드가 있는 게임은 이를 지원하는 TV에서 60 Hz로 플레이합니다. 다른 게임은 50 Hz로 남습니다.",
+    "A component cable is plugged in, so Default turns 480p on by itself; some games ask first.":
+        "컴포넌트 케이블이 연결되어 있어 기본에서 480p가 자동으로 켜집니다. 먼저 묻는 게임도 있습니다.",
 }
 
 # French, a table of its own (msgid: text), from MidyGamy's translation
@@ -5710,6 +5717,8 @@ FR = {
         "D'origine (50 Hz)",
     "Smoother plays at 60 Hz in games that have a 60 Hz mode, on a TV that takes it; the others stay at 50 Hz.":
         "Plus fluide joue à 60 Hz dans les jeux qui ont un mode 60 Hz, sur une télé qui l'accepte ; les autres restent à 50 Hz.",
+    "A component cable is plugged in, so Default turns 480p on by itself; some games ask first.":
+        "Un câble composante est branché, donc Par défaut active le 480p tout seul ; certains jeux demandent d'abord.",
 }
 
 # Languages kept in tables of their own: written after LANGS, every msgid

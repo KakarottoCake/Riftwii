@@ -106,7 +106,10 @@ bool gc_progressive_on(const GameSettings& game, const std::string& id, const Gc
     if (gc_pal_game(id)) return false;
     if (game.gc_progressive == "480p") return true;
     if (game.gc_progressive == "game") return false;
-    return console.wii_progressive;
+    // A component cable says the TV takes 480p, whatever the Wii's own
+    // setting (HDMI adapters may not report as one: the Wii's setting
+    // still turns it on for them).
+    return console.wii_progressive || console.component_cable;
 }
 
 bool gc_sixty_hz_on(const GameSettings& game, const std::string& id) {

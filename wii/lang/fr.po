@@ -2648,3 +2648,6 @@ msgstr "D'origine (50 Hz)"
 
 msgid "Smoother plays at 60 Hz in games that have a 60 Hz mode, on a TV that takes it; the others stay at 50 Hz."
 msgstr "Plus fluide joue à 60 Hz dans les jeux qui ont un mode 60 Hz, sur une télé qui l'accepte ; les autres restent à 50 Hz."
+
+msgid "A component cable is plugged in, so Default turns 480p on by itself; some games ask first."
+msgstr "Un câble composante est branché, donc Par défaut active le 480p tout seul ; certains jeux demandent d'abord."

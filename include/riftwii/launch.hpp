@@ -168,6 +168,7 @@ struct GcConsoleSettings {
     std::string game_language = "console";  // LoaderSettings::game_language (riftwii/gamelang.hpp names)
     bool wii_widescreen = false;            // the Wii's TV is set to 16:9
     bool wii_progressive = false;           // the Wii's 480p setting is on
+    bool component_cable = false;           // the video hardware says a component cable is plugged in
     int wii_language = -1;                  // the Wii's language, as libogc's CONF_LANG_* number
     std::string video_width = "game";       // LoaderSettings::video_width (riftwii/videopatch.hpp names)
 };
@@ -186,7 +187,8 @@ constexpr bool kGcDriveTimingReady = false;
 constexpr bool kGcWidescreenReady = false;
 
 // Whether the game gets 480p: "480p" yes, "game" no, "global" when the
-// Wii's own 480p setting is on. Never for a PAL game (gc_pal_game).
+// Wii's own 480p setting is on or a component cable is plugged in (480p by
+// itself). Never for a PAL game (gc_pal_game).
 bool gc_progressive_on(const GameSettings& game, const std::string& id, const GcConsoleSettings& console);
 
 // Whether a European game (gc_pal_game) is told the TV takes 60 Hz.

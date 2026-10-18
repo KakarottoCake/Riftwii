@@ -2648,3 +2648,6 @@ msgstr "元のまま (50 Hz)"
 
 msgid "Smoother plays at 60 Hz in games that have a 60 Hz mode, on a TV that takes it; the others stay at 50 Hz."
 msgstr "60 Hzモードがあるゲームは、対応するテレビで60 Hzで遊べます。ほかのゲームは50 Hzのままです。"
+
+msgid "A component cable is plugged in, so Default turns 480p on by itself; some games ask first."
+msgstr "コンポーネントケーブルがつながっているので、標準では480pが自動でオンになります。先に確認するゲームもあります。"

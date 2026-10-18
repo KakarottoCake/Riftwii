@@ -4,6 +4,7 @@
 
 #include <dirent.h>
 #include <ogc/conf.h>
+#include <ogc/video.h>
 
 #include <cctype>
 #include <cstdio>
@@ -516,6 +517,7 @@ GcConsoleSettings GcConsoleNow() {
     console.game_language = Settings().game_language;
     console.wii_widescreen = CONF_GetAspectRatio() == CONF_ASPECT_16_9;
     console.wii_progressive = CONF_GetProgressiveScan() > 0;
+    console.component_cable = VIDEO_HaveComponentCable() != 0;
     console.wii_language = CONF_GetLanguage();
     console.video_width = Settings().video_width;
     return console;
@@ -562,10 +564,10 @@ bool LaunchGcGame(const GcImage& wanted,const std::vector<PackageChoices>& packa
         image.vi_width = gc_vi_width(gc_picture_width(game, console));
         logf("GameCube: Picture width %s (Settings' %s): %s\n", game.gc_width.c_str(), console.video_width.c_str(),
              gc_picture_width(game, console).c_str());
-        logf("GameCube: Progressive scan %s (the Wii's 480p setting %s%s), Widescreen %s (Settings' aspect %s, "
+        logf("GameCube: Progressive scan %s (the Wii's 480p setting %s, a component cable %s%s), Widescreen %s (Settings' aspect %s, "
              "the Wii's TV %s), Game language %s (Settings' %s, the Wii's language %d)\n",
              game.gc_progressive.c_str(), console.wii_progressive ? "on" : "off",
-             gc_pal_game(image.id) ? ", a PAL game never gets 480p" : "",
+             console.component_cable ? "plugged in" : "not seen", gc_pal_game(image.id) ? ", a PAL game never gets 480p" : "",
              kGcWidescreenReady ? game.gc_widescreen.c_str() : "held back from this release",
              console.aspect.c_str(), console.wii_widescreen ? "16:9" : "4:3", game.gc_language.c_str(),
              console.game_language.c_str(), console.wii_language);
