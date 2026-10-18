@@ -83,6 +83,33 @@ struct ApploaderHeader {
 bool parse_disc_header(const std::uint8_t* data, std::size_t size, DiscHeader& out, std::string& error);
 bool read_disc_header(const ByteSource& disc, DiscHeader& out, std::string& error);
 
+// A GameCube image found where RiftWii looks for Wii games (loose in a
+// games folder, or anywhere in wbfs): RiftWii plays GameCube games only
+// from a folder of their own in sd:/games, so the scan leaves it out. Said
+// in the log so a player who put their GameCube ISOs straight into
+// sd:/games learns why Home is empty.
+//
+// Where it would go: sd:/games/<title> [<ID>]/game.<its extension>, the
+// title without the characters a FAT32 name cannot hold.
+std::string gamecube_folder_example(const std::string& path, const DiscHeader& header);
+
+// The scan's lines about those images, one per image for the first
+// kLinesShown and then one line with how many more there were.
+class MisplacedGameCubeLog {
+public:
+    static constexpr unsigned kLinesShown = 10;
+
+    // The line for one more such image, `scan` naming the scan ("SD scan");
+    // empty past the first kLinesShown.
+    std::string note(const std::string& scan, const std::string& path, const DiscHeader& header);
+    // After the scan: how many were not said one by one, or empty.
+    std::string rest(const std::string& scan) const;
+    void reset() { seen_ = 0; }
+
+private:
+    unsigned seen_ = 0;
+};
+
 bool read_partition_table(const ByteSource& disc, std::vector<PartitionEntry>& out, std::string& error);
 // The first type-0 partition, in table order.
 bool find_game_partition(const std::vector<PartitionEntry>& table, PartitionEntry& out);
