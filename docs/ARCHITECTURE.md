@@ -241,35 +241,17 @@ Broadway at 729 MHz and Hollywood at 243 MHz, half as fast again. The
 time base and decrementer count at a quarter of the bus clock: 40.5 MHz
 on a GameCube, 60.75 MHz in Wii mode.
 
-*Can RiftWii switch to a GameCube's speed?* No, not from where it runs:
-- Hollywood's HW_CLOCKS register (`0x0d800190`) has a SPEED bit, its
-  lowest, that puts Hollywood at 162 MHz and Broadway at 486 MHz. The
-  PLL's divisor itself is in HW_PLLSYSEXT (`0x0d8001b4`: 0x10 for
-  243 MHz, 0x18 for 162 MHz) ([Hollywood registers](https://wiibrew.org/wiki/Hardware/Hollywood_Registers)).
-- WiiBrew's page on the switch ([clock speed control](https://wiibrew.org/wiki/Broadway/Clock_Speed_Control))
-  gives it as a sequence run with Broadway turned off:
-  1. HW_CLOCKS' FX bit set.
-  2. HW_RESETS' RSTB_DSKPLL cleared.
-  3. SPEED set.
-  4. RSTB_DSKPLL set again.
-  5. FX cleared.
-
-  It has to run on the Starlet. The same steps run from Broadway fail
-  badly, as Broadway is clocked by what they change. MEM1's contents may
-  not survive it either.
-- AHBPROT, which RiftWii has, lets the PPC read and write Hollywood's
-  registers. It does not give it a second processor to hold Broadway
-  stopped, switch the PLL and start Broadway again at a boot stub.
-  RiftWii runs nothing on the Starlet (above).
-- Nintendo's own way to a GameCube's speed is the Disc Channel starting
-  BC, which lowers the clocks and then hands the console to MIOS. That
-  leaves Wii mode altogether: no IOS, so no SD card, Wii Remotes or way
-  back, which are what this loader is built on. Nintendont, too, runs
-  GameCube games in Wii mode, at the Wii's speed.
-
-So there is no Speed option. Offering one would mean running RiftWii's
-own code on the Starlet through an IOS exploit or a custom IOS module,
-which RiftWii does not do.
+*Can RiftWii switch to a GameCube's speed?* No. Hollywood's HW_CLOCKS
+register (`0x0d800190`) has a SPEED bit for 162/486 MHz, but WiiBrew's
+[clock speed control](https://wiibrew.org/wiki/Broadway/Clock_Speed_Control)
+page has the switch made from the Starlet with Broadway held stopped
+([Hollywood registers](https://wiibrew.org/wiki/Hardware/Hollywood_Registers)).
+RiftWii runs nothing on the Starlet, and AHBPROT only lets the PPC reach
+the registers. Nintendo's own way, BC handing the console to MIOS,
+leaves Wii mode: no IOS, so no SD card, Wii Remotes or way back. So
+there is no Speed option; one would need RiftWii's own code on the
+Starlet (an IOS exploit or a custom IOS module), which RiftWii does not
+do.
 
 *What RiftWii does instead: keeps the game's timers true.*
 - The SDK reads the bus clock from `0x800000F8` (OSBusClock) and the CPU

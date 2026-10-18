@@ -101,9 +101,21 @@ void leaves_pairs_it_cannot_be_sure_of() {
     text.put(kStart + 0x20, {0x3C6009A8, 0x48000008, 0x3863EC80});
     // lis r3,0x09a8; addi r3,r3,0: not a clock.
     text.put(kStart + 0x40, {0x3C6009A8, 0x38630000});
+    // lis r0,0x09a8; li r0,-0x1380 (addi r0,0,...): r0 replaced, not finished.
+    text.put(kStart + 0x80, {0x3C0009A8, 0x3800EC80});
     // lis r3,0x09a8 and its lower half five instructions on: too far.
     text.put(kStart + 0x60, {0x3C6009A8, 0x60000000, 0x60000000, 0x60000000, 0x60000000, 0x3863EC80});
     EXPECT_EQ(find_gc_clock_values(text.reader(), kText, kWiiClocks).size(), 0u);
+}
+
+void moves_a_value_built_in_r0_with_ori() {
+    // lis r0,0x1cf7; ori r0,r0,0xc580: 486000000 in r0, which ori does read.
+    Text text;
+    text.put(kStart, {0x3C001CF7, 0x6000C580});
+    const auto fixes = find_gc_clock_values(text.reader(), kText, kWiiClocks);
+    EXPECT_EQ(fixes.size(), 1u);
+    if (fixes.size() != 1) return;
+    EXPECT_EQ(fixes[0].new_value, 729000000u);
 }
 
 void leaves_everything_at_gamecube_speed() {
@@ -120,6 +132,7 @@ int main() {
     moves_the_cpu_clock_built_with_ori();
     moves_the_time_base_with_an_instruction_between();
     leaves_pairs_it_cannot_be_sure_of();
+    moves_a_value_built_in_r0_with_ori();
     leaves_everything_at_gamecube_speed();
     if (g_failures != 0) {
         std::cerr << g_failures << " failure(s)" << std::endl;

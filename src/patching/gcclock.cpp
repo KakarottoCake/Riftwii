@@ -17,8 +17,10 @@ std::uint32_t field_a(std::uint32_t word) { return (word >> 16) & 31; }
 
 bool is_lis(std::uint32_t word) { return opcode(word) == kOpcodeAddis && field_a(word) == 0; }
 
-// Branches of every kind (b, bc, and bclr/bcctr in opcode 19, which also
-// holds the CR operations, rare enough between a constant's halves).
+// Branches of every kind (b, bc, and bclr/bcctr in opcode 19). Opcode 19
+// also holds the CR operations, such as the `crclr 6` the compiler puts
+// before every call with variable arguments; they end the search too,
+// which only costs a fix, never makes a wrong one.
 bool is_branch(std::uint32_t word) {
     const std::uint32_t op = opcode(word);
     return op == 16 || op == 18 || op == 19;
@@ -75,8 +77,12 @@ std::vector<GcClockFix> find_gc_clock_values(const GcCodeReader& read, const std
                 std::uint32_t low = 0;
                 if (low_at + 4 > range.end || !read(low_at, low)) break;
 
-                const bool lower_half = (opcode(low) == kOpcodeOri || opcode(low) == kOpcodeAddi) &&
-                                        field_d(low) == reg && field_a(low) == reg;
+                // addi with rA 0 adds to the number 0, not to r0: it is
+                // `li`, which replaces the upper half rather than finishing
+                // it. So a value built in r0 is only taken with ori.
+                const bool addi_finishes = opcode(low) == kOpcodeAddi && reg != 0;
+                const bool lower_half = (opcode(low) == kOpcodeOri || addi_finishes) && field_d(low) == reg &&
+                                        field_a(low) == reg;
                 if (lower_half) {
                     const std::uint32_t value = built_value(lis, low);
                     const std::uint32_t replacement = running_value_of(value, running);

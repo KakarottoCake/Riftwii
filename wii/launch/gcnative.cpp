@@ -806,6 +806,9 @@ GcClocks match_game_to_clocks(Code& code, const Dol& dol) {
     }
     if (fixes.empty())
         logf("GameCube: clock values: none built into the game's code, so its timers all go by the clocks it is told\n");
+    else
+        logf("GameCube: clock values: %u built into the game's code moved to the Wii's\n",
+             static_cast<unsigned>(fixes.size()));
     return clocks;
 }
 
