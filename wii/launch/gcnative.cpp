@@ -1717,7 +1717,8 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
                          {test_keep_aram, "keeparam"},
                          {test_fake_remote, "fakeremote"},
                          {test_fake_pro, "fakepro"},
-                         {test_rumble, "rumbletest"}};
+                         {test_rumble, "rumbletest"},
+                         {test_reset, "reset"}};
     for (const auto& test_switch : test_switches) {
         if (!test_switch.on) continue;
         switches += switches.empty() ? " [test switches: " : ", ";
