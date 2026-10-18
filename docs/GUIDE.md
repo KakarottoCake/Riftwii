@@ -759,6 +759,11 @@ Sunshine doesn't spray when you press it.
 - The Nunchuk's stick and the Classic Controller's sticks always stay
   the GameCube's sticks. Its analogue L and R stay the GameCube's while
   the `L` and `R` buttons do.
+- A Wii U Pro Controller (synced to the Wii like a Wii Remote) plays with
+  the `[classic]` controls: its buttons are a Classic Controller Pro's.
+  Its L and R are plain buttons, so they press the GameCube's L and R
+  all the way. HOME on its own leaves the game, as on a Classic
+  Controller.
 - Upper or lower case doesn't matter. A name RiftWii doesn't know, or a
   button the controller doesn't have, is skipped, and the log
   (`sd:/riftwii/boot.log`, lines starting `GameCube controls:`) says which

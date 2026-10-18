@@ -101,6 +101,31 @@ static inline void gc_map_sticks(uint32_t targets, int32_t* sx, int32_t* sy, int
     if (targets & GC_OUT_CSTICK_DOWN) *cy = -GC_STICK_FULL;
 }
 
+/* A Classic Controller's buttons, its fifth and sixth data bytes (active
+ * low), as the inputs above. A Wii U Pro Controller sends its buttons in
+ * the same bits (gc_pro.h), so it is read through here too. */
+static inline uint32_t gc_classic_held(uint32_t byte4, uint32_t byte5) {
+    const uint32_t e4 = ~byte4 & 0xFFu;
+    const uint32_t e5 = ~byte5 & 0xFFu;
+    uint32_t held = 0;
+    if (e5 & 0x01u) held |= 1u << GC_IN_UP;
+    if (e4 & 0x40u) held |= 1u << GC_IN_DOWN;
+    if (e5 & 0x02u) held |= 1u << GC_IN_LEFT;
+    if (e4 & 0x80u) held |= 1u << GC_IN_RIGHT;
+    if (e5 & 0x10u) held |= 1u << GC_IN_A;
+    if (e5 & 0x40u) held |= 1u << GC_IN_B;
+    if (e5 & 0x08u) held |= 1u << GC_IN_X;
+    if (e5 & 0x20u) held |= 1u << GC_IN_Y;
+    if (e5 & 0x80u) held |= 1u << GC_IN_ZL;
+    if (e5 & 0x04u) held |= 1u << GC_IN_ZR;
+    if (e4 & 0x20u) held |= 1u << GC_IN_L;
+    if (e4 & 0x02u) held |= 1u << GC_IN_R;
+    if (e4 & 0x04u) held |= 1u << GC_IN_PLUS;
+    if (e4 & 0x10u) held |= 1u << GC_IN_MINUS;
+    if (e4 & 0x08u) held |= 1u << GC_IN_HOME;
+    return held;
+}
+
 /* 1 when a Classic Controller's analogue trigger (GC_IN_L or GC_IN_R)
  * still goes to the game: only while its button is still the GameCube's
  * button of the same name (`pad_button`, GC_PAD_L or GC_PAD_R). Mapped

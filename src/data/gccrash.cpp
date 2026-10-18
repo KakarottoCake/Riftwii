@@ -141,6 +141,9 @@ bool describe_gc_remotes(const std::vector<std::uint8_t>& trace, std::string& te
         problems += problem.name;
     }
     if (!problems.empty()) text += "On the way: " + problems + ".\n";
+    if (progress & GC_BT_SEEN_PRO)
+        text += "A Wii U Pro Controller connected (extension ID 01 20) and played with the Classic Controller's "
+                "controls.\n";
     text += "Last connection status " + byte_hex(link >> 24) + ", authentication status " + byte_hex(link >> 16) +
             ", disconnect reason " + byte_hex(link >> 8) + ", extension error " + byte_hex(link) + ".\n";
     text += "Last extension ID " + byte_hex(ext >> 24) + " " + byte_hex(ext >> 16) + ", last report mode " +

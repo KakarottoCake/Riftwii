@@ -1350,7 +1350,7 @@ uint32_t gc_on_pad_read(struct gc_rt_context* ctx, uint32_t status, uint32_t res
     if (ctx->bt && status != 0) {
         struct gc_bt* bt = (struct gc_bt*)(uintptr_t)ctx->bt;
         if (ctx->flags & GC_FLAG_FAKE_REMOTE) {
-            gc_bt_fake(bt, (uint8_t*)(uintptr_t)status, n);
+            gc_bt_fake(bt, (uint8_t*)(uintptr_t)status, n, (ctx->flags & GC_FLAG_FAKE_PRO) != 0);
         } else {
             gc_bt_poll(ctx, bt);
             gc_bt_fill(bt, (uint8_t*)(uintptr_t)status);

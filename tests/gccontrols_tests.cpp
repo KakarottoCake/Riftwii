@@ -2,12 +2,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // A GameCube game's Wii Remote controls: the built-in map
 // (src/data/gccontrols.cpp), the files that change it, and the blob's
-// side of it (runtime/gc/gc_controls.h): the map applied, and the shake.
+// side of it (runtime/gc/gc_controls.h): the map applied, and the shake;
+// and a Wii U Pro Controller's reports (runtime/gc/gc_pro.h).
 #include <cstdint>
 #include <cstdio>
 #include <string>
 #include <vector>
 
+#include "gc_pro.h"
 #include "riftwii/gccontrols.hpp"
 
 namespace {
@@ -321,9 +323,90 @@ void test_trigger_follows_button() {
     EXPECT_TRUE(!gc_map_keeps_trigger(&map, GC_IN_L, GC_PAD_L));
 }
 
+// A Classic Controller's two button bytes (active low) as the map's inputs.
+void test_classic_buttons() {
+    EXPECT_EQ(gc_classic_held(0xFF, 0xFF), 0);
+    EXPECT_EQ(gc_classic_held(0xFF, 0xEF), held(GC_IN_A));
+    EXPECT_EQ(gc_classic_held(0xFF, 0xFE), held(GC_IN_UP));
+    EXPECT_EQ(gc_classic_held(0xFF, 0x7B), held(GC_IN_ZL) | held(GC_IN_ZR));
+    EXPECT_EQ(gc_classic_held(0xF7, 0xFF), held(GC_IN_HOME));
+    EXPECT_EQ(gc_classic_held(0xDD, 0xFF), held(GC_IN_L) | held(GC_IN_R));
+    EXPECT_EQ(gc_classic_held(0x3F, 0xFF), held(GC_IN_RIGHT) | held(GC_IN_DOWN));
+    // Bit 0 of the fifth byte is no button (always 1 on a Classic Controller).
+    EXPECT_EQ(gc_classic_held(0xFE, 0xFF), 0);
+}
+
+// One of a Pro Controller's 12-bit stick axes, little-endian.
+void set_axis(std::uint8_t* at, std::uint32_t raw) {
+    at[0] = static_cast<std::uint8_t>(raw);
+    at[1] = static_cast<std::uint8_t>(raw >> 8);
+}
+
+// A Wii U Pro Controller's eleven bytes (report 0x34) as the GameCube side
+// reads them, and through the Classic Controller's table of the map.
+void test_pro_decode() {
+    EXPECT_TRUE(gc_pro_is_id(0x01, 0x20));
+    EXPECT_TRUE(!gc_pro_is_id(0x01, 0x01));  // a Classic Controller
+    EXPECT_TRUE(!gc_pro_is_id(0x00, 0x00));  // a Nunchuk
+
+    std::uint8_t pro[GC_PRO_BYTES];
+    gc_pro_rest(pro);
+    EXPECT_EQ(pro[0], 0x00);
+    EXPECT_EQ(pro[1], 0x08);
+    gc_pro_input in = {1, 1, 1, 1, 1};
+    gc_pro_decode(pro, &in);
+    EXPECT_EQ(in.held, 0);
+    EXPECT_EQ(in.stick_x, 0);
+    EXPECT_EQ(in.stick_y, 0);
+    EXPECT_EQ(in.cstick_x, 0);
+    EXPECT_EQ(in.cstick_y, 0);
+    EXPECT_TRUE(!gc_pro_home_held(pro));
+
+    // Left stick right and up, right stick left and down, all the way.
+    set_axis(pro + 0, GC_PRO_STICK_CENTRE + GC_PRO_STICK_REACH);
+    set_axis(pro + 4, GC_PRO_STICK_CENTRE + GC_PRO_STICK_REACH);
+    set_axis(pro + 2, GC_PRO_STICK_CENTRE - GC_PRO_STICK_REACH);
+    set_axis(pro + 6, GC_PRO_STICK_CENTRE - GC_PRO_STICK_REACH);
+    gc_pro_decode(pro, &in);
+    EXPECT_EQ(in.stick_x, GC_STICK_FULL);
+    EXPECT_EQ(in.stick_y, GC_STICK_FULL);
+    EXPECT_EQ(in.cstick_x, -GC_STICK_FULL);
+    EXPECT_EQ(in.cstick_y, -GC_STICK_FULL);
+    // Half way, and past the reach (clamped), and the top nibble of the
+    // high byte (not the stick's) left out.
+    set_axis(pro + 0, GC_PRO_STICK_CENTRE + GC_PRO_STICK_REACH / 2);
+    set_axis(pro + 2, 0x000);
+    set_axis(pro + 4, 0xFFF);
+    pro[7] = static_cast<std::uint8_t>(0xF0 | (GC_PRO_STICK_CENTRE >> 8));
+    pro[6] = 0x00;
+    gc_pro_decode(pro, &in);
+    EXPECT_EQ(in.stick_x, GC_STICK_FULL / 2);
+    EXPECT_EQ(static_cast<std::uint32_t>(in.cstick_x), static_cast<std::uint32_t>(-127));
+    EXPECT_EQ(in.stick_y, 127);
+    EXPECT_EQ(in.cstick_y, 0);
+
+    // The buttons, in a Classic Controller's places: A and ZR, then HOME.
+    gc_pro_rest(pro);
+    pro[9] = 0xFF & ~0x10 & ~0x04;
+    gc_pro_decode(pro, &in);
+    EXPECT_EQ(in.held, held(GC_IN_A) | held(GC_IN_ZR));
+    gc_map map;
+    gc_controls_default(map);
+    EXPECT_EQ(press(map, GC_MAP_CLASSIC, in.held).buttons, GC_PAD_A | GC_PAD_Z);
+    pro[8] = 0xFF & ~0x08;
+    EXPECT_TRUE(gc_pro_home_held(pro));
+    // + and R: Start and R, as on a Classic Controller.
+    gc_pro_rest(pro);
+    pro[8] = 0xFF & ~0x04 & ~0x02;
+    gc_pro_decode(pro, &in);
+    EXPECT_EQ(press(map, GC_MAP_CLASSIC, in.held).buttons, GC_PAD_START | GC_PAD_R);
+}
+
 }  // namespace
 
 int main() {
+    test_classic_buttons();
+    test_pro_decode();
     test_default_remote_sideways();
     test_default_nunchuk_and_classic();
     test_sticks_kept();

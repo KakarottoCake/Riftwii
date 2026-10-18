@@ -97,7 +97,9 @@ Two scripts on the card drive a run without hands on a controller:
   alone), `nowiden` (16:9's hook without the widening), `keeparam` (ARAM
   addresses as the SDK gives them), `fakeremote` (a made-up Wii Remote
   through the controls map instead of the Bluetooth, for Dolphin, whose
-  emulated remote a script cannot press) and `rumbletest` (the game's
+  emulated remote a script cannot press), `fakepro` (the same with a
+  made-up Wii U Pro Controller, which Dolphin cannot emulate, in its own
+  report layout) and `rumbletest` (the game's
   PADControlMotor called for the test remote's port). The first GameCube
   line of `sd:/riftwii/boot.log` lists the ones that are on. The test
   remote's results take the `projection_callers` words of the trace

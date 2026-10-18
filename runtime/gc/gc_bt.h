@@ -3,8 +3,8 @@
 /* Wii Remotes for a GameCube game in Wii mode (gc_bt.c): the blob drives
  * the Wii's Bluetooth controller itself, through IOS's
  * /dev/usb/oh1/57e/305, from the game's PADRead, and turns each remote
- * (alone, with a Nunchuk or with a Classic Controller) into the
- * GameCube controller on one port.
+ * (alone, with a Nunchuk or with a Classic Controller), and each Wii U
+ * Pro Controller (gc_pro.h), into the GameCube controller on one port.
  *
  * The menu's libogc reset the controller and closed the device at the
  * hand-over, so the remotes are off: one connects again when a button is
@@ -33,6 +33,7 @@
 #include <stdint.h>
 
 #include "gc_controls.h"
+#include "gc_pro.h"
 
 #define GC_BT_EVENT_READS 2u
 #define GC_BT_ACL_READS 6u  /* a remote reports up to about 100 times a second; PADRead comes 60 */
@@ -70,6 +71,7 @@ struct gc_bt_rq {
 #define GC_BT_EXT_NUNCHUK 1u
 #define GC_BT_EXT_CLASSIC 2u
 #define GC_BT_EXT_OTHER 3u
+#define GC_BT_EXT_PRO 4u  /* not an extension: the remote is a Wii U Pro Controller (ID 01 20, gc_pro.h) */
 
 struct gc_bt_remote {
     uint32_t used;
@@ -85,7 +87,7 @@ struct gc_bt_remote {
     uint32_t ext_step;  /* 0 none, 1-3 starting it (gc_bt.c), 4 ready */
     uint32_t ext_kind;
     uint8_t core[2];    /* the buttons, as the remote sends them */
-    uint8_t ext[6];     /* the extension's first six bytes */
+    uint8_t ext[GC_PRO_BYTES];  /* the extension's first six bytes; a Pro Controller's eleven */
     /* The accelerometer, reported only while the remote's kind has a shake
      * in the map (gc_controls.h): its last reading and the shake's state. */
     uint8_t accel[3];
@@ -142,7 +144,7 @@ struct gc_bt {
     uint8_t auth_status;      /* the last Authentication_Complete's status (0: authenticated) */
     uint8_t disconnect_reason;
     uint8_t ext_error;        /* the last error a remote gave to the extension's start (write ack or read) */
-    uint8_t ext_id[2];        /* the last extension ID read: 00 00 Nunchuk, 01 01 Classic Controller */
+    uint8_t ext_id[2];        /* the last extension ID read: 00 00 Nunchuk, 01 01 Classic Controller, 01 20 Pro Controller */
     uint8_t last_mode;        /* the last report mode sent */
     uint8_t ext_given_up;     /* extensions whose start never finished: played as a remote alone */
     uint32_t data_reports;    /* data reports (0x30-0x3f) from every remote */
@@ -180,6 +182,7 @@ struct gc_bt {
 #define GC_BT_SEEN_DATA 0x00800000u          /* a data report: the buttons reach the game */
 #define GC_BT_SEEN_EXT_RETRY 0x01000000u     /* the extension's start given another go */
 #define GC_BT_SEEN_EXT_GIVEN_UP 0x02000000u  /* ...and given up: the remote plays alone */
+#define GC_BT_SEEN_PRO 0x04000000u           /* a Wii U Pro Controller identified (its ID read as 01 20) */
 
 #define GC_BT_STAGE_CLOSED 0u
 #define GC_BT_STAGE_RESET 1u    /* HCI_Reset sent */
@@ -203,7 +206,8 @@ void gc_bt_fill(struct gc_bt* bt, uint8_t* status);
 void gc_bt_motor(struct gc_bt* bt, uint32_t chan, uint32_t command, int allowed);
 /* Every remote's motor off at once (the game is leaving or has crashed). */
 void gc_bt_stop_rumble(struct gc_rt_context* ctx, struct gc_bt* bt);
-/* 1 while a ready Wii Remote's HOME, or its Classic Controller's, is held. */
+/* 1 while a ready Wii Remote's HOME, its Classic Controller's or a Pro
+ * Controller's, is held. */
 int gc_bt_home_held(const struct gc_bt* bt);
 /* The test remote (sd:/riftwii/gc/test/fakeremote, gc_rt.h's
  * GC_FLAG_FAKE_REMOTE), for Dolphin, whose emulated remote connects but
@@ -212,8 +216,9 @@ int gc_bt_home_held(const struct gc_bt* bt);
  * in slot 1 sends made-up reports through the same parser and map, a step
  * of GC_BT_FAKE_FRAMES PADReads at a time (gc_bt.c lists them), and what
  * port 1 got in each step goes to fake_log for the trace. `n`: the
- * PADRead's count. */
-void gc_bt_fake(struct gc_bt* bt, uint8_t* status, uint32_t n);
+ * PADRead's count. `pro` (sd:/riftwii/gc/test/fakepro, GC_FLAG_FAKE_PRO):
+ * a Wii U Pro Controller's reports instead, steps of their own. */
+void gc_bt_fake(struct gc_bt* bt, uint8_t* status, uint32_t n, int pro);
 /* A reply from IOS that came while another request was being waited
  * for: marked done if it is one of these. */
 void gc_bt_on_reply(struct gc_bt* bt, uint32_t reply);

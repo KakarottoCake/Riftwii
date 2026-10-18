@@ -1711,6 +1711,9 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
     // cannot press Dolphin's emulated one): a made-up remote instead
     // (gc_bt.h's gc_bt_fake).
     const bool test_fake_remote = stat("sd:/riftwii/gc/test/fakeremote", &st_press) == 0;
+    // The same with a made-up Wii U Pro Controller (Dolphin has none), in
+    // its own report layout (gc_pro.h); it takes the test remote's place.
+    const bool test_fake_pro = stat("sd:/riftwii/gc/test/fakepro", &st_press) == 0;
     const bool test_rumble = stat("sd:/riftwii/gc/test/rumbletest", &st_press) == 0;
     // The first GameCube line of boot.log names every test switch that is
     // on, so a log from a run with one set (say a copied sd:/riftwii/gc/test/
@@ -1727,6 +1730,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
                          {test_no_widen, "nowiden"},
                          {test_keep_aram, "keeparam"},
                          {test_fake_remote, "fakeremote"},
+                         {test_fake_pro, "fakepro"},
                          {test_rumble, "rumbletest"}};
     for (const auto& test_switch : test_switches) {
         if (!test_switch.on) continue;
@@ -2254,7 +2258,8 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
     if (pad_read != 0) {
         replay_hook(pad_read, h.hook_pad_read, h.replay_pad_read, h.continue_pad_read);
         if (test_presses) ctx->flags |= GC_FLAG_PRESS;
-        if (test_fake_remote) ctx->flags |= GC_FLAG_FAKE_REMOTE;
+        if (test_fake_remote || test_fake_pro) ctx->flags |= GC_FLAG_FAKE_REMOTE;
+        if (test_fake_pro) ctx->flags |= GC_FLAG_FAKE_PRO;
         if (test_leave) ctx->flags |= GC_FLAG_LEAVE;
         if (test_crash || test_crash_black) ctx->flags |= GC_FLAG_CRASH;
         if (test_crash_black) ctx->flags |= GC_FLAG_CRASH_BLACK;
