@@ -156,6 +156,7 @@ bool choose_channel_program(const TmdContents& tmd, const std::vector<ContentSta
                             std::string& error) {
     bool found = false;
     std::uint64_t found_size = 0;
+    int found_rank = 0;
     ChannelProgram best;
     // What each content was instead, for the log: a WiiWare game whose
     // program RiftWii could not find (Fluidity) left no clue which form
@@ -167,7 +168,8 @@ bool choose_channel_program(const TmdContents& tmd, const std::vector<ContentSta
         if (!record || shared || start.index == 0) continue;
         DolHeader dol;
         std::string why;
-        if (!parse_dol_header(start.head.data(), start.head.size(), dol, why)) {
+        std::string format;
+        if (!parse_channel_program(start.head.data(), start.head.size(), dol, format, why)) {
             seen += (seen.empty() ? "" : "; ") + std::to_string(start.index) + ": " + content_kind(start.head) +
                     (why.empty() ? "" : " (" + why + ")");
             continue;
@@ -177,15 +179,20 @@ bool choose_channel_program(const TmdContents& tmd, const std::vector<ContentSta
             seen += (seen.empty() ? "" : "; ") + std::to_string(start.index) + ": a DOL longer than the file";
             continue;
         }
-        const bool bigger = !found || start.size > found_size;
-        if (!bigger) continue;
+        // A DOL or ELF read as it is wins over one read leniently (a big
+        // data file could pass that by chance); then the bigger one.
+        const int rank = format.compare(0, 18, "DOL read leniently") == 0 ? 0 : 1;
+        const bool better = !found || rank > found_rank || (rank == found_rank && start.size > found_size);
+        if (!better) continue;
         found = true;
+        found_rank = rank;
         found_size = start.size;
         best.index = start.index;
         best.dol = dol;
+        best.format = format;
     }
     if (!found) {
-        error = "none of its contents is a DOL RiftWii can load";
+        error = "none of its contents is a program RiftWii can load";
         if (!seen.empty()) error += " (contents " + seen + ")";
         return false;
     }

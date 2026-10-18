@@ -379,8 +379,10 @@ bool read_channel_boot(std::uint64_t title_id, const std::string& emu_nand, Chan
         start.index = c.index;
         start.size = c.size;
         const std::string path = nand_content_path(title_id, c.id);
-        const bool read = emulated ? read_card_head(emu_nand + path, kDolHeaderBytes, start.head)
-                                   : read_head(access, path, kDolHeaderBytes, start.head);
+        // Enough for an ELF's program headers too (parse_channel_program).
+        const std::size_t head = static_cast<std::size_t>(std::min<std::uint64_t>(kProgramHeadBytes, c.size));
+        const bool read = emulated ? read_card_head(emu_nand + path, head, start.head)
+                                   : read_head(access, path, head, start.head);
         if (read) starts.push_back(start);
     }
     if (!choose_channel_program(contents, starts, files.program, error)) return false;

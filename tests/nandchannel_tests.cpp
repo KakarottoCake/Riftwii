@@ -202,6 +202,19 @@ void test_program() {
     EXPECT_TRUE(error.find("1: an ELF program") != std::string::npos);
     EXPECT_TRUE(error.find("3: a U8 archive") != std::string::npos);
 
+    // A plain DOL wins over a bigger content read only leniently (two of
+    // its sections overlap).
+    {
+        std::vector<std::uint8_t> loose = dol_head(0x7FF000);
+        put32(loose.data() + 0x90, 0x7FE000);
+        put32(loose.data() + 0x04, 0x100);       // a second text section...
+        put32(loose.data() + 0x4C, 0x80005000);  // ...over the first: the strict reading refuses it
+        put32(loose.data() + 0x94, 0x2000);
+        EXPECT_TRUE(choose_channel_program(tmd, {{1, 0x3000, dol_head(0x2000)}, {3, 0x800000, loose}}, program, error));
+        EXPECT_EQ(program.index, 1);
+        EXPECT_EQ(program.format, std::string("DOL"));
+    }
+
     // A content the TMD does not list is not taken either.
     EXPECT_TRUE(!choose_channel_program(tmd, {{7, 0x300000, dol_head(0x1000)}}, program, error));
 }

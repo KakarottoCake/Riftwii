@@ -93,9 +93,93 @@ static void TestRejections() {
     EXPECT_TRUE(riftwii::parse_dol_header(h.data(), h.size(), d, error));
 }
 
+static void Put16(Bytes& b, std::size_t at, std::uint16_t v) {
+    b[at] = static_cast<std::uint8_t>(v >> 8);
+    b[at + 1] = static_cast<std::uint8_t>(v);
+}
+
+// WiiWare programs (riftwii::parse_channel_program): a DOL as before, an
+// ELF's loaded segments, and a DOL the strict reading refuses.
+static void TestChannelPrograms() {
+    riftwii::DolHeader d;
+    std::string format, error;
+    Bytes h = MakeHeader();
+    h.resize(riftwii::kProgramHeadBytes, 0);
+    EXPECT_TRUE(riftwii::parse_channel_program(h.data(), h.size(), d, format, error));
+    EXPECT_EQ(format, std::string("DOL"));
+
+    // A big-endian PowerPC ELF: code at 0x80004000 (executable), data with
+    // a zeroed tail at 0x80100000, a note that loads nothing.
+    Bytes elf(riftwii::kProgramHeadBytes, 0);
+    elf[0] = 0x7F;
+    elf[1] = 'E';
+    elf[2] = 'L';
+    elf[3] = 'F';
+    elf[4] = 1;
+    elf[5] = 2;
+    Put16(elf, 0x12, 20);
+    Put32(elf, 0x18, 0x80004010);  // entry
+    Put32(elf, 0x1C, 0x34);        // program headers
+    Put16(elf, 0x2A, 0x20);
+    Put16(elf, 0x2C, 3);
+    const auto segment = [&](int i, std::uint32_t type, std::uint32_t offset, std::uint32_t address,
+                             std::uint32_t file, std::uint32_t memory, std::uint32_t flags) {
+        const std::size_t at = 0x34 + i * 0x20;
+        Put32(elf, at, type);
+        Put32(elf, at + 4, offset);
+        Put32(elf, at + 8, address);
+        Put32(elf, at + 12, address);
+        Put32(elf, at + 16, file);
+        Put32(elf, at + 20, memory);
+        Put32(elf, at + 24, flags);
+    };
+    segment(0, 1, 0x100, 0x80004000, 0x3000, 0x3000, 5);    // R-X
+    segment(1, 1, 0x3100, 0x00100000, 0x800, 0x2800, 6);    // RW-, a physical address, 0x2000 zeroed
+    segment(2, 4, 0x3900, 0, 0x40, 0, 4);                   // a note
+    EXPECT_TRUE(riftwii::parse_channel_program(elf.data(), elf.size(), d, format, error));
+    EXPECT_EQ(format, std::string("ELF"));
+    EXPECT_EQ(d.entry, 0x80004010u);
+    EXPECT_TRUE(d.sections[0].is_text);
+    EXPECT_EQ(d.sections[0].address, 0x80004000u);
+    EXPECT_EQ(d.sections[0].size, 0x3000u);
+    EXPECT_FALSE(d.sections[7].is_text);
+    EXPECT_EQ(d.sections[7].address, 0x80100000u);  // the physical address, as the CPU runs it
+    EXPECT_EQ(d.sections[7].offset, 0x3100u);
+    EXPECT_EQ(d.bss_address, 0x80100800u);
+    EXPECT_EQ(d.bss_size, 0x2000u);
+    EXPECT_EQ(d.image_size(), 0x3900ull);
+    // A little-endian (or another CPU's) ELF is refused, not read as a DOL.
+    elf[5] = 1;
+    EXPECT_FALSE(riftwii::parse_channel_program(elf.data(), elf.size(), d, format, error));
+    elf[5] = 2;
+    // Program headers past what was read: refused.
+    Put32(elf, 0x1C, riftwii::kProgramHeadBytes - 0x10);
+    EXPECT_FALSE(riftwii::parse_channel_program(elf.data(), elf.size(), d, format, error));
+
+    // A DOL with its entry in a data section and a physical text address:
+    // strict reading refuses it, the lenient one loads it.
+    h = MakeHeader();
+    Put32(h, 0x48, 0x00004000);  // text0 at a physical address
+    Put32(h, 0xE0, 0x80006010);  // entry in data0
+    h.resize(riftwii::kProgramHeadBytes, 0);
+    EXPECT_FALSE(riftwii::parse_dol_header(h.data(), h.size(), d, error));
+    EXPECT_TRUE(riftwii::parse_channel_program(h.data(), h.size(), d, format, error));
+    EXPECT_TRUE(format.find("DOL read leniently") == 0);
+    EXPECT_EQ(d.sections[0].address, 0x80004000u);
+    // Overlapping sections are loaded in order too.
+    h = MakeHeader();
+    Put32(h, 0x64, 0x80005000);  // data0 over text0
+    h.resize(riftwii::kProgramHeadBytes, 0);
+    EXPECT_TRUE(riftwii::parse_channel_program(h.data(), h.size(), d, format, error));
+    // Nothing that loads anywhere: refused.
+    Bytes junk(riftwii::kProgramHeadBytes, 0x5A);
+    EXPECT_FALSE(riftwii::parse_channel_program(junk.data(), junk.size(), d, format, error));
+}
+
 int main() {
     TestParse();
     TestRejections();
+    TestChannelPrograms();
     if (g_failures) {
         std::cerr << g_failures << " failure(s)" << std::endl;
         return 1;

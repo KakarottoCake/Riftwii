@@ -109,6 +109,7 @@ struct ChannelProgram {
     // True when it is not the boot index's content: the boot content was a
     // smaller DOL, a loader that starts this one.
     bool past_loader = false;
+    std::string format;  // parse_channel_program's: "DOL", "ELF", ...
 };
 
 // Which content to load: the biggest of the title's own contents (not the

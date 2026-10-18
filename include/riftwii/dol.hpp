@@ -39,4 +39,17 @@ struct DolHeader {
 // entry point must fall inside a text section.
 bool parse_dol_header(const std::uint8_t* bytes, std::size_t length, DolHeader& out, std::string& error);
 
+// A WiiWare or Virtual Console program's start as RiftWii's channel
+// loader takes it, laid out as a DOL header (sections, entry, BSS): a
+// DOL as parse_dol_header takes it; else a 32-bit big-endian PowerPC ELF
+// (Nintendo's NAND boot loader starts many WiiWare games from one), its
+// loaded segments as sections; else a DOL read leniently (addresses
+// given as physical or uncached ones, sections that overlap, an entry
+// outside the text). `bytes` should hold the file's first
+// kProgramHeadBytes, so an ELF's program headers are in it. `format`
+// says which, for the log.
+constexpr std::size_t kProgramHeadBytes = 0x1000;
+bool parse_channel_program(const std::uint8_t* bytes, std::size_t length, DolHeader& out, std::string& format,
+                           std::string& error);
+
 }  // namespace riftwii

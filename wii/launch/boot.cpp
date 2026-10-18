@@ -2986,8 +2986,8 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
     const std::string code = files.game_id.substr(0, 4);
     std::string order;
     for (int ios : files.ios_order) order += (order.empty() ? "IOS" : ", IOS") + std::to_string(ios);
-    logf("Wii channels: %s starts with RiftWii's loader: content %u%s, entry 0x%08x; it asks for IOS%u, tried: %s\n",
-         files.game_id.c_str(), static_cast<unsigned>(files.program.index),
+    logf("Wii channels: %s starts with RiftWii's loader: content %u (%s)%s, entry 0x%08x; it asks for IOS%u, tried: %s\n",
+         files.game_id.c_str(), static_cast<unsigned>(files.program.index), files.program.format.c_str(),
          files.program.past_loader ? " (past its boot loader)" : "", dol.entry,
          static_cast<unsigned>(files.required_ios), order.empty() ? "the running one" : order.c_str());
     if (files.ios_order.empty()) files.ios_order.push_back(IOS_GetVersion());
