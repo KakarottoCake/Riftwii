@@ -18,7 +18,7 @@ The other pages are for people working on it.
 | [RIIFS.md](RIIFS.md) | The RiiFS network-pack protocol and how RiftWii uses it |
 | [HEADLESS.md](HEADLESS.md) | Starting a game through RiftWii from another loader |
 | [MEMORY.md](MEMORY.md) | What takes RiftWii's MEM1, the limits, and the start-up stash that moves the font and translations to MEM2 |
-| [PLUGINS.md](PLUGINS.md) | Design (not built): optional code bundled as plugins, loaded from the card into MEM2 to relieve MEM1 |
+| [PLUGINS.md](PLUGINS.md) | Plugins: optional code bundled with RiftWii, loaded from the card into MEM2 on first use to relieve MEM1 (stage (a), the loader and a test plugin, built; the rest a design) |
 | [BLUETOOTH.md](BLUETOOTH.md) | Research: other Bluetooth controllers without a cIOS, and what exists toward it |
 
 ## History

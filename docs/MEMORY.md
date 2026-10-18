@@ -191,7 +191,9 @@ today). Checked against the other users of MEM2:
 - **The menu's MEM2 heap**, covers and textures come from arena 2, which
   starts above the stash.
 - **The plugin arena** ([PLUGINS.md](PLUGINS.md)) is taken from the top of
-  the loader's MEM2 heap downward, at the far end from the stash.
+  the loader's MEM2 heap downward, at the far end from the stash: 256 KiB
+  (`RWP_ARENA_BYTES`) just below where arena 2 ends, only once a plugin is
+  used, and given back when the plugins shut down at the menu's close.
 - **IOS at `0x933E0000`** is far above.
 - **The GameCube runtime** (`0x91000000` up: the memory card, the data
   buffers at `0x91200000`, the RVZ buffers at `0x91300000`, a later Reset

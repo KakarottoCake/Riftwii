@@ -1,10 +1,51 @@
 # Plugins: a design
 
-Status: a proposal for discussion. Nothing in this document is built, and
-no number in it was measured on a Wii; every size is an estimate to be
-replaced by a real one in the first stage. The words "must" and "will"
-describe the design, not the code. This is a design only: the pull request
-that adds it changes no source file.
+Status: stage (a) is built (the loader, API 1, the `selftest` plugin, the
+packaging and the checks; "Stage (a) as built" below). Stages (b) and (c)
+are still the design. No number here was measured on a Wii; the sizes
+of stage (a) are from the Wii build, the rest are estimates. The words
+"must" and "will" describe the design.
+
+## Stage (a) as built
+
+| Piece | Where |
+| --- | --- |
+| The tables, API 1 | `include/riftwii/plugin_api.h`: `rwp_host` (log; arena, MEM1 and cache; file read and size; version and build stamp; crash ranges) and `rwp_plugin` (probe, shutdown). Both start with their size and the API number; the Menu, Launch and System groups are left to stage (b), at the end |
+| The file | `include/riftwii/pluginfile.hpp` has the header's byte layout; `src/data/pluginfile.cpp` the checks, the relocations and the file names; `tests/plugin_tests.cpp` covers them |
+| The build | `Makefile.plugin` (run by `Makefile.wii` before the DOL, with its version and stamp), `plugins/plugin.ld`, `tools/make_plugin.py` (two-base check, relocation list, header and SHA-256; `check` for the version match, `variant` for refusal tests) |
+| The loader | `wii/core/plugins.cpp`: on first use, from the running DOL's folder |
+| Crash attribution | `wii/core/crash.cpp`: `PC is in plugin selftest +0x...`, the same for LR and each stack address, and the loaded plugins with their stamps; the restart note carries the PC's line; problem reports list the run's plugins |
+| The test plugin | `plugins/selftest/selftest.c`, loaded only by `sd:/riftwii/plugin_test.txt` ([DEVELOPING.md](DEVELOPING.md#the-plugin-test-switch)) |
+| Packaging | `apps/riftwii/plugins/` in the zip and the update pack's apps part (`AppsFileAllowed`), checked against the zip's DOL by `tools/make_update_pack.py`; CI's stamp check and size rows |
+
+Decided while building it, against the open questions of section 9:
+
+- **Location:** `sd:/apps/riftwii/plugins/`, next to the running
+  `boot.dol` (`argv[0]`'s folder, else `sd:/apps/riftwii/plugins/`, or
+  `plugins = <folder>` in `settings.txt` for tests).
+- **Names:** stamped with the version, `<name>.<version>.rwp`; the header
+  carries the full build stamp, the version and the commit
+  (`2610-469-ga5ef290f`), and both are checked. A file of another version
+  is never opened: when it is the only one there, the refusal says the
+  plugin is from a different RiftWii and names both versions. Once the
+  update's apps part is written, the other versions' files are removed.
+- **Format:** an image with a relocation list for every plugin (a pure
+  position-independent plugin simply has none).
+- **Strings:** the refusal sentences are the loader's, in the DOL's
+  tables. `tools/lang_source.py` also scans `plugins/` for `tr()` text.
+
+Measured: the loader costs 26 KiB of MEM1 (the program's end moves from
+`0x810D4840` to `0x810DB0C0`; `plugins.o` 14 KiB, `pluginfile.o` 7 KiB,
+`sha256.o` 2 KiB, built with `-Os`), the saving comes with stage (b).
+`selftest` is 2,892 bytes on the card and takes 2,016 bytes of the
+arena (image 1,984, `.bss` 8, 65 relocations).
+
+What the in-app update does today: it writes the new `boot.dol`, and the
+next start writes the release's apps part (plugins included) from
+`riftwii-update.pack`. Between the two, the new DOL finds no file of its
+own version and says the add-on is missing; it never runs an old one.
+Stage (b) makes the update write the plugins before the DOL, so the
+GameCube loader is there from the first start.
 
 RiftWii's loader (`boot.dol`) is linked at `0x80A00000` and grows upward
 toward the apploader at `0x81200000`; its heap is the space between its
@@ -90,7 +131,10 @@ is the image:
 | entry table | Offsets of `init`, `shutdown` and the plugin's own table inside the image |
 | sizes | Image size, `.bss` size, relocation count and the state size the plugin wants |
 | flags | Whether the plugin can be unloaded; which memory it needs (section 3) |
-| hash | SHA-256 of the header (this field zeroed) and the image, so a half-written or damaged file is caught before it runs |
+| hash | SHA-256 of the header (this field zeroed), the image and the relocations after it, so a half-written or damaged file is caught before it runs |
+
+The byte offsets are in `include/riftwii/pluginfile.hpp`; the relocation
+list follows the image, 12 bytes per record (offset, type, target).
 
 ### Refusal
 
@@ -136,8 +180,8 @@ becomes one more entry there, written by the same apps part of
 folder, for example by `wiiload` from a development tree, must find its
 plugins next to the DOL that is running: the loader takes the directory of
 its own `argv[0]` (what the Homebrew Channel passes) and falls back to
-`sd:/apps/riftwii/`. A development override, `plugins=<path>` in
-`sd:/riftwii/settings.ini`, is allowed for tests.
+`sd:/apps/riftwii/`. A development override, `plugins = <path>` in
+`sd:/riftwii/settings.txt`, is allowed for tests.
 
 ### Naming across updates
 
@@ -471,7 +515,10 @@ Dolphin for anything a player can see.
    estimates in this document. Test in Dolphin, then on a real Wii
    (IOS 58 and d2x) for the MEM2 code question. No existing feature
    moves; `selftest` is removed or kept behind a debug flag at the end of
-   the stage.
+   the stage. *Built* ("Stage (a) as built" above), except the Settings
+   row and the Home source: the Menu group of the API came out of stage
+   (a) and goes with the GameCube loader's real needs in (b). `selftest`
+   ships, loaded only by the test switch.
 2. **(b) Move the GameCube loader.** `plugins/gcnative/`, the Launch group
    of the API grown to what it needs, `gclaunch.cpp`, `gcnative.cpp` and
    `gcpatch.cpp` and the GC-only helpers out of the DOL. Report the

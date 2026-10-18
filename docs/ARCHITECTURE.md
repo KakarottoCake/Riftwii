@@ -282,6 +282,7 @@ many saves and blocks the copy holds, comes from its directory alone
 | `0x91200000`–`0x91300000` | A GameCube game's data buffers: the SD bounce buffer, the disc audio ring, the trace record, the Wii Remotes' state, the crash screen (its card and the strip of glyphs the register dump is made from) and the disc runs (and an RVZ's reader) |
 | `0x91300000`–`0x91500000` | A GameCube game from an RVZ: Zstandard's workspace, a group as stored, and two decoded groups (about 430 KB with 128 KiB chunks) |
 | Under a GameCube game's FST | The GameCube blob and its context, the code moved from IOS's counter, the ARAM stubs, the memory card's struct, the way back's block and the DI registers' stand-in (an address ending in `0x6000`), then BI2's copy (`wii/launch/gcnative.cpp`); the game's arena ends below them. Mario Golf and Mario Power Tennis put their stack and ArenaLo at `0x817dc000`, so this stays small |
+| The top 256 KiB of the loader's MEM2 (below `0x933E0000` under IOS58), once a plugin is used | The plugin arena: the loaded plugins' images, `.bss` and state (`wii/core/plugins.cpp`, [PLUGINS.md](PLUGINS.md)); arena 2's high end is lowered under it, and given back when the plugins shut down at the menu's close |
 | `0x933E0000` and up | IOS |
 
 `wii/core/memlimits.cpp` keeps the loader's heap between the end of its own

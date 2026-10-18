@@ -47,7 +47,7 @@ and `vendor-*` is third-party code.
 | A game's extra Home tiles, each with its own mods | `src/data/profiles.cpp`, `wii/menu/modtiles.cpp`, the Mods page and `BuildHome` in `wii/menu/rift_menu.cpp` |
 | WiiWare and Virtual Console games (the Wii's channels, and those in an emulated NAND on the card) | `src/data/nandchannel.cpp` (which titles, their TMD, the program to load), `wii/storage/nandchannels.cpp` (listing, reading their files), `boot_channel` in `wii/launch/boot.cpp` (the start) |
 | RVZ games | `src/fs/rvz.cpp`, `runtime/rtrvz.c`, `runtime/resident/rt_zstd.c`, `runtime/gc/gc_rvz.c` (GameCube games), `docs/RVZ.md` |
-| Plugins (a design: optional code loaded from the card into MEM2) | `docs/PLUGINS.md` |
+| Plugins (optional code loaded from the card into MEM2 on first use) | `docs/PLUGINS.md`, `include/riftwii/plugin_api.h` (the tables), `wii/core/plugins.cpp` (the loader), `src/data/pluginfile.cpp` (the file's checks), `plugins/`, `Makefile.plugin`, `tools/make_plugin.py` |
 | What takes MEM1, and the start-up stash (the menu font, translations and GPL copied to MEM2 at start) | `docs/MEMORY.md`, `tools/dol_stash.py`, `wii/core/stash.cpp`, `src/data/stashimage.cpp` |
 | The GameCube controller adapter | `runtime/rtgcad.c` (the driver), `wii/controllers/gcadapter.cpp` (menu), `runtime/pad/` and `wii/hooks/padhook.cpp` (games) |
 | Screenshots | `wii/menu/screenshot.cpp`, `runtime/shot/`, `wii/hooks/shothook.cpp`, `src/data/shotfile.cpp`, `src/art/pngencode.cpp` |
@@ -78,6 +78,8 @@ and `vendor-*` is third-party code.
 | `CMakeLists.txt` | The host build: the portable library, the runtime's C code and the test suites (`ctest`) |
 | `Makefile.wii` | The Wii app (`riftwii.dol`); builds the runtime blobs and BearSSL first and embeds them |
 | `Makefile.runtime` | The in-game blobs (resident runtime, RVZ runtime, adapter, screenshot, crash and virtual SD card), each checked position independent |
+| `Makefile.plugin` | The plugins (`plugins/<name>/`), run by `Makefile.wii` with the DOL's version and build stamp; each linked at two bases and checked relocatable |
+| `plugins/` | The plugins' sources (`docs/PLUGINS.md`): `plugin.ld` (their link), `selftest/` (stage (a)'s test plugin, loaded only by the test switch) |
 | `Makefile.bearssl` | BearSSL for the Wii (https for the update check and problem reports) |
 | `Makefile.channel` | The Wii Menu channel and its installer |
 | `hbc/` | The Homebrew Channel files: `meta.xml` (name, version), `icon.png`, `music.ogg` (the menu's music) |
@@ -107,6 +109,7 @@ The build compiles every folder into one, so no two files share a name.
 | `memlimits.cpp` | Keeps the app's heap out of memory a launch overwrites |
 | `restart.cpp` | Starting RiftWii again without the Homebrew Channel (after a game, or the channel) |
 | `stash.cpp` | The start-up stash: crt0's copy to MEM2, and finding the font, translations and GPL in it |
+| `plugins.cpp` | The plugin loader: the file's checks, the arena at the top of MEM2, relocation, the table RiftWii gives a plugin, refusals, crash ranges, the test switch |
 
 ### `wii/menu/`: the menu: screens, lists, artwork, themes, music, banners, covers
 
@@ -286,6 +289,7 @@ document it.
 | `sharednand` | The shared emulated NAND's folder: the other loader's settings lines and the checks on the path |
 | `wadfile` | `.wad` files: their layout, each content decrypted and checked against its TMD hash, `/shared1/content.map` |
 | `nandchannel` | WiiWare and Virtual Console titles: which titles are games, a stored TMD's contents, the content RiftWii loads, their cheats' code |
+| `pluginfile`, `sha256` | A plugin file (`.rwp`): its header and every refusal, its relocations, the file names; SHA-256 |
 
 ## `runtime/`: code that runs inside the game
 
@@ -316,7 +320,9 @@ each one is the matching `wii/*hook.cpp`.
 
 One suite per area, `tests/<name>_tests.cpp`, registered in
 `CMakeLists.txt` and run with `ctest`. `fat32_image.hpp` builds FAT32
-images in memory, `fixtures/` holds XML and RVZ inputs, `qrcode_ref.inc`
+images in memory, `fixtures/` holds XML and RVZ inputs (and
+`plugin_selftest.rwp`, a plugin file `tools/make_plugin.py` wrote, which
+`plugin_tests.cpp` reads back), `qrcode_ref.inc`
 is reference data from python-qrcode. `hook_tests.cpp` and
 `vsdblob_tests.cpp` run the resident runtime's and the virtual SD card
 blob's C code on the host against a fake IOS (the blobs keep addresses
@@ -332,8 +338,9 @@ card's at the Wii's own MEM1 and MEM2 addresses).
 | `make_sjis_table.py` | The Shift-JIS table for Japanese memory cards' text (`src/fs/sjis_table.inc`) |
 | `make_channel.py`, `make_channel_art.py`, `preview_channel.py` | The Wii Menu channel's WAD and art |
 | `rtreloc.py` | Relocations for the RVZ runtime blob |
+| `make_plugin.py` | Plugin files: built from the two links (header, image, relocations, SHA-256), checked against the DOL's build stamp, varied for refusal tests |
 | `dol_stash.py` | Adds the start-up stash (menu font, translations, GPL) to `riftwii.dol` above its BSS (`docs/MEMORY.md`) |
-| `size_report.py` | CI's size table: the DOL's sections, its program end and the stash's end, the runtime blobs |
+| `size_report.py` | CI's size table: the DOL's sections, its program end and the stash's end, the runtime blobs, the plugins' share of their arena |
 | `ipcscan.cpp`, `rvzstub.cpp` | Host tools: the IPC search on a game's DOL; an RVZ's stub disc for Dolphin |
 | `theme_kit.cpp`, `make_theme_kit.py` | The theme kit zip: template pictures, a starter theme.ini, the guide |
 | `rvz/make_test_disc.py` | The RVZ test fixtures |
@@ -369,7 +376,7 @@ Licenses and what RiftWii changed are in [NOTICE.md](../NOTICE.md).
 
 Build output, all git-ignored: `build-host/` (CMake), `build_wii/` and
 `riftwii.dol` / `.elf` (`Makefile.wii`), `build-runtime/` (the blobs),
-`build-bearssl/`, `build-channel/`. `build-dolphin/` is the local Dolphin
+`build-bearssl/`, `build-channel/`, `build-plugins/` (the plugins; `build-plugins/plugins/` is what goes to `sd:/apps/riftwii/plugins/`, and `build-plugins/<name>/<name>.elf` is the ELF to keep for a crash's offsets). `build-dolphin/` is the local Dolphin
 test setup (`docs/HARNESS.md`).
 
 ## On the SD card
