@@ -5,12 +5,14 @@
 #include <fat.h>
 #include <gccore.h>
 #include <ogc/isfs.h>
+#include <ogc/machine/processor.h>
 #include <sdcard/wiisd_io.h>
 
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 
+#include "boot.hpp"
 #include "ios_reload.hpp"
 #include "d2xsd.hpp"
 #include "log.hpp"
@@ -77,6 +79,7 @@ int MenuIosLost() { return g_menu_ios_lost; }
 bool LeaveSessionCios(bool sd_mounted, const char* why) {
     if (g_menu_cios == 0) return IOS_GetVersion() == 58;
     logf("Menu IOS: back to IOS58 from IOS%d (%s)\n", g_menu_cios, why);
+    if (read32(0x0D800064) == 0xFFFFFFFF) keep_hardware_access("Menu IOS");
     if (sd_mounted) {
         LogClose();
         fatUnmount("sd:");
@@ -120,6 +123,10 @@ bool StartMenuIos(bool sd_mounted, bool fresh, int session_slot, const char* ses
     if (slot == 0) {
         if (!fresh) return true;
         std::string error;
+        // Hardware access (the Homebrew Channel's AHBPROT) kept over the
+        // reload: without it the restarted menu could not read the Wii's
+        // channels, the cIOS slots or its font (a tester's vWii).
+        if (read32(0x0D800064) == 0xFFFFFFFF) keep_hardware_access("Menu IOS");
         if (sd_mounted) {
             LogClose();
             fatUnmount("sd:");

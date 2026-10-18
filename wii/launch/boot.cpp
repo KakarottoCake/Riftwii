@@ -79,6 +79,10 @@ using ApploaderEntry = void (*)(ApploaderInit* init, ApploaderMain* main, Apploa
 constexpr std::uint32_t kApploaderLoadAddress = 0x81200000;
 constexpr std::uint32_t kLoaderStart = 0x80A00000;  // Makefile.wii: --section-start,.init
 constexpr std::uint32_t kGameStart = 0x80004000;    // where games' executables start
+// Where a channel's program may start: right after the system's low memory
+// (0x80003000-0x800033FF), as Bit.Trip Void's does, and as libogc's own
+// link script allows for a program IOS starts (rvl.ld's stub at 0x3400).
+constexpr std::uint32_t kChannelProgramStart = 0x80003400;
 constexpr std::uint32_t kCodeVeneers = 0x80002300;  // past the code handler (0x800022B0), before 0x80003000
 // The crash blob's veneers, after the virtual SD card's (16 bytes each; it
 // has two). The game-time runtime's own veneers (RT_IPC_ENTRIES) run past
@@ -2972,16 +2976,23 @@ bool boot_game(const DiscProbe& probe, BootOptions options, std::string& error) 
 bool boot_channel(ChannelBootFiles files, std::string& error) {
     const DolHeader& dol = files.program.dol;
     // Every section goes below this loader, in MEM1: it is copied while
-    // RiftWii still runs from 0x80A00000 up, its heap above that.
+    // RiftWii still runs from 0x80A00000 up, its heap above that. Nothing
+    // RiftWii writes after the copy (low memory, the code handler, the way
+    // back) lies at or above kChannelProgramStart.
     for (std::size_t i = 0; i < kDolSections; ++i) {
         const DolSection& s = dol.sections[i];
         if (!s.used()) continue;
-        if (s.address < kGameStart || s.address >= kMem2Start || overlaps_loader(s.address, s.size)) {
-            char where[64];
-            std::snprintf(where, sizeof where, "its program loads at 0x%08x", static_cast<unsigned>(s.address));
-            error = std::string(where) + ", where RiftWii itself is";
-            return false;
-        }
+        const char* where = nullptr;
+        if (s.address < kChannelProgramStart) where = "in the Wii's low memory";
+        else if (s.address >= kMem2Start) where = "in MEM2, where RiftWii's loader does not load programs";
+        else if (overlaps_loader(s.address, s.size)) where = "where RiftWii itself is";
+        if (where == nullptr) continue;
+        char text[160];
+        std::snprintf(text, sizeof text, "its program (content %u, %s) loads at 0x%08x, %s",
+                      static_cast<unsigned>(files.program.index), files.program.format.c_str(),
+                      static_cast<unsigned>(s.address), where);
+        error = text;
+        return false;
     }
     const std::string code = files.game_id.substr(0, 4);
     std::string order;
@@ -3094,6 +3105,18 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
     std::memset(reinterpret_cast<void*>(0x80001000), 0, 0x300);  // libogc's exception stubs, as for a disc
     DCFlushRange(reinterpret_cast<void*>(kMem1Start), 0x3400);
     ICInvalidateRange(reinterpret_cast<void*>(0x80001000), 0x300);
+    // The IOS the channel asked for, as a disc game is told it (Error #002:
+    // a game built with a newer SDK stops when the IOS it finds is not the
+    // one it asked for, as a cIOS in another slot is; a tester's Liight
+    // did so). Uncached and after the flush, as for a disc: 0x3140 is
+    // IOS's own field.
+    if (files.required_ios != 0 && static_cast<u32>(IOS_GetVersion()) != files.required_ios) {
+        const u32 pretended = (static_cast<u32>(files.required_ios) << 16) | (read32(0x80003140) & 0xFFFF);
+        write32(0x80003140, pretended);
+        write32(0x80003188, pretended);
+        logf("Wii channels: running IOS%d; reporting IOS%u to the game\n", IOS_GetVersion(),
+             static_cast<unsigned>(files.required_ios));
+    }
     const char region = code.size() == 4 ? code[3] : 'E';
     configure_video_for_game(region);
 

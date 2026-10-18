@@ -238,7 +238,7 @@ bool list_emu_channels(const std::string& folder, std::vector<NandChannel>& out,
         return false;
     }
     std::size_t found = 0;
-    unsigned unreadable = 0, unlisted = 0, twice = 0;
+    unsigned unreadable = 0, unlisted = 0, twice = 0, instead = 0;
     while (const dirent* entry = readdir(dir)) {
         const std::string name = entry->d_name;
         if (name.size() != 8 || name.find_first_not_of("0123456789abcdefABCDEF") != std::string::npos) continue;
@@ -252,9 +252,13 @@ bool list_emu_channels(const std::string& folder, std::vector<NandChannel>& out,
             ++unlisted;
             continue;
         }
-        const bool on_the_wii = std::any_of(out.begin(), out.end(),
-                                            [&](const NandChannel& c) { return c.title_id == channel.title_id; });
-        if (on_the_wii) {
+        // The Wii's own copy, when it can start, is the one shown. One whose
+        // game data was removed from the Wii (it keeps only the ticket, the
+        // TMD and the save; a tester had 30 of 31 so, all whole in the
+        // emulated NAND) gives way to this copy, which can.
+        const auto wii_copy = std::find_if(out.begin(), out.end(),
+                                           [&](const NandChannel& c) { return c.title_id == channel.title_id; });
+        if (wii_copy != out.end() && wii_copy->playable) {
             ++twice;
             continue;
         }
@@ -278,6 +282,16 @@ bool list_emu_channels(const std::string& folder, std::vector<NandChannel>& out,
         }
         channel.playable = program && !(program->type & 0x8000) &&
                            card_file_exists(folder + nand_content_path(channel.title_id, program->id));
+        if (wii_copy != out.end()) {
+            if (!channel.playable) {
+                ++twice;  // neither copy can start: the Wii's stays, with its note
+                continue;
+            }
+            *wii_copy = std::move(channel);  // nothing was added to `out` since the search
+            ++instead;
+            ++found;
+            continue;
+        }
         out.push_back(std::move(channel));
         ++found;
     }
@@ -285,6 +299,8 @@ bool list_emu_channels(const std::string& folder, std::vector<NandChannel>& out,
     std::sort(out.begin(), out.end(), [](const NandChannel& a, const NandChannel& b) { return a.code < b.code; });
     status = std::to_string(found) + " WiiWare and Virtual Console game(s) in " + folder;
     if (twice) status += "; " + std::to_string(twice) + " the Wii has itself listed once";
+    if (instead)
+        status += "; " + std::to_string(instead) + " shown from here instead of the Wii's copy, whose game data was removed";
     if (unlisted) status += "; " + std::to_string(unlisted) + " channel(s) GameTDB does not list (homebrew) left out";
     if (unreadable) status += "; " + std::to_string(unreadable) + " unreadable title(s) left out";
     status += ".";
