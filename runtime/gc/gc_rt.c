@@ -1441,6 +1441,7 @@ uint32_t gc_on_vi_configure(struct gc_rt_context* ctx, uint32_t mode) {
     ++ctx->vi_configures;
     if (gc_video_pick(bytes, progressive, ctx->vi_width, copy)) used = (uint32_t)(uintptr_t)copy;
     ctx->vi_mode = (uint32_t)bytes[GC_RM_TV_MODE + 3] << 8 | ((const uint8_t*)(uintptr_t)used)[GC_RM_TV_MODE + 3];
+    if (gc_video_width_kept(bytes, ctx->vi_width)) ctx->vi_mode |= GC_VI_WIDTH_KEPT;
     return used;
 }
 

@@ -120,7 +120,8 @@ enum gc_trace_word {
     GC_TR_CARD_FLUSHES, GC_TR_CARD_DIRTY, GC_TR_CARD_ERROR,
     GC_TR_CARD_LAST, /* the last command << 24 | accesses */
     GC_TR_VI_CONFIGURES,
-    GC_TR_VI_MODE, /* the last VIConfigure: the game's viTVMode << 8 | the one it got */
+    GC_TR_VI_MODE, /* the last VIConfigure: the game's viTVMode << 8 | the one it got; 0x10000: the
+                    * picture width asked for was kept, the frame buffer being wider (gc_video.h) */
     GC_TR_PROJECTIONS, /* perspective projections seen with 16:9 on (widened unless GC_FLAG_WIDEN is off) */
     GC_TR_STREAM_STARVED, GC_TR_STREAM_FETCH_BUSY,
     GC_TR_STREAM_BUFFERED, /* ADPCM bytes in the ring ahead of the decoder */

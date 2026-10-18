@@ -261,8 +261,12 @@ OSResetSystem within two seconds is answered by calling it for the game.
 OSResetSystem asked for the start-up menu goes back to RiftWii instead.
 The restart is used only for games it is known to work in
 (`gc_restart_known_to_work`, `src/patching/gxpatches.cpp`: Super Mario
-Sunshine and the mods on its ID); in every other game Reset, and the
-game's own OSResetSystem, go back to RiftWii as holding HOME does.
+Sunshine USA and Super Mario Eclipse, by their exact IDs); in every other
+game Reset, and the game's own OSResetSystem, go back to RiftWii as
+holding HOME does. Cheats start again with the game: their handler and
+list are in the debugger area (`0x80001800`–`0x80003000`), inside the
+low memory that is put back, so keep them there. The test switch is
+`sd:/riftwii/gc/test/reset`: two presses made by the blob.
 
 **Memory cards** (`src/fs/gccard.cpp`): one image per game,
 `sd:/riftwii/gc/cards/<ID>.raw`, or a shared `shared.raw` (`shared-jp.raw`

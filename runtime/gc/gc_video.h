@@ -83,4 +83,13 @@ static inline uint32_t gc_video_pick(const uint8_t* mode, uint32_t progressive, 
     return changed;
 }
 
+/* 1 when a picture width was asked for but the mode's frame buffer is
+ * wider than it (the VI only widens): the setting does nothing in that
+ * mode, which the trace says (gc_rt_context.vi_mode's GC_VI_WIDTH_KEPT). */
+#define GC_VI_WIDTH_KEPT 0x10000u
+static inline uint32_t gc_video_width_kept(const uint8_t* mode, uint32_t vi_width) {
+    const uint32_t buffer_width = gc_video_get16(mode + GC_RM_FB_WIDTH);
+    return vi_width > GC_VI_WIDTH_FRAMEBUFFER && vi_width < buffer_width;
+}
+
 #endif

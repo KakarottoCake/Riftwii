@@ -1657,7 +1657,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
     // offline decode (GC_FLAG_STREAM_ONLY).
     const bool test_stream_only = stat("sd:/riftwii/gc/streamonly", &st_press) == 0;
     // And of the restart: two Reset presses (GC_FLAG_RESET_TEST).
-    const bool test_reset = stat("sd:/riftwii/gc/reset", &st_press) == 0;
+    const bool test_reset = stat("sd:/riftwii/gc/test/reset", &st_press) == 0;
     // And of 16:9's hook without the widening (GC_FLAG_WIDEN).
     const bool test_no_widen = stat("sd:/riftwii/gc/nowiden", &st_press) == 0;
     // And of the ARAM addresses left as the SDK gives them in any game

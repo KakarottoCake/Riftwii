@@ -211,6 +211,14 @@ void test_video_pick() {
         EXPECT_EQ(gc_video_pick(ntsc.bytes, 0, 704, copy), 1u);
         EXPECT_EQ(gc_video_get16(copy + GC_RM_VI_WIDTH), 704u);
         EXPECT_EQ(gc_video_get16(copy + GC_RM_VI_X), 8u);
+        // 704 asked for with a 720-wide frame buffer: nothing to widen,
+        // and the trace's flag says the setting was kept.
+        const Mode wide(GC_VI_NTSC_INTERLACED, 720, 0, 720, GC_VI_XFB_DOUBLE);
+        EXPECT_EQ(gc_video_pick(wide.bytes, 0, 704, copy), 0u);
+        EXPECT_EQ(gc_video_width_kept(wide.bytes, 704), 1u);
+        EXPECT_EQ(gc_video_width_kept(ntsc.bytes, 704), 0u);
+        EXPECT_EQ(gc_video_width_kept(wide.bytes, GC_VI_WIDTH_FRAMEBUFFER), 0u);
+        EXPECT_EQ(gc_video_width_kept(wide.bytes, 0), 0u);
         // Both at once.
         EXPECT_EQ(gc_video_pick(ntsc.bytes, 1, 720, copy), 1u);
         EXPECT_EQ(gc_video_get32(copy + GC_RM_TV_MODE), GC_VI_NTSC_PROGRESSIVE);
