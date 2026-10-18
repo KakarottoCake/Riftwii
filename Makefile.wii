@@ -82,6 +82,12 @@ $(error cannot count the commits since $(RIFTWII_BASE_TAG): git and the tag are 
 endif
 RIFTWII_VERSION := $(RIFTWII_BASE)$(if $(filter-out 0,$(RIFTWII_COMMITS)),-$(RIFTWII_COMMITS))
 CFLAGS		+=	-DRIFTWII_VERSION='"$(RIFTWII_VERSION)"'
+# The build stamp the DOL and its plugins share (docs/PLUGINS.md): the
+# version and the commit, so a plugin from another build is refused even
+# when the version number is the same (a local build of another branch).
+RIFTWII_COMMIT := $(shell git -C "$(PROJECT_ROOT)" rev-parse --short=8 HEAD 2>/dev/null)
+RIFTWII_BUILD_STAMP := $(RIFTWII_VERSION)-g$(or $(RIFTWII_COMMIT),unknown)
+CFLAGS		+=	-DRIFTWII_BUILD_STAMP='"$(RIFTWII_BUILD_STAMP)"'
 # Test builds: make WII_DEFINES=-DRIFTWII_TEST_LIMITS (wii/core/memlimits.hpp TestBallast).
 CFLAGS		+=	$(WII_DEFINES)
 
@@ -155,12 +161,20 @@ export LIBPATHS	:=	$(foreach dir,$(LIBDIRS),-L$(dir)/lib) \
 					-L$(LIBOGC_LIB) -L$(PROJECT_ROOT)/build-bearssl
 
 export OUTPUT	:=	$(PROJECT_ROOT)/$(TARGET)
-.PHONY: $(BUILD) clean runtime-blob bearssl-lib
+.PHONY: $(BUILD) clean runtime-blob bearssl-lib plugins
 
 #---------------------------------------------------------------------------------
+# The plugins first (Makefile.plugin), from inside the build so they get
+# the same version and build stamp as the DOL; the DOL's rule then checks
+# that they match.
 $(BUILD): runtime-blob bearssl-lib
 	@[ -d $@ ] || mkdir -p $@
+	@IN_BUILD=1 PROJECT_ROOT="$(PROJECT_ROOT)" $(MAKE) --no-print-directory -C "$(BUILD)" -f ../Makefile.wii plugins
 	@IN_BUILD=1 PROJECT_ROOT="$(PROJECT_ROOT)" $(MAKE) --no-print-directory -C "$(BUILD)" -f ../Makefile.wii
+
+plugins:
+	@[ -d $(BUILD) ] || mkdir -p $(BUILD)
+	@IN_BUILD=1 PROJECT_ROOT="$(PROJECT_ROOT)" $(MAKE) --no-print-directory -C "$(BUILD)" -f ../Makefile.wii plugins
 
 #---------------------------------------------------------------------------------
 # The resident runtime (runtime/resident) is a separate freestanding build
@@ -175,7 +189,7 @@ bearssl-lib:
 #---------------------------------------------------------------------------------
 clean:
 	@echo clean ...
-	@rm -fr "$(BUILD)" "$(TARGET).elf" "$(TARGET).dol" build-runtime build-bearssl
+	@rm -fr "$(BUILD)" "$(TARGET).elf" "$(TARGET).dol" build-runtime build-bearssl build-plugins
 
 #---------------------------------------------------------------------------------
 run:
@@ -201,12 +215,24 @@ DEPENDS	:=	$(OFILES:.o=.d)
 # no stash: start the .dol.
 PYTHON		?=	python3
 STASH_LIMIT	:=	0x81200000
-$(OUTPUT).dol: $(OUTPUT).elf $(STASHFILES) $(PROJECT_ROOT)/tools/dol_stash.py
+#
+# Then every plugin in build-plugins/plugins must carry this DOL's build
+# stamp and API version (tools/make_plugin.py check, as CI runs it).
+PLUGIN_FILES = $(wildcard $(PROJECT_ROOT)/build-plugins/plugins/*.rwp)
+$(OUTPUT).dol: $(OUTPUT).elf $(STASHFILES) $(PROJECT_ROOT)/tools/dol_stash.py $(PROJECT_ROOT)/tools/make_plugin.py
 	@echo output ... $(notdir $@)
 	@elf2dol $< $@
 	@$(PYTHON) $(PROJECT_ROOT)/tools/dol_stash.py $@ --version "$(RIFTWII_VERSION)" --limit $(STASH_LIMIT) \
 		$(foreach f,$(STASHFILES),$(f)=$(f))
+	@$(PYTHON) $(PROJECT_ROOT)/tools/make_plugin.py check --dol $@ --stamp "$(RIFTWII_BUILD_STAMP)" \
+		--version "$(RIFTWII_VERSION)" $(PLUGIN_FILES)
 $(OUTPUT).elf: $(OFILES)
+
+# The plugins, built with this build's version and stamp (Makefile.plugin).
+.PHONY: plugins
+plugins:
+	@$(MAKE) --no-print-directory -C "$(PROJECT_ROOT)" -f Makefile.plugin VPATH= \
+		RIFTWII_VERSION="$(RIFTWII_VERSION)" RIFTWII_BUILD_STAMP="$(RIFTWII_BUILD_STAMP)"
 
 $(OFILES_SOURCES): $(HFILES)
 # A new version must not leave the old number in the DOL (2.7.0 RC8 to
@@ -216,8 +242,8 @@ $(OFILES_SOURCES): $(HFILES)
 # they depend on a stamp rewritten when the version differs.
 $(OFILES_SOURCES): $(PROJECT_ROOT)/CMakeLists.txt
 VERSION_STAMP := riftwii_version.stamp
-VERSION_USERS := $(patsubst %.cpp,%.o,$(patsubst %.c,%.o,$(notdir $(shell grep -l RIFTWII_VERSION $(foreach dir,$(WII_DIRS) $(SRC_DIRS) runtime,$(PROJECT_ROOT)/$(dir)/*.c $(PROJECT_ROOT)/$(dir)/*.cpp) 2>/dev/null))))
-$(shell [ "$$(cat $(VERSION_STAMP) 2>/dev/null)" = "$(RIFTWII_VERSION)" ] || echo "$(RIFTWII_VERSION)" > $(VERSION_STAMP))
+VERSION_USERS := $(patsubst %.cpp,%.o,$(patsubst %.c,%.o,$(notdir $(shell grep -l -e RIFTWII_VERSION -e RIFTWII_BUILD_STAMP $(foreach dir,$(WII_DIRS) $(SRC_DIRS) runtime,$(PROJECT_ROOT)/$(dir)/*.c $(PROJECT_ROOT)/$(dir)/*.cpp) 2>/dev/null))))
+$(shell [ "$$(cat $(VERSION_STAMP) 2>/dev/null)" = "$(RIFTWII_BUILD_STAMP)" ] || echo "$(RIFTWII_BUILD_STAMP)" > $(VERSION_STAMP))
 $(VERSION_USERS): $(VERSION_STAMP)
 #---------------------------------------------------------------------------------
 # This rule links in binary data with .ttf, .png, .ogg and .pcm extensions
@@ -285,6 +311,10 @@ rift_menu.o: CXXFLAGS += -Os
 # What waits on the network or the card, or runs once a launch: for size
 # as well (the room the DOL keeps under 0x81041980 is the menu's margin).
 online.o reportsend.o netpacks.o codebuilds.o autorun.o modplan.o: CXXFLAGS += -Os
+
+# The plugin loader waits on the card too, and is the price of every MEM1
+# saving a plugin brings: for size.
+plugins.o pluginfile.o sha256.o: CXXFLAGS += -Os
 
 # RiftWii's own sources build with -Werror, as the runtime and channel do;
 # the vendored ones (pugixml's known warning, libgui, zstd) do not.

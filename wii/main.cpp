@@ -54,6 +54,7 @@
 #include "channel.hpp"
 #include "skin.hpp"
 #include "stash.hpp"
+#include "plugins.hpp"
 
 // Where the player leaves to (the HOME Menu, wii/menu/rift_menu.cpp): 1 back
 // to the loader that started RiftWii (the Homebrew Channel), 2 the Wii
@@ -152,6 +153,7 @@ void ExitApp() {
     ShutoffRumble();
     ShutdownAudio();
     StopGX();
+    riftwii::wii::plugin::ShutdownAll("RiftWii is closing");
     LeaveTo(ExitRequested);
     std::exit(0);
 }
@@ -464,6 +466,15 @@ int main() {
     timed("FreeType and the GUI thread");
     riftwii::wii::ScreenshotsStart();
     riftwii::wii::CrashSetPhase(riftwii::wii::CrashPhase::Menu);
+    // The plugin test switch (docs/DEVELOPING.md): only with
+    // sd:/riftwii/plugin_test.txt on the card; nothing loads at a plain
+    // start. Here, with the menu's crash screen ready, so a plugin that
+    // crashes shows it as a player would see it.
+    if (std::string refused; sd_mounted && riftwii::wii::plugin::RunTestSwitch(refused)) {
+        if (!refused.empty()) SetHomeNotice(refused);
+        timed("plugin test");
+        riftwii::wii::mem::LogUsage("plugin test");
+    }
     if (!sd_mounted) SetNoSdCard(StartedFromUsb());
     const int action = MainMenu(sd_mounted ? MENU_SOURCE : MENU_NEEDS_SD, state);
     MenuWatchdogStop();
@@ -493,6 +504,9 @@ int main() {
     // Before anything is launched: nothing of the menu's adapter may be
     // left in flight for the game (or the next IOS) to answer.
     riftwii::wii::GcAdapterMenuEnd();
+    // Stage (a)'s plugins have nothing to do in a launch: shut down before
+    // it, their arena given back to the heap (docs/PLUGINS.md, "Loading").
+    riftwii::wii::plugin::ShutdownAll("the menu closed");
     riftwii::wii::mem::LogUsage("menu closed");
     const bool heap_whole = riftwii::wii::mem::CheckHeap("menu closed");
     const riftwii::wii::LaunchSource source = riftwii::wii::SelectedSource(state);
