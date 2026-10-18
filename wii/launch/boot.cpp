@@ -55,6 +55,7 @@
 #include "codehandleronly_bin.h"
 #include "riftwii/cardlog.hpp"
 #include "riftwii/codehook.hpp"
+#include "riftwii/extrasbudget.hpp"
 #include "riftwii/gamelang.hpp"
 #include "riftwii/gxpatches.hpp"
 #include "riftwii/playhistory.hpp"
@@ -820,6 +821,426 @@ void apply_return_to(const std::vector<MemoryRegion>& loaded, u64 title, std::ui
 
 namespace {
 
+// The extras a launch puts into the game, the same for a disc game and a
+// channel game (boot_channel): the GameCube adapter, screenshots, the crash
+// recorder and the Wii Remote log. Each is a small blob whose code goes
+// below the MEM1 arena's top and whose state goes at the bottom of the
+// MEM2 arena, one below the other in that order (docs/ARCHITECTURE.md,
+// "Memory").
+
+// Settings > GameCube adapter, against what the launch allows: Automatic
+// turns it off where it broke launches on hardware, and only looks for an
+// adapter when one may work; On tries anyway and says what it risks.
+// `game_ios` is the IOS the game will run on. `d2x_device` is what d2x
+// reads the game from while it runs (di::frag_device()'s numbers: 0
+// nothing, 1 the USB drive, 2 the SD card), and `d2x_reads` names it for
+// the log ("the game", "the emulated NAND"). `fresh_ios`: that IOS was
+// started for the game, so libogc's USB holds nothing of the menu's.
+// Leaves g_extras.gc_adapter On or Off (Demo stays Demo), and the
+// adapter's USB handle open only when it is On.
+void settle_gc_adapter(int game_ios, int d2x_device, const char* d2x_reads, bool fresh_ios) {
+    if (g_extras.gc_adapter == GcAdapterMode::Auto || g_extras.gc_adapter == GcAdapterMode::On) {
+        // Where the adapter broke the launch on hardware, it stays off and
+        // USB is not touched for it: on a Wii U's d2x cIOS /dev/usb/hid
+        // never answered; with the game read from the USB drive through
+        // d2x, the game's disc reads failed. A Wii U's IOS 58 refused
+        // RiftWii's handle only while the menu's USB held /dev/usb/hid;
+        // the game's is opened after libogc's USB is shut down.
+        // On a Wii U only IOS 58 and a d2x on base 58 reach the adapter
+        // in every USB port (a tester's check of each cIOS).
+        // The same on a Wii's d2x on base 56 or older (v4 USB) with the
+        // game read from the SD card: after the launch's USB check (libogc's
+        // USB shut down, the device list asked) every disc command failed
+        // (a tester's New Super Mario Bros. Wii image on 249: BCA -4, then
+        // "open partition failed: DI reply 128"), with or without asking
+        // /dev/usb/hid anything.
+        const int adapter_base = d2x_base(game_ios);
+        std::string off;
+        if (is_wii_u() && game_ios != 58 && game_ios != wii_u_adapter_slot()) {
+            off = "on a Wii U it needs IOS 58 or a d2x cIOS on base 58";
+        } else if (d2x_device == 1 && !(is_wii_u() && adapter_base == 58)) {
+            // A Wii U's d2x on base 58 reads the USB drive and the adapter
+            // together (a tester's Brawl from USB on IOS251); elsewhere a
+            // USB game's reads failed.
+            off = std::string(d2x_reads) + " is read from the USB drive, which the adapter breaks";
+        } else if (d2x_device != 0 && adapter_base != 0 && adapter_base < 57) {
+            off = std::string(d2x_reads) + " is read through d2x on base 56 or older, whose USB the adapter check breaks";
+        }
+        // On (not Automatic) tries anyway: an experiment the player chose.
+        // Every /dev/usb/hid call at launch has a time limit, so a module
+        // that never answers turns the adapter off rather than hang.
+        g_extras.gc_adapter_forced = g_extras.gc_adapter == GcAdapterMode::On;  // the player's choice, not Automatic's
+        if (!off.empty() && g_extras.gc_adapter_forced) {
+            logf("GameCube adapter: on anyway (the setting is On), although %s\n", off.c_str());
+        } else if (!off.empty()) {
+            logf("GameCube adapter: off: %s\n", off.c_str());
+            g_extras.gc_adapter = GcAdapterMode::Off;
+        }
+    }
+    if (g_extras.gc_adapter == GcAdapterMode::Auto && GcAdapterMenuSawNone()) {
+        // The menu looked every 2 s until the launch and USB listed none:
+        // USB is left alone, and the launch does not wait for our own
+        // /dev/usb/hid (on a Wii's d2x 250 its v5 GetVersion never answered,
+        // 1.5 s of every launch) or for the devices after the IOS reload.
+        logf("GameCube adapter (auto): not plugged in (the menu's USB list had none)\n");
+        g_extras.gc_adapter = GcAdapterMode::Off;
+    }
+    if (g_extras.gc_adapter == GcAdapterMode::Auto || g_extras.gc_adapter == GcAdapterMode::On) {
+        // Auto: on only when an adapter is there now, so games that use
+        // USB input of their own (and games with their own adapter code)
+        // are left alone otherwise.
+        std::string how;
+        // libogc's USB lets go first: its handle 0 and the adapter the
+        // menu's driver had through it. A disc game keeps the menu's IOS,
+        // and its handle found the adapter still taken (a tester: SD and
+        // RVZ games, after an IOS reload, worked; the disc did not).
+        // Not for an image d2x reads (fragment list, SD or USB): those start
+        // on a fresh cIOS, and on a Wii U's d2x (IOS251, Mario Kart Wii from
+        // the SD card, adapter On) every disc command after this failed
+        // (BCA -4, then the partition DI 128), from 2610-178, which added it,
+        // to 2610-290; 2610-168 never called it and the adapter worked there.
+        if (d2x_device == 0 && !fresh_ios) USB_Deinitialize();
+        // A d2x on base 56 or older has v4's /dev/usb/hid (57's and 58's
+        // are v5, as IOS 58's).
+        const int base = d2x_base(game_ios);
+        if (base != 0 && base < 57) {
+            usb_hid_is_v4();
+            logf("GameCube adapter: IOS%d is d2x on base %d, whose /dev/usb/hid is v4\n", game_ios, base);
+        }
+        // No probe of /dev/usb/hid and /dev/usb/ven here, not even with the
+        // setting On: on a Wii's d2x 249 (a New Super Mario Bros. Wii image
+        // on the SD card, no adapter), and on a Wii U's d2x v11 beta3 on
+        // base 58 (Mario Kart Wii on the SD card, adapter On), every disc
+        // command after it failed (BCA -4, then opening the partition).
+        // The adapter is found in the USB device list instead.
+        const AdapterSeen seen = look_for_gc_adapter(how);
+        logf("GameCube adapter (%s): %s\n", g_extras.gc_adapter == GcAdapterMode::Auto ? "auto" : "on", how.c_str());
+        if (g_extras.gc_adapter == GcAdapterMode::Auto) {
+            g_extras.gc_adapter = seen == AdapterSeen::Missing ? GcAdapterMode::Off : GcAdapterMode::On;
+        }
+        // The handle the check opened is the game's only with the adapter on.
+        if (g_extras.gc_adapter == GcAdapterMode::Off) close_adapter_session();
+    }
+}
+
+// Why a game gets none of the blobs below its MEM1 arena's top, or nullptr.
+const char* whole_mem1_reason(bool code_build, bool clears_mem1_top) {
+    if (code_build) return "a code build uses all of the game's memory";
+    if (clears_mem1_top) return "the game clears the memory they would use";
+    return nullptr;
+}
+
+// While boot.log is open, on the game as loaded: the adapter's PAD search
+// (false when it turns the adapter off; its USB handle is then let go,
+// so the game's own USB gets it), and Settings > GameCube rumble Off.
+bool prepare_gc_pads(const DolHeader& dol, bool gc_adapter, bool gx_protected, PadHook& pad) {
+    if (gc_adapter) {
+        std::string why;
+        if (!find_pad_functions(dol, g_extras.gc_adapter == GcAdapterMode::Demo, pad, why)) {
+            logf("GameCube adapter: off: %s\n", why.c_str());
+            gc_adapter = false;
+        }
+    }
+    if (!gc_adapter) close_adapter_session();
+    // Settings > GameCube rumble Off: the SDK's PADControlMotor returns at
+    // once, for the Wii's own ports and the adapter alike (the adapter's
+    // hook is not put on it then).
+    if (g_extras.gc_rumble_off && !gx_protected) {
+        std::uint32_t motor = gc_adapter ? pad.motor : 0;
+        if (motor == 0) {
+            std::vector<CodeRange> text;
+            for (std::size_t i = 0; i < kDolTextSections; ++i) {
+                const DolSection& s = dol.sections[i];
+                if (s.used()) text.push_back({s.address, reinterpret_cast<const std::uint8_t*>(s.address), s.size});
+            }
+            PadSymbols found;
+            std::string error;
+            if (find_pad_symbols(text, found, error)) motor = found.control_motor;
+        }
+        if (motor != 0) {
+            *reinterpret_cast<volatile std::uint32_t*>(motor) = 0x4E800020;  // blr
+            DCFlushRange(reinterpret_cast<void*>(motor), 32);
+            ICInvalidateRange(reinterpret_cast<void*>(motor), 32);
+            pad.motor = 0;
+            logf("GameCube rumble: off (PADControlMotor at 0x%08x returns at once)\n", motor);
+        } else {
+            logf("GameCube rumble: off, but this game's PADControlMotor was not found\n");
+        }
+    }
+    return gc_adapter;
+}
+
+// What the extras' planning needs to know about the launch.
+struct ExtrasContext {
+    // The arena ends the blobs go below and above: the game's own, or
+    // those the resident runtime and the virtual SD card left.
+    std::uint32_t arena1_hi = 0;
+    std::uint32_t arena2_lo = 0;
+    // The lowest MEM1 address a blob may take: above this loader and
+    // whatever of the game's is above it.
+    std::uint32_t mem1_floor = 0;
+    const std::vector<MemoryPatch>* memory_patches = nullptr;
+    // The game-time runtime, when it is installed: its unhooked IOS
+    // functions are the ones the blobs chain to.
+    const ResidentInstall* resident = nullptr;
+    bool gc_adapter = false;  // prepare_gc_pads found the adapter's functions
+    bool gx_protected = false;
+    bool code_build = false;
+    bool plain_code_build = false;
+    bool clears_mem1_top = false;
+    bool retail_bca = false;  // the BCA read is to be answered as a retail disc's
+};
+
+// The extras' blobs as planned, each below the one before.
+struct GameExtras {
+    PadHook pad;
+    ShotHook shot;
+    FaultHook fault;
+    WpadLogHook wlog;
+
+    bool any() const { return pad.active || shot.active || fault.active || wlog.active; }
+    // The MEM1 arena's top below the lowest blob planned so far; `none`
+    // when there is none.
+    std::uint32_t arena1_hi(std::uint32_t none) const {
+        if (wlog.active) return wlog.new_arena1_hi;
+        if (fault.active) return fault.new_arena1_hi;
+        if (shot.active) return shot.new_arena1_hi;
+        if (pad.active) return pad.new_arena1_hi;
+        return none;
+    }
+    // The MEM2 arena's start above the highest blob's state; `none` when
+    // there is none.
+    std::uint32_t arena2_lo(std::uint32_t none) const {
+        if (wlog.active) return wlog.new_arena2_lo;
+        if (fault.active) return fault.new_arena2_lo;
+        if (shot.active) return shot.new_arena2_lo;
+        if (pad.active) return pad.new_arena2_lo;
+        return none;
+    }
+    // The adapter's, the screenshots' and the crash recorder's code (and
+    // their state with `with_state`), for keeping patches and codes off them.
+    void add_ranges(std::vector<MemoryRegion>& out, bool with_state) const {
+        if (pad.active) {
+            out.push_back(MemoryRegion{pad.code_base, pad.code_bytes});
+            if (with_state) out.push_back(MemoryRegion{pad.state_base, pad.state_bytes});
+        }
+        if (shot.active) {
+            out.push_back(MemoryRegion{shot.code_base, shot.code_bytes});
+            if (with_state) out.push_back(MemoryRegion{shot.state_base, shot.state_bytes});
+        }
+        if (fault.active) {
+            out.push_back(MemoryRegion{fault.code_base, fault.code_bytes});
+            if (with_state) out.push_back(MemoryRegion{fault.state_base, fault.state_bytes});
+        }
+    }
+};
+
+// Before the <memory> patches, on the game as loaded: where each extra's
+// blob goes, and whether it can go in at all. `out.pad` holds what
+// prepare_gc_pads found. Says in boot.log what is off and why.
+void plan_game_extras(const DolHeader& dol, const ExtrasContext& ctx, GameExtras& out) {
+    const std::vector<MemoryPatch> no_patches;
+    const std::vector<MemoryPatch>& patches = ctx.memory_patches != nullptr ? *ctx.memory_patches : no_patches;
+    const ResidentInstall* resident = ctx.resident;
+    const char* const whole_mem1_why = whole_mem1_reason(ctx.code_build, ctx.clears_mem1_top);
+    const bool whole_mem1 = whole_mem1_why != nullptr;
+    // The GameCube adapter: below the runtime, or on its own.
+    if (ctx.gc_adapter) {
+        std::string why;
+        const std::uint32_t pad_veneers = ctx.code_build ? kPadVeneers : 0;
+        if (!plan_pad_hook(dol, ctx.arena1_hi, ctx.mem1_floor, ctx.arena2_lo,
+                           resident != nullptr ? resident->ioctl_async_original : 0,
+                           resident != nullptr ? resident->ioctlv_async_original : 0, patches, out.pad, why,
+                           pad_veneers)) {
+            logf("GameCube adapter: off: %s\n", why.c_str());
+        } else if (out.pad.new_arena2_hi != 0) {
+            // The MEM2 arena's end comes down now, so the crash blob, planned
+            // next, goes below the adapter's.
+            store32(0x80003128, out.pad.new_arena2_hi);
+            DCFlushRange(reinterpret_cast<void*>(0x80003120), 32);
+        }
+    }
+    // In-game screenshots: below the adapter, the runtime, or alone.
+    if (g_extras.screenshots && whole_mem1) logf("Screenshots: off: %s\n", whole_mem1_why);
+    if (g_extras.screenshots && !ctx.gx_protected && !whole_mem1) {
+        std::string why;
+        ShotIpc known;
+        if (resident != nullptr) {
+            known.open_async = resident->originals[RT_IPC_ASYNC(1)];
+            known.close_async = resident->originals[RT_IPC_ASYNC(2)];
+            known.write_async = resident->originals[RT_IPC_ASYNC(4)];
+            known.ioctl_async = resident->originals[RT_IPC_ASYNC(6)];
+            known.ioctlv_async = resident->ioctlv_async;
+        }
+        // Never a frame copy: its 0.8 MB of MEM2 is more than games spare.
+        // Newer Super Mario Bros. Wii crashed on its title screen, and
+        // HAL's Kirby games (Return to Dream Land, Dream Collection)
+        // without packs failed to make a heap and stayed black. Direct
+        // shots read the frame buffer itself.
+        const bool direct = true;
+        if (!plan_shot_hook(dol, out.arena1_hi(ctx.arena1_hi), ctx.mem1_floor, out.arena2_lo(ctx.arena2_lo), known,
+                            out.pad.read, g_extras.screenshots_demo, direct, patches, out.shot, why)) {
+            logf("Screenshots: off: %s\n", why.c_str());
+        }
+    }
+    // A crash in the game is saved for the next start: below all of the
+    // above, always.
+    if (ctx.gx_protected) {
+        logf("Game crashes: not recorded: the game checks its own code (MetaFortress); RiftWii's hooks stay out\n");
+    } else if (debug_off("fault")) {
+        logf("Game crashes: not recorded: debug_off (and the BCA read not answered)\n");
+    } else if (ctx.plain_code_build) {
+        logf("Game crashes: not recorded: a code build starts without RiftWii's extras\n");
+    } else if (whole_mem1 && ctx.code_build && resident != nullptr) {
+        // The game-time runtime (a pack's files, saves or an RVZ) takes the
+        // same two places: its veneers run from kCodeVeneers past
+        // kFaultVeneers, and its code and state are staged at the top of
+        // the MEM2 arena after this hook would have been written there.
+        logf("Game crashes: not recorded: a code build with the game-time runtime (both need the same memory)\n");
+    } else if (whole_mem1 && ctx.code_build && !ctx.clears_mem1_top && g_extras.code_list_start != 0) {
+        // A code build uses all of MEM1: the blob at the MEM2 arena's top,
+        // reached through a veneer past the code handler (a tester's
+        // Project+ crash on opening the HOME menu left no record). The BCA
+        // read stays unanswered, as before.
+        std::string why;
+        if (!plan_fault_hook(dol, ctx.arena1_hi, ctx.mem1_floor, ctx.arena2_lo, false, patches, out.fault, why,
+                             kFaultVeneers)) {
+            logf("Game crashes: not recorded: %s\n", why.c_str());
+        }
+    } else if (whole_mem1) {
+        logf("Game crashes: not recorded: %s%s\n", whole_mem1_why,
+             ctx.retail_bca && resident == nullptr ? " (and the BCA read not answered)" : "");
+    } else {
+        std::string why;
+        const bool answer_bca = ctx.retail_bca && resident == nullptr && !debug_off("bca");
+        if (ctx.retail_bca && debug_off("bca")) logf("BCA: debug_off: not answered\n");
+        if (!plan_fault_hook(dol, out.arena1_hi(ctx.arena1_hi), ctx.mem1_floor, out.arena2_lo(ctx.arena2_lo),
+                             answer_bca, patches, out.fault, why)) {
+            logf("Game crashes: not recorded%s: %s\n", answer_bca ? " and the BCA read not answered" : "",
+                 why.c_str());
+        }
+    }
+    // The Wii Remote log and the Wii U Pro Controller translator: below all
+    // of the above, when the menu saw a Pro Controller.
+    std::string why;
+    const PadPairings pairings = ReadPadPairings();
+    const bool wanted = wpad_log_wanted(pairings.pro.size(), why);
+    if (!wanted) {
+        // Said only when a setting turned it off or a Pro is paired: most
+        // launches never want it.
+        if (why == "wpad_log = off" || !pairings.pro.empty()) logf("Wii Remote log: off: %s\n", why.c_str());
+    } else if (ctx.gx_protected) {
+        logf("Wii Remote log: off: the game checks its own code (MetaFortress)\n");
+    } else if (whole_mem1) {
+        logf("Wii Remote log: off: %s\n", whole_mem1_why);
+    } else if (debug_off("wpadlog")) {
+        logf("Wii Remote log: off: debug_off\n");
+    } else {
+        logf("Wii Remote log: on (%s)\n", why.c_str());
+        std::uint32_t known_ios[4] = {0, 0, 0, 0};
+        if (resident != nullptr) {
+            // Unhooked: the resident's own would send /shared2 to a
+            // pack's save folder.
+            known_ios[0] = resident->originals[RT_IPC_SYNC(kIpcOpen)];
+            known_ios[1] = resident->originals[RT_IPC_SYNC(kIpcClose)];
+            known_ios[2] = resident->originals[RT_IPC_SYNC(kIpcWrite)];
+            known_ios[3] = resident->originals[RT_IPC_SYNC(kIpcIoctlCmd)];
+        }
+        // The function to hook: the resident's hook of it, chained.
+        const std::uint32_t known_ioctlv = resident != nullptr ? resident->ioctlv_async : 0;
+        if (!plan_wpad_log(dol, out.arena1_hi(ctx.arena1_hi), ctx.mem1_floor, out.arena2_lo(ctx.arena2_lo), known_ios,
+                           known_ioctlv, pairings.pro, pro_translator_wanted(), patches, out.wlog, why)) {
+            logf("Wii Remote log: off: %s\n", why.c_str());
+        }
+    }
+}
+
+// Wii U Pro Controller test (settings.txt "wpad_probe = valid", off
+// otherwise): the Wii Remote library's firmware probe reads a valid
+// address, as the Pro Controller hangs up on the real one
+// (riftwii/wpadlog.hpp). Testers only, until it is known to help.
+void apply_wpad_probe_test(const std::vector<MemoryRegion>& loaded, std::vector<CodeSpan>& spans,
+                           bool gx_protected, bool plain_code_build, WpadLogHook& wlog) {
+    const auto it = Settings().other.find("wpad_probe");
+    if (it == Settings().other.end() || it->second != "valid" || plain_code_build) return;
+    WpadProbePatch probe_patch;
+    std::string why;
+    if (gx_protected) {
+        wlog.probe = RTWLOG_PROBE_PROTECTED;
+        logf("Wii Remote probe: not changed: the game checks its own code (MetaFortress)\n");
+    } else if (!find_wpad_probe(spans, probe_patch, why)) {
+        wlog.probe = RTWLOG_PROBE_NOT_FOUND;
+        logf("Wii Remote probe: not changed: %s\n", why.c_str());
+    } else {
+        wlog.probe = RTWLOG_PROBE_CHANGED;
+        wlog.probe_at = probe_patch.probe;
+        apply_wpad_probe(spans, probe_patch);
+        for (const MemoryRegion& r : loaded) {
+            DCFlushRange(reinterpret_cast<void*>(r.address), r.length);
+            ICInvalidateRange(reinterpret_cast<void*>(r.address), r.length);
+        }
+        logf("Wii Remote probe: reads 0x0016 instead of 0x1770 (0x%08x), its answer handled as a Wii Remote's "
+             "(0x%08x), for the Wii U Pro Controller test\n",
+             probe_patch.probe, probe_patch.result);
+    }
+}
+
+// After the patches and the cheats: the adapter's, the screenshots' and
+// the crash recorder's hooks go in (the Wii Remote log's comes last of
+// all, install_wpad_log_last).
+void install_game_extras(GameExtras& extras) {
+    if (extras.pad.active) {
+        std::string why;
+        if (!install_pad_hook(extras.pad, why)) logf("GameCube adapter: off: %s\n", why.c_str());
+    }
+    if (extras.shot.active) {
+        std::string why;
+        if (!install_shot_hook(extras.shot, why)) logf("Screenshots: off: %s\n", why.c_str());
+    }
+    if (extras.fault.active) {
+        std::string why;
+        if (!install_fault_hook(extras.fault, why)) logf("Game crashes: not recorded: %s\n", why.c_str());
+    }
+}
+
+// After Return to RiftWii: its exit hook takes the "li rZ,0" that
+// patch_return_to looks for to find __OSLaunchMenu's first place, and
+// placed before, it left the game going to the Wii Menu (2610-371).
+void install_wpad_log_last(GameExtras& extras) {
+    if (!extras.wlog.active) return;
+    std::string why;
+    if (!install_wpad_log(extras.wlog, why)) logf("Wii Remote log: off: %s\n", why.c_str());
+}
+
+// Test switch: settings.txt "debug_crash = <hex address>", or "pad" for
+// the game's PADRead (its main thread, every frame), puts a read from
+// 0x28 there before the game starts (a tester's Project+ crash read
+// there), so the crash blob can be tried on a game. Dolphin's JIT
+// ignores a write once the code has run, and the Gecko codes rewrite
+// the places they patch every frame.
+void apply_debug_crash(const DolHeader& dol) {
+    const auto it = Settings().other.find("debug_crash");
+    if (it == Settings().other.end()) return;
+    std::uint32_t at = static_cast<std::uint32_t>(std::strtoul(it->second.c_str(), nullptr, 16)) & ~3u;
+    if (it->second == "pad") {
+        std::vector<CodeRange> text;
+        for (std::size_t i = 0; i < kDolTextSections; ++i) {
+            const DolSection& s = dol.sections[i];
+            if (s.used()) text.push_back({s.address, reinterpret_cast<const std::uint8_t*>(s.address), s.size});
+        }
+        PadSymbols pad;
+        std::string error;
+        at = find_pad_symbols(text, pad, error) ? pad.read : 0;
+    }
+    if (at >= kCodeHandlerAddress && at < 0x81800000) {
+        const std::uint32_t load_from_0x28 = 0x80000028;  // lwz r0, 0x28(0)
+        std::memcpy(reinterpret_cast<void*>(at), &load_from_0x28, 4);
+        DCFlushRange(reinterpret_cast<void*>(at & ~31u), 32);
+        ICInvalidateRange(reinterpret_cast<void*>(at & ~31u), 32);
+        logf("debug_crash: a read from 0x28 at 0x%08x\n", at);
+    }
+}
+
 // The part of the boot that runs after the SD card and the log are gone.
 // Returns only on failure.
 bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const SavegameOptions& savegame,
@@ -1360,9 +1781,7 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     // blobs there were wiped and the screenshot hook then wrote through a
     // null state (the crash at Start Game on a console; in Dolphin too).
     const bool clears_mem1_top = game_clears_mem1_top(probe.header.game_id);
-    const bool whole_mem1 = code_build || clears_mem1_top;
-    const char* const whole_mem1_why = code_build ? "a code build uses all of the game's memory"
-                                                  : "the game clears the memory they would use";
+    const char* const whole_mem1_why = whole_mem1_reason(code_build, clears_mem1_top);
     bool gc_adapter = g_extras.gc_adapter != GcAdapterMode::Off && !gx_protected;
     // A code build gets the adapter in MEM2, reached through veneers (a Wii
     // U has no GameCube ports, so Project+ there has no other way to use
@@ -1394,42 +1813,8 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     }
     // The adapter's PAD search while boot.log is open; the rest of its
     // setup comes after the runtime's, when the log has ended.
-    PadHook pad;
-    if (gc_adapter) {
-        std::string why;
-        if (!find_pad_functions(dol, g_extras.gc_adapter == GcAdapterMode::Demo, pad, why)) {
-            logf("GameCube adapter: off: %s\n", why.c_str());
-            gc_adapter = false;
-        }
-    }
-    // Not taken by the game: the launch check's /dev/usb/hid is let go, so
-    // the game's own USB gets it.
-    if (!gc_adapter) close_adapter_session();
-    // Settings > GameCube rumble Off: the SDK's PADControlMotor returns at
-    // once, for the Wii's own ports and the adapter alike (the adapter's
-    // hook is not put on it then).
-    if (g_extras.gc_rumble_off && !gx_protected) {
-        std::uint32_t motor = gc_adapter ? pad.motor : 0;
-        if (motor == 0) {
-            std::vector<CodeRange> text;
-            for (std::size_t i = 0; i < kDolTextSections; ++i) {
-                const DolSection& s = dol.sections[i];
-                if (s.used()) text.push_back({s.address, reinterpret_cast<const std::uint8_t*>(s.address), s.size});
-            }
-            PadSymbols found;
-            std::string error;
-            if (find_pad_symbols(text, found, error)) motor = found.control_motor;
-        }
-        if (motor != 0) {
-            *reinterpret_cast<volatile std::uint32_t*>(motor) = 0x4E800020;  // blr
-            DCFlushRange(reinterpret_cast<void*>(motor), 32);
-            ICInvalidateRange(reinterpret_cast<void*>(motor), 32);
-            pad.motor = 0;
-            logf("GameCube rumble: off (PADControlMotor at 0x%08x returns at once)\n", motor);
-        } else {
-            logf("GameCube rumble: off, but this game's PADControlMotor was not found\n");
-        }
-    }
+    GameExtras extras;
+    gc_adapter = prepare_gc_pads(dol, gc_adapter, gx_protected, extras.pad);
 
     // E4: the SD card again, with our own fd this time, left open and
     // selected for the runtime.
@@ -1569,7 +1954,7 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         };
         if (gx_protected) {
             why = "the game checks its own code (MetaFortress)";
-        } else if (whole_mem1) {
+        } else if (whole_mem1_why != nullptr) {
             why = whole_mem1_why;
         } else if (debug_off("sdshare")) {
             why = "debug_off";
@@ -1639,145 +2024,25 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         store32(0x80003128, vsd.new_arena2_hi);
         DCFlushRange(reinterpret_cast<void*>(0x80003120), 32);
     }
-    const auto base_arena1_hi = [&]() {
-        return vsd.active ? vsd.new_arena1_hi : options.install_resident ? resident.new_arena1_hi : game_arena1_hi();
-    };
-    const auto base_arena2_lo = [&]() {
-        return vsd.active ? vsd.new_arena2_lo : options.install_resident ? resident.new_arena2_lo : read32(0x80003124);
-    };
-    // The GameCube adapter: below the runtime, or on its own.
-    if (gc_adapter) {
-        std::string why;
-        const std::uint32_t arena1_hi = base_arena1_hi();
-        const std::uint32_t arena2_lo = base_arena2_lo();
-        const std::uint32_t pad_veneers = code_build ? kPadVeneers : 0;
-        if (!plan_pad_hook(dol, arena1_hi, mem1_floor, arena2_lo,
-                           options.install_resident ? resident.ioctl_async_original : 0,
-                           options.install_resident ? resident.ioctlv_async_original : 0, options.memory_patches,
-                           pad, why, pad_veneers)) {
-            logf("GameCube adapter: off: %s\n", why.c_str());
-        } else if (pad.new_arena2_hi != 0) {
-            // The MEM2 arena's end comes down now, so the crash blob, planned
-            // next, goes below the adapter's.
-            store32(0x80003128, pad.new_arena2_hi);
-            DCFlushRange(reinterpret_cast<void*>(0x80003120), 32);
-        }
-    }
-    // In-game screenshots: below the adapter, the runtime, or alone.
-    ShotHook shot;
-    if (g_extras.screenshots && whole_mem1) logf("Screenshots: off: %s\n", whole_mem1_why);
-    if (g_extras.screenshots && !gx_protected && !whole_mem1) {
-        std::string why;
-        const std::uint32_t arena1_hi = pad.active                 ? pad.new_arena1_hi
-                                                                   : base_arena1_hi();
-        const std::uint32_t arena2_lo = pad.active                 ? pad.new_arena2_lo
-                                                                   : base_arena2_lo();
-        ShotIpc known;
-        if (options.install_resident) {
-            known.open_async = resident.originals[RT_IPC_ASYNC(1)];
-            known.close_async = resident.originals[RT_IPC_ASYNC(2)];
-            known.write_async = resident.originals[RT_IPC_ASYNC(4)];
-            known.ioctl_async = resident.originals[RT_IPC_ASYNC(6)];
-            known.ioctlv_async = resident.ioctlv_async;
-        }
-        // Never a frame copy: its 0.8 MB of MEM2 is more than games spare.
-        // Newer Super Mario Bros. Wii crashed on its title screen, and
-        // HAL's Kirby games (Return to Dream Land, Dream Collection)
-        // without packs failed to make a heap and stayed black. Direct
-        // shots read the frame buffer itself.
-        const bool direct = true;
-        if (!plan_shot_hook(dol, arena1_hi, mem1_floor, arena2_lo, known, pad.read, g_extras.screenshots_demo,
-                            direct, options.memory_patches, shot, why)) {
-            logf("Screenshots: off: %s\n", why.c_str());
-        }
-    }
-    // A crash in the game is saved for the next start: below all of the
-    // above, always.
-    FaultHook fault;
-    if (gx_protected) {
-        logf("Game crashes: not recorded: the game checks its own code (MetaFortress); RiftWii's hooks stay out\n");
-    } else if (debug_off("fault")) {
-        logf("Game crashes: not recorded: debug_off (and the BCA read not answered)\n");
-    } else if (plain_code_build) {
-        logf("Game crashes: not recorded: a code build starts without RiftWii's extras\n");
-    } else if (whole_mem1 && code_build && options.install_resident) {
-        // The game-time runtime (a pack's files, saves or an RVZ) takes the
-        // same two places: its veneers run from kCodeVeneers past
-        // kFaultVeneers, and its code and state are staged at the top of
-        // the MEM2 arena after this hook would have been written there.
-        logf("Game crashes: not recorded: a code build with the game-time runtime (both need the same memory)\n");
-    } else if (whole_mem1 && code_build && !clears_mem1_top && g_extras.code_list_start != 0) {
-        // A code build uses all of MEM1: the blob at the MEM2 arena's top,
-        // reached through a veneer past the code handler (a tester's
-        // Project+ crash on opening the HOME menu left no record). The BCA
-        // read stays unanswered, as before.
-        std::string why;
-        if (!plan_fault_hook(dol, base_arena1_hi(), mem1_floor, base_arena2_lo(), false, options.memory_patches, fault,
-                             why, kFaultVeneers)) {
-            logf("Game crashes: not recorded: %s\n", why.c_str());
-        }
-    } else if (whole_mem1) {
-        logf("Game crashes: not recorded: %s%s\n", whole_mem1_why,
-             options.retail_bca && !options.install_resident ? " (and the BCA read not answered)" : "");
-    } else {
-        std::string why;
-        const std::uint32_t arena1_hi = shot.active                ? shot.new_arena1_hi
-                                        : pad.active               ? pad.new_arena1_hi
-                                                                   : base_arena1_hi();
-        const std::uint32_t arena2_lo = shot.active                ? shot.new_arena2_lo
-                                        : pad.active               ? pad.new_arena2_lo
-                                                                   : base_arena2_lo();
-        const bool answer_bca = options.retail_bca && !options.install_resident && !debug_off("bca");
-        if (options.retail_bca && debug_off("bca")) logf("BCA: debug_off: not answered\n");
-        if (!plan_fault_hook(dol, arena1_hi, mem1_floor, arena2_lo, answer_bca, options.memory_patches, fault, why)) {
-            logf("Game crashes: not recorded%s: %s\n", answer_bca ? " and the BCA read not answered" : "",
-                 why.c_str());
-        }
-    }
-    // The Wii Remote log and the Wii U Pro Controller translator: below all
-    // of the above, when the menu saw a Pro Controller.
-    WpadLogHook wlog;
-    {
-        std::string why;
-        const PadPairings pairings = ReadPadPairings();
-        const bool wanted = wpad_log_wanted(pairings.pro.size(), why);
-        if (!wanted) {
-            // Said only when a setting turned it off or a Pro is paired: most
-            // launches never want it.
-            if (why == "wpad_log = off" || !pairings.pro.empty()) logf("Wii Remote log: off: %s\n", why.c_str());
-        } else if (gx_protected) {
-            logf("Wii Remote log: off: the game checks its own code (MetaFortress)\n");
-        } else if (whole_mem1) {
-            logf("Wii Remote log: off: %s\n", whole_mem1_why);
-        } else if (debug_off("wpadlog")) {
-            logf("Wii Remote log: off: debug_off\n");
-        } else {
-            logf("Wii Remote log: on (%s)\n", why.c_str());
-            const std::uint32_t arena1_hi = fault.active  ? fault.new_arena1_hi
-                                            : shot.active ? shot.new_arena1_hi
-                                            : pad.active  ? pad.new_arena1_hi
-                                                          : base_arena1_hi();
-            const std::uint32_t arena2_lo = fault.active  ? fault.new_arena2_lo
-                                            : shot.active ? shot.new_arena2_lo
-                                            : pad.active  ? pad.new_arena2_lo
-                                                          : base_arena2_lo();
-            std::uint32_t known_ios[4] = {0, 0, 0, 0};
-            if (options.install_resident) {
-                // Unhooked: the resident's own would send /shared2 to a
-                // pack's save folder.
-                known_ios[0] = resident.originals[RT_IPC_SYNC(kIpcOpen)];
-                known_ios[1] = resident.originals[RT_IPC_SYNC(kIpcClose)];
-                known_ios[2] = resident.originals[RT_IPC_SYNC(kIpcWrite)];
-                known_ios[3] = resident.originals[RT_IPC_SYNC(kIpcIoctlCmd)];
-            }
-            // The function to hook: the resident's hook of it, chained.
-            const std::uint32_t known_ioctlv = options.install_resident ? resident.ioctlv_async : 0;
-            if (!plan_wpad_log(dol, arena1_hi, mem1_floor, arena2_lo, known_ios, known_ioctlv, pairings.pro,
-                               pro_translator_wanted(), options.memory_patches, wlog, why)) {
-                logf("Wii Remote log: off: %s\n", why.c_str());
-            }
-        }
-    }
+    // The extras' blobs below what the runtime and the virtual SD card
+    // took, or below the game's own arena ends.
+    ExtrasContext extras_context;
+    extras_context.arena1_hi = vsd.active                 ? vsd.new_arena1_hi
+                               : options.install_resident ? resident.new_arena1_hi
+                                                          : game_arena1_hi();
+    extras_context.arena2_lo = vsd.active                 ? vsd.new_arena2_lo
+                               : options.install_resident ? resident.new_arena2_lo
+                                                          : read32(0x80003124);
+    extras_context.mem1_floor = mem1_floor;
+    extras_context.memory_patches = &options.memory_patches;
+    extras_context.resident = options.install_resident ? &resident : nullptr;
+    extras_context.gc_adapter = gc_adapter;
+    extras_context.gx_protected = gx_protected;
+    extras_context.code_build = code_build;
+    extras_context.plain_code_build = plain_code_build;
+    extras_context.clears_mem1_top = clears_mem1_top;
+    extras_context.retail_bca = options.retail_bca;
+    plan_game_extras(dol, extras_context, extras);
     // Never left open for the game (it may keep this IOS).
     close_nand_permissions("Launch");
     logf("Handing over\n");
@@ -1807,13 +2072,10 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     // game's can be: a pack's loader may put its code anywhere the game
     // doesn't use, and CTGP's writes its own over the SDK's spare room as
     // it runs.
-    const std::uint32_t arena1_top = wlog.active                ? wlog.new_arena1_hi
-                                     : fault.active             ? fault.new_arena1_hi
-                                     : shot.active              ? shot.new_arena1_hi
-                                     : pad.active               ? pad.new_arena1_hi
-                                     : vsd.active && !vsd.code_in_mem2 ? vsd.new_arena1_hi
-                                     : options.install_resident ? resident.new_arena1_hi
-                                                                : load32(0x80000038);
+    const std::uint32_t below_extras = vsd.active && !vsd.code_in_mem2 ? vsd.new_arena1_hi
+                                       : options.install_resident      ? resident.new_arena1_hi
+                                                                       : load32(0x80000038);
+    const std::uint32_t arena1_top = extras.arena1_hi(below_extras);
     // Below the FST too: wiped in a game that clears that memory.
     // Not into a game that checks its own code (MetaFortress): the patch
     // changes it, and The Smurfs: Dance Party stopped after its logos.
@@ -1821,9 +2083,7 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     if (plain_code_build) logf("Return to: off: a code build starts without RiftWii's extras\n");
     const std::uint32_t return_stub = return_to == 0 ? 0 : code_build ? kCodeReturnStub : (arena1_top - 32) & ~31u;
     const std::uint32_t arena1_end = return_stub != 0 && !code_build ? return_stub : arena1_top;
-    if (options.install_resident || vsd.active || pad.active || shot.active || fault.active || wlog.active ||
-        return_stub != 0)
-        store32(0x80000034, arena1_end);
+    if (options.install_resident || vsd.active || extras.any() || return_stub != 0) store32(0x80000034, arena1_end);
     store32(0x80003110, arena1_end);
     {
         // Test builds: less of MEM1 for the game (mem::TestGameSqueeze).
@@ -1867,16 +2127,12 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         write32(0x80003140, pretended);
         write32(0x80003188, pretended);
     }
-    if (wlog.active) {
-        write32(0x80003124, wlog.new_arena2_lo);  // above all the others
-    } else if (fault.active) {
-        write32(0x80003124, fault.new_arena2_lo);  // above all the others but the Wii Remote log
-    } else if (shot.active) {
-        write32(0x80003124, shot.new_arena2_lo);  // above the adapter's and the runtime's
-    } else if (pad.active) {
-        // IOS's own field, like 0x3140: uncached, after the flush. The end
-        // (0x3128) is never moved: the top of MEM2 stays the game's.
-        write32(0x80003124, pad.new_arena2_lo);
+    if (extras.any()) {
+        // Above the highest blob's state (the Wii Remote log's, else the
+        // crash recorder's, the screenshots' or the adapter's), which are
+        // above the runtime's. IOS's own field, like 0x3140: uncached,
+        // after the flush.
+        write32(0x80003124, extras.arena2_lo(0));
     } else if (vsd.active && vsd.new_arena2_hi == 0) {
         write32(0x80003124, vsd.new_arena2_lo);  // above the runtime's data
     } else if (options.install_resident && resident.new_arena2_lo != resident.old_arena2_lo) {
@@ -1887,9 +2143,9 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     if (options.install_resident && resident.new_arena2_hi != 0) write32(0x80003128, resident.new_arena2_hi);
     if (vsd.active && vsd.new_arena2_hi != 0) write32(0x80003128, vsd.new_arena2_hi);
     // A code build's adapter blob is below the virtual SD card's block.
-    if (pad.active && pad.new_arena2_hi != 0) write32(0x80003128, pad.new_arena2_hi);
+    if (extras.pad.active && extras.pad.new_arena2_hi != 0) write32(0x80003128, extras.pad.new_arena2_hi);
     // The crash blob of a code build is below that (or alone at the top).
-    if (fault.active && fault.veneer != 0) write32(0x80003128, fault.new_arena2_hi);
+    if (extras.fault.active && extras.fault.veneer != 0) write32(0x80003128, extras.fault.new_arena2_hi);
     {
         // Test builds: less of MEM2 for the game (mem::TestGameSqueeze),
         // after every blob has set the arena's ends.
@@ -1951,18 +2207,7 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
             exclusions.push_back(MemoryRegion{vsd.data_base, vsd.data_bytes});
             exclusions.push_back(MemoryRegion{vsd.stage_base, vsd.data_bytes});
         }
-        if (pad.active) {
-            exclusions.push_back(MemoryRegion{pad.code_base, pad.code_bytes});
-            exclusions.push_back(MemoryRegion{pad.state_base, pad.state_bytes});
-        }
-        if (shot.active) {
-            exclusions.push_back(MemoryRegion{shot.code_base, shot.code_bytes});
-            exclusions.push_back(MemoryRegion{shot.state_base, shot.state_bytes});
-        }
-        if (fault.active) {
-            exclusions.push_back(MemoryRegion{fault.code_base, fault.code_bytes});
-            exclusions.push_back(MemoryRegion{fault.state_base, fault.state_bytes});
-        }
+        extras.add_ranges(exclusions, true);
         if (options.install_resident) {
             exclusions.reserve(exclusions.size() + resident.hook_site_count);
             for (unsigned i = 0; i < resident.hook_site_count; ++i) {
@@ -2015,30 +2260,7 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
         for (const std::string& note : gx.notes) logf("Game fixes: %s\n", note.c_str());
         if (changed) sync_loaded();
     }
-    // Wii U Pro Controller test (settings.txt "wpad_probe = valid", off
-    // otherwise): the Wii Remote library's firmware probe reads a valid
-    // address, as the Pro Controller hangs up on the real one
-    // (riftwii/wpadlog.hpp). Testers only, until it is known to help.
-    if (const auto it = Settings().other.find("wpad_probe");
-        it != Settings().other.end() && it->second == "valid" && !plain_code_build) {
-        WpadProbePatch probe_patch;
-        std::string why;
-        if (gx_protected) {
-            wlog.probe = RTWLOG_PROBE_PROTECTED;
-            logf("Wii Remote probe: not changed: the game checks its own code (MetaFortress)\n");
-        } else if (!find_wpad_probe(loaded_spans, probe_patch, why)) {
-            wlog.probe = RTWLOG_PROBE_NOT_FOUND;
-            logf("Wii Remote probe: not changed: %s\n", why.c_str());
-        } else {
-            wlog.probe = RTWLOG_PROBE_CHANGED;
-            wlog.probe_at = probe_patch.probe;
-            apply_wpad_probe(loaded_spans, probe_patch);
-            sync_loaded();
-            logf("Wii Remote probe: reads 0x0016 instead of 0x1770 (0x%08x), its answer handled as a Wii Remote's "
-                 "(0x%08x), for the Wii U Pro Controller test\n",
-                 probe_patch.probe, probe_patch.result);
-        }
-    }
+    apply_wpad_probe_test(loaded, loaded_spans, gx_protected, plain_code_build, extras.wlog);
     if (gx_protected && (g_extras.video.width != VideoWidth::Game || g_extras.video.deflicker != Deflicker::Game ||
                          g_extras.video.remove_borders)) {
         // GX leaves width and deflicker out of these games too.
@@ -2074,9 +2296,7 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
             keep_out.push_back(MemoryRegion{vsd.code_base, vsd.code_bytes});
             keep_out.push_back(MemoryRegion{vsd.stage_base, vsd.data_bytes});
         }
-        if (pad.active) keep_out.push_back(MemoryRegion{pad.code_base, pad.code_bytes});
-        if (shot.active) keep_out.push_back(MemoryRegion{shot.code_base, shot.code_bytes});
-        if (fault.active) keep_out.push_back(MemoryRegion{fault.code_base, fault.code_bytes});
+        extras.add_ranges(keep_out, false);
         if (!install_cheats(loaded, options.memory_patches, keep_out, why)) logf("Codes are off: %s\n", why.c_str());
         else codes_first = !g_extras.code_builds.empty();
     }
@@ -2094,44 +2314,8 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
             return false;
         }
     }
-    if (pad.active) {
-        std::string why;
-        if (!install_pad_hook(pad, why)) logf("GameCube adapter: off: %s\n", why.c_str());
-    }
-    if (shot.active) {
-        std::string why;
-        if (!install_shot_hook(shot, why)) logf("Screenshots: off: %s\n", why.c_str());
-    }
-    if (fault.active) {
-        std::string why;
-        if (!install_fault_hook(fault, why)) logf("Game crashes: not recorded: %s\n", why.c_str());
-    }
-    // Test switch: settings.txt "debug_crash = <hex address>", or "pad" for
-    // the game's PADRead (its main thread, every frame), puts a read from
-    // 0x28 there before the game starts (a tester's Project+ crash read
-    // there), so the crash blob can be tried on a game. Dolphin's JIT
-    // ignores a write once the code has run, and the Gecko codes rewrite
-    // the places they patch every frame.
-    if (const auto it = Settings().other.find("debug_crash"); it != Settings().other.end()) {
-        std::uint32_t at = static_cast<std::uint32_t>(std::strtoul(it->second.c_str(), nullptr, 16)) & ~3u;
-        if (it->second == "pad") {
-            std::vector<CodeRange> text;
-            for (std::size_t i = 0; i < kDolTextSections; ++i) {
-                const DolSection& s = dol.sections[i];
-                if (s.used()) text.push_back({s.address, reinterpret_cast<const std::uint8_t*>(s.address), s.size});
-            }
-            PadSymbols pad;
-            std::string error;
-            at = find_pad_symbols(text, pad, error) ? pad.read : 0;
-        }
-        if (at >= kCodeHandlerAddress && at < 0x81800000) {
-            const std::uint32_t load_from_0x28 = 0x80000028;  // lwz r0, 0x28(0)
-            std::memcpy(reinterpret_cast<void*>(at), &load_from_0x28, 4);
-            DCFlushRange(reinterpret_cast<void*>(at & ~31u), 32);
-            ICInvalidateRange(reinterpret_cast<void*>(at & ~31u), 32);
-            logf("debug_crash: a read from 0x28 at 0x%08x\n", at);
-        }
-    }
+    install_game_extras(extras);
+    apply_debug_crash(dol);
     // Last, in gamepatches.c's order: Wiimmfi's Mario Kart Wii patch goes
     // below everything else in the MEM1 arena. Packs bring their own online
     // setup (and may have replaced the code these patches expect).
@@ -2144,13 +2328,7 @@ bool boot_after_unmount(const DiscProbe& probe, BootOptions& options, const Save
     }
     if (debug_off("returnto")) logf("Return to: debug_off: the game is not patched\n");
     else apply_return_to(loaded, return_to, return_stub);
-    // After Return to RiftWii: its exit hook takes the "li rZ,0" that
-    // patch_return_to looks for to find __OSLaunchMenu's first place, and
-    // placed before, it left the game going to the Wii Menu (2610-371).
-    if (wlog.active) {
-        std::string why;
-        if (!install_wpad_log(wlog, why)) logf("Wii Remote log: off: %s\n", why.c_str());
-    }
+    install_wpad_log_last(extras);
     settime(secs_to_ticks(static_cast<u64>(std::time(nullptr)) - kWiiEpochOffset));
 
     release_card_and_log();
@@ -2709,87 +2887,9 @@ bool boot_game(const DiscProbe& probe, BootOptions options, std::string& error) 
         g_extras.gc_adapter = GcAdapterMode::Off;
         g_extras.gc_adapter_forced = false;
     }
-    if (g_extras.gc_adapter == GcAdapterMode::Auto || g_extras.gc_adapter == GcAdapterMode::On) {
-        // Where the adapter broke the launch on hardware, it stays off and
-        // USB is not touched for it: on a Wii U's d2x cIOS /dev/usb/hid
-        // never answered; with the game read from the USB drive through
-        // d2x, the game's disc reads failed. A Wii U's IOS 58 refused
-        // RiftWii's handle only while the menu's USB held /dev/usb/hid;
-        // the game's is opened after libogc's USB is shut down.
-        // On a Wii U only IOS 58 and a d2x on base 58 reach the adapter
-        // in every USB port (a tester's check of each cIOS).
-        // The same on a Wii's d2x on base 56 or older (v4 USB) with the
-        // game read from the SD card: after the launch's USB check (libogc's
-        // USB shut down, the device list asked) every disc command failed
-        // (a tester's New Super Mario Bros. Wii image on 249: BCA -4, then
-        // "open partition failed: DI reply 128"), with or without asking
-        // /dev/usb/hid anything.
-        const int adapter_base = d2x_base(running_ios);
-        const char* off = is_wii_u() && running_ios != 58 && running_ios != wii_u_adapter_slot()
-                              ? "on a Wii U it needs IOS 58 or a d2x cIOS on base 58"
-                          // A Wii U's d2x on base 58 reads the USB drive and
-                          // the adapter together (a tester's Brawl from USB on
-                          // IOS251); elsewhere a USB game's reads failed.
-                          : di::frag_device() == 1 && !(is_wii_u() && adapter_base == 58)
-                              ? "the game is read from the USB drive, which the adapter breaks"
-                          : di::frag_device() != 0 && adapter_base != 0 && adapter_base < 57
-                              ? "the game is read through d2x on base 56 or older, whose USB the adapter check breaks"
-                              : nullptr;
-        // On (not Automatic) tries anyway: an experiment the player chose.
-        // Every /dev/usb/hid call at launch has a time limit, so a module
-        // that never answers turns the adapter off rather than hang.
-        g_extras.gc_adapter_forced = g_extras.gc_adapter == GcAdapterMode::On;  // the player's choice, not Automatic's
-        if (off && g_extras.gc_adapter_forced) {
-            logf("GameCube adapter: on anyway (the setting is On), although %s\n", off);
-        } else if (off) {
-            logf("GameCube adapter: off: %s\n", off);
-            g_extras.gc_adapter = GcAdapterMode::Off;
-        }
-    }
-    if (g_extras.gc_adapter == GcAdapterMode::Auto && GcAdapterMenuSawNone()) {
-        // The menu looked every 2 s until the launch and USB listed none:
-        // USB is left alone, and the launch does not wait for our own
-        // /dev/usb/hid (on a Wii's d2x 250 its v5 GetVersion never answered,
-        // 1.5 s of every launch) or for the devices after the IOS reload.
-        logf("GameCube adapter (auto): not plugged in (the menu's USB list had none)\n");
-        g_extras.gc_adapter = GcAdapterMode::Off;
-    }
-    if (g_extras.gc_adapter == GcAdapterMode::Auto || g_extras.gc_adapter == GcAdapterMode::On) {
-        // Auto: on only when an adapter is there now, so games that use
-        // USB input of their own (and games with their own adapter code)
-        // are left alone otherwise.
-        std::string how;
-        // libogc's USB lets go first: its handle 0 and the adapter the
-        // menu's driver had through it. A disc game keeps the menu's IOS,
-        // and its handle found the adapter still taken (a tester: SD and
-        // RVZ games, after an IOS reload, worked; the disc did not).
-        // Not for an image d2x reads (fragment list, SD or USB): those start
-        // on a fresh cIOS, and on a Wii U's d2x (IOS251, Mario Kart Wii from
-        // the SD card, adapter On) every disc command after this failed
-        // (BCA -4, then the partition DI 128), from 2610-178, which added it,
-        // to 2610-290; 2610-168 never called it and the adapter worked there.
-        if (di::frag_device() == 0) USB_Deinitialize();
-        // A d2x on base 56 or older has v4's /dev/usb/hid (57's and 58's
-        // are v5, as IOS 58's).
-        const int base = d2x_base(running_ios);
-        if (base != 0 && base < 57) {
-            usb_hid_is_v4();
-            logf("GameCube adapter: IOS%d is d2x on base %d, whose /dev/usb/hid is v4\n", running_ios, base);
-        }
-        // No probe of /dev/usb/hid and /dev/usb/ven here, not even with the
-        // setting On: on a Wii's d2x 249 (a New Super Mario Bros. Wii image
-        // on the SD card, no adapter), and on a Wii U's d2x v11 beta3 on
-        // base 58 (Mario Kart Wii on the SD card, adapter On), every disc
-        // command after it failed (BCA -4, then opening the partition).
-        // The adapter is found in the USB device list instead.
-        const AdapterSeen seen = look_for_gc_adapter(how);
-        logf("GameCube adapter (%s): %s\n", g_extras.gc_adapter == GcAdapterMode::Auto ? "auto" : "on", how.c_str());
-        if (g_extras.gc_adapter == GcAdapterMode::Auto) {
-            g_extras.gc_adapter = seen == AdapterSeen::Missing ? GcAdapterMode::Off : GcAdapterMode::On;
-        }
-        // The handle the check opened is the game's only with the adapter on.
-        if (g_extras.gc_adapter == GcAdapterMode::Off) close_adapter_session();
-    }
+    // Judged under the running IOS: with the adapter on, the game keeps it
+    // (below).
+    settle_gc_adapter(running_ios, di::frag_device(), "the game", false);
     // Games on IOS57 start under it even when the runtime needs the card:
     // Just Dance 2014 goes black under IOS58 (on a tester's Wii U, with a
     // save-only pack and with a files-only one) and runs under IOS57, which
@@ -3007,6 +3107,7 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
     // each reload kills their handles; the card comes back after it, for
     // the log, until the jump.
     release_wii_remotes();
+    ProgressStage("Starting the game's IOS", 62);
     bool card = true;
     bool identified = false;
     for (int ios : files.ios_order) {
@@ -3067,8 +3168,15 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
         return false;
     }
 
+    // Settings > GameCube adapter, with the rules a disc game gets, judged
+    // under the IOS the game now runs on (on a Wii U, IOS 58 or a d2x on
+    // base 58). An emulated NAND is d2x's to read while the game runs.
+    const int nand_device = files.emu_nand.empty() ? 0 : files.emu_nand.compare(0, 4, "usb:") == 0 ? 1 : 2;
+    settle_gc_adapter(IOS_GetVersion(), nand_device, "the emulated NAND", true);
+
     // The program, section by section. Its BSS is cleared by the game's
     // own start-up code, as on a disc.
+    ProgressStage("Loading the game", 70);
     std::vector<MemoryRegion> loaded;
     for (std::size_t i = 0; i < kDolSections; ++i) {
         const DolSection& s = dol.sections[i];
@@ -3081,6 +3189,38 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
     }
     files.dol.clear();
     files.dol.shrink_to_fit();
+    logf("Memory for the game: MEM2 arena 0x%08x-0x%08x, MEM2 end 0x%08x, IPC buffer 0x%08x-0x%08x (IOS%d)\n",
+         read32(0x80003124), read32(0x80003128), read32(0x80003120), read32(0x80003130), read32(0x80003134),
+         IOS_GetVersion());
+
+    // The extras a disc game gets (wii/hooks): the GameCube adapter,
+    // screenshots, the crash recorder and the Wii Remote log, planned the
+    // same way. A channel has no FST: its MEM1 arena runs to the top of
+    // MEM1, so their blobs are carved from that top, above this loader and
+    // any of the program that loads past it (channel_extras_floor). Their
+    // state goes at the bottom of the MEM2 arena, as for a disc. Nothing
+    // goes into low memory, where the program may start (0x80003400).
+    // Code builds (Project+ and its kind) are disc games, so a channel is
+    // never one.
+    const bool gx_protected = gx_protected_game(files.game_id);
+    const bool clears_mem1_top = game_clears_mem1_top(files.game_id);
+    const std::uint32_t loader_end = reinterpret_cast<std::uint32_t>(SYS_GetArena1Hi());
+    GameExtras extras;
+    const bool adapter_wanted = g_extras.gc_adapter != GcAdapterMode::Off && !gx_protected && !clears_mem1_top;
+    ExtrasContext extras_context;
+    extras_context.arena1_hi = kMem1End;
+    extras_context.arena2_lo = read32(0x80003124);
+    extras_context.mem1_floor = channel_extras_floor(dol, loader_end);
+    extras_context.gc_adapter = prepare_gc_pads(dol, adapter_wanted, gx_protected, extras.pad);
+    extras_context.gx_protected = gx_protected;
+    extras_context.clears_mem1_top = clears_mem1_top;
+    plan_game_extras(dol, extras_context, extras);
+    const std::uint32_t arena1_top = extras.arena1_hi(kMem1End);
+    const std::uint32_t arena2_low = extras.arena2_lo(extras_context.arena2_lo);
+    logf("Wii channels: the game's MEM1 arena ends at 0x%08x, the extras taking %u KB above it (they may use "
+         "0x%08x-0x%08x); its MEM2 arena starts at 0x%08x, the extras taking %u KB below it\n",
+         arena1_top, whole_kb(kMem1End - arena1_top), extras_context.mem1_floor, kMem1End, arena2_low,
+         whole_kb(arena2_low - extras_context.arena2_lo));
 
     // Low memory as the system leaves it for a game (as boot_after_unmount
     // writes it for a disc), with the title's ID in the place of a disc's
@@ -3095,9 +3235,10 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
     store32(0x800000F0, 0x01800000);  // simulated memory size
     store32(0x800000F8, 0x0E7BE2C0);  // bus clock
     store32(0x800000FC, 0x2B73A840);  // CPU clock
-    // The MEM1 arena runs to the top of MEM1: there is no FST below it.
-    store32(0x80000034, kMem1End);
-    store32(0x80003110, kMem1End);
+    // The MEM1 arena runs to the top of MEM1 (there is no FST below it),
+    // or to the lowest of the extras' blobs.
+    store32(0x80000034, arena1_top);
+    store32(0x80003110, arena1_top);
     std::memcpy(reinterpret_cast<void*>(0x80003180), code.data(), std::min<std::size_t>(code.size(), 4));
     store32(0x80003184, 0x80000000);  // where the game id lives
     store32(0x80003194, 0);
@@ -3117,18 +3258,22 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
         logf("Wii channels: running IOS%d; reporting IOS%u to the game\n", IOS_GetVersion(),
              static_cast<unsigned>(files.required_ios));
     }
+    // The MEM2 arena starts above the extras' state. IOS's own field, like
+    // 0x3140: uncached, after the flush.
+    if (extras.any()) write32(0x80003124, arena2_low);
     const char region = code.size() == 4 ? code[3] : 'E';
     configure_video_for_game(region);
 
     // The game page's extras, in the order a disc game gets them: the
-    // picture and language, the game's settings, the cheats, the online
-    // server. The card stays up for the log and the border note.
+    // picture and language, the game's settings, the cheats, the hooks,
+    // the online server, the way back. The card stays up for the log and
+    // the border note.
     g_card_live_for_log = card;
     apply_video(loaded, false);
+    std::vector<CodeSpan> spans;
+    for (const MemoryRegion& r : loaded)
+        spans.push_back(CodeSpan{reinterpret_cast<std::uint8_t*>(r.address), r.length, r.address});
     {
-        std::vector<CodeSpan> spans;
-        for (const MemoryRegion& r : loaded)
-            spans.push_back(CodeSpan{reinterpret_cast<std::uint8_t*>(r.address), r.length, r.address});
         GxReport gx;
         unsigned changed = 0;
         if (g_extras.region_video) changed += gx_region_video_fix(region, spans, gx);
@@ -3146,20 +3291,30 @@ bool boot_channel(ChannelBootFiles files, std::string& error) {
             }
         }
     }
+    apply_wpad_probe_test(loaded, spans, gx_protected, false, extras.wlog);
     if (!g_extras.cheat_gct.empty()) {
         std::string why;
-        if (!install_cheats(loaded, {}, {}, why)) logf("Codes are off: %s\n", why.c_str());
+        std::vector<MemoryRegion> keep_out;
+        extras.add_ranges(keep_out, false);
+        if (!install_cheats(loaded, {}, keep_out, why)) logf("Codes are off: %s\n", why.c_str());
     }
+    install_game_extras(extras);
+    apply_debug_crash(dol);
     if (g_extras.server != WfcServer::Off) ApplyWfc(loaded, g_extras.server, g_extras.wfc_domain, g_extras.game_id, 0);
 
     // Back to RiftWii: the stub in the room a code build's uses (below
     // 0x80003000, past the code handler, which no game's OS touches).
     const u64 return_to = debug_off("returnto") ? 0 : return_title();
     apply_return_to(loaded, return_to, kCodeReturnStub);
+    install_wpad_log_last(extras);
 
+    ProgressStage("Starting the game", 100);
     logf("Wii channels: handing over to %s\n", files.game_id.c_str());
     release_card_and_log();
     settime(secs_to_ticks(static_cast<u64>(std::time(nullptr)) - kWiiEpochOffset));
+    // The last moment for the menu's music, as for a disc game: libogc
+    // shuts down next, and the game then takes the DSP.
+    LaunchMusicEnd("the game starts next");
     SYS_ResetSystem(SYS_SHUTDOWN, 0, 0);
     dolboot_system_call_vector();
     reinterpret_cast<void (*)()>(dol.entry)();
