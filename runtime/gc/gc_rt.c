@@ -417,7 +417,7 @@ static uint32_t gc_trace_slot(const struct gc_rt_context* ctx, uint32_t seq) {
 }
 
 /* The test remote's results fill the trace's GC_TR_BT_FAKE words. */
-typedef char gc_fake_log_fits[(GC_TR_WORDS - GC_TR_BT_FAKE == GC_BT_FAKE_STEPS * 2) ? 1 : -1];
+typedef char gc_fake_log_fits[(GC_TR_BT_PROGRESS - GC_TR_BT_FAKE == GC_BT_FAKE_STEPS * 2) ? 1 : -1];
 
 /* One record of the trace (gc_rt.h), with interrupts held off so it
  * cannot meet a read on the card; skipped while a read is going on. */
@@ -479,6 +479,12 @@ static int32_t gc_trace(struct gc_rt_context* ctx, uint32_t where) {
         gc_copy((uint8_t*)&w[GC_TR_BT_EVENT_LOG], &bt->event_log[0][0], 32);
         w[GC_TR_BT_SHAKES] = bt->shakes;
         gc_copy((uint8_t*)&w[GC_TR_BT_FAKE], (const uint8_t*)bt->fake_log, sizeof(bt->fake_log));
+        w[GC_TR_BT_PROGRESS] = bt->progress;
+        w[GC_TR_BT_LINK] = (uint32_t)bt->conn_status << 24 | (uint32_t)bt->auth_status << 16 |
+                           (uint32_t)bt->disconnect_reason << 8 | bt->ext_error;
+        w[GC_TR_BT_EXT] = (uint32_t)bt->ext_id[0] << 24 | (uint32_t)bt->ext_id[1] << 16 | (uint32_t)bt->last_mode << 8 |
+                          bt->ext_given_up;
+        w[GC_TR_BT_REPORTS] = bt->data_reports;
     }
     if (ctx->card) {
         const struct gc_card* card = (const struct gc_card*)(uintptr_t)ctx->card;

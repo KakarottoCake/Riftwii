@@ -15,6 +15,8 @@
 #define GC_BT_EP_ACL_IN 0x82u
 #define GC_BT_EP_ACL_OUT 0x02u
 #define GC_BT_WRITE_POLLS 20000000u  /* polls before a write counts as lost */
+#define GC_BT_EXT_WAIT 60u      /* PADReads (a second) an extension's start may take a step */
+#define GC_BT_EXT_RETRIES 3u
 
 /* HCI opcodes (OGF << 10 | OCF). */
 #define GC_HCI_ACCEPT_CONNECTION 0x0409u
@@ -28,6 +30,7 @@
 
 /* HCI events. */
 #define GC_EV_CONNECTION_COMPLETE 0x03u
+#define GC_EV_AUTHENTICATION_COMPLETE 0x06u
 #define GC_EV_CONNECTION_REQUEST 0x04u
 #define GC_EV_DISCONNECTED 0x05u
 #define GC_EV_COMMAND_COMPLETE 0x0Eu
@@ -237,6 +240,8 @@ static void bt_next_step(struct gc_bt* bt) {
     uint8_t params[7];
     uint32_t i;
     bt->stage_polls = 0;
+    if (bt->stage == GC_BT_STAGE_RESET) bt->progress |= GC_BT_SEEN_RESET;
+    if (bt->stage == GC_BT_STAGE_SCAN) bt->progress |= GC_BT_SEEN_SCAN;
     if (bt->stage == GC_BT_STAGE_RESET) {
         for (i = 0; i < 6; ++i) params[i] = 0;
         params[6] = 1;  /* all of them */
@@ -267,15 +272,20 @@ static void bt_on_event(struct gc_bt* bt, const uint8_t* e, uint32_t length) {
         const uint32_t opcode = code == GC_EV_COMMAND_COMPLETE ? bt_le16(p + 1) : bt_le16(p + 2);
         const uint32_t status = code == GC_EV_COMMAND_COMPLETE ? p[3] : p[0];
         bt->credits = code == GC_EV_COMMAND_COMPLETE ? p[0] : p[1];
-        if (code == GC_EV_COMMAND_COMPLETE && status != 0) bt->last_error = (int32_t)(0x10000u | opcode << 8 | status);
+        if (code == GC_EV_COMMAND_COMPLETE && status != 0) {
+            bt->last_error = (int32_t)(0x10000u | opcode << 8 | status);
+            bt->progress |= GC_BT_SEEN_COMMAND_ERROR;
+        }
         if (code == GC_EV_COMMAND_COMPLETE && opcode == bt_step_opcode(bt)) bt_next_step(bt);
         return;
     }
     if (code == GC_EV_RETURN_LINK_KEYS) {
         for (i = 0; i < p[0] && bt->key_count < GC_BT_KEYS; ++i) bt_copy(bt->keys[bt->key_count++], p + 1 + 22 * i, 22);
+        if (bt->key_count != 0) bt->progress |= GC_BT_SEEN_KEYS;
         return;
     }
     if (code == GC_EV_CONNECTION_REQUEST) {
+        bt->progress |= GC_BT_SEEN_CONN_REQUEST;
         bt_copy(reply, p, 6);
         reply[6] = 0x00;  /* become the master: several remotes share this end */
         bt_command(bt, GC_HCI_ACCEPT_CONNECTION, reply, 7);
@@ -284,7 +294,12 @@ static void bt_on_event(struct gc_bt* bt, const uint8_t* e, uint32_t length) {
     if (code == GC_EV_CONNECTION_COMPLETE) {
         struct gc_bt_remote* r;
         uint32_t slot;
-        if (p[0] != 0) return;
+        bt->conn_status = p[0];
+        if (p[0] != 0) {
+            bt->progress |= GC_BT_SEEN_CONN_FAILED;
+            return;
+        }
+        bt->progress |= GC_BT_SEEN_CONNECTED;
         slot = gc_ports_slot_for(bt->remotes, p + 3);
         if (slot >= GC_BT_REMOTES) return;  /* four already: it waits for one to leave */
         r = &bt->remotes[slot];
@@ -304,21 +319,34 @@ static void bt_on_event(struct gc_bt* bt, const uint8_t* e, uint32_t length) {
     if (code == GC_EV_DISCONNECTED) {
         struct gc_bt_remote* r = bt_by_handle(bt, bt_le16(p + 1) & 0x0FFFu);
         if (p[0] == 0 && r) r->used = 0;
+        bt->disconnect_reason = p[3];
+        bt->progress |= GC_BT_SEEN_DISCONNECT;
+        return;
+    }
+    if (code == GC_EV_AUTHENTICATION_COMPLETE) {
+        /* Only noted: a remote that fails it is dropped by the controller. */
+        bt->auth_status = p[0];
+        bt->progress |= p[0] == 0 ? GC_BT_SEEN_AUTH_OK : GC_BT_SEEN_AUTH_FAILED;
         return;
     }
     if (code == GC_EV_LINK_KEY_REQUEST) {
+        bt->progress |= GC_BT_SEEN_KEY_REQUEST;
         for (i = 0; i < bt->key_count; ++i)
             if (bt_same(bt->keys[i], p, 6)) {
                 bt_copy(reply, bt->keys[i], 22);
                 bt_command(bt, GC_HCI_LINK_KEY_REPLY, reply, 22);
                 return;
             }
+        /* Not among the keys the controller returned: the remote is then
+         * asked for a PIN, which is refused below. */
+        bt->progress |= GC_BT_SEEN_NO_KEY;
         bt_copy(reply, p, 6);
         bt_command(bt, GC_HCI_LINK_KEY_NEGATIVE, reply, 6);
         return;
     }
     if (code == GC_EV_PIN_REQUEST) {
         /* Syncing is the Wii Menu's job; a remote that is not synced is refused. */
+        bt->progress |= GC_BT_SEEN_PIN_REQUEST;
         bt_copy(reply, p, 6);
         bt_command(bt, GC_HCI_PIN_NEGATIVE, reply, 6);
     }
@@ -372,6 +400,8 @@ static void bt_set_mode(struct gc_bt* bt, const struct gc_bt_remote* r) {
     m[1] = 0x00;
     if (r->ext_step == 4) m[2] = accel ? 0x35 : 0x32;
     else m[2] = accel ? 0x31 : 0x30;
+    bt->last_mode = m[2];
+    bt->progress |= GC_BT_SEEN_MODE;
     bt_report(bt, r, m, 3);
 }
 
@@ -395,12 +425,14 @@ static void bt_on_input(struct gc_bt* bt, struct gc_bt_remote* r, const uint8_t*
         /* A status report: the extension may have come or gone. The
          * remote stops reporting until the mode is set again. */
         const uint32_t plugged = p[4] & 0x02u;
+        bt->progress |= plugged ? GC_BT_SEEN_STATUS | GC_BT_SEEN_EXTENSION : GC_BT_SEEN_STATUS;
         if (!plugged) {
             r->ext_step = 0;
             r->ext_kind = GC_BT_EXT_NONE;
         }
         if (plugged && r->ext_step == 0) {
             r->ext_step = 1;
+            r->ext_wait = 0;
             bt_ext_write(bt, r, 0xF0, 0x55);
             return;
         }
@@ -410,14 +442,21 @@ static void bt_on_input(struct gc_bt* bt, struct gc_bt_remote* r, const uint8_t*
     }
     if (id == 0x22 && length >= 6 && p[4] == 0x16) {
         if (p[5] != 0) {
-            r->ext_step = 0;  /* unplugged meanwhile: the next status starts again */
+            /* Refused (or unplugged meanwhile): bt_check_extensions starts
+             * it again at the next PADRead. */
+            bt->ext_error = p[5];
+            bt->progress |= GC_BT_SEEN_EXT_ERROR;
+            r->ext_wait = GC_BT_EXT_WAIT;
             return;
         }
+        bt->progress |= GC_BT_SEEN_EXT_WRITE;
+        r->ext_wait = 0;
         if (r->ext_step == 1) {
             r->ext_step = 2;
             bt_ext_write(bt, r, 0xFB, 0x00);
         } else if (r->ext_step == 2) {
             r->ext_step = 3;
+            r->ext_wait = 0;
             q[0] = 0x17;
             q[1] = 0x04;
             q[2] = 0xA4;
@@ -433,8 +472,18 @@ static void bt_on_input(struct gc_bt* bt, struct gc_bt_remote* r, const uint8_t*
         /* The extension's ID: ends 00 00 for a Nunchuk, 01 01 for a
          * Classic Controller (Pro). */
         const uint32_t kind = p[11] << 8 | p[12];
+        if ((p[4] & 0x0F) != 0) {
+            /* The read failed: started again, as a refused write is. */
+            bt->ext_error = (uint8_t)(0x80u | (p[4] & 0x0Fu));
+            bt->progress |= GC_BT_SEEN_EXT_ERROR;
+            r->ext_wait = GC_BT_EXT_WAIT;
+            return;
+        }
+        bt->ext_id[0] = p[11];
+        bt->ext_id[1] = p[12];
+        bt->progress |= GC_BT_SEEN_EXT_ID;
         r->ext_kind = kind == 0x0000 ? GC_BT_EXT_NUNCHUK : kind == 0x0101 ? GC_BT_EXT_CLASSIC : GC_BT_EXT_OTHER;
-        r->ext_step = (p[4] & 0x0F) == 0 ? 4 : 0;
+        r->ext_step = 4;
         /* Until the first report with the extension's bytes: sticks in the
          * middle and every button up (active low), not the zeros or another
          * extension's bytes, which read as everything pressed. */
@@ -446,6 +495,10 @@ static void bt_on_input(struct gc_bt* bt, struct gc_bt_remote* r, const uint8_t*
     }
     /* The data reports: 0xA1, the ID, the two button bytes, then the
      * accelerometer's three (0x31, 0x35) and the extension's bytes. */
+    if (id >= 0x30 && id <= 0x3F) {
+        bt->data_reports++;
+        bt->progress |= GC_BT_SEEN_DATA;
+    }
     if ((id == 0x31 || id == 0x35) && length >= 7) bt_on_accel(r, p + 4);
     if (id == 0x32 && length >= 10) bt_copy(r->ext, p + 4, 6);
     if (id == 0x35 && length >= 13) bt_copy(r->ext, p + 7, 6);
@@ -464,6 +517,7 @@ static void bt_on_signal(struct gc_bt* bt, struct gc_bt_remote* r, uint32_t slot
             const uint32_t intr = psm == GC_PSM_HID_INTERRUPT;
             const uint32_t ours = GC_BT_LOCAL_CID + 2 * slot + intr;
             const uint32_t known = psm == GC_PSM_HID_CONTROL || intr;
+            bt->progress |= GC_BT_SEEN_L2CAP;
             out[0] = GC_L2_CONNECT_RSP;
             out[1] = (uint8_t)ident;
             bt_put16(out + 2, 8);
@@ -521,6 +575,7 @@ static void bt_on_signal(struct gc_bt* bt, struct gc_bt_remote* r, uint32_t slot
         /* Its port's LED, then a status report to learn of an extension. */
         uint8_t led[2];
         r->ready = 1;
+        bt->progress |= GC_BT_SEEN_READY;
         led[0] = 0x11;
         led[1] = (uint8_t)(0x10u << slot);
         r->led_port = (uint8_t)slot;
@@ -580,11 +635,42 @@ static void bt_open(struct gc_bt* bt) {
         bt->stage = GC_BT_STAGE_FAILED;
         return;
     }
+    bt->progress |= GC_BT_SEEN_OPEN;
     for (i = 0; i < GC_BT_EVENT_READS; ++i) bt_read(bt, &bt->events[i], GC_USB_INTRMSG, GC_BT_EP_EVENTS, bt->event_buf[i]);
     for (i = 0; i < GC_BT_ACL_READS; ++i) bt_read(bt, &bt->acl[i], GC_USB_BLKMSG, GC_BT_EP_ACL_IN, bt->acl_buf[i]);
     bt->credits = 1;
     bt_command(bt, GC_HCI_RESET, bt->path, 0);
     bt->stage = GC_BT_STAGE_RESET;
+}
+
+/* An extension whose start stalls (a write refused or never acknowledged,
+ * its ID not read) would leave the remote silent: it sends no buttons until
+ * a report mode is set, and the mode waits for the extension. After a
+ * second it is started again from a status request, up to
+ * GC_BT_EXT_RETRIES times; then the remote is played alone (its buttons, and
+ * HOME and - to leave), and the trace says so (GC_BT_SEEN_EXT_GIVEN_UP). */
+static void bt_check_extensions(struct gc_bt* bt) {
+    uint32_t i;
+    for (i = 0; i < GC_BT_REMOTES && bt->stage != GC_BT_STAGE_FAILED; ++i) {
+        struct gc_bt_remote* r = &bt->remotes[i];
+        uint8_t request[2];
+        if (!r->used || !r->ready || r->ext_step == 0 || r->ext_step == 4) continue;
+        if (++r->ext_wait < GC_BT_EXT_WAIT) continue;
+        r->ext_wait = 0;
+        r->ext_step = 0;
+        if (r->ext_retries < GC_BT_EXT_RETRIES) {
+            r->ext_retries++;
+            bt->progress |= GC_BT_SEEN_EXT_RETRY;
+            request[0] = 0x15;  /* its status report starts the extension again */
+            request[1] = 0x00;
+            bt_report(bt, r, request, 2);
+        } else {
+            r->ext_kind = GC_BT_EXT_NONE;
+            bt->ext_given_up++;
+            bt->progress |= GC_BT_SEEN_EXT_GIVEN_UP;
+            bt_set_mode(bt, r);
+        }
+    }
 }
 
 /* A remote that plays on another port than its LED shows (a GameCube
@@ -617,7 +703,10 @@ void gc_bt_poll(struct gc_rt_context* ctx, struct gc_bt* bt) {
     bt->polls++;
     if (bt->stage == GC_BT_STAGE_CLOSED) bt_open(bt);
     bt_take_replies(bt);
-    if (bt->stage == GC_BT_STAGE_READY) bt_update_leds(bt);
+    if (bt->stage == GC_BT_STAGE_READY) {
+        bt_update_leds(bt);
+        bt_check_extensions(bt);
+    }
     for (i = 0; i < GC_BT_EVENT_READS && bt->stage != GC_BT_STAGE_FAILED; ++i) {
         struct gc_bt_rq* rq = &bt->events[i];
         if (rq->state != GC_BT_RQ_DONE) continue;
@@ -633,6 +722,7 @@ void gc_bt_poll(struct gc_rt_context* ctx, struct gc_bt* bt) {
         bt_read(bt, rq, GC_USB_BLKMSG, GC_BT_EP_ACL_IN, bt->acl_buf[i]);
     }
     if (bt->stage >= GC_BT_STAGE_RESET && bt->stage <= GC_BT_STAGE_SCAN && ++bt->stage_polls == 30) {
+        bt->progress |= GC_BT_SEEN_STEP_TIMEOUT;
         bt->credits = 1;
         bt_next_step(bt);
     }

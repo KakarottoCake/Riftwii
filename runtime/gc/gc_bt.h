@@ -91,7 +91,8 @@ struct gc_bt_remote {
     uint8_t accel_known;  /* accel holds a reading to compare the next with */
     uint8_t jolted;       /* a jolt since the last PADRead */
     uint8_t shake_timer;  /* gc_shake_step's */
-    uint8_t spare2[2];
+    uint8_t ext_wait;     /* PADReads its extension's start has waited (gc_bt.c) */
+    uint8_t ext_retries;  /* starts given another go */
 };
 
 struct gc_bt {
@@ -127,11 +128,51 @@ struct gc_bt {
     uint8_t event_log[4][8];  /* the first four events' first bytes, for the trace */
     uint32_t event_lengths;   /* their lengths, a byte each */
     uint32_t shakes;          /* shakes that pressed their button, all remotes */
+    /* How far the Bluetooth got, for a tester's trace (GC_BT_SEEN_*), and
+     * what came back when it did not go further. */
+    uint32_t progress;
+    uint8_t conn_status;      /* the last Connection_Complete's status (0: connected) */
+    uint8_t auth_status;      /* the last Authentication_Complete's status (0: authenticated) */
+    uint8_t disconnect_reason;
+    uint8_t ext_error;        /* the last error a remote gave to the extension's start (write ack or read) */
+    uint8_t ext_id[2];        /* the last extension ID read: 00 00 Nunchuk, 01 01 Classic Controller */
+    uint8_t last_mode;        /* the last report mode sent */
+    uint8_t ext_given_up;     /* extensions whose start never finished: played as a remote alone */
+    uint32_t data_reports;    /* data reports (0x30-0x3f) from every remote */
     /* The test remote's results (gc_bt_fake): two words a step. */
     uint32_t fake_log[GC_BT_FAKE_STEPS * 2];
     /* What each button presses (gc_controls.h), filled by the loader. */
     struct gc_map map;
 };
+
+/* gc_bt.progress: a bit for each step a tester's trace should show,
+ * set the first time it happens and never cleared. */
+#define GC_BT_SEEN_OPEN 0x00000001u          /* /dev/usb/oh1/57e/305 opened */
+#define GC_BT_SEEN_RESET 0x00000002u         /* HCI_Reset completed */
+#define GC_BT_SEEN_KEYS 0x00000004u          /* the controller returned stored link keys */
+#define GC_BT_SEEN_SCAN 0x00000008u          /* Write_Scan_Enable completed: remotes may connect */
+#define GC_BT_SEEN_STEP_TIMEOUT 0x00000010u  /* a start-up step went on without its reply */
+#define GC_BT_SEEN_COMMAND_ERROR 0x00000020u /* a command completed with an error (last_error) */
+#define GC_BT_SEEN_CONN_REQUEST 0x00000040u  /* a remote asked to connect */
+#define GC_BT_SEEN_CONNECTED 0x00000080u     /* Connection_Complete, status 0 */
+#define GC_BT_SEEN_CONN_FAILED 0x00000100u   /* Connection_Complete with an error (conn_status) */
+#define GC_BT_SEEN_KEY_REQUEST 0x00000200u   /* Link_Key_Request */
+#define GC_BT_SEEN_NO_KEY 0x00000400u        /* ...for a remote whose key the controller did not return */
+#define GC_BT_SEEN_PIN_REQUEST 0x00000800u   /* a PIN asked for: the remote is not synced here */
+#define GC_BT_SEEN_AUTH_OK 0x00001000u       /* Authentication_Complete, status 0 */
+#define GC_BT_SEEN_AUTH_FAILED 0x00002000u   /* ...with an error (auth_status) */
+#define GC_BT_SEEN_DISCONNECT 0x00004000u    /* a remote went away (disconnect_reason) */
+#define GC_BT_SEEN_L2CAP 0x00008000u         /* the remote opened an HID channel */
+#define GC_BT_SEEN_READY 0x00010000u         /* both channels configured, the LED set */
+#define GC_BT_SEEN_STATUS 0x00020000u        /* a status report */
+#define GC_BT_SEEN_EXTENSION 0x00040000u     /* ...with an extension plugged in */
+#define GC_BT_SEEN_EXT_WRITE 0x00080000u     /* a write to the extension acknowledged */
+#define GC_BT_SEEN_EXT_ERROR 0x00100000u     /* the remote gave an error to the extension's start (ext_error) */
+#define GC_BT_SEEN_EXT_ID 0x00200000u        /* the extension's ID read (ext_id) */
+#define GC_BT_SEEN_MODE 0x00400000u          /* a report mode sent (last_mode) */
+#define GC_BT_SEEN_DATA 0x00800000u          /* a data report: the buttons reach the game */
+#define GC_BT_SEEN_EXT_RETRY 0x01000000u     /* the extension's start given another go */
+#define GC_BT_SEEN_EXT_GIVEN_UP 0x02000000u  /* ...and given up: the remote plays alone */
 
 #define GC_BT_STAGE_CLOSED 0u
 #define GC_BT_STAGE_RESET 1u    /* HCI_Reset sent */

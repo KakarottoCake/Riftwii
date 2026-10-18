@@ -20,6 +20,12 @@ namespace riftwii {
 // no crash (or is not a trace).
 bool describe_gc_crash(const std::vector<std::uint8_t>& trace, const std::string& game_id, std::string& text);
 
+// The Wii Remotes in the last GameCube game, from the trace's newest record
+// (runtime/gc/gc_bt.h's progress, gc_rt.h's GC_TR_BT_* words), as plain
+// sentences for a problem report: how far the Bluetooth got and where it
+// stopped. False when `trace` holds no record.
+bool describe_gc_remotes(const std::vector<std::uint8_t>& trace, std::string& text);
+
 // The crash screen the menu draws for the blob (runtime/gc/gc_crash.h):
 // a card with the header and the hint, and a strip of pieces the blob
 // puts the dump together from at the crash.

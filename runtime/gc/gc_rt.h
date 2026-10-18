@@ -135,7 +135,12 @@ enum gc_trace_word {
     GC_TR_PAD_ERRS, /* each port's err as the game got it after the remotes' fill, port 1 in the top byte; 0xFF none */
     GC_TR_BT_SHAKES, /* shakes that pressed their button (gc_controls.h), all remotes */
     GC_TR_BT_FAKE, /* 16 words: the test remote's results (gc_bt.h's fake_log) */
-    GC_TR_WORDS = GC_TR_BT_FAKE + 16
+    GC_TR_BT_PROGRESS = GC_TR_BT_FAKE + 16, /* how far the Bluetooth got: gc_bt.h's GC_BT_SEEN_* bits */
+    GC_TR_BT_LINK, /* the last Connection_Complete status << 24 | Authentication_Complete status << 16 |
+                    * disconnect reason << 8 | the extension's last error (0x80 | n: its ID read failed) */
+    GC_TR_BT_EXT, /* the last extension ID << 16 | the last report mode << 8 | extensions given up */
+    GC_TR_BT_REPORTS, /* data reports from every remote */
+    GC_TR_WORDS
 };
 typedef char gc_trace_fits[(GC_TR_WORDS * 4 <= 512) ? 1 : -1];
 /* where: what wrote the record */
