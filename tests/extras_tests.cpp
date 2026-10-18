@@ -1179,6 +1179,12 @@ void TestCoverArt() {
     EXPECT_EQ(s.menu_music, "off");
     s.parse("menu_music = loud\n");
     EXPECT_EQ(s.menu_music, "off");
+    EXPECT_EQ(s.launch_music, "on");
+    s.parse("launch_music = off\n");
+    EXPECT_EQ(s.launch_music, "off");
+    EXPECT_TRUE(s.serialize().find("launch_music = off\n") != std::string::npos);
+    s.parse("launch_music = loud\n");
+    EXPECT_EQ(s.launch_music, "off");
     EXPECT_EQ(s.menu_font, "riftwii");
     EXPECT_EQ(s.clock, "auto");
     s.parse("clock = 24\n");
