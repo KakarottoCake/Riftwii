@@ -2,8 +2,9 @@
 
 Status: stage (a) is built (the loader, API 1, the `selftest` plugin, the
 packaging and the checks; "Stage (a) as built" below). Stage (b), the
-GameCube loader as a plugin, has its design below ("Stage (b): the
-GameCube loader as a plugin"); stage (c) is still the design. No number here was measured on a Wii; the sizes
+GameCube loader as the `gamecube` plugin, is built too ("Stage (b): the
+GameCube loader as a plugin" has its design, "Stage (b) as built" what
+came out and the sizes); stage (c) is still the design. No number here was measured on a Wii; the sizes
 of stage (a) are from the Wii build, the rest are estimates. The words
 "must" and "will" describe the design.
 
@@ -58,12 +59,13 @@ request:
   `session.log` for `stays taken`. Every run should say `is the heap's
   again`; a run that does not names the path to fix.
 
-What the in-app update does today: it writes the new `boot.dol`, and the
-next start writes the release's apps part (plugins included) from
-`riftwii-update.pack`. Between the two, the new DOL finds no file of its
-own version and says the add-on is missing; it never runs an old one.
-Stage (b) makes the update write the plugins before the DOL, so the
-GameCube loader is there from the first start.
+What the in-app update did in stage (a): it wrote the new `boot.dol`, and
+the next start wrote the release's apps part (plugins included) from
+`riftwii-update.pack`. Between the two, the new DOL found no file of its
+own version and said the add-on was missing; it never ran an old one.
+Stage (b) makes the update write the plugins before the DOL ("Updates:
+plugins first" below), so the GameCube loader is there from the first
+start.
 
 ## Stage (b): the GameCube loader as a plugin
 
@@ -217,11 +219,65 @@ fails a zip without the `gamecube` plugin.
 ### Tests
 
 Host: the table's size and packing (`plugin_tests`), the request's layout
-and the round trip of a packs' plan through it (`gcplugin_tests`), the
+and the round trip of a packs' plan through it (`gcrequest_tests`), the
 update's order. Build: `make_plugin.py check` for `selftest` and
 `gamecube`, the size report. Dolphin: an ISO and an RVZ started by
 `autorun.txt` with the plugin there, and with it missing; the arena's
 "stays taken" check in each `session.log`.
+
+## Stage (b) as built
+
+| Piece | Where |
+| --- | --- |
+| The tables, API 2 | `include/riftwii/plugin_api.h`: API 1's twelve functions and 24 more (the groups above, plus `zstd_error_name`, which the RVZ reader's messages use), 36 in all; `rwp_plugin` with `launch` (28 bytes, `kPluginTableBytes`) |
+| The request | `include/riftwii/plugin_gamecube.h` (`rwp_gc_launch`), `src/patching/gcrequest.cpp` (the packs' plan flattened and built again, the plugin's check of a request; `tests/gcrequest_tests.cpp`) |
+| The DOL's side | `wii/launch/gcplugin.cpp`: `LaunchGcNative` fills the request and calls `plugin::Launch("gamecube", ...)`; `FindGcWayBack`, `SetGcCrashScreen` and the card's backup stay here; `wii/core/plugins.cpp` has the host functions and `Launch` |
+| The plugin | `plugins/gamecube/`: `gcnative.cpp` (the loader, moved), `gcentry.cpp` (`rwp_init`, the table, `launch`), `gchost.cpp` (the loader's helpers on the table: `logf`, `resolve_sd_file`, the disc opened as an ISO or an RVZ, the arena check), `gcblobs.S` (the three `runtime/gc` blobs by `.incbin`) |
+| A C++ plugin's runtime | `plugins/common/rwpruntime.cpp`: `operator new` and `delete`, `memcpy`, `memmove`, `memset`, `memcmp`, `memchr`, `strlen`, `snprintf`, the stdio calls, `stat`, `mkdir`, the `ZSTD_*` names (a decoding context stands for "make one per call"), `abort`, `__cxa_pure_virtual` and the `std::__throw_*` functions; `std::string` instantiated here |
+| The build | `Makefile.plugin`: `.cpp` and `.S` sources, `plugins/common/` for C++ plugins, `<name>_SRC` for the `src/` files a plugin links its own copy of, and libstdc++'s `tree.o` (the red-black tree's balancing, for `std::map`) taken out of the library alone with its unwinding table removed |
+| Out of the DOL | `Makefile.wii`: `gclayout`, `gcclock`, `gcreset` and `gccontrols` in `EXCLUDES`, the `riftwii_gc*` blobs out of `BINFILES` |
+| Updates | `plan_update_writes` (`src/net/update.cpp`, `tests/plugin_tests.cpp`), `WriteUpdatePlugins` (`wii/online/online.cpp`, the pack's asset kept in the update note), `tools/make_update_pack.py` (plugins first, the `gamecube` plugin required) |
+
+Changed from the design while building it:
+
+- `place_on_fragments` moved out of `src/patching/redirect.cpp` into
+  `src/fs/fragments.cpp`: the redirect table's builder beside it catches
+  `std::bad_alloc`, which cannot be built without exceptions, and the
+  plugin needs only the one function.
+- `src/patching/launch.cpp` (for `gc_pal_game`) and `runtime/rtrvz.c`
+  (the RVZ reader's unpacking) are linked into the plugin too.
+- `std::make_shared` is not used in the plugin: libstdc++ asks RTTI for
+  its tag. The disc's `shared_ptr` is made from `new`.
+- libogc's headers stay out of the moved code except for its types and
+  `_CPU_ISR_Disable`: `gettime` is the plugin's own (two reads of the time
+  base), and `DCFlushRange` and `ICInvalidateRange` are names in
+  `gchost.hpp` over `flush_range` and `sync_code`.
+
+Measured (Wii build of this branch, against the merge of upstream main it
+starts from):
+
+| | Before | After |
+| --- | ---: | ---: |
+| `boot.dol` | 7,091,712 bytes | 6,890,752 bytes |
+| The program's end in MEM1 (`__bss_end`) | `0x810F40A0` | `0x810C2FC0` |
+| MEM1 back to the heap at every start | | 200,928 bytes (196 KiB) |
+| `gamecube.<version>.rwp` on the card | | 192,328 bytes |
+| Its share of the 256 KiB arena | | 180,000 bytes (image 179,936, `.bss` 40, 1,022 relocations) |
+
+Of the plugin's image, 75,106 bytes are the three blobs (`riftwii_gc.bin`
+31,488, `riftwii_gc_rvz.zst` 40,822, `riftwii_gc_rvz.rel` 2,796), 90 KiB
+the loader's code and its copies of `src/`. The DOL's saving is net of
+what stage (b) added to it (the host table's 24 functions, the request,
+the update's plugin step).
+
+Still to run in Dolphin for stage (b): a GameCube ISO and an RVZ started
+by `autorun.txt` with the plugin there (the log has `Plugins: gamecube 1
+read from ...`, its arena, `Plugin gamecube: version 1 ready` and then the
+loader's `GameCube: ...` lines as before), the same with the plugin
+missing (the launch fails with the add-on sentence and the log line
+`GameCube games need RiftWii's gamecube plugin in ...`, and RiftWii comes
+back), and the arena check of stage (a) for each (`is the heap's again`).
+Only a Wii shows the timing, the SD card's hand-over and the d2x cases.
 
 RiftWii's loader (`boot.dol`) is linked at `0x80A00000` and grows upward
 toward the apploader at `0x81200000`; its heap is the space between its
@@ -546,7 +602,7 @@ map of a real build (`size` on the ELF by object file) and replace these.
 
 | Rank | Candidate | Estimated MEM1 saving | What it would take |
 | --- | --- | --- | --- |
-| 1 | **The GameCube native loader** | The largest single block: `wii/launch/gcnative.cpp` is about 125 KB of source, with `gclaunch.cpp` and `gcpatch.cpp` another 33 KB, plus the vcdiff reader, the overlay and layout code and the GameCube memory card tools in `src/`, and the embedded `runtime/gc` blobs (compressed in the DOL). A rough first guess is 100-200 KB of image, to be measured | The cleanest cut: the code has one entry (a launch) and one list function. It needs the Launch group of the API; `PrepareGcGameInMenu` in `rift_menu.cpp` and the Home source for GC games move behind the plugin's list/details. The shared helpers (patch application, the FST rewrite used for Riivolution packs) must be split into what only GC uses (goes in the plugin) and what Wii launches also use (stays). The plugin needs its blobs from the DOL: they move into the plugin's file, which also moves their compressed bytes out of MEM1 |
+| 1 | **The GameCube native loader** | The largest single block: `plugins/gamecube/gcnative.cpp` is about 125 KB of source, with `gclaunch.cpp` and `gcpatch.cpp` another 33 KB, plus the vcdiff reader, the overlay and layout code and the GameCube memory card tools in `src/`, and the embedded `runtime/gc` blobs (compressed in the DOL). A rough first guess is 100-200 KB of image, to be measured | The cleanest cut: the code has one entry (a launch) and one list function. It needs the Launch group of the API; `PrepareGcGameInMenu` in `rift_menu.cpp` and the Home source for GC games move behind the plugin's list/details. The shared helpers (patch application, the FST rewrite used for Riivolution packs) must be split into what only GC uses (goes in the plugin) and what Wii launches also use (stays). The plugin needs its blobs from the DOL: they move into the plugin's file, which also moves their compressed bytes out of MEM1 |
 | 2 | **Code-build tools** (Project+ and the like) | Tens of KB: the code-build planning in `gameextras.cpp`, the code list placement and hook code in `src/patching/`, the MEM2 veneer logic | Harder than rank 1 because code builds touch the Wii launch path (`boot.cpp`) at several points and the cheat code handler is shared with ordinary cheats. It would take a defined set of hook points (before apploader, after, before jump) in the API, so a plugin can add its work to a launch without being the launch. Do not attempt before the hook list is clear from stage (b) |
 | 3 | **Emulator launchers** (Not64, mGBA: a user request) | None today (they do not exist), which is the point: each would otherwise add to the DOL. Small each (a launcher is a loader for another DOL plus a game list) | They need the generic parts to be in place: probe/list/launch for a non-disc source, a way to start another DOL with arguments (the headless code path in `wii/launch/headless.cpp` points the way), and files for ROMs in the file layer. Each is a plugin of a few KB plus whatever the emulator's own DOL is, and the emulator DOL is a separate question (it is not RiftWii's to ship unless its license allows; this document does not decide that). Worth listing because they are the case where the plugin shape is right and a DOL feature would be wrong |
 

@@ -293,7 +293,10 @@ it. Off by default; a GX buffer that filled up is logged either way
    build packs it).
    The in-app update's pack: `py -3.13 tools/make_update_pack.py
    riftwii-vYYMM-N.zip riftwii-update.pack` (the themes, then the
-   zip's channel installer, icon and plugins).
+   zip's plugins, channel installer and icon). It fails a zip without
+   `plugins/gamecube.<version>.rwp`: the DOL has no GameCube loader of its
+   own any more. Attach the pack to every release: the in-app update
+   downloads it with the DOL and writes its plugins first.
    Before going on, check the zip has the plugin folder: `unzip -l
    riftwii-vYYMM-N.zip | grep apps/riftwii/plugins/` lists one
    `<name>.<version>.rwp` per plugin, with this release's version. A zip

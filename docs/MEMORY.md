@@ -11,7 +11,10 @@ Memory (start): MEM1 <taken> KiB taken, <free> KiB free; MEM2 ...
 ```
 
 Upstream build 2610-454 ended at `0x811cc000` and had 4 KiB of MEM1 left at
-start (208 KiB of room, 204 of them used before the menu). This page
+start (208 KiB of room, 204 of them used before the menu). Stage (b) of
+the plugins moved the GameCube loader out of the DOL: the program's end
+went from `0x810F40A0` to `0x810C2FC0`, 196 KiB more heap at every start
+([PLUGINS.md](PLUGINS.md#stage-b-as-built)). This page
 measures where the 8 MiB went and records what the start-up stash moved
 out of it.
 
@@ -117,7 +120,7 @@ Japanese with RiftWii's font.
 | Six translations (`wii/lang/*.po`, zstd) | 166 | At start and when the language changes, one catalog | **Start-up stash** (built) | 165 |
 | The GPL (`LICENSE`, zstd) | 11 | On the credits page | **Start-up stash** (built) | 11 |
 | Menu sounds (`button_click`, `button_over`, `home_open`, `home_close`, raw PCM) | 226 | Played from memory by the DSP whenever the menu makes a sound | Stash next (played straight from the MEM2 copy, as theme sounds already are), not built: `vendor-libgui` names the sounds as linked arrays | 217 (all but the 8 KiB hover tick, which could stay) |
-| Runtime blobs (`riftwii_rt`, `_rvz`, `_gc`, `_gc_rvz`, pad, shot, fault, wlog, vsd, code handler) | 173 | Copied into the game at a launch | Leave for now: their MEM2 copy would have to survive everything a launch does in MEM2 (a GameCube launch uses up to `0x91500000`); a stash entry or a plugin's file later | 0 now, up to 173 |
+| Runtime blobs (`riftwii_rt`, `_rvz`, `_gc`, `_gc_rvz`, pad, shot, fault, wlog, vsd, code handler) | 173 | Copied into the game at a launch | The GameCube ones (`riftwii_gc.bin`, `riftwii_gc_rvz.zst` and `.rel`, 73 KiB) are the `gamecube` plugin's since stage (b) ([PLUGINS.md](PLUGINS.md)); the rest stay: their MEM2 copy would have to survive everything a launch does in MEM2 | 73 (with the GameCube loader's code: 196 KiB in all) |
 
 The **start-up stash** keeps these files in `boot.dol`, so the DOL alone
 still works, but not in RiftWii's resident image. `tools/dol_stash.py` adds
@@ -194,16 +197,18 @@ today). Checked against the other users of MEM2:
   the loader's MEM2 heap downward, at the far end from the stash: 256 KiB
   (`RWP_ARENA_BYTES`) just below where arena 2 ends, only once a plugin is
   used, and given back when the plugins shut down at the menu's close.
-  That arena lies inside a range a GameCube launch writes later: #113's
-  Reset restart snapshot copies MEM1 (24 MiB) into MEM2 at `0x91500000`
-  up to about `0x92D00000`, inside the menu's arena-2 range. It is written
-  only once a game runs, after "the menu closed" has shut the plugins
-  down and given the arena back, so today nothing of a plugin is there
-  when it is overwritten. A future plugin that outlives the menu (one
-  that stays loaded into a launch, or leaves code or state behind for
-  the game) must not be placed there: it needs its own place outside
-  `0x91500000`–`0x92D00000`, and outside the GameCube runtime's ranges
-  below it.
+  #113's Reset restart snapshot copies MEM1 (24 MiB) into MEM2 at
+  `0x91500000` up to about `0x92D00000`, inside the menu's arena-2 range,
+  once a game runs. The `gamecube` plugin (stage (b)) outlives the menu:
+  a GameCube launch loads it after "the menu closed" has given the arena
+  back, and its code runs to the jump, through the writes of the card's
+  image, the blob's buffers and that snapshot. The arena is at arena 2's
+  top, above `0x92D00000` (it ends under IOS at `0x933E0000`), so none of
+  them reaches it; the plugin checks this before it writes anything
+  (`plugin_clear_of` in `plugins/gamecube/gchost.cpp`: its code more than
+  one arena's size from `0x91000000`-`0x92D00000`) and stops the launch
+  with a sentence saying so if it ever is not. Any other plugin that
+  outlives the menu needs the same check.
 - **IOS at `0x933E0000`** is far above.
 - **The GameCube runtime** (`0x91000000` up: the memory card, the data
   buffers at `0x91200000`, the RVZ buffers at `0x91300000`, a later Reset
