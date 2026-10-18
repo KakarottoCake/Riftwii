@@ -19,10 +19,12 @@ bool CoverWanted(const std::string& game_id);
 // True when the game's cover is on the card.
 bool CoverStored(const std::string& game_id);
 
-enum class CoverFetch { Stored, NotFound, Failed };
+enum class CoverFetch { Stored, NotFound, NoAnswer, Failed };
 // Downloads, shrinks and stores the game's cover. NotFound: GameTDB has
-// none (remembered for a week); Failed: no network, or the card could
-// not be written (`error`).
+// none (remembered for a week); NoAnswer: no answer about it (no network,
+// TLS, a timeout, GameTDB in trouble; `error`), not remembered; Failed:
+// the card could not be written (`error`). The shelf's boxes and the 3D
+// covers (boxart.hpp, cover3d.hpp) answer Failed for no network too.
 CoverFetch FetchCover(const std::string& game_id, std::string& error);
 
 // FetchCover on the network's background thread (NetRunInBackground), so

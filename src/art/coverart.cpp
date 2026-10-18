@@ -71,6 +71,64 @@ std::string cover_url(const std::string& region, const std::string& game_id) {
     return "http://art.gametdb.com/wii/cover/" + region + "/" + game_id + ".png";
 }
 
+int http_answered_status(const std::string& error) {
+    static const std::string kAnswered = " answered ";
+    const std::size_t at = error.find(kAnswered);
+    if (at == std::string::npos) return 0;
+    const std::size_t digits = at + kAnswered.size();
+    if (error.size() < digits + 3) return 0;
+    int status = 0;
+    for (std::size_t i = digits; i < digits + 3; ++i) {
+        const char c = error[i];
+        if (c < '0' || c > '9') return 0;
+        status = status * 10 + (c - '0');
+    }
+    // A fourth digit would make it something else than a status.
+    const bool ends_there = error.size() == digits + 3 || error[digits + 3] < '0' || error[digits + 3] > '9';
+    return ends_there ? status : 0;
+}
+
+bool cover_answer_means_missing(int status) {
+    const bool redirect = status >= 300 && status < 400;
+    const bool refused = status >= 400 && status < 500 && status != 408 && status != 429;
+    return redirect || refused;
+}
+
+bool CoverDownloads::count(CoverOutcome outcome) {
+    counted_since_summary_ = true;
+    switch (outcome) {
+        case CoverOutcome::Stored:
+            ++stored_;
+            no_answer_in_a_row_ = 0;
+            return false;
+        case CoverOutcome::NotFound:
+            // GameTDB answered, so the network is working.
+            ++not_found_;
+            no_answer_in_a_row_ = 0;
+            return false;
+        case CoverOutcome::NoAnswer:
+            ++no_answer_;
+            ++no_answer_in_a_row_;
+            return no_answer_in_a_row_ >= kNoAnswerInARow;
+        case CoverOutcome::CannotStore:
+            // Every cover after it would fail the same way.
+            return true;
+    }
+    return true;
+}
+
+std::string CoverDownloads::take_summary() {
+    if (!counted_since_summary_) return std::string();
+    counted_since_summary_ = false;
+    std::string text = "Covers: " + std::to_string(stored_) + " downloaded this session; GameTDB has no cover for " +
+                       std::to_string(not_found_) + " game(s), which show their names (asked again in a week)";
+    if (no_answer_ != 0) {
+        text += "; " + std::to_string(no_answer_) +
+                " got no answer and were passed over (tried again after Look for games again or a restart)";
+    }
+    return text + ".";
+}
+
 namespace {
 // Columns [left, left + sw) of a picture `stride` pixels wide, scaled to
 // dw x dh: what scale_rgba does, without copying the columns out first.
