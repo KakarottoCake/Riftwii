@@ -64,6 +64,7 @@ struct Slot {
     // A refusal's two sides (versions or stamps), for its message again.
     std::string theirs;
     std::string ours;
+    bool no_file;  // refused because this version's file is not there
 };
 
 Slot g_slots[kMaxPlugins];
@@ -249,6 +250,7 @@ struct Refused {
     std::string why;      // for the log
     std::string theirs;   // the plugin's version or stamp, for the message
     std::string ours;
+    bool no_file = false;  // this version's file is not there (looked for again)
 };
 
 // Formats `why` once with printf: smaller code than strings built from
@@ -313,6 +315,7 @@ bool LoadInto(Slot& slot, const std::string& path, Refused& refused) {
     const char* name = slot.name;
     FILE* file = std::fopen(path.c_str(), "rb");
     if (file == nullptr) {
+        refused.no_file = true;
         const std::string directory = path.substr(0, path.rfind('/') + 1);
         const std::string other = OtherVersionFile(directory, name);
         if (!other.empty()) {
@@ -457,7 +460,7 @@ const rwp_plugin* Use(const char* name, std::string* message) {
     if (slot != nullptr && slot->loaded) return slot->table;
     // A refusal stands for the run, so the card is not read again at every
     // use; only a missing file is looked for again (the update may bring it).
-    if (slot != nullptr && slot->refusal != PluginRefusal::Missing) {
+    if (slot != nullptr && !slot->no_file) {
         if (message) *message = Message(slot->refusal, name, slot->theirs, slot->ours);
         return nullptr;
     }
@@ -478,10 +481,11 @@ const rwp_plugin* Use(const char* name, std::string* message) {
         return slot->table;
     }
     slot->refusal = refused.refusal;
+    slot->no_file = refused.no_file;
     slot->theirs = refused.theirs;
     slot->ours = refused.ours;
-    logf("Plugins: %s not loaded (%s): %s. What needs it stays off; nothing of it ran\n", name,
-         plugin_refusal_name(refused.refusal), refused.why.c_str());
+    logf("Plugins: %s not loaded (%s): %s. What needs it stays off%s\n", name, plugin_refusal_name(refused.refusal),
+         refused.why.c_str(), refused.refusal == PluginRefusal::InitFailed ? "" : "; none of its code ran");
     ReleaseArena();
     if (message) *message = Message(refused.refusal, name, refused.theirs, refused.ours);
     return nullptr;
