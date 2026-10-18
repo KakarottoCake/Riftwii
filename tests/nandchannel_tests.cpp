@@ -4,6 +4,7 @@
 // a stored TMD's content records, and the NAND paths of their files.
 #include "riftwii/nandchannel.hpp"
 
+#include <algorithm>
 #include <iostream>
 #include <vector>
 
@@ -219,7 +220,111 @@ void test_program() {
     EXPECT_TRUE(!choose_channel_program(tmd, {{7, 0x300000, dol_head(0x1000)}}, program, error));
 }
 
+// A DOL header whose one text section loads at `address`, the entry at its start.
+std::vector<std::uint8_t> dol_at(std::uint32_t address, std::uint32_t text_size = 0x1000) {
+    std::vector<std::uint8_t> h(0x100, 0);
+    put32(h.data(), 0x100);
+    put32(h.data() + 0x48, address);
+    put32(h.data() + 0x90, text_size);
+    put32(h.data() + 0xE0, address);
+    return h;
+}
+
+// A channel with a banner (content 0) and one program (content 1, the boot
+// index) of `program_size` bytes.
+TmdContents one_program_channel(std::uint64_t program_size) {
+    TmdContents tmd;
+    tmd.boot_index = 1;
+    tmd.contents = {{0, 0, 1, 0x40000}, {1, 1, 1, program_size}};
+    return tmd;
+}
+
 }  // namespace
+
+void test_unlisted_verdict() {
+    // A forwarder: small, with an app path inside.
+    std::vector<std::uint8_t> forwarder(20000, 0);
+    const char path[] = "sd:/apps/Nintendont/boot.dol";
+    std::copy(path, path + sizeof path - 1, forwarder.begin() + 4000);
+    const TmdContents small = one_program_channel(forwarder.size());
+    const ChannelVerdict fwd = judge_unlisted_channel("WWND", small, {{1, forwarder.size(), forwarder}});
+    EXPECT_TRUE(fwd.left_out);
+    EXPECT_TRUE(fwd.reason.find("sd:/apps/Nintendont/boot.dol") != std::string::npos);
+
+    // A missing program: nothing read for the boot content, a boot index the
+    // TMD does not list, or a shared one. Left out, whatever the code.
+    EXPECT_TRUE(judge_unlisted_channel("NZLX", small, {}).left_out);
+    EXPECT_TRUE(judge_unlisted_channel("NZLX", small, {}).reason.find("not on the Wii") != std::string::npos);
+    EXPECT_TRUE(judge_unlisted_channel("NZLX", small, {{1, 0, {}}}).left_out);  // read, but empty
+    EXPECT_TRUE(judge_unlisted_channel("NZLX", small, {{0, 0x40000, dol_at(0x80004000)}}).left_out);  // only the banner
+    TmdContents no_boot = small;
+    no_boot.boot_index = 5;
+    EXPECT_TRUE(judge_unlisted_channel("NZLX", no_boot, {{1, forwarder.size(), forwarder}}).left_out);
+    TmdContents shared = small;
+    shared.contents[1].type = 0x8001;
+    EXPECT_TRUE(judge_unlisted_channel("NZLX", shared, {{1, forwarder.size(), forwarder}}).left_out);
+
+    // Retro Rewind's channel: a 3 MB DOL loading at 0x81000000. Too big to be
+    // a forwarder, but homebrew by where it loads.
+    const TmdContents big = one_program_channel(3u << 20);
+    const ChannelVerdict loader = judge_unlisted_channel("WRET", big, {{1, 3u << 20, dol_at(0x81000000)}});
+    EXPECT_TRUE(loader.left_out);
+    EXPECT_TRUE(loader.reason.find("0x81000000") != std::string::npos);
+    // Any section counts, a data one too (the third data slot, at 0x48 + 7*4 + ...).
+    std::vector<std::uint8_t> data_high = dol_at(0x80004000);
+    put32(data_high.data() + 0x1C, 0x2000);   // a data section's file offset
+    put32(data_high.data() + 0x64, 0x80A00000);
+    put32(data_high.data() + 0xAC, 0x100);
+    EXPECT_TRUE(judge_unlisted_channel("WRET", big, {{1, 3u << 20, data_high}}).left_out);
+    // The loader a past-loader program sits behind is what is judged: a small
+    // boot DOL low, the real program (the biggest DOL) high.
+    TmdContents behind;
+    behind.boot_index = 1;
+    behind.contents = {{0, 0, 1, 0x40000}, {1, 1, 1, 0x3000}, {2, 2, 1, 3u << 20}};
+    EXPECT_TRUE(judge_unlisted_channel("WRET", behind, {{1, 0x3000, dol_at(0x80004000, 0x1000)},
+                                                         {2, 3u << 20, dol_at(0x81000000)}})
+                    .left_out);
+
+    // A Virtual Console inject: a 3 MB DOL at 0x80004000, no path. A game.
+    EXPECT_TRUE(!judge_unlisted_channel("NZLX", big, {{1, 3u << 20, dol_at(0x80004000)}}).left_out);
+    // Just under the line is still a game; a bigger emulator reaching 0x809FFFFF too.
+    EXPECT_TRUE(!judge_unlisted_channel("NZLX", big, {{1, 3u << 20, dol_at(0x80900000)}}).left_out);
+    // Even a program holding the text of a path is a game when it is big.
+    std::vector<std::uint8_t> with_path = dol_at(0x80004000);
+    with_path.resize(0x1000);
+    std::copy(path, path + sizeof path - 1, with_path.begin() + 0x200);
+    EXPECT_TRUE(!judge_unlisted_channel("NZLX", big, {{1, 3u << 20, with_path}}).left_out);
+
+    // 0x80003100 is libogc's default start for homebrew, but nothing shows
+    // retail never uses it, so it counts as a game.
+    EXPECT_TRUE(!judge_unlisted_channel("NZLX", big, {{1, 3u << 20, dol_at(0x80003100)}}).left_out);
+
+    // A small program without any path is a game too (not a DOL, too).
+    std::vector<std::uint8_t> plain(20000, 0x41);
+    EXPECT_TRUE(!judge_unlisted_channel("NZLX", small, {{1, plain.size(), plain}}).left_out);
+
+    // An ELF is judged by the path rule only.
+    std::vector<std::uint8_t> elf(20000, 0);
+    elf[0] = 0x7F;
+    elf[1] = 'E';
+    elf[2] = 'L';
+    elf[3] = 'F';
+    EXPECT_TRUE(!judge_unlisted_channel("NZLX", small, {{1, elf.size(), elf}}).left_out);
+    std::copy(path, path + sizeof path - 1, elf.begin() + 3000);
+    EXPECT_TRUE(judge_unlisted_channel("NZLX", small, {{1, elf.size(), elf}}).left_out);
+
+    // Known homebrew codes, whatever the program.
+    EXPECT_TRUE(judge_unlisted_channel("LULZ", big, {{1, 3u << 20, dol_at(0x80004000)}}).left_out);
+    EXPECT_TRUE(is_homebrew_code("UFTW"));
+    // A GameTDB-listed game never reaches the verdict, and its code is no homebrew's.
+    EXPECT_TRUE(!is_homebrew_code("WBME"));
+
+    // The path shown is bounded.
+    std::vector<std::uint8_t> endless(5000, 'a');
+    std::copy(path, path + sizeof path - 1, endless.begin() + 2500);
+    EXPECT_TRUE(forwarder_app_path(endless.data(), endless.size()).size() <= 60);
+    EXPECT_EQ(forwarder_app_path(nullptr, 0), std::string());
+}
 
 int main() {
     test_codes();
@@ -228,6 +333,7 @@ int main() {
     test_paths();
     test_program();
     test_cheat_code();
+    test_unlisted_verdict();
     if (g_failures == 0) std::cout << "nandchannel tests passed" << std::endl;
     return g_failures == 0 ? 0 : 1;
 }
