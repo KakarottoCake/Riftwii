@@ -295,6 +295,12 @@ the tiles.
 - **Menu sounds** (Normal, Quiet, Off) and **Menu music**: the music is
   `music.ogg` (Ogg Vorbis, up to 6 MB) from `sd:/riftwii/`, or else the one
   the release puts in `sd:/apps/riftwii/`, looped while the menu is open.
+- **Launch music** (Keep playing, Fade out; right after Menu
+  music): *Keep playing* lets the menu's music play on under the launch
+  screen's blue bar and log and fade out before the game takes over (it
+  pauses while the game's IOS is loaded, and comes back after). *Fade out*
+  fades it out when you start a game and keeps it off for the whole launch.
+  `launch_music = on|off` in `settings.txt`.
 - **In-game screenshots** (experimental, off at first): see Screenshots
   below. The picture is written straight from the screen, using almost
   none of the game's memory (games need it: keeping a copy of the
@@ -307,7 +313,9 @@ the tiles.
 - **GameCube rumble**: *Off* stops GameCube controllers rumbling in games,
   in the adapter and in the Wii's own ports.
 - **Wii Remote rumble**: *Off* stops the Wii Remotes rumbling in every game
-  (a game's own page has **Rumble** for that game alone).
+  (a game's own page has **Rumble** for that game alone). In a GameCube
+  game a Wii Remote rumbles when the game rumbles the port it plays on, and
+  stops when the game stops it, leaves or crashes.
 - **Menu IOS**: IOS 58, or a d2x cIOS slot (248 to 252). Pick the slot that has
   fakemote to use USB DS3/DS4 pads as Wii Remotes.
 - **Find network packs (RiiFS)** and **Copy network packs again** (below).
@@ -347,13 +355,15 @@ shows only these.
 
 A channel game has a page like any game: **Play**, **Cheats**,
 **Options** (the picture, language and the other game settings),
-**Favourite** and **About**. RiftWii starts it itself, so the cheats,
-the settings and the Wii Menu button's way back to RiftWii work as they
-do for discs. This needs a d2x cIOS, as SD and USB games do; when it
-cannot start a game from the Wii itself, the Wii starts it as the Wii
-Menu would. A game in an emulated NAND keeps its saves in that folder.
+**Favourite** and **About**. RiftWii starts it itself, on the same
+launch screen as a disc, so the cheats, the settings, screenshots, the
+crash recorder, the GameCube adapter, the Wii U Pro Controller and the
+Wii Menu button's way back to RiftWii work as they do for discs. This
+needs a d2x cIOS, as SD and USB games do; when it cannot start a game
+from the Wii itself, the Wii starts it as the Wii Menu would, without
+those extras. A game in an emulated NAND keeps its saves in that folder.
 
-To add games from `.wad` files, put them in a folder named `wad` at the
+To add games from `.wad` files, put them in a folder named `wad` (or `wads`) at the
 top of the SD card and pick **Settings > Drives > Install WAD files**.
 They go into that emulated NAND (the Wii itself is not changed) and show
 up on Home. RiftWii decrypts them with your own Wii's key, read when you
@@ -678,6 +688,97 @@ that add GameCube controls to NSMBW).
 > twice before it turns **On** on a Wii U. Leave it on **Automatic**
 > unless you are testing the adapter, and send a problem report when it
 > freezes.
+
+### Wii Remote controls in GameCube games
+
+In a GameCube game a Wii Remote plays as a GameCube controller. Without
+files of your own the buttons are these:
+
+| GameCube | Wii Remote alone (held sideways) | With a Nunchuk | Classic Controller |
+| --- | --- | --- | --- |
+| A, B | 2, 1 | A, B | a, b |
+| X, Y | A, HOME | 1, 2 | x, y |
+| Z | - | - | ZL or ZR |
+| L, R | (none), B | C, Z | L, R |
+| Start | + | + | + |
+| Control stick | D-pad | Nunchuk stick | left stick |
+| C-stick | (none) | D-pad | right stick |
+| D-pad | D-pad | (none) | D-pad |
+
+You can change them in text files on the SD card:
+
+- `sd:/riftwii/gc/controls/default.txt` for every GameCube game;
+- `sd:/riftwii/gc/controls/<game ID>.txt` for one game (its six-letter
+  ID, `GLMP01.txt` for Luigi's Mansion), read after `default.txt`.
+
+A file has a heading for each way of holding the controller, then one
+line per button you want changed: the button, `=`, and what it presses.
+Buttons you don't name keep what they had. `#` starts a comment.
+
+```
+# sd:/riftwii/gc/controls/GLMP01.txt
+[remote]          # a Wii Remote alone, held sideways
+B = L             # the trigger as L
+- = R Z           # - presses R and Z together
+shake = B         # shake the remote to press B
+
+[nunchuk]         # a Wii Remote with a Nunchuk
+C = Y
+Up = Up           # the D-pad's up as the D-pad's up, not the C-stick
+HOME = none
+
+[classic]         # a Classic Controller (or Pro)
+ZL = L
+```
+
+A Classic Controller laid out as in Super Mario 3D All-Stars, with ZR
+opening the map in Super Mario Sunshine:
+
+```
+# sd:/riftwii/gc/controls/GMSE01.txt
+[classic]
+ZR = Y            # ZR opens the map (the GameCube's Y button)
+ZL = Z            # ZL stays a plain Z press, as it is without a file
+```
+
+ZL and ZR are buttons that are either pressed or not, and both press Z
+unless a file says otherwise. The Classic Controller's analogue triggers
+are L and R: the game reads how far you press them. They go with their
+buttons: map `R` to something else (`R = Y`) and the trigger no longer
+half-presses the GameCube's R either, so a game such as Super Mario
+Sunshine doesn't spray when you press it.
+
+- **Headings:** `[remote]`, `[nunchuk]`, `[classic]`.
+- **Buttons** (left of `=`): `A`, `B`, `1`, `2`, `-` (or `Minus`), `+`
+  (or `Plus`), `HOME`, `Up`, `Down`, `Left`, `Right`, `Shake`; with a
+  Nunchuk also `C` and `Z`; on a Classic Controller `A`, `B`, `X`, `Y`,
+  `L`, `R`, `ZL`, `ZR`, `-`, `+`, `HOME` and the D-pad (no `1`, `2` or
+  `Shake`). The D-pad's directions are as you hold the controller: with
+  the remote sideways, `Up` is the arrow that points up then.
+- **What they press** (right of `=`, several separated by spaces):
+  `A`, `B`, `X`, `Y`, `Z`, `L`, `R`, `Start`, the D-pad's `Up`, `Down`,
+  `Left`, `Right`, the control stick pushed all the way (`StickUp`,
+  `StickDown`, `StickLeft`, `StickRight`) and the C-stick
+  (`CStickUp`, `CStickDown`, `CStickLeft`, `CStickRight`). `none`
+  presses nothing. `Up = Up StickUp` presses both.
+- **Shake** presses its button for a moment each time the Wii Remote is
+  shaken, again and again while you keep shaking. It is off unless a file
+  names it, as the remote then sends its motion all the time.
+- The Nunchuk's stick and the Classic Controller's sticks always stay
+  the GameCube's sticks. Its analogue L and R stay the GameCube's while
+  the `L` and `R` buttons do.
+- A Wii U Pro Controller (synced to the Wii like a Wii Remote) plays with
+  the `[classic]` controls: its buttons are a Classic Controller Pro's.
+  Its L, R, ZL and ZR are plain buttons (digital), so they press the
+  GameCube's L, R and Z all the way: a half-press, like Sunshine's light
+  R spray while walking, isn't possible on a Pro Controller. HOME on its
+  own leaves the game, as on a Classic Controller.
+- Upper or lower case doesn't matter. A name RiftWii doesn't know, or a
+  button the controller doesn't have, is skipped, and the log
+  (`sd:/riftwii/boot.log`, lines starting `GameCube controls:`) says which
+  line and why.
+- Leaving the game doesn't change: hold HOME (HOME and - on a Wii Remote
+  alone) for two seconds, whatever HOME presses in the game.
 
 ### For pack authors
 

@@ -24,7 +24,7 @@ console; everything else is worth trying on both.
 Problem reports need no computer, and you don't need to take out your
 SD card:
 
-1. In RiftWii, go to **Settings > Send a problem report**.
+1. In RiftWii, go to **Settings > Help > Send a problem report**.
 2. Scan the QR code with your phone, or copy the link it shows.
 3. Post the link with a line on what you did and what happened.
 
@@ -214,7 +214,7 @@ For things that worked, a short "works" with the game, where it ran from
 
 ## 12. Problem reports and crashes
 
-- [ ] **Settings > Send a problem report**: the link opens and the QR code
+- [ ] **Settings > Help > Send a problem report**: the link opens and the QR code
   scans.
 - [ ] **A crash**: the crash screen shows, and the next start offers the
   report, with `gamecrash.txt` for a game crash.
@@ -257,13 +257,13 @@ and `sd:/riftwii/gc/trace.bin`.
   alone; L, R, Z and Start on a GameCube controller), just after saving:
   Settings > Return to: RiftWii goes back to the RiftWii channel (the Wii
   Menu without it), Wii Menu to the Wii Menu; the save is there next time.
-- [ ] **A crash** (`sd:/riftwii/gc/crash` makes one 600 pad reads in;
-  `sd:/riftwii/gc/crashblack` makes it on a blanked screen, as in a game's
+- [ ] **A crash** (`sd:/riftwii/gc/test/crash` makes one 600 pad reads in;
+  `sd:/riftwii/gc/test/crashblack` makes it on a blanked screen, as in a game's
   first moments): the blue screen shows "The game stopped.", the register
   dump (the exception, SRR0 to DAR, R0-R31, the callers, the game's ID and
   the version) and the hint, on the TV and straight at 4:3 and 16:9; HOME
   or A goes back (to the Homebrew Channel when it started RiftWii), the
-  next start offers the report. In Dolphin, `sd:/riftwii/gc/leave` as well
+  next start offers the report. In Dolphin, `sd:/riftwii/gc/test/leave` as well
   takes A as pressed after twenty seconds.
 - [ ] **Options**: Disc reads Fast loads sooner; 480p on a component
   cable (the game asks first); 16:9, picked by hand (Default keeps the

@@ -15,10 +15,11 @@
 // console's common key decrypts (riftwii/wadfile.hpp).
 namespace riftwii::wii {
 
-// Where players put WAD files, as other loaders and installers expect.
-constexpr const char* kWadFolder = "sd:/wad";
+// Where players put WAD files, as other loaders and installers expect;
+// "wads" too, which a tester named theirs and found none listed.
+constexpr const char* kWadFolders[] = {"sd:/wad", "sd:/wads"};
 
-// The .wad files in kWadFolder, sorted by name.
+// The .wad files in kWadFolders, sorted by name.
 std::vector<std::string> list_wad_files();
 
 // Installs the WAD at `path` into the emulated NAND `folder` (sd:/...).

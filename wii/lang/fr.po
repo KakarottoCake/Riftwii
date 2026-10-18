@@ -855,6 +855,18 @@ msgstr "Expérimental. En jeu, maintenez 1 et appuyez sur HOME (Manette GC : L +
 msgid "Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder."
 msgstr "Musique du menu : fichier music.ogg situé dans sd:/riftwii ou dans le dossier propre de RiftWii."
 
+msgid "Launch music"
+msgstr "Au lancement"
+
+msgid "Keep playing"
+msgstr "Continuer"
+
+msgid "Fade out"
+msgstr "Fondu sortant"
+
+msgid "Keep playing: the menu's music plays on under the launch screen and fades out as the game starts. Fade out: it fades out when you start a game."
+msgstr "Continuer : la musique du menu continue sous l'écran de lancement et s'estompe au démarrage du jeu. Fondu sortant : elle s'estompe dès que vous lancez un jeu."
+
 msgid "Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music."
 msgstr "La musique est activée, mais il n'y a rien à jouer : mettez un music.ogg dans sd:/riftwii ou choisissez un thème avec musique."
 
@@ -1243,7 +1255,7 @@ msgid "Yes, turn it on"
 msgstr "Oui, activer"
 
 msgid "Keep it as it is"
-msgstr "Conserver l'état actuel"
+msgstr "Laisser tel quel"
 
 msgid "WARNING: on this Wii U, games from the SD card or a USB drive can freeze at 97% with this on. Use Automatic unless you are testing the adapter."
 msgstr "ATTENTION : sur cette Wii U, le chargement peut bloquer à 97%. Privilégiez le mode Automatique."
@@ -2331,6 +2343,9 @@ msgstr "Wiimote"
 msgid "Nunchuk"
 msgstr "Nunchuk"
 
+msgid "Wii U Pro Controller"
+msgstr "Manette Pro Wii U"
+
 msgid "Classic Controller"
 msgstr "Manette Classique"
 
@@ -2627,3 +2642,27 @@ msgstr "\"{1}\" quitte l'accueil, avec ses propres mods et réglages, et son ima
 
 msgid "Removed \"{1}\". This page is the game's own again."
 msgstr "\"{1}\" retirée. Cette page est de nouveau celle du jeu."
+
+msgid "Sharper picture"
+msgstr "Image plus nette"
+
+msgid "Off (as made)"
+msgstr "Désactivé (d'origine)"
+
+msgid "Turns off the soft blur some games add."
+msgstr "Retire le léger flou que certains jeux ajoutent."
+
+msgid "Game speed"
+msgstr "Vitesse du jeu"
+
+msgid "Smoother (60 Hz)"
+msgstr "Plus fluide (60 Hz)"
+
+msgid "As made (50 Hz)"
+msgstr "D'origine (50 Hz)"
+
+msgid "Smoother plays at 60 Hz in games that have a 60 Hz mode, on a TV that takes it; the others stay at 50 Hz."
+msgstr "Plus fluide joue à 60 Hz dans les jeux qui ont un mode 60 Hz, sur une télé qui l'accepte ; les autres restent à 50 Hz."
+
+msgid "Default turns 480p on when the Wii is set to 480p and a component cable is seen; pick On (480p) if your TV takes it anyway."
+msgstr "Par défaut active le 480p quand la Wii est réglée sur 480p et qu'un câble composante est détecté ; choisissez Activé (480p) si votre télé l'accepte quand même."

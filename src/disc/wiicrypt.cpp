@@ -170,8 +170,14 @@ bool decrypt_title_key(const std::uint8_t* ticket, std::size_t size, const std::
         error = "ticket too short";
         return false;
     }
-    if (ticket[0x1F1] != 0) {
-        error = "the game's ticket uses another common key (index " + std::to_string(ticket[0x1F1]) + ")";
+    // 1 is the Korean common key and 2 the Wii U's vWii one. Other values
+    // are not keys at all: WAD files from some sources carry any byte here
+    // (a tester's four WiiWare WADs had 10, 181, 151 and 20), and their
+    // contents decrypt with the ordinary key. A wrong guess is caught
+    // later, as every content is checked against its hash.
+    const std::uint8_t index = ticket[0x1F1];
+    if (index == 1 || index == 2) {
+        error = "the game's ticket uses another common key (index " + std::to_string(index) + ")";
         return false;
     }
     std::uint8_t iv[16] = {};

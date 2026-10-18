@@ -855,6 +855,18 @@ msgstr "Experimental. En un juego, mantén 1 y pulsa HOME (mando de GameCube: ma
 msgid "Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder."
 msgstr "Música mientras el menú está abierto: music.ogg de sd:/riftwii, o la de la carpeta de RiftWii."
 
+msgid "Launch music"
+msgstr "Música al iniciar"
+
+msgid "Keep playing"
+msgstr "Seguir sonando"
+
+msgid "Fade out"
+msgstr "Desvanecer"
+
+msgid "Keep playing: the menu's music plays on under the launch screen and fades out as the game starts. Fade out: it fades out when you start a game."
+msgstr "Seguir sonando: la música del menú continúa bajo la pantalla de inicio y se desvanece al empezar el juego. Desvanecer: se desvanece al iniciar un juego."
+
 msgid "Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music."
 msgstr "La música está activada, pero no hay nada que sonar: pon un music.ogg en sd:/riftwii o elige un tema con música."
 
@@ -1234,7 +1246,7 @@ msgid "On a Wii U, the GameCube adapter in games can freeze the console at 97% w
 msgstr "En una Wii U, el adaptador de GameCube en los juegos puede congelar la consola al 97% mientras arranca un juego de la tarjeta SD o de una unidad USB. A veces funciona y otras se congela, y RiftWii no puede saberlo antes. Si se congela, mantén pulsado el botón de encendido para apagar la consola. Automático es seguro: deja el adaptador fuera de esos juegos."
 
 msgid "Turn it on anyway"
-msgstr "Activarlo de todos modos"
+msgstr "Activar igualmente"
 
 msgid "Some game launches WILL freeze and need the power button. Only turn this on to test the adapter, and send a problem report when it freezes. You can set it back to Automatic here at any time."
 msgstr "Algunos arranques de juegos SE congelarán y necesitarán el botón de encendido. Actívalo solo para probar el adaptador, y envía un informe de problema cuando se congele. Puedes volver a Automático aquí cuando quieras."
@@ -2331,6 +2343,9 @@ msgstr "Mando de Wii"
 msgid "Nunchuk"
 msgstr "Nunchuk"
 
+msgid "Wii U Pro Controller"
+msgstr "Mando Pro de Wii U"
+
 msgid "Classic Controller"
 msgstr "Mando Clásico"
 
@@ -2627,3 +2642,27 @@ msgstr "\"{1}\" se quita del inicio, con sus propios mods y ajustes, y su imagen
 
 msgid "Removed \"{1}\". This page is the game's own again."
 msgstr "Se quitó \"{1}\". Esta página vuelve a ser la del juego."
+
+msgid "Sharper picture"
+msgstr "Imagen más nítida"
+
+msgid "Off (as made)"
+msgstr "No (como se hizo)"
+
+msgid "Turns off the soft blur some games add."
+msgstr "Quita el ligero desenfoque que añaden algunos juegos."
+
+msgid "Game speed"
+msgstr "Velocidad del juego"
+
+msgid "Smoother (60 Hz)"
+msgstr "Más fluido (60 Hz)"
+
+msgid "As made (50 Hz)"
+msgstr "Como se hizo (50 Hz)"
+
+msgid "Smoother plays at 60 Hz in games that have a 60 Hz mode, on a TV that takes it; the others stay at 50 Hz."
+msgstr "Más fluido juega a 60 Hz en los juegos que tienen un modo de 60 Hz, en un televisor que lo admita; los demás siguen a 50 Hz."
+
+msgid "Default turns 480p on when the Wii is set to 480p and a component cable is seen; pick On (480p) if your TV takes it anyway."
+msgstr "Predeterminado activa 480p cuando la Wii está en 480p y se detecta un cable por componentes; elige Sí (480p) si tu televisor lo admite de todos modos."

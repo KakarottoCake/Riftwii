@@ -25,6 +25,7 @@
 #include "gc_card.h"
 #include "gc_rt.h"
 #include "gc_rvz.h"
+#include "gc_video.h"
 #include "loadersettings.hpp"
 #include "ios_reload.hpp"
 #include "log.hpp"
@@ -33,13 +34,17 @@
 #include "riftwii/gcbackup.hpp"
 #include "riftwii/gccard.hpp"
 #include "riftwii/gcclock.hpp"
+#include "riftwii/gccontrols.hpp"
 #include "riftwii/gclayout.hpp"
+#include "riftwii/gcreset.hpp"
+#include "riftwii/gcvideo.hpp"
 #include "riftwii/gcoverlay.hpp"
 #include "riftwii/gxpatches.hpp"
 #include "riftwii/hook.hpp"
 #include "riftwii/redirect.hpp"
 #include "riftwii/rvz.hpp"
 #include "riftwii/sha1.hpp"
+#include "riftwii/symsearch.hpp"
 #include "riftwii_gc_bin.h"
 #include "riftwii_gc_rvz_rel.h"
 #include "riftwii_gc_rvz_zst.h"
@@ -76,6 +81,12 @@ constexpr std::uint32_t kGcMem2DataMax = 0x00100000;
 // Nothing needs to be in them at the jump, so they are not staged.
 constexpr std::uint32_t kGcRvzCache = kGcMem2Data + kGcMem2DataMax;
 constexpr std::uint32_t kGcRvzCacheMax = 0x00200000;
+// The restart's copy of MEM1 as the game starts (Reset, riftwii/gcreset.hpp),
+// after the RVZ's buffers: 24 MB at most, ending at 0x92D00000, still below
+// IOS. Its last 4 KB are the stack the blob puts MEM1 back on.
+constexpr std::uint32_t kGcRestartWindow = kGcRvzCache + kGcRvzCacheMax;
+constexpr std::uint32_t kGcRestartWindowBytes = 0x01800000;
+constexpr std::uint32_t kGcRestartStackBytes = 0x1000;
 // The decoder's workspace: its tables and a 4 KiB literal buffer, as for
 // Wii games (runtime/resident/rt_hook.h's RT_RVZ_DCTX_BYTES).
 constexpr std::uint32_t kGcRvzDecoderBytes = 0xC000;
@@ -163,6 +174,12 @@ public:
     void each(F f) const {
         for (const Section& s : text_)
             for (std::uint32_t i = 0; i + 4 <= s.bytes.size(); i += 4) f(s.address + i, be32(&s.bytes[i]));
+    }
+    // The same code for the host-tested finders (riftwii/gcvideo.hpp).
+    std::vector<CodeRange> ranges() const {
+        std::vector<CodeRange> out;
+        for (const Section& s : text_) out.push_back(CodeRange{s.address, s.bytes.data(), s.bytes.size()});
+        return out;
     }
 
 private:
@@ -1071,85 +1088,6 @@ bool is_rlwinm_of(std::uint32_t w, unsigned source, std::uint32_t low) {
     return opcode(w) == 21 && reg_d(w) == source && (w & 0xFFFF) == low;
 }
 
-// The GameCube OS keeps the console's settings (the SRAM: language,
-// progressive scan, sound...) in a copy in memory, read once at start-up,
-// and its getters read that copy after locking it: `lis rA,hi`, `addi
-// rB,rA,lo` (the copy), then the lock word at 0x48 and `addi r4,rB,0x48`.
-// The settings are bytes in the copy (YAGCD's SRAM layout): the language
-// at 0x12, the flags at 0x13 with progressive scan in bit 7.
-//
-// The language and progressive getters (OSGetLanguage,
-// OSGetProgressiveMode) each read their byte from that register: the
-// loads found here, for the loader to turn into a constant. The copy and
-// the console's SRAM are never changed, so nothing the game writes back
-// to the SRAM later (it does for its own 480p question) carries a choice
-// made here.
-constexpr std::uint16_t kSramLockOffset = 0x48;
-constexpr std::uint16_t kSramLanguage = 0x12;
-constexpr std::uint16_t kSramFlags = 0x13;
-
-struct SramReads {
-    std::uint32_t copy = 0;  // the settings' copy in memory
-    std::vector<std::uint32_t> language;     // lbz rX,0x12(copy)
-    std::vector<std::uint32_t> progressive;  // lbz rX,0x13(copy), then its bit 7 taken (>> 7 & 1)
-};
-
-SramReads find_sram_reads(const Code& code) {
-    struct Site {
-        std::uint32_t at;  // the addi that makes the copy's address
-        unsigned reg;
-        std::uint32_t copy;
-    };
-    std::vector<Site> sites;
-    std::map<std::uint32_t, unsigned> seen;  // copy address -> how many locks
-    code.each([&](std::uint32_t a, std::uint32_t w) {
-        if (opcode(w) != 15 || reg_a(w) != 0) return;  // lis rA,hi
-        const unsigned high_reg = reg_d(w);
-        for (std::uint32_t b = a + 4; b < a + 24 && code.has(b); b += 4) {
-            const std::uint32_t add = code.at(b);
-            if (opcode(add) != 14 || reg_a(add) != high_reg) continue;  // addi rB,rA,lo
-            const unsigned copy_reg = reg_d(add);
-            const std::uint32_t copy = (w << 16) + static_cast<std::uint32_t>(static_cast<std::int16_t>(add & 0xFFFF));
-            const std::uint32_t lock_load = (32u << 26) | (copy_reg << 16) | kSramLockOffset;  // lwz r0,0x48(rB)
-            const std::uint32_t lock_addr = (14u << 26) | (4u << 21) | (copy_reg << 16) | kSramLockOffset;  // addi r4,rB,0x48
-            for (std::uint32_t c = b + 4; c < b + 48 && code.has(c + 4); c += 4)
-                if (code.at(c) == lock_load && code.at(c + 4) == lock_addr) {
-                    sites.push_back({b, copy_reg, copy});
-                    seen[copy]++;
-                    break;
-                }
-            return;
-        }
-    });
-    SramReads out;
-    unsigned most = 0;
-    for (const auto& [copy, n] : seen)
-        if (n > most) {
-            most = n;
-            out.copy = copy;
-        }
-    const std::uint32_t take_bit7 = rlwinm_low(25, 31, 31);  // rlwinm rC,rX,25,31,31
-    for (const Site& site : sites) {
-        if (site.copy != out.copy) continue;
-        for (std::uint32_t a = site.at + 4; code.has(a) && a < site.at + 0x100; a += 4) {
-            const std::uint32_t w = code.at(a);
-            if (w == 0x4E800020) break;
-            if (opcode(w) != 34 || reg_a(w) != site.reg) continue;  // lbz rX,d(rB)
-            const std::uint16_t offset = w & 0xFFFF;
-            if (offset == kSramLanguage) out.language.push_back(a);
-            if (offset != kSramFlags) continue;
-            // The getter takes bit 7 within a few words; OSSetProgressiveMode
-            // and the reset code read the same byte to change it.
-            for (std::uint32_t b = a + 4; b <= a + 16; b += 4)
-                if (is_rlwinm_of(code.at(b), reg_d(w), take_bit7)) {
-                    out.progressive.push_back(a);
-                    break;
-                }
-        }
-    }
-    return out;
-}
-
 // VIGetDTVStatus: reads the VI's DTV register (0xCC00206E, bit 0 set
 // while a component cable is plugged in, YAGCD's VI_DTV) with `lhz
 // rX,0x206E(rY)` and keeps its low two bits (`clrlwi rZ,rX,30`). Other
@@ -1308,7 +1246,7 @@ static void prepare_leave(gc_rt_context* ctx, std::uint32_t buf, bool test) {
         return;
     }
     logf("GameCube: no way back to RiftWii: none of the titles to go back to is installed\n");
-    // The test of the way back (sd:/riftwii/gc/leave) goes on regardless,
+    // The test of the way back (sd:/riftwii/gc/test/leave) goes on regardless,
     // to the Wii Menu with no ticket view: IOS refuses, and the game must
     // carry on.
     if (!test) return;
@@ -1417,24 +1355,59 @@ LmLoader find_lm_loader(const std::string& id, const Code& code) {
 template <class ReplayHook>
 static void apply_picture_and_language(const GcImage& image, Code& code, ReplayHook replay_hook, const gc_rt_header& h,
                                        gc_rt_context* ctx, bool test_no_widen) {
-    const SramReads sram = find_sram_reads(code);
+    const GcSramReads sram = find_gc_sram_reads(code.ranges());
+    // VIConfigure, hooked once for what changes the mode it is given
+    // (gc_on_vi_configure): 480p and the picture width.
+    const bool pal_480p = image.progressive && gc_pal_game(image.id);
+    const bool progressive = image.progressive && !pal_480p;
+    std::uint32_t vi_configure = 0;
+    bool vi_hooked = false;
+    // A 60 Hz game's mode is the game's own: hooked only for the trace's
+    // record of the mode it picked.
+    if (progressive || image.vi_width != 0 || image.sixty_hz) {
+        vi_configure = find_vi_configure(code);
+        vi_hooked = vi_configure != 0 &&
+                    replay_hook(vi_configure, h.hook_vi_configure, h.replay_vi_configure, h.continue_vi_configure);
+    }
     // 480p. A game offers it when VIGetDTVStatus says a component cable is
     // in and OSGetProgressiveMode says the console's 480p setting is on
     // (or the player holds B at start): both are told yes. A game that has
     // no 480p is switched to it by VIConfigure (gc_on_vi_configure).
-    if (image.progressive && gc_pal_game(image.id)) {
+    if (pal_480p) {
         logf("GameCube: 480p left off: %s is a PAL game, its picture is not NTSC's 480 lines\n", image.id.c_str());
-    } else if (image.progressive) {
+    } else if (progressive) {
         const std::vector<std::uint32_t> dtv = find_dtv_reads(code);
         for (std::uint32_t a : dtv) code.put(a, li(reg_d(code.at(a)), 1));  // a component cable is in
         for (std::uint32_t a : sram.progressive) code.put(a, li(reg_d(code.at(a)), 0x80));  // the 480p setting is on
-        const std::uint32_t vi_configure = find_vi_configure(code);
-        const bool hooked = vi_configure != 0 &&
-                            replay_hook(vi_configure, h.hook_vi_configure, h.replay_vi_configure, h.continue_vi_configure);
-        if (hooked) ctx->flags |= GC_FLAG_PROGRESSIVE;
+        if (vi_hooked) ctx->flags |= GC_FLAG_PROGRESSIVE;
         logf("GameCube: 480p: %u cable check(s) and %u 480p setting read(s) answer yes; VIConfigure 0x%08x %s\n",
              static_cast<unsigned>(dtv.size()), static_cast<unsigned>(sram.progressive.size()), vi_configure,
-             hooked ? "turns interlaced modes into 480p" : "not hooked: a game without its own 480p stays interlaced");
+             vi_hooked ? "turns interlaced modes into 480p" : "not hooked: a game without its own 480p stays interlaced");
+    }
+    // Game speed: a European game is told its TV takes 60 Hz. Each read of
+    // either 60 Hz flag (riftwii/gcvideo.hpp) answers yes, and a game with
+    // a 60 Hz mode of its own picks it itself, as on a European console
+    // set that way. Games made for 50 Hz alone are not converted: their
+    // logic runs once a frame, so 60 Hz would play them a fifth faster.
+    if (image.sixty_hz) {
+        for (std::uint32_t a : sram.sixty_hz) code.put(a, li(reg_d(code.at(a)), 0x40));     // bit 6 at 0x11
+        for (std::uint32_t a : sram.progressive) code.put(a, li(reg_d(code.at(a)), 0x80));  // bit 7 at 0x13
+        logf("GameCube: 60 Hz: %u read(s) of the console's 60 Hz setting and %u of the older SDK's flag answer yes; "
+             "the game switches only if it has a 60 Hz mode of its own (VIConfigure %s)\n",
+             static_cast<unsigned>(sram.sixty_hz.size()), static_cast<unsigned>(sram.progressive.size()),
+             vi_hooked ? "hooked, its mode in the trace" : "not hooked");
+    }
+    // Picture width: VIConfigure draws the picture that wide, centred.
+    if (image.vi_width != 0) {
+        if (vi_hooked) ctx->vi_width = image.vi_width;
+        const std::string wanted = image.vi_width == GC_VI_WIDTH_FRAMEBUFFER ? std::string("the frame buffer's width")
+                                                                             : std::to_string(image.vi_width) + " pixels";
+        if (vi_hooked) {
+            logf("GameCube: picture width %s, centred, through VIConfigure 0x%08x\n", wanted.c_str(), vi_configure);
+        } else {
+            logf("GameCube: picture width %s not applied: VIConfigure was not found, so the game keeps its own\n",
+                 wanted.c_str());
+        }
     }
     // 16:9: GXSetProjection widens what the game draws in perspective
     // (gc_hook_projection); its 2D, drawn with orthographic projections,
@@ -1443,13 +1416,26 @@ static void apply_picture_and_language(const GcImage& image, Code& code, ReplayH
         const std::uint32_t projection = find_gx_set_projection(code);
         const bool hooked = projection != 0 &&
                             replay_hook(projection, h.hook_projection, h.replay_projection, h.continue_projection);
-        // The test of the hook alone (sd:/riftwii/gc/nowiden): every
+        // The test of the hook alone (sd:/riftwii/gc/test/nowiden): every
         // projection goes through it and is copied, none is widened.
         if (hooked && !test_no_widen) ctx->flags |= GC_FLAG_WIDEN;
         const char* what = !hooked ? "not hooked: 4:3 as before"
                            : test_no_widen ? "hooked but not widened (the test of the hook alone)"
                                            : "widens 3D";
         logf("GameCube: 16:9: GXSetProjection 0x%08x %s\n", projection, what);
+    }
+    // Sharper picture: GXSetCopyFilter always writes the weights that copy
+    // each line as it is (riftwii/gcvideo.hpp).
+    if (image.sharp) {
+        const GcCopyFilterSwitch filter = find_gc_copy_filter_switch(code.ranges());
+        if (filter.branch != 0) {
+            code.put(filter.branch, branch(filter.branch, filter.sharp));
+            logf("GameCube: sharper picture: GXSetCopyFilter's blur test at 0x%08x now always takes the sharp "
+                 "weights at 0x%08x\n", filter.branch, filter.sharp);
+        } else {
+            logf("GameCube: sharper picture not applied: GXSetCopyFilter was not found, so the game keeps its own "
+                 "blur\n");
+        }
     }
     // The language: OSGetLanguage's read of the settings' copy becomes the
     // chosen number. The console's SRAM is left as it is (sram above).
@@ -1724,29 +1710,93 @@ static void place_gc_cheats(const GcCheats& cheats, const std::string& game_id) 
     ICInvalidateRange(handler, kCodeListEnd - kCodeHandlerAddress);
 }
 
+// The Wii Remotes' map for this game (riftwii/gccontrols.hpp): the
+// built-in one, then sd:/riftwii/gc/controls/default.txt and the game's
+// own file over it, each line said in the log when it could not be used.
+static void load_gc_controls(const std::string& game_id, gc_map& map) {
+    gc_controls_default(map);
+    for (const std::string& path : gc_controls_paths(game_id)) {
+        std::FILE* f = std::fopen(path.c_str(), "rb");
+        if (!f) continue;
+        // One byte more than a file may have, so a larger one is seen as such.
+        std::string text(kMaxGcControlsFile + 1, '\0');
+        text.resize(std::fread(&text[0], 1, text.size(), f));
+        std::fclose(f);
+        const std::string name = path.substr(path.rfind('/') + 1);
+        std::vector<std::string> notes;
+        const std::size_t changed = gc_controls_apply(text, name, map, notes);
+        for (const std::string& note : notes) logf("GameCube controls: %s\n", note.c_str());
+        logf("GameCube controls: %s read, %u button(s) changed\n", path.c_str(), static_cast<unsigned>(changed));
+    }
+    static const char* const kKindNames[GC_MAP_KINDS] = {"held sideways", "with a Nunchuk", "a Classic Controller"};
+    for (std::uint32_t kind = 0; kind < GC_MAP_KINDS; ++kind)
+        if (gc_map_wants_shake(&map, kind))
+            logf("GameCube controls: shaking the Wii Remote (%s) presses %s\n", kKindNames[kind],
+                 gc_controls_describe(map.to[kind][GC_IN_SHAKE]).c_str());
+}
+
 bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string& error) {
-    logf("GameCube (native): %s (%s)\n", image.id.c_str(), image.path.c_str());
     // Test presses for Dolphin runs with no controller to press with
-    // (sd:/riftwii/gc/press), read while the card is still the file
-    // system's (before it is opened raw).
+    // (sd:/riftwii/gc/test/press), read while the card is still the file
+    // system's (before it is opened raw). The test switches are files in
+    // sd:/riftwii/gc/test/, a folder of their own, away from the player's
+    // cards, saves and controls, so a copied folder cannot set one.
     struct stat st_press;
-    const bool test_presses = stat("sd:/riftwii/gc/press", &st_press) == 0;
+    const bool test_presses = stat("sd:/riftwii/gc/test/press", &st_press) == 0;
     // A test of the way back (gc_rt.h's GC_FLAG_LEAVE).
-    const bool test_leave = stat("sd:/riftwii/gc/leave", &st_press) == 0;
+    const bool test_leave = stat("sd:/riftwii/gc/test/leave", &st_press) == 0;
     // And of the crash screen (GC_FLAG_CRASH).
-    const bool test_crash = stat("sd:/riftwii/gc/crash", &st_press) == 0;
+    const bool test_crash = stat("sd:/riftwii/gc/test/crash", &st_press) == 0;
     // And of it on a blanked screen (GC_FLAG_CRASH_BLACK).
-    const bool test_crash_black = stat("sd:/riftwii/gc/crashblack", &st_press) == 0;
+    const bool test_crash_black = stat("sd:/riftwii/gc/test/crashblack", &st_press) == 0;
     // And of disc audio streaming: the music alone, to compare it with an
     // offline decode (GC_FLAG_STREAM_ONLY).
-    const bool test_stream_only = stat("sd:/riftwii/gc/streamonly", &st_press) == 0;
+    const bool test_stream_only = stat("sd:/riftwii/gc/test/streamonly", &st_press) == 0;
+    // And of the restart: two Reset presses (GC_FLAG_RESET_TEST).
+    const bool test_reset = stat("sd:/riftwii/gc/test/reset", &st_press) == 0;
     // And of 16:9's hook without the widening (GC_FLAG_WIDEN).
-    const bool test_no_widen = stat("sd:/riftwii/gc/nowiden", &st_press) == 0;
+    const bool test_no_widen = stat("sd:/riftwii/gc/test/nowiden", &st_press) == 0;
     // And of the ARAM addresses left as the SDK gives them in any game
-    // (sd:/riftwii/gc/keeparam), as gc_keeps_aram_addresses does for its
+    // (sd:/riftwii/gc/test/keeparam), as gc_keeps_aram_addresses does for its
     // list: tells whether a game's crash comes from the raised addresses
     // without a build for it.
-    const bool test_keep_aram = stat("sd:/riftwii/gc/keeparam", &st_press) == 0;
+    const bool test_keep_aram = stat("sd:/riftwii/gc/test/keeparam", &st_press) == 0;
+    // And of the Wii Remotes' map with no remote to press (a test run
+    // cannot press Dolphin's emulated one): a made-up remote instead
+    // (gc_bt.h's gc_bt_fake).
+    const bool test_fake_remote = stat("sd:/riftwii/gc/test/fakeremote", &st_press) == 0;
+    // The same with a made-up Wii U Pro Controller (Dolphin has none), in
+    // its own report layout (gc_pro.h); it takes the test remote's place.
+    const bool test_fake_pro = stat("sd:/riftwii/gc/test/fakepro", &st_press) == 0;
+    const bool test_rumble = stat("sd:/riftwii/gc/test/rumbletest", &st_press) == 0;
+    // The first GameCube line of boot.log names every test switch that is
+    // on, so a log from a run with one set (say a copied sd:/riftwii/gc/test/
+    // folder) cannot be mistaken for a player's.
+    std::string switches;
+    const struct {
+        bool on;
+        const char* name;
+    } test_switches[] = {{test_presses, "press"},
+                         {test_leave, "leave"},
+                         {test_crash, "crash"},
+                         {test_crash_black, "crashblack"},
+                         {test_stream_only, "streamonly"},
+                         {test_no_widen, "nowiden"},
+                         {test_keep_aram, "keeparam"},
+                         {test_fake_remote, "fakeremote"},
+                         {test_fake_pro, "fakepro"},
+                         {test_rumble, "rumbletest"},
+                         {test_reset, "reset"}};
+    for (const auto& test_switch : test_switches) {
+        if (!test_switch.on) continue;
+        switches += switches.empty() ? " [test switches: " : ", ";
+        switches += test_switch.name;
+    }
+    if (!switches.empty()) switches += "]";
+    logf("GameCube (native): %s (%s)%s\n", image.id.c_str(), image.path.c_str(), switches.c_str());
+    // What the Wii Remotes' buttons press, from the player's files.
+    gc_map controls;
+    load_gc_controls(image.id, controls);
     const bool rvz = GcImageIsRvz(image.path);
     Fat32File file;
     if (!resolve_sd_file(image.path, file, error)) return false;
@@ -2218,6 +2268,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
     // The Wii Remotes' state (gc_bt.h), zeroed in MEM2's stage: the blob
     // opens the Bluetooth controller at the game's first PADRead.
     ctx->bt = bt_addr;
+    static_cast<gc_bt*>(staged(bt_addr))->map = controls;
     auto* memcard = reinterpret_cast<gc_card*>(card_addr);
     std::memset(memcard, 0, sizeof(*memcard));
     // Its landing words (gc_card.h), with the card on or off: a jump to the
@@ -2258,14 +2309,89 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
     // PADRead: the Wii Remotes are polled from it, and the test presses
     // go in there.
     const std::uint32_t pad_read = find_pad_read(code);
+    std::uint32_t motor = 0;
     if (pad_read != 0) {
         replay_hook(pad_read, h.hook_pad_read, h.replay_pad_read, h.continue_pad_read);
         if (test_presses) ctx->flags |= GC_FLAG_PRESS;
+        if (test_fake_remote || test_fake_pro) ctx->flags |= GC_FLAG_FAKE_REMOTE;
+        if (test_fake_pro) ctx->flags |= GC_FLAG_FAKE_PRO;
         if (test_leave) ctx->flags |= GC_FLAG_LEAVE;
         if (test_crash || test_crash_black) ctx->flags |= GC_FLAG_CRASH;
         if (test_crash_black) ctx->flags |= GC_FLAG_CRASH_BLACK;
+        // PADControlMotor: a Wii Remote on the port the game rumbles
+        // rumbles too, unless Settings' Wii Remote rumble (or this game's
+        // own Rumble) is off, as for Wii games. The game's own function
+        // runs first, for a GameCube controller on the port.
+        std::vector<CodeRange> ranges;
+        for (const Section& s : dol.text) ranges.push_back(CodeRange{s.address, s.bytes.data(), s.bytes.size()});
+        std::string motor_error;
+        if (!find_gc_pad_motor(ranges, motor, motor_error)) logf("GameCube: Wii Remote rumble off: %s\n", motor_error.c_str());
+        if (motor != 0) {
+            replay_hook(motor, h.hook_pad_motor, h.replay_pad_motor, h.continue_pad_motor);
+            if (!CurrentLaunchExtras().rumble_off) ctx->flags |= GC_FLAG_REMOTE_RUMBLE;
+            if (test_rumble) {
+                ctx->flags |= GC_FLAG_RUMBLE_TEST;
+                ctx->test_motor = motor;
+            }
+        }
     }
     if (test_stream_only) ctx->flags |= GC_FLAG_STREAM_ONLY;
+    // Reset restarts the game, as on a GameCube (gc_on_hot_reset): the
+    // game's OSResetSystem and its reset routine go to the blob, and MEM1's
+    // pieces as they are at the jump are kept in MEM2 to be put back, in
+    // this order: the zeroed BSS and DI stand-in, then the game's sections,
+    // BI2, the FST and low memory (copied there just before the jump).
+    const GcResetFunctions reset = find_gc_reset_functions(code.ranges());
+    const bool reset_hookable = reset.reset_system != 0 && opcode(code.at(reset.reset_system)) != 16 &&
+                                opcode(code.at(reset.reset_system)) != 18;
+    GcRestartPlan restart;
+    if (reset_hookable && gc_restart_known_to_work(image.id)) {
+        std::vector<GcRestartPiece> pieces;
+        if (dol.bss_size != 0) pieces.push_back({dol.bss, dol.bss_size, true});
+        pieces.push_back({di_regs, kGcDiRegsBytes, true});
+        for (const Section& s : dol.text)
+            pieces.push_back({s.address, static_cast<std::uint32_t>(s.bytes.size()), false});
+        for (const Section& s : dol.data)
+            pieces.push_back({s.address, static_cast<std::uint32_t>(s.bytes.size()), false});
+        pieces.push_back({bi2_addr, static_cast<std::uint32_t>(bi2.size()), false});
+        if (!fst.empty()) pieces.push_back({fst_addr, static_cast<std::uint32_t>(fst.size()), false});
+        pieces.push_back({0x80000000, kGameFloor - 0x80000000, false});
+        restart = plan_gc_restart(pieces, kGcRestartWindow, kGcRestartWindowBytes - kGcRestartStackBytes,
+                                  GC_RESTART_REGIONS);
+    }
+    // The table, kept here (the plan's own vector may be in MEM2's window).
+    gc_restart_region restart_table[GC_RESTART_REGIONS] = {};
+    const std::uint32_t restart_count = static_cast<std::uint32_t>(restart.regions.size());
+    // Hooked for every game: the ones without a restart go back to RiftWii
+    // on Reset (gc_on_reset_system), rather than stop the console.
+    if (reset_hookable) {
+        replay_hook(reset.reset_system, h.hook_reset_system, h.replay_reset_system, h.continue_reset_system);
+        hook(reset.hardware_reset, h.hook_hot_reset);
+        ctx->reset_system = reset.reset_system;
+        if (test_reset) ctx->flags |= GC_FLAG_RESET_TEST;
+    }
+    if (restart_count != 0) {
+        for (std::uint32_t i = 0; i < restart_count; ++i)
+            restart_table[i] = {restart.regions[i].address, restart.regions[i].length, restart.regions[i].source};
+        ctx->entry = dol.entry;
+        ctx->restart_regions = restart.table;
+        ctx->restart_count = restart_count;
+        ctx->restart_stack = kGcRestartWindow + kGcRestartWindowBytes - 16;  // a frame's back chain and LR above it
+        logf("GameCube: Reset restarts the game: OSResetSystem 0x%08x, reset routine 0x%08x, MEM1 kept in %u "
+             "piece(s), 0x%08x-0x%08x%s\n",
+             reset.reset_system, reset.hardware_reset, static_cast<unsigned>(restart_count), restart.table,
+             restart.end, pad_read != 0 ? "" : " (PADRead not found: only the game's own Reset)");
+    } else if (reset_hookable && gc_restart_known_to_work(image.id)) {
+        logf("GameCube: Reset goes back to RiftWii: the game's memory does not fit in the restart's %u MB\n",
+             static_cast<unsigned>(kGcRestartWindowBytes >> 20));
+    } else if (reset_hookable) {
+        logf("GameCube: Reset goes back to RiftWii, as holding HOME (OSResetSystem 0x%08x): this game's restart is "
+             "not known to work yet\n",
+             reset.reset_system);
+    } else {
+        logf("GameCube: Reset goes back to RiftWii, as holding HOME: OSResetSystem and the reset routine were not "
+             "found\n");
+    }
     // The memory card: the EXI functions to the blob (gc_card.h).
     if (!card_image.empty()) {
         std::uint32_t exi[GC_EXI_HOOKS];
@@ -2321,7 +2447,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
     if (dsp_patched)
         logf("GameCube: %u sound program(s) patched to read ARAM from MEM2 (a Wii)\n", dsp_patched);
     else if (keep_aram && !gc_keeps_aram_addresses(image.id))
-        logf("GameCube: ARAM addresses left as the SDK gives them, as sd:/riftwii/gc/keeparam asks (the sound "
+        logf("GameCube: ARAM addresses left as the SDK gives them, as sd:/riftwii/gc/test/keeparam asks (the sound "
              "may play wrong)\n");
     else if (keep_aram)
         logf("GameCube: ARAM addresses left as the SDK gives them: %s checks them against its own limit "
@@ -2355,8 +2481,13 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
             for (std::uint32_t i = 0; i < 64; ++i) ctx->guard_copy[i] = be32(&s.bytes[0x80003100 - s.address + 4 * i]);
         }
     logf("GameCube: __OSUnhandledException 0x%08x\n", unhandled);
-    logf("GameCube: PADRead 0x%08x%s, ARStartDMA 0x%08x\n", pad_read, test_presses ? " (test presses)" : "", ar_dma);
+    logf("GameCube: PADRead 0x%08x%s%s, ARStartDMA 0x%08x\n", pad_read, test_presses ? " (test presses)" : "",
+         test_fake_remote ? " (test remote)" : "", ar_dma);
     logf("GameCube: Wii Remotes %s\n", pad_read == 0 ? "off (no PADRead found)" : "on");
+    logf("GameCube: PADControlMotor 0x%08x%s\n", motor,
+         motor == 0 ? " (not found: a Wii Remote does not rumble)"
+         : (ctx->flags & GC_FLAG_REMOTE_RUMBLE) ? ": a Wii Remote rumbles with its port"
+                                                : ": Wii Remote rumble is off in the settings");
     logf("GameCube: %u DI register access(es) sent to 0x%08x; AIInitDMA 0x%08x%s\n", di_patches, di_regs, ai_dma,
          ai_dma ? "" : " (not found: no disc audio streaming)");
     if (low.reset != 0) code.put(low.reset, 0x4E800020);  // blr: the drive is not there to reset
@@ -2515,6 +2646,19 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
             for (std::size_t i = 0; i < sizeof(stub) / sizeof(stub[0]); ++i)
                 store32(0x80000000 + vector * 0x100 + 4 * i, stub[i]);
         }
+    }
+    // The restart's copy of MEM1 as the game starts, last, once nothing
+    // else is written there; what it overwrites in MEM2 (the loader's heap)
+    // is no longer needed.
+    for (std::uint32_t i = 0; i < restart_count; ++i) {
+        const gc_restart_region& r = restart_table[i];
+        if (r.source == 0) continue;
+        std::memcpy(reinterpret_cast<void*>(r.source), reinterpret_cast<const void*>(r.address), r.length);
+        DCFlushRange(reinterpret_cast<void*>(r.source), r.length);
+    }
+    if (restart_count != 0) {
+        std::memcpy(reinterpret_cast<void*>(kGcRestartWindow), restart_table, sizeof(restart_table));
+        DCFlushRange(reinterpret_cast<void*>(kGcRestartWindow), sizeof(restart_table));
     }
     DCFlushRange(reinterpret_cast<void*>(0x80000000), kLoaderStart - 0x80000000);
     ICInvalidateRange(reinterpret_cast<void*>(0x80000000), kLoaderStart - 0x80000000);

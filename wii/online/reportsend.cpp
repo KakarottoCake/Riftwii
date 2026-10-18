@@ -213,6 +213,18 @@ void add_packs(const std::string& choices, std::vector<ReportPart>& parts) {
     }
 }
 
+void add_gc_remotes(std::vector<ReportPart>& parts) {
+    for (const char* path : {"sd:/riftwii/gc/trace.bin", "sd:/riftwii/gc/trace-crash.bin"}) {
+        std::string raw;
+        if (!read_text(path, raw)) continue;  // at most kReadCap; a trace is 128 KB
+        const std::vector<std::uint8_t> trace(raw.begin(), raw.end());
+        std::string text;
+        if (!riftwii::describe_gc_remotes(trace, text)) continue;
+        parts.push_back({std::string("Wii Remotes in the GameCube game (") + path + ")", text, true});
+        return;
+    }
+}
+
 std::string gather(const std::string& reason, std::size_t limit) {
     std::vector<ReportPart> parts;
     parts.push_back(file_part(kCrashFile));
@@ -249,6 +261,10 @@ std::string gather(const std::string& reason, std::size_t limit) {
         if (choices.found) parts.push_back({"cheats picked for " + tile, picked_cheats_report(choices.text, cheats.text), true});
         add_packs(choices.text, parts);
     }
+    // The Wii Remotes of the last GameCube game: how far its Bluetooth got,
+    // from the loader's trace (kept as trace-crash.bin after a crash), so a
+    // report says why a remote did nothing even when the game did not crash.
+    if (boot.text.find("GameCube (native): ") != std::string::npos) add_gc_remotes(parts);
     parts.push_back(listing("sd:/riivolution"));
     parts.push_back(listing("sd:/riftwii"));
     return assemble_report(describe_system(reason), parts, limit);
