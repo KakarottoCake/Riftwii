@@ -62,6 +62,15 @@ struct LoaderSettings {
     std::string serialize() const;
 };
 
+// What "Reset all settings" leaves: every setting back to how RiftWii
+// comes, except what the question promises to keep and what finding the
+// games depends on. Favorites are the player's own picks, not a setting;
+// game_folders say where the games are, and without them Home would
+// empty. Unknown keys (`other`) are reset with the rest. Games' own pages,
+// play history, order, profiles and mods live in files of their own that
+// a reset never touches.
+LoaderSettings settings_after_reset(const LoaderSettings& before);
+
 // The extra game folders for one drive ("sd" or "usb"), as "/path":
 // slashes turned forward, no trailing slash, wbfs and games left out
 // (they are always looked in).
