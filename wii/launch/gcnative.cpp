@@ -34,6 +34,7 @@
 #include "riftwii/gcbackup.hpp"
 #include "riftwii/gccard.hpp"
 #include "riftwii/gclayout.hpp"
+#include "riftwii/gcreset.hpp"
 #include "riftwii/gcvideo.hpp"
 #include "riftwii/gcoverlay.hpp"
 #include "riftwii/gxpatches.hpp"
@@ -77,6 +78,12 @@ constexpr std::uint32_t kGcMem2DataMax = 0x00100000;
 // Nothing needs to be in them at the jump, so they are not staged.
 constexpr std::uint32_t kGcRvzCache = kGcMem2Data + kGcMem2DataMax;
 constexpr std::uint32_t kGcRvzCacheMax = 0x00200000;
+// The restart's copy of MEM1 as the game starts (Reset, riftwii/gcreset.hpp),
+// after the RVZ's buffers: 24 MB at most, ending at 0x92D00000, still below
+// IOS. Its last 4 KB are the stack the blob puts MEM1 back on.
+constexpr std::uint32_t kGcRestartWindow = kGcRvzCache + kGcRvzCacheMax;
+constexpr std::uint32_t kGcRestartWindowBytes = 0x01800000;
+constexpr std::uint32_t kGcRestartStackBytes = 0x1000;
 // The decoder's workspace: its tables and a 4 KiB literal buffer, as for
 // Wii games (runtime/resident/rt_hook.h's RT_RVZ_DCTX_BYTES).
 constexpr std::uint32_t kGcRvzDecoderBytes = 0xC000;
@@ -1649,6 +1656,8 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
     // And of disc audio streaming: the music alone, to compare it with an
     // offline decode (GC_FLAG_STREAM_ONLY).
     const bool test_stream_only = stat("sd:/riftwii/gc/streamonly", &st_press) == 0;
+    // And of the restart: two Reset presses (GC_FLAG_RESET_TEST).
+    const bool test_reset = stat("sd:/riftwii/gc/reset", &st_press) == 0;
     // And of 16:9's hook without the widening (GC_FLAG_WIDEN).
     const bool test_no_widen = stat("sd:/riftwii/gc/nowiden", &st_press) == 0;
     // And of the ARAM addresses left as the SDK gives them in any game
@@ -2175,6 +2184,62 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
         if (test_crash_black) ctx->flags |= GC_FLAG_CRASH_BLACK;
     }
     if (test_stream_only) ctx->flags |= GC_FLAG_STREAM_ONLY;
+    // Reset restarts the game, as on a GameCube (gc_on_hot_reset): the
+    // game's OSResetSystem and its reset routine go to the blob, and MEM1's
+    // pieces as they are at the jump are kept in MEM2 to be put back, in
+    // this order: the zeroed BSS and DI stand-in, then the game's sections,
+    // BI2, the FST and low memory (copied there just before the jump).
+    const GcResetFunctions reset = find_gc_reset_functions(code.ranges());
+    const bool reset_hookable = reset.reset_system != 0 && opcode(code.at(reset.reset_system)) != 16 &&
+                                opcode(code.at(reset.reset_system)) != 18;
+    GcRestartPlan restart;
+    if (reset_hookable && gc_restart_known_to_work(image.id)) {
+        std::vector<GcRestartPiece> pieces;
+        if (dol.bss_size != 0) pieces.push_back({dol.bss, dol.bss_size, true});
+        pieces.push_back({di_regs, kGcDiRegsBytes, true});
+        for (const Section& s : dol.text)
+            pieces.push_back({s.address, static_cast<std::uint32_t>(s.bytes.size()), false});
+        for (const Section& s : dol.data)
+            pieces.push_back({s.address, static_cast<std::uint32_t>(s.bytes.size()), false});
+        pieces.push_back({bi2_addr, static_cast<std::uint32_t>(bi2.size()), false});
+        if (!fst.empty()) pieces.push_back({fst_addr, static_cast<std::uint32_t>(fst.size()), false});
+        pieces.push_back({0x80000000, kGameFloor - 0x80000000, false});
+        restart = plan_gc_restart(pieces, kGcRestartWindow, kGcRestartWindowBytes - kGcRestartStackBytes,
+                                  GC_RESTART_REGIONS);
+    }
+    // The table, kept here (the plan's own vector may be in MEM2's window).
+    gc_restart_region restart_table[GC_RESTART_REGIONS] = {};
+    const std::uint32_t restart_count = static_cast<std::uint32_t>(restart.regions.size());
+    // Hooked for every game: the ones without a restart go back to RiftWii
+    // on Reset (gc_on_reset_system), rather than stop the console.
+    if (reset_hookable) {
+        replay_hook(reset.reset_system, h.hook_reset_system, h.replay_reset_system, h.continue_reset_system);
+        hook(reset.hardware_reset, h.hook_hot_reset);
+        ctx->reset_system = reset.reset_system;
+        if (test_reset) ctx->flags |= GC_FLAG_RESET_TEST;
+    }
+    if (restart_count != 0) {
+        for (std::uint32_t i = 0; i < restart_count; ++i)
+            restart_table[i] = {restart.regions[i].address, restart.regions[i].length, restart.regions[i].source};
+        ctx->entry = dol.entry;
+        ctx->restart_regions = restart.table;
+        ctx->restart_count = restart_count;
+        ctx->restart_stack = kGcRestartWindow + kGcRestartWindowBytes - 16;  // a frame's back chain and LR above it
+        logf("GameCube: Reset restarts the game: OSResetSystem 0x%08x, reset routine 0x%08x, MEM1 kept in %u "
+             "piece(s), 0x%08x-0x%08x%s\n",
+             reset.reset_system, reset.hardware_reset, static_cast<unsigned>(restart_count), restart.table,
+             restart.end, pad_read != 0 ? "" : " (PADRead not found: only the game's own Reset)");
+    } else if (reset_hookable && gc_restart_known_to_work(image.id)) {
+        logf("GameCube: Reset goes back to RiftWii: the game's memory does not fit in the restart's %u MB\n",
+             static_cast<unsigned>(kGcRestartWindowBytes >> 20));
+    } else if (reset_hookable) {
+        logf("GameCube: Reset goes back to RiftWii, as holding HOME (OSResetSystem 0x%08x): this game's restart is "
+             "not known to work yet\n",
+             reset.reset_system);
+    } else {
+        logf("GameCube: Reset goes back to RiftWii, as holding HOME: OSResetSystem and the reset routine were not "
+             "found\n");
+    }
     // The memory card: the EXI functions to the blob (gc_card.h).
     if (!card_image.empty()) {
         std::uint32_t exi[GC_EXI_HOOKS];
@@ -2423,6 +2488,19 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
             for (std::size_t i = 0; i < sizeof(stub) / sizeof(stub[0]); ++i)
                 store32(0x80000000 + vector * 0x100 + 4 * i, stub[i]);
         }
+    }
+    // The restart's copy of MEM1 as the game starts, last, once nothing
+    // else is written there; what it overwrites in MEM2 (the loader's heap)
+    // is no longer needed.
+    for (std::uint32_t i = 0; i < restart_count; ++i) {
+        const gc_restart_region& r = restart_table[i];
+        if (r.source == 0) continue;
+        std::memcpy(reinterpret_cast<void*>(r.source), reinterpret_cast<const void*>(r.address), r.length);
+        DCFlushRange(reinterpret_cast<void*>(r.source), r.length);
+    }
+    if (restart_count != 0) {
+        std::memcpy(reinterpret_cast<void*>(kGcRestartWindow), restart_table, sizeof(restart_table));
+        DCFlushRange(reinterpret_cast<void*>(kGcRestartWindow), sizeof(restart_table));
     }
     DCFlushRange(reinterpret_cast<void*>(0x80000000), kLoaderStart - 0x80000000);
     ICInvalidateRange(reinterpret_cast<void*>(0x80000000), kLoaderStart - 0x80000000);
