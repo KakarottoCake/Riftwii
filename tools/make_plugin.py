@@ -74,6 +74,15 @@ RELATIVE = {
 # Allocated sections a plugin may have. .data must be empty: writable data
 # lives in the state the plugin asks for or in .bss.
 ALLOWED = {".text", ".rodata", ".data", ".bss"}
+# Where plugins/plugin.ld keeps what a plugin may not have, so it is
+# refused here by name instead of dropped by the link without a word.
+KEPT_TO_REFUSE = {
+    ".rwp_constructors": "static constructors or destructors (.ctors, .dtors, .init_array, .fini_array): "
+                         "nothing runs them, so a global with a constructor would never be built; "
+                         "make the global constant, or set it up in rwp_init",
+    ".rwp_exceptions": "exception or unwind tables (.eh_frame, .gcc_except_table): plugins have no unwinder, "
+                       "so a throw would end RiftWii; build with -fno-exceptions -fno-asynchronous-unwind-tables",
+}
 SHT_PROGBITS = 1
 SHT_SYMTAB = 2
 SHT_RELA = 4
@@ -145,6 +154,8 @@ class Elf:
             sh_type, flags, addr, offset, size = s[1], s[2], s[3], s[4], s[5]
             if not flags & SHF_ALLOC or size == 0:
                 continue
+            if name in KEPT_TO_REFUSE:
+                fail("%s: %d bytes of %s; docs/PLUGINS.md" % (self.path, size, KEPT_TO_REFUSE[name]))
             if name not in ALLOWED:
                 fail("%s: section %s is not allowed in a plugin (no constructors, exception tables, "
                      "small data or GOT; docs/PLUGINS.md)" % (self.path, name))

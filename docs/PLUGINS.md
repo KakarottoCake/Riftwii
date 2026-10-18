@@ -131,7 +131,10 @@ destructors, exceptions, RTTI, thread-local data, `.sdata` (the build uses
 RiftWii symbol by name. Everything the plugin needs from outside comes
 through the function table it is given (section 4). The build's blob check
 refuses a plugin whose link map holds an undefined symbol or a section
-outside this list.
+outside this list. Constructors, destructors and exception tables are kept
+by `plugins/plugin.ld` and refused by name, never silently dropped: a link
+that discarded them would load a plugin with a global never constructed, or
+one that ends RiftWii at its first throw.
 
 ### Header
 
