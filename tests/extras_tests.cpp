@@ -981,9 +981,9 @@ void TestCoverDownloads() {
     EXPECT_FALSE(run.count(CoverOutcome::NoAnswer));
     EXPECT_EQ(run.no_answer(), 4u);
     EXPECT_EQ(run.take_summary(),
-              std::string("Covers: 2 downloaded this session; GameTDB has no cover for 3 game(s), which show their "
-                          "names (asked again in a week); 4 got no answer and were passed over (tried again after "
-                          "Look for games again or a restart)."));
+              std::string("Covers: 2 downloaded this session; GameTDB has no cover for 3 game(s) (asked again in a "
+                          "week); 4 got no answer and were passed over (tried again after Look for games again or a "
+                          "restart)."));
     EXPECT_EQ(run.take_summary(), std::string());  // said once
 
     // The third in a row stops them: the network is down.
@@ -995,8 +995,21 @@ void TestCoverDownloads() {
     EXPECT_TRUE(run.count(CoverOutcome::CannotStore));
     run.reset();
     EXPECT_FALSE(run.count(CoverOutcome::Stored));
-    EXPECT_EQ(run.take_summary(), std::string("Covers: 1 downloaded this session; GameTDB has no cover for 0 game(s), "
-                                              "which show their names (asked again in a week)."));
+    EXPECT_EQ(run.take_summary(), std::string("Covers: 1 downloaded this session; GameTDB has no cover for 0 game(s) "
+                                              "(asked again in a week)."));
+
+    // The shelf's boxes and the 3D covers keep a count of their own, under
+    // their own names, which a reset keeps.
+    CoverDownloads boxes("Shelf", "full cover");
+    EXPECT_FALSE(boxes.count(CoverOutcome::NotFound));
+    EXPECT_FALSE(boxes.count(CoverOutcome::NoAnswer));
+    EXPECT_FALSE(boxes.count(CoverOutcome::NoAnswer));
+    EXPECT_TRUE(boxes.count(CoverOutcome::NoAnswer));
+    boxes.reset();
+    EXPECT_EQ(boxes.log_name(), std::string("Shelf"));
+    EXPECT_FALSE(boxes.count(CoverOutcome::NotFound));
+    EXPECT_EQ(boxes.take_summary(), std::string("Shelf: 0 downloaded this session; GameTDB has no full cover for 1 "
+                                                "game(s) (asked again in a week)."));
 }
 
 void TestCoverArt() {

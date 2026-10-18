@@ -24,7 +24,7 @@ enum class CoverFetch { Stored, NotFound, NoAnswer, Failed };
 // none (remembered for a week); NoAnswer: no answer about it (no network,
 // TLS, a timeout, GameTDB in trouble; `error`), not remembered; Failed:
 // the card could not be written (`error`). The shelf's boxes and the 3D
-// covers (boxart.hpp, cover3d.hpp) answer Failed for no network too.
+// covers (boxart.hpp, cover3d.hpp) answer the same way.
 CoverFetch FetchCover(const std::string& game_id, std::string& error);
 
 // FetchCover on the network's background thread (NetRunInBackground), so
