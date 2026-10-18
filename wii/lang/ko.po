@@ -855,6 +855,18 @@ msgstr "실험적 기능입니다. 게임 중 1번 버튼을 누른 상태에서
 msgid "Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder."
 msgstr "메뉴가 열려 있을 때 재생되는 음악: sd:/riftwii 경로의 music.ogg 또는 RiftWii 폴더 내의 음악 파일입니다."
 
+msgid "Launch music"
+msgstr "실행 중 음악"
+
+msgid "Keep playing"
+msgstr "계속 재생"
+
+msgid "Fade out"
+msgstr "페이드 아웃"
+
+msgid "Keep playing: the menu's music plays on under the launch screen and fades out as the game starts. Fade out: it fades out when you start a game."
+msgstr "계속 재생: 메뉴 음악이 시작 화면에서도 계속 흐르다가 게임이 시작될 때 서서히 사라집니다. 페이드 아웃: 게임을 시작할 때 음악이 서서히 사라집니다."
+
 msgid "Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music."
 msgstr "음악이 켜져 있지만 재생할 음악이 없습니다. sd:/riftwii에 music.ogg를 넣거나 음악이 있는 테마를 고르세요."
 
@@ -2331,6 +2343,9 @@ msgstr "Wii 리모컨"
 msgid "Nunchuk"
 msgstr "눈차크"
 
+msgid "Wii U Pro Controller"
+msgstr "Wii U 프로 컨트롤러"
+
 msgid "Classic Controller"
 msgstr "클래식 컨트롤러"
 
@@ -2642,3 +2657,27 @@ msgstr "{1} 애드온에 필요한 메모리가 부족했습니다. RiftWii를 �
 
 msgid "The {1} add-on did not start. Send a problem report so this can be fixed."
 msgstr "{1} 애드온이 시작되지 않았습니다. 이 문제가 해결될 수 있도록 오류 보고서를 보내주세요."
+
+msgid "Sharper picture"
+msgstr "더 선명한 화면"
+
+msgid "Off (as made)"
+msgstr "끔 (원래대로)"
+
+msgid "Turns off the soft blur some games add."
+msgstr "일부 게임이 더하는 부드러운 흐림을 끕니다."
+
+msgid "Game speed"
+msgstr "게임 속도"
+
+msgid "Smoother (60 Hz)"
+msgstr "더 부드럽게 (60 Hz)"
+
+msgid "As made (50 Hz)"
+msgstr "원래대로 (50 Hz)"
+
+msgid "Smoother plays at 60 Hz in games that have a 60 Hz mode, on a TV that takes it; the others stay at 50 Hz."
+msgstr "60 Hz 모드가 있는 게임은 이를 지원하는 TV에서 60 Hz로 플레이합니다. 다른 게임은 50 Hz로 남습니다."
+
+msgid "Default turns 480p on when the Wii is set to 480p and a component cable is seen; pick On (480p) if your TV takes it anyway."
+msgstr "기본은 Wii가 480p로 설정되어 있고 컴포넌트 케이블이 감지될 때 480p를 켭니다. TV가 지원한다면 켬 (480p)을 고르세요."

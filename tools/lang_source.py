@@ -749,6 +749,14 @@ T = {
         "メニューを開いている間の音楽です: sd:/riftwiiのmusic.ogg、なければRiftWiiのフォルダのものを流します。",
         "Música enquanto o menu está aberto: music.ogg de sd:/riftwii, ou a da pasta do RiftWii.",
         "Musica mentre il menu è aperto: music.ogg da sd:/riftwii, o quella nella cartella di RiftWii."),
+    "Launch music": ("Música al iniciar", "起動中の音楽", "Música ao iniciar", "Musica all'avvio"),
+    "Keep playing": ("Seguir sonando", "流し続ける", "Continuar tocando", "Continua a suonare"),
+    "Fade out": ("Desvanecer", "フェードアウト", "Diminuir aos poucos", "Dissolvenza"),
+    "Keep playing: the menu's music plays on under the launch screen and fades out as the game starts. Fade out: it fades out when you start a game.": (
+        "Seguir sonando: la música del menú continúa bajo la pantalla de inicio y se desvanece al empezar el juego. Desvanecer: se desvanece al iniciar un juego.",
+        "流し続ける: メニューの音楽は起動画面でも流れ続け、ゲームが始まるときにフェードアウトします。フェードアウト: ゲームを起動するときにフェードアウトします。",
+        "Continuar tocando: a música do menu segue tocando na tela de início e some aos poucos quando o jogo começa. Diminuir aos poucos: ela some ao iniciar um jogo.",
+        "Continua a suonare: la musica del menu prosegue sotto la schermata di avvio e sfuma quando parte il gioco. Dissolvenza: sfuma quando avvii un gioco."),
     "Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music.": (
         "La música está activada, pero no hay nada que sonar: pon un music.ogg en sd:/riftwii o elige un tema con música.",
         "音楽はオンですが、流す曲がありません。sd:/riftwiiにmusic.oggを置くか、音楽のあるテーマを選んでください。",
@@ -1188,7 +1196,7 @@ T = {
         "Num Wii U, o adaptador de GameCube nos jogos pode travar o console em 97% enquanto um jogo do cartão SD ou de uma unidade USB inicia. Às vezes funciona e às vezes trava, e o RiftWii não consegue saber antes. Se travar, segure o botão de energia para desligar o console. Automático é seguro: deixa o adaptador fora desses jogos.",
         "Su una Wii U, l'adattatore GameCube nei giochi può bloccare la console al 97% mentre parte un gioco dalla scheda SD o da un'unità USB. A volte funziona e altre si blocca, e RiftWii non può saperlo prima. Se si blocca, tieni premuto il tasto di accensione per spegnere la console. Automatico è sicuro: lascia l'adattatore fuori da quei giochi."),
     "Turn it on anyway": (
-        "Activarlo de todos modos",
+        "Activar igualmente",
         "それでもオンにする",
         "Ativar mesmo assim",
         "Attivalo comunque"),
@@ -1944,6 +1952,7 @@ T = {
     "What GameTDB says about the game: when it came out, how many can play, the controllers it takes and its story.": ("Lo que dice GameTDB del juego: cuándo salió, cuántos pueden jugar, los mandos que usa y su historia.", "GameTDBによるゲームの情報：発売日、遊べる人数、使えるコントローラー、ストーリー。", "O que o GameTDB diz sobre o jogo: quando saiu, quantos podem jogar, os controles que usa e a história.", "Cosa dice GameTDB del gioco: quando è uscito, quanti possono giocare, i controller che usa e la trama."),
     "Wii Remote": ("Mando de Wii", "Wiiリモコン", "Wii Remote", "Telecomando Wii"),
     "Nunchuk": ("Nunchuk", "ヌンチャク", "Nunchuk", "Nunchuk"),
+    "Wii U Pro Controller": ("Mando Pro de Wii U", "Wii U PROコントローラ", "Controle Pro do Wii U", "Wii U Pro Controller"),
     "Classic Controller": ("Mando Clásico", "クラシックコントローラ", "Classic Controller", "Controller tradizionale"),
     "GameCube controller": ("Mando de GameCube", "ゲームキューブコントローラ", "Controle do GameCube", "Controller GameCube"),
     "Balance Board": ("Wii Balance Board", "バランスWiiボード", "Balance Board", "Balance Board"),
@@ -2162,6 +2171,46 @@ T = {
         "{1}アドオンが起動しませんでした。直せるように、問題レポートを送ってください。",
         "O complemento {1} não iniciou. Envie um relatório de problema para que isso seja corrigido.",
         "Il componente aggiuntivo {1} non si è avviato. Invia una segnalazione così si può correggere."),
+    "Sharper picture": (
+        "Imagen más nítida",
+        "くっきりした画面",
+        "Imagem mais nítida",
+        "Immagine più nitida"),
+    "Off (as made)": (
+        "No (como se hizo)",
+        "オフ (元のまま)",
+        "Não (como foi feito)",
+        "No (come fatto)"),
+    "Turns off the soft blur some games add.": (
+        "Quita el ligero desenfoque que añaden algunos juegos.",
+        "一部のゲームが加えるぼかしをなくします。",
+        "Tira o leve desfoque que alguns jogos colocam.",
+        "Toglie la leggera sfocatura che alcuni giochi aggiungono."),
+    "Game speed": (
+        "Velocidad del juego",
+        "ゲームの速さ",
+        "Velocidade do jogo",
+        "Velocità del gioco"),
+    "Smoother (60 Hz)": (
+        "Más fluido (60 Hz)",
+        "なめらか (60 Hz)",
+        "Mais suave (60 Hz)",
+        "Più fluido (60 Hz)"),
+    "As made (50 Hz)": (
+        "Como se hizo (50 Hz)",
+        "元のまま (50 Hz)",
+        "Como foi feito (50 Hz)",
+        "Come fatto (50 Hz)"),
+    "Smoother plays at 60 Hz in games that have a 60 Hz mode, on a TV that takes it; the others stay at 50 Hz.": (
+        "Más fluido juega a 60 Hz en los juegos que tienen un modo de 60 Hz, en un televisor que lo admita; los demás siguen a 50 Hz.",
+        "60 Hzモードがあるゲームは、対応するテレビで60 Hzで遊べます。ほかのゲームは50 Hzのままです。",
+        "Mais suave roda a 60 Hz nos jogos que têm um modo de 60 Hz, em uma TV compatível; os outros continuam em 50 Hz.",
+        "Più fluido gioca a 60 Hz nei giochi che hanno una modalità a 60 Hz, su un televisore che la accetta; gli altri restano a 50 Hz."),
+    "Default turns 480p on when the Wii is set to 480p and a component cable is seen; pick On (480p) if your TV takes it anyway.": (
+        "Predeterminado activa 480p cuando la Wii está en 480p y se detecta un cable por componentes; elige Sí (480p) si tu televisor lo admite de todos modos.",
+        "標準では、Wiiが480pに設定されていてコンポーネントケーブルがつながっているときに480pになります。テレビが対応していれば、オン (480p) を選んでください。",
+        "Padrão liga o 480p quando o Wii está em 480p e um cabo componente é detectado; escolha Sim (480p) se a sua TV aceitar mesmo assim.",
+        "Predefinito attiva i 480p quando la Wii è impostata su 480p e viene rilevato un cavo component; scegli Sì (480p) se il televisore li accetta comunque."),
 }
 
 
@@ -2710,6 +2759,14 @@ KO = {
         "실험적 기능입니다. 게임 중 1번 버튼을 누른 상태에서 홈 버튼을 누르세요 (또는 게임큐브 컨트롤러의 L과 R 버튼을 누른 상태에서 아래 방향키를 누르세요). 다음에 RiftWii를 실행하면 스크린샷이 sd:/riftwii/screenshots 경로에 저장됩니다. 일부 게임이나 모드에서는 이 기능이 작동하지 않을 수 있습니다.",
     "Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder.":
         "메뉴가 열려 있을 때 재생되는 음악: sd:/riftwii 경로의 music.ogg 또는 RiftWii 폴더 내의 음악 파일입니다.",
+    "Launch music":
+        "실행 중 음악",
+    "Keep playing":
+        "계속 재생",
+    "Fade out":
+        "페이드 아웃",
+    "Keep playing: the menu's music plays on under the launch screen and fades out as the game starts. Fade out: it fades out when you start a game.":
+        "계속 재생: 메뉴 음악이 시작 화면에서도 계속 흐르다가 게임이 시작될 때 서서히 사라집니다. 페이드 아웃: 게임을 시작할 때 음악이 서서히 사라집니다.",
     "Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music.":
         "음악이 켜져 있지만 재생할 음악이 없습니다. sd:/riftwii에 music.ogg를 넣거나 음악이 있는 테마를 고르세요.",
     "On a Wii U the GameCube adapter may not work in game from the front USB ports; the rear ones work.":
@@ -3720,6 +3777,8 @@ KO = {
         "Wii 리모컨",
     "Nunchuk":
         "눈차크",
+    "Wii U Pro Controller":
+        "Wii U 프로 컨트롤러",
     "Classic Controller":
         "클래식 컨트롤러",
     "GameCube controller":
@@ -3928,6 +3987,22 @@ KO = {
         "{1} 애드온에 필요한 메모리가 부족했습니다. RiftWii를 다시 시작한 뒤 다시 시도해 주세요.",
     "The {1} add-on did not start. Send a problem report so this can be fixed.":
         "{1} 애드온이 시작되지 않았습니다. 이 문제가 해결될 수 있도록 오류 보고서를 보내주세요.",
+    "Sharper picture":
+        "더 선명한 화면",
+    "Off (as made)":
+        "끔 (원래대로)",
+    "Turns off the soft blur some games add.":
+        "일부 게임이 더하는 부드러운 흐림을 끕니다.",
+    "Game speed":
+        "게임 속도",
+    "Smoother (60 Hz)":
+        "더 부드럽게 (60 Hz)",
+    "As made (50 Hz)":
+        "원래대로 (50 Hz)",
+    "Smoother plays at 60 Hz in games that have a 60 Hz mode, on a TV that takes it; the others stay at 50 Hz.":
+        "60 Hz 모드가 있는 게임은 이를 지원하는 TV에서 60 Hz로 플레이합니다. 다른 게임은 50 Hz로 남습니다.",
+    "Default turns 480p on when the Wii is set to 480p and a component cable is seen; pick On (480p) if your TV takes it anyway.":
+        "기본은 Wii가 480p로 설정되어 있고 컴포넌트 케이블이 감지될 때 480p를 켭니다. TV가 지원한다면 켬 (480p)을 고르세요.",
 }
 
 # French, a table of its own (msgid: text), from MidyGamy's translation
@@ -4475,6 +4550,14 @@ FR = {
         "Expérimental. En jeu, maintenez 1 et appuyez sur HOME (Manette GC : L + R + Bas). Les images vont dans sd:/riftwii/screenshots au relancement de RiftWii. Incompatible avec certains jeux/mods.",
     "Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder.":
         "Musique du menu : fichier music.ogg situé dans sd:/riftwii ou dans le dossier propre de RiftWii.",
+    "Launch music":
+        "Au lancement",
+    "Keep playing":
+        "Continuer",
+    "Fade out":
+        "Fondu sortant",
+    "Keep playing: the menu's music plays on under the launch screen and fades out as the game starts. Fade out: it fades out when you start a game.":
+        "Continuer : la musique du menu continue sous l'écran de lancement et s'estompe au démarrage du jeu. Fondu sortant : elle s'estompe dès que vous lancez un jeu.",
     "Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music.":
         "La musique est activée, mais il n'y a rien à jouer : mettez un music.ogg dans sd:/riftwii ou choisissez un thème avec musique.",
     "On a Wii U the GameCube adapter may not work in game from the front USB ports; the rear ones work.":
@@ -4726,7 +4809,7 @@ FR = {
     "Yes, turn it on":
         "Oui, activer",
     "Keep it as it is":
-        "Conserver l'état actuel",
+        "Laisser tel quel",
     "WARNING: on this Wii U, games from the SD card or a USB drive can freeze at 97% with this on. Use Automatic unless you are testing the adapter.":
         "ATTENTION : sur cette Wii U, le chargement peut bloquer à 97%. Privilégiez le mode Automatique.",
     "Left as it was.":
@@ -5485,6 +5568,8 @@ FR = {
         "Wiimote",
     "Nunchuk":
         "Nunchuk",
+    "Wii U Pro Controller":
+        "Manette Pro Wii U",
     "Classic Controller":
         "Manette Classique",
     "GameCube controller":
@@ -5693,6 +5778,22 @@ FR = {
         "Il n'y avait pas assez de mémoire pour le module {1}. Redémarrez RiftWii et réessayez.",
     "The {1} add-on did not start. Send a problem report so this can be fixed.":
         "Le module {1} n'a pas démarré. Envoyez un rapport de problème pour que cela soit corrigé.",
+    "Sharper picture":
+        "Image plus nette",
+    "Off (as made)":
+        "Désactivé (d'origine)",
+    "Turns off the soft blur some games add.":
+        "Retire le léger flou que certains jeux ajoutent.",
+    "Game speed":
+        "Vitesse du jeu",
+    "Smoother (60 Hz)":
+        "Plus fluide (60 Hz)",
+    "As made (50 Hz)":
+        "D'origine (50 Hz)",
+    "Smoother plays at 60 Hz in games that have a 60 Hz mode, on a TV that takes it; the others stay at 50 Hz.":
+        "Plus fluide joue à 60 Hz dans les jeux qui ont un mode 60 Hz, sur une télé qui l'accepte ; les autres restent à 50 Hz.",
+    "Default turns 480p on when the Wii is set to 480p and a component cable is seen; pick On (480p) if your TV takes it anyway.":
+        "Par défaut active le 480p quand la Wii est réglée sur 480p et qu'un câble composante est détecté ; choisissez Activé (480p) si votre télé l'accepte quand même.",
 }
 
 # Languages kept in tables of their own: written after LANGS, every msgid
