@@ -188,6 +188,14 @@ static void test_partition() {
     disc[part + 0x1F1] = 1;
     MemorySource korean(disc);
     EXPECT_TRUE(!open_game_partition(korean, common, p, error));
+    // So is a vWii one; an index that names no key reads as the ordinary
+    // key (WiiWare WADs from some sources carry any byte there).
+    disc[part + 0x1F1] = 2;
+    MemorySource vwii(disc);
+    EXPECT_TRUE(!open_game_partition(vwii, common, p, error));
+    disc[part + 0x1F1] = 181;
+    MemorySource stray(disc);
+    EXPECT_TRUE(open_game_partition(stray, common, p, error));
 }
 
 static void test_lz77_u8() {
