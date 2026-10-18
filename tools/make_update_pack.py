@@ -36,6 +36,10 @@ FILE = re.compile(r"^[A-Za-z0-9_\-. ]{1,64}$")
 APPS = "sd-card/apps/"
 PLUGINS = "riftwii/plugins/"
 PLUGIN_FILE = re.compile(r"^([A-Za-z0-9_-]{1,16})\.([A-Za-z0-9_-]{1,32})\.rwp$")
+# Plugins a release's DOL cannot do without (docs/PLUGINS.md): a zip
+# missing one would give its players a RiftWii whose GameCube games say the
+# add-on is missing.
+REQUIRED_PLUGINS = ("gamecube",)
 
 
 def fail(message):
@@ -99,7 +103,7 @@ def check_plugin(name, data, dol):
 
 
 def apps_part(zip_path):
-    parts = [b"RIFTWII APPS 1\n"]
+    others = []
     count = 0
     found = set()
     plugins = {}
@@ -116,17 +120,26 @@ def apps_part(zip_path):
             folder, _, name = path.partition("/")
             if not (NAME.match(folder) and FILE.match(name) and "/" not in name):
                 fail("file name not allowed in the zip: " + path)
-            parts.append(file_entry(path, z.read(info)))
+            others.append(file_entry(path, z.read(info)))
             found.add(path)
             count += 1
         dol = z.read(APPS + "riftwii/boot.dol") if (APPS + "riftwii/boot.dol") in z.namelist() else None
     # RiftWii's plugins (docs/PLUGINS.md): written by the in-app update
     # next to the running boot.dol. Each must match the zip's boot.dol, or
-    # the update would install files that DOL refuses.
+    # the update would install files that DOL refuses. They come first in
+    # the part, as the update writes them first (before the DOL, and before
+    # the rest of the part at the new DOL's first start).
+    parts = [b"RIFTWII APPS 1\n"]
+    names = set()
     for name, data in sorted(plugins.items()):
         check_plugin(name, data, dol)
+        names.add(PLUGIN_FILE.match(name).group(1))
         parts.append(file_entry(PLUGINS + name, data))
         count += 1
+    for needed in REQUIRED_PLUGINS:
+        if needed not in names:
+            fail("the zip has no %s%s%s.<version>.rwp, which its boot.dol needs" % (APPS, PLUGINS, needed))
+    parts.extend(others)
     # The installer the channel prompt runs, by name: three files of any
     # kind used to be enough.
     for needed in ("riftwii_channel/boot.dol", "riftwii_channel/meta.xml"):

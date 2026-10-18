@@ -2,11 +2,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The plugin file (include/riftwii/pluginfile.hpp): the header and every
 // refusal, the SHA-256, the relocations, the names and folders, crash
-// attribution and the API tables' version rules; and a file written by
+// attribution and the API tables' version rules; the in-app update's
+// order (plugins before the DOL); and a file written by
 // tools/make_plugin.py read back by the C++ reader.
 #include "riftwii/plugin_api.h"
 #include "riftwii/pluginfile.hpp"
 #include "riftwii/sha256.hpp"
+#include "riftwii/update.hpp"
 
 #include <algorithm>
 #include <cstddef>
@@ -596,6 +598,63 @@ static void TestToolFixture(const std::string& fixtures) {
     EXPECT_EQ(riftwii::plugin_check_table(memory.data(), header, base, header.api_version, why), PluginRefusal::None);
 }
 
+// The in-app update (riftwii/update.hpp's plan_update_writes): the
+// release's plugins first, next to the running DOL, then the DOL last; the
+// rest of the apps part waits for the new DOL's first start.
+static void TestUpdateOrder() {
+    using riftwii::ThemePack;
+    using riftwii::ThemePackFile;
+    using riftwii::UpdateWrite;
+    ThemePack apps;
+    apps.files = {
+        ThemePackFile{"riftwii_channel/boot.dol", 0, 100},
+        ThemePackFile{"riftwii/plugins/gamecube.2610-500.rwp", 100, 4000},
+        ThemePackFile{"riftwii/icon.png", 4100, 50},
+        ThemePackFile{"riftwii/plugins/selftest.2610-500.rwp", 4150, 300},
+    };
+    const std::string folder = "sd:/apps/riftwii/plugins/";
+    const std::string dol = "sd:/apps/riftwii/boot.dol";
+    std::vector<UpdateWrite> writes;
+    std::string why;
+    EXPECT_TRUE(riftwii::plan_update_writes(apps, "v2610-500", folder, dol, writes, why));
+    EXPECT_EQ(writes.size(), 3u);
+    if (writes.size() == 3) {
+        EXPECT_EQ(writes[0].path, folder + "gamecube.2610-500.rwp");
+        EXPECT_EQ(writes[0].offset, 100u);
+        EXPECT_EQ(writes[0].size, 4000u);
+        EXPECT_FALSE(writes[0].dol);
+        EXPECT_EQ(writes[1].path, folder + "selftest.2610-500.rwp");
+        // The DOL, last, whatever order the pack had.
+        EXPECT_EQ(writes[2].path, dol);
+        EXPECT_TRUE(writes[2].dol);
+    }
+    // The tag without its 'v' is the same release.
+    EXPECT_TRUE(riftwii::plan_update_writes(apps, "2610-500", folder, dol, writes, why));
+    EXPECT_EQ(writes.size(), 3u);
+    // A pack with no plugins: the DOL alone.
+    ThemePack plain;
+    plain.files = {ThemePackFile{"riftwii/icon.png", 0, 50}};
+    EXPECT_TRUE(riftwii::plan_update_writes(plain, "v2610-500", folder, dol, writes, why));
+    EXPECT_EQ(writes.size(), 1u);
+    EXPECT_TRUE(!writes.empty() && writes.back().dol);
+    // A plugin of another version is refused, and nothing is planned.
+    ThemePack mixed = apps;
+    mixed.files.push_back(ThemePackFile{"riftwii/plugins/gamecube.2610-499.rwp", 4450, 4000});
+    EXPECT_FALSE(riftwii::plan_update_writes(mixed, "v2610-500", folder, dol, writes, why));
+    EXPECT_TRUE(writes.empty());
+    EXPECT_TRUE(why.find("2610-499") != std::string::npos);
+    // A name the loader never reads, or one in a folder below, too.
+    ThemePack odd;
+    odd.files = {ThemePackFile{"riftwii/plugins/old/gamecube.2610-500.rwp", 0, 10}};
+    EXPECT_FALSE(riftwii::plan_update_writes(odd, "v2610-500", folder, dol, writes, why));
+    odd.files = {ThemePackFile{"riftwii/plugins/gamecube.rwp", 0, 10}};
+    EXPECT_FALSE(riftwii::plan_update_writes(odd, "v2610-500", folder, dol, writes, why));
+    // No folder (or one without its slash), no DOL, no version.
+    EXPECT_FALSE(riftwii::plan_update_writes(apps, "v2610-500", "sd:/apps/riftwii/plugins", dol, writes, why));
+    EXPECT_FALSE(riftwii::plan_update_writes(apps, "v2610-500", folder, "", writes, why));
+    EXPECT_FALSE(riftwii::plan_update_writes(apps, "v", folder, dol, writes, why));
+}
+
 int main(int argc, char** argv) {
     TestSha256();
     TestGoodHeader();
@@ -608,6 +667,7 @@ int main(int argc, char** argv) {
     TestDirectory();
     TestDescribeAddress();
     TestTables();
+    TestUpdateOrder();
     if (argc > 1) {
         TestToolFixture(argv[1]);
     } else {
