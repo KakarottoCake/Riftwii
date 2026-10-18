@@ -1188,7 +1188,7 @@ T = {
         "Num Wii U, o adaptador de GameCube nos jogos pode travar o console em 97% enquanto um jogo do cartão SD ou de uma unidade USB inicia. Às vezes funciona e às vezes trava, e o RiftWii não consegue saber antes. Se travar, segure o botão de energia para desligar o console. Automático é seguro: deixa o adaptador fora desses jogos.",
         "Su una Wii U, l'adattatore GameCube nei giochi può bloccare la console al 97% mentre parte un gioco dalla scheda SD o da un'unità USB. A volte funziona e altre si blocca, e RiftWii non può saperlo prima. Se si blocca, tieni premuto il tasto di accensione per spegnere la console. Automatico è sicuro: lascia l'adattatore fuori da quei giochi."),
     "Turn it on anyway": (
-        "Activarlo de todos modos",
+        "Activar igualmente",
         "それでもオンにする",
         "Ativar mesmo assim",
         "Attivalo comunque"),
@@ -4690,7 +4690,7 @@ FR = {
     "Yes, turn it on":
         "Oui, activer",
     "Keep it as it is":
-        "Conserver l'état actuel",
+        "Laisser tel quel",
     "WARNING: on this Wii U, games from the SD card or a USB drive can freeze at 97% with this on. Use Automatic unless you are testing the adapter.":
         "ATTENTION : sur cette Wii U, le chargement peut bloquer à 97%. Privilégiez le mode Automatique.",
     "Left as it was.":

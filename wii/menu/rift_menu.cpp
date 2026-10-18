@@ -137,6 +137,12 @@ using riftwii::wii::tr;
 
 namespace skin = riftwii::wii::skin;
 
+// Where the left and right pill of a two-button row sit (x of the 244 wide
+// glass; centred on 320). The hovered pill grows to 110%, 12 more on each
+// side, so the 36 gap keeps it clear of its neighbour (a 12 gap, as the
+// pills had at 70 and 326, closed up and covered the other one).
+constexpr int kPairLeftX = 58, kPairRightX = 338;
+
 // For the session log: which screen the user reached last.
 static const char* ScreenName(int menu)
 {
@@ -1462,13 +1468,11 @@ static ChannelChoice ShowChannel(int& index, int count, const std::string& first
 	backBtn.button.SetVisible(false);
 	// + and - go to the next and previous game, as on the Wii Menu's
 	// channel screen (a tester's muscle memory); Start is A on it.
-	// The two pills sit 36 apart: the hovered one grows to 110% (12 more
-	// on each side), which closed the old 12 gap and covered its neighbour.
-	SkinButton goBtn(skin::pillPrimary, skin::pillPrimaryOver, 4, 338, 384, tr("Start"),
+	SkinButton goBtn(skin::pillPrimary, skin::pillPrimaryOver, 4, kPairRightX, 384, tr("Start"),
 		WPAD_BUTTON_A | WPAD_CLASSIC_BUTTON_A, PAD_BUTTON_A | PAD_BUTTON_START, WIIDRC_BUTTON_A);
 	goBtn.text.SetColor(skin::kAccentInk);
 	// A pill like Start's, where the Wii Menu has its "Wii Menu" one.
-	SkinButton pageBtn(skin::pill, skin::pillOver, 4, 58, 384, tr("Settings"),
+	SkinButton pageBtn(skin::pill, skin::pillOver, 4, kPairLeftX, 384, tr("Settings"),
 		WPAD_BUTTON_2 | WPAD_CLASSIC_BUTTON_X, PAD_TRIGGER_R, WIIDRC_BUTTON_Y);
 	// The arrows at the screen's sides, level with the banner's middle.
 	f32 safeX, safeW;
@@ -2108,9 +2112,9 @@ public:
 		 const std::string& cancel = "")
 		: extra(PopupExtra()), panel(skin::popup, 34, 102, extra), titleTxt(title.c_str(), 24, skin::kInk),
 		  bodyTxt(body.c_str(), 16, skin::kInkSoft),
-		  okBtn(skin::pill, skin::pillOver, 4, cancel.empty() ? 198 : 70, kButtonY, ok.c_str(),
+		  okBtn(skin::pill, skin::pillOver, 4, cancel.empty() ? 198 : kPairLeftX, kButtonY, ok.c_str(),
 			WPAD_BUTTON_A | WPAD_CLASSIC_BUTTON_A, PAD_BUTTON_A, WIIDRC_BUTTON_A),
-		  cancelBtn(skin::pill, skin::pillOver, 4, 326, kButtonY, cancel.c_str(),
+		  cancelBtn(skin::pill, skin::pillOver, 4, kPairRightX, kButtonY, cancel.c_str(),
 			WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B | WPAD_BUTTON_HOME | WPAD_CLASSIC_BUTTON_HOME, PAD_BUTTON_B,
 			WIIDRC_BUTTON_B | WIIDRC_BUTTON_HOME),
 		  hasOk(!ok.empty()), hasCancel(!cancel.empty()), chained(PopupJustClosed()),
@@ -9977,10 +9981,10 @@ static int MenuNeedsSd()
 	GuiText scanTxt(tr("Need a card? Scan this."), 14, skin::kInkDim);
 	scanTxt.SetAlignment(ALIGN_H::CENTRE, ALIGN_V::TOP);
 	scanTxt.SetPosition(588 - 16 - kQrSide / 2 - screenwidth / 2, 138 + kQrSide + 8);
-	SkinButton exitBtn(skin::pill, skin::pillOver, 4, canRetry ? 70 : 198, 412, tr("Exit"),
+	SkinButton exitBtn(skin::pill, skin::pillOver, 4, canRetry ? kPairLeftX : 198, 412, tr("Exit"),
 		WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B | WPAD_BUTTON_HOME | WPAD_CLASSIC_BUTTON_HOME, PAD_BUTTON_B | PAD_BUTTON_START,
 		WIIDRC_BUTTON_B | WIIDRC_BUTTON_HOME);
-	SkinButton retryBtn(skin::pillPrimary, skin::pillPrimaryOver, 4, 326, 412, tr("Try again"),
+	SkinButton retryBtn(skin::pillPrimary, skin::pillPrimaryOver, 4, kPairRightX, 412, tr("Try again"),
 		WPAD_BUTTON_A | WPAD_CLASSIC_BUTTON_A, PAD_BUTTON_A, WIIDRC_BUTTON_A);
 	retryBtn.text.SetColor(skin::kAccentInk);
 
