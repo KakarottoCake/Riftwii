@@ -134,7 +134,8 @@ enum gc_trace_word {
     GC_TR_BT_PORTS, /* each remote slot's port (gc_ports.h), a byte each from slot 0 in the top byte; 0xFF none */
     GC_TR_PAD_ERRS, /* each port's err as the game got it after the remotes' fill, port 1 in the top byte; 0xFF none */
     GC_TR_BT_SHAKES, /* shakes that pressed their button (gc_controls.h), all remotes */
-    GC_TR_WORDS
+    GC_TR_BT_FAKE, /* 16 words: the test remote's results (gc_bt.h's fake_log) */
+    GC_TR_WORDS = GC_TR_BT_FAKE + 16
 };
 typedef char gc_trace_fits[(GC_TR_WORDS * 4 <= 512) ? 1 : -1];
 /* where: what wrote the record */
@@ -160,6 +161,7 @@ typedef char gc_trace_fits[(GC_TR_WORDS * 4 <= 512) ? 1 : -1];
 #define GC_FLAG_CRASH 4u  /* tests of the crash screen: the 600th pad read takes a program exception */
 #define GC_FLAG_LEAVE 2u  /* tests of the way back: port 1 holds L, R, Z and Start from the 1800th pad read;
                            * with GC_FLAG_CRASH, the crash screen takes A after twenty seconds */
+#define GC_FLAG_FAKE_REMOTE 128u  /* tests in Dolphin: a made-up Wii Remote instead of the Bluetooth (gc_bt_fake) */
 #define GC_FLAG_CRASH_BLACK 64u  /* with GC_FLAG_CRASH: the screen is blanked first, as VISetBlack does (no active lines) */
 #define GC_FLAG_STREAM_ONLY 32u  /* tests: AI buffers that carry disc music carry it alone (the game's own sound cleared) */
 #define GC_FLAG_PROGRESSIVE 8u  /* 480p: VIConfigure's NTSC interlaced modes become progressive (gc_on_vi_configure) */

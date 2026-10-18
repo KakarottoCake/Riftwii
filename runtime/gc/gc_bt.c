@@ -790,3 +790,62 @@ void gc_bt_fill(struct gc_bt* bt, uint8_t* status) {
     for (i = 0; i < GC_PORTS; ++i) bt->port_err[i] = status[12 * i + 10];
 }
 
+/* The test remote's steps (gc_bt.h), a Wii Remote alone for the first
+ * four, with a Nunchuk for the rest:
+ *   0  nothing held, the remote still
+ *   1  2 held
+ *   2  the remote's own Right held: Up, as it is held sideways
+ *   3  shaken (its X axis swings 64 from one report to the next)
+ *   4  A held and the Nunchuk's stick right
+ *   5  C held
+ *   6  shaken
+ *   7  nothing held, still
+ * Each step's first word: the buttons the remote's port got from the step's
+ * fifteenth PADRead on (a shake's last press has ended by then), ORed, in
+ * the top half, and how many PADReads had any in the bottom. The second:
+ * its stick's x and y and the C-stick's x mid-step, then the port. */
+void gc_bt_fake(struct gc_bt* bt, uint8_t* status, uint32_t n) {
+    struct gc_bt_remote* r = &bt->remotes[0];
+    const uint32_t step = (n / GC_BT_FAKE_FRAMES) % GC_BT_FAKE_STEPS;
+    const uint32_t frame = n % GC_BT_FAKE_FRAMES;
+    const uint32_t nunchuk = step >= 4;
+    uint32_t* log = &bt->fake_log[2 * step];
+    uint8_t report[23];
+    uint32_t i, port;
+    r->used = 1;
+    r->ready = 1;
+    r->ext_kind = nunchuk ? GC_BT_EXT_NUNCHUK : GC_BT_EXT_NONE;
+    r->ext_step = nunchuk ? 4 : 0;
+    for (i = 0; i < sizeof(report); ++i) report[i] = 0;
+    report[0] = 0xA1;
+    report[1] = nunchuk ? 0x35 : 0x31;
+    report[4] = 0x80;  /* still: 1 g on Z */
+    report[5] = 0x80;
+    report[6] = 0x9A;
+    report[7] = 0x80;  /* the Nunchuk's stick in the middle */
+    report[8] = 0x80;
+    report[12] = 0x03; /* C and Z up (active low) */
+    if (step == 1) report[3] = 0x01;
+    if (step == 2) report[2] = 0x02;
+    if (step == 3 || step == 6) report[4] = (frame & 1u) ? 0x60 : 0xA0;
+    if (step == 4) {
+        report[3] = 0x08;
+        report[7] = 0xFF;
+    }
+    if (step == 5) report[12] = 0x01;
+    bt_on_input(bt, r, report, nunchuk ? 23u : 7u);
+    gc_bt_fill(bt, status);
+    if (frame == 0) {
+        log[0] = 0;
+        log[1] = 0;
+    }
+    port = bt->port_of[0];
+    if (port >= GC_PORTS) return;
+    {
+        const uint8_t* pad = status + 12 * port;
+        const uint32_t buttons = (uint32_t)pad[0] << 8 | pad[1];
+        if (frame >= 15 && buttons != 0) log[0] = (log[0] | buttons << 16) + 1;
+        if (frame == GC_BT_FAKE_FRAMES / 2)
+            log[1] = (uint32_t)pad[2] << 24 | (uint32_t)pad[3] << 16 | (uint32_t)pad[4] << 8 | port;
+    }
+}

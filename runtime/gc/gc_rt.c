@@ -416,6 +416,9 @@ static uint32_t gc_trace_slot(const struct gc_rt_context* ctx, uint32_t seq) {
     return ctx->trace_sector + kept + (seq - kept - 1) % ring;
 }
 
+/* The test remote's results fill the trace's GC_TR_BT_FAKE words. */
+typedef char gc_fake_log_fits[(GC_TR_WORDS - GC_TR_BT_FAKE == GC_BT_FAKE_STEPS * 2) ? 1 : -1];
+
 /* One record of the trace (gc_rt.h), with interrupts held off so it
  * cannot meet a read on the card; skipped while a read is going on. */
 static int32_t gc_trace(struct gc_rt_context* ctx, uint32_t where) {
@@ -475,6 +478,7 @@ static int32_t gc_trace(struct gc_rt_context* ctx, uint32_t where) {
         }
         gc_copy((uint8_t*)&w[GC_TR_BT_EVENT_LOG], &bt->event_log[0][0], 32);
         w[GC_TR_BT_SHAKES] = bt->shakes;
+        gc_copy((uint8_t*)&w[GC_TR_BT_FAKE], (const uint8_t*)bt->fake_log, sizeof(bt->fake_log));
     }
     if (ctx->card) {
         const struct gc_card* card = (const struct gc_card*)(uintptr_t)ctx->card;
@@ -1318,8 +1322,12 @@ uint32_t gc_on_pad_read(struct gc_rt_context* ctx, uint32_t status, uint32_t res
     gc_stream_fetch(ctx);  /* the music ring's top-up, once a frame */
     if (ctx->bt && status != 0) {
         struct gc_bt* bt = (struct gc_bt*)(uintptr_t)ctx->bt;
-        gc_bt_poll(ctx, bt);
-        gc_bt_fill(bt, (uint8_t*)(uintptr_t)status);
+        if (ctx->flags & GC_FLAG_FAKE_REMOTE) {
+            gc_bt_fake(bt, (uint8_t*)(uintptr_t)status, n);
+        } else {
+            gc_bt_poll(ctx, bt);
+            gc_bt_fill(bt, (uint8_t*)(uintptr_t)status);
+        }
     }
     if (n % 300 == 0) gc_trace(ctx, GC_TRACE_PAD);
     if ((ctx->flags & GC_FLAG_PRESS) && status != 0 && (n % 240) < 10) {

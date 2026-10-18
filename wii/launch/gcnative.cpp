@@ -1705,6 +1705,10 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
     // list: tells whether a game's crash comes from the raised addresses
     // without a build for it.
     const bool test_keep_aram = stat("sd:/riftwii/gc/keeparam", &st_press) == 0;
+    // And of the Wii Remotes' map with no remote to press (Dolphin's
+    // emulated ones do not connect unpressed): a made-up remote instead
+    // (gc_bt.h's gc_bt_fake).
+    const bool test_fake_remote = stat("sd:/riftwii/gc/fakeremote", &st_press) == 0;
     // What the Wii Remotes' buttons press, from the player's files.
     gc_map controls;
     load_gc_controls(image.id, controls);
@@ -2223,6 +2227,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
     if (pad_read != 0) {
         replay_hook(pad_read, h.hook_pad_read, h.replay_pad_read, h.continue_pad_read);
         if (test_presses) ctx->flags |= GC_FLAG_PRESS;
+        if (test_fake_remote) ctx->flags |= GC_FLAG_FAKE_REMOTE;
         if (test_leave) ctx->flags |= GC_FLAG_LEAVE;
         if (test_crash || test_crash_black) ctx->flags |= GC_FLAG_CRASH;
         if (test_crash_black) ctx->flags |= GC_FLAG_CRASH_BLACK;
@@ -2316,7 +2321,8 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
             for (std::uint32_t i = 0; i < 64; ++i) ctx->guard_copy[i] = be32(&s.bytes[0x80003100 - s.address + 4 * i]);
         }
     logf("GameCube: __OSUnhandledException 0x%08x\n", unhandled);
-    logf("GameCube: PADRead 0x%08x%s, ARStartDMA 0x%08x\n", pad_read, test_presses ? " (test presses)" : "", ar_dma);
+    logf("GameCube: PADRead 0x%08x%s%s, ARStartDMA 0x%08x\n", pad_read, test_presses ? " (test presses)" : "",
+         test_fake_remote ? " (test remote)" : "", ar_dma);
     logf("GameCube: Wii Remotes %s\n", pad_read == 0 ? "off (no PADRead found)" : "on");
     logf("GameCube: %u DI register access(es) sent to 0x%08x; AIInitDMA 0x%08x%s\n", di_patches, di_regs, ai_dma,
          ai_dma ? "" : " (not found: no disc audio streaming)");

@@ -40,6 +40,8 @@
 #define GC_BT_REMOTES 4u    /* one per GameCube port */
 #define GC_BT_KEYS 8u
 #define GC_BT_COMMANDS 6u   /* HCI commands waiting for the controller to take another */
+#define GC_BT_FAKE_STEPS 8u /* the test remote's steps (gc_bt_fake) */
+#define GC_BT_FAKE_FRAMES 60u  /* PADReads a step */
 
 /* One IOS request with its vectors and small input buffers. */
 struct gc_bt_rq {
@@ -125,6 +127,8 @@ struct gc_bt {
     uint8_t event_log[4][8];  /* the first four events' first bytes, for the trace */
     uint32_t event_lengths;   /* their lengths, a byte each */
     uint32_t shakes;          /* shakes that pressed their button, all remotes */
+    /* The test remote's results (gc_bt_fake): two words a step. */
+    uint32_t fake_log[GC_BT_FAKE_STEPS * 2];
     /* What each button presses (gc_controls.h), filled by the loader. */
     struct gc_map map;
 };
@@ -146,6 +150,14 @@ void gc_bt_poll(struct gc_rt_context* ctx, struct gc_bt* bt);
 void gc_bt_fill(struct gc_bt* bt, uint8_t* status);
 /* 1 while a ready Wii Remote's HOME, or its Classic Controller's, is held. */
 int gc_bt_home_held(const struct gc_bt* bt);
+/* The test remote (sd:/riftwii/gc/fakeremote, gc_rt.h's
+ * GC_FLAG_FAKE_REMOTE), for Dolphin, whose emulated remotes do not connect
+ * without a key pressed in its window: instead of the Bluetooth, a remote
+ * in slot 1 sends made-up reports through the same parser and map, a step
+ * of GC_BT_FAKE_FRAMES PADReads at a time (gc_bt.c lists them), and what
+ * port 1 got in each step goes to fake_log for the trace. `n`: the
+ * PADRead's count. */
+void gc_bt_fake(struct gc_bt* bt, uint8_t* status, uint32_t n);
 /* A reply from IOS that came while another request was being waited
  * for: marked done if it is one of these. */
 void gc_bt_on_reply(struct gc_bt* bt, uint32_t reply);
