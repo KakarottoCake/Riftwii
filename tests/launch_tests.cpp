@@ -444,6 +444,19 @@ static void test_saves() {
         EXPECT_EQ(back.game.gc_width, std::string("704"));
         back.restore("*riftwii*\tgcwidth\t1080\n");
         EXPECT_EQ(back.game.gc_width, std::string("global"));
+
+        // Game speed: 50 Hz (as made) writes nothing, 60 round-trips, and
+        // only a European game is told the TV takes 60 Hz.
+        EXPECT_TRUE(gc.save().find("gcspeed") == std::string::npos);
+        gc.game.gc_speed = "60";
+        back.restore(gc.save());
+        EXPECT_EQ(back.game.gc_speed, std::string("60"));
+        EXPECT_TRUE(riftwii::gc_sixty_hz_on(back.game, "GLMP01"));
+        EXPECT_FALSE(riftwii::gc_sixty_hz_on(back.game, "GMSE01"));
+        EXPECT_FALSE(riftwii::gc_sixty_hz_on(back.game, "GMSJ01"));
+        back.restore("*riftwii*\tgcspeed\t100\n");
+        EXPECT_EQ(back.game.gc_speed, std::string("50"));
+        EXPECT_FALSE(riftwii::gc_sixty_hz_on(back.game, "GLMP01"));
         {
             riftwii::GameSettings w;
             riftwii::GcConsoleSettings settings;

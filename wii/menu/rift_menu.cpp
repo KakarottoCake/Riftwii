@@ -4333,7 +4333,7 @@ struct RowRef {
 	enum class What { Mods, Saves, Cheats, Width, Deflicker, Borders, VideoMode, RegionVideo, Aspect, Rumble, Speaker,
 		RegionStrings, Language, Cios, Server, Favorite, Pack, Option, Note,
 		AddCodes, ForgetCodes, MakeImage, Cover, Memory, About, GcDiscReads, GcCard, GcProgressive, GcWidescreen,
-		GcSharp, GcWidth, GcLanguage, GcControls, SaveTile, RenameTile, RemoveTile } what = What::Note;
+		GcSharp, GcWidth, GcSpeed, GcLanguage, GcControls, SaveTile, RenameTile, RemoveTile } what = What::Note;
 	std::size_t pkg = 0, opt = 0;
 };
 
@@ -4724,6 +4724,16 @@ static void BuildGameRows(const FrontendState& state, std::vector<FlowRow>& rows
 		width.value = GameValue(game.gc_width, global.video_width, WidthName);
 		rows.push_back(width);
 		refs.push_back({W::GcWidth});
+		// 50 or 60 Hz is a European game's question only.
+		if (riftwii::gc_pal_game(state.game_id)) {
+			FlowRow speed;
+			speed.kind = FlowRow::Kind::Option;
+			speed.label = tr("Game speed");
+			speed.on = game.gc_speed == "60";
+			speed.value = speed.on ? tr("Smoother (60 Hz)") : tr("As made (50 Hz)");
+			rows.push_back(speed);
+			refs.push_back({W::GcSpeed});
+		}
 		FlowRow language;
 		language.kind = FlowRow::Kind::Option;
 		language.label = tr("Game language");
@@ -7893,6 +7903,7 @@ static int ChangedGameSettings(const riftwii::GameSettings& g)
 	if (g.gc_language != "global") ++changed;
 	if (g.gc_sharp == "on") ++changed;
 	if (g.gc_width != "global") ++changed;
+	if (g.gc_speed == "60") ++changed;
 	if (g.rumble == "off") ++changed;
 	if (g.speaker == "off") ++changed;
 	return changed;
@@ -8085,6 +8096,8 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 				say(tr("Turns off the soft blur some games add."));
 			else if (ref.what == RowRef::What::GcWidth)
 				say(tr("How wide the picture is drawn. 720 fills the screen from side to side."));
+			else if (ref.what == RowRef::What::GcSpeed)
+				say(tr("Smoother plays at 60 Hz in games that have a 60 Hz mode, on a TV that takes it; the others stay at 50 Hz."));
 			else if (ref.what == RowRef::What::GcLanguage)
 				say(tr("The language this game plays in, leaving the Wii's own setting alone (most US and Japanese games have only one)."));
 			else if (ref.what == RowRef::What::GcControls)
@@ -8154,6 +8167,7 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 			else if (ref.what == RowRef::What::GcWidescreen) game.gc_widescreen = StepValue(kGcWidescreenChoices, game.gc_widescreen, direction);
 			else if (ref.what == RowRef::What::GcSharp) game.gc_sharp = game.gc_sharp == "on" ? "off" : "on";
 			else if (ref.what == RowRef::What::GcWidth) game.gc_width = StepValue(kWidths, game.gc_width, direction);
+			else if (ref.what == RowRef::What::GcSpeed) game.gc_speed = game.gc_speed == "60" ? "50" : "60";
 			else if (ref.what == RowRef::What::GcLanguage) game.gc_language = StepValue(kGcLanguageChoices, game.gc_language, direction);
 			else if (ref.what == RowRef::What::GcControls) {
 				ShowGcControls(false);

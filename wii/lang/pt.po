@@ -2636,3 +2636,15 @@ msgstr "Não (como foi feito)"
 
 msgid "Turns off the soft blur some games add."
 msgstr "Tira o leve desfoque que alguns jogos colocam."
+
+msgid "Game speed"
+msgstr "Velocidade do jogo"
+
+msgid "Smoother (60 Hz)"
+msgstr "Mais suave (60 Hz)"
+
+msgid "As made (50 Hz)"
+msgstr "Como foi feito (50 Hz)"
+
+msgid "Smoother plays at 60 Hz in games that have a 60 Hz mode, on a TV that takes it; the others stay at 50 Hz."
+msgstr "Mais suave roda a 60 Hz nos jogos que têm um modo de 60 Hz, em uma TV compatível; os outros continuam em 50 Hz."

@@ -2151,6 +2151,26 @@ T = {
         "一部のゲームが加えるぼかしをなくします。",
         "Tira o leve desfoque que alguns jogos colocam.",
         "Toglie la leggera sfocatura che alcuni giochi aggiungono."),
+    "Game speed": (
+        "Velocidad del juego",
+        "ゲームの速さ",
+        "Velocidade do jogo",
+        "Velocità del gioco"),
+    "Smoother (60 Hz)": (
+        "Más fluido (60 Hz)",
+        "なめらか (60 Hz)",
+        "Mais suave (60 Hz)",
+        "Più fluido (60 Hz)"),
+    "As made (50 Hz)": (
+        "Como se hizo (50 Hz)",
+        "元のまま (50 Hz)",
+        "Como foi feito (50 Hz)",
+        "Come fatto (50 Hz)"),
+    "Smoother plays at 60 Hz in games that have a 60 Hz mode, on a TV that takes it; the others stay at 50 Hz.": (
+        "Más fluido juega a 60 Hz en los juegos que tienen un modo de 60 Hz, en un televisor que lo admita; los demás siguen a 50 Hz.",
+        "60 Hzモードがあるゲームは、対応するテレビで60 Hzで遊べます。ほかのゲームは50 Hzのままです。",
+        "Mais suave roda a 60 Hz nos jogos que têm um modo de 60 Hz, em uma TV compatível; os outros continuam em 50 Hz.",
+        "Più fluido gioca a 60 Hz nei giochi che hanno una modalità a 60 Hz, su un televisore che la accetta; gli altri restano a 50 Hz."),
 }
 
 
@@ -3913,6 +3933,14 @@ KO = {
         "끔 (원래대로)",
     "Turns off the soft blur some games add.":
         "일부 게임이 더하는 부드러운 흐림을 끕니다.",
+    "Game speed":
+        "게임 속도",
+    "Smoother (60 Hz)":
+        "더 부드럽게 (60 Hz)",
+    "As made (50 Hz)":
+        "원래대로 (50 Hz)",
+    "Smoother plays at 60 Hz in games that have a 60 Hz mode, on a TV that takes it; the others stay at 50 Hz.":
+        "60 Hz 모드가 있는 게임은 이를 지원하는 TV에서 60 Hz로 플레이합니다. 다른 게임은 50 Hz로 남습니다.",
 }
 
 # French, a table of its own (msgid: text), from MidyGamy's translation
@@ -5674,6 +5702,14 @@ FR = {
         "Désactivé (d'origine)",
     "Turns off the soft blur some games add.":
         "Retire le léger flou que certains jeux ajoutent.",
+    "Game speed":
+        "Vitesse du jeu",
+    "Smoother (60 Hz)":
+        "Plus fluide (60 Hz)",
+    "As made (50 Hz)":
+        "D'origine (50 Hz)",
+    "Smoother plays at 60 Hz in games that have a 60 Hz mode, on a TV that takes it; the others stay at 50 Hz.":
+        "Plus fluide joue à 60 Hz dans les jeux qui ont un mode 60 Hz, sur une télé qui l'accepte ; les autres restent à 50 Hz.",
 }
 
 # Languages kept in tables of their own: written after LANGS, every msgid

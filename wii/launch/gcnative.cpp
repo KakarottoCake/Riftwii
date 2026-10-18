@@ -1011,85 +1011,6 @@ bool is_rlwinm_of(std::uint32_t w, unsigned source, std::uint32_t low) {
     return opcode(w) == 21 && reg_d(w) == source && (w & 0xFFFF) == low;
 }
 
-// The GameCube OS keeps the console's settings (the SRAM: language,
-// progressive scan, sound...) in a copy in memory, read once at start-up,
-// and its getters read that copy after locking it: `lis rA,hi`, `addi
-// rB,rA,lo` (the copy), then the lock word at 0x48 and `addi r4,rB,0x48`.
-// The settings are bytes in the copy (YAGCD's SRAM layout): the language
-// at 0x12, the flags at 0x13 with progressive scan in bit 7.
-//
-// The language and progressive getters (OSGetLanguage,
-// OSGetProgressiveMode) each read their byte from that register: the
-// loads found here, for the loader to turn into a constant. The copy and
-// the console's SRAM are never changed, so nothing the game writes back
-// to the SRAM later (it does for its own 480p question) carries a choice
-// made here.
-constexpr std::uint16_t kSramLockOffset = 0x48;
-constexpr std::uint16_t kSramLanguage = 0x12;
-constexpr std::uint16_t kSramFlags = 0x13;
-
-struct SramReads {
-    std::uint32_t copy = 0;  // the settings' copy in memory
-    std::vector<std::uint32_t> language;     // lbz rX,0x12(copy)
-    std::vector<std::uint32_t> progressive;  // lbz rX,0x13(copy), then its bit 7 taken (>> 7 & 1)
-};
-
-SramReads find_sram_reads(const Code& code) {
-    struct Site {
-        std::uint32_t at;  // the addi that makes the copy's address
-        unsigned reg;
-        std::uint32_t copy;
-    };
-    std::vector<Site> sites;
-    std::map<std::uint32_t, unsigned> seen;  // copy address -> how many locks
-    code.each([&](std::uint32_t a, std::uint32_t w) {
-        if (opcode(w) != 15 || reg_a(w) != 0) return;  // lis rA,hi
-        const unsigned high_reg = reg_d(w);
-        for (std::uint32_t b = a + 4; b < a + 24 && code.has(b); b += 4) {
-            const std::uint32_t add = code.at(b);
-            if (opcode(add) != 14 || reg_a(add) != high_reg) continue;  // addi rB,rA,lo
-            const unsigned copy_reg = reg_d(add);
-            const std::uint32_t copy = (w << 16) + static_cast<std::uint32_t>(static_cast<std::int16_t>(add & 0xFFFF));
-            const std::uint32_t lock_load = (32u << 26) | (copy_reg << 16) | kSramLockOffset;  // lwz r0,0x48(rB)
-            const std::uint32_t lock_addr = (14u << 26) | (4u << 21) | (copy_reg << 16) | kSramLockOffset;  // addi r4,rB,0x48
-            for (std::uint32_t c = b + 4; c < b + 48 && code.has(c + 4); c += 4)
-                if (code.at(c) == lock_load && code.at(c + 4) == lock_addr) {
-                    sites.push_back({b, copy_reg, copy});
-                    seen[copy]++;
-                    break;
-                }
-            return;
-        }
-    });
-    SramReads out;
-    unsigned most = 0;
-    for (const auto& [copy, n] : seen)
-        if (n > most) {
-            most = n;
-            out.copy = copy;
-        }
-    const std::uint32_t take_bit7 = rlwinm_low(25, 31, 31);  // rlwinm rC,rX,25,31,31
-    for (const Site& site : sites) {
-        if (site.copy != out.copy) continue;
-        for (std::uint32_t a = site.at + 4; code.has(a) && a < site.at + 0x100; a += 4) {
-            const std::uint32_t w = code.at(a);
-            if (w == 0x4E800020) break;
-            if (opcode(w) != 34 || reg_a(w) != site.reg) continue;  // lbz rX,d(rB)
-            const std::uint16_t offset = w & 0xFFFF;
-            if (offset == kSramLanguage) out.language.push_back(a);
-            if (offset != kSramFlags) continue;
-            // The getter takes bit 7 within a few words; OSSetProgressiveMode
-            // and the reset code read the same byte to change it.
-            for (std::uint32_t b = a + 4; b <= a + 16; b += 4)
-                if (is_rlwinm_of(code.at(b), reg_d(w), take_bit7)) {
-                    out.progressive.push_back(a);
-                    break;
-                }
-        }
-    }
-    return out;
-}
-
 // VIGetDTVStatus: reads the VI's DTV register (0xCC00206E, bit 0 set
 // while a component cable is plugged in, YAGCD's VI_DTV) with `lhz
 // rX,0x206E(rY)` and keeps its low two bits (`clrlwi rZ,rX,30`). Other
@@ -1357,14 +1278,16 @@ LmLoader find_lm_loader(const std::string& id, const Code& code) {
 template <class ReplayHook>
 static void apply_picture_and_language(const GcImage& image, Code& code, ReplayHook replay_hook, const gc_rt_header& h,
                                        gc_rt_context* ctx, bool test_no_widen) {
-    const SramReads sram = find_sram_reads(code);
+    const GcSramReads sram = find_gc_sram_reads(code.ranges());
     // VIConfigure, hooked once for what changes the mode it is given
     // (gc_on_vi_configure): 480p and the picture width.
     const bool pal_480p = image.progressive && gc_pal_game(image.id);
     const bool progressive = image.progressive && !pal_480p;
     std::uint32_t vi_configure = 0;
     bool vi_hooked = false;
-    if (progressive || image.vi_width != 0) {
+    // A 60 Hz game's mode is the game's own: hooked only for the trace's
+    // record of the mode it picked.
+    if (progressive || image.vi_width != 0 || image.sixty_hz) {
         vi_configure = find_vi_configure(code);
         vi_hooked = vi_configure != 0 &&
                     replay_hook(vi_configure, h.hook_vi_configure, h.replay_vi_configure, h.continue_vi_configure);
@@ -1383,6 +1306,19 @@ static void apply_picture_and_language(const GcImage& image, Code& code, ReplayH
         logf("GameCube: 480p: %u cable check(s) and %u 480p setting read(s) answer yes; VIConfigure 0x%08x %s\n",
              static_cast<unsigned>(dtv.size()), static_cast<unsigned>(sram.progressive.size()), vi_configure,
              vi_hooked ? "turns interlaced modes into 480p" : "not hooked: a game without its own 480p stays interlaced");
+    }
+    // Game speed: a European game is told its TV takes 60 Hz. Each read of
+    // either 60 Hz flag (riftwii/gcvideo.hpp) answers yes, and a game with
+    // a 60 Hz mode of its own picks it itself, as on a European console
+    // set that way. Games made for 50 Hz alone are not converted: their
+    // logic runs once a frame, so 60 Hz would play them a fifth faster.
+    if (image.sixty_hz) {
+        for (std::uint32_t a : sram.sixty_hz) code.put(a, li(reg_d(code.at(a)), 0x40));     // bit 6 at 0x11
+        for (std::uint32_t a : sram.progressive) code.put(a, li(reg_d(code.at(a)), 0x80));  // bit 7 at 0x13
+        logf("GameCube: 60 Hz: %u read(s) of the console's 60 Hz setting and %u of the older SDK's flag answer yes; "
+             "the game switches only if it has a 60 Hz mode of its own (VIConfigure %s)\n",
+             static_cast<unsigned>(sram.sixty_hz.size()), static_cast<unsigned>(sram.progressive.size()),
+             vi_hooked ? "hooked, its mode in the trace" : "not hooked");
     }
     // Picture width: VIConfigure draws the picture that wide, centred.
     if (image.vi_width != 0) {

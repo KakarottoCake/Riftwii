@@ -112,6 +112,56 @@ void test_copy_filter() {
     }
 }
 
+std::uint32_t lbz(unsigned rd, unsigned ra, std::uint16_t offset) { return (34u << 26) | (rd << 21) | (ra << 16) | offset; }
+std::uint32_t lwz(unsigned rd, unsigned ra, std::uint16_t offset) { return (32u << 26) | (rd << 21) | (ra << 16) | offset; }
+// rlwinm rA,rS,shift,31,31: takes one bit (rS is the source, in rD's place).
+std::uint32_t take_bit(unsigned ra, unsigned rs, unsigned shift) {
+    return (21u << 26) | (rs << 21) | (ra << 16) | (shift << 11) | (31u << 6) | (31u << 1);
+}
+
+// A getter of the console's settings, as the SDK's are built: the copy's
+// address (lis/addi), the lock (lwz r0,0x48 and addi r4,0x48), the byte,
+// then, when `shift` is not 0, its bit taken. Returns where the load is.
+std::uint32_t add_sram_getter(Text& t, std::uint32_t copy, std::uint16_t offset, unsigned shift) {
+    const unsigned base = 31;
+    t.add(kBlr);
+    t.add(lis(3, static_cast<std::uint16_t>((copy + 0x8000) >> 16)));
+    t.add(addi(base, 3, static_cast<std::uint16_t>(copy & 0xFFFF)));
+    t.add(kNop);  // bl OSDisableInterrupts
+    t.add(lwz(0, base, 0x48));
+    t.add(addi(4, base, 0x48));
+    t.add(kNop);
+    const std::uint32_t load = t.here();
+    t.add(lbz(0, base, offset));
+    t.add(kNop);
+    if (shift != 0) t.add(take_bit(base, 0, shift));
+    t.add(kBlr);
+    return load;
+}
+
+void test_sram_reads() {
+    constexpr std::uint32_t kCopy = 0x804B8780;
+    Text t;
+    const std::uint32_t language = add_sram_getter(t, kCopy, 0x12, 0);
+    const std::uint32_t progressive = add_sram_getter(t, kCopy, 0x13, 25);  // bit 7
+    const std::uint32_t sixty = add_sram_getter(t, kCopy, 0x11, 26);        // bit 6
+    add_sram_getter(t, kCopy, 0x13, 0);  // a setter reading the byte to change it
+    add_sram_getter(t, kCopy, 0x11, 25);  // another bit of 0x11: not the 60 Hz one
+    const riftwii::GcSramReads reads = riftwii::find_gc_sram_reads(t.ranges());
+    EXPECT_EQ(reads.copy, kCopy);
+    EXPECT_EQ(reads.language.size(), 1u);
+    EXPECT_EQ(reads.progressive.size(), 1u);
+    EXPECT_EQ(reads.sixty_hz.size(), 1u);
+    if (reads.language.size() == 1) EXPECT_EQ(reads.language[0], language);
+    if (reads.progressive.size() == 1) EXPECT_EQ(reads.progressive[0], progressive);
+    if (reads.sixty_hz.size() == 1) EXPECT_EQ(reads.sixty_hz[0], sixty);
+    // A game without the 60 Hz getter (Luigi's Mansion's SDK): none.
+    Text old;
+    add_sram_getter(old, kCopy, 0x13, 25);
+    EXPECT_EQ(riftwii::find_gc_sram_reads(old.ranges()).sixty_hz.size(), 0u);
+    EXPECT_EQ(riftwii::find_gc_sram_reads(old.ranges()).progressive.size(), 1u);
+}
+
 // A render mode as the SDK's tables hold one: TV mode, fbWidth, then the
 // VI's origin and width, xfbMode and field rendering.
 struct Mode {
@@ -192,6 +242,7 @@ void test_video_pick() {
 int main() {
     test_copy_filter();
     test_video_pick();
+    test_sram_reads();
     if (g_failures == 0) std::cout << "gcvideo tests passed" << std::endl;
     return g_failures == 0 ? 0 : 1;
 }

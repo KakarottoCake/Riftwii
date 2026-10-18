@@ -109,6 +109,11 @@ bool gc_progressive_on(const GameSettings& game, const std::string& id, const Gc
     return console.wii_progressive;
 }
 
+bool gc_sixty_hz_on(const GameSettings& game, const std::string& id) {
+    // US and Japanese games are 60 Hz already.
+    return gc_pal_game(id) && game.gc_speed == "60";
+}
+
 std::string gc_picture_width(const GameSettings& game, const GcConsoleSettings& console) {
     const std::string& chosen = game.gc_width == "global" ? console.video_width : game.gc_width;
     for (const char* name : {"framebuffer", "704", "720"})
@@ -433,6 +438,7 @@ std::string LaunchModel::save() const {
         text += "*riftwii*\tgclanguage\t" + game.gc_language + "\n";
     if (game.gc_sharp == "on") text += "*riftwii*\tgcsharp\ton\n";
     if (game.gc_width != "global") text += "*riftwii*\tgcwidth\t" + clean(game.gc_width) + "\n";
+    if (game.gc_speed == "60") text += "*riftwii*\tgcspeed\t60\n";
     for (const LaunchPackage& p : packages) {
         // Only this game's packs: the file is per game ID, and another
         // game's pack could not be turned on here anyway.
@@ -518,6 +524,8 @@ void LaunchModel::restore(const std::string& text) {
             } else if (key == "gcwidth") {
                 const bool known = value == "game" || value == "framebuffer" || value == "704" || value == "720";
                 game.gc_width = known ? value : "global";
+            } else if (key == "gcspeed") {
+                game.gc_speed = value == "60" ? "60" : "50";
             }
             continue;
         }

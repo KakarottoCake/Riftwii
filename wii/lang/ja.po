@@ -2636,3 +2636,15 @@ msgstr "オフ (元のまま)"
 
 msgid "Turns off the soft blur some games add."
 msgstr "一部のゲームが加えるぼかしをなくします。"
+
+msgid "Game speed"
+msgstr "ゲームの速さ"
+
+msgid "Smoother (60 Hz)"
+msgstr "なめらか (60 Hz)"
+
+msgid "As made (50 Hz)"
+msgstr "元のまま (50 Hz)"
+
+msgid "Smoother plays at 60 Hz in games that have a 60 Hz mode, on a TV that takes it; the others stay at 50 Hz."
+msgstr "60 Hzモードがあるゲームは、対応するテレビで60 Hzで遊べます。ほかのゲームは50 Hzのままです。"
