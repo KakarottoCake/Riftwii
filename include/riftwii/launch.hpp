@@ -187,8 +187,8 @@ constexpr bool kGcDriveTimingReady = false;
 constexpr bool kGcWidescreenReady = false;
 
 // Whether the game gets 480p: "480p" yes, "game" no, "global" when the
-// Wii's own 480p setting is on or a component cable is plugged in (480p by
-// itself). Never for a PAL game (gc_pal_game).
+// Wii's own 480p setting is on and a component cable is plugged in. Never
+// for a PAL game (gc_pal_game).
 bool gc_progressive_on(const GameSettings& game, const std::string& id, const GcConsoleSettings& console);
 
 // Whether a European game (gc_pal_game) is told the TV takes 60 Hz.

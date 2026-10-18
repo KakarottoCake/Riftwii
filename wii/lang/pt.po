@@ -2649,5 +2649,5 @@ msgstr "Como foi feito (50 Hz)"
 msgid "Smoother plays at 60 Hz in games that have a 60 Hz mode, on a TV that takes it; the others stay at 50 Hz."
 msgstr "Mais suave roda a 60 Hz nos jogos que têm um modo de 60 Hz, em uma TV compatível; os outros continuam em 50 Hz."
 
-msgid "A component cable is plugged in, so Default turns 480p on by itself; some games ask first."
-msgstr "Há um cabo componente conectado, então Padrão liga o 480p sozinho; alguns jogos perguntam antes."
+msgid "Default turns 480p on when the Wii is set to 480p and a component cable is seen; pick On (480p) if your TV takes it anyway."
+msgstr "Padrão liga o 480p quando o Wii está em 480p e um cabo componente é detectado; escolha Sim (480p) se a sua TV aceitar mesmo assim."

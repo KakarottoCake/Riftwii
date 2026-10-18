@@ -2171,11 +2171,11 @@ T = {
         "60 Hzモードがあるゲームは、対応するテレビで60 Hzで遊べます。ほかのゲームは50 Hzのままです。",
         "Mais suave roda a 60 Hz nos jogos que têm um modo de 60 Hz, em uma TV compatível; os outros continuam em 50 Hz.",
         "Più fluido gioca a 60 Hz nei giochi che hanno una modalità a 60 Hz, su un televisore che la accetta; gli altri restano a 50 Hz."),
-    "A component cable is plugged in, so Default turns 480p on by itself; some games ask first.": (
-        "Hay un cable de componentes conectado, así que Predeterminado activa 480p por sí solo; algunos juegos preguntan antes.",
-        "コンポーネントケーブルがつながっているので、標準では480pが自動でオンになります。先に確認するゲームもあります。",
-        "Há um cabo componente conectado, então Padrão liga o 480p sozinho; alguns jogos perguntam antes.",
-        "È collegato un cavo component, quindi Predefinito attiva da solo i 480p; alcuni giochi chiedono prima."),
+    "Default turns 480p on when the Wii is set to 480p and a component cable is seen; pick On (480p) if your TV takes it anyway.": (
+        "Predeterminado activa 480p cuando la Wii está en 480p y se detecta un cable por componentes; elige Sí (480p) si tu televisor lo admite de todos modos.",
+        "標準では、Wiiが480pに設定されていてコンポーネントケーブルがつながっているときに480pになります。テレビが対応していれば、オン (480p) を選んでください。",
+        "Padrão liga o 480p quando o Wii está em 480p e um cabo componente é detectado; escolha Sim (480p) se a sua TV aceitar mesmo assim.",
+        "Predefinito attiva i 480p quando la Wii è impostata su 480p e viene rilevato un cavo component; scegli Sì (480p) se il televisore li accetta comunque."),
 }
 
 
@@ -3946,8 +3946,8 @@ KO = {
         "원래대로 (50 Hz)",
     "Smoother plays at 60 Hz in games that have a 60 Hz mode, on a TV that takes it; the others stay at 50 Hz.":
         "60 Hz 모드가 있는 게임은 이를 지원하는 TV에서 60 Hz로 플레이합니다. 다른 게임은 50 Hz로 남습니다.",
-    "A component cable is plugged in, so Default turns 480p on by itself; some games ask first.":
-        "컴포넌트 케이블이 연결되어 있어 기본에서 480p가 자동으로 켜집니다. 먼저 묻는 게임도 있습니다.",
+    "Default turns 480p on when the Wii is set to 480p and a component cable is seen; pick On (480p) if your TV takes it anyway.":
+        "기본은 Wii가 480p로 설정되어 있고 컴포넌트 케이블이 감지될 때 480p를 켭니다. TV가 지원한다면 켬 (480p)을 고르세요.",
 }
 
 # French, a table of its own (msgid: text), from MidyGamy's translation
@@ -5717,8 +5717,8 @@ FR = {
         "D'origine (50 Hz)",
     "Smoother plays at 60 Hz in games that have a 60 Hz mode, on a TV that takes it; the others stay at 50 Hz.":
         "Plus fluide joue à 60 Hz dans les jeux qui ont un mode 60 Hz, sur une télé qui l'accepte ; les autres restent à 50 Hz.",
-    "A component cable is plugged in, so Default turns 480p on by itself; some games ask first.":
-        "Un câble composante est branché, donc Par défaut active le 480p tout seul ; certains jeux demandent d'abord.",
+    "Default turns 480p on when the Wii is set to 480p and a component cable is seen; pick On (480p) if your TV takes it anyway.":
+        "Par défaut active le 480p quand la Wii est réglée sur 480p et qu'un câble composante est détecté ; choisissez Activé (480p) si votre télé l'accepte quand même.",
 }
 
 # Languages kept in tables of their own: written after LANGS, every msgid

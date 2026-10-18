@@ -2649,5 +2649,5 @@ msgstr "D'origine (50 Hz)"
 msgid "Smoother plays at 60 Hz in games that have a 60 Hz mode, on a TV that takes it; the others stay at 50 Hz."
 msgstr "Plus fluide joue à 60 Hz dans les jeux qui ont un mode 60 Hz, sur une télé qui l'accepte ; les autres restent à 50 Hz."
 
-msgid "A component cable is plugged in, so Default turns 480p on by itself; some games ask first."
-msgstr "Un câble composante est branché, donc Par défaut active le 480p tout seul ; certains jeux demandent d'abord."
+msgid "Default turns 480p on when the Wii is set to 480p and a component cable is seen; pick On (480p) if your TV takes it anyway."
+msgstr "Par défaut active le 480p quand la Wii est réglée sur 480p et qu'un câble composante est détecté ; choisissez Activé (480p) si votre télé l'accepte quand même."

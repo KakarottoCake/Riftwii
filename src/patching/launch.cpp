@@ -106,10 +106,15 @@ bool gc_progressive_on(const GameSettings& game, const std::string& id, const Gc
     if (gc_pal_game(id)) return false;
     if (game.gc_progressive == "480p") return true;
     if (game.gc_progressive == "game") return false;
-    // A component cable says the TV takes 480p, whatever the Wii's own
-    // setting (HDMI adapters may not report as one: the Wii's setting
-    // still turns it on for them).
-    return console.wii_progressive || console.component_cable;
+    // Both have to say so: the Wii set to 480p and a component cable seen,
+    // as for a Wii game (boot.cpp) and as a GameCube offers 480p only with
+    // the cable in. The setting alone was on in a tester's Wii whose
+    // picture then stayed black (Super Mario Eclipse, 2610-454): a setting
+    // outlives the cable it was made with. The cable alone may go to a TV
+    // that takes only 480i (many CRTs with component inputs), and the
+    // game is told yes without asking. An adapter that does not report as
+    // a component cable takes On (480p).
+    return console.wii_progressive && console.component_cable;
 }
 
 bool gc_sixty_hz_on(const GameSettings& game, const std::string& id) {

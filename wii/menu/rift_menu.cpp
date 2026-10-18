@@ -5273,8 +5273,6 @@ static std::string GcLeaveLine()
 	return cards.empty() ? std::string(tr("Hold HOME for two seconds to leave the game.")) : cards.front().leave;
 }
 
-// 480p picked while the Wii's own 480p setting is off: said once, as the
-// setting being off may mean no cable takes it. True: Turn on.
 // Before a game's memory card changes between its own and the shared one.
 static bool AskGcCardSwitch()
 {
@@ -5282,6 +5280,8 @@ static bool AskGcCardSwitch()
 		tr("Switch"), tr("Cancel")) == 0;
 }
 
+// 480p picked with no component cable seen: said once, as the TV may not
+// take it. True: Turn on.
 static bool AskGc480p()
 {
 	const std::string body = std::string(tr("Only with a component or HDMI cable: without one the picture stays black.")) +
@@ -8089,8 +8089,8 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 			else if (ref.what == RowRef::What::GcProgressive && riftwii::gc_pal_game(state.game_id))
 				say(tr("480p is for US and Japanese games; this European game keeps its own picture."));
 			else if (ref.what == RowRef::What::GcProgressive && state.model.game.gc_progressive == "global" &&
-				 riftwii::wii::GcConsoleNow().component_cable)
-				say(tr("A component cable is plugged in, so Default turns 480p on by itself; some games ask first."));
+				 !riftwii::gc_progressive_on(state.model.game, state.game_id, riftwii::wii::GcConsoleNow()))
+				say(tr("Default turns 480p on when the Wii is set to 480p and a component cable is seen; pick On (480p) if your TV takes it anyway."));
 			else if (ref.what == RowRef::What::GcProgressive)
 				say(tr("Gives a sharper, steadier picture on a component cable, even in games with no 480p mode; some games ask first."));
 			else if (ref.what == RowRef::What::GcWidescreen)
@@ -8157,14 +8157,13 @@ static void MenuGameSettings(FrontendState& state, bool& coverAsked)
 			}
 			else if (ref.what == RowRef::What::GcProgressive) {
 				std::string next = StepValue(kGcProgressiveChoices, game.gc_progressive, direction);
-				// The Wii's own 480p setting off says nothing about the cable,
-				// unless the cable is seen: asked once, when 480p is picked;
-				// Cancel goes on past it.
+				// Without a component cable seen nothing says the TV takes
+				// 480p (the Wii's own setting may be from another cable):
+				// asked once, when 480p is picked; Cancel goes on past it.
 				riftwii::GameSettings picked = game;
 				picked.gc_progressive = next;
 				const riftwii::GcConsoleSettings console = riftwii::wii::GcConsoleNow();
-				const bool cableKnown = console.wii_progressive || console.component_cable;
-				if (!cableKnown && riftwii::gc_progressive_on(picked, state.game_id, console) &&
+				if (!console.component_cable && riftwii::gc_progressive_on(picked, state.game_id, console) &&
 				    !AskGc480p())
 					next = StepValue(kGcProgressiveChoices, next, direction);
 				game.gc_progressive = next;
