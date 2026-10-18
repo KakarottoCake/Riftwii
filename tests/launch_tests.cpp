@@ -507,6 +507,11 @@ static void test_saves() {
         console.wii_progressive = false;
         EXPECT_TRUE(riftwii::gc_progressive_on(g, "GMSJ01", console));
         EXPECT_FALSE(riftwii::gc_progressive_on(g, "GLMP01", console));
+        // A European game at Smoother (60 Hz) takes EURGB60 interlaced, which
+        // gc_video_pick never makes progressive, so 480p is never asked of it.
+        g.gc_speed = "60";
+        EXPECT_FALSE(riftwii::gc_progressive_on(g, "GLMP01", console));
+        g.gc_speed = "50";
 
         console.wii_language = 2;
         EXPECT_EQ(riftwii::gc_language_number(g, console), 1);

@@ -54,7 +54,8 @@ static inline void gc_video_put16(uint8_t* p, uint32_t v) {
  *    frame buffer becomes its progressive twin, which shows the same
  *    buffer a whole frame each retrace. Modes drawn a field at a time and
  *    double-strike (240-line) ones stay as they are: their buffer holds
- *    half a picture.
+ *    half a picture. Only NTSC modes: a European game, even at 60 Hz
+ *    in EURGB60, is never asked for 480p (gc_progressive_on).
  *  - `vi_width` (GC_VI_WIDTH_FRAMEBUFFER or pixels): the picture is drawn
  *    that wide in the TV line, centred. The VI only widens the frame
  *    buffer, so a width under the buffer's is left alone.
