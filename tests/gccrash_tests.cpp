@@ -116,9 +116,12 @@ void test_remotes() {
     // A Wii U Pro Controller identified: its own line, its ID and mode 0x34.
     put(trace, 2, GC_TR_BT_PROGRESS, reached | GC_BT_SEEN_PRO);
     put(trace, 2, GC_TR_BT_EXT, 0x01203400u);
+    put(trace, 2, GC_TR_BT_PRO_RANGE + 0, 0x0120u << 16 | 0x0E80u);
+    put(trace, 2, GC_TR_BT_PRO_RANGE + 3, 0x0100u << 16 | 0x0F00u);
     EXPECT_TRUE(riftwii::describe_gc_remotes(trace, text));
     EXPECT_TRUE(text.find("A Wii U Pro Controller connected (extension ID 01 20)") != std::string::npos);
     EXPECT_TRUE(text.find("Last extension ID 0x01 0x20, last report mode 0x34") != std::string::npos);
+    EXPECT_TRUE(text.find("left X 288-3712, right X 0-0, left Y 0-0, right Y 256-3840.") != std::string::npos);
     // Nothing at all: the device never opened.
     std::vector<std::uint8_t> early(512, 0);
     record(early, 0, 1, GC_TRACE_JUMP);

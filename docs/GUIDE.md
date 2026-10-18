@@ -761,9 +761,10 @@ Sunshine doesn't spray when you press it.
   the `L` and `R` buttons do.
 - A Wii U Pro Controller (synced to the Wii like a Wii Remote) plays with
   the `[classic]` controls: its buttons are a Classic Controller Pro's.
-  Its L and R are plain buttons, so they press the GameCube's L and R
-  all the way. HOME on its own leaves the game, as on a Classic
-  Controller.
+  Its L, R, ZL and ZR are plain buttons (digital), so they press the
+  GameCube's L, R and Z all the way: a half-press, like Sunshine's light
+  R spray while walking, isn't possible on a Pro Controller. HOME on its
+  own leaves the game, as on a Classic Controller.
 - Upper or lower case doesn't matter. A name RiftWii doesn't know, or a
   button the controller doesn't have, is skipped, and the log
   (`sd:/riftwii/boot.log`, lines starting `GameCube controls:`) says which

@@ -1944,6 +1944,7 @@ T = {
     "What GameTDB says about the game: when it came out, how many can play, the controllers it takes and its story.": ("Lo que dice GameTDB del juego: cuándo salió, cuántos pueden jugar, los mandos que usa y su historia.", "GameTDBによるゲームの情報：発売日、遊べる人数、使えるコントローラー、ストーリー。", "O que o GameTDB diz sobre o jogo: quando saiu, quantos podem jogar, os controles que usa e a história.", "Cosa dice GameTDB del gioco: quando è uscito, quanti possono giocare, i controller che usa e la trama."),
     "Wii Remote": ("Mando de Wii", "Wiiリモコン", "Wii Remote", "Telecomando Wii"),
     "Nunchuk": ("Nunchuk", "ヌンチャク", "Nunchuk", "Nunchuk"),
+    "Wii U Pro Controller": ("Mando Pro de Wii U", "Wii U PROコントローラ", "Controle Pro do Wii U", "Wii U Pro Controller"),
     "Classic Controller": ("Mando Clásico", "クラシックコントローラ", "Classic Controller", "Controller tradizionale"),
     "GameCube controller": ("Mando de GameCube", "ゲームキューブコントローラ", "Controle do GameCube", "Controller GameCube"),
     "Balance Board": ("Wii Balance Board", "バランスWiiボード", "Balance Board", "Balance Board"),
@@ -3694,6 +3695,8 @@ KO = {
         "Wii 리모컨",
     "Nunchuk":
         "눈차크",
+    "Wii U Pro Controller":
+        "Wii U 프로 컨트롤러",
     "Classic Controller":
         "클래식 컨트롤러",
     "GameCube controller":
@@ -5449,6 +5452,8 @@ FR = {
         "Wiimote",
     "Nunchuk":
         "Nunchuk",
+    "Wii U Pro Controller":
+        "Manette Pro Wii U",
     "Classic Controller":
         "Manette Classique",
     "GameCube controller":

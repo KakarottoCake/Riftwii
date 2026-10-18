@@ -423,6 +423,22 @@ static void bt_on_accel(struct gc_bt_remote* r, const uint8_t* reading) {
     r->accel_known = 1;
 }
 
+/* Keeps the lowest and highest raw value each Pro stick axis has sent (the
+ * trace shows them), to measure how far a full push really reaches. */
+static void bt_note_pro_range(struct gc_bt* bt, const uint8_t* pro) {
+    uint32_t axis;
+    for (axis = 0; axis < 4; ++axis) {
+        const uint16_t raw = (uint16_t)(pro[2 * axis] | ((pro[2 * axis + 1] & 0x0Fu) << 8));
+        const uint32_t bit = 1u << axis;
+        if (!(bt->pro_axes_seen & bit)) {
+            bt->pro_axes_seen |= (uint8_t)bit;
+            bt->pro_min[axis] = bt->pro_max[axis] = raw;
+        }
+        if (raw < bt->pro_min[axis]) bt->pro_min[axis] = raw;
+        if (raw > bt->pro_max[axis]) bt->pro_max[axis] = raw;
+    }
+}
+
 static void bt_on_input(struct gc_bt* bt, struct gc_bt_remote* r, const uint8_t* p, uint32_t length) {
     const uint32_t id = p[1];
     uint8_t q[7];
@@ -524,8 +540,10 @@ static void bt_on_input(struct gc_bt* bt, struct gc_bt_remote* r, const uint8_t*
     if ((id == 0x31 || id == 0x35) && length >= 7) bt_on_accel(r, p + 4);
     if (id == 0x32 && length >= 10) bt_copy(r->ext, p + 4, 6);
     if (id == 0x35 && length >= 13) bt_copy(r->ext, p + 7, 6);
-    if (id == GC_PRO_MODE && length >= GC_PRO_EXT_OFFSET + GC_PRO_BYTES && r->ext_kind == GC_BT_EXT_PRO)
+    if (id == GC_PRO_MODE && length >= GC_PRO_EXT_OFFSET + GC_PRO_BYTES && r->ext_kind == GC_BT_EXT_PRO) {
         bt_copy(r->ext, p + GC_PRO_EXT_OFFSET, GC_PRO_BYTES);
+        bt_note_pro_range(bt, r->ext);
+    }
 }
 
 /* The remote's half of the HID channels: it opens both (control, then
@@ -615,7 +633,12 @@ static void bt_on_acl(struct gc_bt* bt, const uint8_t* a, uint32_t length) {
     const uint32_t flags = bt_le16(a) >> 12;
     struct gc_bt_remote* r = bt_by_handle(bt, handle);
     uint32_t l2_length, cid, slot;
-    if (length < 8 || r == 0 || (flags & 3u) == 1u) return;  /* continuations: none expected this small */
+    /* Continuations: none expected this small. The biggest report, a Pro
+     * Controller's 0x34, is 23 bytes of L2CAP payload (31 with the ACL and
+     * L2CAP headers), well inside the default 672-byte L2CAP MTU we never
+     * change, the dongle's ACL packets and these 256-byte reads, so it arrives
+     * whole. */
+    if (length < 8 || r == 0 || (flags & 3u) == 1u) return;
     bt->acl_count++;
     l2_length = bt_le16(a + 4);
     cid = bt_le16(a + 6);

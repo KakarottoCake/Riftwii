@@ -144,6 +144,17 @@ bool describe_gc_remotes(const std::vector<std::uint8_t>& trace, std::string& te
     if (progress & GC_BT_SEEN_PRO)
         text += "A Wii U Pro Controller connected (extension ID 01 20) and played with the Classic Controller's "
                 "controls.\n";
+    if (progress & GC_BT_SEEN_PRO) {
+        // The raw 12-bit range each stick axis reached, to size GC_PRO_STICK_REACH.
+        static const char* const kAxes[4] = {"left X", "right X", "left Y", "right Y"};
+        text += "Pro Controller stick range (raw, lowest-highest):";
+        for (std::uint32_t axis = 0; axis < 4; ++axis) {
+            const std::uint32_t range = word(newest, GC_TR_BT_PRO_RANGE + axis);
+            text += std::string(axis == 0 ? " " : ", ") + kAxes[axis] + " " + std::to_string(range >> 16) + "-" +
+                    std::to_string(range & 0xFFFFu);
+        }
+        text += ".\n";
+    }
     text += "Last connection status " + byte_hex(link >> 24) + ", authentication status " + byte_hex(link >> 16) +
             ", disconnect reason " + byte_hex(link >> 8) + ", extension error " + byte_hex(link) + ".\n";
     text += "Last extension ID " + byte_hex(ext >> 24) + " " + byte_hex(ext >> 16) + ", last report mode " +

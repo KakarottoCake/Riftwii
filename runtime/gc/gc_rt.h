@@ -145,7 +145,9 @@ enum gc_trace_word {
     GC_TR_BT_REPORTS, /* data reports from every remote */
     GC_TR_BT_RUMBLE, /* PADControlMotor calls << 16 | motor switches << 8 | each remote slot's motor (bit 4-7: slot 0-3 on)
                       * | the ports the game wants rumbling (bits 0-3) */
-    GC_TR_WORDS
+    GC_TR_BT_PRO_RANGE, /* 4 words, one per Wii U Pro Controller stick axis (left X, right X, left Y, right Y):
+                         * the lowest raw 12-bit value seen << 16 | the highest; 0 when no Pro was seen */
+    GC_TR_WORDS = GC_TR_BT_PRO_RANGE + 4
 };
 typedef char gc_trace_fits[(GC_TR_WORDS * 4 <= 512) ? 1 : -1];
 /* where: what wrote the record */

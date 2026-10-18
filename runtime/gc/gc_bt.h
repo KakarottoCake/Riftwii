@@ -148,6 +148,13 @@ struct gc_bt {
     uint8_t last_mode;        /* the last report mode sent */
     uint8_t ext_given_up;     /* extensions whose start never finished: played as a remote alone */
     uint32_t data_reports;    /* data reports (0x30-0x3f) from every remote */
+    /* The raw 12-bit range each Pro Controller stick axis has reported, from
+     * every Pro (report order: left X, right X, left Y, right Y), so a
+     * tester's trace gives gc_pro.h's GC_PRO_STICK_REACH a measured value.
+     * pro_axes_seen: a bit for each axis that has a first reading. */
+    uint16_t pro_min[4];
+    uint16_t pro_max[4];
+    uint8_t pro_axes_seen;
     /* The test remote's results (gc_bt_fake): two words a step. */
     uint32_t fake_log[GC_BT_FAKE_STEPS * 2];
     /* What each button presses (gc_controls.h), filled by the loader. */

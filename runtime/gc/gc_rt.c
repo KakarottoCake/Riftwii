@@ -484,6 +484,8 @@ static int32_t gc_trace(struct gc_rt_context* ctx, uint32_t where) {
         w[GC_TR_BT_EXT] = (uint32_t)bt->ext_id[0] << 24 | (uint32_t)bt->ext_id[1] << 16 | (uint32_t)bt->last_mode << 8 |
                           bt->ext_given_up;
         w[GC_TR_BT_REPORTS] = bt->data_reports;
+        for (i = 0; i < 4; ++i)
+            if (bt->pro_axes_seen & (1u << i)) w[GC_TR_BT_PRO_RANGE + i] = (uint32_t)bt->pro_min[i] << 16 | bt->pro_max[i];
         {
             uint32_t slots = 0, ports = 0;
             for (i = 0; i < GC_BT_REMOTES; ++i) {

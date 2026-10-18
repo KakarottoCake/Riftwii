@@ -2331,6 +2331,9 @@ msgstr "Telecomando Wii"
 msgid "Nunchuk"
 msgstr "Nunchuk"
 
+msgid "Wii U Pro Controller"
+msgstr "Wii U Pro Controller"
+
 msgid "Classic Controller"
 msgstr "Controller tradizionale"
 
