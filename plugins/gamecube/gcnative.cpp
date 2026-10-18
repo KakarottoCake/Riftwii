@@ -1681,6 +1681,11 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     // build that showed it added since the one that did not).
     const bool test_no_vi_hook = stat("sd:/riftwii/gc/test/novihook", &st_press) == 0;
     const bool test_no_motor = stat("sd:/riftwii/gc/test/nomotor", &st_press) == 0;
+    // And of the Wii's video encoder at the hand-over, for the same colours
+    // (red and blue swapped, in 480p only so far): set in NTSC 480p, as the
+    // VI will be once the game's 480p starts, or left as the menu set it.
+    const bool test_handover_480p = stat("sd:/riftwii/gc/test/handover480p", &st_press) == 0;
+    const bool test_ave_keep = stat("sd:/riftwii/gc/test/avekeep", &st_press) == 0;
     // The first GameCube line of boot.log names every test switch that is
     // on, so a log from a run with one set (say a copied sd:/riftwii/gc/test/
     // folder) cannot be mistaken for a player's.
@@ -1700,6 +1705,8 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
                          {test_rumble, "rumbletest"},
                          {test_no_vi_hook, "novihook"},
                          {test_no_motor, "nomotor"},
+                         {test_handover_480p, "handover480p"},
+                         {test_ave_keep, "avekeep"},
                          {test_reset, "reset"}};
     for (const auto& test_switch : test_switches) {
         if (!test_switch.on) continue;
@@ -2471,7 +2478,10 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, const GcLau
     // The Wii's video encoder in the game's region (its own region setting
     // must match the game's picture, or a US game on a PAL Wii shows red as
     // blue), then libogc shut down: RiftWii's shut_down_for_game.
-    plugin::host().shut_down_for_game(tv_mode == 1 ? RWP_TV_PAL : RWP_TV_NTSC);
+    std::uint32_t handover = tv_mode == 1 ? RWP_TV_PAL : RWP_TV_NTSC;
+    if (test_ave_keep) handover = RWP_TV_KEEP;
+    else if (test_handover_480p && handover == RWP_TV_NTSC) handover = RWP_TV_NTSC_480P;
+    plugin::host().shut_down_for_game(handover);
     u32 level;
     _CPU_ISR_Disable(level);
     (void)level;
