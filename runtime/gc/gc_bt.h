@@ -205,7 +205,7 @@ void gc_bt_motor(struct gc_bt* bt, uint32_t chan, uint32_t command, int allowed)
 void gc_bt_stop_rumble(struct gc_rt_context* ctx, struct gc_bt* bt);
 /* 1 while a ready Wii Remote's HOME, or its Classic Controller's, is held. */
 int gc_bt_home_held(const struct gc_bt* bt);
-/* The test remote (sd:/riftwii/gc/fakeremote, gc_rt.h's
+/* The test remote (sd:/riftwii/gc/test/fakeremote, gc_rt.h's
  * GC_FLAG_FAKE_REMOTE), for Dolphin, whose emulated remote connects but
  * takes its buttons and motion from keys in its window, which a test run
  * cannot press: instead of the Bluetooth, a remote

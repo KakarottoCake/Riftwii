@@ -436,6 +436,7 @@ static void bt_on_input(struct gc_bt* bt, struct gc_bt_remote* r, const uint8_t*
         if (!plugged) {
             r->ext_step = 0;
             r->ext_kind = GC_BT_EXT_NONE;
+            r->ext_retries = 0;  /* the next one plugged in gets its own tries */
         }
         if (plugged && r->ext_step == 0) {
             r->ext_step = 1;
@@ -491,6 +492,7 @@ static void bt_on_input(struct gc_bt* bt, struct gc_bt_remote* r, const uint8_t*
         bt->progress |= GC_BT_SEEN_EXT_ID;
         r->ext_kind = kind == 0x0000 ? GC_BT_EXT_NUNCHUK : kind == 0x0101 ? GC_BT_EXT_CLASSIC : GC_BT_EXT_OTHER;
         r->ext_step = 4;
+        r->ext_retries = 0;
         /* Until the first report with the extension's bytes: sticks in the
          * middle and every button up (active low), not the zeros or another
          * extension's bytes, which read as everything pressed. */
@@ -854,6 +856,13 @@ static void bt_fill_one(const struct gc_map* map, const struct gc_bt_remote* r, 
     targets = gc_map_targets(map, kind, held);
     buttons = targets & GC_PAD_BUTTONS;
     gc_map_sticks(targets, &sx, &sy, &cx, &cy);
+    if (kind == GC_MAP_CLASSIC) {
+        /* The analogue triggers go with their buttons: a Classic's L or R
+         * mapped away from the GameCube's (R = Y in a controls file) must
+         * not half-press it either, as Sunshine's spray does with R. */
+        if (!(map->to[GC_MAP_CLASSIC][GC_IN_L] & GC_PAD_L)) l = 0;
+        if (!(map->to[GC_MAP_CLASSIC][GC_IN_R] & GC_PAD_R)) rt = 0;
+    }
     if (buttons & GC_PAD_L) l = 0xFF;
     if (buttons & GC_PAD_R) rt = 0xFF;
     pad[0] = (uint8_t)(buttons >> 8);

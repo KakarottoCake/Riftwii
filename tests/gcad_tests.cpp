@@ -935,6 +935,25 @@ static void TestGcPadMotorSearch() {
     EXPECT_EQ(found, 0u);
     EXPECT_TRUE(error.empty());
 
+    // An early return inside it (a `blr` before the motor's words): the
+    // word after that `blr` is no function's start, so nothing is hooked.
+    Asm early{0x80200000u, {}};
+    early.blr();
+    early.op(0x7C0802A6u);  // mflr r0
+    early.op(0x9421FFD8u);  // stwu r1,-40(r1)
+    early.op(0x2C030000u);  // cmpwi r3,0
+    early.blr();            // (a return the compiler kept in the middle)
+    early.op(0x808D8CE0u);  // lwz r4,-29472(r13)
+    early.op(0x57C007BEu);  // clrlwi r0,r30,30
+    early.op(0x64840040u);  // oris r4,r4,0x40
+    early.bl(kSetCommand);
+    early.bl(kTransfer);
+    early.blr();
+    code = early.bytes();
+    text = {{early.base, code.data(), code.size()}};
+    EXPECT_TRUE(riftwii::find_gc_pad_motor(text, found, error));
+    EXPECT_EQ(found, 0u);
+
     // Two such functions: refused, not guessed.
     Asm twice{0x80200000u, {}};
     twice.blr();

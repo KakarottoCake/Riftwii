@@ -127,7 +127,8 @@ enum gc_trace_word {
     GC_TR_AR_WAITS, /* ARAM transfers whose interrupt was waited for (gc_after_ar_dma) */
     GC_TR_AR_WAIT_LONGEST, /* the longest of those waits, timebase ticks */
     GC_TR_AR_WAIT_TIMEOUTS, /* waits given up: the interrupt did not show in time */
-    GC_TR_PROJECTION_CALLERS, /* 16 words: gc_rt_context.projection_callers */
+    GC_TR_PROJECTION_CALLERS, /* 16 words: gc_rt_context.projection_callers; with the test remote
+                               * (GC_FLAG_FAKE_REMOTE), its results instead (gc_bt.h's fake_log) */
     /* An RVZ game (gc_rvz.h): groups decoded, the time spent serving its
      * reads (card and decoding, timebase ticks, wraps), and its last
      * error << 24 | failures. */
@@ -137,8 +138,7 @@ enum gc_trace_word {
     GC_TR_BT_PORTS, /* each remote slot's port (gc_ports.h), a byte each from slot 0 in the top byte; 0xFF none */
     GC_TR_PAD_ERRS, /* each port's err as the game got it after the remotes' fill, port 1 in the top byte; 0xFF none */
     GC_TR_BT_SHAKES, /* shakes that pressed their button (gc_controls.h), all remotes */
-    GC_TR_BT_FAKE, /* 16 words: the test remote's results (gc_bt.h's fake_log) */
-    GC_TR_BT_PROGRESS = GC_TR_BT_FAKE + 16, /* how far the Bluetooth got: gc_bt.h's GC_BT_SEEN_* bits */
+    GC_TR_BT_PROGRESS, /* how far the Bluetooth got: gc_bt.h's GC_BT_SEEN_* bits */
     GC_TR_BT_LINK, /* the last Connection_Complete status << 24 | Authentication_Complete status << 16 |
                     * disconnect reason << 8 | the extension's last error (0x80 | n: its ID read failed) */
     GC_TR_BT_EXT, /* the last extension ID << 16 | the last report mode << 8 | extensions given up */
@@ -179,7 +179,7 @@ typedef char gc_trace_fits[(GC_TR_WORDS * 4 <= 512) ? 1 : -1];
 #define GC_FLAG_STREAM_ONLY 32u  /* tests: AI buffers that carry disc music carry it alone (the game's own sound cleared) */
 #define GC_FLAG_PROGRESSIVE 8u  /* 480p: VIConfigure's NTSC interlaced modes become progressive (gc_on_vi_configure) */
 #define GC_FLAG_WIDEN 16u  /* 16:9: perspective projections are drawn 3/4 as wide (gc_on_projection); off with the
-                            * hook on, the test of the hook alone (sd:/riftwii/gc/nowiden): copied, not widened */
+                            * hook on, the test of the hook alone (sd:/riftwii/gc/test/nowiden): copied, not widened */
 
 /* The callers of GXSetProjection that gc_on_projection notes for the
  * trace, the first ones seen: four words each, the return address, the

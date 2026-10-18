@@ -1242,7 +1242,7 @@ static void prepare_leave(gc_rt_context* ctx, std::uint32_t buf, bool test) {
         return;
     }
     logf("GameCube: no way back to RiftWii: none of the titles to go back to is installed\n");
-    // The test of the way back (sd:/riftwii/gc/leave) goes on regardless,
+    // The test of the way back (sd:/riftwii/gc/test/leave) goes on regardless,
     // to the Wii Menu with no ticket view: IOS refuses, and the game must
     // carry on.
     if (!test) return;
@@ -1377,7 +1377,7 @@ static void apply_picture_and_language(const GcImage& image, Code& code, ReplayH
         const std::uint32_t projection = find_gx_set_projection(code);
         const bool hooked = projection != 0 &&
                             replay_hook(projection, h.hook_projection, h.replay_projection, h.continue_projection);
-        // The test of the hook alone (sd:/riftwii/gc/nowiden): every
+        // The test of the hook alone (sd:/riftwii/gc/test/nowiden): every
         // projection goes through it and is copied, none is widened.
         if (hooked && !test_no_widen) ctx->flags |= GC_FLAG_WIDEN;
         const char* what = !hooked ? "not hooked: 4:3 as before"
@@ -1686,31 +1686,33 @@ static void load_gc_controls(const std::string& game_id, gc_map& map) {
 bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string& error) {
     logf("GameCube (native): %s (%s)\n", image.id.c_str(), image.path.c_str());
     // Test presses for Dolphin runs with no controller to press with
-    // (sd:/riftwii/gc/press), read while the card is still the file
-    // system's (before it is opened raw).
+    // (sd:/riftwii/gc/test/press), read while the card is still the file
+    // system's (before it is opened raw). The test switches are files in
+    // sd:/riftwii/gc/test/, a folder of their own, away from the player's
+    // cards, saves and controls, so a copied folder cannot set one.
     struct stat st_press;
-    const bool test_presses = stat("sd:/riftwii/gc/press", &st_press) == 0;
+    const bool test_presses = stat("sd:/riftwii/gc/test/press", &st_press) == 0;
     // A test of the way back (gc_rt.h's GC_FLAG_LEAVE).
-    const bool test_leave = stat("sd:/riftwii/gc/leave", &st_press) == 0;
+    const bool test_leave = stat("sd:/riftwii/gc/test/leave", &st_press) == 0;
     // And of the crash screen (GC_FLAG_CRASH).
-    const bool test_crash = stat("sd:/riftwii/gc/crash", &st_press) == 0;
+    const bool test_crash = stat("sd:/riftwii/gc/test/crash", &st_press) == 0;
     // And of it on a blanked screen (GC_FLAG_CRASH_BLACK).
-    const bool test_crash_black = stat("sd:/riftwii/gc/crashblack", &st_press) == 0;
+    const bool test_crash_black = stat("sd:/riftwii/gc/test/crashblack", &st_press) == 0;
     // And of disc audio streaming: the music alone, to compare it with an
     // offline decode (GC_FLAG_STREAM_ONLY).
-    const bool test_stream_only = stat("sd:/riftwii/gc/streamonly", &st_press) == 0;
+    const bool test_stream_only = stat("sd:/riftwii/gc/test/streamonly", &st_press) == 0;
     // And of 16:9's hook without the widening (GC_FLAG_WIDEN).
-    const bool test_no_widen = stat("sd:/riftwii/gc/nowiden", &st_press) == 0;
+    const bool test_no_widen = stat("sd:/riftwii/gc/test/nowiden", &st_press) == 0;
     // And of the ARAM addresses left as the SDK gives them in any game
-    // (sd:/riftwii/gc/keeparam), as gc_keeps_aram_addresses does for its
+    // (sd:/riftwii/gc/test/keeparam), as gc_keeps_aram_addresses does for its
     // list: tells whether a game's crash comes from the raised addresses
     // without a build for it.
-    const bool test_keep_aram = stat("sd:/riftwii/gc/keeparam", &st_press) == 0;
+    const bool test_keep_aram = stat("sd:/riftwii/gc/test/keeparam", &st_press) == 0;
     // And of the Wii Remotes' map with no remote to press (a test run
     // cannot press Dolphin's emulated one): a made-up remote instead
     // (gc_bt.h's gc_bt_fake).
-    const bool test_fake_remote = stat("sd:/riftwii/gc/fakeremote", &st_press) == 0;
-    const bool test_rumble = stat("sd:/riftwii/gc/rumbletest", &st_press) == 0;
+    const bool test_fake_remote = stat("sd:/riftwii/gc/test/fakeremote", &st_press) == 0;
+    const bool test_rumble = stat("sd:/riftwii/gc/test/rumbletest", &st_press) == 0;
     // What the Wii Remotes' buttons press, from the player's files.
     gc_map controls;
     load_gc_controls(image.id, controls);
@@ -2242,9 +2244,16 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
         for (const Section& s : dol.text) ranges.push_back(CodeRange{s.address, s.bytes.data(), s.bytes.size()});
         std::string motor_error;
         if (!find_gc_pad_motor(ranges, motor, motor_error)) logf("GameCube: Wii Remote rumble off: %s\n", motor_error.c_str());
-        const unsigned motor_first = opcode(code.at(motor));
-        if (motor != 0 && (motor_first == 16 || motor_first == 18)) {
-            logf("GameCube: Wii Remote rumble off: PADControlMotor 0x%08x starts with a branch\n", motor);
+        // The replay slot runs the function's first four words from
+        // elsewhere: a relative branch among them would go astray.
+        bool replayable = true;
+        for (std::uint32_t i = 0; motor != 0 && i < 4; ++i) {
+            const unsigned op = opcode(code.at(motor + 4 * i));
+            if (op == 16 || op == 18) replayable = false;
+        }
+        if (!replayable) {
+            logf("GameCube: Wii Remote rumble off: PADControlMotor 0x%08x has a branch in its first four words\n",
+                 motor);
             motor = 0;
         }
         if (motor != 0) {
@@ -2312,7 +2321,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
     if (dsp_patched)
         logf("GameCube: %u sound program(s) patched to read ARAM from MEM2 (a Wii)\n", dsp_patched);
     else if (keep_aram && !gc_keeps_aram_addresses(image.id))
-        logf("GameCube: ARAM addresses left as the SDK gives them, as sd:/riftwii/gc/keeparam asks (the sound "
+        logf("GameCube: ARAM addresses left as the SDK gives them, as sd:/riftwii/gc/test/keeparam asks (the sound "
              "may play wrong)\n");
     else if (keep_aram)
         logf("GameCube: ARAM addresses left as the SDK gives them: %s checks them against its own limit "

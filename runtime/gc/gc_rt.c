@@ -416,8 +416,8 @@ static uint32_t gc_trace_slot(const struct gc_rt_context* ctx, uint32_t seq) {
     return ctx->trace_sector + kept + (seq - kept - 1) % ring;
 }
 
-/* The test remote's results fill the trace's GC_TR_BT_FAKE words. */
-typedef char gc_fake_log_fits[(GC_TR_BT_PROGRESS - GC_TR_BT_FAKE == GC_BT_FAKE_STEPS * 2) ? 1 : -1];
+/* The test remote's results take the projection callers' 16 words. */
+typedef char gc_fake_log_fits[(GC_TR_RVZ_GROUPS - GC_TR_PROJECTION_CALLERS == GC_BT_FAKE_STEPS * 2) ? 1 : -1];
 
 /* One record of the trace (gc_rt.h), with interrupts held off so it
  * cannot meet a read on the card; skipped while a read is going on. */
@@ -478,7 +478,6 @@ static int32_t gc_trace(struct gc_rt_context* ctx, uint32_t where) {
         }
         gc_copy((uint8_t*)&w[GC_TR_BT_EVENT_LOG], &bt->event_log[0][0], 32);
         w[GC_TR_BT_SHAKES] = bt->shakes;
-        gc_copy((uint8_t*)&w[GC_TR_BT_FAKE], (const uint8_t*)bt->fake_log, sizeof(bt->fake_log));
         w[GC_TR_BT_PROGRESS] = bt->progress;
         w[GC_TR_BT_LINK] = (uint32_t)bt->conn_status << 24 | (uint32_t)bt->auth_status << 16 |
                            (uint32_t)bt->disconnect_reason << 8 | bt->ext_error;
@@ -509,6 +508,10 @@ static int32_t gc_trace(struct gc_rt_context* ctx, uint32_t where) {
     w[GC_TR_PROJECTIONS] = ctx->projections;
     w[GC_TR_ORTHOGRAPHICS] = ctx->orthographics;
     for (i = 0; i < GC_PROJECTION_CALLERS * 4; ++i) w[GC_TR_PROJECTION_CALLERS + i] = ctx->projection_callers[i];
+    if ((ctx->flags & GC_FLAG_FAKE_REMOTE) && ctx->bt) {
+        const struct gc_bt* bt = (const struct gc_bt*)(uintptr_t)ctx->bt;
+        gc_copy((uint8_t*)&w[GC_TR_PROJECTION_CALLERS], (const uint8_t*)bt->fake_log, sizeof(bt->fake_log));
+    }
 #ifdef RT_RVZ
     if (ctx->rvz) {
         const struct gc_rvz* rvz = (const struct gc_rvz*)(uintptr_t)ctx->rvz;

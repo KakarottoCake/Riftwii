@@ -735,9 +735,10 @@ ZL = Z            # ZL stays a plain Z press, as it is without a file
 
 ZL and ZR are buttons that are either pressed or not, and both press Z
 unless a file says otherwise. The Classic Controller's analogue triggers
-are L and R: the game reads how far you press them, and they stay the
-GameCube's analogue triggers whatever a file says about the `L` and `R`
-buttons.
+are L and R: the game reads how far you press them. They go with their
+buttons: map `R` to something else (`R = Y`) and the trigger no longer
+half-presses the GameCube's R either, so a game such as Super Mario
+Sunshine doesn't spray when you press it.
 
 - **Headings:** `[remote]`, `[nunchuk]`, `[classic]`.
 - **Buttons** (left of `=`): `A`, `B`, `1`, `2`, `-` (or `Minus`), `+`
@@ -755,8 +756,9 @@ buttons.
 - **Shake** presses its button for a moment each time the Wii Remote is
   shaken, again and again while you keep shaking. It is off unless a file
   names it, as the remote then sends its motion all the time.
-- The Nunchuk's stick and the Classic Controller's sticks and triggers
-  always stay the GameCube's sticks and triggers.
+- The Nunchuk's stick and the Classic Controller's sticks always stay
+  the GameCube's sticks. Its analogue L and R stay the GameCube's while
+  the `L` and `R` buttons do.
 - Upper or lower case doesn't matter. A name RiftWii doesn't know, or a
   button the controller doesn't have, is skipped, and the log
   (`sd:/riftwii/boot.log`, lines starting `GameCube controls:`) says which

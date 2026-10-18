@@ -499,6 +499,19 @@ constexpr std::uint32_t kOrisMotorMask = 0xFC00FFFFu;     // oris rA, rS, 0x40, 
 constexpr std::uint32_t kOrisMotor = 0x64000040u;
 constexpr std::uint32_t kMotorFunctionBytes = 0x100;      // the function is about 0x80 bytes long
 
+// Whether `start` begins as a function does, `mflr r0` or `stwu r1,-N(r1)`
+// within its first three words: the word after a `blr` can also be the
+// rest of a function with an early return, where a hook would land in the
+// middle.
+bool looks_like_function_start(const std::vector<CodeRange>& text, std::uint32_t start) {
+    for (std::uint32_t at = start; at < start + 12; at += 4) {
+        if (!inside(text, at)) return false;
+        const std::uint32_t w = word_at(text, at);
+        if (w == 0x7C0802A6u || (w & 0xFFFF8000u) == 0x94218000u) return true;  // mflr r0; stwu r1,-N(r1)
+    }
+    return false;
+}
+
 // The word after the previous `blr` before `address`, 0 when none is near.
 std::uint32_t after_previous_blr(const std::vector<CodeRange>& text, std::uint32_t address) {
     for (std::uint32_t back = 4; back <= kMotorFunctionBytes && address >= back; back += 4) {
@@ -534,7 +547,7 @@ bool find_gc_pad_motor(const std::vector<CodeRange>& text, std::uint32_t& out, s
             }
             if (!two_calls) continue;
             const std::uint32_t start = after_previous_blr(text, at);
-            if (start != 0) functions.insert(start);
+            if (start != 0 && looks_like_function_start(text, start)) functions.insert(start);
         }
     }
     if (functions.size() > 1) {
