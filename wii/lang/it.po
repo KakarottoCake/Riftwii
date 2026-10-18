@@ -855,6 +855,18 @@ msgstr "Sperimentale. In un gioco, tieni premuto 1 e premi HOME (controller Game
 msgid "Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder."
 msgstr "Musica mentre il menu è aperto: music.ogg da sd:/riftwii, o quella nella cartella di RiftWii."
 
+msgid "Launch music"
+msgstr "Musica all'avvio"
+
+msgid "Keep playing"
+msgstr "Continua a suonare"
+
+msgid "Fade out"
+msgstr "Dissolvenza"
+
+msgid "Keep playing: the menu's music plays on under the launch screen and fades out as the game starts. Fade out: it fades out when you start a game."
+msgstr "Continua a suonare: la musica del menu prosegue sotto la schermata di avvio e sfuma quando parte il gioco. Dissolvenza: sfuma quando avvii un gioco."
+
 msgid "Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music."
 msgstr "La musica è attiva, ma non c'è niente da suonare: metti un music.ogg in sd:/riftwii o scegli un tema con musica."
 

@@ -749,6 +749,14 @@ T = {
         "メニューを開いている間の音楽です: sd:/riftwiiのmusic.ogg、なければRiftWiiのフォルダのものを流します。",
         "Música enquanto o menu está aberto: music.ogg de sd:/riftwii, ou a da pasta do RiftWii.",
         "Musica mentre il menu è aperto: music.ogg da sd:/riftwii, o quella nella cartella di RiftWii."),
+    "Launch music": ("Música al iniciar", "起動中の音楽", "Música ao iniciar", "Musica all'avvio"),
+    "Keep playing": ("Seguir sonando", "流し続ける", "Continuar tocando", "Continua a suonare"),
+    "Fade out": ("Desvanecer", "フェードアウト", "Diminuir aos poucos", "Dissolvenza"),
+    "Keep playing: the menu's music plays on under the launch screen and fades out as the game starts. Fade out: it fades out when you start a game.": (
+        "Seguir sonando: la música del menú continúa bajo la pantalla de inicio y se desvanece al empezar el juego. Desvanecer: se desvanece al iniciar un juego.",
+        "流し続ける: メニューの音楽は起動画面でも流れ続け、ゲームが始まるときにフェードアウトします。フェードアウト: ゲームを起動するときにフェードアウトします。",
+        "Continuar tocando: a música do menu segue tocando na tela de início e some aos poucos quando o jogo começa. Diminuir aos poucos: ela some ao iniciar um jogo.",
+        "Continua a suonare: la musica del menu prosegue sotto la schermata di avvio e sfuma quando parte il gioco. Dissolvenza: sfuma quando avvii un gioco."),
     "Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music.": (
         "La música está activada, pero no hay nada que sonar: pon un music.ogg en sd:/riftwii o elige un tema con música.",
         "音楽はオンですが、流す曲がありません。sd:/riftwiiにmusic.oggを置くか、音楽のあるテーマを選んでください。",
@@ -2724,6 +2732,14 @@ KO = {
         "실험적 기능입니다. 게임 중 1번 버튼을 누른 상태에서 홈 버튼을 누르세요 (또는 게임큐브 컨트롤러의 L과 R 버튼을 누른 상태에서 아래 방향키를 누르세요). 다음에 RiftWii를 실행하면 스크린샷이 sd:/riftwii/screenshots 경로에 저장됩니다. 일부 게임이나 모드에서는 이 기능이 작동하지 않을 수 있습니다.",
     "Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder.":
         "메뉴가 열려 있을 때 재생되는 음악: sd:/riftwii 경로의 music.ogg 또는 RiftWii 폴더 내의 음악 파일입니다.",
+    "Launch music":
+        "실행 중 음악",
+    "Keep playing":
+        "계속 재생",
+    "Fade out":
+        "페이드 아웃",
+    "Keep playing: the menu's music plays on under the launch screen and fades out as the game starts. Fade out: it fades out when you start a game.":
+        "계속 재생: 메뉴 음악이 시작 화면에서도 계속 흐르다가 게임이 시작될 때 서서히 사라집니다. 페이드 아웃: 게임을 시작할 때 음악이 서서히 사라집니다.",
     "Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music.":
         "음악이 켜져 있지만 재생할 음악이 없습니다. sd:/riftwii에 music.ogg를 넣거나 음악이 있는 테마를 고르세요.",
     "On a Wii U the GameCube adapter may not work in game from the front USB ports; the rear ones work.":
@@ -4495,6 +4511,14 @@ FR = {
         "Expérimental. En jeu, maintenez 1 et appuyez sur HOME (Manette GC : L + R + Bas). Les images vont dans sd:/riftwii/screenshots au relancement de RiftWii. Incompatible avec certains jeux/mods.",
     "Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder.":
         "Musique du menu : fichier music.ogg situé dans sd:/riftwii ou dans le dossier propre de RiftWii.",
+    "Launch music":
+        "Au lancement",
+    "Keep playing":
+        "Continuer",
+    "Fade out":
+        "Fondu sortant",
+    "Keep playing: the menu's music plays on under the launch screen and fades out as the game starts. Fade out: it fades out when you start a game.":
+        "Continuer : la musique du menu continue sous l'écran de lancement et s'estompe au démarrage du jeu. Fondu sortant : elle s'estompe dès que vous lancez un jeu.",
     "Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music.":
         "La musique est activée, mais il n'y a rien à jouer : mettez un music.ogg dans sd:/riftwii ou choisissez un thème avec musique.",
     "On a Wii U the GameCube adapter may not work in game from the front USB ports; the rear ones work.":

@@ -855,6 +855,18 @@ msgstr "Experimental. En un juego, mantén 1 y pulsa HOME (mando de GameCube: ma
 msgid "Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder."
 msgstr "Música mientras el menú está abierto: music.ogg de sd:/riftwii, o la de la carpeta de RiftWii."
 
+msgid "Launch music"
+msgstr "Música al iniciar"
+
+msgid "Keep playing"
+msgstr "Seguir sonando"
+
+msgid "Fade out"
+msgstr "Desvanecer"
+
+msgid "Keep playing: the menu's music plays on under the launch screen and fades out as the game starts. Fade out: it fades out when you start a game."
+msgstr "Seguir sonando: la música del menú continúa bajo la pantalla de inicio y se desvanece al empezar el juego. Desvanecer: se desvanece al iniciar un juego."
+
 msgid "Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music."
 msgstr "La música está activada, pero no hay nada que sonar: pon un music.ogg en sd:/riftwii o elige un tema con música."
 

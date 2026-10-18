@@ -855,6 +855,18 @@ msgstr "試験的な機能です。ゲーム中に1を押したままHOME(ゲー
 msgid "Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder."
 msgstr "メニューを開いている間の音楽です: sd:/riftwiiのmusic.ogg、なければRiftWiiのフォルダのものを流します。"
 
+msgid "Launch music"
+msgstr "起動中の音楽"
+
+msgid "Keep playing"
+msgstr "流し続ける"
+
+msgid "Fade out"
+msgstr "フェードアウト"
+
+msgid "Keep playing: the menu's music plays on under the launch screen and fades out as the game starts. Fade out: it fades out when you start a game."
+msgstr "流し続ける: メニューの音楽は起動画面でも流れ続け、ゲームが始まるときにフェードアウトします。フェードアウト: ゲームを起動するときにフェードアウトします。"
+
 msgid "Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music."
 msgstr "音楽はオンですが、流す曲がありません。sd:/riftwiiにmusic.oggを置くか、音楽のあるテーマを選んでください。"
 

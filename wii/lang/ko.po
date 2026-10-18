@@ -855,6 +855,18 @@ msgstr "실험적 기능입니다. 게임 중 1번 버튼을 누른 상태에서
 msgid "Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder."
 msgstr "메뉴가 열려 있을 때 재생되는 음악: sd:/riftwii 경로의 music.ogg 또는 RiftWii 폴더 내의 음악 파일입니다."
 
+msgid "Launch music"
+msgstr "실행 중 음악"
+
+msgid "Keep playing"
+msgstr "계속 재생"
+
+msgid "Fade out"
+msgstr "페이드 아웃"
+
+msgid "Keep playing: the menu's music plays on under the launch screen and fades out as the game starts. Fade out: it fades out when you start a game."
+msgstr "계속 재생: 메뉴 음악이 시작 화면에서도 계속 흐르다가 게임이 시작될 때 서서히 사라집니다. 페이드 아웃: 게임을 시작할 때 음악이 서서히 사라집니다."
+
 msgid "Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music."
 msgstr "음악이 켜져 있지만 재생할 음악이 없습니다. sd:/riftwii에 music.ogg를 넣거나 음악이 있는 테마를 고르세요."
 

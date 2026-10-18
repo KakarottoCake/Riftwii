@@ -490,7 +490,7 @@ int main() {
     // the game itself takes over (LaunchMusicEnd).
     const bool game_launch = action == MENU_LAUNCH || action == MENU_BOOT || action == MENU_PLAY_CHANNEL;
     const bool music_kept = game_launch && riftwii::wii::MenuMusicKeepForLaunch();
-    if (!music_kept) riftwii::wii::MenuMusicStop();
+    if (!music_kept) riftwii::wii::MenuMusicFadeOut();  // also stops it for a launch that keeps none
     riftwii::wii::ScreenshotsStop();
     // Before anything is launched: nothing of the menu's adapter may be
     // left in flight for the game (or the next IOS) to answer.

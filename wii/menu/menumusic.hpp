@@ -15,12 +15,16 @@ namespace riftwii::wii {
 void MenuMusicStart();
 // Stops it; before audio is shut down and before any launch.
 void MenuMusicStop();
+// Fades the music out over half a second, then stops it. The launch does
+// this when the player chose "Fade out" for Launch music: the
+// music is gone before the launch screen and stays off.
+void MenuMusicFadeOut();
 // Whether a music file was found (the Settings row's note says so).
 bool MenuMusicFound();
 
 // Keeps the music playing past the menu, under the launch screen and its
 // log, instead of stopping it with the menu. Returns false when nothing
-// is playing; the caller then shuts the audio down itself, as before.
+// is playing or launch_music = off in settings.txt; the caller then shuts the audio down itself, as before.
 bool MenuMusicKeepForLaunch();
 // Fades the kept music out over half a second, stops its decoder and shuts
 // the audio down, saying `why` in the log. Called before the game's IOS

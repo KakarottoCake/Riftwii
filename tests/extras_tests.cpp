@@ -757,6 +757,23 @@ void TestVideoModes() {
     EXPECT_EQ(copy[403], 2);
 }
 
+// The menu's music settings: menu_music and launch_music (Music while the
+// menu is open, and whether it plays on under a launch or fades out).
+void TestSettingsMusic() {
+    LoaderSettings s;
+    EXPECT_EQ(s.menu_music, "on");
+    s.parse("menu_music = off\n");
+    EXPECT_EQ(s.menu_music, "off");
+    s.parse("menu_music = loud\n");
+    EXPECT_EQ(s.menu_music, "off");
+    EXPECT_EQ(s.launch_music, "on");
+    s.parse("launch_music = off\n");
+    EXPECT_EQ(s.launch_music, "off");
+    EXPECT_TRUE(s.serialize().find("launch_music = off\n") != std::string::npos);
+    s.parse("launch_music = loud\n");
+    EXPECT_EQ(s.launch_music, "off");
+}
+
 void TestSettings() {
     LoaderSettings s;
     s.parse("# c\nlanguage = ja\nvideo_width=704\ndeflicker = bogus\nborders = remove\nonline = off\nfuture = 1\n");
@@ -1174,11 +1191,6 @@ void TestCoverArt() {
     EXPECT_EQ(s.menu_sounds, "off");
     s.parse("menu_sounds = loud\n");
     EXPECT_EQ(s.menu_sounds, "off");
-    EXPECT_EQ(s.menu_music, "on");
-    s.parse("menu_music = off\n");
-    EXPECT_EQ(s.menu_music, "off");
-    s.parse("menu_music = loud\n");
-    EXPECT_EQ(s.menu_music, "off");
     EXPECT_EQ(s.menu_font, "riftwii");
     EXPECT_EQ(s.clock, "auto");
     s.parse("clock = 24\n");
@@ -1540,6 +1552,7 @@ int main() {
     TestVideoModes();
     TestKeepsPictureWidth();
     TestSettings();
+    TestSettingsMusic();
     TestGameLanguage();
     TestWfc();
     TestCoverArt();

@@ -74,6 +74,15 @@ void Load() {
     }
 }
 
+// The half-second fade both endings of the music share, so they cannot drift
+// apart: the volume steps down to silence, the decoder keeps running.
+void FadeVolumeToZero() {
+    for (int step = kFadeSteps - 1; step >= 0; --step) {
+        SetVolumeOgg(kVolume * step / kFadeSteps);
+        usleep(kFadeStepUs);
+    }
+}
+
 }  // namespace
 
 void MenuMusicStart() {
@@ -96,6 +105,12 @@ void MenuMusicStop() {
     g_playing = false;
 }
 
+void MenuMusicFadeOut() {
+    if (!g_playing) return;
+    FadeVolumeToZero();
+    MenuMusicStop();
+}
+
 bool MenuMusicFound() {
     Load();
     return g_music != nullptr;
@@ -103,6 +118,14 @@ bool MenuMusicFound() {
 
 bool MenuMusicKeepForLaunch() {
     if (!g_playing) return false;
+    // "Fade out": nothing is kept, so nothing is paused or resumed around the
+    // cIOS reload either (g_resume_at_ms stays -1): the music stays off for the
+    // whole launch. "Keep playing" fades out and back in around that reload
+    // (LaunchMusicPauseForReload / LaunchMusicResumeAfterReload), by design.
+    if (Settings().launch_music == "off") {
+        logf("Menu music: fades out as the menu closes (Settings: Launch music is Fade out)\n");
+        return false;
+    }
     // The decoder runs on its own thread from the file in MEM2 and the
     // mixer on the audio interrupt, so neither needs the GUI thread, which
     // is halted from here on, nor the card, which the launch reads.
@@ -117,10 +140,7 @@ namespace {
 // the decoder, not the DSP's mixing, not the audio DMA.
 void FadeOutAndStop(const char* why, s32 resume_at_ms) {
     const u64 start = gettime();
-    for (int step = kFadeSteps - 1; step >= 0; --step) {
-        SetVolumeOgg(kVolume * step / kFadeSteps);
-        usleep(kFadeStepUs);
-    }
+    FadeVolumeToZero();
     MenuMusicStop();
     ShutdownAudio();
     g_resume_at_ms = resume_at_ms;
