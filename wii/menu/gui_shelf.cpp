@@ -653,6 +653,14 @@ int GuiGameGrid::ShelfHit(int x, int y) const {
     // The nearest drawn box first: they were stored back to front.
     for (auto it = spineRects.rbegin(); it != spineRects.rend(); ++it)
         if (x >= it->x0 && x < it->x1 && y >= it->y0 && y < it->y1) return it->index;
+    // A box pointed at rises (kLift, 8 px on the ring), so a pointer at its
+    // foot was below it the next frame: it fell, was pointed at again and
+    // rose, over and over, which shook it (a tester's photo, the ring). The
+    // box pointed at keeps the pointer as far below it as it rose.
+    constexpr float kRiseSlack = 14.0f;
+    if (shelfHover >= 0)
+        for (const SpineRect& r : spineRects)
+            if (r.index == shelfHover && x >= r.x0 && x < r.x1 && y >= r.y1 && y < r.y1 + kRiseSlack) return r.index;
     return -1;
 }
 
