@@ -32,6 +32,7 @@
 #include "riftwii/fat32.hpp"
 #include "riftwii/gcbackup.hpp"
 #include "riftwii/gccard.hpp"
+#include "riftwii/gcclock.hpp"
 #include "riftwii/gclayout.hpp"
 #include "riftwii/gcoverlay.hpp"
 #include "riftwii/gxpatches.hpp"
@@ -82,11 +83,10 @@ constexpr std::uint32_t kGcRvzDecoderBytes = 0xC000;
 // four top-ups of GC_STREAM_CHUNK, so several frames without one (the card
 // busy with the game's own reads) do not run it dry.
 constexpr std::uint32_t kStreamBytes = 4 * GC_STREAM_CHUNK;
-// Broadway in Wii mode: the time base runs at the bus clock / 4 whatever
-// the game believes, so the game is told the Wii's clocks and its OSTicks
-// conversions come out right.
-constexpr std::uint32_t kWiiBusClock = 243000000;
-constexpr std::uint32_t kWiiCpuClock = 729000000;
+// Hollywood's registers through the uncached mirror: AHBPROT, whose all
+// ones means the PPC may read the rest, and HW_CLOCKS (riftwii/gcclock.hpp).
+constexpr std::uint32_t kAhbprot = 0xCD800064;
+constexpr std::uint32_t kHwClocks = 0xC0000000 | kHwClocksAddress;
 
 std::uint32_t be32(const std::uint8_t* p) {
     return (std::uint32_t(p[0]) << 24) | (std::uint32_t(p[1]) << 16) | (std::uint32_t(p[2]) << 8) | p[3];
@@ -766,6 +766,48 @@ bool move_out_of_ios(Code& code, std::uint32_t moved_addr, std::vector<std::uint
 
 void store32(std::uint32_t a, std::uint32_t v) { *reinterpret_cast<volatile std::uint32_t*>(a) = v; }
 std::uint32_t load32(std::uint32_t a) { return *reinterpret_cast<volatile std::uint32_t*>(a); }
+
+// The clocks the game is told at 0x800000F8 and 0x800000FC, with the
+// GameCube clocks built into its code moved to them (riftwii/gcclock.hpp).
+// They are the Wii's: only IOS's own processor can switch Hollywood and
+// Broadway to a GameCube's 162 and 486 MHz, with Broadway held stopped
+// meanwhile (docs/ARCHITECTURE.md, "Clock speed"), and nothing does in
+// Wii mode. HW_CLOCKS is read only for the log: the blob's own waits
+// (gc_rt.c's drive timing) count the Wii's time base too, so a register
+// that read otherwise would be a misreading to report, not a reason to
+// tell the game a speed nothing else here runs at.
+GcClocks match_game_to_clocks(Code& code, const Dol& dol) {
+    const GcClocks clocks = kWiiClocks;
+    const std::uint32_t time_base_khz = gc_time_base_hz(clocks) / 1000;
+    char register_text[96] = "HW_CLOCKS not read: no hardware access";
+    if (load32(kAhbprot) == 0xFFFFFFFF) {
+        const std::uint32_t hw_clocks = load32(kHwClocks);
+        const bool agrees = gc_clocks_from_hw_clocks(hw_clocks).cpu == clocks.cpu;
+        std::snprintf(register_text, sizeof(register_text), "HW_CLOCKS 0x%08x: %s", static_cast<unsigned>(hw_clocks),
+                      agrees ? "Wii speed, as expected" : "says GameCube speed, which Wii mode never sets");
+    }
+    logf("GameCube: clock %u MHz CPU and %u MHz bus, time base %u.%03u MHz, as the game is told (%s)\n",
+         clocks.cpu / 1000000, clocks.bus / 1000000, time_base_khz / 1000, time_base_khz % 1000, register_text);
+
+    const GcCodeReader read = [&code](std::uint32_t address, std::uint32_t& word) {
+        if (!code.has(address)) return false;
+        word = code.at(address);
+        return true;
+    };
+    std::vector<GcTextRange> text_ranges;
+    for (const Section& s : dol.text)
+        text_ranges.push_back({s.address, s.address + static_cast<std::uint32_t>(s.bytes.size())});
+    const std::vector<GcClockFix> fixes = find_gc_clock_values(read, text_ranges, clocks);
+    for (const GcClockFix& fix : fixes) {
+        code.put(fix.high_at, fix.high_word);
+        code.put(fix.low_at, fix.low_word);
+        logf("GameCube: clock value %u built into the game's code at 0x%08x changed to %u, the speed it runs at\n",
+             fix.old_value, fix.high_at, fix.new_value);
+    }
+    if (fixes.empty())
+        logf("GameCube: clock values: none built into the game's code, so its timers all go by the clocks it is told\n");
+    return clocks;
+}
 
 // A formatted, empty 251-block card (gc_card.h), its header made from
 // this console's SRAM (the card's flash ID for slot A, the clock bias,
@@ -2264,6 +2306,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
     const bool aram_check_skipped = skip_aram_size_check(code);
     const unsigned ai_waits = skip_ai_stream_waits(code);
     logf("GameCube: %u wait(s) for the AI stream counter skipped\n", ai_waits);
+    const GcClocks clocks = match_game_to_clocks(code, dol);
     logf("GameCube: ARAM in MEM2 through ARStartDMA 0x%08x, size check %s\n", ar_dma,
          aram_check_skipped ? "skipped" : "not found");
     // A crash shows itself on the screen and in the trace instead of a
@@ -2399,8 +2442,8 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
     store32(0x800000EC, kMem1Top);
     store32(0x800000F0, 0x01800000);
     store32(0x800000F4, bi2_addr);
-    store32(0x800000F8, kWiiBusClock);
-    store32(0x800000FC, kWiiCpuClock);
+    store32(0x800000F8, clocks.bus);
+    store32(0x800000FC, clocks.cpu);
     // After the clear above, which would have taken them.
     if (!cheats.gct.empty()) place_gc_cheats(cheats, image.id);
     // IOS's replies stay polled: no IPC interrupt reaches the game.
