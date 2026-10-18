@@ -101,6 +101,15 @@ static inline void gc_map_sticks(uint32_t targets, int32_t* sx, int32_t* sy, int
     if (targets & GC_OUT_CSTICK_DOWN) *cy = -GC_STICK_FULL;
 }
 
+/* 1 when a Classic Controller's analogue trigger (GC_IN_L or GC_IN_R)
+ * still goes to the game: only while its button is still the GameCube's
+ * button of the same name (`pad_button`, GC_PAD_L or GC_PAD_R). Mapped
+ * away (R = Y), the trigger would half-press the GameCube's R besides,
+ * as Super Mario Sunshine's spray does. */
+static inline int gc_map_keeps_trigger(const struct gc_map* map, uint32_t input, uint32_t pad_button) {
+    return (map->to[GC_MAP_CLASSIC][input] & pad_button) != 0;
+}
+
 /* 1 when a kind's shake presses something: its remotes then report their
  * accelerometer (gc_bt.c's report mode). */
 static inline int gc_map_wants_shake(const struct gc_map* map, uint32_t kind) {

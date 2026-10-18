@@ -860,8 +860,8 @@ static void bt_fill_one(const struct gc_map* map, const struct gc_bt_remote* r, 
         /* The analogue triggers go with their buttons: a Classic's L or R
          * mapped away from the GameCube's (R = Y in a controls file) must
          * not half-press it either, as Sunshine's spray does with R. */
-        if (!(map->to[GC_MAP_CLASSIC][GC_IN_L] & GC_PAD_L)) l = 0;
-        if (!(map->to[GC_MAP_CLASSIC][GC_IN_R] & GC_PAD_R)) rt = 0;
+        if (!gc_map_keeps_trigger(map, GC_IN_L, GC_PAD_L)) l = 0;
+        if (!gc_map_keeps_trigger(map, GC_IN_R, GC_PAD_R)) rt = 0;
     }
     if (buttons & GC_PAD_L) l = 0xFF;
     if (buttons & GC_PAD_R) rt = 0xFF;

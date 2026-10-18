@@ -304,6 +304,23 @@ void test_shake_presses() {
     EXPECT_TRUE(!gc_shake_step(&timer, &jolted));
 }
 
+// A Classic's analogue trigger goes with its button: mapped away, it no
+// longer half-presses the GameCube's trigger as well.
+void test_trigger_follows_button() {
+    gc_map map;
+    gc_controls_default(map);
+    EXPECT_TRUE(gc_map_keeps_trigger(&map, GC_IN_L, GC_PAD_L));
+    EXPECT_TRUE(gc_map_keeps_trigger(&map, GC_IN_R, GC_PAD_R));
+    std::vector<std::string> notes;
+    EXPECT_EQ(gc_controls_apply("[classic]\nR = Y\n", "GMSE01.txt", map, notes), 1);
+    EXPECT_TRUE(!gc_map_keeps_trigger(&map, GC_IN_R, GC_PAD_R));
+    EXPECT_TRUE(gc_map_keeps_trigger(&map, GC_IN_L, GC_PAD_L));
+    EXPECT_EQ(press(map, GC_MAP_CLASSIC, held(GC_IN_R)).buttons, GC_PAD_Y);
+    // Mapped to the other trigger's button, it is not R's any more either.
+    EXPECT_EQ(gc_controls_apply("[classic]\nL = R\n", "GMSE01.txt", map, notes), 1);
+    EXPECT_TRUE(!gc_map_keeps_trigger(&map, GC_IN_L, GC_PAD_L));
+}
+
 }  // namespace
 
 int main() {
@@ -318,6 +335,7 @@ int main() {
     test_describe();
     test_shake_jolt();
     test_shake_presses();
+    test_trigger_follows_button();
     if (failures) {
         std::printf("%d failure(s)\n", failures);
         return 1;
