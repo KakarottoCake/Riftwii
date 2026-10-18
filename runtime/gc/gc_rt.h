@@ -164,6 +164,12 @@ enum gc_trace_word {
     GC_TR_AR_CONFIG, /* the ARAM interface's size (0x5012) << 16 | its refresh (0x501A) */
     GC_TR_AUDIO_RESET, /* the last restart's audio reset (gc_audio_reset): the DSP's control before << 16 |
                         * the waits that ran out << 12 (GC_AUDIO_*_SLOW) | the DSP's control after (low 12 bits) */
+    /* The VI as the record found it, for picture problems only a Wii shows
+     * (colours wrong through an HDMI adapter on 18 Oct; Dolphin ignores
+     * the clock and the cable bit). */
+    GC_TR_VI_DCR_CLOCK, /* the display control (0x02) << 16 | the clock (0x6C; 1: 54 MHz, progressive) */
+    GC_TR_VI_SEL_HSW, /* 0x6E (bit 0: a component cable) << 16 | the frame buffer's width and stride (0x48) */
+    GC_TR_VI_TFBL, /* the top field's frame buffer register (0x1C) as written */
     GC_TR_WORDS
 };
 typedef char gc_trace_fits[(GC_TR_WORDS * 4 <= 512) ? 1 : -1];

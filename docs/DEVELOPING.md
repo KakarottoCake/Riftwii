@@ -116,7 +116,9 @@ Two scripts on the card drive a run without hands on a controller:
   emulated remote a script cannot press), `fakepro` (the same with a
   made-up Wii U Pro Controller, which Dolphin cannot emulate, in its own
   report layout), `rumbletest` (the game's PADControlMotor called for the
-  test remote's port) and `reset` (the blob presses Reset twice, the
+  test remote's port), `novihook` (VIConfigure left as the game made it:
+  480p only through the game's own mode), `nomotor` (PADControlMotor not
+  hooked) and `reset` (the blob presses Reset twice, the
   restart, `GC_FLAG_RESET_TEST`). The first GameCube
   line of `sd:/riftwii/boot.log` lists the ones that are on. The test
   remote's results take the `projection_callers` words of the trace

@@ -451,6 +451,17 @@ typedef char gc_fake_log_fits[(GC_TR_RVZ_GROUPS - GC_TR_PROJECTION_CALLERS == GC
 #define GC_AI_DMA_CONTROL 0xCC005036u  /* bit 15: the audio DMA runs */
 #define GC_AI_DMA_ON 0x8000u
 
+/* The VI's registers (16 bits each). */
+#define GC_VI_BASE 0xCC002000u
+#define GC_VI_VTR 0xCC002000u   /* bits 4-13: active lines per field */
+#define GC_VI_DCR 0xCC002002u   /* bit 0: the display is on */
+#define GC_VI_TFBL 0xCC00201Cu  /* the top field's frame buffer */
+#define GC_VI_BFBL 0xCC002024u  /* the bottom field's */
+#define GC_VI_HSW 0xCC002048u   /* bits 0-7: a field line's stride, bits 8-14: its width, both in 32 bytes */
+#define GC_VI_ACTIVE_LINES(vtr) (((vtr) >> 4) & 0x3FFu)
+#define GC_VI_CLOCK 0xCC00206Cu  /* bit 0: 54 MHz (progressive) */
+#define GC_VI_SEL 0xCC00206Eu    /* bit 0: a component cable is in */
+
 static uint32_t gc_read16(uint32_t address) { return *(volatile uint16_t*)(uintptr_t)address; }
 static void gc_write16(uint32_t address, uint32_t value) { *(volatile uint16_t*)(uintptr_t)address = (uint16_t)value; }
 
@@ -565,6 +576,9 @@ static int32_t gc_trace(struct gc_rt_context* ctx, uint32_t where) {
     w[GC_TR_AI_CR] = gc_read32(GC_AI_CR);
     w[GC_TR_AR_CONFIG] = gc_read16(GC_AR_SIZE) << 16 | gc_read16(GC_AR_REFRESH);
     w[GC_TR_AUDIO_RESET] = ctx->audio_reset;
+    w[GC_TR_VI_DCR_CLOCK] = gc_read16(GC_VI_DCR) << 16 | gc_read16(GC_VI_CLOCK);
+    w[GC_TR_VI_SEL_HSW] = gc_read16(GC_VI_SEL) << 16 | gc_read16(GC_VI_HSW);
+    w[GC_TR_VI_TFBL] = gc_read32(GC_VI_TFBL);
     w[GC_TR_AR_WAITS] = ctx->ar_waits;
     w[GC_TR_AR_WAIT_LONGEST] = ctx->ar_wait_longest;
     w[GC_TR_AR_WAIT_TIMEOUTS] = ctx->ar_wait_timeouts;
@@ -868,14 +882,6 @@ uint32_t gc_on_done(struct gc_rt_context* ctx, uint32_t cb) {
     return 1;
 }
 
-/* The VI's registers (16 bits each). */
-#define GC_VI_BASE 0xCC002000u
-#define GC_VI_VTR 0xCC002000u   /* bits 4-13: active lines per field */
-#define GC_VI_DCR 0xCC002002u   /* bit 0: the display is on */
-#define GC_VI_TFBL 0xCC00201Cu  /* the top field's frame buffer */
-#define GC_VI_BFBL 0xCC002024u  /* the bottom field's */
-#define GC_VI_HSW 0xCC002048u   /* bits 0-7: a field line's stride, bits 8-14: its width, both in 32 bytes */
-#define GC_VI_ACTIVE_LINES(vtr) (((vtr) >> 4) & 0x3FFu)
 /* A frame buffer register's address: bits 0-23, shifted by 5 when bit 28
  * (the page offset) is set, as the SDK writes it. */
 static uint32_t gc_vi_fb(uint32_t reg) {
