@@ -1243,7 +1243,7 @@ msgid "Yes, turn it on"
 msgstr "Oui, activer"
 
 msgid "Keep it as it is"
-msgstr "Conserver l'état actuel"
+msgstr "Laisser tel quel"
 
 msgid "WARNING: on this Wii U, games from the SD card or a USB drive can freeze at 97% with this on. Use Automatic unless you are testing the adapter."
 msgstr "ATTENTION : sur cette Wii U, le chargement peut bloquer à 97%. Privilégiez le mode Automatique."

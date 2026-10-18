@@ -192,6 +192,22 @@ hex address. In Dolphin, turn on MMU emulation (`FELK_MMU=1` for
 game crashes a few steps later instead. The next RiftWii start writes
 `sd:/riftwii/gamecrash.txt`. Never leave it in a tester's settings.
 
+## A menu that freezes only on a console
+
+`debug_gx` in `settings.txt` watches the menu's drawing
+(`wii/menu/drawtrace.hpp`). `debug_gx = watch`: for a minute after a
+game's page opens, and whenever the frames stop with the GUI not halted,
+the menu's watchdog thread logs a `GUI watch` line once a second: the
+frame count, where the GUI thread is (`render step "GX_DrawDone"` is a
+GPU that never finished its frame), whether the menu's own thread is
+suspended, and how often GX's command buffer filled up. `debug_gx =
+drawdone` adds the GX trace: the GUI waits for the GPU after every
+element it draws and keeps the last 16 in memory (class, name, last
+picture's address, size and format); when the frames stop, `GX trace`
+lines name them, the one the GPU stopped in first. Drawing is slower with
+it. Off by default; a GX buffer that filled up is logged either way
+(`Graphics: the menu's drawing ran ahead of the GPU`).
+
 ## Releasing
 
 1. Bump the version in `CMakeLists.txt` and `hbc/meta.xml` (`version`,

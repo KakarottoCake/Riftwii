@@ -1234,7 +1234,7 @@ msgid "On a Wii U, the GameCube adapter in games can freeze the console at 97% w
 msgstr "En una Wii U, el adaptador de GameCube en los juegos puede congelar la consola al 97% mientras arranca un juego de la tarjeta SD o de una unidad USB. A veces funciona y otras se congela, y RiftWii no puede saberlo antes. Si se congela, mantén pulsado el botón de encendido para apagar la consola. Automático es seguro: deja el adaptador fuera de esos juegos."
 
 msgid "Turn it on anyway"
-msgstr "Activarlo de todos modos"
+msgstr "Activar igualmente"
 
 msgid "Some game launches WILL freeze and need the power button. Only turn this on to test the adapter, and send a problem report when it freezes. You can set it back to Automatic here at any time."
 msgstr "Algunos arranques de juegos SE congelarán y necesitarán el botón de encendido. Actívalo solo para probar el adaptador, y envía un informe de problema cuando se congele. Puedes volver a Automático aquí cuando quieras."
