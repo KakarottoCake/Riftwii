@@ -250,8 +250,8 @@ the tiles.
   **Aspect ratio**, **Game language**, **Game cIOS**, **Online server**:
   the defaults for every game.
 - **Home tiles**: covers, 3D covers, carousel, shelf, channels or names.
-- **Games from**: *SD and USB*, *SD card* or *USB drive*: which drive's
-  games Home lists.
+- **Games from**: *All games*, *SD card*, *USB drive*, *GameCube* or
+  *Wii channels*: which games Home lists, every place's or one's only.
 - **Play history**: *Off* stops counting the games you start (Recently
   played, Home order and a game's page use the counts) and hides them.
 - **Home order**: *A to Z* (a leading "The" is skipped), *Last played* or
@@ -372,6 +372,71 @@ install; it carries no key itself.
 A game whose data was removed from the Wii to make room can't start:
 RiftWii says so when you pick it.
 
+### GameCube games
+
+RiftWii plays GameCube games itself, in Wii mode, without a cIOS. For
+now they go on the SD card only (the USB drive is planned): each game in
+a folder of its own in `sd:/games`, named as you like, for example
+`sd:/games/Super Mario Sunshine [GMSE01]/game.iso`. An image can be an
+`.iso`, a `.gcm` or a Dolphin `.rvz` (checked as RVZ games are, below).
+A GameCube image left loose in `sd:/games`, or put in `sd:/wbfs`, is not
+listed as a GameCube game. `.ciso` images are not supported: turn them
+back into an ISO or an RVZ with Dolphin's **Convert File...** first.
+
+GameCube games are on Home with your other games, badged **GC**.
+**Settings > Games from > GameCube** shows only these; the other
+choices, and Home's view button (all games, games with mods, Recently
+played, Favourites), can hide them as they hide any game.
+
+A GameCube game's page has its own options in place of a Wii game's
+picture and online settings: **Memory card** (*This game's own* or
+*Shared*), **480p picture** (not for European games), **Sharper
+picture**, **Picture width**, **Game language** and, for European
+games, **Game speed** (60 Hz instead of 50).
+
+**Memory cards** are files on the SD card, in `sd:/riftwii/gc/cards/`:
+one for each game (`GMSE01.raw`), or with **Memory card** set to
+*Shared* one for every game that shares it (`shared.raw`, and
+`shared-jp.raw` for Japanese games). Switching copies no saves: move
+them on the game's **Saves** page. With **Back up saves** on in
+Settings (it is at first), the card is copied to
+`sd:/riftwii/gc/backups/` before the game starts, when it has changed;
+the newest five copies are kept, and **Restore an older save** on the
+Saves page puts one back.
+
+**Leaving a game:** hold for two seconds
+
+- HOME on a Wii Remote with a Nunchuk, a Classic Controller or a Wii U
+  Pro Controller;
+- HOME and − together on a Wii Remote alone (its HOME is the game's Y);
+- L, R, Z and Start together on a GameCube controller.
+
+RiftWii waits for a save in progress before it goes back to the menu.
+The console's **Reset** button restarts the game, as on a GameCube, in
+the games where that is known to work (Super Mario Sunshine, USA, and
+Super Mario Eclipse); in the others it goes back to RiftWii, as holding
+HOME does.
+
+**Controllers:** GameCube controllers in the Wii's own ports, and Wii
+Remotes (sideways, with a Nunchuk or with a Classic Controller) and Wii
+U Pro Controllers, which play as GameCube controllers: see [Wii Remote
+controls in GameCube games](#wii-remote-controls-in-gamecube-games) for
+the buttons and how to change them. A remote takes the port its light
+shows, or the next free one when a GameCube controller is plugged into
+that port. The [GameCube controller adapter for
+Wii U](#gamecube-controller-adapter-for-wii-u) is not used in GameCube
+games yet.
+
+**Mods:** Riivolution packs for a GameCube game go in
+`sd:/riivolution/` as for Wii games, and are picked on the game's page.
+RiftWii serves their files to the game without changing the image.
+Packs with memory, savegame or shift patches don't start yet, and say
+so. A mod shipped as a patch (`.xdelta` or `.vcdiff`) goes in
+`sd:/riftwii/patches/`: it is listed as the game it makes when its
+original is in `sd:/games`, and the first start makes that game as
+`sd:/games/<its ID>/game.iso` (the card needs room for it), an ordinary
+game from then on.
+
 ### RVZ games
 
 Dolphin's compressed `.rvz` images play straight from `games` on the SD
@@ -381,8 +446,9 @@ work on them as on any game. RiftWii checks each RVZ when you pick it:
 - Zstandard (any level) or no compression, with chunks of 32 to 128 KiB,
   plays. Most RVZs are made this way.
 - Chunks of 256 or 512 KiB play after a warning (press Start twice).
-- Larger chunks, bzip2, LZMA and LZMA2, WIA files and GameCube images are
-  refused, with the reason.
+- Larger chunks, bzip2, LZMA and LZMA2 and WIA files are refused, with
+  the reason. So is a GameCube RVZ among the Wii games: it goes in a
+  folder of its own ([GameCube games](#gamecube-games), below).
 
 The SD card must be in the Wii even for an RVZ on the USB drive: RiftWii
 keeps a small index of each game in `sd:/riftwii/rvz/`. An RVZ on the
