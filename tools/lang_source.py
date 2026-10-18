@@ -4456,7 +4456,7 @@ FR = {
     "Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder.":
         "Musique du menu : fichier music.ogg situé dans sd:/riftwii ou dans le dossier propre de RiftWii.",
     "Launch music":
-        "Musique au lancement",
+        "Au lancement",
     "Keep playing":
         "Continuer",
     "Fade out":

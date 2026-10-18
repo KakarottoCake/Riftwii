@@ -856,7 +856,7 @@ msgid "Music while the menu is open: music.ogg from sd:/riftwii, or the one in R
 msgstr "Musique du menu : fichier music.ogg situé dans sd:/riftwii ou dans le dossier propre de RiftWii."
 
 msgid "Launch music"
-msgstr "Musique au lancement"
+msgstr "Au lancement"
 
 msgid "Keep playing"
 msgstr "Continuer"
