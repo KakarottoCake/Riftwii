@@ -135,6 +135,17 @@ struct GameSettings {
     // one of kGcLanguages: the language the game is told the console's
     // GameCube settings say, for this game only.
     std::string gc_language = "global";
+    // Sharper picture: "on" copies every line as it is, without the
+    // game's blur (riftwii/gcvideo.hpp); "off" is the game as made.
+    std::string gc_sharp = "off";
+    // Picture width: "global" follows Settings' Picture width as a Wii
+    // game's row does, or "game", "framebuffer", "704", "720"
+    // (riftwii/videopatch.hpp's names), drawn centred.
+    std::string gc_width = "global";
+    // Game speed, for a European game: "60" tells it the console's TV
+    // takes 60 Hz, so a game with a 60 Hz mode of its own plays in it;
+    // "50" is the game as made.
+    std::string gc_speed = "50";
 };
 
 // The GameCube's languages in the order of their number in its settings
@@ -157,7 +168,9 @@ struct GcConsoleSettings {
     std::string game_language = "console";  // LoaderSettings::game_language (riftwii/gamelang.hpp names)
     bool wii_widescreen = false;            // the Wii's TV is set to 16:9
     bool wii_progressive = false;           // the Wii's 480p setting is on
+    bool component_cable = false;           // the video hardware says a component cable is plugged in
     int wii_language = -1;                  // the Wii's language, as libogc's CONF_LANG_* number
+    std::string video_width = "game";       // LoaderSettings::video_width (riftwii/videopatch.hpp names)
 };
 
 // Whether the game's 3D is drawn for 16:9: only "16:9", picked for the
@@ -174,8 +187,16 @@ constexpr bool kGcDriveTimingReady = false;
 constexpr bool kGcWidescreenReady = false;
 
 // Whether the game gets 480p: "480p" yes, "game" no, "global" when the
-// Wii's own 480p setting is on. Never for a PAL game (gc_pal_game).
+// Wii's own 480p setting is on and a component cable is plugged in. Never
+// for a PAL game (gc_pal_game).
 bool gc_progressive_on(const GameSettings& game, const std::string& id, const GcConsoleSettings& console);
+
+// Whether a European game (gc_pal_game) is told the TV takes 60 Hz.
+bool gc_sixty_hz_on(const GameSettings& game, const std::string& id);
+
+// The picture width the game gets, as a riftwii/videopatch.hpp name:
+// the game's pick, or Settings' for "global" ("game" for anything else).
+std::string gc_picture_width(const GameSettings& game, const GcConsoleSettings& console);
 
 // The SRAM language number the game is told (kGcLanguages' order), or -1
 // for the console's GameCube setting as it is. "global": Settings' game

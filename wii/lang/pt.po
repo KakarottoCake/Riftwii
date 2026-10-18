@@ -855,6 +855,18 @@ msgstr "Experimental. Num jogo, segure 1 e aperte HOME (controle de GameCube: se
 msgid "Music while the menu is open: music.ogg from sd:/riftwii, or the one in RiftWii's own folder."
 msgstr "Música enquanto o menu está aberto: music.ogg de sd:/riftwii, ou a da pasta do RiftWii."
 
+msgid "Launch music"
+msgstr "Música ao iniciar"
+
+msgid "Keep playing"
+msgstr "Continuar tocando"
+
+msgid "Fade out"
+msgstr "Diminuir aos poucos"
+
+msgid "Keep playing: the menu's music plays on under the launch screen and fades out as the game starts. Fade out: it fades out when you start a game."
+msgstr "Continuar tocando: a música do menu segue tocando na tela de início e some aos poucos quando o jogo começa. Diminuir aos poucos: ela some ao iniciar um jogo."
+
 msgid "Music is on, but there is none to play: put a music.ogg in sd:/riftwii, or pick a theme with music."
 msgstr "A música está ligada, mas não há nada para tocar: coloque um music.ogg em sd:/riftwii ou escolha um tema com música."
 
@@ -2627,3 +2639,27 @@ msgstr "\"{1}\" sai do início, com seus próprios mods e configurações, e a i
 
 msgid "Removed \"{1}\". This page is the game's own again."
 msgstr "\"{1}\" removido. Esta página voltou a ser a do jogo."
+
+msgid "Sharper picture"
+msgstr "Imagem mais nítida"
+
+msgid "Off (as made)"
+msgstr "Não (como foi feito)"
+
+msgid "Turns off the soft blur some games add."
+msgstr "Tira o leve desfoque que alguns jogos colocam."
+
+msgid "Game speed"
+msgstr "Velocidade do jogo"
+
+msgid "Smoother (60 Hz)"
+msgstr "Mais suave (60 Hz)"
+
+msgid "As made (50 Hz)"
+msgstr "Como foi feito (50 Hz)"
+
+msgid "Smoother plays at 60 Hz in games that have a 60 Hz mode, on a TV that takes it; the others stay at 50 Hz."
+msgstr "Mais suave roda a 60 Hz nos jogos que têm um modo de 60 Hz, em uma TV compatível; os outros continuam em 50 Hz."
+
+msgid "Default turns 480p on when the Wii is set to 480p and a component cable is seen; pick On (480p) if your TV takes it anyway."
+msgstr "Padrão liga o 480p quando o Wii está em 480p e um cabo componente é detectado; escolha Sim (480p) se a sua TV aceitar mesmo assim."
