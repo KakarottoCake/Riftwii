@@ -1397,8 +1397,6 @@ static ChannelChoice ShowChannel(int& index, int count, const std::string& first
 	backBtn.button.SetVisible(false);
 	// + and - go to the next and previous game, as on the Wii Menu's
 	// channel screen (a tester's muscle memory); Start is A on it.
-	// The two pills sit 36 apart: the hovered one grows to 110% (12 more
-	// on each side), which closed the old 12 gap and covered its neighbour.
 	SkinButton goBtn(skin::pillPrimary, skin::pillPrimaryOver, 4, kPairRightX, 384, tr("Start"),
 		WPAD_BUTTON_A | WPAD_CLASSIC_BUTTON_A, PAD_BUTTON_A | PAD_BUTTON_START, WIIDRC_BUTTON_A);
 	goBtn.text.SetColor(skin::kAccentInk);
