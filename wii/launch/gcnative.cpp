@@ -2244,18 +2244,6 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
         for (const Section& s : dol.text) ranges.push_back(CodeRange{s.address, s.bytes.data(), s.bytes.size()});
         std::string motor_error;
         if (!find_gc_pad_motor(ranges, motor, motor_error)) logf("GameCube: Wii Remote rumble off: %s\n", motor_error.c_str());
-        // The replay slot runs the function's first four words from
-        // elsewhere: a relative branch among them would go astray.
-        bool replayable = true;
-        for (std::uint32_t i = 0; motor != 0 && i < 4; ++i) {
-            const unsigned op = opcode(code.at(motor + 4 * i));
-            if (op == 16 || op == 18) replayable = false;
-        }
-        if (!replayable) {
-            logf("GameCube: Wii Remote rumble off: PADControlMotor 0x%08x has a branch in its first four words\n",
-                 motor);
-            motor = 0;
-        }
         if (motor != 0) {
             replay_hook(motor, h.hook_pad_motor, h.replay_pad_motor, h.continue_pad_motor);
             if (!CurrentLaunchExtras().rumble_off) ctx->flags |= GC_FLAG_REMOTE_RUMBLE;

@@ -512,6 +512,18 @@ bool looks_like_function_start(const std::vector<CodeRange>& text, std::uint32_t
     return false;
 }
 
+// Whether any of the function's first four words is a relative branch
+// (opcode 16 or 18): the replay slot runs those four words from elsewhere,
+// where the branch would land on the wrong address.
+bool first_words_branch(const std::vector<CodeRange>& text, std::uint32_t start) {
+    for (std::uint32_t at = start; at < start + 16; at += 4) {
+        if (!inside(text, at)) return true;
+        const std::uint32_t opcode = word_at(text, at) >> 26;
+        if (opcode == 16 || opcode == 18) return true;
+    }
+    return false;
+}
+
 // The word after the previous `blr` before `address`, 0 when none is near.
 std::uint32_t after_previous_blr(const std::vector<CodeRange>& text, std::uint32_t address) {
     for (std::uint32_t back = 4; back <= kMotorFunctionBytes && address >= back; back += 4) {
@@ -526,6 +538,7 @@ std::uint32_t after_previous_blr(const std::vector<CodeRange>& text, std::uint32
 
 bool find_gc_pad_motor(const std::vector<CodeRange>& text, std::uint32_t& out, std::string& error) {
     std::set<std::uint32_t> functions;
+    std::string skipped;  // why a match was not taken, said when nothing else is found
     out = 0;
     for (const CodeRange& range : text) {
         const std::size_t words = range.size / 4;
@@ -547,7 +560,17 @@ bool find_gc_pad_motor(const std::vector<CodeRange>& text, std::uint32_t& out, s
             }
             if (!two_calls) continue;
             const std::uint32_t start = after_previous_blr(text, at);
-            if (start != 0 && looks_like_function_start(text, start)) functions.insert(start);
+            if (start == 0) continue;
+            char buf[96];
+            if (!looks_like_function_start(text, start)) {
+                std::snprintf(buf, sizeof(buf), "0x%08x does not start like a function", start);
+                skipped = buf;
+            } else if (first_words_branch(text, start)) {
+                std::snprintf(buf, sizeof(buf), "0x%08x has a branch in its first four words", start);
+                skipped = buf;
+            } else {
+                functions.insert(start);
+            }
         }
     }
     if (functions.size() > 1) {
@@ -558,8 +581,9 @@ bool find_gc_pad_motor(const std::vector<CodeRange>& text, std::uint32_t& out, s
         return false;
     }
     if (!functions.empty()) out = *functions.begin();
-    error.clear();
-    return true;
+    // A match that was skipped is reported like the other refusals.
+    error = functions.empty() ? skipped : std::string();
+    return error.empty();
 }
 
 }  // namespace riftwii

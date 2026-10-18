@@ -951,8 +951,47 @@ static void TestGcPadMotorSearch() {
     early.blr();
     code = early.bytes();
     text = {{early.base, code.data(), code.size()}};
-    EXPECT_TRUE(riftwii::find_gc_pad_motor(text, found, error));
+    EXPECT_TRUE(!riftwii::find_gc_pad_motor(text, found, error));
     EXPECT_EQ(found, 0u);
+
+    EXPECT_TRUE(!error.empty());
+
+    // A function that opens with stwu instead of mflr is a function too.
+    Asm framed{0x80200000u, {}};
+    framed.blr();
+    const std::uint32_t framed_start = framed.here();
+    framed.op(0x9421FFD8u);  // stwu r1,-40(r1)
+    framed.op(0x7C0802A6u);  // mflr r0
+    framed.op(0x90010030u);  // stw r0,48(r1)
+    framed.op(0x808D8CE0u);  // lwz r4,-29472(r13)
+    framed.op(0x57C007BEu);  // clrlwi r0,r30,30
+    framed.op(0x64840040u);  // oris r4,r4,0x40
+    framed.bl(kSetCommand);
+    framed.bl(kTransfer);
+    framed.blr();
+    code = framed.bytes();
+    text = {{framed.base, code.data(), code.size()}};
+    EXPECT_TRUE(riftwii::find_gc_pad_motor(text, found, error));
+    EXPECT_EQ(found, framed_start);
+
+    // A branch among the four words the replay slot copies (here the
+    // fourth) is refused with the reason; the first word alone is not all.
+    Asm branchy{0x80200000u, {}};
+    branchy.blr();
+    branchy.op(0x7C0802A6u);  // mflr r0
+    branchy.op(0x90010004u);  // stw r0,4(r1)
+    branchy.op(0x9421FFD8u);  // stwu r1,-40(r1)
+    branchy.op(0x4182000Cu);  // beq +12
+    branchy.op(0x57C007BEu);  // clrlwi r0,r30,30
+    branchy.op(0x64840040u);  // oris r4,r4,0x40
+    branchy.bl(kSetCommand);
+    branchy.bl(kTransfer);
+    branchy.blr();
+    code = branchy.bytes();
+    text = {{branchy.base, code.data(), code.size()}};
+    EXPECT_TRUE(!riftwii::find_gc_pad_motor(text, found, error));
+    EXPECT_EQ(found, 0u);
+    EXPECT_TRUE(error.find("branch") != std::string::npos);
 
     // Two such functions: refused, not guessed.
     Asm twice{0x80200000u, {}};
