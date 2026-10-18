@@ -369,7 +369,7 @@ addresses into source lines (keep the `riftwii.elf` of each release).
 | `sd:/riftwii/gc/dolphin/` | Dolphin's `GC` folder, copied whole (`USA/Card A/*.gci`, `MemoryCardA.USA.raw`...), for Bring your Dolphin saves (`gcimport.hpp`) |
 | `sd:/riftwii/gc/trace.bin`, `trace-crash.bin` | The last GameCube launch's trace (`tools/gc_trace.py`), and the last one with a crash, once offered |
 | `sd:/riftwii/gc/controls_seen.txt` | The controls card was shown |
-| `sd:/riftwii/gc/press`, `leave`, `crash`, `nowiden`, `fakeremote`, `rumbletest` | Test switches: presses on port 1, holding the way back, a crash on purpose, 16:9's hook without the widening, a made-up Wii Remote through the controls map instead of the Bluetooth (its results in the trace's `bt_fake` words), and the game's own PADControlMotor called for port 1 every 120 pad reads, rumble then stop (with `fakeremote`: the trace's `bt_rumble` word counts the calls and the remote's motor switches) |
+| `sd:/riftwii/gc/press`, `leave`, `crash`, `nowiden`, `fakeremote`, `rumbletest` | Test switches: presses on port 1, holding the way back, a crash on purpose, 16:9's hook without the widening, a made-up Wii Remote through the controls map instead of the Bluetooth (its results in the trace's `bt_fake` words), and the game's own PADControlMotor called for the test remote's port every 120 pad reads, rumble then stop (with `fakeremote`: the trace's `bt_rumble` word counts the calls and the remote's motor switches) |
 | `sd:/riftwii/autorun.txt`, `guiscript.txt` | Test scripts (see `DEVELOPING.md`) |
 
 ## Rules the code keeps

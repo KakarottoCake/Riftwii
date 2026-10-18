@@ -173,7 +173,7 @@ typedef char gc_trace_fits[(GC_TR_WORDS * 4 <= 512) ? 1 : -1];
                            * with GC_FLAG_CRASH, the crash screen takes A after twenty seconds */
 #define GC_FLAG_REMOTE_RUMBLE 256u  /* Settings' Wii Remote rumble (and the game's own) is on: PADControlMotor rumbles a remote */
 #define GC_FLAG_RUMBLE_TEST 512u  /* tests in Dolphin (with the test remote): the game's own PADControlMotor is called
-                                   * for port 1, rumble then stop, every 240 pad reads */
+                                   * for the test remote's port, rumble then stop, every 240 pad reads */
 #define GC_FLAG_FAKE_REMOTE 128u  /* tests in Dolphin: a made-up Wii Remote instead of the Bluetooth (gc_bt_fake) */
 #define GC_FLAG_CRASH_BLACK 64u  /* with GC_FLAG_CRASH: the screen is blanked first, as VISetBlack does (no active lines) */
 #define GC_FLAG_STREAM_ONLY 32u  /* tests: AI buffers that carry disc music carry it alone (the game's own sound cleared) */

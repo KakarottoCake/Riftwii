@@ -1356,8 +1356,11 @@ uint32_t gc_on_pad_read(struct gc_rt_context* ctx, uint32_t status, uint32_t res
     if (n % 300 == 0) gc_trace(ctx, GC_TRACE_PAD);
     /* The test of the motor: the game's own PADControlMotor, rumble at
      * the 30th read of every 240 and stop at the 150th. */
-    if ((ctx->flags & GC_FLAG_RUMBLE_TEST) && ctx->test_motor != 0 && (n % 120) == 30) {
-        ((void (*)(uint32_t, uint32_t))(uintptr_t)ctx->test_motor)(0, (n % 240) == 30 ? 1u : 0u);
+    if ((ctx->flags & GC_FLAG_RUMBLE_TEST) && ctx->test_motor != 0 && ctx->bt && (n % 120) == 30) {
+        /* The port the test remote plays on: Dolphin's own GameCube
+         * controller may hold port 1, which moves the remote to port 2. */
+        const uint32_t port = ((const struct gc_bt*)(uintptr_t)ctx->bt)->port_of[0];
+        if (port < 4u) ((void (*)(uint32_t, uint32_t))(uintptr_t)ctx->test_motor)(port, (n % 240) == 30 ? 1u : 0u);
     }
     if ((ctx->flags & GC_FLAG_PRESS) && status != 0 && (n % 240) < 10) {
         uint8_t* p = (uint8_t*)(uintptr_t)status;
