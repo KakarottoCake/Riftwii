@@ -119,7 +119,11 @@ BINFILES	:=	$(foreach dir,$(DATA),$(notdir $(wildcard $(dir)/*.ttf) \
 # for the recursive build after runtime-blob has completed. menufont.zst and
 # licence.zst are made in the build (below) from wii/font/rounded.ttf and
 # LICENSE.
-BINFILES	+=	riftwii_rt.zst riftwii_rt_rvz.zst riftwii_rt_rvz.rel riftwii_pad.bin riftwii_gc.bin riftwii_gc_rvz.zst riftwii_gc_rvz.rel riftwii_shot.bin riftwii_fault.bin riftwii_wlog.bin riftwii_vsd.bin codehandleronly.bin menufont.zst licence.zst
+BINFILES	+=	riftwii_rt.zst riftwii_rt_rvz.zst riftwii_rt_rvz.rel riftwii_pad.bin riftwii_gc.bin riftwii_gc_rvz.zst riftwii_gc_rvz.rel riftwii_shot.bin riftwii_fault.bin riftwii_wlog.bin riftwii_vsd.bin codehandleronly.bin licence.zst
+# The start-up stash (wii/core/stash.hpp): not linked, but added to the
+# DOL as a section above .bss that crt0 copies to MEM2, so its MEM1 is
+# the heap's after the start. The menu's font, zstd-compressed.
+export STASHFILES	:=	menufont.zst
 
 #---------------------------------------------------------------------------------
 # use CXX for linking C++ projects, CC for standard C
@@ -188,7 +192,19 @@ DEPENDS	:=	$(OFILES:.o=.d)
 #---------------------------------------------------------------------------------
 # main targets
 #---------------------------------------------------------------------------------
-$(OUTPUT).dol: $(OUTPUT).elf
+# The DOL is elf2dol's, plus the start-up stash as one more data section
+# right above .bss (tools/dol_stash.py). The build fails if the stash
+# would end past STASH_LIMIT: the game's apploader at 0x81200000, which is
+# also where RiftWii's heap stops, and well below 0x81300000, where the
+# Homebrew Channel refused a DOL section on a real Wii. riftwii.elf has
+# no stash: start the .dol.
+PYTHON		?=	python3
+STASH_LIMIT	:=	0x81200000
+$(OUTPUT).dol: $(OUTPUT).elf $(STASHFILES) $(PROJECT_ROOT)/tools/dol_stash.py
+	@echo output ... $(notdir $@)
+	@elf2dol $< $@
+	@$(PYTHON) $(PROJECT_ROOT)/tools/dol_stash.py $@ --version "$(RIFTWII_VERSION)" --limit $(STASH_LIMIT) \
+		$(foreach f,$(STASHFILES),$(f)=$(f))
 $(OUTPUT).elf: $(OFILES)
 
 $(OFILES_SOURCES): $(HFILES)
@@ -215,7 +231,8 @@ $(VERSION_USERS): $(VERSION_STAMP)
 
 # The menu's translations (wii/core/i18n.cpp), its font (main.cpp) and the GPL
 # (credits.cpp) are embedded zstd-compressed and unpacked when needed: a
-# smaller DOL keeps more of MEM1 free below the game's apploader.
+# smaller DOL keeps more of MEM1 free below the game's apploader. The font
+# goes into the start-up stash (above) instead of the link.
 %.po.zst : %.po
 	@echo $(notdir $@)
 	@zstd -q -19 -f -o $@ $<

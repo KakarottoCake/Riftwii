@@ -24,7 +24,6 @@
 #include "input.h"
 #include "menu.h"
 #include "video.h"
-#include "menufont_zst.h"
 #include "zstd.h"
 
 #include "autorun.hpp"
@@ -54,6 +53,7 @@
 #include "wiifont.hpp"
 #include "channel.hpp"
 #include "skin.hpp"
+#include "stash.hpp"
 
 // Where the player leaves to (the HOME Menu, wii/menu/rift_menu.cpp): 1 back
 // to the loader that started RiftWii (the Homebrew Channel), 2 the Wii
@@ -269,16 +269,20 @@ void OpenSessionLog(bool sd_mounted) {
     riftwii::wii::mem::LogUsage("start");
 }
 
-// The menu font (wii/font/rounded.ttf) ships zstd-compressed (Makefile.wii).
-// Unpacked into MEM2, where FreeType reads it for the whole menu phase, so
-// neither the DOL nor the MEM1 heap carries the 1.7 MB TTF.
+// The menu font (wii/font/rounded.ttf) ships zstd-compressed in the
+// start-up stash (Makefile.wii, wii/core/stash.hpp), already in MEM2.
+// Unpacked into MEM2 too, where FreeType reads it for the whole menu
+// phase, so neither the DOL's resident part nor the MEM1 heap carries it.
 bool UnpackMenuFont(u8*& font, std::size_t& size) {
-    const unsigned long long full = ZSTD_getFrameContentSize(menufont_zst, menufont_zst_size);
+    const u8* packed = nullptr;
+    u32 packed_size = 0;
+    if (!riftwii::wii::stash::Find("menufont.zst", packed, packed_size)) return false;
+    const unsigned long long full = ZSTD_getFrameContentSize(packed, packed_size);
     if (full == ZSTD_CONTENTSIZE_UNKNOWN || full == ZSTD_CONTENTSIZE_ERROR || full == 0) return false;
     size = static_cast<std::size_t>(full);
     font = riftwii::wii::skin::Mem2Alloc(size);
     if (font == nullptr) return false;
-    return ZSTD_decompress(font, size, menufont_zst, menufont_zst_size) == size;
+    return ZSTD_decompress(font, size, packed, packed_size) == size;
 }
 
 }  // namespace
