@@ -222,8 +222,11 @@ No hook or too many codes: the game starts without them, with a
   instant transfers otherwise let ARQ's chained chunks finish in the
   middle of the game's own bookkeeping); the options; the trace; the way
   back; the crash screen.
-- `gc_bt.c`: a Bluetooth driver for Wii Remotes, Nunchuks and Classic
-  Controllers, filled into the pad ports. `gc_ports.h` has the rule: a
+- `gc_bt.c`: a Bluetooth driver for Wii Remotes, Nunchuks, Classic
+  Controllers and Wii U Pro Controllers, filled into the pad ports. A Pro
+  is told apart by its extension ID (`01 20`), asked for report mode 0x34
+  and read in its own layout (`gc_pro.h`), through the Classic
+  Controller's controls. `gc_ports.h` has the rule: a
   GameCube controller keeps its own port; each remote plays on its slot's
   port (its LED), or the next free one when a GameCube controller holds
   that, and the LED follows; a remote that reconnects gets its slot back
@@ -391,7 +394,7 @@ addresses into source lines (keep the `riftwii.elf` of each release).
 | `sd:/riftwii/gc/dolphin/` | Dolphin's `GC` folder, copied whole (`USA/Card A/*.gci`, `MemoryCardA.USA.raw`...), for Bring your Dolphin saves (`gcimport.hpp`) |
 | `sd:/riftwii/gc/trace.bin`, `trace-crash.bin` | The last GameCube launch's trace (`tools/gc_trace.py`), and the last one with a crash, once offered |
 | `sd:/riftwii/gc/controls_seen.txt` | The controls card was shown |
-| `sd:/riftwii/gc/press`, `leave`, `crash`, `nowiden`, `reset` | Test switches: presses on port 1, holding the way back, a crash on purpose, 16:9's hook without the widening, two Reset presses (at the 1500th and 3600th pad reads; the first through the OS's own restart, reset 0) |
+| `sd:/riftwii/gc/test/press`, `leave`, `crash`, `crashblack`, `streamonly`, `nowiden`, `keeparam`, `fakeremote`, `fakepro`, `rumbletest`, `reset` | Test switches, in a folder of their own: presses on port 1, holding the way back, a crash on purpose (and on a blanked screen), the disc music alone, 16:9's hook without the widening, the ARAM addresses as the SDK gives them, a made-up Wii Remote through the controls map instead of the Bluetooth (its results in the trace's `projection_callers` words, which that run does not need; `fakepro`: a made-up Wii U Pro Controller in its place), the game's own PADControlMotor called for the test remote's port every 120 pad reads, rumble then stop (with `fakeremote`: the trace's `bt_rumble` word counts the calls and the remote's motor switches), and two Reset presses (at the 1500th and 3600th pad reads; the first through the OS's own restart, reset 0) |
 | `sd:/riftwii/autorun.txt`, `guiscript.txt` | Test scripts (see `DEVELOPING.md`) |
 
 ## Rules the code keeps

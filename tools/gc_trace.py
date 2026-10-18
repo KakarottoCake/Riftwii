@@ -8,7 +8,10 @@ gc_trace_word enum in gc_rt.h, so this reader follows the header.
 
     py -3.13 tools/gc_trace.py trace.bin [--all]
 
-Without --all, words that are zero in every record are left out.
+Without --all, words that are zero in every record are left out. In a run
+with the test remote (sd:/riftwii/gc/test/fakeremote, or fakepro for a
+Wii U Pro Controller) the projection_callers words hold its results instead
+(gc_bt.h's fake_log).
 """
 import argparse
 import os

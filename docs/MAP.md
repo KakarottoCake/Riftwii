@@ -63,6 +63,7 @@ and `vendor-*` is third-party code.
 | Packs served from a PC (RiiFS) | `wii/online/netpacks.cpp`, `src/net/riifs.cpp`, `src/net/riifs_sync.cpp`, `docs/RIIFS.md` |
 | Returning to RiftWii (or another title) when a game exits | `src/patching/returnto.cpp`, `apply_return_to` in `wii/launch/boot.cpp`, `wii/core/restart.cpp` |
 | GameCube games (RiftWii's own loader, in Wii mode) | `wii/launch/gclaunch.cpp`, `wii/launch/gcnative.cpp`, `wii/launch/gcpatch.cpp`, `runtime/gc/`, `src/patching/vcdiff.cpp`, `src/patching/gcoverlay.cpp`, `src/patching/gclayout.cpp`, `src/patching/gcvideo.cpp`, `src/patching/gcreset.cpp`, `src/fs/gccard.cpp`, `src/fs/gcbackup.cpp`; their Channels banners: `src/disc/gcbanner.cpp`, `wii/menu/banners.cpp` |
+| Wii Remote controls in GameCube games (the map, `sd:/riftwii/gc/controls/` files, shake) | `src/data/gccontrols.cpp`, `load_gc_controls` in `wii/launch/gcnative.cpp`, `runtime/gc/gc_controls.h`, `runtime/gc/gc_pro.h` (a Wii U Pro Controller's reports), `runtime/gc/gc_bt.c` |
 | Being started by another loader | `wii/launch/headless.cpp`, `src/patching/launchargs.cpp`, `docs/HEADLESS.md` |
 | The Wii Menu channel | `channel/`, `wii/launch/channel.cpp`, `tools/make_channel.py`, `docs/CHANNEL.md` |
 | Memory the menu may use | `wii/core/memlimits.cpp` |
@@ -228,6 +229,7 @@ document it.
 | `gcreset` | GameCube games' Reset: OSResetSystem and the SDK's reset routine as the loader finds them, and the restart's copy of MEM1 laid out in MEM2 |
 | `gcrvz` | GameCube RVZs: a synthetic disc written as an RVZ and read back byte for byte through `RvzDiscSource` and the blob's reader (`runtime/gc/gc_rvz.c`) |
 | `gcports` | The GameCube loader's Wii Remote ports (`runtime/gc/gc_ports.h`): GameCube controllers keep theirs, a remote moves off one to the next free port, a reconnecting remote gets its slot back |
+| `gccontrols` | The GameCube controls files (`src/data/gccontrols.cpp`): the built-in map, headings, names, unknown ones skipped with a note, the bounds; the blob's map and shake (`runtime/gc/gc_controls.h`); a Wii U Pro Controller's reports decoded (`runtime/gc/gc_pro.h`) |
 
 ### `src/disc/`: wii discs, executables, banners and fonts
 
@@ -284,6 +286,7 @@ document it.
 | `problemreport` | A problem report's text |
 | `gamefault` | A game's crash record, as text |
 | `gccrash` | A GameCube game's crash, from its loader's trace, as text |
+| `gccontrols` | A GameCube game's Wii Remote controls: the built-in map and `sd:/riftwii/gc/controls/` files that change it |
 | `sharednand` | The shared emulated NAND's folder: the other loader's settings lines and the checks on the path |
 | `wadfile` | `.wad` files: their layout, each content decrypted and checked against its TMD hash, `/shared1/content.map` |
 | `nandchannel` | WiiWare and Virtual Console titles: which titles are games, a stored TMD's contents, the content RiftWii loads, their cheats' code |
@@ -300,7 +303,7 @@ shared C parts (`runtime/*.c`) are also built into the host tests.
 | `rtable.c` | The redirect table the resident walks |
 | `rtfat.c`, `rtfs.c` | A resumable FAT32 engine, and the NAND (ISFS) requests on top of it, for saves on the card |
 | `rtrvz.c` | Unpacking RVZ groups |
-| `gc/` | The GameCube blob: `gc_rt.c` (disc reads, sound, the way back, the crash screen), `gc_bt.c` (Wii Remotes) with `gc_ports.h` (their ports, also built into the host tests), `gc_video.h` (the mode VIConfigure gets, also built into the host tests), `gc_card.c` (memory card), `gc_entry.S`, `gc.ld`; its RVZ build adds `gc_rvz.c` (the disc from an RVZ, also built into the host tests) and links with `gc_rvz.ld` |
+| `gc/` | The GameCube blob: `gc_rt.c` (disc reads, sound, the way back, the crash screen), `gc_bt.c` (Wii Remotes) with `gc_ports.h` (their ports) and `gc_controls.h` (what their buttons and a shake press) and `gc_pro.h` (a Wii U Pro Controller's reports), all three also built into the host tests, `gc_video.h` (the mode VIConfigure gets, also built into the host tests), `gc_card.c` (memory card), `gc_entry.S`, `gc.ld`; its RVZ build adds `gc_rvz.c` (the disc from an RVZ, also built into the host tests) and links with `gc_rvz.ld` |
 | `pad/`, `rtgcad.c` | The GameCube adapter blob and its WUP-028 driver (also used by the menu) |
 | `shot/`, `rtshot.c` | The in-game screenshot blob |
 | `fault/`, `rtfault.c` | The crash blob: the crash record to the NAND; also answers the BCA read |

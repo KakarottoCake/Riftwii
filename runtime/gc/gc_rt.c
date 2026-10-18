@@ -417,6 +417,9 @@ static uint32_t gc_trace_slot(const struct gc_rt_context* ctx, uint32_t seq) {
     return ctx->trace_sector + kept + (seq - kept - 1) % ring;
 }
 
+/* The test remote's results take the projection callers' 16 words. */
+typedef char gc_fake_log_fits[(GC_TR_RVZ_GROUPS - GC_TR_PROJECTION_CALLERS == GC_BT_FAKE_STEPS * 2) ? 1 : -1];
+
 /* One record of the trace (gc_rt.h), with interrupts held off so it
  * cannot meet a read on the card; skipped while a read is going on. */
 static int32_t gc_trace(struct gc_rt_context* ctx, uint32_t where) {
@@ -475,6 +478,24 @@ static int32_t gc_trace(struct gc_rt_context* ctx, uint32_t where) {
             w[GC_TR_PAD_ERRS] = w[GC_TR_PAD_ERRS] << 8 | bt->port_err[i];
         }
         gc_copy((uint8_t*)&w[GC_TR_BT_EVENT_LOG], &bt->event_log[0][0], 32);
+        w[GC_TR_BT_SHAKES] = bt->shakes;
+        w[GC_TR_BT_PROGRESS] = bt->progress;
+        w[GC_TR_BT_LINK] = (uint32_t)bt->conn_status << 24 | (uint32_t)bt->auth_status << 16 |
+                           (uint32_t)bt->disconnect_reason << 8 | bt->ext_error;
+        w[GC_TR_BT_EXT] = (uint32_t)bt->ext_id[0] << 24 | (uint32_t)bt->ext_id[1] << 16 | (uint32_t)bt->last_mode << 8 |
+                          bt->ext_given_up;
+        w[GC_TR_BT_REPORTS] = bt->data_reports;
+        for (i = 0; i < 4; ++i)
+            if (bt->pro_axes_seen & (1u << i)) w[GC_TR_BT_PRO_RANGE + i] = (uint32_t)bt->pro_min[i] << 16 | bt->pro_max[i];
+        {
+            uint32_t slots = 0, ports = 0;
+            for (i = 0; i < GC_BT_REMOTES; ++i) {
+                slots |= (uint32_t)(bt->remotes[i].rumble & 1u) << i;
+                ports |= (uint32_t)(bt->rumble_want[i] & 1u) << i;
+            }
+            w[GC_TR_BT_RUMBLE] = (bt->motor_calls & 0xFFFFu) << 16 | (bt->rumble_changes & 0xFFu) << 8 |
+                                 slots << 4 | ports;
+        }
     }
     if (ctx->card) {
         const struct gc_card* card = (const struct gc_card*)(uintptr_t)ctx->card;
@@ -490,6 +511,10 @@ static int32_t gc_trace(struct gc_rt_context* ctx, uint32_t where) {
     w[GC_TR_PROJECTIONS] = ctx->projections;
     w[GC_TR_ORTHOGRAPHICS] = ctx->orthographics;
     for (i = 0; i < GC_PROJECTION_CALLERS * 4; ++i) w[GC_TR_PROJECTION_CALLERS + i] = ctx->projection_callers[i];
+    if ((ctx->flags & GC_FLAG_FAKE_REMOTE) && ctx->bt) {
+        const struct gc_bt* bt = (const struct gc_bt*)(uintptr_t)ctx->bt;
+        gc_copy((uint8_t*)&w[GC_TR_PROJECTION_CALLERS], (const uint8_t*)bt->fake_log, sizeof(bt->fake_log));
+    }
 #ifdef RT_RVZ
     if (ctx->rvz) {
         const struct gc_rvz* rvz = (const struct gc_rvz*)(uintptr_t)ctx->rvz;
@@ -1138,6 +1163,8 @@ static void gc_leave(struct gc_rt_context* ctx) {
         if (card->dirty_count != 0) return;
     }
     gc_trace(ctx, GC_TRACE_LEAVE);
+    /* A Wii Remote's motor would otherwise run on until its link drops. */
+    if (ctx->bt) gc_bt_stop_rumble(ctx, (struct gc_bt*)(uintptr_t)ctx->bt);
     msr = gc_irq_off();  /* the game stops here: IOS takes the console over */
     gc_crash_frame(ctx, 0, 1);
     ctx->vec[0] = gc_physical(buf);
@@ -1372,6 +1399,14 @@ static void gc_forget_game(struct gc_rt_context* ctx) {
         card->exi_pending = 0;
         card->alarm_set = 0;
     }
+    /* The restarted game has not asked for rumble yet: the first pad read
+     * after the restart switches a rumbling Wii Remote's motor off, instead
+     * of it running on until the game's own PADControlMotor. The remotes
+     * themselves stay connected. */
+    if (ctx->bt) {
+        struct gc_bt* bt = (struct gc_bt*)(uintptr_t)ctx->bt;
+        for (i = 0; i < sizeof(bt->rumble_want); ++i) bt->rumble_want[i] = 0;
+    }
 }
 
 /* MEM1 back as it was at the jump, then the game's entry: on the stack
@@ -1515,6 +1550,13 @@ uint32_t gc_on_projection(struct gc_rt_context* ctx, uint32_t mtx, uint32_t type
     return (uint32_t)(uintptr_t)ctx->projection;
 }
 
+/* PADControlMotor(chan, command) has run (gc_hook_pad_motor): a GameCube
+ * controller on that port took it from the original; a Wii Remote that
+ * plays on the port gets it from the next PADRead (gc_bt_poll). */
+void gc_on_pad_motor(struct gc_rt_context* ctx, uint32_t chan, uint32_t command) {
+    if (ctx->bt) gc_bt_motor((struct gc_bt*)(uintptr_t)ctx->bt, chan, command, (ctx->flags & GC_FLAG_REMOTE_RUMBLE) != 0);
+}
+
 uint32_t gc_on_pad_read(struct gc_rt_context* ctx, uint32_t status, uint32_t result) {
     const uint32_t n = ctx->pad_reads++;
     /* The four PADStatus (12 bytes each) the game asked for, read and
@@ -1525,10 +1567,22 @@ uint32_t gc_on_pad_read(struct gc_rt_context* ctx, uint32_t status, uint32_t res
     gc_stream_fetch(ctx);  /* the music ring's top-up, once a frame */
     if (ctx->bt && status != 0) {
         struct gc_bt* bt = (struct gc_bt*)(uintptr_t)ctx->bt;
-        gc_bt_poll(ctx, bt);
-        gc_bt_fill(bt, (uint8_t*)(uintptr_t)status);
+        if (ctx->flags & GC_FLAG_FAKE_REMOTE) {
+            gc_bt_fake(bt, (uint8_t*)(uintptr_t)status, n, (ctx->flags & GC_FLAG_FAKE_PRO) != 0);
+        } else {
+            gc_bt_poll(ctx, bt);
+            gc_bt_fill(bt, (uint8_t*)(uintptr_t)status);
+        }
     }
     if (n % 300 == 0) gc_trace(ctx, GC_TRACE_PAD);
+    /* The test of the motor: the game's own PADControlMotor, rumble at
+     * the 30th read of every 240 and stop at the 150th. */
+    if ((ctx->flags & GC_FLAG_RUMBLE_TEST) && ctx->test_motor != 0 && ctx->bt && (n % 120) == 30) {
+        /* The port the test remote plays on: Dolphin's own GameCube
+         * controller may hold port 1, which moves the remote to port 2. */
+        const uint32_t port = ((const struct gc_bt*)(uintptr_t)ctx->bt)->port_of[0];
+        if (port < 4u) ((void (*)(uint32_t, uint32_t))(uintptr_t)ctx->test_motor)(port, (n % 240) == 30 ? 1u : 0u);
+    }
     if ((ctx->flags & GC_FLAG_PRESS) && status != 0 && (n % 240) < 10) {
         uint8_t* p = (uint8_t*)(uintptr_t)status;
         const uint32_t which = (n / 240) % 3;
@@ -1882,6 +1936,8 @@ void gc_on_fatal(struct gc_rt_context* ctx, uint32_t exception, uint32_t os_cont
     ctx->busy = 0;  /* a crash inside a read leaves it set; nothing else runs now */
     gc_trace(ctx, GC_TRACE_FATAL);
     gc_crash_screen(ctx, os_context);
+    /* Nothing reads the pads now to switch a Wii Remote's motor off. */
+    if (ctx->bt) gc_bt_stop_rumble(ctx, (struct gc_bt*)(uintptr_t)ctx->bt);
     gc_crash_wait(ctx);
 }
 

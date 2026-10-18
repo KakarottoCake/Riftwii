@@ -2343,6 +2343,9 @@ msgstr "Wii 리모컨"
 msgid "Nunchuk"
 msgstr "눈차크"
 
+msgid "Wii U Pro Controller"
+msgstr "Wii U 프로 컨트롤러"
+
 msgid "Classic Controller"
 msgstr "클래식 컨트롤러"
 

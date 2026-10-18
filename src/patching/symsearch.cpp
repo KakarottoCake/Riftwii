@@ -487,3 +487,103 @@ bool find_unhandled_exception(const std::vector<CodeRange>& text, const std::vec
 }
 
 }  // namespace riftwii
+
+// --- PADControlMotor of a GameCube game's SDK ---------------------------------
+
+namespace riftwii {
+namespace {
+
+constexpr std::uint32_t kKeepLow2BitsMask = 0xFC00FFFFu;  // rlwinm rA, rS, 0, 30, 31, any registers
+constexpr std::uint32_t kKeepLow2Bits = 0x540007BEu;
+constexpr std::uint32_t kOrisMotorMask = 0xFC00FFFFu;     // oris rA, rS, 0x40, any registers
+constexpr std::uint32_t kOrisMotor = 0x64000040u;
+constexpr std::uint32_t kMotorFunctionBytes = 0x100;      // the function is about 0x80 bytes long
+
+// Whether `start` begins as a function does, `mflr r0` or `stwu r1,-N(r1)`
+// within its first three words: the word after a `blr` can also be the
+// rest of a function with an early return, where a hook would land in the
+// middle.
+bool looks_like_function_start(const std::vector<CodeRange>& text, std::uint32_t start) {
+    for (std::uint32_t at = start; at < start + 12; at += 4) {
+        if (!inside(text, at)) return false;
+        const std::uint32_t w = word_at(text, at);
+        if (w == 0x7C0802A6u || (w & 0xFFFF8000u) == 0x94218000u) return true;  // mflr r0; stwu r1,-N(r1)
+    }
+    return false;
+}
+
+// Whether any of the function's first four words is a relative branch
+// (opcode 16 or 18): the replay slot runs those four words from elsewhere,
+// where the branch would land on the wrong address.
+bool first_words_branch(const std::vector<CodeRange>& text, std::uint32_t start) {
+    for (std::uint32_t at = start; at < start + 16; at += 4) {
+        if (!inside(text, at)) return true;
+        const std::uint32_t opcode = word_at(text, at) >> 26;
+        if (opcode == 16 || opcode == 18) return true;
+    }
+    return false;
+}
+
+// The word after the previous `blr` before `address`, 0 when none is near.
+std::uint32_t after_previous_blr(const std::vector<CodeRange>& text, std::uint32_t address) {
+    for (std::uint32_t back = 4; back <= kMotorFunctionBytes && address >= back; back += 4) {
+        const std::uint32_t at = address - back;
+        if (!inside(text, at)) return 0;
+        if (word_at(text, at) == kBlr) return at + 4;
+    }
+    return 0;
+}
+
+}  // namespace
+
+bool find_gc_pad_motor(const std::vector<CodeRange>& text, std::uint32_t& out, std::string& error) {
+    std::set<std::uint32_t> functions;
+    std::string skipped;  // why a match was not taken, said when nothing else is found
+    out = 0;
+    for (const CodeRange& range : text) {
+        const std::size_t words = range.size / 4;
+        for (std::size_t i = 0; i < words; ++i) {
+            const std::uint32_t at = range.address + static_cast<std::uint32_t>(i * 4);
+            if ((be32(range.bytes + i * 4) & kKeepLow2BitsMask) != kKeepLow2Bits) continue;
+            // The OR with 0x40 follows within a few words...
+            std::uint32_t oris_at = 0;
+            for (std::uint32_t step = 4; step <= 16 && oris_at == 0; step += 4) {
+                if (inside(text, at + step) && (word_at(text, at + step) & kOrisMotorMask) == kOrisMotor)
+                    oris_at = at + step;
+            }
+            if (oris_at == 0) continue;
+            // ...then SISetCommand and SITransferCommands, called one after the other.
+            bool two_calls = false;
+            for (std::uint32_t step = 4; step <= 12 && !two_calls; step += 4) {
+                const std::uint32_t call = oris_at + step;
+                two_calls = inside(text, call + 4) && is_bl(word_at(text, call)) && is_bl(word_at(text, call + 4));
+            }
+            if (!two_calls) continue;
+            const std::uint32_t start = after_previous_blr(text, at);
+            if (start == 0) continue;
+            char buf[96];
+            if (!looks_like_function_start(text, start)) {
+                std::snprintf(buf, sizeof(buf), "0x%08x does not start like a function", start);
+                skipped = buf;
+            } else if (first_words_branch(text, start)) {
+                std::snprintf(buf, sizeof(buf), "0x%08x has a branch in its first four words", start);
+                skipped = buf;
+            } else {
+                functions.insert(start);
+            }
+        }
+    }
+    if (functions.size() > 1) {
+        char buf[96];
+        std::snprintf(buf, sizeof(buf), "%u GameCube PADControlMotor candidates, the first 0x%08x",
+                      static_cast<unsigned>(functions.size()), *functions.begin());
+        error = buf;
+        return false;
+    }
+    if (!functions.empty()) out = *functions.begin();
+    // A match that was skipped is reported like the other refusals.
+    error = functions.empty() ? skipped : std::string();
+    return error.empty();
+}
+
+}  // namespace riftwii

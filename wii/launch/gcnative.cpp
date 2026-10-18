@@ -33,6 +33,7 @@
 #include "riftwii/fat32.hpp"
 #include "riftwii/gcbackup.hpp"
 #include "riftwii/gccard.hpp"
+#include "riftwii/gccontrols.hpp"
 #include "riftwii/gclayout.hpp"
 #include "riftwii/gcreset.hpp"
 #include "riftwii/gcvideo.hpp"
@@ -42,6 +43,7 @@
 #include "riftwii/redirect.hpp"
 #include "riftwii/rvz.hpp"
 #include "riftwii/sha1.hpp"
+#include "riftwii/symsearch.hpp"
 #include "riftwii_gc_bin.h"
 #include "riftwii_gc_rvz_rel.h"
 #include "riftwii_gc_rvz_zst.h"
@@ -1176,7 +1178,7 @@ static void prepare_leave(gc_rt_context* ctx, std::uint32_t buf, bool test) {
         return;
     }
     logf("GameCube: no way back to RiftWii: none of the titles to go back to is installed\n");
-    // The test of the way back (sd:/riftwii/gc/leave) goes on regardless,
+    // The test of the way back (sd:/riftwii/gc/test/leave) goes on regardless,
     // to the Wii Menu with no ticket view: IOS refuses, and the game must
     // carry on.
     if (!test) return;
@@ -1346,7 +1348,7 @@ static void apply_picture_and_language(const GcImage& image, Code& code, ReplayH
         const std::uint32_t projection = find_gx_set_projection(code);
         const bool hooked = projection != 0 &&
                             replay_hook(projection, h.hook_projection, h.replay_projection, h.continue_projection);
-        // The test of the hook alone (sd:/riftwii/gc/nowiden): every
+        // The test of the hook alone (sd:/riftwii/gc/test/nowiden): every
         // projection goes through it and is copied, none is widened.
         if (hooked && !test_no_widen) ctx->flags |= GC_FLAG_WIDEN;
         const char* what = !hooked ? "not hooked: 4:3 as before"
@@ -1640,31 +1642,93 @@ static void place_gc_cheats(const GcCheats& cheats, const std::string& game_id) 
     ICInvalidateRange(handler, kCodeListEnd - kCodeHandlerAddress);
 }
 
+// The Wii Remotes' map for this game (riftwii/gccontrols.hpp): the
+// built-in one, then sd:/riftwii/gc/controls/default.txt and the game's
+// own file over it, each line said in the log when it could not be used.
+static void load_gc_controls(const std::string& game_id, gc_map& map) {
+    gc_controls_default(map);
+    for (const std::string& path : gc_controls_paths(game_id)) {
+        std::FILE* f = std::fopen(path.c_str(), "rb");
+        if (!f) continue;
+        // One byte more than a file may have, so a larger one is seen as such.
+        std::string text(kMaxGcControlsFile + 1, '\0');
+        text.resize(std::fread(&text[0], 1, text.size(), f));
+        std::fclose(f);
+        const std::string name = path.substr(path.rfind('/') + 1);
+        std::vector<std::string> notes;
+        const std::size_t changed = gc_controls_apply(text, name, map, notes);
+        for (const std::string& note : notes) logf("GameCube controls: %s\n", note.c_str());
+        logf("GameCube controls: %s read, %u button(s) changed\n", path.c_str(), static_cast<unsigned>(changed));
+    }
+    static const char* const kKindNames[GC_MAP_KINDS] = {"held sideways", "with a Nunchuk", "a Classic Controller"};
+    for (std::uint32_t kind = 0; kind < GC_MAP_KINDS; ++kind)
+        if (gc_map_wants_shake(&map, kind))
+            logf("GameCube controls: shaking the Wii Remote (%s) presses %s\n", kKindNames[kind],
+                 gc_controls_describe(map.to[kind][GC_IN_SHAKE]).c_str());
+}
+
 bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string& error) {
-    logf("GameCube (native): %s (%s)\n", image.id.c_str(), image.path.c_str());
     // Test presses for Dolphin runs with no controller to press with
-    // (sd:/riftwii/gc/press), read while the card is still the file
-    // system's (before it is opened raw).
+    // (sd:/riftwii/gc/test/press), read while the card is still the file
+    // system's (before it is opened raw). The test switches are files in
+    // sd:/riftwii/gc/test/, a folder of their own, away from the player's
+    // cards, saves and controls, so a copied folder cannot set one.
     struct stat st_press;
-    const bool test_presses = stat("sd:/riftwii/gc/press", &st_press) == 0;
+    const bool test_presses = stat("sd:/riftwii/gc/test/press", &st_press) == 0;
     // A test of the way back (gc_rt.h's GC_FLAG_LEAVE).
-    const bool test_leave = stat("sd:/riftwii/gc/leave", &st_press) == 0;
+    const bool test_leave = stat("sd:/riftwii/gc/test/leave", &st_press) == 0;
     // And of the crash screen (GC_FLAG_CRASH).
-    const bool test_crash = stat("sd:/riftwii/gc/crash", &st_press) == 0;
+    const bool test_crash = stat("sd:/riftwii/gc/test/crash", &st_press) == 0;
     // And of it on a blanked screen (GC_FLAG_CRASH_BLACK).
-    const bool test_crash_black = stat("sd:/riftwii/gc/crashblack", &st_press) == 0;
+    const bool test_crash_black = stat("sd:/riftwii/gc/test/crashblack", &st_press) == 0;
     // And of disc audio streaming: the music alone, to compare it with an
     // offline decode (GC_FLAG_STREAM_ONLY).
-    const bool test_stream_only = stat("sd:/riftwii/gc/streamonly", &st_press) == 0;
+    const bool test_stream_only = stat("sd:/riftwii/gc/test/streamonly", &st_press) == 0;
     // And of the restart: two Reset presses (GC_FLAG_RESET_TEST).
     const bool test_reset = stat("sd:/riftwii/gc/test/reset", &st_press) == 0;
     // And of 16:9's hook without the widening (GC_FLAG_WIDEN).
-    const bool test_no_widen = stat("sd:/riftwii/gc/nowiden", &st_press) == 0;
+    const bool test_no_widen = stat("sd:/riftwii/gc/test/nowiden", &st_press) == 0;
     // And of the ARAM addresses left as the SDK gives them in any game
-    // (sd:/riftwii/gc/keeparam), as gc_keeps_aram_addresses does for its
+    // (sd:/riftwii/gc/test/keeparam), as gc_keeps_aram_addresses does for its
     // list: tells whether a game's crash comes from the raised addresses
     // without a build for it.
-    const bool test_keep_aram = stat("sd:/riftwii/gc/keeparam", &st_press) == 0;
+    const bool test_keep_aram = stat("sd:/riftwii/gc/test/keeparam", &st_press) == 0;
+    // And of the Wii Remotes' map with no remote to press (a test run
+    // cannot press Dolphin's emulated one): a made-up remote instead
+    // (gc_bt.h's gc_bt_fake).
+    const bool test_fake_remote = stat("sd:/riftwii/gc/test/fakeremote", &st_press) == 0;
+    // The same with a made-up Wii U Pro Controller (Dolphin has none), in
+    // its own report layout (gc_pro.h); it takes the test remote's place.
+    const bool test_fake_pro = stat("sd:/riftwii/gc/test/fakepro", &st_press) == 0;
+    const bool test_rumble = stat("sd:/riftwii/gc/test/rumbletest", &st_press) == 0;
+    // The first GameCube line of boot.log names every test switch that is
+    // on, so a log from a run with one set (say a copied sd:/riftwii/gc/test/
+    // folder) cannot be mistaken for a player's.
+    std::string switches;
+    const struct {
+        bool on;
+        const char* name;
+    } test_switches[] = {{test_presses, "press"},
+                         {test_leave, "leave"},
+                         {test_crash, "crash"},
+                         {test_crash_black, "crashblack"},
+                         {test_stream_only, "streamonly"},
+                         {test_no_widen, "nowiden"},
+                         {test_keep_aram, "keeparam"},
+                         {test_fake_remote, "fakeremote"},
+                         {test_fake_pro, "fakepro"},
+                         {test_rumble, "rumbletest"},
+                         {test_reset, "reset"}};
+    for (const auto& test_switch : test_switches) {
+        if (!test_switch.on) continue;
+        switches += switches.empty() ? " [test switches: " : ", ";
+        switches += test_switch.name;
+    }
+    if (!switches.empty()) switches += "]";
+    logf("GameCube (native): %s (%s)%s\n", image.id.c_str(), image.path.c_str(), switches.c_str());
+    // What the Wii Remotes' buttons press, from the player's files.
+    gc_map controls;
+    load_gc_controls(image.id, controls);
     const bool rvz = GcImageIsRvz(image.path);
     Fat32File file;
     if (!resolve_sd_file(image.path, file, error)) return false;
@@ -2136,6 +2200,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
     // The Wii Remotes' state (gc_bt.h), zeroed in MEM2's stage: the blob
     // opens the Bluetooth controller at the game's first PADRead.
     ctx->bt = bt_addr;
+    static_cast<gc_bt*>(staged(bt_addr))->map = controls;
     auto* memcard = reinterpret_cast<gc_card*>(card_addr);
     std::memset(memcard, 0, sizeof(*memcard));
     // Its landing words (gc_card.h), with the card on or off: a jump to the
@@ -2176,12 +2241,31 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
     // PADRead: the Wii Remotes are polled from it, and the test presses
     // go in there.
     const std::uint32_t pad_read = find_pad_read(code);
+    std::uint32_t motor = 0;
     if (pad_read != 0) {
         replay_hook(pad_read, h.hook_pad_read, h.replay_pad_read, h.continue_pad_read);
         if (test_presses) ctx->flags |= GC_FLAG_PRESS;
+        if (test_fake_remote || test_fake_pro) ctx->flags |= GC_FLAG_FAKE_REMOTE;
+        if (test_fake_pro) ctx->flags |= GC_FLAG_FAKE_PRO;
         if (test_leave) ctx->flags |= GC_FLAG_LEAVE;
         if (test_crash || test_crash_black) ctx->flags |= GC_FLAG_CRASH;
         if (test_crash_black) ctx->flags |= GC_FLAG_CRASH_BLACK;
+        // PADControlMotor: a Wii Remote on the port the game rumbles
+        // rumbles too, unless Settings' Wii Remote rumble (or this game's
+        // own Rumble) is off, as for Wii games. The game's own function
+        // runs first, for a GameCube controller on the port.
+        std::vector<CodeRange> ranges;
+        for (const Section& s : dol.text) ranges.push_back(CodeRange{s.address, s.bytes.data(), s.bytes.size()});
+        std::string motor_error;
+        if (!find_gc_pad_motor(ranges, motor, motor_error)) logf("GameCube: Wii Remote rumble off: %s\n", motor_error.c_str());
+        if (motor != 0) {
+            replay_hook(motor, h.hook_pad_motor, h.replay_pad_motor, h.continue_pad_motor);
+            if (!CurrentLaunchExtras().rumble_off) ctx->flags |= GC_FLAG_REMOTE_RUMBLE;
+            if (test_rumble) {
+                ctx->flags |= GC_FLAG_RUMBLE_TEST;
+                ctx->test_motor = motor;
+            }
+        }
     }
     if (test_stream_only) ctx->flags |= GC_FLAG_STREAM_ONLY;
     // Reset restarts the game, as on a GameCube (gc_on_hot_reset): the
@@ -2295,7 +2379,7 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
     if (dsp_patched)
         logf("GameCube: %u sound program(s) patched to read ARAM from MEM2 (a Wii)\n", dsp_patched);
     else if (keep_aram && !gc_keeps_aram_addresses(image.id))
-        logf("GameCube: ARAM addresses left as the SDK gives them, as sd:/riftwii/gc/keeparam asks (the sound "
+        logf("GameCube: ARAM addresses left as the SDK gives them, as sd:/riftwii/gc/test/keeparam asks (the sound "
              "may play wrong)\n");
     else if (keep_aram)
         logf("GameCube: ARAM addresses left as the SDK gives them: %s checks them against its own limit "
@@ -2328,8 +2412,13 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
             for (std::uint32_t i = 0; i < 64; ++i) ctx->guard_copy[i] = be32(&s.bytes[0x80003100 - s.address + 4 * i]);
         }
     logf("GameCube: __OSUnhandledException 0x%08x\n", unhandled);
-    logf("GameCube: PADRead 0x%08x%s, ARStartDMA 0x%08x\n", pad_read, test_presses ? " (test presses)" : "", ar_dma);
+    logf("GameCube: PADRead 0x%08x%s%s, ARStartDMA 0x%08x\n", pad_read, test_presses ? " (test presses)" : "",
+         test_fake_remote ? " (test remote)" : "", ar_dma);
     logf("GameCube: Wii Remotes %s\n", pad_read == 0 ? "off (no PADRead found)" : "on");
+    logf("GameCube: PADControlMotor 0x%08x%s\n", motor,
+         motor == 0 ? " (not found: a Wii Remote does not rumble)"
+         : (ctx->flags & GC_FLAG_REMOTE_RUMBLE) ? ": a Wii Remote rumbles with its port"
+                                                : ": Wii Remote rumble is off in the settings");
     logf("GameCube: %u DI register access(es) sent to 0x%08x; AIInitDMA 0x%08x%s\n", di_patches, di_regs, ai_dma,
          ai_dma ? "" : " (not found: no disc audio streaming)");
     if (low.reset != 0) code.put(low.reset, 0x4E800020);  // blr: the drive is not there to reset

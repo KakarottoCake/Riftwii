@@ -5192,7 +5192,7 @@ static bool PrepareGcGameInMenu(FrontendState& state)
 // The controllers a game can see, connected now (PadsConnectedNow, with
 // About this game).
 struct ConnectedPads {
-	bool remote = false, nunchuk = false, classic = false, gamecube = false, board = false;
+	bool remote = false, nunchuk = false, classic = false, pro = false, gamecube = false, board = false;
 };
 static ConnectedPads PadsConnectedNow();
 
@@ -5334,6 +5334,10 @@ static std::vector<GcControlsCard> GcControlsCards()
 	const std::string leaveHome = tr("Hold HOME for two seconds to leave the game.");
 	if (pads.classic)
 		cards.push_back({tr("Classic Controller"),
+			{{"a", "A"}, {"b", "B"}, {"x", "X"}, {"y", "Y"}, {"L", "L"}, {"R", "R"}, {"ZL ZR", "Z"}, {"+", "Start"},
+				{"LS", tr("Stick")}, {"RS", tr("C-stick")}}, leaveHome});
+	if (pads.pro)
+		cards.push_back({tr("Wii U Pro Controller"),
 			{{"a", "A"}, {"b", "B"}, {"x", "X"}, {"y", "Y"}, {"L", "L"}, {"R", "R"}, {"ZL ZR", "Z"}, {"+", "Start"},
 				{"LS", tr("Stick")}, {"RS", tr("C-stick")}}, leaveHome});
 	if (pads.nunchuk)
@@ -6630,9 +6634,13 @@ static ConnectedPads PadsConnectedNow()
 		const WPADData* d = WPAD_Data(i);
 		if (!d) continue;
 		if (d->exp.type == WPAD_EXP_NUNCHUK) pads.nunchuk = true;
-		// A Wii U Pro Controller reads as a Classic Controller here, but
-		// games do not take it.
-		if (d->exp.type == WPAD_EXP_CLASSIC && d->exp.classic.type != CLASSIC_TYPE_WIIU) pads.classic = true;
+		// A Wii U Pro Controller reads as a Classic Controller here. A
+		// GameCube game takes it with the Classic Controller's buttons
+		// (runtime/gc/gc_pro.h), so it gets a card of its own.
+		if (d->exp.type == WPAD_EXP_CLASSIC) {
+			if (d->exp.classic.type == CLASSIC_TYPE_WIIU) pads.pro = true;
+			else pads.classic = true;
+		}
 	}
 	u32 boardType = 0;
 	if (WPAD_Probe(WPAD_BALANCE_BOARD, &boardType) == WPAD_ERR_NONE) pads.board = true;

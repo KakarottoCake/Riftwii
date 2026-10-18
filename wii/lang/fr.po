@@ -2343,6 +2343,9 @@ msgstr "Wiimote"
 msgid "Nunchuk"
 msgstr "Nunchuk"
 
+msgid "Wii U Pro Controller"
+msgstr "Manette Pro Wii U"
+
 msgid "Classic Controller"
 msgstr "Manette Classique"
 

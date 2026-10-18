@@ -89,10 +89,22 @@ Two scripts on the card drive a run without hands on a controller:
   `guiscript-restart.txt` instead. Pull the screenshots (and
   `crashscreen.bmp`) out of the SD image afterwards.
 
-GameCube test switches are empty files in `sd:/riftwii/gc/test/`. So far
-`reset` makes the blob press Reset twice (the restart, `GC_FLAG_RESET_TEST`).
-The older switches (`streamonly`, `nowiden`, ...) sit in `sd:/riftwii/gc/`
-and move there with their own changes.
+- GameCube games have test switches too: empty files in
+  `sd:/riftwii/gc/test/`, read only from there so a stray file among a
+  player's cards, saves and controls cannot set one. `press` (presses on
+  port 1), `leave` (holds the way back), `crash` and `crashblack` (a
+  crash on purpose, also on a blanked screen), `streamonly` (disc music
+  alone), `nowiden` (16:9's hook without the widening), `keeparam` (ARAM
+  addresses as the SDK gives them), `fakeremote` (a made-up Wii Remote
+  through the controls map instead of the Bluetooth, for Dolphin, whose
+  emulated remote a script cannot press), `fakepro` (the same with a
+  made-up Wii U Pro Controller, which Dolphin cannot emulate, in its own
+  report layout), `rumbletest` (the game's PADControlMotor called for the
+  test remote's port) and `reset` (the blob presses Reset twice, the
+  restart, `GC_FLAG_RESET_TEST`). The first GameCube
+  line of `sd:/riftwii/boot.log` lists the ones that are on. The test
+  remote's results take the `projection_callers` words of the trace
+  (`tools/gc_trace.py`), which that run does not need.
 
 Dolphin cannot run a d2x cIOS, so SD and USB image boot can only be
 checked on a Wii (`docs/USB_HARDWARE_TEST.md`). What Dolphin does check

@@ -2343,6 +2343,9 @@ msgstr "Wii Remote"
 msgid "Nunchuk"
 msgstr "Nunchuk"
 
+msgid "Wii U Pro Controller"
+msgstr "Controle Pro do Wii U"
+
 msgid "Classic Controller"
 msgstr "Classic Controller"
 
