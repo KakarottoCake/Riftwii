@@ -1684,7 +1684,6 @@ static void load_gc_controls(const std::string& game_id, gc_map& map) {
 }
 
 bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string& error) {
-    logf("GameCube (native): %s (%s)\n", image.id.c_str(), image.path.c_str());
     // Test presses for Dolphin runs with no controller to press with
     // (sd:/riftwii/gc/test/press), read while the card is still the file
     // system's (before it is opened raw). The test switches are files in
@@ -1713,6 +1712,29 @@ bool LaunchGcNative(const GcImage& image, const GcOverlayPlan* pack, std::string
     // (gc_bt.h's gc_bt_fake).
     const bool test_fake_remote = stat("sd:/riftwii/gc/test/fakeremote", &st_press) == 0;
     const bool test_rumble = stat("sd:/riftwii/gc/test/rumbletest", &st_press) == 0;
+    // The first GameCube line of boot.log names every test switch that is
+    // on, so a log from a run with one set (say a copied sd:/riftwii/gc/test/
+    // folder) cannot be mistaken for a player's.
+    std::string switches;
+    const struct {
+        bool on;
+        const char* name;
+    } test_switches[] = {{test_presses, "press"},
+                         {test_leave, "leave"},
+                         {test_crash, "crash"},
+                         {test_crash_black, "crashblack"},
+                         {test_stream_only, "streamonly"},
+                         {test_no_widen, "nowiden"},
+                         {test_keep_aram, "keeparam"},
+                         {test_fake_remote, "fakeremote"},
+                         {test_rumble, "rumbletest"}};
+    for (const auto& test_switch : test_switches) {
+        if (!test_switch.on) continue;
+        switches += switches.empty() ? " [test switches: " : ", ";
+        switches += test_switch.name;
+    }
+    if (!switches.empty()) switches += "]";
+    logf("GameCube (native): %s (%s)%s\n", image.id.c_str(), image.path.c_str(), switches.c_str());
     // What the Wii Remotes' buttons press, from the player's files.
     gc_map controls;
     load_gc_controls(image.id, controls);
