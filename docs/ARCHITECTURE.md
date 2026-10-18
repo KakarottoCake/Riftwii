@@ -237,6 +237,71 @@ No hook or too many codes: the game starts without them, with a
   RVZ, a group at a time ([RVZ.md](RVZ.md#gamecube-games)).
 - `gc_entry.S`: the hooks' entry points.
 
+**Clock speed** (`match_game_to_clocks` in `wii/launch/gcnative.cpp`,
+`src/patching/gcclock.cpp`). A GameCube runs its CPU at 486 MHz and its
+bus (Flipper: memory, graphics) at 162 MHz. A Wii in Wii mode runs
+Broadway at 729 MHz and Hollywood at 243 MHz, half as fast again. The
+time base and decrementer count at a quarter of the bus clock: 40.5 MHz
+on a GameCube, 60.75 MHz in Wii mode.
+
+*Can RiftWii switch to a GameCube's speed?* No. Hollywood's HW_CLOCKS
+register (`0x0d800190`) has a SPEED bit for 162/486 MHz, but WiiBrew's
+[clock speed control](https://wiibrew.org/wiki/Broadway/Clock_Speed_Control)
+page has the switch made from the Starlet with Broadway held stopped
+([Hollywood registers](https://wiibrew.org/wiki/Hardware/Hollywood_Registers)).
+RiftWii runs nothing on the Starlet, and AHBPROT only lets the PPC reach
+the registers. Nintendo's own way, BC handing the console to MIOS,
+leaves Wii mode: no IOS, so no SD card, Wii Remotes or way back. So
+there is no Speed option; one would need RiftWii's own code on the
+Starlet (an IOS exploit or a custom IOS module), which RiftWii does not
+do.
+
+*What RiftWii does instead: keeps the game's timers true.*
+- The SDK reads the bus clock from `0x800000F8` (OSBusClock) and the CPU
+  clock from `0x800000FC` (OSCoreClock). A GameCube's IPL writes 162 and
+  486 MHz there, a Wii's 243 and 729 MHz (Dolphin's HLE boot writes the
+  same pairs). The SDK turns time base ticks into time with them:
+  `OSTicksToMilliseconds` and the like, `OSSetAlarm` periods, any wait on
+  `OSGetTime`.
+- When those words and the hardware disagree, every conversion is off by
+  the same factor. Told 162 MHz on a 243 MHz bus, a game's alarms fire a
+  third early and anything timed by ticks runs 1.5 times as fast:
+  - timeouts and retries;
+  - animation or logic stepped by elapsed time;
+  - the pacing of sound and streaming.
+- So the loader writes the Wii's clocks, the ones the console really
+  runs at, and logs them as `GameCube: clock 729 MHz CPU and 243 MHz
+  bus, time base 60.750 MHz, as the game is told (HW_CLOCKS ...)`.
+  - It reads HW_CLOCKS (with hardware access) for that line only, to
+    show the SPEED bit agrees.
+  - It does not follow the register: nothing sets GameCube speed in Wii
+    mode, and the blob's own waits (the drive timing in `gc_rt.c`) count
+    the Wii's time base too. A register reading otherwise is reported as
+    a misreading.
+- A game could also build a GameCube clock into its own code instead of
+  reading those words. The loader looks for `lis` and `ori`/`addi` pairs
+  that build 162000000, 486000000 or 40500000 into one register and
+  makes them build the running speed's values. Each one changed gets its
+  own line in `boot.log`. This catches only a full Hz value built in
+  place with immediates; folded constants (`ticks / 40500`, a multiply
+  by a magic number) and floats or doubles loaded from data are not
+  detected, so "clock values: none" in a log is not proof that the
+  game's timing is right. Luigi's Mansion (PAL), Super Mario Sunshine
+  and Super Mario Eclipse have none built in place (checked
+  2026-10-18). A second, log-only scan looks through the DOL's data
+  sections for big-endian floats and doubles of 162e6, 486e6 and
+  40.5e6 and logs their section address; nothing is rewritten.
+
+*What stays different from a GameCube.* With the timers true, game time
+passes at the right rate, but work that is bound by the CPU, memory or
+GPU finishes sooner:
+- A game that drops frames on a GameCube drops fewer or none.
+- One locked to the display's retrace keeps its frame rate.
+- Loops that wait by counting instructions end early.
+
+For speedruns that count lag, this is the remaining difference, and only
+the clock switch above would remove it.
+
 **Leaving and crashing.** Holding HOME (HOME and - on a Wii Remote
 alone; L, R, Z and Start on a GameCube controller) for two seconds goes
 where Settings > Return to says, as a Wii game's HOME Menu does: the
