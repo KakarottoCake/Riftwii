@@ -353,7 +353,7 @@ do for discs. This needs a d2x cIOS, as SD and USB games do; when it
 cannot start a game from the Wii itself, the Wii starts it as the Wii
 Menu would. A game in an emulated NAND keeps its saves in that folder.
 
-To add games from `.wad` files, put them in a folder named `wad` at the
+To add games from `.wad` files, put them in a folder named `wad` (or `wads`) at the
 top of the SD card and pick **Settings > Drives > Install WAD files**.
 They go into that emulated NAND (the Wii itself is not changed) and show
 up on Home. RiftWii decrypts them with your own Wii's key, read when you

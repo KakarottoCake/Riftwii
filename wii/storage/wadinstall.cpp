@@ -100,16 +100,18 @@ bool copy_content(FILE* wad, const WadContentPlace& place, const std::uint8_t ti
 
 std::vector<std::string> list_wad_files() {
     std::vector<std::string> files;
-    DIR* dir = opendir(kWadFolder);
-    if (dir == nullptr) return files;
-    while (const dirent* entry = readdir(dir)) {
-        const std::string name = entry->d_name;
-        // Hidden files are never WADs: macOS leaves "._name.wad" beside each.
-        if (name.empty() || name[0] == '.' || name.size() < 5) continue;
-        if (strcasecmp(name.c_str() + name.size() - 4, ".wad") != 0) continue;
-        files.push_back(std::string(kWadFolder) + "/" + name);
+    for (const char* folder : kWadFolders) {
+        DIR* dir = opendir(folder);
+        if (dir == nullptr) continue;
+        while (const dirent* entry = readdir(dir)) {
+            const std::string name = entry->d_name;
+            // Hidden files are never WADs: macOS leaves "._name.wad" beside each.
+            if (name.empty() || name[0] == '.' || name.size() < 5) continue;
+            if (strcasecmp(name.c_str() + name.size() - 4, ".wad") != 0) continue;
+            files.push_back(std::string(folder) + "/" + name);
+        }
+        closedir(dir);
     }
-    closedir(dir);
     std::sort(files.begin(), files.end());
     return files;
 }
