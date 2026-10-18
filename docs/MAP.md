@@ -98,6 +98,7 @@ The build compiles every folder into one, so no two files share a name.
 | `lang/*.po` | The translations, written by `tools/lang_source.py` |
 | `font/` | The menu font's source (`rounded.ttf`, OFL) |
 | `font/` | The cut-down menu font (`tools/make_menu_font.py`), packed by the build |
+| `assets/` | Small pictures the build embeds in the DOL: `ciso_face.png`, the CISO popup's face (`tools/make_ciso_face.py`) |
 
 ### `wii/core/`: logging, settings, text files, memory limits, restarting, the crash screen, translations
 
@@ -345,6 +346,7 @@ card's at the Wii's own MEM1 and MEM2 addresses).
 | --- | --- |
 | `lang_source.py` | The translation table: writes `wii/lang/*.po` and checks every string still appears in the code |
 | `make_menu_font.py`, `make_sounds.py` | Build-time assets |
+| `make_ciso_face.py` | Draws `wii/assets/ciso_face.png`, the face on Home's "CISO DETECTED" popup (Pillow) |
 | `make_sjis_table.py` | The Shift-JIS table for Japanese memory cards' text (`src/fs/sjis_table.inc`) |
 | `make_channel.py`, `make_channel_art.py`, `preview_channel.py` | The Wii Menu channel's WAD and art |
 | `rtreloc.py` | Relocations for the RVZ runtime blob |

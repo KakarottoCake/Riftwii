@@ -36,7 +36,9 @@ bool FindGcImage(const std::string& game, const std::string& path, GcImage& out)
 // Every GameCube image in sd:/games/<folder>/ (.iso, .gcm or .rvz), for
 // the game list: opened (header read), never needing d2x. An RVZ carries
 // check_rvz's verdict (refused ones are listed, and say why at Start).
-void ScanGcImages(std::vector<ImageGame>& out);
+// The .ciso files beside them, which RiftWii does not play, are noted in
+// `ciso` when given (the same walk, so the card is not read twice).
+void ScanGcImages(std::vector<ImageGame>& out, CisoFinds* ciso = nullptr);
 
 // Whether the image at `path` is an RVZ (by its name, as the scan lists it).
 bool GcImageIsRvz(const std::string& path);
