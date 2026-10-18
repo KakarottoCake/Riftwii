@@ -118,12 +118,12 @@ BINFILES	:=	$(foreach dir,$(DATA),$(notdir $(wildcard $(dir)/*.ttf) \
 # for the recursive build after runtime-blob has completed. menufont.zst and
 # licence.zst are made in the build (below) from wii/font/rounded.ttf and
 # LICENSE.
-BINFILES	+=	riftwii_rt.zst riftwii_rt_rvz.zst riftwii_rt_rvz.rel riftwii_pad.bin riftwii_gc.bin riftwii_gc_rvz.zst riftwii_gc_rvz.rel riftwii_shot.bin riftwii_fault.bin riftwii_wlog.bin riftwii_vsd.bin codehandleronly.bin licence.zst
+BINFILES	+=	riftwii_rt.zst riftwii_rt_rvz.zst riftwii_rt_rvz.rel riftwii_pad.bin riftwii_gc.bin riftwii_gc_rvz.zst riftwii_gc_rvz.rel riftwii_shot.bin riftwii_fault.bin riftwii_wlog.bin riftwii_vsd.bin codehandleronly.bin
 # The start-up stash (wii/core/stash.hpp): not linked, but added to the
 # DOL as a section above .bss that crt0 copies to MEM2, so its MEM1 is
-# the heap's after the start. The menu's font and its translations
-# (wii/lang/*.po), zstd-compressed.
-export STASHFILES	:=	menufont.zst \
+# the heap's after the start. The menu's font, the GPL's text (credits)
+# and its translations (wii/lang/*.po), zstd-compressed.
+export STASHFILES	:=	menufont.zst licence.zst \
 					$(foreach dir,$(DATA),$(addsuffix .zst,$(notdir $(wildcard $(dir)/*.po))))
 
 #---------------------------------------------------------------------------------
@@ -231,9 +231,8 @@ $(VERSION_USERS): $(VERSION_STAMP)
 	$(bin2o)
 
 # The menu's translations (wii/core/i18n.cpp), its font (main.cpp) and the GPL
-# (credits.cpp) are embedded zstd-compressed and unpacked when needed: a
-# smaller DOL keeps more of MEM1 free below the game's apploader. The font
-# and the translations go into the start-up stash (above) instead of the link.
+# (credits.cpp) are zstd-compressed into the start-up stash (above) and
+# unpacked when needed: none of them takes MEM1 after the start.
 %.po.zst : %.po
 	@echo $(notdir $@)
 	@zstd -q -19 -f -o $@ $<
