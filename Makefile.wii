@@ -112,8 +112,7 @@ CFILES		:=	$(filter-out $(notdir $(EXCLUDES)),$(CFILES))
 CPPFILES	:=	$(filter-out $(notdir $(EXCLUDES)),$(CPPFILES))
 BINFILES	:=	$(foreach dir,$(DATA),$(notdir $(wildcard $(dir)/*.ttf) \
 					$(wildcard $(dir)/*.lang) $(wildcard $(dir)/*.png) \
-					$(wildcard $(dir)/*.ogg) $(wildcard $(dir)/*.pcm) \
-					$(addsuffix .zst,$(wildcard $(dir)/*.po))))
+					$(wildcard $(dir)/*.ogg) $(wildcard $(dir)/*.pcm)))
 # Do not discover this through wildcard: the outer build evaluates BINFILES
 # before runtime-blob creates build-runtime/riftwii_rt.bin. VPATH resolves it
 # for the recursive build after runtime-blob has completed. menufont.zst and
@@ -122,8 +121,10 @@ BINFILES	:=	$(foreach dir,$(DATA),$(notdir $(wildcard $(dir)/*.ttf) \
 BINFILES	+=	riftwii_rt.zst riftwii_rt_rvz.zst riftwii_rt_rvz.rel riftwii_pad.bin riftwii_gc.bin riftwii_gc_rvz.zst riftwii_gc_rvz.rel riftwii_shot.bin riftwii_fault.bin riftwii_wlog.bin riftwii_vsd.bin codehandleronly.bin licence.zst
 # The start-up stash (wii/core/stash.hpp): not linked, but added to the
 # DOL as a section above .bss that crt0 copies to MEM2, so its MEM1 is
-# the heap's after the start. The menu's font, zstd-compressed.
-export STASHFILES	:=	menufont.zst
+# the heap's after the start. The menu's font and its translations
+# (wii/lang/*.po), zstd-compressed.
+export STASHFILES	:=	menufont.zst \
+					$(foreach dir,$(DATA),$(addsuffix .zst,$(notdir $(wildcard $(dir)/*.po))))
 
 #---------------------------------------------------------------------------------
 # use CXX for linking C++ projects, CC for standard C
@@ -232,18 +233,10 @@ $(VERSION_USERS): $(VERSION_STAMP)
 # The menu's translations (wii/core/i18n.cpp), its font (main.cpp) and the GPL
 # (credits.cpp) are embedded zstd-compressed and unpacked when needed: a
 # smaller DOL keeps more of MEM1 free below the game's apploader. The font
-# goes into the start-up stash (above) instead of the link.
+# and the translations go into the start-up stash (above) instead of the link.
 %.po.zst : %.po
 	@echo $(notdir $@)
 	@zstd -q -19 -f -o $@ $<
-
-# bin2o names es.po.zst's header es_po_zst.h, which the %.zst rule below
-# cannot name (its stem is es.po), so make never waited for it: a
-# parallel build could compile i18n.cpp with a catalog's old size, and
-# every translation then failed to unpack (the menu stayed in English).
-%.po.zst.o %_po_zst.h : %.po.zst
-	@echo $(notdir $<)
-	$(bin2o)
 
 menufont.zst : $(PROJECT_ROOT)/wii/font/rounded.ttf
 	@echo $(notdir $@)
